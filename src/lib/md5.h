@@ -20,10 +20,9 @@ typedef struct {
 } MD5Context;
 
 void md5_init(MD5Context *ctx);
-void md5_update(MD5Context *ctx, const void *data, unsigned int size);
+void md5_update(MD5Context *ctx, const void *data, size_t size);
 void md5_final(MD5Context *ctx, unsigned char result[16]);
 
-void md5_get_digest(const void *data, unsigned int size,
-		    unsigned char result[16]);
+void md5_get_digest(const void *data, size_t size, unsigned char result[16]);
 
 #endif

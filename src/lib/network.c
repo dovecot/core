@@ -342,13 +342,13 @@ int net_accept(int fd, IPADDR *addr, int *port)
 }
 
 /* Read data from socket, return number of bytes read, -1 = error */
-int net_receive(int fd, void *buf, unsigned int len)
+ssize_t net_receive(int fd, void *buf, size_t len)
 {
-	int ret;
+	ssize_t ret;
 
 	i_assert(fd >= 0);
 	i_assert(buf != NULL);
-	i_assert(len <= INT_MAX);
+	i_assert(len <= SSIZE_T_MAX);
 
 	ret = recv(fd, buf, len, 0);
 	if (ret == 0)
@@ -361,13 +361,13 @@ int net_receive(int fd, void *buf, unsigned int len)
 }
 
 /* Transmit data, return number of bytes sent, -1 = error */
-int net_transmit(int fd, const void *data, unsigned int len)
+ssize_t net_transmit(int fd, const void *data, size_t len)
 {
-        int ret;
+        ssize_t ret;
 
 	i_assert(fd >= 0);
 	i_assert(data != NULL);
-	i_assert(len <= INT_MAX);
+	i_assert(len <= SSIZE_T_MAX);
 
 	ret = send(fd, data, len, 0);
 	if (ret == -1 && (errno == EINTR || errno == EPIPE || errno == EAGAIN))

@@ -77,7 +77,7 @@ static void sync_expunge_func(Mailbox *mailbox __attr_unused__,
 			      unsigned int uid __attr_unused__, void *context)
 {
 	Client *client = context;
-	char str[MAX_INT_STRLEN+20];
+	char str[MAX_LARGEST_T_STRLEN+20];
 
 	i_snprintf(str, sizeof(str), "* %u EXPUNGE", seq);
 	client_send_line(client, str);
@@ -100,7 +100,7 @@ static void sync_flags_func(Mailbox *mailbox __attr_unused__, unsigned int seq,
 static int client_sync_full(Client *client, int expunge)
 {
 	unsigned int messages;
-	char str[MAX_INT_STRLEN+20];
+	char str[MAX_LARGEST_T_STRLEN+20];
 
 	if (client->mailbox == NULL)
 		return TRUE;

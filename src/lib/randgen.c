@@ -32,13 +32,13 @@
 static int init_refcount = 0;
 static int urandom_fd;
 
-void random_fill(void *buf, unsigned int size)
+void random_fill(void *buf, size_t size)
 {
-	unsigned int pos;
-	int ret;
+	size_t pos;
+	ssize_t ret;
 
 	i_assert(init_refcount > 0);
-	i_assert(size < INT_MAX);
+	i_assert(size < SSIZE_T_MAX);
 
 	for (pos = 0; pos < size; pos += ret) {
 		ret = read(urandom_fd, (char *) buf + pos, size - pos);

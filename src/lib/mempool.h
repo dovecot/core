@@ -15,13 +15,13 @@ struct Pool {
 	void (*ref)(Pool pool);
 	void (*unref)(Pool pool);
 
-	void *(*malloc)(Pool pool, unsigned int size);
+	void *(*malloc)(Pool pool, size_t size);
 	void (*free)(Pool pool, void *mem);
 
 	/* reallocate the `mem' to be exactly `size' */
-	void *(*realloc)(Pool pool, void *mem, unsigned int size);
+	void *(*realloc)(Pool pool, void *mem, size_t size);
 	/* reallocate the `mem' to be at least `size' if it wasn't previously */
-	void *(*realloc_min)(Pool pool, void *mem, unsigned int size);
+	void *(*realloc_min)(Pool pool, void *mem, size_t size);
 
 	/* Frees all the memory in pool. NOTE: system_pool doesn't support
 	   this and crashes if it's used */
@@ -33,7 +33,7 @@ extern Pool system_pool;
 
 /* If allocfree is FALSE, p_free() has no effect. Note that `size' specifies
    the initial malloc()ed block size, part of it is used internally. */
-Pool pool_create(const char *name, unsigned int size, int allocfree);
+Pool pool_create(const char *name, size_t size, int allocfree);
 
 /* Pools should be used through these macros: */
 #define pool_ref(pool) (pool)->ref(pool)

@@ -29,7 +29,7 @@
 
 #include <stdlib.h>
 
-#define MAX_ALLOC_SIZE (UINT_MAX - sizeof(unsigned int))
+#define MAX_ALLOC_SIZE SSIZE_T_MAX
 
 typedef struct _PoolBlock PoolBlock;
 
@@ -38,7 +38,7 @@ typedef struct {
 	int refcount;
 
 	PoolBlock *block;
-	unsigned int last_alloc_size;
+	size_t last_alloc_size;
 
 	char name[MEM_ALIGN_SIZE]; /* variable size */
 } AlloconlyPool;
@@ -47,8 +47,8 @@ typedef struct {
 struct _PoolBlock {
 	PoolBlock *prev;
 
-	unsigned int size;
-	unsigned int left;
+	size_t size;
+	size_t left;
 
 	/* unsigned char data[]; */
 };
@@ -59,7 +59,7 @@ struct _PoolBlock {
 
 typedef struct {
 	union {
-		unsigned int size;
+		size_t size;
 		unsigned char alignment[MEM_ALIGN_SIZE];
 	} size;
 	unsigned char data[MEM_ALIGN_SIZE]; /* variable size */
@@ -69,11 +69,10 @@ typedef struct {
 static struct Pool static_alloconly_pool;
 static void pool_alloconly_clear(Pool pool);
 
-static void block_alloc(AlloconlyPool *pool, unsigned int size);
-static void *pool_alloconly_realloc_min(Pool pool, void *mem,
-					unsigned int size);
+static void block_alloc(AlloconlyPool *pool, size_t size);
+static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size);
 
-Pool pool_alloconly_create(const char *name, unsigned int size)
+Pool pool_alloconly_create(const char *name, size_t size)
 {
 	AlloconlyPool *apool;
 	int len;
@@ -115,7 +114,7 @@ static void pool_alloconly_unref(Pool pool)
 		pool_alloconly_destroy(apool);
 }
 
-static void block_alloc(AlloconlyPool *apool, unsigned int size)
+static void block_alloc(AlloconlyPool *apool, size_t size)
 {
 	PoolBlock *block;
 
@@ -135,7 +134,7 @@ static void block_alloc(AlloconlyPool *apool, unsigned int size)
 	block->left = block->size;
 }
 
-static void *pool_alloconly_malloc(Pool pool, unsigned int size)
+static void *pool_alloconly_malloc(Pool pool, size_t size)
 {
 	AlloconlyPool *apool = (AlloconlyPool *) pool;
 	PoolAlloc *alloc;
@@ -162,14 +161,14 @@ static void pool_alloconly_free(Pool pool __attr_unused__,
 	/* ignore */
 }
 
-static void *pool_alloconly_realloc(Pool pool, void *mem, unsigned int size)
+static void *pool_alloconly_realloc(Pool pool, void *mem, size_t size)
 {
 	/* there's no point in shrinking the memory usage,
 	   so just do the same as realloc_min() */
 	return pool_alloconly_realloc_min(pool, mem, size);
 }
 
-static int pool_try_grow(AlloconlyPool *apool, void *mem, unsigned int size)
+static int pool_try_grow(AlloconlyPool *apool, void *mem, size_t size)
 {
 	/* see if we want to grow the memory we allocated last */
 	if (POOL_BLOCK_DATA(apool->block) + (apool->block->size -
@@ -187,12 +186,12 @@ static int pool_try_grow(AlloconlyPool *apool, void *mem, unsigned int size)
 	return FALSE;
 }
 
-static void *pool_alloconly_realloc_min(Pool pool, void *mem, unsigned int size)
+static void *pool_alloconly_realloc_min(Pool pool, void *mem, size_t size)
 {
 	AlloconlyPool *apool = (AlloconlyPool *) pool;
 	PoolAlloc *alloc;
 	unsigned char *new_mem;
-	unsigned int old_size;
+	size_t old_size;
 
 	if (mem == NULL) {
 		alloc = NULL;

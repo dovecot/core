@@ -29,12 +29,18 @@
 #undef OFF_T_MAX
 
 /* printf()-format for uoff_t, eg. "u" or "lu" or "llu" */
-#undef UOFF_T_FORMAT
+#undef PRIuUOFF_T
 
 /* What type should be used for uoff_t */
 #undef UOFF_T_INT
 #undef UOFF_T_LONG
 #undef UOFF_T_LONG_LONG
+
+/* Maximum value for ssize_t */
+#undef SSIZE_T_MAX
+
+/* printf()-format for size_t, eg. "u" or "llu" */
+#undef PRIuSIZE_T
 
 /* What type should be used for largest_t */
 #undef LARGEST_T_LONG

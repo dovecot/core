@@ -27,7 +27,7 @@
 
 Pool default_pool;
 
-void *i_malloc(unsigned int size)
+void *i_malloc(size_t size)
 {
         return p_malloc(default_pool, size);
 }
@@ -37,7 +37,7 @@ void i_free(void *mem)
         p_free(default_pool, mem);
 }
 
-void *i_realloc(void *mem, unsigned int size)
+void *i_realloc(void *mem, size_t size)
 {
         return p_realloc(default_pool, mem, size);
 }
@@ -57,7 +57,7 @@ char *i_strdup_until(const char *str, const char *end)
 	return p_strdup_until(default_pool, str, end);
 }
 
-char *i_strndup(const char *str, unsigned int max_chars)
+char *i_strndup(const char *str, size_t max_chars)
 {
         return p_strndup(default_pool, str, max_chars);
 }
@@ -89,7 +89,7 @@ char *i_strconcat(const char *str1, ...)
 	va_list args;
         const char *temp;
 	char *ret;
-        unsigned int len;
+        size_t len;
 
 	va_start(args, str1);
 

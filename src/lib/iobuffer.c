@@ -32,23 +32,25 @@
 
 #include <unistd.h>
 
+#define MAX_SSIZE_T(size) ((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
+
 typedef struct {
 	IOLoop ioloop;
 	IOBuffer *outbuf;
 
 	const char *data;
-	unsigned int size;
+	uoff_t size;
 	IOBuffer *inbuf;
 
 	int timeout;
 	int last_block;
 } IOBufferBlockContext;
 
-static unsigned int mmap_pagesize = 0;
-static unsigned int mmap_pagemask = 0;
+static size_t mmap_pagesize = 0;
+static size_t mmap_pagemask = 0;
 
 IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
-			   unsigned int max_buffer_size)
+			   size_t max_buffer_size)
 {
 	IOBuffer *buf;
 
@@ -63,8 +65,7 @@ IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
 	return buf;
 }
 
-IOBuffer *io_buffer_create_file(int fd, Pool pool,
-				unsigned int max_buffer_size)
+IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size)
 {
 	IOBuffer *buf;
 
@@ -73,7 +74,7 @@ IOBuffer *io_buffer_create_file(int fd, Pool pool,
         return buf;
 }
 
-IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
+IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 				uoff_t size)
 {
 	IOBuffer *buf;
@@ -109,8 +110,8 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
 		start_offset = stop_offset;
 
 	if (size > (uoff_t) (stop_offset-start_offset)) {
-		i_warning("Trying to create IOBuffer with size %"UOFF_T_FORMAT
-			  " but we have only %"UOFF_T_FORMAT" bytes available "
+		i_warning("Trying to create IOBuffer with size %"PRIuUOFF_T
+			  " but we have only %"PRIuUOFF_T" bytes available "
 			  "in file", size, stop_offset-start_offset);
 		size = stop_offset-start_offset;
 	}
@@ -188,14 +189,14 @@ IOBuffer *io_buffer_set_pool(IOBuffer *buf, Pool pool)
         return newbuf;
 }
 
-void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size)
+void io_buffer_set_max_size(IOBuffer *buf, size_t max_size)
 {
 	i_assert(!buf->mmaped);
 
 	buf->max_buffer_size = max_size;
 }
 
-void io_buffer_set_blocking(IOBuffer *buf, unsigned int max_size,
+void io_buffer_set_blocking(IOBuffer *buf, size_t max_size,
 			    int timeout_msecs, TimeoutFunc timeout_func,
 			    void *context)
 {
@@ -208,11 +209,11 @@ void io_buffer_set_blocking(IOBuffer *buf, unsigned int max_size,
 		buf->max_buffer_size = max_size;
 }
 
-static int my_write(int fd, const void *buf, unsigned int size)
+static ssize_t my_write(int fd, const void *buf, size_t size)
 {
-	int ret;
+	ssize_t ret;
 
-	i_assert(size <= INT_MAX);
+	i_assert(size <= SSIZE_T_MAX);
 
 	if (size == 0)
 		return 0;
@@ -276,15 +277,18 @@ static int buf_send(IOBuffer *buf)
 
 static void block_loop_send(IOBufferBlockContext *ctx)
 {
-	int ret;
+	size_t size;
+	ssize_t ret;
 
 	if (ctx->outbuf->skip != ctx->outbuf->pos) {
 		buf_send_real(ctx->outbuf);
 	} else {
 		/* send the data */
+		size = MAX_SSIZE_T(ctx->size);
+
 		ret = !ctx->outbuf->file ?
-			net_transmit(ctx->outbuf->fd, ctx->data, ctx->size) :
-			my_write(ctx->outbuf->fd, ctx->data, ctx->size);
+			net_transmit(ctx->outbuf->fd, ctx->data, size) :
+			my_write(ctx->outbuf->fd, ctx->data, size);
 
 		if (ret < 0) {
 			ctx->outbuf->closed = TRUE;
@@ -357,7 +361,7 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockContext *ctx,
 }
 
 static int io_buffer_send_blocking(IOBuffer *buf, const void *data,
-				   unsigned int size)
+				   size_t size)
 {
         IOBufferBlockContext ctx;
 
@@ -379,7 +383,7 @@ void io_buffer_cork(IOBuffer *buf)
 	buf->corked = TRUE;
 }
 
-static void buffer_alloc_more(IOBuffer *buf, unsigned int size)
+static void buffer_alloc_more(IOBuffer *buf, size_t size)
 {
 	i_assert(!buf->mmaped);
 
@@ -412,13 +416,13 @@ static void io_buffer_compress(IOBuffer *buf)
 	buf->skip = 0;
 }
 
-int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
+int io_buffer_send(IOBuffer *buf, const void *data, size_t size)
 {
 	int i, corked, ret;
 
 	i_assert(!buf->receive);
         i_assert(data != NULL);
-	i_assert(size < INT_MAX);
+	i_assert(size <= SSIZE_T_MAX);
 	buf->transmit = TRUE;
 
 	if (buf->closed)
@@ -479,19 +483,19 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 static void block_loop_sendfile(IOBufferBlockContext *ctx)
 {
 	uoff_t offset;
-	int ret;
+	ssize_t ret;
 
 	i_assert(ctx->inbuf->offset < OFF_T_MAX);
 
 	offset = ctx->inbuf->offset;
-	ret = safe_sendfile(ctx->outbuf->fd, ctx->inbuf->fd,
-			    &offset, ctx->size);
+	ret = safe_sendfile(ctx->outbuf->fd, ctx->inbuf->fd, &offset,
+			    MAX_SSIZE_T(ctx->size));
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			ctx->outbuf->closed = TRUE;
 		ret = 0;
 	}
-	io_buffer_skip(ctx->inbuf, (unsigned int)ret);
+	io_buffer_skip(ctx->inbuf, (size_t)ret);
 
 	ctx->size -= ret;
 	if (ctx->outbuf->closed || ctx->size == 0)
@@ -499,11 +503,11 @@ static void block_loop_sendfile(IOBufferBlockContext *ctx)
 }
 
 static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
-			      unsigned int size)
+			      uoff_t long_size)
 {
         IOBufferBlockContext ctx;
 	uoff_t offset;
-	int ret;
+	ssize_t ret;
 
 	i_assert(inbuf->offset < OFF_T_MAX);
 
@@ -511,15 +515,16 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 
 	/* first try if we can do it with a single sendfile() call */
 	offset = inbuf->offset;
-	ret = safe_sendfile(outbuf->fd, inbuf->fd, &offset, size);
+	ret = safe_sendfile(outbuf->fd, inbuf->fd, &offset,
+			    MAX_SSIZE_T(long_size));
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			return -1;
 		ret = 0;
 	}
-	io_buffer_skip(inbuf, (unsigned int)ret);
+	io_buffer_skip(inbuf, (size_t)ret);
 
-	if ((unsigned int) ret == size) {
+	if ((uoff_t) ret == long_size) {
 		/* yes, all sent */
 		return 1;
 	}
@@ -527,7 +532,7 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 	memset(&ctx, 0, sizeof(ctx));
 
 	ctx.inbuf = inbuf;
-	ctx.size = size - ret;
+	ctx.size = long_size - ret;
 
 	ret = io_buffer_ioloop(outbuf, &ctx, block_loop_sendfile);
 	if (ret < 0 && errno == EINVAL) {
@@ -541,8 +546,8 @@ static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
 static void block_loop_copy(IOBufferBlockContext *ctx)
 {
 	unsigned char *in_data;
-	unsigned int size, full_size, sent_size, data_size;
-	int ret;
+	size_t size, full_size, sent_size, data_size;
+	ssize_t ret;
 
 	while ((ret = io_buffer_read_data(ctx->inbuf, &in_data,
 					  &size, 0)) <= 0) {
@@ -569,17 +574,16 @@ static void block_loop_copy(IOBufferBlockContext *ctx)
 	io_buffer_skip(ctx->inbuf, sent_size);
 }
 
-int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf,
-			    unsigned int size)
+int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf, uoff_t size)
 {
 	IOBufferBlockContext ctx;
 	int ret;
 
-	i_assert(size < INT_MAX);
+	i_assert(size < OFF_T_MAX);
 
 	ret = io_buffer_sendfile(outbuf, inbuf, size);
-	if (ret >= 0 || errno != EINVAL)
-		return ret;
+	if (ret > 0 || errno != EINVAL)
+		return ret < 0 ? -1 : 1;
 
 	/* sendfile() not supported (with this fd), fallback to
 	   regular sending */
@@ -618,10 +622,10 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 	buf->flush_context = context;
 }
 
-static int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
+static int io_buffer_read_mmaped(IOBuffer *buf, size_t size)
 {
 	uoff_t stop_offset;
-	unsigned int aligned_skip;
+	size_t aligned_skip;
 
 	stop_offset = buf->start_offset + buf->size;
 	if (stop_offset - buf->mmap_offset <= buf->buffer_size) {
@@ -663,14 +667,14 @@ static int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
 
 int io_buffer_read(IOBuffer *buf)
 {
-        return io_buffer_read_max(buf, UINT_MAX);
+        return io_buffer_read_max(buf, SSIZE_T_MAX);
 }
 
-int io_buffer_read_max(IOBuffer *buf, unsigned int size)
+int io_buffer_read_max(IOBuffer *buf, size_t size)
 {
-	int ret;
+	ssize_t ret;
 
-	i_assert(size <= INT_MAX || size == UINT_MAX);
+	i_assert(size <= SSIZE_T_MAX);
 	i_assert(!buf->transmit);
 	buf->receive = TRUE;
 
@@ -725,17 +729,17 @@ static void io_read_data(void *context, int fd __attr_unused__,
 {
 	IOBufferBlockContext *ctx = context;
 
-	if (io_buffer_read_max(ctx->inbuf, ctx->size) != 0) {
+	if (io_buffer_read_max(ctx->inbuf, (size_t)ctx->size) != 0) {
 		/* got data / error */
 		io_loop_stop(ctx->ioloop);
 	}
 }
 
-int io_buffer_read_blocking(IOBuffer *buf, unsigned int size)
+ssize_t io_buffer_read_blocking(IOBuffer *buf, size_t size)
 {
         IOBufferBlockContext ctx;
 	Timeout to;
-	int ret;
+	ssize_t ret;
 
 	/* first check if we can get some data */
 	ret = io_buffer_read_max(buf, size);
@@ -771,12 +775,13 @@ int io_buffer_read_blocking(IOBuffer *buf, unsigned int size)
 
 	io_loop_destroy(ctx.ioloop);
 
-	return buf->pos > buf->skip ? 1 : -1;
+	return buf->pos > buf->skip ?
+		(ssize_t) (buf->pos-buf->skip) : -1;
 }
 
 void io_buffer_skip(IOBuffer *buf, uoff_t size)
 {
-	int ret;
+	ssize_t ret;
 
 	buf->offset += size;
 
@@ -803,7 +808,7 @@ void io_buffer_skip(IOBuffer *buf, uoff_t size)
 			size -= ret;
 		}
 
-		(void)io_buffer_read_max(buf, (unsigned int)size);
+		(void)io_buffer_read_max(buf, (size_t)size);
 	}
 }
 
@@ -853,7 +858,7 @@ char *io_buffer_next_line(IOBuffer *buf)
 {
 	/* FIXME: buf->offset isn't updated right.. (skip_lf thing?) */
 	unsigned char *ret_buf;
-        unsigned int i;
+        size_t i;
 
         i_assert(buf != NULL);
 
@@ -880,7 +885,7 @@ char *io_buffer_next_line(IOBuffer *buf)
         return ret_buf;
 }
 
-unsigned char *io_buffer_get_data(IOBuffer *buf, unsigned int *size)
+unsigned char *io_buffer_get_data(IOBuffer *buf, size_t *size)
 {
 	io_buffer_skip_lf(buf);
 
@@ -893,10 +898,10 @@ unsigned char *io_buffer_get_data(IOBuffer *buf, unsigned int *size)
         return buf->buffer + buf->skip;
 }
 
-int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
-			unsigned int *size, unsigned int threshold)
+ssize_t io_buffer_read_data(IOBuffer *buf, unsigned char **data,
+			    size_t *size, size_t threshold)
 {
-	int ret;
+	ssize_t ret;
 
 	if (buf->pos - buf->skip > threshold)
 		ret = 1;
@@ -914,10 +919,10 @@ int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
 	return ret;
 }
 
-unsigned char *io_buffer_get_space(IOBuffer *buf, unsigned int size)
+unsigned char *io_buffer_get_space(IOBuffer *buf, size_t size)
 {
 	i_assert(size > 0);
-	i_assert(size <= INT_MAX);
+	i_assert(size <= SSIZE_T_MAX);
 	i_assert(!buf->receive);
 	buf->transmit = TRUE;
 
@@ -940,11 +945,11 @@ unsigned char *io_buffer_get_space(IOBuffer *buf, unsigned int size)
         return buf->buffer + buf->pos;
 }
 
-int io_buffer_send_buffer(IOBuffer *buf, unsigned int size)
+int io_buffer_send_buffer(IOBuffer *buf, size_t size)
 {
-	int ret;
+	ssize_t ret;
 
-	i_assert(size <= INT_MAX);
+	i_assert(size <= SSIZE_T_MAX);
 	i_assert(!buf->receive);
 
 	if (buf->pos == 0 && !buf->corked) {
@@ -959,7 +964,7 @@ int io_buffer_send_buffer(IOBuffer *buf, unsigned int size)
 		}
 
 		buf->offset += ret;
-		if ((unsigned int) ret == size) {
+		if ((size_t)ret == size) {
                         /* all sent */
 			return 1;
 		}
@@ -977,7 +982,7 @@ int io_buffer_send_buffer(IOBuffer *buf, unsigned int size)
         return 1;
 }
 
-int io_buffer_set_data(IOBuffer *buf, const void *data, unsigned int size)
+int io_buffer_set_data(IOBuffer *buf, const void *data, size_t size)
 {
 	i_assert(!buf->mmaped);
 

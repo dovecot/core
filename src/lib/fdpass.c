@@ -43,13 +43,15 @@
 	(CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
 #endif
 
-int fd_send(int handle, int send_fd, const void *data, int size)
+int fd_send(int handle, int send_fd, const void *data, size_t size)
 {
         struct msghdr msg;
         struct iovec iov;
         struct cmsghdr *cmsg;
 	int *fdptr;
-        char buf[CMSG_SPACE(sizeof(int))];
+	char buf[CMSG_SPACE(sizeof(int))];
+
+	i_assert(size < SSIZE_T_MAX);
 
 	memset(&msg, 0, sizeof (struct msghdr));
 
@@ -69,13 +71,15 @@ int fd_send(int handle, int send_fd, const void *data, int size)
 	return sendmsg(handle, &msg, 0);
 }
 
-int fd_read(int handle, void *data, int size, int *fd)
+int fd_read(int handle, void *data, size_t size, int *fd)
 {
 	struct msghdr msg;
 	struct iovec iov;
 	struct cmsghdr *cmsg;
 	int ret;
 	char buf[CMSG_SPACE(sizeof(int))];
+
+	i_assert(size < SSIZE_T_MAX);
 
 	memset(&msg, 0, sizeof (struct msghdr));
 

@@ -13,11 +13,11 @@ int t_pop(void);
    create functions that return 'const xxx*' types and use t_malloc()
    internally in them. This is a lot safer, since usually compiler
    warns if you try to place them in xxx*. See strfuncs.c for examples. */
-void *t_malloc(unsigned int size);
-void *t_malloc0(unsigned int size);
+void *t_malloc(size_t size);
+void *t_malloc0(size_t size);
 
 /* Try growing allocated memory. Returns TRUE if successful. */
-int t_try_grow(void *mem, unsigned int size);
+int t_try_grow(void *mem, size_t size);
 
 #define t_new(type, count) \
 	((type *) t_malloc0((unsigned) sizeof(type) * (count)))
@@ -31,19 +31,19 @@ int t_try_grow(void *mem, unsigned int size);
    new one (or do some other trickery). See t_buffer_reget(). */
 #define t_buffer_get_type(type, size) \
 	t_buffer_get(sizeof(type) * (size))
-void *t_buffer_get(unsigned int size);
+void *t_buffer_get(size_t size);
 
 /* Grow the buffer, memcpy()ing the memory to new location if needed. */
 #define t_buffer_reget_type(buffer, type, size) \
 	t_buffer_reget(buffer, sizeof(type) * (size))
-void *t_buffer_reget(void *buffer, unsigned int size);
+void *t_buffer_reget(void *buffer, size_t size);
 
 /* Make given t_buffer_get()ed buffer permanent. Note that size MUST be
    less or equal than the size you gave with last t_buffer_get() or the
    result will be undefined. */
 #define t_buffer_alloc_type(type, size) \
         t_buffer_alloc(sizeof(type) * (size))
-void t_buffer_alloc(unsigned int size);
+void t_buffer_alloc(size_t size);
 
 void temp_mempool_init(void);
 void temp_mempool_deinit(void);

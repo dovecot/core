@@ -45,7 +45,7 @@
 static const char basis_64[] =
    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-const char *base64_encode(const unsigned char *data, unsigned int size)
+const char *base64_encode(const unsigned char *data, size_t size)
 {
 	char *buffer, *p;
 	int c1, c2, c3;

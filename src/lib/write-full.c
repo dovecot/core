@@ -23,8 +23,8 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include <errno.h>
-#include <limits.h>
+#include "lib.h"
+
 #include <unistd.h>
 
 int write_full(int fd, const void *data, size_t size)
@@ -32,7 +32,7 @@ int write_full(int fd, const void *data, size_t size)
 	ssize_t ret;
 
 	while (size > 0) {
-		ret = write(fd, data, size < INT_MAX ? size : INT_MAX);
+		ret = write(fd, data, size < SSIZE_T_MAX ? size : SSIZE_T_MAX);
 		if (ret < 0)
 			return -1;
 

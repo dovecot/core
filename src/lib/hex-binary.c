@@ -26,10 +26,11 @@
 #include "lib.h"
 #include "hex-binary.h"
 
-const char *binary_to_hex(const unsigned char *data, unsigned int size)
+const char *binary_to_hex(const unsigned char *data, size_t size)
 {
-	unsigned int i, value;
 	char *buf, *p;
+	size_t i;
+	int value;
 
 	buf = p = t_malloc(size * 2 + 1);
 	for (i = 0; i < size; i++) {
@@ -44,9 +45,10 @@ const char *binary_to_hex(const unsigned char *data, unsigned int size)
 	return buf;
 }
 
-int hex_to_binary(const char *data, unsigned char *dest)
+ssize_t hex_to_binary(const char *data, unsigned char *dest)
 {
-	int size, value;
+	size_t size;
+	int value;
 
 	size = 0;
 	while (*data != '\0') {
@@ -73,5 +75,5 @@ int hex_to_binary(const char *data, unsigned char *dest)
 		data++;
 	}
 
-	return size;
+	return (ssize_t)size;
 }

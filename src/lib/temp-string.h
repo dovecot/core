@@ -6,14 +6,14 @@
 
 struct _TempString {
 	char *str;
-	unsigned int len;
+	size_t len;
 };
 
-TempString *t_string_new(unsigned int initial_size);
+TempString *t_string_new(size_t initial_size);
 
 /* Append string/character */
 void t_string_append(TempString *tstr, const char *str);
-void t_string_append_n(TempString *tstr, const char *str, unsigned int size);
+void t_string_append_n(TempString *tstr, const char *str, size_t size);
 void t_string_append_c(TempString *tstr, char chr);
 
 /* Insert string/character (FIXME: not implemented) */
@@ -26,7 +26,7 @@ void t_string_printfa(TempString *tstr, const char *fmt, ...)
 	__attr_format__(2, 3);
 
 /* Erase/truncate */
-void t_string_erase(TempString *tstr, unsigned int pos, unsigned int len);
-void t_string_truncate(TempString *tstr, unsigned int len);
+void t_string_erase(TempString *tstr, size_t pos, size_t len);
+void t_string_truncate(TempString *tstr, size_t len);
 
 #endif

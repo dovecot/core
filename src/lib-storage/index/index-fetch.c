@@ -65,7 +65,7 @@ static void index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
 		return;
 	}
 
-	t_string_printfa(ctx->str, " RFC822.SIZE %"UOFF_T_FORMAT,
+	t_string_printfa(ctx->str, " RFC822.SIZE %"PRIuUOFF_T,
 			 hdr_size.virtual_size + body_size.virtual_size);
 }
 
@@ -107,7 +107,7 @@ static void index_fetch_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 		return;
 	}
 
-	str = t_strdup_printf(" RFC822 {%"UOFF_T_FORMAT"}\r\n",
+	str = t_strdup_printf(" RFC822 {%"PRIuUOFF_T"}\r\n",
 			      hdr_size.virtual_size + body_size.virtual_size);
 	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
@@ -129,7 +129,7 @@ static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchContext *ctx)
 		return;
 	}
 
-	str = t_strdup_printf(" RFC822.HEADER {%"UOFF_T_FORMAT"}\r\n",
+	str = t_strdup_printf(" RFC822.HEADER {%"PRIuUOFF_T"}\r\n",
 			      hdr_size.virtual_size);
 	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
@@ -148,7 +148,7 @@ static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 		return;
 	}
 
-	str = t_strdup_printf(" RFC822.TEXT {%"UOFF_T_FORMAT"}\r\n",
+	str = t_strdup_printf(" RFC822.TEXT {%"PRIuUOFF_T"}\r\n",
 			      body_size.virtual_size);
 	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));

@@ -661,7 +661,7 @@ static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 	SearchIndexContext ctx;
 	MailIndexRecord *rec;
 	unsigned int first_seq, last_seq, seq;
-	char num[MAX_INT_STRLEN+10];
+	char num[MAX_LARGEST_T_STRLEN+10];
 
 	if (ibox->synced_messages_count == 0)
 		return;

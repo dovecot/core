@@ -28,11 +28,11 @@
 
 #include <stdlib.h>
 
-#define MAX_ALLOC_SIZE (UINT_MAX - sizeof(unsigned int))
+#define MAX_ALLOC_SIZE SSIZE_T_MAX
 
 typedef struct {
 	union {
-		unsigned int size;
+		size_t size;
 		unsigned char alignment[MEM_ALIGN_SIZE];
 	} size;
 	/* void data[]; */
@@ -50,7 +50,7 @@ static void pool_system_unref(Pool pool __attr_unused__)
 {
 }
 
-static void *pool_system_malloc(Pool pool __attr_unused__, unsigned int size)
+static void *pool_system_malloc(Pool pool __attr_unused__, size_t size)
 {
 	PoolAlloc *alloc;
 
@@ -72,10 +72,10 @@ static void pool_system_free(Pool pool __attr_unused__, void *mem)
 }
 
 static void *pool_system_realloc(Pool pool __attr_unused__, void *mem,
-				 unsigned int size)
+				 size_t size)
 {
 	PoolAlloc *alloc;
-	unsigned int old_size;
+	size_t old_size;
 	char *rmem;
 
 	if (mem == NULL) {
@@ -102,10 +102,10 @@ static void *pool_system_realloc(Pool pool __attr_unused__, void *mem,
         return rmem;
 }
 
-static void *pool_system_realloc_min(Pool pool, void *mem, unsigned int size)
+static void *pool_system_realloc_min(Pool pool, void *mem, size_t size)
 {
 	PoolAlloc *alloc;
-        unsigned int old_size;
+        size_t old_size;
 
 	if (mem == NULL)
 		old_size = 0;

@@ -27,11 +27,11 @@ struct _IOBuffer {
 	void *flush_context;
 
 	unsigned char *buffer;
-        unsigned int cr_lookup_pos; /* used only when reading a line */
+        size_t cr_lookup_pos; /* used only when reading a line */
 
 	off_t mmap_offset;
-	unsigned int pos, skip;
-	unsigned int buffer_size, max_buffer_size;
+	size_t pos, skip;
+	size_t buffer_size, max_buffer_size;
 
 	unsigned int file:1; /* reading/writing a file */
 	unsigned int mmaped:1; /* reading a file with mmap() */
@@ -47,13 +47,12 @@ struct _IOBuffer {
 /* Create an I/O buffer. It can be used for either sending or receiving data,
    NEVER BOTH AT SAME TIME. */
 IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
-			   unsigned int max_buffer_size);
+			   size_t max_buffer_size);
 /* Same as io_buffer_create(), but specify that we're reading/writing file. */
-IOBuffer *io_buffer_create_file(int fd, Pool pool,
-				unsigned int max_buffer_size);
+IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size);
 /* Read the file by mmap()ing it in blocks. stop_offset specifies where to
    stop reading, or 0 to end of file. */
-IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
+IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 				uoff_t size);
 /* Destroy a buffer. */
 void io_buffer_destroy(IOBuffer *buf);
@@ -69,7 +68,7 @@ void io_buffer_reset(IOBuffer *buf);
    buffer will be transferred to new buffer. */
 IOBuffer *io_buffer_set_pool(IOBuffer *buf, Pool pool);
 /* Change the maximum size for buffer to grow. */
-void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size);
+void io_buffer_set_max_size(IOBuffer *buf, size_t max_size);
 /* Change buffer's blocking state. The blocking state in fd itself isn't
    changed, and it's not needed to be blocking. This affects two things:
 
@@ -83,7 +82,7 @@ void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size);
 
    timeout_func is called with both cases when timeout occurs.
 */
-void io_buffer_set_blocking(IOBuffer *buf, unsigned int max_size,
+void io_buffer_set_blocking(IOBuffer *buf, size_t max_size,
 			    int timeout_msecs, TimeoutFunc timeout_func,
 			    void *context);
 
@@ -92,12 +91,12 @@ void io_buffer_set_blocking(IOBuffer *buf, unsigned int max_size,
 void io_buffer_cork(IOBuffer *buf);
 
 /* Returns 1 if all was ok, -1 if disconnected, -2 if buffer is full */
-int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size);
+int io_buffer_send(IOBuffer *buf, const void *data, size_t size);
 /* Send data from input buffer to output buffer using the fastest
-   possible method. Returns 1 if all was ok, -1 if disconnected.
+   possible method. Returns 1 if all sent or -1 if disconnected.
    Note that this function may block. */
 int io_buffer_send_iobuffer(IOBuffer *outbuf, IOBuffer *inbuf,
-			    unsigned int size);
+			    uoff_t long_size);
 /* Flush the output buffer, blocks until all is sent. If
    io_buffer_set_send_blocking() is called, it's timeout settings are used. */
 void io_buffer_send_flush(IOBuffer *buf);
@@ -109,14 +108,14 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 
 /* Returns number of bytes read if read was ok,
    -1 if disconnected / EOF, -2 if the buffer is full */
-int io_buffer_read(IOBuffer *buf);
+ssize_t io_buffer_read(IOBuffer *buf);
 /* Like io_buffer_read(), but don't read more than specified size. */
-int io_buffer_read_max(IOBuffer *buf, unsigned int size);
+ssize_t io_buffer_read_max(IOBuffer *buf, size_t size);
 /* Blocking read, doesn't return until at least one byte is read, or until
    socket is disconnected or timeout has occured. Note that the fd must be
    nonblocking, or the timeout doesn't work. If you don't want limit size,
-   set it to (unsigned int)-1. Returns 1 if data was found, -1 if error. */
-int io_buffer_read_blocking(IOBuffer *buf, unsigned int size);
+   set it to (size_t)-1. Returns number of bytes read, or -1 if error. */
+ssize_t io_buffer_read_blocking(IOBuffer *buf, size_t size);
 /* Skip forward a number of bytes */
 void io_buffer_skip(IOBuffer *buf, uoff_t size);
 /* Seek to specified position from beginning of file. This works only for
@@ -128,23 +127,23 @@ int io_buffer_seek(IOBuffer *buf, uoff_t offset);
 char *io_buffer_next_line(IOBuffer *buf);
 /* Returns pointer to beginning of data in buffer,
    or NULL if there's no data. */
-unsigned char *io_buffer_get_data(IOBuffer *buf, unsigned int *size);
+unsigned char *io_buffer_get_data(IOBuffer *buf, size_t *size);
 /* Like io_buffer_get_data(), but read it when needed. There always must be
    more than `threshold' bytes in buffer. Returns 1 if data was read, 0 if
    read was interrupted or nonblocking, -1 if EOF / error */
 int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
-			unsigned int *size, unsigned int threshold);
+			size_t *size, size_t threshold);
 
 /* Returns a pointer to buffer wanted amount of space,
    or NULL if size is too big. */
-unsigned char *io_buffer_get_space(IOBuffer *buf, unsigned int size);
+unsigned char *io_buffer_get_space(IOBuffer *buf, size_t size);
 /* Send data saved to buffer from io_buffer_get_space().
    Returns -1 if disconnected. */
-int io_buffer_send_buffer(IOBuffer *buf, unsigned int size);
+int io_buffer_send_buffer(IOBuffer *buf, size_t size);
 
 /* Put data to buffer as if it was received.
    Returns 1 if successful, -2 if buffer isn't big enough. */
-int io_buffer_set_data(IOBuffer *buf, const void *data, unsigned int size);
+int io_buffer_set_data(IOBuffer *buf, const void *data, size_t size);
 /* Returns TRUE if there's nothing in buffer. */
 int io_buffer_is_empty(IOBuffer *buf);
 

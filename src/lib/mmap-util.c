@@ -34,7 +34,7 @@ static void *mmap_file(int fd, size_t *length, int access)
 	if (size == -1)
 		return MAP_FAILED;
 
-	if (size > INT_MAX) {
+	if (size > SSIZE_T_MAX) {
 		/* too large file to map into memory */
 		errno = EFBIG;
 		return MAP_FAILED;
@@ -44,7 +44,7 @@ static void *mmap_file(int fd, size_t *length, int access)
 	if (*length == 0)
 		return NULL;
 
-	i_assert(*length > 0 && *length < INT_MAX);
+	i_assert(*length > 0 && *length < SSIZE_T_MAX);
 
 	return mmap(NULL, *length, access, MAP_SHARED, fd, 0);
 }

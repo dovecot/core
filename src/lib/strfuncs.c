@@ -33,9 +33,9 @@
 
 #define STRCONCAT_BUFSIZE 512
 
-typedef void *(*ALLOC_FUNC)(Pool, unsigned int);
+typedef void *(*ALLOC_FUNC)(Pool, size_t);
 
-static void *tp_malloc(Pool pool __attr_unused__, unsigned int size)
+static void *tp_malloc(Pool pool __attr_unused__, size_t size)
 {
         return t_malloc(size);
 }
@@ -85,9 +85,9 @@ typedef struct
 #  define HONOUR_LONGS 0
 #endif
 
-unsigned int printf_string_upper_bound(const char *format, va_list args)
+size_t printf_string_upper_bound(const char *format, va_list args)
 {
-  int len = 1;
+  size_t len = 1;
 
   if (!format)
     return len;
@@ -385,13 +385,13 @@ static const char *fix_format_real(const char *fmt, const char *p)
 {
 	const char *errstr;
 	char *buf;
-	unsigned int pos, alloc, errlen;
+	size_t pos, alloc, errlen;
 
 	errstr = strerror(errno);
 	errlen = strlen(errstr);
 
-	pos = (unsigned int) (p-fmt);
-	i_assert(pos < INT_MAX);
+	pos = (size_t) (p-fmt);
+	i_assert(pos < SSIZE_T_MAX);
 
 	alloc = pos + errlen + 128;
 	buf = t_buffer_get(alloc);
@@ -438,14 +438,14 @@ static const char *fix_format(const char *fmt)
 	return fmt;
 }
 
-int i_snprintf(char *str, unsigned int max_chars, const char *format, ...)
+int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 {
 #ifdef HAVE_VSNPRINTF
 	va_list args;
 	int ret;
 
 	i_assert(str != NULL);
-	i_assert(max_chars < INT_MAX);
+	i_assert(max_chars < SSIZE_T_MAX);
 	i_assert(format != NULL);
 
 	va_start(args, format);
@@ -464,7 +464,7 @@ int i_snprintf(char *str, unsigned int max_chars, const char *format, ...)
         int len;
 
 	i_assert(str != NULL);
-	i_assert(max_chars < INT_MAX);
+	i_assert(max_chars < SSIZE_T_MAX);
 	i_assert(format != NULL);
 
 	va_start(args, format);
@@ -484,7 +484,7 @@ int i_snprintf(char *str, unsigned int max_chars, const char *format, ...)
 
 #define STRDUP_CORE(alloc_func, str) STMT_START { \
 	void *mem;				\
-	unsigned int len;			\
+	size_t len;				\
 						\
 	for (len = 0; (str)[len] != '\0'; )	\
 		len++;				\
@@ -554,13 +554,13 @@ const char *t_strdup_empty(const char *str)
 
 char *p_strdup_until(Pool pool, const char *start, const char *end)
 {
-	unsigned int size;
+	size_t size;
 	char *mem;
 
 	i_assert(start <= end);
 
-	size = (unsigned int) (end-start);
-	i_assert(size < UINT_MAX);
+	size = (size_t) (end-start);
+	i_assert(size < SSIZE_T_MAX);
 
 	mem = p_malloc(pool, size + 1);
 	memcpy(mem, start, size);
@@ -569,13 +569,13 @@ char *p_strdup_until(Pool pool, const char *start, const char *end)
 
 const char *t_strdup_until(const char *start, const char *end)
 {
-	unsigned int size;
+	size_t size;
 	char *mem;
 
 	i_assert(start <= end);
 
-	size = (unsigned int) (end-start);
-	i_assert(size < UINT_MAX);
+	size = (size_t) (end-start);
+	i_assert(size < SSIZE_T_MAX);
 
 	mem = t_malloc(size + 1);
 	memcpy(mem, start, size);
@@ -583,14 +583,13 @@ const char *t_strdup_until(const char *start, const char *end)
 	return mem;
 }
 
-static inline char *
-strndup_core(const char *str, unsigned int max_chars,
-	     ALLOC_FUNC alloc, Pool pool)
+static inline char *strndup_core(const char *str, size_t max_chars,
+				 ALLOC_FUNC alloc, Pool pool)
 {
 	char *mem;
-	unsigned int len;
+	size_t len;
 
-	i_assert(max_chars < INT_MAX);
+	i_assert(max_chars < SSIZE_T_MAX);
 
 	if (str == NULL)
 		return NULL;
@@ -605,12 +604,12 @@ strndup_core(const char *str, unsigned int max_chars,
 	return mem;
 }
 
-char *p_strndup(Pool pool, const char *str, unsigned int max_chars)
+char *p_strndup(Pool pool, const char *str, size_t max_chars)
 {
         return strndup_core(str, max_chars, pool->malloc, pool);
 }
 
-const char *t_strndup(const char *str, unsigned int max_chars)
+const char *t_strndup(const char *str, size_t max_chars)
 {
         return strndup_core(str, max_chars, tp_malloc, NULL);
 }
@@ -677,11 +676,11 @@ void p_strdup_replace(Pool pool, char **dest, const char *str)
 }
 
 const char *temp_strconcat(const char *str1, va_list args,
-			   unsigned int *ret_len)
+			   size_t *ret_len)
 {
 	const char *str;
         char *temp;
-	unsigned int full_len, len, bufsize;
+	size_t full_len, len, bufsize;
 
 	if (str1 == NULL)
 		return NULL;
@@ -720,7 +719,7 @@ char *p_strconcat(Pool pool, const char *str1, ...)
 	va_list args;
         const char *temp;
 	char *ret;
-        unsigned int len;
+        size_t len;
 
 	va_start(args, str1);
 
@@ -740,7 +739,7 @@ const char *t_strconcat(const char *str1, ...)
 {
 	va_list args;
 	const char *ret;
-        unsigned int len;
+        size_t len;
 
 	va_start(args, str1);
 
@@ -857,7 +856,7 @@ char *const *t_strsplit(const char *data, const char *separators)
 {
         char **array;
 	char *str;
-        int alloc_len, len;
+        size_t alloc_len, len;
 
         i_assert(*separators != '\0');
 
@@ -896,7 +895,7 @@ const char *t_strjoin_replace(char *const args[], char separator,
 {
         const char *arg;
         char *data;
-	unsigned int alloc_len, arg_len, full_len;
+	size_t alloc_len, arg_len, full_len;
 	int i;
 
 	if (args[0] == NULL)

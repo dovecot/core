@@ -266,7 +266,7 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 		t_string_append_c(str, ')');
 	}
 
-	t_string_printfa(str, " %s %s %s %"UOFF_T_FORMAT,
+	t_string_printfa(str, " %s %s %s %"PRIuUOFF_T,
 			 NVL(data->content_id, "NIL"),
 			 NVL(data->content_description, "NIL"),
 			 NVL(data->content_transfer_encoding, "\"8bit\""),

@@ -30,12 +30,12 @@
 
 typedef struct {
 	char *str;
-	unsigned int len;
+	size_t len;
 
-	unsigned int alloc_size;
+	size_t alloc_size;
 } RealTempString;
 
-TempString *t_string_new(unsigned int initial_size)
+TempString *t_string_new(size_t initial_size)
 {
 	RealTempString *rstr;
 
@@ -49,15 +49,16 @@ TempString *t_string_new(unsigned int initial_size)
 	return (TempString *) rstr;
 }
 
-static void t_string_inc(TempString *tstr, unsigned int size)
+static void t_string_inc(TempString *tstr, size_t size)
 {
 	RealTempString *rstr = (RealTempString *) tstr;
 	char *str;
 
 	size += rstr->len + 1;
-	if (size <= rstr->len || size > INT_MAX) {
+	if (size <= rstr->len || size > SSIZE_T_MAX) {
 		/* overflow */
-		i_panic("t_string_inc(): Out of memory for %u bytes", size);
+		i_panic("t_string_inc(): Out of memory %"PRIuSIZE_T" bytes",
+			size);
 	}
 
 	if (size > rstr->alloc_size) {
@@ -77,9 +78,9 @@ void t_string_append(TempString *tstr, const char *str)
 	t_string_append_n(tstr, str, strlen(str));
 }
 
-void t_string_append_n(TempString *tstr, const char *str, unsigned int size)
+void t_string_append_n(TempString *tstr, const char *str, size_t size)
 {
-	i_assert(size < INT_MAX);
+	i_assert(size < SSIZE_T_MAX);
 
 	t_string_inc(tstr, size);
 	memcpy(tstr->str + tstr->len, str, size);
@@ -108,7 +109,7 @@ void t_string_printfa(TempString *tstr, const char *fmt, ...)
 	va_end(args);
 }
 
-void t_string_erase(TempString *tstr, unsigned int pos, unsigned int len)
+void t_string_erase(TempString *tstr, size_t pos, size_t len)
 {
 	i_assert(pos < tstr->len && tstr->len - pos >= len);
 
@@ -116,7 +117,7 @@ void t_string_erase(TempString *tstr, unsigned int pos, unsigned int len)
 		tstr->len - pos - len + 1);
 }
 
-void t_string_truncate(TempString *tstr, unsigned int len)
+void t_string_truncate(TempString *tstr, size_t len)
 {
 	i_assert(len <= tstr->len);
 

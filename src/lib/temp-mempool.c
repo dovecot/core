@@ -35,7 +35,7 @@
 /* max. number of bytes to even try to allocate. This is done just to avoid
    allocating less memory than was actually requested because of integer
    overflows. */
-#define MAX_ALLOC_SIZE (UINT_MAX - (MEM_ALIGN_SIZE-1))
+#define MAX_ALLOC_SIZE SSIZE_T_MAX
 
 /* Initial pool size - this should be kept in a size that doesn't exceed
    in a normal use to keep it fast. */
@@ -47,7 +47,7 @@ typedef struct _MemBlockStack MemBlockStack;
 struct _MemBlock {
 	MemBlock *next;
 
-	unsigned int size, left;
+	size_t size, left;
 	/* unsigned char data[]; */
 };
 
@@ -77,7 +77,7 @@ static MemBlock *unused_block; /* largest unused block is kept here */
 static int last_alloc_size;
 
 static MemBlock *last_buffer_block;
-static unsigned int last_buffer_size;
+static size_t last_buffer_size;
 
 int t_push(void)
 {
@@ -156,10 +156,10 @@ int t_pop(void)
         return stack_pos;
 }
 
-static MemBlock *mem_block_alloc(unsigned int min_size)
+static MemBlock *mem_block_alloc(size_t min_size)
 {
 	MemBlock *block;
-	unsigned int prev_size, alloc_size;
+	size_t prev_size, alloc_size;
 
 	prev_size = current_block == NULL ? 0 : current_block->size;
 	alloc_size = nearest_power(prev_size + min_size);
@@ -167,7 +167,7 @@ static MemBlock *mem_block_alloc(unsigned int min_size)
 	block = malloc(SIZEOF_MEMBLOCK + alloc_size);
 	if (block == NULL) {
 		i_panic("mem_block_alloc(): "
-			"Out of memory when allocating %u bytes",
+			"Out of memory when allocating %"PRIuSIZE_T" bytes",
 			SIZEOF_MEMBLOCK + alloc_size);
 	}
 	block->size = alloc_size;
@@ -176,7 +176,7 @@ static MemBlock *mem_block_alloc(unsigned int min_size)
 	return block;
 }
 
-static void *t_malloc_real(unsigned int size, int permanent)
+static void *t_malloc_real(size_t size, int permanent)
 {
 	MemBlock *block;
         void *ret;
@@ -227,12 +227,12 @@ static void *t_malloc_real(unsigned int size, int permanent)
         return MEM_BLOCK_DATA(current_block);
 }
 
-void *t_malloc(unsigned int size)
+void *t_malloc(size_t size)
 {
         return t_malloc_real(size, TRUE);
 }
 
-void *t_malloc0(unsigned int size)
+void *t_malloc0(size_t size)
 {
 	void *mem;
 
@@ -241,7 +241,7 @@ void *t_malloc0(unsigned int size)
         return mem;
 }
 
-int t_try_grow(void *mem, unsigned int size)
+int t_try_grow(void *mem, size_t size)
 {
 	/* see if we want to grow the memory we allocated last */
 	if (MEM_BLOCK_DATA(current_block) +
@@ -260,7 +260,7 @@ int t_try_grow(void *mem, unsigned int size)
 	return FALSE;
 }
 
-void *t_buffer_get(unsigned int size)
+void *t_buffer_get(size_t size)
 {
 	void *ret;
 
@@ -271,9 +271,9 @@ void *t_buffer_get(unsigned int size)
 	return ret;
 }
 
-void *t_buffer_reget(void *buffer, unsigned int size)
+void *t_buffer_reget(void *buffer, size_t size)
 {
-	unsigned int old_size;
+	size_t old_size;
         void *new_buffer;
 
 	old_size = last_buffer_size;
@@ -287,7 +287,7 @@ void *t_buffer_reget(void *buffer, unsigned int size)
         return new_buffer;
 }
 
-void t_buffer_alloc(unsigned int size)
+void t_buffer_alloc(size_t size)
 {
 	i_assert(last_buffer_block != NULL);
 	i_assert(last_buffer_size >= size);
@@ -399,7 +399,7 @@ static void add_alloc(void *mem)
 	}
 }
 
-void *t_malloc(unsigned int size)
+void *t_malloc(size_t size)
 {
 	void *mem;
 
@@ -408,7 +408,7 @@ void *t_malloc(unsigned int size)
 	return mem;
 }
 
-void *t_malloc0(unsigned int size)
+void *t_malloc0(size_t size)
 {
 	void *mem;
 
@@ -417,7 +417,7 @@ void *t_malloc0(unsigned int size)
 	return mem;
 }
 
-int t_try_grow(void *mem, unsigned int size)
+int t_try_grow(void *mem, size_t size)
 {
 	void *new_mem;
 
@@ -429,13 +429,13 @@ int t_try_grow(void *mem, unsigned int size)
 	return FALSE;
 }
 
-void *t_buffer_get(unsigned int size)
+void *t_buffer_get(size_t size)
 {
 	buffer_mem = realloc(buffer_mem, size);
 	return buffer_mem;
 }
 
-void *t_buffer_reget(void *buffer, unsigned int size)
+void *t_buffer_reget(void *buffer, size_t size)
 {
 	i_assert(buffer == buffer_mem);
 
@@ -443,7 +443,7 @@ void *t_buffer_reget(void *buffer, unsigned int size)
 	return buffer_mem;
 }
 
-void t_buffer_alloc(unsigned int size)
+void t_buffer_alloc(size_t size)
 {
 	void *mem;
 

@@ -65,9 +65,9 @@ int net_listen_unix(const char *path);
 int net_accept(int fd, IPADDR *addr, int *port);
 
 /* Read data from socket, return number of bytes read, -1 = error */
-int net_receive(int fd, void *buf, unsigned int len);
+ssize_t net_receive(int fd, void *buf, size_t len);
 /* Transmit data, return number of bytes sent, -1 = error */
-int net_transmit(int fd, const void *data, unsigned int len);
+ssize_t net_transmit(int fd, const void *data, size_t len);
 
 /* Get IP addresses for host. ips contains ips_count of IPs, they don't need
    to be free'd. Returns 0 = ok, others = error code for net_gethosterror() */

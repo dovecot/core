@@ -66,7 +66,7 @@
  * This processes one or more 64-byte data blocks, but does NOT update
  * the bit counters.  There're no alignment requirements.
  */
-static const void *body(MD5Context *ctx, const void *data, unsigned int size)
+static const void *body(MD5Context *ctx, const void *data, size_t size)
 {
 	const unsigned char *ptr;
 	MD5_u32plus a, b, c, d;
@@ -184,7 +184,7 @@ void md5_init(MD5Context *ctx)
 	ctx->hi = 0;
 }
 
-void md5_update(MD5Context *ctx, const void *data, unsigned int size)
+void md5_update(MD5Context *ctx, const void *data, size_t size)
 {
 	MD5_u32plus saved_lo;
 	unsigned long used, free;
@@ -269,8 +269,7 @@ void md5_final(MD5Context *ctx, unsigned char result[16])
 	memset(ctx, 0, sizeof(ctx));
 }
 
-void md5_get_digest(const void *data, unsigned int size,
-		    unsigned char result[16])
+void md5_get_digest(const void *data, size_t size, unsigned char result[16])
 {
 	MD5Context ctx;
 

@@ -4,14 +4,14 @@
 #define is_empty_str(str) \
         ((str) == NULL || (str)[0] == '\0')
 
-unsigned int printf_string_upper_bound(const char *format, va_list args);
-int i_snprintf(char *str, unsigned int max_chars, const char *format, ...)
+size_t printf_string_upper_bound(const char *format, va_list args);
+int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	__attr_format__(3, 4);
 
 char *p_strdup(Pool pool, const char *str);
 char *p_strdup_empty(Pool pool, const char *str); /* return NULL if str = "" */
 char *p_strdup_until(Pool pool, const char *start, const char *end); /* *end isn't included */
-char *p_strndup(Pool pool, const char *str, unsigned int max_chars);
+char *p_strndup(Pool pool, const char *str, size_t max_chars);
 char *p_strdup_printf(Pool pool, const char *format, ...) __attr_format__(2, 3);
 char *p_strdup_vprintf(Pool pool, const char *format, va_list args);
 void p_strdup_replace(Pool pool, char **dest, const char *str);
@@ -24,7 +24,7 @@ const char *t_strdup(const char *str);
 char *t_strdup_noconst(const char *str);
 const char *t_strdup_empty(const char *str); /* return NULL if str = "" */
 const char *t_strdup_until(const char *start, const char *end); /* *end isn't included */
-const char *t_strndup(const char *str, unsigned int max_chars);
+const char *t_strndup(const char *str, size_t max_chars);
 const char *t_strdup_printf(const char *format, ...) __attr_format__(1, 2);
 const char *t_strdup_vprintf(const char *format, va_list args);
 const int *t_intarrdup(const int *arr);
@@ -58,7 +58,6 @@ const char *t_strjoin_replace(char *const args[], char separator,
 void dec2str(char *buffer, size_t size, largest_t number);
 
 /* INTERNAL */
-const char *temp_strconcat(const char *str1, va_list args,
-			   unsigned int *ret_len);
+const char *temp_strconcat(const char *str1, va_list args, size_t *ret_len);
 
 #endif
