@@ -276,6 +276,9 @@ static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 		index_set_error(log->index, "IndexID mismatch for modify log "
 				"file %s", path);
 		ret = -1;
+
+		/* we have to rebuild it, make sure it's deleted. */
+		(void)unlink(path);
 	}
 
 	if (ret != -1 && hdr.sync_id == SYNC_ID_FULL) {
@@ -296,18 +299,22 @@ static int mail_modifylog_open_and_verify(MailModifyLog *log, const char *path)
 static int mail_modifylog_find_or_create(MailModifyLog *log)
 {
 	const char *path1, *path2;
-	int i;
+	int i, ret;
 
 	for (i = 0; i < 2; i++) {
 		/* first try <index>.log */
 		path1 = t_strconcat(log->index->filepath, ".log", NULL);
-		if (mail_modifylog_open_and_verify(log, path1) == 1)
+		path2 = t_strconcat(log->index->filepath, ".log.2", NULL);
+
+		ret = mail_modifylog_open_and_verify(log, path1);
+		if (ret == 1)
 			return TRUE;
 
-		/* then <index>.log.2 */
-		path2 = t_strconcat(log->index->filepath, ".log.2", NULL);
-		if (mail_modifylog_open_and_verify(log, path2) == 1)
-			return TRUE;
+		if (ret == 0) {
+			/* then <index>.log.2 */
+			if (mail_modifylog_open_and_verify(log, path2) == 1)
+				return TRUE;
+		}
 
 		/* try creating/reusing them */
 		if (mail_modifylog_open_and_init_file(log, path1))
