@@ -27,6 +27,8 @@ struct mail_index_view_methods {
 };
 
 struct mail_index_view {
+	int refcount;
+
 	struct mail_index_view_methods methods;
 	struct mail_index *index;
         struct mail_transaction_log_view *log_view;
@@ -36,7 +38,7 @@ struct mail_index_view {
 	struct mail_index_map *new_map;
 	buffer_t *map_refs;
 
-	struct mail_index_header tmp_hdr_copy;
+	struct mail_index_header hdr;
 	uint32_t messages_count; /* last synced one, map may be different */
 
 	uint32_t log_file_seq;
@@ -52,6 +54,8 @@ struct mail_index_view {
 
 void mail_index_view_clone(struct mail_index_view *dest,
 			   const struct mail_index_view *src);
+void mail_index_view_ref(struct mail_index_view *view);
+void mail_index_view_unref(struct mail_index_view *view);
 int mail_index_view_lock(struct mail_index_view *view);
 int mail_index_view_lock_head(struct mail_index_view *view, int update_index);
 void mail_index_view_unref_maps(struct mail_index_view *view);

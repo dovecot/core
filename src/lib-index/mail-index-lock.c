@@ -229,29 +229,23 @@ static int mail_index_copy(struct mail_index *index)
 	if (fd == -1)
 		return -1;
 
-	if (index->map->hdr->base_header_size >= sizeof(*index->map->hdr)) {
-		/* header size is what's expected */
-		ret = write_full(fd, index->map->hdr,
-				 index->map->hdr->header_size);
-	} else {
-		/* write base header */
-		ret = write_full(fd, index->map->hdr,
-				 index->map->hdr->base_header_size);
-		if (ret == 0) {
-			/* write extended headers */
-			const struct mail_index_header *hdr;
-			const void *hdr_ext;
+	/* write base header */
+	ret = write_full(fd, &index->map->hdr,
+			 index->map->hdr.base_header_size);
+	if (ret == 0) {
+		/* write extended headers */
+		const struct mail_index_header *hdr;
+		const void *hdr_ext;
 
-			hdr = index->map->hdr_base;
-                        hdr_ext = CONST_PTR_OFFSET(hdr, hdr->base_header_size);
-			ret = write_full(fd, hdr_ext, hdr->header_size -
-					 hdr->base_header_size);
-		}
+		hdr = index->map->hdr_base;
+		hdr_ext = CONST_PTR_OFFSET(hdr, hdr->base_header_size);
+		ret = write_full(fd, hdr_ext, hdr->header_size -
+				 hdr->base_header_size);
 	}
 
 	if (ret < 0 || write_full(fd, index->map->records,
 				  index->map->records_count *
-				  index->map->hdr->record_size) < 0) {
+				  index->map->hdr.record_size) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write_full()");
 		(void)close(fd);
 		(void)unlink(path);
@@ -316,8 +310,7 @@ int mail_index_lock_exclusive(struct mail_index *index,
 
 	/* if header size is smaller than what we have, we'll have to recreate
 	   the index to grow it. so don't even try regular locking. */
-	if ((index->map->hdr != index->map->hdr_copy_buf->data &&
-	     index->map->base_header_size == sizeof(*index->hdr)) ||
+	if (index->map->hdr.base_header_size >= sizeof(*index->hdr) ||
 	    index->excl_lock_count > 0) {
 		/* wait two seconds for exclusive lock */
 		ret = mail_index_lock(index, F_WRLCK, 2, TRUE, lock_id_r);

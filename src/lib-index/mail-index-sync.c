@@ -218,7 +218,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx, int sync_recent,
 
 	*seen_external_r = FALSE;
 
-	if ((ctx->view->map->hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
+	if ((ctx->view->map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
 	    ctx->sync_dirty) {
 		/* show dirty flags as flag updates */
 		if (mail_index_sync_add_dirty_updates(ctx) < 0)

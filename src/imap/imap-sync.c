@@ -39,8 +39,8 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->client = client;
 	ctx->box = box;
 
-	ctx->t = mailbox_transaction_begin(box, FALSE);
 	ctx->sync_ctx = mailbox_sync_init(box, flags);
+	ctx->t = mailbox_transaction_begin(box, FALSE);
 	ctx->messages_count = client->messages_count;
 	return ctx;
 }

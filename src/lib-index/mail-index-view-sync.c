@@ -135,13 +135,32 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		/* we need a private copy of the map if we don't want to
 		   sync expunges. we need to sync mapping only if we're not
 		   using the latest one. */
-		if (view->map != view->index->map)
+		uint32_t old_records_count = view->map->records_count;
+
+		if (view->map != view->index->map) {
 			ctx->sync_map_update = TRUE;
+                        view->map->records_count = view->messages_count;
+		}
 
 		map = mail_index_map_to_memory(view->map,
-					       view->map->hdr->record_size);
+					       view->map->hdr.record_size);
+		view->map->records_count = old_records_count;
 		mail_index_unmap(view->index, view->map);
 		view->map = map;
+
+		if (ctx->sync_map_update) {
+			if (map->hdr_base != map->hdr_copy_buf->data) {
+				buffer_reset(map->hdr_copy_buf);
+				buffer_append(map->hdr_copy_buf, map->hdr_base,
+					      map->hdr.header_size);
+				map->hdr_base = map->hdr_copy_buf->data;
+			}
+
+			/* start from our old view's header. */
+			buffer_write(map->hdr_copy_buf, 0,
+				     &view->hdr, sizeof(view->hdr));
+			map->hdr = view->hdr;
+		}
 	}
 
 	mail_index_view_unref_maps(view);
@@ -163,7 +182,7 @@ static int view_is_transaction_synced(struct mail_index_view *view,
 	data = buffer_get_data(view->log_syncs, &size);
 	end = data + size;
 
-	for (; data < end; ) {
+	while (data < end) {
 		if (*((const uoff_t *)data) == offset &&
 		    *((const uint32_t *)(data + sizeof(uoff_t))) == seq)
 			return 1;
@@ -338,8 +357,12 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 		view->new_map = NULL;
 	}
 
-	if ((ctx->trans_sync_mask & MAIL_TRANSACTION_APPEND) != 0)
+	if ((ctx->trans_sync_mask & MAIL_TRANSACTION_APPEND) != 0) {
+		i_assert(view->messages_count == view->map->records_count ||
+			 !ctx->sync_map_update);
 		view->messages_count = view->map->records_count;
+	}
+	view->hdr = view->map->hdr;
 
 	(void)mail_transaction_log_view_set(view->log_view,
 					    view->log_file_seq,

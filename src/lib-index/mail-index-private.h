@@ -26,7 +26,7 @@ struct mail_index_sync_map_ctx;
 
 #define MAIL_INDEX_MAP_IDX(map, idx) \
 	((struct mail_index_record *) \
-		PTR_OFFSET((map)->records, (idx) * (map)->hdr->record_size))
+		PTR_OFFSET((map)->records, (idx) * (map)->hdr.record_size))
 
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 uint32_t seq, const void *data,
@@ -61,7 +61,7 @@ struct mail_index_ext_header {
 struct mail_index_map {
 	int refcount;
 
-	const struct mail_index_header *hdr;
+	struct mail_index_header hdr;
 	const void *hdr_base;
 	void *records; /* struct mail_index_record[] */
 	unsigned int records_count;
@@ -74,13 +74,7 @@ struct mail_index_map {
 	size_t mmap_size, mmap_used_size;
 
 	buffer_t *buffer;
-
-	uint32_t log_file_seq;
-	uoff_t log_file_int_offset;
-	uoff_t log_file_ext_offset;
-
 	buffer_t *hdr_copy_buf;
-	uint32_t base_header_size; /* so we don't need lock to access it */
 
 	unsigned int write_to_disk:1;
 };

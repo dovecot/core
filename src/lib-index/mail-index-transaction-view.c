@@ -40,13 +40,7 @@ static int _tview_get_header(struct mail_index_view *view,
 	if (tview->parent->get_header(view, hdr_r) < 0)
 		return -1;
 
-	if ((*hdr_r)->messages_count != view->messages_count) {
-		/* messages_count differs, use a modified copy.
-		   FIXME: same problems as with _view_get_header().. */
-		view->tmp_hdr_copy = **hdr_r;
-		view->tmp_hdr_copy.messages_count = view->messages_count;
-		*hdr_r = &view->tmp_hdr_copy;
-	}
+	/* FIXME: header counters may not be correct */
 	return 0;
 }
 
@@ -204,6 +198,14 @@ struct mail_index_view *
 mail_index_transaction_open_updated_view(struct mail_index_transaction *t)
 {
 	struct mail_index_view_transaction *tview;
+
+	if (t->view->syncing) {
+		/* transaction view is being synced. while it's done, it's not
+		   possible to add new messages, but the view itself might
+		   change. so we can't make a copy of the view. */
+		mail_index_view_ref(t->view);
+		return t->view;
+	}
 
 	tview = i_new(struct mail_index_view_transaction, 1);
 	mail_index_view_clone(&tview->view, t->view);

@@ -30,6 +30,13 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	t->hide_transaction = hide;
 	t->external = external;
 	t->first_new_seq = mail_index_view_get_message_count(t->view)+1;
+
+	if (view->syncing) {
+		/* transaction view cannot work if new records are being added
+		   in two places. make sure it doesn't happen. */
+		t->no_appends = TRUE;
+	}
+
 	return t;
 }
 
@@ -196,6 +203,8 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 		       uint32_t *seq_r)
 {
         struct mail_index_record *rec;
+
+	i_assert(!t->no_appends);
 
 	t->log_updates = TRUE;
 

@@ -9,6 +9,7 @@ void mail_index_view_clone(struct mail_index_view *dest,
 			   const struct mail_index_view *src)
 {
 	memset(dest, 0, sizeof(dest));
+	dest->refcount = 1;
 	dest->methods = src->methods;
 	dest->index = src->index;
 	dest->log_view = mail_transaction_log_view_open(src->index->log);
@@ -16,14 +17,22 @@ void mail_index_view_clone(struct mail_index_view *dest,
 	dest->indexid = src->indexid;
 	dest->map = src->map;
 	dest->map->refcount++;
+	dest->hdr = src->hdr;
 	dest->messages_count = src->messages_count;
 
 	dest->log_file_seq = src->log_file_seq;
 	dest->log_file_offset = src->log_file_offset;
 }
 
+void mail_index_view_ref(struct mail_index_view *view)
+{
+	view->refcount++;
+}
+
 static void _view_close(struct mail_index_view *view)
 {
+	i_assert(view->refcount == 0);
+
 	mail_index_view_unlock(view);
 	mail_transaction_log_view_close(view->log_view);
 
@@ -158,20 +167,7 @@ static uint32_t _view_get_message_count(struct mail_index_view *view)
 static int _view_get_header(struct mail_index_view *view,
 			    const struct mail_index_header **hdr_r)
 {
-	if (mail_index_view_lock(view) < 0)
-		return -1;
-
-	if (view->map->hdr->messages_count == view->messages_count)
-		*hdr_r = view->map->hdr;
-	else {
-		/* messages_count differs, use a modified copy.
-		   FIXME: so might seen_messages_count, etc. and they're
-		   more difficult to fix. maybe grab a copy of the header
-		   when opening the view initially?.. */
-		view->tmp_hdr_copy = *view->map->hdr;
-		view->tmp_hdr_copy.messages_count = view->messages_count;
-		*hdr_r = &view->tmp_hdr_copy;
-	}
+	*hdr_r = &view->hdr;
 	return 0;
 }
 
@@ -253,7 +249,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	i_assert(view->messages_count <= view->map->records_count);
 
 	rec_base = view->map->records;
-	record_size = view->map->hdr->record_size;
+	record_size = view->map->hdr.record_size;
 
 	idx = left_idx = *left_idx_p;
 	right_idx = view->messages_count;
@@ -303,8 +299,8 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
-	if (last_uid >= view->map->hdr->next_uid) {
-		last_uid = view->map->hdr->next_uid-1;
+	if (last_uid >= view->map->hdr.next_uid) {
+		last_uid = view->map->hdr.next_uid-1;
 		if (first_uid > last_uid) {
 			*first_seq_r = 0;
 			*last_seq_r = 0;
@@ -346,11 +342,11 @@ static int _view_lookup_first(struct mail_index_view *view,
 		return -1;
 
 	if ((flags_mask & MAIL_RECENT) != 0 && (flags & MAIL_RECENT) != 0)
-		LOW_UPDATE(view->map->hdr->first_recent_uid_lowwater);
+		LOW_UPDATE(view->map->hdr.first_recent_uid_lowwater);
 	if ((flags_mask & MAIL_SEEN) != 0 && (flags & MAIL_SEEN) == 0)
-		LOW_UPDATE(view->map->hdr->first_unseen_uid_lowwater);
+		LOW_UPDATE(view->map->hdr.first_unseen_uid_lowwater);
 	if ((flags_mask & MAIL_DELETED) != 0 && (flags & MAIL_DELETED) != 0)
-		LOW_UPDATE(view->map->hdr->first_deleted_uid_lowwater);
+		LOW_UPDATE(view->map->hdr.first_deleted_uid_lowwater);
 
 	if (low_uid == 1)
 		seq = 1;
@@ -418,13 +414,16 @@ static int _view_get_header_ext(struct mail_index_view *view,
 	ext = map->extensions->data;
 	ext += ext_id;
 
-	*data_r = CONST_PTR_OFFSET(map->hdr, ext->hdr_offset);
+	*data_r = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
 	*data_size_r = ext->hdr_size;
 	return 0;
 }
 
 void mail_index_view_close(struct mail_index_view *view)
 {
+	if (--view->refcount > 0)
+		return;
+
 	view->methods.close(view);
 }
 
@@ -521,6 +520,7 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 	struct mail_index_view *view;
 
 	view = i_new(struct mail_index_view, 1);
+	view->refcount = 1;
 	view->methods = view_methods;
 	view->index = index;
 	view->log_view = mail_transaction_log_view_open(index->log);
@@ -528,12 +528,14 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 	view->indexid = index->indexid;
 	view->map = index->map;
 	view->map->refcount++;
+
+	view->hdr = view->map->hdr;
 	view->messages_count = view->map->records_count;
 
-	view->log_file_seq = view->map->log_file_seq;
+	view->log_file_seq = view->map->hdr.log_file_seq;
 	view->log_file_offset =
-		I_MIN(view->map->log_file_int_offset,
-		      view->map->log_file_ext_offset);
+		I_MIN(view->map->hdr.log_file_int_offset,
+		      view->map->hdr.log_file_ext_offset);
 	return view;
 }
 

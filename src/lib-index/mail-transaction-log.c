@@ -482,12 +482,12 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	}
 
 	if (log->index->map != NULL &&
-	    file->hdr.file_seq == log->index->map->log_file_seq &&
-	    log->index->map->log_file_int_offset != 0) {
+	    file->hdr.file_seq == log->index->map->hdr.log_file_seq &&
+	    log->index->map->hdr.log_file_int_offset != 0) {
 		/* we can get a valid log offset from index file. initialize
 		   sync_offset from it so we don't have to read the whole log
 		   file from beginning. */
-		file->sync_offset = log->index->map->log_file_int_offset;
+		file->sync_offset = log->index->map->hdr.log_file_int_offset;
 	}
 
 	for (p = &log->tail; *p != NULL; p = &(*p)->next) {
