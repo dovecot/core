@@ -190,10 +190,7 @@ static void plain_output(void *context, int fd __attr_unused__,
 	SSLProxy *proxy = context;
 	int sent;
 
-	/* FIXME: (void*) 1 is horrible kludge, but there's no need for us
-	   to store the data as gnutls does it already, maybe it needes an
-	   api change or some clarification how to do it better.. */
-	sent = proxy_send_ssl(proxy, (void *) 1, proxy->send_left_ssl);
+	sent = proxy_send_ssl(proxy, NULL, proxy->send_left_ssl);
 	if (sent <= 0)
 		return;
 
