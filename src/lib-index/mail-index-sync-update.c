@@ -190,6 +190,13 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
         struct mail_index_expunge_handler *expunge_handlers, *eh;
 	size_t i, expunge_handlers_count;
 
+	if (e->uid1 > e->uid2 || e->uid1 == 0) {
+		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+				"Invalid UID range in expunge (%u .. %u)",
+				e->uid1, e->uid2);
+		return -1;
+	}
+
 	if (!view->map->write_to_disk) {
 		/* expunges have to be atomic. so we'll have to copy
 		   the mapping, do the changes there and then finally
@@ -312,6 +319,13 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	keywords_mask_t keyword_mask;
 	uint32_t i, idx, seq1, seq2;
 	int update_keywords;
+
+	if (u->uid1 > u->uid2 || u->uid1 == 0) {
+		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+				"Invalid UID range in flag update (%u .. %u)",
+				u->uid1, u->uid2);
+		return -1;
+	}
 
 	if (mail_index_lookup_uid_range(view, u->uid1, u->uid2,
 					&seq1, &seq2) < 0)
