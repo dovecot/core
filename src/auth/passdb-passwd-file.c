@@ -83,6 +83,8 @@ static void passwd_file_deinit(void)
 }
 
 struct passdb_module passdb_passwd_file = {
+	"passwd-file",
+
 	NULL,
 	passwd_file_init,
 	passwd_file_deinit,

@@ -10,14 +10,35 @@
 static struct auth_module *userdb_module = NULL;
 #endif
 
+struct userdb_module *userdbs[] = {
+#ifdef USERDB_PASSWD
+	&userdb_passwd,
+#endif
+#ifdef USERDB_PASSWD_FILE
+	&userdb_passwd_file,
+#endif
+#ifdef USERDB_STATIC
+	&userdb_static,
+#endif
+#ifdef USERDB_VPOPMAIL
+	&userdb_vpopmail,
+#endif
+#ifdef USERDB_LDAP
+	&userdb_ldap,
+#endif
+#ifdef USERDB_SQL
+	&userdb_sql,
+#endif
+	NULL
+};
+
 struct userdb_module *userdb;
 static char *userdb_args;
 
 void userdb_preinit(void)
 {
+	struct userdb_module **p;
 	const char *name, *args;
-
-	userdb = NULL;
 
 	name = getenv("USERDB");
 	if (name == NULL)
@@ -32,30 +53,13 @@ void userdb_preinit(void)
 
 	userdb_args = i_strdup(args);
 
-#ifdef USERDB_PASSWD
-	if (strcasecmp(name, "passwd") == 0)
-		userdb = &userdb_passwd;
-#endif
-#ifdef USERDB_PASSWD_FILE
-	if (strcasecmp(name, "passwd-file") == 0)
-		userdb = &userdb_passwd_file;
-#endif
-#ifdef USERDB_STATIC
-	if (strcasecmp(name, "static") == 0)
-		userdb = &userdb_static;
-#endif
-#ifdef USERDB_VPOPMAIL
-	if (strcasecmp(name, "vpopmail") == 0)
-		userdb = &userdb_vpopmail;
-#endif
-#ifdef USERDB_LDAP
-	if (strcasecmp(name, "ldap") == 0)
-		userdb = &userdb_ldap;
-#endif
-#ifdef USERDB_SQL
-	if (strcasecmp(name, "sql") == 0)
-		userdb = &userdb_sql;
-#endif
+	userdb = NULL;
+	for (p = userdbs; *p != NULL; p++) {
+		if (strcmp((*p)->name, name) == 0) {
+			userdb = *p;
+			break;
+		}
+	}
 #ifdef HAVE_MODULES
 	userdb_module = userdb != NULL ? NULL : auth_module_open(name);
 	if (userdb_module != NULL) {

@@ -16,6 +16,8 @@ struct user_data {
 typedef void userdb_callback_t(const struct user_data *user, void *context);
 
 struct userdb_module {
+	const char *name;
+
 	void (*preinit)(const char *args);
 	void (*init)(const char *args);
 	void (*deinit)(void);

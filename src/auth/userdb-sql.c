@@ -107,6 +107,8 @@ static void userdb_sql_deinit(void)
 }
 
 struct userdb_module userdb_sql = {
+	"sql",
+
 	userdb_sql_preinit,
 	userdb_sql_init,
 	userdb_sql_deinit,

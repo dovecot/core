@@ -213,6 +213,8 @@ static void passdb_sql_deinit(void)
 }
 
 struct passdb_module passdb_sql = {
+	"sql",
+
 	passdb_sql_preinit,
 	passdb_sql_init,
 	passdb_sql_deinit,

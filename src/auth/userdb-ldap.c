@@ -208,6 +208,8 @@ static void userdb_ldap_deinit(void)
 }
 
 struct userdb_module userdb_ldap = {
+	"ldap",
+
 	userdb_ldap_preinit,
 	userdb_ldap_init,
 	userdb_ldap_deinit,

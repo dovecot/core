@@ -253,6 +253,8 @@ static void passdb_ldap_deinit(void)
 }
 
 struct passdb_module passdb_ldap = {
+	"ldap",
+
 	passdb_ldap_preinit,
 	passdb_ldap_init,
 	passdb_ldap_deinit,

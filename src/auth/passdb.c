@@ -13,6 +13,37 @@
 static struct auth_module *passdb_module = NULL;
 #endif
 
+struct passdb_module *passdbs[] = {
+#ifdef PASSDB_PASSWD
+	&passdb_passwd,
+#endif
+#ifdef PASSDB_BSDAUTH
+	&passdb_bsdauth,
+#endif
+#ifdef PASSDB_PASSWD_FILE
+	&passdb_passwd_file,
+#endif
+#ifdef PASSDB_PAM
+	&passdb_pam,
+#endif
+#ifdef PASSDB_CHECKPASSWORD
+	&passdb_checkpassword,
+#endif
+#ifdef PASSDB_SHADOW
+	&passdb_shadow,
+#endif
+#ifdef PASSDB_VPOPMAIL
+	&passdb_vpopmail,
+#endif
+#ifdef PASSDB_LDAP
+	&passdb_ldap,
+#endif
+#ifdef PASSDB_SQL
+	&passdb_sql,
+#endif
+	NULL
+};
+
 struct passdb_module *passdb;
 static char *passdb_args;
 
@@ -81,8 +112,7 @@ void passdb_handle_credentials(enum passdb_credentials credentials,
 	callback(password, auth_request);
 }
 
-static void
-mech_list_verify_passdb(struct passdb_module *passdb, const char *name)
+static void mech_list_verify_passdb(struct passdb_module *passdb)
 {
 	struct mech_module_list *list;
 
@@ -97,15 +127,14 @@ mech_list_verify_passdb(struct passdb_module *passdb, const char *name)
 
 	if (list != NULL) {
 		i_fatal("Passdb %s doesn't support %s method",
-			name, list->module.mech_name);
+			passdb->name, list->module.mech_name);
 	}
 }
 
 void passdb_preinit(void)
 {
+	struct passdb_module **p;
 	const char *name, *args;
-
-	passdb = NULL;
 
 	name = getenv("PASSDB");
 	if (name == NULL)
@@ -120,42 +149,14 @@ void passdb_preinit(void)
 
 	passdb_args = i_strdup(args);
 
-#ifdef PASSDB_PASSWD
-	if (strcasecmp(name, "passwd") == 0)
-		passdb = &passdb_passwd;
-#endif
-#ifdef PASSDB_BSDAUTH
-	if (strcasecmp(name, "bsdauth") == 0)
-		passdb = &passdb_bsdauth;
-#endif
-#ifdef PASSDB_PASSWD_FILE
-	if (strcasecmp(name, "passwd-file") == 0)
-		passdb = &passdb_passwd_file;
-#endif
-#ifdef PASSDB_PAM
-	if (strcasecmp(name, "pam") == 0)
-		passdb = &passdb_pam;
-#endif
-#ifdef PASSDB_CHECKPASSWORD
-	if (strcasecmp(name, "checkpassword") == 0)
-		passdb = &passdb_checkpassword;
-#endif
-#ifdef PASSDB_SHADOW
-	if (strcasecmp(name, "shadow") == 0)
-		passdb = &passdb_shadow;
-#endif
-#ifdef PASSDB_VPOPMAIL
-	if (strcasecmp(name, "vpopmail") == 0)
-		passdb = &passdb_vpopmail;
-#endif
-#ifdef PASSDB_LDAP
-	if (strcasecmp(name, "ldap") == 0)
-		passdb = &passdb_ldap;
-#endif
-#ifdef PASSDB_SQL
-	if (strcasecmp(name, "sql") == 0)
-		passdb = &passdb_sql;
-#endif
+	passdb = NULL;
+	for (p = passdbs; *p != NULL; p++) {
+		if (strcmp((*p)->name, name) == 0) {
+			passdb = *p;
+			break;
+		}
+	}
+	
 #ifdef HAVE_MODULES
 	passdb_module = passdb != NULL ? NULL : auth_module_open(name);
 	if (passdb_module != NULL) {
@@ -170,7 +171,7 @@ void passdb_preinit(void)
 	if (passdb->preinit != NULL)
 		passdb->preinit(passdb_args);
 
-	mech_list_verify_passdb(passdb, name);
+	mech_list_verify_passdb(passdb);
 }
 
 void passdb_init(void)

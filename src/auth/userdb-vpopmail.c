@@ -106,6 +106,8 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 }
 
 struct userdb_module userdb_vpopmail = {
+	"vpopmail",
+
 	NULL, NULL, NULL,
 	vpopmail_lookup
 };
