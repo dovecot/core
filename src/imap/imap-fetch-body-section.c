@@ -317,7 +317,7 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 		if (o_stream_send_str(ctx->output, str) < 0)
 			return FALSE;
 		return message_send(ctx->output, input, size,
-				    body->skip, body->max_size, NULL,
+				    body->skip, send_size, NULL,
 				    !mail->has_no_nuls) >= 0;
 	}
 
