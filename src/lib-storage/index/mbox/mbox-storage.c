@@ -457,6 +457,15 @@ mbox_open(struct index_storage *storage, const char *name,
 	ibox->mail_deinit = mbox_mail_deinit;
 	ibox->mail_interface = &mbox_mail;
 
+	if (access(path, R_OK|W_OK) < 0) {
+		if (errno < EACCES)
+			mbox_set_syscall_error(ibox, "access()");
+		else {
+			ibox->readonly = TRUE;
+			ibox->mbox_readonly = TRUE;
+		}
+	}
+
 	return &ibox->box;
 }
 
