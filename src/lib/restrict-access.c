@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <grp.h>
 
 void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
@@ -49,6 +50,11 @@ void restrict_access_by_env(void)
 	/* chrooting */
 	env = getenv("CHROOT");
 	if (env != NULL) {
+		/* kludge: localtime() must be called before chroot(),
+		   or the timezone isn't known */
+		time_t t = 0;
+		(void)localtime(&t);
+
 		if (chroot(env) != 0)
 			i_fatal("chroot(%s) failed: %m", env);
 
