@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "iobuffer.h"
 #include "commands.h"
 #include "imap-parser.h"
 #include "imap-date.h"
@@ -119,6 +120,9 @@ int cmd_append(Client *client)
 			return TRUE;
 		}
 	}
+
+	io_buffer_send(client->outbuf, "+ OK\r\n", 6);
+	io_buffer_send_flush(client->outbuf);
 
 	/* save the mail */
 	failed = !box->save(box, flags, custom_flags, internal_date,

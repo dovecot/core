@@ -276,6 +276,26 @@ static int imap_parser_read_string(ImapParser *parser, char *data,
 	return TRUE;
 }
 
+static int imap_parser_literal_end(ImapParser *parser)
+{
+	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
+		if (parser->literal_size > parser->inbuf->max_buffer_size) {
+			/* too long string, abort. */
+			parser->error = TRUE;
+			return FALSE;
+		}
+
+		io_buffer_send(parser->outbuf, "+ OK\r\n", 6);
+		io_buffer_send_flush(parser->outbuf);
+	}
+
+	parser->cur_type = ARG_PARSE_LITERAL_DATA;
+	parser->literal_skip_crlf = TRUE;
+
+	parser->cur_pos = 0;
+	return TRUE;
+}
+
 static int imap_parser_read_literal(ImapParser *parser, char *data,
 				    size_t data_size)
 {
@@ -284,20 +304,9 @@ static int imap_parser_read_literal(ImapParser *parser, char *data,
 	/* expecting digits + "}" */
 	for (i = parser->cur_pos; i < data_size; i++) {
 		if (data[i] == '}') {
-			if (parser->literal_size >
-			    parser->inbuf->max_buffer_size) {
-				/* too long string, abort. */
-				parser->error = TRUE;
-				return FALSE;
-			}
-
-                        io_buffer_send(parser->outbuf, "+ OK\r\n", 6);
-			io_buffer_send_flush(parser->outbuf);
-			parser->cur_type = ARG_PARSE_LITERAL_DATA;
-			parser->literal_skip_crlf = TRUE;
-
 			io_buffer_skip(parser->inbuf, i+1);
-			parser->cur_pos = 0;
+			if (!imap_parser_literal_end(parser))
+				return FALSE;
 			break;
 		}
 
