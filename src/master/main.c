@@ -41,6 +41,9 @@ uid_t master_uid;
 static int gdb;
 #endif
 
+static void listen_fds_open(int retry);
+static void listen_fds_close(struct server_settings *server);
+
 int validate_str(const char *str, size_t max_len)
 {
 	size_t i;
@@ -71,8 +74,25 @@ static void sig_quit(int signo __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
+static void set_logfile(struct settings *set)
+{
+	if (set->log_path == NULL)
+		i_set_failure_syslog("dovecot", LOG_NDELAY, LOG_MAIL);
+	else {
+		/* log to file or stderr */
+		i_set_failure_file(set->log_path, "dovecot");
+	}
+
+	if (set->info_log_path != NULL)
+		i_set_info_file(set->info_log_path);
+
+	i_set_failure_timestamp_format(set->log_timestamp);
+}
+
 static void settings_reload(void)
 {
+	struct server_settings *old_set = settings_root;
+
 	i_warning("SIGHUP received - reloading configuration");
 
 	/* restart auth and login processes */
@@ -81,6 +101,11 @@ static void settings_reload(void)
 
 	if (!master_settings_read(configfile))
 		i_warning("Invalid configuration, keeping old one");
+	else {
+		listen_fds_close(old_set);
+		listen_fds_open(TRUE);
+                set_logfile(settings_root->defaults);
+	}
 }
 
 static const char *get_exit_status_message(enum fatal_exit_status status)
@@ -215,12 +240,12 @@ static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 	return ip;
 }
 
-static void listen_protocols(struct settings *set)
+static void listen_protocols(struct settings *set, int retry)
 {
 	struct ip_addr *normal_ip, *ssl_ip, *ip;
 	const char *const *proto;
 	unsigned int normal_port, ssl_port, port;
-	int *fd;
+	int *fd, i;
 
 	normal_port = set->protocol == MAIL_PROTOCOL_IMAP ? 143 : 110;
 #ifdef HAVE_SSL
@@ -275,7 +300,16 @@ static void listen_protocols(struct settings *set)
 		if (port == 0)
 			*fd = null_fd;
 		else {
-			*fd = net_listen(ip, &port);
+			for (i = 0; i < 10; i++) {
+				*fd = net_listen(ip, &port);
+				if (*fd != -1 || errno != EADDRINUSE || !retry)
+					break;
+
+				/* wait a while and try again. we're SIGHUPing
+				   so we most likely just closed it ourself.. */
+				sleep(1);
+			}
+
 			if (*fd == -1)
 				i_fatal("listen(%d) failed: %m", port);
 			net_set_nonblock(*fd, TRUE);
@@ -287,6 +321,40 @@ static void listen_protocols(struct settings *set)
 		set->listen_fd = null_fd;
 	if (set->ssl_listen_fd == -1)
 		set->ssl_listen_fd = null_fd;
+}
+
+static void listen_fds_open(int retry)
+{
+	struct server_settings *server;
+
+	for (server = settings_root; server != NULL; server = server->next) {
+		if (server->imap != NULL)
+			listen_protocols(server->imap, retry);
+		if (server->pop3 != NULL)
+			listen_protocols(server->pop3, retry);
+	}
+}
+
+static void listen_fds_close(struct server_settings *server)
+{
+	for (; server != NULL; server = server->next) {
+		if (server->imap != NULL) {
+			if (server->imap->listen_fd != null_fd &&
+			    close(server->imap->listen_fd) < 0)
+				i_error("close(imap.listen_fd) failed: %m");
+			if (server->imap->ssl_listen_fd != null_fd &&
+			    close(server->imap->ssl_listen_fd) < 0)
+				i_error("close(imap.ssl_listen_fd) failed: %m");
+		}
+		if (server->pop3 != NULL) {
+			if (server->pop3->listen_fd != null_fd &&
+			    close(server->pop3->listen_fd) < 0)
+				i_error("close(pop3.listen_fd) failed: %m");
+			if (server->pop3->ssl_listen_fd != null_fd &&
+			    close(server->pop3->ssl_listen_fd) < 0)
+				i_error("close(pop3.ssl_listen_fd) failed: %m");
+		}
+	}
 }
 
 static int have_stderr_set(struct settings *set)
@@ -318,8 +386,6 @@ static int have_stderr(struct server_settings *server)
 
 static void open_fds(void)
 {
-	struct server_settings *server;
-
 	/* initialize fds. */
 	null_fd = open("/dev/null", O_RDONLY);
 	if (null_fd == -1)
@@ -332,15 +398,8 @@ static void open_fds(void)
 		fd_close_on_exec(null_fd, TRUE);
 	}
 
-	if (!IS_INETD()) {
-		server = settings_root;
-		for (; server != NULL; server = server->next) {
-			if (server->imap != NULL)
-				listen_protocols(server->imap);
-			if (server->pop3 != NULL)
-				listen_protocols(server->pop3);
-		}
-	}
+	if (!IS_INETD())
+		listen_fds_open(FALSE);
 
 	/* close stdin and stdout. close stderr unless we're logging
 	   into /dev/stderr. */
@@ -355,29 +414,14 @@ static void open_fds(void)
 	}
 }
 
-static void open_logfile(struct settings *set)
-{
-	if (set->log_path == NULL)
-		i_set_failure_syslog("dovecot", LOG_NDELAY, LOG_MAIL);
-	else {
-		/* log to file or stderr */
-		i_set_failure_file(set->log_path, "dovecot");
-	}
-
-	if (set->info_log_path != NULL)
-		i_set_info_file(set->info_log_path);
-
-	i_set_failure_timestamp_format(set->log_timestamp);
-
-	i_info("Dovecot v"VERSION" starting up");
-}
-
 static void main_init(void)
 {
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	open_logfile(settings_root->defaults);
+	set_logfile(settings_root->defaults);
+	i_info("Dovecot v"VERSION" starting up");
+
 	log_init();
 
 	lib_init_signals(sig_quit);
