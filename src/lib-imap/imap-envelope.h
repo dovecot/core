@@ -35,9 +35,9 @@ void imap_envelope_write_part_data(MessagePartEnvelopeData *data,
 /* Return envelope. */
 const char *imap_envelope_get_part_data(MessagePartEnvelopeData *data);
 
-/* Parse envelope and return specified field unquoted, or NULL if error
-   occured. NILs are returned as "". */
-const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field,
-				ImapEnvelopeResult result);
+/* Parse envelope and store specified field to result. NIL is stored as NULL.
+   Returns TRUE if successful. */
+int imap_envelope_parse(const char *envelope, ImapEnvelopeField field,
+			ImapEnvelopeResult result_type, const char **result);
 
 #endif

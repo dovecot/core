@@ -52,7 +52,7 @@ static const char *_input_mailbox(MailSortType type, unsigned int id,
 {
 	IndexSortContext *ctx = context;
 	ImapEnvelopeField env_field;
-	const char *envelope;
+	const char *envelope, *str;
 
 	switch (type) {
 	case MAIL_SORT_CC:
@@ -72,16 +72,21 @@ static const char *_input_mailbox(MailSortType type, unsigned int id,
 	/* get field from hopefully cached envelope */
 	envelope = imap_msgcache_get(search_open_cache(ctx, id),
 				     IMAP_CACHE_ENVELOPE);
-	return envelope == NULL ? NULL :
-		imap_envelope_parse(envelope, env_field,
-				    IMAP_ENVELOPE_RESULT_FIRST_MAILBOX);
+	if (envelope == NULL)
+		return NULL;
+
+	if (!imap_envelope_parse(envelope, env_field,
+				 IMAP_ENVELOPE_RESULT_FIRST_MAILBOX, &str))
+		return NULL;
+
+	return str;
 }
 
 static const char *_input_str(MailSortType type, unsigned int id, void *context)
 {
 	IndexSortContext *ctx = context;
 	ImapEnvelopeField env_field;
-	const char *envelope;
+	const char *envelope, *str;
 
 	switch (type) {
 	case MAIL_SORT_DATE:
@@ -98,9 +103,14 @@ static const char *_input_str(MailSortType type, unsigned int id, void *context)
 	/* get field from hopefully cached envelope */
 	envelope = imap_msgcache_get(search_open_cache(ctx, id),
 				     IMAP_CACHE_ENVELOPE);
-	return envelope == NULL ? NULL :
-		imap_envelope_parse(envelope, env_field,
-				    IMAP_ENVELOPE_RESULT_STRING);
+	if (envelope == NULL)
+		return NULL;
+
+	if (!imap_envelope_parse(envelope, env_field,
+				 IMAP_ENVELOPE_RESULT_STRING, &str))
+		return NULL;
+
+	return str;
 }
 
 static time_t _input_time(MailSortType type, unsigned int id, void *context)

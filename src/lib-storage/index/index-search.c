@@ -278,13 +278,16 @@ static void search_cached_arg(MailSearchArg *arg, void *context)
 	}
 }
 
-static int search_sent(MailSearchArgType type, const char *value,
+static int search_sent(MailSearchArgType type, const char *search_value,
 		       const char *sent_value)
 {
 	time_t search_time, sent_time;
 	int timezone_offset;
 
-	if (!imap_parse_date(value, &search_time))
+	if (sent_value == NULL)
+		return 0;
+
+	if (!imap_parse_date(search_value, &search_time))
 		return 0;
 
 	/* NOTE: RFC2060 doesn't specify if timezones should affect
@@ -380,22 +383,29 @@ static int search_arg_match_envelope(SearchIndexContext *ctx,
 	/* get field from hopefully cached envelope */
 	envelope = index->lookup_field(index, ctx->rec, DATA_FIELD_ENVELOPE);
 	if (envelope != NULL) {
-		field = imap_envelope_parse(envelope, env_field,
-					    IMAP_ENVELOPE_RESULT_STRING);
+		ret = imap_envelope_parse(envelope, env_field,
+					  IMAP_ENVELOPE_RESULT_STRING,
+					  &field) ? 1 : -1;
 	} else {
 		index->cache_fields_later(index, DATA_FIELD_ENVELOPE);
 		field = NULL;
+		ret = -1;
 	}
 
-	if (field == NULL)
-		ret = -1;
-	else {
+	if (ret != -1) {
 		switch (arg->type) {
 		case SEARCH_SENTBEFORE:
 		case SEARCH_SENTON:
 		case SEARCH_SENTSINCE:
 			ret = search_sent(arg->type, arg->value.str, field);
 		default:
+			if (arg->value.str[0] == '\0') {
+				/* we're just testing existence of the field.
+				   assume it matches with non-NIL values. */
+				ret = field != NULL ? 1 : 0;
+				break;
+			}
+
 			hdr_search_ctx = search_header_context(ctx, arg);
 			if (hdr_search_ctx == NULL) {
 				ret = 0;
@@ -488,18 +498,23 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 		return;
 	}
 
-	t_push();
+	if (arg->value.str[0] == '\0') {
+		/* we're just testing existence of the field. always matches. */
+		ret = 1;
+	} else {
+		t_push();
 
-	/* then check if the value matches */
-	hdr_search_ctx = search_header_context(ctx->index_context, arg);
-	if (hdr_search_ctx == NULL)
-		ret = 0;
-	else {
-		len = ctx->value_len;
-		ret = message_header_search(ctx->value, len,
-					    hdr_search_ctx) ? 1 : 0;
+		/* then check if the value matches */
+		hdr_search_ctx = search_header_context(ctx->index_context, arg);
+		if (hdr_search_ctx == NULL)
+			ret = 0;
+		else {
+			len = ctx->value_len;
+			ret = message_header_search(ctx->value, len,
+						    hdr_search_ctx) ? 1 : 0;
+		}
+		t_pop();
 	}
-	t_pop();
 
         ARG_SET_RESULT(arg, ret);
 }

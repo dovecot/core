@@ -233,16 +233,19 @@ static const char *imap_envelope_parse_first_mailbox(ImapArg *arg)
 	return t_strdup(imap_arg_string(&list->args[2]));
 }
 
-static const char *
-imap_envelope_parse_arg(ImapArg *arg, ImapEnvelopeField field,
-			const char *envelope, ImapEnvelopeResult result)
+static int imap_envelope_parse_arg(ImapArg *arg, ImapEnvelopeField field,
+				   const char *envelope,
+				   ImapEnvelopeResult result_type,
+				   const char **result)
 {
 	const char *value = NULL;
 
-	if (arg->type == IMAP_ARG_NIL)
-		return "";
+	if (arg->type == IMAP_ARG_NIL) {
+		*result = NULL;
+		return TRUE;
+	}
 
-	switch (result) {
+	switch (result_type) {
 	case IMAP_ENVELOPE_RESULT_STRING:
 		if (field >= IMAP_ENVELOPE_FROM && field <= IMAP_ENVELOPE_BCC)
 			value = imap_envelope_parse_address(arg);
@@ -256,21 +259,22 @@ imap_envelope_parse_arg(ImapArg *arg, ImapEnvelopeField field,
 		break;
 	}
 
-	if (value == NULL) {
+	*result = value;
+	if (value != NULL)
+		return TRUE;
+	else {
 		i_error("Invalid field %u in IMAP envelope: %s",
 			field, envelope);
+		return FALSE;
 	}
-
-	return value;
 }
 
-const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field,
-				ImapEnvelopeResult result)
+int imap_envelope_parse(const char *envelope, ImapEnvelopeField field,
+			ImapEnvelopeResult result_type, const char **result)
 {
 	IStream *input;
 	ImapParser *parser;
 	ImapArg *args;
-	const char *value;
 	int ret;
 
 	i_assert(field < IMAP_ENVELOPE_FIELDS);
@@ -282,14 +286,15 @@ const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field,
 	(void)i_stream_read(input);
 	ret = imap_parser_read_args(parser, field+1, 0, &args);
 	if (ret > (int)field) {
-		value = imap_envelope_parse_arg(&args[field], field,
-						envelope, result);
+		ret = imap_envelope_parse_arg(&args[field], field,
+					      envelope, result_type, result);
 	} else {
 		i_error("Error parsing IMAP envelope: %s", envelope);
-		value = NULL;
+		*result = NULL;
+		ret = FALSE;
 	}
 
 	imap_parser_destroy(parser);
 	i_stream_unref(input);
-	return value;
+	return ret;
 }
