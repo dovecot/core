@@ -235,6 +235,9 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file,
 static void
 mail_transaction_log_file_close(struct mail_transaction_log_file *file)
 {
+	if (file->lock_type != F_UNLCK)
+		(void)mail_transaction_log_file_lock(file, F_UNLCK);
+
 	if (file->buffer != NULL)
 		buffer_free(file->buffer);
 
