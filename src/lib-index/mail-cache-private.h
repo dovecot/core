@@ -73,20 +73,16 @@ struct mail_cache_header_fields {
 #endif
 };
 
-#define MAIL_CACHE_FIELD_LAST_USED(field_hdr) \
-	CONST_PTR_OFFSET(field_hdr, sizeof(uint32_t) * 3)
-#define MAIL_CACHE_FIELD_SIZE(field_hdr) \
-	CONST_PTR_OFFSET(MAIL_CACHE_FIELD_LAST_USED(field_hdr), \
-			 sizeof(uint32_t) * (field_hdr)->fields_count)
-#define MAIL_CACHE_FIELD_TYPE(field_hdr) \
-	CONST_PTR_OFFSET(MAIL_CACHE_FIELD_SIZE(field_hdr), \
-			 sizeof(uint32_t) * (field_hdr)->fields_count)
-#define MAIL_CACHE_FIELD_DECISION(field_hdr) \
-	CONST_PTR_OFFSET(MAIL_CACHE_FIELD_TYPE(field_hdr), \
-			 sizeof(uint8_t) * (field_hdr)->fields_count)
-#define MAIL_CACHE_FIELD_NAMES(field_hdr) \
-	CONST_PTR_OFFSET(MAIL_CACHE_FIELD_DECISION(field_hdr), \
-			 sizeof(uint8_t) * (field_hdr)->fields_count)
+#define MAIL_CACHE_FIELD_LAST_USED() \
+	(sizeof(uint32_t) * 3)
+#define MAIL_CACHE_FIELD_SIZE(count) \
+	(MAIL_CACHE_FIELD_LAST_USED() + sizeof(uint32_t) * (count))
+#define MAIL_CACHE_FIELD_TYPE(count) \
+	(MAIL_CACHE_FIELD_SIZE(count) + sizeof(uint32_t) * (count))
+#define MAIL_CACHE_FIELD_DECISION(count) \
+	(MAIL_CACHE_FIELD_TYPE(count) + sizeof(uint8_t) * (count))
+#define MAIL_CACHE_FIELD_NAMES(count) \
+	(MAIL_CACHE_FIELD_DECISION(count) + sizeof(uint8_t) * (count))
 
 struct mail_cache_record {
 	uint32_t prev_offset;
@@ -105,6 +101,15 @@ struct mail_cache_hole_header {
 	uint32_t magic;
 };
 
+struct mail_cache_field_private {
+	struct mail_cache_field field;
+
+	uint32_t uid_highwater;
+	time_t last_used;
+
+	unsigned int decision_dirty:1;
+};
+
 struct mail_cache {
 	struct mail_index *index;
 
@@ -118,7 +123,7 @@ struct mail_cache {
 	struct mail_cache_header hdr_copy;
 
 	pool_t field_pool;
-	struct mail_cache_field *fields;
+	struct mail_cache_field_private *fields;
 	uint32_t *field_file_map;
 	unsigned int fields_count;
 	struct hash_table *field_name_hash; /* name -> idx */

@@ -555,7 +555,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	i_assert(field < ctx->cache->fields_count);
 	i_assert(data_size < (uint32_t)-1);
 
-	if (ctx->cache->fields[field].decision ==
+	if (ctx->cache->fields[field].field.decision ==
 	    (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED))
 		return;
 
@@ -571,7 +571,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 	mail_cache_decision_add(ctx->view, seq, field);
 
-	fixed_size = ctx->cache->fields[field].field_size;
+	fixed_size = ctx->cache->fields[field].field.field_size;
 	i_assert(fixed_size == (unsigned int)-1 || fixed_size == data_size);
 
 	data_size32 = (uint32_t)data_size;

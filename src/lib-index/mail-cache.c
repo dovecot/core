@@ -327,6 +327,9 @@ void mail_cache_unlock(struct mail_cache *cache)
 {
 	i_assert(cache->locked);
 
+	if (cache->field_header_write_pending)
+                (void)mail_cache_header_fields_update(cache);
+
 	cache->locked = FALSE;
 
 	if (cache->hdr_modified) {
@@ -358,6 +361,9 @@ mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 
 void mail_cache_view_close(struct mail_cache_view *view)
 {
+	if (view->cache->field_header_write_pending)
+                (void)mail_cache_header_fields_update(view->cache);
+
 	buffer_free(view->cached_exists_buf);
 	i_free(view);
 }

@@ -103,7 +103,7 @@ mail_cache_foreach_rec(struct mail_cache_view *view,
 		}
 
 		field = cache->file_field_map[file_field];
-		data_size = cache->fields[field].field_size;
+		data_size = cache->fields[field].field.field_size;
 		if (data_size == (unsigned int)-1) {
 			data_size = *((const uint32_t *)
 				      CONST_PTR_OFFSET(cache_rec, pos));
@@ -225,7 +225,7 @@ mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field)
 {
 	i_assert(field < cache->fields_count);
 
-	return cache->fields[field].decision;
+	return cache->fields[field].field.decision;
 }
 
 struct mail_cache_lookup_context {

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "hash.h"
+#include "write-full.h"
 #include "mail-cache-private.h"
 
 #include <stddef.h>
@@ -50,24 +51,24 @@ void mail_cache_register_fields(struct mail_cache *cache,
 			continue;
 
 		/* new index - save it */
-		cache->fields[idx] = fields[i];
-		cache->fields[idx].name =
+		cache->fields[idx].field = fields[i];
+		cache->fields[idx].field.name =
 			p_strdup(cache->field_pool, fields[i].name);
 		cache->field_file_map[idx] = (uint32_t)-1;
 
-		switch (cache->fields[idx].type) {
+		switch (cache->fields[idx].field.type) {
 		case MAIL_CACHE_FIELD_FIXED_SIZE:
 		case MAIL_CACHE_FIELD_BITMASK:
 			break;
 		case MAIL_CACHE_FIELD_VARIABLE_SIZE:
 		case MAIL_CACHE_FIELD_STRING:
 		case MAIL_CACHE_FIELD_HEADER:
-			cache->fields[idx].field_size = (unsigned int)-1;
+			cache->fields[idx].field.field_size = (unsigned int)-1;
 			break;
 		}
 
 		hash_insert(cache->field_name_hash,
-			    (char *)cache->fields[idx].name,
+			    (char *)cache->fields[idx].field.name,
 			    POINTER_CAST(idx));
 	}
 	cache->fields_count = new_idx;
@@ -101,6 +102,11 @@ static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	next_offset =
 		mail_cache_offset_to_uint32(cache->hdr->field_header_offset);
 	while (next_offset != 0) {
+		if (next_offset == offset) {
+			mail_cache_set_corrupted(cache,
+				"next_offset in field header loops");
+			return -1;
+		}
 		offset = next_offset;
 
 		if (mail_cache_map(cache, offset,
@@ -123,6 +129,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	const uint32_t *last_used, *sizes;
 	const uint8_t *types, *decisions;
 	const char *p, *names, *end;
+	void *orig_key, *orig_value;
 	uint32_t offset, i;
 
 	if (mail_cache_header_fields_get_offset(cache, &offset) < 0)
@@ -160,11 +167,15 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			  field_hdr->fields_count * sizeof(unsigned int));
 	cache->file_fields_count = field_hdr->fields_count;
 
-        last_used = MAIL_CACHE_FIELD_LAST_USED(field_hdr);
-	sizes = MAIL_CACHE_FIELD_SIZE(field_hdr);
-	types = MAIL_CACHE_FIELD_TYPE(field_hdr);
-	decisions = MAIL_CACHE_FIELD_DECISION(field_hdr);
-	names = MAIL_CACHE_FIELD_NAMES(field_hdr);
+	last_used = CONST_PTR_OFFSET(field_hdr, MAIL_CACHE_FIELD_LAST_USED());
+	sizes = CONST_PTR_OFFSET(field_hdr,
+		MAIL_CACHE_FIELD_SIZE(field_hdr->fields_count));
+	types = CONST_PTR_OFFSET(field_hdr,
+		MAIL_CACHE_FIELD_TYPE(field_hdr->fields_count));
+	decisions = CONST_PTR_OFFSET(field_hdr,
+		MAIL_CACHE_FIELD_DECISION(field_hdr->fields_count));
+	names = CONST_PTR_OFFSET(field_hdr,
+		MAIL_CACHE_FIELD_NAMES(field_hdr->fields_count));
 	end = CONST_PTR_OFFSET(field_hdr, field_hdr->size);
 
 	/* clear the old mapping */
@@ -174,81 +185,152 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	memset(&field, 0, sizeof(field));
 	for (i = 0; i < field_hdr->fields_count; i++) {
 		for (p = names; p != end && *p != '\0'; p++) ;
-		if (p == end) {
+		if (p == end || *names == '\0') {
 			mail_cache_set_corrupted(cache,
 				"field header names corrupted");
 			return -1;
 		}
 
-		field.name = names;
-		field.type = types[i];
-		field.field_size = sizes[i];
-		field.decision = decisions[i];
-		field.last_used = (time_t)last_used[i];
-		mail_cache_register_fields(cache, &field, 1);
+		if (hash_lookup_full(cache->field_name_hash, names,
+				     &orig_key, &orig_value)) {
+			/* already exists, see if decision can be updated */
+			field.idx = POINTER_CAST_TO(orig_value, unsigned int);
+			if (!cache->fields[field.idx].decision_dirty) {
+				cache->fields[field.idx].field.decision =
+					decisions[i];
+			}
+			if (cache->fields[field.idx].field.type != types[i]) {
+				mail_cache_set_corrupted(cache,
+					"registered field type changed");
+				return -1;
+			}
+		} else {
+			field.name = names;
+			field.type = types[i];
+			field.field_size = sizes[i];
+			field.decision = decisions[i];
+			mail_cache_register_fields(cache, &field, 1);
+		}
 		cache->field_file_map[field.idx] = i;
 		cache->file_field_map[i] = field.idx;
 
-		names = p + 1;
+		/* update last_used if it's newer than ours */
+		if ((time_t)last_used[i] > cache->fields[field.idx].last_used) {
+			cache->fields[field.idx].last_used =
+				(time_t)last_used[i];
+		}
+
+                names = p + 1;
 	}
 	return 0;
+}
+
+static void copy_to_buf(struct mail_cache *cache, buffer_t *dest,
+			size_t offset, size_t size)
+{
+	const void *data;
+	unsigned int i, field;
+
+	for (i = 0; i < cache->file_fields_count; i++) {
+		field = cache->file_field_map[i];
+                data = CONST_PTR_OFFSET(&cache->fields[field], offset);
+		buffer_append(dest, data, size);
+	}
+	for (i = 0; i < cache->fields_count; i++) {
+		if (cache->field_file_map[i] != (uint32_t)-1)
+			continue;
+		data = CONST_PTR_OFFSET(&cache->fields[i], offset);
+		buffer_append(dest, data, size);
+	}
 }
 
 int mail_cache_header_fields_update(struct mail_cache *cache)
 {
 	int locked = cache->locked;
+	buffer_t *buffer;
+	uint32_t i, offset;
+	int ret = 0;
 
 	if (!locked) {
 		if (mail_cache_lock(cache) <= 0)
 			return -1;
 	}
 
-	// FIXME
+	if (mail_cache_header_fields_read(cache) < 0 ||
+	    mail_cache_header_fields_get_offset(cache, &offset) < 0) {
+		mail_cache_unlock(cache);
+		return -1;
+	}
+
+	t_push();
+	buffer = buffer_create_dynamic(pool_datastack_create(),
+				       256, (size_t)-1);
+
+	copy_to_buf(cache, buffer,
+		    offsetof(struct mail_cache_field_private, last_used),
+		    sizeof(uint32_t));
+	ret = pwrite_full(cache->fd, buffer_get_data(buffer, NULL),
+			  sizeof(uint32_t) * cache->file_fields_count,
+			  offset + MAIL_CACHE_FIELD_LAST_USED());
+	if (ret == 0) {
+		buffer_set_used_size(buffer, 0);
+		copy_to_buf(cache, buffer,
+			    offsetof(struct mail_cache_field, decision),
+			    sizeof(uint8_t));
+
+		ret = pwrite_full(cache->fd, buffer_get_data(buffer, NULL),
+			sizeof(uint8_t) * cache->file_fields_count, offset +
+			MAIL_CACHE_FIELD_DECISION(cache->file_fields_count));
+
+		if (ret == 0) {
+			for (i = 0; i < cache->fields_count; i++)
+				cache->fields[i].decision_dirty = FALSE;
+		}
+	}
+	t_pop();
+
+	if (ret == 0)
+		cache->field_header_write_pending = FALSE;
 
 	if (!locked)
 		mail_cache_unlock(cache);
+	return ret;
 }
-
-#define UGLY_COPY_MACRO(field_name, type) \
-	for (i = 0; i < cache->file_fields_count; i++) {                \
-		field = cache->file_field_map[i];                       \
-		field_name = (type)cache->fields[field].field_name;     \
-		buffer_append(dest, &field_name, sizeof(field_name));   \
-	}                                                               \
-	for (i = 0; i < cache->fields_count; i++) {                     \
-		if (cache->field_file_map[i] != (uint32_t)-1)           \
-			continue;                                       \
-		field_name = (type)cache->fields[i].field_name;         \
-		buffer_append(dest, &field_name, sizeof(field_name));   \
-	}
 
 void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 {
 	struct mail_cache_header_fields hdr;
 	unsigned int field;
 	const char *name;
-	uint32_t i, last_used, field_size;
-	uint8_t type, decision;
+	uint32_t i;
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.fields_count = cache->fields_count;
 	buffer_append(dest, &hdr, sizeof(hdr));
 
 	/* we have to keep the field order for the existing fields. */
-        UGLY_COPY_MACRO(last_used, uint32_t);
-        UGLY_COPY_MACRO(field_size, uint32_t);
-        UGLY_COPY_MACRO(type, uint8_t);
-        UGLY_COPY_MACRO(decision, uint8_t);
+	copy_to_buf(cache, dest,
+		    offsetof(struct mail_cache_field_private, last_used),
+		    sizeof(uint32_t));
+	copy_to_buf(cache, dest, offsetof(struct mail_cache_field, field_size),
+		    sizeof(uint32_t));
+	copy_to_buf(cache, dest, offsetof(struct mail_cache_field, type),
+		    sizeof(uint8_t));
+	copy_to_buf(cache, dest, offsetof(struct mail_cache_field, decision),
+		    sizeof(uint8_t));
+
+	i_assert(buffer_get_used_size(dest) == sizeof(hdr) +
+		 (sizeof(uint32_t)*2 + 2) * hdr.fields_count);
 
 	for (i = 0; i < cache->file_fields_count; i++) {
 		field = cache->file_field_map[i];
-		name = cache->fields[field].name;
+		name = cache->fields[field].field.name;
 		buffer_append(dest, name, strlen(name)+1);
 	}
 	for (i = 0; i < cache->fields_count; i++) {
 		if (cache->field_file_map[i] != (uint32_t)-1)
 			continue;
-		name = cache->fields[i].name;
+		name = cache->fields[i].field.name;
 		buffer_append(dest, name, strlen(name)+1);
 	}
 

@@ -36,10 +36,6 @@ struct mail_cache_field {
 	enum mail_cache_field_type type;
 	unsigned int field_size;
 	enum mail_cache_decision_type decision;
-
-	/* internal: */
-	uint32_t uid_highwater;
-	time_t last_used;
 };
 
 struct mail_cache *mail_cache_open_or_create(struct mail_index *index);

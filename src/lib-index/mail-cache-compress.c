@@ -32,7 +32,8 @@ mail_cache_compress_callback(struct mail_cache_view *view, uint32_t file_field,
 	*field_seen = ctx->field_seen_value;
 
 	field = view->cache->file_field_map[file_field];
-	dec = view->cache->fields[field].decision & ~MAIL_CACHE_DECISION_FORCED;
+	dec = view->cache->fields[field].field.decision &
+		~MAIL_CACHE_DECISION_FORCED;
 	if (ctx->new_msg) {
 		if (dec == MAIL_CACHE_DECISION_NO)
 			return 1;
@@ -43,7 +44,7 @@ mail_cache_compress_callback(struct mail_cache_view *view, uint32_t file_field,
 
 	buffer_append(ctx->buffer, &file_field, sizeof(file_field));
 
-	if (view->cache->fields[field].field_size == (unsigned int)-1) {
+	if (view->cache->fields[field].field.field_size == (unsigned int)-1) {
 		size32 = (uint32_t)data_size;
 		buffer_append(ctx->buffer, &size32, sizeof(size32));
 	}
@@ -65,7 +66,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	struct mail_cache_record cache_rec;
 	struct ostream *output;
 	buffer_t *buffer;
-	size_t size;
 	uint32_t message_count, seq, first_new_seq, old_offset;
 	uoff_t offset;
 
@@ -93,14 +93,12 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	hdr.version = MAIL_CACHE_VERSION;
 	hdr.indexid = idx_hdr->indexid;
 	hdr.file_seq = idx_hdr->cache_file_seq + 1;
-
-	if (cache->fields_count != 0) {
-		hdr.field_header_offset =
-			mail_cache_uint32_to_offset(sizeof(hdr));
-	}
 	o_stream_send(output, &hdr, sizeof(hdr));
 
 	if (cache->fields_count != 0) {
+		hdr.field_header_offset =
+			mail_cache_uint32_to_offset(output->offset);
+
 		t_push();
 		buffer = buffer_create_dynamic(pool_datastack_create(),
 					       256, (size_t)-1);

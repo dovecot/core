@@ -79,7 +79,7 @@ void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
 
 	i_assert(field < cache->fields_count);
 
-	if (cache->fields[field].decision != MAIL_CACHE_DECISION_TEMP) {
+	if (cache->fields[field].field.decision != MAIL_CACHE_DECISION_TEMP) {
 		/* a) forced decision
 		   b) not cached, mail_cache_decision_add() will handle this
 		   c) permanently cached already, okay. */
@@ -106,7 +106,7 @@ void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
 		      client with no local cache. if it was just a new client
 		      generating the local cache for the first time, we'll
 		      drop back to TEMP within few months. */
-		cache->fields[field].decision = MAIL_CACHE_DECISION_YES;
+		cache->fields[field].field.decision = MAIL_CACHE_DECISION_YES;
 		cache->field_header_write_pending = TRUE;
 	} else {
 		cache->fields[field].uid_highwater = uid;
@@ -124,14 +124,14 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return;
 
-	if (cache->fields[field].decision != MAIL_CACHE_DECISION_NO) {
+	if (cache->fields[field].field.decision != MAIL_CACHE_DECISION_NO) {
 		/* a) forced decision
 		   b) we're already caching it, so it just wasn't in cache */
 		return;
 	}
 
 	/* field used the first time */
-	cache->fields[field].decision = MAIL_CACHE_DECISION_TEMP;
+	cache->fields[field].field.decision = MAIL_CACHE_DECISION_TEMP;
 	cache->field_header_write_pending = TRUE;
 
 	if (mail_index_lookup_uid(view->view, seq, &uid) == 0)

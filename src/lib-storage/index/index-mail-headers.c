@@ -91,6 +91,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 					      lines[i].end_pos -
 					      lines[i].start_pos);
 			}
+			i--;
 		} else {
 			buffer_append(buf, header + lines[i].start_pos,
 				      lines[j-1].end_pos - lines[i].start_pos);
@@ -359,7 +360,7 @@ get_header_field_idx(struct index_mailbox *ibox, const char *field)
 {
 	struct mail_cache_field header_field = {
 		NULL, 0, MAIL_CACHE_FIELD_HEADER, 0,
-		MAIL_CACHE_DECISION_TEMP, 0, 0
+		MAIL_CACHE_DECISION_TEMP
 	};
 	const char *cache_field_name;
 	unsigned int field_idx;
@@ -491,7 +492,7 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct mail_cache_field *fields, header_field = {
 		NULL, 0, MAIL_CACHE_FIELD_HEADER, 0,
-		MAIL_CACHE_DECISION_TEMP, 0, 0
+		MAIL_CACHE_DECISION_TEMP
 	};
 	struct index_header_lookup_ctx *ctx;
 	const char *const *name;
