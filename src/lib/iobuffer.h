@@ -114,7 +114,7 @@ ssize_t io_buffer_read_max(IOBuffer *buf, size_t size);
 /* Blocking read, doesn't return until at least one byte is read, or until
    socket is disconnected or timeout has occured. Note that the fd must be
    nonblocking, or the timeout doesn't work. If you don't want limit size,
-   set it to (size_t)-1. Returns number of bytes read, or -1 if error. */
+   set it to SSIZE_T_MAX. Returns number of bytes read, or -1 if error. */
 ssize_t io_buffer_read_blocking(IOBuffer *buf, size_t size);
 /* Skip forward a number of bytes */
 void io_buffer_skip(IOBuffer *buf, uoff_t size);

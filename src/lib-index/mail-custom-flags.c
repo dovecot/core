@@ -513,9 +513,8 @@ int mail_custom_flags_fix_list(MailCustomFlags *mcf, MailFlags *flags,
 
 	flag = MAIL_CUSTOM_FLAG_1;
 	for (i = 0; i < count; i++, flag <<= 1) {
-		if (oldflags & flag) {
-			i_assert(custom_flags[i] != NULL &&
-				 *custom_flags[i] != '\0');
+		if ((oldflags & flag) && custom_flags[i] != NULL) {
+			i_assert(*custom_flags[i] != '\0');
 
 			idx = get_flag_index(mcf, custom_flags[i], i);
 			if (idx == -1) {

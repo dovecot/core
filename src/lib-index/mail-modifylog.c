@@ -124,7 +124,7 @@ static int mmap_update(MailModifyLog *log)
 	if (log->mmap_length < sizeof(ModifyLogHeader)) {
 		/* FIXME: we could do better.. */
 		(void)unlink(log->filepath);
-		i_assert(0);
+		i_panic("modify log corrupted");
 	}
 
 	extra = (log->mmap_length - sizeof(ModifyLogHeader)) %
