@@ -114,7 +114,8 @@ void index_mail_parse_header_init(struct index_mail *mail,
 int index_mail_parse_header(struct message_part *part,
 			    struct message_header_line *hdr,
 			    struct index_mail *mail);
-int index_mail_parse_headers(struct index_mail *mail);
+int index_mail_parse_headers(struct index_mail *mail,
+			     struct mailbox_header_lookup_ctx *headers);
 void index_mail_headers_get_envelope(struct index_mail *mail);
 
 const char *index_mail_get_header(struct mail *_mail, const char *field);

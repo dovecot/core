@@ -175,7 +175,7 @@ const struct message_part *index_mail_get_parts(struct mail *_mail)
 		return data->parts;
 
 	if (data->parser_ctx == NULL) {
-		if (!index_mail_parse_headers(mail))
+		if (!index_mail_parse_headers(mail, NULL))
 			return NULL;
 	}
 	index_mail_parse_body(mail, TRUE);
@@ -376,7 +376,7 @@ struct istream *index_mail_init_stream(struct index_mail *_mail,
 
 	if (hdr_size != NULL) {
 		if (!data->hdr_size_set) {
-			if (!index_mail_parse_headers(mail))
+			if (!index_mail_parse_headers(mail, NULL))
 				return NULL;
 		}
 
@@ -411,7 +411,7 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 		/* we haven't parsed the header yet */
 		data->save_bodystructure_header = TRUE;
 		data->save_bodystructure_body = TRUE;
-		if (!index_mail_parse_headers(mail))
+		if (!index_mail_parse_headers(mail, NULL))
 			return;
 	}
 

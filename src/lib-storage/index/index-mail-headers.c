@@ -101,6 +101,14 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 			       lines[i].field_idx, data, data_size);
 	}
 
+	for (; match_idx < match_size; match_idx++) {
+		if (match[match_idx] == mail->header_match_value) {
+			/* this header doesn't exist. remember that. */
+			mail_cache_add(mail->trans->cache_trans,
+				       mail->data.seq, match_idx, NULL, 0);
+		}
+	}
+
 	t_pop();
 }
 
@@ -285,7 +293,8 @@ index_mail_parse_header_cb(struct message_part *part,
 	(void)index_mail_parse_header(part, hdr, mail);
 }
 
-int index_mail_parse_headers(struct index_mail *mail)
+int index_mail_parse_headers(struct index_mail *mail,
+			     struct mailbox_header_lookup_ctx *headers)
 {
 	struct index_mail_data *data = &mail->data;
 
@@ -294,7 +303,7 @@ int index_mail_parse_headers(struct index_mail *mail)
 			return FALSE;
 	}
 
-	index_mail_parse_header_init(mail, NULL);
+	index_mail_parse_header_init(mail, headers);
 
 	if (data->parts == NULL && data->parser_ctx == NULL) {
 		/* initialize bodystructure parsing in case we read the whole
@@ -370,6 +379,8 @@ get_header_field_idx(struct index_mailbox *ibox, const char *field)
 const char *index_mail_get_header(struct mail *_mail, const char *field)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	const char *headers[2];
+	struct mailbox_header_lookup_ctx *headers_ctx;
 	const unsigned char *data;
 	unsigned int field_idx;
 	string_t *dest;
@@ -382,7 +393,13 @@ const char *index_mail_get_header(struct mail *_mail, const char *field)
 	if (mail_cache_lookup_headers(mail->trans->cache_view, dest,
 				      mail->data.seq, &field_idx, 1) <= 0) {
 		/* not in cache / error */
-		if (index_mail_parse_headers(mail) < 0)
+		headers[0] = field; headers[1] = NULL;
+		headers_ctx = mailbox_header_lookup_init(&mail->ibox->box,
+							 headers);
+		ret = index_mail_parse_headers(mail, headers_ctx);
+		mailbox_header_lookup_deinit(headers_ctx);
+
+		if (ret < 0)
 			return NULL;
 
 		ret = mail_cache_lookup_headers(mail->trans->cache_view, dest,
