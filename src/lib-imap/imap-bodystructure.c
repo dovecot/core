@@ -428,7 +428,7 @@ static void part_write_body(struct message_part *part,
                 child_data = part->children->context;
 		env_data = child_data != NULL ? child_data->envelope : NULL;
 
-		str_append_c(str, " (");
+		str_append(str, " (");
 		imap_envelope_write_part_data(env_data, str);
 		str_append(str, ") ");
 
