@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "proxy-mailbox.h"
 
-#if 0
 static int _is_readonly(struct mailbox *box)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
@@ -51,16 +50,17 @@ static void _auto_sync(struct mailbox *box, enum mailbox_sync_flags flags,
 static struct mail *_fetch(struct mailbox_transaction_context *t, uint32_t seq,
 			   enum mail_fetch_field wanted_fields)
 {
-	struct proxy_mailbox *p = (struct proxy_mailbox *) t->box;
+	struct proxy_mailbox_transaction_context *pt =
+		(struct proxy_mailbox_transaction_context *)t;
+	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
 
-	return box->fetch(t, seq, wanted_fields);
+	return pbox->box->fetch(pt->ctx, seq, wanted_fields);
 }
 
-static int _get_uids(struct mailbox_transaction_context *t,
-		     uint32_t uid1, uint32_t uid2,
+static int _get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 		     uint32_t *seq1_r, uint32_t *seq2_r)
 {
-	struct proxy_mailbox *p = (struct proxy_mailbox *) t->box;
+	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
 	return p->box->get_uids(p->box, uid1, uid2, seq1_r, seq2_r);
 }
@@ -74,24 +74,60 @@ static int _search_get_sorting(struct mailbox *box,
 }
 
 static struct mail_search_context *
-_search_init(struct mailbox *box, const char *charset,
-	     struct mail_search_arg *args,
+_search_init(struct mailbox_transaction_context *t,
+	     const char *charset, struct mail_search_arg *args,
 	     const enum mail_sort_type *sort_program,
 	     enum mail_fetch_field wanted_fields,
 	     const char *const wanted_headers[])
 {
-	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
+	struct proxy_mailbox_transaction_context *pt =
+		(struct proxy_mailbox_transaction_context *)t;
+	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
 
-	return p->box->search_init(p->box, charset, args, sort_program,
-				   wanted_fields, wanted_headers);
+	return pbox->box->search_init(pt->ctx, charset, args, sort_program,
+				      wanted_fields, wanted_headers);
 }
 
-static struct mailbox_transaction_context *
-_transaction_begin(struct mailbox *box)
+static int _transaction_commit(struct mailbox_transaction_context *t)
 {
-	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
+	struct proxy_mailbox_transaction_context *pt =
+		(struct proxy_mailbox_transaction_context *)t;
+	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
 
-	return p->box->transaction_begin(p->box);
+	return pbox->box->transaction_commit(pt->ctx);
+}
+
+static void _transaction_rollback(struct mailbox_transaction_context *t)
+{
+	struct proxy_mailbox_transaction_context *pt =
+		(struct proxy_mailbox_transaction_context *)t;
+	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
+
+	pbox->box->transaction_rollback(pt->ctx);
+}
+
+static int _save(struct mailbox_transaction_context *t,
+		 const struct mail_full_flags *flags,
+		 time_t received_date, int timezone_offset,
+		 const char *from_envelope, struct istream *data,
+		 struct mail **mail_r)
+{
+	struct proxy_mailbox_transaction_context *pt =
+		(struct proxy_mailbox_transaction_context *)t;
+	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
+
+	return pbox->box->save(pt->ctx, flags, received_date, timezone_offset,
+			       from_envelope, data, mail_r);
+}
+
+static int _copy(struct mailbox_transaction_context *t, struct mail *mail,
+		 struct mail **dest_mail_r)
+{
+	struct proxy_mailbox_transaction_context *pt =
+		(struct proxy_mailbox_transaction_context *)t;
+	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
+
+	return pbox->box->copy(pt->ctx, mail, dest_mail_r);
 }
 
 static int _is_inconsistent(struct mailbox *box)
@@ -116,21 +152,28 @@ void proxy_mailbox_init(struct proxy_mailbox *proxy, struct mailbox *box)
 	pb->get_status = _get_status;
 	pb->sync = _sync;
 	pb->auto_sync = _auto_sync;
-	pb->fetch = box->fetch;
-	pb->get_uids = box->get_uids;
+	pb->fetch = _fetch;
+	pb->get_uids = _get_uids;
 
 	pb->search_get_sorting = _search_get_sorting;
-	pb->search_init = box->search_init;
+	pb->search_init = _search_init;
 	pb->search_next = box->search_next;
 	pb->search_deinit = box->search_deinit;
 
-	pb->transaction_begin = _transaction_begin;
-	pb->transaction_commit = box->transaction_commit;
-	pb->transaction_rollback = box->transaction_rollback;
+	pb->transaction_begin = NULL; /* must be implemented */
+	pb->transaction_commit = _transaction_commit;
+	pb->transaction_rollback = _transaction_rollback;
 
-	pb->save = box->save;
-	pb->copy = box->copy;
+	pb->save = _save;
+	pb->copy = _copy;
 
 	pb->is_inconsistent = _is_inconsistent;
 }
-#endif
+
+void proxy_transaction_init(struct proxy_mailbox *proxy_box,
+			    struct proxy_mailbox_transaction_context *proxy_ctx,
+			    struct mailbox_transaction_context *ctx)
+{
+	proxy_ctx->proxy_ctx.box = &proxy_box->proxy_box;
+	proxy_ctx->ctx = ctx;
+}
