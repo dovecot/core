@@ -40,10 +40,10 @@ struct _IPADDR {
 #define IPADDR_IS_V6(ip) ((ip)->family == AF_INET6)
 
 /* returns 1 if IPADDRs are the same */
-int net_ip_compare(IPADDR *ip1, IPADDR *ip2);
+int net_ip_compare(const IPADDR *ip1, const IPADDR *ip2);
 
 /* Connect to socket with ip address */
-int net_connect_ip(IPADDR *ip, unsigned int port, IPADDR *my_ip);
+int net_connect_ip(const IPADDR *ip, unsigned int port, const IPADDR *my_ip);
 /* Connect to named UNIX socket */
 int net_connect_unix(const char *path);
 /* Disconnect socket */
@@ -58,8 +58,13 @@ void net_set_nonblock(int fd, int nonblock);
    Returns 0 if ok, -1 if failed. */
 int net_set_cork(int fd, int cork);
 
+/* Set IP to contain INADDR_ANY for IPv4 or IPv6. The IPv6 any address may
+   include IPv4 depending on the system (Linux yes, BSD no). */
+void net_get_ip_any4(IPADDR *ip);
+void net_get_ip_any6(IPADDR *ip);
+
 /* Listen for connections on a socket */
-int net_listen(IPADDR *my_ip, unsigned int *port);
+int net_listen(const IPADDR *my_ip, unsigned int *port);
 /* Listen for connections on an UNIX socket */
 int net_listen_unix(const char *path);
 /* Accept a connection on a socket. Returns -1 for temporary failure,
@@ -84,7 +89,7 @@ int net_hosterror_notfound(int error);
 int net_getsockname(int fd, IPADDR *addr, unsigned int *port);
 
 /* IPADDR -> char* translation. `host' must be at least MAX_IP_LEN bytes */
-int net_ip2host(IPADDR *ip, char *host);
+int net_ip2host(const IPADDR *ip, char *host);
 /* char* -> IPADDR translation. */
 int net_host2ip(const char *host, IPADDR *ip);
 

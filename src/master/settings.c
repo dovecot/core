@@ -90,7 +90,7 @@ char *set_log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT;
 /* general */
 unsigned int set_imap_port = 143;
 unsigned int set_imaps_port = 993;
-char *set_imap_listen = NULL;
+char *set_imap_listen = "*";
 char *set_imaps_listen = NULL;
 
 int set_ssl_disable = FALSE;

@@ -124,7 +124,21 @@ static IPADDR *resolve_ip(const char *name)
 	int ret, ips_count;
 
 	if (name == NULL || *name == '\0')
-		return NULL;
+		return NULL; /* defaults to "*" or "::" */
+
+	if (strcmp(name, "*") == 0) {
+		/* IPv4 any */
+		ip = t_new(IPADDR, 1);
+		net_get_ip_any4(ip);
+		return ip;
+	}
+
+	if (strcmp(name, "::") == 0) {
+		/* IPv6 any */
+		ip = t_new(IPADDR, 1);
+		net_get_ip_any6(ip);
+		return ip;
+	}
 
 	ret = net_gethostbyname(name, &ip, &ips_count);
 	if (ret != 0)

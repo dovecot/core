@@ -49,7 +49,7 @@ union sockaddr_union {
 #  define SIZEOF_SOCKADDR(so) (sizeof(so.sin))
 #endif
 
-int net_ip_compare(IPADDR *ip1, IPADDR *ip2)
+int net_ip_compare(const IPADDR *ip1, const IPADDR *ip2)
 {
 	if (ip1->family != ip2->family)
 		return 0;
@@ -125,7 +125,7 @@ static inline void close_save_errno(int fd)
 }
 
 /* Connect to socket with ip address */
-int net_connect_ip(IPADDR *ip, unsigned int port, IPADDR *my_ip)
+int net_connect_ip(const IPADDR *ip, unsigned int port, const IPADDR *my_ip)
 {
 	union sockaddr_union so;
 	int fd, ret, opt = 1;
@@ -235,9 +235,27 @@ int net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
 #endif
 }
 
+void net_get_ip_any4(IPADDR *ip)
+{
+	struct in_addr *in_ip = (struct in_addr *) &ip->ip;
+
+	ip->family = AF_INET;
+	in_ip->s_addr = INADDR_ANY;
+}
+
+void net_get_ip_any6(IPADDR *ip)
+{
+#ifdef HAVE_IPV6
+	ip->family = AF_INET6;
+	ip->ip = in6addr_any;
+#else
+	memset(ip, 0, sizeof(IPADDR));
+#endif
+}
+
 /* Listen for connections on a socket. if `my_ip' is NULL, listen in any
    address. */
-int net_listen(IPADDR *my_ip, unsigned int *port)
+int net_listen(const IPADDR *my_ip, unsigned int *port)
 {
 	union sockaddr_union so;
 	int ret, fd, opt = 1;
@@ -477,7 +495,7 @@ int net_getsockname(int fd, IPADDR *addr, unsigned int *port)
 	return 0;
 }
 
-int net_ip2host(IPADDR *ip, char *host)
+int net_ip2host(const IPADDR *ip, char *host)
 {
 #ifdef HAVE_IPV6
 	if (!inet_ntop(ip->family, &ip->ip, host, MAX_IP_LEN))
