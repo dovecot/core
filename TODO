@@ -70,7 +70,6 @@
    save the filename anywhere.
  - Should SEARCH SENT* apply timezone?
    
-
 test:
  - make sure locking is done properly when opening/switching modifylog 
  - make sure SELECT rebuilds index properly when next_uid is near 32bit value
