@@ -159,7 +159,7 @@ struct settings default_settings = {
 	MEMBER(mail_read_mmaped) FALSE,
 	MEMBER(maildir_copy_with_hardlinks) FALSE,
 	MEMBER(maildir_check_content_changes) FALSE,
-	MEMBER(mbox_locks) "dotlock fcntl flock",
+	MEMBER(mbox_locks) "dotlock fcntl",
 	MEMBER(mbox_read_dotlock) FALSE,
 	MEMBER(mbox_lock_timeout) 300,
 	MEMBER(mbox_dotlock_change_timeout) 30,
