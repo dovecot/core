@@ -55,7 +55,7 @@ fill_reply(const struct user_data *user, size_t *reply_size)
 	reply.virtual_user_idx = reply_add(buf, user->virtual_user);
 	reply.mail_idx = reply_add(buf, user->mail);
 
-	p = strstr(user->home, "/./");
+	p = user->home != NULL ? strstr(user->home, "/./") : NULL;
 	if (p == NULL) {
 		reply.home_idx = reply_add(buf, user->home);
 		reply.chroot_idx = reply_add(buf, NULL);
