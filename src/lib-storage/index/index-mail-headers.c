@@ -538,7 +538,7 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 		/* @UNSAFE */
 		for (i = 0; i < size; i++) {
 			ctx->idx[i] = fields[i].idx;
-			ctx->name[i] = p_strdup(pool, sorted_headers[i]);
+			ctx->name[i] = p_strdup(pool, headers[i]);
 		}
 	}
 
