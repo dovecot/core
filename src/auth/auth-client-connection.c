@@ -491,8 +491,10 @@ auth_client_connection_destroy_wait(struct auth_client_connection *conn)
 {
         conn->delayed_destroy = TRUE;
 
-	io_remove(conn->io);
-	conn->io = NULL;
+	if (conn->io != NULL) {
+		io_remove(conn->io);
+		conn->io = NULL;
+	}
 }
 
 static void auth_client_connection_unref(struct auth_client_connection *conn)
