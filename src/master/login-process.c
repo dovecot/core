@@ -392,6 +392,10 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 				    set->ssl_key_file, NULL));
 		env_put(t_strconcat("SSL_PARAM_FILE=",
 				    set->ssl_parameters_file, NULL));
+		if (set->ssl_cipher_list != NULL) {
+			env_put(t_strconcat("SSL_CIPHER_LIST=",
+					    set->ssl_cipher_list, NULL));
+		}
 	}
 
 	if (set->disable_plaintext_auth)

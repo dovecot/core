@@ -51,6 +51,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, ssl_key_file),
 	DEF(SET_STR, ssl_parameters_file),
 	DEF(SET_STR, ssl_parameters_regenerate),
+	DEF(SET_STR, ssl_cipher_list),
 	DEF(SET_BOOL, disable_plaintext_auth),
 	DEF(SET_BOOL, verbose_ssl),
 
@@ -172,6 +173,7 @@ struct settings default_settings = {
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
 	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
 	MEMBER(ssl_parameters_regenerate) 24,
+	MEMBER(ssl_cipher_list) NULL,
 	MEMBER(disable_plaintext_auth) TRUE,
 	MEMBER(verbose_ssl) FALSE,
 

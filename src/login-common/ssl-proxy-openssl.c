@@ -15,7 +15,7 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
-#define SSL_CIPHER_LIST "ALL:!LOW"
+#define DOVECOT_SSL_DEFAULT_CIPHER_LIST "ALL:!LOW"
 
 enum ssl_io_action {
 	SSL_ADD_INPUT,
@@ -403,7 +403,7 @@ static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
 
 void ssl_proxy_init(void)
 {
-	const char *cafile, *certfile, *keyfile, *paramfile;
+	const char *cafile, *certfile, *keyfile, *paramfile, *cipher_list;
 	char buf;
 
 	cafile = getenv("SSL_CA_FILE");
@@ -424,9 +424,12 @@ void ssl_proxy_init(void)
 
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
 
-	if (SSL_CTX_set_cipher_list(ssl_ctx, SSL_CIPHER_LIST) != 1) {
+	cipher_list = getenv("SSL_CIPHER_LIST");
+	if (cipher_list == NULL)
+		cipher_list = DOVECOT_SSL_DEFAULT_CIPHER_LIST;
+	if (SSL_CTX_set_cipher_list(ssl_ctx, cipher_list) != 1) {
 		i_fatal("Can't set cipher list to '%s': %s",
-			SSL_CIPHER_LIST, ssl_last_error());
+			cipher_list, ssl_last_error());
 	}
 
 	if (cafile != NULL) {
