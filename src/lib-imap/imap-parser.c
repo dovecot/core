@@ -351,9 +351,7 @@ static int imap_parser_read_string(struct imap_parser *parser,
 
 static int imap_parser_literal_end(struct imap_parser *parser)
 {
-	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) != 0)
-		parser->eol = TRUE;
-	else {
+	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
 		if (parser->literal_size > parser->max_literal_size) {
 			/* too long string, abort. */
 			parser->error = "Literal size too large";
@@ -453,10 +451,12 @@ static int imap_parser_read_literal_data(struct imap_parser *parser,
 			imap_parser_save_arg(parser, data,
 					     (size_t)parser->literal_size);
 			parser->cur_pos = (size_t)parser->literal_size;
+			parser->eol = TRUE;
 			return TRUE;
 		}
 	} else {
 		/* we want to save only literal size, not the literal itself. */
+		parser->eol = TRUE;
 		imap_parser_save_arg(parser, NULL, 0);
 		return TRUE;
 	}
