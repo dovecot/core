@@ -29,8 +29,9 @@ const char *istream_raw_mbox_get_sender(struct istream *stream);
 void istream_raw_mbox_next(struct istream *stream, uoff_t body_size);
 
 /* Seek to message at given offset. offset must point to beginning of
-   "\nFrom ", or 0 for beginning of file. */
-void istream_raw_mbox_seek(struct istream *stream, uoff_t offset);
+   "\nFrom ", or 0 for beginning of file. Returns -1 if it offset doesn't
+   contain a valid From-line. */
+int istream_raw_mbox_seek(struct istream *stream, uoff_t offset);
 
 /* Flush all buffering. Call if you modify the mbox. */
 void istream_raw_mbox_flush(struct istream *stream);

@@ -112,8 +112,13 @@ static int mbox_sync_lock(struct mbox_sync_context *sync_ctx, int lock_type)
 	/* same as before. we'll have to fix mbox stream to contain
 	   correct from_offset, hdr_offset and body_offset. so, seek
 	   to from_offset and read through the header. */
-	istream_raw_mbox_seek(sync_ctx->input, old_from_offset);
-        (void)istream_raw_mbox_get_body_offset(sync_ctx->input);
+	if (istream_raw_mbox_seek(sync_ctx->input, old_from_offset) < 0) {
+		mail_storage_set_critical(ibox->box.storage,
+			"Message offset %s changed unexpectedly for mbox file "
+			"%s", dec2str(old_from_offset), sync_ctx->ibox->path);
+		return 0;
+	}
+	(void)istream_raw_mbox_get_body_offset(sync_ctx->input);
 	i_stream_seek(sync_ctx->input, old_offset);
 	return 1;
 }
@@ -299,8 +304,8 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 	if (rec != NULL && rec->uid != uid) {
 		/* new UID in the middle of the mailbox - shouldn't happen */
 		mail_storage_set_critical(sync_ctx->ibox->box.storage,
-			"mbox sync: UID inserted in the middle of mailbox "
-			"(%u > %u)", rec->uid, uid);
+			"mbox sync: UID inserted in the middle of mailbox %s "
+			"(%u > %u)", sync_ctx->ibox->path, rec->uid, uid);
 		mail_index_mark_corrupted(sync_ctx->ibox->index);
 		return -1;
 	}
@@ -620,7 +625,13 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
         /* set to -1, since they're always increased later */
 	sync_ctx->seq = sync_ctx->idx_seq = seq-1;
-	istream_raw_mbox_seek(sync_ctx->input, offset);
+	if (istream_raw_mbox_seek(sync_ctx->input, offset) < 0) {
+		mail_storage_set_critical(sync_ctx->ibox->box.storage,
+			"Cached message offset %s is invalid for mbox file %s",
+			dec2str(offset), sync_ctx->ibox->path);
+		mail_index_mark_corrupted(sync_ctx->ibox->index);
+		return -1;
+	}
         (void)istream_raw_mbox_get_body_offset(sync_ctx->input);
 	return 0;
 }
@@ -634,9 +645,14 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	uoff_t offset;
 	int ret, expunged;
 
-	if (min_message_count != 0)
-		istream_raw_mbox_seek(sync_ctx->input, 0);
-	else {
+	if (min_message_count != 0) {
+		if (istream_raw_mbox_seek(sync_ctx->input, 0) < 0) {
+			/* doesn't begin with a From-line */
+			mail_storage_set_error(sync_ctx->ibox->box.storage,
+				"Mailbox isn't a valid mbox file");
+			return -1;
+		}
+	} else {
 		/* we sync only what we need to. jump to first record that
 		   needs updating */
 		if (sync_ctx->sync_rec.uid1 == 0) {

@@ -105,6 +105,12 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
 
+	if (new_hdr_size > 0 &&
+	    str_data(ctx->header)[new_hdr_size-1] != '\n') {
+		/* broken header - doesn't end with \n. fix it. */
+		str_append_c(ctx->header, '\n');
+	}
+
 	if (ctx->mail.uid == ctx->sync_ctx->first_uid &&
 	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
 		if (ctx->sync_ctx->base_uid_validity == 0) {

@@ -54,6 +54,8 @@ static void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 	const unsigned char *data;
 	void *p;
 
+	i_assert(size < SSIZE_T_MAX);
+
 	/* Append at the end of X-Keywords header,
 	   or X-UID if it doesn't exist */
 	pos = ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] != (size_t)-1 ?
@@ -216,7 +218,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	uint32_t old_prev_msg_uid;
 	uoff_t offset;
 
-	i_stream_seek(sync_ctx->file_input, mails[idx].offset);
+	i_stream_seek(sync_ctx->input, mails[idx].offset);
 
 	memset(&mail_ctx, 0, sizeof(mail_ctx));
 	mail_ctx.sync_ctx = sync_ctx;
@@ -228,10 +230,10 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 
 	/* mbox_sync_parse_next_mail() checks that UIDs are growing,
 	   so we have to fool it. */
-        old_prev_msg_uid = sync_ctx->prev_msg_uid;
-        sync_ctx->prev_msg_uid = mails[idx].uid-1;
+	old_prev_msg_uid = sync_ctx->prev_msg_uid;
+	sync_ctx->prev_msg_uid = mails[idx].uid-1;
 
-	mbox_sync_parse_next_mail(sync_ctx->file_input, &mail_ctx, TRUE);
+	mbox_sync_parse_next_mail(sync_ctx->input, &mail_ctx, TRUE);
 	if (mails[idx].space != 0)
 		mbox_sync_update_header_from(&mail_ctx, &mails[idx]);
 	else {
@@ -242,7 +244,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	}
 
 	i_assert(mail_ctx.mail.space == mails[idx].space);
-        sync_ctx->prev_msg_uid = old_prev_msg_uid;
+	sync_ctx->prev_msg_uid = old_prev_msg_uid;
 
 	if (mail_ctx.mail.space <= 0)
 		mbox_sync_headers_add_space(&mail_ctx, extra_per_mail);
@@ -257,7 +259,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	/* now we have to move it. first move the body of the message,
 	   then write the header and leave the extra space to beginning of
 	   headers. */
-	offset = sync_ctx->file_input->v_offset;
+	offset = sync_ctx->input->v_offset;
 	if (mbox_move(sync_ctx, offset + mails[idx+1].space, offset,
 		      *end_offset - offset - mails[idx+1].space) < 0)
 		return -1;
@@ -284,7 +286,8 @@ static int mbox_sync_fill_leftover(struct mbox_sync_context *sync_ctx,
 	struct mbox_sync_mail_context mail_ctx;
 	uint32_t old_prev_msg_uid;
 
-	i_stream_seek(sync_ctx->file_input, mails[idx].offset);
+	i_assert(start_offset < end_offset);
+	i_stream_seek(sync_ctx->input, mails[idx].offset);
 
 	memset(&mail_ctx, 0, sizeof(mail_ctx));
 	mail_ctx.sync_ctx = sync_ctx;
@@ -299,12 +302,12 @@ static int mbox_sync_fill_leftover(struct mbox_sync_context *sync_ctx,
         old_prev_msg_uid = sync_ctx->prev_msg_uid;
         sync_ctx->prev_msg_uid = mails[idx].uid-1;
 
-	mbox_sync_parse_next_mail(sync_ctx->file_input, &mail_ctx, TRUE);
+	mbox_sync_parse_next_mail(sync_ctx->input, &mail_ctx, TRUE);
 	mbox_sync_update_header_from(&mail_ctx, &mails[idx]);
 
         sync_ctx->prev_msg_uid = old_prev_msg_uid;
 
-	mbox_sync_headers_add_space(&mail_ctx, end_offset - start_offset);
+	mbox_sync_headers_add_space(&mail_ctx,end_offset - start_offset);
 
 	if (pwrite_full(sync_ctx->fd, str_data(mail_ctx.header),
 			str_len(mail_ctx.header), start_offset) < 0) {

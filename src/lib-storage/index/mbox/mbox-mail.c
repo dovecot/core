@@ -16,6 +16,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 {
 	struct index_mailbox *ibox = mail->ibox;
 	const void *data;
+	uint64_t offset;
 
 	if (ibox->mbox_lock_type == F_UNLCK) {
 		if (mbox_sync(ibox, FALSE, TRUE) < 0)
@@ -34,7 +35,14 @@ static int mbox_mail_seek(struct index_mail *mail)
 		return -1;
 	}
 
-	istream_raw_mbox_seek(ibox->mbox_stream, *((const uint64_t *)data));
+	offset = *((const uint64_t *)data);
+	if (istream_raw_mbox_seek(ibox->mbox_stream, offset) < 0) {
+		mail_storage_set_critical(ibox->box.storage,
+			"Cached message offset %s is invalid for mbox file %s",
+			dec2str(offset), ibox->path);
+		mail_index_mark_corrupted(ibox->index);
+		return -1;
+	}
 	return 0;
 }
 
