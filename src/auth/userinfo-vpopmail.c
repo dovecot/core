@@ -22,7 +22,7 @@
 #define VPOPMAIL_LIMIT 81
 
 static int vpopmail_verify_plain(const char *user, const char *password,
-				 AuthCookieReplyData *reply)
+				 struct auth_cookie_reply_data *reply)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
