@@ -397,4 +397,10 @@ void failures_deinit(void)
 		(void)fclose(log_info_fd);
 		log_info_fd = stderr;
 	}
+
+	i_free(log_prefix);
+	log_prefix = NULL;
+
+	i_free(log_stamp_format);
+        log_stamp_format = NULL;
 }
