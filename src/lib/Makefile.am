@@ -70,6 +70,7 @@ noinst_HEADERS = \
 	md5.h \
 	mempool.h \
 	mmap-util.h \
+	mycrypt.h \
 	network.h \
 	obuffer.h \
 	obuffer-internal.h \
