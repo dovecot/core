@@ -24,16 +24,20 @@ static char master_buf[sizeof(struct master_login_reply)];
 static void request_handle(struct master_login_reply *reply)
 {
 	struct client *client;
+	master_callback_t *master_callback;
 
 	client = hash_lookup(master_requests, POINTER_CAST(reply->tag));
 	if (client == NULL)
 		i_fatal("Master sent reply with unknown tag %u", reply->tag);
 
+	master_callback = client->master_callback;
 	client->master_tag = 0;
-	client->master_callback(client, reply->success);
 	client->master_callback = NULL;
 
 	hash_remove(master_requests, POINTER_CAST(reply->tag));
+
+	master_callback(client, reply->success);
+	/* NOTE: client may be destroyed now */
 }
 
 void master_request_login(struct client *client, master_callback_t *callback,
