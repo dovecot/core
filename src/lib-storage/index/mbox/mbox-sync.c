@@ -594,6 +594,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 
                         sync_ctx->space_diff = sync_ctx->expunged_space;
 			sync_ctx->expunged_space = 0;
+			i_assert(sync_ctx->space_diff < -mail_ctx->mail.space);
 
 			sync_ctx->need_space_seq--;
 			buffer_append(sync_ctx->mails, &mail, sizeof(mail));
@@ -629,6 +630,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		   space_diff now consists of a negative "bytes needed" sum,
 		   plus the expunged space of this message. so it contains how
 		   many bytes of _extra_ space we have. */
+		i_assert(mail_ctx->mail.space >= sync_ctx->space_diff);
 		extra_space = MBOX_HEADER_PADDING *
 			(sync_ctx->seq - sync_ctx->need_space_seq + 1);
 		needed_space = mail_ctx->mail.space - sync_ctx->space_diff;
