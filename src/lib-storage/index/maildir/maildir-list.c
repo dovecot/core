@@ -80,14 +80,6 @@ maildir_list_mailbox_init(struct mail_storage *storage,
 		ctx->dir = storage->dir;
 		ctx->prefix = "";
 	} else {
-		p = strchr(p, storage->hierarchy_sep);
-		if (p == NULL) {
-			/* this isn't going to work */
-			mail_storage_set_error(storage, "Invalid list mask");
-			pool_unref(pool);
-			return FALSE;
-		}
-
 		dir = t_strdup_until(mask, p);
 		ctx->prefix = t_strdup_until(mask, p+1);
 
@@ -97,7 +89,7 @@ maildir_list_mailbox_init(struct mail_storage *storage,
 	}
 
 	ctx->dirp = opendir(ctx->dir);
-	if (ctx->dirp == NULL) {
+	if (ctx->dirp == NULL && errno != ENOENT) {
 		mail_storage_set_critical(storage, "opendir(%s) failed: %m",
 					  ctx->dir);
 		pool_unref(pool);
@@ -246,8 +238,9 @@ static struct mailbox_list *maildir_list_next(struct mailbox_list_context *ctx)
 				MAILBOX_PLACEHOLDER | MAILBOX_CHILDREN;
 			while ((p = strrchr(fname, '.')) != NULL) {
 				fname = t_strdup_until(fname, p);
-				if (imap_match(ctx->glob, fname) > 0) {
-					ctx->list.name = fname;
+				p = t_strconcat(ctx->prefix, fname, NULL);
+				if (imap_match(ctx->glob, p) > 0) {
+					ctx->list.name = p;
 					return &ctx->list;
 				}
 			}
