@@ -112,6 +112,8 @@ static struct setting_def auth_setting_defs[] = {
 	DEF(SET_STR, executable),
 	DEF(SET_STR, user),
 	DEF(SET_STR, chroot),
+	DEF(SET_STR, username_chars),
+	DEF(SET_STR, anonymous_username),
 
 	DEF(SET_BOOL, use_cyrus_sasl),
 	DEF(SET_BOOL, verbose),
@@ -220,6 +222,7 @@ struct auth_settings default_auth_settings = {
 	MEMBER(user) "root",
 	MEMBER(chroot) NULL,
 	MEMBER(username_chars) "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-_@",
+	MEMBER(anonymous_username) "anonymous",
 
 	MEMBER(use_cyrus_sasl) FALSE,
 	MEMBER(verbose) FALSE,

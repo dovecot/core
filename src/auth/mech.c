@@ -18,6 +18,7 @@ struct mech_module_list {
 enum auth_mech auth_mechanisms;
 const char *const *auth_realms;
 const char *default_realm;
+const char *anonymous_username;
 char username_chars[256];
 
 static int set_use_cyrus_sasl;
@@ -201,6 +202,7 @@ int mech_is_valid_username(const char *username)
 
 extern struct mech_module mech_plain;
 extern struct mech_module mech_digest_md5;
+extern struct mech_module mech_anonymous;
 
 void mech_init(void)
 {
@@ -213,6 +215,10 @@ void mech_init(void)
 	memset(&failure_reply, 0, sizeof(failure_reply));
 	failure_reply.result = AUTH_LOGIN_RESULT_FAILURE;
 
+	anonymous_username = getenv("ANONYMOUS_USERNAME");
+	if (anonymous_username != NULL && *anonymous_username == '\0')
+                anonymous_username = NULL;
+
 	/* register wanted mechanisms */
 	env = getenv("MECHANISMS");
 	if (env == NULL || *env == '\0')
@@ -224,7 +230,13 @@ void mech_init(void)
 			mech_register_module(&mech_plain);
 		else if (strcasecmp(*mechanisms, "DIGEST-MD5") == 0)
 			mech_register_module(&mech_digest_md5);
-		else {
+		else if (strcasecmp(*mechanisms, "ANONYMOUS") == 0) {
+			if (anonymous_username == NULL) {
+				i_fatal("ANONYMOUS listed in mechanisms, "
+					"but anonymous_username not given");
+			}
+			mech_register_module(&mech_anonymous);
+		} else {
 			i_fatal("Unknown authentication mechanism '%s'",
 				*mechanisms);
 		}
@@ -258,7 +270,6 @@ void mech_init(void)
 	}
 
 	set_use_cyrus_sasl = getenv("USE_CYRUS_SASL") != NULL;
-
 #ifdef USE_CYRUS_SASL2
 	if (set_use_cyrus_sasl)
 		mech_cyrus_sasl_init_lib();
@@ -269,4 +280,5 @@ void mech_deinit(void)
 {
 	mech_unregister_module(&mech_plain);
 	mech_unregister_module(&mech_digest_md5);
+	mech_unregister_module(&mech_anonymous);
 }

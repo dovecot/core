@@ -28,6 +28,7 @@ dovecot_auth_SOURCES = \
 	master-connection.c \
 	md5crypt.c \
 	mech.c \
+	mech-anonymous.c \
 	mech-cyrus-sasl2.c \
 	mech-plain.c \
 	mech-digest-md5.c \
