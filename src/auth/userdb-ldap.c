@@ -15,7 +15,7 @@
 #include <stdlib.h>
 
 /* using posixAccount */
-#define DEFAULT_ATTRIBUTES "uid,homeDirectory,,uid,uidNumber,gidNumber"
+#define DEFAULT_ATTRIBUTES "uid,homeDirectory,,,uidNumber,gidNumber"
 
 enum ldap_user_attr {
 	ATTR_VIRTUAL_USER = 0,
