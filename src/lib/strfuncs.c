@@ -389,44 +389,30 @@ const char *printf_string_fix_format(const char *fmt)
 
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 {
-#ifdef HAVE_VSNPRINTF
+#ifndef HAVE_VSNPRINTF
+	char *buf;
+#endif
 	va_list args;
+	ssize_t len;
 	int ret;
 
-	i_assert(dest != NULL);
 	i_assert(max_chars < INT_MAX);
-	i_assert(format != NULL);
-
-	t_push();
-	va_start(args, format);
-	ret = vsnprintf(dest, max_chars,
-			printf_string_fix_format(format), args);
-	va_end(args);
-	t_pop();
-
-	if (ret < 0 || (size_t)ret >= max_chars) {
-		dest[max_chars-1] = '\0';
-		return -1;
-	}
-
-	return 0;
-#else
-	char *buf;
-	va_list args;
-        int len, ret;
-
-	i_assert(dest != NULL);
-	i_assert(max_chars < INT_MAX);
-	i_assert(format != NULL);
 
 	t_push();
 
 	va_start(args, format);
 	format = printf_string_fix_format(format);
-	buf = t_buffer_get(printf_string_upper_bound(format, args));
+	len = printf_string_upper_bound(format, args);
 	va_end(args);
 
+	i_assert(len >= 0);
+
+#ifdef HAVE_VSNPRINTF
+	len = vsnprintf(dest, max_chars, format, args);
+#else
+	buf = t_buffer_get(len);
 	len = vsprintf(buf, format, args);
+#endif
 	if (len < 0) {
 		/* some error occured */
 		len = 0;
@@ -439,12 +425,13 @@ int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 		ret = 0;
 	}
 
-        memcpy(dest, buf, len);
+#ifndef HAVE_VSNPRINTF
+	memcpy(dest, buf, len);
+#endif
 	dest[len] = '\0';
 
 	t_pop();
 	return ret;
-#endif
 }
 
 #define STRDUP_CORE(alloc_func, str) STMT_START { \
@@ -608,7 +595,8 @@ strdup_vprintf_core(const char *format, va_list args,
 		    ALLOC_FUNC alloc_func, Pool pool)
 {
         va_list temp_args;
-        char *ret;
+	char *ret;
+	size_t len;
 
 	if (format == NULL)
 		return NULL;
@@ -617,8 +605,14 @@ strdup_vprintf_core(const char *format, va_list args,
 
 	VA_COPY(temp_args, args);
 
-        ret = alloc_func(pool, printf_string_upper_bound(format, args));
+	len = printf_string_upper_bound(format, args);
+        ret = alloc_func(pool, len);
+
+#ifdef HAVE_VSNPRINTF
+	vsnprintf(ret, len, format, args);
+#else
 	vsprintf(ret, format, args);
+#endif
 
 	va_end(temp_args);
 

@@ -72,30 +72,7 @@ int my_inet_aton(const char *cp, struct in_addr *inp)
 #ifndef HAVE_VSYSLOG
 void my_vsyslog(int priority, const char *format, va_list args)
 {
-	const char *str;
-	char buf[1024];
-
-#ifdef HAVE_VSNPRINTF
-	int ret;
-
-	ret = vsnprintf(buf, sizeof(buf), format, args);
-	if (ret < 0 || (size_t)ret >= sizeof(buf))
-		buf[sizeof(buf)-1] = '\0';
-	str = buf;
-#else
-        va_list args2;
-
-	VA_COPY(args2, args);
-
-	if (printf_string_upper_bound(format, args) < sizeof(buf)) {
-		vsprintf(buf, format, args);
-		str = buf;
-	} else {
-		/* this may not be safe but not choice really.. */
-		str = t_strdup_vprintf(format, args2);
-	}
-#endif
-	syslog(priority, "%s", str);
+	syslog(priority, "%s", t_strdup_vprintf(format, args));
 }
 #endif
 

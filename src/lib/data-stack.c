@@ -198,6 +198,9 @@ static void *t_malloc_real(size_t size, int permanent)
 {
 	StackBlock *block;
         void *ret;
+#ifdef DEBUG
+	int warn = FALSE;
+#endif
 
 	if (size == 0)
 		return NULL;
@@ -233,7 +236,7 @@ static void *t_malloc_real(size_t size, int permanent)
 	} else {
 		block = mem_block_alloc(size);
 #ifdef DEBUG
-		i_warning("Growing data stack with: %"PRIuSIZE_T, block->size);
+		warn = TRUE;
 #endif
 	}
 
@@ -245,7 +248,16 @@ static void *t_malloc_real(size_t size, int permanent)
 	current_block->next = block;
 	current_block = block;
 
-        return STACK_BLOCK_DATA(current_block);
+	ret = STACK_BLOCK_DATA(current_block);
+#ifdef DEBUG
+	if (warn) {
+		/* warn later, so that if i_warning() wants to allocate more
+		   memory we don't go to infinite loop */
+		i_warning("Growing data stack with: %"PRIuSIZE_T, block->size);
+	}
+#endif
+
+        return ret;
 }
 
 void *t_malloc(size_t size)

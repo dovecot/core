@@ -121,12 +121,25 @@ void str_printfa(String *str, const char *fmt, ...)
 void str_vprintfa(String *str, const char *fmt, va_list args)
 {
 	char *buf;
-	size_t len;
+	int ret;
+	size_t len, append_len;
 
 	len = buffer_get_used_size(str);
 
-	buf = buffer_append_space(str, printf_string_upper_bound(fmt, args));
-	len += vsprintf(buf, fmt, args);
+	fmt = printf_string_fix_format(fmt);
+	append_len = printf_string_upper_bound(fmt, args);
+
+	buf = buffer_append_space(str, append_len);
+
+#ifdef HAVE_VSNPRINTF
+	ret = vsnprintf(buf, append_len, fmt, args);
+	i_assert(ret >= 0 && (size_t)ret <= append_len);
+#else
+	ret = vsprintf(buf, fmt, args);
+	i_assert(ret >= 0);
+#endif
+
+	len += ret;
 
 	buffer_set_used_size(str, len);
 }

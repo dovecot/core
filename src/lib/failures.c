@@ -78,26 +78,56 @@ static void write_prefix(FILE *f)
 	}
 }
 
-static void default_panic_handler(const char *format, va_list args)
+static void default_handler(const char *prefix, const char *format,
+			    va_list args)
 {
-	if (log_fd == NULL) log_fd = stderr;
-	write_prefix(log_fd);
+	static int recursed = 0;
+	int old_errno = errno;
 
-	fputs("Panic: ", log_fd);
-	vfprintf(log_fd, printf_string_fix_format(format), args);
+	if (recursed == 2) {
+		/* we're being called from some signal handler, or
+		   printf_string_upper_bound() killed us again */
+		return;
+	}
+
+	recursed++;
+
+	if (log_fd == NULL)
+		log_fd = stderr;
+
+	if (recursed == 2) {
+		/* write without fixing format, that probably killed us
+		   last time. */
+
+		/* make sure there's no %n in there */
+                (void)printf_string_upper_bound(format, args);
+		vfprintf(log_fd, format, args);
+		fputs(" - recursed!", log_fd);
+	} else {
+		write_prefix(log_fd);
+
+		fputs(prefix, log_fd);
+		format = printf_string_fix_format(format);
+		/* make sure there's no %n in there */
+                (void)printf_string_upper_bound(format, args);
+		vfprintf(log_fd, format, args);
+	}
+
 	fputc('\n', log_fd);
 
+	errno = old_errno;
+	recursed--;
+}
+
+static void default_panic_handler(const char *format, va_list args)
+{
+	default_handler("Panic: ", format, args);
 	abort();
 }
 
 static void default_fatal_handler(int status, const char *format, va_list args)
 {
-	if (log_fd == NULL) log_fd = stderr;
-	write_prefix(log_fd);
-
-	fputs("Fatal: ", log_fd);
-	vfprintf(log_fd, printf_string_fix_format(format), args);
-	fputc('\n', log_fd);
+	default_handler("Fatal: ", format, args);
 
 	if (fflush(log_fd) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
@@ -109,14 +139,7 @@ static void default_error_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	if (log_fd == NULL) log_fd = stderr;
-	write_prefix(log_fd);
-
-	t_push();
-	fputs("Error: ", log_fd);
-	vfprintf(log_fd, printf_string_fix_format(format), args);
-        fputc('\n', log_fd);
-	t_pop();
+	default_handler("Error: ", format, args);
 
 	if (fflush(log_fd) < 0)
 		exit(FATAL_LOGWRITE);
@@ -128,14 +151,7 @@ static void default_warning_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	if (log_fd == NULL) log_fd = stderr;
-	write_prefix(log_fd);
-
-	t_push();
-	fputs("Warning: ", log_fd);
-	vfprintf(log_fd, printf_string_fix_format(format), args);
-	fputc('\n', log_fd);
-	t_pop();
+	default_handler("Warning: ", format, args);
 
 	if (fflush(log_fd) < 0)
 		exit(FATAL_LOGWRITE);
@@ -147,15 +163,9 @@ static void default_info_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
-	if (log_info_fd == NULL) log_info_fd = stderr;
-	write_prefix(log_info_fd);
+	default_handler("Info: ", format, args);
 
-	t_push();
-	vfprintf(log_info_fd, printf_string_fix_format(format), args);
-	fputc('\n', log_info_fd);
-	t_pop();
-
-	if (fflush(log_info_fd) < 0)
+	if (fflush(log_fd) < 0)
 		exit(FATAL_LOGWRITE);
 
 	errno = old_errno;
@@ -250,31 +260,47 @@ void i_set_info_handler(FailureFunc func)
         info_handler = func;
 }
 
+static void syslog_handler(int level, const char *format, va_list args)
+{
+	static int recursed = 0;
+
+	if (recursed != 0)
+		return;
+
+	recursed++;
+
+	/* make sure there's no %n in there */
+	(void)printf_string_upper_bound(format, args);
+
+	vsyslog(level, format, args);
+	recursed--;
+}
+
 void i_syslog_panic_handler(const char *fmt, va_list args)
 {
-	vsyslog(LOG_CRIT, fmt, args);
+	syslog_handler(LOG_CRIT, fmt, args);
         abort();
 }
 
 void i_syslog_fatal_handler(int status, const char *fmt, va_list args)
 {
-	vsyslog(LOG_CRIT, fmt, args);
+	syslog_handler(LOG_CRIT, fmt, args);
 	exit(status);
 }
 
 void i_syslog_error_handler(const char *fmt, va_list args)
 {
-	vsyslog(LOG_ERR, fmt, args);
+	syslog_handler(LOG_ERR, fmt, args);
 }
 
 void i_syslog_warning_handler(const char *fmt, va_list args)
 {
-	vsyslog(LOG_WARNING, fmt, args);
+	syslog_handler(LOG_WARNING, fmt, args);
 }
 
 void i_syslog_info_handler(const char *fmt, va_list args)
 {
-	vsyslog(LOG_INFO, fmt, args);
+	syslog_handler(LOG_INFO, fmt, args);
 }
 
 void i_set_failure_syslog(const char *ident, int options, int facility)
