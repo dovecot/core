@@ -9,14 +9,14 @@
 
 struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
-	enum mail_index_sync_type sync_mask;
+	enum mail_transaction_type trans_sync_mask;
 	buffer_t *expunges;
 
 	const struct mail_transaction_header *hdr;
 	const void *data;
 
 	size_t data_offset;
-	unsigned int skipped:1;
+	unsigned int skipped_some:1;
 	unsigned int last_read:1;
 	unsigned int sync_map_update:1;
 };
@@ -78,13 +78,12 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	const struct mail_index_header *hdr;
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
-	enum mail_transaction_type mask;
+	enum mail_transaction_type mask, want_mask;
 	buffer_t *expunges = NULL;
 
 	/* We must sync flags as long as view is mmap()ed, as the flags may
 	   have already changed under us. */
 	i_assert((sync_mask & MAIL_INDEX_SYNC_TYPE_FLAGS) != 0);
-	i_assert(view->transactions == 0);
 	i_assert(!view->syncing);
 
 	if (mail_index_view_lock_head(view, TRUE) < 0)
@@ -97,7 +96,13 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			return -1;
 	}
 
-	mask = mail_transaction_type_mask_get(sync_mask);
+	/* only flags, appends and expunges can be left to be synced later */
+	want_mask = mail_transaction_type_mask_get(sync_mask);
+	mask = want_mask |
+		(MAIL_TRANSACTION_TYPE_MASK ^
+		 (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND |
+		  MAIL_TRANSACTION_FLAG_UPDATE));
+
 	if (mail_transaction_log_view_set(view->log_view,
 					  view->log_file_seq,
 					  view->log_file_offset,
@@ -110,7 +115,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 
 	ctx = i_new(struct mail_index_view_sync_ctx, 1);
 	ctx->view = view;
-	ctx->sync_mask = sync_mask;
+	ctx->trans_sync_mask = want_mask;
 	ctx->expunges = expunges;
 
 	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0) {
@@ -177,7 +182,7 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 	}
 
 	if (skipped)
-		ctx->skipped = TRUE;
+		ctx->skipped_some = TRUE;
 
 	mail_transaction_log_view_get_prev_pos(log_view, seq_r, offset_r);
 
@@ -200,6 +205,9 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 					 &sync_map_ctx) < 0)
 			return -1;
 	}
+
+	if ((ctx->hdr->type & ctx->trans_sync_mask) == 0)
+		return 0;
 
 	return 1;
 }
@@ -273,7 +281,7 @@ int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 				if (ctx->last_read)
 					return 0;
 
-				if (!ctx->skipped) {
+				if (!ctx->skipped_some) {
 					view->log_file_seq = seq;
 					view->log_file_offset = offset +
 						sizeof(*ctx->hdr) +
@@ -281,7 +289,7 @@ int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 				}
 			} while (ret == 0);
 
-			if (ctx->skipped) {
+			if (ctx->skipped_some) {
 				mail_index_view_add_synced_transaction(view,
 								       seq,
 								       offset);
@@ -310,7 +318,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 
 	i_assert(view->syncing);
 
-	if (view->log_syncs != NULL && !ctx->skipped)
+	if (view->log_syncs != NULL && !ctx->skipped_some)
 		buffer_set_used_size(view->log_syncs, 0);
 
 	if (!ctx->last_read && ctx->hdr != NULL &&
@@ -326,7 +334,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 		view->map_protected = FALSE;
 	}
 
-	if ((ctx->sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0)
+	if ((ctx->trans_sync_mask & MAIL_TRANSACTION_APPEND) != 0)
 		view->messages_count = view->map->records_count;
 
 	(void)mail_transaction_log_view_set(view->log_view,
