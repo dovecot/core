@@ -57,7 +57,7 @@ void *mmap_aligned(int fd, int access, off_t offset, size_t length,
 	static int pagemask = 0;
 
 	if (pagemask == 0) {
-		pagemask = getpagesize()-1;
+		pagemask = getpagesize();
 		i_assert(pagemask > 0);
 		pagemask--;
 	}
