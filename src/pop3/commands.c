@@ -328,6 +328,11 @@ static void fetch_callback(struct client *client)
 		(void)o_stream_send(client->output, "\r\n", 2);
 	}
 
+	if (!ctx->in_body && (client_workarounds & WORKAROUND_OE_NS_EOH) != 0) {
+		/* Add the missing end of headers line. */
+		(void)o_stream_send(client->output, "\r\n", 2);
+	}
+
 	client_send_line(client, ".");
 	fetch_deinit(ctx);
 	client->cmd = NULL;

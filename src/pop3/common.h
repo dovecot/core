@@ -5,7 +5,8 @@
 #include "client.h"
 
 enum client_workarounds {
-	WORKAROUND_OUTLOOK_NO_NULS		= 0x01
+	WORKAROUND_OUTLOOK_NO_NULS		= 0x01,
+	WORKAROUND_OE_NS_EOH			= 0x02
 };
 
 extern struct ioloop *ioloop;

@@ -26,6 +26,7 @@ struct client_workaround_list {
 
 struct client_workaround_list client_workaround_list[] = {
 	{ "outlook-no-nuls", WORKAROUND_OUTLOOK_NO_NULS },
+	{ "oe-ns-eoh", WORKAROUND_OE_NS_EOH },
 	{ NULL, 0 }
 };
 
