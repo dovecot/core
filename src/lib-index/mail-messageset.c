@@ -263,7 +263,7 @@ static int mail_index_uid_foreach(MailIndex *index,
 		return -1;
 	}
 
-	return !expunges_found && uid == uid2 ? 1 : 2;
+	return 1;
 }
 
 int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
