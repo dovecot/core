@@ -14,7 +14,7 @@
 
 static uid_t static_uid;
 static gid_t static_gid;
-static char *static_home_template;
+static char *static_home_template, *static_mail_template;
 
 static void static_lookup(struct auth_request *auth_request,
 			  userdb_callback_t *callback, void *context)
@@ -28,10 +28,20 @@ static void static_lookup(struct auth_request *auth_request,
 
 	data.virtual_user = data.system_user = auth_request->user;
 
-	str = t_str_new(256);
-	var_expand(str, static_home_template,
-		   auth_request_get_var_expand_table(auth_request, NULL));
-	data.home = str_c(str);
+	if (static_home_template != NULL) {
+		str = t_str_new(256);
+		var_expand(str, static_home_template,
+			   auth_request_get_var_expand_table(auth_request,
+							     NULL));
+		data.home = str_c(str);
+	}
+	if (static_mail_template != NULL) {
+		str = t_str_new(256);
+		var_expand(str, static_mail_template,
+			   auth_request_get_var_expand_table(auth_request,
+							     NULL));
+		data.mail = str_c(str);
+	}
 
 	callback(&data, context);
 }
@@ -43,6 +53,7 @@ static void static_init(const char *args)
 	static_uid = 0;
 	static_gid = 0;
 	static_home_template = NULL;
+	static_mail_template = NULL;
 
 	for (tmp = t_strsplit_spaces(args, " "); *tmp != NULL; tmp++) {
 		if (strncasecmp(*tmp, "uid=", 4) == 0)
@@ -52,6 +63,9 @@ static void static_init(const char *args)
 		else if (strncasecmp(*tmp, "home=", 5) == 0) {
 			i_free(static_home_template);
 			static_home_template = i_strdup(*tmp + 5);
+		} else if (strncasecmp(*tmp, "mail=", 5) == 0) {
+			i_free(static_mail_template);
+			static_mail_template = i_strdup(*tmp + 5);
 		} else {
 			i_fatal("Invalid static userdb option: '%s'", *tmp);
 		}
@@ -61,13 +75,12 @@ static void static_init(const char *args)
 		i_fatal("static userdb: uid missing");
 	if (static_gid == 0)
 		i_fatal("static userdb: gid missing");
-	if (static_home_template == NULL)
-		i_fatal("static userdb: home option missing");
 }
 
 static void static_deinit(void)
 {
 	i_free(static_home_template);
+	i_free(static_mail_template);
 }
 
 struct userdb_module userdb_static = {
