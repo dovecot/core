@@ -898,8 +898,8 @@ unsigned char *io_buffer_get_data(IOBuffer *buf, size_t *size)
         return buf->buffer + buf->skip;
 }
 
-ssize_t io_buffer_read_data(IOBuffer *buf, unsigned char **data,
-			    size_t *size, size_t threshold)
+int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
+			size_t *size, size_t threshold)
 {
 	ssize_t ret;
 
@@ -913,6 +913,9 @@ ssize_t io_buffer_read_data(IOBuffer *buf, unsigned char **data,
 			*data = NULL;
 			return ret;
 		}
+
+		if (ret > 0)
+			ret = 1;
 	}
 
 	*data = io_buffer_get_data(buf, size);
