@@ -964,6 +964,36 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 	if (!mmap_update(index))
 		return NULL;
 
+	if (!mail_index_verify_hole_range(index))
+		return NULL;
+
+	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
+				       index->mmap_length);
+
+	/* check if first_uid is the first UID in the index, or an UID
+	   before that. this is quite common and hash lookup would be
+	   useless to try with those nonexisting old UIDs.. */
+	if (index->header->first_hole_position != sizeof(MailIndexHeader)) {
+		rec = (MailIndexRecord *) ((char *) index->mmap_base +
+					   sizeof(MailIndexHeader));
+	} else {
+		rec = (MailIndexRecord *) ((char *) index->mmap_base +
+					   index->header->first_hole_position +
+					   index->header->first_hole_records *
+					   sizeof(MailIndexRecord));
+	}
+
+	if (rec >= end_rec) {
+		/* no messages in index */
+		return NULL;
+	}
+
+	if (first_uid <= rec->uid) {
+		/* yes, first_uid pointed to beginning of index.
+		   make sure last_uid is in that range too. */
+		return last_uid >= rec->uid ? rec : NULL;
+	}
+
 	/* try the few first with hash lookups */
 	last_try_uid = last_uid - first_uid < 10 ? last_uid : first_uid + 4;
 	for (uid = first_uid; uid <= last_try_uid; uid++) {
@@ -981,8 +1011,6 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 	   needed often, so don't bother trying anything too fancy. */
 	rec = (MailIndexRecord *) ((char *) index->mmap_base +
 				   sizeof(MailIndexHeader));
-	end_rec = (MailIndexRecord *) ((char *) index->mmap_base +
-				       index->mmap_length);
 	while (rec < end_rec) {
 		if (rec->uid != 0) {
 			if (rec->uid > last_uid)
