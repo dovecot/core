@@ -121,6 +121,7 @@ const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 			break;
 
 		t_string_append_c(flags_str, *oldflags);
+		oldflags++;
 	}
 
 	if (*oldflags == ',') {
