@@ -688,10 +688,8 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 		old_offset = istream_raw_mbox_get_start_offset(sync_ctx->input);
 
 		ret = mbox_file_seek(ibox, sync_ctx->sync_view, seq, &deleted);
-		if (ret < 0) {
-			mail_storage_set_index_error(ibox);
+		if (ret < 0)
 			return -1;
-		}
 
 		if (ret == 0) {
 			if (istream_raw_mbox_seek(ibox->mbox_stream,
@@ -1029,7 +1027,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
+static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 {
 	struct stat st;
 
