@@ -11,6 +11,8 @@ struct mbox_header_context {
 	struct md5_context md5;
 	int received;
 
+	unsigned int uid_validity, uid_last, uid;
+
 	struct istream *input;
 	uoff_t content_length;
 	int set_read_limit;

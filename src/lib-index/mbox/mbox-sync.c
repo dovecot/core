@@ -134,6 +134,12 @@ int mbox_index_sync(struct mail_index *index,
 			if (!mbox_lock_and_sync_full(index, data_lock_type))
 				return FALSE;
 
+			if ((index->set_flags & MAIL_INDEX_FLAG_REBUILD) != 0) {
+				/* uidvalidity probably changed, rebuild */
+				if (!index->rebuild(index))
+					return FALSE;
+			}
+
 			index->mbox_size = filesize;
 		}
 

@@ -1,22 +1,17 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "istream.h"
 #include "mbox-index.h"
-#include "mbox-lock.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
 
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
 int mbox_index_rebuild(struct mail_index *index)
 {
-	struct istream *input;
 	struct stat st;
-	int failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
@@ -34,7 +29,8 @@ int mbox_index_rebuild(struct mail_index *index)
 	/* update indexid, which also means that our state has completely
 	   changed */
 	index->indexid = index->header->indexid;
-	index->inconsistent = TRUE;
+	if (index->opened)
+		index->inconsistent = TRUE;
 
 	if (msync(index->mmap_base,
 		  sizeof(struct mail_index_header), MS_SYNC) < 0)
@@ -44,16 +40,7 @@ int mbox_index_rebuild(struct mail_index *index)
 	if (!mail_index_data_reset(index->data))
 		return FALSE;
 
-	input = mbox_get_stream(index, 0, MAIL_LOCK_SHARED);
-	if (input == NULL)
-		return FALSE;
-
-	mbox_skip_empty_lines(input);
-	failed = !mbox_index_append(index, input);
-
-	i_stream_unref(input);
-
-	if (failed)
+	if (!mbox_sync_full(index))
 		return FALSE;
 
 	/* update sync stamp */
@@ -64,5 +51,6 @@ int mbox_index_rebuild(struct mail_index *index)
 
 	/* rebuild is complete - remove the flag */
 	index->header->flags &= ~(MAIL_INDEX_FLAG_REBUILD|MAIL_INDEX_FLAG_FSCK);
+	index->set_flags &= ~MAIL_INDEX_FLAG_REBUILD;
 	return TRUE;
 }

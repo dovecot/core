@@ -343,6 +343,7 @@ struct mail_index {
 		(*update_begin)(struct mail_index *index,
 				struct mail_index_record *rec);
 	int (*update_end)(struct mail_index_update *update);
+	void (*update_abort)(struct mail_index_update *update);
 
 	void (*update_field)(struct mail_index_update *update,
 			     enum mail_data_field field,
@@ -420,6 +421,7 @@ struct mail_index {
 	unsigned int nodiskspace:1;
 	unsigned int index_lock_timeout:1;
 	unsigned int allow_new_custom_flags:1;
+	unsigned int mailbox_readonly:1;
 	unsigned int mailbox_lock_timeout:1;
 };
 
@@ -436,7 +438,7 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, { 0, 0, 0 }, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0
+	0, 0, 0, 0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */
@@ -481,6 +483,7 @@ struct mail_index_update *
 mail_index_update_begin(struct mail_index *index,
 			struct mail_index_record *rec);
 int mail_index_update_end(struct mail_index_update *update);
+void mail_index_update_abort(struct mail_index_update *update);
 void mail_index_update_field(struct mail_index_update *update,
 			     enum mail_data_field field,
 			     const char *value, size_t extra_space);

@@ -330,6 +330,10 @@ static int mail_index_lock_change(struct mail_index *index,
 	if (index->inconsistent) {
 		/* index is in inconsistent state and nothing else than
 		   free() is allowed for it. */
+		if (index->error == NULL) {
+			index->error =
+				i_strdup("Index is in inconsistent state");
+		}
 		return FALSE;
 	}
 
@@ -1029,7 +1033,7 @@ void mail_index_append_abort(struct mail_index *index,
 	    index->header->used_file_size - sizeof(*rec)) {
 		/* we can just rollback */
 		index->header->used_file_size -= sizeof(*rec);
-		index->mmap_used_length += sizeof(*rec);
+		index->mmap_used_length -= sizeof(*rec);
 	} else {
 		/* mark it deleted */
 		update_first_hole(index, rec);

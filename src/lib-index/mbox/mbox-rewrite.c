@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "file-set-size.h"
 #include "str.h"
 #include "write-full.h"
 #include "mbox-index.h"
@@ -15,13 +16,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 struct mbox_rewrite_context {
 	struct ostream *output;
 	int failed;
 
 	uoff_t content_length;
-	unsigned int seq;
+	unsigned int seq, uid;
 	unsigned int msg_flags;
         const char **custom_flags;
 
@@ -30,6 +32,7 @@ struct mbox_rewrite_context {
 
 	unsigned int ximapbase_found:1;
 	unsigned int xkeywords_found:1;
+	unsigned int xuid_found:1;
 	unsigned int status_found:1;
 	unsigned int xstatus_found:1;
 	unsigned int content_length_found:1;
@@ -100,6 +103,18 @@ static int mbox_write_ximapbase(struct mbox_rewrite_context *ctx)
 	}
 
 	if (o_stream_send(ctx->output, "\n", 1) < 0)
+		return FALSE;
+
+	return TRUE;
+}
+
+static int mbox_write_xuid(struct mbox_rewrite_context *ctx)
+{
+	const char *str;
+
+	str = t_strdup_printf("X-UID: %u\n", ctx->uid);
+
+	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
 	return TRUE;
@@ -250,7 +265,6 @@ static void header_cb(struct message_part *part __attr_unused__,
 {
 	struct mbox_rewrite_context *ctx = context;
 	const char *str;
-	char *end;
 
 	if (ctx->failed)
 		return;
@@ -269,20 +283,12 @@ static void header_cb(struct message_part *part __attr_unused__,
 		(void)mbox_write_xkeywords(ctx, str);
 	} else if (name_len == 10 && memcasecmp(name, "X-IMAPbase", 10) == 0) {
 		if (ctx->seq == 1) {
-			/* temporarily copy the value to make sure we
-			   don't overflow it */
-			const char *str;
-
-			t_push();
-			str = t_strndup(value, value_len);
-			ctx->uid_validity = strtoul(str, &end, 10);
-			while (*end == ' ') end++;
-			ctx->uid_last = strtoul(end, &end, 10);
-			t_pop();
-
 			ctx->ximapbase_found = TRUE;
 			(void)mbox_write_ximapbase(ctx);
 		}
+	} else if (name_len == 5 && memcasecmp(name, "X-UID", 5) == 0) {
+		ctx->xuid_found = TRUE;
+		(void)mbox_write_xuid(ctx);
 	} else if (name_len == 14 &&
 		   memcasecmp(name, "Content-Length", 14) == 0) {
 		ctx->content_length_found = TRUE;
@@ -331,10 +337,12 @@ static int mbox_write_header(struct mail_index *index,
 	/* parse the header, write the fields we don't want to change */
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.output = output;
-	ctx.seq = seq;
 	ctx.content_length = body_size;
+	ctx.seq = seq;
+	ctx.uid = rec->uid;
 	ctx.msg_flags = rec->msg_flags;
-	ctx.uid_validity = index->header->uid_validity-1;
+	ctx.uid_validity = index->header->uid_validity;
+	ctx.uid_last = index->header->next_uid-1;
 	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
 	i_stream_set_read_limit(input, input->v_offset + hdr_size);
@@ -349,12 +357,14 @@ static int mbox_write_header(struct mail_index *index,
 		(void)mbox_write_ximapbase(&ctx);
 	}
 
-	if (!ctx.xkeywords_found)
-		(void)mbox_write_xkeywords(&ctx, NULL);
 	if (!ctx.status_found)
 		(void)mbox_write_status(&ctx, NULL);
 	if (!ctx.xstatus_found)
 		(void)mbox_write_xstatus(&ctx, NULL);
+	if (!ctx.xkeywords_found)
+		(void)mbox_write_xkeywords(&ctx, NULL);
+	if (!ctx.xuid_found)
+		(void)mbox_write_xuid(&ctx);
 	if (!ctx.content_length_found)
 		(void)mbox_write_content_length(&ctx);
 
@@ -366,31 +376,50 @@ static int mbox_write_header(struct mail_index *index,
 	return TRUE;
 }
 
-static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
+static int fd_copy(struct mail_index *index, int in_fd, int out_fd,
+		   uoff_t out_offset, uoff_t size)
 {
 	struct istream *input;
 	struct ostream *output;
+	struct stat st;
 	int ret;
 
 	i_assert(out_offset <= OFF_T_MAX);
 
-	if (lseek(out_fd, (off_t)out_offset, SEEK_SET) < 0)
+	/* first grow the file to wanted size, to make sure we don't run out
+	   of disk space */
+	if (fstat(out_fd, &st) < 0) {
+		mbox_set_syscall_error(index, "fstat()");
 		return -1;
+	}
+
+	if ((uoff_t)st.st_size < out_offset + size) {
+		if (file_set_size(out_fd, (off_t)(out_offset + size)) < 0) {
+			mbox_set_syscall_error(index, "file_set_size()");
+			(void)ftruncate(out_fd, st.st_size);
+			return -1;
+		}
+	}
+
+	if (lseek(out_fd, (off_t)out_offset, SEEK_SET) < 0) {
+		mbox_set_syscall_error(index, "lseek()");
+		(void)ftruncate(out_fd, st.st_size);
+		return -1;
+	}
 
 	t_push();
 
 	input = i_stream_create_mmap(in_fd, data_stack_pool,
 				     1024*256, 0, 0, FALSE);
+	i_stream_set_read_limit(input, size);
+
 	output = o_stream_create_file(out_fd, data_stack_pool, 1024, 0, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	ret = o_stream_send_istream(output, input);
-	if (ret < 0)
+	if (ret < 0) {
 		errno = output->stream_errno;
-	else {
-		/* we may have shrinked the file */
-		i_assert(out_offset + input->v_size <= OFF_T_MAX);
-		ret = ftruncate(out_fd, (off_t) (out_offset + input->v_size));
+		mbox_set_syscall_error(index, "o_stream_send_istream()");
 	}
 
 	o_stream_unref(output);
@@ -398,6 +427,47 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 	t_pop();
 
 	return ret;
+}
+
+static int dirty_flush(struct mail_index *index, uoff_t dirty_offset,
+		       struct ostream *output, int output_fd)
+{
+	if (output->offset == 0)
+		return TRUE;
+
+	if (o_stream_flush(output) < 0) {
+		mbox_set_syscall_error(index, "o_stream_flush()");
+		return FALSE;
+	}
+
+	/* POSSIBLE DATA LOSS HERE. We're writing to the mbox file,
+	   so if we get killed here before finished, we'll lose some
+	   bytes. I can't really think of any way to fix this,
+	   rename() is problematic too especially because of file
+	   locking issues (new mail could be lost).
+
+	   Usually we're moving the data by just a few bytes, so
+	   the data loss should never be more than those few bytes..
+	   If we moved more, we could have written the file from end
+	   to beginning in blocks (it'd be a bit slow to do it in
+	   blocks of ~1-10 bytes which is the usual case, so we don't
+	   bother).
+
+	   Also, we might as well be shrinking the file, in which
+	   case we can't lose data. */
+	if (fd_copy(index, output_fd, index->mbox_fd,
+		    dirty_offset, output->offset) < 0)
+		return FALSE;
+
+	/* All ok. Just make sure the timestamps of index and
+	   mbox differ, so index will be updated at next sync */
+	index->file_sync_stamp = ioloop_time-61;
+
+	if (o_stream_seek(output, 0) < 0) {
+		mbox_set_syscall_error(index, "o_stream_seek()");
+		return FALSE;
+	}
+	return TRUE;
 }
 
 #define INDEX_DIRTY_FLAGS \
@@ -415,18 +485,25 @@ int mbox_index_rewrite(struct mail_index *index)
 	uoff_t offset, hdr_size, body_size, dirty_offset;
 	const char *path;
 	unsigned int seq;
-	int tmp_fd, failed, dirty_found, rewrite;
+	int tmp_fd, failed, dirty_found, rewrite, no_locking;
 
-	i_assert(index->lock_type == MAIL_LOCK_UNLOCK);
+	i_assert(index->lock_type == MAIL_LOCK_UNLOCK ||
+		 (index->lock_type == MAIL_LOCK_EXCLUSIVE &&
+		  index->mbox_lock_type == MAIL_LOCK_EXCLUSIVE));
 
-	if (!index->set_lock(index, MAIL_LOCK_SHARED))
-		return FALSE;
+	no_locking = index->mbox_lock_type == MAIL_LOCK_EXCLUSIVE;
+	if (!no_locking) {
+		if (!index->set_lock(index, MAIL_LOCK_SHARED))
+			return FALSE;
+	}
 
 	rewrite = (index->header->flags & INDEX_DIRTY_FLAGS) &&
 		index->header->messages_count > 0;
 
-	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
-		return FALSE;
+	if (!no_locking) {
+		if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
+			return FALSE;
+	}
 
 	if (!rewrite) {
 		/* no need to rewrite */
@@ -436,11 +513,14 @@ int mbox_index_rewrite(struct mail_index *index)
 	tmp_fd = -1; input = NULL;
 	failed = TRUE; rewrite = FALSE;
 	do {
-		if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
-			break;
+		if (!no_locking) {
+			if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+				break;
 
-		if (!index->sync_and_lock(index, MAIL_LOCK_EXCLUSIVE, NULL))
-			break;
+			if (!index->sync_and_lock(index, MAIL_LOCK_EXCLUSIVE,
+						  NULL))
+				break;
+		}
 
 		input = mbox_get_stream(index, 0, MAIL_LOCK_EXCLUSIVE);
 		if (input == NULL)
@@ -461,8 +541,10 @@ int mbox_index_rewrite(struct mail_index *index)
 	} while (0);
 
 	if (!rewrite) {
-		if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
-			failed = TRUE;
+		if (!no_locking) {
+			if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
+				failed = TRUE;
+		}
 		if (input != NULL)
 			i_stream_unref(input);
 		return !failed;
@@ -532,11 +614,22 @@ int mbox_index_rewrite(struct mail_index *index)
 				break;
 			}
 
-			/* write body */
-			offset += body_size;
-			if (!mbox_write(index, input, output, offset)) {
-				failed = TRUE;
-				break;
+			if (dirty_found &&
+			    offset - dirty_offset == output->offset) {
+				/* no need to write more, flush */
+				if (!dirty_flush(index, dirty_offset,
+						 output, tmp_fd)) {
+					failed = TRUE;
+					break;
+				}
+				dirty_found = FALSE;
+			} else {
+				/* write body */
+				offset += body_size;
+				if (!mbox_write(index, input, output, offset)) {
+					failed = TRUE;
+					break;
+				}
 			}
 		}
 
@@ -544,14 +637,8 @@ int mbox_index_rewrite(struct mail_index *index)
 		rec = index->next(index, rec);
 	}
 
-	if (!dirty_found) {
-		index_set_error(index, "Expected dirty messages not found "
-				"from mbox file %s", index->mailbox_path);
-		failed = TRUE;
-	}
-
-	if (!failed) {
-		/* always end with a \n */
+	if (!failed && dirty_found) {
+		/* end with \n */
 		(void)o_stream_send(output, "\n", 1);
 	}
 
@@ -561,38 +648,32 @@ int mbox_index_rewrite(struct mail_index *index)
 		failed = TRUE;
 	}
 
-	i_stream_unref(input);
-	o_stream_unref(output);
+	if (!failed && dirty_found) {
+		uoff_t dirty_size = output->offset;
 
-	if (!failed) {
-		/* POSSIBLE DATA LOSS HERE. We're writing to the mbox file,
-		   so if we get killed here before finished, we'll lose some
-		   bytes. I can't really think of any way to fix this,
-		   rename() is problematic too especially because of file
-		   locking issues (new mail could be lost).
-
-		   Usually we're moving the data by just a few bytes, so
-		   the data loss should never be more than those few bytes..
-		   If we moved more, we could have written the file from end
-		   to beginning in blocks (it'd be a bit slow to do it in
-		   blocks of ~1-10 bytes which is the usual case, so we don't
-		   bother).
-
-		   Also, we might as well be shrinking the file, in which
-		   case we can't lose data. */
-		if (fd_copy(tmp_fd, index->mbox_fd, dirty_offset) == 0) {
-			/* All ok. Just make sure the timestamps of index and
-			   mbox differ, so index will be updated at next sync */
-			index->file_sync_stamp = ioloop_time-61;
-			reset_dirty_flags(index);
-		} else {
-			mbox_set_syscall_error(index, "fd_copy()");
+		if (!dirty_flush(index, dirty_offset, output, tmp_fd))
 			failed = TRUE;
+		else {
+			/* we may have shrinked the file */
+			i_assert(dirty_offset + dirty_size <= OFF_T_MAX);
+			if (ftruncate(index->mbox_fd,
+				      (off_t)(dirty_offset + dirty_size)) < 0) {
+				mbox_set_syscall_error(index, "ftruncate()");
+				failed = TRUE;
+			}
 		}
 	}
 
-	if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
-		failed = TRUE;
+	if (!failed)
+		reset_dirty_flags(index);
+
+	i_stream_unref(input);
+	o_stream_unref(output);
+
+	if (!no_locking) {
+		if (!index->set_lock(index, MAIL_LOCK_UNLOCK))
+			failed = TRUE;
+	}
 
 	(void)unlink(path);
 

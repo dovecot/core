@@ -11,6 +11,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 static void skip_line(struct istream *input)
 {
@@ -29,17 +30,20 @@ static void skip_line(struct istream *input)
 	}
 }
 
-static int verify_header_md5sum(struct mail_index *index,
-				struct mail_index_record *rec,
-				unsigned char current_digest[16])
+static int verify_header(struct mail_index *index,
+			 struct mail_index_record *rec,
+			 unsigned int uid, unsigned char current_digest[16])
 {
 	const unsigned char *old_digest;
 	size_t size;
 
 	/* MD5 sums must match */
 	old_digest = index->lookup_field_raw(index, rec, DATA_FIELD_MD5, &size);
-	return old_digest != NULL && size >= 16 &&
-                memcmp(old_digest, current_digest, 16) == 0;
+	if (old_digest == NULL)
+		return uid == rec->uid;
+
+	return size >= 16 && memcmp(old_digest, current_digest, 16) == 0 &&
+		(uid == 0 || uid == rec->uid);
 }
 
 static int mail_update_header_size(struct mail_index *index,
@@ -95,6 +99,26 @@ static int mail_update_header_size(struct mail_index *index,
 	return TRUE;
 }
 
+static int mbox_check_uidvalidity(struct mail_index *index,
+				  unsigned int uid_validity)
+{
+	if (uid_validity == index->header->uid_validity)
+		return TRUE;
+
+	index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES |
+		MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS;
+
+	if (uid_validity == 0) {
+		/* X-IMAPbase header isn't written yet */
+	} else {
+		/* UID validity has changed - rebuild whole index */
+		index->set_flags |= MAIL_INDEX_FLAG_REBUILD;
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static int match_next_record(struct mail_index *index,
 			     struct mail_index_record *rec,
 			     unsigned int seq, struct istream *input,
@@ -139,13 +163,27 @@ static int match_next_record(struct mail_index *index,
 					     mbox_header_cb, &ctx);
 			md5_final(&ctx.md5, current_digest);
 
+			if (seq == 1) {
+				if (!mbox_check_uidvalidity(index,
+							    ctx.uid_validity)) {
+					/* uidvalidity changed, abort */
+					break;
+				}
+
+				if (ctx.uid_last >= index->header->next_uid) {
+					/* last_uid larger than ours */
+					index->header->next_uid =
+						ctx.uid_last+1;
+				}
+			}
+
 			mbox_header_free_context(&ctx);
 			i_stream_set_read_limit(input, 0);
 
 			body_offset = input->v_offset;
 		}
 
-		if (verify_header_md5sum(index, rec, current_digest) &&
+		if (verify_header(index, rec, ctx.uid, current_digest) &&
 		    mbox_verify_end_of_body(input, body_offset + body_size)) {
 			/* valid message */
 			update = index->update_begin(index, rec);
@@ -211,7 +249,7 @@ static int mbox_sync_from_stream(struct mail_index *index,
 	/* first make sure we start with a "From " line. If file is too
 	   small, we'll just treat it as empty mbox file. */
 	if (i_stream_read_data(input, &data, &size, 5) > 0 &&
-	    strncmp((const char *) data, "From ", 5) != 0) {
+	    memcmp(data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
 				index->mailbox_path);
 		return FALSE;
@@ -269,11 +307,12 @@ static int mbox_sync_from_stream(struct mail_index *index,
 	}
 
 	if (!dirty && (index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES)) {
-		/* no flags were dirty anymore, no need to rewrite */
+		/* no flags are dirty anymore, no need to rewrite */
 		index->header->flags &= ~MAIL_INDEX_FLAG_DIRTY_MESSAGES;
 	}
 
-	if (input->v_offset == input->v_size)
+	if (input->v_offset == input->v_size ||
+	    (index->set_flags & MAIL_INDEX_FLAG_REBUILD))
 		return TRUE;
 	else
 		return mbox_index_append(index, input);
@@ -282,6 +321,8 @@ static int mbox_sync_from_stream(struct mail_index *index,
 int mbox_sync_full(struct mail_index *index)
 {
 	struct istream *input;
+	struct stat orig_st, st;
+	uoff_t continue_offset;
 	int failed;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
@@ -290,8 +331,43 @@ int mbox_sync_full(struct mail_index *index)
 	if (input == NULL)
 		return FALSE;
 
-	failed = !mbox_sync_from_stream(index, input);
-	i_stream_unref(input);
+	if (fstat(index->mbox_fd, &orig_st) < 0) {
+		mbox_set_syscall_error(index, "fstat()");
+		continue_offset = (uoff_t)-1;
+		failed = TRUE;
+	} else {
+		failed = !mbox_sync_from_stream(index, input);
+		continue_offset = failed || input->v_offset == input->v_size ||
+			(index->set_flags & MAIL_INDEX_FLAG_REBUILD) ?
+			(uoff_t)-1 : input->v_offset;
+		i_stream_unref(input);
+	}
+
+	if (continue_offset != (uoff_t)-1) {
+		/* mbox_index_append() stopped, which means that it wants
+		   write access to mbox. if mbox hasn't changed after
+		   unlock+lock, we should be able to safely continue where we
+		   were left off last time. otherwise do full resync. */
+		if (!mbox_unlock(index))
+			return FALSE;
+
+		input = mbox_get_stream(index, 0, MAIL_LOCK_EXCLUSIVE);
+		if (input == NULL)
+			return FALSE;
+
+		if (fstat(index->mbox_fd, &st) < 0) {
+			mbox_set_syscall_error(index, "fstat()");
+			failed = TRUE;
+		} else if (st.st_mtime == orig_st.st_mtime &&
+			   st.st_size == orig_st.st_size) {
+			i_stream_seek(input, continue_offset);
+			failed = !mbox_index_append(index, input);
+		} else {
+			failed = !mbox_sync_from_stream(index, input);
+		}
+
+		i_stream_unref(input);
+	}
 
 	return !failed;
 }

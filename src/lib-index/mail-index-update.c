@@ -306,6 +306,11 @@ int mail_index_update_end(struct mail_index_update *update)
 	return !failed;
 }
 
+void mail_index_update_abort(struct mail_index_update *update)
+{
+	pool_unref(update->pool);
+}
+
 static void update_field_full(struct mail_index_update *update,
 			      enum mail_data_field field,
 			      const void *value, size_t size,

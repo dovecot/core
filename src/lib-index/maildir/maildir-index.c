@@ -266,6 +266,7 @@ struct mail_index maildir_index = {
 	mail_index_append_abort,
 	mail_index_update_begin,
 	mail_index_update_end,
+	mail_index_update_abort,
 	mail_index_update_field,
 	mail_index_update_field_raw,
 	mail_index_get_last_error,

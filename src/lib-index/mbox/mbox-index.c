@@ -9,6 +9,7 @@
 #include "mail-index-data.h"
 #include "mail-custom-flags.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -191,31 +192,32 @@ mbox_get_keyword_flags(const unsigned char *value, size_t len,
 	return flags;
 }
 
-static int mbox_parse_imapbase(const unsigned char *value, size_t len,
-			       struct mbox_header_context *ctx)
+static void mbox_parse_imapbase(const unsigned char *value, size_t len,
+				struct mbox_header_context *ctx)
 {
-	const char **flag;
+	const char **flag, *str;
+	char *end;
 	buffer_t *buf;
 	size_t pos, start;
 	enum mail_flags flags;
 	unsigned int count;
-	int ret, spaces;
-
-	/* skip <uid validity> and <last uid> fields */
-	spaces = 0;
-	for (pos = 0; pos < len; pos++) {
-		if (value[pos] == ' ' && (pos == 0 || value[pos-1] != ' ')) {
-			if (++spaces == 2)
-				break;
-		}
-	}
-
-	while (pos < len && value[pos] == ' ') pos++;
-
-	if (pos == len)
-		return TRUE;
+	int ret;
 
 	t_push();
+
+	/* <uid validity> <last uid> */
+	str = t_strndup(value, len);
+	ctx->uid_validity = strtoul(str, &end, 10);
+	ctx->uid_last = strtoul(end, &end, 10);
+	pos = end - str;
+
+	while (pos < len && value[pos] == ' ')
+		pos++;
+
+	if (pos == len) {
+		t_pop();
+		return;
+	}
 
 	/* we're at the 3rd field now, which begins the list of custom flags */
 	buf = buffer_create_dynamic(data_stack_pool,
@@ -243,8 +245,6 @@ static int mbox_parse_imapbase(const unsigned char *value, size_t len,
 					 flag, count);
 
 	t_pop();
-
-	return ret > 0;
 }
 
 void mbox_header_cb(struct message_part *part __attr_unused__,
@@ -348,6 +348,14 @@ void mbox_header_cb(struct message_part *part __attr_unused__,
 			   ID's but don't blindly trust this header alone as
 			   it could just as easily come from the remote. */
 			fixed = memcasecmp(name, "X-Delivery-ID:", 13) == 0;
+		} else if (name_len == 5 &&
+			   memcasecmp(name, "X-UID", 5) == 0) {
+			ctx->uid = 0;
+			for (i = 0; i < value_len; i++) {
+				if (value[i] < '0' || value[i] > '9')
+					break;
+				ctx->uid = ctx->uid * 10 + (value[i]-'0');
+			}
 		} else if (name_len == 8 &&
 			   memcasecmp(name, "X-Status", 8) == 0) {
 			/* update message flags */
@@ -359,8 +367,7 @@ void mbox_header_cb(struct message_part *part __attr_unused__,
 							     ctx->custom_flags);
 		} else if (name_len == 10 &&
 			   memcasecmp(name, "X-IMAPbase", 10) == 0) {
-			/* update list of custom message flags */
-			(void)mbox_parse_imapbase(value, value_len, ctx);
+			mbox_parse_imapbase(value, value_len, ctx);
 		}
 		break;
 	}
@@ -799,6 +806,18 @@ static int mbox_index_update_flags(struct mail_index *index,
 	return TRUE;
 }
 
+static int mbox_index_append_end(struct mail_index *index,
+				 struct mail_index_record *rec)
+{
+	if (!mail_index_append_end(index, rec))
+		return FALSE;
+
+	/* update last_uid in X-IMAPbase */
+	index->header->flags |= MAIL_INDEX_FLAG_DIRTY_MESSAGES |
+		MAIL_INDEX_FLAG_DIRTY_CUSTOMFLAGS;
+	return TRUE;
+}
+
 struct mail_index mbox_index = {
 	mail_index_open,
 	mbox_index_free,
@@ -820,10 +839,11 @@ struct mail_index mbox_index = {
 	mbox_index_expunge,
 	mbox_index_update_flags,
 	mail_index_append_begin,
-	mail_index_append_end,
+	mbox_index_append_end,
 	mail_index_append_abort,
 	mail_index_update_begin,
 	mail_index_update_end,
+	mail_index_update_abort,
 	mail_index_update_field,
 	mail_index_update_field_raw,
 	mail_index_get_last_error,

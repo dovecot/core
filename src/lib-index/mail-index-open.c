@@ -126,6 +126,7 @@ static int index_open_and_fix(struct mail_index *index,
 	   may happen because of this. */
 	if (!index->sync_and_lock(index, MAIL_LOCK_SHARED, NULL))
 		return FALSE;
+	index->inconsistent = FALSE;
 
 	/* we never want to keep shared lock if syncing happens to set it.
 	   either exclusive or nothing (NOTE: drop it directly, not through
