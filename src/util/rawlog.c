@@ -6,6 +6,7 @@
 #include "network.h"
 #include "write-full.h"
 #include "process-title.h"
+#include "restrict-access.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -99,14 +100,36 @@ static void rawlog_open(void)
 
 	/* see if we want rawlog */
 	path = t_strconcat(home, "/dovecot.rawlog", NULL);
-	if (stat(path, &st) < 0) {
+	if (lstat(path, &st) < 0) {
 		if (errno != ENOENT)
 			i_warning("stat() failed for %s: %m", path);
 		return;
 	}
 
-	/* yes, open the files. Do it before forking to make sure we don't
-	   unneededly do it. */
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) < 0)
+		i_fatal("socketpair() failed: %m");
+
+	parent_pid = getpid();
+
+	pid = fork();
+	if (pid < 0)
+		i_fatal("fork() failed: %m");
+
+	if (pid > 0) {
+		/* parent */
+		if (dup2(sfd[1], 0) < 0)
+			i_fatal("dup2(sfd, 0)");
+		if (dup2(sfd[1], 1) < 0)
+			i_fatal("dup2(sfd, 1)");
+		close(sfd[0]);
+		close(sfd[1]);
+		return;
+	}
+	close(sfd[1]);
+
+	restrict_access_by_env(TRUE);
+
+	/* open the files after dropping privileges */
 	tm = localtime(&ioloop_time);
 	if (strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", tm) <= 0)
 		i_fatal("strftime() failed");
@@ -127,29 +150,6 @@ static void rawlog_open(void)
 		close(log_in);
 		return;
 	}
-
-	/* we need to fork the rawlog writer to separate process since
-	   imap process does blocking writes. */
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) < 0)
-		i_fatal("socketpair() failed: %m");
-
-	parent_pid = getpid();
-
-	pid = fork();
-	if (pid < 0)
-		i_fatal("fork() failed: %m");
-
-	if (pid > 0) {
-		/* parent */
-		close(log_in); close(log_out);
-		close(sfd[0]);
-		if (dup2(sfd[1], 0) < 0)
-			i_fatal("dup2(sfd, 0)");
-		if (dup2(sfd[1], 1) < 0)
-			i_fatal("dup2(sfd, 1)");
-		return;
-	}
-	close(sfd[1]);
 
 	process_title_set(t_strdup_printf("[%s:%s rawlog]", getenv("USER"),
 					  dec2str(parent_pid)));
@@ -179,7 +179,7 @@ int main(int argc, char *argv[], char *envp[])
 	char *executable, *p;
 
 	lib_init();
-        process_title_init(argv, envp);
+	process_title_init(argv, envp);
 
 	if (argc < 2)
 		i_fatal("Usage: rawlog <binary> <arguments>");
