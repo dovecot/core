@@ -299,9 +299,11 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
 				"Given data size larger than file size "
-				"(%"PRIuUOFF_T" + %u > %"PRIuSIZE_T")",
+				"(%"PRIuUOFF_T" + %u > %"PRIuSIZE_T") "
+				"for record %u",
 				data->filepath, index_rec->data_position,
-                                index_rec->data_size, data->mmap_length);
+				index_rec->data_size, data->mmap_length,
+				index_rec->uid);
 		return NULL;
 	}
 
