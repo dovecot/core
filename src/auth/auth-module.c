@@ -9,6 +9,14 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 
+#ifndef RTLD_GLOBAL
+#  define RTLD_GLOBAL 0
+#endif
+
+#ifndef RTLD_NOW
+#  define RTLD_NOW 0
+#endif
+
 struct auth_module {
 	struct auth_module *next;
 
