@@ -54,8 +54,11 @@ static int init_mailbox(struct client *client)
 
 	client->messages_count = status.messages;
 	client->uidvalidity = status.uidvalidity;
-	client->message_sizes = i_new(uoff_t, client->messages_count);
 
+	if (client->messages_count == 0)
+		return TRUE;
+
+	client->message_sizes = i_new(uoff_t, client->messages_count);
 	messageset = t_strdup_printf("1:%u", client->messages_count);
 	for (i = 0; i < 2; i++) {
 		ctx = client->mailbox->fetch_init(client->mailbox,
@@ -214,7 +217,12 @@ static void client_input(void *context)
 		else
 			*args++ = '\0';
 
-		client_command_execute(client, line, args);
+		if (client_command_execute(client, line, args))
+			client->bad_counter = 0;
+		else if (++client->bad_counter > CLIENT_MAX_BAD_COMMANDS) {
+			client_send_line(client, "-ERR Too many bad commands.");
+			client_disconnect(client);
+		}
 	}
 	o_stream_flush(client->output);
 

@@ -84,12 +84,12 @@ static const char *get_size(struct client *client, const char *args,
 	return args;
 }
 
-static void cmd_dele(struct client *client, const char *args)
+static int cmd_dele(struct client *client, const char *args)
 {
 	unsigned int msgnum;
 
 	if (get_msgnum(client, args, &msgnum) == NULL)
-		return;
+		return FALSE;
 
 	if (!client->deleted) {
 		client->deleted_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
@@ -98,9 +98,10 @@ static void cmd_dele(struct client *client, const char *args)
 
 	client->deleted_bitmask[msgnum / CHAR_BIT] |= 1 << (msgnum % CHAR_BIT);
 	client_send_line(client, "+OK Marked to be deleted.");
+	return TRUE;
 }
 
-static void cmd_list(struct client *client, const char *args)
+static int cmd_list(struct client *client, const char *args)
 {
 	unsigned int i;
 
@@ -115,19 +116,23 @@ static void cmd_list(struct client *client, const char *args)
 	} else {
 		unsigned int msgnum;
 
-		if (get_msgnum(client, args, &msgnum) != NULL) {
-			client_send_line(client, "+OK %u %"PRIuUOFF_T, msgnum+1,
-					 client->message_sizes[msgnum]);
-		}
+		if (get_msgnum(client, args, &msgnum) == NULL)
+			return FALSE;
+
+		client_send_line(client, "+OK %u %"PRIuUOFF_T, msgnum+1,
+				 client->message_sizes[msgnum]);
 	}
+
+	return TRUE;
 }
 
-static void cmd_noop(struct client *client, const char *args __attr_unused__)
+static int cmd_noop(struct client *client, const char *args __attr_unused__)
 {
 	client_send_line(client, "+OK");
+	return TRUE;
 }
 
-static void cmd_quit(struct client *client, const char *args __attr_unused__)
+static int cmd_quit(struct client *client, const char *args __attr_unused__)
 {
 	unsigned int first, last, msgnum, max, i, j;
 	struct mail_full_flags flags;
@@ -136,7 +141,7 @@ static void cmd_quit(struct client *client, const char *args __attr_unused__)
 	if (!client->deleted) {
 		client_send_line(client, "+OK Logging out.");
 		client_disconnect(client);
-		return;
+		return TRUE;
 	}
 
 	set = t_str_new(1024);
@@ -189,6 +194,7 @@ static void cmd_quit(struct client *client, const char *args __attr_unused__)
 		client_send_storage_error(client);
 
 	client_disconnect(client);
+	return TRUE;
 }
 
 static void stream_send_escaped(struct ostream *output, struct istream *input,
@@ -290,15 +296,18 @@ static void fetch(struct client *client, unsigned int msgnum,
 	(void)client->mailbox->fetch_deinit(ctx, NULL);
 }
 
-static void cmd_retr(struct client *client, const char *args)
+static int cmd_retr(struct client *client, const char *args)
 {
 	unsigned int msgnum;
 
-	if (get_msgnum(client, args, &msgnum) != NULL)
-		fetch(client, msgnum, (uoff_t)-1);
+	if (get_msgnum(client, args, &msgnum) == NULL)
+		return FALSE;
+
+	fetch(client, msgnum, (uoff_t)-1);
+	return TRUE;
 }
 
-static void cmd_rset(struct client *client, const char *args __attr_unused__)
+static int cmd_rset(struct client *client, const char *args __attr_unused__)
 {
 	if (client->deleted) {
 		client->deleted = FALSE;
@@ -306,24 +315,29 @@ static void cmd_rset(struct client *client, const char *args __attr_unused__)
 	}
 
 	client_send_line(client, "+OK");
+	return TRUE;
 }
 
-static void cmd_stat(struct client *client, const char *args __attr_unused__)
+static int cmd_stat(struct client *client, const char *args __attr_unused__)
 {
 	client_send_line(client, "+OK %u %"PRIuUOFF_T, client->
 			 messages_count, client->total_size);
+	return TRUE;
 }
 
-static void cmd_top(struct client *client, const char *args)
+static int cmd_top(struct client *client, const char *args)
 {
 	unsigned int msgnum;
 	uoff_t max_lines;
 
 	args = get_msgnum(client, args, &msgnum);
-	if (args != NULL) {
-		if (get_size(client, args, &max_lines) != NULL)
-			fetch(client, msgnum, max_lines);
-	}
+	if (args == NULL)
+		return FALSE;
+	if (get_size(client, args, &max_lines) == NULL)
+		return FALSE;
+
+	fetch(client, msgnum, max_lines);
+	return TRUE;
 }
 
 static void list_uids(struct client *client, unsigned int message)
@@ -360,7 +374,7 @@ static void list_uids(struct client *client, unsigned int message)
 		client_send_line(client, "-ERR Message not found.");
 }
 
-static void cmd_uidl(struct client *client, const char *args)
+static int cmd_uidl(struct client *client, const char *args)
 {
 	if (*args == '\0') {
 		client_send_line(client, "+OK");
@@ -369,12 +383,16 @@ static void cmd_uidl(struct client *client, const char *args)
 	} else {
 		unsigned int msgnum;
 
-		if (get_msgnum(client, args, &msgnum) != NULL)
-			list_uids(client, msgnum+1);
+		if (get_msgnum(client, args, &msgnum) == NULL)
+			return FALSE;
+
+		list_uids(client, msgnum+1);
 	}
+
+	return TRUE;
 }
 
-void client_command_execute(struct client *client,
+int client_command_execute(struct client *client,
 			    const char *name, const char *args)
 {
 	/* keep the command uppercased */
@@ -384,58 +402,41 @@ void client_command_execute(struct client *client,
 
 	switch (*name) {
 	case 'D':
-		if (strcmp(name, "DELE") == 0) {
-			cmd_dele(client, args);
-			return;
-		}
+		if (strcmp(name, "DELE") == 0)
+			return cmd_dele(client, args);
 		break;
 	case 'L':
-		if (strcmp(name, "LIST") == 0) {
-			cmd_list(client, args);
-			return;
-		}
+		if (strcmp(name, "LIST") == 0)
+			return cmd_list(client, args);
 		break;
 	case 'N':
-		if (strcmp(name, "NOOP") == 0) {
-			cmd_noop(client, args);
-			return;
-		}
+		if (strcmp(name, "NOOP") == 0)
+			return cmd_noop(client, args);
 		break;
 	case 'Q':
-		if (strcmp(name, "QUIT") == 0) {
-			cmd_quit(client, args);
-			return;
-		}
+		if (strcmp(name, "QUIT") == 0)
+			return cmd_quit(client, args);
 		break;
 	case 'R':
-		if (strcmp(name, "RETR") == 0) {
-			cmd_retr(client, args);
-			return;
-		}
-		if (strcmp(name, "RSET") == 0) {
-			cmd_rset(client, args);
-			return;
-		}
+		if (strcmp(name, "RETR") == 0)
+			return cmd_retr(client, args);
+		if (strcmp(name, "RSET") == 0)
+			return cmd_rset(client, args);
 		break;
 	case 'S':
-		if (strcmp(name, "STAT") == 0) {
-			cmd_stat(client, args);
-			return;
-		}
+		if (strcmp(name, "STAT") == 0)
+			return cmd_stat(client, args);
 		break;
 	case 'T':
-		if (strcmp(name, "TOP") == 0) {
-			cmd_top(client, args);
-			return;
-		}
+		if (strcmp(name, "TOP") == 0)
+			return cmd_top(client, args);
 		break;
 	case 'U':
-		if (strcmp(name, "UIDL") == 0) {
-			cmd_uidl(client, args);
-			return;
-		}
+		if (strcmp(name, "UIDL") == 0)
+			return cmd_uidl(client, args);
 		break;
 	}
 
 	client_send_line(client, "-ERR Unknown command: %s", name);
+	return FALSE;
 }
