@@ -161,9 +161,6 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 	const char *old_fname, *new_fname;
 	const char *old_path, *new_path;
 
-	if (!mail_index_update_flags(index, rec, seq, flags, external_change))
-		return FALSE;
-
 	/* we need to update the flags in the file name */
 	old_fname = index->lookup_field(index, rec, FIELD_TYPE_LOCATION);
 	if (old_fname == NULL) {
@@ -179,7 +176,7 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 		new_path = t_strconcat(index->dir, "/cur/", new_fname, NULL);
 
 		/* minor problem: new_path is overwritten if it exists.. */
-		if (rename(old_path, new_path) == -1) {
+		if (rename(old_path, new_path) < 0) {
 			if (errno == ENOSPC)
 				index->nodiskspace = TRUE;
 
@@ -196,6 +193,9 @@ static int maildir_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 		if (!index->update_end(update))
 			return FALSE;
 	}
+
+	if (!mail_index_update_flags(index, rec, seq, flags, external_change))
+		return FALSE;
 
 	return TRUE;
 }
