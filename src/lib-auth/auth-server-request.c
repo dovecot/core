@@ -252,9 +252,11 @@ int auth_client_input_fail(struct auth_server_connection *conn,
 static void request_hash_remove(struct auth_server_connection *conn,
                                 struct auth_request *request)
 {
+	static const char *const temp_failure_args[] = { "temp", NULL };
+
 	if (request->conn == conn) {
 		if (request->next_conn == NULL) {
-			request->callback(request, -1, NULL, NULL,
+			request->callback(request, -1, NULL, temp_failure_args,
 					  request->context);
 			request->conn = NULL;
 		} else {
