@@ -281,6 +281,10 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,
 			     enum mail_flags flags);
+void mail_index_update_flags_range(struct mail_index_transaction *t,
+				   uint32_t seq1, uint32_t seq2,
+				   enum modify_type modify_type,
+				   enum mail_flags flags);
 
 /* Return a list of all existing keywords, or NULL if there is none. */
 const char *const *mail_index_get_keywords(struct mail_index *index);

@@ -14,8 +14,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-static void mail_index_transaction_add_last(struct mail_index_transaction *t);
-
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
 			     int hide, int external)
@@ -213,9 +211,6 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
                 t->cache_trans_ctx = NULL;
 	}
 
-	if (t->last_update.uid1 != 0)
-		mail_index_transaction_add_last(t);
-
 	if (mail_index_transaction_convert_to_uids(t) < 0)
 		ret = -1;
 	else {
@@ -398,6 +393,97 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	mail_index_update_seq_range_buffer(t->expunges, seq);
 }
 
+static void
+mail_index_insert_flag_update(struct mail_index_transaction *t,
+			      struct mail_transaction_flag_update u,
+			      uint32_t left_idx, uint32_t right_idx)
+{
+	struct mail_transaction_flag_update *updates, tmp_update;
+	size_t size;
+	uint32_t idx;
+
+	updates = buffer_get_modifyable_data(t->updates, &size);
+	size /= sizeof(*updates);
+
+	i_assert(left_idx <= right_idx && right_idx <= size);
+
+	/* find the first update with either overlapping range,
+	   or the update which will come after our insert */
+	idx = 0; right_idx++;
+	while (left_idx < right_idx) {
+		idx = (left_idx + right_idx) / 2;
+
+		if (updates[idx].uid1 < u.uid1)
+			left_idx = idx+1;
+		else if (updates[idx].uid1 > u.uid1)
+			right_idx = idx;
+		else
+			break;
+	}
+	if (idx < size && updates[idx].uid2 < u.uid1)
+		idx++;
+
+	/* overlapping ranges, split/merge them */
+	i_assert(idx == 0 || updates[idx-1].uid2 < u.uid1);
+
+	for (; idx < size && u.uid2 >= updates[idx].uid1; idx++) {
+		if (u.uid1 != updates[idx].uid1 &&
+		    (updates[idx].add_flags != u.add_flags ||
+		     updates[idx].remove_flags != u.remove_flags)) {
+			/* split existing update from beginning */
+			tmp_update = updates[idx];
+			tmp_update.uid2 = u.uid1 - 1;
+			updates[idx].uid1 = u.uid1;
+
+			i_assert(tmp_update.uid1 <= tmp_update.uid2);
+			i_assert(updates[idx].uid1 <= updates[idx].uid2);
+
+			buffer_insert(t->updates, idx * sizeof(tmp_update),
+				      &tmp_update, sizeof(tmp_update));
+			updates = buffer_get_modifyable_data(t->updates, NULL);
+			size++; idx++;
+		}
+		if (u.uid2 < updates[idx].uid2 &&
+		    (updates[idx].add_flags != u.add_flags ||
+		     updates[idx].remove_flags != u.remove_flags)) {
+			/* split existing update from end */
+			tmp_update = updates[idx];
+			tmp_update.uid2 = u.uid2;
+			updates[idx].uid1 = u.uid2 + 1;
+
+			i_assert(tmp_update.uid1 <= tmp_update.uid2);
+			i_assert(updates[idx].uid1 <= updates[idx].uid2);
+
+			buffer_insert(t->updates, idx * sizeof(tmp_update),
+				      &tmp_update, sizeof(tmp_update));
+			updates = buffer_get_modifyable_data(t->updates, NULL);
+			size++;
+		}
+
+		updates[idx].add_flags =
+			(updates[idx].add_flags | u.add_flags) &
+			~u.remove_flags;
+		updates[idx].remove_flags =
+			(updates[idx].remove_flags | u.remove_flags) &
+			~u.add_flags;
+
+		u.uid1 = updates[idx].uid2 + 1;
+		if (u.uid1 > u.uid2) {
+			/* break here before idx++ so last_update_idx is set
+			   correctly */
+			break;
+		}
+	}
+	i_assert(idx <= size);
+
+	if (u.uid1 <= u.uid2) {
+		i_assert(idx == 0 || updates[idx-1].uid2 < u.uid1);
+		i_assert(idx == size || updates[idx].uid1 > u.uid2);
+		buffer_insert(t->updates, idx * sizeof(u), &u, sizeof(u));
+	}
+	t->last_update_idx = idx;
+}
+
 static void mail_index_record_modify_flags(struct mail_index_record *rec,
 					   enum modify_type modify_type,
 					   enum mail_flags flags)
@@ -415,127 +501,102 @@ static void mail_index_record_modify_flags(struct mail_index_record *rec,
 	}
 }
 
-#define IS_COMPATIBLE_UPDATE(t, modify_type, flags) \
-	((t)->last_update_modify_type == (modify_type) && \
-	 (t)->last_update.add_flags == (flags))
+void mail_index_update_flags_range(struct mail_index_transaction *t,
+				   uint32_t seq1, uint32_t seq2,
+				   enum modify_type modify_type,
+				   enum mail_flags flags)
+{
+	struct mail_index_record *rec;
+	struct mail_transaction_flag_update u, *last_update;
+	size_t size;
+
+	t->log_updates = TRUE;
+
+	if (seq2 >= t->first_new_seq) {
+		/* updates for appended messages, modify them directly */
+		uint32_t seq;
+
+		for (seq = I_MAX(t->first_new_seq, seq1); seq <= seq2; seq++) {
+			rec = mail_index_transaction_lookup(t, seq);
+			mail_index_record_modify_flags(rec, modify_type, flags);
+		}
+		if (seq1 >= t->first_new_seq)
+			return;
+
+		/* range contains also existing messages. update them next. */
+		seq2 = t->first_new_seq - 1;
+	}
+
+	i_assert(seq1 <= seq2 && seq1 > 0);
+	i_assert(seq2 <= mail_index_view_get_messages_count(t->view));
+
+	memset(&u, 0, sizeof(u));
+	u.uid1 = seq1;
+	u.uid2 = seq2;
+
+	switch (modify_type) {
+	case MODIFY_REPLACE:
+		u.add_flags = flags;
+		u.remove_flags = ~flags & MAIL_INDEX_FLAGS_MASK;
+		break;
+	case MODIFY_ADD:
+		u.add_flags = flags;
+		break;
+	case MODIFY_REMOVE:
+		u.remove_flags = flags;
+		break;
+	}
+
+	if (t->updates == NULL) {
+		t->updates = buffer_create_dynamic(default_pool, 4096);
+		buffer_append(t->updates, &u, sizeof(u));
+		return;
+	}
+
+	last_update = buffer_get_modifyable_data(t->updates, &size);
+	size /= sizeof(*last_update);
+
+	if (t->last_update_idx < size) {
+		/* fast path - hopefully we're updating the next message,
+		   or a message that is to be appended as last update */
+		last_update += t->last_update_idx;
+		if (seq1 - 1 == last_update->uid2) {
+			if (u.add_flags == last_update->add_flags &&
+			    u.remove_flags == last_update->remove_flags &&
+			    (t->last_update_idx + 1 == size ||
+			     last_update[1].uid1 > seq2)) {
+				/* we can just update the UID range */
+				last_update->uid2 = seq2;
+				return;
+			}
+		} else if (seq1 > last_update->uid2) {
+			/* hopefully we can just append it */
+			t->last_update_idx++;
+			last_update++;
+		}
+	}
+
+	if (t->last_update_idx == size) {
+		buffer_append(t->updates, &u, sizeof(u));
+		return;
+	}
+
+	/* slow path */
+	if (seq1 > last_update->uid2) {
+		/* added after this */
+		mail_index_insert_flag_update(t, u, t->last_update_idx + 1,
+					      size);
+	} else {
+		/* added before this or on top of this */
+		mail_index_insert_flag_update(t, u, 0, t->last_update_idx);
+	}
+}
 
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,
 			     enum mail_flags flags)
 {
-	struct mail_index_record *rec;
-
-	t->log_updates = TRUE;
-
-	if (seq >= t->first_new_seq) {
-		/* just appended message, modify it directly */
-                rec = mail_index_transaction_lookup(t, seq);
-		mail_index_record_modify_flags(rec, modify_type, flags);
-		return;
-	}
-
-	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
-
-	/* first get group updates into same structure. this allows faster
-	   updates if same mails have multiple flag updates during same
-	   transaction (eg. 1:10 +seen, 1:10 +deleted) */
-	if (t->last_update.uid2 == seq-1) {
-		if (t->last_update.uid1 != 0 &&
-		    IS_COMPATIBLE_UPDATE(t, modify_type, flags)) {
-			t->last_update.uid2 = seq;
-			return;
-		}
-	} else if (t->last_update.uid1 == seq+1) {
-		if (t->last_update.uid1 != 0 &&
-		    IS_COMPATIBLE_UPDATE(t, modify_type, flags)) {
-			t->last_update.uid1 = seq;
-			return;
-		}
-	}
-
-	if (t->last_update.uid1 != 0)
-		mail_index_transaction_add_last(t);
-
-	t->last_update_modify_type = modify_type;
-	t->last_update.uid1 = t->last_update.uid2 = seq;
-	t->last_update.add_flags = flags;
-}
-
-static void
-mail_index_transaction_get_last(struct mail_index_transaction *t,
-				struct mail_transaction_flag_update *update)
-{
-	*update = t->last_update;
-	switch (t->last_update_modify_type) {
-	case MODIFY_REPLACE:
-		/* remove_flags = ~add_flags */
-		update->remove_flags =
-			~update->add_flags & MAIL_INDEX_FLAGS_MASK;
-		break;
-	case MODIFY_ADD:
-		/* already in add_flags */
-		break;
-	case MODIFY_REMOVE:
-		/* add_flags -> remove_flags */
-		update->remove_flags = update->add_flags;
-		update->add_flags = 0;
-		break;
-	}
-}
-
-static void mail_index_transaction_add_last(struct mail_index_transaction *t)
-{
-	struct mail_transaction_flag_update update, *data;
-	unsigned int idx, left_idx, right_idx;
-	uint32_t last;
-	size_t size;
-
-        mail_index_transaction_get_last(t, &update);
-
-	if (t->updates == NULL)
-		t->updates = buffer_create_dynamic(default_pool, 4096);
-
-	data = buffer_get_modifyable_data(t->updates, &size);
-	size /= sizeof(*data);
-
-	/* find the nearest sequence from existing updates */
-	idx = 0; left_idx = 0; right_idx = size;
-	while (left_idx < right_idx) {
-		idx = (left_idx + right_idx) / 2;
-
-		if (data[idx].uid1 < update.uid1)
-			left_idx = idx+1;
-		else if (data[idx].uid1 > update.uid1)
-			right_idx = idx;
-		else
-			break;
-	}
-	if (idx < size && data[idx].uid2 < update.uid1)
-		idx++;
-
-	/* insert it into buffer, split it in multiple parts if needed
-	   to make sure the ordering stays the same */
-	for (; idx < size; idx++) {
-		if (data[idx].uid1 > update.uid2)
-			break;
-
-		/* partial */
-		last = update.uid2;
-		update.uid2 = data[idx].uid1-1;
-
-		if (update.uid1 <= update.uid2) {
-			buffer_insert(t->updates, idx * sizeof(update),
-				      &update, sizeof(update));
-			data = buffer_get_modifyable_data(t->updates, NULL);
-			size++;
-		}
-
-		update.uid1 = update.uid2+1;
-		update.uid2 = last;
-	}
-
-	buffer_insert(t->updates, idx * sizeof(update),
-		      &update, sizeof(update));
+	mail_index_update_flags_range(t, seq, seq, modify_type, flags);
 }
 
 int mail_index_seq_buffer_lookup(buffer_t *buffer, uint32_t seq,

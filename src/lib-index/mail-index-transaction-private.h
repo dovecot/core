@@ -25,8 +25,7 @@ struct mail_index_transaction {
 	buffer_t *expunges;
 
 	buffer_t *updates;
-        struct mail_transaction_flag_update last_update;
-	enum modify_type last_update_modify_type;
+	size_t last_update_idx;
 
 	unsigned char hdr_change[sizeof(struct mail_index_header)];
 	unsigned char hdr_mask[sizeof(struct mail_index_header)];
