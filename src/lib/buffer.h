@@ -17,7 +17,7 @@ Buffer *buffer_create_dynamic(Pool pool, size_t init_size, size_t max_size);
    directly from the memory pool. */
 void buffer_free(Buffer *buf);
 /* Free the memory used by buffer structure, but return the buffer data
-   unfree'd.*/
+   unfree'd. NOTE: Current start_pos doesn't affect the returned value. */
 void *buffer_free_without_data(Buffer *buf);
 
 /* Write data to buffer at specified position, returns number of bytes
