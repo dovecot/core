@@ -903,7 +903,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 					return -1;
 			}
 		} else if (sync_ctx->seq >= min_message_count) {
-			mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
+			/* +1 because we want to delete sync records
+			   from the current UID as well */
+			mbox_sync_buffer_delete_old(sync_ctx->syncs, uid+1);
 			if (buffer_get_used_size(sync_ctx->syncs) == 0) {
 				/* if there's no sync records left,
 				   we can stop */
