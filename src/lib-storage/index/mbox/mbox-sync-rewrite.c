@@ -320,7 +320,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		(mail_ctx.body_offset - mail_ctx.hdr_offset);
 	i_assert(need_space == (uoff_t)-mails[idx].space);
 
-	if (mail_ctx.mail.space == 0) {
+	if (mails[idx].space == 0) {
 		/* don't touch spacing */
 	} else if (padding < (uoff_t)mail_ctx.mail.space) {
 		mbox_sync_headers_remove_space(&mail_ctx, mail_ctx.mail.space -
@@ -360,8 +360,6 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-/* extra_space specifies how many bytes from last_seq's space will be left
-   over after all the rewrites. */
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		      uoff_t end_offset, uoff_t move_diff, uoff_t extra_space,
 		      uint32_t first_seq, uint32_t last_seq)
