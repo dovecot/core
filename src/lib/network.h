@@ -71,9 +71,10 @@ int net_listen_unix(const char *path);
    -2 for fatal failure */
 int net_accept(int fd, IPADDR *addr, unsigned int *port);
 
-/* Read data from socket, return number of bytes read, -1 = error */
+/* Read data from socket, return number of bytes read,
+   -1 = error, -2 = disconnected */
 ssize_t net_receive(int fd, void *buf, size_t len);
-/* Transmit data, return number of bytes sent, -1 = error */
+/* Transmit data, return number of bytes sent, -1 = error, -2 = disconnected */
 ssize_t net_transmit(int fd, const void *data, size_t len);
 
 /* Get IP addresses for host. ips contains ips_count of IPs, they don't need

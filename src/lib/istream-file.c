@@ -199,6 +199,12 @@ static ssize_t _read(_IStream *stream)
 		}
 
 		if (ret < 0) {
+			if (errno == ECONNRESET || errno == ETIMEDOUT) {
+				/* treat as disconnection */
+				stream->istream.stream_errno = 0;
+				return -1;
+			}
+
 			if (errno == EINTR || errno == EAGAIN)
 				ret = 0;
 			else {

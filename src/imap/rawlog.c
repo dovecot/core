@@ -42,10 +42,13 @@ static void copy(int in, int out, int log)
 	}
 
 	net_set_nonblock(in, TRUE);
-	r_ret = read(in, buf, sizeof(buf));
-	if (r_ret <= 0) {
-		if (r_ret < 0)
-			i_error("imap_in: read() failed: %m");
+	do {
+		r_ret = net_receive(in, buf, sizeof(buf));
+	} while (r_ret == 0);
+
+	if (r_ret < 0) {
+		if (r_ret == -1)
+			i_error("imap_in: net_receive() failed: %m");
 
 		/* disconnected */
 		io_loop_stop(ioloop);
@@ -58,10 +61,10 @@ static void copy(int in, int out, int log)
 
 	net_set_nonblock(out, FALSE);
 	do {
-		s_ret = write(out, buf, r_ret);
-		if (s_ret <= 0) {
-			if (r_ret < 0)
-				i_error("imap_in: write() failed: %m");
+		s_ret = net_transmit(out, buf, r_ret);
+		if (s_ret < 0) {
+			if (s_ret == -1)
+				i_error("imap_in: net_transmit() failed: %m");
 
 			/* disconnected */
 			io_loop_stop(ioloop);

@@ -378,11 +378,21 @@ ssize_t net_receive(int fd, void *buf, size_t len)
 	i_assert(len <= SSIZE_T_MAX);
 
 	ret = recv(fd, buf, len, 0);
-	if (ret == 0)
-		return -1; /* disconnected */
+	if (ret == 0) {
+		/* disconnected */
+		errno = 0;
+		return -2;
+	}
 
-	if (ret < 0 && (errno == EINTR || errno == EAGAIN))
-                return 0;
+	if (ret < 0) {
+		if (errno == EINTR || errno == EAGAIN)
+			return 0;
+
+		if (errno == ECONNRESET || errno == ETIMEDOUT) {
+                        /* treat as disconnection */
+			return -2;
+		}
+	}
 
 	return ret;
 }
@@ -397,8 +407,11 @@ ssize_t net_transmit(int fd, const void *data, size_t len)
 	i_assert(len <= SSIZE_T_MAX);
 
 	ret = send(fd, data, len, 0);
-	if (ret == -1 && (errno == EINTR || errno == EPIPE || errno == EAGAIN))
-                return 0;
+	if (ret == -1 && (errno == EINTR || errno == EAGAIN))
+		return 0;
+
+	if (errno == EPIPE)
+		return -2;
 
         return ret;
 }
