@@ -25,8 +25,6 @@ static const char *mailbox_flags2str(MailboxFlags flags)
 	const char *str;
 
 	str = t_strconcat((flags & MAILBOX_NOSELECT) ? " \\Noselect" : "",
-			  (flags & MAILBOX_CHILDREN) ? " \\HasChildren" : "",
-			  (flags & MAILBOX_NOCHILDREN) ? " \\HasNoChildren" :"",
 			  (flags & MAILBOX_NOINFERIORS) ? " \\NoInferiors" : "",
 			  (flags & MAILBOX_MARKED) ? " \\Marked" : "",
 			  (flags & MAILBOX_UNMARKED) ? " \\UnMarked" : "",
@@ -104,12 +102,8 @@ static void list_send(Client *client, ListNode *node, const char *cmd,
 		name = path == NULL ? node->name :
 			t_strconcat(path, sep, node->name, NULL);
 
-		if (node->children == NULL)
-			node->flags |= MAILBOX_NOCHILDREN;
-		else {
-			node->flags |= MAILBOX_CHILDREN;
+		if (node->children != NULL)
 			list_send(client, node->children, cmd, name, sep, glob);
-		}
 
 		if ((node->flags & MAILBOX_NOSELECT) &&
 		    imap_match(glob, name, 0, NULL) < 0) {
