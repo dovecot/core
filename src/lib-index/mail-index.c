@@ -428,7 +428,7 @@ static int mail_index_read_map(struct mail_index *index,
 			pos += ret;
 	}
 
-	if (ret > (ssize_t)offsetof(struct mail_index_header, major_version) &&
+	if (pos > (ssize_t)offsetof(struct mail_index_header, major_version) &&
 	    hdr.major_version != MAIL_INDEX_MAJOR_VERSION) {
 		/* major version change - handle silently */
 		return 0;
