@@ -153,7 +153,7 @@ static void master_handle_request(struct auth_master_connection *conn,
 			       master_request);
 
 		/* the auth request is finished, we don't need it anymore */
-		mech_request_free(client_conn, auth_request, request->id);
+		mech_request_free(auth_request, request->id);
 	}
 }
 

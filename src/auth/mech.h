@@ -54,8 +54,7 @@ void mech_request_continue(struct auth_client_connection *conn,
 			   struct auth_client_request_continue *request,
 			   const unsigned char *data,
 			   mech_callback_t *callback);
-void mech_request_free(struct auth_client_connection *conn,
-		       struct auth_request *auth_request, unsigned int id);
+void mech_request_free(struct auth_request *auth_request, unsigned int id);
 
 void mech_init_auth_client_reply(struct auth_client_request_reply *reply);
 void *mech_auth_success(struct auth_client_request_reply *reply,

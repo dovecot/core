@@ -120,15 +120,17 @@ void mech_request_continue(struct auth_client_connection *conn,
 	} else {
 		if (!auth_request->auth_continue(auth_request,
 						 request, data, callback))
-			mech_request_free(conn, auth_request, request->id);
+			mech_request_free(auth_request, request->id);
 	}
 }
 
-void mech_request_free(struct auth_client_connection *conn,
-		       struct auth_request *auth_request, unsigned int id)
+void mech_request_free(struct auth_request *auth_request, unsigned int id)
 {
+	if (auth_request->conn != NULL) {
+		hash_remove(auth_request->conn->auth_requests,
+			    POINTER_CAST(id));
+	}
 	auth_request_unref(auth_request);
-	hash_remove(conn->auth_requests, POINTER_CAST(id));
 }
 
 void mech_init_auth_client_reply(struct auth_client_request_reply *reply)
@@ -182,10 +184,8 @@ void mech_auth_finish(struct auth_request *auth_request,
 
 	auth_request->callback(&reply, reply_data, auth_request->conn);
 
-	if (!success) {
-		mech_request_free(auth_request->conn, auth_request,
-				  auth_request->id);
-	}
+	if (!success)
+		mech_request_free(auth_request, auth_request->id);
 }
 
 int mech_is_valid_username(const char *username)
