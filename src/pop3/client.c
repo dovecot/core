@@ -98,8 +98,10 @@ static int init_mailbox(struct client *client)
 			return FALSE;
 		}
 
-		if (!failed)
+		if (!failed) {
+			mailbox_transaction_commit(t);
 			return TRUE;
+		}
 
 		/* well, sync and try again */
 		if (mailbox_sync(client->mailbox, 0) < 0) {
