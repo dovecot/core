@@ -30,6 +30,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, deref),
 	DEF(SET_STR, scope),
 	DEF(SET_STR, base),
+	DEF(SET_INT, ldap_version),
 	DEF(SET_STR, user_attrs),
 	DEF(SET_STR, user_filter),
 	DEF(SET_STR, pass_attrs),
@@ -46,6 +47,7 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(deref) "never",
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
+	MEMBER(ldap_version) 2,
 	MEMBER(user_attrs) NULL,
 	MEMBER(user_filter) NULL,
 	MEMBER(pass_attrs) NULL,
@@ -185,6 +187,13 @@ static int ldap_conn_open(struct ldap_connection *conn)
 		if (ret != LDAP_SUCCESS) {
 			i_fatal("LDAP: Can't set deref option: %s",
 				ldap_err2string(ret));
+		}
+
+		ret = ldap_set_option(conn->ld, LDAP_OPT_PROTOCOL_VERSION,
+				      (void *) &conn->set.ldap_version);
+		if (ret != LDAP_OPT_SUCCESS) {
+			i_fatal("LDAP: Can't set protocol version %u: %s",
+				conn->set.ldap_version, ldap_err2string(ret));
 		}
 	}
 

@@ -17,6 +17,8 @@ struct ldap_settings {
 	const char *deref;
 	const char *scope;
 	const char *base;
+	unsigned int ldap_version;
+
 	const char *user_attrs;
 	const char *user_filter;
 	const char *pass_attrs;
