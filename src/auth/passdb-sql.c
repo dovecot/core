@@ -78,8 +78,8 @@ static void sql_query_callback(struct sql_result *result, void *context)
 					  passdb_sql_cache_key, "");
 		}
 	} else if ((idx = sql_result_find_field(result, "password")) < 0) {
-		i_error("sql(%s): Password query didn't return password",
-			get_log_prefix(auth_request));
+		i_error("sql(%s): Password query must return a field named "
+			"\"password\"", get_log_prefix(auth_request));
 	} else {
 		password = t_strdup(sql_result_get_field_value(result, idx));
                 result_save_extra_fields(result, sql_request, auth_request);
