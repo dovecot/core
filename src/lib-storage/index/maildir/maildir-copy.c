@@ -41,7 +41,7 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 				       IndexMailbox *dest,
 				       const char *messageset, int uidset)
 {
-        CopyHardContext ctx;
+	CopyHardContext ctx;
 	int ret;
 
 	if (!src->index->set_lock(src->index, MAIL_LOCK_SHARED))
@@ -55,18 +55,8 @@ static int maildir_copy_with_hardlinks(IndexMailbox *src,
 	ctx.dest_maildir = dest->index->dir;
 	ctx.error = FALSE;
 
-	if (uidset) {
-		ret = mail_index_uidset_foreach(src->index, messageset,
-						src->synced_messages_count,
-						copy_hard_func, &ctx);
-	} else {
-		ret = mail_index_messageset_foreach(src->index, messageset,
-						    src->synced_messages_count,
-						    copy_hard_func, &ctx);
-	}
-
-	if (ret == -1)
-		mail_storage_set_index_error(src);
+	ret = index_messageset_foreach(src, messageset, uidset,
+				       copy_hard_func, &ctx) <= 0;
 
 	if (!dest->index->set_lock(dest->index, MAIL_LOCK_UNLOCK)) {
 		mail_storage_set_index_error(dest);
@@ -99,6 +89,7 @@ int maildir_storage_copy(Mailbox *box, Mailbox *destbox,
 		switch (maildir_copy_with_hardlinks(ibox,
 			(IndexMailbox *) destbox, messageset, uidset)) {
 		case -1:
+		case -2:
 			return FALSE;
 		case 1:
 			return TRUE;

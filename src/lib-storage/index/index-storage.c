@@ -62,6 +62,36 @@ int mail_storage_set_index_error(IndexMailbox *ibox)
 	return FALSE;
 }
 
+int index_messageset_foreach(IndexMailbox *ibox,
+			     const char *messageset, int uidset,
+			     MsgsetForeachFunc func, void *context)
+{
+	const char *error;
+	int ret;
+
+	if (uidset) {
+		ret = mail_index_uidset_foreach(ibox->index, messageset,
+						ibox->synced_messages_count,
+						func, context, &error);
+	} else {
+		ret = mail_index_messageset_foreach(ibox->index, messageset,
+						    ibox->synced_messages_count,
+						    func, context, &error);
+	}
+
+	if (ret < 0) {
+		if (ret == -2) {
+			/* user error */
+			mail_storage_set_error(ibox->box.storage, "%s", error);
+		} else {
+			mail_storage_set_index_error(ibox);
+		}
+	}
+
+	return ret;
+}
+
+
 static MailFlags get_used_flags(void *context)
 {
         IndexMailbox *ibox = context;

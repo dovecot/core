@@ -51,20 +51,13 @@ int index_storage_copy(Mailbox *box, Mailbox *destbox,
 	cd.custom_flags = flags_file_list_get(ibox->flagsfile);
 	cd.dest = destbox;
 
-	if (uidset) {
-		failed = mail_index_uidset_foreach(ibox->index, messageset,
-						   ibox->synced_messages_count,
-						   copy_func, destbox) <= 0;
-	} else {
-		failed = mail_index_messageset_foreach(ibox->index, messageset,
-			ibox->synced_messages_count, copy_func, destbox) <= 0;
-	}
+	failed = index_messageset_foreach(ibox, messageset, uidset,
+					  copy_func, destbox) <= 0;
 
 	flags_file_list_unref(ibox->flagsfile);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK) || failed)
+	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
 
-	return TRUE;
+	return !failed;
 }
-

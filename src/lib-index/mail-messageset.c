@@ -25,7 +25,8 @@ static unsigned int get_next_number(const char **str)
 
 static int mail_index_foreach(MailIndex *index,
 			      unsigned int seq, unsigned int seq2,
-			      MsgsetForeachFunc func, void *context)
+			      MsgsetForeachFunc func, void *context,
+			      const char **error)
 {
 	MailIndexRecord *rec;
 	const unsigned int *expunges;
@@ -37,9 +38,9 @@ static int mail_index_foreach(MailIndex *index,
 		   them but I think it's a bug in client if it does this,
 		   and better complain about it immediately than later let
 		   them wonder why it doesn't work with other imapds.. */
-		index_set_error(index, "Invalid messageset range: %u > %u",
-				seq, seq2);
-		return -1;
+		*error = t_strdup_printf("Invalid messageset range: %u > %u",
+					 seq, seq2);
+		return -2;
 	}
 
 	/* get list of expunged messages in our range. the expunges_before
@@ -84,7 +85,8 @@ static int mail_index_foreach(MailIndex *index,
 
 int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 				  unsigned int messages_count,
-				  MsgsetForeachFunc func, void *context)
+				  MsgsetForeachFunc func, void *context,
+				  const char **error)
 {
 	const char *input;
 	unsigned int seq, seq2;
@@ -92,6 +94,7 @@ int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
+	*error = NULL;
 	if (messages_count == 0) {
 		/* no messages in mailbox */
 		return 1;
@@ -107,9 +110,9 @@ int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 		} else {
 			seq = get_next_number(&input);
 			if (seq == 0) {
-				index_set_error(index, "Invalid messageset: "
-						"%s", messageset);
-				return -1;
+				*error = t_strconcat("Invalid messageset: ",
+						     messageset, NULL);
+				return -2;
 			}
 		}
 
@@ -122,10 +125,10 @@ int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 			if (*input != '*') {
 				seq2 = get_next_number(&input);
 				if (seq2 == 0) {
-					index_set_error(index, "Invalid "
-							"messageset: %s",
-							messageset);
-					return -1;
+					*error = t_strconcat("Invalid "
+							     "messageset: ",
+							     messageset, NULL);
+					return -2;
 				}
 
 				if (seq2 > messages_count) {
@@ -141,17 +144,17 @@ int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 		if (*input == ',')
 			input++;
 		else if (*input != '\0') {
-			index_set_error(index, "Unexpected char '%c' "
-					"with messageset: %s",
-					*input, messageset);
-			return -1;
+			*error = t_strdup_printf("Unexpected char '%c' "
+						 "with messageset: %s",
+						 *input, messageset);
+			return -2;
 		}
 
 		if (seq > messages_count) {
 			/* too large .. ignore silently */
 		} else {
 			ret = mail_index_foreach(index, seq, seq2,
-						 func, context);
+						 func, context, error);
 			if (ret <= 0)
 				return ret;
 			if (ret == 2)
@@ -165,7 +168,8 @@ int mail_index_messageset_foreach(MailIndex *index, const char *messageset,
 static int mail_index_uid_foreach(MailIndex *index,
 				  unsigned int uid, unsigned int uid2,
 				  unsigned int max_sequence,
-				  MsgsetForeachFunc func, void *context)
+				  MsgsetForeachFunc func, void *context,
+				  const char **error)
 {
 	MailIndexRecord *rec;
 	off_t pos;
@@ -175,9 +179,9 @@ static int mail_index_uid_foreach(MailIndex *index,
 
 	if (uid > uid2) {
 		/* not allowed - see mail_index_foreach() */
-		index_set_error(index, "Invalid uidset range: %u > %u",
-				uid, uid2);
-		return -1;
+		*error = t_strdup_printf("Invalid uidset range: %u > %u",
+					 uid, uid2);
+		return -2;
 	}
 
 	/* get list of expunged messages in our range. */
@@ -199,6 +203,21 @@ static int mail_index_uid_foreach(MailIndex *index,
 	   _should_ work.. */
 	pos = mail_hash_lookup_uid(index->hash, uid);
 	if (pos != 0) {
+		if (pos + sizeof(MailIndexRecord) > index->mmap_length) {
+			/* hash is corrupted */
+			index_set_error(index, "Corrupted hash for index %s: "
+					"lookup returned offset outside range",
+					index->filepath);
+
+			if (!mail_hash_rebuild(index->hash))
+				return -1;
+
+			/* lets try again */
+			pos = mail_hash_lookup_uid(index->hash, uid);
+			if (pos + sizeof(MailIndexRecord) > index->mmap_length)
+				return -1;
+		}
+
 		rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
 	} else {
 		/* ..however if for any reason it doesn't,
@@ -237,7 +256,8 @@ static int mail_index_uid_foreach(MailIndex *index,
 
 int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 			      unsigned int messages_count,
-			      MsgsetForeachFunc func, void *context)
+			      MsgsetForeachFunc func, void *context,
+			      const char **error)
 {
 	MailIndexRecord *rec;
 	const char *input;
@@ -246,6 +266,7 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
+	*error = NULL;
 	if (messages_count == 0) {
 		/* no messages in mailbox */
 		return 1;
@@ -262,9 +283,9 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 		} else {
 			uid = get_next_number(&input);
 			if (uid == 0) {
-				index_set_error(index, "Invalid uidset: %s",
-						uidset);
-				return -1;
+				*error = t_strconcat("Invalid uidset: ",
+						     uidset, NULL);
+				return -2;
 			}
 		}
 
@@ -277,10 +298,9 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 			if (*input != '*') {
 				uid2 = get_next_number(&input);
 				if (uid2 == 0) {
-					index_set_error(index,
-							"Invalid uidset: %s",
-							uidset);
-					return -1;
+					*error = t_strconcat("Invalid uidset: ",
+							     uidset, NULL);
+					return -2;
 				}
 			} else {
 				uid2 = index->header->next_uid-1;
@@ -291,10 +311,9 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 		if (*input == ',')
 			input++;
 		else if (*input != '\0') {
-			index_set_error(index,
-					"Unexpected char '%c' with uidset: %s",
-					*input, uidset);
-			return -1;
+			*error = t_strdup_printf("Unexpected char '%c' with "
+						 "uidset: %s", *input, uidset);
+			return -2;
 		}
 
 		if (uid >= index->header->next_uid) {
@@ -302,7 +321,7 @@ int mail_index_uidset_foreach(MailIndex *index, const char *uidset,
 		} else {
 			ret = mail_index_uid_foreach(index, uid, uid2,
 						     messages_count,
-						     func, context);
+						     func, context, error);
 			if (ret <= 0)
 				return ret;
 			if (ret == 2)

@@ -341,17 +341,9 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 		}
 	}
 
-	if (fetch_data->uidset) {
-		ret = mail_index_uidset_foreach(ibox->index,
-						fetch_data->messageset,
-						ibox->synced_messages_count,
-						index_fetch_mail, &ctx);
-	} else {
-		ret = mail_index_messageset_foreach(ibox->index,
-						    fetch_data->messageset,
-						    ibox->synced_messages_count,
-						    index_fetch_mail, &ctx);
-	}
+	ret = index_messageset_foreach(ibox, fetch_data->messageset,
+				       fetch_data->uidset,
+				       index_fetch_mail, &ctx);
 
 	/* close open message files in cache, they're reopened at next fetch
 	   anyway, and especially with mbox the old data may not be valid
@@ -360,7 +352,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 
         flags_file_list_unref(ibox->flagsfile);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK) || ret == -1)
+	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
 
 	if (all_found != NULL)
@@ -377,5 +369,5 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 			return FALSE;
 	}
 
-	return TRUE;
+	return ret >= 0;
 }

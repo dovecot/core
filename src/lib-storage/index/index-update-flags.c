@@ -77,21 +77,13 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 	ctx.func = func;
 	ctx.context = context;
 
-	if (uidset) {
-		ret = mail_index_uidset_foreach(ibox->index, messageset,
-						ibox->synced_messages_count,
-						update_func, &ctx);
-	} else {
-		ret = mail_index_messageset_foreach(ibox->index,
-						    messageset,
-						    ibox->synced_messages_count,
-						    update_func, &ctx);
-	}
+	ret = index_messageset_foreach(ibox, messageset, uidset,
+				       update_func, &ctx);
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK) || ret == -1)
+	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
 
 	if (all_found != NULL)
 		*all_found = ret == 1;
-	return TRUE;
+	return ret >= 0;
 }
