@@ -332,7 +332,7 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 		return;
 	}
 
-	if (body_lines == (uoff_t)-1) {
+	if (body_lines == (uoff_t)-1 && !no_flag_updates) {
 		/* mark the message seen with RETR command */
 		if (client->seen_bitmask == NULL) {
 			client->seen_bitmask =

@@ -241,7 +241,8 @@ void mech_auth_finish(struct auth_request *auth_request,
 		/* get this before callback because it can destroy connection */
 		free_request = AUTH_MASTER_IS_DUMMY(auth_request->conn->master);
 
-		reply_data = mech_auth_success(&reply, auth_request, data, data_size);
+		reply_data = mech_auth_success(&reply, auth_request,
+					       data, data_size);
 		auth_request->callback(&reply, reply_data, auth_request->conn);
 	}
 

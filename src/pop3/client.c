@@ -211,7 +211,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	mail_storage_set_callbacks(storage, &mail_storage_callbacks, client);
 
 	flags = 0;
-	if (getenv("POP3_MAILS_KEEP_RECENT") != NULL)
+	if (no_flag_updates)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
 	client->mailbox = mailbox_open(storage, "INBOX", flags);
 	if (client->mailbox == NULL) {

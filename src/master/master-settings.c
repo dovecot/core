@@ -122,7 +122,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, imap_client_workarounds),
 
 	/* pop3 */
-	DEF(SET_BOOL, pop3_mails_keep_recent),
+	DEF(SET_BOOL, pop3_no_flag_updates),
 	DEF(SET_BOOL, pop3_enable_last),
 	DEF(SET_STR, pop3_client_workarounds),
 
@@ -290,7 +290,7 @@ struct settings default_settings = {
 	MEMBER(imap_client_workarounds) NULL,
 
 	/* pop3 */
-	MEMBER(pop3_mails_keep_recent) FALSE,
+	MEMBER(pop3_no_flag_updates) FALSE,
 	MEMBER(pop3_enable_last) FALSE,
 	MEMBER(pop3_client_workarounds) NULL,
 
