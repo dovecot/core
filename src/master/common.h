@@ -32,9 +32,9 @@ extern int null_fd, imap_fd, imaps_fd;
 
 void clean_child_process(void);
 
-MasterReplyResult
-create_imap_process(int socket, const char *user, uid_t uid, gid_t gid,
-		    const char *home, int chroot, const char *env[]);
+MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
+				      uid_t uid, gid_t gid, const char *home,
+				      int chroot, const char *env[]);
 void imap_process_destroyed(pid_t pid);
 
 /* misc */

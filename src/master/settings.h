@@ -30,6 +30,7 @@ extern gid_t set_login_gid;
 extern char *set_imap_executable;
 extern char *set_valid_chroot_dirs;
 extern unsigned int set_max_imap_processes;
+extern int set_verbose_proctitle;
 
 extern unsigned int set_first_valid_uid, set_last_valid_uid;
 extern unsigned int set_first_valid_gid, set_last_valid_gid;

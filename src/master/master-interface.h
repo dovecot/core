@@ -1,6 +1,7 @@
 #ifndef __MASTER_INTERFACE_H
 #define __MASTER_INTERFACE_H
 
+#include "network.h"
 #include "../auth/auth-interface.h"
 
 #define LOGIN_TAG_SIZE 32
@@ -21,6 +22,7 @@ typedef struct {
 	int auth_process;
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 
+	IPADDR ip;
 	char login_tag[LOGIN_TAG_SIZE];
 } MasterRequest;
 

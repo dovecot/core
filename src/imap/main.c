@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	lib_init();
 	ioloop = io_loop_create(system_pool);
 
-	main_init(argc == 2 && strcmp(argv[1], "-s") == 0);
+	main_init(argc >= 2 && strcmp(argv[1], "-s") == 0);
         io_loop_run(ioloop);
 	main_deinit();
 

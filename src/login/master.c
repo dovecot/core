@@ -61,7 +61,7 @@ static void pop_request(MasterReply *reply)
 }
 
 void master_request_imap(int fd, int auth_process, const char *login_tag,
-			 unsigned char cookie[AUTH_COOKIE_SIZE],
+			 unsigned char cookie[AUTH_COOKIE_SIZE], IPADDR *ip,
 			 MasterCallback callback, void *context)
 {
 	MasterRequest req;
@@ -71,6 +71,7 @@ void master_request_imap(int fd, int auth_process, const char *login_tag,
 	memset(&req, 0, sizeof(req));
 	req.id = fd;
 	req.auth_process = auth_process;
+	memcpy(&req.ip, ip, sizeof(IPADDR));
 	memcpy(req.cookie, cookie, AUTH_COOKIE_SIZE);
 
 	if (strlen(login_tag) >= sizeof(req.login_tag))

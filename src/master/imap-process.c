@@ -60,11 +60,12 @@ static int validate_chroot(const char *dir)
 	return FALSE;
 }
 
-MasterReplyResult
-create_imap_process(int socket, const char *user, uid_t uid, gid_t gid,
-		    const char *home, int chroot, const char *env[])
+MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
+				      uid_t uid, gid_t gid, const char *home,
+				      int chroot, const char *env[])
 {
-	static char *argv[] = { NULL, "-s", NULL };
+	static char *argv[] = { NULL, "-s", NULL, NULL };
+	char host[MAX_IP_LEN], title[1024];
 	pid_t pid;
 	int i, j, err;
 
@@ -129,6 +130,11 @@ create_imap_process(int socket, const char *user, uid_t uid, gid_t gid,
 		putenv("OVERWRITE_INCOMPATIBLE_INDEX=1");
 	if (umask(set_umask) != set_umask)
 		i_fatal("Invalid umask: %o", set_umask);
+
+	if (set_verbose_proctitle && net_ip2host(ip, host) == 0) {
+		i_snprintf(title, sizeof(title), "[%s %s]", user, host);
+		argv[2] = title;
+	}
 
 	/* setup access environment - needs to be done after
 	   clean_child_process() since it clears environment */

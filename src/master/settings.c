@@ -40,11 +40,12 @@ static Setting settings[] = {
 	{ "login_dir",		SET_STR, &set_login_dir },
 	{ "login_chroot",	SET_BOOL,&set_login_chroot },
 	{ "login_processes_count", SET_INT, &set_login_processes_count },
-
 	{ "max_logging_users",	SET_INT, &set_max_logging_users },
+
 	{ "imap_executable",	SET_STR, &set_imap_executable },
 	{ "valid_chroot_dirs",	SET_STR, &set_valid_chroot_dirs },
 	{ "max_imap_processes",	SET_INT, &set_max_imap_processes },
+	{ "verbose_proctitle",	SET_BOOL,&set_verbose_proctitle },
 	{ "first_valid_uid",	SET_INT, &set_first_valid_uid },
 	{ "last_valid_uid",	SET_INT, &set_last_valid_uid },
 	{ "first_valid_gid",	SET_INT, &set_first_valid_gid },
@@ -94,6 +95,7 @@ gid_t set_login_gid; /* generated from set_login_user */
 char *set_imap_executable = PKG_LIBDIR "/imap";
 char *set_valid_chroot_dirs = NULL;
 unsigned int set_max_imap_processes = 1024;
+int set_verbose_proctitle = FALSE;
 
 unsigned int set_first_valid_uid = 500, set_last_valid_uid = 0;
 unsigned int set_first_valid_gid = 1, set_last_valid_gid = 0;

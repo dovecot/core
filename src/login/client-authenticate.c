@@ -135,7 +135,8 @@ static int auth_callback(AuthRequest *request, int auth_process,
 		client->auth_request = NULL;
 
 		master_request_imap(client->fd, auth_process, client->tag,
-				    request->cookie, master_callback, client);
+				    request->cookie, &client->ip,
+				    master_callback, client);
 
 		/* disable IO until we're back from master */
 		if (client->io != NULL) {

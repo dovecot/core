@@ -30,6 +30,7 @@ typedef struct {
 	int auth_id;
 	int fd;
 
+	IPADDR ip;
 	char login_tag[LOGIN_TAG_SIZE];
 } LoginAuthRequest;
 
@@ -58,6 +59,7 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 		reply.result = MASTER_RESULT_FAILURE;
 	else {
 		reply.result = create_imap_process(request->fd,
+						   &request->ip,
 						   cookie_reply->user,
 						   cookie_reply->uid,
 						   cookie_reply->gid,
@@ -116,6 +118,7 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	authreq->login_id = req.id;
 	authreq->auth_id = ++auth_id_counter;
 	authreq->fd = client_fd;
+	memcpy(&authreq->ip, &req.ip, sizeof(IPADDR));
 	strcpy(authreq->login_tag, req.login_tag);
 
 	auth_process = auth_process_find(req.auth_process);
