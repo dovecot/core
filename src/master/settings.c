@@ -128,7 +128,7 @@ unsigned int set_first_valid_gid = 1, set_last_valid_gid = 0;
 char *set_default_mail_env = NULL;
 char *set_mail_cache_fields = "MessagePart";
 char *set_mail_never_cache_fields = NULL;
-unsigned int set_mailbox_check_interval = 30;
+unsigned int set_mailbox_check_interval = 0;
 int set_mail_save_crlf = FALSE;
 int set_mail_read_mmaped = FALSE;
 int set_maildir_copy_with_hardlinks = FALSE;
