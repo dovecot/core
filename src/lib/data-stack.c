@@ -69,9 +69,9 @@ struct stack_frame_block {
 	size_t last_alloc_size[BLOCK_FRAME_COUNT];
 };
 
-unsigned int data_stack_frame;
+unsigned int data_stack_frame = 0;
 
-static int frame_pos; /* current frame position current_frame_block */
+static int frame_pos = BLOCK_FRAME_COUNT-1; /* in current_frame_block */
 static struct stack_frame_block *current_frame_block;
 static struct stack_frame_block *unused_frame_blocks;
 
@@ -88,6 +88,13 @@ unsigned int t_push(void)
 	frame_pos++;
 	if (frame_pos == BLOCK_FRAME_COUNT) {
 		/* frame block full */
+		if (data_stack_frame == 0) {
+			/* kludgy, but allow this before initialization */
+			frame_pos = 0;
+			data_stack_init();
+			return t_push();
+		}
+
 		frame_pos = 0;
 		if (unused_frame_blocks == NULL) {
 			/* allocate new block */
@@ -329,20 +336,22 @@ void t_buffer_alloc(size_t size)
 
 void data_stack_init(void)
 {
-        data_stack_frame = 0;
+	if (data_stack_frame == 0) {
+		data_stack_frame = 1;
 
-	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
-	current_block->left = current_block->size;
-	current_block->next = NULL;
+		current_block = mem_block_alloc(INITIAL_STACK_SIZE);
+		current_block->left = current_block->size;
+		current_block->next = NULL;
 
-	current_frame_block = NULL;
-	unused_frame_blocks = NULL;
-	frame_pos = BLOCK_FRAME_COUNT-1;
+		current_frame_block = NULL;
+		unused_frame_blocks = NULL;
+		frame_pos = BLOCK_FRAME_COUNT-1;
+
+		last_buffer_block = NULL;
+		last_buffer_size = 0;
+	}
 
 	t_push();
-
-        last_buffer_block = NULL;
-	last_buffer_size = 0;
 }
 
 void data_stack_deinit(void)
@@ -492,7 +501,7 @@ void t_buffer_alloc(size_t size)
 
 void data_stack_init(void)
 {
-        data_stack_frame = 0;
+	data_stack_frame = 0;
 	current_frame = NULL;
 	buffer_mem = NULL;
 
