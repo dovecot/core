@@ -12,8 +12,10 @@ int cmd_close(struct client *client)
 
 	client->mailbox = NULL;
 
-	if (!mailbox->expunge(mailbox, FALSE))
-                client_send_untagged_storage_error(client);
+	if (!mailbox->readonly) {
+		if (!mailbox->expunge(mailbox, FALSE))
+			client_send_untagged_storage_error(client);
+	}
 
 	if (!mailbox->close(mailbox))
                 client_send_untagged_storage_error(client);

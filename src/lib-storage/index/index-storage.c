@@ -197,6 +197,9 @@ static void lock_notify(enum mail_lock_notify_type notify_type,
 
 void index_storage_init_lock_notify(struct index_mailbox *ibox)
 {
+	if (ibox->index->mailbox_readonly)
+		ibox->box.readonly = TRUE;
+
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->last_notify_type = (enum mail_lock_notify_type)-1;
 
