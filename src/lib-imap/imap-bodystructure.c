@@ -246,7 +246,10 @@ static void part_write_body_multipart(MessagePart *part, TempString *str,
 {
 	MessagePartBodyData *data = part->context;
 
-	i_assert(data != NULL);
+	if (data == NULL) {
+		/* there was no content headers, use an empty structure */
+		data = t_new(MessagePartBodyData, 1);
+	}
 
 	if (part->children != NULL)
 		part_write_bodystructure(part->children, str, extended);
@@ -258,7 +261,10 @@ static void part_write_body_multipart(MessagePart *part, TempString *str,
 	}
 
 	t_string_append_c(str, ' ');
-	t_string_append(str, data->content_subtype);
+	if (data->content_subtype != NULL)
+		t_string_append(str, data->content_subtype);
+	else
+		t_string_append(str, "x-unknown");
 
 	if (!extended)
 		return;
