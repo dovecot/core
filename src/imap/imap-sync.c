@@ -55,7 +55,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 		return -1;
 	}
 
-	mailbox_transaction_commit(ctx->t);
+	mailbox_transaction_commit(ctx->t, 0);
 
 	t_push();
 

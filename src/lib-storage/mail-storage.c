@@ -403,9 +403,10 @@ mailbox_transaction_begin(struct mailbox *box, int hide)
 	return box->transaction_begin(box, hide);
 }
 
-int mailbox_transaction_commit(struct mailbox_transaction_context *t)
+int mailbox_transaction_commit(struct mailbox_transaction_context *t,
+			       enum mailbox_sync_flags flags)
 {
-	return t->box->transaction_commit(t);
+	return t->box->transaction_commit(t, flags);
 }
 
 void mailbox_transaction_rollback(struct mailbox_transaction_context *t)

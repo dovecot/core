@@ -152,7 +152,7 @@ static int cmd_append_continue_parsing(struct client *client)
 		/* last message */
 		enum mailbox_sync_flags sync_flags;
 
-		ret = mailbox_transaction_commit(ctx->t);
+		ret = mailbox_transaction_commit(ctx->t, 0);
 		ctx->t = NULL;
 		if (ret < 0) {
 			client_send_storage_error(client, ctx->storage);

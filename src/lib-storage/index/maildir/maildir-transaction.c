@@ -14,7 +14,8 @@ maildir_transaction_begin(struct mailbox *box, int hide)
 	return &t->ictx.mailbox_ctx;
 }
 
-int maildir_transaction_commit(struct mailbox_transaction_context *_t)
+int maildir_transaction_commit(struct mailbox_transaction_context *_t,
+			       enum mailbox_sync_flags flags __attr_unused__)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;

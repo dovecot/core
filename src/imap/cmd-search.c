@@ -43,7 +43,7 @@ static int imap_search(struct client *client, const char *charset,
 
 	ret = mailbox_search_deinit(ctx);
 
-	if (mailbox_transaction_commit(trans) < 0)
+	if (mailbox_transaction_commit(trans, 0) < 0)
 		ret = -1;
 
 	if (!first || ret == 0) {

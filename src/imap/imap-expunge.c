@@ -36,7 +36,7 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 	if (failed)
 		mailbox_transaction_rollback(t);
 	else {
-		if (mailbox_transaction_commit(t) < 0)
+		if (mailbox_transaction_commit(t, MAILBOX_SYNC_FLAG_FULL) < 0)
 			failed = TRUE;
 	}
 

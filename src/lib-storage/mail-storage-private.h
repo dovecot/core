@@ -77,7 +77,8 @@ struct mailbox {
 
 	struct mailbox_transaction_context *
 		(*transaction_begin)(struct mailbox *box, int hide);
-	int (*transaction_commit)(struct mailbox_transaction_context *t);
+	int (*transaction_commit)(struct mailbox_transaction_context *t,
+				  enum mailbox_sync_flags flags);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);
 
 	struct mail *(*fetch)(struct mailbox_transaction_context *t,

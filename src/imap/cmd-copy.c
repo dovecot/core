@@ -42,7 +42,7 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 	if (mailbox_search_deinit(search_ctx) < 0)
 		ret = -1;
 
-	if (mailbox_transaction_commit(src_trans) < 0)
+	if (mailbox_transaction_commit(src_trans, 0) < 0)
 		ret = -1;
 
 	return ret;
@@ -97,7 +97,7 @@ int cmd_copy(struct client *client)
 	if (ret <= 0)
 		mailbox_transaction_rollback(t);
 	else {
-		if (mailbox_transaction_commit(t) < 0)
+		if (mailbox_transaction_commit(t, 0) < 0)
 			ret = -1;
 	}
 

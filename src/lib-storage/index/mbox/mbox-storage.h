@@ -34,7 +34,8 @@ struct mailbox_list *mbox_mailbox_list_next(struct mailbox_list_context *ctx);
 
 struct mailbox_transaction_context *
 mbox_transaction_begin(struct mailbox *box, int hide);
-int mbox_transaction_commit(struct mailbox_transaction_context *t);
+int mbox_transaction_commit(struct mailbox_transaction_context *t,
+			    enum mailbox_sync_flags flags);
 void mbox_transaction_rollback(struct mailbox_transaction_context *t);
 
 struct mailbox_sync_context *

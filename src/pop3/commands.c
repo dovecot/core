@@ -206,7 +206,7 @@ static int expunge_mails(struct client *client, struct mailbox *box)
 	if (mailbox_search_deinit(ctx) < 0)
 		return FALSE;
 
-	mailbox_transaction_commit(t);
+	mailbox_transaction_commit(t, 0);
 	return !failed;
 }
 
@@ -239,7 +239,7 @@ struct fetch_context {
 static void fetch_deinit(struct fetch_context *ctx)
 {
 	(void)mailbox_search_deinit(ctx->search_ctx);
-	(void)mailbox_transaction_commit(ctx->t);
+	(void)mailbox_transaction_commit(ctx->t, 0);
 	i_free(ctx);
 }
 
@@ -450,7 +450,7 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 
 	/* finished */
 	(void)mailbox_search_deinit(ctx->search_ctx);
-	(void)mailbox_transaction_commit(ctx->t);
+	(void)mailbox_transaction_commit(ctx->t, 0);
 
 	client->cmd = NULL;
 

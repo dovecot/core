@@ -97,13 +97,14 @@ _search_init(struct mailbox_transaction_context *t,
 				      wanted_fields, wanted_headers);
 }
 
-static int _transaction_commit(struct mailbox_transaction_context *t)
+static int _transaction_commit(struct mailbox_transaction_context *t,
+			       enum mailbox_sync_flags flags)
 {
 	struct proxy_mailbox_transaction_context *pt =
 		(struct proxy_mailbox_transaction_context *)t;
 	struct proxy_mailbox *pbox = (struct proxy_mailbox *)t->box;
 
-	return pbox->box->transaction_commit(pt->ctx);
+	return pbox->box->transaction_commit(pt->ctx, flags);
 }
 
 static void _transaction_rollback(struct mailbox_transaction_context *t)

@@ -272,7 +272,7 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx)
 		if (ctx->failed)
 			mailbox_transaction_rollback(ctx->trans);
 		else {
-			if (mailbox_transaction_commit(ctx->trans) < 0)
+			if (mailbox_transaction_commit(ctx->trans, 0) < 0)
 				ctx->failed = TRUE;
 		}
 	}

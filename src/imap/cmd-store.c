@@ -100,7 +100,7 @@ int cmd_store(struct client *client)
 	if (failed)
 		mailbox_transaction_rollback(t);
 	else {
-		if (mailbox_transaction_commit(t) < 0)
+		if (mailbox_transaction_commit(t, 0) < 0)
 			failed = TRUE;
 	}
 

@@ -16,7 +16,8 @@ mbox_transaction_begin(struct mailbox *box, int hide)
 	return &t->ictx.mailbox_ctx;
 }
 
-int mbox_transaction_commit(struct mailbox_transaction_context *_t)
+int mbox_transaction_commit(struct mailbox_transaction_context *_t,
+			    enum mailbox_sync_flags flags)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)_t;
@@ -37,8 +38,12 @@ int mbox_transaction_commit(struct mailbox_transaction_context *_t)
 	t = NULL;
 
 	if (ret == 0) {
-		if (mbox_sync(ibox, MBOX_SYNC_LAST_COMMIT |
-			      (mbox_modified ? MBOX_SYNC_HEADER : 0)) < 0)
+		enum mbox_sync_flags mbox_sync_flags = MBOX_SYNC_LAST_COMMIT;
+		if ((flags & MAILBOX_SYNC_FLAG_FULL) != 0)
+			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
+		if (mbox_modified)
+			mbox_sync_flags |= MBOX_SYNC_HEADER;
+		if (mbox_sync(ibox, mbox_sync_flags) < 0)
 			ret = -1;
 	}
 

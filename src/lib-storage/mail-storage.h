@@ -275,7 +275,8 @@ void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box, int hide);
-int mailbox_transaction_commit(struct mailbox_transaction_context *t);
+int mailbox_transaction_commit(struct mailbox_transaction_context *t,
+			       enum mailbox_sync_flags flags);
 void mailbox_transaction_rollback(struct mailbox_transaction_context *t);
 
 /* Simplified fetching for a single sequence. */

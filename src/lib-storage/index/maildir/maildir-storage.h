@@ -45,7 +45,8 @@ int maildir_storage_sync_force(struct index_mailbox *ibox);
 
 struct mailbox_transaction_context *
 maildir_transaction_begin(struct mailbox *box, int hide);
-int maildir_transaction_commit(struct mailbox_transaction_context *t);
+int maildir_transaction_commit(struct mailbox_transaction_context *t,
+			       enum mailbox_sync_flags flags);
 void maildir_transaction_rollback(struct mailbox_transaction_context *t);
 
 struct mail_save_context *

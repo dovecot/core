@@ -28,7 +28,7 @@ int cmd_uid_expunge(struct client *client)
 		return TRUE;
 
 	if (imap_expunge(client->mailbox, search_arg)) {
-		return cmd_sync(client, MAILBOX_SYNC_FLAG_FULL,
+		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST,
 				"OK Expunge completed.");
 	} else {
 		client_send_storage_error(client,
@@ -43,7 +43,7 @@ int cmd_expunge(struct client *client)
 		return TRUE;
 
 	if (imap_expunge(client->mailbox, NULL)) {
-		return cmd_sync(client, MAILBOX_SYNC_FLAG_FULL,
+		return cmd_sync(client, MAILBOX_SYNC_FLAG_FAST,
 				"OK Expunge completed.");
 	} else {
 		client_send_storage_error(client,
