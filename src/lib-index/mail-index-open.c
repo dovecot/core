@@ -6,6 +6,7 @@
 #include "file-set-size.h"
 #include "hostpid.h"
 #include "mmap-util.h"
+#include "unlink-lockfiles.h"
 #include "write-full.h"
 #include "mail-index.h"
 #include "mail-index-data.h"
@@ -477,6 +478,12 @@ void mail_index_init_header(MailIndexHeader *hdr)
 	hdr->next_uid = 1;
 }
 
+static void mail_index_cleanup_temp_files(const char *dir)
+{
+	unlink_lockfiles(dir, t_strconcat("temp.", my_hostname, NULL),
+			 "temp.", time(NULL) - TEMP_FILE_TIMEOUT);
+}
+
 int mail_index_open(MailIndex *index, int update_recent, int fast)
 {
 	const char *name, *path;
@@ -485,6 +492,8 @@ int mail_index_open(MailIndex *index, int update_recent, int fast)
 
 	/* this isn't initialized anywhere else */
 	index->fd = -1;
+
+	mail_index_cleanup_temp_files(index->dir);
 
 	name = mail_find_index(index);
 	if (name == NULL)
@@ -503,6 +512,8 @@ int mail_index_open_or_create(MailIndex *index, int update_recent, int fast)
 	int failed, dir_unlocked;
 
 	i_assert(!index->opened);
+
+	mail_index_cleanup_temp_files(index->dir);
 
 	if (mail_index_open(index, update_recent, fast))
 		return TRUE;

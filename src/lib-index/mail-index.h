@@ -402,6 +402,10 @@ int mail_index_truncate(MailIndex *index);
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)
 
+/* Delete unused non-local temp files after 24h. Just to be sure we don't
+   delete it too early. The temp files don't harm much anyway. */
+#define TEMP_FILE_TIMEOUT (60*24)
+
 /* number of records to always keep allocated in index file,
    either used or unused */
 #define INDEX_MIN_RECORDS_COUNT 64
