@@ -136,8 +136,6 @@ static int maildir_rename_mail(struct mail_index *index,
 					       "/cur/", new_fname, NULL);
 		}
 
-		ret = 0; break;
-
 		if (strcmp(old_fname, new_fname) == 0)
 			ret = 1;
 		else {
