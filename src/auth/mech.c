@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "mech.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "var-expand.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
@@ -335,7 +336,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 const char *get_log_prefix(const struct auth_request *auth_request)
 {
 #define MAX_LOG_USERNAME_LEN 64
-	const char *p, *ip;
+	const char *ip;
 	string_t *str;
 
 	str = t_str_new(64);
@@ -343,25 +344,8 @@ const char *get_log_prefix(const struct auth_request *auth_request)
 	if (auth_request->user == NULL)
 		str_append(str, "?");
 	else {
-		/* any control characters in username will be replaced by '?' */
-		for (p = auth_request->user; *p != '\0'; p++) {
-			if ((unsigned char)*p < 32)
-				break;
-		}
-
-		str_append_n(str, auth_request->user,
-			     (size_t)(p - auth_request->user));
-		for (; *p != '\0'; p++) {
-			if ((unsigned char)*p < 32)
-				str_append_c(str, '?');
-			else
-				str_append_c(str, *p);
-		}
-
-		if (str_len(str) > MAX_LOG_USERNAME_LEN) {
-			str_truncate(str, MAX_LOG_USERNAME_LEN);
-			str_append(str, "...");
-		}
+		str_sanitize_append(str, auth_request->user,
+				    MAX_LOG_USERNAME_LEN);
 	}
 
 	ip = net_ip2addr(&auth_request->remote_ip);
