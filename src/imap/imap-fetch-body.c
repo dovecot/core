@@ -701,6 +701,7 @@ static int read_uoff_t(const char **p, uoff_t *value)
 int fetch_body_section_init(struct imap_fetch_context *ctx, const char *arg)
 {
 	struct imap_fetch_body_data *body;
+	const char *partial;
 	const char *p = arg + 4;
 
 	body = p_new(ctx->client->cmd_pool, struct imap_fetch_body_data, 1);
@@ -730,6 +731,7 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *arg)
 
 	if (*++p == '<') {
 		/* <start.end> */
+		partial = p;
 		p++;
 		body->skip_set = TRUE;
 
@@ -755,7 +757,9 @@ int fetch_body_section_init(struct imap_fetch_context *ctx, const char *arg)
 
 		if (*p != '>') {
 			client_send_command_error(ctx->client,
-				"Invalid BODY[..] parameter: Missing '>'");
+				t_strdup_printf("Invalid BODY[..] parameter: "
+						"Missing '>' in '%s'",
+						partial));
 			return FALSE;
 		}
 	}
