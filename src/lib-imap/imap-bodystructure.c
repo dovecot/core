@@ -260,7 +260,8 @@ static void parse_header(struct message_part *part,
 
 	t_push();
 
-	parse_content_header(part_data, hdr, pool);
+	if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) != 0)
+		parse_content_header(part_data, hdr, pool);
 
 	if (parent_rfc822) {
 		/* message/rfc822, we need the envelope */

@@ -166,6 +166,8 @@ message_parse_multipart(struct istream *input,
 	while (next_part == parent_part) {
 		/* new child */
 		part = message_part_append(parser_ctx->pool, parent_part);
+		if ((parent_part->flags & MESSAGE_PART_FLAG_IS_MIME) != 0)
+			part->flags |= MESSAGE_PART_FLAG_IS_MIME;
 
                 parser_ctx->part = part;
 		next_part = message_parse_part(input, parser_ctx);
@@ -216,6 +218,11 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 					     parser_ctx->context);
 		}
 
+		if (!hdr->eoh && strcasecmp(hdr->name, "Mime-Version") == 0) {
+			/* it's MIME. Content-* headers are valid */
+			parser_ctx->part->flags |= MESSAGE_PART_FLAG_IS_MIME;
+		}
+
 		if (!hdr->eoh && strcasecmp(hdr->name, "Content-Type") == 0) {
 			if (hdr->continues) {
 				hdr->use_full_value = TRUE;
@@ -228,6 +235,14 @@ message_parse_part(struct istream *input, struct parser_context *parser_ctx)
 						     parse_content_type_param,
 						     parser_ctx);
 		}
+	}
+
+	if ((parser_ctx->part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
+		/* It's not MIME. Reset everything we found from
+		   Content-Type. */
+		parser_ctx->part->flags = 0;
+                parser_ctx->last_boundary = NULL;
+		parser_ctx->last_content_type = NULL;
 	}
 	if (parser_ctx->callback != NULL) {
 		parser_ctx->callback(parser_ctx->part, NULL,

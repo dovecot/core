@@ -18,7 +18,10 @@ enum message_part_flags {
 	MESSAGE_PART_FLAG_BINARY		= 0x10,
 
 	/* message part header or body contains NULs */
-	MESSAGE_PART_FLAG_HAS_NULS		= 0x20
+	MESSAGE_PART_FLAG_HAS_NULS		= 0x20,
+
+	/* Mime-Version header exists. */
+	MESSAGE_PART_FLAG_IS_MIME		= 0x40
 };
 
 struct message_part {
