@@ -393,7 +393,7 @@ static struct mailbox *mbox_open(struct mail_storage *storage, const char *name,
 		index_dir = mbox_get_index_dir(storage, name);
 	}
 
-	index = index_storage_lookup_ref(index_dir);
+	index = index_storage_lookup_ref(index_dir, path);
 	if (index == NULL) {
 		index = mbox_index_alloc(path, index_dir, index_dir);
 		index_storage_add(index);

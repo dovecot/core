@@ -397,7 +397,7 @@ maildir_open(struct mail_storage *storage, const char *name,
 	index_dir = maildir_get_index_path(storage, name);
 	control_dir = maildir_get_control_path(storage, name);
 
-	index = index_storage_lookup_ref(index_dir);
+	index = index_storage_lookup_ref(index_dir, path);
 	if (index == NULL) {
 		index = maildir_index_alloc(path, index_dir, control_dir);
 		index_storage_add(index);

@@ -57,27 +57,31 @@ void index_storage_add(struct mail_index *index)
 	indexes = list;
 }
 
-struct mail_index *index_storage_lookup_ref(const char *path)
+struct mail_index *
+index_storage_lookup_ref(const char *index_dir, const char *path)
 {
 	struct index_list **list, *rec;
 	struct mail_index *match;
 	struct stat st1, st2;
 	int destroy_count;
 
-	if (stat(path, &st1) < 0)
-		return NULL;
+	if (index_dir != NULL) {
+		if (stat(index_dir, &st1) < 0)
+			return NULL;
+	}
 
-	/* compare inodes so we don't break even with symlinks */
+	/* compare index_dir inodes so we don't break even with symlinks.
+	   for in-memory indexes compare just mailbox paths */
 	destroy_count = 0; match = NULL;
 	for (list = &indexes; *list != NULL;) {
 		rec = *list;
 
-		if (stat(rec->index->dir, &st2) == 0) {
-			if (st1.st_ino == st2.st_ino &&
-			    st1.st_dev == st2.st_dev) {
-				rec->refcount++;
-				match = rec->index;
-			}
+		if ((index_dir != NULL && stat(rec->index->dir, &st2) == 0 &&
+		     st1.st_ino == st2.st_ino && st1.st_dev == st2.st_dev) ||
+		    (index_dir == NULL &&
+		     strcmp(path, rec->index->mailbox_path) == 0)) {
+			rec->refcount++;
+			match = rec->index;
 		}
 
 		if (rec->refcount == 0) {
