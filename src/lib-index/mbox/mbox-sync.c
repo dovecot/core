@@ -51,7 +51,6 @@ int mbox_index_sync(MailIndex *index, MailLockType lock_type, int *changes)
 
 	if (changes != NULL)
 		*changes = FALSE;
-	index->mbox_sync_counter = index->mbox_lock_counter;
 
 	if (index->fd == -1) {
 		/* anon-mmaped */
@@ -127,5 +126,6 @@ int mbox_index_sync(MailIndex *index, MailLockType lock_type, int *changes)
 			return FALSE;
 	}
 
+	index->mbox_sync_counter = index->mbox_lock_counter;
 	return TRUE;
 }
