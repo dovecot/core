@@ -225,14 +225,14 @@ static void client_destroy_oldest(void)
 	}
 }
 
-static char *get_apop_challenge(void)
+static char *get_apop_challenge(struct pop3_client *client)
 {
-	struct auth_connect_id id;
+	struct auth_connect_id *id = &client->auth_id;
 
-	if (!auth_client_reserve_connection(auth_client, "APOP", &id))
+	if (!auth_client_reserve_connection(auth_client, "APOP", id))
 		return NULL;
 
-	return i_strdup_printf("<%x.%x.%s@%s>", id.server_pid, id.connect_uid,
+	return i_strdup_printf("<%x.%x.%s@%s>", id->server_pid, id->connect_uid,
 			       dec2str(ioloop_time), my_hostname);
 }
 
@@ -241,7 +241,7 @@ static void client_auth_ready(struct pop3_client *client)
 	client->common.io =
 		io_add(client->common.fd, IO_READ, client_input, client);
 
-	client->apop_challenge = get_apop_challenge();
+	client->apop_challenge = get_apop_challenge(client);
 	client_send_line(client, t_strconcat("+OK " PACKAGE " ready.",
 					     client->apop_challenge, NULL));
 }

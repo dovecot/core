@@ -10,7 +10,6 @@
  */
 
 #include "common.h"
-#include "safe-memset.h"
 #include "mech.h"
 #include "passdb.h"
 #include "md5.h"
@@ -40,14 +39,18 @@ apop_credentials_callback(const char *credentials,
 		(struct apop_auth_request *)auth_request;
 	unsigned char digest[16];
 	struct md5_context ctx;
+	int ret = FALSE;
 
-	md5_init(&ctx);
-	md5_update(&ctx, auth->challenge, strlen(auth->challenge));
-	md5_update(&ctx, credentials, strlen(credentials));
-	md5_final(&ctx, digest);
+	if (credentials != NULL) {
+		md5_init(&ctx);
+		md5_update(&ctx, auth->challenge, strlen(auth->challenge));
+		md5_update(&ctx, credentials, strlen(credentials));
+		md5_final(&ctx, digest);
 
-	mech_auth_finish(auth_request, NULL, 0,
-			 memcmp(digest, auth->digest, 16) == 0);
+		ret = memcmp(digest, auth->digest, 16) == 0;
+	}
+
+	mech_auth_finish(auth_request, NULL, 0, ret);
 }
 
 static int
