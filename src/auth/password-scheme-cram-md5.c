@@ -10,7 +10,8 @@ const char *password_generate_cram_md5(const char *plaintext)
 	struct hmac_md5_context ctx;
 	unsigned char context_digest[32];
 
-	hmac_md5_init(&ctx, plaintext, strlen(plaintext));
+	hmac_md5_init(&ctx, (const unsigned char *)plaintext,
+		      strlen(plaintext));
 	hmac_md5_get_cram_context(&ctx, context_digest);
 	return binary_to_hex(context_digest, sizeof(context_digest));
 }

@@ -171,7 +171,7 @@ static int create_temp_file(const char *prefix, const char **path_r)
 	string_t *path;
 	size_t len;
 	struct stat st;
-	char randbuf[8];
+	unsigned char randbuf[8];
 	int fd;
 
 	path = t_str_new(256);
