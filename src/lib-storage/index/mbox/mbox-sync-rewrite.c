@@ -394,7 +394,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 				// FIXME: error handling
 				ret = -1;
 			}
-			mails[1].from_offset -= offset - end_offset;
+			mails[1].from_offset -= end_offset - start_offset;
 			idx++;
 
 			start_offset += offset - end_offset;

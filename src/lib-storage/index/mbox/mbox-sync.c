@@ -203,14 +203,18 @@ update_from_offsets(struct index_mailbox *ibox,
 		    struct mail_index_transaction *t, buffer_t *mails_buf,
 		    uint32_t seq1, uint32_t seq2)
 {
-	uint32_t extra_idx = ibox->mbox_extra_idx;
 	const struct mbox_sync_mail *mails;
+	uint32_t extra_idx = ibox->mbox_extra_idx;
+	uint64_t offset;
 
 	mails = buffer_get_modifyable_data(mails_buf, NULL);
 
 	for (; seq1 <= seq2; seq1++, mails++) {
-		uint64_t offset = mails->from_offset;
-		mail_index_update_extra_rec(t, seq1, extra_idx, &offset);
+		if (mails->uid != 0) {
+			offset = mails->from_offset;
+			mail_index_update_extra_rec(t, seq1, extra_idx,
+						    &offset);
+		}
 	}
 }
 
