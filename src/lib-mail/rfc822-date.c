@@ -78,7 +78,7 @@ static int parse_timezone(const char *str, size_t len)
 
 		if (i_toupper(str[1]) == 'D')
 			return offset + 60;
-		if (i_toupper(str[1] == 'S'))
+		if (i_toupper(str[1]) == 'S')
 			return offset;
 	}
 
