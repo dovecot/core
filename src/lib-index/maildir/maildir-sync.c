@@ -255,9 +255,10 @@ int maildir_index_sync(MailIndex *index)
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
-	if (index->fd == -1)
+	if (index->fd == -1) {
+		/* anon-mmaped */
 		index_mtime = index->file_sync_stamp;
-	else {
+	} else {
 		if (fstat(index->fd, &sti) < 0)
 			return index_set_syscall_error(index, "fstat()");
 		index_mtime = sti.st_mtime;
