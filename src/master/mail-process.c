@@ -265,6 +265,8 @@ int create_mail_process(struct login_group *group, int socket,
 		env_put("MMAP_DISABLE=1");
 	if (set->mmap_no_write)
 		env_put("MMAP_NO_WRITE=1");
+	if (set->fcntl_locks_disable)
+		env_put("FCNTL_LOCKS_DISABLE=1");
 	if (set->maildir_copy_with_hardlinks)
 		env_put("MAILDIR_COPY_WITH_HARDLINKS=1");
 	if (set->maildir_check_content_changes)

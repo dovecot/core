@@ -16,6 +16,11 @@
 #include <stddef.h>
 #include <sys/stat.h>
 
+/* this lock should never exist for a long time.. */
+#define LOG_DOTLOCK_TIMEOUT 30
+#define LOG_DOTLOCK_STALE_TIMEOUT 0
+#define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 120
+
 struct mail_transaction_add_ctx {
 	struct mail_transaction_log *log;
 	struct mail_index_view *view;
@@ -117,6 +122,54 @@ void mail_transaction_log_close(struct mail_transaction_log *log)
 }
 
 static int
+mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file,
+				  int lock_type)
+{
+	int ret;
+
+	if (lock_type == F_UNLCK) {
+		ret = file_unlock_dotlock(file->filepath, &file->dotlock);
+		if (ret < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+				file->filepath, "file_unlock_dotlock()");
+			return -1;
+		}
+		file->lock_type = F_UNLCK;
+
+		if (ret == 0) {
+			mail_index_set_error(file->log->index,
+				"Dotlock was lost for transaction log file %s",
+				file->filepath);
+			return -1;
+		}
+		return 0;
+	}
+
+	ret = file_lock_dotlock(file->filepath, NULL, FALSE,
+				LOG_DOTLOCK_TIMEOUT,
+				LOG_DOTLOCK_STALE_TIMEOUT,
+				LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT,
+				NULL, NULL, &file->dotlock);
+	if (ret > 0) {
+		file->lock_type = F_WRLCK;
+		return 0;
+	}
+	if (ret < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath,
+						  "file_lock_dotlock()");
+		return -1;
+	}
+
+	mail_index_set_error(file->log->index,
+			     "Timeout while waiting for release of "
+			     "dotlock for transaction log file %s",
+			     file->filepath);
+	file->log->index->index_lock_timeout = TRUE;
+	return -1;
+}
+
+static int
 mail_transaction_log_file_lock(struct mail_transaction_log_file *file,
 			       int lock_type)
 {
@@ -127,6 +180,9 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file,
 	} else {
 		i_assert(file->lock_type == F_UNLCK);
 	}
+
+	if (file->log->index->fcntl_locks_disable)
+		return mail_transaction_log_file_dotlock(file, lock_type);
 
 	ret = file_wait_lock_full(file->fd, lock_type, DEFAULT_LOCK_TIMEOUT,
 				  NULL, NULL);
@@ -233,8 +289,9 @@ static int mail_transaction_log_file_create(struct mail_transaction_log *log,
 	unsigned int lock_id;
 	int fd, fd2, ret;
 
-	/* this lock should never exist for a long time.. */
-	fd = file_dotlock_open(path, NULL, 30, 0, 120, NULL, NULL);
+	fd = file_dotlock_open(path, NULL, LOG_DOTLOCK_TIMEOUT,
+			       LOG_DOTLOCK_STALE_TIMEOUT,
+			       LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT, NULL, NULL);
 	if (fd == -1) {
 		mail_index_file_set_syscall_error(index, path,
 						  "file_dotlock_open()");

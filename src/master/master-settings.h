@@ -65,6 +65,7 @@ struct settings {
 	int mail_read_mmaped;
 	int mmap_disable;
 	int mmap_no_write;
+	int fcntl_locks_disable;
 	int maildir_copy_with_hardlinks;
 	int maildir_check_content_changes;
 	const char *mbox_locks;

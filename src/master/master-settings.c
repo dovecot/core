@@ -90,6 +90,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_BOOL, mail_read_mmaped),
 	DEF(SET_BOOL, mmap_disable),
 	DEF(SET_BOOL, mmap_no_write),
+	DEF(SET_BOOL, fcntl_locks_disable),
 	DEF(SET_BOOL, maildir_copy_with_hardlinks),
 	DEF(SET_BOOL, maildir_check_content_changes),
 	DEF(SET_STR, mbox_locks),
@@ -214,6 +215,7 @@ struct settings default_settings = {
 #else
 	MEMBER(mmap_no_write) FALSE,
 #endif
+	MEMBER(fcntl_locks_disable) FALSE,
 	MEMBER(maildir_copy_with_hardlinks) FALSE,
 	MEMBER(maildir_check_content_changes) FALSE,
 	MEMBER(mbox_locks) "dotlock fcntl",

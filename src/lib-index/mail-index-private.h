@@ -1,6 +1,7 @@
 #ifndef __MAIL_INDEX_PRIVATE_H
 #define __MAIL_INDEX_PRIVATE_H
 
+#include "file-dotlock.h"
 #include "mail-index.h"
 
 struct mail_transaction_header;
@@ -70,6 +71,7 @@ struct mail_index {
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id, copy_lock_id;
 	char *copy_lock_path;
+	struct dotlock dotlock;
 
 	char *error;
 	unsigned int nodiskspace:1;
@@ -79,6 +81,7 @@ struct mail_index {
 	unsigned int log_locked:1;
 	unsigned int mmap_disable:1;
 	unsigned int mmap_no_write:1;
+	unsigned int fcntl_locks_disable:1;
 	unsigned int readonly:1;
 	unsigned int fsck:1;
 };

@@ -575,6 +575,8 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 			(flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) != 0;
 		index->mmap_no_write =
 			(flags & MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE) != 0;
+		index->fcntl_locks_disable =
+			(flags & MAIL_INDEX_OPEN_FLAG_FCNTL_LOCKS_DISABLE) != 0;
 		index->readonly = FALSE;
 
 		index->filepath = i_strconcat(index->dir, "/",

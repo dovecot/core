@@ -1,6 +1,7 @@
 #ifndef __MAIL_TRANSACTION_LOG_VIEW_H
 #define __MAIL_TRANSACTION_LOG_VIEW_H
 
+#include "file-dotlock.h"
 #include "mail-transaction-log.h"
 
 struct mail_transaction_log_file {
@@ -12,6 +13,7 @@ struct mail_transaction_log_file {
 	char *filepath;
 	int fd;
 	int lock_type;
+	struct dotlock dotlock;
 
 	ino_t st_ino;
 	dev_t st_dev;
