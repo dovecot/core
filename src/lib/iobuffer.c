@@ -747,7 +747,6 @@ int io_buffer_seek(IOBuffer *buf, uoff_t offset)
 
 		/* then set the wanted position, next read will
 		   pick up from there */
-                buf->offset = 0;
 		buf->pos = buf->skip = real_offset;
 	} else {
 		if (lseek(buf->fd, (off_t)real_offset, SEEK_SET) !=
