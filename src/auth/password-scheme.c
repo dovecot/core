@@ -8,12 +8,9 @@
 #include "module-dir.h"
 #include "mycrypt.h"
 #include "randgen.h"
+#include "sha1.h"
 #include "str.h"
 #include "password-scheme.h"
-
-#ifdef HAVE_OPENSSL_SHA1
-#  include <openssl/sha.h>
-#endif
 
 static const char salt_chars[] =
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -38,6 +35,19 @@ int password_verify(const char *plaintext, const char *password,
 	}
 
 	return -1;
+}
+
+const char *password_list_schemes(const struct password_scheme **listptr)
+{
+	if (*listptr == NULL)
+		*listptr = schemes;
+
+	if ((*listptr)->name == NULL) {
+		*listptr = NULL;
+		return NULL;
+	}
+
+	return (*listptr)++->name;
 }
 
 const char *password_get_scheme(const char **password)
@@ -68,6 +78,14 @@ const char *password_get_scheme(const char **password)
 
 	scheme = t_strdup_until(*password + 1, p);
 	*password = p + 1;
+
+	/* LDAP's RFC2307 specifies the MD5 scheme for what we call PLAIN-MD5,
+	   only base64-encoded rather than hex-encoded.
+	   We can detect this case - base64 doesn't use '$'. */
+	if (strncasecmp(scheme, "MD5", 3) == 0 &&
+	    strncmp(*password, "$1$", 3) != 0) {
+		scheme = "LDAP-MD5";
+	}
 	return scheme;
 }
 
@@ -124,20 +142,146 @@ static const char *md5_generate(const char *plaintext,
 	return password_generate_md5_crypt(plaintext, salt);
 }
 
-#ifdef HAVE_OPENSSL_SHA1
-static int sha_verify(const char *plaintext, const char *password,
-		      const char *user __attr_unused__)
+static const char *sha1_generate(const char *plaintext,
+				const char *user __attr_unused__)
 {
-	unsigned char digest[SHA_DIGEST_LENGTH];
+	unsigned char digest[SHA1_RESULTLEN];
 	string_t *str;
 
-	SHA1(plaintext, strlen(plaintext), digest);
-
-	str = t_str_new(64);
+	sha1_get_digest(plaintext, strlen(plaintext), digest);
+	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(digest)+1));
 	base64_encode(digest, sizeof(digest), str);
-	return strcasecmp(str_c(str), password) == 0;
+	return str_c(str);
 }
-#endif
+
+static int sha1_verify(const char *plaintext, const char *password,
+		      const char *user __attr_unused__)
+{
+	unsigned char sha1_digest[SHA1_RESULTLEN];
+	const char *data;
+	buffer_t *buf;
+	size_t size;
+
+	sha1_get_digest(plaintext, strlen(plaintext), sha1_digest);
+
+	buf = buffer_create_static(pool_datastack_create(),
+				   MAX_BASE64_DECODED_SIZE(strlen(password)+1));
+
+	if (base64_decode(password, strlen(password), NULL, buf) <= 0) {
+		i_error("sha1_verify(%s): failed decoding SHA base64", user);
+		return 0;
+	}
+
+	data = buffer_get_data(buf, &size);
+	if (size < SHA1_RESULTLEN) {
+		i_error("sha1_verify(%s): invalid SHA base64 decode", user);
+		return 0;
+	}
+
+	return memcmp(sha1_digest, data, SHA1_RESULTLEN) == 0;
+}
+
+static const char *ssha_generate(const char *plaintext,
+				 const char *user __attr_unused__)
+{
+	unsigned char ssha_digest[SHA1_RESULTLEN+4];
+	unsigned char *salt = &ssha_digest[SHA1_RESULTLEN];
+	struct sha1_ctxt ctx;
+	string_t *str;
+
+	random_fill(salt, 4);
+
+	sha1_init(&ctx);
+	sha1_loop(&ctx, plaintext, strlen(plaintext));
+	sha1_loop(&ctx, salt, 4);
+	sha1_result(&ctx, ssha_digest);
+
+	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(ssha_digest))+1);
+	base64_encode(ssha_digest, sizeof(ssha_digest), str);
+	return str_c(str);
+}
+
+static int ssha_verify(const char *plaintext, const char *password,
+			    const char *user __attr_unused__)
+{
+	unsigned char sha1_digest[SHA1_RESULTLEN];
+	buffer_t *buf;
+	const char *data;
+	size_t size;
+	struct sha1_ctxt ctx;
+
+	/* format: base64-encoded MD5 hash and salt */
+	buf = buffer_create_static(pool_datastack_create(),
+				   MAX_BASE64_DECODED_SIZE(strlen(password)+1));
+
+	if (base64_decode(password, strlen(password), NULL, buf) <= 0) {
+		i_error("ssha_verify(%s): failed decoding SSHA base64", user);
+		return 0;
+	}
+
+	data = buffer_get_data(buf, &size);
+	if (size <= SHA1_RESULTLEN) {
+		i_error("ssha_verify(%s): invalid SSHA base64 decode", user);
+		return 0;
+	}
+
+	sha1_init(&ctx);
+	sha1_loop(&ctx, plaintext, strlen(plaintext));
+	sha1_loop(&ctx, &data[SHA1_RESULTLEN], size-SHA1_RESULTLEN);
+	sha1_result(&ctx, sha1_digest);
+	return memcmp(sha1_digest, data, SHA1_RESULTLEN) == 0;
+}
+
+static const char *smd5_generate(const char *plaintext,
+				 const char *user __attr_unused__)
+{
+	unsigned char smd5_digest[20];
+	unsigned char *salt = &smd5_digest[16];
+	struct md5_context ctx;
+	string_t *str;
+
+	random_fill(salt, 4);
+
+	md5_init(&ctx);
+	md5_update(&ctx, plaintext, strlen(plaintext));
+	md5_update(&ctx, salt, 4);
+	md5_final(&ctx, smd5_digest);
+
+	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(smd5_digest))+1);
+	base64_encode(smd5_digest, sizeof(smd5_digest), str);
+	return str_c(str);
+}
+
+static int smd5_verify(const char *plaintext, const char *password,
+		       const char *user __attr_unused__)
+{
+	unsigned char md5_digest[16];
+	buffer_t *buf;
+	const char *data;
+	size_t size;
+	struct md5_context ctx;
+
+	/* format: base64-encoded MD5 hash and salt */
+	buf = buffer_create_static(pool_datastack_create(),
+				   MAX_BASE64_DECODED_SIZE(strlen(password)+1));
+
+	if (base64_decode(password, strlen(password), NULL, buf) <= 0) {
+		i_error("smd5_verify(%s): failed decoding SMD5 base64", user);
+		return 0;
+	}
+
+	data = buffer_get_data(buf, &size);
+	if (size <= 16) {
+		i_error("smd5_verify(%s): invalid SMD5 base64 decode", user);
+		return 0;
+	}
+
+	md5_init(&ctx);
+	md5_update(&ctx, plaintext, strlen(plaintext));
+	md5_update(&ctx, &data[16], size-16);
+	md5_final(&ctx, md5_digest);
+	return memcmp(md5_digest, data, 16) == 0;
+}
 
 static int plain_verify(const char *plaintext, const char *password,
 			const char *user __attr_unused__)
@@ -216,17 +360,59 @@ static const char *plain_md5_generate(const char *plaintext,
 	return binary_to_hex(digest, sizeof(digest));
 }
 
+static const char *ldap_md5_generate(const char *plaintext,
+				     const char *user __attr_unused__)
+{
+	unsigned char digest[16];
+	string_t *str;
+
+	md5_get_digest(plaintext, strlen(plaintext), digest);
+	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(digest)+1));
+	base64_encode(digest, sizeof(digest), str);
+	return str_c(str);
+}
+
+static int ldap_md5_verify(const char *plaintext, const char *password,
+			   const char *user __attr_unused__)
+{
+	unsigned char md5_digest[16];
+	buffer_t *buf;
+	const char *data;
+	size_t size;
+
+	md5_get_digest(plaintext, strlen(plaintext), md5_digest);
+
+	buf = buffer_create_static(pool_datastack_create(),
+				   MAX_BASE64_DECODED_SIZE(strlen(password)+1));
+
+	if (base64_decode(password, strlen(password), NULL, buf) <= 0) {
+		i_error("ldap_md5_verify(%s): failed decoding MD5 base64",
+			user);
+		return 0;
+	}
+
+	data = buffer_get_data(buf, &size);
+	if (size != 16) {
+		i_error("ldap_md5_verify(%s): invalid MD5 base64 decode", user);
+		return 0;
+	}
+
+	return memcmp(md5_digest, data, 16) == 0;
+}
+
 static const struct password_scheme default_schemes[] = {
 	{ "CRYPT", crypt_verify, crypt_generate },
 	{ "MD5", md5_verify, md5_generate },
-#ifdef HAVE_OPENSSL_SHA1
-	{ "SHA", sha_verify, NULL },
-	{ "SHA1", sha_verify, NULL },
-#endif
+ 	{ "SHA", sha1_verify, sha1_generate },
+ 	{ "SHA1", sha1_verify, sha1_generate },
+	{ "SMD5", smd5_verify, smd5_generate },
+	{ "SSHA", ssha_verify, ssha_generate },
 	{ "PLAIN", plain_verify, plain_generate },
+	{ "CLEARTEXT", plain_verify, plain_generate },
 	{ "HMAC-MD5", hmac_md5_verify, hmac_md5_generate },
 	{ "DIGEST-MD5", digest_md5_verify, digest_md5_generate },
 	{ "PLAIN-MD5", plain_md5_verify, plain_md5_generate },
+	{ "LDAP-MD5", ldap_md5_verify, ldap_md5_generate },
 	{ NULL, NULL, NULL }
 };
 

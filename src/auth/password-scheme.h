@@ -21,6 +21,9 @@ const char *password_get_scheme(const char **password);
 const char *password_generate(const char *plaintext, const char *user,
 			      const char *scheme);
 
+/* Iterate through the list of password schemes, returning names */
+const char *password_list_schemes(const struct password_scheme **listptr);
+
 void password_schemes_init(void);
 void password_schemes_deinit(void);
 

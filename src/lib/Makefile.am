@@ -54,6 +54,7 @@ liblib_a_SOURCES = \
 	safe-memset.c \
 	safe-mkdir.c \
 	sendfile-util.c \
+	sha1.c \
 	str.c \
 	strescape.c \
 	strfuncs.c \
@@ -109,6 +110,7 @@ noinst_HEADERS = \
 	safe-memset.h \
 	safe-mkdir.h \
 	sendfile-util.h \
+	sha1.h \
 	str.h \
 	strescape.h \
 	strfuncs.h \

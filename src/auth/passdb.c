@@ -52,7 +52,8 @@ void passdb_handle_credentials(enum passdb_credentials credentials,
 	if (password != NULL) {
 		wanted_scheme = passdb_credentials_to_str(credentials);
 		if (strcasecmp(scheme, wanted_scheme) != 0) {
-			if (strcasecmp(scheme, "PLAIN") == 0) {
+			if (strcasecmp(scheme, "PLAIN") == 0 ||
+			    strcasecmp(scheme, "CLEARTEXT") == 0) {
 				/* we can generate anything out of plaintext
 				   passwords */
 				password = password_generate(password, user,

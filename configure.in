@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test29)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test30)
 
 AM_MAINTAINER_MODE
 
@@ -587,13 +587,6 @@ else
   ])
 fi
 AC_SUBST(RAND_LIBS)
-
-AC_CHECK_LIB(crypto, SHA1_Init, [
-  AC_CHECK_HEADER(openssl/sha.h, [
-    AC_DEFINE(HAVE_OPENSSL_SHA1,, Define if you have SHA1 in OpenSSL)
-    AUTH_LIBS=-lcrypto
-  ])
-])
 
 dnl * do we have tm_gmtoff
 AC_MSG_CHECKING([for tm_gmtoff])
