@@ -3,7 +3,6 @@
 #include "common.h"
 #include "strescape.h"
 #include "commands.h"
-#include "imap-match.h"
 
 struct list_node {
 	struct list_node *next;
@@ -92,8 +91,7 @@ static void list_cb(struct mail_storage *storage __attr_unused__,
 }
 
 static void list_send(struct client *client, struct list_node *node,
-		      const char *cmd, const char *path, const char *sep,
-		      struct imap_match_glob *glob)
+		      const char *cmd, const char *path, const char *sep)
 {
 	const char *name, *str;
 
@@ -108,17 +106,15 @@ static void list_send(struct client *client, struct list_node *node,
 		else
 			name = node->name;
 
-		if (node->children != NULL)
-			list_send(client, node->children, cmd, name, sep, glob);
+		/* node->name should already be escaped */
+		str = t_strdup_printf("* %s (%s) \"%s\" \"%s\"", cmd,
+				      mailbox_flags2str(node->flags),
+				      sep, name);
+		client_send_line(client, str);
 
-		if ((node->flags & MAILBOX_NOSELECT) == 0 ||
-		    imap_match(glob, name) > 0) {
-			/* node->name should already be escaped */
-			str = t_strdup_printf("* %s (%s) \"%s\" \"%s\"", cmd,
-					      mailbox_flags2str(node->flags),
-					      sep, name);
-			client_send_line(client, str);
-		}
+		if (node->children != NULL)
+			list_send(client, node->children, cmd, name, sep);
+
 		t_pop();
 	}
 }
@@ -182,8 +178,7 @@ int _cmd_list_full(struct client *client, int subscribed)
 
 		if (!failed) {
 			list_send(client, ctx.nodes,
-				  subscribed ? "LSUB" : "LIST", NULL, sep,
-				  imap_match_init(pattern, TRUE, sep_chr));
+				  subscribed ? "LSUB" : "LIST", NULL, sep);
 		}
 		pool_unref(ctx.pool);
 	}
