@@ -11,7 +11,7 @@
 #include <pwd.h>
 
 static void passwd_lookup(struct auth_request *auth_request,
-			  userdb_callback_t *callback, void *context)
+			  userdb_callback_t *callback)
 {
 	struct passwd *pw;
 	const char *result;
@@ -19,7 +19,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 	pw = getpwnam(auth_request->user);
 	if (pw == NULL) {
 		auth_request_log_info(auth_request, "passwd", "unknown user");
-		callback(NULL, context);
+		callback(NULL, auth_request);
 		return;
 	}
 
@@ -27,11 +27,12 @@ static void passwd_lookup(struct auth_request *auth_request,
 				 "home=%s", pw->pw_name, pw->pw_name,
 				 dec2str(pw->pw_uid), dec2str(pw->pw_gid),
 				 pw->pw_dir);
-	callback(result, context);
+	callback(result, auth_request);
 }
 
 struct userdb_module userdb_passwd = {
 	"passwd",
+	FALSE,
 
 	NULL, NULL, NULL,
 	passwd_lookup

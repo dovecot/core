@@ -15,7 +15,7 @@
 static char *static_template;
 
 static void static_lookup(struct auth_request *auth_request,
-			  userdb_callback_t *callback, void *context)
+			  userdb_callback_t *callback)
 {
 	string_t *str;
 
@@ -23,7 +23,7 @@ static void static_lookup(struct auth_request *auth_request,
 	str_append(str, auth_request->user);
 	var_expand(str, static_template,
 		   auth_request_get_var_expand_table(auth_request, NULL));
-	callback(str_c(str), context);
+	callback(str_c(str), auth_request);
 }
 
 static void static_init(const char *args)
@@ -78,6 +78,7 @@ static void static_deinit(void)
 
 struct userdb_module userdb_static = {
 	"static",
+	FALSE,
 
 	NULL,
 	static_init,

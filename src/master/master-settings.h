@@ -144,6 +144,7 @@ struct auth_settings {
 	int ssl_require_client_cert;
 
 	unsigned int count;
+	unsigned int worker_max_count;
 	unsigned int process_size;
 
 	/* .. */

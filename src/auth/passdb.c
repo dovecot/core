@@ -3,6 +3,7 @@
 #include "common.h"
 #include "auth-module.h"
 #include "password-scheme.h"
+#include "auth-worker-server.h"
 #include "passdb.h"
 #include "passdb-cache.h"
 
@@ -162,6 +163,11 @@ void passdb_init(struct auth *auth)
 
 	i_assert(auth->passdb->default_pass_scheme != NULL ||
 		 auth->passdb->cache_key == NULL);
+
+	if (auth->passdb->blocking && !worker) {
+		/* blocking passdb - we need an auth server */
+		auth_worker_server_init();
+	}
 }
 
 void passdb_deinit(struct auth *auth)

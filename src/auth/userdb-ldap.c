@@ -138,7 +138,7 @@ static void handle_request(struct ldap_connection *conn,
 	if (ret != LDAP_SUCCESS) {
 		auth_request_log_error(auth_request, "ldap",
 			"ldap_search() failed: %s", ldap_err2string(ret));
-		urequest->userdb_callback(NULL, request->context);
+		urequest->userdb_callback(NULL, auth_request);
 		return;
 	}
 
@@ -158,11 +158,11 @@ static void handle_request(struct ldap_connection *conn,
 		}
 	}
 
-	urequest->userdb_callback(result, request->context);
+	urequest->userdb_callback(result, auth_request);
 }
 
 static void userdb_ldap_lookup(struct auth_request *auth_request,
-			       userdb_callback_t *callback, void *context)
+			       userdb_callback_t *callback)
 {
 	struct ldap_connection *conn = userdb_ldap_conn;
         const struct var_expand_table *vars;
@@ -183,7 +183,6 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 
 	request = p_new(auth_request->pool, struct userdb_ldap_request, 1);
 	request->request.callback = handle_request;
-	request->request.context = context;
 	request->auth_request = auth_request;
 	request->userdb_callback = callback;
 
@@ -217,6 +216,7 @@ static void userdb_ldap_deinit(void)
 
 struct userdb_module userdb_ldap = {
 	"ldap",
+	FALSE,
 
 	userdb_ldap_preinit,
 	userdb_ldap_init,

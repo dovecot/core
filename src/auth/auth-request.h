@@ -30,8 +30,10 @@ struct auth_request {
 
 	union {
 		verify_plain_callback_t *verify_plain;
-                lookup_credentials_callback_t *lookup_credentials;
+		lookup_credentials_callback_t *lookup_credentials;
+                userdb_callback_t *userdb;
 	} private_callback;
+        enum passdb_credentials credentials;
 
 	mech_callback_t *callback;
 	void *context;
@@ -58,6 +60,8 @@ void auth_request_success(struct auth_request *request,
 void auth_request_fail(struct auth_request *request);
 void auth_request_internal_failure(struct auth_request *request);
 
+void auth_request_export(struct auth_request *request, string_t *str);
+
 void auth_request_initial(struct auth_request *request,
 			  const unsigned char *data, size_t data_size);
 void auth_request_continue(struct auth_request *request,
@@ -70,7 +74,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 				     enum passdb_credentials credentials,
 				     lookup_credentials_callback_t *callback);
 void auth_request_lookup_user(struct auth_request *request,
-			      userdb_callback_t *callback, void *context);
+			      userdb_callback_t *callback);
 
 int auth_request_set_username(struct auth_request *request,
 			      const char *username, const char **error_r);
@@ -91,5 +95,11 @@ void auth_request_log_info(struct auth_request *auth_request,
 void auth_request_log_error(struct auth_request *auth_request,
 			    const char *subsystem,
 			    const char *format, ...) __attr_format__(3, 4);
+
+void auth_request_verify_plain_callback(enum passdb_result result,
+					struct auth_request *request);
+void auth_request_lookup_credentials_callback(enum passdb_result result,
+					      const char *credentials,
+					      struct auth_request *request);
 
 #endif

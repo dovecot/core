@@ -3,8 +3,7 @@
 
 enum listener_type {
 	LISTENER_MASTER,
-	LISTENER_CLIENT,
-	LISTENER_BALANCER
+	LISTENER_CLIENT
 };
 
 struct auth_master_connection {

@@ -12,6 +12,8 @@
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 #include "passdb.h"
+#include "passdb-blocking.h"
+#include "userdb-blocking.h"
 #include "passdb-cache.h"
 
 struct auth_request *
@@ -72,6 +74,18 @@ int auth_request_unref(struct auth_request *request)
 	return FALSE;
 }
 
+void auth_request_export(struct auth_request *request, string_t *str)
+{
+	str_append(str, "user=");
+	str_append(str, request->user);
+	str_append(str, "\tservice=");
+	str_append(str, request->service);
+	str_append(str, "\tlip=");
+	str_append(str, net_ip2addr(&request->local_ip));
+	str_append(str, "\trip=");
+	str_append(str, net_ip2addr(&request->remote_ip));
+}
+
 void auth_request_initial(struct auth_request *request,
 			  const unsigned char *data, size_t data_size)
 {
@@ -105,17 +119,21 @@ static void auth_request_save_cache(struct auth_request *request,
 		return;
 	}
 
+	if (request->passdb_password == NULL) {
+		/* no password given by passdb, cannot cache this */
+		return;
+	}
+
 	/* save all except the currently given password in cache */
 	str = t_str_new(32 + str_len(request->extra_fields));
-	if (request->passdb_password != NULL) {
-		if (*request->passdb_password != '{') {
-			/* cached passwords must have a known scheme */
-			str_append_c(str, '{');
-			str_append(str, passdb->default_pass_scheme);
-			str_append_c(str, '}');
-		}
-		str_append(str, request->passdb_password);
+	if (*request->passdb_password != '{') {
+		/* cached passwords must have a known scheme */
+		str_append_c(str, '{');
+		str_append(str, passdb->default_pass_scheme);
+		str_append_c(str, '}');
 	}
+	str_append(str, request->passdb_password);
+
 	if (request->extra_fields != NULL) {
 		str_append_c(str, '\t');
 		str_append_str(str, request->extra_fields);
@@ -127,8 +145,8 @@ static void auth_request_save_cache(struct auth_request *request,
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str));
 }
 
-static void auth_request_verify_plain_callback(enum passdb_result result,
-					       struct auth_request *request)
+void auth_request_verify_plain_callback(enum passdb_result result,
+					struct auth_request *request)
 {
         auth_request_save_cache(request, result);
 
@@ -157,6 +175,7 @@ void auth_request_verify_plain(struct auth_request *request,
 	const char *cache_key;
 
 	request->mech_password = p_strdup(request->pool, password);
+	request->private_callback.verify_plain = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (cache_key != NULL) {
@@ -167,15 +186,17 @@ void auth_request_verify_plain(struct auth_request *request,
 		}
 	}
 
-	request->private_callback.verify_plain = callback;
-	passdb->verify_plain(request, password,
-			     auth_request_verify_plain_callback);
+	if (passdb->blocking)
+		passdb_blocking_verify_plain(request);
+	else {
+		passdb->verify_plain(request, password,
+				     auth_request_verify_plain_callback);
+	}
 }
 
-static void
-auth_request_lookup_credentials_callback(enum passdb_result result,
-					 const char *credentials,
-					 struct auth_request *request)
+void auth_request_lookup_credentials_callback(enum passdb_result result,
+					      const char *credentials,
+					      struct auth_request *request)
 {
         auth_request_save_cache(request, result);
 
@@ -208,15 +229,26 @@ void auth_request_lookup_credentials(struct auth_request *request,
 		}
 	}
 
+	request->credentials = credentials;
 	request->private_callback.lookup_credentials = callback;
-	passdb->lookup_credentials(request, credentials,
-				   auth_request_lookup_credentials_callback);
+
+	if (passdb->blocking)
+		passdb_blocking_lookup_credentials(request);
+	else {
+		passdb->lookup_credentials(request, credentials,
+			auth_request_lookup_credentials_callback);
+	}
 }
 
 void auth_request_lookup_user(struct auth_request *request,
-			      userdb_callback_t *callback, void *context)
+			      userdb_callback_t *callback)
 {
-	request->auth->userdb->lookup(request, callback, context);
+	struct userdb_module *userdb = request->auth->userdb;
+
+	if (userdb->blocking)
+		userdb_blocking_lookup(request, callback);
+	else
+		userdb->lookup(request, callback);
 }
 
 int auth_request_set_username(struct auth_request *request,

@@ -55,7 +55,7 @@ static void passwd_deinit(void)
 
 struct passdb_module passdb_passwd = {
 	"passwd",
-	"%u", "CRYPT",
+	"%u", "CRYPT", FALSE,
 
 	NULL, NULL,
 	passwd_deinit,

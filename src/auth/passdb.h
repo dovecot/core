@@ -42,6 +42,9 @@ struct passdb_module {
 	/* Default password scheme for this module.
 	   If cache_key is set, must not be NULL. */
 	const char *default_pass_scheme;
+	/* If blocking is set to TRUE, use child processes to access
+	   this passdb. */
+	int blocking;
 
 	void (*preinit)(const char *args);
 	void (*init)(const char *args);

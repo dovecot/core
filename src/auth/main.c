@@ -12,7 +12,8 @@
 #include "mech.h"
 #include "auth.h"
 #include "auth-request-handler.h"
-#include "auth-request-balancer.h"
+#include "auth-worker-server.h"
+#include "auth-worker-client.h"
 #include "auth-master-interface.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
@@ -26,12 +27,12 @@
 #include <sys/stat.h>
 
 struct ioloop *ioloop;
-int standalone = FALSE;
+int standalone = FALSE, worker = FALSE;
 time_t process_start_time;
 
 static buffer_t *masters_buf;
 static struct auth *auth;
-static int balancer = FALSE, balancer_worker = FALSE;
+static struct auth_worker_client *worker_client;
 
 static void sig_quit(int signo __attr_unused__)
 {
@@ -186,7 +187,7 @@ static void drop_privileges(void)
         password_schemes_init();
 
 	masters_buf = buffer_create_dynamic(default_pool, 64);
-	if (!balancer_worker)
+	if (!worker)
 		add_extra_listeners();
 
 	/* Password lookups etc. may require roots, allow it. */
@@ -199,12 +200,17 @@ static void main_init(int nodaemon)
 	size_t i, size;
 
         process_start_time = ioloop_time;
+	lib_init_signals(sig_quit);
 
 	mech_init();
 	auth_init(auth);
-	auth_request_handlers_init(balancer);
+	auth_request_handler_init();
 
-	lib_init_signals(sig_quit);
+	if (worker) {
+		worker_client =
+			auth_worker_client_create(auth, WORKER_SERVER_FD);
+		return;
+	}
 
 	standalone = getenv("DOVECOT_MASTER") == NULL;
 	if (standalone) {
@@ -232,23 +238,12 @@ static void main_init(int nodaemon)
 			if (chdir("/") < 0)
 				i_fatal("chdir(/) failed: %m");
 		}
-	} else if (!balancer_worker) {
+	} else {
 		master = auth_master_connection_create(auth, MASTER_SOCKET_FD);
 		auth_master_connection_add_listener(master, CLIENT_LISTEN_FD,
 						    NULL, LISTENER_CLIENT);
-		if (balancer) {
-			auth_master_connection_add_listener(master,
-							    BALANCER_LISTEN_FD,
-							    NULL,
-							    LISTENER_BALANCER);
-		}
 		auth_client_connections_init(master);
 		buffer_append(masters_buf, &master, sizeof(master));
-	} else {
-		master = auth_master_connection_create(auth, MASTER_SOCKET_FD);
-		buffer_append(masters_buf, &master, sizeof(master));
-
-		auth_request_balancer_worker_init(auth);
 	}
 
 	/* everything initialized, notify masters that all is well */
@@ -266,21 +261,23 @@ static void main_deinit(void)
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
-	auth_request_handlers_flush_failures();
+	if (worker_client != NULL)
+		auth_worker_client_destroy(worker_client);
+	else {
+		auth_request_handler_flush_failures();
 
-	if (balancer_worker)
-		auth_request_balancer_worker_deinit();
+		master = buffer_get_modifyable_data(masters_buf, &size);
+		size /= sizeof(*master);
+		for (i = 0; i < size; i++)
+			auth_master_connection_destroy(master[i]);
+	}
 
-	master = buffer_get_modifyable_data(masters_buf, &size);
-	size /= sizeof(*master);
-	for (i = 0; i < size; i++)
-		auth_master_connection_destroy(master[i]);
-
-        password_schemes_deinit();
-	auth_request_handlers_deinit();
+	auth_request_handler_deinit();
 	auth_deinit(auth);
 	mech_deinit();
 
+        auth_worker_server_deinit();
+        password_schemes_deinit();
 	random_deinit();
 
 	closelog();
@@ -292,7 +289,7 @@ int main(int argc __attr_unused__, char *argv[])
 
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)
-		fd_debug_verify_leaks(BALANCER_LISTEN_FD + 1, 1024);
+		fd_debug_verify_leaks(WORKER_SERVER_FD + 1, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
@@ -302,10 +299,8 @@ int main(int argc __attr_unused__, char *argv[])
 	while (argv[1] != NULL) {
 		if (strcmp(argv[1], "-F") == 0)
 			foreground = TRUE;
-		else if (strcmp(argv[1], "-b") == 0)
-			balancer = TRUE;
-		else if (strcmp(argv[1], "-bw") == 0)
-			balancer_worker = TRUE;
+		else if (strcmp(argv[1], "-w") == 0)
+			worker = TRUE;
 		argv++;
 	}
 

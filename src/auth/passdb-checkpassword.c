@@ -343,7 +343,7 @@ static void checkpassword_deinit(void)
 
 struct passdb_module passdb_checkpassword = {
 	"checkpassword",
-	NULL, NULL,
+	NULL, NULL, FALSE,
 
 	NULL,
 	checkpassword_init,

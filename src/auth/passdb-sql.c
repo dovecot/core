@@ -174,7 +174,12 @@ static void passdb_sql_preinit(const char *args)
 
 static void passdb_sql_init(const char *args __attr_unused__)
 {
+	enum sql_db_flags flags;
+
 	db_sql_connect(passdb_sql_conn);
+
+	flags = sql_get_flags(passdb_sql_conn->db);
+	passdb_sql.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 }
 
 static void passdb_sql_deinit(void)
@@ -185,7 +190,7 @@ static void passdb_sql_deinit(void)
 
 struct passdb_module passdb_sql = {
 	"sql",
-	NULL, NULL,
+	NULL, NULL, FALSE,
 
 	passdb_sql_preinit,
 	passdb_sql_init,

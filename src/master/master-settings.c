@@ -155,6 +155,7 @@ static struct setting_def auth_setting_defs[] = {
 	DEF(SET_BOOL, ssl_require_client_cert),
 
 	DEF(SET_INT, count),
+	DEF(SET_INT, worker_max_count),
 	DEF(SET_INT, process_size),
 
 	{ 0, NULL, 0 }
@@ -330,6 +331,7 @@ struct auth_settings default_auth_settings = {
 	MEMBER(ssl_require_client_cert) FALSE,
 
 	MEMBER(count) 1,
+	MEMBER(worker_max_count) 30,
 	MEMBER(process_size) 256,
 
 	/* .. */

@@ -25,6 +25,7 @@
 const char *process_names[PROCESS_TYPE_MAX] = {
 	"unknown",
 	"auth",
+	"auth-worker",
 	"login",
 	"imap",
 	"pop3",

@@ -18,8 +18,9 @@
 struct userdb_sql_request {
 	struct auth_request *auth_request;
 	userdb_callback_t *callback;
-	void *context;
 };
+
+extern struct userdb_module userdb_sql;
 
 static struct sql_connection *userdb_sql_conn;
 
@@ -94,12 +95,12 @@ static void sql_query_callback(struct sql_result *result, void *context)
                 user_result = sql_query_get_result(result, auth_request);
 	}
 
-	sql_request->callback(user_result, sql_request->context);
+	sql_request->callback(user_result, auth_request);
 	i_free(sql_request);
 }
 
 static void userdb_sql_lookup(struct auth_request *auth_request,
-			      userdb_callback_t *callback, void *context)
+			      userdb_callback_t *callback)
 {
 	struct userdb_sql_request *sql_request;
 	string_t *query;
@@ -111,7 +112,6 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 
 	sql_request = i_new(struct userdb_sql_request, 1);
 	sql_request->callback = callback;
-	sql_request->context = context;
 	sql_request->auth_request = auth_request;
 
 	auth_request_log_debug(auth_request, "sql", "%s", str_c(query));
@@ -127,7 +127,12 @@ static void userdb_sql_preinit(const char *args)
 
 static void userdb_sql_init(const char *args __attr_unused__)
 {
+	enum sql_db_flags flags;
+
 	db_sql_connect(userdb_sql_conn);
+
+	flags = sql_get_flags(userdb_sql_conn->db);
+	userdb_sql.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 }
 
 static void userdb_sql_deinit(void)
@@ -137,6 +142,7 @@ static void userdb_sql_deinit(void)
 
 struct userdb_module userdb_sql = {
 	"sql",
+	FALSE,
 
 	userdb_sql_preinit,
 	userdb_sql_init,

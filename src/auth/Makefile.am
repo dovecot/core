@@ -38,11 +38,9 @@ dovecot_auth_SOURCES = \
 	auth-master-connection.c \
 	auth-module.c \
 	auth-request.c \
-	auth-request-balancer-child.c \
-	auth-request-balancer-worker.c \
 	auth-request-handler.c \
-	auth-request-handler-balancer.c \
-	auth-request-handler-default.c \
+	auth-worker-client.c \
+	auth-worker-server.c \
 	db-ldap.c \
 	db-sql.c \
 	db-passwd-file.c \
@@ -57,6 +55,7 @@ dovecot_auth_SOURCES = \
 	mech-rpa.c \
 	mech-apop.c \
 	passdb.c \
+	passdb-blocking.c \
 	passdb-bsdauth.c \
 	passdb-cache.c \
 	passdb-ldap.c \
@@ -68,6 +67,7 @@ dovecot_auth_SOURCES = \
 	passdb-vpopmail.c \
 	passdb-sql.c \
 	userdb.c \
+	userdb-blocking.c \
 	userdb-ldap.c \
 	userdb-passdb.c \
 	userdb-passwd.c \
@@ -85,8 +85,9 @@ noinst_HEADERS = \
 	auth-master-connection.h \
 	auth-module.h \
 	auth-request.h \
-	auth-request-balancer.h \
 	auth-request-handler.h \
+	auth-worker-client.h \
+	auth-worker-server.h \
 	db-ldap.h \
 	db-sql.h \
 	db-passwd-file.h \
@@ -94,9 +95,11 @@ noinst_HEADERS = \
 	mech.h \
 	mycrypt.h \
 	passdb.h \
+	passdb-blocking.h \
 	passdb-cache.h \
 	password-scheme.h \
 	userdb.h \
+	userdb-blocking.h \
 	userdb-vpopmail.h
 
 checkpassword_reply_LDADD = \

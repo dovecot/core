@@ -58,7 +58,7 @@ static void bsdauth_deinit(void)
 
 struct passdb_module passdb_bsdauth = {
 	"bsdauth",
-	"%u", "CRYPT",
+	"%u", "CRYPT", FALSE,
 
 	NULL, NULL,
 	bsdauth_deinit,

@@ -13,14 +13,14 @@
 struct passwd_file *userdb_pwf = NULL;
 
 static void passwd_file_lookup(struct auth_request *auth_request,
-			       userdb_callback_t *callback, void *context)
+			       userdb_callback_t *callback)
 {
 	struct passwd_user *pu;
 	string_t *str;
 
 	pu = db_passwd_file_lookup(userdb_pwf, auth_request);
 	if (pu == NULL) {
-		callback(NULL, context);
+		callback(NULL, auth_request);
 		return;
 	}
 
@@ -33,7 +33,7 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	if (pu->mail != NULL)
 		str_printfa(str, "\tmail=%s", pu->mail);
 
-	callback(str_c(str), context);
+	callback(str_c(str), auth_request);
 }
 
 static void passwd_file_init(const char *args)
@@ -57,6 +57,7 @@ static void passwd_file_deinit(void)
 
 struct userdb_module userdb_passwd_file = {
 	"passwd-file",
+	FALSE,
 
 	NULL,
 	passwd_file_init,

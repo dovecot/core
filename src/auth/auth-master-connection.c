@@ -10,7 +10,6 @@
 #include "network.h"
 #include "userdb.h"
 #include "auth-request-handler.h"
-#include "auth-request-balancer.h"
 #include "auth-master-interface.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
@@ -291,10 +290,6 @@ static void auth_accept(void *context)
 			/* we'll just replace the previous master.. */
 			auth_master_connection_set_fd(l->master, fd);
 			auth_master_connection_send_handshake(l->master);
-			break;
-		case LISTENER_BALANCER:
-			/* worker process connected to us */
-			auth_request_balancer_add_child(fd);
 			break;
 		}
 	}

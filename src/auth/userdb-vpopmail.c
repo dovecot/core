@@ -42,7 +42,7 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 #ifdef USERDB_VPOPMAIL
 
 static void vpopmail_lookup(struct auth_request *auth_request,
-			    userdb_callback_t *callback, void *context)
+			    userdb_callback_t *callback)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
@@ -52,7 +52,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 
 	vpw = vpopmail_lookup_vqp(auth_request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		callback(NULL, context);
+		callback(NULL, auth_request);
 		return;
 	}
 
@@ -61,7 +61,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	if (vget_assign(vpop_domain, NULL, 0, &uid, &gid) == NULL) {
 		auth_request_log_info(auth_request, "vpopmail",
 				      "vget_assign(%s) failed", vpop_domain);
-		callback(NULL, context);
+		callback(NULL, auth_request);
 		return;
 	}
 
@@ -74,14 +74,14 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 			auth_request_log_error(auth_request, "vpopmail",
 					       "make_user_dir(%s, %s) failed",
 					       vpop_user, vpop_domain);
-			callback(NULL, context);
+			callback(NULL, auth_request);
 			return;
 		}
 
 		/* get the user again so pw_dir is visible */
 		vpw = vauth_getpw(vpop_user, vpop_domain);
 		if (vpw == NULL) {
-			callback(NULL, context);
+			callback(NULL, auth_request);
 			return;
 		}
 	}
@@ -90,11 +90,12 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 				 vpw->pw_name, dec2str(uid), dec2str(gid),
 				 vpw->pw_dir);
 
-	callback(result, context);
+	callback(result, auth_request);
 }
 
 struct userdb_module userdb_vpopmail = {
 	"vpopmail",
+	FALSE,
 
 	NULL, NULL, NULL,
 	vpopmail_lookup

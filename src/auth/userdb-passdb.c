@@ -13,7 +13,7 @@
 #include <stdlib.h>
 
 static void passdb_lookup(struct auth_request *auth_request,
-			  userdb_callback_t *callback, void *context)
+			  userdb_callback_t *callback)
 {
 	const char *const *args;
 	string_t *str;
@@ -24,7 +24,7 @@ static void passdb_lookup(struct auth_request *auth_request,
 	if (auth_request->extra_fields == NULL) {
 		auth_request_log_error(auth_request, "passdb",
 				       "passdb didn't return userdb entries");
-		callback(NULL, context);
+		callback(NULL, auth_request);
 		return;
 	}
 
@@ -76,14 +76,15 @@ static void passdb_lookup(struct auth_request *auth_request,
 	}
 
 	if (uid == (uid_t)-1 || gid == (gid_t)-1)
-		callback(NULL, context);
+		callback(NULL, auth_request);
 	else
-		callback(str_c(str), context);
+		callback(str_c(str), auth_request);
 	t_pop();
 }
 
 struct userdb_module userdb_passdb = {
 	"passdb",
+	FALSE,
 
 	NULL,
 	NULL,

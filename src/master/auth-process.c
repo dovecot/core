@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "env-util.h"
 #include "fd-close-on-exec.h"
+#include "unix-socket-create.h"
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
@@ -18,7 +19,6 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <syslog.h>
-#include <sys/stat.h>
 
 #define MAX_INBUF_SIZE 8192
 #define MAX_OUTBUF_SIZE 65536
@@ -27,13 +27,10 @@ struct auth_process_group {
 	struct auth_process_group *next;
 
 	int listen_fd;
-	int balancer_listen_fd;
 	struct auth_settings *set;
 
 	unsigned int process_count;
 	struct auth_process *processes;
-
-	unsigned int need_balancer:1;
 };
 
 struct auth_process {
@@ -46,9 +43,11 @@ struct auth_process {
 	struct istream *input;
 	struct ostream *output;
 
+	int worker_listen_fd;
+	struct io *worker_io;
+
 	struct hash_table *requests;
 
-	unsigned int balancer:1;
 	unsigned int external:1;
 	unsigned int version_received:1;
 	unsigned int initialized:1;
@@ -60,6 +59,7 @@ static unsigned int auth_tag;
 static struct auth_process_group *process_groups;
 
 static void auth_process_destroy(struct auth_process *p);
+static int create_auth_worker(struct auth_process *process, int fd);
 
 void auth_process_request(struct auth_process *process, unsigned int login_pid,
 			  unsigned int login_id, void *context)
@@ -253,12 +253,29 @@ static void auth_process_input(void *context)
 	}
 }
 
+static void auth_worker_input(void *context)
+{
+	struct auth_process *p = context;
+	int fd;
+
+	fd = net_accept(p->worker_listen_fd, NULL, NULL);
+	if (fd < 0) {
+		if (fd == -2)
+			i_fatal("net_accept(worker) failed: %m");
+		return;
+	}
+
+	net_set_nonblock(fd, TRUE);
+	fd_close_on_exec(fd, TRUE);
+
+	create_auth_worker(p, fd);
+}
+
 static struct auth_process *
-auth_process_new(pid_t pid, int fd, struct auth_process_group *group,
-		 int balancer)
+auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 {
 	struct auth_process *p;
-	const char *handshake;
+	const char *path, *handshake;
 
 	if (pid != 0)
 		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH);
@@ -274,12 +291,21 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group,
 					 FALSE);
 	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
 
-	if (balancer) {
-		p->balancer = TRUE;
-		group->need_balancer = FALSE;
-	} else {
-		group->process_count++;
-	}
+	group->process_count++;
+
+	path = t_strdup_printf("%s/auth-worker.%s",
+			       group->set->parent->defaults->base_dir,
+			       dec2str(pid));
+	p->worker_listen_fd =
+		unix_socket_create(path, 0600, group->set->uid,
+				   group->set->gid, 16);
+	if (p->worker_listen_fd == -1)
+		i_fatal("Couldn't create auth worker listener");
+
+	net_set_nonblock(p->worker_listen_fd, TRUE);
+	fd_close_on_exec(p->worker_listen_fd, TRUE);
+	p->worker_io = io_add(p->worker_listen_fd, IO_READ,
+			      auth_worker_input, p);
 
 	handshake = t_strdup_printf("VERSION\t%u\t%u\n",
 				    AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
@@ -296,6 +322,7 @@ static void auth_process_destroy(struct auth_process *p)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 	struct auth_process **pos;
+	const char *path;
 
 	if (!p->initialized && io_loop_is_running(ioloop) && !p->external) {
 		i_error("Auth process died too early - shutting down");
@@ -308,12 +335,16 @@ static void auth_process_destroy(struct auth_process *p)
 			break;
 		}
 	}
-	if (p->balancer) {
-		/* the balancer process died, restart it */
-		p->group->need_balancer = TRUE;
-	} else {
-		p->group->process_count--;
-	}
+	p->group->process_count--;
+
+	path = t_strdup_printf("%s/auth-worker.%s",
+			       p->group->set->parent->defaults->base_dir,
+			       dec2str(p->pid));
+	(void)unlink(path);
+
+	if (close(p->worker_listen_fd) < 0)
+		i_error("close(worker_listen) failed: %m");
+	io_remove(p->worker_io);
 
 	iter = hash_iterate_init(p->requests);
 	while (hash_iterate(iter, &key, &value))
@@ -358,48 +389,64 @@ static int connect_auth_socket(struct auth_process_group *group,
 
 	net_set_nonblock(fd, TRUE);
 	fd_close_on_exec(fd, TRUE);
-	auth = auth_process_new(0, fd, group, FALSE);
+	auth = auth_process_new(0, fd, group);
 	auth->external = TRUE;
 	return 0;
 }
 
-static int unix_socket_create(const char *path, int mode,
-			      uid_t uid, gid_t gid, int backlog)
-{
-	mode_t old_umask;
-	int fd;
-
-	(void)unlink(path);
-
-	old_umask = umask(0777 ^ mode);
-	fd = net_listen_unix(path, backlog);
-	umask(old_umask);
-
-	if (fd < 0)
-		i_fatal("Can't listen in UNIX socket %s: %m", path);
-	net_set_nonblock(fd, TRUE);
-	fd_close_on_exec(fd, TRUE);
-
-	if (uid != (uid_t)-1 || gid != (gid_t)-1) {
-		/* set correct permissions */
-		if (chown(path, uid, gid) < 0) {
-			i_fatal("login: chown(%s, %s, %s) failed: %m",
-				path, dec2str(uid), dec2str(gid));
-		}
-	}
-	return fd;
-}
-
-static int create_auth_process(struct auth_process_group *group,
-			       int balancer_worker)
+static void auth_set_environment(struct auth_settings *set)
 {
 	struct auth_socket_settings *as;
-	const char *prefix, *str, *executable;
+	const char *str;
+	int i;
+
+	/* setup access environment */
+	restrict_access_set_env(set->user, set->uid, set->gid, set->chroot,
+				0, 0, NULL);
+
+	/* set other environment */
+	env_put("DOVECOT_MASTER=1");
+	env_put(t_strconcat("AUTH_NAME=", set->name, NULL));
+	env_put(t_strconcat("MECHANISMS=", set->mechanisms, NULL));
+	env_put(t_strconcat("REALMS=", set->realms, NULL));
+	env_put(t_strconcat("DEFAULT_REALM=", set->default_realm, NULL));
+	env_put(t_strconcat("USERDB=", set->userdb, NULL));
+	env_put(t_strconcat("PASSDB=", set->passdb, NULL));
+	env_put(t_strconcat("USERNAME_CHARS=", set->username_chars, NULL));
+	env_put(t_strconcat("USERNAME_TRANSLATION=",
+			    set->username_translation, NULL));
+	env_put(t_strconcat("ANONYMOUS_USERNAME=",
+			    set->anonymous_username, NULL));
+	env_put(t_strdup_printf("CACHE_SIZE=%u", set->cache_size));
+	env_put(t_strdup_printf("CACHE_TTL=%u", set->cache_ttl));
+
+	for (as = set->sockets, i = 1; as != NULL; as = as->next, i++) {
+		if (strcmp(as->type, "listen") != 0)
+			continue;
+
+		str = t_strdup_printf("AUTH_%u", i);
+		socket_settings_env_put(str, &as->client);
+		socket_settings_env_put(t_strconcat(str, "_MASTER", NULL),
+					&as->master);
+	}
+
+	if (set->verbose)
+		env_put("VERBOSE=1");
+	if (set->debug)
+		env_put("VERBOSE_DEBUG=1");
+	if (set->ssl_require_client_cert)
+		env_put("SSL_REQUIRE_CLIENT_CERT=1");
+
+	restrict_process_size(set->process_size, (unsigned int)-1);
+}
+
+static int create_auth_process(struct auth_process_group *group)
+{
+	struct auth_socket_settings *as;
+	const char *prefix, *executable;
 	struct log_io *log;
 	pid_t pid;
-	int fd[2], log_fd, i, balancer;
-
-	balancer = group->balancer_listen_fd != -1 && !balancer_worker;
+	int fd[2], log_fd, i;
 
 	/* see if this is a connect socket */
 	as = group->set->sockets;
@@ -435,7 +482,7 @@ static int create_auth_process(struct auth_process_group *group,
 
 		net_set_nonblock(fd[0], TRUE);
 		fd_close_on_exec(fd[0], TRUE);
-		auth_process_new(pid, fd[0], group, balancer);
+		auth_process_new(pid, fd[0], group);
 		(void)close(fd[1]);
 		(void)close(log_fd);
 		return 0;
@@ -460,76 +507,94 @@ static int create_auth_process(struct auth_process_group *group,
 
 	child_process_init_env();
 
-	if (!balancer_worker) {
-		i_assert(group->balancer_listen_fd != 3);
-		if (group->listen_fd != 3) {
-			if (dup2(group->listen_fd, 3) < 0)
-				i_fatal("dup2() failed: %m");
-		}
-		fd_close_on_exec(3, FALSE);
+	if (group->listen_fd != 3) {
+		if (dup2(group->listen_fd, 3) < 0)
+			i_fatal("dup2() failed: %m");
 	}
-
-	if (balancer) {
-		if (group->balancer_listen_fd != 4) {
-			if (dup2(group->balancer_listen_fd, 4) < 0)
-				i_fatal("dup2() failed: %m");
-		}
-		fd_close_on_exec(4, FALSE);
-	}
+	fd_close_on_exec(3, FALSE);
 
 	for (i = 0; i <= 2; i++)
 		fd_close_on_exec(i, FALSE);
 
-	/* setup access environment */
-	restrict_access_set_env(group->set->user, group->set->uid,
-				group->set->gid, group->set->chroot,
-				0, 0, NULL);
+        auth_set_environment(group->set);
 
-	/* set other environment */
-	env_put("DOVECOT_MASTER=1");
-	env_put(t_strconcat("AUTH_NAME=", group->set->name, NULL));
-	env_put(t_strconcat("MECHANISMS=", group->set->mechanisms, NULL));
-	env_put(t_strconcat("REALMS=", group->set->realms, NULL));
-	env_put(t_strconcat("DEFAULT_REALM=", group->set->default_realm, NULL));
-	env_put(t_strconcat("USERDB=", group->set->userdb, NULL));
-	env_put(t_strconcat("PASSDB=", group->set->passdb, NULL));
-	env_put(t_strconcat("USERNAME_CHARS=", group->set->username_chars, NULL));
-	env_put(t_strconcat("USERNAME_TRANSLATION=",
-			    group->set->username_translation, NULL));
-	env_put(t_strconcat("ANONYMOUS_USERNAME=",
-			    group->set->anonymous_username, NULL));
-	env_put(t_strdup_printf("CACHE_SIZE=%u", group->set->cache_size));
-	env_put(t_strdup_printf("CACHE_TTL=%u", group->set->cache_ttl));
-
-	for (as = group->set->sockets, i = 1; as != NULL; as = as->next, i++) {
-		if (strcmp(as->type, "listen") != 0)
-			continue;
-
-		str = t_strdup_printf("AUTH_%u", i);
-		socket_settings_env_put(str, &as->client);
-		socket_settings_env_put(t_strconcat(str, "_MASTER", NULL),
-					&as->master);
-	}
-
-	if (group->set->verbose)
-		env_put("VERBOSE=1");
-	if (group->set->debug)
-		env_put("VERBOSE_DEBUG=1");
-	if (group->set->ssl_require_client_cert)
-		env_put("SSL_REQUIRE_CLIENT_CERT=1");
-
-	restrict_process_size(group->set->process_size, (unsigned int)-1);
+	env_put(t_strdup_printf("AUTH_WORKER_PATH=%s/auth-worker.%s",
+				group->set->parent->defaults->base_dir,
+				dec2str(getpid())));
+	env_put(t_strdup_printf("AUTH_WORKER_MAX_COUNT=%u",
+				group->set->worker_max_count));
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
 
 	executable = group->set->executable;
-	if (balancer || balancer_worker) {
-		/* we are running in balancer mode */
-		executable = t_strconcat(executable, balancer_worker ?
-					 " -bw" : " -b", NULL);
+	client_process_exec(executable, "");
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
+	return -1;
+}
+
+static int create_auth_worker(struct auth_process *process, int fd)
+{
+	struct log_io *log;
+	const char *prefix, *executable;
+	pid_t pid;
+	int log_fd, i;
+
+	log_fd = log_create_pipe(&log, 0);
+	if (log_fd < 0)
+		pid = -1;
+	else {
+		pid = fork();
+		if (pid < 0)
+			i_error("fork() failed: %m");
 	}
+
+	if (pid < 0) {
+		(void)close(log_fd);
+		return -1;
+	}
+
+	if (pid != 0) {
+		/* master */
+		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH_WORKER);
+		prefix = t_strdup_printf("auth-worker(%s): ",
+					 process->group->set->name);
+		log_set_prefix(log, prefix);
+		(void)close(fd);
+		(void)close(log_fd);
+		return 0;
+	}
+
+	prefix = t_strdup_printf("master-auth-worker(%s): ",
+				 process->group->set->name);
+	log_set_prefix(log, prefix);
+
+	/* set stdin and stdout to /dev/null, so anything written into it
+	   gets ignored. */
+	if (dup2(null_fd, 0) < 0)
+		i_fatal("dup2(stdin) failed: %m");
+	if (dup2(null_fd, 1) < 0)
+		i_fatal("dup2(stdout) failed: %m");
+
+	if (dup2(log_fd, 2) < 0)
+		i_fatal("dup2(stderr) failed: %m");
+
+	if (dup2(fd, 4) < 0)
+		i_fatal("dup2(stdin) failed: %m");
+
+	for (i = 0; i <= 2; i++)
+		fd_close_on_exec(i, FALSE);
+	fd_close_on_exec(4, FALSE);
+
+	child_process_init_env();
+        auth_set_environment(process->group->set);
+
+	/* make sure we don't leak syslog fd, but do it last so that
+	   any errors above will be logged */
+	closelog();
+
+	executable = t_strconcat(process->group->set->executable, " -w", NULL);
 	client_process_exec(executable, "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 	return -1;
@@ -569,17 +634,11 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 			   auth_set->name, NULL);
 	group->listen_fd = unix_socket_create(path, 0660, master_uid,
 					      auth_set->parent->login_gid, 16);
+	if (group->listen_fd == -1)
+		i_fatal("Couldn't create auth process listener");
 
-	if (auth_set->count <= 1)
-		group->balancer_listen_fd = -1;
-	else {
-		path = t_strconcat(auth_set->parent->defaults->base_dir, "/",
-				   auth_set->name, "-balancer", NULL);
-		group->balancer_listen_fd =
-			unix_socket_create(path, 0600, (uid_t)-1, (gid_t)-1,
-					   group->set->count);
-		group->need_balancer = TRUE;
-	}
+	net_set_nonblock(group->listen_fd, TRUE);
+	fd_close_on_exec(group->listen_fd, TRUE);
 }
 
 static void auth_process_group_destroy(struct auth_process_group *group)
@@ -596,12 +655,6 @@ static void auth_process_group_destroy(struct auth_process_group *group)
 	path = t_strconcat(group->set->parent->defaults->login_dir, "/",
 			   group->set->name, NULL);
 	(void)unlink(path);
-
-	if (group->balancer_listen_fd != -1) {
-		path = t_strconcat(group->set->parent->defaults->base_dir, "/",
-				   group->set->name, "-balancer", NULL);
-		(void)unlink(path);
-	}
 
 	if (close(group->listen_fd) < 0)
 		i_error("close(%s) failed: %m", path);
@@ -637,7 +690,6 @@ auth_processes_start_missing(void *context __attr_unused__)
 {
 	struct auth_process_group *group;
 	unsigned int count;
-	int balancer_worker;
 
 	if (process_groups == NULL) {
 		/* first time here, create the groups */
@@ -645,13 +697,9 @@ auth_processes_start_missing(void *context __attr_unused__)
 	}
 
 	for (group = process_groups; group != NULL; group = group->next) {
-		if (group->need_balancer)
-			(void)create_auth_process(group, FALSE);
-
-		balancer_worker = group->balancer_listen_fd != -1;
 		count = group->process_count;
 		for (; count < group->set->count; count++)
-			(void)create_auth_process(group, balancer_worker);
+			(void)create_auth_process(group);
 	}
 }
 
