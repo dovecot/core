@@ -78,6 +78,11 @@ IBuffer *mbox_get_inbuf(MailIndex *index, uoff_t offset, MailLockType lock_type)
 						     MAIL_MMAP_BLOCK_SIZE,
 						     0, 0, FALSE);
 		} else {
+			if (lseek(index->mbox_fd, 0, SEEK_SET) < 0) {
+				mbox_set_syscall_error(index, "lseek()");
+				return NULL;
+			}
+
 			index->mbox_inbuf =
 				i_buffer_create_file(index->mbox_fd,
 						     default_pool,
