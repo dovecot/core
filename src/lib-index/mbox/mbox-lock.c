@@ -274,8 +274,7 @@ static int mbox_unlock_dotlock(MailIndex *index, const char *path)
 
 	/* make sure it's still our dotlock */
 	if (old_ino != st.st_ino ||
-	    major(old_dev) != major(st.st_dev) ||
-	    minor(old_dev) != minor(st.st_dev)) {
+	    !CMP_DEV_T(old_dev, st.st_dev)) {
 		index_set_error(index,
 			"Warning: Our dotlock file %s was overridden", path);
 		return FALSE;
