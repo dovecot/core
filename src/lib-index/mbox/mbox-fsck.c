@@ -168,6 +168,14 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 		rec = index->next(index, rec);
 	}
 
+	/* delete the rest of the records */
+	while (rec != NULL) {
+		(void)index->expunge(index, rec, seq, TRUE);
+
+		seq++;
+		rec = index->next(index, rec);
+	}
+
 	if (inbuf->offset == inbuf->size)
 		return TRUE;
 	else
