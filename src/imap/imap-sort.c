@@ -40,7 +40,7 @@ struct sort_context {
 	buffer_t *sort_buffer;
 	size_t sort_element_size;
 
-	pool_t temp_pool, str_pool;
+	pool_t str_pool;
 	struct hash_table *string_table;
 
 	time_t last_arrival, last_date;
@@ -179,7 +179,6 @@ static void mail_sort_deinit(struct sort_context *ctx)
 	if (ctx->str_pool != NULL)
 		pool_unref(ctx->str_pool);
 	buffer_free(ctx->sort_buffer);
-	pool_unref(ctx->temp_pool);
 
 	i_free(ctx->last_cc);
 	i_free(ctx->last_from);
@@ -232,7 +231,6 @@ int imap_sort(struct client *client, const char *charset,
 
 	ctx->box = client->mailbox;
 	ctx->output = client->output;
-	ctx->temp_pool = pool_alloconly_create("sort temp", 8192);
 	ctx->sort_buffer = buffer_create_dynamic(system_pool,
 						 128 * ctx->sort_element_size,
 						 (size_t)-1);
@@ -349,9 +347,8 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	if (ctx->common_mask & MAIL_SORT_SUBJECT) {
 		str = mail->get_header(mail, "subject");
 		if (str != NULL) {
-			p_clear(ctx->temp_pool);
-			str = imap_get_base_subject_cased(ctx->temp_pool,
-							  str, NULL);
+			str = imap_get_base_subject_cased(
+				pool_datastack_create(), str, NULL);
 		}
 
 		if (null_strcmp(str, ctx->last_subject) != 0) {
@@ -470,9 +467,8 @@ static void mail_sort_input(struct sort_context *ctx, struct mail *mail)
 			str = mail->get_header(mail, "subject");
 
 			if (str != NULL) {
-				p_clear(ctx->temp_pool);
 				str = imap_get_base_subject_cased(
-					ctx->temp_pool, str, NULL);
+					pool_datastack_create(), str, NULL);
 			}
 		}
 		str = string_table_get(ctx, str);
@@ -555,6 +551,7 @@ static const char *get_str(enum mail_sort_type type, const unsigned char *buf,
 {
 	const char *str;
 	enum mail_sort_type type2;
+	pool_t pool;
 	int pos;
 
 	if ((ctx->cache_mask & type) == 0) {
@@ -569,9 +566,8 @@ static const char *get_str(enum mail_sort_type type, const unsigned char *buf,
 			if (str == NULL)
 				return NULL;
 
-			p_clear(ctx->temp_pool);
-			return imap_get_base_subject_cased(ctx->temp_pool,
-							   str, NULL);
+			pool = pool_datastack_create();
+			return imap_get_base_subject_cased(pool, str, NULL);
 		case MAIL_SORT_CC:
 			str = get_first_mailbox(mail, "cc");
 			break;
