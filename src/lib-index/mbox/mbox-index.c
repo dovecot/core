@@ -689,9 +689,9 @@ int mbox_verify_end_of_body(struct istream *input, uoff_t end_offset)
 
 int mbox_mail_get_location(struct mail_index *index,
 			   struct mail_index_record *rec,
-			   uoff_t *offset, uoff_t *hdr_size, uoff_t *body_size)
+			   uoff_t *offset, uoff_t *body_size)
 {
-	struct message_size _hdr_size, _body_size;
+	struct message_size _body_size;
 	const void *data;
 	size_t size;
 
@@ -706,29 +706,80 @@ int mbox_mail_get_location(struct mail_index *index,
 		}
 	}
 
-	if (hdr_size != NULL || body_size != NULL) {
+	if (body_size != NULL) {
+		if (mail_cache_copy_fixed_field(index->cache, rec,
+						MAIL_CACHE_PHYSICAL_BODY_SIZE,
+						body_size, sizeof(uoff_t)))
+			return TRUE;
+
 		if (!mail_cache_lookup_field(index->cache, rec,
 					     MAIL_CACHE_MESSAGEPART,
 					     &data, &size)) {
 			mail_cache_set_corrupted(index->cache,
-				"Missing message_part for record %u", rec->uid);
+				"No cached body_size or message_part for "
+				"record %u", rec->uid);
 			return FALSE;
 		}
 		if (!message_part_deserialize_size(data, size,
-						   &_hdr_size, &_body_size)) {
+						   NULL, &_body_size)) {
 			mail_cache_set_corrupted(index->cache,
 				"Corrupted message_part for record %u",
 				rec->uid);
 			return FALSE;
 		}
 
-		if (hdr_size != NULL)
-			*hdr_size = _hdr_size.physical_size;
 		if (body_size != NULL)
 			*body_size = _body_size.physical_size;
 	}
 
 	return TRUE;
+}
+
+void mbox_hide_headers(struct istream *input, buffer_t *dest,
+		       struct message_size *hdr_size)
+{
+	struct message_header_parser_ctx *hdr_ctx;
+	struct message_header_line *hdr;
+	uoff_t virtual_size = 0;
+
+	hdr_ctx = message_parse_header_init(input, hdr_size);
+	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
+		if (hdr->eoh) {
+			if (dest != NULL)
+				buffer_append(dest, "\r\n", 2);
+			else
+				virtual_size += 2;
+			break;
+		}
+
+		if ((*hdr->name == 'X' &&
+		     (strcasecmp(hdr->name, "X-UID") == 0 ||
+		      strcasecmp(hdr->name, "X-IMAPbase") == 0 ||
+		      strcasecmp(hdr->name, "X-Status") == 0 ||
+		      strcasecmp(hdr->name, "X-Keywords") == 0)) ||
+		    strcasecmp(hdr->name, "Content-Length") == 0 ||
+		    strcasecmp(hdr->name, "Status") == 0) {
+			/* ignore */
+		} else if (dest != NULL) {
+			if (!hdr->continued) {
+				buffer_append(dest, hdr->name, hdr->name_len);
+				buffer_append(dest, ": ", 2);
+			}
+			buffer_append(dest, hdr->value, hdr->value_len);
+			buffer_append(dest, "\r\n", 2);
+		} else {
+			if (!hdr->continued)
+				virtual_size += hdr->name_len + 2;
+			virtual_size += hdr->value_len + 2;
+		}
+	}
+	message_parse_header_deinit(hdr_ctx);
+
+	if (dest != NULL)
+		virtual_size = buffer_get_used_size(dest);
+
+	hdr_size->virtual_size = virtual_size;
+	hdr_size->lines = 0;
 }
 
 struct mail_index *

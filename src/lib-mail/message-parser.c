@@ -637,8 +637,10 @@ void message_parse_header(struct message_part *part, struct istream *input,
 	hdr_ctx = message_parse_header_init(input, hdr_size);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL)
 		callback(part, hdr, context);
-	callback(part, NULL, context);
 	message_parse_header_deinit(hdr_ctx);
+
+	/* call after the final skipping */
+	callback(part, NULL, context);
 }
 
 struct message_header_parser_ctx *
@@ -722,6 +724,24 @@ message_parse_header_next(struct message_header_parser_ctx *ctx)
 			if (ret == -1) {
 				/* error / EOF with no bytes */
 				return NULL;
+			}
+
+			if (msg[0] == '\n' ||
+			    (msg[0] == '\r' && size > 1 && msg[1] == '\n')) {
+				/* end of headers - this mostly happens just
+				   with mbox where headers are read separately
+				   from body */
+				size = 0;
+				if (ctx->hdr_size != NULL)
+					ctx->hdr_size->lines++;
+				if (msg[0] == '\r')
+					ctx->skip = 2;
+				else {
+					ctx->skip = 1;
+					if (ctx->hdr_size != NULL)
+						ctx->hdr_size->virtual_size++;
+				}
+				break;
 			}
 
 			/* a) line is larger than input buffer

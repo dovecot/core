@@ -109,8 +109,9 @@ unsigned int mail_cache_field_sizes[32] = {
 	sizeof(struct mail_sent_date),
 	sizeof(time_t),
 	sizeof(uoff_t),
+	sizeof(uoff_t),
 
-	0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0,
 
 	/* variable sized */
 	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,
@@ -1758,6 +1759,26 @@ int mail_cache_update_index_flags(struct mail_cache *cache,
 	}
 
 	memcpy(data, &flags, sizeof(flags));
+	return TRUE;
+}
+
+int mail_cache_update_location_offset(struct mail_cache *cache,
+				      struct mail_index_record *rec,
+				      uoff_t offset)
+{
+	void *data;
+	size_t size;
+
+	i_assert(cache->locks > 0);
+
+	if (!cache_lookup_field(cache, rec, MAIL_CACHE_LOCATION_OFFSET,
+				&data, &size)) {
+		mail_cache_set_corrupted(cache,
+			"Missing location offset for record %u", rec->uid);
+		return FALSE;
+	}
+
+	memcpy(data, &offset, sizeof(offset));
 	return TRUE;
 }
 

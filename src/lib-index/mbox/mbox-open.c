@@ -14,7 +14,7 @@ struct istream *mbox_open_mail(struct mail_index *index,
 			       time_t *received_date, int *deleted)
 {
 	struct istream *input;
-	uoff_t offset, hdr_size, body_size;
+	uoff_t offset, body_size;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
@@ -24,7 +24,7 @@ struct istream *mbox_open_mail(struct mail_index *index,
 	if (index->inconsistent)
 		return NULL;
 
-	if (!mbox_mail_get_location(index, rec, &offset, &hdr_size, &body_size))
+	if (!mbox_mail_get_location(index, rec, &offset, &body_size))
 		return NULL;
 
 	input = mbox_get_stream(index, offset, MAIL_LOCK_SHARED);
@@ -36,6 +36,5 @@ struct istream *mbox_open_mail(struct mail_index *index,
 
 	i_assert(index->mbox_sync_counter == index->mbox_lock_counter);
 
-	i_stream_set_read_limit(input, hdr_size + body_size);
-	return input;
+	return i_stream_create_mbox(default_pool, input, body_size);
 }

@@ -7,6 +7,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib-index
 
 libindex_mbox_a_SOURCES = \
+	istream-mbox.c \
 	mbox-append.c \
 	mbox-from.c \
 	mbox-index.c \

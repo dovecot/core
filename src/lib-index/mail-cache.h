@@ -17,6 +17,7 @@ enum mail_cache_field {
 	MAIL_CACHE_SENT_DATE		= 0x00000008,
 	MAIL_CACHE_RECEIVED_DATE	= 0x00000010,
 	MAIL_CACHE_VIRTUAL_FULL_SIZE	= 0x00000020,
+	MAIL_CACHE_PHYSICAL_BODY_SIZE	= 0x00000040,
 
 	/* variable sized field */
 	MAIL_CACHE_HEADERS1		= 0x40000000,
@@ -34,7 +35,8 @@ enum mail_cache_field {
 					  MAIL_CACHE_MD5 |
 					  MAIL_CACHE_SENT_DATE |
 					  MAIL_CACHE_RECEIVED_DATE |
-					  MAIL_CACHE_VIRTUAL_FULL_SIZE,
+					  MAIL_CACHE_VIRTUAL_FULL_SIZE |
+					  MAIL_CACHE_PHYSICAL_BODY_SIZE,
 	MAIL_CACHE_HEADERS_MASK		= MAIL_CACHE_HEADERS1 |
 					  MAIL_CACHE_HEADERS2 |
 					  MAIL_CACHE_HEADERS3 |
@@ -156,6 +158,12 @@ mail_cache_get_index_flags(struct mail_cache *cache,
 int mail_cache_update_index_flags(struct mail_cache *cache,
 				  struct mail_index_record *rec,
 				  enum mail_index_record_flag flags);
+
+/* Update location offset. External locking is assumed to take care of locking
+   readers out to prevent race conditions. */
+int mail_cache_update_location_offset(struct mail_cache *cache,
+				      struct mail_index_record *rec,
+				      uoff_t offset);
 
 /* Return the whole file mmaped. */
 void *mail_cache_get_mmaped(struct mail_cache *cache, size_t *size);

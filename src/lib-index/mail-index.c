@@ -76,6 +76,7 @@ static int mmap_verify(struct mail_index *index)
 
 	index->sync_id = hdr->sync_id;
 	index->sync_stamp = hdr->sync_stamp;
+	index->sync_size = hdr->sync_size;
 	index->mmap_used_length = hdr->used_file_size;
 	return TRUE;
 }
@@ -440,8 +441,10 @@ static int mail_index_lock_full(struct mail_index *index,
 		keep_fsck = (index->set_flags & MAIL_INDEX_HDR_FLAG_FSCK) != 0;
 		mail_index_update_header_changes(index);
 
-		if (index->sync_dirty_stamp == 0)
+		if (index->sync_dirty_stamp == 0) {
 			index->header->sync_stamp = index->sync_stamp;
+			index->header->sync_size = index->sync_size;
+		}
 
 		/* remove the FSCK flag only after successful fsync() */
 		if (mail_index_sync_file(index) && !keep_fsck) {

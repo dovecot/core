@@ -10,37 +10,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static uoff_t get_indexed_mbox_size(struct mail_index *index)
-{
-	struct mail_index_record *rec;
-	uoff_t offset, hdr_size, body_size;
-
-	if (index->lock_type == MAIL_LOCK_UNLOCK) {
-		if (!mail_index_set_lock(index, MAIL_LOCK_SHARED))
-			return 0;
-	}
-
-	/* get the last record */
-	rec = index->header->messages_count == 0 ? NULL :
-		index->lookup(index, index->header->messages_count);
-
-	offset = 0;
-	if (rec != NULL) {
-		/* get the offset + size of last message, which tells the
-		   last known mbox file size */
-		if (mbox_mail_get_location(index, rec, &offset,
-					   &hdr_size, &body_size))
-			offset += hdr_size + body_size;
-	}
-
-	if (offset > OFF_T_MAX) {
-		/* too large to fit in off_t */
-		return 0;
-	}
-
-	return offset + 1; /* +1 for trailing \n */
-}
-
 static int mbox_lock_and_sync_full(struct mail_index *index,
 				   enum mail_lock_type data_lock_type)
 {
@@ -110,17 +79,13 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 		/* mbox file was overwritten, close it if it was open */
 		index->mbox_dev = st.st_dev;
 		index->mbox_ino = st.st_ino;
-		index->mbox_size = (uoff_t)-1;
+		index->sync_size = (uoff_t)-1;
+		index->sync_stamp = (time_t)-1;
 
                 mbox_file_close_fd(index);
 	}
 
-	if (index->mbox_sync_counter == 0) {
-		/* first sync, get expected mbox size */
-		index->mbox_size = get_indexed_mbox_size(index);
-	}
-
-	if (index->sync_stamp != st.st_mtime || index->mbox_size != filesize) {
+	if (index->sync_stamp != st.st_mtime || index->sync_size != filesize) {
 		mbox_file_close_stream(index);
 
 		if (changes != NULL)
@@ -135,8 +100,8 @@ int mbox_index_sync(struct mail_index *index, int minimal_sync __attr_unused__,
 				return FALSE;
 		}
 
-		index->mbox_size = filesize;
 		index->sync_stamp = st.st_mtime;
+		index->sync_size = filesize;
 	}
 
 	/* we need some index lock to be able to lock mbox */

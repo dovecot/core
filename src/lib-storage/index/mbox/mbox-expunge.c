@@ -123,6 +123,7 @@ int mbox_storage_expunge_deinit(struct mail_expunge_context *_ctx)
 static int get_from_offset(struct mail_index *index,
 			   struct mail_index_record *rec, uoff_t *offset_r)
 {
+#if 0
 	uoff_t offset, hdr_size, body_size;
 
 	if (!mbox_mail_get_location(index, rec, &offset,
@@ -131,6 +132,8 @@ static int get_from_offset(struct mail_index *index,
 
 	*offset_r = offset + hdr_size + body_size;
 	return TRUE;
+#endif
+	abort();
 }
 
 struct mail *mbox_storage_expunge_fetch_next(struct mail_expunge_context *_ctx)

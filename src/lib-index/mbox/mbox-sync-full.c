@@ -14,8 +14,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#if 0
-
 static void skip_line(struct istream *input)
 {
 	const unsigned char *msg;
@@ -53,59 +51,6 @@ static int verify_header(struct mail_index *index,
 	return memcmp(old_digest, current_digest, 16) == 0;
 }
 
-static int mail_update_header_size(struct mail_index *index,
-				   struct mail_index_record *rec,
-				   struct mail_cache_transaction_ctx *ctx,
-				   struct message_size *hdr_size)
-{
-	const void *part_data;
-	const char *error;
-	void *part_data_copy;
-	uoff_t virtual_size;
-	size_t size;
-
-	/* update FIELD_HDR_HEADER_SIZE */
-	index->update_field_raw(update, DATA_HDR_HEADER_SIZE,
-				&hdr_size->physical_size,
-				sizeof(hdr_size->physical_size));
-
-	/* reset FIELD_HDR_VIRTUAL_SIZE - we don't know it anymore */
-        virtual_size = (uoff_t)-1;
-	index->update_field_raw(update, DATA_HDR_VIRTUAL_SIZE,
-				&virtual_size, sizeof(virtual_size));
-
-	/* update DATA_FIELD_MESSAGEPART */
-	if ((rec->data_fields & DATA_FIELD_MESSAGEPART) == 0)
-		return TRUE;
-
-	part_data = index->lookup_field_raw(index, rec, DATA_FIELD_MESSAGEPART,
-					    &size);
-	if (part_data == NULL) {
-		/* well, this wasn't expected but don't bother failing */
-		return TRUE;
-	}
-
-	t_push();
-
-	/* copy & update the part data */
-	part_data_copy = t_malloc(size);
-	memcpy(part_data_copy, part_data, size);
-
-	if (!message_part_serialize_update_header(part_data_copy, size,
-						  hdr_size, &error)) {
-		index_set_corrupted(index,
-				    "Corrupted cached message_part data (%s)",
-				    error);
-		t_pop();
-		return FALSE;
-	}
-
-	index->update_field_raw(update, DATA_FIELD_MESSAGEPART,
-				part_data_copy, size);
-	t_pop();
-	return TRUE;
-}
-
 static int mbox_check_uidvalidity(struct mail_index *index,
 				  unsigned int uid_validity)
 {
@@ -131,10 +76,10 @@ static int match_next_record(struct mail_index *index,
 			     unsigned int *seq, struct istream *input,
 			     struct mail_index_record **next_rec, int *dirty)
 {
-        struct mail_index_update *update;
 	struct message_size hdr_parsed_size;
 	struct mbox_header_context ctx;
 	struct mail_index_record *first_rec, *last_rec;
+        enum mail_index_record_flag index_flags;
 	uoff_t header_offset, body_offset, offset;
 	uoff_t hdr_size, body_size;
 	unsigned char current_digest[16];
@@ -151,7 +96,7 @@ static int match_next_record(struct mail_index *index,
 	first_seq = last_seq = 0;
 	hdr_size = 0; body_offset = 0; hdr_size_fixed = FALSE;
 	do {
-		if (!mbox_mail_get_location(index, rec, NULL, NULL, &body_size))
+		if (!mbox_mail_get_location(index, rec, &offset, &body_size))
 			return FALSE;
 
 		i_stream_seek(input, header_offset);
@@ -178,7 +123,7 @@ static int match_next_record(struct mail_index *index,
 				if (!mbox_check_uidvalidity(index,
 							    ctx.uid_validity)) {
 					/* uidvalidity changed, abort */
-					break;
+					return FALSE;
 				}
 
 				if (ctx.uid_last >= index->header->next_uid) {
@@ -188,7 +133,6 @@ static int match_next_record(struct mail_index *index,
 				}
 			}
 
-			mbox_header_free_context(&ctx);
 			i_stream_set_read_limit(input, 0);
 
 			body_offset = input->v_offset;
@@ -197,41 +141,26 @@ static int match_next_record(struct mail_index *index,
 		if (verify_header(index, rec, ctx.uid, current_digest) &&
 		    mbox_verify_end_of_body(input, body_offset + body_size)) {
 			/* valid message */
-			update = index->update_begin(index, rec);
 
 			/* update flags, unless we've changed them */
-			if ((rec->index_flags & INDEX_MAIL_FLAG_DIRTY) == 0) {
+			index_flags =
+				mail_cache_get_index_flags(index->cache, rec);
+			if ((index_flags & MAIL_INDEX_FLAG_DIRTY) == 0) {
 				if (!index->update_flags(index, rec, *seq,
+							 MODIFY_REPLACE,
 							 ctx.flags, TRUE))
 					return FALSE;
-
-				/* update_flags() sets dirty flag, remove it */
-				rec->index_flags &= ~INDEX_MAIL_FLAG_DIRTY;
 			} else {
 				if (rec->msg_flags != ctx.flags)
 					*dirty = TRUE;
 			}
 
 			/* update location */
-			if (!mbox_mail_get_location(index, rec, &offset,
-						    NULL, NULL))
-				return FALSE;
 			if (offset != header_offset) {
-				index->update_field_raw(update,
-							DATA_FIELD_LOCATION,
-							&header_offset,
-							sizeof(uoff_t));
-			}
-
-			/* update size */
-			if (hdr_size != hdr_parsed_size.physical_size ) {
-				if (!mail_update_header_size(index, rec, update,
-							     &hdr_parsed_size))
+				if (!mail_cache_update_location_offset(
+					index->cache, rec, header_offset))
 					return FALSE;
 			}
-
-			if (!index->update_end(update))
-				return FALSE;
 			break;
 		}
 
@@ -329,16 +258,17 @@ static int mbox_sync_from_stream(struct mail_index *index,
 			return FALSE;
 	}
 
-	if (!dirty && (index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES)) {
+	if (!dirty &&
+	    (index->header->flags & MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES)) {
 		/* no flags are dirty anymore, no need to rewrite */
-		index->header->flags &= ~MAIL_INDEX_FLAG_DIRTY_MESSAGES;
+		index->header->flags &= ~MAIL_INDEX_HDR_FLAG_DIRTY_MESSAGES;
 	}
 
 	if (input->v_offset == input->v_size ||
-	    (index->set_flags & MAIL_INDEX_FLAG_REBUILD))
+	    (index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD))
 		return TRUE;
 	else
-		return mbox_index_append(index, input);
+		return mbox_index_append_stream(index, input);
 }
 
 int mbox_sync_full(struct mail_index *index)
@@ -361,7 +291,7 @@ int mbox_sync_full(struct mail_index *index)
 	} else {
 		failed = !mbox_sync_from_stream(index, input);
 		continue_offset = failed || input->v_offset == input->v_size ||
-			(index->set_flags & MAIL_INDEX_FLAG_REBUILD) ?
+			(index->set_flags & MAIL_INDEX_HDR_FLAG_REBUILD) ?
 			(uoff_t)-1 : input->v_offset;
 		i_stream_unref(input);
 	}
@@ -384,7 +314,7 @@ int mbox_sync_full(struct mail_index *index)
 		} else if (st.st_mtime == orig_st.st_mtime &&
 			   st.st_size == orig_st.st_size) {
 			i_stream_seek(input, continue_offset);
-			failed = !mbox_index_append(index, input);
+			failed = !mbox_index_append_stream(index, input);
 		} else {
 			failed = !mbox_sync_from_stream(index, input);
 		}
@@ -393,10 +323,4 @@ int mbox_sync_full(struct mail_index *index)
 	}
 
 	return !failed;
-}
-#endif
-
-int mbox_sync_full(struct mail_index *index)
-{
-	// FIXME
 }

@@ -49,7 +49,9 @@ void mbox_skip_message(struct istream *input);
 int mbox_verify_end_of_body(struct istream *input, uoff_t end_offset);
 int mbox_mail_get_location(struct mail_index *index,
 			   struct mail_index_record *rec,
-			   uoff_t *offset, uoff_t *hdr_size, uoff_t *full_size);
+			   uoff_t *offset, uoff_t *body_size);
+void mbox_hide_headers(struct istream *input, buffer_t *dest,
+		       struct message_size *hdr_size);
 
 struct mail_index *
 mbox_index_alloc(const char *mbox_path, const char *index_dir,
@@ -67,5 +69,8 @@ time_t mbox_from_parse_date(const unsigned char *msg, size_t size);
 const char *mbox_from_create(const char *sender, time_t time);
 
 int mbox_index_rewrite(struct mail_index *index);
+
+struct istream *i_stream_create_mbox(pool_t pool, struct istream *input,
+				     uoff_t body_size);
 
 #endif

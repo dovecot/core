@@ -10,10 +10,10 @@
 #include "mail-cache.h"
 
 static int mbox_index_append_next(struct mail_index *index,
-                                  struct mail_index_record *rec,
 				  struct mail_cache_transaction_ctx *trans_ctx,
 				  struct istream *input)
 {
+	struct mail_index_record *rec;
         struct mbox_header_context ctx;
 	enum mail_index_record_flag index_flags;
 	time_t received_date;
@@ -21,7 +21,7 @@ static int mbox_index_append_next(struct mail_index *index,
 	const unsigned char *data;
 	unsigned char md5_digest[16];
 	size_t size, pos;
-	int dirty;
+	int dirty, save_md5 = FALSE;
 
 	/* get the From-line */
 	pos = 0;
@@ -61,15 +61,6 @@ static int mbox_index_append_next(struct mail_index *index,
 
 	index_flags = 0;
 
-	if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_RECEIVED_DATE,
-			    &received_date, sizeof(received_date)))
-		return -1;
-
-	/* location offset = beginning of headers in message */
-	if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_LOCATION_OFFSET,
-			    &abs_start_offset, sizeof(abs_start_offset)))
-		return -1;
-
 	/* parse the header and cache wanted fields. get the message flags
 	   from Status and X-Status fields. temporarily limit the stream length
 	   so the message body is parsed properly.
@@ -81,9 +72,9 @@ static int mbox_index_append_next(struct mail_index *index,
         ctx.set_read_limit = TRUE;
 
 	i_stream_seek(input, abs_start_offset - input->start_offset);
-
 	i_stream_set_read_limit(input, eoh_offset);
-	//FIXME:mail_index_update_headers(update, input, 0, mbox_header_cb, &ctx);
+
+	message_parse_header(NULL, input, NULL, mbox_header_cb, &ctx);
 
 	i_stream_seek(input, input->v_limit);
 	i_stream_set_read_limit(input, 0);
@@ -117,11 +108,7 @@ static int mbox_index_append_next(struct mail_index *index,
 		dirty = TRUE;
 	} else {
 		/* save MD5 */
-		md5_final(&ctx.md5, md5_digest);
-
-		if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_MD5,
-				    md5_digest, sizeof(md5_digest)))
-			return -1;
+                save_md5 = TRUE;
 	}
 
 	if (dirty && !index->mailbox_readonly) {
@@ -134,6 +121,11 @@ static int mbox_index_append_next(struct mail_index *index,
 		index_flags |= MAIL_INDEX_FLAG_DIRTY;
 	}
 
+	/* add message to index */
+	rec = index->append(index);
+	if (rec == NULL)
+		return -1;
+
 	/* save message flags */
 	rec->msg_flags = ctx.flags;
 	mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
@@ -142,13 +134,33 @@ static int mbox_index_append_next(struct mail_index *index,
 			    &index_flags, sizeof(index_flags)))
 		return -1;
 
+	/* location offset = beginning of headers in message */
+	if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_LOCATION_OFFSET,
+			    &abs_start_offset, sizeof(abs_start_offset)))
+		return -1;
+
+	if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_RECEIVED_DATE,
+			    &received_date, sizeof(received_date)))
+		return -1;
+
+	if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_PHYSICAL_BODY_SIZE,
+			    &ctx.content_length, sizeof(ctx.content_length)))
+		return -1;
+
+	if (save_md5) {
+		md5_final(&ctx.md5, md5_digest);
+
+		if (!mail_cache_add(trans_ctx, rec, MAIL_CACHE_MD5,
+				    md5_digest, sizeof(md5_digest)))
+			return -1;
+	}
+
 	return 1;
 }
 
 int mbox_index_append_stream(struct mail_index *index, struct istream *input)
 {
 	struct mail_cache_transaction_ctx *trans_ctx;
-	struct mail_index_record *rec;
 	uoff_t offset;
 	int ret;
 
@@ -185,15 +197,8 @@ int mbox_index_append_stream(struct mail_index *index, struct istream *input)
 			break;
 		}
 
-		/* add message to index */
-		rec = index->append(index);
-		if (rec == NULL) {
-			ret = -1;
-			break;
-		}
-
 		t_push();
-		ret = mbox_index_append_next(index, rec, trans_ctx, input);
+		ret = mbox_index_append_next(index, trans_ctx, input);
 		t_pop();
 
 		if (ret == 0) {

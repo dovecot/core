@@ -134,6 +134,7 @@ struct mail_index_header {
 	uint32_t first_unseen_uid_lowwater;
 	uint32_t first_deleted_uid_lowwater;
 
+	uint64_t sync_size;
 	uint32_t sync_stamp;
 };
 
@@ -298,7 +299,6 @@ struct mail_index {
 	unsigned int mbox_sync_counter;
 
 	/* last mbox sync: */
-	uoff_t mbox_size;
 	dev_t mbox_dev;
 	ino_t mbox_ino;
 
@@ -320,6 +320,7 @@ struct mail_index {
 
         enum mail_lock_type lock_type;
 	time_t sync_stamp, sync_dirty_stamp;
+	uoff_t sync_size;
 	time_t next_dirty_flags_flush;
 	unsigned int first_recent_uid;
 

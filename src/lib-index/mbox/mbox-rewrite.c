@@ -382,8 +382,8 @@ static int write_header(struct mbox_rewrite_context *ctx,
 static int mbox_write_header(struct mail_index *index,
 			     struct mail_index_record *rec, unsigned int seq,
 			     struct istream *input, struct ostream *output,
-			     uoff_t end_offset, uoff_t wanted_offset,
-			     uoff_t hdr_size, uoff_t body_size)
+			     uoff_t end_offset,
+			     uoff_t *hdr_input_size, uoff_t body_size)
 {
 	/* We need to update fields that define message flags. Standard fields
 	   are stored in Status and X-Status. For custom flags we use
@@ -399,7 +399,8 @@ static int mbox_write_header(struct mail_index *index,
 	struct mbox_rewrite_context ctx;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	struct message_size hdr_parsed_size;
+	struct message_size hdr_size;
+	uoff_t offset;
 	int force_filler;
 
 	if (input->v_offset >= end_offset) {
@@ -422,19 +423,25 @@ static int mbox_write_header(struct mail_index *index,
 	ctx.uid_last = index->header->next_uid-1;
 	ctx.custom_flags = mail_custom_flags_list_get(index->custom_flags);
 
-	i_stream_set_read_limit(input, input->v_offset + hdr_size);
+	if (body_size == 0) {
+		/* possibly broken message, find the next From-line
+		   and make sure header parser won't pass it. */
+		offset = input->v_offset;
+		mbox_skip_header(input);
+		i_stream_set_read_limit(input, input->v_offset);
+		i_stream_seek(input, offset);
+	}
 
-	hdr_ctx = message_parse_header_init(input, &hdr_parsed_size);
+	hdr_ctx = message_parse_header_init(input, &hdr_size);
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		t_push();
 		write_header(&ctx, hdr);
 		t_pop();
 	}
 	message_parse_header_deinit(hdr_ctx);
+	*hdr_input_size = hdr_size.physical_size;
 
 	i_stream_set_read_limit(input, 0);
-
-	i_assert(hdr_parsed_size.physical_size == hdr_size);
 
 	/* append the flag fields */
 	if (seq == 1 && !ctx.ximapbase_found) {
@@ -454,8 +461,8 @@ static int mbox_write_header(struct mail_index *index,
 
 	/* write the x-keywords header last so it can fill the extra space
 	   with spaces. -1 is for ending \n. */
-	(void)mbox_write_xkeywords(&ctx, ctx.x_keywords,
-				   wanted_offset - 1, force_filler);
+	(void)mbox_write_xkeywords(&ctx, ctx.x_keywords, input->v_offset - 1,
+				   force_filler);
 	i_free(ctx.x_keywords);
 
 	t_pop();
@@ -573,7 +580,7 @@ int mbox_index_rewrite(struct mail_index *index)
 	struct mail_index_record *rec;
 	struct istream *input;
 	struct ostream *output;
-	uoff_t offset, hdr_size, body_size, dirty_offset, wanted_offset;
+	uoff_t offset, hdr_size, body_size, dirty_offset;
 	const char *path;
 	unsigned int seq;
 	int tmp_fd, failed, dirty, dirty_found, rewrite, no_locking;
@@ -668,7 +675,7 @@ int mbox_index_rewrite(struct mail_index *index)
 		if (dirty_found || dirty) {
 			/* get offset to beginning of mail headers */
 			if (!mbox_mail_get_location(index, rec, &offset,
-						    &hdr_size, &body_size)) {
+						    &body_size)) {
 				/* fsck should have fixed it */
 				failed = TRUE;
 				break;
@@ -681,7 +688,7 @@ int mbox_index_rewrite(struct mail_index *index)
 				break;
 			}
 
-			if (offset + hdr_size + body_size > input->v_size) {
+			if (offset + body_size > input->v_size) {
 				mail_cache_set_corrupted(index->cache,
 					"Invalid message size");
 				failed = TRUE;
@@ -703,16 +710,15 @@ int mbox_index_rewrite(struct mail_index *index)
 			}
 
 			/* write header, updating flag fields */
-			offset += hdr_size;
-			wanted_offset = offset - dirty_offset;
 			if (!mbox_write_header(index, rec, seq, input, output,
-					       offset, wanted_offset,
-					       hdr_size, body_size)) {
+					       offset, &hdr_size, body_size)) {
 				failed = TRUE;
 				break;
 			}
+			offset += hdr_size;
 
-			if (dirty_found && wanted_offset == output->offset) {
+			if (dirty_found &&
+			    offset - dirty_offset == output->offset) {
 				/* no need to write more, flush */
 				if (!dirty_flush(index, dirty_offset,
 						 output, tmp_fd)) {
