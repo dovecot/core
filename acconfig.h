@@ -4,6 +4,9 @@
 /* Disable asserts */
 #undef DISABLE_ASSERTS
 
+/* Build with rawlogging feature */
+#undef BUILD_RAWLOG
+
 /* Build with SSL/TLS support */
 #undef HAVE_SSL
 

@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "lib-signals.h"
+#include "rawlog.h"
 #include "restrict-access.h"
 
 #include <stdlib.h>
@@ -21,8 +22,12 @@ static void main_init(int use_syslog)
 	Client *client;
 	MailStorage *storage;
 	const char *logfile, *mail, *tag;
+	int hin, hout;
+
+	hin = 0; hout = 1;
 
 	lib_init_signals(sig_quit);
+	rawlog_open(&hin, &hout);
 
 	i_snprintf(log_prefix, sizeof(log_prefix), "imap(%s)", getenv("USER"));
 
@@ -70,7 +75,7 @@ static void main_init(int use_syslog)
 				"autodetection failed (home %s)", home);
 		}
 	} else {
-		client = client_create(0, 1, storage);
+		client = client_create(hin, hout, storage);
 
 		tag = getenv("LOGIN_TAG");
 		if (tag == NULL || *tag == '\0')

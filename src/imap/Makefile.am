@@ -51,10 +51,12 @@ imap_SOURCES = \
 	commands.c \
 	commands-util.c \
 	mailbox-sync.c \
-	main.c
+	main.c \
+	rawlog.c
 
 noinst_HEADERS = \
 	client.h \
 	commands.h \
 	commands-util.h \
-	common.h
+	common.h \
+	rawlog.h

@@ -96,6 +96,12 @@ AC_ARG_WITH(vpopmail,
 	fi,
 	want_vpopmail=yes)
 
+AC_ARG_WITH(rawlog,
+[  --with-rawlog           Build support for logging user traffic],
+	if test x$withval = xyes; then
+		AC_DEFINE(BUILD_RAWLOG)
+	fi)
+
 AC_ARG_WITH(gnutls,
 [  --with-gnutls           Build with GNUTLS (default)],
 	if test x$withval = xno; then
