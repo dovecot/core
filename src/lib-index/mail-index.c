@@ -1078,6 +1078,7 @@ int mail_index_write_base_header(struct mail_index *index,
 		memcpy(index->map->mmap_base, hdr, hdr_size);
 		if (msync(index->map->mmap_base, hdr_size, MS_SYNC) < 0)
 			return mail_index_set_syscall_error(index, "msync()");
+		index->map->hdr = *hdr;
 	} else {
 		if (pwrite_full(index->fd, hdr, hdr_size, 0) < 0) {
 			mail_index_set_syscall_error(index, "pwrite_full()");
