@@ -113,17 +113,11 @@ static void login_callback(struct auth_request *request,
 	switch (auth_callback(request, reply, data, &client->common,
 			      master_callback, &error)) {
 	case -1:
+	case 0:
 		/* login failed */
 		client_auth_abort(client, error);
 		break;
 
-	case 0:
-		/* continue */
-		ptr = buffer_get_data(client->plain_login, &size);
-		auth_client_request_continue(request, ptr, size);
-
-		buffer_set_used_size(client->plain_login, 0);
-		break;
 	default:
 		/* success, we should be able to log in. if we fail, just
 		   disconnect the client. */
@@ -147,6 +141,7 @@ client_get_auth_flags(struct imap_client *client)
 int cmd_login(struct imap_client *client, struct imap_arg *args)
 {
 	const char *user, *pass, *error;
+	string_t *str;
 
 	/* two arguments: username and password */
 	if (args[0].type != IMAP_ARG_ATOM && args[0].type != IMAP_ARG_STRING)
@@ -170,18 +165,19 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	}
 
 	/* authorization ID \0 authentication ID \0 pass */
-	buffer_set_used_size(client->plain_login, 0);
-	buffer_append_c(client->plain_login, '\0');
-	buffer_append(client->plain_login, user, strlen(user));
-	buffer_append_c(client->plain_login, '\0');
-	buffer_append(client->plain_login, pass, strlen(pass));
+	str = t_str_new(64);
+	str_append_c(str, '\0');
+	str_append(str, user);
+	str_append_c(str, '\0');
+	str_append(str, pass);
 
 	client_ref(client);
 
 	client->common.auth_request =
 		auth_client_request_new(auth_client, "PLAIN", "IMAP",
 					client_get_auth_flags(client),
-					NULL, 0, login_callback,
+					str_data(str), str_len(str),
+					login_callback,
 					client, &error);
 	if (client->common.auth_request == NULL) {
 		client_send_tagline(client, t_strconcat(

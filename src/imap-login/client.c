@@ -378,7 +378,6 @@ struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 
 	client_open_streams(client, fd);
 	client->common.io = io_add(fd, IO_READ, client_input, client);
-	client->plain_login = buffer_create_dynamic(system_pool, 128, 8192);
 
 	client->last_input = ioloop_time;
 	hash_insert(clients, client, client);
@@ -442,7 +441,6 @@ int client_unref(struct imap_client *client)
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);
 
-	buffer_free(client->plain_login);
 	i_free(client->common.virtual_user);
 	i_free(client);
 

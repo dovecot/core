@@ -20,8 +20,6 @@ struct imap_client {
 
 	const char *cmd_tag, *cmd_name;
 
-	buffer_t *plain_login;
-
 	unsigned int tls:1;
 	unsigned int secured:1;
 	unsigned int cmd_finished:1;
