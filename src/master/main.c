@@ -242,7 +242,8 @@ static void listen_protocols(struct settings *set)
 		ssl_ip = normal_ip;
 
 	/* register wanted protocols */
-	for (proto = t_strsplit(set->protocols, " "); *proto != NULL; proto++) {
+        proto = t_strsplit_spaces(set->protocols, " ");
+	for (; *proto != NULL; proto++) {
 		fd = NULL; ip = NULL; port = 0;
 		if (strcasecmp(*proto, "imap") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_IMAP) {

@@ -181,10 +181,7 @@ static enum mail_cache_field get_cache_fields(const char *fields)
 		return 0;
 
 	ret = 0;
-	for (arr = t_strsplit(fields, " ,"); *arr != NULL; arr++) {
-		if (*arr == '\0')
-			continue;
-
+	for (arr = t_strsplit_spaces(fields, " ,"); *arr != NULL; arr++) {
 		for (i = 0; field_names[i] != NULL; i++) {
 			if (strcasecmp(field_names[i], *arr) == 0) {
 				ret |= field_masks[i];

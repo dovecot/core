@@ -472,7 +472,8 @@ static int settings_verify(struct settings *set)
 	}
 
 	dotlock_got = fcntl_got = flock_got = FALSE;
-	for (str = t_strsplit(set->mbox_locks, " "); *str != NULL; str++) {
+        str = t_strsplit_spaces(set->mbox_locks, " ");
+	for (; *str != NULL; str++) {
 		if (strcasecmp(*str, "dotlock") == 0)
 			dotlock_got = TRUE;
 		else if (strcasecmp(*str, "fcntl") == 0)

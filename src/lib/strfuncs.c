@@ -218,8 +218,8 @@ char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
 const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)
 {
 	const char *str;
-        char *temp, *temp_end, *p;
-	size_t bufsize, pos;
+        char *temp;
+	size_t bufsize, i, len;
 
 	if (str1 == NULL)
 		return NULL;
@@ -228,29 +228,26 @@ const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)
 	bufsize = STRCONCAT_BUFSIZE;
 	temp = t_buffer_get(bufsize);
 
-	pos = 0;
+	i = 0;
 	do {
-		temp_end = temp + bufsize - 1; /* leave 1 for \0 */
+		len = strlen(str);
 
-		p = temp + pos;
-		while (*str != '\0' && p != temp_end)
-			*p++ = *str++;
-		pos = (size_t)(p - temp);
-
-		if (p == temp_end) {
+		if (i + len >= bufsize) {
 			/* need more memory */
-			bufsize = nearest_power(bufsize+1);
+			bufsize = nearest_power(i + len + 1);
 			temp = t_buffer_reget(temp, bufsize);
-		} else {
-			/* next string */
-			str = va_arg(args, const char *);
 		}
+
+		memcpy(temp + i, str, len);
+
+		/* next string */
+		str = va_arg(args, const char *);
 	} while (str != NULL);
 
-	i_assert(pos < bufsize);
+	i_assert(i < bufsize);
 
-	temp[pos] = '\0';
-        *ret_len = pos+1;
+	temp[i++] = '\0';
+        *ret_len = i;
         return temp;
 }
 
@@ -463,7 +460,8 @@ int memcasecmp(const void *p1, const void *p2, size_t size)
         return 0;
 }
 
-const char **t_strsplit(const char *data, const char *separators)
+static const char **_strsplit(const char *data, const char *separators,
+			      int spaces)
 {
         const char **array;
 	char *str;
@@ -487,7 +485,13 @@ const char **t_strsplit(const char *data, const char *separators)
 						       alloc_len);
 			}
 
-                        *str = '\0';
+			if (*str != ' ' || !spaces)
+				*str = '\0';
+			else {
+				*str = '\0';
+				while (str[1] == ' ') str++;
+			}
+
 			array[len++] = str+1;
 		}
 
@@ -499,6 +503,16 @@ const char **t_strsplit(const char *data, const char *separators)
 
 	t_buffer_alloc(sizeof(const char *) * (len+1));
         return array;
+}
+
+const char **t_strsplit(const char *data, const char *separators)
+{
+	return _strsplit(data, separators, FALSE);
+}
+
+const char **t_strsplit_spaces(const char *data, const char *separators)
+{
+	return _strsplit(data, separators, TRUE);
 }
 
 const char *dec2str(uintmax_t number)

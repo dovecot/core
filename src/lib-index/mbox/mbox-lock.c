@@ -44,7 +44,7 @@ static void mbox_init_lock_settings(void)
 
 	str = getenv("MBOX_LOCKS");
 	if (str == NULL) str = DEFAULT_LOCK_METHODS;
-	for (lock = t_strsplit(str, " "); *lock != NULL; lock++) {
+	for (lock = t_strsplit_spaces(str, " "); *lock != NULL; lock++) {
 		if (strcasecmp(*lock, "dotlock") == 0)
 			use_dotlock = TRUE;
 		else if (strcasecmp(*lock, "fcntl") == 0) {

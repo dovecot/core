@@ -43,10 +43,7 @@ static void static_init(const char *args)
 	static_gid = 0;
 	static_home_template = NULL;
 
-	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
-		if (**tmp == '\0')
-			continue;
-
+	for (tmp = t_strsplit_spaces(args, " "); *tmp != NULL; tmp++) {
 		if (strncasecmp(*tmp, "uid=", 4) == 0)
 			static_uid = atoi(*tmp + 4);
 		else if (strncasecmp(*tmp, "gid=", 4) == 0)

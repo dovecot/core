@@ -44,10 +44,7 @@ void mail_storage_init(void)
 	if (env == NULL)
 		return;
 
-	for (str = t_strsplit(env, " "); *str != NULL; str++) {
-		if (**str == '\0')
-			continue;
-
+	for (str = t_strsplit_spaces(env, " "); *str != NULL; str++) {
 		list = client_workaround_list;
 		for (; list->name != NULL; list++) {
 			if (strcasecmp(*str, list->name) == 0) {

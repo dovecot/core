@@ -56,6 +56,8 @@ int memcasecmp(const void *p1, const void *p2, size_t size);
 
 /* seprators is an array of separator characters, not a separator string. */
 const char **t_strsplit(const char *data, const char *separators);
+/* like t_strsplit(), but treats multiple spaces as a single separator. */
+const char **t_strsplit_spaces(const char *data, const char *separators);
 
 const char *dec2str(uintmax_t number);
 

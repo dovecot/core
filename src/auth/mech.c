@@ -238,7 +238,7 @@ void mech_init(void)
 	if (env == NULL || *env == '\0')
 		i_fatal("MECHANISMS environment is unset");
 
-	mechanisms = t_strsplit(env, " ");
+	mechanisms = t_strsplit_spaces(env, " ");
 	while (*mechanisms != NULL) {
 		if (strcasecmp(*mechanisms, "PLAIN") == 0)
 			mech_register_module(&mech_plain);
@@ -267,7 +267,7 @@ void mech_init(void)
 	env = getenv("REALMS");
 	if (env == NULL)
 		env = "";
-	auth_realms = t_strsplit(env, " ");
+	auth_realms = t_strsplit_spaces(env, " ");
 
 	default_realm = getenv("DEFAULT_REALM");
 	if (default_realm != NULL && *default_realm == '\0')
