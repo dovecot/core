@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "home-expand.h"
+#include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "subscription-file/subscription-file.h"
 #include "maildir-index.h"
@@ -179,30 +180,56 @@ static const char *maildir_get_control_path(struct mail_storage *storage,
 	return t_strconcat(storage->control_dir, "/.", name, NULL);
 }
 
-/* create or fix maildir, ignore if it already exists */
-static int create_maildir(struct mail_storage *storage,
-			  const char *dir, int verify)
+static int mkdir_verify(struct mail_storage *storage,
+			const char *dir, int verify)
 {
-	const char **tmp, *path;
+	struct stat st;
+
+	if (verify) {
+		if (lstat(dir, &st) == 0)
+			return TRUE;
+
+		if (errno != ENOENT) {
+			mail_storage_set_critical(storage,
+						  "lstat(%s) failed: %m", dir);
+			return FALSE;
+		}
+	}
 
 	if (mkdir(dir, CREATE_MODE) < 0 && (errno != EEXIST || !verify)) {
-		if (errno != EEXIST) {
+		if (errno != EEXIST && (!verify || errno != ENOENT)) {
 			mail_storage_set_critical(storage,
 						  "mkdir(%s) failed: %m", dir);
 		}
 		return FALSE;
 	}
 
+	return TRUE;
+}
+
+/* create or fix maildir, ignore if it already exists */
+static int create_maildir(struct mail_storage *storage,
+			  const char *dir, int verify)
+{
+	const char **tmp, *path;
+
+	if (!verify && !mkdir_verify(storage, dir, verify))
+		return FALSE;
+
 	for (tmp = maildirs; *tmp != NULL; tmp++) {
 		path = t_strconcat(dir, "/", *tmp, NULL);
 
-		if (mkdir(path, CREATE_MODE) < 0 &&
-		    (errno != EEXIST || !verify)) {
-			if (errno != EEXIST) {
-				mail_storage_set_critical(storage,
-					"mkdir(%s) failed: %m", dir);
-			}
-			return FALSE;
+		if (!mkdir_verify(storage, path, verify)) {
+			if (!verify || errno != ENOENT)
+				return FALSE;
+
+			/* small optimization. if we're verifying, we don't
+			   check that the root dir actually exists unless we
+			   fail here. */
+			if (!mkdir_verify(storage, dir, verify))
+				return FALSE;
+			if (!mkdir_verify(storage, path, verify))
+				return FALSE;
 		}
 	}
 
@@ -220,7 +247,7 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 		return TRUE;
 
 	dir = t_strconcat(storage->index_dir, "/.", name, NULL);
-	if (mkdir(dir, CREATE_MODE) == -1 && errno != EEXIST) {
+	if (mkdir_parents(dir, CREATE_MODE) == -1 && errno != EEXIST) {
 		mail_storage_set_critical(storage, "mkdir(%s) failed: %m", dir);
 		return FALSE;
 	}
@@ -236,7 +263,7 @@ static int create_control_dir(struct mail_storage *storage, const char *name)
 		return TRUE;
 
 	dir = t_strconcat(storage->control_dir, "/.", name, NULL);
-	if (mkdir(dir, CREATE_MODE) < 0 && errno != EEXIST) {
+	if (mkdir_parents(dir, CREATE_MODE) < 0 && errno != EEXIST) {
 		mail_storage_set_critical(storage, "mkdir(%s) failed: %m", dir);
 		return FALSE;
 	}
@@ -254,11 +281,8 @@ static int verify_inbox(struct mail_storage *storage)
 
 	/* create the .INBOX directory */
 	inbox = t_strconcat(storage->dir, "/.INBOX", NULL);
-	if (mkdir(inbox, CREATE_MODE) < 0 && errno != EEXIST) {
-		mail_storage_set_critical(storage, "mkdir(%s) failed: %m",
-					  inbox);
+	if (!mkdir_verify(storage, inbox, TRUE))
 		return FALSE;
-	}
 
 	/* make sure the index directories exist */
 	return create_index_dir(storage, "INBOX") &&
