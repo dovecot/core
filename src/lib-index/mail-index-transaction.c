@@ -98,7 +98,7 @@ static void
 mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 				  array_t *array, int range)
 {
-        ARRAY_ARG_SET_TYPE(array, uint32_t);
+        ARRAY_SET_TYPE(array, uint32_t);
         struct mail_index_view *view = t->view;
 	const struct mail_index_record *rec;
 	uint32_t *seq;
@@ -129,7 +129,7 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 static void arrays_convert_to_uids(struct mail_index_transaction *t,
 				   array_t *array)
 {
-	ARRAY_ARG_SET_TYPE(array, array_t);
+	ARRAY_SET_TYPE(array, array_t);
 	array_t *updates;
 	unsigned int i, count;
 
@@ -261,7 +261,7 @@ static void
 mail_index_seq_range_array_add(array_t *array, unsigned int init_count,
 			       uint32_t seq)
 {
-        ARRAY_ARG_SET_TYPE(array, struct seq_range);
+        ARRAY_SET_TYPE(array, struct seq_range);
 	struct seq_range *data, value;
 	unsigned int idx, left_idx, right_idx, count;
 
@@ -343,7 +343,7 @@ mail_index_seq_range_array_add(array_t *array, unsigned int init_count,
 
 static void mail_index_seq_range_array_remove(array_t *array, uint32_t seq)
 {
-        ARRAY_ARG_SET_TYPE(array, struct seq_range);
+        ARRAY_SET_TYPE(array, struct seq_range);
 	struct seq_range *data, value;
 	unsigned int idx, left_idx, right_idx, count;
 
@@ -632,7 +632,7 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 int mail_index_seq_array_lookup(const array_t *array, uint32_t seq,
 				unsigned int *idx_r)
 {
-        ARRAY_ARG_SET_TYPE(array, uint32_t);
+        ARRAY_SET_TYPE(array, uint32_t);
 	unsigned int idx, left_idx, right_idx, count;
 	const uint32_t *seq_p;
 
@@ -671,7 +671,7 @@ static int mail_index_seq_array_add(array_t *array, uint32_t seq,
 				    const void *record, size_t record_size,
 				    void *old_record)
 {
-        ARRAY_ARG_SET_TYPE(array, void *);
+        ARRAY_SET_TYPE(array, void *);
 	void *p;
 	unsigned int idx;
 

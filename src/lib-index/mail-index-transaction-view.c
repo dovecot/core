@@ -137,7 +137,7 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		(struct mail_index_view_transaction *)view;
         const struct mail_index_ext *ext;
 	const array_t *ext_buf;
-	ARRAY_ARG_SET_TYPE(ext_buf, void *);
+	ARRAY_SET_TYPE(ext_buf, void *);
 	const void *data;
 	unsigned int idx;
 
