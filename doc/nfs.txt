@@ -1,22 +1,19 @@
-Indexe files aren't really NFS safe, and they likely won't be made. You can
-access the actual mailboxes via NFS, but place the indexes into local hard
-disk (see mail-storage.txt).
+Index files aren't NFS safe, and they likely won't be made. You can access
+the actual mailboxes via NFS, but place the indexes into local hard disk
+(see mail-storage.txt).
 
  - .customflags and .subscriptions files require fcntl() locking currently.
    Many NFS servers don't support it, at least without a separate lockd
-   daemon. I'll add optional support for .lock files later.
+   daemon. These will be fixed later to be NFS-safe by default.
 
- - .lock files currently rely on O_EXCL which may not work with all NFS
-   servers
+ - .lock files currently rely on O_EXCL which doesn't work with NFSv2
+   servers. Also Linux's NFSv3 client still doesn't work with this either.
+   This will be fixed later to use temporary files and link().
 
  - gethostname() must return different name for each IMAP server accessing
    a user's mailboxes
 
- - Clocks should be somewhat synchronized:
-    - maildir: One minute difference is enough to have a small chance of
-      new mail to get temporarily lost until more mail arrives.
-    - One hour is enough to create a problem when two imap servers try to
-      open the same mailbox at the same time.
+ - Clocks should be synchronized or things can start to fail.
 
 If you _really_ wish to try using indexes via NFS:
 
