@@ -45,6 +45,10 @@ extern unsigned int set_mailbox_check_interval;
 extern int set_mail_save_crlf;
 extern int set_maildir_copy_with_hardlinks;
 extern int set_maildir_check_content_changes;
+extern char *set_mbox_locks;
+extern int set_mbox_read_dotlock;
+extern unsigned int set_mbox_lock_timeout;
+extern unsigned int set_mbox_dotlock_change_timeout;
 extern int set_overwrite_incompatible_index;
 extern unsigned int set_umask;
 

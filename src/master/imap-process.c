@@ -133,6 +133,14 @@ MasterReplyResult create_imap_process(int socket, IPADDR *ip, const char *user,
 	if (umask(set_umask) != set_umask)
 		i_fatal("Invalid umask: %o", set_umask);
 
+	putenv((char *) t_strconcat("MBOX_LOCKS=", set_mbox_locks, NULL));
+	putenv((char *) t_strdup_printf("MBOX_LOCK_TIMEOUT=%u",
+					set_mbox_lock_timeout));
+	putenv((char *) t_strdup_printf("MBOX_DOTLOCK_CHANGE_TIMEOUT=%u",
+					set_mbox_dotlock_change_timeout));
+	if (set_mbox_read_dotlock)
+		putenv("MBOX_READ_DOTLOCK=1");
+
 	if (set_verbose_proctitle && net_ip2host(ip, host) == 0) {
 		i_snprintf(title, sizeof(title), "[%s %s]", user, host);
 		argv[2] = title;

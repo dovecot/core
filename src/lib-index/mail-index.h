@@ -333,6 +333,8 @@ struct _MailIndex {
 	int mbox_fd;
 	IBuffer *mbox_inbuf;
 	MailLockType mbox_lock_type;
+	dev_t mbox_dotlock_dev;
+	ino_t mbox_dotlock_ino;
 
 	/* these counters can be used to check that we've synced the mailbox
 	   after locking it */
@@ -374,7 +376,7 @@ struct _MailIndex {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0
+	0, 0, 0, 0, 0, 0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);

@@ -66,6 +66,11 @@ static Setting settings[] = {
 				SET_BOOL,&set_maildir_copy_with_hardlinks },
 	{ "maildir_check_content_changes",
 				SET_BOOL,&set_maildir_check_content_changes },
+	{ "mbox_locks",		SET_STR, &set_mbox_locks, },
+	{ "mbox_read_dotlock",	SET_BOOL,&set_mbox_read_dotlock, },
+	{ "mbox_lock_timeout",	SET_INT, &set_mbox_lock_timeout, },
+	{ "mbox_dotlock_change_timeout",
+				SET_INT, &set_mbox_dotlock_change_timeout, },
 	{ "overwrite_incompatible_index",
 				SET_BOOL,&set_overwrite_incompatible_index },
 	{ "umask",		SET_INT, &set_umask },
@@ -118,6 +123,10 @@ unsigned int set_mailbox_check_interval = 30;
 int set_mail_save_crlf = FALSE;
 int set_maildir_copy_with_hardlinks = FALSE;
 int set_maildir_check_content_changes = FALSE;
+char *set_mbox_locks = "dotlock fcntl flock";
+int set_mbox_read_dotlock = FALSE;
+unsigned int set_mbox_lock_timeout = 300;
+unsigned int set_mbox_dotlock_change_timeout = 30;
 int set_overwrite_incompatible_index = FALSE;
 unsigned int set_umask = 0077;
 
@@ -154,6 +163,9 @@ static void auth_settings_verify(void)
 
 static void settings_verify(void)
 {
+	char *const *str;
+	int dotlock_got, fcntl_got, flock_got;
+
 	get_login_uid();
 
 	if (access(set_login_executable, X_OK) < 0) {
@@ -187,6 +199,35 @@ static void settings_verify(void)
 	if (set_last_valid_gid != 0 &&
 	    set_first_valid_gid > set_last_valid_gid)
 		i_fatal("first_valid_gid can't be larger than last_valid_gid");
+
+	dotlock_got = fcntl_got = flock_got = FALSE;
+	for (str = t_strsplit(set_mbox_locks, " "); *str != NULL; str++) {
+		if (strcasecmp(*str, "dotlock") == 0)
+			dotlock_got = TRUE;
+		else if (strcasecmp(*str, "fcntl") == 0)
+			fcntl_got = TRUE;
+		else if (strcasecmp(*str, "flock") == 0)
+			flock_got = TRUE;
+		else
+			i_fatal("mbox_locks: Invalid value %s", *str);
+	}
+
+#ifndef HAVE_FLOCK
+	if (fcntl_got && !dotlock_got && !flock_got) {
+		i_fatal("mbox_locks: Only flock selected, "
+			"and flock() isn't supported in this system");
+	}
+	flock_got = FALSE;
+#endif
+
+	if (!dotlock_got && !fcntl_got && !flock_got)
+		i_fatal("mbox_locks: No mbox locking methods selected");
+
+	if (dotlock_got && !set_mbox_read_dotlock && !fcntl_got && !flock_got) {
+		i_warning("mbox_locks: Only dotlock selected, forcing "
+			  "mbox_read_dotlock = yes to avoid corruption.");
+                set_mbox_read_dotlock = TRUE;
+	}
 
 	auth_settings_verify();
 }
