@@ -735,21 +735,21 @@ int io_buffer_seek(IOBuffer *buf, uoff_t offset)
 {
 	uoff_t real_offset;
 
+	real_offset = buf->start_offset + offset;
+	if (real_offset > OFF_T_MAX) {
+		errno = EINVAL;
+		return FALSE;
+	}
+
 	if (buf->mmaped) {
 		/* first reset everything */
 		io_buffer_reset(buf);
 
 		/* then set the wanted position, next read will
 		   pick up from there */
-		buf->offset = buf->start_offset;
-		buf->pos = buf->skip = offset;
+                buf->offset = 0;
+		buf->pos = buf->skip = real_offset;
 	} else {
-		real_offset = buf->start_offset + offset;
-		if (real_offset > OFF_T_MAX) {
-			errno = EINVAL;
-			return FALSE;
-		}
-
 		if (lseek(buf->fd, (off_t)real_offset, SEEK_SET) !=
 		    (off_t)real_offset)
 			return FALSE;
