@@ -715,11 +715,13 @@ create_new_server(const char *name,
 	server->imap->protocol = MAIL_PROTOCOL_IMAP;
 	server->imap->login_executable = PKG_LIBEXECDIR"/imap-login";
 	server->imap->mail_executable = PKG_LIBEXECDIR"/imap";
+	server->imap->mail_modules = PKG_LIBDIR"/imap";
 
 	server->pop3->server = server;
 	server->pop3->protocol = MAIL_PROTOCOL_POP3;
 	server->pop3->login_executable = PKG_LIBEXECDIR"/pop3-login";
 	server->pop3->mail_executable = PKG_LIBEXECDIR"/pop3";
+	server->pop3->mail_modules = PKG_LIBDIR"/pop3";
 
 	return server;
 }
