@@ -251,6 +251,13 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 		ctx->cur_append_eoh = FALSE;
 	}
 
+	if (ctx->cur_offset != ctx->cur_size && ret == 0 &&
+	    ctx->cur_input->eof) {
+		/* Input stream gave less data than expected */
+		o_stream_close(ctx->client->output);
+		return -1;
+	}
+
 	return ctx->cur_offset == ctx->cur_size;
 }
 
