@@ -48,6 +48,8 @@ static ssize_t _read(struct _istream *stream)
 {
 	struct mbox_istream *mstream = (struct mbox_istream *) stream;
 	ssize_t ret;
+	uoff_t limit, old_limit;
+	off_t vsize_diff;
 
 	if (stream->istream.v_offset < mstream->header_size.virtual_size) {
 		/* we don't support mixing headers and body.
@@ -55,17 +57,29 @@ static ssize_t _read(struct _istream *stream)
 		return -2;
 	}
 
-	if (mstream->input->v_offset - mstream->header_size.physical_size !=
-	    stream->istream.v_offset - mstream->header_size.virtual_size) {
-		i_stream_seek(mstream->input, stream->istream.v_offset -
-			      mstream->header_size.virtual_size +
-			      mstream->header_size.physical_size);
+	/* may be positive or negative, depending on how much there was CRs
+	   and how much headers were hidden */
+	vsize_diff = mstream->header_size.virtual_size -
+		mstream->header_size.physical_size;
+
+	limit = stream->istream.v_limit - vsize_diff;
+	old_limit = mstream->input->v_limit;
+	if (limit != old_limit)
+		i_stream_set_read_limit(mstream->input, limit);
+
+	if (mstream->input->v_offset != stream->istream.v_offset - vsize_diff) {
+		i_stream_seek(mstream->input,
+			      stream->istream.v_offset - vsize_diff);
 	}
 
 	ret = i_stream_read(mstream->input);
+
 	mstream->istream.skip = 0;
 	mstream->istream.buffer =
 		i_stream_get_data(mstream->input, &mstream->istream.pos);
+
+	if (limit != old_limit)
+		i_stream_set_read_limit(mstream->input, old_limit);
 	return ret;
 }
 
@@ -77,11 +91,12 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	if (v_offset < mstream->header_size.virtual_size) {
 		/* still in headers */
 		stream->skip = v_offset;
-		stream->pos = mstream->header_size.virtual_size;
+		stream->pos = stream->high_pos =
+			mstream->header_size.virtual_size;
 		stream->buffer = buffer_get_data(mstream->headers, NULL);
 	} else {
 		/* body - use our real input stream */
-		stream->skip = stream->pos = 0;
+		stream->skip = stream->pos = stream->high_pos = 0;
 		stream->buffer = NULL;
 
 		v_offset += mstream->header_size.physical_size -
