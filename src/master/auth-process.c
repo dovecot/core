@@ -208,9 +208,6 @@ static pid_t create_auth_process(AuthConfig *config)
 
 	i_assert(listen_fd > 2);
 
-	if (net_accept(listen_fd, NULL, NULL) == -2)
-		i_fatal("net_accept(1) failed: %m");
-
 	/* set correct permissions */
 	(void)chown(path, set_login_uid, set_login_gid);
 
@@ -228,13 +225,7 @@ static pid_t create_auth_process(AuthConfig *config)
 	if (dup2(null_fd, 2) < 0)
 		i_fatal("login: dup2() failed: %m");
 
-	if (net_accept(listen_fd, NULL, NULL) == -2)
-		i_fatal("net_accept(2) failed: %m");
-
 	clean_child_process();
-
-	if (net_accept(listen_fd, NULL, NULL) == -2)
-		i_fatal("net_accept(3) failed: %m");
 
 	/* move login communication handle to 3. do it last so we can be
 	   sure it's not closed afterwards. */
@@ -248,9 +239,6 @@ static pid_t create_auth_process(AuthConfig *config)
 	   clean_child_process() since it clears environment */
 	restrict_access_set_env(config->user, pwd->pw_uid, pwd->pw_gid,
 				config->chroot);
-
-	if (net_accept(3, NULL, NULL) == -2)
-		i_fatal("net_accept(4) failed: %m");
 
 	/* set other environment */
 	env_put(t_strdup_printf("AUTH_PROCESS=%d", (int) getpid()));
