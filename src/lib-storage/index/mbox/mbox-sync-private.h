@@ -37,6 +37,7 @@ extern struct mbox_flag_type mbox_xstatus_flags[];
 
 struct mbox_sync_mail {
 	uint32_t uid;
+	uint32_t idx_seq;
 	uint8_t flags;
 	keywords_mask_t keywords;
 

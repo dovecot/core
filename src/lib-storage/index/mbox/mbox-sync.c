@@ -470,7 +470,7 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx)
 static int update_from_offsets(struct mbox_sync_context *sync_ctx)
 {
 	const struct mbox_sync_mail *mails;
-	uint32_t idx, idx_seq, uid, extra_idx;
+	uint32_t idx, extra_idx;
 	uint64_t offset;
 	size_t size;
 
@@ -480,37 +480,13 @@ static int update_from_offsets(struct mbox_sync_context *sync_ctx)
 	size /= sizeof(*mails);
 	i_assert(sync_ctx->seq - sync_ctx->need_space_seq + 1 == size);
 
-	idx_seq = 0;
 	for (idx = 0; idx < size; idx++) {
-		if (mails[idx].uid == 0)
+		if (mails[idx].idx_seq == 0)
 			continue;
 
-		if (idx_seq != 0) {
-			/* it's probably the next one */
-			idx_seq++;
-			if (mail_index_lookup_uid(sync_ctx->sync_view, idx_seq,
-						  &uid) < 0) {
-				mail_storage_set_index_error(sync_ctx->ibox);
-				return -1;
-			}
-			if (uid != mails[idx].uid)
-				idx_seq = 0;
-		}
-
-		if (idx_seq == 0) {
-			if (mail_index_lookup_uid_range(sync_ctx->sync_view,
-							mails[idx].uid,
-							mails[idx].uid,
-							&idx_seq,
-							&idx_seq) < 0) {
-				mail_storage_set_index_error(sync_ctx->ibox);
-				return -1;
-			}
-		}
-
 		offset = mails[idx].from_offset;
-		mail_index_update_extra_rec(sync_ctx->t, idx_seq, extra_idx,
-					    &offset);
+		mail_index_update_extra_rec(sync_ctx->t, mails[idx].idx_seq,
+					    extra_idx, &offset);
 	}
 	return 0;
 }
@@ -794,6 +770,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			mail_ctx->mail.uid = sync_ctx->next_uid++;
 			sync_ctx->prev_msg_uid = mail_ctx->mail.uid;
 		}
+
+		mail_ctx->mail.idx_seq = sync_ctx->idx_seq;
 
 		if (!expunged) {
 			ret = mbox_sync_handle_header(mail_ctx);
