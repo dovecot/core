@@ -7,7 +7,7 @@
 #include "ioloop.h"
 #include "buffer.h"
 #include "hex-binary.h"
-#include "md5.h"
+#include "hmac-md5.h"
 #include "randgen.h"
 #include "mech.h"
 #include "passdb.h"
@@ -50,8 +50,8 @@ static int verify_credentials(struct cram_auth_request *auth,
 			      const char *credentials)
 {
 	
-	unsigned char digest[16], context_digest[32], *cdp;
-	struct md5_context ctxo, ctxi;
+	unsigned char digest[16], context_digest[32];
+        struct hmac_md5_context ctx;
 	buffer_t *context_digest_buf;
 	const char *response_hex;
 
@@ -65,30 +65,10 @@ static int verify_credentials(struct cram_auth_request *auth,
 	if (hex_to_binary(credentials, context_digest_buf) <= 0)
 		return FALSE;
 
-#define CDGET(p, c) STMT_START { \
-	(c)  = (*p++);           \
-	(c) += (*p++ << 8);      \
-	(c) += (*p++ << 16);     \
-	(c) += (*p++ << 24);     \
-} STMT_END
+	hmac_md5_set_cram_context(&ctx, context_digest);
+	md5_update(&ctx.ctx, auth->challenge, strlen(auth->challenge));
+	hmac_md5_final(&ctx, digest);
 
-	cdp = context_digest;
-	CDGET(cdp, ctxo.a);
-	CDGET(cdp, ctxo.b);
-	CDGET(cdp, ctxo.c);
-	CDGET(cdp, ctxo.d);
-	CDGET(cdp, ctxi.a);
-	CDGET(cdp, ctxi.b);
-	CDGET(cdp, ctxi.c);
-	CDGET(cdp, ctxi.d);
-
-	ctxo.lo = ctxi.lo = 64;
-	ctxo.hi = ctxi.hi = 0;
-
-	md5_update(&ctxi, auth->challenge, strlen(auth->challenge));
-	md5_final(&ctxi, digest);
-	md5_update(&ctxo, digest, 16);
-	md5_final(&ctxo, digest);
 	response_hex = binary_to_hex(digest, 16);
 
 	if (memcmp(response_hex, auth->response, 32) != 0) {
