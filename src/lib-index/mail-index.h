@@ -24,6 +24,10 @@ enum mail_index_open_flags {
 	_MAIL_INDEX_OPEN_FLAG_CREATING		= 0x100
 };
 
+enum mail_index_header_compat_flags {
+	MAIL_INDEX_COMPAT_LITTLE_ENDIAN		= 0x01
+};
+
 enum mail_index_header_flag {
 	/* Rebuild flag is set while index is being rebuilt or when
 	   some error is noticed in the index file. If this flag is set,
@@ -103,6 +107,12 @@ struct mail_index_header {
 	uint8_t minor_version;
 	uint8_t header_size;
 	uint8_t reserved;
+
+	/* 0 = flags
+	   1 = sizeof(uoff_t)
+	   2 = sizeof(time_t)
+	   3 = reserved, 0 for now */
+	uint8_t compat_data[4];
 
 	uint32_t indexid;
 

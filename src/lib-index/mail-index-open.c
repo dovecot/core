@@ -196,6 +196,16 @@ static int mail_index_init_file(struct mail_index *index,
 	return TRUE;
 }
 
+static void get_compat_data(unsigned char compat_data[4])
+{
+#ifndef WORDS_BIGENDIAN
+	compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+#endif
+	compat_data[1] = sizeof(uoff_t);
+	compat_data[2] = sizeof(time_t);
+	compat_data[3] = 0;
+}
+
 void mail_index_init_header(struct mail_index_header *hdr)
 {
 	i_assert(sizeof(struct mail_index_header) < 256);
@@ -204,6 +214,7 @@ void mail_index_init_header(struct mail_index_header *hdr)
 	hdr->major_version = MAIL_INDEX_MAJOR_VERSION;
 	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
 	hdr->header_size = (uint8_t)sizeof(struct mail_index_header);
+	get_compat_data(hdr->compat_data);
 
 	hdr->indexid = ioloop_time;
 
@@ -278,6 +289,7 @@ static int mail_index_open_index(struct mail_index *index,
 				 enum mail_index_open_flags flags)
 {
 	struct mail_index_header hdr;
+	unsigned char compat_data[4];
 	int ret;
 
 	if ((flags & _MAIL_INDEX_OPEN_FLAG_CREATING) == 0)
@@ -299,8 +311,10 @@ static int mail_index_open_index(struct mail_index *index,
 		return FALSE;
 	index->indexid = hdr.indexid;
 
+	get_compat_data(compat_data);
 	if (ret == 0 || hdr.major_version != MAIL_INDEX_MAJOR_VERSION ||
 	    (hdr.flags & MAIL_INDEX_HDR_FLAG_REBUILD) != 0 ||
+	    memcmp(compat_data, hdr.compat_data, sizeof(compat_data)) != 0 ||
 	    !mail_index_mmap_update(index)) {
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
 			return FALSE;
