@@ -21,6 +21,11 @@
 #  define OPENLDAP_ASYNC_WORKAROUND
 #endif
 
+/* Solaris LDAP library doesn't have LDAP_OPT_SUCCESS */
+#ifndef LDAP_OPT_SUCCESS
+#  define LDAP_OPT_SUCCESS LDAP_SUCCESS
+#endif
+
 #define DEF(type, name) \
 	{ type, #name, offsetof(struct ldap_settings, name) }
 
@@ -181,8 +186,13 @@ static int ldap_conn_open(struct ldap_connection *conn)
 
 	if (conn->ld == NULL) {
 		if (conn->set.uris != NULL) {
+#ifdef LDAP_HAVE_INITIALIZE
 			if (ldap_initialize(&conn->ld, conn->set.uris) != LDAP_SUCCESS)
 				conn->ld = NULL;
+#else
+			i_fatal("LDAP: Your LDAP library doesn't support "
+				"'uris' setting, use 'hosts' instead.");
+#endif
 		} else
 			conn->ld = ldap_init(conn->set.hosts, LDAP_PORT);
 
