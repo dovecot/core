@@ -318,6 +318,9 @@ static int mail_index_open_index(struct mail_index *index,
 		mail_index_init_header(&hdr);
 		if (!mail_index_init_file(index, &hdr))
 			return FALSE;
+
+		if (!mail_index_mmap_update(index))
+			return FALSE;
 	}
 
 	if (index->lock_type == MAIL_LOCK_SHARED) {
