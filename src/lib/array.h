@@ -18,11 +18,11 @@
 	...
    };
 
-   ARRAY_CREATE(foo->bars, default_pool, struct bar, 10);
-   ARRAY_CREATE(foo->bars, default_pool, struct baz, 10); // compiler error
+   ARRAY_CREATE(&foo->bars, default_pool, struct bar, 10);
+   ARRAY_CREATE(&foo->bars, default_pool, struct baz, 10); // compiler warning
 
-   struct bar *bar = ARRAY_IDX(foo->bars, 5);
-   struct baz *baz = ARRAY_IDX(foo->bars, 5); // compiler warning
+   struct bar *bar = array_idx(&foo->bars, 5);
+   struct baz *baz = array_idx(&foo->bars, 5); // compiler warning
 */
 #if defined (DEBUG) && defined (__GNUC__)
 #  define ARRAY_DEFINE(name, array_type) name; array_type *name ## __ ## type
