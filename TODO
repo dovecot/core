@@ -15,8 +15,7 @@
     - SIGHUP didn't update imap_listen. this is a bit annoying to fix though,
       since new listen() may fail for a few times because auth processes may
       not die immediately..
-    - if user tries to create huge subfolder hierarchy we start truncating
-      them. rather give error message instead.
+    - SIGHUP doesn't update log file location.
     - We can use Linux sendfile() up to 2GB, after that we get EOVERFLOW and
       fail. We should rather fallback to mmap+write at that point.
 
@@ -34,6 +33,9 @@
       failures aren't handled too well. Rather should be handled in similiar
       way to locking failures, so that at least we don't try to rebuild the
       index because of it.
+    - limit folder hierarchy levels? user can now create eg. a/a/a/a/...
+      and then start renaming them from end to beginning, which probably will
+      at some point start causing syscall failures which will fill up logs.
     - fsck should check binary tree
 
  - checks:
