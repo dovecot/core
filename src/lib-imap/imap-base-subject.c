@@ -13,31 +13,29 @@ static int header_decode(const unsigned char *data, size_t size,
 			 const char *charset, void *context)
 {
 	buffer_t *buf = context;
-	const char *utf8_str;
+        struct charset_translation *t;
 	unsigned char *buf_data;
-	size_t i, used_size;
+	size_t pos, used_size;
 
+	pos = buffer_get_used_size(buf);
 	if (charset == NULL) {
 		/* It's ASCII. */
 		buffer_append(buf, data, size);
 	} else {
-		t_push();
-		utf8_str = charset_to_utf8_string(charset, NULL, data,
-						  size, &size);
-		if (utf8_str == NULL)
-			size = 0;
-		else
-			buffer_append(buf, utf8_str, size);
-		t_pop();
+		t = charset_to_utf8_begin(charset, NULL);
+		if (t != NULL) {
+			(void)charset_to_ucase_utf8(t, data, &size, buf);
+                        charset_to_utf8_end(t);
+		}
 	}
 
 	if (size > 0) {
 		/* @UNSAFE: uppercase it. Current draft specifies that we
 		   should touch only ASCII. */
 		buf_data = buffer_get_modifyable_data(buf, &used_size);
-		for (i = used_size - size; i < used_size; i++) {
-			if (buf_data[i] >= 'a' && buf_data[i] <= 'z')
-				buf_data[i] = buf_data[i] - 'a' + 'A';
+		for (; pos < used_size; pos++) {
+			if (buf_data[pos] >= 'a' && buf_data[pos] <= 'z')
+				buf_data[pos] = buf_data[pos] - 'a' + 'A';
 		}
 	}
 
