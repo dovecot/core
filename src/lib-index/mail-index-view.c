@@ -192,8 +192,8 @@ static int mail_index_lookup_int(struct mail_index_view *view, uint32_t seq,
 		seq = view->index->hdr->messages_count;
 
 	if (seq == 0) {
-		*rec_r = NULL;
-		return 1;
+		*rec_r = rec;
+		return 0;
 	}
 
 	do {
