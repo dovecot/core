@@ -49,7 +49,7 @@ static void client_set_title(struct imap_client *client)
 	if (!verbose_proctitle || !process_per_connection)
 		return;
 
-	host = net_ip2host(&client->common.ip);
+	host = net_ip2addr(&client->common.ip);
 	if (host == NULL)
 		host = "??";
 
@@ -438,7 +438,7 @@ void client_syslog(struct imap_client *client, const char *text)
 {
 	const char *host;
 
-	host = net_ip2host(&client->common.ip);
+	host = net_ip2addr(&client->common.ip);
 	if (host == NULL)
 		host = "??";
 

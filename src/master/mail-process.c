@@ -105,7 +105,7 @@ int create_mail_process(int socket, struct ip_addr *ip,
 			struct auth_master_reply *reply, const char *data)
 {
 	static const char *argv[] = { NULL, NULL, NULL };
-	const char *host, *mail, *chroot_dir, *home_dir, *full_home_dir;
+	const char *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
 	char title[1024];
 	pid_t pid;
 	int i, err;
@@ -216,15 +216,15 @@ int create_mail_process(int socket, struct ip_addr *ip,
 	env_put(t_strconcat("MAIL=", mail, NULL));
 	env_put(t_strconcat("USER=", data + reply->virtual_user_idx, NULL));
 
-	host = net_ip2host(ip);
-	env_put(t_strconcat("IP=", host, NULL));
+	addr = net_ip2addr(ip);
+	env_put(t_strconcat("IP=", addr, NULL));
 
 	if (set->verbose_proctitle) {
-		if (host == NULL)
-			host = "??";
+		if (addr == NULL)
+			addr = "??";
 
 		i_snprintf(title, sizeof(title), "[%s %s]",
-			   data + reply->virtual_user_idx, host);
+			   data + reply->virtual_user_idx, addr);
 		argv[1] = title;
 	}
 

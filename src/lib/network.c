@@ -499,16 +499,16 @@ int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 	return 0;
 }
 
-const char *net_ip2host(const struct ip_addr *ip)
+const char *net_ip2addr(const struct ip_addr *ip)
 {
 #ifdef HAVE_IPV6
-	char host[MAX_IP_LEN+1];
+	char addr[MAX_IP_LEN+1];
 
-	host[MAX_IP_LEN] = '\0';
-	if (inet_ntop(ip->family, &ip->ip, host, MAX_IP_LEN) == NULL)
+	addr[MAX_IP_LEN] = '\0';
+	if (inet_ntop(ip->family, &ip->ip, addr, MAX_IP_LEN) == NULL)
 		return NULL;
 
-	return t_strdup(host);
+	return t_strdup(addr);
 #else
 	unsigned long ip4;
 
@@ -525,13 +525,13 @@ const char *net_ip2host(const struct ip_addr *ip)
 	return 0;
 }
 
-int net_host2ip(const char *host, struct ip_addr *ip)
+int net_addr2ip(const char *addr, struct ip_addr *ip)
 {
-	if (strchr(host, ':') != NULL) {
+	if (strchr(addr, ':') != NULL) {
 		/* IPv6 */
 		ip->family = AF_INET6;
 #ifdef HAVE_IPV6
-		if (inet_pton(AF_INET6, host, &ip->ip) == 0)
+		if (inet_pton(AF_INET6, addr, &ip->ip) == 0)
 			return -1;
 #else
 		ip->ip.s_addr = 0;
@@ -539,7 +539,7 @@ int net_host2ip(const char *host, struct ip_addr *ip)
  	} else {
 		/* IPv4 */
 		ip->family = AF_INET;
-		if (inet_aton(host, (struct in_addr *) &ip->ip) == 0)
+		if (inet_aton(addr, (struct in_addr *) &ip->ip) == 0)
 			return -1;
 	}
 
@@ -607,23 +607,23 @@ char *net_getservbyport(unsigned short port)
 	return entry == NULL ? NULL : entry->s_name;
 }
 
-int is_ipv4_address(const char *host)
+int is_ipv4_address(const char *addr)
 {
-	while (*host != '\0') {
-		if (*host != '.' && !i_isdigit(*host))
+	while (*addr != '\0') {
+		if (*addr != '.' && !i_isdigit(*addr))
 			return 0;
-                host++;
+                addr++;
 	}
 
 	return 1;
 }
 
-int is_ipv6_address(const char *host)
+int is_ipv6_address(const char *addr)
 {
-	while (*host != '\0') {
-		if (*host != ':' && !i_isxdigit(*host))
+	while (*addr != '\0') {
+		if (*addr != ':' && !i_isxdigit(*addr))
 			return 0;
-                host++;
+                addr++;
 	}
 
 	return 1;

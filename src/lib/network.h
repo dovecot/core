@@ -91,9 +91,9 @@ int net_hosterror_notfound(int error);
 int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port);
 
 /* Returns ip_addr as string, or NULL if ip is invalid. */
-const char *net_ip2host(const struct ip_addr *ip);
+const char *net_ip2addr(const struct ip_addr *ip);
 /* char* -> struct ip_addr translation. */
-int net_host2ip(const char *host, struct ip_addr *ip);
+int net_addr2ip(const char *addr, struct ip_addr *ip);
 
 /* Get socket error */
 int net_geterror(int fd);
@@ -101,7 +101,7 @@ int net_geterror(int fd);
 /* Get name of TCP service */
 char *net_getservbyport(unsigned short port);
 
-int is_ipv4_address(const char *host);
-int is_ipv6_address(const char *host);
+int is_ipv4_address(const char *addr);
+int is_ipv6_address(const char *addr);
 
 #endif

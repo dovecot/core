@@ -68,7 +68,7 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 				}
 
 				i_panic("Leaked socket fd %d: %s:%u",
-					first_fd, net_ip2host(&addr), port);
+					first_fd, net_ip2addr(&addr), port);
 			}
 
 			if (fstat(first_fd, &st) == 0) {

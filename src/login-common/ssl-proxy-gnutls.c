@@ -68,11 +68,11 @@ static int handle_ssl_error(struct ssl_proxy *proxy, int error)
 		if (error == GNUTLS_E_WARNING_ALERT_RECEIVED) {
 			i_warning("Received SSL warning alert: %s [%s]",
 				  get_alert_text(proxy),
-				  net_ip2host(&proxy->ip));
+				  net_ip2addr(&proxy->ip));
 		} else {
 			i_warning("Non-fatal SSL error: %s: %s",
 				  get_alert_text(proxy),
-				  net_ip2host(&proxy->ip));
+				  net_ip2addr(&proxy->ip));
 		}
 		return 0;
 	}
@@ -82,11 +82,11 @@ static int handle_ssl_error(struct ssl_proxy *proxy, int error)
 		if (error == GNUTLS_E_FATAL_ALERT_RECEIVED) {
 			i_warning("Received SSL fatal alert: %s [%s]",
 				  get_alert_text(proxy),
-				  net_ip2host(&proxy->ip));
+				  net_ip2addr(&proxy->ip));
 		} else {
 			i_warning("Error reading from SSL client: %s [%s]",
 				  gnutls_strerror(error),
-				  net_ip2host(&proxy->ip));
+				  net_ip2addr(&proxy->ip));
 		}
 	}
 

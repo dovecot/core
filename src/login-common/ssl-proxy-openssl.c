@@ -198,7 +198,7 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret, const char *func)
 			}
 
 			i_warning("%s syscall failed: %s [%s]",
-				  func, errstr, net_ip2host(&proxy->ip));
+				  func, errstr, net_ip2addr(&proxy->ip));
 		}
 		ssl_proxy_destroy(proxy);
 		break;
@@ -209,13 +209,13 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret, const char *func)
 	case SSL_ERROR_SSL:
 		if (verbose_ssl) {
 			i_warning("%s failed: %s [%s]", func, ssl_last_error(),
-				  net_ip2host(&proxy->ip));
+				  net_ip2addr(&proxy->ip));
 		}
 		ssl_proxy_destroy(proxy);
 		break;
 	default:
 		i_warning("%s failed: unknown failure %d (%s) [%s]",
-			  func, err, ssl_last_error(), net_ip2host(&proxy->ip));
+			  func, err, ssl_last_error(), net_ip2addr(&proxy->ip));
 		ssl_proxy_destroy(proxy);
 		break;
 	}
