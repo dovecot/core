@@ -34,66 +34,6 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	i_free(t);
 }
 
-static void
-mail_index_transaction_expunge_updates(struct mail_index_transaction *t)
-{
-	/* FIXME: is this useful? do we even want this? */
-	const struct mail_transaction_expunge *expunges, *last_expunge;
-        struct mail_transaction_flag_update *updates;
-	size_t expunge_size, update_count, i, dest;
-	uint32_t seq1, seq2;
-	int cut;
-
-	expunges = buffer_get_data(t->expunges, &expunge_size);
-	last_expunge = CONST_PTR_OFFSET(expunges, expunge_size);
-
-	if (expunge_size == 0)
-		return;
-
-	updates = buffer_get_modifyable_data(t->updates, &update_count);
-	update_count /= sizeof(*updates);
-
-	/* Cut off the updates that contain expunged messages. However if
-	   the cutting would require creating another flag update entry
-	   (eg. updates=1..3, expunge=2), don't do it. */
-	for (i = 0, dest = 0; i < update_count; i++) {
-		while (expunges->seq2 < updates[i].seq1) {
-			if (++expunges == last_expunge)
-				break;
-		}
-
-		cut = FALSE;
-		if (expunges->seq1 <= updates[i].seq2) {
-			/* they're overlapping at least partially */
-			seq1 = I_MIN(expunges->seq1, updates[i].seq1);
-			seq2 = I_MAX(expunges->seq2, updates[i].seq2);
-
-			if (seq1 == expunges->seq1 && seq2 == expunges->seq2) {
-				/* cut it off completely */
-				cut = TRUE;
-			} else if (seq1 == expunges->seq1) {
-				/* cut the beginning */
-				updates[i].seq1 = expunges->seq2+1;
-			} else if (seq2 == expunges->seq2) {
-				/* cut the end */
-				updates[i].seq2 = expunges->seq1-1;
-			} else {
-				/* expunge range is in the middle -
-				   don't bother cutting it */
-			}
-		}
-
-		if (!cut) {
-			if (i != dest)
-				updates[dest] = updates[i];
-			dest++;
-		}
-	}
-
-	if (i != dest)
-		buffer_set_used_size(t->updates, dest * sizeof(*updates));
-}
-
 int mail_index_transaction_commit(struct mail_index_transaction *t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r)
@@ -107,8 +47,6 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 
 	if (t->last_update.seq1 != 0)
 		mail_index_transaction_add_last(t);
-	if (t->updates != NULL && t->expunges != NULL)
-		mail_index_transaction_expunge_updates(t);
 
 	ret = mail_transaction_log_append(t, log_file_seq_r, log_file_offset_r);
 
