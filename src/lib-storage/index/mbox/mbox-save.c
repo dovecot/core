@@ -443,7 +443,8 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	ctx->eoh_offset = ctx->output->offset;
 
 	/* write body */
-	return ctx->input->eof ? 0 : mbox_save_continue(_ctx);
+	(void)i_stream_get_data(ctx->input, &size);
+	return ctx->input->eof && size == 0 ? 0 : mbox_save_continue(_ctx);
 }
 
 int mbox_save_finish(struct mail_save_context *_ctx, struct mail **mail_r)
