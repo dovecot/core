@@ -108,7 +108,6 @@ static int init_mailbox(struct client *client)
 		mailbox_transaction_rollback(t);
 		if (mailbox_sync(client->mailbox, 0) < 0) {
 			client_send_storage_error(client);
-                        mailbox_transaction_rollback(t);
 			return FALSE;
 		}
 	}
