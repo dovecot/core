@@ -286,7 +286,7 @@ static void client_auth_ready(struct pop3_client *client)
 		io_add(client->common.fd, IO_READ, client_input, client);
 
 	client->apop_challenge = get_apop_challenge(client);
-	client_send_line(client, t_strconcat("+OK " PACKAGE " ready.",
+	client_send_line(client, t_strconcat("+OK ", greeting,
 					     client->apop_challenge, NULL));
 }
 

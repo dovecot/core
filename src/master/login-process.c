@@ -428,7 +428,10 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 					set->login_max_logging_users));
 	}
 
-	env_put(t_strdup_printf("PROCESS_UID=%s", dec2str(pid)));
+	env_put(t_strconcat("PROCESS_UID=", dec2str(pid), NULL));
+	env_put(t_strconcat("GREETING=", set->login_greeting, NULL));
+	if (set->login_greeting_capability)
+		env_put("GREETING_CAPABILITY=1");
 }
 
 static pid_t create_login_process(struct login_group *group)

@@ -4,7 +4,8 @@
 #include "lib.h"
 
 extern int disable_plaintext_auth, process_per_connection, verbose_proctitle;
-extern int verbose_ssl;
+extern int verbose_ssl, greeting_capability;
+char *greeting;
 extern unsigned int max_logging_users;
 extern unsigned int login_process_uid;
 extern struct auth_client *auth_client;

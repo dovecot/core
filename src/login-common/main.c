@@ -18,7 +18,8 @@
 #include <syslog.h>
 
 int disable_plaintext_auth, process_per_connection, verbose_proctitle;
-int verbose_ssl;
+int verbose_ssl, greeting_capability;
+char *greeting;
 unsigned int max_logging_users;
 unsigned int login_process_uid;
 struct auth_client *auth_client;
@@ -161,6 +162,11 @@ static void main_init(void)
 
 	value = getenv("MAX_LOGGING_USERS");
 	max_logging_users = value == NULL ? 0 : strtoul(value, NULL, 10);
+
+	greeting = getenv("GREETING");
+	if (greeting == NULL)
+		greeting = PACKAGE" ready.";
+	greeting_capability = getenv("GREETING_CAPABILITY") != NULL;
 
 	value = getenv("PROCESS_UID");
 	if (value == NULL)

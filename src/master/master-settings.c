@@ -64,9 +64,11 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, login_dir),
 	DEF(SET_STR, login_executable),
 	DEF(SET_STR, login_user),
+	DEF(SET_STR, login_greeting),
 
 	DEF(SET_BOOL, login_process_per_connection),
 	DEF(SET_BOOL, login_chroot),
+	DEF(SET_BOOL, login_greeting_capability),
 
 	DEF(SET_INT, login_process_size),
 	DEF(SET_INT, login_processes_count),
@@ -227,9 +229,11 @@ struct settings default_settings = {
 	MEMBER(login_dir) "login",
 	MEMBER(login_executable) NULL,
 	MEMBER(login_user) "dovecot",
+	MEMBER(login_greeting) "Dovecot ready.",
 
 	MEMBER(login_process_per_connection) TRUE,
 	MEMBER(login_chroot) TRUE,
+	MEMBER(login_greeting_capability) FALSE,
 
 	MEMBER(login_process_size) 32,
 	MEMBER(login_processes_count) 3,

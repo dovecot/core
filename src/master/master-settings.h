@@ -37,9 +37,11 @@ struct settings {
 	const char *login_dir;
 	const char *login_executable;
 	const char *login_user;
+	const char *login_greeting;
 
 	int login_process_per_connection;
 	int login_chroot;
+	int login_greeting_capability;
 
 	unsigned int login_process_size;
 	unsigned int login_processes_count;

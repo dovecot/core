@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "process-title.h"
 #include "safe-memset.h"
+#include "str.h"
 #include "strescape.h"
 #include "imap-parser.h"
 #include "client.h"
@@ -88,17 +89,21 @@ static int client_skip_line(struct imap_client *client)
 	return FALSE;
 }
 
-static int cmd_capability(struct imap_client *client)
+static const char *get_capability(struct imap_client *client)
 {
-	const char *capability, *auths;
+	const char *auths;
 
 	auths = client_authenticate_get_capabilities(client->secured);
-	capability = t_strconcat("* CAPABILITY " CAPABILITY_STRING,
-				 (ssl_initialized && !client->tls) ?
-				 " STARTTLS" : "",
-				 disable_plaintext_auth && !client->secured ?
-				 " LOGINDISABLED" : "", auths, NULL);
-	client_send_line(client, capability);
+	return t_strconcat(CAPABILITY_STRING,
+			   (ssl_initialized && !client->tls) ? " STARTTLS" : "",
+			   disable_plaintext_auth && !client->secured ?
+			   " LOGINDISABLED" : "", auths, NULL);
+}
+
+static int cmd_capability(struct imap_client *client)
+{
+	client_send_line(client, t_strconcat("* CAPABILITY ",
+					     get_capability(client), NULL));
 	client_send_tagline(client, "OK Capability completed.");
 	return TRUE;
 }
@@ -377,6 +382,7 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 {
 	struct imap_client *client;
 	const char *addr;
+	string_t *greet;
 
 	if (max_logging_users > CLIENT_DESTROY_OLDEST_COUNT &&
 	    hash_size(clients) >= max_logging_users) {
@@ -410,7 +416,13 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 
 	main_ref();
 
-	client_send_line(client, "* OK " PACKAGE " ready.");
+	greet = t_str_new(128);
+	str_append(greet, "* OK ");
+	if (greeting_capability)
+		str_printfa(greet, "[CAPABILITY %s] ", get_capability(client));
+	str_append(greet, greeting);
+
+	client_send_line(client, str_c(greet));
 	client_set_title(client);
 	return &client->common;
 }
