@@ -235,7 +235,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	struct ip_addr ip, local_ip;
 	struct ssl_proxy *proxy = NULL;
 	struct client *client;
-	int i, fd = -1, master_fd = -1;
+	int i, fd = -1, master_fd = -1, ssl = FALSE;
 
 	is_inetd = getenv("DOVECOT_MASTER") == NULL;
 
@@ -285,6 +285,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 				fd = ssl_proxy_new(fd, &ip, &proxy);
 				if (fd == -1)
 					return 1;
+				ssl = TRUE;
 			} else if (strncmp(argv[i], "--group=", 8) != 0)
 				i_fatal("Unknown parameter: %s", argv[i]);
 		}
@@ -293,7 +294,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 		closing_down = TRUE;
 
 		if (fd != -1) {
-			client = client_create(fd, TRUE, &local_ip, &ip);
+			client = client_create(fd, ssl, &local_ip, &ip);
 			client->proxy = proxy;
 		}
 	}
