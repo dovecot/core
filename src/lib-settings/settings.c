@@ -66,7 +66,7 @@ int settings_read(const char *path, const char *section,
 {
 	struct istream *input;
 	const char *errormsg, *next_section;
-	char *line, *key, *name;
+	char *line, *key, *name, *p, quote;
 	size_t len;
 	int fd, linenum, skip, sections, root_section;
 
@@ -100,6 +100,22 @@ int settings_read(const char *path, const char *section,
 		/* ignore comments or empty lines */
 		if (*line == '#' || *line == '\0')
 			continue;
+
+		/* strip away comments. pretty kludgy way really.. */
+		for (p = line; *p != '\0'; p++) {
+			if (*p == '\'' || *p == '"') {
+				quote = *p;
+				for (p++; *p != quote && *p != '\0'; p++) {
+					if (*p == '\\' && p[1] != '\0')
+						p++;
+				}
+				if (*p == '\0')
+					break;
+			} else if (*p == '#') {
+				*p = '\0';
+				break;
+			}
+		}
 
 		/* remove whitespace from end of line */
 		len = strlen(line);
