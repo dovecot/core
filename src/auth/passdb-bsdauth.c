@@ -41,7 +41,8 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	/* check if the password is valid */
-	result = auth_userokay(request->user, NULL, NULL, password);
+	result = auth_userokay(request->user, NULL, NULL,
+			       t_strdup_noconst(password));
 
 	/* clear the passwords from memory */
 	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
