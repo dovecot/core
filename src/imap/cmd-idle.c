@@ -10,6 +10,7 @@
 
 #define DEFAULT_IDLE_CHECK_INTERVAL 30
 
+#include "imap-fetch.h"
 static void idle_finish(struct client *client, int done_ok)
 {
 	if (client->idle_to != NULL) {
@@ -31,7 +32,7 @@ static void idle_finish(struct client *client, int done_ok)
 	if (client->mailbox != NULL) {
 		client->mailbox->auto_sync(client->mailbox,
 					   mailbox_check_interval != 0 ?
-					   MAILBOX_SYNC_NO_EXPUNGES :
+					   MAILBOX_SYNC_FLAG_NO_EXPUNGES :
 					   MAILBOX_SYNC_NONE,
 					   mailbox_check_interval);
 	}
@@ -118,7 +119,7 @@ int cmd_idle(struct client *client)
 
 	if (client->mailbox != NULL) {
 		client->mailbox->auto_sync(client->mailbox,
-					   MAILBOX_SYNC_ALL, interval);
+					   MAILBOX_SYNC_FULL, interval);
 	}
 
 	client_send_line(client, "+ idling");

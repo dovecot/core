@@ -213,12 +213,12 @@ int index_storage_sync_modifylog(struct index_mailbox *ibox, int hide_deleted)
 	return TRUE;
 }
 
-int index_storage_sync(struct mailbox *box, enum mail_sync_flags flags)
+int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 	int ret;
 
-	if ((flags & MAIL_SYNC_FLAG_FAST) == 0 ||
+	if ((flags & MAILBOX_SYNC_FAST) == 0 ||
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
 		ibox->sync_last_check = ioloop_time;
 
@@ -235,7 +235,7 @@ int index_storage_sync(struct mailbox *box, enum mail_sync_flags flags)
 
 	/* FIXME: we could sync flags always, but expunges in the middle
 	   could make it a bit more difficult and slower */
-	if ((flags & MAIL_SYNC_FLAG_NO_EXPUNGES) == 0 ||
+	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0 ||
 	    mail_modifylog_get_expunge_count(ibox->index->modifylog) == 0)
 		ret = index_storage_sync_modifylog(ibox, FALSE);
 	else

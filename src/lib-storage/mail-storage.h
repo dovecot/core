@@ -47,12 +47,6 @@ enum mailbox_name_status {
 	MAILBOX_NAME_NOINFERIORS
 };
 
-enum mailbox_sync_type {
-	MAILBOX_SYNC_NONE,
-	MAILBOX_SYNC_ALL,
-	MAILBOX_SYNC_NO_EXPUNGES
-};
-
 enum mailbox_lock_type {
 	MAILBOX_LOCK_UNLOCK	= 0x00,
 	MAILBOX_LOCK_READ	= 0x01,
@@ -101,9 +95,11 @@ enum mail_fetch_field {
 	MAIL_FETCH_IMAP_ENVELOPE	= 0x4000
 };
 
-enum mail_sync_flags {
-	MAIL_SYNC_FLAG_NO_EXPUNGES	= 0x01,
-	MAIL_SYNC_FLAG_FAST		= 0x02
+enum mailbox_sync_flags {
+	MAILBOX_SYNC_NONE		= 0x00,
+	MAILBOX_SYNC_FULL		= 0x01,
+	MAILBOX_SYNC_FAST		= 0x02,
+	MAILBOX_SYNC_FLAG_NO_EXPUNGES	= 0x04
 };
 
 enum client_workarounds {
@@ -249,11 +245,11 @@ struct mailbox {
 			  struct mailbox_status *status);
 
 	/* Synchronize the mailbox. */
-	int (*sync)(struct mailbox *box, enum mail_sync_flags flags);
+	int (*sync)(struct mailbox *box, enum mailbox_sync_flags flags);
 
 	/* Synchronize mailbox in background. It's done until this function is
-	   called with sync_type = MAILBOX_SYNC_NONE */
-	void (*auto_sync)(struct mailbox *box, enum mailbox_sync_type sync_type,
+	   called with flags = MAILBOX_SYNC_NONE. */
+	void (*auto_sync)(struct mailbox *box, enum mailbox_sync_flags flags,
 			  unsigned int min_newmail_notify_interval);
 
 	/* Initialize new fetch request. wanted_fields isn't required, but it

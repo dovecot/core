@@ -757,17 +757,24 @@ static int mbox_storage_close(struct mailbox *box)
 }
 
 static void mbox_storage_auto_sync(struct mailbox *box,
-				   enum mailbox_sync_type sync_type,
+				   enum mailbox_sync_flags flags,
 				   unsigned int min_newmail_notify_interval)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	ibox->autosync_type = sync_type;
 	ibox->min_newmail_notify_interval = min_newmail_notify_interval;
 
-	index_mailbox_check_remove_all(ibox);
-	if (sync_type != MAILBOX_SYNC_NONE)
-		index_mailbox_check_add(ibox, ibox->index->mailbox_path);
+	if ((ibox->autosync_flags == 0 && flags == 0) ||
+	    (ibox->autosync_flags != 0 && flags != 0)) {
+		/* flags or interval just changed. or nothing. */
+		ibox->autosync_flags = flags;
+	}
+	ibox->autosync_flags = flags;
+
+	if (flags == 0)
+		index_mailbox_check_remove_all(ibox);
+	else
+		index_mailbox_check_add(ibox, ibox->index->mailbox_path, FALSE);
 }
 
 static int mbox_storage_lock(struct mailbox *box,

@@ -12,6 +12,12 @@ struct index_autosync_file {
 	time_t last_stamp;
 };
 
+struct index_autosync_io {
+	struct index_autosync_io *next;
+	struct io *io;
+	int fd;
+};
+
 struct index_mailbox {
 	struct mailbox box;
 
@@ -24,8 +30,9 @@ struct index_mailbox {
 	struct mail_cache_transaction_ctx *trans_ctx;
 
 	struct timeout *autosync_to;
-        struct index_autosync_file *autosync_files;
-	enum mailbox_sync_type autosync_type;
+	struct index_autosync_file *autosync_files;
+        struct index_autosync_io *autosync_ios;
+	enum mailbox_sync_flags autosync_flags;
 	time_t sync_last_check;
 	unsigned int min_newmail_notify_interval;
 
@@ -39,6 +46,7 @@ struct index_mailbox {
 	unsigned int inconsistent:1;
 	unsigned int sent_diskspace_warning:1;
 	unsigned int sent_readonly_flags_warning:1;
+	unsigned int autosync_pending:1;
 };
 
 int mail_storage_set_index_error(struct index_mailbox *ibox);
@@ -76,7 +84,8 @@ int index_mailbox_fix_custom_flags(struct index_mailbox *ibox,
 
 unsigned int index_storage_get_recent_count(struct mail_index *index);
 
-void index_mailbox_check_add(struct index_mailbox *ibox, const char *path);
+void index_mailbox_check_add(struct index_mailbox *ibox,
+			     const char *path, int dir);
 void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 
 /* mailbox methods: */
@@ -86,7 +95,7 @@ void index_storage_set_callbacks(struct mail_storage *storage,
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);
-int index_storage_sync(struct mailbox *box, enum mail_sync_flags flags);
+int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 
 struct mail_fetch_context *
 index_storage_fetch_init(struct mailbox *box,

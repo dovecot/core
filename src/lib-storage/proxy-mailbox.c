@@ -39,19 +39,19 @@ static int _get_status(struct mailbox *box, enum mailbox_status_items items,
 	return p->box->get_status(p->box, items, status);
 }
 
-static int _sync(struct mailbox *box, enum mail_sync_flags flags)
+static int _sync(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
 	return p->box->sync(p->box, flags);
 }
 
-static void _auto_sync(struct mailbox *box, enum mailbox_sync_type sync_type,
+static void _auto_sync(struct mailbox *box, enum mailbox_sync_flags flags,
 		       unsigned int min_newmail_notify_interval)
 {
 	struct proxy_mailbox *p = (struct proxy_mailbox *) box;
 
-	p->box->auto_sync(p->box, sync_type, min_newmail_notify_interval);
+	p->box->auto_sync(p->box, flags, min_newmail_notify_interval);
 }
 
 static struct mail_fetch_context *

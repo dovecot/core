@@ -126,7 +126,7 @@ void client_sync_full_fast(struct client *client)
 	if (client->mailbox == NULL)
 		return;
 
-	if (!client->mailbox->sync(client->mailbox, MAIL_SYNC_FLAG_FAST)) {
+	if (!client->mailbox->sync(client->mailbox, MAILBOX_SYNC_FAST)) {
 		client_send_untagged_storage_error(client,
 						   client->mailbox->storage);
 	}
@@ -137,8 +137,8 @@ void client_sync_without_expunges(struct client *client)
 	if (client->mailbox == NULL)
 		return;
 
-	if (!client->mailbox->sync(client->mailbox, MAIL_SYNC_FLAG_NO_EXPUNGES |
-				   MAIL_SYNC_FLAG_FAST)) {
+	if (!client->mailbox->sync(client->mailbox, MAILBOX_SYNC_FAST |
+				   MAILBOX_SYNC_FLAG_NO_EXPUNGES)) {
 		client_send_untagged_storage_error(client,
 						   client->mailbox->storage);
 	}
