@@ -112,11 +112,14 @@ int mail_index_fsck(struct mail_index *index)
 	unsigned int lock_id;
 	uint32_t file_seq;
 	uoff_t file_offset;
-	int ret;
+	int ret, lock_log;
 
-	if (mail_transaction_log_sync_lock(index->log, &file_seq,
-					   &file_offset) < 0)
-		return -1;
+        lock_log = !index->log_locked;
+	if (lock_log) {
+		if (mail_transaction_log_sync_lock(index->log, &file_seq,
+						   &file_offset) < 0)
+			return -1;
+	}
 	if (mail_index_lock_exclusive(index, &lock_id) < 0) {
                 mail_transaction_log_sync_unlock(index->log);
 		return -1;
@@ -128,7 +131,8 @@ int mail_index_fsck(struct mail_index *index)
 		ret = mail_index_fsck_locked(index, &error);
 
 	mail_index_unlock(index, lock_id);
-        mail_transaction_log_sync_unlock(index->log);
+	if (lock_log)
+		mail_transaction_log_sync_unlock(index->log);
 
 	if (error != NULL) {
 		mail_index_set_error(index, "Corrupted index file %s: %s",
