@@ -340,11 +340,11 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 {
 	HeaderUpdateContext ctx;
 	MessagePart *part;
-	MessageSize hdr_size;
+	MessageSize hdr_size, body_size;
 	Pool pool;
 	const char *value;
 	size_t size;
-	uoff_t start_offset, uoff_size;
+	uoff_t start_offset;
 
 	ctx.update = update;
 	ctx.envelope_pool = NULL;
@@ -389,28 +389,9 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 					     update_header_func, &ctx);
 		}
 
-		/* update our sizes */
-		update->index->update_field_raw(update, DATA_HDR_HEADER_SIZE,
-			&part->header_size.physical_size,
-			sizeof(part->header_size.physical_size));
-		update->index->update_field_raw(update, DATA_HDR_BODY_SIZE,
-			&part->body_size.physical_size,
-			sizeof(part->body_size.physical_size));
-
-		uoff_size = part->header_size.virtual_size +
-			part->body_size.virtual_size;
-		update->index->update_field_raw(update, DATA_HDR_VIRTUAL_SIZE,
-						&uoff_size, sizeof(uoff_size));
-
-		/* update binary flags */
-		if (part->header_size.virtual_size ==
-		    part->header_size.physical_size)
-			update->rec->index_flags |=
-				INDEX_MAIL_FLAG_BINARY_HEADER;
-
-		if (part->body_size.virtual_size ==
-		    part->body_size.physical_size)
-			update->rec->index_flags |= INDEX_MAIL_FLAG_BINARY_BODY;
+		/* save sizes */
+		hdr_size = part->header_size;
+		body_size = part->body_size;
 
 		/* don't save both BODY + BODYSTRUCTURE since BODY can be
 		   generated from BODYSTRUCTURE. FIXME: However that takes
@@ -452,13 +433,16 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 		message_parse_header(NULL, inbuf, &hdr_size,
 				     update_header_func, &ctx);
 
-		update->index->update_field_raw(update, DATA_HDR_HEADER_SIZE,
-			&hdr_size.physical_size,
-			sizeof(hdr_size.physical_size));
-
-		uoff_size = inbuf->v_size - inbuf->v_offset;
-		update->index->update_field_raw(update, DATA_HDR_BODY_SIZE,
-						&uoff_size, sizeof(uoff_size));
+		body_size.physical_size = inbuf->v_size - inbuf->v_offset;
+		if (body_size.physical_size == 0)
+                        body_size.virtual_size = 0;
+		else if (update->data_hdr.virtual_size == 0)
+			body_size.virtual_size = (uoff_t)-1;
+		else {
+			body_size.virtual_size =
+				update->data_hdr.virtual_size -
+				hdr_size.virtual_size;
+		}
 	}
 
 	if (ctx.envelope != NULL) {
@@ -470,4 +454,29 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 
 		pool_unref(ctx.envelope_pool);
 	}
+
+	/* update physical sizes */
+	update->index->update_field_raw(update, DATA_HDR_HEADER_SIZE,
+					&hdr_size.physical_size,
+					sizeof(hdr_size.physical_size));
+	update->index->update_field_raw(update, DATA_HDR_BODY_SIZE,
+					&body_size.physical_size,
+					sizeof(body_size.physical_size));
+
+	/* update virtual size if we know it */
+	if (body_size.virtual_size != (uoff_t)-1) {
+		uoff_t virtual_size;
+
+		virtual_size = hdr_size.virtual_size + body_size.virtual_size;
+		update->index->update_field_raw(update, DATA_HDR_VIRTUAL_SIZE,
+						&virtual_size,
+						sizeof(virtual_size));
+	}
+
+
+	/* update binary flags. */
+	if (hdr_size.virtual_size == hdr_size.physical_size)
+		update->rec->index_flags |= INDEX_MAIL_FLAG_BINARY_HEADER;
+	if (body_size.virtual_size == body_size.physical_size)
+		update->rec->index_flags |= INDEX_MAIL_FLAG_BINARY_BODY;
 }

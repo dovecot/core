@@ -17,6 +17,8 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	MailIndexRecord *rec;
 	MailIndexUpdate *update;
 	struct stat st;
+	uoff_t virtual_size;
+	const char *p;
 	int failed;
 
 	i_assert(path != NULL);
@@ -34,6 +36,23 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
 
 	update = index->update_begin(index, rec);
+
+	/* set virtual size if found from file name */
+	p = strstr(fname, ",W=");
+	if (p != NULL) {
+		p += 3;
+		virtual_size = 0;
+		while (*p >= '0' && *p <= '9') {
+			virtual_size = virtual_size * 10 + (*p - '0');
+			p++;
+		}
+
+		if (*p == ':' || *p == ',' || *p == '\0') {
+			index->update_field_raw(update, DATA_HDR_VIRTUAL_SIZE,
+						&virtual_size,
+						sizeof(virtual_size));
+		}
+	}
 
 	/* set internal date */
 	if (fd != -1 && fstat(fd, &st) == 0) {
