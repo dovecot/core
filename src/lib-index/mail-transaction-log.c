@@ -314,6 +314,8 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 			return 0;
 		}
 
+		/* index file was probably just rebuilt and we don't know
+		   about it yet */
 		mail_index_set_error(file->log->index,
 			"Transaction log file %s: invalid indexid (%u != %u)",
 			file->filepath, file->hdr.indexid,
@@ -344,6 +346,7 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	struct mail_index *index = log->index;
 	struct mail_transaction_log_header hdr;
 	struct stat st;
+	unsigned int lock_id;
 	int fd, fd2, ret;
 
 	/* With dotlocking we might already have path.lock created, so this
@@ -387,10 +390,15 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	hdr.used_size = sizeof(hdr);
 
 	if (index->fd != -1) {
+		if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
+			return -1;
 		hdr.prev_file_seq = index->hdr->log_file_seq;
 		hdr.prev_file_offset = index->hdr->log_file_offset;
 	}
 	hdr.file_seq = index->hdr->log_file_seq+1;
+
+	if (index->fd != -1)
+		mail_index_unlock(index, lock_id);
 
 	if (log->head != NULL && hdr.file_seq <= log->head->hdr.file_seq) {
 		/* make sure the sequence grows */
@@ -613,6 +621,8 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 	file = mail_transaction_log_file_open_or_create(log, path);
 	if (file == NULL)
 		return -1;
+
+	i_assert(file->lock_type == F_UNLCK);
 
 	if (log->head != NULL) {
 		if (--log->head->refcount == 0)
@@ -1021,19 +1031,27 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 			return -1;
 	}
 
-	/* FIXME: index->hdr may not be up-to-date and so log_file_seq check
-	   might go wrong! sync header before we get here. */
-	if (log->head->hdr.file_seq == index->hdr->log_file_seq &&
-	    log->head->hdr.used_size > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
+	if (log->head->hdr.used_size > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
 	    log->head->last_mtime <
 	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_MIN_TIME) {
-		/* everything synced in index, we can rotate. */
-		if (mail_transaction_log_rotate(log, F_WRLCK) < 0) {
-			if (!log->index->log_locked) {
-				(void)mail_transaction_log_file_lock(log->head,
-								     F_UNLCK);
+		/* we might want to rotate, but check first that head file
+		   sequence matches the one in index header, ie. we have
+		   everything synced in index. */
+		unsigned int lock_id;
+		uint32_t seq;
+
+		if (mail_index_lock_shared(log->index, TRUE, &lock_id) == 0) {
+			seq = index->hdr->log_file_seq;
+			mail_index_unlock(log->index, lock_id);
+		} else {
+			seq = 0;
+		}
+
+		if (log->head->hdr.file_seq == seq) {
+			if (mail_transaction_log_rotate(log, F_WRLCK) < 0) {
+				/* that didn't work. well, try to continue
+				   anyway */
 			}
-			return -1;
 		}
 	}
 

@@ -139,7 +139,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		if (file == NULL || file->hdr.file_seq != seq)  {
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
-				file->filepath, seq);
+				view->log->tail->filepath, seq);
 			return -1;
 		}
 

@@ -65,7 +65,7 @@ static int mail_index_check_header(struct mail_index *index,
 	}
 
 	if ((map->hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
-		/* either a crash or we've already complained about it */
+		/* we've already complained about it */
 		return -1;
 	}
 
@@ -292,7 +292,12 @@ int mail_index_map(struct mail_index *index, int force)
 	} else if (map->mmap_base != NULL) {
 		/* see if re-mmaping is needed (file has grown) */
 		hdr = map->mmap_base;
-                used_size = hdr->header_size +
+
+		/* always check corrupted-flag to avoid errors later */
+		if ((map->hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0)
+			return -1;
+
+		used_size = hdr->header_size +
 			hdr->messages_count * sizeof(struct mail_index_record);
 		if (map->mmap_size >= used_size && !force) {
 			map->records_count = hdr->messages_count;
@@ -475,9 +480,6 @@ static int mail_index_create(struct mail_index *index,
 	/* log file lock protects index creation */
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;
-
-	hdr->log_file_seq = seq;
-	hdr->log_file_offset = offset;
 
 	ret = mail_index_try_open(index, NULL);
 	if (ret != 0) {
