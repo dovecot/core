@@ -71,6 +71,10 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 	return ret;
 }
 
+#define MAIL_INDEX_VIEW_VISIBLE_SYNC_MASK \
+	(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND | \
+	 MAIL_TRANSACTION_FLAG_UPDATE)
+
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_sync_type sync_mask,
 			       struct mail_index_view_sync_ctx **ctx_r)
@@ -98,10 +102,10 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 
 	/* only flags, appends and expunges can be left to be synced later */
 	want_mask = mail_transaction_type_mask_get(sync_mask);
+	i_assert((want_mask & ~MAIL_INDEX_VIEW_VISIBLE_SYNC_MASK) == 0);
 	mask = want_mask |
 		(MAIL_TRANSACTION_TYPE_MASK ^
-		 (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND |
-		  MAIL_TRANSACTION_FLAG_UPDATE));
+		 MAIL_INDEX_VIEW_VISIBLE_SYNC_MASK);
 
 	if (mail_transaction_log_view_set(view->log_view,
 					  view->log_file_seq,
@@ -177,6 +181,7 @@ static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
 		if (ret < 0)
 			return -1;
 
+		ctx->hdr = NULL;
 		ctx->last_read = TRUE;
 		return 1;
 	}

@@ -235,6 +235,8 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 
 	for (;;) {
 		file = view->cur;
+		if (file == NULL)
+			return 0;
 
 		view->prev_file_seq = file->hdr.file_seq;
 		view->prev_file_offset = view->cur_offset;
@@ -244,9 +246,6 @@ static int log_view_get_next(struct mail_transaction_log_view *view,
 
 		view->cur = file->next;
 		view->cur_offset = sizeof(struct mail_transaction_log_header);
-
-		if (view->cur == NULL)
-			return 0;
 	}
 
 	data = buffer_get_data(file->buffer, &file_size);
