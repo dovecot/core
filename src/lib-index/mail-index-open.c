@@ -199,7 +199,7 @@ static int mail_index_is_compatible(const struct mail_index_header *hdr)
 		hdr->compat_data[2] == sizeof(unsigned int) &&
 		hdr->compat_data[3] == sizeof(time_t) &&
 		hdr->compat_data[4] == sizeof(uoff_t) &&
-		hdr->compat_data[5] == MEM_ALIGN_SIZE;
+		hdr->compat_data[5] == INDEX_ALIGN_SIZE;
 }
 
 static int mail_index_init_file(struct mail_index *index,
@@ -235,7 +235,7 @@ void mail_index_init_header(struct mail_index *index,
 	hdr->compat_data[2] = sizeof(unsigned int);
 	hdr->compat_data[3] = sizeof(time_t);
 	hdr->compat_data[4] = sizeof(uoff_t);
-	hdr->compat_data[5] = MEM_ALIGN_SIZE;
+	hdr->compat_data[5] = INDEX_ALIGN_SIZE;
 	hdr->indexid = ioloop_time;
 
 	/* mark the index requiring rebuild - rebuild() removes this flag

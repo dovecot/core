@@ -449,7 +449,7 @@ uoff_t mail_index_data_append(struct mail_index_data *data, const void *buffer,
 {
 	uoff_t offset;
 
-	i_assert((size & (MEM_ALIGN_SIZE-1)) == 0);
+	i_assert((size & (INDEX_ALIGN_SIZE-1)) == 0);
 	i_assert(data->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
 	if (!mmap_update(data, 0, sizeof(struct mail_index_data_header)))
@@ -550,7 +550,7 @@ mail_index_data_lookup_header(struct mail_index_data *data,
 		return NULL;
 	}
 
-	if ((pos % MEM_ALIGN_SIZE) != 0) {
+	if ((pos % INDEX_ALIGN_SIZE) != 0) {
 		index_data_set_corrupted(data, "Data position (%"PRIuUOFF_T") "
 					 "is not memory aligned for record %u",
 					 pos, index_rec->uid);
@@ -612,7 +612,7 @@ mail_index_data_lookup(struct mail_index_data *data,
 			break;
 		}
 
-		if ((rec->full_field_size % MEM_ALIGN_SIZE) != 0) {
+		if ((rec->full_field_size % INDEX_ALIGN_SIZE) != 0) {
 			index_data_set_corrupted(data, "Field %d size %u "
 				"is not memory aligned for record %u",
 				(int)field, rec->full_field_size,

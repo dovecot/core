@@ -49,9 +49,14 @@ AC_ARG_WITH(file-offset-size,
 	preferred_off_t_bits=64)
 
 AC_ARG_WITH(mem-align,
-[  --with-mem-align=BYTES  Set the memory alignment (default: sizeof(off_t))],
+[  --with-mem-align=BYTES  Set the memory alignment (default: 8)],
 	mem_align=$withval,
 	mem_align=8)
+
+AC_ARG_WITH(index-align,
+[  --with-index-align=BYTES  Set the index file alignment (default: detect)],
+	index_align=$withval,
+	index_align=0)
 
 AC_ARG_WITH(passwd,
 [  --with-passwd           Build with /etc/passwd support (default)],
@@ -226,9 +231,6 @@ AC_CHECK_FUNC(poll, [
 	AC_DEFINE(IOLOOP_SELECT,, Implement I/O loop with select())
 ])
 
-dnl * memory alignment
-AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align, Required memory alignment)
-
 dnl * OS specific options
 case "$host_os" in
 	hpux*)
@@ -391,11 +393,6 @@ AC_TRY_COMPILE([
   AC_DEFINE_UNQUOTED(OFF_T_MAX, $offt_max, Maximum value of off_t)
 ])
 
-dnl currently we break if off_t is smaller than mem_align
-if test $offt_bits = 32 -a $mem_align = 8; then
-  mem_align=4
-fi
-
 AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", printf() format for uoff_t)
 
 dnl * make sure size_t isn't signed. we'd probably work fine with it, but
@@ -478,6 +475,18 @@ AC_CHECKTYPE2(socklen_t, [#include <sys/socket.h>])
 if test $i_cv_type_socklen_t = yes; then
   AC_DEFINE(HAVE_SOCKLEN_T,, Define to 'int' if you don't have socklen_t)
 fi
+
+dnl * memory alignment
+if test "$index_align" = "0"; then
+  if test $offt_bits = 64; then
+    index_align=8
+  else
+    index_align=4
+  fi
+fi
+
+AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align, Required memory alignment)
+AC_DEFINE_UNQUOTED(INDEX_ALIGN_SIZE, $index_align, Required index alignment)
 
 dnl * find random source
 AC_MSG_CHECKING([for /dev/urandom])

@@ -81,11 +81,11 @@ static void get_data_block_sizes(struct mail_index_update *update,
 
 		if (update->fields[i] != NULL) {
 			/* value was modified - use it */
-			field_min_size = MEM_ALIGN(update->field_sizes[i]);
+			field_min_size = INDEX_ALIGN(update->field_sizes[i]);
 			*min_size += SIZEOF_MAIL_INDEX_DATA + field_min_size;
 			*max_size += SIZEOF_MAIL_INDEX_DATA +
-				MEM_ALIGN(update->field_sizes[i] +
-					  update->field_extra_sizes[i]);
+				INDEX_ALIGN(update->field_sizes[i] +
+					    update->field_extra_sizes[i]);
 
 			if (!field_exists ||
 			    rec->full_field_size < field_min_size)
@@ -109,15 +109,15 @@ static size_t get_max_align_size(size_t base, size_t extra, size_t *max_extra)
 {
 	size_t size;
 
-	size = MEM_ALIGN(base);
+	size = INDEX_ALIGN(base);
 	extra -= size - base;
-	if (*max_extra < MEM_ALIGN_SIZE || extra == 0)
+	if (*max_extra < INDEX_ALIGN_SIZE || extra == 0)
 		return size; /* no extra / extra went into alignment */
 
-	extra = MEM_ALIGN(extra);
+	extra = INDEX_ALIGN(extra);
 	if (extra > *max_extra) {
 		/* partial */
-		extra = *max_extra & ~(size_t)(MEM_ALIGN_SIZE-1);
+		extra = *max_extra & ~(size_t)(INDEX_ALIGN_SIZE-1);
 		i_assert(extra <= *max_extra);
 	}
 
@@ -168,7 +168,7 @@ static void *create_data_block(struct mail_index_update *update,
 			/* the field doesn't exist, jump to next */
 			continue;
 		}
-		i_assert((full_field_size % MEM_ALIGN_SIZE) == 0);
+		i_assert((full_field_size % INDEX_ALIGN_SIZE) == 0);
 
 		destrec = buffer_append_space(buf, SIZEOF_MAIL_INDEX_DATA +
 					      full_field_size);

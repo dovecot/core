@@ -118,7 +118,7 @@ struct mail_index_header {
 	   2 = sizeof(unsigned int),
 	   3 = sizeof(time_t),
 	   4 = sizeof(uoff_t),
-	   5 = MEM_ALIGN_SIZE */
+	   5 = INDEX_ALIGN_SIZE */
 
 	unsigned int indexid;
 	unsigned int sync_id; /* re-mmap() when changed, required only
@@ -176,11 +176,11 @@ struct mail_index_data_record_header {
 struct mail_index_data_record {
 	unsigned int field; /* enum mail_data_field */
 	unsigned int full_field_size;
-	char data[MEM_ALIGN_SIZE]; /* variable size */
+	char data[INDEX_ALIGN_SIZE]; /* variable size */
 };
 
 #define SIZEOF_MAIL_INDEX_DATA \
-	(sizeof(struct mail_index_data_record) - MEM_ALIGN_SIZE)
+	(sizeof(struct mail_index_data_record) - INDEX_ALIGN_SIZE)
 
 #define DATA_RECORD_SIZE(rec) \
         (SIZEOF_MAIL_INDEX_DATA + (rec)->full_field_size)
@@ -348,7 +348,7 @@ struct mail_index {
 	void (*update_field)(struct mail_index_update *update,
 			     enum mail_data_field field,
 			     const char *value, size_t extra_space);
-	/* Just remember that full_field_size will be MEM_ALIGNed, so
+	/* Just remember that full_field_size will be INDEX_ALIGNed, so
 	   it may differer from the given size parameter. */
 	void (*update_field_raw)(struct mail_index_update *update,
 				 enum mail_data_field field,
@@ -590,5 +590,9 @@ int mail_index_truncate(struct mail_index *index);
 
 #define INDEX_IS_IN_MEMORY(index) \
 	((index)->anon_mmap)
+
+/* Returns alignmentation for given size */
+#define INDEX_ALIGN(size) \
+	(((size) + INDEX_ALIGN_SIZE-1) & ~((unsigned int) INDEX_ALIGN_SIZE-1))
 
 #endif
