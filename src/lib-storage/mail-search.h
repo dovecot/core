@@ -61,8 +61,14 @@ struct mail_search_arg {
 	const char *hdr_field_name; /* for SEARCH_HEADER */
 	unsigned int not:1;
 
-	int result;
+	int result; /* -1 = unknown, 0 = unmatched, 1 = matched */
 };
+
+#define ARG_SET_RESULT(arg, res) \
+	STMT_START { \
+		(arg)->result = !(arg)->not ? (res) : \
+			(res) == -1 ? -1 : !(res); \
+	} STMT_END
 
 typedef void (*mail_search_foreach_callback_t)(struct mail_search_arg *arg,
 					       void *context);
@@ -71,7 +77,7 @@ typedef void (*mail_search_foreach_callback_t)(struct mail_search_arg *arg,
 void mail_search_args_reset(struct mail_search_arg *args);
 
 /* goes through arguments in list that don't have a result yet.
-   Returns 1 = search matched, -1 = search unmatched, 0 = don't know yet */
+   Returns 1 = search matched, 0 = search unmatched, -1 = don't know yet */
 int mail_search_args_foreach(struct mail_search_arg *args,
 			     mail_search_foreach_callback_t callback,
 			     void *context);

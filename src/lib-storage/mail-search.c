@@ -8,7 +8,7 @@ void mail_search_args_reset(struct mail_search_arg *args)
 	while (args != NULL) {
 		if (args->type == SEARCH_OR || args->type == SEARCH_SUB)
 			mail_search_args_reset(args->value.subargs);
-		args->result = 0;
+		args->result = -1;
 
 		args = args->next;
 	}
@@ -20,7 +20,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 {
 	struct mail_search_arg *subarg;
 
-	if (arg->result != 0)
+	if (arg->result != -1)
 		return;
 
 	if (arg->type == SEARCH_SUB) {
@@ -30,17 +30,16 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 		arg->result = 1;
 		subarg = arg->value.subargs;
 		while (subarg != NULL) {
-			if (subarg->result == 0)
+			if (subarg->result == -1)
 				search_arg_foreach(subarg, callback, context);
 
-			if (subarg->result == -1) {
-				/* failed */
+			if (subarg->result == -1)
 				arg->result = -1;
+			else if (subarg->result == arg->not) {
+				/* didn't match */
+				arg->result = 0;
 				break;
 			}
-
-			if (subarg->result == 0)
-				arg->result = 0;
 
 			subarg = subarg->next;
 		}
@@ -51,17 +50,18 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 		subarg = arg->value.subargs;
 		arg->result = -1;
 		while (subarg != NULL) {
-			if (subarg->result == 0)
+			if (subarg->result == -1)
 				search_arg_foreach(subarg, callback, context);
 
-			if (subarg->result == 1) {
-				/* matched */
-				arg->result = 1;
-				break;
-			}
+			if (subarg->result != -1) {
+				if (subarg->result == !arg->not) {
+					/* matched */
+					arg->result = 1;
+					break;
+				}
 
-			if (subarg->result == 0)
 				arg->result = 0;
+			}
 
 			subarg = subarg->next;
 		}
@@ -81,13 +81,13 @@ int mail_search_args_foreach(struct mail_search_arg *args,
 	for (; args != NULL; args = args->next) {
 		search_arg_foreach(args, callback, context);
 
-		if (args->result == -1) {
-			/* failed, abort */
-			return -1;
+		if (args->result == 0) {
+			/* didn't match */
+			return 0;
 		}
 
-		if (args->result == 0)
-			result = 0;
+		if (args->result == -1)
+			result = -1;
 	}
 
 	return result;
@@ -98,7 +98,7 @@ static void search_arg_analyze(struct mail_search_arg *arg, int *have_headers,
 {
 	struct mail_search_arg *subarg;
 
-	if (arg->result != 0)
+	if (arg->result != -1)
 		return;
 
 	switch (arg->type) {
@@ -106,7 +106,7 @@ static void search_arg_analyze(struct mail_search_arg *arg, int *have_headers,
 	case SEARCH_SUB:
 		subarg = arg->value.subargs;
 		while (subarg != NULL) {
-			if (subarg->result == 0) {
+			if (subarg->result == -1) {
 				search_arg_analyze(subarg, have_headers,
 						   have_body, have_text);
 			}

@@ -19,12 +19,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#define ARG_SET_RESULT(arg, res) \
-	STMT_START { \
-		(arg)->result = !(arg)->not ? (res) : \
-			(res) == -1 ? -1 : !(res); \
-	} STMT_END
-
 #define TXT_UNKNOWN_CHARSET "[BADCHARSET] Unknown charset"
 #define TXT_INVALID_SEARCH_KEY "Invalid search key"
 
@@ -211,7 +205,7 @@ static void search_index_arg(struct mail_search_arg *arg, void *context)
 		/* unknown */
 		break;
 	case 0:
-		ARG_SET_RESULT(arg, -1);
+		ARG_SET_RESULT(arg, 0);
 		break;
 	default:
 		ARG_SET_RESULT(arg, 1);
@@ -280,7 +274,7 @@ static void search_cached_arg(struct mail_search_arg *arg, void *context)
 		/* unknown */
 		break;
 	case 0:
-		ARG_SET_RESULT(arg, -1);
+		ARG_SET_RESULT(arg, 0);
 		break;
 	default:
 		ARG_SET_RESULT(arg, 1);
@@ -450,7 +444,7 @@ static void search_envelope_arg(struct mail_search_arg *arg, void *context)
 		/* unknown */
 		break;
 	case 0:
-		ARG_SET_RESULT(arg, -1);
+		ARG_SET_RESULT(arg, 0);
 		break;
 	default:
 		ARG_SET_RESULT(arg, 1);
@@ -543,7 +537,28 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 		t_pop();
 	}
 
-        ARG_SET_RESULT(arg, ret);
+	if (ret == 1 ||
+	    (arg->type != SEARCH_TEXT && arg->type != SEARCH_HEADER)) {
+		/* set only when we definitely know if it's a match */
+		ARG_SET_RESULT(arg, ret);
+	}
+}
+
+static void search_header_unmatch(struct mail_search_arg *arg,
+				  void *context __attr_unused__)
+{
+	switch (arg->type) {
+	case SEARCH_FROM:
+	case SEARCH_TO:
+	case SEARCH_CC:
+	case SEARCH_BCC:
+	case SEARCH_SUBJECT:
+	case SEARCH_HEADER:
+		ARG_SET_RESULT(arg, 0);
+		break;
+	default:
+		break;
+	}
 }
 
 static void search_header(struct message_part *part,
@@ -570,6 +585,9 @@ static void search_header(struct message_part *part,
 
 		ctx->custom_header = FALSE;
 		mail_search_args_foreach(ctx->args, search_header_arg, ctx);
+	} else if (name_len == 0) {
+		/* last header, mark all unknown SEARCH_HEADERs unmatched */
+		mail_search_args_foreach(ctx->args, search_header_unmatch, ctx);
 	}
 }
 
