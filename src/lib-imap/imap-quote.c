@@ -91,8 +91,6 @@ char *imap_quote(pool_t pool, const unsigned char *value, size_t value_len)
 	string_t *str;
 	char *ret;
 
-	i_assert(pool != data_stack_pool);
-
 	if (value == NULL)
 		return "NIL";
 

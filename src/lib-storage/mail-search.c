@@ -151,7 +151,8 @@ mail_search_args_analyze(struct mail_search_arg *args,
 
 	*have_headers = *have_body = have_text = FALSE;
 
-	headers = buffer_create_dynamic(data_stack_pool, 128, (size_t)-1);
+	headers = buffer_create_dynamic(pool_datastack_create(),
+					128, (size_t)-1);
 	for (; args != NULL; args = args->next) {
 		search_arg_analyze(args, headers, have_headers,
 				   have_body, &have_text);

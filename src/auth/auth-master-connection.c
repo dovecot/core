@@ -42,7 +42,7 @@ fill_reply(const struct user_data *user, size_t *reply_size)
 	buffer_t *buf;
 	char *p;
 
-	buf = buffer_create_dynamic(data_stack_pool,
+	buf = buffer_create_dynamic(pool_datastack_create(),
 				    sizeof(reply) + 256, (size_t)-1);
 	memset(&reply, 0, sizeof(reply));
 	buffer_append(buf, &reply, sizeof(reply));

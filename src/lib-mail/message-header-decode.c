@@ -64,7 +64,8 @@ message_header_decode_encoded(const unsigned char *data, size_t *size,
 		return TRUE;
 	}
 
-	decodebuf = buffer_create_static_hard(data_stack_pool, text_size);
+	decodebuf = buffer_create_static_hard(pool_datastack_create(),
+					      text_size);
 
 	if (*encoding == 'Q')
 		quoted_printable_decode(text, text_size, NULL, decodebuf);

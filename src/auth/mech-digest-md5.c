@@ -76,7 +76,7 @@ static string_t *get_digest_challenge(struct digest_auth_request *auth)
 	random_fill(nonce, sizeof(nonce));
 
 	t_push();
-	buf = buffer_create_static(data_stack_pool,
+	buf = buffer_create_static(pool_datastack_create(),
 				   MAX_BASE64_ENCODED_SIZE(sizeof(nonce))+1);
 
 	base64_encode(nonce, sizeof(nonce), buf);
@@ -123,7 +123,7 @@ static int verify_credentials(struct digest_auth_request *auth,
 	if (credentials == NULL || strlen(credentials) != sizeof(digest)*2)
 		return FALSE;
 
-	digest_buf = buffer_create_data(data_stack_pool,
+	digest_buf = buffer_create_data(pool_datastack_create(),
 					digest, sizeof(digest));
 	if (hex_to_binary(credentials, digest_buf) <= 0)
 		return FALSE;

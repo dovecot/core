@@ -219,7 +219,7 @@ static void mbox_parse_imapbase(const unsigned char *value, size_t len,
 	}
 
 	/* we're at the 3rd field now, which begins the list of custom flags */
-	buf = buffer_create_dynamic(data_stack_pool,
+	buf = buffer_create_dynamic(pool_datastack_create(),
 				    MAIL_CUSTOM_FLAGS_COUNT *
 				    sizeof(const char *),
 				    MAX_CUSTOM_FLAGS * sizeof(const char *));

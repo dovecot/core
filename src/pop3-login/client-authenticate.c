@@ -111,7 +111,8 @@ static void client_send_auth_data(struct pop3_client *client,
 
 	t_push();
 
-	buf = buffer_create_dynamic(data_stack_pool, size*2, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(),
+				    size*2, (size_t)-1);
 	buffer_append(buf, "+ ", 2);
 	base64_encode(data, size, buf);
 	buffer_append(buf, "\r\n", 2);
@@ -250,7 +251,7 @@ static void client_auth_input(void *context)
 	}
 
 	linelen = strlen(line);
-	buf = buffer_create_static_hard(data_stack_pool, linelen);
+	buf = buffer_create_static_hard(pool_datastack_create(), linelen);
 
 	if (base64_decode((const unsigned char *) line, linelen,
 			  NULL, buf) <= 0) {

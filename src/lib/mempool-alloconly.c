@@ -57,7 +57,8 @@ static struct pool static_alloconly_pool = {
 
 	pool_alloconly_clear,
 
-	TRUE
+	TRUE,
+	FALSE
 };
 
 pool_t pool_alloconly_create(const char *name, size_t size)

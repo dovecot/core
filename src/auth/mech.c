@@ -147,7 +147,7 @@ void *mech_auth_success(struct auth_client_request_reply *reply,
 {
 	buffer_t *buf;
 
-	buf = buffer_create_dynamic(data_stack_pool, 256, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 256, (size_t)-1);
 
 	reply->username_idx = 0;
 	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);

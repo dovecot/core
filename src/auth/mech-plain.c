@@ -35,7 +35,8 @@ mech_plain_auth_continue(struct auth_request *auth_request,
 			else {
 				i++;
 				len = request->data_size - i;
-				pass = p_strndup(data_stack_pool, data+i, len);
+				pass = p_strndup(unsafe_data_stack_pool,
+						 data+i, len);
 				break;
 			}
 		}

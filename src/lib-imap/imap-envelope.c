@@ -380,7 +380,7 @@ int imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
 
 	i_assert(field < IMAP_ENVELOPE_FIELDS);
 
-	input = i_stream_create_from_data(data_stack_pool, envelope,
+	input = i_stream_create_from_data(pool_datastack_create(), envelope,
 					  strlen(envelope));
 	parser = imap_parser_create(input, NULL, (size_t)-1);
 

@@ -66,7 +66,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 	message_tokenize_skip_comments(tok, FALSE);
         message_tokenize_dot_token(tok, FALSE);
 
-	if (pool != data_stack_pool)
+	if (!pool->datastack_pool)
 		t_push();
 	mailbox = t_str_new(128);
 	domain = t_str_new(256);
@@ -213,7 +213,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 	if (ingroup)
 		(void)new_address(pool, &next_addr);
 
-	if (pool != data_stack_pool)
+	if (!pool->datastack_pool)
 		t_pop();
 	message_tokenize_deinit(tok);
 

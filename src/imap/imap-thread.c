@@ -298,7 +298,8 @@ static const char *get_msgid(const char **msgid_p)
 			if (found_at) {
 				char *s;
 
-				s = p_strdup_until(data_stack_pool, msgid, p);
+				s = p_strdup_until(unsafe_data_stack_pool,
+						   msgid, p);
 				strip_lwsp(s);
 				return s;
 			}
@@ -623,7 +624,7 @@ static void add_base_subject(struct thread_context *ctx,
 	if (subject == NULL)
 		return;
 
-	subject = imap_get_base_subject_cased(data_stack_pool, subject,
+	subject = imap_get_base_subject_cased(pool_datastack_create(), subject,
 					      &is_reply_or_forward);
 	if (*subject == '\0')
 		return;

@@ -506,11 +506,12 @@ static int fd_copy(struct mail_index *index, int in_fd, int out_fd,
 
 	t_push();
 
-	input = i_stream_create_mmap(in_fd, data_stack_pool,
+	input = i_stream_create_mmap(in_fd, pool_datastack_create(),
 				     1024*256, 0, 0, FALSE);
 	i_stream_set_read_limit(input, size);
 
-	output = o_stream_create_file(out_fd, data_stack_pool, 1024, FALSE);
+	output = o_stream_create_file(out_fd, pool_datastack_create(),
+				      1024, FALSE);
 	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	ret = o_stream_send_istream(output, input);

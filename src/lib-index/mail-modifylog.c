@@ -1109,7 +1109,8 @@ mail_modifylog_seq_get_expunges(struct mail_modify_log *log,
 
 	i_assert((max_records+1) <
 		 SSIZE_T_MAX / sizeof(struct modify_log_expunge));
-	buf = buffer_create_static_hard(data_stack_pool, (max_records+1) *
+	buf = buffer_create_static_hard(pool_datastack_create(),
+					(max_records+1) *
 					sizeof(struct modify_log_expunge));
 
 	before = 0;
@@ -1215,7 +1216,8 @@ mail_modifylog_uid_get_expunges(struct mail_modify_log *log,
 
 	i_assert((max_records+1) <
 		 SSIZE_T_MAX / sizeof(struct modify_log_expunge));
-	buf = buffer_create_static_hard(data_stack_pool, (max_records+1) *
+	buf = buffer_create_static_hard(pool_datastack_create(),
+					(max_records+1) *
 					sizeof(struct modify_log_expunge));
 
 	before = 0;

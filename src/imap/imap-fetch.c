@@ -365,7 +365,7 @@ int imap_fetch(struct client *client,
 	   separately rather than parsing the full header so mail storage
 	   can try to cache them. */
 	ctx.body_fetch_from_cache = TRUE;
-	buffer = buffer_create_dynamic(data_stack_pool, 64, (size_t)-1);
+	buffer = buffer_create_dynamic(pool_datastack_create(), 64, (size_t)-1);
 	for (body = bodies; body != NULL; body = body->next) {
 		if (strncmp(body->section, "HEADER.FIELDS ", 14) != 0) {
                         ctx.body_fetch_from_cache = FALSE;

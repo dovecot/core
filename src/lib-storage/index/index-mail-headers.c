@@ -120,7 +120,8 @@ static const char *const *sort_array(const char *const *arr)
 	int i, already_sorted;
 
 	/* copy the wanted_headers array */
-	buffer = buffer_create_dynamic(data_stack_pool, 256, (size_t)-1);
+	buffer = buffer_create_dynamic(pool_datastack_create(),
+				       256, (size_t)-1);
 	already_sorted = TRUE;
 	for (i = 0; arr[i] != NULL; i++) {
 		if (i > 0 && already_sorted &&
@@ -203,7 +204,8 @@ static const char *const *cached_header_get_names(struct index_mail *mail)
 	data = buffer_get_modifyable_data(mail->data.headers, &size);
 	size /= sizeof(struct cached_header *);
 
-	buffer = buffer_create_dynamic(data_stack_pool, 128, (size_t)-1);
+	buffer = buffer_create_dynamic(pool_datastack_create(),
+				       128, (size_t)-1);
 	for (i = 0; i < size; i++)
 		buffer_append(buffer, &data[i]->name, sizeof(const char *));
 	buffer_append(buffer, &null, sizeof(const char *));
@@ -423,7 +425,7 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 	t_push();
 	if (idx < data->header_data_cached) {
 		/* it's already in header_data. */
-		istream = i_stream_create_from_data(data_stack_pool,
+		istream = i_stream_create_from_data(pool_datastack_create(),
 						    str_data(data->header_data),
 						    str_len(data->header_data));
 		/* we might be parsing a bit more.. */
@@ -440,7 +442,7 @@ static int parse_cached_headers(struct index_mail *mail, int idx)
 		}
 
 		data->header_data_cached_partial = TRUE;
-		istream = i_stream_create_from_data(data_stack_pool,
+		istream = i_stream_create_from_data(pool_datastack_create(),
 						    str, strlen(str));
 	}
 

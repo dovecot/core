@@ -37,7 +37,7 @@ get_sort_program(struct client *client, struct imap_arg *args)
 		return NULL;
 	}
 
-	buf = buffer_create_dynamic(data_stack_pool,
+	buf = buffer_create_dynamic(pool_datastack_create(),
 				    32 * sizeof(enum mail_sort_type),
 				    (size_t)-1);
 

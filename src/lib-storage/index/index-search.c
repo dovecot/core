@@ -423,7 +423,7 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 			struct message_address *addr;
 			string_t *str;
 
-			addr = message_address_parse(data_stack_pool,
+			addr = message_address_parse(pool_datastack_create(),
 						     ctx->hdr->full_value,
 						     ctx->hdr->full_value_len,
 						     0);

@@ -243,7 +243,8 @@ pam_verify_plain_child(const char *service, const char *user,
 		}
 	}
 
-	buf = buffer_create_data(data_stack_pool, buf_data, sizeof(buf_data));
+	buf = buffer_create_data(pool_datastack_create(),
+				 buf_data, sizeof(buf_data));
 	buffer_append(buf, &result, sizeof(result));
 
 	if (str != NULL) {

@@ -14,7 +14,7 @@ string_t *str_new(pool_t pool, size_t initial_size)
 
 string_t *t_str_new(size_t initial_size)
 {
-	return str_new(data_stack_pool, initial_size);
+	return str_new(pool_datastack_create(), initial_size);
 }
 
 void str_free(string_t *str)

@@ -407,7 +407,7 @@ static int index_mail_parse_body(struct index_mail *mail)
 
 	if (index_mail_cache_can_add(mail, MAIL_CACHE_MESSAGEPART)) {
 		t_push();
-		buffer = buffer_create_dynamic(data_stack_pool,
+		buffer = buffer_create_dynamic(pool_datastack_create(),
 					       1024, (size_t)-1);
 		message_part_serialize(mail->data.parts, buffer);
 

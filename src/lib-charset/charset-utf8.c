@@ -22,7 +22,7 @@ const char *_charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
 {
 	buffer_t *dest;
 
-	dest = buffer_create_dynamic(data_stack_pool, size, (size_t)-1);
+	dest = buffer_create_dynamic(pool_datastack_create(), size, (size_t)-1);
 	_charset_utf8_ucase(data, size, dest, 0);
 	if (utf8_size_r != NULL)
 		*utf8_size_r = buffer_get_used_size(dest);

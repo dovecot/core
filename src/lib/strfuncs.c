@@ -197,7 +197,7 @@ char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
 
 	i_assert(format != NULL);
 
-	if (pool != data_stack_pool)
+	if (!pool->datastack_pool)
 		t_push();
 
 	VA_COPY(args2, args);
@@ -210,7 +210,7 @@ char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
 #else
 	vsprintf(ret, format, args2);
 #endif
-	if (pool != data_stack_pool)
+	if (!pool->datastack_pool)
 		t_pop();
 	return ret;
 }
@@ -277,27 +277,27 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 
 const char *t_strdup(const char *str)
 {
-	return p_strdup(data_stack_pool, str);
+	return p_strdup(unsafe_data_stack_pool, str);
 }
 
 char *t_strdup_noconst(const char *str)
 {
-	return p_strdup(data_stack_pool, str);
+	return p_strdup(unsafe_data_stack_pool, str);
 }
 
 const char *t_strdup_empty(const char *str)
 {
-	return p_strdup_empty(data_stack_pool, str);
+	return p_strdup_empty(unsafe_data_stack_pool, str);
 }
 
 const char *t_strdup_until(const void *start, const void *end)
 {
-	return p_strdup_until(data_stack_pool, start, end);
+	return p_strdup_until(unsafe_data_stack_pool, start, end);
 }
 
 const char *t_strndup(const void *str, size_t max_chars)
 {
-	return p_strndup(data_stack_pool, str, max_chars);
+	return p_strndup(unsafe_data_stack_pool, str, max_chars);
 }
 
 const char *t_strdup_printf(const char *format, ...)
@@ -306,7 +306,7 @@ const char *t_strdup_printf(const char *format, ...)
 	const char *ret;
 
 	va_start(args, format);
-	ret = p_strdup_vprintf(data_stack_pool, format, args);
+	ret = p_strdup_vprintf(unsafe_data_stack_pool, format, args);
 	va_end(args);
 
 	return ret;
@@ -314,7 +314,7 @@ const char *t_strdup_printf(const char *format, ...)
 
 const char *t_strdup_vprintf(const char *format, va_list args)
 {
-	return p_strdup_vprintf(data_stack_pool, format, args);
+	return p_strdup_vprintf(unsafe_data_stack_pool, format, args);
 }
 
 const char *t_strconcat(const char *str1, ...)

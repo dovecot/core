@@ -203,7 +203,8 @@ int imap_sort(struct client *client, const char *charset,
 	ctx = t_new(struct sort_context, 1);
 
 	/* normalize sorting program */
-	buf = buffer_create_data(data_stack_pool, norm_prog, sizeof(norm_prog));
+	buf = buffer_create_data(pool_datastack_create(),
+				 norm_prog, sizeof(norm_prog));
 	mail_sort_normalize(sort_program, buf);
 	memcpy(ctx->sort_program, norm_prog, sizeof(ctx->sort_program));
 
@@ -284,7 +285,7 @@ static const char *get_first_mailbox(struct mail *mail, const char *field)
 	if (str == NULL)
 		return NULL;
 
-	addr = message_address_parse(data_stack_pool,
+	addr = message_address_parse(pool_datastack_create(),
 				     (const unsigned char *) str,
 				     (size_t)-1, 1);
 	return addr != NULL ? addr->mailbox : NULL;

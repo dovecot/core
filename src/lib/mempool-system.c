@@ -29,7 +29,8 @@ static struct pool static_system_pool = {
 
 	pool_system_clear,
 
-        FALSE
+	FALSE,
+	FALSE
 };
 
 pool_t system_pool = &static_system_pool;

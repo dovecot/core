@@ -339,7 +339,7 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 		i_assert(hdr_ctx.dest_size <= size->virtual_size);
 	} else {
 		hdr_ctx.dest =
-			buffer_create_dynamic(data_stack_pool,
+			buffer_create_dynamic(pool_datastack_create(),
 					      I_MIN(size->virtual_size, 8192),
 					      (size_t)-1);
 		if (!fetch_header_fields(input, header_section, &hdr_ctx))

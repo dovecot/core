@@ -540,7 +540,8 @@ mail_cache_compress_record(struct mail_cache *cache,
 	int i;
 
 	memset(&cache_rec, 0, sizeof(cache_rec));
-	buffer = buffer_create_dynamic(data_stack_pool, 4096, (size_t)-1);
+	buffer = buffer_create_dynamic(pool_datastack_create(),
+				       4096, (size_t)-1);
 
         orig_cached_fields = mail_cache_get_fields(cache, rec);
 	cached_fields = orig_cached_fields & ~MAIL_CACHE_HEADERS_MASK;
@@ -1283,7 +1284,8 @@ int mail_cache_set_header_fields(struct mail_cache_transaction_ctx *ctx,
 
 	t_push();
 
-	buffer = buffer_create_dynamic(data_stack_pool, 512, (size_t)-1);
+	buffer = buffer_create_dynamic(pool_datastack_create(),
+				       512, (size_t)-1);
 	while (*headers != NULL) {
 		if (buffer_get_used_size(buffer) != 0)
 			buffer_append(buffer, "\n", 1);

@@ -107,7 +107,7 @@ static int message_search_header(struct part_search_context *ctx,
 	struct message_header_line *hdr;
 	int found = FALSE;
 
-	hdr_search_ctx = message_header_search_init(data_stack_pool,
+	hdr_search_ctx = message_header_search_init(pool_datastack_create(),
 						    ctx->body_ctx->key,
 						    ctx->body_ctx->charset,
 						    NULL);
@@ -214,7 +214,8 @@ static int message_search_body_block(struct part_search_context *ctx,
         enum charset_result result;
 	size_t block_pos, inbuf_size, inbuf_left, ret;
 
-	outbuf = buffer_create_static(data_stack_pool, DECODE_BLOCK_SIZE);
+	outbuf = buffer_create_static(pool_datastack_create(),
+				      DECODE_BLOCK_SIZE);
 	for (block_pos = 0; block_pos < buffer_get_used_size(block); ) {
 		if (buffer_get_used_size(ctx->decode_buf) == 0) {
 			/* we can use the buffer directly without copying */
@@ -272,6 +273,7 @@ static int message_search_body(struct part_search_context *ctx,
 {
 	const unsigned char *data;
 	buffer_t *decodebuf;
+	pool_t pool;
 	size_t data_size, pos;
 	uoff_t old_limit;
 	ssize_t ret;
@@ -292,8 +294,8 @@ static int message_search_body(struct part_search_context *ctx,
 	if (ctx->translation == NULL)
 		ctx->translation = charset_to_utf8_begin("ascii", NULL);
 
-	ctx->decode_buf = buffer_create_static(data_stack_pool, 256);
-	ctx->match_buf = buffer_create_static_hard(data_stack_pool,
+	ctx->decode_buf = buffer_create_static(pool_datastack_create(), 256);
+	ctx->match_buf = buffer_create_static_hard(pool_datastack_create(),
 						   sizeof(size_t) *
 						   ctx->body_ctx->key_len);
 
@@ -312,15 +314,14 @@ static int message_search_body(struct part_search_context *ctx,
 		pos = data_size;
 
 		t_push();
+		pool = pool_datastack_create();
 		if (ctx->content_qp) {
-			decodebuf = buffer_create_static_hard(data_stack_pool,
-							      data_size);
+			decodebuf = buffer_create_static_hard(pool, data_size);
 			quoted_printable_decode(data, data_size,
 						&data_size, decodebuf);
 		} else if (ctx->content_base64) {
 			size_t size = MAX_BASE64_DECODED_SIZE(data_size);
-			decodebuf = buffer_create_static_hard(data_stack_pool,
-							      size);
+			decodebuf = buffer_create_static_hard(pool, size);
 
 			if (base64_decode(data, data_size,
 					  &data_size, decodebuf) < 0) {
@@ -330,8 +331,8 @@ static int message_search_body(struct part_search_context *ctx,
 				break;
 			}
 		} else {
-			decodebuf = buffer_create_const_data(data_stack_pool,
-							     data, data_size);
+			decodebuf = buffer_create_const_data(pool, data,
+							     data_size);
 		}
 
 		ret = message_search_body_block(ctx, decodebuf);

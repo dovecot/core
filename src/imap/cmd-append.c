@@ -84,7 +84,7 @@ int cmd_append(struct client *client)
 		return TRUE;
 	}
 	memset(&old_flags, 0, sizeof(old_flags));
-        old_flags.pool = data_stack_pool;
+        old_flags.pool = pool_datastack_create();
 	client_save_custom_flags(&old_flags, status.custom_flags,
 				 status.custom_flags_count);
 

@@ -217,7 +217,7 @@ static void client_destroy_oldest(void)
 	size_t i, count;
 
 	/* find the oldest clients and put them to destroy-buffer */
-	destroy_buf = buffer_create_static_hard(data_stack_pool,
+	destroy_buf = buffer_create_static_hard(pool_datastack_create(),
 						sizeof(struct pop3_client *) *
 						CLIENT_DESTROY_OLDEST_COUNT);
 	hash_foreach(clients, client_hash_destroy_oldest, destroy_buf);
