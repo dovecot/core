@@ -871,6 +871,7 @@ struct mailbox mbox_mailbox = {
 	mbox_storage_save_next,
 	index_storage_copy_init,
 	index_storage_copy_deinit,
+	index_storage_copy,
 	mbox_storage_expunge_init,
 	mbox_storage_expunge_deinit,
 	mbox_storage_expunge_fetch_next,

@@ -4,27 +4,27 @@
 #include "commands.h"
 
 static int fetch_and_copy(struct mail_copy_context *copy_ctx,
-			  struct mailbox *box, const char *messageset,
-			  int uidset, int *all_found)
+			  struct mailbox *srcbox, struct mailbox *destbox,
+			  const char *messageset, int uidset, int *all_found)
 {
 	struct mail_fetch_context *fetch_ctx;
 	struct mail *mail;
 	int failed = FALSE;
 
-	fetch_ctx = box->fetch_init(box, MAIL_FETCH_STREAM_HEADER |
-				    MAIL_FETCH_STREAM_BODY, NULL,
-				    messageset, uidset);
+	fetch_ctx = srcbox->fetch_init(srcbox, MAIL_FETCH_STREAM_HEADER |
+				       MAIL_FETCH_STREAM_BODY, NULL,
+				       messageset, uidset);
 	if (fetch_ctx == NULL)
 		return FALSE;
 
-	while ((mail = box->fetch_next(fetch_ctx)) != NULL) {
-		if (!mail->copy(mail, copy_ctx)) {
+	while ((mail = srcbox->fetch_next(fetch_ctx)) != NULL) {
+		if (!destbox->copy(mail, copy_ctx)) {
 			failed = TRUE;
 			break;
 		}
 	}
 
-	if (!box->fetch_deinit(fetch_ctx, all_found))
+	if (!srcbox->fetch_deinit(fetch_ctx, all_found))
 		return FALSE;
 
 	return !failed;
@@ -75,7 +75,7 @@ int cmd_copy(struct client *client)
 	if (copy_ctx == NULL)
 		failed = TRUE;
 	else {
-		if (!fetch_and_copy(copy_ctx, client->mailbox,
+		if (!fetch_and_copy(copy_ctx, client->mailbox, destbox,
 				    messageset, client->cmd_uid, &all_found))
 			failed = TRUE;
 

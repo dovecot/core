@@ -325,6 +325,8 @@ struct mailbox {
 	struct mail_copy_context *(*copy_init)(struct mailbox *box);
 	/* Finish copying. */
 	int (*copy_deinit)(struct mail_copy_context *ctx, int rollback);
+	/* Copy given message. */
+	int (*copy)(struct mail *mail, struct mail_copy_context *ctx);
 
 	/* Initialize expunging operation to this mailbox. If expunge_all
 	   is TRUE, all messages are returned rather than just deleted. */
@@ -389,9 +391,6 @@ struct mail {
 	int (*update_flags)(struct mail *mail,
 			    const struct mail_full_flags *flags,
 			    enum modify_type modify_type);
-
-	/* Copy this message to another mailbox. */
-	int (*copy)(struct mail *mail, struct mail_copy_context *ctx);
 
 	/* Expunge this message. Note that the actual message may or may not
 	   be really expunged until expunge_deinit() is called. In any case,

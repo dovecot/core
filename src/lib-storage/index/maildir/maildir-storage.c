@@ -387,7 +387,6 @@ static int verify_inbox(struct mail_storage *storage)
 
 static void maildir_mail_init(struct index_mail *mail)
 {
-	mail->mail.copy = maildir_storage_copy;
 	mail->mail.expunge = maildir_storage_expunge;
 }
 
@@ -872,6 +871,7 @@ struct mailbox maildir_mailbox = {
 	maildir_storage_save_next,
 	maildir_storage_copy_init,
 	maildir_storage_copy_deinit,
+	maildir_storage_copy,
 	maildir_storage_expunge_init,
 	maildir_storage_expunge_deinit,
 	maildir_storage_expunge_fetch_next,

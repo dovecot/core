@@ -561,7 +561,6 @@ static struct mail index_mail = {
 	get_stream,
 	get_special,
 	index_storage_update_flags,
-	index_storage_copy,
 	index_storage_expunge
 };
 

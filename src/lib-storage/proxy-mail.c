@@ -69,13 +69,6 @@ static int _update_flags(struct mail *mail, const struct mail_full_flags *flags,
 	return p->mail->update_flags(p->mail, flags, modify_type);
 }
 
-static int _copy(struct mail *mail, struct mail_copy_context *ctx)
-{
-	struct proxy_mail *p = (struct proxy_mail *) mail;
-
-	return p->mail->copy(p->mail, ctx);
-}
-
 static int _expunge(struct mail *mail, struct mail_expunge_context *ctx,
 		    unsigned int *seq_r, int notify)
 {
@@ -101,7 +94,6 @@ void proxy_mail_init(struct proxy_mail *proxy, struct mail *mail)
 	pm->get_stream = _get_stream;
 	pm->get_special = _get_special;
 	pm->update_flags = _update_flags;
-	pm->copy = _copy;
 	pm->expunge = _expunge;
 }
 
