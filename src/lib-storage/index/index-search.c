@@ -737,15 +737,15 @@ static int seq_update(const char *set, unsigned int *first_seq,
 static int search_get_sequid(struct index_mailbox *ibox,
 			     const struct mail_search_arg *args,
 			     unsigned int *first_seq, unsigned int *last_seq,
-			     unsigned int *first_uid, unsigned int *last_uid,
-			     int default_all)
+			     unsigned int *first_uid, unsigned int *last_uid)
 {
 	for (; args != NULL; args = args->next) {
-		if (args->type == SEARCH_OR || args->type == SEARCH_SUB) {
+		/* FIXME: we don't check if OR condition can limit the range.
+		   It's a bit tricky and unlikely to affect performance much. */
+		if (args->type == SEARCH_SUB) {
 			if (!search_get_sequid(ibox, args->value.subargs,
 					       first_seq, last_seq,
-					       first_uid, last_uid,
-					       args->type == SEARCH_OR))
+					       first_uid, last_uid))
 				return FALSE;
 		} else if (args->type == SEARCH_SET) {
 			if (!seq_update(args->value.str, first_seq, last_seq,
@@ -763,7 +763,7 @@ static int search_get_sequid(struct index_mailbox *ibox,
 						       args->value.str);
 				return FALSE;
 			}
-		} else if (args->type == SEARCH_ALL || default_all) {
+		} else if (args->type == SEARCH_ALL) {
 			/* go through everything */
 			*first_seq = 1;
 			*last_seq = ibox->synced_messages_count;
@@ -861,7 +861,7 @@ static int search_get_uid_range(struct index_mailbox *ibox,
 	first_seq = last_seq = 0;
 
 	if (!search_get_sequid(ibox, args, &first_seq, &last_seq,
-			       first_uid, last_uid, FALSE))
+			       first_uid, last_uid))
 		return -1;
 
 	/* seq_update() should make sure that these can't happen */
