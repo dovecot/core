@@ -4,6 +4,10 @@
 /* max. size for auth_login_request_continue.data[] */
 #define AUTH_LOGIN_MAX_REQUEST_DATA_SIZE 4096
 
+/* Login process must finish with single authentication requests in this time,
+   or the whole connection will be killed. */
+#define AUTH_REQUEST_TIMEOUT 120
+
 enum auth_mech {
 	AUTH_MECH_PLAIN		= 0x01,
 	AUTH_MECH_DIGEST_MD5	= 0x02,

@@ -61,6 +61,7 @@ static void client_auth_abort(struct imap_client *client, const char *msg)
 {
 	if (client->auth_request != NULL) {
 		auth_abort_request(client->auth_request);
+                auth_request_unref(client->auth_request);
 		client->auth_request = NULL;
 	}
 
@@ -136,6 +137,7 @@ static int auth_callback(struct auth_request *request,
 
 	if (reply == NULL) {
 		/* failed */
+                auth_request_unref(client->auth_request);
 		client->auth_request = NULL;
 		client_auth_abort(client, "NO Authentication process died.");
 		return FALSE;
@@ -143,10 +145,14 @@ static int auth_callback(struct auth_request *request,
 
 	switch (reply->result) {
 	case AUTH_LOGIN_RESULT_CONTINUE:
+		i_assert(client->auth_request == NULL);
+
 		client->auth_request = request;
+                auth_request_ref(client->auth_request);
 		return TRUE;
 
 	case AUTH_LOGIN_RESULT_SUCCESS:
+                auth_request_unref(client->auth_request);
 		client->auth_request = NULL;
 
 		user = auth_login_get_str(reply, data, reply->username_idx);
@@ -172,6 +178,7 @@ static int auth_callback(struct auth_request *request,
 
 	case AUTH_LOGIN_RESULT_FAILURE:
 		/* see if we have error message */
+                auth_request_unref(client->auth_request);
 		client->auth_request = NULL;
 
 		if (reply->data_size > 0 && data[reply->data_size-1] == '\0') {

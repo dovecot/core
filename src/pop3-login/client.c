@@ -27,6 +27,10 @@
    client hash, it's faster if we disconnect multiple clients. */
 #define CLIENT_DESTROY_OLDEST_COUNT 16
 
+#if CLIENT_LOGIN_IDLE_TIMEOUT >= AUTH_REQUEST_TIMEOUT
+#  error client idle timeout must be smaller than authentication timeout
+#endif
+
 static struct hash_table *clients;
 static struct timeout *to_idle;
 

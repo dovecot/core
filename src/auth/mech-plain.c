@@ -13,8 +13,7 @@ static void verify_callback(enum passdb_result result,
 }
 
 static int
-mech_plain_auth_continue(struct login_connection *conn,
-			 struct auth_request *auth_request,
+mech_plain_auth_continue(struct auth_request *auth_request,
 			 struct auth_login_request_continue *request,
 			 const unsigned char *data, mech_callback_t *callback)
 {

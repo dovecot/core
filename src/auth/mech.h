@@ -14,11 +14,12 @@ struct auth_request {
 
 	struct login_connection *conn;
 	unsigned int id;
+	time_t created;
+
 	enum auth_protocol protocol;
 	mech_callback_t *callback;
 
-	int (*auth_continue)(struct login_connection *conn,
-			     struct auth_request *auth_request,
+	int (*auth_continue)(struct auth_request *auth_request,
 			     struct auth_login_request_continue *request,
 			     const unsigned char *data,
 			     mech_callback_t *callback);

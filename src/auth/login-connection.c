@@ -18,6 +18,7 @@
 	 AUTH_LOGIN_MAX_REQUEST_DATA_SIZE)
 #define MAX_OUTBUF_SIZE (1024*50)
 
+static struct timeout *to;
 static struct auth_login_handshake_output handshake_output;
 static struct login_connection *connections;
 
@@ -254,6 +255,32 @@ static void login_connection_unref(struct login_connection *conn)
 	i_free(conn);
 }
 
+static void auth_request_hash_timeout_check(void *key __attr_unused__,
+					    void *value, void *context)
+{
+	struct login_connection *conn = context;
+	struct auth_request *auth_request = value;
+
+	if (auth_request->created + AUTH_REQUEST_TIMEOUT < ioloop_time) {
+		i_warning("Login process has too old (%us) requests, "
+			  "killing it.",
+			  (unsigned int)(ioloop_time - auth_request->created));
+
+		login_connection_destroy(conn);
+		hash_foreach_stop();
+	}
+}
+
+static void request_timeout(void *context __attr_unused__)
+{
+	struct login_connection *conn;
+
+	for (conn = connections; conn != NULL; conn = conn->next) {
+		hash_foreach(conn->auth_requests,
+			     auth_request_hash_timeout_check, conn);
+	}
+}
+
 void login_connections_init(void)
 {
 	const char *env;
@@ -267,6 +294,7 @@ void login_connections_init(void)
 	handshake_output.auth_mechanisms = auth_mechanisms;
 
 	connections = NULL;
+	to = timeout_add(5000, request_timeout, NULL);
 }
 
 void login_connections_deinit(void)
@@ -278,4 +306,6 @@ void login_connections_deinit(void)
 		login_connection_destroy(connections);
 		connections = next;
 	}
+
+	timeout_remove(to);
 }

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "ioloop.h"
 #include "buffer.h"
 #include "hash.h"
 #include "mech.h"
@@ -90,6 +91,7 @@ void mech_request_new(struct login_connection *conn,
 	}
 
 	if (auth_request != NULL) {
+		auth_request->created = ioloop_time;
 		auth_request->conn = conn;
 		auth_request->id = request->id;
 		auth_request->protocol = request->protocol;
@@ -113,7 +115,7 @@ void mech_request_continue(struct login_connection *conn,
 		failure_reply.id = request->id;
 		callback(&failure_reply, NULL, conn);
 	} else {
-		if (!auth_request->auth_continue(conn, auth_request,
+		if (!auth_request->auth_continue(auth_request,
 						 request, data, callback))
 			mech_request_free(conn, auth_request, request->id);
 	}

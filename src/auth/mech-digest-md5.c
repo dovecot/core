@@ -543,8 +543,7 @@ static void credentials_callback(const char *result,
 }
 
 static int
-mech_digest_md5_auth_continue(struct login_connection *conn,
-			      struct auth_request *auth_request,
+mech_digest_md5_auth_continue(struct auth_request *auth_request,
 			      struct auth_login_request_continue *request,
 			      const unsigned char *data,
 			      mech_callback_t *callback)
@@ -588,7 +587,7 @@ mech_digest_md5_auth_continue(struct login_connection *conn,
 	/* failed */
 	reply.result = AUTH_LOGIN_RESULT_FAILURE;
 	reply.data_size = strlen(error)+1;
-	callback(&reply, error, conn);
+	callback(&reply, error, auth_request->conn);
 	return FALSE;
 }
 
