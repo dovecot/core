@@ -22,9 +22,6 @@ struct mail_sort_callbacks {
 
 	/* done parsing this message, free all resources */
 	void (*input_reset)(void *context);
-
-	/* result callback */
-	void (*output)(unsigned int *data, size_t count, void *context);
 };
 
 /* input and output are arrays of sort programs ending with MAIL_SORT_END.
@@ -33,6 +30,7 @@ struct mail_sort_callbacks {
    is known, the less memory is used. */
 struct mail_sort_context *
 mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
+	       struct ostream *outstream,
 	       const struct mail_sort_callbacks *callbacks, void *context);
 void mail_sort_deinit(struct mail_sort_context *ctx);
 

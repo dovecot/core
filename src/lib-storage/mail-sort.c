@@ -1,24 +1,39 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
-/* Implementation of draft-ietf-imapext-sort-10 sorting algorithm */
+/* Implementation of draft-ietf-imapext-sort-10 sorting algorithm.
+   Pretty messy code actually, adding any sort types requires care.
+   This is pretty fast however and takes only as much memory as needed to be
+   reasonably fast. */
 
 #include "lib.h"
 #include "buffer.h"
+#include "hash.h"
 #include "ostream.h"
 #include "imap-base-subject.h"
 #include "mail-sort.h"
 
 #include <stdlib.h>
 
+#define IS_SORT_STRING(type) \
+	((type) == MAIL_SORT_CC || (type) == MAIL_SORT_FROM || \
+	 (type) == MAIL_SORT_SUBJECT || (type) == MAIL_SORT_TO)
+
+#define IS_SORT_TIME(type) \
+	((type) == MAIL_SORT_ARRIVAL || (type) == MAIL_SORT_DATE)
+
 struct mail_sort_context {
 	enum mail_sort_type output[MAX_SORT_PROGRAM_SIZE];
-	enum mail_sort_type common_mask;
+	enum mail_sort_type common_mask, cache_mask;
 
+	struct ostream *outstream;
 	const struct mail_sort_callbacks *callbacks;
 	void *func_context;
 
 	buffer_t *sort_buffer;
-	pool_t temp_pool;
+	size_t sort_element_size;
+
+	pool_t temp_pool, str_pool;
+	struct hash_table *string_table;
 
 	time_t last_arrival, last_date;
 	uoff_t last_size;
@@ -76,8 +91,10 @@ mail_sort_get_common_mask(const enum mail_sort_type *input,
 
 struct mail_sort_context *
 mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
+	       struct ostream *outstream,
 	       const struct mail_sort_callbacks *callbacks, void *context)
 {
+	/* @UNSAFE */
 	struct mail_sort_context *ctx;
 	enum mail_sort_type norm_input[MAX_SORT_PROGRAM_SIZE];
 	enum mail_sort_type norm_output[MAX_SORT_PROGRAM_SIZE];
@@ -85,6 +102,8 @@ mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
 	int i;
 
 	ctx = i_new(struct mail_sort_context, 1);
+	ctx->temp_pool = pool_alloconly_create("sort temp", 8192);
+	ctx->outstream = outstream;
 
 	t_push();
 	buf = buffer_create_data(data_stack_pool,
@@ -105,11 +124,45 @@ mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
 		ctx->output[i] = output[i];
 	ctx->output[i] = MAIL_SORT_END;
 
+	/* figure out what data we'd like to cache */
+	ctx->sort_element_size = sizeof(unsigned int);
+	ctx->cache_mask = 0;
+
+	for (i = 0; output[i] != MAIL_SORT_END; i++) {
+		if (IS_SORT_STRING(output[i])) {
+			ctx->sort_element_size += sizeof(const char *);
+
+			/* cache the second rule as well, if available */
+			if (ctx->cache_mask != 0) {
+				ctx->cache_mask |= output[i];
+				break;
+			}
+			ctx->cache_mask |= output[i];
+		} else if (IS_SORT_TIME(output[i])) {
+			ctx->sort_element_size += sizeof(time_t);
+			ctx->cache_mask |= output[i];
+			break;
+		} else if (output[i] == MAIL_SORT_SIZE) {
+			ctx->sort_element_size += sizeof(uoff_t);
+			ctx->cache_mask |= output[i];
+			break;
+		}
+	}
+
+	if ((ctx->cache_mask & MAIL_SORT_CC) ||
+	    (ctx->cache_mask & MAIL_SORT_FROM) ||
+	    (ctx->cache_mask & MAIL_SORT_TO) ||
+	    (ctx->cache_mask & MAIL_SORT_SUBJECT)) {
+		ctx->str_pool = pool_alloconly_create("sort str", 8192);
+		ctx->string_table = hash_create(default_pool, ctx->str_pool,
+						0, str_hash,
+						(HashCompareFunc)strcmp);
+	}
+
 	ctx->sort_buffer = buffer_create_dynamic(system_pool,
-						 128 * sizeof(unsigned int),
+						 128 * ctx->sort_element_size,
 						 (size_t)-1);
 
-	ctx->temp_pool = pool_alloconly_create("Sort", 8192);
 	ctx->callbacks = callbacks;
 	ctx->func_context = context;
 	return ctx;
@@ -118,6 +171,11 @@ mail_sort_init(const enum mail_sort_type *input, enum mail_sort_type *output,
 void mail_sort_deinit(struct mail_sort_context *ctx)
 {
 	mail_sort_flush(ctx);
+
+	if (ctx->string_table != NULL)
+		hash_destroy(ctx->string_table);
+	if (ctx->str_pool != NULL)
+		pool_unref(ctx->str_pool);
 	buffer_free(ctx->sort_buffer);
 	pool_unref(ctx->temp_pool);
 
@@ -129,31 +187,23 @@ void mail_sort_deinit(struct mail_sort_context *ctx)
 	i_free(ctx);
 }
 
-static int addr_strcmp(const char *s1, const char *s2)
+static const char *string_table_get(struct mail_sort_context *ctx,
+				    const char *str)
 {
-	if (s1 == NULL)
-		return s2 == NULL ? 0 : -1;
-	if (s2 == NULL)
-		return 1;
+	char *value;
 
-	/* FIXME: maybe create ascii_strcasecmp()? strcasecmp() may compare
-	   non-ASCII too if locale is set. We don't do that now though. */
-	return strcasecmp(s1, s2);
-}
+	if (str == NULL)
+		return NULL;
+	if (*str == '\0')
+		return "";
 
-static int subject_cmp(pool_t pool, const char *s1, const char *s2)
-{
-	int ret;
+	value = hash_lookup(ctx->string_table, str);
+	if (value == NULL) {
+		value = p_strdup(ctx->str_pool, str);
+		hash_insert(ctx->string_table, value, value);
+	}
 
-	if (s1 == NULL)
-		return s2 == NULL ? 0 : -1;
-	if (s2 == NULL)
-		return 1;
-
-	p_clear(pool);
-	ret = strcmp(imap_get_base_subject_cased(pool, s1, NULL),
-		     imap_get_base_subject_cased(pool, s2, NULL));
-	return ret;
+	return value;
 }
 
 static void mail_sort_check_flush(struct mail_sort_context *ctx,
@@ -174,9 +224,10 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_CC) {
-		str = ctx->callbacks->input_str(MAIL_SORT_CC, id,
-						ctx->func_context);
-		if (addr_strcmp(str, ctx->last_cc) != 0) {
+		str = ctx->callbacks->input_mailbox(MAIL_SORT_CC, id,
+						    ctx->func_context);
+		str = str_ucase(t_strdup_noconst(str));
+		if (strcmp(str, ctx->last_cc) != 0) {
 			i_free(ctx->last_cc);
 			ctx->last_cc = i_strdup(str);
 			changed = TRUE;
@@ -193,9 +244,10 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_FROM) {
-		str = ctx->callbacks->input_str(MAIL_SORT_FROM, id,
-						ctx->func_context);
-		if (addr_strcmp(str, ctx->last_from) != 0) {
+		str = ctx->callbacks->input_mailbox(MAIL_SORT_FROM, id,
+						    ctx->func_context);
+		str = str_ucase(t_strdup_noconst(str));
+		if (strcmp(str, ctx->last_from) != 0) {
 			i_free(ctx->last_from);
 			ctx->last_from = i_strdup(str);
 			changed = TRUE;
@@ -203,8 +255,8 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_SIZE) {
-		size = ctx->callbacks->input_time(MAIL_SORT_SIZE, id,
-						  ctx->func_context);
+		size = ctx->callbacks->input_uofft(MAIL_SORT_SIZE, id,
+						   ctx->func_context);
 		if (size != ctx->last_size) {
 			ctx->last_size = size;
 			changed = TRUE;
@@ -214,7 +266,10 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	if (ctx->common_mask & MAIL_SORT_SUBJECT) {
 		str = ctx->callbacks->input_str(MAIL_SORT_SUBJECT, id,
 						ctx->func_context);
-		if (subject_cmp(ctx->temp_pool, str, ctx->last_subject) != 0) {
+		p_clear(ctx->temp_pool);
+		str = imap_get_base_subject_cased(ctx->temp_pool, str, NULL);
+
+		if (strcmp(str, ctx->last_subject) != 0) {
 			i_free(ctx->last_subject);
 			ctx->last_subject = i_strdup(str);
 			changed = TRUE;
@@ -222,9 +277,10 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 	}
 
 	if (ctx->common_mask & MAIL_SORT_TO) {
-		str = ctx->callbacks->input_str(MAIL_SORT_TO, id,
-						ctx->func_context);
-		if (addr_strcmp(str, ctx->last_to) != 0) {
+		str = ctx->callbacks->input_mailbox(MAIL_SORT_TO, id,
+						    ctx->func_context);
+		str = str_ucase(t_strdup_noconst(str));
+		if (strcmp(str, ctx->last_to) != 0) {
 			i_free(ctx->last_to);
 			ctx->last_to = i_strdup(str);
 			changed = TRUE;
@@ -237,26 +293,205 @@ static void mail_sort_check_flush(struct mail_sort_context *ctx,
 
 void mail_sort_input(struct mail_sort_context *ctx, unsigned int id)
 {
+	/* @UNSAFE */
+	unsigned char *buf;
+	time_t t;
+	uoff_t size;
+	const char *str;
+	size_t pos;
+
+	t_push();
 	if (ctx->common_mask != 0)
 		mail_sort_check_flush(ctx, id);
 
-	buffer_append(ctx->sort_buffer, &id, sizeof(id));
+	buf = buffer_append_space(ctx->sort_buffer, ctx->sort_element_size);
+	memcpy(buf, &id, sizeof(id)); pos = sizeof(id);
+
+	if (ctx->cache_mask & MAIL_SORT_ARRIVAL) {
+		if (ctx->common_mask & MAIL_SORT_ARRIVAL)
+			t = ctx->last_arrival;
+		else {
+			t = ctx->callbacks->input_time(MAIL_SORT_ARRIVAL, id,
+						       ctx->func_context);
+		}
+		memcpy(buf + pos, &t, sizeof(t)); pos += sizeof(t);
+	}
+
+	if (ctx->cache_mask & MAIL_SORT_DATE) {
+		if (ctx->common_mask & MAIL_SORT_DATE)
+			t = ctx->last_date;
+		else {
+			t = ctx->callbacks->input_time(MAIL_SORT_DATE, id,
+						       ctx->func_context);
+		}
+		memcpy(buf + pos, &t, sizeof(t)); pos += sizeof(t);
+	}
+
+	if (ctx->cache_mask & MAIL_SORT_SIZE) {
+		if (ctx->common_mask & MAIL_SORT_SIZE)
+			size = ctx->last_size;
+		else {
+			size = ctx->callbacks->input_uofft(MAIL_SORT_SIZE, id,
+							   ctx->func_context);
+		}
+
+		memcpy(buf + pos, &size, sizeof(size)); pos += sizeof(size);
+	}
+
+	if (ctx->cache_mask & MAIL_SORT_CC) {
+		if (ctx->common_mask & MAIL_SORT_CC)
+			str = ctx->last_cc;
+		else {
+			str = ctx->callbacks->input_mailbox(MAIL_SORT_CC, id,
+							    ctx->func_context);
+			if (str != NULL)
+				str = str_ucase(t_strdup_noconst(str));
+		}
+		str = string_table_get(ctx, str);
+
+		memcpy(buf + pos, &str, sizeof(const char *));
+		pos += sizeof(const char *);
+	}
+
+	if (ctx->cache_mask & MAIL_SORT_FROM) {
+		if (ctx->common_mask & MAIL_SORT_FROM)
+			str = ctx->last_from;
+		else {
+			str = ctx->callbacks->input_mailbox(MAIL_SORT_FROM, id,
+							    ctx->func_context);
+			if (str != NULL)
+				str = str_ucase(t_strdup_noconst(str));
+		}
+		str = string_table_get(ctx, str);
+
+		memcpy(buf + pos, &str, sizeof(const char *));
+		pos += sizeof(const char *);
+	}
+
+	if (ctx->cache_mask & MAIL_SORT_TO) {
+		if (ctx->common_mask & MAIL_SORT_TO)
+			str = ctx->last_to;
+		else {
+			str = ctx->callbacks->input_mailbox(MAIL_SORT_TO, id,
+							    ctx->func_context);
+			if (str != NULL)
+				str = str_ucase(t_strdup_noconst(str));
+		}
+		str = string_table_get(ctx, str);
+
+		memcpy(buf + pos, &str, sizeof(const char *));
+		pos += sizeof(const char *);
+	}
+
+	if (ctx->cache_mask & MAIL_SORT_SUBJECT) {
+		if (ctx->common_mask & MAIL_SORT_SUBJECT)
+			str = ctx->last_subject;
+		else {
+			str = ctx->callbacks->input_str(MAIL_SORT_SUBJECT, id,
+							ctx->func_context);
+			p_clear(ctx->temp_pool);
+			str = imap_get_base_subject_cased(ctx->temp_pool,
+							  str, NULL);
+		}
+		str = string_table_get(ctx, str);
+
+		memcpy(buf + pos, &str, sizeof(const char *));
+		pos += sizeof(const char *);
+	}
+
+	i_assert(pos == ctx->sort_element_size);
+
+	t_pop();
 }
 
-static struct mail_sort_context *mail_sort_qsort_context;
+static struct mail_sort_context *qsort_context;
+
+static time_t get_time(enum mail_sort_type type, const unsigned char *buf,
+		       struct mail_sort_context *ctx)
+{
+	time_t t;
+
+	if ((ctx->cache_mask & type) == 0) {
+		return ctx->callbacks->
+			input_time(type, *((unsigned int *) buf),
+				   ctx->func_context);
+	}
+
+	/* use memcpy() to avoid any alignment problems */
+	memcpy(&t, buf + sizeof(unsigned int), sizeof(t));
+	return t;
+}
+
+static time_t get_uofft(enum mail_sort_type type, const unsigned char *buf,
+			struct mail_sort_context *ctx)
+{
+	uoff_t size;
+
+	if ((ctx->cache_mask & type) == 0) {
+		return ctx->callbacks->
+			input_uofft(type, *((unsigned int *) buf),
+				    ctx->func_context);
+	}
+
+	/* use memcpy() to avoid any alignment problems */
+	memcpy(&size, buf + sizeof(unsigned int), sizeof(size));
+	return size;
+}
+static const char *get_str(enum mail_sort_type type, const unsigned char *buf,
+			   struct mail_sort_context *ctx)
+{
+	const char *str;
+	enum mail_sort_type type2;
+	int pos;
+
+	if ((ctx->cache_mask & type) == 0) {
+		unsigned int id = *((unsigned int *) buf);
+
+		if (type == MAIL_SORT_SUBJECT) {
+			str = ctx->callbacks->input_str(MAIL_SORT_SUBJECT, id,
+							ctx->func_context);
+			p_clear(ctx->temp_pool);
+			str = imap_get_base_subject_cased(ctx->temp_pool,
+							  str, NULL);
+		} else {
+			str = ctx->callbacks->input_mailbox(type, id,
+							    ctx->func_context);
+			if (str != NULL)
+				str = str_ucase(t_strdup_noconst(str));
+
+		}
+		return str;
+	}
+
+	/* figure out where it is. pretty ugly. */
+	type2 = (ctx->cache_mask & ~type);
+
+	if (type2 == 0)
+		pos = 0;
+	else if (IS_SORT_TIME(type2))
+		pos = sizeof(time_t);
+	else if (type2 == MAIL_SORT_SIZE)
+		pos = sizeof(uoff_t);
+	else {
+		if (type == MAIL_SORT_SUBJECT)
+			pos = sizeof(const char *);
+		else if (type2 != MAIL_SORT_SUBJECT && type > type2)
+			pos = sizeof(const char *);
+		else
+			pos = 0;
+	}
+
+	/* use memcpy() to avoid any alignment problems */
+	memcpy(&str, buf + pos + sizeof(unsigned int), sizeof(const char *));
+	return str;
+}
 
 static int mail_sort_qsort_func(const void *p1, const void *p2)
 {
-	const unsigned int *i1 = p1;
-	const unsigned int *i2 = p2;
 	enum mail_sort_type *output;
-        const struct mail_sort_callbacks *cb;
-	void *ctx;
 	int ret, reverse = FALSE;
 
-	output = mail_sort_qsort_context->output;
-	cb = mail_sort_qsort_context->callbacks;
-	ctx = mail_sort_qsort_context->func_context;
+	output = qsort_context->output;
 
 	t_push();
 
@@ -272,34 +507,35 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 		case MAIL_SORT_DATE: {
 			time_t r1, r2;
 
-			r1 = cb->input_time(*output, *i1, ctx);
-			r2 = cb->input_time(*output, *i2, ctx);
+			r1 = get_time(*output, p1, qsort_context);
+			r2 = get_time(*output, p2, qsort_context);
 			ret = r1 < r2 ? -1 : r1 > r2 ? 1 : 0;
 			break;
 		}
 		case MAIL_SORT_SIZE: {
 			uoff_t r1, r2;
 
-			r1 = cb->input_uofft(*output, *i1, ctx);
-			r2 = cb->input_uofft(*output, *i2, ctx);
+			r1 = get_uofft(*output, p1, qsort_context);
+			r2 = get_uofft(*output, p2, qsort_context);
 			ret = r1 < r2 ? -1 : r1 > r2 ? 1 : 0;
 			break;
 		}
 		case MAIL_SORT_CC:
 		case MAIL_SORT_FROM:
-		case MAIL_SORT_TO: {
-			const char *a1, *a2;
+		case MAIL_SORT_TO:
+		case MAIL_SORT_SUBJECT: {
+			const char *s1, *s2;
 
-			a1 = cb->input_mailbox(*output, *i1, ctx);
-			a2 = cb->input_mailbox(*output, *i2, ctx);
-			ret = addr_strcmp(a1, a2);
+			s1 = get_str(*output, p1, qsort_context);
+			s2 = get_str(*output, p2, qsort_context);
+			if (s1 == NULL)
+				ret = s2 == NULL ? 0 : -1;
+			else if (s2 == NULL)
+				ret = 1;
+			else
+				ret = strcmp(s1, s2);
 			break;
 		}
-		case MAIL_SORT_SUBJECT:
-			ret = subject_cmp(mail_sort_qsort_context->temp_pool,
-					  cb->input_str(*output, *i1, ctx),
-					  cb->input_str(*output, *i2, ctx));
-			break;
 		default:
 			i_unreached();
 		}
@@ -314,24 +550,38 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 		reverse = FALSE;
 	}
 
-	cb->input_reset(ctx);
+	qsort_context->callbacks->input_reset(qsort_context->func_context);
 
 	t_pop();
 
-	return ret != 0 ? ret : (*i1 < *i2 ? -1 : 1);
+	return ret != 0 ? ret :
+		(*((unsigned int *) p1) < *((unsigned int *) p2) ? -1 : 1);
 }
 
 static void mail_sort_flush(struct mail_sort_context *ctx)
 {
-	unsigned int *arr;
-	size_t count;
+	unsigned char *arr;
+	size_t i, count;
 
-	mail_sort_qsort_context = ctx;
+	qsort_context = ctx;
 
 	arr = buffer_get_modifyable_data(ctx->sort_buffer, NULL);
-	count = buffer_get_used_size(ctx->sort_buffer) / sizeof(unsigned int);
-	qsort(arr, count, sizeof(unsigned int), mail_sort_qsort_func);
+	count = buffer_get_used_size(ctx->sort_buffer) / ctx->sort_element_size;
+	qsort(arr, count, ctx->sort_element_size, mail_sort_qsort_func);
 
-	ctx->callbacks->output(arr, count, ctx->func_context);
+	for (i = 0; i < count; i++, arr += ctx->sort_element_size) {
+		unsigned int id = *((unsigned int *) arr);
+
+		t_push();
+		o_stream_send(ctx->outstream, " ", 1);
+		o_stream_send_str(ctx->outstream, dec2str(id));
+		t_pop();
+	}
+
 	buffer_set_used_size(ctx->sort_buffer, 0);
+
+	if (ctx->string_table != NULL) {
+		hash_clear(ctx->string_table, TRUE);
+		p_clear(ctx->str_pool);
+	}
 }

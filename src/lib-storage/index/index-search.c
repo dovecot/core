@@ -948,7 +948,7 @@ int index_storage_search(struct mailbox *box, const char *charset,
 		index_sort_ctx.output = output;
 
 		thread_ctx = NULL;
-		sort_ctx = mail_sort_init(sort_unsorted, sorting,
+		sort_ctx = mail_sort_init(sort_unsorted, sorting, output,
 					  &index_sort_callbacks,
 					  &index_sort_ctx);
 		o_stream_send_str(output, "* SORT");

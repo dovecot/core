@@ -154,25 +154,10 @@ static void _input_reset(void *context)
 	ctx->cached = FALSE;
 }
 
-static void _output(unsigned int *data, size_t count, void *context)
-{
-	struct index_sort_context *ctx = context;
-	size_t i;
-
-	/* FIXME: works only with UIDs! */
-	for (i = 0; i < count; i++) {
-		t_push();
-		o_stream_send(ctx->output, " ", 1);
-		o_stream_send_str(ctx->output, dec2str(data[i]));
-		t_pop();
-	}
-}
-
 struct mail_sort_callbacks index_sort_callbacks = {
 	_input_time,
 	_input_uofft,
 	_input_mailbox,
 	_input_str,
-	_input_reset,
-	_output
+	_input_reset
 };
