@@ -15,7 +15,7 @@ int _cmd_subscribe_full(struct client *client, int subscribe)
 	if (!client_verify_mailbox_name(client, mailbox, subscribe, FALSE))
 		return TRUE;
 
-	storage = client_find_storage(client, mailbox);
+	storage = client_find_storage(client, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 

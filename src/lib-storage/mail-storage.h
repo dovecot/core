@@ -167,16 +167,12 @@ void mail_storage_class_unregister(struct mail_storage *storage_class);
    If namespace is non-NULL, all mailbox names are expected to begin with it.
    hierarchy_sep overrides the default separator if it's not '\0'. */
 struct mail_storage *
-mail_storage_create(const char *name, const char *data, const char *user,
-		    const char *namespace, char hierarchy_sep);
+mail_storage_create(const char *name, const char *data, const char *user);
 void mail_storage_destroy(struct mail_storage *storage);
 
+struct mail_storage *mail_storage_create_default(const char *user);
 struct mail_storage *
-mail_storage_create_default(const char *user,
-			    const char *namespace, char hierarchy_sep);
-struct mail_storage *
-mail_storage_create_with_data(const char *data, const char *user,
-			      const char *namespace, char hierarchy_sep);
+mail_storage_create_with_data(const char *data, const char *user);
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
 
@@ -205,11 +201,11 @@ int mail_storage_mailbox_rename(struct mail_storage *storage,
 				const char *oldname, const char *newname);
 
 /* Initialize new mailbox list request. mask may contain '%' and '*'
-   wildcards as defined in RFC2060. Matching against "INBOX" is
+   wildcards as defined in RFC3501. Matching against "INBOX" is
    case-insensitive, but anything else is not. */
 struct mailbox_list_context *
 mail_storage_mailbox_list_init(struct mail_storage *storage,
-			       const char *mask,
+			       const char *ref, const char *mask,
 			       enum mailbox_list_flags flags);
 /* Get next mailbox. Returns the mailbox name */
 struct mailbox_list *
@@ -259,8 +255,7 @@ int mailbox_is_readonly(struct mailbox *box);
 int mailbox_allow_new_keywords(struct mailbox *box);
 
 /* Gets the mailbox status information. */
-int mailbox_get_status(struct mailbox *box,
-		       enum mailbox_status_items items,
+int mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 		       struct mailbox_status *status);
 
 /* Synchronize the mailbox. */

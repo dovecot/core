@@ -6,13 +6,32 @@
 
 #include <stdlib.h>
 
+static void namespace_init_storage(struct namespace *ns)
+{
+	ns->prefix_len = strlen(ns->prefix);
+	ns->real_sep = mail_storage_get_hierarchy_sep(ns->storage);
+
+	if (ns->sep == '\0')
+                ns->sep = ns->real_sep;
+
+	if (ns->sep == '"' || ns->sep == '\\') {
+		ns->sep_str[0] = '\\';
+		ns->sep_str[1] = ns->sep;
+	} else {
+		ns->sep_str[0] = ns->sep;
+	}
+
+	if (hook_mail_storage_created != NULL)
+		hook_mail_storage_created(&ns->storage);
+}
+
 static struct namespace *
 namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		  const char *user)
 {
         struct namespace *ns;
         const char *sep, *type, *prefix;
-	int inbox, hidden;
+	int inbox, hidden, subscriptions;
 
 	ns = p_new(pool, struct namespace, 1);
 
@@ -21,6 +40,8 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	prefix = getenv(t_strdup_printf("NAMESPACE_%u_PREFIX", num));
 	inbox = getenv(t_strdup_printf("NAMESPACE_%u_INBOX", num)) != NULL;
 	hidden = getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN", num)) != NULL;
+	subscriptions = getenv(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS",
+					       num)) != NULL;
 
 	if (type == NULL || *type == '\0' || strncmp(type, "private", 7) == 0)
 		ns->type = NAMESPACE_PRIVATE;
@@ -37,17 +58,16 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	ns->prefix = p_strdup(pool, prefix);
 	ns->inbox = inbox;
 	ns->hidden = hidden;
-	ns->storage = mail_storage_create_with_data(data, user, ns->prefix,
-						    sep != NULL ? *sep : '\0');
+	ns->subscriptions = subscriptions;
+	ns->storage = mail_storage_create_with_data(data, user);
 	if (ns->storage == NULL) {
 		i_fatal("Failed to create storage for '%s' with data: %s",
 			ns->prefix, data);
 	}
 
-	if (hook_mail_storage_created != NULL)
-		hook_mail_storage_created(&ns->storage);
-
-	ns->hierarchy_sep = mail_storage_get_hierarchy_sep(ns->storage);
+	if (sep != NULL)
+		ns->sep = *sep;
+        namespace_init_storage(ns);
 	return ns;
 }
 
@@ -88,7 +108,7 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 	}
 
 	ns = p_new(pool, struct namespace, 1);
-	ns->storage = mail_storage_create_with_data(mail, user, NULL, '\0');
+	ns->storage = mail_storage_create_with_data(mail, user);
 	if (ns->storage == NULL) {
 		if (mail != NULL && *mail != '\0')
 			i_fatal("Failed to create storage with data: %s", mail);
@@ -105,11 +125,9 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 
 	ns->type = NAMESPACE_PRIVATE;
 	ns->inbox = TRUE;
-	ns->prefix = p_strdup(pool, "");
-	ns->hierarchy_sep = mail_storage_get_hierarchy_sep(ns->storage);
-	if (hook_mail_storage_created != NULL)
-		hook_mail_storage_created(&ns->storage);
-
+	ns->subscriptions = TRUE;
+	ns->prefix = "";
+	namespace_init_storage(ns);
 	return ns;
 }
 
@@ -121,39 +139,61 @@ void namespace_deinit(struct namespace *namespaces)
 	}
 }
 
-struct namespace *
-namespace_find(struct namespace *namespaces, const char *mailbox)
+const char *namespace_fix_sep(struct namespace *ns, const char *name)
 {
+	char *ret, *p;
+
+	if (ns->sep == ns->real_sep)
+		return name;
+
+	ret = p_strdup(unsafe_data_stack_pool, name);
+	for (p = ret; *p != '\0'; p++) {
+		if (*p == ns->sep)
+			*p = ns->real_sep;
+	}
+	return ret;
+}
+
+struct namespace *
+namespace_find(struct namespace *namespaces, const char **mailbox)
+{
+        struct namespace *ns = namespaces;
+	const char *box = *mailbox;
 	struct namespace *best = NULL;
-	size_t len, best_len = 0;
+	size_t best_len = 0;
 	int inbox;
 
-	inbox = strncasecmp(mailbox, "INBOX", 5) == 0;
-	if (inbox && mailbox[5] == '\0') {
+	inbox = strncasecmp(box, "INBOX", 5) == 0;
+	if (inbox && box[5] == '\0') {
 		/* find the INBOX namespace */
-		while (namespaces != NULL) {
-			if (namespaces->inbox)
-				return namespaces;
-			if (namespaces->prefix == NULL)
-				best = namespaces;
-			namespaces = namespaces->next;
+		*mailbox = "INBOX";
+		while (ns != NULL) {
+			if (ns->inbox)
+				return ns;
+			if (*ns->prefix == '\0')
+				best = ns;
+			ns = ns->next;
 		}
 		return best;
 	}
 
-	while (namespaces != NULL) {
-		len = namespaces->prefix == NULL ? 0 :
-			strlen(namespaces->prefix);
-		if (len >= best_len &&
-		    (strncmp(namespaces->prefix, mailbox, len) == 0 ||
-		     (inbox && strncmp(namespaces->prefix, "INBOX", 5) == 0 &&
-		      mailbox[5] == namespaces->hierarchy_sep &&
-		      namespaces->prefix[5] == namespaces->hierarchy_sep &&
-		      strncmp(namespaces->prefix+6, mailbox+6, len-6) == 0))) {
-			best = namespaces;
-			best_len = len;
+	for (; ns != NULL; ns = ns->next) {
+		if (ns->prefix_len >= best_len &&
+		    (strncmp(ns->prefix, box, ns->prefix_len) == 0 ||
+		     (inbox && strncmp(ns->prefix, "INBOX", 5) == 0 &&
+		      strncmp(ns->prefix+5, box+5, ns->prefix_len-5) == 0))) {
+			best = ns;
+			best_len = ns->prefix_len;
 		}
-		namespaces = namespaces->next;
+	}
+
+	if (best != NULL) {
+		if (best_len > 0)
+			*mailbox += best_len;
+		else if (inbox && (box[5] == best->sep || box[5] == '\0'))
+			*mailbox = t_strconcat("INBOX", box+5, NULL);
+
+		*mailbox = namespace_fix_sep(best, *mailbox);
 	}
 
 	return best;

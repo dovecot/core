@@ -24,7 +24,7 @@ int _cmd_select_full(struct client *client, int readonly)
 		}
 	}
 
-	storage = client_find_storage(client, mailbox);
+	storage = client_find_storage(client, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 

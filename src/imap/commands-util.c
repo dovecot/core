@@ -17,7 +17,7 @@
 #define MAILBOX_MAX_NAME_LEN 512
 
 struct mail_storage *
-client_find_storage(struct client *client, const char *mailbox)
+client_find_storage(struct client *client, const char **mailbox)
 {
 	struct namespace *ns;
 
@@ -37,7 +37,7 @@ int client_verify_mailbox_name(struct client *client, const char *mailbox,
 	const char *p;
 	char sep;
 
-	storage = client_find_storage(client, mailbox);
+	storage = client_find_storage(client, &mailbox);
 	if (storage == NULL)
 		return FALSE;
 

@@ -69,7 +69,7 @@ int cmd_append(struct client *client)
 	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
 		return TRUE;
 
-	storage = client_find_storage(client, mailbox);
+	storage = client_find_storage(client, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 

@@ -15,11 +15,11 @@ int cmd_rename(struct client *client)
 	if (!client_verify_mailbox_name(client, newname, FALSE, TRUE))
 		return TRUE;
 
-	old_storage = client_find_storage(client, oldname);
+	old_storage = client_find_storage(client, &oldname);
 	if (old_storage == NULL)
 		return TRUE;
 
-	new_storage = client_find_storage(client, newname);
+	new_storage = client_find_storage(client, &newname);
 	if (new_storage == NULL)
 		return TRUE;
 

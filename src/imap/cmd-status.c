@@ -102,7 +102,7 @@ int cmd_status(struct client *client)
 		return TRUE;
 	}
 
-	storage = client_find_storage(client, mailbox);
+	storage = client_find_storage(client, &mailbox);
 	if (storage == NULL)
 		return FALSE;
 

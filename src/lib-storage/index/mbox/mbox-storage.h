@@ -24,7 +24,8 @@ extern size_t mbox_hide_headers_count;
 int mbox_set_syscall_error(struct index_mailbox *ibox, const char *function);
 
 struct mailbox_list_context *
-mbox_mailbox_list_init(struct mail_storage *storage, const char *mask,
+mbox_mailbox_list_init(struct mail_storage *storage,
+		       const char *ref, const char *mask,
 		       enum mailbox_list_flags flags);
 int mbox_mailbox_list_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *mbox_mailbox_list_next(struct mailbox_list_context *ctx);
@@ -45,8 +46,6 @@ int mbox_save(struct mailbox_transaction_context *t,
 int mbox_save_commit(struct mbox_save_context *ctx);
 void mbox_save_rollback(struct mbox_save_context *ctx);
 
-const char *mbox_fix_mailbox_name(struct index_storage *istorage,
-				  const char *name, int remove_namespace);
 int mbox_is_valid_mask(const char *mask);
 
 #endif

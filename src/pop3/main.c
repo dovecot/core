@@ -130,8 +130,7 @@ static int main_init(void)
 	}
         parse_workarounds();
 
-	storage = mail_storage_create_with_data(mail, getenv("USER"),
-						NULL, '\0');
+	storage = mail_storage_create_with_data(mail, getenv("USER"));
 	if (storage == NULL) {
 		/* failed */
 		if (mail != NULL && *mail != '\0')

@@ -11,7 +11,7 @@ struct mail_full_flags;
 /* Finds mail storage for given mailbox from namespaces. If not found,
    sends "Unknown namespace" error message to client. */
 struct mail_storage *
-client_find_storage(struct client *client, const char *mailbox);
+client_find_storage(struct client *client, const char **mailbox);
 
 /* If should_exist is TRUE, this function returns TRUE if the mailbox
    exists. If it doesn't exist but would be a valid mailbox name, the

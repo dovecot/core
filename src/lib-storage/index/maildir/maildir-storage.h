@@ -33,7 +33,8 @@ int maildir_create_tmp(struct index_mailbox *ibox, const char *dir,
 
 struct mailbox_list_context *
 maildir_mailbox_list_init(struct mail_storage *storage,
-			  const char *mask, enum mailbox_list_flags flags);
+			  const char *ref, const char *mask,
+			  enum mailbox_list_flags flags);
 int maildir_mailbox_list_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *
 maildir_mailbox_list_next(struct mailbox_list_context *ctx);
@@ -60,8 +61,6 @@ int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail,
 int maildir_copy_commit(struct maildir_copy_context *ctx);
 void maildir_copy_rollback(struct maildir_copy_context *ctx);
 
-const char *maildir_fix_mailbox_name(struct index_storage *storage,
-				     const char *name, int remove_namespace);
 const char *maildir_get_path(struct index_storage *storage, const char *name);
 
 int maildir_sync_last_commit(struct index_mailbox *ibox);

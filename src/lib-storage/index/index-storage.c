@@ -44,7 +44,6 @@ void index_storage_init(struct index_storage *storage __attr_unused__)
 
 void index_storage_deinit(struct index_storage *storage)
 {
-	i_free(storage->storage.namespace);
 	i_free(storage->storage.error);
 
 	if (--index_storage_refcount > 0)

@@ -5,12 +5,9 @@
 
 struct mail_storage {
 	char *name;
-	char *namespace;
 	char hierarchy_sep;
 
-	struct mail_storage *(*create)(const char *data, const char *user,
-				       const char *namespace,
-				       char hierarchy_sep);
+	struct mail_storage *(*create)(const char *data, const char *user);
 	void (*destroy)(struct mail_storage *storage);
 
 	int (*autodetect)(const char *data);
@@ -31,7 +28,7 @@ struct mail_storage {
 
 	struct mailbox_list_context *
 		(*mailbox_list_init)(struct mail_storage *storage,
-				     const char *mask,
+				     const char *ref, const char *mask,
 				     enum mailbox_list_flags flags);
 	struct mailbox_list *
 		(*mailbox_list_next)(struct mailbox_list_context *ctx);

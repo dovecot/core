@@ -70,13 +70,6 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 		return FALSE;
 	}
 
-	/* INBOX exists always */
-	if (imap_match(glob, "INBOX") > 0 && !update_only) {
-		node = mailbox_tree_get(ctx->tree_ctx, "INBOX", NULL);
-		node->flags |= MAILBOX_FLAG_MATCHED | MAILBOX_NOCHILDREN;
-		node->flags &= ~(MAILBOX_PLACEHOLDER | MAILBOX_NONEXISTENT);
-	}
-
 	stat_dirs = getenv("MAILDIR_STAT_DIRS") != NULL;
 
 	mailbox = t_str_new(PATH_MAX);
@@ -138,9 +131,6 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 		if (match != IMAP_MATCH_YES &&
 		    match != IMAP_MATCH_PARENT)
 			continue;
-
-		if (strcasecmp(fname, "INBOX") == 0)
-			continue; /* ignore inboxes */
 
 		if (match == IMAP_MATCH_PARENT) {
 			t_push();
@@ -219,9 +209,8 @@ static int maildir_fill_subscribed(struct maildir_list_context *ctx,
 			node = mailbox_tree_get(ctx->tree_ctx, name, NULL);
 			node->flags = MAILBOX_FLAG_MATCHED;
 			if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
-				if (strcasecmp(name, "INBOX") != 0)
-					node->flags |= MAILBOX_NONEXISTENT;
-				node->flags |= MAILBOX_NOCHILDREN;
+				node->flags |= MAILBOX_NONEXISTENT |
+					MAILBOX_NOCHILDREN;
 			}
 			break;
 		case IMAP_MATCH_PARENT:
@@ -249,7 +238,8 @@ static int maildir_fill_subscribed(struct maildir_list_context *ctx,
 
 struct mailbox_list_context *
 maildir_mailbox_list_init(struct mail_storage *storage,
-			  const char *mask, enum mailbox_list_flags flags)
+			  const char *ref, const char *mask,
+			  enum mailbox_list_flags flags)
 {
 	struct index_storage *istorage = (struct index_storage *)storage;
         struct maildir_list_context *ctx;
@@ -266,29 +256,32 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 	ctx->flags = flags;
 	ctx->tree_ctx = mailbox_tree_init(MAILDIR_FS_SEP);
 
-	if (storage->hierarchy_sep != MAILDIR_FS_SEP &&
-	    strchr(mask, MAILDIR_FS_SEP) != NULL) {
-		/* this will never match, return nothing */
-		return &ctx->mailbox_ctx;
+	if (*ref != '\0') {
+		/* join reference + mask */
+		if (*mask == MAILDIR_FS_SEP &&
+		    ref[strlen(ref)-1] == MAILDIR_FS_SEP) {
+			/* A. .B -> A.B */
+			mask++;
+		} else if (*mask != MAILDIR_FS_SEP &&
+			   ref[strlen(ref)-1] != MAILDIR_FS_SEP) {
+			/* A B -> A.B */
+			mask = t_strconcat(ref, MAILDIR_FS_SEP_S, mask, NULL);
+		} else {
+			mask = t_strconcat(ref, mask, NULL);
+		}
 	}
 
-	mask = maildir_fix_mailbox_name(istorage, mask, FALSE);
 	glob = imap_match_init(pool, mask, TRUE, MAILDIR_FS_SEP);
 
 	ctx->dir = istorage->dir;
-	ctx->prefix = storage->namespace == NULL ? "" :
-		maildir_fix_mailbox_name(istorage, storage->namespace, FALSE);
+	ctx->prefix = "";
 
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) != 0) {
-		if (!maildir_fill_subscribed(ctx, glob)) {
-                        mailbox_tree_deinit(ctx->tree_ctx);
-			pool_unref(pool);
-			return NULL;
-		}
+		if (!maildir_fill_subscribed(ctx, glob))
+			return &ctx->mailbox_ctx;
 	} else if (full_filesystem_access && (p = strrchr(mask, '/')) != NULL) {
 		dir = t_strdup_until(mask, p);
-		ctx->prefix = t_strconcat(ctx->prefix,
-					  t_strdup_until(mask, p+1), NULL);
+		ctx->prefix = p_strdup_until(pool, mask, p+1);
 
 		if (*mask != '/' && *mask != '~')
 			dir = t_strconcat(istorage->dir, "/", dir, NULL);
@@ -298,14 +291,10 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) == 0 ||
 	    (ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
 		int update_only = (flags & MAILBOX_LIST_SUBSCRIBED) != 0;
-		if (!maildir_fill_readdir(ctx, glob, update_only)) {
-			mailbox_tree_deinit(ctx->tree_ctx);
-			pool_unref(pool);
-			return NULL;
-		}
+		if (!maildir_fill_readdir(ctx, glob, update_only))
+			return &ctx->mailbox_ctx;
 	}
 
-	ctx->prefix = p_strdup(pool, ctx->prefix);
 	ctx->node_path = str_new(pool, 256);
 	ctx->root = mailbox_tree_get(ctx->tree_ctx, NULL, NULL);
 	ctx->mailbox_ctx.storage = storage;

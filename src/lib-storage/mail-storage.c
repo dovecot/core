@@ -69,33 +69,28 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 }
 
 struct mail_storage *
-mail_storage_create(const char *name, const char *data, const char *user,
-		    const char *namespace, char hierarchy_sep)
+mail_storage_create(const char *name, const char *data, const char *user)
 {
 	struct mail_storage_list *list;
 
 	i_assert(name != NULL);
 
 	for (list = storages; list != NULL; list = list->next) {
-		if (strcasecmp(list->storage->name, name) == 0) {
-			return list->storage->create(data, user,
-						     namespace, hierarchy_sep);
-		}
+		if (strcasecmp(list->storage->name, name) == 0)
+			return list->storage->create(data, user);
 	}
 
 	return NULL;
 }
 
 struct mail_storage *
-mail_storage_create_default(const char *user,
-			    const char *namespace, char hierarchy_sep)
+mail_storage_create_default(const char *user)
 {
 	struct mail_storage_list *list;
 	struct mail_storage *storage;
 
 	for (list = storages; list != NULL; list = list->next) {
-		storage = list->storage->create(NULL, user, namespace,
-						hierarchy_sep);
+		storage = list->storage->create(NULL, user);
 		if (storage != NULL)
 			return storage;
 	}
@@ -116,16 +111,13 @@ static struct mail_storage *mail_storage_autodetect(const char *data)
 }
 
 struct mail_storage *
-mail_storage_create_with_data(const char *data, const char *user,
-			      const char *namespace, char hierarchy_sep)
+mail_storage_create_with_data(const char *data, const char *user)
 {
 	struct mail_storage *storage;
 	const char *p, *name;
 
-	if (data == NULL || *data == '\0') {
-		return mail_storage_create_default(user, namespace,
-						   hierarchy_sep);
-	}
+	if (data == NULL || *data == '\0')
+		return mail_storage_create_default(user);
 
 	/* check if we're in the form of mailformat:data
 	   (eg. maildir:Maildir) */
@@ -134,14 +126,11 @@ mail_storage_create_with_data(const char *data, const char *user,
 
 	if (*p == ':') {
 		name = t_strdup_until(data, p);
-		storage = mail_storage_create(name, p+1, user,
-					      namespace, hierarchy_sep);
+		storage = mail_storage_create(name, p+1, user);
 	} else {
 		storage = mail_storage_autodetect(data);
-		if (storage != NULL) {
-			storage = storage->create(data, user,
-						  namespace, hierarchy_sep);
-		}
+		if (storage != NULL)
+			storage = storage->create(data, user);
 	}
 
 	return storage;
@@ -260,10 +249,10 @@ int mail_storage_mailbox_rename(struct mail_storage *storage,
 
 struct mailbox_list_context *
 mail_storage_mailbox_list_init(struct mail_storage *storage,
-			       const char *mask,
+			       const char *ref, const char *mask,
 			       enum mailbox_list_flags flags)
 {
-	return storage->mailbox_list_init(storage, mask, flags);
+	return storage->mailbox_list_init(storage, ref, mask, flags);
 }
 
 struct mailbox_list *

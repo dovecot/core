@@ -20,10 +20,7 @@ static void list_namespaces(struct namespace *ns, enum namespace_type type,
 			str_append_c(str, '(');
 			imap_quote_append_string(str, ns->prefix, FALSE);
 			str_append(str, " \"");
-			if (ns->hierarchy_sep == '"' ||
-			    ns->hierarchy_sep == '\\')
-				str_append_c(str, '\\');
-			str_append_c(str, ns->hierarchy_sep);
+			str_append(str, ns->sep_str);
 			str_append(str, "\")");
 		}
 

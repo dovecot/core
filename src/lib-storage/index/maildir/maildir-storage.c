@@ -30,8 +30,7 @@ static const char *maildirs[] = { "cur", "new", "tmp", NULL  };
 static int verify_inbox(struct index_storage *storage);
 
 static struct mail_storage *
-maildir_create(const char *data, const char *user,
-	       const char *namespace, char hierarchy_sep)
+maildir_create(const char *data, const char *user)
 {
 	struct index_storage *storage;
 	const char *root_dir, *inbox_dir, *index_dir, *control_dir;
@@ -90,10 +89,6 @@ maildir_create(const char *data, const char *user,
 
 	storage = i_new(struct index_storage, 1);
 	storage->storage = maildir_storage;
-
-	if (hierarchy_sep != '\0')
-		storage->storage.hierarchy_sep = hierarchy_sep;
-	storage->storage.namespace = i_strdup(namespace);
 
 	/* the default ".temp.xxx" prefix would be treated as directory */
 	storage->temp_prefix =
@@ -182,48 +177,6 @@ static const char *maildir_get_absolute_path(const char *name, int unlink)
 	return t_strconcat(t_strdup_until(name, p+1),
 			   unlink ? MAILDIR_FS_SEP_S MAILDIR_FS_SEP_S :
 			   MAILDIR_FS_SEP_S, p+1, NULL);
-}
-
-const char *maildir_fix_mailbox_name(struct index_storage *storage,
-				     const char *name, int remove_namespace)
-{
-	char *dup, *p, sep;
-	size_t len;
-
-	if (strncasecmp(name, "INBOX", 5) == 0 &&
-	    (name[5] == '\0' || name[5] == storage->storage.hierarchy_sep)) {
-		/* use same case with all INBOX folders or we'll get
-		   into trouble */
-		name = t_strconcat("INBOX", name+5, NULL);
-		if (name[5] == '\0') {
-			/* don't check namespace with INBOX */
-			return name;
-		}
-	}
-
-	if (storage->storage.namespace != NULL && remove_namespace) {
-		len = strlen(storage->storage.namespace);
-		if (strncmp(storage->storage.namespace, name, len) != 0) {
-			i_panic("maildir: expecting namespace '%s' in name "
-				"'%s'", storage->storage.namespace, name);
-		}
-		name += len;
-	}
-
-	if (full_filesystem_access && (*name == '/' || *name == '~'))
-		return name;
-
-	sep = storage->storage.hierarchy_sep;
-	if (sep == MAILDIR_FS_SEP)
-		return name;
-
-	dup = t_strdup_noconst(name);
-	for (p = dup; *p != '\0'; p++) {
-		if (*p == sep)
-			*p = MAILDIR_FS_SEP;
-	}
-
-	return dup;
 }
 
 const char *maildir_get_path(struct index_storage *storage, const char *name)
@@ -455,7 +408,6 @@ maildir_mailbox_open(struct mail_storage *_storage,
 
 	mail_storage_clear_error(_storage);
 
-	name = maildir_fix_mailbox_name(storage, name, TRUE);
 	if (strcmp(name, "INBOX") == 0) {
 		if (verify_inbox(storage) < 0)
 			return NULL;
@@ -496,7 +448,6 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 
 	mail_storage_clear_error(_storage);
 
-	name = maildir_fix_mailbox_name(storage, name, TRUE);
 	if (!maildir_is_valid_create_name(name)) {
 		mail_storage_set_error(_storage, "Invalid mailbox name");
 		return -1;
@@ -524,7 +475,6 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 
 	mail_storage_clear_error(_storage);
 
-	name = maildir_fix_mailbox_name(storage, name, TRUE);
 	if (strcmp(name, "INBOX") == 0) {
 		mail_storage_set_error(_storage, "INBOX can't be deleted.");
 		return -1;
@@ -620,29 +570,23 @@ static int rename_subfolders(struct index_storage *storage,
 {
 	struct mailbox_list_context *ctx;
         struct mailbox_list *list;
-	const char *oldpath, *newpath, *new_listname, *mask;
+	const char *oldpath, *newpath, *new_listname;
 	size_t oldnamelen;
 	int ret;
 
 	ret = 0;
 	oldnamelen = strlen(oldname);
 
-	mask = t_strdup_printf("%s%s%c*", storage->storage.namespace != NULL ?
-			       storage->storage.namespace : "", oldname,
-			       storage->storage.hierarchy_sep);
-	ctx = maildir_mailbox_list_init(&storage->storage, mask,
+	ctx = maildir_mailbox_list_init(&storage->storage, oldname, "*",
 					MAILBOX_LIST_FAST_FLAGS);
 	while ((list = maildir_mailbox_list_next(ctx)) != NULL) {
-		const char *list_name;
-
 		t_push();
 
-		list_name = maildir_fix_mailbox_name(storage, list->name, TRUE);
-		i_assert(oldnamelen <= strlen(list_name));
+		i_assert(oldnamelen <= strlen(list->name));
 
 		new_listname = t_strconcat(newname,
-					   list_name + oldnamelen, NULL);
-		oldpath = maildir_get_path(storage, list_name);
+					   list->name + oldnamelen, NULL);
+		oldpath = maildir_get_path(storage, list->name);
 		newpath = maildir_get_path(storage, new_listname);
 
 		/* FIXME: it's possible to merge two folders if either one of
@@ -665,7 +609,7 @@ static int rename_subfolders(struct index_storage *storage,
 			break;
 		}
 
-		(void)rename_indexes(storage, list_name, new_listname);
+		(void)rename_indexes(storage, list->name, new_listname);
 		t_pop();
 	}
 
@@ -682,9 +626,6 @@ static int maildir_mailbox_rename(struct mail_storage *_storage,
 	int ret, found;
 
 	mail_storage_clear_error(_storage);
-
-	oldname = maildir_fix_mailbox_name(storage, oldname, TRUE);
-	newname = maildir_fix_mailbox_name(storage, newname, TRUE);
 
 	if (!maildir_is_valid_existing_name(oldname) ||
 	    !maildir_is_valid_create_name(newname)) {
@@ -741,7 +682,6 @@ static int maildir_set_subscribed(struct mail_storage *_storage,
 			   storage->control_dir : storage->dir,
 			   "/" SUBSCRIPTION_FILE_NAME, NULL);
 
-	name = maildir_fix_mailbox_name(storage, name, FALSE);
 	return subsfile_set_subscribed(_storage, path, storage->temp_prefix,
 				       name, set);
 }
@@ -756,7 +696,6 @@ static int maildir_get_mailbox_name_status(struct mail_storage *_storage,
 
 	mail_storage_clear_error(_storage);
 
-	name = maildir_fix_mailbox_name(storage, name, TRUE);
 	if (!maildir_is_valid_existing_name(name)) {
 		*status = MAILBOX_NAME_INVALID;
 		return 0;
@@ -821,9 +760,8 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 
 struct mail_storage maildir_storage = {
 	"maildir", /* name */
-	NULL, /* namespace */
 
-	'.', /* default hierarchy separator */
+	'.', /* hierarchy separator */
 
 	maildir_create,
 	maildir_free,

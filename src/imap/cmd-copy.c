@@ -75,7 +75,7 @@ int cmd_copy(struct client *client)
 	if (search_arg == NULL)
 		return TRUE;
 
-	storage = client_find_storage(client, mailbox);
+	storage = client_find_storage(client, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 

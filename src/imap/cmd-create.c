@@ -14,7 +14,7 @@ int cmd_create(struct client *client)
 	if (!client_read_string_args(client, 1, &mailbox))
 		return FALSE;
 
-	storage = client_find_storage(client, mailbox);
+	storage = client_find_storage(client, &mailbox);
 	if (storage == NULL)
 		return TRUE;
 

@@ -48,34 +48,6 @@ mailbox_flags2str(enum mailbox_flags flags, enum mailbox_list_flags list_flags)
 	return *str == '\0' ? "" : str+1;
 }
 
-static int mailbox_list(struct client *client, struct mail_storage *storage,
-			const char *mask, const char *sep, const char *reply,
-			enum mailbox_list_flags list_flags)
-{
-	struct mailbox_list_context *ctx;
-	struct mailbox_list *list;
-	string_t *str;
-
-	ctx = mail_storage_mailbox_list_init(storage, mask, list_flags);
-	if (ctx == NULL)
-		return FALSE;
-
-	str = t_str_new(256);
-	while ((list = mail_storage_mailbox_list_next(ctx)) != NULL) {
-		str_truncate(str, 0);
-		str_printfa(str, "* %s (%s) \"%s\" ", reply,
-			    mailbox_flags2str(list->flags, list_flags),
-			    sep);
-		if (strcasecmp(list->name, "INBOX") == 0)
-			str_append(str, "INBOX");
-		else
-			imap_quote_append_string(str, list->name, FALSE);
-		client_send_line(client, str_c(str));
-	}
-
-	return mail_storage_mailbox_list_deinit(ctx);
-}
-
 static int parse_list_flags(struct client *client, struct imap_arg *args,
 			    enum mailbox_list_flags *list_flags)
 {
@@ -104,15 +76,204 @@ static int parse_list_flags(struct client *client, struct imap_arg *args,
 	return TRUE;
 }
 
+static int
+list_namespace_mailboxes(struct client *client, struct imap_match_glob *glob,
+			 struct namespace *ns, struct mailbox_list_context *ctx,
+			 enum mailbox_list_flags list_flags)
+{
+	struct mailbox_list *list;
+	const char *name;
+	string_t *str, *name_str;
+	int inbox_found = FALSE;
+
+	t_push();
+	str = t_str_new(256);
+	name_str = t_str_new(256);
+	while ((list = mail_storage_mailbox_list_next(ctx)) != NULL) {
+		str_truncate(name_str, 0);
+		str_append(name_str, ns->prefix);
+		str_append(name_str, list->name);
+
+		if (ns->sep != ns->real_sep) {
+                        char *p = str_c_modifyable(name_str);
+			for (; *p != '\0'; p++) {
+				if (*p == ns->real_sep)
+					*p = ns->sep;
+			}
+		}
+		name = str_c(name_str);
+
+		if (*ns->prefix != '\0') {
+			/* With masks containing '*' we do the checks here
+			   so prefix is included in matching */
+			if (glob != NULL &&
+			    imap_match(glob, name) != IMAP_MATCH_YES)
+				continue;
+		} else if (strcasecmp(list->name, "INBOX") == 0) {
+			if (!ns->inbox)
+				continue;
+
+			name = "INBOX";
+			inbox_found = TRUE;
+		}
+
+		str_truncate(str, 0);
+		str_printfa(str, "* LIST (%s) \"%s\" ",
+			    mailbox_flags2str(list->flags, list_flags),
+			    ns->sep_str);
+		imap_quote_append_string(str, name, FALSE);
+		client_send_line(client, str_c(str));
+	}
+	t_pop();
+
+	if (!inbox_found && ns->inbox) {
+		/* INBOX always exists */
+		str_printfa(str, "* LIST () \"%s\" \"INBOX\"", ns->sep_str);
+		client_send_line(client, str_c(str));
+	}
+
+	return mail_storage_mailbox_list_deinit(ctx);
+}
+
+static void skip_prefix(const char **prefix, const char **mask, int inbox)
+{
+	size_t mask_len, prefix_len, len;
+
+	prefix_len = strlen(*prefix);
+	mask_len = strlen(*mask);
+	len = I_MIN(prefix_len, mask_len);
+
+	if (strncmp(*prefix, *mask, len) == 0 ||
+	    (inbox && len >= 6 &&
+	     strncasecmp(*prefix, *mask, 6) == 0)) {
+		*prefix += len;
+		*mask += len;
+	}
+}
+
+static int list_mailboxes(struct client *client,
+			  const char *ref, const char *mask,
+			  enum mailbox_list_flags list_flags)
+{
+	struct namespace *ns;
+	struct mailbox_list_context *ctx;
+	struct imap_match_glob *glob;
+	enum imap_match_result match;
+	const char *cur_prefix, *cur_ref, *cur_mask;
+	size_t len;
+	int inbox;
+
+	inbox = strncasecmp(ref, "INBOX", 5) == 0 ||
+		(*ref == '\0' && strncasecmp(mask, "INBOX", 5) == 0);
+
+	for (ns = client->namespaces; ns != NULL; ns = ns->next) {
+		t_push();
+		cur_prefix = ns->prefix;
+		cur_ref = ref;
+		cur_mask = mask;
+		if (*ref != '\0') {
+			skip_prefix(&cur_prefix, &cur_ref, inbox);
+
+			if (*cur_ref != '\0' && *cur_prefix != '\0') {
+				/* reference parameter didn't match with
+				   namespace prefix. skip this. */
+				t_pop();
+				continue;
+			}
+		}
+
+		if (*cur_ref == '\0' && *cur_prefix != '\0') {
+			skip_prefix(&cur_prefix, &cur_mask,
+				    inbox && cur_ref == ref);
+		}
+
+		glob = imap_match_init(pool_datastack_create(), mask,
+				       inbox && cur_ref == ref, ns->sep);
+
+		if (*cur_ref != '\0' || *cur_prefix == '\0')
+			match = IMAP_MATCH_CHILDREN;
+		else {
+			len = strlen(cur_prefix);
+			if (cur_prefix[len-1] == ns->sep)
+				cur_prefix = t_strndup(cur_prefix, len-1);
+			match = ns->hidden ? IMAP_MATCH_NO :
+				imap_match(glob, cur_prefix);
+
+			if (match == IMAP_MATCH_YES) {
+				/* The prefix itself matches */
+				string_t *str = t_str_new(128);
+				str_printfa(str, "* LIST (%s) \"%s\" ",
+					mailbox_flags2str(MAILBOX_PLACEHOLDER,
+							  list_flags),
+					ns->sep_str);
+				len = strlen(ns->prefix);
+				imap_quote_append_string(str,
+					t_strndup(ns->prefix, len-1), FALSE);
+				client_send_line(client, str_c(str));
+			}
+		}
+
+		if (match >= 0) {
+			unsigned int count = 0;
+			if (*cur_prefix != '\0') {
+				/* we'll have to fix mask */
+				for (; *cur_prefix != '\0'; cur_prefix++) {
+					if (*cur_prefix == ns->sep)
+						count++;
+				}
+				if (count == 0)
+					count = 1;
+
+				while (count > 0) {
+					if (*cur_ref != '\0') {
+						while (*cur_ref != '\0' &&
+						       *cur_ref++ != ns->sep)
+							;
+					} else {
+						while (*cur_mask != '\0' &&
+						       *cur_mask != '*' &&
+						       *cur_mask != ns->sep)
+							cur_mask++;
+						if (*cur_mask == '*') {
+							cur_mask = "*";
+							break;
+						}
+						if (*cur_mask == '\0')
+							break;
+						cur_mask++;
+					}
+					count--;
+				}
+			}
+
+			if (*cur_mask != '*' || strcmp(mask, "*") == 0)
+				glob = NULL;
+
+			cur_ref = namespace_fix_sep(ns, cur_ref);
+			cur_mask = namespace_fix_sep(ns, cur_mask);
+
+			ctx = mail_storage_mailbox_list_init(ns->storage,
+							     cur_ref, cur_mask,
+							     list_flags);
+			if (list_namespace_mailboxes(client, glob, ns, ctx,
+						     list_flags) < 0) {
+				client_send_storage_error(client, ns->storage);
+				t_pop();
+				return -1;
+			}
+		}
+		t_pop();
+	}
+
+	return 0;
+}
+
 int _cmd_list_full(struct client *client, int lsub)
 {
 	struct namespace *ns;
-	struct mail_storage *storage;
 	struct imap_arg *args;
         enum mailbox_list_flags list_flags;
 	const char *ref, *mask;
-	char sep_chr, sep[3];
-	int failed;
 
 	/* [(<options>)] <reference> <mailbox wildcards> */
 	if (!client_read_args(client, 0, 0, &args))
@@ -145,56 +306,27 @@ int _cmd_list_full(struct client *client, int lsub)
 		return TRUE;
 	}
 
-	/* FIXME: really needs some work.. */
-	ns = namespace_find(client->namespaces, *ref != '\0' ? ref : mask);
-	if (ns != NULL)
-		storage = ns->storage;
-	else
-		storage = client->namespaces->storage;
-
-	sep_chr = mail_storage_get_hierarchy_sep(storage);
-	if (sep_chr == '"' || sep_chr == '\\') {
-		sep[0] = '\\';
-		sep[1] = sep_chr;
-		sep[2] = '\0';
-	} else {
-		sep[0] = sep_chr;
-		sep[1] = '\0';
-	}
-
 	if (*mask == '\0' && !lsub) {
 		/* special request to return the hierarchy delimiter */
-		client_send_line(client, t_strconcat(
-			"* LIST (\\Noselect) \"", sep, "\" \"\"", NULL));
-		failed = FALSE;
-	} else {
-		if (*ref != '\0') {
-			/* join reference + mask */
-			if (*mask == sep_chr &&
-			    ref[strlen(ref)-1] == sep_chr) {
-				/* LIST A. .B -> A.B */
-				mask++;
-			}
-			if (*mask != sep_chr &&
-			    ref[strlen(ref)-1] != sep_chr) {
-				/* LIST A B -> A.B */
-				mask = t_strconcat(ref, sep, mask, NULL);
-			} else {
-				mask = t_strconcat(ref, mask, NULL);
-			}
+		ns = namespace_find(client->namespaces, &ref);
+		if (ns == NULL) {
+			const char *empty = "";
+			ns = namespace_find(client->namespaces, &empty);
 		}
 
-		failed = mailbox_list(client, storage, mask, sep,
-				      lsub ? "LSUB" : "LIST", list_flags) < 0;
+		if (ns != NULL) {
+			client_send_line(client, t_strconcat(
+				"* LIST (\\Noselect) \"", ns->sep_str,
+				"\" \"\"", NULL));
+		}
+	} else {
+		if (list_mailboxes(client, ref, mask, list_flags) < 0)
+			return TRUE;
 	}
 
-	if (failed)
-		client_send_storage_error(client, storage);
-	else {
-		client_send_tagline(client, lsub ?
-				    "OK Lsub completed." :
-				    "OK List completed.");
-	}
+	client_send_tagline(client, !lsub ?
+			    "OK List completed." :
+			    "OK Lsub completed.");
 	return TRUE;
 }
 

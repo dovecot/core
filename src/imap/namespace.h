@@ -11,16 +11,21 @@ struct namespace {
 	struct namespace *next;
 
         enum namespace_type type;
-	char hierarchy_sep;
+	char sep, real_sep, sep_str[3];
+
 	char *prefix;
-	int inbox, hidden;
+	size_t prefix_len;
+
+	int inbox, hidden, subscriptions;
 	struct mail_storage *storage;
 };
 
 struct namespace *namespace_init(pool_t pool, const char *user);
 void namespace_deinit(struct namespace *namespaces);
 
+const char *namespace_fix_sep(struct namespace *ns, const char *name);
+
 struct namespace *
-namespace_find(struct namespace *namespaces, const char *mailbox);
+namespace_find(struct namespace *namespaces, const char **mailbox);
 
 #endif
