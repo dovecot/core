@@ -392,7 +392,9 @@ static int maildir_delete_mailbox(struct mail_storage *storage,
 	if (unlink_directory(dest, TRUE) < 0) {
 		mail_storage_set_critical(storage, "unlink_directory(%s) "
 					  "failed: %m", dest);
-		return FALSE;
+
+		/* it's already renamed to ..dir, which means it's deleted
+		   as far as client is concerned. Report success. */
 	}
 
 	return TRUE;
