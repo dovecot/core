@@ -344,7 +344,7 @@ static void open_log_file(FILE **file, const char *path)
 	if (*file != NULL && *file != stderr)
 		(void)fclose(*file);
 
-	if (path == NULL)
+	if (path == NULL || strcmp(path, "/dev/stderr") == 0)
 		*file = stderr;
 	else {
 		*file = fopen(path, "a");
