@@ -323,6 +323,11 @@ int maildir_transaction_save_commit(struct maildir_save_context *ctx)
 		return -1;
 	}
 
+	if (maildir_sync_index(ctx->ibox, TRUE) < 0) {
+		maildir_save_commit_abort(ctx, ctx->files);
+		return -1;
+	}
+
 	first_uid = maildir_uidlist_get_next_uid(ctx->ibox->uidlist);
 	mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
 

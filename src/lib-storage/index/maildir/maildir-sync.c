@@ -573,9 +573,8 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 	return 0;
 }
 
-static int maildir_sync_index(struct maildir_sync_context *ctx)
+int maildir_sync_index(struct index_mailbox *ibox, int partial)
 {
-	struct index_mailbox *ibox = ctx->ibox;
 	struct maildir_index_sync_context sync_ctx;
 	struct maildir_uidlist_iter_ctx *iter;
 	struct mail_index_transaction *trans;
@@ -761,7 +760,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	}
 	maildir_uidlist_iter_deinit(iter);
 
-	if (!ctx->partial) {
+	if (!partial) {
 		/* expunge the rest */
 		for (seq++; seq <= hdr->messages_count; seq++)
 			mail_index_expunge(trans, seq);
@@ -892,7 +891,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 	/* finish uidlist syncing, but keep it still locked */
 	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 	if (!ctx->ibox->syncing_commit) {
-		if (maildir_sync_index(ctx) < 0)
+		if (maildir_sync_index(ctx->ibox, ctx->partial) < 0)
 			return -1;
 	}
 
