@@ -44,6 +44,7 @@ static Timeout to;
 static HashTable *processes;
 static LoginProcess *oldest_nonlisten_process, *newest_nonlisten_process;
 static unsigned int listening_processes;
+static unsigned int wanted_processes_count;
 
 static void login_process_destroy(LoginProcess *p);
 static void login_process_unref(LoginProcess *p);
@@ -86,6 +87,27 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 	i_free(request);
 }
 
+void login_process_mark_nonlistening(LoginProcess *p)
+{
+	if (!p->listening) {
+		i_error("login: received another \"not listening\" "
+			"notification");
+		return;
+	}
+
+	p->listening = FALSE;
+	listening_processes--;
+
+	p->prev_nonlisten = newest_nonlisten_process;
+
+	if (newest_nonlisten_process != NULL)
+		newest_nonlisten_process->next_nonlisten = p;
+	newest_nonlisten_process = p;
+
+	if (oldest_nonlisten_process == NULL)
+		oldest_nonlisten_process = p;
+}
+
 static void login_process_input(void *context, int fd __attr_unused__,
 				IO io __attr_unused__)
 {
@@ -113,22 +135,7 @@ static void login_process_input(void *context, int fd __attr_unused__,
 	if (client_fd == -1) {
 		/* just a notification that the login process isn't
 		   listening for new connections anymore */
-		if (!p->listening) {
-			i_error("login: received another \"not listening\" "
-				"notification");
-		} else {
-			p->listening = FALSE;
-			listening_processes--;
-
-			p->prev_nonlisten = newest_nonlisten_process;
-
-			if (newest_nonlisten_process != NULL)
-				newest_nonlisten_process->next_nonlisten = p;
-			newest_nonlisten_process = p;
-
-			if (oldest_nonlisten_process == NULL)
-                                oldest_nonlisten_process = p;
-		}
+		login_process_mark_nonlistening(p);
 		return;
 	}
 
@@ -342,16 +349,39 @@ void login_processes_cleanup(void)
 static void login_processes_start_missing(void *context __attr_unused__,
 					  Timeout timeout __attr_unused__)
 {
-	/* create max. one process every second, that way if it keeps
-	   dying all the time we don't eat all cpu with fork()ing. */
-	if (listening_processes < set_login_processes_count)
-                (void)create_login_process();
+	if (!set_login_process_per_connection) {
+		/* create max. one process every second, that way if it keeps
+		   dying all the time we don't eat all cpu with fork()ing. */
+		if (listening_processes < set_login_processes_count)
+			(void)create_login_process();
+	} else {
+		/* we want to respond fast when multiple clients are connecting
+		   at once, but we also want to prevent fork-bombing. use the
+		   same method as apache: check once a second if we need new
+		   processes. if yes and we've used all the existing processes,
+		   double their amount (unless we've hit the high limit).
+		   Then for each second that didn't use all existing processes,
+		   drop the max. process count by one. */
+		if (wanted_processes_count < set_login_processes_count)
+			wanted_processes_count = set_login_processes_count;
+		else if (listening_processes == 0)
+			wanted_processes_count *= 2;
+		else if (wanted_processes_count > set_login_processes_count)
+			wanted_processes_count--;
+
+		if (wanted_processes_count > set_login_max_processes_count)
+			wanted_processes_count = set_login_max_processes_count;
+
+		while (listening_processes < wanted_processes_count)
+			(void)create_login_process();
+	}
 }
 
 void login_processes_init(void)
 {
         auth_id_counter = 0;
 	listening_processes = 0;
+        wanted_processes_count = 0;
 	oldest_nonlisten_process = newest_nonlisten_process = NULL;
 
 	processes = hash_create(default_pool, 128, NULL, NULL);

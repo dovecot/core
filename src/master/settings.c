@@ -92,6 +92,7 @@ char *set_login_dir = PKG_RUNDIR;
 int set_login_chroot = TRUE;
 int set_login_process_per_connection = TRUE;
 unsigned int set_login_processes_count = 3;
+unsigned int set_login_max_processes_count = 128;
 unsigned int set_max_logging_users = 256;
 
 uid_t set_login_uid; /* generated from set_login_user */
