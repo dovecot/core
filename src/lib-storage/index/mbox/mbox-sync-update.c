@@ -279,6 +279,8 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx,
 	uint8_t old_flags;
 	keywords_mask_t old_keywords;
 
+	i_assert(ctx->mail.uid != 0 || ctx->pseudo);
+
 	sync = buffer_get_data(syncs_buf, &size);
 	size /= sizeof(*sync);
 

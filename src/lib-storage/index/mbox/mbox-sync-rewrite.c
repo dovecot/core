@@ -370,6 +370,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	offset = sync_ctx->input->v_offset;
 	dest_offset = offset + space_diff;
 	if (mbox_move(sync_ctx, dest_offset, offset,
+		      end_offset == (uoff_t)-1 ? mail_ctx.mail.body_size :
 		      end_offset - dest_offset) < 0)
 		return -1;
 
@@ -412,11 +413,28 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 	size_t size;
 	int ret = 0;
 
-	i_assert(first_seq != last_seq);
 	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
 	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
 	i_assert(size / sizeof(*mails) == last_seq - first_seq + 1);
+
+	if (first_seq == last_seq) {
+		/* just move this mail forward */
+		if (mbox_sync_read_and_move(sync_ctx, mails, first_seq, 0,
+					    -mails[0].space + extra_space,
+					    (uoff_t)-1) < 0)
+			return -1;
+
+		if ((mails[0].flags & MBOX_DIRTY_SPACE) != 0) {
+                        mails[0].flags &= ~MBOX_DIRTY_SPACE;
+			if (mbox_fill_space(sync_ctx, mails[0].offset,
+					    mails[0].space) < 0)
+				return -1;
+		}
+
+		istream_raw_mbox_flush(sync_ctx->input);
+		return 0;
+	}
 
 	/* if there's expunges in mails[], we would get more correct balancing
 	   by counting only them here. however, that might make us overwrite

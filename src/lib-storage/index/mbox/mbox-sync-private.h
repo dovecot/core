@@ -81,12 +81,14 @@ struct mbox_sync_mail_context {
 	unsigned int pseudo:1;
 	unsigned int updated:1;
 	unsigned int recent:1;
+	unsigned int dirty:1;
 	unsigned int seen_received_hdr:1;
 	unsigned int uid_broken:1;
 };
 
 struct mbox_sync_context {
 	struct index_mailbox *ibox;
+        enum mbox_sync_flags flags;
 	struct istream *input, *file_input;
 	int fd;
 
@@ -111,6 +113,7 @@ struct mbox_sync_context {
 
 	unsigned int dest_first_mail:1;
 	unsigned int seen_first_mail:1;
+	unsigned int delay_writes:1;
 };
 
 int mbox_sync(struct index_mailbox *ibox, enum mbox_sync_flags flags);

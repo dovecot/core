@@ -45,6 +45,7 @@
 #include "mbox-sync-private.h"
 
 #include <stddef.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 
 #define MBOX_SYNC_SECS 1
@@ -95,7 +96,7 @@ static void mbox_sync_buffer_delete_old(buffer_t *syncs_buf, uint32_t uid)
 	size /= sizeof(*sync);
 
 	for (src = dest = 0; src < size; src++) {
-		if (sync[src].uid2 >= uid) {
+		if (sync[src].uid2 > uid) {
 			if (src != dest)
 				sync[dest] = sync[src];
 			dest++;
@@ -176,7 +177,7 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 
 	*sync_expunge_r = FALSE;
 
-	if (sync_ctx->ibox->mbox_readonly || sync_ctx->index_sync_ctx == NULL)
+	if (sync_ctx->index_sync_ctx == NULL)
 		return 0;
 
 	if (uid == 0) {
@@ -187,7 +188,9 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 	mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
 	while (uid >= sync_rec->uid1) {
 		if (uid <= sync_rec->uid2 &&
-		    sync_rec->type != MAIL_INDEX_SYNC_TYPE_APPEND) {
+		    sync_rec->type != MAIL_INDEX_SYNC_TYPE_APPEND &&
+		    (sync_rec->type != MAIL_INDEX_SYNC_TYPE_EXPUNGE ||
+		     !sync_ctx->ibox->mbox_readonly)) {
 			buffer_append(sync_ctx->syncs, sync_rec,
 				      sizeof(*sync_rec));
 
@@ -364,6 +367,8 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 		/* new message */
 		mail_index_append(sync_ctx->t, mail->uid, &sync_ctx->idx_seq);
 		mbox_flags = mail->flags & (MAIL_FLAGS_MASK^MAIL_RECENT);
+		if (mail_ctx->dirty)
+			mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
 		if (sync_ctx->ibox->keep_recent &&
 		    (mail->flags & MBOX_NONRECENT) == 0)
 			mbox_flags |= MAIL_RECENT;
@@ -391,13 +396,40 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 		mbox_sync_apply_index_syncs(sync_ctx->syncs,
 					    &idx_flags, idx_keywords);
 
-		mbox_flags = (rec->flags & ~MAIL_FLAGS_MASK) |
-			(mail->flags & MAIL_FLAGS_MASK);
-		mbox_flags ^= MAIL_RECENT;
+		if ((idx_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
+			/* flags are dirty, ignore whatever was in the file */
+			mbox_flags = idx_flags;
+		} else {
+			mbox_flags = (rec->flags & ~MAIL_FLAGS_MASK) |
+				(mail->flags & MAIL_FLAGS_MASK);
+			mbox_flags ^= MAIL_RECENT;
+		}
 
-		if ((idx_flags & ~MAIL_RECENT) != (mbox_flags & ~MAIL_RECENT) ||
+		if (mail_ctx->dirty)
+			mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
+		else if ((sync_ctx->flags & MBOX_SYNC_UNDIRTY) != 0)
+			mbox_flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
+
+		if ((idx_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY) ==
+		    (mbox_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY) &&
 		    memcmp(idx_keywords, mail->keywords,
-			   INDEX_KEYWORDS_BYTE_COUNT) != 0) {
+			   INDEX_KEYWORDS_BYTE_COUNT) == 0) {
+			if (idx_flags != mbox_flags) {
+				/* dirty flag state changed */
+				int dirty = (mbox_flags &
+					     MAIL_INDEX_MAIL_FLAG_DIRTY) != 0;
+				memset(idx_keywords, 0,
+				       INDEX_KEYWORDS_BYTE_COUNT);
+				mail_index_update_flags(sync_ctx->t,
+					sync_ctx->idx_seq,
+					dirty ? MODIFY_ADD : MODIFY_REMOVE,
+					MAIL_INDEX_MAIL_FLAG_DIRTY,
+					idx_keywords);
+			}
+		} else if ((idx_flags & ~MAIL_RECENT) !=
+			   (mbox_flags & ~MAIL_RECENT) ||
+			   memcmp(idx_keywords, mail->keywords,
+				  INDEX_KEYWORDS_BYTE_COUNT) != 0) {
 			mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
 						MODIFY_REPLACE, mbox_flags,
 						mail->keywords);
@@ -478,10 +510,10 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 
 	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
 	size /= sizeof(*mails);
-	i_assert(sync_ctx->seq - sync_ctx->need_space_seq + 1 == size);
 
 	for (idx = 0; idx < size; idx++) {
-		if (mails[idx].idx_seq == 0)
+		if (mails[idx].idx_seq == 0 ||
+		    (mails[idx].flags & MBOX_EXPUNGED) != 0)
 			continue;
 
 		offset = mails[idx].from_offset;
@@ -492,6 +524,7 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 
 static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 {
+	mail_ctx->mail.flags = MBOX_EXPUNGED;
 	mail_ctx->mail.offset = mail_ctx->mail.from_offset;
 	mail_ctx->mail.space =
 		mail_ctx->body_offset - mail_ctx->mail.from_offset +
@@ -512,9 +545,6 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	off_t move_diff;
 	int ret;
-
-	if (sync_ctx->ibox->mbox_readonly)
-		return 0;
 
 	if (sync_ctx->expunged_space > 0 && sync_ctx->need_space_seq == 0) {
 		/* move the header backwards to fill expunged space */
@@ -542,6 +572,12 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		   (mail_ctx->seq == 1 &&
 		    sync_ctx->update_base_uid_last != 0)) {
 		mbox_sync_update_header(mail_ctx, sync_ctx->syncs);
+		if (sync_ctx->delay_writes) {
+			/* mark it dirty and do it later */
+			mail_ctx->dirty = TRUE;
+			return 0;
+		}
+
 		if ((ret = mbox_sync_try_rewrite(mail_ctx, 0, FALSE)) < 0)
 			return -1;
 	} else {
@@ -576,6 +612,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	uoff_t padding;
+	uint32_t last_seq;
 
 	buffer_append(sync_ctx->mails, &mail_ctx->mail, sizeof(mail_ctx->mail));
 
@@ -592,12 +629,16 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		/* don't waste too much on padding */
 		sync_ctx->expunged_space = sync_ctx->space_diff - padding;
 		sync_ctx->space_diff = padding;
+		last_seq = sync_ctx->seq - 1;
+		buffer_set_used_size(sync_ctx->mails, sync_ctx->mails->used -
+				     sizeof(mail_ctx->mail));
 	} else {
 		sync_ctx->expunged_space = 0;
+		last_seq = sync_ctx->seq;
 	}
 
 	if (mbox_sync_rewrite(sync_ctx, sync_ctx->space_diff,
-			      sync_ctx->need_space_seq, sync_ctx->seq) < 0)
+			      sync_ctx->need_space_seq, last_seq) < 0)
 		return -1;
 
 	update_from_offsets(sync_ctx);
@@ -755,12 +796,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->pseudo)
 			uid = 0;
 
-		/* get all sync records related to this message */
-		if (mbox_sync_read_index_syncs(sync_ctx, uid, &expunged) < 0)
-			return -1;
-
 		rec = NULL;
-		if (uid != 0 && sync_ctx->ibox->md5hdr_extra_idx == 0) {
+		if (uid != 0) {
 			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
 			if (ret < 0)
 				return -1;
@@ -768,8 +805,12 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				uid = 0;
 		}
 
-		if (sync_ctx->ibox->mbox_readonly && !mail_ctx->pseudo) {
-			/* Read-only mboxes use MD5 sums. */
+		if (uid == 0 && !mail_ctx->pseudo &&
+		    (sync_ctx->delay_writes ||
+		     sync_ctx->idx_seq <= messages_count)) {
+			/* If we can't use/store X-UID header, use MD5 sum.
+			   Also check for existing MD5 sums when we're actually
+			   able to write X-UIDs. */
 			if (sync_ctx->ibox->md5hdr_extra_idx == 0) {
 				sync_ctx->ibox->md5hdr_extra_idx =
 					mail_index_register_record_extra(
@@ -783,7 +824,16 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				return -1;
 
 			if (rec != NULL)
-				uid = rec->uid;
+				uid = mail_ctx->mail.uid = rec->uid;
+		}
+
+		if (!mail_ctx->pseudo) {
+			/* get all sync records related to this message */
+			if (mbox_sync_read_index_syncs(sync_ctx, uid,
+						       &expunged) < 0)
+				return -1;
+		} else {
+			expunged = FALSE;
 		}
 
 		if (uid == 0 && !mail_ctx->pseudo) {
@@ -840,7 +890,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 					return -1;
 			}
 		} else if (sync_ctx->seq >= min_message_count) {
-			mbox_sync_buffer_delete_old(sync_ctx->syncs, uid+1);
+			mbox_sync_buffer_delete_old(sync_ctx->syncs, uid);
 			if (buffer_get_used_size(sync_ctx->syncs) == 0) {
 				/* if there's no sync records left,
 				   we can stop */
@@ -962,9 +1012,9 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	     sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) ||
 	    (sync_ctx->hdr->uid_validity == 0 && sync_ctx->seen_first_mail)) {
 		if (sync_ctx->base_uid_validity == 0) {
-			/* we couldn't rewrite X-IMAPbase because it's
-			   a read-only mbox */
-			i_assert(sync_ctx->ibox->mbox_readonly);
+			/* we didn't rewrite X-IMAPbase header because
+			   a) mbox is read-only, b) we're lazy-writing */
+			i_assert(sync_ctx->delay_writes);
                         sync_ctx->base_uid_validity = time(NULL);
 		}
 		mail_index_update_header(sync_ctx->t,
@@ -1260,6 +1310,11 @@ __again:
 	sync_ctx.file_input = sync_ctx.ibox->mbox_file_stream;
 	sync_ctx.input = sync_ctx.ibox->mbox_stream;
 	sync_ctx.fd = sync_ctx.ibox->mbox_fd;
+	sync_ctx.flags = flags;
+	sync_ctx.delay_writes = sync_ctx.ibox->mbox_readonly ||
+		((flags & MBOX_SYNC_UNDIRTY) == 0 &&
+		 getenv("MBOX_LAZY_WRITES") != NULL);
+
 
 	if (mbox_sync_do(&sync_ctx, flags) < 0)
 		ret = -1;
@@ -1284,7 +1339,7 @@ __again:
 
 	if (sync_ctx.seen_first_mail &&
 	    sync_ctx.base_uid_last != sync_ctx.next_uid-1 &&
-	    ret == 0 && !ibox->mbox_readonly) {
+	    ret == 0 && !sync_ctx.delay_writes) {
 		/* rewrite X-IMAPbase header. do it after mail_index_sync_end()
 		   so previous transactions have been committed. */
 		/* FIXME: ugly .. */
