@@ -59,6 +59,7 @@ static const char *mailbox_flags2str(enum mailbox_flags flags, int listext)
 
 static void list_node_update(pool_t pool, struct list_node **node,
 			     const char *path, char separator,
+			     enum mailbox_flags dir_flags,
 			     enum mailbox_flags flags)
 {
 	const char *name, *parent;
@@ -87,11 +88,17 @@ static void list_node_update(pool_t pool, struct list_node **node,
 			/* not found, create it */
 			*node = p_new(pool, struct list_node, 1);
 			(*node)->name = p_strdup(pool, name);
-			(*node)->flags = *path == '\0' ?
-				flags : MAILBOX_PLACEHOLDER;
+			(*node)->flags = *path == '\0' ? flags : dir_flags;
 		} else {
-			if (*path == '\0')
+			if (*path == '\0') {
+				if (((*node)->flags & MAILBOX_NOSELECT) != 0 &&
+				    (flags & MAILBOX_NOSELECT) == 0) {
+					/* overrides previous flag */
+					(*node)->flags &= ~MAILBOX_NOSELECT;
+				}
+
 				(*node)->flags |= flags;
+			}
 		}
 
 		t_pop();
@@ -157,12 +164,17 @@ static void list_send(struct list_send_context *ctx, struct list_node *node,
 static void list_and_sort(struct client *client,
 			  struct mailbox_list_context *ctx,
 			  const char *response_name,
-			  const char *sep, const char *mask, int listext)
+			  const char *sep, const char *mask,
+			  enum mailbox_list_flags list_flags, int listext)
 {
 	struct mailbox_list *list;
 	struct list_node *nodes;
 	struct list_send_context send_ctx;
+	enum mailbox_flags dir_flags;
 	pool_t pool;
+
+	dir_flags = (list_flags & MAILBOX_LIST_SUBSCRIBED) ?
+		MAILBOX_PLACEHOLDER : MAILBOX_NOSELECT;
 
 	pool = pool_alloconly_create("list_mailboxes", 10240);
 	nodes = NULL;
@@ -170,7 +182,7 @@ static void list_and_sort(struct client *client,
 	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
 		list_node_update(pool, &nodes, list->name,
 				 client->storage->hierarchy_sep,
-				 list->flags);
+				 dir_flags, list->flags);
 	}
 
 	send_ctx.client = client;
@@ -314,7 +326,7 @@ int _cmd_list_full(struct client *client, int lsub)
 					      listext);
 			} else {
 				list_and_sort(client, ctx, response_name, sep,
-					      mask, listext);
+					      mask, list_flags, listext);
 			}
 
 			failed = !client->storage->list_mailbox_deinit(ctx);
