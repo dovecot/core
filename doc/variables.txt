@@ -22,6 +22,7 @@ You can apply a modifiers for each variable (eg. %Lp = pop3):
  %U - uppercase
  %E - escape '"', "'" and '\' characters by inserting '\' before them.
 
-You can also limit a width of string by giving the number of max. characters
-after the '%' character. For example %1u gives the first character of
-username.
+You can take a substring of the variable by giving optional offset followed
+by '.' and width after the '%' character. For example %2u gives first two
+characters of the username. %2.1u gives third character of the username. If
+offset points outside the value, empty string is returned.

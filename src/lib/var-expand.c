@@ -23,7 +23,7 @@ void var_expand(string_t *dest, const char *str,
         const struct var_expand_modifier *m;
         const struct var_expand_table *t;
 	const char *var;
-	unsigned int width;
+	unsigned int offset, width;
 	const char *(*modifier)(const char *);
 
 	for (; *str != '\0'; str++) {
@@ -31,10 +31,24 @@ void var_expand(string_t *dest, const char *str,
 			str_append_c(dest, *str);
 		else {
 			str++;
+
+			/* [<offset>.]<width>[<modifier>]<variable> */
 			width = 0;
 			while (*str >= '0' && *str <= '9') {
 				width = width*10 + (*str - '0');
 				str++;
+			}
+
+			if (*str != '.')
+				offset = 0;
+			else {
+				offset = width;
+				width = 0;
+				str++;
+				while (*str >= '0' && *str <= '9') {
+					width = width*10 + (*str - '0');
+					str++;
+				}
 			}
 
 			modifier = NULL;
@@ -64,6 +78,8 @@ void var_expand(string_t *dest, const char *str,
 			}
 
 			if (var != NULL) {
+				for (; *var != '\0' && offset > 0; offset--)
+					var++;
 				if (modifier != NULL)
 					var = modifier(var);
 				if (width == 0)
