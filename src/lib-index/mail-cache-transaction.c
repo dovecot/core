@@ -305,6 +305,7 @@ mail_cache_transaction_free_space(struct mail_cache_transaction_ctx *ctx)
 
 	/* check again - locking might have reopened the cache file */
 	if (ctx->reserved_space != 0) {
+		i_assert(ctx->cache_file_seq == ctx->cache->hdr->file_seq);
 		mail_cache_free_space(ctx->cache, ctx->reserved_space_offset,
 				      ctx->reserved_space);
 	}
@@ -425,6 +426,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		}
 
 		/* write it to file */
+		i_assert(ctx->cache_file_seq == cache->hdr->file_seq);
 		if (pwrite_full(cache->fd, rec, max_size, write_offset) < 0) {
 			mail_cache_set_syscall_error(cache, "pwrite_full()");
 			return -1;
