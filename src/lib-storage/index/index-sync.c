@@ -185,7 +185,9 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 			/* later */
 			break;
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
-		case MAIL_INDEX_SYNC_TYPE_KEYWORDS:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			/* FIXME: hide the flag updates for expunged messages */
 			if (mail_index_lookup_uid_range(ctx->ibox->view,
 						sync.uid1, sync.uid2,

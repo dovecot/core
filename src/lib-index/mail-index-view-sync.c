@@ -79,7 +79,8 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 
 #define MAIL_INDEX_VIEW_VISIBLE_SYNC_MASK \
 	(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND | \
-	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE)
+	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE | \
+	 MAIL_TRANSACTION_KEYWORD_RESET)
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_sync_type sync_mask,
@@ -297,10 +298,21 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		}
 
 		uids = CONST_PTR_OFFSET(data, ctx->data_offset);
-		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORDS;
+		/* FIXME: this isn't exactly correct.. but no-one cares? */
+		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD;
 		rec->uid1 = uids[0];
 		rec->uid2 = uids[1];
 		ctx->data_offset += sizeof(uint32_t) * 2;
+		break;
+	}
+	case MAIL_TRANSACTION_KEYWORD_RESET: {
+		const struct mail_transaction_keyword_reset *reset =
+			CONST_PTR_OFFSET(data, ctx->data_offset);
+
+		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET;
+		rec->uid1 = reset->uid1;
+		rec->uid2 = reset->uid2;
+		ctx->data_offset += sizeof(*reset);
 		break;
 	}
 	default:

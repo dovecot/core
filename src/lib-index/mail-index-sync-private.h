@@ -8,23 +8,25 @@ struct mail_index_sync_ctx {
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 
-	const struct mail_transaction_expunge *expunges;
-	const struct mail_transaction_flag_update *updates;
-	unsigned int expunges_count, updates_count;
-
-	uint32_t append_uid_first, append_uid_last;
-
 	const struct mail_transaction_header *hdr;
 	const void *data;
 
-	size_t expunge_idx, update_idx;
+	array_t ARRAY_DEFINE(sync_list, struct mail_index_sync_list);
 	uint32_t next_uid;
+
+	uint32_t append_uid_first, append_uid_last;
 
 	unsigned int lock_id;
 
 	unsigned int sync_appends:1;
 	unsigned int sync_recent:1;
 	unsigned int sync_dirty:1;
+};
+
+struct mail_index_sync_list {
+	const array_t *ARRAY_DEFINE(array, struct uid_range *);
+	unsigned int idx;
+	unsigned int keyword_num;
 };
 
 struct mail_index_expunge_handler {

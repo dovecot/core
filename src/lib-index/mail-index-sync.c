@@ -11,6 +11,10 @@
 
 #include <stdlib.h>
 
+struct uid_range {
+	uint32_t uid1, uid2;
+};
+
 static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_transaction_expunge *e = ctx->data;
@@ -181,6 +185,8 @@ static int
 mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 			      int *seen_external_r)
 {
+        struct mail_index_sync_list *synclist;
+	unsigned int i, keyword_count;
 	int ret;
 
 	*seen_external_r = FALSE;
@@ -197,6 +203,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 			return -1;
 	}
 
+	/* read all transactions from log into a transaction in memory */
 	while ((ret = mail_transaction_log_view_next(ctx->view->log_view,
 						     &ctx->hdr,
 						     &ctx->data, NULL)) > 0) {
@@ -206,18 +213,35 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 			mail_index_sync_add_transaction(ctx);
 	}
 
-	if (!array_is_created(&ctx->trans->expunges))
-		ctx->expunges_count = 0;
-	else {
-		ctx->expunges = array_get(&ctx->trans->expunges,
-					  &ctx->expunges_count);
+	/* create an array containing all expunge, flag and keyword update
+	   arrays so we can easily go through all of the changes. */
+	keyword_count = !array_is_created(&ctx->trans->keyword_updates) ? 0 :
+		array_count(&ctx->trans->keyword_updates);
+	ARRAY_CREATE(&ctx->sync_list, default_pool,
+		     struct mail_index_sync_list, keyword_count + 2);
+
+	if (array_is_created(&ctx->trans->expunges)) {
+		synclist = array_modifyable_append(&ctx->sync_list);
+		synclist->array = &ctx->trans->expunges;
 	}
-	if (!array_is_created(&ctx->trans->updates))
-		ctx->updates_count = 0;
-	else {
-		ctx->updates = array_get(&ctx->trans->updates,
-					 &ctx->updates_count);
+
+	if (array_is_created(&ctx->trans->updates)) {
+		synclist = array_modifyable_append(&ctx->sync_list);
+		synclist->array = &ctx->trans->updates;
 	}
+
+	/* we must return resets before keyword additions or they get lost */
+	if (array_is_created(&ctx->trans->keyword_resets)) {
+		synclist = array_modifyable_append(&ctx->sync_list);
+		synclist->array = &ctx->trans->keyword_resets;
+	}
+
+	for (i = 0; i < keyword_count; i++) {
+		synclist = array_modifyable_append(&ctx->sync_list);
+		synclist->array = array_idx(&ctx->trans->keyword_updates, i);
+		synclist->keyword_num = i;
+	}
+
 	return ret;
 }
 
@@ -406,13 +430,35 @@ mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 	rec->remove_flags = update->remove_flags;
 }
 
+static void mail_index_sync_get_keyword_update(struct mail_index_sync_rec *rec,
+					       const struct uid_range *range,
+					       unsigned int num)
+{
+	rec->type = num % 2 == 0 ?
+		MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD :
+		MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE;
+	rec->uid1 = range->uid1;
+	rec->uid2 = range->uid2;
+	rec->keyword_idx = num / 2;
+}
+
+static void mail_index_sync_get_keyword_reset(struct mail_index_sync_rec *rec,
+					       const struct uid_range *range)
+{
+	rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET;
+	rec->uid1 = range->uid1;
+	rec->uid2 = range->uid2;
+}
+
 static int mail_index_sync_rec_check(struct mail_index_view *view,
 				     struct mail_index_sync_rec *rec)
 {
 	switch (rec->type) {
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORDS:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 		if (rec->uid1 > rec->uid2 || rec->uid1 == 0) {
 			mail_transaction_log_view_set_corrupted(view->log_view,
 				"Broken UID range: %u..%u (type 0x%x)",
@@ -429,63 +475,85 @@ static int mail_index_sync_rec_check(struct mail_index_view *view,
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec)
 {
-	const struct mail_transaction_expunge *next_exp;
-	const struct mail_transaction_flag_update *next_update;
+	struct mail_index_sync_list *sync_list;
+	const struct uid_range *uid_range = NULL;
+	unsigned int i, count, next_i;
+	uint32_t next_found_uid;
 
-	next_exp = ctx->expunge_idx == ctx->expunges_count ? NULL :
-		&ctx->expunges[ctx->expunge_idx];
-	next_update = ctx->update_idx == ctx->updates_count ? NULL :
-		&ctx->updates[ctx->update_idx];
+	next_i = (unsigned int)-1;
+	next_found_uid = (uint32_t)-1;
 
-	if (next_update != NULL &&
-	    (next_exp == NULL || next_update->uid1 < next_exp->uid1)) {
-		mail_index_sync_get_update(sync_rec, next_update);
-		if (next_exp != NULL && next_exp->uid1 <= next_update->uid2) {
-			/* it's overlapping with next expunge */
-			sync_rec->uid2 = next_exp->uid1-1;
+	/* FIXME: replace with a priority queue so we don't have to go
+	   through the whole list constantly. and remember to make sure that
+	   keyword resets are sent before adds! */
+	sync_list = array_get(&ctx->sync_list, &count);
+	for (i = 0; i < count; i++) {
+		if (!array_is_created(sync_list[i].array) ||
+		    sync_list[i].idx == array_count(sync_list[i].array))
+			continue;
+
+		uid_range = array_idx(sync_list[i].array, sync_list[i].idx);
+		if (uid_range->uid1 == ctx->next_uid) {
+			/* use this one. */
+			break;
 		}
+		if (uid_range->uid1 < next_found_uid) {
+			next_i = i;
+                        next_found_uid = uid_range->uid1;
+		}
+	}
 
-		if (sync_rec->uid1 < ctx->next_uid) {
-			/* overlapping with previous expunge */
-			if (ctx->next_uid > sync_rec->uid2) {
-				/* hide this update completely */
-				ctx->update_idx++;
-                                return mail_index_sync_next(ctx, sync_rec);
+	if (i == count) {
+		if (next_i == (unsigned int)-1) {
+			/* nothing left in sync_list */
+			if (ctx->sync_appends) {
+				ctx->sync_appends = FALSE;
+				sync_rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
+				sync_rec->uid1 = ctx->append_uid_first;
+				sync_rec->uid2 = ctx->append_uid_last;
+				return 1;
 			}
-			sync_rec->uid1 = ctx->next_uid;
+			return 0;
 		}
-
-		i_assert(sync_rec->uid1 <= sync_rec->uid2);
-		ctx->update_idx++;
-		return mail_index_sync_rec_check(ctx->view, sync_rec);
+                ctx->next_uid = next_found_uid;
+		i = next_i;
+		uid_range = array_idx(sync_list[i].array, sync_list[i].idx);
 	}
 
-	if (next_exp != NULL) {
-		mail_index_sync_get_expunge(sync_rec, next_exp);
-		if (mail_index_sync_rec_check(ctx->view, sync_rec) < 0)
-			return -1;
-
-		ctx->expunge_idx++;
-		ctx->next_uid = next_exp->uid2+1;
-		return 1;
+	if (sync_list[i].array == &ctx->trans->expunges) {
+		mail_index_sync_get_expunge(sync_rec,
+			(const struct mail_transaction_expunge *)uid_range);
+	} else if (sync_list[i].array == &ctx->trans->updates) {
+		mail_index_sync_get_update(sync_rec,
+			(const struct mail_transaction_flag_update *)uid_range);
+	} else if (sync_list[i].array == &ctx->trans->keyword_resets) {
+		mail_index_sync_get_keyword_reset(sync_rec, uid_range);
+	} else {
+		mail_index_sync_get_keyword_update(sync_rec, uid_range,
+						   sync_list[i].keyword_num);
 	}
+	sync_list[i].idx++;
 
-	if (ctx->sync_appends) {
-		ctx->sync_appends = FALSE;
-		sync_rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
-		sync_rec->uid1 = ctx->append_uid_first;
-		sync_rec->uid2 = ctx->append_uid_last;
-		return 1;
-	}
-
-	return 0;
+	if (mail_index_sync_rec_check(ctx->view, sync_rec) < 0)
+		return -1;
+	return 1;
 }
 
 int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 {
-	return (ctx->update_idx != ctx->updates_count) ||
-		(ctx->expunge_idx != ctx->expunges_count) ||
-		ctx->sync_appends;
+	struct mail_index_sync_list *sync_list;
+	unsigned int i, count;
+
+	if (ctx->sync_appends)
+		return TRUE;
+
+	sync_list = array_get(&ctx->sync_list, &count);
+	for (i = 0; i < count; i++) {
+		if (array_is_created(sync_list[i].array) &&
+		    sync_list[i].idx != array_count(sync_list[i].array))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 static void mail_index_sync_end(struct mail_index_sync_ctx *ctx)

@@ -107,10 +107,12 @@ struct mail_index_record {
 };
 
 enum mail_index_sync_type {
-	MAIL_INDEX_SYNC_TYPE_APPEND	= 0x01,
-	MAIL_INDEX_SYNC_TYPE_EXPUNGE	= 0x02,
-	MAIL_INDEX_SYNC_TYPE_FLAGS	= 0x04,
-	MAIL_INDEX_SYNC_TYPE_KEYWORDS	= 0x08
+	MAIL_INDEX_SYNC_TYPE_APPEND		= 0x01,
+	MAIL_INDEX_SYNC_TYPE_EXPUNGE		= 0x02,
+	MAIL_INDEX_SYNC_TYPE_FLAGS		= 0x04,
+	MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD	= 0x08,
+	MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE	= 0x10,
+	MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET	= 0x20
 };
 #define MAIL_INDEX_SYNC_MASK_ALL 0xff
 
@@ -121,6 +123,9 @@ struct mail_index_sync_rec {
 	/* MAIL_INDEX_SYNC_TYPE_FLAGS: */
 	uint8_t add_flags;
 	uint8_t remove_flags;
+
+	/* MAIL_INDEX_SYNC_TYPE_KEYWORDS: */
+	unsigned int keyword_idx;
 };
 
 struct mail_keywords;

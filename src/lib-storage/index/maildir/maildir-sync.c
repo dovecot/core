@@ -314,7 +314,9 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 			}
 		}
 		break;
-	case MAIL_INDEX_SYNC_TYPE_KEYWORDS:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 		// FIXME
 		break;
 	}
