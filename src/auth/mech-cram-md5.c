@@ -86,23 +86,25 @@ static int parse_cram_response(struct cram_auth_request *auth,
 			       const unsigned char *data, size_t size,
 			       const char **error_r)
 {
-	size_t i;
+	size_t i, space;
 
 	*error_r = NULL;
 
-	for (i = 0; i < size; i++) {
+	/* <username> SPACE <response>. Username may contain spaces, so assume
+	   the rightmost space is the response separator. */
+	for (i = space = 0; i < size; i++) {
 		if (data[i] == ' ')
-			break;
+			space = i;
 	}
 
-	if (i == size) {
+	if (space == 0) {
 		*error_r = "missing digest";
 		return FALSE;
 	}
 
-	auth->username = p_strndup(auth->pool, data, i);
-	i++;
-	auth->response = p_strndup(auth->pool, data + i, size - i);
+	auth->username = p_strndup(auth->pool, data, space);
+	space++;
+	auth->response = p_strndup(auth->pool, data + space, size - space);
 	return TRUE;
 }
 
