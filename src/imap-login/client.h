@@ -25,6 +25,7 @@ struct imap_client {
 	unsigned int tls:1;
 	unsigned int cmd_finished:1;
 	unsigned int skip_line:1;
+	unsigned int destroyed:1;
 };
 
 struct client *client_create(int fd, struct ip_addr *ip, int ssl);

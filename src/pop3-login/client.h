@@ -20,6 +20,7 @@ struct pop3_client {
 	buffer_t *plain_login;
 
 	unsigned int tls:1;
+	unsigned int destroyed:1;
 };
 
 struct client *client_create(int fd, struct ip_addr *ip, int ssl);

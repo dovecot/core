@@ -261,6 +261,10 @@ struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 
 void client_destroy(struct pop3_client *client, const char *reason)
 {
+	if (client->destroyed)
+		return;
+	client->destroyed = TRUE;
+
 	if (reason != NULL)
 		client_syslog(client, reason);
 
@@ -277,7 +281,6 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	net_disconnect(client->common.fd);
 	client->common.fd = -1;
 
-	i_free(client->common.virtual_user);
 	client_unref(client);
 }
 
@@ -295,6 +298,7 @@ int client_unref(struct pop3_client *client)
 	o_stream_unref(client->output);
 
 	buffer_free(client->plain_login);
+	i_free(client->common.virtual_user);
 	i_free(client);
 
 	main_unref();
