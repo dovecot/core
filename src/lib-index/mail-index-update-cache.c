@@ -43,8 +43,12 @@ int mail_index_update_cache(MailIndex *index)
 	rec = index->lookup(index, 1);
 	while (rec != NULL) {
 		if ((rec->data_fields & cache_fields) != cache_fields) {
-			if (!cache_record(index, rec, cache_fields))
+			t_push();
+			if (!cache_record(index, rec, cache_fields)) {
+				t_pop();
 				return FALSE;
+			}
+			t_pop();
 		}
 
 		rec = index->next(index, rec);

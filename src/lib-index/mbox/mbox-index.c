@@ -732,6 +732,7 @@ static void mbox_index_free(MailIndex *index)
 {
         mbox_file_close_fd(index);
 	mail_index_close(index);
+	i_free(index->mbox_path);
 	i_free(index->dir);
 	i_free(index);
 }

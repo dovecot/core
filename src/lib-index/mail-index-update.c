@@ -396,10 +396,12 @@ static void update_header_func(MessagePart *part,
 			ctx->envelope_pool =
 				pool_create("index envelope", 2048, FALSE);
 		}
+		t_push();
 		imap_envelope_parse_header(ctx->envelope_pool,
 					   &ctx->envelope,
 					   t_strndup(name, name_len),
 					   value, value_len);
+		t_pop();
 	}
 
 	if (ctx->header_func != NULL) {

@@ -51,6 +51,11 @@ static int index_cf_set_syscall_error(MailCustomFlags *mcf,
 
 static int update_mmap(MailCustomFlags *mcf)
 {
+	if (mcf->mmap_base != NULL) {
+		if (munmap(mcf->mmap_base, mcf->mmap_length) < 0)
+			index_cf_set_syscall_error(mcf, "munmap()");
+	}
+
 	mcf->mmap_base = mmap_rw_file(mcf->fd, &mcf->mmap_length);
 	if (mcf->mmap_base == MAP_FAILED) {
 		mcf->mmap_base = NULL;
