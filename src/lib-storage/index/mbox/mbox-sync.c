@@ -1087,10 +1087,17 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->base_uid_validity = 0;
 	sync_ctx->base_uid_last = 0;
 
-	sync_ctx->next_uid = sync_ctx->hdr->next_uid;
+	buffer_set_used_size(sync_ctx->mails, 0);
+	buffer_set_used_size(sync_ctx->syncs, 0);
+	memset(&sync_ctx->sync_rec, 0, sizeof(sync_ctx->sync_rec));
+
 	sync_ctx->prev_msg_uid = 0;
+	sync_ctx->next_uid = sync_ctx->hdr->next_uid;
 	sync_ctx->seq = 0;
-        sync_ctx->idx_seq = 1;
+	sync_ctx->idx_seq = 1;
+	sync_ctx->need_space_seq = 0;
+	sync_ctx->expunged_space = 0;
+	sync_ctx->space_diff = 0;
 
 	sync_ctx->dest_first_mail = TRUE;
         sync_ctx->seen_first_mail = FALSE;
