@@ -1187,7 +1187,13 @@ __again:
 		/* nothing to do */
 		if (lock_id != 0)
 			(void)mbox_unlock(ibox, lock_id);
-		mail_index_sync_rollback(index_sync_ctx);
+
+		/* index may need to do internal syncing though, so commit
+		   instead of rollbacking. */
+		if (mail_index_sync_commit(index_sync_ctx) < 0) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
 		return 0;
 	}
 
