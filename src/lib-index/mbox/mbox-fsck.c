@@ -112,7 +112,7 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 
 static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 			     unsigned int seq, IOBuffer *inbuf,
-			     MailIndexRecord **next_rec)
+			     MailIndexRecord **next_rec, int *dirty)
 {
         MailIndexUpdate *update;
 	MessageSize hdr_size;
@@ -150,6 +150,9 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 
 				/* update_flags() sets dirty flag, remove it */
 				rec->index_flags &= ~INDEX_MAIL_FLAG_DIRTY;
+			} else {
+				if (rec->msg_flags != ctx.flags)
+					*dirty = TRUE;
 			}
 
 			/* update location */
@@ -189,11 +192,18 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 	MailIndexRecord *rec;
 	uoff_t from_offset;
 	unsigned char *data;
+	size_t size;
 	unsigned int seq;
-        size_t size;
+	int dirty;
 
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
+
+	/* skip empty lines at beginning */
+	while (io_buffer_read_data_blocking(inbuf, &data, &size, 0) > 0 &&
+	       (data[0] == '\r' || data[0] == '\n')) {
+		io_buffer_skip(inbuf, 1);
+	}
 
 	/* first make sure we start with a "From " line. If file is too
 	   small, we'll just treat it as empty mbox file. */
@@ -215,6 +225,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 	seq = 1;
 	rec = index->lookup(index, 1);
 
+	dirty = FALSE;
 	while (rec != NULL) {
 		from_offset = inbuf->offset;
 		if (inbuf->offset != 0) {
@@ -230,7 +241,7 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 		if (inbuf->offset == inbuf->size)
 			break;
 
-		if (!match_next_record(index, rec, seq, inbuf, &rec))
+		if (!match_next_record(index, rec, seq, inbuf, &rec, &dirty))
 			return FALSE;
 
 		if (rec == NULL) {
@@ -248,6 +259,11 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 		(void)index->expunge(index, rec, seq, TRUE);
 
 		rec = index->next(index, rec);
+	}
+
+	if (!dirty && (index->header->flags & MAIL_INDEX_FLAG_DIRTY_MESSAGES)) {
+		/* no flags were dirty anymore, no need to rewrite */
+		index->header->flags &= ~MAIL_INDEX_FLAG_DIRTY_MESSAGES;
 	}
 
 	if (inbuf->offset == inbuf->size)
