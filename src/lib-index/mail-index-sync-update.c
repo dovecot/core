@@ -53,9 +53,9 @@ mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 		hdr->first_deleted_uid_lowwater = rec->uid;
 }
 
-static void mail_index_sync_expunge(struct mail_index_view *view,
-				    const struct mail_transaction_expunge *e)
+static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 {
+	struct mail_index_view *view = context;
 	struct mail_index *index = view->index;
 	struct mail_index_map *map = view->map;
 	struct mail_index_header *hdr = &map->hdr_copy;
@@ -69,7 +69,7 @@ static void mail_index_sync_expunge(struct mail_index_view *view,
 	i_assert(ret == 0);
 
 	if (seq1 == 0)
-		return;
+		return 1;
 
 	for (seq = seq1; seq <= seq2; seq++) {
                 rec = MAIL_INDEX_MAP_IDX(index, map, seq-1);
@@ -78,9 +78,9 @@ static void mail_index_sync_expunge(struct mail_index_view *view,
 
 	/* @UNSAFE */
 	count = seq2 - seq1 + 1;
-	memcpy(MAIL_INDEX_MAP_IDX(index, map, seq-1),
-               MAIL_INDEX_MAP_IDX(index, map, seq2),
-	       (map->records_count - seq2) * view->index->record_size);
+	memmove(MAIL_INDEX_MAP_IDX(index, map, seq1-1),
+		MAIL_INDEX_MAP_IDX(index, map, seq2),
+		(map->records_count - seq2) * view->index->record_size);
 
 	map->records_count -= count;
 	hdr->messages_count -= count;
@@ -91,13 +91,6 @@ static void mail_index_sync_expunge(struct mail_index_view *view,
 				     view->index->record_size);
 		map->records = buffer_get_modifyable_data(map->buffer, NULL);
 	}
-}
-
-static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
-{
-	struct mail_index_view *view = context;
-
-	mail_index_sync_expunge(view, e);
 	return 1;
 }
 
