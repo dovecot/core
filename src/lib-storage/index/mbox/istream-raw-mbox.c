@@ -248,15 +248,16 @@ static ssize_t _read(struct _istream *stream)
 		new_pos = i - (fromp - mbox_from);
 	}
 
-	if (new_pos == stream->pos)
-		ret = stream->istream.eof ? -1 : -2;
-	else {
+	stream->buffer = buf;
+	if (new_pos == stream->pos) {
+		if (stream->istream.eof)
+			return _read(stream);
+		ret = -2;
+	} else {
 		i_assert(new_pos > stream->pos);
 		ret = new_pos - stream->pos;
 		stream->pos = new_pos;
 	}
-
-	stream->buffer = buf;
 	return ret;
 }
 
