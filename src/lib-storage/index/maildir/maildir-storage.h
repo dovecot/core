@@ -10,6 +10,7 @@
 
 #include "index-storage.h"
 
+struct timeval;
 struct maildir_save_context;
 struct maildir_copy_context;
 
