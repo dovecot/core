@@ -316,7 +316,7 @@ static int cmd_append_continue_message(struct client *client)
 			failed = TRUE;
 			client_send_storage_error(client, ctx->storage);
 		} else {
-			failed = FALSE;
+			failed = ctx->input->closed;
 		}
 		ctx->save_ctx = NULL;
 
