@@ -78,6 +78,22 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
 	return sendmsg(handle, &msg, 0);
 }
 
+#ifdef __osf__
+#  define CHECK_MSG(msg) TRUE /* Tru64 */
+#else
+#  define CHECK_MSG(msg) (msg).msg_controllen >= CMSG_SPACE(sizeof(int))
+#endif
+
+#ifdef LINUX20
+/* Linux 2.0.x doesn't set any cmsg fields. Note that this might make some
+   attacks possible so don't do it unless you really have to. */
+#  define CHECK_CMSG(cmsg) ((cmsg) != NULL)
+#else
+#  define CHECK_CMSG(cmsg) \
+	((cmsg) != NULL && (cmsg)->cmsg_len >= CMSG_LEN(sizeof(int)) && \
+	 (cmsg)->cmsg_level == SOL_SOCKET && (cmsg)->cmsg_type == SCM_RIGHTS)
+#endif
+
 ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 {
 	struct msghdr msg;
@@ -109,17 +125,10 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	/* at least one byte transferred - we should have the fd now.
 	   do extra checks to make sure it really is an fd that is being
 	   transferred to avoid potential DoS conditions. some systems don't
-	   set all these values correctly however:
-
-	   Linux 2.0.x - cmsg_len, cmsg_level, cmsg_type are not set
-	   Tru64 - msg_controllen isn't set */
+	   set all these values correctly however so CHECK_MSG() and
+	   CHECK_CMSG() are somewhat system dependent */
 	cmsg = CMSG_FIRSTHDR(&msg);
-	if (
-#ifndef __osf__ /* Tru64 */
-	    msg.msg_controllen < CMSG_SPACE(sizeof(int)) ||
-#endif
-	    cmsg == NULL || cmsg->cmsg_len < CMSG_LEN(sizeof(int)) ||
-	    cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
+	if (!CHECK_MSG(msg) || !CHECK_CMSG(cmsg))
 		*fd = -1;
 	else
 		*fd = *((int *) CMSG_DATA(cmsg));
