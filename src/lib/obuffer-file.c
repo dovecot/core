@@ -76,10 +76,8 @@ typedef struct {
 	unsigned int iov_len;
 } IOLoopWriteContext;
 
-static void _close(_IOBuffer *buf)
+static void buffer_closed(FileOBuffer *fbuf)
 {
-	FileOBuffer *fbuf = (FileOBuffer *) buf;
-
 	if (fbuf->autoclose_fd && fbuf->fd != -1) {
 		if (close(fbuf->fd) < 0)
 			i_error("FileOBuffer.close() failed: %m");
@@ -90,6 +88,18 @@ static void _close(_IOBuffer *buf)
 		io_remove(fbuf->io);
 		fbuf->io = NULL;
 	}
+
+	fbuf->obuf.obuffer.closed = TRUE;
+}
+
+static void _close(_IOBuffer *buf)
+{
+	FileOBuffer *fbuf = (FileOBuffer *) buf;
+
+	/* flush output before really closing it */
+	o_buffer_flush(&fbuf->obuf.obuffer);
+
+	buffer_closed(fbuf);
 }
 
 static void _destroy(_IOBuffer *buf)
@@ -200,6 +210,7 @@ o_buffer_writev(FileOBuffer *fbuf, struct iovec *iov, unsigned int iov_size)
 	if (ret < 0) {
 		if (errno == EAGAIN || errno == EINTR)
 			return 0;
+		buffer_closed(fbuf);
 		return -1;
 	}
 
@@ -546,7 +557,7 @@ static void ioloop_sendfile(IOLoopWriteContext *ctx)
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN) {
 			outbuf->buf_errno = errno;
-                        o_buffer_close(outbuf);
+			buffer_closed(ctx->fbuf);
 		}
 		ret = 0;
 	}
@@ -612,6 +623,7 @@ static off_t o_buffer_sendfile(_OBuffer *outbuf, IBuffer *inbuf)
 	if (s_ret < 0) {
 		if (errno != EINTR && errno != EAGAIN) {
 			outbuf->obuffer.buf_errno = errno;
+			buffer_closed(foutbuf);
 			return -1;
 		}
 		s_ret = 0;
