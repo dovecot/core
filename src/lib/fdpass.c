@@ -26,9 +26,9 @@
 #define _XPG4_2
 
 #include "lib.h"
-#include "network.h"
 #include "fdpass.h"
 
+#include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/uio.h>
 
