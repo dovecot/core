@@ -323,7 +323,7 @@ static int mail_index_lock_change(struct mail_index *index,
 
 	/* locking index when cache is locked can deadlock */
 	i_assert(try_lock || index->lock_type == MAIL_LOCK_EXCLUSIVE ||
-		 !mail_cache_is_locked(index->cache));
+		 index->cache == NULL || !mail_cache_is_locked(index->cache));
 
 	if (index->inconsistent) {
 		/* index is in inconsistent state and nothing else than

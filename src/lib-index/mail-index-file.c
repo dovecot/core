@@ -1,8 +1,11 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "file-set-size.h"
 #include "mail-index.h"
 #include "mail-index-util.h"
+
+#include <unistd.h>
 
 struct mail_index_record *mail_index_next(struct mail_index *index,
 					  struct mail_index_record *rec)
@@ -110,7 +113,91 @@ mail_index_lookup_uid_range(struct mail_index *index, unsigned int first_uid,
 	return rec_p + idx;
 }
 
-int mail_index_compress(struct mail_index *index __attr_unused__)
+int mail_index_compress(struct mail_index *index)
 {
+	size_t diff;
+	off_t new_file_size;
+
+	if (index->header_size >= sizeof(struct mail_index_header))
+		return TRUE;
+
+	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
+		return FALSE;
+
+	/* make sure the file is large enough */
+	diff = sizeof(struct mail_index_header) - index->header_size;
+	if (index->mmap_used_length + diff > index->mmap_full_length) {
+		/* mmap_update ftruncates the file to multiples of
+		   mail_index_record, make sure we grow it enough here. */
+		new_file_size = index->mmap_used_length + diff +
+			(sizeof(struct mail_index_record) -
+			 (diff % sizeof(struct mail_index_record)));
+		if (file_set_size(index->fd, new_file_size) < 0) {
+			index_set_syscall_error(index, "file_set_size()");
+			return FALSE;
+		}
+
+		index->header->sync_id++;
+		if (!mail_index_mmap_update(index))
+			return FALSE;
+	}
+
+	/* if we break, we'll have to rebuild it completely */
+	index->header->flags |= MAIL_INDEX_HDR_FLAG_REBUILD;
+	if (!mail_index_fmdatasync(index, index->header_size))
+		return FALSE;
+
+	memmove((char *) index->mmap_base + sizeof(struct mail_index_header),
+		(char *) index->mmap_base + index->header_size,
+		index->mmap_used_length - index->header_size);
+	memset((char *) index->mmap_base + index->header_size, 0, diff);
+
+	index->mmap_used_length += diff;
+	index->header_size = sizeof(struct mail_index_header);
+
+	index->header->header_size = sizeof(struct mail_index_header);
+	index->header->used_file_size += diff;
+	index->header->sync_id++;
+ 
+	if (!mail_index_fmdatasync(index, index->mmap_used_length))
+		return FALSE;
+
+	index->header->flags &= ~MAIL_INDEX_HDR_FLAG_REBUILD;
+	return mail_index_mmap_update(index);
+}
+
+int mail_index_truncate(struct mail_index *index)
+{
+	uoff_t empty_space, truncate_threshold;
+
+	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
+
+	if (index->mmap_full_length <= INDEX_FILE_MIN_SIZE(index) ||
+	    index->anon_mmap)
+		return TRUE;
+
+	/* really truncate the file only when it's almost empty */
+	empty_space = index->mmap_full_length - index->mmap_used_length;
+	truncate_threshold =
+		index->mmap_full_length / 100 * INDEX_TRUNCATE_PERCENTAGE;
+
+	if (empty_space > truncate_threshold) {
+		index->mmap_full_length = index->mmap_used_length +
+			(empty_space * INDEX_TRUNCATE_KEEP_PERCENTAGE / 100);
+
+		/* keep the size record-aligned */
+		index->mmap_full_length -= (index->mmap_full_length -
+					    index->header_size) %
+			sizeof(struct mail_index_record);
+
+		if (index->mmap_full_length < INDEX_FILE_MIN_SIZE(index))
+                        index->mmap_full_length = INDEX_FILE_MIN_SIZE(index);
+
+		if (ftruncate(index->fd, (off_t)index->mmap_full_length) < 0)
+			return index_set_syscall_error(index, "ftruncate()");
+
+		index->header->sync_id++;
+	}
+
 	return TRUE;
 }

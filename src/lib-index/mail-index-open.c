@@ -71,6 +71,12 @@ static int index_open_and_fix(struct mail_index *index,
 {
 	int rebuilt;
 
+	if (index->header_size < sizeof(struct mail_index_header)) {
+		/* upgrading from older index file. */
+		if (!mail_index_compress(index))
+			return FALSE;
+	}
+
 	if (!mail_cache_open_or_create(index))
 		return FALSE;
 

@@ -11,7 +11,6 @@ libindex_a_SOURCES = \
         mail-cache.c \
 	mail-custom-flags.c \
         mail-index.c \
-        mail-index-compress.c \
         mail-index-file.c \
         mail-index-fsck.c \
         mail-index-open.c \
