@@ -110,7 +110,7 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	cmsg = CMSG_FIRSTHDR(&msg);
 	if (msg.msg_controllen < CMSG_SPACE(sizeof(int)) ||
 	    cmsg == NULL || cmsg->cmsg_len < CMSG_LEN(sizeof(int)) ||
-	    cmsg->cmsg_type != SCM_RIGHTS)
+	    cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
 		*fd = -1;
 	else
 		*fd = *((int *) CMSG_DATA(cmsg));
