@@ -25,4 +25,5 @@ libstorage_index_a_SOURCES = \
 
 noinst_HEADERS = \
 	index-fetch.h \
+	index-messageset.h \
 	index-storage.h
