@@ -28,6 +28,11 @@ void sql_exec(struct sql_db *db, const char *query)
 	db->exec(db, query);
 }
 
+enum sql_db_flags sql_get_flags(struct sql_db *db)
+{
+	return db->get_flags(db);
+}
+
 void sql_query(struct sql_db *db, const char *query,
 	       sql_query_callback_t *callback, void *context)
 {
