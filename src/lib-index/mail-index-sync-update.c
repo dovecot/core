@@ -137,7 +137,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	struct mail_index_header *hdr;
 	uint8_t flag_mask, old_flags;
 	keywords_mask_t keyword_mask;
-	uint32_t i, seq1, seq2;
+	uint32_t i, idx, seq1, seq2;
 	int update_keywords, ret;
 
 	ret = mail_index_lookup_uid_range(view, u->uid1, u->uid2, &seq1, &seq2);
@@ -160,8 +160,8 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	}
         flag_mask = ~u->remove_flags;
 
-	for (i = seq1-1; i < seq2; i++) {
-                rec = MAIL_INDEX_MAP_IDX(view->index, view->map, i);
+	for (idx = seq1-1; idx < seq2; idx++) {
+                rec = MAIL_INDEX_MAP_IDX(view->index, view->map, idx);
 
 		old_flags = rec->flags;
 		rec->flags = (rec->flags & flag_mask) | u->add_flags;
