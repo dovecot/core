@@ -207,6 +207,7 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 	request = auth_request_new(mech);
 	if (request == NULL)
 		return TRUE;
+	hash_insert(conn->auth_requests, POINTER_CAST(id), request);
 
 	request->conn = conn;
 	request->id = id;
@@ -279,7 +280,6 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 		initial_resp_data = buf->data;
 		initial_resp_len = buf->used;
 	}
-	hash_insert(conn->auth_requests, POINTER_CAST(id), request);
 
 	/* connection is referenced only until auth_callback is called. */
 	conn->refcount++;
