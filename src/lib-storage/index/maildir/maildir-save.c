@@ -213,10 +213,19 @@ maildir_storage_save_init(struct mailbox *box, int transaction)
 int maildir_storage_save_deinit(struct mail_save_context *ctx, int rollback)
 {
 	struct mail_filename *mf, *mf2;
-	const char *new_path;
+	const char *path;
 	int failed = FALSE;
 
-	if (!rollback) {
+	if (rollback) {
+		/* clean up the temp files */
+		for (mf = ctx->files; mf != NULL; mf = mf->next) {
+			t_push();
+			path = t_strconcat(ctx->tmpdir, "/", mf->dest, NULL);
+			(void)unlink(path);
+			t_pop();
+		}
+	} else {
+		/* move them into new/ */
 		for (mf = ctx->files; mf != NULL; mf = mf->next) {
 			if (!maildir_copy(ctx, mf->src, mf->dest)) {
 				failed = TRUE;
@@ -228,9 +237,9 @@ int maildir_storage_save_deinit(struct mail_save_context *ctx, int rollback)
 			/* failed, try to unlink the mails already moved */
 			for (mf2 = ctx->files; mf2 != mf; mf2 = mf2->next) {
 				t_push();
-				new_path = t_strconcat(ctx->newdir, "/",
-						       mf2->dest, NULL);
-				(void)unlink(new_path);
+				path = t_strconcat(ctx->newdir, "/",
+						   mf2->dest, NULL);
+				(void)unlink(path);
 				t_pop();
 			}
 		}
