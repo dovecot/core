@@ -206,14 +206,17 @@ static void timeout_handler(void *context __attr_unused__)
 		i_warning("waitpid() failed: %m");
 }
 
-static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
+static void resolve_ip(const char *name, struct ip_addr *ip, unsigned int *port)
 {
+	struct ip_addr *ip_list;
 	const char *p;
-	struct ip_addr *ip;
 	int ret, ips_count;
 
-	if (name == NULL)
-		return NULL; /* defaults to "*" or "[::]" */
+	if (name == NULL) {
+                /* defaults to "*" or "[::]" */
+		ip->family = 0;
+		return;
+	}
 
 	if (name[0] == '[') {
 		/* IPv6 address */
@@ -242,20 +245,18 @@ static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 
 	if (strcmp(name, "*") == 0) {
 		/* IPv4 any */
-		ip = t_new(struct ip_addr, 1);
 		net_get_ip_any4(ip);
-		return ip;
+		return;
 	}
 
 	if (strcmp(name, "::") == 0) {
 		/* IPv6 any */
-		ip = t_new(struct ip_addr, 1);
 		net_get_ip_any6(ip);
-		return ip;
+		return;
 	}
 
 	/* Return the first IP if there happens to be multiple. */
-	ret = net_gethostbyname(name, &ip, &ips_count);
+	ret = net_gethostbyname(name, &ip_list, &ips_count);
 	if (ret != 0) {
 		i_fatal("Can't resolve address %s: %s",
 			name, net_gethosterror(ret));
@@ -264,29 +265,62 @@ static struct ip_addr *resolve_ip(const char *name, unsigned int *port)
 	if (ips_count < 1)
 		i_fatal("No IPs for address: %s", name);
 
-	return ip;
+	*ip = ip_list[0];
+}
+
+static void
+check_conflicts_set(const struct settings *set, const struct ip_addr *ip,
+		    unsigned int port, const char *name1, const char *name2)
+{
+	if (set->listen_port == port && net_ip_compare(ip, &set->listen_ip) &&
+	    set->listen_fd > 0) {
+		i_fatal("Protocols %s and %s are listening in same ip/port",
+			name1, name2);
+	}
+	if (set->ssl_listen_port == port &&
+	    net_ip_compare(ip, &set->ssl_listen_ip) && set->ssl_listen_fd > 0) {
+		i_fatal("Protocols %ss and %s are listening in same ip/port",
+			name1, name2);
+	}
+}
+
+static void check_conflicts(const struct ip_addr *ip, unsigned int port,
+			    const char *proto)
+{
+	struct server_settings *server;
+
+	for (server = settings_root; server != NULL; server = server->next) {
+		if (server->imap != NULL) {
+			check_conflicts_set(server->imap, ip, port,
+					    "imap", proto);
+		}
+		if (server->pop3 != NULL) {
+			check_conflicts_set(server->pop3, ip, port,
+					    "pop3", proto);
+		}
+	}
 }
 
 static void listen_protocols(struct settings *set, int retry)
 {
-	struct ip_addr *normal_ip, *ssl_ip, *ip;
+	struct ip_addr *ip;
 	const char *const *proto;
-	unsigned int normal_port, ssl_port, port;
+	unsigned int port;
 	int *fd, i;
 
-	normal_port = set->protocol == MAIL_PROTOCOL_IMAP ? 143 : 110;
+	set->listen_port = set->protocol == MAIL_PROTOCOL_IMAP ? 143 : 110;
 #ifdef HAVE_SSL
-	ssl_port = set->protocol == MAIL_PROTOCOL_IMAP ? 993 : 995;
+	set->ssl_listen_port = set->protocol == MAIL_PROTOCOL_IMAP ? 993 : 995;
 #else
-	ssl_port = 0;
+	set->ssl_listen_port = 0;
 #endif
 
 	/* resolve */
-	normal_ip = resolve_ip(set->listen, &normal_port);
-	ssl_ip = resolve_ip(set->ssl_listen, &ssl_port);
+	resolve_ip(set->listen, &set->listen_ip, &set->listen_port);
+	resolve_ip(set->ssl_listen, &set->ssl_listen_ip, &set->ssl_listen_port);
 
-	if (ssl_ip == NULL && set->ssl_listen == NULL)
-		ssl_ip = normal_ip;
+	if (set->ssl_listen_ip.family == 0 && set->ssl_listen == NULL)
+		set->ssl_listen_ip = set->listen_ip;
 
 	/* register wanted protocols */
         proto = t_strsplit_spaces(set->protocols, " ");
@@ -295,24 +329,28 @@ static void listen_protocols(struct settings *set, int retry)
 		if (strcasecmp(*proto, "imap") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_IMAP) {
 				fd = &set->listen_fd;
-				port = normal_port; ip = normal_ip;
+				port = set->listen_port;
+				ip = &set->listen_ip;
 			}
 		} else if (strcasecmp(*proto, "imaps") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_IMAP &&
 			    !set->ssl_disable) {
 				fd = &set->ssl_listen_fd;
-				port = ssl_port; ip = ssl_ip;
+				port = set->ssl_listen_port;
+				ip = &set->ssl_listen_ip;
 			}
 		} else if (strcasecmp(*proto, "pop3") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_POP3) {
 				fd = &set->listen_fd;
-				port = normal_port; ip = normal_ip;
+				port = set->listen_port;
+				ip = &set->listen_ip;
 			}
 		} else if (strcasecmp(*proto, "pop3s") == 0) {
 			if (set->protocol == MAIL_PROTOCOL_POP3 &&
 			    !set->ssl_disable) {
 				fd = &set->ssl_listen_fd;
-				port = ssl_port; ip = ssl_ip;
+				port = set->ssl_listen_port;
+				ip = &set->ssl_listen_ip;
 			}
 		} else {
 			i_fatal("Unknown protocol %s", *proto);
@@ -329,7 +367,11 @@ static void listen_protocols(struct settings *set, int retry)
 		else {
 			for (i = 0; i < 10; i++) {
 				*fd = net_listen(ip, &port, 8);
-				if (*fd != -1 || errno != EADDRINUSE || !retry)
+				if (*fd != -1 || errno != EADDRINUSE)
+					break;
+
+				check_conflicts(ip, port, *proto);
+				if (!retry)
 					break;
 
 				/* wait a while and try again. we're SIGHUPing

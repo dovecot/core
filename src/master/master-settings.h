@@ -1,6 +1,8 @@
 #ifndef __MASTER_SETTINGS_H
 #define __MASTER_SETTINGS_H
 
+#include "network.h"
+
 enum mail_protocol {
         MAIL_PROTOCOL_ANY,
         MAIL_PROTOCOL_IMAP,
@@ -103,6 +105,8 @@ struct settings {
 	uid_t login_uid;
 
 	int listen_fd, ssl_listen_fd;
+	struct ip_addr listen_ip, ssl_listen_ip;
+	unsigned int listen_port, ssl_listen_port;
 };
 
 struct socket_settings {
