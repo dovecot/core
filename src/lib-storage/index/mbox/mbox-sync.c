@@ -1118,7 +1118,8 @@ __again:
 		   lock it for writing immediately. the mbox must be locked
 		   before index syncing is started to avoid deadlocks, so we
 		   don't have much choice either (well, easy ones anyway). */
-		if (mbox_lock(ibox, F_WRLCK, &lock_id) <= 0)
+		int lock_type = ibox->mbox_readonly ? F_RDLCK : F_WRLCK;
+		if (mbox_lock(ibox, lock_type, &lock_id) <= 0)
 			return -1;
 	}
 
