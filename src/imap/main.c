@@ -199,6 +199,10 @@ static void main_deinit(void)
 	closelog();
 }
 
+#include "ostream.h"
+#include "ostream-crlf.h"
+#include <fcntl.h>
+
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 #ifdef DEBUG
@@ -209,6 +213,12 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	   restrict_access_by_env() is called */
 	lib_init();
 	drop_privileges();
+
+	{ struct ostream *stream = o_stream_create_lf(default_pool, o_stream_create_file(open("/tmp/foo", O_CREAT|O_TRUNC|O_WRONLY, 0600), default_pool, 0, 0));
+
+		o_stream_send_str(stream, "hello\nworld\nja sit crlf\r\nmjoo");
+	o_stream_flush(stream);
+	}
 
         process_title_init(argv, envp);
 	ioloop = io_loop_create(system_pool);

@@ -540,7 +540,7 @@ index_mail_get_headers(struct mail *_mail,
 
 	index_mail_parse_header_init(mail, _headers);
 	mail->data.filter_stream =
-		i_stream_create_header_filter(mail->data.stream, FALSE,
+		i_stream_create_header_filter(mail->data.stream, FALSE, TRUE,
 					      headers->name, headers->count,
 					      header_cache_callback, mail);
 	return mail->data.filter_stream;

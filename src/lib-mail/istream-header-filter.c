@@ -29,6 +29,7 @@ struct header_filter_istream {
 
 	unsigned int header_read:1;
 	unsigned int filter:1;
+	unsigned int crlf:1;
 };
 
 static void _close(struct _iostream *stream __attr_unused__)
@@ -87,7 +88,10 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		mstream->cur_line++;
 
 		if (hdr->eoh) {
-			buffer_append(mstream->hdr_buf, "\r\n", 2);
+			if (mstream->crlf)
+				buffer_append(mstream->hdr_buf, "\r\n", 2);
+			else
+				buffer_append_c(mstream->hdr_buf, '\n');
 			break;
 		}
 
@@ -112,7 +116,13 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			}
 			buffer_append(mstream->hdr_buf,
 				      hdr->value, hdr->value_len);
-			buffer_append(mstream->hdr_buf, "\r\n", 2);
+			if (!hdr->no_newline) {
+				if (mstream->crlf) {
+					buffer_append(mstream->hdr_buf,
+						      "\r\n", 2);
+				} else
+					buffer_append_c(mstream->hdr_buf, '\n');
+			}
 
 			if (mstream->skip_count >= mstream->hdr_buf->used) {
 				/* we need more */
@@ -231,7 +241,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 }
 
 struct istream *
-i_stream_create_header_filter(struct istream *input, int filter,
+i_stream_create_header_filter(struct istream *input, int filter, int crlf,
 			      const char *const *headers, size_t headers_count,
 			      header_filter_callback *callback, void *context)
 {
@@ -255,6 +265,7 @@ i_stream_create_header_filter(struct istream *input, int filter,
 	mstream->callback = callback;
 	mstream->context = context;
 	mstream->filter = filter;
+	mstream->crlf = crlf;
 
 	mstream->istream.iostream.close = _close;
 	mstream->istream.iostream.destroy = _destroy;

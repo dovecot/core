@@ -340,18 +340,21 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 	if (strncmp(header_section, "HEADER.FIELDS ", 14) == 0) {
 		fields = imap_fetch_get_body_fields(header_section + 14,
 						    &fields_count);
-		input = i_stream_create_header_filter(ctx->cur_input, FALSE,
+		input = i_stream_create_header_filter(ctx->cur_input,
+						      FALSE, TRUE,
 						      fields, fields_count,
 						      NULL, NULL);
 	} else if (strncmp(header_section, "HEADER.FIELDS.NOT ", 18) == 0) {
 		fields = imap_fetch_get_body_fields(header_section + 18,
 						    &fields_count);
-		input = i_stream_create_header_filter(ctx->cur_input, TRUE,
+		input = i_stream_create_header_filter(ctx->cur_input,
+						      TRUE, TRUE,
 						      fields, fields_count,
 						      NULL, NULL);
 	} else if (strcmp(header_section, "MIME") == 0) {
 		/* Mime-Version + Content-* fields */
-		input = i_stream_create_header_filter(ctx->cur_input, FALSE,
+		input = i_stream_create_header_filter(ctx->cur_input,
+						      FALSE, TRUE,
 						      NULL, 0,
 						      header_filter_mime, NULL);
 	} else {
