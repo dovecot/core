@@ -470,11 +470,11 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 	i_assert(format != NULL);
 
 	t_push();
+
 	va_start(args, format);
 	format = fix_format(format);
 	buf = t_buffer_get(printf_string_upper_bound(format, args));
 	va_end(args);
-	t_pop();
 
 	len = vsprintf(buf, format, args);
 	if (len >= (int)max_chars)
@@ -482,6 +482,8 @@ int i_snprintf(char *str, size_t max_chars, const char *format, ...)
 
         memcpy(str, buf, len);
 	str[len] = '\0';
+
+	t_pop();
 	return len;
 #endif
 }
@@ -652,7 +654,6 @@ strdup_vprintf_core(const char *format, va_list args,
 	if (format == NULL)
 		return NULL;
 
-	t_push();
 	format = fix_format(format);
 
 	VA_COPY(temp_args, args);
@@ -661,14 +662,18 @@ strdup_vprintf_core(const char *format, va_list args,
 	vsprintf(ret, format, args);
 
 	va_end(temp_args);
-	t_pop();
 
         return ret;
 }
 
 char *p_strdup_vprintf(Pool pool, const char *format, va_list args)
 {
-        return strdup_vprintf_core(format, args, pool->malloc, pool);
+	char *ret;
+
+	t_push();
+	ret = strdup_vprintf_core(format, args, pool->malloc, pool);
+	t_pop();
+	return ret;
 }
 
 const char *t_strdup_vprintf(const char *format, va_list args)
