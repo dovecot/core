@@ -242,8 +242,8 @@ static int fetch_header_fields(struct istream *input, const char *section,
 	while ((hdr = message_parse_header_next(hdr_ctx)) != NULL) {
 		/* see if we want this field.
 		   we always want the end-of-headers line */
-		if (!ctx->match_func(ctx->fields, hdr->name, hdr->name_len) &&
-		    !hdr->eoh)
+		if (!hdr->eoh &&
+		    !ctx->match_func(ctx->fields, hdr->name, hdr->name_len))
 			continue;
 
 		if (!hdr->continued && !hdr->eoh) {
