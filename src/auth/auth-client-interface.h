@@ -9,7 +9,8 @@
 #define AUTH_REQUEST_TIMEOUT 120
 
 enum auth_client_request_new_flags {
-	AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT = 0x01
+	AUTH_CLIENT_FLAG_SSL_ENABLED		= 0x01,
+	AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT	= 0x02
 };
 
 enum auth_client_request_type {

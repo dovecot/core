@@ -138,6 +138,8 @@ client_get_auth_flags(struct imap_client *client)
 	if (client->common.proxy != NULL &&
 	    ssl_proxy_has_valid_client_cert(client->common.proxy))
 		auth_flags |= AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT;
+	if (client->tls)
+		auth_flags |= AUTH_CLIENT_FLAG_SSL_ENABLED;
 	return auth_flags;
 }
 
