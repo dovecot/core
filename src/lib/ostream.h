@@ -49,7 +49,11 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size);
 ssize_t o_stream_send_str(struct ostream *stream, const char *str);
 /* Send data from input stream. Returns number of bytes sent, or -1 if error.
    Note that this function may block if either instream or outstream is
-   blocking. */
+   blocking.
+
+   It's also possible to use this function to copy data within same file
+   descriptor. If the file must be grown, you have to do it manually before
+   calling this function. */
 off_t o_stream_send_istream(struct ostream *outstream,
 			    struct istream *instream);
 

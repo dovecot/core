@@ -28,9 +28,12 @@
 #include "lib.h"
 #include "alarm-hup.h"
 #include "ioloop.h"
+#include "file-set-size.h"
+#include "write-full.h"
 #include "network.h"
 #include "sendfile-util.h"
 #include "istream.h"
+#include "istream-internal.h"
 #include "ostream-internal.h"
 
 #include <unistd.h>
@@ -505,21 +508,15 @@ static ssize_t _send(struct _ostream *stream, const void *data, size_t size)
 	}
 }
 
-static int io_stream_sendfile(struct _ostream *outstream,
-			      struct istream *instream)
+static off_t io_stream_sendfile(struct _ostream *outstream,
+				struct istream *instream, int in_fd)
 {
 	struct file_ostream *foutstream = (struct file_ostream *) outstream;
 	time_t timeout_time;
 	uoff_t start_offset;
 	uoff_t offset, send_size, v_offset;
 	ssize_t ret;
-	int in_fd, first;
-
-	in_fd = i_stream_get_fd(instream);
-	if (in_fd == -1) {
-		outstream->ostream.stream_errno = EINVAL;
-		return -1;
-	}
+	int first;
 
 	/* set timeout time before flushing existing buffer which may block */
 	timeout_time = GET_TIMEOUT_TIME(foutstream);
@@ -574,11 +571,11 @@ static int io_stream_sendfile(struct _ostream *outstream,
 	} while ((uoff_t)ret != send_size);
 
 	i_stream_seek(instream, instream->start_offset + v_offset);
-	return ret < 0 ? -1 : 0;
+	return ret < 0 ? -1 : (off_t)(instream->v_offset - start_offset);
 }
 
 static off_t io_stream_copy(struct _ostream *outstream,
-			    struct istream *instream)
+			    struct istream *instream, int overlapping)
 {
 	struct file_ostream *foutstream = (struct file_ostream *) outstream;
 	time_t timeout_time;
@@ -593,8 +590,12 @@ static off_t io_stream_copy(struct _ostream *outstream,
 	timeout_time = GET_TIMEOUT_TIME(foutstream);
 	iov_len = o_stream_fill_iovec(foutstream, iov);
 
+	i_assert(!overlapping || iov_len == 0);
+
         start_offset = instream->v_offset;
 	for (;;) {
+		if (overlapping)
+			i_stream_seek(instream, instream->v_offset);
 		(void)i_stream_read_data(instream, &data, &size,
 					 O_STREAM_MIN_SIZE-1);
 
@@ -606,6 +607,12 @@ static off_t io_stream_copy(struct _ostream *outstream,
 		pos = iov_len++;
 		iov[pos].iov_base = (void *) data;
 		iov[pos].iov_len = size;
+
+		if (overlapping) {
+			if (o_stream_seek(&outstream->ostream,
+					  outstream->ostream.offset) < 0)
+				return -1;
+		}
 
 		ret = o_stream_writev(foutstream, iov, iov_len);
  		if (ret < 0) {
@@ -643,10 +650,102 @@ static off_t io_stream_copy(struct _ostream *outstream,
 	return (off_t) (instream->v_offset - start_offset);
 }
 
+static off_t io_stream_copy_backwards(struct _ostream *outstream,
+				      struct istream *instream)
+{
+	struct file_ostream *foutstream = (struct file_ostream *) outstream;
+	time_t timeout_time;
+	uoff_t in_start_offset, in_offset, out_offset;
+	const unsigned char *data;
+	unsigned char buffer[4096];
+	size_t buffer_size, size, read_size;
+	ssize_t ret;
+
+	i_assert(IS_STREAM_EMPTY(foutstream));
+
+	timeout_time = GET_TIMEOUT_TIME(foutstream);
+
+	buffer_size = instream->real_stream->buffer_size;
+	if (buffer_size == 0 || buffer_size > sizeof(buffer))
+		buffer_size = sizeof(buffer);
+
+	in_start_offset = instream->v_offset;
+	in_offset = instream->v_limit;
+	out_offset = outstream->ostream.offset +
+		(instream->v_limit - instream->v_offset);
+
+	i_assert(out_offset <= instream->start_offset + instream->v_size);
+
+	while (in_offset > in_start_offset) {
+		if (in_offset - in_start_offset <= buffer_size)
+			read_size = in_offset - in_start_offset;
+		else
+			read_size = buffer_size;
+		in_offset -= read_size;
+		out_offset -= read_size;
+
+		for (;;) {
+			i_assert(in_offset <= instream->v_limit);
+
+			i_stream_seek(instream, in_offset);
+			read_size = instream->v_limit - in_offset;
+
+			(void)i_stream_read_data(instream, &data, &size,
+						 read_size-1);
+			if (size == read_size) {
+				if (instream->mmaped) {
+					/* we'll have to write it through
+					   buffer of the file gets corrupted */
+					i_assert(size <= sizeof(buffer));
+					memcpy(buffer, data, size);
+					data = buffer;
+				}
+				break;
+			}
+
+			i_assert(size < read_size);
+			if (size < read_size) {
+				/* buffer too large probably,
+				   try with smaller */
+				read_size -= size;
+				in_offset += read_size;
+				out_offset += read_size;
+				buffer_size -= read_size;
+			}
+		}
+
+		if (o_stream_seek(&outstream->ostream, out_offset) < 0)
+			return -1;
+
+		ret = write_full(foutstream->fd, data, size);
+ 		if (ret < 0) {
+			/* error */
+			outstream->ostream.stream_errno = errno;
+			return -1;
+		}
+
+		if (timeout_time > 0 && time(NULL) > timeout_time) {
+			/* timeouted */
+			if (foutstream->timeout_cb != NULL) {
+				foutstream->timeout_cb(
+					foutstream->timeout_context);
+			}
+			outstream->ostream.stream_errno = EAGAIN;
+			return -1;
+		}
+
+		i_stream_set_read_limit(instream, in_offset);
+	}
+
+	return (off_t) (instream->v_limit - in_start_offset);
+}
+
 static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 {
 	struct file_ostream *foutstream = (struct file_ostream *) outstream;
+	uoff_t old_limit;
 	off_t ret;
+	int in_fd, overlapping;
 
 	i_assert(instream->v_limit <= OFF_T_MAX);
 	i_assert(instream->v_offset <= instream->v_limit);
@@ -656,8 +755,28 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 	if (instream->v_offset == instream->v_limit)
 		return 0;
 
-	if (!foutstream->no_sendfile) {
-		ret = io_stream_sendfile(outstream, instream);
+	in_fd = i_stream_get_fd(instream);
+	if (in_fd != foutstream->fd)
+		overlapping = 0;
+	else {
+		/* copying data within same fd. we'll have to be careful with
+		   seeks and overlapping writes. */
+		ret = (off_t)outstream->ostream.offset -
+			(off_t)(instream->start_offset + instream->v_offset);
+		if (ret == 0) {
+			/* copying data over itself. we don't really
+			   need to do that, just fake it. */
+			return instream->v_limit - instream->v_offset;
+		}
+		overlapping = ret < 0 ? -1 : 1;
+
+		if (o_stream_seek(&outstream->ostream,
+				  outstream->ostream.offset) < 0)
+			return -1;
+	}
+
+	if (!foutstream->no_sendfile && in_fd != -1 && overlapping <= 0) {
+		ret = io_stream_sendfile(outstream, instream, in_fd);
 		if (ret >= 0 || outstream->ostream.stream_errno != EINVAL)
 			return ret;
 
@@ -667,7 +786,14 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 		foutstream->no_sendfile = TRUE;
 	}
 
-	return io_stream_copy(outstream, instream);
+	if (overlapping <= 0)
+		return io_stream_copy(outstream, instream, overlapping);
+	else {
+		old_limit = instream->v_limit;
+		ret = io_stream_copy_backwards(outstream, instream);
+		i_stream_set_read_limit(instream, old_limit);
+		return ret;
+	}
 }
 
 struct ostream *

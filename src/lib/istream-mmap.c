@@ -80,7 +80,14 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
-	mstream->mmap_block_size = max_size;
+	/* allow only full page sizes */
+	if (max_size < mmap_pagesize)
+		mstream->mmap_block_size = mmap_pagesize;
+	else {
+		if (max_size % mmap_pagesize != 0)
+			max_size += mmap_pagesize - (max_size % mmap_pagesize);
+		mstream->mmap_block_size = max_size;
+	}
 }
 
 static void _set_blocking(struct _iostream *stream __attr_unused__,
@@ -205,6 +212,7 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 				     int autoclose_fd)
 {
 	struct mmap_istream *mstream;
+        struct istream *istream;
 	struct stat st;
 
 	if (mmap_pagesize == 0) {
@@ -226,7 +234,7 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 
 	mstream = p_new(pool, struct mmap_istream, 1);
 	mstream->fd = fd;
-	mstream->mmap_block_size = block_size;
+        _set_max_buffer_size(&mstream->istream.iostream, block_size);
 	mstream->autoclose_fd = autoclose_fd;
 
 	mstream->istream.iostream.close = _close;
@@ -238,6 +246,8 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 	mstream->istream.skip_count = _skip;
 	mstream->istream.seek = _seek;
 
-	return _i_stream_create(&mstream->istream, pool, fd,
-				start_offset, v_size);
+	istream = _i_stream_create(&mstream->istream, pool, fd,
+				   start_offset, v_size);
+	istream->mmaped = TRUE;
+	return istream;
 }

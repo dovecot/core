@@ -6,6 +6,7 @@ struct istream {
 	uoff_t v_offset, v_size, v_limit; /* relative to start_offset */
 
 	int stream_errno;
+	unsigned int mmaped:1; /* be careful when copying data */
 	unsigned int closed:1;
 
 	struct _istream *real_stream;
