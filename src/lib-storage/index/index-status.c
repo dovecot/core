@@ -79,11 +79,25 @@ static unsigned int get_first_unseen_seq(MailIndex *index)
 	return rec == NULL ? 0 : seq;
 }
 
+static void
+get_custom_flags(FlagsFile *ff, const char *result[MAIL_CUSTOM_FLAGS_COUNT])
+{
+	const char **flags;
+	int i;
+
+	flags = flags_file_list_get(ff);
+	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++)
+		result[i] = t_strdup(flags[i]);
+	flags_file_list_unref(ff);
+}
+
 int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 			     MailboxStatus *status)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	MailIndexHeader *hdr;
+
+	memset(status, 0, sizeof(MailboxStatus));
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
 		return mail_storage_set_index_error(ibox);
@@ -102,6 +116,9 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 
 	if (items & STATUS_RECENT)
 		status->recent = get_recent_count(ibox->index);
+
+	if (items & STATUS_CUSTOM_FLAGS)
+		get_custom_flags(ibox->flagsfile, status->custom_flags);
 
 	/* STATUS sends EXISTS, so we've synced it */
 	ibox->synced_messages_count = hdr->messages_count;

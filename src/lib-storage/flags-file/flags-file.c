@@ -10,6 +10,10 @@
 #include <fcntl.h>
 #include <ctype.h>
 
+/* Header is simply a counter which is increased every time the file is
+   updated. This allows other processes to easily notice if there's been
+   any changes. */
+
 #define COUNTER_SIZE 4
 #define HEADER_SIZE (COUNTER_SIZE + 1) /* 0000\n */
 
@@ -124,6 +128,12 @@ static void flags_file_sync(FlagsFile *ff)
 			line = ++data;
 			while (data != data_end && *data != '\n')
 				data++;
+
+			if (ff->custom_flags[num] != NULL) {
+				i_warning("Error in custom flags file %s: "
+					  "Duplicated ID %u", ff->path, num);
+				i_free(ff->custom_flags[num]);
+			}
 
 			ff->custom_flags[num] = i_strdup_until(line, data);
 		}

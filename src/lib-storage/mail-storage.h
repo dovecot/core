@@ -21,7 +21,8 @@ typedef enum {
 	STATUS_UIDNEXT		= 0x04,
 	STATUS_UIDVALIDITY	= 0x08,
 	STATUS_UNSEEN		= 0x10,
-	STATUS_FIRST_UNSEEN_SEQ	= 0x20
+	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
+	STATUS_CUSTOM_FLAGS	= 0x40
 } MailboxStatusItems;
 
 typedef enum {
@@ -184,6 +185,9 @@ struct _MailboxStatus {
 	unsigned int uidnext;
 
 	unsigned int first_unseen_seq;
+
+	/* may be allocated from temp pool */
+	const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT];
 };
 
 struct _MailFetchData {
