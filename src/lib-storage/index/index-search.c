@@ -693,15 +693,18 @@ static int search_get_seqset(struct index_search_context *ctx,
         const struct mail_index_header *hdr;
 
 	hdr = mail_index_get_header(ctx->view);
-	if (search_parse_msgset_args(ctx->ibox, hdr, args,
-				     &ctx->seq1, &ctx->seq2) < 0)
-		return -1;
-
 	if (hdr->messages_count == 0) {
+		/* no messages, don't check sequence ranges. although we could
+		   give error message then for FETCH, we shouldn't do it for
+		   UID FETCH. */
 		ctx->seq1 = 1;
 		ctx->seq2 = 0;
 		return 0;
 	}
+
+	if (search_parse_msgset_args(ctx->ibox, hdr, args,
+				     &ctx->seq1, &ctx->seq2) < 0)
+		return -1;
 
 	if (ctx->seq1 == 0) {
 		ctx->seq1 = 1;
