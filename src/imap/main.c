@@ -140,6 +140,11 @@ static void main_init(void)
 			i_fatal("USER environment missing");
 	}
 
+	if (getenv("DEBUG") != NULL) {
+		i_info("Effective uid=%s, gid=%s",
+		       dec2str(geteuid()), dec2str(getegid()));
+	}
+
 	capability_string = str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
 	str_append(capability_string, CAPABILITY_STRING);
 

@@ -150,6 +150,11 @@ static int main_init(void)
 	if (getenv("USER") == NULL)
 		i_fatal("USER environment missing");
 
+	if (getenv("DEBUG") != NULL) {
+		i_info("Effective uid=%s, gid=%s",
+		       dec2str(geteuid()), dec2str(getegid()));
+	}
+
 	mail_storage_register_all();
 	clients_init();
 
