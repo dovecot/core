@@ -86,7 +86,22 @@ static void mbox_free(MailStorage *storage)
 
 static int mbox_is_valid_name(MailStorage *storage, const char *name)
 {
-	return name[0] != '\0' && name[0] != storage->hierarchy_sep;
+	const char *p;
+	int newdir;
+
+	if (name[0] == '\0' || name[0] == storage->hierarchy_sep)
+		return FALSE;
+
+	/* make sure there's no "../" or "..\" stuff */
+	newdir = TRUE;
+	for (p = name; *p != '\0'; p++) {
+		if (newdir && p[0] == '.' && p[1] == '.' &&
+		    (p[2] == '/' || p[2] == '\\'))
+			return FALSE;
+		newdir = p[0] == '/' || p[0] == '\\';
+	}
+
+	return TRUE;
 }
 
 static const char *mbox_get_index_dir(const char *mbox_path)
@@ -167,6 +182,11 @@ static Mailbox *mbox_open_mailbox(MailStorage *storage, const char *name,
 		return mbox_open(storage, "inbox", readonly);
 	}
 
+	if (!mbox_is_valid_name(storage, name)) {
+		mail_storage_set_error(storage, "Invalid mailbox name");
+		return FALSE;
+	}
+
 	i_snprintf(path, sizeof(path), "%s/%s", storage->dir, name);
 	if (stat(path, &st) == 0) {
 		/* exists - make sure the required directories are also there */
@@ -240,6 +260,11 @@ static int mbox_delete_mailbox(MailStorage *storage, const char *name)
 		return FALSE;
 	}
 
+	if (!mbox_is_valid_name(storage, name)) {
+		mail_storage_set_error(storage, "Invalid mailbox name");
+		return FALSE;
+	}
+
 	/* first unlink the mbox file */
 	i_snprintf(path, sizeof(path), "%s/%s", storage->dir, name);
 	if (unlink(path) == -1) {
@@ -270,6 +295,12 @@ static int mbox_rename_mailbox(MailStorage *storage, const char *oldname,
 	char oldpath[1024], newpath[1024];
 
 	mail_storage_clear_error(storage);
+
+	if (!mbox_is_valid_name(storage, oldname) ||
+	    !mbox_is_valid_name(storage, newname)) {
+		mail_storage_set_error(storage, "Invalid mailbox name");
+		return FALSE;
+	}
 
 	if (strcasecmp(oldname, "INBOX") == 0)
 		oldname = "inbox";

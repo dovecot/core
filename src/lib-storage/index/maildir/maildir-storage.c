@@ -152,6 +152,11 @@ static Mailbox *maildir_open_mailbox(MailStorage *storage, const char *name,
 		return maildir_open(storage, "INBOX", readonly);
 	}
 
+	if (!maildir_is_valid_name(storage, name)) {
+		mail_storage_set_error(storage, "Invalid mailbox name");
+		return FALSE;
+	}
+
 	i_snprintf(path, sizeof(path), "%s/.%s", storage->dir, name);
 	if (stat(path, &st) == 0) {
 		/* exists - make sure the required directories are also there */
@@ -205,6 +210,11 @@ static int maildir_delete_mailbox(MailStorage *storage, const char *name)
 
 	if (strcasecmp(name, "INBOX") == 0) {
 		mail_storage_set_error(storage, "INBOX can't be deleted.");
+		return FALSE;
+	}
+
+	if (!maildir_is_valid_name(storage, name)) {
+		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
 	}
 
@@ -286,6 +296,12 @@ static int maildir_rename_mailbox(MailStorage *storage, const char *oldname,
 
 	if (strcasecmp(oldname, "INBOX") == 0)
 		oldname = "INBOX";
+
+	if (!maildir_is_valid_name(storage, oldname) ||
+	    !maildir_is_valid_name(storage, newname)) {
+		mail_storage_set_error(storage, "Invalid mailbox name");
+		return FALSE;
+	}
 
 	/* NOTE: renaming INBOX works just fine with us, it's simply created
 	   the next time it's needed. Only problem with it is that it's not
