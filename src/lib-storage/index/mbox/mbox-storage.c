@@ -242,7 +242,7 @@ int mbox_is_valid_mask(const char *mask)
 
 static int mbox_is_valid_name(struct mail_storage *storage, const char *name)
 {
-	if (name[0] == '\0' || name[strlen(name)-1] == storage->hierarchy_syp ||
+	if (name[0] == '\0' || name[strlen(name)-1] == storage->hierarchy_sep ||
 	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
 		return FALSE;
 
