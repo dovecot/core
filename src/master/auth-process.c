@@ -45,6 +45,7 @@ struct auth_process {
 
 	struct hash_table *requests;
 
+	unsigned int private_listener:1;
 	unsigned int external:1;
 	unsigned int version_received:1;
 	unsigned int initialized:1;
@@ -274,6 +275,9 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 				    AUTH_MASTER_PROTOCOL_MINOR_VERSION);
 	(void)o_stream_send_str(p->output, handshake);
 
+	if (group->listen_fd == -1)
+		p->private_listener = TRUE;
+
 	p->next = group->processes;
 	group->processes = p;
 	group->process_count++;
@@ -283,6 +287,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 static void auth_process_destroy(struct auth_process *p)
 {
 	struct hash_iterate_context *iter;
+	const char *path;
 	void *key, *value;
 	struct auth_process **pos;
 
@@ -298,6 +303,13 @@ static void auth_process_destroy(struct auth_process *p)
 		}
 	}
 	p->group->process_count--;
+
+	if (p->private_listener) {
+		path = t_strconcat(p->group->set->parent->defaults->login_dir,
+				   "/", p->group->set->name, dec2str(p->pid),
+				   NULL);
+		(void)unlink(path);
+	}
 
 	iter = hash_iterate_init(p->requests);
 	while (hash_iterate(iter, &key, &value))
@@ -347,13 +359,42 @@ static int connect_auth_socket(struct auth_process_group *group,
 	return 0;
 }
 
+static int auth_process_socket_create(struct auth_settings *auth_set, pid_t pid)
+{
+	const char *path;
+	mode_t old_umask;
+	int fd;
+
+	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
+			   auth_set->name, pid == 0 ? NULL : dec2str(pid),
+			   NULL);
+	(void)unlink(path);
+
+	old_umask = umask(0117); /* we want 0660 mode for the socket */
+	fd = net_listen_unix(path);
+	umask(old_umask);
+
+	if (fd < 0)
+		i_fatal("Can't listen in UNIX socket %s: %m", path);
+	net_set_nonblock(fd, TRUE);
+	fd_close_on_exec(fd, TRUE);
+
+	/* set correct permissions */
+	if (chown(path, master_uid, auth_set->parent->login_gid) < 0) {
+		i_fatal("login: chown(%s, %s, %s) failed: %m",
+			path, dec2str(master_uid),
+			dec2str(auth_set->parent->login_gid));
+	}
+	return fd;
+}
+
 static int create_auth_process(struct auth_process_group *group)
 {
 	struct auth_socket_settings *as;
 	const char *prefix, *str;
 	struct log_io *log;
 	pid_t pid;
-	int fd[2], log_fd, i;
+	int fd[2], log_fd, listen_fd, i;
 
 	/* see if this is a connect socket */
 	as = group->set->sockets;
@@ -416,8 +457,10 @@ static int create_auth_process(struct auth_process_group *group)
 
 	/* move login communication handle to 3. do it last so we can be
 	   sure it's not closed afterwards. */
-	if (group->listen_fd != 3) {
-		if (dup2(group->listen_fd, 3) < 0)
+	listen_fd = group->listen_fd != -1 ? group->listen_fd :
+		auth_process_socket_create(group->set, getpid());
+	if (listen_fd != 3) {
+		if (dup2(listen_fd, 3) < 0)
 			i_fatal("dup2() failed: %m");
 	}
 
@@ -491,8 +534,6 @@ struct auth_process *auth_process_find(unsigned int pid)
 static void auth_process_group_create(struct auth_settings *auth_set)
 {
 	struct auth_process_group *group;
-	const char *path;
-	mode_t old_umask;
 
 	group = i_new(struct auth_process_group, 1);
 	group->set = auth_set;
@@ -504,31 +545,20 @@ static void auth_process_group_create(struct auth_settings *auth_set)
 	    strcmp(auth_set->sockets->type, "connect") == 0)
 		return;
 
-	/* create socket for listening auth requests from login */
-	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
-			   auth_set->name, NULL);
-	(void)unlink(path);
-
-	old_umask = umask(0117); /* we want 0660 mode for the socket */
-	group->listen_fd = net_listen_unix(path);
-	umask(old_umask);
-
-	if (group->listen_fd < 0)
-		i_fatal("Can't listen in UNIX socket %s: %m", path);
-	net_set_nonblock(group->listen_fd, TRUE);
-	fd_close_on_exec(group->listen_fd, TRUE);
-
-	/* set correct permissions */
-	if (chown(path, master_uid, auth_set->parent->login_gid) < 0) {
-		i_fatal("login: chown(%s, %s, %s) failed: %m",
-			path, dec2str(master_uid),
-			dec2str(auth_set->parent->login_gid));
-	}
+	/* If we keep long running login processes, we want them to use
+	   all the auth processes in round robin. this means we have to create
+	   separate socket for all of them. So, group->listen_fd is only
+	   used with login_process_per_connection. */
+	if (auth_set->parent->defaults->login_process_per_connection)
+		group->listen_fd = auth_process_socket_create(auth_set, 0);
+	else
+		group->listen_fd = -1;
 }
 
 static void auth_process_group_destroy(struct auth_process_group *group)
 {
 	struct auth_process *next;
+	const char *path;
 
 	while (group->processes != NULL) {
 		next = group->processes->next;
@@ -536,11 +566,14 @@ static void auth_process_group_destroy(struct auth_process_group *group)
                 group->processes = next;
 	}
 
-	(void)unlink(t_strconcat(group->set->parent->defaults->login_dir, "/",
-				 group->set->name, NULL));
+	if (group->listen_fd != -1) {
+		path = t_strconcat(group->set->parent->defaults->login_dir, "/",
+				   group->set->name, NULL);
+		(void)unlink(path);
 
-	if (close(group->listen_fd) < 0)
-		i_error("close(auth group %s) failed: %m", group->set->name);
+		if (close(group->listen_fd) < 0)
+			i_error("close(%s) failed: %m", path);
+	}
 	i_free(group);
 }
 
