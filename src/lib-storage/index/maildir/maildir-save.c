@@ -17,7 +17,7 @@
 
 struct maildir_filename {
 	struct maildir_filename *next;
-	const char *src, *dest;
+	const char *basename, *dest;
 };
 
 struct maildir_save_context {
@@ -27,7 +27,7 @@ struct maildir_save_context {
 	struct mail_index_transaction *trans;
 	struct index_mail mail;
 
-	const char *tmpdir, *newdir;
+	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files;
 };
 
@@ -75,15 +75,21 @@ maildir_read_into_tmp(struct index_mailbox *ibox, const char *dir,
 }
 
 static int maildir_file_move(struct maildir_save_context *ctx,
-			     const char *src, const char *dest)
+			     const char *basename, const char *dest)
 {
 	const char *tmp_path, *new_path;
 	int ret;
 
 	t_push();
 
-	tmp_path = t_strconcat(ctx->tmpdir, "/", src, NULL);
-	new_path = t_strconcat(ctx->newdir, "/", dest, NULL);
+	/* if we have flags, we'll move it to cur/ directly, because files in
+	   new/ directory can't have flags. alternative would be to write it
+	   in new/ and set the flags dirty in index file, but in that case
+	   external MUAs would see wrong flags. */
+	tmp_path = t_strconcat(ctx->tmpdir, "/", basename, NULL);
+	new_path = dest == NULL ?
+		t_strconcat(ctx->newdir, "/", basename, NULL) :
+		t_strconcat(ctx->curdir, "/", dest, NULL);
 
 	if (link(tmp_path, new_path) == 0)
 		ret = 0;
@@ -123,6 +129,7 @@ mailbox_save_init(struct maildir_transaction_context *t)
 
 	ctx->tmpdir = p_strconcat(pool, ibox->path, "/tmp", NULL);
 	ctx->newdir = p_strconcat(pool, ibox->path, "/new", NULL);
+	ctx->curdir = p_strconcat(pool, ibox->path, "/cur", NULL);
 	return ctx;
 }
 
@@ -137,10 +144,9 @@ int maildir_save(struct mailbox_transaction_context *_t,
 	struct maildir_save_context *ctx;
 	struct index_mailbox *ibox = t->ictx.ibox;
 	struct maildir_filename *mf;
-	enum mail_flags mail_flags;
         struct utimbuf buf;
 	const char *fname, *dest_fname, *tmp_path;
-	enum mail_flags save_flags;
+	enum mail_flags mail_flags;
 	keywords_mask_t keywords;
 	uint32_t seq;
 
@@ -148,7 +154,8 @@ int maildir_save(struct mailbox_transaction_context *_t,
 		t->save_ctx = mailbox_save_init(t);
 	ctx = t->save_ctx;
 
-	mail_flags = flags->flags;
+	mail_flags = (flags->flags & ~MAIL_RECENT) |
+		(ibox->keep_recent ? MAIL_RECENT : 0);
 	/*FIXME:if (!index_mailbox_fix_keywords(ibox, &mail_flags,
 					    flags->keywords,
 					    flags->keywords_count))
@@ -179,25 +186,24 @@ int maildir_save(struct mailbox_transaction_context *_t,
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
-	   into new/ */
-	dest_fname = mail_flags == 0 ? fname :
+	   into new/ or cur/. if dest_fname is NULL, it's moved to new/,
+	   otherwise to cur/. */
+	dest_fname = mail_flags == MAIL_RECENT ? NULL :
 		maildir_filename_set_flags(fname, mail_flags, NULL);
 
 	mf = p_new(ctx->pool, struct maildir_filename, 1);
 	mf->next = ctx->files;
-	mf->src = p_strdup(ctx->pool, fname);
+	mf->basename = p_strdup(ctx->pool, fname);
 	mf->dest = p_strdup(ctx->pool, dest_fname);
 	ctx->files = mf;
 
 	/* insert into index */
-	save_flags = (flags->flags & ~MAIL_RECENT) |
-		(ibox->keep_recent ? MAIL_RECENT : 0);
 	memset(keywords, 0, INDEX_KEYWORDS_BYTE_COUNT);
 	// FIXME: set keywords
 
 	mail_index_append(t->ictx.trans, 0, &seq);
 	mail_index_update_flags(t->ictx.trans, seq, MODIFY_REPLACE,
-				save_flags, keywords);
+				mail_flags, keywords);
 	t_pop();
 
 	if (mail_r != NULL) {
@@ -221,7 +227,10 @@ static void maildir_save_commit_abort(struct maildir_save_context *ctx,
 	/* try to unlink the mails already moved */
 	for (mf = ctx->files; mf != pos; mf = mf->next) {
 		str_truncate(str, 0);
-		str_printfa(str, "%s/%s", ctx->newdir, mf->dest);
+		if (mf->dest == NULL)
+			str_printfa(str, "%s/%s", ctx->newdir, mf->basename);
+		else
+			str_printfa(str, "%s/%s", ctx->curdir, mf->dest);
 		(void)unlink(str_c(str));
 	}
 	ctx->files = pos;
@@ -235,7 +244,8 @@ int maildir_save_commit(struct maildir_save_context *ctx)
 	struct maildir_uidlist_sync_ctx *sync_ctx;
 	struct maildir_filename *mf;
 	uint32_t first_uid, last_uid;
-        enum maildir_uidlist_rec_flag flags;
+	enum maildir_uidlist_rec_flag flags;
+	const char *fname;
 	int ret = 0;
 
 	ret = maildir_uidlist_lock(ctx->ibox->uidlist);
@@ -254,8 +264,9 @@ int maildir_save_commit(struct maildir_save_context *ctx)
 	/* move them into new/ */
 	sync_ctx = maildir_uidlist_sync_init(ctx->ibox->uidlist, TRUE);
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
-		if (maildir_file_move(ctx, mf->src, mf->dest) < 0 ||
-		    maildir_uidlist_sync_next(sync_ctx, mf->dest, flags) < 0) {
+		fname = mf->dest != NULL ? mf->dest : mf->basename;
+		if (maildir_file_move(ctx, mf->basename, mf->dest) < 0 ||
+		    maildir_uidlist_sync_next(sync_ctx, fname, flags) < 0) {
 			(void)maildir_uidlist_sync_deinit(sync_ctx);
 			maildir_save_commit_abort(ctx, mf);
 			return -1;
@@ -285,7 +296,7 @@ void maildir_save_rollback(struct maildir_save_context *ctx)
 	/* clean up the temp files */
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
 		str_truncate(str, 0);
-		str_printfa(str, "%s/%s", ctx->tmpdir, mf->dest);
+		str_printfa(str, "%s/%s", ctx->tmpdir, mf->basename);
 		(void)unlink(str_c(str));
 	}
 	t_pop();
