@@ -314,9 +314,8 @@ static int cache_fields(struct imap_message_cache *cache,
 		failed = msg->part == NULL;
 	}
 
-	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) && msg->body_size == NULL) {
-		i_assert(msg->part != NULL);
-
+	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) &&
+	    msg->body_size == NULL && msg->part != NULL) {
 		msg->body_size = p_new(msg->pool, struct message_size, 1);
 		if (msg->hdr_size == NULL) {
 			msg->hdr_size = p_new(msg->pool,
