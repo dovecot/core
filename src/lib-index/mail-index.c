@@ -1000,8 +1000,19 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 	for (uid = first_uid; uid <= last_try_uid; uid++) {
 		pos = mail_hash_lookup_uid(index->hash, uid);
 		if (pos != 0) {
-			return (MailIndexRecord *)
+			rec = (MailIndexRecord *)
 				((char *) index->mmap_base + pos);
+			if (rec->uid != uid) {
+				index_set_error(index,
+						"Corrupted hash for index %s: "
+						"lookup returned offset to "
+						"different UID",
+						index->filepath);
+				index->set_flags |=
+					MAIL_INDEX_FLAG_REBUILD_HASH;
+				rec = NULL;
+			}
+			return rec;
 		}
 	}
 

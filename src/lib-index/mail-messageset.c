@@ -218,6 +218,15 @@ static int mail_index_uid_foreach(MailIndex *index,
 		}
 
 		rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
+		if (rec->uid != uid) {
+			/* hash is corrupted */
+			index_set_error(index, "Corrupted hash for index %s: "
+					"lookup returned offset to "
+					"different UID", index->filepath);
+
+			index->set_flags |= MAIL_INDEX_FLAG_REBUILD_HASH;
+			return -1;
+		}
 	} else {
 		/* ..however if for any reason it doesn't,
 		   still handle it properly */
