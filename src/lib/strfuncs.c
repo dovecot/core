@@ -168,7 +168,7 @@ char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 		return NULL;
 
 	len = 0;
-	while (((const char *) str)[len] != '\0' && len < max_chars)
+	while (len < max_chars && ((const char *) str)[len] != '\0')
 		len++;
 
 	mem = p_malloc(pool, len+1);
