@@ -11,7 +11,6 @@ struct imap_client {
 	time_t created;
 	int refcount;
 
-	struct io *io;
 	struct istream *input;
 	struct ostream *output;
 	struct imap_parser *parser;
@@ -22,8 +21,6 @@ struct imap_client {
 	const char *cmd_tag, *cmd_name;
 
 	buffer_t *plain_login;
-	struct auth_request *auth_request;
-	char *virtual_user;
 
 	unsigned int tls:1;
 	unsigned int cmd_finished:1;

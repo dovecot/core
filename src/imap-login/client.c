@@ -120,9 +120,9 @@ static int cmd_starttls(struct imap_client *client)
 
 	/* must be removed before ssl_proxy_new(), since it may
 	   io_add() the same fd. */
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
+	if (client->common.io != NULL) {
+		io_remove(client->common.io);
+		client->common.io = NULL;
 	}
 
 	fd_ssl = ssl_proxy_new(client->common.fd);
@@ -145,7 +145,8 @@ static int cmd_starttls(struct imap_client *client)
 		client_destroy(client, "TLS handshake failed");
 	}
 
-	client->io = io_add(client->common.fd, IO_READ, client_input, client);
+	client->common.io =
+		io_add(client->common.fd, IO_READ, client_input, client);
 	return TRUE;
 }
 
@@ -346,7 +347,7 @@ struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 	client->common.fd = fd;
 
 	client_open_streams(client, fd);
-	client->io = io_add(fd, IO_READ, client_input, client);
+	client->common.io = io_add(fd, IO_READ, client_input, client);
 	client->plain_login = buffer_create_dynamic(system_pool, 128, 8192);
 
 	client->last_input = ioloop_time;
@@ -370,15 +371,15 @@ void client_destroy(struct imap_client *client, const char *reason)
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
+	if (client->common.io != NULL) {
+		io_remove(client->common.io);
+		client->common.io = NULL;
 	}
 
 	net_disconnect(client->common.fd);
 	client->common.fd = -1;
 
-	i_free(client->virtual_user);
+	i_free(client->common.virtual_user);
 	client_unref(client);
 }
 

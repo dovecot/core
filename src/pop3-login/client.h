@@ -11,7 +11,6 @@ struct pop3_client {
 	time_t created;
 	int refcount;
 
-	struct io *io;
 	struct istream *input;
 	struct ostream *output;
 
@@ -19,8 +18,6 @@ struct pop3_client {
 	unsigned int bad_counter;
 
 	buffer_t *plain_login;
-	struct auth_request *auth_request;
-	char *virtual_user;
 
 	unsigned int tls:1;
 };

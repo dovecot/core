@@ -11,9 +11,10 @@
 #include "auth-connection.h"
 #include "../auth/auth-mech-desc.h"
 #include "../pop3/capability.h"
+#include "master.h"
+#include "auth-common.h"
 #include "client.h"
 #include "client-authenticate.h"
-#include "master.h"
 
 static enum auth_mech auth_mechs = 0;
 static char *auth_mechs_capability = NULL;
@@ -62,19 +63,19 @@ static struct auth_mech_desc *auth_mech_find(const char *name)
 
 static void client_auth_abort(struct pop3_client *client, const char *msg)
 {
-	if (client->auth_request != NULL) {
-		auth_abort_request(client->auth_request);
-		client->auth_request = NULL;
+	if (client->common.auth_request != NULL) {
+		auth_abort_request(client->common.auth_request);
+		client->common.auth_request = NULL;
 	}
 
-	client_send_line(client, msg != NULL ? msg :
+	client_send_line(client, msg != NULL ? t_strconcat("-ERR ", msg, NULL) :
 			 "-ERR Authentication failed.");
 	o_stream_flush(client->output);
 
 	/* get back to normal client input */
-	if (client->io != NULL)
-		io_remove(client->io);
-	client->io = client->common.fd == -1 ? NULL :
+	if (client->common.io != NULL)
+		io_remove(client->common.io);
+	client->common.io = client->common.fd == -1 ? NULL :
 		io_add(client->common.fd, IO_READ, client_input, client);
 
 	client_unref(client);
@@ -85,11 +86,12 @@ static void master_callback(struct client *_client, int success)
 	struct pop3_client *client = (struct pop3_client *) _client;
 	const char *reason = NULL;
 
-	if (success)
-		reason = t_strconcat("Login: ", client->virtual_user, NULL);
-	else {
+	if (success) {
+		reason = t_strconcat("Login: ", client->common.virtual_user,
+				     NULL);
+	} else {
 		reason = t_strconcat("Internal login failure: ",
-				     client->virtual_user, NULL);
+				     client->common.virtual_user, NULL);
 		client_send_line(client, "* BYE Internal login failure.");
 	}
 
@@ -116,94 +118,33 @@ static void client_send_auth_data(struct pop3_client *client,
 	t_pop();
 }
 
-static const char *auth_login_get_str(struct auth_login_reply *reply,
-				      const unsigned char *data, size_t idx)
-{
-	size_t stop;
-
-	if (idx >= reply->data_size || idx >= reply->reply_idx)
-		return NULL;
-
-	stop = reply->reply_idx < reply->data_size ?
-		reply->reply_idx-1 : reply->data_size;
-
-	return t_strndup(data, stop);
-}
-
-static int auth_callback(struct auth_request *request,
-			 struct auth_login_reply *reply,
-			 const unsigned char *data, void *context)
-{
-	struct pop3_client *client = context;
-	const char *user, *realm;
-
-	if (reply == NULL) {
-		/* failed */
-		client->auth_request = NULL;
-		client_auth_abort(client, "-ERR Authentication process died.");
-		return FALSE;
-	}
-
-	switch (reply->result) {
-	case AUTH_LOGIN_RESULT_CONTINUE:
-		client->auth_request = request;
-		return TRUE;
-
-	case AUTH_LOGIN_RESULT_SUCCESS:
-		client->auth_request = NULL;
-
-		user = auth_login_get_str(reply, data, reply->username_idx);
-		realm = auth_login_get_str(reply, data, reply->realm_idx);
-
-		i_free(client->virtual_user);
-		client->virtual_user = realm == NULL ?
-			i_strdup(user) : i_strconcat(user, "@", realm, NULL);
-
-		/* we should be able to log in. if we fail, just
-		   disconnect the client. */
-		client_send_line(client, "+OK Logged in.");
-
-		master_request_imap(&client->common, master_callback,
-				    request->conn->pid, request->id);
-
-		/* disable IO until we're back from master */
-		if (client->io != NULL) {
-			io_remove(client->io);
-			client->io = NULL;
-		}
-		return FALSE;
-
-	case AUTH_LOGIN_RESULT_FAILURE:
-		/* see if we have error message */
-		client->auth_request = NULL;
-
-		if (reply->data_size > 0 && data[reply->data_size-1] == '\0') {
-			client_auth_abort(client, t_strconcat(
-				"-ERR Authentication failed: ",
-				(const char *) data, NULL));
-		} else {
-			/* default error message */
-			client_auth_abort(client, NULL);
-		}
-		return FALSE;
-	}
-
-	i_unreached();
-}
-
 static void login_callback(struct auth_request *request,
 			   struct auth_login_reply *reply,
 			   const unsigned char *data, struct client *_client)
 {
 	struct pop3_client *client = (struct pop3_client *) _client;
+	const char *error;
 	const void *ptr;
 	size_t size;
 
-	if (auth_callback(request, reply, data, client)) {
+	switch (auth_callback(request, reply, data, _client,
+			      master_callback, &error)) {
+	case -1:
+		/* login failed */
+		client_auth_abort(client, error);
+		break;
+
+	case 0:
 		ptr = buffer_get_data(client->plain_login, &size);
 		auth_continue_request(request, ptr, size);
 
 		buffer_set_used_size(client->plain_login, 0);
+		break;
+
+	default:
+		/* success, we should be able to log in. if we fail, just
+		   disconnect the client. */
+		client_send_line(client, "+OK Logged in.");
 	}
 }
 
@@ -240,9 +181,9 @@ int cmd_pass(struct pop3_client *client, const char *args)
 	if (auth_init_request(AUTH_MECH_PLAIN, login_callback,
 			      &client->common, &error)) {
 		/* don't read any input from client until login is finished */
-		if (client->io != NULL) {
-			io_remove(client->io);
-			client->io = NULL;
+		if (client->common.io != NULL) {
+			io_remove(client->common.io);
+			client->common.io = NULL;
 		}
 		return TRUE;
 	} else {
@@ -259,9 +200,24 @@ static void authenticate_callback(struct auth_request *request,
 				  struct client *_client)
 {
 	struct pop3_client *client = (struct pop3_client *) _client;
+	const char *error;
 
-	if (auth_callback(request, reply, data, client))
+	switch (auth_callback(request, reply, data, _client,
+			      master_callback, &error)) {
+	case -1:
+		/* login failed */
+		client_auth_abort(client, error);
+		break;
+
+	case 0:
 		client_send_auth_data(client, data, reply->data_size);
+		break;
+
+	default:
+		/* success, we should be able to log in. if we fail, just
+		   disconnect the client. */
+		client_send_line(client, "+OK Logged in.");
+	}
 }
 
 static void client_auth_input(void *context)
@@ -280,7 +236,7 @@ static void client_auth_input(void *context)
 		return;
 
 	if (strcmp(line, "*") == 0) {
-		client_auth_abort(client, "-ERR Authentication aborted");
+		client_auth_abort(client, "Authentication aborted");
 		return;
 	}
 
@@ -290,11 +246,11 @@ static void client_auth_input(void *context)
 	if (base64_decode((const unsigned char *) line, linelen,
 			  NULL, buf) <= 0) {
 		/* failed */
-		client_auth_abort(client, "-ERR Invalid base64 data");
-	} else if (client->auth_request == NULL) {
-		client_auth_abort(client, "-ERR Don't send unrequested data");
+		client_auth_abort(client, "Invalid base64 data");
+	} else if (client->common.auth_request == NULL) {
+		client_auth_abort(client, "Don't send unrequested data");
 	} else {
-		auth_continue_request(client->auth_request,
+		auth_continue_request(client->common.auth_request,
 				      buffer_get_data(buf, NULL),
 				      buffer_get_used_size(buf));
 	}
@@ -329,10 +285,10 @@ int cmd_auth(struct pop3_client *client, const char *args)
 	if (auth_init_request(mech->mech, authenticate_callback,
 			      &client->common, &error)) {
 		/* following input data will go to authentication */
-		if (client->io != NULL)
-			io_remove(client->io);
-		client->io = io_add(client->common.fd, IO_READ,
-				    client_auth_input, client);
+		if (client->common.io != NULL)
+			io_remove(client->common.io);
+		client->common.io = io_add(client->common.fd, IO_READ,
+					   client_auth_input, client);
 	} else {
 		client_send_line(client, t_strconcat(
 			"-ERR Authentication failed: ", error, NULL));

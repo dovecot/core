@@ -2,12 +2,18 @@
 #define __CLIENT_COMMON_H
 
 #include "network.h"
+#include "master.h"
 
 struct client {
 	struct ip_addr ip;
-	int fd;
 
+	int fd;
+	struct io *io;
+
+        struct auth_request *auth_request;
 	master_callback_t *master_callback;
+
+	char *virtual_user;
 	/* ... */
 };
 

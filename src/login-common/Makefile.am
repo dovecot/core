@@ -4,6 +4,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib
 
 liblogin_common_a_SOURCES = \
+	auth-common.c \
 	auth-connection.c \
 	main.c \
 	master.c \
@@ -12,6 +13,7 @@ liblogin_common_a_SOURCES = \
 	ssl-proxy-openssl.c
 
 noinst_HEADERS = \
+	auth-common.h \
 	auth-connection.h \
 	common.h \
 	client-common.h \
