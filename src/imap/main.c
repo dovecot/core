@@ -82,7 +82,7 @@ static void main_init(int use_syslog)
 	tag = getenv("LOGIN_TAG");
 	if (tag == NULL || *tag == '\0') {
 		client_send_line(client, t_strconcat(
-			" * PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
+			"* PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
 			"Logged in as ", getenv("USER"), NULL));
 	} else {
 		client_send_line(client,
