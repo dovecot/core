@@ -359,6 +359,9 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 				break;
 			}
 		}
+
+		if (fetch_data->rfc822 || fetch_data->rfc822_text)
+			ctx.update_seen = TRUE;
 	}
 
 	/* need exclusive lock to update the \Seen flags */
