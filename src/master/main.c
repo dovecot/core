@@ -6,6 +6,7 @@
 #include "network.h"
 #include "env-util.h"
 #include "fd-close-on-exec.h"
+#include "write-full.h"
 
 #include "auth-process.h"
 #include "login-process.h"
@@ -414,6 +415,21 @@ static void open_fds(void)
 	}
 }
 
+static void create_pid_file(const char *path)
+{
+	const char *pid;
+	int fd;
+
+	pid = t_strconcat(dec2str(getpid()), "\n");
+
+	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+	if (fd == -1)
+		i_fatal("open(%s) failed: %m", path);
+	if (write_full(fd, pid, strlen(pid)) < 0)
+		i_fatal("write() failed in %s: %m", path);
+	(void)close(fd);
+}
+
 static void main_init(void)
 {
 	/* deny file access from everyone else except owner */
@@ -432,12 +448,18 @@ static void main_init(void)
 	ssl_init();
 	auth_processes_init();
 	login_processes_init();
+
+	create_pid_file(t_strconcat(settings_root->defaults->base_dir,
+				    "/master.pid", NULL));
 }
 
 static void main_deinit(void)
 {
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
+
+	(void)unlink(t_strconcat(settings_root->defaults->base_dir,
+				 "/master.pid", NULL));
 
 	/* make sure we log if child processes died unexpectedly */
 	timeout_handler(NULL);
