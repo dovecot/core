@@ -78,10 +78,6 @@
     - sort: we could create alternative binary tree file(s) for different sort
       conditions, ".tree-sort" or something. sort code itself already supports
       this optimization.
-    - sort: we could use some more memory so we don't need to parse the
-      envelopes over and over again. for example with subject sorting we could
-      store the 4 first bytes of message into integer and compare it. only when
-      they compare equal we'd fetch the full subject and compare it.
     - tree file: should we instead use b+-tree or something similiar? or at
       least try to do some defragmentation with it, so that the root nodes
       would be kept at the beginning of the file.
@@ -93,6 +89,13 @@
 	- data stack should use mmap_anon()
     - option: copy /var/mail/$user to INBOX when logged in. nice for not missing
       any mails with quota enabled
+    - support zlib compressed mbox/maildir? mbox maybe just read-only.
+    - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
+
+ - logging
+     - Login: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed
+     - Logout: username 1.2.3.4:1025 5.6.7.8:993 imaps,compressed in:1000 out:1000000
+     - n failed login attepts (before failure or success, once in n seconds)
 
  - lib-charset:
      - utf8_toupper() is a must. and a bit difficult if we want to do it right.
@@ -151,11 +154,6 @@ index:
    "unknown1" "unknown2" etc. flags to .customflags file for each found flag
  - when index is being rebuilt, it always complains about tree/modifylog
    having wrong indexid..
- - log transferred amount of bytes. just a bit problematic who logs it, since
-   imap-login does SSL transfers but not unencrypted.. could also log SSL
-   settings (especially compression). login process doesn't currently know
-   the userid.. maybe it should get it from auth as a reply. also log amount
-   of invalid password tries if all failed.
  - if we wanted to support huge mailboxes with small memory usage, it'd now
    be possible if we just instead of mmap()ing the whole index files would
    have maybe 3-4 256k mmap()ed areas which we move based on the need.
@@ -219,9 +217,6 @@ general:
  - rfc2557 support for BODYSTRUCTURE, as specified by latest IMAP4rev1 draft
 
  - create indexer binary
- - should we bother checking if there's invalid 8bit headers in
-   BODY/BODYSTRUCTURE output and converting them to quoted printable? well,
-   several of them are now but not all..
  - update docs/index.txt
  - support Maildir++ quota
  - maybe give more untagged NO/ALERT replies? like when mailbox is in
@@ -244,8 +239,6 @@ auth / login:
 cleanups / checks:
  - grep for FIXME
  - check if t_push()/t_pop() should be added somewhere
- - ..wonder what it would look like if I did s/FooBarBaz/struct foo_bar_baz/..
- - rfc822-tokenize: make it work with callbacks instead?
  - try to fix @UNSAFE code to use buffer API instead
      - subscription-file.c, custom_flags, ioloop
      - [io]stream-file.c?
@@ -352,11 +345,6 @@ capabilities:
      - binary (draft-nerenberg-imap-binary)
 	 - perhaps not too useful. I'd like to make Dovecot fully
 	   binary-safe though.
-     - thread (draft-ietf-imapext-thread)
-         - basically SORT but reply with thread lists
-	 - possibly use a binary tree too .. or maybe it's enough to use the
-	   sort-tree and then just pick up the references separately? have to
-	   check more carefully later.
      - view (draft-ietf-imapext-view)
          - slow, complex, luckily draft expired almost two years ago.
 	   i hope i don't have to implement this :)

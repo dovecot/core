@@ -1,3 +1,32 @@
+v0.99.6 2003-01-13  Timo Sirainen <tss@iki.fi>
+
+	+ THREAD=REFERENCES extension support. ORDEREDSUBJECT would be easy to
+	  add, but I think it's pretty useless.
+	+ SORT is much faster now.
+	+ mbox: If ~/mail directory isn't found, create it.
+	+ Log login usernames
+	* Some coding style changes (less typedefs)
+	- Mails with nested MIME parts might have caused incorrect BODY and
+	  BODYSTRUCTURE fetches and sometimes might have crashed dovecot
+	  (assert at imap-bodystructure.c). If client had already successfully
+	  done the BODY fetching a couple of times, the bug couldn't happen
+	  anymore since Dovecot then began caching the BODY data. So, this
+	  mostly happened with new users.
+	- non-UID SEARCH might gave wrong replies in certain conditions.
+	- SORT replied always with UIDs instead of sequences.
+	- If authentication was aborted by client ("*" reply to AUTHENTICATE),
+	  the login process crashed later.
+	- STATUS command gave invalid reply for mailboxes with spaces in name
+	- Timezones were parsed wrong with message dates
+	- Digest-MD5: We used "qop-options" instead of "qop", which was
+	  incompatible with at least Cyrus SASL.
+	- Realms in passwd-file were buggy
+	- Literals didn't work when logging in
+	- Crashed if it had to wait for mbox lock
+	- With invalid configuration auth and login processes were just dying
+	  and master filling log files infinitely.
+	- We didn't work with some 64bit systems
+
 v0.99.5 2003-01-02  Timo Sirainen <tss@iki.fi>
 
 	* This release includes a lot of code cleanups, especially related to
