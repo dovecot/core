@@ -246,8 +246,7 @@ static void pool_alloconly_clear(pool_t pool)
 		apool->block = block->prev;
 
 #ifdef DEBUG
-		memset(apool->block, 0xde,
-		       SIZEOF_POOLBLOCK + apool->block->size);
+		memset(block, 0xde, SIZEOF_POOLBLOCK + block->size);
 #endif
 		free(block);
 	}
