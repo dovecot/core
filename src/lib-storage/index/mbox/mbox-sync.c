@@ -118,6 +118,12 @@ mbox_sync_next_mail(struct mbox_sync_context *sync_ctx,
 	mail_ctx->mail.offset =
 		istream_raw_mbox_get_header_offset(sync_ctx->input);
 
+	if (seq > 1 && sync_ctx->first_uid == mail_ctx->mail.uid) {
+		/* First message was expunged and this is the next one.
+		   Skip \n header */
+		mail_ctx->from_offset++;
+	}
+
 	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx, FALSE);
 	i_assert(sync_ctx->input->v_offset != mail_ctx->from_offset);
 
@@ -185,14 +191,6 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx, off_t move_diff)
 
 	if (move_diff == 0)
 		return 0;
-
-	if (ctx->from_offset + move_diff == 0) {
-		/* FIXME: kludge: we're writing the first header,
-		   change the \n prefix into space suffix */
-		buffer_copy(str, 0, str, 1, (size_t)-1);
-		str_truncate(str, str_len(str)-2);
-		str_append(str, " \n");
-	}
 
 	if (pwrite_full(ctx->sync_ctx->fd, str_data(str), str_len(str),
 			ctx->from_offset + move_diff) < 0) {
@@ -307,6 +305,9 @@ static int mbox_sync_do(struct index_mailbox *ibox,
 					mail_ctx.from_offset +
 					mail_ctx.mail.body_size;
 				mail_ctx.mail.body_size = 0;
+
+				if (seq == 1)
+					mail_ctx.mail.space++;
 
 				sync_ctx.expunged_space += mail_ctx.mail.space;
 			} else {

@@ -242,8 +242,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 			str_append_c(mail_ctx.header, '\n');
 	}
 
-	/* breaks with leftover space:
-	   i_assert(mail_ctx.mail.space == mails[idx].space);*/
+	i_assert(mail_ctx.mail.space == mails[idx].space);
         sync_ctx->prev_msg_uid = old_prev_msg_uid;
 
 	/* we're moving next message - update it's from_offset */
@@ -282,11 +281,49 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
+static int mbox_sync_fill_leftover(struct mbox_sync_context *sync_ctx,
+				   struct mbox_sync_mail *mails,
+				   uint32_t seq, uint32_t idx,
+				   uoff_t start_offset, uoff_t end_offset)
+{
+	struct mbox_sync_mail_context mail_ctx;
+	uint32_t old_prev_msg_uid;
+
+	i_stream_seek(sync_ctx->file_input, mails[idx].offset);
+
+	memset(&mail_ctx, 0, sizeof(mail_ctx));
+	mail_ctx.sync_ctx = sync_ctx;
+	mail_ctx.seq = seq;
+	mail_ctx.header = sync_ctx->header;
+
+	mail_ctx.mail.offset = mails[idx].offset;
+	mail_ctx.mail.body_size = mails[idx].body_size;
+
+	/* mbox_sync_parse_next_mail() checks that UIDs are growing,
+	   so we have to fool it. */
+        old_prev_msg_uid = sync_ctx->prev_msg_uid;
+        sync_ctx->prev_msg_uid = mails[idx].uid-1;
+
+	mbox_sync_parse_next_mail(sync_ctx->file_input, &mail_ctx, TRUE);
+	mbox_sync_update_header_from(&mail_ctx, &mails[idx]);
+
+        sync_ctx->prev_msg_uid = old_prev_msg_uid;
+
+	mbox_sync_headers_add_space(&mail_ctx, end_offset - start_offset);
+
+	if (pwrite_full(sync_ctx->fd, str_data(mail_ctx.header),
+			str_len(mail_ctx.header), start_offset) < 0) {
+		// FIXME: error handling
+		return -1;
+	}
+
+	mails[idx].offset = start_offset;
+	return 0;
+}
+
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 		      uint32_t first_seq, uint32_t last_seq, off_t extra_space)
 {
-	/* FIXME: with mails[0] = expunged and first_seq=1, we leave the
-	   \n header! */
 	struct mbox_sync_mail *mails;
 	size_t size;
 	uoff_t offset, start_offset, end_offset, dest_offset;
@@ -374,6 +411,9 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 			mbox_sync_fix_from_offset(sync_ctx, 1,
 						  (off_t)end_offset - offset);
 			idx++;
+
+			start_offset += offset - end_offset;
+			end_offset = offset;
 		} else {
 			/* "\nFrom ..\n" start_offset .. end_offset "hdr.." */
 		}
@@ -381,11 +421,9 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, buffer_t *mails_buf,
 		/* now parse it again and give it more space */
 		mails[idx].space = extra_per_mail;
 		mails[idx+1].space = 0; /* from_offset doesn't move.. */
-		if (mbox_sync_read_and_move(sync_ctx, mails,
+		if (mbox_sync_fill_leftover(sync_ctx, mails,
 					    first_seq + idx, idx,
-					    end_offset - start_offset +
-					    mails[idx].space,
-					    &end_offset) < 0)
+					    start_offset, end_offset) < 0)
 			ret = -1;
 	}
 
