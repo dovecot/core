@@ -108,7 +108,7 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 
 	req.tag = ++auth_tag;
 	req.id = login_id;
-	req.login_pid = login_pid;
+	req.client_pid = login_pid;
 
 	ret = o_stream_send(process->output, &req, sizeof(req));
 	if ((size_t)ret != sizeof(req)) {
