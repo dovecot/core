@@ -20,6 +20,8 @@ struct auth_server_connection {
 	struct auth_server_connection *next;
 
 	pool_t pool;
+	int refcount;
+
 	struct auth_client *client;
 	const char *path;
 	int fd;

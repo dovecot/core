@@ -19,6 +19,8 @@
 	(sizeof(struct auth_client_request_continue) + \
 	 AUTH_CLIENT_MAX_REQUEST_DATA_SIZE)
 
+static void auth_server_connection_unref(struct auth_server_connection *conn);
+
 static void update_available_auth_mechs(struct auth_client *client)
 {
 	struct auth_server_connection *conn;
@@ -104,9 +106,13 @@ static void auth_client_input(void *context)
 		return;
 
 	/* we've got a full reply */
+	conn->refcount++;
 	conn->reply_received = FALSE;
+
 	auth_server_request_handle_reply(conn, &conn->reply, data);
 	i_stream_skip(conn->input, conn->reply.data_size);
+
+	auth_server_connection_unref(conn);
 }
 
 struct auth_server_connection *
@@ -128,6 +134,7 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 
 	pool = pool_alloconly_create("Auth connection", 1024);
 	conn = p_new(pool, struct auth_server_connection, 1);
+	conn->refcount = 1;
 	conn->pool = pool;
 
 	conn->client = client;
@@ -163,6 +170,9 @@ void auth_server_connection_destroy(struct auth_server_connection *conn,
 	struct auth_client *client = conn->client;
 	struct auth_server_connection **pos;
 
+	if (conn->fd == -1)
+		return;
+
         pos = &conn->client->connections;
 	for (; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == conn) {
@@ -175,16 +185,17 @@ void auth_server_connection_destroy(struct auth_server_connection *conn,
 		client->conn_waiting_handshake_count--;
 
 	io_remove(conn->io);
+	conn->io = NULL;
+
+	i_stream_close(conn->input);
+	o_stream_close(conn->output);
+
 	if (close(conn->fd) < 0)
 		i_error("close(auth) failed: %m");
 	conn->fd = -1;
 
 	auth_server_requests_remove_all(conn);
-	hash_destroy(conn->requests);
-
-	i_stream_unref(conn->input);
-	o_stream_unref(conn->output);
-	pool_unref(conn->pool);
+        auth_server_connection_unref(conn);
 
 	if (reconnect)
 		auth_client_connect_missing_servers(client);
@@ -193,6 +204,18 @@ void auth_server_connection_destroy(struct auth_server_connection *conn,
 				auth_client_is_connected(client),
 				client->connect_notify_context);
 	}
+}
+
+static void auth_server_connection_unref(struct auth_server_connection *conn)
+{
+	if (--conn->refcount > 0)
+		return;
+
+	hash_destroy(conn->requests);
+
+	i_stream_unref(conn->input);
+	o_stream_unref(conn->output);
+	pool_unref(conn->pool);
 }
 
 struct auth_server_connection *
