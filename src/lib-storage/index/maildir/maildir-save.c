@@ -72,7 +72,7 @@ static int maildir_create_tmp(struct mail_storage *storage, const char *dir,
 
 	*fname = t_strdup(tmp_fname);
 	if (fd == -1) {
-		if (errno == ENOSPC) {
+		if (ENOSPACE(errno)) {
 			mail_storage_set_error(storage,
 				"Not enough disk space");
 		} else {
@@ -131,7 +131,7 @@ static int maildir_copy(struct mail_save_context *ctx,
 		failed = FALSE;
 	else {
 		failed = TRUE;
-		if (errno == ENOSPC) {
+		if (ENOSPACE(errno)) {
 			mail_storage_set_error(ctx->ibox->box.storage,
 					       "Not enough disk space");
 		} else {

@@ -52,7 +52,7 @@ int index_set_syscall_error(struct mail_index *index, const char *function)
 {
 	i_assert(function != NULL);
 
-	if (errno == ENOSPC) {
+	if (ENOSPACE(errno)) {
 		index->nodiskspace = TRUE;
 		return FALSE;
 	}
@@ -68,7 +68,7 @@ int index_file_set_syscall_error(struct mail_index *index, const char *filepath,
 	i_assert(filepath != NULL);
 	i_assert(function != NULL);
 
-	if (errno == ENOSPC) {
+	if (ENOSPACE(errno)) {
 		index->nodiskspace = TRUE;
 		return FALSE;
 	}
@@ -109,7 +109,7 @@ int mail_index_create_temp_file(struct mail_index *index, const char **path)
 	   can't be helped. */
 	fd = open(*path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd == -1) {
-		if (errno == ENOSPC)
+		if (ENOSPACE(errno))
 			index->nodiskspace = TRUE;
 		else {
 			index_set_error(index, "Can't create temp index %s: %m",

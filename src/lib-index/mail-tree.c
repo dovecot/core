@@ -19,7 +19,7 @@ static int tree_set_syscall_error(struct mail_tree *tree, const char *function)
 {
 	i_assert(function != NULL);
 
-	if (errno == ENOSPC) {
+	if (ENOSPACE(errno)) {
 		tree->index->nodiskspace = TRUE;
 		return FALSE;
 	}

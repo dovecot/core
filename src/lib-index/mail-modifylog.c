@@ -72,7 +72,7 @@ static int modifylog_set_syscall_error(struct modify_log_file *file,
 {
 	i_assert(function != NULL);
 
-	if (errno == ENOSPC) {
+	if (ENOSPACE(errno)) {
 		file->log->index->nodiskspace = TRUE;
 		return FALSE;
 	}

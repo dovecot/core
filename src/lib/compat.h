@@ -116,4 +116,10 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len);
 #  define EOVERFLOW EINVAL
 #endif
 
+#ifdef EDQUOT
+#  define ENOSPACE(errno) ((errno) == ENOSPC || (errno) == EDQUOT)
+#else
+#  define ENOSPACE(errno) ((errno) == ENOSPC)
+#endif
+
 #endif

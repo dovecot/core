@@ -45,7 +45,7 @@ static int index_cf_set_syscall_error(struct mail_custom_flags *mcf,
 {
 	i_assert(function != NULL);
 
-	if (errno == ENOSPC) {
+	if (ENOSPACE(errno)) {
 		mcf->index->nodiskspace = TRUE;
 		return FALSE;
 	}

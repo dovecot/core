@@ -82,7 +82,7 @@ static void set_write_error(struct mail_storage *storage,
 			    struct ostream *output, const char *path)
 {
 	errno = output->stream_errno;
-	if (errno == ENOSPC)
+	if (ENOSPACE(errno))
 		mail_storage_set_error(storage, "Not enough disk space");
 	else {
 		mail_storage_set_critical(storage,

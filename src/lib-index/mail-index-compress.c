@@ -226,7 +226,7 @@ int mail_index_compress_data(struct mail_index *index)
 
 		datapath = t_strconcat(index->filepath, DATA_FILE_PREFIX, NULL);
 		if (rename(temppath, datapath) < 0) {
-			if (errno == ENOSPC)
+			if (ENOSPACE(errno))
 				index->nodiskspace = TRUE;
 
 			index_set_error(index, "rename(%s, %s) failed: %m",

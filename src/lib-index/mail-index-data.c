@@ -66,7 +66,7 @@ static int index_data_set_syscall_error(struct mail_index_data *data,
 {
 	i_assert(function != NULL);
 
-	if (errno == ENOSPC) {
+	if (ENOSPACE(errno)) {
 		data->index->nodiskspace = TRUE;
 		return FALSE;
 	}

@@ -39,7 +39,7 @@ static int syscall_error(struct mail_save_context *ctx, const char *function)
 
 static int write_error(struct mail_save_context *ctx)
 {
-	if (errno == ENOSPC) {
+	if (ENOSPACE(errno)) {
 		mail_storage_set_error(ctx->ibox->box.storage,
 				       "Not enough disk space");
 	} else {

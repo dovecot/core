@@ -225,7 +225,7 @@ static int maildir_index_update_flags(struct mail_index *index,
 
 		/* minor problem: new_path is overwritten if it exists.. */
 		if (rename(old_path, new_path) < 0) {
-			if (errno == ENOSPC)
+			if (ENOSPACE(errno))
 				index->nodiskspace = TRUE;
 
 			index_set_error(index, "maildir flags update: "
