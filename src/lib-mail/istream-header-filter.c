@@ -237,6 +237,14 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 		(struct header_filter_istream *)stream;
 	size_t pos;
 
+	while (!mstream->header_read) {
+		if (_read(stream) == -1)
+			break;
+
+		(void)i_stream_get_data(&stream->istream, &pos);
+		i_stream_skip(&stream->istream, pos);
+	}
+
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 	stream->buffer = NULL;
@@ -244,14 +252,6 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 	if (mstream->hdr_ctx != NULL) {
 		message_parse_header_deinit(mstream->hdr_ctx);
 		mstream->hdr_ctx = NULL;
-	}
-
-	while (!mstream->header_read) {
-		if (_read(stream) == -1)
-			break;
-
-		(void)i_stream_get_data(&stream->istream, &pos);
-		i_stream_skip(&stream->istream, pos);
 	}
 
 	if (v_offset < mstream->header_size.virtual_size) {
