@@ -276,7 +276,7 @@ static void update_field_full(MailIndexUpdate *update, MailField field,
 }
 
 void mail_index_update_field(MailIndexUpdate *update, MailField field,
-			     const char *value, unsigned int extra_space)
+			     const char *value, size_t extra_space)
 {
 	update_field_full(update, field, value, strlen(value) + 1, extra_space);
 }

@@ -269,7 +269,8 @@ int mbox_index_rewrite(MailIndex *index)
 	uoff_t offset;
 	const uoff_t *location;
 	const char *path;
-	unsigned int size, seq;
+	unsigned int seq;
+	size_t size;
 	int in_fd, out_fd, failed;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);

@@ -36,7 +36,7 @@ static int verify_header_md5sum(MailIndex *index, MailIndexRecord *rec,
 				unsigned char current_digest[16])
 {
 	const unsigned char *old_digest;
-	unsigned int size;
+	size_t size;
 
 	/* MD5 sums must match */
 	old_digest = index->lookup_field_raw(index, rec, FIELD_TYPE_MD5, &size);
@@ -84,7 +84,7 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 {
 	const void *part_data;
 	void *part_data_copy;
-	unsigned int size;
+	size_t size;
 
 	/* update index record */
 	rec->header_size = hdr_size->physical_size;
