@@ -67,7 +67,7 @@ struct mail_index_header {
 	/* 0 = flags
 	   1 = sizeof(uoff_t)
 	   2 = sizeof(time_t)
-	   3 = reserved, 0 for now */
+	   3 = sizeof(keywords_mask_t) */
 	uint8_t compat_data[4];
 
 	uint32_t indexid;
