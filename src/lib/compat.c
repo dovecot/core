@@ -84,7 +84,9 @@ int my_getpagesize(void)
 #ifdef _SC_PAGESIZE
 	return sysconf(_SC_PAGESIZE);
 #else
-#  warning Guessing page size to be 4096
+#  ifdef __GNUC__
+#    warning Guessing page size to be 4096
+#  endif
 	return 4096;
 #endif
 }

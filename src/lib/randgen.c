@@ -107,7 +107,9 @@ void random_init(void) {}
 void random_deinit(void) {}
 
 #else
-#  warning Random generator disabled
+#  ifdef __GNUC__
+#    warning Random generator disabled
+#  endif
 
 void random_fill(void *buf __attr_unused__, size_t size __attr_unused__)
 {
