@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#define DEFAULT_CACHE_FIELDS "flags"
 #define DEFAULT_NEVER_CACHE_FIELDS "imap.envelope"
 
 /* How many seconds to keep index opened for reuse after it's been closed */
@@ -199,13 +200,16 @@ static void set_cache_decisions(const char *set, const char *fields,
 
 static void index_cache_register_defaults(struct mail_cache *cache)
 {
-	const char *never_env;
+	const char *cache_env, *never_env;
 
+	cache_env = getenv("MAIL_CACHE_FIELDS");
+	if (cache_env == NULL)
+		cache_env = DEFAULT_CACHE_FIELDS;
 	never_env = getenv("MAIL_NEVER_CACHE_FIELDS");
 	if (never_env == NULL)
 		never_env = DEFAULT_NEVER_CACHE_FIELDS;
 
-	set_cache_decisions("mail_cache_fields", getenv("MAIL_CACHE_FIELDS"),
+	set_cache_decisions("mail_cache_fields", cache_env,
 			    MAIL_CACHE_DECISION_TEMP);
 	set_cache_decisions("mail_never_cache_fields", never_env,
 			    MAIL_CACHE_DECISION_NO |

@@ -7,7 +7,7 @@
 
 enum index_cache_field {
 	/* fixed size fields */
-	MAIL_CACHE_INDEX_FLAGS = 0,
+	MAIL_CACHE_FLAGS = 0,
 	MAIL_CACHE_SENT_DATE,
 	MAIL_CACHE_RECEIVED_DATE,
 	MAIL_CACHE_VIRTUAL_FULL_SIZE,
@@ -29,13 +29,13 @@ enum mail_cache_record_flag {
 	   missing CRs. So this flag may be set as an optimization for
 	   regular non-binary mails as well if it's known that it contains
 	   valid CR+LF line breaks. */
-	MAIL_INDEX_FLAG_BINARY_HEADER		= 0x0001,
-	MAIL_INDEX_FLAG_BINARY_BODY		= 0x0002,
+	MAIL_CACHE_FLAG_BINARY_HEADER		= 0x0001,
+	MAIL_CACHE_FLAG_BINARY_BODY		= 0x0002,
 
 	/* Mail header or body is known to contain NUL characters. */
-	MAIL_INDEX_FLAG_HAS_NULS		= 0x0004,
+	MAIL_CACHE_FLAG_HAS_NULS		= 0x0004,
 	/* Mail header or body is known to not contain NUL characters. */
-	MAIL_INDEX_FLAG_HAS_NO_NULS		= 0x0008
+	MAIL_CACHE_FLAG_HAS_NO_NULS		= 0x0008
 };
 
 struct mail_sent_date {
@@ -67,6 +67,7 @@ struct index_mail_data {
 
 	uint32_t seq;
 	const struct mail_index_record *rec;
+	uint32_t cache_flags;
 
 	struct istream *stream, *filter_stream;
 	struct message_size hdr_size, body_size;

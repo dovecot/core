@@ -14,7 +14,7 @@
 #include "index-mail.h"
 
 struct mail_cache_field cache_fields[MAIL_CACHE_FIELD_COUNT] = {
-	{ "index.flags", 0, MAIL_CACHE_FIELD_BITMASK, sizeof(uint32_t), 0 },
+	{ "flags", 0, MAIL_CACHE_FIELD_BITMASK, sizeof(uint32_t), 0 },
 	{ "date.sent", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
 	  sizeof(struct mail_sent_date), 0 },
 	{ "date.received", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
@@ -327,6 +327,7 @@ static void index_mail_parse_body(struct index_mail *mail, int need_parts)
 	buffer_t *buffer;
 	const void *buf_data;
 	size_t buf_size;
+	uint32_t cache_flags;
 
 	i_assert(data->parts == NULL);
 	i_assert(data->parser_ctx != NULL);
@@ -351,6 +352,7 @@ static void index_mail_parse_body(struct index_mail *mail, int need_parts)
 	data->body_size = data->parts->body_size;
 	data->body_size_set = TRUE;
 
+	cache_flags = 0;
 	if (!mail->mail.has_nuls && !mail->mail.has_no_nuls) {
 		/* we know the NULs now, update them */
 		if ((data->parts->flags & MESSAGE_PART_FLAG_HAS_NULS) != 0) {
@@ -361,18 +363,21 @@ static void index_mail_parse_body(struct index_mail *mail, int need_parts)
 			mail->mail.has_no_nuls = TRUE;
 		}
 
-		/* update cache_flags */
-		/*FIXME:cache_flags =
-			mail_cache_get_record_flags(mail->trans->cache_view,
-						    mail->data.seq);
 		if (mail->mail.has_nuls)
-			cache_flags |= MAIL_INDEX_FLAG_HAS_NULS;
+			cache_flags |= MAIL_CACHE_FLAG_HAS_NULS;
 		else
-			cache_flags |= MAIL_INDEX_FLAG_HAS_NO_NULS;
+			cache_flags |= MAIL_CACHE_FLAG_HAS_NO_NULS;
+	}
 
-		(void)mail_cache_update_record_flags(mail->trans->cache_view,
-						     mail->data.seq,
-						     cache_flags);*/
+	if (data->hdr_size.virtual_size == data->hdr_size.physical_size)
+		cache_flags |= MAIL_CACHE_FLAG_BINARY_HEADER;
+	if (data->body_size.virtual_size == data->body_size.physical_size)
+		cache_flags |= MAIL_CACHE_FLAG_BINARY_BODY;
+
+	if ((cache_flags & ~data->cache_flags) != 0) {
+		mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+			       cache_fields[MAIL_CACHE_FLAGS].idx,
+			       &cache_flags, sizeof(cache_flags));
 	}
 
 	/* see if we want to cache the message part */
@@ -634,19 +639,21 @@ int index_mail_next(struct index_mail *mail, uint32_t seq)
 	memset(data, 0, sizeof(*data));
 	p_clear(mail->pool);
 
-	cache_flags = 0;//FIXME:mail_cache_get_record_flags(mail->trans->cache_view, seq);
-
-	mail->mail.seq = seq;
-	mail->mail.uid = rec->uid;
-	mail->mail.has_nuls = (cache_flags & MAIL_INDEX_FLAG_HAS_NULS) != 0;
-	mail->mail.has_no_nuls =
-		(cache_flags & MAIL_INDEX_FLAG_HAS_NO_NULS) != 0;
-
 	data->rec = rec;
 	data->seq = seq;
 	data->virtual_size = (uoff_t)-1;
 	data->physical_size = (uoff_t)-1;
 	data->received_date = data->sent_date.time = (time_t)-1;
+
+	if (!index_mail_get_fixed_field(mail, MAIL_CACHE_FLAGS,
+					&cache_flags, sizeof(cache_flags)))
+		cache_flags = 0;
+
+	mail->mail.seq = seq;
+	mail->mail.uid = rec->uid;
+	mail->mail.has_nuls = (cache_flags & MAIL_CACHE_FLAG_HAS_NULS) != 0;
+	mail->mail.has_no_nuls =
+		(cache_flags & MAIL_CACHE_FLAG_HAS_NO_NULS) != 0;
 
 	t_push();
 
