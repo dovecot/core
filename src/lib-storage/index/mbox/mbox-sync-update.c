@@ -208,7 +208,7 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	const char *p, *hdr;
 	size_t pos;
 
-	if (ctx->sync_ctx->dest_first_mail ||
+	if (!ctx->sync_ctx->dest_first_mail ||
 	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1 ||
 	    ctx->sync_ctx->update_base_uid_last == 0 ||
 	    ctx->sync_ctx->update_base_uid_last < ctx->sync_ctx->base_uid_last)

@@ -865,7 +865,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			&sync_ctx->base_uid_validity,
 			sizeof(sync_ctx->base_uid_validity));
 	}
-	if (sync_ctx->base_uid_last != 0 &&
+	if (sync_ctx->input->eof &&
 	    sync_ctx->next_uid != sync_ctx->hdr->next_uid) {
 		i_assert(sync_ctx->next_uid != 0);
 		mail_index_update_header(sync_ctx->t,
@@ -899,6 +899,8 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->next_uid = 1;
 	sync_ctx->prev_msg_uid = 0;
 	sync_ctx->seq = sync_ctx->idx_seq = 0;
+
+        sync_ctx->dest_first_mail = TRUE;
 }
 
 static int mbox_sync_do(struct mbox_sync_context *sync_ctx)
