@@ -4,6 +4,7 @@ sbin_PROGRAMS = dovecot
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DPKG_RUNDIR=\""$(localstatedir)/run/$(PACKAGE)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
@@ -11,6 +12,7 @@ INCLUDES = \
 
 dovecot_LDADD = \
 	../lib/liblib.a \
+	../lib-settings/libsettings.a \
 	$(SSL_LIBS)
 
 dovecot_SOURCES = \
@@ -18,7 +20,7 @@ dovecot_SOURCES = \
 	login-process.c \
 	mail-process.c \
 	main.c \
-	settings.c \
+	master-settings.c \
 	ssl-init.c \
 	ssl-init-gnutls.c \
 	ssl-init-openssl.c
@@ -29,5 +31,5 @@ noinst_HEADERS = \
 	login-process.h \
 	mail-process.h \
 	master-login-interface.h \
-	settings.h \
+	master-settings.h \
 	ssl-init.h

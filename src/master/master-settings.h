@@ -1,5 +1,5 @@
-#ifndef __SETTINGS_H
-#define __SETTINGS_H
+#ifndef __MASTER_SETTINGS_H
+#define __MASTER_SETTINGS_H
 
 struct settings {
 	/* common */
@@ -101,8 +101,9 @@ struct auth_settings {
 
 extern struct settings *set;
 
-void settings_read(const char *path);
+void master_settings_read(const char *path);
 
-void settings_init(void);
+void master_settings_init(void);
+void master_settings_deinit(void);
 
 #endif

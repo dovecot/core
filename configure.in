@@ -881,6 +881,7 @@ src/lib-index/Makefile
 src/lib-index/maildir/Makefile
 src/lib-index/mbox/Makefile
 src/lib-mail/Makefile
+src/lib-settings/Makefile
 src/lib-storage/Makefile
 src/lib-storage/index/Makefile
 src/lib-storage/index/maildir/Makefile

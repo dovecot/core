@@ -5,7 +5,7 @@ struct ip_addr;
 
 #include "lib.h"
 #include "hash.h"
-#include "settings.h"
+#include "master-settings.h"
 
 #include "../auth/auth-master-interface.h"
 

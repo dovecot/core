@@ -78,7 +78,7 @@ static void settings_reload(void)
 {
 	i_warning("SIGHUP received - reloading configuration");
 
-	settings_read(configfile);
+	master_settings_read(configfile);
 
 	/* restart auth and login processes */
         login_processes_destroy_all();
@@ -389,8 +389,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* read and verify settings before forking */
-	settings_init();
-	settings_read(configfile);
+	master_settings_init();
+	master_settings_read(configfile);
 	open_fds();
 
 	if (!foreground)
@@ -402,6 +402,7 @@ int main(int argc, char *argv[])
         io_loop_run(ioloop);
 	main_deinit();
 
+	master_settings_deinit();
 	io_loop_destroy(ioloop);
 	lib_deinit();
 
