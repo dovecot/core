@@ -34,6 +34,7 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
 static struct timeout *to;
 static unsigned int settings_reload_hup_count = 0;
+static unsigned int log_reopen_usr1_count = 0;
 
 struct ioloop *ioloop;
 struct hash_table *pids;
@@ -140,6 +141,10 @@ static void timeout_handler(void *context __attr_unused__)
 	if (lib_signal_hup_count != settings_reload_hup_count) {
 		settings_reload_hup_count = lib_signal_hup_count;
 		settings_reload();
+	}
+	if (lib_signal_usr1_count != log_reopen_usr1_count) {
+		log_reopen_usr1_count = lib_signal_usr1_count;
+                set_logfile(settings_root->defaults);
 	}
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
