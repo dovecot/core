@@ -13,9 +13,12 @@ int ssl_initialized = FALSE;
 #include <gnutls/gnutls.h>
 
 typedef struct {
+	int refcount;
+
 	GNUTLS_STATE state;
 	int fd_ssl, fd_plain;
 	IO io_ssl, io_plain;
+	int io_ssl_dir;
 
 	unsigned char outbuf_plain[1024];
 	unsigned int outbuf_pos_plain;
@@ -41,7 +44,7 @@ static GNUTLS_DH_PARAMS dh_params;
 
 static void ssl_input(void *context, int handle, IO io);
 static void plain_input(void *context, int handle, IO io);
-static void ssl_proxy_destroy(SSLProxy *proxy);
+static int ssl_proxy_destroy(SSLProxy *proxy);
 
 static int proxy_recv_ssl(SSLProxy *proxy, void *data, unsigned int size)
 {
@@ -83,17 +86,22 @@ static int proxy_send_ssl(SSLProxy *proxy, const void *data, unsigned int size)
 	return -1;
 }
 
-static void ssl_proxy_destroy(SSLProxy *proxy)
+static int ssl_proxy_destroy(SSLProxy *proxy)
 {
+	if (--proxy->refcount > 0)
+		return TRUE;
+
 	gnutls_deinit(proxy->state);
 
 	(void)net_disconnect(proxy->fd_ssl);
 	(void)net_disconnect(proxy->fd_plain);
 
-	io_remove(proxy->io_ssl);
+	if (proxy->io_ssl != NULL)
+		io_remove(proxy->io_ssl);
 	io_remove(proxy->io_plain);
 
 	i_free(proxy);
+	return FALSE;
 }
 
 static void ssl_output(void *context, int fd __attr_unused__,
@@ -222,24 +230,51 @@ static GNUTLS_STATE initialize_state(void)
 	return state;
 }
 
+static void ssl_handshake(void *context, int fd __attr_unused__,
+			  IO io __attr_unused__)
+{
+	SSLProxy *proxy = context;
+	int ret, dir;
+
+        ret = gnutls_handshake(proxy->state);
+	if (ret >= 0) {
+		/* handshake done, now we can start reading */
+		if (proxy->io_ssl != NULL)
+			io_remove(proxy->io_ssl);
+
+		proxy->io_ssl = io_add(proxy->fd_ssl, IO_READ,
+				       ssl_input, proxy);
+		return;
+	}
+
+	if (gnutls_error_is_fatal(ret)) {
+		ssl_proxy_destroy(proxy);
+		return;
+	}
+
+	/* i/o interrupted */
+	dir = gnutls_handshake_get_direction(proxy->state) == 0 ?
+		IO_READ : IO_WRITE;
+	if (proxy->io_ssl_dir != dir) {
+		if (proxy->io_ssl != NULL)
+			io_remove(proxy->io_ssl);
+		proxy->io_ssl = io_add(proxy->fd_ssl, dir,
+				       ssl_handshake, proxy);
+		proxy->io_ssl_dir = dir;
+	}
+}
+
 int ssl_proxy_new(int fd)
 {
         SSLProxy *proxy;
 	GNUTLS_STATE state;
-	int ret, sfd[2];
+	int sfd[2];
 
-	if (ssl_initialized)
+	if (!ssl_initialized)
 		return -1;
 
 	state = initialize_state();
 	gnutls_transport_set_ptr(state, fd);
-
-	net_set_nonblock(fd, FALSE); /* FIXME: blocks! */
-	if ((ret = gnutls_handshake(state)) < 0) {
-		gnutls_deinit(state);
-		return -1;
-	}
-	net_set_nonblock(fd, TRUE);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) == -1) {
 		i_error("socketpair() failed: %m");
@@ -248,12 +283,17 @@ int ssl_proxy_new(int fd)
 	}
 
 	proxy = i_new(SSLProxy, 1);
+	proxy->refcount = 1;
 	proxy->state = state;
 	proxy->fd_ssl = fd;
 	proxy->fd_plain = sfd[0];
 
-	proxy->io_ssl = io_add(proxy->fd_ssl, IO_READ, ssl_input, proxy);
 	proxy->io_plain = io_add(proxy->fd_plain, IO_READ, plain_input, proxy);
+
+	proxy->refcount++;
+	ssl_handshake(proxy, -1, NULL);
+	if (!ssl_proxy_destroy(proxy))
+		return -1;
 
 	return sfd[1];
 }
