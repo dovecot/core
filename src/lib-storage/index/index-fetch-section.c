@@ -18,8 +18,8 @@ typedef struct {
 	uoff_t dest_size;
 
 	uoff_t skip, max_size;
-	const char **fields;
-	int (*match_func) (const char **, const char *, size_t);
+	const char *const *fields;
+	int (*match_func) (const char *const *, const char *, size_t);
 } FetchHeaderFieldContext;
 
 /* For FETCH[HEADER.FIELDS*] we need to modify the header data before sending
@@ -97,7 +97,8 @@ static const char **get_fields_array(const char *fields)
 	return field_list;
 }
 
-static int header_match(const char **fields, const char *name, size_t size)
+static int header_match(const char *const *fields,
+			const char *name, size_t size)
 {
 	const char *field, *name_start, *name_end;
 
@@ -130,12 +131,13 @@ static int header_match(const char **fields, const char *name, size_t size)
 	return FALSE;
 }
 
-static int header_match_not(const char **fields, const char *name, size_t size)
+static int header_match_not(const char *const *fields,
+			    const char *name, size_t size)
 {
 	return !header_match(fields, name, size);
 }
 
-static int header_match_mime(const char **fields __attr_unused__,
+static int header_match_mime(const char *const *fields __attr_unused__,
 			     const char *name, size_t size)
 {
 	if (size > 8 && strncasecmp(name, "Content-", 8) == 0)
