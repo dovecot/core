@@ -15,6 +15,7 @@ AM_PROG_LIBTOOL
 
 AC_CHECK_HEADERS(string.h stdlib.h stdint.h unistd.h dirent.h iconv.h)
 AC_CHECK_HEADERS(sys/uio.h sys/sysmacros.h sys/resource.h linux/mman.h)
+AC_CHECK_HEADERS(sys/select.h)
 
 # check posix headers
 AC_CHECK_HEADERS(sys/time.h)

@@ -28,7 +28,10 @@
 
 #ifdef IOLOOP_SELECT
 
-#include <sys/types.h>
+#ifdef HAVE_SYS_SELECT_H
+#  include <sys/select.h> /* According to POSIX 1003.1-2001 */
+#endif
+#include <sys/time.h>
 #include <unistd.h>
 
 struct _IOLoopHandlerData {
