@@ -195,14 +195,22 @@ void restrict_access_by_env(int disallow_root)
 
 	/* verify that we actually dropped the privileges */
 	if (uid != 0 || disallow_root) {
-		if (setuid(0) == 0)
+		if (setuid(0) == 0) {
+			if (uid == 0)
+				i_fatal("Running as root isn't permitted");
 			i_fatal("We couldn't drop root privileges");
+		}
 	}
 
 	env = getenv("RESTRICT_GID_FIRST");
 	if (gid != 0 || (env != NULL && atoi(env) != 0)) {
-		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0)
-			i_fatal("We couldn't drop root group privileges");
+		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0) {
+			if (gid == 0)
+				i_fatal("GID 0 isn't permitted");
+			i_fatal("We couldn't drop root group privileges "
+				"(wanted=%s, gid=%s, egid=%s)", dec2str(gid),
+				dec2str(getgid()), dec2str(getegid()));
+		}
 	}
 
 	/* clear the environment, so we don't fail if we get back here */
