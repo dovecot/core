@@ -32,6 +32,7 @@ liblib_a_SOURCES = \
 	mempool-alloconly.c \
 	mempool-datastack.c \
 	mempool-system.c \
+	mkdir-parents.c \
 	mmap-anon.c \
 	mmap-util.c \
 	module-dir.c \
@@ -85,6 +86,7 @@ noinst_HEADERS = \
 	macros.h \
 	md5.h \
 	mempool.h \
+	mkdir-parents.h \
 	mmap-util.h \
 	module-dir.h \
 	network.h \

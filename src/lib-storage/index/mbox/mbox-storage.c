@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "home-expand.h"
+#include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "subscription-file/subscription-file.h"
 #include "mail-custom-flags.h"
@@ -20,39 +21,17 @@
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
 
-static int mbox_permission_denied(struct mail_storage *storage)
+static int mbox_handle_errors(struct mail_storage *storage)
 {
-	mail_storage_set_error(storage, "Permission denied");
-	return FALSE;
-}
-
-static int mkdir_parents(const char *path)
-{
-	const char *p, *dir;
-
-	p = path;
-	if (*p == '/') p++;
-
-	do {
-		t_push();
-
-		p = strchr(p, '/');
-		if (p == NULL)
-			dir = path;
-		else {
-			dir = t_strdup_until(path, p);
-			p++;
-		}
-
-		if (mkdir(dir, CREATE_MODE) < 0 && errno != EEXIST) {
-			t_pop();
-			return -1;
-		}
-
-		t_pop();
-	} while (p != NULL);
-
-	return 0;
+	if (ENOACCESS(errno))
+		mail_storage_set_error(storage, "Permission denied");
+	else if (ENOSPACE(errno))
+		mail_storage_set_error(storage, "Not enough disk space");
+	else if (ENOTFOUND(errno))
+		mail_storage_set_error(storage, "Directory structure is broken");
+	else
+		return FALSE;
+	return TRUE;
 }
 
 static int mbox_autodetect(const char *data)
@@ -139,7 +118,7 @@ static const char *create_root_dir(void)
 	}
 
 	path = t_strconcat(home, "/mail", NULL);
-	if (mkdir(path, CREATE_MODE) < 0) {
+	if (mkdir_parents(path, CREATE_MODE) < 0) {
 		i_error("mbox: Can't create root IMAP folder %s: %m", path);
 		return NULL;
 	}
@@ -295,25 +274,24 @@ static const char *mbox_get_index_dir(struct mail_storage *storage,
 }
 
 static int create_mbox_index_dirs(struct mail_storage *storage,
-				  const char *name, int verify)
+				  const char *name)
 {
-	const char *index_dir, *imap_dir;
+	const char *index_dir;
 
 	index_dir = mbox_get_index_dir(storage, name);
 	if (index_dir == NULL)
 		return TRUE;
 
-	imap_dir = t_strdup_until(index_dir, strstr(index_dir, ".imap/") + 5);
-
-	if (mkdir(imap_dir, CREATE_MODE) == -1 && errno != EEXIST)
+	if (mkdir_parents(index_dir, CREATE_MODE) < 0) {
+		mail_storage_set_critical(storage,
+			"mkdir_parents(%s) failed: %m", index_dir);
 		return FALSE;
-	if (mkdir(index_dir, CREATE_MODE) == -1 && (errno != EEXIST || !verify))
-		return FALSE;
+	}
 
 	return TRUE;
 }
 
-static void verify_inbox(struct mail_storage *storage)
+static int verify_inbox(struct mail_storage *storage)
 {
 	int fd;
 
@@ -323,7 +301,10 @@ static void verify_inbox(struct mail_storage *storage)
 		(void)close(fd);
 
 	/* make sure the index directories exist */
-	(void)create_mbox_index_dirs(storage, "INBOX", TRUE);
+	if (!create_mbox_index_dirs(storage, "INBOX"))
+		return FALSE;
+
+	return TRUE;
 }
 
 static const char *mbox_get_path(struct mail_storage *storage, const char *name)
@@ -381,7 +362,8 @@ mbox_open_mailbox(struct mail_storage *storage,
 	/* INBOX is always case-insensitive */
 	if (strcasecmp(name, "INBOX") == 0) {
 		/* make sure inbox exists */
-		verify_inbox(storage);
+		if (!verify_inbox(storage))
+			return FALSE;
 		return mbox_open(storage, "INBOX", readonly, fast);
 	}
 
@@ -399,18 +381,19 @@ mbox_open_mailbox(struct mail_storage *storage,
 		}
 
 		/* exists - make sure the required directories are also there */
-		(void)create_mbox_index_dirs(storage, name, TRUE);
+		if (!create_mbox_index_dirs(storage, name))
+			return NULL;
 
 		return mbox_open(storage, name, readonly, fast);
-	} else if (errno == ENOENT || errno == ENOTDIR) {
+	}
+
+	if (ENOTFOUND(errno)) {
 		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
 				       name);
-		return NULL;
-	} else {
-		mail_storage_set_critical(storage, "Can't open mailbox %s: %m",
-					  name);
-		return NULL;
-	}
+	} else if (!mbox_handle_errors(storage))
+		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
+
+	return NULL;
 }
 
 static int mbox_create_mailbox(struct mail_storage *storage, const char *name,
@@ -437,27 +420,27 @@ static int mbox_create_mailbox(struct mail_storage *storage, const char *name,
 		return FALSE;
 	}
 
-	if (errno == ENOTDIR) {
-		mail_storage_set_error(storage,
-			"Mailbox doesn't allow inferior mailboxes");
-		return FALSE;
-	}
-
-	if (errno != ENOENT) {
-		mail_storage_set_critical(storage,
-			"stat() failed for mbox file %s: %m", path);
+	if (errno != ENOENT && errno != ELOOP && errno != EACCES) {
+		if (errno == ENOTDIR) {
+			mail_storage_set_error(storage,
+				"Mailbox doesn't allow inferior mailboxes");
+		} else {
+			mail_storage_set_critical(storage,
+				"stat() failed for mbox file %s: %m", path);
+		}
 		return FALSE;
 	}
 
 	/* create the hierarchy if needed */
 	p = only_hierarchy ? path + strlen(path) : strrchr(path, '/');
 	if (p != NULL) {
-		if (mkdir_parents(t_strdup_until(path, p)) < 0) {
-			if (errno == EACCES)
-				return mbox_permission_denied(storage);
+		p = t_strdup_until(path, p);
+		if (mkdir_parents(p, CREATE_MODE) < 0) {
+			if (mbox_handle_errors(storage))
+				return FALSE;
+
 			mail_storage_set_critical(storage,
-				"mkdir_parents() failed for mbox path %s: %m",
-				path);
+				"mkdir_parents(%s) failed: %m", p);
 			return FALSE;
 		}
 
@@ -472,17 +455,16 @@ static int mbox_create_mailbox(struct mail_storage *storage, const char *name,
 	if (fd != -1) {
 		(void)close(fd);
 		return TRUE;
-	} else if (errno == EEXIST) {
+	}
+
+	if (errno == EEXIST) {
 		/* mailbox was just created between stat() and open() call.. */
 		mail_storage_set_error(storage, "Mailbox already exists");
-		return FALSE;
-	} else if (errno == EACCES) {
-		return mbox_permission_denied(storage);
-	} else {
-		mail_storage_set_critical(storage, "Can't create mailbox "
-					  "%s: %m", name);
-		return FALSE;
+	} else if (!mbox_handle_errors(storage)) {
+		mail_storage_set_critical(storage,
+			"Can't create mailbox %s: %m", name);
 	}
+	return FALSE;
 }
 
 static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
@@ -504,11 +486,10 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 
 	path = mbox_get_path(storage, name);
 	if (lstat(path, &st) < 0) {
-		if (errno == ENOENT || errno == ENOTDIR) {
+		if (ENOTFOUND(errno)) {
 			mail_storage_set_error(storage,
-					       "Mailbox doesn't exist: %s",
-					       name);
-		} else {
+				"Mailbox doesn't exist: %s", name);
+		} else if (!mbox_handle_errors(storage)) {
 			mail_storage_set_critical(storage, "lstat() failed for "
 						  "%s: %m", path);
 		}
@@ -520,13 +501,14 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 		if (rmdir(path) == 0)
 			return TRUE;
 
-		if (errno == ENOTEMPTY) {
+		if (ENOTFOUND(errno)) {
+			mail_storage_set_error(storage,
+				"Mailbox doesn't exist: %s", name);
+		} else if (errno == ENOTEMPTY) {
 			mail_storage_set_error(storage,
 				"Folder %s isn't empty, can't delete it.",
 				name);
-		} else if (errno == EACCES) {
-			mbox_permission_denied(storage);
-		} else {
+		} else if (!mbox_handle_errors(storage)) {
 			mail_storage_set_critical(storage,
 				"rmdir() failed for %s: %m", path);
 		}
@@ -535,16 +517,12 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 
 	/* first unlink the mbox file */
 	if (unlink(path) < 0) {
-		if (errno == ENOENT || errno == ENOTDIR) {
+		if (ENOTFOUND(errno)) {
 			mail_storage_set_error(storage,
-					       "Mailbox doesn't exist: %s",
-					       name);
-		} else if (errno == EACCES) {
-			mbox_permission_denied(storage);
-		} else {
+				"Mailbox doesn't exist: %s", name);
+		} else if (!mbox_handle_errors(storage)) {
 			mail_storage_set_critical(storage,
-						  "unlink() failed for %s: %m",
-						  path);
+				"unlink() failed for %s: %m", path);
 		}
 		return FALSE;
 	}
@@ -553,8 +531,8 @@ static int mbox_delete_mailbox(struct mail_storage *storage, const char *name)
 	index_dir = mbox_get_index_dir(storage, name);
 	if (index_dir != NULL &&
 	    unlink_directory(index_dir, TRUE) < 0 && errno != ENOENT) {
-		mail_storage_set_critical(storage, "unlink_directory(%s) "
-					  "failed: %m", index_dir);
+		mail_storage_set_critical(storage,
+			"unlink_directory(%s) failed: %m", index_dir);
 		/* mailbox itself is deleted, so return success anyway */
 	}
 	return TRUE;
@@ -564,6 +542,7 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 			       const char *oldname, const char *newname)
 {
 	const char *oldpath, *newpath, *old_indexdir, *new_indexdir, *p;
+	struct stat st;
 
 	mail_storage_clear_error(storage);
 
@@ -582,32 +561,41 @@ static int mbox_rename_mailbox(struct mail_storage *storage,
 	/* create the hierarchy */
 	p = strrchr(newpath, '/');
 	if (p != NULL) {
-		if (mkdir_parents(t_strdup_until(newpath, p)) < 0) {
+		p = t_strdup_until(newpath, p);
+		if (mkdir_parents(p, CREATE_MODE) < 0) {
+			if (mbox_handle_errors(storage))
+				return FALSE;
+
 			mail_storage_set_critical(storage,
-				"mkdir_parents() failed for mbox path %s: %m",
-				newpath);
+				"mkdir_parents(%s) failed: %m", p);
 			return FALSE;
 		}
 	}
 
-	/* NOTE: renaming INBOX works just fine with us, it's simply created
-	   the next time it's needed. FIXME: it's not atomic, should we use
-	   rename() instead? That might overwrite files.. */
-	if (link(oldpath, newpath) == 0)
-		(void)unlink(oldpath);
-	else if (errno == EEXIST) {
+	/* first check that the destination mailbox doesn't exist.
+	   this is racy, but we need to be atomic and there's hardly any
+	   possibility that someone actually tries to rename two mailboxes
+	   to same new one */
+	if (lstat(newpath, &st) == 0) {
 		mail_storage_set_error(storage,
 				       "Target mailbox already exists");
 		return FALSE;
-	} else if (errno == ENOENT || errno == ENOTDIR) {
-		mail_storage_set_error(storage, "Mailbox doesn't exist: %s",
-				       oldname);
+	} else if (!ENOTFOUND(errno) && errno != EACCES) {
+		mail_storage_set_critical(storage, "lstat(%s) failed: %m",
+					  newpath);
 		return FALSE;
-	} else if (errno == EACCES) {
-		return mbox_permission_denied(storage);
-	} else {
-		mail_storage_set_critical(storage, "link(%s, %s) failed: %m",
-					  oldpath, newpath);
+	}
+
+	/* NOTE: renaming INBOX works just fine with us, it's simply recreated
+	   the next time it's needed. */
+	if (rename(oldpath, newpath) < 0) {
+		if (ENOTFOUND(errno)) {
+			mail_storage_set_error(storage,
+				"Mailbox doesn't exist: %s", oldname);
+		} else if (!mbox_handle_errors(storage)) {
+			mail_storage_set_critical(storage,
+				"rename(%s, %s) failed: %m", oldpath, newpath);
+		}
 		return FALSE;
 	}
 
@@ -653,7 +641,7 @@ static int mbox_get_mailbox_name_status(struct mail_storage *storage,
 		return TRUE;
 	}
 
-	if (errno == ENOENT) {
+	if (ENOTFOUND(errno) || errno == EACCES) {
 		*status = MAILBOX_NAME_VALID;
 		return TRUE;
 	} else if (errno == ENOTDIR) {

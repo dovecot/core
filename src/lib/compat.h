@@ -122,4 +122,15 @@ ssize_t my_writev(int fd, const struct iovec *iov, int iov_len);
 #  define ENOSPACE(errno) ((errno) == ENOSPC)
 #endif
 
+/* EPERM is returned sometimes if device doesn't support such modification */
+#ifdef EROFS
+#  define ENOACCESS(errno) \
+	((errno) == EACCES || (errno) == EROFS || (errno) == EPERM)
+#else
+#  define ENOACCESS(errno) ((errno) == EACCES || (errno) == EPERM)
+#endif
+
+#define ENOTFOUND(errno) \
+	((errno) == ENOENT || (errno) == ENOTDIR || (errno) == ELOOP)
+
 #endif

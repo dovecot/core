@@ -72,7 +72,7 @@ static int list_opendir(struct mail_storage *storage,
 	if (*dirp != NULL)
 		return 1;
 
-	if (errno == ENOENT || errno == ENOTDIR) {
+	if (ENOTFOUND(errno)) {
 		/* root) user gave invalid hiearchy, ignore
 		   sub) probably just race condition with other client
 		   deleting the mailbox. */
@@ -201,7 +201,7 @@ static int list_file(struct mailbox_list_context *ctx, const char *fname)
 	DIR *dirp;
 	size_t len;
 	enum imap_match_result match, match2;
-	int ret;
+	int ret, noselect;
 
 	/* skip all hidden files */
 	if (fname[0] == '.')
@@ -225,15 +225,19 @@ static int list_file(struct mailbox_list_context *ctx, const char *fname)
 
 	/* see if it's a directory */
 	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
-	if (stat(real_path, &st) < 0) {
-		if (errno == ENOENT)
-			return 0; /* just deleted, ignore */
+	if (stat(real_path, &st) == 0)
+		noselect = FALSE;
+	else if (errno == EACCES || errno == ELOOP)
+		noselect = TRUE;
+	else {
+		if (ENOTFOUND(errno))
+			return 0;
 		mail_storage_set_critical(ctx->storage, "stat(%s) failed: %m",
 					  real_path);
 		return -1;
 	}
 
-	if (S_ISDIR(st.st_mode)) {
+	if (!noselect && S_ISDIR(st.st_mode)) {
 		/* subdirectory. scan inside it. */
 		path = t_strconcat(list_path, "/", NULL);
 		match2 = imap_match(ctx->glob, path);
@@ -265,7 +269,8 @@ static int list_file(struct mailbox_list_context *ctx, const char *fname)
 		/* don't match any INBOX here, it's added separately.
 		   we might also have ~/mail/inbox, ~/mail/Inbox etc.
 		   Just ignore them for now. */
-		ctx->list.flags = MAILBOX_NOINFERIORS | STAT_GET_MARKED(st);
+		ctx->list.flags = noselect ? MAILBOX_NOSELECT :
+			(MAILBOX_NOINFERIORS | STAT_GET_MARKED(st));
 		ctx->list.name = p_strdup(ctx->list_pool, list_path);
 		return 1;
 	}
