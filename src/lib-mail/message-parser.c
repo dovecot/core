@@ -759,7 +759,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 			/* a) line is larger than input buffer
 			   b) header ended unexpectedly */
-			if (colon_pos == UINT_MAX) {
+			if (colon_pos == UINT_MAX && ret == -2) {
 				/* header name is huge. just skip it. */
 				message_skip_line(ctx->input, ctx->hdr_size,
 						  TRUE, &ctx->has_nuls);
