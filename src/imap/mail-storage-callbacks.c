@@ -95,6 +95,9 @@ static void new_custom_flags(struct mailbox *mailbox,
 	if (client->mailbox != mailbox)
 		return;
 
+	client_save_custom_flags(&client->mailbox_flags, custom_flags,
+				 custom_flags_count);
+
 	client_send_mailbox_flags(client, mailbox, custom_flags,
 				  custom_flags_count);
 }

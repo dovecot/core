@@ -16,6 +16,8 @@
         (getenv("LOGGED_IN") == NULL)
 
 struct ioloop *ioloop;
+unsigned int max_custom_flag_length;
+
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 
 static void sig_quit(int signo __attr_unused__)
@@ -61,7 +63,7 @@ static void main_init(void)
 {
 	struct client *client;
 	struct mail_storage *storage;
-	const char *mail;
+	const char *mail, *str;
 	int hin, hout;
 
 	lib_init_signals(sig_quit);
@@ -99,6 +101,11 @@ static void main_init(void)
 				"autodetection failed (home %s)", home);
 		}
 	}
+
+	str = getenv("MAIL_MAX_FLAG_LENGTH");
+	max_custom_flag_length = str != NULL ?
+		(unsigned int)strtoul(str, NULL, 10) :
+		DEFAULT_MAX_CUSTOM_FLAG_LENGTH;
 
 	client = client_create(hin, hout, storage);
 

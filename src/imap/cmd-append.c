@@ -46,10 +46,12 @@ static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 int cmd_append(struct client *client)
 {
 	struct mailbox *box;
+	struct mailbox_status status;
 	struct mail_save_context *ctx;
 	struct imap_parser *save_parser;
 	struct imap_arg *args;
 	struct imap_arg_list *flags_list;
+        struct mailbox_custom_flags old_flags;
 	struct mail_full_flags flags;
 	time_t internal_date;
 	const char *mailbox, *internal_date_str, *error;
@@ -70,6 +72,16 @@ int cmd_append(struct client *client)
 		client_send_storage_error(client);
 		return TRUE;
 	}
+
+	if (!box->get_status(box, STATUS_CUSTOM_FLAGS, &status)) {
+		client_send_storage_error(client);
+		box->close(box);
+		return TRUE;
+	}
+	memset(&old_flags, 0, sizeof(old_flags));
+        old_flags.pool = data_stack_pool;
+	client_save_custom_flags(&old_flags, status.custom_flags,
+				 status.custom_flags_count);
 
 	ctx = box->save_init(box, TRUE);
 	if (ctx == NULL) {
@@ -141,7 +153,7 @@ int cmd_append(struct client *client)
 
 		if (flags_list != NULL) {
 			if (!client_parse_mail_flags(client, flags_list->args,
-						     &flags))
+						     &old_flags, &flags))
 				break;
 		} else {
 			memset(&flags, 0, sizeof(flags));

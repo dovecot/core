@@ -73,6 +73,8 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 					    MAX_IMAP_ARG_ELEMENTS);
         client->last_input = ioloop_time;
 
+	client->mailbox_flags.pool =
+		pool_alloconly_create("mailbox_custom_flags", 512);
 	client->storage = storage;
 	storage->set_callbacks(storage, &mail_storage_callbacks, client);
 
@@ -95,6 +97,7 @@ void client_destroy(struct client *client)
 	i_stream_unref(client->input);
 	o_stream_unref(client->output);
 
+	pool_unref(client->mailbox_flags.pool);
 	i_free(client);
 
 	/* quit the program */

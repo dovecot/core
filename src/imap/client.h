@@ -8,6 +8,13 @@ struct imap_arg;
 
 typedef int client_command_func_t(struct client *client);
 
+struct mailbox_custom_flags {
+	pool_t pool; /* will be p_clear()ed when changed */
+
+	char **custom_flags;
+        unsigned int custom_flags_count;
+};
+
 struct client {
 	int socket;
 	struct io *io;
@@ -16,6 +23,7 @@ struct client {
 
 	struct mail_storage *storage;
 	struct mailbox *mailbox;
+        struct mailbox_custom_flags mailbox_flags;
 	unsigned int select_counter; /* increased when mailbox is changed */
 
 	time_t last_input;

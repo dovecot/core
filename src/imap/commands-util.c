@@ -131,7 +131,32 @@ void client_send_closing_mailbox_error(struct client *client)
 			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }
 
+static int is_valid_custom_flag(struct client *client,
+                                const struct mailbox_custom_flags *old_flags,
+				const char *flag)
+{
+	size_t i;
+
+	/* if it already exists, skip validity checks */
+	for (i = 0; i < old_flags->custom_flags_count; i++) {
+		if (old_flags->custom_flags[i] != NULL &&
+		    strcasecmp(old_flags->custom_flags[i], flag) == 0)
+			return TRUE;
+	}
+
+	if (strlen(flag) > max_custom_flag_length) {
+		client_send_tagline(client,
+			t_strdup_printf("BAD Invalid flag name '%s': "
+					"Maximum length is %u characters",
+					flag, max_custom_flag_length));
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 int client_parse_mail_flags(struct client *client, struct imap_arg *args,
+                            const struct mailbox_custom_flags *old_flags,
 			    struct mail_full_flags *flags)
 {
 	/* @UNSAFE */
@@ -187,6 +212,9 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 			}
 
 			if (i == flags->custom_flags_count) {
+				if (!is_valid_custom_flag(client, old_flags,
+							  atom))
+					return FALSE;
 				flags->flags |= 1 << (flag_pos +
 						      MAIL_CUSTOM_FLAG_1_BIT);
 				flags->custom_flags[flag_pos++] = atom;
@@ -246,4 +274,20 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 				    box->allow_custom_flags ? " \\*" : "",
 				    ")] Flags permitted.", NULL));
 	}
+}
+
+void client_save_custom_flags(struct mailbox_custom_flags *dest,
+			      const char *custom_flags[],
+			      unsigned int custom_flags_count)
+{
+	unsigned int i;
+
+	p_clear(dest->pool);
+
+	dest->custom_flags =
+		p_new(dest->pool, char *, custom_flags_count);
+	dest->custom_flags_count = custom_flags_count;
+
+	for (i = 0; i < custom_flags_count; i++)
+		dest->custom_flags[i] = p_strdup(dest->pool, custom_flags[i]);
 }

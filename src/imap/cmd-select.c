@@ -34,6 +34,9 @@ int _cmd_select_full(struct client *client, int readonly)
 		return TRUE;
 	}
 
+	client_save_custom_flags(&client->mailbox_flags, status.custom_flags,
+				 status.custom_flags_count);
+
 	/* set client's mailbox only after getting status to make sure
 	   we're not sending any expunge/exists replies too early to client */
 	client->mailbox = box;

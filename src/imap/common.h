@@ -8,6 +8,9 @@
    for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
 #define MAX_IMAP_ARG_ELEMENTS 128
 
+#define DEFAULT_MAX_CUSTOM_FLAG_LENGTH 50
+
 extern struct ioloop *ioloop;
+extern unsigned int max_custom_flag_length;
 
 #endif

@@ -162,6 +162,8 @@ int create_mail_process(int socket, struct ip_addr *ip,
 				set->mailbox_check_interval));
 	env_put(t_strconcat("CLIENT_WORKAROUNDS=",
 			    set->client_workarounds, NULL));
+	env_put(t_strdup_printf("MAIL_MAX_FLAG_LENGTH=%u",
+				set->mail_max_flag_length));
 
 	if (set->mail_save_crlf)
 		env_put("MAIL_SAVE_CRLF=1");
