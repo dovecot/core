@@ -29,6 +29,9 @@ struct mail_cache_transaction_ctx {
 
 static const unsigned char *null4[] = { 0, 0, 0, 0 };
 
+static int mail_cache_link_unlocked(struct mail_cache *cache,
+				    uint32_t old_offset, uint32_t new_offset);
+
 struct mail_cache_transaction_ctx *
 mail_cache_get_transaction(struct mail_cache_view *view,
 			   struct mail_index_transaction *t)
@@ -385,8 +388,8 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 				   only the new one will be written to
 				   transaction log, we need to do the linking
 				   ourself here. */
-				if (mail_cache_link(cache, old_offset,
-						    write_offset) < 0)
+				if (mail_cache_link_unlocked(cache, old_offset,
+							     write_offset) < 0)
 					return -1;
 			}
 
@@ -621,6 +624,17 @@ int mail_cache_transaction_lookup(struct mail_cache_transaction_ctx *ctx,
 	return mail_index_update_cache_lookup(ctx->trans, seq, offset_r);
 }
 
+static int mail_cache_link_unlocked(struct mail_cache *cache,
+				    uint32_t old_offset, uint32_t new_offset)
+{
+	new_offset += offsetof(struct mail_cache_record, prev_offset);
+	if (pwrite_full(cache->fd, &old_offset,
+			sizeof(old_offset), new_offset) < 0) {
+		mail_cache_set_syscall_error(cache, "pwrite_full()");
+		return -1;
+	}
+	return 0;
+}
 
 int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 		    uint32_t new_offset)
@@ -635,12 +649,8 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 		return -1;
 	}
 
-	new_offset += offsetof(struct mail_cache_record, prev_offset);
-	if (pwrite_full(cache->fd, &old_offset,
-			sizeof(old_offset), new_offset) < 0) {
-		mail_cache_set_syscall_error(cache, "pwrite_full()");
+	if (mail_cache_link_unlocked(cache, old_offset, new_offset) < 0)
 		return -1;
-	}
 
 	cache->hdr_copy.continued_record_count++;
 	cache->hdr_modified = TRUE;
