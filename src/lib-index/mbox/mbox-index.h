@@ -26,6 +26,7 @@ void mbox_keywords_parse(const char *value, size_t len,
 			 void *context);
 int mbox_skip_crlf(IOBuffer *inbuf);
 void mbox_skip_empty_lines(IOBuffer *inbuf);
+void mbox_skip_message(IOBuffer *inbuf);
 int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 			       uoff_t *offset);
 

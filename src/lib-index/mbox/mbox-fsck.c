@@ -127,6 +127,14 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 
 	header_offset = inbuf->offset;
 
+	if (rec->body_size == 0) {
+		/* possibly broken message, find the From-line to make sure
+		   header parser won't pass it. */
+		mbox_skip_message(inbuf);
+		io_buffer_set_read_limit(inbuf, inbuf->offset);
+		io_buffer_seek(inbuf, header_offset);
+	}
+
 	/* get the MD5 sum of fixed headers and the current message flags
 	   in Status and X-Status fields */
         mbox_header_init_context(&ctx, index);
@@ -134,6 +142,7 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	md5_final(&ctx.md5, current_digest);
 
 	mbox_header_free_context(&ctx);
+	io_buffer_set_read_limit(inbuf, 0);
 
 	body_offset = inbuf->offset;
 	do {

@@ -314,6 +314,56 @@ void mbox_skip_empty_lines(IOBuffer *inbuf)
 	}
 }
 
+void mbox_skip_message(IOBuffer *inbuf)
+{
+	unsigned char *msg;
+	size_t i, size, startpos;
+	int lastmsg;
+
+	/* read until "[\r]\nFrom " is found */
+	startpos = i = 0; lastmsg = TRUE;
+	while (io_buffer_read_data_blocking(inbuf, &msg, &size, startpos) > 0) {
+		for (i = startpos; i < size; i++) {
+			if (msg[i] == ' ' && i >= 5) {
+				/* See if it's space after "From" */
+				if (msg[i-5] == '\n' && msg[i-4] == 'F' &&
+				    msg[i-3] == 'r' && msg[i-2] == 'o' &&
+				    msg[i-1] == 'm') {
+					/* yes, see if we had \r too */
+					i -= 5;
+					if (i > 0 && msg[i-1] == '\r')
+						i--;
+					break;
+				}
+			}
+		}
+
+		if (i < size) {
+			startpos = i;
+                        lastmsg = FALSE;
+			break;
+		}
+
+		startpos = i < 7 ? i : 7;
+		i -= startpos;
+
+		io_buffer_skip(inbuf, i);
+	}
+
+	if (lastmsg && startpos > 0) {
+		/* end of file, remove the last [\r]\n */
+		msg = io_buffer_get_data(inbuf, &size);
+		if (size == startpos) {
+			if (msg[startpos-1] == '\n')
+				startpos--;
+			if (startpos > 0 && msg[startpos-1] == '\r')
+				startpos--;
+		}
+	}
+
+	io_buffer_skip(inbuf, startpos);
+}
+
 int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
 			       uoff_t *offset)
 {
