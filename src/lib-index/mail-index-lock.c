@@ -108,7 +108,9 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		   locks then, though */
 		if (lock_type == F_WRLCK)
 			return 0;
-	} else {
+		if (mail_index_lock_mprotect(index, lock_type) < 0)
+			return -1;
+		return 1;
 	}
 
 	if (lock_type == F_WRLCK && index->lock_type == F_RDLCK) {
