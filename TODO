@@ -5,11 +5,6 @@
    the old file.. and check that deleting file does "inconsistency error"
  - if we have entries in modifylog with UID 10..11, 9..12, 8..13 etc.
    do they work correctly?
- - when modifylog gets switched, the others who haven't synced it try to
-   add flag changes add them to old file.. we need to support having two files
-   open, one for reading and one for writing (or just one for both).
- - if we're only process accessing modify log when it gets full, we can just
-   truncate it instead of switching
  - if imap process notices that both modify logs are getting full because it's
    client isn't syncing, the client should be disconnected
 
@@ -29,36 +24,30 @@
  - MAP_SHARED with NFS doesn't update well. add option to update sync_id
    after every change in file. when reading, if sync_id hasn't changed also
    check with lseek()+read() if it has changed.
-     - mail-index.c, mail-index-data.c needs to keep track if file has been
-       modified.
- - use fdatasync() instead of fsync() in several places
- - mail_index_sync_file() does msync(), fsync(), msync(), fsync(), .. would
-   be faster to do msync(), msync(), .., fsync(), fsync(), ..
- - would be nice if file_wait_lock() could timeout... use alarm() and get
-   timeout parameter
+     - mail-index.c needs to keep track if file has been modified, which is
+       a bit difficult since it's done in so many places
+     - do we want it after all? indexes aren't required and they'd be slow
+       through NFS.
  - RENAME: If the name has inferior hierarchical names, then the inferior
 	   hierarchical names MUST also be renamed (ie. foo -> bar renames
 	   also foo/bar -> bar/bar). (and RENAME INBOX!)
  - passwd-file doesn't notice changes in the file
- - tree file is never shrinked
  - tree has some locking issues while opening it
  - SEARCH FROM/TO/CC/BCC now generates the field from ENVELOPE which it uses
    for matching. This however gives different results than when matching from
    headers.
- - when fetching body/envelope we could try to index it immediately if
+ - when fetching body/envelope we could try to cache it immediately if
    we can get lock with try_lock.
- - maildir could support flag parameters like file:2,S,U1030712092. also
-   could support that format for UIDs with .uidvalidity file. And mbox
-   could support the X-UID field..
-
- - APPENDed mails have wrong time? (-5h, maildir (no it doesn't? what about
-   with OE?))
+ - we need permanent storage for UIDs. with mbox use X-UID like UW-IMAP,
+   with maildir a) file:2,flags,Uuid b) file,U=uid:2,flags. uid validity
+   would be in .uidvalidity file. the b-case would require that to be done
+   by the client moving it from new/ to cur/
+     - other possible maildir flags to use in filename: S=size (file size,
+       for maildir++ quota), W=size (rfc822.size by some uw-imap patch)
  - mbox: what if 1 msg is deleted is x-imapbase rewritten?
  - check that search message-id worked properly always
  - check that search's OR and () work properly
 
- - imap/ and lib-imap/ should allow infinite number of custom flags, it's
-   storage's problem if it can't handle too many of them.
  - are the lowwater marks always reset to 0 when they don't exist? could be
    just as well set to next_uid..
  - optionally use only in-memory indexes
@@ -191,6 +180,10 @@ general:
  - support Maildir++ quota
  - maybe give more untagged NO/ALERT replies? like when mailbox is in
    inconsistent state. and when UIDs are reordered because they're too large.
+ - *_strdup_printf() functions could use C99 compatible vsnprintf() instead of
+   printf_string_upper_bound().
+ - imap/ and lib-imap/ should allow infinite number of custom flags, it's
+   storage's problem if it can't handle too many of them.
 
 auth / login:
  - kchuid, SRP, anonymous SASL
