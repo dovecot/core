@@ -257,6 +257,12 @@ int mech_fix_username(char *username, const char **error_r)
 {
 	unsigned char *p;
 
+	if (*username == '\0') {
+		/* Some PAM plugins go nuts with empty usernames */
+		*error_r = "Empty username";
+		return FALSE;
+	}
+
 	for (p = (unsigned char *)username; *p != '\0'; p++) {
 		if (username_translation[*p & 0xff] != 0)
 			*p = username_translation[*p & 0xff];
