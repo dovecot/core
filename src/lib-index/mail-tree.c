@@ -168,27 +168,18 @@ static MailTree *mail_tree_open(MailIndex *index)
 	return tree;
 }
 
-static void mail_tree_close(MailTree *tree)
+static MailTree *mail_tree_create_anon(MailIndex *index)
 {
-	if (tree->anon_mmap) {
-		if (munmap_anon(tree->mmap_base, tree->mmap_full_length) < 0)
-			tree_set_syscall_error(tree, "munmap_anon()");
-	} else if (tree->mmap_base != NULL) {
-		if (munmap(tree->mmap_base, tree->mmap_full_length) < 0)
-			tree_set_syscall_error(tree, "munmap()");
-	}
-	tree->mmap_base = NULL;
-	tree->mmap_full_length = 0;
-	tree->mmap_used_length = 0;
-	tree->header = NULL;
+	MailTree *tree;
 
-	if (tree->fd != -1) {
-		if (close(tree->fd) < 0)
-			tree_set_syscall_error(tree, "close()");
-		tree->fd = -1;
-	}
+	tree = i_new(MailTree, 1);
+	tree->anon_mmap = TRUE;
+	tree->fd = -1;
+	tree->index = index;
+	tree->filepath = i_strdup("(in-memory tree)");
 
-	i_free(tree->filepath);
+	index->tree = tree;
+	return tree;
 }
 
 int mail_tree_create(MailIndex *index)
@@ -197,7 +188,8 @@ int mail_tree_create(MailIndex *index)
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	tree = mail_tree_open(index);
+	tree = !index->nodiskspace ? mail_tree_open(index) :
+		mail_tree_create_anon(index);
 	if (tree == NULL)
 		return FALSE;
 
@@ -245,6 +237,29 @@ int mail_tree_open_or_create(MailIndex *index)
 	return FALSE;
 }
 
+static void mail_tree_close(MailTree *tree)
+{
+	if (tree->anon_mmap) {
+		if (munmap_anon(tree->mmap_base, tree->mmap_full_length) < 0)
+			tree_set_syscall_error(tree, "munmap_anon()");
+	} else if (tree->mmap_base != NULL) {
+		if (munmap(tree->mmap_base, tree->mmap_full_length) < 0)
+			tree_set_syscall_error(tree, "munmap()");
+	}
+	tree->mmap_base = NULL;
+	tree->mmap_full_length = 0;
+	tree->mmap_used_length = 0;
+	tree->header = NULL;
+
+	if (tree->fd != -1) {
+		if (close(tree->fd) < 0)
+			tree_set_syscall_error(tree, "close()");
+		tree->fd = -1;
+	}
+
+	i_free(tree->filepath);
+}
+
 void mail_tree_free(MailTree *tree)
 {
 	tree->index->tree = NULL;
@@ -261,6 +276,13 @@ static int mail_tree_init(MailTree *tree)
 	memset(&hdr, 0, sizeof(MailTreeHeader));
 	hdr.indexid = tree->index->indexid;
 	hdr.used_file_size = sizeof(MailTreeHeader) + sizeof(MailTreeNode);
+
+	if (tree->anon_mmap) {
+		tree->mmap_full_length = MAIL_TREE_MIN_SIZE;
+		tree->mmap_base = mmap_anon(tree->mmap_full_length);
+		memcpy(tree->mmap_base, &hdr, sizeof(MailTreeHeader));
+		return mmap_verify(tree);
+	}
 
 	if (lseek(tree->fd, 0, SEEK_SET) < 0)
 		return tree_set_syscall_error(tree, "lseek()");
@@ -290,7 +312,7 @@ int mail_tree_rebuild(MailTree *tree)
 		return FALSE;
 
 	if (!mail_tree_init(tree) ||
-	    !_mail_tree_mmap_update(tree, TRUE)) {
+	    (!tree->anon_mmap && !_mail_tree_mmap_update(tree, TRUE))) {
 		tree->index->header->flags |= MAIL_INDEX_FLAG_REBUILD_TREE;
 		return FALSE;
 	}
@@ -354,7 +376,7 @@ int _mail_tree_grow(MailTree *tree)
 
 		tree->mmap_base = base;
 		tree->mmap_full_length = (size_t)new_fsize;
-		return TRUE;
+		return mmap_verify(tree);
 	}
 
 	if (file_set_size(tree->fd, (off_t)new_fsize) < 0) {

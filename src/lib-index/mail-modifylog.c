@@ -516,10 +516,12 @@ static void modifylog_create_anon(ModifyLogFile *file)
 {
 	file->mmap_full_length = MODIFY_LOG_INITIAL_SIZE;
 	file->mmap_base = mmap_anon(file->mmap_full_length);
+	file->header = file->mmap_base;
 
 	mail_modifylog_init_header(file->log, file->mmap_base);
-	file->header = file->mmap_base;
+
 	file->mmap_used_length = file->header->used_file_size;
+	file->synced_position = file->mmap_used_length;
 
 	file->anon_mmap = TRUE;
 	file->filepath = i_strdup("(in-memory modify log)");

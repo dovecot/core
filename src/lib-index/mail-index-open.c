@@ -362,7 +362,7 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 {
 	MailIndexHeader hdr;
 	const char *path, *index_path;
-	int fd;
+	int fd, nodiskspace;
 
 	*dir_unlocked = FALSE;
 	index_path = NULL;
@@ -430,6 +430,7 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 		if (!mail_index_data_create(index))
 			break;
 
+		nodiskspace = index->nodiskspace;
 		if (!index->rebuild(index)) {
 			if (!index->anon_mmap && index->nodiskspace) {
 				/* we're out of disk space, keep it in
@@ -442,6 +443,9 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 			}
 			break;
 		}
+
+		/* rebuild() resets the nodiskspace variable */
+		index->nodiskspace = nodiskspace;
 
 		if (!mail_tree_create(index))
 			break;
@@ -524,7 +528,7 @@ int mail_index_open_or_create(MailIndex *index, int update_recent, int fast)
 	mail_index_cleanup_temp_files(index->dir);
 
 	if (mail_index_open(index, update_recent, fast))
-		return TRUE;
+	        return TRUE;
 
 	/* index wasn't found or it was broken. lock the directory and check
 	   again, just to make sure we don't end up having two index files
