@@ -86,21 +86,25 @@ int client_verify_open_mailbox(struct client *client)
 	if (client->mailbox != NULL)
 		return TRUE;
 	else {
-		client_send_tagline(client, "NO No mailbox selected.");
+		client_send_tagline(client, "BAD No mailbox selected.");
 		return FALSE;
 	}
 }
 
 void client_sync_full(struct client *client)
 {
-	if (client->mailbox != NULL)
-		(void)client->mailbox->sync(client->mailbox, TRUE);
+	if (client->mailbox != NULL) {
+		if (!client->mailbox->sync(client->mailbox, TRUE))
+                        client_send_untagged_storage_error(client);
+	}
 }
 
 void client_sync_without_expunges(struct client *client)
 {
-	if (client->mailbox != NULL)
-		(void)client->mailbox->sync(client->mailbox, FALSE);
+	if (client->mailbox != NULL) {
+		if (!client->mailbox->sync(client->mailbox, FALSE))
+			client_send_untagged_storage_error(client);
+	}
 }
 
 void client_send_storage_error(struct client *client)
