@@ -122,19 +122,15 @@ void message_skip_virtual(struct istream *input, uoff_t virtual_skip,
 			}
 		}
 
+		i_stream_skip(input, i);
 		if (msg_size != NULL) {
 			msg_size->physical_size += i;
 			msg_size->virtual_size += i;
 		}
 
-		if (i < size) {
-			i_stream_skip(input, i);
+		if (i < size)
 			break;
-		}
 
-		/* leave the last character, it may be \r */
-		i_stream_skip(input, i - 1);
-		startpos = 1;
-		cr_skipped = FALSE;
+		cr_skipped = msg[i-1] == '\r';
 	}
 }
