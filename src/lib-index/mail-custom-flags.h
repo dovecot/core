@@ -1,6 +1,8 @@
 #ifndef __MAIL_CUSTOM_FLAGS_H
 #define __MAIL_CUSTOM_FLAGS_H
 
+/* NOTE: Contains it's own locking, unrelated to index locks. */
+
 #include "mail-index.h"
 
 #define CUSTOM_FLAGS_FILE_NAME ".customflags"
