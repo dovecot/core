@@ -75,11 +75,24 @@ size_t printf_string_upper_bound(const char *format, va_list args)
 
   while (*format)
     {
-      register char c = *format++;
-
-      if (c != '%')
+      if (*format++ != '%')
         len += 1;
-      else /* (c == '%') */
+      else if (*format == 's')
+	{
+	  /* most commonly used modifier, optimize for it */
+	  const char *v_string = va_arg (args, const char*);
+	  if (!v_string)
+	    len += 8; /* hold "(null)" */
+	  else
+	    len += strlen(v_string);
+	}
+      else if (*format == 'u')
+	{
+	  /* second most commonly used modifier */
+	  (void) va_arg (args, unsigned int);
+	  len += MAX_INT_STRLEN;
+	}
+      else
         {
           PrintfArgSpec spec;
           int seen_l = FALSE, conv_done = FALSE;
@@ -88,7 +101,7 @@ size_t printf_string_upper_bound(const char *format, va_list args)
           memset(&spec, 0, sizeof(spec));
           do
             {
-              c = *format++;
+              char c = *format++;
               switch (c)
                 {
                   GDoubleIEEE754 u_double;
