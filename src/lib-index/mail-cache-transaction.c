@@ -181,12 +181,14 @@ static int mail_cache_unlink_hole(struct mail_cache *cache, size_t size,
 }
 
 static void
-mail_cache_transaction_add_reservation(struct mail_cache_transaction_ctx *ctx)
+mail_cache_transaction_add_reservation(struct mail_cache_transaction_ctx *ctx,
+				       uint32_t offset, uint32_t size)
 {
-	buffer_append(ctx->reservations, &ctx->reserved_space_offset,
-		      sizeof(ctx->reserved_space_offset));
-	buffer_append(ctx->reservations, &ctx->reserved_space,
-		      sizeof(ctx->reserved_space));
+	ctx->reserved_space_offset = offset;
+	ctx->reserved_space = size;
+
+	buffer_append(ctx->reservations, &offset, sizeof(offset));
+	buffer_append(ctx->reservations, &size, sizeof(size));
 }
 
 static int
@@ -203,9 +205,8 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 
 	if (mail_cache_unlink_hole(cache, block_size, &hole)) {
 		/* found a large enough hole. */
-		ctx->reserved_space_offset = hole.next_offset;
-		ctx->reserved_space = hole.size;
-		mail_cache_transaction_add_reservation(ctx);
+		mail_cache_transaction_add_reservation(ctx, hole.next_offset,
+						       hole.size);
 		return 0;
 	}
 
@@ -236,9 +237,8 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 		return -1;
 
 	if (ctx->reserved_space_offset + ctx->reserved_space ==
-	    hdr->used_file_size && ctx->reserved_space > 0) {
+	    hdr->used_file_size) {
 		/* we can simply grow it */
-		ctx->reserved_space = block_size;
 
 		/* grow reservation. it's probably the last one in the buffer,
 		   but it's not guarateed because we might have used holes
@@ -250,11 +250,12 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 			i_assert(size >= 2);
 			size -= 2;
 		} while (buf[size] + buf[size+1] != hdr->used_file_size);
-		buf[size+1] += ctx->reserved_space;
+
+		buf[size+1] += block_size;
+		ctx->reserved_space += block_size;
 	} else {
-		ctx->reserved_space_offset = hdr->used_file_size;
-		ctx->reserved_space = block_size;
-		mail_cache_transaction_add_reservation(ctx);
+		mail_cache_transaction_add_reservation(ctx, hdr->used_file_size,
+						       block_size);
 	}
 
 	cache->hdr_modified = TRUE;
@@ -311,6 +312,8 @@ mail_cache_transaction_free_space(struct mail_cache_transaction_ctx *ctx)
 		i_assert(ctx->cache_file_seq == ctx->cache->hdr->file_seq);
 		mail_cache_free_space(ctx->cache, ctx->reserved_space_offset,
 				      ctx->reserved_space);
+		ctx->reserved_space_offset = 0;
+                ctx->reserved_space = 0;
 	}
 
 	if (!locked)
@@ -580,8 +583,6 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 	if ((ctx->reserved_space > 0 || ctx->reservations->used > 0) &&
 	    !MAIL_CACHE_IS_UNUSABLE(cache)) {
 		if (mail_cache_transaction_lock(ctx) > 0) {
-			mail_cache_transaction_free_space(ctx);
-
 			buf = buffer_get_data(ctx->reservations, &size);
 			i_assert(size % sizeof(uint32_t)*2 == 0);
 			size /= sizeof(*buf);
