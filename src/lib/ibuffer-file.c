@@ -34,6 +34,7 @@ typedef struct {
 	_IBuffer ibuf;
 
 	size_t max_buffer_size;
+	uoff_t skip_left;
 
 	int timeout_msecs;
 	TimeoutFunc timeout_func;
@@ -220,18 +221,33 @@ static ssize_t _read(_IBuffer *buf)
 			return -1;
 		}
 	}
+	buf->pos += ret;
 
-	if (ret > 0 || fbuf->timeout_msecs == 0) {
-		buf->pos += ret;
-		return ret;
-	} else {
-		/* blocking read */
-		return i_buffer_read_blocking(buf);
-	}
+	do {
+		if (ret == 0 && fbuf->timeout_msecs > 0) {
+			/* blocking read */
+			ret = i_buffer_read_blocking(buf);
+		}
+
+		if (ret > 0 && fbuf->skip_left > 0) {
+			if (fbuf->skip_left > (uoff_t)ret) {
+				buf->skip += ret;
+				fbuf->skip_left -= ret;
+				ret = 0;
+			} else {
+				ret -= fbuf->skip_left;
+				buf->skip -= fbuf->skip_left;
+				fbuf->skip_left = 0;
+			}
+		}
+	} while (ret == 0 && fbuf->timeout_msecs != 0);
+
+	return ret;
 }
 
-static int _skip(_IBuffer *buf, uoff_t count)
+static void _skip(_IBuffer *buf, uoff_t count)
 {
+	FileIBuffer *fbuf = (FileIBuffer *) buf;
 	uoff_t old_limit;
 	ssize_t ret;
 	off_t skipped;
@@ -253,7 +269,9 @@ static int _skip(_IBuffer *buf, uoff_t count)
 	}
 
 	i_buffer_set_read_limit(&buf->ibuffer, old_limit);
-	return count > 0 ? -1 : 1;
+
+	fbuf->skip_left = count;
+	buf->ibuffer.v_offset += count;
 }
 
 static int _seek(_IBuffer *buf, uoff_t v_offset)

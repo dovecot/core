@@ -188,13 +188,13 @@ static int _seek(_IBuffer *buf, uoff_t v_offset)
 		buf->skip = buf->pos = abs_offset;
 	}
 
-        buf->ibuffer.v_offset = v_offset;
+	buf->ibuffer.v_offset = v_offset;
 	return 1;
 }
 
-static int _skip(_IBuffer *buf, uoff_t count)
+static void _skip(_IBuffer *buf, uoff_t count)
 {
-	return _seek(buf, buf->ibuffer.v_offset + count);
+	_seek(buf, buf->ibuffer.v_offset + count);
 }
 
 IBuffer *i_buffer_create_mmap(int fd, Pool pool, size_t block_size,

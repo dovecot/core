@@ -51,9 +51,9 @@ void i_buffer_set_blocking(IBuffer *buf, int timeout_msecs,
 /* Returns number of bytes read if read was ok, -1 if EOF or error, -2 if the
    buffer is full. */
 ssize_t i_buffer_read(IBuffer *buf);
-/* Skip forward a number of bytes. Returns 1 if all bytes were actually
-   skipped, or -1 if EOF or error. */
-int i_buffer_skip(IBuffer *buf, uoff_t count);
+/* Skip forward a number of bytes. Never fails, the next read tells if it
+   was successful. */
+void i_buffer_skip(IBuffer *buf, uoff_t count);
 /* Seek to specified position from beginning of file. This works only for
    files. Returns 1 if successful, -1 if error. */
 int i_buffer_seek(IBuffer *buf, uoff_t v_offset);

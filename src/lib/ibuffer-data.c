@@ -54,13 +54,14 @@ static ssize_t _read(_IBuffer *buf)
 static int _seek(_IBuffer *buf, uoff_t v_offset)
 {
 	buf->skip = v_offset;
+	buf->ibuffer.v_offset = v_offset;
 	return 1;
 }
 
-static int _skip(_IBuffer *buf, uoff_t count)
+static void _skip(_IBuffer *buf, uoff_t count)
 {
 	buf->skip += count;
-	return 1;
+	buf->ibuffer.v_offset += count;
 }
 
 IBuffer *i_buffer_create_from_data(Pool pool, const unsigned char *data,

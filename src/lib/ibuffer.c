@@ -111,7 +111,7 @@ ssize_t i_buffer_read(IBuffer *buf)
 	return _buf->read(_buf);
 }
 
-int i_buffer_skip(IBuffer *buf, uoff_t count)
+void i_buffer_skip(IBuffer *buf, uoff_t count)
 {
 	_IBuffer *_buf = buf->real_buffer;
 	size_t data_size;
@@ -121,11 +121,11 @@ int i_buffer_skip(IBuffer *buf, uoff_t count)
 	if (count <= _buf->pos - _buf->skip) {
 		buf->v_offset += count;
 		_buf->skip += count;
-		return 1;
+		return;
 	}
 
 	if (buf->closed)
-		return -1;
+		return;
 
 	data_size = _buf->pos - _buf->skip;
 	_buf->skip = _buf->pos;
@@ -133,7 +133,7 @@ int i_buffer_skip(IBuffer *buf, uoff_t count)
 	count -= data_size;
 	buf->v_offset += data_size;
 
-	return _buf->skip_count(_buf, count);
+	_buf->skip_count(_buf, count);
 }
 
 int i_buffer_seek(IBuffer *buf, uoff_t v_offset)
