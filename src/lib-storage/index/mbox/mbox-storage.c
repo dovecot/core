@@ -8,6 +8,7 @@
 #include "subscription-file/subscription-file.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
+#include "mbox-file.h"
 #include "mail-save.h"
 
 #include <stdio.h>
@@ -788,6 +789,9 @@ static int mbox_get_mailbox_name_status(struct mail_storage *_storage,
 
 static int mbox_storage_close(struct mailbox *box)
 {
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
+
+        mbox_file_close(ibox);
         index_storage_mailbox_free(box);
 	return 0;
 }
