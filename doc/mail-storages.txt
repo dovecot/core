@@ -44,12 +44,6 @@ keeps the indexes locally while accessing the actual mailboxes via NFS. To
 avoid unnecessarily rebuilding indexes all the time, the users should be
 redirected to their primary server whenever possible.
 
-Currently the only annoying thing with recreating indexes is that the
-message UIDs will change, which may cause more traffic to clients, and
-depending on client software may cause loss of some message-specific
-settings. This will be fixed later by storing the UIDs permanently to
-mailboxes.
-
 Adding :INDEX=<dir> to MAIL environment overrides the default location. The
 given directory must exist.
 
@@ -91,7 +85,7 @@ Files created by Dovecot
 
 .subscriptions: One folder per line listing subscribed IMAP folders.
 There's only one of these files in the root mail directory (~/Maildir/ or
-~/mail/.imap/).
+~/mail).
 
 Then there's the per-folder files:
 
