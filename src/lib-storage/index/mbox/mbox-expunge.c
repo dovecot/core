@@ -92,9 +92,13 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 	io_buffer_skip(inbuf, end_offset - inbuf->offset);
 
 	/* copy the rest as well, should be only \n but someone might
-	   as well just appended more data.. */
+	   as well just appended more data.. but if we've deleted all mail,
+	   don't write the only \n there. */
 	copy_size = inbuf->size - inbuf->offset;
-	return io_buffer_send_iobuffer(outbuf, inbuf, copy_size) > 0;
+	if (outbuf->offset == 0 && copy_size == 1)
+		return TRUE;
+	else
+		return io_buffer_send_iobuffer(outbuf, inbuf, copy_size) > 0;
 }
 
 int mbox_expunge_locked(IndexMailbox *ibox,

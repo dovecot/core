@@ -195,8 +195,9 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 	if (!index->set_lock(index, MAIL_LOCK_EXCLUSIVE))
 		return FALSE;
 
-	/* first make sure we start with a "From " line. */
-	if (io_buffer_read_data_blocking(inbuf, &data, &size, 5) < 0 ||
+	/* first make sure we start with a "From " line. If file is too
+	   small, we'll just treat it as empty mbox file. */
+	if (io_buffer_read_data_blocking(inbuf, &data, &size, 5) > 0 &&
 	    strncmp(data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
 				index->mbox_path);
