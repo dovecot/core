@@ -192,7 +192,8 @@ static int get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 	struct message_tokenizer *tok;
 	int valid_end;
 
-	tok = message_tokenize_init(*msgid_p, (size_t)-1, NULL, NULL);
+	tok = message_tokenize_init((const unsigned char *) *msgid_p,
+				    (size_t)-1, NULL, NULL);
 	message_tokenize_dot_token(tok, FALSE); /* just a minor speedup */
 
 	message_tokenize_get_string(tok, msgid, NULL, stop_tokens);
