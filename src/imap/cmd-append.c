@@ -95,7 +95,7 @@ int cmd_append(struct client *client)
 	count = 0;
 	failed = TRUE;
 	save_parser = imap_parser_create(client->input, client->output,
-					 0, MAX_IMAP_ARG_ELEMENTS);
+					 imap_max_line_length);
 
 	for (;;) {
 		/* [<flags>] [<internal date>] <message literal> */

@@ -20,9 +20,8 @@
 
 #define MAX_OUTBUF_SIZE 1024
 
-/* max. number of IMAP argument elements to accept. The maximum memory usage
-   for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
-#define MAX_IMAP_ARG_ELEMENTS 4
+/* maximum length for IMAP command line. */
+#define MAX_IMAP_LINE 8192
 
 /* Disconnect client after idling this many seconds */
 #define CLIENT_LOGIN_IDLE_TIMEOUT 60
@@ -64,8 +63,7 @@ static void client_open_streams(struct imap_client *client, int fd)
 	client->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
 					      FALSE);
 	client->parser = imap_parser_create(client->input, client->output,
-					    MAX_INBUF_SIZE,
-					    MAX_IMAP_ARG_ELEMENTS);
+					    MAX_IMAP_LINE);
 }
 
 /* Skip incoming data until newline is found,

@@ -9,9 +9,6 @@
 
 #include <stdlib.h>
 
-/* max. size of one parameter in line */
-#define MAX_INBUF_SIZE 8192
-
 /* If we can't send a buffer in a minute, disconnect the client */
 #define CLIENT_OUTPUT_TIMEOUT (60*1000)
 
@@ -49,7 +46,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 
 	client = i_new(struct client, 1);
 	client->input = i_stream_create_file(hin, default_pool,
-					     MAX_INBUF_SIZE, FALSE);
+					     imap_max_line_length, FALSE);
 	client->output = o_stream_create_file(hout, default_pool, 4096, FALSE);
 
 	/* set timeout for reading expected data (eg. APPEND). This is
@@ -63,8 +60,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 
 	client->io = io_add(hin, IO_READ, _client_input, client);
 	client->parser = imap_parser_create(client->input, client->output,
-					    MAX_INBUF_SIZE,
-					    MAX_IMAP_ARG_ELEMENTS);
+					    imap_max_line_length);
         client->last_input = ioloop_time;
 
 	client->mailbox_flags.pool =

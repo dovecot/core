@@ -28,11 +28,12 @@ struct imap_parser {
 	pool_t pool;
 	struct istream *input;
 	struct ostream *output;
-	size_t max_literal_size, max_elements;
+	size_t max_line_size;
         enum imap_parser_flags flags;
 
 	/* reset by imap_parser_reset(): */
-        struct imap_arg_list *root_list;
+	size_t line_size;
+	struct imap_arg_list *root_list;
         struct imap_arg_list *cur_list;
 	struct imap_arg *list_arg;
 	size_t element_count;
@@ -73,7 +74,7 @@ static void imap_args_realloc(struct imap_parser *parser, size_t size)
 
 struct imap_parser *
 imap_parser_create(struct istream *input, struct ostream *output,
-		   size_t max_literal_size, size_t max_elements)
+		   size_t max_line_size)
 {
 	struct imap_parser *parser;
 
@@ -81,8 +82,7 @@ imap_parser_create(struct istream *input, struct ostream *output,
         parser->pool = pool_alloconly_create("IMAP parser", 8192);
 	parser->input = input;
 	parser->output = output;
-	parser->max_literal_size = max_literal_size;
-	parser->max_elements = max_elements;
+	parser->max_line_size = max_line_size;
 
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 	return parser;
@@ -97,6 +97,8 @@ void imap_parser_destroy(struct imap_parser *parser)
 void imap_parser_reset(struct imap_parser *parser)
 {
 	p_clear(parser->pool);
+
+	parser->line_size = 0;
 
 	parser->root_list = NULL;
 	parser->cur_list = NULL;
@@ -136,6 +138,7 @@ static int imap_parser_skip_to_next(struct imap_parser *parser,
 			break;
 	}
 
+	parser->line_size += i;
         i_stream_skip(parser->input, i);
 	parser->cur_pos = 0;
 
@@ -352,7 +355,9 @@ static int imap_parser_read_string(struct imap_parser *parser,
 static int imap_parser_literal_end(struct imap_parser *parser)
 {
 	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
-		if (parser->literal_size > parser->max_literal_size) {
+		if (parser->line_size >= parser->max_line_size ||
+		    parser->literal_size >
+		    parser->max_line_size - parser->line_size) {
 			/* too long string, abort. */
 			parser->error = "Literal size too large";
 			parser->fatal_error = TRUE;
@@ -381,6 +386,7 @@ static int imap_parser_read_literal(struct imap_parser *parser,
 	/* expecting digits + "}" */
 	for (i = parser->cur_pos; i < data_size; i++) {
 		if (data[i] == '}') {
+			parser->line_size += i+1;
 			i_stream_skip(parser->input, i+1);
 			return imap_parser_literal_end(parser);
 		}
@@ -424,6 +430,7 @@ static int imap_parser_read_literal_data(struct imap_parser *parser,
 			return FALSE;
 
 		if (*data == '\r') {
+			parser->line_size++;
 			data++; data_size--;
 			i_stream_skip(parser->input, 1);
 
@@ -436,8 +443,10 @@ static int imap_parser_read_literal_data(struct imap_parser *parser,
 			return FALSE;
 		}
 
+		parser->line_size++;
 		data++; data_size--;
 		i_stream_skip(parser->input, 1);
+
 		parser->literal_skip_crlf = FALSE;
 
 		i_assert(parser->cur_pos == 0);
@@ -564,14 +573,15 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 		if (!imap_parser_read_arg(parser))
 			break;
 
-		if (parser->element_count > parser->max_elements) {
-			parser->error = "Too many argument elements";
+		if (parser->line_size > parser->max_line_size) {
+			parser->error = "IMAP command line too large";
 			break;
 		}
 	}
 
 	if (parser->error != NULL) {
 		/* error, abort */
+		parser->line_size += parser->cur_pos;
 		i_stream_skip(parser->input, parser->cur_pos);
 		parser->cur_pos = 0;
 		*args = NULL;
@@ -579,6 +589,7 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 	} else if ((!IS_UNFINISHED(parser) && count > 0 &&
 		    parser->root_list->size >= count) || parser->eol) {
 		/* all arguments read / end of line. */
+		parser->line_size += parser->cur_pos;
  		i_stream_skip(parser->input, parser->cur_pos);
 		parser->cur_pos = 0;
 
@@ -621,27 +632,9 @@ const char *imap_parser_read_word(struct imap_parser *parser)
 	}
 
 	if (i < data_size) {
-		i_stream_skip(parser->input, i + (data[i] == ' ' ? 1 : 0));
-		return p_strndup(parser->pool, data, i);
-	} else {
-		return NULL;
-	}
-}
-
-const char *imap_parser_read_line(struct imap_parser *parser)
-{
-	const unsigned char *data;
-	size_t i, data_size;
-
-	data = i_stream_get_data(parser->input, &data_size);
-
-	for (i = 0; i < data_size; i++) {
-		if (data[i] == '\r' || data[i] == '\n')
-			break;
-	}
-
-	if (i < data_size) {
-		i_stream_skip(parser->input, i);
+		data_size = i + (data[i] == ' ' ? 1 : 0);
+		parser->line_size += data_size;
+		i_stream_skip(parser->input, data_size);
 		return p_strndup(parser->pool, data, i);
 	} else {
 		return NULL;

@@ -22,6 +22,7 @@
 
 struct ioloop *ioloop;
 unsigned int max_custom_flag_length, mailbox_check_interval;
+unsigned int imap_max_line_length;
 
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
@@ -126,6 +127,11 @@ static void main_init(void)
 				"autodetection failed (home %s)", home);
 		}
 	}
+
+	str = getenv("IMAP_MAX_LINE_LENGTH");
+	imap_max_line_length = str != NULL ?
+		(unsigned int)strtoul(str, NULL, 10) :
+		DEFAULT_IMAP_MAX_LINE_LENGTH;
 
 	str = getenv("MAIL_MAX_FLAG_LENGTH");
 	max_custom_flag_length = str != NULL ?

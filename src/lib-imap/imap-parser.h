@@ -60,15 +60,20 @@ struct imap_arg_list {
 	struct imap_arg args[1]; /* variable size */
 };
 
-/* Create new IMAP argument parser. There's no limit in argument sizes, only
-   the maximum buffer size of input stream limits it. max_literal_size limits
-   the maximum size of internally handled literals (ie. FLAG_LITERAL_SIZE is
-   unset). max_elements sets the number of elements we allow entirely so that
-   user can't give huge lists or lists inside lists. output is used for sending
-   command continuation requests for literals. */
+/* Create new IMAP argument parser. output is used for sending command
+   continuation requests for literals.
+
+   max_line_size can be used to approximately limit the maximum amount of
+   memory that gets allocated when parsing a line. Input buffer size limits
+   the maximum size of each parsed token.
+
+   Usually the largest lines are large only because they have a one huge
+   message set token, so you'll probably want to keep input buffer size the
+   same as max_line_size. That means the maximum memory usage is around
+   2 * max_line_size. */
 struct imap_parser *
 imap_parser_create(struct istream *input, struct ostream *output,
-		   size_t max_literal_size, size_t max_elements);
+		   size_t max_line_size);
 void imap_parser_destroy(struct imap_parser *parser);
 
 /* Reset the parser to initial state. */
@@ -93,9 +98,6 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 /* Read one word - used for reading tag and command name.
    Returns NULL if more data is needed. */
 const char *imap_parser_read_word(struct imap_parser *parser);
-
-/* Read the rest of the line. Returns NULL if more data is needed. */
-const char *imap_parser_read_line(struct imap_parser *parser);
 
 /* Returns the imap argument as string. NIL returns "" and list returns NULL. */
 const char *imap_arg_string(struct imap_arg *arg);

@@ -4,17 +4,19 @@
 #include "lib.h"
 #include "client.h"
 
-/* max. number of IMAP argument elements to accept. The maximum memory usage
-   for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
-#define MAX_IMAP_ARG_ELEMENTS 128
-
 /* Disconnect client after idling this many seconds */
 #define CLIENT_IDLE_TIMEOUT (60*30)
+
+/* RFC-2683 recommends at least 8000 bytes. Some clients however don't
+   break large message sets to multiple commands, so we're pretty liberal
+   by default. */
+#define DEFAULT_IMAP_MAX_LINE_LENGTH 65536
 
 #define DEFAULT_MAX_CUSTOM_FLAG_LENGTH 50
 
 extern struct ioloop *ioloop;
 extern unsigned int max_custom_flag_length, mailbox_check_interval;
+extern unsigned int imap_max_line_length;
 
 extern string_t *capability_string;
 
