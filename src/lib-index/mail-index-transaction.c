@@ -38,15 +38,15 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 
 	mail_index_view_transaction_unref(t->view);
 
-	if (t->extra_rec_updates != NULL) {
-		recs = buffer_get_modifyable_data(t->extra_rec_updates, &size);
+	if (t->ext_rec_updates != NULL) {
+		recs = buffer_get_modifyable_data(t->ext_rec_updates, &size);
 		size /= sizeof(*recs);
 
 		for (i = 0; i < size; i++) {
 			if (recs[i] != NULL)
 				buffer_free(recs[i]);
 		}
-		buffer_free(t->extra_rec_updates);
+		buffer_free(t->ext_rec_updates);
 	}
 
 	if (t->appends != NULL)
@@ -57,8 +57,8 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 		buffer_free(t->updates);
 	if (t->cache_updates != NULL)
 		buffer_free(t->cache_updates);
-	if (t->extra_intros != NULL)
-		buffer_free(t->extra_intros);
+	if (t->ext_intros != NULL)
+		buffer_free(t->ext_intros);
 	i_free(t);
 }
 
@@ -110,17 +110,16 @@ static int
 mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 {
 	struct mail_index *index = t->view->index;
-        const struct mail_index_extra_record_info *einfos;
+        const struct mail_index_ext *extensions;
 	buffer_t **updates;
 	size_t i, size;
 
 	if (mail_index_view_lock(t->view) < 0)
 		return -1;
 
-	if (t->extra_rec_updates != NULL) {
-		einfos = buffer_get_data(index->extra_infos, NULL);
-		updates = buffer_get_modifyable_data(t->extra_rec_updates,
-						     &size);
+	if (t->ext_rec_updates != NULL) {
+		extensions = buffer_get_data(index->extensions, NULL);
+		updates = buffer_get_modifyable_data(t->ext_rec_updates, &size);
 		size /= sizeof(*updates);
 
 		for (i = 0; i < size; i++) {
@@ -128,7 +127,7 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 				continue;
 
 			mail_index_buffer_convert_to_uids(t, updates[i],
-				sizeof(uint32_t) + einfos[i].record_size,
+				sizeof(uint32_t) + extensions[i].record_size,
 				FALSE);
 		}
 	}
@@ -658,32 +657,31 @@ int mail_index_update_cache_lookup(struct mail_index_transaction *t,
 	return TRUE;
 }
 
-void mail_index_update_extra_rec(struct mail_index_transaction *t,
-				 uint32_t seq, uint32_t data_id,
-				 const void *data)
+void mail_index_update_ext(struct mail_index_transaction *t,
+			   uint32_t seq, uint32_t ext_id, const void *data)
 {
 	struct mail_index *index = t->view->index;
+        const struct mail_index_ext *ext;
 	buffer_t **buf;
-        const struct mail_index_extra_record_info *einfo;
 
 	i_assert(seq > 0 &&
 		 (seq <= mail_index_view_get_message_count(t->view) ||
 		  seq <= t->last_new_seq));
-	i_assert(data_id < index->extra_infos->used / sizeof(*einfo));
+	i_assert(ext_id < index->extensions->used / sizeof(*ext));
 
 	t->log_updates = TRUE;
 
-	einfo = index->extra_infos->data;
-	einfo += data_id;
+	ext = index->extensions->data;
+	ext += ext_id;
 
-	if (t->extra_rec_updates == NULL) {
-		t->extra_rec_updates =
+	if (t->ext_rec_updates == NULL) {
+		t->ext_rec_updates =
 			buffer_create_dynamic(default_pool, 128, (size_t)-1);
 	}
-	buf = buffer_get_space_unsafe(t->extra_rec_updates,
-				      data_id * sizeof(buffer_t *),
+	buf = buffer_get_space_unsafe(t->ext_rec_updates,
+				      ext_id * sizeof(buffer_t *),
 				      sizeof(buffer_t *));
-	mail_index_update_seq_buffer(buf, seq, data, einfo->record_size, NULL);
+	mail_index_update_seq_buffer(buf, seq, data, ext->record_size, NULL);
 }
 
 void mail_index_update_header(struct mail_index_transaction *t,

@@ -25,11 +25,11 @@ const struct mail_transaction_type_map mail_transaction_type_map[] = {
 	{ MAIL_TRANSACTION_CACHE_UPDATE, 0,
 	  sizeof(struct mail_transaction_cache_update) },
 	{ MAIL_TRANSACTION_HEADER_UPDATE, 0, 1 }, /* variable size, use 1 */
-	{ MAIL_TRANSACTION_EXTRA_INTRO, 0, 1 },
-	{ MAIL_TRANSACTION_EXTRA_RESET, 0,
-	  sizeof(struct mail_transaction_extra_rec_header) },
-	{ MAIL_TRANSACTION_EXTRA_HDR_UPDATE, 0, 1 },
-	{ MAIL_TRANSACTION_EXTRA_REC_UPDATE, 0, 1 },
+	{ MAIL_TRANSACTION_EXT_INTRO, 0, 1 },
+	{ MAIL_TRANSACTION_EXT_RESET, 0,
+	  sizeof(struct mail_transaction_ext_rec_header) },
+	{ MAIL_TRANSACTION_EXT_HDR_UPDATE, 0, 1 },
+	{ MAIL_TRANSACTION_EXT_REC_UPDATE, 0, 1 },
 	{ 0, 0, 0 }
 };
 
@@ -148,11 +148,11 @@ int mail_transaction_map(struct mail_index_map *map,
 		}
 		break;
 	}
-	case MAIL_TRANSACTION_EXTRA_INTRO: {
-		const struct mail_transaction_extra_intro *rec = data;
+	case MAIL_TRANSACTION_EXT_INTRO: {
+		const struct mail_transaction_ext_intro *rec = data;
 		unsigned int i;
 
-		if (func_map->extra_intro == NULL)
+		if (func_map->ext_intro == NULL)
 			break;
 
 		for (i = 0; i < hdr->size; ) {
@@ -162,7 +162,7 @@ int mail_transaction_map(struct mail_index_map *map,
 			}
 
 			rec = CONST_PTR_OFFSET(data, i);
-			ret = func_map->extra_intro(rec, context);
+			ret = func_map->ext_intro(rec, context);
 			if (ret <= 0)
 				break;
 
@@ -170,31 +170,31 @@ int mail_transaction_map(struct mail_index_map *map,
 		}
 		break;
 	}
-	case MAIL_TRANSACTION_EXTRA_RESET: {
-		const struct mail_transaction_extra_rec_header *rec = data;
+	case MAIL_TRANSACTION_EXT_RESET: {
+		const struct mail_transaction_ext_rec_header *rec = data;
 		unsigned int i, size;
 
-		if (func_map->extra_reset == NULL)
+		if (func_map->ext_reset == NULL)
 			break;
 
 		size = hdr->size / sizeof(*rec);
 		for (i = 0; i < size; i++) {
-			ret = func_map->extra_reset(&rec[i], context);
+			ret = func_map->ext_reset(&rec[i], context);
 			if (ret <= 0)
 				break;
 		}
 		break;
 	}
-	case MAIL_TRANSACTION_EXTRA_HDR_UPDATE: {
-		const struct mail_transaction_extra_hdr_update *rec = data;
+	case MAIL_TRANSACTION_EXT_HDR_UPDATE: {
+		const struct mail_transaction_ext_hdr_update *rec = data;
 		unsigned int i;
 
-		if (func_map->extra_hdr_update == NULL)
+		if (func_map->ext_hdr_update == NULL)
 			break;
 
 		for (i = 0; i < hdr->size; ) {
 			rec = CONST_PTR_OFFSET(data, i);
-			ret = func_map->extra_hdr_update(rec, context);
+			ret = func_map->ext_hdr_update(rec, context);
 			if (ret <= 0)
 				break;
 
@@ -202,34 +202,34 @@ int mail_transaction_map(struct mail_index_map *map,
 		}
 		break;
 	}
-	case MAIL_TRANSACTION_EXTRA_REC_UPDATE: {
-		const struct mail_transaction_extra_rec_header *ehdr = data;
-		const struct mail_transaction_extra_rec_update *rec, *end;
-		const struct mail_index_extra_record_info *einfo;
+	case MAIL_TRANSACTION_EXT_REC_UPDATE: {
+		const struct mail_transaction_ext_rec_header *ehdr = data;
+		const struct mail_transaction_ext_rec_update *rec, *end;
+		const struct mail_index_ext *ext;
 		unsigned int record_size;
 
-		if (func_map->extra_rec_update == NULL)
+		if (func_map->ext_rec_update == NULL)
 			break;
 
 		rec = CONST_PTR_OFFSET(data, sizeof(*ehdr));
 
-		if (map->extra_infos == NULL ||
-		    ehdr->data_id >= map->extra_infos->used / sizeof(*einfo)) {
-			/* broken. let the extra_rec_update handler do the
+		if (map->extensions == NULL ||
+		    ehdr->ext_id >= map->extensions->used / sizeof(*ext)) {
+			/* broken. let the ext_rec_update handler do the
 			   error handling. */
-			ret = func_map->extra_rec_update(ehdr, rec, context);
+			ret = func_map->ext_rec_update(ehdr, rec, context);
 			if (ret >= 0)
 				i_unreached();
 			break;
 		}
 
-		einfo = map->extra_infos->data;
-		einfo += ehdr->data_id;
-		record_size = sizeof(*ehdr) + einfo->record_size;
+		ext = map->extensions->data;
+		ext += ehdr->ext_id;
+		record_size = sizeof(*ehdr) + ext->record_size;
 
 		end = CONST_PTR_OFFSET(data, hdr->size);
 		while (rec != end) {
-			ret = func_map->extra_rec_update(ehdr, rec, context);
+			ret = func_map->ext_rec_update(ehdr, rec, context);
 			if (ret <= 0)
 				break;
 

@@ -134,35 +134,35 @@ static int _tview_lookup_first(struct mail_index_view *view,
 	return 0;
 }
 
-static int _tview_lookup_extra(struct mail_index_view *view, uint32_t seq,
-			       uint32_t data_id, const void **data_r)
+static int _tview_lookup_ext(struct mail_index_view *view, uint32_t seq,
+			     uint32_t ext_id, const void **data_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
-        const struct mail_index_extra_record_info *einfo;
-	buffer_t *const *extra_bufs;
+        const struct mail_index_ext *ext;
+	buffer_t *const *ext_bufs;
 	size_t size, pos;
 
 	if (seq < tview->t->first_new_seq)
-		return tview->parent->lookup_extra(view, seq, data_id, data_r);
+		return tview->parent->lookup_ext(view, seq, ext_id, data_r);
 
 	i_assert(seq <= tview->t->last_new_seq);
-	i_assert(data_id < view->index->extra_infos->used / sizeof(*einfo));
+	i_assert(ext_id < view->index->extensions->used / sizeof(*ext));
 
-	einfo = view->index->extra_infos->data;
-	einfo += data_id;
+	ext = view->index->extensions->data;
+	ext += ext_id;
 
-	extra_bufs = buffer_get_data(tview->t->extra_rec_updates, &size);
-	size /= sizeof(*extra_bufs);
+	ext_bufs = buffer_get_data(tview->t->ext_rec_updates, &size);
+	size /= sizeof(*ext_bufs);
 
-	if (size <= data_id || extra_bufs[data_id] == NULL ||
-	    !mail_index_seq_buffer_lookup(extra_bufs[data_id], seq,
-					  einfo->record_size, &pos)) {
+	if (size <= ext_id || ext_bufs[ext_id] == NULL ||
+	    !mail_index_seq_buffer_lookup(ext_bufs[ext_id], seq,
+					  ext->record_size, &pos)) {
 		*data_r = NULL;
 		return 1;
 	}
 
-	*data_r = CONST_PTR_OFFSET(extra_bufs[data_id]->data, pos);
+	*data_r = CONST_PTR_OFFSET(ext_bufs[ext_id]->data, pos);
 	return 1;
 }
 
@@ -174,7 +174,7 @@ static struct mail_index_view_methods view_methods = {
 	_tview_lookup_uid,
 	_tview_lookup_uid_range,
 	_tview_lookup_first,
-	_tview_lookup_extra
+	_tview_lookup_ext
 };
 
 struct mail_index_view *

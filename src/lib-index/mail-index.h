@@ -140,12 +140,10 @@ void mail_index_free(struct mail_index *index);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid);
 
-/* register extra data to be used in mail_index_record. name is a unique
-   identifier for the data. if same name is tried to be registered multiple
-   times, the rest are ignored. returns identifier for the name. */
-uint32_t mail_index_register_record_extra(struct mail_index *index,
-					  const char *name, uint32_t hdr_size,
-					  uint16_t record_size);
+/* register index extension. name is a unique identifier for the extension.
+   returns identifier for the name. */
+uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
+				 uint32_t hdr_size, uint16_t record_size);
 
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags);
 void mail_index_close(struct mail_index *index);
@@ -258,10 +256,10 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
    mail_index_lookup()->uid. */
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 			  uint32_t *uid_r);
-/* Returns the wanted extra data for given message. If it doesn't exist,
+/* Returns the wanted extension record for given message. If it doesn't exist,
    *data_r is set to NULL. Return values are same as for mail_index_lookup(). */
-int mail_index_lookup_extra(struct mail_index_view *view, uint32_t seq,
-			    uint32_t data_id, const void **data_r);
+int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
+			  uint32_t ext_id, const void **data_r);
 /* Convert UID range to sequence range. If no UIDs are found, sequences are
    set to 0. Note that any of the returned sequences may have been expunged
    already. */
@@ -290,10 +288,9 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 /* Update field in header. */
 void mail_index_update_header(struct mail_index_transaction *t,
 			      size_t offset, const void *data, size_t size);
-/* Update extra record field. */
-void mail_index_update_extra_rec(struct mail_index_transaction *t,
-				 uint32_t seq, uint32_t data_id,
-				 const void *data);
+/* Update extension record. */
+void mail_index_update_ext(struct mail_index_transaction *t,
+			   uint32_t seq, uint32_t ext_id, const void *data);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);

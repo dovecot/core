@@ -407,10 +407,10 @@ static int _view_lookup_first(struct mail_index_view *view,
 	return 0;
 }
 
-static int _view_lookup_extra(struct mail_index_view *view, uint32_t seq,
-			      uint32_t data_id, const void **data_r)
+static int _view_lookup_ext(struct mail_index_view *view, uint32_t seq,
+			    uint32_t ext_id, const void **data_r)
 {
-	const struct mail_index_extra_record_info *einfo;
+	const struct mail_index_ext *ext;
 	const struct mail_index_record *rec;
 	struct mail_index_map *map;
 	uint32_t idx, offset;
@@ -420,15 +420,15 @@ static int _view_lookup_extra(struct mail_index_view *view, uint32_t seq,
 		return -1;
 
 	if (rec == NULL ||
-	    !mail_index_map_get_extra_info_idx(view->map, data_id, &idx)) {
+	    !mail_index_map_get_ext_idx(view->map, ext_id, &idx)) {
 		*data_r = NULL;
 		return ret;
 	}
 
-	einfo = view->map->extra_infos->data;
-	einfo += idx;
+	ext = view->map->extensions->data;
+	ext += idx;
 
-	offset = einfo->record_offset;
+	offset = ext->record_offset;
 	*data_r = offset == 0 ? NULL : CONST_PTR_OFFSET(rec, offset);
 	return ret;
 }
@@ -484,10 +484,10 @@ int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
 	return view->methods.lookup_first(view, flags, flags_mask, seq_r);
 }
 
-int mail_index_lookup_extra(struct mail_index_view *view, uint32_t seq,
-			    uint32_t data_id, const void **data_r)
+int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
+			  uint32_t ext_id, const void **data_r)
 {
-	return view->methods.lookup_extra(view, seq, data_id, data_r);
+	return view->methods.lookup_ext(view, seq, ext_id, data_r);
 }
 
 static struct mail_index_view_methods view_methods = {
@@ -498,7 +498,7 @@ static struct mail_index_view_methods view_methods = {
 	_view_lookup_uid,
 	_view_lookup_uid_range,
 	_view_lookup_first,
-	_view_lookup_extra
+	_view_lookup_ext
 };
 
 struct mail_index_view *mail_index_view_open(struct mail_index *index)

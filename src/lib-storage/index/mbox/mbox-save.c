@@ -345,8 +345,8 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 
 		offset = ctx->output->offset == 0 ? 0 :
 			ctx->output->offset - 1;
-		mail_index_update_extra_rec(ctx->trans, ctx->seq,
-					    ibox->mbox_extra_idx, &offset);
+		mail_index_update_ext(ctx->trans, ctx->seq,
+				      ibox->mbox_ext_idx, &offset);
 		ctx->next_uid++;
 	}
 	mbox_save_append_flag_headers(ctx->headers,

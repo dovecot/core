@@ -83,7 +83,7 @@ struct index_mailbox {
 	time_t mbox_dirty_stamp;
 	off_t mbox_dirty_size;
 
-	uint32_t mbox_extra_idx, md5hdr_extra_idx;
+	uint32_t mbox_ext_idx, md5hdr_ext_idx;
 
 	/* maildir sync: */
 	struct maildir_uidlist *uidlist;

@@ -513,14 +513,13 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 	}
 
 	/* match by MD5 sum */
-	if (ibox->md5hdr_extra_idx == 0) {
-		ibox->md5hdr_extra_idx =
-			mail_index_register_record_extra(ibox->index,
-							 "header-md5", 0, 16);
+	if (ibox->md5hdr_ext_idx == 0) {
+		ibox->md5hdr_ext_idx =
+			mail_index_ext_register(ibox->index, "header-md5",
+						0, 16);
 	}
 
-	if (mail_index_lookup_extra(view, seq, ibox->md5hdr_extra_idx,
-				    &data) < 0) {
+	if (mail_index_lookup_ext(view, seq, ibox->md5hdr_ext_idx, &data) < 0) {
 		mail_storage_set_index_error(ibox);
 		return -1;
 	}

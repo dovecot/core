@@ -21,7 +21,7 @@ struct mail_transaction_header;
 	((struct mail_index_record *) \
 		PTR_OFFSET((map)->records, (idx) * (map)->hdr->record_size))
 
-struct mail_index_extra_record_info {
+struct mail_index_ext {
 	const char *name;
 	uint32_t hdr_offset;
 	uint32_t hdr_size;
@@ -29,7 +29,7 @@ struct mail_index_extra_record_info {
 	uint32_t record_size;
 };
 
-struct mail_index_extra_record_info_header {
+struct mail_index_ext_header {
 	uint32_t hdr_size;
 	uint32_t record_offset;
 	uint32_t record_size;
@@ -43,9 +43,9 @@ struct mail_index_map {
 	void *records; /* struct mail_index_record[] */
 	unsigned int records_count;
 
-	pool_t extra_records_pool;
-	buffer_t *extra_infos; /* struct mail_index_extra_record_info[] */
-	buffer_t *extra_infos_id_map; /* uint32_t[] (index -> file) */
+	pool_t extension_pool;
+	buffer_t *extensions; /* struct mail_index_ext[] */
+	buffer_t *ext_id_map; /* uint32_t[] (index -> file) */
 
 	void *mmap_base;
 	size_t mmap_size, mmap_used_size;
@@ -70,8 +70,8 @@ struct mail_index {
 	mode_t mode;
 	gid_t gid;
 
-	pool_t extra_infos_pool;
-	buffer_t *extra_infos; /* struct mail_index_extra_record_info[] */
+	pool_t extension_pool;
+	buffer_t *extensions; /* struct mail_index_ext[] */
 
 	char *filepath;
 	int fd;
@@ -128,14 +128,12 @@ int mail_index_map(struct mail_index *index, int force);
 void mail_index_unmap(struct mail_index *index, struct mail_index_map *map);
 struct mail_index_map *
 mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size);
-uint32_t mail_index_map_register_extra_info(struct mail_index *index,
-					    struct mail_index_map *map,
-					    const char *name,
-					    uint32_t hdr_offset,
-					    uint32_t hdr_size,
-					    uint32_t record_size);
-int mail_index_map_get_extra_info_idx(struct mail_index_map *map,
-				      uint32_t data_id, uint32_t *idx_r);
+uint32_t mail_index_map_register_ext(struct mail_index *index,
+				     struct mail_index_map *map,
+				     const char *name, uint32_t hdr_offset,
+				     uint32_t hdr_size, uint32_t record_size);
+int mail_index_map_get_ext_idx(struct mail_index_map *map,
+			       uint32_t ext_id, uint32_t *idx_r);
 
 int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 			   struct mail_index_map **map_r,

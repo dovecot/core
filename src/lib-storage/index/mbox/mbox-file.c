@@ -99,7 +99,7 @@ int mbox_file_seek(struct index_mailbox *ibox, struct mail_index_view *view,
 
 	*deleted_r = FALSE;
 
-	ret = mail_index_lookup_extra(view, seq, ibox->mbox_extra_idx, &data);
+	ret = mail_index_lookup_ext(view, seq, ibox->mbox_ext_idx, &data);
 	if (ret <= 0) {
 		if (ret < 0)
 			mail_storage_set_index_error(ibox);

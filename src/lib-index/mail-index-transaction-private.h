@@ -19,9 +19,9 @@ struct mail_index_transaction {
 	unsigned char hdr_change[sizeof(struct mail_index_header)];
 	unsigned char hdr_mask[sizeof(struct mail_index_header)];
 
-	buffer_t *extra_rec_updates; /* buffer[] */
-	buffer_t *extra_intros;
-	uint32_t extra_intros_max_id;
+	buffer_t *ext_rec_updates; /* buffer[] */
+	buffer_t *ext_intros;
+	uint32_t ext_intros_max_id;
 
 	uint32_t new_cache_file_seq, last_cache_file_seq;
 	buffer_t *cache_updates;

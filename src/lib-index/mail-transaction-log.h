@@ -19,10 +19,10 @@ enum mail_transaction_type {
 	MAIL_TRANSACTION_CACHE_RESET		= 0x00000008,
 	MAIL_TRANSACTION_CACHE_UPDATE		= 0x00000010,
 	MAIL_TRANSACTION_HEADER_UPDATE		= 0x00000020,
-	MAIL_TRANSACTION_EXTRA_INTRO		= 0x00000040,
-	MAIL_TRANSACTION_EXTRA_RESET		= 0x00000080,
-	MAIL_TRANSACTION_EXTRA_HDR_UPDATE	= 0x00000100,
-	MAIL_TRANSACTION_EXTRA_REC_UPDATE	= 0x00000200,
+	MAIL_TRANSACTION_EXT_INTRO		= 0x00000040,
+	MAIL_TRANSACTION_EXT_RESET		= 0x00000080,
+	MAIL_TRANSACTION_EXT_HDR_UPDATE		= 0x00000100,
+	MAIL_TRANSACTION_EXT_REC_UPDATE		= 0x00000200,
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
@@ -68,26 +68,26 @@ struct mail_transaction_header_update {
 	/* unsigned char data[]; */
 };
 
-struct mail_transaction_extra_intro {
-	uint32_t data_id; /* must be first */
+struct mail_transaction_ext_intro {
+	uint32_t ext_id; /* must be first */
 	uint32_t hdr_size;
 	uint16_t record_size;
 	uint16_t name_size;
 	/* unsigned char name[]; */
 };
 
-struct mail_transaction_extra_hdr_update {
-	uint32_t data_id; /* must be first */
+struct mail_transaction_ext_hdr_update {
+	uint32_t ext_id; /* must be first */
 	uint16_t offset;
 	uint16_t size;
 	/* unsigned char data[]; */
 };
 
-struct mail_transaction_extra_rec_header {
-	uint32_t data_id; /* must be first */
+struct mail_transaction_ext_rec_header {
+	uint32_t ext_id; /* must be first */
 };
 
-struct mail_transaction_extra_rec_update {
+struct mail_transaction_ext_rec_update {
 	uint32_t uid;
 	/* unsigned char data[]; */
 };

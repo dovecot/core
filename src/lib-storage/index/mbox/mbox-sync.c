@@ -306,10 +306,10 @@ static int mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
 			return -1;
 		}
 
-		if (mail_index_lookup_extra(sync_ctx->sync_view,
-					    sync_ctx->idx_seq,
-					    sync_ctx->ibox->md5hdr_extra_idx,
-					    &data) < 0) {
+		if (mail_index_lookup_ext(sync_ctx->sync_view,
+					  sync_ctx->idx_seq,
+					  sync_ctx->ibox->md5hdr_ext_idx,
+					  &data) < 0) {
 			mail_storage_set_index_error(sync_ctx->ibox);
 			return -1;
 		}
@@ -337,10 +337,10 @@ mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
 
 	if (!nocheck) {
 		/* see if from_offset needs updating */
-		if (mail_index_lookup_extra(sync_ctx->sync_view,
-					    sync_ctx->idx_seq,
-					    sync_ctx->ibox->mbox_extra_idx,
-					    &data) < 0) {
+		if (mail_index_lookup_ext(sync_ctx->sync_view,
+					  sync_ctx->idx_seq,
+					  sync_ctx->ibox->mbox_ext_idx,
+					  &data) < 0) {
 			mail_storage_set_index_error(sync_ctx->ibox);
 			return -1;
 		}
@@ -351,8 +351,8 @@ mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
 	}
 
 	offset = mail->from_offset;
-	mail_index_update_extra_rec(sync_ctx->t, sync_ctx->idx_seq,
-				    sync_ctx->ibox->mbox_extra_idx, &offset);
+	mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
+			      sync_ctx->ibox->mbox_ext_idx, &offset);
 	return 0;
 }
 
@@ -377,11 +377,10 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 					MODIFY_REPLACE, mbox_flags,
 					mail->keywords);
 
-		if (sync_ctx->ibox->md5hdr_extra_idx != 0) {
-			mail_index_update_extra_rec(sync_ctx->t,
-				sync_ctx->idx_seq,
-				sync_ctx->ibox->md5hdr_extra_idx,
-				mail_ctx->hdr_md5_sum);
+		if (sync_ctx->ibox->md5hdr_ext_idx != 0) {
+			mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
+					      sync_ctx->ibox->md5hdr_ext_idx,
+					      mail_ctx->hdr_md5_sum);
 		}
 
 		if (str_len(mail_ctx->uidl) > 0) {
@@ -503,11 +502,11 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx)
 static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 {
 	const struct mbox_sync_mail *mails;
-	uint32_t idx, extra_idx;
+	uint32_t idx, ext_idx;
 	uint64_t offset;
 	size_t size;
 
-	extra_idx = sync_ctx->ibox->mbox_extra_idx;
+	ext_idx = sync_ctx->ibox->mbox_ext_idx;
 
 	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
 	size /= sizeof(*mails);
@@ -518,8 +517,8 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 			continue;
 
 		offset = mails[idx].from_offset;
-		mail_index_update_extra_rec(sync_ctx->t, mails[idx].idx_seq,
-					    extra_idx, &offset);
+		mail_index_update_ext(sync_ctx->t, mails[idx].idx_seq,
+				      ext_idx, &offset);
 	}
 }
 
@@ -812,9 +811,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			/* If we can't use/store X-UID header, use MD5 sum.
 			   Also check for existing MD5 sums when we're actually
 			   able to write X-UIDs. */
-			if (sync_ctx->ibox->md5hdr_extra_idx == 0) {
-				sync_ctx->ibox->md5hdr_extra_idx =
-					mail_index_register_record_extra(
+			if (sync_ctx->ibox->md5hdr_ext_idx == 0) {
+				sync_ctx->ibox->md5hdr_ext_idx =
+					mail_index_ext_register(
 						sync_ctx->ibox->index,
 						"header-md5", 0, 16);
 			}

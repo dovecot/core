@@ -19,17 +19,15 @@ struct mail_transaction_map_functions {
 			    void *context);
 	int (*header_update)(const struct mail_transaction_header_update *u,
 			     void *context);
-	int (*extra_intro)(const struct mail_transaction_extra_intro *u,
-			   void *context);
-	int (*extra_reset)(const struct mail_transaction_extra_rec_header *u,
-			   void *context);
-	int (*extra_hdr_update)
-		(const struct mail_transaction_extra_hdr_update *u,
-		 void *context);
-	int (*extra_rec_update)
-		(const struct mail_transaction_extra_rec_header *hdr,
-		 const struct mail_transaction_extra_rec_update *u,
-		 void *context);
+	int (*ext_intro)(const struct mail_transaction_ext_intro *u,
+			 void *context);
+	int (*ext_reset)(const struct mail_transaction_ext_rec_header *u,
+			 void *context);
+	int (*ext_hdr_update)(const struct mail_transaction_ext_hdr_update *u,
+			      void *context);
+	int (*ext_rec_update)(const struct mail_transaction_ext_rec_header *hdr,
+			      const struct mail_transaction_ext_rec_update *u,
+			      void *context);
 };
 
 const struct mail_transaction_type_map *

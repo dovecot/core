@@ -386,7 +386,7 @@ mbox_open(struct index_storage *storage, const char *name,
 	struct index_mailbox *ibox;
 	struct mail_index *index;
 	const char *path, *index_dir;
-	uint32_t mbox_extra_idx;
+	uint32_t mbox_ext_idx;
 
 	if (strcmp(name, "INBOX") == 0) {
 		/* name = "INBOX"
@@ -403,8 +403,8 @@ mbox_open(struct index_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
-	mbox_extra_idx = mail_index_register_record_extra(index, "mbox",
-							  0, sizeof(uint64_t));
+	mbox_ext_idx = mail_index_ext_register(index, "mbox",
+					       0, sizeof(uint64_t));
 	ibox = index_storage_mailbox_init(storage, &mbox_mailbox,
 					  index, name, flags);
 	if (ibox == NULL)
@@ -413,7 +413,7 @@ mbox_open(struct index_storage *storage, const char *name,
 	ibox->path = i_strdup(path);
 	ibox->mbox_fd = -1;
 	ibox->mbox_lock_type = F_UNLCK;
-	ibox->mbox_extra_idx = mbox_extra_idx;
+	ibox->mbox_ext_idx = mbox_ext_idx;
 
 	ibox->mail_deinit = mbox_mail_deinit;
 	ibox->is_recent = mbox_mail_is_recent;

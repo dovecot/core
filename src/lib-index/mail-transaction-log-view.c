@@ -22,7 +22,7 @@ struct mail_transaction_log_view {
 	uint32_t prev_file_seq;
 	uoff_t prev_file_offset;
 
-	uint32_t max_extra_data_id;
+	uint32_t max_ext_id;
 
 	unsigned int broken:1;
 };
@@ -333,36 +333,36 @@ log_view_get_next(struct mail_transaction_log_view *view,
 			"extra bits in header type: 0x%x",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK);
 		return -1;
-	} else if (hdr->type == MAIL_TRANSACTION_EXTRA_INTRO) {
-		const struct mail_transaction_extra_intro *intro = data;
+	} else if (hdr->type == MAIL_TRANSACTION_EXT_INTRO) {
+		const struct mail_transaction_ext_intro *intro = data;
 
-		if (intro->data_id > view->max_extra_data_id)
-			view->max_extra_data_id = intro->data_id;
+		if (intro->ext_id > view->max_ext_id)
+			view->max_ext_id = intro->ext_id;
 		if (intro->name_size >
 		    hdr_size - sizeof(*hdr) - sizeof(*intro)) {
 			mail_transaction_log_file_set_corrupted(file,
-				"extra intro: name_size too large");
+				"extension intro: name_size too large");
 			return -1;
 		}
-	} else if (hdr->type == MAIL_TRANSACTION_EXTRA_REC_UPDATE ||
-		   hdr->type == MAIL_TRANSACTION_EXTRA_HDR_UPDATE ||
-		   hdr->type == MAIL_TRANSACTION_EXTRA_RESET) {
-		const uint32_t *data_id = data;
-		uint32_t max_data_id;
+	} else if (hdr->type == MAIL_TRANSACTION_EXT_REC_UPDATE ||
+		   hdr->type == MAIL_TRANSACTION_EXT_HDR_UPDATE ||
+		   hdr->type == MAIL_TRANSACTION_EXT_RESET) {
+		const uint32_t *ext_id = data;
+		uint32_t max_ext_id;
 
-		max_data_id = view->log->index->map->extra_infos == NULL ? 0 :
-			(view->log->index->map->extra_infos->used /
-			 sizeof(struct mail_index_extra_record_info));
-		if (view->max_extra_data_id > max_data_id)
-			max_data_id = view->max_extra_data_id;
+		max_ext_id = view->log->index->map->extensions == NULL ? 0 :
+			(view->log->index->map->extensions->used /
+			 sizeof(struct mail_index_ext));
+		if (view->max_ext_id > max_ext_id)
+			max_ext_id = view->max_ext_id;
 
 		/* don't check this error if we're just skipping over this.
-		   we could have skipped over the extra_intro just before this
+		   we could have skipped over the ext_intro just before this
 		   which is the reason we don't yet know it. */
-		if (*data_id >= max_data_id && (type_mask & hdr->type) != 0) {
+		if (*ext_id >= max_ext_id && (type_mask & hdr->type) != 0) {
 			mail_transaction_log_file_set_corrupted(file,
-				"extra record update out of range (%u >= %u)",
-				*data_id, max_data_id);
+				"extension update out of range (%u >= %u)",
+				*ext_id, max_ext_id);
 			return -1;
 		}
 	}

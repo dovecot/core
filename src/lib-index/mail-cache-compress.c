@@ -170,7 +170,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		hdr.field_header_offset =
 			mail_index_uint32_to_offset(output->offset);
 
-		/* we wrote everything using our internal data_ids. so we want
+		/* we wrote everything using our internal field ids. so we want
 		   mail_cache_header_fields_get() to use them and ignore any
 		   existing id mappings in the old cache file. */
 		cache->file_fields_count = 0;
