@@ -6,8 +6,8 @@ be implemented with it.
 
 The data in the files are stored using native byte order and variable type
 sizes. That information is saved into index file's "compatibility" fields.
-No attempt is made to deal with incompatible index files, they're either
-overwritten or new files are created.
+No attempt is made to deal with incompatible index files, they're just
+overwritten.
 
 Indexes are bound to each others by "indexid" field in headers. If they
 don't match, the file is assumed to be corrupted and will be rebuilt.
@@ -84,7 +84,7 @@ Communication between two IMAP servers accessing the same mailbox is
 usually non-existent. If a change occurs, they both have to go through the
 mailbox to see what changed and notify client about it.
 
-Dovecot uses modify log file to log changes made to index files, currently
+Dovecot uses modify log file to log changes made to index files; currently
 message flag changes and expunges. This way only one of the Dovecot
 processes has to scan the mailbox, other processes simply check from the
 log file what changes occured.
@@ -93,17 +93,17 @@ All external changes that Dovecot notices (eg. another MUA expunging mails)
 are also saved into log file. They can quickly be found from there when
 client is ready to be notified of them.
 
-Message sequence handling is also a bit annoying with IMAP. Each client can
-have slightly different sequences, since clients cannot be immediately
-informed about expunged messages. The easiest way to deal with this is to
+Message sequence handling is also a bit annoying with IMAP. Since clients
+cannot be immediately informed about expunged messages, each client can
+have slightly different sequences. The easiest way to deal with this is to
 simply allocate an seq_array[] for each client which contains pointers to
 messages or message UIDs. This is probably how all other IMAP servers
 implement it.
 
 Dovecot doesn't allocate such array, it simply looks up from the log file
-what the differences are between index sequences and client sequences. It's
-almost always none. This was a bit tricky to implement, but it seems to be
-working fine now.
+what the differences there are between index sequences and client
+sequences. It's almost always none. This was a bit tricky to implement, but
+it seems to be working fine now.
 
 If there's only one Dovecot accessing the mailbox, there's no need to write
 to log file. To find out if this is the case, we use fcntl() locking

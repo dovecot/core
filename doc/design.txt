@@ -127,3 +127,4 @@ time to be used. It goes through users' mailboxes and compresses or
 rebuilds indexes when it sees a need for it. The actual indexing is done by
 dropping root privileges just as with imap process.
 
+Well, this is the plan anyway. The indexer doesn't exist yet.
