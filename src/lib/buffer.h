@@ -1,6 +1,11 @@
 #ifndef __BUFFER_H
 #define __BUFFER_H
 
+struct buffer {
+	const unsigned char *data;
+	const size_t used;
+};
+
 /* WARNING: Be careful with functions that return pointers to data.
    With dynamic buffers they are valid only as long as buffer is not
    realloc()ed. You shouldn't rely on it being valid if you have modified
@@ -22,7 +27,7 @@ buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size, size_t max_size);
    directly from the memory pool. */
 void buffer_free(buffer_t *buf);
 /* Free the memory used by buffer structure, but return the buffer data
-   unfree'd. NOTE: Current start_pos doesn't affect the returned value. */
+   unfree'd. */
 void *buffer_free_without_data(buffer_t *buf);
 
 /* Write data to buffer at specified position, returns number of bytes
@@ -59,9 +64,6 @@ void *buffer_get_space_unsafe(buffer_t *buf, size_t pos, size_t size);
    of it, or NULL if there's not enough space in buffer. */
 void *buffer_append_space_unsafe(buffer_t *buf, size_t size);
 
-/* Returns pointer to beginning of buffer data. Current used size of buffer is
-   stored in used_size if it's non-NULL. */
-const void *buffer_get_data(const buffer_t *buf, size_t *used_size);
 /* Like buffer_get_data(), but don't return it as const. Returns NULL if the
    buffer is non-modifyable. WARNING: The returned address may become invalid
    if you add more data to buffer. */
@@ -70,23 +72,24 @@ void *buffer_get_modifyable_data(const buffer_t *buf, size_t *used_size);
 /* Set the "used size" of buffer, ie. 0 would set the buffer empty.
    Must not be used to grow buffer. */
 void buffer_set_used_size(buffer_t *buf, size_t used_size);
-/* Returns the current used buffer size. */
-size_t buffer_get_used_size(const buffer_t *buf);
-
-/* Change the buffer start position. The buffer acts as if data was removed or
-   inserted to beginning. Returns the old start position. */
-size_t buffer_set_start_pos(buffer_t *buf, size_t abs_pos);
-/* Returns the current start position. */
-size_t buffer_get_start_pos(const buffer_t *buf);
-
-/* Limit buffer size temporarily. All handling is treated as if this is the
-   current allocated memory size, except dynamic buffer won't be grown.
-   Setting the limit to (size_t)-1 removes it. Returns the old limit. */
-size_t buffer_set_limit(buffer_t *buf, size_t limit);
-/* Returns the current buffer limit, or (size_t)-1 if there's none. */
-size_t buffer_get_limit(const buffer_t *buf);
 
 /* Returns the current buffer size. */
 size_t buffer_get_size(const buffer_t *buf);
+
+/* Returns pointer to beginning of buffer data. Current used size of buffer is
+   stored in used_size if it's non-NULL. */
+static inline const void *
+buffer_get_data(const buffer_t *buf, size_t *used_size)
+{
+	if (used_size != NULL)
+		*used_size = buf->used;
+	return buf->data;
+}
+
+/* Returns the current used buffer size. */
+static inline size_t buffer_get_used_size(const buffer_t *buf)
+{
+	return buf->used;
+}
 
 #endif
