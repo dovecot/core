@@ -225,13 +225,15 @@ sync_extra_rec_update(const struct mail_transaction_extra_rec_header *hdr,
 	uint16_t offset, size;
 	int ret;
 
+	/* FIXME: do data_id mapping conversion */
+
 	ret = mail_index_lookup_uid_range(view, u->uid, u->uid,
 					  &seq, &seq);
 	i_assert(ret == 0);
 
 	if (seq != 0) {
-		offset = view->index->extra_record_offsets[hdr->idx];
-		size = view->index->extra_record_sizes[hdr->idx];
+		offset = view->index->extra_records[hdr->idx].offset;
+		size = view->index->extra_records[hdr->idx].size;
 
 		rec = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1);
 		memcpy(PTR_OFFSET(rec, offset), u->data, size);

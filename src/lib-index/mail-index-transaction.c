@@ -10,6 +10,8 @@
 #include "mail-transaction-log.h"
 #include "mail-index-transaction-private.h"
 
+#include <stddef.h>
+
 static void mail_index_transaction_add_last(struct mail_index_transaction *t);
 
 struct mail_index_transaction *
@@ -63,10 +65,12 @@ mail_index_buffer_convert_to_uids(struct mail_index_view *view,
 	data = buffer_get_modifyable_data(buf, &size);
 	for (i = 0; i < size; i += record_size) {
 		seq = (uint32_t *)&data[i];
+		i_assert(seq[0] <= view->map->records_count);
 
 		seq[0] = MAIL_INDEX_MAP_IDX(view->index, view->map,
 					    seq[0]-1)->uid;
 		if (range) {
+			i_assert(seq[1] <= view->map->records_count);
 			seq[1] = MAIL_INDEX_MAP_IDX(view->index, view->map,
 						    seq[1]-1)->uid;
 		}
@@ -83,9 +87,13 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 		return -1;
 
 	for (i = 0; i < index->extra_records_count; i++) {
+		if (t->extra_rec_updates[i] == NULL)
+			continue;
+
 		mail_index_buffer_convert_to_uids(t->view,
 						  t->extra_rec_updates[i],
-						  index->extra_record_sizes[i],
+                                                  sizeof(uint32_t) +
+						  index->extra_records[i].size,
 						  FALSE);
 	}
 
@@ -449,27 +457,67 @@ static void mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
 	}
 
 	idx *= full_record_size;
-	buffer_copy(*buffer, idx + full_record_size, *buffer, idx, (size_t)-1);
+	if (idx != size) {
+		buffer_copy(*buffer, idx + full_record_size,
+			    *buffer, idx, (size_t)-1);
+	}
 	seq_p = buffer_get_space_unsafe(*buffer, idx, full_record_size);
 
 	*seq_p = seq;
 	memcpy(seq_p+1, record, record_size);
 }
 
+static void mail_index_update_record(struct mail_index_transaction *t,
+				     uint32_t seq, size_t offset,
+				     const void *record, size_t record_size)
+{
+	struct mail_index *index = t->view->index;
+	struct mail_index_record *rec;
+	size_t pos;
+
+	i_assert(seq > 0 && seq <= t->last_new_seq);
+
+	pos = (seq - t->first_new_seq) * index->record_size;
+	rec = buffer_get_space_unsafe(t->appends, pos,
+				      index->record_size);
+
+	memcpy(PTR_OFFSET(rec, offset), record, record_size);
+}
+
 void mail_index_update_cache(struct mail_index_transaction *t,
 			     uint32_t seq, uint32_t offset)
 {
-	mail_index_update_seq_buffer(&t->cache_updates, seq,
-				     &offset, sizeof(offset));
+	if (t->first_new_seq != 0 && seq >= t->first_new_seq) {
+		/* just appended message, modify it directly */
+		size_t rec_offset;
+
+		rec_offset = offsetof(struct mail_index_record, cache_offset);
+		mail_index_update_record(t, seq, rec_offset,
+					 &offset, sizeof(offset));
+	} else {
+		mail_index_update_seq_buffer(&t->cache_updates, seq,
+					     &offset, sizeof(offset));
+	}
 }
 
 void mail_index_update_extra_rec(struct mail_index_transaction *t,
-				 uint32_t seq, uint32_t idx, const void *data)
+				 uint32_t seq, uint32_t data_id,
+				 const void *data)
 {
-	i_assert(idx < t->view->index->extra_records_count);
+	struct mail_index *index = t->view->index;
 
-	mail_index_update_seq_buffer(&t->extra_rec_updates[idx], seq, data,
-				     t->view->index->extra_record_sizes[idx]);
+	i_assert(data_id < index->extra_records_count);
+
+	if (t->first_new_seq != 0 && seq >= t->first_new_seq) {
+		/* just appended message, modify it directly */
+		/* FIXME: do data_id mapping conversion */
+		mail_index_update_record(t, seq,
+			index->extra_records[data_id].offset, data,
+			index->extra_records[data_id].size);
+	} else {
+		mail_index_update_seq_buffer(&t->extra_rec_updates[data_id],
+			seq, data, index->extra_records[data_id].size);
+	}
 }
 
 void mail_index_update_header(struct mail_index_transaction *t,

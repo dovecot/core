@@ -160,11 +160,12 @@ int mail_index_get_header(struct mail_index_view *view,
 	return 0;
 }
 
-int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
-		      const struct mail_index_record **rec_r)
+static int mail_index_lookup_int(struct mail_index_view *view, uint32_t seq,
+				 struct mail_index_map **map_r,
+				 const struct mail_index_record **rec_r)
 {
 	struct mail_index_map *map;
-	const struct mail_index_record *rec;
+	const struct mail_index_record *rec, *n_rec;
 	uint32_t uid;
 
 	i_assert(seq > 0);
@@ -175,6 +176,7 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 
 	rec = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1);
 	if (view->map == view->index->map) {
+		*map_r = view->map;
 		*rec_r = rec;
 		return 0;
 	}
@@ -183,21 +185,35 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 		return -1;
 
 	/* look for it in the head mapping */
+	*map_r = map = view->index->map;
+
 	uid = rec->uid;
 	if (seq > view->index->hdr->messages_count)
 		seq = view->index->hdr->messages_count;
 
-	map = view->index->map;
-	while (seq > 0) {
-		// FIXME: we could be skipping more by uid diff
-		seq--;
-		if (MAIL_INDEX_MAP_IDX(view->index, map, seq-1)->uid <= uid)
-			break;
+	if (seq == 0) {
+		*rec_r = NULL;
+		return 0;
 	}
 
-	*rec_r = MAIL_INDEX_MAP_IDX(view->index, map, seq)->uid == uid ?
-		MAIL_INDEX_MAP_IDX(view->index, map, seq) : rec;
+	do {
+		// FIXME: we could be skipping more by uid diff
+		seq--;
+		n_rec = MAIL_INDEX_MAP_IDX(view->index, map, seq);
+		if (n_rec->uid <= uid)
+			break;
+	} while (seq > 0);
+
+	*rec_r = n_rec->uid == uid ? n_rec : rec;
 	return 0;
+}
+
+int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
+		      const struct mail_index_record **rec_r)
+{
+	struct mail_index_map *map;
+
+        return mail_index_lookup_int(view, seq, &map, rec_r);
 }
 
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -210,6 +226,28 @@ int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 		return -1;
 
 	*uid_r = MAIL_INDEX_MAP_IDX(view->index, view->map, seq-1)->uid;
+	return 0;
+}
+
+int mail_index_lookup_extra(struct mail_index_view *view, uint32_t seq,
+			    uint32_t data_id, const void **data_r)
+{
+	const struct mail_index_record *rec;
+	struct mail_index_map *map;
+	uint32_t offset;
+
+	if (mail_index_lookup_int(view, seq, &map, &rec) < 0)
+		return -1;
+
+	if (rec == NULL) {
+		*data_r = NULL;
+		return 0;
+	}
+
+	/* FIXME: do data_id mapping conversion */
+
+	offset = view->index->extra_records[data_id].offset;
+	*data_r = CONST_PTR_OFFSET(rec, offset);
 	return 0;
 }
 

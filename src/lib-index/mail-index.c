@@ -24,6 +24,12 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->dir = i_strdup(dir);
 	index->prefix = i_strdup(prefix);
 	index->fd = -1;
+
+	index->extra_records_pool =
+		pool_alloconly_create("extra_record_pool", 256);
+	index->extra_records_buf =
+		buffer_create_dynamic(index->extra_records_pool,
+				      64, (size_t)-1);
 	index->record_size = sizeof(struct mail_index_record);
 
 	index->mode = 0600;
@@ -34,6 +40,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 void mail_index_free(struct mail_index *index)
 {
 	mail_index_close(index);
+	pool_unref(index->extra_records_pool);
 
 	i_free(index->error);
 	i_free(index->dir);
@@ -42,13 +49,23 @@ void mail_index_free(struct mail_index *index)
 }
 
 uint32_t mail_index_register_record_extra(struct mail_index *index,
-					  uint16_t size, uint32_t *offset_r)
+					  const char *name, uint16_t size)
 {
-	uint16_t offset;
+	struct mail_index_extra_record_info info;
+	size_t buf_size;
+	unsigned int i;
 
+	/* see if it's there already */
+	for (i = 0; i < index->extra_records_count; i++) {
+		if (strcmp(index->extra_records[i].name, name) == 0) {
+			i_assert(index->extra_records[i].size == size);
+			return i;
+		}
+	}
+
+	i_assert(size % 4 == 0);
 	i_assert(!index->opened);
 	i_assert(index->record_size + size <= 65535);
-	i_assert(size % 4 == 0);
 
 	if (index->extra_records_count >= MAIL_INDEX_MAX_EXTRA_RECORDS) {
 		i_panic("Maximum extra record count reached, "
@@ -57,13 +74,18 @@ uint32_t mail_index_register_record_extra(struct mail_index *index,
 			MAIL_INDEX_MAX_EXTRA_RECORDS);
 	}
 
-	offset = index->record_size;
-	index->record_size += size;
-	*offset_r = offset;
+	memset(&info, 0, sizeof(info));
+	info.name = p_strdup(index->extra_records_pool, name);
+	info.size = size;
+	info.offset = index->record_size;
 
-	index->extra_record_offsets[index->extra_records_count] = offset;
-	index->extra_record_sizes[index->extra_records_count] = size;
-	return index->extra_records_count++;
+	buffer_append(index->extra_records_buf, &info, sizeof(info));
+	index->extra_records =
+		buffer_get_data(index->extra_records_buf, &buf_size);
+	index->extra_records_count = buf_size / sizeof(info);
+
+	index->record_size += size;
+	return index->extra_records_count-1;
 }
 
 static int mail_index_check_header(struct mail_index *index,
@@ -210,10 +232,10 @@ static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map)
 	}
 
 	map->hdr = hdr;
-	if (map->hdr->header_size < sizeof(*map->hdr)) {
+	if (map->hdr->base_header_size < sizeof(*map->hdr)) {
 		/* header smaller than ours, make a copy so our newer headers
 		   won't have garbage in them */
-		memcpy(&map->hdr_copy, map->hdr, map->hdr->header_size);
+		memcpy(&map->hdr_copy, map->hdr, map->hdr->base_header_size);
 		map->hdr = &map->hdr_copy;
 	}
 
@@ -403,7 +425,7 @@ mail_index_map_to_memory(struct mail_index *index, struct mail_index_map *map)
 
 	hdr = map->mmap_base;
 	memcpy(&mem_map->hdr_copy, map->mmap_base,
-	       I_MIN(hdr->header_size, sizeof(mem_map->hdr_copy)));
+	       I_MIN(hdr->base_header_size, sizeof(mem_map->hdr_copy)));
 	mem_map->hdr = &mem_map->hdr_copy;
 	return mem_map;
 }
@@ -574,6 +596,7 @@ static void mail_index_header_init(struct mail_index *index,
 
 	hdr->major_version = MAIL_INDEX_MAJOR_VERSION;
 	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
+	hdr->base_header_size = sizeof(*hdr);
 	hdr->header_size = sizeof(*hdr);
 	hdr->record_size = index->record_size;
 	hdr->keywords_mask_size = sizeof(keywords_mask_t);

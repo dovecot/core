@@ -941,8 +941,8 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 			     enum mail_transaction_type type, int external)
 {
 	struct mail_transaction_header hdr;
-	const void *data;
-	size_t size;
+	const void *data, *hdr_data;
+	size_t size, hdr_size;
 
 	i_assert((type & MAIL_TRANSACTION_TYPE_MASK) != 0);
 
@@ -950,28 +950,29 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 	if (size == 0)
 		return 0;
 
+	if (hdr_buf != NULL)
+		hdr_data = buffer_get_data(hdr_buf, &hdr_size);
+	else {
+		hdr_data = NULL;
+		hdr_size = 0;
+	}
+
 	hdr.type = type;
 	if (type == MAIL_TRANSACTION_EXPUNGE)
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
 	if (external)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
-	hdr.size = size;
+	hdr.size = size + hdr_size;
 
 	if (pwrite_full(file->fd, &hdr, sizeof(hdr), file->hdr.used_size) < 0)
 		return -1;
 	file->hdr.used_size += sizeof(hdr);
 
-	if (hdr_buf != NULL) {
-		const void *hdr_data;
-		size_t hdr_size;
-
-		hdr_data = buffer_get_data(buf, &hdr_size);
-		if (hdr_size > 0) {
-			if (pwrite_full(file->fd, hdr_data, hdr_size,
-					file->hdr.used_size) < 0)
-				return -1;
-			file->hdr.used_size += hdr_size;
-		}
+	if (hdr_size > 0) {
+		if (pwrite_full(file->fd, hdr_data, hdr_size,
+				file->hdr.used_size) < 0)
+			return -1;
+		file->hdr.used_size += hdr_size;
 	}
 
 	if (pwrite_full(file->fd, data, size, file->hdr.used_size) < 0)
@@ -1095,10 +1096,12 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	hdr_buf = buffer_create_data(pool_datastack_create(),
 				     &extra_rec_hdr, sizeof(extra_rec_hdr));
+	buffer_set_used_size(hdr_buf, sizeof(extra_rec_hdr));
 	for (i = 0; i < view->index->extra_records_count; i++) {
 		if (t->extra_rec_updates[i] == NULL || ret != 0)
 			continue;
 
+		/* FIXME: do data_id mapping conversion */
 		extra_rec_hdr.idx = i;
 		ret = log_append_buffer(file, t->extra_rec_updates[i], hdr_buf,
 					MAIL_TRANSACTION_EXTRA_REC_UPDATE,
