@@ -131,7 +131,8 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 	max_flags = MAIL_CUSTOM_FLAGS_COUNT;
 
 	memset(flags, 0, sizeof(*flags));
-	flags->custom_flags = t_new(const char *, flags->custom_flags_count);
+	flags->custom_flags = flags->custom_flags_count == 0 ? NULL :
+		t_new(const char *, flags->custom_flags_count);
 
 	flag_pos = 0;
 	while (args->type != IMAP_ARG_EOL) {
