@@ -259,9 +259,10 @@ struct _MailIndex {
 
 	/* Append a new record to index. The index must be exclusively
 	   locked before calling this function. The record pointer is
-	   updated to the mmap()ed record. rec->uid field is updated by this
-	   function, nothing else is touched. */
-	int (*append)(MailIndex *index, MailIndexRecord **rec);
+	   updated to the mmap()ed record. *uid is set to the UID which
+	   should be set to rec->uid once the update is fully done. */
+	int (*append)(MailIndex *index, MailIndexRecord **rec,
+		      unsigned int *uid);
 
 	/* Updating fields happens by calling update_begin(), one or more
 	   update_field()s and finally update_end() which does the actual
@@ -366,7 +367,8 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 			    unsigned int seq, MailFlags flags,
 			    int external_change);
-int mail_index_append(MailIndex *index, MailIndexRecord **rec);
+int mail_index_append(MailIndex *index, MailIndexRecord **rec,
+		      unsigned int *uid);
 MailIndexUpdate *mail_index_update_begin(MailIndex *index,
 					 MailIndexRecord *rec);
 int mail_index_update_end(MailIndexUpdate *update);

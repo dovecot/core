@@ -12,7 +12,8 @@
 #include <sys/stat.h>
 
 static MailIndexRecord *
-mail_index_record_append(MailIndex *index, time_t internal_date)
+mail_index_record_append(MailIndex *index, time_t internal_date,
+			 unsigned int *uid)
 {
 	MailIndexRecord trec, *rec;
 
@@ -20,7 +21,7 @@ mail_index_record_append(MailIndex *index, time_t internal_date)
 	trec.internal_date = internal_date;
 
 	rec = &trec;
-	if (!index->append(index, &rec))
+	if (!index->append(index, &rec, uid))
 		return NULL;
 
 	return rec;
@@ -32,6 +33,7 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	MailIndexRecord *rec;
 	MailIndexUpdate *update;
 	struct stat st;
+	unsigned int uid;
 	int failed;
 
 	i_assert(path != NULL);
@@ -55,7 +57,7 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 		return FALSE;
 
 	/* append the file into index */
-	rec = mail_index_record_append(index, st.st_mtime);
+	rec = mail_index_record_append(index, st.st_mtime, &uid);
 	if (rec == NULL)
 		return FALSE;
 
@@ -72,11 +74,14 @@ static int maildir_index_append_fd(MailIndex *index, int fd, const char *path,
 	/* parse the header and update record's fields */
 	failed = !maildir_record_update(update, fd, path);
 
-	if (!index->update_end(update) || failed) {
-		/* failed - delete the record */
-		(void)index->expunge(index, rec, 0, FALSE);
+	if (!index->update_end(update) || failed)
 		return FALSE;
-	}
+
+	/* make sure everything is written before setting it's UID
+	   to mark it as non-deleted. */
+	if (!mail_index_fmsync(index, index->mmap_length))
+		return FALSE;
+	rec->uid = uid;
 
 	return TRUE;
 }

@@ -9,7 +9,8 @@
 #include "mail-index-util.h"
 
 static MailIndexRecord *mail_index_record_append(MailIndex *index,
-						 time_t internal_date)
+						 time_t internal_date,
+						 unsigned int *uid)
 {
 	MailIndexRecord trec, *rec;
 
@@ -17,7 +18,7 @@ static MailIndexRecord *mail_index_record_append(MailIndex *index,
 	trec.internal_date = internal_date;
 
 	rec = &trec;
-	if (!index->append(index, &rec))
+	if (!index->append(index, &rec, uid))
 		return NULL;
 
 	return rec;
@@ -83,6 +84,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	time_t internal_date;
 	uoff_t abs_start_offset, stop_offset, old_size;
 	unsigned char *data, md5_digest[16];
+	unsigned int uid;
 	size_t size, pos;
 	int failed;
 
@@ -121,7 +123,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	stop_offset = inbuf->offset;
 
 	/* add message to index */
-	rec = mail_index_record_append(index, internal_date);
+	rec = mail_index_record_append(index, internal_date, &uid);
 	if (rec == NULL)
 		return FALSE;
 
@@ -151,15 +153,19 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	index->update_field_raw(update, FIELD_TYPE_MD5,
 				md5_digest, sizeof(md5_digest));
 
-	if (!index->update_end(update)) {
-		/* failed - delete the record */
-		(void)index->expunge(index, rec, 0, FALSE);
+	if (!index->update_end(update))
 		failed = TRUE;
-	} else {
+	else {
 		/* save message flags */
 		rec->msg_flags = ctx.flags;
 		mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
 		failed = FALSE;
+
+		/* make sure everything is written before setting it's UID
+		   to mark it as non-deleted. */
+		if (!mail_index_fmsync(index, index->mmap_length))
+			return FALSE;
+		rec->uid = uid;
 	}
 
 	mbox_header_free_context(&ctx);

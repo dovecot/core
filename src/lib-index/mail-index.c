@@ -1235,16 +1235,24 @@ static void update_first_hole_records(MailIndex *index)
 
 static int mail_index_truncate(MailIndex *index)
 {
-	/* truncate index file */
-	if (ftruncate(index->fd, (off_t)index->header->first_hole_position) < 0)
+	if (msync(index->mmap_base, index->mmap_length, MS_SYNC) == -1) {
+		index_set_error(index, "msync() failed for %s: %m",
+				index->filepath);
 		return FALSE;
+	}
+
+	/* truncate index file */
+	if (ftruncate(index->fd,
+		      (off_t)index->header->first_hole_position) < 0) {
+		index_set_error(index, "ftruncate() failed for index file "
+				"%s: %m", index->filepath);
+		return FALSE;
+	}
 
 	/* update header */
 	index->header->first_hole_position = 0;
 	index->header->first_hole_records = 0;
-
 	index->header->sync_id++;
-	index->dirty_mmap = TRUE;
 
 	if (index->header->messages_count == 0) {
 		/* all mail was deleted, truncate data file */
@@ -1373,13 +1381,13 @@ int mail_index_update_flags(MailIndex *index, MailIndexRecord *rec,
 					 rec->uid, external_change);
 }
 
-int mail_index_append(MailIndex *index, MailIndexRecord **rec)
+int mail_index_append(MailIndex *index, MailIndexRecord **rec,
+		      unsigned int *uid)
 {
 	off_t pos;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
-
-	(*rec)->uid = index->header->next_uid++;
+	i_assert((*rec)->uid == 0);
 
 	pos = lseek(index->fd, 0, SEEK_END);
 	if (pos < 0) {
@@ -1405,10 +1413,17 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec)
 	index->header->sync_id++;
 	index->dirty_mmap = TRUE;
 
+	if (msync(index->mmap_base, sizeof(MailIndexHeader), MS_SYNC) == -1) {
+		index_set_error(index, "msync() failed for %s: %m",
+				index->filepath);
+		return FALSE;
+	}
+
 	if (!mmap_update(index))
 		return FALSE;
 
 	*rec = (MailIndexRecord *) ((char *) index->mmap_base + pos);
+	*uid = index->header->next_uid++;
 	return TRUE;
 }
 
