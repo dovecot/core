@@ -8,7 +8,7 @@
 #ifdef IOLOOP_NOTIFY_DNOTIFY
 
 #include "ioloop-internal.h"
-#include "write-full.h"
+#include "network.h"
 
 #include <signal.h>
 #include <unistd.h>
@@ -19,8 +19,13 @@ static int event_pipe[2] = { -1, -1 };
 static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
 			  void *data __attr_unused__)
 {
-	if (write_full(event_pipe[1], &si->si_fd, sizeof(int)) < 0)
-		i_fatal("write_full(event_pipe) failed: %m");
+	int ret;
+
+	ret = write(event_pipe[1], &si->si_fd, sizeof(int));
+	if (ret < 0 && errno != EINTR && errno != EAGAIN)
+		i_fatal("write(event_pipe) failed: %m");
+
+	i_assert(ret <= 0 || ret == sizeof(int));
 }
 
 static void event_callback(void *context)
@@ -55,6 +60,12 @@ static int dn_init(void)
 		i_error("pipe() failed: %m");
 		return FALSE;
 	}
+
+	net_set_nonblock(event_pipe[0], TRUE);
+	net_set_nonblock(event_pipe[1], TRUE);
+
+	/* SIGIO is sent if queue gets full. we'll just ignore it. */
+        signal(SIGIO, SIG_IGN);
 
 	act.sa_sigaction = sigrt_handler;
 	sigemptyset(&act.sa_mask);
