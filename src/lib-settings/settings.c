@@ -124,7 +124,7 @@ int settings_read(const char *path, const char *section,
 		line[len] = '\0';
 
 		/* a) key = value
-		   b) section_type section_name {
+		   b) section_type [section_name] {
 		   c) } */
 		key = line;
 		while (!IS_WHITE(*line) && *line != '\0' && *line != '=')
@@ -134,25 +134,8 @@ int settings_read(const char *path, const char *section,
 			while (IS_WHITE(*line)) line++;
 		}
 
-		if (strcmp(key, "}") == 0 && *line == '\0') {
-			if (sections == 0)
-				errormsg = "Unexpected '}'";
-			else {
-				if (skip > 0)
-					skip--;
-				else {
-					sect_callback(NULL, NULL, context,
-						      &errormsg);
-					if (root_section == sections &&
-					    errormsg == NULL) {
-						/* we found the section,
-						   now quit */
-						break;
-					}
-				}
-				sections--;
-			}
-		} else if (*line == '=') {
+		if (*line == '=') {
+			/* a) */
 			*line++ = '\0';
 			while (IS_WHITE(*line)) line++;
 
@@ -166,17 +149,22 @@ int settings_read(const char *path, const char *section,
 
 			errormsg = skip ? NULL :
 				callback(key, line, context);
-		} else {
+		} else if (strcmp(key, "}") != 0 || *line != '\0') {
+			/* b) + errors */
 			line[-1] = '\0';
 
-			name = line;
-			while (!IS_WHITE(*line) && *line != '\0')
-				line++;
-
-			if (*line != '\0') {
-				*line++ = '\0';
-				while (IS_WHITE(*line))
+			if (*line == '{')
+				name = "";
+			else {
+				name = line;
+				while (!IS_WHITE(*line) && *line != '\0')
 					line++;
+
+				if (*line != '\0') {
+					*line++ = '\0';
+					while (IS_WHITE(*line))
+						line++;
+				}
 			}
 
 			if (*line != '{')
@@ -206,6 +194,25 @@ int settings_read(const char *path, const char *section,
 							       context,
 							       &errormsg);
 				}
+			}
+		} else {
+			/* c) */
+			if (sections == 0)
+				errormsg = "Unexpected '}'";
+			else {
+				if (skip > 0)
+					skip--;
+				else {
+					sect_callback(NULL, NULL, context,
+						      &errormsg);
+					if (root_section == sections &&
+					    errormsg == NULL) {
+						/* we found the section,
+						   now quit */
+						break;
+					}
+				}
+				sections--;
 			}
 		}
 
