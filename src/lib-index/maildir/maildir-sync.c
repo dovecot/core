@@ -4,11 +4,13 @@
 #include "buffer.h"
 #include "hash.h"
 #include "ioloop.h"
+#include "str.h"
 #include "maildir-index.h"
 #include "maildir-uidlist.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -437,6 +439,74 @@ static int maildir_new_scan_first_file(struct mail_index *index,
 	return TRUE;
 }
 
+static int maildir_sync_new(struct mail_index *index,
+			    const char *source_dir, const char *dest_dir,
+			    DIR *dirp, struct dirent *d, int append_index)
+{
+	const char *final_dir;
+	string_t *sourcepath, *destpath;
+	int failed;
+
+	i_assert(index->maildir_lock_fd != -1);
+	i_assert(index->lock_type != MAIL_LOCK_SHARED);
+
+	sourcepath = t_str_new(PATH_MAX);
+	destpath = t_str_new(PATH_MAX);
+
+	final_dir = dest_dir != NULL ? dest_dir : source_dir;
+
+	failed = FALSE;
+	for (; d != NULL && !failed; d = readdir(dirp)) {
+		if (d->d_name[0] == '.')
+			continue;
+
+		if (dest_dir != NULL) {
+			/* rename() has the problem that it might overwrite
+			   some mails, but that happens only with a broken
+			   client that has created non-unique base name.
+
+			   Alternative would be link() + unlink(), but that's
+			   racy when multiple clients try to move the mail from
+			   new/ to cur/:
+
+			   a) One of the clients uses slightly different
+			   filename (eg. sets flags)
+
+			   b) Third client changes mail's flag between
+			   client1's unlink() and client2's link() calls.
+
+			   Checking first if file exists with stat() is pretty
+			   useless as well. It requires that we also stat the
+			   file in new/, to make sure that the dest file isn't
+			   actually the same file which someone _just_ had
+			   rename()d. */
+			str_truncate(sourcepath, 0);
+			str_truncate(destpath, 0);
+
+			str_printfa(sourcepath, "%s/%s", source_dir, d->d_name);
+			str_printfa(destpath, "%s/%s", dest_dir, d->d_name);
+
+			if (rename(str_c(sourcepath), str_c(destpath)) < 0 &&
+			    errno != ENOENT) {
+				index_set_error(index, "maildir build: "
+						"rename(%s, %s) failed: %m",
+						str_c(sourcepath),
+						str_c(destpath));
+				failed = TRUE;
+				break;
+			}
+		}
+
+		if (append_index) {
+			t_push();
+			failed = !maildir_index_append_file(index, final_dir,
+							    d->d_name);
+			t_pop();
+		}
+	}
+
+	return !failed;
+}
 static int maildir_index_lock_and_sync(struct mail_index *index, int *changes,
 				       DIR *new_dirp, struct dirent *new_dent,
 				       struct maildir_uidlist **uidlist_r)
@@ -533,15 +603,18 @@ static int maildir_index_lock_and_sync(struct mail_index *index, int *changes,
 	/* move mail from new/ to cur/ */
 	if (new_dirp != NULL && INDEX_IS_UIDLIST_LOCKED(index)) {
 		new_dir = t_strconcat(index->mailbox_path, "/new", NULL);
-		if (!maildir_index_build_dir(index, new_dir, cur_dir,
-					     new_dirp, new_dent))
+		if (!maildir_sync_new(index, new_dir, cur_dir,
+				      new_dirp, new_dent, FALSE))
 			return FALSE;
 
 		if (uidlist != NULL)
 			uidlist->rewrite = TRUE;
 
 		/* set cur/ directory's timestamp into past to make sure we
-		   notice if new mail is moved there */
+		   notice if new mail is moved there. FIXME: is this such a
+		   good idea? Works fine only as long as others don't try
+		   the same thing.. But alternative is to wait a second or
+		   potentially lose some mails. */
 		ut.actime = ut.modtime = ioloop_time-60;
 		if (utime(cur_dir, &ut) < 0) {
 			index_file_set_syscall_error(index, cur_dir, "utime()");
@@ -550,8 +623,10 @@ static int maildir_index_lock_and_sync(struct mail_index *index, int *changes,
 
 		/* We have to always scan the cur/ directory to make
 		   sure we don't miss any mails some other non-Dovecot
-		   client may have moved there. FIXME: make it
-		   optional, it's unnecessary with Dovecot-only setup */
+		   client may have moved there. FIXME: in Dovecot-only setup
+		   we could just skip checking cur/ changes. In that case the
+		   new/ dir has to be be synced after uidlist is first synced
+		   or there could be some problems with conflicting UIDs */
 		cur_changed = TRUE;
 
 		/* set the cur/ directory's timestamp */

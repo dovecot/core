@@ -28,9 +28,6 @@ int maildir_index_sync(struct mail_index *index,
 
 int maildir_index_append_file(struct mail_index *index, const char *dir,
 			      const char *fname);
-int maildir_index_build_dir(struct mail_index *index,
-			    const char *source_dir, const char *dest_dir,
-			    DIR *dirp, struct dirent *d);
 
 struct istream *maildir_open_mail(struct mail_index *index,
 				  struct mail_index_record *rec,

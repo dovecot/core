@@ -2,15 +2,11 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "str.h"
 #include "maildir-index.h"
-#include "mail-index-data.h"
 #include "mail-index-util.h"
 
-#include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <dirent.h>
 #include <sys/stat.h>
 
 static int maildir_record_update(struct mail_index *index,
@@ -126,71 +122,4 @@ int maildir_index_append_file(struct mail_index *index, const char *dir,
 	if (close(fd) < 0)
 		return index_file_set_syscall_error(index, path, "close()");
 	return ret;
-}
-
-int maildir_index_build_dir(struct mail_index *index,
-			    const char *source_dir, const char *dest_dir,
-			    DIR *dirp, struct dirent *d)
-{
-	const char *final_dir;
-	string_t *sourcepath, *destpath;
-	int failed;
-
-	i_assert(index->maildir_lock_fd != -1);
-	i_assert(index->lock_type != MAIL_LOCK_SHARED);
-
-	sourcepath = t_str_new(PATH_MAX);
-	destpath = t_str_new(PATH_MAX);
-
-	final_dir = dest_dir != NULL ? dest_dir : source_dir;
-
-	failed = FALSE;
-	for (; d != NULL && !failed; d = readdir(dirp)) {
-		if (d->d_name[0] == '.')
-			continue;
-
-		if (dest_dir != NULL) {
-			/* rename() has the problem that it might overwrite
-			   some mails, but that happens only with a broken
-			   client that has created non-unique base name.
-
-			   Alternative would be link() + unlink(), but that's
-			   racy when multiple clients try to move the mail from
-			   new/ to cur/:
-
-			   a) One of the clients uses slightly different
-			   filename (eg. sets flags)
-
-			   b) Third client changes mail's flag between
-			   client1's unlink() and client2's link() calls.
-
-			   Checking first if file exists with stat() is pretty
-			   useless as well. It requires that we also stat the
-			   file in new/, to make sure that the dest file isn't
-			   actually the same file which someone _just_ had
-			   rename()d. */
-			str_truncate(sourcepath, 0);
-			str_truncate(destpath, 0);
-
-			str_printfa(sourcepath, "%s/%s", source_dir, d->d_name);
-			str_printfa(destpath, "%s/%s", dest_dir, d->d_name);
-
-			if (rename(str_c(sourcepath), str_c(destpath)) < 0 &&
-			    errno != ENOENT) {
-				index_set_error(index, "maildir build: "
-						"rename(%s, %s) failed: %m",
-						str_c(sourcepath),
-						str_c(destpath));
-				failed = TRUE;
-				break;
-			}
-		}
-
-		t_push();
-		failed = !maildir_index_append_file(index, final_dir,
-						    d->d_name);
-		t_pop();
-	}
-
-	return !failed;
 }
