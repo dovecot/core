@@ -26,7 +26,7 @@
 #include "lib.h"
 #include "randgen.h"
 
-#ifdef HAVE_URANDOM
+#ifdef HAVE_DEV_URANDOM
 
 #include "fd-close-on-exec.h"
 #include <unistd.h>
@@ -109,7 +109,7 @@ void random_deinit(void) {}
 #else
 #  warning Random generator disabled
 
-void random_fill(void *buf, size_t size)
+void random_fill(void *buf __attr_unused__, size_t size __attr_unused__)
 {
 	i_fatal("random_fill(): No random source");
 }
