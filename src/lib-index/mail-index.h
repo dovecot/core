@@ -362,6 +362,9 @@ struct mail_index {
 	unsigned int indexid;
 	unsigned int sync_id;
 
+        /* updated whenever exclusive lock is set/unset */
+	unsigned int excl_lock_counter;
+
 	int mbox_fd;
 	struct istream *mbox_stream;
 	enum mail_lock_type mbox_lock_type;
@@ -421,7 +424,7 @@ struct mail_index {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0
+	0, 0
 #endif
 
 /* defaults - same as above but prefixed with mail_index_. */

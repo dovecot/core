@@ -391,6 +391,7 @@ static int mail_index_lock_change(struct mail_index *index,
 		/* while holding exclusive lock, keep the FSCK flag on.
 		   when the lock is released, the FSCK flag will also be
 		   removed. */
+		index->excl_lock_counter++;
 		index->header->flags |= MAIL_INDEX_FLAG_FSCK;
 		if (!mail_index_fmdatasync(index,
 					   sizeof(struct mail_index_header))) {
@@ -421,6 +422,7 @@ static int mail_index_lock_full(struct mail_index *index,
 	}
 
 	if (index->lock_type == MAIL_LOCK_EXCLUSIVE) {
+		index->excl_lock_counter++;
 		if (index->modifylog != NULL)
 			mail_modifylog_notify_lock_drop(index->modifylog);
 
