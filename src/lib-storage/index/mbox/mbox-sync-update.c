@@ -31,7 +31,8 @@ static void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 	} else {
 		/* FIXME: if (diff < ctx->space && pos < ctx->offset) then
 		   move the data only up to space offset and give/take the
-		   space from there. update header_last_change accordingly. */
+		   space from there. update header_last_change accordingly.
+		   (except pos and offset can't be compared directly) */
 		ctx->header_last_change = (size_t)-1;
 		for (i = 0; i < MBOX_HDR_COUNT; i++) {
 			if (ctx->hdr_pos[i] > pos &&

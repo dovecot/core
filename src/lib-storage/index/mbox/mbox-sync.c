@@ -605,8 +605,8 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		sync_ctx->expunged_space = 0;
 	}
 
-	if (mbox_sync_rewrite(sync_ctx, sync_ctx->need_space_seq, sync_ctx->seq,
-			      sync_ctx->space_diff) < 0)
+	if (mbox_sync_rewrite(sync_ctx, sync_ctx->space_diff,
+			      sync_ctx->need_space_seq, sync_ctx->seq) < 0)
 		return -1;
 
 	update_from_offsets(sync_ctx->ibox, sync_ctx->t, sync_ctx->mails,
@@ -816,9 +816,9 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			buffer_append(sync_ctx->mails, &mail_ctx->mail,
 				      sizeof(mail_ctx->mail));
 
-			if (mbox_sync_rewrite(sync_ctx,
+			if (mbox_sync_rewrite(sync_ctx, extra_space,
 					      sync_ctx->need_space_seq,
-					      sync_ctx->seq, extra_space) < 0)
+					      sync_ctx->seq) < 0)
 				return -1;
 
 			update_from_offsets(sync_ctx->ibox, sync_ctx->t,
