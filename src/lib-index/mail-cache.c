@@ -116,7 +116,7 @@ static int mmap_verify_header(struct mail_cache *cache)
 	}
 
 	/* only check the header if we're locked */
-	if (cache->locked)
+	if (!cache->locked)
 		return TRUE;
 
 	if (hdr->used_file_size < sizeof(struct mail_cache_header)) {
