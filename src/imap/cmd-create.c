@@ -7,7 +7,7 @@ int cmd_create(struct client *client)
 {
 	struct mail_storage *storage;
 	const char *mailbox;
-	int only_hiearchy;
+	int directory;
 	size_t len;
 
 	/* <mailbox> */
@@ -20,19 +20,19 @@ int cmd_create(struct client *client)
 
 	len = strlen(mailbox);
 	if (mailbox[len-1] != storage->hierarchy_sep)
-		only_hiearchy = FALSE;
+		directory = FALSE;
 	else {
 		/* name ends with hierarchy separator - client is just
-		   informing us that it wants to create a mailbox under
-		   this name. */
-                only_hiearchy = TRUE;
+		   informing us that it wants to create children under this
+		   mailbox. */
+                directory = TRUE;
 		mailbox = t_strndup(mailbox, len-1);
 	}
 
 	if (!client_verify_mailbox_name(client, mailbox, FALSE, TRUE))
 		return TRUE;
 
-	if (!storage->create_mailbox(storage, mailbox, only_hiearchy)) {
+	if (!storage->create_mailbox(storage, mailbox, directory)) {
 		client_send_storage_error(client, storage);
 		return TRUE;
 	}

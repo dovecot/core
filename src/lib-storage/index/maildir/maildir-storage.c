@@ -452,7 +452,8 @@ maildir_open_mailbox(struct mail_storage *storage,
 }
 
 static int maildir_create_mailbox(struct mail_storage *storage,
-				  const char *name, int only_hierarchy)
+				  const char *name,
+				  int directory __attr_unused__)
 {
 	const char *path;
 
@@ -462,11 +463,6 @@ static int maildir_create_mailbox(struct mail_storage *storage,
 	if (!maildir_is_valid_create_name(name)) {
 		mail_storage_set_error(storage, "Invalid mailbox name");
 		return FALSE;
-	}
-
-	if (only_hierarchy) {
-		/* no need to do anything */
-		return TRUE;
 	}
 
 	path = maildir_get_path(storage, name);
