@@ -250,7 +250,6 @@ static int sync_expunge(const struct mail_transaction_expunge *e, void *context)
 
 	map->records_count -= count;
 	map->hdr.messages_count -= count;
-	view->messages_count -= count;
 
 	if (map->buffer != NULL) {
 		buffer_set_used_size(map->buffer, map->records_count *
@@ -291,7 +290,6 @@ static int sync_append(const struct mail_index_record *rec, void *context)
 
 	map->hdr.messages_count++;
 	map->hdr.next_uid = rec->uid+1;
-	view->messages_count++;
 	map->records_count++;
 
 	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
@@ -712,7 +710,7 @@ static int sync_ext_reset(const struct mail_transaction_ext_reset *u,
 				       ext->hdr_size), 0, ext->hdr_size);
 	map->hdr_base = map->hdr_copy_buf->data;
 
-	for (i = 0; i < view->messages_count; i++) {
+	for (i = 0; i < view->map->records_count; i++) {
 		rec = MAIL_INDEX_MAP_IDX(view->map, i);
 		memset(PTR_OFFSET(rec, ext->record_offset), 0,
 		       ext->record_size);
@@ -1146,7 +1144,6 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	}
 
 	i_assert(map->records_count == map->hdr.messages_count);
-	i_assert(view->messages_count == map->hdr.messages_count);
 
 	mail_transaction_log_get_head(index->log, &seq, &offset);
 

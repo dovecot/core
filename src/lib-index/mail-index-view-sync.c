@@ -125,7 +125,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0) {
+	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0 &&
+	    (sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0) {
 		view->new_map = view->index->map;
 		view->new_map->refcount++;
 
@@ -139,7 +140,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 
 		if (view->map != view->index->map) {
 			ctx->sync_map_update = TRUE;
-                        view->map->records_count = view->messages_count;
+                        view->map->records_count = view->hdr.messages_count;
 		}
 
 		map = mail_index_map_to_memory(view->map,
@@ -358,12 +359,6 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 		mail_index_unmap(view->index, view->map);
 		view->map = view->new_map;
 		view->new_map = NULL;
-	}
-
-	if ((ctx->trans_sync_mask & MAIL_TRANSACTION_APPEND) != 0) {
-		i_assert(view->messages_count == view->map->records_count ||
-			 !ctx->sync_map_update);
-		view->messages_count = view->map->records_count;
 	}
 	view->hdr = view->map->hdr;
 

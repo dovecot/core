@@ -5,7 +5,7 @@
 
 struct mail_index_view_methods {
 	void (*close)(struct mail_index_view *view);
-	uint32_t (*get_message_count)(struct mail_index_view *view);
+	uint32_t (*get_messages_count)(struct mail_index_view *view);
 	const struct mail_index_header *
 		(*get_header)(struct mail_index_view *view);
 	int (*lookup_full)(struct mail_index_view *view, uint32_t seq,
@@ -39,7 +39,6 @@ struct mail_index_view {
 	buffer_t *map_refs;
 
 	struct mail_index_header hdr;
-	uint32_t messages_count; /* last synced one, map may be different */
 
 	uint32_t log_file_seq;
 	uoff_t log_file_offset;

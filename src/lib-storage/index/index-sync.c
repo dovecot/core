@@ -139,7 +139,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 		return &ctx->ctx;
 	}
 
-	ctx->messages_count = mail_index_view_get_message_count(ibox->view);
+	ctx->messages_count = mail_index_view_get_messages_count(ibox->view);
 
 	sync_mask = MAIL_INDEX_SYNC_MASK_ALL;
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
@@ -242,7 +242,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		mail_index_view_sync_end(ctx->sync_ctx);
 
 	if (ret == 0) {
-		messages_count = mail_index_view_get_message_count(ibox->view);
+		messages_count = mail_index_view_get_messages_count(ibox->view);
 		if (messages_count != ctx->messages_count) {
 			index_mailbox_update_recent(ibox,
 						    ctx->messages_count+1,

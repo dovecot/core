@@ -151,7 +151,7 @@ static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 
 	memset(&update, 0, sizeof(update));
 
-	messages_count = mail_index_view_get_message_count(ctx->view);
+	messages_count = mail_index_view_get_messages_count(ctx->view);
 	for (seq = 1; seq <= messages_count; seq++) {
 		if (mail_index_lookup(ctx->view, seq, &rec) < 0)
 			return -1;
@@ -181,7 +181,7 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 
 	memset(&update, 0, sizeof(update));
 
-	messages_count = mail_index_view_get_message_count(ctx->view);
+	messages_count = mail_index_view_get_messages_count(ctx->view);
 	for (seq = 1; seq <= messages_count; seq++) {
 		if (mail_index_lookup(ctx->view, seq, &rec) < 0)
 			return -1;

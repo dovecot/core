@@ -219,7 +219,8 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 	uint32_t messages_count;
 	int ret = 0;
 
-	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
+	messages_count =
+		mail_index_view_get_messages_count(sync_ctx->sync_view);
 	while (sync_ctx->idx_seq <= messages_count) {
 		ret = mail_index_lookup(sync_ctx->sync_view,
 					sync_ctx->idx_seq, &rec);
@@ -267,7 +268,8 @@ static int mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
 	const void *data;
 	int ret;
 
-	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
+	messages_count =
+		mail_index_view_get_messages_count(sync_ctx->sync_view);
 	while (sync_ctx->idx_seq <= messages_count) {
 		ret = mail_index_lookup(sync_ctx->sync_view,
 					sync_ctx->idx_seq, &rec);
@@ -751,7 +753,7 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 			return -1;
 		}
 		sync_ctx->idx_seq =
-			mail_index_view_get_message_count(sync_view) + 1;
+			mail_index_view_get_messages_count(sync_view) + 1;
 		return 1;
 	}
 
@@ -767,7 +769,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	uoff_t offset;
 	int ret, expunged;
 
-	messages_count = mail_index_view_get_message_count(sync_ctx->sync_view);
+	messages_count =
+		mail_index_view_get_messages_count(sync_ctx->sync_view);
 
 	if (!mail_index_sync_have_more(sync_ctx->index_sync_ctx) ||
 	    (!partial && min_message_count != 0)) {

@@ -165,7 +165,7 @@ struct mail_index *mail_index_view_get_index(struct mail_index_view *view);
 /* Call whenever you've done with requesting messages from view for a while. */
 void mail_index_view_unlock(struct mail_index_view *view);
 /* Returns number of mails in view. */
-uint32_t mail_index_view_get_message_count(struct mail_index_view *view);
+uint32_t mail_index_view_get_messages_count(struct mail_index_view *view);
 /* Returns TRUE if we lost track of changes for some reason. */
 int mail_index_view_is_inconsistent(struct mail_index_view *view);
 

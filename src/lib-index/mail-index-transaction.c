@@ -29,7 +29,7 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	t->view = view;
 	t->hide_transaction = hide;
 	t->external = external;
-	t->first_new_seq = mail_index_view_get_message_count(t->view)+1;
+	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
 
 	if (view->syncing) {
 		/* transaction view cannot work if new records are being added
@@ -255,7 +255,7 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	unsigned int idx, left_idx, right_idx;
 	size_t size;
 
-	i_assert(seq > 0 && seq <= mail_index_view_get_message_count(t->view));
+	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
 
 	t->log_updates = TRUE;
 	exp.uid1 = exp.uid2 = seq;
@@ -386,7 +386,7 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 		return;
 	}
 
-	i_assert(seq > 0 && seq <= mail_index_view_get_message_count(t->view));
+	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
 
 	/* first get group updates into same structure. this allows faster
 	   updates if same mails have multiple flag updates during same
@@ -665,7 +665,7 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 	size_t size;
 
 	i_assert(seq > 0 &&
-		 (seq <= mail_index_view_get_message_count(t->view) ||
+		 (seq <= mail_index_view_get_messages_count(t->view) ||
 		  seq <= t->last_new_seq));
 	i_assert(ext_id < index->extensions->used / sizeof(*ext));
 
