@@ -19,6 +19,7 @@ struct client {
 
 	buffer_t *plain_login;
 	struct auth_request *auth_request;
+	char *virtual_user;
 
 	unsigned int tls:1;
 	unsigned int cmd_finished:1;

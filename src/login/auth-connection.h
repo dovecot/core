@@ -8,7 +8,8 @@ struct auth_request;
 typedef void (*AuthCallback)(struct auth_request *request,
 			     unsigned int auth_process, enum auth_result result,
 			     const unsigned char *reply_data,
-			     size_t reply_data_size, void *context);
+			     size_t reply_data_size, const char *virtual_user,
+			     void *context);
 
 struct auth_request {
         enum auth_mech mech;

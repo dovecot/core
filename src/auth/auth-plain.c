@@ -46,6 +46,11 @@ static void auth_plain_continue(struct cookie_data *cookie,
 		if (userinfo->verify_plain(user, pass, cookie_reply)) {
 			cookie_reply->success = TRUE;
 			reply.result = AUTH_RESULT_SUCCESS;
+
+			if (strocpy(reply.virtual_user,
+				    cookie_reply->virtual_user,
+				    sizeof(reply.virtual_user)) < 0)
+				i_panic("virtual_user overflow");
 		}
 
 		if (*pass != '\0') {

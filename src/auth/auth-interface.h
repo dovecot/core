@@ -68,6 +68,8 @@ struct auth_reply_data {
 	unsigned char cookie[AUTH_COOKIE_SIZE];
 	enum auth_result result;
 
+	char virtual_user[AUTH_MAX_VUSER_LEN]; /* set at SUCCESS */
+
 	size_t data_size;
 	/* unsigned char data[]; */
 };

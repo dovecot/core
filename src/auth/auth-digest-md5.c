@@ -536,6 +536,10 @@ auth_digest_md5_continue(struct cookie_data *cookie,
 	if (auth->authenticated) {
 		/* authentication is done, we were just waiting the last
 		   word from client */
+		if (strocpy(reply.virtual_user, auth->cookie_reply.virtual_user,
+			    sizeof(reply.virtual_user)) < 0)
+			i_panic("virtual_user overflow");
+
 		auth->cookie_reply.success = TRUE;
 		reply.result = AUTH_RESULT_SUCCESS;
 		callback(&reply, NULL, context);

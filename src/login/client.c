@@ -14,8 +14,6 @@
 #include "client-authenticate.h"
 #include "ssl-proxy.h"
 
-#include <syslog.h>
-
 /* max. size of one parameter in line */
 #define MAX_INBUF_SIZE 512
 
@@ -357,6 +355,7 @@ void client_destroy(struct client *client, const char *reason)
 	net_disconnect(client->fd);
 	client->fd = -1;
 
+	i_free(client->virtual_user);
 	client_unref(client);
 }
 

@@ -106,7 +106,7 @@ static void request_abort(struct auth_request *request)
 	request->callback(request, request->conn->auth_process,
 			  AUTH_RESULT_INTERNAL_FAILURE,
 			  (const unsigned char *) "Authentication process died",
-			  0, request->context);
+			  0, NULL, request->context);
 	request_destroy(request);
 }
 
@@ -209,7 +209,7 @@ static void auth_handle_reply(struct auth_connection *conn,
 	t_push();
 	request->callback(request, request->conn->auth_process,
 			  reply_data->result, data, reply_data->data_size,
-			  request->context);
+			  reply_data->virtual_user, request->context);
 	t_pop();
 
 	if (reply_data->result != AUTH_RESULT_CONTINUE)

@@ -83,7 +83,8 @@ static void master_callback(enum master_reply_result result, void *context)
 
 	switch (result) {
 	case MASTER_RESULT_SUCCESS:
-		client_destroy(client, "Logged in.");
+		client_destroy(client, t_strconcat("Login: ",
+						   client->virtual_user, NULL));
 		client_unref(client);
 		break;
 	case MASTER_RESULT_INTERNAL_FAILURE:
@@ -117,7 +118,8 @@ static void client_send_auth_data(struct client *client,
 static int auth_callback(struct auth_request *request,
 			 unsigned int auth_process, enum auth_result result,
 			 const unsigned char *reply_data,
-			 size_t reply_data_size, void *context)
+			 size_t reply_data_size, const char *virtual_user,
+			 void *context)
 {
 	struct client *client = context;
 
@@ -128,6 +130,9 @@ static int auth_callback(struct auth_request *request,
 
 	case AUTH_RESULT_SUCCESS:
 		client->auth_request = NULL;
+
+		i_free(client->virtual_user);
+		client->virtual_user = i_strdup(virtual_user);
 
 		master_request_imap(client->fd, auth_process, client->cmd_tag,
 				    request->cookie, &client->ip,
@@ -166,14 +171,15 @@ static int auth_callback(struct auth_request *request,
 static void login_callback(struct auth_request *request,
 			   unsigned int auth_process, enum auth_result result,
 			   const unsigned char *reply_data,
-			   size_t reply_data_size, void *context)
+			   size_t reply_data_size, const char *virtual_user,
+			   void *context)
 {
 	struct client *client = context;
 	const void *ptr;
 	size_t size;
 
 	if (auth_callback(request, auth_process, result,
-			  reply_data, reply_data_size, context)) {
+			  reply_data, reply_data_size, virtual_user, context)) {
                 ptr = buffer_get_data(client->plain_login, &size);
 		auth_continue_request(request, ptr, size);
 
@@ -231,12 +237,13 @@ static void authenticate_callback(struct auth_request *request,
 				  unsigned int auth_process,
 				  enum auth_result result,
 				  const unsigned char *reply_data,
-				  size_t reply_data_size, void *context)
+				  size_t reply_data_size,
+				  const char *virtual_user, void *context)
 {
 	struct client *client = context;
 
 	if (auth_callback(request, auth_process, result,
-			  reply_data, reply_data_size, context))
+			  reply_data, reply_data_size, virtual_user, context))
 		client_send_auth_data(client, reply_data, reply_data_size);
 }
 
