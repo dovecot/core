@@ -1,4 +1,6 @@
-bin_PROGRAMS = rawlog
+pkglibexecdir = $(libexecdir)/dovecot
+
+pkglibexec_PROGRAMS = rawlog
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib
