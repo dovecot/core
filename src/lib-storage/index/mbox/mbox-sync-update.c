@@ -22,6 +22,8 @@ static void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 	ssize_t diff = (ssize_t)need - (ssize_t)have;
 	int i;
 
+	i_assert(have < SSIZE_T_MAX);
+
 	if (diff == 0) {
 		if (ctx->header_last_change < pos + have ||
 		    ctx->header_last_change == (size_t)-1)
@@ -226,7 +228,7 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	//FIXME:keywords_append(ctx, all_keywords);
 	str_append_c(str, '\n');
 
-	hdr = str_c(ctx->header);
+	hdr = str_c(ctx->header) + pos;
 	p = strchr(hdr, '\n');
 
 	if (p == NULL) {
@@ -235,8 +237,7 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 		str_truncate(ctx->header, pos);
 		str_append_str(ctx->header, str);
 	} else {
-		mbox_sync_move_buffer(ctx, pos, str_len(str),
-				      (p - hdr + 1) - pos);
+		mbox_sync_move_buffer(ctx, pos, str_len(str), p - hdr + 1);
 		buffer_copy(ctx->header, pos, str, 0, (size_t)-1);
 	}
 
