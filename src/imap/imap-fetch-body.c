@@ -436,7 +436,7 @@ static int fetch_body_header_fields(struct imap_fetch_context *ctx,
 	struct message_size size;
 	uoff_t old_offset;
 
-	ctx->cur_input = mail_get_headers(mail, body->header_ctx);
+	ctx->cur_input = mail_get_header_stream(mail, body->header_ctx);
 	if (ctx->cur_input == NULL)
 		return -1;
 
