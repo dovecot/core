@@ -25,6 +25,7 @@
 
 #include "lib.h"
 
+#include <stdio.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <syslog.h>
