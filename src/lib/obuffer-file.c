@@ -134,7 +134,7 @@ static void update_iovec(struct iovec *iov, unsigned int iov_size, size_t size)
 	while (size > 0) {
 		i_assert(iov_size > 0);
 
-		if (iov->iov_len <= size) {
+		if ((size_t)iov->iov_len <= size) {
 			size -= iov->iov_len;
 			iov->iov_base = NULL;
 			iov->iov_len = 0;
