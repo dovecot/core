@@ -49,12 +49,6 @@ static void auth_handle_handshake(struct auth_server_connection *conn,
 	buffer_t *buf;
 	unsigned int i;
 
-	if (handshake->server_pid == 0) {
-		i_error("BUG: Auth server said it's PID 0");
-		auth_server_connection_destroy(conn, FALSE);
-		return;
-	}
-
 	if (handshake->data_size == 0 || data[handshake->data_size-1] != '\0' ||
 	    handshake->mech_count * sizeof(handshake_mech_desc) >=
 	    handshake->data_size)  {
@@ -191,7 +185,12 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	conn->client = client;
 	conn->path = p_strdup(pool, path);
 	conn->fd = fd;
-	conn->io = io_add(fd, IO_READ, auth_client_input, conn);
+	if (client->ext_input_add == NULL)
+		conn->io = io_add(fd, IO_READ, auth_client_input, conn);
+	else {
+		conn->ext_input_io =
+			client->ext_input_add(fd, auth_client_input, conn);
+	}
 	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
 					   FALSE);
 	conn->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
@@ -235,8 +234,14 @@ void auth_server_connection_destroy(struct auth_server_connection *conn,
 	if (!conn->handshake_received)
 		client->conn_waiting_handshake_count--;
 
-	io_remove(conn->io);
-	conn->io = NULL;
+	if (conn->ext_input_io != NULL) {
+		client->ext_input_remove(conn->ext_input_io);
+		conn->ext_input_io = NULL;
+	}
+	if (conn->io != NULL) {
+		io_remove(conn->io);
+		conn->io = NULL;
+	}
 
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
@@ -294,7 +299,7 @@ auth_server_connection_find_mech(struct auth_client *client,
 	for (conn = client->connections; conn != NULL; conn = conn->next) {
 		mech = conn->available_auth_mechs;
 		for (i = 0; i < conn->available_auth_mechs_count; i++) {
-			if (strcmp(mech[i].name, name) == 0)
+			if (strcasecmp(mech[i].name, name) == 0)
 				return conn;
 		}
 	}

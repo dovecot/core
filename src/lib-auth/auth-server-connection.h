@@ -3,6 +3,10 @@
 
 struct auth_client {
 	unsigned int pid;
+	char *socket_paths;
+
+	input_func_add_t *ext_input_add;
+	input_func_remove_t *ext_input_remove;
 
 	struct auth_server_connection *connections;
 	struct timeout *to_reconnect;
@@ -14,6 +18,8 @@ struct auth_client {
 
 	auth_connect_notify_callback_t *connect_notify_callback;
 	void *connect_notify_context;
+
+	unsigned int reconnect:1;
 };
 
 struct auth_server_connection {
@@ -27,6 +33,7 @@ struct auth_server_connection {
 	int fd;
 
 	struct io *io;
+	void *ext_input_io;
 	struct istream *input;
 	struct ostream *output;
 
