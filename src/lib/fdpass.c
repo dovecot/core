@@ -48,27 +48,27 @@ ssize_t fd_send(int handle, int send_fd, const void *data, size_t size)
         struct cmsghdr *cmsg;
 	char buf[CMSG_SPACE(sizeof(int))];
 
-	i_assert(size < SSIZE_T_MAX);
+	i_assert(size > 0 && size < SSIZE_T_MAX);
 
 	memset(&msg, 0, sizeof (struct msghdr));
 
         iov.iov_base = (void *) data;
         iov.iov_len = size;
 
-	if (send_fd != -1) {
-		msg.msg_control = buf;
-		msg.msg_controllen = sizeof(buf);
-	}
-
         msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 
 	if (send_fd != -1) {
+		msg.msg_control = buf;
+		msg.msg_controllen = sizeof(buf);
+
 		cmsg = CMSG_FIRSTHDR(&msg);
 		cmsg->cmsg_level = SOL_SOCKET;
 		cmsg->cmsg_type = SCM_RIGHTS;
 		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
 		*((int *) CMSG_DATA(cmsg)) = send_fd;
+
+		msg.msg_controllen = cmsg->cmsg_len;
 	}
 
 	return sendmsg(handle, &msg, 0);
@@ -82,7 +82,7 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	ssize_t ret;
 	char buf[CMSG_SPACE(sizeof(int))];
 
-	i_assert(size < SSIZE_T_MAX);
+	i_assert(size > 0 && size < SSIZE_T_MAX);
 
 	memset(&msg, 0, sizeof (struct msghdr));
 
