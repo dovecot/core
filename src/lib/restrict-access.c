@@ -42,6 +42,14 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 	env_put(t_strdup_printf("RESTRICT_SETGID=%s", dec2str(gid)));
 }
 
+void restrict_access_clear_env(void)
+{
+	env_remove("RESTRICT_USER");
+	env_remove("RESTRICT_CHROOT");
+	env_remove("RESTRICT_SETUID");
+	env_remove("RESTRICT_SETGID");
+}
+
 void restrict_access_by_env(int disallow_root)
 {
 	const char *env;
