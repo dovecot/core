@@ -460,9 +460,10 @@ void ssl_proxy_init(void)
 	}
 
 	/* PRNG initialization might want to use /dev/urandom, make sure it
-	   does it before chrooting. */
-	if (RAND_bytes(&buf, 1) != 1)
-		i_fatal("RAND_bytes() failed: %s\n", ssl_last_error());
+	   does it before chrooting. We might not have enough entropy at
+	   the first try, so this function may fail. It's still been
+	   initialized though. */
+	(void)RAND_bytes(&buf, 1);
 
         ssl_proxies = hash_create(default_pool, default_pool, 0, NULL, NULL);
 	ssl_initialized = TRUE;
