@@ -73,6 +73,18 @@ static int seek_partial(unsigned int select_counter, unsigned int uid,
 	return cr_skipped;
 }
 
+static uoff_t get_send_size(const struct imap_fetch_body_data *body,
+			    uoff_t max_size)
+{
+	uoff_t size;
+
+	if (body->skip >= max_size)
+		return 0;
+
+	size = max_size - body->skip;
+	return size <= body->max_size ? size : body->max_size;
+}
+
 /* fetch BODY[] or BODY[TEXT] */
 static int fetch_body(struct imap_fetch_context *ctx,
 		      const struct imap_fetch_body_data *body,
@@ -82,7 +94,7 @@ static int fetch_body(struct imap_fetch_context *ctx,
 	struct istream *stream;
 	const char *str;
 	int skip_cr, last_cr;
-	uoff_t size;
+	uoff_t send_size;
 	off_t ret;
 
 	stream = mail->get_stream(mail, &hdr_size, &body_size);
@@ -92,13 +104,8 @@ static int fetch_body(struct imap_fetch_context *ctx,
 	if (fetch_header)
 		message_size_add(&body_size, &hdr_size);
 
-	if (body->skip >= body_size.virtual_size)
-		size = 0;
-	else {
-		size = body_size.virtual_size - body->skip;
-		if (size > body->max_size) size = body->max_size;
-	}
-	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n", ctx->prefix, size);
+	send_size = get_send_size(body, body_size.virtual_size);
+	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n", ctx->prefix, send_size);
 	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
@@ -108,7 +115,7 @@ static int fetch_body(struct imap_fetch_context *ctx,
 			       body->skip);
 
 	ret = message_send(ctx->output, stream, &body_size,
-			   skip_cr, body->max_size, &last_cr,
+			   skip_cr, send_size, &last_cr,
 			   !mail->has_no_nuls);
 	if (ret > 0) {
 		partial.cr_skipped = last_cr != 0;
@@ -297,15 +304,16 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 	const char *str;
 	const void *data;
 	size_t data_size;
-	uoff_t start_offset;
+	uoff_t start_offset, send_size;
 	int failed;
 
 	/* HEADER, MIME, HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
 
 	if (strcmp(header_section, "HEADER") == 0) {
 		/* all headers */
+		send_size = get_send_size(body, size->virtual_size);
 		str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
-				      ctx->prefix, size->virtual_size);
+				      ctx->prefix, send_size);
 		if (o_stream_send_str(ctx->output, str) < 0)
 			return FALSE;
 		return message_send(ctx->output, input, size,
@@ -453,16 +461,11 @@ static int fetch_part_body(struct imap_fetch_context *ctx,
 {
 	const char *str;
 	int skip_cr, last_cr;
-	uoff_t size;
+	uoff_t send_size;
 	off_t ret;
 
-	if (body->skip >= part->body_size.virtual_size)
-		size = 0;
-	else {
-		size = part->body_size.virtual_size - body->skip;
-		if (size > body->max_size) size = body->max_size;
-	}
-	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n", ctx->prefix, size);
+	send_size = get_send_size(body, part->body_size.virtual_size);
+	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n", ctx->prefix, send_size);
 	if (o_stream_send_str(ctx->output, str) < 0)
 		return FALSE;
 
@@ -470,8 +473,7 @@ static int fetch_part_body(struct imap_fetch_context *ctx,
 			       &partial, stream, part->physical_pos +
 			       part->header_size.physical_size, body->skip);
 	ret = message_send(ctx->output, stream, &part->body_size,
-			   skip_cr, body->max_size, &last_cr,
-			   !mail->has_no_nuls);
+			   skip_cr, send_size, &last_cr, !mail->has_no_nuls);
 	if (ret > 0) {
 		partial.cr_skipped = last_cr != 0;
 		partial.pos.physical_size =
