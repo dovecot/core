@@ -244,6 +244,22 @@ size_t buffer_delete(buffer_t *_buf, size_t pos, size_t size)
 	return size;
 }
 
+size_t buffer_write_zero(buffer_t *_buf, size_t pos, size_t data_size)
+{
+	struct real_buffer *buf = (struct real_buffer *)_buf;
+
+	if (!buffer_check_limits(buf, pos, &data_size, TRUE))
+		return 0;
+
+	memset(buf->w_buffer + pos, 0, data_size);
+	return data_size;
+}
+
+size_t buffer_append_zero(buffer_t *buf, size_t data_size)
+{
+	return buffer_write_zero(buf, buf->used, data_size);
+}
+
 size_t buffer_copy(buffer_t *_dest, size_t dest_pos,
 		   const buffer_t *_src, size_t src_pos, size_t copy_size)
 {

@@ -48,6 +48,10 @@ size_t buffer_insert(buffer_t *buf, size_t pos,
 /* Delete data from buffer, returns number of bytes deleted. */
 size_t buffer_delete(buffer_t *buf, size_t pos, size_t size);
 
+/* Fill buffer with zero bytes. */
+size_t buffer_write_zero(buffer_t *buf, size_t pos, size_t data_size);
+size_t buffer_append_zero(buffer_t *buf, size_t data_size);
+
 /* Copy data from buffer to another. The buffers may be same in which case
    it's internal copying, possibly with overlapping positions (ie. memmove()
    like functionality). copy_size may be set to (size_t)-1 to copy the rest of
