@@ -91,8 +91,12 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 			"file_dotlock_open(%s) failed: %m", path);
 		return -1;
 	}
-
 	uidlist->lock_fd = fd;
+
+	/* our view of uidlist must be up-to-date if we plan on changing it */
+	if (maildir_uidlist_update(uidlist) < 0)
+		return -1;
+
 	return 1;
 }
 
@@ -463,8 +467,10 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
 
 	iter = maildir_uidlist_iter_init(uidlist->ibox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &flags, &filename)) {
+		/* avoid overflowing str buffer so we don't eat more memory
+		   than we need. */
 		if (str_len(str) + MAX_INT_STRLEN +
-		    strlen(filename) + 2 >= 4096) {
+		    strlen(filename) + 5 + 10 >= 4096) {
 			/* flush buffer */
 			if (write_full(uidlist->lock_fd,
 				       str_data(str), str_len(str)) < 0) {
@@ -592,6 +598,11 @@ static int maildir_uidlist_sync_uidlist(struct maildir_uidlist_sync_ctx *ctx)
 
 	i_assert(!ctx->synced);
 
+	if (UIDLIST_IS_LOCKED(ctx->uidlist)) {
+		ctx->synced = TRUE;
+		return 1;
+	}
+
 	if (!ctx->uidlist->initial_read) {
 		/* first time reading the uidlist,
 		   no locking yet */
@@ -609,10 +620,6 @@ static int maildir_uidlist_sync_uidlist(struct maildir_uidlist_sync_ctx *ctx)
 			ctx->locked = TRUE;
 			return -1;
 		}
-		ctx->failed = TRUE;
-		return -1;
-	}
-	if (maildir_uidlist_update(ctx->uidlist) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}
@@ -842,8 +849,11 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 	if (!ctx->finished)
 		maildir_uidlist_sync_finish(ctx);
 
-	if (ctx->new_files_count != 0 && !ctx->failed && !ctx->locked)
+	if (ctx->new_files_count != 0 && !ctx->failed && !ctx->locked) {
+		t_push();
 		ret = maildir_uidlist_rewrite(ctx->uidlist);
+		t_pop();
+	}
 
 	if (ctx->partial)
 		maildir_uidlist_mark_all(ctx->uidlist, FALSE);
