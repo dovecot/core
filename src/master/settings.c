@@ -186,6 +186,27 @@ static void settings_verify(void)
 			set_imap_executable);
 	}
 
+	if (set_log_path != NULL) {
+		if (access(set_log_path, W_OK) < 0) {
+			i_fatal("Can't access log directory %s: %m",
+				set_log_path);
+		}
+	}
+
+#ifdef HAVE_SSL
+	if (!set_ssl_disable) {
+		if (access(set_ssl_cert_file, R_OK) < 0) {
+			i_fatal("Can't use SSL certificate %s: %m",
+				set_ssl_cert_file);
+		}
+
+		if (access(set_ssl_key_file, R_OK) < 0) {
+			i_fatal("Can't use SSL key file %s: %m",
+				set_ssl_key_file);
+		}
+	}
+#endif
+
 	/* since they're under /var/run by default, they may have been
 	   deleted */
 	(void)mkdir(PKG_RUNDIR, 0700);
