@@ -32,7 +32,7 @@
 static int init_refcount = 0;
 static int urandom_fd;
 
-void random_fill(const void *buf, unsigned int size)
+void random_fill(void *buf, unsigned int size)
 {
 	unsigned int pos;
 	int ret;
