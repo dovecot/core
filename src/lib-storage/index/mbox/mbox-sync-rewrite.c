@@ -396,6 +396,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	size_t size;
 	int ret = 0;
 
+	i_assert(extra_space < OFF_T_MAX);
 	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
 	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
