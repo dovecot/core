@@ -284,11 +284,10 @@ static void fetch(struct client *client, unsigned int msgnum,
 	}
 
 	mail = client->mailbox->fetch_next(ctx);
-	if (mail == NULL)
+	stream = mail == NULL ? NULL : mail->get_stream(mail, NULL, NULL);
+	if (stream == NULL)
 		client_send_line(client, "-ERR Message not found.");
 	else {
-		stream = mail->get_stream(mail, NULL, NULL);
-
 		if (body_lines == (uoff_t)-1) {
 			client_send_line(client, "+OK %"PRIuUOFF_T" octets",
 					 client->message_sizes[msgnum]);
