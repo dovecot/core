@@ -100,12 +100,14 @@ ssize_t fd_read(int handle, void *data, size_t size, int *fd)
 	msg.msg_controllen = sizeof(buf);
 
 	ret = recvmsg(handle, &msg, 0);
-	if (ret <= 0)
+	if (ret <= 0) {
+		*fd = -1;
 		return ret;
+	}
 
 	/* at least one byte transferred - we should have the fd now */
 	cmsg = CMSG_FIRSTHDR(&msg);
-	if (cmsg == NULL)
+	if (cmsg == NULL || cmsg->cmsg_len < CMSG_LEN(sizeof(int)))
 		*fd = -1;
 	else
 		*fd = *((int *) CMSG_DATA(cmsg));
