@@ -23,13 +23,14 @@ struct _ImapParser {
 	Pool pool;
 	IStream *input;
 	OStream *output;
-	size_t max_literal_size;
+	size_t max_literal_size, max_elements;
         ImapParserFlags flags;
 
 	/* reset by imap_parser_reset(): */
         ImapArgList *root_list;
         ImapArgList *cur_list;
 	ImapArg *list_arg;
+	size_t element_count;
 
 	ArgParseType cur_type;
 	size_t cur_pos; /* parser position in input buffer */
@@ -37,10 +38,11 @@ struct _ImapParser {
 	int str_first_escape; /* ARG_PARSE_STRING: index to first '\' */
 	uoff_t literal_size; /* ARG_PARSE_LITERAL: string size */
 
+	const char *error;
+
 	unsigned int literal_skip_crlf:1;
 	unsigned int inside_bracket:1;
 	unsigned int eol:1;
-	unsigned int error:1;
 };
 
 #define LIST_REALLOC(parser, old_list, size) \
@@ -59,7 +61,7 @@ static void imap_args_realloc(ImapParser *parser, size_t size)
 }
 
 ImapParser *imap_parser_create(IStream *input, OStream *output,
-			       size_t max_literal_size)
+			       size_t max_literal_size, size_t max_elements)
 {
 	ImapParser *parser;
 
@@ -68,6 +70,7 @@ ImapParser *imap_parser_create(IStream *input, OStream *output,
 	parser->input = input;
 	parser->output = output;
 	parser->max_literal_size = max_literal_size;
+	parser->max_elements = max_elements;
 
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 	return parser;
@@ -86,6 +89,7 @@ void imap_parser_reset(ImapParser *parser)
 	parser->root_list = NULL;
 	parser->cur_list = NULL;
 	parser->list_arg = NULL;
+	parser->element_count = 0;
 
 	parser->cur_type = ARG_PARSE_NONE;
 	parser->cur_pos = 0;
@@ -93,12 +97,18 @@ void imap_parser_reset(ImapParser *parser)
 	parser->str_first_escape = 0;
 	parser->literal_size = 0;
 
+	parser->error = NULL;
+
 	parser->literal_skip_crlf = FALSE;
 	parser->inside_bracket = FALSE;
 	parser->eol = FALSE;
-	parser->error = FALSE;
 
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
+}
+
+const char *imap_parser_get_error(ImapParser *parser)
+{
+	return parser->error;
 }
 
 /* skip over everything parsed so far, plus the following whitespace */
@@ -132,6 +142,7 @@ static ImapArg *imap_arg_create(ImapParser *parser)
 	arg = &parser->cur_list->args[parser->cur_list->size];
 	arg->parent = parser->list_arg;
 	parser->cur_list->size++;
+	parser->element_count++;
 
 	return arg;
 }
@@ -155,7 +166,7 @@ static int imap_parser_close_list(ImapParser *parser)
 
 	if (parser->list_arg == NULL) {
 		/* we're not inside list */
-		parser->error = TRUE;
+		parser->error = "Unexpected ')'";
 		return FALSE;
 	}
 
@@ -234,17 +245,19 @@ static int imap_parser_read_atom(ImapParser *parser, const char *data,
 	   characters are an exception though, allow spaces inside them. */
 	for (i = parser->cur_pos; i < data_size; i++) {
 		if (parser->inside_bracket) {
-			if (data[i] == '[' || is_linebreak(data[i])) {
-				/* a) nested '[' characters not allowed
-				      (too much trouble and imap doesn't need)
-				   b) missing ']' character */
-				parser->error = TRUE;
+			if (data[i] == '[') {
+				/* nested '[' characters not allowed
+				   (too much trouble and imap doesn't need) */
+				parser->error = "Unexpected '['";
+			}
+			if (is_linebreak(data[i])) {
+				/* missing ']' character */
+				parser->error = "Missing ']'";
 				return FALSE;
 			}
 
-			if (data[i] == ']') {
+			if (data[i] == ']')
 				parser->inside_bracket = FALSE;
-			}
 		} else {
 			if (data[i] == '[')
 				parser->inside_bracket = TRUE;
@@ -293,7 +306,7 @@ static int imap_parser_read_string(ImapParser *parser, const char *data,
 		   string always ends with '"', so it's an error if we found
 		   a linebreak.. */
 		if (is_linebreak(data[i])) {
-			parser->error = TRUE;
+			parser->error = "Missing '\"'";
 			return FALSE;
 		}
 	}
@@ -307,7 +320,7 @@ static int imap_parser_literal_end(ImapParser *parser)
 	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
 		if (parser->literal_size > parser->max_literal_size) {
 			/* too long string, abort. */
-			parser->error = TRUE;
+			parser->error = "Literal size too large";
 			return FALSE;
 		}
 
@@ -337,7 +350,7 @@ static int imap_parser_read_literal(ImapParser *parser, const char *data,
 		}
 
 		if (data[i] < '0' || data[i] > '9') {
-			parser->error = TRUE;
+			parser->error = "Invalid literal size";
 			return FALSE;
 		}
 
@@ -346,7 +359,7 @@ static int imap_parser_read_literal(ImapParser *parser, const char *data,
 
 		if (parser->literal_size < prev_size) {
 			/* wrapped around, abort. */
-			parser->error = TRUE;
+			parser->error = "Literal size too large";
 			return FALSE;
 		}
 	}
@@ -372,7 +385,7 @@ static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
 		}
 
 		if (*data != '\n') {
-			parser->error = TRUE;
+			parser->error = "Missing LF after literal size";
 			return FALSE;
 		}
 
@@ -499,9 +512,14 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 	       IS_UNFINISHED(parser)) {
 		if (!imap_parser_read_arg(parser))
 			break;
+
+		if (parser->element_count > parser->max_elements) {
+			parser->error = "Too many argument elements";
+			break;
+		}
 	}
 
-	if (parser->error) {
+	if (parser->error != NULL) {
 		/* error, abort */
 		*args = NULL;
 		return -1;

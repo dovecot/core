@@ -41,16 +41,21 @@ struct _ImapArgList {
 	ImapArg args[1]; /* variable size */
 };
 
-/* Create new IMAP argument parser. The max. size of input limits the
-   maximum size of each argument. max_literal_size also limits sizes of
-   literals which we even try to handle if FLAG_LITERAL_SIZE is not set.
-   output is used for sending command continuation requests for literals. */
+/* Create new IMAP argument parser. There's no limit in argument sizes, only
+   the maximum buffer size of input stream limits it. max_literal_size limits
+   the maximum size of internally handled literals (ie. FLAG_LITERAL_SIZE is
+   unset). max_elements sets the number of elements we allow entirely so that
+   user can't give huge lists or lists inside lists. output is used for sending
+   command continuation requests for literals. */
 ImapParser *imap_parser_create(IStream *input, OStream *output,
-			       size_t max_literal_size);
+			       size_t max_literal_size, size_t max_elements);
 void imap_parser_destroy(ImapParser *parser);
 
 /* Reset the parser to initial state. */
 void imap_parser_reset(ImapParser *parser);
+
+/* Return the last error in parser. */
+const char *imap_parser_get_error(ImapParser *parser);
 
 /* Read a number of arguments. This function doesn't call i_stream_read(), you
    need to do that. Returns number of arguments read (may be less than count

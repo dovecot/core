@@ -598,7 +598,7 @@ const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 	input = i_stream_create_from_data(data_stack_pool, bodystructure, len);
 	(void)i_stream_read(input);
 
-	parser = imap_parser_create(input, NULL, 0);
+	parser = imap_parser_create(input, NULL, 0, (size_t)-1);
 	ret = imap_parser_read_args(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE,
 				    &args);
 

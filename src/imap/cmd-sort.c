@@ -77,7 +77,7 @@ int cmd_sort(Client *client)
 		return FALSE;
 
 	if (args_count < 3) {
-		client_send_command_error(client,
+		client_send_command_error(client, args_count < 0 ? NULL :
 					  "Missing or invalid arguments.");
 		return TRUE;
 	}

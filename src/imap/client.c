@@ -12,6 +12,10 @@
 /* max. size of one parameter in line */
 #define MAX_INBUF_SIZE 8192
 
+/* max. number of IMAP argument elements to accept. The maximum memory usage
+   for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
+#define MAX_IMAP_ARG_ELEMENTS 128
+
 /* If we can't send a buffer in a minute, disconnect the client */
 #define CLIENT_OUTPUT_TIMEOUT (60*1000)
 
@@ -74,7 +78,8 @@ Client *client_create(int hin, int hout, MailStorage *storage)
 
 	client->io = io_add(hin, IO_READ, (IOFunc) client_input, client);
 	client->parser = imap_parser_create(client->input, client->output,
-					    MAX_INBUF_SIZE);
+					    MAX_INBUF_SIZE,
+					    MAX_IMAP_ARG_ELEMENTS);
         client->last_input = ioloop_time;
 
 	client->storage = storage;
@@ -144,9 +149,8 @@ void client_send_command_error(Client *client, const char *msg)
 	const char *error;
 
 	if (msg == NULL)
-		error = "BAD Error in IMAP command.";
-	else
-		error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
+                msg = imap_parser_get_error(client->parser);
+	error = t_strconcat("BAD Error in IMAP command: ", msg, NULL);
 
 	client->cmd_error = TRUE;
 	client_send_tagline(client, error);
@@ -172,8 +176,7 @@ int client_read_args(Client *client, unsigned int count, unsigned int flags,
 		return FALSE;
 	} else {
 		/* error, or missing arguments */
-		client_send_command_error(client,
-					  "Missing or invalid arguments.");
+		client_send_command_error(client, NULL);
 		return FALSE;
 	}
 }

@@ -13,12 +13,12 @@ int cmd_search(Client *client)
 	const char *error, *charset;
 
 	args_count = imap_parser_read_args(client->parser, 0, 0, &args);
-	if (args_count == -2)
-		return FALSE;
-
 	if (args_count < 1) {
-		client_send_command_error(client,
-					  "Missing or invalid arguments.");
+		if (args_count == -2)
+			return FALSE;
+
+		client_send_command_error(client, args_count < 0 ? NULL :
+					  "Missing SEARCH arguments.");
 		return TRUE;
 	}
 

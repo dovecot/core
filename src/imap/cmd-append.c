@@ -87,7 +87,7 @@ int cmd_append(Client *client)
 			      &internal_date_str, &msg_size, 2)) {
 	case -1:
 		/* error */
-		client_send_command_error(client, "Invalid APPEND arguments.");
+		client_send_command_error(client, NULL);
 		return TRUE;
 	case 0:
 		/* need more data */
