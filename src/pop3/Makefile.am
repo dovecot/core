@@ -21,6 +21,7 @@ libs = \
 pop3_LDADD = \
 	$(libs) \
 	$(LIBICONV) \
+	$(RAND_LIBS) \
 	$(MODULE_LIBS)
 
 pop3_DEPENDENCIES = $(libs)
