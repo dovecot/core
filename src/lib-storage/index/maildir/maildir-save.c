@@ -308,6 +308,7 @@ static void maildir_save_commit_abort(struct maildir_save_context *ctx,
 
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 {
+	struct maildir_index_sync_context *sync_ctx;
 	struct maildir_filename *mf;
 	uint32_t first_uid, last_uid;
 	enum maildir_uidlist_rec_flag flags;
@@ -316,14 +317,21 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 	i_assert(ctx->output == NULL);
 
-	ret = maildir_uidlist_lock(ctx->ibox->uidlist);
-	if (ret <= 0) {
-		/* error or timeout - our transaction is broken */
+	sync_ctx = maildir_sync_index_begin(ctx->ibox);
+	if (sync_ctx == NULL) {
 		maildir_save_commit_abort(ctx, ctx->files);
 		return -1;
 	}
 
-	if (maildir_sync_index(ctx->ibox, TRUE) < 0) {
+	ret = maildir_uidlist_lock(ctx->ibox->uidlist);
+	if (ret <= 0) {
+		/* error or timeout - our transaction is broken */
+		maildir_sync_index_abort(sync_ctx);
+		maildir_save_commit_abort(ctx, ctx->files);
+		return -1;
+	}
+
+	if (maildir_sync_index_finish(sync_ctx, TRUE) < 0) {
 		maildir_save_commit_abort(ctx, ctx->files);
 		return -1;
 	}

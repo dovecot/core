@@ -193,7 +193,8 @@ struct maildir_sync_context {
 	const char *new_dir, *cur_dir;
 	int partial;
 
-        struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
+	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
+        struct maildir_index_sync_context *index_sync_ctx;
 };
 
 struct maildir_index_sync_context {
@@ -380,6 +381,8 @@ static void maildir_sync_deinit(struct maildir_sync_context *ctx)
 {
 	if (ctx->uidlist_sync_ctx != NULL)
 		(void)maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
+	if (ctx->index_sync_ctx != NULL)
+		maildir_sync_index_abort(ctx->index_sync_ctx);
 }
 
 static int maildir_fix_duplicate(struct index_mailbox *ibox, const char *dir,
@@ -573,12 +576,36 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 	return 0;
 }
 
-int maildir_sync_index(struct index_mailbox *ibox, int partial)
+struct maildir_index_sync_context *
+maildir_sync_index_begin(struct index_mailbox *ibox)
 {
-	struct maildir_index_sync_context sync_ctx;
+	struct maildir_index_sync_context *sync_ctx;
+
+	sync_ctx = i_new(struct maildir_index_sync_context, 1);
+	sync_ctx->ibox = ibox;
+
+	if (mail_index_sync_begin(ibox->index, &sync_ctx->sync_ctx,
+				  &sync_ctx->view, (uint32_t)-1, (uoff_t)-1,
+				  FALSE, FALSE) <= 0) {
+		mail_storage_set_index_error(ibox);
+		return NULL;
+	}
+	return sync_ctx;
+}
+
+void maildir_sync_index_abort(struct maildir_index_sync_context *sync_ctx)
+{
+	mail_index_sync_rollback(sync_ctx->sync_ctx);
+	i_free(sync_ctx);
+}
+
+int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
+			      int partial)
+{
+	struct index_mailbox *ibox = sync_ctx->ibox;
+	struct mail_index_view *view = sync_ctx->view;
 	struct maildir_uidlist_iter_ctx *iter;
 	struct mail_index_transaction *trans;
-	struct mail_index_view *view;
 	const struct mail_index_header *hdr;
 	const struct mail_index_record *rec;
 	uint32_t seq, uid;
@@ -589,21 +616,10 @@ int maildir_sync_index(struct index_mailbox *ibox, int partial)
 	uint32_t uid_validity, next_uid;
 	int ret;
 
-	memset(&sync_ctx, 0, sizeof(sync_ctx));
-	sync_ctx.ibox = ibox;
-
-	if (mail_index_sync_begin(ibox->index, &sync_ctx.sync_ctx, &view,
-				  (uint32_t)-1, (uoff_t)-1,
-				  FALSE, FALSE) <= 0) {
-		mail_storage_set_index_error(ibox);
-		return -1;
-	}
-	sync_ctx.view = view;
-
 	if (mail_index_get_header(view, &hdr) < 0) {
 		/* view is invalidated */
 		mail_storage_set_index_error(ibox);
-		(void)mail_index_sync_rollback(sync_ctx.sync_ctx);
+                maildir_sync_index_abort(sync_ctx);
 		return -1;
 	}
 
@@ -616,12 +632,12 @@ int maildir_sync_index(struct index_mailbox *ibox, int partial)
 			"Maildir %s sync: UIDVALIDITY changed (%u -> %u)",
 			ibox->path, hdr->uid_validity, uid_validity);
 		mail_index_mark_corrupted(ibox->index);
-		(void)mail_index_sync_rollback(sync_ctx.sync_ctx);
+                maildir_sync_index_abort(sync_ctx);
 		return -1;
 	}
 
 	trans = mail_index_transaction_begin(view, FALSE);
-	sync_ctx.trans = trans;
+	sync_ctx->trans = trans;
 
 	seq = 0;
 	iter = maildir_uidlist_iter_init(ibox->uidlist);
@@ -773,9 +789,9 @@ int maildir_sync_index(struct index_mailbox *ibox, int partial)
 
 	/* now, sync the index */
         ibox->syncing_commit = TRUE;
-	while ((ret = mail_index_sync_next(sync_ctx.sync_ctx,
-					   &sync_ctx.sync_rec)) > 0) {
-		if (maildir_sync_record(ibox, &sync_ctx) < 0) {
+	while ((ret = mail_index_sync_next(sync_ctx->sync_ctx,
+					   &sync_ctx->sync_rec)) > 0) {
+		if (maildir_sync_record(ibox, sync_ctx) < 0) {
 			ret = -1;
 			break;
 		}
@@ -821,7 +837,7 @@ int maildir_sync_index(struct index_mailbox *ibox, int partial)
 
 	if (ret < 0) {
 		mail_index_transaction_rollback(trans);
-		mail_index_sync_rollback(sync_ctx.sync_ctx);
+		mail_index_sync_rollback(sync_ctx->sync_ctx);
 	} else {
 		uint32_t seq;
 		uoff_t offset;
@@ -832,7 +848,7 @@ int maildir_sync_index(struct index_mailbox *ibox, int partial)
 			ibox->commit_log_file_seq = seq;
 			ibox->commit_log_file_offset = offset;
 		}
-		if (mail_index_sync_commit(sync_ctx.sync_ctx) < 0)
+		if (mail_index_sync_commit(sync_ctx->sync_ctx) < 0)
 			ret = -1;
 	}
 
@@ -843,6 +859,7 @@ int maildir_sync_index(struct index_mailbox *ibox, int partial)
 		mail_storage_set_index_error(ibox);
 	}
 
+	i_free(sync_ctx);
 	return ret;
 }
 
@@ -860,26 +877,62 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 		new_changed = cur_changed = TRUE;
 	}
 
-	/* we have to lock uidlist immediately, otherwise there's race
-	   conditions with other processes who might write older maildir
-	   file list into uidlist.
+	/*
+	   Locking, locking, locking.. Wasn't maildir supposed to be lockless?
 
-	   alternative would be to lock it when new files are found, but
-	   the directory scans _must_ be restarted then.
+	   We can get here either as beginning a real maildir sync, or when
+	   committing changes to maildir but a file was lost (maybe renamed).
 
-	   if we got here through maildir_sync_last_commit(), we can't sync
-	   index as it's already being synced. so, don't try locking uidlist
-	   either, we only want to find new filename for some mail.
-	   */
+	   So, we're going to need two locks. One for index and one for
+	   uidlist. To avoid deadlocking do the index lock first.
+
+	   uidlist is needed only for figuring out UIDs for newly seen files,
+	   so theoretically we wouldn't need to lock it unless there are new
+	   files. It has a few problems though, assuming the index lock didn't
+	   already protect it (eg. in-memory indexes):
+
+	   1. Just because you see a new file which doesn't exist in uidlist
+	   file, doesn't mean that the file really exists anymore, or that
+	   your readdir() lists all new files. Meaning that this is possible:
+
+	     A: opendir(), readdir() -> new file ...
+	     -- new files are written to the maildir --
+	     B: opendir(), readdir() -> new file, lock uidlist,
+		readdir() -> another new file, rewrite uidlist, unlock
+	     A: ... lock uidlist, readdir() -> nothing left, rewrite uidlist,
+		unlock
+
+	   The second time running A didn't see the two new files. To handle
+	   this correctly, it must not remove the new unseen files from
+	   uidlist. This is possible to do, but adds extra complexity.
+
+	   2. If another process is rename()ing files while we are
+	   readdir()ing, it's possible that readdir() never lists some files,
+	   causing Dovecot to assume they were expunged. In next sync they
+	   would show up again, but client could have already been notified of
+	   that and they would show up under new UIDs, so the damage is
+	   already done.
+
+	   Both of the problems can be avoided if we simply lock the uidlist
+	   before syncing and keep it until sync is finished. Typically this
+	   would happen in any case, as there is the index lock..
+
+	   The second case is still a problem with external changes though,
+	   because maildir doesn't require any kind of locking. Luckily this
+	   problem rarely happens except under high amount of modifications.
+	*/
+
 	if (!ctx->ibox->syncing_commit) {
-		if ((ret = maildir_uidlist_try_lock(ctx->ibox->uidlist)) < 0)
-			return ret;
-		if (ret == 0 && !forced) {
-			/* we didn't get a lock, don't do syncing unless we
-			   really want to check for expunges or renames. new
-			   files won't be added. */
-			return 0;
-		}
+		ctx->index_sync_ctx = maildir_sync_index_begin(ctx->ibox);
+		if (ctx->index_sync_ctx == NULL)
+			return -1;
+	}
+
+	if ((ret = maildir_uidlist_lock(ctx->ibox->uidlist)) <= 0) {
+		/* failure / timeout. if forced is TRUE, we could still go
+		   forward and check only for renamed files, but is it worth
+		   the trouble? .. */
+		return ret;
 	}
 
 	ctx->partial = !cur_changed;
@@ -896,8 +949,12 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 	/* finish uidlist syncing, but keep it still locked */
 	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 	if (!ctx->ibox->syncing_commit) {
-		if (maildir_sync_index(ctx->ibox, ctx->partial) < 0)
+		if (maildir_sync_index_finish(ctx->index_sync_ctx,
+					      ctx->partial) < 0) {
+			ctx->index_sync_ctx = NULL;
 			return -1;
+		}
+		ctx->index_sync_ctx = NULL;
 	}
 
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
