@@ -48,6 +48,8 @@ typedef struct {
 
 static PasswdFile *passwd_file;
 
+static void passwd_file_sync(void);
+
 static int get_reply_data(PasswdUser *pu, AuthCookieReplyData *reply)
 {
 	const char *user;
@@ -94,6 +96,8 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 	char *const *tmp;
 	unsigned char digest[16];
 	const char *str;
+
+	passwd_file_sync();
 
 	/* find it from all realms */
 	pu = hash_lookup(passwd_file->users, user);
@@ -148,6 +152,8 @@ static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
 {
 	const char *id;
 	PasswdUser *pu;
+
+	passwd_file_sync();
 
 	/* FIXME: we simply ignore UTF8 setting.. */
 
@@ -355,6 +361,21 @@ static void passwd_file_init(const char *args)
 static void passwd_file_deinit(void)
 {
 	passwd_file_free(passwd_file);
+}
+
+static void passwd_file_sync(void)
+{
+	const char *path;
+	struct stat st;
+
+	if (stat(passwd_file->path, &st) < 0)
+		i_fatal("stat() failed for %s: %m", passwd_file->path);
+
+	if (st.st_mtime != passwd_file->stamp) {
+		path = t_strdup(passwd_file->path);
+		passwd_file_free(passwd_file);
+		passwd_file = passwd_file_parse(path);
+	}
 }
 
 UserInfoModule userinfo_passwd_file = {
