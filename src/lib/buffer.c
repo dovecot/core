@@ -31,21 +31,30 @@ struct _Buffer {
 
 	const unsigned char *r_buffer;
 	unsigned char *w_buffer;
-	size_t used, alloc, max_alloc, limit, start_pos;
+
+	/* buffer_set_start_pos() modifies start_pos, but internally we deal
+	   only with absolute positions. buffer_check_read|write modifies
+	   given position to absolute one.
+
+	   start_pos <= used <= alloc <= max_alloc.
+	   start_pos <= limit <= max_alloc */
+	size_t start_pos, used, alloc, max_alloc, limit;
 
 	unsigned int alloced:1;
 	unsigned int readonly:1;
 	unsigned int hard:1;
 };
 
-static void buffer_alloc(Buffer *buf, size_t min_size)
+static void buffer_alloc(Buffer *buf, size_t size)
 {
-	if (min_size == 0)
-		return;
-
 	i_assert(buf->w_buffer == NULL || buf->alloced);
 
-	buf->alloc = min_size;
+	if (size == buf->alloc)
+		return;
+
+	i_assert(size > buf->alloc);
+
+	buf->alloc = size;
 	if (buf->w_buffer == NULL)
 		buf->w_buffer = p_malloc(buf->pool, buf->alloc);
 	else
@@ -78,42 +87,41 @@ static int buffer_check_write(Buffer *buf, size_t *pos, size_t *data_size,
 		return FALSE;
 
 	/* check that we don't overflow size_t */
-	max_size = (size_t)-1 - *pos;
-	if (buf->start_pos >= max_size)
+	if (*pos >= (size_t)-1 - buf->start_pos)
 		return FALSE;
 	*pos += buf->start_pos;
 
+	max_size = (size_t)-1 - *pos;
 	if (*data_size <= max_size)
 		new_size = *pos + *data_size;
 	else {
-		new_size = *pos + max_size;
-		if (new_size <= *pos || !accept_partial)
+		if (max_size == 0 || !accept_partial)
 			return FALSE;
+
+		new_size = *pos + max_size;
 		*data_size = max_size;
+	}
+
+	/* make sure we're within our limits */
+	if (new_size > buf->limit) {
+		if (buf->hard) {
+			i_panic("Buffer full (%"PRIuSIZE_T" > "
+				"%"PRIuSIZE_T")",
+				new_size, buf->limit);
+		}
+
+		if (!accept_partial || *pos >= buf->limit)
+			return FALSE;
+
+		new_size = buf->limit;
+		*data_size = new_size - *pos;
 	}
 
 	/* see if we need to grow the buffer */
 	if (new_size > buf->alloc) {
 		alloc_size = nearest_power(new_size);
-		if (alloc_size > buf->limit) {
-			if (buf->hard) {
-				i_panic("Buffer full (%"PRIuSIZE_T" > "
-					"%"PRIuSIZE_T")",
-					alloc_size, buf->limit);
-			}
-
-			if (!accept_partial)
-				return FALSE;
-
+		if (alloc_size > buf->limit)
 			alloc_size = buf->limit;
-			if (*pos >= alloc_size)
-				return FALSE;
-
-			*data_size = alloc_size - *pos;
-		}
-
-		if (new_size > alloc_size)
-			new_size = alloc_size;
 
 		if (alloc_size != buf->alloc)
 			buffer_alloc(buf, alloc_size);
@@ -227,10 +235,13 @@ size_t buffer_insert(Buffer *buf, size_t pos,
 {
 	size_t move_size, size;
 
-	move_size = buf->used - buf->start_pos;
-	i_assert(pos <= move_size);
+	/* move_size == number of bytes we have to move forward to make space */
+	move_size = I_MIN(buf->used, buf->limit) - buf->start_pos;
+	if (pos >= move_size)
+		return 0;
 	move_size -= pos;
 
+	/* size == number of bytes we want to modify after pos */
 	if (data_size < (size_t)-1 - move_size)
 		size = data_size + move_size;
 	else
@@ -241,6 +252,7 @@ size_t buffer_insert(Buffer *buf, size_t pos,
 
 	i_assert(size >= move_size);
 	size -= move_size;
+	/* size == number of bytes we actually inserted. data_size usually. */
 
 	memmove(buf->w_buffer + pos + size, buf->w_buffer + pos, move_size);
 	memcpy(buf->w_buffer + pos, data, size);
@@ -254,8 +266,9 @@ size_t buffer_delete(Buffer *buf, size_t pos, size_t size)
 	if (buf->readonly)
 		return 0;
 
-	end_size = buf->used - buf->start_pos;
-	i_assert(pos <= end_size);
+	end_size = I_MIN(buf->used, buf->limit) - buf->start_pos;
+	if (pos >= end_size)
+		return 0;
 	end_size -= pos;
 
 	if (size < end_size) {
@@ -302,7 +315,7 @@ size_t buffer_append_buf(Buffer *dest, const Buffer *src,
 void *buffer_get_space(Buffer *buf, size_t pos, size_t size)
 {
 	if (!buffer_check_write(buf, &pos, &size, FALSE))
-		return 0;
+		return NULL;
 
 	return buf->w_buffer + pos;
 }
@@ -363,7 +376,7 @@ size_t buffer_set_limit(Buffer *buf, size_t limit)
 		limit += buf->start_pos;
 
 	buf->limit = I_MIN(limit, buf->max_alloc);
-	return old;
+	return old - buf->start_pos;
 }
 
 size_t buffer_get_limit(const Buffer *buf)
@@ -377,12 +390,14 @@ size_t buffer_get_size(const Buffer *buf)
 }
 
 #ifdef BUFFER_TEST
-/* gcc buffer.c -o buffer liblib.a -Wall -DHAVE_CONFIG_H -DBUFFER_TEST -g */
+/* gcc buffer.c -o testbuffer liblib.a -Wall -DHAVE_CONFIG_H -DBUFFER_TEST -g */
 int main(void)
 {
 	Buffer *buf;
 	char data[12], *bufdata;
 	size_t bufsize;
+
+	lib_init();
 
 	memset(data, '!', sizeof(data));
 	bufdata = data + 1;
@@ -406,17 +421,20 @@ int main(void)
 	i_assert(buffer_append(buf, "123456", 6) == 5);
 	i_assert(buf->used == 10);
 
-	buf = buffer_create_data(system_pool, bufdata, bufsize);
+	buf = buffer_create_data(system_pool, data, sizeof(data));
+	buffer_set_used_size(buf, 1);
+	buffer_set_start_pos(buf, 1);
+	buffer_set_limit(buf, sizeof(data)-2);
 	i_assert(buffer_append(buf, "12345", 5) == 5);
 	i_assert(buffer_insert(buf, 2, "123456", 6) == 5);
-	i_assert(buf->used == 10);
-	i_assert(memcmp(buf->r_buffer, "1212345345", 10) == 0);
+	i_assert(buf->used == 11);
+	i_assert(memcmp(buf->r_buffer, "!1212345345", 11) == 0);
 	i_assert(buffer_delete(buf, 2, 5) == 5);
-	i_assert(buf->used == 5);
-	i_assert(memcmp(buf->r_buffer, "12345", 5) == 0);
+	i_assert(buf->used == 6);
+	i_assert(memcmp(buf->r_buffer, "!12345", 6) == 0);
 	i_assert(buffer_delete(buf, 3, 5) == 2);
-	i_assert(buf->used == 3);
-	i_assert(memcmp(buf->r_buffer, "123", 3) == 0);
+	i_assert(buf->used == 4);
+	i_assert(memcmp(buf->r_buffer, "!123", 4) == 0);
 
 	i_assert(data[0] == '!');
 	i_assert(data[sizeof(data)-1] == '!');
