@@ -79,7 +79,9 @@ static struct auth_connection *auth_connection_new(const char *path)
 	memset(&handshake, 0, sizeof(handshake));
 	handshake.pid = login_process_uid;
 	if (o_stream_send(conn->output, &handshake, sizeof(handshake)) < 0) {
-                auth_connection_destroy(conn);
+		errno = conn->output->stream_errno;
+		i_warning("Error sending handshake to auth process: %m");
+		auth_connection_destroy(conn);
 		return NULL;
 	}
 	return conn;
@@ -234,6 +236,7 @@ static void auth_input(void *context)
 	case -1:
 		/* disconnected */
                 auth_reconnect = TRUE;
+		i_warning("Auth process disconnected unexpectedly");
 		auth_connection_destroy(conn);
 		return;
 	case -2:
@@ -315,8 +318,11 @@ int auth_init_request(enum auth_mech mech, enum auth_protocol protocol,
 	auth_request.mech = request->mech;
 	auth_request.id = request->id;
 	if (o_stream_send(request->conn->output, &auth_request,
-			  sizeof(auth_request)) < 0)
+			  sizeof(auth_request)) < 0) {
+		errno = request->conn->output->stream_errno;
+		i_warning("Error sending request to auth process: %m");
 		auth_connection_destroy(request->conn);
+	}
 	return TRUE;
 }
 
@@ -331,10 +337,12 @@ void auth_continue_request(struct auth_request *request,
 	auth_request.data_size = data_size;
 
 	if (o_stream_send(request->conn->output, &auth_request,
-			  sizeof(auth_request)) < 0)
+			  sizeof(auth_request)) < 0 ||
+	    o_stream_send(request->conn->output, data, data_size) < 0) {
+		errno = request->conn->output->stream_errno;
+		i_warning("Error sending continue request to auth process: %m");
 		auth_connection_destroy(request->conn);
-	else if (o_stream_send(request->conn->output, data, data_size) < 0)
-		auth_connection_destroy(request->conn);
+	}
 }
 
 void auth_abort_request(struct auth_request *request)
