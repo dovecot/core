@@ -24,7 +24,7 @@
 static unsigned char itoa64[] =		/* 0 ... 63 => ascii - 64 */
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-static char	*magic = "$1$";	/*
+static char	magic[] = "$1$";	/*
 				 * This string is magic for
 				 * this algorithm.  Having
 				 * it this way, we can get
