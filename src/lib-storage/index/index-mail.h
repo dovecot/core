@@ -22,7 +22,7 @@ enum index_cache_field {
 
 	MAIL_CACHE_FIELD_COUNT
 };
-extern struct mail_cache_field cache_fields[MAIL_CACHE_FIELD_COUNT];
+extern struct mail_cache_field global_cache_fields[MAIL_CACHE_FIELD_COUNT];
 
 enum mail_cache_record_flag {
 	/* If binary flags are set, it's not checked whether mail is

@@ -64,6 +64,7 @@ struct index_mailbox {
 	uint32_t commit_log_file_seq;
 	uoff_t commit_log_file_offset;
 
+	struct mail_cache_field *cache_fields;
 	buffer_t *recent_flags;
 	uint32_t recent_flags_start_seq, recent_flags_count;
 	uint32_t synced_recent_count;

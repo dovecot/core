@@ -186,8 +186,9 @@ static void set_cache_decisions(const char *set, const char *fields,
 
 	for (arr = t_strsplit_spaces(fields, " ,"); *arr != NULL; arr++) {
 		for (i = 0; i < MAIL_CACHE_FIELD_COUNT; i++) {
-			if (strcasecmp(cache_fields[i].name, *arr) == 0) {
-				cache_fields[i].decision = dec;
+			if (strcasecmp(global_cache_fields[i].name,
+				       *arr) == 0) {
+				global_cache_fields[i].decision = dec;
 				break;
 			}
 		}
@@ -198,24 +199,33 @@ static void set_cache_decisions(const char *set, const char *fields,
 	}
 }
 
-static void index_cache_register_defaults(struct mail_cache *cache)
+static void index_cache_register_defaults(struct index_mailbox *ibox)
 {
+	static int initialized = FALSE;
+	struct mail_cache *cache = ibox->cache;
 	const char *cache_env, *never_env;
 
-	cache_env = getenv("MAIL_CACHE_FIELDS");
-	if (cache_env == NULL)
-		cache_env = DEFAULT_CACHE_FIELDS;
-	never_env = getenv("MAIL_NEVER_CACHE_FIELDS");
-	if (never_env == NULL)
-		never_env = DEFAULT_NEVER_CACHE_FIELDS;
+	if (!initialized) {
+		initialized = TRUE;
 
-	set_cache_decisions("mail_cache_fields", cache_env,
-			    MAIL_CACHE_DECISION_TEMP);
-	set_cache_decisions("mail_never_cache_fields", never_env,
-			    MAIL_CACHE_DECISION_NO |
-			    MAIL_CACHE_DECISION_FORCED);
+		cache_env = getenv("MAIL_CACHE_FIELDS");
+		if (cache_env == NULL)
+			cache_env = DEFAULT_CACHE_FIELDS;
+		never_env = getenv("MAIL_NEVER_CACHE_FIELDS");
+		if (never_env == NULL)
+			never_env = DEFAULT_NEVER_CACHE_FIELDS;
 
-	mail_cache_register_fields(cache, cache_fields,
+		set_cache_decisions("mail_cache_fields", cache_env,
+				    MAIL_CACHE_DECISION_TEMP);
+		set_cache_decisions("mail_never_cache_fields", never_env,
+				    MAIL_CACHE_DECISION_NO |
+				    MAIL_CACHE_DECISION_FORCED);
+	}
+
+	ibox->cache_fields = i_malloc(sizeof(global_cache_fields));
+	memcpy(ibox->cache_fields, global_cache_fields,
+	       sizeof(global_cache_fields));
+	mail_cache_register_fields(cache, ibox->cache_fields,
 				   MAIL_CACHE_FIELD_COUNT);
 }
 
@@ -309,7 +319,7 @@ index_storage_mailbox_init(struct index_storage *storage, struct mailbox *box,
 			break;
 
 		ibox->cache = mail_index_get_cache(index);
-		index_cache_register_defaults(ibox->cache);
+		index_cache_register_defaults(ibox);
 		ibox->view = mail_index_view_open(index);
 		return ibox;
 	} while (0);
@@ -329,6 +339,7 @@ void index_storage_mailbox_free(struct mailbox *box)
 	index_mailbox_check_remove_all(ibox);
 	if (ibox->index != NULL)
 		index_storage_unref(ibox->index);
+        i_free(ibox->cache_fields);
 	i_free(ibox->path);
 	i_free(ibox->control_dir);
 
