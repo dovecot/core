@@ -106,6 +106,10 @@ void passdb_init(void)
 	if (strcasecmp(name, "ldap") == 0)
 		passdb = &passdb_ldap;
 #endif
+#ifdef PASSDB_PGSQL
+    if (strcasecmp(name, "pgsql") == 0)
+        passdb = &passdb_pgsql;
+#endif
 #ifdef AUTH_MODULES
 	passdb_module = auth_module_open(name);
 	if (passdb_module != NULL) {

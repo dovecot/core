@@ -115,6 +115,15 @@ AC_ARG_WITH(static-userdb,
 	fi,
 	want_static_userdb=yes)
 
+AC_ARG_WITH(pgsql,
+[  --with-pgsql            Build with PostgreSQL support],
+	if test x$withval = xno; then
+		want_pgsql=no
+	else
+		want_pgsql=yes
+	fi,
+	want_pgsql=no)
+
 AC_ARG_WITH(cyrus-sasl2,
 [  --with-cyrus-sasl2      Build with Cyrus SASL 2 library support],
 	if test x$withval = xno; then
@@ -769,6 +778,38 @@ if test $want_ldap = yes; then
 	])
 fi
 
+if test $want_pgsql = yes; then
+	# based on code from PHP
+	for i in /usr /usr/local /usr/local/pgsql; do
+		for j in include include/pgsql include/postgres include/postgresql ""; do
+			if test -r "$i/$j/libpq-fe.h"; then
+			PGSQL_INC_BASE=$i
+			PGSQL_INCLUDE=$i/$j
+		fi
+		done
+		for j in lib lib/pgsql lib/postgres lib/postgresql ""; do
+			if test -f "$i/$j/libpq.so" || test -f "$i/$j/libpq.a"; then
+				PGSQL_LIBDIR=$i/$j
+			fi
+		done
+	done
+
+	old_LIBS=$LIBS
+	LIBS="$LIBS -L$PGSQL_LIBDIR"
+
+	AC_CHECK_LIB(pq, PQconnectdb, [
+		AC_CHECK_HEADER($PGSQL_INCLUDE/libpq-fe.h, [
+			AUTH_CFLAGS="$AUTH_CFLAGS -I$PGSQL_INCLUDE"
+			PASSDB_LIBS="$PASSDB_LIBS -L$PGSQL_LIBDIR -lpq"
+			AC_DEFINE(USERDB_PGSQL,, Build with PostgreSQL support)
+			AC_DEFINE(PASSDB_PGSQL,, Build with PostgreSQL support)
+			userdb="$userdb pgsql"
+			passdb="$passdb pgsql"
+		])
+	])
+	LIBS=$old_LIBS
+fi
+
 if test $want_vpopmail = yes; then
 	vpopmail_home="`echo ~vpopmail`"
 	vpop_libdeps="$vpopmail_home/etc/lib_deps"
@@ -825,6 +866,7 @@ AC_CHECK_LIB(dl, dlopen, [
 
 AM_CONDITIONAL(AUTH_MODULES, test "$auth_modules" = "yes")
 
+AC_SUBST(AUTH_CFLAGS)
 AC_SUBST(PASSDB_LIBS)
 
 dnl **

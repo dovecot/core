@@ -88,6 +88,7 @@ file.
   --with-ldap             Build with LDAP support
   --with-vpopmail         Build with vpopmail support (default)
   --with-static-userdb    Build with static userdb support (default)
+  --with-pgsql            Build with PostgreSQL support
 
 Specify which authentication modules to use. Disabling them give you a few
 bytes smaller binary, but not much else.
@@ -107,8 +108,13 @@ gcc -shared -fPIC -DUSERDB_LDAP -DPASSDB_LDAP \
 db-ldap.c userdb-ldap.c passdb-ldap.c -o ldap.so \
 ../lib-settings/libsettings.a -lldap
 
+gcc -shared -fPIC -DUSERDB_PGSQL -DPASSDB_PGSQL \
+-I../.. -I../lib -I../lib-settings -I/usr/include/postgresql \
+db-pgsql.c userdb-pgsql.c passdb-pgsql.c -o pgsql.so \
+../lib-settings/libsettings.a -L/usr/lib/postgresql -lpq
+
 gcc -shared -fPIC -DUSERDB_VPOPMAIL -DPASSDB_VPOPMAIL -I../.. -I../lib \
 userdb-vpopmail.c passdb-vpopmail.c -o vpopmail.so -lvpopmail
 
-Including libsettings.a in ldap.so is kind of annoying, but it's not
-currently needed elsewhere in dovecot-auth.
+Including libsettings.a in ldap.so and pgsql.so is kind of annoying, but it's
+not needed elsewhere in dovecot-auth.

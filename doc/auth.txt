@@ -17,6 +17,7 @@ Currently supported password databases:
  - passwd-file: /etc/passwd-like file in specified location
  - ldap: Lightweight Directory Access Protocol
  - vpopmail: External software used to handle virtual domains
+ - pgsql: A PostgreSQL database.
 
 Currently supported user databases:
 
@@ -25,6 +26,7 @@ Currently supported user databases:
  - ldap: Lightweight Directory Access Protocol
  - vpopmail: External software used to handle virtual domains
  - static: Static UID and GID, home directory from given template
+ - pgsql: A PostgreSQL database.
 
 Most password databases support only plaintext authentication. passwd-file
 and LDAP exceptions since they support multiple password schemes.
@@ -124,6 +126,15 @@ static uid=<uid> gid=<gid> home=<dir template>
 
 All users share the same UID and GID. Home directory template can use %u,
 %n and %d variables, see default_mail_env description in dovecot-example.conf.
+
+
+PostgreSQL
+----------
+
+See dovecot-pgsql.conf for more information. Password and user databases may
+use different configuration files to keep the information in separate
+locations. If both refer to same file, they share the same PostgreSQL
+connection.
 
 
 Generating passwords

@@ -6,6 +6,7 @@ INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-DAUTH_MODULE_DIR=\""$(libdir)/dovecot/auth"\" \
+	$(AUTH_CFLAGS) \
 	$(VPOPMAIL_CFLAGS)
 
 dovecot_auth_LDADD = \
@@ -22,6 +23,7 @@ endif
 dovecot_auth_SOURCES = \
 	auth-module.c \
 	db-ldap.c \
+	db-pgsql.c \
 	db-passwd-file.c \
 	login-connection.c \
 	main.c \
@@ -39,13 +41,15 @@ dovecot_auth_SOURCES = \
 	passdb-pam.c \
 	passdb-shadow.c \
 	passdb-vpopmail.c \
+	passdb-pgsql.c \
 	password-scheme.c \
 	userdb.c \
 	userdb-ldap.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
 	userdb-static.c \
-	userdb-vpopmail.c
+	userdb-vpopmail.c \
+	userdb-pgsql.c
 
 noinst_HEADERS = \
 	auth-login-interface.h \
@@ -53,6 +57,7 @@ noinst_HEADERS = \
 	auth-mech-desc.h \
 	auth-module.h \
 	db-ldap.h \
+	db-pgsql.h \
 	db-passwd-file.h \
 	common.h \
 	login-connection.h \

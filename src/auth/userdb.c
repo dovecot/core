@@ -45,6 +45,10 @@ void userdb_init(void)
 	if (strcasecmp(name, "ldap") == 0)
 		userdb = &userdb_ldap;
 #endif
+#ifdef USERDB_PGSQL
+    if (strcasecmp(name, "pgsql") == 0)
+        userdb = &userdb_pgsql;
+#endif
 #ifdef AUTH_MODULES
 	userdb_module = auth_module_open(name);
 	if (userdb_module != NULL) {
