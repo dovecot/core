@@ -220,7 +220,7 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
 			i_unreached();
 		}
 
-		if (uid_rec.uid != 0 && uid_rec.uid <= uid) {
+		if (uid_rec.uid == uid) {
 			if (maildir_uidlist_next(uidlist, &uid_rec) < 0)
 				return FALSE;
 		}
