@@ -17,6 +17,8 @@
 /* max. size of one parameter in line */
 #define MAX_INBUF_SIZE 512
 
+#define MAX_OUTBUF_SIZE 1024
+
 /* max. number of IMAP argument elements to accept. The maximum memory usage
    for command from user is around MAX_INBUF_SIZE * MAX_IMAP_ARG_ELEMENTS */
 #define MAX_IMAP_ARG_ELEMENTS 4
@@ -48,6 +50,36 @@ static void client_set_title(struct imap_client *client)
 
 	process_title_set(t_strdup_printf(client->tls ? "[%s TLS]" : "[%s]",
 					  host));
+}
+
+static void client_open_streams(struct imap_client *client, int fd)
+{
+	client->input = i_stream_create_file(fd, default_pool,
+					     MAX_INBUF_SIZE, FALSE);
+	client->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
+					      IO_PRIORITY_DEFAULT, FALSE);
+	client->parser = imap_parser_create(client->input, client->output,
+					    MAX_INBUF_SIZE,
+					    MAX_IMAP_ARG_ELEMENTS);
+}
+
+/* Skip incoming data until newline is found,
+   returns TRUE if newline was found. */
+static int client_skip_line(struct imap_client *client)
+{
+	const unsigned char *data;
+	size_t i, data_size;
+
+	data = i_stream_get_data(client->input, &data_size);
+
+	for (i = 0; i < data_size; i++) {
+		if (data[i] == '\n') {
+			i_stream_skip(client->input, i+1);
+			return TRUE;
+		}
+	}
+
+	return FALSE;
 }
 
 static int cmd_capability(struct imap_client *client)
@@ -94,16 +126,16 @@ static int cmd_starttls(struct imap_client *client)
 		client->tls = TRUE;
                 client_set_title(client);
 
+		/* we skipped it already, so don't ignore next command */
+		client->skip_line = FALSE;
+
 		client->common.fd = fd_ssl;
 
 		i_stream_unref(client->input);
 		o_stream_unref(client->output);
+		imap_parser_destroy(client->parser);
 
-		client->input = i_stream_create_file(fd_ssl, default_pool,
-						     8192, FALSE);
-		client->output = o_stream_create_file(fd_ssl, default_pool,
-						      1024, IO_PRIORITY_DEFAULT,
-						      FALSE);
+		client_open_streams(client, fd_ssl);
 	} else {
 		client_send_line(client, " * BYE TLS handehake failed.");
 		client_destroy(client, "TLS handshake failed");
@@ -143,25 +175,6 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 		return cmd_noop(client);
 	if (strcmp(cmd, "LOGOUT") == 0)
 		return cmd_logout(client);
-
-	return FALSE;
-}
-
-/* Skip incoming data until newline is found,
-   returns TRUE if newline was found. */
-static int client_skip_line(struct imap_client *client)
-{
-	const unsigned char *data;
-	size_t i, data_size;
-
-	data = i_stream_get_data(client->input, &data_size);
-
-	for (i = 0; i < data_size; i++) {
-		if (data[i] == '\n') {
-			i_stream_skip(client->input, i+1);
-			return TRUE;
-		}
-	}
 
 	return FALSE;
 }
@@ -327,14 +340,9 @@ struct client *client_create(int fd, struct ip_addr *ip, int ssl)
 
 	client->common.ip = *ip;
 	client->common.fd = fd;
+
+	client_open_streams(client, fd);
 	client->io = io_add(fd, IO_READ, client_input, client);
-	client->input = i_stream_create_file(fd, default_pool,
-					     MAX_INBUF_SIZE, FALSE);
-	client->output = o_stream_create_file(fd, default_pool, 1024,
-					      IO_PRIORITY_DEFAULT, FALSE);
-	client->parser = imap_parser_create(client->input, client->output,
-					    MAX_INBUF_SIZE,
-					    MAX_IMAP_ARG_ELEMENTS);
 	client->plain_login = buffer_create_dynamic(system_pool, 128, 8192);
 
 	client->last_input = ioloop_time;
