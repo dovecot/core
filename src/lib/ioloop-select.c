@@ -53,7 +53,8 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
         p_free(ioloop->pool, ioloop->handler_data);
 }
 
-void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
+void io_loop_handle_add(struct ioloop *ioloop, int fd,
+			enum io_condition condition)
 {
 	i_assert(fd >= 0);
 
@@ -66,7 +67,8 @@ void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 		FD_SET(fd, &ioloop->handler_data->write_fds);
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, int fd, int condition)
+void io_loop_handle_remove(struct ioloop *ioloop, int fd,
+			   enum io_condition condition)
 {
 	i_assert(fd >= 0 && fd < FD_SETSIZE);
 
@@ -84,8 +86,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 {
 	struct timeval tv;
 	struct io *io, **io_p;
-        unsigned int t_id;
-	int ret, fd, condition;
+	unsigned int t_id;
+	int ret;
 
 	/* get the time left for next timeout task */
 	io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
@@ -117,10 +119,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
 		i_assert(io->fd >= 0);
 
-		fd = io->fd;
-		condition = io->condition;
-
-		if (io_check_condition(fd, condition)) {
+		if (io_check_condition(io->fd, io->condition)) {
 			ret--;
 
 			t_id = t_push();

@@ -225,6 +225,21 @@ AC_CHECK_FUNC(poll, [
 	AC_DEFINE(IOLOOP_SELECT,, Implement I/O loop with select())
 ])
 
+dnl * dnotify?
+AC_TRY_COMPILE([
+  #define _GNU_SOURCE
+  #include <fcntl.h>
+  #include <signal.h>
+  #include <unistd.h>
+], [
+  fcntl(0, F_SETSIG, SIGRTMIN);
+  fcntl(0, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME | DN_MULTISHOT);
+], [
+  AC_DEFINE(IOLOOP_NOTIFY_DNOTIFY,, Use Linux dnotify)
+], [
+  AC_DEFINE(IOLOOP_NOTIFY_NONE,, No special notify support)
+])
+
 dnl * OS specific options
 case "$host_os" in
 	hpux*)

@@ -56,12 +56,18 @@ static void update_highest_fd(struct ioloop *ioloop)
 	}
 }
 
-struct io *io_add(int fd, int condition, io_callback_t *callback, void *context)
+struct io *io_add(int fd, enum io_condition condition,
+		  io_callback_t *callback, void *context)
 {
 	struct io *io, **io_p;
 
 	i_assert(fd >= 0);
 	i_assert(callback != NULL);
+
+	if ((condition & IO_NOTIFY_MASK) != 0) {
+		return io_loop_notify_add(current_ioloop, fd, condition,
+					  callback, context);
+	}
 
 	io = p_new(current_ioloop->pool, struct io, 1);
 	io->fd = fd;
@@ -71,9 +77,9 @@ struct io *io_add(int fd, int condition, io_callback_t *callback, void *context)
         io->context = context;
 
 	if (io->fd > current_ioloop->highest_fd)
-                current_ioloop->highest_fd = io->fd;
+		current_ioloop->highest_fd = io->fd;
 
-        io_loop_handle_add(current_ioloop, io->fd, io->condition);
+	io_loop_handle_add(current_ioloop, io->fd, io->condition);
 
 	/* have to append it, or io_destroy() breaks */
         io_p = &current_ioloop->ios;
@@ -87,14 +93,20 @@ void io_remove(struct io *io)
 {
 	i_assert(io != NULL);
 	i_assert(io->fd >= 0);
+
+	if ((io->condition & IO_NOTIFY_MASK) != 0) {
+		io_loop_notify_remove(current_ioloop, io);
+		return;
+	}
+
 	i_assert(io->fd <= current_ioloop->highest_fd);
 
-        /* notify the real I/O handler */
+	/* notify the real I/O handler */
 	io_loop_handle_remove(current_ioloop, io->fd, io->condition);
 
-        /* check if we removed the highest fd */
+	/* check if we removed the highest fd */
 	if (io->fd == current_ioloop->highest_fd)
-                update_highest_fd(current_ioloop);
+		update_highest_fd(current_ioloop);
 
 	io->destroyed = TRUE;
 	io->fd = -1;

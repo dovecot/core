@@ -25,6 +25,8 @@ liblib_a_SOURCES = \
 	istream-file.c \
 	istream-mmap.c \
 	ioloop.c \
+	ioloop-notify-none.c \
+	ioloop-notify-dn.c \
 	ioloop-poll.c \
 	ioloop-select.c \
 	lib.c \

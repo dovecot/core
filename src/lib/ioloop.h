@@ -4,12 +4,18 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define IO_READ			(1 << 0)
-#define IO_WRITE		(1 << 1)
-
 struct io;
 struct timeout;
 struct ioloop;
+
+enum io_condition {
+	IO_READ		= 0x01,
+	IO_WRITE	= 0x02,
+	IO_DIR_NOTIFY	= 0x04,
+	IO_FILE_NOTIFY	= 0x08,
+
+	IO_NOTIFY_MASK	= IO_DIR_NOTIFY | IO_FILE_NOTIFY
+};
 
 typedef void io_callback_t(void *context);
 typedef void timeout_callback_t(void *context);
@@ -22,8 +28,12 @@ extern struct timezone ioloop_timezone;
 
 /* I/O listeners - you can create different handlers for IO_READ and IO_WRITE,
    but make sure you don't create multiple handlers of same type, it's not
-   checked and removing one will stop the other from working as well. */
-struct io *io_add(int fd, int condition, io_callback_t *callback, void *context);
+   checked and removing one will stop the other from working as well.
+
+   If IO_DIR_NOTIFY or IO_FILE_NOTIFY isn't supported by operating system
+   directly, this function returns NULL. */
+struct io *io_add(int fd, enum io_condition condition,
+		  io_callback_t *callback, void *context);
 void io_remove(struct io *io);
 
 /* Timeout handlers */

@@ -68,7 +68,8 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 #define IO_POLL_INPUT (POLLIN|POLLPRI|POLLERR|POLLHUP|POLLNVAL)
 #define IO_POLL_OUTPUT (POLLOUT|POLLERR|POLLHUP|POLLNVAL)
 
-void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
+void io_loop_handle_add(struct ioloop *ioloop, int fd,
+			enum io_condition condition)
 {
 	struct ioloop_handler_data *data = ioloop->handler_data;
 	unsigned int old_size;
@@ -119,7 +120,8 @@ void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition)
 		data->fds[index].events |= IO_POLL_OUTPUT;
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, int fd, int condition)
+void io_loop_handle_remove(struct ioloop *ioloop, int fd,
+			   enum io_condition condition)
 {
 	struct ioloop_handler_data *data = ioloop->handler_data;
 	int index;

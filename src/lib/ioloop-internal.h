@@ -9,7 +9,8 @@ struct ioloop {
 	pool_t pool;
 	int highest_fd;
 
-	struct io *ios; /* sorted by priority */
+	struct io *ios;
+	struct io *notifys, *event_io;
 	struct timeout *timeouts; /* sorted by next_run */
 
         struct ioloop_handler_data *handler_data;
@@ -52,10 +53,17 @@ void io_destroy(struct ioloop *ioloop, struct io **io_p);
 void timeout_destroy(struct ioloop *ioloop, struct timeout **timeout_p);
 
 /* I/O handler calls */
-void io_loop_handle_add(struct ioloop *ioloop, int fd, int condition);
-void io_loop_handle_remove(struct ioloop *ioloop, int fd, int condition);
+void io_loop_handle_add(struct ioloop *ioloop, int fd,
+			enum io_condition condition);
+void io_loop_handle_remove(struct ioloop *ioloop, int fd,
+			   enum io_condition condition);
 
 void io_loop_handler_init(struct ioloop *ioloop);
 void io_loop_handler_deinit(struct ioloop *ioloop);
+
+struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
+			      enum io_condition condition,
+			      io_callback_t *callback, void *context);
+void io_loop_notify_remove(struct ioloop *ioloop, struct io *io);
 
 #endif
