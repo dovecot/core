@@ -467,32 +467,51 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx)
 	return 0;
 }
 
-static void update_from_offsets(struct mbox_sync_context *sync_ctx)
+static int update_from_offsets(struct mbox_sync_context *sync_ctx)
 {
 	const struct mbox_sync_mail *mails;
-	uint32_t idx, idx_seq, extra_idx = sync_ctx->ibox->mbox_extra_idx;
+	uint32_t idx, idx_seq, uid, extra_idx;
 	uint64_t offset;
 	size_t size;
+
+	extra_idx = sync_ctx->ibox->mbox_extra_idx;
 
 	mails = buffer_get_modifyable_data(sync_ctx->mails, &size);
 	size /= sizeof(*mails);
 	i_assert(sync_ctx->seq - sync_ctx->need_space_seq + 1 == size);
 
-	idx = 0;
-	idx_seq = sync_ctx->need_space_idx_seq;
-	if (idx_seq == 0) {
-		/* pseudo-header, skip it */
-		idx++; idx_seq++;
-	}
-
-	for (; idx < size; idx++, idx_seq++) {
+	for (idx = 0; idx < size; idx++) {
 		if (mails[idx].uid == 0)
 			continue;
+
+		if (idx_seq != 0) {
+			/* it's probably the next one */
+			idx_seq++;
+			if (mail_index_lookup_uid(sync_ctx->sync_view, idx_seq,
+						  &uid) < 0) {
+				mail_storage_set_index_error(sync_ctx->ibox);
+				return -1;
+			}
+			if (uid != mails[idx].uid)
+				idx_seq = 0;
+		}
+
+		if (idx_seq == 0) {
+			if (mail_index_lookup_uid_range(sync_ctx->sync_view,
+							mails[idx].uid,
+							mails[idx].uid,
+							&idx_seq,
+							&idx_seq) < 0) {
+				mail_storage_set_index_error(sync_ctx->ibox);
+				return -1;
+			}
+		}
 
 		offset = mails[idx].from_offset;
 		mail_index_update_extra_rec(sync_ctx->t, idx_seq, extra_idx,
 					    &offset);
 	}
+	return 0;
 }
 
 static int mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
@@ -558,8 +577,6 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 	if (ret == 0 && sync_ctx->need_space_seq == 0) {
 		/* first mail with no space to write it */
 		sync_ctx->need_space_seq = sync_ctx->seq;
-		sync_ctx->need_space_idx_seq =
-			mail_ctx->pseudo ? 0 : sync_ctx->idx_seq;
 		sync_ctx->space_diff = 0;
 
 		if (sync_ctx->expunged_space > 0) {
@@ -608,7 +625,8 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 			      sync_ctx->need_space_seq, sync_ctx->seq) < 0)
 		return -1;
 
-	update_from_offsets(sync_ctx);
+	if (update_from_offsets(sync_ctx) < 0)
+		return -1;
 
 	/* mail_ctx may contain wrong data after rewrite, so make sure we
 	   don't try to access it */
@@ -900,7 +918,8 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 				return -1;
 		}
 
-		update_from_offsets(sync_ctx);
+		if (update_from_offsets(sync_ctx) < 0)
+			return -1;
 
 		sync_ctx->need_space_seq = 0;
 		buffer_set_used_size(sync_ctx->mails, 0);
