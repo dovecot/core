@@ -82,6 +82,8 @@ static void log_unthrottle(struct log_io *log_io)
 
 static int log_it(struct log_io *log_io, const char *line, int continues)
 {
+	const char *prefix;
+
 	if (log_io->next_log_type == '\0') {
 		if (line[0] == 1 && line[1] != '\0') {
 			/* our internal protocol.
@@ -94,15 +96,16 @@ static int log_it(struct log_io *log_io, const char *line, int continues)
 	}
 
 	t_push();
+	prefix = log_io->prefix != NULL ? log_io->prefix : "";
 	switch (log_io->next_log_type) {
 	case 'I':
-		i_info("%s%s", log_io->prefix, line);
+		i_info("%s%s", prefix, line);
 		break;
 	case 'W':
-		i_warning("%s%s", log_io->prefix, line);
+		i_warning("%s%s", prefix, line);
 		break;
 	default:
-		i_error("%s%s", log_io->prefix, line);
+		i_error("%s%s", prefix, line);
 		break;
 	}
 	t_pop();
@@ -152,7 +155,7 @@ static void log_read(void *context)
 		log_unthrottle(log_io);
 }
 
-int log_create_pipe(const char *prefix)
+int log_create_pipe(struct log_io **log_r)
 {
 	struct log_io *log_io;
 	int fd[2];
@@ -166,7 +169,6 @@ int log_create_pipe(const char *prefix)
 	fd_close_on_exec(fd[1], TRUE);
 
 	log_io = i_new(struct log_io, 1);
-	log_io->prefix = i_strdup(prefix);
 	log_io->stream = i_stream_create_file(fd[0], default_pool, 1024, TRUE);
 
 	throttle_count++;
@@ -177,7 +179,15 @@ int log_create_pipe(const char *prefix)
 	log_io->next = log_ios;
 	log_ios = log_io;
 
+	if (log_r != NULL)
+		*log_r = log_io;
 	return fd[1];
+}
+
+void log_set_prefix(struct log_io *log, const char *prefix)
+{
+	i_free(log->prefix);
+	log->prefix = i_strdup(prefix);
 }
 
 static void log_io_free(struct log_io *log_io)

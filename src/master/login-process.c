@@ -422,6 +422,7 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 static pid_t create_login_process(struct login_group *group)
 {
 	static const char *argv[] = { NULL, NULL };
+	struct log_io *log;
 	const char *prefix;
 	pid_t pid;
 	int fd[2], log_fd;
@@ -442,9 +443,7 @@ static pid_t create_login_process(struct login_group *group)
 		return -1;
 	}
 
-	prefix = t_strdup_printf("%s-login: ",
-				 process_names[group->process_type]);
-	log_fd = log_create_pipe(prefix);
+	log_fd = log_create_pipe(&log);
 	if (log_fd < 0)
 		pid = -1;
 	else {
@@ -462,6 +461,10 @@ static pid_t create_login_process(struct login_group *group)
 
 	if (pid != 0) {
 		/* master */
+		prefix = t_strdup_printf("%s-login: ",
+					 process_names[group->process_type]);
+		log_set_prefix(log, prefix);
+
 		net_set_nonblock(fd[0], TRUE);
 		fd_close_on_exec(fd[0], TRUE);
 		(void)login_process_new(group, pid, fd[0]);
@@ -470,23 +473,27 @@ static pid_t create_login_process(struct login_group *group)
 		return pid;
 	}
 
+	prefix = t_strdup_printf("master-%s-login: ",
+				 process_names[group->process_type]);
+	log_set_prefix(log, prefix);
+
 	/* move the listen handle */
 	if (dup2(group->set->listen_fd, LOGIN_LISTEN_FD) < 0)
-		i_fatal("login: dup2(listen_fd) failed: %m");
+		i_fatal("dup2(listen_fd) failed: %m");
 	fd_close_on_exec(LOGIN_LISTEN_FD, FALSE);
 
 	/* move the SSL listen handle */
 	if (dup2(group->set->ssl_listen_fd, LOGIN_SSL_LISTEN_FD) < 0)
-		i_fatal("login: dup2(ssl_listen_fd) failed: %m");
+		i_fatal("dup2(ssl_listen_fd) failed: %m");
 	fd_close_on_exec(LOGIN_SSL_LISTEN_FD, FALSE);
 
 	/* move communication handle */
 	if (dup2(fd[1], LOGIN_MASTER_SOCKET_FD) < 0)
-		i_fatal("login: dup2(master) failed: %m");
+		i_fatal("dup2(master) failed: %m");
 	fd_close_on_exec(LOGIN_MASTER_SOCKET_FD, FALSE);
 
 	if (dup2(log_fd, 2) < 0)
-		i_fatal("login: dup2(stderr) failed: %m");
+		i_fatal("dup2(stderr) failed: %m");
 	fd_close_on_exec(2, FALSE);
 
 	(void)close(fd[0]);

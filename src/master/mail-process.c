@@ -150,10 +150,11 @@ int create_mail_process(struct login_group *group, int socket,
 			struct ip_addr *ip,
 			struct auth_master_reply *reply, const char *data)
 {
-	const char *argv[4];
 	struct settings *set = group->set;
+	const char *argv[4];
 	const char *addr, *mail, *user, *chroot_dir, *home_dir, *full_home_dir;
 	const char *executable, *p, *prefix;
+	struct log_io *log;
 	char title[1024];
 	pid_t pid;
 	int i, err, ret, log_fd;
@@ -179,9 +180,7 @@ int create_mail_process(struct login_group *group, int socket,
 		return FALSE;
 	}
 
-	prefix = t_strdup_printf("%s(%s): ", process_names[group->process_type],
-				 data + reply->virtual_user_idx);
-	log_fd = log_create_pipe(prefix);
+	log_fd = log_create_pipe(&log);
 
 	pid = fork();
 	if (pid < 0) {
@@ -192,25 +191,35 @@ int create_mail_process(struct login_group *group, int socket,
 
 	if (pid != 0) {
 		/* master */
+		prefix = t_strdup_printf("%s(%s): ",
+					 process_names[group->process_type],
+					 data + reply->virtual_user_idx);
+		log_set_prefix(log, prefix);
+
 		mail_process_count++;
 		PID_ADD_PROCESS_TYPE(pid, group->process_type);
 		(void)close(log_fd);
 		return TRUE;
 	}
 
+	prefix = t_strdup_printf("master-%s(%s): ",
+				 process_names[group->process_type],
+				 data + reply->virtual_user_idx);
+	log_set_prefix(log, prefix);
+
 	child_process_init_env();
 
 	/* move the client socket into stdin and stdout fds */
 	fd_close_on_exec(socket, FALSE);
 	if (dup2(socket, 0) < 0)
-		i_fatal("mail: dup2(stdin) failed: %m");
+		i_fatal("dup2(stdin) failed: %m");
 	if (dup2(socket, 1) < 0)
-		i_fatal("mail: dup2(stdout) failed: %m");
+		i_fatal("dup2(stdout) failed: %m");
 	if (dup2(log_fd, 2) < 0)
-		i_fatal("mail: dup2(stderr) failed: %m");
+		i_fatal("dup2(stderr) failed: %m");
 
 	if (close(socket) < 0)
-		i_error("mail: close(mail client) failed: %m");
+		i_error("close(mail client) failed: %m");
 
 	/* setup environment - set the most important environment first
 	   (paranoia about filling up environment without noticing) */

@@ -254,6 +254,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 {
 	static char *argv[] = { NULL, NULL };
 	const char *prefix;
+	struct log_io *log;
 	pid_t pid;
 	int fd[2], log_fd, i;
 
@@ -263,8 +264,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 		return -1;
 	}
 
-	prefix = t_strdup_printf("auth(%s): ", group->set->name);
-	log_fd = log_create_pipe(prefix);
+	log_fd = log_create_pipe(&log);
 	if (log_fd < 0)
 		pid = -1;
 	else {
@@ -282,6 +282,9 @@ static pid_t create_auth_process(struct auth_process_group *group)
 
 	if (pid != 0) {
 		/* master */
+		prefix = t_strdup_printf("auth(%s): ", group->set->name);
+		log_set_prefix(log, prefix);
+
 		net_set_nonblock(fd[0], TRUE);
 		fd_close_on_exec(fd[0], TRUE);
 		auth_process_new(pid, fd[0], group);
@@ -290,19 +293,22 @@ static pid_t create_auth_process(struct auth_process_group *group)
 		return pid;
 	}
 
+	prefix = t_strdup_printf("master-auth(%s): ", group->set->name);
+	log_set_prefix(log, prefix);
+
 	/* move master communication handle to 0 */
 	if (dup2(fd[1], 0) < 0)
-		i_fatal("auth: dup2(stdin) failed: %m");
+		i_fatal("dup2(stdin) failed: %m");
 
 	(void)close(fd[0]);
 	(void)close(fd[1]);
 
 	/* set stdout to /dev/null, so anything written into it gets ignored. */
 	if (dup2(null_fd, 1) < 0)
-		i_fatal("auth: dup2(stdout) failed: %m");
+		i_fatal("dup2(stdout) failed: %m");
 
 	if (dup2(log_fd, 2) < 0)
-		i_fatal("auth: dup2(stderr) failed: %m");
+		i_fatal("dup2(stderr) failed: %m");
 
 	child_process_init_env();
 
@@ -310,7 +316,7 @@ static pid_t create_auth_process(struct auth_process_group *group)
 	   sure it's not closed afterwards. */
 	if (group->listen_fd != 3) {
 		if (dup2(group->listen_fd, 3) < 0)
-			i_fatal("auth: dup2() failed: %m");
+			i_fatal("dup2() failed: %m");
 	}
 
 	for (i = 0; i <= 3; i++)
