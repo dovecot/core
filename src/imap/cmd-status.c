@@ -46,6 +46,7 @@ static int get_mailbox_status(Client *client, const char *mailbox,
 			      MailboxStatusItems items, MailboxStatus *status)
 {
 	Mailbox *box;
+	int failed;
 
 	if (strcasecmp(mailbox, "inbox") == 0)
 		mailbox = "INBOX";
@@ -62,13 +63,12 @@ static int get_mailbox_status(Client *client, const char *mailbox,
 			return FALSE;
 	}
 
-	if (!box->get_status(box, items, status))
-		return FALSE;
+	failed = !box->get_status(box, items, status);
 
 	if (box != client->mailbox)
 		box->close(box);
 
-	return TRUE;
+	return !failed;
 }
 
 int cmd_status(Client *client)

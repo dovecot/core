@@ -132,5 +132,5 @@ int index_storage_get_status(Mailbox *box, MailboxStatusItems items,
 
 	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK))
 		return mail_storage_set_index_error(ibox);
-	return hdr != NULL;
+	return TRUE;
 }
