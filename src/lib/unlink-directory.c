@@ -153,10 +153,9 @@ static int unlink_directory_r(const char *dir)
 			}
 		}
 	}
+	old_errno = errno;
 
 	(void)close(dir_fd);
-
-	old_errno = errno;
 	if (closedir(dirp) < 0)
 		return -1;
 
@@ -170,7 +169,7 @@ static int unlink_directory_r(const char *dir)
 
 int unlink_directory(const char *dir, int unlink_dir)
 {
-	int fd, ret;
+	int fd, ret, old_errno;
 
 	fd = open(".", O_RDONLY);
 	if (fd == -1)
@@ -179,6 +178,7 @@ int unlink_directory(const char *dir, int unlink_dir)
 	ret = unlink_directory_r(dir);
 	if (ret < 0 && errno == ENOENT)
 		ret = 0;
+	old_errno = errno;
 
 	if (fchdir(fd) < 0) {
 		i_fatal("unlink_directory(%s): "
@@ -186,10 +186,15 @@ int unlink_directory(const char *dir, int unlink_dir)
 	}
 	(void)close(fd);
 
+	if (ret < 0) {
+		errno = old_errno;
+		return -1;
+	}
+
 	if (unlink_dir) {
 		if (rmdir(dir) < 0 && errno != ENOENT)
 			return -1;
 	}
 
-	return ret;
+	return 0;
 }
