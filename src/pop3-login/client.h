@@ -25,7 +25,7 @@ struct pop3_client {
 
 	unsigned int tls:1;
 	unsigned int secured:1;
-	unsigned int input_blocked:1;
+	unsigned int auth_connected:1;
 	unsigned int destroyed:1;
 };
 

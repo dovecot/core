@@ -163,13 +163,6 @@ void client_input(void *context)
 	if (!client_read(client))
 		return;
 
-	if (!auth_client_is_connected(auth_client)) {
-		/* we're not yet connected to auth process -
-		   don't allow any commands */
-		client->input_blocked = TRUE;
-		return;
-	}
-
 	client_ref(client);
 
 	o_stream_cork(client->output);
@@ -236,13 +229,21 @@ static char *get_apop_challenge(void)
 {
 	struct auth_connect_id id;
 
-	/* FIXME: breaks if we're not connected! */
-
 	if (!auth_client_reserve_connection(auth_client, "APOP", &id))
 		return NULL;
 
 	return i_strdup_printf("<%x.%x.%s@%s>", id.server_pid, id.connect_uid,
 			       dec2str(ioloop_time), my_hostname);
+}
+
+static void client_auth_ready(struct pop3_client *client)
+{
+	client->common.io =
+		io_add(client->common.fd, IO_READ, client_input, client);
+
+	client->apop_challenge = get_apop_challenge();
+	client_send_line(client, t_strconcat("+OK " PACKAGE " ready.",
+					     client->apop_challenge, NULL));
 }
 
 struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
@@ -274,7 +275,6 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 	client->common.local_ip = *local_ip;
 	client->common.ip = *ip;
 	client->common.fd = fd;
-	client->common.io = io_add(fd, IO_READ, client_input, client);
 	client_open_streams(client, fd);
 
 	client->last_input = ioloop_time;
@@ -282,9 +282,9 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 
 	main_ref();
 
-	client->apop_challenge = get_apop_challenge();
-	client_send_line(client, t_strconcat("+OK " PACKAGE " ready.",
-					     client->apop_challenge, NULL));
+	client->auth_connected = auth_client_is_connected(auth_client);
+	if (client->auth_connected)
+		client_auth_ready(client);
 	client_set_title(client);
 	return &client->common;
 }
@@ -396,9 +396,9 @@ void clients_notify_auth_connected(void)
 	while (hash_iterate(iter, &key, &value)) {
 		struct pop3_client *client = key;
 
-		if (client->input_blocked) {
-			client->input_blocked = FALSE;
-			client_input(client);
+		if (!client->auth_connected) {
+			client->auth_connected = TRUE;
+			client_auth_ready(client);
 		}
 	}
 	hash_iterate_deinit(iter);
