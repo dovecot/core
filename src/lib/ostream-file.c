@@ -876,6 +876,15 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 			fstream->optimal_block_size =
 				I_MIN(st.st_blksize, MAX_OPTIMAL_BLOCK_SIZE);
 		}
+#ifndef HAVE_LINUX_SENDFILE
+		/* only Linux supports sendfile() with non-sockets. Other
+		   systems fail more or less gracefully if it's tried, so
+		   don't bother to even try with them. */
+		fstream->no_sendfile = TRUE;
+#endif
+	} else {
+		if (net_getsockname(fd, NULL, NULL) < 0)
+			fstream->no_sendfile = TRUE;
 	}
 	return ostream;
 }

@@ -92,12 +92,8 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 
 	i_assert(count <= SSIZE_T_MAX);
 
-	/* outfd must be socket, or at least some Solaris versions will
+	/* NOTE: if outfd is not a socket, some Solaris versions will
 	   kernel panic */
-	if (net_getsockname(out_fd, NULL, NULL) < 0) {
-		errno = EINVAL;
-		return -1;
-	}
 
 	vec.sfv_fd = in_fd;
 	vec.sfv_flag = 0;
