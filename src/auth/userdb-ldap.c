@@ -3,12 +3,9 @@
 #include "config.h"
 #undef HAVE_CONFIG_H
 
-#if defined(PASSDB_LDAP) || defined(USERDB_LDAP)
+#ifdef USERDB_LDAP
 
 #include "common.h"
-#include "ioloop.h"
-#include "hash.h"
-#include "str.h"
 #include "db-ldap.h"
 #include "userdb.h"
 
