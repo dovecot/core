@@ -249,6 +249,8 @@ static void ssl_handshake(void *context, int fd __attr_unused__,
 		if (proxy->io_ssl != NULL)
 			io_remove(proxy->io_ssl);
 
+		proxy->io_plain = io_add(proxy->fd_plain, IO_READ,
+					 plain_input, proxy);
 		proxy->io_ssl = io_add(proxy->fd_ssl, IO_READ,
 				       ssl_input, proxy);
 		return;
@@ -294,8 +296,6 @@ int ssl_proxy_new(int fd)
 	proxy->state = state;
 	proxy->fd_ssl = fd;
 	proxy->fd_plain = sfd[0];
-
-	proxy->io_plain = io_add(proxy->fd_plain, IO_READ, plain_input, proxy);
 
 	proxy->refcount++;
 	ssl_handshake(proxy, -1, NULL);
