@@ -18,6 +18,7 @@ enum {
 	PROCESS_TYPE_MAX
 };
 
+extern struct ioloop *ioloop;
 extern struct hash_table *pids;
 extern int null_fd, imap_fd, imaps_fd;
 

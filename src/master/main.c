@@ -28,9 +28,9 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 };
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
-static struct ioloop *ioloop;
 static struct timeout *to;
 
+struct ioloop *ioloop;
 struct hash_table *pids;
 int null_fd, imap_fd, imaps_fd;
 
@@ -258,6 +258,9 @@ static void main_deinit(void)
 {
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
+
+	/* make sure we log if child processes died unexpectedly */
+	timeout_handler(NULL, NULL);
 
 	login_processes_deinit();
 	auth_processes_deinit();

@@ -223,8 +223,10 @@ static void login_process_destroy(struct login_process *p)
 		return;
 	p->destroyed = TRUE;
 
-	if (!p->initialized)
-		i_fatal("Login process died too early - shutting down");
+	if (!p->initialized) {
+		i_error("Login process died too early - shutting down");
+		io_loop_stop(ioloop);
+	}
 	if (p->listening)
 		listening_processes--;
 

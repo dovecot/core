@@ -160,8 +160,10 @@ static void auth_process_destroy(struct auth_process *p)
 	struct auth_process **pos;
 	struct waiting_request *next;
 
-	if (!p->initialized)
-		i_fatal("Auth process died too early - shutting down");
+	if (!p->initialized) {
+		i_error("Auth process died too early - shutting down");
+		io_loop_stop(ioloop);
+	}
 
 	for (pos = &processes; *pos != NULL; pos = &(*pos)->next) {
 		if (*pos == p) {
