@@ -26,7 +26,7 @@ struct ssl_proxy {
         enum ssl_state state;
 
 	int fd_ssl, fd_plain;
-	IO io_ssl, io_plain_read, io_plain_write;
+	struct io *io_ssl, *io_plain_read, *io_plain_write;
 	int io_ssl_dir;
 
 	unsigned char plainout_buf[1024];
@@ -242,7 +242,7 @@ static void ssl_write_step(struct ssl_proxy *proxy)
 }
 
 static void ssl_step(void *context, int fd __attr_unused__,
-		     IO io __attr_unused__)
+		     struct io *io __attr_unused__)
 {
         struct ssl_proxy *proxy = context;
 
