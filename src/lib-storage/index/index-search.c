@@ -98,6 +98,23 @@ static int msgset_contains(const char *set, unsigned int match_num,
 	return FALSE;
 }
 
+static off_t str_to_off_t(const char *str)
+{
+	off_t num;
+
+	num = 0;
+	while (*str != '\0') {
+		if (*str < '0' || *str > '9')
+			return -1;
+
+		/* FIXME: this may overflow, and ANSI-C says overflowing
+		   signed values have undefined behaviour.. */
+		num = num*10 + *str - '0';
+	}
+
+	return num;
+}
+
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
 static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 				  unsigned int seq, MailSearchArgType type,
@@ -163,9 +180,9 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 
 	/* sizes */
 	case SEARCH_SMALLER:
-		return rec->full_virtual_size < strtoul(value, NULL, 10);
+		return rec->full_virtual_size < str_to_off_t(value);
 	case SEARCH_LARGER:
-		return rec->full_virtual_size > strtoul(value, NULL, 10);
+		return rec->full_virtual_size > str_to_off_t(value);
 
 	default:
 		return -1;
@@ -529,7 +546,7 @@ static void seq_update(const char *set, unsigned int *first_seq,
 				*last_seq = seq;
 		}
 
-		seq++;
+		set++;
 	}
 }
 
@@ -610,6 +627,11 @@ static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 
 	/* see if we can limit the records we look at */
 	search_get_sequences(ibox, args, &first_seq, &last_seq);
+
+	if (first_seq > last_seq) {
+		/* not possible */
+		return;
+	}
 
 	ctx.ibox = ibox;
 
