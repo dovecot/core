@@ -37,12 +37,25 @@ enum modify_type {
 	MODIFY_REPLACE
 };
 
+enum mail_sort_type {
+	MAIL_SORT_ARRIVAL	= 0x0010,
+	MAIL_SORT_CC		= 0x0020,
+	MAIL_SORT_DATE		= 0x0040,
+	MAIL_SORT_FROM		= 0x0080,
+	MAIL_SORT_SIZE		= 0x0100,
+	MAIL_SORT_SUBJECT	= 0x0200,
+	MAIL_SORT_TO		= 0x0400,
+
+	MAIL_SORT_REVERSE	= 0x0001, /* reverse the next type */
+
+	MAIL_SORT_END		= 0x0000 /* ends sort program */
+};
+
 struct mail_storage;
 struct mail_storage_callbacks;
 struct mailbox_status;
 struct mail_fetch_data;
 struct mail_search_arg;
-enum mail_sort_type;
 
 typedef void (*MailboxFunc)(struct mail_storage *storage, const char *name,
 			    enum mailbox_flags flags, void *context);

@@ -6,20 +6,6 @@
 /* Maximum size for sort program, 2x for reverse + END */
 #define MAX_SORT_PROGRAM_SIZE (2*7 + 1)
 
-enum mail_sort_type {
-	MAIL_SORT_ARRIVAL	= 0x0010,
-	MAIL_SORT_CC		= 0x0020,
-	MAIL_SORT_DATE		= 0x0040,
-	MAIL_SORT_FROM		= 0x0080,
-	MAIL_SORT_SIZE		= 0x0100,
-	MAIL_SORT_SUBJECT	= 0x0200,
-	MAIL_SORT_TO		= 0x0400,
-
-	MAIL_SORT_REVERSE	= 0x0001, /* reverse the next type */
-
-	MAIL_SORT_END		= 0x0000 /* ends sort program */
-};
-
 struct mail_sort_funcs {
 	/* arrival, date */
 	time_t (*input_time)(enum mail_sort_type type, unsigned int id,
