@@ -34,7 +34,7 @@
 #include <sys/un.h>
 #include <sys/uio.h>
 
-#if defined (__sun__) && !defined(CMSG_SPACE)
+#ifndef CMSG_SPACE
 #  define CMSG_ALIGN(len) \
 	(((len) + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1))
 #  define CMSG_SPACE(len) \
