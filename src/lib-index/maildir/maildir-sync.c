@@ -79,7 +79,8 @@ static int maildir_index_sync_files(struct mail_index *index, const char *dir,
 		base_fname = t_strcut(fname, ':');
 
 		value = hash_lookup(files, base_fname);
-		hash_remove(files, base_fname);
+		if (value != NULL)
+			hash_remove(files, base_fname);
 
 		t_pop();
 
