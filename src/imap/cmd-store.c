@@ -95,8 +95,11 @@ int cmd_store(struct client *client)
 
 	/* and update the flags */
 	box = client->mailbox;
-	fetch_ctx = box->fetch_init(box, MAIL_FETCH_FLAGS, TRUE,
-				    messageset, client->cmd_uid);
+
+	failed = !box->lock(box, MAILBOX_LOCK_FLAGS | MAILBOX_LOCK_READ);
+	fetch_ctx = failed ? NULL :
+		box->fetch_init(box, MAIL_FETCH_FLAGS,
+				messageset, client->cmd_uid);
 	if (fetch_ctx == NULL)
 		failed = TRUE;
 	else {
@@ -118,6 +121,8 @@ int cmd_store(struct client *client)
 
 	if (!box->fetch_deinit(fetch_ctx, &all_found))
 		failed = TRUE;
+
+	(void)box->lock(box, MAILBOX_LOCK_UNLOCK);
 
 	if (!failed) {
 		if (client->cmd_uid)

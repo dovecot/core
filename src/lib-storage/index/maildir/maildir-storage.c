@@ -705,6 +705,31 @@ static void maildir_storage_auto_sync(struct mailbox *box,
 	}
 }
 
+static int maildir_storage_lock(struct mailbox *box,
+				enum mailbox_lock_type lock_type)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *) box;
+
+	if (lock_type == MAIL_LOCK_UNLOCK) {
+		ibox->lock_type = MAIL_LOCK_UNLOCK;
+		if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
+			return FALSE;
+		return TRUE;
+	}
+
+	i_assert(ibox->lock_type == MAIL_LOCK_UNLOCK);
+
+	if ((lock_type & (MAILBOX_LOCK_EXPUNGE | MAILBOX_LOCK_FLAGS)) != 0) {
+		if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
+			return FALSE;
+	} else if ((lock_type & MAILBOX_LOCK_READ) != 0) {
+		if (!index_storage_lock(ibox, MAIL_LOCK_SHARED))
+			return FALSE;
+	}
+
+	ibox->lock_type = lock_type;
+	return TRUE;
+}
 
 struct mail_storage maildir_storage = {
 	"maildir", /* name */
@@ -741,6 +766,7 @@ struct mailbox maildir_mailbox = {
 	NULL, /* storage */
 
 	maildir_storage_close,
+	maildir_storage_lock,
 	index_storage_get_status,
 	index_storage_sync,
 	maildir_storage_auto_sync,

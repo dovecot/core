@@ -12,8 +12,7 @@ static int fetch_and_copy(struct mail_copy_context *copy_ctx,
 	int failed = FALSE;
 
 	fetch_ctx = box->fetch_init(box, MAIL_FETCH_STREAM_HEADER |
-				    MAIL_FETCH_STREAM_BODY, FALSE,
-				    messageset, uidset);
+				    MAIL_FETCH_STREAM_BODY, messageset, uidset);
 	if (fetch_ctx == NULL)
 		return FALSE;
 
@@ -56,10 +55,15 @@ int cmd_copy(struct client *client)
 		return TRUE;
 	}
 
-	/* FIXME: copying from mailbox to itself is kind of kludgy here.
-	   currently it works simply because copy_init() will lock mbox
-	   exclusively and fetching wont drop it. */
-	copy_ctx = destbox->copy_init(destbox);
+	if (destbox == client->mailbox) {
+		/* copying inside same mailbox, make sure we get the
+		   locking right */
+		if (!destbox->lock(destbox, MAILBOX_LOCK_READ |
+				   MAILBOX_LOCK_SAVE))
+			failed = TRUE;
+	}
+
+	copy_ctx = failed ? NULL : destbox->copy_init(destbox);
 	if (copy_ctx == NULL)
 		failed = TRUE;
 	else {
@@ -71,6 +75,8 @@ int cmd_copy(struct client *client)
 			failed = TRUE;
 	}
 
+	(void)destbox->lock(destbox, MAILBOX_LOCK_UNLOCK);
+
 	if (failed)
 		client_send_storage_error(client);
 	else if (!all_found) {
@@ -79,7 +85,10 @@ int cmd_copy(struct client *client)
 		client_send_tagline(client,
 			"NO Some of the requested messages no longer exist.");
 	} else {
-		client_sync_full_fast(client);
+		if (destbox == client->mailbox)
+			client_sync_full(client);
+		else
+			client_sync_full_fast(client);
 		client_send_tagline(client, "OK Copy completed.");
 	}
 

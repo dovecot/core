@@ -22,7 +22,7 @@ struct mail_fetch_context {
 
 struct mail_fetch_context *
 index_storage_fetch_init(struct mailbox *box,
-			 enum mail_fetch_field wanted_fields, int update_flags,
+			 enum mail_fetch_field wanted_fields,
 			 const char *messageset, int uidset)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
@@ -31,12 +31,6 @@ index_storage_fetch_init(struct mailbox *box,
 
 	ctx = i_new(struct mail_fetch_context, 1);
 	ctx->old_lock = ibox->index->lock_type;
-
-	/* need exclusive lock to update the \Seen flags */
-	if (update_flags && !box->readonly) {
-		if (!index_storage_lock(ibox, MAIL_LOCK_EXCLUSIVE))
-			return NULL;
-	}
 
 	check_mail = (client_workarounds &
 		      WORKAROUND_OE6_FETCH_NO_NEWMAIL) == 0;

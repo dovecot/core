@@ -262,6 +262,7 @@ int imap_fetch(struct client *client,
 	       struct imap_fetch_body_data *bodies,
 	       const char *messageset, int uidset)
 {
+	struct mailbox *box = client->mailbox;
 	struct imap_fetch_context ctx;
 	struct mail *mail;
 	int all_found;
@@ -274,7 +275,7 @@ int imap_fetch(struct client *client,
 	ctx.select_counter = client->select_counter;
 	ctx.seen_flag.flags = MAIL_SEEN;
 
-	if (!client->mailbox->readonly) {
+	if (!box->readonly) {
 		/* If we have any BODY[..] sections, \Seen flag is added for
 		   all messages */
 		struct imap_fetch_body_data *body;
@@ -290,22 +291,29 @@ int imap_fetch(struct client *client,
 			ctx.update_seen = TRUE;
 	}
 
-	ctx.fetch_ctx = client->mailbox->
-		fetch_init(client->mailbox, fetch_data, ctx.update_seen,
-			   messageset, uidset);
-	if (ctx.fetch_ctx == NULL)
-		return -1;
-
-	ctx.str = str_new(default_pool, 8192);
-	while ((mail = client->mailbox->fetch_next(ctx.fetch_ctx)) != NULL) {
-		if (!fetch_mail(&ctx, mail)) {
-			ctx.failed = TRUE;
-			break;
-		}
+	if (ctx.update_seen) {
+		if (!box->lock(box, MAILBOX_LOCK_FLAGS | MAILBOX_LOCK_READ))
+			return -1;
 	}
-	str_free(ctx.str);
 
-	if (!client->mailbox->fetch_deinit(ctx.fetch_ctx, &all_found))
-		return -1;
+	ctx.fetch_ctx = box->fetch_init(box, fetch_data, messageset, uidset);
+	if (ctx.fetch_ctx == NULL)
+		ctx.failed = TRUE;
+	else {
+		ctx.str = str_new(default_pool, 8192);
+		while ((mail = box->fetch_next(ctx.fetch_ctx)) != NULL) {
+			if (!fetch_mail(&ctx, mail)) {
+				ctx.failed = TRUE;
+				break;
+			}
+		}
+		str_free(ctx.str);
+
+		if (!box->fetch_deinit(ctx.fetch_ctx, &all_found))
+			ctx.failed = TRUE;
+	}
+
+	(void)box->lock(box, MAILBOX_LOCK_UNLOCK);
+
 	return ctx.failed ? -1 : all_found;
 }

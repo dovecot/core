@@ -284,6 +284,14 @@ int index_storage_lock(struct index_mailbox *ibox,
 {
 	int ret;
 
+	if (lock_type == MAIL_LOCK_UNLOCK) {
+		if (ibox->lock_type != MAILBOX_LOCK_UNLOCK)
+			return TRUE;
+	} else {
+		if (ibox->index->lock_type == MAIL_LOCK_EXCLUSIVE)
+			return TRUE;
+	}
+
 	/* we have to set/reset this every time, because the same index
 	   may be used by multiple IndexMailboxes. */
         index_storage_init_lock_notify(ibox);

@@ -53,6 +53,14 @@ enum mailbox_sync_type {
 	MAILBOX_SYNC_NO_EXPUNGES
 };
 
+enum mailbox_lock_type {
+	MAILBOX_LOCK_UNLOCK	= 0x00,
+	MAILBOX_LOCK_READ	= 0x01,
+	MAILBOX_LOCK_FLAGS	= 0x02,
+	MAILBOX_LOCK_EXPUNGE	= 0x04,
+	MAILBOX_LOCK_SAVE	= 0x08
+};
+
 enum modify_type {
 	MODIFY_ADD,
 	MODIFY_REMOVE,
@@ -225,6 +233,14 @@ struct mailbox {
 	   the mailbox was closed anyway. */
 	int (*close)(struct mailbox *box);
 
+	/* Explicitly lock the mailbox. If not used, all the methods below
+	   use the minimum locking requirements. This allows you to for
+	   example use the expunge() and update_flags() methods in
+	   struct mail. The mailbox stays locked until you unlock it.
+	   Note that if you call a method which wants more locks than you've
+	   given here, the call will fail (to avoid deadlocks). */
+	int (*lock)(struct mailbox *box, enum mailbox_lock_type lock_type);
+
 	/* Gets the mailbox status information. */
 	int (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			  struct mailbox_status *status);
@@ -247,7 +263,6 @@ struct mailbox {
 	struct mail_fetch_context *
 		(*fetch_init)(struct mailbox *box,
 			      enum mail_fetch_field wanted_fields,
-			      int update_flags,
 			      const char *messageset, int uidset);
 	/* Deinitialize fetch request. all_found is set to TRUE if all of the
 	   fetched messages were found (ie. not just deleted). */
@@ -265,7 +280,7 @@ struct mailbox {
 				  enum mail_fetch_field wanted_fields);
 
 	/* Modify sort_program to specify a sort program acceptable for
-	   search_init(). If server supports no sorting, it's simply set to
+	   search_init(). If mailbox supports no sorting, it's simply set to
 	   {MAIL_SORT_END}. */
 	int (*search_get_sorting)(struct mailbox *box,
 				  enum mail_sort_type *sort_program);
@@ -376,7 +391,7 @@ struct mail {
 			    const struct mail_full_flags *flags,
 			    enum modify_type modify_type);
 
-	/* Copy this mail to another mailbox. */
+	/* Copy this message to another mailbox. */
 	int (*copy)(struct mail *mail, struct mail_copy_context *ctx);
 };
 
