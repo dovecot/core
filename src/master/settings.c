@@ -98,7 +98,7 @@ unsigned int set_ssl_parameters_regenerate = 24;
 int set_disable_plaintext_auth = FALSE;
 
 /* login */
-char *set_login_executable = PKG_LIBDIR "/imap-login";
+char *set_login_executable = PKG_LIBEXECDIR"/imap-login";
 char *set_login_user = "imapd";
 char *set_login_dir = PKG_RUNDIR"/login";
 
@@ -112,7 +112,7 @@ uid_t set_login_uid; /* generated from set_login_user */
 gid_t set_login_gid; /* generated from set_login_user */
 
 /* imap */
-char *set_imap_executable = PKG_LIBDIR "/imap";
+char *set_imap_executable = PKG_LIBEXECDIR"/imap";
 char *set_valid_chroot_dirs = NULL;
 unsigned int set_max_imap_processes = 1024;
 int set_verbose_proctitle = FALSE;
@@ -242,7 +242,7 @@ static AuthConfig *auth_config_new(const char *name)
 
 	auth = i_new(AuthConfig, 1);
 	auth->name = i_strdup(name);
-	auth->executable = i_strdup(PKG_LIBDIR "/imap-auth");
+	auth->executable = i_strdup(PKG_LIBEXECDIR"/imap-auth");
 	auth->count = 1;
 
 	auth->next = auth_processes_config;

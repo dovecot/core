@@ -1,10 +1,12 @@
+pkglibexecdir = $(libexecdir)/dovecot
+
 sbin_PROGRAMS = imap-master
 
 INCLUDES = \
 	-I$(top_srcdir)/src/lib \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DPKG_RUNDIR=\""$(localstatedir)/run/$(PACKAGE)"\" \
-	-DPKG_LIBDIR=\""$(pkglibdir)"\" \
+	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
 
 imap_master_LDADD = \
