@@ -71,19 +71,22 @@ static ssize_t _read(struct _istream *stream)
 			      mstream->header_size.physical_size);
 	}
 
-	ret = i_stream_read(mstream->input);
-
-	mstream->istream.pos -= mstream->istream.skip;
-	mstream->istream.skip = 0;
-
-	mstream->istream.buffer = i_stream_get_data(mstream->input, &pos);
-	if (pos <= mstream->istream.pos) {
-		i_assert(ret <= 0);
-	} else {
-		ret = pos - mstream->istream.pos;
-                mstream->istream.pos = pos;
+	stream->buffer = i_stream_get_data(mstream->input, &pos);
+	if (pos <= stream->pos) {
+		if (i_stream_read(mstream->input) == -2) {
+			if (stream->skip == 0)
+				return -2;
+		}
+		stream->istream.disconnected = mstream->input->disconnected;
+		stream->buffer = i_stream_get_data(mstream->input, &pos);
 	}
 
+	stream->pos -= mstream->istream.skip;
+	stream->skip = 0;
+
+	ret = pos <= stream->pos ? -1 :
+		(ssize_t) (pos - stream->pos);
+	stream->pos = pos;
 	return ret;
 }
 

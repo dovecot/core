@@ -58,15 +58,18 @@ static ssize_t _read(struct _istream *stream)
 			      stream->istream.v_offset);
 	}
 
-	if (i_stream_read(lstream->input) == -2 && stream->buffer != NULL) {
-		if (stream->skip == 0)
-			return -2;
+	stream->buffer = i_stream_get_data(lstream->input, &pos);
+	if (pos <= stream->pos) {
+		if (i_stream_read(lstream->input) == -2) {
+			if (stream->skip == 0)
+				return -2;
+		}
+		stream->istream.disconnected = lstream->input->disconnected;
+		stream->buffer = i_stream_get_data(lstream->input, &pos);
 	}
-	stream->istream.disconnected = lstream->input->disconnected;
 
 	stream->pos -= stream->skip;
 	stream->skip = 0;
-	stream->buffer = i_stream_get_data(lstream->input, &pos);
 
 	if (lstream->v_size != (uoff_t)-1) {
 		left = lstream->v_size - stream->istream.v_offset;
