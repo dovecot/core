@@ -264,6 +264,11 @@ static void stream_send_escaped(struct ostream *output, struct istream *input,
 
 		i_stream_skip(input, i);
 	}
+
+	if (last != '\n') {
+		/* didn't end with CRLF */
+		(void)o_stream_send(output, "\r\n", 2);
+	}
 }
 
 static void fetch(struct client *client, unsigned int msgnum,
