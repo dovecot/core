@@ -238,7 +238,7 @@ const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)
 			temp = t_buffer_reget(temp, bufsize);
 		}
 
-		memcpy(temp + i, str, len);
+		memcpy(temp + i, str, len); i += len;
 
 		/* next string */
 		str = va_arg(args, const char *);
