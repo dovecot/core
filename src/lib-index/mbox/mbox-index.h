@@ -14,6 +14,12 @@ typedef struct {
 
 int mbox_set_syscall_error(MailIndex *index, const char *function);
 
+/* Make sure the mbox is opened. If reopen is TRUE, the file is closed first,
+   which is useful when you want to be sure you're not accessing a deleted
+   mbox file. */
+IOBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen);
+void mbox_file_close(MailIndex *index);
+
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index);
 void mbox_header_free_context(MboxHeaderContext *ctx);
 void mbox_header_func(MessagePart *part __attr_unused__,

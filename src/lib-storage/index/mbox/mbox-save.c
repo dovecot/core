@@ -150,6 +150,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	MailFlags real_flags;
 	const char *mbox_path;
+	IOBuffer *inbuf;
 	int fd, failed;
 	off_t pos;
 
@@ -164,13 +165,13 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	if (!index_mailbox_fix_custom_flags(ibox, &real_flags, custom_flags))
 		return FALSE;
 
-	/* append the data into mbox file */
-	fd = open(ibox->index->mbox_path, O_RDWR | O_CREAT, 0660);
-	if (fd == -1) {
-		mail_storage_set_critical(box->storage, "Can't open mbox file "
-					  "%s: %m", ibox->index->mbox_path);
+	/* just make sure the mbox is opened, we don't need the iobuffer */
+	inbuf = mbox_file_open(ibox->index, 0, TRUE);
+	if (inbuf == NULL)
 		return FALSE;
-	}
+
+	io_buffer_unref(inbuf);
+	fd = ibox->index->mbox_fd;
 
 	if (!mbox_lock(ibox->index, ibox->index->mbox_path, fd, TRUE)) {
 		(void)close(fd);
@@ -203,6 +204,5 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	}
 
 	(void)mbox_unlock(ibox->index, ibox->index->mbox_path, fd);
-	(void)close(fd);
 	return !failed;
 }

@@ -16,7 +16,7 @@ int mbox_index_rebuild(MailIndex *index)
 {
 	IOBuffer *inbuf;
 	struct stat st;
-	int fd, failed;
+	int failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
@@ -42,26 +42,21 @@ int mbox_index_rebuild(MailIndex *index)
 	if (!mail_index_data_reset(index->data))
 		return FALSE;
 
-	/* open the mbox file. we don't really need to open it read-write,
-	   but fcntl() locking requires it. */
-	fd = open(index->mbox_path, O_RDWR);
-	if (fd == -1)
-		return mbox_set_syscall_error(index, "open()");
+	inbuf = mbox_file_open(index, 0, TRUE);
+	if (inbuf == NULL)
+		return FALSE;
 
 	/* lock the mailbox so we can be sure no-one interrupts us. */
-	if (!mbox_lock(index, index->mbox_path, fd, FALSE)) {
-		if (close(fd) < 0)
-			mbox_set_syscall_error(index, "close()");
+	if (!mbox_lock(index, index->mbox_path, index->mbox_fd, FALSE)) {
+		io_buffer_unref(inbuf);
 		return FALSE;
 	}
 
-	inbuf = io_buffer_create_mmap(fd, default_pool,
-				      MAIL_MMAP_BLOCK_SIZE, 0, TRUE);
 	mbox_skip_empty_lines(inbuf);
 	failed = !mbox_index_append(index, inbuf);
+	(void)mbox_unlock(index, index->mbox_path, index->mbox_fd);
 
-	(void)mbox_unlock(index, index->mbox_path, fd);
-	io_buffer_destroy(inbuf);
+	io_buffer_unref(inbuf);
 
 	if (failed)
 		return FALSE;

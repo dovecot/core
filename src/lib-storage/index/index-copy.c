@@ -30,7 +30,7 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 				  ctx->custom_flags, rec->internal_date,
 				  inbuf, inbuf->size);
 
-	io_buffer_destroy(inbuf);
+	io_buffer_unref(inbuf);
 	return !failed;
 }
 

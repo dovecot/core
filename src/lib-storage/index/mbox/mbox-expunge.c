@@ -107,7 +107,7 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 	MailIndexRecord *rec;
 	IOBuffer *inbuf, *outbuf;
 	unsigned int seq;
-	int fd, failed;
+	int failed;
 
 	if (!index_expunge_seek_first(ibox, &seq, &rec))
 		return FALSE;
@@ -117,22 +117,17 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 		return TRUE;
 	}
 
-	fd = open(ibox->index->mbox_path, O_RDWR);
-	if (fd == -1) {
-		mail_storage_set_error(ibox->box.storage,
-				       "Error opening mbox file %s: %m",
-				       ibox->index->mbox_path);
+	inbuf = mbox_file_open(ibox->index, 0, TRUE);
+	if (inbuf == NULL)
+		return FALSE;
+
+	if (!mbox_lock(ibox->index, ibox->index->mbox_path,
+		       ibox->index->mbox_fd, TRUE)) {
+		io_buffer_unref(inbuf);
 		return FALSE;
 	}
 
-	if (!mbox_lock(ibox->index, ibox->index->mbox_path, fd, TRUE)) {
-		(void)close(fd);
-		return FALSE;
-	}
-
-	inbuf = io_buffer_create_mmap(fd, default_pool,
-				      MAIL_MMAP_BLOCK_SIZE, 0, FALSE);
-	outbuf = io_buffer_create_file(fd, default_pool, 4096, FALSE);
+	outbuf = io_buffer_create_file(inbuf->fd, default_pool, 4096, FALSE);
 
 	failed = !expunge_real(ibox, rec, seq, inbuf, outbuf,
 			       expunge_func, context);
@@ -152,10 +147,9 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 		failed = TRUE;
 	}
 
-	(void)mbox_unlock(ibox->index, ibox->index->mbox_path, fd);
-	(void)close(fd);
-	io_buffer_destroy(inbuf);
-	io_buffer_destroy(outbuf);
+	(void)mbox_unlock(ibox->index, ibox->index->mbox_path,
+			  ibox->index->mbox_fd);
+	io_buffer_unref(outbuf);
 
 	return !failed;
 }

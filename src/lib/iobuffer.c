@@ -58,6 +58,7 @@ IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
         i_assert(pool != NULL);
 
 	buf = p_new(pool, IOBuffer, 1);
+	buf->refcount = 1;
 	buf->fd = fd;
 	buf->pool = pool;
 	buf->priority = priority;
@@ -126,9 +127,18 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 	return buf;
 }
 
-void io_buffer_destroy(IOBuffer *buf)
+void io_buffer_ref(IOBuffer *buf)
+{
+	buf->refcount++;
+}
+
+void io_buffer_unref(IOBuffer *buf)
 {
 	if (buf == NULL)
+		return;
+
+	i_assert(buf->refcount > 0);
+	if (--buf->refcount > 0)
 		return;
 
         if (buf->io != NULL)
@@ -645,9 +655,12 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 
 static ssize_t io_buffer_set_mmaped_pos(IOBuffer *buf)
 {
-	buf->pos = buf->buffer_size;
-	if (buf->pos - buf->skip > buf->limit - buf->offset)
-		buf->pos = buf->limit - buf->offset + buf->skip;
+	i_assert((uoff_t)buf->mmap_offset <= buf->start_offset + buf->limit);
+
+	buf->pos = buf->start_offset + buf->limit - buf->mmap_offset;
+	if (buf->pos > buf->buffer_size)
+		buf->pos = buf->buffer_size;
+
 	return buf->pos - buf->skip;
 }
 
@@ -703,18 +716,37 @@ static ssize_t io_buffer_read_mmaped(IOBuffer *buf)
 	return io_buffer_set_mmaped_pos(buf);
 }
 
-void io_buffer_set_read_limit(IOBuffer *inbuf, uoff_t offset)
+void io_buffer_set_start_offset(IOBuffer *buf, uoff_t offset)
 {
-	i_assert(offset <= inbuf->size);
+	off_t diff;
+
+	i_assert(offset <= buf->size);
+
+	if (offset == buf->start_offset)
+		return;
+
+	diff = (off_t)buf->start_offset - (off_t)offset;
+	buf->start_offset = offset;
+	buf->size += diff;
+	buf->limit += diff;
+
+	io_buffer_reset(buf);
+
+	buf->skip = buf->pos = buf->start_offset;
+}
+
+void io_buffer_set_read_limit(IOBuffer *buf, uoff_t offset)
+{
+	i_assert(offset <= buf->size);
 
 	if (offset == 0)
-		inbuf->limit = inbuf->size;
+		buf->limit = buf->size;
 	else {
-		i_assert(offset >= inbuf->offset);
+		i_assert(offset >= buf->offset);
 
-		inbuf->limit = offset;
-		if (inbuf->offset + (inbuf->pos - inbuf->skip) > offset)
-			inbuf->pos = offset - inbuf->offset + inbuf->skip;
+		buf->limit = offset;
+		if (buf->offset + (buf->pos - buf->skip) > offset)
+			buf->pos = offset - buf->offset + buf->skip;
 	}
 }
 
@@ -867,9 +899,12 @@ void io_buffer_skip(IOBuffer *buf, uoff_t count)
 int io_buffer_seek(IOBuffer *buf, uoff_t offset)
 {
 	uoff_t real_offset;
+	off_t ret;
 
-	if (buf->closed)
+	if (buf->closed) {
+		errno = EBADF;
 		return FALSE;
+	}
 
 	real_offset = buf->start_offset + offset;
 	if (real_offset > OFF_T_MAX) {
@@ -885,9 +920,14 @@ int io_buffer_seek(IOBuffer *buf, uoff_t offset)
 		   pick up from there */
 		buf->pos = buf->skip = real_offset;
 	} else {
-		if (lseek(buf->fd, (off_t)real_offset, SEEK_SET) !=
-		    (off_t)real_offset)
+		ret = lseek(buf->fd, (off_t)real_offset, SEEK_SET);
+		if (ret < 0)
 			return FALSE;
+
+		if (ret != (off_t)real_offset) {
+			errno = EINVAL;
+			return FALSE;
+		}
 	}
 
 	buf->offset = offset;

@@ -289,8 +289,8 @@ int client_unref(Client *client)
 	if (--client->refcount > 0)
 		return TRUE;
 
-	io_buffer_destroy(client->inbuf);
-	io_buffer_destroy(client->outbuf);
+	io_buffer_unref(client->inbuf);
+	io_buffer_unref(client->outbuf);
 
 	i_free(client->tag);
 	i_free(client->plain_login);

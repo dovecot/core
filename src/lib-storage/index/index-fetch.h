@@ -11,7 +11,7 @@ typedef struct {
 	MailFetchData *fetch_data;
 	IOBuffer *outbuf;
 	TempString *str;
-	int update_seen;
+	int update_seen, found_unseen;
 	int first;
 } FetchContext;
 

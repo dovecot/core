@@ -77,6 +77,6 @@ void master_init(void)
 
 void master_deinit(void)
 {
-	io_buffer_destroy(outbuf);
+	io_buffer_unref(outbuf);
 	io_remove(io_master);
 }

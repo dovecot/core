@@ -17,6 +17,7 @@ struct _IOBuffer {
 /* private: */
 	Pool pool;
 	IO io;
+	int refcount;
 	int priority;
 
 	int timeout_msecs;
@@ -56,8 +57,12 @@ IOBuffer *io_buffer_create_file(int fd, Pool pool, size_t max_buffer_size,
    stop reading, or 0 to end of file. */
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, size_t block_size,
 				uoff_t size, int autoclose_fd);
-/* Destroy a buffer. */
-void io_buffer_destroy(IOBuffer *buf);
+
+/* Reference counting. References start from 1, so calling io_buffer_unref()
+   destroys the buffer if io_buffer_ref() is never used. */
+void io_buffer_ref(IOBuffer *buf);
+void io_buffer_unref(IOBuffer *buf);
+
 /* Mark the buffer closed. Any sends/reads after this will return -1.
    The data already in buffer can be used, and the remaining output buffer
    will be sent. */
@@ -108,9 +113,13 @@ void io_buffer_send_flush(IOBuffer *buf);
 void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 				   void *context);
 
+/* Change the start_offset and call io_buffer_reset(). Doesn't do anything
+   if offset is the same as existing start_offset. */
+void io_buffer_set_start_offset(IOBuffer *buf, uoff_t offset);
+
 /* IO buffer won't be read past specified offset. Giving 0 as offset removes
    the limit. */
-void io_buffer_set_read_limit(IOBuffer *inbuf, uoff_t offset);
+void io_buffer_set_read_limit(IOBuffer *buf, uoff_t offset);
 
 /* Returns number of bytes read if read was ok,
    -1 if disconnected / EOF, -2 if the buffer is full */

@@ -154,7 +154,7 @@ static void auth_process_destroy(AuthProcess *p)
 
 	(void)unlink(t_strconcat(set_login_dir, "/", p->name, NULL));
 
-	io_buffer_destroy(p->outbuf);
+	io_buffer_unref(p->outbuf);
 	io_remove(p->io);
 	(void)close(p->fd);
 	i_free(p->name);

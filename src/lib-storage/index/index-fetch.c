@@ -249,6 +249,9 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 	unsigned int orig_len;
 	int failed, data_written;
 
+	if ((rec->msg_flags & MAIL_SEEN) == 0)
+		ctx->found_unseen = TRUE;
+
 	ctx->str = t_string_new(2048);
 
 	t_string_printfa(ctx->str, "* %u FETCH (", client_seq);
@@ -352,13 +355,15 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	ctx.fetch_data = fetch_data;
 	ctx.outbuf = outbuf;
 
-	/* If we have any BODY[..] sections, \Seen flag is added for
-	   all messages */
-	sect = ctx.fetch_data->body_sections;
-	for (; sect != NULL; sect = sect->next) {
-		if (!sect->peek) {
-			ctx.update_seen = TRUE;
-			break;
+	if (!box->readonly) {
+		/* If we have any BODY[..] sections, \Seen flag is added for
+		   all messages */
+		sect = ctx.fetch_data->body_sections;
+		for (; sect != NULL; sect = sect->next) {
+			if (!sect->peek) {
+				ctx.update_seen = TRUE;
+				break;
+			}
 		}
 	}
 
@@ -374,7 +379,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	if (all_found != NULL)
 		*all_found = ret == 1;
 
-	if (ret >= 1 && ctx.update_seen && !box->readonly) {
+	if (ret >= 1 && ctx.update_seen && ctx.found_unseen) {
 		/* BODY[..] was fetched, set \Seen flag for all messages.
 		   This needs to be done separately because we need exclusive
 		   lock for it */

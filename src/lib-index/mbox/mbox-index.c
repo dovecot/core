@@ -8,6 +8,9 @@
 #include "mail-index-data.h"
 #include "mail-custom-flags.h"
 
+#include <fcntl.h>
+#include <unistd.h>
+
 extern MailIndex mbox_index;
 
 int mbox_set_syscall_error(MailIndex *index, const char *function)
@@ -17,6 +20,38 @@ int mbox_set_syscall_error(MailIndex *index, const char *function)
 	index_set_error(index, "%s failed with mbox file %s: %m",
 			function, index->mbox_path);
 	return FALSE;
+}
+
+IOBuffer *mbox_file_open(MailIndex *index, uoff_t offset, int reopen)
+{
+	i_assert(offset < OFF_T_MAX);
+
+	if (reopen)
+		mbox_file_close(index);
+
+	if (index->mbox_fd == -1) {
+		index->mbox_fd = open(index->mbox_path, O_RDWR);
+		if (index->mbox_fd == -1) {
+			mbox_set_syscall_error(index, "open()");
+			return NULL;
+		}
+	}
+
+	if (lseek(index->mbox_fd, (off_t)offset, SEEK_SET) != (off_t)offset) {
+		mbox_set_syscall_error(index, "lseek()");
+		return NULL;
+	}
+
+	return io_buffer_create_mmap(index->mbox_fd, default_pool,
+				     MAIL_MMAP_BLOCK_SIZE, 0, FALSE);
+}
+
+void mbox_file_close(MailIndex *index)
+{
+	if (index->mbox_fd != -1) {
+		close(index->mbox_fd);
+		index->mbox_fd = -1;
+	}
 }
 
 void mbox_header_init_context(MboxHeaderContext *ctx, MailIndex *index)
@@ -425,6 +460,7 @@ MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
 	memcpy(index, &mbox_index, sizeof(MailIndex));
 
 	index->fd = -1;
+	index->mbox_fd = -1;
 	index->dir = i_strdup(dir);
 
 	len = strlen(index->dir);
@@ -437,6 +473,7 @@ MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
 
 static void mbox_index_free(MailIndex *index)
 {
+        mbox_file_close(index);
 	mail_index_close(index);
 	i_free(index->dir);
 	i_free(index);

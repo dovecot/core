@@ -338,7 +338,7 @@ void settings_read(const char *path)
 		}
 	};
 
-	io_buffer_destroy(inbuf);
+	io_buffer_unref(inbuf);
 
         settings_verify();
 }

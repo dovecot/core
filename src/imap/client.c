@@ -95,8 +95,8 @@ void client_destroy(Client *client)
 	imap_parser_destroy(client->parser);
 	io_remove(client->io);
 
-	io_buffer_destroy(client->inbuf);
-	io_buffer_destroy(client->outbuf);
+	io_buffer_unref(client->inbuf);
+	io_buffer_unref(client->outbuf);
 
 	i_free(client);
 

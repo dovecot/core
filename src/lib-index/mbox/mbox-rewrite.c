@@ -355,8 +355,8 @@ static int fd_copy(int in_fd, int out_fd, uoff_t out_offset)
 		ret = ftruncate(out_fd, (off_t) (out_offset + inbuf->size));
 	}
 
-	io_buffer_destroy(outbuf);
-	io_buffer_destroy(inbuf);
+	io_buffer_unref(outbuf);
+	io_buffer_unref(inbuf);
 
 	return ret;
 }
@@ -372,7 +372,7 @@ int mbox_index_rewrite(MailIndex *index)
 	uoff_t offset, dirty_offset;
 	const char *path;
 	unsigned int seq;
-	int mbox_fd, tmp_fd, failed, dirty_found, locked, rewrite;
+	int tmp_fd, failed, dirty_found, locked, rewrite;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -381,18 +381,16 @@ int mbox_index_rewrite(MailIndex *index)
 		return TRUE;
 	}
 
-	mbox_fd = tmp_fd = -1; locked = FALSE;
+	tmp_fd = -1; locked = FALSE;
 	failed = TRUE; rewrite = FALSE;
 	do {
 		/* lock before fscking to prevent race conditions between
 		   fsck's unlock and our lock. */
-		mbox_fd = open(index->mbox_path, O_RDWR);
-		if (mbox_fd == -1) {
-			mbox_set_syscall_error(index, "open()");
+		inbuf = mbox_file_open(index, 0, TRUE);
+		if (inbuf == NULL)
 			break;
-		}
 
-		if (!mbox_lock(index, index->mbox_path, mbox_fd, TRUE))
+		if (!mbox_lock(index, index->mbox_path, index->mbox_fd, TRUE))
 			break;
 		locked = TRUE;
 
@@ -415,10 +413,12 @@ int mbox_index_rewrite(MailIndex *index)
 	} while (0);
 
 	if (!rewrite) {
-		if (locked)
-			(void)mbox_unlock(index, index->mbox_path, mbox_fd);
-		if (mbox_fd != -1 && close(mbox_fd) < 0)
-			mbox_set_syscall_error(index, "close()");
+		if (locked) {
+			(void)mbox_unlock(index, index->mbox_path,
+					  index->mbox_fd);
+		}
+		if (inbuf != NULL)
+			io_buffer_unref(inbuf);
 		return !failed;
 	}
 
@@ -430,8 +430,6 @@ int mbox_index_rewrite(MailIndex *index)
 	}
 	dirty_offset = 0;
 
-	inbuf = io_buffer_create_mmap(mbox_fd, default_pool,
-				      MAIL_MMAP_BLOCK_SIZE, 0, FALSE);
 	outbuf = io_buffer_create_file(tmp_fd, default_pool, 8192, FALSE);
 
 	failed = FALSE; seq = 1;
@@ -500,8 +498,8 @@ int mbox_index_rewrite(MailIndex *index)
 		failed = TRUE;
 	}
 
-	io_buffer_destroy(outbuf);
-	io_buffer_destroy(inbuf);
+	io_buffer_unref(inbuf);
+	io_buffer_unref(outbuf);
 
 	if (!failed) {
 		/* POSSIBLE DATA LOSS HERE. We're writing to the mbox file,
@@ -519,7 +517,7 @@ int mbox_index_rewrite(MailIndex *index)
 
 		   Also, we might as well be shrinking the file, in which
 		   case we can't lose data. */
-		if (fd_copy(tmp_fd, mbox_fd, dirty_offset) == 0) {
+		if (fd_copy(tmp_fd, index->mbox_fd, dirty_offset) == 0) {
 			/* all ok, we need to fsck the index next time.
 			   use set_flags because set_lock() would remove it
 			   if we modified it directly */
@@ -531,11 +529,9 @@ int mbox_index_rewrite(MailIndex *index)
 		}
 	}
 
-	(void)mbox_unlock(index, index->mbox_path, mbox_fd);
+	(void)mbox_unlock(index, index->mbox_path, index->mbox_fd);
 	(void)unlink(path);
 
-	if (close(mbox_fd) < 0)
-		mbox_set_syscall_error(index, "close()");
 	if (close(tmp_fd) < 0)
 		index_file_set_syscall_error(index, path, "close()");
 	return failed;

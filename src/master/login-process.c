@@ -165,7 +165,7 @@ static void login_process_unref(LoginProcess *p)
 	if (--p->refcount > 0)
 		return;
 
-	io_buffer_destroy(p->outbuf);
+	io_buffer_unref(p->outbuf);
 	i_free(p);
 }
 

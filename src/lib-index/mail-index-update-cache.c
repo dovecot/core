@@ -23,8 +23,7 @@ static int cache_record(MailIndex *index, MailIndexRecord *rec,
 	mail_index_update_headers(update, inbuf, cache_fields, NULL, NULL);
 	failed = !index->update_end(update);
 
-	io_buffer_destroy(inbuf);
-
+	io_buffer_unref(inbuf);
 	return !failed;
 }
 

@@ -13,6 +13,6 @@ int maildir_record_update(MailIndexUpdate *update, int fd, const char *path)
 	inbuf = io_buffer_create_mmap(fd, default_pool,
 				      MAIL_MMAP_BLOCK_SIZE, 0, FALSE);
 	mail_index_update_headers(update, inbuf, 0, NULL, NULL);
-	io_buffer_destroy(inbuf);
+	io_buffer_unref(inbuf);
 	return TRUE;
 }

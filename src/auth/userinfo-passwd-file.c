@@ -318,7 +318,7 @@ static void passwd_file_parse_file(PasswdFile *pw)
 		}
 		t_pop();
 	}
-	io_buffer_destroy(inbuf);
+	io_buffer_unref(inbuf);
 }
 
 static PasswdFile *passwd_file_parse(const char *path)

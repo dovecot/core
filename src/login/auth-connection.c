@@ -118,8 +118,8 @@ static void auth_connection_destroy(AuthConnection *conn)
 
 	(void)close(conn->fd);
 	io_remove(conn->io);
-	io_buffer_destroy(conn->inbuf);
-	io_buffer_destroy(conn->outbuf);
+	io_buffer_unref(conn->inbuf);
+	io_buffer_unref(conn->outbuf);
 	i_free(conn->path);
 	i_free(conn);
 }

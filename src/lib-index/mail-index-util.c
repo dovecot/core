@@ -155,6 +155,6 @@ int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
 	message_get_body_size(inbuf, &body_size, (uoff_t)-1);
 	*virtual_size = body_size.virtual_size;
 
-	io_buffer_destroy(inbuf);
+	io_buffer_unref(inbuf);
 	return TRUE;
 }
