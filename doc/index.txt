@@ -4,7 +4,7 @@ IMAP Index Files
 Should support pretty much any mail format, at least maildir and mbox can
 be implemented with it.
 
-The data in the files are stored using native byte order and variable type
+The data in the files are stored using native byte order and native type
 sizes. That information is saved into index file's "compatibility" fields.
 No attempt is made to deal with incompatible index files, they're just
 overwritten.
