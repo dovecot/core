@@ -288,7 +288,8 @@ static void pam_child_input(void *context)
 		}
 	}
 
-	request->callback(result, request->request);
+	if (auth_request_unref(request->request))
+		request->callback(result, request->request);
 
 	if (close(request->fd) < 0)
 		i_error("PAM: close(child input) failed: %m");
@@ -360,6 +361,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 	if (close(fd[1]) < 0)
 		i_error("PAM: close(fd[1]) failed: %m");
 
+	auth_request_ref(request);
 	pam_auth_request = i_new(struct pam_auth_request, 1);
 	pam_auth_request->fd = fd[0];
 	pam_auth_request->request = request;

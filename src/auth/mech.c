@@ -127,7 +127,7 @@ void mech_request_continue(struct auth_client_connection *conn,
 void mech_request_free(struct auth_client_connection *conn,
 		       struct auth_request *auth_request, unsigned int id)
 {
-	auth_request->auth_free(auth_request);
+	auth_request_unref(auth_request);
 	hash_remove(conn->auth_requests, POINTER_CAST(id));
 }
 
@@ -198,6 +198,20 @@ int mech_is_valid_username(const char *username)
 	}
 
 	return TRUE;
+}
+
+void auth_request_ref(struct auth_request *request)
+{
+	request->refcount++;
+}
+
+int auth_request_unref(struct auth_request *request)
+{
+	if (--request->refcount > 0)
+		return TRUE;
+
+	request->auth_free(request);
+	return FALSE;
 }
 
 extern struct mech_module mech_plain;

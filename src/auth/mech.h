@@ -10,6 +10,8 @@ typedef void mech_callback_t(struct auth_client_request_reply *reply,
 			     struct auth_client_connection *conn);
 
 struct auth_request {
+	int refcount;
+
 	pool_t pool;
 	char *user;
 
@@ -69,6 +71,9 @@ struct auth_request *
 mech_cyrus_sasl_new(struct auth_client_connection *conn,
 		    struct auth_client_request_new *request,
 		    mech_callback_t *callback);
+
+void auth_request_ref(struct auth_request *request);
+int auth_request_unref(struct auth_request *request);
 
 void mech_init(void);
 void mech_deinit(void);

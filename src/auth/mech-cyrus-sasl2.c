@@ -195,6 +195,7 @@ struct auth_request *mech_cyrus_sasl_new(struct login_connection *conn,
 	pool = pool_alloconly_create("cyrus_sasl_auth_request", 256);
 	cyrus_request = p_new(pool, struct cyrus_auth_request, 1);
 
+	cyrus_request->auth_request.refcount = 1;
 	cyrus_request->auth_request.pool = pool;
 	cyrus_request->auth_request.auth_continue =
 		cyrus_sasl_auth_continue;

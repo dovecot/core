@@ -620,6 +620,7 @@ mech_digest_md5_auth_new(struct auth_client_connection *conn,
 	auth = p_new(pool, struct digest_auth_request, 1);
 	auth->pool = pool;
 
+	auth->auth_request.refcount = 1;
 	auth->auth_request.pool = pool;
 	auth->auth_request.auth_continue = mech_digest_md5_auth_continue;
 	auth->auth_request.auth_free = mech_digest_md5_auth_free;

@@ -98,6 +98,11 @@ static void handle_request(struct ldap_connection *conn,
 		}
 	}
 
+	/* LDAP result is free'd now. we can check if auth_request is
+	   even needed anymore */
+	if (!auth_request_unref(auth_request))
+		return;
+
 	scheme = password_get_scheme(&password);
 	if (scheme == NULL) {
 		scheme = conn->set.default_pass_scheme;
@@ -149,6 +154,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 		filter = str_c(str);
 	}
 
+	auth_request_ref(auth_request);
 	ldap_request->callback = handle_request;
 	ldap_request->context = auth_request;
 

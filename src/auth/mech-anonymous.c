@@ -38,6 +38,7 @@ mech_anonymous_auth_new(struct auth_client_connection *conn, unsigned int id,
 
 	pool = pool_alloconly_create("anonymous_auth_request", 256);
 	auth_request = p_new(pool, struct auth_request, 1);
+	auth_request->refcount = 1;
 	auth_request->pool = pool;
 	auth_request->auth_continue = mech_anonymous_auth_continue;
         auth_request->auth_free = mech_anonymous_auth_free;
