@@ -11,7 +11,7 @@
 
 static uoff_t get_indexed_mbox_size(MailIndex *index)
 {
-	MailIndexRecord *rec, *prev;
+	MailIndexRecord *rec;
 	uoff_t offset;
 
 	if (index->lock_type == MAIL_LOCK_UNLOCK) {
@@ -22,15 +22,6 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 	/* get the last record */
 	rec = index->header->messages_count == 0 ? NULL :
 		index->lookup(index, index->header->messages_count);
-	if (rec == NULL) {
-		rec = prev = index->lookup(index, 1);
-		while (rec != NULL) {
-			prev = rec;
-			rec = index->next(index, rec);
-		}
-
-		rec = prev;
-	}
 
 	offset = 0;
 	if (rec != NULL) {
@@ -54,20 +45,25 @@ static uoff_t get_indexed_mbox_size(MailIndex *index)
 int mbox_index_sync(MailIndex *index)
 {
 	struct stat st;
+	time_t index_mtime;
 	uoff_t filesize;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
-	if (stat(index->mbox_path, &st) == -1) {
-		mbox_set_syscall_error(index, "stat()");
-		return FALSE;
+	if (index->fd == -1) {
+		/* anon-mmaped */
+		index_mtime = index->file_sync_stamp;
+	} else {
+		if (fstat(index->fd, &st) < 0)
+			return index_set_syscall_error(index, "fstat()");
+		index_mtime = st.st_mtime;
 	}
 
+	if (stat(index->mbox_path, &st) < 0)
+		return mbox_set_syscall_error(index, "stat()");
 	filesize = st.st_size;
-	if (index->file_sync_stamp == st.st_mtime &&
-	    (index->mbox_size == filesize ||
-	     index->mbox_size == filesize-1 ||
-             index->mbox_size == filesize-2))
+
+	if (index_mtime == st.st_mtime && index->mbox_size == filesize)
 		return TRUE;
 
 	/* problem .. index->mbox_size points to data after the last message.
@@ -77,7 +73,7 @@ int mbox_index_sync(MailIndex *index)
 	index->mbox_size = get_indexed_mbox_size(index);
 	if (filesize == index->mbox_size+1 ||
 	    filesize == index->mbox_size+2)
-		filesize = index->mbox_size;
+		index->mbox_size = filesize;
 
 	if (index->file_sync_stamp == 0 && index->mbox_size == filesize) {
 		/* just opened the mailbox, and the file size is same as
