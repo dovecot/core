@@ -60,8 +60,7 @@ typedef struct {
 	const char *pass;
 } pam_userpass_t;
 
-static pam_handle_t *pamh;
-static pam_userpass_t userpass;
+static char *service_name;
 
 static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	struct pam_response **resp, void *appdata_ptr)
@@ -151,42 +150,56 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	return PAM_SUCCESS;
 }
 
+static int pam_auth(pam_handle_t *pamh)
+{
+	char *item;
+	int status;
+
+	if ((status = pam_authenticate(pamh, 0)) != PAM_SUCCESS)
+		return status;
+
+#ifdef HAVE_PAM_SETCRED
+	if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) != PAM_SUCCESS)
+		return status;
+#endif
+
+	if ((status = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS)
+		return status;
+
+	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
+	if (status != PAM_SUCCESS)
+		return status;
+
+	return PAM_SUCCESS;
+}
+
 static int pam_verify_plain(const char *user, const char *password,
 			    AuthCookieReplyData *reply)
 {
+	pam_handle_t *pamh;
+	pam_userpass_t userpass;
+	struct pam_conv conv;
 	struct passwd *pw;
-	char *item;
-	int status;
+	int status, status2;
+
+	conv.conv = pam_userpass_conv;
+	conv.appdata_ptr = &userpass;
 
 	userpass.user = user;
 	userpass.pass = password;
 
-	if ((status = pam_authenticate(pamh, 0)) != PAM_SUCCESS) {
-		if (status == PAM_ABORT)
-			i_fatal("pam_authenticate() requested abort");
+	status = pam_start(service_name, user, &conv, &pamh);
+	if (status != PAM_SUCCESS)
+		return FALSE;
+
+	status = pam_auth(pamh);
+	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
+		i_error("pam_end() failed: %s", pam_strerror(pamh, status2));
 		return FALSE;
 	}
 
-#ifdef HAVE_PAM_SETCRED
-	if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) != PAM_SUCCESS) {
-		if (status == PAM_ABORT)
-			i_fatal("pam_setcred_mgmt() requested abort");
+	if (status != PAM_SUCCESS)
 		return FALSE;
-	}
-#endif
-
-	if ((status = pam_acct_mgmt(pamh, 0)) != PAM_SUCCESS) {
-		if (status == PAM_ABORT)
-			i_fatal("pam_acct_mgmt() requested abort");
-		return FALSE;
-	}
-
-	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
-	if (status != PAM_SUCCESS) {
-		if (status == PAM_ABORT)
-			i_fatal("pam_get_item() requested abort");
-		return FALSE;
-	}
 
 	/* password ok, save the user info */
 	pw = getpwnam(user);
@@ -200,22 +213,12 @@ static int pam_verify_plain(const char *user, const char *password,
 
 static void pam_init(const char *args)
 {
-	static struct pam_conv conv = {
-		pam_userpass_conv,
-		&userpass
-	};
-	const char *service_name;
-	int status;
-
-	service_name = *args != '\0' ? args : "imap";
-	status = pam_start(service_name, NULL, &conv, &pamh);
-	if (status != PAM_SUCCESS)
-		i_fatal("pam_start() failed: %s", pam_strerror(pamh, status));
+	service_name = i_strdup(*args != '\0' ? args : "imap");
 }
 
 static void pam_deinit(void)
 {
-	(void)pam_end(pamh, PAM_SUCCESS);
+	i_free(service_name);
 }
 
 UserInfoModule userinfo_pam = {
