@@ -304,6 +304,7 @@ static int mail_index_create_memory(struct mail_index *index,
 		return FALSE;
 	}
 
+	index->opened = TRUE;
 	return TRUE;
 }
 
