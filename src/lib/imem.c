@@ -52,6 +52,11 @@ char *i_strdup_empty(const char *str)
         return p_strdup_empty(default_pool, str);
 }
 
+char *i_strdup_until(const char *str, const char *end)
+{
+	return p_strdup_until(default_pool, str, end);
+}
+
 char *i_strndup(const char *str, unsigned int max_chars)
 {
         return p_strndup(default_pool, str, max_chars);

@@ -41,14 +41,15 @@ typedef void (*MessageHeaderFunc)(MessagePart *part,
 				  void *user_data);
 
 /* func is called for each field in message header. */
-MessagePart *message_parse(Pool pool, const char *msg, size_t size,
+MessagePart *message_parse(Pool pool, IOBuffer *inbuf,
 			   MessageHeaderFunc func, void *user_data);
 
 /* Call func for each field in message header. Fills the hdr_size.
    part can be NULL, just make sure your header function works with it.
    This function doesn't use temp. mempool so your header function may save
-   return values to it. */
-void message_parse_header(MessagePart *part, const char *msg, size_t size,
+   return values to it. When finished, inbuf will point to beginning of
+   message body. */
+void message_parse_header(MessagePart *part, IOBuffer *inbuf,
 			  MessageSize *hdr_size,
 			  MessageHeaderFunc func, void *user_data);
 

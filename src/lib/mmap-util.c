@@ -29,7 +29,7 @@
 static void *mmap_file(int fd, size_t *length, int access)
 {
 	*length = lseek(fd, 0, SEEK_END);
-	if ((off_t)*length == (off_t)-1)
+	if ((off_t)*length == -1)
 		return MAP_FAILED;
 
 	if (*length == 0)
@@ -54,12 +54,10 @@ void *mmap_aligned(int fd, int access, off_t offset, size_t length,
 		   void **data_start, size_t *mmap_length)
 {
 	void *mmap_base;
-
-#ifdef HAVE_GETPAGESIZE
 	static int pagemask = 0;
 
 	if (pagemask == 0) {
-		pagemask = getpagesize();
+		pagemask = getpagesize()-1;
 		i_assert(pagemask > 0);
 		pagemask--;
 	}
@@ -70,13 +68,6 @@ void *mmap_aligned(int fd, int access, off_t offset, size_t length,
 			 fd, offset & ~pagemask);
 	*data_start = mmap_base == MAP_FAILED || mmap_base == NULL ? NULL :
 		(char *) mmap_base + (offset & pagemask);
-#else
-	*mmap_length = length + offset;
-
-	mmap_base = mmap(NULL, *mmap_length, access, MAP_SHARED, fd, 0);
-	*data_start = mmap_base == MAP_FAILED || mmap_base == NULL ? NULL :
-		(char *) mmap_base + offset;
-#endif
 
 	return mmap_base;
 }

@@ -163,7 +163,7 @@ static int file_set_size(int fd, off_t size)
 
 	/* skip the existing data in file */
 	pos = lseek(fd, 0, SEEK_END);
-	if (pos == (off_t)-1)
+	if (pos == -1)
 		return FALSE;
 	size -= pos;
 

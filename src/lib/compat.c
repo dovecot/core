@@ -23,10 +23,11 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include <ctype.h>
-#include <syslog.h>
-
 #include "lib.h"
+
+#include <ctype.h>
+#include <unistd.h>
+#include <syslog.h>
 
 #ifndef INADDR_NONE
 #  define INADDR_NONE INADDR_BROADCAST
@@ -118,5 +119,17 @@ void my_vsyslog(int priority, const char *format, va_list args)
 	}
 #endif
 	syslog(priority, "%s", str);
+}
+#endif
+
+#ifndef HAVE_GETPAGESIZE
+int my_getpagesize(void)
+{
+#ifdef _SC_PAGESIZE
+	return sysconf(_SC_PAGESIZE);
+#else
+#  warning Guessing page size to be 4096
+	return 4096;
+#endif
 }
 #endif

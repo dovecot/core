@@ -238,7 +238,7 @@ static int client_skip_line(Client *client)
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == '\n') {
 			client->inbuf_skip_line = FALSE;
-			client->inbuf->skip += i+1;
+			io_buffer_skip(client->inbuf, i+1);
 			break;
 		}
 	}

@@ -1,6 +1,8 @@
 #ifndef __IMAP_MESSAGE_CACHE_H
 #define __IMAP_MESSAGE_CACHE_H
 
+// FIXME: update comments
+
 /* IMAP message cache. Caches are mailbox-specific and must be cleared
    if UID validity changes.
 
@@ -32,14 +34,19 @@ void imap_msgcache_free(ImapMessageCache *cache);
 int imap_msgcache_is_cached(ImapMessageCache *cache, unsigned int uid,
 			    ImapCacheField fields);
 
-/* Parse and cache the message. The given file handle is automatically
-   closed by cache and must not be closed elsewhere. If pv_headers_size
-   and pv_body_size is non-zero, they're set to saved to message's both
-   physical and virtual sizes (ie. doesn't need to be calculated). */
+/* Parse and cache the message. If pv_headers_size and pv_body_size is
+   non-zero, they're set to saved to message's both physical and virtual
+   sizes (ie. doesn't need to be calculated). */
 void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
-			   int fd, off_t offset, size_t size,
-			   size_t virtual_size, size_t pv_headers_size,
-			   size_t pv_body_size, ImapCacheField fields);
+			   ImapCacheField fields, size_t virtual_size,
+			   size_t pv_headers_size, size_t pv_body_size,
+			   IOBuffer *inbuf,
+			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
+						     void *user_data),
+			   void *user_data);
+
+/* Close the IOBuffer for cached message. */
+void imap_msgcache_close(ImapMessageCache *cache);
 
 /* Store a value for field in cache */
 void imap_msgcache_set(ImapMessageCache *cache, unsigned int uid,
@@ -58,19 +65,17 @@ MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache, unsigned int uid);
    is NULL, *data contains only the message body. */
 int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
 			     MessageSize *hdr_size, MessageSize *body_size,
-			     const char **data, int *fd);
+                             IOBuffer **inbuf);
 
-/* Returns FALSE if message isn't in cache. *data is set to point to the first
-   non-skipped character. size is set to specify the real size for message. */
+/* Returns FALSE if message isn't in cache. *inbuf is set to point to the first
+   non-skipped character. size is set to specify the full size for message. */
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
-				     off_t virtual_skip,
-				     size_t max_virtual_size,
+				     off_t virtual_skip, off_t max_virtual_size,
 				     int get_header, MessageSize *size,
-				     const char **data, int *fd);
+				     IOBuffer **inbuf);
 
-/* Like imap_msgcache_get_rfc822() without calculating virtual sizes.
-   size and fd may be NULL. */
+/* Like imap_msgcache_get_rfc822() without calculating virtual sizes. */
 int imap_msgcache_get_data(ImapMessageCache *cache, unsigned int uid,
-			   const char **data, int *fd, size_t *size);
+                           IOBuffer **inbuf);
 
 #endif

@@ -98,7 +98,7 @@ MailStorage *mail_storage_create_with_data(const char *data)
 	while (i_isalnum(*p)) p++;
 
 	if (*p == ':') {
-		name = t_strndup(data, (unsigned int) (p-data));
+		name = t_strdup_until(data, p);
 		storage = mail_storage_create(name, p+1);
 	} else {
 		storage = mail_storage_autodetect(data);

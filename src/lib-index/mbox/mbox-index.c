@@ -87,5 +87,7 @@ static MailIndex mbox_index = {
 	mail_index_update_end,
 	mail_index_update_field,
 	mail_index_get_last_error,
-	mail_index_is_inconsistency_error
+	mail_index_is_inconsistency_error,
+
+	MAIL_INDEX_PRIVATE_FILL
 };

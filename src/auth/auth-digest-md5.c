@@ -48,7 +48,6 @@ typedef struct {
 	unsigned char response[32];
 	unsigned long maxbuf;
 	unsigned int nonce_found:1;
-	unsigned int utf8:1;
 
 	/* final reply: */
 	char *rspauth;
@@ -114,7 +113,7 @@ static int verify_auth(AuthData *auth)
 
 	/* get the MD5 password */
 	if (!userinfo->lookup_digest_md5(auth->username, auth->realm != NULL ?
-					 auth->realm : "", auth->utf8, digest,
+					 auth->realm : "", digest,
 					 &auth->cookie_reply))
 		return FALSE;
 
@@ -414,7 +413,6 @@ static int auth_handle_response(AuthData *auth, char *key, char *value,
 			return FALSE;
 		}
 
-		auth->utf8 = TRUE;
 		return TRUE;
 	}
 

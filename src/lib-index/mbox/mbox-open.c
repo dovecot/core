@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
@@ -8,11 +9,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-int mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
-		   off_t *offset, size_t *size)
+IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 {
 	const char *location;
-	off_t pos;
+	off_t pos, offset, stop_offset;
 	char buf[5];
 	int fd, ret, ok;
 
@@ -24,33 +24,32 @@ int mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
 		index_set_error(index, "Corrupted index file %s: "
 				"Missing location field for record %u",
 				index->filepath, rec->uid);
-		return -1;
+		return NULL;
 	}
 
 	/* location = offset */
-	*offset = (off_t)strtoul(location, NULL, 10);
-	*size = rec->header_size + rec->body_size;
+	offset = (off_t)strtoul(location, NULL, 10);
+	stop_offset = offset + rec->header_size + rec->body_size;
 
 	fd = open(index->mbox_path, O_RDONLY);
 	if (fd == -1) {
 		index_set_error(index, "Can't open mbox file %s: %m",
 				index->mbox_path);
-		return -1;
+		return NULL;
 	}
 
-	pos = lseek(fd, *offset, SEEK_SET);
-	if (pos == (off_t)-1) {
+	pos = lseek(fd, offset, SEEK_SET);
+	if (pos == -1) {
 		index_set_error(index, "lseek() failed with mbox file %s: %m",
 				index->mbox_path);
 		(void)close(fd);
-		return -1;
+		return NULL;
 	}
 
 	ok = FALSE;
-	if (pos == *offset) {
+	if (pos == offset) {
 		/* make sure message size is valid */
-		pos = *offset + *size;
-		if (lseek(fd, pos, SEEK_SET) == pos) {
+		if (lseek(fd, stop_offset, SEEK_SET) == stop_offset) {
 			/* and check that we end with either EOF or to
 			   beginning of next message */
 			ret = read(fd, buf, 5);
@@ -62,8 +61,13 @@ int mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
 	}
 
 	if (ok) {
-		if (lseek(fd, *offset, SEEK_SET) == *offset)
-			return fd;
+		if (lseek(fd, offset, SEEK_SET) == offset) {
+			/* everything ok */
+			return io_buffer_create_mmap(fd, default_pool,
+						     MAIL_MMAP_BLOCK_SIZE,
+						     stop_offset);
+		}
+
 
 		index_set_error(index, "lseek() failed with mbox file %s: %m",
 				index->mbox_path);
@@ -73,5 +77,5 @@ int mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
 	}
 
 	(void)close(fd);
-	return -1;
+	return NULL;
 }

@@ -95,7 +95,7 @@ static const char *mbox_get_index_dir(const char *mbox_path)
 	if (p == NULL)
 		return t_strconcat(".imap/", mbox_path);
 	else {
-		rootpath = t_strndup(mbox_path, (unsigned int) (p-mbox_path));
+		rootpath = t_strdup_until(mbox_path, p);
 		return t_strconcat(rootpath, "/.imap/", p+1, NULL);
 	}
 }
@@ -105,9 +105,7 @@ static int create_mbox_index_dirs(const char *mbox_path, int verify)
 	const char *index_dir, *imap_dir;
 
 	index_dir = mbox_get_index_dir(mbox_path);
-	imap_dir = strstr(index_dir, ".imap/");
-	imap_dir = t_strndup(index_dir,
-			     (unsigned int) (imap_dir - index_dir) + 5);
+	imap_dir = t_strdup_until(index_dir, strstr(index_dir, ".imap/") + 5);
 
 	if (mkdir(imap_dir, CREATE_MODE) == -1 && errno != EEXIST)
 		return FALSE;
@@ -345,7 +343,10 @@ MailStorage mbox_storage = {
 	subsfile_set_subscribed,
 	mbox_find_subscribed,
 	mbox_get_mailbox_name_status,
-	mail_storage_get_last_error
+	mail_storage_get_last_error,
+
+	NULL,
+	NULL
 };
 
 static Mailbox mbox_mailbox = {
@@ -361,5 +362,8 @@ static Mailbox mbox_mailbox = {
 	index_storage_fetch,
 	index_storage_search,
 	mbox_storage_save,
-	mail_storage_is_inconsistency_error
+	mail_storage_is_inconsistency_error,
+
+	FALSE,
+	FALSE
 };

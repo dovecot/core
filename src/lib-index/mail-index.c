@@ -740,7 +740,7 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 
 	seekpos = sizeof(MailIndexHeader) +
 		(off_t)(lookup_seq-1) * sizeof(MailIndexRecord);
-	if ((size_t) seekpos > index->mmap_length - sizeof(MailIndexRecord)) {
+	if (seekpos > (off_t) (index->mmap_length - sizeof(MailIndexRecord))) {
 		/* out of range */
 		return NULL;
 	}
@@ -1042,14 +1042,14 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		/* first deleted message in index */
 		hdr->first_hole_position = pos;
 		hdr->first_hole_records = 1;
-	} else if (hdr->first_hole_position -
-		   sizeof(MailIndexRecord) == (size_t) pos) {
+	} else if ((off_t) (hdr->first_hole_position -
+			    sizeof(MailIndexRecord)) == pos) {
 		/* deleted the previous record before hole */
 		hdr->first_hole_position -= sizeof(MailIndexRecord);
 		hdr->first_hole_records++;
-	} else if (hdr->first_hole_position +
-		   (hdr->first_hole_records *
-		    sizeof(MailIndexRecord)) == (size_t) pos) {
+	} else if ((off_t) (hdr->first_hole_position +
+			    (hdr->first_hole_records *
+			     sizeof(MailIndexRecord))) == pos) {
 		/* deleted the next record after hole */
 		hdr->first_hole_records++;
 		update_first_hole_records(index);
@@ -1101,7 +1101,7 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec)
 	(*rec)->uid = index->header->next_uid++;
 
 	pos = lseek(index->fd, 0, SEEK_END);
-	if (pos == (off_t)-1) {
+	if (pos == -1) {
 		index_set_error(index, "lseek() failed with file %s: %m",
 				index->filepath);
 		return FALSE;

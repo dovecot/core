@@ -26,6 +26,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "iobuffer.h"
+#include "mmap-util.h"
 #include "network.h"
 
 #include <unistd.h>
@@ -34,8 +35,11 @@
 #  include <sys/sendfile.h>
 #endif
 
+static unsigned int mmap_pagesize = 0;
+static unsigned int mmap_pagemask = 0;
+
 IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
-			   unsigned int max_size)
+			   unsigned int max_buffer_size)
 {
 	IOBuffer *buf;
 
@@ -46,17 +50,58 @@ IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
 	buf->fd = fd;
 	buf->pool = pool;
 	buf->priority = priority;
-	buf->max_size = max_size;
+	buf->max_size = max_buffer_size;
 	return buf;
 }
 
-IOBuffer *io_buffer_create_file(int fd, Pool pool, unsigned int max_size)
+IOBuffer *io_buffer_create_file(int fd, Pool pool,
+				unsigned int max_buffer_size)
 {
 	IOBuffer *buf;
 
-	buf = io_buffer_create(fd, pool, IO_PRIORITY_DEFAULT, max_size);
+	buf = io_buffer_create(fd, pool, IO_PRIORITY_DEFAULT, max_buffer_size);
 	buf->file = TRUE;
         return buf;
+}
+
+IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
+				off_t stop_offset)
+{
+	IOBuffer *buf;
+
+	/* block size must be page aligned, and at least two pages long */
+	if (mmap_pagesize == 0) {
+		mmap_pagesize = getpagesize();
+		mmap_pagemask = mmap_pagesize-1;
+	}
+
+	if (block_size < mmap_pagesize*2)
+		block_size = mmap_pagesize*2;
+	else if ((block_size & mmap_pagemask) != 0) {
+		block_size &= ~mmap_pagemask;
+		block_size += mmap_pagesize;
+	}
+
+	buf = io_buffer_create_file(fd, pool, block_size);
+	buf->stop_offset = stop_offset;
+	buf->mmaped = TRUE;
+	buf->receive = TRUE;
+
+	/* set offsets */
+	buf->start_offset = lseek(fd, 0, SEEK_CUR);
+	buf->stop_offset = stop_offset > 0 ? stop_offset :
+		lseek(fd, 0, SEEK_END);
+
+	if (buf->start_offset == -1 || buf->stop_offset == -1) {
+		i_error("io_buffer_create_mmap(): lseek() failed: %m");
+		buf->start_offset = buf->stop_offset = 0;
+	}
+
+	/* fix offset alignment */
+	buf->mmap_offset = buf->start_offset & ~mmap_pagemask;
+	buf->skip = buf->mmap_offset & mmap_pagemask;
+
+	return buf;
 }
 
 void io_buffer_destroy(IOBuffer *buf)
@@ -66,7 +111,12 @@ void io_buffer_destroy(IOBuffer *buf)
 
         if (buf->io != NULL)
 		io_remove(buf->io);
-        p_free(buf->pool, buf->buffer);
+	if (buf->buffer != NULL) {
+		if (!buf->mmaped)
+			p_free(buf->pool, buf->buffer);
+		else
+			(void)munmap(buf->buffer, buf->size);
+	}
         p_free(buf->pool, buf);
 }
 
@@ -81,7 +131,15 @@ void io_buffer_close(IOBuffer *buf)
 void io_buffer_reset(IOBuffer *buf)
 {
 	buf->pos = buf->skip = buf->cr_lookup_pos = 0;
-        buf->last_cr = FALSE;
+	buf->last_cr = FALSE;
+
+	if (buf->mmaped && buf->buffer != NULL) {
+		(void)munmap(buf->buffer, buf->size);
+		buf->buffer = NULL;
+		buf->size = 0;
+	}
+
+	buf->mmap_offset = buf->offset = 0;
 }
 
 IOBuffer *io_buffer_set_pool(IOBuffer *buf, Pool pool)
@@ -95,22 +153,28 @@ IOBuffer *io_buffer_set_pool(IOBuffer *buf, Pool pool)
 	memcpy(newbuf, buf, sizeof(IOBuffer));
 
 	newbuf->pool = pool;
-	newbuf->buffer = p_malloc(pool, buf->size);
-	memcpy(newbuf->buffer, buf->buffer + buf->skip,
-	       buf->size - buf->skip);
 
-	newbuf->cr_lookup_pos -= newbuf->skip;
-        newbuf->pos -= newbuf->skip;
-	newbuf->skip = 0;
+	if (!newbuf->mmaped) {
+		newbuf->buffer = p_malloc(pool, buf->size);
+		memcpy(newbuf->buffer, buf->buffer + buf->skip,
+		       buf->size - buf->skip);
 
-        p_free(buf->pool, buf->buffer);
+		newbuf->cr_lookup_pos -= newbuf->skip;
+		newbuf->pos -= newbuf->skip;
+		newbuf->skip = 0;
+
+		p_free(buf->pool, buf->buffer);
+	}
+
         p_free(buf->pool, buf);
         return newbuf;
 }
 
 void io_buffer_set_max_size(IOBuffer *buf, unsigned int max_size)
 {
-        buf->max_size = max_size;
+	i_assert(!buf->mmaped);
+
+	buf->max_size = max_size;
 }
 
 void io_buffer_set_send_blocking(IOBuffer *buf, unsigned int max_size,
@@ -158,7 +222,7 @@ static void buf_send_real(IOBuffer *buf)
 	if (ret < 0) {
 		buf->closed = TRUE;
 	} else {
-		buf->transfd += ret;
+		buf->offset += ret;
 		buf->skip += ret;
 		if (buf->skip == buf->pos) {
 			/* everything sent */
@@ -194,13 +258,11 @@ static int buf_send(IOBuffer *buf)
 
 typedef struct {
 	IOLoop ioloop;
-	IOBuffer *buf;
+	IOBuffer *outbuf;
 
 	const char *data;
 	unsigned int size;
-
-	int in_fd;
-	off_t offset;
+	IOBuffer *inbuf;
 
 	int timeout;
 } IOBufferBlockData;
@@ -209,23 +271,24 @@ static void block_loop_send(IOBufferBlockData *bd)
 {
 	int ret;
 
-	if (bd->buf->skip != bd->buf->pos) {
-		buf_send_real(bd->buf);
+	if (bd->outbuf->skip != bd->outbuf->pos) {
+		buf_send_real(bd->outbuf);
 	} else {
 		/* send the data */
-		ret = !bd->buf->file ?
-			net_transmit(bd->buf->fd, bd->data, bd->size) :
-			my_write(bd->buf->fd, bd->data, bd->size);
+		ret = !bd->outbuf->file ?
+			net_transmit(bd->outbuf->fd, bd->data, bd->size) :
+			my_write(bd->outbuf->fd, bd->data, bd->size);
 
 		if (ret < 0) {
-			bd->buf->closed = TRUE;
+			bd->outbuf->closed = TRUE;
 		} else {
+			bd->outbuf->offset += ret;
 			bd->data += ret;
 			bd->size -= ret;
 		}
 	}
 
-	if (bd->buf->closed || bd->size == 0)
+	if (bd->outbuf->closed || bd->size == 0)
 		io_loop_stop(bd->ioloop);
 }
 
@@ -241,6 +304,7 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockData *bd,
 			    void (*send_func)(IOBufferBlockData *bd))
 {
 	Timeout to;
+	int save_errno;
 
 	/* close old IO */
 	if (buf->io != NULL)
@@ -248,13 +312,14 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockData *bd,
 
 	/* create a new I/O loop */
 	bd->ioloop = io_loop_create();
-	bd->buf = buf;
+	bd->outbuf = buf;
 
 	buf->io = io_add(buf->fd, IO_WRITE, (IOFunc) send_func, bd);
 	to = buf->timeout_msecs <= 0 ? NULL :
 		timeout_add(buf->timeout_msecs, block_loop_timeout, bd);
 
 	io_loop_run(bd->ioloop);
+	save_errno = errno;
 
 	if (buf->corked) {
 		/* remove cork */
@@ -276,6 +341,8 @@ static int io_buffer_ioloop(IOBuffer *buf, IOBufferBlockData *bd,
 	}
 
 	io_loop_destroy(bd->ioloop);
+
+	errno = save_errno;
 	return bd->size > 0 ? -1 : 1;
 }
 
@@ -304,6 +371,8 @@ void io_buffer_cork(IOBuffer *buf)
 
 static void buffer_alloc_more(IOBuffer *buf, unsigned int size)
 {
+	i_assert(!buf->mmaped);
+
 	buf->size = buf->pos+size;
 	buf->size = buf->size <= IO_BUFFER_MIN_SIZE ? IO_BUFFER_MIN_SIZE :
 		nearest_power(buf->size);
@@ -318,7 +387,7 @@ static void buffer_alloc_more(IOBuffer *buf, unsigned int size)
 	}
 }
 
-static inline void io_buffer_compress(IOBuffer *buf)
+static void io_buffer_compress(IOBuffer *buf)
 {
 	memmove(buf->buffer, buf->buffer + buf->skip,
 		buf->pos - buf->skip);
@@ -354,7 +423,7 @@ int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size)
 			return -1;
 		}
 
-		buf->transfd += ret;
+		buf->offset += ret;
 		data = (const char *) data + ret;
                 size -= ret;
 	}
@@ -386,59 +455,120 @@ static void block_loop_sendfile(IOBufferBlockData *bd)
 {
 	int ret;
 
-	ret = sendfile(bd->buf->fd, bd->in_fd, &bd->offset, bd->size);
+	ret = sendfile(bd->outbuf->fd, bd->inbuf->fd,
+		       &bd->inbuf->mmap_offset, bd->size);
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
-			bd->buf->closed = TRUE;
+			bd->outbuf->closed = TRUE;
 		ret = 0;
 	}
 
 	bd->size -= ret;
-	if (bd->buf->closed || bd->size == 0)
+	if (bd->outbuf->closed || bd->size == 0)
 		io_loop_stop(bd->ioloop);
 }
-#endif
 
-int io_buffer_send_file(IOBuffer *buf, int fd, off_t offset,
-			const void *data, unsigned int size)
+static int io_buffer_sendfile(IOBuffer *outbuf, IOBuffer *inbuf,
+			      unsigned int size)
 {
-#ifdef HAVE_SYS_SENDFILE_H
         IOBufferBlockData bd;
 	int ret;
-#endif
 
-	i_assert(fd >= 0);
-	i_assert(data != NULL);
-	i_assert(size < INT_MAX);
-
-#ifdef HAVE_SYS_SENDFILE_H
-	io_buffer_send_flush(buf);
+	io_buffer_send_flush(outbuf);
 
 	/* first try if we can do it with a single sendfile() call */
-	ret = sendfile(buf->fd, fd, &offset, size);
+	ret = sendfile(outbuf->fd, inbuf->fd, &inbuf->offset, size);
 	if (ret < 0) {
 		if (errno != EINTR && errno != EAGAIN)
 			return -1;
 		ret = 0;
 	}
 
-	if ((unsigned int) ret == size)
+	if ((unsigned int) ret == size) {
+		/* yes, all sent */
 		return 1;
-
-	if (buf->blocking) {
-		memset(&bd, 0, sizeof(IOBufferBlockData));
-
-		bd.in_fd = fd;
-		bd.offset = offset + ret;
-		bd.size = size - ret;
-
-		return io_buffer_ioloop(buf, &bd, block_loop_sendfile);
-	} else {
-		data = (char *) data + ret;
-		size -= ret;
 	}
+
+	memset(&bd, 0, sizeof(IOBufferBlockData));
+
+	bd.inbuf = inbuf;
+	bd.size = size - ret;
+
+	ret = io_buffer_ioloop(outbuf, &bd, block_loop_sendfile);
+	if (ret < 0 && errno == EINVAL) {
+		/* this shouldn't happen, must be a bug. It would also
+		   mess up later if we let this pass. */
+		i_fatal("io_buffer_sendfile() failed: %m");
+	}
+	return ret;
+}
 #endif
-	return io_buffer_send(buf, data, size);
+
+static void block_loop_copy(IOBufferBlockData *bd)
+{
+	unsigned char *in_data;
+	unsigned int size;
+	int ret;
+
+	while ((ret = io_buffer_read_data(bd->inbuf, &in_data,
+					  &size, 0)) <= 0) {
+		if (ret == -1) {
+			/* disconnected */
+			bd->outbuf->closed = TRUE;
+			break;
+		}
+	}
+
+	/* send the data */
+	bd->data = (const char *) in_data;
+	bd->size = size;
+	block_loop_send(bd);
+
+	io_buffer_skip(bd->inbuf, size - bd->size);
+}
+
+int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size)
+{
+	IOBufferBlockData bd;
+	unsigned char *in_data;
+	unsigned int in_size;
+	int ret;
+
+	i_assert(size < INT_MAX);
+
+#ifdef HAVE_SYS_SENDFILE_H
+	ret = io_buffer_sendfile(outbuf, inbuf, size);
+	if (ret >= 0 || errno != EINVAL)
+		return ret;
+
+	/* sendfile() not supported with fd, fallback to
+	   regular sending */
+#endif
+	/* see if we can do it at one go */
+	ret = io_buffer_read_data(inbuf, &in_data, &in_size, 0);
+	if (ret == -1)
+		return -1;
+
+	ret = !outbuf->file ?
+		net_transmit(outbuf->fd, in_data, in_size) :
+		my_write(outbuf->fd, in_data, in_size);
+	if (ret < 0)
+		return -1;
+
+	outbuf->offset += ret;
+	io_buffer_skip(inbuf, ret);
+	if ((unsigned int) ret == size) {
+		/* all sent */
+		return 1;
+	}
+
+	/* create blocking send loop */
+	memset(&bd, 0, sizeof(IOBufferBlockData));
+
+	bd.inbuf = inbuf;
+	bd.size = size;
+
+	return io_buffer_ioloop(outbuf, &bd, block_loop_copy);
 }
 
 void io_buffer_send_flush(IOBuffer *buf)
@@ -466,6 +596,48 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 	buf->flush_user_data = user_data;
 }
 
+int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
+{
+	unsigned int aligned_skip;
+
+	if (buf->stop_offset - buf->mmap_offset <= (off_t)buf->size) {
+		/* end of file is already mapped */
+		return -1;
+	}
+
+	if (buf->pos != 0) {
+		aligned_skip = buf->skip & ~mmap_pagemask;
+		if (buf->buffer != NULL) {
+			/* didn't skip enough bytes */
+			return -2;
+		}
+
+		buf->skip -= aligned_skip;
+		buf->mmap_offset += aligned_skip;
+	}
+
+	if (buf->buffer != NULL)
+		(void)munmap(buf->buffer, buf->size);
+
+	buf->size = buf->stop_offset - buf->mmap_offset < (off_t)buf->max_size ?
+		buf->stop_offset - buf->mmap_offset : buf->max_size;
+
+	if (buf->size > size)
+		buf->size = size;
+
+	buf->buffer = mmap(NULL, buf->size, PROT_READ, MAP_PRIVATE,
+			   buf->fd, buf->mmap_offset);
+	if (buf->buffer == MAP_FAILED) {
+		i_error("io_buffer_read_mmaped(): mmap() failed: %m");
+		return -1;
+	}
+
+	(void)madvise(buf->buffer, buf->size, MADV_SEQUENTIAL);
+
+	buf->pos = buf->size;
+	return buf->size;
+}
+
 int io_buffer_read_max(IOBuffer *buf, unsigned int size)
 {
 	int ret;
@@ -475,7 +647,10 @@ int io_buffer_read_max(IOBuffer *buf, unsigned int size)
 	buf->receive = TRUE;
 
 	if (buf->closed)
-                return -1;
+		return -1;
+
+	if (buf->mmaped)
+		return io_buffer_read_mmaped(buf, size);
 
 	if (buf->pos == buf->size) {
 		if (buf->skip > 0) {
@@ -491,7 +666,7 @@ int io_buffer_read_max(IOBuffer *buf, unsigned int size)
 	}
 
         /* fill the buffer */
-	if (size == UINT_MAX || buf->size-buf->pos < size)
+	if (buf->size-buf->pos < size)
 		size = buf->size - buf->pos;
 
 	if (!buf->file) {
@@ -511,7 +686,7 @@ int io_buffer_read_max(IOBuffer *buf, unsigned int size)
                 return -1;
 	}
 
-        buf->transfd += ret;
+        buf->offset += ret;
 	buf->pos += ret;
         return ret;
 }
@@ -521,8 +696,71 @@ int io_buffer_read(IOBuffer *buf)
         return io_buffer_read_max(buf, UINT_MAX);
 }
 
+void io_buffer_skip(IOBuffer *buf, unsigned int size)
+{
+	int ret;
+
+	if (size <= buf->pos - buf->skip) {
+		buf->skip += size;
+		buf->offset += size;
+		return;
+	}
+
+	if (buf->mmaped) {
+		if (buf->stop_offset - buf->mmap_offset <= (off_t)size) {
+			/* end of file */
+			buf->mmap_offset = buf->stop_offset;
+			buf->size = 0;
+			return;
+		}
+
+		/* these point outside mmap now, next io_buffer_read_mmaped()
+		   will fix them */
+		buf->skip += size;
+		buf->pos = buf->skip;
+	} else {
+		if (buf->size == 0)
+			buffer_alloc_more(buf, IO_BUFFER_MIN_SIZE);
+
+		size -= buf->skip;
+		while (size > buf->size) {
+			ret = io_buffer_read_max(buf, buf->size);
+			if (ret <= 0)
+				break;
+
+			size -= ret;
+		}
+
+		(void)io_buffer_read_max(buf, size);
+	}
+}
+
+int io_buffer_seek(IOBuffer *buf, off_t offset)
+{
+	off_t real_offset;
+
+	i_assert(offset >= 0);
+
+	if (buf->mmaped) {
+		/* first reset everything */
+		io_buffer_reset(buf);
+
+		/* then set the wanted position, next read will
+		   pick up from there */
+		buf->mmap_offset = buf->start_offset;
+		buf->pos = buf->skip = offset;
+	} else {
+		real_offset = buf->start_offset + offset;
+		if (lseek(buf->fd, real_offset, SEEK_SET) != real_offset)
+			return FALSE;
+	}
+
+	buf->offset = offset;
+	return TRUE;
+}
+
 /* skip the first LF, if it exists */
-static inline void io_buffer_skip_lf(IOBuffer *buf)
+static void io_buffer_skip_lf(IOBuffer *buf)
 {
 	if (!buf->last_cr || buf->skip >= buf->pos)
 		return;
@@ -537,6 +775,7 @@ static inline void io_buffer_skip_lf(IOBuffer *buf)
 
 char *io_buffer_next_line(IOBuffer *buf)
 {
+	// FIXME: update buf->offset
 	unsigned char *ret_buf;
         unsigned int i;
 
@@ -575,6 +814,25 @@ unsigned char *io_buffer_get_data(IOBuffer *buf, unsigned int *size)
 
         *size = buf->pos - buf->skip;
         return buf->buffer + buf->skip;
+}
+
+int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
+			unsigned int *size, unsigned int threshold)
+{
+	int ret;
+
+	if (buf->pos - buf->skip <= threshold) {
+		/* we need more data */
+		ret = io_buffer_read(buf);
+		if (ret <= 0) {
+			*size = 0;
+			*data = NULL;
+			return ret;
+		}
+	}
+
+	*data = io_buffer_get_data(buf, size);
+	return 1;
 }
 
 unsigned char *io_buffer_get_space(IOBuffer *buf, unsigned int size)
@@ -618,7 +876,7 @@ int io_buffer_send_buffer(IOBuffer *buf, unsigned int size)
 			return -1;
 		}
 
-		buf->transfd += ret;
+		buf->offset += ret;
 		if ((unsigned int) ret == size) {
                         /* all sent */
 			return 1;
@@ -639,6 +897,8 @@ int io_buffer_send_buffer(IOBuffer *buf, unsigned int size)
 
 int io_buffer_set_data(IOBuffer *buf, const void *data, unsigned int size)
 {
+	i_assert(!buf->mmaped);
+
 	io_buffer_reset(buf);
 
 	if (buf->size < size) {
@@ -647,10 +907,13 @@ int io_buffer_set_data(IOBuffer *buf, const void *data, unsigned int size)
                         return -2;
 	}
 
+        buf->offset += size;
+        buf->offset -= buf->pos - buf->skip;
+
 	memcpy(buf->buffer, data, size);
 	buf->pos = size;
-        buf->transfd += size;
-        return 1;
+	buf->skip = 0;
+	return 1;
 }
 
 int io_buffer_is_empty(IOBuffer *buf)

@@ -35,12 +35,12 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 		      FetchData *data, int fetch_header)
 {
 	MessageSize size;
-	const char *msg, *str;
-	int fd;
+	IOBuffer *inbuf;
+	const char *str;
 
 	if (!imap_msgcache_get_rfc822_partial(data->cache, rec->uid,
 					      sect->skip, sect->max_size,
-					      fetch_header, &size, &msg, &fd)) {
+					      fetch_header, &size, &inbuf)) {
 		i_error("Couldn't get BODY[] for UID %u (index %s)",
 			rec->uid, data->index->filepath);
 		return FALSE;
@@ -49,8 +49,7 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 	str = t_strdup_printf("{%lu}\r\n", (unsigned long) size.virtual_size);
 	(void)io_buffer_send(data->outbuf, str, strlen(str));
 
-	(void)imap_message_send(data->outbuf, msg, fd, &size,
-				0, sect->max_size);
+	(void)imap_message_send(data->outbuf, inbuf, &size, 0, sect->max_size);
 	return TRUE;
 }
 
@@ -74,33 +73,30 @@ static char *const *get_fields_array(const char *fields)
 	return field_list;
 }
 
-static int header_match(char *const *fields, const char *data, size_t size)
+static int header_match(char *const *fields, const char *name,
+			unsigned int size)
 {
-	const char *field, *data_start, *data_end;
+	const char *field, *name_start, *name_end;
 
 	i_assert(size > 0);
 
-	data_start = data;
-	data_end = data + size;
+	name_start = name;
+	name_end = name + size;
 
 	for (; *fields != NULL; fields++) {
 		field = *fields;
 		if (*field == '\0')
 			continue;
 
-		for (data = data_start; data != data_end; data++) {
+		for (name = name_start; name != name_end; name++) {
 			/* field has been uppercased long time ago while
 			   parsing FETCH command */
-			if (i_toupper(*data) != *field)
+			if (i_toupper(*name) != *field)
 				break;
 
 			field++;
 			if (*field == '\0') {
-				/* "field : value" is valid */
-				while (data+1 != data_end && IS_LWSP(data[1]))
-					data++;
-
-				if (data+1 != data_end && data[1] == ':')
+				if (name+1 == name_end)
 					return TRUE;
 				break;
 			}
@@ -110,84 +106,92 @@ static int header_match(char *const *fields, const char *data, size_t size)
 	return FALSE;
 }
 
-static int header_match_not(char *const *fields, const char *data, size_t size)
+static int header_match_not(char *const *fields, const char *name,
+			    unsigned int size)
 {
-	return !header_match(fields, data, size);
+	return !header_match(fields, name, size);
 }
 
 static int header_match_mime(char *const *fields __attr_unused__,
-			     const char *data, size_t size)
+			     const char *name, unsigned int size)
 {
-	if (size > 8 && strncasecmp(data, "Content-", 8) == 0)
+	if (size > 8 && strncasecmp(name, "Content-", 8) == 0)
 		return TRUE;
 
-	if (size >= 13 && strncasecmp(data, "Mime-Version:", 13) == 0)
+	if (size == 12 && strncasecmp(name, "Mime-Version", 13) == 0)
 		return TRUE;
 
 	return FALSE;
 }
 
-/* Store headers into dest, returns number of bytes written. */
-static unsigned int
-fetch_header_fields(const char *msg, size_t size,
-		    char *dest, char *const *fields,
-		    int (*match_func) (char *const *, const char *, size_t))
+typedef struct {
+	char *dest;
+	char *const *fields;
+	int (*match_func) (char *const *, const char *, unsigned int);
+} FetchHeaderFieldData;
+
+static void fetch_header_field(MessagePart *part __attr_unused__,
+			       const char *name, unsigned int name_len,
+			       const char *value __attr_unused__,
+			       unsigned int value_len __attr_unused__,
+			       void *user_data)
 {
-	const char *msg_start, *msg_end, *cr;
-	char *dest_start;
-	unsigned int i;
-	int matched;
+	FetchHeaderFieldData *data = user_data;
+	const char *name_start, *name_end, *cr;
+	unsigned int len;
 
-	dest_start = dest;
+	/* see if we want this field */
+	if (!data->match_func(data->fields, name, name_len))
+		return;
 
-	/* parse fields uppercased into array - no error checking */
-	msg_start = msg;
-	msg_end = msg + size;
+	/* add the field, inserting CRs when needed. FIXME: is this too
+	   kludgy? we assume name continues with ": value\n".. */
+	name_start = name;
+	name_end = name + name_len;
 
-	cr = NULL; matched = FALSE;
-	for (; msg != msg_end; msg++) {
-		if (*msg == '\r')
-			cr = msg;
-		else if (*msg == '\n') {
-			if (!matched && msg != msg_start &&
-			    !IS_LWSP(*msg_start)) {
-				matched = match_func(fields, msg_start,
-						     (size_t) (msg-msg_start));
-			}
+	cr = NULL;
+	for (name_start = name; name != name_end; name++) {
+		if (*name == '\r')
+			cr = name;
+		else if (*name == '\n' && cr != name-1) {
+			/* missing CR */
+			len = (unsigned int) (name-name_start);
+			memcpy(data->dest, name_start, len);
 
-			if (matched) {
-				if (cr == msg-1) {
-					/* contains CR+LF, copy them */
-					i = (unsigned int) (msg-msg_start)+1;
-					memcpy(dest, msg_start, i);
-					dest += i;
-				} else {
-					/* copy line without LF, appending
-					   CR+LF afterwards */
-					i = (unsigned int) (msg-msg_start);
-					memcpy(dest, msg_start, i);
-					dest += i;
+			data->dest[len++] = '\r';
+			data->dest[len++] = '\n';
+			data->dest += len;
 
-					*dest++ = '\r';
-					*dest++ = '\n';
-				}
-
-				/* see if it continues in next line */
-				matched = msg+1 != msg_end && IS_LWSP(msg[1]);
-			}
-
-			msg_start = msg+1;
+			name_start = name+1;
 		}
 	}
 
-	/* headers should always end with \n\n, so we don't need to
-	   check the last line here */
+	if (name_start != name_end) {
+		/* last linebreak was \r\n */
+		len = (unsigned int) (name_end-name_start);
+		memcpy(data->dest, name_start, len);
+		data->dest += len;
+	}
+}
 
-	return (unsigned int) (dest - dest_start);
+/* Store headers into dest, returns number of bytes written. */
+static unsigned int
+fetch_header_fields(IOBuffer *inbuf, char *dest, char *const *fields,
+		    int (*match_func) (char *const *, const char *,
+				       unsigned int))
+{
+	FetchHeaderFieldData data;
+
+	data.dest = dest;
+	data.fields = fields;
+	data.match_func = match_func;
+
+	message_parse_header(NULL, inbuf, NULL, fetch_header_field, &data);
+	return (unsigned int) (data.dest - dest);
 }
 
 /* fetch wanted headers from given data */
-static void fetch_header_from(const char *msg, int fd, MessageSize *size,
+static void fetch_header_from(IOBuffer *inbuf, MessageSize *size,
 			      const char *section, MailFetchBodyData *sect,
 			      FetchData *data)
 {
@@ -202,8 +206,8 @@ static void fetch_header_from(const char *msg, int fd, MessageSize *size,
 		str = t_strdup_printf("{%lu}\r\n",
 				      (unsigned long) size->virtual_size);
 		(void)io_buffer_send(data->outbuf, str, strlen(str));
-		(void)imap_message_send(data->outbuf, msg, fd,
-					size, sect->skip, sect->max_size);
+		(void)imap_message_send(data->outbuf, inbuf, size,
+					sect->skip, sect->max_size);
 		return;
 	}
 
@@ -213,17 +217,16 @@ static void fetch_header_from(const char *msg, int fd, MessageSize *size,
 	dest = t_malloc(size->virtual_size);
 
 	if (strncasecmp(section, "HEADER.FIELDS ", 14) == 0) {
-		len = fetch_header_fields(msg, size->physical_size, dest,
+		len = fetch_header_fields(inbuf, dest,
 					  get_fields_array(section + 14),
 					  header_match);
 	} else if (strncasecmp(section, "HEADER.FIELDS.NOT ", 18) == 0) {
-		len = fetch_header_fields(msg, size->physical_size, dest,
+		len = fetch_header_fields(inbuf, dest,
 					  get_fields_array(section + 18),
 					  header_match_not);
 	} else if (strcasecmp(section, "MIME") == 0) {
 		/* Mime-Version + Content-* fields */
-		len = fetch_header_fields(msg, size->physical_size, dest,
-					  NULL, header_match_mime);
+		len = fetch_header_fields(inbuf, dest, NULL, header_match_mime);
 	} else {
 		/* error */
 		len = 0;
@@ -231,13 +234,13 @@ static void fetch_header_from(const char *msg, int fd, MessageSize *size,
 
 	i_assert(len <= size->virtual_size);
 
-	if ((off_t) len <= sect->skip)
+	if ((off_t)len <= sect->skip)
 		len = 0;
 	else {
 		dest += sect->skip;
 		len -= sect->skip;
 
-		if (sect->max_size > 0 && len > sect->max_size)
+		if (sect->max_size >= 0 && (off_t)len > sect->max_size)
 			len = sect->max_size;
 	}
 
@@ -253,14 +256,13 @@ static int fetch_header(MailIndexRecord *rec, MailFetchBodyData *sect,
 			FetchData *data)
 {
 	MessageSize hdr_size;
-	const char *msg;
-	int fd;
+	IOBuffer *inbuf;
 
 	if (!imap_msgcache_get_rfc822(data->cache, rec->uid,
-				      &hdr_size, NULL, &msg, &fd))
+				      &hdr_size, NULL, &inbuf))
 		return FALSE;
 
-	fetch_header_from(msg, fd, &hdr_size, sect->section, sect, data);
+	fetch_header_from(inbuf, &hdr_size, sect->section, sect, data);
 	return TRUE;
 }
 
@@ -308,19 +310,17 @@ static MessagePart *part_find(MailIndexRecord *rec, MailFetchBodyData *sect,
 static int fetch_part_body(MessagePart *part, unsigned int uid,
 			   MailFetchBodyData *sect, FetchData *data)
 {
-	const char *msg, *str;
+	IOBuffer *inbuf;
+	const char *str;
 	off_t skip_pos;
-	int fd;
 
-	if (!imap_msgcache_get_data(data->cache, uid, &msg, &fd, NULL))
+	if (!imap_msgcache_get_data(data->cache, uid, &inbuf))
 		return FALSE;
 
 	/* jump to beginning of wanted data */
 	skip_pos = (off_t) (part->pos.physical_pos +
 			    part->header_size.physical_size);
-	msg += skip_pos;
-	if (fd != -1 && lseek(fd, skip_pos, SEEK_CUR) == (off_t)-1)
-		fd = -1;
+	io_buffer_skip(inbuf, skip_pos);
 
 	str = t_strdup_printf("{%lu}\r\n",
 			      (unsigned long) part->body_size.virtual_size);
@@ -328,7 +328,7 @@ static int fetch_part_body(MessagePart *part, unsigned int uid,
 
 	/* FIXME: potential performance problem with big messages:
 	   FETCH BODY[1]<100000..1024>, hopefully no clients do this */
-	(void)imap_message_send(data->outbuf, msg, -1, &part->body_size,
+	(void)imap_message_send(data->outbuf, inbuf, &part->body_size,
 				sect->skip, sect->max_size);
 	return TRUE;
 }
@@ -338,13 +338,13 @@ static int fetch_part_header(MessagePart *part, unsigned int uid,
 			     const char *section, MailFetchBodyData *sect,
 			     FetchData *data)
 {
-	const char *msg;
+	IOBuffer *inbuf;
 
-	if (!imap_msgcache_get_data(data->cache, uid, &msg, NULL, NULL))
+	if (!imap_msgcache_get_data(data->cache, uid, &inbuf))
 		return FALSE;
 
-	fetch_header_from(msg + part->pos.physical_pos, -1,
-			  &part->header_size, section, sect, data);
+	io_buffer_skip(inbuf, part->pos.physical_pos);
+	fetch_header_from(inbuf, &part->header_size, section, sect, data);
 	return TRUE;
 }
 

@@ -4,7 +4,6 @@
 /* If *part is non-NULL, it's used as base for building the body structure.
    Otherwise it's set to the root MessagePart and parsed. */
 const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
-					const char *msg, size_t size,
-					int extended);
+					IOBuffer *inbuf, int extended);
 
 #endif

@@ -54,10 +54,10 @@ static int flags_file_init(FlagsFile *ff)
 
 	/* make sure it's still empty after locking */
 	pos = lseek(ff->fd, 0, SEEK_END);
-	if (pos != (off_t)-1 && pos < HEADER_SIZE)
+	if (pos != -1 && pos < HEADER_SIZE)
 		pos = lseek(ff->fd, 0, SEEK_SET);
 
-	if (pos == (off_t)-1) {
+	if (pos == -1) {
 		mail_storage_set_critical(ff->storage, "lseek() failed for "
 					  "flags file %s: %m", ff->path);
 		return FALSE;
@@ -123,8 +123,7 @@ static void flags_file_sync(FlagsFile *ff)
 			while (data != data_end && *data != '\n')
 				data++;
 
-			ff->custom_flags[num] =
-				i_strndup(line, (unsigned int) (data - line));
+			ff->custom_flags[num] = i_strdup_until(line, data);
 		}
 	}
 }
@@ -256,7 +255,7 @@ static int flags_file_update_counter(FlagsFile *ff)
 {
 	int i;
 
-	if (lseek(ff->fd, 0, SEEK_SET) == (off_t)-1) {
+	if (lseek(ff->fd, 0, SEEK_SET) == -1) {
 		mail_storage_set_critical(ff->storage, "lseek() failed for "
 					  "flags file %s: %m", ff->path);
 		return FALSE;
@@ -300,13 +299,13 @@ static int flags_file_add(FlagsFile *ff, int idx, const char *name)
 
 	/* add the flag */
 	pos = lseek(ff->fd, 0, SEEK_END);
-	if (pos == (off_t)-1) {
+	if (pos == -1) {
 		mail_storage_set_critical(ff->storage, "lseek() failed for "
 					  "flags file %s: %m", ff->path);
 		return FALSE;
 	}
 
-	if ((size_t) pos != ff->mmap_length) {
+	if (pos != (off_t)ff->mmap_length) {
 		mail_storage_set_critical(ff->storage, "flags file %s was "
 					  "changed by someone while we were"
 					  "trying to modify it", ff->path);

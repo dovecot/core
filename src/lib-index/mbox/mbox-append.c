@@ -160,7 +160,7 @@ static int mbox_index_append_data(MailIndex *index, const char *msg,
 	i_snprintf(location, sizeof(location), "%lu", (unsigned long) offset);
 	index->update_field(update, FIELD_TYPE_LOCATION, location, 0);
 
-	/* parse the header and add cache wanted fields */
+	/* parse the header and cache wanted fields */
 	mail_index_update_headers(update, msg, physical_size, header_func, rec);
 
 	if (!index->update_end(update)) {
@@ -238,7 +238,7 @@ int mbox_index_append(MailIndex *index, int fd, const char *path)
 	/* get the size of the file */
 	end_pos = lseek(fd, 0, SEEK_END);
 
-	if (pos == (off_t)-1 || end_pos == (off_t)-1) {
+	if (pos == -1 || end_pos == -1) {
 		index_set_error(index, "lseek() failed with mbox file %s: %m",
 				path);
 		return FALSE;

@@ -183,7 +183,7 @@ int mail_index_data_reset(MailIndexData *data)
 	hdr.indexid = data->index->indexid;
 	hdr.deleted_space = 0;
 
-	if (lseek(data->fd, 0, SEEK_SET) == (off_t)-1) {
+	if (lseek(data->fd, 0, SEEK_SET) == -1) {
 		index_set_error(data->index, "lseek() failed for data file "
 				"%s: %m", data->filepath);
 		return FALSE;
@@ -210,16 +210,16 @@ off_t mail_index_data_append(MailIndexData *data, void *buffer, size_t size)
 	i_assert((size & (MEM_ALIGN_SIZE-1)) == 0);
 
 	pos = lseek(data->fd, 0, SEEK_END);
-	if (pos == (off_t)-1) {
+	if (pos == -1) {
 		index_set_error(data->index, "lseek() failed with file %s: %m",
 				data->filepath);
-		return (off_t)-1;
+		return -1;
 	}
 
 	if ((size_t) write(data->fd, buffer, size) != size) {
 		index_set_error(data->index, "Error appending to file %s: %m",
 				data->filepath);
-		return (off_t)-1;
+		return -1;
 	}
 
 	mail_index_data_new_data_notify(data);
@@ -243,7 +243,7 @@ int mail_index_data_add_deleted_space(MailIndexData *data,
 	/* see if we've reached the max. deleted space in file */
 	if (data->mmap_length >= COMPRESS_MIN_SIZE) {
 		max_del_space = data->mmap_length / 100 * COMPRESS_PERCENTAGE;
-		if ((size_t) hdr->deleted_space >= max_del_space)
+		if (hdr->deleted_space >= (off_t)max_del_space)
 			data->index->set_flags |= MAIL_INDEX_FLAG_COMPRESS_DATA;
 	}
 	return TRUE;
@@ -283,7 +283,7 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 	if (!mmap_update(data, index_rec->data_position, index_rec->data_size))
 		return NULL;
 
-	max_pos = (size_t) index_rec->data_position + index_rec->data_size;
+	max_pos = index_rec->data_position + (off_t)index_rec->data_size;
 	if (max_pos > data->mmap_length) {
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
@@ -335,7 +335,7 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 		return NULL;
 
 	/* get position to next record */
-	pos = (size_t) DATA_FILE_POSITION(data, rec) + DATA_RECORD_SIZE(rec);
+	pos = DATA_FILE_POSITION(data, rec) + (off_t)DATA_RECORD_SIZE(rec);
 	max_pos = index_rec->data_position + index_rec->data_size;
 
 	/* make sure it's within range */

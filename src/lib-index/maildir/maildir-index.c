@@ -21,7 +21,7 @@ const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 
 	oldflags = "";
 	if (info != NULL) {
-		fname = t_strndup(fname, (unsigned int) (info-fname));
+		fname = t_strdup_until(fname, info);
 		if (info[1] == '2' && info[2] == ',')
 			oldflags = info+3;
 	}
@@ -178,5 +178,7 @@ static MailIndex maildir_index = {
 	mail_index_update_end,
 	mail_index_update_field,
 	mail_index_get_last_error,
-	mail_index_is_inconsistency_error
+	mail_index_is_inconsistency_error,
+
+	MAIL_INDEX_PRIVATE_FILL
 };

@@ -353,7 +353,10 @@ MailStorage maildir_storage = {
 	subsfile_set_subscribed,
 	maildir_find_subscribed,
 	maildir_get_mailbox_name_status,
-	mail_storage_get_last_error
+	mail_storage_get_last_error,
+
+	NULL,
+	NULL
 };
 
 static Mailbox maildir_mailbox = {
@@ -369,5 +372,8 @@ static Mailbox maildir_mailbox = {
 	index_storage_fetch,
 	index_storage_search,
 	maildir_storage_save,
-	mail_storage_is_inconsistency_error
+	mail_storage_is_inconsistency_error,
+
+	FALSE,
+	FALSE
 };

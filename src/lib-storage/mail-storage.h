@@ -207,8 +207,7 @@ struct _MailFetchBodyData {
 	MailFetchBodyData *next;
 
 	const char *section; /* NOTE: always uppercased */
-	off_t skip;
-	size_t max_size;
+	off_t skip, max_size; /* max_size is ignored if it's < 0 */
 	unsigned int skip_set:1;
 	unsigned int peek:1;
 };

@@ -214,7 +214,7 @@ static void auth_input(void *user_data, int fd __attr_unused__,
 	if (!conn->init_received) {
 		if (size == sizeof(AuthInitData)) {
 			memcpy(&init_data, data, sizeof(AuthInitData));
-			conn->inbuf->skip += sizeof(AuthInitData);
+			io_buffer_skip(conn->inbuf, sizeof(AuthInitData));
 
 			auth_handle_init(conn, &init_data);
 		} else if (size > sizeof(AuthInitData)) {
@@ -235,7 +235,7 @@ static void auth_input(void *user_data, int fd __attr_unused__,
 		memcpy(&conn->in_reply, data, sizeof(AuthReplyData));
 		data += sizeof(AuthReplyData);
 		size -= sizeof(AuthReplyData);
-		conn->inbuf->skip += sizeof(AuthReplyData);
+		io_buffer_skip(conn->inbuf, sizeof(AuthReplyData));
 		conn->in_reply_received = TRUE;
 	}
 
@@ -243,11 +243,9 @@ static void auth_input(void *user_data, int fd __attr_unused__,
 		return;
 
 	/* we've got a full reply */
-	size = conn->in_reply.data_size;
-	conn->inbuf->skip += size;
 	conn->in_reply_received = FALSE;
-
 	auth_handle_reply(conn, &conn->in_reply, data);
+	io_buffer_skip(conn->inbuf, conn->in_reply.data_size);
 }
 
 int auth_init_request(AuthMethod method, AuthCallback callback,

@@ -11,8 +11,7 @@ MailFlags mbox_header_get_flags(const char *name, unsigned int name_len,
 int mbox_index_rebuild(MailIndex *index);
 int mbox_index_sync(MailIndex *index);
 int mbox_index_fsck(MailIndex *index);
-int mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
-		   off_t *offset, size_t *size);
+IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec);
 
 int mbox_index_append(MailIndex *index, int fd, const char *path);
 int mbox_index_append_mmaped(MailIndex *index, const char *data,

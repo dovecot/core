@@ -16,22 +16,19 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 		     unsigned int seq __attr_unused__, void *user_data)
 {
 	CopyData *cd = user_data;
-	IOBuffer *buf;
-	off_t offset;
-	size_t size;
-	int fd, failed;
+	IOBuffer *inbuf;
+	int failed;
 
-	fd = index->open_mail(index, rec, &offset, &size);
-	if (fd == -1)
+	inbuf = index->open_mail(index, rec);
+	if (inbuf == NULL)
 		return FALSE;
 
 	/* save it in destination mailbox */
-	buf = io_buffer_create_file(fd, default_pool, 4096);
 	failed = !cd->dest->save(cd->dest, rec->msg_flags,
 				 cd->custom_flags, rec->internal_date,
-				 buf, size);
-
-	(void)close(fd);
+				 inbuf, inbuf->stop_offset - inbuf->offset);
+	(void)close(inbuf->fd);
+	io_buffer_destroy(inbuf);
 	return !failed;
 }
 

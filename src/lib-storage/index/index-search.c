@@ -34,7 +34,8 @@ typedef struct {
 	MailSearchArg *args;
 	const char *msg;
 	size_t size;
-	int last_block;
+
+	unsigned int max_searchword_len;
 } SearchTextData;
 
 /* truncate timestamp to day */
@@ -379,18 +380,20 @@ static void search_text(MailSearchArg *arg, SearchTextData *data)
 		return;
 
 	len = strlen(arg->value.str);
-	max = data->size-len;
-	for (i = 0, p = data->msg; i <= max; i++, p++) {
-		if (i_toupper(*p) == arg->value.str[0] &&
-		    strncasecmp(p, arg->value.str, len) == 0) {
-			/* match */
-			ARG_SET_RESULT(arg, 1);
-			return;
+	if (len > data->max_searchword_len)
+		data->max_searchword_len = len;
+
+	if (data->size >= len) {
+		max = data->size-len;
+		for (i = 0, p = data->msg; i <= max; i++, p++) {
+			if (i_toupper(*p) == arg->value.str[0] &&
+			    strncasecmp(p, arg->value.str, len) == 0) {
+				/* match */
+				ARG_SET_RESULT(arg, 1);
+				return;
+			}
 		}
 	}
-
-	if (data->last_block)
-		ARG_SET_RESULT(arg, -1);
 }
 
 static void search_text_header(MailSearchArg *arg, void *user_data)
@@ -409,14 +412,46 @@ static void search_text_body(MailSearchArg *arg, void *user_data)
 		search_text(arg, data);
 }
 
+static void search_text_set_unmatched(MailSearchArg *arg,
+				      void *user_data __attr_unused__)
+{
+	if (arg->type == SEARCH_TEXT || arg->type == SEARCH_BODY)
+		ARG_SET_RESULT(arg, -1);
+}
+
+static void search_arg_match_data(IOBuffer *inbuf, unsigned int max_size,
+				  MailSearchArg *args,
+				  MailSearchForeachFunc search_func)
+{
+	SearchTextData data;
+	unsigned int size;
+	int ret;
+
+	memset(&data, 0, sizeof(data));
+	data.args = args;
+
+	/* do this in blocks: read data, compare it for all search words, skip
+	   for block size - (strlen(largest_searchword)-1) and continue. */
+	while (max_size > 0 &&
+	       (ret = io_buffer_read_max(inbuf, max_size)) > 0) {
+		data.msg = io_buffer_get_data(inbuf, &size);
+		if (size > 0) {
+			data.size = max_size < size ? max_size : size;
+			max_size -= data.size;
+
+			mail_search_args_foreach(args, search_func, &data);
+
+			if (data.max_searchword_len < size)
+				size -= data.max_searchword_len-1;
+			io_buffer_skip(inbuf, size);
+		}
+	}
+}
+
 static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 				 MailSearchArg *args)
 {
-	const char *msg;
-	void *mmap_base;
-	off_t offset;
-	size_t size, mmap_length;
-	int fd, failed;
+	IOBuffer *inbuf;
 	int have_headers, have_body, have_text;
 
 	/* first check what we need to use */
@@ -424,63 +459,50 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 	if (!have_headers && !have_body && !have_text)
 		return TRUE;
 
-	fd = ibox->index->open_mail(ibox->index, rec, &offset, &size);
-	if (fd == -1)
+	inbuf = ibox->index->open_mail(ibox->index, rec);
+	if (inbuf == NULL)
 		return FALSE;
 
-	mmap_base = mmap_aligned(fd, PROT_READ, offset, size,
-				 (void **) &msg, &mmap_length);
-	if (mmap_base == MAP_FAILED) {
-		failed = TRUE;
-		mail_storage_set_critical(ibox->box.storage, "mmap() failed "
-					  "for msg %u: %m", rec->uid);
-	} else {
-		failed = FALSE;
-		(void)madvise(mmap_base, mmap_length, MADV_SEQUENTIAL);
+	if (have_headers) {
+		SearchHeaderData data;
 
-		if (have_headers) {
-			SearchHeaderData data;
+		memset(&data, 0, sizeof(data));
 
-			memset(&data, 0, sizeof(data));
-
-			/* header checks */
-			data.custom_header = TRUE;
-			data.args = args;
-			message_parse_header(NULL, msg, size, NULL,
-					     search_header, &data);
-		}
-
-		if (have_text) {
-			/* first search text from header*/
-			SearchTextData data;
-
-			data.args = args;
-			data.msg = msg;
-			data.size = rec->header_size;
-			data.last_block = FALSE;
-
-			mail_search_args_foreach(args, search_text_header,
-						 &data);
-		}
-
-		if (have_text || have_body) {
-			/* search text from body */
-			SearchTextData data;
-
-			/* FIXME: we should check this in blocks, so the whole
-			   message doesn't need to be in memory */
-			data.args = args;
-			data.msg = msg + rec->header_size;
-			data.size = size - rec->header_size;
-			data.last_block = TRUE;
-
-			mail_search_args_foreach(args, search_text_body, &data);
-		}
+		/* header checks */
+		data.custom_header = TRUE;
+		data.args = args;
+		message_parse_header(NULL, inbuf, NULL, search_header, &data);
 	}
 
-	(void)munmap(mmap_base, mmap_length);
-	(void)close(fd);
-	return !failed;
+	if (have_text) {
+		if (inbuf->offset != 0) {
+			/* need to rewind back to beginning of headers */
+			if (!io_buffer_seek(inbuf, 0)) {
+				i_error("io_buffer_seek() failed: %m");
+				return FALSE;
+			}
+		}
+
+		search_arg_match_data(inbuf, rec->header_size,
+				      args, search_text_header);
+	}
+
+	if (have_text || have_body) {
+		if (inbuf->offset != (off_t)rec->header_size) {
+			/* skip over headers */
+			i_assert(inbuf->offset == 0);
+			io_buffer_skip(inbuf, rec->header_size);
+		}
+
+		search_arg_match_data(inbuf, UINT_MAX, args, search_text_body);
+
+		/* set the rest as unmatched */
+		mail_search_args_foreach(args, search_text_set_unmatched, NULL);
+	}
+
+	(void)close(inbuf->fd);
+	io_buffer_destroy(inbuf);
+	return TRUE;
 }
 
 static void seq_update(const char *set, unsigned int *first_seq,

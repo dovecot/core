@@ -391,7 +391,7 @@ static int mail_modifylog_append(MailModifyLog *log, ModifyLogRecord *rec,
 		}
 	}
 
-	if (lseek(log->fd, 0, SEEK_END) == (off_t)-1) {
+	if (lseek(log->fd, 0, SEEK_END) == -1) {
 		index_set_error(log->index, "lseek() failed with file %s: %m",
 				log->filepath);
 		return FALSE;

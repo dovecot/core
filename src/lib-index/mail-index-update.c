@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "ioloop.h"
 #include "rfc822-date.h"
 #include "rfc822-tokenize.h"
@@ -151,7 +152,7 @@ static int update_by_append(MailIndexUpdate *update)
 
 	/* append the data at the end of the data file */
 	fpos = mail_index_data_append(update->index->data, mem, pos);
-	if (fpos == (off_t)-1)
+	if (fpos == -1)
 		return FALSE;
 
 	/* update index file position - it's mmap()ed so it'll be writte
@@ -327,8 +328,7 @@ static void update_header_func(MessagePart *part,
 	}
 }
 
-void mail_index_update_headers(MailIndexUpdate *update,
-			       const char *msg, size_t size,
+void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 			       MessageHeaderFunc header_func, void *user_data)
 {
 	HeaderUpdateData data;
@@ -349,8 +349,7 @@ void mail_index_update_headers(MailIndexUpdate *update,
 		/* for body / bodystructure, we need need to
 		   fully parse the message */
 		pool = pool_create("index message parser", 2048, FALSE);
-		part = message_parse(pool, msg, size,
-				     update_header_func, &data);
+		part = message_parse(pool, inbuf, update_header_func, &data);
 
 		/* update our sizes */
 		update->rec->header_size = part->header_size.physical_size;
@@ -362,7 +361,7 @@ void mail_index_update_headers(MailIndexUpdate *update,
 		if (cache_fields & FIELD_TYPE_BODY) {
 			t_push();
 			value = imap_part_get_bodystructure(pool, &part,
-							    msg, size, FALSE);
+							    inbuf, FALSE);
 			update->index->update_field(update, FIELD_TYPE_BODY,
 						    value, 0);
 			t_pop();
@@ -371,7 +370,7 @@ void mail_index_update_headers(MailIndexUpdate *update,
 		if (cache_fields & FIELD_TYPE_BODYSTRUCTURE) {
 			t_push();
 			value = imap_part_get_bodystructure(pool, &part,
-							    msg, size, TRUE);
+							    inbuf, TRUE);
 			update->index->update_field(update,
 						    FIELD_TYPE_BODYSTRUCTURE,
 						    value, 0);
@@ -380,18 +379,18 @@ void mail_index_update_headers(MailIndexUpdate *update,
 
 		pool_unref(pool);
 	} else {
-		message_parse_header(NULL, msg, size, &hdr_size,
+		message_parse_header(NULL, inbuf, &hdr_size,
 				     update_header_func, &data);
 
 		update->rec->header_size = hdr_size.physical_size;
-		update->rec->body_size = size - hdr_size.physical_size;
+		update->rec->body_size = (inbuf->stop_offset - inbuf->offset) -
+			hdr_size.physical_size;
 
 		if (update->rec->full_virtual_size == 0) {
 			/* we need to calculate virtual size of the
-			   body as well */
-			message_get_body_size(msg + hdr_size.physical_size,
-					      size - hdr_size.physical_size,
-					      &body_size);
+			   body as well. message_parse_header() left the
+			   inbuf point to beginning of the body. */
+			message_get_body_size(inbuf, &body_size, -1);
 
 			update->rec->full_virtual_size =
 				hdr_size.virtual_size + body_size.virtual_size;

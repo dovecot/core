@@ -42,9 +42,9 @@ int mail_index_fsck(MailIndex *index)
 			if (hdr->first_hole_position == 0) {
 				hdr->first_hole_position = pos;
 				hdr->first_hole_records = 1;
-			} else if (hdr->first_hole_position +
-				   (hdr->first_hole_records *
-				    sizeof(MailIndexRecord)) == (size_t) pos) {
+			} else if ((off_t) (hdr->first_hole_position +
+					    (hdr->first_hole_records *
+					     sizeof(MailIndexRecord))) == pos) {
 				/* hole continues */
 				hdr->first_hole_records++;
 			}

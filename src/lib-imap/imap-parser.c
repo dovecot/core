@@ -84,7 +84,7 @@ static int imap_parser_skip_whitespace(ImapParser *parser, char **data,
 			break;
 	}
 
-	parser->inbuf->skip += i;
+        io_buffer_skip(parser->inbuf, i);
 	parser->cur_pos = 0;
 
 	*data += i;
@@ -294,7 +294,7 @@ static int imap_parser_read_literal(ImapParser *parser, char *data,
 			parser->cur_type = ARG_PARSE_LITERAL_DATA;
 			parser->literal_skip_crlf = TRUE;
 
-			parser->inbuf->skip += i+1;
+			io_buffer_skip(parser->inbuf, i+1);
 			parser->cur_pos = 0;
 			break;
 		}
@@ -325,14 +325,14 @@ static int imap_parser_read_literal_data(ImapParser *parser, char *data,
 				return TRUE;
 
 			data++; data_size--;
-			parser->inbuf->skip++;
+			io_buffer_skip(parser->inbuf, 1);
 		}
 
 		if (*data != '\n')
 			return FALSE;
 
 		data++; data_size--;
-		parser->inbuf->skip++;
+		io_buffer_skip(parser->inbuf, 1);
 		parser->literal_skip_crlf = FALSE;
 
 		i_assert(parser->cur_pos == 0);
@@ -497,7 +497,7 @@ const char *imap_parser_read_word(ImapParser *parser)
 	}
 
 	if (i < data_size) {
-		parser->inbuf->skip += i + (data[i] == ' ' ? 1 : 0);
+		io_buffer_skip(parser->inbuf, i + (data[i] == ' ' ? 1 : 0));
 		return p_strndup(parser->pool, data, i);
 	} else {
 		return NULL;
@@ -518,7 +518,7 @@ const char *imap_parser_read_line(ImapParser *parser)
 	}
 
 	if (i < data_size) {
-		parser->inbuf->skip += i;
+		io_buffer_skip(parser->inbuf, i);
 		return p_strndup(parser->pool, data, i);
 	} else {
 		return NULL;

@@ -42,7 +42,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	failed = FALSE;
 
 	pos = lseek(fd, 0, SEEK_END);
-	if (pos == (off_t)-1) {
+	if (pos == -1) {
 		mail_storage_set_error(box->storage, "lseek() failed for mbox "
 				       "file %s: %m", ibox->index->mbox_path);
 		failed = TRUE;

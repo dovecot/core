@@ -18,7 +18,7 @@ typedef struct {
 	   "user:realm:password". If utf8 is TRUE, the user and realm are
 	   in UTF-8, otherwise ISO-8859-1. Returns TRUE if user was found. */
 	int (*lookup_digest_md5)(const char *user, const char *realm,
-				 int utf8, unsigned char digest[16],
+				 unsigned char digest[16],
 				 AuthCookieReplyData *reply);
 } UserInfoModule;
 

@@ -148,7 +148,7 @@ static int passwd_file_verify_plain(const char *user, const char *password,
 }
 
 static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
-					 int utf8, unsigned char digest[16],
+					 unsigned char digest[16],
 					 AuthCookieReplyData *reply)
 {
 	const char *id;

@@ -544,6 +544,33 @@ const char *t_strdup_empty(const char *str)
         STRDUP_EMPTY_CORE(t_malloc(len), str);
 }
 
+char *p_strdup_until(Pool pool, const char *start, const char *end)
+{
+	unsigned int size;
+	char *mem;
+
+	i_assert(start <= end);
+
+	size = (unsigned int) (end-start);
+	mem = p_malloc(pool, size+1);
+	memcpy(mem, start, size);
+	return mem;
+}
+
+const char *t_strdup_until(const char *start, const char *end)
+{
+	unsigned int size;
+	char *mem;
+
+	i_assert(start <= end);
+
+	size = (unsigned int) (end-start);
+	mem = t_malloc(size+1);
+	memcpy(mem, start, size);
+	mem[size] = '\0';
+	return mem;
+}
+
 static inline char *
 strndup_core(const char *str, unsigned int max_chars,
 	     ALLOC_FUNC alloc, Pool pool)
@@ -719,7 +746,7 @@ const char *t_strcut(const char *str, char cutchar)
 
 	for (p = str; *p != '\0'; p++) {
 		if (*p == cutchar)
-                        return t_strndup(str, (unsigned int) (p-str));
+                        return t_strdup_until(str, p);
 	}
 
         return str;

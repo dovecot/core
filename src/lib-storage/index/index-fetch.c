@@ -89,11 +89,11 @@ static void index_fetch_uid(MailIndexRecord *rec, FetchData *data)
 static void index_fetch_rfc822(MailIndexRecord *rec, FetchData *data)
 {
 	MessageSize hdr_size, body_size;
-	const char *msg, *str;
-	int fd;
+	IOBuffer *inbuf;
+	const char *str;
 
 	if (!imap_msgcache_get_rfc822(data->cache, rec->uid,
-				      &hdr_size, &body_size, &msg, &fd)) {
+				      &hdr_size, &body_size, &inbuf)) {
 		i_error("Couldn't get RFC822 for UID %u (index %s)",
 			rec->uid, data->index->filepath);
 		return;
@@ -106,17 +106,17 @@ static void index_fetch_rfc822(MailIndexRecord *rec, FetchData *data)
 
 	body_size.physical_size += hdr_size.physical_size;
 	body_size.virtual_size += hdr_size.virtual_size;
-	(void)imap_message_send(data->outbuf, msg, fd, &body_size, 0, 0);
+	(void)imap_message_send(data->outbuf, inbuf, &body_size, 0, -1);
 }
 
 static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchData *data)
 {
 	MessageSize hdr_size;
-	const char *msg, *str;
-	int fd;
+	IOBuffer *inbuf;
+	const char *str;
 
 	if (!imap_msgcache_get_rfc822(data->cache, rec->uid,
-				      &hdr_size, NULL, &msg, &fd)) {
+				      &hdr_size, NULL, &inbuf)) {
 		i_error("Couldn't get RFC822.HEADER for UID %u (index %s)",
 			rec->uid, data->index->filepath);
 		return;
@@ -125,17 +125,17 @@ static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchData *data)
 	str = t_strdup_printf(" RFC822.HEADER {%lu}\r\n",
 			      (unsigned long) hdr_size.virtual_size);
 	(void)io_buffer_send(data->outbuf, str, strlen(str));
-	(void)imap_message_send(data->outbuf, msg, fd, &hdr_size, 0, 0);
+	(void)imap_message_send(data->outbuf, inbuf, &hdr_size, 0, -1);
 }
 
 static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchData *data)
 {
 	MessageSize body_size;
-	const char *msg, *str;
-	int fd;
+	IOBuffer *inbuf;
+	const char *str;
 
 	if (!imap_msgcache_get_rfc822(data->cache, rec->uid,
-				      NULL, &body_size, &msg, &fd)) {
+				      NULL, &body_size, &inbuf)) {
 		i_error("Couldn't get RFC822.TEXT for UID %u (index %s)",
 			rec->uid, data->index->filepath);
 		return;
@@ -144,7 +144,7 @@ static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchData *data)
 	str = t_strdup_printf(" RFC822.TEXT {%lu}\r\n",
 			      (unsigned long) body_size.virtual_size);
 	(void)io_buffer_send(data->outbuf, str, strlen(str));
-	(void)imap_message_send(data->outbuf, msg, fd, &body_size, 0, 0);
+	(void)imap_message_send(data->outbuf, inbuf, &body_size, 0, -1);
 }
 
 static ImapCacheField index_get_cache(MailFetchData *fetch_data)
@@ -180,28 +180,42 @@ static ImapCacheField index_get_cache(MailFetchData *fetch_data)
 	return field;
 }
 
+static IOBuffer *inbuf_rewind(IOBuffer *inbuf, void *user_data __attr_unused__)
+{
+	if (!io_buffer_seek(inbuf, 0)) {
+		i_error("inbuf_rewind: lseek() failed: %m");
+
+		(void)close(inbuf->fd);
+		io_buffer_destroy(inbuf);
+		return NULL;
+	}
+
+	return inbuf;
+}
+
 static int index_cache_message(MailIndexRecord *rec, FetchData *data,
 			       ImapCacheField field)
 {
-	off_t offset;
-	size_t size;
-	int fd;
+	IOBuffer *inbuf;
 
-	fd = data->index->open_mail(data->index, rec, &offset, &size);
-	if (fd == -1) {
+	inbuf = data->index->open_mail(data->index, rec);
+	if (inbuf == NULL) {
 		i_error("Couldn't open message UID %u (index %s)",
 			rec->uid, data->index->filepath);
 		return FALSE;
 	}
 
 	if (MSG_HAS_VALID_CRLF_DATA(rec)) {
-		imap_msgcache_message(data->cache, rec->uid, fd, offset, size,
-				      rec->full_virtual_size,
-				      rec->header_size, rec->body_size, field);
+		imap_msgcache_message(data->cache, rec->uid,
+				      field, rec->full_virtual_size,
+				      rec->header_size, rec->body_size,
+				      inbuf, inbuf_rewind, NULL);
 	} else {
-		imap_msgcache_message(data->cache, rec->uid, fd, offset, size,
-				      rec->full_virtual_size, 0, 0, field);
+		imap_msgcache_message(data->cache, rec->uid,
+				      field, rec->full_virtual_size,
+				      0, 0, inbuf, inbuf_rewind, NULL);
 	}
+
 	return TRUE;
 }
 
@@ -240,7 +254,7 @@ static void index_cache_mail(FetchData *data, MailIndexRecord *rec)
 	   cache the needed fields */
 	if (fields != 0 &&
 	    !imap_msgcache_is_cached(data->cache, rec->uid, fields))
-		index_cache_message(rec, data, fields);
+		(void)index_cache_message(rec, data, fields);
 }
 
 static int index_fetch_mail(MailIndex *index __attr_unused__,

@@ -64,7 +64,7 @@ static int mbox_check_new_mail(MailIndex *index)
 	}
 
 	pos = lseek(fd, index->mbox_size, SEEK_SET);
-	if (pos == (off_t)-1) {
+	if (pos == -1) {
 		index_set_error(index, "lseek() failed with mbox file %s: %m",
 				index->mbox_path);
 		(void)close(fd);

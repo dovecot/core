@@ -77,7 +77,7 @@ static int subscription_append(MailStorage *storage, int fd, const char *name,
 {
 	char *buf;
 
-	if (lseek(fd, 0, SEEK_END) == (off_t)-1) {
+	if (lseek(fd, 0, SEEK_END) == -1) {
 		mail_storage_set_critical(storage, "lseek() failed for "
 					  "subscription file %s: %m", path);
 		return FALSE;
@@ -203,7 +203,7 @@ int subsfile_foreach(MailStorage *storage, const char *mask,
 				break;
 		}
 
-		line = t_strndup(start, (unsigned int) (p-start));
+		line = t_strdup_until(start, p);
 		if (line != NULL && *line != '\0' &&
 		    imap_match(glob, line, 0, NULL) >= 0)
 			ret = func(storage, line, user_data);

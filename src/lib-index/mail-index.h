@@ -202,10 +202,9 @@ struct _MailIndex {
 	/* Returns sequence for given message. */
 	unsigned int (*get_sequence)(MailIndex *index, MailIndexRecord *rec);
 
-	/* Open mail file lseek()ed to beginning position and return the
-	   file handle. */
-	int (*open_mail)(MailIndex *index, MailIndexRecord *rec,
-			 off_t *offset, size_t *size);
+	/* Open mail file and return it as mmap()ed IOBuffer, or
+	   NULL if failed. */
+	IOBuffer *(*open_mail)(MailIndex *index, MailIndexRecord *rec);
 
 	/* Expunge a mail from index. Hash and modifylog is also updated. The
 	   index must be exclusively locked before calling this function.
@@ -303,6 +302,13 @@ struct _MailIndex {
 	unsigned int dirty_mmap:1;
 };
 
+/* needed to remove annoying warnings about not initializing all struct
+   members.. */
+#define MAIL_INDEX_PRIVATE_FILL \
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0, 0, 0, 0, 0, 0
+
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent);
 int mail_index_open_or_create(MailIndex *index, int update_recent);
@@ -337,9 +343,11 @@ void mail_index_init_header(MailIndexHeader *hdr);
 void mail_index_close(MailIndex *index);
 int mail_index_rebuild_all(MailIndex *index);
 int mail_index_sync_file(MailIndex *index);
-void mail_index_update_headers(MailIndexUpdate *update,
-			       const char *msg, size_t size,
+void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 			       MessageHeaderFunc header_func, void *user_data);
+
+/* Max. mmap()ed size for a message */
+#define MAIL_MMAP_BLOCK_SIZE (1024*256)
 
 /* off_t to index file for given record */
 #define INDEX_FILE_POSITION(index, ptr) \

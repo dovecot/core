@@ -18,10 +18,8 @@ int maildir_index_append_file(MailIndex *index, const char *dir,
 int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 			    const char *dest_dir);
 
-int maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
-		      off_t *offset, size_t *size);
+IOBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec);
 
-int maildir_record_update(MailIndex *index, MailIndexUpdate *update,
-			  int fd, const char *path);
+int maildir_record_update(MailIndexUpdate *update, int fd, const char *path);
 
 #endif

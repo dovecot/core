@@ -79,7 +79,7 @@ static int maildir_index_sync_file(MailIndex *index,
 					path);
 			failed = TRUE;
 		} else {
-			if (!maildir_record_update(index, update, fd, path))
+			if (!maildir_record_update(update, fd, path))
 				failed = TRUE;
 			(void)close(fd);
 		}
@@ -151,8 +151,8 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 				return FALSE;
 			}
 
-			file_changed = rec->body_size + rec->header_size !=
-				(size_t) st.st_size;
+			file_changed = st.st_size != (off_t) (rec->body_size +
+							      rec->header_size);
 		}
 
 		/* changed - update */
@@ -252,9 +252,7 @@ static int maildir_index_sync_dir(MailIndex *index, const char *dir)
 			continue;
 
 		value = p_strdup(pool, d->d_name);
-		key = p == NULL ? value :
-			p_strndup(pool, d->d_name,
-				  (unsigned int) (p - d->d_name));
+		key = p == NULL ? value : p_strdup_until(pool, d->d_name, p);
 		hash_insert(files, key, value);
 	}
 	(void)closedir(dirp);

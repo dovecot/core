@@ -9,9 +9,15 @@ typedef void (*IOBufferFlushFunc) (void *user_data, IOBuffer *buf);
 
 struct _IOBuffer {
 	int fd;
-        IO io;
 
+	unsigned int pos, skip;
+	unsigned int size, max_size;
+	off_t start_offset, stop_offset;
+	off_t offset; /* virtual offset, 0 = start_offset */
+
+/* private: */
 	Pool pool;
+	IO io;
 	int priority;
 
 	int timeout_msecs;
@@ -22,13 +28,11 @@ struct _IOBuffer {
 	void *flush_user_data;
 
 	unsigned char *buffer;
-
         unsigned int cr_lookup_pos; /* used only when reading a line */
-	unsigned int pos, skip;
-	unsigned int size, max_size;
-        unsigned int transfd;
+	off_t mmap_offset;
 
 	unsigned int file:1; /* reading/writing a file */
+	unsigned int mmaped:1; /* reading a file with mmap() */
 	unsigned int closed:1; /* all further read/writes will return 0 */
 	unsigned int transmit:1; /* this is a transmit buffer */
 	unsigned int receive:1; /* this is a receive buffer */
@@ -39,15 +43,16 @@ struct _IOBuffer {
 };
 
 /* Create an I/O buffer. It can be used for either sending or receiving data,
-   NEVER BOTH AT SAME TIME. If max_size is 0, there's no limit. */
+   NEVER BOTH AT SAME TIME. */
 IOBuffer *io_buffer_create(int fd, Pool pool, int priority,
-			   unsigned int max_size);
+			   unsigned int max_buffer_size);
 /* Same as io_buffer_create(), but specify that we're reading/writing file. */
-IOBuffer *io_buffer_create_file(int fd, Pool pool, unsigned int max_size);
-/* Read the file by mmap()ing it in blocks. max_size specifies the maximum
-   amount of data to read from the file. */
+IOBuffer *io_buffer_create_file(int fd, Pool pool,
+				unsigned int max_buffer_size);
+/* Read the file by mmap()ing it in blocks. stop_offset specifies where to
+   stop reading, or 0 to end of file. */
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
-				unsigned int max_size);
+				off_t stop_offset);
 /* Destroy a buffer. */
 void io_buffer_destroy(IOBuffer *buf);
 /* Mark the buffer closed. Any sends/reads after this will return -1.
@@ -77,10 +82,10 @@ void io_buffer_cork(IOBuffer *buf);
 
 /* Returns 1 if all was ok, -1 if disconnected, -2 if buffer is full */
 int io_buffer_send(IOBuffer *buf, const void *data, unsigned int size);
-/* Send data using sendfile(), of if it's not available fallback to regular
-   sending from data-pointer. Returns 1 if all was ok, -1 if disconnected. */
-int io_buffer_send_file(IOBuffer *buf, int fd, off_t offset,
-			const void *data, unsigned int size);
+/* Send data from input buffer to output buffer using the fastest
+   possible method. Returns 1 if all was ok, -1 if disconnected.
+   Note that this function may block. */
+int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size);
 /* Flush the output buffer, blocks until all is sent. If
    io_buffer_set_send_blocking() is called, it's timeout settings are used. */
 void io_buffer_send_flush(IOBuffer *buf);
@@ -91,10 +96,15 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 				   void *user_data);
 
 /* Returns number of bytes read if read was ok,
-   -1 if disconnected, -2 if the buffer is full */
+   -1 if disconnected / EOF, -2 if the buffer is full */
 int io_buffer_read(IOBuffer *buf);
 /* Like io_buffer_read(), but don't read more than specified size. */
 int io_buffer_read_max(IOBuffer *buf, unsigned int size);
+/* Skip forward a number of bytes */
+void io_buffer_skip(IOBuffer *buf, unsigned int size);
+/* Seek to specified position from beginning of file. This works only for
+   files. Returns TRUE if successful. */
+int io_buffer_seek(IOBuffer *buf, off_t offset);
 /* Returns the next line from input buffer, or NULL if more data is needed
    to make a full line. NOTE: call to io_buffer_read() invalidates the
    returned data. */
@@ -102,6 +112,11 @@ char *io_buffer_next_line(IOBuffer *buf);
 /* Returns pointer to beginning of data in buffer,
    or NULL if there's no data. */
 unsigned char *io_buffer_get_data(IOBuffer *buf, unsigned int *size);
+/* Like io_buffer_get_data(), but read it when needed. There always must be
+   more than `threshold' bytes in buffer. Returns 1 if data was read, 0 if
+   read was interrupted or nonblocking, -1 if EOF / error */
+int io_buffer_read_data(IOBuffer *buf, unsigned char **data,
+			unsigned int *size, unsigned int threshold);
 
 /* Returns a pointer to buffer wanted amount of space,
    or NULL if size is too big. */

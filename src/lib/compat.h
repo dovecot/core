@@ -33,6 +33,11 @@ int my_inet_aton(const char *cp, struct in_addr *inp);
 void my_vsyslog(int priority, const char *format, va_list args);
 #endif
 
+#ifndef HAVE_GETPAGESIZE
+#  define getpagesize my_getpagesize
+int my_getpagesize(void);
+#endif
+
 /* ctype.h isn't safe with signed chars,
    use our own instead if really needed */
 #define i_toupper(x) toupper((int) (unsigned char) (x))

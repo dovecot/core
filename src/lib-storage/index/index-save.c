@@ -60,7 +60,6 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 
 		if (size > data_size)
 			size = data_size;
-		buf->pos += size;
 		data_size -= size;
 
 		if (write_with_crlf(fd, data, size, &last_cr)) {
@@ -68,6 +67,9 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 						  "for file %s: %m", path);
 			return FALSE;
 		}
+
+		io_buffer_skip(buf, size);
+
 	}
 
 	return TRUE;

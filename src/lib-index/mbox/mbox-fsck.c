@@ -32,6 +32,7 @@ static MailIndexRecord *
 match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 		  const char **data, const char *data_end)
 {
+#if 0 // FIXME
 	MessageSize hdr_size;
         HeaderData hdr_data;
 	const char *rec_msgid, *data_next;
@@ -86,7 +87,7 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 		(void)index->expunge(index, rec, *seq, TRUE);
 		rec = index->next(index, rec);
 	} while (rec != NULL);
-
+#endif
 	return NULL;
 }
 

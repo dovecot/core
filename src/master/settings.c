@@ -205,7 +205,7 @@ static const char *parse_auth(const char *key, const char *value)
 			p++;
 
 		i_free(auth->userinfo);
-		auth->userinfo = i_strndup(value, (unsigned int) (p-value));
+		auth->userinfo = i_strdup_until(value, p);
 
 		while (*p == ' ') p++;
 

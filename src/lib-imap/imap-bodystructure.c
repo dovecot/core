@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "temp-string.h"
 #include "rfc822-tokenize.h"
 #include "message-parser.h"
@@ -169,18 +170,18 @@ static void parse_header(MessagePart *part,
 	t_pop();
 }
 
-static void part_parse_headers(MessagePart *part, const char *msg,
-			       size_t size, Pool pool)
+static void part_parse_headers(MessagePart *part, IOBuffer *inbuf, Pool pool)
 {
 	while (part != NULL) {
 		/* note that we want to parse the header of all
 		   the message parts, multiparts too. */
-		message_parse_header(part, msg + part->pos.physical_pos,
-				     part->header_size.physical_size,
-				     NULL, parse_header, pool);
+		i_assert(part->pos.physical_pos >= inbuf->offset);
+		io_buffer_skip(inbuf, part->pos.physical_pos - inbuf->offset);
+
+		message_parse_header(part, inbuf, NULL, parse_header, pool);
 
 		if (part->children != NULL)
-			part_parse_headers(part->children, msg, size, pool);
+			part_parse_headers(part->children, inbuf, pool);
 
 		part = part->next;
 	}
@@ -355,13 +356,12 @@ static const char *part_get_bodystructure(MessagePart *part, int extended)
 }
 
 const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
-					const char *msg, size_t size,
-					int extended)
+					IOBuffer *inbuf, int extended)
 {
 	if (*part == NULL)
-		*part = message_parse(pool, msg, size, parse_header, pool);
+		*part = message_parse(pool, inbuf, parse_header, pool);
 	else
-		part_parse_headers(*part, msg, size, pool);
+		part_parse_headers(*part, inbuf, pool);
 
 	return part_get_bodystructure(*part, extended);
 }

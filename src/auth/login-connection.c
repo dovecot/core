@@ -80,7 +80,7 @@ static void login_input(void *user_data, int fd __attr_unused__,
 			return;
 
 		memcpy(&request, data, sizeof(request));
-		conn->inbuf->skip += sizeof(request);
+		io_buffer_skip(conn->inbuf, sizeof(request));
 
 		/* we have a full init request */
 		auth_init_request(&request, request_callback, conn);
@@ -95,7 +95,8 @@ static void login_input(void *user_data, int fd __attr_unused__,
 		if (size < sizeof(request) + request.data_size)
 			return;
 
-		conn->inbuf->skip += sizeof(request) + request.data_size;
+		io_buffer_skip(conn->inbuf,
+			       sizeof(request) + request.data_size);
 
 		/* we have a full continued request */
 		auth_continue_request(&request, data + sizeof(request),

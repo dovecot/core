@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "temp-string.h"
 #include "mmap-util.h"
 #include "message-parser.h"
@@ -43,20 +44,16 @@ struct _ImapMessageCache {
 	int messages_count;
 
 	CachedMessage *open_msg;
-	int open_fd;
-	void *open_mmap_base;
-	const char *open_msg_data;
-	off_t open_start_pos;
-	size_t open_mmap_size, open_size, open_virtual_size;
+	IOBuffer *open_inbuf;
+	size_t open_size, open_virtual_size;
+
+	IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf, void *user_data);
+	void *user_data;
 };
 
 ImapMessageCache *imap_msgcache_alloc(void)
 {
-	ImapMessageCache *cache;
-
-	cache = i_new(ImapMessageCache, 1);
-	cache->open_fd = -1;
-	return cache;
+	return i_new(ImapMessageCache, 1);
 }
 
 static void cached_message_free(CachedMessage *msg)
@@ -64,29 +61,11 @@ static void cached_message_free(CachedMessage *msg)
 	pool_unref(msg->pool);
 }
 
-static void cache_close_msg(ImapMessageCache *cache)
-{
-	if (cache->open_mmap_base != NULL) {
-		(void)munmap(cache->open_mmap_base, cache->open_mmap_size);
-		cache->open_mmap_base = NULL;
-		cache->open_msg_data = NULL;
-	}
-
-	if (cache->open_fd != -1) {
-		(void)close(cache->open_fd);
-		cache->open_fd = -1;
-	}
-
-	cache->open_msg = NULL;
-	cache->open_size = 0;
-	cache->open_start_pos = 0;
-}
-
 void imap_msgcache_clear(ImapMessageCache *cache)
 {
 	CachedMessage *next;
 
-	cache_close_msg(cache);
+	imap_msgcache_close(cache);
 
 	while (cache->messages != NULL) {
 		next = cache->messages->next;
@@ -129,6 +108,34 @@ static CachedMessage *cache_new(ImapMessageCache *cache, unsigned int uid)
 	return msg;
 }
 
+static CachedMessage *cache_open_or_create(ImapMessageCache *cache,
+					   unsigned int uid)
+{
+	CachedMessage **pos, *msg;
+
+	pos = &cache->messages;
+	for (; *pos != NULL; pos = &(*pos)->next) {
+		if ((*pos)->uid == uid)
+			break;
+	}
+
+	if (*pos == NULL) {
+		/* not found, add it */
+		msg = cache_new(cache, uid);
+	} else if (*pos != cache->messages) {
+		/* move it to first in list */
+		msg = *pos;
+		*pos = msg->next;
+
+		msg->next = cache->messages;
+		cache->messages = msg;
+	} else {
+		msg = *pos;
+	}
+
+	return msg;
+}
+
 static void parse_envelope_header(MessagePart *part,
 				  const char *name, unsigned int name_len,
 				  const char *value, unsigned int value_len,
@@ -154,6 +161,19 @@ static CachedMessage *cache_find(ImapMessageCache *cache, unsigned int uid)
 	}
 
 	return NULL;
+}
+
+static void imap_msgcache_get_inbuf(ImapMessageCache *cache, off_t offset)
+{
+	if (offset < cache->open_inbuf->offset) {
+		/* need to rewind */
+		cache->open_inbuf = cache->inbuf_rewind(cache->open_inbuf,
+							cache->user_data);
+		if (cache->open_inbuf == NULL)
+			i_fatal("Can't rewind message buffer");
+	}
+
+	io_buffer_skip(cache->open_inbuf, offset - cache->open_inbuf->offset);
 }
 
 int imap_msgcache_is_cached(ImapMessageCache *cache, unsigned int uid,
@@ -198,18 +218,39 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 	t_push();
 	if ((fields & IMAP_CACHE_BODY) && msg->cached_body == NULL &&
 	    msg == cache->open_msg) {
+                imap_msgcache_get_inbuf(cache, 0);
 		value = imap_part_get_bodystructure(msg->pool, &msg->part,
-						    cache->open_msg_data,
-						    cache->open_size, FALSE);
+						    cache->open_inbuf, FALSE);
 		msg->cached_body = p_strdup(msg->pool, value);
 	}
 
 	if ((fields & IMAP_CACHE_BODYSTRUCTURE) &&
 	    msg->cached_bodystructure == NULL && msg == cache->open_msg) {
+                imap_msgcache_get_inbuf(cache, 0);
 		value = imap_part_get_bodystructure(msg->pool, &msg->part,
-						    cache->open_msg_data,
-						    cache->open_size, TRUE);
+						    cache->open_inbuf, TRUE);
 		msg->cached_bodystructure = p_strdup(msg->pool, value);
+	}
+
+	if ((fields & IMAP_CACHE_ENVELOPE) && msg->cached_envelope == NULL) {
+		if (msg->envelope == NULL && msg == cache->open_msg) {
+			/* envelope isn't parsed yet, do it. header size
+			   is calculated anyway so save it */
+			if (msg->hdr_size == NULL) {
+				msg->hdr_size = p_new(msg->pool,
+						      MessageSize, 1);
+			}
+
+			imap_msgcache_get_inbuf(cache, 0);
+			message_parse_header(NULL, cache->open_inbuf,
+					     msg->hdr_size,
+					     parse_envelope_header, msg);
+		}
+
+		if (msg->envelope != NULL) {
+			value = imap_envelope_get_part_data(msg->envelope);
+			msg->cached_envelope = p_strdup(msg->pool, value);
+		}
 	}
 
 	if ((fields & IMAP_CACHE_MESSAGE_PART) && msg->part == NULL &&
@@ -226,27 +267,9 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 			func = NULL;
 		}
 
-		msg->part = message_parse(msg->pool, cache->open_msg_data,
-					  cache->open_size, func, msg);
-	}
-
-	if ((fields & IMAP_CACHE_ENVELOPE) && msg->cached_envelope == NULL) {
-		if (msg->envelope == NULL && msg == cache->open_msg) {
-			/* envelope isn't parsed yet, do it. header size
-			   is calculated anyway so save it */
-			if (msg->hdr_size == NULL) {
-				msg->hdr_size = p_new(msg->pool,
-						      MessageSize, 1);
-			}
-			message_parse_header(NULL, cache->open_msg_data,
-					     cache->open_size, msg->hdr_size,
-					     parse_envelope_header, msg);
-		}
-
-		if (msg->envelope != NULL) {
-			value = imap_envelope_get_part_data(msg->envelope);
-			msg->cached_envelope = p_strdup(msg->pool, value);
-		}
+                imap_msgcache_get_inbuf(cache, 0);
+		msg->part = message_parse(msg->pool, cache->open_inbuf,
+					  func, msg);
 	}
 
 	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) &&
@@ -265,8 +288,8 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 		} else {
 			/* first get the header's size, then calculate the
 			   body size from it and the total virtual size */
-			message_get_header_size(cache->open_msg_data,
-						cache->open_size,
+			imap_msgcache_get_inbuf(cache, 0);
+			message_get_header_size(cache->open_inbuf,
 						msg->hdr_size);
 
 			msg->body_size->lines = 0;
@@ -287,8 +310,8 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 			*msg->hdr_size = msg->part->header_size;
 		} else {
 			/* need to do some light parsing */
-			message_get_header_size(cache->open_msg_data,
-						cache->open_size,
+			imap_msgcache_get_inbuf(cache, 0);
+			message_get_header_size(cache->open_inbuf,
 						msg->hdr_size);
 		}
 	}
@@ -296,68 +319,29 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 	t_pop();
 }
 
-static int cache_mmap(ImapMessageCache *cache)
-{
-	if (cache->open_mmap_base == NULL) {
-		cache->open_mmap_base =
-			mmap_aligned(cache->open_fd, PROT_READ,
-				     cache->open_start_pos, cache->open_size,
-				     (void **) &cache->open_msg_data,
-				     &cache->open_mmap_size);
-		if (cache->open_mmap_base == MAP_FAILED) {
-			i_error("mmap() failed for msg %u: %m",
-				cache->open_msg->uid);
-			return FALSE;
-		}
-	}
-	return TRUE;
-}
-
 void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
-			   int fd, off_t offset, size_t size,
-			   size_t virtual_size, size_t pv_headers_size,
-			   size_t pv_body_size, ImapCacheField fields)
+			   ImapCacheField fields, size_t virtual_size,
+			   size_t pv_headers_size, size_t pv_body_size,
+			   IOBuffer *inbuf,
+			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
+						     void *user_data),
+			   void *user_data)
 {
-	CachedMessage **pos, *msg;
+	CachedMessage *msg;
 
-	i_assert(fd != -1);
-
-	if (cache->open_msg == NULL || cache->open_msg->uid != uid) {
-		cache_close_msg(cache);
-
-                pos = &cache->messages;
-		for (; *pos != NULL; pos = &(*pos)->next) {
-			if ((*pos)->uid == uid)
-				break;
-		}
-
-		if (*pos == NULL) {
-			/* not found, add it */
-			msg = cache_new(cache, uid);
-		} else if (*pos != cache->messages) {
-			/* move it to first in list */
-			msg = *pos;
-			*pos = msg->next;
-
-			msg->next = cache->messages;
-			cache->messages = msg;
-		} else {
-			msg = *pos;
-		}
+	msg = cache_open_or_create(cache, uid);
+	if (cache->open_msg != msg) {
+		imap_msgcache_close(cache);
 
 		cache->open_msg = msg;
-		cache->open_fd = fd;
-		cache->open_size = size;
+		cache->open_inbuf = inbuf;
+		cache->open_size = cache->open_inbuf->stop_offset -
+			cache->open_inbuf->offset;
 		cache->open_virtual_size = virtual_size;
-		cache->open_start_pos = offset;
 
-		if (!cache_mmap(cache)) {
-			cache_close_msg(cache);
-			return;
-		}
+		cache->inbuf_rewind = inbuf_rewind;
+		cache->user_data = user_data;
 	}
-
-	msg = cache->open_msg;
 
 	if (pv_headers_size != 0 && msg->hdr_size == NULL) {
 		/* physical size == virtual size */
@@ -374,6 +358,18 @@ void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
 	}
 
 	cache_fields(cache, msg, fields);
+}
+
+void imap_msgcache_close(ImapMessageCache *cache)
+{
+	if (cache->open_inbuf != NULL) {
+		(void)close(cache->open_inbuf->fd);
+		io_buffer_destroy(cache->open_inbuf);
+		cache->open_inbuf = NULL;
+	}
+
+	cache->open_msg = NULL;
+	cache->open_size = cache->open_virtual_size = 0;
 }
 
 void imap_msgcache_set(ImapMessageCache *cache, unsigned int uid,
@@ -444,23 +440,21 @@ MessagePart *imap_msgcache_get_parts(ImapMessageCache *cache, unsigned int uid)
 
 int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
 			     MessageSize *hdr_size, MessageSize *body_size,
-			     const char **data, int *fd)
+			     IOBuffer **inbuf)
 {
 	CachedMessage *msg;
+	off_t offset;
 
-	if (data != NULL || fd != NULL) {
+	if (inbuf != NULL) {
 		if (cache->open_msg == NULL || cache->open_msg->uid != uid)
 			return FALSE;
 
 		msg = cache->open_msg;
-		if (data != NULL)
-			*data = cache->open_msg_data;
-		if (fd != NULL) {
-			*fd = cache->open_fd;
-			if (*fd != -1 && lseek(*fd, cache->open_start_pos,
-					       SEEK_SET) == (off_t)-1)
-				*fd = -1;
-		}
+
+		offset = hdr_size != NULL ? 0 :
+			msg->hdr_size->physical_size;
+		imap_msgcache_get_inbuf(cache, offset);
+                *inbuf = cache->open_inbuf;
 	} else {
 		msg = cache_find(cache, uid);
 		if (msg == NULL)
@@ -481,98 +475,49 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
 		if (msg->hdr_size == NULL)
 			return FALSE;
 		*hdr_size = *msg->hdr_size;
-	} else {
-		/* header isn't wanted, skip it */
-		if (data != NULL)
-			*data += msg->hdr_size->physical_size;
-		if (fd != NULL) {
-			if (lseek(*fd, (off_t) msg->hdr_size->physical_size,
-				  SEEK_CUR) == (off_t)-1)
-				return FALSE;
-		}
 	}
 
 	return TRUE;
 }
 
-static void get_partial_size(const char *msg, size_t max_physical_size,
-			     off_t virtual_skip, size_t max_virtual_size,
+static void get_partial_size(IOBuffer *inbuf,
+			     off_t virtual_skip, off_t max_virtual_size,
 			     MessageSize *partial, MessageSize *dest)
 {
-	const char *msg_start, *msg_end, *cr;
-
-	msg_end = msg + max_physical_size;
+	unsigned char *msg;
+	unsigned int size;
+	int cr_skipped;
 
 	/* see if we can use the existing partial */
-	if (partial->virtual_size > (size_t) virtual_skip)
+	if ((off_t)partial->virtual_size > virtual_skip)
 		memset(partial, 0, sizeof(MessageSize));
+	else {
+		io_buffer_skip(inbuf, partial->physical_size);
+		virtual_skip -= partial->virtual_size;
+	}
 
-	/* first do the virtual skip - FIXME: <..\r><\n..> skipping! */
-	if (virtual_skip > 0) {
-		msg = msg_start = msg + partial->physical_size;
+	message_skip_virtual(inbuf, virtual_skip, partial, &cr_skipped);
 
-		cr = NULL;
-		while (msg != msg_end &&
-		       partial->virtual_size < (size_t) virtual_skip) {
-			if (*msg == '\r')
-				cr = msg;
-			else if (*msg == '\n') {
-				partial->lines++;
-
-				if (cr != msg-1) {
-					if (++partial->virtual_size ==
-					    (size_t) virtual_skip) {
-						/* FIXME: CR thingy */
-					}
-				}
+	if (!cr_skipped) {
+		/* see if we need to add virtual CR */
+		while (io_buffer_read_data(inbuf, &msg, &size, 0) >= 0) {
+			if (size > 0) {
+				if (msg[0] == '\n')
+					dest->virtual_size++;
+				break;
 			}
-
-			msg++;
-			partial->virtual_size++;
 		}
-
-		partial->physical_size += (int) (msg-msg_start);
-                max_physical_size -= partial->physical_size;
 	}
 
-	if (max_virtual_size == 0) {
-		/* read the rest of the message */
-		message_get_body_size(msg, max_physical_size, dest);
-		return;
-	}
-
-	/* now read until the message is either finished or we've read
-	   max_virtual_size */
-	msg_start = msg;
-	memset(dest, 0, sizeof(MessageSize));
-
-	cr = NULL;
-	while (msg != msg_end && dest->virtual_size < (size_t) virtual_skip) {
-		if (*msg == '\r')
-			cr = msg;
-		else if (*msg == '\n') {
-			dest->lines++;
-
-			if (cr != msg-1)
-				dest->virtual_size++;
-		}
-
-		msg++;
-		dest->virtual_size++;
-	}
-
-	dest->physical_size = (int) (msg-msg_start);
+	message_get_body_size(inbuf, dest, max_virtual_size);
 }
 
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
-				     off_t virtual_skip,
-				     size_t max_virtual_size,
+				     off_t virtual_skip, off_t max_virtual_size,
 				     int get_header, MessageSize *size,
-				     const char **data, int *fd)
+                                     IOBuffer **inbuf)
 {
 	CachedMessage *msg;
-	const char *body;
-	size_t body_size;
 	off_t physical_skip;
 	int size_got;
 
@@ -582,21 +527,16 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 
 	if (msg->hdr_size == NULL) {
 		msg->hdr_size = p_new(msg->pool, MessageSize, 1);
-		message_get_header_size(cache->open_msg_data,
-					cache->open_size,
-					msg->hdr_size);
+                imap_msgcache_get_inbuf(cache, 0);
+		message_get_header_size(cache->open_inbuf, msg->hdr_size);
 	}
 
-	body = cache->open_msg_data + msg->hdr_size->physical_size;
-	body_size = cache->open_size - msg->hdr_size->physical_size;
-
-	if (fd != NULL) *fd = cache->open_fd;
 	physical_skip = get_header ? 0 : msg->hdr_size->physical_size;
 
 	/* see if we can do this easily */
 	size_got = FALSE;
 	if (virtual_skip == 0) {
-		if (max_virtual_size == 0 && msg->body_size == NULL) {
+		if (max_virtual_size < 0 && msg->body_size == NULL) {
 			msg->body_size = p_new(msg->pool, MessageSize, 1);
 			msg->body_size->physical_size = cache->open_size -
 				msg->hdr_size->physical_size;
@@ -606,8 +546,8 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 		}
 
 		if (msg->body_size != NULL &&
-		    (max_virtual_size == 0 ||
-		     max_virtual_size >= msg->body_size->virtual_size)) {
+		    (max_virtual_size < 0 ||
+		     max_virtual_size >= (off_t)msg->body_size->virtual_size)) {
 			*size = *msg->body_size;
 			size_got = TRUE;
 		}
@@ -617,7 +557,8 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 		if (msg->partial_size == NULL)
 			msg->partial_size = p_new(msg->pool, MessageSize, 1);
 
-		get_partial_size(body, body_size, virtual_skip,
+		imap_msgcache_get_inbuf(cache, msg->hdr_size->physical_size);
+		get_partial_size(cache->open_inbuf, virtual_skip,
 				 max_virtual_size, msg->partial_size, size);
 
 		physical_skip += msg->partial_size->physical_size;
@@ -627,30 +568,18 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 		message_size_add(size, msg->hdr_size);
 
 	/* seek to wanted position */
-	*data = cache->open_msg_data + physical_skip;
-	if (fd != NULL && *fd != -1) {
-		if (lseek(*fd, cache->open_start_pos + physical_skip,
-			  SEEK_SET) == (off_t)-1)
-			*fd = -1;
-	}
+	imap_msgcache_get_inbuf(cache, physical_skip);
+        *inbuf = cache->open_inbuf;
 	return TRUE;
 }
 
 int imap_msgcache_get_data(ImapMessageCache *cache, unsigned int uid,
-			   const char **data, int *fd, size_t *size)
+			   IOBuffer **inbuf)
 {
 	if (cache->open_msg == NULL || cache->open_msg->uid != uid)
 		return FALSE;
 
-	*data = cache->open_msg_data;
-	if (fd != NULL) {
-		*fd = cache->open_fd;
-		if (lseek(*fd, cache->open_start_pos, SEEK_SET) == (off_t)-1)
-			return FALSE;
-	}
-
-	if (size != NULL)
-		*size = cache->open_size;
-
+	imap_msgcache_get_inbuf(cache, 0);
+        *inbuf = cache->open_inbuf;
 	return TRUE;
 }

@@ -49,7 +49,7 @@ static ListNode *list_node_get(Pool pool, ListNode **node,
 
 		/* escaping is done here to make sure we don't try to escape
 		   the separator char */
-		name = imap_escape(t_strndup(name, (unsigned int) (path-name)));
+		name = imap_escape(t_strdup_until(name, path));
 
 		/* find the node */
 		while (*node != NULL) {

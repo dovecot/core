@@ -49,7 +49,8 @@ static int parse_body_section(Client *client, const char *item,
 	*p++ = '\0';
 
 	/* <start.end> */
-	body->skip = body->max_size = 0;
+	body->skip = 0;
+	body->max_size = -1;
 	if (*p != '<' && *p != '\0') {
 		client_send_tagline(client, t_strconcat(
 			"BAD Unexpected character after ']' with ",
