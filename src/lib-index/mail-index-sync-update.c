@@ -897,7 +897,8 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 	return ret;
 }
 
-int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
+int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
+				 int sync_only_external)
 {
 	struct mail_index *index = sync_ctx->index;
 	struct mail_index_view *view = sync_ctx->view;
@@ -909,7 +910,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	unsigned int count, old_lock_id;
 	uint32_t seq, i, first_append_uid;
 	uoff_t offset;
-	int ret, had_dirty, skipped;
+	int ret, had_dirty, skipped, check_ext_offsets;
 
 	memset(&sync_map_ctx, 0, sizeof(sync_map_ctx));
 	sync_map_ctx.view = view;
@@ -946,9 +947,29 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	if (had_dirty)
 		tmphdr->flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
-        first_append_uid = 0;
+	first_append_uid = 0;
+	check_ext_offsets = TRUE;
 	while ((ret = mail_transaction_log_view_next(view->log_view, &thdr,
 						     &data, &skipped)) > 0) {
+		if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			if (sync_only_external) {
+				/* we're syncing only external changes. */
+				continue;
+			}
+		} else if (check_ext_offsets) {
+			uint32_t prev_seq;
+			uoff_t prev_offset;
+
+			mail_transaction_log_view_get_prev_pos(view->log_view,
+							       &prev_seq,
+							       &prev_offset);
+			if (prev_offset < index->hdr->log_file_ext_offset) {
+				/* we have already synced this change */
+				continue;
+			}
+			check_ext_offsets = FALSE;
+		}
+
 		if ((thdr->type & MAIL_TRANSACTION_APPEND) != 0) {
 			const struct mail_index_record *rec = data;
 
@@ -994,7 +1015,9 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx)
 	/* hdr pointer may have changed, update it */
 	tmphdr = buffer_get_modifyable_data(map->hdr_copy_buf, NULL);
 	tmphdr->log_file_seq = seq;
-	tmphdr->log_file_offset = offset;
+	if (!sync_only_external)
+		tmphdr->log_file_int_offset = offset;
+	tmphdr->log_file_ext_offset = offset;
 
 	if (first_append_uid != 0)
 		mail_index_update_day_headers(tmphdr, first_append_uid);

@@ -66,7 +66,8 @@ struct mail_index_map {
 	buffer_t *buffer;
 
 	uint32_t log_file_seq;
-	uoff_t log_file_offset;
+	uoff_t log_file_int_offset;
+	uoff_t log_file_ext_offset;
 
 	buffer_t *hdr_copy_buf;
 	uint32_t base_header_size; /* so we don't need lock to access it */

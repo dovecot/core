@@ -483,6 +483,8 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 	view->messages_count = view->map->records_count;
 
 	view->log_file_seq = view->map->log_file_seq;
-	view->log_file_offset = view->map->log_file_offset;
+	view->log_file_offset =
+		I_MIN(view->map->log_file_int_offset,
+		      view->map->log_file_ext_offset);
 	return view;
 }

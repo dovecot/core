@@ -35,7 +35,8 @@ struct mail_index_sync_map_ctx {
 
 extern struct mail_transaction_map_functions mail_index_map_sync_funcs;
 
-int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx);
+int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
+				 int sync_only_external);
 
 int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			   const struct mail_transaction_header *hdr,

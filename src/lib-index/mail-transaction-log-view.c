@@ -97,6 +97,11 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			max_file_seq = min_file_seq;
 			max_file_offset = min_file_offset;
 		}
+	} else if (min_file_offset == 0) {
+		/* this could happen if internal transactions haven't yet been
+		   committed but external are. just assume we're at the
+		   beginning. */
+		min_file_offset = sizeof(struct mail_transaction_log_header);
 	}
 
 	if (min_file_seq == view->log->tail->hdr.prev_file_seq &&

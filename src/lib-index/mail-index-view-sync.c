@@ -39,7 +39,7 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 					  view->log_file_seq,
 					  view->log_file_offset,
 					  view->index->hdr->log_file_seq,
-					  view->index->hdr->log_file_offset,
+					  view->index->hdr->log_file_int_offset,
 					  MAIL_TRANSACTION_EXPUNGE) < 0)
 		return -1;
 	while ((ret = mail_transaction_log_view_next(view->log_view,
@@ -112,7 +112,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 					  view->log_file_seq,
 					  view->log_file_offset,
 					  hdr->log_file_seq,
-					  hdr->log_file_offset, mask) < 0) {
+					  hdr->log_file_int_offset, mask) < 0) {
 		if (expunges != NULL)
 			buffer_free(expunges);
 		return -1;

@@ -177,10 +177,10 @@ mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 
 #define INDEX_HAS_MISSING_LOGS(index, file) \
 	!(((file)->hdr.file_seq == (index)->hdr->log_file_seq && \
-	   (index)->hdr->log_file_offset >= \
+	   (index)->hdr->log_file_int_offset >= \
 	   sizeof(struct mail_transaction_log_header)) || \
 	  ((file)->hdr.prev_file_seq == (index)->hdr->log_file_seq && \
-	   (file)->hdr.prev_file_offset == (index)->hdr->log_file_offset))
+	   (file)->hdr.prev_file_offset == (index)->hdr->log_file_int_offset))
 
 static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 {
@@ -362,7 +362,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 		if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
 			return -1;
 		hdr.prev_file_seq = index->hdr->log_file_seq;
-		hdr.prev_file_offset = index->hdr->log_file_offset;
+		hdr.prev_file_offset = index->hdr->log_file_int_offset;
 	}
 	hdr.file_seq = index->hdr->log_file_seq+1;
 
@@ -478,11 +478,11 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 
 	if (log->index->map != NULL &&
 	    file->hdr.file_seq == log->index->map->log_file_seq &&
-	    log->index->map->log_file_offset != 0) {
+	    log->index->map->log_file_int_offset != 0) {
 		/* we can get a valid log offset from index file. initialize
 		   sync_offset from it so we don't have to read the whole log
 		   file from beginning. */
-		file->sync_offset = log->index->map->log_file_offset;
+		file->sync_offset = log->index->map->log_file_int_offset;
 	}
 
 	for (p = &log->tail; *p != NULL; p = &(*p)->next) {
@@ -1219,7 +1219,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 		/* we might want to rotate, but check first that everything is
 		   synced in index. */
 		if (log->head->hdr.file_seq == idx_hdr.log_file_seq &&
-		    log->head->sync_offset == idx_hdr.log_file_offset) {
+		    log->head->sync_offset == idx_hdr.log_file_int_offset &&
+		    log->head->sync_offset == idx_hdr.log_file_ext_offset) {
 			if (mail_transaction_log_rotate(log, TRUE) < 0) {
 				/* that didn't work. well, try to continue
 				   anyway */
