@@ -37,6 +37,9 @@ struct ioloop *ioloop;
 struct hash_table *pids;
 int null_fd, inetd_login_fd;
 uid_t master_uid;
+#ifdef DEBUG
+static int gdb;
+#endif
 
 int validate_str(const char *str, size_t max_len)
 {
@@ -57,6 +60,10 @@ void child_process_init_env(void)
 
 	/* we'll log through master process */
 	env_put("LOG_TO_MASTER=1");
+
+#ifdef DEBUG
+	if (gdb) env_put("GDB=1");
+#endif
 }
 
 static void sig_quit(int signo __attr_unused__)
@@ -469,6 +476,9 @@ int main(int argc, char *argv[])
 		exit(FATAL_DEFAULT);
 	open_fds();
 
+#ifdef DEBUG
+	gdb = getenv("GDB") != NULL;
+#endif
 	/* we don't need any environment */
 	env_clean();
 

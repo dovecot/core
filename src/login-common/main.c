@@ -229,7 +229,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	is_inetd = getenv("DOVECOT_MASTER") == NULL;
 
 #ifdef DEBUG
-	if (!is_inetd)
+	if (!is_inetd && getenv("GDB") == NULL)
 		fd_debug_verify_leaks(4, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until

@@ -138,7 +138,7 @@ static void main_deinit(void)
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 #ifdef DEBUG
-	if (getenv("LOGGED_IN") != NULL)
+	if (getenv("LOGGED_IN") != NULL && getenv("GDB") == NULL)
 		fd_debug_verify_leaks(3, 1024);
 #endif
 	/* NOTE: we start rooted, so keep the code minimal until
