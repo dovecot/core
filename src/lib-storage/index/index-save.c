@@ -54,8 +54,6 @@ int index_storage_save_into_fd(MailStorage *storage, int fd, const char *path,
 			return FALSE;
 		}
 
-		/* -2 = buffer full, ignore it since we're just emptying it.. */
-
 		data = io_buffer_get_data(buf, &size);
 		if (size == 0)
 			continue;
