@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
 #include "buffer.h"
@@ -6,38 +6,34 @@
 #include "message-part-serialize.h"
 
 /*
-   Serialized a series of SerializedMessageParts:
-
    root part
      root's first children
        children's first children
        ...
      root's next children
      ...
+
+   part
+     unsigned int flags
+     (not root part)
+       uoff_t physical_pos
+     uoff_t header_physical_size
+     uoff_t header_virtual_size
+     uoff_t body_physical_size
+     uoff_t body_virtual_size
+     (flags & (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_MESSAGE_RFC822))
+       unsigned int body_lines
+     (flags & (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_MESSAGE_RFC822))
+       unsigned int children_count
+
 */
 
-/* struct is 8 byte aligned */
-struct serialized_message_part {
-	uoff_t physical_pos;
-  
-	uoff_t header_physical_size;
-	uoff_t header_virtual_size;
-  
-	uoff_t body_physical_size;
-	uoff_t body_virtual_size;
-
-	unsigned int header_lines;
-	unsigned int body_lines;
-
-	unsigned int children_count;
-	unsigned int flags;
-};
+#define MINIMUM_SERIALIZED_SIZE \
+	(sizeof(unsigned int) + sizeof(uoff_t) * 4)
 
 struct deserialize_context {
 	pool_t pool;
-
-	const struct serialized_message_part *spart;
-	unsigned int sparts_left;
+	const unsigned char *data, *end;
 
 	uoff_t pos;
 	const char *error;
@@ -46,39 +42,53 @@ struct deserialize_context {
 static unsigned int
 _message_part_serialize(struct message_part *part, buffer_t *dest)
 {
-	struct serialized_message_part spart, *spart_p;
 	unsigned int count, children_count;
-	size_t pos;
+	size_t children_offset;
+	int root = part->parent == NULL;
 
 	count = 0;
 	while (part != NULL) {
 		/* create serialized part */
-		memset(&spart, 0, sizeof(spart));
+		buffer_append(dest, &part->flags, sizeof(part->flags));
+		if (root)
+			root = FALSE;
+		else {
+			buffer_append(dest, &part->physical_pos,
+				      sizeof(part->physical_pos));
+		}
+		buffer_append(dest, &part->header_size.physical_size,
+			      sizeof(part->header_size.physical_size));
+		buffer_append(dest, &part->header_size.virtual_size,
+			      sizeof(part->header_size.virtual_size));
+		buffer_append(dest, &part->body_size.physical_size,
+			      sizeof(part->body_size.physical_size));
+		buffer_append(dest, &part->body_size.virtual_size,
+			      sizeof(part->body_size.virtual_size));
 
-		spart.physical_pos = part->physical_pos;
+		if ((part->flags & (MESSAGE_PART_FLAG_TEXT |
+				    MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0) {
+			buffer_append(dest, &part->body_size.lines,
+				      sizeof(part->body_size.lines));
+		}
 
-		spart.header_physical_size = part->header_size.physical_size;
-		spart.header_virtual_size = part->header_size.virtual_size;
-		spart.header_lines = part->header_size.lines;
+		if ((part->flags & (MESSAGE_PART_FLAG_MULTIPART |
+				    MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0) {
+			children_offset = buffer_get_used_size(dest);
+			children_count = 0;
+			buffer_append(dest, &children_count,
+				      sizeof(children_count));
 
-		spart.body_physical_size = part->body_size.physical_size;
-		spart.body_virtual_size = part->body_size.virtual_size;
-		spart.body_lines = part->body_size.lines;
+			if (part->children != NULL) {
+				children_count =
+					_message_part_serialize(part->children,
+								dest);
 
-		spart.flags = part->flags;
-
-		buffer_append(dest, &spart, sizeof(spart));
-		if (part->children != NULL) {
-			pos = buffer_get_used_size(dest) - sizeof(spart);
-			children_count =
-				_message_part_serialize(part->children, dest);
-
-			/* note that we can't just save the pointer to
-			   our appended spart since it may change after
-			   child-appends have realloc()ed buffer memory. */
-			spart_p = buffer_get_space_unsafe(dest, pos,
-							  sizeof(spart));
-			spart_p->children_count = children_count;
+				buffer_write(dest, children_offset,
+					     &children_count,
+					     sizeof(children_count));
+			}
+		} else {
+			i_assert(part->children == NULL);
 		}
 
 		count++;
@@ -93,86 +103,130 @@ void message_part_serialize(struct message_part *part, buffer_t *dest)
 	_message_part_serialize(part, dest);
 }
 
+static int read_next(struct deserialize_context *ctx,
+		     void *buffer, size_t buffer_size)
+{
+	if (ctx->data + buffer_size > ctx->end) {
+		ctx->error = "Not enough data";
+		return FALSE;
+	}
+
+	memcpy(buffer, ctx->data, buffer_size);
+	ctx->data += buffer_size;
+	return TRUE;
+}
+
 static int message_part_deserialize_part(struct deserialize_context *ctx,
 					 struct message_part *parent,
-					 unsigned int child_count,
+					 unsigned int siblings,
                                          struct message_part **part_r)
 {
-        const struct serialized_message_part *spart;
 	struct message_part *part, *first_part, **next_part;
+	unsigned int children_count;
 	uoff_t pos;
+	int root = parent == NULL;
 
 	first_part = NULL;
 	next_part = NULL;
-	while (child_count > 0) {
-		child_count--;
-		if (ctx->sparts_left == 0) {
-			ctx->error = "Not enough data for all parts";
-			return FALSE;
-		}
-
-		spart = ctx->spart;
-		ctx->spart++;
-		ctx->sparts_left--;
+	while (siblings > 0) {
+		siblings--;
 
 		part = p_new(ctx->pool, struct message_part, 1);
-		part->physical_pos = spart->physical_pos;
+		part->parent = parent;
+
+		if (!read_next(ctx, &part->flags, sizeof(part->flags)))
+			return FALSE;
+
+		if (root)
+			root = FALSE;
+		else {
+			if (!read_next(ctx, &part->physical_pos,
+				       sizeof(part->physical_pos)))
+				return FALSE;
+		}
 
 		if (part->physical_pos < ctx->pos) {
 			ctx->error = "physical_pos less than expected";
 			return FALSE;
 		}
 
-		part->header_size.physical_size = spart->header_physical_size;
-		part->header_size.virtual_size = spart->header_virtual_size;
-		part->header_size.lines = spart->header_lines;
+		if (!read_next(ctx, &part->header_size.physical_size,
+			       sizeof(part->header_size.physical_size)))
+			return FALSE;
 
-		if (spart->header_virtual_size < spart->header_physical_size) {
-			ctx->error = "header_virtual_size too small";
+		if (!read_next(ctx, &part->header_size.virtual_size,
+			       sizeof(part->header_size.virtual_size)))
+			return FALSE;
+
+		if (part->header_size.virtual_size <
+		    part->header_size.physical_size) {
+			ctx->error = "header_size.virtual_size too small";
 			return FALSE;
 		}
 
-		part->body_size.physical_size = spart->body_physical_size;
-		part->body_size.virtual_size = spart->body_virtual_size;
-		part->body_size.lines = spart->body_lines;
+		if (!read_next(ctx, &part->body_size.physical_size,
+			       sizeof(part->body_size.physical_size)))
+			return FALSE;
 
-		if (spart->body_virtual_size < spart->body_physical_size) {
-			ctx->error = "body_virtual_size too small";
+		if (!read_next(ctx, &part->body_size.virtual_size,
+			       sizeof(part->body_size.virtual_size)))
+			return FALSE;
+
+		if ((part->flags & (MESSAGE_PART_FLAG_TEXT |
+				    MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0) {
+			if (!read_next(ctx, &part->body_size.lines,
+				       sizeof(part->body_size.lines)))
+				return FALSE;
+		}
+
+		if (part->body_size.virtual_size <
+		    part->body_size.physical_size) {
+			ctx->error = "body_size.virtual_size too small";
 			return FALSE;
 		}
 
-		part->flags = spart->flags;
-		part->parent = parent;
-
-		/* our children must be after our physical_pos and the last
-		   child must be within our size. */
-		ctx->pos = part->physical_pos;
-		pos = part->physical_pos + spart->header_physical_size +
-			spart->body_physical_size;
-
-		if (!message_part_deserialize_part(ctx, part,
-						   spart->children_count,
-						   &part->children))
-			return FALSE;
-
-		if (ctx->pos > pos) {
-			ctx->error = "child part location exceeds our size";
-			return FALSE;
+		if ((part->flags & (MESSAGE_PART_FLAG_MULTIPART |
+				    MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0) {
+			if (!read_next(ctx, &children_count,
+				       sizeof(children_count)))
+				return FALSE;
+		} else {
+                        children_count = 0;
 		}
-		ctx->pos = pos; /* save it for above check for parent */
 
 		if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 			/* Only one child is possible */
-			if (part->children == NULL) {
+			if (children_count == 0) {
 				ctx->error =
 					"message/rfc822 part has no children";
 				return FALSE;
 			}
-			if (part->children->next != NULL) {
+			if (children_count != 1) {
 				ctx->error = "message/rfc822 part "
 					"has multiple children";
 				return FALSE;
 			}
+		}
+
+		if (children_count > 0) {
+			/* our children must be after our physical_pos and
+			   the last child must be within our size. */
+			ctx->pos = part->physical_pos;
+			pos = part->physical_pos +
+				part->header_size.physical_size +
+				part->body_size.physical_size;
+
+			if (!message_part_deserialize_part(ctx, part,
+							   children_count,
+							   &part->children))
+				return FALSE;
+
+			if (ctx->pos > pos) {
+				ctx->error =
+					"child part location exceeds our size";
+				return FALSE;
+			}
+			ctx->pos = pos; /* save it for above check for parent */
 		}
 
 		if (first_part == NULL)
@@ -186,47 +240,23 @@ static int message_part_deserialize_part(struct deserialize_context *ctx,
 	return TRUE;
 }
 
-static int check_size(size_t size, const char **error)
-{
-	if (size < sizeof(struct serialized_message_part)) {
-		*error = "Not enough data for root";
-		return FALSE;
-	}
-
-	if ((size % sizeof(struct serialized_message_part)) != 0) {
-		*error = "Incorrect data size";
-		return FALSE;
-	}
-
-	if (size / sizeof(struct serialized_message_part) > UINT_MAX) {
-		*error = "Insane amount of data";
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 struct message_part *message_part_deserialize(pool_t pool, const void *data,
 					      size_t size, const char **error)
 {
 	struct deserialize_context ctx;
         struct message_part *part;
 
-	if (!check_size(size, error))
-		return NULL;
-
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool;
-	ctx.spart = data;
-	ctx.sparts_left =
-		(unsigned int) (size / sizeof(struct serialized_message_part));
+	ctx.data = data;
+	ctx.end = ctx.data + size;
 
 	if (!message_part_deserialize_part(&ctx, NULL, 1, &part)) {
 		*error = ctx.error;
 		return NULL;
 	}
 
-	if (ctx.sparts_left > 0) {
+	if (ctx.data != ctx.end) {
 		*error = "Too much data";
 		return NULL;
 	}
@@ -234,53 +264,80 @@ struct message_part *message_part_deserialize(pool_t pool, const void *data,
 	return part;
 }
 
+static size_t get_serialized_size(unsigned int flags)
+{
+	size_t size = sizeof(unsigned int) + sizeof(uoff_t) * 5;
+
+	if ((flags & (MESSAGE_PART_FLAG_TEXT |
+		      MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0)
+		size += sizeof(unsigned int);
+	if ((flags & (MESSAGE_PART_FLAG_MULTIPART |
+		      MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0)
+		size += sizeof(unsigned int);
+	return size;
+}
+
 int message_part_serialize_update_header(void *data, size_t size,
 					 struct message_size *hdr_size,
 					 const char **error)
 {
-	struct serialized_message_part *spart = data;
-	uoff_t first_pos;
+	unsigned char *buf = data;
+	size_t offset, part_size;
+	uoff_t uofft_size, old_size;
 	off_t pos_diff;
-	unsigned int children, i, count;
+	unsigned int flags;
 
-	if (!check_size(size, error))
-		return FALSE;
+	i_assert(hdr_size->physical_size <= OFF_T_MAX);
 
-	if (hdr_size->physical_size >= OFF_T_MAX ||
-	    spart->physical_pos >= OFF_T_MAX ||
-	    spart->header_physical_size >= OFF_T_MAX) {
-		*error = "Invalid data";
+	if (size < MINIMUM_SERIALIZED_SIZE) {
+		*error = "Not enough data";
 		return FALSE;
 	}
 
-	first_pos = spart->physical_pos;
-	pos_diff = (off_t)hdr_size->physical_size - spart->header_physical_size;
+	memcpy(&flags, buf, sizeof(flags));
+	memcpy(&uofft_size, buf + sizeof(unsigned int), sizeof(uoff_t));
 
-	spart->header_physical_size = hdr_size->physical_size;
-	spart->header_virtual_size = hdr_size->virtual_size;
-	spart->header_lines = hdr_size->lines;
+	if (uofft_size > OFF_T_MAX) {
+		*error = "Invalid physical_size";
+		return FALSE;
+	}
+	pos_diff = (off_t)hdr_size->physical_size - (off_t)uofft_size;
+	old_size = uofft_size;
+
+	memcpy(buf + sizeof(unsigned int),
+	       &hdr_size->physical_size, sizeof(uoff_t));
+	memcpy(buf + sizeof(unsigned int) + sizeof(uoff_t),
+	       &hdr_size->virtual_size, sizeof(uoff_t));
 
 	if (pos_diff != 0) {
-		/* have to update all positions, but skip the first one */
-		children = spart->children_count;
-		count = (size / sizeof(struct serialized_message_part))-1;
-		spart++;
+		/* have to update all positions, but skip the root */
+		offset = get_serialized_size(flags) - sizeof(uoff_t);
 
-		for (i = 0; i < count; i++, spart++) {
-			if (spart->physical_pos < first_pos ||
-			    spart->physical_pos >= OFF_T_MAX) {
+		while (offset + sizeof(unsigned int) < size) {
+			memcpy(buf + offset, &flags, sizeof(flags));
+
+			part_size = get_serialized_size(flags);
+			if (offset + part_size > size) {
+				*error = "Not enough data";
+				return FALSE;
+			}
+			memcpy(&uofft_size, buf + offset + sizeof(flags),
+			       sizeof(uoff_t));
+
+			if (uofft_size < old_size || uofft_size >= OFF_T_MAX) {
 				/* invalid offset, might cause overflow */
 				*error = "Invalid offset";
 				return FALSE;
 			}
+			uofft_size += pos_diff;
 
-			children += spart->children_count;
-			spart->physical_pos += pos_diff;
+			memcpy(buf + offset + sizeof(flags), &uofft_size,
+			       sizeof(uoff_t));
+			offset += part_size;
 		}
 
-		if (children != count) {
-			*error = t_strdup_printf("Size mismatch %u vs %u",
-						 children, count);
+		if (offset != size) {
+			*error = "Invalid size";
 			return FALSE;
 		}
 	}
@@ -292,19 +349,34 @@ int message_part_deserialize_size(const void *data, size_t size,
 				  struct message_size *hdr_size,
 				  struct message_size *body_size)
 {
-        const struct serialized_message_part *spart = data;
+	const unsigned char *buf = data;
+	unsigned int flags;
 
 	/* make sure it looks valid */
-	if (size < sizeof(struct serialized_message_part))
+	if (size < MINIMUM_SERIALIZED_SIZE)
 		return FALSE;
 
-	hdr_size->physical_size = spart->header_physical_size;
-	hdr_size->virtual_size = spart->header_virtual_size;
-	hdr_size->lines = spart->header_lines;
+	memcpy(&flags, buf, sizeof(flags));
+	buf += sizeof(flags);
+	memcpy(&hdr_size->physical_size, buf, sizeof(uoff_t));
+	buf += sizeof(uoff_t);
+	memcpy(&hdr_size->virtual_size, buf, sizeof(uoff_t));
+	buf += sizeof(uoff_t);
+	hdr_size->lines = 0;
 
-	body_size->physical_size = spart->body_physical_size;
-	body_size->virtual_size = spart->body_virtual_size;
-	body_size->lines = spart->body_lines;
+	memcpy(&body_size->physical_size, buf, sizeof(uoff_t));
+	buf += sizeof(uoff_t);
+	memcpy(&body_size->virtual_size, buf, sizeof(uoff_t));
+	buf += sizeof(uoff_t);
+
+	if ((flags & (MESSAGE_PART_FLAG_TEXT |
+		      MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0)
+		body_size->lines = 0;
+	else {
+		if (size < MINIMUM_SERIALIZED_SIZE + sizeof(unsigned int))
+			return FALSE;
+		memcpy(&body_size->lines, buf, sizeof(unsigned int));
+	}
 
 	return TRUE;
 }
