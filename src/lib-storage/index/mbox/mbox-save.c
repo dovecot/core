@@ -14,6 +14,7 @@
 #include "mbox-file.h"
 #include "mbox-from.h"
 #include "mbox-lock.h"
+#include "mbox-md5.h"
 #include "mbox-sync-private.h"
 
 #include <stddef.h>
@@ -41,6 +42,7 @@ struct mbox_save_context {
 
 	struct index_mail mail;
 	const struct mail_full_flags *flags;
+	struct mbox_md5_context *mbox_md5_ctx;
 
 	unsigned int synced:1;
 	unsigned int failed:1;
@@ -276,9 +278,12 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 }
 
 static void save_header_callback(struct message_header_line *hdr,
-				 int *matched __attr_unused__, void *context)
+				 int *matched, void *context)
 {
 	struct mbox_save_context *ctx = context;
+
+	if (!*matched && ctx->ibox->mbox_save_md5 && hdr != NULL)
+		mbox_md5_continue(ctx->mbox_md5_ctx, hdr);
 
 	if ((hdr == NULL && ctx->eoh_input_offset == (uoff_t)-1) ||
 	    (hdr != NULL && hdr->eoh))
@@ -371,6 +376,8 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 		ctx->body_output = getenv("MAIL_SAVE_CRLF") != NULL ?
 			o_stream_create_crlf(default_pool, ctx->output) :
 			o_stream_create_lf(default_pool, ctx->output);
+		if (ctx->ibox->mbox_save_md5)
+			ctx->mbox_md5_ctx = mbox_md5_init();
 	}
 
 	return &ctx->ctx;
@@ -427,6 +434,15 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 			ctx->failed = TRUE;
 			return -1;
 		}
+	}
+
+	if (ctx->ibox->mbox_save_md5) {
+		unsigned char hdr_md5_sum[16];
+
+		mbox_md5_finish(ctx->mbox_md5_ctx, hdr_md5_sum);
+		mail_index_update_ext(ctx->trans, ctx->seq,
+				      ctx->ibox->md5hdr_ext_idx,
+				      hdr_md5_sum, NULL);
 	}
 
 	/* append our own headers and ending empty line */
