@@ -150,8 +150,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 			/* need to add 'O' flag to Status-header */
 			mail_ctx->need_rewrite = TRUE;
 		}
-		index_mailbox_set_recent(sync_ctx->ibox,
-					 mail_ctx->seq - mail_ctx->pseudo);
+		mail_ctx->recent = TRUE;
 	}
 	return 1;
 }
@@ -422,6 +421,9 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 						idx_keywords);
 		}
 	}
+
+	if (mail_ctx->recent)
+		index_mailbox_set_recent(sync_ctx->ibox, sync_ctx->idx_seq);
 
 	/* update from_offsets, but not if we're going to rewrite this message.
 	   rewriting would just move it anyway. */

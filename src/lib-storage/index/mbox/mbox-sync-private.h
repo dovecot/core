@@ -79,6 +79,7 @@ struct mbox_sync_mail_context {
 	unsigned int seen_imapbase:1;
 	unsigned int pseudo:1;
 	unsigned int updated:1;
+	unsigned int recent:1;
 	unsigned int seen_received_hdr:1;
 };
 
