@@ -60,11 +60,11 @@ int message_send(OBuffer *outbuf, IBuffer *inbuf, MessageSize *msg_size,
 			}
 		}
 
-		if (o_buffer_send(outbuf, msg, i) <= 0)
+		if (o_buffer_send(outbuf, msg, i) < 0)
 			return FALSE;
 
 		if (add_cr) {
-			if (o_buffer_send(outbuf, "\r", 1) <= 0)
+			if (o_buffer_send(outbuf, "\r", 1) < 0)
 				return FALSE;
 			cr_skipped = TRUE;
 		} else {
