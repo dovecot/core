@@ -90,7 +90,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 
 	/* home */
 	if (*args != NULL) {
-		pu->home = p_strdup(pw->pool, *args);
+		pu->home = p_strdup_empty(pw->pool, *args);
 		args++;
 	}
 
@@ -99,8 +99,11 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 		args++;
 
 	/* flags */
-	if (*args != NULL && strstr(*args, "chroot") != NULL)
-		pu->chroot = TRUE;
+	if (*args != NULL) {
+		if (strstr(*args, "chroot") != NULL)
+			pu->chroot = TRUE;
+		args++;
+	}
 
 	/* rest is MAIL environment */
 	if (*args != NULL) {
@@ -113,7 +116,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 			str_append(str, *args);
 			args++;
 		}
-		pu->mail = p_strdup(pw->pool, str_c(str));
+		pu->mail = p_strdup_empty(pw->pool, str_c(str));
 	}
 
 	hash_insert(pw->users, pu->user_realm, pu);
@@ -143,8 +146,8 @@ static void passwd_file_open(struct passwd_file *pw)
 
 	input = i_stream_create_file(pw->fd, default_pool, 4096, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
-		if (*line == '\0' || *line == ':')
-			continue; /* no username */
+		if (*line == '\0' || *line == ':' || *line == '#')
+			continue; /* no username or comment */
 
 		t_push();
 		args = t_strsplit(line, ":");
