@@ -135,7 +135,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1) {
+	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1 && !ctx->pseudo) {
 		str_append(ctx->header, "X-UID: ");
 		ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
 		str_printfa(ctx->header, "%u\n", ctx->mail.uid);

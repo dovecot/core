@@ -80,11 +80,16 @@ static void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 
 	i_assert(size < SSIZE_T_MAX);
 
-	/* Append at the end of X-Keywords header,
-	   or X-UID if it doesn't exist */
-	start_pos = ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] != (size_t)-1 ?
-		ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] :
-		ctx->hdr_pos[MBOX_HDR_X_UID];
+	if (ctx->pseudo)
+		start_pos = ctx->hdr_pos[MBOX_HDR_X_IMAPBASE];
+	else {
+		/* Append at the end of X-Keywords header,
+		   or X-UID if it doesn't exist */
+		start_pos = ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] != (size_t)-1 ?
+			ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] :
+			ctx->hdr_pos[MBOX_HDR_X_UID];
+	}
+	i_assert(start_pos != (size_t)-1);
 
 	data = str_data(ctx->header);
 	data_size = str_len(ctx->header);
@@ -298,7 +303,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	/* mbox_sync_parse_next_mail() checks that UIDs are growing,
 	   so we have to fool it. */
 	old_prev_msg_uid = sync_ctx->prev_msg_uid;
-	sync_ctx->prev_msg_uid = mails[idx].uid-1;
+	sync_ctx->prev_msg_uid = mails[idx].uid == 0 ? 0 : mails[idx].uid-1;
 	sync_ctx->dest_first_mail = mails[idx].from_offset == 0;
 
 	mbox_sync_parse_next_mail(sync_ctx->input, &mail_ctx);
@@ -380,7 +385,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 
 	/* after expunge the next mail must have been missing space, or we
 	   would have moved it backwards already */
-	i_assert(mails[0].space < 0 || mails[0].uid == 0);
+	i_assert(mails[0].space < 0 || (mails[0].flags & MBOX_EXPUNGED) != 0);
 
 	/* start moving backwards. */
 	do {
@@ -396,14 +401,15 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx, uoff_t extra_space,
 		space_diff = mails[idx].space;
 		end_offset = mails[idx].offset + mails[idx].space;
 
-		if (mails[idx].uid != 0) {
+		if ((mails[idx].flags & MBOX_EXPUNGED) == 0) {
 			space_diff -= extra_per_mail;
 			end_offset -= extra_per_mail;
 			mails[idx].space = extra_per_mail;
 		}
 
 		idx--;
-		if (mails[idx].space <= 0 && mails[idx].uid != 0) {
+		if (mails[idx].space <= 0 &&
+		    (mails[idx].flags & MBOX_EXPUNGED) == 0) {
 			/* offset points to beginning of headers. read the
 			   header again, update it and give enough space to
 			   fill space_diff */

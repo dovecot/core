@@ -666,6 +666,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			struct mbox_sync_mail mail;
 
 			memset(&mail, 0, sizeof(mail));
+			mail.flags = MBOX_EXPUNGED;
 			mail.offset = mail_ctx->from_offset -
 				sync_ctx->expunged_space;
 			mail.space = sync_ctx->expunged_space;
@@ -804,13 +805,15 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
 		uid = mail_ctx->mail.uid;
 
+		if (mail_ctx->pseudo)
+			uid = 0;
+
 		/* get all sync records related to this message */
 		if (mbox_sync_read_index_syncs(sync_ctx, uid, &expunged) < 0)
 			return -1;
 
 		rec = NULL;
-		if (uid != 0 && !mail_ctx->pseudo &&
-		    sync_ctx->ibox->md5hdr_extra_idx == 0) {
+		if (uid != 0 && sync_ctx->ibox->md5hdr_extra_idx == 0) {
 			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
 			if (ret < 0)
 				return -1;
@@ -818,7 +821,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				uid = 0;
 		}
 
-		if (uid == 0 && sync_ctx->ibox->mbox_readonly) {
+		if (uid == 0 && sync_ctx->ibox->mbox_readonly &&
+		    !mail_ctx->pseudo) {
 			/* Use MD5 sums */
 			if (sync_ctx->ibox->md5hdr_extra_idx == 0) {
 				sync_ctx->ibox->md5hdr_extra_idx =
@@ -836,7 +840,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				uid = rec->uid;
 		}
 
-		if (uid == 0) {
+		if (uid == 0 && !mail_ctx->pseudo) {
 			/* missing/broken X-UID. all the rest of the mails
 			   need new UIDs. */
 			while (sync_ctx->idx_seq <= messages_count) {
@@ -860,12 +864,14 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			return ret;
 		}
 
-		if (!expunged && !mail_ctx->pseudo) {
-			if (mbox_sync_update_index(sync_ctx, mail_ctx,
-						   rec) < 0)
-				return -1;
+		if (!mail_ctx->pseudo) {
+			if (!expunged) {
+				if (mbox_sync_update_index(sync_ctx, mail_ctx,
+							   rec) < 0)
+					return -1;
+			}
+			sync_ctx->idx_seq++;
 		}
-		sync_ctx->idx_seq++;
 
 		istream_raw_mbox_next(sync_ctx->input,
 				      mail_ctx->mail.body_size);
