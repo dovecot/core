@@ -652,8 +652,8 @@ static ssize_t io_buffer_read_mmaped(IOBuffer *buf, size_t size)
 	buf->buffer_size = stop_offset - buf->mmap_offset;
 	if (buf->buffer_size > buf->max_buffer_size)
 		buf->buffer_size = buf->max_buffer_size;
-	if (buf->buffer_size > size)
-		buf->buffer_size = size;
+	if (buf->buffer_size > size + buf->skip)
+		buf->buffer_size = size + buf->skip;
 
 	buf->buffer = mmap(NULL, buf->buffer_size, PROT_READ, MAP_PRIVATE,
 			   buf->fd, buf->mmap_offset);
@@ -707,11 +707,9 @@ ssize_t io_buffer_read_max(IOBuffer *buf, size_t size)
 		size = buf->buffer_size - buf->pos;
 
 	if (!buf->file) {
-		ret = net_receive(buf->fd, buf->buffer + buf->pos,
-				  buf->buffer_size - buf->pos);
+		ret = net_receive(buf->fd, buf->buffer + buf->pos, size);
 	} else {
-                ret = read(buf->fd, buf->buffer + buf->pos,
-			   buf->buffer_size - buf->pos);
+                ret = read(buf->fd, buf->buffer + buf->pos, size);
 		if (ret == 0)
 			ret = -1; /* EOF */
 		else if (ret < 0 && (errno == EINTR || errno == EAGAIN))
