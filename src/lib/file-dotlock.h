@@ -47,8 +47,9 @@ int file_dotlock_open(const char *path,
 		      int (*callback)(unsigned int secs_left, int stale,
 				      void *context),
 		      void *context);
-/* Replaces path with path.lock file. Closes given fd. If verify_owner is TRUE,
-   it checks that lock file hasn't been overwritten before renaming. */
+/* Replaces path with path.lock file. If verify_owner is TRUE, it checks that
+   lock file hasn't been overwritten before renaming. Closes given fd, unless
+   it's given as -1 in which case verify_owner must be FALSE. */
 int file_dotlock_replace(const char *path, const char *lock_suffix,
 			 int fd, int verify_owner);
 /* Like file_unlock_dotlock(). Closes given fd. */

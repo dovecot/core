@@ -487,9 +487,11 @@ int file_dotlock_replace(const char *path, const char *lock_suffix,
 			return -1;
 		}
 	}
-	if (close(fd) < 0) {
-		i_error("close(%s) failed: %m", lock_path);
-		return -1;
+	if (fd != -1) {
+		if (close(fd) < 0) {
+			i_error("close(%s) failed: %m", lock_path);
+			return -1;
+		}
 	}
 
 	if (verify_owner) {
