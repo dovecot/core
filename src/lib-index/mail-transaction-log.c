@@ -814,9 +814,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 
 	if (file->mmap_base != NULL && (uoff_t)st.st_size == file->mmap_size &&
-	    file->buffer_offset <= start_offset) {
+	    file->buffer_offset <= start_offset && end_offset == (uoff_t)-1) {
 		/* it's all mmaped already */
-		i_assert(end_offset == (uoff_t)-1);
 		if (mail_transaction_log_file_sync(file) < 0)
 			return -1;
 		return 1;
