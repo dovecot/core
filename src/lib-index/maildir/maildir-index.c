@@ -74,7 +74,8 @@ const char *maildir_filename_set_flags(const char *fname, MailFlags flags)
 
 	/* insert the new flags between old flags. flags must be sorted by
 	   their ASCII code. unknown flags are kept. */
-	flags_str = t_string_new(MAIL_FLAGS_COUNT+strlen(oldflags)+4);
+	flags_str = t_string_new(256);
+	t_string_append(flags_str, fname);
 	t_string_append(flags_str, ":2,");
 	for (;;) {
 		/* skip all known flags */
