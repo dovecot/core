@@ -192,6 +192,7 @@ static void auth_callback(struct auth_request *request,
 			/* passdb specifically requested not to delay the
 			   reply. */
 			handler->callback(str_c(str), handler->context);
+			auth_request_unref(request);
 		} else {
 			/* failure. don't announce it immediately to avoid
 			   a) timing attacks, b) flooding */
