@@ -50,10 +50,7 @@ struct hash_table {
 	pool_t table_pool, node_pool;
 
 	int frozen;
-	size_t nodes_count, removed_count;
-#ifdef DEBUG
-	size_t collisions_count;
-#endif
+	size_t initial_size, nodes_count, removed_count;
 
 	size_t size;
 	struct hash_node *nodes;
@@ -90,18 +87,20 @@ hash_create(pool_t table_pool, pool_t node_pool, size_t initial_size,
 
 	table = p_new(table_pool, struct hash_table, 1);
         table->table_pool = table_pool;
-        table->node_pool = node_pool;
-	table->size = I_MAX(primes_closest(initial_size),
-			    HASH_TABLE_MIN_SIZE);
+	table->node_pool = node_pool;
+	table->initial_size = initial_size;
 
 	table->hash_cb = hash_cb != NULL ? hash_cb : direct_hash;
 	table->key_compare_cb = key_compare_cb == NULL ?
 		direct_cmp : key_compare_cb;
+
+	table->size = I_MAX(primes_closest(initial_size),
+			    HASH_TABLE_MIN_SIZE);
+
 	table->nodes = p_new(table_pool, struct hash_node, table->size);
 	table->collisions_size = I_MAX(table->size / 10, COLLISIONS_MIN_SIZE);
 	table->collisions = p_new(table_pool, struct collision_node,
 				  table->collisions_size);
-
 	return table;
 }
 
@@ -166,9 +165,6 @@ void hash_clear(struct hash_table *table, int free_collisions)
 
 	table->nodes_count = 0;
 	table->removed_count = 0;
-#ifdef DEBUG
-	table->collisions_count = 0;
-#endif
 }
 
 static struct hash_node *
@@ -247,8 +243,10 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	if (check_existing && table->removed_count > 0) {
 		/* there may be holes, have to check everything */
 		node = hash_lookup_node(table, key, hash);
-		if (node != NULL)
+		if (node != NULL) {
+			node->value = value;
 			return node;
+		}
 
                 check_existing = FALSE;
 	}
@@ -264,8 +262,10 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	}
 
 	if (check_existing) {
-		if (table->key_compare_cb(node->key, key) == 0)
+		if (table->key_compare_cb(node->key, key) == 0) {
+			node->value = value;
 			return node;
+		}
 	}
 
 	/* b) collisions list */
@@ -277,8 +277,10 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 			break;
 
 		if (check_existing) {
-			if (table->key_compare_cb(cnode->node.key, key) == 0)
-				return node;
+			if (table->key_compare_cb(cnode->node.key, key) == 0) {
+				cnode->node.value = value;
+				return &cnode->node;
+			}
 		}
 
 		prev = cnode;
@@ -305,9 +307,6 @@ hash_insert_node(struct hash_table *table, void *key, void *value,
 	cnode->node.key = key;
 	cnode->node.value = value;;
 
-#ifdef DEBUG
-	table->collisions_count++;
-#endif
 	table->nodes_count++;
 	return &cnode->node;
 }
@@ -340,9 +339,6 @@ static void hash_compress(struct hash_table *table,
 		if (next->node.key == NULL) {
 			cnode->next = next->next;
 			free_cnode(table, next);
-#ifdef DEBUG
-			table->collisions_count--;
-#endif
 		}
 	}
 
@@ -359,9 +355,6 @@ static void hash_compress(struct hash_table *table,
 			memcpy(&croot->node, &next->node, sizeof(croot->node));
 			croot->next = next->next;
 			free_cnode(table, next);
-#ifdef DEBUG
-			table->collisions_count--;
-#endif
 		}
 
 		/* see if node in primary table was deleted */
@@ -371,9 +364,6 @@ static void hash_compress(struct hash_table *table,
 		if (node->key == NULL) {
 			memcpy(node, &croot->node, sizeof(*node));
 			croot->node.key = NULL;
-#ifdef DEBUG
-			table->collisions_count--;
-#endif
 		}
 	} while (croot->node.key == NULL);
 }
@@ -484,14 +474,14 @@ void hash_thaw(struct hash_table *table)
 static int hash_resize(struct hash_table *table)
 {
 	struct hash_node *old_nodes;
-	struct collision_node *old_cnodes, *cnode;
+	struct collision_node *old_cnodes, *cnode, *next;
 	size_t old_size, old_csize, i;
 	float nodes_per_list;
 
         nodes_per_list = (float) table->nodes_count / (float) table->size;
-        if ((nodes_per_list > 0.3 || table->size <= HASH_TABLE_MIN_SIZE) &&
+        if ((nodes_per_list > 0.3 || table->size <= table->initial_size) &&
             (nodes_per_list < 2.0))
-                return FALSE;
+		return FALSE;
 
 	/* recreate primary table */
 	old_size = table->size;
@@ -511,9 +501,6 @@ static int hash_resize(struct hash_table *table)
 
 	table->nodes_count = 0;
 	table->removed_count = 0;
-#ifdef DEBUG
-	table->collisions_count = 0;
-#endif
 
 	table->frozen++;
 
@@ -528,13 +515,19 @@ static int hash_resize(struct hash_table *table)
 	for (i = 0; i < old_csize; i++) {
 		cnode = &old_cnodes[i];
 
-		do {
+		if (cnode->node.key != NULL) {
+			hash_insert_node(table, cnode->node.key,
+					 cnode->node.value, FALSE);
+		}
+
+		for (cnode = cnode->next; cnode != NULL; cnode = next) {
+			next = cnode->next;
 			if (cnode->node.key != NULL) {
 				hash_insert_node(table, cnode->node.key,
 						 cnode->node.value, FALSE);
 			}
-			cnode = cnode->next;
-		} while (cnode != NULL);
+			free_cnode(table, cnode);
+		}
 	}
 
 	table->frozen--;
