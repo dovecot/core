@@ -9,6 +9,7 @@
 #include "mbox-storage.h"
 #include "mbox-lock.h"
 #include "mbox-file.h"
+#include "mbox-sync-private.h"
 #include "mail-copy.h"
 
 #include <stdio.h>
@@ -788,10 +789,21 @@ static int mbox_get_mailbox_name_status(struct mail_storage *_storage,
 static int mbox_storage_close(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	const struct mail_index_header *hdr;
+	int ret;
+
+	ret = mail_index_get_header(ibox->view, &hdr);
+	if (ret == 0 && (hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
+	    !ibox->readonly && !ibox->mbox_readonly) {
+		/* we've done changes to mbox which haven't been written yet.
+		   do it now. */
+		if (mbox_sync(ibox, MBOX_SYNC_REWRITE) < 0)
+			ret = -1;
+	}
 
         mbox_file_close(ibox);
         index_storage_mailbox_free(box);
-	return 0;
+	return ret;
 }
 
 static void

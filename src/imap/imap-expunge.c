@@ -10,7 +10,8 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 	struct mail_search_context *ctx;
         struct mailbox_transaction_context *t;
 	struct mail *mail;
-        struct mail_search_arg search_arg;
+	struct mail_search_arg search_arg;
+        enum mailbox_sync_flags flags;
 	int failed = FALSE;
 
 	memset(&search_arg, 0, sizeof(search_arg));
@@ -36,7 +37,9 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 	if (failed)
 		mailbox_transaction_rollback(t);
 	else {
-		if (mailbox_transaction_commit(t, MAILBOX_SYNC_FLAG_FULL) < 0)
+		flags = MAILBOX_SYNC_FLAG_FULL_READ |
+			MAILBOX_SYNC_FLAG_FULL_WRITE;
+		if (mailbox_transaction_commit(t, flags) < 0)
 			failed = TRUE;
 	}
 

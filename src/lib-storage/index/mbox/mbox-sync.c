@@ -407,7 +407,7 @@ static int mbox_sync_update_index(struct mbox_sync_context *sync_ctx,
 
 		if (mail_ctx->dirty)
 			mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
-		else if ((sync_ctx->flags & MBOX_SYNC_UNDIRTY) != 0)
+		else if (!sync_ctx->delay_writes)
 			mbox_flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
 
 		if ((idx_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY) ==
@@ -1316,7 +1316,8 @@ __again:
 	sync_ctx.fd = sync_ctx.ibox->mbox_fd;
 	sync_ctx.flags = flags;
 	sync_ctx.delay_writes = sync_ctx.ibox->mbox_readonly ||
-		((flags & MBOX_SYNC_UNDIRTY) == 0 &&
+		sync_ctx.ibox->readonly ||
+		((flags & MBOX_SYNC_REWRITE) == 0 &&
 		 getenv("MBOX_LAZY_WRITES") != NULL);
 
 
@@ -1419,8 +1420,10 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
 	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
-		if ((flags & MAILBOX_SYNC_FLAG_FULL) != 0)
+		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0)
 			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
+		if ((flags & MAILBOX_SYNC_FLAG_FULL_WRITE) != 0)
+			mbox_sync_flags |= MBOX_SYNC_REWRITE;
 		ret = mbox_sync(ibox, mbox_sync_flags);
 	}
 

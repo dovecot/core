@@ -39,8 +39,10 @@ int mbox_transaction_commit(struct mailbox_transaction_context *_t,
 
 	if (ret == 0) {
 		enum mbox_sync_flags mbox_sync_flags = MBOX_SYNC_LAST_COMMIT;
-		if ((flags & MAILBOX_SYNC_FLAG_FULL) != 0)
+		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0)
 			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
+		if ((flags & MAILBOX_SYNC_FLAG_FULL_WRITE) != 0)
+			mbox_sync_flags |= MBOX_SYNC_REWRITE;
 		if (mbox_modified)
 			mbox_sync_flags |= MBOX_SYNC_HEADER;
 		if (mbox_sync(ibox, mbox_sync_flags) < 0)

@@ -8,7 +8,8 @@ enum mbox_sync_flags {
 	MBOX_SYNC_LAST_COMMIT	= 0x01,
 	MBOX_SYNC_HEADER	= 0x02,
 	MBOX_SYNC_LOCK_READING	= 0x04,
-	MBOX_SYNC_UNDIRTY	= 0x08
+	MBOX_SYNC_UNDIRTY	= 0x08,
+	MBOX_SYNC_REWRITE	= 0x10
 };
 
 struct mbox_flag_type {

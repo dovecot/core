@@ -42,7 +42,7 @@ static int sync_mailbox(struct mailbox *box)
         struct mailbox_sync_rec sync_rec;
 	struct mailbox_status status;
 
-	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL);
+	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
 	while (mailbox_sync_next(ctx, &sync_rec) > 0)
 		;
 	return mailbox_sync_deinit(ctx, &status);
