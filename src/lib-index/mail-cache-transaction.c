@@ -379,6 +379,12 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		buffer_set_used_size(ctx->cache_data, ctx->prev_pos);
 	}
 
+	if (ctx->cache_file_seq != ctx->cache->hdr->file_seq) {
+		/* cache file reopened - need to abort */
+		mail_cache_transaction_reset(ctx);
+		return 0;
+	}
+
 	rec = buffer_get_data(ctx->cache_data, &size);
 	i_assert(ctx->prev_pos <= size);
 
