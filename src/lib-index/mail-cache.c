@@ -1332,7 +1332,7 @@ const char *const *mail_cache_get_header_fields(struct mail_cache *cache,
 }
 
 static const char *write_header_string(const char *const headers[],
-				       size_t *size_r)
+				       uint32_t *size_r)
 {
 	buffer_t *buffer;
 	size_t size;

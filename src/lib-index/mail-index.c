@@ -43,7 +43,7 @@ static int mmap_verify(struct mail_index *index)
 
 	if (index->header_size > index->mmap_full_length) {
 		index_set_corrupted(index, "Invalid header_size in header "
-				    "(%u)", index->header_size);
+				    "(%"PRIuSIZE_T")", index->header_size);
 		return FALSE;
 	}
 
