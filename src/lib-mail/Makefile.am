@@ -17,7 +17,8 @@ libmail_a_SOURCES = \
 	message-send.c \
 	message-size.c \
 	message-tokenize.c \
-	quoted-printable.c
+	quoted-printable.c \
+	rfc822-parser.c
 
 noinst_HEADERS = \
 	istream-header-filter.h \
@@ -33,4 +34,5 @@ noinst_HEADERS = \
 	message-send.h \
 	message-size.h \
 	message-tokenize.h \
-	quoted-printable.h
+	quoted-printable.h \
+	rfc822-parser.h

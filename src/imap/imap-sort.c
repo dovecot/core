@@ -295,8 +295,8 @@ static const char *get_first_mailbox(struct mail *mail, const char *field)
 		return NULL;
 
 	addr = message_address_parse(pool_datastack_create(),
-				     (const unsigned char *) str,
-				     (size_t)-1, 1);
+				     (const unsigned char *)str,
+				     strlen(str), 1);
 	return addr != NULL ? addr->mailbox : NULL;
 }
 

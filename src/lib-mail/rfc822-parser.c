@@ -1,0 +1,275 @@
+/* Copyright (C) 2005 Timo Sirainen */
+
+#include "lib.h"
+#include "str.h"
+#include "rfc822-parser.h"
+
+/*
+   atext        =       ALPHA / DIGIT / ; Any character except controls,
+                        "!" / "#" /     ;  SP, and specials.
+                        "$" / "%" /     ;  Used for atoms
+                        "&" / "'" /
+                        "*" / "+" /
+                        "-" / "/" /
+                        "=" / "?" /
+                        "^" / "_" /
+                        "`" / "{" /
+                        "|" / "}" /
+                        "~"
+*/
+
+/* atext chars are marked with 1, alpha and digits with 2 */
+static unsigned char atext_chars[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0-15 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 16-31 */
+	0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, /* 32-47 */
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 1, 0, 1, /* 48-63 */
+	0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, /* 64-79 */
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 1, 1, /* 80-95 */
+	1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, /* 96-111 */
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 0, /* 112-127 */
+
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+};
+#define IS_ATEXT(c) \
+	(atext_chars[(int)(unsigned char)(c)] != 0)
+
+void rfc822_parser_init(struct rfc822_parser_context *ctx,
+			const unsigned char *data, size_t size,
+			string_t *last_comment)
+{
+	memset(ctx, 0, sizeof(*ctx));
+	ctx->data = data;
+	ctx->end = data + size;
+	ctx->last_comment = last_comment;
+}
+
+int rfc822_skip_comment(struct rfc822_parser_context *ctx)
+{
+	const unsigned char *start;
+	int level = 1;
+
+	i_assert(*ctx->data == '(');
+
+	if (ctx->last_comment != NULL)
+		str_truncate(ctx->last_comment, 0);
+
+	start = ++ctx->data;
+	for (; ctx->data != ctx->end; ctx->data++) {
+		switch (*ctx->data) {
+		case '(':
+			level++;
+			break;
+		case ')':
+			if (--level == 0) {
+				if (ctx->last_comment != NULL) {
+					str_append_n(ctx->last_comment, start,
+						     ctx->data - start);
+				}
+				ctx->data++;
+				return ctx->data != ctx->end;
+			}
+			break;
+		case '\\':
+			if (ctx->last_comment != NULL) {
+				str_append_n(ctx->last_comment, start,
+					     ctx->data - start);
+			}
+			start = ctx->data + 1;
+
+			ctx->data++;
+			if (ctx->data == ctx->end)
+				return -1;
+			break;
+		}
+	}
+
+	/* missing ')' */
+	return -1;
+}
+
+int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
+{
+	for (; ctx->data != ctx->end;) {
+		if (*ctx->data == ' ' || *ctx->data == '\t' ||
+		    *ctx->data == '\r' || *ctx->data == '\n') {
+                        ctx->data++;
+			continue;
+		}
+
+		if (*ctx->data != '(')
+			break;
+
+		if (rfc822_skip_comment(ctx) < 0)
+			break;
+	}
+	return ctx->data != ctx->end;
+}
+
+int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)
+{
+	const unsigned char *start;
+
+	/*
+	   atom            = [CFWS] 1*atext [CFWS]
+	   atext           =
+	     ; Any character except controls, SP, and specials.
+	*/
+	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+		if (IS_ATEXT(*ctx->data))
+			continue;
+
+		str_append_n(str, start, ctx->data - start);
+		return rfc822_skip_lwsp(ctx);
+	}
+
+	str_append_n(str, start, ctx->data - start);
+	return 0;
+}
+
+int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
+{
+	const unsigned char *start;
+	int ret;
+
+	/*
+	   dot-atom        = [CFWS] dot-atom-text [CFWS]
+	   dot-atom-text   = 1*atext *("." 1*atext)
+
+	   atext           =
+	     ; Any character except controls, SP, and specials.
+
+	   For RFC-822 compatibility allow LWSP around '.'
+	*/
+	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+		if (IS_ATEXT(*ctx->data))
+			continue;
+
+		str_append_n(str, start, ctx->data - start);
+
+		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
+			return ret;
+
+		if (*ctx->data != '.')
+			return 1;
+
+		ctx->data++;
+		str_append_c(str, '.');
+
+		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
+			return ret;
+		start = ctx->data;
+	}
+
+	str_append_n(str, start, ctx->data - start);
+	return 0;
+}
+
+int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
+{
+	const unsigned char *start;
+
+	i_assert(*ctx->data == '"');
+	ctx->data++;
+
+	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+		if (*ctx->data == '"') {
+			str_append_n(str, start, ctx->data - start);
+			return rfc822_skip_lwsp(ctx);
+		}
+
+		if (*ctx->data != '\\')
+			continue;
+
+		ctx->data++;
+		if (ctx->data == ctx->end)
+			return -1;
+
+		str_append_n(str, start, ctx->data - start);
+		start = ctx->data;
+	}
+
+	/* missing '"' */
+	return -1;
+}
+
+int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str)
+{
+	int ret;
+
+	for (;;) {
+		if (*ctx->data == '"')
+			ret = rfc822_parse_quoted_string(ctx, str);
+		else
+			ret = rfc822_parse_atom(ctx, str);
+		if (ret <= 0)
+			return ret;
+
+		if (!IS_ATEXT(*ctx->data) && *ctx->data != '"')
+			break;
+		str_append_c(str, ' ');
+	}
+	return rfc822_skip_lwsp(ctx);
+}
+
+static int
+rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
+{
+	const unsigned char *start;
+
+	/*
+	   domain-literal  = [CFWS] "[" *([FWS] dcontent) [FWS] "]" [CFWS]
+	   dcontent        = dtext / quoted-pair
+	   dtext           = NO-WS-CTL /     ; Non white space controls
+			     %d33-90 /       ; The rest of the US-ASCII
+			     %d94-126        ;  characters not including "[",
+					     ;  "]", or "\"
+	*/
+	i_assert(*ctx->data == '[');
+
+	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+		if (*ctx->data == '\\') {
+			ctx->data++;
+			if (ctx->data == ctx->end)
+				break;
+		} else if (*ctx->data == ']') {
+			ctx->data++;
+			str_append_n(str, start, ctx->data - start);
+			return ctx->data != ctx->end;
+		}
+	}
+
+	/* missing ']' */
+	return -1;
+}
+
+int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
+{
+	/*
+	   domain          = dot-atom / domain-literal / obs-domain
+	   domain-literal  = [CFWS] "[" *([FWS] dcontent) [FWS] "]" [CFWS]
+	   obs-domain      = atom *("." atom)
+	*/
+	i_assert(*ctx->data == '@');
+	ctx->data++;
+
+	if (rfc822_skip_lwsp(ctx) <= 0)
+		return -1;
+
+	if (*ctx->data == '[') {
+		if (rfc822_parse_domain_literal(ctx, str) < 0)
+			return -1;
+	} else {
+		if (rfc822_parse_dot_atom(ctx, str) < 0)
+			return -1;
+	}
+
+	return ctx->data != ctx->end;
+}
