@@ -44,7 +44,7 @@ void master_request_imap(struct client *client, master_callback_t *callback,
 
 	if (fd_send(LOGIN_MASTER_SOCKET_FD,
 		    client->fd, &req, sizeof(req)) != sizeof(req))
-		i_fatal("fd_send() failed: %m");
+		i_fatal("fd_send(%d) failed: %m", client->fd);
 
 	client->master_callback = callback;
 	hash_insert(master_requests, POINTER_CAST(req.tag), client);
@@ -62,7 +62,7 @@ void master_notify_finished(void)
 	/* sending -1 as fd does the notification */
 	if (fd_send(LOGIN_MASTER_SOCKET_FD,
 		    -1, &req, sizeof(req)) != sizeof(req))
-		i_fatal("fd_send() failed: %m");
+		i_fatal("fd_send(-1) failed: %m");
 }
 
 void master_close(void)
