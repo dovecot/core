@@ -2,8 +2,8 @@
 
 #include "lib.h"
 #include "temp-string.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "rfc822-tokenize.h"
 #include "message-send.h"
 #include "index-storage.h"
@@ -43,13 +43,13 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 		      FetchContext *ctx, const char *prefix, int fetch_header)
 {
 	MessageSize size;
-	IBuffer *inbuf;
+	IStream *input;
 	const char *str;
 	int cr_skipped;
 
 	if (!imap_msgcache_get_rfc822_partial(ctx->cache, sect->skip,
 					      sect->max_size, fetch_header,
-					      &size, &inbuf, &cr_skipped)) {
+					      &size, &input, &cr_skipped)) {
 		i_error("Couldn't get BODY[] for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
@@ -57,13 +57,13 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 
 	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 			      prefix, size.virtual_size);
-	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
 		return FALSE;
 
 	if (cr_skipped)
 		size.virtual_size++;
 
-	return message_send(ctx->outbuf, inbuf, &size,
+	return message_send(ctx->output, input, &size,
 			    cr_skipped ? 1 : 0, sect->max_size);
 }
 
@@ -139,7 +139,7 @@ static int header_match_mime(char *const *fields __attr_unused__,
 
 typedef struct {
 	TempString *dest;
-	OBuffer *outbuf;
+	OStream *output;
 	uoff_t dest_size;
 
 	uoff_t skip, max_size;
@@ -170,8 +170,8 @@ static int fetch_header_append(FetchHeaderFieldContext *ctx,
 		t_string_append_n(ctx->dest, str, size);
 	ctx->dest_size += size;
 
-	if (ctx->outbuf != NULL) {
-		if (o_buffer_send(ctx->outbuf, str, size) < 0)
+	if (ctx->output != NULL) {
+		if (o_stream_send(ctx->output, str, size) < 0)
 			return FALSE;
 	}
 	return ctx->dest_size < ctx->max_size;
@@ -220,7 +220,7 @@ static void fetch_header_field(MessagePart *part __attr_unused__,
 	(void)fetch_header_append(ctx, "\r\n", 2);
 }
 
-static int fetch_header_fields(IBuffer *inbuf, const char *section,
+static int fetch_header_fields(IStream *input, const char *section,
 			       FetchHeaderFieldContext *ctx)
 {
 	if (strncasecmp(section, "HEADER.FIELDS ", 14) == 0) {
@@ -238,7 +238,7 @@ static int fetch_header_fields(IBuffer *inbuf, const char *section,
 	}
 
 	ctx->dest_size = 0;
-	message_parse_header(NULL, inbuf, NULL, fetch_header_field, ctx);
+	message_parse_header(NULL, input, NULL, fetch_header_field, ctx);
 
 	i_assert(ctx->dest_size <= ctx->max_size);
 	i_assert(ctx->dest == NULL || ctx->dest->len == ctx->dest_size);
@@ -246,7 +246,7 @@ static int fetch_header_fields(IBuffer *inbuf, const char *section,
 }
 
 /* fetch wanted headers from given data */
-static int fetch_header_from(IBuffer *inbuf, OBuffer *outbuf,
+static int fetch_header_from(IStream *input, OStream *output,
 			     const char *prefix, MessageSize *size,
 			     const char *section, MailFetchBodyData *sect)
 {
@@ -261,61 +261,61 @@ static int fetch_header_from(IBuffer *inbuf, OBuffer *outbuf,
 		/* all headers */
 		str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 				      prefix, size->virtual_size);
-		if (o_buffer_send(outbuf, str, strlen(str)) < 0)
+		if (o_stream_send(output, str, strlen(str)) < 0)
 			return FALSE;
-		return message_send(outbuf, inbuf, size,
+		return message_send(output, input, size,
 				    sect->skip, sect->max_size);
 	}
 
 	/* partial headers - copy the wanted fields into memory, inserting
 	   missing CRs on the way. If the header is too large, calculate 
-	   the size first and then send the data directly to output buffer. */
+	   the size first and then send the data directly to output stream. */
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.skip = sect->skip;
 	ctx.max_size = sect->max_size;
 
 	failed = FALSE;
-	start_offset = inbuf->v_offset;
+	start_offset = input->v_offset;
 
 	t_push();
 
 	/* first pass, we need at least the size */
 	if (size->virtual_size > MAX_HEADER_BUFFER_SIZE &&
 	    sect->max_size > MAX_HEADER_BUFFER_SIZE) {
-		if (!fetch_header_fields(inbuf, section, &ctx))
+		if (!fetch_header_fields(input, section, &ctx))
 			failed = TRUE;
 
 		i_assert(ctx.dest_size <= size->virtual_size);
 	} else {
 		ctx.dest = t_string_new(size->virtual_size < 4096 ?
 					size->virtual_size : 4096);
-		if (!fetch_header_fields(inbuf, section, &ctx))
+		if (!fetch_header_fields(input, section, &ctx))
 			failed = TRUE;
 	}
 
 	if (!failed) {
 		str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 				      prefix, ctx.dest_size);
-		if (o_buffer_send(outbuf, str, strlen(str)) < 0)
+		if (o_stream_send(output, str, strlen(str)) < 0)
 			failed = TRUE;
 	}
 
 	if (!failed) {
 		if (ctx.dest == NULL) {
-			/* second pass, write the data to output buffer */
+			/* second pass, write the data to output stream */
 			uoff_t first_size = ctx.dest_size;
 
-			ctx.outbuf = outbuf;
-			i_buffer_seek(inbuf, start_offset);
+			ctx.output = output;
+			i_stream_seek(input, start_offset);
 
 			if (!failed &&
-			    !fetch_header_fields(inbuf, section, &ctx))
+			    !fetch_header_fields(input, section, &ctx))
 				failed = TRUE;
 
 			i_assert(first_size == ctx.dest_size);
 		} else {
-			if (o_buffer_send(outbuf, ctx.dest->str,
+			if (o_stream_send(output, ctx.dest->str,
 					  ctx.dest->len) < 0)
 				failed = TRUE;
 		}
@@ -330,12 +330,12 @@ static int fetch_header(MailFetchBodyData *sect, FetchContext *ctx,
 			const char *prefix)
 {
 	MessageSize hdr_size;
-	IBuffer *inbuf;
+	IStream *input;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, &hdr_size, NULL))
+	if (!imap_msgcache_get_rfc822(ctx->cache, &input, &hdr_size, NULL))
 		return FALSE;
 
-	return fetch_header_from(inbuf, ctx->outbuf, prefix, &hdr_size,
+	return fetch_header_from(input, ctx->output, prefix, &hdr_size,
 				 sect->section, sect);
 }
 
@@ -389,25 +389,25 @@ static MessagePart *part_find(MailFetchBodyData *sect, FetchContext *ctx,
 static int fetch_part_body(MessagePart *part, MailFetchBodyData *sect,
 			   FetchContext *ctx, const char *prefix)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	const char *str;
 	uoff_t skip_pos;
 
-	if (!imap_msgcache_get_data(ctx->cache, &inbuf))
+	if (!imap_msgcache_get_data(ctx->cache, &input))
 		return FALSE;
 
 	/* jump to beginning of wanted data */
 	skip_pos = part->physical_pos + part->header_size.physical_size;
-	i_buffer_skip(inbuf, skip_pos);
+	i_stream_skip(input, skip_pos);
 
 	str = t_strdup_printf("%s {%"PRIuUOFF_T"}\r\n",
 			      prefix, part->body_size.virtual_size);
-	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
 		return FALSE;
 
 	/* FIXME: potential performance problem with big messages:
 	   FETCH BODY[1]<100000..1024>, hopefully no clients do this */
-	return message_send(ctx->outbuf, inbuf, &part->body_size,
+	return message_send(ctx->output, input, &part->body_size,
 			    sect->skip, sect->max_size);
 }
 
@@ -416,13 +416,13 @@ static int fetch_part_header(MessagePart *part, const char *section,
 			     MailFetchBodyData *sect, FetchContext *ctx,
 			     const char *prefix)
 {
-	IBuffer *inbuf;
+	IStream *input;
 
-	if (!imap_msgcache_get_data(ctx->cache, &inbuf))
+	if (!imap_msgcache_get_data(ctx->cache, &input))
 		return FALSE;
 
-	i_buffer_skip(inbuf, part->physical_pos);
-	return fetch_header_from(inbuf, ctx->outbuf, prefix, &part->header_size,
+	i_stream_skip(input, part->physical_pos);
+	return fetch_header_from(input, ctx->output, prefix, &part->header_size,
 				 section, sect);
 }
 

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "mbox-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
@@ -10,10 +10,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
+IStream *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
 			time_t *internal_date, int *deleted)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	uoff_t offset, hdr_size, body_size;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
@@ -27,8 +27,8 @@ IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
 	if (!mbox_mail_get_location(index, rec, &offset, &hdr_size, &body_size))
 		return NULL;
 
-	inbuf = mbox_get_inbuf(index, offset, MAIL_LOCK_SHARED);
-	if (inbuf == NULL)
+	input = mbox_get_stream(index, offset, MAIL_LOCK_SHARED);
+	if (input == NULL)
 		return NULL;
 
 	if (internal_date != NULL)
@@ -36,6 +36,6 @@ IBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec,
 
 	i_assert(index->mbox_sync_counter == index->mbox_lock_counter);
 
-	i_buffer_set_read_limit(inbuf, hdr_size + body_size);
-	return inbuf;
+	i_stream_set_read_limit(input, hdr_size + body_size);
+	return input;
 }

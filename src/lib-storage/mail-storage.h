@@ -152,24 +152,24 @@ struct _Mailbox {
 	int (*copy)(Mailbox *box, Mailbox *destbox,
 		    const char *messageset, int uidset);
 
-	/* Fetch wanted mail data. The results are written into outbuf
+	/* Fetch wanted mail data. The results are written into output stream
 	   in RFC2060 FETCH format. */
 	int (*fetch)(Mailbox *box, MailFetchData *fetch_data,
-		     OBuffer *outbuf, int *all_found);
+		     OStream *output, int *all_found);
 
 	/* Search wanted mail data. args contains the search criteria.
-	   Results are written into outbuf in RFC2060 SEARCH format.
+	   Results are written into output stream in RFC2060 SEARCH format.
 	   If charset is NULL, the given search strings are matched without
 	   any conversion. */
 	int (*search)(Mailbox *box, const char *charset, MailSearchArg *args,
-		      MailSortType *sorting, OBuffer *outbuf, int uid_result);
+		      MailSortType *sorting, OStream *output, int uid_result);
 
 	/* Save a new mail into mailbox. timezone_offset specifies the
 	   timezone in minutes which internal_date was originally given
 	   with. */
 	int (*save)(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		    time_t internal_date, int timezone_offset,
-		    IBuffer *data, uoff_t data_size);
+		    IStream *data, uoff_t data_size);
 
 	/* Returns TRUE if mailbox is now in inconsistent state, meaning that
 	   the message IDs etc. may have changed - only way to recover this

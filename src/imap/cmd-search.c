@@ -51,7 +51,7 @@ int cmd_search(Client *client)
 	} else {
 		if (client->mailbox->search(client->mailbox, charset,
 					    sargs, NULL,
-					    client->outbuf, client->cmd_uid)) {
+					    client->output, client->cmd_uid)) {
 			/* NOTE: syncing isn't allowed here */
 			client_sync_without_expunges(client);
 			client_send_tagline(client, "OK Search completed.");

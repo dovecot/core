@@ -280,11 +280,11 @@ struct _MailIndex {
 	   index is opened. */
 	void (*cache_fields_later)(MailIndex *index, MailDataField field);
 
-	/* Open mail file and return it as mmap()ed IBuffer. If we fail,
+	/* Open mail file and return it as mmap()ed IStream. If we fail,
 	   we return NULL and set deleted = TRUE if failure was because the
 	   mail was just deleted (ie. not an error). internal_date is set
 	   if it's non-NULL. */
-	IBuffer *(*open_mail)(MailIndex *index, MailIndexRecord *rec,
+	IStream *(*open_mail)(MailIndex *index, MailIndexRecord *rec,
 			      time_t *internal_date, int *deleted);
 
 	/* Returns internal date of message, or (time_t)-1 if error occured. */
@@ -361,7 +361,7 @@ struct _MailIndex {
 
 	char *mbox_path; /* mbox-specific path to the actual mbox file */
 	int mbox_fd;
-	IBuffer *mbox_inbuf;
+	IStream *mbox_stream;
 	MailLockType mbox_lock_type;
 	dev_t mbox_dotlock_dev;
 	ino_t mbox_dotlock_ino;
@@ -470,7 +470,7 @@ int mail_index_fmdatasync(MailIndex *index, size_t size);
 int mail_index_verify_hole_range(MailIndex *index);
 void mail_index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 				  MailFlags old_flags, MailFlags new_flags);
-void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
+void mail_index_update_headers(MailIndexUpdate *update, IStream *input,
                                MailDataField cache_fields,
 			       MessageHeaderFunc header_func, void *context);
 int mail_index_update_cache(MailIndex *index);

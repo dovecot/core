@@ -1,8 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "mbox-index.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
-			unsigned int seq, IBuffer *inbuf, OBuffer *outbuf,
+			unsigned int seq, IStream *input, OStream *output,
 			int notify)
 {
 	uoff_t offset, hdr_size, body_size;
@@ -36,7 +36,7 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 		rec = ibox->index->next(ibox->index, rec);
 	}
 
-	old_limit = inbuf->v_limit;
+	old_limit = input->v_limit;
 
 	expunges = FALSE;
 	while (rec != NULL) {
@@ -55,33 +55,33 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 			if (!expunges) {
 				/* first expunged record, seek to position
 				   where we want to begin writing */
-				if (!o_buffer_seek(outbuf, from_offset))
+				if (!o_stream_seek(output, from_offset))
 					return FALSE;
 				expunges = TRUE;
 			}
 		} else if (expunges) {
 			/* seek to wanted input position, and copy
 			   this messages */
-			i_assert(inbuf->v_offset <= from_offset);
-			i_buffer_skip(inbuf, from_offset - inbuf->v_offset);
+			i_assert(input->v_offset <= from_offset);
+			i_stream_skip(input, from_offset - input->v_offset);
 
-			if (outbuf->offset == 0) {
+			if (output->offset == 0) {
 				/* we're writing to beginning of mbox, so we
 				   don't want the [\r]\n there */
-				(void)i_buffer_read_data(inbuf, &data,
+				(void)i_stream_read_data(input, &data,
 							 &size, 1);
 				if (size > 0 && data[0] == '\n')
-					i_buffer_skip(inbuf, 1);
+					i_stream_skip(input, 1);
 				else if (size > 1 && data[0] == '\r' &&
 					 data[1] == '\n')
-					i_buffer_skip(inbuf, 2);
+					i_stream_skip(input, 2);
 			}
 
-			i_buffer_set_read_limit(inbuf, end_offset);
-			failed = o_buffer_send_ibuffer(outbuf, inbuf) < 0;
-			i_buffer_set_read_limit(inbuf, old_limit);
+			i_stream_set_read_limit(input, end_offset);
+			failed = o_stream_send_istream(output, input) < 0;
+			i_stream_set_read_limit(input, old_limit);
 
-			if (failed || inbuf->v_offset != end_offset)
+			if (failed || input->v_offset != end_offset)
 				return FALSE;
 		}
 
@@ -89,23 +89,23 @@ static int expunge_real(IndexMailbox *ibox, MailIndexRecord *rec,
 		seq++;
 	}
 
-	i_buffer_skip(inbuf, end_offset - inbuf->v_offset);
+	i_stream_skip(input, end_offset - input->v_offset);
 
 	/* copy the rest as well, should be only \n but someone might
 	   as well just appended more data.. but if we've deleted all mail,
 	   don't write the only \n there. */
-	copy_size = inbuf->v_size - inbuf->v_offset;
-	if (outbuf->offset == 0 && copy_size == 1)
+	copy_size = input->v_size - input->v_offset;
+	if (output->offset == 0 && copy_size == 1)
 		return TRUE;
 
-	return o_buffer_send_ibuffer(outbuf, inbuf) >= 0;
+	return o_stream_send_istream(output, input) >= 0;
 }
 
 int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 {
 	MailIndexRecord *rec;
-	IBuffer *inbuf;
-	OBuffer *outbuf;
+	IStream *input;
+	OStream *output;
 	unsigned int seq;
 	int failed;
 
@@ -118,35 +118,35 @@ int mbox_expunge_locked(IndexMailbox *ibox, int notify)
 	}
 
 	/* mbox must be already opened, synced and locked at this point.
-	   we just want the IBuffer. */
-	inbuf = mbox_get_inbuf(ibox->index, 0, MAIL_LOCK_EXCLUSIVE);
-	if (inbuf == NULL)
+	   we just want the IStream. */
+	input = mbox_get_stream(ibox->index, 0, MAIL_LOCK_EXCLUSIVE);
+	if (input == NULL)
 		return FALSE;
 
 	i_assert(ibox->index->mbox_sync_counter ==
 		 ibox->index->mbox_lock_counter);
 
 	t_push();
-	outbuf = o_buffer_create_file(ibox->index->mbox_fd, data_stack_pool,
+	output = o_stream_create_file(ibox->index->mbox_fd, data_stack_pool,
 				      4096, 0, FALSE);
-	o_buffer_set_blocking(outbuf, 60000, NULL, NULL);
+	o_stream_set_blocking(output, 60000, NULL, NULL);
 
-	failed = !expunge_real(ibox, rec, seq, inbuf, outbuf, notify);
+	failed = !expunge_real(ibox, rec, seq, input, output, notify);
 
-	if (failed && outbuf->offset > 0) {
+	if (failed && output->offset > 0) {
 		/* we moved some of the data. move the rest as well so there
 		   won't be invalid holes in mbox file */
-		(void)o_buffer_send_ibuffer(outbuf, inbuf);
+		(void)o_stream_send_istream(output, input);
 	}
 
-	if (ftruncate(ibox->index->mbox_fd, (off_t)outbuf->offset) < 0) {
+	if (ftruncate(ibox->index->mbox_fd, (off_t)output->offset) < 0) {
 		mail_storage_set_error(ibox->box.storage, "ftruncate() failed "
 				       "for mbox file %s: %m",
 				       ibox->index->mbox_path);
 		failed = TRUE;
 	}
 
-	o_buffer_unref(outbuf);
+	o_stream_unref(output);
 	t_pop();
 
 	return !failed;

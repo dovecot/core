@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "network.h"
 #include "cookie.h"
 #include "master.h"
@@ -11,7 +11,7 @@
 
 static AuthCookieReplyData failure_reply;
 
-static OBuffer *outbuf;
+static OStream *output;
 static IO io_master;
 
 static unsigned int master_pos;
@@ -35,7 +35,7 @@ static void master_handle_request(AuthCookieRequestData *request,
 	}
 
 	reply->id = request->id;
-	switch (o_buffer_send(outbuf, reply, sizeof(AuthCookieReplyData))) {
+	switch (o_stream_send(output, reply, sizeof(AuthCookieReplyData))) {
 	case -2:
 		i_fatal("Master transmit buffer full, aborting");
 	case -1:
@@ -72,7 +72,7 @@ void master_init(void)
 	memset(&failure_reply, 0, sizeof(failure_reply));
 
 	master_pos = 0;
-	outbuf = o_buffer_create_file(MASTER_SOCKET_FD, default_pool,
+	output = o_stream_create_file(MASTER_SOCKET_FD, default_pool,
 				      MAX_OUTBUF_SIZE, IO_PRIORITY_DEFAULT,
 				      FALSE);
 	io_master = io_add(MASTER_SOCKET_FD, IO_READ, master_input, NULL);
@@ -80,6 +80,6 @@ void master_init(void)
 
 void master_deinit(void)
 {
-	o_buffer_unref(outbuf);
+	o_stream_unref(output);
 	io_remove(io_master);
 }

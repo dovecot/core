@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "base64.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "charset-utf8.h"
 #include "rfc822-tokenize.h"
 #include "quoted-printable.h"
@@ -134,7 +134,7 @@ static void header_find(MessagePart *part __attr_unused__,
 	}
 }
 
-static int message_search_header(PartSearchContext *ctx, IBuffer *inbuf)
+static int message_search_header(PartSearchContext *ctx, IStream *input)
 {
 	ctx->hdr_search_ctx = message_header_search_init(data_stack_pool,
 							 ctx->body_ctx->key,
@@ -143,7 +143,7 @@ static int message_search_header(PartSearchContext *ctx, IBuffer *inbuf)
 
 	/* we default to text content-type */
 	ctx->content_type_text = TRUE;
-	message_parse_header(NULL, inbuf, NULL, header_find, ctx);
+	message_parse_header(NULL, input, NULL, header_find, ctx);
 
 	return ctx->found;
 }
@@ -252,7 +252,7 @@ static int message_search_body_block(PartSearchContext *ctx,
 	return 0;
 }
 
-static int message_search_body(PartSearchContext *ctx, IBuffer *inbuf,
+static int message_search_body(PartSearchContext *ctx, IStream *input,
 			       MessagePart *part)
 {
 	const unsigned char *data, *decoded;
@@ -280,15 +280,15 @@ static int message_search_body(PartSearchContext *ctx, IBuffer *inbuf,
 	ctx->match_count = 0;
 	ctx->matches = t_malloc(sizeof(size_t) * ctx->body_ctx->key_len);
 
-	i_buffer_skip(inbuf, part->physical_pos +
-		      part->header_size.physical_size - inbuf->v_offset);
+	i_stream_skip(input, part->physical_pos +
+		      part->header_size.physical_size - input->v_offset);
 
-	old_limit = inbuf->v_limit;
-	i_buffer_set_read_limit(inbuf, inbuf->v_offset +
+	old_limit = input->v_limit;
+	i_stream_set_read_limit(input, input->v_offset +
 				part->body_size.physical_size);
 
 	found = FALSE; pos = 0;
-	while (i_buffer_read_data(inbuf, &data, &data_size, pos) > 0) {
+	while (i_stream_read_data(input, &data, &data_size, pos) > 0) {
 		/* limit the size of t_malloc()s */
 		if (data_size > DECODE_BLOCK_SIZE)
 			data_size = DECODE_BLOCK_SIZE;
@@ -318,11 +318,11 @@ static int message_search_body(PartSearchContext *ctx, IBuffer *inbuf,
 		}
 
 		t_pop();
-		i_buffer_skip(inbuf, data_size);
+		i_stream_skip(input, data_size);
 		pos -= data_size;
 	}
 
-	i_buffer_set_read_limit(inbuf, old_limit);
+	i_stream_set_read_limit(input, old_limit);
 
 	if (ctx->translation != NULL)
 		charset_to_utf8_end(ctx->translation);
@@ -355,7 +355,7 @@ static int message_body_search_init(BodySearchContext *ctx, const char *key,
 	return TRUE;
 }
 
-static int message_body_search_ctx(BodySearchContext *ctx, IBuffer *inbuf,
+static int message_body_search_ctx(BodySearchContext *ctx, IStream *input,
 				   MessagePart *part)
 {
 	PartSearchContext part_ctx;
@@ -363,9 +363,9 @@ static int message_body_search_ctx(BodySearchContext *ctx, IBuffer *inbuf,
 
 	found = FALSE;
 	while (part != NULL && !found) {
-		i_assert(inbuf->v_offset <= part->physical_pos);
+		i_assert(input->v_offset <= part->physical_pos);
 
-		i_buffer_skip(inbuf, part->physical_pos - inbuf->v_offset);
+		i_stream_skip(input, part->physical_pos - input->v_offset);
 
 		memset(&part_ctx, 0, sizeof(part_ctx));
 		part_ctx.body_ctx = ctx;
@@ -374,14 +374,14 @@ static int message_body_search_ctx(BodySearchContext *ctx, IBuffer *inbuf,
 
 		t_push();
 
-		if (message_search_header(&part_ctx, inbuf)) {
+		if (message_search_header(&part_ctx, input)) {
 			found = TRUE;
 		} else if (part->children != NULL) {
 			/* multipart/xxx or message/rfc822 */
-			if (message_body_search_ctx(ctx, inbuf, part->children))
+			if (message_body_search_ctx(ctx, input, part->children))
 				found = TRUE;
 		} else {
-			if (message_search_body(&part_ctx, inbuf, part))
+			if (message_search_body(&part_ctx, input, part))
 				found = TRUE;
 		}
 
@@ -394,7 +394,7 @@ static int message_body_search_ctx(BodySearchContext *ctx, IBuffer *inbuf,
 }
 
 int message_body_search(const char *key, const char *charset,
-			int *unknown_charset, IBuffer *inbuf,
+			int *unknown_charset, IStream *input,
 			MessagePart *part, int search_header)
 {
         BodySearchContext ctx;
@@ -403,5 +403,5 @@ int message_body_search(const char *key, const char *charset,
 				      search_header))
 		return -1;
 
-	return message_body_search_ctx(&ctx, inbuf, part);
+	return message_body_search_ctx(&ctx, input, part);
 }

@@ -3,8 +3,8 @@
 #include "common.h"
 #include "base64.h"
 #include "ioloop.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "temp-string.h"
 #include "auth-connection.h"
 #include "client.h"
@@ -73,7 +73,7 @@ static void client_auth_abort(Client *client, const char *msg)
 
 	client_send_tagline(client, msg != NULL ? msg :
 			    "NO Authentication failed.");
-	o_buffer_flush(client->outbuf);
+	o_stream_flush(client->output);
 
 	/* get back to normal client input */
 	if (client->io != NULL)
@@ -110,11 +110,11 @@ static void client_send_auth_data(Client *client, const unsigned char *data,
 	t_push();
 
 	base64_data = base64_encode(data, size);
-	o_buffer_send(client->outbuf, "+ ", 2);
-	o_buffer_send(client->outbuf, base64_data, strlen(base64_data));
-	o_buffer_send(client->outbuf, "\r\n", 2);
+	o_stream_send(client->output, "+ ", 2);
+	o_stream_send(client->output, base64_data, strlen(base64_data));
+	o_stream_send(client->output, "\r\n", 2);
 
-	o_buffer_flush(client->outbuf);
+	o_stream_flush(client->output);
 
 	t_pop();
 }
@@ -244,7 +244,7 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 	if (!client_read(client))
 		return;
 
-	line = i_buffer_next_line(client->inbuf);
+	line = i_stream_next_line(client->input);
 	if (line == NULL)
 		return;
 

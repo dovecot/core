@@ -3,18 +3,18 @@
 
 #include "message-parser.h"
 
-/* Calculate size of message header. Leave the inbuf point to first
+/* Calculate size of message header. Leave the input point to first
    character in body. */
-void message_get_header_size(IBuffer *inbuf, MessageSize *hdr);
+void message_get_header_size(IStream *input, MessageSize *hdr);
 /* Calculate size of message body. Read only max_virtual_size virtual bytes,
    if you want it unlimited, use (uoff_t)-1. */
-void message_get_body_size(IBuffer *inbuf, MessageSize *body,
+void message_get_body_size(IStream *input, MessageSize *body,
 			   uoff_t max_virtual_size);
 
-/* Skip number of virtual bytes from buffer. If first character is \n, and
+/* Skip number of virtual bytes from putfer. If first character is \n, and
    cr_skipped is FALSE, \r must be sent before it. msg_size is updated if
    it's not NULL. */
-void message_skip_virtual(IBuffer *inbuf, uoff_t virtual_skip,
+void message_skip_virtual(IStream *input, uoff_t virtual_skip,
 			  MessageSize *msg_size, int *cr_skipped);
 
 /* Sum contents of src into dest. */

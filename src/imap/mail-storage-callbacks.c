@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "imap-util.h"
 #include "commands-util.h"
 
@@ -19,7 +19,7 @@ static void notify_ok(Mailbox *mailbox __attr_unused__,
 	Client *client = context;
 
 	client_send_line(client, t_strconcat("* OK ", text, NULL));
-	o_buffer_flush(client->outbuf);
+	o_stream_flush(client->output);
 }
 
 static void notify_no(Mailbox *mailbox __attr_unused__,
@@ -28,7 +28,7 @@ static void notify_no(Mailbox *mailbox __attr_unused__,
 	Client *client = context;
 
 	client_send_line(client, t_strconcat("* NO ", text, NULL));
-	o_buffer_flush(client->outbuf);
+	o_stream_flush(client->output);
 }
 
 static void expunge(Mailbox *mailbox, unsigned int seq, void *context)

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "imap-date.h"
 #include "imap-message-cache.h"
 #include "message-part-serialize.h"
@@ -71,7 +71,7 @@ int index_msgcache_open(ImapMessageCache *cache, MailIndex *index,
 				  full_virtual_size, ctx);
 }
 
-static IBuffer *index_msgcache_open_mail(void *context)
+static IStream *index_msgcache_open_mail(void *context)
 {
 	IndexMsgcacheContext *ctx = context;
 	int deleted;
@@ -80,11 +80,11 @@ static IBuffer *index_msgcache_open_mail(void *context)
 				     &ctx->internal_date, &deleted);
 }
 
-static IBuffer *index_msgcache_inbuf_rewind(IBuffer *inbuf,
-					    void *context __attr_unused__)
+static IStream *index_msgcache_stream_rewind(IStream *input,
+					     void *context __attr_unused__)
 {
-	i_buffer_seek(inbuf, 0);
-	return inbuf;
+	i_stream_seek(input, 0);
+	return input;
 }
 
 static const char *index_msgcache_get_cached_field(ImapCacheField field,
@@ -169,7 +169,7 @@ static time_t index_msgcache_get_internal_date(void *context)
 
 ImapMessageCacheIface index_msgcache_iface = {
 	index_msgcache_open_mail,
-	index_msgcache_inbuf_rewind,
+	index_msgcache_stream_rewind,
 	index_msgcache_get_cached_field,
 	index_msgcache_get_cached_parts,
 	index_msgcache_get_internal_date

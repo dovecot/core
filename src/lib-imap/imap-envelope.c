@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "temp-string.h"
 #include "rfc822-address.h"
 #include "imap-parser.h"
@@ -236,7 +236,7 @@ imap_envelope_parse_arg(ImapArg *arg, ImapEnvelopeField field,
 
 const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	ImapParser *parser;
 	ImapArg *args;
 	const char *value;
@@ -244,11 +244,11 @@ const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field)
 
 	i_assert(field < IMAP_ENVELOPE_FIELDS);
 
-	inbuf = i_buffer_create_from_data(data_stack_pool, envelope,
+	input = i_stream_create_from_data(data_stack_pool, envelope,
 					  strlen(envelope));
-	parser = imap_parser_create(inbuf, NULL, 0);
+	parser = imap_parser_create(input, NULL, 0);
 
-	(void)i_buffer_read(inbuf);
+	(void)i_stream_read(input);
 	ret = imap_parser_read_args(parser, field+1, 0, &args);
 	if (ret > (int)field) {
 		value = imap_envelope_parse_arg(&args[field], field, envelope);
@@ -258,6 +258,6 @@ const char *imap_envelope_parse(const char *envelope, ImapEnvelopeField field)
 	}
 
 	imap_parser_destroy(parser);
-	i_buffer_unref(inbuf);
+	i_stream_unref(input);
 	return value;
 }

@@ -120,7 +120,7 @@ int cmd_sort(Client *client)
 	} else {
 		if (client->mailbox->search(client->mailbox, charset,
 					    sargs, sorting,
-					    client->outbuf, client->cmd_uid)) {
+					    client->output, client->cmd_uid)) {
 			/* NOTE: syncing is allowed when returning UIDs */
 			if (client->cmd_uid)
 				client_sync_full(client);

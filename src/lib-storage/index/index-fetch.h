@@ -11,7 +11,7 @@ typedef struct {
 	unsigned int custom_flags_count;
 
 	MailFetchData *fetch_data;
-	OBuffer *outbuf;
+	OStream *output;
 	TempString *str;
 	int update_seen, failed;
 	int first;

@@ -5,7 +5,7 @@
 #include "env-util.h"
 #include "fd-close-on-exec.h"
 #include "network.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "auth-process.h"
@@ -24,7 +24,7 @@ struct _AuthProcess {
 	pid_t pid;
 	int fd;
 	IO io;
-	OBuffer *outbuf;
+	OStream *output;
 
 	unsigned int reply_pos;
 	char reply_buf[sizeof(AuthCookieReplyData)];
@@ -127,7 +127,7 @@ static AuthProcess *auth_process_new(pid_t pid, int fd, const char *name)
 	p->pid = pid;
 	p->fd = fd;
 	p->io = io_add(fd, IO_READ, auth_process_input, p);
-	p->outbuf = o_buffer_create_file(fd, default_pool,
+	p->output = o_stream_create_file(fd, default_pool,
 					 sizeof(AuthCookieRequestData)*100,
 					 IO_PRIORITY_DEFAULT, FALSE);
 
@@ -159,7 +159,7 @@ static void auth_process_destroy(AuthProcess *p)
 
 	(void)unlink(t_strconcat(set_login_dir, "/", p->name, NULL));
 
-	o_buffer_unref(p->outbuf);
+	o_stream_unref(p->output);
 	io_remove(p->io);
 	(void)close(p->fd);
 	i_free(p->name);
@@ -285,7 +285,7 @@ void auth_process_request(AuthProcess *process, int id,
 	req.id = id;
 	memcpy(req.cookie, cookie, AUTH_COOKIE_SIZE);
 
-	if (o_buffer_send(process->outbuf, &req, sizeof(req)) < 0)
+	if (o_stream_send(process->output, &req, sizeof(req)) < 0)
 		auth_process_destroy(process);
 
 	push_request(process, id, callback, context);

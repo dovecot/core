@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "temp-string.h"
 #include "mmap-util.h"
 #include "message-parser.h"
@@ -50,7 +50,7 @@ struct _ImapMessageCache {
 	int messages_count;
 
 	CachedMessage *open_msg;
-	IBuffer *open_inbuf;
+	IStream *open_stream;
 
 	void *context;
 };
@@ -161,23 +161,24 @@ static void parse_envelope_header(MessagePart *part,
 	}
 }
 
-static int imap_msgcache_get_inbuf(ImapMessageCache *cache, uoff_t offset)
+static int imap_msgcache_get_stream(ImapMessageCache *cache, uoff_t offset)
 {
-	if (cache->open_inbuf == NULL)
-		cache->open_inbuf = cache->iface->open_mail(cache->context);
-	else if (offset < cache->open_inbuf->v_offset) {
+	if (cache->open_stream == NULL)
+		cache->open_stream = cache->iface->open_mail(cache->context);
+	else if (offset < cache->open_stream->v_offset) {
 		/* need to rewind */
-		cache->open_inbuf =
-			cache->iface->inbuf_rewind(cache->open_inbuf,
-						   cache->context);
+		cache->open_stream =
+			cache->iface->stream_rewind(cache->open_stream,
+						    cache->context);
 	}
 
-	if (cache->open_inbuf == NULL)
+	if (cache->open_stream == NULL)
 		return FALSE;
 
-	i_assert(offset >= cache->open_inbuf->v_offset);
+	i_assert(offset >= cache->open_stream->v_offset);
 
-	i_buffer_skip(cache->open_inbuf, offset - cache->open_inbuf->v_offset);
+	i_stream_skip(cache->open_stream,
+		      offset - cache->open_stream->v_offset);
 	return TRUE;
 }
 
@@ -206,12 +207,12 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 	    msg->cached_bodystructure == NULL) {
 		value = cache->iface->get_cached_field(IMAP_CACHE_BODYSTRUCTURE,
 						       cache->context);
-		if (value == NULL && imap_msgcache_get_inbuf(cache, 0)) {
+		if (value == NULL && imap_msgcache_get_stream(cache, 0)) {
 			msg_get_part(cache);
 
 			value = imap_part_get_bodystructure(msg->pool,
 							    &msg->part,
-							    cache->open_inbuf,
+							    cache->open_stream,
 							    TRUE);
 		}
 
@@ -222,7 +223,7 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 	if ((fields & IMAP_CACHE_BODY) && msg->cached_body == NULL) {
 		value = cache->iface->get_cached_field(IMAP_CACHE_BODY,
 						       cache->context);
-		if (value == NULL && cache->open_inbuf != NULL) {
+		if (value == NULL && cache->open_stream != NULL) {
 			/* we can generate it from cached BODYSTRUCTURE.
 			   do it only if the file isn't open already, since
 			   this takes more CPU than parsing message headers. */
@@ -234,12 +235,12 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 			}
 		}
 
-		if (value == NULL && imap_msgcache_get_inbuf(cache, 0)) {
+		if (value == NULL && imap_msgcache_get_stream(cache, 0)) {
 			msg_get_part(cache);
 
 			value = imap_part_get_bodystructure(msg->pool,
 							    &msg->part,
-							    cache->open_inbuf,
+							    cache->open_stream,
 							    FALSE);
 		}
 
@@ -252,7 +253,7 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 						       cache->context);
 		if (value == NULL) {
 			if (msg->envelope == NULL &&
-			    imap_msgcache_get_inbuf(cache, 0)) {
+			    imap_msgcache_get_stream(cache, 0)) {
 				/* envelope isn't parsed yet, do it. header
 				   size is calculated anyway so save it */
 				if (msg->hdr_size == NULL) {
@@ -260,7 +261,7 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 							      MessageSize, 1);
 				}
 
-				message_parse_header(NULL, cache->open_inbuf,
+				message_parse_header(NULL, cache->open_stream,
 						     msg->hdr_size,
 						     parse_envelope_header,
 						     msg);
@@ -290,7 +291,7 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 	if (fields & IMAP_CACHE_MESSAGE_PART) {
 		msg_get_part(cache);
 
-		if (msg->part == NULL && imap_msgcache_get_inbuf(cache, 0)) {
+		if (msg->part == NULL && imap_msgcache_get_stream(cache, 0)) {
 			/* we need to parse the message */
 			MessageHeaderFunc func;
 
@@ -303,7 +304,7 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 				func = NULL;
 			}
 
-			msg->part = message_parse(msg->pool, cache->open_inbuf,
+			msg->part = message_parse(msg->pool, cache->open_stream,
 						  func, msg);
 		} else {
 			failed = TRUE;
@@ -336,8 +337,8 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 			}
 		} else {
 			/* need to do some light parsing */
-			if (imap_msgcache_get_inbuf(cache, 0)) {
-				message_get_header_size(cache->open_inbuf,
+			if (imap_msgcache_get_stream(cache, 0)) {
+				message_get_header_size(cache->open_stream,
 							msg->hdr_size);
 			} else {
 				failed = TRUE;
@@ -358,7 +359,7 @@ static int cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 	if (fields & IMAP_CACHE_MESSAGE_OPEN) {
 		/* this isn't needed for anything else than pre-opening the
 		   mail and seeing if it fails. */
-		failed = !imap_msgcache_get_inbuf(cache, 0);
+		failed = !imap_msgcache_get_stream(cache, 0);
 	}
 
 	if ((fields & IMAP_CACHE_INTERNALDATE) &&
@@ -410,9 +411,9 @@ int imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
 
 void imap_msgcache_close(ImapMessageCache *cache)
 {
-	if (cache->open_inbuf != NULL) {
-		i_buffer_unref(cache->open_inbuf);
-		cache->open_inbuf = NULL;
+	if (cache->open_stream != NULL) {
+		i_stream_unref(cache->open_stream);
+		cache->open_stream = NULL;
 	}
 
 	cache->open_msg = NULL;
@@ -467,7 +468,7 @@ time_t imap_msgcache_get_internal_date(ImapMessageCache *cache)
 	return cache->open_msg->internal_date;
 }
 
-int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
+int imap_msgcache_get_rfc822(ImapMessageCache *cache, IStream **stream,
 			     MessageSize *hdr_size, MessageSize *body_size)
 {
 	CachedMessage *msg;
@@ -476,14 +477,14 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
 	i_assert(cache->open_msg != NULL);
 
 	msg = cache->open_msg;
-	if (inbuf != NULL) {
+	if (stream != NULL) {
 		if (msg->hdr_size == NULL)
 			cache_fields(cache, IMAP_CACHE_MESSAGE_HDR_SIZE);
 		offset = hdr_size != NULL ? 0 :
 			msg->hdr_size->physical_size;
-		if (!imap_msgcache_get_inbuf(cache, offset))
+		if (!imap_msgcache_get_stream(cache, offset))
 			return FALSE;
-                *inbuf = cache->open_inbuf;
+                *stream = cache->open_stream;
 	}
 
 	if (body_size != NULL) {
@@ -505,7 +506,7 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
 	return TRUE;
 }
 
-static void get_partial_size(IBuffer *inbuf,
+static void get_partial_size(IStream *stream,
 			     uoff_t virtual_skip, uoff_t max_virtual_size,
 			     MessageSize *partial, MessageSize *dest,
 			     int *cr_skipped)
@@ -514,12 +515,12 @@ static void get_partial_size(IBuffer *inbuf,
 	if (partial->virtual_size > virtual_skip)
 		memset(partial, 0, sizeof(MessageSize));
 	else {
-		i_buffer_skip(inbuf, partial->physical_size);
+		i_stream_skip(stream, partial->physical_size);
 		virtual_skip -= partial->virtual_size;
 	}
 
-	message_skip_virtual(inbuf, virtual_skip, partial, cr_skipped);
-	message_get_body_size(inbuf, dest, max_virtual_size);
+	message_skip_virtual(stream, virtual_skip, partial, cr_skipped);
+	message_get_body_size(stream, dest, max_virtual_size);
 
 	if (*cr_skipped) {
 		dest->virtual_size--;
@@ -531,7 +532,7 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				     uoff_t virtual_skip,
 				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
-                                     IBuffer **inbuf, int *cr_skipped)
+                                     IStream **stream, int *cr_skipped)
 {
 	CachedMessage *msg;
 	uoff_t physical_skip, full_size;
@@ -540,7 +541,7 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 	i_assert(cache->open_msg != NULL);
 
 	memset(size, 0, sizeof(MessageSize));
-	*inbuf = NULL;
+	*stream = NULL;
 	*cr_skipped = FALSE;
 
 	msg = cache->open_msg;
@@ -575,7 +576,7 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 	if (size_got) {
 		physical_skip = get_header ? 0 : msg->hdr_size->physical_size;
 	} else {
-		if (!imap_msgcache_get_inbuf(cache, 0))
+		if (!imap_msgcache_get_stream(cache, 0))
 			return FALSE;
 
 		if (msg->partial_size == NULL)
@@ -583,7 +584,7 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 		if (!get_header)
 			virtual_skip += msg->hdr_size->virtual_size;
 
-		get_partial_size(cache->open_inbuf, virtual_skip,
+		get_partial_size(cache->open_stream, virtual_skip,
 				 max_virtual_size, msg->partial_size, size,
 				 cr_skipped);
 
@@ -591,20 +592,20 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 	}
 
 	/* seek to wanted position */
-	if (!imap_msgcache_get_inbuf(cache, physical_skip))
+	if (!imap_msgcache_get_stream(cache, physical_skip))
 		return FALSE;
 
-        *inbuf = cache->open_inbuf;
+        *stream = cache->open_stream;
 	return TRUE;
 }
 
-int imap_msgcache_get_data(ImapMessageCache *cache, IBuffer **inbuf)
+int imap_msgcache_get_data(ImapMessageCache *cache, IStream **stream)
 {
 	i_assert(cache->open_msg != NULL);
 
-	if (!imap_msgcache_get_inbuf(cache, 0))
+	if (!imap_msgcache_get_stream(cache, 0))
 		return FALSE;
 
-        *inbuf = cache->open_inbuf;
+        *stream = cache->open_stream;
 	return TRUE;
 }

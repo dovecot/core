@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "mail-custom-flags.h"
 #include "index-storage.h"
 #include "index-messageset.h"
@@ -20,12 +20,12 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 {
 	CopyContext *ctx = context;
 	IndexMailbox *dest_ibox = NULL;
-	IBuffer *inbuf;
+	IStream *input;
 	time_t internal_date;
 	int failed, deleted;
 
-	inbuf = index->open_mail(index, rec, &internal_date, &deleted);
-	if (inbuf == NULL)
+	input = index->open_mail(index, rec, &internal_date, &deleted);
+	if (input == NULL)
 		return FALSE;
 
 	if (ctx->copy_inside_mailbox) {
@@ -37,12 +37,12 @@ static int copy_func(MailIndex *index, MailIndexRecord *rec,
 	/* save it in destination mailbox */
 	failed = !ctx->dest->save(ctx->dest, rec->msg_flags,
 				  ctx->custom_flags, internal_date, 0,
-				  inbuf, inbuf->v_limit);
+				  input, input->v_limit);
 
 	if (ctx->copy_inside_mailbox)
 		dest_ibox->delay_save_unlocking = FALSE;
 
-	i_buffer_unref(inbuf);
+	i_stream_unref(input);
 	return !failed;
 }
 

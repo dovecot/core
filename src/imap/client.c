@@ -3,8 +3,8 @@
 #include "common.h"
 #include "ioloop.h"
 #include "network.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "commands.h"
 
 #include <stdlib.h>
@@ -36,8 +36,8 @@ static void client_output_timeout(void *context)
 {
 	Client *client = context;
 
-	i_buffer_close(client->inbuf);
-	o_buffer_close(client->outbuf);
+	i_stream_close(client->input);
+	o_stream_close(client->output);
 }
 
 static void client_input_timeout(void *context)
@@ -46,7 +46,7 @@ static void client_input_timeout(void *context)
 
 	client_send_line(my_client, "* BYE Disconnected for inactivity "
 			 "while waiting for command data.");
-	o_buffer_close(client->outbuf);
+	o_stream_close(client->output);
 }
 
 Client *client_create(int hin, int hout, MailStorage *storage)
@@ -54,9 +54,9 @@ Client *client_create(int hin, int hout, MailStorage *storage)
 	Client *client;
 
 	client = i_new(Client, 1);
-	client->inbuf = i_buffer_create_file(hin, default_pool,
+	client->input = i_stream_create_file(hin, default_pool,
 					     MAX_INBUF_SIZE, FALSE);
-	client->outbuf = o_buffer_create_file(hout, default_pool, 4096,
+	client->output = o_stream_create_file(hout, default_pool, 4096,
 					      IO_PRIORITY_DEFAULT, FALSE);
 
 	/* always use nonblocking I/O */
@@ -65,15 +65,15 @@ Client *client_create(int hin, int hout, MailStorage *storage)
 
 	/* set timeout for reading expected data (eg. APPEND). This is
 	   different from the actual idle time. */
-	i_buffer_set_blocking(client->inbuf, CLIENT_CMDINPUT_TIMEOUT,
+	i_stream_set_blocking(client->input, CLIENT_CMDINPUT_TIMEOUT,
 			      client_input_timeout, client);
 
 	/* set timeout for sending data */
-	o_buffer_set_blocking(client->outbuf, CLIENT_OUTPUT_TIMEOUT,
+	o_stream_set_blocking(client->output, CLIENT_OUTPUT_TIMEOUT,
 			      client_output_timeout, client);
 
 	client->io = io_add(hin, IO_READ, (IOFunc) client_input, client);
-	client->parser = imap_parser_create(client->inbuf, client->outbuf,
+	client->parser = imap_parser_create(client->input, client->output,
 					    MAX_INBUF_SIZE);
         client->last_input = ioloop_time;
 
@@ -87,7 +87,7 @@ Client *client_create(int hin, int hout, MailStorage *storage)
 
 void client_destroy(Client *client)
 {
-	o_buffer_flush(client->outbuf);
+	o_stream_flush(client->output);
 
 	if (client->mailbox != NULL)
 		client->mailbox->close(client->mailbox);
@@ -96,8 +96,8 @@ void client_destroy(Client *client)
 	imap_parser_destroy(client->parser);
 	io_remove(client->io);
 
-	i_buffer_unref(client->inbuf);
-	o_buffer_unref(client->outbuf);
+	i_stream_unref(client->input);
+	o_stream_unref(client->output);
 
 	i_free(client);
 
@@ -108,35 +108,35 @@ void client_destroy(Client *client)
 
 void client_disconnect(Client *client)
 {
-	o_buffer_flush(client->outbuf);
+	o_stream_flush(client->output);
 
-	i_buffer_close(client->inbuf);
-	o_buffer_close(client->outbuf);
+	i_stream_close(client->input);
+	o_stream_close(client->output);
 }
 
 void client_send_line(Client *client, const char *data)
 {
-	if (client->outbuf->closed)
+	if (client->output->closed)
 		return;
 
-	(void)o_buffer_send(client->outbuf, data, strlen(data));
-	(void)o_buffer_send(client->outbuf, "\r\n", 2);
+	(void)o_stream_send(client->output, data, strlen(data));
+	(void)o_stream_send(client->output, "\r\n", 2);
 }
 
 void client_send_tagline(Client *client, const char *data)
 {
 	const char *tag = client->cmd_tag;
 
-	if (client->outbuf->closed)
+	if (client->output->closed)
 		return;
 
 	if (tag == NULL || *tag == '\0')
 		tag = "*";
 
-	(void)o_buffer_send(client->outbuf, tag, strlen(tag));
-	(void)o_buffer_send(client->outbuf, " ", 1);
-	(void)o_buffer_send(client->outbuf, data, strlen(data));
-	(void)o_buffer_send(client->outbuf, "\r\n", 2);
+	(void)o_stream_send(client->output, tag, strlen(tag));
+	(void)o_stream_send(client->output, " ", 1);
+	(void)o_stream_send(client->output, data, strlen(data));
+	(void)o_stream_send(client->output, "\r\n", 2);
 }
 
 void client_send_command_error(Client *client, const char *msg)
@@ -220,7 +220,7 @@ static void client_reset_command(Client *client)
 
 static void client_command_finished(Client *client)
 {
-	client->inbuf_skip_line = TRUE;
+	client->input_skip_line = TRUE;
         client_reset_command(client);
 }
 
@@ -231,18 +231,17 @@ static int client_skip_line(Client *client)
 	const unsigned char *data;
 	size_t i, data_size;
 
-	/* get the beginning of data in input buffer */
-	data = i_buffer_get_data(client->inbuf, &data_size);
+	data = i_stream_get_data(client->input, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == '\n') {
-			client->inbuf_skip_line = FALSE;
-			i_buffer_skip(client->inbuf, i+1);
+			client->input_skip_line = FALSE;
+			i_stream_skip(client->input, i+1);
 			break;
 		}
 	}
 
-	return !client->inbuf_skip_line;
+	return !client->input_skip_line;
 }
 
 static int client_handle_input(Client *client)
@@ -257,7 +256,7 @@ static int client_handle_input(Client *client)
 		return FALSE;
 	}
 
-	if (client->inbuf_skip_line) {
+	if (client->input_skip_line) {
 		/* we're just waiting for new line.. */
 		if (!client_skip_line(client))
 			return FALSE;
@@ -306,7 +305,7 @@ static void client_input(Client *client)
 {
 	client->last_input = ioloop_time;
 
-	switch (i_buffer_read(client->inbuf)) {
+	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
 		client_destroy(client);
@@ -315,19 +314,19 @@ static void client_input(Client *client)
 		/* parameter word is longer than max. input buffer size.
 		   this is most likely an error, so skip the new data
 		   until newline is found. */
-		client->inbuf_skip_line = TRUE;
+		client->input_skip_line = TRUE;
 
 		client_send_command_error(client, "Too long argument.");
 		client_command_finished(client);
 		break;
 	}
 
-	o_buffer_cork(client->outbuf);
+	o_stream_cork(client->output);
 	while (client_handle_input(client))
 		;
-	o_buffer_flush(client->outbuf);
+	o_stream_flush(client->output);
 
-	if (client->outbuf->closed)
+	if (client->output->closed)
 		client_destroy(client);
 }
 

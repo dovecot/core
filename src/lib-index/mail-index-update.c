@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "ioloop.h"
 #include "rfc822-date.h"
 #include "rfc822-tokenize.h"
@@ -410,7 +410,7 @@ static void update_header_func(MessagePart *part,
 	}
 }
 
-void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
+void mail_index_update_headers(MailIndexUpdate *update, IStream *input,
                                MailDataField cache_fields,
 			       MessageHeaderFunc header_func, void *context)
 {
@@ -452,16 +452,16 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 			}
 		}
 
-		start_offset = inbuf->v_offset;
+		start_offset = input->v_offset;
 
 		if (part == NULL) {
-			part = message_parse(pool, inbuf,
+			part = message_parse(pool, input,
 					     update_header_func, &ctx);
 		} else {
 			/* cached, construct the bodystructure using it.
 			   also we need to parse the header.. */
-			i_buffer_seek(inbuf, start_offset);
-			message_parse_header(NULL, inbuf, NULL,
+			i_stream_seek(input, start_offset);
+			message_parse_header(NULL, input, NULL,
 					     update_header_func, &ctx);
 		}
 
@@ -476,9 +476,9 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 		    ((update->rec->data_fields | cache_fields) &
 		     DATA_FIELD_BODYSTRUCTURE) == 0) {
 			t_push();
-			i_buffer_seek(inbuf, start_offset);
+			i_stream_seek(input, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,
-							    inbuf, FALSE);
+							    input, FALSE);
 			update->index->update_field(update, DATA_FIELD_BODY,
 						    value, 0);
 			t_pop();
@@ -486,9 +486,9 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 
 		if (cache_fields & DATA_FIELD_BODYSTRUCTURE) {
 			t_push();
-			i_buffer_seek(inbuf, start_offset);
+			i_stream_seek(input, start_offset);
 			value = imap_part_get_bodystructure(pool, &part,
-							    inbuf, TRUE);
+							    input, TRUE);
 			update->index->update_field(update,
 						    DATA_FIELD_BODYSTRUCTURE,
 						    value, 0);
@@ -506,10 +506,10 @@ void mail_index_update_headers(MailIndexUpdate *update, IBuffer *inbuf,
 
 		pool_unref(pool);
 	} else {
-		message_parse_header(NULL, inbuf, &hdr_size,
+		message_parse_header(NULL, input, &hdr_size,
 				     update_header_func, &ctx);
 
-		body_size.physical_size = inbuf->v_limit - inbuf->v_offset;
+		body_size.physical_size = input->v_limit - input->v_offset;
 		if (body_size.physical_size == 0)
                         body_size.virtual_size = 0;
 		else if (update->data_hdr.virtual_size == 0)

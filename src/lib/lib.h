@@ -22,8 +22,8 @@ typedef struct _IO *IO;
 typedef struct _Timeout *Timeout;
 
 typedef struct _IPADDR IPADDR;
-typedef struct _IBuffer IBuffer;
-typedef struct _OBuffer OBuffer;
+typedef struct _IStream IStream;
+typedef struct _OStream OStream;
 typedef struct _TempString TempString;
 
 #include "compat.h"

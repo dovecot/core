@@ -1,5 +1,5 @@
 /*
-   ibuffer-data.c : Input buffer interface for reading from data buffer
+   istream-data.c : Input stream interface for reading from data buffer
 
     Copyright (c) 2002 Timo Sirainen
 
@@ -24,62 +24,62 @@
 */
 
 #include "lib.h"
-#include "ibuffer-internal.h"
+#include "istream-internal.h"
 
-static void _close(_IOBuffer *buf __attr_unused__)
+static void _close(_IOStream *stream __attr_unused__)
 {
 }
 
-static void _destroy(_IOBuffer *buf __attr_unused__)
+static void _destroy(_IOStream *stream __attr_unused__)
 {
 }
 
-static void _set_max_size(_IOBuffer *buf __attr_unused__,
-			  size_t max_size __attr_unused__)
+static void _set_max_buffer_size(_IOStream *stream __attr_unused__,
+				 size_t max_size __attr_unused__)
 {
 }
 
-static void _set_blocking(_IOBuffer *buf __attr_unused__,
+static void _set_blocking(_IOStream *stream __attr_unused__,
 			  int timeout_msecs __attr_unused__,
 			  void (*timeout_func)(void *) __attr_unused__,
 			  void *context __attr_unused__)
 {
 }
 
-static ssize_t _read(_IBuffer *buf)
+static ssize_t _read(_IStream *stream)
 {
-	return buf->pos - buf->skip;
+	return stream->pos - stream->skip;
 }
 
-static void _seek(_IBuffer *buf, uoff_t v_offset)
+static void _seek(_IStream *stream, uoff_t v_offset)
 {
-	buf->skip = v_offset;
-	buf->ibuffer.v_offset = v_offset;
+	stream->skip = v_offset;
+	stream->istream.v_offset = v_offset;
 }
 
-static void _skip(_IBuffer *buf, uoff_t count)
+static void _skip(_IStream *stream, uoff_t count)
 {
-	buf->skip += count;
-	buf->ibuffer.v_offset += count;
+	stream->skip += count;
+	stream->istream.v_offset += count;
 }
 
-IBuffer *i_buffer_create_from_data(Pool pool, const unsigned char *data,
+IStream *i_stream_create_from_data(Pool pool, const unsigned char *data,
 				   size_t size)
 {
-	_IBuffer *buf;
+	_IStream *stream;
 
-	buf = p_new(pool, _IBuffer, 1);
-	buf->buffer = data;
-	buf->pos = size;
+	stream = p_new(pool, _IStream, 1);
+	stream->buffer = data;
+	stream->pos = size;
 
-	buf->iobuf.close = _close;
-	buf->iobuf.destroy = _destroy;
-	buf->iobuf.set_max_size = _set_max_size;
-	buf->iobuf.set_blocking = _set_blocking;
+	stream->iostream.close = _close;
+	stream->iostream.destroy = _destroy;
+	stream->iostream.set_max_buffer_size = _set_max_buffer_size;
+	stream->iostream.set_blocking = _set_blocking;
 
-	buf->read = _read;
-	buf->skip_count = _skip;
-	buf->seek = _seek;
+	stream->read = _read;
+	stream->skip_count = _skip;
+	stream->seek = _seek;
 
-	return _i_buffer_create(buf, pool, -1, 0, size);
+	return _i_stream_create(stream, pool, -1, 0, size);
 }

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "settings.h"
 
 #include <stdio.h>
@@ -433,7 +433,7 @@ static void settings_free(void)
 
 void settings_read(const char *path)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	const char *errormsg;
 	char *line, *key, *p;
 	int fd, linenum;
@@ -445,11 +445,11 @@ void settings_read(const char *path)
 		i_fatal("Can't open configuration file %s: %m", path);
 
 	linenum = 0;
-	inbuf = i_buffer_create_file(fd, default_pool, 2048, TRUE);
+	input = i_stream_create_file(fd, default_pool, 2048, TRUE);
 	for (;;) {
-		line = i_buffer_next_line(inbuf);
+		line = i_stream_next_line(input);
 		if (line == NULL) {
-			if (i_buffer_read(inbuf) <= 0)
+			if (i_stream_read(input) <= 0)
 				break;
                         continue;
 		}
@@ -494,7 +494,7 @@ void settings_read(const char *path)
 		}
 	};
 
-	i_buffer_unref(inbuf);
+	i_stream_unref(input);
 
         settings_verify();
 }

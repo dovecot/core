@@ -8,7 +8,7 @@ int maildir_storage_copy(Mailbox *box, Mailbox *destbox,
 int maildir_storage_save(Mailbox *box, MailFlags flags,
 			 const char *custom_flags[],
 			 time_t internal_date, int timezone_offset,
-			 IBuffer *data, uoff_t data_size);
+			 IStream *data, uoff_t data_size);
 
 int maildir_find_mailboxes(MailStorage *storage, const char *mask,
 			   MailboxFunc func, void *context);

@@ -1,12 +1,12 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "message-send.h"
 #include "message-size.h"
 
-int message_send(OBuffer *outbuf, IBuffer *inbuf, MessageSize *msg_size,
+int message_send(OStream *output, IStream *input, MessageSize *msg_size,
 		 uoff_t virtual_skip, uoff_t max_virtual_size)
 {
 	const unsigned char *msg;
@@ -23,21 +23,21 @@ int message_send(OBuffer *outbuf, IBuffer *inbuf, MessageSize *msg_size,
 
 	if (msg_size->physical_size == msg_size->virtual_size) {
 		/* no need to kludge with CRs, we can use sendfile() */
-		i_buffer_skip(inbuf, virtual_skip);
+		i_stream_skip(input, virtual_skip);
 
-		old_limit = inbuf->v_limit;
-		limit = inbuf->v_offset + max_virtual_size;
-		i_buffer_set_read_limit(inbuf, I_MIN(limit, old_limit));
-		ret = o_buffer_send_ibuffer(outbuf, inbuf) > 0;
-		i_buffer_set_read_limit(inbuf, old_limit);
+		old_limit = input->v_limit;
+		limit = input->v_offset + max_virtual_size;
+		i_stream_set_read_limit(input, I_MIN(limit, old_limit));
+		ret = o_stream_send_istream(output, input) > 0;
+		i_stream_set_read_limit(input, old_limit);
 
 		return ret;
 	}
 
-	message_skip_virtual(inbuf, virtual_skip, NULL, &cr_skipped);
+	message_skip_virtual(input, virtual_skip, NULL, &cr_skipped);
 
 	/* go through the message data and insert CRs where needed.  */
-	while (i_buffer_read_data(inbuf, &msg, &size, 0) > 0) {
+	while (i_stream_read_data(input, &msg, &size, 0) > 0) {
 		add_cr = FALSE;
 		for (i = 0; i < size; i++) {
 			if (msg[i] == '\n') {
@@ -60,11 +60,11 @@ int message_send(OBuffer *outbuf, IBuffer *inbuf, MessageSize *msg_size,
 			}
 		}
 
-		if (o_buffer_send(outbuf, msg, i) < 0)
+		if (o_stream_send(output, msg, i) < 0)
 			return FALSE;
 
 		if (add_cr) {
-			if (o_buffer_send(outbuf, "\r", 1) < 0)
+			if (o_stream_send(output, "\r", 1) < 0)
 				return FALSE;
 			cr_skipped = TRUE;
 		} else {
@@ -75,7 +75,7 @@ int message_send(OBuffer *outbuf, IBuffer *inbuf, MessageSize *msg_size,
 		if (max_virtual_size == 0)
 			break;
 
-		i_buffer_skip(inbuf, i);
+		i_stream_skip(input, i);
 	}
 
 	return TRUE;

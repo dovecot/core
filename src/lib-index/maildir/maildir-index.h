@@ -20,7 +20,7 @@ int maildir_index_append_file(MailIndex *index, const char *dir,
 int maildir_index_build_dir(MailIndex *index, const char *source_dir,
 			    const char *dest_dir);
 
-IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
+IStream *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
 			   time_t *internal_date, int *deleted);
 
 int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd);

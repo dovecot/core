@@ -26,10 +26,10 @@ typedef enum {
 
 typedef struct {
 	/* Open mail for reading. */
-	IBuffer *(*open_mail)(void *context);
-	/* Rewind input buffer to beginning, possibly closing the old buffer
+	IStream *(*open_mail)(void *context);
+	/* Rewind stream to beginning, possibly closing the old stream
 	   if it can't directly be rewinded. */
-	IBuffer *(*inbuf_rewind)(IBuffer *inbuf, void *context);
+	IStream *(*stream_rewind)(IStream *stream, void *context);
 
 	/* Returns field if it's already cached, or NULL. */
 	const char *(*get_cached_field)(ImapCacheField field, void *context);
@@ -56,7 +56,7 @@ int imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
 		       uoff_t vp_header_size, uoff_t vp_body_size,
 		       uoff_t full_virtual_size, void *context);
 
-/* Close the IOBuffer for opened message. */
+/* Close the IOStream for opened message. */
 void imap_msgcache_close(ImapMessageCache *cache);
 
 /* Returns the field from cache, or NULL if it's not cached. */
@@ -71,23 +71,23 @@ uoff_t imap_msgcache_get_virtual_size(ImapMessageCache *cache);
 /* Returns the internal date of message, or (time_t)-1 if failed. */
 time_t imap_msgcache_get_internal_date(ImapMessageCache *cache);
 
-/* Returns TRUE if successful. If inbuf is not NULL, it's set to point to
+/* Returns TRUE if successful. If stream is not NULL, it's set to point to
    beginning of message, or to beginning of message body if hdr_size is NULL. */
-int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
+int imap_msgcache_get_rfc822(ImapMessageCache *cache, IStream **stream,
 			     MessageSize *hdr_size, MessageSize *body_size);
 
-/* Returns TRUE if successful. *inbuf is set to point to the first non-skipped
+/* Returns TRUE if successful. *stream is set to point to the first non-skipped
    character. size is set to specify the actual message size in
    virtual_skip..max_virtual_size range. cr_skipped is set to TRUE if first
-   character in inbuf is LF, and we should NOT treat it as CR+LF. */
+   character in stream is LF, and we should NOT treat it as CR+LF. */
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				     uoff_t virtual_skip,
 				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
-				     IBuffer **inbuf, int *cr_skipped);
+				     IStream **stream, int *cr_skipped);
 
-/* Returns TRUE if successful. *inbuf is set to point to beginning of
+/* Returns TRUE if successful. *stream is set to point to beginning of
    message. */
-int imap_msgcache_get_data(ImapMessageCache *cache, IBuffer **inbuf);
+int imap_msgcache_get_data(ImapMessageCache *cache, IStream **stream);
 
 #endif

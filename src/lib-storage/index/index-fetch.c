@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "temp-string.h"
 #include "mail-custom-flags.h"
 #include "index-storage.h"
@@ -119,10 +119,10 @@ static void index_fetch_uid(MailIndexRecord *rec, FetchContext *ctx)
 static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 {
 	MessageSize hdr_size, body_size;
-	IBuffer *inbuf;
+	IStream *input;
 	const char *str;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf,
+	if (!imap_msgcache_get_rfc822(ctx->cache, &input,
 				      &hdr_size, &body_size)) {
 		mail_storage_set_critical(ctx->storage,
 			"Couldn't get RFC822 for UID %u (index %s)",
@@ -135,22 +135,22 @@ static int index_fetch_send_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
 		return FALSE;
 
 	body_size.physical_size += hdr_size.physical_size;
 	body_size.virtual_size += hdr_size.virtual_size;
-	return message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
+	return message_send(ctx->output, input, &body_size, 0, (uoff_t)-1);
 }
 
 static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
 					  FetchContext *ctx)
 {
 	MessageSize hdr_size;
-	IBuffer *inbuf;
+	IStream *input;
 	const char *str;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, &hdr_size, NULL)) {
+	if (!imap_msgcache_get_rfc822(ctx->cache, &input, &hdr_size, NULL)) {
 		mail_storage_set_critical(ctx->storage,
 			"Couldn't get RFC822.HEADER for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
@@ -162,19 +162,19 @@ static int index_fetch_send_rfc822_header(MailIndexRecord *rec,
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
 		return FALSE;
 
-	return message_send(ctx->outbuf, inbuf, &hdr_size, 0, (uoff_t)-1);
+	return message_send(ctx->output, input, &hdr_size, 0, (uoff_t)-1);
 }
 
 static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 {
 	MessageSize body_size;
-	IBuffer *inbuf;
+	IStream *input;
 	const char *str;
 
-	if (!imap_msgcache_get_rfc822(ctx->cache, &inbuf, NULL, &body_size)) {
+	if (!imap_msgcache_get_rfc822(ctx->cache, &input, NULL, &body_size)) {
 		mail_storage_set_critical(ctx->storage,
 			"Couldn't get RFC822.TEXT for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
@@ -186,10 +186,10 @@ static int index_fetch_send_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 	if (ctx->first) {
 		str++; ctx->first = FALSE;
 	}
-	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
+	if (o_stream_send(ctx->output, str, strlen(str)) < 0)
 		return FALSE;
 
-	return message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
+	return message_send(ctx->output, input, &body_size, 0, (uoff_t)-1);
 }
 
 static ImapCacheField index_get_cache(MailFetchData *fetch_data)
@@ -303,7 +303,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 			if (!ctx->first)
 				ctx->str->len--;
 
-			if (o_buffer_send(ctx->outbuf, ctx->str->str,
+			if (o_stream_send(ctx->output, ctx->str->str,
 					  ctx->str->len) < 0)
 				break;
 		}
@@ -331,7 +331,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 	} while (0);
 
 	if (data_written) {
-		if (o_buffer_send(ctx->outbuf, ")\r\n", 3) < 0)
+		if (o_stream_send(ctx->output, ")\r\n", 3) < 0)
 			failed = TRUE;
 	}
 
@@ -340,7 +340,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 }
 
 int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
-			OBuffer *outbuf, int *all_found)
+			OStream *output, int *all_found)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	FetchContext ctx;
@@ -391,7 +391,7 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
         ctx.custom_flags_count = MAIL_CUSTOM_FLAGS_COUNT;
 
 	ctx.fetch_data = fetch_data;
-	ctx.outbuf = outbuf;
+	ctx.output = output;
 
 	ret = index_messageset_foreach(ibox, fetch_data->messageset,
 				       fetch_data->uidset,

@@ -3,7 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "network.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "fdpass.h"
 #include "fd-close-on-exec.h"
 #include "env-util.h"
@@ -25,7 +25,7 @@ struct _LoginProcess {
 	pid_t pid;
 	int fd;
 	IO io;
-	OBuffer *outbuf;
+	OStream *output;
 	unsigned int listening:1;
 	unsigned int destroyed:1;
 };
@@ -81,7 +81,7 @@ static void auth_callback(AuthCookieReplyData *cookie_reply, void *context)
 	reply.id = request->login_id;
 
 	process = request->process;
-	if (o_buffer_send(process->outbuf, &reply, sizeof(reply)) < 0)
+	if (o_stream_send(process->output, &reply, sizeof(reply)) < 0)
 		login_process_destroy(process);
 
 	(void)close(request->fd);
@@ -182,7 +182,7 @@ static LoginProcess *login_process_new(pid_t pid, int fd)
 	p->fd = fd;
 	p->listening = TRUE;
 	p->io = io_add(fd, IO_READ, login_process_input, p);
-	p->outbuf = o_buffer_create_file(fd, default_pool,
+	p->output = o_stream_create_file(fd, default_pool,
 					 sizeof(MasterReply)*10,
 					 IO_PRIORITY_DEFAULT, FALSE);
 
@@ -215,7 +215,7 @@ static void login_process_destroy(LoginProcess *p)
 	if (p->listening)
 		listening_processes--;
 
-	o_buffer_close(p->outbuf);
+	o_stream_close(p->output);
 	io_remove(p->io);
 	(void)close(p->fd);
 
@@ -232,7 +232,7 @@ static void login_process_unref(LoginProcess *p)
 	if (--p->refcount > 0)
 		return;
 
-	o_buffer_unref(p->outbuf);
+	o_stream_unref(p->output);
 	i_free(p);
 }
 

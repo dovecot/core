@@ -6,7 +6,7 @@
    is invalid. If charset is NULL, the key isn't assumed to be in any
    specific charset but is compared to message data without any translation. */
 int message_body_search(const char *key, const char *charset,
-			int *unknown_charset, IBuffer *inbuf,
+			int *unknown_charset, IStream *input,
 			MessagePart *part, int search_header);
 
 #endif

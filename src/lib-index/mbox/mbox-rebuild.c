@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-data.h"
@@ -14,7 +14,7 @@
 
 int mbox_index_rebuild(MailIndex *index)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	struct stat st;
 	int failed;
 
@@ -43,14 +43,14 @@ int mbox_index_rebuild(MailIndex *index)
 	if (!mail_index_data_reset(index->data))
 		return FALSE;
 
-	inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_SHARED);
-	if (inbuf == NULL)
+	input = mbox_get_stream(index, 0, MAIL_LOCK_SHARED);
+	if (input == NULL)
 		return FALSE;
 
-	mbox_skip_empty_lines(inbuf);
-	failed = !mbox_index_append(index, inbuf);
+	mbox_skip_empty_lines(input);
+	failed = !mbox_index_append(index, input);
 
-	i_buffer_unref(inbuf);
+	i_stream_unref(input);
 
 	if (failed)
 		return FALSE;

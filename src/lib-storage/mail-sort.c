@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "mail-sort.h"
 
 #include <stdlib.h>

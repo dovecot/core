@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "maildir-index.h"
 #include "mail-index-data.h"
 #include "mail-index-util.h"
@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
+IStream *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
 			   time_t *internal_date, int *deleted)
 {
 	struct stat st;
@@ -54,10 +54,10 @@ IBuffer *maildir_open_mail(MailIndex *index, MailIndexRecord *rec,
 	}
 
 	if (index->mail_read_mmaped) {
-		return i_buffer_create_mmap(fd, default_pool,
+		return i_stream_create_mmap(fd, default_pool,
 					    MAIL_MMAP_BLOCK_SIZE, 0, 0, TRUE);
 	} else {
-		return i_buffer_create_file(fd, default_pool,
+		return i_stream_create_file(fd, default_pool,
 					    MAIL_READ_BLOCK_SIZE, TRUE);
 	}
 }

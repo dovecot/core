@@ -59,7 +59,7 @@ int index_expunge_mail(IndexMailbox *ibox, MailIndexRecord *rec,
 		       unsigned int seq, int notify);
 
 int index_storage_save(MailStorage *storage, const char *path,
-		       IBuffer *inbuf, OBuffer *outbuf, uoff_t data_size);
+		       IStream *input, OStream *output, uoff_t data_size);
 
 int index_msgcache_open(ImapMessageCache *cache, MailIndex *index,
 			MailIndexRecord *rec, ImapCacheField fields);
@@ -82,9 +82,9 @@ int index_storage_update_flags(Mailbox *box, const char *messageset, int uidset,
 			       ModifyType modify_type, int notify,
 			       int *all_found);
 int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
-			OBuffer *outbuf, int *all_found);
+			OStream *output, int *all_found);
 int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
-			 MailSortType *sorting, OBuffer *outbuf,
+			 MailSortType *sorting, OStream *output,
 			 int uid_result);
 
 #endif

@@ -1,8 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "imap-parser.h"
 
 #define is_linebreak(c) \
@@ -21,8 +21,8 @@ typedef enum {
 struct _ImapParser {
 	/* permanent */
 	Pool pool;
-	IBuffer *inbuf;
-	OBuffer *outbuf;
+	IStream *input;
+	OStream *output;
 	size_t max_literal_size;
         ImapParserFlags flags;
 
@@ -58,15 +58,15 @@ static void imap_args_realloc(ImapParser *parser, size_t size)
 		parser->list_arg->data.list = parser->cur_list;
 }
 
-ImapParser *imap_parser_create(IBuffer *inbuf, OBuffer *outbuf,
+ImapParser *imap_parser_create(IStream *input, OStream *output,
 			       size_t max_literal_size)
 {
 	ImapParser *parser;
 
 	parser = i_new(ImapParser, 1);
         parser->pool = pool_create("IMAP parser", 8192, FALSE);
-	parser->inbuf = inbuf;
-	parser->outbuf = outbuf;
+	parser->input = input;
+	parser->output = output;
 	parser->max_literal_size = max_literal_size;
 
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
@@ -112,7 +112,7 @@ static int imap_parser_skip_to_next(ImapParser *parser, const char **data,
 			break;
 	}
 
-        i_buffer_skip(parser->inbuf, i);
+        i_stream_skip(parser->input, i);
 	parser->cur_pos = 0;
 
 	*data += i;
@@ -311,9 +311,9 @@ static int imap_parser_literal_end(ImapParser *parser)
 			return FALSE;
 		}
 
-		if (parser->outbuf != NULL) {
-			o_buffer_send(parser->outbuf, "+ OK\r\n", 6);
-			o_buffer_flush(parser->outbuf);
+		if (parser->output != NULL) {
+			o_stream_send(parser->output, "+ OK\r\n", 6);
+			o_stream_flush(parser->output);
 		}
 	}
 
@@ -332,7 +332,7 @@ static int imap_parser_read_literal(ImapParser *parser, const char *data,
 	/* expecting digits + "}" */
 	for (i = parser->cur_pos; i < data_size; i++) {
 		if (data[i] == '}') {
-			i_buffer_skip(parser->inbuf, i+1);
+			i_stream_skip(parser->input, i+1);
 			return imap_parser_literal_end(parser);
 		}
 
@@ -365,7 +365,7 @@ static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
 
 		if (*data == '\r') {
 			data++; data_size--;
-			i_buffer_skip(parser->inbuf, 1);
+			i_stream_skip(parser->input, 1);
 
 			if (data_size == 0)
 				return FALSE;
@@ -377,7 +377,7 @@ static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
 		}
 
 		data++; data_size--;
-		i_buffer_skip(parser->inbuf, 1);
+		i_stream_skip(parser->input, 1);
 		parser->literal_skip_crlf = FALSE;
 
 		i_assert(parser->cur_pos == 0);
@@ -407,7 +407,7 @@ static int imap_parser_read_arg(ImapParser *parser)
 	const char *data;
 	size_t data_size;
 
-	data = (const char *) i_buffer_get_data(parser->inbuf, &data_size);
+	data = (const char *) i_stream_get_data(parser->input, &data_size);
 	if (data_size == 0)
 		return FALSE;
 
@@ -468,9 +468,9 @@ static int imap_parser_read_arg(ImapParser *parser)
 		if (!imap_parser_read_literal(parser, data, data_size))
 			return FALSE;
 
-		/* pass through to parsing data. since inbuf->skip was
+		/* pass through to parsing data. since input->skip was
 		   modified, we need to get the data start position again. */
-		data = (const char *) i_buffer_get_data(parser->inbuf,
+		data = (const char *) i_stream_get_data(parser->input,
 							&data_size);
 
 		/* fall through */
@@ -534,8 +534,7 @@ const char *imap_parser_read_word(ImapParser *parser)
 	const char *data;
 	size_t i, data_size;
 
-	/* get the beginning of data in input buffer */
-	data = (const char *) i_buffer_get_data(parser->inbuf, &data_size);
+	data = (const char *) i_stream_get_data(parser->input, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == ' ' || data[i] == '\r' || data[i] == '\n')
@@ -543,7 +542,7 @@ const char *imap_parser_read_word(ImapParser *parser)
 	}
 
 	if (i < data_size) {
-		i_buffer_skip(parser->inbuf, i + (data[i] == ' ' ? 1 : 0));
+		i_stream_skip(parser->input, i + (data[i] == ' ' ? 1 : 0));
 		return p_strndup(parser->pool, data, i);
 	} else {
 		return NULL;
@@ -555,8 +554,7 @@ const char *imap_parser_read_line(ImapParser *parser)
 	const char *data;
 	size_t i, data_size;
 
-	/* get the beginning of data in input buffer */
-	data = (const char *) i_buffer_get_data(parser->inbuf, &data_size);
+	data = (const char *) i_stream_get_data(parser->input, &data_size);
 
 	for (i = 0; i < data_size; i++) {
 		if (data[i] == '\r' || data[i] == '\n')
@@ -564,7 +562,7 @@ const char *imap_parser_read_line(ImapParser *parser)
 	}
 
 	if (i < data_size) {
-		i_buffer_skip(parser->inbuf, i);
+		i_stream_skip(parser->input, i);
 		return p_strndup(parser->pool, data, i);
 	} else {
 		return NULL;

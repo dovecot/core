@@ -264,7 +264,7 @@ int cmd_fetch(Client *client)
 
 	/* fetch it */
 	if (client->mailbox->fetch(client->mailbox, &data,
-				   client->outbuf, &all_found)) {
+				   client->output, &all_found)) {
 		/* NOTE: syncing isn't allowed here */
                 client_sync_without_expunges(client);
 		client_send_tagline(client, all_found ? "OK Fetch completed." :

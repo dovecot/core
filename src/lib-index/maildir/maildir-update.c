@@ -1,12 +1,12 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "maildir-index.h"
 
 int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd)
 {
-	IBuffer *inbuf;
+	IStream *input;
         MailDataField cache_fields;
 
 	/* don't even bother opening the file if we're not going to do
@@ -17,14 +17,14 @@ int maildir_record_update(MailIndex *index, MailIndexUpdate *update, int fd)
 
 	t_push();
 	if (index->mail_read_mmaped) {
-		inbuf = i_buffer_create_mmap(fd, data_stack_pool,
+		input = i_stream_create_mmap(fd, data_stack_pool,
 					     MAIL_MMAP_BLOCK_SIZE, 0, 0, FALSE);
 	} else {
-		inbuf = i_buffer_create_file(fd, data_stack_pool,
+		input = i_stream_create_file(fd, data_stack_pool,
 					     MAIL_READ_BLOCK_SIZE, FALSE);
 	}
-	mail_index_update_headers(update, inbuf, cache_fields, NULL, NULL);
-	i_buffer_unref(inbuf);
+	mail_index_update_headers(update, input, cache_fields, NULL, NULL);
+	i_stream_unref(input);
 	t_pop();
 	return TRUE;
 }

@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "mail-index.h"
 
 #include <unistd.h>
@@ -10,12 +10,12 @@ static int cache_record(MailIndex *index, MailIndexRecord *rec,
 			MailDataField cache_fields)
 {
 	MailIndexUpdate *update;
-	IBuffer *inbuf;
+	IStream *input;
 	time_t internal_date;
 	int failed, deleted;
 
-	inbuf = index->open_mail(index, rec, &internal_date, &deleted);
-	if (inbuf == NULL)
+	input = index->open_mail(index, rec, &internal_date, &deleted);
+	if (input == NULL)
 		return deleted;
 
 	cache_fields &= ~rec->data_fields;
@@ -23,10 +23,10 @@ static int cache_record(MailIndex *index, MailIndexRecord *rec,
 	update = index->update_begin(index, rec);
 	index->update_field_raw(update, DATA_HDR_INTERNAL_DATE,
 				&internal_date, sizeof(internal_date));
-	mail_index_update_headers(update, inbuf, cache_fields, NULL, NULL);
+	mail_index_update_headers(update, input, cache_fields, NULL, NULL);
 	failed = !index->update_end(update);
 
-	i_buffer_unref(inbuf);
+	i_stream_unref(input);
 	return !failed;
 }
 

@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "hostpid.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "write-full.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
@@ -65,16 +65,16 @@ static int mbox_seek_to_end(MailStorage *storage, int fd,
 	return TRUE;
 }
 
-static int mbox_append_lf(MailStorage *storage, OBuffer *outbuf,
+static int mbox_append_lf(MailStorage *storage, OStream *output,
 			  const char *mbox_path)
 {
-	if (o_buffer_send(outbuf, "\n", 1) < 0)
+	if (o_stream_send(output, "\n", 1) < 0)
 		return write_error(storage, mbox_path);
 
 	return TRUE;
 }
 
-static int write_from_line(MailStorage *storage, OBuffer *outbuf,
+static int write_from_line(MailStorage *storage, OStream *output,
 			   const char *mbox_path, time_t internal_date)
 {
 	const char *sender, *line, *name;
@@ -102,13 +102,13 @@ static int write_from_line(MailStorage *storage, OBuffer *outbuf,
 	line = mbox_from_create(sender, internal_date);
 	len = strlen(line);
 
-	if (o_buffer_send(outbuf, line, len) < 0)
+	if (o_stream_send(output, line, len) < 0)
 		return write_error(storage, mbox_path);
 
 	return TRUE;
 }
 
-static int write_flags(MailStorage *storage, OBuffer *outbuf,
+static int write_flags(MailStorage *storage, OStream *output,
 		       const char *mbox_path,
 		       MailFlags flags, const char *custom_flags[])
 {
@@ -120,7 +120,7 @@ static int write_flags(MailStorage *storage, OBuffer *outbuf,
 		return TRUE;
 
 	if (flags & MAIL_SEEN) {
-		if (o_buffer_send(outbuf, "Status: R\n", 10) < 0)
+		if (o_stream_send(output, "Status: R\n", 10) < 0)
 			return write_error(storage, mbox_path);
 	}
 
@@ -132,27 +132,27 @@ static int write_flags(MailStorage *storage, OBuffer *outbuf,
 				  (flags & MAIL_DELETED) ? "T" : "",
 				  "\n", NULL);
 
-		if (o_buffer_send(outbuf, str, strlen(str)) < 0)
+		if (o_stream_send(output, str, strlen(str)) < 0)
 			return write_error(storage, mbox_path);
 	}
 
 	if (flags & MAIL_CUSTOM_FLAGS_MASK) {
-		if (o_buffer_send(outbuf, "X-Keywords:", 11) < 0)
+		if (o_stream_send(output, "X-Keywords:", 11) < 0)
 			return write_error(storage, mbox_path);
 
 		field = 1 << MAIL_CUSTOM_FLAG_1_BIT;
 		for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++, field <<= 1) {
 			if ((flags & field) && custom_flags[i] != NULL) {
-				if (o_buffer_send(outbuf, " ", 1) < 0)
+				if (o_stream_send(output, " ", 1) < 0)
 					return write_error(storage, mbox_path);
 
-				if (o_buffer_send(outbuf, custom_flags[i],
+				if (o_stream_send(output, custom_flags[i],
 						  strlen(custom_flags[i])) < 0)
 					return write_error(storage, mbox_path);
 			}
 		}
 
-		if (o_buffer_send(outbuf, "\n", 1) < 0)
+		if (o_stream_send(output, "\n", 1) < 0)
 			return write_error(storage, mbox_path);
 	}
 
@@ -161,13 +161,13 @@ static int write_flags(MailStorage *storage, OBuffer *outbuf,
 
 int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		      time_t internal_date, int timezone_offset __attr_unused__,
-		      IBuffer *data, uoff_t data_size)
+		      IStream *data, uoff_t data_size)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	MailIndex *index;
 	MailFlags real_flags;
 	const char *mbox_path;
-	OBuffer *outbuf;
+	OStream *output;
 	int failed;
 	off_t pos;
 
@@ -193,26 +193,26 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		failed = FALSE;
 
 		t_push();
-		outbuf = o_buffer_create_file(index->mbox_fd,
+		output = o_stream_create_file(index->mbox_fd,
 					      data_stack_pool, 4096,
 					      0, FALSE);
-		o_buffer_set_blocking(outbuf, 60000, NULL, NULL);
+		o_stream_set_blocking(output, 60000, NULL, NULL);
 
-		if (!write_from_line(box->storage, outbuf, mbox_path,
+		if (!write_from_line(box->storage, output, mbox_path,
 				     internal_date) ||
-		    !write_flags(box->storage, outbuf, mbox_path, flags,
+		    !write_flags(box->storage, output, mbox_path, flags,
 				 custom_flags) ||
 		    !index_storage_save(box->storage, mbox_path,
-					data, outbuf, data_size) ||
-		    !mbox_append_lf(box->storage, outbuf, mbox_path)) {
+					data, output, data_size) ||
+		    !mbox_append_lf(box->storage, output, mbox_path)) {
 			/* failed, truncate file back to original size.
-			   output buffer needs to be flushed before truncating
+			   output stream needs to be flushed before truncating
 			   so unref() won't write anything. */
-			o_buffer_flush(outbuf);
+			o_stream_flush(output);
 			(void)ftruncate(index->mbox_fd, pos);
 			failed = TRUE;
 		}
-		o_buffer_unref(outbuf);
+		o_stream_unref(output);
 		t_pop();
 	}
 

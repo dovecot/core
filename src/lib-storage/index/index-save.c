@@ -1,15 +1,15 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "write-full.h"
 #include "index-storage.h"
 
 #include <stdlib.h>
 #include <unistd.h>
 
-static int write_with_crlf(OBuffer *outbuf, const unsigned char *data,
+static int write_with_crlf(OStream *output, const unsigned char *data,
 			   size_t size)
 {
 	size_t i, start;
@@ -20,9 +20,9 @@ static int write_with_crlf(OBuffer *outbuf, const unsigned char *data,
 	for (i = 0; i < size; i++) {
 		if (data[i] == '\n' && (i == 0 || data[i-1] != '\r')) {
 			/* missing CR */
-			if (o_buffer_send(outbuf, data + start, i - start) < 0)
+			if (o_stream_send(output, data + start, i - start) < 0)
 				return -1;
-			if (o_buffer_send(outbuf, "\r", 1) < 0)
+			if (o_stream_send(output, "\r", 1) < 0)
 				return -1;
 
 			/* \n is written next time */
@@ -34,13 +34,13 @@ static int write_with_crlf(OBuffer *outbuf, const unsigned char *data,
 	if (data[size-1] == '\r')
 		size--;
 
-	if (o_buffer_send(outbuf, data + start, size - start) < 0)
+	if (o_stream_send(output, data + start, size - start) < 0)
 		return -1;
 
 	return size;
 }
 
-static int write_with_lf(OBuffer *outbuf, const unsigned char *data,
+static int write_with_lf(OStream *output, const unsigned char *data,
 			 size_t size)
 {
 	size_t i, start;
@@ -51,7 +51,7 @@ static int write_with_lf(OBuffer *outbuf, const unsigned char *data,
 	for (i = 0; i < size; i++) {
 		if (data[i] == '\n' && i > 0 && data[i-1] == '\r') {
 			/* \r\n - skip \r */
-			if (o_buffer_send(outbuf, data + start,
+			if (o_stream_send(output, data + start,
 					   i - start - 1) < 0)
 				return -1;
 
@@ -64,16 +64,16 @@ static int write_with_lf(OBuffer *outbuf, const unsigned char *data,
 	if (data[size-1] == '\r')
 		size--;
 
-	if (o_buffer_send(outbuf, data + start, size - start) < 0)
+	if (o_stream_send(output, data + start, size - start) < 0)
 		return -1;
 
 	return size;
 }
 
 int index_storage_save(MailStorage *storage, const char *path,
-		       IBuffer *inbuf, OBuffer *outbuf, uoff_t data_size)
+		       IStream *input, OStream *output, uoff_t data_size)
 {
-	int (*write_func)(OBuffer *, const unsigned char *, size_t);
+	int (*write_func)(OStream *, const unsigned char *, size_t);
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
@@ -83,9 +83,9 @@ int index_storage_save(MailStorage *storage, const char *path,
 
 	failed = FALSE;
 	while (data_size > 0) {
-		ret = i_buffer_read(inbuf);
+		ret = i_stream_read(input);
 		if (ret < 0) {
-			errno = inbuf->buf_errno;
+			errno = input->stream_errno;
 			if (errno == 0) {
 				mail_storage_set_error(storage,
 					"Client disconnected");
@@ -99,14 +99,14 @@ int index_storage_save(MailStorage *storage, const char *path,
 			return FALSE;
 		}
 
-		data = i_buffer_get_data(inbuf, &size);
+		data = i_stream_get_data(input, &size);
 		if (size > data_size)
 			size = (size_t)data_size;
 
 		if (!failed) {
-			ret = write_func(outbuf, data, size);
+			ret = write_func(output, data, size);
 			if (ret < 0) {
-				errno = outbuf->buf_errno;
+				errno = output->stream_errno;
 				if (errno == ENOSPC) {
 					mail_storage_set_error(storage,
 						"Not enough disk space");
@@ -122,7 +122,7 @@ int index_storage_save(MailStorage *storage, const char *path,
 		}
 
 		data_size -= size;
-		i_buffer_skip(inbuf, size);
+		i_stream_skip(input, size);
 	}
 
 	return !failed;

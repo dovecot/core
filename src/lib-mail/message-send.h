@@ -5,9 +5,9 @@
 
 /* Send message to client inserting CRs if needed. Only max_virtual_size
    bytes if sent (relative to virtual_skip), if you want it unlimited,
-   use (uoff_t)-1. Remember that if inbuf begins with LF, CR is inserted
+   use (uoff_t)-1. Remember that if input begins with LF, CR is inserted
    before it unless virtual_skip = 1. Returns TRUE if successful. */
-int message_send(OBuffer *outbuf, IBuffer *inbuf, MessageSize *msg_size,
+int message_send(OStream *output, IStream *input, MessageSize *msg_size,
 		 uoff_t virtual_skip, uoff_t max_virtual_size);
 
 #endif

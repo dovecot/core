@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "rfc822-date.h"
 #include "imap-envelope.h"
 #include "imap-message-cache.h"
@@ -124,7 +124,7 @@ static void _output(unsigned int *data, size_t count, void *context)
 
 	for (i = 0; i < count; i++) {
 		len = i_snprintf(num, sizeof(num), " %u", data[i]);
-		o_buffer_send(ctx->outbuf, num, len);
+		o_stream_send(ctx->output, num, len);
 	}
 }
 

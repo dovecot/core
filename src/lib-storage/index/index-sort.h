@@ -6,7 +6,7 @@
 
 typedef struct {
 	IndexMailbox *ibox;
-	OBuffer *outbuf;
+	OStream *output;
 
 	unsigned int last_uid;
 	MailIndexRecord *rec;

@@ -1,8 +1,8 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "mmap-util.h"
 #include "rfc822-tokenize.h"
 #include "rfc822-date.h"
@@ -50,7 +50,7 @@ typedef struct {
 
 typedef struct {
         SearchIndexContext *index_ctx;
-	IBuffer *inbuf;
+	IStream *input;
 	MessagePart *part;
 } SearchBodyContext;
 
@@ -533,10 +533,10 @@ static void search_body(MailSearchArg *arg, void *context)
 		return;
 
 	if (arg->type == SEARCH_TEXT || arg->type == SEARCH_BODY) {
-		i_buffer_seek(ctx->inbuf, 0);
+		i_stream_seek(ctx->input, 0);
 		ret = message_body_search(arg->value.str,
 					  ctx->index_ctx->charset,
-					  &unknown_charset, ctx->inbuf,
+					  &unknown_charset, ctx->input,
 					  ctx->part, arg->type == SEARCH_TEXT);
 
 		if (ret < 0) {
@@ -550,7 +550,7 @@ static void search_body(MailSearchArg *arg, void *context)
 
 static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	int have_headers, have_body, have_text;
 
 	/* first check what we need to use */
@@ -561,7 +561,7 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 	if (have_headers || have_text) {
 		SearchHeaderContext hdr_ctx;
 
-		if (!imap_msgcache_get_data(search_open_cache(ctx), &inbuf))
+		if (!imap_msgcache_get_data(search_open_cache(ctx), &input))
 			return FALSE;
 
 		memset(&hdr_ctx, 0, sizeof(hdr_ctx));
@@ -569,10 +569,10 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
 
-		message_parse_header(NULL, inbuf, NULL,
+		message_parse_header(NULL, input, NULL,
 				     search_header, &hdr_ctx);
 	} else {
-		if (!imap_msgcache_get_rfc822(search_open_cache(ctx), &inbuf,
+		if (!imap_msgcache_get_rfc822(search_open_cache(ctx), &input,
 					      NULL, NULL))
 			return FALSE;
 	}
@@ -582,7 +582,7 @@ static int search_arg_match_text(MailSearchArg *args, SearchIndexContext *ctx)
 
 		memset(&body_ctx, 0, sizeof(body_ctx));
 		body_ctx.index_ctx = ctx;
-		body_ctx.inbuf = inbuf;
+		body_ctx.input = input;
 		body_ctx.part = imap_msgcache_get_parts(search_open_cache(ctx));
 
 		mail_search_args_foreach(args, search_body, &body_ctx);
@@ -757,7 +757,7 @@ static int search_get_uid_range(IndexMailbox *ibox, MailSearchArg *args,
 
 static int search_messages(IndexMailbox *ibox, const char *charset,
 			   MailSearchArg *args, MailSortContext *sort_ctx,
-			   OBuffer *outbuf, int uid_result)
+			   OStream *output, int uid_result)
 {
 	SearchIndexContext ctx;
 	MailIndexRecord *rec;
@@ -831,7 +831,7 @@ static int search_messages(IndexMailbox *ibox, const char *charset,
 					len = i_snprintf(num, sizeof(num),
 							 " %u", uid_result ?
 							 rec->uid : client_seq);
-					o_buffer_send(outbuf, num, len);
+					o_stream_send(output, num, len);
 				} else {
 					mail_sort_input(sort_ctx, rec->uid);
 				}
@@ -850,7 +850,7 @@ static int search_messages(IndexMailbox *ibox, const char *charset,
 }
 
 int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
-			 MailSortType *sorting, OBuffer *outbuf, int uid_result)
+			 MailSortType *sorting, OStream *output, int uid_result)
 {
 	IndexMailbox *ibox = (IndexMailbox *) box;
 	MailSortContext *sort_ctx;
@@ -862,23 +862,23 @@ int index_storage_search(Mailbox *box, const char *charset, MailSearchArg *args,
 
 	if (sorting == NULL) {
 		sort_ctx = NULL;
-		o_buffer_send(outbuf, "* SEARCH", 8);
+		o_stream_send(output, "* SEARCH", 8);
 	} else {
 		memset(&index_sort_ctx, 0, sizeof(index_sort_ctx));
 		index_sort_ctx.ibox = ibox;
-		index_sort_ctx.outbuf = outbuf;
+		index_sort_ctx.output = output;
 
 		sort_ctx = mail_sort_init(sort_unsorted, sorting,
 					  index_sort_funcs, &index_sort_ctx);
-		o_buffer_send(outbuf, "* SORT", 6);
+		o_stream_send(output, "* SORT", 6);
 	}
 
 	failed = !search_messages(ibox, charset, args, sort_ctx,
-				  outbuf, uid_result);
+				  output, uid_result);
 	if (sort_ctx != NULL)
 		mail_sort_deinit(sort_ctx);
 
-	o_buffer_send(outbuf, "\r\n", 2);
+	o_stream_send(output, "\r\n", 2);
 
 	if (!index_storage_lock(ibox, MAIL_LOCK_UNLOCK))
 		return FALSE;

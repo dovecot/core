@@ -1,5 +1,5 @@
 /*
-   iobuffer.c : Input/output buffer common handling
+   iostream.c : Input/output stream common handling
 
     Copyright (c) 2002 Timo Sirainen
 
@@ -24,47 +24,47 @@
 */
 
 #include "lib.h"
-#include "iobuffer-internal.h"
+#include "iostream-internal.h"
 
-void _io_buffer_init(Pool pool, _IOBuffer *buf)
+void _io_stream_init(Pool pool, _IOStream *stream)
 {
-	buf->pool = pool;
-	buf->refcount = 1;
+	stream->pool = pool;
+	stream->refcount = 1;
 }
 
-void _io_buffer_ref(_IOBuffer *buf)
+void _io_stream_ref(_IOStream *stream)
 {
-	buf->refcount++;
+	stream->refcount++;
 }
 
-void _io_buffer_unref(_IOBuffer *buf)
+void _io_stream_unref(_IOStream *stream)
 {
 	Pool pool;
 
-	i_assert(buf->refcount > 0);
-	if (--buf->refcount != 0)
+	i_assert(stream->refcount > 0);
+	if (--stream->refcount != 0)
 		return;
 
-	buf->close(buf);
-	buf->destroy(buf);
+	stream->close(stream);
+	stream->destroy(stream);
 
-	pool = buf->pool;
-        p_free(pool, buf);
+	pool = stream->pool;
+        p_free(pool, stream);
 	pool_unref(pool);
 }
 
-void _io_buffer_close(_IOBuffer *buf)
+void _io_stream_close(_IOStream *stream)
 {
-	buf->close(buf);
+	stream->close(stream);
 }
 
-void _io_buffer_set_max_size(_IOBuffer *buf, size_t max_size)
+void _io_stream_set_max_buffer_size(_IOStream *stream, size_t max_size)
 {
-	buf->set_max_size(buf, max_size);
+	stream->set_max_buffer_size(stream, max_size);
 }
 
-void _io_buffer_set_blocking(_IOBuffer *buf, int timeout_msecs,
+void _io_stream_set_blocking(_IOStream *stream, int timeout_msecs,
 			     void (*timeout_func)(void *), void *context)
 {
-	buf->set_blocking(buf, timeout_msecs, timeout_func, context);
+	stream->set_blocking(stream, timeout_msecs, timeout_func, context);
 }

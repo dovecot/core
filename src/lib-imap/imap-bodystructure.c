@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "temp-string.h"
 #include "rfc822-tokenize.h"
 #include "message-parser.h"
@@ -220,20 +220,20 @@ static void parse_header(MessagePart *part,
 	t_pop();
 }
 
-static void part_parse_headers(MessagePart *part, IBuffer *inbuf,
+static void part_parse_headers(MessagePart *part, IStream *input,
 			       uoff_t start_offset, Pool pool)
 {
 	while (part != NULL) {
 		/* note that we want to parse the header of all
 		   the message parts, multiparts too. */
-		i_assert(part->physical_pos >= inbuf->v_offset - start_offset);
-		i_buffer_skip(inbuf, part->physical_pos -
-			      (inbuf->v_offset - start_offset));
+		i_assert(part->physical_pos >= input->v_offset - start_offset);
+		i_stream_skip(input, part->physical_pos -
+			      (input->v_offset - start_offset));
 
-		message_parse_header(part, inbuf, NULL, parse_header, pool);
+		message_parse_header(part, input, NULL, parse_header, pool);
 
 		if (part->children != NULL) {
-			part_parse_headers(part->children, inbuf,
+			part_parse_headers(part->children, input,
 					   start_offset, pool);
 		}
 
@@ -426,15 +426,15 @@ static const char *part_get_bodystructure(MessagePart *part, int extended)
 }
 
 const char *imap_part_get_bodystructure(Pool pool, MessagePart **part,
-					IBuffer *inbuf, int extended)
+					IStream *input, int extended)
 {
 	uoff_t start_offset;
 
 	if (*part == NULL)
-		*part = message_parse(pool, inbuf, parse_header, pool);
+		*part = message_parse(pool, input, parse_header, pool);
 	else {
-		start_offset = inbuf->v_offset;
-		part_parse_headers(*part, inbuf, start_offset, pool);
+		start_offset = input->v_offset;
+		part_parse_headers(*part, input, start_offset, pool);
 	}
 
 	return part_get_bodystructure(*part, extended);
@@ -584,7 +584,7 @@ static int imap_parse_bodystructure_args(ImapArg *args, TempString *str)
 
 const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	ImapParser *parser;
 	ImapArg *args;
 	TempString *str;
@@ -595,10 +595,10 @@ const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 	len = strlen(bodystructure);
 	str = t_string_new(len);
 
-	inbuf = i_buffer_create_from_data(data_stack_pool, bodystructure, len);
-	(void)i_buffer_read(inbuf);
+	input = i_stream_create_from_data(data_stack_pool, bodystructure, len);
+	(void)i_stream_read(input);
 
-	parser = imap_parser_create(inbuf, NULL, 0);
+	parser = imap_parser_create(input, NULL, 0);
 	ret = imap_parser_read_args(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE,
 				    &args);
 
@@ -611,6 +611,6 @@ const char *imap_body_parse_from_bodystructure(const char *bodystructure)
 		i_error("Error parsing IMAP bodystructure: %s", bodystructure);
 
 	imap_parser_destroy(parser);
-	i_buffer_unref(inbuf);
+	i_stream_unref(input);
 	return value;
 }

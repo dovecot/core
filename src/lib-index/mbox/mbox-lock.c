@@ -390,7 +390,7 @@ int mbox_unlock(MailIndex *index)
 	   been changes to file size which would break things. or actually
 	   it'd break only if file was shrinked+grown back to exact size,
 	   but still possible :) */
-	mbox_file_close_inbuf(index);
+	mbox_file_close_stream(index);
 
 	index->mbox_lock_type = MAIL_LOCK_UNLOCK;
 	return !failed;

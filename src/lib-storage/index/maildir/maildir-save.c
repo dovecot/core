@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "hostpid.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "maildir-index.h"
 #include "maildir-storage.h"
 
@@ -48,10 +48,10 @@ static int maildir_create_tmp(MailStorage *storage, const char *dir,
 }
 
 static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
-					 IBuffer *buf, uoff_t data_size)
+					 IStream *input, uoff_t data_size)
 {
 	const char *fname, *path;
-	OBuffer *outbuf;
+	OStream *output;
 	int fd;
 
 	fd = maildir_create_tmp(storage, dir, &fname);
@@ -59,15 +59,15 @@ static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
 		return NULL;
 
 	t_push();
-	outbuf = o_buffer_create_file(fd, data_stack_pool, 4096,
+	output = o_stream_create_file(fd, data_stack_pool, 4096,
 				      IO_PRIORITY_DEFAULT, FALSE);
-	o_buffer_set_blocking(outbuf, 60000, NULL, NULL);
+	o_stream_set_blocking(output, 60000, NULL, NULL);
 
 	path = t_strconcat(dir, "/", fname, NULL);
-	if (!index_storage_save(storage, path, buf, outbuf, data_size))
+	if (!index_storage_save(storage, path, input, output, data_size))
 		fname = NULL;
 
-	o_buffer_unref(outbuf);
+	o_stream_unref(output);
 	if (close(fd) < 0)
 		fname = NULL;
 
@@ -80,7 +80,7 @@ static const char *maildir_read_into_tmp(MailStorage *storage, const char *dir,
 int maildir_storage_save(Mailbox *box, MailFlags flags,
 			 const char *custom_flags[], time_t internal_date,
 			 int timezone_offset __attr_unused__,
-			 IBuffer *data, uoff_t data_size)
+			 IStream *data, uoff_t data_size)
 {
         IndexMailbox *ibox = (IndexMailbox *) box;
         struct utimbuf buf;

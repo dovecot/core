@@ -11,8 +11,8 @@ typedef int (*ClientCommandFunc) (Client *client);
 struct _Client {
 	int socket;
 	IO io;
-	IBuffer *inbuf;
-	OBuffer *outbuf;
+	IStream *input;
+	OStream *output;
 
 	MailStorage *storage;
 	Mailbox *mailbox;
@@ -29,7 +29,7 @@ struct _Client {
 	unsigned int cmd_uid:1; /* used UID command */
 	unsigned int sync_flags_send_uid:1;
 	unsigned int rawlog:1;
-	unsigned int inbuf_skip_line:1; /* skip all the data until we've
+	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
 };
 

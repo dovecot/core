@@ -119,7 +119,7 @@ int mbox_index_sync(MailIndex *index, MailLockType data_lock_type,
 	}
 
 	if (index_mtime != st.st_mtime || index->mbox_size != filesize) {
-		mbox_file_close_inbuf(index);
+		mbox_file_close_stream(index);
 
 		index->mbox_size = get_indexed_mbox_size(index);
 		if (index->file_sync_stamp == 0 &&

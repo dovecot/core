@@ -4,8 +4,8 @@
 #include "hash.h"
 #include "ioloop.h"
 #include "network.h"
-#include "ibuffer.h"
-#include "obuffer.h"
+#include "istream.h"
+#include "ostream.h"
 #include "auth-connection.h"
 
 #include <unistd.h>
@@ -22,8 +22,8 @@ struct _AuthConnection {
 	char *path;
 	int fd;
 	IO io;
-	IBuffer *inbuf;
-	OBuffer *outbuf;
+	IStream *input;
+	OStream *output;
 
 	int auth_process;
 	AuthMethod available_auth_methods;
@@ -73,9 +73,9 @@ static AuthConnection *auth_connection_new(const char *path)
 	conn->path = i_strdup(path);
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, auth_input, conn);
-	conn->inbuf = i_buffer_create_file(fd, default_pool, MAX_INBUF_SIZE,
+	conn->input = i_stream_create_file(fd, default_pool, MAX_INBUF_SIZE,
 					   FALSE);
-	conn->outbuf = o_buffer_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
+	conn->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
 					    IO_PRIORITY_DEFAULT, FALSE);
 	conn->requests = hash_create(default_pool, 100, NULL, NULL);
 
@@ -121,8 +121,8 @@ static void auth_connection_destroy(AuthConnection *conn)
 
 	(void)close(conn->fd);
 	io_remove(conn->io);
-	i_buffer_unref(conn->inbuf);
-	o_buffer_unref(conn->outbuf);
+	i_stream_unref(conn->input);
+	o_stream_unref(conn->output);
 	i_free(conn->path);
 	i_free(conn);
 }
@@ -136,7 +136,7 @@ static AuthConnection *auth_connection_get(AuthMethod method, size_t size,
 	found = FALSE;
 	for (conn = auth_connections; conn != NULL; conn = conn->next) {
 		if ((conn->available_auth_methods & method)) {
-			if (o_buffer_have_space(conn->outbuf, size) > 0)
+			if (o_stream_have_space(conn->output, size) > 0)
 				return conn;
 
 			found = TRUE;
@@ -210,7 +210,7 @@ static void auth_input(void *context, int fd __attr_unused__,
 	const unsigned char *data;
 	size_t size;
 
-	switch (i_buffer_read(conn->inbuf)) {
+	switch (i_stream_read(conn->input)) {
 	case 0:
 		return;
 	case -1:
@@ -226,12 +226,12 @@ static void auth_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
-	data = i_buffer_get_data(conn->inbuf, &size);
+	data = i_stream_get_data(conn->input, &size);
 
 	if (!conn->init_received) {
 		if (size == sizeof(AuthInitData)) {
 			memcpy(&init_data, data, sizeof(AuthInitData));
-			i_buffer_skip(conn->inbuf, sizeof(AuthInitData));
+			i_stream_skip(conn->input, sizeof(AuthInitData));
 
 			auth_handle_init(conn, &init_data);
 		} else if (size > sizeof(AuthInitData)) {
@@ -245,14 +245,14 @@ static void auth_input(void *context, int fd __attr_unused__,
 	}
 
 	if (!conn->in_reply_received) {
-		data = i_buffer_get_data(conn->inbuf, &size);
+		data = i_stream_get_data(conn->input, &size);
 		if (size < sizeof(AuthReplyData))
 			return;
 
 		memcpy(&conn->in_reply, data, sizeof(AuthReplyData));
 		data += sizeof(AuthReplyData);
 		size -= sizeof(AuthReplyData);
-		i_buffer_skip(conn->inbuf, sizeof(AuthReplyData));
+		i_stream_skip(conn->input, sizeof(AuthReplyData));
 		conn->in_reply_received = TRUE;
 	}
 
@@ -262,7 +262,7 @@ static void auth_input(void *context, int fd __attr_unused__,
 	/* we've got a full reply */
 	conn->in_reply_received = FALSE;
 	auth_handle_reply(conn, &conn->in_reply, data);
-	i_buffer_skip(conn->inbuf, conn->in_reply.data_size);
+	i_stream_skip(conn->input, conn->in_reply.data_size);
 }
 
 int auth_init_request(AuthMethod method, AuthCallback callback,
@@ -293,7 +293,7 @@ int auth_init_request(AuthMethod method, AuthCallback callback,
 	request_data.type = AUTH_REQUEST_INIT;
 	request_data.method = request->method;
 	request_data.id = request->id;
-	if (o_buffer_send(request->conn->outbuf, &request_data,
+	if (o_stream_send(request->conn->output, &request_data,
 			  sizeof(request_data)) < 0)
 		auth_connection_destroy(request->conn);
 	return TRUE;
@@ -310,10 +310,10 @@ void auth_continue_request(AuthRequest *request, const unsigned char *data,
 	request_data.id = request->id;
 	request_data.data_size = data_size;
 
-	if (o_buffer_send(request->conn->outbuf, &request_data,
+	if (o_stream_send(request->conn->output, &request_data,
 			  sizeof(request_data)) < 0)
 		auth_connection_destroy(request->conn);
-	else if (o_buffer_send(request->conn->outbuf, data, data_size) < 0)
+	else if (o_stream_send(request->conn->output, data, data_size) < 0)
 		auth_connection_destroy(request->conn);
 }
 

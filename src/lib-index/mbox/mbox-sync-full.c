@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
-#include "ibuffer.h"
+#include "istream.h"
 #include "hex-binary.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"
@@ -12,20 +12,20 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-static void skip_line(IBuffer *inbuf)
+static void skip_line(IStream *input)
 {
 	const unsigned char *msg;
 	size_t i, size;
 
-	while (i_buffer_read_data(inbuf, &msg, &size, 0) > 0) {
+	while (i_stream_read_data(input, &msg, &size, 0) > 0) {
 		for (i = 0; i < size; i++) {
 			if (msg[i] == '\n') {
-				i_buffer_skip(inbuf, i+1);
+				i_stream_skip(input, i+1);
 				return;
 			}
 		}
 
-		i_buffer_skip(inbuf, i);
+		i_stream_skip(input, i);
 	}
 }
 
@@ -90,7 +90,7 @@ static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
 }
 
 static int match_next_record(MailIndex *index, MailIndexRecord *rec,
-			     unsigned int seq, IBuffer *inbuf,
+			     unsigned int seq, IStream *input,
 			     MailIndexRecord **next_rec, int *dirty)
 {
         MailIndexUpdate *update;
@@ -102,8 +102,8 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	*next_rec = NULL;
 
 	/* skip the From-line */
-	skip_line(inbuf);
-	header_offset = inbuf->v_offset;
+	skip_line(input);
+	header_offset = input->v_offset;
 
 	if (!mbox_mail_get_location(index, rec, NULL, &hdr_size, &body_size))
 		return FALSE;
@@ -111,25 +111,25 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	if (body_size == 0) {
 		/* possibly broken message, find the next From-line and make
 		   sure header parser won't pass it. */
-		mbox_skip_header(inbuf);
-		i_buffer_set_read_limit(inbuf, inbuf->v_offset);
-		i_buffer_seek(inbuf, header_offset);
+		mbox_skip_header(input);
+		i_stream_set_read_limit(input, input->v_offset);
+		i_stream_seek(input, header_offset);
 	}
 
 	/* get the MD5 sum of fixed headers and the current message flags
 	   in Status and X-Status fields */
-        mbox_header_init_context(&ctx, index, inbuf);
-	message_parse_header(NULL, inbuf, &hdr_parsed_size,
+        mbox_header_init_context(&ctx, index, input);
+	message_parse_header(NULL, input, &hdr_parsed_size,
 			     mbox_header_func, &ctx);
 	md5_final(&ctx.md5, current_digest);
 
 	mbox_header_free_context(&ctx);
-	i_buffer_set_read_limit(inbuf, 0);
+	i_stream_set_read_limit(input, 0);
 
-	body_offset = inbuf->v_offset;
+	body_offset = input->v_offset;
 	do {
 		if (verify_header_md5sum(index, rec, current_digest) &&
-		    mbox_verify_end_of_body(inbuf, body_offset + body_size)) {
+		    mbox_verify_end_of_body(input, body_offset + body_size)) {
 			/* valid message */
 			update = index->update_begin(index, rec);
 
@@ -179,7 +179,7 @@ static int match_next_record(MailIndex *index, MailIndexRecord *rec,
 	return TRUE;
 }
 
-static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
+static int mbox_sync_from_stream(MailIndex *index, IStream *input)
 {
 	MailIndexRecord *rec;
 	uoff_t from_offset;
@@ -188,11 +188,11 @@ static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
 	unsigned int seq;
 	int dirty;
 
-	mbox_skip_empty_lines(inbuf);
+	mbox_skip_empty_lines(input);
 
 	/* first make sure we start with a "From " line. If file is too
 	   small, we'll just treat it as empty mbox file. */
-	if (i_buffer_read_data(inbuf, &data, &size, 5) > 0 &&
+	if (i_stream_read_data(input, &data, &size, 5) > 0 &&
 	    strncmp((const char *) data, "From ", 5) != 0) {
 		index_set_error(index, "File isn't in mbox format: %s",
 				index->mbox_path);
@@ -212,11 +212,11 @@ static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
 
 	dirty = FALSE;
 	while (rec != NULL) {
-		from_offset = inbuf->v_offset;
-		if (inbuf->v_offset != 0) {
+		from_offset = input->v_offset;
+		if (input->v_offset != 0) {
 			/* we're at the [\r]\n before the From-line,
 			   skip it */
-			if (!mbox_skip_crlf(inbuf)) {
+			if (!mbox_skip_crlf(input)) {
 				/* they just went and broke it, even while
 				   we had it locked. */
 				index_set_error(index,
@@ -227,15 +227,15 @@ static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
 			}
 		}
 
-		if (inbuf->v_offset == inbuf->v_size)
+		if (input->v_offset == input->v_size)
 			break;
 
-		if (!match_next_record(index, rec, seq, inbuf, &rec, &dirty))
+		if (!match_next_record(index, rec, seq, input, &rec, &dirty))
 			return FALSE;
 
 		if (rec == NULL) {
 			/* Get back to line before From */
-			i_buffer_seek(inbuf, from_offset);
+			i_stream_seek(input, from_offset);
 			break;
 		}
 
@@ -255,25 +255,25 @@ static int mbox_sync_buf(MailIndex *index, IBuffer *inbuf)
 		index->header->flags &= ~MAIL_INDEX_FLAG_DIRTY_MESSAGES;
 	}
 
-	if (inbuf->v_offset == inbuf->v_size)
+	if (input->v_offset == input->v_size)
 		return TRUE;
 	else
-		return mbox_index_append(index, inbuf);
+		return mbox_index_append(index, input);
 }
 
 int mbox_sync_full(MailIndex *index)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	int failed;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	inbuf = mbox_get_inbuf(index, 0, MAIL_LOCK_SHARED);
-	if (inbuf == NULL)
+	input = mbox_get_stream(index, 0, MAIL_LOCK_SHARED);
+	if (input == NULL)
 		return FALSE;
 
-	failed = !mbox_sync_buf(index, inbuf);
-	i_buffer_unref(inbuf);
+	failed = !mbox_sync_from_stream(index, input);
+	i_stream_unref(input);
 
 	return !failed;
 }

@@ -15,11 +15,11 @@ liblib_a_SOURCES = \
 	hex-binary.c \
 	hostpid.c \
 	imem.c \
-	iobuffer.c \
-	ibuffer.c \
-	ibuffer-data.c \
-	ibuffer-file.c \
-	ibuffer-mmap.c \
+	iostream.c \
+	istream.c \
+	istream-data.c \
+	istream-file.c \
+	istream-mmap.c \
 	ioloop.c \
 	ioloop-poll.c \
 	ioloop-select.c \
@@ -33,8 +33,8 @@ liblib_a_SOURCES = \
 	mmap-anon.c \
 	mmap-util.c \
 	network.c \
-	obuffer.c \
-	obuffer-file.c \
+	ostream.c \
+	ostream-file.c \
 	primes.c \
 	process-title.c \
 	randgen.c \
@@ -64,9 +64,9 @@ noinst_HEADERS = \
 	hex-binary.h \
 	hostpid.h \
 	imem.h \
-	iobuffer-internal.h \
-	ibuffer.h \
-	ibuffer-internal.h \
+	iostream-internal.h \
+	istream.h \
+	istream-internal.h \
 	ioloop.h \
 	ioloop-internal.h \
 	lib.h \
@@ -76,8 +76,8 @@ noinst_HEADERS = \
 	mempool.h \
 	mmap-util.h \
 	network.h \
-	obuffer.h \
-	obuffer-internal.h \
+	ostream.h \
+	ostream-internal.h \
 	primes.h \
 	process-title.h \
 	randgen.h \

@@ -41,18 +41,18 @@ struct _ImapArgList {
 	ImapArg args[1]; /* variable size */
 };
 
-/* Create new IMAP argument parser. The max. size of inbuf limits the
+/* Create new IMAP argument parser. The max. size of input limits the
    maximum size of each argument. max_literal_size also limits sizes of
    literals which we even try to handle if FLAG_LITERAL_SIZE is not set.
-   outbuf is used for sending command continuation requests for literals. */
-ImapParser *imap_parser_create(IBuffer *inbuf, OBuffer *outbuf,
+   output is used for sending command continuation requests for literals. */
+ImapParser *imap_parser_create(IStream *input, OStream *output,
 			       size_t max_literal_size);
 void imap_parser_destroy(ImapParser *parser);
 
 /* Reset the parser to initial state. */
 void imap_parser_reset(ImapParser *parser);
 
-/* Read a number of arguments. This function doesn't call i_buffer_read(), you
+/* Read a number of arguments. This function doesn't call i_stream_read(), you
    need to do that. Returns number of arguments read (may be less than count
    in case of EOL), -2 if more data is needed or -1 if error occured.
 

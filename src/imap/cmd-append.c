@@ -2,7 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
-#include "obuffer.h"
+#include "ostream.h"
 #include "commands.h"
 #include "imap-parser.h"
 #include "imap-date.h"
@@ -126,13 +126,13 @@ int cmd_append(Client *client)
 		return TRUE;
 	}
 
-	o_buffer_send(client->outbuf, "+ OK\r\n", 6);
-	o_buffer_flush(client->outbuf);
+	o_stream_send(client->output, "+ OK\r\n", 6);
+	o_stream_flush(client->output);
 
 	/* save the mail */
 	failed = !box->save(box, flags, custom_flags,
 			    internal_date, timezone_offset,
-			    client->inbuf, msg_size);
+			    client->input, msg_size);
 	box->close(box);
 
 	if (failed) {

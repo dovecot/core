@@ -7,7 +7,7 @@
 
 #include "userinfo-passwd.h"
 
-#include "ibuffer.h"
+#include "istream.h"
 #include "hash.h"
 #include "hex-binary.h"
 #include "md5.h"
@@ -295,15 +295,15 @@ static void passwd_file_add(PasswdFile *pw, const char *username,
 
 static void passwd_file_parse_file(PasswdFile *pw)
 {
-	IBuffer *inbuf;
+	IStream *input;
 	char *const *args;
 	char *line;
 
-	inbuf = i_buffer_create_file(pw->fd, default_pool, 2048, FALSE);
+	input = i_stream_create_file(pw->fd, default_pool, 2048, FALSE);
 	for (;;) {
-		line = i_buffer_next_line(inbuf);
+		line = i_stream_next_line(input);
 		if (line == NULL) {
-			if (i_buffer_read(inbuf) <= 0)
+			if (i_stream_read(input) <= 0)
 				break;
                         continue;
 		}
@@ -319,7 +319,7 @@ static void passwd_file_parse_file(PasswdFile *pw)
 		}
 		t_pop();
 	}
-	i_buffer_unref(inbuf);
+	i_stream_unref(input);
 }
 
 static PasswdFile *passwd_file_parse(const char *path)
