@@ -16,7 +16,8 @@ static uid_t static_uid;
 static gid_t static_gid;
 static char *static_home_template;
 
-static struct user_data *static_lookup(const char *user, const char *realm)
+static void static_lookup(const char *user, const char *realm,
+			  userdb_callback_t *callback, void *context)
 {
 	struct user_data *data;
 	pool_t pool;
@@ -39,7 +40,7 @@ static struct user_data *static_lookup(const char *user, const char *realm)
 	var_expand(str, static_home_template, user, NULL);
 	data->home = p_strdup(data->pool, str_c(str));
 
-	return data;
+	callback(data, context);
 }
 
 static void static_init(const char *args)

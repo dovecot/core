@@ -14,21 +14,25 @@
 
 #include "userdb-vpopmail.h"
 
-static enum passdb_result
-vpopmail_verify_plain(const char *user, const char *realm, const char *password)
+static void
+vpopmail_verify_plain(const char *user, const char *realm, const char *password,
+		      verify_plain_callback_t *callback, void *context)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
 	int result;
 
 	vpw = vpopmail_lookup_vqp(user, realm, vpop_user, vpop_domain);
-	if (vpw == NULL)
-		return PASSDB_RESULT_USER_UNKNOWN;
+	if (vpw == NULL) {
+		callback(PASSDB_RESULT_USER_UNKNOWN, context);
+		return;
+	}
 
 	if ((vpw->pw_gid & NO_IMAP) != 0) {
 		if (verbose)
 			i_info("vpopmail(%s): IMAP disabled", user);
-		return PASSDB_RESULT_USER_DISABLED;
+		callback(PASSDB_RESULT_USER_DISABLED, context);
+		return;
 	}
 
 	/* verify password */
@@ -38,10 +42,11 @@ vpopmail_verify_plain(const char *user, const char *realm, const char *password)
 	if (!result) {
 		if (verbose)
 			i_info("vpopmail(%s): password mismatch", user);
-		return PASSDB_RESULT_PASSWORD_MISMATCH;
+		callback(PASSDB_RESULT_PASSWORD_MISMATCH, context);
+		return;
 	}
 
-	return PASSDB_RESULT_OK;
+	callback(PASSDB_RESULT_OK, context);
 }
 
 static void vpopmail_deinit(void)

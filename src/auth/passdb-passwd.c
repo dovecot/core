@@ -12,8 +12,9 @@
 
 #include <pwd.h>
 
-static enum passdb_result
-passwd_verify_plain(const char *user, const char *realm, const char *password)
+static void
+passwd_verify_plain(const char *user, const char *realm, const char *password,
+		    verify_plain_callback_t *callback, void *context)
 {
 	struct passwd *pw;
 	int result;
@@ -26,7 +27,8 @@ passwd_verify_plain(const char *user, const char *realm, const char *password)
 			i_error("getpwnam(%s) failed: %m", user);
 		else if (verbose)
 			i_info("passwd(%s): unknown user", user);
-		return PASSDB_RESULT_USER_UNKNOWN;
+		callback(PASSDB_RESULT_USER_UNKNOWN, context);
+		return;
 	}
 
 	if (!IS_VALID_PASSWD(pw->pw_passwd)) {
@@ -34,7 +36,8 @@ passwd_verify_plain(const char *user, const char *realm, const char *password)
 			i_info("passwd(%s): invalid password field '%s'",
 			       user, pw->pw_passwd);
 		}
-		return PASSDB_RESULT_USER_DISABLED;
+		callback(PASSDB_RESULT_USER_DISABLED, context);
+		return;
 	}
 
 	/* check if the password is valid */
@@ -46,10 +49,11 @@ passwd_verify_plain(const char *user, const char *realm, const char *password)
 	if (!result) {
 		if (verbose)
 			i_info("passwd(%s): password mismatch", user);
-		return PASSDB_RESULT_PASSWORD_MISMATCH;
+		callback(PASSDB_RESULT_PASSWORD_MISMATCH, context);
+		return;
 	}
 
-	return PASSDB_RESULT_OK;
+	callback(PASSDB_RESULT_OK, context);
 }
 
 static void passwd_deinit(void)

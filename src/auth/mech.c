@@ -162,6 +162,30 @@ void *mech_auth_success(struct auth_login_reply *reply,
 	return buffer_get_modifyable_data(buf, NULL);
 }
 
+void mech_auth_finish(struct auth_request *auth_request, int success)
+{
+	struct auth_login_reply reply;
+	void *reply_data;
+
+	memset(&reply, 0, sizeof(reply));
+	reply.id = auth_request->id;
+
+	if (success) {
+		reply_data = mech_auth_success(&reply, auth_request, NULL, 0);
+		reply.result = AUTH_LOGIN_RESULT_SUCCESS;
+	} else {
+		reply_data = NULL;
+		reply.result = AUTH_LOGIN_RESULT_FAILURE;
+	}
+
+	auth_request->callback(&reply, reply_data, auth_request->conn);
+
+	if (!success) {
+		mech_request_free(auth_request->conn, auth_request,
+				  auth_request->id);
+	}
+}
+
 extern struct mech_module mech_plain;
 extern struct mech_module mech_digest_md5;
 

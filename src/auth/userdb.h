@@ -15,11 +15,14 @@ struct user_data {
 	int chroot; /* chroot to home directory */
 };
 
+typedef void userdb_callback_t(struct user_data *user, void *context);
+
 struct userdb_module {
 	void (*init)(const char *args);
 	void (*deinit)(void);
 
-	struct user_data *(*lookup)(const char *user, const char *realm);
+	void (*lookup)(const char *user, const char *realm,
+		       userdb_callback_t *callback, void *context);
 };
 
 extern struct userdb_module *userdb;

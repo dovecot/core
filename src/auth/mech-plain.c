@@ -6,26 +6,31 @@
 #include "mech.h"
 #include "passdb.h"
 
+static void verify_callback(enum passdb_result result, void *context)
+{
+	struct auth_request *auth_request = context;
+
+	mech_auth_finish(auth_request, result == PASSDB_RESULT_OK);
+}
+
 static int
 mech_plain_auth_continue(struct login_connection *conn,
 			 struct auth_request *auth_request,
 			 struct auth_login_request_continue *request,
 			 const unsigned char *data, mech_callback_t *callback)
 {
-	struct auth_login_reply reply;
 	const char *authid, *authenid;
 	char *pass;
-	void *reply_data = NULL;
 	size_t i, count, len;
 
-	memset(&reply, 0, sizeof(reply));
-	reply.id = request->id;
-	reply.result = AUTH_LOGIN_RESULT_FAILURE;
+	auth_request->conn = conn;
+	auth_request->id = request->id;
+	auth_request->callback = callback;
 
 	/* authorization ID \0 authentication ID \0 pass.
 	   we'll ignore authorization ID for now. */
 	authid = (const char *) data;
-	authenid = NULL; pass = NULL;
+	authenid = NULL; pass = "";
 
 	count = 0;
 	for (i = 0; i < request->data_size; i++) {
@@ -47,21 +52,12 @@ mech_plain_auth_continue(struct login_connection *conn,
 	if (auth_request->realm != NULL)
                 auth_request->realm++;
 
-	if (pass != NULL) {
-		if (passdb->verify_plain(auth_request->user,
-					 auth_request->realm,
-					 pass) == PASSDB_RESULT_OK) {
-			reply_data = mech_auth_success(&reply, auth_request,
-						       NULL, 0);
-			reply.result = AUTH_LOGIN_RESULT_SUCCESS;
-		}
+	passdb->verify_plain(auth_request->user, auth_request->realm,
+			     pass, verify_callback, auth_request);
 
-		/* make sure it's cleared */
-		safe_memset(pass, 0, strlen(pass));
-	}
-
-	callback(&reply, reply_data, conn);
-	return reply.result == AUTH_LOGIN_RESULT_SUCCESS;
+	/* make sure it's cleared */
+	safe_memset(pass, 0, strlen(pass));
+	return TRUE;
 }
 
 static void

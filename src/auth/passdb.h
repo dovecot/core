@@ -18,18 +18,24 @@ enum passdb_result {
 	PASSDB_RESULT_OK = 1,
 };
 
+typedef void verify_plain_callback_t(enum passdb_result result, void *context);
+typedef void lookup_credentials_callback_t(const char *result, void *context);
+
 struct passdb_module {
 	void (*init)(const char *args);
 	void (*deinit)(void);
 
 	/* Check if plaintext password matches */
-	enum passdb_result (*verify_plain)(const char *user, const char *realm,
-					   const char *password);
+	void (*verify_plain)(const char *user, const char *realm,
+			     const char *password,
+			     verify_plain_callback_t *callback, void *context);
 
 	/* Return authentication credentials. Type is authentication mechanism
 	   specific value that is requested. */
-	const char *(*lookup_credentials)(const char *user, const char *realm,
-					  enum passdb_credentials credentials);
+	void (*lookup_credentials)(const char *user, const char *realm,
+				   enum passdb_credentials credentials,
+				   lookup_credentials_callback_t *callback,
+				   void *context);
 };
 
 const char *passdb_credentials_to_str(enum passdb_credentials credentials);

@@ -12,6 +12,10 @@ struct auth_request {
 	pool_t pool;
 	char *user, *realm;
 
+	struct login_connection *conn;
+	unsigned int id;
+	mech_callback_t *callback;
+
 	int (*auth_continue)(struct login_connection *conn,
 			     struct auth_request *auth_request,
 			     struct auth_login_request_continue *request,
@@ -49,6 +53,7 @@ void mech_init_login_reply(struct auth_login_reply *reply);
 void *mech_auth_success(struct auth_login_reply *reply,
 			struct auth_request *auth_request,
 			const void *data, size_t data_size);
+void mech_auth_finish(struct auth_request *auth_request, int success);
 
 void mech_cyrus_sasl_init_lib(void);
 struct auth_request *mech_cyrus_sasl_new(struct login_connection *conn,

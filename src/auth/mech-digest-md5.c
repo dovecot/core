@@ -110,26 +110,22 @@ static string_t *get_digest_challenge(struct digest_auth_request *auth)
 	return str;
 }
 
-static int verify_auth(struct digest_auth_request *auth)
+static int verify_credentials(struct digest_auth_request *auth,
+			      const char *credentials)
 {
 	struct md5_context ctx;
 	unsigned char digest[16];
-	const char *a1_hex, *a2_hex, *response_hex, *data;
+	const char *a1_hex, *a2_hex, *response_hex;
 	buffer_t *digest_buf;
 	int i;
 
-	/* we should have taken care of this at startup */
-	i_assert(passdb->lookup_credentials != NULL);
-
 	/* get the MD5 password */
-	data = passdb->lookup_credentials(auth->username, auth->realm,
-					  PASSDB_CREDENTIALS_DIGEST_MD5);
-	if (data == NULL || strlen(data) != sizeof(digest)*2)
+	if (credentials == NULL || strlen(credentials) != sizeof(digest)*2)
 		return FALSE;
 
 	digest_buf = buffer_create_data(data_stack_pool,
 					digest, sizeof(digest));
-	if (hex_to_binary(data, digest_buf) <= 0)
+	if (hex_to_binary(credentials, digest_buf) <= 0)
 		return FALSE;
 
 	/*
@@ -487,6 +483,7 @@ static int parse_digest_response(struct digest_auth_request *auth, const char *d
 
 	t_push();
 
+	*error = NULL;
 	failed = FALSE;
 
 	copy = t_strdup_noconst(t_strndup(data, size));
@@ -518,17 +515,16 @@ static int parse_digest_response(struct digest_auth_request *auth, const char *d
 	if (auth->qop_value == NULL)
 		auth->qop_value = p_strdup(auth->pool, "auth");
 
-	if (!failed && !verify_auth(auth)) {
-		*error = NULL;
-		failed = TRUE;
-	}
-
 	t_pop();
 
-	/* error message is actually ignored here, we could send it to
-	   syslog or maybe to client, but it's not specified if that's
-	   allowed and how. */
 	return !failed;
+}
+
+static void credentials_callback(const char *result, void *context)
+{
+	struct digest_auth_request *auth = context;
+
+	mech_auth_finish(&auth->auth_request, verify_credentials(auth, result));
 }
 
 static int
@@ -559,15 +555,13 @@ mech_digest_md5_auth_continue(struct login_connection *conn,
 
 	if (parse_digest_response(auth, (const char *) data,
 				  request->data_size, &error)) {
-		/* authentication ok */
-		auth->authenticated = TRUE;
+		auth_request->conn = conn;
+		auth_request->id = request->id;
+		auth_request->callback = callback;
 
-		reply.reply_idx = 0;
-
-		reply.result = AUTH_LOGIN_RESULT_CONTINUE;
-		reply.data_size = strlen(auth->rspauth);
-		callback(&reply, auth->rspauth, conn);
-		return TRUE;
+		passdb->lookup_credentials(auth->username, auth->realm,
+					   PASSDB_CREDENTIALS_DIGEST_MD5,
+					   credentials_callback, auth);
 	}
 
 	if (error == NULL)

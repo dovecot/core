@@ -50,7 +50,8 @@ struct vqpasswd *vpopmail_lookup_vqp(const char *user, const char *realm,
 
 #ifdef USERDB_VPOPMAIL
 
-static struct user_data *vpopmail_lookup(const char *user, const char *realm)
+static void vpopmail_lookup(const char *user, const char *realm,
+			    userdb_callback_t *callback, void *context)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
@@ -63,8 +64,10 @@ static struct user_data *vpopmail_lookup(const char *user, const char *realm)
 		user = t_strconcat(user, "@", realm, NULL);
 
 	vpw = vpopmail_lookup_vqp(user, realm, vpop_user, vpop_domain);
-	if (vpw == NULL)
-		return NULL;
+	if (vpw == NULL) {
+		callback(NULL, context);
+		return;
+	}
 
 	/* we have to get uid/gid separately, because the gid field in
 	   struct vqpasswd isn't really gid at all but just some flags... */
@@ -73,7 +76,8 @@ static struct user_data *vpopmail_lookup(const char *user, const char *realm)
 			i_info("vpopmail(%s): vget_assign(%s) failed",
 			       user, vpop_domain);
 		}
-		return NULL;
+		callback(NULL, context);
+		return;
 	}
 
 	if (vpw->pw_dir == NULL || vpw->pw_dir[0] == '\0') {
@@ -86,13 +90,16 @@ static struct user_data *vpopmail_lookup(const char *user, const char *realm)
 		if (make_user_dir(vpop_user, vpop_domain, uid, gid) == NULL) {
 			i_error("vpopmail(%s): make_user_dir(%s, %s) failed",
 				user, vpop_user, vpop_domain);
-			return NULL;
+			callback(NULL, context);
+			return;
 		}
 
 		/* get the user again so pw_dir is visible */
 		vpw = vauth_getpw(vpop_user, vpop_domain);
-		if (vpw == NULL)
-			return NULL;
+		if (vpw == NULL) {
+			callback(NULL, context);
+			return;
+		}
 	}
 
 	pool = pool_alloconly_create("user_data", 1024);
@@ -105,7 +112,7 @@ static struct user_data *vpopmail_lookup(const char *user, const char *realm)
 	data->virtual_user = p_strdup(data->pool, vpw->pw_name);
 	data->home = p_strdup(data->pool, vpw->pw_dir);
 
-	return data;
+	callback(data, context);
 }
 
 struct userdb_module userdb_vpopmail = {

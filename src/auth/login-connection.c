@@ -209,6 +209,7 @@ void login_connection_destroy(struct login_connection *conn)
 		}
 	}
 
+	//FIXME: hash_foreach(conn->auth_requests, auth_request_hash_destroy, NULL);
 	hash_destroy(conn->auth_requests);
 
 	i_stream_unref(conn->input);

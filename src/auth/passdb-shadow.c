@@ -12,8 +12,9 @@
 
 #include <shadow.h>
 
-static enum passdb_result
-shadow_verify_plain(const char *user, const char *realm, const char *password)
+static void
+shadow_verify_plain(const char *user, const char *realm, const char *password,
+		    verify_plain_callback_t *callback, void *context)
 {
 	struct spwd *spw;
 	int result;
@@ -26,7 +27,8 @@ shadow_verify_plain(const char *user, const char *realm, const char *password)
 			i_error("getspnam(%s) failed: %m", user);
 		else if (verbose)
 			i_info("shadow(%s): unknown user", user);
-		return PASSDB_RESULT_USER_UNKNOWN;
+		callback(PASSDB_RESULT_USER_UNKNOWN, context);
+		return;
 	}
 
 	if (!IS_VALID_PASSWD(spw->sp_pwdp)) {
@@ -34,7 +36,8 @@ shadow_verify_plain(const char *user, const char *realm, const char *password)
 			i_info("shadow(%s): invalid password field '%s'",
 			       user, spw->sp_pwdp);
 		}
-		return PASSDB_RESULT_USER_DISABLED;
+		callback(PASSDB_RESULT_USER_DISABLED, context);
+		return;
 	}
 
 	/* check if the password is valid */
@@ -46,10 +49,11 @@ shadow_verify_plain(const char *user, const char *realm, const char *password)
 	if (!result) {
 		if (verbose)
 			i_info("shadow(%s): password mismatch", user);
-		return PASSDB_RESULT_PASSWORD_MISMATCH;
+		callback(PASSDB_RESULT_PASSWORD_MISMATCH, context);
+		return;
 	}
 
-	return PASSDB_RESULT_OK;
+	callback(PASSDB_RESULT_OK, context);
 }
 
 static void shadow_deinit(void)

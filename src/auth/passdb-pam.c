@@ -194,8 +194,9 @@ static int pam_auth(pam_handle_t *pamh, const char *user)
 	return PAM_SUCCESS;
 }
 
-static enum passdb_result
-pam_verify_plain(const char *user, const char *realm, const char *password)
+static void
+pam_verify_plain(const char *user, const char *realm, const char *password,
+		 verify_plain_callback_t *callback, void *context)
 {
 	pam_handle_t *pamh;
 	struct pam_userpass userpass;
@@ -217,19 +218,21 @@ pam_verify_plain(const char *user, const char *realm, const char *password)
 			i_info("PAM: pam_start(%s) failed: %s",
 			       user, pam_strerror(pamh, status));
 		}
-		return PASSDB_RESULT_INTERNAL_FAILURE;
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, context);
+		return;
 	}
 
 	status = pam_auth(pamh, user);
 	if ((status2 = pam_end(pamh, status)) != PAM_SUCCESS) {
 		i_error("pam_end(%s) failed: %s",
 			user, pam_strerror(pamh, status2));
-		return PASSDB_RESULT_INTERNAL_FAILURE;
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, context);
+		return;
 	}
 
 	/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER somehow */
-	return status == PAM_SUCCESS ? PASSDB_RESULT_OK :
-		PASSDB_RESULT_PASSWORD_MISMATCH;
+	callback(status == PAM_SUCCESS ? PASSDB_RESULT_OK :
+		 PASSDB_RESULT_PASSWORD_MISMATCH, context);
 }
 
 static void pam_init(const char *args)

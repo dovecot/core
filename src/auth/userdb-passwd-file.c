@@ -11,15 +11,18 @@
 
 struct passwd_file *userdb_pwf = NULL;
 
-static struct user_data *passwd_file_lookup(const char *user, const char *realm)
+static void passwd_file_lookup(const char *user, const char *realm,
+			       userdb_callback_t *callback, void *context)
 {
 	struct user_data *data;
 	struct passwd_user *pu;
 	pool_t pool;
 
 	pu = passwd_file_lookup_user(userdb_pwf, user, realm);
-	if (pu == NULL)
-		return NULL;
+	if (pu == NULL) {
+		callback(NULL, context);
+		return;
+	}
 
 	pool = pool_alloconly_create("user_data", 512);
 	data = p_new(pool, struct user_data, 1);
@@ -34,7 +37,8 @@ static struct user_data *passwd_file_lookup(const char *user, const char *realm)
 	data->mail = p_strdup(data->pool, pu->mail);
 
 	data->chroot = pu->chroot;
-	return data;
+
+	callback(data, context);
 }
 
 static void passwd_file_init(const char *args)

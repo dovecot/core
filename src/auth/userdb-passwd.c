@@ -10,7 +10,8 @@
 
 #include <pwd.h>
 
-static struct user_data *passwd_lookup(const char *user, const char *realm)
+static void passwd_lookup(const char *user, const char *realm,
+			  userdb_callback_t *callback, void *context)
 {
 	struct user_data *data;
 	struct passwd *pw;
@@ -24,7 +25,8 @@ static struct user_data *passwd_lookup(const char *user, const char *realm)
 			i_error("getpwnam(%s) failed: %m", user);
 		else if (verbose)
 			i_info("passwd(%s): unknown user", user);
-		return NULL;
+		callback(NULL, context);
+		return;
 	}
 
 	pool = pool_alloconly_create("user_data", 512);
@@ -38,7 +40,7 @@ static struct user_data *passwd_lookup(const char *user, const char *realm)
 	data->virtual_user = data->system_user;
 	data->home = p_strdup(data->pool, pw->pw_dir);
 
-	return data;
+	callback(data, context);
 }
 
 struct userdb_module userdb_passwd = {

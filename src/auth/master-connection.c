@@ -60,35 +60,12 @@ fill_reply(const struct user_data *user, size_t *reply_size)
 	return reply;
 }
 
-static void master_handle_request(struct auth_master_request *request,
-				  int fd __attr_unused__)
+static void send_reply(struct auth_master_reply *reply, size_t reply_size,
+		       unsigned int tag)
 {
-	struct login_connection *login_conn;
-	struct auth_request *auth_request;
-	struct user_data *user_data;
-	struct auth_master_reply *reply;
-	size_t reply_size;
 	ssize_t ret;
 
-	login_conn = login_connection_lookup(request->login_pid);
-	auth_request = login_conn == NULL ? NULL :
-		hash_lookup(login_conn->auth_requests,
-			    POINTER_CAST(request->id));
-
-	reply_size = sizeof(*reply);
-	if (request == NULL)
-		reply = &failure_reply;
-	else {
-		user_data = userdb->lookup(auth_request->user,
-					   auth_request->realm);
-		if (user_data == NULL)
-			reply = &failure_reply;
-		else
-			reply = fill_reply(user_data, &reply_size);
-		mech_request_free(login_conn, auth_request, request->id);
-	}
-
-	reply->tag = request->tag;
+	reply->tag = tag;
 	for (;;) {
 		ret = o_stream_send(output, reply, reply_size);
 		if (ret < 0) {
@@ -107,6 +84,40 @@ static void master_handle_request(struct auth_master_request *request,
 			io_loop_stop(ioloop);
 			break;
 		}
+	}
+}
+
+static void userdb_callback(struct user_data *user, void *context)
+{
+	unsigned int tag = POINTER_CAST_TO(context, unsigned int);
+	struct auth_master_reply *reply;
+	size_t reply_size;
+
+	if (user == NULL)
+		send_reply(&failure_reply, sizeof(failure_reply), tag);
+	else {
+		reply = fill_reply(user, &reply_size);
+		send_reply(reply, reply_size, tag);
+	}
+}
+
+static void master_handle_request(struct auth_master_request *request,
+				  int fd __attr_unused__)
+{
+	struct login_connection *login_conn;
+	struct auth_request *auth_request;
+
+	login_conn = login_connection_lookup(request->login_pid);
+	auth_request = login_conn == NULL ? NULL :
+		hash_lookup(login_conn->auth_requests,
+			    POINTER_CAST(request->id));
+
+	if (request == NULL)
+		send_reply(&failure_reply, sizeof(failure_reply), request->tag);
+	else {
+		userdb->lookup(auth_request->user, auth_request->realm,
+			       userdb_callback, POINTER_CAST(request->tag));
+		mech_request_free(login_conn, auth_request, request->id);
 	}
 }
 
