@@ -252,14 +252,14 @@ void message_address_write(string_t *str, const struct message_address *addr)
 		} else if ((addr->name == NULL || *addr->name == '\0') &&
 			   addr->route == NULL) {
 			i_assert(addr->mailbox != NULL);
-			i_assert(addr->domain != NULL);
 
 			str_append(str, addr->mailbox);
-			str_append_c(str, '@');
-			str_append(str, addr->domain);
+			if (addr->domain != NULL) {
+				str_append_c(str, '@');
+				str_append(str, addr->domain);
+			}
 		} else {
 			i_assert(addr->mailbox != NULL);
-			i_assert(addr->domain != NULL);
 
 			if (addr->name != NULL) {
 				str_append(str, addr->name);
@@ -272,8 +272,10 @@ void message_address_write(string_t *str, const struct message_address *addr)
 				str_append_c(str, ':');
 			}
 			str_append(str, addr->mailbox);
-			str_append_c(str, '@');
-			str_append(str, addr->domain);
+			if (addr->domain != NULL) {
+				str_append_c(str, '@');
+				str_append(str, addr->domain);
+			}
 			str_append_c(str, '>');
 		}
 
