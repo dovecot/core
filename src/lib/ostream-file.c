@@ -512,7 +512,8 @@ static off_t io_stream_copy(struct _ostream *outstream,
 	for (pos = 0; pos < iov_len; pos++)
 		skip_size += iov[pos].iov_len;
 
-        start_offset = instream->v_offset;
+	start_offset = instream->v_offset;
+	in_size -= instream->v_offset;
 	while (in_size > 0) {
 		block_size = I_MIN(foutstream->optimal_block_size, in_size);
 		(void)i_stream_read_data(instream, &data, &size, block_size-1);
