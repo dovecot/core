@@ -91,13 +91,15 @@ static int pgsql_conn_open(struct pgsql_connection *conn)
 	if (conn->connected)
 		return TRUE;
 
-	if (conn->pg == NULL) {
-		conn->pg = PQconnectdb(conn->set.connect);
-		if (PQstatus(conn->pg) != CONNECTION_OK) {
-			i_error("PGSQL: Can't connect to database %s",
-				conn->set.connect);
-			return FALSE;
-		}
+	i_assert(conn->pg == NULL);
+
+	conn->pg = PQconnectdb(conn->set.connect);
+	if (PQstatus(conn->pg) != CONNECTION_OK) {
+		i_error("PGSQL: Can't connect to database %s",
+			conn->set.connect);
+		PQfinish(conn->pg);
+		conn->pg = NULL;
+		return FALSE;
 	}
 
 	conn->connected = TRUE;
