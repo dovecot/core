@@ -53,7 +53,8 @@ static int mmap_verify(struct mail_index *index)
 		return FALSE;
 	}
 
-	if ((hdr->used_file_size - sizeof(struct mail_index_header)) %
+	if (hdr->used_file_size < sizeof(struct mail_index_header) ||
+	    (hdr->used_file_size - sizeof(struct mail_index_header)) %
 	    sizeof(struct mail_index_record) != 0) {
 		index_set_corrupted(index, "Invalid used_file_size in header "
 				    "(%"PRIuUOFF_T")",

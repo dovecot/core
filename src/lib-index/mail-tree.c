@@ -106,7 +106,8 @@ static int mmap_verify(struct mail_tree *tree)
 		return FALSE;
 	}
 
-	if ((hdr->used_file_size - sizeof(struct mail_tree_header)) %
+	if (hdr->used_file_size < sizeof(struct mail_tree_header) ||
+	    (hdr->used_file_size - sizeof(struct mail_tree_header)) %
 	    sizeof(struct mail_tree_node) != 0) {
 		_mail_tree_set_corrupted(tree,
 			"Invalid used_file_size in header (%"PRIuUOFF_T")",

@@ -230,7 +230,8 @@ static int mmap_update(struct modify_log_file *file, int forced)
 		return FALSE;
 	}
 
-	if ((hdr->used_file_size - sizeof(struct modify_log_header)) %
+	if (hdr->used_file_size < sizeof(struct modify_log_header) ||
+	    (hdr->used_file_size - sizeof(struct modify_log_header)) %
 	    sizeof(struct modify_log_record) != 0) {
 		modifylog_set_corrupted(file,
 			"Invalid used_file_size in header (%"PRIuUOFF_T")",
