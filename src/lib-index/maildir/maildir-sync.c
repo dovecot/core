@@ -261,8 +261,8 @@ static int maildir_sync_uidlist(struct mail_index *index, const char *dir,
 			return FALSE;
 	}
 
-	if (new_count == 0) {
-		/* all done */
+	if (new_count == 0 || !INDEX_IS_UIDLIST_LOCKED(index)) {
+		/* all done (or can't do it since we don't have lock) */
 		return TRUE;
 	}
 
