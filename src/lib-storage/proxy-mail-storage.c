@@ -53,11 +53,11 @@ static int _rename_mailbox(struct mail_storage *storage, const char *oldname,
 
 static struct mailbox_list_context *
 _list_mailbox_init(struct mail_storage *storage, const char *mask,
-		   enum mailbox_list_flags flags, int *sorted)
+		   enum mailbox_list_flags flags)
 {
 	struct proxy_mail_storage *s = (struct proxy_mail_storage *) storage;
 
-	return s->storage->list_mailbox_init(s->storage, mask, flags, sorted);
+	return s->storage->list_mailbox_init(s->storage, mask, flags);
 }
 
 static int _set_subscribed(struct mail_storage *storage,

@@ -7,42 +7,15 @@
 #include "imap-match.h"
 #include "commands.h"
 
-struct list_node {
-	struct list_node *next;
-	struct list_node *children;
-
-	char *name; /* escaped */
-	enum mailbox_flags flags;
-};
-
-struct list_context {
-	pool_t pool;
-	struct list_node *nodes;
-	struct mail_storage *storage;
-};
-
-struct list_send_context {
-	struct client *client;
-	const char *response_name;
-	const char *sep;
-	char sep_chr;
-	struct imap_match_glob *glob;
-	int listext, no_placeholder;
-};
-
-static const char *mailbox_flags2str(enum mailbox_flags flags,
-				     int listext, int no_placeholder)
+static const char *mailbox_flags2str(enum mailbox_flags flags, int listext)
 {
 	const char *str;
 
 	if (flags & MAILBOX_PLACEHOLDER) {
-		if ((flags & ~MAILBOX_CHILDREN) == MAILBOX_PLACEHOLDER) {
-			if (!listext || no_placeholder)
-				flags = MAILBOX_NOSELECT;
-		} else {
-			/* it was at one point, but then we got better specs */
-			flags &= ~MAILBOX_PLACEHOLDER;
-		}
+		i_assert((flags & ~MAILBOX_CHILDREN) == MAILBOX_PLACEHOLDER);
+
+		if (!listext)
+			flags = MAILBOX_NOSELECT;
 		flags |= MAILBOX_CHILDREN;
 	}
 	if ((flags & MAILBOX_NONEXISTENT) != 0 && !listext)
@@ -61,177 +34,33 @@ static const char *mailbox_flags2str(enum mailbox_flags flags,
 	return *str == '\0' ? "" : str+1;
 }
 
-static void list_node_update(pool_t pool, struct list_node **node,
-			     const char *path, char separator,
-			     enum mailbox_flags flags)
+static int mailbox_list(struct client *client, const char *mask,
+			const char *sep, const char *reply,
+			enum mailbox_list_flags list_flags, int listext)
 {
-	const char *name, *parent;
-
-	parent = NULL;
-
-	for (name = path;; path++) {
-		if (*path != separator && *path != '\0')
-			continue;
-
-		t_push();
-
-		name = t_strdup_until(name, path);
-
-		/* find the node */
-		while (*node != NULL) {
-			if (strcmp((*node)->name, name) == 0)
-				break;
-
-			node = &(*node)->next;
-		}
-
-		if (*node == NULL) {
-			/* not found, create it */
-			*node = p_new(pool, struct list_node, 1);
-			(*node)->name = p_strdup(pool, name);
-			(*node)->flags = *path == '\0' ? flags :
-				MAILBOX_PLACEHOLDER;
-		} else {
-			if (*path == '\0') {
-				if (((*node)->flags & MAILBOX_NOSELECT) != 0 &&
-				    (flags & MAILBOX_NOSELECT) == 0) {
-					/* overrides previous flag */
-					(*node)->flags &= ~MAILBOX_NOSELECT;
-				}
-
-				(*node)->flags |= flags;
-			}
-		}
-
-		t_pop();
-
-		if (*path == '\0')
-			break;
-
-		name = path+1;
-		parent = (*node)->name;
-		node = &(*node)->children;
-	}
-}
-
-static void list_send(struct list_send_context *ctx, struct list_node *node,
-		      const char *path)
-{
-	const char *name, *send_name, *flagstr;
-	enum imap_match_result match;
-	string_t *str;
-
-	for (; node != NULL; node = node->next) {
-		t_push();
-
-		/* Send INBOX always uppercased */
-		if (path != NULL) {
-			name = t_strdup_printf("%s%c%s", path, ctx->sep_chr,
-					       node->name);
-		} else if (strcasecmp(node->name, "INBOX") == 0)
-			name = "INBOX";
-		else
-			name = node->name;
-		send_name = name;
-
-		if ((node->flags & MAILBOX_PLACEHOLDER) == 0 &&
-		    (node->flags & MAILBOX_NOSELECT) == 0)
-			match = IMAP_MATCH_YES;
-		else {
-			/* make sure the placeholder matches. */
-			const char *buf;
-
-			buf = str_unescape(t_strdup_noconst(name));
-			match = imap_match(ctx->glob, buf);
-			/* FIXME: IMAP spec says this should be done, but
-			   a) this is broken, we shouldn't give \NoSelect for
-			      this folder if it actually works.
-			   b) at least mozilla's subscriptions list breaks if
-			      this is sent
-			   c) cyrus and courier doesn't do this either..
-
-			if (match == IMAP_MATCH_CHILDREN) {
-				send_name = t_strdup_printf("%s%c", name,
-							    ctx->sep);
-				buf = str_unescape(t_strdup_noconst(send_name));
-				match = imap_match(ctx->glob, buf);
-			}*/
-		}
-
-		if (match == IMAP_MATCH_YES) {
-			/* node->name should already be escaped */
-			flagstr = mailbox_flags2str(node->flags, ctx->listext,
-						    ctx->no_placeholder);
-			t_push();
-			str = t_str_new(256);
-			str_printfa(str, "* %s (%s) \"%s\" ",
-				    ctx->response_name, flagstr, ctx->sep);
-			imap_quote_append_string(str, send_name, FALSE);
-			client_send_line(ctx->client, str_c(str));
-			t_pop();
-		}
-
-		if (node->children != NULL)
-			list_send(ctx, node->children,  name);
-
-		t_pop();
-	}
-}
-
-static void list_and_sort(struct client *client,
-			  struct mailbox_list_context *ctx,
-			  const char *response_name, const char *mask,
-			  const char *sep, char sep_chr,
-			  enum mailbox_list_flags list_flags, int listext)
-{
-	struct mailbox_list *list;
-	struct list_node *nodes;
-	struct list_send_context send_ctx;
-	pool_t pool;
-
-	pool = pool_alloconly_create("list_mailboxes", 10240);
-	nodes = NULL;
-
-	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
-		list_node_update(pool, &nodes, list->name,
-				 client->storage->hierarchy_sep,
-				 list->flags);
-	}
-
-	send_ctx.client = client;
-	send_ctx.response_name = response_name;
-	send_ctx.sep = sep;
-	send_ctx.sep_chr = sep_chr;
-	send_ctx.glob = imap_match_init(data_stack_pool, mask, TRUE,
-					client->storage->hierarchy_sep);
-	send_ctx.listext = listext;
-	send_ctx.no_placeholder = (list_flags & MAILBOX_LIST_SUBSCRIBED) == 0;
-
-	list_send(&send_ctx, nodes, NULL);
-	imap_match_deinit(send_ctx.glob);
-	pool_unref(pool);
-}
-
-static void list_unsorted(struct client *client,
-			  struct mailbox_list_context *ctx,
-			  const char *reply, const char *sep, int listext)
-{
+	struct mailbox_list_context *ctx;
 	struct mailbox_list *list;
 	string_t *str;
 
+	ctx = client->storage->list_mailbox_init(client->storage, mask,
+						 list_flags);
+	if (ctx == NULL)
+		return FALSE;
+
+	str = t_str_new(256);
 	while ((list = client->storage->list_mailbox_next(ctx)) != NULL) {
-		t_push();
-		str = t_str_new(256);
+		str_truncate(str, 0);
 		str_printfa(str, "* %s (%s) \"%s\" ", reply,
-			    mailbox_flags2str(list->flags, listext, FALSE),
+			    mailbox_flags2str(list->flags, listext),
 			    sep);
 		if (strcasecmp(list->name, "INBOX") == 0)
 			str_append(str, "INBOX");
 		else
 			imap_quote_append_string(str, list->name, FALSE);
 		client_send_line(client, str_c(str));
-		t_pop();
 	}
+
+	return client->storage->list_mailbox_deinit(ctx);
 }
 
 static int parse_list_flags(struct client *client, struct imap_arg *args,
@@ -266,10 +95,9 @@ int _cmd_list_full(struct client *client, int lsub)
 {
 	struct imap_arg *args;
         enum mailbox_list_flags list_flags;
-	struct mailbox_list_context *ctx;
 	const char *ref, *mask;
 	char sep_chr, sep[3];
-	int failed, sorted, listext;
+	int failed, listext;
 
 	sep_chr = client->storage->hierarchy_sep;
 	if (IS_ESCAPED_CHAR(sep_chr)) {
@@ -330,24 +158,9 @@ int _cmd_list_full(struct client *client, int lsub)
 			}
 		}
 
-		ctx = client->storage->list_mailbox_init(client->storage, mask,
-							 list_flags, &sorted);
-		if (ctx == NULL)
-			failed = TRUE;
-		else {
-			const char *response_name = lsub ? "LSUB" : "LIST";
-
-			if (sorted) {
-				list_unsorted(client, ctx, response_name, sep,
-					      listext);
-			} else {
-				list_and_sort(client, ctx, response_name, mask,
-					      sep, sep_chr, list_flags,
-					      listext);
-			}
-
-			failed = !client->storage->list_mailbox_deinit(ctx);
-		}
+		failed = !mailbox_list(client, mask, sep,
+				       lsub ? "LSUB" : "LIST",
+				       list_flags, listext);
 	}
 
 	if (failed)

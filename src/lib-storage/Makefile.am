@@ -11,6 +11,7 @@ libstorage_a_SOURCES = \
 	mail-save.c \
 	mail-search.c \
 	mail-storage.c \
+	mailbox-tree.c \
 	proxy-mail.c \
 	proxy-mail-storage.c \
 	proxy-mailbox.c
@@ -19,6 +20,7 @@ noinst_HEADERS = \
 	mail-save.h \
 	mail-search.h \
 	mail-storage.h \
+	mailbox-tree.h \
 	proxy-mail.h \
 	proxy-mail-storage.h \
 	proxy-mailbox.h

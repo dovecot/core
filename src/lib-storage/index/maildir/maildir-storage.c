@@ -536,14 +536,14 @@ static int rename_subfolders(struct mail_storage *storage,
         struct mailbox_list *list;
 	const char *oldpath, *newpath, *new_listname;
 	size_t oldnamelen;
-	int sorted, ret;
+	int ret;
 
 	ret = 0;
 	oldnamelen = strlen(oldname);
 
 	ctx = storage->list_mailbox_init(storage,
 					 t_strconcat(oldname, ".*", NULL),
-					 MAILBOX_LIST_FAST_FLAGS, &sorted);
+					 MAILBOX_LIST_FAST_FLAGS);
 	while ((list = maildir_list_mailbox_next(ctx)) != NULL) {
 		i_assert(oldnamelen <= strlen(list->name));
 

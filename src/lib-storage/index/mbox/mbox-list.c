@@ -98,13 +98,11 @@ static int list_opendir(struct mail_storage *storage,
 
 struct mailbox_list_context *
 mbox_list_mailbox_init(struct mail_storage *storage, const char *mask,
-		       enum mailbox_list_flags flags, int *sorted)
+		       enum mailbox_list_flags flags)
 {
 	struct mailbox_list_context *ctx;
 	const char *path, *virtual_path;
 	DIR *dirp;
-
-	*sorted = (flags & MAILBOX_LIST_SUBSCRIBED) == 0;
 
 	/* check that we're not trying to do any "../../" lists */
 	if (!mbox_is_valid_mask(mask)) {

@@ -17,8 +17,7 @@ int maildir_storage_save_next(struct mail_save_context *ctx,
 
 struct mailbox_list_context *
 maildir_list_mailbox_init(struct mail_storage *storage,
-			  const char *mask, enum mailbox_list_flags flags,
-			  int *sorted);
+			  const char *mask, enum mailbox_list_flags flags);
 int maildir_list_mailbox_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *
 maildir_list_mailbox_next(struct mailbox_list_context *ctx);

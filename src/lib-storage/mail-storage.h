@@ -179,14 +179,11 @@ struct mail_storage {
 
 	/* Initialize new mailbox list request. mask may contain '%' and '*'
 	   wildcards as defined in RFC2060. Matching against "INBOX" is
-	   case-insensitive, but anything else is not. *sorted is set to TRUE
-	   if the output will contain parent mailboxes always before their
-	   children. */
+	   case-insensitive, but anything else is not. */
 	struct mailbox_list_context *
 		(*list_mailbox_init)(struct mail_storage *storage,
 				     const char *mask,
-				     enum mailbox_list_flags flags,
-				     int *sorted);
+				     enum mailbox_list_flags flags);
 	/* Deinitialize mailbox list request. Returns FALSE if some error
 	   occured while listing. */
 	int (*list_mailbox_deinit)(struct mailbox_list_context *ctx);
