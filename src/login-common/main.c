@@ -16,6 +16,7 @@
 #include <syslog.h>
 
 int disable_plaintext_auth, process_per_connection, verbose_proctitle;
+int verbose_ssl;
 unsigned int max_logging_users;
 unsigned int login_process_uid;
 
@@ -119,7 +120,7 @@ static void login_accept_ssl(void *context __attr_unused__)
 	if (process_per_connection)
 		main_close_listen();
 
-	fd_ssl = ssl_proxy_new(fd);
+	fd_ssl = ssl_proxy_new(fd, &ip);
 	if (fd_ssl == -1)
 		net_disconnect(fd);
 	else
@@ -163,7 +164,8 @@ static void main_init(void)
 
 	disable_plaintext_auth = getenv("DISABLE_PLAINTEXT_AUTH") != NULL;
 	process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;
-        verbose_proctitle = getenv("VERBOSE_PROCTITLE") != NULL;
+	verbose_proctitle = getenv("VERBOSE_PROCTITLE") != NULL;
+        verbose_ssl = getenv("VERBOSE_SSL") != NULL;
 
 	value = getenv("MAX_LOGGING_USERS");
 	max_logging_users = value == NULL ? 0 : strtoul(value, NULL, 10);

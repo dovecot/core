@@ -125,7 +125,7 @@ static int cmd_starttls(struct imap_client *client)
 		client->common.io = NULL;
 	}
 
-	fd_ssl = ssl_proxy_new(client->common.fd);
+	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip);
 	if (fd_ssl != -1) {
 		client->tls = TRUE;
                 client_set_title(client);

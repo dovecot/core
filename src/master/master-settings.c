@@ -39,6 +39,7 @@ static struct setting_def setting_defs[] = {
 	/* login */
 	DEF(SET_STR, login_dir),
 	DEF(SET_BOOL, login_chroot),
+	DEF(SET_BOOL, verbose_ssl),
 
 	/* mail */
 	DEF(SET_STR, valid_chroot_dirs),
@@ -145,6 +146,7 @@ struct settings default_settings = {
 	/* login */
 	MEMBER(login_dir) "login",
 	MEMBER(login_chroot) TRUE,
+	MEMBER(verbose_ssl) FALSE,
 
 	/* mail */
 	MEMBER(valid_chroot_dirs) NULL,

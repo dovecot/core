@@ -25,6 +25,7 @@ struct settings {
 	/* login */
 	const char *login_dir;
 	int login_chroot;
+	int verbose_ssl;
 
 	/* mail */
 	const char *valid_chroot_dirs;

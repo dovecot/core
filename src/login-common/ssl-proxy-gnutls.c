@@ -19,6 +19,8 @@ struct ssl_proxy {
 	int refcount;
 
 	gnutls_session session;
+	struct ip_addr ip;
+
 	int fd_ssl, fd_plain;
 	struct io *io_ssl, *io_plain;
 	int io_ssl_dir;
@@ -60,20 +62,32 @@ static const char *get_alert_text(struct ssl_proxy *proxy)
 static int handle_ssl_error(struct ssl_proxy *proxy, int error)
 {
 	if (!gnutls_error_is_fatal(error)) {
+		if (!verbose_ssl)
+			return 0;
+
 		if (error == GNUTLS_E_WARNING_ALERT_RECEIVED) {
-			i_warning("Received SSL warning alert: %s",
-				  get_alert_text(proxy));
+			i_warning("Received SSL warning alert: %s [%s]",
+				  get_alert_text(proxy),
+				  net_ip2host(&proxy->ip));
+		} else {
+			i_warning("Non-fatal SSL error: %s: %s",
+				  get_alert_text(proxy),
+				  net_ip2host(&proxy->ip));
 		}
 		return 0;
 	}
 
-	/* fatal error occured */
-	if (error == GNUTLS_E_FATAL_ALERT_RECEIVED) {
-		i_warning("Received SSL fatal alert: %s",
-			  get_alert_text(proxy));
-	} else {
-		i_warning("Error reading from SSL client: %s",
-			  gnutls_strerror(error));
+	if (verbose_ssl) {
+		/* fatal error occured */
+		if (error == GNUTLS_E_FATAL_ALERT_RECEIVED) {
+			i_warning("Received SSL fatal alert: %s [%s]",
+				  get_alert_text(proxy),
+				  net_ip2host(&proxy->ip));
+		} else {
+			i_warning("Error reading from SSL client: %s [%s]",
+				  gnutls_strerror(error),
+				  net_ip2host(&proxy->ip));
+		}
 	}
 
         gnutls_alert_send_appropriate(proxy->session, error);
@@ -290,7 +304,7 @@ static gnutls_session initialize_state(void)
 	return session;
 }
 
-int ssl_proxy_new(int fd)
+int ssl_proxy_new(int fd, struct ip_addr *ip)
 {
         struct ssl_proxy *proxy;
 	gnutls_session session;
@@ -316,6 +330,7 @@ int ssl_proxy_new(int fd)
 	proxy->session = session;
 	proxy->fd_ssl = fd;
 	proxy->fd_plain = sfd[0];
+	proxy->ip = *ip;
 
 	proxy->refcount++;
 	ssl_handshake(proxy);

@@ -24,6 +24,7 @@ struct ssl_proxy {
 	int refcount;
 
 	SSL *ssl;
+	struct ip_addr ip;
         enum ssl_state state;
 
 	int fd_ssl, fd_plain;
@@ -150,9 +151,12 @@ static const char *ssl_last_error(void)
 	return buf;
 }
 
-static void ssl_handle_error(struct ssl_proxy *proxy, int err, const char *func)
+static void ssl_handle_error(struct ssl_proxy *proxy, int ret, const char *func)
 {
-	err = SSL_get_error(proxy->ssl, err);
+	const char *errstr;
+	int err;
+
+	err = SSL_get_error(proxy->ssl, ret);
 
 	switch (err) {
 	case SSL_ERROR_WANT_READ:
@@ -163,7 +167,19 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int err, const char *func)
 		break;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
-		/*i_warning("%s failed: %s", func, ssl_last_error());*/
+		if (verbose_ssl) {
+			if (ERR_peek_error() != 0)
+				errstr = ssl_last_error();
+			else {
+				if (ret == 0)
+					errstr = "EOF";
+				else
+					errstr = strerror(errno);
+			}
+
+			i_warning("%s syscall failed: %s [%s]",
+				  func, errstr, net_ip2host(&proxy->ip));
+		}
 		ssl_proxy_destroy(proxy);
 		break;
 	case SSL_ERROR_ZERO_RETURN:
@@ -171,12 +187,15 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int err, const char *func)
 		ssl_proxy_destroy(proxy);
 		break;
 	case SSL_ERROR_SSL:
-		/*i_warning("%s failed: %s", func, ssl_last_error());*/
+		if (verbose_ssl) {
+			i_warning("%s failed: %s [%s]", func, ssl_last_error(),
+				  net_ip2host(&proxy->ip));
+		}
 		ssl_proxy_destroy(proxy);
 		break;
 	default:
-		i_warning("%s failed: unknown failure %d (%s)",
-			  func, err, ssl_last_error());
+		i_warning("%s failed: unknown failure %d (%s) [%s]",
+			  func, err, ssl_last_error(), net_ip2host(&proxy->ip));
 		ssl_proxy_destroy(proxy);
 		break;
 	}
@@ -272,7 +291,7 @@ static void ssl_set_direction(struct ssl_proxy *proxy, int dir)
         proxy->io_ssl_dir = dir;
 }
 
-int ssl_proxy_new(int fd)
+int ssl_proxy_new(int fd, struct ip_addr *ip)
 {
 	struct ssl_proxy *proxy;
 	SSL *ssl;
@@ -307,6 +326,7 @@ int ssl_proxy_new(int fd)
 	proxy->ssl = ssl;
 	proxy->fd_ssl = fd;
 	proxy->fd_plain = sfd[0];
+	proxy->ip = *ip;
 
 	proxy->state = SSL_STATE_HANDSHAKE;
 	ssl_set_direction(proxy, IO_READ);
