@@ -98,7 +98,8 @@ mail_cache_foreach_rec(struct mail_cache_view *view,
 				return -1;
 			if (file_field >= cache->file_fields_count) {
 				mail_cache_set_corrupted(cache,
-					"field index too large");
+					"field index too large (%u >= %u)",
+					file_field, cache->file_fields_count);
 				return -1;
 			}
 		}
