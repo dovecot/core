@@ -49,6 +49,9 @@ static int mail_index_foreach(MailIndex *index,
 	i_assert(expunges_before < seq);
 	expunges_found = *expunges != '\0';
 
+	/* Reset index errors, since we later rely on it to check if failed */
+	index_reset_error(index);
+
 	/* get the first non-expunged message. note that if all messages
 	   were expunged in the range, this points outside wanted range. */
 	rec = index->lookup(index, seq - expunges_before);
