@@ -179,10 +179,15 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 	}
 
 	if (!commit) {
-		size = (size + ctx->last_grow_size) * 2;
-		if ((uoff_t)hdr->used_file_size + size > (uint32_t)-1)
-			size = (uint32_t)-1;
-		ctx->last_grow_size = size;
+		/* allocate some more space than we need */
+		size_t new_size = (size + ctx->last_grow_size) * 2;
+		if ((uoff_t)hdr->used_file_size + new_size > (uint32_t)-1)
+			new_size = (uint32_t)-1;
+		if (new_size > MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE) {
+			new_size = size > MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE ?
+				size : MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE;
+		}
+		ctx->last_grow_size = new_size;
 	}
 
 	if (mail_cache_grow_file(ctx->cache, size) < 0)

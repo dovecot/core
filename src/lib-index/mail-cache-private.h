@@ -25,6 +25,9 @@
 /* When more space is needed, grow the file n% larger than the previous size */
 #define MAIL_CACHE_GROW_PERCENTAGE 10
 
+/* When allocating space for transactions, don't use blocks larger than this. */
+#define MAIL_CACHE_MAX_RESERVED_BLOCK_SIZE (1024*512)
+
 #define MAIL_CACHE_LOCK_TIMEOUT 120
 #define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 60
 #define MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT (5*60)
