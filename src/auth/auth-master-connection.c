@@ -34,7 +34,7 @@ struct master_userdb_request {
 	struct auth_request *auth_request;
 };
 
-static void master_output(void *context);
+static int master_output(void *context);
 static void auth_master_connection_close(struct auth_master_connection *conn);
 static int auth_master_connection_unref(struct auth_master_connection *conn);
 
@@ -205,7 +205,7 @@ static void master_input(void *context)
 	}
 }
 
-static void master_output(void *context)
+static int master_output(void *context)
 {
 	struct auth_master_connection *conn = context;
 	int ret;
@@ -213,13 +213,14 @@ static void master_output(void *context)
 	if ((ret = o_stream_flush(conn->output)) < 0) {
 		/* transmit error, probably master died */
 		auth_master_connection_close(conn);
-		return;
+		return 1;
 	}
 
 	if (o_stream_get_buffer_used_size(conn->output) <= MAX_OUTBUF_SIZE/2) {
 		/* allow input again */
 		conn->io = io_add(conn->fd, IO_READ, master_input, conn);
 	}
+	return 1;
 }
 
 static void

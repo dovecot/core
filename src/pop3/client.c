@@ -35,7 +35,7 @@ static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
 static void client_input(void *context);
-static void client_output(void *context);
+static int client_output(void *context);
 
 static int sync_mailbox(struct mailbox *box)
 {
@@ -325,14 +325,14 @@ static void client_input(void *context)
 		client_destroy(client);
 }
 
-static void client_output(void *context)
+static int client_output(void *context)
 {
 	struct client *client = context;
 	int ret;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
 		client_destroy(client);
-		return;
+		return 1;
 	}
 
 	client->last_output = ioloop_time;
@@ -352,6 +352,8 @@ static void client_output(void *context)
 
 	if (client->cmd == NULL && client->io != NULL && client->waiting_input)
 		client_input(client);
+
+	return client->cmd == NULL;
 }
 
 static void idle_timeout(void *context __attr_unused__)

@@ -332,19 +332,20 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 static void stream_send_io(void *context)
 {
 	struct file_ostream *fstream = context;
+	int ret;
 
+	o_stream_ref(&fstream->ostream.ostream);
 	if (fstream->ostream.callback != NULL)
-		fstream->ostream.callback(fstream->ostream.context);
-	else {
-		if (_flush(&fstream->ostream) <= 0)
-			return;
-	}
+		ret = fstream->ostream.callback(fstream->ostream.context);
+	else
+		ret = _flush(&fstream->ostream);
 
-	if (IS_STREAM_EMPTY(fstream) && fstream->io != NULL) {
+	if (ret > 0 && IS_STREAM_EMPTY(fstream) && fstream->io != NULL) {
 		/* all sent */
 		io_remove(fstream->io);
 		fstream->io = NULL;
 	}
+	o_stream_unref(&fstream->ostream.ostream);
 }
 
 static size_t o_stream_add(struct file_ostream *fstream,

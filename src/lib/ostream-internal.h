@@ -21,7 +21,7 @@ struct _ostream {
 /* data: */
 	struct ostream ostream;
 
-	io_callback_t *callback;
+	stream_flush_callback_t *callback;
 	void *context;
 };
 

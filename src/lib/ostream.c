@@ -21,7 +21,8 @@ void o_stream_close(struct ostream *stream)
 }
 
 void o_stream_set_flush_callback(struct ostream *stream,
-				 io_callback_t *callback, void *context)
+				 stream_flush_callback_t *callback,
+				 void *context)
 {
 	struct _ostream *_stream = stream->real_stream;
 

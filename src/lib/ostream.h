@@ -12,6 +12,11 @@ struct ostream {
 	struct _ostream *real_stream;
 };
 
+/* Returns 1 if all data is sent (not necessarily flushed), 0 if not.
+   Pretty much the only real reason to return 0 is if you wish to send more
+   data to client which isn't buffered, eg. o_stream_send_istream(). */
+typedef int stream_flush_callback_t(void *context);
+
 /* Create new output stream from given file descriptor.
    If max_buffer_size is 0, an "optimal" buffer size is used (max 128kB). */
 struct ostream *
@@ -26,9 +31,11 @@ void o_stream_unref(struct ostream *stream);
 /* Mark the stream closed. Nothing will be sent after this call. */
 void o_stream_close(struct ostream *stream);
 
-/* Set IO_WRITE callback. Default will just try to flush the output. */
+/* Set IO_WRITE callback. Default will just try to flush the output and
+   finishes when the buffer is empty.  */
 void o_stream_set_flush_callback(struct ostream *stream,
-				 io_callback_t *callback, void *context);
+				 stream_flush_callback_t *callback,
+				 void *context);
 /* Change the maximum size for stream's output buffer to grow. */
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size);
 

@@ -138,18 +138,19 @@ static void client_start_tls(struct imap_client *client)
 	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 }
 
-static void client_output_starttls(void *context)
+static int client_output_starttls(void *context)
 {
 	struct imap_client *client = context;
 	int ret;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
 		client_destroy(client, "Disconnected");
-		return;
+		return 1;
 	}
 
 	if (ret > 0)
 		client_start_tls(client);
+	return 1;
 }
 
 static int cmd_starttls(struct imap_client *client)

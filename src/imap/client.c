@@ -15,7 +15,7 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static void client_output(void *context);
+static int client_output(void *context);
 
 struct client *client_create(int hin, int hout, struct namespace *namespaces)
 {
@@ -375,32 +375,35 @@ void _client_input(void *context)
 		client_destroy(client);
 }
 
-static void client_output(void *context)
+static int client_output(void *context)
 {
 	struct client *client = context;
-	int finished;
-
-	if (o_stream_flush(client->output) < 0) {
-		client_destroy(client);
-		return;
-	}
+	int ret, finished;
 
 	client->last_output = ioloop_time;
 
-	if (client->command_pending) {
-		o_stream_cork(client->output);
-		finished = client->cmd_func(client) || client->cmd_param_error;
-		o_stream_uncork(client->output);
-
-		if (finished) {
-			/* command execution was finished */
-                        client->bad_counter = 0;
-			_client_reset_command(client);
-
-			if (client->input_pending)
-				_client_input(client);
-		}
+	if ((ret = o_stream_flush(client->output)) < 0) {
+		client_destroy(client);
+		return 1;
 	}
+
+	if (!client->command_pending)
+		return 1;
+
+	/* continue processing command */
+	o_stream_cork(client->output);
+	finished = client->cmd_func(client) || client->cmd_param_error;
+	o_stream_uncork(client->output);
+
+	if (finished) {
+		/* command execution was finished */
+		client->bad_counter = 0;
+		_client_reset_command(client);
+
+		if (client->input_pending)
+			_client_input(client);
+	}
+	return finished;
 }
 
 static void idle_timeout(void *context __attr_unused__)

@@ -72,13 +72,13 @@ static void proxy_client_input(void *context)
                 login_proxy_free(proxy);
 }
 
-static void proxy_output(void *context)
+static int proxy_output(void *context)
 {
 	struct login_proxy *proxy = context;
 
 	if (o_stream_flush(proxy->proxy_output) < 0) {
                 login_proxy_free(proxy);
-		return;
+		return 1;
 	}
 
 	if (proxy->client_io == NULL &&
@@ -89,15 +89,16 @@ static void proxy_output(void *context)
 		proxy->client_io = io_add(proxy->client_fd, IO_READ,
 					  proxy_client_input, proxy);
 	}
+	return 1;
 }
 
-static void proxy_client_output(void *context)
+static int proxy_client_output(void *context)
 {
 	struct login_proxy *proxy = context;
 
 	if (o_stream_flush(proxy->client_output) < 0) {
                 login_proxy_free(proxy);
-		return;
+		return 1;
 	}
 
 	if (proxy->proxy_io == NULL &&
@@ -108,6 +109,7 @@ static void proxy_client_output(void *context)
 		proxy->proxy_io =
 			io_add(proxy->proxy_fd, IO_READ, proxy_input, proxy);
 	}
+	return 1;
 }
 
 static void proxy_prelogin_input(void *context)
