@@ -76,7 +76,7 @@ int maildir_storage_save(Mailbox *box, MailFlags flags,
 	t_push();
 
 	/* create the file into tmp/ directory */
-	tmpdir = t_strconcat(box->storage->dir, "/tmp", NULL);
+	tmpdir = t_strconcat(ibox->index->dir, "/tmp", NULL);
 	fname = maildir_read_into_tmp(box->storage, tmpdir, data, data_size);
 	if (fname == NULL) {
 		t_pop();
@@ -85,7 +85,7 @@ int maildir_storage_save(Mailbox *box, MailFlags flags,
 	tmp_path = t_strconcat(tmpdir, "/", fname, NULL);
 
 	fname = maildir_filename_set_flags(fname, flags);
-	new_path = t_strconcat(box->storage->dir, "/new/", fname, NULL);
+	new_path = t_strconcat(ibox->index->dir, "/new/", fname, NULL);
 
 	/* set the internal_date by modifying mtime */
 	buf.actime = ioloop_time;
