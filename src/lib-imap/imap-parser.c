@@ -502,9 +502,11 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 		*args = NULL;
 		return -1;
 	} else if ((parser->cur_type == ARG_PARSE_NONE &&
-		    parser->root_list->size >= count) || parser->eol) {
+		    parser->root_list->size >= count &&
+		    parser->list_arg == NULL) || parser->eol) {
 		/* all arguments read / end of line. ARG_PARSE_NONE checks
-		   that last argument isn't only partially parsed. */
+		   that last argument isn't only partially parsed.
+		   list_arg == NULL makes sure the lists are closed. */
 		if (count >= parser->root_list->alloc) {
 			/* unused arguments must be NIL-filled. */
 			parser->root_list->alloc = count+1;
