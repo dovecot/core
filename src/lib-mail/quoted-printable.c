@@ -49,7 +49,7 @@ void quoted_printable_decode(const unsigned char *src, size_t src_size,
 		hexbuf[0] = src[src_pos+1];
 		hexbuf[1] = src[src_pos+2];
 
-		if (hex_to_binary(hexbuf, dest) == 1) {
+		if (hex_to_binary(hexbuf, dest) == 0) {
 			src_pos += 2;
 			next = src_pos+1;
 		} else {

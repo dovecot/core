@@ -241,7 +241,7 @@ const char *imap_get_base_subject_cased(pool_t pool, const char *subject,
 		*is_reply_or_forward_r = FALSE;
 
 	subject_len = strlen(subject);
-	buf = buffer_create_dynamic(pool, subject_len, (size_t)-1);
+	buf = buffer_create_dynamic(pool, subject_len);
 
 	/* (1) Convert any RFC 2047 encoded-words in the subject to
 	   UTF-8.  Convert all tabs and continuations to space.

@@ -40,8 +40,7 @@ static struct message_part *get_cached_parts(struct index_mail *mail)
 	const char *error;
 
 	t_push();
-	part_buf = buffer_create_dynamic(pool_datastack_create(),
-					 128, (size_t)-1);
+	part_buf = buffer_create_dynamic(pool_datastack_create(), 128);
 	if (mail_cache_lookup_field(mail->trans->cache_view, part_buf,
 			mail->data.seq,
 			cache_fields[MAIL_CACHE_MESSAGEPART].idx) <= 0) {
@@ -393,8 +392,7 @@ static void index_mail_parse_body(struct index_mail *mail, int need_parts)
 	    (decision != MAIL_CACHE_DECISION_NO || need_parts ||
 	     (mail->wanted_fields & MAIL_FETCH_MESSAGE_PARTS) != 0)) {
 		t_push();
-		buffer = buffer_create_dynamic(pool_datastack_create(),
-					       1024, (size_t)-1);
+		buffer = buffer_create_dynamic(pool_datastack_create(), 1024);
 		message_part_serialize(mail->data.parts, buffer);
 
 		buf_data = buffer_get_data(buffer, &buf_size);

@@ -727,8 +727,8 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	}
 
 	if (file->buffer == NULL) {
-		file->buffer = buffer_create_dynamic(default_pool,
-						     LOG_PREFETCH, (size_t)-1);
+		file->buffer =
+			buffer_create_dynamic(default_pool, LOG_PREFETCH);
 		file->buffer_offset = offset;
 	}
 
@@ -978,10 +978,8 @@ transaction_save_ext_intro(struct mail_index_transaction *t,
 	uint32_t ext_id;
 	size_t pos;
 
-	if (t->ext_intros == NULL) {
-		t->ext_intros = buffer_create_dynamic(default_pool,
-						      128, (size_t)-1);
-	}
+	if (t->ext_intros == NULL)
+		t->ext_intros = buffer_create_dynamic(default_pool, 128);
 
 	t_push();
 	name = t_strndup((const char *)(intro+1), intro->name_size);
@@ -1138,7 +1136,7 @@ static const buffer_t *get_cache_reset_buf(struct mail_index_transaction *t)
 	memset(&u, 0, sizeof(u));
 	u.new_file_seq = t->new_cache_file_seq;
 
-	buf = buffer_create_static(pool_datastack_create(), sizeof(u));
+	buf = buffer_create_static_hard(pool_datastack_create(), sizeof(u));
 	buffer_append(buf, &u, sizeof(u));
 	return buf;
 }
@@ -1153,7 +1151,7 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t)
 
 	memset(&u, 0, sizeof(u));
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 	for (offset = 0; offset <= sizeof(t->hdr_change); offset++) {
 		if (offset < sizeof(t->hdr_change) && t->hdr_mask[offset]) {
 			if (state == 0) {
@@ -1238,7 +1236,7 @@ mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
 	}
 
 	/* and register them */
-	buf = buffer_create_dynamic(pool_datastack_create(), 128, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 128);
 	for (i = 0; i < size; i++) {
 		if (intro[i].name_size != 0) {
 			intro[i].name_size = strlen(ext[i].name);

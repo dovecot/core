@@ -54,7 +54,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 
 	match = buffer_get_data(mail->header_match, &match_size);
 	header = buffer_get_data(mail->header_data, NULL);
-	buf = buffer_create_dynamic(pool_datastack_create(), 256, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	for (i = match_idx = 0; i < size; i = j) {
 		while (match_idx < lines[i].field_idx &&
@@ -125,14 +125,10 @@ void index_mail_parse_header_init(struct index_mail *mail,
 
 	mail->header_seq = mail->data.seq;
 	if (mail->header_data == NULL) {
-		mail->header_data =
-			buffer_create_dynamic(default_pool, 4096, (size_t)-1);
-		mail->header_lines =
-			buffer_create_dynamic(default_pool, 256, (size_t)-1);
-		mail->header_match =
-			buffer_create_dynamic(default_pool, 64, (size_t)-1);
-		mail->header_offsets =
-			buffer_create_dynamic(default_pool, 256, (size_t)-1);
+		mail->header_data = buffer_create_dynamic(default_pool, 4096);
+		mail->header_lines = buffer_create_dynamic(default_pool, 256);
+		mail->header_match = buffer_create_dynamic(default_pool, 64);
+		mail->header_offsets = buffer_create_dynamic(default_pool, 256);
 	} else {
 		buffer_set_used_size(mail->header_data, 0);
 		buffer_set_used_size(mail->header_lines, 0);
@@ -586,7 +582,7 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 		headers = sorted_headers;
 	}
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 128, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 128);
 	for (i = 0; i < size; i++) {
 		header_field.name = t_strconcat("hdr.", headers[i], NULL);
 		buffer_append(buf, &header_field, sizeof(header_field));

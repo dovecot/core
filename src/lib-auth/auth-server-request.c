@@ -86,7 +86,7 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 		auth_request.ip_family = request->local_ip.family;
 
 	t_push();
-	buf = buffer_create_dynamic(pool_datastack_create(), 256, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 	buffer_set_used_size(buf, sizeof(auth_request));
 
 	if (auth_request.ip_family != 0) {

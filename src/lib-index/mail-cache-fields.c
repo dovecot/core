@@ -281,8 +281,7 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	}
 
 	t_push();
-	buffer = buffer_create_dynamic(pool_datastack_create(),
-				       256, (size_t)-1);
+	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	copy_to_buf(cache, buffer,
 		    offsetof(struct mail_cache_field_private, last_used),

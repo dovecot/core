@@ -703,7 +703,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			else {
 				ctx->value_buf =
 					buffer_create_dynamic(default_pool,
-							      4096, (size_t)-1);
+							      4096);
 			}
 			buffer_append(ctx->value_buf,
 				      line->value, line->value_len);

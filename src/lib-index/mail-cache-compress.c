@@ -135,8 +135,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	o_stream_send(output, &hdr, sizeof(hdr));
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.buffer = buffer_create_dynamic(default_pool, 4096, (size_t)-1);
-	ctx.field_seen = buffer_create_dynamic(default_pool, 64, (size_t)-1);
+	ctx.buffer = buffer_create_dynamic(default_pool, 4096);
+	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
 	ctx.field_seen_value = 0;
 
 	mail_index_reset_cache(t, hdr.file_seq);
@@ -181,8 +181,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
                         cache->field_file_map[i] = (uint32_t)-1;
 
 		t_push();
-		buffer = buffer_create_dynamic(pool_datastack_create(),
-					       256, (size_t)-1);
+		buffer = buffer_create_dynamic(pool_datastack_create(), 256);
 		mail_cache_header_fields_get(cache, buffer);
 		o_stream_send(output, buffer_get_data(buffer, NULL),
 			      buffer_get_used_size(buffer));

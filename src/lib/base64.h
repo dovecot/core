@@ -1,14 +1,13 @@
 #ifndef __BASE64_H
 #define __BASE64_H
 
-/* Translates binary data into base64. The src must not point to dest buffer.
-   Returns 1 if all ok, 0 if dest buffer got full. */
-int base64_encode(const void *src, size_t src_size, buffer_t *dest);
+/* Translates binary data into base64. The src must not point to dest buffer. */
+void base64_encode(const void *src, size_t src_size, buffer_t *dest);
 
 /* Translates base64 data into binary and appends it to dest buffer. dest may
-   point to same buffer as src. Returns 1 if all ok, 0 if dest buffer got full
-   or -1 if data is invalid. Any CR, LF characters are ignored, as well as
-   whitespace at beginning or end of line.
+   point to same buffer as src. Returns 0 if all ok, -1 if data is invalid.
+   Any CR, LF characters are ignored, as well as whitespace at beginning or
+   end of line.
 
    This function may be called multiple times for parsing the same stream.
    If src_pos is non-NULL, it's updated to first non-translated character in

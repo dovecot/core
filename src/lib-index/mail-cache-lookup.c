@@ -430,7 +430,7 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	ctx.fields_count = fields_count;
 
 	ctx.max_field = 0;
-	buf = buffer_create_dynamic(pool_datastack_create(), 32, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 32);
 	for (i = 0; i < fields_count; i++) {
 		i_assert(fields[i] < cache->fields_count);
 		if (cache->field_file_map[fields[i]] == (unsigned int)-1) {
@@ -447,8 +447,7 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	}
 	ctx.fields_found = buffer_get_modifyable_data(buf, NULL);
 
-	ctx.data = buffer_create_dynamic(pool_datastack_create(),
-					 256, (size_t)-1);
+	ctx.data = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	/* we need to return them in sorted order. create array:
 	   { line number -> cache file offset } */

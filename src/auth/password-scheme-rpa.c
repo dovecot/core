@@ -13,7 +13,7 @@ void *ucs2be_str(pool_t pool, const char *str, size_t *size);
  */
 void *ucs2be_str(pool_t pool, const char *str, size_t *size)
 {
-	buffer_t *buf = buffer_create_dynamic(pool, 32, (size_t)-1);
+	buffer_t *buf = buffer_create_dynamic(pool, 32);
 
 	while (*str) {
 		buffer_append_c(buf, '\0');

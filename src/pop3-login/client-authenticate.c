@@ -105,8 +105,7 @@ static void client_send_auth_data(struct pop3_client *client,
 
 	t_push();
 
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    size*2, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), size*2);
 	buffer_append(buf, "+ ", 2);
 	base64_encode(data, size, buf);
 	buffer_append(buf, "\r\n", 2);
@@ -283,7 +282,7 @@ static void client_auth_input(void *context)
 	linelen = strlen(line);
 	buf = buffer_create_static_hard(pool_datastack_create(), linelen);
 
-	if (base64_decode(line, linelen, NULL, buf) <= 0) {
+	if (base64_decode(line, linelen, NULL, buf) < 0) {
 		/* failed */
 		client_auth_abort(client, "Invalid base64 data");
 	} else if (client->common.auth_request == NULL) {
@@ -359,7 +358,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 	argslen = strlen(args);
 	buf = buffer_create_static_hard(pool_datastack_create(), argslen);
 
-	if (base64_decode(args, argslen, NULL, buf) <= 0) {
+	if (base64_decode(args, argslen, NULL, buf) < 0) {
 		/* failed */
 		client_send_line(client, "-ERR Invalid base64 data.");
 		return TRUE;
@@ -424,14 +423,13 @@ int cmd_apop(struct pop3_client *client, const char *args)
 	}
 
 	/* APOP challenge \0 username \0 APOP response */
-	apop_data = buffer_create_dynamic(pool_datastack_create(),
-					  128, (size_t)-1);
+	apop_data = buffer_create_dynamic(pool_datastack_create(), 128);
 	buffer_append(apop_data, client->apop_challenge,
 		      strlen(client->apop_challenge)+1);
 	buffer_append(apop_data, args, (size_t)(p-args));
 	buffer_append_c(apop_data, '\0');
 
-	if (hex_to_binary(p+1, apop_data) <= 0) {
+	if (hex_to_binary(p+1, apop_data) < 0) {
 		if (verbose_auth) {
 			client_syslog(client, "APOP failed: "
 				      "Invalid characters in MD5 response");

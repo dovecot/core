@@ -213,10 +213,10 @@ static int message_search_body_block(struct part_search_context *ctx,
 	const unsigned char *inbuf;
 	buffer_t *outbuf;
         enum charset_result result;
-	size_t block_pos, inbuf_size, inbuf_left, ret;
+	size_t block_pos, inbuf_size, inbuf_left;
 
-	outbuf = buffer_create_static(pool_datastack_create(),
-				      DECODE_BLOCK_SIZE);
+	outbuf = buffer_create_static_hard(pool_datastack_create(),
+					   DECODE_BLOCK_SIZE);
 	for (block_pos = 0; block_pos < buffer_get_used_size(block); ) {
 		if (buffer_get_used_size(ctx->decode_buf) == 0) {
 			/* we can use the buffer directly without copying */
@@ -226,9 +226,9 @@ static int message_search_body_block(struct part_search_context *ctx,
 		} else {
 			/* some characters already in buffer, ie. last
 			   conversion contained partial data */
-			block_pos += buffer_append_buf(ctx->decode_buf,
-						       block, block_pos,
-						       (size_t)-1);
+			buffer_append_buf(ctx->decode_buf, block,
+					  block_pos, block->used);
+                        block_pos += block->used;
 
 			inbuf = buffer_get_data(ctx->decode_buf, &inbuf_size);
 		}
@@ -250,11 +250,9 @@ static int message_search_body_block(struct part_search_context *ctx,
 			break;
 		case CHARSET_RET_INCOMPLETE_INPUT:
 			/* save the partial sequence to buffer */
-			ret = buffer_write(ctx->decode_buf, 0,
-					   inbuf + inbuf_size, inbuf_left);
-			i_assert(ret == inbuf_left);
-
-			buffer_set_used_size(ctx->decode_buf, ret);
+			buffer_write(ctx->decode_buf, 0,
+				     inbuf + inbuf_size, inbuf_left);
+			buffer_set_used_size(ctx->decode_buf, inbuf_left);
 			break;
 
 		case CHARSET_RET_INVALID_INPUT:
@@ -294,7 +292,8 @@ static int message_search_body(struct part_search_context *ctx,
 	if (ctx->translation == NULL)
 		ctx->translation = charset_to_utf8_begin("ascii", NULL);
 
-	ctx->decode_buf = buffer_create_static(pool_datastack_create(), 256);
+	ctx->decode_buf =
+		buffer_create_static_hard(pool_datastack_create(), 256);
 	ctx->match_buf = buffer_create_static_hard(pool_datastack_create(),
 						   sizeof(size_t) *
 						   ctx->body_ctx->key_len);

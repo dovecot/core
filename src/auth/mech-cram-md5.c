@@ -62,7 +62,7 @@ static int verify_credentials(struct cram_auth_request *auth,
 		buffer_create_data(pool_datastack_create(),
 				   context_digest, sizeof(context_digest));
 
-	if (hex_to_binary(credentials, context_digest_buf) <= 0)
+	if (hex_to_binary(credentials, context_digest_buf) < 0)
 		return FALSE;
 
 	hmac_md5_set_cram_context(&ctx, context_digest);

@@ -45,8 +45,7 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	ctx->cache = view->cache;
 	ctx->view = view;
 	ctx->trans = t;
-	ctx->reservations =
-		buffer_create_dynamic(system_pool, 256, (size_t)-1);
+	ctx->reservations = buffer_create_dynamic(system_pool, 256);
 
 	if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
 		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
@@ -484,10 +483,8 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 			      sizeof(ctx->prev_seq));
 		ctx->prev_pos = size;
 	} else if (ctx->cache_data == NULL) {
-		ctx->cache_data =
-			buffer_create_dynamic(system_pool, 32768, (size_t)-1);
-		ctx->cache_data_seq =
-			buffer_create_dynamic(system_pool, 256, (size_t)-1);
+		ctx->cache_data = buffer_create_dynamic(system_pool, 32768);
+		ctx->cache_data_seq = buffer_create_dynamic(system_pool, 256);
 	}
 
 	memset(&new_rec, 0, sizeof(new_rec));
@@ -589,8 +586,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	}
 
 	t_push();
-	buffer = buffer_create_dynamic(pool_datastack_create(),
-				       256, (size_t)-1);
+	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
 	mail_cache_header_fields_get(cache, buffer);
 	data = buffer_get_data(buffer, &size);
 

@@ -9,7 +9,7 @@
 
 string_t *str_new(pool_t pool, size_t initial_size)
 {
-	return buffer_create_dynamic(pool, initial_size, (size_t)-1);
+	return buffer_create_dynamic(pool, initial_size);
 }
 
 string_t *t_str_new(size_t initial_size)
@@ -22,32 +22,20 @@ void str_free(string_t *str)
 	buffer_free(str);
 }
 
-static int str_add_nul(string_t *str)
+static void str_add_nul(string_t *str)
 {
 	size_t len;
 
 	len = str_len(str);
-	if (buffer_write(str, len, "", 1) != 1) {
-		/* no space - doesn't happen with our dynamically growing
-		   strings though, but make sure it's \0 terminated. */
-		if (len == 0)
-			return FALSE;
-
-		len--;
-		if (buffer_write(str, len, "", 1) != 1)
-			i_panic("BUG in str_c()");
-	}
+	buffer_write(str, len, "", 1);
 
 	/* remove the \0 - we don't want to keep it */
 	buffer_set_used_size(str, len);
-	return TRUE;
 }
 
 const char *str_c(string_t *str)
 {
-	if (!str_add_nul(str))
-		return "";
-
+	str_add_nul(str);
 	return buffer_get_data(str, NULL);
 }
 
@@ -58,9 +46,7 @@ const unsigned char *str_data(const string_t *str)
 
 char *str_c_modifyable(string_t *str)
 {
-	if (!str_add_nul(str))
-		return NULL;
-
+	str_add_nul(str);
 	return buffer_get_modifyable_data(str, NULL);
 }
 

@@ -1305,8 +1305,8 @@ __again:
 	sync_ctx.sync_view = sync_view;
 	sync_ctx.t = mail_index_transaction_begin(sync_view, FALSE);
 
-	sync_ctx.mails = buffer_create_dynamic(default_pool, 4096, (size_t)-1);
-	sync_ctx.syncs = buffer_create_dynamic(default_pool, 256, (size_t)-1);
+	sync_ctx.mails = buffer_create_dynamic(default_pool, 4096);
+	sync_ctx.syncs = buffer_create_dynamic(default_pool, 256);
 
 	ret = mail_index_get_header(sync_view, &sync_ctx.hdr);
 	i_assert(ret == 0);

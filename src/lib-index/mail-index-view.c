@@ -158,8 +158,7 @@ static void mail_index_view_ref_map(struct mail_index_view *view,
 				return;
 		}
 	} else {
-		view->map_refs =
-			buffer_create_dynamic(default_pool, 128, (size_t)-1);
+		view->map_refs = buffer_create_dynamic(default_pool, 128);
 	}
 
 	map->refcount++;

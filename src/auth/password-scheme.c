@@ -160,14 +160,15 @@ static int sha1_verify(const char *plaintext, const char *password,
 	unsigned char sha1_digest[SHA1_RESULTLEN];
 	const char *data;
 	buffer_t *buf;
-	size_t size;
+	size_t size, password_len;
 
 	sha1_get_digest(plaintext, strlen(plaintext), sha1_digest);
 
-	buf = buffer_create_static(pool_datastack_create(),
-				   MAX_BASE64_DECODED_SIZE(strlen(password)+1));
+	password_len = strlen(password);
+	buf = buffer_create_static_hard(pool_datastack_create(),
+					MAX_BASE64_DECODED_SIZE(password_len));
 
-	if (base64_decode(password, strlen(password), NULL, buf) <= 0) {
+	if (base64_decode(password, password_len, NULL, buf) < 0) {
 		i_error("sha1_verify(%s): failed decoding SHA base64", user);
 		return 0;
 	}
@@ -207,14 +208,15 @@ static int ssha_verify(const char *plaintext, const char *password,
 	unsigned char sha1_digest[SHA1_RESULTLEN];
 	buffer_t *buf;
 	const char *data;
-	size_t size;
+	size_t size, password_len;
 	struct sha1_ctxt ctx;
 
 	/* format: base64-encoded MD5 hash and salt */
-	buf = buffer_create_static(pool_datastack_create(),
-				   MAX_BASE64_DECODED_SIZE(strlen(password)+1));
+	password_len = strlen(password);
+	buf = buffer_create_static_hard(pool_datastack_create(),
+					MAX_BASE64_DECODED_SIZE(password_len));
 
-	if (base64_decode(password, strlen(password), NULL, buf) <= 0) {
+	if (base64_decode(password, password_len, NULL, buf) < 0) {
 		i_error("ssha_verify(%s): failed decoding SSHA base64", user);
 		return 0;
 	}
@@ -258,14 +260,15 @@ static int smd5_verify(const char *plaintext, const char *password,
 	unsigned char md5_digest[16];
 	buffer_t *buf;
 	const char *data;
-	size_t size;
+	size_t size, password_len;
 	struct md5_context ctx;
 
 	/* format: base64-encoded MD5 hash and salt */
-	buf = buffer_create_static(pool_datastack_create(),
-				   MAX_BASE64_DECODED_SIZE(strlen(password)+1));
+	password_len = strlen(password);
+	buf = buffer_create_static_hard(pool_datastack_create(),
+					MAX_BASE64_DECODED_SIZE(password_len));
 
-	if (base64_decode(password, strlen(password), NULL, buf) <= 0) {
+	if (base64_decode(password, password_len, NULL, buf) < 0) {
 		i_error("smd5_verify(%s): failed decoding SMD5 base64", user);
 		return 0;
 	}
@@ -378,14 +381,15 @@ static int ldap_md5_verify(const char *plaintext, const char *password,
 	unsigned char md5_digest[16];
 	buffer_t *buf;
 	const char *data;
-	size_t size;
+	size_t size, password_len;
 
 	md5_get_digest(plaintext, strlen(plaintext), md5_digest);
 
-	buf = buffer_create_static(pool_datastack_create(),
-				   MAX_BASE64_DECODED_SIZE(strlen(password)+1));
+	password_len = strlen(password);
+	buf = buffer_create_static_hard(pool_datastack_create(),
+					MAX_BASE64_DECODED_SIZE(password_len));
 
-	if (base64_decode(password, strlen(password), NULL, buf) <= 0) {
+	if (base64_decode(password, password_len, NULL, buf) < 0) {
 		i_error("ldap_md5_verify(%s): failed decoding MD5 base64",
 			user);
 		return 0;
@@ -464,7 +468,7 @@ void password_schemes_init(void)
 	const char *symbol;
 #endif
 
-	schemes_buf = buffer_create_dynamic(default_pool, 128, (size_t)-1);
+	schemes_buf = buffer_create_dynamic(default_pool, 128);
 	for (s = default_schemes; s->name != NULL; s++)
 		buffer_append(schemes_buf, s, sizeof(*s));
 

@@ -333,12 +333,10 @@ mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 	view = i_new(struct mail_cache_view, 1);
 	view->cache = cache;
 	view->view = iview;
-	view->offsets_buf =
-		buffer_create_dynamic(default_pool, 128, (size_t)-1);
+	view->offsets_buf = buffer_create_dynamic(default_pool, 128);
 	view->cached_exists_buf =
 		buffer_create_dynamic(default_pool,
-				      cache->file_fields_count + 10,
-				      (size_t)-1);
+				      cache->file_fields_count + 10);
 	return view;
 }
 

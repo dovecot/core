@@ -199,10 +199,8 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 
 	t->log_updates = TRUE;
 
-	if (t->appends == NULL) {
-		t->appends = buffer_create_dynamic(default_pool,
-						   4096, (size_t)-1);
-	}
+	if (t->appends == NULL)
+		t->appends = buffer_create_dynamic(default_pool, 4096);
 
 	/* sequence number is visible only inside given view,
 	   so let it generate it */
@@ -256,8 +254,7 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	/* expunges is a sorted array of {seq1, seq2, ..}, .. */
 
 	if (t->expunges == NULL) {
-		t->expunges = buffer_create_dynamic(default_pool,
-						    1024, (size_t)-1);
+		t->expunges = buffer_create_dynamic(default_pool, 1024);
 		buffer_append(t->expunges, &exp, sizeof(exp));
 		return;
 	}
@@ -447,10 +444,8 @@ static void mail_index_transaction_add_last(struct mail_index_transaction *t)
 
         mail_index_transaction_get_last(t, &update);
 
-	if (t->updates == NULL) {
-		t->updates = buffer_create_dynamic(default_pool,
-						   4096, (size_t)-1);
-	}
+	if (t->updates == NULL)
+		t->updates = buffer_create_dynamic(default_pool, 4096);
 
 	data = buffer_get_modifyable_data(t->updates, &size);
 	size /= sizeof(*data);
@@ -543,7 +538,7 @@ static int mail_index_update_seq_buffer(buffer_t **buffer, uint32_t seq,
 	size_t pos;
 
 	if (*buffer == NULL) {
-		*buffer = buffer_create_dynamic(default_pool, 1024, (size_t)-1);
+		*buffer = buffer_create_dynamic(default_pool, 1024);
 		buffer_append(*buffer, &seq, sizeof(seq));
 		buffer_append(*buffer, record, record_size);
 		return FALSE;
@@ -694,10 +689,8 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 		 (ext->record_size == record_size &&
 		  ext->record_align == record_align));
 
-	if (t->ext_resizes == NULL) {
-		t->ext_resizes =
-			buffer_create_dynamic(default_pool, 128, (size_t)-1);
-	}
+	if (t->ext_resizes == NULL)
+		t->ext_resizes = buffer_create_dynamic(default_pool, 128);
 
 	intro.hdr_size = hdr_size;
 	intro.record_size = record_size;
@@ -745,10 +738,8 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 		record_size = ext[ext_id].record_size;
 	}
 
-	if (t->ext_rec_updates == NULL) {
-		t->ext_rec_updates =
-			buffer_create_dynamic(default_pool, 128, (size_t)-1);
-	}
+	if (t->ext_rec_updates == NULL)
+		t->ext_rec_updates = buffer_create_dynamic(default_pool, 128);
 	buf = buffer_get_space_unsafe(t->ext_rec_updates,
 				      ext_id * sizeof(buffer_t *),
 				      sizeof(buffer_t *));

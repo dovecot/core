@@ -46,7 +46,7 @@
 static const char basis_64[] =
    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-int base64_encode(const void *src, size_t src_size, buffer_t *dest)
+void base64_encode(const void *src, size_t src_size, buffer_t *dest)
 {
 	const unsigned char *src_c = src;
 	size_t src_pos;
@@ -54,36 +54,28 @@ int base64_encode(const void *src, size_t src_size, buffer_t *dest)
 
 	for (src_pos = 0; src_pos < src_size; ) {
 		c1 = src_c[src_pos++];
-		if (buffer_append_c(dest, basis_64[c1 >> 2]) != 1)
-			return 0;
+		buffer_append_c(dest, basis_64[c1 >> 2]);
 
 		c2 = src_pos == src_size ? 0 : src_c[src_pos];
-		if (buffer_append_c(dest, basis_64[((c1 & 0x03) << 4) |
-						   ((c2 & 0xf0) >> 4)]) != 1)
-			return 0;
+		buffer_append_c(dest, basis_64[((c1 & 0x03) << 4) |
+					       ((c2 & 0xf0) >> 4)]);
 
 		if (src_pos++ == src_size) {
-			if (buffer_append(dest, "==", 2) != 2)
-				return 0;
+			buffer_append(dest, "==", 2);
 			break;
 		}
 
 		c3 = src_pos == src_size ? 0 : src_c[src_pos];
-		if (buffer_append_c(dest, basis_64[((c2 & 0x0f) << 2) |
-						   ((c3 & 0xc0) >> 6)]) != 1)
-			return 0;
+		buffer_append_c(dest, basis_64[((c2 & 0x0f) << 2) |
+					       ((c3 & 0xc0) >> 6)]);
 
 		if (src_pos++ == src_size) {
-			if (buffer_append_c(dest, '=') != 1)
-				return 0;
+			buffer_append_c(dest, '=');
 			break;
 		}
 
-		if (buffer_append_c(dest, basis_64[c3 & 0x3f]) != 1)
-			return 0;
+		buffer_append_c(dest, basis_64[c3 & 0x3f]);
 	}
-
-	return 1;
 }
 
 #define XX 127
@@ -115,7 +107,7 @@ int base64_decode(const void *src, size_t src_size,
 	size_t src_pos;
 	unsigned char buf[4];
 	int c1, c2, c3, c4;
-	size_t ret, size;
+	size_t size;
 
 	for (src_pos = 0; src_pos+3 < src_size; ) {
 		c1 = src_c[src_pos++];
@@ -156,17 +148,7 @@ int base64_decode(const void *src, size_t src_size,
 			}
 		}
 
-		ret = buffer_append(dest, buf, size);
-		if (ret != size) {
-			/* buffer full */
-			if (src_pos_r != NULL) {
-				*src_pos_r = src_pos-4;
-                                ret = buffer_get_used_size(dest) - (size-ret);
-				buffer_set_used_size(dest, ret);
-			}
-			return 0;
-		}
-
+		buffer_append(dest, buf, size);
 		if (size < 3) {
 			/* end of base64 data */
 			break;
@@ -176,5 +158,5 @@ int base64_decode(const void *src, size_t src_size,
 	if (src_pos_r != NULL)
 		*src_pos_r = src_pos;
 
-	return 1;
+	return 0;
 }

@@ -333,7 +333,7 @@ mech_rpa_build_token2(struct rpa_auth_request *auth,
         length = sizeof(rpa_oid) + 3 + RPA_SCHALLENGE_LEN +
 		RPA_TIMESTAMP_LEN + 2 + realms_len;
 
-	buf = buffer_create_dynamic(auth->pool, length + 4, (size_t)-1);
+	buf = buffer_create_dynamic(auth->pool, length + 4);
 
 	buffer_append_c(buf, ASN1_APPLICATION);
 	buffer_append_asn1_length(buf, length);
@@ -373,7 +373,7 @@ mech_rpa_build_token4(struct rpa_auth_request *auth, size_t *size)
 	buffer_t *buf;
 	unsigned char server_response[16];
 
-	buf = buffer_create_dynamic(auth->pool, length + 4, (size_t)-1);
+	buf = buffer_create_dynamic(auth->pool, length + 4);
 
 	buffer_append_c(buf, ASN1_APPLICATION);
 	buffer_append_asn1_length(buf, length);

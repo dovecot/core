@@ -136,8 +136,7 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 	uint32_t flags = ntlmssp_flags(read_le32(&request->flags));
 	struct ntlmssp_challenge c;
 
-	buf = buffer_create_dynamic(pool, sizeof(struct ntlmssp_challenge),
-				    (size_t)-1);
+	buf = buffer_create_dynamic(pool, sizeof(struct ntlmssp_challenge));
 
 	memset(&c, 0, sizeof(c));
 	write_le64(&c.magic, NTLMSSP_MAGIC);

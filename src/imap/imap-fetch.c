@@ -30,10 +30,8 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 	void *data;
 	size_t size;
 
-	if (fetch_handlers == NULL) {
-		fetch_handlers = buffer_create_dynamic(default_pool,
-						       128, (size_t)-1);
-	}
+	if (fetch_handlers == NULL)
+		fetch_handlers = buffer_create_dynamic(default_pool, 128);
 	buffer_append(fetch_handlers, handlers, sizeof(*handlers) * count);
 
 	data = buffer_get_modifyable_data(fetch_handlers, &size);
@@ -93,10 +91,8 @@ struct imap_fetch_context *imap_fetch_init(struct client *client)
 
 	ctx->cur_str = str_new(default_pool, 8192);
 	ctx->seen_flag.flags = MAIL_SEEN;
-	ctx->all_headers_buf =
-		buffer_create_dynamic(client->cmd_pool, 128, (size_t)-1);
-	ctx->handlers =
-		buffer_create_dynamic(client->cmd_pool, 128, (size_t)-1);
+	ctx->all_headers_buf = buffer_create_dynamic(client->cmd_pool, 128);
+	ctx->handlers = buffer_create_dynamic(client->cmd_pool, 128);
 	return ctx;
 }
 

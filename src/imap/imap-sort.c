@@ -240,8 +240,7 @@ int imap_sort(struct client *client, const char *charset,
 	ctx->box = client->mailbox;
 	ctx->output = client->output;
 	ctx->sort_buffer = buffer_create_dynamic(system_pool,
-						 128 * ctx->sort_element_size,
-						 (size_t)-1);
+						 128 * ctx->sort_element_size);
 
 	ctx->str = t_str_new(STRBUF_SIZE);
 	str_append(ctx->str, "* SORT");

@@ -117,9 +117,8 @@ _sendv_crlf(struct _ostream *stream, const struct const_iovec *iov,
 	t_push();
 	iov_buf = buffer_create_dynamic(unsafe_data_stack_pool,
 					sizeof(struct const_iovec *) *
-					IOVBUF_COUNT, (size_t)-1);
-	diff_buf = buffer_create_dynamic(unsafe_data_stack_pool,
-					 IOVBUF_COUNT, (size_t)-1);
+					IOVBUF_COUNT);
+	diff_buf = buffer_create_dynamic(unsafe_data_stack_pool, IOVBUF_COUNT);
 	total = 0;
 	for (vec = 0; vec < iov_count; vec++) {
 		data = iov[vec].iov_base;
@@ -224,9 +223,8 @@ _sendv_lf(struct _ostream *stream, const struct const_iovec *iov,
 	t_push();
 	iov_buf = buffer_create_dynamic(unsafe_data_stack_pool,
 					sizeof(struct const_iovec *) *
-					IOVBUF_COUNT, (size_t)-1);
-	diff_buf = buffer_create_dynamic(unsafe_data_stack_pool,
-					 IOVBUF_COUNT, (size_t)-1);
+					IOVBUF_COUNT);
+	diff_buf = buffer_create_dynamic(unsafe_data_stack_pool, IOVBUF_COUNT);
 	total = 0;
 	for (vec = 0; vec < iov_count; vec++) {
 		data = iov[vec].iov_base;

@@ -58,7 +58,7 @@ static void auth_handle_handshake(struct auth_server_connection *conn,
 	}
 
 	buf = buffer_create_dynamic(conn->pool, sizeof(mech_desc) *
-				    handshake->mech_count, (size_t)-1);
+				    handshake->mech_count);
 	for (i = 0; i < handshake->mech_count; i++) {
 		memcpy(&handshake_mech_desc,
 		       data + sizeof(handshake_mech_desc) * i,

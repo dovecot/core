@@ -205,7 +205,7 @@ void *mech_auth_success(struct auth_client_request_reply *reply,
 {
 	buffer_t *buf;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256, (size_t)-1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	reply->username_idx = 0;
 	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
@@ -480,8 +480,7 @@ void mech_init(void)
 #endif
 	ssl_require_client_cert = getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
 
-	auth_failures_buf =
-		buffer_create_dynamic(default_pool, 1024, (size_t)-1);
+	auth_failures_buf = buffer_create_dynamic(default_pool, 1024);
         to_auth_failures = timeout_add(2000, auth_failure_timeout, NULL);
 }
 

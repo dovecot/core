@@ -21,8 +21,7 @@ void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq)
 	size_t dest_idx;
 
 	if (ibox->recent_flags_start_seq == 0) {
-		ibox->recent_flags =
-			buffer_create_dynamic(default_pool, 128, (size_t)-1);
+		ibox->recent_flags = buffer_create_dynamic(default_pool, 128);
 		ibox->recent_flags_start_seq = seq;
 	} else if (seq < ibox->recent_flags_start_seq) {
 		dest_idx = ibox->recent_flags_start_seq - seq;

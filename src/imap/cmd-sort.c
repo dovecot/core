@@ -38,8 +38,7 @@ get_sort_program(struct client *client, struct imap_arg *args)
 	}
 
 	buf = buffer_create_dynamic(pool_datastack_create(),
-				    32 * sizeof(enum mail_sort_type),
-				    (size_t)-1);
+				    32 * sizeof(enum mail_sort_type));
 
 	while (args->type == IMAP_ARG_ATOM || args->type == IMAP_ARG_STRING) {
 		const char *arg = IMAP_ARG_STR(args);

@@ -27,8 +27,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->fd = -1;
 
 	index->extension_pool = pool_alloconly_create("extension", 256);
-	index->extensions =
-		buffer_create_dynamic(index->extension_pool, 64, (size_t)-1);
+	index->extensions = buffer_create_dynamic(index->extension_pool, 64);
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;
@@ -99,10 +98,9 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 		p_clear(map->extension_pool);
 	}
 
-	map->extensions = buffer_create_dynamic(map->extension_pool,
-						ext_size, (size_t)-1);
-	map->ext_id_map = buffer_create_dynamic(map->extension_pool,
-						ext_id_map_size, (size_t)-1);
+	map->extensions = buffer_create_dynamic(map->extension_pool, ext_size);
+	map->ext_id_map =
+		buffer_create_dynamic(map->extension_pool, ext_id_map_size);
 }
 
 uint32_t mail_index_map_lookup_ext(struct mail_index_map *map, const char *name)
@@ -471,8 +469,7 @@ static int mail_index_read_map(struct mail_index *index,
 
 		if (map->buffer == NULL) {
 			map->buffer = buffer_create_dynamic(default_pool,
-							    records_size,
-							    (size_t)-1);
+							    records_size);
 		}
 
 		/* @UNSAFE */
@@ -582,8 +579,7 @@ int mail_index_map(struct mail_index *index, int force)
 		map = i_new(struct mail_index_map, 1);
 		map->refcount = 1;
 		map->hdr_copy_buf =
-			buffer_create_dynamic(default_pool,
-					      sizeof(*map->hdr), (size_t)-1);
+			buffer_create_dynamic(default_pool, sizeof(*map->hdr));
 	} else if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
 		if (map->write_to_disk) {
 			/* we have modified this mapping and it's waiting to
@@ -651,7 +647,7 @@ mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 
 	mem_map = i_new(struct mail_index_map, 1);
 	mem_map->refcount = 1;
-	mem_map->buffer = buffer_create_dynamic(default_pool, size, (size_t)-1);
+	mem_map->buffer = buffer_create_dynamic(default_pool, size);
 	if (map->hdr->record_size == new_record_size)
 		buffer_append(mem_map->buffer, map->records, size);
 	else {
@@ -668,9 +664,8 @@ mail_index_map_to_memory(struct mail_index_map *map, uint32_t new_record_size)
 	mem_map->records = buffer_get_modifyable_data(mem_map->buffer, NULL);
 	mem_map->records_count = map->records_count;
 
-	mem_map->hdr_copy_buf = buffer_create_dynamic(default_pool,
-						      map->hdr->header_size,
-						      (size_t)-1);
+	mem_map->hdr_copy_buf =
+		buffer_create_dynamic(default_pool, map->hdr->header_size);
 	buffer_append(mem_map->hdr_copy_buf, map->hdr, map->hdr->header_size);
 
 	hdr = buffer_get_modifyable_data(mem_map->hdr_copy_buf, NULL);

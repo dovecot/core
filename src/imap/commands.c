@@ -136,7 +136,7 @@ command_func_t *command_find(const char *name)
 void commands_init(void)
 {
 	cmdbuf = buffer_create_dynamic(system_pool,
-				       sizeof(struct command) * 64, (size_t)-1);
+				       sizeof(struct command) * 64);
 	cmdbuf_unsorted = FALSE;
 
         command_register_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);

@@ -204,7 +204,7 @@ static void main_init(int nodaemon)
 	lib_init_signals(sig_quit);
 	mech_init();
 
-	masters_buf = buffer_create_dynamic(default_pool, 64, (size_t)-1);
+	masters_buf = buffer_create_dynamic(default_pool, 64);
 
 	env = getenv("AUTH_PROCESS");
 	standalone = env == NULL;

@@ -25,8 +25,7 @@ struct auth_client *auth_client_new_external(unsigned int client_pid,
 	client = i_new(struct auth_client, 1);
 	client->pid = client_pid;
 	client->socket_paths = i_strdup(socket_paths);
-	client->available_auth_mechs =
-		buffer_create_dynamic(default_pool, 128, (size_t)-1);
+	client->available_auth_mechs = buffer_create_dynamic(default_pool, 128);
 
 	client->ext_input_add = add_func;
 	client->ext_input_remove = remove_func;

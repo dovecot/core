@@ -55,7 +55,7 @@ fill_reply(const struct user_data *user, size_t *reply_size)
 	char *p;
 
 	buf = buffer_create_dynamic(pool_datastack_create(),
-				    sizeof(reply) + 256, (size_t)-1);
+				    sizeof(reply) + 256);
 	memset(&reply, 0, sizeof(reply));
 	buffer_append(buf, &reply, sizeof(reply));
 
@@ -219,7 +219,7 @@ static void master_get_handshake_reply(struct auth_master_connection *master)
 
 	reply.server_pid = master->pid;
 
-	buf = buffer_create_dynamic(default_pool, 128, (size_t)-1);
+	buf = buffer_create_dynamic(default_pool, 128);
 
 	for (list = mech_modules; list != NULL; list = list->next)
 		reply.mech_count++;
@@ -273,8 +273,7 @@ auth_master_connection_create(int fd, unsigned int pid)
 	conn->refcount = 1;
 	conn->pid = pid;
 	conn->fd = fd;
-	conn->listeners_buf =
-		buffer_create_dynamic(default_pool, 64, (size_t)-1);
+	conn->listeners_buf = buffer_create_dynamic(default_pool, 64);
 	if (fd != -1)
                 auth_master_connection_set_fd(conn, fd);
 	master_get_handshake_reply(conn);

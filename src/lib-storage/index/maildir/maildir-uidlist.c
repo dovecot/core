@@ -132,8 +132,7 @@ struct maildir_uidlist *maildir_uidlist_init(struct index_mailbox *ibox)
 	uidlist->fname =
 		i_strconcat(ibox->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
 	uidlist->lock_fd = -1;
-	uidlist->record_buf =
-		buffer_create_dynamic(default_pool, 512, (size_t)-1);
+	uidlist->record_buf = buffer_create_dynamic(default_pool, 512);
 	uidlist->files = hash_create(default_pool, default_pool, 4096,
 				     maildir_hash, maildir_cmp);
 
@@ -581,7 +580,7 @@ maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial)
 				 maildir_hash, maildir_cmp);
 
 	size = buffer_get_used_size(uidlist->record_buf);
-	ctx->record_buf = buffer_create_dynamic(default_pool, size, (size_t)-1);
+	ctx->record_buf = buffer_create_dynamic(default_pool, size);
 	return ctx;
 }
 

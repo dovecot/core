@@ -162,8 +162,7 @@ static void checkpassword_child_input(void *context)
 	} else {
 		if (request->input_buf == NULL) {
 			request->input_buf =
-				buffer_create_dynamic(default_pool,
-						      512, (size_t)-1);
+				buffer_create_dynamic(default_pool, 512);
 		}
 		buffer_append(request->input_buf, buf, ret);
 	}
@@ -182,11 +181,18 @@ static void checkpassword_child_output(void *context)
 	size_t size;
 	ssize_t ret;
 
-	buf = buffer_create_static(pool_datastack_create(), 512+1);
+	buf = buffer_create_dynamic(pool_datastack_create(), 512+1);
 	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
 	buffer_append(buf, request->password, strlen(request->password)+1);
 	buffer_append_c(buf, '\0');
 	data = buffer_get_data(buf, &size);
+
+	if (size > 512) {
+		i_error("checkpassword: output larger than 512 bytes: "
+			"%"PRIuSIZE_T, size);
+		checkpassword_request_close(request);
+		return;
+	}
 
 	ret = write(request->fd_out, data + request->write_pos,
 		    size - request->write_pos);

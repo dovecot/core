@@ -25,7 +25,7 @@ t_unicode_str(const char *src, int ucase, size_t *size)
 {
 	buffer_t *wstr;
 
-	wstr = buffer_create_dynamic(unsafe_data_stack_pool, 32, (size_t)-1);
+	wstr = buffer_create_dynamic(unsafe_data_stack_pool, 32);
 	for ( ; *src; src++) {
 		buffer_append_c(wstr, ucase ? i_toupper(*src) : *src);
 		buffer_append_c(wstr, '\0');

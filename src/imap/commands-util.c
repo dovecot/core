@@ -184,7 +184,7 @@ int client_parse_mail_flags(struct client *client, struct imap_arg *args,
 	size_t size, i;
 
 	memset(flags, 0, sizeof(*flags));
-	buffer = buffer_create_dynamic(client->cmd_pool, 256, (size_t)-1);
+	buffer = buffer_create_dynamic(client->cmd_pool, 256);
 
 	while (args->type != IMAP_ARG_EOL) {
 		if (args->type != IMAP_ARG_ATOM) {

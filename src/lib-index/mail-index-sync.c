@@ -309,10 +309,8 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	/* we need to have all the transactions sorted to optimize
 	   caller's mailbox access patterns */
-	ctx->expunges_buf = buffer_create_dynamic(default_pool,
-						  1024, (size_t)-1);
-	ctx->updates_buf = buffer_create_dynamic(default_pool,
-						 1024, (size_t)-1);
+	ctx->expunges_buf = buffer_create_dynamic(default_pool, 1024);
+	ctx->updates_buf = buffer_create_dynamic(default_pool, 1024);
 	if (mail_index_sync_read_and_sort(ctx, sync_recent) < 0) {
                 mail_index_sync_rollback(ctx);
 		return -1;

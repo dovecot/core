@@ -291,7 +291,7 @@ i_stream_create_header_filter(struct istream *input,
 	for (i = 0; i < headers_count; i++) 
 		mstream->headers[i] = p_strdup(pool, headers[i]);
 	mstream->headers_count = headers_count;
-	mstream->hdr_buf = buffer_create_dynamic(pool, 1024, (size_t)-1);
+	mstream->hdr_buf = buffer_create_dynamic(pool, 1024);
 
 	mstream->callback = callback;
 	mstream->context = context;

@@ -11,9 +11,6 @@ struct buffer {
    realloc()ed. You shouldn't rely on it being valid if you have modified
    buffer in any way. */
 
-/* Create a static sized buffer. Writes past this size will simply not
-   succeed. */
-buffer_t *buffer_create_static(pool_t pool, size_t size);
 /* Create a static sized buffer. Writes past this size will kill the program. */
 buffer_t *buffer_create_static_hard(pool_t pool, size_t size);
 /* Create a modifyable buffer from given data. */
@@ -22,7 +19,7 @@ buffer_t *buffer_create_data(pool_t pool, void *data, size_t size);
 buffer_t *buffer_create_const_data(pool_t pool, const void *data, size_t size);
 /* Creates a dynamically growing buffer. Whenever write would exceed the
    current size it's grown. */
-buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size, size_t max_size);
+buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);
 /* Free the memory used by buffer. Not needed if the memory is free'd
    directly from the memory pool. */
 void buffer_free(buffer_t *buf);
@@ -33,43 +30,41 @@ void *buffer_free_without_data(buffer_t *buf);
 /* Reset the buffer. used size and it's contents are zeroed. */
 void buffer_reset(buffer_t *buf);
 
-/* Write data to buffer at specified position, returns number of bytes
-   written. */
-size_t buffer_write(buffer_t *buf, size_t pos,
-		    const void *data, size_t data_size);
-/* Append data to buffer, returns number of bytes written. */
-size_t buffer_append(buffer_t *buf, const void *data, size_t data_size);
-/* Append character to buffer, returns 1 if written, 0 if not. */
-size_t buffer_append_c(buffer_t *buf, unsigned char chr);
+/* Write data to buffer at specified position. */
+void buffer_write(buffer_t *buf, size_t pos,
+		  const void *data, size_t data_size);
+/* Append data to buffer. */
+void buffer_append(buffer_t *buf, const void *data, size_t data_size);
+/* Append character to buffer. */
+void buffer_append_c(buffer_t *buf, unsigned char chr);
 
-/* Insert data to buffer, returns number of bytes inserted. */
-size_t buffer_insert(buffer_t *buf, size_t pos,
-		     const void *data, size_t data_size);
-/* Delete data from buffer, returns number of bytes deleted. */
-size_t buffer_delete(buffer_t *buf, size_t pos, size_t size);
+/* Insert data to buffer. */
+void buffer_insert(buffer_t *buf, size_t pos,
+		   const void *data, size_t data_size);
+/* Delete data from buffer. */
+void buffer_delete(buffer_t *buf, size_t pos, size_t size);
 
 /* Fill buffer with zero bytes. */
-size_t buffer_write_zero(buffer_t *buf, size_t pos, size_t data_size);
-size_t buffer_append_zero(buffer_t *buf, size_t data_size);
-size_t buffer_insert_zero(buffer_t *buf, size_t pos, size_t data_size);
+void buffer_write_zero(buffer_t *buf, size_t pos, size_t data_size);
+void buffer_append_zero(buffer_t *buf, size_t data_size);
+void buffer_insert_zero(buffer_t *buf, size_t pos, size_t data_size);
 
 /* Copy data from buffer to another. The buffers may be same in which case
    it's internal copying, possibly with overlapping positions (ie. memmove()
    like functionality). copy_size may be set to (size_t)-1 to copy the rest of
-   the used data in buffer. Returns the number of bytes actually copied. */
-size_t buffer_copy(buffer_t *dest, size_t dest_pos,
-		   const buffer_t *src, size_t src_pos, size_t copy_size);
+   the used data in buffer. */
+void buffer_copy(buffer_t *dest, size_t dest_pos,
+		 const buffer_t *src, size_t src_pos, size_t copy_size);
 /* Append data to buffer from another. copy_size may be set to (size_t)-1 to
    copy the rest of the used data in buffer. */
-size_t buffer_append_buf(buffer_t *dest, const buffer_t *src,
-			 size_t src_pos, size_t copy_size);
+void buffer_append_buf(buffer_t *dest, const buffer_t *src,
+		       size_t src_pos, size_t copy_size);
 
-/* Returns pointer to specified position in buffer, or NULL if there's not
-   enough space. WARNING: The returned address may become invalid if you add
-   more data to buffer. */
+/* Returns pointer to specified position in buffer. WARNING: The returned
+   address may become invalid if you add more data to buffer. */
 void *buffer_get_space_unsafe(buffer_t *buf, size_t pos, size_t size);
 /* Increase the buffer usage by given size, and return a pointer to beginning
-   of it, or NULL if there's not enough space in buffer. */
+   of it. */
 void *buffer_append_space_unsafe(buffer_t *buf, size_t size);
 
 /* Like buffer_get_data(), but don't return it as const. Returns NULL if the

@@ -30,7 +30,7 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 	size_t size;
 	int ret;
 
-	*expunges_r = buffer_create_dynamic(default_pool, 512, (size_t)-1);
+	*expunges_r = buffer_create_dynamic(default_pool, 512);
 
 	/* with mask 0 we don't get anything, we'll just read the expunges
 	   while seeking to end */
@@ -363,10 +363,8 @@ void mail_index_view_add_synced_transaction(struct mail_index_view *view,
 					    uint32_t log_file_seq,
 					    uoff_t log_file_offset)
 {
-	if (view->log_syncs == NULL) {
-		view->log_syncs = buffer_create_dynamic(default_pool,
-							128, (size_t)-1);
-	}
+	if (view->log_syncs == NULL)
+		view->log_syncs = buffer_create_dynamic(default_pool, 128);
 	buffer_append(view->log_syncs, &log_file_offset,
 		      sizeof(log_file_offset));
 	buffer_append(view->log_syncs, &log_file_seq, sizeof(log_file_seq));

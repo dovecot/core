@@ -61,10 +61,9 @@ int hex_to_binary(const char *data, buffer_t *dest)
 		else
 			return -1;
 
-		if (buffer_append_c(dest, value) != 1)
-			return 0;
+		buffer_append_c(dest, value);
 		data++;
 	}
 
-	return 1;
+	return 0;
 }
