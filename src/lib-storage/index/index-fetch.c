@@ -246,16 +246,21 @@ static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 static int index_fetch_mail(MailIndex *index __attr_unused__,
 			    MailIndexRecord *rec,
 			    unsigned int client_seq,
-			    unsigned int idx_seq __attr_unused__,
+			    unsigned int idx_seq,
 			    void *context)
 {
 	FetchContext *ctx = context;
 	MailFetchBodyData *sect;
 	unsigned int orig_len;
-	int failed, data_written;
+	int failed, data_written, fetch_flags;
 
-	if ((rec->msg_flags & MAIL_SEEN) == 0)
-		ctx->found_unseen = TRUE;
+	if (ctx->update_seen && (rec->msg_flags & MAIL_SEEN) == 0) {
+		(void)index->update_flags(index, rec, idx_seq,
+					  rec->msg_flags | MAIL_SEEN, FALSE);
+		fetch_flags = TRUE;
+	} else {
+		fetch_flags = FALSE;
+	}
 
 	ctx->str = t_string_new(2048);
 
@@ -273,7 +278,7 @@ static int index_fetch_mail(MailIndex *index __attr_unused__,
 		/* these can't fail */
 		if (ctx->fetch_data->uid)
 			index_fetch_uid(rec, ctx);
-		if (ctx->fetch_data->flags)
+		if (ctx->fetch_data->flags || fetch_flags)
 			index_fetch_flags(rec, ctx);
 		if (ctx->fetch_data->internaldate)
 			index_fetch_internaldate(rec, ctx);
@@ -346,10 +351,37 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 	if (!index_storage_sync_if_possible(ibox))
 		return FALSE;
 
-	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
-		return mail_storage_set_index_error(ibox);
-
 	memset(&ctx, 0, sizeof(ctx));
+
+	if (!box->readonly) {
+		/* If we have any BODY[..] sections, \Seen flag is added for
+		   all messages */
+		sect = fetch_data->body_sections;
+		for (; sect != NULL; sect = sect->next) {
+			if (!sect->peek) {
+				ctx.update_seen = TRUE;
+				break;
+			}
+		}
+	}
+
+	if (ctx.update_seen) {
+		/* need exclusive lock to update the \Seen flags */
+		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
+			return mail_storage_set_index_error(ibox);
+
+		/* if all messages are already seen, there's no point in
+		   keeping exclusive lock */
+		if (ibox->index->header->messages_count ==
+		    ibox->index->header->seen_messages_count)
+			ctx.update_seen = FALSE;
+	}
+
+	if (!ctx.update_seen) {
+		if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_SHARED))
+			return mail_storage_set_index_error(ibox);
+	}
+
 	ctx.box = box;
 	ctx.storage = box->storage;
 	ctx.cache = ibox->cache;
@@ -359,18 +391,6 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 
 	ctx.fetch_data = fetch_data;
 	ctx.outbuf = outbuf;
-
-	if (!box->readonly) {
-		/* If we have any BODY[..] sections, \Seen flag is added for
-		   all messages */
-		sect = ctx.fetch_data->body_sections;
-		for (; sect != NULL; sect = sect->next) {
-			if (!sect->peek) {
-				ctx.update_seen = TRUE;
-				break;
-			}
-		}
-	}
 
 	ret = index_messageset_foreach(ibox, fetch_data->messageset,
 				       fetch_data->uidset,
@@ -383,17 +403,6 @@ int index_storage_fetch(Mailbox *box, MailFetchData *fetch_data,
 
 	if (all_found != NULL)
 		*all_found = ret == 1;
-
-	if (ret >= 1 && ctx.update_seen && ctx.found_unseen) {
-		/* BODY[..] was fetched, set \Seen flag for all messages.
-		   This needs to be done separately because we need exclusive
-		   lock for it */
-		if (!index_storage_update_flags(box, fetch_data->messageset,
-						fetch_data->uidset,
-						MAIL_SEEN, NULL, MODIFY_ADD,
-						NULL, NULL, NULL))
-			return FALSE;
-	}
 
 	return ret > 0;
 }
