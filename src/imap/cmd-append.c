@@ -115,11 +115,46 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 	if (ctx->t != NULL)
 		mailbox_transaction_rollback(ctx->t);
 
-	if (ctx->box != ctx->client->mailbox)
+	if (ctx->box != ctx->client->mailbox && ctx->box != NULL)
 		mailbox_close(ctx->box);
 
 	(void)i_stream_get_data(ctx->client->input, &size);
 	ctx->client->input_pending = size != 0;
+}
+
+static int cmd_append_continue_cancel(struct client *client)
+{
+	struct cmd_append_context *ctx = client->cmd_context;
+	size_t size;
+
+	(void)i_stream_read(ctx->input);
+	(void)i_stream_get_data(ctx->input, &size);
+	i_stream_skip(ctx->input, size);
+
+	if (ctx->input->v_offset == ctx->msg_size || ctx->input->closed) {
+		cmd_append_finish(ctx);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static int cmd_append_cancel(struct cmd_append_context *ctx, int nonsync)
+{
+	if (!nonsync) {
+		cmd_append_finish(ctx);
+		return TRUE;
+	}
+
+	/* we have to read the nonsynced literal so we don't treat the message
+	   data as commands. */
+	ctx->input = i_stream_create_limit(default_pool, ctx->client->input,
+					   ctx->client->input->v_offset,
+					   ctx->msg_size);
+
+	ctx->client->command_pending = TRUE;
+	ctx->client->cmd_func = cmd_append_continue_cancel;
+	ctx->client->cmd_context = ctx;
+	return cmd_append_continue_cancel(ctx->client);
 }
 
 static int cmd_append_continue_parsing(struct client *client)
@@ -139,7 +174,8 @@ static int cmd_append_continue_parsing(struct client *client)
 	ret = imap_parser_read_args(ctx->save_parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE, &args);
 	if (ret == -1) {
-		client_send_command_error(client, NULL);
+		if (ctx->box != NULL)
+			client_send_command_error(client, NULL);
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
@@ -151,6 +187,12 @@ static int cmd_append_continue_parsing(struct client *client)
 	if (args->type == IMAP_ARG_EOL) {
 		/* last message */
 		enum mailbox_sync_flags sync_flags;
+
+		if (ctx->box == NULL) {
+			/* we failed earlier, error message is sent */
+			cmd_append_finish(ctx);
+			return TRUE;
+		}
 
 		ret = mailbox_transaction_commit(ctx->t, 0);
 		ctx->t = NULL;
@@ -171,16 +213,19 @@ static int cmd_append_continue_parsing(struct client *client)
 	if (!validate_args(args, &flags_list, &internal_date_str,
 			   &ctx->msg_size, &nonsync)) {
 		client_send_command_error(client, "Invalid arguments.");
-		cmd_append_finish(ctx);
-		return TRUE;
+		return cmd_append_cancel(ctx, nonsync);
+	}
+
+	if (ctx->box == NULL) {
+		/* we failed earlier, make sure we just eat nonsync-literal
+		   if it's given. */
+		return cmd_append_cancel(ctx, nonsync);
 	}
 
 	if (flags_list != NULL) {
 		if (!client_parse_mail_flags(client, flags_list->args,
-					     &client->keywords, &flags)) {
-			cmd_append_finish(ctx);
-			return TRUE;
-		}
+					     &client->keywords, &flags))
+			return cmd_append_cancel(ctx, nonsync);
 	} else {
 		memset(&flags, 0, sizeof(flags));
 	}
@@ -192,8 +237,7 @@ static int cmd_append_continue_parsing(struct client *client)
 	} else if (!imap_parse_datetime(internal_date_str,
 					&internal_date, &timezone_offset)) {
 		client_send_tagline(client, "BAD Invalid internal date.");
-		cmd_append_finish(ctx);
-		return TRUE;
+		return cmd_append_cancel(ctx, nonsync);
 	}
 
 	if (ctx->msg_size == 0) {
@@ -246,7 +290,7 @@ static int cmd_append_continue_message(struct client *client)
 		i_stream_skip(ctx->input, size);
 	}
 
-	if (ctx->input->v_offset == ctx->msg_size) {
+	if (ctx->input->v_offset == ctx->msg_size || ctx->input->closed) {
 		/* finished */
 		i_stream_unref(ctx->input);
 		ctx->input = NULL;
@@ -282,11 +326,34 @@ static int cmd_append_continue_message(struct client *client)
 	return FALSE;
 }
 
+static struct mailbox *get_mailbox(struct client *client, const char *name)
+{
+	struct mail_storage *storage;
+	struct mailbox *box;
+
+	if (!client_verify_mailbox_name(client, name, TRUE, FALSE))
+		return NULL;
+
+	storage = client_find_storage(client, &name);
+	if (storage == NULL)
+		return NULL;
+
+	if (client->mailbox != NULL &&
+	    mailbox_name_equals(mailbox_get_name(client->mailbox), name))
+		return client->mailbox;
+
+	box = mailbox_open(storage, name, MAILBOX_OPEN_FAST |
+			   MAILBOX_OPEN_KEEP_RECENT);
+	if (box == NULL) {
+		client_send_storage_error(client, storage);
+		return NULL;
+	}
+	return box;
+}
+
 int cmd_append(struct client *client)
 {
         struct cmd_append_context *ctx;
-	struct mail_storage *storage;
-	struct mailbox *box;
 	struct mailbox_status status;
 	const char *mailbox;
 
@@ -294,39 +361,24 @@ int cmd_append(struct client *client)
 	if (!client_read_string_args(client, 1, &mailbox))
 		return FALSE;
 
-	if (!client_verify_mailbox_name(client, mailbox, TRUE, FALSE))
-		return TRUE;
-
-	storage = client_find_storage(client, &mailbox);
-	if (storage == NULL)
-		return TRUE;
-
-	if (client->mailbox != NULL &&
-	    mailbox_name_equals(mailbox_get_name(client->mailbox), mailbox))
-		box = client->mailbox;
-	else {
-		box = mailbox_open(storage, mailbox, MAILBOX_OPEN_FAST |
-				   MAILBOX_OPEN_KEEP_RECENT);
-		if (box == NULL) {
-			client_send_storage_error(client, storage);
-			return TRUE;
-		}
-	}
-
-	if (mailbox_get_status(box, STATUS_KEYWORDS, &status) < 0) {
-		client_send_storage_error(client, storage);
-		mailbox_close(box);
-		return TRUE;
-	}
-
 	ctx = p_new(client->cmd_pool, struct cmd_append_context, 1);
 	ctx->client = client;
-	ctx->storage = storage;
-	ctx->box = box;
-	ctx->t = mailbox_transaction_begin(box, FALSE);
+	ctx->box = get_mailbox(client, mailbox);
+	if (ctx->box != NULL) {
+		ctx->storage = mailbox_get_storage(ctx->box);
 
-	client_save_keywords(&client->keywords, status.keywords,
-			     status.keywords_count);
+		if (mailbox_get_status(ctx->box, STATUS_KEYWORDS,
+				       &status) < 0) {
+			client_send_storage_error(client, ctx->storage);
+			mailbox_close(ctx->box);
+			ctx->box = NULL;
+		} else {
+			client_save_keywords(&client->keywords, status.keywords,
+					     status.keywords_count);
+		}
+		ctx->t = ctx->box == NULL ? NULL :
+			mailbox_transaction_begin(ctx->box, FALSE);
+	}
 
 	io_remove(client->io);
 	client->io = io_add(i_stream_get_fd(client->input), IO_READ,
