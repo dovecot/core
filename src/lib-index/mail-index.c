@@ -1424,13 +1424,6 @@ int mail_index_append_begin(MailIndex *index, MailIndexRecord **rec)
 
 int mail_index_append_end(MailIndex *index, MailIndexRecord *rec)
 {
-	/* make sure everything is written before setting it's UID
-	   to mark it as non-deleted. */
-	if (!mail_index_data_sync_file(index->data))
-		return FALSE;
-	if (!mail_index_fmsync(index, index->mmap_length))
-		return FALSE;
-
 	rec->uid = index->header->next_uid++;
 
 	if (index->hash != NULL) {
