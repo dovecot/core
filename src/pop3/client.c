@@ -10,8 +10,8 @@
 
 #include <stdlib.h>
 
-/* max. size of one parameter in line */
-#define MAX_INBUF_SIZE 8192
+/* max. length of input command line (spec says 512) */
+#define MAX_INBUF_SIZE 2048
 
 /* If we can't send a buffer in a minute, disconnect the client */
 #define CLIENT_OUTPUT_TIMEOUT (60*1000)
