@@ -125,6 +125,7 @@ const char *auth_cache_lookup(struct auth_cache *cache,
 
 	if (cache->hup_count != lib_signal_hup_count) {
 		/* SIGHUP received - clear cache */
+		i_info("SIGHUP received, clearing cache");
 		auth_cache_clear(cache);
 		return NULL;
 	}
