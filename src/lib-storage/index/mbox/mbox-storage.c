@@ -187,9 +187,9 @@ static struct mail_storage *mbox_create(const char *data, const char *user)
 	storage = i_new(struct mail_storage, 1);
 	memcpy(storage, &mbox_storage, sizeof(struct mail_storage));
 
-	storage->dir = i_strdup(root_dir);
-	storage->inbox_file = i_strdup(inbox_file);
-	storage->index_dir = i_strdup(index_dir);
+	storage->dir = i_strdup(home_expand(root_dir));
+	storage->inbox_file = i_strdup(home_expand(inbox_file));
+	storage->index_dir = i_strdup(home_expand(index_dir));
 	storage->user = i_strdup(user);
 	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
 	return storage;

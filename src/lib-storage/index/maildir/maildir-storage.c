@@ -29,9 +29,10 @@ static const char *maildirs[] = { "cur", "new", "tmp", NULL  };
 static struct mail_storage *maildir_create(const char *data, const char *user)
 {
 	struct mail_storage *storage;
-	const char *home, *path, *root_dir, *index_dir, *control_dir, *p;
+	const char *root_dir, *inbox_dir, *index_dir, *control_dir;
+	const char *home, *path, *p;
 
-	root_dir = index_dir = control_dir = NULL;
+	inbox_dir = root_dir = index_dir = control_dir = NULL;
 
 	if (data == NULL || *data == '\0') {
 		/* we'll need to figure out the maildir location ourself.
@@ -48,7 +49,7 @@ static struct mail_storage *maildir_create(const char *data, const char *user)
 			}
 		}
 	} else {
-		/* <Maildir> [:INDEX=<dir>] [:CONTROL=<dir>] */
+		/* <Maildir> [:INBOX=<dir>] [:INDEX=<dir>] [:CONTROL=<dir>] */
 		p = strchr(data, ':');
 		if (p == NULL)
 			root_dir = data;
@@ -57,7 +58,9 @@ static struct mail_storage *maildir_create(const char *data, const char *user)
 
 			do {
 				p++;
-				if (strncmp(p, "INDEX=", 6) == 0)
+				if (strncmp(p, "INBOX=", 6) == 0)
+					inbox_dir = t_strcut(p+6, ':');
+				else if (strncmp(p, "INDEX=", 6) == 0)
 					index_dir = t_strcut(p+6, ':');
 				else if (strncmp(p, "CONTROL=", 8) == 0)
 					control_dir = t_strcut(p+8, ':');
@@ -77,9 +80,10 @@ static struct mail_storage *maildir_create(const char *data, const char *user)
 	storage = i_new(struct mail_storage, 1);
 	memcpy(storage, &maildir_storage, sizeof(struct mail_storage));
 
-	storage->dir = i_strdup(root_dir);
-	storage->index_dir = i_strdup(index_dir);
-	storage->control_dir = i_strdup(control_dir);
+	storage->dir = i_strdup(home_expand(root_dir));
+	storage->inbox_file = i_strdup(home_expand(inbox_dir));
+	storage->index_dir = i_strdup(home_expand(index_dir));
+	storage->control_dir = i_strdup(home_expand(control_dir));
 	storage->user = i_strdup(user);
 	storage->callbacks = i_new(struct mail_storage_callbacks, 1);
 	return storage;
@@ -88,6 +92,7 @@ static struct mail_storage *maildir_create(const char *data, const char *user)
 static void maildir_free(struct mail_storage *storage)
 {
 	i_free(storage->dir);
+	i_free(storage->inbox_file);
 	i_free(storage->index_dir);
 	i_free(storage->control_dir);
 	i_free(storage->user);
@@ -150,8 +155,10 @@ const char *maildir_get_path(struct mail_storage *storage, const char *name)
 	if (full_filesystem_access && (*name == '/' || *name == '~'))
 		return maildir_get_absolute_path(name, FALSE);
 
-	if (strcasecmp(name, "INBOX") == 0)
-		return storage->dir;
+	if (strcasecmp(name, "INBOX") == 0) {
+		return storage->inbox_file != NULL ?
+			storage->inbox_file : storage->dir;
+	}
 
 	return t_strconcat(storage->dir, "/.", name, NULL);
 }
@@ -170,6 +177,9 @@ static const char *maildir_get_index_path(struct mail_storage *storage,
 {
 	if (storage->index_dir == NULL)
 		return NULL;
+
+	if (strcasecmp(name, "INBOX") == 0 && storage->inbox_file != NULL)
+		return storage->inbox_file;
 
 	if (full_filesystem_access && (*name == '/' || *name == '~'))
 		return maildir_get_absolute_path(name, FALSE);
@@ -252,7 +262,9 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 	if (storage->index_dir == NULL)
 		return TRUE;
 
-	if (strcmp(storage->index_dir, storage->dir) == 0)
+	if (strcmp(storage->index_dir, storage->dir) == 0 ||
+	    (strcmp(name, "INBOX") == 0 &&
+	     strcmp(storage->index_dir, storage->inbox_file) == 0))
 		return TRUE;
 
 	dir = t_strconcat(storage->index_dir, "/.", name, NULL);
@@ -284,14 +296,20 @@ static int verify_inbox(struct mail_storage *storage)
 {
 	const char *inbox;
 
-	/* first make sure the cur/ new/ and tmp/ dirs exist in root dir */
-	if (!create_maildir(storage, storage->dir, TRUE))
-		return FALSE;
+	if (storage->inbox_file == NULL) {
+		/* first make sure the cur/ new/ and tmp/ dirs exist
+		   in root dir */
+		if (!create_maildir(storage, storage->dir, TRUE))
+			return FALSE;
 
-	/* create the .INBOX directory */
-	inbox = t_strconcat(storage->dir, "/.INBOX", NULL);
-	if (!mkdir_verify(storage, inbox, TRUE))
-		return FALSE;
+		/* create the .INBOX directory */
+		inbox = t_strconcat(storage->dir, "/.INBOX", NULL);
+		if (!mkdir_verify(storage, inbox, TRUE))
+			return FALSE;
+	} else {
+		if (!create_maildir(storage, storage->inbox_file, TRUE))
+			return FALSE;
+	}
 
 	/* make sure the index directories exist */
 	return create_index_dir(storage, "INBOX") &&
