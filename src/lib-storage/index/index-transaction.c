@@ -11,6 +11,7 @@ void index_transaction_init(struct index_transaction_context *t,
 	t->trans = mail_index_transaction_begin(ibox->view, hide);
 	t->trans_view = mail_index_transaction_open_updated_view(t->trans);
 	t->cache_view = mail_cache_view_open(ibox->cache, t->trans_view);
+	t->cache_trans = mail_cache_get_transaction(t->cache_view, t->trans);
 }
 
 static void index_transaction_free(struct index_transaction_context *t)

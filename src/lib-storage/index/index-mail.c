@@ -127,15 +127,6 @@ static void get_cached_sent_date(struct index_mail *mail,
 	}
 }
 
-void index_mail_cache_transaction_begin(struct index_mail *mail)
-{
-	if (mail->trans->cache_trans == NULL) {
-		mail->trans->cache_trans =
-			mail_cache_get_transaction(mail->trans->cache_view,
-						   mail->trans->trans);
-	}
-}
-
 const struct mail_full_flags *index_mail_get_flags(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
@@ -301,8 +292,6 @@ static void index_mail_parse_body(struct index_mail *mail, int need_parts)
 
 	data->body_size = data->parts->body_size;
 	data->body_size_set = TRUE;
-
-	index_mail_cache_transaction_begin(mail);
 
 	if (!mail->mail.has_nuls && !mail->mail.has_no_nuls) {
 		/* we know the NULs now, update them */

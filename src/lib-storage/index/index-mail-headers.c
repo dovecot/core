@@ -397,8 +397,6 @@ static int index_mail_can_cache_headers(struct index_mail *mail)
 
 	/* FIXME: add some smart checks here. we don't necessarily want to
 	   cache everything.. */
-
-	index_mail_cache_transaction_begin(mail);
 	return TRUE;
 }
 
