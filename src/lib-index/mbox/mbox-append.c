@@ -73,12 +73,15 @@ static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
 
 	if (lastmsg && startpos > 0) {
 		/* end of file, remove the last [\r]\n */
-		if (msg[startpos-1] == '\n')
-			startpos--;
-		if (startpos > 0 && msg[startpos-1] == '\r')
-			startpos--;
-		else
-			vsize--;
+		msg = io_buffer_get_data(inbuf, &size);
+		if (size == startpos) {
+			if (msg[startpos-1] == '\n')
+				startpos--;
+			if (startpos > 0 && msg[startpos-1] == '\r')
+				startpos--;
+			else
+				vsize--;
+		}
 	}
 
 	io_buffer_skip(inbuf, startpos);
