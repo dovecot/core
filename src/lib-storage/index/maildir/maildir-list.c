@@ -95,8 +95,10 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 		/* check the type always since there's no extra cost */
 		if (d->d_type == DT_DIR)
 			;
-		else if (d->d_type != DT_UNKNOWN)
+		else if (d->d_type != DT_UNKNOWN && d->d_type != DT_LNK)
 			continue;
+		else if (d->d_type == DT_LNK && !stat_dirs)
+			;
 		else
 #endif
 		if (stat_dirs) {
