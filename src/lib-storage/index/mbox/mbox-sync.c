@@ -655,19 +655,21 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	} else {
 		/* we sync only what we need to. jump to first record that
 		   needs updating */
-		if (sync_ctx->sync_rec.uid1 == 0) {
+		const struct mail_index_sync_rec *sync_rec;
+
+		if (buffer_get_used_size(sync_ctx->syncs) == 0) {
 			if (mbox_sync_read_index_syncs(sync_ctx, 1,
 						       &expunged) < 0)
 				return -1;
+
+			if (buffer_get_used_size(sync_ctx->syncs) == 0) {
+				/* nothing to do */
+				return 0;
+			}
 		}
 
-		if (sync_ctx->sync_rec.uid1 == 0) {
-			/* nothing to do */
-			return 0;
-		}
-
-		uid = sync_ctx->sync_rec.uid1;
-		if (mbox_sync_seek_to_uid(sync_ctx, uid) < 0)
+		sync_rec = buffer_get_data(sync_ctx->syncs, NULL);
+		if (mbox_sync_seek_to_uid(sync_ctx, sync_rec->uid1) < 0)
 			return -1;
 
 		if (sync_ctx->seq > 0) {
