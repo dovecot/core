@@ -307,15 +307,9 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 		   it's quite unlikely this expunge was caused by some bug. */
 		uint32_t uid1, uid2;
 
-		if (next_exp->seq1 > ctx->view->map->records_count ||
-		    next_exp->seq2 > ctx->view->map->records_count) {
-			mail_transaction_log_view_set_corrupted(
-				ctx->view->log_view, "Expunge range %u..%u "
-				"larger than message count %u",
-				next_exp->seq1, next_exp->seq2,
-				ctx->view->map->records_count);
+		mail_index_sync_get_expunge(sync_rec, next_exp);
+		if (mail_index_sync_rec_check(ctx->view, sync_rec) < 0)
 			return -1;
-		}
 
 		if (mail_index_lookup_uid(ctx->view, next_exp->seq1, &uid1) < 0)
 			return -1;
@@ -330,13 +324,12 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			return -1;
 		}
 
-		mail_index_sync_get_expunge(sync_rec, next_exp);
 		ctx->expunge_idx++;
 
 		/* scan updates again from the beginning */
 		ctx->update_idx = 0;
 		ctx->next_seq = next_exp->seq2;          
-		return mail_index_sync_rec_check(ctx->view, sync_rec);
+		return 1;
 	}
 
 	if (ctx->sync_appends) {
