@@ -474,7 +474,7 @@ static ssize_t _send(_OBuffer *buf, const void *data, size_t size)
 
 	/* never try sending buffer immediately if we're block,
 	   so we don't need to deal with timeout issues here */
-	if (IS_BUFFER_EMPTY(fbuf) && BUFFER_IS_BLOCKING(fbuf) &&
+	if (IS_BUFFER_EMPTY(fbuf) && !BUFFER_IS_BLOCKING(fbuf) &&
 	    (!fbuf->corked || !_have_space(buf, size))) {
 		iov.iov_base = (void *) data;
 		iov.iov_len = size;
