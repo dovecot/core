@@ -31,7 +31,6 @@
 #endif
 
 #undef HAVE_LINUX_MREMAP
-#undef MAP_ANONYMOUS
 
 #ifndef HAVE_LINUX_MREMAP
 
@@ -127,7 +126,8 @@ void *mmap_anon(size_t length)
 	if (movable_mmap_base == NULL) {
 		/* this is fully guessing */
 		movable_mmap_base = ((char *) mmap_anon) + MMAP_BASE_MOVE;
-		movable_mmap_base = NULL + PAGE_ALIGN(movable_mmap_base - NULL);
+		movable_mmap_base = (char *) NULL +
+			PAGE_ALIGN((size_t) (movable_mmap_base - NULL));
 	}
 
 	do {
