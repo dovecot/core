@@ -8,18 +8,17 @@
 #define OUTPUT_BUFFER_SIZE 1024
 
 int message_send(IOBuffer *outbuf, IOBuffer *inbuf, MessageSize *msg_size,
-		 off_t virtual_skip, off_t max_virtual_size)
+		 uoff_t virtual_skip, uoff_t max_virtual_size)
 {
 	unsigned char *msg, buf[OUTPUT_BUFFER_SIZE];
 	unsigned int i, size, pos;
 	int cr_skipped, add_cr;
 
 	if (msg_size->physical_size == 0 ||
-	    virtual_skip >= (off_t)msg_size->virtual_size)
+	    virtual_skip >= msg_size->virtual_size)
 		return TRUE;
 
-	if (max_virtual_size == -1 ||
-	    max_virtual_size > (off_t)msg_size->virtual_size - virtual_skip)
+	if (max_virtual_size > msg_size->virtual_size - virtual_skip)
 		max_virtual_size = msg_size->virtual_size - virtual_skip;
 
 	if (msg_size->physical_size == msg_size->virtual_size) {

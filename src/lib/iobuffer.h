@@ -10,8 +10,8 @@ typedef void (*IOBufferFlushFunc) (void *context, IOBuffer *buf);
 struct _IOBuffer {
 	int fd;
 
-	off_t start_offset;
-	off_t offset, size; /* virtual offset, 0 = start_offset */
+	uoff_t start_offset;
+	uoff_t offset, size; /* virtual offset, 0 = start_offset */
 
 /* private: */
 	Pool pool;
@@ -53,7 +53,7 @@ IOBuffer *io_buffer_create_file(int fd, Pool pool,
 /* Read the file by mmap()ing it in blocks. stop_offset specifies where to
    stop reading, or 0 to end of file. */
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
-				off_t size);
+				uoff_t size);
 /* Destroy a buffer. */
 void io_buffer_destroy(IOBuffer *buf);
 /* Mark the buffer closed. Any sends/reads after this will return -1.
@@ -102,10 +102,10 @@ int io_buffer_read(IOBuffer *buf);
 /* Like io_buffer_read(), but don't read more than specified size. */
 int io_buffer_read_max(IOBuffer *buf, unsigned int size);
 /* Skip forward a number of bytes */
-void io_buffer_skip(IOBuffer *buf, unsigned int size);
+void io_buffer_skip(IOBuffer *buf, uoff_t size);
 /* Seek to specified position from beginning of file. This works only for
    files. Returns TRUE if successful. */
-int io_buffer_seek(IOBuffer *buf, off_t offset);
+int io_buffer_seek(IOBuffer *buf, uoff_t offset);
 /* Returns the next line from input buffer, or NULL if more data is needed
    to make a full line. NOTE: call to io_buffer_read() invalidates the
    returned data. */

@@ -5,14 +5,14 @@
 
 /* Parse next digits in string into integer. Returns FALSE if the integer
    becomes too big and wraps. */
-static int read_int(char **p, unsigned int *value)
+static int read_uoff_t(char **p, uoff_t *value)
 {
-	unsigned int prev;
-	*value = 0;
+	uoff_t prev;
 
+	*value = 0;
 	while (**p >= '0' && **p <= '9') {
 		prev = *value;
-		*value = *value * 10 + **p - '0';
+		*value = *value * 10 + (**p - '0');
 
 		if (*value < prev)
 			return FALSE;
@@ -28,7 +28,7 @@ static int parse_body_section(Client *client, const char *item,
 			      MailFetchData *data, int peek)
 {
 	MailFetchBodyData *body;
-	unsigned int num;
+	uoff_t num;
 	const char *section;
 	char *p;
 
@@ -50,7 +50,7 @@ static int parse_body_section(Client *client, const char *item,
 
 	/* <start.end> */
 	body->skip = 0;
-	body->max_size = -1;
+	body->max_size = (uoff_t)-1;
 	if (*p != '<' && *p != '\0') {
 		client_send_tagline(client, t_strconcat(
 			"BAD Unexpected character after ']' with ",
@@ -60,7 +60,7 @@ static int parse_body_section(Client *client, const char *item,
 		p++;
 
 		body->skip_set = TRUE;
-		if (!read_int(&p, &num) || num > INT_MAX) {
+		if (!read_uoff_t(&p, &num) || num > OFF_T_MAX) {
 			/* wrapped */
 			client_send_tagline(client, t_strconcat(
 				"BAD Too big partial start with ", item, NULL));
@@ -71,7 +71,7 @@ static int parse_body_section(Client *client, const char *item,
 		if (*p == '.') {
 			/* read end */
 			p++;
-			if (!read_int(&p, &num) || num > INT_MAX) {
+			if (!read_uoff_t(&p, &num) || num > OFF_T_MAX) {
 				/* wrapped */
 				client_send_tagline(client, t_strconcat(
 					"BAD Too big partial end with ",

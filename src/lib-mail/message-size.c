@@ -58,7 +58,7 @@ void message_get_header_size(IOBuffer *inbuf, MessageSize *hdr)
 }
 
 void message_get_body_size(IOBuffer *inbuf, MessageSize *body,
-			   off_t max_virtual_size)
+			   uoff_t max_virtual_size)
 {
 	unsigned char *msg;
 	unsigned int i, size, startpos, missing_cr_count;
@@ -107,7 +107,7 @@ void message_get_body_size(IOBuffer *inbuf, MessageSize *body,
 	i_assert(body->virtual_size >= body->physical_size);
 }
 
-void message_skip_virtual(IOBuffer *inbuf, off_t virtual_skip,
+void message_skip_virtual(IOBuffer *inbuf, uoff_t virtual_skip,
 			  MessageSize *msg_size, int *cr_skipped)
 {
 	unsigned char *msg;

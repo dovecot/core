@@ -37,7 +37,7 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 {
 	MessageSize hdr_size;
 	MboxHeaderContext ctx;
-	off_t body_offset;
+	uoff_t body_offset;
 	unsigned char *data, current_digest[16], old_digest[16];
 	unsigned int size;
 	const char *md5sum;
@@ -101,7 +101,7 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 {
 	MailIndexRecord *rec;
-	off_t from_offset;
+	uoff_t from_offset;
 	unsigned char *data;
 	unsigned int seq, size;
 
@@ -178,7 +178,7 @@ int mbox_index_fsck(MailIndex *index)
 	}
 
 	inbuf = io_buffer_create_mmap(fd, default_pool,
-				      MAIL_MMAP_BLOCK_SIZE, -1);
+				      MAIL_MMAP_BLOCK_SIZE, 0);
 
 	/* lock the mailbox so we can be sure no-one interrupts us.
 	   we are trying to repair our index after all. */

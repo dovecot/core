@@ -154,7 +154,7 @@ static void open_fds(void)
 	}
 }
 
-static void main_init()
+static void main_init(void)
 {
 	lib_init_signals(sig_quit);
 

@@ -195,6 +195,8 @@ static int file_set_size(int fd, off_t size)
 	int ret, old_errno;
 	off_t pos;
 
+	i_assert(size >= 0);
+
 	/* try truncating it to the size we want. if this succeeds, the written
 	   area is full of zeros - exactly what we want. however, this may not
 	   work at all, in which case we fallback to write()ing the zeros. */
@@ -246,7 +248,7 @@ static int hash_rebuild_to_file(MailIndex *index, int fd,
 
 	/* fill the file with zeros */
 	new_size = sizeof(MailHashHeader) + hash_size * sizeof(MailHashRecord);
-	if (!file_set_size(fd, (off_t) new_size)) {
+	if (!file_set_size(fd, (off_t)new_size)) {
 		index_set_error(index,
 				"Failed to fill temp hash to size %lu: %m",
 				(unsigned long) new_size);
@@ -372,7 +374,7 @@ int mail_hash_rebuild(MailHash *hash)
 	return TRUE;
 }
 
-off_t mail_hash_lookup_uid(MailHash *hash, unsigned int uid)
+uoff_t mail_hash_lookup_uid(MailHash *hash, unsigned int uid)
 {
         MailHashRecord *rec;
 	unsigned int hashidx, idx;
@@ -439,7 +441,7 @@ static MailHashRecord *hash_find_uid_or_free(MailHash *hash, unsigned int uid)
 	return NULL;
 }
 
-void mail_hash_update(MailHash *hash, unsigned int uid, off_t pos)
+void mail_hash_update(MailHash *hash, unsigned int uid, uoff_t pos)
 {
 	MailHashRecord *rec;
 	unsigned int max_used;

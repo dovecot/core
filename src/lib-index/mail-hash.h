@@ -12,7 +12,7 @@ struct _MailHashHeader {
 
 struct _MailHashRecord {
 	unsigned int uid;
-	off_t position;
+	uoff_t position;
 };
 
 /* Open or create a hash file for index. If the hash needs to be created,
@@ -30,10 +30,10 @@ int mail_hash_sync_file(MailHash *hash);
 int mail_hash_rebuild(MailHash *hash);
 
 /* Returns position in index file to given UID, or 0 if not found. */
-off_t mail_hash_lookup_uid(MailHash *hash, unsigned int uid);
+uoff_t mail_hash_lookup_uid(MailHash *hash, unsigned int uid);
 
 /* Update hash file. If pos is 0, the record is deleted. This call may
    rebuild the hash if it's too full. */
-void mail_hash_update(MailHash *hash, unsigned int uid, off_t pos);
+void mail_hash_update(MailHash *hash, unsigned int uid, uoff_t pos);
 
 #endif

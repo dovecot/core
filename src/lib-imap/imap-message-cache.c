@@ -45,7 +45,7 @@ struct _ImapMessageCache {
 
 	CachedMessage *open_msg;
 	IOBuffer *open_inbuf;
-	off_t open_virtual_size;
+	uoff_t open_virtual_size;
 
 	IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf, void *context);
 	void *context;
@@ -163,7 +163,7 @@ static CachedMessage *cache_find(ImapMessageCache *cache, unsigned int uid)
 	return NULL;
 }
 
-static void imap_msgcache_get_inbuf(ImapMessageCache *cache, off_t offset)
+static void imap_msgcache_get_inbuf(ImapMessageCache *cache, uoff_t offset)
 {
 	if (offset < cache->open_inbuf->offset) {
 		/* need to rewind */
@@ -292,9 +292,11 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 			message_get_header_size(cache->open_inbuf,
 						msg->hdr_size);
 
-			i_assert((off_t)msg->hdr_size->physical_size <
+			/* FIXME: this may actually happen if file size is
+			   shrinked.. */
+			i_assert(msg->hdr_size->physical_size <
 				 cache->open_inbuf->size);
-			i_assert((off_t)msg->hdr_size->virtual_size <
+			i_assert(msg->hdr_size->virtual_size <
 				 cache->open_virtual_size);
 
 			msg->body_size->lines = 0;
@@ -326,8 +328,8 @@ static void cache_fields(ImapMessageCache *cache, CachedMessage *msg,
 }
 
 void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
-			   ImapCacheField fields, off_t virtual_size,
-			   off_t pv_headers_size, off_t pv_body_size,
+			   ImapCacheField fields, uoff_t virtual_size,
+			   uoff_t pv_headers_size, uoff_t pv_body_size,
 			   IOBuffer *inbuf,
 			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
 						     void *context),
@@ -447,7 +449,7 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
 			     IOBuffer **inbuf)
 {
 	CachedMessage *msg;
-	off_t offset;
+	uoff_t offset;
 
 	if (inbuf != NULL) {
 		if (cache->open_msg == NULL || cache->open_msg->uid != uid)
@@ -485,7 +487,7 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
 }
 
 static void get_partial_size(IOBuffer *inbuf,
-			     off_t virtual_skip, off_t max_virtual_size,
+			     uoff_t virtual_skip, uoff_t max_virtual_size,
 			     MessageSize *partial, MessageSize *dest)
 {
 	unsigned char *msg;
@@ -493,7 +495,7 @@ static void get_partial_size(IOBuffer *inbuf,
 	int cr_skipped;
 
 	/* see if we can use the existing partial */
-	if ((off_t)partial->virtual_size > virtual_skip)
+	if (partial->virtual_size > virtual_skip)
 		memset(partial, 0, sizeof(MessageSize));
 	else {
 		io_buffer_skip(inbuf, partial->physical_size);
@@ -517,12 +519,13 @@ static void get_partial_size(IOBuffer *inbuf,
 }
 
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
-				     off_t virtual_skip, off_t max_virtual_size,
+				     uoff_t virtual_skip,
+				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
                                      IOBuffer **inbuf)
 {
 	CachedMessage *msg;
-	off_t physical_skip;
+	uoff_t physical_skip;
 	int size_got;
 
 	msg = cache->open_msg;
@@ -540,7 +543,8 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 	/* see if we can do this easily */
 	size_got = FALSE;
 	if (virtual_skip == 0) {
-		if (max_virtual_size < 0 && msg->body_size == NULL) {
+		if (msg->body_size == NULL) {
+			/* FIXME: may underflow */
 			msg->body_size = p_new(msg->pool, MessageSize, 1);
 			msg->body_size->physical_size =
 				cache->open_inbuf->size -
@@ -550,9 +554,7 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
 				msg->hdr_size->virtual_size;
 		}
 
-		if (msg->body_size != NULL &&
-		    (max_virtual_size < 0 ||
-		     max_virtual_size >= (off_t)msg->body_size->virtual_size)) {
+		if (max_virtual_size >= msg->body_size->virtual_size) {
 			*size = *msg->body_size;
 			size_got = TRUE;
 		}

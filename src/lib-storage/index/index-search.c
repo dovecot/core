@@ -98,18 +98,16 @@ static int msgset_contains(const char *set, unsigned int match_num,
 	return FALSE;
 }
 
-static off_t str_to_off_t(const char *str)
+static uoff_t str_to_uoff_t(const char *str)
 {
-	off_t num;
+	uoff_t num;
 
 	num = 0;
 	while (*str != '\0') {
 		if (*str < '0' || *str > '9')
-			return -1;
+			return 0;
 
-		/* FIXME: this may overflow, and ANSI-C says overflowing
-		   signed values have undefined behaviour.. */
-		num = num*10 + *str - '0';
+		num = num*10 + (*str - '0');
 	}
 
 	return num;
@@ -180,9 +178,9 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 
 	/* sizes */
 	case SEARCH_SMALLER:
-		return rec->full_virtual_size < str_to_off_t(value);
+		return rec->full_virtual_size < str_to_uoff_t(value);
 	case SEARCH_LARGER:
-		return rec->full_virtual_size > str_to_off_t(value);
+		return rec->full_virtual_size > str_to_uoff_t(value);
 
 	default:
 		return -1;
@@ -505,7 +503,7 @@ static int search_arg_match_text(IndexMailbox *ibox, MailIndexRecord *rec,
 	}
 
 	if (have_text || have_body) {
-		if (inbuf->offset != (off_t)rec->header_size) {
+		if (inbuf->offset != rec->header_size) {
 			/* skip over headers */
 			i_assert(inbuf->offset == 0);
 			io_buffer_skip(inbuf, rec->header_size);

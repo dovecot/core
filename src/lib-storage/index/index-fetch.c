@@ -106,7 +106,7 @@ static void index_fetch_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 
 	body_size.physical_size += hdr_size.physical_size;
 	body_size.virtual_size += hdr_size.virtual_size;
-	(void)message_send(ctx->outbuf, inbuf, &body_size, 0, -1);
+	(void)message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
 }
 
 static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchContext *ctx)
@@ -125,7 +125,7 @@ static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchContext *ctx)
 	str = t_strdup_printf(" RFC822.HEADER {%lu}\r\n",
 			      (unsigned long) hdr_size.virtual_size);
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
-	(void)message_send(ctx->outbuf, inbuf, &hdr_size, 0, -1);
+	(void)message_send(ctx->outbuf, inbuf, &hdr_size, 0, (uoff_t)-1);
 }
 
 static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
@@ -144,7 +144,7 @@ static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 	str = t_strdup_printf(" RFC822.TEXT {%lu}\r\n",
 			      (unsigned long) body_size.virtual_size);
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
-	(void)message_send(ctx->outbuf, inbuf, &body_size, 0, -1);
+	(void)message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
 }
 
 static ImapCacheField index_get_cache(MailFetchData *fetch_data)

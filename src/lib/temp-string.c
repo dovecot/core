@@ -54,8 +54,14 @@ static void t_string_inc(TempString *tstr, unsigned int size)
 	RealTempString *rstr = (RealTempString *) tstr;
 	char *str;
 
-	if (rstr->len + size + 1 > rstr->alloc_size) {
-                rstr->alloc_size = nearest_power(rstr->len + size + 1);
+	size += rstr->len + 1;
+	if (size <= rstr->len || size > INT_MAX) {
+		/* overflow */
+		i_panic("t_string_inc(): Out of memory for %u bytes", size);
+	}
+
+	if (size > rstr->alloc_size) {
+                rstr->alloc_size = nearest_power(size);
 
 		if (!t_try_grow(rstr->str, rstr->alloc_size)) {
 			str = t_malloc(rstr->alloc_size);

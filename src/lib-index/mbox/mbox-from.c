@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "mbox-index.h"
 
 #include <time.h>
 #include <ctype.h>
@@ -94,7 +95,7 @@ const char *mbox_from_create(const char *sender, time_t time)
 {
 	struct tm *tm;
 	char *ret, *p;
-	int len, year;
+	unsigned int len, year;
 
 	len = strlen(sender);
 	ret = t_malloc(len + 24 + 1);

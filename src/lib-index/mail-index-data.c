@@ -11,7 +11,7 @@
 #include <fcntl.h>
 
 #define DATA_FILE_POSITION(data, rec) \
-	((off_t) ((char *) (rec) - (char *) ((data)->mmap_base)))
+	((uoff_t) ((char *) (rec) - (char *) ((data)->mmap_base)))
 
 /* Never compress the file if it's smaller than this (50kB) */
 #define COMPRESS_MIN_SIZE (1024*50)
@@ -31,9 +31,10 @@ struct _MailIndexData {
 	unsigned int dirty_mmap:1;
 };
 
-static int mmap_update(MailIndexData *data, off_t pos, unsigned int size)
+static int mmap_update(MailIndexData *data, uoff_t pos, unsigned int size)
 {
-	if (!data->dirty_mmap || (size != 0 && pos+size <= data->mmap_length))
+	if (!data->dirty_mmap || (size != 0 && pos <= data->mmap_length &&
+				  pos+size <= data->mmap_length))
 		return TRUE;
 
 	if (data->mmap_base != NULL)
@@ -203,8 +204,8 @@ void mail_index_data_new_data_notify(MailIndexData *data)
 	data->dirty_mmap = TRUE;
 }
 
-off_t mail_index_data_append(MailIndexData *data, const void *buffer,
-			     size_t size)
+uoff_t mail_index_data_append(MailIndexData *data, const void *buffer,
+			      size_t size)
 {
 	off_t pos;
 
@@ -214,24 +215,30 @@ off_t mail_index_data_append(MailIndexData *data, const void *buffer,
 	if (pos == -1) {
 		index_set_error(data->index, "lseek() failed with file %s: %m",
 				data->filepath);
-		return -1;
+		return 0;
+	}
+
+	if (pos < (int)sizeof(MailIndexDataHeader)) {
+		index_set_error(data->index, "Header missing from data file %s",
+				data->filepath);
+		return 0;
 	}
 
 	if (write_full(data->fd, buffer, size) < 0) {
 		index_set_error(data->index, "Error appending to file %s: %m",
 				data->filepath);
-		return -1;
+		return 0;
 	}
 
 	mail_index_data_new_data_notify(data);
-	return pos;
+	return (uoff_t)pos;
 }
 
 int mail_index_data_add_deleted_space(MailIndexData *data,
 				      unsigned int data_size)
 {
 	MailIndexDataHeader *hdr;
-	off_t max_del_space;
+	uoff_t max_del_space;
 
 	i_assert(data->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
@@ -275,9 +282,10 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		       MailField field)
 {
 	MailIndexDataRecord *rec;
-	off_t pos, max_pos;
+	uoff_t pos, max_pos;
 
 	if (index_rec->data_position == 0) {
+		/* data not yet written to record */
 		index_reset_error(data->index);
 		return NULL;
 	}
@@ -285,38 +293,36 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 	if (!mmap_update(data, index_rec->data_position, index_rec->data_size))
 		return NULL;
 
-	max_pos = index_rec->data_position + (off_t)index_rec->data_size;
-	if (max_pos > (off_t)data->mmap_length) {
+	if (index_rec->data_position > data->mmap_length ||
+	    (data->mmap_length -
+	     index_rec->data_position > index_rec->data_size)) {
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
 				"Given data size larger than file size "
-				"(%lu > %lu)", data->filepath,
-				(unsigned long) max_pos,
+				"(%lu + %u > %lu)", data->filepath,
+				(unsigned long) index_rec->data_position,
+                                index_rec->data_size,
 				(unsigned long) data->mmap_length);
 		return NULL;
 	}
 
 	pos = index_rec->data_position;
-	do {
-		if (pos + (off_t)sizeof(MailIndexDataRecord) > max_pos) {
-			INDEX_MARK_CORRUPTED(data->index);
-			index_set_error(data->index, "Error in data file %s: "
-					"Index points outside file "
-					"(%lu > %lu)", data->filepath,
-					(unsigned long) pos,
-					(unsigned long) data->mmap_length);
-			break;
-		}
+	max_pos = pos + index_rec->data_size;
 
+	do {
 		rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
-		if (pos + (off_t)DATA_RECORD_SIZE(rec) > max_pos) {
+
+		/* pos + DATA_RECORD_SIZE() may actually overflow, but it
+		   points to beginning of file then. Don't bother checking
+		   this as it won't crash and is quite likely noticed later. */
+		if (pos + sizeof(MailIndexDataRecord) > max_pos ||
+		    pos + DATA_RECORD_SIZE(rec) > max_pos) {
 			INDEX_MARK_CORRUPTED(data->index);
 			index_set_error(data->index, "Error in data file %s: "
 					"Field size points outside file "
-					"(%lu + %u > %lu)", data->filepath,
+					"(%lu / %lu)", data->filepath,
 					(unsigned long) pos,
-					rec->full_field_size,
-					(unsigned long) data->mmap_length);
+					(unsigned long) max_pos);
 			break;
 		}
 
@@ -340,7 +346,7 @@ MailIndexDataRecord *
 mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 		     MailIndexDataRecord *rec)
 {
-	off_t pos, max_pos;
+	uoff_t pos, end_pos, max_pos;
 
 	if (rec == NULL)
 		return NULL;
@@ -354,14 +360,15 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 		return NULL;
 
 	rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
-	if (pos + (off_t)DATA_RECORD_SIZE(rec) > max_pos) {
+	end_pos = pos + DATA_RECORD_SIZE(rec);
+	if (end_pos < pos || end_pos > max_pos) {
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
 				"Field size points outside file "
 				"(%lu + %u > %lu)", data->filepath,
 				(unsigned long) pos,
 				rec->full_field_size,
-				(unsigned long) data->mmap_length);
+				(unsigned long) max_pos);
 		return NULL;
 	}
 
@@ -372,8 +379,15 @@ int mail_index_data_record_verify(MailIndexData *data, MailIndexDataRecord *rec)
 {
 	int i;
 
+	if (rec->full_field_size > INT_MAX) {
+		INDEX_MARK_CORRUPTED(data->index);
+		index_set_error(data->index, "Error in data file %s: "
+				"full_field_size > INT_MAX", data->filepath);
+		return FALSE;
+	}
+
 	/* make sure the data actually contains \0 */
-	for (i = rec->full_field_size-1; i >= 0; i--) {
+	for (i = (int)rec->full_field_size-1; i >= 0; i--) {
 		if (rec->data[i] == '\0') {
 			/* yes, everything ok */
 			return TRUE;

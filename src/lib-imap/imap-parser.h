@@ -27,7 +27,7 @@ struct _ImapArg {
 
 	union {
 		char *str;
-		unsigned int literal_size;
+		uoff_t literal_size;
 		ImapArgList *list;
 	} data;
 };

@@ -15,8 +15,8 @@ struct _MessagePartEnvelopeData {
 	char *in_reply_to, *message_id;
 };
 
-static const char *t_buffer_get_quote(const char *value,
-				      unsigned int *value_len)
+static const char *
+t_buffer_get_quote(const char *value, unsigned int *value_len)
 {
 	char *buf, *p;
 	unsigned int i, len;
@@ -46,7 +46,7 @@ static const char *quote_str_nil(const char *value)
 
 	value_len = strlen(value);
 	buf = t_buffer_get_quote(value, &value_len);
-	t_buffer_alloc((unsigned int) value_len);
+	t_buffer_alloc(value_len);
 	return buf;
 }
 

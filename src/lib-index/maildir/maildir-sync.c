@@ -151,8 +151,8 @@ static int maildir_index_sync_files(MailIndex *index, const char *dir,
 				return FALSE;
 			}
 
-			file_changed = st.st_size != (off_t) (rec->body_size +
-							      rec->header_size);
+			file_changed = (uoff_t)st.st_size !=
+				rec->body_size + rec->header_size;
 		}
 
 		/* changed - update */

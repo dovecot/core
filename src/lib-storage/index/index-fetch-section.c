@@ -234,13 +234,13 @@ static void fetch_header_from(IOBuffer *inbuf, MessageSize *size,
 
 	i_assert(len <= size->virtual_size);
 
-	if ((off_t)len <= sect->skip)
+	if (len <= sect->skip)
 		len = 0;
 	else {
 		dest += sect->skip;
 		len -= sect->skip;
 
-		if (sect->max_size >= 0 && (off_t)len > sect->max_size)
+		if (len > sect->max_size)
 			len = sect->max_size;
 	}
 
@@ -272,7 +272,7 @@ static MessagePart *part_find(MailIndexRecord *rec, MailFetchBodyData *sect,
 {
 	MessagePart *part;
 	const char *path;
-	int num;
+	unsigned int num;
 
 	part = imap_msgcache_get_parts(ctx->cache, rec->uid);
 
@@ -283,7 +283,7 @@ static MessagePart *part_find(MailIndexRecord *rec, MailFetchBodyData *sect,
 		while (*path != '\0' && *path != '.') {
 			if (*path < '0' || *path > '9')
 				return NULL;
-			num = num*10 + *path - '0';
+			num = num*10 + (*path - '0');
 			path++;
 		}
 
@@ -312,14 +312,13 @@ static int fetch_part_body(MessagePart *part, unsigned int uid,
 {
 	IOBuffer *inbuf;
 	const char *str;
-	off_t skip_pos;
+	uoff_t skip_pos;
 
 	if (!imap_msgcache_get_data(ctx->cache, uid, &inbuf))
 		return FALSE;
 
 	/* jump to beginning of wanted data */
-	skip_pos = (off_t) (part->pos.physical_pos +
-			    part->header_size.physical_size);
+	skip_pos = part->pos.physical_pos + part->header_size.physical_size;
 	io_buffer_skip(inbuf, skip_pos);
 
 	str = t_strdup_printf("{%lu}\r\n",

@@ -188,7 +188,7 @@ static MessagePart *message_parse_part(IOBuffer *inbuf,
 				       MessageParseContext *parse_ctx)
 {
 	MessagePart *next_part, *part;
-	size_t hdr_size;
+	uoff_t hdr_size;
 
 	message_parse_header(parse_ctx->part, inbuf,
 			     &parse_ctx->part->header_size,
@@ -550,7 +550,7 @@ static MessagePart *message_parse_body(IOBuffer *inbuf,
 	MessageBoundary *boundary;
 
 	if (boundaries == NULL) {
-		message_get_body_size(inbuf, body_size, -1);
+		message_get_body_size(inbuf, body_size, (uoff_t)-1);
 		return NULL;
 	} else {
 		boundary = message_find_boundary(inbuf, boundaries,

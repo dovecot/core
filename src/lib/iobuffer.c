@@ -65,9 +65,10 @@ IOBuffer *io_buffer_create_file(int fd, Pool pool,
 }
 
 IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
-				off_t size)
+				uoff_t size)
 {
 	IOBuffer *buf;
+	off_t start_offset, stop_offset;
 
 	/* block size must be page aligned, and at least two pages long */
 	if (mmap_pagesize == 0) {
@@ -87,14 +88,18 @@ IOBuffer *io_buffer_create_mmap(int fd, Pool pool, unsigned int block_size,
 	buf->receive = TRUE;
 
 	/* set offsets */
-	buf->start_offset = lseek(fd, 0, SEEK_CUR);
-	buf->size = size > 0 ? size :
-		lseek(fd, 0, SEEK_END) - buf->start_offset;
+	start_offset = lseek(fd, 0, SEEK_CUR);
+	stop_offset = lseek(fd, 0, SEEK_END);
 
-	if (buf->start_offset < 0 || buf->size < 0) {
+	if (start_offset < 0 || stop_offset < 0) {
 		i_error("io_buffer_create_mmap(): lseek() failed: %m");
 		buf->start_offset = buf->size = 0;
 	}
+
+	buf->start_offset = start_offset;
+	buf->size = size > 0 ? size :
+		start_offset > stop_offset ? 0 :
+		stop_offset - start_offset;
 
 	buf->skip = buf->pos = buf->start_offset;
 	return buf;
@@ -555,7 +560,7 @@ int io_buffer_send_buf(IOBuffer *outbuf, IOBuffer *inbuf, unsigned int size)
 		return -1;
 
 	outbuf->offset += ret;
-	io_buffer_skip(inbuf, ret);
+	io_buffer_skip(inbuf, (unsigned int)ret);
 	if ((unsigned int) ret == size) {
 		/* all sent */
 		return 1;
@@ -595,12 +600,13 @@ void io_buffer_send_flush_callback(IOBuffer *buf, IOBufferFlushFunc func,
 	buf->flush_context = context;
 }
 
-int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
+static int io_buffer_read_mmaped(IOBuffer *buf, unsigned int size)
 {
-	off_t stop_offset, aligned_skip;
+	uoff_t stop_offset;
+	unsigned int aligned_skip;
 
-	stop_offset = buf->size + buf->start_offset;
-	if (stop_offset - buf->mmap_offset <= (off_t)buf->buffer_size) {
+	stop_offset = buf->start_offset + buf->size;
+	if (stop_offset - buf->mmap_offset <= buf->buffer_size) {
 		/* end of file is already mapped */
 		return -1;
 	}
@@ -694,7 +700,7 @@ int io_buffer_read(IOBuffer *buf)
         return io_buffer_read_max(buf, UINT_MAX);
 }
 
-void io_buffer_skip(IOBuffer *buf, unsigned int size)
+void io_buffer_skip(IOBuffer *buf, uoff_t size)
 {
 	int ret;
 
@@ -723,15 +729,13 @@ void io_buffer_skip(IOBuffer *buf, unsigned int size)
 			size -= ret;
 		}
 
-		(void)io_buffer_read_max(buf, size);
+		(void)io_buffer_read_max(buf, (unsigned int)size);
 	}
 }
 
-int io_buffer_seek(IOBuffer *buf, off_t offset)
+int io_buffer_seek(IOBuffer *buf, uoff_t offset)
 {
-	off_t real_offset;
-
-	i_assert(offset >= 0);
+	uoff_t real_offset;
 
 	if (buf->mmaped) {
 		/* first reset everything */
@@ -743,7 +747,13 @@ int io_buffer_seek(IOBuffer *buf, off_t offset)
 		buf->pos = buf->skip = offset;
 	} else {
 		real_offset = buf->start_offset + offset;
-		if (lseek(buf->fd, real_offset, SEEK_SET) != real_offset)
+		if (real_offset > OFF_T_MAX) {
+			errno = EINVAL;
+			return FALSE;
+		}
+
+		if (lseek(buf->fd, (off_t)real_offset, SEEK_SET) !=
+		    (off_t)real_offset)
 			return FALSE;
 	}
 

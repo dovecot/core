@@ -76,7 +76,7 @@ struct _MailIndexHeader {
 	/* 0 = flags,
 	   1 = sizeof(unsigned int),
 	   2 = sizeof(time_t),
-	   3 = sizeof(off_t) */
+	   3 = sizeof(uoff_t) */
 
 	unsigned int version;
 	unsigned int indexid;
@@ -84,7 +84,7 @@ struct _MailIndexHeader {
 	unsigned int flags;
 	unsigned int cache_fields;
 
-	off_t first_hole_position;
+	uoff_t first_hole_position;
 	unsigned int first_hole_records;
 
 	unsigned int uid_validity;
@@ -104,7 +104,7 @@ struct _MailIndexHeader {
 
 struct _MailIndexDataHeader {
 	unsigned int indexid;
-	off_t deleted_space;
+	uoff_t deleted_space;
 };
 
 struct _MailIndexRecord {
@@ -113,13 +113,13 @@ struct _MailIndexRecord {
 	time_t internal_date;
 	time_t sent_date;
 
-	off_t data_position;
+	uoff_t data_position;
 	unsigned int data_size;
 
 	unsigned int cached_fields;
-	off_t header_size;
-	off_t body_size;
-	off_t full_virtual_size;
+	uoff_t header_size;
+	uoff_t body_size;
+	uoff_t full_virtual_size;
 };
 
 #define MSG_HAS_VALID_CRLF_DATA(rec) \
@@ -131,8 +131,11 @@ struct _MailIndexDataRecord {
 	char data[MEM_ALIGN_SIZE]; /* variable size */
 };
 
+#define SIZEOF_MAIL_INDEX_DATA \
+	(sizeof(MailIndexDataRecord) - MEM_ALIGN_SIZE)
+
 #define DATA_RECORD_SIZE(rec) \
-        (sizeof(MailIndexDataRecord) - MEM_ALIGN_SIZE + (rec)->full_field_size)
+        (SIZEOF_MAIL_INDEX_DATA + (rec)->full_field_size)
 
 struct _MailIndex {
 	int (*open)(MailIndex *index, int update_recent);
@@ -272,7 +275,7 @@ struct _MailIndex {
 	unsigned int indexid;
 
 	char *mbox_path; /* mbox-specific path to the actual mbox file */
-	off_t mbox_size; /* last synced size of mbox file */
+	uoff_t mbox_size; /* last synced size of mbox file */
 	int mbox_locks;
 
 	int fd; /* opened index file */
@@ -354,11 +357,11 @@ int mail_index_compress_data(MailIndex *index);
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)
 
-/* off_t to index file for given record */
+/* uoff_t to index file for given record */
 #define INDEX_FILE_POSITION(index, ptr) \
-	((off_t) ((char *) (ptr) - (char *) ((index)->mmap_base)))
+	((uoff_t) ((char *) (ptr) - (char *) ((index)->mmap_base)))
 
-/* index number for off_t position */
+/* index number for uoff_t position */
 #define INDEX_POSITION_INDEX(pos) \
 	(((pos) - sizeof(MailIndexHeader)) / sizeof(MailIndexRecord))
 

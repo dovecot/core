@@ -6,13 +6,13 @@ typedef struct _MessagePosition MessagePosition;
 typedef struct _MessageSize MessageSize;
 
 struct _MessagePosition {
-	off_t physical_pos;
-	off_t virtual_pos;
+	uoff_t physical_pos;
+	uoff_t virtual_pos;
 };
 
 struct _MessageSize {
-	size_t physical_size;
-	size_t virtual_size;
+	uoff_t physical_size;
+	uoff_t virtual_size;
 	unsigned int lines;
 };
 

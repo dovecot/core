@@ -13,7 +13,8 @@
 IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 {
 	const char *location;
-	off_t pos, offset, stop_offset;
+	uoff_t offset, stop_offset;
+	off_t pos;
 	char buf[7], *p;
 	int fd, ret, failed;
 
@@ -30,7 +31,8 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 
 	/* location = offset in hex */
 	if (strlen(location) != sizeof(offset)*2 ||
-	    hex_to_binary(location, (unsigned char *) &offset) <= 0) {
+	    hex_to_binary(location, (unsigned char *) &offset) <= 0 ||
+	    offset > OFF_T_MAX) {
                 INDEX_MARK_CORRUPTED(index);
 		index_set_error(index, "Corrupted index file %s: "
 				"Invalid location field for record %u",
@@ -47,7 +49,7 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 		return NULL;
 	}
 
-	pos = lseek(fd, offset, SEEK_SET);
+	pos = lseek(fd, (off_t)offset, SEEK_SET);
 	if (pos == -1) {
 		index_set_error(index, "lseek() failed with mbox file %s: %m",
 				index->mbox_path);
@@ -56,9 +58,10 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 	}
 
 	failed = TRUE;
-	if (pos == offset) {
+	if ((uoff_t)pos == offset) {
 		/* make sure message size is valid */
-		if (lseek(fd, stop_offset, SEEK_SET) == stop_offset) {
+		if (lseek(fd, (off_t)stop_offset, SEEK_SET) ==
+		    (off_t)stop_offset) {
 			/* and check that we end with either EOF or to
 			   beginning of next message */
 			ret = read(fd, buf, 7);
@@ -79,7 +82,7 @@ IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 	}
 
 	if (!failed) {
-		if (lseek(fd, offset, SEEK_SET) == offset) {
+		if (lseek(fd, (off_t)offset, SEEK_SET) == (off_t)offset) {
 			/* everything ok */
 			return io_buffer_create_mmap(fd, default_pool,
 						     MAIL_MMAP_BLOCK_SIZE,

@@ -94,7 +94,7 @@ AM_CONDITIONAL(IOLOOP_POLL, test "$have_poll" = "yes")
 
 dnl * gcc specific options
 if test "x$ac_cv_prog_gcc" = "xyes"; then
-	# -W -Wchar-subscripts -Wpointer-arith -Wcast-align -Wconversion -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
+	# -Wchar-subscripts -Wpointer-arith -Wcast-align -Wconversion -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 	CFLAGS="$CFLAGS -Wall -W"
 fi
 
@@ -106,6 +106,52 @@ case "$host_os" in
 	*)
 		;;
 esac
+
+dnl * off_t checks, try to make it 64bit
+preferred_off_t_bits=32
+AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits)
+
+AC_MSG_CHECKING([size of off_t])
+sizeof_off_t=0
+for size in 4 8; do
+  AC_TRY_RUN([
+    #define _FILE_OFFSET_BITS $preferred_off_t_bits
+    #include <sys/types.h>
+    #include <unistd.h>
+    int main() { off_t size; return sizeof(size) == $size ? 0 : 1; }
+  ], [
+    sizeof_off_t=$size
+    break
+  ])
+done
+
+if test x$sizeof_off_t = x0; then
+  AC_ERROR([Unsupported off_t size])
+fi
+AC_MSG_RESULT($sizeof_off_t)
+
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(long long)
+
+if test x$sizeof_off_t = x$ac_cv_sizeof_long; then
+  # try to use unsigned long always first
+  AC_DEFINE_UNQUOTED(OFF_T_MAX, LONG_MAX)
+  AC_DEFINE_UNQUOTED(UOFF_T_FORMAT, "lu")
+  AC_DEFINE(UOFF_T_LONG)
+elif test x$sizeof_off_t = x$ac_cv_sizeof_int; then
+  # next try int
+  AC_DEFINE_UNQUOTED(OFF_T_MAX, INT_MAX)
+  AC_DEFINE_UNQUOTED(UOFF_T_FORMAT, "u")
+  AC_DEFINE(UOFF_T_INT)
+elif test x$sizeof_off_t = x$ac_cv_sizeof_long_long; then
+  # and finally long long
+  AC_DEFINE_UNQUOTED(OFF_T_MAX, LONG_LONG_MAX)
+  AC_DEFINE_UNQUOTED(UOFF_T_FORMAT, "llu")
+  AC_DEFINE(UOFF_T_LONG_LONG)
+else
+  AC_ERROR([Couldn't find integer type for off_t])
+fi
 
 dnl * memory alignment, could be 1 for x86 systems but 4 should be
 dnl * compatible with everyone. note that only 1, 2 and 4 work corrently.

@@ -11,11 +11,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static off_t get_indexed_mbox_size(MailIndex *index)
+static uoff_t get_indexed_mbox_size(MailIndex *index)
 {
 	MailIndexRecord *rec, *prev;
 	const char *location;
-	off_t size;
+	uoff_t size;
 
 	if (index->lock_type == MAIL_LOCK_UNLOCK) {
 		if (!mail_index_set_lock(index, MAIL_LOCK_SHARED))
@@ -59,6 +59,12 @@ static off_t get_indexed_mbox_size(MailIndex *index)
 
 	if (index->lock_type == MAIL_LOCK_SHARED)
 		(void)mail_index_set_lock(index, MAIL_LOCK_UNLOCK);
+
+	if (size > OFF_T_MAX) {
+		/* too large to fit in off_t */
+		return 0;
+	}
+
 	return size;
 }
 
@@ -75,7 +81,7 @@ static int mbox_check_new_mail(MailIndex *index)
 		return FALSE;
 	}
 
-	pos = lseek(fd, index->mbox_size, SEEK_SET);
+	pos = lseek(fd, (off_t)index->mbox_size, SEEK_SET);
 	if (pos == -1) {
 		index_set_error(index, "lseek() failed with mbox file %s: %m",
 				index->mbox_path);
@@ -83,7 +89,7 @@ static int mbox_check_new_mail(MailIndex *index)
 		return FALSE;
 	}
 
-	if (pos != index->mbox_size) {
+	if ((uoff_t)pos != index->mbox_size) {
 		/* someone just shrinked the file? */
 		(void)close(fd);
 		return mbox_index_fsck(index);
@@ -91,7 +97,7 @@ static int mbox_check_new_mail(MailIndex *index)
 
 	/* add the new data */
 	inbuf = io_buffer_create_mmap(fd, default_pool,
-				      MAIL_MMAP_BLOCK_SIZE, -1);
+				      MAIL_MMAP_BLOCK_SIZE, 0);
 	ret = mbox_index_append(index, inbuf);
 	(void)close(fd);
 	io_buffer_destroy(inbuf);
@@ -126,7 +132,7 @@ int mbox_index_sync(MailIndex *index)
 		index->mbox_size = get_indexed_mbox_size(index);
 
 	/* file has been modified. */
-	if (index->mbox_size > st.st_size) {
+	if (index->mbox_size > (uoff_t)st.st_size) {
 		/* file was grown, hopefully just new mail */
 		return mbox_check_new_mail(index);
 	} else {

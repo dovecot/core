@@ -10,7 +10,7 @@ int mail_index_fsck(MailIndex *index)
 	MailIndexHeader *hdr;
 	MailIndexRecord *rec, *end_rec;
 	unsigned int max_uid;
-	off_t pos;
+	uoff_t pos;
 
 	i_assert(index->lock_type != MAIL_LOCK_SHARED);
 
@@ -42,9 +42,9 @@ int mail_index_fsck(MailIndex *index)
 			if (hdr->first_hole_position == 0) {
 				hdr->first_hole_position = pos;
 				hdr->first_hole_records = 1;
-			} else if ((off_t) (hdr->first_hole_position +
-					    (hdr->first_hole_records *
-					     sizeof(MailIndexRecord))) == pos) {
+			} else if (hdr->first_hole_position +
+				   (hdr->first_hole_records *
+				    sizeof(MailIndexRecord)) == pos) {
 				/* hole continues */
 				hdr->first_hole_records++;
 			}

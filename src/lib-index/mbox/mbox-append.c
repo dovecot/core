@@ -81,7 +81,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	MailIndexUpdate *update;
         MboxHeaderContext ctx;
 	time_t internal_date;
-	off_t start_offset, stop_offset, old_size;
+	uoff_t start_offset, stop_offset, old_size;
 	unsigned char *data, md5_digest[16];
 	unsigned int size, pos, virtual_size;
 	const char *location;

@@ -73,11 +73,21 @@ static int have_new_fields(MailIndexUpdate *update)
 static int have_too_large_fields(MailIndexUpdate *update)
 {
 	MailIndexDataRecord *rec;
+	unsigned int size_left;
 	int index;
+
+	size_left = update->rec->data_size;
 
 	/* start from the first data field - it's required to exist */
 	rec = mail_index_data_lookup(update->index->data, update->rec, 1);
 	while (rec != NULL) {
+		if (rec->full_field_size > size_left) {
+			/* corrupted */
+			update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
+			return TRUE;
+		}
+		size_left -= rec->full_field_size;
+
 		if (rec->field & update->updated_fields) {
 			/* field was changed */
 			index = mail_field_get_index(rec->field);
@@ -99,22 +109,36 @@ static int update_by_append(MailIndexUpdate *update)
 {
         MailIndexDataRecord *rec, *destrec;
 	MailField field;
-	off_t fpos;
+	uoff_t fpos;
 	void *mem;
-	unsigned int max_size, pos;
+	const void *src;
+	unsigned int max_size, pos, src_size;
 	int i;
 
 	/* allocate the old size + also the new size of all changed or added
 	   fields. this is more than required, but it's much easier than
-	   calculating the exact size. */
+	   calculating the exact size.
+
+	   If this calculation overflows (no matter what value), it doesn't
+	   really matter as it's later checked anyway. */
 	max_size = update->rec->data_size;
 	for (i = 0; i < FIELD_TYPE_MAX_BITS; i++) {
-		max_size += sizeof(MailIndexDataRecord)-sizeof(rec->data) +
+		max_size += SIZEOF_MAIL_INDEX_DATA +
 			update->field_sizes[i] +
 			update->field_extra_sizes[i] + MEM_ALIGN_SIZE-1;
 	}
 
-	mem = p_malloc(update->pool, max_size);
+	if (max_size > INT_MAX) {
+		/* rec->data_size most likely corrupted */
+		update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
+		return FALSE;
+	}
+
+	/* allocate two extra records to avoid overflows in case of bad
+	   rec->full_field_size which itself fits into max_size, but
+	   either the record part would make it point ouside allocate memory,
+	   or the next field's record would do that */
+	mem = p_malloc(update->pool, max_size + sizeof(MailIndexDataRecord)*2);
 	pos = 0;
 
 	rec = mail_index_data_lookup(update->index->data, update->rec, 1);
@@ -125,16 +149,25 @@ static int update_by_append(MailIndexUpdate *update)
 			/* value was modified - use it */
 			destrec->full_field_size = update->field_sizes[i] +
 				update->field_extra_sizes[i];
-			memcpy(destrec->data, update->fields[i],
-			       update->field_sizes[i]);
+			src = update->fields[i];
+			src_size = update->field_sizes[i];
 		} else if (rec != NULL) {
 			/* use the old value */
 			destrec->full_field_size = rec->full_field_size;
-			memcpy(destrec->data, rec->data, rec->full_field_size);
+			src = rec->data;
+			src_size = rec->full_field_size;
 		} else {
 			/* the field doesn't exist, jump to next */
 			continue;
 		}
+
+		if (src_size > max_size || max_size - src_size > pos) {
+			/* corrupted data file - old value had a field
+			   larger than expected */
+			update->index->header->flags |= MAIL_INDEX_FLAG_REBUILD;
+			return FALSE;
+		}
+		memcpy(destrec->data, src, src_size);
 
 		/* memory alignment fix */
 		destrec->full_field_size = MEM_ALIGN(destrec->full_field_size);
@@ -152,7 +185,7 @@ static int update_by_append(MailIndexUpdate *update)
 
 	/* append the data at the end of the data file */
 	fpos = mail_index_data_append(update->index->data, mem, pos);
-	if (fpos == -1)
+	if (fpos == 0)
 		return FALSE;
 
 	/* update index file position - it's mmap()ed so it'll be writte
@@ -177,10 +210,11 @@ static void update_by_replace(MailIndexUpdate *update)
 			index = mail_field_get_index(rec->field);
 			i_assert(index >= 0);
 
-			i_assert(update->field_sizes[index] <
+			i_assert(update->field_sizes[index] <=
 				 rec->full_field_size);
 
-			strcpy(rec->data, update->fields[index]);
+			memcpy(rec->data, update->fields[index],
+			       update->field_sizes[index]);
 		}
 		rec = mail_index_data_next(update->index->data,
 					   update->rec, rec);
@@ -391,7 +425,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 			/* we need to calculate virtual size of the
 			   body as well. message_parse_header() left the
 			   inbuf point to beginning of the body. */
-			message_get_body_size(inbuf, &body_size, -1);
+			message_get_body_size(inbuf, &body_size, (uoff_t)-1);
 
 			update->rec->full_virtual_size =
 				hdr_size.virtual_size + body_size.virtual_size;

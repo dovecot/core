@@ -53,7 +53,7 @@ static int mmap_update(MailIndex *index)
 		/* partial write or corrupted -
 		   truncate the file to valid length */
 		index->mmap_length -= extra;
-		(void)ftruncate(index->fd, (off_t) index->mmap_length);
+		(void)ftruncate(index->fd, (off_t)index->mmap_length);
 	}
 
 	index->header = (MailIndexHeader *) index->mmap_base;
@@ -371,7 +371,7 @@ static int read_and_verify_header(int fd, MailIndexHeader *hdr)
 	if (hdr->compat_data[0] != MAIL_INDEX_COMPAT_FLAGS ||
 	    hdr->compat_data[1] != sizeof(unsigned int) ||
 	    hdr->compat_data[2] != sizeof(time_t) ||
-	    hdr->compat_data[3] != sizeof(off_t))
+	    hdr->compat_data[3] != sizeof(uoff_t))
 		return FALSE;
 
 	/* check the version */
@@ -575,7 +575,7 @@ void mail_index_init_header(MailIndexHeader *hdr)
 	hdr->compat_data[0] = MAIL_INDEX_COMPAT_FLAGS;
 	hdr->compat_data[1] = sizeof(unsigned int);
 	hdr->compat_data[2] = sizeof(time_t);
-	hdr->compat_data[3] = sizeof(off_t);
+	hdr->compat_data[3] = sizeof(uoff_t);
 	hdr->version = MAIL_INDEX_VERSION;
 	hdr->indexid = ioloop_time;
 
@@ -759,7 +759,7 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 	MailIndexHeader *hdr;
 	MailIndexRecord *rec, *end_rec;
 	unsigned int seq;
-	off_t seekpos;
+	uoff_t seekpos;
 
 	if (lookup_seq == index->last_lookup_seq &&
 	    index->last_lookup != NULL && index->last_lookup->uid != 0) {
@@ -772,8 +772,8 @@ static MailIndexRecord *mail_index_lookup_mapped(MailIndex *index,
 				   sizeof(MailIndexHeader));
 
 	seekpos = sizeof(MailIndexHeader) +
-		(off_t)(lookup_seq-1) * sizeof(MailIndexRecord);
-	if (seekpos > (off_t) (index->mmap_length - sizeof(MailIndexRecord))) {
+		(uoff_t)(lookup_seq-1) * sizeof(MailIndexRecord);
+	if (seekpos > index->mmap_length - sizeof(MailIndexRecord)) {
 		/* out of range */
 		return NULL;
 	}
@@ -865,7 +865,7 @@ MailIndexRecord *mail_index_lookup_uid_range(MailIndex *index,
 {
 	MailIndexRecord *rec, *end_rec;
 	unsigned int uid, last_try_uid;
-	off_t pos;
+	uoff_t pos;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 	i_assert(first_uid > 0 && last_uid > 0);
@@ -1045,7 +1045,7 @@ static void index_mark_flag_changes(MailIndex *index, MailIndexRecord *rec,
 static int mail_index_truncate(MailIndex *index)
 {
 	/* truncate index file */
-	if (ftruncate(index->fd, index->header->first_hole_position) < 0)
+	if (ftruncate(index->fd, (off_t)index->header->first_hole_position) < 0)
 		return FALSE;
 
 	/* update header */
@@ -1069,7 +1069,7 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		       unsigned int seq, int external_change)
 {
 	MailIndexHeader *hdr;
-	off_t pos;
+	uoff_t pos;
 
 	i_assert(index->lock_type == MAIL_LOCK_EXCLUSIVE);
 	i_assert(rec->uid != 0);
@@ -1103,14 +1103,12 @@ int mail_index_expunge(MailIndex *index, MailIndexRecord *rec,
 		/* first deleted message in index */
 		hdr->first_hole_position = pos;
 		hdr->first_hole_records = 1;
-	} else if ((off_t) (hdr->first_hole_position -
-			    sizeof(MailIndexRecord)) == pos) {
+	} else if (hdr->first_hole_position - sizeof(MailIndexRecord) == pos) {
 		/* deleted the previous record before hole */
 		hdr->first_hole_position -= sizeof(MailIndexRecord);
 		hdr->first_hole_records++;
-	} else if ((off_t) (hdr->first_hole_position +
-			    (hdr->first_hole_records *
-			     sizeof(MailIndexRecord))) == pos) {
+	} else if (hdr->first_hole_position +
+		   (hdr->first_hole_records * sizeof(MailIndexRecord)) == pos) {
 		/* deleted the next record after hole */
 		hdr->first_hole_records++;
 		update_first_hole_records(index);
@@ -1169,7 +1167,7 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec)
 	(*rec)->uid = index->header->next_uid++;
 
 	pos = lseek(index->fd, 0, SEEK_END);
-	if (pos == -1) {
+	if (pos < 0) {
 		index_set_error(index, "lseek() failed with file %s: %m",
 				index->filepath);
 		return FALSE;
@@ -1185,7 +1183,7 @@ int mail_index_append(MailIndex *index, MailIndexRecord **rec)
         index_mark_flag_changes(index, *rec, 0, (*rec)->msg_flags);
 
 	if (index->hash != NULL)
-		mail_hash_update(index->hash, (*rec)->uid, pos);
+		mail_hash_update(index->hash, (*rec)->uid, (uoff_t)pos);
 
 	index->dirty_mmap = TRUE;
 	if (!mmap_update(index))

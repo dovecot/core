@@ -16,7 +16,7 @@ static unsigned int get_next_number(const char **str)
 		if (**str < '0' || **str > '9')
 			break;
 
-		num = num*10 + **str - '0';
+		num = num*10 + (**str - '0');
 		(*str)++;
 	}
 
@@ -172,7 +172,7 @@ static int mail_index_uid_foreach(MailIndex *index,
 				  const char **error)
 {
 	MailIndexRecord *rec;
-	off_t pos;
+	uoff_t pos;
 	const unsigned int *expunges;
 	unsigned int seq;
 	int expunges_found;

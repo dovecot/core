@@ -80,7 +80,8 @@ static int flags_file_init(FlagsFile *ff)
 static void flags_file_sync(FlagsFile *ff)
 {
 	char *data, *data_end, *line;
-	int i, num;
+	unsigned int num;
+	int i;
 
 	memcpy(ff->sync_counter, ff->mmap_base, COUNTER_SIZE);
 
@@ -110,12 +111,12 @@ static void flags_file_sync(FlagsFile *ff)
 			continue;
 
 		num = 0;
-		while (data != data_end && i_isdigit(*data)) {
-			num = num*10 + *data-'0';
+		while (data != data_end && *data >= '0' && *data <= '9') {
+			num = num*10 + (*data-'0');
 			data++;
 		}
 
-		if (num >= 0 && num < MAIL_CUSTOM_FLAGS_COUNT) {
+		if (num < MAIL_CUSTOM_FLAGS_COUNT) {
 			/* get the name */
 			if (data == data_end || *data != ' ')
 				continue;
@@ -334,10 +335,11 @@ static int flags_file_add(FlagsFile *ff, int idx, const char *name)
 	return TRUE;
 }
 
-static int flags_file_remove(FlagsFile *ff, int idx)
+static int flags_file_remove(FlagsFile *ff, unsigned int idx)
 {
 	char *data, *data_end, *line;
-	int num, pos, linelen;
+	unsigned int num;
+	int pos, linelen;
 
 	data = ff->mmap_base;
 	data_end = data + ff->mmap_length;
@@ -354,8 +356,8 @@ static int flags_file_remove(FlagsFile *ff, int idx)
 		line = ++data;
 
 		num = 0;
-		while (data != data_end && i_isdigit(*data)) {
-			num = num*10 + *data-'0';
+		while (data != data_end && *data >= '0' && *data <= '9') {
+			num = num*10 + (*data-'0');
 			data++;
 		}
 
@@ -397,7 +399,7 @@ static int find_first_unused_flag(FlagsFile *ff)
 
 static void remove_unused_custom_flags(FlagsFile *ff, MailFlags used_flags)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
 		if ((used_flags & (1 << (i + MAIL_CUSTOM_FLAG_1_BIT))) == 0) {

@@ -23,7 +23,7 @@ int mail_index_compress(MailIndex *index)
 		return TRUE;
 	}
 
-	if (index->header->first_hole_position >= (off_t)index->mmap_length) {
+	if (index->header->first_hole_position >= index->mmap_length) {
 		index_set_error(index, "Error in index file %s: "
 				"first_hole_position points outside file",
 				index->filepath);
@@ -78,7 +78,7 @@ static int mail_index_copy_data(MailIndex *index, int fd, const char *path)
 	MailIndexRecord *rec;
 	unsigned char *mmap_data;
 	size_t mmap_data_size;
-	off_t offset;
+	uoff_t offset;
 
 	mmap_data = mail_index_data_get_mmaped(index->data, &mmap_data_size);
 	if (mmap_data == NULL)

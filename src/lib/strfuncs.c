@@ -164,7 +164,7 @@ unsigned int printf_string_upper_bound(const char *format, va_list args)
                   while (c >= '0' && c <= '9')
                     {
                       format++;
-                      v_uint = v_uint * 10 + c - '0';
+                      v_uint = v_uint * 10 + (c - '0');
                       c = *format;
                     }
                   if (spec.seen_precision)

@@ -31,7 +31,7 @@ struct _ImapParser {
 
         ImapParserFlags flags;
 	int str_first_escape; /* ARG_PARSE_STRING: index to first '\' */
-	unsigned int literal_size; /* ARG_PARSE_LITERAL: string size */
+	uoff_t literal_size; /* ARG_PARSE_LITERAL: string size */
 	unsigned int literal_skip_crlf:1;
 
 	unsigned int inside_bracket:1;
@@ -304,7 +304,7 @@ static int imap_parser_read_literal(ImapParser *parser, char *data,
 			return FALSE;
 
 		prev_size = parser->literal_size;
-		parser->literal_size = parser->literal_size*10 + data[i]-'0';
+		parser->literal_size = parser->literal_size*10 + (data[i]-'0');
 
 		if (parser->literal_size < prev_size) {
 			/* wrapped around, abort. */
@@ -344,7 +344,7 @@ static int imap_parser_read_literal_data(ImapParser *parser, char *data,
 		if (data_size >= parser->literal_size) {
 			imap_parser_save_arg(parser, data,
 					     parser->literal_size);
-			parser->cur_pos = parser->literal_size;
+			parser->cur_pos = (unsigned int) parser->literal_size;
 		}
 	} else {
 		/* we want to save only literal size, not the literal itself. */

@@ -11,15 +11,17 @@
 static int write_with_crlf(int fd, const unsigned char *data,
 			   unsigned int size, unsigned int *last_cr)
 {
-	unsigned int i, cr;
+	int i, cr;
+
+	i_assert(size < INT_MAX);
 
 	cr = *last_cr ? -1 : -2;
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < (int)size; i++) {
 		if (data[i] == '\r')
 			cr = i;
 		else if (data[i] == '\n' && cr != i-1) {
 			/* missing CR */
-			if (write_full(fd, data, i) < 0)
+			if (write_full(fd, data, (unsigned int) i) < 0)
 				return FALSE;
 			if (write_full(fd, "\r", 1) < 0)
 				return FALSE;

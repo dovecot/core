@@ -134,7 +134,7 @@ static int mmap_update(MailModifyLog *log)
 		/* partial write or corrupted -
 		   truncate the file to valid length */
 		log->mmap_length -= extra;
-		(void)ftruncate(log->fd, (off_t) log->mmap_length);
+		(void)ftruncate(log->fd, (off_t)log->mmap_length);
 	}
 
 	log->dirty_mmap = FALSE;

@@ -106,8 +106,8 @@ static void parse_content_language(const Rfc822Token *tokens,
 
 static void parse_header(MessagePart *part,
 			 const char *name, unsigned int name_len,
-			 const char *value,
-			 unsigned int value_len, void *context)
+			 const char *value, unsigned int value_len,
+			 void *context)
 {
 	Pool pool = context;
 	MessagePartBodyData *part_data;
@@ -265,11 +265,11 @@ static void part_write_body(MessagePart *part, TempString *str, int extended)
 		t_string_append_c(str, ')');
 	}
 
-	t_string_printfa(str, " %s %s %s %lu",
+	t_string_printfa(str, " %s %s %s %"UOFF_T_FORMAT,
 			 NVL(data->content_id, "NIL"),
 			 NVL(data->content_description, "NIL"),
 			 NVL(data->content_transfer_encoding, "\"8bit\""),
-			 (unsigned long) part->body_size.virtual_size);
+			 part->body_size.virtual_size);
 
 	if (part->text) {
 		/* text/.. contains line count */

@@ -37,8 +37,8 @@ int imap_msgcache_is_cached(ImapMessageCache *cache, unsigned int uid,
    non-zero, they're set to saved to message's both physical and virtual
    sizes (ie. doesn't need to be calculated). */
 void imap_msgcache_message(ImapMessageCache *cache, unsigned int uid,
-			   ImapCacheField fields, off_t virtual_size,
-			   off_t pv_headers_size, off_t pv_body_size,
+			   ImapCacheField fields, uoff_t virtual_size,
+			   uoff_t pv_headers_size, uoff_t pv_body_size,
 			   IOBuffer *inbuf,
 			   IOBuffer *(*inbuf_rewind)(IOBuffer *inbuf,
 						     void *context),
@@ -68,7 +68,8 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, unsigned int uid,
 /* Returns FALSE if message isn't in cache. *inbuf is set to point to the first
    non-skipped character. size is set to specify the full size of message. */
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache, unsigned int uid,
-				     off_t virtual_skip, off_t max_virtual_size,
+				     uoff_t virtual_skip,
+				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
 				     IOBuffer **inbuf);
 
