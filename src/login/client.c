@@ -51,17 +51,25 @@ static int cmd_starttls(Client *client)
 	client_send_tagline(client, "OK Begin TLS negotiation now.");
 	io_buffer_send_flush(client->outbuf);
 
+	/* must be removed before ssl_proxy_new(), since it may
+	   io_add() the same fd. */
+	io_remove(client->io);
+
 	fd_ssl = ssl_proxy_new(client->fd);
 	if (fd_ssl != -1) {
 		client->tls = TRUE;
 		client->fd = fd_ssl;
 		client->inbuf->fd = fd_ssl;
 		client->outbuf->fd = fd_ssl;
+
+		i_assert(client->inbuf->io == NULL);
+		i_assert(client->outbuf->io == NULL);
 	} else {
 		client_send_line(client, " * BYE TLS handehake failed.");
 		client_destroy(client, "TLS handshake failed");
 	}
 
+	client->io = io_add(client->fd, IO_READ, client_input, client);
 	return TRUE;
 }
 

@@ -290,6 +290,9 @@ int ssl_proxy_new(int fd)
 		return -1;
 	}
 
+	net_set_nonblock(sfd[0], TRUE);
+	net_set_nonblock(sfd[1], TRUE);
+
 	proxy = i_new(SSLProxy, 1);
 	proxy->refcount = 1;
 	proxy->state = state;
