@@ -3,8 +3,6 @@
 
 #include "macros.h"
 
-/* #define POOL_CHECK_LEAKS */
-
 /* Memory allocated and reallocated (the new data in it) in pools is always
    zeroed, it will cost only a few CPU cycles and may well save some debug
    time. */
@@ -68,13 +66,5 @@ pool_t pool_datastack_create(void);
           p_free(pool, rec); \
           (rec) = NULL; \
 	} STMT_END
-
-/* p_free_clean() should be used when pool is being destroyed, so freeing
-   memory isn't needed for anything else than detecting memory leaks. */
-#ifdef POOL_CHECK_LEAKS
-#  define p_free_clean(pool, mem) p_free(pool, mem)
-#else
-#  define p_free_clean(pool, mem)
-#endif
 
 #endif
