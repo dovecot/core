@@ -1,7 +1,7 @@
 AC_INIT(src)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dovecot, 1.0-test30)
+AM_INIT_AUTOMAKE(dovecot, 1.0-test32)
 
 AM_MAINTAINER_MODE
 
@@ -1161,7 +1161,7 @@ if test $want_mysql = yes; then
 				fi
 				AC_TRY_COMPILE([
 				  $ssl_define
-				  #include <$mysql_header>
+				  #include <mysql.h>
 				], [
 				  mysql_set_ssl(0, 0, 0, 0, 0, 0);
 				], [
