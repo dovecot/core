@@ -368,6 +368,8 @@ int ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy)
 
 void ssl_proxy_free(struct ssl_proxy *proxy)
 {
+	if (!proxy->destroyed)
+		ssl_proxy_destroy(proxy);
 	ssl_proxy_unref(proxy);
 }
 
@@ -376,6 +378,19 @@ static int ssl_proxy_unref(struct ssl_proxy *proxy)
 	if (--proxy->refcount > 0)
 		return TRUE;
 	i_assert(proxy->refcount == 0);
+
+	SSL_free(proxy->ssl);
+	i_free(proxy);
+
+	main_unref();
+	return FALSE;
+}
+
+static void ssl_proxy_destroy(struct ssl_proxy *proxy)
+{
+	if (proxy->destroyed)
+		return;
+	proxy->destroyed = TRUE;
 
 	hash_remove(ssl_proxies, proxy);
 
@@ -391,19 +406,7 @@ static int ssl_proxy_unref(struct ssl_proxy *proxy)
 	if (proxy->io_plain_write != NULL)
 		io_remove(proxy->io_plain_write);
 
-	SSL_free(proxy->ssl);
-	i_free(proxy);
-
-	main_unref();
-	return FALSE;
-}
-
-static void ssl_proxy_destroy(struct ssl_proxy *proxy)
-{
-	if (!proxy->destroyed) {
-		proxy->destroyed = TRUE;
-		ssl_proxy_unref(proxy);
-	}
+	ssl_proxy_unref(proxy);
 }
 
 static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
