@@ -293,11 +293,11 @@ int mbox_index_fsck(MailIndex *index)
 	if (inbuf == NULL)
 		return FALSE;
 
-	if (!mbox_lock(index, index->mbox_path, index->mbox_fd, FALSE))
+	if (!mbox_lock_read(index))
 		failed = TRUE;
 	else {
 		failed = !mbox_index_fsck_buf(index, inbuf);
-		(void)mbox_unlock(index, index->mbox_path, index->mbox_fd);
+		(void)mbox_unlock(index);
 	}
 	io_buffer_unref(inbuf);
 

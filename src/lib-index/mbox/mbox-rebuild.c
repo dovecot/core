@@ -47,14 +47,14 @@ int mbox_index_rebuild(MailIndex *index)
 		return FALSE;
 
 	/* lock the mailbox so we can be sure no-one interrupts us. */
-	if (!mbox_lock(index, index->mbox_path, index->mbox_fd, FALSE)) {
+	if (!mbox_lock_read(index)) {
 		io_buffer_unref(inbuf);
 		return FALSE;
 	}
 
 	mbox_skip_empty_lines(inbuf);
 	failed = !mbox_index_append(index, inbuf);
-	(void)mbox_unlock(index, index->mbox_path, index->mbox_fd);
+	(void)mbox_unlock(index);
 
 	io_buffer_unref(inbuf);
 

@@ -173,7 +173,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 	io_buffer_unref(inbuf);
 	fd = ibox->index->mbox_fd;
 
-	if (!mbox_lock(ibox->index, ibox->index->mbox_path, fd, TRUE)) {
+	if (!mbox_lock_write(ibox->index)) {
 		(void)close(fd);
 		return mail_storage_set_index_error(ibox);
 	}
@@ -203,6 +203,6 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		}
 	}
 
-	(void)mbox_unlock(ibox->index, ibox->index->mbox_path, fd);
+	(void)mbox_unlock(ibox->index);
 	return !failed;
 }

@@ -1,7 +1,8 @@
 #ifndef __MBOX_LOCK_H
 #define __MBOX_LOCK_H
 
-int mbox_lock(MailIndex *index, const char *path, int fd, int exclusive);
-int mbox_unlock(MailIndex *index, const char *path, int fd);
+int mbox_lock_read(MailIndex *index);
+int mbox_lock_write(MailIndex *index);
+int mbox_unlock(MailIndex *index);
 
 #endif

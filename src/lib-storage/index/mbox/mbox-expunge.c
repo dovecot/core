@@ -121,8 +121,7 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 	if (inbuf == NULL)
 		return FALSE;
 
-	if (!mbox_lock(ibox->index, ibox->index->mbox_path,
-		       ibox->index->mbox_fd, TRUE)) {
+	if (!mbox_lock_write(ibox->index)) {
 		io_buffer_unref(inbuf);
 		return FALSE;
 	}
@@ -147,8 +146,7 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 		failed = TRUE;
 	}
 
-	(void)mbox_unlock(ibox->index, ibox->index->mbox_path,
-			  ibox->index->mbox_fd);
+	(void)mbox_unlock(ibox->index);
 	io_buffer_unref(outbuf);
 
 	return !failed;

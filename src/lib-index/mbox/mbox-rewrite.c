@@ -390,7 +390,7 @@ int mbox_index_rewrite(MailIndex *index)
 		if (inbuf == NULL)
 			break;
 
-		if (!mbox_lock(index, index->mbox_path, index->mbox_fd, TRUE))
+		if (!mbox_lock_write(index))
 			break;
 		locked = TRUE;
 
@@ -413,10 +413,8 @@ int mbox_index_rewrite(MailIndex *index)
 	} while (0);
 
 	if (!rewrite) {
-		if (locked) {
-			(void)mbox_unlock(index, index->mbox_path,
-					  index->mbox_fd);
-		}
+		if (locked)
+			(void)mbox_unlock(index);
 		if (inbuf != NULL)
 			io_buffer_unref(inbuf);
 		return !failed;
@@ -529,7 +527,7 @@ int mbox_index_rewrite(MailIndex *index)
 		}
 	}
 
-	(void)mbox_unlock(index, index->mbox_path, index->mbox_fd);
+	(void)mbox_unlock(index);
 	(void)unlink(path);
 
 	if (close(tmp_fd) < 0)

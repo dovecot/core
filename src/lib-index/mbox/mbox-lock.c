@@ -29,8 +29,7 @@
 #define STALE_LOCK_TIMEOUT (60*10)
 
 #ifdef USE_FLOCK
-static int mbox_lock_flock(MailIndex *index, const char *path, int fd,
-			   int lock_type)
+static int mbox_lock_flock(MailIndex *index, int lock_type)
 {
 	if (lock_type == F_WRLCK)
 		lock_type = LOCK_EX;
@@ -39,16 +38,16 @@ static int mbox_lock_flock(MailIndex *index, const char *path, int fd,
 	else
 		lock_type = LOCK_UN;
 
-	if (flock(fd, lock_type) < 0)
-		return index_file_set_syscall_error(index, path, "flock()");
+	if (flock(index->mbox_fd, lock_type) < 0)
+		return index_file_set_syscall_error(index, index->mbox_path,
+						    "flock()");
 
 	return TRUE;
 }
 
 #else
 
-static int mbox_lock_fcntl(MailIndex *index, const char *path, int fd,
-			   int lock_type)
+static int mbox_lock_fcntl(MailIndex *index, int lock_type)
 {
 	struct flock fl;
 
@@ -57,9 +56,10 @@ static int mbox_lock_fcntl(MailIndex *index, const char *path, int fd,
 	fl.l_start = 0;
 	fl.l_len = 0;
 
-	while (fcntl(fd, F_SETLKW, &fl) == -1) {
+	while (fcntl(index->mbox_fd, F_SETLKW, &fl) == -1) {
 		if (errno != EINTR) {
-			index_file_set_syscall_error(index, path, "fcntl()");
+			index_file_set_syscall_error(index, index->mbox_path,
+						     "fcntl()");
 			return FALSE;
 		}
 	}
@@ -123,47 +123,58 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 	return FALSE;
 }
 
-int mbox_lock(MailIndex *index, const char *path, int fd, int exclusive)
+static int mbox_lock(MailIndex *index, int exclusive)
 {
 	int lock_type;
 
-	i_assert(fd >= 0);
+	i_assert(index->mbox_fd != -1);
 
 	if (++index->mbox_locks > 1)
 		return TRUE;
 
-        lock_type = exclusive ? F_WRLCK : F_RDLCK;
-#ifdef USE_FLOCK
-	if (!mbox_lock_flock(index, path, fd, lock_type))
-		return FALSE;
-#else
-	if (!mbox_lock_fcntl(index, path, fd, lock_type))
-		return FALSE;
-#endif
 	if (exclusive) {
-		if (!mbox_lock_dotlock(index, path, TRUE))
+		if (!mbox_lock_dotlock(index, index->mbox_path, TRUE))
 			return FALSE;
 	}
+
+        lock_type = exclusive ? F_WRLCK : F_RDLCK;
+#ifdef USE_FLOCK
+	if (!mbox_lock_flock(index, lock_type))
+		return FALSE;
+#else
+	if (!mbox_lock_fcntl(index, lock_type))
+		return FALSE;
+#endif
 
 	return TRUE;
 }
 
-int mbox_unlock(MailIndex *index, const char *path, int fd)
+int mbox_lock_read(MailIndex *index)
 {
-	i_assert(fd >= 0);
+	return mbox_lock(index, FALSE);
+}
+
+int mbox_lock_write(MailIndex *index)
+{
+	return mbox_lock(index, TRUE);
+}
+
+int mbox_unlock(MailIndex *index)
+{
+	i_assert(index->mbox_fd != -1);
 	i_assert(index->mbox_locks > 0);
 
 	if (--index->mbox_locks > 0)
 		return TRUE;
 
 #ifdef USE_FLOCK
-	if (!mbox_lock_flock(index, path, fd, F_UNLCK))
+	if (!mbox_lock_flock(index, F_UNLCK))
 		return FALSE;
 #else
-	if (!mbox_lock_fcntl(index, path, fd, F_UNLCK))
+	if (!mbox_lock_fcntl(index, F_UNLCK))
 		return FALSE;
 #endif
-	if (!mbox_lock_dotlock(index, path, FALSE))
+	if (!mbox_lock_dotlock(index, index->mbox_path, FALSE))
 		return FALSE;
 
 	return TRUE;
