@@ -30,6 +30,7 @@ typedef int socklen_t;
 #endif
 
 #ifdef HAVE_SYS_SYSMACROS_H
+#  include <sys/sysmacros.h>
 #  define CMP_DEV_T(a, b) (major(a) == major(b) && minor(a) == minor(b))
 #elif !defined (DEV_T_STRUCT)
 #  define CMP_DEV_T(a, b) ((a) == (b))
