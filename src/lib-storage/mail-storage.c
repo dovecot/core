@@ -23,6 +23,7 @@ struct client_workaround_list {
 
 struct client_workaround_list client_workaround_list[] = {
 	{ "oe6-fetch-no-newmail", WORKAROUND_OE6_FETCH_NO_NEWMAIL },
+	{ "oe6-fetch-redundant-msgset", WORKAROUND_OE6_FETCH_REDUNDANT_MSGSET },
 	{ "outlook-idle", WORKAROUND_OUTLOOK_IDLE },
 	{ NULL, 0 }
 };

@@ -107,8 +107,9 @@ enum mail_sync_flags {
 };
 
 enum client_workarounds {
-	WORKAROUND_OE6_FETCH_NO_NEWMAIL	= 0x01,
-	WORKAROUND_OUTLOOK_IDLE		= 0x02
+	WORKAROUND_OE6_FETCH_NO_NEWMAIL		= 0x01,
+	WORKAROUND_OE6_FETCH_REDUNDANT_MSGSET	= 0x02,
+	WORKAROUND_OUTLOOK_IDLE			= 0x04
 };
 
 struct mail_storage;

@@ -160,6 +160,14 @@ static int messageset_parse_next(struct messageset_context *ctx)
 		return FALSE;
 	}
 
+	if ((client_workarounds & WORKAROUND_OE6_FETCH_REDUNDANT_MSGSET) != 0 &&
+	    ctx->uidset && ctx->num1 == ctx->ibox->index->header->next_uid &&
+	    ctx->num2 == (unsigned int)-1) {
+		/* FETCH nextuid:* - it's very unlikely the client wants to
+		   fetch the last message */
+		ctx->num2 = ctx->num1;
+	}
+
 	if (ctx->num1 > ctx->num2) {
 		/* swap, as specified by RFC-3501 */
 		unsigned int temp = ctx->num1;
