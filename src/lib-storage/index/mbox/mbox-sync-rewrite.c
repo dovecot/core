@@ -331,8 +331,8 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	mail_ctx.uidl = sync_ctx->uidl;
 	str_truncate(mail_ctx.uidl, 0);
 
-	hdr_offset = mails[idx].offset;
-	mail_ctx.mail.offset = mails[idx].offset;
+	hdr_offset = istream_raw_mbox_get_header_offset(sync_ctx->input);
+	mail_ctx.mail.offset = hdr_offset;
 	mail_ctx.mail.body_size = mails[idx].body_size;
 
 	/* mbox_sync_parse_next_mail() checks that UIDs are growing,
