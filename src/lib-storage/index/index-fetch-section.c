@@ -383,8 +383,8 @@ int index_fetch_body_section(MailIndexRecord *rec,
 	const char *prefix;
 
 	prefix = !sect->skip_set ?
-		t_strdup_printf(" BODY[%s] ", sect->section) :
-		t_strdup_printf(" BODY[%s]<%"PRIuUOFF_T"> ",
+		t_strdup_printf(" BODY[%s]", sect->section) :
+		t_strdup_printf(" BODY[%s]<%"PRIuUOFF_T">",
 				sect->section, sect->skip);
 	if (ctx->first) {
 		prefix++; ctx->first = FALSE;
