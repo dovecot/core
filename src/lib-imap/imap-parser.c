@@ -364,11 +364,11 @@ static int imap_parser_read_literal_data(ImapParser *parser, const char *data,
 			return FALSE;
 
 		if (*data == '\r') {
-			if (data_size == 1)
-				return FALSE;
-
 			data++; data_size--;
 			i_buffer_skip(parser->inbuf, 1);
+
+			if (data_size == 0)
+				return FALSE;
 		}
 
 		if (*data != '\n') {
@@ -486,13 +486,17 @@ static int imap_parser_read_arg(ImapParser *parser)
 	return TRUE;
 }
 
+#define IS_FINISHED(parser) \
+        ((parser)->cur_type == ARG_PARSE_NONE && \
+	 (parser)->root_list->size >= count && \
+	 (parser)->cur_list != parser->root_list)
+
 int imap_parser_read_args(ImapParser *parser, unsigned int count,
 			  ImapParserFlags flags, ImapArg **args)
 {
 	parser->flags = flags;
 
-	while (count == 0 || parser->root_list->size < count ||
-	       parser->cur_list != parser->root_list) {
+	while (count == 0 || !IS_FINISHED(parser)) {
 		if (!imap_parser_read_arg(parser))
 			break;
 	}
@@ -501,12 +505,9 @@ int imap_parser_read_args(ImapParser *parser, unsigned int count,
 		/* error, abort */
 		*args = NULL;
 		return -1;
-	} else if ((parser->cur_type == ARG_PARSE_NONE &&
-		    parser->root_list->size >= count &&
-		    parser->list_arg == NULL) || parser->eol) {
+	} else if (IS_FINISHED(parser) || parser->eol) {
 		/* all arguments read / end of line. ARG_PARSE_NONE checks
-		   that last argument isn't only partially parsed.
-		   list_arg == NULL makes sure the lists are closed. */
+		   that last argument isn't only partially parsed. */
 		if (count >= parser->root_list->alloc) {
 			/* unused arguments must be NIL-filled. */
 			parser->root_list->alloc = count+1;
