@@ -253,12 +253,12 @@ void *buffer_append_space_unsafe(buffer_t *buf, size_t size)
 	return buffer_get_space_unsafe(buf, buf->used, size);
 }
 
-void *buffer_get_modifyable_data(const buffer_t *_buf, size_t *used_size)
+void *buffer_get_modifyable_data(const buffer_t *_buf, size_t *used_size_r)
 {
 	struct real_buffer *buf = (struct real_buffer *)_buf;
 
-	if (used_size != NULL)
-		*used_size = buf->used;
+	if (used_size_r != NULL)
+		*used_size_r = buf->used;
 	return buf->w_buffer;
 }
 
