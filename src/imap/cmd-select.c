@@ -5,7 +5,7 @@
 #include "commands.h"
 
 #define SYSTEM_PERMANENT_FLAGS \
-	"\\Answered \\Flagged \\Deleted \\Seen \\Draft"
+	"\\* \\Answered \\Flagged \\Deleted \\Seen \\Draft"
 #define SYSTEM_FLAGS SYSTEM_PERMANENT_FLAGS " \\Recent"
 
 static const char *
