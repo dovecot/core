@@ -63,12 +63,14 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
 			     MessageSize *hdr_size, MessageSize *body_size);
 
 /* Returns TRUE if successful. *inbuf is set to point to the first non-skipped
-   character. size is set to specify the full size of message. */
+   character. size is set to specify the actual message size in
+   virtual_skip..max_virtual_size range. cr_skipped is set to TRUE if first
+   character in inbuf is LF, and we should NOT treat it as CR+LF. */
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				     uoff_t virtual_skip,
 				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
-				     IBuffer **inbuf);
+				     IBuffer **inbuf, int *cr_skipped);
 
 /* Returns TRUE if successful. *inbuf is set to point to beginning of
    message. */

@@ -424,12 +424,9 @@ int imap_msgcache_get_rfc822(ImapMessageCache *cache, IBuffer **inbuf,
 
 static void get_partial_size(IBuffer *inbuf,
 			     uoff_t virtual_skip, uoff_t max_virtual_size,
-			     MessageSize *partial, MessageSize *dest)
+			     MessageSize *partial, MessageSize *dest,
+			     int *cr_skipped)
 {
-	const unsigned char *msg;
-	size_t size;
-	int cr_skipped;
-
 	/* see if we can use the existing partial */
 	if (partial->virtual_size > virtual_skip)
 		memset(partial, 0, sizeof(MessageSize));
@@ -438,32 +435,30 @@ static void get_partial_size(IBuffer *inbuf,
 		virtual_skip -= partial->virtual_size;
 	}
 
-	message_skip_virtual(inbuf, virtual_skip, partial, &cr_skipped);
-
-	if (!cr_skipped) {
-		/* see if we need to add virtual CR */
-		if (i_buffer_read_data(inbuf, &msg, &size, 0) > 0) {
-			if (msg[0] == '\n')
-				dest->virtual_size++;
-		}
-	}
-
+	message_skip_virtual(inbuf, virtual_skip, partial, cr_skipped);
 	message_get_body_size(inbuf, dest, max_virtual_size);
+
+	if (*cr_skipped) {
+		dest->virtual_size--;
+		partial->virtual_size--;
+	}
 }
 
 int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				     uoff_t virtual_skip,
 				     uoff_t max_virtual_size,
 				     int get_header, MessageSize *size,
-                                     IBuffer **inbuf)
+                                     IBuffer **inbuf, int *cr_skipped)
 {
 	CachedMessage *msg;
-	uoff_t physical_skip;
+	uoff_t physical_skip, full_size;
 	int size_got;
 
 	i_assert(cache->open_msg != NULL);
 
+	memset(size, 0, sizeof(MessageSize));
 	*inbuf = NULL;
+	*cr_skipped = FALSE;
 
 	msg = cache->open_msg;
 	if (msg->hdr_size == NULL) {
@@ -471,8 +466,6 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 		if (msg->hdr_size == NULL)
 			return FALSE;
 	}
-
-	physical_skip = get_header ? 0 : msg->hdr_size->physical_size;
 
 	/* see if we can do this easily */
 	size_got = FALSE;
@@ -483,27 +476,35 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 				return FALSE;
 		}
 
-		if (max_virtual_size >= msg->body_size->virtual_size) {
-			*size = *msg->body_size;
+		full_size = msg->body_size->virtual_size;
+		if (get_header)
+			full_size += msg->hdr_size->virtual_size;
+
+		if (max_virtual_size >= full_size) {
+			memcpy(size, msg->body_size, sizeof(MessageSize));
+			if (get_header)
+				message_size_add(size, msg->hdr_size);
 			size_got = TRUE;
 		}
 	}
 
-	if (!size_got) {
-		if (!imap_msgcache_get_inbuf(cache,
-					     msg->hdr_size->physical_size))
+	if (size_got) {
+		physical_skip = get_header ? 0 : msg->hdr_size->physical_size;
+	} else {
+		if (!imap_msgcache_get_inbuf(cache, 0))
 			return FALSE;
 
 		if (msg->partial_size == NULL)
 			msg->partial_size = p_new(msg->pool, MessageSize, 1);
+		if (!get_header)
+			virtual_skip += msg->hdr_size->virtual_size;
+
 		get_partial_size(cache->open_inbuf, virtual_skip,
-				 max_virtual_size, msg->partial_size, size);
+				 max_virtual_size, msg->partial_size, size,
+				 cr_skipped);
 
-		physical_skip += msg->partial_size->physical_size;
+		physical_skip = msg->partial_size->physical_size;
 	}
-
-	if (get_header)
-		message_size_add(size, msg->hdr_size);
 
 	/* seek to wanted position */
 	if (!imap_msgcache_get_inbuf(cache, physical_skip))

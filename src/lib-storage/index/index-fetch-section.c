@@ -45,10 +45,11 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 	MessageSize size;
 	IBuffer *inbuf;
 	const char *str;
+	int cr_skipped;
 
 	if (!imap_msgcache_get_rfc822_partial(ctx->cache, sect->skip,
 					      sect->max_size, fetch_header,
-					      &size, &inbuf)) {
+					      &size, &inbuf, &cr_skipped)) {
 		i_error("Couldn't get BODY[] for UID %u (index %s)",
 			rec->uid, ctx->index->filepath);
 		return FALSE;
@@ -59,7 +60,11 @@ static int fetch_body(MailIndexRecord *rec, MailFetchBodyData *sect,
 	if (o_buffer_send(ctx->outbuf, str, strlen(str)) < 0)
 		return FALSE;
 
-	return message_send(ctx->outbuf, inbuf, &size, 0, sect->max_size);
+	if (cr_skipped)
+		size.virtual_size++;
+
+	return message_send(ctx->outbuf, inbuf, &size,
+			    cr_skipped ? 1 : 0, sect->max_size);
 }
 
 static char *const *get_fields_array(const char *fields)

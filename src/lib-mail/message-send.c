@@ -10,7 +10,7 @@ int message_send(OBuffer *outbuf, IBuffer *inbuf, MessageSize *msg_size,
 		 uoff_t virtual_skip, uoff_t max_virtual_size)
 {
 	const unsigned char *msg;
-	uoff_t old_limit;
+	uoff_t old_limit, limit;
 	size_t i, size;
 	int cr_skipped, add_cr, ret;
 
@@ -26,8 +26,8 @@ int message_send(OBuffer *outbuf, IBuffer *inbuf, MessageSize *msg_size,
 		i_buffer_skip(inbuf, virtual_skip);
 
 		old_limit = inbuf->v_limit;
-		i_buffer_set_read_limit(inbuf,
-					I_MIN(max_virtual_size, old_limit));
+		limit = inbuf->v_offset + max_virtual_size;
+		i_buffer_set_read_limit(inbuf, I_MIN(limit, old_limit));
 		ret = o_buffer_send_ibuffer(outbuf, inbuf) > 0;
 		i_buffer_set_read_limit(inbuf, old_limit);
 
