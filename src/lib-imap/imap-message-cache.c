@@ -389,10 +389,9 @@ int imap_msgcache_open(struct imap_message_cache *cache, unsigned int uid,
 	msg = cache_open_or_create(cache, uid);
 	if (cache->open_msg != msg) {
 		imap_msgcache_close(cache);
-
 		cache->open_msg = msg;
-		cache->context = context;
 	}
+	cache->context = context;
 
 	if (vp_header_size != (uoff_t)-1 && msg->hdr_size == NULL) {
 		/* physical size == virtual size */
