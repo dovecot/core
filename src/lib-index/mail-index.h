@@ -117,9 +117,9 @@ struct _MailIndexRecord {
 	unsigned int data_size;
 
 	unsigned int cached_fields;
-	unsigned int header_size;
-	unsigned int body_size;
-	unsigned int full_virtual_size;
+	off_t header_size;
+	off_t body_size;
+	off_t full_virtual_size;
 };
 
 #define MSG_HAS_VALID_CRLF_DATA(rec) \

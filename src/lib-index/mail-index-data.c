@@ -70,8 +70,7 @@ int mail_index_data_open(MailIndex *index)
 			/* doesn't exist, rebuild the index */
 			INDEX_MARK_CORRUPTED(index);
 		}
-		index_set_error(index, "Can't open index data %s: %m",
-				path);
+		index_set_error(index, "Can't open index data %s: %m", path);
 		return FALSE;
 	}
 
@@ -161,7 +160,7 @@ void mail_index_data_free(MailIndexData *data)
 	data->index->data = NULL;
 
 	if (data->mmap_base != NULL) {
-		munmap(data->mmap_base, data->mmap_length);
+		(void)munmap(data->mmap_base, data->mmap_length);
 		data->mmap_base = NULL;
 	}
 
@@ -204,7 +203,8 @@ void mail_index_data_new_data_notify(MailIndexData *data)
 	data->dirty_mmap = TRUE;
 }
 
-off_t mail_index_data_append(MailIndexData *data, void *buffer, size_t size)
+off_t mail_index_data_append(MailIndexData *data, const void *buffer,
+			     size_t size)
 {
 	off_t pos;
 
@@ -231,10 +231,11 @@ int mail_index_data_add_deleted_space(MailIndexData *data,
 				      unsigned int data_size)
 {
 	MailIndexDataHeader *hdr;
-	unsigned int max_del_space;
+	off_t max_del_space;
 
 	i_assert(data->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
+	/* make sure the whole file is mmaped */
 	if (!mmap_update(data, 0, 0))
 		return FALSE;
 
@@ -244,7 +245,7 @@ int mail_index_data_add_deleted_space(MailIndexData *data,
 	/* see if we've reached the max. deleted space in file */
 	if (data->mmap_length >= COMPRESS_MIN_SIZE) {
 		max_del_space = data->mmap_length / 100 * COMPRESS_PERCENTAGE;
-		if (hdr->deleted_space >= (off_t)max_del_space)
+		if (hdr->deleted_space >= max_del_space)
 			data->index->set_flags |= MAIL_INDEX_FLAG_COMPRESS_DATA;
 	}
 	return TRUE;
@@ -274,7 +275,7 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		       MailField field)
 {
 	MailIndexDataRecord *rec;
-	size_t pos, max_pos;
+	off_t pos, max_pos;
 
 	if (index_rec->data_position == 0) {
 		index_reset_error(data->index);
@@ -285,7 +286,7 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 		return NULL;
 
 	max_pos = index_rec->data_position + (off_t)index_rec->data_size;
-	if (max_pos > data->mmap_length) {
+	if (max_pos > (off_t)data->mmap_length) {
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
 				"Given data size larger than file size "
@@ -297,9 +298,18 @@ mail_index_data_lookup(MailIndexData *data, MailIndexRecord *index_rec,
 
 	pos = index_rec->data_position;
 	do {
-		rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
+		if (pos + (off_t)sizeof(MailIndexDataRecord) > max_pos) {
+			INDEX_MARK_CORRUPTED(data->index);
+			index_set_error(data->index, "Error in data file %s: "
+					"Index points outside file "
+					"(%lu > %lu)", data->filepath,
+					(unsigned long) pos,
+					(unsigned long) data->mmap_length);
+			break;
+		}
 
-		if (pos + rec->full_field_size > max_pos) {
+		rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
+		if (pos + (off_t)DATA_RECORD_SIZE(rec) > max_pos) {
 			INDEX_MARK_CORRUPTED(data->index);
 			index_set_error(data->index, "Error in data file %s: "
 					"Field size points outside file "
@@ -330,13 +340,13 @@ MailIndexDataRecord *
 mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 		     MailIndexDataRecord *rec)
 {
-	size_t pos, max_pos;
+	off_t pos, max_pos;
 
 	if (rec == NULL)
 		return NULL;
 
 	/* get position to next record */
-	pos = DATA_FILE_POSITION(data, rec) + (off_t)DATA_RECORD_SIZE(rec);
+	pos = DATA_FILE_POSITION(data, rec) + DATA_RECORD_SIZE(rec);
 	max_pos = index_rec->data_position + index_rec->data_size;
 
 	/* make sure it's within range */
@@ -344,7 +354,7 @@ mail_index_data_next(MailIndexData *data, MailIndexRecord *index_rec,
 		return NULL;
 
 	rec = (MailIndexDataRecord *) ((char *) data->mmap_base + pos);
-	if (pos + rec->full_field_size > max_pos) {
+	if (pos + (off_t)DATA_RECORD_SIZE(rec) > max_pos) {
 		INDEX_MARK_CORRUPTED(data->index);
 		index_set_error(data->index, "Error in data file %s: "
 				"Field size points outside file "
