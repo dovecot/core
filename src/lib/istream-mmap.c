@@ -113,19 +113,25 @@ static ssize_t _read(struct _istream *stream)
 	i_assert((uoff_t)mstream->mmap_offset + stream->buffer_size <=
 		 mstream->v_size);
 
-	mstream->mmap_base = mmap(NULL, stream->buffer_size,
-				  PROT_READ, MAP_PRIVATE,
-				  mstream->fd, mstream->mmap_offset);
-	if (mstream->mmap_base == MAP_FAILED) {
-		stream->istream.stream_errno = errno;
+	if (stream->buffer_size == 0) {
+		/* don't bother even trying mmap */
 		mstream->mmap_base = NULL;
 		stream->buffer = NULL;
-		stream->buffer_size = 0;
-		stream->skip = stream->pos = 0;
-		i_error("mmap_istream.mmap() failed: %m");
-		return -1;
+	} else {
+		mstream->mmap_base =
+			mmap(NULL, stream->buffer_size, PROT_READ, MAP_PRIVATE,
+			     mstream->fd, mstream->mmap_offset);
+		if (mstream->mmap_base == MAP_FAILED) {
+			stream->istream.stream_errno = errno;
+			mstream->mmap_base = NULL;
+			stream->buffer = NULL;
+			stream->buffer_size = 0;
+			stream->skip = stream->pos = 0;
+			i_error("mmap_istream.mmap() failed: %m");
+			return -1;
+		}
+		stream->buffer = mstream->mmap_base;
 	}
-	stream->buffer = mstream->mmap_base;
 
 	if (stream->buffer_size > mmap_pagesize) {
 		if (madvise(mstream->mmap_base, stream->buffer_size,
