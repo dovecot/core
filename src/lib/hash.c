@@ -341,14 +341,13 @@ static struct hash_node *hash_iterate_next(struct hash_iterate_context *ctx,
 					   struct hash_node *node)
 {
 	do {
+		node = node->next;
 		if (node == NULL) {
 			if (++ctx->pos == ctx->table->size) {
 				ctx->pos--;
 				return NULL;
 			}
 			node = &ctx->table->nodes[ctx->pos];
-		} else {
-			node = node->next;
 		}
 	} while (node->key == NULL);
 
