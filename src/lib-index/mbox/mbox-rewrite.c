@@ -5,6 +5,7 @@
 #include "temp-string.h"
 #include "write-full.h"
 #include "mbox-index.h"
+#include "mbox-lock.h"
 #include "mail-index-util.h"
 #include "mail-custom-flags.h"
 
@@ -288,16 +289,23 @@ int mbox_index_rewrite(MailIndex *index)
 	if (in_fd == -1)
 		return mbox_set_syscall_error(index, "open()");
 
-	inbuf = io_buffer_create_mmap(in_fd, default_pool,
-				      MAIL_MMAP_BLOCK_SIZE, 0);
-
 	out_fd = mail_index_create_temp_file(index, &path);
 	if (out_fd == -1) {
 		if (close(in_fd) < 0)
 			mbox_set_syscall_error(index, "close()");
-		io_buffer_destroy(inbuf);
 		return FALSE;
 	}
+
+	if (!mbox_lock(index, index->mbox_path, in_fd, FALSE)) {
+		if (close(in_fd) < 0)
+			mbox_set_syscall_error(index, "close()");
+		if (close(out_fd) < 0)
+			index_file_set_syscall_error(index, path, "close()");
+		return FALSE;
+	}
+
+	inbuf = io_buffer_create_mmap(in_fd, default_pool,
+				      MAIL_MMAP_BLOCK_SIZE, 0);
 	outbuf = io_buffer_create_file(out_fd, default_pool, 8192);
 
 	failed = FALSE; seq = 1;
@@ -363,12 +371,13 @@ int mbox_index_rewrite(MailIndex *index)
 		}
 	}
 
+	(void)mbox_unlock(index, index->mbox_path, in_fd);
 	(void)unlink(path);
 
-	if (close(out_fd) < 0)
-		index_file_set_syscall_error(index, path, "close()");
 	if (close(in_fd) < 0)
 		mbox_set_syscall_error(index, "close()");
+	if (close(out_fd) < 0)
+		index_file_set_syscall_error(index, path, "close()");
 	io_buffer_destroy(outbuf);
 	io_buffer_destroy(inbuf);
 	return failed;

@@ -121,7 +121,7 @@ int mbox_storage_save(Mailbox *box, MailFlags flags, const char *custom_flags[],
 		return FALSE;
 	}
 
-	if (!mbox_lock(ibox->index, ibox->index->mbox_path, fd)) {
+	if (!mbox_lock(ibox->index, ibox->index->mbox_path, fd, TRUE)) {
 		(void)close(fd);
 		return mail_storage_set_index_error(ibox);
 	}

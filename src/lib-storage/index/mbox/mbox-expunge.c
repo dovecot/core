@@ -125,7 +125,7 @@ int mbox_expunge_locked(IndexMailbox *ibox,
 		return FALSE;
 	}
 
-	if (!mbox_lock(ibox->index, ibox->index->mbox_path, fd)) {
+	if (!mbox_lock(ibox->index, ibox->index->mbox_path, fd, TRUE)) {
 		(void)close(fd);
 		return FALSE;
 	}

@@ -29,24 +29,30 @@
 #define STALE_LOCK_TIMEOUT (60*10)
 
 #ifdef USE_FLOCK
-
-static int mbox_lock_flock(MailIndex *index, const char *path, int fd, int set)
+static int mbox_lock_flock(MailIndex *index, const char *path, int fd,
+			   int lock_type)
 {
-	if (flock(fd, set ? LOCK_EX : LOCK_UN) == -1) {
-		index_file_set_syscall_error(index, path, "flock()");
-		return FALSE;
-	}
+	if (lock_type == F_WRLCK)
+		lock_type = LOCK_EX;
+	else if (lock_type == F_RDLCK)
+		lock_type = LOCK_SH;
+	else
+		lock_type = LOCK_UN;
+
+	if (flock(fd, lock_type) < 0)
+		return index_file_set_syscall_error(index, path, "flock()");
 
 	return TRUE;
 }
 
 #else
 
-static int mbox_lock_fcntl(MailIndex *index, const char *path, int fd, int set)
+static int mbox_lock_fcntl(MailIndex *index, const char *path, int fd,
+			   int lock_type)
 {
 	struct flock fl;
 
-	fl.l_type = set ? F_WRLCK : F_UNLCK;
+	fl.l_type = lock_type;
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
 	fl.l_len = 0;
@@ -117,22 +123,27 @@ static int mbox_lock_dotlock(MailIndex *index, const char *path, int set)
 	return FALSE;
 }
 
-int mbox_lock(MailIndex *index, const char *path, int fd)
+int mbox_lock(MailIndex *index, const char *path, int fd, int exclusive)
 {
+	int lock_type;
+
 	i_assert(fd >= 0);
 
 	if (++index->mbox_locks > 1)
 		return TRUE;
 
+        lock_type = exclusive ? F_WRLCK : F_RDLCK;
 #ifdef USE_FLOCK
-	if (!mbox_lock_flock(index, path, fd, TRUE))
+	if (!mbox_lock_flock(index, path, fd, lock_type))
 		return FALSE;
 #else
-	if (!mbox_lock_fcntl(index, path, fd, TRUE))
+	if (!mbox_lock_fcntl(index, path, fd, lock_type))
 		return FALSE;
 #endif
-	if (!mbox_lock_dotlock(index, path, TRUE))
-		return FALSE;
+	if (exclusive) {
+		if (!mbox_lock_dotlock(index, path, TRUE))
+			return FALSE;
+	}
 
 	return TRUE;
 }
@@ -140,15 +151,16 @@ int mbox_lock(MailIndex *index, const char *path, int fd)
 int mbox_unlock(MailIndex *index, const char *path, int fd)
 {
 	i_assert(fd >= 0);
+	i_assert(index->mbox_locks > 0);
 
 	if (--index->mbox_locks > 0)
 		return TRUE;
 
 #ifdef USE_FLOCK
-	if (!mbox_lock_flock(index, path, fd, FALSE))
+	if (!mbox_lock_flock(index, path, fd, F_UNLCK))
 		return FALSE;
 #else
-	if (!mbox_lock_fcntl(index, path, fd, FALSE))
+	if (!mbox_lock_fcntl(index, path, fd, F_UNLCK))
 		return FALSE;
 #endif
 	if (!mbox_lock_dotlock(index, path, FALSE))

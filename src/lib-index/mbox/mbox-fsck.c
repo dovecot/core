@@ -291,9 +291,7 @@ int mbox_index_fsck(MailIndex *index)
 	inbuf = io_buffer_create_mmap(fd, default_pool,
 				      MAIL_MMAP_BLOCK_SIZE, 0);
 
-	/* lock the mailbox so we can be sure no-one interrupts us.
-	   we are trying to repair our index after all. */
-	if (!mbox_lock(index, index->mbox_path, fd))
+	if (!mbox_lock(index, index->mbox_path, fd, FALSE))
 		failed = TRUE;
 	else {
 		failed = !mbox_index_fsck_buf(index, inbuf);

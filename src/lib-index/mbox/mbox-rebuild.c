@@ -50,7 +50,7 @@ int mbox_index_rebuild(MailIndex *index)
 		return mbox_set_syscall_error(index, "open()");
 
 	/* lock the mailbox so we can be sure no-one interrupts us. */
-	if (!mbox_lock(index, index->mbox_path, fd)) {
+	if (!mbox_lock(index, index->mbox_path, fd, FALSE)) {
 		if (close(fd) < 0)
 			mbox_set_syscall_error(index, "close()");
 		return FALSE;
