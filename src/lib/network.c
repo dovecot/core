@@ -337,7 +337,7 @@ int net_accept(int fd, IPADDR *addr, int *port)
 	if (addr != NULL) sin_get_ip(&so, addr);
 	if (port != NULL) *port = sin_get_port(&so);
 
-        net_set_nonblock(fd, TRUE);
+        net_set_nonblock(ret, TRUE);
 	return ret;
 }
 
