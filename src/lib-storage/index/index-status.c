@@ -21,6 +21,10 @@ static unsigned int get_first_unseen_seq(struct mail_index *index)
 	if (lowwater_uid == hdr->next_uid) {
 		/* no unseen messages */
 		rec = NULL;
+	} else if (lowwater_uid > hdr->next_uid) {
+		index_set_corrupted(index, "first_unseen_uid_lowwater %u >= "
+				    "next_uid %u", lowwater_uid, hdr->next_uid);
+		return 0;
 	} else if (lowwater_uid != 0) {
 		/* begin scanning from the low water mark */
 		rec = index->lookup_uid_range(index, lowwater_uid,
