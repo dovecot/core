@@ -296,7 +296,7 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 
 static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 {
-	size_t size, head_size, new_size;
+	size_t size, new_size, end_size;
 
 	size = nearest_power(fstream->buffer_size + bytes);
 	if (size > fstream->max_buffer_size) {
@@ -318,17 +318,11 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 				    fstream->buffer_size, size);
 
 	if (fstream->tail <= fstream->head && !IS_STREAM_EMPTY(fstream)) {
-		head_size = I_MIN(fstream->head, size - fstream->buffer_size);
-		memcpy(fstream->buffer + fstream->buffer_size, fstream->buffer,
-		       head_size);
-
-		if (head_size == fstream->head)
-			fstream->tail = fstream->buffer_size + head_size;
-		else {
-			memmove(fstream->buffer, fstream->buffer + head_size,
-				fstream->head - head_size);
-			fstream->tail = fstream->head - head_size;
-		}
+		/* move head forward to end of buffer */
+		end_size = fstream->buffer_size - fstream->head;
+		memmove(fstream->buffer + size - end_size,
+			fstream->buffer + fstream->head, end_size);
+		fstream->head = size - end_size;
 	}
 
 	fstream->full = FALSE;
