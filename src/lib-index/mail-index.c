@@ -399,8 +399,8 @@ static int mail_index_lock_change(MailIndex *index, MailLockType lock_type,
 	return TRUE;
 }
 
-int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
-			 int try_lock)
+static int mail_index_lock_full(MailIndex *index, MailLockType lock_type,
+				int try_lock)
 {
 	int keep_fsck;
 
