@@ -40,7 +40,7 @@
 #define RBNULL 0
 
 /* If highest bit in node_count is set, the node is red. */
-#define RED_MASK (1 << (SIZEOF_INT*CHAR_BIT-1))
+#define RED_MASK (1U << (SIZEOF_INT*CHAR_BIT-1))
 
 #define IS_NODE_BLACK(node) \
 	(((node).node_count & RED_MASK) == 0)

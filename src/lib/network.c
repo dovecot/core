@@ -522,7 +522,6 @@ const char *net_ip2addr(const struct ip_addr *ip)
 			       (ip4 & 0x0000ff00) >> 8,
 			       (ip4 & 0x000000ff));
 #endif
-	return 0;
 }
 
 int net_addr2ip(const char *addr, struct ip_addr *ip)

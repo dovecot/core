@@ -48,9 +48,11 @@ static struct module *module_load(const char *path, const char *name)
 	}
 
 	/* get our init func */
-	init = get_symbol(path, handle, t_strconcat(name, "_init", NULL));
+	init = (void (*)()) get_symbol(path, handle,
+				       t_strconcat(name, "_init", NULL));
 	deinit = init == NULL ? NULL :
-		get_symbol(path, handle, t_strconcat(name, "_deinit", NULL));
+		(void (*)()) get_symbol(path, handle,
+					t_strconcat(name, "_deinit", NULL));
 
 	if (init == NULL || deinit == NULL) {
 		(void)dlclose(handle);
