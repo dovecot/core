@@ -25,7 +25,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		}
 
 		/* failed for some reason, probably server disconnected */
-		client_send_line(client, "* BYE Temporary login failure.");
+		client_send_line(client,
+				 "-ERR [IN-USE] Temporary login failure.");
 		client_destroy(client, NULL);
 		return;
 	}
