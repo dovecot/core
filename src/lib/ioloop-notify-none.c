@@ -11,7 +11,7 @@ struct io *io_loop_notify_add(struct ioloop *ioloop __attr_unused__,
 			      io_callback_t *callback __attr_unused__,
 			      void *context __attr_unused__)
 {
-	return FALSE;
+	return NULL;
 }
 
 void io_loop_notify_remove(struct ioloop *ioloop __attr_unused__,
