@@ -27,16 +27,14 @@ static void print_differences(MailIndexHeader *old_hdr,
 	CHECK(deleted_messages_count);
 	CHECK(last_nonrecent_uid);
 
-	if (new_hdr->first_unseen_uid_lowwater != 0 &&
-	    old_hdr->first_unseen_uid_lowwater >
+	if (old_hdr->first_unseen_uid_lowwater >
 	    new_hdr->first_unseen_uid_lowwater) {
 		i_warning("fsck: first_unseen_uid_lowwater %u > %u",
 			  old_hdr->first_unseen_uid_lowwater,
                           new_hdr->first_unseen_uid_lowwater);
 	}
 
-	if (new_hdr->first_deleted_uid_lowwater != 0 &&
-	    old_hdr->first_deleted_uid_lowwater >
+	if (old_hdr->first_deleted_uid_lowwater >
 	    new_hdr->first_deleted_uid_lowwater) {
 		i_warning("fsck: first_deleted_uid_lowwater %u > %u",
 			  old_hdr->first_deleted_uid_lowwater,
@@ -116,6 +114,11 @@ int mail_index_fsck(MailIndex *index)
 		hdr->next_uid = max_uid+1;
 	if (hdr->last_nonrecent_uid >= hdr->next_uid)
 		hdr->last_nonrecent_uid = hdr->next_uid-1;
+
+	if (hdr->first_unseen_uid_lowwater == 0)
+		hdr->first_unseen_uid_lowwater = hdr->next_uid;
+	if (hdr->first_deleted_uid_lowwater == 0)
+		hdr->first_deleted_uid_lowwater = hdr->next_uid;
 
 	print_differences(&old_hdr, hdr);
 
