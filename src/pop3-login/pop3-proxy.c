@@ -91,8 +91,9 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			client->input = NULL;
 			client->output = NULL;
 			client->common.fd = -1;
-			client_destroy(client, t_strconcat(
-				"Proxy: ", client->common.virtual_user, NULL));
+			client_destroy(client,
+				t_strdup_printf("proxy(%s): started",
+						client->common.virtual_user));
 		}
 	} else {
 		/* Login failed. Send our own failure reply so client can't

@@ -17,7 +17,7 @@ struct login_proxy {
 	struct istream *proxy_input;
 	struct ostream *client_output, *proxy_output;
 
-	char *host, *user, *login_cmd;
+	char *host, *user;
 	unsigned int port;
 
 	proxy_callback_t *callback;
@@ -172,6 +172,7 @@ login_proxy_new(struct client *client, const char *host, unsigned int port,
 
 	proxy = i_new(struct login_proxy, 1);
 	proxy->host = i_strdup(host);
+	proxy->user = i_strdup(client->virtual_user);
 	proxy->port = port;
 
 	proxy->proxy_fd = fd;
@@ -186,6 +187,8 @@ login_proxy_new(struct client *client, const char *host, unsigned int port,
 
 void login_proxy_free(struct login_proxy *proxy)
 {
+	struct ip_addr ip;
+
 	if (proxy->destroying)
 		return;
 
@@ -193,6 +196,11 @@ void login_proxy_free(struct login_proxy *proxy)
 		/* detached proxy */
 		main_unref();
 		hash_remove(login_proxies, proxy);
+
+		if (net_getpeername(proxy->client_fd, &ip, NULL) < 0)
+			ip.family = 0;
+		i_info("proxy(%s): disconnecting %s",
+		       proxy->user, net_ip2addr(&ip));
 
 		if (proxy->client_io != NULL)
 			io_remove(proxy->client_io);
@@ -213,6 +221,7 @@ void login_proxy_free(struct login_proxy *proxy)
 	net_disconnect(proxy->proxy_fd);
 
 	i_free(proxy->host);
+	i_free(proxy->user);
 	i_free(proxy);
 }
 
