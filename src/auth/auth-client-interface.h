@@ -22,6 +22,10 @@ enum auth_protocol {
 	AUTH_PROTOCOL_POP3	= 0x02
 };
 
+enum auth_client_request_new_flags {
+	AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT = 0x01
+};
+
 enum auth_client_request_type {
 	AUTH_CLIENT_REQUEST_NEW = 1,
         AUTH_CLIENT_REQUEST_CONTINUE
@@ -51,6 +55,7 @@ struct auth_client_request_new {
 
 	enum auth_mech mech;
 	enum auth_protocol protocol;
+        enum auth_client_request_new_flags flags;
 };
 
 /* Continue authentication request */

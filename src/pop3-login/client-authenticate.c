@@ -11,6 +11,7 @@
 #include "auth-client.h"
 #include "../auth/auth-mech-desc.h"
 #include "../pop3/capability.h"
+#include "ssl-proxy.h"
 #include "master.h"
 #include "auth-common.h"
 #include "client.h"
@@ -132,6 +133,17 @@ static void client_send_auth_data(struct pop3_client *client,
 	t_pop();
 }
 
+static enum auth_client_request_new_flags
+client_get_auth_flags(struct pop3_client *client)
+{
+        enum auth_client_request_new_flags auth_flags = 0;
+
+	if (client->common.proxy != NULL &&
+	    ssl_proxy_has_valid_client_cert(client->common.proxy))
+		auth_flags |= AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT;
+	return auth_flags;
+}
+
 static void login_callback(struct auth_request *request,
 			   struct auth_client_request_reply *reply,
 			   const unsigned char *data, void *context)
@@ -196,6 +208,7 @@ int cmd_pass(struct pop3_client *client, const char *args)
 	client->common.auth_request =
 		auth_client_request_new(auth_client, AUTH_MECH_PLAIN,
 					AUTH_PROTOCOL_POP3,
+                                        client_get_auth_flags(client),
 					login_callback, client, &error);
 	if (client->common.auth_request != NULL) {
 		/* don't read any input from client until login is finished */
@@ -305,6 +318,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 	client->common.auth_request =
 		auth_client_request_new(auth_client, mech->mech,
 					AUTH_PROTOCOL_POP3,
+                                        client_get_auth_flags(client),
 					authenticate_callback, client, &error);
 	if (client->common.auth_request != NULL) {
 		/* following input data will go to authentication */

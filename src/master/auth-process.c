@@ -335,6 +335,8 @@ static pid_t create_auth_process(struct auth_process_group *group)
 		env_put("USE_CYRUS_SASL=1");
 	if (group->set->verbose)
 		env_put("VERBOSE=1");
+	if (group->set->ssl_require_client_cert)
+		env_put("SSL_REQUIRE_CLIENT_CERT=1");
 
 	restrict_process_size(group->set->process_size, (unsigned int)-1);
 

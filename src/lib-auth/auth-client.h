@@ -31,6 +31,7 @@ void auth_client_connect_missing_servers(struct auth_client *client);
 struct auth_request *
 auth_client_request_new(struct auth_client *client,
 			enum auth_mech mech, enum auth_protocol protocol,
+			enum auth_client_request_new_flags flags,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r);
 

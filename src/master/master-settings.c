@@ -132,6 +132,7 @@ static struct setting_def auth_setting_defs[] = {
 
 	DEF(SET_BOOL, use_cyrus_sasl),
 	DEF(SET_BOOL, verbose),
+	DEF(SET_BOOL, ssl_require_client_cert),
 
 	DEF(SET_INT, count),
 	DEF(SET_INT, process_size),
@@ -263,6 +264,7 @@ struct auth_settings default_auth_settings = {
 
 	MEMBER(use_cyrus_sasl) FALSE,
 	MEMBER(verbose) FALSE,
+	MEMBER(ssl_require_client_cert) FALSE,
 
 	MEMBER(count) 1,
 	MEMBER(process_size) 256,
@@ -334,6 +336,15 @@ static int auth_settings_verify(struct auth_settings *auth)
 			auth->chroot);
 		return FALSE;
 	}
+
+	if (auth->ssl_require_client_cert) {
+		/* if we require valid cert, make sure we also ask for it */
+		if (auth->parent->pop3 != NULL)
+			auth->parent->pop3->ssl_verify_client_cert = TRUE;
+		if (auth->parent->imap != NULL)
+			auth->parent->imap->ssl_verify_client_cert = TRUE;
+	}
+
 	return TRUE;
 }
 

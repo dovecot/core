@@ -22,6 +22,7 @@ const char *anonymous_username;
 char username_chars[256];
 
 static int set_use_cyrus_sasl;
+static int ssl_require_client_cert;
 static struct mech_module_list *mech_modules;
 static struct auth_client_request_reply failure_reply;
 
@@ -70,6 +71,16 @@ void mech_request_new(struct auth_client_connection *conn,
 		/* unsupported mechanism */
 		i_error("BUG: Auth client %u requested unsupported "
 			"auth mechanism %d", conn->pid, request->mech);
+		failure_reply.id = request->id;
+		callback(&failure_reply, NULL, conn);
+		return;
+	}
+
+	if (ssl_require_client_cert &&
+	    (request->flags & AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT) == 0) {
+		/* we fail without valid certificate */
+		if (verbose)
+			i_info("Client didn't present valid SSL certificate");
 		failure_reply.id = request->id;
 		callback(&failure_reply, NULL, conn);
 		return;
@@ -291,6 +302,7 @@ void mech_init(void)
 	if (set_use_cyrus_sasl)
 		mech_cyrus_sasl_init_lib();
 #endif
+        ssl_require_client_cert = getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
 }
 
 void mech_deinit(void)

@@ -6,6 +6,7 @@
 
 struct client {
 	struct ip_addr ip;
+	struct ssl_proxy *proxy;
 
 	int fd;
 	struct io *io;

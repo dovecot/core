@@ -11,7 +11,8 @@ struct auth_request {
         struct auth_server_connection *conn;
 
 	enum auth_mech mech;
-        enum auth_protocol protocol;
+	enum auth_protocol protocol;
+	enum auth_client_request_new_flags flags;
 
 	unsigned int id;
 
@@ -35,6 +36,7 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 	auth_request.id = request->id;
 	auth_request.protocol = request->protocol;
 	auth_request.mech = request->mech;
+	auth_request.flags = request->flags;
 
 	if (o_stream_send(conn->output, &auth_request,
 			  sizeof(auth_request)) < 0) {
@@ -177,6 +179,7 @@ void auth_server_requests_remove_all(struct auth_server_connection *conn)
 struct auth_request *
 auth_client_request_new(struct auth_client *client,
 			enum auth_mech mech, enum auth_protocol protocol,
+			enum auth_client_request_new_flags flags,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r)
 {
@@ -191,6 +194,7 @@ auth_client_request_new(struct auth_client *client,
 	request->conn = conn;
 	request->mech = mech;
 	request->protocol = protocol;
+	request->flags = flags;
 	request->id = ++client->request_id_counter;
 	if (request->id == 0) {
 		/* wrapped - ID 0 not allowed */

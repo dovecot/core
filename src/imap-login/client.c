@@ -124,7 +124,8 @@ static int cmd_starttls(struct imap_client *client)
 		client->common.io = NULL;
 	}
 
-	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip);
+	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
+			       &client->common.proxy);
 	if (fd_ssl != -1) {
 		client->tls = TRUE;
 		client->secured = TRUE;
@@ -421,6 +422,8 @@ void client_destroy(struct imap_client *client, const char *reason)
 		client->common.fd = -1;
 	}
 
+	if (client->common.proxy != NULL)
+		ssl_proxy_free(client->common.proxy);
 	client_unref(client);
 }
 

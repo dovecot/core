@@ -95,6 +95,8 @@ static void login_accept(void *context __attr_unused__)
 static void login_accept_ssl(void *context __attr_unused__)
 {
 	struct ip_addr ip;
+	struct client *client;
+	struct ssl_proxy *proxy;
 	int fd, fd_ssl;
 
 	fd = net_accept(LOGIN_SSL_LISTEN_FD, &ip, NULL);
@@ -107,11 +109,13 @@ static void login_accept_ssl(void *context __attr_unused__)
 	if (process_per_connection)
 		main_close_listen();
 
-	fd_ssl = ssl_proxy_new(fd, &ip);
+	fd_ssl = ssl_proxy_new(fd, &ip, &proxy);
 	if (fd_ssl == -1)
 		net_disconnect(fd);
-	else
-		(void)client_create(fd_ssl, &ip, TRUE);
+	else {
+		client = client_create(fd_ssl, &ip, TRUE);
+		client->proxy = proxy;
+	}
 }
 
 static void auth_connect_notify(struct auth_client *client __attr_unused__,
@@ -213,6 +217,8 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 	const char *name, *group_name;
 	struct ip_addr ip;
+	struct ssl_proxy *proxy = NULL;
+	struct client *client;
 	int i, fd = -1, master_fd = -1;
 
 	is_inetd = getenv("DOVECOT_MASTER") == NULL;
@@ -258,7 +264,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 		fd = 1;
 		for (i = 1; i < argc; i++) {
 			if (strcmp(argv[i], "--ssl") == 0) {
-				fd = ssl_proxy_new(fd, &ip);
+				fd = ssl_proxy_new(fd, &ip, &proxy);
 				if (fd == -1)
 					i_fatal("SSL initialization failed");
 			} else if (strncmp(argv[i], "--group=", 8) != 0)
@@ -269,8 +275,10 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 		closing_down = TRUE;
 	}
 
-	if (fd != -1)
-		(void)client_create(fd, &ip, TRUE);
+	if (fd != -1) {
+		client = client_create(fd, &ip, TRUE);
+		client->proxy = proxy;
+	}
 
 	io_loop_run(ioloop);
 	main_deinit();

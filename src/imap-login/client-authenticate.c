@@ -11,6 +11,7 @@
 #include "imap-parser.h"
 #include "auth-client.h"
 #include "../auth/auth-mech-desc.h"
+#include "ssl-proxy.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-common.h"
@@ -160,6 +161,17 @@ static void login_callback(struct auth_request *request,
 	}
 }
 
+static enum auth_client_request_new_flags
+client_get_auth_flags(struct imap_client *client)
+{
+        enum auth_client_request_new_flags auth_flags = 0;
+
+	if (client->common.proxy != NULL &&
+	    ssl_proxy_has_valid_client_cert(client->common.proxy))
+		auth_flags |= AUTH_CLIENT_FLAG_SSL_VALID_CLIENT_CERT;
+	return auth_flags;
+}
+
 int cmd_login(struct imap_client *client, struct imap_arg *args)
 {
 	const char *user, *pass, *error;
@@ -193,10 +205,12 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	buffer_append(client->plain_login, pass, strlen(pass));
 
 	client_ref(client);
+
 	client->common.auth_request =
 		auth_client_request_new(auth_client, AUTH_MECH_PLAIN,
-					AUTH_PROTOCOL_IMAP, login_callback,
-					client, &error);
+					AUTH_PROTOCOL_IMAP,
+					client_get_auth_flags(client),
+					login_callback, client, &error);
 	if (client->common.auth_request == NULL) {
 		client_send_tagline(client, t_strconcat(
 			"NO Login failed: ", error, NULL));
@@ -324,6 +338,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 	client->common.auth_request =
 		auth_client_request_new(auth_client, mech->mech,
 					AUTH_PROTOCOL_IMAP,
+					client_get_auth_flags(client),
 					authenticate_callback,
 					client, &error);
 	if (client->common.auth_request != NULL) {

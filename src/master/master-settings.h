@@ -109,6 +109,7 @@ struct auth_settings {
 	const char *anonymous_username;
 
 	int use_cyrus_sasl, verbose;
+	int ssl_require_client_cert;
 
 	unsigned int count;
 	unsigned int process_size;

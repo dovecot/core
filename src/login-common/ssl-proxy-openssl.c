@@ -41,8 +41,11 @@ struct ssl_proxy {
 
 	unsigned int handshaked:1;
 	unsigned int destroyed:1;
+	unsigned int cert_received:1;
+	unsigned int cert_broken:1;
 };
 
+static int extdata_index;
 static SSL_CTX *ssl_ctx;
 static struct hash_table *ssl_proxies;
 
@@ -308,11 +311,13 @@ static void ssl_step(void *context)
 	ssl_proxy_unref(proxy);
 }
 
-int ssl_proxy_new(int fd, struct ip_addr *ip)
+int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 {
 	struct ssl_proxy *proxy;
 	SSL *ssl;
 	int sfd[2];
+
+	*proxy_r = NULL;
 
 	if (!ssl_initialized)
 		return -1;
@@ -340,24 +345,30 @@ int ssl_proxy_new(int fd, struct ip_addr *ip)
 	net_set_nonblock(fd, TRUE);
 
 	proxy = i_new(struct ssl_proxy, 1);
-	proxy->refcount = 1;
+	proxy->refcount = 2;
 	proxy->ssl = ssl;
 	proxy->fd_ssl = fd;
 	proxy->fd_plain = sfd[0];
 	proxy->ip = *ip;
+        SSL_set_ex_data(ssl, extdata_index, proxy);
 
 	hash_insert(ssl_proxies, proxy, proxy);
 
-	proxy->refcount++;
 	ssl_handshake(proxy);
-	if (!ssl_proxy_unref(proxy)) {
-		/* handshake failed. return the disconnected socket anyway
-		   so the caller doesn't try to use the old closed fd */
-		return sfd[1];
-	}
-
         main_ref();
+
+	*proxy_r = proxy;
 	return sfd[1];
+}
+
+int ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy)
+{
+	return proxy->cert_received && !proxy->cert_broken;
+}
+
+void ssl_proxy_free(struct ssl_proxy *proxy)
+{
+	ssl_proxy_unref(proxy);
 }
 
 static int ssl_proxy_unref(struct ssl_proxy *proxy)
@@ -401,6 +412,22 @@ static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
 	return RSA_generate_key(keylength, RSA_F4, NULL, NULL);
 }
 
+static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
+{
+	SSL *ssl;
+        struct ssl_proxy *proxy;
+
+	ssl = X509_STORE_CTX_get_ex_data(ctx,
+					 SSL_get_ex_data_X509_STORE_CTX_idx());
+	proxy = SSL_get_ex_data(ssl, extdata_index);
+
+	proxy->cert_received = TRUE;
+	if (!preverify_ok)
+		proxy->cert_broken = TRUE;
+
+	return 1;
+}
+
 void ssl_proxy_init(void)
 {
 	const char *cafile, *certfile, *keyfile, *paramfile, *cipher_list;
@@ -418,6 +445,8 @@ void ssl_proxy_init(void)
 
 	SSL_library_init();
 	SSL_load_error_strings();
+
+	extdata_index = SSL_get_ex_new_index(0, "dovecot", NULL, NULL, NULL);
 
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL)
 		i_fatal("SSL_CTX_new() failed");
@@ -455,8 +484,8 @@ void ssl_proxy_init(void)
 
 	if (getenv("SSL_VERIFY_CLIENT_CERT") != NULL) {
 		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER |
-				   SSL_VERIFY_FAIL_IF_NO_PEER_CERT |
-				   SSL_VERIFY_CLIENT_ONCE, NULL);
+				   SSL_VERIFY_CLIENT_ONCE,
+				   ssl_verify_client_cert);
 	}
 
 	/* PRNG initialization might want to use /dev/urandom, make sure it
