@@ -30,7 +30,7 @@ struct auth_request {
 	unsigned int id;
 	time_t created;
 
-	const char *protocol;
+	const char *service;
 	struct ip_addr local_ip, remote_ip;
 	mech_callback_t *callback;
 

@@ -34,12 +34,12 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	if (((vpw->pw_gid & NO_IMAP) != 0 &&
-	     strcmp(request->protocol, "IMAP") == 0) ||
+	     strcmp(request->service, "IMAP") == 0) ||
 	    ((vpw->pw_gid & NO_POP) != 0 &&
-	     strcmp(request->protocol, "POP3") == 0)) {
+	     strcmp(request->service, "POP3") == 0)) {
 		if (verbose) {
 			i_info("vpopmail(%s): %s disabled",
-			       get_log_prefix(request), request->protocol);
+			       get_log_prefix(request), request->service);
 		}
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
@@ -70,8 +70,8 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	}
 
 #ifdef HAVE_VPOPMAIL_OPEN_SMTP_RELAY
-	if (strcmp(request->protocol, "POP3") == 0 ||
-	    strcmp(request->protocol, "IMAP") == 0) {
+	if (strcmp(request->service, "POP3") == 0 ||
+	    strcmp(request->service, "IMAP") == 0) {
 		const char *host = net_ip2addr(&request->remote_ip);
 		if (host != NULL) {
 			/* use putenv() directly rather than env_put() which

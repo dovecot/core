@@ -450,7 +450,7 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 		return;
 	}
 
-	service = t_str_lcase(auth_request->protocol);
+	service = t_str_lcase(auth_request->service);
 
 	token2 = mech_rpa_build_token2(request, t_strconcat(service, "@",
 				       my_hostname, NULL), &token2_size);

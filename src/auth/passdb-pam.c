@@ -349,7 +349,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 	int fd[2];
 	pid_t pid;
 
-	service = service_name != NULL ? service_name : request->protocol;
+	service = service_name != NULL ? service_name : request->service;
 	if (pipe(fd) < 0) {
 		i_error("pam(%s): pipe() failed: %m", get_log_prefix(request));
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);

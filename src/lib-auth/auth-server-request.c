@@ -15,7 +15,7 @@ struct auth_request {
 
 	unsigned int id;
 
-	char *mech, *protocol;
+	char *mech, *service;
         enum auth_request_flags flags;
 	struct ip_addr local_ip, remote_ip;
 
@@ -76,8 +76,8 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 	t_push();
 	str = t_str_new(512);
 
-	str_printfa(str, "AUTH\t%u\t%s\tproto=%s",
-		    request->id, request->mech, request->protocol);
+	str_printfa(str, "AUTH\t%u\t%s\tservice=%s",
+		    request->id, request->mech, request->service);
 	if ((request->flags & AUTH_REQUEST_FLAG_SECURED) != 0)
 		str_append(str, "\tsecured");
 	if ((request->flags & AUTH_REQUEST_FLAG_VALID_CLIENT_CERT) != 0)
@@ -305,7 +305,7 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 	request = i_new(struct auth_request, 1);
 	request->conn = conn;
 	request->mech = i_strdup(request_info->mech);
-	request->protocol = i_strdup(request_info->protocol);
+	request->service = i_strdup(request_info->service);
 	request->flags = request_info->flags;
 	request->local_ip = request_info->local_ip;
 	request->remote_ip = request_info->remote_ip;
@@ -342,7 +342,7 @@ static void auth_client_request_free(struct auth_request *request)
 	i_free(request->initial_resp_base64);
 	i_free(request->plaintext_data);
 	i_free(request->mech);
-	i_free(request->protocol);
+	i_free(request->service);
 	i_free(request);
 }
 

@@ -123,10 +123,10 @@ auth_client_connection_lookup(struct auth_master_connection *master,
 }
 
 static int
-auth_client_input_proto(struct auth_client_connection *conn, const char *args)
+auth_client_input_service(struct auth_client_connection *conn, const char *args)
 {
-	if (conn->default_protocol == NULL)
-		conn->default_protocol = p_strdup(conn->pool, args);
+	if (conn->default_service == NULL)
+		conn->default_service = p_strdup(conn->pool, args);
 	return TRUE;
 }
 
@@ -228,19 +228,19 @@ auth_client_input_auth(struct auth_client_connection *conn, const char *args)
 			(void)net_addr2ip(arg, &request->local_ip);
 		else if (strcmp(name, "rip") == 0)
 			(void)net_addr2ip(arg, &request->remote_ip);
-		else if (strcmp(name, "proto") == 0)
-			request->protocol = p_strdup(request->pool, arg);
+		else if (strcmp(name, "service") == 0)
+			request->service = p_strdup(request->pool, arg);
 		else if (strcmp(name, "resp") == 0)
 			initial_resp = arg;
 		else if (strcmp(name, "valid-client-cert") == 0)
 			valid_client_cert = TRUE;
 	}
 
-	if (request->protocol == NULL)
-		request->protocol = conn->default_protocol;
-	if (request->protocol == NULL) {
+	if (request->service == NULL)
+		request->service = conn->default_service;
+	if (request->service == NULL) {
 		i_error("BUG: Authentication client %u "
-			"didn't specify protocol in request", conn->pid);
+			"didn't specify service in request", conn->pid);
 		auth_request_destroy(request);
 		return FALSE;
 	}
@@ -390,8 +390,8 @@ static void auth_client_input(void *context)
 			ret = auth_client_input_cont(conn, line + 5);
 		else if (strncmp(line, "CPID\t", 5) == 0)
 			ret = auth_client_input_cpid(conn, line + 5);
-		else if (strncmp(line, "PROTO\t", 6) == 0)
-			ret = auth_client_input_proto(conn, line + 6);
+		else if (strncmp(line, "SERVICE\t", 6) == 0)
+			ret = auth_client_input_service(conn, line + 6);
 		else {
 			/* ignore unknown command */
 			ret = TRUE;

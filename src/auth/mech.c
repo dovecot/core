@@ -220,7 +220,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	tab[2].value = strchr(auth_request->user, '@');
 	if (tab[2].value != NULL)
 		tab[2].value = escape_func(tab[2].value+1);
-	tab[3].value = auth_request->protocol;
+	tab[3].value = auth_request->service;
 	/* tab[4] = we have no home dir */
 	if (auth_request->local_ip.family != 0)
 		tab[5].value = net_ip2addr(&auth_request->local_ip);

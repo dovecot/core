@@ -107,7 +107,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 }
 
 void sasl_server_auth_begin(struct client *client,
-			    const char *protocol, const char *mech_name,
+			    const char *service, const char *mech_name,
 			    const char *initial_resp_base64,
 			    sasl_server_callback_t *callback)
 {
@@ -136,7 +136,7 @@ void sasl_server_auth_begin(struct client *client,
 
 	memset(&info, 0, sizeof(info));
 	info.mech = mech->name;
-	info.protocol = protocol;
+	info.service = service;
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;
