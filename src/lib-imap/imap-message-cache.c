@@ -284,6 +284,9 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 		i_assert(msg->part != NULL);
 
 		msg->body_size = p_new(msg->pool, MessageSize, 1);
+		if (msg->hdr_size == NULL)
+			msg->hdr_size = p_new(msg->pool, MessageSize, 1);
+
 		*msg->hdr_size = msg->part->header_size;
 		*msg->body_size = msg->part->body_size;
 	}
