@@ -98,7 +98,8 @@ struct mail_cache_transaction_ctx {
 	struct mail_cache_record cache_rec;
 	buffer_t *cache_data;
 
-	unsigned int first_uid, last_uid;
+	unsigned int first_uid, last_uid, prev_uid;
+	enum mail_cache_field prev_fields;
 	buffer_t *index_marks, *cache_marks;
 };
 
@@ -135,7 +136,8 @@ mail_cache_get_header_fields_str(struct mail_cache *cache, unsigned int idx);
 static int mail_cache_write(struct mail_cache_transaction_ctx *ctx);
 static struct mail_cache_record *
 mail_cache_lookup(struct mail_cache *cache,
-		  const struct mail_index_record *rec);
+		  const struct mail_index_record *rec,
+		  enum mail_cache_field fields);
 
 static uint32_t uint32_to_offset(uint32_t offset)
 {
@@ -645,7 +647,7 @@ static int mail_cache_copy(struct mail_cache *cache, int fd)
 	used_fields = 0;
 	rec = cache->index->lookup(cache->index, 1);
 	while (rec != NULL) {
-		cache_rec = mail_cache_lookup(cache, rec);
+		cache_rec = mail_cache_lookup(cache, rec, 0);
 		if (cache_rec == NULL)
 			rec->cache_offset = 0;
 		else if (offset_to_uint32(cache_rec->next_offset) == 0) {
@@ -910,7 +912,8 @@ static void mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	ctx->last_idx = (unsigned int)-1;
 
 	ctx->next_unused_header_lowwater = 0;
-	ctx->first_uid = ctx->last_uid = 0;
+	ctx->first_uid = ctx->last_uid = ctx->prev_uid = 0;
+	ctx->prev_fields = 0;
 
 	if (ctx->cache_marks != NULL)
 		buffer_set_used_size(ctx->cache_marks, 0);
@@ -1012,7 +1015,7 @@ static int commit_all_changes(struct mail_cache_transaction_ctx *ctx)
 		cont = nbo_to_uint32(cache->header->continued_record_count);
 
 		cont += buffer_get_used_size(ctx->cache_marks) /
-			(sizeof(uint32_t)+1);
+			(sizeof(uint32_t) * 2);
 
 		if (cont * 100 / cache->index->header->messages_count >=
 		    COMPRESS_CONTINUED_PERCENTAGE &&
@@ -1418,14 +1421,17 @@ static int mail_cache_write(struct mail_cache_transaction_ctx *ctx)
 }
 
 static struct mail_cache_record *
-mail_cache_lookup(struct mail_cache *cache, const struct mail_index_record *rec)
+mail_cache_lookup(struct mail_cache *cache, const struct mail_index_record *rec,
+		  enum mail_cache_field fields)
 {
 	struct mail_cache_record *cache_rec;
 	unsigned int idx;
 
 	if (cache->trans_ctx != NULL &&
 	    cache->trans_ctx->first_uid <= rec->uid &&
-	    cache->trans_ctx->last_uid >= rec->uid) {
+	    cache->trans_ctx->last_uid >= rec->uid &&
+	    (cache->trans_ctx->prev_uid != rec->uid || fields == 0 ||
+	     (cache->trans_ctx->prev_fields & fields) != 0)) {
 		/* we have to auto-commit since we're not capable of looking
 		   into uncommitted records. it would be possible by checking
 		   index_marks and cache_marks, but it's just more trouble
@@ -1556,6 +1562,12 @@ int mail_cache_add(struct mail_cache_transaction_ctx *ctx,
 	if (rec->uid > ctx->last_uid)
 		ctx->last_uid = rec->uid;
 
+	if (ctx->prev_uid != rec->uid) {
+		ctx->prev_uid = rec->uid;
+		ctx->prev_fields = 0;
+	}
+	ctx->prev_fields |= field;
+
 	return TRUE;
 }
 
@@ -1567,7 +1579,7 @@ int mail_cache_delete(struct mail_cache_transaction_ctx *ctx,
 	uint32_t deleted_space;
 	uoff_t max_del_space;
 
-	cache_rec = mail_cache_lookup(cache, rec);
+	cache_rec = mail_cache_lookup(cache, rec, 0);
 	if (cache_rec == NULL)
 		return TRUE;
 
@@ -1599,7 +1611,7 @@ mail_cache_get_fields(struct mail_cache *cache,
 	struct mail_cache_record *cache_rec;
         enum mail_cache_field fields = 0;
 
-	cache_rec = mail_cache_lookup(cache, rec);
+	cache_rec = mail_cache_lookup(cache, rec, 0);
 	while (cache_rec != NULL) {
 		fields |= cache_rec->fields;
 		cache_rec = cache_get_next_record(cache, cache_rec);
@@ -1674,7 +1686,7 @@ static int cache_lookup_field(struct mail_cache *cache,
 {
 	struct mail_cache_record *cache_rec;
 
-	cache_rec = mail_cache_lookup(cache, rec);
+	cache_rec = mail_cache_lookup(cache, rec, field);
 	while (cache_rec != NULL) {
 		if ((cache_rec->fields & field) != 0) {
 			return cache_get_field(cache, cache_rec, field,
