@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
+#include "message-part-serialize.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-util.h"
@@ -690,6 +691,10 @@ int mbox_mail_get_location(struct mail_index *index,
 			   struct mail_index_record *rec,
 			   uoff_t *offset, uoff_t *hdr_size, uoff_t *body_size)
 {
+	struct message_size _hdr_size, _body_size;
+	const void *data;
+	size_t size;
+
 	if (offset != NULL) {
 		if (!mail_cache_copy_fixed_field(index->cache, rec,
 						 MAIL_CACHE_LOCATION_OFFSET,
@@ -701,25 +706,26 @@ int mbox_mail_get_location(struct mail_index *index,
 		}
 	}
 
-	if (hdr_size != NULL) {
-		if (!mail_cache_copy_fixed_field(index->cache, rec,
-						 MAIL_CACHE_HEADER_SIZE,
-						 hdr_size, sizeof(*hdr_size))) {
+	if (hdr_size != NULL || body_size != NULL) {
+		if (!mail_cache_lookup_field(index->cache, rec,
+					     MAIL_CACHE_MESSAGEPART,
+					     &data, &size)) {
 			mail_cache_set_corrupted(index->cache,
-				"Missing header size for record %u", rec->uid);
+				"Missing message_part for record %u", rec->uid);
 			return FALSE;
 		}
-	}
+		if (!message_part_deserialize_size(data, size,
+						   &_hdr_size, &_body_size)) {
+			mail_cache_set_corrupted(index->cache,
+				"Corrupted message_part for record %u",
+				rec->uid);
+			return FALSE;
+		}
 
-	if (body_size != NULL) {
-		if (!mail_cache_copy_fixed_field(index->cache, rec,
-						 MAIL_CACHE_BODY_SIZE,
-						 body_size,
-						 sizeof(*body_size))) {
-			mail_cache_set_corrupted(index->cache,
-				"Missing body size for record %u", rec->uid);
-			return FALSE;
-		}
+		if (hdr_size != NULL)
+			*hdr_size = _hdr_size.physical_size;
+		if (body_size != NULL)
+			*body_size = _body_size.physical_size;
 	}
 
 	return TRUE;

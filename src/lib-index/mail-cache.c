@@ -109,11 +109,8 @@ unsigned int mail_cache_field_sizes[32] = {
 	sizeof(struct mail_sent_date),
 	sizeof(time_t),
 	sizeof(uoff_t),
-	sizeof(uoff_t),
-	sizeof(uoff_t),
-	sizeof(uoff_t),
 
-	0, 0, 0,
+	0, 0, 0, 0, 0, 0,
 
 	/* variable sized */
 	(unsigned int)-1, (unsigned int)-1, (unsigned int)-1, (unsigned int)-1,

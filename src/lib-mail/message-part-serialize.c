@@ -358,24 +358,32 @@ int message_part_deserialize_size(const void *data, size_t size,
 
 	memcpy(&flags, buf, sizeof(flags));
 	buf += sizeof(flags);
-	memcpy(&hdr_size->physical_size, buf, sizeof(uoff_t));
-	buf += sizeof(uoff_t);
-	memcpy(&hdr_size->virtual_size, buf, sizeof(uoff_t));
-	buf += sizeof(uoff_t);
-	hdr_size->lines = 0;
 
-	memcpy(&body_size->physical_size, buf, sizeof(uoff_t));
-	buf += sizeof(uoff_t);
-	memcpy(&body_size->virtual_size, buf, sizeof(uoff_t));
-	buf += sizeof(uoff_t);
-
-	if ((flags & (MESSAGE_PART_FLAG_TEXT |
-		      MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0)
-		body_size->lines = 0;
+	if (hdr_size == NULL)
+		buf += sizeof(uoff_t) * 2;
 	else {
-		if (size < MINIMUM_SERIALIZED_SIZE + sizeof(unsigned int))
-			return FALSE;
-		memcpy(&body_size->lines, buf, sizeof(unsigned int));
+		memcpy(&hdr_size->physical_size, buf, sizeof(uoff_t));
+		buf += sizeof(uoff_t);
+		memcpy(&hdr_size->virtual_size, buf, sizeof(uoff_t));
+		buf += sizeof(uoff_t);
+		hdr_size->lines = 0;
+	}
+
+	if (body_size != NULL) {
+		memcpy(&body_size->physical_size, buf, sizeof(uoff_t));
+		buf += sizeof(uoff_t);
+		memcpy(&body_size->virtual_size, buf, sizeof(uoff_t));
+		buf += sizeof(uoff_t);
+
+		if ((flags & (MESSAGE_PART_FLAG_TEXT |
+			      MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0)
+			body_size->lines = 0;
+		else {
+			if (size < MINIMUM_SERIALIZED_SIZE +
+			    sizeof(unsigned int))
+				return FALSE;
+			memcpy(&body_size->lines, buf, sizeof(unsigned int));
+		}
 	}
 
 	return TRUE;
