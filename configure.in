@@ -31,13 +31,13 @@ AC_ARG_ENABLE(ipv6,
 AC_ARG_ENABLE(debug,
 [  --enable-debug          Enable some extra checks for debugging],
 	if test x$enableval = xyes; then
-		AC_DEFINE(DEBUG)
+		AC_DEFINE(DEBUG,, Build with extra debugging checks)
 	fi)
 
 AC_ARG_ENABLE(asserts,
 [  --enable-asserts        Enable asserts (default)],
 	if test x$enableval = xno; then
-		AC_DEFINE(DISABLE_ASSERTS)
+		AC_DEFINE(DISABLE_ASSERTS,, Disable asserts)
 	fi)
 
 AC_ARG_WITH(file-offset-size,
@@ -99,7 +99,7 @@ AC_ARG_WITH(vpopmail,
 AC_ARG_WITH(rawlog,
 [  --with-rawlog           Build support for logging user traffic],
 	if test x$withval = xyes; then
-		AC_DEFINE(BUILD_RAWLOG)
+		AC_DEFINE(BUILD_RAWLOG,, Build with rawlogging feature)
 	fi)
 
 AC_ARG_WITH(ssl,
@@ -151,13 +151,17 @@ AC_CHECK_FUNC(inet_addr, [], [
 ])
 
 AC_CHECK_FUNC(fdatasync, [
-	AC_DEFINE([HAVE_FDATASYNC])
+	have_fdatasync=yes
 ], [
 	AC_CHECK_LIB(rt, fdatasync, [
-		AC_DEFINE([HAVE_FDATASYNC])
+		have_fdatasync=yes
 		LIBS="$LIBS -lrt"
 	])
 ])
+
+if test "$have_fdatasync" = "yes"; then
+	AC_DEFINE(HAVE_FDATASYNC,, Define if you have fdatasync())
+fi
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock inet_aton sigaction getpagesize madvise setreuid)
@@ -166,13 +170,13 @@ AC_CHECK_FUNCS(strcasecmp stricmp vsnprintf memmove vsyslog writev setrlimit)
 dnl * poll/select?
 
 AC_CHECK_FUNC(poll, [
-	AC_DEFINE(IOLOOP_POLL)
+	AC_DEFINE(IOLOOP_POLL,, Implement I/O loop with poll())
 ], [
-	AC_DEFINE(IOLOOP_SELECT)
+	AC_DEFINE(IOLOOP_SELECT,, Implement I/O loop with select())
 ])
 
 dnl * memory alignment
-AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align)
+AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align, Required memory alignment)
 
 dnl * OS specific options
 case "$host_os" in
@@ -297,26 +301,27 @@ AC_DEFUN(AC_TYPEOF, [
 ])
 
 dnl * off_t checks, try to make it 64bit
-AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits)
+AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits,
+  [If set to 64, enables 64bit off_t for some systems (eg. Linux, Solaris)])
 
 AC_TYPEOF(off_t, long int long-long)
 case "$typeof_off_t" in
   int)
-    AC_DEFINE_UNQUOTED(OFF_T_MAX, LONG_MAX)
-    AC_DEFINE_UNQUOTED(PRIuUOFF_T, "lu")
-    AC_DEFINE(UOFF_T_LONG)
+    offt_max=INT_MAX
+    uofft_fmt="u"
+    AC_DEFINE(UOFF_T_INT,, Define if off_t is int)
     offt_bits=`expr 8 \* $ac_cv_sizeof_int`
     ;;
   long)
-    AC_DEFINE_UNQUOTED(OFF_T_MAX, INT_MAX)
-    AC_DEFINE_UNQUOTED(PRIuUOFF_T, "u")
-    AC_DEFINE(UOFF_T_INT)
+    offt_max=LONG_MAX
+    uofft_fmt="lu"
+    AC_DEFINE(UOFF_T_LONG,, Define if off_t is long)
     offt_bits=`expr 8 \* $ac_cv_sizeof_long`
     ;;
   "long long")
-    AC_DEFINE_UNQUOTED(OFF_T_MAX, LLONG_MAX)
-    AC_DEFINE_UNQUOTED(PRIuUOFF_T, "llu")
-    AC_DEFINE(UOFF_T_LONG_LONG)
+    offt_max=LLONG_MAX
+    uofft_fmt="llu"
+    AC_DEFINE(UOFF_T_LONG_LONG,, Define if off_t is long long)
     offt_bits=`expr 8 \* $ac_cv_sizeof_long_long`
     ;;
   *)
@@ -324,22 +329,33 @@ case "$typeof_off_t" in
     ;;
 esac
 
+AC_DEFINE_UNQUOTED(OFF_T_MAX, $offt_max, Maximum value of off_t)
+AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", printf() format for uoff_t)
+
 AC_TYPEOF(ssize_t)
 case "$typeof_ssize_t" in
   long)
-    AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LONG_MAX)
-    AC_DEFINE_UNQUOTED(PRIuSIZE_T, "lu")
+    ssizet_max=LONG_MAX
+    sizet_fmt="lu"
     ;;
   "long long")
-    AC_DEFINE_UNQUOTED(SSIZE_T_MAX, LLONG_MAX)
-    AC_DEFINE_UNQUOTED(PRIuSIZE_T, "llu")
+    ssizet_max=LLONG_MAX
+    sizet_fmt="llu"
     ;;
   *)
     dnl older systems didn't have ssize_t, default to int
-    AC_DEFINE_UNQUOTED(SSIZE_T_MAX, INT_MAX)
-    AC_DEFINE_UNQUOTED(PRIuSIZE_T, "u")
+    ssizet_max=INT_MAX
+    sizet_fmt="u"
+
+    if test "$typeof_ssize_t" = ""; then
+      AC_DEFINE(size_t, unsigned int, Define to 'unsigned int' if you don't have it)
+      AC_DEFINE(ssize_t, int, Define to 'int' if you don't have it)
+    fi
     ;;
 esac
+
+AC_DEFINE_UNQUOTED(SSIZE_T_MAX, $ssizet_max, Maximum value of ssize_t)
+AC_DEFINE_UNQUOTED(PRIuSIZE_T, "$sizet_fmt", printf() format for size_t)
 
 AC_DEFUN(AC_CHECKTYPE2, [
   AC_MSG_CHECKING([for $1])
@@ -356,12 +372,12 @@ AC_DEFUN(AC_CHECKTYPE2, [
 
 AC_CHECKTYPE2(uintmax_t, [#include <inttypes.h>])
 if test $i_cv_type_uintmax_t = yes; then
-  AC_DEFINE(HAVE_UINTMAX_T)
+  AC_DEFINE(HAVE_UINTMAX_T,, Define if you have uintmax_t (C99 type))
 fi
 
 AC_CHECKTYPE2(socklen_t, [#include <sys/socket.h>])
 if test $i_cv_type_socklen_t = yes; then
-  AC_DEFINE(HAVE_SOCKLEN_T)
+  AC_DEFINE(HAVE_SOCKLEN_T,, Define to 'int' if you don't have socklen_t)
 fi
 
 dnl * do we have tm_gmtoff
@@ -374,7 +390,7 @@ i_cv_field_tm_gmtoff=yes,
 i_cv_field_tm_gmtoff=no,
 )])
 if test $i_cv_field_tm_gmtoff = yes; then
-	AC_DEFINE(HAVE_TM_GMTOFF)
+	AC_DEFINE(HAVE_TM_GMTOFF,, Define if you have struct tm->tm_gmtoff)
 fi
 AC_MSG_RESULT($i_cv_field_tm_gmtoff)
 
@@ -390,7 +406,7 @@ i_cv_struct_iovec=yes,
 i_cv_struct_iovec=no)])
 
 if test $i_cv_struct_iovec = yes; then
-	AC_DEFINE(HAVE_STRUCT_IOVEC)
+	AC_DEFINE(HAVE_STRUCT_IOVEC,, Define if you have struct iovec)
 fi
 AC_MSG_RESULT($i_cv_struct_iovec)
 
@@ -400,7 +416,7 @@ AC_TRY_COMPILE([
   struct test { dev_t a; };
   static struct test t = { 0 };
 ],,, [
-  AC_DEFINE(DEV_T_STRUCT)
+  AC_DEFINE(DEV_T_STRUCT,, Define if your dev_t is a structure instead of integer type)
 
   dnl we can't initialize structures, so don't warn about them either
   if test "x$ac_cv_prog_gcc" = "xyes"; then
@@ -417,7 +433,7 @@ AC_TRY_COMPILE([
   struct rlimit r;
   getrlimit(RLIMIT_AS, &r);
 ], [
-  AC_DEFINE(HAVE_RLIMIT_AS)
+  AC_DEFINE(HAVE_RLIMIT_AS,, Define if you have RLIMIT_AS for setrlimit())
 ])
 
 dnl * Linux compatible mremap()
@@ -429,7 +445,7 @@ AC_TRY_COMPILE([
 ], [
   mremap(0, 0, 0, MREMAP_MAYMOVE);
 ], [
-  AC_DEFINE(HAVE_LINUX_MREMAP)
+  AC_DEFINE(HAVE_LINUX_MREMAP,, Define if you have Linux-compatible mremap())
   AC_MSG_RESULT(yes)
 ], [
   AC_MSG_RESULT(no)
@@ -445,7 +461,7 @@ AC_TRY_COMPILE([
 ], [
   sendfile(0, 0, (void *) 0, 0);
 ], [
-  AC_DEFINE(HAVE_LINUX_SENDFILE)
+  AC_DEFINE(HAVE_LINUX_SENDFILE,, Define if you have Linux-compatible sendfile())
   AC_MSG_RESULT(yes)
 ], [
   AC_MSG_RESULT(no)
@@ -461,7 +477,7 @@ AC_TRY_COMPILE([
   struct sf_hdtr hdtr;
   sendfile(0, 0, 0, 0, &hdtr, (void *) 0, 0);
 ], [
-  AC_DEFINE(HAVE_FREEBSD_SENDFILE)
+  AC_DEFINE(HAVE_FREEBSD_SENDFILE,, Define if you have FreeBSD-compatible sendfile())
   AC_MSG_RESULT(yes)
 ], [
   AC_MSG_RESULT(no)
@@ -476,8 +492,7 @@ have_ssl=no
 if test $want_gnutls = yes; then
 	AC_CHECK_LIB(gnutls, gnutls_global_init, [
 		AC_CHECK_HEADERS(gnutls/gnutls.h, [
-			AC_DEFINE(HAVE_SSL)
-			AC_DEFINE(HAVE_GNUTLS)
+			AC_DEFINE(HAVE_GNUTLS,, Build with GNUTLS support)
 			SSL_LIBS="-lgnutls -lgcrypt"
 			AC_SUBST(SSL_LIBS)
 			have_ssl="yes (GNUTLS)"
@@ -489,14 +504,17 @@ fi
 if test "$want_openssl" = "yes" -a "$have_ssl" = "no"; then
 	AC_CHECK_LIB(ssl, SSL_read, [
 		AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
-			AC_DEFINE(HAVE_SSL)
-			AC_DEFINE(HAVE_OPENSSL)
+			AC_DEFINE(HAVE_OPENSSL,, Build with OpenSSL support)
 			SSL_LIBS="-lssl -lcrypto"
 			AC_SUBST(SSL_LIBS)
 			have_ssl="yes (OpenSSL)"
 			have_openssl=yes
 		])
 	],, -lcrypto)
+fi
+
+if test "$have_ssl" != "no"; then
+	AC_DEFINE(HAVE_SSL,, Build with SSL/TLS support)
 fi
 
 dnl **
@@ -508,20 +526,20 @@ auths=""
 
 if test $want_passwd = yes; then
 	need_crypt=yes
-        AC_DEFINE(USERINFO_PASSWD)
+        AC_DEFINE(USERINFO_PASSWD,, Build with passwd support)
 	auths="$auths passwd"
 fi
 
 if test $want_passwd_file = yes; then
 	need_crypt=yes
-        AC_DEFINE(USERINFO_PASSWD_FILE)
+        AC_DEFINE(USERINFO_PASSWD_FILE,, Build with passwd-file support)
 	auths="$auths passwd-file"
 fi
 
 if test $want_shadow = yes; then
 	AC_CHECK_FUNC(getspnam, [
 		need_crypt=yes
-		AC_DEFINE(USERINFO_SHADOW)
+		AC_DEFINE(USERINFO_SHADOW,, Build with shadow support)
 		auths="$auths shadow"
 	])
 fi
@@ -530,22 +548,25 @@ if test $want_pam = yes; then
 	AC_CHECK_LIB(pam, pam_start, [
 		have_pam=no
 		AC_CHECK_HEADER(security/pam_appl.h, [
-			AC_DEFINE(HAVE_SECURITY_PAM_APPL_H)
+			AC_DEFINE(HAVE_SECURITY_PAM_APPL_H,,
+				  Define if you have security/pam_appl.h)
 			have_pam=yes
 		])
 
 		AC_CHECK_HEADER(pam/pam_appl.h, [
-			AC_DEFINE(HAVE_PAM_PAM_APPL_H)
+			AC_DEFINE(HAVE_PAM_PAM_APPL_H,,
+				  Define if you have pam/pam_appl.h)
 			have_pam=yes
 		])
 
 		if test "$have_pam" = "yes"; then
 			USERINFO_LIBS="$USERINFO_LIBS -lpam"
-			AC_DEFINE(USERINFO_PAM)
+			AC_DEFINE(USERINFO_PAM,, Build with PAM support)
 			auths="$auths pam"
 
 			AC_CHECK_LIB(pam, pam_setcred, [
-				AC_DEFINE(HAVE_PAM_SETCRED)
+				AC_DEFINE(HAVE_PAM_SETCRED,,
+					  Define if you have pam_setcred())
 			])
 		fi
 	])
@@ -560,7 +581,7 @@ if test $want_vpopmail = yes; then
 		need_crypt=yes
 		VPOPMAIL_CFLAGS="`cat $vpopmail_home/etc/inc_deps` $CFLAGS"
 		VPOPMAIL_LIBS="`cat $vpop_libdeps`"
-		AC_DEFINE(USERINFO_VPOPMAIL)
+		AC_DEFINE(USERINFO_VPOPMAIL,, Build with vpopmail support)
 		auths="$auths vpopmail"
 		AC_MSG_RESULT(found)
 	else
@@ -599,7 +620,7 @@ else
 	flags=1
 fi
 
-AC_DEFINE_UNQUOTED(MAIL_INDEX_COMPAT_FLAGS, $flags)
+AC_DEFINE_UNQUOTED(MAIL_INDEX_COMPAT_FLAGS, $flags, Index file compatibility flags)
 
 dnl **
 dnl ** IPv6 support
@@ -619,7 +640,7 @@ if test "x$want_ipv6" = "xyes"; then
 	i_cv_type_in6_addr=no,
 	)])
 	if test $i_cv_type_in6_addr = yes; then
-		AC_DEFINE(HAVE_IPV6)
+		AC_DEFINE(HAVE_IPV6,, Build with IPv6 support)
 	fi
 	AC_MSG_RESULT($i_cv_type_in6_addr)
 fi
@@ -632,7 +653,7 @@ capability="IMAP4rev1"
 if test "$have_ssl" != "no"; then
 	capability="$capability STARTTLS"
 fi
-AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability")
+AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", IMAP capabilities)
 
 dnl **
 dnl ** register the storage classes
