@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
+#include "strescape.h"
 #include "settings.h"
 
 #include <stdio.h>
@@ -66,6 +67,7 @@ int settings_read(const char *path, const char *section,
 	struct istream *input;
 	const char *errormsg, *next_section;
 	char *line, *key, *name;
+	size_t len;
 	int fd, linenum, skip, sections, root_section;
 
 	fd = open(path, O_RDONLY);
@@ -99,7 +101,13 @@ int settings_read(const char *path, const char *section,
 		if (*line == '#' || *line == '\0')
 			continue;
 
-		/* a) "key = value"
+		/* remove whitespace from end of line */
+		len = strlen(line);
+		while (IS_WHITE(line[len-1]))
+			len--;
+		line[len] = '\0';
+
+		/* a) key = value
 		   b) section_type section_name {
 		   c) } */
 		key = line;
@@ -132,6 +140,14 @@ int settings_read(const char *path, const char *section,
 			*line++ = '\0';
 			while (IS_WHITE(*line)) line++;
 
+			len = strlen(line);
+			if (len > 0 &&
+			    ((*line == '"' && line[len-1] == '"') ||
+			     (*line == '\'' && line[len-1] == '\''))) {
+				line[len-1] = '\0';
+				line = str_unescape(line+1);
+			}
+
 			errormsg = skip ? NULL :
 				callback(key, line, context);
 		} else {
@@ -147,7 +163,7 @@ int settings_read(const char *path, const char *section,
 					line++;
 			}
 
-			if (*line != '{' || strcspn(line+1, " \t") != 0)
+			if (*line != '{')
 				errormsg = "Missing value";
 			else {
 				sections++;
