@@ -766,6 +766,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 	}
 
 	/* now, sync the index */
+        ibox->syncing_commit = TRUE;
 	while ((ret = mail_index_sync_next(sync_ctx.sync_ctx,
 					   &sync_ctx.sync_rec)) > 0) {
 		if (maildir_sync_record(ibox, &sync_ctx) < 0) {
@@ -773,6 +774,7 @@ static int maildir_sync_index(struct maildir_sync_context *ctx)
 			break;
 		}
 	}
+        ibox->syncing_commit = FALSE;
 
 	if (ibox->dirty_cur_time == 0 &&
 	    ibox->last_cur_mtime != (time_t)hdr->sync_stamp) {
