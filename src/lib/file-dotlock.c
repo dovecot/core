@@ -312,7 +312,8 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 {
 	const struct dotlock_settings *set = &dotlock->settings;
 	const char *lock_path;
-        struct lock_info lock_info;
+	struct lock_info lock_info;
+	struct stat st;
 	unsigned int stale_notify_threshold;
 	unsigned int change_secs, wait_left;
 	time_t now, max_wait_time, last_notify;
@@ -384,11 +385,19 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 		int old_errno = errno;
 
 		if (close(lock_info.fd) < 0)
-			i_error("close(dotlock) failed: %m");
+			i_error("close(%s) failed: %m", path);
 		errno = old_errno;
 	} else {
-		dotlock->path = i_strdup(path);
-		dotlock->fd = lock_info.fd;
+		if (fstat(lock_info.fd, &st) < 0) {
+			i_error("fstat(%s) failed: %m", path);
+			ret = -1;
+		} else {
+			dotlock->dev = st.st_dev;
+			dotlock->ino = st.st_ino;
+
+			dotlock->path = i_strdup(path);
+			dotlock->fd = lock_info.fd;
+		}
 	}
 
 	if (ret == 0)
@@ -431,16 +440,6 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 		i_free(dotlock);
 		return ret;
 	}
-
-	/* save the inode info after writing */
-	if (fstat(dotlock->fd, &st) < 0) {
-		i_error("fstat(%s) failed: %m", lock_path);
-                file_dotlock_free(dotlock);
-		return -1;
-	}
-
-	dotlock->dev = st.st_dev;
-	dotlock->ino = st.st_ino;
 
 	fd = dotlock->fd;
 	dotlock->fd = -1;
