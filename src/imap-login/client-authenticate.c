@@ -167,6 +167,10 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	pass = IMAP_ARG_STR(&args[1]);
 
 	if (!client->tls && disable_plaintext_auth) {
+		client_send_line(client,
+			"* BAD [ALERT] Plaintext authentication is disabled, "
+			"but your client sent password in plaintext anyway."
+			"If anyone was listening, the password was exposed.");
 		client_send_tagline(client,
 				    "NO Plaintext authentication disabled.");
 		return TRUE;
