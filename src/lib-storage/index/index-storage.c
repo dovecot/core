@@ -6,6 +6,7 @@
 #include "mail-custom-flags.h"
 #include "index-storage.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -75,6 +76,71 @@ void index_storage_unref(MailIndex *index)
 	i_assert(0);
 }
 
+static MailField get_cache_fields(const char *fields)
+{
+	static const char *field_names[] = {
+		"Location",
+		"Envelope",
+		"Body",
+		"Bodystructure",
+		"MD5",
+		"MessagePart",
+		NULL
+	};
+
+	char *const *arr;
+	MailField ret;
+	int i;
+
+	if (fields == NULL || *fields == '\0')
+		return 0;
+
+	ret = 0;
+	for (arr = t_strsplit(fields, " ,"); *arr != NULL; arr++) {
+		if (*arr == '\0')
+			continue;
+
+		for (i = 0; field_names[i] != NULL; i++) {
+			if (strcasecmp(field_names[i], *arr) == 0) {
+				ret |= 1 << i;
+				break;
+			}
+		}
+		if (field_names[i] == NULL) {
+			i_error("Invalid cache field name '%s', ignoring ",
+				*arr);
+		}
+	}
+
+	return ret;
+}
+
+static MailField get_default_cache_fields(void)
+{
+	static MailField ret = 0;
+	static int ret_set = FALSE;
+
+	if (ret_set)
+		return ret;
+
+	ret = get_cache_fields(getenv("MAIL_CACHE_FIELDS"));
+	ret_set = TRUE;
+	return ret;
+}
+
+static MailField get_never_cache_fields(void)
+{
+	static MailField ret = 0;
+	static int ret_set = FALSE;
+
+	if (ret_set)
+		return ret;
+
+	ret = get_cache_fields(getenv("MAIL_NEVER_CACHE_FIELDS"));
+	ret_set = TRUE;
+	return ret;
+}
+
 IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 				 MailIndex *index, const char *name,
 				 int readonly, int fast)
@@ -88,6 +154,10 @@ IndexMailbox *index_storage_init(MailStorage *storage, Mailbox *box,
 	do {
 		if (!index->opened) {
 			/* open the index first */
+			index->default_cache_fields =
+				get_default_cache_fields();
+			index->never_cache_fields =
+				get_never_cache_fields();
 			if (!index->open_or_create(index, !readonly, fast))
 				break;
 		}

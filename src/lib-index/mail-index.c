@@ -606,6 +606,8 @@ void mail_index_cache_fields_later(MailIndex *index, MailField field)
 {
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
+	field &= ~index->never_cache_fields;
+
 	/* first check if the field even could be in the file */
 	if ((index->set_cache_fields & field) != field) {
 		if ((index->header->cache_fields & field) == 0) {

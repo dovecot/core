@@ -26,6 +26,15 @@ static Setting settings[] = {
 	{ "log_path",		SET_STR, &set_log_path },
 	{ "log_timestamp",	SET_STR, &set_log_timestamp },
 
+	{ "imap_port",		SET_INT, &set_imap_port },
+	{ "imaps_port",		SET_INT, &set_imaps_port },
+	{ "imap_listen",	SET_STR, &set_imap_listen },
+	{ "imaps_listen",	SET_STR, &set_imaps_listen },
+	{ "ssl_cert_file",	SET_STR, &set_ssl_cert_file },
+	{ "ssl_key_file",	SET_STR, &set_ssl_key_file },
+	{ "disable_plaintext_auth",
+				SET_BOOL,&set_disable_plaintext_auth },
+
 	{ "login_executable",	SET_STR, &set_login_executable },
 	{ "login_user",		SET_STR, &set_login_user },
 	{ "login_dir",		SET_STR, &set_login_dir },
@@ -36,18 +45,13 @@ static Setting settings[] = {
 	{ "imap_executable",	SET_STR, &set_imap_executable },
 	{ "valid_chroot_dirs",	SET_STR, &set_valid_chroot_dirs },
 	{ "max_imap_processes",	SET_INT, &set_max_imap_processes },
-	{ "imap_listen",	SET_STR, &set_imap_listen },
-	{ "imaps_listen",	SET_STR, &set_imaps_listen },
-	{ "imap_port",		SET_INT, &set_imap_port },
-	{ "imaps_port",		SET_INT, &set_imaps_port },
-	{ "ssl_cert_file",	SET_STR, &set_ssl_cert_file },
-	{ "ssl_key_file",	SET_STR, &set_ssl_key_file },
-	{ "disable_plaintext_auth",
-				SET_BOOL,&set_disable_plaintext_auth },
 	{ "first_valid_uid",	SET_INT, &set_first_valid_uid },
 	{ "last_valid_uid",	SET_INT, &set_last_valid_uid },
 	{ "first_valid_gid",	SET_INT, &set_first_valid_gid },
 	{ "last_valid_gid",	SET_INT, &set_last_valid_gid },
+	{ "mail_cache_fields",	SET_STR, &set_mail_cache_fields },
+	{ "mail_never_cache_fields",
+				SET_STR, &set_mail_never_cache_fields },
 	{ "maildir_copy_with_hardlinks",
 				SET_BOOL,&set_maildir_copy_with_hardlinks },
 	{ "maildir_check_content_changes",
@@ -62,6 +66,16 @@ static Setting settings[] = {
 /* common */
 char *set_log_path = NULL;
 char *set_log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT;
+
+/* general */
+unsigned int set_imap_port = 143;
+unsigned int set_imaps_port = 993;
+char *set_imap_listen = NULL;
+char *set_imaps_listen = NULL;
+
+char *set_ssl_cert_file = "/etc/ssl/certs/imapd.pem";
+char *set_ssl_key_file = "/etc/ssl/private/imapd.pem";
+int set_disable_plaintext_auth = FALSE;
 
 /* login */
 char *set_login_executable = PKG_LIBDIR "/imap-login";
@@ -80,18 +94,11 @@ char *set_imap_executable = PKG_LIBDIR "/imap";
 char *set_valid_chroot_dirs = NULL;
 unsigned int set_max_imap_processes = 1024;
 
-char *set_imap_listen = NULL;
-char *set_imaps_listen = NULL;
-unsigned int set_imap_port = 143;
-unsigned int set_imaps_port = 993;
-
-char *set_ssl_cert_file = "/etc/ssl/certs/imapd.pem";
-char *set_ssl_key_file = "/etc/ssl/private/imapd.pem";
-int set_disable_plaintext_auth = FALSE;
-
 unsigned int set_first_valid_uid = 500, set_last_valid_uid = 0;
 unsigned int set_first_valid_gid = 1, set_last_valid_gid = 0;
 
+char *set_mail_cache_fields = "MessagePart";
+char *set_mail_never_cache_fields = NULL;
 int set_maildir_copy_with_hardlinks = FALSE;
 int set_maildir_check_content_changes = FALSE;
 int set_overwrite_incompatible_index = FALSE;

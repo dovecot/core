@@ -311,6 +311,7 @@ struct _MailIndex {
 
 	char *dir; /* directory where to place the index files */
 	char *filepath; /* index file path */
+	MailField default_cache_fields, never_cache_fields;
 	unsigned int indexid;
 	unsigned int sync_id;
 
@@ -351,7 +352,8 @@ struct _MailIndex {
 #define MAIL_INDEX_PRIVATE_FILL \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-	0, 0, 0, 0, 0, 0, 0, 0, 0 \
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	0
 
 /* defaults - same as above but prefixed with mail_index_. */
 int mail_index_open(MailIndex *index, int update_recent, int fast);
@@ -391,7 +393,7 @@ int mail_index_is_inconsistency_error(MailIndex *index);
 
 /* INTERNAL: */
 int mail_index_mmap_update(MailIndex *index);
-void mail_index_init_header(MailIndexHeader *hdr);
+void mail_index_init_header(MailIndex *index, MailIndexHeader *hdr);
 void mail_index_close(MailIndex *index);
 int mail_index_fmsync(MailIndex *index, size_t size);
 int mail_index_verify_hole_range(MailIndex *index);

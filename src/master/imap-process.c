@@ -114,6 +114,10 @@ create_imap_process(int socket, const char *user, uid_t uid, gid_t gid,
 	}
 
 	putenv((char *) t_strconcat("HOME=", home, NULL));
+	putenv((char *) t_strconcat("MAIL_CACHE_FIELDS=",
+				    set_mail_cache_fields, NULL));
+	putenv((char *) t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
+				    set_mail_never_cache_fields, NULL));
 
 	if (set_maildir_copy_with_hardlinks)
 		putenv("COPY_WITH_HARDLINKS=1");

@@ -359,7 +359,7 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 	*dir_unlocked = FALSE;
 	index_path = NULL;
 
-	mail_index_init_header(&hdr);
+	mail_index_init_header(index, &hdr);
 
 	if (index->nodiskspace) {
 		/* don't even bother trying to create it */
@@ -455,7 +455,7 @@ static int mail_index_create(MailIndex *index, int *dir_unlocked,
 	return FALSE;
 }
 
-void mail_index_init_header(MailIndexHeader *hdr)
+void mail_index_init_header(MailIndex *index, MailIndexHeader *hdr)
 {
 	memset(hdr, 0, sizeof(MailIndexHeader));
 	hdr->compat_data[0] = MAIL_INDEX_VERSION;
@@ -471,7 +471,7 @@ void mail_index_init_header(MailIndexHeader *hdr)
 	hdr->flags = MAIL_INDEX_FLAG_REBUILD;
 
 	/* set the fields we always want to cache */
-	hdr->cache_fields |= FIELD_TYPE_LOCATION | FIELD_TYPE_MESSAGEPART;
+	hdr->cache_fields |= index->default_cache_fields;
 
 	hdr->used_file_size = sizeof(MailIndexHeader);
 	hdr->uid_validity = ioloop_time;

@@ -24,11 +24,12 @@ int mbox_index_rebuild(MailIndex *index)
 		return FALSE;
 
 	/* reset the header */
-	mail_index_init_header(index->header);
+	mail_index_init_header(index, index->header);
 	index->mmap_used_length = index->header->used_file_size;
 
-	/* we require MD5 to be cached */
-	index->header->cache_fields |= FIELD_TYPE_MD5;
+	/* require these fields */
+	index->header->cache_fields |= FIELD_TYPE_LOCATION |
+		FIELD_TYPE_MESSAGEPART | FIELD_TYPE_MD5;
 
 	/* update indexid, which also means that our state has completely
 	   changed */

@@ -5,6 +5,16 @@
 extern char *set_log_path;
 extern char *set_log_timestamp;
 
+/* general */
+extern unsigned int set_imap_port;
+extern unsigned int set_imaps_port;
+extern char *set_imap_listen;
+extern char *set_imaps_listen;
+
+extern char *set_ssl_cert_file;
+extern char *set_ssl_key_file;
+extern int set_disable_plaintext_auth;
+
 /* login */
 extern char *set_login_executable;
 extern char *set_login_user;
@@ -21,18 +31,11 @@ extern char *set_imap_executable;
 extern char *set_valid_chroot_dirs;
 extern unsigned int set_max_imap_processes;
 
-extern char *set_imap_listen;
-extern char *set_imaps_listen;
-extern unsigned int set_imap_port;
-extern unsigned int set_imaps_port;
-
-extern char *set_ssl_cert_file;
-extern char *set_ssl_key_file;
-extern int set_disable_plaintext_auth;
-
 extern unsigned int set_first_valid_uid, set_last_valid_uid;
 extern unsigned int set_first_valid_gid, set_last_valid_gid;
 
+extern char *set_mail_cache_fields;
+extern char *set_mail_never_cache_fields;
 extern int set_maildir_copy_with_hardlinks;
 extern int set_maildir_check_content_changes;
 extern int set_overwrite_incompatible_index;
