@@ -87,7 +87,12 @@ static MailStorage *mbox_create(const char *data, const char *user)
 		   [:INBOX=<path>] [:INDEX=<dir>] */
 		p = strchr(data, ':');
 		if (p == NULL) {
-			if (stat(data, &st) == 0 && S_ISDIR(st.st_mode))
+			if (stat(data, &st) < 0) {
+				i_error("Invalid mbox file %s: %m", data);
+				return NULL;
+			}
+
+			if (S_ISDIR(st.st_mode))
 				root_dir = data;
 			else {
 				root_dir = get_root_dir();
