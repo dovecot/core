@@ -30,6 +30,8 @@ int cmd_uid(Client *client)
 			client->cmd_func = cmd_store;
 		else if (strcasecmp(cmd, "SEARCH") == 0)
 			client->cmd_func = cmd_search;
+		else if (strcasecmp(cmd, "SORT") == 0)
+			client->cmd_func = cmd_sort;
 		break;
 	}
 

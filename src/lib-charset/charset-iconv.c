@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "charset-utf8.h"
 
 #ifdef HAVE_ICONV_H
@@ -66,49 +67,87 @@ void charset_to_utf8_reset(CharsetTranslation *t)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
 }
 
-int charset_to_ucase_utf8(CharsetTranslation *t,
-			  const unsigned char **inbuf, size_t *insize,
-			  unsigned char *outbuf, size_t *outsize)
+static void str_ucase_utf8(const unsigned char *src, size_t src_size,
+			   Buffer *dest, size_t destpos)
 {
-	ICONV_CONST char *ic_inbuf;
-	char *ic_outbuf;
-	size_t outleft, max_size, i;
+	char *destbuf;
+	size_t i;
+
+	destbuf = buffer_get_space(dest, destpos, src_size);
+	for (i = 0; i < src_size; i++)
+		destbuf[i] = i_toupper(src[i]); /* FIXME: utf8 */
+}
+
+CharsetResult
+charset_to_ucase_utf8(CharsetTranslation *t,
+		      const Buffer *src, size_t *src_pos, Buffer *dest)
+{
+	ICONV_CONST char *ic_srcbuf;
+	char *ic_destbuf;
+	size_t srcleft, destpos, destleft, size;
+        CharsetResult ret;
+
+	destpos = buffer_get_used_size(dest);
+	destleft = buffer_get_size(dest) - destpos;
 
 	if (t->cd == NULL) {
 		/* no translation needed - just copy it to outbuf uppercased */
-		max_size = I_MIN(*insize, *outsize);
-		for (i = 0; i < max_size; i++)
-			outbuf[i] = i_toupper((*inbuf)[i]); /* FIXME: utf8 */
-		*insize = 0;
-		*outsize = max_size;
-		return TRUE;
+		size = buffer_get_used_size(src);
+		if (size > destleft)
+			size = destleft;
+		str_ucase_utf8(buffer_get_data(src, NULL), size, dest, destpos);
+		if (src_pos != NULL)
+			*src_pos = size;
+		return CHARSET_RET_OK;
 	}
 
-	ic_inbuf = (ICONV_CONST char *) *inbuf;
-	ic_outbuf = (char *) outbuf;
-	outleft = *outsize;
+	size = destleft;
+	ic_srcbuf = (ICONV_CONST char *) buffer_get_data(src, &srcleft);
+	ic_destbuf = buffer_append_space(dest, destleft);
 
-	if (iconv(t->cd, &ic_inbuf, insize,
-		  &ic_outbuf, &outleft) == (size_t)-1) {
-		if (errno != E2BIG && errno != EINVAL) {
-			/* should be EILSEQ - invalid input */
-			return FALSE;
-		}
+	if (iconv(t->cd, &ic_srcbuf, &srcleft,
+		  &ic_destbuf, &destleft) != (size_t)-1)
+		ret = CHARSET_RET_OK;
+	else if (errno == E2BIG)
+		ret = CHARSET_RET_OUTPUT_FULL;
+	else if (errno == EINVAL)
+		ret = CHARSET_RET_INCOMPLETE_INPUT;
+	else {
+		/* should be EILSEQ */
+		return CHARSET_RET_INVALID_INPUT;
 	}
+	size -= destleft;
 
-	*inbuf = (const unsigned char *) ic_inbuf;
-	*outsize -= outleft;
+	/* give back the memory we didn't use */
+	buffer_set_used_size(dest, buffer_get_used_size(dest) - destleft);
 
-	max_size = *outsize;
-	for (i = 0; i < max_size; i++)
-		outbuf[i] = i_toupper(outbuf[i]); /* FIXME: utf8 */
+	if (src_pos != NULL)
+		*src_pos = buffer_get_used_size(src) - srcleft;
 
-	return TRUE;
+	str_ucase_utf8((unsigned char *) ic_destbuf - size, size,
+		       dest, destpos);
+	return ret;
+}
+
+static const char *alloc_str_ucase_utf8(const Buffer *data, size_t *utf8_size)
+{
+	const char *buf;
+	size_t size;
+	Buffer *dest;
+
+	buf = buffer_get_data(data, &size);
+
+	dest = buffer_create_dynamic(data_stack_pool, size, (size_t)-1);
+	str_ucase_utf8(buf, size, dest, 0);
+	if (utf8_size != NULL)
+		*utf8_size = buffer_get_used_size(dest);
+	buffer_append_c(dest, '\0');
+	return buffer_free_without_data(dest);
 }
 
 const char *
 charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
-			     const unsigned char *buf, size_t *size)
+			     const Buffer *data, size_t *utf8_size)
 {
 	iconv_t cd;
 	ICONV_CONST char *inbuf;
@@ -116,12 +155,10 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	size_t inleft, outleft, outsize, pos;
 
 	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
-	    strcasecmp(charset, "ascii") == 0) {
-		outbuf = t_malloc(*size + 1);
-		memcpy(outbuf, buf, *size);
-		outbuf[*size] = '\0';
-		return str_ucase(outbuf); /* FIXME: utf8 */
-	}
+	    strcasecmp(charset, "ascii") == 0 ||
+	    strcasecmp(charset, "UTF-8") == 0 ||
+	    strcasecmp(charset, "UTF8") == 0)
+	       return alloc_str_ucase_utf8(data, utf8_size);
 
 	cd = iconv_open("UTF-8", charset);
 	if (cd == (iconv_t)-1) {
@@ -133,10 +170,9 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
 
-	inbuf = (ICONV_CONST char *) buf;
-	inleft = *size;
+	inbuf = (ICONV_CONST char *) buffer_get_data(data, &inleft);;
 
-	outsize = outleft = *size * 2;
+	outsize = outleft = inleft * 2;
 	outbuf = outpos = t_buffer_get(outsize + 1);
 
 	while (iconv(cd, &inbuf, &inleft, &outpos, &outleft) == (size_t)-1) {
@@ -155,9 +191,10 @@ charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
 		outpos = outbuf + pos;
 	}
 
-	*size = (size_t) (outpos - outbuf);
+	if (utf8_size != NULL)
+		*utf8_size = (size_t) (outpos - outbuf);
 	*outpos++ = '\0';
-	t_buffer_alloc(*size + 1);
+	t_buffer_alloc((size_t) (outpos - outbuf));
 
 	str_ucase(outbuf); /* FIXME: utf8 */
 

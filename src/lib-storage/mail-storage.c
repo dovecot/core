@@ -147,12 +147,11 @@ void mail_storage_set_error(MailStorage *storage, const char *fmt, ...)
 void mail_storage_set_internal_error(MailStorage *storage)
 {
 	struct tm *tm;
-	char *str;
+	char str[256];
 
 	tm = localtime(&ioloop_time);
-	str = t_buffer_get(256);
 
-	storage->error = strftime(str, 256, CRITICAL_MSG, tm) > 0 ?
+	storage->error = strftime(str, sizeof(str), CRITICAL_MSG, tm) > 0 ?
 		i_strdup(str) : i_strdup("Internal error");
 }
 

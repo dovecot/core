@@ -40,10 +40,11 @@ static ListNode *list_node_get(Pool pool, ListNode **node,
 
 	parent = NULL;
 
-	t_push();
 	for (name = path;; path++) {
 		if (*path != separator && *path != '\0')
 			continue;
+
+		t_push();
 
 		/* escaping is done here to make sure we don't try to escape
 		   the separator char */
@@ -64,6 +65,8 @@ static ListNode *list_node_get(Pool pool, ListNode **node,
 			(*node)->flags = MAILBOX_NOSELECT;
 		}
 
+		t_pop();
+
 		if (*path == '\0')
 			break;
 
@@ -71,7 +74,6 @@ static ListNode *list_node_get(Pool pool, ListNode **node,
 		parent = (*node)->name;
 		node = &(*node)->children;
 	}
-	t_pop();
 
 	return *node;
 }
@@ -93,7 +95,7 @@ static void list_func(MailStorage *storage __attr_unused__, const char *name,
 static void list_send(Client *client, ListNode *node, const char *cmd,
 		      const char *path, const char *sep, ImapMatchGlob *glob)
 {
-	const char *name;
+	const char *name, *str;
 
 	for (; node != NULL; node = node->next) {
 		t_push();
@@ -109,18 +111,14 @@ static void list_send(Client *client, ListNode *node, const char *cmd,
 		if (node->children != NULL)
 			list_send(client, node->children, cmd, name, sep, glob);
 
-		if ((node->flags & MAILBOX_NOSELECT) &&
-		    imap_match(glob, name) <= 0) {
-			/* doesn't match the mask */
-			t_pop();
-			continue;
+		if ((node->flags & MAILBOX_NOSELECT) == 0 ||
+		    imap_match(glob, name) > 0) {
+			/* node->name should already be escaped */
+			str = t_strdup_printf("* %s (%s) \"%s\" \"%s\"", cmd,
+					      mailbox_flags2str(node->flags),
+					      sep, name);
+			client_send_line(client, str);
 		}
-
-		/* node->name should already be escaped */
-		client_send_line(client,
-				 t_strdup_printf("* %s (%s) \"%s\" \"%s\"", cmd,
-						 mailbox_flags2str(node->flags),
-						 sep, name));
 		t_pop();
 	}
 }
@@ -162,7 +160,7 @@ int _cmd_list_full(Client *client, int subscribed)
 			pattern = t_strconcat(ref, pattern, NULL);
 		}
 
-		ctx.pool = pool_create("ListCtx", 10240, FALSE);
+		ctx.pool = pool_create("ListContext", 10240, FALSE);
 		ctx.nodes = NULL;
 		ctx.storage = client->storage;
 

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "file-lock.h"
 #include "file-set-size.h"
 #include "mmap-util.h"
@@ -1035,7 +1036,9 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 				unsigned int *expunges_before)
 {
 	ModifyLogRecord *rec;
-	ModifyLogExpunge *expunges, *arr;
+	ModifyLogExpunge *expunge;
+	Buffer *buf;
+	size_t count;
 	unsigned int before, max_records;
 
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
@@ -1067,7 +1070,9 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 	if (max_records > last_seq - first_seq + 1)
 		max_records = last_seq - first_seq + 1;
 
-	expunges = arr = t_malloc((max_records+1) * sizeof(ModifyLogExpunge));
+	i_assert((max_records+1) < SSIZE_T_MAX/sizeof(ModifyLogExpunge));
+	buf = buffer_create_static_hard(data_stack_pool, (max_records+1) *
+					sizeof(ModifyLogExpunge));
 
 	before = 0;
 	for (; rec != NULL; rec = modifylog_next(log, rec)) {
@@ -1087,18 +1092,19 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 				return NULL;
 			}
 
+			expunge = buffer_append_space(buf, sizeof(*expunge));
+
 			if (rec->seq1 < first_seq) {
 				/* partial initial match, update
 				   before-counter */
 				before += first_seq - rec->seq1;
-				arr->seq_count = rec->seq2 - first_seq + 1;
+				expunge->seq_count = rec->seq2 - first_seq + 1;
 			} else {
-				arr->seq_count = rec->seq2 - rec->seq1 + 1;
+				expunge->seq_count = rec->seq2 - rec->seq1 + 1;
 			}
 
-			arr->uid1 = rec->uid1;
-			arr->uid2 = rec->uid2;
-			arr++;
+			expunge->uid1 = rec->uid1;
+			expunge->uid2 = rec->uid2;
 		}
 
 		if (rec->seq1 <= last_seq) {
@@ -1113,14 +1119,19 @@ mail_modifylog_seq_get_expunges(MailModifyLog *log,
 		}
 	}
 
-	arr->uid1 = arr->uid2 = arr->seq_count = 0;
+	/* terminate the array */
+	expunge = buffer_append_space(buf, sizeof(*expunge));
+	memset(expunge, 0, sizeof(*expunge));
+
+	/* extract the array from buffer */
+	count = buffer_get_used_size(buf)/sizeof(ModifyLogExpunge);
+	expunge = buffer_free_without_data(buf);
 
 	/* sort the UID array, not including the terminating 0 */
-	qsort(expunges, (unsigned int) (arr - expunges),
-	      sizeof(ModifyLogExpunge), compare_expunge);
+	qsort(expunge, count-1, sizeof(ModifyLogExpunge), compare_expunge);
 
 	*expunges_before = before;
-	return expunges;
+	return expunge;
 }
 
 const ModifyLogExpunge *
@@ -1132,7 +1143,9 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	/* pretty much copy&pasted from sequence code above ..
 	   kind of annoying */
 	ModifyLogRecord *rec;
-	ModifyLogExpunge *expunges, *arr;
+	ModifyLogExpunge *expunge;
+	Buffer *buf;
+	size_t count;
 	unsigned int before, max_records;
 
 	i_assert(log->index->lock_type != MAIL_LOCK_UNLOCK);
@@ -1164,7 +1177,9 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 	if (max_records > last_uid - first_uid + 1)
 		max_records = last_uid - first_uid + 1;
 
-	expunges = arr = t_malloc((max_records+1) * sizeof(ModifyLogExpunge));
+	i_assert((max_records+1) < SSIZE_T_MAX/sizeof(ModifyLogExpunge));
+	buf = buffer_create_static_hard(data_stack_pool, (max_records+1) *
+					sizeof(ModifyLogExpunge));
 
 	before = 0;
 	for (; rec != NULL; rec = modifylog_next(log, rec)) {
@@ -1184,21 +1199,27 @@ mail_modifylog_uid_get_expunges(MailModifyLog *log,
 				return NULL;
 			}
 
-			arr->uid1 = rec->uid1;
-			arr->uid2 = rec->uid2;
-			arr->seq_count = rec->seq2 -rec->seq1 + 1;
-			arr++;
+			expunge = buffer_append_space(buf, sizeof(*expunge));
+
+			expunge->uid1 = rec->uid1;
+			expunge->uid2 = rec->uid2;
+			expunge->seq_count = rec->seq2 -rec->seq1 + 1;
 		}
 	}
 
-	arr->uid1 = arr->uid2 = arr->seq_count = 0;
+	/* terminate the array */
+	expunge = buffer_append_space(buf, sizeof(*expunge));
+	memset(expunge, 0, sizeof(*expunge));
+
+	/* extract the array from buffer */
+	count = buffer_get_used_size(buf)/sizeof(ModifyLogExpunge);
+	expunge = buffer_free_without_data(buf);
 
 	/* sort the UID array, not including the terminating 0 */
-	qsort(expunges, (unsigned int) (arr - expunges),
-	      sizeof(ModifyLogExpunge), compare_expunge);
+	qsort(expunge, count-1, sizeof(ModifyLogExpunge), compare_expunge);
 
 	*expunges_before = before;
-	return expunges;
+	return expunge;
 }
 
 static unsigned int modifylog_file_get_expunge_count(ModifyLogFile *file)

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "istream.h"
 #include "ioloop.h"
 #include "rfc822-date.h"
@@ -130,30 +131,27 @@ static void *create_data_block(MailIndexUpdate *update, size_t data_size,
         MailIndexDataRecordHeader *dest_hdr;
         MailIndexDataRecord *rec, *destrec;
 	MailDataField field;
-	void *mem;
+	Buffer *buf;
 	const void *src;
-	size_t pos, src_size;
+	size_t src_size;
+	size_t full_field_size;
 	int i;
 
 	i_assert(data_size <= UINT_MAX);
 
-	mem = p_malloc(update->pool, data_size);
+	buf = buffer_create_static_hard(update->pool, data_size);
 
 	/* set header */
-	dest_hdr = (MailIndexDataRecordHeader *) mem;
-	pos = sizeof(MailIndexDataRecordHeader);
-
+	dest_hdr = buffer_append_space(buf, sizeof(*dest_hdr));
 	memcpy(dest_hdr, &update->data_hdr, sizeof(*dest_hdr));
 	dest_hdr->data_size = data_size;
 
 	/* set fields */
 	rec = mail_index_data_lookup(update->index->data, update->rec, 0);
 	for (i = 0, field = 1; field != DATA_FIELD_LAST; i++, field <<= 1) {
-		destrec = (MailIndexDataRecord *) ((char *) mem + pos);
-
 		if (update->fields[i] != NULL) {
 			/* value was modified - use it */
-			destrec->full_field_size =
+			full_field_size =
 				get_max_align_size(update->field_sizes[i],
 						   update->field_extra_sizes[i],
 						   &extra_size);
@@ -161,24 +159,20 @@ static void *create_data_block(MailIndexUpdate *update, size_t data_size,
 			src_size = update->field_sizes[i];
 		} else if (rec != NULL && rec->field == field) {
 			/* use the old value */
-			destrec->full_field_size = rec->full_field_size;
+			full_field_size = rec->full_field_size;
 			src = rec->data;
-			src_size = destrec->full_field_size;
+			src_size = rec->full_field_size;
 		} else {
 			/* the field doesn't exist, jump to next */
 			continue;
 		}
-		i_assert((destrec->full_field_size % MEM_ALIGN_SIZE) == 0);
+		i_assert((full_field_size % MEM_ALIGN_SIZE) == 0);
 
-		/* make sure we don't overflow our buffer */
-		if (src_size > data_size || data_size - src_size < pos) {
-			i_panic("data file for index %s unexpectedly modified",
-				update->index->filepath);
-		}
-		memcpy(destrec->data, src, src_size);
-
+		destrec = buffer_append_space(buf, SIZEOF_MAIL_INDEX_DATA +
+					      full_field_size);
 		destrec->field = field;
-		pos += DATA_RECORD_SIZE(destrec);
+		destrec->full_field_size = full_field_size;
+		memcpy(destrec->data, src, src_size);
 
 		if (rec != NULL && rec->field == field) {
 			rec = mail_index_data_next(update->index->data,
@@ -186,9 +180,7 @@ static void *create_data_block(MailIndexUpdate *update, size_t data_size,
 		}
 	}
 
-	i_assert(pos <= data_size);
-
-	return mem;
+	return buffer_free_without_data(buf);
 }
 
 /* Append all the data at the end of the data file and update 
@@ -418,6 +410,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IStream *input,
 	MessagePart *part;
 	MessageSize hdr_size, body_size;
 	Pool pool;
+	Buffer *buf;
 	const char *value;
 	size_t size;
 	uoff_t start_offset;
@@ -497,7 +490,11 @@ void mail_index_update_headers(MailIndexUpdate *update, IStream *input,
 
 		if (cache_fields & DATA_FIELD_MESSAGEPART) {
 			t_push();
-			value = message_part_serialize(part, &size);
+			buf = buffer_create_dynamic(data_stack_pool, 2048,
+						    (size_t)-1);
+			message_part_serialize(part, buf);
+
+			value = buffer_get_data(buf, &size);
 			update->index->update_field_raw(update,
 							DATA_FIELD_MESSAGEPART,
 							value, size);

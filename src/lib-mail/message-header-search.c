@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "base64.h"
+#include "buffer.h"
 #include "charset-utf8.h"
 #include "rfc822-tokenize.h"
 #include "quoted-printable.h"
@@ -19,9 +20,9 @@ struct _HeaderSearchContext {
 	size_t *matches; /* size of strlen(key) */
 	ssize_t match_count;
 
+	unsigned int found:1;
 	unsigned int last_newline:1;
 	unsigned int submatch:1;
-	unsigned int eoh:1;
 	unsigned int key_ascii:1;
 	unsigned int unknown_charset:1;
 };
@@ -31,35 +32,39 @@ message_header_search_init(Pool pool, const char *key, const char *charset,
 			   int *unknown_charset)
 {
 	HeaderSearchContext *ctx;
+	Buffer *keybuf;
+	size_t key_len;
 	const char *p;
-	size_t size;
 
 	ctx = p_new(pool, HeaderSearchContext, 1);
 	ctx->pool = pool;
 
 	/* get the key uppercased */
-	size = strlen(key);
+	keybuf = buffer_create_const_data(data_stack_pool, key, strlen(key));
 	key = charset_to_ucase_utf8_string(charset, unknown_charset,
-					   (const unsigned char *) key, &size);
-	if (key == NULL)
-		return NULL;
+					   keybuf, &key_len);
 
-	i_assert(size <= SSIZE_T_MAX/sizeof(size_t));
+	if (key == NULL) {
+		/* invalid key */
+		t_pop();
+		return NULL;
+	}
 
 	ctx->key = p_strdup(pool, key);
-	ctx->key_len = size;
+	ctx->key_len = key_len;
 	ctx->key_charset = p_strdup(pool, charset);
 	ctx->unknown_charset = charset == NULL;
 
 	ctx->key_ascii = TRUE;
-	for (p = key; *p != '\0'; p++) {
+	for (p = ctx->key; *p != '\0'; p++) {
 		if ((*p & 0x80) != 0) {
 			ctx->key_ascii = FALSE;
 			break;
 		}
 	}
 
-	ctx->matches = p_malloc(pool, sizeof(size_t) * ctx->key_len);
+	i_assert(ctx->key_len <= SSIZE_T_MAX/sizeof(size_t));
+	ctx->matches = p_new(pool, size_t, ctx->key_len);
 	return ctx;
 }
 
@@ -74,9 +79,11 @@ void message_header_search_free(HeaderSearchContext *ctx)
 	p_free(pool, ctx);
 }
 
-static int match_data(const unsigned char *data, size_t size,
-		      const char *charset, HeaderSearchContext *ctx)
+static int match_data(const Buffer *buffer, const char *charset,
+		      HeaderSearchContext *ctx)
 {
+	const char *utf8_data;
+	size_t size;
 	int ret;
 
 	if (ctx->unknown_charset) {
@@ -89,174 +96,162 @@ static int match_data(const unsigned char *data, size_t size,
 		charset = ctx->key_charset;
 	}
 
-	data = (const unsigned char *)
-		charset_to_ucase_utf8_string(charset, NULL, data, &size);
-	if (data == NULL) {
+	utf8_data = charset_to_ucase_utf8_string(charset, NULL, buffer, &size);
+	if (utf8_data == NULL) {
 		/* unknown character set, or invalid data */
 		return FALSE;
 	}
 
 	ctx->submatch = TRUE;
-	ret = message_header_search(data, &size, ctx);
+	ret = message_header_search(utf8_data, size, ctx);
 	ctx->submatch = FALSE;
 
 	return ret;
 }
 
-static int match_encoded(const unsigned char **start, const unsigned char *end,
-			 HeaderSearchContext *ctx)
+static int split_encoded(Buffer *buffer, size_t *last_pos,
+			 const char **charset, const char **encoding)
 {
-	const unsigned char *p, *encoding, *text, *new_end;
-	const char *charset;
-	unsigned char *buf;
-	ssize_t size;
-	size_t buf_size;
-	int ok, ret;
+	const char *p;
+	size_t size, pos, textpos;
 
-	/* first split the string =?charset?encoding?text?= */
-	ok = FALSE;
-	charset = (const char *) *start; encoding = NULL; text = NULL;
-	for (p = *start; p != end; p++) {
-		if (*p == '?') {
-			if (encoding == NULL) {
-				charset = t_strdup_until(charset, p);
-				encoding = p+1;
-			} else if (text == NULL) {
-				if (p != encoding+1)
-					encoding = "?";
-				else if (*encoding == 'Q' || *encoding == 'q')
-					encoding = "Q";
-				else if (*encoding == 'B' || *encoding == 'b')
-					encoding = "B";
-				else
-					encoding = "?";
+	p = buffer_get_data(buffer, &size);
 
-				text = p+1;
-			} else {
-				new_end = p;
+	/* get charset */
+	for (pos = 0; pos < size && p[pos] != '?'; pos++) ;
+	if (p[pos] != '?') return FALSE;
+	*charset = t_strndup(p, pos);
 
-				p++;
-				if (p != end && *p == '=')
-					p++;
-
-				end = new_end;
-				*start = p-1;
-				ok = TRUE;
-				break;
-			}
-		}
-	}
-
-	if (ok && *encoding != '?') {
-		t_push();
-
-		size = (ssize_t) (end - text);
-
-		buf_size = (size_t)size;
-		buf = t_malloc(buf_size);
-
-		if (*encoding == 'Q')
-			size = quoted_printable_decode(text, &buf_size, buf);
-		else
-			size = base64_decode(text, &buf_size, buf);
-
-		if (size >= 0) {
-			/* non-corrupted encoding */
-			ret = match_data(buf, (size_t)size, charset, ctx);
-			t_pop();
-			return ret;
-		}
-
-		t_pop();
-	}
-
-	/* non-supported encoding, we can't match it */
-	ctx->match_count = 0;
-	return FALSE;
-}
-
-int message_header_search(const unsigned char *header_block,
-			  size_t *header_size, HeaderSearchContext *ctx)
-{
-	const unsigned char *p, *end;
-	unsigned char chr;
-	ssize_t i;
-	int found;
-
-	if (ctx->eoh || *header_size == 0)
+	/* get encoding */
+	pos++;
+	if (pos+2 >= size || p[pos+1] != '?')
 		return FALSE;
 
-	end = header_block + *header_size;
+	if (p[pos] == 'Q' || p[pos] == 'q')
+		*encoding = "Q";
+	else if (p[pos] == 'B' || p[pos] == 'b')
+		*encoding = "B";
+	else
+		return FALSE;
 
-	found = FALSE;
-	for (p = header_block; p != end; p++) {
-		if (p[0] == '=' && p+1 != end && p[1] == '?' &&
-		    !ctx->submatch) {
+	/* get text */
+	pos += 2;
+	textpos = pos;
+	for (; pos < size && p[pos] != '?'; pos++) ;
+	if (p[pos] != '?' || pos+1 >= size || p[pos+1] != '=') return FALSE;
+
+	buffer_set_limit(buffer, pos);
+	buffer_set_start_pos(buffer, textpos + buffer_get_start_pos(buffer));
+	*last_pos = pos+1;
+
+	return TRUE;
+}
+
+static int match_encoded(Buffer *buffer, size_t *last_pos,
+			 HeaderSearchContext *ctx)
+{
+	const char *charset, *encoding, *text;
+	Buffer *decodebuf;
+	size_t textsize;
+
+	/* first split the string charset?encoding?text?= */
+	if (!split_encoded(buffer, last_pos, &charset, &encoding)) {
+		ctx->match_count = 0;
+		return FALSE;
+	}
+
+	/* buffer is now limited to only the text portion */
+	text = buffer_get_data(buffer, &textsize);
+	decodebuf = buffer_create_static_hard(data_stack_pool, textsize);
+
+	if (*encoding == 'Q')
+		quoted_printable_decode(text, textsize, NULL, decodebuf);
+	else {
+		if (base64_decode(text, textsize, NULL, decodebuf) < 0) {
+			/* corrupted encoding */
+			ctx->match_count = 0;
+			return FALSE;
+		}
+	}
+
+	return match_data(decodebuf, charset, ctx);
+}
+
+int message_header_search(const unsigned char *header_block, size_t size,
+			  HeaderSearchContext *ctx)
+{
+	Buffer *buf;
+	ssize_t i;
+	size_t pos, subpos;
+	unsigned char chr;
+	int last_newline, ret;
+
+	if (ctx->found)
+		return TRUE;
+
+	t_push();
+	buf = buffer_create_const_data(data_stack_pool, header_block, size);
+
+	last_newline = ctx->last_newline;
+	for (pos = 0; pos < size; pos++) {
+		chr = header_block[pos];
+
+		if (chr == '=' && pos+1 < size &&
+		    header_block[pos+1] == '?' && !ctx->submatch) {
 			/* encoded string. read it. */
-			p += 2;
+                        buffer_set_start_pos(buf, pos+2);
+
 			t_push();
-			if (match_encoded(&p, end, ctx)) {
-				t_pop();
-				found = TRUE;
-				break;
-			}
+			ret = match_encoded(buf, &subpos, ctx);
 			t_pop();
 
-			i_assert(p != end);
+			if (ret) {
+				ctx->found = TRUE;
+				break;
+			}
+
+			buffer_set_start_pos(buf, 0);
+			buffer_set_limit(buf, (size_t)-1);
+
+			pos += subpos - 1;
+			last_newline = FALSE;
 			continue;
 		}
 
-		if (ctx->submatch)
-			chr = *p;
-		else if ((*p & 0x80) == 0)
-			chr = i_toupper(*p);
-		else if (ctx->key_ascii || ctx->unknown_charset)
-			chr = *p;
-		else {
-			/* we have non-ascii in header. treat the rest of the
-			   header as encoded with the key's charset */
-			t_push();
-			found = match_data(p, (size_t) (end-p),
-					   ctx->key_charset, ctx);
-			t_pop();
-			break;
+		if (!ctx->submatch) {
+			if ((chr & 0x80) == 0)
+				chr = i_toupper(chr);
+			else if (!ctx->key_ascii && !ctx->unknown_charset) {
+				/* we have non-ascii in header and key contains
+				   non-ascii characters. treat the rest of the
+				   header as encoded with the key's charset */
+				t_push();
+				ctx->found = match_data(buf, ctx->key_charset,
+							ctx);
+				t_pop();
+				break;
+			}
 		}
 
-		chr = ctx->submatch || (*p & 0x80) != 0 ? *p : i_toupper(*p);
-
-		if (((p == header_block && ctx->last_newline) ||
-		     (p != header_block && p[-1] == '\n')) && !ctx->submatch) {
-			/* newline */
-			if (!IS_LWSP(*p)) {
+		if (last_newline && !ctx->submatch) {
+			if (!IS_LWSP(chr)) {
 				/* not a long header, reset matches */
 				ctx->match_count = 0;
-
-				/* and see if we're at end of header */
-				if (*p == '\n') {
-					p++;
-					ctx->eoh = TRUE;
-					break;
-				}
-
-				if (*p == '\r' && p[1] == '\n') {
-					p += 2;
-					ctx->eoh = TRUE;
-					break;
-				}
 			}
 			chr = ' ';
 		}
+		last_newline = chr == '\n';
 
-		if (*p == '\r' || *p == '\n')
+		if (chr == '\r' || chr == '\n')
 			continue;
 
 		for (i = ctx->match_count-1; i >= 0; i--) {
 			if (ctx->key[ctx->matches[i]] == chr) {
 				if (++ctx->matches[i] == ctx->key_len) {
 					/* full match */
-					p++;
-					found = TRUE;
-					break;
+					ctx->found = TRUE;
+					t_pop();
+					return TRUE;
 				}
 			} else {
 				/* non-match */
@@ -269,29 +264,24 @@ int message_header_search(const unsigned char *header_block,
 			}
 		}
 
-		if (found)
-			break;
-
 		if (chr == ctx->key[0]) {
 			if (ctx->key_len == 1) {
 				/* only one character in search key */
-				p++;
-				found = TRUE;
+				ctx->found = TRUE;
 				break;
 			}
 			i_assert((size_t)ctx->match_count < ctx->key_len);
 			ctx->matches[ctx->match_count++] = 1;
 		}
 	}
+	t_pop();
 
-	*header_size = (size_t) (p - header_block);
-
-	ctx->last_newline = end[-1] == '\n';
-	return found;
+	ctx->last_newline = last_newline;
+	return ctx->found;
 }
 
 void message_header_search_reset(HeaderSearchContext *ctx)
 {
-	ctx->eoh = FALSE;
 	ctx->match_count = 0;
+	ctx->found = FALSE;
 }

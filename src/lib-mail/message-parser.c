@@ -253,9 +253,7 @@ MessagePart *message_parse(Pool pool, IStream *input,
 	parse_ctx.context = context;
 	parse_ctx.part = part = p_new(pool, MessagePart, 1);
 
-	t_push();
 	message_parse_part(input, &parse_ctx);
-	t_pop();
 	return part;
 }
 

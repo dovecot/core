@@ -201,7 +201,7 @@ static const char *strip_chars(const char *value, size_t value_len,
 {
 	/* leave only unknown flags, very likely none */
 	char *ret, *p;
-	unsigned int i;
+	size_t i;
 
 	ret = p = t_buffer_get(value_len+1);
 	for (i = 0; i < value_len; i++) {

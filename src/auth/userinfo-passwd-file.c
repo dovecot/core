@@ -7,6 +7,7 @@
 
 #include "userinfo-passwd.h"
 
+#include "buffer.h"
 #include "istream.h"
 #include "hash.h"
 #include "hex-binary.h"
@@ -153,6 +154,7 @@ static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
 {
 	const char *id;
 	PasswdUser *pu;
+	Buffer *buf;
 
 	passwd_file_sync();
 
@@ -167,7 +169,9 @@ static int passwd_file_lookup_digest_md5(const char *user, const char *realm,
 
 	/* found */
 	i_assert(strlen(pu->password) == 32);
-	if (!hex_to_binary(pu->password, digest))
+
+	buf = buffer_create_data(data_stack_pool, digest, sizeof(digest));
+	if (!hex_to_binary(pu->password, buf))
 		return FALSE;
 	
 	return get_reply_data(pu, reply);

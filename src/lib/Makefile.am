@@ -3,6 +3,7 @@ noinst_LIBRARIES = liblib.a
 liblib_a_SOURCES = \
 	alarm-hup.c \
 	base64.c \
+	buffer.c \
 	compat.c \
 	data-stack.c \
 	env-util.c \
@@ -52,6 +53,7 @@ liblib_a_SOURCES = \
 noinst_HEADERS = \
 	alarm-hup.h \
 	base64.h \
+	buffer.h \
 	compat.h \
 	data-stack.h \
 	env-util.h \

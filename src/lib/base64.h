@@ -1,21 +1,25 @@
 #ifndef __BASE64_H
 #define __BASE64_H
 
-/* Translates binary data into base64. Allocates memory from data stack. */
-const char *base64_encode(const unsigned char *data, size_t size);
+/* Translates binary data into base64. The src must not point to dest buffer.
+   Returns 1 if all ok, 0 if dest buffer got full. */
+int base64_encode(const unsigned char *src, size_t src_size, Buffer *dest);
 
-/* Translates base64 data into binary. dest must be large enough, and may be
-   same as src. Returns size of the binary data, or -1 if error occured.
-   Any CR, LF characters are ignored, as well as whitespace at beginning or
-   end of line.
+/* Translates base64 data into binary and appends it to dest buffer. dest may
+   point to same buffer as src. Returns 1 if all ok, 0 if dest buffer got full
+   or -1 if data is invalid. Any CR, LF characters are ignored, as well as
+   whitespace at beginning or end of line.
 
-   This function may be called multiple times for parsing same base64 stream.
-   The *size is updated at return to contain the amount of data actually
-   parsed - the rest of the data should be passed again to this function. */
-ssize_t base64_decode(const char *src, size_t *size, unsigned char *dest);
+   This function may be called multiple times for parsing the same stream.
+   If src_pos is non-NULL, it's updated to first non-translated character in
+   src. */
+int base64_decode(const unsigned char *src, size_t src_size,
+		  size_t *src_pos_r, Buffer *dest);
 
-/* max. buffer size required for base64_decode(), not including trailing \0 */
+/* max. buffer size required for base64_encode() */
+#define MAX_BASE64_ENCODED_SIZE(size) \
+	((size) / 3 * 4 + 2+2)
+/* max. buffer size required for base64_decode() */
 #define MAX_BASE64_DECODED_SIZE(size) \
 	((size) / 4 * 3 + 3)
-
 #endif

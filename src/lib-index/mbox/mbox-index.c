@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "istream.h"
 #include "rfc822-tokenize.h"
 #include "mbox-index.h"
@@ -12,6 +13,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+
+/* Don't try reading more custom flags than this. */
+#define MAX_CUSTOM_FLAGS 1024
 
 extern MailIndex mbox_index;
 
@@ -189,10 +193,12 @@ mbox_get_keyword_flags(const char *value, size_t len,
 static int mbox_parse_imapbase(const char *value, size_t len,
 			       MboxHeaderContext *ctx)
 {
-	const char **custom_flags, **old_flags;
+	const char **flag;
+	Buffer *buf;
 	size_t pos, start;
 	MailFlags flags;
-	int idx, ret, spaces, max;
+	unsigned int count;
+	int ret, spaces;
 
 	/* skip <uid validity> and <last uid> fields */
 	spaces = 0;
@@ -211,22 +217,16 @@ static int mbox_parse_imapbase(const char *value, size_t len,
 	t_push();
 
 	/* we're at the 3rd field now, which begins the list of custom flags */
-	max = MAIL_CUSTOM_FLAGS_COUNT;
-	custom_flags = t_new(const char *, max);
-	for (idx = 0, start = pos; ; pos++) {
+	buf = buffer_create_dynamic(data_stack_pool,
+				    MAIL_CUSTOM_FLAGS_COUNT, MAX_CUSTOM_FLAGS);
+	for (start = pos; ; pos++) {
 		if (pos == len || value[pos] == ' ' || value[pos] == '\t') {
 			if (start != pos) {
-				if (idx == max) {
-					/* need more memory */
-					old_flags = custom_flags;
-					max *= 2;
-					custom_flags = t_new(const char *, max);
-					memcpy(custom_flags, old_flags,
-					       sizeof(const char *) * idx);
-				}
+				flag = buffer_append_space(buf, sizeof(*flag));
+				if (flag == NULL)
+					break;
 
-				custom_flags[idx++] =
-					t_strdup_until(value+start, value+pos);
+				*flag = t_strdup_until(value+start, value+pos);
 			}
 			start = pos+1;
 
@@ -236,8 +236,10 @@ static int mbox_parse_imapbase(const char *value, size_t len,
 	}
 
 	flags = MAIL_CUSTOM_FLAGS_MASK;
+	count = buffer_get_used_size(buf) / sizeof(const char *);
+	flag = buffer_free_without_data(buf);
 	ret = mail_custom_flags_fix_list(ctx->index->custom_flags, &flags,
-					 custom_flags, idx);
+					 flag, count);
 
 	t_pop();
 

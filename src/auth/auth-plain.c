@@ -28,13 +28,14 @@ static void auth_plain_continue(CookieData *cookie,
 	count = 0;
 	for (i = 0; i < request->data_size; i++) {
 		if (data[i] == '\0' && ++count == 2) {
-			if (i+1 == request->data_size)
+			i++;
+			if (i == request->data_size)
 				pass = "";
 			else {
-				len = request->data_size - (i+1);
+				len = request->data_size - i;
 				pass = t_malloc(len+1);
-				memcpy(pass, (const char *) data + (i+1), len);
-				pass[len] = '\0';
+                                memcpy(pass, (const char *) data + i, len);
+                                pass[len] = '\0';
 			}
 			break;
 		}

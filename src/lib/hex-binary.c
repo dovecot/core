@@ -24,6 +24,7 @@
 */
 
 #include "lib.h"
+#include "buffer.h"
 #include "hex-binary.h"
 
 const char *binary_to_hex(const unsigned char *data, size_t size)
@@ -45,12 +46,10 @@ const char *binary_to_hex(const unsigned char *data, size_t size)
 	return buf;
 }
 
-ssize_t hex_to_binary(const char *data, unsigned char *dest)
+int hex_to_binary(const char *data, Buffer *dest)
 {
-	size_t size;
 	int value;
 
-	size = 0;
 	while (*data != '\0') {
 		if (*data >= '0' && *data <= '9')
 			value = (*data - '0') << 4;
@@ -71,9 +70,10 @@ ssize_t hex_to_binary(const char *data, unsigned char *dest)
 		else
 			return -1;
 
-		dest[size++] = value;
+		if (buffer_append_c(dest, value) != 1)
+			return 0;
 		data++;
 	}
 
-	return (ssize_t)size;
+	return 1;
 }

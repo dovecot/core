@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "buffer.h"
 #include "commands.h"
 #include "mail-search.h"
 #include "mail-sort.h"
@@ -25,12 +26,12 @@ static SortName sort_names[] = {
 
 static MailSortType *get_sort_program(Client *client, ImapArg *args)
 {
-	MailSortType *program, *temp_prog;
-	size_t program_alloc, program_size;
+	MailSortType type;
+	Buffer *buf;
 	int i;
 
-	program_alloc = 32; program_size = 0;
-	program = t_new(MailSortType, program_alloc+1);
+	buf = buffer_create_dynamic(data_stack_pool, 32 * sizeof(MailSortType),
+				    (size_t)-1);
 
 	while (args->type == IMAP_ARG_ATOM || args->type == IMAP_ARG_STRING) {
 		const char *arg = args->data.str;
@@ -46,20 +47,12 @@ static MailSortType *get_sort_program(Client *client, ImapArg *args)
 			return NULL;
 		}
 
-		if (program_size == program_alloc) {
-			program_alloc *= 2;
-			if (!t_try_realloc(program, program_alloc+1)) {
-				temp_prog = t_new(MailSortType, program_alloc);
-				memcpy(temp_prog, program,
-				       sizeof(MailSortType) * program_size);
-				program = temp_prog;
-			}
-		}
-		program[program_size++] = sort_names[i].type;
+		buffer_append(buf, &sort_names[i].type, sizeof(MailSortType));
 		args++;
 	}
 
-	program[program_size] = MAIL_SORT_END;
+	type = MAIL_SORT_END;
+	buffer_append(buf, &type, sizeof(type));
 
 	if (args->type != IMAP_ARG_EOL) {
 		client_send_command_error(client,
@@ -67,7 +60,7 @@ static MailSortType *get_sort_program(Client *client, ImapArg *args)
 		return NULL;
 	}
 
-	return program;
+	return buffer_free_without_data(buf);
 }
 
 int cmd_sort(Client *client)

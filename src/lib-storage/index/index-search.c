@@ -402,7 +402,7 @@ static int search_arg_match_envelope(SearchIndexContext *ctx,
 			}
 
 			size = strlen(field);
-			ret = message_header_search(field, &size,
+			ret = message_header_search(field, size,
 						    hdr_search_ctx) ? 1 : 0;
 		}
 	}
@@ -487,15 +487,18 @@ static void search_header_arg(MailSearchArg *arg, void *context)
 		return;
 	}
 
+	t_push();
+
 	/* then check if the value matches */
 	hdr_search_ctx = search_header_context(ctx->index_context, arg);
 	if (hdr_search_ctx == NULL)
 		ret = 0;
 	else {
 		len = ctx->value_len;
-		ret = message_header_search(ctx->value, &len,
+		ret = message_header_search(ctx->value, len,
 					    hdr_search_ctx) ? 1 : 0;
 	}
+	t_pop();
 
         ARG_SET_RESULT(arg, ret);
 }

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "ostream.h"
 #include "mail-sort.h"
 
@@ -13,8 +14,7 @@ struct _MailSortContext {
 	MailSortFuncs funcs;
 	void *func_context;
 
-	size_t sort_buffer_size, sort_buffer_alloc;
-	unsigned int *sort_buffer;
+	Buffer *sort_buffer;
 
 	time_t last_arrival, last_date;
 	uoff_t last_size;
@@ -24,10 +24,9 @@ struct _MailSortContext {
 static void mail_sort_flush(MailSortContext *ctx);
 
 static MailSortType
-mail_sort_normalize(const MailSortType *input,
-		    MailSortType output[MAX_SORT_PROGRAM_SIZE])
+mail_sort_normalize(const MailSortType *input, Buffer *output)
 {
-        MailSortType mask = 0;
+        MailSortType type, mask = 0;
 	int pos, reverse;
 
 	reverse = FALSE;
@@ -37,20 +36,21 @@ mail_sort_normalize(const MailSortType *input,
 		else {
 			if ((mask & *input) == 0) {
 				if (reverse) {
-					i_assert(pos < MAX_SORT_PROGRAM_SIZE);
-					output[pos++] = MAIL_SORT_REVERSE;
+					type = MAIL_SORT_REVERSE;
+					buffer_append(output,
+						      &type, sizeof(type));
 				}
 
-				i_assert(pos < MAX_SORT_PROGRAM_SIZE);
-				output[pos++] = *input;
+				buffer_append(output, input, sizeof(*input));
 				mask |= *input;
 			}
+
 			reverse = FALSE;
 		}
 	}
 
-	i_assert(pos < MAX_SORT_PROGRAM_SIZE);
-	output[pos] = MAIL_SORT_END;
+	type = MAIL_SORT_END;
+	buffer_append(output, &type, sizeof(type));
 
 	return mask;
 }
@@ -76,12 +76,20 @@ MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
 	MailSortContext *ctx;
 	MailSortType norm_input[MAX_SORT_PROGRAM_SIZE];
 	MailSortType norm_output[MAX_SORT_PROGRAM_SIZE];
+	Buffer *buf;
 	int i;
 
 	ctx = i_new(MailSortContext, 1);
 
-	mail_sort_normalize(input, norm_input);
-	mail_sort_normalize(output, norm_output);
+	t_push();
+	buf = buffer_create_data(data_stack_pool,
+				 norm_input, sizeof(norm_input));
+	mail_sort_normalize(input, buf);
+
+	buf = buffer_create_data(data_stack_pool,
+				 norm_output, sizeof(norm_output));
+	mail_sort_normalize(output, buf);
+	t_pop();
 
 	/* remove the common part from output, we already know input is sorted
 	   that much so we don't have to worry about it. */
@@ -92,8 +100,9 @@ MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
 		ctx->output[i] = output[i];
 	ctx->output[i] = MAIL_SORT_END;
 
-	ctx->sort_buffer_alloc = 128;
-	ctx->sort_buffer = i_new(unsigned int, ctx->sort_buffer_alloc);
+	ctx->sort_buffer = buffer_create_dynamic(system_pool,
+						 128 * sizeof(unsigned int),
+						 (size_t)-1);
 
 	ctx->funcs = funcs;
 	ctx->func_context = context;
@@ -103,13 +112,13 @@ MailSortContext *mail_sort_init(const MailSortType *input, MailSortType *output,
 void mail_sort_deinit(MailSortContext *ctx)
 {
 	mail_sort_flush(ctx);
+	buffer_free(ctx->sort_buffer);
 
 	i_free(ctx->last_cc);
 	i_free(ctx->last_from);
 	i_free(ctx->last_subject);
 	i_free(ctx->last_to);
 
-	i_free(ctx->sort_buffer);
 	i_free(ctx);
 }
 
@@ -216,14 +225,7 @@ void mail_sort_input(MailSortContext *ctx, unsigned int id)
 	if (ctx->common_mask != 0)
 		mail_sort_check_flush(ctx, id);
 
-	if (ctx->sort_buffer_size == ctx->sort_buffer_alloc) {
-		ctx->sort_buffer_alloc *= 2;
-		ctx->sort_buffer = i_realloc(ctx->sort_buffer,
-					     ctx->sort_buffer_alloc *
-					     sizeof(unsigned int));
-	}
-
-	ctx->sort_buffer[ctx->sort_buffer_size++] = id;
+	buffer_append(ctx->sort_buffer, &id, sizeof(id));
 }
 
 static MailSortContext *mail_sort_qsort_context;
@@ -298,12 +300,15 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 
 static void mail_sort_flush(MailSortContext *ctx)
 {
+	unsigned int *arr;
+	size_t count;
+
 	mail_sort_qsort_context = ctx;
 
-	qsort(ctx->sort_buffer, ctx->sort_buffer_size, sizeof(unsigned int),
-	      mail_sort_qsort_func);
+	arr = buffer_get_modifyable_data(ctx->sort_buffer, NULL);
+	count = buffer_get_used_size(ctx->sort_buffer) / sizeof(unsigned int);
+	qsort(arr, count, sizeof(unsigned int), mail_sort_qsort_func);
 
-	ctx->funcs.output(ctx->sort_buffer, ctx->sort_buffer_size,
-			  ctx->func_context);
-	ctx->sort_buffer_size = 0;
+	ctx->funcs.output(arr, count, ctx->func_context);
+	buffer_set_used_size(ctx->sort_buffer, 0);
 }

@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "base64.h"
+#include "buffer.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -105,15 +106,17 @@ static void master_callback(MasterReplyResult result, void *context)
 static void client_send_auth_data(Client *client, const unsigned char *data,
 				  size_t size)
 {
-	const char *base64_data;
+	Buffer *buf;
 
 	t_push();
 
-	base64_data = base64_encode(data, size);
-	o_stream_send(client->output, "+ ", 2);
-	o_stream_send(client->output, base64_data, strlen(base64_data));
-	o_stream_send(client->output, "\r\n", 2);
+	buf = buffer_create_dynamic(data_stack_pool, size*2, (size_t)-1);
+	buffer_append(buf, "+ ", 2);
+	base64_encode(data, size, buf);
+	buffer_append(buf, "\r\n", 2);
 
+	o_stream_send(client->output, buffer_get_data(buf, NULL),
+		      buffer_get_used_size(buf));
 	o_stream_flush(client->output);
 
 	t_pop();
@@ -168,22 +171,21 @@ static void login_callback(AuthRequest *request, int auth_process,
 			   size_t reply_data_size, void *context)
 {
 	Client *client = context;
+	const void *ptr;
+	size_t size;
 
 	if (auth_callback(request, auth_process, result,
 			  reply_data, reply_data_size, context)) {
-		auth_continue_request(request, client->plain_login,
-				      client->plain_login_len);
+                ptr = buffer_get_data(client->plain_login, &size);
+		auth_continue_request(request, ptr, size);
 
-		i_free(client->plain_login);
-                client->plain_login = NULL;
+		buffer_set_used_size(client->plain_login, 0);
 	}
 }
 
 int cmd_login(Client *client, const char *user, const char *pass)
 {
 	const char *error;
-	unsigned char *p;
-	size_t len, user_len, pass_len;
 
 	if (!client->tls && disable_plaintext_auth) {
 		client_send_tagline(client,
@@ -192,17 +194,12 @@ int cmd_login(Client *client, const char *user, const char *pass)
 	}
 
 	/* code it into user\0user\0password */
-	user_len = strlen(user);
-	pass_len = strlen(pass);
-	len = user_len + 1 + user_len + 1 + pass_len;
-
-	i_free(client->plain_login);
-	client->plain_login = p = i_malloc(len);
-	client->plain_login_len = len;
-
-	memcpy(p, user, user_len); p += user_len; *p++ = '\0';
-	memcpy(p, user, user_len); p += user_len; *p++ = '\0';
-	memcpy(p, pass, pass_len);
+	buffer_set_used_size(client->plain_login, 0);
+	buffer_append(client->plain_login, user, strlen(user));
+	buffer_append_c(client->plain_login, '\0');
+	buffer_append(client->plain_login, user, strlen(user));
+	buffer_append_c(client->plain_login, '\0');
+	buffer_append(client->plain_login, pass, strlen(pass));
 
 	client_ref(client);
 	if (auth_init_request(AUTH_METHOD_PLAIN,
@@ -237,9 +234,9 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 			      IO io __attr_unused__)
 {
 	Client *client = context;
+	Buffer *buf;
 	char *line;
-	ssize_t size;
-	size_t linelen;
+	size_t linelen, bufsize;
 
 	if (!client_read(client))
 		return;
@@ -253,24 +250,29 @@ static void client_auth_input(void *context, int fd __attr_unused__,
 		return;
 	}
 
+	t_push();
+
 	linelen = strlen(line);
-	size = base64_decode(line, &linelen, (unsigned char *) line);
-	if (size < 0) {
+	buf = buffer_create_static_hard(data_stack_pool, linelen);
+
+	if (base64_decode(line, linelen, NULL, buf) <= 0) {
 		/* failed */
 		client_auth_abort(client, "NO Invalid base64 data");
-		return;
-	}
-
-	if (client->auth_request == NULL) {
+	} else if (client->auth_request == NULL) {
 		client_auth_abort(client, "NO Don't send unrequested data");
-		return;
+	} else {
+		auth_continue_request(client->auth_request,
+				      buffer_get_data(buf, NULL),
+				      buffer_get_used_size(buf));
 	}
-
-	auth_continue_request(client->auth_request, (unsigned char *) line,
-			      (size_t)size);
 
 	/* clear sensitive data */
-	memset(line, 0, size);
+	memset(line, 0, linelen);
+
+	bufsize = buffer_get_used_size(buf);
+	memset(buffer_free_without_data(buf), 0, bufsize);
+
+	t_pop();
 }
 
 int cmd_authenticate(Client *client, const char *method_name)

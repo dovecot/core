@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "base64.h"
+#include "buffer.h"
 #include "istream.h"
 #include "charset-utf8.h"
 #include "rfc822-tokenize.h"
@@ -30,14 +31,13 @@ typedef struct {
 	HeaderSearchContext *hdr_search_ctx;
 	CharsetTranslation *translation;
 
-	unsigned char decode_buf[DECODE_BLOCK_SIZE];
-	size_t decode_buf_used;
+	Buffer *decode_buf;
 
 	size_t *matches;
 	ssize_t match_count;
 
-	const char *content_type;
-	const char *content_charset;
+	char *content_type;
+	char *content_charset;
 
 	unsigned int content_qp:1;
 	unsigned int content_base64:1;
@@ -53,7 +53,8 @@ static void parse_content_type(const Rfc822Token *tokens, int count,
 	PartSearchContext *ctx = context;
 
 	if (ctx->content_type != NULL && tokens[0].token == 'A') {
-		ctx->content_type = rfc822_tokens_get_value(tokens, count);
+		ctx->content_type =
+			i_strdup(rfc822_tokens_get_value(tokens, count));
 		ctx->content_type_text =
 			strncasecmp(ctx->content_type, "text/", 5) == 0 ||
 			strncasecmp(ctx->content_type, "message/", 8) == 0;
@@ -71,7 +72,7 @@ static void parse_content_type_param(const Rfc822Token *name,
 
 	if (ctx->content_charset == NULL) {
 		ctx->content_charset =
-			rfc822_tokens_get_value(value, value_count);
+			i_strdup(rfc822_tokens_get_value(value, value_count));
 	}
 }
 
@@ -117,9 +118,11 @@ static void header_find(MessagePart *part __attr_unused__,
 		return;
 
 	if (!ctx->ignore_header) {
-		ctx->found = message_header_search(value, &value_len,
+		ctx->found = message_header_search(value, value_len,
 						   ctx->hdr_search_ctx);
 	}
+
+	t_push();
 
 	if (name_len == 12 && strncasecmp(name, "Content-Type", 12) == 0) {
 		(void)message_content_parse_header(t_strndup(value, value_len),
@@ -132,6 +135,8 @@ static void header_find(MessagePart *part __attr_unused__,
 						   parse_content_encoding,
 						   NULL, ctx);
 	}
+
+	t_pop();
 }
 
 static int message_search_header(PartSearchContext *ctx, IStream *input)
@@ -148,26 +153,24 @@ static int message_search_header(PartSearchContext *ctx, IStream *input)
 	return ctx->found;
 }
 
-static int message_search_decoded_block(PartSearchContext *ctx,
-					const unsigned char *data, size_t size)
+static int message_search_decoded_block(PartSearchContext *ctx, Buffer *block)
 {
 	const unsigned char *p, *end, *key;
-	size_t key_len;
+	size_t key_len, block_size;
 	ssize_t i;
-	int found;
 
 	key = (const unsigned char *) ctx->body_ctx->key;
 	key_len = ctx->body_ctx->key_len;
 
-	end = data + size; found = 0;
-	for (p = data; p != end; p++) {
+	p = buffer_get_data(block, &block_size);
+	end = p + block_size;
+	for (; p != end; p++) {
 		for (i = ctx->match_count-1; i >= 0; i--) {
 			if (key[ctx->matches[i]] == *p) {
 				if (++ctx->matches[i] == key_len) {
 					/* full match */
 					p++;
-					found = TRUE;
-					break;
+					return TRUE;
 				}
 			} else {
 				/* non-match */
@@ -180,73 +183,75 @@ static int message_search_decoded_block(PartSearchContext *ctx,
 			}
 		}
 
-		if (found)
-			break;
-
 		if (*p == key[0]) {
 			if (key_len == 1) {
 				/* only one character in search key */
 				p++;
-				found = 1;
-				break;
+				return TRUE;
 			}
+
 			i_assert((size_t)ctx->match_count < key_len);
 			ctx->matches[ctx->match_count++] = 1;
 		}
 	}
 
-	return found;
+	return FALSE;
 }
 
-static int message_search_body_block(PartSearchContext *ctx,
-				     const unsigned char *data, size_t size)
+/* returns 1 = found, 0 = not found, -1 = error in input data */
+static int message_search_body_block(PartSearchContext *ctx, Buffer *block)
 {
-	const unsigned char *inbuf;
-	unsigned char outbuf[DECODE_BLOCK_SIZE];
-	size_t inbuf_size, outbuf_size, max_size;
+	Buffer *inbuf, *outbuf;
+        CharsetResult result;
+	size_t block_pos, inbuf_pos, inbuf_left, ret;
 
-	while (size > 0) {
-		if (ctx->decode_buf_used == 0) {
-			inbuf = data;
-			inbuf_size = I_MIN(size, sizeof(ctx->decode_buf));
-
-			data += inbuf_size;
-			size -= inbuf_size;
+	outbuf = buffer_create_static(data_stack_pool, DECODE_BLOCK_SIZE);
+	for (block_pos = 0; block_pos < buffer_get_used_size(block); ) {
+		if (buffer_get_used_size(ctx->decode_buf) == 0) {
+			/* we can use the buffer directly without copying */
+			inbuf = block;
+			inbuf_pos = block_pos;
+			block_pos += buffer_get_used_size(block);
 		} else {
 			/* some characters already in buffer, ie. last
 			   conversion contained partial data */
-			max_size = sizeof(ctx->decode_buf) -
-				ctx->decode_buf_used;
-			if (max_size > size)
-				max_size = size;
-
-			memcpy(ctx->decode_buf + ctx->decode_buf_used,
-			       data, max_size);
-			ctx->decode_buf_used += max_size;
+			block_pos += buffer_append_buf(ctx->decode_buf,
+						       block, block_pos,
+						       (size_t)-1);
 
 			inbuf = ctx->decode_buf;
-			inbuf_size = ctx->decode_buf_used;
-
-			data += max_size;
-			size -= max_size;
+			inbuf_pos = 0;
 		}
 
-		outbuf_size = sizeof(outbuf);
-		if (!charset_to_ucase_utf8(ctx->translation,
-					   &inbuf, &inbuf_size,
-					   outbuf, &outbuf_size)) {
-			/* something failed */
+		buffer_set_used_size(outbuf, 0);
+		result = charset_to_ucase_utf8(ctx->translation,
+					       inbuf, &inbuf_pos, outbuf);
+		inbuf_left = buffer_get_used_size(inbuf) - inbuf_pos;
+
+		switch (result) {
+		case CHARSET_RET_OUTPUT_FULL:
+			/* we should have copied the incomplete sequence.. */
+			i_assert(inbuf_left <= block_pos);
+			/* fall through */
+		case CHARSET_RET_OK:
+			buffer_set_used_size(ctx->decode_buf, 0);
+			block_pos -= inbuf_left;
+			break;
+		case CHARSET_RET_INCOMPLETE_INPUT:
+			/* save the partial sequence to buffer */
+			ret = buffer_copy(ctx->decode_buf, 0,
+					  inbuf, inbuf_pos, inbuf_left);
+			i_assert(ret == inbuf_left);
+
+			buffer_set_used_size(ctx->decode_buf, ret);
+			break;
+
+		case CHARSET_RET_INVALID_INPUT:
 			return -1;
 		}
 
-		if (message_search_decoded_block(ctx, outbuf, outbuf_size))
+		if (message_search_decoded_block(ctx, outbuf))
 			return 1;
-
-		if (inbuf_size > 0) {
-			/* partial input, save it */
-			memmove(ctx->decode_buf, inbuf, inbuf_size);
-			ctx->decode_buf_used = inbuf_size;
-		}
 	}
 
 	return 0;
@@ -255,9 +260,9 @@ static int message_search_body_block(PartSearchContext *ctx,
 static int message_search_body(PartSearchContext *ctx, IStream *input,
 			       MessagePart *part)
 {
-	const unsigned char *data, *decoded;
-	unsigned char *decodebuf;
-	size_t data_size, decoded_size, pos;
+	const unsigned char *data;
+	Buffer *decodebuf;
+	size_t data_size, pos;
 	uoff_t old_limit;
 	ssize_t ret;
 	int found;
@@ -276,6 +281,8 @@ static int message_search_body(PartSearchContext *ctx, IStream *input,
 		charset_to_utf8_begin(ctx->content_charset, NULL);
 	if (ctx->translation == NULL)
 		ctx->translation = charset_to_utf8_begin("ascii", NULL);
+
+	ctx->decode_buf = buffer_create_static(data_stack_pool, 256);
 
 	ctx->match_count = 0;
 	ctx->matches = t_malloc(sizeof(size_t) * ctx->body_ctx->key_len);
@@ -296,28 +303,35 @@ static int message_search_body(PartSearchContext *ctx, IStream *input,
 
 		t_push();
 		if (ctx->content_qp) {
-			decoded = decodebuf = t_malloc(data_size);
-			decoded_size = quoted_printable_decode(data, &data_size,
-							       decodebuf);
+			decodebuf = buffer_create_static_hard(data_stack_pool,
+							      data_size);
+			quoted_printable_decode(data, data_size,
+						&data_size, decodebuf);
 		} else if (ctx->content_base64) {
-			decoded_size = MAX_BASE64_DECODED_SIZE(data_size);
-			decoded = decodebuf = t_malloc(decoded_size);
+			size_t size = MAX_BASE64_DECODED_SIZE(data_size);
+			decodebuf = buffer_create_static_hard(data_stack_pool,
+							      size);
 
-			ret = base64_decode(data, &data_size, decodebuf);
-			decoded_size = ret < 0 ? 0 : (size_t)decoded_size;
+			if (base64_decode(data, data_size,
+					  &data_size, decodebuf) < 0) {
+				/* corrupted base64 data, don't bother with
+				   the rest of it */
+				t_pop();
+				break;
+			}
 		} else {
-			decoded = data;
-			decoded_size = data_size;
+			decodebuf = buffer_create_const_data(data_stack_pool,
+							     data, data_size);
 		}
 
-		ret = message_search_body_block(ctx, decoded, decoded_size);
+		ret = message_search_body_block(ctx, decodebuf);
+		t_pop();
+
 		if (ret != 0) {
-			t_pop();
 			found = ret > 0;
 			break;
 		}
 
-		t_pop();
 		i_stream_skip(input, data_size);
 		pos -= data_size;
 	}
@@ -333,24 +347,25 @@ static int message_body_search_init(BodySearchContext *ctx, const char *key,
 				    const char *charset, int *unknown_charset,
 				    int search_header)
 {
-	size_t size;
+	Buffer *keybuf;
+	size_t key_len;
 
 	memset(ctx, 0, sizeof(BodySearchContext));
 
 	/* get the key uppercased */
-	size = strlen(key);
+        keybuf = buffer_create_const_data(data_stack_pool, key, strlen(key));
 	key = charset_to_ucase_utf8_string(charset, unknown_charset,
-					   (const unsigned char *) key, &size);
+					   keybuf, &key_len);
 	if (key == NULL)
 		return FALSE;
 
-	i_assert(size <= SSIZE_T_MAX/sizeof(size_t));
-
 	ctx->key = key;
-	ctx->key_len = size;
+	ctx->key_len = key_len;
 	ctx->charset = charset;
 	ctx->unknown_charset = charset == NULL;
 	ctx->search_header = search_header;
+
+	i_assert(ctx->key_len <= SSIZE_T_MAX/sizeof(size_t));
 
 	return TRUE;
 }
@@ -384,6 +399,9 @@ static int message_body_search_ctx(BodySearchContext *ctx, IStream *input,
 			if (message_search_body(&part_ctx, input, part))
 				found = TRUE;
 		}
+
+		i_free(part_ctx.content_type);
+		i_free(part_ctx.content_charset);
 
 		t_pop();
 

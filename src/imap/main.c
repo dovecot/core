@@ -12,7 +12,7 @@
 #include <syslog.h>
 
 IOLoop ioloop;
-static char log_prefix[64];
+static char log_prefix[128];
 
 static void sig_quit(int signo __attr_unused__)
 {

@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "base64.h"
+#include "buffer.h"
 #include "hex-binary.h"
 #include "md5.h"
 #include "randgen.h"
@@ -57,6 +58,7 @@ typedef struct {
 static const char *get_digest_challenge(AuthData *auth)
 {
 	TempString *qoplist, *realms;
+	Buffer *buf;
 	char *const *tmp;
 	unsigned char nonce[16];
 	int i;
@@ -73,8 +75,15 @@ static const char *get_digest_challenge(AuthData *auth)
 
 	/* get 128bit of random data as nonce */
 	random_fill(nonce, sizeof(nonce));
-	auth->nonce = p_strdup(auth->pool,
-			       base64_encode(nonce, sizeof(nonce)));
+
+	t_push();
+	buf = buffer_create_static(data_stack_pool,
+				   MAX_BASE64_ENCODED_SIZE(sizeof(nonce))+1);
+
+	base64_encode(nonce, sizeof(nonce), buf);
+	buffer_append_c(buf, '\0');
+	auth->nonce = p_strdup(auth->pool, buffer_get_data(buf, NULL));
+	t_pop();
 
 	/* get list of allowed QoPs */
 	qoplist = t_string_new(32);

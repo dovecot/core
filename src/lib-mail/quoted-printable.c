@@ -1,44 +1,46 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "hex-binary.h"
 #include "quoted-printable.h"
 
-size_t quoted_printable_decode(const unsigned char *src, size_t *size,
-			       unsigned char *dest)
+void quoted_printable_decode(const unsigned char *src, size_t src_size,
+			     size_t *src_pos_r, Buffer *dest)
 {
-	const unsigned char *end;
-	unsigned char *dest_start;
 	char hexbuf[3];
+	size_t src_pos, next;
 
 	hexbuf[2] = '\0';
 
-	dest_start = dest;
-	end = src + *size;
-
-	for (; src != end; src++) {
-		if (*src == '_') {
-			*dest++ = ' ';
+	next = 0;
+	for (src_pos = 0; src_pos < src_size; src_pos++) {
+		if (src[src_pos] != '_' && src[src_pos] != '=')
 			continue;
-		}
 
-		if (*src == '=') {
-			if (src+2 >= end)
+		buffer_append(dest, src, src_pos - next);
+
+		if (src[src_pos] == '_') {
+			buffer_append(dest, " ", 1);
+			next = src_pos+1;
+		} else {
+			/* =<hex> */
+			if (src_pos+2 >= src_size)
 				break;
 
-			hexbuf[0] = src[1];
-			hexbuf[1] = src[2];
+			hexbuf[0] = src[src_pos+1];
+			hexbuf[1] = src[src_pos+2];
 
 			if (hex_to_binary(hexbuf, dest) == 1) {
-				dest++;
-				src += 2;
-				continue;
+				src_pos += 2;
+				next = src_pos+1;
+			} else {
+				/* non-hex data */
+				next = src_pos;
 			}
 		}
-
-		*dest++ = *src;
 	}
 
-	*size -= (end-src);
-	return (size_t) (dest - dest_start);
+	if (src_pos_r != NULL)
+		*src_pos_r = src_pos;
 }

@@ -41,41 +41,48 @@
 
 #include "lib.h"
 #include "base64.h"
+#include "buffer.h"
 
 static const char basis_64[] =
    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-const char *base64_encode(const unsigned char *data, size_t size)
+int base64_encode(const unsigned char *src, size_t src_size, Buffer *dest)
 {
-	char *buffer, *p;
+	size_t src_pos;
 	int c1, c2, c3;
 
-	/* + rounding errors + "==" + '\0' */
-	buffer = p = t_malloc(size/3*4 + 2+2+1);
-	while (size > 0) {
-		c1 = *data++; size--;
-		*p++ = basis_64[c1 >> 2];
+	for (src_pos = 0; src_pos < src_size; ) {
+		c1 = src[src_pos++];
+		if (buffer_append_c(dest, basis_64[c1 >> 2]) != 1)
+			return 0;
 
-		c2 = size == 0 ? 0 : *data++;
-		*p++ = basis_64[((c1 & 0x03) << 4) | ((c2 & 0xf0) >> 4)];
-		if (size-- == 0) {
-			*p++ = '=';
-			*p++ = '=';
+		c2 = src_pos == src_size ? 0 : src[src_pos++];
+		if (buffer_append_c(dest, basis_64[((c1 & 0x03) << 4) |
+						   ((c2 & 0xf0) >> 4)]) != 1)
+			return 0;
+
+		if (src_pos++ == src_size) {
+			if (buffer_append(dest, "==", 2) != 2)
+				return 0;
 			break;
 		}
 
-		c3 = size == 0 ? 0 : *data++;
-		*p++ = basis_64[((c2 & 0x0f) << 2) | ((c3 & 0xc0) >> 6)];
-		if (size-- == 0) {
-			*p++ = '=';
+		c3 = src_pos == src_size ? 0 : src[src_pos++];
+		if (buffer_append_c(dest, basis_64[((c2 & 0x0f) << 2) |
+						   ((c3 & 0xc0) >> 6)]) != 1)
+			return 0;
+
+		if (src_pos++ == src_size) {
+			if (buffer_append_c(dest, '=') != 1)
+				return 0;
 			break;
 		}
 
-		*p++ = basis_64[c3 & 0x3f];
+		if (buffer_append_c(dest, basis_64[c3 & 0x3f]) != 1)
+			return 0;
 	}
 
-	*p = '\0';
-	return buffer;
+	return 1;
 }
 
 #define XX 127
@@ -99,54 +106,73 @@ static const char index_64[256] = {
     XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX,
     XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX,
 };
-#define CHAR64(c)  (index_64[(int)(unsigned char)(c)])
 
-ssize_t base64_decode(const char *src, size_t *size, unsigned char *dest)
+int base64_decode(const unsigned char *src, size_t src_size,
+		  size_t *src_pos_r, Buffer *dest)
 {
-	unsigned char *p;
-	size_t left;
+	size_t src_pos;
+	unsigned char buf[4];
 	int c1, c2, c3, c4;
+	size_t ret, size;
 
-	p = dest; left = *size;
-	while (left >= 4) {
-		c1 = *src++;
+	for (src_pos = 0; src_pos+3 < src_size; ) {
+		c1 = src[src_pos++];
 
-		if (c1 == '\n' || c1 == '\r' || c1 == ' ' || c1 == '\t') {
-			left--;
+		if (c1 == '\n' || c1 == '\r' || c1 == ' ' || c1 == '\t')
 			continue;
-		}
 
-		if (CHAR64(c1) == XX)
+		if (index_64[c1] == XX)
 			return -1;
 
-		c2 = *src++;
-		if (CHAR64(c2) == XX)
+		c2 = src[src_pos++];
+		if (index_64[c2] == XX)
 			return -1;
 
-		c3 = *src++;
-		if (c3 != '=' && CHAR64(c3) == XX)
+		c3 = src[src_pos++];
+		if (c3 != '=' && index_64[c3] == XX)
 			return -1;
 
-		c4 = *src++;
-		if (c4 != '=' && CHAR64(c4) == XX)
+		c4 = src[src_pos++];
+		if (c4 != '=' && index_64[c4] == XX)
 			return -1;
 
-		left -= 4;
-
-		*p++ = ((CHAR64(c1) << 2) | ((CHAR64(c2) & 0x30) >> 4));
-
+		buf[0] = (index_64[c1] << 2) | ((index_64[c2] & 0x30) >> 4);
 		if (c3 == '=') {
 			if (c4 != '=')
 				return -1;
-			break;
+			size = 1;
+		} else {
+			buf[1] = ((index_64[c2] & 0xf) << 4) |
+				((index_64[c3] & 0x3c) >> 2);
+
+			if (c4 == '=')
+				size = 2;
+			else {
+				buf[2] = ((index_64[c3] & 0x3) << 6) |
+					index_64[c4];
+				size = 3;
+			}
 		}
 
-		*p++ = (((CHAR64(c2) & 0xf) << 4) | ((CHAR64(c3) & 0x3c) >> 2));
-		if (c4 == '=')
+		ret = buffer_append(dest, buf, size);
+		if (ret != size) {
+			/* buffer full */
+			if (src_pos_r != NULL) {
+				*src_pos_r = src_pos-4;
+                                ret = buffer_get_used_size(dest) - (size-ret);
+				buffer_set_used_size(dest, ret);
+			}
+			return 0;
+		}
+
+		if (size < 3) {
+			/* end of base64 data */
 			break;
-		*p++ = (((CHAR64(c3) & 0x3) << 6) | CHAR64(c4));
+		}
 	}
 
-	*size -= left;
-	return (ssize_t) (p-dest);
+	if (src_pos_r != NULL)
+		*src_pos_r = src_pos;
+
+	return 1;
 }

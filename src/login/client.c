@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "buffer.h"
 #include "hash.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -289,7 +290,8 @@ Client *client_create(int fd, IPADDR *ip, int imaps)
 	client->input = i_stream_create_file(fd, default_pool, 8192, FALSE);
 	client->output = o_stream_create_file(fd, default_pool, 1024,
 					      IO_PRIORITY_DEFAULT, FALSE);
-        client->last_input = ioloop_time;
+	client->plain_login = buffer_create_dynamic(system_pool, 128, 8192);
+	client->last_input = ioloop_time;
 	hash_insert(clients, client, client);
 
 	main_ref();
@@ -334,7 +336,7 @@ int client_unref(Client *client)
 	o_stream_unref(client->output);
 
 	i_free(client->tag);
-	i_free(client->plain_login);
+	buffer_free(client->plain_login);
 	i_free(client);
 
 	main_unref();

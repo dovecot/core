@@ -113,14 +113,14 @@ void rawlog_open(int *hin, int *hout)
 	if (strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", tm) <= 0)
 		i_fatal("strftime() failed");
 
-	fname = t_strdup_printf("%s/%s-%d.in", path, timestamp, getpid());
+	fname = t_strdup_printf("%s/%s-%d.in", path, timestamp, (int)getpid());
 	log_in = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
 	if (log_in == -1) {
 		i_warning("rawlog_open: open() failed for %s: %m", fname);
 		return;
 	}
 
-	fname = t_strdup_printf("%s/%s-%d.out", path, timestamp, getpid());
+	fname = t_strdup_printf("%s/%s-%d.out", path, timestamp, (int)getpid());
 	log_out = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
 	if (log_out == -1) {
 		i_warning("rawlog_open: open() failed for %s: %m", fname);

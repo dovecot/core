@@ -40,7 +40,7 @@ struct _MailCustomFlags {
 static int lock_file(MailCustomFlags *mcf, int type);
 
 static int index_cf_set_syscall_error(MailCustomFlags *mcf,
-				       const char *function)
+				      const char *function)
 {
 	i_assert(function != NULL);
 

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "buffer.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"
 
@@ -32,25 +33,14 @@ typedef struct {
 	unsigned int flags;
 } SerializedMessagePart;
 
-static void message_part_serialize_part(MessagePart *part,
-					unsigned int *children_count,
-					SerializedMessagePart **spart_base,
-					size_t *pos, size_t *size)
+void message_part_serialize(MessagePart *part, Buffer *dest)
 {
 	SerializedMessagePart *spart;
-	size_t buf_size;
 
 	while (part != NULL) {
-		/* make sure we have space */
-		if (*pos == *size) {
-			*size *= 2;
-			buf_size = sizeof(SerializedMessagePart) * (*size);
-
-			*spart_base = t_buffer_reget(*spart_base, buf_size);
-		}
-
 		/* create serialized part */
-		spart = (*spart_base) + (*pos);
+		spart = buffer_append_space(dest,
+					    sizeof(SerializedMessagePart));
 		memset(spart, 0, sizeof(SerializedMessagePart));
 
 		spart->physical_pos = part->physical_pos;
@@ -66,33 +56,10 @@ static void message_part_serialize_part(MessagePart *part,
 		spart->children_count = 0;
 		spart->flags = part->flags;
 
-		if (children_count != NULL)
-			(*children_count)++;
-		(*pos)++;
-
-		if (part->children != NULL) {
-			message_part_serialize_part(part->children,
-						    &spart->children_count,
-						    spart_base, pos, size);
-		}
+		if (part->children != NULL)
+			message_part_serialize(part, dest);
 		part = part->next;
 	}
-}
-
-const void *message_part_serialize(MessagePart *part, size_t *size)
-{
-        SerializedMessagePart *spart_base;
-	size_t pos, buf_size;
-
-	buf_size = 32;
-	spart_base = t_buffer_get(sizeof(SerializedMessagePart) * buf_size);
-
-	pos = 0;
-	message_part_serialize_part(part, NULL, &spart_base, &pos, &buf_size);
-
-	*size = sizeof(SerializedMessagePart) * pos;
-	t_buffer_alloc(*size);
-	return spart_base;
 }
 
 static MessagePart *
