@@ -93,6 +93,11 @@ static int search_arg_build(struct search_build_data *data,
 	if (arg->type == IMAP_ARG_LIST) {
 		struct imap_arg *listargs = IMAP_ARG_LIST(arg)->args;
 
+		if (listargs->type == IMAP_ARG_EOL) {
+			data->error = "Empty list not allowed";
+			return FALSE;
+		}
+
 		*next_sarg = search_arg_new(data->pool, SEARCH_SUB);
 		subargs = &(*next_sarg)->value.subargs;
 		while (listargs->type != IMAP_ARG_EOL) {
