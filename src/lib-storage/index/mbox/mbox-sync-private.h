@@ -67,7 +67,6 @@ struct mbox_sync_mail_context {
 	size_t header_first_change, header_last_change;
 	string_t *header, *uidl;
 
-	struct md5_context hdr_md5_ctx;
 	unsigned char hdr_md5_sum[16];
 
 	uoff_t content_length;
@@ -82,7 +81,6 @@ struct mbox_sync_mail_context {
 	unsigned int updated:1;
 	unsigned int recent:1;
 	unsigned int dirty:1;
-	unsigned int seen_received_hdr:1;
 	unsigned int uid_broken:1;
 };
 
@@ -118,12 +116,6 @@ struct mbox_sync_context {
 	unsigned int delay_writes:1;
 };
 
-struct mbox_sync_header_func {
-	const char *header;
-	int (*func)(struct mbox_sync_mail_context *ctx,
-		    struct message_header_line *hdr);
-};
-
 int mbox_sync(struct index_mailbox *ibox, enum mbox_sync_flags flags);
 int mbox_sync_has_changed(struct index_mailbox *ibox, int leave_dirty);
 
@@ -146,10 +138,5 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	      uoff_t dest, uoff_t source, uoff_t size);
 void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 			   size_t pos, size_t need, size_t have);
-
-int mbox_sync_bsearch_header_func_cmp(const void *p1, const void *p2);
-
-void mbox_sync_md5(struct mbox_sync_mail_context *ctx,
-		   struct message_header_line *hdr);
 
 #endif

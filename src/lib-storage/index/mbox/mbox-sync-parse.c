@@ -11,11 +11,18 @@
 #include "message-parser.h"
 #include "mail-index.h"
 #include "mbox-storage.h"
+#include "mbox-md5.h"
 #include "mbox-sync-private.h"
 
 #include <stdlib.h>
 
 #define IS_LWSP_LF(c) (IS_LWSP(c) || (c) == '\n')
+
+struct mbox_sync_header_func {
+	const char *header;
+	int (*func)(struct mbox_sync_mail_context *ctx,
+		    struct message_header_line *hdr);
+};
 
 struct mbox_flag_type mbox_status_flags[] = {
 	{ 'R', MAIL_SEEN },
@@ -292,7 +299,7 @@ static struct mbox_sync_header_func header_funcs[] = {
 };
 #define HEADER_FUNCS_COUNT (sizeof(header_funcs) / sizeof(*header_funcs))
 
-int mbox_sync_bsearch_header_func_cmp(const void *p1, const void *p2)
+static int mbox_sync_bsearch_header_func_cmp(const void *p1, const void *p2)
 {
 	const char *key = p1;
 	const struct mbox_sync_header_func *func = p2;
@@ -307,6 +314,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 	struct mbox_sync_header_func *func;
+	struct mbox_md5_context *mbox_md5_ctx;
 	size_t line_start_pos;
 	int i, ret;
 
@@ -321,7 +329,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	ctx->content_length = (uoff_t)-1;
 	str_truncate(ctx->header, 0);
 
-	md5_init(&ctx->hdr_md5_ctx);
+        mbox_md5_ctx = mbox_md5_init();
 
         line_start_pos = 0;
 	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
@@ -360,7 +368,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			buffer_append(ctx->header, hdr->full_value,
 				      hdr->full_value_len);
 		} else {
-			mbox_sync_md5(ctx, hdr);
+			mbox_md5_continue(mbox_md5_ctx, hdr);
 			buffer_append(ctx->header, hdr->value,
 				      hdr->value_len);
 		}
@@ -370,7 +378,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	i_assert(ret != 0);
 	message_parse_header_deinit(hdr_ctx);
 
-	md5_final(&ctx->hdr_md5_ctx, ctx->hdr_md5_sum);
+	mbox_md5_finish(mbox_md5_ctx, ctx->hdr_md5_sum);
 
 	if ((ctx->seq == 1 && sync_ctx->base_uid_validity == 0) ||
 	    (ctx->seq > 1 && sync_ctx->dest_first_mail)) {
@@ -393,6 +401,7 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 	struct header_func *func;
+	struct mbox_md5_context *mbox_md5_ctx;
 	const void *data;
 	uint32_t uid;
 	int ret;
@@ -402,7 +411,7 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 	   the MD5 sum. */
 
 	memset(&ctx, 0, sizeof(ctx));
-	md5_init(&ctx.hdr_md5_ctx);
+        mbox_md5_ctx = mbox_md5_init();
 
 	hdr_ctx = message_parse_header_init(ibox->mbox_stream, NULL, FALSE);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
@@ -424,13 +433,13 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 					break;
 			}
 		} else {
-			mbox_sync_md5(&ctx, hdr);
+			mbox_md5_continue(mbox_md5_ctx, hdr);
 		}
 	}
 	i_assert(ret != 0);
 	message_parse_header_deinit(hdr_ctx);
 
-	md5_final(&ctx.hdr_md5_ctx, ctx.hdr_md5_sum);
+	mbox_md5_finish(mbox_md5_ctx, ctx.hdr_md5_sum);
 
 	if (ctx.mail.uid != 0) {
 		/* match by X-UID header */

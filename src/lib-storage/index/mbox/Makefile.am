@@ -16,8 +16,8 @@ libstorage_mbox_a_SOURCES = \
 	mbox-list.c \
 	mbox-lock.c \
 	mbox-mail.c \
+	mbox-md5.c \
 	mbox-save.c \
-	mbox-sync-md5.c \
 	mbox-sync-parse.c \
 	mbox-sync-rewrite.c \
 	mbox-sync-update.c \
@@ -30,5 +30,6 @@ noinst_HEADERS = \
 	mbox-file.h \
 	mbox-from.h \
 	mbox-lock.h \
+	mbox-md5.h \
 	mbox-storage.h \
 	mbox-sync-private.h

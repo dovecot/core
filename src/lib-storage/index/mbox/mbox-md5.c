@@ -1,12 +1,24 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
 #include "lib.h"
+#include "md5.h"
 #include "message-parser.h"
-#include "mbox-sync-private.h"
+#include "mbox-md5.h"
 
 #include <stdlib.h>
 
-static int parse_date(struct mbox_sync_mail_context *ctx,
+struct mbox_md5_context {
+	struct md5_context hdr_md5_ctx;
+	int seen_received_hdr;
+};
+
+struct mbox_md5_header_func {
+	const char *header;
+	int (*func)(struct mbox_md5_context *ctx,
+		    struct message_header_line *hdr);
+};
+
+static int parse_date(struct mbox_md5_context *ctx,
 		      struct message_header_line *hdr)
 {
 	if (!ctx->seen_received_hdr) {
@@ -16,14 +28,14 @@ static int parse_date(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static int parse_delivered_to(struct mbox_sync_mail_context *ctx,
+static int parse_delivered_to(struct mbox_md5_context *ctx,
 			      struct message_header_line *hdr)
 {
 	md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
 	return TRUE;
 }
 
-static int parse_message_id(struct mbox_sync_mail_context *ctx,
+static int parse_message_id(struct mbox_md5_context *ctx,
 			    struct message_header_line *hdr)
 {
 	if (!ctx->seen_received_hdr) {
@@ -34,7 +46,7 @@ static int parse_message_id(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static int parse_received(struct mbox_sync_mail_context *ctx,
+static int parse_received(struct mbox_md5_context *ctx,
 			  struct message_header_line *hdr)
 {
 	if (!ctx->seen_received_hdr) {
@@ -46,7 +58,7 @@ static int parse_received(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static int parse_x_delivery_id(struct mbox_sync_mail_context *ctx,
+static int parse_x_delivery_id(struct mbox_md5_context *ctx,
 			       struct message_header_line *hdr)
 {
 	/* Let the local delivery agent help generate unique ID's but don't
@@ -57,7 +69,7 @@ static int parse_x_delivery_id(struct mbox_sync_mail_context *ctx,
 }
 
 
-static struct mbox_sync_header_func md5_header_funcs[] = {
+static struct mbox_md5_header_func md5_header_funcs[] = {
 	{ "Date", parse_date },
 	{ "Delivered-To", parse_delivered_to },
 	{ "Message-ID", parse_message_id },
@@ -67,14 +79,38 @@ static struct mbox_sync_header_func md5_header_funcs[] = {
 #define MD5_HEADER_FUNCS_COUNT \
 	(sizeof(md5_header_funcs) / sizeof(*md5_header_funcs))
 
-void mbox_sync_md5(struct mbox_sync_mail_context *ctx,
-		   struct message_header_line *hdr)
+static int bsearch_header_func_cmp(const void *p1, const void *p2)
 {
-	struct mbox_sync_header_func *func;
+	const char *key = p1;
+	const struct mbox_md5_header_func *func = p2;
+
+	return strcasecmp(key, func->header);
+}
+
+struct mbox_md5_context *mbox_md5_init(void)
+{
+	struct mbox_md5_context *ctx;
+
+	ctx = i_new(struct mbox_md5_context, 1);
+	md5_init(&ctx->hdr_md5_ctx);
+	return ctx;
+}
+
+void mbox_md5_continue(struct mbox_md5_context *ctx,
+		       struct message_header_line *hdr)
+{
+	struct mbox_md5_header_func *func;
 
 	func = bsearch(hdr->name, md5_header_funcs,
 		       MD5_HEADER_FUNCS_COUNT, sizeof(*md5_header_funcs),
-		       mbox_sync_bsearch_header_func_cmp);
+		       bsearch_header_func_cmp);
 	if (func != NULL)
 		(void)func->func(ctx, hdr);
+}
+
+void mbox_md5_finish(struct mbox_md5_context *ctx,
+		     unsigned char result[16])
+{
+	md5_final(&ctx->hdr_md5_ctx, result);
+	i_free(ctx);
 }
