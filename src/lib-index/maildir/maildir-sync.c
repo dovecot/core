@@ -300,6 +300,7 @@ static int maildir_index_sync_dir(struct mail_index *index, const char *dir,
 	const char *fname;
 	void *orig_key, *orig_value;
 	unsigned int new_count;
+	size_t size;
 	int failed, check_content_changes;
 
 	i_assert(dir != NULL);
@@ -312,7 +313,9 @@ static int maildir_index_sync_dir(struct mail_index *index, const char *dir,
 	}
 
 	/* read current messages in index into hash */
-	pool = pool_alloconly_create("maildir sync", 16384);
+	size = nearest_power(index->header->messages_count *
+			     sizeof(struct maildir_hash_rec) + 1024);
+	pool = pool_alloconly_create("maildir sync", I_MAX(size, 16384));
 	files = hash_create(default_pool, pool, index->header->messages_count*2,
 			    maildir_hash, maildir_cmp);
 
