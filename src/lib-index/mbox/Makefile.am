@@ -14,6 +14,7 @@ libstorage_index_mbox_a_SOURCES = \
 	mbox-lock.c \
 	mbox-open.c \
 	mbox-rebuild.c \
+	mbox-rewrite.c \
 	mbox-sync.c
 
 noinst_HEADERS = \

@@ -48,7 +48,6 @@ struct _ImapMessageCache {
 
 	CachedMessage *open_msg;
 	IOBuffer *open_inbuf;
-	uoff_t open_virtual_size;
 
 	void *context;
 };
@@ -252,6 +251,13 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 			msg->cached_envelope = p_strdup(msg->pool, value);
 	}
 
+	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) && msg->body_size == NULL) {
+		/* we don't have body size. and since we're already going
+		   to scan the whole message body, we might as well build
+		   the MessagePart. */
+                fields |= IMAP_CACHE_MESSAGE_PART;
+	}
+
 	if (fields & IMAP_CACHE_MESSAGE_PART) {
 		msg_get_part(cache);
 
@@ -275,40 +281,11 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 	}
 
 	if ((fields & IMAP_CACHE_MESSAGE_BODY_SIZE) && msg->body_size == NULL) {
-		msg_get_part(cache);
+		i_assert(msg->part != NULL);
 
-		/* fill the body size, and while at it fill the header
-		   size as well */
-		if (msg->hdr_size == NULL)
-			msg->hdr_size = p_new(msg->pool, MessageSize, 1);
 		msg->body_size = p_new(msg->pool, MessageSize, 1);
-
-		if (msg->part != NULL) {
-			/* easy, get it from root part */
-			*msg->hdr_size = msg->part->header_size;
-			*msg->body_size = msg->part->body_size;
-		} else {
-			/* first get the header's size, then calculate the body
-			   size from it and the total virtual size */
-			imap_msgcache_get_inbuf(cache, 0);
-			message_get_header_size(cache->open_inbuf,
-						msg->hdr_size);
-
-			/* FIXME: this may actually happen if file size
-			   is shrinked.. */
-			i_assert(msg->hdr_size->physical_size <=
-				 cache->open_inbuf->size);
-			i_assert(msg->hdr_size->virtual_size <=
-				 cache->open_virtual_size);
-
-			msg->body_size->lines = 0;
-			msg->body_size->physical_size =
-				cache->open_inbuf->size -
-				msg->hdr_size->physical_size;
-			msg->body_size->virtual_size =
-				cache->open_virtual_size -
-				msg->hdr_size->virtual_size;
-		}
+		*msg->hdr_size = msg->part->header_size;
+		*msg->body_size = msg->part->body_size;
 	}
 
 	if ((fields & IMAP_CACHE_MESSAGE_HDR_SIZE) && msg->hdr_size == NULL) {
@@ -330,8 +307,8 @@ static void cache_fields(ImapMessageCache *cache, ImapCacheField fields)
 }
 
 void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
-			ImapCacheField fields, uoff_t virtual_size,
-			uoff_t pv_headers_size, uoff_t pv_body_size,
+			ImapCacheField fields,
+			uoff_t virtual_header_size, uoff_t virtual_body_size,
 			void *context)
 {
 	CachedMessage *msg;
@@ -341,22 +318,21 @@ void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
 		imap_msgcache_close(cache);
 
 		cache->open_msg = msg;
-		cache->open_virtual_size = virtual_size;
 		cache->context = context;
 	}
 
-	if (pv_headers_size != 0 && msg->hdr_size == NULL) {
+	if (virtual_header_size != 0 && msg->hdr_size == NULL) {
 		/* physical size == virtual size */
 		msg->hdr_size = p_new(msg->pool, MessageSize, 1);
 		msg->hdr_size->physical_size = msg->hdr_size->virtual_size =
-			pv_headers_size;
+			virtual_header_size;
 	}
 
-	if (pv_body_size != 0 && msg->body_size == NULL) {
+	if (virtual_body_size != 0 && msg->body_size == NULL) {
 		/* physical size == virtual size */
 		msg->body_size = p_new(msg->pool, MessageSize, 1);
 		msg->body_size->physical_size = msg->body_size->virtual_size =
-			pv_body_size;
+			virtual_body_size;
 	}
 
 	cache_fields(cache, fields);
@@ -371,7 +347,6 @@ void imap_msgcache_close(ImapMessageCache *cache)
 	}
 
 	cache->open_msg = NULL;
-	cache->open_virtual_size = 0;
 	cache->context = NULL;
 }
 
@@ -503,14 +478,8 @@ int imap_msgcache_get_rfc822_partial(ImapMessageCache *cache,
 	size_got = FALSE;
 	if (virtual_skip == 0) {
 		if (msg->body_size == NULL) {
-			/* FIXME: may underflow */
-			msg->body_size = p_new(msg->pool, MessageSize, 1);
-			msg->body_size->physical_size =
-				cache->open_inbuf->size -
-				msg->hdr_size->physical_size;
-			msg->body_size->virtual_size =
-				cache->open_virtual_size -
-				msg->hdr_size->virtual_size;
+			cache_fields(cache, IMAP_CACHE_MESSAGE_BODY_SIZE);
+			i_assert(msg->body_size != NULL);
 		}
 
 		if (max_virtual_size >= msg->body_size->virtual_size) {

@@ -4,6 +4,7 @@
 #include "iobuffer.h"
 #include "hex-binary.h"
 #include "message-parser.h"
+#include "message-part-serialize.h"
 #include "mbox-index.h"
 #include "mbox-lock.h"
 #include "mail-index-util.h"
@@ -31,19 +32,103 @@ static void skip_line(IOBuffer *inbuf)
 	}
 }
 
-static MailIndexRecord *
-match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
-		  IOBuffer *inbuf)
+static int verify_header_md5sum(MailIndex *index, MailIndexRecord *rec,
+				unsigned char current_digest[16])
 {
+	const unsigned char *old_digest;
+	unsigned int size;
+
+	/* MD5 sums must match */
+	old_digest = index->lookup_field_raw(index, rec, FIELD_TYPE_MD5, &size);
+	return old_digest != NULL && size == 16 &&
+                memcmp(old_digest, current_digest, 16) == 0;
+}
+
+static int verify_end_of_body(IOBuffer *inbuf, uoff_t end_offset)
+{
+	unsigned char *data;
+	unsigned int size;
+
+	/* don't bother parsing the whole body, just make
+	   sure it ends properly */
+	io_buffer_seek(inbuf, end_offset);
+
+	if (inbuf->offset == inbuf->size) {
+		/* end of file. a bit unexpected though,
+		   since \n is missing. */
+		return TRUE;
+	}
+
+	/* read forward a bit */
+	if (io_buffer_read_data(inbuf, &data, &size, 6) <= 0)
+		return FALSE;
+
+	/* either there should be the next From-line,
+	   or [\r]\n at end of file */
+	if (size > 0 && data[0] == '\r') {
+		data++; size--;
+	}
+	if (size > 0) {
+		if (data[0] != '\n')
+			return FALSE;
+
+		data++; size--;
+	}
+
+	return size == 0 || (size >= 5 && strncmp(data, "From ", 5) == 0);
+}
+
+static int mail_update_header_size(MailIndex *index, MailIndexRecord *rec,
+				   MailIndexUpdate *update,
+				   MessageSize *hdr_size)
+{
+	const void *part_data;
+	void *part_data_copy;
+	unsigned int size;
+
+	/* update index record */
+	rec->header_size = hdr_size->physical_size;
+
+	if ((rec->cached_fields & FIELD_TYPE_MESSAGEPART) == 0)
+		return TRUE;
+
+	/* update FIELD_TYPE_MESSAGEPART */
+	part_data = index->lookup_field_raw(index, rec, FIELD_TYPE_MESSAGEPART,
+					    &size);
+	if (part_data == NULL) {
+		/* well, this wasn't expected but don't bother failing */
+		return TRUE;
+	}
+
+	/* copy & update the part data */
+	part_data_copy = t_malloc(size);
+	memcpy(part_data_copy, part_data, size);
+
+	if (!message_part_serialize_update_header(part_data_copy, size,
+						  hdr_size))
+		return FALSE;
+
+	index->update_field_raw(update, FIELD_TYPE_MESSAGEPART,
+				part_data_copy, size);
+	return TRUE;
+}
+
+static int match_next_record(MailIndex *index, MailIndexRecord *rec,
+			     unsigned int seq, IOBuffer *inbuf,
+			     MailIndexRecord **next_rec)
+{
+        MailIndexUpdate *update;
 	MessageSize hdr_size;
 	MboxHeaderContext ctx;
-	uoff_t body_offset;
-	unsigned char *data, current_digest[16], old_digest[16];
-	unsigned int size;
-	const char *md5sum;
+	uoff_t header_offset, body_offset, offset;
+	unsigned char current_digest[16];
+
+	*next_rec = NULL;
 
 	/* skip the From-line */
 	skip_line(inbuf);
+
+	header_offset = inbuf->offset;
 
 	/* get the MD5 sum of fixed headers and the current message flags
 	   in Status and X-Status fields */
@@ -53,60 +138,51 @@ match_next_record(MailIndex *index, MailIndexRecord *rec, unsigned int *seq,
 
 	body_offset = inbuf->offset;
 	do {
-		do {
-			/* MD5 sums must match */
-			md5sum = index->lookup_field(index, rec,
-						     FIELD_TYPE_MD5);
-			if (md5sum == NULL || strlen(md5sum) != 32 ||
-			    hex_to_binary(md5sum, old_digest) <= 0)
-				break;
+		if (verify_header_md5sum(index, rec, current_digest) &&
+		    verify_end_of_body(inbuf, body_offset + rec->body_size)) {
+			/* valid message */
+			update = index->update_begin(index, rec);
 
-			if (memcmp(old_digest, current_digest, 16) != 0)
-				break;
+			/* update flags, unless we've changed them */
+			if ((rec->index_flags & INDEX_MAIL_FLAG_DIRTY) == 0) {
+				if (!index->update_flags(index, rec, seq,
+							 ctx.flags, TRUE))
+					return FALSE;
 
-			/* don't bother parsing the whole body, just make
-			   sure it ends properly */
-			io_buffer_seek(inbuf, body_offset + rec->body_size);
-
-			if (inbuf->offset == inbuf->size) {
-				/* last message */
-			} else {
-				/* read forward a bit */
-				if (io_buffer_read_data(inbuf, &data,
-							&size, 6) <= 0)
-					break;
-
-				/* either there should be the next From-line,
-				   or [\r]\n at end of file */
-				if (size > 0 && data[0] == '\r') {
-					data++; size--;
-				}
-				if (size > 0) {
-					if (data[0] != '\n')
-						break;
-
-					data++; size--;
-				}
-
-				if (size > 0 &&
-				    (size < 5 ||
-				     strncmp(data, "From ", 5) != 0))
-					break;
+				/* update_flags() sets dirty flag, remove it */
+				rec->index_flags &= ~INDEX_MAIL_FLAG_DIRTY;
 			}
 
-			/* valid message, update flags */
-			if ((rec->msg_flags & ctx.flags) != ctx.flags)
-				rec->msg_flags |= ctx.flags;
-			return rec;
-		} while (0);
+			/* update location */
+			if (!mbox_mail_get_start_offset(index, rec, &offset))
+				return FALSE;
+			if (offset != header_offset) {
+				index->update_field_raw(update,
+							FIELD_TYPE_LOCATION,
+							&header_offset,
+							sizeof(uoff_t));
+			}
+
+			/* update size */
+			if (rec->header_size != hdr_size.physical_size ) {
+				if (!mail_update_header_size(index, rec,
+							     update, &hdr_size))
+					return FALSE;
+			}
+
+			if (!index->update_end(update))
+				return FALSE;
+
+			*next_rec = rec;
+			break;
+		}
 
 		/* try next message */
-		(*seq)++;
-		(void)index->expunge(index, rec, *seq, TRUE);
+		(void)index->expunge(index, rec, seq, TRUE);
 		rec = index->next(index, rec);
 	} while (rec != NULL);
 
-	return NULL;
+	return TRUE;
 }
 
 static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
@@ -157,7 +233,9 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 		if (inbuf->offset == inbuf->size)
 			break;
 
-		rec = match_next_record(index, rec, &seq, inbuf);
+		if (!match_next_record(index, rec, seq, inbuf, &rec))
+			return FALSE;
+
 		if (rec == NULL) {
 			/* Get back to line before From */
 			io_buffer_seek(inbuf, from_offset);
@@ -172,7 +250,6 @@ static int mbox_index_fsck_buf(MailIndex *index, IOBuffer *inbuf)
 	while (rec != NULL) {
 		(void)index->expunge(index, rec, seq, TRUE);
 
-		seq++;
 		rec = index->next(index, rec);
 	}
 

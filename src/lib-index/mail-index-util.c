@@ -1,7 +1,10 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "iobuffer.h"
 #include "hostpid.h"
+#include "message-size.h"
+#include "message-part-serialize.h"
 #include "mail-index.h"
 #include "mail-index-util.h"
 
@@ -57,3 +60,57 @@ int mail_index_create_temp_file(MailIndex *index, const char **path)
 	return fd;
 }
 
+
+int mail_index_get_virtual_size(MailIndex *index, MailIndexRecord *rec,
+				int fastscan, uoff_t *virtual_size)
+{
+	MessageSize hdr_size, body_size;
+	IOBuffer *inbuf;
+	const void *part_data;
+	unsigned int size;
+
+	if ((rec->index_flags & INDEX_MAIL_FLAG_BINARY_HEADER) &&
+	    (rec->index_flags & INDEX_MAIL_FLAG_BINARY_BODY)) {
+		/* virtual size == physical size */
+		*virtual_size += rec->header_size + rec->body_size;
+		return TRUE;
+	}
+
+	part_data = index->lookup_field_raw(index, rec,
+					    FIELD_TYPE_MESSAGEPART, &size);
+	if (part_data != NULL) {
+		/* get sizes from preparsed message structure */
+		if (!message_part_deserialize_size(part_data, size,
+						   &hdr_size, &body_size)) {
+			/* corrupted, ignore */
+			index_set_error(index, "Error in index file %s: "
+					"Corrupted cached MessagePart data",
+					index->filepath);
+		} else {
+			*virtual_size = hdr_size.virtual_size +
+				body_size.virtual_size;
+			return TRUE;
+		}
+	}
+
+	/* only way left is to actually parse the message */
+	*virtual_size = 0;
+
+	if (fastscan) {
+		/* and we don't want that */
+		return FALSE;
+	}
+
+	inbuf = index->open_mail(index, rec);
+	if (inbuf == NULL)
+		return FALSE;
+
+	/* we don't care about the difference in header/body,
+	   so parse the whole message as a "body" */
+	message_get_body_size(inbuf, &body_size, (uoff_t)-1);
+	*virtual_size = body_size.virtual_size;
+
+	(void)close(inbuf->fd);
+	io_buffer_destroy(inbuf);
+	return TRUE;
+}

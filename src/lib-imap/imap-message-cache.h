@@ -41,12 +41,11 @@ ImapMessageCache *imap_msgcache_alloc(ImapMessageCacheIface *iface);
 void imap_msgcache_clear(ImapMessageCache *cache);
 void imap_msgcache_free(ImapMessageCache *cache);
 
-/* Open the specified message. If pv_headers_size and pv_body_size is
-   non-zero, they're set to saved to message's both physical and virtual
-   sizes (ie. doesn't need to be calculated). */
+/* Open the specified message. virtual_header/body_size may be 0
+   if it's not known. */
 void imap_msgcache_open(ImapMessageCache *cache, unsigned int uid,
-			ImapCacheField fields, uoff_t virtual_size,
-			uoff_t pv_headers_size, uoff_t pv_body_size,
+			ImapCacheField fields,
+			uoff_t virtual_header_size, uoff_t virtual_body_size,
 			void *context);
 
 /* Close the IOBuffer for opened message. */

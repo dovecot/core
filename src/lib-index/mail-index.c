@@ -619,10 +619,8 @@ void mail_index_init_header(MailIndexHeader *hdr)
 	   when it succeeds */
 	hdr->flags = MAIL_INDEX_FLAG_REBUILD;
 
-	/* set the fields we always want to cache - currently nothing
-	   except the location. many clients aren't interested about
-	   any of the fields. */
-	hdr->cache_fields = FIELD_TYPE_LOCATION;
+	/* set the fields we always want to cache */
+	hdr->cache_fields |= FIELD_TYPE_LOCATION | FIELD_TYPE_MESSAGEPART;
 
 	hdr->uid_validity = ioloop_time;
 	hdr->next_uid = 1;

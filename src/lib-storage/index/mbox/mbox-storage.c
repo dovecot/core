@@ -362,6 +362,24 @@ static int mbox_get_mailbox_name_status(MailStorage *storage, const char *name,
 	}
 }
 
+static void mbox_storage_close(Mailbox *box)
+{
+	IndexMailbox *ibox = (IndexMailbox *) box;
+
+	if (!ibox->index->set_lock(ibox->index, MAIL_LOCK_EXCLUSIVE))
+		mail_storage_set_index_error(ibox);
+	else {
+		/* update flags by rewrite mbox file */
+		mbox_index_rewrite(ibox->index,
+				   flags_file_list_get(ibox->flagsfile));
+		flags_file_list_unref(ibox->flagsfile);
+
+		(void)ibox->index->set_lock(ibox->index, MAIL_LOCK_UNLOCK);
+	}
+
+	index_storage_close(box);
+}
+
 MailStorage mbox_storage = {
 	"mbox", /* name */
 
@@ -389,7 +407,7 @@ static Mailbox mbox_mailbox = {
 	NULL, /* name */
 	NULL, /* storage */
 
-	index_storage_close,
+	mbox_storage_close,
 	index_storage_get_status,
 	index_storage_sync,
 	index_storage_expunge,

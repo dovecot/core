@@ -11,35 +11,16 @@
 
 IOBuffer *mbox_open_mail(MailIndex *index, MailIndexRecord *rec)
 {
-	const uoff_t *location;
 	uoff_t offset, stop_offset;
 	off_t pos;
-	unsigned int size;
 	char buf[7], *p;
 	int fd, ret, failed;
 
 	i_assert(index->lock_type != MAIL_LOCK_UNLOCK);
 
-	location = index->lookup_field_raw(index, rec, FIELD_TYPE_LOCATION,
-					   &size);
-	if (location == NULL) {
-                INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "Corrupted index file %s: "
-				"Missing location field for record %u",
-				index->filepath, rec->uid);
+	if (!mbox_mail_get_start_offset(index, rec, &offset))
 		return NULL;
-	}
 
-	/* location = offset to beginning of headers in message */
-	if (size != sizeof(uoff_t) || *location > OFF_T_MAX) {
-		INDEX_MARK_CORRUPTED(index);
-		index_set_error(index, "Corrupted index file %s: "
-				"Invalid location field for record %u",
-				index->filepath, rec->uid);
-		return NULL;
-	}
-
-	offset = *location;
 	stop_offset = offset + rec->header_size + rec->body_size;
 
 	fd = open(index->mbox_path, O_RDONLY);

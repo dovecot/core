@@ -49,6 +49,19 @@ typedef enum {
 	FIELD_TYPE_MAX_BITS		= 11
 } MailField;
 
+typedef enum {
+	/* If binary flags are set, it's not checked whether mail is
+	   missing CRs. So this flag may be set as an optimization for
+	   regular non-binary mails as well if it's known that it contains
+	   valid CR+LF line breaks. */
+	INDEX_MAIL_FLAG_BINARY_HEADER	= 0x0001,
+	INDEX_MAIL_FLAG_BINARY_BODY	= 0x0002,
+
+	/* Currently this means with mbox format that message flags have
+	   been changed in index, but not written into mbox file yet. */
+	INDEX_MAIL_FLAG_DIRTY		= 0x0004
+} MailIndexMailFlags;
+
 #define IS_HEADER_FIELD(field) \
 	(((field) & (FIELD_TYPE_FROM | FIELD_TYPE_TO | FIELD_TYPE_CC | \
 		     FIELD_TYPE_BCC | FIELD_TYPE_SUBJECT)) != 0)
@@ -122,17 +135,15 @@ struct _MailIndexRecord {
 	time_t internal_date;
 	time_t sent_date;
 
-	uoff_t data_position;
-	unsigned int data_size;
-
-	unsigned int cached_fields;
 	uoff_t header_size;
 	uoff_t body_size;
-	uoff_t full_virtual_size;
-};
 
-#define MSG_HAS_VALID_CRLF_DATA(rec) \
-	((rec)->header_size + (rec)->body_size == (rec)->full_virtual_size)
+	unsigned int index_flags; /* MailIndexMailFlags */
+	unsigned int cached_fields;
+
+	uoff_t data_position;
+	unsigned int data_size;
+};
 
 struct _MailIndexDataRecord {
 	unsigned int field; /* MailField */
@@ -379,7 +390,8 @@ int mail_index_compress(MailIndex *index);
 int mail_index_compress_data(MailIndex *index);
 
 /* Max. mmap()ed size for a message */
-#define MAIL_MMAP_BLOCK_SIZE (1024*256)
+//FIXME:#define MAIL_MMAP_BLOCK_SIZE (1024*256)
+#define MAIL_MMAP_BLOCK_SIZE (1024*8) // FIXME: for debugging
 
 /* uoff_t to index file for given record */
 #define INDEX_FILE_POSITION(index, ptr) \

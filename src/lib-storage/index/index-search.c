@@ -6,6 +6,7 @@
 #include "rfc822-tokenize.h"
 #include "imap-date.h"
 #include "index-storage.h"
+#include "mail-index-util.h"
 #include "mail-search.h"
 
 #include <stdlib.h>
@@ -110,6 +111,7 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 				  const char *value)
 {
 	time_t t;
+	uoff_t size;
 
 	switch (type) {
 	case SEARCH_ALL:
@@ -164,11 +166,15 @@ static int search_arg_match_index(IndexMailbox *ibox, MailIndexRecord *rec,
 			return FALSE;
 		return rec->sent_date >= t;
 
-	/* sizes */
+	/* sizes, only with fastscanning */
 	case SEARCH_SMALLER:
-		return rec->full_virtual_size < str_to_uoff_t(value);
+		if (!mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
+			return -1;
+		return size < str_to_uoff_t(value);
 	case SEARCH_LARGER:
-		return rec->full_virtual_size > str_to_uoff_t(value);
+		if (!mail_index_get_virtual_size(ibox->index, rec, TRUE, &size))
+			return -1;
+		return size > str_to_uoff_t(value);
 
 	default:
 		return -1;
@@ -240,6 +246,46 @@ static void search_cached_arg(MailSearchArg *arg, void *context)
 
 	switch (search_arg_match_cached(ctx->ibox->index, ctx->rec,
 					arg->type, arg->value.str)) {
+	case -1:
+		/* unknown */
+		break;
+	case 0:
+		ARG_SET_RESULT(arg, -1);
+		break;
+	default:
+		ARG_SET_RESULT(arg, 1);
+		break;
+	}
+}
+
+/* Returns >0 = matched, 0 = not matched, -1 = unknown */
+static int search_arg_match_slow(MailIndex *index, MailIndexRecord *rec,
+				 MailSearchArgType type, const char *value)
+{
+	uoff_t size;
+
+	switch (type) {
+	/* sizes, only with fastscanning */
+	case SEARCH_SMALLER:
+		if (!mail_index_get_virtual_size(index, rec, FALSE, &size))
+			return -1;
+		return size < str_to_uoff_t(value);
+	case SEARCH_LARGER:
+		if (!mail_index_get_virtual_size(index, rec, FALSE, &size))
+			return -1;
+		return size > str_to_uoff_t(value);
+
+	default:
+		return -1;
+	}
+}
+
+static void search_slow_arg(MailSearchArg *arg, void *context)
+{
+	SearchIndexContext *ctx = context;
+
+	switch (search_arg_match_slow(ctx->ibox->index, ctx->rec,
+				      arg->type, arg->value.str)) {
 	case -1:
 		/* unknown */
 		break;
@@ -633,6 +679,7 @@ static void search_messages(IndexMailbox *ibox, MailSearchArg *args,
 
 		mail_search_args_foreach(args, search_index_arg, &ctx);
 		mail_search_args_foreach(args, search_cached_arg, &ctx);
+		mail_search_args_foreach(args, search_slow_arg, &ctx);
 
 		if (search_arg_match_text(ibox, rec, args) &&
 		    args->result == 1) {

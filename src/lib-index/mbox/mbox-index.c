@@ -2,14 +2,17 @@
 
 #include "lib.h"
 #include "iobuffer.h"
+#include "rfc822-tokenize.h"
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
 static MailIndex mbox_index;
 
-void mbox_header_init_context(MboxHeaderContext *ctx)
+void mbox_header_init_context(MboxHeaderContext *ctx,
+			      const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
 {
 	memset(ctx, 0, sizeof(MboxHeaderContext));
+	memcpy(ctx->custom_flags, custom_flags, sizeof(ctx->custom_flags));
 	md5_init(&ctx->md5);
 }
 
@@ -28,18 +31,47 @@ static MailFlags mbox_get_status_flags(const char *value, unsigned int len)
 			flags |= MAIL_FLAGGED;
 			break;
 		case 'D':
-			flags |= MAIL_DELETED;
+			flags |= MAIL_DRAFT;
 			break;
 		case 'R':
 			flags |= MAIL_SEEN;
 			break;
 		case 'T':
-			flags |= MAIL_DRAFT;
+			flags |= MAIL_DELETED;
 			break;
 		}
 	}
 
 	return flags;
+}
+
+static void mbox_update_custom_flags(const char *value __attr_unused__,
+				     unsigned int len __attr_unused__,
+				     int index, void *context)
+{
+	MailFlags *flags = context;
+
+	if (index >= 0)
+		*flags |= 1 << (index + MAIL_CUSTOM_FLAG_1_BIT);
+}
+
+static MailFlags
+mbox_get_keyword_flags(const char *value, unsigned int len,
+		       const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
+{
+	MailFlags flags;
+
+	flags = 0;
+	mbox_keywords_parse(value, len, custom_flags,
+			    mbox_update_custom_flags, &flags);
+	return flags;
+}
+
+static void
+mbox_get_custom_flags_list(const char *value, unsigned int len,
+			   const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT])
+{
+	/* FIXME */
 }
 
 void mbox_header_func(MessagePart *part __attr_unused__,
@@ -97,17 +129,74 @@ void mbox_header_func(MessagePart *part __attr_unused__,
 		   don't blindly trust this header alone as it could just as
 		   easily come from the remote. */
 		if (name_len == 13)
-			fixed = strncasecmp(name, "X-Delivery-ID:", 13);
+			fixed = strncasecmp(name, "X-Delivery-ID:", 13) == 0;
 		else if (name_len == 8 &&
 			 strncasecmp(name, "X-Status", 8) == 0) {
 			/* update message flags */
 			ctx->flags |= mbox_get_status_flags(value, value_len);
+		} else if (name_len == 10 &&
+			   strncasecmp(name, "X-Keywords", 10) == 0) {
+			/* update custom message flags */
+			ctx->flags |= mbox_get_keyword_flags(value, value_len,
+							     ctx->custom_flags);
+		} else if (name_len == 10 &&
+			   strncasecmp(name, "X-IMAPbase", 10) == 0) {
+			/* update list of custom message flags */
+			mbox_get_custom_flags_list(value, value_len,
+						   ctx->custom_flags);
 		}
 		break;
 	}
 
 	if (fixed)
 		md5_update(&ctx->md5, value, value_len);
+}
+
+void mbox_keywords_parse(const char *value, unsigned int len,
+			 const char *custom_flags[MAIL_CUSTOM_FLAGS_COUNT],
+			 void (*func)(const char *, unsigned int, int, void *),
+			 void *context)
+{
+	unsigned int custom_len[MAIL_CUSTOM_FLAGS_COUNT];
+	unsigned int item_len;
+	int i;
+
+	for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
+		custom_len[i] = custom_flags[i] != NULL ?
+			strlen(custom_flags[i]) : 0;
+	}
+
+	for (;;) {
+		/* skip whitespace */
+		while (len > 0 && IS_LWSP(*value)) {
+			value++;
+			len--;
+		}
+
+		if (len == 0)
+			break;
+
+		/* find the length of the item */
+		for (item_len = 0; item_len < len; item_len++) {
+			if (IS_LWSP(value[item_len]))
+				break;
+		}
+
+		/* check if it's found */
+		for (i = 0; i < MAIL_CUSTOM_FLAGS_COUNT; i++) {
+			if (custom_len[i] == item_len &&
+			    strncasecmp(custom_flags[i], value, item_len) == 0)
+				break;
+		}
+
+		if (i == MAIL_CUSTOM_FLAGS_COUNT)
+			i = -1;
+
+		func(value, item_len, i, context);
+
+		value += item_len;
+		len -= item_len;
+	}
 }
 
 int mbox_skip_crlf(IOBuffer *inbuf)
@@ -140,6 +229,34 @@ int mbox_skip_crlf(IOBuffer *inbuf)
 	return TRUE;
 }
 
+int mbox_mail_get_start_offset(MailIndex *index, MailIndexRecord *rec,
+			       uoff_t *offset)
+{
+	const uoff_t *location;
+	unsigned int size;
+
+	location = index->lookup_field_raw(index, rec,
+					   FIELD_TYPE_LOCATION, &size);
+	if (location == NULL) {
+		INDEX_MARK_CORRUPTED(index);
+		index_set_error(index, "Corrupted index file %s: "
+				"Missing location field for record %u",
+				index->filepath, rec->uid);
+		*offset = 0;
+		return FALSE;
+	} else if (size != sizeof(uoff_t) || *location > OFF_T_MAX) {
+		INDEX_MARK_CORRUPTED(index);
+		index_set_error(index, "Corrupted index file %s: "
+				"Invalid location field for record %u",
+				index->filepath, rec->uid);
+		*offset = 0;
+		return FALSE;
+	} else {
+		*offset = *location;
+		return TRUE;
+	}
+}
+
 MailIndex *mbox_index_alloc(const char *dir, const char *mbox_path)
 {
 	MailIndex *index;
@@ -168,6 +285,17 @@ static void mbox_index_free(MailIndex *index)
 	i_free(index);
 }
 
+static int mbox_index_update_flags(MailIndex *index, MailIndexRecord *rec,
+				   unsigned int seq, MailFlags flags,
+				   int external_change)
+{
+	if (!mail_index_update_flags(index, rec, seq, flags, external_change))
+		return FALSE;
+
+	rec->index_flags |= INDEX_MAIL_FLAG_DIRTY;
+	return TRUE;
+}
+
 static MailIndex mbox_index = {
 	mail_index_open,
 	mail_index_open_or_create,
@@ -186,7 +314,7 @@ static MailIndex mbox_index = {
 	mail_index_get_sequence,
 	mbox_open_mail,
 	mail_index_expunge,
-	mail_index_update_flags,
+	mbox_index_update_flags,
 	mail_index_append,
 	mail_index_update_begin,
 	mail_index_update_end,

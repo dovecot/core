@@ -8,15 +8,13 @@
 #include "mbox-index.h"
 #include "mail-index-util.h"
 
-static MailIndexRecord *
-mail_index_record_append(MailIndex *index, time_t internal_date,
-			 size_t full_virtual_size)
+static MailIndexRecord *mail_index_record_append(MailIndex *index,
+						 time_t internal_date)
 {
 	MailIndexRecord trec, *rec;
 
 	memset(&trec, 0, sizeof(MailIndexRecord));
 	trec.internal_date = internal_date;
-	trec.full_virtual_size = full_virtual_size;
 
 	rec = &trec;
 	if (!index->append(index, &rec))
@@ -25,22 +23,17 @@ mail_index_record_append(MailIndex *index, time_t internal_date,
 	return rec;
 }
 
-static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
+static void mbox_read_message(IOBuffer *inbuf)
 {
 	unsigned char *msg;
-	unsigned int i, size, startpos, vsize;
+	unsigned int i, size, startpos;
 	int lastmsg;
 
 	/* read until "[\r]\nFrom " is found */
-	startpos = i = vsize = 0; lastmsg = TRUE;
+	startpos = i = 0; lastmsg = TRUE;
 	while (io_buffer_read_data(inbuf, &msg, &size, startpos) >= 0) {
 		for (i = startpos; i < size; i++) {
-			if (msg[i] == '\n') {
-				if (i == 0 || msg[i-1] != '\r') {
-					/* missing CR */
-					vsize++;
-				}
-			} else if (msg[i] == ' ' && i >= 5) {
+			if (msg[i] == ' ' && i >= 5) {
 				/* See if it's space after "From" */
 				if (msg[i-5] == '\n' && msg[i-4] == 'F' &&
 				    msg[i-3] == 'r' && msg[i-2] == 'o' &&
@@ -49,8 +42,6 @@ static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
 					i -= 5;
 					if (i > 0 && msg[i-1] == '\r')
 						i--;
-					else
-						vsize--;
 					break;
 				}
 			}
@@ -67,7 +58,6 @@ static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
 			i -= startpos;
 
 			io_buffer_skip(inbuf, i);
-			vsize += i;
 		}
 	}
 
@@ -79,15 +69,10 @@ static void mbox_read_message(IOBuffer *inbuf, unsigned int *virtual_size)
 				startpos--;
 			if (startpos > 0 && msg[startpos-1] == '\r')
 				startpos--;
-			else
-				vsize--;
 		}
 	}
 
 	io_buffer_skip(inbuf, startpos);
-	vsize += startpos;
-
-	*virtual_size = vsize;
 }
 
 static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
@@ -98,7 +83,7 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	time_t internal_date;
 	uoff_t abs_start_offset, stop_offset, old_size;
 	unsigned char *data, md5_digest[16];
-	unsigned int size, pos, virtual_size;
+	unsigned int size, pos;
 
 	/* get the From-line */
 	pos = 0;
@@ -131,17 +116,13 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 	abs_start_offset = inbuf->start_offset + inbuf->offset;
 
 	/* now, find the ending "[\r]\nFrom " */
-	mbox_read_message(inbuf, &virtual_size);
+	mbox_read_message(inbuf);
 	stop_offset = inbuf->offset;
 
 	/* add message to index */
-	rec = mail_index_record_append(index, internal_date, virtual_size);
+	rec = mail_index_record_append(index, internal_date);
 	if (rec == NULL)
 		return FALSE;
-
-	/* save message flags */
-	rec->msg_flags = ctx.flags;
-	mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
 
 	update = index->update_begin(index, rec);
 
@@ -166,14 +147,18 @@ static int mbox_index_append_next(MailIndex *index, IOBuffer *inbuf)
 
 	/* save MD5 */
 	md5_final(&ctx.md5, md5_digest);
-	index->update_field(update, FIELD_TYPE_MD5,
-                            binary_to_hex(md5_digest, sizeof(md5_digest)), 0);
+	index->update_field_raw(update, FIELD_TYPE_MD5,
+				md5_digest, sizeof(md5_digest));
 
 	if (!index->update_end(update)) {
 		/* failed - delete the record */
 		(void)index->expunge(index, rec, 0, FALSE);
 		return FALSE;
 	}
+
+	/* save message flags */
+	rec->msg_flags = ctx.flags;
+	mail_index_mark_flag_changes(index, rec, 0, rec->msg_flags);
 
 	return TRUE;
 }

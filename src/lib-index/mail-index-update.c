@@ -95,7 +95,9 @@ static int have_too_large_fields(MailIndexUpdate *update)
 			index = mail_field_get_index(rec->field);
 			i_assert(index >= 0);
 
-			if (update->field_sizes[index] >= rec->full_field_size)
+			if (update->field_sizes[index] +
+			    update->field_extra_sizes[index] >
+			    rec->full_field_size)
 				return TRUE;
 		}
 		rec = mail_index_data_next(update->index->data,
@@ -234,23 +236,23 @@ static void update_by_replace(MailIndexUpdate *update)
 
 int mail_index_update_end(MailIndexUpdate *update)
 {
-	int failed;
+	int failed = FALSE;
 
 	i_assert(update->index->lock_type == MAIL_LOCK_EXCLUSIVE);
 
-	/* if any of the fields were newly added, or have grown larger
-	   than their old max. size, we need to move the record to end
-	   of file. */
-	if (have_new_fields(update) || have_too_large_fields(update))
-		failed = !update_by_append(update);
-	else {
-		update_by_replace(update);
-		failed = FALSE;
-	}
+	if (update->updated_fields != 0) {
+		/* if any of the fields were newly added, or have grown larger
+		   than their old max. size, we need to move the record to end
+		   of file. */
+		if (have_new_fields(update) || have_too_large_fields(update))
+			failed = !update_by_append(update);
+		else
+			update_by_replace(update);
 
-	if (!failed) {
-		/* update cached fields mask */
-		update->rec->cached_fields |= update->updated_fields;
+		if (!failed) {
+			/* update cached fields mask */
+			update->rec->cached_fields |= update->updated_fields;
+		}
 	}
 
 	pool_unref(update->pool);
@@ -387,7 +389,7 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 {
 	HeaderUpdateContext ctx;
 	MessagePart *part;
-	MessageSize hdr_size, body_size;
+	MessageSize hdr_size;
 	Pool pool;
 	const char *value;
 	unsigned int size;
@@ -411,14 +413,25 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 							update->rec,
 							FIELD_TYPE_MESSAGEPART,
 							&size);
-		if (value == NULL) {
+		if (value == NULL)
+			part = NULL;
+		else {
+			part = message_part_deserialize(pool, value, size);
+			if (part == NULL) {
+				/* corrupted, rebuild it */
+				index_set_error(update->index, "Error in index "
+						"file %s: Corrupted cached "
+						"MessagePart data",
+						update->index->filepath);
+			}
+		}
+
+		if (part == NULL) {
 			part = message_parse(pool, inbuf,
 					     update_header_func, &ctx);
 		} else {
 			/* cached, construct the bodystructure using it.
 			   also we need to parse the header.. */
-			part = message_part_deserialize(pool, value, size);
-
 			io_buffer_seek(inbuf, 0);
 			message_parse_header(NULL, inbuf, NULL,
 					     update_header_func, &ctx);
@@ -427,9 +440,6 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 		/* update our sizes */
 		update->rec->header_size = part->header_size.physical_size;
 		update->rec->body_size = part->body_size.physical_size;
-		update->rec->full_virtual_size =
-			part->header_size.virtual_size +
-			part->body_size.virtual_size;
 
 		if (cache_fields & FIELD_TYPE_BODY) {
 			t_push();
@@ -468,16 +478,6 @@ void mail_index_update_headers(MailIndexUpdate *update, IOBuffer *inbuf,
 
 		update->rec->header_size = hdr_size.physical_size;
 		update->rec->body_size = inbuf->size - inbuf->offset;
-
-		if (update->rec->full_virtual_size == 0) {
-			/* we need to calculate virtual size of the
-			   body as well. message_parse_header() left the
-			   inbuf point to beginning of the body. */
-			message_get_body_size(inbuf, &body_size, (uoff_t)-1);
-
-			update->rec->full_virtual_size =
-				hdr_size.virtual_size + body_size.virtual_size;
-		}
 	}
 
 	if (ctx.envelope != NULL) {

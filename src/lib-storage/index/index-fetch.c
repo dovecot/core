@@ -55,8 +55,17 @@ static void index_fetch_envelope(MailIndexRecord *rec, FetchContext *ctx)
 
 static void index_fetch_rfc822_size(MailIndexRecord *rec, FetchContext *ctx)
 {
-	t_string_printfa(ctx->str, " RFC822.SIZE %lu",
-			 (unsigned long) rec->full_virtual_size);
+	MessageSize hdr_size, body_size;
+
+	if (!imap_msgcache_get_rfc822(ctx->cache, NULL,
+				      &hdr_size, &body_size)) {
+		i_error("Couldn't get RFC822.SIZE for UID %u (index %s)",
+			rec->uid, ctx->index->filepath);
+		return;
+	}
+
+	t_string_printfa(ctx->str, " RFC822.SIZE %"UOFF_T_FORMAT,
+			 hdr_size.virtual_size + body_size.virtual_size);
 }
 
 static void index_fetch_flags(MailIndexRecord *rec, FetchContext *ctx)
@@ -97,9 +106,8 @@ static void index_fetch_rfc822(MailIndexRecord *rec, FetchContext *ctx)
 		return;
 	}
 
-	str = t_strdup_printf(" RFC822 {%lu}\r\n",
-			      (unsigned long) (hdr_size.virtual_size +
-					       body_size.virtual_size));
+	str = t_strdup_printf(" RFC822 {%"UOFF_T_FORMAT"}\r\n",
+			      hdr_size.virtual_size + body_size.virtual_size);
 	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 
@@ -120,8 +128,8 @@ static void index_fetch_rfc822_header(MailIndexRecord *rec, FetchContext *ctx)
 		return;
 	}
 
-	str = t_strdup_printf(" RFC822.HEADER {%lu}\r\n",
-			      (unsigned long) hdr_size.virtual_size);
+	str = t_strdup_printf(" RFC822.HEADER {%"UOFF_T_FORMAT"}\r\n",
+			      hdr_size.virtual_size);
 	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 	(void)message_send(ctx->outbuf, inbuf, &hdr_size, 0, (uoff_t)-1);
@@ -139,8 +147,8 @@ static void index_fetch_rfc822_text(MailIndexRecord *rec, FetchContext *ctx)
 		return;
 	}
 
-	str = t_strdup_printf(" RFC822.TEXT {%lu}\r\n",
-			      (unsigned long) body_size.virtual_size);
+	str = t_strdup_printf(" RFC822.TEXT {%"UOFF_T_FORMAT"}\r\n",
+			      body_size.virtual_size);
 	if (ctx->first) str++; else ctx->first = FALSE;
 	(void)io_buffer_send(ctx->outbuf, str, strlen(str));
 	(void)message_send(ctx->outbuf, inbuf, &body_size, 0, (uoff_t)-1);
@@ -182,6 +190,7 @@ static ImapCacheField index_get_cache(MailFetchData *fetch_data)
 static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 {
 	ImapCacheField fields;
+	uoff_t virtual_header_size, virtual_body_size;
 	void *mail_cache_context;
 
 	fields = index_get_cache(ctx->fetch_data);
@@ -190,16 +199,16 @@ static void index_msgcache_open(FetchContext *ctx, MailIndexRecord *rec)
 
         mail_cache_context = index_msgcache_get_context(ctx->index, rec);
 
-	if (MSG_HAS_VALID_CRLF_DATA(rec)) {
-		imap_msgcache_open(ctx->cache, rec->uid, fields,
-				   rec->full_virtual_size,
-				   rec->header_size, rec->body_size,
-				   mail_cache_context);
-	} else {
-		imap_msgcache_open(ctx->cache, rec->uid, fields,
-				   rec->full_virtual_size, 0, 0,
-				   mail_cache_context);
-	}
+	virtual_header_size =
+		(rec->index_flags & INDEX_MAIL_FLAG_BINARY_HEADER) ?
+		rec->header_size : 0;
+	virtual_body_size =
+		(rec->index_flags & INDEX_MAIL_FLAG_BINARY_BODY) ?
+		rec->body_size : 0;
+
+	imap_msgcache_open(ctx->cache, rec->uid, fields,
+			   virtual_header_size, virtual_body_size,
+			   mail_cache_context);
 }
 
 static int index_fetch_mail(MailIndex *index __attr_unused__,

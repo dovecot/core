@@ -484,8 +484,12 @@ static void mail_modifylog_try_switch_file(MailModifyLog *log)
 	path = t_strconcat(log->index->filepath,
 			   log->second_log ? ".log" : ".log.2", NULL);
 
-	if (mail_modifylog_open_and_init_file(log, path))
+	if (mail_modifylog_open_and_init_file(log, path)) {
+		/* FIXME: we want to update the _old_ file's header.
+		   and this changes the new one. and it's already closed the
+		   old one and mmap() is invalid, and we crash here.. */
 		log->header->sync_id = SYNC_ID_FULL;
+	}
 }
 
 int mail_modifylog_mark_synced(MailModifyLog *log)
