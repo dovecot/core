@@ -1,7 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "str.h"
+#include "buffer.h"
 #include "istream.h"
 #include "ostream.h"
 #include "message-parser.h"
@@ -20,7 +20,7 @@
 #define MAX_HEADER_BUFFER_SIZE (32*1024)
 
 struct fetch_header_field_context {
-	string_t *dest;
+	buffer_t *dest;
 	struct ostream *output;
 	uoff_t dest_size;
 
@@ -207,7 +207,7 @@ static int fetch_header_append(struct fetch_header_field_context *ctx,
 	}
 
 	if (ctx->dest != NULL)
-		str_append_n(ctx->dest, str, size);
+		buffer_append(ctx->dest, str, size);
 	ctx->dest_size += size;
 
 	if (ctx->output != NULL) {
@@ -264,7 +264,8 @@ static int fetch_header_fields(struct istream *input, const char *section,
 	message_parse_header_deinit(hdr_ctx);
 
 	i_assert(ctx->dest_size <= ctx->max_size);
-	i_assert(ctx->dest == NULL || str_len(ctx->dest) == ctx->dest_size);
+	i_assert(ctx->dest == NULL ||
+		 buffer_get_used_size(ctx->dest) == ctx->dest_size);
 	return TRUE;
 }
 
@@ -277,6 +278,8 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 {
 	struct fetch_header_field_context hdr_ctx;
 	const char *str;
+	const void *data;
+	size_t data_size;
 	uoff_t start_offset;
 	int failed;
 
@@ -313,8 +316,10 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 
 		i_assert(hdr_ctx.dest_size <= size->virtual_size);
 	} else {
-		hdr_ctx.dest = t_str_new(size->virtual_size < 8192 ?
-					 size->virtual_size : 8192);
+		hdr_ctx.dest =
+			buffer_create_dynamic(data_stack_pool,
+					      I_MIN(size->virtual_size, 8192),
+					      (size_t)-1);
 		if (!fetch_header_fields(input, header_section, &hdr_ctx))
 			failed = TRUE;
 	}
@@ -341,8 +346,8 @@ static int fetch_header_from(struct imap_fetch_context *ctx,
 
 			i_assert(first_size == hdr_ctx.dest_size);
 		} else {
-			if (o_stream_send(ctx->output, str_data(hdr_ctx.dest),
-					  str_len(hdr_ctx.dest)) < 0)
+			data = buffer_get_data(hdr_ctx.dest, &data_size);
+			if (o_stream_send(ctx->output, data, data_size) < 0)
 				failed = TRUE;
 		}
 	}
