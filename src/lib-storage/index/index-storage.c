@@ -289,22 +289,28 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 			       struct mail_index *index, const char *name,
 			       enum mailbox_open_flags flags)
 {
+	struct mail_storage *storage = &ibox->storage->storage;
 	enum mail_index_open_flags index_flags;
 	enum mail_index_lock_method lock_method = 0;
 
 	i_assert(name != NULL);
 
+	ibox->box.storage = storage;
+	ibox->box.name = p_strdup(ibox->box.pool, name);
+	ARRAY_CREATE(&ibox->box.module_contexts,
+		     ibox->box.pool, void *, 5);
+
 	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((flags & MAILBOX_OPEN_FAST) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_FAST;
-	if ((ibox->box.storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
+	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 #ifndef MMAP_CONFLICTS_WRITE
-	if ((ibox->box.storage->flags & MAIL_STORAGE_FLAG_MMAP_NO_WRITE) != 0)
+	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_NO_WRITE) != 0)
 #endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
 
-	switch (ibox->storage->storage.lock_method) {
+	switch (storage->lock_method) {
 	case MAIL_STORAGE_LOCK_FCNTL:
 		lock_method = MAIL_INDEX_LOCK_FCNTL;
 		break;
@@ -316,34 +322,26 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 		break;
 	}
 
-	do {
-		ibox->box.storage = &ibox->storage->storage;
-		ibox->box.name = p_strdup(ibox->box.pool, name);
-		ARRAY_CREATE(&ibox->box.module_contexts,
-			     ibox->box.pool, void *, 5);
+	ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
+	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
+	ibox->index = index;
 
-		ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
-		ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
-		ibox->index = index;
+	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
+	ibox->commit_log_file_seq = 0;
+	ibox->mail_read_mmaped = (storage->flags &
+				  MAIL_STORAGE_FLAG_MMAP_MAILS) != 0;
 
-		ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
-		ibox->commit_log_file_seq = 0;
-		ibox->mail_read_mmaped = (ibox->box.storage->flags &
-					  MAIL_STORAGE_FLAG_MMAP_MAILS) != 0;
+	if (mail_index_open(index, index_flags, lock_method) < 0) {
+		mail_storage_set_index_error(ibox);
+		index_storage_mailbox_free(&ibox->box);
+		return -1;
+	}
 
-		if (mail_index_open(index, index_flags, lock_method) < 0)
-			break;
-
-		ibox->cache = mail_index_get_cache(index);
-		index_cache_register_defaults(ibox);
-		ibox->view = mail_index_view_open(index);
-		ibox->keyword_names = mail_index_get_keywords(index);
-		return 0;
-	} while (0);
-
-	mail_storage_set_index_error(ibox);
-	index_storage_mailbox_free(&ibox->box);
-	return -1;
+	ibox->cache = mail_index_get_cache(index);
+	index_cache_register_defaults(ibox);
+	ibox->view = mail_index_view_open(index);
+	ibox->keyword_names = mail_index_get_keywords(index);
+	return 0;
 }
 
 void index_storage_mailbox_free(struct mailbox *box)
