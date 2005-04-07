@@ -83,14 +83,14 @@ int cmd_status(struct client_command_context *cmd)
 	struct mailbox_status status;
 	enum mailbox_status_items items;
 	struct mail_storage *storage;
-	const char *mailbox;
+	const char *mailbox, *real_mailbox;
 	string_t *str;
 
 	/* <mailbox> <status items> */
 	if (!client_read_args(cmd, 2, 0, &args))
 		return FALSE;
 
-	mailbox = imap_arg_string(&args[0]);
+	mailbox = real_mailbox = imap_arg_string(&args[0]);
 	if (mailbox == NULL || args[1].type != IMAP_ARG_LIST) {
 		client_send_command_error(cmd, "Status items must be list.");
 		return TRUE;
@@ -103,12 +103,13 @@ int cmd_status(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	storage = client_find_storage(cmd, &mailbox);
+	storage = client_find_storage(cmd, &real_mailbox);
 	if (storage == NULL)
 		return FALSE;
 
 	/* get status */
-	if (!get_mailbox_status(client, storage, mailbox, items, &status)) {
+	if (!get_mailbox_status(client, storage, real_mailbox,
+				items, &status)) {
 		client_send_storage_error(cmd, storage);
 		return TRUE;
 	}
