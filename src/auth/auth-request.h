@@ -91,7 +91,8 @@ int auth_request_set_username(struct auth_request *request,
 			      const char *username, const char **error_r);
 
 void auth_request_set_field(struct auth_request *request,
-			    const char *name, const char *value);
+			    const char *name, const char *value,
+			    const char *default_scheme);
 
 const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,

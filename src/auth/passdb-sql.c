@@ -43,8 +43,10 @@ static void sql_query_save_results(struct sql_result *result,
 		name = sql_result_get_field_name(result, i);
 		value = sql_result_get_field_value(result, i);
 
-		if (value != NULL)
-			auth_request_set_field(auth_request, name, value);
+		if (value != NULL) {
+			auth_request_set_field(auth_request, name, value,
+				passdb_sql_conn->set.default_pass_scheme);
+		}
 	}
 }
 
@@ -85,10 +87,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	}
 
 	scheme = password_get_scheme(&password);
-	if (scheme == NULL) {
-		scheme = passdb_sql_conn->set.default_pass_scheme;
-		i_assert(scheme != NULL);
-	}
+	i_assert(scheme != NULL); /* auth_request_set_field() sets it */
 
 	if (sql_request->credentials != -1) {
 		passdb_handle_credentials(passdb_result,

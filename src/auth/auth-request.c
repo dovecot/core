@@ -403,21 +403,28 @@ int auth_request_set_username(struct auth_request *request,
 }
 
 void auth_request_set_field(struct auth_request *request,
-			    const char *name, const char *value)
+			    const char *name, const char *value,
+			    const char *default_scheme)
 {
 	string_t *str;
 
 	i_assert(value != NULL);
 
 	if (strcmp(name, "password") == 0) {
-		if (request->passdb_password == NULL) {
+		if (request->passdb_password != NULL) {
+			auth_request_log_error(request, "auth",
+				"Multiple password values not supported");
+			return;
+		}
+
+		if (*value == '{') {
 			request->passdb_password =
 				p_strdup(request->pool, value);
 		} else {
-			auth_request_log_error(request, "auth",
-				"Multiple password values not supported");
+			request->passdb_password =
+				p_strdup_printf(request->pool, "{%s}%s",
+						default_scheme, value);
 		}
-		return;
 	}
 
 	if (strcmp(name, "user") == 0) {

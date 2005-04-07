@@ -55,7 +55,8 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 		if (name != NULL && vals != NULL) {
 			for (i = 0; vals[i] != NULL; i++) {
 				auth_request_set_field(auth_request,
-						       name, vals[i]);
+						name, vals[i],
+						conn->set.default_pass_scheme);
 			}
 		}
 
@@ -118,10 +119,7 @@ static void handle_request(struct ldap_connection *conn,
 		return;
 
 	scheme = password_get_scheme(&password);
-	if (scheme == NULL) {
-		scheme = conn->set.default_pass_scheme;
-		i_assert(scheme != NULL);
-	}
+	i_assert(scheme != NULL); /* auth_request_set_field() sets it */
 
 	if (ldap_request->credentials != -1) {
 		passdb_handle_credentials(passdb_result,
