@@ -498,7 +498,7 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	/* FIXME: replace with a priority queue so we don't have to go
 	   through the whole list constantly. and remember to make sure that
 	   keyword resets are sent before adds! */
-	sync_list = array_get(&ctx->sync_list, &count);
+	sync_list = array_get_modifyable(&ctx->sync_list, &count);
 	for (i = 0; i < count; i++) {
 		if (!array_is_created(sync_list[i].array) ||
 		    sync_list[i].idx == array_count(sync_list[i].array))
@@ -566,6 +566,18 @@ int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 			return TRUE;
 	}
 	return FALSE;
+}
+
+void mail_index_sync_reset(struct mail_index_sync_ctx *ctx)
+{
+	struct mail_index_sync_list *sync_list;
+	unsigned int i, count;
+
+	ctx->next_uid = 0;
+
+	sync_list = array_get_modifyable(&ctx->sync_list, &count);
+	for (i = 0; i < count; i++)
+		sync_list[i].idx = 0;
 }
 
 static void mail_index_sync_end(struct mail_index_sync_ctx *ctx)

@@ -225,6 +225,9 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
 /* Returns 1 if there's more to sync, 0 if not. */
 int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
+/* Reset syncing to initial state after mail_index_sync_begin(), so you can
+   go through all the sync records again with mail_index_sync_next(). */
+void mail_index_sync_reset(struct mail_index_sync_ctx *ctx);
 /* Commit synchronization by writing all changes to mail index file. */
 int mail_index_sync_commit(struct mail_index_sync_ctx *ctx);
 /* Rollback synchronization - none of the changes listed by sync_next() are
