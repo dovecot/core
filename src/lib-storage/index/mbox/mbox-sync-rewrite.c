@@ -208,11 +208,24 @@ static void mbox_sync_headers_remove_space(struct mbox_sync_mail_context *ctx,
 	/* FIXME: see if we could remove X-Keywords header completely */
 }
 
+static void mbox_sync_first_mail_written(struct mbox_sync_mail_context *ctx)
+{
+	/* we wrote the first mail. update the base_uid_last so we don't try
+	   to update it later unneededly. also update last-uid offset. */
+	i_assert(ctx->last_uid_value_start_pos != 0);
+
+	ctx->sync_ctx->base_uid_last_offset = ctx->hdr_offset +
+		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] +
+		ctx->last_uid_value_start_pos;
+	ctx->sync_ctx->base_uid_last = ctx->sync_ctx->next_uid - 1;
+}
+
 int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 {
+        struct mbox_sync_context *sync_ctx = ctx->sync_ctx;
 	size_t old_hdr_size, new_hdr_size;
 
-	i_assert(ctx->sync_ctx->ibox->mbox_lock_type == F_WRLCK);
+	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
 
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
@@ -235,10 +248,9 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 			/* moving backwards - we can use the extra space from
 			   it, just update expunged_space accordingly */
 			i_assert(ctx->mail.space == 0);
-			i_assert(ctx->sync_ctx->expunged_space >=
+			i_assert(sync_ctx->expunged_space >=
 				 (off_t)(new_hdr_size - old_hdr_size));
-			ctx->sync_ctx->expunged_space -=
-				new_hdr_size - old_hdr_size;
+			sync_ctx->expunged_space -= new_hdr_size - old_hdr_size;
 		} else {
 			/* couldn't get enough space */
 			i_assert(ctx->mail.space == 0);
@@ -266,22 +278,19 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	    ctx->header_last_change != 0)
 		str_truncate(ctx->header, ctx->header_last_change);
 
-	if (pwrite_full(ctx->sync_ctx->write_fd,
+	if (pwrite_full(sync_ctx->write_fd,
 			str_data(ctx->header) + ctx->header_first_change,
 			str_len(ctx->header) - ctx->header_first_change,
 			ctx->hdr_offset + ctx->header_first_change +
 			move_diff) < 0) {
-		mbox_set_syscall_error(ctx->sync_ctx->ibox, "pwrite_full()");
+		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
 		return -1;
 	}
 
-	if (ctx->sync_ctx->dest_first_mail) {
-		ctx->sync_ctx->base_uid_last =
-			ctx->sync_ctx->update_base_uid_last;
-                ctx->sync_ctx->update_base_uid_last = 0;
-	}
+	if (sync_ctx->dest_first_mail)
+		mbox_sync_first_mail_written(ctx);
 
-	i_stream_sync(ctx->sync_ctx->input);
+	i_stream_sync(sync_ctx->input);
 	return 1;
 }
 
@@ -345,7 +354,6 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	}
 
 	sync_ctx->prev_msg_uid = old_prev_msg_uid;
-	sync_ctx->dest_first_mail = FALSE;
 
 	need_space = str_len(mail_ctx.header) - mail_ctx.mail.space -
 		(mail_ctx.body_offset - mail_ctx.hdr_offset);
@@ -379,16 +387,14 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		return -1;
 	}
 
+	if (sync_ctx->dest_first_mail) {
+		mbox_sync_first_mail_written(&mail_ctx);
+		sync_ctx->dest_first_mail = FALSE;
+	}
+
 	mails[idx].offset = dest_offset +
 		(mail_ctx.mail.offset - mail_ctx.hdr_offset);
 	mails[idx].space = mail_ctx.mail.space;
-
-	if (mails[idx].from_offset == 0) {
-		sync_ctx->base_uid_last =
-			sync_ctx->update_base_uid_last;
-                sync_ctx->update_base_uid_last = 0;
-	}
-
 	return 0;
 }
 

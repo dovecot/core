@@ -76,6 +76,7 @@ struct mbox_sync_mail_context {
 
 	size_t hdr_pos[MBOX_HDR_COUNT];
 	uint32_t parsed_uid;
+	unsigned int last_uid_value_start_pos;
 
 	unsigned int have_eoh:1;
 	unsigned int need_rewrite:1;
@@ -85,7 +86,7 @@ struct mbox_sync_mail_context {
 	unsigned int recent:1;
 	unsigned int dirty:1;
 	unsigned int uid_broken:1;
-	unsigned int update_imapbase_keywords:1;
+	unsigned int imapbase_rewrite:1;
 };
 
 struct mbox_sync_context {
@@ -103,7 +104,7 @@ struct mbox_sync_context {
 
 	/* header state: */
 	uint32_t base_uid_validity, base_uid_last;
-	uint32_t update_base_uid_last;
+	uoff_t base_uid_last_offset;
 
 	/* mail state: */
 	array_t ARRAY_DEFINE(mails, struct mbox_sync_mail);
@@ -117,7 +118,6 @@ struct mbox_sync_context {
 	off_t expunged_space, space_diff;
 
 	unsigned int dest_first_mail:1;
-	unsigned int seen_first_mail:1;
 	unsigned int sync_restart:1;
 
 	/* global flags: */

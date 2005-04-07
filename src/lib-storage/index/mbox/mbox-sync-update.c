@@ -1,7 +1,6 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "buffer.h"
 #include "str.h"
 #include "message-parser.h"
@@ -14,13 +13,10 @@ static void status_flags_append(struct mbox_sync_mail_context *ctx,
 {
 	int i;
 
-	/* kludgy kludgy */
-	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 	for (i = 0; flags_list[i].chr != 0; i++) {
 		if ((ctx->mail.flags & flags_list[i].flag) != 0)
 			str_append_c(ctx->header, flags_list[i].chr);
 	}
-	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 }
 
 void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
@@ -184,18 +180,17 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 	if (ctx->sync_ctx->dest_first_mail &&
 	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
-		if (ctx->sync_ctx->base_uid_validity == 0) {
-			ctx->sync_ctx->base_uid_validity =
-				ctx->sync_ctx->hdr->uid_validity == 0 ?
-				(uint32_t)ioloop_time :
-				ctx->sync_ctx->hdr->uid_validity;
-		}
+		i_assert(ctx->sync_ctx->base_uid_validity != 0);
 
 		str_append(ctx->header, "X-IMAPbase: ");
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
-		str_printfa(ctx->header, "%u %010u",
-			    ctx->sync_ctx->base_uid_validity,
-			    ctx->sync_ctx->next_uid-1);
+		str_printfa(ctx->header, "%u ",
+			    ctx->sync_ctx->base_uid_validity);
+
+		ctx->last_uid_value_start_pos = str_len(ctx->header) -
+			ctx->hdr_pos[MBOX_HDR_X_IMAPBASE];
+		str_printfa(ctx->header, "%010u", ctx->sync_ctx->next_uid-1);
+
 		keywords_append_all(ctx, ctx->header);
 		str_append_c(ctx->header, '\n');
 	}
@@ -205,6 +200,8 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
 		str_printfa(ctx->header, "%u\n", ctx->mail.uid);
 	}
+
+	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 
 	if (ctx->hdr_pos[MBOX_HDR_STATUS] == (size_t)-1 &&
 	    (ctx->mail.flags & STATUS_FLAGS_MASK) != 0) {
@@ -221,6 +218,8 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		status_flags_append(ctx, mbox_xstatus_flags);
 		str_append_c(ctx->header, '\n');
 	}
+
+	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 
 	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1 &&
 	    array_is_created(&ctx->mail.keywords) &&
@@ -313,25 +312,28 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	struct mbox_sync_context *sync_ctx = ctx->sync_ctx;
 	string_t *str;
 
+	i_assert(sync_ctx->base_uid_validity != 0);
+
 	if (!sync_ctx->dest_first_mail ||
 	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1)
 		return;
 
-	if (sync_ctx->update_base_uid_last <= sync_ctx->base_uid_last)
-                sync_ctx->update_base_uid_last = 0;
-
-	/* see if anything changed */
-	if (!(ctx->update_imapbase_keywords ||
-	      sync_ctx->update_base_uid_last != 0))
+	if (!ctx->imapbase_rewrite) {
+		/* uid-last might need updating, but we'll do it later by
+		   writing it directly where needed. */
 		return;
+	}
 
-	/* update uid-last field in X-IMAPbase */
+	/* a) keyword list changed, b) uid-last didn't use 10 digits */
 	t_push();
 
 	str = t_str_new(200);
-	str_printfa(str, "%u %010u", sync_ctx->base_uid_validity,
-		    sync_ctx->update_base_uid_last != 0 ?
-		    sync_ctx->update_base_uid_last : sync_ctx->base_uid_last);
+	str_printfa(str, "%u ", sync_ctx->base_uid_validity);
+
+	ctx->last_uid_value_start_pos =
+		str_len(str) - ctx->hdr_pos[MBOX_HDR_X_IMAPBASE];
+	str_printfa(str, "%010u", sync_ctx->next_uid - 1);
+
 	keywords_append_all(ctx, str);
 	str_append_c(str, '\n');
 

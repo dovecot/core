@@ -4,6 +4,7 @@
    Solar Designer */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "buffer.h"
 #include "istream.h"
 #include "str.h"
@@ -142,7 +143,7 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 
 	if (count != array_count(ctx->sync_ctx->ibox->keyword_names)) {
 		/* need to update this list */
-		ctx->update_imapbase_keywords = TRUE;
+		ctx->imapbase_rewrite = TRUE;
 		ctx->need_rewrite = TRUE;
 	}
 }
@@ -150,9 +151,7 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 			     struct message_header_line *hdr)
 {
-	const char *str;
-	char *end;
-	size_t pos;
+	size_t i, j, uid_last_pos;
 	uint32_t uid_validity, uid_last;
 
 	if (ctx->seq != 1 || ctx->seen_imapbase) {
@@ -160,42 +159,65 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 		return FALSE;
 	}
 
-	/* <uid validity> <last uid> */
-	t_push();
-	str = t_strndup(hdr->full_value, hdr->full_value_len);
-	uid_validity = strtoul(str, &end, 10);
-	uid_last = strtoul(end, &end, 10);
-	pos = end - str;
-	t_pop();
+	/* <uid-validity> 10x<uid-last> */
+	for (i = 0, uid_validity = 0; i < hdr->full_value_len; i++) {
+		if (hdr->full_value[i] < '0' || hdr->full_value[i] > '9') {
+			if (hdr->full_value[i] != ' ')
+				return FALSE;
+			break;
+		}
+		uid_validity = uid_validity * 10 + (hdr->full_value[i] - '0');
+	}
 
 	if (uid_validity == 0) {
 		/* broken */
 		return FALSE;
 	}
 
-	if (ctx->sync_ctx->base_uid_validity == 0) {
-		/* first time parsing this. save the values. */
-		ctx->sync_ctx->base_uid_validity = uid_validity;
-		ctx->sync_ctx->base_uid_last = uid_last;
+	for (; i < hdr->full_value_len; i++) {
+		if (!IS_LWSP_LF(hdr->full_value[i]))
+			break;
+	}
+	uid_last_pos = i;
 
-		if (ctx->sync_ctx->next_uid-1 <= uid_last)
-			ctx->sync_ctx->next_uid = uid_last+1;
-		else {
-			ctx->sync_ctx->update_base_uid_last =
-				ctx->sync_ctx->next_uid - 1;
-			ctx->need_rewrite = TRUE;
+	for (uid_last = 0, j = 0; i < hdr->full_value_len; i++, j++) {
+		if (hdr->full_value[i] < '0' || hdr->full_value[i] > '9') {
+			if (!IS_LWSP_LF(hdr->full_value[i]))
+				return FALSE;
+			break;
 		}
+		uid_last = uid_last * 10 + (hdr->full_value[i] - '0');
 	}
 
-	if (ctx->sync_ctx->next_uid <= ctx->sync_ctx->prev_msg_uid) {
-		/* broken, update */
-                ctx->sync_ctx->next_uid = ctx->sync_ctx->prev_msg_uid+1;
+	if (j != 10) {
+		/* uid-last field must be exactly 10 characters to make
+		   rewriting it easier. */
+		ctx->imapbase_rewrite = TRUE;
+		ctx->need_rewrite = TRUE;
+	} else {
+		ctx->last_uid_value_start_pos = uid_last_pos;
+		ctx->sync_ctx->base_uid_last_offset =
+			hdr->full_value_offset + uid_last_pos;
+	}
+
+	if (ctx->sync_ctx->next_uid-1 <= uid_last) {
+		/* new messages have been added since our last sync.
+		   just update our internal next_uid. */
+		ctx->sync_ctx->next_uid = uid_last+1;
+	}
+	i_assert(ctx->sync_ctx->next_uid > ctx->sync_ctx->prev_msg_uid);
+
+	if (ctx->sync_ctx->base_uid_validity == 0) {
+		/* first time parsing this (ie. we're not rewriting).
+		   save the values. */
+		ctx->sync_ctx->base_uid_validity = uid_validity;
+		ctx->sync_ctx->base_uid_last = uid_last;
 	}
 
 	ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] = str_len(ctx->header);
 	ctx->seen_imapbase = TRUE;
 
-	parse_imap_keywords_list(ctx, hdr, pos);
+	parse_imap_keywords_list(ctx, hdr, i);
 	parse_trailing_whitespace(ctx, hdr);
 	return TRUE;
 }
@@ -247,21 +269,8 @@ static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 			     pos - keyword_start);
 		if (!mail_index_keyword_lookup(ctx->sync_ctx->ibox->index,
 					       str_c(keyword), FALSE, &idx)) {
-			if (ctx->sync_ctx->ibox->mbox_sync_dirty &&
-			    !ctx->sync_ctx->dest_first_mail &&
-			    !ctx->sync_ctx->seen_first_mail) {
-				/* we'll have to read the X-IMAP header to
-				   make sure we have the latest list of
-				   keywords */
-				i_assert(!ctx->sync_ctx->sync_restart);
-				ctx->sync_ctx->sync_restart = TRUE;
-				t_pop();
-				return FALSE;
-			}
-
-			/* index is fully up-to-date and the keyword wasn't
-			   found. that means the sent mail originally
-			   contained X-Keywords header. Delete it. */
+			/* keyword wasn't found. that means the sent mail
+			   originally contained X-Keywords header. Delete it. */
 			t_pop();
 			return FALSE;
 		}
@@ -309,49 +318,42 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 		}
 	}
 
-	if (ctx->sync_ctx != NULL) {
-		if (value >= ctx->sync_ctx->next_uid) {
-			/* UID is larger than expected. */
-			if (ctx->sync_ctx->ibox->mbox_sync_dirty &&
-			    !ctx->sync_ctx->dest_first_mail &&
-			    !ctx->sync_ctx->seen_first_mail) {
-				/* current next-uid isn't necessarily known
-				   if changes were made without updating index
-				   file. restart the sync. */
-				i_assert(!ctx->sync_ctx->sync_restart);
-				ctx->sync_ctx->sync_restart = TRUE;
-				return FALSE;
-			}
-
-			/* Don't allow it because incoming mails can contain
-			   untrusted X-UID fields, causing possibly DoS if
-			   the UIDs get large enough. */
-			ctx->uid_broken = TRUE;
-			return FALSE;
-		}
-
-		if (value <= ctx->sync_ctx->prev_msg_uid) {
-			/* broken - UIDs must be growing */
-			ctx->uid_broken = TRUE;
-			return FALSE;
-		}
-		ctx->sync_ctx->prev_msg_uid = value;
-	}
-
-	ctx->mail.uid = value;
-
 	if (ctx->sync_ctx == NULL) {
-		/* we're in mbox_sync_parse_match_mail() */
+		/* we're in mbox_sync_parse_match_mail().
+		   don't do any extra checks. */
+		ctx->mail.uid = value;
 		return TRUE;
 	}
 
 	if (ctx->sync_ctx->dest_first_mail && !ctx->seen_imapbase) {
-		/* everything was good, except we can't have X-UID before
-		   X-IMAPbase header (to keep c-client compatibility). keep
-		   the UID, but when we're rewriting this makes sure the
-		   X-UID is appended after X-IMAPbase. */
+		/* Don't bother allowing X-UID before X-IMAPbase
+		   header. c-client doesn't allow it either, and this
+		   way the UID doesn't have to be reset if X-IMAPbase
+		   header isn't what we expect it to be. */
 		return FALSE;
 	}
+
+	if (value == ctx->sync_ctx->next_uid) {
+		/* X-UID is the next expected one. allow it because
+		   we'd just use this UID anyway. X-IMAPbase header
+		   still needs to be updated for this. */
+		ctx->sync_ctx->next_uid++;
+	} else if (value > ctx->sync_ctx->next_uid) {
+		/* UID is larger than expected. Don't allow it because
+		   incoming mails can contain untrusted X-UID fields,
+		   causing possibly DoS if the UIDs get large enough. */
+		ctx->uid_broken = TRUE;
+		return FALSE;
+	}
+
+	if (value <= ctx->sync_ctx->prev_msg_uid) {
+		/* broken - UIDs must be growing */
+		ctx->uid_broken = TRUE;
+		return FALSE;
+	}
+
+	ctx->sync_ctx->prev_msg_uid = value;
+	ctx->mail.uid = value;
 
 	ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
 	ctx->parsed_uid = value;
@@ -483,15 +485,17 @@ void mbox_sync_parse_next_mail(struct istream *input,
 
 	mbox_md5_finish(mbox_md5_ctx, ctx->hdr_md5_sum);
 
-	if ((ctx->seq == 1 && sync_ctx->base_uid_validity == 0) ||
+	if ((ctx->seq == 1 && !ctx->seen_imapbase) ||
 	    (ctx->seq > 1 && sync_ctx->dest_first_mail)) {
 		/* missing X-IMAPbase */
 		ctx->need_rewrite = TRUE;
-	}
-	if (ctx->seq == 1 && sync_ctx->update_base_uid_last != 0 &&
-	    sync_ctx->update_base_uid_last > sync_ctx->base_uid_last) {
-		/* update uid-last field in X-IMAPbase */
-		ctx->need_rewrite = TRUE;
+		if (sync_ctx->base_uid_validity == 0) {
+			/* figure out a new UIDVALIDITY for us. */
+			sync_ctx->base_uid_validity =
+				sync_ctx->hdr->uid_validity != 0 ?
+				sync_ctx->hdr->uid_validity :
+				I_MAX((uint32_t)ioloop_time, 1);
+		}
 	}
 
 	ctx->body_offset = input->v_offset;
