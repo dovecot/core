@@ -16,6 +16,8 @@
 
 #include <stdlib.h>
 
+extern struct passdb_module passdb_vpopmail;
+
 static void
 vpopmail_verify_plain(struct auth_request *request, const char *password,
 		      verify_plain_callback_t *callback)
