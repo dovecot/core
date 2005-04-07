@@ -64,6 +64,8 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 	size_t size;
 	int i, need, have;
 
+	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
+
 	if (ctx->header_first_change > pos)
 		ctx->header_first_change = pos;
 
@@ -101,6 +103,8 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 		if ((ctx->mail.flags & flags_list[i].flag) != 0)
 			*data++ = flags_list[i].chr;
 	}
+
+	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 }
 
 static void keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
