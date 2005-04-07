@@ -131,7 +131,7 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 }
 
 static void arrays_convert_to_uids(struct mail_index_transaction *t,
-				   array_t *array)
+				   array_t *array, int range)
 {
 	ARRAY_SET_TYPE(array, array_t);
 	array_t *updates;
@@ -144,7 +144,7 @@ static void arrays_convert_to_uids(struct mail_index_transaction *t,
 	for (i = 0; i < count; i++) {
 		if (array_is_created(&updates[i])) {
 			mail_index_buffer_convert_to_uids(t, &updates[i],
-							  FALSE);
+							  range);
 		}
 	}
 }
@@ -155,8 +155,8 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	if (mail_index_view_lock(t->view) < 0)
 		return -1;
 
-	arrays_convert_to_uids(t, &t->ext_rec_updates);
-	arrays_convert_to_uids(t, &t->keyword_updates);
+	arrays_convert_to_uids(t, &t->ext_rec_updates, FALSE);
+	arrays_convert_to_uids(t, &t->keyword_updates, TRUE);
 
 	mail_index_buffer_convert_to_uids(t, &t->expunges, TRUE);
 	mail_index_buffer_convert_to_uids(t, &t->updates, TRUE);
