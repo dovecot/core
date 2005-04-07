@@ -584,6 +584,7 @@ const char *t_strarray_join(const char *const *arr, const char *separator)
 		pos += len;
 	}
 	str[pos] = '\0';
+	t_buffer_alloc(pos + 1);
 	return str;
 }
 
