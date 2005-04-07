@@ -234,13 +234,14 @@ mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 	const array_t *keyword_names_list;
 	ARRAY_SET_TYPE(keyword_names_list, const char *);
 	const char *const *keyword_names;
-	unsigned int i, keyword_names_count;
+	unsigned int i, count, keyword_names_count;
 
 	keyword_names_list = mail_index_get_keywords(ctx->ibox->index);
 	keyword_names = array_get(keyword_names_list, &keyword_names_count);
 
 	str_append(ctx->headers, "X-Keywords:");
-	for (i = 0; i < keywords->count; i++) {
+	count = keywords == NULL ? 0 : keywords->count;
+	for (i = 0; i < count; i++) {
 		i_assert(keywords->idx[i] < keyword_names_count);
 
 		str_append_c(ctx->headers, ' ');
