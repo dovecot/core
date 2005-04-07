@@ -275,9 +275,10 @@ static void _sync(struct _istream *stream __attr_unused__)
 	i_panic("istream-header-filter sync() not implemented");
 }
 
-static const struct stat *_stat(struct _istream *stream __attr_unused__)
+static const struct stat *_stat(struct _istream *stream)
 {
-	i_panic("istream-header-filter stat() not implemented");
+	/* return size and others as unknown */
+	return &stream->statbuf;
 }
 
 struct istream *
