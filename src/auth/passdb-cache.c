@@ -27,7 +27,6 @@ static void list_save(struct auth_request *request, const char *const *list)
 			value++;
 		}
 
-		i_assert(*value == '{');
 		auth_request_set_field(request, name, value, NULL);
 		t_pop();
 	}

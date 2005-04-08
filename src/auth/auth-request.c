@@ -421,6 +421,7 @@ void auth_request_set_field(struct auth_request *request,
 			request->passdb_password =
 				p_strdup(request->pool, value);
 		} else {
+			i_assert(default_scheme != NULL);
 			request->passdb_password =
 				p_strdup_printf(request->pool, "{%s}%s",
 						default_scheme, value);
