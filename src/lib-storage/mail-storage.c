@@ -13,59 +13,54 @@
 	"Internal error occured. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
-struct mail_storage_list {
-	struct mail_storage_list *next;
-	struct mail_storage *storage;
-};
-
 unsigned int mail_storage_module_id = 0;
 
-static struct mail_storage_list *storages = NULL;
+static array_t ARRAY_DEFINE(storages, struct mail_storage *);
 
 void mail_storage_init(void)
 {
+	ARRAY_CREATE(&storages, default_pool, struct mail_storage *, 8);
 }
 
 void mail_storage_deinit(void)
 {
-	struct mail_storage_list *next;
-
-	while (storages != NULL) {
-		next = storages->next;
-
-		i_free(storages);
-                storages = next;
-	}
+	if (array_is_created(&storages))
+		array_free(&storages);
 }
 
 void mail_storage_class_register(struct mail_storage *storage_class)
 {
-	struct mail_storage_list *list, **pos;
-
-	list = i_new(struct mail_storage_list, 1);
-	list->storage = storage_class;
-
 	/* append it after the list, so the autodetection order is correct */
-	pos = &storages;
-	while (*pos != NULL)
-		pos = &(*pos)->next;
-	*pos = list;
+	array_append(&storages, &storage_class, 1);
 }
 
 void mail_storage_class_unregister(struct mail_storage *storage_class)
 {
-	struct mail_storage_list **list, *next;
+	struct mail_storage *const *classes;
+	unsigned int i, count;
 
-	for (list = &storages; *list != NULL; list = &(*list)->next) {
-		if ((*list)->storage == storage_class) {
-			next = (*list)->next;
-
-			mail_storage_destroy((*list)->storage);
-			i_free(*list);
-
-			*list = next;
+	classes = array_get(&storages, &count);
+	for (i = 0; i < count; i++) {
+		if (classes[i] == storage_class) {
+			array_delete(&storages, i, 1);
+			break;
 		}
 	}
+}
+
+static struct mail_storage *mail_storage_find(const char *name)
+{
+	struct mail_storage *const *classes;
+	unsigned int i, count;
+
+	i_assert(name != NULL);
+
+	classes = array_get(&storages, &count);
+	for (i = 0; i < count; i++) {
+		if (strcasecmp(classes[i]->name, name) == 0)
+			return classes[i];
+	}
+	return NULL;
 }
 
 struct mail_storage *
@@ -73,46 +68,43 @@ mail_storage_create(const char *name, const char *data, const char *user,
 		    enum mail_storage_flags flags,
 		    enum mail_storage_lock_method lock_method)
 {
-	struct mail_storage_list *list;
+	struct mail_storage *storage;
 
-	i_assert(name != NULL);
-
-	for (list = storages; list != NULL; list = list->next) {
-		if (strcasecmp(list->storage->name, name) == 0)
-			return list->storage->v.create(data, user, flags,
-						       lock_method);
-	}
-
-	return NULL;
+	storage = mail_storage_find(name);
+	if (storage != NULL)
+		return storage->v.create(data, user, flags, lock_method);
+	else
+		return NULL;
 }
 
 struct mail_storage *
 mail_storage_create_default(const char *user, enum mail_storage_flags flags,
 			    enum mail_storage_lock_method lock_method)
 {
-	struct mail_storage_list *list;
+	struct mail_storage *const *classes;
 	struct mail_storage *storage;
+	unsigned int i, count;
 
-	for (list = storages; list != NULL; list = list->next) {
-		storage = list->storage->v.create(NULL, user, flags,
-						  lock_method);
+	classes = array_get(&storages, &count);
+	for (i = 0; i < count; i++) {
+		storage = classes[i]->v.create(NULL, user, flags, lock_method);
 		if (storage != NULL)
 			return storage;
 	}
-
 	return NULL;
 }
 
 static struct mail_storage *
 mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
 {
-	struct mail_storage_list *list;
+	struct mail_storage *const *classes;
+	unsigned int i, count;
 
-	for (list = storages; list != NULL; list = list->next) {
-		if (list->storage->v.autodetect(data, flags))
-			return list->storage;
+	classes = array_get(&storages, &count);
+	for (i = 0; i < count; i++) {
+		if (classes[i]->v.autodetect(data, flags))
+			return classes[i];
 	}
-
 	return NULL;
 }
 
