@@ -42,7 +42,11 @@ static int parse_local_part(struct message_address_parser_context *ctx)
 		return 0;
 
 	str_truncate(ctx->str, 0);
-	if ((ret = rfc822_parse_dot_atom(&ctx->parser, ctx->str)) < 0)
+	if (*ctx->parser.data == '"')
+		ret = rfc822_parse_quoted_string(&ctx->parser, ctx->str);
+	else
+		ret = rfc822_parse_dot_atom(&ctx->parser, ctx->str);
+	if (ret < 0)
 		return -1;
 
 	ctx->addr.mailbox = p_strdup(ctx->pool, str_c(ctx->str));
