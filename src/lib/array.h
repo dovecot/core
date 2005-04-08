@@ -41,6 +41,8 @@
 
 #ifdef ARRAY_TYPE_CHECKS
 #  define ARRAY_DEFINE(name, array_type) name; array_type *name ## __ ## type
+#  define ARRAY_DEFINE_EXTERN(name, array_type) \
+	name; extern array_type *name ## __ ## type
 #  define ARRAY_DEFINE_PTR(name, array_type) \
 	name; array_type **name ## __ ## type
 #  define ARRAY_CREATE(array, pool, array_type, init_count) STMT_START { \
@@ -52,6 +54,7 @@
 #  define ARRAY_INIT { 0, 0 }, 0
 #else
 #  define ARRAY_DEFINE(name, array_type) name
+#  define ARRAY_DEFINE_EXTERN(name, array_type) name
 #  define ARRAY_DEFINE_PTR(name, array_type) name
 #  define ARRAY_CREATE(array, pool, array_type, init_count) \
 	array_create(array, pool, sizeof(array_type), init_count)
