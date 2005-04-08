@@ -459,9 +459,6 @@ void mbox_sync_parse_next_mail(struct istream *input,
 
 			if (!func->func(ctx, hdr)) {
 				/* this header is broken, remove it */
-				if (ctx->sync_ctx->sync_restart)
-					break;
-
 				ctx->need_rewrite = TRUE;
 				str_truncate(ctx->header, line_start_pos);
 				if (ctx->header_first_change == (size_t)-1) {
