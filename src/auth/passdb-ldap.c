@@ -119,7 +119,8 @@ static void handle_request(struct ldap_connection *conn,
 		return;
 
 	scheme = password_get_scheme(&password);
-	i_assert(scheme != NULL); /* auth_request_set_field() sets it */
+	/* auth_request_set_field() sets scheme */
+	i_assert(password == NULL || scheme != NULL);
 
 	if (ldap_request->credentials != -1) {
 		passdb_handle_credentials(passdb_result,
