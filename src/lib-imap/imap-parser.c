@@ -36,7 +36,6 @@ struct imap_parser {
 	struct imap_arg_list *root_list;
         struct imap_arg_list *cur_list;
 	struct imap_arg *list_arg;
-	size_t element_count;
 
 	enum arg_parse_type cur_type;
 	size_t cur_pos; /* parser position in input buffer */
@@ -102,7 +101,6 @@ void imap_parser_reset(struct imap_parser *parser)
 	parser->root_list = NULL;
 	parser->cur_list = NULL;
 	parser->list_arg = NULL;
-	parser->element_count = 0;
 
 	parser->cur_type = ARG_PARSE_NONE;
 	parser->cur_pos = 0;
@@ -158,7 +156,6 @@ static struct imap_arg *imap_arg_create(struct imap_parser *parser)
 	arg = &parser->cur_list->args[parser->cur_list->size];
 	arg->parent = parser->list_arg;
 	parser->cur_list->size++;
-	parser->element_count++;
 
 	return arg;
 }
