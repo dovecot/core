@@ -372,7 +372,7 @@ struct header_lookup_data {
 
 struct header_lookup_context {
 	unsigned int *fields;
-	size_t fields_count;
+	unsigned int fields_count;
 	buffer_t *data;
 
 	unsigned int max_field;
@@ -425,7 +425,7 @@ static int header_lookup_data_cmp(const void *p1, const void *p2)
 
 int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 			      uint32_t seq, unsigned int fields[],
-			      size_t fields_count)
+			      unsigned int fields_count)
 {
 	struct mail_cache *cache = view->cache;
 	struct header_lookup_context ctx;

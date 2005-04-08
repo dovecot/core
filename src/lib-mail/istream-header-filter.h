@@ -22,7 +22,8 @@ typedef void header_filter_callback(struct message_header_line *hdr,
 struct istream *
 i_stream_create_header_filter(struct istream *input,
 			      enum header_filter_flags flags,
-			      const char *const *headers, size_t headers_count,
+			      const char *const *headers,
+			      unsigned int headers_count,
 			      header_filter_callback *callback, void *context);
 
 #endif

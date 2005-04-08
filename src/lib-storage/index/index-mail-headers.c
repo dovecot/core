@@ -18,7 +18,7 @@ struct index_header_lookup_ctx {
 	struct mailbox_header_lookup_ctx ctx;
 	pool_t pool;
 
-	size_t count;
+	unsigned int count;
 	unsigned int *idx;
 	const char **name;
 };
@@ -600,46 +600,44 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 	struct index_header_lookup_ctx *ctx;
 	const char *const *name;
 	const char **sorted_headers;
-	buffer_t *buf;
 	pool_t pool;
-	size_t i, size;
+	unsigned int i, count;
 
-	for (size = 0, name = headers; *name != NULL; name++)
-		size++;
+	for (count = 0, name = headers; *name != NULL; name++)
+		count++;
 
 	t_push();
 
-	if (size > 0) {
-		/* headers need to be sorted for filter stream. */
-		sorted_headers = t_new(const char *, size);
-		memcpy(sorted_headers, headers, size * sizeof(*sorted_headers));
-		qsort(sorted_headers, size, sizeof(*sorted_headers),
+	if (count > 0) {
+		/* @UNSAFE: headers need to be sorted for filter stream. */
+		sorted_headers = t_new(const char *, count);
+		memcpy(sorted_headers, headers,
+		       count * sizeof(*sorted_headers));
+		qsort(sorted_headers, count, sizeof(*sorted_headers),
 		      strcasecmp_p);
 		headers = sorted_headers;
 	}
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
-	for (i = 0; i < size; i++) {
+	/* @UNSAFE */
+	fields = t_new(struct mail_cache_field, count);
+	for (i = 0; i < count; i++) {
 		header_field.name = t_strconcat("hdr.", headers[i], NULL);
-		buffer_append(buf, &header_field, sizeof(header_field));
+		fields[i] = header_field;
 	}
-
-	fields = buffer_get_modifyable_data(buf, &size);
-	size /= sizeof(*fields);
-	mail_cache_register_fields(ibox->cache, fields, size);
+	mail_cache_register_fields(ibox->cache, fields, count);
 
 	pool = pool_alloconly_create("index_header_lookup_ctx", 256);
 	ctx = p_new(pool, struct index_header_lookup_ctx, 1);
 	ctx->ctx.box = box;
 	ctx->pool = pool;
-	ctx->count = size;
+	ctx->count = count;
 
-	if (size > 0) {
-		ctx->idx = p_new(pool, unsigned int, size);
-		ctx->name = p_new(pool, const char *, size);
+	if (count > 0) {
+		ctx->idx = p_new(pool, unsigned int, count);
+		ctx->name = p_new(pool, const char *, count);
 
 		/* @UNSAFE */
-		for (i = 0; i < size; i++) {
+		for (i = 0; i < count; i++) {
 			ctx->idx[i] = fields[i].idx;
 			ctx->name[i] = p_strdup(pool, headers[i]);
 		}

@@ -363,7 +363,7 @@ int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 
 const uint32_t *
 mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
-				  size_t *count_r)
+				  unsigned int *count_r)
 {
 	const uint32_t *data;
 	size_t size;

@@ -252,7 +252,7 @@ int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 			      struct mail_index_sync_rec *sync_rec);
 const uint32_t *
 mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
-				 size_t *count_r);
+				 unsigned int *count_r);
 void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx);
 
 /* Returns the index header. */

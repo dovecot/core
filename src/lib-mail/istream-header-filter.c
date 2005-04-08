@@ -17,7 +17,7 @@ struct header_filter_istream {
 	uoff_t start_offset;
 
 	const char **headers;
-	size_t headers_count;
+	unsigned int headers_count;
 
 	header_filter_callback *callback;
 	void *context;
@@ -284,12 +284,13 @@ static const struct stat *_stat(struct _istream *stream)
 struct istream *
 i_stream_create_header_filter(struct istream *input,
                               enum header_filter_flags flags,
-			      const char *const *headers, size_t headers_count,
+			      const char *const *headers,
+			      unsigned int headers_count,
 			      header_filter_callback *callback, void *context)
 {
 	struct header_filter_istream *mstream;
 	pool_t pool;
-	size_t i;
+	unsigned int i;
 
 	i_assert((flags & (HEADER_FILTER_INCLUDE|HEADER_FILTER_EXCLUDE)) != 0);
 

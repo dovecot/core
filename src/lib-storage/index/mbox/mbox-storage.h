@@ -21,7 +21,7 @@ struct mbox_transaction_context {
 
 extern struct mail_vfuncs mbox_mail_vfuncs;
 extern const char *mbox_hide_headers[];
-extern size_t mbox_hide_headers_count;
+extern unsigned int mbox_hide_headers_count;
 
 int mbox_set_syscall_error(struct index_mailbox *ibox, const char *function);
 

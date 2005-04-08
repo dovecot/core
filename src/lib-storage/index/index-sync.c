@@ -11,7 +11,7 @@ struct index_mailbox_sync_context {
 	uint32_t messages_count;
 
 	const uint32_t *expunges;
-	size_t expunges_count;
+	unsigned int expunges_count;
 	int failed;
 };
 

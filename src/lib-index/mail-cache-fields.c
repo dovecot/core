@@ -13,7 +13,7 @@
 
 void mail_cache_register_fields(struct mail_cache *cache,
 				struct mail_cache_field *fields,
-				size_t fields_count)
+				unsigned int fields_count)
 {
 	void *orig_key, *orig_value;
 	unsigned int new_idx;

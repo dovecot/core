@@ -45,7 +45,7 @@ void mail_cache_free(struct mail_cache *cache);
 /* Register fields. fields[].idx is updated to contain field index. */
 void mail_cache_register_fields(struct mail_cache *cache,
 				struct mail_cache_field *fields,
-				size_t fields_count);
+				unsigned int fields_count);
 /* Returns registered field index, or (unsigned int)-1 if not found. */
 unsigned int
 mail_cache_register_lookup(struct mail_cache *cache, const char *name);
@@ -85,7 +85,7 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
    0 if not, -1 if error. dest is updated only if all fields were found. */
 int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 			      uint32_t seq, unsigned int fields[],
-			      size_t fields_count);
+			      unsigned int fields_count);
 
 /* "Error in index cache file %s: ...". */
 void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)

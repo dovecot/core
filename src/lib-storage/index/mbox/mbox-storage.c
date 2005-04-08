@@ -32,7 +32,7 @@ const char *mbox_hide_headers[] = {
 	"X-Status",
 	"X-UID",
 };
-size_t mbox_hide_headers_count = 7;
+unsigned int mbox_hide_headers_count = 7;
 
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
