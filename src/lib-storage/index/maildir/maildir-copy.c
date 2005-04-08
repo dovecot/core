@@ -37,14 +37,14 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 			return 0;
 
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(&mbox->storage->storage,
+			mail_storage_set_error(STORAGE(mbox->storage),
 					       "Not enough disk space");
 			return -1;
 		}
 		if (errno == EACCES || errno == EXDEV)
 			return 1;
 
-		mail_storage_set_critical(&mbox->storage->storage,
+		mail_storage_set_critical(STORAGE(mbox->storage),
 					  "link(%s, %s) failed: %m",
 					  path, ctx->dest_path);
 		return -1;
@@ -138,7 +138,7 @@ int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 	ctx = t->copy_ctx;
 
 	if (ctx->hardlink &&
-	    mail->box->storage == &ctx->mbox->storage->storage) {
+	    mail->box->storage == STORAGE(ctx->mbox->storage)) {
 		// FIXME: handle dest_mail
 		t_push();
 		ret = maildir_copy_hardlink(mail, ctx);

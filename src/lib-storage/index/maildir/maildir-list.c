@@ -198,15 +198,15 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 static int maildir_fill_subscribed(struct maildir_list_context *ctx,
 				   struct imap_match_glob *glob)
 {
-	struct index_storage *istorage =
-		(struct index_storage *)ctx->mailbox_ctx.storage;
+	struct maildir_storage *storage =
+		(struct maildir_storage *)ctx->mailbox_ctx.storage;
 	struct subsfile_list_context *subsfile_ctx;
 	const char *path, *name, *p;
 	struct mailbox_node *node;
 	int created;
 
-	path = t_strconcat(istorage->control_dir != NULL ?
-			   istorage->control_dir : istorage->dir,
+	path = t_strconcat(storage->control_dir != NULL ?
+			   storage->control_dir : INDEX_STORAGE(storage)->dir,
 			   "/" SUBSCRIPTION_FILE_NAME, NULL);
 	subsfile_ctx = subsfile_list_init(ctx->mailbox_ctx.storage, path);
 	if (subsfile_ctx == NULL)

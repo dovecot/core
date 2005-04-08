@@ -11,9 +11,18 @@
 
 #include "index-storage.h"
 
+#define STORAGE(mbox_storage) \
+	(&(mbox_storage)->storage.storage)
+#define INDEX_STORAGE(mbox_storage) \
+	(&(mbox_storage)->storage)
+
+struct mbox_storage {
+	struct index_storage storage;
+};
+
 struct mbox_mailbox {
 	struct index_mailbox ibox;
-	struct index_storage *storage;
+	struct mbox_storage *storage;
 
 	const char *path;
 

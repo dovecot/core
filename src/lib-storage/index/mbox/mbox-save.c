@@ -51,7 +51,7 @@ static char my_hostdomain[256] = "";
 static void write_error(struct mbox_save_context *ctx, int error)
 {
 	if (ENOSPACE(error)) {
-		mail_storage_set_error(&ctx->mbox->storage->storage,
+		mail_storage_set_error(STORAGE(ctx->mbox->storage),
 				       "Not enough disk space");
 	} else {
 		errno = error;
@@ -127,8 +127,9 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 
 	t_push();
 	if (from_envelope == NULL) {
-		from_envelope = t_strconcat(ctx->mbox->storage->user,
-					    "@", my_hostdomain, NULL);
+		from_envelope =
+			t_strconcat(INDEX_STORAGE(ctx->mbox->storage)->user,
+				    "@", my_hostdomain, NULL);
 	}
 
 	/* save in local timezone, no matter what it was given with */
@@ -263,7 +264,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	int ret;
 
 	if (ctx->mbox->mbox_readonly || ctx->mbox->ibox.readonly) {
-		mail_storage_set_error(&ctx->mbox->storage->storage,
+		mail_storage_set_error(STORAGE(ctx->mbox->storage),
 				       "Read-only mbox");
 		return -1;
 	}
@@ -397,7 +398,7 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 						      save_header_callback,
 						      ctx);
 		ctx->body_output =
-			(ctx->mbox->storage->storage.flags &
+			(STORAGE(mbox->storage)->flags &
 			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 			o_stream_create_crlf(default_pool, ctx->output) :
 			o_stream_create_lf(default_pool, ctx->output);
@@ -513,10 +514,10 @@ int mbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	if (ctx->failed) {
 		errno = ctx->output->stream_errno;
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(&ctx->mbox->storage->storage,
+			mail_storage_set_error(STORAGE(ctx->mbox->storage),
 					       "Not enough disk space");
 		} else if (errno != 0) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
+			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
 				"write(%s) failed: %m", ctx->mbox->path);
 		}
 		return -1;

@@ -134,7 +134,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 	}
 
 	if (data == NULL) {
-		mail_storage_set_critical(&mbox->storage->storage,
+		mail_storage_set_critical(STORAGE(mbox->storage),
 			"Cached message offset lost for seq %u in mbox file %s",
 			seq, mbox->path);
 		mail_index_mark_corrupted(mbox->ibox.index);
@@ -144,7 +144,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 	offset = *((const uint64_t *)data);
 	if (istream_raw_mbox_seek(mbox->mbox_stream, offset) < 0) {
 		if (offset == 0) {
-			mail_storage_set_error(&mbox->storage->storage,
+			mail_storage_set_error(STORAGE(mbox->storage),
 				"Mailbox isn't a valid mbox file");
 			return -1;
 		}
@@ -152,7 +152,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 		if (mbox->mbox_sync_dirty)
 			return 0;
 
-		mail_storage_set_critical(&mbox->storage->storage,
+		mail_storage_set_critical(STORAGE(mbox->storage),
 			"Cached message offset %s is invalid for mbox file %s",
 			dec2str(offset), mbox->path);
 		mail_index_mark_corrupted(mbox->ibox.index);

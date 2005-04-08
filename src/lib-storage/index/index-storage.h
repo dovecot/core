@@ -26,7 +26,6 @@ struct index_storage {
 
 	const char *dir; /* root directory */
 	const char *index_dir;
-	const char *control_dir;
 	const char *inbox_path; /* INBOX location */
         const char *temp_prefix; /* prefix for temporary files */
 

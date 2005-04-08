@@ -28,7 +28,7 @@ extern struct mailbox maildir_mailbox;
 
 static const char *maildirs[] = { "cur", "new", "tmp", NULL  };
 
-static int verify_inbox(struct index_storage *storage);
+static int verify_inbox(struct maildir_storage *storage);
 
 static struct mail_storage *
 maildir_create(const char *data, const char *user,
@@ -36,7 +36,8 @@ maildir_create(const char *data, const char *user,
 	       enum mail_storage_lock_method lock_method)
 {
 	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
-	struct index_storage *storage;
+	struct maildir_storage *storage;
+	struct index_storage *istorage;
 	const char *root_dir, *inbox_dir, *index_dir, *control_dir;
 	const char *home, *path, *p;
 	size_t len;
@@ -118,24 +119,26 @@ maildir_create(const char *data, const char *user,
 	}
 
 	pool = pool_alloconly_create("storage", 256);
-	storage = p_new(pool, struct index_storage, 1);
-	storage->storage = maildir_storage;
-	storage->storage.pool = pool;
+	storage = p_new(pool, struct maildir_storage, 1);
+	storage->control_dir = p_strdup(pool, home_expand(control_dir));
+
+	istorage = INDEX_STORAGE(storage);
+	istorage->storage = maildir_storage;
+	istorage->storage.pool = pool;
 
 	/* the default ".temp.xxx" prefix would be treated as directory */
-	storage->temp_prefix =
+	istorage->temp_prefix =
 		p_strconcat(pool, "temp.", my_hostname, ".", my_pid, ".", NULL);
 
-	storage->dir = p_strdup(pool, home_expand(root_dir));
-	storage->inbox_path = p_strdup(pool, home_expand(inbox_dir));
-	storage->index_dir = p_strdup(pool, home_expand(index_dir));
-	storage->control_dir = p_strdup(pool, home_expand(control_dir));
-	storage->user = p_strdup(pool, user);
-	storage->callbacks = p_new(pool, struct mail_storage_callbacks, 1);
-	index_storage_init(storage, flags, lock_method);
+	istorage->dir = p_strdup(pool, home_expand(root_dir));
+	istorage->inbox_path = p_strdup(pool, home_expand(inbox_dir));
+	istorage->index_dir = p_strdup(pool, home_expand(index_dir));
+	istorage->user = p_strdup(pool, user);
+	istorage->callbacks = p_new(pool, struct mail_storage_callbacks, 1);
+	index_storage_init(istorage, flags, lock_method);
 
 	(void)verify_inbox(storage);
-	return &storage->storage;
+	return STORAGE(storage);
 }
 
 static void maildir_free(struct mail_storage *_storage)
@@ -260,13 +263,13 @@ static const char *maildir_get_index_path(struct index_storage *storage,
 	return t_strconcat(storage->index_dir, "/"MAILDIR_FS_SEP_S, name, NULL);
 }
 
-static const char *maildir_get_control_path(struct index_storage *storage,
+static const char *maildir_get_control_path(struct maildir_storage *storage,
 					    const char *name)
 {
 	if (storage->control_dir == NULL)
-		return maildir_get_path(storage, name);
+		return maildir_get_path(INDEX_STORAGE(storage), name);
 
-	if ((storage->storage.flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
+	if ((STORAGE(storage)->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~'))
 		return maildir_get_absolute_path(name, FALSE);
 
@@ -353,7 +356,7 @@ static int create_index_dir(struct index_storage *storage, const char *name)
 	return 0;
 }
 
-static int create_control_dir(struct index_storage *storage, const char *name)
+static int create_control_dir(struct maildir_storage *storage, const char *name)
 {
 	const char *dir;
 
@@ -363,7 +366,7 @@ static int create_control_dir(struct index_storage *storage, const char *name)
 	dir = t_strconcat(storage->control_dir, "/"MAILDIR_FS_SEP_S,
 			  name, NULL);
 	if (mkdir_parents(dir, CREATE_MODE) < 0 && errno != EEXIST) {
-		mail_storage_set_critical(&storage->storage,
+		mail_storage_set_critical(STORAGE(storage),
 					  "mkdir(%s) failed: %m", dir);
 		return -1;
 	}
@@ -371,18 +374,19 @@ static int create_control_dir(struct index_storage *storage, const char *name)
 	return 0;
 }
 
-static int verify_inbox(struct index_storage *storage)
+static int verify_inbox(struct maildir_storage *storage)
 {
+	struct index_storage *istorage = INDEX_STORAGE(storage);
 	const char *path;
 
-	path = storage->inbox_path != NULL ?
-		storage->inbox_path : storage->dir;
+	path = istorage->inbox_path != NULL ?
+		istorage->inbox_path : istorage->dir;
 
-	if (create_maildir(storage, path, TRUE) < 0)
+	if (create_maildir(istorage, path, TRUE) < 0)
 		return -1;
 
 	/* make sure the index directories exist */
-	if (create_index_dir(storage, "INBOX") < 0)
+	if (create_index_dir(istorage, "INBOX") < 0)
 		return -1;
 	if (create_control_dir(storage, "INBOX") < 0)
 		return -1;
@@ -397,9 +401,10 @@ static int maildir_is_recent(struct index_mailbox *ibox, uint32_t uid)
 }
 
 static struct mailbox *
-maildir_open(struct index_storage *storage, const char *name,
+maildir_open(struct maildir_storage *storage, const char *name,
 	     enum mailbox_open_flags flags)
 {
+	struct index_storage *istorage = INDEX_STORAGE(storage);
 	struct maildir_mailbox *mbox;
 	struct mail_index *index;
 	const char *path, *index_dir, *control_dir;
@@ -407,8 +412,8 @@ maildir_open(struct index_storage *storage, const char *name,
 	int shared;
 	pool_t pool;
 
-	path = maildir_get_path(storage, name);
-	index_dir = maildir_get_index_path(storage, name);
+	path = maildir_get_path(istorage, name);
+	index_dir = maildir_get_index_path(istorage, name);
 	control_dir = maildir_get_control_path(storage, name);
 
 	index = index_storage_alloc(index_dir, path, MAILDIR_INDEX_PREFIX);
@@ -423,7 +428,7 @@ maildir_open(struct index_storage *storage, const char *name,
 	mbox = p_new(pool, struct maildir_mailbox, 1);
 	mbox->ibox.box = maildir_mailbox;
 	mbox->ibox.box.pool = pool;
-	mbox->ibox.storage = storage;
+	mbox->ibox.storage = istorage;
 	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
 	mbox->ibox.is_recent = maildir_is_recent;
 
@@ -453,7 +458,8 @@ static struct mailbox *
 maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		     struct istream *input, enum mailbox_open_flags flags)
 {
-	struct index_storage *storage = (struct index_storage *)_storage;
+	struct maildir_storage *storage = (struct maildir_storage *)_storage;
+	struct index_storage *istorage = INDEX_STORAGE(storage);
 	const char *path;
 	struct stat st;
 
@@ -476,11 +482,11 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		return NULL;
 	}
 
-	path = maildir_get_path(storage, name);
+	path = maildir_get_path(istorage, name);
 	if (stat(path, &st) == 0) {
 		/* exists - make sure the required directories are also there */
-		if (create_maildir(storage, path, TRUE) < 0 ||
-		    create_index_dir(storage, name) < 0 ||
+		if (create_maildir(istorage, path, TRUE) < 0 ||
+		    create_index_dir(istorage, name) < 0 ||
 		    create_control_dir(storage, name) < 0)
 			return NULL;
 
@@ -765,14 +771,15 @@ static int maildir_mailbox_rename(struct mail_storage *_storage,
 static int maildir_set_subscribed(struct mail_storage *_storage,
 				  const char *name, int set)
 {
-	struct index_storage *storage = (struct index_storage *)_storage;
+	struct maildir_storage *storage = (struct maildir_storage *)_storage;
 	const char *path;
 
 	path = t_strconcat(storage->control_dir != NULL ?
-			   storage->control_dir : storage->dir,
+			   storage->control_dir : INDEX_STORAGE(storage)->dir,
 			   "/" SUBSCRIPTION_FILE_NAME, NULL);
 
-	return subsfile_set_subscribed(_storage, path, storage->temp_prefix,
+	return subsfile_set_subscribed(_storage, path,
+				       INDEX_STORAGE(storage)->temp_prefix,
 				       name, set);
 }
 
@@ -832,6 +839,7 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 		       mailbox_notify_callback_t *callback, void *context)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+        struct index_storage *istorage = INDEX_STORAGE(mbox->storage);
 
 	mbox->ibox.min_notify_interval = min_interval;
 	mbox->ibox.notify_callback = callback;
@@ -843,9 +851,9 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 	}
 
 	index_mailbox_check_add(&mbox->ibox,
-		t_strconcat(mbox->storage->dir, "/new", NULL), TRUE);
+		t_strconcat(istorage->dir, "/new", NULL), TRUE);
 	index_mailbox_check_add(&mbox->ibox,
-		t_strconcat(mbox->storage->dir, "/cur", NULL), TRUE);
+		t_strconcat(istorage->dir, "/cur", NULL), TRUE);
 }
 
 struct mail_storage maildir_storage = {

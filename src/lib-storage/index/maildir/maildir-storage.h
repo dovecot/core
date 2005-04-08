@@ -10,13 +10,24 @@
 
 #include "index-storage.h"
 
+#define STORAGE(maildir_storage) \
+	(&(maildir_storage)->storage.storage)
+#define INDEX_STORAGE(maildir_storage) \
+	(&(maildir_storage)->storage)
+
 struct timeval;
 struct maildir_save_context;
 struct maildir_copy_context;
 
+struct maildir_storage {
+	struct index_storage storage;
+
+	const char *control_dir;
+};
+
 struct maildir_mailbox {
 	struct index_mailbox ibox;
-	struct index_storage *storage;
+	struct maildir_storage *storage;
 
 	const char *path, *control_dir;
 
