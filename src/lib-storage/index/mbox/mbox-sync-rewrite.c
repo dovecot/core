@@ -36,14 +36,14 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
         if (ret == (off_t)size)
 		ret = 0;
 	else if (ret >= 0) {
-		mail_storage_set_critical(sync_ctx->ibox->box.storage,
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"mbox_move(%"PRIuUOFF_T", %"PRIuUOFF_T", %"PRIuUOFF_T
 			") moved only %"PRIuUOFF_T" bytes in mbox file %s",
-			dest, source, size, (uoff_t)ret, sync_ctx->ibox->path);
+			dest, source, size, (uoff_t)ret, sync_ctx->mbox->path);
 		ret = -1;
 	} else if (ret < 0) {
 		errno = output->stream_errno;
-		mbox_set_syscall_error(sync_ctx->ibox,
+		mbox_set_syscall_error(sync_ctx->mbox,
 				       "o_stream_send_istream()");
 	}
 
@@ -60,14 +60,14 @@ static int mbox_fill_space(struct mbox_sync_context *sync_ctx,
 	while (size > sizeof(space)) {
 		if (pwrite_full(sync_ctx->write_fd, space,
 				sizeof(space), offset) < 0) {
-			mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
+			mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 			return -1;
 		}
 		size -= sizeof(space);
 	}
 
 	if (pwrite_full(sync_ctx->write_fd, space, size, offset) < 0) {
-		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
+		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
 	}
 	return 0;
@@ -225,7 +225,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
         struct mbox_sync_context *sync_ctx = ctx->sync_ctx;
 	size_t old_hdr_size, new_hdr_size;
 
-	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
+	i_assert(sync_ctx->mbox->mbox_lock_type == F_WRLCK);
 
 	old_hdr_size = ctx->body_offset - ctx->hdr_offset;
 	new_hdr_size = str_len(ctx->header);
@@ -283,7 +283,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 			str_len(ctx->header) - ctx->header_first_change,
 			ctx->hdr_offset + ctx->header_first_change +
 			move_diff) < 0) {
-		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
+		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
 	}
 
@@ -383,7 +383,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	dest_offset -= str_len(mail_ctx.header);
 	if (pwrite_full(sync_ctx->write_fd, str_data(mail_ctx.header),
 			str_len(mail_ctx.header), dest_offset) < 0) {
-		mbox_set_syscall_error(sync_ctx->ibox, "pwrite_full()");
+		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
 	}
 
@@ -410,7 +410,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	int ret = 0;
 
 	i_assert(extra_space < OFF_T_MAX);
-	i_assert(sync_ctx->ibox->mbox_lock_type == F_WRLCK);
+	i_assert(sync_ctx->mbox->mbox_lock_type == F_WRLCK);
 
 	mails = array_get_modifyable(&sync_ctx->mails, &count);
 	i_assert(count == last_seq - first_seq + 1);

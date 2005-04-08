@@ -18,7 +18,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)mail->trans;
-	struct index_mailbox *ibox = mail->ibox;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 	enum mbox_sync_flags sync_flags = 0;
 	int ret, deleted;
 
@@ -26,26 +26,26 @@ static int mbox_mail_seek(struct index_mail *mail)
 		return 0;
 
 __again:
-	if (ibox->mbox_lock_type == F_UNLCK) {
+	if (mbox->mbox_lock_type == F_UNLCK) {
 		sync_flags |= MBOX_SYNC_LOCK_READING;
-		if (mbox_sync(ibox, sync_flags) < 0)
+		if (mbox_sync(mbox, sync_flags) < 0)
 			return -1;
 
 		/* refresh index file after mbox has been locked to make
 		   sure we get only up-to-date mbox offsets. */
-		if (mail_index_refresh(ibox->index) < 0) {
-			mail_storage_set_index_error(ibox);
+		if (mail_index_refresh(mbox->ibox.index) < 0) {
+			mail_storage_set_index_error(&mbox->ibox);
 			return -1;
 		}
 
-		i_assert(ibox->mbox_lock_type != F_UNLCK);
-		t->mbox_lock_id = ibox->mbox_lock_id;
+		i_assert(mbox->mbox_lock_type != F_UNLCK);
+		t->mbox_lock_id = mbox->mbox_lock_id;
 	}
 
-	if (mbox_file_open_stream(ibox) < 0)
+	if (mbox_file_open_stream(mbox) < 0)
 		return -1;
 
-	ret = mbox_file_seek(ibox, mail->trans->trans_view,
+	ret = mbox_file_seek(mbox, mail->trans->trans_view,
 			     mail->mail.mail.seq, &deleted);
 	if (ret < 0) {
 		if (deleted) {
@@ -57,12 +57,12 @@ __again:
 
 	if (ret == 0) {
 		/* we'll need to re-sync it completely */
-		if (ibox->mbox_lock_type == F_RDLCK) {
-			if (ibox->mbox_lock_id == t->mbox_lock_id)
+		if (mbox->mbox_lock_type == F_RDLCK) {
+			if (mbox->mbox_lock_id == t->mbox_lock_id)
 				t->mbox_lock_id = 0;
-			(void)mbox_unlock(mail->ibox, ibox->mbox_lock_id);
-			ibox->mbox_lock_id = 0;
-			i_assert(ibox->mbox_lock_type == F_UNLCK);
+			(void)mbox_unlock(mbox, mbox->mbox_lock_id);
+			mbox->mbox_lock_id = 0;
+			i_assert(mbox->mbox_lock_type == F_UNLCK);
 		}
 
 		sync_flags |= MBOX_SYNC_UNDIRTY;
@@ -76,6 +76,7 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 
 	(void)index_mail_get_received_date(_mail);
 	if (data->received_date != (time_t)-1)
@@ -84,7 +85,7 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 	if (mbox_mail_seek(mail) <= 0)
 		return (time_t)-1;
 	data->received_date =
-		istream_raw_mbox_get_received_time(mail->ibox->mbox_stream);
+		istream_raw_mbox_get_received_time(mbox->mbox_stream);
 	if (data->received_date == (time_t)-1) {
 		/* it's broken and conflicts with our "not found"
 		   return value. change it. */
@@ -101,12 +102,13 @@ static const char *
 mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 
 	if (field == MAIL_FETCH_FROM_ENVELOPE) {
 		if (mbox_mail_seek(mail) <= 0)
 			return NULL;
 
-		return istream_raw_mbox_get_sender(mail->ibox->mbox_stream);
+		return istream_raw_mbox_get_sender(mbox->mbox_stream);
 
 	}
 
@@ -117,6 +119,7 @@ static uoff_t mbox_mail_get_physical_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 	struct istream *stream;
 	uoff_t hdr_offset, body_offset, body_size;
 
@@ -124,7 +127,7 @@ static uoff_t mbox_mail_get_physical_size(struct mail *_mail)
 		return (uoff_t)-1;
 
 	/* our header size varies, so don't do any caching */
-	stream = mail->ibox->mbox_stream;
+	stream = mbox->mbox_stream;
 	hdr_offset = istream_raw_mbox_get_header_offset(stream);
 	body_offset = istream_raw_mbox_get_body_offset(stream);
 	body_size = istream_raw_mbox_get_body_size(stream, (uoff_t)-1);
@@ -140,6 +143,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 	struct istream *raw_stream;
 	uoff_t offset;
 
@@ -147,7 +151,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 		if (mbox_mail_seek(mail) <= 0)
 			return NULL;
 
-		raw_stream = mail->ibox->mbox_stream;
+		raw_stream = mbox->mbox_stream;
 		offset = istream_raw_mbox_get_header_offset(raw_stream);
 		raw_stream = i_stream_create_limit(default_pool, raw_stream,
 						   offset, (uoff_t)-1);

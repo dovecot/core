@@ -11,6 +11,33 @@
 
 #include "index-storage.h"
 
+struct mbox_mailbox {
+	struct index_mailbox ibox;
+	struct index_storage *storage;
+
+	const char *path;
+
+	int mbox_fd;
+	struct istream *mbox_stream, *mbox_file_stream;
+	int mbox_lock_type;
+	dev_t mbox_dev;
+	ino_t mbox_ino;
+	unsigned int mbox_excl_locks, mbox_shared_locks;
+	struct dotlock *mbox_dotlock;
+	unsigned int mbox_lock_id;
+	int mbox_readonly, mbox_writeonly;
+	time_t mbox_dirty_stamp;
+	off_t mbox_dirty_size;
+
+	uint32_t mbox_ext_idx;
+
+	unsigned int mbox_sync_dirty:1;
+	unsigned int mbox_do_dirty_syncs:1;
+	unsigned int mbox_very_dirty_syncs:1;
+	unsigned int mbox_save_md5:1;
+	unsigned int mbox_dotlocked:1;
+};
+
 struct mbox_transaction_context {
 	struct index_transaction_context ictx;
 
@@ -23,7 +50,7 @@ extern struct mail_vfuncs mbox_mail_vfuncs;
 extern const char *mbox_hide_headers[];
 extern unsigned int mbox_hide_headers_count;
 
-int mbox_set_syscall_error(struct index_mailbox *ibox, const char *function);
+int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function);
 
 struct mailbox_list_context *
 mbox_mailbox_list_init(struct mail_storage *storage,

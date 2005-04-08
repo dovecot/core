@@ -39,7 +39,6 @@ struct index_storage {
 struct index_mailbox {
 	struct mailbox box;
 	struct index_storage *storage;
-	const char *path, *control_dir;
 
 	struct mail_index *index;
 	struct mail_index_view *view;
@@ -47,6 +46,8 @@ struct index_mailbox {
 	struct mail_vfuncs *mail_vfuncs;
 
 	int (*is_recent)(struct index_mailbox *ibox, uint32_t uid);
+
+	uint32_t md5hdr_ext_idx;
 
 	struct timeout *notify_to;
 	struct index_notify_file *notify_files;
@@ -69,29 +70,6 @@ struct index_mailbox {
 	uint32_t synced_recent_count;
 	time_t sync_last_check;
 
-	/* mbox: */
-	int mbox_fd;
-	struct istream *mbox_stream, *mbox_file_stream;
-	int mbox_lock_type;
-	dev_t mbox_dev;
-	ino_t mbox_ino;
-	unsigned int mbox_excl_locks, mbox_shared_locks;
-	struct dotlock *mbox_dotlock;
-	unsigned int mbox_lock_id;
-	int mbox_readonly, mbox_writeonly;
-	time_t mbox_dirty_stamp;
-	off_t mbox_dirty_size;
-
-	uint32_t mbox_ext_idx, md5hdr_ext_idx;
-
-	/* maildir sync: */
-	struct maildir_uidlist *uidlist;
-	time_t last_new_mtime, last_cur_mtime, last_new_sync_time;
-	time_t dirty_cur_time;
-
-        mode_t mail_create_mode;
-	unsigned int private_flags_mask;
-
 	unsigned int readonly:1;
 	unsigned int keep_recent:1;
 	unsigned int recent_flags_synced:1;
@@ -99,12 +77,6 @@ struct index_mailbox {
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int notify_pending:1;
 	unsigned int mail_read_mmaped:1;
-	unsigned int syncing_commit:1;
-	unsigned int mbox_sync_dirty:1;
-	unsigned int mbox_do_dirty_syncs:1;
-	unsigned int mbox_very_dirty_syncs:1;
-	unsigned int mbox_save_md5:1;
-	unsigned int mbox_dotlocked:1;
 };
 
 struct index_transaction_context {

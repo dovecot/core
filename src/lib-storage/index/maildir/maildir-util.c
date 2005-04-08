@@ -11,53 +11,53 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-static int maildir_file_do_try(struct index_mailbox *ibox, uint32_t uid,
+static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 			       maildir_file_do_func *func, void *context)
 {
 	const char *fname, *path;
         enum maildir_uidlist_rec_flag flags;
 	int ret;
 
-	fname = maildir_uidlist_lookup(ibox->uidlist, uid, &flags);
+	fname = maildir_uidlist_lookup(mbox->uidlist, uid, &flags);
 	if (fname == NULL)
 		return -2; /* expunged */
 
 	t_push();
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
-		path = t_strconcat(ibox->path, "/new/", fname, NULL);
-		ret = func(ibox, path, context);
+		path = t_strconcat(mbox->path, "/new/", fname, NULL);
+		ret = func(mbox, path, context);
 		if (ret != 0) {
 			t_pop();
 			return ret;
 		}
 	}
 
-	path = t_strconcat(ibox->path, "/cur/", fname, NULL);
-	ret = func(ibox, path, context);
+	path = t_strconcat(mbox->path, "/cur/", fname, NULL);
+	ret = func(mbox, path, context);
 	t_pop();
 	return ret;
 }
 
-int maildir_file_do(struct index_mailbox *ibox, uint32_t uid,
+int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		    maildir_file_do_func *func, void *context)
 {
 	int i, ret;
 
-	ret = maildir_file_do_try(ibox, uid, func, context);
+	ret = maildir_file_do_try(mbox, uid, func, context);
 	for (i = 0; i < 10 && ret == 0; i++) {
 		/* file is either renamed or deleted. sync the maildir and
 		   see which one. if file appears to be renamed constantly,
 		   don't try to open it more than 10 times. */
-		if (maildir_storage_sync_force(ibox) < 0)
+		if (maildir_storage_sync_force(mbox) < 0)
 			return -1;
 
-		ret = maildir_file_do_try(ibox, uid, func, context);
+		ret = maildir_file_do_try(mbox, uid, func, context);
 	}
 
 	if (i == 10) {
-		mail_storage_set_critical(ibox->box.storage,
-			"maildir_file_do(%s) racing", ibox->path);
+		mail_storage_set_critical(&mbox->storage->storage,
+			"maildir_file_do(%s) racing", mbox->path);
 	}
 
 	return ret == -2 ? 0 : ret;
@@ -209,7 +209,7 @@ const char *maildir_generate_tmp_filename(const struct timeval *tv)
 	}
 }
 
-int maildir_create_tmp(struct index_mailbox *ibox, const char *dir,
+int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r)
 {
 	const char *path, *tmp_fname;
@@ -244,10 +244,10 @@ int maildir_create_tmp(struct index_mailbox *ibox, const char *dir,
 	*fname_r = t_strdup(path);
 	if (fd == -1) {
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(ibox->box.storage,
+			mail_storage_set_error(&mbox->storage->storage,
 					       "Not enough disk space");
 		} else {
-			mail_storage_set_critical(ibox->box.storage,
+			mail_storage_set_critical(&mbox->storage->storage,
 						  "open(%s) failed: %m", path);
 		}
 	}

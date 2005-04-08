@@ -24,7 +24,7 @@ struct maildir_save_context {
 	struct mail_save_context ctx;
 	pool_t pool;
 
-	struct index_mailbox *ibox;
+	struct maildir_mailbox *mbox;
 	struct mail_index_transaction *trans;
 	struct maildir_uidlist_sync_ctx *sync_ctx;
 
@@ -62,16 +62,16 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 	else {
 		ret = -1;
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(ctx->ibox->box.storage,
+			mail_storage_set_error(&ctx->mbox->storage->storage,
 					       "Not enough disk space");
 		} else {
-			mail_storage_set_critical(ctx->ibox->box.storage,
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"link(%s, %s) failed: %m", tmp_path, new_path);
 		}
 	}
 
 	if (unlink(tmp_path) < 0 && errno != ENOENT) {
-		mail_storage_set_critical(ctx->ibox->box.storage,
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
 			"unlink(%s) failed: %m", tmp_path);
 	}
 	t_pop();
@@ -81,7 +81,7 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 static struct maildir_save_context *
 maildir_save_transaction_init(struct maildir_transaction_context *t)
 {
-        struct index_mailbox *ibox = t->ictx.ibox;
+        struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	struct maildir_save_context *ctx;
 	pool_t pool;
 
@@ -89,12 +89,12 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx = p_new(pool, struct maildir_save_context, 1);
 	ctx->ctx.transaction = &t->ictx.mailbox_ctx;
 	ctx->pool = pool;
-	ctx->ibox = ibox;
+	ctx->mbox = mbox;
 	ctx->trans = t->ictx.trans;
 
-	ctx->tmpdir = p_strconcat(pool, ibox->path, "/tmp", NULL);
-	ctx->newdir = p_strconcat(pool, ibox->path, "/new", NULL);
-	ctx->curdir = p_strconcat(pool, ibox->path, "/cur", NULL);
+	ctx->tmpdir = p_strconcat(pool, mbox->path, "/tmp", NULL);
+	ctx->newdir = p_strconcat(pool, mbox->path, "/new", NULL);
+	ctx->curdir = p_strconcat(pool, mbox->path, "/cur", NULL);
 	return ctx;
 }
 
@@ -108,7 +108,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;
 	struct maildir_save_context *ctx;
-	struct index_mailbox *ibox = t->ictx.ibox;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	struct maildir_filename *mf;
 	struct ostream *output;
 	const char *fname, *dest_fname, *path;
@@ -122,7 +122,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	ctx = t->save_ctx;
 
 	/* create a new file in tmp/ directory */
-	ctx->fd = maildir_create_tmp(ibox, ctx->tmpdir, ibox->mail_create_mode,
+	ctx->fd = maildir_create_tmp(mbox, ctx->tmpdir, mbox->mail_create_mode,
 				     &path);
 	if (ctx->fd == -1) {
 		ctx->failed = TRUE;
@@ -138,14 +138,14 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	ctx->input = input;
 
 	output = o_stream_create_file(ctx->fd, system_pool, 0, FALSE);
-	ctx->output = (ctx->ibox->storage->storage.flags &
+	ctx->output = (ctx->mbox->storage->storage.flags &
 		       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 		o_stream_create_crlf(default_pool, output) :
 		o_stream_create_lf(default_pool, output);
 	o_stream_unref(output);
 
 	flags &= ~MAIL_RECENT;
-	if (ibox->keep_recent)
+	if (mbox->ibox.keep_recent)
 		flags |= MAIL_RECENT;
 
 	/* now, we want to be able to rollback the whole append session,
@@ -210,7 +210,7 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 
 		if (utime(path, &buf) < 0) {
 			ctx->failed = TRUE;
-			mail_storage_set_critical(ctx->ibox->box.storage,
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 						  "utime(%s) failed: %m", path);
 		}
 	}
@@ -222,12 +222,12 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	/* FIXME: when saving multiple messages, we could get better
 	   performance if we left the fd open and fsync()ed it later */
 	if (fsync(ctx->fd) < 0) {
-		mail_storage_set_critical(ctx->ibox->box.storage,
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
 					  "fsync(%s) failed: %m", path);
 		ctx->failed = TRUE;
 	}
 	if (close(ctx->fd) < 0) {
-		mail_storage_set_critical(ctx->ibox->box.storage,
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
 					  "close(%s) failed: %m", path);
 		ctx->failed = TRUE;
 	}
@@ -236,17 +236,17 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	if (ctx->failed) {
 		/* delete the tmp file */
 		if (unlink(path) < 0 && errno != ENOENT) {
-			mail_storage_set_critical(ctx->ibox->box.storage,
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"unlink(%s) failed: %m", path);
 		}
 
 		errno = output_errno;
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(ctx->ibox->box.storage,
+			mail_storage_set_error(&ctx->mbox->storage->storage,
 					       "Not enough disk space");
 		} else if (errno != 0) {
-			mail_storage_set_critical(ctx->ibox->box.storage,
-				"write(%s) failed: %m", ctx->ibox->path);
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
+				"write(%s) failed: %m", ctx->mbox->path);
 		}
 
 		ctx->files = ctx->files->next;
@@ -308,13 +308,13 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 	i_assert(ctx->output == NULL);
 
-	sync_ctx = maildir_sync_index_begin(ctx->ibox);
+	sync_ctx = maildir_sync_index_begin(ctx->mbox);
 	if (sync_ctx == NULL) {
 		maildir_save_commit_abort(ctx, ctx->files);
 		return -1;
 	}
 
-	ret = maildir_uidlist_lock(ctx->ibox->uidlist);
+	ret = maildir_uidlist_lock(ctx->mbox->uidlist);
 	if (ret <= 0) {
 		/* error or timeout - our transaction is broken */
 		maildir_sync_index_abort(sync_ctx);
@@ -327,14 +327,14 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		return -1;
 	}
 
-	first_uid = maildir_uidlist_get_next_uid(ctx->ibox->uidlist);
+	first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 	mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
 
 	flags = MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 		MAILDIR_UIDLIST_REC_FLAG_RECENT;
 
 	/* move them into new/ */
-	ctx->sync_ctx = maildir_uidlist_sync_init(ctx->ibox->uidlist, TRUE);
+	ctx->sync_ctx = maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE);
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
 		fname = mf->dest != NULL ? mf->dest : mf->basename;
 		if (maildir_file_move(ctx, mf->basename, mf->dest) < 0 ||

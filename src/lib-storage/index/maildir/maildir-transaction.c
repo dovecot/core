@@ -7,11 +7,11 @@ struct mailbox_transaction_context *
 maildir_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	struct maildir_transaction_context *t;
 
 	t = i_new(struct maildir_transaction_context, 1);
-	index_transaction_init(&t->ictx, ibox, flags);
+	index_transaction_init(&t->ictx, &mbox->ibox, flags);
 	return &t->ictx.mailbox_ctx;
 }
 
@@ -20,7 +20,7 @@ int maildir_transaction_commit(struct mailbox_transaction_context *_t,
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;
-	struct index_mailbox *ibox = t->ictx.ibox;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	struct maildir_save_context *save_ctx;
 	int ret = 0;
 
@@ -48,7 +48,7 @@ int maildir_transaction_commit(struct mailbox_transaction_context *_t,
 		maildir_transaction_save_commit_post(save_ctx);
 	}
 
-	return ret < 0 ? -1 : maildir_sync_last_commit(ibox);
+	return ret < 0 ? -1 : maildir_sync_last_commit(mbox);
 }
 
 void maildir_transaction_rollback(struct mailbox_transaction_context *_t)

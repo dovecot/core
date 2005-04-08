@@ -37,12 +37,12 @@ unsigned int mbox_hide_headers_count = 7;
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
 
-int mbox_set_syscall_error(struct index_mailbox *ibox, const char *function)
+int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 {
 	i_assert(function != NULL);
 
-	mail_storage_set_critical(ibox->box.storage,
-		"%s failed with mbox file %s: %m", function, ibox->path);
+	mail_storage_set_critical(&mbox->storage->storage,
+		"%s failed with mbox file %s: %m", function, mbox->path);
 	return -1;
 }
 
@@ -480,48 +480,47 @@ static int mbox_mail_is_recent(struct index_mailbox *ibox __attr_unused__,
 	return FALSE;
 }
 
-static struct index_mailbox *
+static struct mbox_mailbox *
 mbox_alloc(struct index_storage *storage, struct mail_index *index,
 	   const char *name, enum mailbox_open_flags flags)
 {
-	struct index_mailbox *ibox;
+	struct mbox_mailbox *mbox;
 	pool_t pool;
 
 	pool = pool_alloconly_create("mailbox", 256);
-	ibox = p_new(pool, struct index_mailbox, 1);
-	ibox->box = mbox_mailbox;
-	ibox->box.pool = pool;
-	ibox->storage = storage;
+	mbox = p_new(pool, struct mbox_mailbox, 1);
+	mbox->ibox.box = mbox_mailbox;
+	mbox->ibox.box.pool = pool;
+	mbox->ibox.storage = storage;
+	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
+	mbox->ibox.is_recent = mbox_mail_is_recent;
 
-	if (index_storage_mailbox_init(ibox, index, name, flags) < 0) {
+	if (index_storage_mailbox_init(&mbox->ibox, index, name, flags) < 0) {
 		/* the memory is already freed here, no need to deinit */
 		return NULL;
 	}
 
-	ibox->mbox_fd = -1;
-	ibox->mbox_lock_type = F_UNLCK;
-	ibox->mbox_ext_idx =
+	mbox->storage = storage;
+	mbox->mbox_fd = -1;
+	mbox->mbox_lock_type = F_UNLCK;
+	mbox->mbox_ext_idx =
 		mail_index_ext_register(index, "mbox", 0,
 					sizeof(uint64_t), sizeof(uint64_t));
 
-	ibox->is_recent = mbox_mail_is_recent;
-	ibox->mail_vfuncs = &mbox_mail_vfuncs;
-        ibox->mbox_very_dirty_syncs = getenv("MBOX_VERY_DIRTY_SYNCS") != NULL;
-	ibox->mbox_do_dirty_syncs = ibox->mbox_very_dirty_syncs ||
+        mbox->mbox_very_dirty_syncs = getenv("MBOX_VERY_DIRTY_SYNCS") != NULL;
+	mbox->mbox_do_dirty_syncs = mbox->mbox_very_dirty_syncs ||
 		getenv("MBOX_DIRTY_SYNCS") != NULL;
 
-	ibox->md5hdr_ext_idx =
-		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
 	if ((storage->storage.flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
-		ibox->mbox_save_md5 = TRUE;
-	return ibox;
+		mbox->mbox_save_md5 = TRUE;
+	return mbox;
 }
 
 static struct mailbox *
 mbox_open(struct index_storage *storage, const char *name,
 	  enum mailbox_open_flags flags)
 {
-	struct index_mailbox *ibox;
+	struct mbox_mailbox *mbox;
 	struct mail_index *index;
 	const char *path, *index_dir;
 
@@ -540,22 +539,22 @@ mbox_open(struct index_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
-	ibox = mbox_alloc(storage, index, name, flags);
-	if (ibox == NULL)
+	mbox = mbox_alloc(storage, index, name, flags);
+	if (mbox == NULL)
 		return NULL;
 
-	ibox->path = p_strdup(ibox->box.pool, path);
+	mbox->path = p_strdup(mbox->ibox.box.pool, path);
 
 	if (access(path, R_OK|W_OK) < 0) {
 		if (errno < EACCES)
-			mbox_set_syscall_error(ibox, "access()");
+			mbox_set_syscall_error(mbox, "access()");
 		else {
-			ibox->readonly = TRUE;
-			ibox->mbox_readonly = TRUE;
+			mbox->ibox.readonly = TRUE;
+			mbox->mbox_readonly = TRUE;
 		}
 	}
 
-	return &ibox->box;
+	return &mbox->ibox.box;
 }
 
 static struct mailbox *
@@ -563,21 +562,21 @@ mbox_mailbox_open_stream(struct index_storage *storage, const char *name,
 			 struct istream *input, enum mailbox_open_flags flags)
 {
 	struct mail_index *index;
-	struct index_mailbox *ibox;
+	struct mbox_mailbox *mbox;
 
 	flags |= MAILBOX_OPEN_READONLY;
 
 	index = mail_index_alloc(NULL, NULL);
-	ibox = mbox_alloc(storage, index, name, flags);
-	if (ibox == NULL)
+	mbox = mbox_alloc(storage, index, name, flags);
+	if (mbox == NULL)
 		return NULL;
 
 	i_stream_ref(input);
-	ibox->mbox_file_stream = input;
-	ibox->mbox_readonly = TRUE;
+	mbox->mbox_file_stream = input;
+	mbox->mbox_readonly = TRUE;
 
-	ibox->path = "(read-only mbox stream)";
-	return &ibox->box;
+	mbox->path = "(read-only mbox stream)";
+	return &mbox->ibox.box;
 }
 
 static struct mailbox *
@@ -939,28 +938,28 @@ static int mbox_get_mailbox_name_status(struct mail_storage *_storage,
 
 static int mbox_storage_close(struct mailbox *box)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 	const struct mail_index_header *hdr;
 	struct mail_index *free_index = NULL;
 	int ret = 0;
 
-	hdr = mail_index_get_header(ibox->view);
+	hdr = mail_index_get_header(mbox->ibox.view);
 	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
-	    !ibox->readonly && !ibox->mbox_readonly) {
+	    !mbox->ibox.readonly && !mbox->mbox_readonly) {
 		/* we've done changes to mbox which haven't been written yet.
 		   do it now. */
-		if (mbox_sync(ibox, MBOX_SYNC_REWRITE) < 0)
+		if (mbox_sync(mbox, MBOX_SYNC_REWRITE) < 0)
 			ret = -1;
 	}
 
-        mbox_file_close(ibox);
-	if (ibox->mbox_file_stream != NULL) {
-		i_stream_unref(ibox->mbox_file_stream);
-		ibox->mbox_file_stream = NULL;
+        mbox_file_close(mbox);
+	if (mbox->mbox_file_stream != NULL) {
+		i_stream_unref(mbox->mbox_file_stream);
+		mbox->mbox_file_stream = NULL;
 
 		/* it's not in storage's index cache, so free it manually */
-		free_index = ibox->index;
-		ibox->index = NULL;
+		free_index = mbox->ibox.index;
+		mbox->ibox.index = NULL;
 	}
 
 	index_storage_mailbox_free(box);
@@ -973,16 +972,16 @@ static void
 mbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 		    mailbox_notify_callback_t *callback, void *context)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
-	ibox->min_notify_interval = min_interval;
-	ibox->notify_callback = callback;
-	ibox->notify_context = context;
+	mbox->ibox.min_notify_interval = min_interval;
+	mbox->ibox.notify_callback = callback;
+	mbox->ibox.notify_context = context;
 
 	if (callback == NULL)
-		index_mailbox_check_remove_all(ibox);
+		index_mailbox_check_remove_all(&mbox->ibox);
 	else
-		index_mailbox_check_add(ibox, ibox->path, FALSE);
+		index_mailbox_check_add(&mbox->ibox, mbox->path, FALSE);
 }
 
 struct mail_storage mbox_storage = {

@@ -337,6 +337,9 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 		return -1;
 	}
 
+	ibox->md5hdr_ext_idx =
+		mail_index_ext_register(index, "header-md5", 0, 16, 1);
+
 	ibox->cache = mail_index_get_cache(index);
 	index_cache_register_defaults(ibox);
 	ibox->view = mail_index_view_open(index);

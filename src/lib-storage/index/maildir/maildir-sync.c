@@ -189,7 +189,7 @@
 #define MAILDIR_FILENAME_FLAG_FOUND 128
 
 struct maildir_sync_context {
-        struct index_mailbox *ibox;
+        struct maildir_mailbox *mbox;
 	const char *new_dir, *cur_dir;
 	int partial;
 
@@ -198,7 +198,7 @@ struct maildir_sync_context {
 };
 
 struct maildir_index_sync_context {
-        struct index_mailbox *ibox;
+        struct maildir_mailbox *mbox;
 	struct mail_index_view *view;
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_transaction *trans;
@@ -208,22 +208,22 @@ struct maildir_index_sync_context {
 	int dirty_state;
 };
 
-static int maildir_expunge(struct index_mailbox *ibox, const char *path,
+static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 			   void *context __attr_unused__)
 {
 	if (unlink(path) == 0) {
-		ibox->dirty_cur_time = ioloop_time;
+		mbox->dirty_cur_time = ioloop_time;
 		return 1;
 	}
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(ibox->box.storage,
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "unlink(%s) failed: %m", path);
 	return -1;
 }
 
-static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
+static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			      void *context)
 {
         struct maildir_index_sync_context *ctx = context;
@@ -244,7 +244,7 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 	if (rename(path, newpath) == 0) {
 		if ((flags8 & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 			ctx->dirty_state = -1;
-		ibox->dirty_cur_time = ioloop_time;
+		mbox->dirty_cur_time = ioloop_time;
 		return 1;
 	}
 	if (errno == ENOENT)
@@ -257,12 +257,12 @@ static int maildir_sync_flags(struct index_mailbox *ibox, const char *path,
 		return 1;
 	}
 
-	mail_storage_set_critical(ibox->box.storage,
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "rename(%s, %s) failed: %m", path, newpath);
 	return -1;
 }
 
-static int maildir_sync_record(struct index_mailbox *ibox,
+static int maildir_sync_record(struct maildir_mailbox *mbox,
                                struct maildir_index_sync_context *ctx)
 {
 	struct mail_index_sync_rec *sync_rec = &ctx->sync_rec;
@@ -286,7 +286,7 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 		for (seq = seq1; seq <= seq2; seq++) {
 			if (mail_index_lookup_uid(view, seq, &uid) < 0)
 				return -1;
-			if (maildir_file_do(ibox, uid, maildir_expunge,
+			if (maildir_file_do(mbox, uid, maildir_expunge,
 					    NULL) < 0)
 				return -1;
 		}
@@ -303,7 +303,7 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 		for (ctx->seq = seq1; ctx->seq <= seq2; ctx->seq++) {
 			if (mail_index_lookup_uid(view, ctx->seq, &uid) < 0)
 				return -1;
-			if (maildir_file_do(ibox, uid,
+			if (maildir_file_do(mbox, uid,
 					    maildir_sync_flags, ctx) < 0)
 				return -1;
 			if (ctx->dirty_state < 0) {
@@ -324,29 +324,30 @@ static int maildir_sync_record(struct index_mailbox *ibox,
 	return 0;
 }
 
-int maildir_sync_last_commit(struct index_mailbox *ibox)
+int maildir_sync_last_commit(struct maildir_mailbox *mbox)
 {
 	struct maildir_index_sync_context ctx;
 	uint32_t seq;
 	uoff_t offset;
 	int ret;
 
-	if (ibox->commit_log_file_seq == 0)
+	if (mbox->ibox.commit_log_file_seq == 0)
 		return 0;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.ibox = ibox;
+	ctx.mbox = mbox;
 
-        ibox->syncing_commit = TRUE;
-	ret = mail_index_sync_begin(ibox->index, &ctx.sync_ctx, &ctx.view,
-				    ibox->commit_log_file_seq,
-				    ibox->commit_log_file_offset, FALSE, FALSE);
+        mbox->syncing_commit = TRUE;
+	ret = mail_index_sync_begin(mbox->ibox.index, &ctx.sync_ctx, &ctx.view,
+				    mbox->ibox.commit_log_file_seq,
+				    mbox->ibox.commit_log_file_offset,
+				    FALSE, FALSE);
 	if (ret > 0) {
 		ctx.trans = mail_index_transaction_begin(ctx.view, FALSE, TRUE);
 
 		while ((ret = mail_index_sync_next(ctx.sync_ctx,
 						   &ctx.sync_rec)) > 0) {
-			if (maildir_sync_record(ibox, &ctx) < 0) {
+			if (maildir_sync_record(mbox, &ctx) < 0) {
 				ret = -1;
 				break;
 			}
@@ -356,26 +357,26 @@ int maildir_sync_last_commit(struct index_mailbox *ibox)
 		if (mail_index_sync_commit(ctx.sync_ctx) < 0)
 			ret = -1;
 	}
-        ibox->syncing_commit = FALSE;
+        mbox->syncing_commit = FALSE;
 
 	if (ret == 0) {
-		ibox->commit_log_file_seq = 0;
-		ibox->commit_log_file_offset = 0;
+		mbox->ibox.commit_log_file_seq = 0;
+		mbox->ibox.commit_log_file_offset = 0;
 	} else {
-		mail_storage_set_index_error(ibox);
+		mail_storage_set_index_error(&mbox->ibox);
 	}
 	return ret;
 }
 
 static struct maildir_sync_context *
-maildir_sync_context_new(struct index_mailbox *ibox)
+maildir_sync_context_new(struct maildir_mailbox *mbox)
 {
         struct maildir_sync_context *ctx;
 
 	ctx = t_new(struct maildir_sync_context, 1);
-	ctx->ibox = ibox;
-	ctx->new_dir = t_strconcat(ibox->path, "/new", NULL);
-	ctx->cur_dir = t_strconcat(ibox->path, "/cur", NULL);
+	ctx->mbox = mbox;
+	ctx->new_dir = t_strconcat(mbox->path, "/new", NULL);
+	ctx->cur_dir = t_strconcat(mbox->path, "/cur", NULL);
 	return ctx;
 }
 
@@ -387,7 +388,7 @@ static void maildir_sync_deinit(struct maildir_sync_context *ctx)
 		maildir_sync_index_abort(ctx->index_sync_ctx);
 }
 
-static int maildir_fix_duplicate(struct index_mailbox *ibox, const char *dir,
+static int maildir_fix_duplicate(struct maildir_mailbox *mbox, const char *dir,
 				 const char *old_fname)
 {
 	const char *new_fname, *old_path, *new_path;
@@ -397,13 +398,13 @@ static int maildir_fix_duplicate(struct index_mailbox *ibox, const char *dir,
 
 	old_path = t_strconcat(dir, "/", old_fname, NULL);
 	new_fname = maildir_generate_tmp_filename(&ioloop_timeval);
-	new_path = t_strconcat(ibox->path, "/new/", new_fname, NULL);
+	new_path = t_strconcat(mbox->path, "/new/", new_fname, NULL);
 
 	if (rename(old_path, new_path) == 0) {
 		i_warning("Fixed duplicate in %s: %s -> %s",
-			  ibox->path, old_fname, new_fname);
+			  mbox->path, old_fname, new_fname);
 	} else if (errno != ENOENT) {
-		mail_storage_set_critical(ibox->box.storage,
+		mail_storage_set_critical(&mbox->storage->storage,
 			"rename(%s, %s) failed: %m", old_path, new_path);
 		ret = -1;
 	}
@@ -414,7 +415,7 @@ static int maildir_fix_duplicate(struct index_mailbox *ibox, const char *dir,
 
 static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 {
-	struct mail_storage *storage = ctx->ibox->box.storage;
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *dir;
 	DIR *dirp;
 	string_t *src, *dest;
@@ -434,8 +435,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 	src = t_str_new(1024);
 	dest = t_str_new(1024);
 
-	move_new = new_dir && !mailbox_is_readonly(&ctx->ibox->box) &&
-		!ctx->ibox->keep_recent;
+	move_new = new_dir && !mailbox_is_readonly(&ctx->mbox->ibox.box) &&
+		!ctx->mbox->ibox.keep_recent;
 	while ((dp = readdir(dirp)) != NULL) {
 		if (dp->d_name[0] == '.')
 			continue;
@@ -446,9 +447,9 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 			/* new file and we couldn't lock uidlist, check this
 			   later in next sync. */
 			if (new_dir)
-				ctx->ibox->last_new_mtime = 0;
+				ctx->mbox->last_new_mtime = 0;
 			else
-				ctx->ibox->dirty_cur_time = ioloop_time;
+				ctx->mbox->dirty_cur_time = ioloop_time;
 			continue;
 		}
 		if (ret < 0)
@@ -464,7 +465,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 				str_append(dest, ":2,");
 			if (rename(str_c(src), str_c(dest)) == 0) {
 				/* we moved it - it's \Recent for us */
-                                ctx->ibox->dirty_cur_time = ioloop_time;
+                                ctx->mbox->dirty_cur_time = ioloop_time;
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED |
 					MAILDIR_UIDLIST_REC_FLAG_RECENT;
 			} else if (ENOTFOUND(errno)) {
@@ -494,7 +495,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 				break;
 
 			/* possibly duplicate - try fixing it */
-			if (maildir_fix_duplicate(ctx->ibox,
+			if (maildir_fix_duplicate(ctx->mbox,
 						  dir, dp->d_name) < 0) {
 				ret = -1;
 				break;
@@ -514,21 +515,21 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 				    int *new_changed_r, int *cur_changed_r)
 {
-	struct index_mailbox *ibox = ctx->ibox;
+	struct maildir_mailbox *mbox = ctx->mbox;
 	struct stat st;
 	time_t new_mtime, cur_mtime;
 
 	*new_changed_r = *cur_changed_r = FALSE;
 
 	if (stat(ctx->new_dir, &st) < 0) {
-		mail_storage_set_critical(ibox->box.storage,
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "stat(%s) failed: %m", ctx->new_dir);
 		return -1;
 	}
 	new_mtime = st.st_mtime;
 
 	if (stat(ctx->cur_dir, &st) < 0) {
-		mail_storage_set_critical(ibox->box.storage,
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "stat(%s) failed: %m", ctx->cur_dir);
 		return -1;
 	}
@@ -536,33 +537,34 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 
 	/* cur stamp is kept in index, we don't have to sync if
 	   someone else has done it and updated the index. */
-	ibox->last_cur_mtime = mail_index_get_header(ibox->view)->sync_stamp;
-	if (ibox->dirty_cur_time == 0 && cur_mtime != ibox->last_cur_mtime) {
+	mbox->last_cur_mtime =
+		mail_index_get_header(mbox->ibox.view)->sync_stamp;
+	if (mbox->dirty_cur_time == 0 && cur_mtime != mbox->last_cur_mtime) {
 		/* check if the index has been updated.. */
-		if (mail_index_refresh(ibox->index) < 0) {
-			mail_storage_set_index_error(ibox);
+		if (mail_index_refresh(mbox->ibox.index) < 0) {
+			mail_storage_set_index_error(&mbox->ibox);
 			return -1;
 		}
 
-		ibox->last_cur_mtime =
-			mail_index_get_header(ibox->view)->sync_stamp;
+		mbox->last_cur_mtime =
+			mail_index_get_header(mbox->ibox.view)->sync_stamp;
 	}
 
-	if (new_mtime != ibox->last_new_mtime ||
-	    new_mtime >= ibox->last_new_sync_time - MAILDIR_SYNC_SECS) {
+	if (new_mtime != mbox->last_new_mtime ||
+	    new_mtime >= mbox->last_new_sync_time - MAILDIR_SYNC_SECS) {
 		*new_changed_r = TRUE;
-		ibox->last_new_mtime = new_mtime;
-		ibox->last_new_sync_time = ioloop_time;
+		mbox->last_new_mtime = new_mtime;
+		mbox->last_new_sync_time = ioloop_time;
 	}
 
-	if (cur_mtime != ibox->last_cur_mtime ||
-	    (ibox->dirty_cur_time != 0 &&
-	     ioloop_time - ibox->dirty_cur_time > MAILDIR_SYNC_SECS)) {
+	if (cur_mtime != mbox->last_cur_mtime ||
+	    (mbox->dirty_cur_time != 0 &&
+	     ioloop_time - mbox->dirty_cur_time > MAILDIR_SYNC_SECS)) {
 		/* cur/ changed, or delayed cur/ check */
 		*cur_changed_r = TRUE;
-		ibox->last_cur_mtime = cur_mtime;
+		mbox->last_cur_mtime = cur_mtime;
 
-		ibox->dirty_cur_time =
+		mbox->dirty_cur_time =
 			cur_mtime >= ioloop_time - MAILDIR_SYNC_SECS ?
 			cur_mtime : 0;
 	}
@@ -571,17 +573,17 @@ static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
 }
 
 struct maildir_index_sync_context *
-maildir_sync_index_begin(struct index_mailbox *ibox)
+maildir_sync_index_begin(struct maildir_mailbox *mbox)
 {
 	struct maildir_index_sync_context *sync_ctx;
 
 	sync_ctx = i_new(struct maildir_index_sync_context, 1);
-	sync_ctx->ibox = ibox;
+	sync_ctx->mbox = mbox;
 
-	if (mail_index_sync_begin(ibox->index, &sync_ctx->sync_ctx,
+	if (mail_index_sync_begin(mbox->ibox.index, &sync_ctx->sync_ctx,
 				  &sync_ctx->view, (uint32_t)-1, (uoff_t)-1,
 				  FALSE, FALSE) <= 0) {
-		mail_storage_set_index_error(ibox);
+		mail_storage_set_index_error(&mbox->ibox);
 		return NULL;
 	}
 	return sync_ctx;
@@ -596,7 +598,7 @@ void maildir_sync_index_abort(struct maildir_index_sync_context *sync_ctx)
 int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			      int partial)
 {
-	struct index_mailbox *ibox = sync_ctx->ibox;
+	struct maildir_mailbox *mbox = sync_ctx->mbox;
 	struct mail_index_view *view = sync_ctx->view;
 	struct maildir_uidlist_iter_ctx *iter;
 	struct mail_index_transaction *trans;
@@ -612,15 +614,15 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	int ret;
 
 	hdr = mail_index_get_header(view);
-	uid_validity = maildir_uidlist_get_uid_validity(ibox->uidlist);
+	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
 	if (uid_validity != hdr->uid_validity &&
 	    uid_validity != 0 && hdr->uid_validity != 0) {
 		/* uidvalidity changed and mailbox isn't being initialized,
 		   index must be rebuilt */
-		mail_storage_set_critical(ibox->box.storage,
+		mail_storage_set_critical(&mbox->storage->storage,
 			"Maildir %s sync: UIDVALIDITY changed (%u -> %u)",
-			ibox->path, hdr->uid_validity, uid_validity);
-		mail_index_mark_corrupted(ibox->index);
+			mbox->path, hdr->uid_validity, uid_validity);
+		mail_index_mark_corrupted(mbox->ibox.index);
                 maildir_sync_index_abort(sync_ctx);
 		return -1;
 	}
@@ -631,7 +633,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	keyword_pool = pool_alloconly_create("maildir keywords", 128);
 
 	seq = 0;
-	iter = maildir_uidlist_iter_init(ibox->uidlist);
+	iter = maildir_uidlist_iter_init(mbox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
 		p_clear(keyword_pool);
 		maildir_filename_get_flags(filename, keyword_pool,
@@ -666,18 +668,19 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 				if ((uflags &
 				     MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 					mail_storage_set_critical(
-						ibox->box.storage,
+						&mbox->storage->storage,
 						"Maildir %s sync: "
 						"UID < next_uid "
 						"(%u < %u, file = %s)",
-						ibox->path, uid, hdr->next_uid,
+						mbox->path, uid, hdr->next_uid,
 						filename);
-					mail_index_mark_corrupted(ibox->index);
+					mail_index_mark_corrupted(
+						mbox->ibox.index);
 					ret = -1;
 					break;
 				}
-				ibox->dirty_cur_time = ioloop_time;
-				maildir_uidlist_add_flags(ibox->uidlist,
+				mbox->dirty_cur_time = ioloop_time;
+				maildir_uidlist_add_flags(mbox->uidlist,
 					filename,
 					MAILDIR_UIDLIST_REC_FLAG_RACING);
 
@@ -716,18 +719,19 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 				continue;
 			}
 			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
-				mail_storage_set_critical(ibox->box.storage,
+				mail_storage_set_critical(
+					&mbox->storage->storage,
 					"Maildir %s sync: "
 					"UID inserted in the middle of mailbox "
 					"(%u > %u, file = %s)",
-					ibox->path, rec->uid, uid, filename);
-				mail_index_mark_corrupted(ibox->index);
+					mbox->path, rec->uid, uid, filename);
+				mail_index_mark_corrupted(mbox->ibox.index);
 				ret = -1;
 				break;
 			}
 
-			ibox->dirty_cur_time = ioloop_time;
-			maildir_uidlist_add_flags(ibox->uidlist, filename,
+			mbox->dirty_cur_time = ioloop_time;
+			maildir_uidlist_add_flags(mbox->uidlist, filename,
 				MAILDIR_UIDLIST_REC_FLAG_RACING);
 
 			seq--;
@@ -735,8 +739,8 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		}
 
 		if ((rec->flags & MAIL_RECENT) != 0) {
-			index_mailbox_set_recent(ibox, seq);
-			if (ibox->keep_recent) {
+			index_mailbox_set_recent(&mbox->ibox, seq);
+			if (mbox->ibox.keep_recent) {
 				flags |= MAIL_RECENT;
 			} else {
 				mail_index_update_flags(trans, seq,
@@ -781,19 +785,19 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	}
 
 	/* now, sync the index */
-        ibox->syncing_commit = TRUE;
+        mbox->syncing_commit = TRUE;
 	while ((ret = mail_index_sync_next(sync_ctx->sync_ctx,
 					   &sync_ctx->sync_rec)) > 0) {
-		if (maildir_sync_record(ibox, sync_ctx) < 0) {
+		if (maildir_sync_record(mbox, sync_ctx) < 0) {
 			ret = -1;
 			break;
 		}
 	}
-        ibox->syncing_commit = FALSE;
+        mbox->syncing_commit = FALSE;
 
-	if (ibox->dirty_cur_time == 0 &&
-	    ibox->last_cur_mtime != (time_t)hdr->sync_stamp) {
-		uint32_t sync_stamp = ibox->last_cur_mtime;
+	if (mbox->dirty_cur_time == 0 &&
+	    mbox->last_cur_mtime != (time_t)hdr->sync_stamp) {
+		uint32_t sync_stamp = mbox->last_cur_mtime;
 
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, sync_stamp),
@@ -802,16 +806,16 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 
 	if (hdr->uid_validity == 0) {
 		/* get the initial uidvalidity */
-		if (maildir_uidlist_update(ibox->uidlist) < 0)
+		if (maildir_uidlist_update(mbox->uidlist) < 0)
 			ret = -1;
-		uid_validity = maildir_uidlist_get_uid_validity(ibox->uidlist);
+		uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
 		if (uid_validity == 0) {
 			uid_validity = ioloop_time;
-			maildir_uidlist_set_uid_validity(ibox->uidlist,
+			maildir_uidlist_set_uid_validity(mbox->uidlist,
 							 uid_validity);
 		}
 	} else if (uid_validity == 0) {
-		maildir_uidlist_set_uid_validity(ibox->uidlist,
+		maildir_uidlist_set_uid_validity(mbox->uidlist,
 						 hdr->uid_validity);
 	}
 
@@ -821,7 +825,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			&uid_validity, sizeof(uid_validity));
 	}
 
-	next_uid = maildir_uidlist_get_next_uid(ibox->uidlist);
+	next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
 	if (next_uid != 0 && hdr->next_uid != next_uid) {
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, next_uid),
@@ -838,18 +842,18 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		if (mail_index_transaction_commit(trans, &seq, &offset) < 0)
 			ret = -1;
 		else if (seq != 0) {
-			ibox->commit_log_file_seq = seq;
-			ibox->commit_log_file_offset = offset;
+			mbox->ibox.commit_log_file_seq = seq;
+			mbox->ibox.commit_log_file_offset = offset;
 		}
 		if (mail_index_sync_commit(sync_ctx->sync_ctx) < 0)
 			ret = -1;
 	}
 
 	if (ret == 0) {
-		ibox->commit_log_file_seq = 0;
-		ibox->commit_log_file_offset = 0;
+		mbox->ibox.commit_log_file_seq = 0;
+		mbox->ibox.commit_log_file_offset = 0;
 	} else {
-		mail_storage_set_index_error(ibox);
+		mail_storage_set_index_error(&mbox->ibox);
 	}
 
 	i_free(sync_ctx);
@@ -915,13 +919,13 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 	   problem rarely happens except under high amount of modifications.
 	*/
 
-	if (!ctx->ibox->syncing_commit) {
-		ctx->index_sync_ctx = maildir_sync_index_begin(ctx->ibox);
+	if (!ctx->mbox->syncing_commit) {
+		ctx->index_sync_ctx = maildir_sync_index_begin(ctx->mbox);
 		if (ctx->index_sync_ctx == NULL)
 			return -1;
 	}
 
-	if ((ret = maildir_uidlist_lock(ctx->ibox->uidlist)) <= 0) {
+	if ((ret = maildir_uidlist_lock(ctx->mbox->uidlist)) <= 0) {
 		/* failure / timeout. if forced is TRUE, we could still go
 		   forward and check only for renamed files, but is it worth
 		   the trouble? .. */
@@ -930,7 +934,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 
 	ctx->partial = !cur_changed;
 	ctx->uidlist_sync_ctx =
-		maildir_uidlist_sync_init(ctx->ibox->uidlist, ctx->partial);
+		maildir_uidlist_sync_init(ctx->mbox->uidlist, ctx->partial);
 
 	if (maildir_scan_dir(ctx, TRUE) < 0)
 		return -1;
@@ -941,7 +945,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 
 	/* finish uidlist syncing, but keep it still locked */
 	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
-	if (!ctx->ibox->syncing_commit) {
+	if (!ctx->mbox->syncing_commit) {
 		if (maildir_sync_index_finish(ctx->index_sync_ctx,
 					      ctx->partial) < 0) {
 			ctx->index_sync_ctx = NULL;
@@ -956,12 +960,12 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 	return ret;
 }
 
-int maildir_storage_sync_force(struct index_mailbox *ibox)
+int maildir_storage_sync_force(struct maildir_mailbox *mbox)
 {
         struct maildir_sync_context *ctx;
 	int ret;
 
-	ctx = maildir_sync_context_new(ibox);
+	ctx = maildir_sync_context_new(mbox);
 	ret = maildir_sync_context(ctx, TRUE);
 	maildir_sync_deinit(ctx);
 	return ret;
@@ -970,15 +974,16 @@ int maildir_storage_sync_force(struct index_mailbox *ibox)
 struct mailbox_sync_context *
 maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	struct maildir_sync_context *ctx;
 	int ret = 0;
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
-	    ibox->sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <= ioloop_time) {
-		ibox->sync_last_check = ioloop_time;
+	    mbox->ibox.sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <=
+	    ioloop_time) {
+		mbox->ibox.sync_last_check = ioloop_time;
 
-		ctx = maildir_sync_context_new(ibox);
+		ctx = maildir_sync_context_new(mbox);
 		ret = maildir_sync_context(ctx, FALSE);
 		maildir_sync_deinit(ctx);
 	}

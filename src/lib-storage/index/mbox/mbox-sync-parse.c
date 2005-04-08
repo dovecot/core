@@ -134,14 +134,14 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 		t_push();
 		keyword = t_strndup(hdr->full_value + keyword_start,
 				    pos - keyword_start);
-		(void)mail_index_keyword_lookup(ctx->sync_ctx->ibox->index,
+		(void)mail_index_keyword_lookup(ctx->sync_ctx->mbox->ibox.index,
 						keyword, TRUE, &idx);
 		t_pop();
 
 		count++;
 	}
 
-	if (count != array_count(ctx->sync_ctx->ibox->keyword_names)) {
+	if (count != array_count(ctx->sync_ctx->mbox->ibox.keyword_names)) {
 		/* need to update this list */
 		ctx->imapbase_rewrite = TRUE;
 		ctx->need_rewrite = TRUE;
@@ -267,7 +267,7 @@ static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 		str_truncate(keyword, 0);
 		str_append_n(keyword, hdr->full_value + keyword_start,
 			     pos - keyword_start);
-		if (!mail_index_keyword_lookup(ctx->sync_ctx->ibox->index,
+		if (!mail_index_keyword_lookup(ctx->sync_ctx->mbox->ibox.index,
 					       str_c(keyword), FALSE, &idx)) {
 			/* keyword wasn't found. that means the sent mail
 			   originally contained X-Keywords header. Delete it. */
@@ -501,7 +501,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	ctx->body_offset = input->v_offset;
 }
 
-int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
+int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 			       struct mail_index_view *view, uint32_t seq)
 {
         struct mbox_sync_mail_context ctx;
@@ -520,7 +520,7 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 	memset(&ctx, 0, sizeof(ctx));
         mbox_md5_ctx = mbox_md5_init();
 
-	hdr_ctx = message_parse_header_init(ibox->mbox_stream, NULL, FALSE);
+	hdr_ctx = message_parse_header_init(mbox->mbox_stream, NULL, FALSE);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		if (hdr->eoh)
 			break;
@@ -551,17 +551,18 @@ int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
 	if (ctx.mail.uid != 0) {
 		/* match by X-UID header */
 		if (mail_index_lookup_uid(view, seq, &uid) < 0) {
-			mail_storage_set_index_error(ibox);
+			mail_storage_set_index_error(&mbox->ibox);
 			return -1;
 		}
 		return ctx.mail.uid == uid;
 	}
 
 	/* match by MD5 sum */
-	ibox->mbox_save_md5 = TRUE;
+	mbox->mbox_save_md5 = TRUE;
 
-	if (mail_index_lookup_ext(view, seq, ibox->md5hdr_ext_idx, &data) < 0) {
-		mail_storage_set_index_error(ibox);
+	if (mail_index_lookup_ext(view, seq, mbox->ibox.md5hdr_ext_idx,
+				  &data) < 0) {
+		mail_storage_set_index_error(&mbox->ibox);
 		return -1;
 	}
 	return data == NULL ? 0 :

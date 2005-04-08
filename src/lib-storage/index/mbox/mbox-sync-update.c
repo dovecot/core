@@ -112,7 +112,7 @@ static void keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
 	unsigned int i, idx_count, keywords_count;
 	size_t last_break;
 
-	keyword_names = array_get(sync_ctx->ibox->keyword_names,
+	keyword_names = array_get(sync_ctx->mbox->ibox.keyword_names,
 				  &keywords_count);
 	keyword_indexes = array_get(keyword_indexes_arr, &idx_count);
 
@@ -151,7 +151,7 @@ keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest)
 		}
 	}
 
-	names = array_get(ctx->sync_ctx->ibox->keyword_names, &count);
+	names = array_get(ctx->sync_ctx->mbox->ibox.keyword_names, &count);
 	for (i = 0; i < count; i++) {
 		/* try avoid overly long lines but cutting them
 		   every 70 chars or so */
@@ -376,7 +376,7 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
 			mbox_sync_update_xkeywords(ctx);
 	}
 
-	if (!ctx->sync_ctx->ibox->keep_recent)
+	if (!ctx->sync_ctx->mbox->ibox.keep_recent)
 		ctx->mail.flags &= ~MAIL_RECENT;
 
 	if ((old_flags & STATUS_FLAGS_MASK) !=
@@ -397,7 +397,7 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 	    (ctx->mail.flags & MAIL_RECENT) != 0) {
 		ctx->mail.flags = (ctx->mail.flags & ~STATUS_FLAGS_MASK) |
 			(mail->flags & STATUS_FLAGS_MASK);
-		if (!ctx->sync_ctx->ibox->keep_recent)
+		if (!ctx->sync_ctx->mbox->ibox.keep_recent)
                         ctx->mail.flags &= ~MAIL_RECENT;
 		mbox_sync_update_status(ctx);
 	}

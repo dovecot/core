@@ -15,7 +15,7 @@ int maildir_uidlist_lock(struct maildir_uidlist *uidlist);
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
 
-struct maildir_uidlist *maildir_uidlist_init(struct index_mailbox *ibox);
+struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox);
 void maildir_uidlist_deinit(struct maildir_uidlist *uidlist);
 
 /* Returns -1 if error, 0 if file is broken or lost, 1 if ok. */

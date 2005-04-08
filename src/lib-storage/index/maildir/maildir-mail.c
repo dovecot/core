@@ -10,7 +10,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-static int do_open(struct index_mailbox *ibox, const char *path, void *context)
+static int
+do_open(struct maildir_mailbox *mbox, const char *path, void *context)
 {
 	int *fd = context;
 
@@ -20,12 +21,13 @@ static int do_open(struct index_mailbox *ibox, const char *path, void *context)
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(ibox->box.storage,
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "open(%s) failed: %m", path);
 	return -1;
 }
 
-static int do_stat(struct index_mailbox *ibox, const char *path, void *context)
+static int
+do_stat(struct maildir_mailbox *mbox, const char *path, void *context)
 {
 	struct stat *st = context;
 
@@ -34,20 +36,20 @@ static int do_stat(struct index_mailbox *ibox, const char *path, void *context)
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(ibox->box.storage,
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "stat(%s) failed: %m", path);
 	return -1;
 }
 
 static struct istream *
-maildir_open_mail(struct index_mailbox *ibox, uint32_t uid, int *deleted)
+maildir_open_mail(struct maildir_mailbox *mbox, uint32_t uid, int *deleted)
 {
 	int fd;
 
 	*deleted = FALSE;
 
 	fd = -1;
-	if (maildir_file_do(ibox, uid, do_open, &fd) < 0)
+	if (maildir_file_do(mbox, uid, do_open, &fd) < 0)
 		return NULL;
 
 	if (fd == -1) {
@@ -55,7 +57,7 @@ maildir_open_mail(struct index_mailbox *ibox, uint32_t uid, int *deleted)
 		return NULL;
 	}
 
-	if (ibox->mail_read_mmaped) {
+	if (mbox->ibox.mail_read_mmaped) {
 		return i_stream_create_mmap(fd, default_pool,
 					    MAIL_MMAP_BLOCK_SIZE, 0, 0, TRUE);
 	} else {
@@ -66,7 +68,8 @@ maildir_open_mail(struct index_mailbox *ibox, uint32_t uid, int *deleted)
 
 static time_t maildir_mail_get_received_date(struct mail *_mail)
 {
-	struct index_mail *mail = (struct index_mail *) _mail;
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 	int fd;
@@ -85,12 +88,12 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 		i_assert(fd != -1);
 
 		if (fstat(fd, &st) < 0) {
-			mail_storage_set_critical(mail->ibox->box.storage,
+			mail_storage_set_critical(&mbox->storage->storage,
 						  "fstat(maildir) failed: %m");
 			return (time_t)-1;
 		}
 	} else {
-		if (maildir_file_do(mail->ibox, mail->mail.mail.uid,
+		if (maildir_file_do(mbox, mail->mail.mail.uid,
 				    do_stat, &st) <= 0)
 			return (time_t)-1;
 	}
@@ -105,6 +108,7 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
 	const char *fname, *p;
 	uoff_t virtual_size;
@@ -119,7 +123,7 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 			return data->virtual_size;
 	}
 
-	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
+	fname = maildir_uidlist_lookup(mbox->uidlist,
 				       mail->mail.mail.uid, &flags);
 	if (fname == NULL)
 		return (uoff_t)-1;
@@ -149,11 +153,12 @@ static const char *
 maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname, *end;
 
 	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
-	    	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
+	    	fname = maildir_uidlist_lookup(mbox->uidlist,
 					       mail->mail.mail.uid, &flags);
 		end = strchr(fname, ':');
 		return end == NULL ? fname : t_strdup_until(fname, end);
@@ -165,6 +170,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 	const char *fname, *p;
@@ -175,7 +181,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	if (size != (uoff_t)-1)
 		return size;
 
-	fname = maildir_uidlist_lookup(mail->ibox->uidlist,
+	fname = maildir_uidlist_lookup(mbox->uidlist,
 				       mail->mail.mail.uid, &flags);
 	if (fname == NULL)
 		return (uoff_t)-1;
@@ -195,7 +201,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	}
 
 	if (size == (uoff_t)-1) {
-		if (maildir_file_do(mail->ibox, mail->mail.mail.uid,
+		if (maildir_file_do(mbox, mail->mail.mail.uid,
 				    do_stat, &st) <= 0)
 			return (uoff_t)-1;
 		size = st.st_size;
@@ -212,12 +218,13 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 					       struct message_size *hdr_size,
 					       struct message_size *body_size)
 {
-	struct index_mail *mail = (struct index_mail *) _mail;
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
 	int deleted;
 
 	if (data->stream == NULL) {
-		data->stream = maildir_open_mail(mail->ibox,
+		data->stream = maildir_open_mail(mbox,
 						 mail->mail.mail.uid, &deleted);
 		if (data->stream == NULL) {
 			_mail->expunged = deleted;

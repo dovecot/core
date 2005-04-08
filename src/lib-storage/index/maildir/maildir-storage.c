@@ -391,14 +391,16 @@ static int verify_inbox(struct index_storage *storage)
 
 static int maildir_is_recent(struct index_mailbox *ibox, uint32_t uid)
 {
-	return maildir_uidlist_is_recent(ibox->uidlist, uid);
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)ibox;
+
+	return maildir_uidlist_is_recent(mbox->uidlist, uid);
 }
 
 static struct mailbox *
 maildir_open(struct index_storage *storage, const char *name,
 	     enum mailbox_open_flags flags)
 {
-	struct index_mailbox *ibox;
+	struct maildir_mailbox *mbox;
 	struct mail_index *index;
 	const char *path, *index_dir, *control_dir;
 	struct stat st;
@@ -418,32 +420,33 @@ maildir_open(struct index_storage *storage, const char *name,
 		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
 
 	pool = pool_alloconly_create("mailbox", 256);
-	ibox = p_new(pool, struct index_mailbox, 1);
-	ibox->box = maildir_mailbox;
-	ibox->box.pool = pool;
-	ibox->storage = storage;
+	mbox = p_new(pool, struct maildir_mailbox, 1);
+	mbox->ibox.box = maildir_mailbox;
+	mbox->ibox.box.pool = pool;
+	mbox->ibox.storage = storage;
+	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
+	mbox->ibox.is_recent = maildir_is_recent;
 
-	if (index_storage_mailbox_init(ibox, index, name, flags) < 0) {
+	if (index_storage_mailbox_init(&mbox->ibox, index, name, flags) < 0) {
 		/* the memory was already freed */
 		return NULL;
 	}
 
-	ibox->path = p_strdup(pool, path);
-	ibox->control_dir = p_strdup(pool, control_dir);
+	mbox->storage = storage;
+	mbox->path = p_strdup(pool, path);
+	mbox->control_dir = p_strdup(pool, control_dir);
 
-	ibox->mail_vfuncs = &maildir_mail_vfuncs;
-	ibox->uidlist = maildir_uidlist_init(ibox);
-	ibox->is_recent = maildir_is_recent;
+	mbox->uidlist = maildir_uidlist_init(mbox);
 
 	if (!shared)
-		ibox->mail_create_mode = 0600;
+		mbox->mail_create_mode = 0600;
 	else {
-		ibox->mail_create_mode = st.st_mode & 0666;
-		ibox->private_flags_mask = MAIL_SEEN;
+		mbox->mail_create_mode = st.st_mode & 0666;
+		mbox->private_flags_mask = MAIL_SEEN;
 	}
 
 
-	return &ibox->box;
+	return &mbox->ibox.box;
 }
 
 static struct mailbox *
@@ -811,7 +814,7 @@ static int maildir_get_mailbox_name_status(struct mail_storage *_storage,
 
 static int maildir_storage_close(struct mailbox *box)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	int ret = 0;
 
 	/*FIXME:if (!maildir_try_flush_dirty_flags(ibox->index, TRUE)) {
@@ -819,7 +822,7 @@ static int maildir_storage_close(struct mailbox *box)
 		ret = -1;
 	}*/
 
-	maildir_uidlist_deinit(ibox->uidlist);
+	maildir_uidlist_deinit(mbox->uidlist);
         index_storage_mailbox_free(box);
 	return ret;
 }
@@ -828,21 +831,21 @@ static void
 maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 		       mailbox_notify_callback_t *callback, void *context)
 {
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 
-	ibox->min_notify_interval = min_interval;
-	ibox->notify_callback = callback;
-	ibox->notify_context = context;
+	mbox->ibox.min_notify_interval = min_interval;
+	mbox->ibox.notify_callback = callback;
+	mbox->ibox.notify_context = context;
 
 	if (callback == NULL) {
-		index_mailbox_check_remove_all(ibox);
+		index_mailbox_check_remove_all(&mbox->ibox);
 		return;
 	}
 
-	index_mailbox_check_add(ibox,
-		t_strconcat(ibox->storage->dir, "/new", NULL), TRUE);
-	index_mailbox_check_add(ibox,
-		t_strconcat(ibox->storage->dir, "/cur", NULL), TRUE);
+	index_mailbox_check_add(&mbox->ibox,
+		t_strconcat(mbox->storage->dir, "/new", NULL), TRUE);
+	index_mailbox_check_add(&mbox->ibox,
+		t_strconcat(mbox->storage->dir, "/cur", NULL), TRUE);
 }
 
 struct mail_storage maildir_storage = {

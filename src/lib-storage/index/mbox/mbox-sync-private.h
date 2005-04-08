@@ -90,7 +90,7 @@ struct mbox_sync_mail_context {
 };
 
 struct mbox_sync_context {
-	struct index_mailbox *ibox;
+	struct mbox_mailbox *mbox;
         enum mbox_sync_flags flags;
 	struct istream *input, *file_input;
 	int write_fd;
@@ -124,12 +124,12 @@ struct mbox_sync_context {
 	unsigned int delay_writes:1;
 };
 
-int mbox_sync(struct index_mailbox *ibox, enum mbox_sync_flags flags);
-int mbox_sync_has_changed(struct index_mailbox *ibox, int leave_dirty);
+int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags);
+int mbox_sync_has_changed(struct mbox_mailbox *mbox, int leave_dirty);
 
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx);
-int mbox_sync_parse_match_mail(struct index_mailbox *ibox,
+int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 			       struct mail_index_view *view, uint32_t seq);
 
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx);

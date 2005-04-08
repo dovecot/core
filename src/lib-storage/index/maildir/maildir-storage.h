@@ -14,6 +14,23 @@ struct timeval;
 struct maildir_save_context;
 struct maildir_copy_context;
 
+struct maildir_mailbox {
+	struct index_mailbox ibox;
+	struct index_storage *storage;
+
+	const char *path, *control_dir;
+
+	/* maildir sync: */
+	struct maildir_uidlist *uidlist;
+	time_t last_new_mtime, last_cur_mtime, last_new_sync_time;
+	time_t dirty_cur_time;
+
+        mode_t mail_create_mode;
+	unsigned int private_flags_mask;
+
+	unsigned int syncing_commit:1;
+};
+
 struct maildir_transaction_context {
 	struct index_transaction_context ictx;
 	struct maildir_save_context *save_ctx;
@@ -23,13 +40,13 @@ struct maildir_transaction_context {
 extern struct mail_vfuncs maildir_mail_vfuncs;
 
 /* Return -1 = error, 0 = file not found, 1 = ok */
-typedef int maildir_file_do_func(struct index_mailbox *ibox,
+typedef int maildir_file_do_func(struct maildir_mailbox *mbox,
 				 const char *path, void *context);
 
-int maildir_file_do(struct index_mailbox *ibox, uint32_t seq,
+int maildir_file_do(struct maildir_mailbox *mbox, uint32_t seq,
 		    maildir_file_do_func *func, void *context);
 const char *maildir_generate_tmp_filename(const struct timeval *tv);
-int maildir_create_tmp(struct index_mailbox *ibox, const char *dir,
+int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r);
 
 struct mailbox_list_context *
@@ -42,10 +59,10 @@ maildir_mailbox_list_next(struct mailbox_list_context *ctx);
 
 struct mailbox_sync_context *
 maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
-int maildir_storage_sync_force(struct index_mailbox *ibox);
+int maildir_storage_sync_force(struct maildir_mailbox *mbox);
 
 struct maildir_index_sync_context *
-maildir_sync_index_begin(struct index_mailbox *ibox);
+maildir_sync_index_begin(struct maildir_mailbox *mbox);
 void maildir_sync_index_abort(struct maildir_index_sync_context *sync_ctx);
 int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			      int partial);
@@ -78,7 +95,7 @@ void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx);
 
 const char *maildir_get_path(struct index_storage *storage, const char *name);
 
-int maildir_sync_last_commit(struct index_mailbox *ibox);
+int maildir_sync_last_commit(struct maildir_mailbox *mbox);
 
 int maildir_filename_get_flags(const char *fname, pool_t pool,
 			       enum mail_flags *flags_r,
