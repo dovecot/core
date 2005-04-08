@@ -19,7 +19,8 @@ struct mail_cache_transaction_ctx {
 
 	uint32_t cache_file_seq;
 
-	buffer_t *cache_data, *cache_data_seq;
+	buffer_t *cache_data;
+	array_t ARRAY_DEFINE(cache_data_seq, uint32_t);
 	uint32_t prev_seq;
 	size_t prev_pos;
 
@@ -65,8 +66,8 @@ static void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
 
 	if (ctx->cache_data)
 		buffer_set_used_size(ctx->cache_data, 0);
-	if (ctx->cache_data_seq)
-		buffer_set_used_size(ctx->cache_data_seq, 0);
+	if (array_is_created(&ctx->cache_data_seq))
+		array_clear(&ctx->cache_data_seq);
 	ctx->prev_seq = 0;
 	ctx->prev_pos = 0;
 
@@ -85,8 +86,8 @@ static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 
 	if (ctx->cache_data != NULL)
 		buffer_free(ctx->cache_data);
-	if (ctx->cache_data_seq != NULL)
-		buffer_free(ctx->cache_data_seq);
+	if (array_is_created(&ctx->cache_data_seq))
+		array_free(&ctx->cache_data_seq);
 	buffer_free(ctx->reservations);
 	i_free(ctx);
 }
@@ -433,8 +434,9 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	struct mail_cache *cache = ctx->cache;
 	const struct mail_cache_record *rec, *tmp_rec;
 	const uint32_t *seq;
-	uint32_t write_offset, write_size, rec_pos, seq_idx;
-	size_t size, max_size, seq_limit, seq_count;
+	uint32_t write_offset, write_size, rec_pos, seq_idx, seq_limit;
+	size_t size, max_size;
+	unsigned int seq_count;
 	int ret, commit;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
@@ -455,8 +457,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	rec = buffer_get_data(ctx->cache_data, &size);
 	i_assert(ctx->prev_pos <= size);
 
-	seq = buffer_get_data(ctx->cache_data_seq, &seq_count);
-	seq_count /= sizeof(*seq);
+	seq = array_get(&ctx->cache_data_seq, &seq_count);
 	seq_limit = 0;
 
 	for (seq_idx = 0, rec_pos = 0; rec_pos < ctx->prev_pos;) {
@@ -509,7 +510,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 			     ctx->prev_pos);
 	ctx->prev_pos = 0;
 
-	buffer_set_used_size(ctx->cache_data_seq, 0);
+	array_clear(&ctx->cache_data_seq);
 	return 0;
 }
 
@@ -527,12 +528,11 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 		rec->size = size - ctx->prev_pos;
 		i_assert(rec->size != 0);
 
-		buffer_append(ctx->cache_data_seq, &ctx->prev_seq,
-			      sizeof(ctx->prev_seq));
+		array_append(&ctx->cache_data_seq, &ctx->prev_seq, 1);
 		ctx->prev_pos = size;
 	} else if (ctx->cache_data == NULL) {
-		ctx->cache_data = buffer_create_dynamic(system_pool, 32768);
-		ctx->cache_data_seq = buffer_create_dynamic(system_pool, 256);
+		ctx->cache_data = buffer_create_dynamic(default_pool, 32768);
+		ARRAY_CREATE(&ctx->cache_data_seq, default_pool, uint32_t, 64);
 	}
 
 	memset(&new_rec, 0, sizeof(new_rec));
