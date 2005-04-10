@@ -46,7 +46,7 @@
 #  define ARRAY_DEFINE_PTR(name, array_type) \
 	name; array_type **name ## __ ## type
 #  define ARRAY_CREATE(array, pool, array_type, init_count) STMT_START { \
-	array_type *_array_tmp = *(array ## __ ## type); _array_tmp = NULL; \
+	array_type **_array_tmp = array ## __ ## type; _array_tmp = NULL; \
 	array_create(array, pool, sizeof(array_type), init_count); \
 	} STMT_END
 #  define ARRAY_SET_TYPE(array, array_type) \
