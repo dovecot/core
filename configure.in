@@ -1384,7 +1384,8 @@ src/pop3-login/Makefile
 src/deliver/Makefile
 src/util/Makefile
 stamp.h
-dovecot.spec])
+dovecot.spec
+dovecot-config])
 
 AC_OUTPUT
 
