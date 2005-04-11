@@ -156,6 +156,7 @@ static int main_init(void)
 		       dec2str(geteuid()), dec2str(getegid()));
 	}
 
+        mail_storage_init();
 	mail_storage_register_all();
 	clients_init();
 
