@@ -427,12 +427,33 @@ static int index_mail_header_is_parsed(struct index_mail *mail,
 	return -1;
 }
 
+static int skip_header(const unsigned char **data, size_t len)
+{
+	const unsigned char *p = *data;
+	size_t i;
+
+	for (i = 0; i < len; i++) {
+		if (p[i] == ':')
+			break;
+	}
+	if (i == len)
+		return FALSE;
+
+	for (i++; i < len; i++) {
+		if (!IS_LWSP(p[i]))
+			break;
+	}
+
+	*data = p + i;
+	return TRUE;
+}
+
 static const char *const *
 index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 {
 	array_t ARRAY_DEFINE(header_values, const char *);
         const struct index_mail_line *lines;
-	const unsigned char *header;
+	const unsigned char *header, *value_start, *value_end;
 	const unsigned int *line_idx;
 	const char *value;
 	unsigned int i, lines_count, first_line_idx;
@@ -449,9 +470,16 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 		if (lines[i].field_idx != lines[first_line_idx].field_idx)
 			break;
 
-		value = p_strndup(mail->data_pool, header + lines[i].start_pos,
-				  lines[i].end_pos - lines[i].start_pos);
-		array_append(&header_values, &value, 1);
+		/* skip header: and drop ending LF */
+		value_start = header + lines[i].start_pos;
+		value_end = header + lines[i].end_pos;
+		if (skip_header(&value_start, value_end - value_start)) {
+			if (value_start != value_end && value_end[-1] == '\n')
+				value_end--;
+			value = p_strndup(mail->data_pool, value_start,
+					  value_end - value_start);
+			array_append(&header_values, &value, 1);
+		}
 	}
 
 	value = NULL;
