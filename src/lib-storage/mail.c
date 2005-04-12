@@ -15,7 +15,7 @@ void mail_free(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.free(mail);
+	p->v.free(mail);
 }
 
 int mail_set_seq(struct mail *mail, uint32_t seq)
