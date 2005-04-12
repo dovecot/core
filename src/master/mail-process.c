@@ -310,7 +310,9 @@ int create_mail_process(struct login_group *group, int socket,
 	pid_t pid;
 	uid_t uid;
 	gid_t gid;
-	int i, err, ret, log_fd, nice;
+	array_t ARRAY_DEFINE(extra_args, const char *);
+	unsigned int i, count;
+	int err, ret, log_fd, nice;
 
 	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
@@ -318,6 +320,7 @@ int create_mail_process(struct login_group *group, int socket,
 		return FALSE;
 	}
 
+	ARRAY_CREATE(&extra_args, pool_datastack_create(), const char *, 16);
 	mail = home_dir = chroot_dir = system_user = "";
 	uid = gid = 0; nice = 0;
 	for (; *args != NULL; args++) {
@@ -340,6 +343,10 @@ int create_mail_process(struct login_group *group, int socket,
 			uid = (uid_t)strtoul(*args + 4, NULL, 10);
 		} else if (strncmp(*args, "gid=", 4) == 0)
 			gid = (gid_t)strtoul(*args + 4, NULL, 10);
+		else {
+			const char *arg = *args;
+			array_append(&extra_args, &arg, 1);
+		}
 	}
 
 	if (*chroot_dir == '\0' && (p = strstr(home_dir, "/./")) != NULL) {
@@ -458,6 +465,21 @@ int create_mail_process(struct login_group *group, int socket,
 	}
 
         mail_process_set_environment(set, mail, var_expand_table);
+
+	/* add extra args. uppercase key value. */
+	args = array_get(&extra_args, &count);
+	for (i = 0; i < count; i++) {
+		p = strchr(args[i], '=');
+		if (p == NULL) {
+			/* boolean */
+			env_put(t_strconcat(t_str_ucase(args[i]), "=1", NULL));
+
+		} else {
+			/* key=value */
+			env_put(t_strconcat(t_str_ucase(
+				t_strdup_until(args[i], p)), p, NULL));
+		}
+	}
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", home_dir, NULL));
