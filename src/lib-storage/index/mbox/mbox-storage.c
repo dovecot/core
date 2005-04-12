@@ -1007,13 +1007,7 @@ struct mail_storage mbox_storage = {
 		mbox_set_subscribed,
 		mbox_get_mailbox_name_status,
 		index_storage_get_last_error
-	},
-
-	MEMBER(pool) NULL,
-	MEMBER(error) NULL,
-	MEMBER(flags) 0,
-	MEMBER(module_contexts) ARRAY_INIT,
-	MEMBER(syntax_error) 0
+	}
 };
 
 struct mailbox mbox_mailbox = {
@@ -1048,8 +1042,5 @@ struct mailbox mbox_mailbox = {
 		mbox_save_cancel,
 		mail_storage_copy,
 		index_storage_is_inconsistent
-	},
-
-	MEMBER(pool) NULL,
-	MEMBER(module_contexts) ARRAY_INIT
+	}
 };

@@ -875,13 +875,7 @@ struct mail_storage maildir_storage = {
 		maildir_set_subscribed,
 		maildir_get_mailbox_name_status,
 		index_storage_get_last_error
-	},
-
-	MEMBER(pool) NULL,
-	MEMBER(error) NULL,
-	MEMBER(flags) 0,
-	MEMBER(module_contexts) ARRAY_INIT,
-	MEMBER(syntax_error) 0
+	}
 };
 
 struct mailbox maildir_mailbox = {
@@ -916,8 +910,5 @@ struct mailbox maildir_mailbox = {
 		maildir_save_cancel,
 		maildir_copy,
 		index_storage_is_inconsistent
-	},
-
-	MEMBER(pool) NULL,
-	MEMBER(module_contexts) ARRAY_INIT
+	}
 };
