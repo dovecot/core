@@ -1021,6 +1021,24 @@ int mail_index_map(struct mail_index *index, int force)
 	return 1;
 }
 
+int mail_index_get_latest_header(struct mail_index *index,
+				 struct mail_index_header *hdr_r)
+{
+	size_t pos;
+	int ret;
+
+	if (!index->mmap_disable) {
+		ret = mail_index_map(index, FALSE);
+		if (ret > 0)
+			*hdr_r = *index->hdr;
+		else
+			memset(hdr_r, 0, sizeof(*hdr_r));
+	} else {
+		ret = mail_index_read_header(index, hdr_r, &pos);
+	}
+	return ret;
+}
+
 struct mail_index_map *
 mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 {

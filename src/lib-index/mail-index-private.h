@@ -206,6 +206,12 @@ int mail_index_reopen_if_needed(struct mail_index *index);
    Returns 1 = ok, 0 = corrupted, -1 = error. If index needs fscking, it
    returns 1 but sets index->fsck = TRUE. */
 int mail_index_map(struct mail_index *index, int force);
+/* Read the latest available header. Normally this is pretty much the same as
+   calling mail_index_map(), but with mmap_disable the header can be generated
+   by reading just log files, so eg. log_file_*_offset values can be wrong.
+   Returns 1 = ok, 0 = EOF, -1 = error. */
+int mail_index_get_latest_header(struct mail_index *index,
+				 struct mail_index_header *hdr_r);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
 void mail_index_unmap(struct mail_index *index, struct mail_index_map *map);
 struct mail_index_map *

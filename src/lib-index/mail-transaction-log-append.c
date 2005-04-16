@@ -327,6 +327,11 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 	return 0;
 }
 
+#define ARE_ALL_TRANSACTIONS_IN_INDEX(log, idx_hdr) \
+	((log)->head->hdr.file_seq == (idx_hdr)->log_file_seq && \
+	 (log)->head->sync_offset == (idx_hdr)->log_file_int_offset && \
+	 (log)->head->sync_offset == (idx_hdr)->log_file_ext_offset)
+
 int mail_transaction_log_append(struct mail_index_transaction *t,
 				uint32_t *log_file_seq_r,
 				uoff_t *log_file_offset_r)
@@ -367,7 +372,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	if (log->head->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
 	    (time_t)log->head->hdr.create_stamp <
-	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_TIME) {
+	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_TIME &&
+	    ARE_ALL_TRANSACTIONS_IN_INDEX(log, index->hdr)) {
 		/* we might want to rotate, but check first that everything is
 		   synced in index. */
 		if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0) {
@@ -375,19 +381,19 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 				mail_transaction_log_file_unlock(log->head);
 			return -1;
 		}
-		if (mail_index_map(index, FALSE) <= 0) {
+
+		/* we need the latest log_file_*_offsets. It's important to
+		   use this function instead of mail_index_map() as it may
+		   have generated them by reading log files. */
+		if (mail_index_get_latest_header(index, &idx_hdr) <= 0) {
 			mail_index_unlock(index, lock_id);
 			if (!log->index->log_locked)
 				mail_transaction_log_file_unlock(log->head);
 			return -1;
 		}
-
-		idx_hdr = *log->index->hdr;
 		mail_index_unlock(log->index, lock_id);
 
-		if (log->head->hdr.file_seq == idx_hdr.log_file_seq &&
-		    log->head->sync_offset == idx_hdr.log_file_int_offset &&
-		    log->head->sync_offset == idx_hdr.log_file_ext_offset) {
+		if (ARE_ALL_TRANSACTIONS_IN_INDEX(log, &idx_hdr)) {
 			if (mail_transaction_log_rotate(log, TRUE) < 0) {
 				/* that didn't work. well, try to continue
 				   anyway */
