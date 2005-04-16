@@ -21,7 +21,7 @@ struct auth *auth_preinit(void)
 	pool_t pool;
 	unsigned int i;
 
-	pool = pool_alloconly_create("auth", 1024);
+	pool = pool_alloconly_create("auth", 2048);
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
 

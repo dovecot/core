@@ -29,7 +29,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->prefix = i_strdup(prefix);
 	index->fd = -1;
 
-	index->extension_pool = pool_alloconly_create("extension", 256);
+	index->extension_pool = pool_alloconly_create("extension", 512);
 	ARRAY_CREATE(&index->extensions, index->extension_pool,
 		     struct mail_index_ext, 5);
 
@@ -182,12 +182,14 @@ void mail_index_unregister_sync_lost_handler(struct mail_index *index,
 static void mail_index_map_init_extbufs(struct mail_index_map *map,
 					unsigned int initial_count)
 {
+#define EXTENSION_NAME_APPROX_LEN 20
 	size_t size;
 
 	if (map->extension_pool == NULL) {
-		size = initial_count * sizeof(struct mail_index_ext) +
-                        initial_count * sizeof(uint32_t) +
-			(initial_count * 20); /* for names */
+		size = (sizeof(array_t) + BUFFER_APPROX_SIZE) * 2 +
+			initial_count * (EXTENSION_NAME_APPROX_LEN +
+					 sizeof(struct mail_index_ext) +
+					 sizeof(uint32_t));
 		map->extension_pool =
 			pool_alloconly_create("extensions",
 					      nearest_power(size));

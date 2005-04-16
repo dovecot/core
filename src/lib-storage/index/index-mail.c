@@ -648,7 +648,7 @@ index_mail_alloc(struct mailbox_transaction_context *_t,
 	const struct mail_index_header *hdr;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mail", 256);
+	pool = pool_alloconly_create("mail", 512);
 	mail = p_new(pool, struct index_mail, 1);
 	mail->mail.pool = pool;
 	ARRAY_CREATE(&mail->mail.module_contexts, pool, void *, 5);

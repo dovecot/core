@@ -118,7 +118,7 @@ maildir_create(const char *data, const char *user,
 		       inbox_dir == NULL ? "" : inbox_dir);
 	}
 
-	pool = pool_alloconly_create("storage", 256);
+	pool = pool_alloconly_create("storage", 512);
 	storage = p_new(pool, struct maildir_storage, 1);
 	storage->control_dir = p_strdup(pool, home_expand(control_dir));
 
@@ -424,7 +424,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	if (shared)
 		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
 
-	pool = pool_alloconly_create("mailbox", 256);
+	pool = pool_alloconly_create("mailbox", 1024);
 	mbox = p_new(pool, struct maildir_mailbox, 1);
 	mbox->ibox.box = maildir_mailbox;
 	mbox->ibox.box.pool = pool;

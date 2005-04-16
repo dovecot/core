@@ -1111,8 +1111,8 @@ int master_settings_read(const char *path, int nochecks)
 
 void master_settings_init(void)
 {
-	settings_pool = pool_alloconly_create("settings", 2048);
-	settings2_pool = pool_alloconly_create("settings2", 2048);
+	settings_pool = pool_alloconly_create("settings", 4096);
+	settings2_pool = pool_alloconly_create("settings2", 4096);
 }
 
 void master_settings_deinit(void)

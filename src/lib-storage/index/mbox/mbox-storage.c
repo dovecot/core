@@ -330,7 +330,7 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 		       inbox_file == NULL ? "" : inbox_file);
 	}
 
-	pool = pool_alloconly_create("storage", 256);
+	pool = pool_alloconly_create("storage", 512);
 	storage = p_new(pool, struct mbox_storage, 1);
 	istorage = INDEX_STORAGE(storage);
 	istorage->storage = mbox_storage;
@@ -489,7 +489,7 @@ mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
 	struct mbox_mailbox *mbox;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mailbox", 256);
+	pool = pool_alloconly_create("mailbox", 1024);
 	mbox = p_new(pool, struct mbox_mailbox, 1);
 	mbox->ibox.box = mbox_mailbox;
 	mbox->ibox.box.pool = pool;
