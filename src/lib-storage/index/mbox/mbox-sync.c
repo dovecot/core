@@ -1221,8 +1221,19 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 		return -1;
 	}
 
-	i_assert(sync_ctx->base_uid_validity != 0);
-	if (sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) {
+	/* only reason not to have UID validity at this point is if the file
+	   is entirely empty. In that case just make up a new one if needed. */
+	i_assert(sync_ctx->base_uid_validity != 0 || st->st_size == 0);
+
+	if (sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity ||
+	    sync_ctx->base_uid_validity == 0) {
+		if (sync_ctx->base_uid_validity == 0) {
+                        sync_ctx->base_uid_validity =
+				sync_ctx->hdr->uid_validity != 0 ?
+				sync_ctx->hdr->uid_validity :
+				(unsigned int)ioloop_time;
+		}
+
 		mail_index_update_header(sync_ctx->t,
 			offsetof(struct mail_index_header, uid_validity),
 			&sync_ctx->base_uid_validity,
