@@ -654,7 +654,7 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 	}
 	mail_cache_register_fields(ibox->cache, fields, count);
 
-	pool = pool_alloconly_create("index_header_lookup_ctx", 256);
+	pool = pool_alloconly_create("index_header_lookup_ctx", 512);
 	ctx = p_new(pool, struct index_header_lookup_ctx, 1);
 	ctx->ctx.box = box;
 	ctx->pool = pool;
