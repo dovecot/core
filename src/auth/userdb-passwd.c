@@ -23,6 +23,14 @@ static void passwd_lookup(struct auth_request *auth_request,
 		return;
 	}
 
+	if (strcasecmp(pw->pw_name, auth_request->user) != 0) {
+		/* try to catch broken NSS implementations (nss_ldap) */
+		i_fatal("BROKEN NSS IMPLEMENTATION: "
+			"getpwnam() lookup returned different user than was "
+			"requested (%s != %s).",
+			pw->pw_name, auth_request->user);
+	}
+
 	result = t_strdup_printf("%s\tsystem_user=%s\tuid=%s\tgid=%s\t"
 				 "home=%s", pw->pw_name, pw->pw_name,
 				 dec2str(pw->pw_uid), dec2str(pw->pw_gid),
