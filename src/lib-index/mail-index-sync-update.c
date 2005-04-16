@@ -8,6 +8,7 @@
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
+#include "mail-transaction-log-private.h"
 #include "mail-transaction-util.h"
 
 void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
@@ -668,9 +669,16 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 
 	mail_transaction_log_get_head(index->log, &seq, &offset);
 
-	map->hdr.log_file_seq = seq;
 	if (!sync_only_external)
 		map->hdr.log_file_int_offset = offset;
+	else if (map->hdr.log_file_seq != seq) {
+		/* log sequence changed. update internal offset to
+		   beginning of the new file. */
+		i_assert(map->hdr.log_file_int_offset ==
+			 index->log->head->hdr.prev_file_offset);
+		map->hdr.log_file_int_offset = index->log->head->hdr.hdr_size;
+	}
+	map->hdr.log_file_seq = seq;
 	map->hdr.log_file_ext_offset = offset;
 
 	if (first_append_uid != 0)
