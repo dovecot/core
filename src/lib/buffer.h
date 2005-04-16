@@ -1,6 +1,10 @@
 #ifndef __BUFFER_H
 #define __BUFFER_H
 
+/* May be used in calculations of how much memory buffer_t will allocate
+   for itself, but this isn't necessary precise. */
+#define BUFFER_APPROX_SIZE (7 * sizeof(void *))
+
 struct buffer {
 	const void *data;
 	const size_t used;
