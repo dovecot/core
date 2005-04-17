@@ -483,6 +483,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 				return FALSE;
 		} else {
 			/* FIXME: do this once in init */
+			i_assert(*headers != NULL);
 			headers_ctx =
 				mailbox_header_lookup_init(&ctx->ibox->box,
 							   headers);

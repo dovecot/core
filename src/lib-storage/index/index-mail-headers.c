@@ -499,6 +499,8 @@ const char *const *index_mail_get_headers(struct mail *_mail, const char *field)
 	int ret;
 	array_t ARRAY_DEFINE(header_values, const char *);
 
+	i_assert(field != NULL);
+
 	field_idx = get_header_field_idx(mail->ibox, field);
 
 	dest = str_new(mail->data_pool, 128);
@@ -631,20 +633,18 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 	pool_t pool;
 	unsigned int i, count;
 
+	i_assert(*headers != NULL);
+
 	for (count = 0, name = headers; *name != NULL; name++)
 		count++;
 
 	t_push();
 
-	if (count > 0) {
-		/* @UNSAFE: headers need to be sorted for filter stream. */
-		sorted_headers = t_new(const char *, count);
-		memcpy(sorted_headers, headers,
-		       count * sizeof(*sorted_headers));
-		qsort(sorted_headers, count, sizeof(*sorted_headers),
-		      strcasecmp_p);
-		headers = sorted_headers;
-	}
+	/* @UNSAFE: headers need to be sorted for filter stream. */
+	sorted_headers = t_new(const char *, count);
+	memcpy(sorted_headers, headers, count * sizeof(*sorted_headers));
+	qsort(sorted_headers, count, sizeof(*sorted_headers), strcasecmp_p);
+	headers = sorted_headers;
 
 	/* @UNSAFE */
 	fields = t_new(struct mail_cache_field, count);
@@ -660,15 +660,13 @@ index_header_lookup_init(struct mailbox *box, const char *const headers[])
 	ctx->pool = pool;
 	ctx->count = count;
 
-	if (count > 0) {
-		ctx->idx = p_new(pool, unsigned int, count);
-		ctx->name = p_new(pool, const char *, count);
+	ctx->idx = p_new(pool, unsigned int, count);
+	ctx->name = p_new(pool, const char *, count);
 
-		/* @UNSAFE */
-		for (i = 0; i < count; i++) {
-			ctx->idx[i] = fields[i].idx;
-			ctx->name[i] = p_strdup(pool, headers[i]);
-		}
+	/* @UNSAFE */
+	for (i = 0; i < count; i++) {
+		ctx->idx[i] = fields[i].idx;
+		ctx->name[i] = p_strdup(pool, headers[i]);
 	}
 
 	t_pop();
