@@ -106,7 +106,7 @@ int mail_search_args_foreach(struct mail_search_arg *args,
 
 static void
 search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
-		   int *have_headers, int *have_body, int *have_text)
+		   int *have_body, int *have_text)
 {
 	static const char *date_hdr = "Date";
 	struct mail_search_arg *subarg;
@@ -121,8 +121,7 @@ search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
 		while (subarg != NULL) {
 			if (subarg->result == -1) {
 				search_arg_analyze(subarg, headers,
-						   have_headers, have_body,
-						   have_text);
+						   have_body, have_text);
 			}
 
 			subarg = subarg->next;
@@ -131,21 +130,18 @@ search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
 	case SEARCH_SENTBEFORE:
 	case SEARCH_SENTON:
 	case SEARCH_SENTSINCE:
-		*have_headers = TRUE;
 		buffer_append(headers, &date_hdr, sizeof(const char *));
 		break;
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
 		buffer_append(headers, &arg->hdr_field_name,
 			      sizeof(const char *));
-		*have_headers = TRUE;
 		break;
 	case SEARCH_BODY:
 		*have_body = TRUE;
 		break;
 	case SEARCH_TEXT:
 		*have_text = TRUE;
-		*have_headers = TRUE;
 		*have_body = TRUE;
 		break;
 	default:
@@ -164,12 +160,12 @@ mail_search_args_analyze(struct mail_search_arg *args,
 	*have_headers = *have_body = have_text = FALSE;
 
 	headers = buffer_create_dynamic(pool_datastack_create(), 128);
-	for (; args != NULL; args = args->next) {
-		search_arg_analyze(args, headers, have_headers,
-				   have_body, &have_text);
-	}
+	for (; args != NULL; args = args->next)
+		search_arg_analyze(args, headers, have_body, &have_text);
 
-	if (!have_headers || have_text)
+	*have_headers = have_text || headers->used != 0;
+
+	if (headers->used == 0 || have_text)
 		return NULL;
 
 	buffer_append(headers, &null, sizeof(const char *));
