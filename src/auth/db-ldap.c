@@ -269,6 +269,7 @@ static void ldap_conn_close(struct ldap_connection *conn)
 }
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
+		       char ***attr_names_r, struct hash_table *attr_map,
 		       const char *const default_attr_map[])
 {
 	const char *const *attr;
@@ -283,7 +284,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 
 	/* @UNSAFE */
 	for (size = 0; attr[size] != NULL; size++) ;
-	conn->attr_names = p_new(conn->pool, char *, size + 1);
+	*attr_names_r = p_new(conn->pool, char *, size + 1);
 
 	for (i = 0; i < size; i++) {
 		p = strchr(attr[i], '=');
@@ -296,9 +297,9 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			value = p_strdup(conn->pool, p + 1);
 		}
 
-		conn->attr_names[i] = name;
+		(*attr_names_r)[i] = name;
 		if (*name != '\0')
-			hash_insert(conn->attr_map, name, value);
+			hash_insert(attr_map, name, value);
 
 		if (*default_attr_map != NULL)
 			default_attr_map++;
@@ -372,8 +373,6 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 
 	conn->refcount = 1;
 	conn->requests = hash_create(default_pool, pool, 0, NULL, NULL);
-	conn->attr_map = hash_create(default_pool, pool, 0, str_hash,
-				     (hash_cmp_callback_t *)strcmp);
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
@@ -400,7 +399,10 @@ void db_ldap_unref(struct ldap_connection *conn)
 	ldap_conn_close(conn);
 
 	hash_destroy(conn->requests);
-	hash_destroy(conn->attr_map);
+	if (conn->pass_attr_map != NULL)
+		hash_destroy(conn->pass_attr_map);
+	if (conn->user_attr_map != NULL)
+		hash_destroy(conn->user_attr_map);
 	pool_unref(conn->pool);
 }
 

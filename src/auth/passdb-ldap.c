@@ -49,7 +49,7 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
-		name = hash_lookup(passdb_ldap_conn->attr_map, attr);
+		name = hash_lookup(passdb_ldap_conn->pass_attr_map, attr);
 		vals = ldap_get_values(conn->ld, entry, attr);
 
 		if (name != NULL && vals != NULL) {
@@ -157,7 +157,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 {
 	struct ldap_connection *conn = passdb_ldap_conn;
         const struct var_expand_table *vars;
-	const char **attr_names = (const char **)conn->attr_names;
+	const char **attr_names = (const char **)conn->pass_attr_names;
 	const char *filter, *base;
 	string_t *str;
 
@@ -181,7 +181,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 			       t_strarray_join(attr_names, ","));
 
 	db_ldap_search(conn, base, conn->set.ldap_scope,
-		       filter, passdb_ldap_conn->attr_names,
+		       filter, passdb_ldap_conn->pass_attr_names,
 		       ldap_request);
 }
 
@@ -215,8 +215,13 @@ static void ldap_lookup_credentials(struct auth_request *request,
 static void passdb_ldap_preinit(const char *args)
 {
 	passdb_ldap_conn = db_ldap_init(args);
+	passdb_ldap_conn->pass_attr_map =
+		hash_create(default_pool, passdb_ldap_conn->pool, 0, str_hash,
+			    (hash_cmp_callback_t *)strcmp);
 
 	db_ldap_set_attrs(passdb_ldap_conn, passdb_ldap_conn->set.pass_attrs,
+                          &passdb_ldap_conn->pass_attr_names,
+			  passdb_ldap_conn->pass_attr_map,
 			  default_attr_map);
 	passdb_ldap.cache_key = passdb_ldap_cache_key =
 		auth_cache_parse_key(passdb_ldap_conn->set.pass_filter);

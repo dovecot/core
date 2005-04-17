@@ -81,7 +81,7 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
-		name = hash_lookup(userdb_ldap_conn->attr_map, attr);
+		name = hash_lookup(userdb_ldap_conn->user_attr_map, attr);
 		vals = ldap_get_values(conn->ld, entry, attr);
 
 		if (name != NULL && vals != NULL && vals[0] != NULL) {
@@ -166,7 +166,8 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 {
 	struct ldap_connection *conn = userdb_ldap_conn;
         const struct var_expand_table *vars;
-	const char **attr_names = (const char **)userdb_ldap_conn->attr_names;
+	const char **attr_names =
+		(const char **)userdb_ldap_conn->user_attr_names;
 	struct userdb_ldap_request *request;
 	const char *filter, *base;
 	string_t *str;
@@ -192,14 +193,20 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       t_strarray_join(attr_names, ","));
 
 	db_ldap_search(conn, base, conn->set.ldap_scope,
-		       filter, userdb_ldap_conn->attr_names,
+		       filter, userdb_ldap_conn->user_attr_names,
 		       &request->request);
 }
 
 static void userdb_ldap_preinit(const char *args)
 {
 	userdb_ldap_conn = db_ldap_init(args);
+	userdb_ldap_conn->user_attr_map =
+		hash_create(default_pool, userdb_ldap_conn->pool, 0, str_hash,
+			    (hash_cmp_callback_t *)strcmp);
+
 	db_ldap_set_attrs(userdb_ldap_conn, userdb_ldap_conn->set.user_attrs,
+                          &userdb_ldap_conn->user_attr_names,
+			  userdb_ldap_conn->user_attr_map,
 			  default_attr_map);
 }
 
