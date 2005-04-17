@@ -225,8 +225,8 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 
 	memset(wanted_headers, 0, sizeof(wanted_headers));
 	wanted_fields = init_sort_elements(ctx, wanted_headers);
-	headers_ctx = mailbox_header_lookup_init(client->mailbox,
-						 wanted_headers);
+	headers_ctx = *wanted_headers == NULL ? NULL :
+		mailbox_header_lookup_init(client->mailbox, wanted_headers);
 
 	/* initialize searching */
 	ctx->t = mailbox_transaction_begin(client->mailbox, 0);
@@ -262,7 +262,8 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 			      str_len(ctx->str));
 	}
 
-	mailbox_header_lookup_deinit(headers_ctx);
+	if (headers_ctx != NULL)
+		mailbox_header_lookup_deinit(headers_ctx);
         mail_sort_deinit(ctx);
 	return ret;
 }
