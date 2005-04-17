@@ -161,7 +161,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 					io->fd, (void *) io->callback);
 				pollfd->events &= ~POLLNVAL;
 				pollfd->revents = 0;
-				call = FALSE;
+				call = TRUE;
 			} else if ((io->condition &
 				    (IO_READ|IO_WRITE)) == (IO_READ|IO_WRITE)) {
 				call = TRUE;
