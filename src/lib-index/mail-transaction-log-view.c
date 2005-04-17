@@ -118,6 +118,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
 				view->log->tail->filepath, min_file_seq);
+			mail_index_set_inconsistent(view->log->index);
 		}
 		return -1;
 	}
@@ -147,6 +148,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
 				file->filepath, file->hdr.file_seq);
+			mail_index_set_inconsistent(view->log->index);
 		}
 		return -1;
 	}
@@ -164,6 +166,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
 				view->log->tail->filepath, seq);
+			mail_index_set_inconsistent(view->log->index);
 			return -1;
 		}
 
@@ -175,6 +178,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
 				file->filepath, file->hdr.file_seq);
+			mail_index_set_inconsistent(view->log->index);
 		}
 		if (ret <= 0)
 			return -1;
