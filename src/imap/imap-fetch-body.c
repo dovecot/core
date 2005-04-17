@@ -560,6 +560,9 @@ static int fetch_body_header_fields_check(const char *section)
 	if (*section++ != '(')
 		return FALSE;
 
+	if (*section == ')')
+		return FALSE; /* has to be at least one field */
+
 	while (*section != '\0' && *section != ')') {
 		if (*section == '(')
 			return FALSE;
