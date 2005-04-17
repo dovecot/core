@@ -221,7 +221,8 @@ list_namespace_init(struct client_command_context *cmd,
 		match = ns->hidden ? IMAP_MATCH_NO :
 		       imap_match(ctx->glob, cur_prefix);
 
-		if (match == IMAP_MATCH_YES) {
+		if (match == IMAP_MATCH_YES &&
+		    (ctx->list_flags & MAILBOX_LIST_SUBSCRIBED) == 0) {
 			/* The prefix itself matches */
                         enum mailbox_flags flags;
 			string_t *str = t_str_new(128);
