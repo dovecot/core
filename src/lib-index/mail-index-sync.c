@@ -300,7 +300,8 @@ static int mail_index_sync_commit_external(struct mail_index_sync_ctx *ctx,
 }
 
 #define MAIL_INDEX_IS_SYNCS_SAME(index) \
-	((index)->sync_log_file_seq == (index)->hdr->log_file_seq && \
+	((index)->hdr != NULL && \
+	 (index)->sync_log_file_seq == (index)->hdr->log_file_seq && \
 	 (index)->sync_log_file_offset == (index)->hdr->log_file_ext_offset)
 
 int mail_index_sync_begin(struct mail_index *index,
