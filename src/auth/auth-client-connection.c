@@ -10,6 +10,7 @@
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
 #include "auth-client-connection.h"
+#include "auth-master-listener.h"
 #include "auth-master-connection.h"
 
 #include <stdlib.h>
@@ -81,7 +82,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 		return FALSE;
 	}
 
-	old = auth_client_connection_lookup(conn->master, pid);
+	old = auth_client_connection_lookup(conn->listener, pid);
 	if (old != NULL) {
 		/* already exists. it's possible that it just reconnected,
 		   see if the old connection is still there. */
@@ -100,17 +101,11 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 
 	/* handshake complete, we can now actually start serving requests */
         conn->refcount++;
-	if (!AUTH_MASTER_IS_DUMMY(conn->master)) {
-		conn->request_handler =
-			auth_request_handler_create(conn->auth, FALSE,
-				auth_callback, conn,
-				auth_master_request_callback, conn->master);
-	} else {
-		conn->request_handler =
-			auth_request_handler_create(conn->auth, FALSE,
-						    auth_callback, conn,
-						    NULL, NULL);
-	}
+	conn->request_handler =
+		auth_request_handler_create(conn->auth, FALSE,
+			auth_callback, conn,
+			array_count(&conn->listener->masters) != 0 ?
+			auth_master_request_callback : NULL);
 	auth_request_handler_set(conn->request_handler, conn->connect_uid, pid);
 
 	conn->pid = pid;
@@ -219,7 +214,7 @@ static void auth_client_input(void *context)
 }
 
 struct auth_client_connection *
-auth_client_connection_create(struct auth_master_connection *master, int fd)
+auth_client_connection_create(struct auth_master_listener *listener, int fd)
 {
 	static unsigned int connect_uid_counter = 0;
 	struct auth_client_connection *conn;
@@ -227,8 +222,8 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	string_t *str;
 
 	conn = i_new(struct auth_client_connection, 1);
-	conn->auth = master->auth;
-	conn->master = master;
+	conn->auth = listener->auth;
+	conn->listener = listener;
 	conn->refcount = 1;
 	conn->connect_uid = ++connect_uid_counter;
 
@@ -241,14 +236,13 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 	o_stream_set_flush_callback(conn->output, auth_client_output, conn);
 	conn->io = io_add(fd, IO_READ, auth_client_input, conn);
 
-	conn->next = master->clients;
-	master->clients = conn;
+	array_append(&listener->clients, &conn, 1);
 
 	str = t_str_new(128);
 	str_printfa(str, "VERSION\t%u\t%u\nSPID\t%u\nCUID\t%u\nDONE\n",
                     AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
-		    master->pid, conn->connect_uid);
+		    listener->pid, conn->connect_uid);
 
 	iov[0].iov_base = str_data(conn->auth->mech_handshake);
 	iov[0].iov_len = str_len(conn->auth->mech_handshake);
@@ -265,14 +259,16 @@ auth_client_connection_create(struct auth_master_connection *master, int fd)
 
 void auth_client_connection_destroy(struct auth_client_connection *conn)
 {
-	struct auth_client_connection **pos;
+	struct auth_client_connection *const *clients;
+	unsigned int i, count;
 
 	if (conn->fd == -1)
 		return;
 
-	for (pos = &conn->master->clients; *pos != NULL; pos = &(*pos)->next) {
-		if (*pos == conn) {
-			*pos = conn->next;
+	clients = array_get(&conn->listener->clients, &count);
+	for (i = 0; i < count; i++) {
+		if (clients[i] == conn) {
+			array_delete(&conn->listener->clients, i, 1);
 			break;
 		}
 	}
@@ -291,7 +287,6 @@ void auth_client_connection_destroy(struct auth_client_connection *conn)
 	if (conn->request_handler != NULL)
 		auth_request_handler_unref(conn->request_handler);
 
-	conn->master = NULL;
         auth_client_connection_unref(conn);
 }
 
@@ -306,48 +301,45 @@ static void auth_client_connection_unref(struct auth_client_connection *conn)
 }
 
 struct auth_client_connection *
-auth_client_connection_lookup(struct auth_master_connection *master,
+auth_client_connection_lookup(struct auth_master_listener *listener,
 			      unsigned int pid)
 {
-	struct auth_client_connection *conn;
+	struct auth_client_connection *const *clients;
+	unsigned int i, count;
 
-	for (conn = master->clients; conn != NULL; conn = conn->next) {
-		if (conn->pid == pid)
-			return conn;
+	clients = array_get(&listener->clients, &count);
+	for (i = 0; i < count; i++) {
+		if (clients[i]->pid == pid)
+			return clients[i];
 	}
 
 	return NULL;
 }
 
-static void request_timeout(void *context __attr_unused__)
+static void request_timeout(void *context)
 {
-        struct auth_master_connection *master = context;
-	struct auth_client_connection *conn;
+        struct auth_master_listener *listener = context;
+	struct auth_client_connection *const *clients;
+	unsigned int i, count;
 
-	for (conn = master->clients; conn != NULL; conn = conn->next) {
-		if (conn->request_handler == NULL)
-			continue;
-		auth_request_handler_check_timeouts(conn->request_handler);
+	clients = array_get(&listener->clients, &count);
+	for (i = 0; i < count; i++) {
+		if (clients[i]->request_handler != NULL) {
+			auth_request_handler_check_timeouts(
+				clients[i]->request_handler);
+		}
 	}
 }
 
-void auth_client_connections_init(struct auth_master_connection *master)
+void auth_client_connections_init(struct auth_master_listener *listener)
 {
-	master->to_clients = timeout_add(5000, request_timeout, master);
+	listener->to_clients = timeout_add(5000, request_timeout, listener);
 }
 
-void auth_client_connections_deinit(struct auth_master_connection *master)
+void auth_client_connections_deinit(struct auth_master_listener *listener)
 {
-	struct auth_client_connection *next;
-
-	while (master->clients != NULL) {
-		next = master->clients->next;
-		auth_client_connection_destroy(master->clients);
-		master->clients = next;
-	}
-
-	if (master->to_clients != NULL) {
-		timeout_remove(master->to_clients);
-		master->to_clients = NULL;
+	if (listener->to_clients != NULL) {
+		timeout_remove(listener->to_clients);
+		listener->to_clients = NULL;
 	}
 }

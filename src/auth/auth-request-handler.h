@@ -2,14 +2,14 @@
 #define __AUTH_REQUEST_HANDLER_H
 
 struct auth_request;
+struct auth_master_connection;
 
 typedef void auth_request_callback_t(const char *reply, void *context);
 
 struct auth_request_handler *
 auth_request_handler_create(struct auth *auth, int prepend_connect_uid,
 			    auth_request_callback_t *callback, void *context,
-			    auth_request_callback_t *master_callback,
-			    void *master_context);
+			    auth_request_callback_t *master_callback);
 void auth_request_handler_unref(struct auth_request_handler *handler);
 
 void auth_request_handler_set(struct auth_request_handler *handler,
@@ -23,6 +23,7 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 int auth_request_handler_auth_continue(struct auth_request_handler *handler,
 				       const char *args);
 void auth_request_handler_master_request(struct auth_request_handler *handler,
+					 struct auth_master_connection *master,
 					 unsigned int id,
 					 unsigned int client_id);
 

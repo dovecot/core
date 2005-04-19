@@ -12,6 +12,7 @@
 #include "auth-request-handler.h"
 #include "auth-master-interface.h"
 #include "auth-client-connection.h"
+#include "auth-master-listener.h"
 #include "auth-master-connection.h"
 
 #include <unistd.h>
@@ -20,32 +21,20 @@
 #define MAX_INBUF_SIZE 1024
 #define MAX_OUTBUF_SIZE (1024*50)
 
-struct auth_listener {
-	struct auth_master_connection *master;
-	enum listener_type type;
-	int fd;
-	char *path;
-	struct io *io;
-};
-
 struct master_userdb_request {
 	struct auth_master_connection *conn;
 	unsigned int id;
 	struct auth_request *auth_request;
 };
 
-static array_t ARRAY_DEFINE(master_connections,
-			    struct auth_master_connection *);
-
 static int master_output(void *context);
-static void auth_listener_destroy(struct auth_listener *l);
 
 void auth_master_request_callback(const char *reply, void *context)
 {
 	struct auth_master_connection *conn = context;
 	struct const_iovec iov[2];
 
-	if (conn->auth->verbose_debug)
+	if (conn->listener->auth->verbose_debug)
 		i_info("master out: %s", reply);
 
 	iov[0].iov_base = reply;
@@ -74,7 +63,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	client_pid = (unsigned int)strtoul(list[1], NULL, 10);
 	client_id = (unsigned int)strtoul(list[2], NULL, 10);
 
-	client_conn = auth_client_connection_lookup(conn, client_pid);
+	client_conn = auth_client_connection_lookup(conn->listener, client_pid);
 	if (client_conn == NULL) {
 		i_error("Master requested auth for nonexisting client %u",
 			client_pid);
@@ -82,7 +71,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 					t_strdup_printf("NOTFOUND\t%u\n", id));
 	} else {
 		auth_request_handler_master_request(
-			client_conn->request_handler, id, client_id);
+			client_conn->request_handler, conn, id, client_id);
 	}
 	return TRUE;
 }
@@ -117,7 +106,7 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 		return FALSE;
 	}
 
-	auth_request = auth_request_new_dummy(conn->auth);
+	auth_request = auth_request_new_dummy(conn->listener->auth);
 	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
 	auth_request->user = p_strdup(auth_request->pool, list[1]);
 	auth_request->context = conn;
@@ -170,7 +159,7 @@ static void master_input(void *context)
 	}
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		if (conn->auth->verbose_debug)
+		if (conn->listener->auth->verbose_debug)
 			i_info("master in: %s", line);
 
 		t_push();
@@ -211,16 +200,14 @@ static int master_output(void *context)
 	return 1;
 }
 
-static void
-auth_master_connection_set_fd(struct auth_master_connection *conn, int fd)
+struct auth_master_connection *
+auth_master_connection_create(struct auth_master_listener *listener, int fd)
 {
-	if (conn->input != NULL)
-		i_stream_unref(conn->input);
-	if (conn->output != NULL)
-		o_stream_unref(conn->output);
-	if (conn->io != NULL)
-		io_remove(conn->io);
+	struct auth_master_connection *conn;
 
+	conn = i_new(struct auth_master_connection, 1);
+	conn->listener = listener;
+	conn->fd = fd;
 	conn->input = i_stream_create_file(fd, default_pool,
 					   MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_file(fd, default_pool,
@@ -228,22 +215,7 @@ auth_master_connection_set_fd(struct auth_master_connection *conn, int fd)
 	o_stream_set_flush_callback(conn->output, master_output, conn);
 	conn->io = io_add(fd, IO_READ, master_input, conn);
 
-	conn->fd = fd;
-}
-
-struct auth_master_connection *
-auth_master_connection_create(struct auth *auth, int fd)
-{
-	struct auth_master_connection *conn;
-
-	conn = i_new(struct auth_master_connection, 1);
-	conn->auth = auth;
-	conn->pid = (unsigned int)getpid();
-	conn->fd = fd;
-	conn->listeners_buf = buffer_create_dynamic(default_pool, 64);
-	if (fd != -1)
-                auth_master_connection_set_fd(conn, fd);
-	array_append(&master_connections, &conn, 1);
+	array_append(&listener->masters, &conn, 1);
 	return conn;
 }
 
@@ -256,21 +228,19 @@ void auth_master_connection_send_handshake(struct auth_master_connection *conn)
 
 	line = t_strdup_printf("VERSION\t%u\t%u\nSPID\t%u\n",
 			       AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
-			       AUTH_MASTER_PROTOCOL_MINOR_VERSION, conn->pid);
+			       AUTH_MASTER_PROTOCOL_MINOR_VERSION,
+			       conn->listener->pid);
 	(void)o_stream_send_str(conn->output, line);
 }
 
 void auth_master_connection_destroy(struct auth_master_connection *conn)
 {
         struct auth_master_connection *const *conns;
-	struct auth_listener **l;
 	unsigned int i, count;
 
 	if (conn->destroyed)
 		return;
 	conn->destroyed = TRUE;
-
-	auth_client_connections_deinit(conn);
 
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
@@ -283,114 +253,15 @@ void auth_master_connection_destroy(struct auth_master_connection *conn)
 	if (conn->io != NULL)
 		io_remove(conn->io);
 
-	while (conn->listeners_buf->used > 0) {
-		l = buffer_get_modifyable_data(conn->listeners_buf, NULL);
-		auth_listener_destroy(*l);
-	}
-	buffer_free(conn->listeners_buf);
-	conn->listeners_buf = NULL;
-
-	conns = array_get(&master_connections, &count);
+	conns = array_get(&conn->listener->masters, &count);
 	for (i = 0; i < count; i++) {
 		if (conns[i] == conn) {
-			array_delete(&master_connections, i, 1);
+			array_delete(&conn->listener->masters, i, 1);
 			break;
 		}
 	}
-	if (!standalone && array_count(&master_connections) == 0)
+	if (!standalone && auth_master_listeners_masters_left() == 0)
 		io_loop_stop(ioloop);
        
 	i_free(conn);
-}
-
-static void auth_accept(void *context)
-{
-	struct auth_listener *l = context;
-	int fd;
-
-	fd = net_accept(l->fd, NULL, NULL);
-	if (fd < 0) {
-		if (fd < -1)
-			i_fatal("accept(type %d) failed: %m", l->type);
-	} else {
-		net_set_nonblock(fd, TRUE);
-		switch (l->type) {
-		case LISTENER_CLIENT:
-			(void)auth_client_connection_create(l->master, fd);
-			break;
-		case LISTENER_MASTER:
-			/* we'll just replace the previous master.. */
-			auth_master_connection_set_fd(l->master, fd);
-			auth_master_connection_send_handshake(l->master);
-			break;
-		}
-	}
-}
-
-void auth_master_connection_add_listener(struct auth_master_connection *conn,
-					 int fd, const char *path,
-					 enum listener_type type)
-{
-	struct auth_listener *l;
-
-	l = i_new(struct auth_listener, 1);
-	l->master = conn;
-	l->type = type;
-	l->fd = fd;
-	l->path = i_strdup(path);
-	l->io = io_add(fd, IO_READ, auth_accept, l);
-
-	buffer_append(conn->listeners_buf, &l, sizeof(l));
-}
-
-static void auth_listener_destroy(struct auth_listener *l)
-{
-	struct auth_listener **lp;
-	size_t i, size;
-
-	lp = buffer_get_modifyable_data(l->master->listeners_buf, &size);
-	size /= sizeof(*lp);
-
-	for (i = 0; i < size; i++) {
-		if (lp[i] == l) {
-			buffer_delete(l->master->listeners_buf,
-				      i * sizeof(l), sizeof(l));
-			break;
-		}
-	}
-
-	net_disconnect(l->fd);
-	io_remove(l->io);
-	if (l->path != NULL) {
-		(void)unlink(l->path);
-		i_free(l->path);
-	}
-	i_free(l);
-}
-
-void auth_master_connections_send_handshake(void)
-{
-        struct auth_master_connection *const *conns;
-	unsigned int i, count;
-
-	conns = array_get(&master_connections, &count);
-	for (i = 0; i < count; i++)
-		auth_master_connection_send_handshake(conns[i]);
-}
-
-void auth_master_connections_init(void)
-{
-	ARRAY_CREATE(&master_connections, default_pool,
-		     struct auth_master_connection *, 16);
-}
-
-void auth_master_connections_deinit(void)
-{
-        struct auth_master_connection *const *conns;
-	unsigned int i, count;
-
-	conns = array_get(&master_connections, &count);
-	for (i = count; i > 0; i--)
-		auth_master_connection_destroy(conns[i]);
-	array_free(&master_connections);
 }

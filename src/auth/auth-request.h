@@ -48,6 +48,7 @@ struct auth_request {
 
 	mech_callback_t *callback;
 	void *context;
+        struct auth_master_connection *master;
 
 	unsigned int successful:1;
 	unsigned int internal_failure:1;

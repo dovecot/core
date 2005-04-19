@@ -15,6 +15,7 @@
 #include "auth-worker-server.h"
 #include "auth-worker-client.h"
 #include "auth-master-interface.h"
+#include "auth-master-listener.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 
@@ -137,7 +138,7 @@ static int create_unix_listener(const char *env, int backlog)
 
 static void add_extra_listeners(void)
 {
-	struct auth_master_connection *master;
+	struct auth_master_listener *listener;
 	const char *str, *client_path, *master_path;
 	int client_fd, master_fd;
 	unsigned int i;
@@ -154,20 +155,17 @@ static void add_extra_listeners(void)
 		str = t_strdup_printf("AUTH_%u", i);
 		client_fd = create_unix_listener(str, 16);
 		str = t_strdup_printf("AUTH_%u_MASTER", i);
-		master_fd = create_unix_listener(str, 1);
+		master_fd = create_unix_listener(str, 16);
 
-		master = auth_master_connection_create(auth, -1);
+		listener = auth_master_listener_create(auth);
 		if (master_fd != -1) {
-			auth_master_connection_add_listener(master, master_fd,
-							    master_path,
-							    LISTENER_MASTER);
+			auth_master_listener_add(listener, master_fd,
+						 master_path, LISTENER_MASTER);
 		}
 		if (client_fd != -1) {
-			auth_master_connection_add_listener(master, client_fd,
-							    client_path,
-							    LISTENER_CLIENT);
+			auth_master_listener_add(listener, client_fd,
+						 client_path, LISTENER_CLIENT);
 		}
-		auth_client_connections_init(master);
 		t_pop();
 	}
 }
@@ -184,7 +182,7 @@ static void drop_privileges(void)
 	auth = auth_preinit();
         password_schemes_init();
 
-	auth_master_connections_init();
+	auth_master_listeners_init();
 	if (!worker)
 		add_extra_listeners();
 
@@ -194,7 +192,7 @@ static void drop_privileges(void)
 
 static void main_init(int nodaemon)
 {
-	struct auth_master_connection *master;
+	struct auth_master_listener *listener;
 
         process_start_time = ioloop_time;
 	lib_init_signals(sig_quit);
@@ -236,14 +234,14 @@ static void main_init(int nodaemon)
 				i_fatal("chdir(/) failed: %m");
 		}
 	} else {
-		master = auth_master_connection_create(auth, MASTER_SOCKET_FD);
-		auth_master_connection_add_listener(master, CLIENT_LISTEN_FD,
-						    NULL, LISTENER_CLIENT);
-		auth_client_connections_init(master);
+		listener = auth_master_listener_create(auth);
+		(void)auth_master_connection_create(listener, MASTER_SOCKET_FD);
+		auth_master_listener_add(listener, CLIENT_LISTEN_FD,
+					 NULL, LISTENER_CLIENT);
 	}
 
 	/* everything initialized, notify masters that all is well */
-	auth_master_connections_send_handshake();
+	auth_master_listeners_send_handshake();
 }
 
 static void main_deinit(void)
@@ -256,7 +254,7 @@ static void main_deinit(void)
 	else
 		auth_request_handler_flush_failures();
 
-	auth_master_connections_deinit();
+	auth_master_listeners_deinit();
 	auth_request_handler_deinit();
 	auth_deinit(auth);
 	mech_deinit();

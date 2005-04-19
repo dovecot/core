@@ -24,7 +24,6 @@ struct auth_request_handler {
 	void *context;
 
 	auth_request_callback_t *master_callback;
-	void *master_context;
 
 	unsigned int prepend_connect_uid:1;
 };
@@ -35,8 +34,7 @@ static struct timeout *to_auth_failures;
 struct auth_request_handler *
 auth_request_handler_create(struct auth *auth, int prepend_connect_uid,
 			    auth_request_callback_t *callback, void *context,
-			    auth_request_callback_t *master_callback,
-			    void *master_context)
+			    auth_request_callback_t *master_callback)
 {
 	struct auth_request_handler *handler;
 	pool_t pool;
@@ -51,7 +49,6 @@ auth_request_handler_create(struct auth *auth, int prepend_connect_uid,
 	handler->callback = callback;
 	handler->context = context;
 	handler->master_callback = master_callback;
-	handler->master_context = master_context;
 	handler->prepend_connect_uid = prepend_connect_uid;
 	return handler;
 }
@@ -397,13 +394,14 @@ static void userdb_callback(const char *result, struct auth_request *request)
 		str_printfa(reply, "USER\t%u\t", request->id);
 		str_append(reply, result);
 	}
-	handler->master_callback(str_c(reply), handler->master_context);
+	handler->master_callback(str_c(reply), request->master);
 
 	auth_request_unref(request);
         auth_request_handler_unref(handler);
 }
 
 void auth_request_handler_master_request(struct auth_request_handler *handler,
+					 struct auth_master_connection *master,
 					 unsigned int id,
 					 unsigned int client_id)
 {
@@ -419,7 +417,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 		i_error("Master request %u.%u not found",
 			handler->client_pid, client_id);
 		str_printfa(reply, "NOTFOUND\t%u", id);
-		handler->master_callback(str_c(reply), handler->master_context);
+		handler->master_callback(str_c(reply), master);
 		return;
 	}
 
@@ -431,7 +429,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 		i_error("Master requested unfinished authentication request "
 			"%u.%u", handler->client_pid, client_id);
 		str_printfa(reply, "NOTFOUND\t%u", id);
-		handler->master_callback(str_c(reply), handler->master_context);
+		handler->master_callback(str_c(reply), master);
 	} else {
 		/* the request isn't being referenced anywhere anymore,
 		   so we can do a bit of kludging.. replace the request's
@@ -439,6 +437,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 		request->state = AUTH_REQUEST_STATE_USERDB;
 		request->id = id;
 		request->context = handler;
+		request->master = master;
 
 		/* handler is referenced until userdb_callback is called. */
 		handler->refcount++;
