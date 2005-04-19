@@ -29,13 +29,18 @@ struct auth_master_connection {
 
 struct auth_master_connection *
 auth_master_connection_create(struct auth *auth, int fd);
-void auth_master_connection_send_handshake(struct auth_master_connection *conn);
 void auth_master_connection_destroy(struct auth_master_connection *conn);
+
+void auth_master_connection_send_handshake(struct auth_master_connection *conn);
+void auth_master_connections_send_handshake(void);
 
 void auth_master_request_callback(const char *reply, void *context);
 
 void auth_master_connection_add_listener(struct auth_master_connection *conn,
 					 int fd, const char *path,
 					 enum listener_type type);
+
+void auth_master_connections_init(void);
+void auth_master_connections_deinit(void);
 
 #endif

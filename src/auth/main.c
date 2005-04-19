@@ -30,7 +30,6 @@ struct ioloop *ioloop;
 int standalone = FALSE, worker = FALSE;
 time_t process_start_time;
 
-static buffer_t *masters_buf;
 static struct auth *auth;
 static struct auth_worker_client *worker_client;
 
@@ -169,7 +168,6 @@ static void add_extra_listeners(void)
 							    LISTENER_CLIENT);
 		}
 		auth_client_connections_init(master);
-		buffer_append(masters_buf, &master, sizeof(master));
 		t_pop();
 	}
 }
@@ -186,7 +184,7 @@ static void drop_privileges(void)
 	auth = auth_preinit();
         password_schemes_init();
 
-	masters_buf = buffer_create_dynamic(default_pool, 64);
+	auth_master_connections_init();
 	if (!worker)
 		add_extra_listeners();
 
@@ -196,8 +194,7 @@ static void drop_privileges(void)
 
 static void main_init(int nodaemon)
 {
-	struct auth_master_connection *master, **master_p;
-	size_t i, size;
+	struct auth_master_connection *master;
 
         process_start_time = ioloop_time;
 	lib_init_signals(sig_quit);
@@ -243,36 +240,23 @@ static void main_init(int nodaemon)
 		auth_master_connection_add_listener(master, CLIENT_LISTEN_FD,
 						    NULL, LISTENER_CLIENT);
 		auth_client_connections_init(master);
-		buffer_append(masters_buf, &master, sizeof(master));
 	}
 
 	/* everything initialized, notify masters that all is well */
-	master_p = buffer_get_modifyable_data(masters_buf, &size);
-	size /= sizeof(*master_p);
-	for (i = 0; i < size; i++)
-		auth_master_connection_send_handshake(master_p[i]);
+	auth_master_connections_send_handshake();
 }
 
 static void main_deinit(void)
 {
-	struct auth_master_connection **master;
-	size_t i, size;
-
         if (lib_signal_kill != 0)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
 	if (worker_client != NULL)
 		auth_worker_client_destroy(worker_client);
-	else {
+	else
 		auth_request_handler_flush_failures();
 
-		master = buffer_get_modifyable_data(masters_buf, &size);
-		size /= sizeof(*master);
-		for (i = 0; i < size; i++)
-			auth_master_connection_destroy(master[i]);
-	}
-	buffer_free(masters_buf);
-
+	auth_master_connections_deinit();
 	auth_request_handler_deinit();
 	auth_deinit(auth);
 	mech_deinit();

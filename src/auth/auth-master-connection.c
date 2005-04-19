@@ -34,9 +34,10 @@ struct master_userdb_request {
 	struct auth_request *auth_request;
 };
 
+static array_t ARRAY_DEFINE(master_connections,
+			    struct auth_master_connection *);
+
 static int master_output(void *context);
-static void auth_master_connection_close(struct auth_master_connection *conn);
-static int auth_master_connection_unref(struct auth_master_connection *conn);
 static void auth_listener_destroy(struct auth_listener *l);
 
 void auth_master_request_callback(const char *reply, void *context)
@@ -141,13 +142,13 @@ static void master_input(void *context)
 		return;
 	case -1:
 		/* disconnected */
-                auth_master_connection_close(conn);
+                auth_master_connection_destroy(conn);
 		return;
 	case -2:
 		/* buffer full */
 		i_error("BUG: Master sent us more than %d bytes",
 			(int)MAX_INBUF_SIZE);
-                auth_master_connection_close(conn);
+                auth_master_connection_destroy(conn);
 		return;
 	}
 
@@ -162,7 +163,7 @@ static void master_input(void *context)
 		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
 			i_error("Master not compatible with this server "
 				"(mixed old and new binaries?)");
-			auth_master_connection_close(conn);
+			auth_master_connection_destroy(conn);
 			return;
 		}
 		conn->version_received = TRUE;
@@ -186,7 +187,7 @@ static void master_input(void *context)
 		t_pop();
 
 		if (!ret) {
-			auth_master_connection_close(conn);
+			auth_master_connection_destroy(conn);
 			return;
 		}
 	}
@@ -199,7 +200,7 @@ static int master_output(void *context)
 
 	if ((ret = o_stream_flush(conn->output)) < 0) {
 		/* transmit error, probably master died */
-		auth_master_connection_close(conn);
+		auth_master_connection_destroy(conn);
 		return 1;
 	}
 
@@ -237,12 +238,12 @@ auth_master_connection_create(struct auth *auth, int fd)
 
 	conn = i_new(struct auth_master_connection, 1);
 	conn->auth = auth;
-	conn->refcount = 1;
 	conn->pid = (unsigned int)getpid();
 	conn->fd = fd;
 	conn->listeners_buf = buffer_create_dynamic(default_pool, 64);
 	if (fd != -1)
                 auth_master_connection_set_fd(conn, fd);
+	array_append(&master_connections, &conn, 1);
 	return conn;
 }
 
@@ -259,30 +260,11 @@ void auth_master_connection_send_handshake(struct auth_master_connection *conn)
 	(void)o_stream_send_str(conn->output, line);
 }
 
-static void auth_master_connection_close(struct auth_master_connection *conn)
-{
-	if (!standalone)
-		io_loop_stop(ioloop);
-
-	if (close(conn->fd) < 0)
-		i_error("close(): %m");
-	conn->fd = -1;
-
-	i_stream_unref(conn->input);
-	conn->input = NULL;
-
-	o_stream_unref(conn->output);
-	conn->output = NULL;
-
-	if (conn->io != NULL) {
-		io_remove(conn->io);
-		conn->io = NULL;
-	}
-}
-
 void auth_master_connection_destroy(struct auth_master_connection *conn)
 {
+        struct auth_master_connection *const *conns;
 	struct auth_listener **l;
+	unsigned int i, count;
 
 	if (conn->destroyed)
 		return;
@@ -290,8 +272,16 @@ void auth_master_connection_destroy(struct auth_master_connection *conn)
 
 	auth_client_connections_deinit(conn);
 
-	if (conn->fd != -1)
-		auth_master_connection_close(conn);
+	if (conn->fd != -1) {
+		if (close(conn->fd) < 0)
+			i_error("close(): %m");
+	}
+	if (conn->input != NULL)
+		i_stream_unref(conn->input);
+	if (conn->output != NULL)
+		o_stream_unref(conn->output);
+	if (conn->io != NULL)
+		io_remove(conn->io);
 
 	while (conn->listeners_buf->used > 0) {
 		l = buffer_get_modifyable_data(conn->listeners_buf, NULL);
@@ -300,18 +290,17 @@ void auth_master_connection_destroy(struct auth_master_connection *conn)
 	buffer_free(conn->listeners_buf);
 	conn->listeners_buf = NULL;
 
-	auth_master_connection_unref(conn);
-}
-
-static int auth_master_connection_unref(struct auth_master_connection *conn)
-{
-	if (--conn->refcount > 0)
-		return TRUE;
-
-	if (conn->output != NULL)
-		o_stream_unref(conn->output);
+	conns = array_get(&master_connections, &count);
+	for (i = 0; i < count; i++) {
+		if (conns[i] == conn) {
+			array_delete(&master_connections, i, 1);
+			break;
+		}
+	}
+	if (!standalone && array_count(&master_connections) == 0)
+		io_loop_stop(ioloop);
+       
 	i_free(conn);
-	return FALSE;
 }
 
 static void auth_accept(void *context)
@@ -377,4 +366,31 @@ static void auth_listener_destroy(struct auth_listener *l)
 		i_free(l->path);
 	}
 	i_free(l);
+}
+
+void auth_master_connections_send_handshake(void)
+{
+        struct auth_master_connection *const *conns;
+	unsigned int i, count;
+
+	conns = array_get(&master_connections, &count);
+	for (i = 0; i < count; i++)
+		auth_master_connection_send_handshake(conns[i]);
+}
+
+void auth_master_connections_init(void)
+{
+	ARRAY_CREATE(&master_connections, default_pool,
+		     struct auth_master_connection *, 16);
+}
+
+void auth_master_connections_deinit(void)
+{
+        struct auth_master_connection *const *conns;
+	unsigned int i, count;
+
+	conns = array_get(&master_connections, &count);
+	for (i = count; i > 0; i--)
+		auth_master_connection_destroy(conns[i]);
+	array_free(&master_connections);
 }
