@@ -73,7 +73,11 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	} else {
 		sql_query_save_results(result, sql_request);
 
-		if (auth_request->passdb_password == NULL) {
+		/* Note that we really want to check if the password field is
+		   found. Just checking if password is set isn't enough,
+		   because with proxies we might want to return NULL as
+		   password. */
+		if (sql_result_find_field(result, "password") < 0) {
 			auth_request_log_error(auth_request, "sql",
 				"Password query must return a field named "
 				"'password'");
