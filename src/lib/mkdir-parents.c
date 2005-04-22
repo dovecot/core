@@ -10,8 +10,12 @@ int mkdir_parents(const char *path, mode_t mode)
 	const char *p;
 
 	/* EISDIR check is for BSD/OS which returns it if path contains '/'
-	   at the end and it exists. */
-	if (mkdir(path, mode) < 0 && errno != EEXIST && errno != EISDIR) {
+	   at the end and it exists.
+
+	   ENOSYS check is for NFS mount points.
+	*/
+	if (mkdir(path, mode) < 0 && errno != EEXIST &&
+	    errno != EISDIR && errno != ENOSYS) {
 		if (errno != ENOENT)
 			return -1;
 
