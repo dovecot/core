@@ -601,6 +601,9 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 		/* expunging first message, fix space to contain next
 		   message's \n header too since it will be removed. */
 		mail_ctx->mail.space++;
+
+		/* uid-last offset is invalid now */
+                mail_ctx->sync_ctx->base_uid_last_offset = 0;
 	}
 
 	mail_ctx->sync_ctx->expunged_space += mail_ctx->mail.space;
@@ -1105,6 +1108,9 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 		/* out of disk space, truncate to empty */
 		(void)ftruncate(sync_ctx->write_fd, 0);
 	}
+
+	sync_ctx->base_uid_last_offset = 0; /* don't bother calculating */
+	sync_ctx->base_uid_last = sync_ctx->next_uid-1;
 	return 0;
 }
 
