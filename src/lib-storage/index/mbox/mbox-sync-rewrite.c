@@ -208,13 +208,14 @@ static void mbox_sync_headers_remove_space(struct mbox_sync_mail_context *ctx,
 	/* FIXME: see if we could remove X-Keywords header completely */
 }
 
-static void mbox_sync_first_mail_written(struct mbox_sync_mail_context *ctx)
+static void mbox_sync_first_mail_written(struct mbox_sync_mail_context *ctx,
+					 uoff_t hdr_offset)
 {
 	/* we wrote the first mail. update the base_uid_last so we don't try
 	   to update it later unneededly. also update last-uid offset. */
 	i_assert(ctx->last_uid_value_start_pos != 0);
 
-	ctx->sync_ctx->base_uid_last_offset = ctx->hdr_offset +
+	ctx->sync_ctx->base_uid_last_offset = hdr_offset +
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] +
 		ctx->last_uid_value_start_pos;
 	ctx->sync_ctx->base_uid_last = ctx->sync_ctx->next_uid - 1;
@@ -288,7 +289,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	}
 
 	if (sync_ctx->dest_first_mail)
-		mbox_sync_first_mail_written(ctx);
+		mbox_sync_first_mail_written(ctx, ctx->hdr_offset + move_diff);
 
 	i_stream_sync(sync_ctx->input);
 	return 1;
@@ -388,7 +389,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	}
 
 	if (sync_ctx->dest_first_mail) {
-		mbox_sync_first_mail_written(&mail_ctx);
+		mbox_sync_first_mail_written(&mail_ctx, dest_offset);
 		sync_ctx->dest_first_mail = FALSE;
 	}
 
