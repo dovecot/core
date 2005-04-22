@@ -513,15 +513,23 @@ static int mbox_rewrite_base_uid_last(struct mbox_sync_context *sync_ctx)
 	const char *str;
 	uint32_t uid_last;
 	unsigned int i;
+	int ret;
 
 	i_assert(sync_ctx->base_uid_last_offset != 0);
 
 	/* first check that the 10 bytes are there and they're exactly as
 	   expected. just an extra safety check to make sure we never write
 	   to wrong location in the mbox file. */
-	if (pread_full(sync_ctx->write_fd, buf, sizeof(buf),
-		       sync_ctx->base_uid_last_offset) <= 0) {
+	ret = pread_full(sync_ctx->write_fd, buf, sizeof(buf),
+			 sync_ctx->base_uid_last_offset);
+	if (ret < 0) {
 		mbox_set_syscall_error(sync_ctx->mbox, "pread_full()");
+		return -1;
+	}
+	if (ret == 0) {
+		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+			"X-IMAPbase uid-last unexpectedly points outside "
+			"mbox file %s", sync_ctx->mbox->path);
 		return -1;
 	}
 
