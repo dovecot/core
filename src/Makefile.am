@@ -2,6 +2,10 @@ if BUILD_POP3D
 POP3D = pop3-login pop3
 endif
 
+if BUILD_DELIVER
+DELIVER = deliver
+endif
+
 SUBDIRS = \
 	lib \
 	lib-sql \
@@ -19,5 +23,5 @@ SUBDIRS = \
 	imap-login \
 	imap \
 	$(POP3D) \
-	deliver \
+	$(DELIVER) \
 	util
