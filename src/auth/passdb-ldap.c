@@ -31,8 +31,6 @@ struct passdb_ldap_request {
 		verify_plain_callback_t *verify_plain;
                 lookup_credentials_callback_t *lookup_credentials;
 	} callback;
-
-	char password[1]; /* variable width */
 };
 
 static struct ldap_connection *passdb_ldap_conn;
@@ -158,7 +156,7 @@ static void handle_request(struct ldap_connection *conn,
 		return;
 	}
 
-	ret = password_verify(ldap_request->password, password, scheme,
+	ret = password_verify(auth_request->mech_password, password, scheme,
 			      auth_request->user);
 	if (ret < 0) {
 		auth_request_log_error(auth_request, "ldap",
