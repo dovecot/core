@@ -498,7 +498,8 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 	fd2 = mail_transaction_log_file_create2(log, path, fd, &dotlock,
 						dev, ino, file_size);
 	if (fd2 < 0) {
-		(void)file_dotlock_delete(&dotlock);
+		if (dotlock != NULL)
+			(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
 	return fd2;
