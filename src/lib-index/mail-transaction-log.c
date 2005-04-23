@@ -14,6 +14,7 @@
 #include "mail-index-transaction-private.h"
 
 #include <stddef.h>
+#include <stdio.h>
 #include <sys/stat.h>
 
 #define LOG_PREFETCH 1024
@@ -301,7 +302,8 @@ mail_transaction_log_file_close(struct mail_transaction_log_file *file)
 }
 
 static int
-mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file)
+mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
+				   int head)
 {
         struct mail_transaction_log_file *f;
 	int ret;
@@ -362,14 +364,29 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file)
 
 	/* make sure we already don't have a file with the same sequence
 	   opened. it shouldn't happen unless the old log file was
-	   corrupted. */
-	for (f = file->log->tail; f != NULL; f = f->next) {
-		if (f->hdr.file_seq >= file->hdr.file_seq) {
-			mail_transaction_log_file_set_corrupted(file,
-				"invalid new transaction log sequence "
-				"(%u >= %u)",
-				f->hdr.file_seq, file->hdr.file_seq);
-			return 0;
+	   corrupted.
+
+	   If we're opening head log file, make sure the sequence is larger
+	   than any existing one. */
+	if (head) {
+		for (f = file->log->tail; f != NULL; f = f->next) {
+			if (f->hdr.file_seq >= file->hdr.file_seq) {
+				mail_transaction_log_file_set_corrupted(file,
+					"invalid new transaction log sequence "
+					"(%u >= %u)",
+					f->hdr.file_seq, file->hdr.file_seq);
+				return 0;
+			}
+		}
+	} else {
+		for (f = file->log->tail; f != NULL; f = f->next) {
+			if (f->hdr.file_seq == file->hdr.file_seq) {
+				mail_transaction_log_file_set_corrupted(file,
+					"old transaction log already opened "
+					"(%u == %u)",
+					f->hdr.file_seq, file->hdr.file_seq);
+				return 0;
+			}
 		}
 	}
 
@@ -422,7 +439,8 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 	struct mail_index *index = log->index;
 	struct mail_transaction_log_header hdr;
 	struct stat st;
-	int fd2, ret;
+	const char *path2;
+	int fd2, ret, found;
 
 	/* log creation is locked now - see if someone already created it */
 	fd2 = open(path, O_RDWR);
@@ -443,9 +461,12 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 
 		if (ret < 0)
 			return -1;
+		found = TRUE;
 	} else if (errno != ENOENT) {
 		mail_index_file_set_syscall_error(index, path, "open()");
 		return -1;
+	} else {
+		found = FALSE;
 	}
 
 	if (mail_transaction_log_init_hdr(log, &hdr) < 0)
@@ -455,6 +476,17 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 		mail_index_file_set_syscall_error(index, path,
 						  "write_full()");
 		return -1;
+	}
+
+	/* keep two log files */
+	if (found) {
+		path2 = t_strconcat(path, ".2", NULL);
+		if (rename(path, path2) < 0) {
+			i_error("rename(%s, %s) failed: %m", path, path2);
+			/* ignore the error. we don't care that much about the
+			   second log file and we're going to overwrite this
+			   first one. */
+		}
 	}
 
 	if (file_dotlock_replace(dotlock,
@@ -506,7 +538,7 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 }
 
 static void
-mail_transaction_log_file_alloc_finish(struct mail_transaction_log_file *file)
+mail_transaction_log_file_add_to_head(struct mail_transaction_log_file *file)
 {
 	struct mail_transaction_log *log = file->log;
 	struct mail_transaction_log_file **p;
@@ -528,9 +560,29 @@ mail_transaction_log_file_alloc_finish(struct mail_transaction_log_file *file)
 	*p = file;
 }
 
-static struct mail_transaction_log_file *
+static void
+mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
+{
+	struct mail_transaction_log *log = file->log;
+	struct mail_transaction_log_file **p;
+
+	file->sync_offset = file->hdr.hdr_size;
+
+	/* insert it to correct position */
+	for (p = &log->tail; *p != NULL; p = &(*p)->next) {
+		i_assert((*p)->hdr.file_seq != file->hdr.file_seq);
+		if ((*p)->hdr.file_seq > file->hdr.file_seq)
+			break;
+	}
+
+	file->next = *p;
+	*p = file;
+}
+
+static int
 mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
-				  const char *path, int fd)
+                                  struct mail_transaction_log_file **file_r,
+				  const char *path, int fd, int head)
 {
         struct mail_transaction_log_file *file;
 	struct stat st;
@@ -538,10 +590,12 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(log->index));
 
+	*file_r = NULL;
+
 	if (fstat(fd, &st) < 0) {
 		mail_index_file_set_syscall_error(log->index, path, "fstat()");
 		(void)close(fd);
-		return NULL;
+		return -1;
 	}
 
 	file = i_new(struct mail_transaction_log_file, 1);
@@ -552,12 +606,36 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	file->st_dev = st.st_dev;
 	file->st_ino = st.st_ino;
 	file->last_mtime = st.st_mtime;
+	file->last_size = st.st_size;
 
-	ret = mail_transaction_log_file_read_hdr(file);
+	ret = mail_transaction_log_file_read_hdr(file, head);
+	if (ret < 0) {
+		mail_transaction_log_file_close(file);
+		return -1;
+	}
+
+	*file_r = file;
+	return ret;
+}
+
+
+static struct mail_transaction_log_file *
+mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log *log,
+					    const char *path, int fd)
+{
+	struct mail_transaction_log_file *file;
+	struct stat st;
+	int ret;
+
+	ret = mail_transaction_log_file_fd_open(log, &file, path, fd, TRUE);
+	if (ret < 0)
+		return NULL;
+
 	if (ret == 0) {
 		/* corrupted header */
-		fd = mail_transaction_log_file_create(log, path, st.st_dev,
-						      st.st_ino, st.st_size);
+		fd = mail_transaction_log_file_create(log, path, file->st_dev,
+						      file->st_ino,
+						      file->last_size);
 		if (fd == -1)
 			ret = -1;
 		else if (fstat(fd, &st) < 0) {
@@ -575,9 +653,10 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 			file->st_dev = st.st_dev;
 			file->st_ino = st.st_ino;
 			file->last_mtime = st.st_mtime;
+			file->last_size = st.st_size;
 
 			memset(&file->hdr, 0, sizeof(file->hdr));
-			ret = mail_transaction_log_file_read_hdr(file);
+			ret = mail_transaction_log_file_read_hdr(file, TRUE);
 		}
 	}
 	if (ret <= 0) {
@@ -585,7 +664,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 		return NULL;
 	}
 
-        mail_transaction_log_file_alloc_finish(file);
+        mail_transaction_log_file_add_to_head(file);
 	return file;
 }
 
@@ -608,7 +687,7 @@ mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log)
 	file->buffer = buffer_create_dynamic(default_pool, 4096);
 	file->buffer_offset = sizeof(file->hdr);
 
-	mail_transaction_log_file_alloc_finish(file);
+	mail_transaction_log_file_add_to_head(file);
 	return file;
 }
 
@@ -634,7 +713,7 @@ mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 			return NULL;
 	}
 
-	return mail_transaction_log_file_fd_open(log, path, fd);
+	return mail_transaction_log_file_fd_open_or_create(log, path, fd);
 }
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log)
@@ -676,7 +755,8 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock)
 		if (fd == -1)
 			return -1;
 
-		file = mail_transaction_log_file_fd_open(log, path, fd);
+		file = mail_transaction_log_file_fd_open_or_create(log,
+								   path, fd);
 		if (file == NULL)
 			return -1;
 	}
@@ -743,6 +823,9 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 				   struct mail_transaction_log_file **file_r)
 {
 	struct mail_transaction_log_file *file;
+	struct stat st;
+	const char *path;
+	int ret, fd;
 
 	if (file_seq > log->head->hdr.file_seq) {
 		if (mail_transaction_log_refresh(log) < 0)
@@ -756,7 +839,51 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 		}
 	}
 
-	return 0;
+	/* see if we have it in log.2 file */
+	path = t_strconcat(log->index->filepath,
+			   MAIL_TRANSACTION_LOG_SUFFIX".2", NULL);
+	fd = open(path, O_RDWR);
+	if (fd == -1) {
+		if (errno == ENOENT)
+			return 0;
+
+		mail_index_file_set_syscall_error(log->index, path, "open()");
+		return -1;
+	}
+
+	if (fstat(fd, &st) < 0) {
+		mail_index_file_set_syscall_error(log->index, path, "fstat()");
+		return -1;
+	}
+
+	/* see if we have it already opened */
+	for (file = log->tail; file != NULL; file = file->next) {
+		if (file->st_ino == st.st_ino &&
+		    CMP_DEV_T(file->st_dev, st.st_dev)) {
+			if (close(fd) < 0)
+				i_error("close() failed: %m");
+			return 0;
+		}
+	}
+
+	ret = mail_transaction_log_file_fd_open(log, &file, path, fd, FALSE);
+	if (ret <= 0) {
+		if (ret == 0) {
+			mail_transaction_log_file_close(file);
+			return 0;
+		}
+		return -1;
+	}
+
+	/* got it */
+	mail_transaction_log_file_add_to_list(file);
+
+	/* but is it what we expected? */
+	if (file->hdr.file_seq != file_seq)
+		return 0;
+
+	*file_r = file;
+	return 1;
 }
 
 static int

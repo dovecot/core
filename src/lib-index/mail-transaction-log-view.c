@@ -112,6 +112,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		}
 	}
 
+	/* find the oldest log file first. */
 	ret = mail_transaction_log_file_find(view->log, min_file_seq, &file);
 	if (ret <= 0) {
 		if (ret == 0) {
@@ -145,6 +146,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	ret = mail_transaction_log_file_map(file, min_file_offset, end_offset);
 	if (ret <= 0) {
 		if (ret == 0) {
+			/* File is corrupted or stale NFS handle */
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
 				file->filepath, file->hdr.file_seq);
@@ -156,13 +158,27 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	for (seq = min_file_seq+1; seq <= max_file_seq; seq++) {
 		file = file->next;
-		if (file == NULL || file->hdr.file_seq != seq)  {
+		if (file == NULL || file->hdr.file_seq != seq) {
+			/* see if we could find the missing file */
+			ret = mail_transaction_log_file_find(view->log,
+							     seq, &file);
+			if (ret <= 0) {
+				if (ret < 0)
+					return -1;
+
+				/* not found / corrupted */
+				file = NULL;
+			}
+		}
+
+		if (file == NULL || file->hdr.file_seq != seq) {
 			if (file == NULL && max_file_seq == (uint32_t)-1) {
 				/* we just wanted to sync everything */
 				max_file_seq = seq-1;
 				break;
 			}
 
+			/* missing files in the middle */
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
 				view->log->tail->filepath, seq);
@@ -175,6 +191,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		ret = mail_transaction_log_file_map(file, file->hdr.hdr_size,
 						    end_offset);
 		if (ret == 0) {
+			/* File is corrupted or stale NFS handle */
 			mail_index_set_error(view->log->index,
 				"Lost transaction log file %s seq %u",
 				file->filepath, file->hdr.file_seq);
