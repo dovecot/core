@@ -69,7 +69,7 @@ static struct pool static_alloconly_pool = {
 	FALSE
 };
 
-pool_t pool_alloconly_create(const char *name, size_t size)
+pool_t pool_alloconly_create(const char *name __attr_unused__, size_t size)
 {
 	struct alloconly_pool apool, *new_apool;
 	size_t min_alloc = sizeof(struct alloconly_pool) + SIZEOF_POOLBLOCK;
@@ -121,9 +121,9 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 
 static const char *pool_alloconly_get_name(pool_t pool)
 {
+#ifdef DEBUG
 	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
 
-#ifdef DEBUG
 	return apool->name;
 #else
 	return "alloconly";
