@@ -196,6 +196,7 @@ static ssize_t _read(struct _istream *stream)
 	size_t size;
 	ssize_t ret;
 
+	stream->buffer = CONST_PTR_OFFSET(stream->buffer, stream->skip);
 	stream->pos -= stream->skip;
 	stream->skip = 0;
 
@@ -240,7 +241,9 @@ static ssize_t _read(struct _istream *stream)
 
 static void _seek(struct _istream *stream, uoff_t v_offset)
 {
+	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
+	stream->skip = stream->pos = 0;
 }
 
 static const struct stat *_stat(struct _istream *stream)
