@@ -603,6 +603,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	struct maildir_uidlist_iter_ctx *iter;
 	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
+	struct mail_index_header tmp_hdr;
 	const struct mail_index_record *rec;
 	pool_t keyword_pool;
 	uint32_t seq, uid;
@@ -613,22 +614,33 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	uint32_t uid_validity, next_uid;
 	int ret;
 
+	trans = mail_index_transaction_begin(view, FALSE, TRUE);
+	sync_ctx->trans = trans;
+
 	hdr = mail_index_get_header(view);
 	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
 	if (uid_validity != hdr->uid_validity &&
 	    uid_validity != 0 && hdr->uid_validity != 0) {
 		/* uidvalidity changed and mailbox isn't being initialized,
-		   index must be rebuilt */
+		   reset mailbox so we can add all messages as new */
 		mail_storage_set_critical(STORAGE(mbox->storage),
 			"Maildir %s sync: UIDVALIDITY changed (%u -> %u)",
 			mbox->path, hdr->uid_validity, uid_validity);
-		mail_index_mark_corrupted(mbox->ibox.index);
-                maildir_sync_index_abort(sync_ctx);
-		return -1;
-	}
 
-	trans = mail_index_transaction_begin(view, FALSE, TRUE);
-	sync_ctx->trans = trans;
+		for (seq = 1; seq < hdr->messages_count; seq++)
+			mail_index_expunge(trans, seq);
+
+		/* Reset uidvalidity and next_uid. */
+		memcpy(&tmp_hdr, hdr, sizeof(tmp_hdr));
+		tmp_hdr.uid_validity = 0;
+		tmp_hdr.next_uid = 0;
+
+		/* next_uid must be reset before message syncing begins,
+		   or we get errors about UIDs larger than next_uid. */
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, next_uid),
+			&hdr->next_uid, sizeof(hdr->next_uid), TRUE);
+	}
 
 	keyword_pool = pool_alloconly_create("maildir keywords", 128);
 
@@ -801,7 +813,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, sync_stamp),
-			&sync_stamp, sizeof(sync_stamp));
+			&sync_stamp, sizeof(sync_stamp), TRUE);
 	}
 
 	if (hdr->uid_validity == 0) {
@@ -822,14 +834,14 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	if (uid_validity != hdr->uid_validity && uid_validity != 0) {
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
-			&uid_validity, sizeof(uid_validity));
+			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 
 	next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
 	if (next_uid != 0 && hdr->next_uid != next_uid) {
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, next_uid),
-			&next_uid, sizeof(next_uid));
+			&next_uid, sizeof(next_uid), FALSE);
 	}
 
 	if (ret < 0) {

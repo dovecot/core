@@ -326,9 +326,11 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				enum modify_type modify_type,
 				struct mail_keywords *keywords);
 
-/* Update field in header. */
+/* Update field in header. If prepend is TRUE, the header change is visible
+   before message syncing begins. */
 void mail_index_update_header(struct mail_index_transaction *t,
-			      size_t offset, const void *data, size_t size);
+			      size_t offset, const void *data, size_t size,
+			      int prepend);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);

@@ -80,18 +80,22 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 }
 
 static const buffer_t *
-log_get_hdr_update_buffer(struct mail_index_transaction *t)
+log_get_hdr_update_buffer(struct mail_index_transaction *t, int prepend)
 {
 	buffer_t *buf;
+	const unsigned char *data, *mask;
 	struct mail_transaction_header_update u;
 	uint16_t offset;
 	int state = 0;
 
 	memset(&u, 0, sizeof(u));
 
+	data = prepend ? t->pre_hdr_change : t->post_hdr_change;
+	mask = prepend ? t->pre_hdr_mask : t->post_hdr_mask;
+
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
-	for (offset = 0; offset <= sizeof(t->hdr_change); offset++) {
-		if (offset < sizeof(t->hdr_change) && t->hdr_mask[offset]) {
+	for (offset = 0; offset <= sizeof(t->pre_hdr_change); offset++) {
+		if (offset < sizeof(t->pre_hdr_change) && mask[offset]) {
 			if (state == 0) {
 				u.offset = offset;
 				state++;
@@ -99,9 +103,8 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t)
 		} else {
 			if (state > 0) {
 				u.size = offset - u.offset;
-				buffer_append(buf, &u, sizeof(uint16_t)*2);
-				buffer_append(buf, t->hdr_change + u.offset,
-					      u.size);
+				buffer_append(buf, &u, sizeof(u));
+				buffer_append(buf, data + u.offset, u.size);
 				state = 0;
 			}
 		}
@@ -411,6 +414,12 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	   to avoid resize overhead as much as possible */
         ret = mail_transaction_log_append_ext_intros(file, t);
 
+	if (t->pre_hdr_changed && ret == 0) {
+		ret = log_append_buffer(file,
+					log_get_hdr_update_buffer(t, TRUE),
+					NULL, MAIL_TRANSACTION_HEADER_UPDATE,
+					t->external);
+	}
 	if (array_is_created(&t->appends) && ret == 0) {
                 visibility_changes = TRUE;
 		ret = log_append_buffer(file, t->appends.buffer, NULL,
@@ -442,15 +451,16 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 		ret = log_append_buffer(file, t->expunges.buffer, NULL,
 					MAIL_TRANSACTION_EXPUNGE, t->external);
 	}
-	if (t->hdr_changed && ret == 0) {
-		ret = log_append_buffer(file, log_get_hdr_update_buffer(t),
-					NULL, MAIL_TRANSACTION_HEADER_UPDATE,
-					t->external);
-	}
 
 	if (ret < 0) {
 		mail_index_file_set_syscall_error(log->index, file->filepath,
 						  "pwrite()");
+	}
+	if (t->post_hdr_changed && ret == 0) {
+		ret = log_append_buffer(file,
+					log_get_hdr_update_buffer(t, FALSE),
+					NULL, MAIL_TRANSACTION_HEADER_UPDATE,
+					t->external);
 	}
 
 	if (ret == 0 && visibility_changes && t->hide_transaction) {

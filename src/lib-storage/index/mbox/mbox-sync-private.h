@@ -113,7 +113,7 @@ struct mbox_sync_context {
 
 	pool_t mail_keyword_pool;
 
-	uint32_t prev_msg_uid, next_uid;
+	uint32_t prev_msg_uid, next_uid, idx_next_uid;
 	uint32_t seq, idx_seq, need_space_seq;
 	off_t expunged_space, space_diff;
 

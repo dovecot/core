@@ -19,8 +19,10 @@ struct mail_index_transaction {
 	array_t ARRAY_DEFINE(updates, struct mail_transaction_flag_update);
 	size_t last_update_idx;
 
-	unsigned char hdr_change[sizeof(struct mail_index_header)];
-	unsigned char hdr_mask[sizeof(struct mail_index_header)];
+	unsigned char pre_hdr_change[sizeof(struct mail_index_header)];
+	unsigned char pre_hdr_mask[sizeof(struct mail_index_header)];
+	unsigned char post_hdr_change[sizeof(struct mail_index_header)];
+	unsigned char post_hdr_mask[sizeof(struct mail_index_header)];
 
 	array_t ARRAY_DEFINE(ext_rec_updates, array_t);
 	array_t ARRAY_DEFINE(ext_resizes, struct mail_transaction_ext_intro);
@@ -35,7 +37,8 @@ struct mail_index_transaction {
 	unsigned int hide_transaction:1;
 	unsigned int no_appends:1;
 	unsigned int external:1;
-	unsigned int hdr_changed:1;
+	unsigned int pre_hdr_changed:1;
+	unsigned int post_hdr_changed:1;
 	unsigned int log_updates:1;
 };
 

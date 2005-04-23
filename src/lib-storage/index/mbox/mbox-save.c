@@ -558,7 +558,7 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 	if (ctx->synced) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
-			&ctx->next_uid, sizeof(ctx->next_uid));
+			&ctx->next_uid, sizeof(ctx->next_uid), FALSE);
 	}
 
 	if (!ctx->synced && ctx->mbox->mbox_fd != -1 &&

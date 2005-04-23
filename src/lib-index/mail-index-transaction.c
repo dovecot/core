@@ -705,17 +705,25 @@ static int mail_index_seq_array_add(array_t *array, uint32_t seq,
 }
 
 void mail_index_update_header(struct mail_index_transaction *t,
-			      size_t offset, const void *data, size_t size)
+			      size_t offset, const void *data, size_t size,
+			      int prepend)
 {
-	i_assert(offset < sizeof(t->hdr_change));
-	i_assert(size <= sizeof(t->hdr_change) - offset);
+	i_assert(offset < sizeof(t->pre_hdr_change));
+	i_assert(size <= sizeof(t->pre_hdr_change) - offset);
 
-	t->hdr_changed = TRUE;
 	t->log_updates = TRUE;
 
-	memcpy(t->hdr_change + offset, data, size);
-	for (; size > 0; size--)
-		t->hdr_mask[offset++] = 1;
+	if (prepend) {
+		t->pre_hdr_changed = TRUE;
+		memcpy(t->pre_hdr_change + offset, data, size);
+		for (; size > 0; size--)
+			t->pre_hdr_mask[offset++] = 1;
+	} else {
+		t->post_hdr_changed = TRUE;
+		memcpy(t->post_hdr_change + offset, data, size);
+		for (; size > 0; size--)
+			t->post_hdr_mask[offset++] = 1;
+	}
 }
 
 void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
