@@ -544,6 +544,9 @@ static void mail_index_sync_remove_recent(struct mail_index_sync_ctx *sync_ctx)
 		if ((rec->flags & MAIL_RECENT) != 0)
 			rec->flags &= ~MAIL_RECENT;
 	}
+
+	map->hdr.recent_messages_count = 0;
+	map->hdr.first_recent_uid_lowwater = map->hdr.next_uid;
 }
 
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
