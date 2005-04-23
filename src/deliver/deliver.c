@@ -442,7 +442,7 @@ int main(int argc, char *argv[])
 
 	net_set_nonblock(0, TRUE);
 	input = i_stream_create_file(0, default_pool, 8192, FALSE);
-	if (!save_mail(storage, "INBOX", input))
+	if (save_mail(storage, "INBOX", input) < 0)
 		return EX_TEMPFAIL;
 	i_stream_unref(input);
 
