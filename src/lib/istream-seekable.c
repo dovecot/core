@@ -131,6 +131,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 
 static ssize_t read_more(struct seekable_istream *sstream)
 {
+	size_t size;
 	ssize_t ret;
 
 	if (sstream->cur_input == NULL) {
@@ -153,6 +154,11 @@ static ssize_t read_more(struct seekable_istream *sstream)
 			sstream->istream.istream.eof = TRUE;
 			return -1;
 		}
+
+		/* see if stream has pending data */
+		(void)i_stream_get_data(sstream->cur_input, &size);
+		if (size != 0)
+			return size;
 	}
 	return ret;
 }
