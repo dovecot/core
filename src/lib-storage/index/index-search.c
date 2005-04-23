@@ -33,7 +33,7 @@ struct index_search_context {
 	pool_t hdr_pool;
 	const char *error;
 
-	int failed;
+	unsigned int failed:1;
 };
 
 struct search_header_context {
@@ -42,6 +42,7 @@ struct search_header_context {
 
         struct message_header_line *hdr;
 
+	unsigned int parse_headers:1;
 	unsigned int custom_header:1;
 	unsigned int threading:1;
 };
@@ -423,7 +424,8 @@ static void search_header(struct message_part *part __attr_unused__,
 	if (hdr->eoh)
 		return;
 
-	index_mail_parse_header(NULL, hdr, ctx->index_context->imail);
+	if (ctx->parse_headers)
+		index_mail_parse_header(NULL, hdr, ctx->index_context->imail);
 
 	if (ctx->custom_header || strcasecmp(hdr->name, "Date") == 0) {
 		ctx->hdr = hdr;
@@ -498,6 +500,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		hdr_ctx.index_context = ctx;
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
+		hdr_ctx.parse_headers = headers == NULL;
 
 		index_mail_parse_header_init(ctx->imail, headers_ctx);
 		message_parse_header(NULL, input, NULL,
