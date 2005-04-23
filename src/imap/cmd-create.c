@@ -20,7 +20,8 @@ int cmd_create(struct client_command_context *cmd)
 		return TRUE;
 
 	len = strlen(mailbox);
-	if (mailbox[len-1] != mail_storage_get_hierarchy_sep(storage))
+	if (len == 0 ||
+	    mailbox[len-1] != mail_storage_get_hierarchy_sep(storage))
 		directory = FALSE;
 	else {
 		/* name ends with hierarchy separator - client is just
