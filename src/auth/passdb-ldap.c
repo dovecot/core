@@ -46,14 +46,30 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 	const char *name;
 	char *attr, **vals;
 	unsigned int i;
+	string_t *debug = NULL;
 
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
 		name = hash_lookup(passdb_ldap_conn->pass_attr_map, attr);
 		vals = ldap_get_values(conn->ld, entry, attr);
 
+		if (auth_request->auth->verbose_debug) {
+			if (debug == NULL)
+				debug = t_str_new(256);
+			else
+				str_append_c(debug, ' ');
+			str_append(debug, attr);
+			str_printfa(debug, "(%s)=",
+				    name != NULL ? name : "?unknown?");
+		}
+
 		if (name != NULL && vals != NULL) {
 			for (i = 0; vals[i] != NULL; i++) {
+				if (debug != NULL) {
+					if (i != 0)
+						str_append_c(debug, '/');
+					str_append(debug, vals[i]);
+				}
 				auth_request_set_field(auth_request,
 						name, vals[i],
 						conn->set.default_pass_scheme);
@@ -64,6 +80,11 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 		ldap_memfree(attr);
 
 		attr = ldap_next_attribute(conn->ld, entry, ber);
+	}
+
+	if (debug != NULL) {
+		auth_request_log_debug(auth_request, "ldap",
+				       "%s", str_c(debug));
 	}
 }
 
