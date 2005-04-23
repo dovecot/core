@@ -3,7 +3,7 @@ noinst_LIBRARIES = liblogin-common.a
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-auth \
-	-DPKG_RUNDIR=\""$(localstatedir)/run/$(PACKAGE)"\" \
+	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DSBINDIR=\""$(sbindir)"\"
 
 liblogin_common_a_SOURCES = \

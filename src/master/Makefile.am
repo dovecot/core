@@ -6,7 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DPKG_RUNDIR=\""$(localstatedir)/run/$(PACKAGE)"\" \
+	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\""

@@ -191,6 +191,13 @@ AC_ARG_WITH(ssldir,
 )
 AC_SUBST(ssldir)
 
+AC_ARG_WITH(rundir,
+[  --with-rundir=DIR       Runtime data directory (LOCALSTATEDIR/run/dovecot)],
+	rundir="$withval",
+	rundir=$localstatedir/run/$PACKAGE_NAME
+)
+AC_SUBST(rundir)
+
 AC_ARG_WITH(gc,
 [  --with-gc               Use Boehm garbage collector (currently broken)],
 	if test x$withval = xyes; then
