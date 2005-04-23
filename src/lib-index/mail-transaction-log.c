@@ -23,7 +23,7 @@
 #define LOG_DOTLOCK_STALE_TIMEOUT 0
 #define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 300
 
-#define MAIL_TRANSACTION_LOG_PREFIX ".log"
+#define MAIL_TRANSACTION_LOG_SUFFIX ".log"
 #define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 
 static struct mail_transaction_log_file *
@@ -234,7 +234,7 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 	log->new_dotlock_settings.lock_suffix = LOG_NEW_DOTLOCK_SUFFIX;
 
 	path = t_strconcat(log->index->filepath,
-			   MAIL_TRANSACTION_LOG_PREFIX, NULL);
+			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 	log->head = mail_transaction_log_file_open_or_create(log, path);
 	if (log->head == NULL) {
 		mail_transaction_log_close(log);
@@ -709,7 +709,7 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 		return 0;
 
 	path = t_strconcat(log->index->filepath,
-			   MAIL_TRANSACTION_LOG_PREFIX, NULL);
+			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 	if (stat(path, &st) < 0) {
 		mail_index_file_set_syscall_error(log->index, path, "stat()");
 		return -1;

@@ -3,7 +3,7 @@
 
 #include "mail-index.h"
 
-#define MAIL_CACHE_FILE_PREFIX ".cache"
+#define MAIL_CACHE_FILE_SUFFIX ".cache"
 
 struct mail_cache;
 struct mail_cache_view;

@@ -256,7 +256,7 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 	cache->index = index;
 	cache->fd = -1;
 	cache->filepath =
-		i_strconcat(index->filepath, MAIL_CACHE_FILE_PREFIX, NULL);
+		i_strconcat(index->filepath, MAIL_CACHE_FILE_SUFFIX, NULL);
 	cache->field_pool = pool_alloconly_create("Cache fields", 1024);
 	cache->field_name_hash =
 		hash_create(default_pool, cache->field_pool, 0,
