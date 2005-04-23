@@ -1,4 +1,4 @@
-AC_INIT(dovecot, 1.0-test65, [dovecot@dovecot.org])
+AC_INIT(dovecot, 1.0-test67, [dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AC_CONFIG_HEADERS([config.h])
@@ -220,6 +220,16 @@ AC_ARG_WITH(pop3d,
 	fi,
 	want_pop3d=yes)
 AM_CONDITIONAL(BUILD_POP3D, test "$want_pop3d" = "yes")
+
+AC_ARG_WITH(deliver,
+[  --with-deliver          Build mail delivery agent (default)],
+	if test x$withval = xno; then
+		want_deliver=no
+	else
+		want_deliver=yes
+	fi,
+	want_deliver=yes)
+AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" = "yes")
 
 AC_ARG_WITH(storages,
 [  --with-storages         Build specified mail storage formats (maildir,mbox)], [
@@ -1403,5 +1413,6 @@ echo "I/O loop method ..................... : $ioloop"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $want_ipv6"
 echo "Building with pop3 server ........... : $want_pop3d"
+echo "Building with mail delivery agent  .. : $want_deliver"
 echo "Building with user database modules . :$userdb"
 echo "Building with password lookup modules :$passdb"
