@@ -62,8 +62,6 @@ void auth_master_listener_destroy(struct auth_master_listener *listener)
 	struct auth_client_connection *const *clients;
 	unsigned int i, count;
 
-	array_append(&master_listeners, &listener, 1);
-
 	listeners = array_get(&master_listeners, &count);
 	for (i = 0; i < count; i++) {
 		if (listeners[i] == listener) {
