@@ -46,6 +46,9 @@ void o_stream_uncork(struct ostream *stream);
 /* Flush the output stream, blocks until everything is sent.
    Returns 1 if ok, -1 if error. */
 int o_stream_flush(struct ostream *stream);
+/* Set "flush pending" state of stream. If set, the flush callback is called
+   when more data is allowed to be sent, even if the buffer itself is empty. */
+void o_stream_set_flush_pending(struct ostream *stream, int set);
 /* Returns number of bytes currently in buffer. */
 size_t o_stream_get_buffer_used_size(struct ostream *stream);
 

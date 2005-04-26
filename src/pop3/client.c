@@ -310,6 +310,8 @@ static void client_input(void *context)
 		if (client_command_execute(client, line, args)) {
 			client->bad_counter = 0;
 			if (client->cmd != NULL) {
+				o_stream_set_flush_pending(client->output,
+							   TRUE);
 				client->waiting_input = TRUE;
 				break;
 			}

@@ -11,6 +11,7 @@ struct _ostream {
 /* methods: */
 	void (*cork)(struct _ostream *stream, int set);
 	int (*flush)(struct _ostream *stream);
+	void (*flush_pending)(struct _ostream *stream, int set);
 	size_t (*get_used_size)(struct _ostream *stream);
 	int (*seek)(struct _ostream *stream, uoff_t offset);
 	ssize_t (*sendv)(struct _ostream *stream, const struct const_iovec *iov,

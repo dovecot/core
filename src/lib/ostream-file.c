@@ -45,6 +45,7 @@ struct file_ostream {
 	unsigned int full:1; /* if head == tail, is buffer empty or full? */
 	unsigned int file:1;
 	unsigned int corked:1;
+	unsigned int flush_pending:1;
 	unsigned int no_socket_cork:1;
 	unsigned int no_sendfile:1;
 	unsigned int autoclose_fd:1;
@@ -226,10 +227,12 @@ static void _cork(struct _ostream *stream, int set)
 		if (set && fstream->io != NULL) {
 			io_remove(fstream->io);
 			fstream->io = NULL;
-		} else if (!set && fstream->io == NULL) {
+		} else if (!set) {
 			if (fstream->file)
 				buffer_flush(fstream);
-			else {
+			else if (fstream->io == NULL &&
+				 (!IS_STREAM_EMPTY(fstream) ||
+				  fstream->flush_pending)) {
 				fstream->io = io_add(fstream->fd, IO_WRITE,
 						     stream_send_io, fstream);
 			}
@@ -242,6 +245,17 @@ static int _flush(struct _ostream *stream)
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	return buffer_flush(fstream);
+}
+
+static void _flush_pending(struct _ostream *stream, int set)
+{
+	struct file_ostream *fstream = (struct file_ostream *) stream;
+
+	fstream->flush_pending = set;
+	if (set && !fstream->corked && fstream->io == NULL) {
+		fstream->io = io_add(fstream->fd, IO_WRITE,
+				     stream_send_io, fstream);
+	}
 }
 
 static size_t get_unused_space(struct file_ostream *fstream)
@@ -347,6 +361,8 @@ static void stream_send_io(void *context)
 		io_remove(fstream->io);
 		fstream->io = NULL;
 	}
+	fstream->flush_pending = ret <= 0;
+
 	o_stream_unref(&fstream->ostream.ostream);
 }
 
@@ -711,6 +727,7 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 
 	fstream->ostream.cork = _cork;
 	fstream->ostream.flush = _flush;
+	fstream->ostream.flush_pending = _flush_pending;
 	fstream->ostream.get_used_size = _get_used_size;
 	fstream->ostream.seek = _seek;
 	fstream->ostream.sendv = _sendv;

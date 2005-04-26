@@ -55,6 +55,13 @@ static int _flush(struct _ostream *stream)
 	return o_stream_flush(cstream->output);
 }
 
+static void _flush_pending(struct _ostream *stream, int set)
+{
+	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
+
+	o_stream_set_flush_pending(cstream->output, set);
+}
+
 static size_t _get_used_size(struct _ostream *stream)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
@@ -352,6 +359,7 @@ o_stream_create_common(pool_t pool, struct ostream *output)
 
 	cstream->ostream.cork = _cork;
 	cstream->ostream.flush = _flush;
+	cstream->ostream.flush_pending = _flush_pending;
 	cstream->ostream.get_used_size = _get_used_size;
 	cstream->ostream.seek = _seek;
 	cstream->ostream.send_istream = _send_istream;

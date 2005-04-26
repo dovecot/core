@@ -337,6 +337,10 @@ static int client_handle_input(struct client_command_context *cmd)
 			_client_reset_command(client);
 		} else {
 			/* unfinished */
+			if (client->command_pending) {
+				o_stream_set_flush_pending(client->output,
+							   TRUE);
+			}
 			return FALSE;
 		}
 	}

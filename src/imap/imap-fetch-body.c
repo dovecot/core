@@ -174,7 +174,7 @@ static off_t imap_fetch_send(struct ostream *output, struct istream *input,
 	}
 
 	if ((uoff_t)sent != virtual_size && !blocks) {
-		/* Input stream gave less data then we expected. Two choices
+		/* Input stream gave less data than we expected. Two choices
 		   here: either we fill the missing data with spaces or we
 		   disconnect the client.
 
