@@ -216,27 +216,26 @@ static int buffer_flush(struct file_ostream *fstream)
 static void _cork(struct _ostream *stream, int set)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
+	int ret;
 
 	if (fstream->corked != set && !stream->ostream.closed) {
+		if (set && fstream->io != NULL) {
+			io_remove(fstream->io);
+			fstream->io = NULL;
+		} else if (!set) {
+			ret = buffer_flush(fstream);
+			if (fstream->io == NULL &&
+			    (ret == 0 || fstream->flush_pending)) {
+				fstream->io = io_add(fstream->fd, IO_WRITE,
+						     stream_send_io, fstream);
+			}
+		}
+
 		if (!fstream->no_socket_cork) {
 			if (net_set_cork(fstream->fd, set) < 0)
 				fstream->no_socket_cork = TRUE;
 		}
 		fstream->corked = set;
-
-		if (set && fstream->io != NULL) {
-			io_remove(fstream->io);
-			fstream->io = NULL;
-		} else if (!set) {
-			if (fstream->file)
-				buffer_flush(fstream);
-			else if (fstream->io == NULL &&
-				 (!IS_STREAM_EMPTY(fstream) ||
-				  fstream->flush_pending)) {
-				fstream->io = io_add(fstream->fd, IO_WRITE,
-						     stream_send_io, fstream);
-			}
-		}
 	}
 }
 
