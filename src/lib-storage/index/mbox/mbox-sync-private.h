@@ -87,6 +87,7 @@ struct mbox_sync_mail_context {
 	unsigned int dirty:1;
 	unsigned int uid_broken:1;
 	unsigned int imapbase_rewrite:1;
+	unsigned int imapbase_updated:1;
 };
 
 struct mbox_sync_context {
