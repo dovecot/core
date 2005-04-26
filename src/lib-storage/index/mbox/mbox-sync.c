@@ -995,12 +995,12 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				uid = mail_ctx->mail.uid = rec->uid;
 		}
 
-		if (rec == NULL) {
-			/* from now on, don't skip anything */
-			partial = FALSE;
-		}
-
 		if (!mail_ctx->pseudo) {
+			if (rec == NULL) {
+				/* from now on, don't skip anything */
+				partial = FALSE;
+			}
+
 			/* get all sync records related to this message */
 			if (mbox_sync_read_index_syncs(sync_ctx, uid,
 						       &expunged) < 0)
