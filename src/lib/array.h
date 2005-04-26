@@ -120,7 +120,7 @@ _array_append(array_t *array, const void *data, unsigned int count)
 #  define array_append _array_append
 #else
 #  define array_append(array, data, count) STMT_START { \
-	typeof(*(array ## __ ## type)) _array_tmp = data; \
+	typeof(const typeof(**(array ## __ ## type)) *) _array_tmp = data; \
 	_array_append(array, _array_tmp, count); \
 	} STMT_END
 #endif
@@ -143,7 +143,7 @@ _array_insert(array_t *array, unsigned int idx,
 #  define array_insert _array_insert
 #else
 #  define array_insert(array, idx, data, count) STMT_START { \
-	typeof(*(array ## __ ## type)) _array_tmp = data; \
+	typeof(const typeof(**(array ## __ ## type)) *) _array_tmp = data; \
 	_array_insert(array, idx, _array_tmp, count); \
 	} STMT_END
 #endif
@@ -166,7 +166,7 @@ _array_get(const array_t *array, unsigned int *count_r)
 #  define array_get _array_get
 #else
 #  define array_get(array, count) \
-	(const typeof(*(array ## __ ## type)))_array_get(array, count)
+	(typeof(typeof(**array ## __ ## type) const *))_array_get(array, count)
 #endif
 
 static inline const void *
@@ -179,7 +179,7 @@ _array_idx(const array_t *array, unsigned int idx)
 #  define array_idx _array_idx
 #else
 #  define array_idx(array, idx) \
-	(const typeof(*(array ## __ ## type)))_array_idx(array, idx)
+	(typeof(typeof(**array ## __ ## type) const *))_array_idx(array, idx)
 #endif
 
 static inline void *
@@ -193,8 +193,7 @@ _array_get_modifyable(array_t *array, unsigned int *count_r)
 #  define array_get_modifyable _array_get_modifyable
 #else
 #  define array_get_modifyable(array, count) \
-	(typeof(*(array ## __ ## type))) \
-		_array_get_modifyable(array, count)
+	(typeof(*array ## __ ## type))_array_get_modifyable(array, count)
 #endif
 
 static inline void *
@@ -214,8 +213,7 @@ _array_modifyable_idx(array_t *array, unsigned int idx)
 #  define array_modifyable_idx _array_modifyable_idx
 #else
 #  define array_modifyable_idx(array, count) \
-	(typeof(*(array ## __ ## type))) \
-		_array_modifyable_idx(array, count)
+	(typeof(*array ## __ ## type))_array_modifyable_idx(array, count)
 #endif
 
 static inline void
@@ -234,7 +232,7 @@ _array_idx_set(array_t *array, unsigned int idx, const void *data)
 #  define array_idx_set _array_idx_set
 #else
 #  define array_idx_set(array, idx, data) STMT_START { \
-	typeof(*(array ## __ ## type)) _array_tmp = data; \
+	typeof(const typeof(**(array ## __ ## type)) *) _array_tmp = data; \
 	_array_idx_set(array, idx, _array_tmp); \
 	} STMT_END
 #endif
@@ -252,8 +250,7 @@ _array_modifyable_append(array_t *array)
 #  define array_modifyable_append _array_modifyable_append
 #else
 #  define array_modifyable_append(array) \
-	(typeof(*(array ## __ ## type))) \
-		_array_modifyable_append(array)
+	(typeof(*array ## __ ## type))_array_modifyable_append(array)
 #endif
 
 static inline void *
@@ -274,8 +271,7 @@ _array_modifyable_insert(array_t *array, unsigned int idx)
 #  define array_modifyable_insert _array_modifyable_insert
 #else
 #  define array_modifyable_insert(array, idx) \
-	(typeof(*(array ## __ ## type))) \
-		_array_modifyable_insert(array, idx)
+	(typeof(*array ## __ ## type))_array_modifyable_insert(array, idx)
 #endif
 
 static inline unsigned int
