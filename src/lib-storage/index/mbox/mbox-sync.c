@@ -927,7 +927,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	const struct mail_index_record *rec;
 	uint32_t uid, messages_count;
 	uoff_t offset;
-	int ret, expunged, skipped_mails, uidvalidity_changed;
+	int ret, expunged, skipped_mails;
 
 	messages_count =
 		mail_index_view_get_messages_count(sync_ctx->sync_view);
@@ -942,13 +942,10 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
 		uid = mail_ctx->mail.uid;
 
-		uidvalidity_changed = mail_ctx->seq == 1 &&
-			sync_ctx->base_uid_validity != 0 &&
-			sync_ctx->hdr->uid_validity != 0 &&
-			sync_ctx->base_uid_validity !=
-			sync_ctx->hdr->uid_validity;
-
-		if (uidvalidity_changed) {
+		if (mail_ctx->seq == 1 && sync_ctx->base_uid_validity != 0 &&
+		    sync_ctx->hdr->uid_validity != 0 &&
+		    sync_ctx->base_uid_validity !=
+		    sync_ctx->hdr->uid_validity) {
 			mail_storage_set_critical(
 				STORAGE(sync_ctx->mbox->storage),
 				"UIDVALIDITY changed (%u -> %u) "
@@ -957,20 +954,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				sync_ctx->base_uid_validity,
 				sync_ctx->mbox->path);
 
-			/* we need to recreate all messages in index */
-			while (sync_ctx->idx_seq <= messages_count) {
-				mail_index_expunge(sync_ctx->t,
-						   sync_ctx->idx_seq++);
-			}
-
-			/* next_uid must be reset before message syncing
-			   begins, or we get errors about UIDs larger than
-			   next_uid. */
-			sync_ctx->idx_next_uid = 0;
-			mail_index_update_header(sync_ctx->t,
-				offsetof(struct mail_index_header, next_uid),
-				&sync_ctx->idx_next_uid,
-				sizeof(sync_ctx->idx_next_uid), TRUE);
+			mail_index_mark_corrupted(sync_ctx->mbox->ibox.index);
+			return -1;
 		}
 
 		if (mail_ctx->uid_broken && partial) {
@@ -983,7 +968,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			uid = 0;
 
 		rec = NULL; ret = 1;
-		if (uid != 0 && !uidvalidity_changed) {
+		if (uid != 0) {
 			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
 			if (ret < 0)
 				return -1;
@@ -992,7 +977,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (ret == 0) {
 			/* UID found but it's broken */
 			uid = 0;
-		} else if (uid == 0 && !uidvalidity_changed &&
+		} else if (uid == 0 &&
 			   !mail_ctx->pseudo &&
 			   (sync_ctx->delay_writes ||
 			    sync_ctx->idx_seq <= messages_count)) {
@@ -1015,7 +1000,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			partial = FALSE;
 		}
 
-		if (!mail_ctx->pseudo && !uidvalidity_changed) {
+		if (!mail_ctx->pseudo) {
 			/* get all sync records related to this message */
 			if (mbox_sync_read_index_syncs(sync_ctx, uid,
 						       &expunged) < 0)

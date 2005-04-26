@@ -603,7 +603,6 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	struct maildir_uidlist_iter_ctx *iter;
 	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
-	struct mail_index_header tmp_hdr;
 	const struct mail_index_record *rec;
 	pool_t keyword_pool;
 	uint32_t seq, uid;
@@ -627,19 +626,8 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			"Maildir %s sync: UIDVALIDITY changed (%u -> %u)",
 			mbox->path, hdr->uid_validity, uid_validity);
 
-		for (seq = 1; seq < hdr->messages_count; seq++)
-			mail_index_expunge(trans, seq);
-
-		/* Reset uidvalidity and next_uid. */
-		memcpy(&tmp_hdr, hdr, sizeof(tmp_hdr));
-		tmp_hdr.uid_validity = 0;
-		tmp_hdr.next_uid = 0;
-
-		/* next_uid must be reset before message syncing begins,
-		   or we get errors about UIDs larger than next_uid. */
-		mail_index_update_header(trans,
-			offsetof(struct mail_index_header, next_uid),
-			&hdr->next_uid, sizeof(hdr->next_uid), TRUE);
+		mail_index_mark_corrupted(mbox->ibox.index);
+		return -1;
 	}
 
 	keyword_pool = pool_alloconly_create("maildir keywords", 128);
