@@ -995,18 +995,23 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				uid = mail_ctx->mail.uid = rec->uid;
 		}
 
-		if (!mail_ctx->pseudo) {
+		/* get all sync records related to this message. with pseudo
+		   message just get the first sync record so we can jump to
+		   it with partial seeking. */
+		if (mbox_sync_read_index_syncs(sync_ctx,
+					       mail_ctx->pseudo ? 1 : uid,
+					       &expunged) < 0)
+			return -1;
+
+		if (mail_ctx->pseudo) {
+			/* if it was set, it was for the next message */
+			expunged = FALSE;
+		} else {
 			if (rec == NULL) {
-				/* from now on, don't skip anything */
+				/* message wasn't found from index. we have to
+				   read everything from now on, no skipping */
 				partial = FALSE;
 			}
-
-			/* get all sync records related to this message */
-			if (mbox_sync_read_index_syncs(sync_ctx, uid,
-						       &expunged) < 0)
-				return -1;
-		} else {
-			expunged = FALSE;
 		}
 
 		if (uid == 0 && !mail_ctx->pseudo) {
