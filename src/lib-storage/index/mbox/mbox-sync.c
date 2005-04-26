@@ -989,11 +989,6 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				return -1;
 		}
 
-		if (rec == NULL) {
-			/* from now on, don't skip anything */
-			partial = FALSE;
-		}
-
 		if (ret == 0) {
 			/* UID found but it's broken */
 			uid = 0;
@@ -1013,6 +1008,11 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 			if (rec != NULL)
 				uid = mail_ctx->mail.uid = rec->uid;
+		}
+
+		if (rec == NULL) {
+			/* from now on, don't skip anything */
+			partial = FALSE;
 		}
 
 		if (!mail_ctx->pseudo && !uidvalidity_changed) {
