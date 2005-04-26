@@ -101,10 +101,32 @@ void auth_request_export(struct auth_request *request, string_t *str)
 	str_append(str, request->user);
 	str_append(str, "\tservice=");
 	str_append(str, request->service);
-	str_append(str, "\tlip=");
-	str_append(str, net_ip2addr(&request->local_ip));
-	str_append(str, "\trip=");
-	str_append(str, net_ip2addr(&request->remote_ip));
+
+	if (request->local_ip.family != 0) {
+		str_append(str, "\tlip=");
+		str_append(str, net_ip2addr(&request->local_ip));
+	}
+	if (request->remote_ip.family != 0) {
+		str_append(str, "\trip=");
+		str_append(str, net_ip2addr(&request->remote_ip));
+	}
+}
+
+int auth_request_import(struct auth_request *request,
+			const char *key, const char *value)
+{
+	if (strcmp(key, "user") == 0)
+		request->user = p_strdup(request->pool, value);
+	if (strcmp(key, "service") == 0)
+		request->service = p_strdup(request->pool, value);
+	else if (strcmp(key, "lip") == 0)
+		net_addr2ip(value, &request->local_ip);
+	else if (strcmp(key, "rip") == 0)
+		net_addr2ip(value, &request->remote_ip);
+	else
+		return FALSE;
+
+	return TRUE;
 }
 
 void auth_request_initial(struct auth_request *request,

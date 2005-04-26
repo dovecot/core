@@ -73,6 +73,8 @@ void auth_request_fail(struct auth_request *request);
 void auth_request_internal_failure(struct auth_request *request);
 
 void auth_request_export(struct auth_request *request, string_t *str);
+int auth_request_import(struct auth_request *request,
+			const char *key, const char *value);
 
 void auth_request_initial(struct auth_request *request,
 			  const unsigned char *data, size_t data_size);

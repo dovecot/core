@@ -85,7 +85,7 @@ Mechanisms may have parameters giving some details about them:
 Authentication Request
 ----------------------
 
- C: "AUTH" TAB <id> TAB <mechanism> [TAB <parameters>]
+ C: "AUTH" TAB <id> TAB <mechanism> TAB service=<service> [TAB <parameters>]
 
  S1: "FAIL" TAB <id> [TAB <parameters>]
  S2: "CONT" TAB <id> TAB <base64 data>
@@ -94,11 +94,12 @@ Authentication Request
 ID is a connection-specific unique request identifier. It must be a 32bit
 number, so typically you'd just increment it by one.
 
+Service is the service requesting authentication, eg. POP3, IMAP, SMTP.
+
 AUTH parameters are:
 
  - lip=<local ip>    : Local IP  - in standard string format,
  - rip=<remote ip>   : Remote IP - ie. for IPv4 127.0.0.1 and for IPv6 ::1
- - service=<service> : Service name (eg. POP3, IMAP, SMTP)
  - resp=<base64>     : Initial response for authentication mechanism
  - secured           : Remote user has secured transport to auth client
                        (eg. localhost, SSL, TLS)
@@ -144,7 +145,7 @@ Master Requests
 ---------------
 
  M: "REQUEST" TAB <id> TAB <client-pid> TAB <client-id>
- M: "USER" TAB <id> TAB <userid>
+ M: "USER" TAB <id> TAB <userid> TAB service=<service> [TAB <parameters>]
  M: "DIE"
 
  S: "NOTFOUND" TAB <id>
@@ -153,6 +154,9 @@ Master Requests
 
 Master commands can request information about existing authentication
 request, or about a specified user.
+
+USER command's service and parameters are the same as with AUTH client
+request.
 
 ID is a connection-specific unique request identifier. It must be a 32bit
 number, so typically you'd just increment it by one.

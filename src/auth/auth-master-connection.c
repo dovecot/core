@@ -97,9 +97,9 @@ static int
 master_input_user(struct auth_master_connection *conn, const char *args)
 {
 	struct auth_request *auth_request;
-	const char *const *list;
+	const char *const *list, *name, *arg;
 
-	/* <id> <userid> */
+	/* <id> <userid> [<parameters>] */
 	list = t_strsplit(args, "\t");
 	if (list[0] == NULL || list[1] == NULL) {
 		i_error("BUG: Master sent broken USER");
@@ -110,6 +110,26 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
 	auth_request->user = p_strdup(auth_request->pool, list[1]);
 	auth_request->context = conn;
+
+	for (list += 2; *list != NULL; list++) {
+		arg = strchr(*list, '=');
+		if (arg == NULL) {
+			name = *list;
+			arg = "";
+		} else {
+			name = t_strdup_until(*list, arg);
+			arg++;
+		}
+
+		(void)auth_request_import(auth_request, name, arg);
+	}
+
+	if (auth_request->service == NULL) {
+		i_error("BUG: Master sent USER request without service");
+		auth_request_unref(auth_request);
+		return FALSE;
+	}
+
 	auth_request_lookup_user(auth_request, user_callback);
 	return TRUE;
 }

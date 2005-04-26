@@ -274,12 +274,8 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 			arg++;
 		}
 
-		if (strcmp(name, "lip") == 0)
-			(void)net_addr2ip(arg, &request->local_ip);
-		else if (strcmp(name, "rip") == 0)
-			(void)net_addr2ip(arg, &request->remote_ip);
-		else if (strcmp(name, "service") == 0)
-			request->service = p_strdup(request->pool, arg);
+		if (auth_request_import(request, name, arg))
+			;
 		else if (strcmp(name, "resp") == 0)
 			initial_resp = arg;
 		else if (strcmp(name, "valid-client-cert") == 0)

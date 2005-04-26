@@ -61,16 +61,7 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 		key = t_strdup_until(*tmp, value);
 		value++;
 
-		if (strcmp(key, "user") == 0) {
-			auth_request->user =
-				p_strdup(auth_request->pool, value);
-		} else if (strcmp(key, "service") == 0) {
-			auth_request->service =
-				p_strdup(auth_request->pool, value);
-		} else if (strcmp(key, "lip") == 0)
-			net_addr2ip(value, &auth_request->local_ip);
-		else if (strcmp(key, "rip") == 0)
-			net_addr2ip(value, &auth_request->remote_ip);
+		(void)auth_request_import(auth_request, key, value);
 	}
 	t_pop();
 
@@ -134,6 +125,11 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 	auth_request = worker_auth_request_new(client, id, args);
 	auth_request->mech_password =
 		p_strdup(auth_request->pool, password);
+
+	if (auth_request->user == NULL || auth_request->service == NULL) {
+		i_error("BUG: PASSV had missing parameters");
+		return;
+	}
 
 	for (; num > 0; num--) {
 		auth_request->passdb = auth_request->passdb->next;
@@ -200,6 +196,11 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	auth_request = worker_auth_request_new(client, id, args);
 	auth_request->credentials = credentials;
 
+	if (auth_request->user == NULL || auth_request->service == NULL) {
+		i_error("BUG: PASSL had missing parameters");
+		return;
+	}
+
 	for (; num > 0; num--) {
 		auth_request->passdb = auth_request->passdb->next;
 		if (auth_request->passdb == NULL) {
@@ -243,6 +244,11 @@ auth_worker_handle_user(struct auth_worker_client *client,
 	if (args != NULL) args++;
 
 	auth_request = worker_auth_request_new(client, id, args);
+
+	if (auth_request->user == NULL || auth_request->service == NULL) {
+		i_error("BUG: USER had missing parameters");
+		return;
+	}
 
 	for (; num > 0; num--) {
 		auth_request->userdb = auth_request->userdb->next;

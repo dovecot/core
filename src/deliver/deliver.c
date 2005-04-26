@@ -233,8 +233,9 @@ static int user_init(const char *auth_socket, const char *destination)
 		return EX_TEMPFAIL;
 
 	o_stream_send_str(conn->output,
-			  t_strconcat("VERSION\t1\t0\nUSER\t1\t",
-				      destination, "\n", NULL));
+			  t_strconcat("VERSION\t1\t0\n"
+				      "USER\t1\t", destination, "\t"
+				      "service=deliver\n", NULL));
 
 	io_loop_run(ioloop);
 	return return_value;
