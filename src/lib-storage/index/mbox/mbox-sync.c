@@ -421,21 +421,34 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		mbox_sync_apply_index_syncs(sync_ctx, &idx_mail,
 					    &keywords_changed);
 
+#define SYNC_FLAGS (MAIL_RECENT | MAIL_INDEX_MAIL_FLAG_DIRTY)
 		if ((idx_mail.flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 			/* flags are dirty. ignore whatever was in the mbox,
-			   but update recent flag state if needed. */
-			mbox_flags &= MAIL_RECENT;
-			mbox_flags |= idx_mail.flags & ~MAIL_RECENT;
+			   but update recent/dirty flag states if needed. */
+			mbox_flags &= SYNC_FLAGS;
+			mbox_flags |= idx_mail.flags & ~SYNC_FLAGS;
 		} else {
 			/* keep index's internal flags */
-			mbox_flags &= MAIL_FLAGS_MASK;
-			mbox_flags |= idx_mail.flags & ~MAIL_FLAGS_MASK;
+			mbox_flags &= MAIL_FLAGS_MASK | SYNC_FLAGS;
+			mbox_flags |= idx_mail.flags &
+				~(MAIL_FLAGS_MASK | SYNC_FLAGS);
 		}
 
-		if ((idx_mail.flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY) ==
-		    (mbox_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY)) {
-			/* all flags are same, except possibly dirty flag */
-			if (idx_mail.flags != mbox_flags) {
+		if ((idx_mail.flags & ~SYNC_FLAGS) !=
+		    (mbox_flags & ~SYNC_FLAGS)) {
+			/* flags other than recent/dirty have changed */
+			mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
+						MODIFY_REPLACE, mbox_flags);
+		} else {
+			if (((idx_mail.flags ^ mbox_flags) &
+			     MAIL_RECENT) != 0) {
+				/* drop recent flag (it can only be dropped) */
+				mail_index_update_flags(sync_ctx->t,
+					sync_ctx->idx_seq,
+					MODIFY_REMOVE, MAIL_RECENT);
+			}
+			if (((idx_mail.flags ^ mbox_flags) &
+			     MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 				/* dirty flag state changed */
 				int dirty = (mbox_flags &
 					     MAIL_INDEX_MAIL_FLAG_DIRTY) != 0;
@@ -444,15 +457,6 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 					dirty ? MODIFY_ADD : MODIFY_REMOVE,
 					MAIL_INDEX_MAIL_FLAG_DIRTY);
 			}
-		} else if ((idx_mail.flags & ~MAIL_RECENT) !=
-			   (mbox_flags & ~MAIL_RECENT)) {
-			/* flags other than MAIL_RECENT have changed */
-			mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
-						MODIFY_REPLACE, mbox_flags);
-		} else if (((idx_mail.flags ^ mbox_flags) & MAIL_RECENT) != 0) {
-			/* drop recent flag */
-			mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
-						MODIFY_REMOVE, MAIL_RECENT);
 		}
 
 		if ((idx_mail.flags & MAIL_INDEX_MAIL_FLAG_DIRTY) == 0 &&
