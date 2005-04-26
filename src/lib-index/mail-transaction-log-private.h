@@ -47,7 +47,8 @@ struct mail_transaction_log {
 
 void
 mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
-					const char *fmt, ...);
+					const char *fmt, ...)
+	__attr_format__(2, 3);
 
 int mail_transaction_log_file_find(struct mail_transaction_log *log,
 				   uint32_t file_seq,

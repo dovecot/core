@@ -364,7 +364,7 @@ int mail_index_sync_begin(struct mail_index *index,
 		   the log sequences have gotten messed up. */
 		mail_transaction_log_file_set_corrupted(index->log->head,
 			"log_file_int_offset (%u) > log size (%"PRIuUOFF_T")",
-			seq, index->hdr->log_file_int_offset, offset);
+			index->hdr->log_file_int_offset, offset);
                 mail_index_sync_rollback(ctx);
 		return -1;
 	}

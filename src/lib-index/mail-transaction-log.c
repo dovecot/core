@@ -905,10 +905,6 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		hdr_size = mail_index_offset_to_uint32(hdr->size);
 		if (hdr_size == 0) {
 			/* unfinished */
-			if (file->mmap_base == NULL) {
-				size = file->sync_offset - file->buffer_offset;
-				buffer_set_used_size(file->buffer, size);
-			}
 			return 0;
 		}
 		if (hdr_size < sizeof(*hdr)) {
@@ -917,19 +913,21 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 			return -1;
 		}
 
-		if (file->sync_offset - file->buffer_offset + hdr_size > size) {
-			/* record goes outside the file we've seen. or if
-			   we're accessing the log file via unlocked mmaped
-			   memory, it may be just that the memory was updated
-			   after we checked the file size. */
-			if (file->locked || file->mmap_base == NULL) {
-				mail_transaction_log_file_set_corrupted(file,
-					"hdr.size too large (%u)", hdr_size);
-				return -1;
-			}
+		if (file->sync_offset - file->buffer_offset + hdr_size > size)
 			break;
-		}
 		file->sync_offset += hdr_size;
+	}
+
+	if (file->sync_offset - file->buffer_offset != size) {
+		/* record goes outside the file we've seen. or if
+		   we're accessing the log file via unlocked mmaped
+		   memory, it may be just that the memory was updated
+		   after we checked the file size. */
+		if (file->locked || file->mmap_base == NULL) {
+			mail_transaction_log_file_set_corrupted(file,
+				"hdr.size too large (%u)", hdr_size);
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -995,10 +993,9 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	if (ret == 0) {
 		/* EOF */
-		if (file->sync_offset > file->buffer_offset) {
-			buffer_set_used_size(file->buffer, file->sync_offset -
-					     file->buffer_offset);
-		}
+		i_assert(file->sync_offset >= file->buffer_offset);
+		buffer_set_used_size(file->buffer,
+				     file->sync_offset - file->buffer_offset);
 		return 1;
 	}
 
@@ -1034,7 +1031,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 	if (start_offset < file->hdr.hdr_size) {
 		mail_transaction_log_file_set_corrupted(file,
-			"offset (%"PRIuUOFF_T") < header size (%"PRIuSIZE_T")",
+			"offset (%"PRIuUOFF_T") < header size (%u)",
 			start_offset, file->hdr.hdr_size);
 		return -1;
 	}
@@ -1126,7 +1123,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	if (end_offset != (uoff_t)-1 && end_offset > file->sync_offset) {
 		mail_transaction_log_file_set_corrupted(file,
 			"end_offset (%"PRIuUOFF_T") > current sync_offset "
-			"(%"PRIuSIZE_T")", end_offset, file->sync_offset);
+			"(%"PRIuUOFF_T")", end_offset, file->sync_offset);
 		return -1;
 	}
 
