@@ -137,8 +137,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 		mail_storage_set_critical(STORAGE(mbox->storage),
 			"Cached message offset lost for seq %u in mbox file %s",
 			seq, mbox->path);
-		mail_index_mark_corrupted(mbox->ibox.index);
-		return -1;
+		return 0;
 	}
 
 	offset = *((const uint64_t *)data);
@@ -155,8 +154,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 		mail_storage_set_critical(STORAGE(mbox->storage),
 			"Cached message offset %s is invalid for mbox file %s",
 			dec2str(offset), mbox->path);
-		mail_index_mark_corrupted(mbox->ibox.index);
-		return -1;
+		return 0;
 	}
 
 	if (mbox->mbox_sync_dirty) {

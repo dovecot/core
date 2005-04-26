@@ -1329,8 +1329,12 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		return -1;
 	}
 
-	if ((uint32_t)st->st_mtime == sync_ctx->hdr->sync_stamp &&
-	    (uint64_t)st->st_size == sync_ctx->hdr->sync_size) {
+	if ((flags & MBOX_SYNC_FORCE_SYNC) != 0) {
+		/* forcing a full sync. assume file has changed. */
+		partial = FALSE;
+		sync_ctx->mbox->mbox_sync_dirty = TRUE;
+	} else if ((uint32_t)st->st_mtime == sync_ctx->hdr->sync_stamp &&
+		   (uint64_t)st->st_size == sync_ctx->hdr->sync_size) {
 		/* file is fully synced */
 		partial = TRUE;
 		sync_ctx->mbox->mbox_sync_dirty = FALSE;
@@ -1443,7 +1447,8 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 			return -1;
 	}
 
-	if ((flags & MBOX_SYNC_HEADER) != 0)
+	if ((flags & MBOX_SYNC_HEADER) != 0 ||
+	    (flags & MBOX_SYNC_FORCE_SYNC) != 0)
 		changed = 1;
 	else {
 		int leave_dirty = (flags & MBOX_SYNC_UNDIRTY) == 0;

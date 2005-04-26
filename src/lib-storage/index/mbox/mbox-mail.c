@@ -65,7 +65,7 @@ __again:
 			i_assert(mbox->mbox_lock_type == F_UNLCK);
 		}
 
-		sync_flags |= MBOX_SYNC_UNDIRTY;
+		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
 		goto __again;
 	}
 
