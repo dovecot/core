@@ -11,7 +11,7 @@ struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
 	enum mail_transaction_type trans_sync_mask;
 	struct mail_index_sync_map_ctx sync_map_ctx;
-	buffer_t *expunges;
+	array_t ARRAY_DEFINE(expunges, struct mail_transaction_expunge);
 
 	const struct mail_transaction_header *hdr;
 	const void *data;
@@ -27,13 +27,79 @@ struct mail_index_view_log_sync_pos {
 	uoff_t log_file_offset;
 };
 
-static int
-view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
+static void
+mail_transaction_log_sort_expunges(array_t *expunges,
+				   const struct mail_transaction_expunge *src,
+				   size_t src_size)
 {
+	ARRAY_SET_TYPE(expunges, struct mail_transaction_expunge);
+	const struct mail_transaction_expunge *src_end;
+	struct mail_transaction_expunge *dest;
+	struct mail_transaction_expunge new_exp;
+	unsigned int first, i, dest_count;
+
+	i_assert(src_size % sizeof(*src) == 0);
+
+	/* @UNSAFE */
+	dest = array_get_modifyable(expunges, &dest_count);
+	if (dest_count == 0) {
+		array_append(expunges, src, src_size / sizeof(*src));
+		return;
+	}
+
+	src_end = CONST_PTR_OFFSET(src, src_size);
+	for (i = 0; src != src_end; src++) {
+		/* src[] must be sorted. */
+		i_assert(src+1 == src_end || src->uid2 < src[1].uid1);
+		i_assert(src->uid1 <= src->uid2);
+
+		for (; i < dest_count; i++) {
+			if (src->uid1 < dest[i].uid1)
+				break;
+		}
+
+		new_exp = *src;
+
+		first = i;
+		while (i < dest_count && src->uid2 >= dest[i].uid1-1) {
+			/* we can/must merge with next record */
+			if (new_exp.uid2 < dest[i].uid2)
+				new_exp.uid2 = dest[i].uid2;
+			i++;
+		}
+
+		if (first > 0 && new_exp.uid1 <= dest[first-1].uid2+1) {
+			/* continue previous record */
+			if (dest[first-1].uid2 < new_exp.uid2)
+				dest[first-1].uid2 = new_exp.uid2;
+		} else if (i == first) {
+			array_insert(expunges, i, &new_exp, 1);
+			i++; first++;
+
+			dest = array_get_modifyable(expunges, &dest_count);
+		} else {
+			/* use next record */
+			dest[first] = new_exp;
+			first++;
+		}
+
+		if (i > first) {
+			array_delete(expunges, first, i - first);
+
+			dest = array_get_modifyable(expunges, &dest_count);
+			i = first;
+		}
+	}
+}
+
+static int
+view_sync_get_expunges(struct mail_index_view *view, array_t *expunges_r)
+{
+	ARRAY_SET_TYPE(expunges_r, struct mail_transaction_expunge);
 	const struct mail_transaction_header *hdr;
 	struct mail_transaction_expunge *src, *src_end, *dest;
 	const void *data;
-	size_t size;
+	unsigned int count;
 	int ret;
 
 	if (mail_transaction_log_view_set(view->log_view,
@@ -44,23 +110,22 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 					  MAIL_TRANSACTION_EXPUNGE) < 0)
 		return -1;
 
-	*expunges_r = buffer_create_dynamic(default_pool, 512);
+	ARRAY_CREATE(expunges_r, default_pool,
+		     struct mail_transaction_expunge, 64);
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data, NULL)) > 0) {
 		i_assert((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0);
-		mail_transaction_log_sort_expunges(*expunges_r,
-						   data, hdr->size);
+		mail_transaction_log_sort_expunges(expunges_r, data, hdr->size);
 	}
 
 	if (ret < 0) {
-		buffer_free(*expunges_r);
-		*expunges_r = NULL;
+		array_free(expunges_r);
 		return -1;
 	}
 
 	/* convert to sequences */
-	src = dest = buffer_get_modifyable_data(*expunges_r, &size);
-	src_end = PTR_OFFSET(src, size);
+	src = dest = array_get_modifyable(expunges_r, &count);
+	src_end = src + count;
 	for (; src != src_end; src++) {
 		ret = mail_index_lookup_uid_range(view, src->uid1,
 						  src->uid2,
@@ -69,11 +134,11 @@ view_sync_get_expunges(struct mail_index_view *view, buffer_t **expunges_r)
 		i_assert(ret == 0);
 
 		if (dest->uid1 == 0)
-			size -= sizeof(*dest);
+			count--;
 		else
 			dest++;
 	}
-	buffer_set_used_size(*expunges_r, size);
+	array_delete(expunges_r, count, array_count(expunges_r) - count);
 	return 0;
 }
 
@@ -90,7 +155,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
 	enum mail_transaction_type mask, want_mask;
-	buffer_t *expunges = NULL;
+	array_t expunges = { 0, 0 };
 
 	/* We must sync flags as long as view is mmap()ed, as the flags may
 	   have already changed under us. */
@@ -120,8 +185,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 					  view->log_file_offset,
 					  hdr->log_file_seq,
 					  hdr->log_file_int_offset, mask) < 0) {
-		if (expunges != NULL)
-			buffer_free(expunges);
+		if (array_is_created(&expunges))
+			array_free(&expunges);
 		return -1;
 	}
 
@@ -365,12 +430,10 @@ const uint32_t *
 mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 				  unsigned int *count_r)
 {
-	const uint32_t *data;
-	size_t size;
+	const struct mail_transaction_expunge *data;
 
-	data = buffer_get_data(ctx->expunges, &size);
-	*count_r = size / (sizeof(uint32_t)*2);
-	return data;
+	data = array_get(&ctx->expunges, count_r);
+	return (const uint32_t *)data;
 }
 
 void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
@@ -405,8 +468,8 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 					    view->log_file_offset,
 					    MAIL_TRANSACTION_TYPE_MASK);
 
-	if (ctx->expunges != NULL)
-		buffer_free(ctx->expunges);
+	if (array_is_created(&ctx->expunges))
+		array_free(&ctx->expunges);
 
 	view->syncing = FALSE;
 	i_free(ctx);
