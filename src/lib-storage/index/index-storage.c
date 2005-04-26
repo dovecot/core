@@ -46,8 +46,8 @@ void index_storage_init(struct index_storage *storage,
 	storage->storage.flags = flags;
 	storage->storage.lock_method = lock_method;
 
-	ARRAY_CREATE(&storage->storage.module_contexts,
-		     storage->storage.pool, void *, 5);
+	array_create(&storage->storage.module_contexts,
+		     storage->storage.pool, sizeof(void *), 5);
 	index_storage_refcount++;
 }
 
@@ -297,8 +297,8 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 
 	ibox->box.storage = storage;
 	ibox->box.name = p_strdup(ibox->box.pool, name);
-	ARRAY_CREATE(&ibox->box.module_contexts,
-		     ibox->box.pool, void *, 5);
+	array_create(&ibox->box.module_contexts,
+		     ibox->box.pool, sizeof(void *), 5);
 
 	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((flags & MAILBOX_OPEN_FAST) != 0)

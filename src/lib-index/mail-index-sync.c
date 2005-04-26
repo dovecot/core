@@ -554,7 +554,7 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 
 int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 {
-	struct mail_index_sync_list *sync_list;
+	const struct mail_index_sync_list *sync_list;
 	unsigned int i, count;
 
 	if (ctx->sync_appends)

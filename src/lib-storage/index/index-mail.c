@@ -651,7 +651,7 @@ index_mail_alloc(struct mailbox_transaction_context *_t,
 	pool = pool_alloconly_create("mail", 512);
 	mail = p_new(pool, struct index_mail, 1);
 	mail->mail.pool = pool;
-	ARRAY_CREATE(&mail->mail.module_contexts, pool, void *, 5);
+	array_create(&mail->mail.module_contexts, pool, sizeof(void *), 5);
 
 	mail->mail.v = *t->ibox->mail_vfuncs;
 	mail->mail.mail.box = &t->ibox->box;
