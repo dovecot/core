@@ -243,6 +243,12 @@ int client_send_line(struct client *client, const char *fmt, ...)
 				   our output */
 				io_remove(client->io);
 				client->io = NULL;
+
+				/* If someone happens to flush output,
+				   we want to get our IO handler back in
+				   flush callback */
+				o_stream_set_flush_pending(client->output,
+							   TRUE);
 			}
 		}
 	}
