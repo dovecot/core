@@ -20,9 +20,9 @@
 #define LOG_PREFETCH 1024
 
 /* this lock should never exist for a long time.. */
-#define LOG_DOTLOCK_TIMEOUT 30
+#define LOG_DOTLOCK_TIMEOUT 60
 #define LOG_DOTLOCK_STALE_TIMEOUT 0
-#define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 300
+#define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 60
 
 #define MAIL_TRANSACTION_LOG_SUFFIX ".log"
 #define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
