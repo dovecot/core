@@ -344,23 +344,27 @@ log_view_get_next(struct mail_transaction_log_view *view,
 
 	if (hdr_size < sizeof(*hdr) + record_size) {
 		mail_transaction_log_file_set_corrupted(file,
-			"record size too small (type=0x%x, size=%u)",
-			hdr->type & MAIL_TRANSACTION_TYPE_MASK, hdr_size);
+			"record size too small (type=0x%x, "
+			"offset=%"PRIuUOFF_T", size=%u)",
+			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
+			view->cur_offset, hdr_size);
 		return -1;
 	}
 
 	if ((hdr_size - sizeof(*hdr)) % record_size != 0) {
 		mail_transaction_log_file_set_corrupted(file,
-			"record size wrong (type 0x%x, %u %% %u != 0)",
+			"record size wrong (type 0x%x, "
+			"offset=%"PRIuUOFF_T", size=%u %% %u != 0)",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
-			(hdr_size - sizeof(*hdr)), record_size);
+                        view->cur_offset, (hdr_size - sizeof(*hdr)),
+			record_size);
 		return -1;
 	}
 
 	if (file_size - view->cur_offset < hdr_size) {
 		mail_transaction_log_file_set_corrupted(file,
-			"record size too large (type=0x%x, offset=%"PRIuUOFF_T
-			", size=%u, end=%"PRIuSIZE_T")",
+			"record size too large (type=0x%x, "
+			"offset=%"PRIuUOFF_T", size=%u, end=%"PRIuSIZE_T")",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
 			view->cur_offset, hdr_size, file_size);
 		return -1;
