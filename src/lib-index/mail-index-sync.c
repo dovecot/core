@@ -339,6 +339,14 @@ int mail_index_sync_begin(struct mail_index *index,
 		}
 	}
 
+	if ((index->hdr->flags & MAIL_INDEX_HDR_FLAG_FSCK) != 0) {
+		if (mail_index_fsck(index) <= 0) {
+			mail_index_unlock(index, lock_id);
+			mail_transaction_log_sync_unlock(index->log);
+			return -1;
+		}
+	}
+
 	if (!mail_index_need_lock(index, sync_recent,
 				  log_file_seq, log_file_offset)) {
 		mail_index_unlock(index, lock_id);

@@ -40,6 +40,8 @@ static int mail_index_fsck_locked(struct mail_index *index,
 		return 0;
 	}
 
+	hdr.flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;
+
 	hdr.messages_count = 0;
 	hdr.recent_messages_count = 0;
 	hdr.seen_messages_count = 0;

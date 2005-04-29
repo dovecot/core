@@ -508,6 +508,9 @@ static int mail_index_check_header(struct mail_index *index,
 		return -1;
 	}
 
+	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_FSCK) != 0)
+		return 0;
+
 	if (hdr->next_uid == 0)
 		return 0;
 

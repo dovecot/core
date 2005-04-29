@@ -31,14 +31,21 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 }
 
 static void
-mail_index_header_update_counts(struct mail_index_header *hdr,
+mail_index_header_update_counts(struct mail_index *index,
+				struct mail_index_header *hdr,
 				uint8_t old_flags, uint8_t new_flags)
 {
 	if (((old_flags ^ new_flags) & MAIL_RECENT) != 0) {
 		/* different recent-flag */
 		if ((old_flags & MAIL_RECENT) == 0)
 			hdr->recent_messages_count++;
-		else if (--hdr->recent_messages_count == 0)
+		else if (hdr->recent_messages_count == 0 ||
+			 hdr->recent_messages_count > hdr->messages_count) {
+                        hdr->flags |= MAIL_INDEX_HDR_FLAG_FSCK;
+			mail_index_set_error(index,
+				"Recent counter wrong in index file %s",
+				index->filepath);
+		} else if (--hdr->recent_messages_count == 0)
 			hdr->first_recent_uid_lowwater = hdr->next_uid;
 	}
 
@@ -46,7 +53,12 @@ mail_index_header_update_counts(struct mail_index_header *hdr,
 		/* different seen-flag */
 		if ((old_flags & MAIL_SEEN) != 0)
 			hdr->seen_messages_count--;
-		else if (++hdr->seen_messages_count == hdr->messages_count)
+		else if (hdr->seen_messages_count >= hdr->messages_count) {
+                        hdr->flags |= MAIL_INDEX_HDR_FLAG_FSCK;
+			mail_index_set_error(index,
+				"Seen counter wrong in index file %s",
+				index->filepath);
+		} else if (++hdr->seen_messages_count == hdr->messages_count)
 			hdr->first_unseen_uid_lowwater = hdr->next_uid;
 	}
 
@@ -54,7 +66,13 @@ mail_index_header_update_counts(struct mail_index_header *hdr,
 		/* different deleted-flag */
 		if ((old_flags & MAIL_DELETED) == 0)
 			hdr->deleted_messages_count++;
-		else if (--hdr->deleted_messages_count == 0)
+		else if (hdr->deleted_messages_count == 0 ||
+			 hdr->deleted_messages_count > hdr->messages_count) {
+                        hdr->flags |= MAIL_INDEX_HDR_FLAG_FSCK;
+			mail_index_set_error(index,
+				"Deleted counter wrong in index file %s",
+				index->filepath);
+		} else if (--hdr->deleted_messages_count == 0)
 			hdr->first_deleted_uid_lowwater = hdr->next_uid;
 	}
 }
@@ -125,7 +143,8 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 
 	for (seq = seq1; seq <= seq2; seq++) {
                 rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-		mail_index_header_update_counts(&map->hdr, rec->flags, 0);
+		mail_index_header_update_counts(view->index, &map->hdr,
+						rec->flags, 0);
 	}
 
 	for (i = 0; i < expunge_handlers_count; i++) {
@@ -193,7 +212,7 @@ static int sync_append(const struct mail_index_record *rec,
 	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
-	mail_index_header_update_counts(&map->hdr, 0, rec->flags);
+	mail_index_header_update_counts(view->index, &map->hdr, 0, rec->flags);
 	mail_index_header_update_lowwaters(&map->hdr, rec);
 	return 1;
 }
@@ -233,7 +252,8 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 		old_flags = rec->flags;
 		rec->flags = (rec->flags & flag_mask) | u->add_flags;
 
-		mail_index_header_update_counts(hdr, old_flags, rec->flags);
+		mail_index_header_update_counts(view->index, hdr,
+						old_flags, rec->flags);
                 mail_index_header_update_lowwaters(hdr, rec);
 	}
 	return 1;
