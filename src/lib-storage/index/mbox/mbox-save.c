@@ -57,6 +57,8 @@ static void write_error(struct mbox_save_context *ctx, int error)
 		errno = error;
 		mbox_set_syscall_error(ctx->mbox, "write()");
 	}
+
+	ctx->failed = TRUE;
 }
 
 static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
@@ -422,7 +424,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	if (ctx->eoh_offset != (uoff_t)-1) {
 		/* writing body */
 		if (o_stream_send_istream(ctx->body_output, ctx->input) < 0) {
-			ctx->failed = TRUE;
+			write_error(ctx, ctx->body_output->stream_errno);
 			return -1;
 		}
 		return 0;
@@ -438,7 +440,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 			/* found end of headers. write the rest of them. */
 			size = ctx->eoh_input_offset - ctx->input->v_offset;
 			if (o_stream_send(ctx->output, data, size) < 0) {
-				ctx->failed = TRUE;
+				write_error(ctx, ctx->output->stream_errno);
 				return -1;
 			}
 			if (size > 0)
@@ -448,7 +450,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		}
 
 		if (o_stream_send(ctx->output, data, size) < 0) {
-			ctx->failed = TRUE;
+			write_error(ctx, ctx->output->stream_errno);
 			return -1;
 		}
 		ctx->last_char = data[size-1];
@@ -457,7 +459,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 
 	if (ctx->last_char != '\n') {
 		if (o_stream_send(ctx->output, "\n", 1) < 0) {
-			ctx->failed = TRUE;
+			write_error(ctx, ctx->output->stream_errno);
 			return -1;
 		}
 	}
@@ -475,7 +477,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	ctx->extra_hdr_offset = ctx->output->offset;
 	if (o_stream_send(ctx->output, str_data(ctx->headers),
 			  str_len(ctx->headers)) < 0) {
-		ctx->failed = TRUE;
+		write_error(ctx, ctx->output->stream_errno);
 		return -1;
 	}
 	ctx->eoh_offset = ctx->output->offset;
@@ -511,17 +513,8 @@ int mbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 		ctx->mail_offset = (uoff_t)-1;
 	}
 
-	if (ctx->failed) {
-		errno = ctx->output->stream_errno;
-		if (ENOSPACE(errno)) {
-			mail_storage_set_error(STORAGE(ctx->mbox->storage),
-					       "Not enough disk space");
-		} else if (errno != 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
-				"write(%s) failed: %m", ctx->mbox->path);
-		}
+	if (ctx->failed)
 		return -1;
-	}
 
 	if (dest_mail != NULL) {
 		i_assert(ctx->seq != 0);
