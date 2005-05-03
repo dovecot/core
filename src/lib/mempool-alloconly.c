@@ -119,7 +119,7 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 #endif
 }
 
-static const char *pool_alloconly_get_name(pool_t pool)
+static const char *pool_alloconly_get_name(pool_t pool __attr_unused__)
 {
 #ifdef DEBUG
 	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
