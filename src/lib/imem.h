@@ -10,11 +10,18 @@ extern pool_t default_pool;
 void *i_malloc(size_t size);
 void *i_realloc(void *mem, size_t old_size, size_t new_size);
 
+/* Free the memory. Currently it also sets memory to NULL, but that shouldn't
+   be relied on as it's only extra safety check. It might as well be later
+   changed to some invalid pointer causing segfault, or removed completely
+   in some "optimization".. */
 #define i_free(mem) \
 	STMT_START { \
           p_free(default_pool, mem); \
           (mem) = NULL; \
 	} STMT_END
+
+/* A macro that's guaranteed to set mem = NULL. */
+#define i_free_and_null(mem) i_free(mem)
 
 /* string functions */
 char *i_strdup(const char *str);
