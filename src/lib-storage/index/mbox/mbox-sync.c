@@ -961,6 +961,15 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->uid_broken && partial) {
 			/* UID ordering problems, resync everything to make
 			   sure we get everything right */
+			if (sync_ctx->mbox->mbox_sync_dirty)
+				return 0;
+
+			mail_storage_set_critical(
+				STORAGE(sync_ctx->mbox->storage),
+				"UIDs broken with partial sync in mbox file %s",
+				sync_ctx->mbox->path);
+
+			sync_ctx->mbox->mbox_sync_dirty = TRUE;
 			return 0;
 		}
 
