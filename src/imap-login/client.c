@@ -173,8 +173,9 @@ static int cmd_starttls(struct imap_client *client)
 	}
 
 	client_send_tagline(client, "OK Begin TLS negotiation now.");
-	if (o_stream_get_buffer_used_size(client->output) != 0) {
+	if (o_stream_flush(client->output) <= 0) {
 		/* the buffer has to be flushed */
+		o_stream_set_flush_pending(client->output, TRUE);
 		o_stream_set_flush_callback(client->output,
 					    client_output_starttls, client);
 	} else {
