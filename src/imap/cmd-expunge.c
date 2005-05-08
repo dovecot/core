@@ -28,10 +28,9 @@ int cmd_uid_expunge(struct client_command_context *cmd)
 	if (search_arg == NULL)
 		return TRUE;
 
-	if (imap_expunge(client->mailbox, search_arg)) {
-		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST,
-				"OK Expunge completed.");
-	} else {
+	if (imap_expunge(client->mailbox, search_arg))
+		return cmd_sync(cmd, 0, "OK Expunge completed.");
+	else {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 		return TRUE;
@@ -45,10 +44,9 @@ int cmd_expunge(struct client_command_context *cmd)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
-	if (imap_expunge(client->mailbox, NULL)) {
-		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST,
-				"OK Expunge completed.");
-	} else {
+	if (imap_expunge(client->mailbox, NULL))
+		return cmd_sync(cmd, 0, "OK Expunge completed.");
+	else {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
 		return TRUE;

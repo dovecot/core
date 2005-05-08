@@ -196,8 +196,14 @@ int cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	}
 
 	if ((client_workarounds & WORKAROUND_DELAY_NEWMAIL) != 0 &&
-	    (flags & MAILBOX_SYNC_FLAG_FAST) != 0)
-		flags |= MAILBOX_SYNC_FLAG_NO_NEWMAIL;
+	    (flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
+		/* expunges might break just as badly as new mail
+		   notifications. besides, currently indexing code doesn't
+		   handle expunges + no-newmail so this is required, unless
+		   we did this only for no-expunges case.. */
+		flags |= MAILBOX_SYNC_FLAG_NO_NEWMAIL |
+			MAILBOX_SYNC_FLAG_NO_EXPUNGES;
+	}
 
 	ctx = p_new(cmd->pool, struct cmd_sync_context, 1);
 	ctx->tagline = p_strdup(cmd->pool, tagline);

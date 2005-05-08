@@ -160,6 +160,10 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	/* We must sync flags as long as view is mmap()ed, as the flags may
 	   have already changed under us. */
 	i_assert((sync_mask & MAIL_INDEX_SYNC_TYPE_FLAGS) != 0);
+	/* Currently we're not handling correctly expunges + no-appends case */
+	i_assert((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) == 0 ||
+		 (sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0);
+
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
 
