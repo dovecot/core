@@ -592,6 +592,8 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 {
 	struct mail_index_view *view;
 
+	i_assert(index->map != NULL);
+
 	view = i_new(struct mail_index_view, 1);
 	view->refcount = 1;
 	view->methods = view_methods;
