@@ -294,6 +294,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	group->process_count++;
 
 	path = t_strdup_printf("%s/auth-worker.%s",
+			       group->set->chroot != NULL ? group->set->chroot :
 			       group->set->parent->defaults->base_dir,
 			       dec2str(pid));
 	p->worker_listen_fd =
@@ -338,6 +339,8 @@ static void auth_process_destroy(struct auth_process *p)
 	p->group->process_count--;
 
 	path = t_strdup_printf("%s/auth-worker.%s",
+			       p->group->set->chroot != NULL ?
+			       p->group->set->chroot :
 			       p->group->set->parent->defaults->base_dir,
 			       dec2str(p->pid));
 	(void)unlink(path);
@@ -534,6 +537,7 @@ static int create_auth_process(struct auth_process_group *group)
         auth_set_environment(group->set);
 
 	env_put(t_strdup_printf("AUTH_WORKER_PATH=%s/auth-worker.%s",
+				group->set->chroot != NULL ? "" :
 				group->set->parent->defaults->base_dir,
 				dec2str(getpid())));
 	env_put(t_strdup_printf("AUTH_WORKER_MAX_COUNT=%u",
