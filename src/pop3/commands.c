@@ -514,11 +514,21 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		if ((uidl_keymask & UIDL_MD5) != 0) {
 			tab[2].value = mail_get_special(ctx->mail,
 							MAIL_FETCH_HEADER_MD5);
+			if (tab[2].value == NULL) {
+				/* broken */
+				t_pop();
+				break;
+			}
 		}
 		if ((uidl_keymask & UIDL_FILE_NAME) != 0) {
 			tab[3].value =
 				mail_get_special(ctx->mail,
 						 MAIL_FETCH_UIDL_FILE_NAME);
+			if (tab[3].value == NULL) {
+				/* broken */
+				t_pop();
+				break;
+			}
 		}
 
 		str_truncate(str, 0);
