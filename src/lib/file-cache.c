@@ -110,7 +110,6 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 	dest = PTR_OFFSET(cache->mmap_base, dest_offset);
 	dest_size = page_size;
 
-	poffset %= CHAR_BIT;
 	while (psize > 0) {
 		if (bits[poffset / CHAR_BIT] & (1 << (poffset % CHAR_BIT))) {
 			/* page is already in cache */
