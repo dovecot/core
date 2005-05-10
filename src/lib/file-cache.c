@@ -103,7 +103,8 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 		cache->mmap_length = mmap_needed;
 	}
 
-	bits = buffer_get_space_unsafe(cache->page_bitmask, poffset / CHAR_BIT,
+	bits = buffer_get_space_unsafe(cache->page_bitmask, 0,
+				       poffset / CHAR_BIT +
 				       (psize + CHAR_BIT - 1) / CHAR_BIT);
 
 	dest_offset = poffset * page_size;
