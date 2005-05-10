@@ -869,6 +869,11 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 	ret = mail_transaction_log_file_fd_open(log, &file, path, fd, FALSE);
 	if (ret <= 0) {
 		if (ret == 0) {
+			/* corrupted, delete it */
+			if (unlink(file->filepath) < 0 && errno != ENOENT) {
+				i_error("unlink(%s) failed: %m",
+					file->filepath);
+			}
 			mail_transaction_log_file_close(file);
 			return 0;
 		}
@@ -892,7 +897,7 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
         const struct mail_transaction_header *hdr;
 	const void *data;
 	size_t size;
-	uint32_t hdr_size;
+	uint32_t hdr_size = 0;
 
 	data = buffer_get_data(file->buffer, &size);
 
