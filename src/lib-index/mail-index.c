@@ -839,10 +839,12 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	index->map = NULL;
 
 	if (sync_to_index) {
-		/* make sure log file offsets get copied. most of the other
-		   fields should stay the same. */
+		/* make sure we did everything right. note that although the
+		   message counts should be equal, the flag counters may not */
 		i_assert(hdr.messages_count == (*map)->hdr.messages_count);
-		(*map)->hdr = hdr;
+		i_assert(hdr.log_file_seq == (*map)->hdr.log_file_seq);
+		i_assert(hdr.log_file_int_offset == (*map)->hdr.log_file_int_offset);
+		i_assert(hdr.log_file_ext_offset == (*map)->hdr.log_file_ext_offset);
 	}
 
 	return ret < 0 ? -1 : 1;
