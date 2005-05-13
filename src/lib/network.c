@@ -271,6 +271,13 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
 
+	/* if using IPv6, bind both on the IPv4 and IPv6 addresses */
+#ifdef IPV6_V6ONLY
+	if (so.sin.sin_family == AF_INET6) {
+		opt = 0;
+		setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
+	}
+#endif
 	/* specify the address/port we want to listen in */
 	ret = bind(fd, &so.sa, SIZEOF_SOCKADDR(so));
 	if (ret >= 0) {
