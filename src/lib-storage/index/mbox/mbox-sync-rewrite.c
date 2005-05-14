@@ -211,14 +211,19 @@ static void mbox_sync_headers_remove_space(struct mbox_sync_mail_context *ctx,
 static void mbox_sync_first_mail_written(struct mbox_sync_mail_context *ctx,
 					 uoff_t hdr_offset)
 {
-	/* we wrote the first mail. update the base_uid_last so we don't try
-	   to update it later unneededly. also update last-uid offset. */
+	/* we wrote the first mail. update last-uid offset so we can find
+	   it later */
 	i_assert(ctx->last_uid_value_start_pos != 0);
 
 	ctx->sync_ctx->base_uid_last_offset = hdr_offset +
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] +
 		ctx->last_uid_value_start_pos;
-	ctx->sync_ctx->base_uid_last = ctx->sync_ctx->next_uid - 1;
+
+	if (ctx->imapbase_updated) {
+		/* update so a) we don't try to update it later unneededly,
+		   b) if we do actually update it, we see the correct value */
+		ctx->sync_ctx->base_uid_last = ctx->sync_ctx->next_uid - 1;
+	}
 }
 
 int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
