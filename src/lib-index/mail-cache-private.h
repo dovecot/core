@@ -177,6 +177,9 @@ typedef int mail_cache_foreach_callback_t(struct mail_cache_view *view,
 int mail_cache_lock(struct mail_cache *cache);
 void mail_cache_unlock(struct mail_cache *cache);
 
+int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
+		     uoff_t offset);
+
 int mail_cache_header_fields_read(struct mail_cache *cache);
 int mail_cache_header_fields_update(struct mail_cache *cache);
 void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest);

@@ -296,15 +296,15 @@ static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 	copy_to_buf(cache, buffer,
 		    offsetof(struct mail_cache_field_private, last_used),
 		    sizeof(uint32_t));
-	ret = pwrite_full(cache->fd, buffer->data,
-			  sizeof(uint32_t) * cache->file_fields_count,
-			  offset + MAIL_CACHE_FIELD_LAST_USED());
+	ret = mail_cache_write(cache, buffer->data,
+			       sizeof(uint32_t) * cache->file_fields_count,
+			       offset + MAIL_CACHE_FIELD_LAST_USED());
 	if (ret == 0) {
 		buffer_set_used_size(buffer, 0);
 		copy_to_buf_byte(cache, buffer,
 				 offsetof(struct mail_cache_field, decision));
 
-		ret = pwrite_full(cache->fd, buffer->data,
+		ret = mail_cache_write(cache, buffer->data,
 			sizeof(uint8_t) * cache->file_fields_count, offset +
 			MAIL_CACHE_FIELD_DECISION(cache->file_fields_count));
 

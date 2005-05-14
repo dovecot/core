@@ -167,11 +167,9 @@ static int mail_cache_unlink_hole(struct mail_cache *cache, size_t size,
 	if (prev_offset == 0)
 		hdr->hole_offset = hole.next_offset;
 	else {
-		if (pwrite_full(cache->fd, &hole.next_offset,
-				sizeof(hole.next_offset), prev_offset) < 0) {
-			mail_cache_set_syscall_error(cache, "pwrite_full()");
+		if (mail_cache_write(cache, &hole.next_offset,
+				     sizeof(hole.next_offset), prev_offset) < 0)
 			return FALSE;
-		}
 	}
 	hdr->deleted_space -= hole.size;
 	cache->hdr_modified = TRUE;
@@ -284,10 +282,8 @@ mail_cache_free_space(struct mail_cache *cache, uint32_t offset, uint32_t size)
 		hole.size = size;
 		hole.magic = MAIL_CACHE_HOLE_HEADER_MAGIC;
 
-		if (pwrite_full(cache->fd, &hole, sizeof(hole), offset) < 0) {
-			mail_cache_set_syscall_error(cache, "pwrite_full()");
+		if (mail_cache_write(cache, &hole, sizeof(hole), offset) < 0)
 			return;
-		}
 
 		cache->hdr_copy.deleted_space += size;
 		cache->hdr_copy.hole_offset = offset;
@@ -487,10 +483,8 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 
 		/* write it to file */
 		i_assert(ctx->cache_file_seq == cache->hdr->file_seq);
-		if (pwrite_full(cache->fd, rec, max_size, write_offset) < 0) {
-			mail_cache_set_syscall_error(cache, "pwrite_full()");
+		if (mail_cache_write(cache, rec, max_size, write_offset) < 0)
 			return -1;
-		}
 
 		if (mail_cache_transaction_update_index(ctx, rec, seq,
 							&seq_idx, seq_limit,
@@ -639,10 +633,9 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	if (mail_cache_transaction_get_space(ctx, size, size,
 					     &offset, &size, TRUE) <= 0)
 		ret = -1;
-	else if (pwrite_full(cache->fd, data, size, offset) < 0) {
-		mail_cache_set_syscall_error(cache, "pwrite_full()");
+	else if (mail_cache_write(cache, data, size, offset) < 0)
 		ret = -1;
-	} else if (fdatasync(cache->fd) < 0) {
+	else if (fdatasync(cache->fd) < 0) {
 		mail_cache_set_syscall_error(cache, "fdatasync()");
 		ret = -1;
 	} else if (mail_cache_header_fields_get_next_offset(cache,
@@ -651,11 +644,10 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	else {
 		/* after it's guaranteed to be in disk, update header offset */
 		offset = mail_index_uint32_to_offset(offset);
-		if (pwrite_full(cache->fd, &offset, sizeof(offset),
-				hdr_offset) < 0) {
-			mail_cache_set_syscall_error(cache, "pwrite_full()");
+		if (mail_cache_write(cache, &offset, sizeof(offset),
+				     hdr_offset) < 0)
 			ret = -1;
-		} else {
+		else {
 			/* we'll need to fix mappings. */
 			if (mail_cache_header_fields_read(cache) < 0)
 				ret = -1;
@@ -736,12 +728,8 @@ static int mail_cache_link_unlocked(struct mail_cache *cache,
 				    uint32_t old_offset, uint32_t new_offset)
 {
 	new_offset += offsetof(struct mail_cache_record, prev_offset);
-	if (pwrite_full(cache->fd, &old_offset,
-			sizeof(old_offset), new_offset) < 0) {
-		mail_cache_set_syscall_error(cache, "pwrite_full()");
-		return -1;
-	}
-	return 0;
+	return mail_cache_write(cache, &old_offset, sizeof(old_offset),
+				new_offset);
 }
 
 int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,

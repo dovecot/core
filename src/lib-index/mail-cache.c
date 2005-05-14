@@ -457,13 +457,25 @@ void mail_cache_unlock(struct mail_cache *cache)
 
 	if (cache->hdr_modified) {
 		cache->hdr_modified = FALSE;
-		if (pwrite_full(cache->fd, &cache->hdr_copy,
-				sizeof(cache->hdr_copy), 0) < 0)
-			mail_cache_set_syscall_error(cache, "pwrite_full()");
+		(void)mail_cache_write(cache, &cache->hdr_copy,
+				       sizeof(cache->hdr_copy), 0);
 		mail_cache_update_need_compress(cache);
 	}
 
 	(void)mail_cache_lock_file(cache, F_UNLCK);
+}
+
+int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
+		     uoff_t offset)
+{
+	if (pwrite_full(cache->fd, data, size, offset) < 0) {
+		mail_cache_set_syscall_error(cache, "pwrite_full()");
+		return -1;
+	}
+
+	if (cache->file_cache != NULL)
+		file_cache_write(cache->file_cache, data, size, offset);
+	return 0;
 }
 
 struct mail_cache_view *
