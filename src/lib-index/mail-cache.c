@@ -473,8 +473,14 @@ int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 		return -1;
 	}
 
-	if (cache->file_cache != NULL)
+	if (cache->file_cache != NULL) {
 		file_cache_write(cache->file_cache, data, size, offset);
+
+		/* data/hdr pointers may change if file cache was grown */
+		cache->data = file_cache_get_map(cache->file_cache,
+						 &cache->mmap_length);
+		cache->hdr = cache->data;
+	}
 	return 0;
 }
 
