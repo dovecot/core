@@ -79,6 +79,9 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 
 		if ((ret = mail_cache_reopen(cache)) <= 0)
 			return ret;
+
+		if (MAIL_CACHE_IS_UNUSABLE(cache))
+			return 0;
 	}
 
 	return 0;
@@ -210,7 +213,7 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 
 	if (ret > 0 && view->trans_seq1 <= seq && view->trans_seq2 >= seq &&
 	    mail_cache_lookup_offset(view->cache, view->trans_view,
-				     seq, &offset)) {
+				     seq, &offset) > 0) {
 		array_clear(&view->tmp_offsets);
 		while (offset != 0 && ret > 0) {
 			if (find_offset(view, offset)) {
