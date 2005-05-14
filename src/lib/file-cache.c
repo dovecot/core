@@ -42,10 +42,50 @@ void file_cache_set_fd(struct file_cache *cache, int fd)
 	file_cache_invalidate(cache, 0, cache->mmap_length);
 }
 
+static int file_cache_set_size(struct file_cache *cache, uoff_t size)
+{
+	size_t page_size = mmap_get_page_size();
+	uoff_t diff = size % page_size;
+
+	if (diff != 0)
+		size += page_size - diff;
+
+	i_assert((size % page_size) == 0);
+	if (size <= cache->mmap_length)
+		return 0;
+
+	if (size > (size_t)-1) {
+		i_error("file_cache_set_size(%"PRIuUOFF_T"): size too large",
+			size);
+		return -1;
+	}
+
+	/* grow mmaping */
+	if (cache->mmap_base == NULL) {
+		cache->mmap_base = mmap_anon(size);
+		if (cache->mmap_base == MAP_FAILED) {
+			i_error("mmap_anon(%"PRIuUOFF_T") failed: %m", size);
+			cache->mmap_length = 0;
+			return -1;
+		}
+	} else {
+		cache->mmap_base = mremap_anon(cache->mmap_base,
+					       cache->mmap_length,
+					       size, MREMAP_MAYMOVE);
+		if (cache->mmap_base == MAP_FAILED) {
+			i_error("mremap_anon(%"PRIuUOFF_T") failed: %m", size);
+			cache->mmap_length = 0;
+			return -1;
+		}
+	}
+	cache->mmap_length = size;
+	return 0;
+}
+
 ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 {
 	size_t page_size = mmap_get_page_size();
-	size_t poffset, psize, mmap_needed, dest_offset, dest_size;
+	size_t poffset, psize, dest_offset, dest_size;
 	unsigned char *bits, *dest;
 	ssize_t ret;
 
@@ -75,33 +115,12 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 		}
 	}
 
+	if (file_cache_set_size(cache, offset + size) < 0)
+		return -1;
+
 	poffset = offset / page_size;
 	psize = (offset + size + page_size-1) / page_size - poffset;
 	i_assert(psize > 0);
-
-	mmap_needed = (poffset + psize) * page_size;
-	if (mmap_needed > cache->mmap_length) {
-		/* grow mmaping */
-		if (cache->mmap_base == NULL) {
-			cache->mmap_base = mmap_anon(mmap_needed);
-			if (cache->mmap_base == MAP_FAILED) {
-				i_error("mmap_anon(%"PRIuSIZE_T") failed: %m",
-					mmap_needed);
-				return -1;
-			}
-		} else {
-			cache->mmap_base = mremap_anon(cache->mmap_base,
-						       cache->mmap_length,
-						       mmap_needed,
-						       MREMAP_MAYMOVE);
-			if (cache->mmap_base == MAP_FAILED) {
-				i_error("mremap_anon(%"PRIuSIZE_T") failed: %m",
-					mmap_needed);
-				return -1;
-			}
-		}
-		cache->mmap_length = mmap_needed;
-	}
 
 	bits = buffer_get_space_unsafe(cache->page_bitmask, 0,
 				       poffset / CHAR_BIT +
@@ -114,10 +133,26 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 	while (psize > 0) {
 		if (bits[poffset / CHAR_BIT] & (1 << (poffset % CHAR_BIT))) {
 			/* page is already in cache */
-			psize--; poffset++;
-			dest += page_size;
 			dest_offset += page_size;
-			continue;
+			if (dest_offset <= cache->read_highwater) {
+				psize--; poffset++;
+				dest += page_size;
+				continue;
+			}
+
+			/* this is the last partially cached block.
+			   use the caching only if we don't want to
+			   read past read_highwater */
+			if (offset + size <= cache->read_highwater) {
+				i_assert(psize == 1);
+				break;
+			}
+
+			/* mark the block noncached again and
+			   read it */
+			bits[poffset / CHAR_BIT] &=
+				~(1 << (poffset % CHAR_BIT));
+			dest_offset -= page_size;
 		}
 
 		ret = pread(cache->fd, dest, dest_size, dest_offset);
@@ -125,10 +160,10 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 			if (ret < 0)
 				return -1;
 
-			/* EOF */
-			/* FIXME: we should mark the last block cached and
-			   invalidate it only when trying to read past the
-			   file */
+			/* EOF. mark the last block as cached even if it
+			   isn't completely. read_highwater tells us how far
+			   we've actually made. */
+			bits[poffset / CHAR_BIT] |= 1 << (poffset % CHAR_BIT);
 			return dest_offset <= offset ? 0 :
 				dest_offset - offset < size ?
 				dest_offset - offset : size;
@@ -164,17 +199,26 @@ void file_cache_write(struct file_cache *cache, const void *data, size_t size,
 		      uoff_t offset)
 {
 	size_t page_size = mmap_get_page_size();
-	size_t max_size;
 	unsigned char *bits;
 	unsigned int first_page, last_page;
 
-	if (offset >= cache->mmap_length)
+	if (file_cache_set_size(cache, offset + size) < 0) {
+		/* couldn't grow mapping. just make sure the written memory
+		   area is invalidated then. */
+		file_cache_invalidate(cache, offset, size);
 		return;
+	}
 
-	max_size = cache->mmap_length - offset;
-	if (max_size < size)
-		size = max_size;
 	memcpy(PTR_OFFSET(cache->mmap_base, offset), data, size);
+
+	if (cache->read_highwater < offset + size) {
+		unsigned int page = cache->read_highwater / page_size;
+
+		bits = buffer_get_space_unsafe(cache->page_bitmask,
+					       page / CHAR_BIT, 1);
+		*bits &= ~(1 << (page % CHAR_BIT));
+		cache->read_highwater = offset + size;
+	}
 
 	/* mark fully written pages cached */
 	if (size >= page_size) {
