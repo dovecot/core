@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
+#include "var-expand.h"
 #include "mail-storage.h"
 #include "commands.h"
 #include "mail-search.h"
@@ -156,12 +157,12 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 		i_error("Couldn't open INBOX: %s",
 			mail_storage_get_last_error(storage, &syntax_error));
 		client_send_line(client, "-ERR No INBOX for user.");
-		client_destroy(client);
+		client_destroy(client, "No INBOX for user.");
 		return NULL;
 	}
 
 	if (!init_mailbox(client)) {
-		client_destroy(client);
+		client_destroy(client, "Mailbox init failed");
 		return NULL;
 	}
 
@@ -173,8 +174,42 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 	return client;
 }
 
-void client_destroy(struct client *client)
+static const char *client_stats(struct client *client)
 {
+	static struct var_expand_table static_tab[] = {
+		{ 'T', NULL },
+		{ 't', NULL },
+		{ 'R', NULL },
+		{ 'r', NULL },
+		{ 'd', NULL },
+		{ 'm', NULL },
+		{ 's', NULL },
+		{ '\0', NULL }
+	};
+	struct var_expand_table *tab;
+	string_t *str;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = dec2str(client->top_bytes);
+	tab[1].value = dec2str(client->top_count);
+	tab[2].value = dec2str(client->retr_bytes);
+	tab[3].value = dec2str(client->retr_count);
+	tab[4].value = dec2str(client->deleted_count);
+	tab[5].value = dec2str(client->messages_count);
+	tab[6].value = dec2str(client->total_size);
+
+	str = t_str_new(128);
+	var_expand(str, logout_format, tab);
+	return str_c(str);
+}
+
+void client_destroy(struct client *client, const char *reason)
+{
+	if (reason != NULL)
+		i_info("%s %s", reason, client_stats(client));
+
 	if (client->cmd != NULL) {
 		/* deinitialize command */
 		i_stream_close(client->input);
@@ -204,8 +239,11 @@ void client_destroy(struct client *client)
 	io_loop_stop(ioloop);
 }
 
-void client_disconnect(struct client *client)
+void client_disconnect(struct client *client, const char *reason)
 {
+	if (reason != NULL)
+		i_info("%s %s", reason, client_stats(client));
+
 	(void)o_stream_flush(client->output);
 
 	i_stream_close(client->input);
@@ -266,7 +304,7 @@ void client_send_storage_error(struct client *client)
 	if (mailbox_is_inconsistent(client->mailbox)) {
 		client_send_line(client, "-ERR Mailbox is in inconsistent "
 				 "state, please relogin.");
-		client_disconnect(client);
+		client_disconnect(client, "Mailbox is in inconsistent state.");
 		return;
 	}
 
@@ -295,12 +333,12 @@ static void client_input(void *context)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
-		client_destroy(client);
+		client_destroy(client, "Disconnected");
 		return;
 	case -2:
 		/* line too long, kill it */
 		client_send_line(client, "-ERR Input line too long.");
-		client_destroy(client);
+		client_destroy(client, "Input line too long.");
 		return;
 	}
 
@@ -323,13 +361,13 @@ static void client_input(void *context)
 			}
 		} else if (++client->bad_counter > CLIENT_MAX_BAD_COMMANDS) {
 			client_send_line(client, "-ERR Too many bad commands.");
-			client_disconnect(client);
+			client_disconnect(client, "Too many bad commands.");
 		}
 	}
 	o_stream_uncork(client->output);
 
 	if (client->output->closed)
-		client_destroy(client);
+		client_destroy(client, NULL);
 }
 
 static int client_output(void *context)
@@ -338,7 +376,7 @@ static int client_output(void *context)
 	int ret;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
-		client_destroy(client);
+		client_destroy(client, NULL);
 		return 1;
 	}
 
@@ -374,13 +412,13 @@ static void idle_timeout(void *context __attr_unused__)
 	if (my_client->cmd != NULL) {
 		if (ioloop_time - my_client->last_output >=
 		    CLIENT_OUTPUT_TIMEOUT)
-			client_destroy(my_client);
+			client_destroy(my_client, "Disconnected for inactivity.");
 	} else {
 		if (ioloop_time - my_client->last_input >=
 		    CLIENT_IDLE_TIMEOUT) {
 			client_send_line(my_client,
 					 "-ERR Disconnected for inactivity.");
-			client_destroy(my_client);
+			client_destroy(my_client, "Disconnected for inactivity.");
 		}
 	}
 }
@@ -395,7 +433,7 @@ void clients_deinit(void)
 {
 	if (my_client != NULL) {
 		client_send_line(my_client, "-ERR Server shutting down.");
-		client_destroy(my_client);
+		client_destroy(my_client, "Server shutting down.");
 	}
 
 	timeout_remove(to_idle);

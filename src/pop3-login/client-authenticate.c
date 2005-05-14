@@ -160,8 +160,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		}
 
 		client_send_line(client, "+OK Logged in.");
-		client_destroy(client, t_strconcat(
-			"Login: ", client->common.virtual_user, NULL));
+		client_destroy(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 		if (args != NULL) {

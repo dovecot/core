@@ -29,8 +29,7 @@ struct client {
 struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip);
 
-void client_syslog(struct client *client, const char *format, ...)
-	__attr_format__(2, 3);
+void client_syslog(struct client *client, const char *msg);
 
 unsigned int clients_get_count(void);
 void clients_notify_auth_connected(void);

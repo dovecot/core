@@ -19,7 +19,7 @@ enum uidl_keys {
 extern struct ioloop *ioloop;
 extern enum client_workarounds client_workarounds;
 extern int enable_last_command, no_flag_updates;
-extern const char *uidl_format;
+extern const char *uidl_format, *logout_format;
 extern enum uidl_keys uidl_keymask;
 
 extern void (*hook_mail_storage_created)(struct mail_storage **storage);

@@ -217,7 +217,7 @@ static int cmd_quit(struct client *client, const char *args __attr_unused__)
 	if (client->deleted) {
 		if (!expunge_mails(client)) {
 			client_send_storage_error(client);
-			client_disconnect(client);
+			client_disconnect(client, "Storage error during logout.");
 			return TRUE;
 		}
 	}
@@ -230,7 +230,7 @@ static int cmd_quit(struct client *client, const char *args __attr_unused__)
 	else
 		client_send_line(client, "+OK Logging out, messages deleted.");
 
-	client_disconnect(client);
+	client_disconnect(client, "Logout.");
 	return TRUE;
 }
 
@@ -342,6 +342,10 @@ static void fetch_callback(struct client *client)
 		(void)o_stream_send(client->output, "\r\n", 2);
 	}
 
+	*client->byte_counter +=
+		client->output->offset - client->byte_counter_offset;
+        client->byte_counter = NULL;
+
 	client_send_line(client, ".");
 	fetch_deinit(ctx);
 	client->cmd = NULL;
@@ -405,6 +409,10 @@ static int cmd_retr(struct client *client, const char *args)
 	if (client->last_seen <= msgnum)
 		client->last_seen = msgnum+1;
 
+	client->retr_count++;
+	client->byte_counter = &client->retr_bytes;
+	client->byte_counter_offset = client->output->offset;
+
 	fetch(client, msgnum, (uoff_t)-1);
 	return TRUE;
 }
@@ -467,6 +475,10 @@ static int cmd_top(struct client *client, const char *args)
 		return FALSE;
 	if (get_size(client, args, &max_lines) == NULL)
 		return FALSE;
+
+	client->top_count++;
+	client->byte_counter = &client->top_bytes;
+	client->byte_counter_offset = client->output->offset;
 
 	fetch(client, msgnum, max_lines);
 	return TRUE;

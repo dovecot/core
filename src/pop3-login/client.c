@@ -41,6 +41,8 @@
 #  error client idle timeout must be smaller than authentication timeout
 #endif
 
+const char *login_protocol = "POP3";
+
 static struct hash_table *clients;
 static struct timeout *to_idle;
 
@@ -343,7 +345,7 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	client->destroyed = TRUE;
 
 	if (reason != NULL)
-		client_syslog(&client->common, "%s", reason);
+		client_syslog(&client->common, reason);
 
 	hash_remove(clients, client);
 
@@ -394,8 +396,7 @@ void client_destroy_internal_failure(struct pop3_client *client)
 {
 	client_send_line(client, "-ERR [IN-USE] Internal login failure. "
 			 "Refer to server log for more information.");
-	client_destroy(client, t_strconcat("Internal login failure: ",
-					   client->common.virtual_user, NULL));
+	client_destroy(client, "Internal login failure");
 }
 
 void client_ref(struct pop3_client *client)

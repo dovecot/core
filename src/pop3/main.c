@@ -41,7 +41,7 @@ static char log_prefix[128]; /* syslog() needs this to be permanent */
 enum client_workarounds client_workarounds = 0;
 int enable_last_command = FALSE;
 int no_flag_updates = FALSE;
-const char *uidl_format;
+const char *uidl_format, *logout_format;
 enum uidl_keys uidl_keymask;
 
 static void sig_quit(int signo __attr_unused__)
@@ -178,6 +178,9 @@ static int main_init(void)
 	uidl_format = getenv("POP3_UIDL_FORMAT");
 	if (uidl_format == NULL)
 		uidl_format = "%v.%u";
+	logout_format = getenv("POP3_LOGOUT_FORMAT");
+	if (logout_format == NULL)
+		logout_format = "top=%t/%T, retr=%r/%R, del=%d/%m, size=%s";
 	uidl_keymask = parse_uidl_keymask(uidl_format);
 
 	flags = 0;

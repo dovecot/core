@@ -40,6 +40,8 @@ struct settings {
 	const char *login_executable;
 	const char *login_user;
 	const char *login_greeting;
+	const char *login_log_format_elements;
+	const char *login_log_format;
 
 	int login_process_per_connection;
 	int login_chroot;
@@ -100,6 +102,7 @@ struct settings {
 	int pop3_enable_last;
 	const char *pop3_uidl_format;
 	const char *pop3_client_workarounds;
+	const char *pop3_logout_format;
 
 	/* .. */
 	uid_t login_uid;

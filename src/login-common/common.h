@@ -3,12 +3,18 @@
 
 #include "lib.h"
 
+/* Used only for string sanitization */
+#define MAX_MECH_NAME 64
+
 #define AUTH_FAILED_MSG "Authentication failed."
 #define AUTH_TEMP_FAILED_MSG "Temporary authentication failure."
 
+extern const char *login_protocol;
+
 extern int disable_plaintext_auth, process_per_connection, greeting_capability;
 extern int verbose_proctitle, verbose_ssl, verbose_auth;
-char *greeting;
+extern const char *greeting, *log_format;
+extern const char *const *log_format_elements;
 extern unsigned int max_logging_users;
 extern unsigned int login_process_uid;
 extern struct auth_client *auth_client;

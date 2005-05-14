@@ -9,9 +9,6 @@
 #include "client-common.h"
 #include "master.h"
 
-/* Used only for string sanitization while verbose_auth is set. */
-#define MAX_MECH_NAME 64
-
 static enum auth_request_flags
 client_get_auth_flags(struct client *client)
 {
@@ -154,9 +151,11 @@ void sasl_server_auth_begin(struct client *client,
 void sasl_server_auth_cancel(struct client *client, const char *reason)
 {
 	if (verbose_auth && reason != NULL) {
-		client_syslog(client, "Authenticate %s failed: %s",
-			      str_sanitize(client->auth_mech_name,
-					   MAX_MECH_NAME), reason);
+		const char *auth_name =
+			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
+		client_syslog(client,
+			t_strdup_printf("Authenticate %s failed: %s",
+					auth_name, reason));
 	}
 
 	client->authenticating = FALSE;

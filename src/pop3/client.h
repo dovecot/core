@@ -30,6 +30,14 @@ struct client {
 	uoff_t deleted_size;
 	uint32_t last_seen;
 
+	uoff_t top_bytes;
+	uoff_t retr_bytes;
+	unsigned int top_count;
+	unsigned int retr_count;
+
+	uoff_t *byte_counter;
+	uoff_t byte_counter_offset;
+
 	unsigned char *deleted_bitmask;
 
 	unsigned int deleted:1;
@@ -39,10 +47,10 @@ struct client {
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
 struct client *client_create(int hin, int hout, struct mail_storage *storage);
-void client_destroy(struct client *client);
+void client_destroy(struct client *client, const char *reason);
 
 /* Disconnect client connection */
-void client_disconnect(struct client *client);
+void client_disconnect(struct client *client, const char *reason);
 
 /* Send a line of data to client */
 int client_send_line(struct client *client, const char *fmt, ...)

@@ -439,6 +439,9 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 
 	env_put(t_strconcat("PROCESS_UID=", dec2str(pid), NULL));
 	env_put(t_strconcat("GREETING=", set->login_greeting, NULL));
+	env_put(t_strconcat("LOG_FORMAT_ELEMENTS=",
+			    set->login_log_format_elements, NULL));
+	env_put(t_strconcat("LOG_FORMAT=", set->login_log_format, NULL));
 	if (set->login_greeting_capability)
 		env_put("GREETING_CAPABILITY=1");
 }

@@ -116,7 +116,9 @@ static int client_handle_args(struct imap_client *client,
 		if (imap_proxy_new(client, host, port, destuser, pass) < 0)
 			client_destroy_internal_failure(client);
 		return TRUE;
-	} else if (host != NULL) {
+	}
+
+	if (host != NULL) {
 		/* IMAP referral
 
 		   [nologin] referral host=.. [port=..] [destuser=..]
@@ -142,6 +144,10 @@ static int client_handle_args(struct imap_client *client,
 				   "this server instead.");
 		}
 		client_send_tagline(client, str_c(reply));
+		if (!nologin) {
+			client_destroy(client, "Login with referral");
+			return TRUE;
+		}
 	} else if (nologin) {
 		/* Authentication went ok, but for some reason user isn't
 		   allowed to log in. Shouldn't probably happen. */
@@ -158,16 +164,12 @@ static int client_handle_args(struct imap_client *client,
 		return FALSE;
 	}
 
-	if (!nologin) {
-		client_destroy(client, t_strconcat(
-			"Login: ", client->common.virtual_user, NULL));
-	} else {
-		/* get back to normal client input. */
-		if (client->io != NULL)
-			io_remove(client->io);
-		client->io = io_add(client->common.fd, IO_READ,
-				    client_input, client);
-	}
+	i_assert(nologin);
+
+	/* get back to normal client input. */
+	if (client->io != NULL)
+		io_remove(client->io);
+	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 	return TRUE;
 }
 
@@ -187,8 +189,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		}
 
 		client_send_tagline(client, "OK Logged in.");
-		client_destroy(client, t_strconcat(
-			"Login: ", client->common.virtual_user, NULL));
+		client_destroy(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 		if (args != NULL) {

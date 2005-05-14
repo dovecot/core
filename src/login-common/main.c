@@ -20,7 +20,8 @@
 
 int disable_plaintext_auth, process_per_connection, greeting_capability;
 int verbose_proctitle, verbose_ssl, verbose_auth;
-char *greeting;
+const char *greeting, *log_format;
+const char *const *log_format_elements;
 unsigned int max_logging_users;
 unsigned int login_process_uid;
 struct auth_client *auth_client;
@@ -169,6 +170,15 @@ static void main_init(void)
 	if (greeting == NULL)
 		greeting = PACKAGE" ready.";
 	greeting_capability = getenv("GREETING_CAPABILITY") != NULL;
+
+	value = getenv("LOG_FORMAT_ELEMENTS");
+	if (value == NULL)
+		value = "user=<%u> method=%m rip=%r lip=%l %c : %$";
+	log_format_elements = t_strsplit(value, " ");
+
+	log_format = getenv("LOG_FORMAT");
+	if (log_format == NULL)
+		log_format = "%$: %s";
 
 	value = getenv("PROCESS_UID");
 	if (value == NULL)

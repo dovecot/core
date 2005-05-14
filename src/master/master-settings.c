@@ -69,6 +69,8 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, login_executable),
 	DEF(SET_STR, login_user),
 	DEF(SET_STR, login_greeting),
+	DEF(SET_STR, login_log_format_elements),
+	DEF(SET_STR, login_log_format),
 
 	DEF(SET_BOOL, login_process_per_connection),
 	DEF(SET_BOOL, login_chroot),
@@ -131,6 +133,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_BOOL, pop3_enable_last),
 	DEF(SET_STR, pop3_uidl_format),
 	DEF(SET_STR, pop3_client_workarounds),
+	DEF(SET_STR, pop3_logout_format),
 
 	{ 0, NULL, 0 }
 };
@@ -258,6 +261,8 @@ struct settings default_settings = {
 	MEMBER(login_executable) NULL,
 	MEMBER(login_user) "dovecot",
 	MEMBER(login_greeting) "Dovecot ready.",
+	MEMBER(login_log_format_elements) "user=<%u> method=%m rip=%r lip=%l %c",
+	MEMBER(login_log_format) "%$: %s",
 
 	MEMBER(login_process_per_connection) TRUE,
 	MEMBER(login_chroot) TRUE,
@@ -324,6 +329,7 @@ struct settings default_settings = {
 	MEMBER(pop3_enable_last) FALSE,
 	MEMBER(pop3_uidl_format) "%v.%u",
 	MEMBER(pop3_client_workarounds) NULL,
+	MEMBER(pop3_logout_format) "top=%t/%T, retr=%r/%R, del=%d/%m, size=%s",
 
 	/* .. */
 	MEMBER(login_uid) 0,
