@@ -42,8 +42,6 @@ void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 			    ctx->hdr_pos[i] != (size_t)-1)
 				ctx->hdr_pos[i] += diff;
 		}
-		if (ctx->sync_ctx->dest_first_mail)
-			ctx->sync_ctx->base_uid_last_offset += diff;
 
 		if (diff < 0)
 			str_delete(ctx->header, pos, -diff);

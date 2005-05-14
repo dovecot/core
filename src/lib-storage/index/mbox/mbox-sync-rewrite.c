@@ -288,8 +288,10 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 		return -1;
 	}
 
-	if (ctx->imapbase_updated) {
-		i_assert(sync_ctx->dest_first_mail);
+	if (sync_ctx->dest_first_mail &&
+	    (ctx->imapbase_updated || ctx->sync_ctx->base_uid_last != 0)) {
+		/* the position might have moved as a result of moving
+		   whitespace */
 		mbox_sync_first_mail_written(ctx, ctx->hdr_offset + move_diff);
 	}
 
