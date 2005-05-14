@@ -427,6 +427,8 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 			   but update recent/dirty flag states if needed. */
 			mbox_flags &= SYNC_FLAGS;
 			mbox_flags |= idx_mail.flags & ~SYNC_FLAGS;
+			if (sync_ctx->delay_writes)
+				mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
 		} else {
 			/* keep index's internal flags */
 			mbox_flags &= MAIL_FLAGS_MASK | SYNC_FLAGS;
