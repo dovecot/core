@@ -160,6 +160,37 @@ const void *file_cache_get_map(struct file_cache *cache, size_t *size_r)
 	return cache->mmap_base;
 }
 
+void file_cache_write(struct file_cache *cache, const void *data, size_t size,
+		      uoff_t offset)
+{
+	size_t page_size = mmap_get_page_size();
+	size_t max_size;
+	unsigned char *bits;
+	unsigned int first_page, last_page;
+
+	if (offset >= cache->mmap_length)
+		return;
+
+	max_size = cache->mmap_length - offset;
+	memcpy(PTR_OFFSET(cache->mmap_base, offset),
+	       data, I_MIN(size, max_size));
+
+	/* mark fully written pages cached */
+	if (size >= page_size) {
+		first_page = offset / page_size;
+		last_page = (offset + size) / page_size;
+		if ((offset % page_size) != 0)
+			first_page++;
+
+		bits = buffer_get_space_unsafe(cache->page_bitmask, 0,
+					       last_page / CHAR_BIT + 1);
+		for (; first_page < last_page; first_page++) {
+			bits[first_page / CHAR_BIT] |=
+				1 << (first_page % CHAR_BIT);
+		}
+	}
+}
+
 void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 {
 	size_t page_size = mmap_get_page_size();
