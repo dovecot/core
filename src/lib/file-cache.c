@@ -172,8 +172,9 @@ void file_cache_write(struct file_cache *cache, const void *data, size_t size,
 		return;
 
 	max_size = cache->mmap_length - offset;
-	memcpy(PTR_OFFSET(cache->mmap_base, offset),
-	       data, I_MIN(size, max_size));
+	if (max_size > size)
+		size = max_size;
+	memcpy(PTR_OFFSET(cache->mmap_base, offset), data, size);
 
 	/* mark fully written pages cached */
 	if (size >= page_size) {
