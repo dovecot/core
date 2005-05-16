@@ -71,6 +71,6 @@ unsigned int strarray_length(const char *const *arr);
 const char *t_strarray_join(const char *const *arr, const char *separator);
 
 /* INTERNAL */
-const char *_vstrconcat(const char *str1, va_list args, size_t *ret_len);
+char *_vstrconcat(const char *str1, va_list args, size_t *ret_len);
 
 #endif

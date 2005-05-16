@@ -59,13 +59,16 @@ char *i_strconcat(const char *str1, ...)
 
 	va_start(args, str1);
 
+	t_push();
 	temp = _vstrconcat(str1, args, &len);
 	if (temp == NULL)
 		ret = NULL;
 	else {
+		t_buffer_alloc(len);
 		ret = p_malloc(default_pool, len);
 		memcpy(ret, temp, len);
 	}
+	t_pop();
 
 	va_end(args);
         return ret;
