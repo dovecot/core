@@ -91,7 +91,10 @@ int auth_request_unref(struct auth_request *request)
 	if (--request->refcount > 0)
 		return TRUE;
 
-	request->mech->auth_free(request);
+	if (request->mech != NULL)
+		request->mech->auth_free(request);
+	else
+		pool_unref(request->pool);
 	return FALSE;
 }
 

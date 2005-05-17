@@ -91,6 +91,7 @@ user_callback(const char *result, struct auth_request *auth_request)
 		str_append_c(str, '\n');
 	}
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
+	auth_request_unref(auth_request);
 }
 
 static int
