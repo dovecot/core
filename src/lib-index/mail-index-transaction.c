@@ -160,6 +160,7 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 
 	mail_index_buffer_convert_to_uids(t, &t->expunges, TRUE);
 	mail_index_buffer_convert_to_uids(t, &t->updates, TRUE);
+	mail_index_buffer_convert_to_uids(t, &t->keyword_resets, TRUE);
 	return 0;
 }
 
