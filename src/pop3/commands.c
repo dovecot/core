@@ -445,8 +445,8 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 						 &search_arg, NULL);
 		mail = mail_alloc(client->trans, 0, NULL);
 		while (mailbox_search_next(search_ctx, mail) > 0) {
-			if (mail_update_flags(mail, MAIL_SEEN,
-					      MODIFY_REMOVE) < 0)
+			if (mail_update_flags(mail, MODIFY_REMOVE,
+					      MAIL_SEEN) < 0)
 				break;
 		}
 		mail_free(mail);
