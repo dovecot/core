@@ -419,8 +419,11 @@ int main(int argc, char *argv[])
 		flags |= MAIL_STORAGE_FLAG_MMAP_MAILS;
 	if (getenv("MAIL_SAVE_CRLF") != NULL)
 		flags |= MAIL_STORAGE_FLAG_SAVE_CRLF;
-	/*FIXME:if ((uidl_keymask & UIDL_MD5) != 0)
-		flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;*/
+
+	str = getenv("POP3_UIDL_FORMAT");
+	if (str != NULL && (str = strchr(str, '%')) != NULL &&
+	    str != NULL && var_get_key(str + 1) == 'm')
+		flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
 
 	str = getenv("LOCK_METHOD");
 	if (str == NULL || strcmp(str, "fcntl") == 0)
