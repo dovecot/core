@@ -528,6 +528,7 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 							MAIL_FETCH_HEADER_MD5);
 			if (tab[2].value == NULL) {
 				/* broken */
+				i_error("UIDL: Header MD5 not found");
 				t_pop();
 				break;
 			}
@@ -538,6 +539,7 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 						 MAIL_FETCH_UIDL_FILE_NAME);
 			if (tab[3].value == NULL) {
 				/* broken */
+				i_error("UIDL: File name not found");
 				t_pop();
 				break;
 			}
