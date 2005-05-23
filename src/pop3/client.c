@@ -383,23 +383,20 @@ static int client_output(void *context)
 	client->last_output = ioloop_time;
 
 	o_stream_cork(client->output);
-	if (client->cmd != NULL) {
+	if (client->cmd != NULL)
 		client->cmd(client);
-		if (client->cmd != NULL)
-			o_stream_set_flush_pending(client->output, TRUE);
-	}
 	o_stream_uncork(client->output);
 
-	if (o_stream_get_buffer_used_size(client->output) <
-	    OUTBUF_THROTTLE_SIZE/2 && client->io == NULL &&
-	    client->cmd == NULL) {
-		/* enable input again */
-		client->io = io_add(i_stream_get_fd(client->input), IO_READ,
-				    client_input, client);
+	if (client->cmd == NULL) {
+		if (o_stream_get_buffer_used_size(client->output) <
+		    OUTBUF_THROTTLE_SIZE/2 && client->io == NULL) {
+			/* enable input again */
+			client->io = io_add(i_stream_get_fd(client->input),
+					    IO_READ, client_input, client);
+		}
+		if (client->io != NULL && client->waiting_input)
+			client_input(client);
 	}
-
-	if (client->cmd == NULL && client->io != NULL && client->waiting_input)
-		client_input(client);
 
 	return client->cmd == NULL;
 }
