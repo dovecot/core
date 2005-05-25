@@ -349,6 +349,12 @@ static void stream_send_io(void *context)
 	struct file_ostream *fstream = context;
 	int ret;
 
+	/* Set flush_pending = FALSE first before calling the flush callback,
+	   and change it to TRUE only if callback returns 0. That way the
+	   callback can call o_stream_set_flush_pending() again and we don't
+	   forget it even if flush callback returns 1. */
+	fstream->flush_pending = FALSE;
+
 	o_stream_ref(&fstream->ostream.ostream);
 	if (fstream->ostream.callback != NULL)
 		ret = fstream->ostream.callback(fstream->ostream.context);
@@ -360,7 +366,8 @@ static void stream_send_io(void *context)
 		io_remove(fstream->io);
 		fstream->io = NULL;
 	}
-	fstream->flush_pending = ret <= 0;
+	if (ret == 0)
+		fstream->flush_pending = TRUE;
 
 	o_stream_unref(&fstream->ostream.ostream);
 }
