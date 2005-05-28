@@ -11,6 +11,9 @@
 
 #include <stdlib.h>
 
+/* If no requests have come within this time, kill ourself */
+#define AUTH_WORKER_MAX_IDLE (60*10)
+
 #define OUTBUF_THROTTLE_SIZE (1024*10)
 
 struct auth_worker_client {
@@ -21,6 +24,9 @@ struct auth_worker_client {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+
+	time_t last_request;
+	struct timeout *to;
 };
 
 static void auth_worker_client_unref(struct auth_worker_client *client);
@@ -306,6 +312,8 @@ static void auth_worker_input(void *context)
 		return;
 	}
 
+	client->last_request = ioloop_time;
+
         client->refcount++;
 	while ((line = i_stream_next_line(client->input)) != NULL) {
 		t_push();
@@ -338,6 +346,14 @@ static int auth_worker_output(void *context)
 	return 1;
 }
 
+static void auth_worker_client_timeout(void *context)
+{
+	struct auth_worker_client *client = context;
+
+	if (client->last_request + AUTH_WORKER_MAX_IDLE <= ioloop_time)
+                auth_worker_client_destroy(client);
+}
+
 struct auth_worker_client *
 auth_worker_client_create(struct auth *auth, int fd)
 {
@@ -356,6 +372,9 @@ auth_worker_client_create(struct auth *auth, int fd)
 	o_stream_set_flush_callback(client->output, auth_worker_output, client);
 	client->io = io_add(fd, IO_READ, auth_worker_input, client);
 
+	client->last_request = ioloop_time;
+	client->to = timeout_add(1000*60, auth_worker_client_timeout, client);
+
 	return client;
 }
 
@@ -363,6 +382,8 @@ void auth_worker_client_destroy(struct auth_worker_client *client)
 {
 	if (client->fd == -1)
 		return;
+
+	timeout_remove(client->to);
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);
