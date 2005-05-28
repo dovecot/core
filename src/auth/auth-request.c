@@ -451,6 +451,7 @@ void auth_request_set_field(struct auth_request *request,
 				p_strdup_printf(request->pool, "{%s}%s",
 						default_scheme, value);
 		}
+		return;
 	}
 
 	if (strcmp(name, "user") == 0) {
