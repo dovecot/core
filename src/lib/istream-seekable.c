@@ -199,7 +199,7 @@ static ssize_t _read(struct _istream *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	const unsigned char *data;
-	size_t size;
+	size_t size, pos;
 	ssize_t ret;
 
 	stream->buffer = CONST_PTR_OFFSET(stream->buffer, stream->skip);
@@ -215,6 +215,7 @@ static ssize_t _read(struct _istream *stream)
 			i_stream_close(&stream->istream);
 			return -1;
 		}
+		i_assert(sstream->buffer == NULL);
 	}
 
 	while (stream->istream.v_offset + stream->pos >= sstream->write_peak) {
@@ -231,6 +232,7 @@ static ssize_t _read(struct _istream *stream)
 			i_stream_close(&stream->istream);
 			return -1;
 		}
+		i_stream_sync(sstream->fd_input);
 		i_stream_skip(sstream->cur_input, size);
 		sstream->write_peak += size;
 	}
@@ -242,6 +244,14 @@ static ssize_t _read(struct _istream *stream)
 		stream->istream.stream_errno =
 			sstream->fd_input->stream_errno;
 	}
+
+	stream->buffer = i_stream_get_data(sstream->fd_input, &pos);
+	stream->pos -= stream->skip;
+	stream->skip = 0;
+
+	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
+		(ret == 0 ? 0 : -1);
+	stream->pos = pos;
 	return ret;
 }
 
@@ -264,8 +274,10 @@ static const struct stat *_stat(struct _istream *stream)
 			i_stream_skip(&stream->istream, stream->skip);
 		} while ((ret = _read(stream)) > 0);
 
-		if (ret == 0)
-			i_panic("get_size() used for non-blocking stream");
+		if (ret == 0) {
+			i_panic("i_stream_stat() used for non-blocking "
+				"seekable stream");
+		}
 		i_stream_seek(&stream->istream, old_offset);
 	}
 
