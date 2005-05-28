@@ -47,6 +47,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 				       "o_stream_send_istream()");
 	}
 
+	i_stream_sync(sync_ctx->input);
 	o_stream_unref(output);
 	return (int)ret;
 }

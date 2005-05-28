@@ -1155,14 +1155,23 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		return 0;
 	}
 
+	/* make sure i_stream_stat() doesn't try to use cached file size */
+	i_stream_sync(sync_ctx->file_input);
+
 	st = i_stream_stat(sync_ctx->file_input);
 	if (st == NULL) {
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
 	}
-
 	file_size = st->st_size;
-	i_assert(file_size >= sync_ctx->file_input->v_offset);
+	if (file_size < sync_ctx->file_input->v_offset) {
+		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+			"file size unexpectedly shrinked in mbox file %s "
+			"(%"PRIuUOFF_T" vs %"PRIuUOFF_T")",
+			sync_ctx->mbox->path, file_size,
+			sync_ctx->file_input->v_offset);
+		return -1;
+	}
 	trailer_size = file_size - sync_ctx->file_input->v_offset;
 	i_assert(trailer_size <= 1);
 
