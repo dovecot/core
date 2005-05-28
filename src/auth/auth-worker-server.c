@@ -247,16 +247,17 @@ void auth_worker_call(struct auth_request *auth_request, const char *data,
 
 	conn = auth_worker_find_free();
 	if (conn == NULL) {
-		/* no connections currently. shouldn't happen unless they
-		   all just crashed.. */
-		auth_request_log_error(auth_request, "worker-server",
-				       "All auth workers have died");
-		reply = t_strdup_printf("FAIL\t%d",
-					PASSDB_RESULT_INTERNAL_FAILURE);
-		callback(auth_request, reply);
-
-		auth_worker_create();
-		return;
+		/* no connections currently. can happen if all have been
+		   idle for last 10 minutes. create a new one. */
+		conn = auth_worker_create();
+		if (conn == NULL) {
+			auth_request_log_error(auth_request, "worker-server",
+				"Couldn't create new auth worker");
+			reply = t_strdup_printf("FAIL\t%d",
+						PASSDB_RESULT_INTERNAL_FAILURE);
+			callback(auth_request, reply);
+			return;
+		}
 	}
 
 	iov[0].iov_base = t_strdup_printf("%d\t", ++conn->id_counter);
