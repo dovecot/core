@@ -361,13 +361,15 @@ static void stream_send_io(void *context)
 	else
 		ret = _flush(&fstream->ostream);
 
-	if (ret > 0 && IS_STREAM_EMPTY(fstream) && fstream->io != NULL) {
+	if (ret == 0)
+		fstream->flush_pending = TRUE;
+
+	if (!fstream->flush_pending &&
+	    IS_STREAM_EMPTY(fstream) && fstream->io != NULL) {
 		/* all sent */
 		io_remove(fstream->io);
 		fstream->io = NULL;
 	}
-	if (ret == 0)
-		fstream->flush_pending = TRUE;
 
 	o_stream_unref(&fstream->ostream.ostream);
 }
