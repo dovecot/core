@@ -382,10 +382,11 @@ static int client_output(void *context)
 
 	client->last_output = ioloop_time;
 
-	o_stream_cork(client->output);
-	if (client->cmd != NULL)
+	if (client->cmd != NULL) {
+		o_stream_cork(client->output);
 		client->cmd(client);
-	o_stream_uncork(client->output);
+		o_stream_uncork(client->output);
+	}
 
 	if (client->cmd == NULL) {
 		if (o_stream_get_buffer_used_size(client->output) <
