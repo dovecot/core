@@ -72,7 +72,10 @@ sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 		memcpy(&ip->ip, &so->sin6.sin6_addr, sizeof(ip->ip));
 	else
 #endif
+	if (ip->family == AF_INET)
 		memcpy(&ip->ip, &so->sin.sin_addr, 4);
+	else
+		memset(&ip->ip, 0, sizeof(ip->ip));
 }
 
 static inline void sin_set_port(union sockaddr_union *so, unsigned int port)
@@ -91,7 +94,10 @@ static inline unsigned int sin_get_port(union sockaddr_union *so)
 	if (so->sin.sin_family == AF_INET6)
 		return ntohs(so->sin6.sin6_port);
 #endif
-	return ntohs(so->sin.sin_port);
+	if (so->sin.sin_family == AF_INET)
+		return ntohs(so->sin.sin_port);
+
+	return 0;
 }
 
 static inline void close_save_errno(int fd)
