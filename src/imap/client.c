@@ -411,12 +411,14 @@ int _client_output(void *context)
 	o_stream_cork(client->output);
 	client->output_pending = TRUE;
 	finished = cmd->func(cmd) || cmd->param_error;
-	o_stream_uncork(client->output);
 
-	/* a bit kludgy. normally we would want to get back here, but IDLE
-	   is a special case which has command pending but without necessarily
-	   anything to write. */
-	ret = finished || !client->output_pending;
+	/* a bit kludgy check. normally we would want to get back to this
+	   output handler, but IDLE is a special case which has command
+	   pending but without necessarily anything to write. */
+	if (!finished && client->output_pending)
+		o_stream_set_flush_pending(client->output, TRUE);
+
+	o_stream_uncork(client->output);
 
 	if (finished) {
 		/* command execution was finished */
