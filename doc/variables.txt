@@ -3,7 +3,7 @@ You can use special variables in several places:
  - namespace locations
  - static userdb template string
  - LDAP and SQL userdb query strings
- - log prefix for imap/pop3 process
+ - log prefix for login/imap/pop3 process
 
 The variables are:
 
@@ -26,3 +26,8 @@ You can take a substring of the variable by giving optional offset followed
 by '.' and width after the '%' character. For example %2u gives first two
 characters of the username. %2.1u gives third character of the username. If
 offset points outside the value, empty string is returned.
+
+For login_log_format_elements there are also these variables:
+
+ %m - authentication method (eg. PLAIN)
+ %c - SSL, TLS or empty
