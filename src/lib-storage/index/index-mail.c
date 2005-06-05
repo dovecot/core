@@ -263,8 +263,9 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 		data->save_sent_date = TRUE;
 		str = mail_get_first_header(_mail, "Date");
 		if (data->sent_date.time == (time_t)-1) {
-			if (!message_date_parse((const unsigned char *)str,
-						(size_t)-1,
+			if (str == NULL ||
+			    !message_date_parse((const unsigned char *)str,
+						strlen(str),
 						&data->sent_date.time, &tz)) {
 				/* 0 == parse error */
 				data->sent_date.time = 0;
