@@ -1,8 +1,8 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2005 Timo Sirainen */
 
 #include "lib.h"
 #include "str.h"
-#include "message-tokenize.h"
+#include "rfc822-parser.h"
 #include "message-content-parser.h"
 
 void message_content_parse_header(const unsigned char *data, size_t size,
@@ -10,48 +10,61 @@ void message_content_parse_header(const unsigned char *data, size_t size,
 				  parse_content_param_callback_t *param_cb,
 				  void *context)
 {
-	static const enum message_token stop_tokens[] = { ';', TOKEN_LAST };
-	struct message_tokenizer *tok;
-	enum message_token token;
+	struct rfc822_parser_context parser;
 	string_t *str;
-	const unsigned char *key, *value;
-	size_t key_len, value_len;
+	size_t key_len;
+	int quoted_string;
 
-	tok = message_tokenize_init(data, size, NULL, NULL);
-        message_tokenize_dot_token(tok, FALSE);
+	rfc822_parser_init(&parser, data, size, NULL);
 
 	t_push();
 	str = t_str_new(256);
 
-        /* first ';' separates the parameters */
-	message_tokenize_get_string(tok, str, NULL, stop_tokens);
+	/* get content type */
+	if (rfc822_parse_mime_token(&parser, str) > 0) {
+		if (*parser.data == '/') {
+			parser.data++;
+			str_append_c(str, '/');
+			(void)rfc822_parse_mime_token(&parser, str);
+		}
+	}
 
 	if (callback != NULL)
 		callback(str_data(str), str_len(str), context);
 
-	t_pop();
-
-	if (param_cb != NULL && message_tokenize_get(tok) == ';') {
-		/* parse the parameters */
-		while ((token = message_tokenize_next(tok)) != TOKEN_LAST) {
-			/* <token> "=" <token> | <quoted-string> */
-			if (token != TOKEN_ATOM)
-				continue;
-
-			key = message_tokenize_get_value(tok, &key_len);
-
-			if (message_tokenize_next(tok) != '=')
-				continue;
-
-			token = message_tokenize_next(tok);
-			if (token != TOKEN_ATOM && token != TOKEN_QSTRING)
-				continue;
-
-			value = message_tokenize_get_value(tok, &value_len);
-			param_cb(key, key_len, value, value_len,
-				 token == TOKEN_QSTRING, context);
-		}
+	if (parser.data == parser.end || *parser.data != ';' ||
+	    param_cb == NULL) {
+		/* no parameters / error / no param callback */
+		t_pop();
+		return;
 	}
+	parser.data++;
+        (void)rfc822_skip_lwsp(&parser);
 
-	message_tokenize_deinit(tok);
+	str_truncate(str, 0);
+	while (rfc822_parse_mime_token(&parser, str) > 0) {
+		/* <token> "=" <token> | <quoted-string> */
+		if (str_len(str) == 0 || *parser.data != '=' ||
+		    rfc822_skip_lwsp(&parser) <= 0)
+			break;
+		parser.data++;
+
+		quoted_string = parser.data != parser.end &&
+			*parser.data == '"';
+		key_len = str_len(str);
+		if (quoted_string) {
+			if (rfc822_parse_quoted_string(&parser, str) < 0)
+				break;
+		} else {
+			if (rfc822_parse_mime_token(&parser, str) < 0)
+				break;
+		}
+
+		param_cb(str_data(str), key_len,
+			 str_data(str) + key_len, str_len(str) - key_len,
+			 quoted_string, context);
+
+		str_truncate(str, 0);
+	}
+	t_pop();
 }
