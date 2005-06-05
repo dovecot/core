@@ -1,12 +1,18 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2005 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
 #include "utc-offset.h"
 #include "utc-mktime.h"
-#include "message-tokenize.h"
+#include "rfc822-parser.h"
 #include "message-date.h"
 
 #include <ctype.h>
+
+struct message_date_parser_context {
+	struct rfc822_parser_context parser;
+	string_t *str;
+};
 
 static const char *month_names[] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -86,41 +92,47 @@ static int parse_timezone(const unsigned char *str, size_t len)
 	return 0;
 }
 
-static enum message_token next_token(struct message_tokenizer *ctx,
-				     const unsigned char **value,
-				     size_t *value_len)
+static int next_token(struct message_date_parser_context *ctx,
+		      const unsigned char **value, size_t *value_len)
 {
-	enum message_token token;
+	int ret;
 
-	token = message_tokenize_next(ctx);
-	if (token == 'A')
-		*value = message_tokenize_get_value(ctx, value_len);
-	return token;
+	str_truncate(ctx->str, 0);
+	ret = rfc822_parse_atom(&ctx->parser, ctx->str);
+
+	*value = str_data(ctx->str);
+	*value_len = str_len(ctx->str);
+	return ret < 0 ? -1 : *value_len > 0;
 }
 
-static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
-				  int *timezone_offset)
+static int message_date_parser_tokens(struct message_date_parser_context *ctx,
+				      time_t *time, int *timezone_offset)
 {
 	struct tm tm;
-	enum message_token token;
 	const unsigned char *value;
 	size_t i, len;
+	int ret;
 
 	/* [weekday_name "," ] dd month_name [yy]yy hh:mi[:ss] timezone */
 	memset(&tm, 0, sizeof(tm));
 
-	/* skip the optional weekday */
-	token = next_token(ctx, &value, &len);
-	if (token == 'A' && len == 3) {
-		token = next_token(ctx, &value, &len);
-		if (token != ',')
-			return FALSE;
+        (void)rfc822_skip_lwsp(&ctx->parser);
 
-		token = next_token(ctx, &value, &len);
+	/* skip the optional weekday */
+	if (next_token(ctx, &value, &len) <= 0)
+		return FALSE;
+	if (len == 3) {
+		if (*ctx->parser.data != ',')
+			return FALSE;
+		ctx->parser.data++;
+		(void)rfc822_skip_lwsp(&ctx->parser);
+
+		if (next_token(ctx, &value, &len) <= 0)
+			return FALSE;
 	}
 
 	/* dd */
-	if (token != 'A' || len < 1 || len > 2 || !i_isdigit(value[0]))
+	if (len < 1 || len > 2 || !i_isdigit(value[0]))
 		return FALSE;
 
 	tm.tm_mday = value[0]-'0';
@@ -131,8 +143,7 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 	}
 
 	/* month name */
-	token = next_token(ctx, &value, &len);
-	if (token != 'A' || len < 3)
+	if (next_token(ctx, &value, &len) <= 0 || len < 3)
 		return FALSE;
 
 	for (i = 0; i < 12; i++) {
@@ -145,8 +156,7 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 		return FALSE;
 
 	/* [yy]yy */
-	token = next_token(ctx, &value, &len);
-	if (token != 'A' || (len != 2 && len != 4))
+	if (next_token(ctx, &value, &len) <= 0 || (len != 2 && len != 4))
 		return FALSE;
 
 	for (i = 0; i < len; i++) {
@@ -166,8 +176,8 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 	}
 
 	/* hh, allow also single digit */
-	token = next_token(ctx, &value, &len);
-	if (token != 'A' || len < 1 || len > 2 || !i_isdigit(value[0]))
+	if (next_token(ctx, &value, &len) <= 0 ||
+	    len < 1 || len > 2 || !i_isdigit(value[0]))
 		return FALSE;
 	tm.tm_hour = value[0]-'0';
 	if (len == 2) {
@@ -176,35 +186,35 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 		tm.tm_hour = tm.tm_hour * 10 + (value[1]-'0');
 	}
 
-	/* :mm */
-	token = next_token(ctx, &value, &len);
-	if (token != ':')
+	/* :mm (may be the last token) */
+	if (*ctx->parser.data != ':')
 		return FALSE;
-	token = next_token(ctx, &value, &len);
-	if (token != 'A' || len != 2 ||
+	ctx->parser.data++;
+	(void)rfc822_skip_lwsp(&ctx->parser);
+
+	if (next_token(ctx, &value, &len) < 0 || len != 2 ||
 	    !i_isdigit(value[0]) || !i_isdigit(value[1]))
 		return FALSE;
 	tm.tm_min = (value[0]-'0') * 10 + (value[1]-'0');
 
 	/* [:ss] */
-	token = next_token(ctx, &value, &len);
-	if (token == ':') {
-		token = next_token(ctx, &value, &len);
-		if (token != 'A' || len != 2 ||
+	if (ctx->parser.data != ctx->parser.end && *ctx->parser.data == ':') {
+		ctx->parser.data++;
+		(void)rfc822_skip_lwsp(&ctx->parser);
+
+		if (next_token(ctx, &value, &len) <= 0 || len != 2 ||
 		    !i_isdigit(value[0]) || !i_isdigit(value[1]))
 			return FALSE;
 		tm.tm_sec = (value[0]-'0') * 10 + (value[1]-'0');
-
-		token = next_token(ctx, &value, &len);
 	}
 
-	if (token == TOKEN_LAST) {
+	if ((ret = next_token(ctx, &value, &len)) < 0)
+		return FALSE;
+	if (ret == 0) {
 		/* missing timezone */
 		*timezone_offset = 0;
 	} else {
 		/* timezone */
-		if (token != 'A')
-			return FALSE;
 		*timezone_offset = parse_timezone(value, len);
 	}
 
@@ -221,15 +231,14 @@ static int mail_date_parse_tokens(struct message_tokenizer *ctx, time_t *time,
 int message_date_parse(const unsigned char *data, size_t size,
 		       time_t *time, int *timezone_offset)
 {
-	struct message_tokenizer *ctx;
+	struct message_date_parser_context ctx;
 	int ret;
 
-	if (data == NULL || *data == '\0')
-		return FALSE;
-
-	ctx = message_tokenize_init(data, size, NULL, NULL);
-	ret = mail_date_parse_tokens(ctx, time, timezone_offset);
-	message_tokenize_deinit(ctx);
+	t_push();
+	rfc822_parser_init(&ctx.parser, data, size, NULL);
+	ctx.str = t_str_new(128);
+	ret = message_date_parser_tokens(&ctx, time, timezone_offset);
+	t_pop();
 
 	return ret;
 }
