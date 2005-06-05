@@ -21,6 +21,7 @@ void message_content_parse_header(const unsigned char *data, size_t size,
 	str = t_str_new(256);
 
 	/* get content type */
+        (void)rfc822_skip_lwsp(&parser);
 	if (rfc822_parse_mime_token(&parser, str) > 0) {
 		if (*parser.data == '/') {
 			parser.data++;
