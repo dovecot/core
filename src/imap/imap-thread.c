@@ -31,7 +31,7 @@
 #include "hash.h"
 #include "ostream.h"
 #include "str.h"
-#include "message-tokenize.h"
+#include "rfc822-parser.h"
 #include "imap-base-subject.h"
 #include "mail-storage.h"
 #include "imap-thread.h"
@@ -222,28 +222,37 @@ static struct node *update_message(struct thread_context *ctx,
 
 static int get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 {
-	static const enum message_token stop_tokens[] = { '>', TOKEN_LAST };
-	struct message_tokenizer *tok;
-	int valid_end;
+	struct rfc822_parser_context parser;
 
-	tok = message_tokenize_init((const unsigned char *) *msgid_p,
-				    (size_t)-1, NULL, NULL);
-	message_tokenize_dot_token(tok, FALSE); /* just a minor speedup */
+	rfc822_parser_init(&parser, (const unsigned char *)*msgid_p,
+			   strlen(*msgid_p), NULL);
 
-	message_tokenize_get_string(tok, msgid, NULL, stop_tokens);
-	valid_end = message_tokenize_get(tok) == '>';
+	/*
+	   msg-id          = [CFWS] "<" id-left "@" id-right ">" [CFWS]
+	   id-left         = dot-atom-text / no-fold-quote / obs-id-left
+	   id-right        = dot-atom-text / no-fold-literal / obs-id-right
+	   no-fold-quote   = DQUOTE *(qtext / quoted-pair) DQUOTE
+	   no-fold-literal = "[" *(dtext / quoted-pair) "]"
+	*/
 
-	*msgid_p += message_tokenize_get_parse_position(tok);
-	message_tokenize_deinit(tok);
+	(void)rfc822_skip_lwsp(&parser);
 
-	if (valid_end) {
-		if (strchr(str_c(msgid), '@') != NULL) {
-			/* <xx@xx> - valid message ID found */
-			return TRUE;
-		}
-	}
+	if (rfc822_parse_dot_atom(&parser, msgid) <= 0)
+		return FALSE;
 
-	return FALSE;
+	if (*parser.data != '@')
+		return FALSE;
+	parser.data++;
+	(void)rfc822_skip_lwsp(&parser);
+
+	if (rfc822_parse_dot_atom(&parser, msgid) <= 0)
+		return FALSE;
+
+	if (*parser.data != '>')
+		return FALSE;
+
+	*msgid_p = (const char *)parser.data + 1;
+	return TRUE;
 }
 
 static void strip_lwsp(char *str)
@@ -294,7 +303,7 @@ static const char *get_msgid(const char **msgid_p)
 
 			if (*p == '@')
 				found_at = TRUE;
-			if (*p == '>' || *p == '"' || *p == '(')
+			if (*p == '>' || *p == '"' || *p == '(' || *p == '[')
 				break;
 
 			if (*p == '\0') {
