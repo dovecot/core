@@ -63,6 +63,7 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 			return -1;
 		}
 		buf = i_stream_get_data(rstream->input, &pos);
+		i_assert(pos > 0);
 	}
 	line_pos = (size_t)(p - buf);
 
