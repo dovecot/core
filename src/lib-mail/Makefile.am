@@ -16,7 +16,6 @@ libmail_a_SOURCES = \
 	message-part-serialize.c \
 	message-send.c \
 	message-size.c \
-	message-tokenize.c \
 	quoted-printable.c \
 	rfc822-parser.c
 
@@ -33,6 +32,5 @@ noinst_HEADERS = \
 	message-part-serialize.h \
 	message-send.h \
 	message-size.h \
-	message-tokenize.h \
 	quoted-printable.h \
 	rfc822-parser.h
