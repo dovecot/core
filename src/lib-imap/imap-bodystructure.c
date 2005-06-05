@@ -6,7 +6,7 @@
 #include "str.h"
 #include "message-parser.h"
 #include "message-content-parser.h"
-#include "message-tokenize.h"
+#include "rfc822-parser.h"
 #include "imap-parser.h"
 #include "imap-quote.h"
 #include "imap-envelope.h"
@@ -96,55 +96,36 @@ static void parse_content_disposition(const unsigned char *value,
 static void parse_content_language(const unsigned char *value, size_t value_len,
 				   struct message_part_body_data *data)
 {
-	struct message_tokenizer *tok;
-        enum message_token token;
+	struct rfc822_parser_context parser;
 	string_t *str;
-	int quoted;
 
-	/* Content-Language: en-US, az-arabic (comments allowed) */
+	/* Language-Header = "Content-Language" ":" 1#Language-tag
+	   Language-Tag = Primary-tag *( "-" Subtag )
+	   Primary-tag = 1*8ALPHA
+	   Subtag = 1*8ALPHA */
 
-	tok = message_tokenize_init(value, value_len, NULL, NULL);
+	rfc822_parser_init(&parser, value, value_len, NULL);
 
 	t_push();
-	str = t_str_new(256);
+	str = t_str_new(128);
+	str_append_c(str, '"');
 
-	quoted = FALSE;
-	while ((token = message_tokenize_next(tok)) != TOKEN_LAST) {
-		if (token == ',') {
-			/* list separator */
-			if (quoted) {
-				str_append_c(str, '"');
-				quoted = FALSE;
-			}
-		} else {
-			/* anything else goes as-is. only alphabetic characters
-			   and '-' is allowed, so anything else is error
-			   which we can deal with however we want. */
-			if (!quoted) {
-				if (str_len(str) > 0)
-					str_append_c(str, ' ');
-				str_append_c(str, '"');
-				quoted = TRUE;
-			}
+	(void)rfc822_skip_lwsp(&parser);
+	while (rfc822_parse_atom(&parser, str) >= 0) {
+		str_append(str, "\" \"");
 
-			if (!IS_TOKEN_STRING(token))
-				str_append_c(str, token);
-			else {
-				value = message_tokenize_get_value(tok,
-								   &value_len);
-				str_append_n(str, value, value_len);
-			}
-		}
+		if (parser.data == parser.end || *parser.data != ',')
+			break;
+		parser.data++;
+		(void)rfc822_skip_lwsp(&parser);
 	}
 
-	if (quoted)
-		str_append_c(str, '"');
-
-	data->content_language = p_strdup(data->pool, str_c(str));
+	if (str_len(str) > 1) {
+		str_truncate(str, str_len(str) - 2);
+		data->content_language = p_strdup(data->pool, str_c(str));
+	}
 
 	t_pop();
-
-	message_tokenize_deinit(tok);
 }
 
 static void parse_content_header(struct message_part_body_data *d,
