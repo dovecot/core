@@ -16,14 +16,25 @@
                         "`" / "{" /
                         "|" / "}" /
                         "~"
+
+  MIME:
+
+  token := 1*<any (US-ASCII) CHAR except SPACE, CTLs,
+              or tspecials>
+  tspecials :=  "(" / ")" / "<" / ">" / "@" /
+                "," / ";" / ":" / "\" / <">
+                "/" / "[" / "]" / "?" / "="
+
+  So token is same as dot-atom, except stops also at '/', '?' and '='.
 */
 
-/* atext chars are marked with 1, alpha and digits with 2 */
+/* atext chars are marked with 1, alpha and digits with 2,
+   atext-but-mime-tspecials with 4 */
 static unsigned char atext_chars[256] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0-15 */
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 16-31 */
-	0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, /* 32-47 */
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 1, 0, 1, /* 48-63 */
+	0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 4, /* 32-47 */
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 4, 0, 4, /* 48-63 */
 	0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, /* 64-79 */
 	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 1, 1, /* 80-95 */
 	1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, /* 96-111 */
@@ -40,6 +51,8 @@ static unsigned char atext_chars[256] = {
 };
 #define IS_ATEXT(c) \
 	(atext_chars[(int)(unsigned char)(c)] != 0)
+#define IS_ATEXT_NON_TSPECIAL(c) \
+	((atext_chars[(int)(unsigned char)(c)] & 3) != 0)
 
 void rfc822_parser_init(struct rfc822_parser_context *ctx,
 			const unsigned char *data, size_t size,
@@ -108,7 +121,7 @@ int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 			break;
 
 		if (rfc822_skip_comment(ctx) < 0)
-			break;
+			return -1;
 	}
 	return ctx->data != ctx->end;
 }
@@ -166,6 +179,22 @@ int rfc822_parse_dot_atom(struct rfc822_parser_context *ctx, string_t *str)
 		if ((ret = rfc822_skip_lwsp(ctx)) <= 0)
 			return ret;
 		start = ctx->data;
+	}
+
+	str_append_n(str, start, ctx->data - start);
+	return 0;
+}
+
+int rfc822_parse_mime_token(struct rfc822_parser_context *ctx, string_t *str)
+{
+	const unsigned char *start;
+
+	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+		if (IS_ATEXT_NON_TSPECIAL(*ctx->data) || *ctx->data == '.')
+			continue;
+
+		str_append_n(str, start, ctx->data - start);
+		return rfc822_skip_lwsp(ctx);
 	}
 
 	str_append_n(str, start, ctx->data - start);
