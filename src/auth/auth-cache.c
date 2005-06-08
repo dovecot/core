@@ -24,7 +24,9 @@ struct auth_cache {
 
 	size_t size_left;
 	unsigned int ttl_secs;
-	unsigned int hup_count;
+	unsigned int hup_count, usr2_count;
+
+	unsigned int hit_count, miss_count;
 };
 
 char *auth_cache_parse_key(const char *query)
@@ -130,6 +132,7 @@ const char *auth_cache_lookup(struct auth_cache *cache,
 {
 	string_t *str;
 	struct cache_node *node;
+	unsigned int total_count;
 
 	*expired_r = FALSE;
 
@@ -140,13 +143,28 @@ const char *auth_cache_lookup(struct auth_cache *cache,
 		return NULL;
 	}
 
+	if (cache->usr2_count != lib_signal_usr2_count) {
+		cache->usr2_count = lib_signal_usr2_count;
+
+		total_count = cache->hit_count + cache->miss_count;
+		i_info("Authentication cache hits %u/%u (%u%%)",
+		       cache->hit_count, total_count,
+		       cache->hit_count * 100 / total_count);
+
+		/* reset hit counter */
+		cache->hit_count = cache->miss_count = 0;
+	}
+
 	str = t_str_new(256);
 	var_expand(str, key,
 		   auth_request_get_var_expand_table(request, str_escape));
 
 	node = hash_lookup(cache->hash, str_c(str));
-	if (node == NULL)
+	if (node == NULL) {
+		cache->miss_count++;
 		return NULL;
+	}
+	cache->hit_count++;
 
 	if (node->created < time(NULL) - (time_t)cache->ttl_secs) {
 		/* TTL expired */
