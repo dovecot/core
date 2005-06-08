@@ -250,16 +250,16 @@ static void main_deinit(void)
 		i_warning("Killed with signal %d", lib_signal_kill);
 
 	if (worker_client != NULL)
-		auth_worker_client_destroy(worker_client);
+		auth_worker_client_unref(worker_client);
 	else
 		auth_request_handler_flush_failures();
 
+        auth_worker_server_deinit();
 	auth_master_listeners_deinit();
 	auth_request_handler_deinit();
 	auth_deinit(auth);
 	mech_deinit();
 
-        auth_worker_server_deinit();
         password_schemes_deinit();
 	random_deinit();
 
