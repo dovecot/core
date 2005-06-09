@@ -68,8 +68,10 @@ static ssize_t _read(struct _istream *stream)
 
 	if (lstream->v_size != (uoff_t)-1) {
 		left = lstream->v_size - stream->istream.v_offset;
-		if (pos > left)
+		if (pos >= left) {
 			pos = left;
+			stream->istream.eof = TRUE;
+		}
 	}
 
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
