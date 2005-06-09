@@ -6,9 +6,13 @@
 
 #ifdef HAVE_MYSQL
 #include <stdlib.h>
+#include <unistd.h>
 #include <time.h>
 #include <mysql.h>
 #include <errmsg.h>
+
+/* Abort connect() if it can't connect within this time. */
+#define MYSQL_CONNECT_FAILURE_TIMEOUT 10
 
 /* Minimum delay between reconnecting to same server */
 #define CONNECT_MIN_DELAY 1
@@ -65,6 +69,7 @@ static int driver_mysql_connect(struct mysql_connection *conn)
 	struct mysql_db *db = conn->db;
 	const char *unix_socket, *host;
 	time_t now;
+	int failed;
 
 	if (conn->connected)
 		return TRUE;
@@ -98,9 +103,12 @@ static int driver_mysql_connect(struct mysql_connection *conn)
 #endif
 	}
 
-	if (mysql_real_connect(conn->mysql, host, db->user, db->password,
-			       db->dbname, db->port, unix_socket,
-			       db->client_flags) == NULL) {
+	alarm(MYSQL_CONNECT_FAILURE_TIMEOUT);
+	failed = mysql_real_connect(conn->mysql, host, db->user, db->password,
+				    db->dbname, db->port, unix_socket,
+				    db->client_flags) == NULL;
+	alarm(0);
+	if (failed) {
 		if (conn->connect_failure_count > 0) {
 			/* increase delay between reconnections to this
 			   server */
