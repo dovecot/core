@@ -73,10 +73,19 @@ void lib_init_signals(void (*sig_quit_handler) (int))
 		if (errno != EINTR)
 			i_fatal("sigaction(): %m");
 	}
+
+	/* we want to just ignore SIGALRM, but to get it to abort syscalls
+	   with EINTR we can't just set it to SIG_IGN. sig_counter handler
+	   is good enough. */
+	while (sigaction(SIGALRM, &act, NULL) < 0) {
+		if (errno != EINTR)
+			i_fatal("sigaction(): %m");
+	}
 #else
         signal(SIGHUP, sig_counter);
         signal(SIGUSR1, sig_counter);
         signal(SIGUSR2, sig_counter);
+        signal(SIGALRM, sig_counter);
 #endif
 
 	/* these signals should be called only once, so it's safe to use
@@ -84,5 +93,4 @@ void lib_init_signals(void (*sig_quit_handler) (int))
 	signal(SIGINT, sig_quit);
         signal(SIGTERM, sig_quit);
         signal(SIGPIPE, SIG_IGN);
-        signal(SIGALRM, SIG_IGN);
 }
