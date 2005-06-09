@@ -121,14 +121,15 @@ static void connect_callback(void *context)
 	}
 }
 
-static void driver_pgsql_connect(struct pgsql_db *db)
+static int driver_pgsql_connect(struct sql_db *_db)
 {
+	struct pgsql_db *db = (struct pgsql_db *)_db;
 	time_t now;
 
 	/* don't try reconnecting more than once a second */
 	now = time(NULL);
 	if (db->connecting || db->last_connect == now)
-		return;
+		return db->connected ? 1 : (db->connecting ? 0 : -1);
 	db->last_connect = now;
 
 	db->pg = PQconnectStart(db->connect_string);
@@ -139,12 +140,14 @@ static void driver_pgsql_connect(struct pgsql_db *db)
 		i_error("pgsql: Connect failed to %s: %s",
 			PQdb(db->pg), last_error(db));
 		driver_pgsql_close(db);
+		return -1;
 	} else {
 		/* nonblocking connecting begins. */
 		db->io = io_add(PQsocket(db->pg), IO_WRITE,
 				connect_callback, db);
 		db->io_dir = IO_WRITE;
 		db->connecting = TRUE;
+		return 0;
 	}
 }
 
@@ -156,8 +159,6 @@ static struct sql_db *driver_pgsql_init(const char *connect_string)
 	db->connect_string = i_strdup(connect_string);
 	db->api = driver_pgsql_db;
 	db->queue_tail = &db->queue;
-
-	(void)driver_pgsql_connect(db);
 	return &db->api;
 }
 
@@ -327,7 +328,7 @@ static void queue_timeout(void *context)
 		return;
 
 	if (!db->connected) {
-		driver_pgsql_connect(db);
+		driver_pgsql_connect(&db->api);
 		return;
 	}
 
@@ -369,7 +370,7 @@ static void do_query(struct pgsql_result *result, const char *query)
 
 	if (!db->connected) {
 		/* try connecting again */
-		driver_pgsql_connect(db);
+		driver_pgsql_connect(&db->api);
 		driver_pgsql_queue_query(result, query);
 		return;
 	}
@@ -559,6 +560,7 @@ struct sql_db driver_pgsql_db = {
 	driver_pgsql_init,
 	driver_pgsql_deinit,
         driver_mysql_get_flags,
+	driver_pgsql_connect,
 	driver_pgsql_exec,
 	driver_pgsql_query
 };

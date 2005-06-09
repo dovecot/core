@@ -9,6 +9,7 @@ struct sql_db {
 
 	enum sql_db_flags (*get_flags)(struct sql_db *db);
 
+	int (*connect)(struct sql_db *db);
 	void (*exec)(struct sql_db *db, const char *query);
 	void (*query)(struct sql_db *db, const char *query,
 		      sql_query_callback_t *callback, void *context);

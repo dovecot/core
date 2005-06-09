@@ -23,14 +23,19 @@ void sql_deinit(struct sql_db *db)
 	db->deinit(db);
 }
 
-void sql_exec(struct sql_db *db, const char *query)
-{
-	db->exec(db, query);
-}
-
 enum sql_db_flags sql_get_flags(struct sql_db *db)
 {
 	return db->get_flags(db);
+}
+
+int sql_connect(struct sql_db *db)
+{
+	return db->connect(db);
+}
+
+void sql_exec(struct sql_db *db, const char *query)
+{
+	db->exec(db, query);
 }
 
 void sql_query(struct sql_db *db, const char *query,

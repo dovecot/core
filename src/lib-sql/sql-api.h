@@ -22,6 +22,11 @@ void sql_deinit(struct sql_db *db);
 /* Returns SQL database state flags. */
 enum sql_db_flags sql_get_flags(struct sql_db *db);
 
+/* Explicitly connect to the database. It's not required to call this function
+   though. Returns -1 if we're not connected, 0 if we started connecting or
+   1 if we are fully connected now. */
+int sql_connect(struct sql_db *db);
+
 /* Execute SQL query without waiting for results. */
 void sql_exec(struct sql_db *db, const char *query);
 /* Execute SQL query and return result in callback. */

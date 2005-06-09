@@ -134,15 +134,20 @@ static int driver_mysql_connect(struct mysql_connection *conn)
 	}
 }
 
-static void driver_mysql_connect_all(struct mysql_db *db)
+static int driver_mysql_connect_all(struct sql_db *_db)
 {
+	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
 	size_t i, size;
+	int ret = -1;
 
 	conn = buffer_get_modifyable_data(db->connections, &size);
 	size /= sizeof(*conn);
-	for (i = 0; i < size; i++)
-		(void)driver_mysql_connect(&conn[i]);
+	for (i = 0; i < size; i++) {
+		if (driver_mysql_connect(&conn[i]))
+			ret = 1;
+	}
+	return ret;
 }
 
 static void driver_mysql_connection_add(struct mysql_db *db, const char *host)
@@ -234,7 +239,6 @@ static struct sql_db *driver_mysql_init(const char *connect_string)
 				      sizeof(struct mysql_connection) * 6);
 
 	driver_mysql_parse_connect_string(db, connect_string);
-	driver_mysql_connect_all(db);
 	return &db->api;
 }
 
@@ -468,6 +472,7 @@ struct sql_db driver_mysql_db = {
 	driver_mysql_init,
 	driver_mysql_deinit,
 	driver_mysql_get_flags,
+        driver_mysql_connect_all,
 	driver_mysql_exec,
 	driver_mysql_query
 };
