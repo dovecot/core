@@ -21,6 +21,12 @@
 /* ":2," is the standard flags separator */
 #define MAILDIR_FLAGS_FULL_SEP MAILDIR_INFO_SEP_S "2" MAILDIR_FLAGS_SEP_S
 
+/* Maildir++ extension: include file size in the filename to avoid stat() */
+#define MAILDIR_EXTRA_FILE_SIZE "S"
+/* Something (can't remember what anymore) could use 'W' in filename to avoid
+   calculating file's virtual size (added missing CRs). */
+#define MAILDIR_EXTRA_VIRTUAL_SIZE "W"
+
 #include "index-storage.h"
 
 #define STORAGE(maildir_storage) \

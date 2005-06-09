@@ -129,7 +129,7 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 		return (uoff_t)-1;
 
 	/* size can be included in filename */
-	p = strstr(fname, MAILDIR_EXTRA_SEP_S"W=");
+	p = strstr(fname, MAILDIR_EXTRA_SEP_S MAILDIR_EXTRA_VIRTUAL_SIZE "=");
 	if (p != NULL) {
 		p += 3;
 		virtual_size = 0;
@@ -188,7 +188,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 		return (uoff_t)-1;
 
 	/* size can be included in filename */
-	p = strstr(fname, MAILDIR_EXTRA_SEP_S"S=");
+	p = strstr(fname, MAILDIR_EXTRA_SEP_S MAILDIR_EXTRA_FILE_SIZE "=");
 	if (p != NULL) {
 		p += 3;
 		size = 0;
