@@ -82,16 +82,11 @@ struct sql_connection *db_sql_init(const char *config_path)
 		i_fatal("sql: connect string not set in configuration file %s",
 			config_path);
 	}
+	conn->db = sql_init(conn->set.driver, conn->set.connect);
 
 	conn->next = connections;
 	connections = conn;
 	return conn;
-}
-
-void db_sql_connect(struct sql_connection *conn)
-{
-	if (conn->db == NULL)
-		conn->db = sql_init(conn->set.driver, conn->set.connect);
 }
 
 void db_sql_unref(struct sql_connection *conn)

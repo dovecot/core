@@ -129,10 +129,11 @@ static void userdb_sql_init(const char *args __attr_unused__)
 {
 	enum sql_db_flags flags;
 
-	db_sql_connect(userdb_sql_conn);
-
 	flags = sql_get_flags(userdb_sql_conn->db);
 	userdb_sql.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
+
+	if (!userdb_sql.blocking || worker)
+		sql_connect(userdb_sql_conn->db);
 }
 
 static void userdb_sql_deinit(void)

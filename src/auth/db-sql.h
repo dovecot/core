@@ -25,6 +25,4 @@ struct sql_connection {
 struct sql_connection *db_sql_init(const char *config_path);
 void db_sql_unref(struct sql_connection *conn);
 
-void db_sql_connect(struct sql_connection *conn);
-
 #endif
