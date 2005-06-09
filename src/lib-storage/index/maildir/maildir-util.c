@@ -73,11 +73,11 @@ int maildir_filename_get_flags(const char *fname, pool_t pool,
 	*flags_r = 0;
 	*keywords_r = NULL;
 
-	info = strchr(fname, ':');
-	if (info == NULL || info[1] != '2' || info[2] != ',')
+	info = strchr(fname, MAILDIR_INFO_SEP);
+	if (info == NULL || info[1] != '2' || info[2] != MAILDIR_FLAGS_SEP)
 		return 0;
 
-	for (info += 3; *info != '\0' && *info != ','; info++) {
+	for (info += 3; *info != '\0' && *info != MAILDIR_FLAGS_SEP; info++) {
 		switch (*info) {
 		case 'R': /* replied */
 			*flags_r |= MAIL_ANSWERED;
@@ -118,14 +118,14 @@ const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
 	int nextflag;
 
 	/* remove the old :info from file name, and get the old flags */
-	info = strrchr(fname, ':');
+	info = strrchr(fname, MAILDIR_INFO_SEP);
 	if (info != NULL && strrchr(fname, '/') > info)
 		info = NULL;
 
 	oldflags = "";
 	if (info != NULL) {
 		fname = t_strdup_until(fname, info);
-		if (info[1] == '2' && info[2] == ',')
+		if (info[1] == '2' && info[2] == MAILDIR_FLAGS_SEP)
 			oldflags = info+3;
 	}
 
@@ -133,7 +133,7 @@ const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
 	   their ASCII code. unknown flags are kept. */
 	flags_str = t_str_new(256);
 	str_append(flags_str, fname);
-	str_append(flags_str, ":2,");
+	str_append(flags_str, MAILDIR_FLAGS_FULL_SEP);
 	flags_left = flags;
 	for (;;) {
 		/* skip all known flags */
@@ -143,8 +143,8 @@ const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
 		       (*oldflags >= 'a' && *oldflags <= 'z'))
 			oldflags++;
 
-		nextflag = *oldflags == '\0' || *oldflags == ',' ? 256 :
-			(unsigned char) *oldflags;
+		nextflag = *oldflags == '\0' || *oldflags == MAILDIR_FLAGS_SEP ?
+			256 : (unsigned char) *oldflags;
 
 		if ((flags_left & MAIL_DRAFT) && nextflag > 'D') {
 			str_append_c(flags_str, 'D');
@@ -171,14 +171,14 @@ const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
 			// FIXME
 		}
 
-		if (*oldflags == '\0' || *oldflags == ',')
+		if (*oldflags == '\0' || *oldflags == MAILDIR_FLAGS_SEP)
 			break;
 
 		str_append_c(flags_str, *oldflags);
 		oldflags++;
 	}
 
-	if (*oldflags == ',') {
+	if (*oldflags == MAILDIR_FLAGS_SEP) {
 		/* another flagset, we don't know about these, just keep them */
 		while (*oldflags != '\0')
 			str_append_c(flags_str, *oldflags++);
@@ -262,7 +262,7 @@ unsigned int maildir_hash(const void *p)
         const unsigned char *s = p;
 	unsigned int g, h = 0;
 
-	while (*s != ':' && *s != '\0') {
+	while (*s != MAILDIR_INFO_SEP && *s != '\0') {
 		h = (h << 4) + *s;
 		if ((g = h & 0xf0000000UL)) {
 			h = h ^ (g >> 24);
@@ -279,11 +279,11 @@ int maildir_cmp(const void *p1, const void *p2)
 {
 	const char *s1 = p1, *s2 = p2;
 
-	while (*s1 == *s2 && *s1 != ':' && *s1 != '\0') {
+	while (*s1 == *s2 && *s1 != MAILDIR_INFO_SEP && *s1 != '\0') {
 		s1++; s2++;
 	}
-	if ((*s1 == '\0' || *s1 == ':') &&
-	    (*s2 == '\0' || *s2 == ':'))
+	if ((*s1 == '\0' || *s1 == MAILDIR_INFO_SEP) &&
+	    (*s2 == '\0' || *s2 == MAILDIR_INFO_SEP))
 		return 0;
 	return *s1 - *s2;
 }

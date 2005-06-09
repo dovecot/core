@@ -8,6 +8,19 @@
 #define SUBSCRIPTION_FILE_NAME "subscriptions"
 #define MAILDIR_INDEX_PREFIX "dovecot.index"
 
+/* "base,S=123:2," means:
+   <base> [<extra sep> <extra data> [..]] <info sep> 2 <flags sep> */
+#define MAILDIR_INFO_SEP ':'
+#define MAILDIR_EXTRA_SEP ','
+#define MAILDIR_FLAGS_SEP ','
+
+#define MAILDIR_INFO_SEP_S ":"
+#define MAILDIR_EXTRA_SEP_S ","
+#define MAILDIR_FLAGS_SEP_S ","
+
+/* ":2," is the standard flags separator */
+#define MAILDIR_FLAGS_FULL_SEP MAILDIR_INFO_SEP_S "2" MAILDIR_FLAGS_SEP_S
+
 #include "index-storage.h"
 
 #define STORAGE(maildir_storage) \

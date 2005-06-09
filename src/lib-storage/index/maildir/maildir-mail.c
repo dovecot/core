@@ -129,7 +129,7 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 		return (uoff_t)-1;
 
 	/* size can be included in filename */
-	p = strstr(fname, ",W=");
+	p = strstr(fname, MAILDIR_EXTRA_SEP_S"W=");
 	if (p != NULL) {
 		p += 3;
 		virtual_size = 0;
@@ -138,7 +138,8 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 			p++;
 		}
 
-		if (*p == ':' || *p == ',' || *p == '\0') {
+		if (*p == MAILDIR_INFO_SEP || *p == MAILDIR_EXTRA_SEP ||
+		    *p == '\0') {
 			mail_cache_add(mail->trans->cache_trans, mail->data.seq,
 				       MAIL_CACHE_VIRTUAL_FULL_SIZE,
 				       &virtual_size, sizeof(virtual_size));
@@ -160,7 +161,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
 	    	fname = maildir_uidlist_lookup(mbox->uidlist,
 					       mail->mail.mail.uid, &flags);
-		end = strchr(fname, ':');
+		end = strchr(fname, MAILDIR_INFO_SEP);
 		return end == NULL ? fname : t_strdup_until(fname, end);
 	}
 
@@ -187,7 +188,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 		return (uoff_t)-1;
 
 	/* size can be included in filename */
-	p = strstr(fname, ",S=");
+	p = strstr(fname, MAILDIR_EXTRA_SEP_S"S=");
 	if (p != NULL) {
 		p += 3;
 		size = 0;
@@ -196,7 +197,8 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 			p++;
 		}
 
-		if (*p != ':' && *p != ',' && *p != '\0')
+		if (*p != MAILDIR_INFO_SEP &&
+		    *p != MAILDIR_EXTRA_SEP && *p != '\0')
 			size = (uoff_t)-1;
 	}
 
