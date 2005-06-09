@@ -61,9 +61,9 @@ static void drop_restricted_groups(void)
 	int i, used, gid_count;
 
 	env = getenv("RESTRICT_GID_FIRST");
-	first_valid_gid = env == NULL ? 0 : (gid_t)atol(env);
+	first_valid_gid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
 	env = getenv("RESTRICT_GID_LAST");
-	last_valid_gid = env == NULL ? 0 : (gid_t)atol(env);
+	last_valid_gid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
 
 	if (first_valid_gid == 0 && last_valid_gid == 0)
 		return;
@@ -90,7 +90,7 @@ static gid_t get_group_id(const char *name)
 	struct group *group;
 
 	if (is_numeric(name, '\0'))
-		return (gid_t)atol(name);
+		return (gid_t)strtoul(name, NULL, 10);
 
 	group = getgrnam(name);
 	if (group == NULL)
@@ -132,7 +132,7 @@ void restrict_access_by_env(int disallow_root)
 	   not running as root and try to just use our own GID. Do this
 	   before chrooting so initgroups() actually works. */
 	env = getenv("RESTRICT_SETGID");
-	gid = env == NULL ? 0 : (gid_t)atol(env);
+	gid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
 	if (gid != 0 && (gid != getgid() || gid != getegid())) {
 		if (setgid(gid) != 0)
 			i_fatal("setgid(%s) failed: %m", dec2str(gid));
@@ -176,7 +176,7 @@ void restrict_access_by_env(int disallow_root)
 
 	/* uid last */
 	env = getenv("RESTRICT_SETUID");
-	uid = env == NULL ? 0 : (uid_t)atol(env);
+	uid = env == NULL ? 0 : (uid_t)strtoul(env, NULL, 10);
 	if (uid != 0) {
 		if (setuid(uid) != 0)
 			i_fatal("setuid(%s) failed: %m", dec2str(uid));
