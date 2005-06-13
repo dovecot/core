@@ -33,17 +33,20 @@ void message_content_parse_header(const unsigned char *data, size_t size,
 	if (callback != NULL)
 		callback(str_data(str), str_len(str), context);
 
-	if (parser.data == parser.end || *parser.data != ';' ||
-	    param_cb == NULL) {
-		/* no parameters / error / no param callback */
+	if (param_cb == NULL) {
+		/* we don't care about parameters */
 		t_pop();
 		return;
 	}
-	parser.data++;
-        (void)rfc822_skip_lwsp(&parser);
 
-	str_truncate(str, 0);
-	while (rfc822_parse_mime_token(&parser, str) > 0) {
+	while (parser.data != parser.end && *parser.data == ';') {
+		parser.data++;
+		(void)rfc822_skip_lwsp(&parser);
+
+		str_truncate(str, 0);
+		if (rfc822_parse_mime_token(&parser, str) <= 0)
+			break;
+
 		/* <token> "=" <token> | <quoted-string> */
 		if (str_len(str) == 0 || *parser.data != '=' ||
 		    rfc822_skip_lwsp(&parser) <= 0)
