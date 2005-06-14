@@ -908,7 +908,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	i_assert(keywords->count > 0 || modify_type == MODIFY_REPLACE);
 	i_assert(keywords->index == t->view->index);
 
-	if (!array_is_created(&t->keyword_updates)) {
+	if (!array_is_created(&t->keyword_updates) && keywords->count > 0) {
 		uint32_t max_idx = keywords->idx[keywords->count-1];
 
 		ARRAY_CREATE(&t->keyword_updates, default_pool,
