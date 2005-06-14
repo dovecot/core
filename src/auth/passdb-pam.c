@@ -167,7 +167,8 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	return PAM_SUCCESS;
 }
 
-static int pam_auth(pam_handle_t *pamh, const char **error)
+static int pam_auth(struct auth_request *request,
+		    pam_handle_t *pamh, const char **error)
 {
 	void *item;
 	int status;
@@ -200,12 +201,13 @@ static int pam_auth(pam_handle_t *pamh, const char **error)
 					 pam_strerror(pamh, status));
 		return status;
 	}
+        auth_request_set_field(request, "user", item, NULL);
 
 	return PAM_SUCCESS;
 }
 
 static void
-pam_verify_plain_child(const struct auth_request *request, const char *service,
+pam_verify_plain_child(struct auth_request *request, const char *service,
 		       const char *password, int fd)
 {
 	pam_handle_t *pamh;
@@ -235,7 +237,7 @@ pam_verify_plain_child(const struct auth_request *request, const char *service,
 			pam_set_item(pamh, PAM_RHOST, host);
 #endif
 
-		status = pam_auth(pamh, &str);
+		status = pam_auth(request, pamh, &str);
 		if ((status2 = pam_end(pamh, status)) == PAM_SUCCESS) {
 			/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER
 			   somehow? */
