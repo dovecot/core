@@ -110,6 +110,9 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 		}
 	}
 
+	if (close(conn->fd) < 0)
+		i_error("close(auth worker) failed: %m");
+
 	buffer_free(conn->requests);
 	io_remove(conn->io);
 	i_stream_unref(conn->input);
