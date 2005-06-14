@@ -56,6 +56,8 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 	/* from_offset points to "\nFrom ", so unless we're at the beginning
 	   of the file, skip the initial \n */
 	skip = rstream->from_offset != 0;
+	if (skip && *buf == '\r')
+		skip++;
 
 	while ((p = memchr(buf+skip, '\n', pos-skip)) == NULL) {
 		if (i_stream_read(rstream->input) < 0) {
@@ -68,8 +70,8 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 	line_pos = (size_t)(p - buf);
 
 	if (rstream->from_offset != 0) {
-		buf++;
-		pos--;
+		buf += skip;
+		pos -= skip;
 	}
 
 	/* beginning of mbox */
@@ -122,7 +124,7 @@ static ssize_t _read(struct _istream *stream)
 	const char *fromp;
 	char *sender;
 	time_t received_time;
-	size_t i, pos, new_pos, from_start_pos;
+	size_t i, pos, new_pos, from_start_pos, from_after_pos;
 	ssize_t ret = 0;
 	int eoh_char;
 
@@ -156,8 +158,11 @@ static ssize_t _read(struct _istream *stream)
 		} else {
 			/* we've read the whole file, final byte should be
 			   the \n trailer */
-			if (pos > 0 && buf[pos-1] == '\n')
+			if (pos > 0 && buf[pos-1] == '\n') {
 				pos--;
+				if (pos > 0 && buf[pos-1] == '\r')
+					pos--;
+			}
 
 			i_assert(pos >= stream->pos);
 			ret = pos == stream->pos ? -1 :
@@ -191,11 +196,12 @@ static ssize_t _read(struct _istream *stream)
 
 	/* See if we have From-line here - note that it works right only
 	   because all characters are different in mbox_from. */
-        fromp = mbox_from; from_start_pos = (size_t)-1;
+        fromp = mbox_from; from_start_pos = from_after_pos = (size_t)-1;
 	eoh_char = rstream->body_offset == (uoff_t)-1 ? '\n' : -1;
 	for (i = stream->pos; i < pos; i++) {
 		if (buf[i] == eoh_char &&
 		    ((i > 0 && buf[i-1] == '\n') ||
+                     (i > 1 && buf[i-1] == '\r' && buf[i-2] == '\n') ||
 		     stream->istream.v_offset + i == rstream->hdr_offset)) {
 			rstream->body_offset = stream->istream.v_offset + i + 1;
 			eoh_char = -1;
@@ -207,13 +213,19 @@ static ssize_t _read(struct _istream *stream)
 				   FIXME: if From-line is longer than input
 				   buffer, we break. probably irrelevant.. */
 				i++;
+                                from_after_pos = i;
 				from_start_pos = i - 6;
+				if (from_start_pos > 0 &&
+				    buf[from_start_pos-1] == '\r') {
+					/* CR also belongs to it. */
+					from_start_pos--;
+				}
 				fromp = mbox_from;
 			} else if (from_start_pos != (size_t)-1) {
 				/* we have the whole From-line here now.
 				   See if it's a valid one. */
-				if (mbox_from_parse(buf + from_start_pos + 6,
-						    pos - from_start_pos - 6,
+				if (mbox_from_parse(buf + from_after_pos,
+						    pos - from_after_pos,
 						    &received_time,
 						    &sender) == 0) {
 					/* yep, we stop here. */
@@ -243,8 +255,8 @@ static ssize_t _read(struct _istream *stream)
 		/* we're waiting for the \n at the end of From-line */
 		new_pos = from_start_pos;
 	} else {
-		/* leave out the beginnings of potential From-line */
-		new_pos = i - (fromp - mbox_from);
+		/* leave out the beginnings of potential From-line + CR */
+		new_pos = i - (fromp - mbox_from) - 1;
 	}
 
 	stream->buffer = buf;
@@ -327,20 +339,28 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	if (i_stream_read_data(rstream->input, &data, &size, 30) == -1)
 		return -1;
 
-	if (size == 1 && data[0] == '\n') {
+	if ((size == 1 && data[0] == '\n') ||
+	    (size == 2 && data[0] == '\r' && data[1] == '\n')) {
 		/* EOF */
 		return TRUE;
 	}
 
-	if (size < 31 || memcmp(data, "\nFrom ", 6) != 0)
+	if (size > 31 && memcmp(data, "\nFrom ", 6) == 0) {
+		data += 6;
+		size -= 6;
+	} else if (size > 32 && memcmp(data, "\r\nFrom ", 7) == 0) {
+		data += 7;
+		size -= 7;
+	} else {
 		return FALSE;
+	}
 
-	while (memchr(data+1, '\n', size-1) == NULL) {
+	while (memchr(data, '\n', size) == NULL) {
 		if (i_stream_read_data(rstream->input, &data, &size, size) < 0)
 			break;
 	}
 
-	if (mbox_from_parse(data+6, size-6, &received_time, &sender) < 0)
+	if (mbox_from_parse(data, size, &received_time, &sender) < 0)
 		return FALSE;
 
 	rstream->next_received_time = received_time;

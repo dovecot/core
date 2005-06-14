@@ -1173,7 +1173,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		return -1;
 	}
 	trailer_size = file_size - sync_ctx->file_input->v_offset;
-	i_assert(trailer_size <= 1);
+	i_assert(trailer_size <= 2);
 
 	if (sync_ctx->need_space_seq != 0) {
 		i_assert(sync_ctx->write_fd != -1);
