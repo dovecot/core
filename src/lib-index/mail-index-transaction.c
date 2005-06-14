@@ -847,12 +847,12 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 	struct mail_keywords *k;
 	unsigned int i, count;
 
-	if (keywords == NULL) {
+	count = strarray_length(keywords);
+	if (count == 0) {
 		k = i_new(struct mail_keywords, 1);
 		k->index = index;
 		return k;
 	}
-	count = strarray_length(keywords);
 
 	/* @UNSAFE */
 	k = i_malloc(sizeof(struct mail_keywords) +
