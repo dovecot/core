@@ -170,21 +170,18 @@ static void auth_request_save_cache(struct auth_request *request,
 		return;
 	}
 
-	if (request->passdb_password == NULL) {
-		/* no password given by passdb, cannot cache this */
-		return;
-	}
-
 	/* save all except the currently given password in cache */
 	str = t_str_new(32 + (request->extra_fields != NULL ? 
 			      str_len(request->extra_fields) : 0));
-	if (*request->passdb_password != '{') {
-		/* cached passwords must have a known scheme */
-		str_append_c(str, '{');
-		str_append(str, passdb->default_pass_scheme);
-		str_append_c(str, '}');
+	if (request->passdb_password != NULL) {
+		if (*request->passdb_password != '{') {
+			/* cached passwords must have a known scheme */
+			str_append_c(str, '{');
+			str_append(str, passdb->default_pass_scheme);
+			str_append_c(str, '}');
+		}
+		str_append(str, request->passdb_password);
 	}
-	str_append(str, request->passdb_password);
 
 	if (request->extra_fields != NULL) {
 		str_append_c(str, '\t');

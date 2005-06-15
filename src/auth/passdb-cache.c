@@ -54,12 +54,17 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	}
 
 	list = t_strsplit(value, "\t");
+        list_save(request, list + 1);
+
 	cached_pw = list[0];
+	if (*cached_pw == '\0') {
+		/* NULL password */
+		*result_r = PASSDB_RESULT_OK;
+		return TRUE;
+	}
 
 	scheme = password_get_scheme(&cached_pw);
 	i_assert(scheme != NULL);
-
-        list_save(request, list + 1);
 
 	ret = password_verify(password, cached_pw, scheme, request->user);
 	if (ret < 0) {
