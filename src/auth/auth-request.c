@@ -155,6 +155,10 @@ static void auth_request_save_cache(struct auth_request *request,
 	struct passdb_module *passdb = request->passdb->passdb;
 	string_t *str;
 
+	i_assert(request->extra_fields == NULL ||
+		 (strstr(str_c(request->extra_fields), "\tpass=") == NULL &&
+		  strncmp(str_c(request->extra_fields), "pass=", 5) != 0));
+
 	if (passdb_cache == NULL)
 		return;
 
@@ -221,13 +225,6 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 		}
 	}
 
-	if (request->proxy) {
-		/* we're proxying - send back the password that was
-		   sent by user (not the password in passdb). */
-		str_printfa(request->extra_fields, "\tpass=%s",
-			    request->mech_password);
-	}
-
 	if (request->passdb_password != NULL) {
 		safe_memset(request->passdb_password, 0,
 			    strlen(request->passdb_password));
@@ -247,9 +244,10 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 		return;
 	}
 
-        safe_memset(request->mech_password, 0, strlen(request->mech_password));
-
+	auth_request_ref(request);
 	request->private_callback.verify_plain(result, request);
+        safe_memset(request->mech_password, 0, strlen(request->mech_password));
+	auth_request_unref(request);
 }
 
 void auth_request_verify_plain(struct auth_request *request,

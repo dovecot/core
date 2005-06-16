@@ -106,23 +106,35 @@ void auth_request_handler_check_timeouts(struct auth_request_handler *handler)
 
 static const char *get_client_extra_fields(struct auth_request *request)
 {
+	string_t *str;
 	const char **fields;
 	unsigned int src, dest;
 
-	if (request->extra_fields == NULL)
-		return NULL;
+	if (!request->proxy) {
+		if (request->extra_fields == NULL)
+			return NULL;
 
-	/* we only wish to remove all fields prefixed with "userdb_" */
-	if (strstr(str_c(request->extra_fields), "userdb_") == NULL)
-		return str_c(request->extra_fields);
+		/* we only wish to remove all fields prefixed with "userdb_" */
+		if (strstr(str_c(request->extra_fields), "userdb_") == NULL)
+			return str_c(request->extra_fields);
+	}
+
+	str = t_str_new(128);
+	if (request->proxy) {
+		/* we're proxying - send back the password that was
+		   sent by user (not the password in passdb). */
+		str_printfa(str, "pass=%s", request->mech_password);
+	}
 
 	fields = t_strsplit(str_c(request->extra_fields), "\t");
 	for (src = dest = 0; fields[src] != NULL; src++) {
-		if (strncmp(fields[src], "userdb_", 7) != 0)
-			fields[dest++] = fields[src];
+		if (strncmp(fields[src], "userdb_", 7) != 0) {
+			if (str_len(str) > 0)
+				str_append_c(str, '\t');
+			str_append(str, fields[src]);
+		}
 	}
-	fields[dest] = NULL;
-	return t_strarray_join(fields, "\t");
+	return str_c(str);
 }
 
 static void auth_callback(struct auth_request *request,

@@ -83,6 +83,10 @@ static int get_pass_reply(struct auth_request *request, const char *reply,
 	if (*reply != '\0') {
 		i_assert(request->extra_fields == NULL);
 
+		p = strstr(reply, "\tproxy");
+		if (p != NULL && (p[6] == '\0' || p[6] == '\t'))
+			request->proxy = TRUE;
+
 		request->extra_fields = str_new(request->pool, 128);
 		str_append(request->extra_fields, reply);
 	}

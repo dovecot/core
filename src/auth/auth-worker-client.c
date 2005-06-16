@@ -90,11 +90,6 @@ static void verify_plain_callback(enum passdb_result result,
 		if (request->passdb_password != NULL)
 			str_append(str, request->passdb_password);
 		str_append_c(str, '\t');
-		if (request->proxy) {
-			/* we're proxying - send back the password that was
-			   sent by user (not the password in passdb). */
-			str_printfa(str, "pass=%s\t", request->mech_password);
-		}
 		if (request->extra_fields != NULL)
 			str_append_str(str, request->extra_fields);
 	}
