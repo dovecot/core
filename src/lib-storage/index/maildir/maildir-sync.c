@@ -188,6 +188,14 @@
 
 #define MAILDIR_FILENAME_FLAG_FOUND 128
 
+/* When rename()ing many files from new/ to cur/, it's possible that next
+   readdir() skips some files. we don't of course wish to lose them, so we
+   go and rescan the new/ directory again from beginning until no files are
+   left. This value is just an optimization to avoid checking the directory
+   twice unneededly. usually only NFS is the problem case. 1 is the safest
+   bet here, but I guess 5 will do just fine too. */
+#define MAILDIR_RENAME_RESCAN_COUNT 5
+
 struct maildir_sync_context {
         struct maildir_mailbox *mbox;
 	const char *new_dir, *cur_dir;
@@ -420,7 +428,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 	DIR *dirp;
 	string_t *src, *dest;
 	struct dirent *dp;
-        enum maildir_uidlist_rec_flag flags;
+	enum maildir_uidlist_rec_flag flags;
+	unsigned int moves = 0;
 	int move_new, ret = 1;
 
 	dir = new_dir ? ctx->new_dir : ctx->cur_dir;
@@ -466,11 +475,13 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 			}
 			if (rename(str_c(src), str_c(dest)) == 0) {
 				/* we moved it - it's \Recent for us */
-                                ctx->mbox->dirty_cur_time = ioloop_time;
+				moves++;
+				ctx->mbox->dirty_cur_time = ioloop_time;
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED |
 					MAILDIR_UIDLIST_REC_FLAG_RECENT;
 			} else if (ENOTFOUND(errno)) {
 				/* someone else moved it already */
+				moves++;
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED;
 			} else if (ENOSPACE(errno)) {
 				/* not enough disk space, leave here */
@@ -510,7 +521,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 	}
 
 	t_pop();
-	return ret < 0 ? -1 : 0;
+	return ret < 0 ? -1 : (moves <= MAILDIR_RENAME_RESCAN_COUNT ? 0 : 1);
 }
 
 static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
@@ -937,7 +948,12 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 	ctx->uidlist_sync_ctx =
 		maildir_uidlist_sync_init(ctx->mbox->uidlist, ctx->partial);
 
-	if (maildir_scan_dir(ctx, TRUE) < 0)
+	while ((ret = maildir_scan_dir(ctx, TRUE)) > 0) {
+		/* rename()d at least some files, which might have caused some
+		   other files to be missed. check again (see
+		   MAILDIR_RENAME_RESCAN_COUNT). */
+	}
+	if (ret < 0)
 		return -1;
 	if (cur_changed) {
 		if (maildir_scan_dir(ctx, FALSE) < 0)
