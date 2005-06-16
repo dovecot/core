@@ -623,7 +623,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	enum mail_flags flags;
 	const char *const *keywords;
 	uint32_t uid_validity, next_uid;
-	int ret;
+	int ret, full_rescan = FALSE;
 
 	trans = mail_index_transaction_begin(view, FALSE, TRUE);
 	sync_ctx->trans = trans;
@@ -763,6 +763,12 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
 			/* partial syncing */
+			if ((flags & MAIL_RECENT) != 0) {
+				/* we last saw this mail in new/, but it's
+				   not there anymore. possibly expunged,
+				   make sure. */
+				full_rescan = TRUE;
+			}
 			continue;
 		}
 
@@ -869,12 +875,13 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	}
 
 	i_free(sync_ctx);
-	return ret;
+	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
 
 static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 {
 	int ret, new_changed, cur_changed;
+	int full_rescan = FALSE;
 
 	if (!forced) {
 		if (maildir_sync_quick_check(ctx, &new_changed, &cur_changed) < 0)
@@ -963,18 +970,21 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 	/* finish uidlist syncing, but keep it still locked */
 	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 	if (!ctx->mbox->syncing_commit) {
-		if (maildir_sync_index_finish(ctx->index_sync_ctx,
-					      ctx->partial) < 0) {
+		ret = maildir_sync_index_finish(ctx->index_sync_ctx,
+						ctx->partial);
+		if (ret < 0) {
 			ctx->index_sync_ctx = NULL;
 			return -1;
 		}
+		if (ret == 0)
+			full_rescan = TRUE;
 		ctx->index_sync_ctx = NULL;
 	}
 
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
         ctx->uidlist_sync_ctx = NULL;
 
-	return ret;
+	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
 
 int maildir_storage_sync_force(struct maildir_mailbox *mbox)
@@ -985,7 +995,7 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox)
 	ctx = maildir_sync_context_new(mbox);
 	ret = maildir_sync_context(ctx, TRUE);
 	maildir_sync_deinit(ctx);
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
 struct mailbox_sync_context *
@@ -1003,6 +1013,11 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		ctx = maildir_sync_context_new(mbox);
 		ret = maildir_sync_context(ctx, FALSE);
 		maildir_sync_deinit(ctx);
+
+		if (ret == 0) {
+			/* lost some files from new/, see if thery're in cur/ */
+			ret = maildir_storage_sync_force(mbox);
+		}
 	}
 
 	return index_mailbox_sync_init(box, flags, ret < 0);
