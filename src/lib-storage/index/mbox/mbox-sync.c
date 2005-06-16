@@ -371,6 +371,28 @@ mbox_sync_update_index_keywords(struct mbox_sync_mail_context *mail_ctx)
 	mail_index_keywords_free(keywords);
 }
 
+static int
+mbox_sync_update_md5_if_changed(struct mbox_sync_mail_context *mail_ctx)
+{
+        struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
+	const void *ext_data;
+
+	if (mail_index_lookup_ext(sync_ctx->sync_view, sync_ctx->idx_seq,
+				  sync_ctx->mbox->ibox.md5hdr_ext_idx,
+				  &ext_data) < 0) {
+		mail_storage_set_index_error(&sync_ctx->mbox->ibox);
+		return -1;
+	}
+
+	if (ext_data == NULL ||
+	    memcmp(mail_ctx->hdr_md5_sum, ext_data, 16) != 0) {
+		mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
+				      sync_ctx->mbox->ibox.md5hdr_ext_idx,
+				      mail_ctx->hdr_md5_sum, NULL);
+	}
+	return 0;
+}
+
 static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 				  const struct mail_index_record *rec)
 {
@@ -465,6 +487,12 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		    !array_cmp(&idx_mail.keywords, &mail_ctx->mail.keywords))
 			mbox_sync_update_index_keywords(mail_ctx);
 		t_pop();
+
+		/* see if we need to update md5 sum. */
+		if (sync_ctx->mbox->mbox_save_md5 != 0) {
+			if (mbox_sync_update_md5_if_changed(mail_ctx) < 0)
+				return -1;
+		}
 	}
 
 	if (mail_ctx->recent &&

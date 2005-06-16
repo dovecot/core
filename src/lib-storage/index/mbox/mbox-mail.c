@@ -14,6 +14,21 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+static void mbox_prepare_resync(struct index_mail *mail)
+{
+	struct mbox_transaction_context *t =
+		(struct mbox_transaction_context *)mail->trans;
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
+
+	if (mbox->mbox_lock_type == F_RDLCK) {
+		if (mbox->mbox_lock_id == t->mbox_lock_id)
+			t->mbox_lock_id = 0;
+		(void)mbox_unlock(mbox, mbox->mbox_lock_id);
+		mbox->mbox_lock_id = 0;
+		i_assert(mbox->mbox_lock_type == F_UNLCK);
+	}
+}
+
 static int mbox_mail_seek(struct index_mail *mail)
 {
 	struct mbox_transaction_context *t =
@@ -57,14 +72,7 @@ __again:
 
 	if (ret == 0) {
 		/* we'll need to re-sync it completely */
-		if (mbox->mbox_lock_type == F_RDLCK) {
-			if (mbox->mbox_lock_id == t->mbox_lock_id)
-				t->mbox_lock_id = 0;
-			(void)mbox_unlock(mbox, mbox->mbox_lock_id);
-			mbox->mbox_lock_id = 0;
-			i_assert(mbox->mbox_lock_type == F_UNLCK);
-		}
-
+                mbox_prepare_resync(mail);
 		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
 		goto __again;
 	}
@@ -101,15 +109,32 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 static const char *
 mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 {
+#define EMPTY_MD5_SUM "00000000000000000000000000000000"
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
+	const char *value;
 
-	if (field == MAIL_FETCH_FROM_ENVELOPE) {
+	switch (field) {
+	case MAIL_FETCH_FROM_ENVELOPE:
 		if (mbox_mail_seek(mail) <= 0)
 			return NULL;
 
 		return istream_raw_mbox_get_sender(mbox->mbox_stream);
+	case MAIL_FETCH_HEADER_MD5:
+		value = index_mail_get_special(_mail, field);
+		if (value != NULL && strcmp(value, EMPTY_MD5_SUM) != 0)
+			return value;
 
+		/* i guess in theory the EMPTY_MD5_SUM is valid and can happen,
+		   but it's almost guaranteed that it means the MD5 sum is
+		   missing. recalculate it. */
+		mbox->mbox_save_md5 = TRUE;
+                mbox_prepare_resync(mail);
+		if (mbox_sync(mbox, MBOX_SYNC_FORCE_SYNC) < 0)
+			return NULL;
+		break;
+	default:
+		break;
 	}
 
 	return index_mail_get_special(_mail, field);
