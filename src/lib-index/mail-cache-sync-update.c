@@ -91,7 +91,7 @@ int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		return 1;
 
 	if (!MAIL_CACHE_IS_UNUSABLE(cache) &&
-	    cache_file_seq != cache->hdr->file_seq)
+	    cache_file_seq == cache->hdr->file_seq)
 		(void)mail_cache_delete(cache, *cache_offset);
 	return 1;
 }
