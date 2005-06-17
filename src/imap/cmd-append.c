@@ -289,7 +289,7 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
-	int failed;
+	int failed, all_written;
 
 	if (ctx->save_ctx != NULL) {
 		if (mailbox_save_continue(ctx->save_ctx) < 0 ||
@@ -307,7 +307,8 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 		i_stream_skip(ctx->input, size);
 	}
 
-	if (ctx->input->v_offset == ctx->msg_size || client->input->closed) {
+	all_written = ctx->input->v_offset == ctx->msg_size;
+	if (all_written || client->input->closed) {
 		/* finished */
 		i_stream_unref(ctx->input);
 		ctx->input = NULL;
@@ -316,7 +317,7 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 			/* failed above */
 			client_send_storage_error(cmd, ctx->storage);
 			failed = TRUE;
-		} else if (client->input->eof) {
+		} else if (!all_written) {
 			/* client disconnected */
 			failed = TRUE;
 			mailbox_save_cancel(ctx->save_ctx);
