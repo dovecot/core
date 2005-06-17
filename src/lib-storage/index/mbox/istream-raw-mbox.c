@@ -142,9 +142,15 @@ static ssize_t _read(struct _istream *stream)
 	ret = 0;
 	do {
 		buf = i_stream_get_data(rstream->input, &pos);
-		if (pos > 1 &&
-		    stream->istream.v_offset + pos > rstream->input_peak_offset)
+		if (pos > 1 && stream->istream.v_offset + pos >
+		    rstream->input_peak_offset) {
+			/* fake our read count. needed because if in the end
+			   we have only one character in buffer and we skip it
+			   (as potential CR), we want to get back to this
+			   _read() to read more data. */
+			ret = pos;
 			break;
+		}
 		ret = i_stream_read(rstream->input);
 	} while (ret > 0);
 
@@ -263,6 +269,7 @@ static ssize_t _read(struct _istream *stream)
 	if (new_pos == stream->pos) {
 		if (stream->istream.eof || ret > 0)
 			return _read(stream);
+		i_assert(new_pos > 0);
 		ret = -2;
 	} else {
 		i_assert(new_pos > stream->pos);
