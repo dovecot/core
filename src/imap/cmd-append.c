@@ -289,11 +289,11 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
-	int ret, failed;
+	int failed;
 
 	if (ctx->save_ctx != NULL) {
-		ret = mailbox_save_continue(ctx->save_ctx);
-		if (ret < 0 || client->input->closed) {
+		if (mailbox_save_continue(ctx->save_ctx) < 0 ||
+		    client->input->closed) {
 			/* we still have to finish reading the message
 			   from client */
 			mailbox_save_cancel(ctx->save_ctx);
@@ -305,10 +305,9 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 		(void)i_stream_read(ctx->input);
 		(void)i_stream_get_data(ctx->input, &size);
 		i_stream_skip(ctx->input, size);
-		ret = size == 0 ? 0 : 1;
 	}
 
-	if (ret == 0 || client->input->closed) {
+	if (ctx->input->eof || client->input->closed) {
 		/* finished */
 		i_stream_unref(ctx->input);
 		ctx->input = NULL;
@@ -317,8 +316,9 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 			/* failed above */
 			client_send_storage_error(cmd, ctx->storage);
 			failed = TRUE;
-		} else if (ret != 0) {
-			/* client disconnected */
+		} else if (ctx->input->v_offset != ctx->msg_size) {
+			/* client disconnected before it finished sending the
+			   whole message. */
 			failed = TRUE;
 			mailbox_save_cancel(ctx->save_ctx);
 		} else if (mailbox_save_finish(ctx->save_ctx, NULL) < 0) {
