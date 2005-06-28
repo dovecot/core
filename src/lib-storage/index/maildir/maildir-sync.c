@@ -211,7 +211,7 @@ struct maildir_index_sync_context {
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_transaction *trans;
 
-	struct mail_index_sync_rec sync_rec;
+	array_t ARRAY_DEFINE(sync_recs, struct mail_index_sync_rec);
 	uint32_t seq;
 	int dirty_state;
 };
@@ -235,18 +235,39 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			      void *context)
 {
         struct maildir_index_sync_context *ctx = context;
+	const struct mail_index_sync_rec *recs;
 	const char *newpath;
 	enum mail_flags flags;
 	const char *const *keywords;
+	unsigned int i, count;
 	uint8_t flags8;
 
 	ctx->dirty_state = 0;
 
 	(void)maildir_filename_get_flags(path, pool_datastack_create(),
 					 &flags, &keywords);
-
 	flags8 = flags;
-	mail_index_sync_flags_apply(&ctx->sync_rec, &flags8);
+
+	recs = array_get_modifyable(&ctx->sync_recs, &count);
+	for (i = 0; i < count; i++) {
+		if (recs[i].uid1 != ctx->seq)
+			break;
+
+		switch (recs[i].type) {
+		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+			mail_index_sync_flags_apply(&recs[i], &flags8);
+			break;
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
+			/*FIXME:mail_index_sync_keywords_apply(&recs[i], &keywords);*/
+			break;
+		case MAIL_INDEX_SYNC_TYPE_APPEND:
+		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+			i_unreached();
+			break;
+		}
+	}
 
 	newpath = maildir_filename_set_flags(path, flags8, keywords);
 	if (rename(path, newpath) == 0) {
@@ -270,66 +291,133 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	return -1;
 }
 
-static int maildir_sync_record(struct maildir_mailbox *mbox,
-                               struct maildir_index_sync_context *ctx)
+static int
+maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
+				 uint32_t last_seq)
 {
-	struct mail_index_sync_rec *sync_rec = &ctx->sync_rec;
-	struct mail_index_view *view = ctx->view;
-	uint32_t seq, seq1, seq2, uid;
+	struct mail_index_sync_rec *recs;
+	unsigned int i, count;
+	uint32_t seq, uid;
+	int expunged, flag_changed;
 
-	switch (sync_rec->type) {
-	case MAIL_INDEX_SYNC_TYPE_APPEND:
-		break;
-	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-		/* make it go through sequences to avoid looping through huge
-		   holes in UID range */
-		if (mail_index_lookup_uid_range(view, sync_rec->uid1,
-						sync_rec->uid2,
-						&seq1, &seq2) < 0)
-			return -1;
+	recs = array_get_modifyable(&ctx->sync_recs, &count);
+	for (seq = recs[0].uid1; seq <= last_seq; seq++) {
+		expunged = flag_changed = FALSE;
+		for (i = 0; i < count; i++) {
+			if (recs[i].uid1 > seq)
+				break;
 
-		if (seq1 == 0)
-			break;
-
-		for (seq = seq1; seq <= seq2; seq++) {
-			if (mail_index_lookup_uid(view, seq, &uid) < 0)
-				return -1;
-			if (maildir_file_do(mbox, uid, maildir_expunge,
-					    NULL) < 0)
-				return -1;
-		}
-		break;
-	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-		if (mail_index_lookup_uid_range(view, sync_rec->uid1,
-						sync_rec->uid2,
-						&seq1, &seq2) < 0)
-			return -1;
-
-		if (seq1 == 0)
-			break;
-
-		for (ctx->seq = seq1; ctx->seq <= seq2; ctx->seq++) {
-			if (mail_index_lookup_uid(view, ctx->seq, &uid) < 0)
-				return -1;
-			if (maildir_file_do(mbox, uid,
-					    maildir_sync_flags, ctx) < 0)
-				return -1;
-			if (ctx->dirty_state < 0) {
-				/* flag isn't dirty anymore */
-				mail_index_update_flags(ctx->trans, ctx->seq,
-						MODIFY_REMOVE,
-						MAIL_INDEX_MAIL_FLAG_DIRTY);
+			i_assert(recs[i].uid1 == seq);
+			switch (recs[i].type) {
+			case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+				expunged = TRUE;
+				break;
+			case MAIL_INDEX_SYNC_TYPE_FLAGS:
+			case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+			case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+			case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
+				flag_changed = TRUE;
+				break;
+			case MAIL_INDEX_SYNC_TYPE_APPEND:
+				i_unreached();
+				break;
 			}
 		}
-		break;
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-		// FIXME
-		break;
+
+		if (mail_index_lookup_uid(ctx->view, seq, &uid) < 0)
+			return -1;
+
+		ctx->seq = seq;
+		if (expunged) {
+			if (maildir_file_do(ctx->mbox, uid,
+					    maildir_expunge, ctx) < 0)
+				return -1;
+		} else if (flag_changed) {
+			if (maildir_file_do(ctx->mbox, uid,
+					    maildir_sync_flags, ctx) < 0)
+				return -1;
+		}
+
+		for (i = count; i > 0; i--) {
+			if (++recs[i-1].uid1 > recs[i-1].uid2) {
+				array_delete(&ctx->sync_recs, i-1, 1);
+				recs = array_get_modifyable(&ctx->sync_recs,
+							    &count);
+				if (count == 0) {
+					/* all sync_recs committed */
+					return 0;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+static int maildir_sync_record(struct maildir_index_sync_context *ctx,
+			       const struct mail_index_sync_rec *sync_rec)
+{
+	struct mail_index_view *view = ctx->view;
+        struct mail_index_sync_rec sync_copy;
+
+	if (sync_rec == NULL) {
+		/* deinit */
+		while (array_count(&ctx->sync_recs) > 0) {
+			if (maildir_sync_record_commit_until(ctx,
+							     (uint32_t)-1) < 0)
+				return -1;
+		}
+		return 0;
 	}
 
+	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_APPEND)
+		return 0; /* ignore */
+
+	/* convert to sequences to avoid looping through huge holes in
+	   UID range */
+        sync_copy = *sync_rec;
+	if (mail_index_lookup_uid_range(view, sync_rec->uid1,
+					sync_rec->uid2,
+					&sync_copy.uid1,
+					&sync_copy.uid2) < 0)
+		return -1;
+
+	while (array_count(&ctx->sync_recs) > 0) {
+		const struct mail_index_sync_rec *rec =
+			array_idx(&ctx->sync_recs, 0);
+
+		i_assert(rec->uid1 <= sync_copy.uid1);
+		if (rec->uid1 == sync_copy.uid1)
+			break;
+
+		if (maildir_sync_record_commit_until(ctx, sync_copy.uid1-1) < 0)
+			return -1;
+	}
+
+	array_append(&ctx->sync_recs, &sync_copy, 1);
 	return 0;
+}
+
+static int maildir_sync_index_records(struct maildir_index_sync_context *ctx)
+{
+	struct mail_index_sync_rec sync_rec;
+	int ret;
+
+	ret = mail_index_sync_next(ctx->sync_ctx, &sync_rec);
+	if (ret <= 0)
+		return ret;
+
+	ARRAY_CREATE(&ctx->sync_recs, pool_datastack_create(),
+		     struct mail_index_sync_rec, 32);
+	do {
+		if (maildir_sync_record(ctx, &sync_rec) < 0)
+			return -1;
+
+		ret = mail_index_sync_next(ctx->sync_ctx, &sync_rec);
+	} while (ret > 0);
+
+	if (maildir_sync_record(ctx, NULL) < 0)
+		return -1;
+	return ret;
 }
 
 int maildir_sync_last_commit(struct maildir_mailbox *mbox)
@@ -352,14 +440,8 @@ int maildir_sync_last_commit(struct maildir_mailbox *mbox)
 				    FALSE, FALSE);
 	if (ret > 0) {
 		ctx.trans = mail_index_transaction_begin(ctx.view, FALSE, TRUE);
-
-		while ((ret = mail_index_sync_next(ctx.sync_ctx,
-						   &ctx.sync_rec)) > 0) {
-			if (maildir_sync_record(mbox, &ctx) < 0) {
-				ret = -1;
-				break;
-			}
-		}
+		if (maildir_sync_index_records(&ctx) < 0)
+			ret = -1;
 		if (mail_index_transaction_commit(ctx.trans, &seq, &offset) < 0)
 			ret = -1;
 		if (mail_index_sync_commit(ctx.sync_ctx) < 0)
@@ -623,7 +705,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	enum mail_flags flags;
 	const char *const *keywords;
 	uint32_t uid_validity, next_uid;
-	int ret, full_rescan = FALSE;
+	int ret = 0, full_rescan = FALSE;
 
 	trans = mail_index_transaction_begin(view, FALSE, TRUE);
 	sync_ctx->trans = trans;
@@ -804,14 +886,9 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 
 	/* now, sync the index */
         mbox->syncing_commit = TRUE;
-	while ((ret = mail_index_sync_next(sync_ctx->sync_ctx,
-					   &sync_ctx->sync_rec)) > 0) {
-		if (maildir_sync_record(mbox, sync_ctx) < 0) {
-			ret = -1;
-			break;
-		}
-	}
-        mbox->syncing_commit = FALSE;
+	if (maildir_sync_index_records(sync_ctx) < 0)
+		ret = -1;
+	mbox->syncing_commit = FALSE;
 
 	if (mbox->dirty_cur_time == 0 &&
 	    mbox->last_cur_mtime != (time_t)hdr->sync_stamp) {
