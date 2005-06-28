@@ -11,6 +11,7 @@
 #include "auth-worker-server.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 
 #define AUTH_WORKER_MAX_OUTBUF_SIZE 10240
 #define AUTH_WORKER_MAX_IDLE_TIME (60*30)
