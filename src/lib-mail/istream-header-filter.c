@@ -153,7 +153,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 	}
 
-	mstream->istream.istream.eof = mstream->input->eof;
+	/* don't copy eof here because we're only returning headers here.
+	   the body will be returned in separate read() call. */
 	mstream->istream.buffer = buffer_get_data(mstream->hdr_buf, &pos);
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
 	mstream->istream.pos = pos;
