@@ -309,6 +309,8 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 
 	if (ctx->input->eof || client->input->closed) {
 		/* finished */
+		int all_written = ctx->input->v_offset == ctx->msg_size;
+
 		i_stream_unref(ctx->input);
 		ctx->input = NULL;
 
@@ -316,7 +318,7 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 			/* failed above */
 			client_send_storage_error(cmd, ctx->storage);
 			failed = TRUE;
-		} else if (ctx->input->v_offset != ctx->msg_size) {
+		} else if (!all_written) {
 			/* client disconnected before it finished sending the
 			   whole message. */
 			failed = TRUE;
