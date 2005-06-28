@@ -197,7 +197,7 @@ _array_get_modifyable(array_t *array, unsigned int *count_r)
 #endif
 
 static inline void *
-_array_modifyable_idx(array_t *array, unsigned int idx)
+_array_idx_modifyable(array_t *array, unsigned int idx)
 {
 	size_t pos;
 
@@ -210,10 +210,10 @@ _array_modifyable_idx(array_t *array, unsigned int idx)
 	return buffer_get_space_unsafe(array->buffer, pos, array->element_size);
 }
 #ifndef ARRAY_TYPE_CHECKS
-#  define array_modifyable_idx _array_modifyable_idx
+#  define array_idx_modifyable _array_idx_modifyable
 #else
-#  define array_modifyable_idx(array, count) \
-	(typeof(*array ## __ ## type))_array_modifyable_idx(array, count)
+#  define array_idx_modifyable(array, count) \
+	(typeof(*array ## __ ## type))_array_idx_modifyable(array, count)
 #endif
 
 static inline void
@@ -238,7 +238,7 @@ _array_idx_set(array_t *array, unsigned int idx, const void *data)
 #endif
 
 static inline void *
-_array_modifyable_append(array_t *array)
+_array_append_space(array_t *array)
 {
 	void *data;
 
@@ -247,14 +247,14 @@ _array_modifyable_append(array_t *array)
 	return data;
 }
 #ifndef ARRAY_TYPE_CHECKS
-#  define array_modifyable_append _array_modifyable_append
+#  define array_append_space _array_append_space
 #else
-#  define array_modifyable_append(array) \
-	(typeof(*array ## __ ## type))_array_modifyable_append(array)
+#  define array_append_space(array) \
+	(typeof(*array ## __ ## type))_array_append_space(array)
 #endif
 
 static inline void *
-_array_modifyable_insert(array_t *array, unsigned int idx)
+_array_insert_space(array_t *array, unsigned int idx)
 {
 	void *data;
 	size_t pos;
@@ -268,10 +268,10 @@ _array_modifyable_insert(array_t *array, unsigned int idx)
 	return data;
 }
 #ifndef ARRAY_TYPE_CHECKS
-#  define array_modifyable_insert _array_modifyable_insert
+#  define array_insert_space _array_insert_space
 #else
-#  define array_modifyable_insert(array, idx) \
-	(typeof(*array ## __ ## type))_array_modifyable_insert(array, idx)
+#  define array_insert_space(array, idx) \
+	(typeof(*array ## __ ## type))_array_insert_space(array, idx)
 #endif
 
 static inline unsigned int

@@ -222,18 +222,18 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 		     struct mail_index_sync_list, keyword_count + 2);
 
 	if (array_is_created(&ctx->trans->expunges)) {
-		synclist = array_modifyable_append(&ctx->sync_list);
+		synclist = array_append_space(&ctx->sync_list);
 		synclist->array = &ctx->trans->expunges;
 	}
 
 	if (array_is_created(&ctx->trans->updates)) {
-		synclist = array_modifyable_append(&ctx->sync_list);
+		synclist = array_append_space(&ctx->sync_list);
 		synclist->array = &ctx->trans->updates;
 	}
 
 	/* we must return resets before keyword additions or they get lost */
 	if (array_is_created(&ctx->trans->keyword_resets)) {
-		synclist = array_modifyable_append(&ctx->sync_list);
+		synclist = array_append_space(&ctx->sync_list);
 		synclist->array = &ctx->trans->keyword_resets;
 	}
 
@@ -241,12 +241,12 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 		array_get(&ctx->trans->keyword_updates, NULL);
 	for (i = 0; i < keyword_count; i++) {
 		if (array_is_created(&keyword_updates[i].add_seq)) {
-			synclist = array_modifyable_append(&ctx->sync_list);
+			synclist = array_append_space(&ctx->sync_list);
 			synclist->array = &keyword_updates[i].add_seq;
 			synclist->keyword_idx = i;
 		}
 		if (array_is_created(&keyword_updates[i].remove_seq)) {
-			synclist = array_modifyable_append(&ctx->sync_list);
+			synclist = array_append_space(&ctx->sync_list);
 			synclist->array = &keyword_updates[i].remove_seq;
 			synclist->keyword_idx = i;
 			synclist->keyword_remove = TRUE;

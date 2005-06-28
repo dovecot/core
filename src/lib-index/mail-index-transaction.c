@@ -114,7 +114,7 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 
 	count = array_count(array);
 	for (i = 0; i < count; i++) {
-		seq = array_modifyable_idx(array, i);
+		seq = array_idx_modifyable(array, i);
 
 		for (j = 0; j <= range; j++, seq++) {
 			if (*seq >= t->first_new_seq) {
@@ -205,7 +205,7 @@ mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq)
 {
 	i_assert(seq >= t->first_new_seq && seq <= t->last_new_seq);
 
-	return array_modifyable_idx(&t->appends, seq - t->first_new_seq);
+	return array_idx_modifyable(&t->appends, seq - t->first_new_seq);
 }
 
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
@@ -229,7 +229,7 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 	else
 		*seq_r = t->last_new_seq = t->first_new_seq;
 
-	rec = array_modifyable_append(&t->appends);
+	rec = array_append_space(&t->appends);
 	rec->uid = uid;
 }
 
@@ -689,7 +689,7 @@ static int mail_index_seq_array_add(array_t *array, uint32_t seq,
 
 	if (mail_index_seq_array_lookup(array, seq, &idx)) {
 		/* already there, update */
-		p = array_modifyable_idx(array, idx);
+		p = array_idx_modifyable(array, idx);
 		if (old_record != NULL) {
 			memcpy(old_record, PTR_OFFSET(p, sizeof(seq)),
 			       record_size);
@@ -698,7 +698,7 @@ static int mail_index_seq_array_add(array_t *array, uint32_t seq,
 		return TRUE;
 	} else {
 		/* insert */
-                p = array_modifyable_insert(array, idx);
+                p = array_insert_space(array, idx);
 		memcpy(p, &seq, sizeof(seq));
 		memcpy(PTR_OFFSET(p, sizeof(seq)), record, record_size);
 		return FALSE;
@@ -775,7 +775,7 @@ void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
 		/* if extension records have been updated, clear them */
 		array_t *array;
 
-		array = array_modifyable_idx(&t->ext_rec_updates, ext_id);
+		array = array_idx_modifyable(&t->ext_rec_updates, ext_id);
 		if (array_is_created(array))
 			array_clear(array);
 	}
@@ -829,7 +829,7 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 		ARRAY_CREATE(&t->ext_rec_updates, default_pool,
 			     array_t, ext_id + 2);
 	}
-	array = array_modifyable_idx(&t->ext_rec_updates, ext_id);
+	array = array_idx_modifyable(&t->ext_rec_updates, ext_id);
 
 	/* @UNSAFE */
 	if (!mail_index_seq_array_add(array, seq, data, record_size,
@@ -919,7 +919,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	switch (modify_type) {
 	case MODIFY_ADD:
 		for (i = 0; i < keywords->count; i++) {
-			u = array_modifyable_idx(&t->keyword_updates,
+			u = array_idx_modifyable(&t->keyword_updates,
 						 keywords->idx[i]);
 			mail_index_seq_range_array_add(&u->add_seq, 16, seq);
 			mail_index_seq_range_array_remove(&u->remove_seq, seq);
@@ -927,7 +927,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		break;
 	case MODIFY_REMOVE:
 		for (i = 0; i < keywords->count; i++) {
-			u = array_modifyable_idx(&t->keyword_updates,
+			u = array_idx_modifyable(&t->keyword_updates,
 						 keywords->idx[i]);
 			mail_index_seq_range_array_remove(&u->add_seq, seq);
 			mail_index_seq_range_array_add(&u->remove_seq, 16, seq);
@@ -935,7 +935,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		break;
 	case MODIFY_REPLACE:
 		for (i = 0; i < keywords->count; i++) {
-			u = array_modifyable_idx(&t->keyword_updates,
+			u = array_idx_modifyable(&t->keyword_updates,
 						 keywords->idx[i]);
 			mail_index_seq_range_array_add(&u->add_seq, 16, seq);
 		}

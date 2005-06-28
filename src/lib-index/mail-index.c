@@ -106,7 +106,7 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	ext.record_align = default_record_align;
 
 	array_append(&index->extensions, &ext, 1);
-	(void)array_modifyable_append(&index->sync_handlers);
+	(void)array_append_space(&index->sync_handlers);
 	return ext_count;
 }
 
@@ -116,7 +116,7 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 {
         mail_index_expunge_handler_t **p;
 
-	p = array_modifyable_idx(&index->expunge_handlers, ext_id);
+	p = array_idx_modifyable(&index->expunge_handlers, ext_id);
 	i_assert(*p == NULL);
 
 	*p = cb;
@@ -127,7 +127,7 @@ void mail_index_unregister_expunge_handler(struct mail_index *index,
 {
         mail_index_expunge_handler_t **p;
 
-	p = array_modifyable_idx(&index->expunge_handlers, ext_id);
+	p = array_idx_modifyable(&index->expunge_handlers, ext_id);
 	i_assert(*p != NULL);
 
 	*p = NULL;
@@ -139,7 +139,7 @@ void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
 {
 	struct mail_index_sync_handler *h;
 
-	h = array_modifyable_idx(&index->sync_handlers, ext_id);
+	h = array_idx_modifyable(&index->sync_handlers, ext_id);
 	i_assert(h->callback == NULL);
 
 	h->callback = cb;
@@ -151,7 +151,7 @@ void mail_index_unregister_sync_handler(struct mail_index *index,
 {
 	struct mail_index_sync_handler *h;
 
-	h = array_modifyable_idx(&index->sync_handlers, ext_id);
+	h = array_idx_modifyable(&index->sync_handlers, ext_id);
 	i_assert(h->callback != NULL);
 
 	h->callback = NULL;
@@ -237,7 +237,7 @@ mail_index_map_register_ext(struct mail_index *index,
 	}
 	i_assert(mail_index_map_lookup_ext(map, name) == (uint32_t)-1);
 
-	ext = array_modifyable_append(&map->extensions);
+	ext = array_append_space(&map->extensions);
 	memset(ext, 0, sizeof(*ext));
 
 	ext->name = p_strdup(map->extension_pool, name);

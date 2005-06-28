@@ -94,7 +94,7 @@ void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 	}
 
 	/* fill the context array with NULLs */
-	(void)array_modifyable_idx(&ctx->extra_contexts, count - 1);
+	(void)array_idx_modifyable(&ctx->extra_contexts, count - 1);
 	ctx->expunge_handlers_set = FALSE;
 }
 
@@ -278,7 +278,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 	uint32_t old_size, new_size, old_record_size;
 	int modified = FALSE;
 
-	ext = array_modifyable_idx(&map->extensions, ext_id);
+	ext = array_idx_modifyable(&map->extensions, ext_id);
 
 	old_size = MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size);
 	new_size = MAIL_INDEX_HEADER_SIZE_ALIGN(u->hdr_size);
@@ -457,7 +457,7 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	if (ctx->cur_ext_ignore)
 		return 1;
 
-	ext = array_modifyable_idx(&map->extensions, ctx->cur_ext_id);
+	ext = array_idx_modifyable(&map->extensions, ctx->cur_ext_id);
 	ext->reset_id = u->new_reset_id;
 
 	memset(buffer_get_space_unsafe(map->hdr_copy_buf, ext->hdr_offset,
@@ -529,7 +529,7 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	/* call sync handlers only when we're syncing index (not view) */
 	if ((sync_handlers->type & ctx->type) != 0) {
 		void **extra_context =
-			array_modifyable_idx(&ctx->extra_contexts,
+			array_idx_modifyable(&ctx->extra_contexts,
 					     ctx->cur_ext_id);
 		ret = sync_handlers->callback(ctx, seq, old_data, u + 1,
 					      extra_context);

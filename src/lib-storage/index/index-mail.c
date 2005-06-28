@@ -201,7 +201,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	}
 
 	/* end with NULL */
-	(void)array_modifyable_append(&data->keywords);
+	(void)array_append_space(&data->keywords);
 
 	t_pop();
 	return array_get(&data->keywords, NULL);
