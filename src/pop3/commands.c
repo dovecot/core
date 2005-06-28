@@ -637,7 +637,7 @@ static int cmd_uidl(struct client *client, const char *args)
 }
 
 int client_command_execute(struct client *client,
-			    const char *name, const char *args)
+			   const char *name, const char *args)
 {
 	/* keep the command uppercased */
 	name = t_str_ucase(name);
@@ -688,5 +688,5 @@ int client_command_execute(struct client *client,
 	}
 
 	client_send_line(client, "-ERR Unknown command: %s", name);
-	return FALSE;
+	return -1;
 }

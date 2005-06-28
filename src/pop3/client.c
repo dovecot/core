@@ -351,7 +351,7 @@ static void client_input(void *context)
 		else
 			*args++ = '\0';
 
-		if (client_command_execute(client, line, args)) {
+		if (client_command_execute(client, line, args) >= 0) {
 			client->bad_counter = 0;
 			if (client->cmd != NULL) {
 				o_stream_set_flush_pending(client->output,
