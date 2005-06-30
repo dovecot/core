@@ -21,6 +21,7 @@ buffer_t *buffer_create_static_hard(pool_t pool, size_t size);
 buffer_t *buffer_create_data(pool_t pool, void *data, size_t size);
 /* Create a non-modifyable buffer from given data. */
 buffer_t *buffer_create_const_data(pool_t pool, const void *data, size_t size);
+void buffer_update_const_data(buffer_t *buffer, const void *data, size_t size);
 /* Creates a dynamically growing buffer. Whenever write would exceed the
    current size it's grown. */
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);

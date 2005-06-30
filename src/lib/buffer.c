@@ -89,9 +89,17 @@ buffer_t *buffer_create_const_data(pool_t pool, const void *data, size_t size)
 
 	buf = p_new(pool, struct real_buffer, 1);
 	buf->pool = pool;
+	buffer_update_const_data((buffer_t *)buf, data, size);
+	return (buffer_t *)buf;
+}
+
+void buffer_update_const_data(buffer_t *_buf, const void *data, size_t size)
+{
+	struct real_buffer *buf = (struct real_buffer *)_buf;
+
 	buf->used = buf->alloc = size;
 	buf->r_buffer = data;
-	return (buffer_t *)buf;
+	i_assert(buf->w_buffer == NULL);
 }
 
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size)
