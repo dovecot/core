@@ -25,7 +25,8 @@ typedef union  _GDoubleIEEE754  GDoubleIEEE754;
 #define G_IEEE754_DOUBLE_BIAS   (1023)
 /* multiply with base2 exponent to get base10 exponent (nomal numbers) */
 #define G_LOG_2_BASE_10         (0.30102999566398119521)
-#if I_BYTE_ORDER == LITTLE_ENDIAN
+
+#ifndef WORDS_BIGENDIAN
 union _GDoubleIEEE754
 {
   double v_double;
@@ -36,7 +37,7 @@ union _GDoubleIEEE754
     unsigned int sign : 1;
   } mpn;
 };
-#elif I_BYTE_ORDER == BIG_ENDIAN
+#else
 union _GDoubleIEEE754
 {
   double v_double;
@@ -47,9 +48,7 @@ union _GDoubleIEEE754
     unsigned int mantissa_low : 32;
   } mpn;
 };
-#else /* !G_LITTLE_ENDIAN && !G_BIG_ENDIAN */
-#error unknown ENDIAN type
-#endif /* !G_LITTLE_ENDIAN && !G_BIG_ENDIAN */
+#endif
 
 typedef struct
 {

@@ -1317,10 +1317,8 @@ dnl * currently just checking for endianess
 AC_C_BIGENDIAN
 
 if test $ac_cv_c_bigendian = yes; then
-	AC_DEFINE_UNQUOTED(I_BYTE_ORDER, BIG_ENDIAN, Big endian CPU)
 	flags=0
 else
-	AC_DEFINE_UNQUOTED(I_BYTE_ORDER, LITTLE_ENDIAN, Little endian CPU)
 	flags=1
 fi
 
