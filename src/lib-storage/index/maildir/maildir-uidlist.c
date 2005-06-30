@@ -20,7 +20,7 @@
 #define UIDLIST_LOCK_STALE_TIMEOUT (60*5)
 
 #define UIDLIST_IS_LOCKED(uidlist) \
-	((uidlist)->lock_fd != -1)
+	((uidlist)->lock_count > 0)
 
 struct maildir_uidlist_rec {
 	uint32_t uid;
@@ -31,7 +31,9 @@ struct maildir_uidlist_rec {
 struct maildir_uidlist {
 	struct maildir_mailbox *mbox;
 	char *fname;
+
 	int lock_fd;
+	unsigned int lock_count;
 
 	time_t last_mtime;
 
@@ -75,8 +77,10 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	mode_t old_mask;
 	int fd;
 
-	if (UIDLIST_IS_LOCKED(uidlist))
+	if (uidlist->lock_count > 0) {
+		uidlist->lock_count++;
 		return 1;
+	}
 
 	path = t_strconcat(uidlist->mbox->control_dir,
 			   "/" MAILDIR_UIDLIST_NAME, NULL);
@@ -98,6 +102,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	if (maildir_uidlist_update(uidlist) < 0)
 		return -1;
 
+	uidlist->lock_count++;
 	return 1;
 }
 
@@ -111,9 +116,16 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 	return maildir_uidlist_lock_timeout(uidlist, TRUE);
 }
 
+int maildir_uidlist_is_locked(struct maildir_uidlist *uidlist)
+{
+	return UIDLIST_IS_LOCKED(uidlist);
+}
+
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 {
-	if (!UIDLIST_IS_LOCKED(uidlist))
+	i_assert(uidlist->lock_count > 0);
+
+	if (--uidlist->lock_count > 0)
 		return;
 
 	(void)file_dotlock_delete(&uidlist->dotlock);
@@ -517,7 +529,7 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 	const char *temp_path, *db_path;
 	int ret;
 
-	i_assert(UIDLIST_IS_LOCKED(uidlist));
+	i_assert(uidlist->lock_count == 1);
 
 	temp_path = t_strconcat(mbox->control_dir,
 				"/" MAILDIR_UIDLIST_NAME ".lock", NULL);
@@ -533,7 +545,9 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 			(void)unlink(temp_path);
 			ret = -1;
 		}
+
 		uidlist->lock_fd = -1;
+		uidlist->lock_count--;
 	} else {
                 maildir_uidlist_unlock(uidlist);
 	}

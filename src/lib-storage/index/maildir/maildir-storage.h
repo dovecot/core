@@ -21,6 +21,10 @@
 /* ":2," is the standard flags separator */
 #define MAILDIR_FLAGS_FULL_SEP MAILDIR_INFO_SEP_S "2" MAILDIR_FLAGS_SEP_S
 
+#define MAILDIR_KEYWORD_FIRST 'a'
+#define MAILDIR_KEYWORD_LAST 'z'
+#define MAILDIR_MAX_KEYWORDS (MAILDIR_KEYWORD_LAST - MAILDIR_KEYWORD_FIRST + 1)
+
 /* Maildir++ extension: include file size in the filename to avoid stat() */
 #define MAILDIR_EXTRA_FILE_SIZE "S"
 /* Something (can't remember what anymore) could use 'W' in filename to avoid
@@ -52,6 +56,7 @@ struct maildir_mailbox {
 
 	/* maildir sync: */
 	struct maildir_uidlist *uidlist;
+	struct maildir_keywords *keywords;
 	time_t last_new_mtime, last_cur_mtime, last_new_sync_time;
 	time_t dirty_cur_time;
 
@@ -127,11 +132,13 @@ const char *maildir_get_path(struct index_storage *storage, const char *name);
 
 int maildir_sync_last_commit(struct maildir_mailbox *mbox);
 
-int maildir_filename_get_flags(const char *fname, pool_t pool,
+int maildir_filename_get_flags(struct maildir_index_sync_context *ctx,
+			       const char *fname,
 			       enum mail_flags *flags_r,
-			       const char *const **keywords_r);
-const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
-				       const char *const *keywords);
+			       array_t *keywords);
+const char *maildir_filename_set_flags(struct maildir_index_sync_context *ctx,
+				       const char *fname, enum mail_flags flags,
+				       array_t *keywords);
 
 unsigned int maildir_hash(const void *p);
 int maildir_cmp(const void *p1, const void *p2);

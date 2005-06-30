@@ -8,6 +8,7 @@
 #include "subscription-file/subscription-file.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "maildir-keywords.h"
 #include "index-mail.h"
 
 #include <stdio.h>
@@ -460,6 +461,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox->control_dir = p_strdup(pool, control_dir);
 
 	mbox->uidlist = maildir_uidlist_init(mbox);
+	mbox->keywords = maildir_keywords_init(mbox);
 
 	if (!shared)
 		mbox->mail_create_mode = 0600;
@@ -847,6 +849,7 @@ static int maildir_storage_close(struct mailbox *box)
 		ret = -1;
 	}*/
 
+	maildir_keywords_deinit(mbox->keywords);
 	maildir_uidlist_deinit(mbox->uidlist);
         index_storage_mailbox_free(box);
 	return ret;

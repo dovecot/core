@@ -17,7 +17,11 @@
 
 struct maildir_filename {
 	struct maildir_filename *next;
-	const char *basename, *dest;
+	const char *basename;
+
+	enum mail_flags flags;
+	unsigned int keywords_count;
+	/* unsigned int keywords[]; */
 };
 
 struct maildir_save_context {
@@ -26,10 +30,13 @@ struct maildir_save_context {
 
 	struct maildir_mailbox *mbox;
 	struct mail_index_transaction *trans;
-	struct maildir_uidlist_sync_ctx *sync_ctx;
+	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
 
 	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files;
+
+	buffer_t *keywords_buffer;
+	array_t ARRAY_DEFINE(keywords_array, unsigned int);
 
 	struct istream *input;
 	struct ostream *output;
@@ -95,6 +102,10 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->tmpdir = p_strconcat(pool, mbox->path, "/tmp", NULL);
 	ctx->newdir = p_strconcat(pool, mbox->path, "/new", NULL);
 	ctx->curdir = p_strconcat(pool, mbox->path, "/cur", NULL);
+
+	ctx->keywords_buffer = buffer_create_const_data(pool, NULL, 0);
+	array_create_from_buffer(&ctx->keywords_array, ctx->keywords_buffer,
+				 sizeof(unsigned int));
 	return ctx;
 }
 
@@ -111,7 +122,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	struct maildir_filename *mf;
 	struct ostream *output;
-	const char *fname, *dest_fname, *path;
+	const char *fname, *path;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
@@ -150,16 +161,24 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
-	   into new/ or cur/. if dest_fname is NULL, it's moved to new/,
-	   otherwise to cur/. */
-	dest_fname = flags == MAIL_RECENT ? NULL :
-		maildir_filename_set_flags(fname, flags, NULL); // FIXME
-
-	mf = p_new(ctx->pool, struct maildir_filename, 1);
+	   into new/ or cur/. */
+	/* @UNSAFE */
+	mf = p_malloc(ctx->pool, sizeof(*mf) +
+		      sizeof(unsigned int) * (keywords == NULL ? 0 :
+					      keywords->count));
 	mf->next = ctx->files;
 	mf->basename = p_strdup(ctx->pool, fname);
-	mf->dest = p_strdup(ctx->pool, dest_fname);
+	mf->flags = flags;
 	ctx->files = mf;
+
+	if (keywords != NULL) {
+		i_assert(sizeof(keywords->idx[0]) == sizeof(unsigned int));
+
+		/* @UNSAFE */
+		mf->keywords_count = keywords->count;
+		memcpy(mf + 1, keywords->idx,
+		       sizeof(unsigned int) * keywords->count);
+	}
 
 	/* insert into index */
 	mail_index_append(ctx->trans, 0, &ctx->seq);
@@ -273,26 +292,41 @@ void maildir_save_cancel(struct mail_save_context *_ctx)
 	(void)maildir_save_finish(_ctx, NULL);
 }
 
-static void maildir_save_commit_abort(struct maildir_save_context *ctx,
-				      struct maildir_filename *pos)
+static const char *
+maildir_get_updated_filename(struct maildir_save_context *ctx,
+			     struct maildir_index_sync_context *sync_ctx,
+			     struct maildir_filename *mf)
+{
+	if (mf->flags == MAIL_RECENT && mf->keywords_count == 0)
+		return NULL;
+
+	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
+				 mf->keywords_count * sizeof(unsigned int));
+	return maildir_filename_set_flags(sync_ctx, mf->basename,
+					  mf->flags, &ctx->keywords_array);
+}
+
+static void
+maildir_save_commit_abort(struct maildir_save_context *ctx,
+			  struct maildir_index_sync_context *sync_ctx,
+			  struct maildir_filename *pos)
 {
 	struct maildir_filename *mf;
-	string_t *str;
-
-	t_push();
-	str = t_str_new(1024);
+	const char *path, *dest;
 
 	/* try to unlink the mails already moved */
 	for (mf = ctx->files; mf != pos; mf = mf->next) {
-		str_truncate(str, 0);
-		if (mf->dest == NULL)
-			str_printfa(str, "%s/%s", ctx->newdir, mf->basename);
-		else
-			str_printfa(str, "%s/%s", ctx->curdir, mf->dest);
-		(void)unlink(str_c(str));
+		t_push();
+		dest = maildir_get_updated_filename(ctx, sync_ctx, mf);
+		if (dest != NULL)
+			path = t_strdup_printf("%s/%s", ctx->curdir, dest);
+		else {
+			path = t_strdup_printf("%s/%s",
+					       ctx->newdir, mf->basename);
+		}
+		(void)unlink(path);
 	}
 	ctx->files = pos;
-	t_pop();
 
 	maildir_transaction_save_rollback(ctx);
 }
@@ -303,14 +337,14 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	struct maildir_filename *mf;
 	uint32_t first_uid, last_uid;
 	enum maildir_uidlist_rec_flag flags;
-	const char *fname;
+	const char *dest, *fname;
 	int ret;
 
 	i_assert(ctx->output == NULL);
 
 	sync_ctx = maildir_sync_index_begin(ctx->mbox);
 	if (sync_ctx == NULL) {
-		maildir_save_commit_abort(ctx, ctx->files);
+		maildir_save_commit_abort(ctx, sync_ctx, ctx->files);
 		return -1;
 	}
 
@@ -318,12 +352,12 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	if (ret <= 0) {
 		/* error or timeout - our transaction is broken */
 		maildir_sync_index_abort(sync_ctx);
-		maildir_save_commit_abort(ctx, ctx->files);
+		maildir_save_commit_abort(ctx, sync_ctx, ctx->files);
 		return -1;
 	}
 
 	if (maildir_sync_index_finish(sync_ctx, TRUE) < 0) {
-		maildir_save_commit_abort(ctx, ctx->files);
+		maildir_save_commit_abort(ctx, sync_ctx, ctx->files);
 		return -1;
 	}
 
@@ -334,25 +368,32 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		MAILDIR_UIDLIST_REC_FLAG_RECENT;
 
 	/* move them into new/ */
-	ctx->sync_ctx = maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE);
+	ctx->uidlist_sync_ctx =
+		maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE);
+
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
-		fname = mf->dest != NULL ? mf->dest : mf->basename;
-		if (maildir_file_move(ctx, mf->basename, mf->dest) < 0 ||
-		    maildir_uidlist_sync_next(ctx->sync_ctx,
+		t_push();
+		dest = maildir_get_updated_filename(ctx, sync_ctx, mf);
+		fname = dest != NULL ? dest : mf->basename;
+
+		if (maildir_file_move(ctx, mf->basename, dest) < 0 ||
+		    maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
 					      fname, flags) < 0) {
-			(void)maildir_uidlist_sync_deinit(ctx->sync_ctx);
-			maildir_save_commit_abort(ctx, mf);
+			(void)maildir_uidlist_sync_deinit(
+							ctx->uidlist_sync_ctx);
+			maildir_save_commit_abort(ctx, sync_ctx, mf);
+			t_pop();
 			return -1;
 		}
+		t_pop();
 	}
-
 	return 0;
 }
 
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 {
 	/* can't do anything anymore if we fail */
-	(void)maildir_uidlist_sync_deinit(ctx->sync_ctx);
+	(void)maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
 
 	pool_unref(ctx->pool);
 }

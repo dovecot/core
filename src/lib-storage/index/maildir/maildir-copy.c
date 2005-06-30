@@ -64,11 +64,22 @@ static int maildir_copy_hardlink(struct mail *mail,
 	enum mail_flags flags;
 	const char *const *keywords;
 	const char *dest_fname;
+	array_t ARRAY_DEFINE(keywords_arr, const char *);
+	unsigned int count;
 
         flags = mail_get_flags(mail);
         keywords = mail_get_keywords(mail);
 	dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
-	dest_fname = maildir_filename_set_flags(dest_fname, flags, keywords);
+
+	count = strarray_length(keywords);
+	if (count > 0) {
+		ARRAY_CREATE(&keywords_arr, pool_datastack_create(),
+			     const char *, count);
+		array_append(&keywords_arr, keywords, count);
+	}
+	dest_fname = maildir_filename_set_flags(NULL, // FIXME: !!!
+						dest_fname, flags, count != 0 ?
+						&keywords_arr : NULL);
 
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path =

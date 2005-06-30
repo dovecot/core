@@ -14,6 +14,7 @@ enum maildir_uidlist_rec_flag {
 int maildir_uidlist_lock(struct maildir_uidlist *uidlist);
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
+int maildir_uidlist_is_locked(struct maildir_uidlist *uidlist);
 
 struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox);
 void maildir_uidlist_deinit(struct maildir_uidlist *uidlist);

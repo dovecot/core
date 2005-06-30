@@ -6,6 +6,7 @@
 #include "str.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "maildir-keywords.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -61,130 +62,6 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	}
 
 	return ret == -2 ? 0 : ret;
-}
-
-int maildir_filename_get_flags(const char *fname, pool_t pool,
-			       enum mail_flags *flags_r,
-			       const char *const **keywords_r)
-{
-	const char *info;
-	unsigned int num;
-
-	*flags_r = 0;
-	*keywords_r = NULL;
-
-	info = strchr(fname, MAILDIR_INFO_SEP);
-	if (info == NULL || info[1] != '2' || info[2] != MAILDIR_FLAGS_SEP)
-		return 0;
-
-	for (info += 3; *info != '\0' && *info != MAILDIR_FLAGS_SEP; info++) {
-		switch (*info) {
-		case 'R': /* replied */
-			*flags_r |= MAIL_ANSWERED;
-			break;
-		case 'S': /* seen */
-			*flags_r |= MAIL_SEEN;
-			break;
-		case 'T': /* trashed */
-			*flags_r |= MAIL_DELETED;
-			break;
-		case 'D': /* draft */
-			*flags_r |= MAIL_DRAFT;
-			break;
-		case 'F': /* flagged */
-			*flags_r |= MAIL_FLAGGED;
-			break;
-		default:
-			if (*info >= 'a' && *info <= 'z') {
-				/* FIXME: keyword */
-				num = (*info - 'a');
-				break;
-			}
-
-			/* unknown flag - ignore */
-			break;
-		}
-	}
-
-	return 1;
-}
-
-const char *maildir_filename_set_flags(const char *fname, enum mail_flags flags,
-				       const char *const *keywords)
-{
-	string_t *flags_str;
-	enum mail_flags flags_left;
-	const char *info, *oldflags;
-	int nextflag;
-
-	/* remove the old :info from file name, and get the old flags */
-	info = strrchr(fname, MAILDIR_INFO_SEP);
-	if (info != NULL && strrchr(fname, '/') > info)
-		info = NULL;
-
-	oldflags = "";
-	if (info != NULL) {
-		fname = t_strdup_until(fname, info);
-		if (info[1] == '2' && info[2] == MAILDIR_FLAGS_SEP)
-			oldflags = info+3;
-	}
-
-	/* insert the new flags between old flags. flags must be sorted by
-	   their ASCII code. unknown flags are kept. */
-	flags_str = t_str_new(256);
-	str_append(flags_str, fname);
-	str_append(flags_str, MAILDIR_FLAGS_FULL_SEP);
-	flags_left = flags;
-	for (;;) {
-		/* skip all known flags */
-		while (*oldflags == 'D' || *oldflags == 'F' ||
-		       *oldflags == 'R' || *oldflags == 'S' ||
-		       *oldflags == 'T' ||
-		       (*oldflags >= 'a' && *oldflags <= 'z'))
-			oldflags++;
-
-		nextflag = *oldflags == '\0' || *oldflags == MAILDIR_FLAGS_SEP ?
-			256 : (unsigned char) *oldflags;
-
-		if ((flags_left & MAIL_DRAFT) && nextflag > 'D') {
-			str_append_c(flags_str, 'D');
-			flags_left &= ~MAIL_DRAFT;
-		}
-		if ((flags_left & MAIL_FLAGGED) && nextflag > 'F') {
-			str_append_c(flags_str, 'F');
-			flags_left &= ~MAIL_FLAGGED;
-		}
-		if ((flags_left & MAIL_ANSWERED) && nextflag > 'R') {
-			str_append_c(flags_str, 'R');
-			flags_left &= ~MAIL_ANSWERED;
-		}
-		if ((flags_left & MAIL_SEEN) && nextflag > 'S') {
-			str_append_c(flags_str, 'S');
-			flags_left &= ~MAIL_SEEN;
-		}
-		if ((flags_left & MAIL_DELETED) && nextflag > 'T') {
-			str_append_c(flags_str, 'T');
-			flags_left &= ~MAIL_DELETED;
-		}
-
-		if (keywords != NULL && nextflag > 'a') {
-			// FIXME
-		}
-
-		if (*oldflags == '\0' || *oldflags == MAILDIR_FLAGS_SEP)
-			break;
-
-		str_append_c(flags_str, *oldflags);
-		oldflags++;
-	}
-
-	if (*oldflags == MAILDIR_FLAGS_SEP) {
-		/* another flagset, we don't know about these, just keep them */
-		while (*oldflags != '\0')
-			str_append_c(flags_str, *oldflags++);
-	}
-
-	return str_c(flags_str);
 }
 
 const char *maildir_generate_tmp_filename(const struct timeval *tv)

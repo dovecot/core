@@ -177,6 +177,7 @@
 #include "str.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "maildir-keywords.h"
 
 #include <stdio.h>
 #include <stddef.h>
@@ -209,12 +210,169 @@ struct maildir_index_sync_context {
         struct maildir_mailbox *mbox;
 	struct mail_index_view *view;
 	struct mail_index_sync_ctx *sync_ctx;
+        struct maildir_keywords_sync_ctx *keywords_sync_ctx;
 	struct mail_index_transaction *trans;
 
 	array_t ARRAY_DEFINE(sync_recs, struct mail_index_sync_rec);
 	uint32_t seq;
 	int dirty_state;
 };
+
+int maildir_filename_get_flags(struct maildir_index_sync_context *ctx,
+			       const char *fname,
+			       enum mail_flags *flags_r,
+                               array_t *keywords_r)
+{
+	ARRAY_SET_TYPE(keywords_r, unsigned int);
+	const char *info;
+
+	array_clear(keywords_r);
+	*flags_r = 0;
+
+	info = strchr(fname, MAILDIR_INFO_SEP);
+	if (info == NULL || info[1] != '2' || info[2] != MAILDIR_FLAGS_SEP)
+		return 0;
+
+	for (info += 3; *info != '\0' && *info != MAILDIR_FLAGS_SEP; info++) {
+		switch (*info) {
+		case 'R': /* replied */
+			*flags_r |= MAIL_ANSWERED;
+			break;
+		case 'S': /* seen */
+			*flags_r |= MAIL_SEEN;
+			break;
+		case 'T': /* trashed */
+			*flags_r |= MAIL_DELETED;
+			break;
+		case 'D': /* draft */
+			*flags_r |= MAIL_DRAFT;
+			break;
+		case 'F': /* flagged */
+			*flags_r |= MAIL_FLAGGED;
+			break;
+		default:
+			if (*info >= MAILDIR_KEYWORD_FIRST &&
+			    *info <= MAILDIR_KEYWORD_LAST) {
+				int idx;
+
+				idx = maildir_keywords_char_idx(
+						ctx->keywords_sync_ctx, *info);
+				if (idx < 0) {
+					/* unknown keyword. */
+					break;
+				}
+
+				array_append(keywords_r, &idx, 1);
+				break;
+			}
+
+			/* unknown flag - ignore */
+			break;
+		}
+	}
+
+	return 1;
+}
+
+static void
+maildir_filename_append_keywords(struct maildir_keywords_sync_ctx *ctx,
+				 array_t *keywords, string_t *str)
+{
+	ARRAY_SET_TYPE(keywords, unsigned int);
+	const unsigned int *indexes;
+	unsigned int i, count;
+	char chr;
+
+	indexes = array_get(keywords, &count);
+	for (i = 0; i < count; i++) {
+		chr = maildir_keywords_idx_char(ctx, indexes[i]);
+		if (chr != '\0')
+			str_append_c(str, chr);
+	}
+}
+
+const char *maildir_filename_set_flags(struct maildir_index_sync_context *ctx,
+				       const char *fname, enum mail_flags flags,
+				       array_t *keywords)
+{
+	string_t *flags_str;
+	enum mail_flags flags_left;
+	const char *info, *oldflags;
+	int nextflag;
+
+	/* remove the old :info from file name, and get the old flags */
+	info = strrchr(fname, MAILDIR_INFO_SEP);
+	if (info != NULL && strrchr(fname, '/') > info)
+		info = NULL;
+
+	oldflags = "";
+	if (info != NULL) {
+		fname = t_strdup_until(fname, info);
+		if (info[1] == '2' && info[2] == MAILDIR_FLAGS_SEP)
+			oldflags = info+3;
+	}
+
+	/* insert the new flags between old flags. flags must be sorted by
+	   their ASCII code. unknown flags are kept. */
+	flags_str = t_str_new(256);
+	str_append(flags_str, fname);
+	str_append(flags_str, MAILDIR_FLAGS_FULL_SEP);
+	flags_left = flags;
+	for (;;) {
+		/* skip all known flags */
+		while (*oldflags == 'D' || *oldflags == 'F' ||
+		       *oldflags == 'R' || *oldflags == 'S' ||
+		       *oldflags == 'T' ||
+		       (*oldflags >= MAILDIR_KEYWORD_FIRST &&
+			*oldflags <= MAILDIR_KEYWORD_LAST))
+			oldflags++;
+
+		nextflag = *oldflags == '\0' || *oldflags == MAILDIR_FLAGS_SEP ?
+			256 : (unsigned char) *oldflags;
+
+		if ((flags_left & MAIL_DRAFT) && nextflag > 'D') {
+			str_append_c(flags_str, 'D');
+			flags_left &= ~MAIL_DRAFT;
+		}
+		if ((flags_left & MAIL_FLAGGED) && nextflag > 'F') {
+			str_append_c(flags_str, 'F');
+			flags_left &= ~MAIL_FLAGGED;
+		}
+		if ((flags_left & MAIL_ANSWERED) && nextflag > 'R') {
+			str_append_c(flags_str, 'R');
+			flags_left &= ~MAIL_ANSWERED;
+		}
+		if ((flags_left & MAIL_SEEN) && nextflag > 'S') {
+			str_append_c(flags_str, 'S');
+			flags_left &= ~MAIL_SEEN;
+		}
+		if ((flags_left & MAIL_DELETED) && nextflag > 'T') {
+			str_append_c(flags_str, 'T');
+			flags_left &= ~MAIL_DELETED;
+		}
+
+		if (keywords != NULL && array_is_created(keywords) &&
+		    nextflag > MAILDIR_KEYWORD_FIRST) {
+			maildir_filename_append_keywords(ctx->keywords_sync_ctx,
+							 keywords, flags_str);
+			keywords = NULL;
+		}
+
+		if (*oldflags == '\0' || *oldflags == MAILDIR_FLAGS_SEP)
+			break;
+
+		str_append_c(flags_str, *oldflags);
+		oldflags++;
+	}
+
+	if (*oldflags == MAILDIR_FLAGS_SEP) {
+		/* another flagset, we don't know about these, just keep them */
+		while (*oldflags != '\0')
+			str_append_c(flags_str, *oldflags++);
+	}
+
+	return str_c(flags_str);
+}
 
 static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 			   void *context __attr_unused__)
@@ -238,14 +396,14 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	const struct mail_index_sync_rec *recs;
 	const char *newpath;
 	enum mail_flags flags;
-	const char *const *keywords;
+	array_t ARRAY_DEFINE(keywords, unsigned int);
 	unsigned int i, count;
 	uint8_t flags8;
 
 	ctx->dirty_state = 0;
 
-	(void)maildir_filename_get_flags(path, pool_datastack_create(),
-					 &flags, &keywords);
+	ARRAY_CREATE(&keywords, pool_datastack_create(), unsigned int, 16);
+	(void)maildir_filename_get_flags(ctx, path, &flags, &keywords);
 	flags8 = flags;
 
 	recs = array_get_modifyable(&ctx->sync_recs, &count);
@@ -260,7 +418,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			/*FIXME:mail_index_sync_keywords_apply(&recs[i], &keywords);*/
+			mail_index_sync_keywords_apply(&recs[i], &keywords);
 			break;
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
@@ -269,7 +427,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		}
 	}
 
-	newpath = maildir_filename_set_flags(path, flags8, keywords);
+	newpath = maildir_filename_set_flags(ctx, path, flags8, &keywords);
 	if (rename(path, newpath) == 0) {
 		if ((flags8 & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 			ctx->dirty_state = -1;
@@ -381,6 +539,11 @@ static int maildir_sync_record(struct maildir_index_sync_context *ctx,
 					&sync_copy.uid2) < 0)
 		return -1;
 
+	if (sync_copy.uid1 == 0) {
+		/* UIDs were expunged */
+		return 0;
+	}
+
 	while (array_count(&ctx->sync_recs) > 0) {
 		const struct mail_index_sync_rec *rec =
 			array_idx(&ctx->sync_recs, 0);
@@ -417,44 +580,6 @@ static int maildir_sync_index_records(struct maildir_index_sync_context *ctx)
 
 	if (maildir_sync_record(ctx, NULL) < 0)
 		return -1;
-	return ret;
-}
-
-int maildir_sync_last_commit(struct maildir_mailbox *mbox)
-{
-	struct maildir_index_sync_context ctx;
-	uint32_t seq;
-	uoff_t offset;
-	int ret;
-
-	if (mbox->ibox.commit_log_file_seq == 0)
-		return 0;
-
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.mbox = mbox;
-
-        mbox->syncing_commit = TRUE;
-	ret = mail_index_sync_begin(mbox->ibox.index, &ctx.sync_ctx, &ctx.view,
-				    mbox->ibox.commit_log_file_seq,
-				    mbox->ibox.commit_log_file_offset,
-				    FALSE, FALSE);
-	if (ret > 0) {
-		ctx.trans = mail_index_transaction_begin(ctx.view, FALSE, TRUE);
-		if (maildir_sync_index_records(&ctx) < 0)
-			ret = -1;
-		if (mail_index_transaction_commit(ctx.trans, &seq, &offset) < 0)
-			ret = -1;
-		if (mail_index_sync_commit(ctx.sync_ctx) < 0)
-			ret = -1;
-	}
-        mbox->syncing_commit = FALSE;
-
-	if (ret == 0) {
-		mbox->ibox.commit_log_file_seq = 0;
-		mbox->ibox.commit_log_file_offset = 0;
-	} else {
-		mail_storage_set_index_error(&mbox->ibox);
-	}
 	return ret;
 }
 
@@ -678,14 +803,19 @@ maildir_sync_index_begin(struct maildir_mailbox *mbox)
 				  &sync_ctx->view, (uint32_t)-1, (uoff_t)-1,
 				  FALSE, FALSE) <= 0) {
 		mail_storage_set_index_error(&mbox->ibox);
+		i_free(sync_ctx);
 		return NULL;
 	}
+
+	sync_ctx->keywords_sync_ctx =
+		maildir_keywords_sync_init(mbox->keywords, mbox->ibox.index);
 	return sync_ctx;
 }
 
 void maildir_sync_index_abort(struct maildir_index_sync_context *sync_ctx)
 {
 	mail_index_sync_rollback(sync_ctx->sync_ctx);
+	maildir_keywords_sync_deinit(sync_ctx->keywords_sync_ctx);
 	i_free(sync_ctx);
 }
 
@@ -698,12 +828,12 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
 	const struct mail_index_record *rec;
-	pool_t keyword_pool;
 	uint32_t seq, uid;
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
 	enum mail_flags flags;
-	const char *const *keywords;
+	array_t ARRAY_DEFINE(keywords, unsigned int);
+	array_t ARRAY_DEFINE(idx_keywords, unsigned int);
 	uint32_t uid_validity, next_uid;
 	int ret = 0, full_rescan = FALSE;
 
@@ -724,13 +854,14 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		return -1;
 	}
 
-	keyword_pool = pool_alloconly_create("maildir keywords", 128);
-
 	seq = 0;
+	ARRAY_CREATE(&keywords, pool_datastack_create(),
+		     unsigned int, MAILDIR_MAX_KEYWORDS);
+	ARRAY_CREATE(&idx_keywords, pool_datastack_create(),
+		     unsigned int, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
-		p_clear(keyword_pool);
-		maildir_filename_get_flags(filename, keyword_pool,
+		maildir_filename_get_flags(sync_ctx, filename,
 					   &flags, &keywords);
 
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
@@ -785,7 +916,16 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			mail_index_append(trans, uid, &seq);
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
 						flags);
-			// FIXME: set keywords
+
+			if (array_count(&keywords) > 0) {
+				struct mail_keywords *kw;
+
+				kw = mail_index_keywords_create_from_indexes(
+					trans, &keywords);
+				mail_index_update_keywords(trans, seq,
+							   MODIFY_REPLACE, kw);
+				mail_index_keywords_free(kw);
+			}
 			continue;
 		}
 
@@ -873,10 +1013,25 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			mail_index_update_flags(trans, seq, MODIFY_REMOVE,
 						MAIL_RECENT);
 		}
-		// FIXME: update keywords
+
+		/* update keywords if they have changed */
+		array_clear(&idx_keywords);
+		if (mail_index_lookup_keywords(view, seq, &idx_keywords) < 0) {
+			ret = -1;
+			break;
+		}
+		if (!array_cmp(&keywords, &idx_keywords)) {
+			struct mail_keywords *kw;
+
+			kw = mail_index_keywords_create_from_indexes(
+				trans, &keywords);
+			mail_index_update_keywords(trans, seq,
+						   MODIFY_REPLACE, kw);
+			mail_index_keywords_free(kw);
+		}
 	}
 	maildir_uidlist_iter_deinit(iter);
-	pool_unref(keyword_pool);
+	array_free(&keywords);
 
 	if (!partial) {
 		/* expunge the rest */
@@ -943,6 +1098,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		if (mail_index_sync_commit(sync_ctx->sync_ctx) < 0)
 			ret = -1;
 	}
+	maildir_keywords_sync_deinit(sync_ctx->keywords_sync_ctx);
 
 	if (ret == 0) {
 		mbox->ibox.commit_log_file_seq = 0;
@@ -955,12 +1111,15 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
 
-static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
+static int maildir_sync_context(struct maildir_sync_context *ctx, int forced,
+				int sync_last_commit)
 {
 	int ret, new_changed, cur_changed;
 	int full_rescan = FALSE;
 
-	if (!forced) {
+	if (sync_last_commit) {
+		new_changed = cur_changed = FALSE;
+	} else if (!forced) {
 		if (maildir_sync_quick_check(ctx, &new_changed, &cur_changed) < 0)
 			return -1;
 
@@ -1032,20 +1191,26 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 	ctx->uidlist_sync_ctx =
 		maildir_uidlist_sync_init(ctx->mbox->uidlist, ctx->partial);
 
-	while ((ret = maildir_scan_dir(ctx, TRUE)) > 0) {
-		/* rename()d at least some files, which might have caused some
-		   other files to be missed. check again (see
-		   MAILDIR_RENAME_RESCAN_COUNT). */
-	}
-	if (ret < 0)
-		return -1;
-	if (cur_changed) {
-		if (maildir_scan_dir(ctx, FALSE) < 0)
+	if (new_changed || cur_changed) {
+		/* if we're going to check cur/ dir our current logic requires
+		   that new/ dir is checked as well. it's a good idea anyway. */
+		while ((ret = maildir_scan_dir(ctx, TRUE)) > 0) {
+			/* rename()d at least some files, which might have
+			   caused some other files to be missed. check again
+			   (see MAILDIR_RENAME_RESCAN_COUNT). */
+		}
+		if (ret < 0)
 			return -1;
+
+		if (cur_changed) {
+			if (maildir_scan_dir(ctx, FALSE) < 0)
+				return -1;
+		}
+
+		/* finish uidlist syncing, but keep it still locked */
+		maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 	}
 
-	/* finish uidlist syncing, but keep it still locked */
-	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
 	if (!ctx->mbox->syncing_commit) {
 		ret = maildir_sync_index_finish(ctx->index_sync_ctx,
 						ctx->partial);
@@ -1055,11 +1220,13 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced)
 		}
 		if (ret == 0)
 			full_rescan = TRUE;
+
+		i_assert(maildir_uidlist_is_locked(ctx->mbox->uidlist));
 		ctx->index_sync_ctx = NULL;
 	}
 
 	ret = maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
-        ctx->uidlist_sync_ctx = NULL;
+	ctx->uidlist_sync_ctx = NULL;
 
 	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
@@ -1070,7 +1237,21 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox)
 	int ret;
 
 	ctx = maildir_sync_context_new(mbox);
-	ret = maildir_sync_context(ctx, TRUE);
+	ret = maildir_sync_context(ctx, TRUE, FALSE);
+	maildir_sync_deinit(ctx);
+	return ret < 0 ? -1 : 0;
+}
+
+int maildir_sync_last_commit(struct maildir_mailbox *mbox)
+{
+        struct maildir_sync_context *ctx;
+	int ret;
+
+	if (mbox->ibox.commit_log_file_seq == 0)
+		return 0;
+
+	ctx = maildir_sync_context_new(mbox);
+	ret = maildir_sync_context(ctx, FALSE, TRUE);
 	maildir_sync_deinit(ctx);
 	return ret < 0 ? -1 : 0;
 }
@@ -1088,8 +1269,10 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		mbox->ibox.sync_last_check = ioloop_time;
 
 		ctx = maildir_sync_context_new(mbox);
-		ret = maildir_sync_context(ctx, FALSE);
+		ret = maildir_sync_context(ctx, FALSE, FALSE);
 		maildir_sync_deinit(ctx);
+
+		i_assert(!maildir_uidlist_is_locked(mbox->uidlist));
 
 		if (ret == 0) {
 			/* lost some files from new/, see if thery're in cur/ */
