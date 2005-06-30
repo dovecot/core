@@ -25,7 +25,7 @@ typedef union  _GDoubleIEEE754  GDoubleIEEE754;
 #define G_IEEE754_DOUBLE_BIAS   (1023)
 /* multiply with base2 exponent to get base10 exponent (nomal numbers) */
 #define G_LOG_2_BASE_10         (0.30102999566398119521)
-#if G_BYTE_ORDER == G_LITTLE_ENDIAN
+#if I_BYTE_ORDER == LITTLE_ENDIAN
 union _GDoubleIEEE754
 {
   double v_double;
@@ -36,7 +36,7 @@ union _GDoubleIEEE754
     unsigned int sign : 1;
   } mpn;
 };
-#elif G_BYTE_ORDER == G_BIG_ENDIAN
+#elif I_BYTE_ORDER == BIG_ENDIAN
 union _GDoubleIEEE754
 {
   double v_double;

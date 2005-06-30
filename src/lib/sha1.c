@@ -38,14 +38,9 @@
 #include "sha1.h"
 #include "safe-memset.h"
 
-/* sanity check */
-#if BYTE_ORDER != BIG_ENDIAN
-# if BYTE_ORDER != LITTLE_ENDIAN
-#  define unsupported 1
-# endif
+#if I_BYTE_ORDER != LITTLE_ENDIAN && I_BYTE_ORDER != BIG_ENDIAN
+#  error unknown endian
 #endif
-
-#ifndef unsupported
 
 /* constant table */
 static uint32_t _K[] = { 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6 };
@@ -89,7 +84,7 @@ sha1_step(struct sha1_ctxt *ctxt)
 	size_t t, s;
 	uint32_t	tmp;
 
-#if BYTE_ORDER == LITTLE_ENDIAN
+#if I_BYTE_ORDER == LITTLE_ENDIAN
 	struct sha1_ctxt tctxt;
 	memmove(&tctxt.m.b8[0], &ctxt->m.b8[0], 64);
 	ctxt->m.b8[0] = tctxt.m.b8[3]; ctxt->m.b8[1] = tctxt.m.b8[2];
@@ -198,7 +193,7 @@ sha1_pad(struct sha1_ctxt *ctxt)
 	memset(&ctxt->m.b8[padstart], 0, padlen - 8);
 	COUNT += (padlen - 8);
 	COUNT %= 64;
-#if BYTE_ORDER == BIG_ENDIAN
+#if I_BYTE_ORDER == BIG_ENDIAN
 	PUTPAD(ctxt->c.b8[0]); PUTPAD(ctxt->c.b8[1]);
 	PUTPAD(ctxt->c.b8[2]); PUTPAD(ctxt->c.b8[3]);
 	PUTPAD(ctxt->c.b8[4]); PUTPAD(ctxt->c.b8[5]);
@@ -244,7 +239,7 @@ sha1_result(struct sha1_ctxt *ctxt, void *digest0)
 
 	digest = (uint8_t *)digest0;
 	sha1_pad(ctxt);
-#if BYTE_ORDER == BIG_ENDIAN
+#if I_BYTE_ORDER == BIG_ENDIAN
 	memmove(digest, &ctxt->h.b8[0], 20);
 #else
 	digest[0] = ctxt->h.b8[3]; digest[1] = ctxt->h.b8[2];
@@ -270,5 +265,3 @@ void sha1_get_digest(const void *data, size_t size,
 	sha1_loop(&ctx, data, size);
 	sha1_result(&ctx, result);
 }
-
-#endif /*unsupported*/
