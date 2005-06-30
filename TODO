@@ -1,13 +1,68 @@
- happens too often: mail-transaction-log-view.c: line 138 (mail_transaction_log_view_set): assertion failed: (min_file_seq != max_file_seq || min_file_offset <= max_file_offset)
+ - calls fsync()s etc. less often (when copying). optionally disable them.
+ - stop using atol(), atoi(), strtoul() etc. in places where we actually
+   care about what they return, and rather create our own function which
+   checks if the input overflows the integer, and if so call i_fatal()
+- for master/config rewrite: make sure the log changes will work
+ - when sorting maildir files, sort based on Mxxxx first so the files are
+   sorted always in ascending order. required for proper out-of-quota uidlist
+   handling
+ - Panic: file mail-index.c: line 844 (mail_index_sync_from_transactions):
+   assertion failed: (hdr.messages_count == (*map)->hdr.messages_count)
+   - after some locking timeouts: mbox-lock.c: line 518 (mbox_lock): assertion failed: (lock_type == F_RDLCK || mbox->mbox_lock_type != F_RDLCK)
 
-line 493 (mbox_lock): assertion failed: (lock_type == F_RDLCK || ibox->mbox_lock_type != F_RDLCK)
-#5  0x0806faa3 in mbox_lock (ibox=0x80d89b8, lock_type=1, lock_id_r=0xbea6b434) at mbox-lock.c:493
-#6  0x08075439 in mbox_sync (ibox=0x80d89b8, flags=MBOX_SYNC_REWRITE) at mbox-sync.c:1286
-#7  0x0806d38b in mbox_storage_close (box=0x80d89b8) at mbox-storage.c:793
-#8  0x0809666e in mailbox_close (box=0x80d89b8) at mail-storage.c:296
-#9  0x080587b6 in client_destroy (client=0x80cefe0) at client.c:69
-#10 0x080591c3 in client_output (context=0x80cefe0) at client.c:386
-#11 0x080b0086 in stream_send_io (context=0x80cf0a8) at ostream-file.c:339
+- Corrupted transaction log file dovecot.index.log: record size wrong (type 0x4, 20 % 12 != 0)
+ -> mail-index.c: line 841 (mail_index_sync_from_transactions): assertion failed: (hdr.messages_count == (*map)->hdr.messages_count)
+
+ - subscribe #maildir -> LSUB "" * -> probably not listed?
+* 1807 EXISTS
+* 0 RECENT
+* OK [UNSEEN 1] First unseen.
+* OK [UIDVALIDITY 1106090975] UIDs valid
+* OK [UIDNEXT 38157] Predicted next UID
+x OK [READ-WRITE] Select completed.
+x store 500:* +flags.silent \deleted
+* 31 RECENT
+x OK Store completed.
+
+ - dovecot-auth workers: create a separate dovecot-pam worker which shares
+   pretty much all code with dovecot-auth worker but isn't linked against
+   any libraries. or..? this might be difficult to do, especially because the
+   workers currently can handle any kind of passdb/userb requests. perhaps
+   there should be a completely separate simple PAM authenticator binary.
+ - namespaces: add new "auto_disable" flag so if the mailbox can't be opened
+   (eg. file doesn't exist), just ignore the problem and disable the namespace
+diff -u -r1.44 cmd-list.c
+--- src/imap/cmd-list.c 5 Feb 2005 18:07:26 -0000       1.44
++++ src/imap/cmd-list.c 15 Mar 2005 16:15:27 -0000
+@@ -213,7 +213,7 @@
+                                    ctx->inbox && cur_ref == ctx->ref,
+ns->sep);
+        if (*cur_ref != '\0' || *cur_prefix == '\0')
+-               match = IMAP_MATCH_CHILDREN;
++               match = ns->hidden ? IMAP_MATCH_NO : IMAP_MATCH_CHILDREN;
+        else {
+                len = strlen(cur_prefix);
+                if (cur_prefix[len-1] == ns->sep)
+
+
+ - auth master refcounting when handling user/request?
+ - prepend_uid is useless nowadays?
+
+ - mail_index_map() -> sync from transaction log -> refresh -> mail_index_map()
+ - buffer_create_data() behavior has changed from silent-truncating to
+   hard-crashing. See if it breaks anywhere (PAM!)
+ - PAM / checkpassword should use passdb-blocking
+ - if capability is sent in greeting, it's not waiting for AUTH=xx..
+ - if ssl isn't compiled in, it doesn't complain anything if it's tried to
+   be used .. and configure summary even says it's enabled
+    - SSL_read in -lssl -> no
+
+ - deleting lots of messages for rarely opened box seems to cause trouble:
+IMAP(cras:17105): Cached message offset lost for seq 93 in mbox file /home/cras/mail/bugtraq
+IMAP(cras:21802): mbox sync: UID inserted in the middle of mailbox /home/cras/mail/bugtraq (816584 > 816580)
+IMAP(cras:21802): mbox sync: UID inserted in the middle of mailbox /home/cras/mail/bugtraq (816598 > 816580)
+
+ - solaris sendfile is broken?
 
 mail-index-transaction.c: line 467 (mail_index_transaction_add_last): 
 assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
@@ -16,10 +71,11 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - add some limits to how many there can be
        - don't return \* in PERMANENTFLAGS when we're full
     - send FLAGS/PERMANENTFLAGS untagged replies when they change
-    - sync to mbox/maildir
     - remove unused keywords?
 
  - caching
+     - cache _all_ existing headers when headers are being parsed, not just the
+       ones client is requesting at that time.
      - size.physical isn't cached
      - force bits should be used only for nonregistered fields
      - change envelope parsing not to use get_headers() so imap.envelope can
@@ -30,14 +86,14 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
        so things gets saved into cache immediately
      - we can mail_cache_add() same header multiple times..
      - get_field() doesn't work if it's not already cached
-    - we could try compressing same field values into a single
-      location in cache file.
-    - Most messages are text/plain/7bit/us-ascii/no-other-content-type-params.
-      Instead of saving tons of nearly identical BODY/BODYSTRUCTURE fields
-      into cache, we could just set INDEX_MAIL_FLAG_TEXT_PLAIN_7BIT_ASCII bit
-      on and generate the bodystructure for such messages on the fly.
-    - support caching allmessage headers. this could be useful when
-      indexes are in local disk but actual mails are accessed through NFS.
+     - we could try compressing same field values into a single
+       location in cache file.
+     - Most messages are text/plain/7bit/us-ascii/no-other-content-type-params.
+       Instead of saving tons of nearly identical BODY/BODYSTRUCTURE fields
+       into cache, we could just set INDEX_MAIL_FLAG_TEXT_PLAIN_7BIT_ASCII bit
+       on and generate the bodystructure for such messages on the fly.
+     - support caching all message headers. this could be useful when
+       indexes are in local disk but actual mails are accessed through NFS.
 
  - mbox
      - syncing existing indexes takes 4x longer than creating new one, why?
@@ -50,14 +106,7 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
        make sure there always exists two LFs at end of file. raw-mbox-stream
        should make sure the last message ends with LF even if it doesn't exist
        in the file
-     - 
-	    if (sync_ctx.seen_first_mail &&
-		sync_ctx.base_uid_last != sync_ctx.next_uid-1 &&
-		ret == 0 && !sync_ctx.delay_writes) {
-	 ^ doesn't work correctly with partial syncing?
     - COPY doesn't work to itself (lock assert crash)
-    - Create UW-IMAP like "DON'T DELETE THIS MESSAGE" message when mbox
-      gets empty
     - keep mbox lock for two extra seconds after sync
     - move /var/mail/user to ~/mbox if ~/mbox exists.. supposedly this
       could be useful if /var/mail doesn't have quota, but ~/mail does.
@@ -75,6 +124,7 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
       the old file and then new file and then we try to fix it..
     - if .customflags is removed and Maildir files have custom flags, add
       "unknown1" "unknown2" etc. flags to .customflags file for each found flag
+    - with pop3 don't move messages from new/ to cur/ before RETR
 
  - index
     - if uoff_t or time_t size changes, don't rebuild indexes because they
@@ -159,9 +209,9 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
  - master
     - pipe() failed: Too many open files - fine, but don't log it 1000 times
       a second
-    - inetd startup doesn't work anymore
     - configurable syslog prefix
     - SIGHUP rather shouldn't restart listening sockets if they didn't change..
+    - if there are duplicate settings, complain about it
 
  - quota
     - support Maildir++ quota
