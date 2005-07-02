@@ -356,11 +356,6 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		return -1;
 	}
 
-	if (maildir_sync_index_finish(sync_ctx, TRUE) < 0) {
-		maildir_save_commit_abort(ctx, sync_ctx, ctx->files);
-		return -1;
-	}
-
 	first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 	mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
 
@@ -371,6 +366,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	ctx->uidlist_sync_ctx =
 		maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE);
 
+	ret = 0;
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
 		t_push();
 		dest = maildir_get_updated_filename(ctx, sync_ctx, mf);
@@ -379,15 +375,29 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		if (maildir_file_move(ctx, mf->basename, dest) < 0 ||
 		    maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
 					      fname, flags) < 0) {
-			(void)maildir_uidlist_sync_deinit(
-							ctx->uidlist_sync_ctx);
 			maildir_save_commit_abort(ctx, sync_ctx, mf);
 			t_pop();
-			return -1;
+			ret = -1;
+			break;
 		}
 		t_pop();
 	}
-	return 0;
+
+	if (ret == 0) {
+		/* finish uidlist syncing, but keep it still locked */
+		maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
+	}
+
+	if (ret < 0) {
+		/* deinit only if we failed. otherwise save_commit_post()
+		   does it. */
+		if (maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx) < 0)
+			ret = -1;
+		ctx->uidlist_sync_ctx = NULL;
+	}
+
+	maildir_sync_index_abort(sync_ctx);
+	return ret;
 }
 
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
