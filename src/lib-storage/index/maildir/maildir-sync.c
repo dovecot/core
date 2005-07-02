@@ -837,6 +837,8 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	uint32_t uid_validity, next_uid;
 	int ret = 0, full_rescan = FALSE;
 
+	i_assert(maildir_uidlist_is_locked(sync_ctx->mbox->uidlist));
+
 	trans = mail_index_transaction_begin(view, FALSE, TRUE);
 	sync_ctx->trans = trans;
 
@@ -1099,6 +1101,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			ret = -1;
 	}
 	maildir_keywords_sync_deinit(sync_ctx->keywords_sync_ctx);
+        sync_ctx->keywords_sync_ctx = NULL;
 
 	if (ret == 0) {
 		mbox->ibox.commit_log_file_seq = 0;
