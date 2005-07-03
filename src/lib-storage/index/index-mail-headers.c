@@ -66,7 +66,10 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 			   just want to ignore it. */
 			i_assert(match[match_idx] !=
 				 mail->header_match_value + 1);
-			if (match[match_idx] == mail->header_match_value) {
+			if (match[match_idx] == mail->header_match_value &&
+			    mail_cache_field_exists(mail->trans->cache_view,
+						    mail->data.seq,
+						    match_idx) == 0) {
 				/* this header doesn't exist. remember that. */
 				mail_cache_add(mail->trans->cache_trans,
 					       mail->data.seq, match_idx,
@@ -80,6 +83,11 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 			j = i + 1;
 			array_idx_set(&mail->header_match_lines, match_idx, &j);
 			match_idx++;
+		}
+
+		if (!lines[i].cache) {
+			/* header is already cached */
+			continue;
 		}
 
 		/* buffer contains: { uint32_t line_num[], 0, header texts }
@@ -118,7 +126,9 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	}
 
 	for (; match_idx < match_count; match_idx++) {
-		if (match[match_idx] == mail->header_match_value) {
+		if (match[match_idx] == mail->header_match_value &&
+		    mail_cache_field_exists(mail->trans->cache_view,
+					    mail->data.seq, match_idx) == 0) {
 			/* this header doesn't exist. remember that. */
 			mail_cache_add(mail->trans->cache_trans,
 				       mail->data.seq, match_idx, NULL, 0);
@@ -151,7 +161,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 
         mail->header_match_value += 2;
 	if (mail->header_match_value == 0) {
-		/* @UNSAFE: wrapped, we'll have to clear the buffer */
+		/* wrapped, we'll have to clear the buffer */
 		array_clear(&mail->header_match);
 		mail->header_match_value = 2;
 	}
