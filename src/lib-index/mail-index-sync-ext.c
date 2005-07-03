@@ -111,8 +111,13 @@ void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx)
 	sync_handlers =
 		array_get(&ctx->view->index->sync_handlers, &synch_count);
 
-	ext = array_get(&ctx->view->map->extensions, &count);
-	i_assert(count <= synch_count);
+	if (!array_is_created(&ctx->view->map->extensions)) {
+		ext = NULL;
+		count = 0;
+	} else {
+		ext = array_get(&ctx->view->map->extensions, &count);
+		i_assert(count <= synch_count);
+	}
 
 	/* sync_handlers[] is ordered by index->extensions while
 	   extra_contexts[] is ordered by map->extensions. */
