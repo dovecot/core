@@ -317,6 +317,7 @@ static void client_input(void *context)
 {
 	struct client *client = context;
 	char *line, *args;
+	int ret;
 
 	if (client->cmd != NULL) {
 		/* we're still processing a command. wait until it's
@@ -351,7 +352,10 @@ static void client_input(void *context)
 		else
 			*args++ = '\0';
 
-		if (client_command_execute(client, line, args) >= 0) {
+		t_push();
+		ret = client_command_execute(client, line, args);
+		t_pop();
+		if (ret >= 0) {
 			client->bad_counter = 0;
 			if (client->cmd != NULL) {
 				o_stream_set_flush_pending(client->output,

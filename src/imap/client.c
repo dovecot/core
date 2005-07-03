@@ -352,6 +352,7 @@ void _client_input(void *context)
 {
 	struct client *client = context;
 	struct client_command_context *cmd = &client->cmd;
+	int ret;
 
 	if (client->command_pending) {
 		/* already processing one command. wait. */
@@ -380,8 +381,11 @@ void _client_input(void *context)
 	}
 
 	o_stream_cork(client->output);
-	while (client_handle_input(cmd))
-		;
+	do {
+		t_push();
+		ret = client_handle_input(cmd);
+		t_pop();
+	} while (ret);
 	o_stream_uncork(client->output);
 
 	if (client->command_pending)
