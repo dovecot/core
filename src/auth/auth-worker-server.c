@@ -48,19 +48,27 @@ static void worker_input(void *context);
 static struct auth_worker_connection *auth_worker_create(void)
 {
 	struct auth_worker_connection *conn;
-	int fd;
+	int fd, try;
 
 	if (connections->used / sizeof(conn) >= auth_workers_max)
 		return NULL;
 
-	fd = net_connect_unix(worker_socket_path);
-	if (fd < 0) {
+	for (try = 0;; try++) {
+		fd = net_connect_unix(worker_socket_path);
+		if (fd >= 0)
+			break;
+
 		if (errno != EAGAIN) {
 			i_fatal("net_connect_unix(%s) failed: %m",
 				worker_socket_path);
 		}
-		/* busy */
-		return NULL;
+		if (errno != ENOENT || try == 5) {
+			/* busy / broken */
+			return NULL;
+		}
+
+		/* not created yet? try again */
+		sleep(1);
 	}
 
 	conn = i_new(struct auth_worker_connection, 1);
