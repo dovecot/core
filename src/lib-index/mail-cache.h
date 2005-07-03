@@ -49,6 +49,10 @@ void mail_cache_register_fields(struct mail_cache *cache,
 /* Returns registered field index, or (unsigned int)-1 if not found. */
 unsigned int
 mail_cache_register_lookup(struct mail_cache *cache, const char *name);
+/* Returns a list of all registered fields */
+const struct mail_cache_field *
+mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
+			     unsigned int *count_r);
 
 /* Returns TRUE if cache should be compressed. */
 int mail_cache_need_compress(struct mail_cache *cache);

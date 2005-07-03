@@ -85,6 +85,21 @@ mail_cache_register_lookup(struct mail_cache *cache, const char *name)
 		return (unsigned int)-1;
 }
 
+const struct mail_cache_field *
+mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
+			     unsigned int *count_r)
+{
+        struct mail_cache_field *list;
+	unsigned int i;
+
+	list = p_new(pool, struct mail_cache_field, cache->fields_count);
+	for (i = 0; i < cache->fields_count; i++)
+		list[i] = cache->fields[i].field;
+
+	*count_r = cache->fields_count;
+	return list;
+}
+
 static int mail_cache_header_fields_get_offset(struct mail_cache *cache,
 					       uint32_t *offset_r)
 {
