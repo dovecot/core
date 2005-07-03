@@ -536,14 +536,21 @@ static int search_msgset_fix(struct index_mailbox *ibox,
 			     uint32_t *seq1_r, uint32_t *seq2_r)
 {
 	for (; set != NULL; set = set->next) {
-		if (set->seq1 == (uint32_t)-1)
+		if (set->seq1 > hdr->messages_count) {
+			if (set->seq1 != (uint32_t)-1 &&
+			    set->seq2 != (uint32_t)-1) {
+				/* completely outside our range */
+				set->seq1 = set->seq2 = 0;
+				return 0;
+			}
+			/* either seq1 or seq2 is '*', so the last message is
+			   in range. */
 			set->seq1 = hdr->messages_count;
-		if (set->seq2 == (uint32_t)-1)
+		}
+		if (set->seq2 > hdr->messages_count)
 			set->seq2 = hdr->messages_count;
 
-		if (set->seq1 == 0 || set->seq2 == 0 ||
-		    set->seq1 > hdr->messages_count ||
-		    set->seq2 > hdr->messages_count) {
+		if (set->seq1 == 0 || set->seq2 == 0) {
 			mail_storage_set_syntax_error(ibox->box.storage,
 						      "Invalid messageset");
 			return -1;

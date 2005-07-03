@@ -413,16 +413,18 @@ imap_search_args_build(pool_t pool, struct mailbox *box, struct imap_arg *args,
 	return first_sarg;
 }
 
-static int imap_search_get_msgset_arg(pool_t pool, const char *messageset,
+static int imap_search_get_msgset_arg(struct client_command_context *cmd,
+				      const char *messageset,
 				      struct mail_search_arg **arg_r,
 				      const char **error_r)
 {
 	struct mail_search_arg *arg;
 
-	arg = p_new(pool, struct mail_search_arg, 1);
+	arg = p_new(cmd->pool, struct mail_search_arg, 1);
 	arg->type = SEARCH_SEQSET;
-	arg->value.seqset = imap_messageset_parse(pool, messageset);
-	if (arg->value.seqset == NULL) {
+	arg->value.seqset = imap_messageset_parse(cmd->pool, messageset);
+	if (arg->value.seqset == NULL ||
+	    arg->value.seqset->seq2 > cmd->client->messages_count) {
 		*error_r = "Invalid messageset";
 		return -1;
 	}
@@ -452,8 +454,7 @@ imap_search_get_arg(struct client_command_context *cmd,
 	int ret;
 
 	if (!uid) {
-		ret = imap_search_get_msgset_arg(cmd->pool, set,
-						 &search_arg, &error);
+		ret = imap_search_get_msgset_arg(cmd, set, &search_arg, &error);
 	} else {
 		ret = imap_search_get_uidset_arg(cmd->pool,
 						 cmd->client->mailbox, set,
