@@ -36,11 +36,13 @@ static int header_line_cmp(const void *p1, const void *p2)
 static void index_mail_parse_header_finish(struct index_mail *mail)
 {
 	struct index_mail_line *lines;
+	const struct mail_cache_field *all_cache_fields;
 	const unsigned char *header, *data;
 	const uint8_t *match;
 	buffer_t *buf;
 	size_t data_size;
 	unsigned int i, j, count, match_idx, match_count;
+	unsigned int all_cache_fields_count;
 	int noncontiguous;
 
 	t_push();
@@ -135,6 +137,25 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 		}
 	}
 
+	/* set all non-found headers registered in cache */
+	all_cache_fields =
+		mail_cache_register_get_list(mail->ibox->cache,
+					     pool_datastack_create(),
+					     &all_cache_fields_count);
+	for (i = 0; i < all_cache_fields_count; i++) {
+		unsigned int cache_field = all_cache_fields[i].idx;
+
+		/* first check that it isn't already added */
+		if (all_cache_fields[i].idx < match_count &&
+		    match[cache_field] == mail->header_match_value)
+			continue;
+
+		if (strncasecmp(all_cache_fields[i].name, "hdr.", 4) != 0)
+			continue;
+
+		mail_cache_add(mail->trans->cache_trans,
+			       mail->data.seq, cache_field, NULL, 0);
+	}
 	t_pop();
 }
 
@@ -217,9 +238,9 @@ static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 		       MAIL_CACHE_IMAP_ENVELOPE, str_data(str), str_len(str));
 }
 
-int index_mail_parse_header(struct message_part *part,
-			    struct message_header_line *hdr,
-			    struct index_mail *mail)
+void index_mail_parse_header(struct message_part *part,
+			     struct message_header_line *hdr,
+			     struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 	enum mail_cache_decision_type decision;
@@ -251,7 +272,7 @@ int index_mail_parse_header(struct message_part *part,
 		}
 		index_mail_parse_header_finish(mail);
                 data->save_bodystructure_header = FALSE;
-		return TRUE;
+		return;
 	}
 
 	if (!hdr->continued) {
@@ -266,7 +287,7 @@ int index_mail_parse_header(struct message_part *part,
 
 	if (field_idx == (unsigned int)-1) {
 		/* we don't want this field */
-		return TRUE;
+		return;
 	}
 
 	if (!hdr->continued) {
@@ -291,7 +312,7 @@ int index_mail_parse_header(struct message_part *part,
 		   (field_idx >= count ||
 		    (match[field_idx] & ~1) != mail->header_match_value)) {
 		/* we don't need to do anything with this header */
-		return TRUE;
+		return;
 	}
 
 	if (!hdr->continued) {
@@ -307,7 +328,6 @@ int index_mail_parse_header(struct message_part *part,
 		data->parse_line.end_pos = str_len(mail->header_data);
 		array_append(&mail->header_lines, &data->parse_line, 1);
 	}
-	return TRUE;
 }
 
 static void
@@ -316,7 +336,7 @@ index_mail_parse_header_cb(struct message_part *part,
 {
 	struct index_mail *mail = context;
 
-	(void)index_mail_parse_header(part, hdr, mail);
+	index_mail_parse_header(part, hdr, mail);
 }
 
 int index_mail_parse_headers(struct index_mail *mail,
@@ -562,7 +582,7 @@ static void header_cache_callback(struct message_header_line *hdr,
 	if (hdr != NULL && hdr->eoh)
 		*matched = FALSE;
 
-	(void)index_mail_parse_header(NULL, hdr, mail);
+	index_mail_parse_header(NULL, hdr, mail);
 }
 
 struct istream *
