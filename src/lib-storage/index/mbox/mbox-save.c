@@ -10,6 +10,7 @@
 #include "istream-header-filter.h"
 #include "ostream-crlf.h"
 #include "message-parser.h"
+#include "index-mail.h"
 #include "mbox-storage.h"
 #include "mbox-file.h"
 #include "mbox-from.h"
@@ -29,6 +30,7 @@ struct mbox_save_context {
 
 	struct mbox_mailbox *mbox;
 	struct mail_index_transaction *trans;
+	struct mail *mail;
 	uoff_t append_offset, mail_offset;
 
 	string_t *headers;
@@ -320,6 +322,11 @@ static void save_header_callback(struct message_header_line *hdr,
 	if ((hdr == NULL && ctx->eoh_input_offset == (uoff_t)-1) ||
 	    (hdr != NULL && hdr->eoh))
 		ctx->eoh_input_offset = ctx->input->v_offset;
+
+	if (ctx->mail != NULL) {
+		index_mail_parse_header(NULL, hdr,
+					(struct index_mail *)ctx->mail);
+	}
 }
 
 struct mail_save_context *
@@ -376,6 +383,12 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 		mail_index_update_ext(ctx->trans, ctx->seq,
 				      mbox->mbox_ext_idx, &offset, NULL);
 		ctx->next_uid++;
+
+		if (ctx->mail == NULL)
+			ctx->mail = index_mail_alloc(_t, 0, NULL);
+		mail_set_seq(ctx->mail, ctx->seq);
+		index_mail_parse_header_init((struct index_mail *)ctx->mail,
+					     NULL);
 	}
 	mbox_save_append_flag_headers(ctx->headers, save_flags);
 	mbox_save_append_keyword_headers(ctx, keywords);
@@ -540,6 +553,8 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 
 	if (ctx->output != NULL)
 		o_stream_unref(ctx->output);
+	if (ctx->mail != NULL)
+		index_mail_free(ctx->mail);
 	str_free(ctx->headers);
 	i_free(ctx);
 }
