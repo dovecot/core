@@ -29,6 +29,7 @@ struct header_filter_istream {
 	unsigned int cur_line, parsed_lines;
 
 	unsigned int header_read:1;
+	unsigned int header_parsed:1;
 	unsigned int exclude:1;
 	unsigned int crlf:1;
 	unsigned int hide_body:1;
@@ -92,7 +93,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 
 		if (hdr->eoh) {
 			matched = TRUE;
-			if (!mstream->header_read &&
+			if (!mstream->header_parsed &&
 			    mstream->callback != NULL) {
 				mstream->callback(hdr, &matched,
 						  mstream->context);
@@ -167,8 +168,9 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		message_parse_header_deinit(mstream->hdr_ctx);
 		mstream->hdr_ctx = NULL;
 
-		if (!mstream->header_read && mstream->callback != NULL)
+		if (!mstream->header_parsed && mstream->callback != NULL)
 			mstream->callback(NULL, &matched, mstream->context);
+		mstream->header_parsed = TRUE;
 		mstream->header_read = TRUE;
 
 		mstream->header_size.physical_size = mstream->input->v_offset;
@@ -261,7 +263,6 @@ static void _seek(struct _istream *stream, uoff_t v_offset)
 		i_stream_seek(mstream->input, mstream->start_offset);
 		mstream->skip_count = v_offset;
 		mstream->cur_line = 0;
-		mstream->parsed_lines = 0;
 		mstream->header_read = FALSE;
 	} else {
 		/* body */
