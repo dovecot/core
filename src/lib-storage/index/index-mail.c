@@ -802,8 +802,9 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		unsigned int cache_field2 =
 			cache_fields[MAIL_CACHE_IMAP_ENVELOPE].idx;
 
-		if (mail_cache_field_exists(cache_view, seq,
-					    cache_field1) == 0 &&
+		if ((cache_field1 == (unsigned int)-1 ||
+		     mail_cache_field_exists(cache_view, seq,
+					     cache_field1) == 0) &&
 		    mail_cache_field_exists(cache_view, seq,
 					    cache_field2) == 0)
 			data->access_part |= PARSE_HDR;
