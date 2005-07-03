@@ -779,7 +779,7 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		unsigned int cache_field =
 			cache_fields[MAIL_FETCH_MESSAGE_PARTS].idx;
 
-		if (mail_cache_field_exists(cache_view, seq, cache_field) == 0)
+		if (mail_cache_field_exists(cache_view, seq, cache_field) <= 0)
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 	}
 
@@ -787,7 +787,7 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		unsigned int cache_field =
 			cache_fields[MAIL_FETCH_VIRTUAL_SIZE].idx;
 
-		if (mail_cache_field_exists(cache_view, seq, cache_field) == 0)
+		if (mail_cache_field_exists(cache_view, seq, cache_field) <= 0)
 			data->access_part |= READ_HDR | READ_BODY;
 	}
 
@@ -804,9 +804,9 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 
 		if ((cache_field1 == (unsigned int)-1 ||
 		     mail_cache_field_exists(cache_view, seq,
-					     cache_field1) == 0) &&
+					     cache_field1) <= 0) &&
 		    mail_cache_field_exists(cache_view, seq,
-					    cache_field2) == 0)
+					    cache_field2) <= 0)
 			data->access_part |= PARSE_HDR;
 	}
 
@@ -819,9 +819,9 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 			cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx;
 
 		if (mail_cache_field_exists(cache_view,
-					    seq, cache_field1) == 0 &&
+					    seq, cache_field1) <= 0 &&
 		    mail_cache_field_exists(cache_view,
-					    seq, cache_field2) == 0)
+					    seq, cache_field2) <= 0)
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 		else {
 			data->save_bodystructure_header = TRUE;
@@ -834,7 +834,7 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		unsigned int cache_field =
 			cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx;
 
-		if (mail_cache_field_exists(cache_view, seq, cache_field) == 0)
+		if (mail_cache_field_exists(cache_view, seq, cache_field) <= 0)
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 		else {
 			data->save_bodystructure_header = TRUE;
@@ -847,7 +847,7 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 			cache_fields[MAIL_CACHE_SENT_DATE].idx;
 
 		if (mail_cache_field_exists(cache_view, seq,
-					    cache_field) == 0) {
+					    cache_field) <= 0) {
 			data->access_part |= PARSE_HDR;
 			data->save_sent_date = TRUE;
 		}
