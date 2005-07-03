@@ -138,6 +138,21 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	t_pop();
 }
 
+static unsigned int
+get_header_field_idx(struct index_mailbox *ibox, const char *field)
+{
+	struct mail_cache_field header_field = {
+		NULL, 0, MAIL_CACHE_FIELD_HEADER, 0,
+		MAIL_CACHE_DECISION_TEMP
+	};
+
+	t_push();
+	header_field.name = t_strconcat("hdr.", field, NULL);
+	mail_cache_register_fields(ibox->cache, &header_field, 1);
+	t_pop();
+	return header_field.idx;
+}
+
 void index_mail_parse_header_init(struct index_mail *mail,
 				  struct mailbox_header_lookup_ctx *_headers)
 {
@@ -180,6 +195,14 @@ void index_mail_parse_header_init(struct index_mail *mail,
 				      &mail->header_match_value);
 		}
 	}
+
+	if (mail->data.save_sent_date) {
+                mail->data.save_sent_date = FALSE;
+
+		array_idx_set(&mail->header_match,
+			      get_header_field_idx(mail->ibox, "Date"),
+			      &mail->header_match_value);
+	}
 }
 
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
@@ -191,7 +214,7 @@ static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 	mail->data.envelope = str_c(str);
 
 	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-		       MAIL_CACHE_ENVELOPE, str_data(str), str_len(str));
+		       MAIL_CACHE_IMAP_ENVELOPE, str_data(str), str_len(str));
 }
 
 int index_mail_parse_header(struct message_part *part,
@@ -203,7 +226,6 @@ int index_mail_parse_header(struct message_part *part,
 	const char *cache_field_name;
 	unsigned int field_idx, count;
 	uint8_t *match;
-	int timezone;
 
         data->parse_line_num++;
 
@@ -222,12 +244,6 @@ int index_mail_parse_header(struct message_part *part,
 
 	if (hdr == NULL) {
 		/* end of headers */
-		if (data->save_sent_date) {
-			/* not found */
-			data->sent_date.time = 0;
-			data->sent_date.timezone = 0;
-			data->save_sent_date = FALSE;
-		}
 		if (data->sent_date.time != (time_t)-1) {
                         mail_cache_add(mail->trans->cache_trans, data->seq,
 				       MAIL_CACHE_SENT_DATE, &data->sent_date,
@@ -236,23 +252,6 @@ int index_mail_parse_header(struct message_part *part,
 		index_mail_parse_header_finish(mail);
                 data->save_bodystructure_header = FALSE;
 		return TRUE;
-	}
-
-	if (data->save_sent_date && strcasecmp(hdr->name, "Date") == 0) {
-		if (hdr->continues)
-			hdr->use_full_value = TRUE;
-		else {
-			if (!message_date_parse(hdr->full_value,
-						hdr->full_value_len,
-						&data->sent_date.time,
-						&timezone)) {
-				/* 0 == parse error */
-				data->sent_date.time = 0;
-				timezone = 0;
-			}
-                        data->sent_date.timezone = timezone;
-			data->save_sent_date = FALSE;
-		}
 	}
 
 	if (!hdr->continued) {
@@ -343,7 +342,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 				     index_mail_parse_header_cb, mail);
 	}
 	data->hdr_size_set = TRUE;
-	data->parse_header = FALSE;
+	data->access_part &= ~PARSE_HDR;
 
 	return 0;
 }
@@ -378,28 +377,6 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 		mail->data.save_envelope = FALSE;
 	}
 	mailbox_header_lookup_deinit(header_ctx);
-}
-
-static unsigned int
-get_header_field_idx(struct index_mailbox *ibox, const char *field)
-{
-	struct mail_cache_field header_field = {
-		NULL, 0, MAIL_CACHE_FIELD_HEADER, 0,
-		MAIL_CACHE_DECISION_TEMP
-	};
-	const char *cache_field_name;
-	unsigned int field_idx;
-
-	t_push();
-	cache_field_name = t_strconcat("hdr.", field, NULL);
-	field_idx = mail_cache_register_lookup(ibox->cache, cache_field_name);
-	if (field_idx == (unsigned int)-1) {
-		header_field.name = cache_field_name;
-		mail_cache_register_fields(ibox->cache, &header_field, 1);
-		field_idx = header_field.idx;
-	}
-	t_pop();
-	return field_idx;
 }
 
 static size_t get_header_size(buffer_t *buffer, size_t pos)

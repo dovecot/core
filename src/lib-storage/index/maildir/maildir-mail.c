@@ -78,7 +78,7 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 	if (data->received_date != (time_t)-1)
 		return data->received_date;
 
-	if (data->open_mail && data->stream == NULL) {
+	if (data->access_part != 0 && data->stream == NULL) {
 		/* we're going to open the mail anyway */
 		(void)mail_get_stream(_mail, NULL, NULL);
 	}

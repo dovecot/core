@@ -14,9 +14,9 @@ enum index_cache_field {
 	MAIL_CACHE_PHYSICAL_FULL_SIZE,
 
 	/* variable sized field */
-	MAIL_CACHE_BODY,
-	MAIL_CACHE_BODYSTRUCTURE,
-	MAIL_CACHE_ENVELOPE,
+	MAIL_CACHE_IMAP_BODY,
+	MAIL_CACHE_IMAP_BODYSTRUCTURE,
+	MAIL_CACHE_IMAP_ENVELOPE,
 	MAIL_CACHE_MESSAGEPART,
 
 	MAIL_CACHE_FIELD_COUNT
@@ -35,6 +35,13 @@ enum mail_cache_record_flag {
 	MAIL_CACHE_FLAG_HAS_NULS		= 0x0004,
 	/* Mail header or body is known to not contain NUL characters. */
 	MAIL_CACHE_FLAG_HAS_NO_NULS		= 0x0008
+};
+
+enum index_mail_access_part {
+	READ_HDR	= 0x01,
+	READ_BODY	= 0x02,
+	PARSE_HDR	= 0x04,
+	PARSE_BODY	= 0x08
 };
 
 struct mail_sent_date {
@@ -67,6 +74,7 @@ struct index_mail_data {
 	uint32_t seq;
 	const struct mail_index_record *rec;
 	uint32_t cache_flags;
+        enum index_mail_access_part access_part;
 
 	struct istream *stream, *filter_stream;
 	struct message_size hdr_size, body_size;
@@ -74,15 +82,13 @@ struct index_mail_data {
 	int parsing_count;
 	array_t ARRAY_DEFINE(keywords, const char *);
 
-	unsigned int parse_header:1;
-	unsigned int save_envelope:1;
 	unsigned int save_sent_date:1;
+	unsigned int save_envelope:1;
 	unsigned int save_bodystructure_header:1;
 	unsigned int save_bodystructure_body:1;
 	unsigned int parsed_bodystructure:1;
 	unsigned int hdr_size_set:1;
 	unsigned int body_size_set:1;
-	unsigned int open_mail:1;
 };
 
 struct index_mail {
