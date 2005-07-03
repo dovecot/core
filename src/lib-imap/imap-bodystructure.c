@@ -439,6 +439,51 @@ static void part_write_body(struct message_part *part,
 	}
 }
 
+int imap_bodystructure_is_plain_7bit(struct message_part *part)
+{
+	struct message_part_body_data *data = part->context;
+
+	i_assert(part->parent == NULL);
+
+	if (data == NULL) {
+		/* no bodystructure headers found */
+		return TRUE;
+	}
+
+	/* if content-type is text/xxx we don't have to check any
+	   multipart stuff */
+	if ((part->flags & MESSAGE_PART_FLAG_TEXT) == 0)
+		return FALSE;
+	if (part->next != NULL || part->children != NULL)
+		return FALSE; /* shouldn't happen normally.. */
+
+	/* must be text/plain */
+	if (data->content_subtype != NULL &&
+	    strcasecmp(data->content_subtype, "\"plain\"") != 0)
+		return FALSE;
+
+	/* only allowed parameter is charset=us-ascii, which is also default */
+	if (data->content_type_params != NULL &&
+	    strcasecmp(data->content_type_params, DEFAULT_CHARSET) != 0)
+		return FALSE;
+
+	if (data->content_id != NULL ||
+	    data->content_description != NULL)
+		return FALSE;
+
+	if (data->content_transfer_encoding != NULL &&
+	    strcasecmp(data->content_transfer_encoding, "\"7bit\"") != 0)
+		return FALSE;
+
+	/* BODYSTRUCTURE checks: */
+	if (data->content_md5 != NULL ||
+	    data->content_disposition != NULL ||
+	    data->content_language != NULL)
+		return FALSE;
+
+	return TRUE;
+}
+
 void imap_bodystructure_write(struct message_part *part,
 			      string_t *dest, int extended)
 {
