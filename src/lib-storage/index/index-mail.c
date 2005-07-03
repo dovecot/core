@@ -777,7 +777,7 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	   header/body */
 	if ((mail->wanted_fields & MAIL_FETCH_MESSAGE_PARTS) != 0) {
 		unsigned int cache_field =
-			cache_fields[MAIL_FETCH_MESSAGE_PARTS].idx;
+			cache_fields[MAIL_CACHE_MESSAGEPART].idx;
 
 		if (mail_cache_field_exists(cache_view, seq, cache_field) <= 0)
 			data->access_part |= PARSE_HDR | PARSE_BODY;
@@ -785,7 +785,7 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 
 	if ((mail->wanted_fields & MAIL_FETCH_VIRTUAL_SIZE) != 0) {
 		unsigned int cache_field =
-			cache_fields[MAIL_FETCH_VIRTUAL_SIZE].idx;
+			cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx;
 
 		if (mail_cache_field_exists(cache_view, seq, cache_field) <= 0)
 			data->access_part |= READ_HDR | READ_BODY;
