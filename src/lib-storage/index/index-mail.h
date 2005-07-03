@@ -23,6 +23,9 @@ enum index_cache_field {
 };
 extern struct mail_cache_field global_cache_fields[MAIL_CACHE_FIELD_COUNT];
 
+#define IMAP_BODY_PLAIN_7BIT_ASCII \
+	"\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\""
+
 enum mail_cache_record_flag {
 	/* If binary flags are set, it's not checked whether mail is
 	   missing CRs. So this flag may be set as an optimization for
@@ -34,7 +37,11 @@ enum mail_cache_record_flag {
 	/* Mail header or body is known to contain NUL characters. */
 	MAIL_CACHE_FLAG_HAS_NULS		= 0x0004,
 	/* Mail header or body is known to not contain NUL characters. */
-	MAIL_CACHE_FLAG_HAS_NO_NULS		= 0x0008
+	MAIL_CACHE_FLAG_HAS_NO_NULS		= 0x0008,
+
+	/* BODY is IMAP_BODY_PLAIN_7BIT_ASCII and rest of BODYSTRUCTURE
+	   fields are NIL */
+	MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII	= 0x0010
 };
 
 enum index_mail_access_part {
@@ -89,6 +96,7 @@ struct index_mail_data {
 	unsigned int parsed_bodystructure:1;
 	unsigned int hdr_size_set:1;
 	unsigned int body_size_set:1;
+	unsigned int messageparts_saved_to_cache:1;
 };
 
 struct index_mail {
