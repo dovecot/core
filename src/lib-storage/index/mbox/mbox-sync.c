@@ -33,6 +33,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "array.h"
 #include "buffer.h"
 #include "hostpid.h"
 #include "istream.h"

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2004 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "buffer.h"
 #include "istream.h"
 #include "ostream.h"

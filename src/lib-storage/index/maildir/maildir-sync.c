@@ -172,6 +172,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "array.h"
 #include "buffer.h"
 #include "hash.h"
 #include "str.h"

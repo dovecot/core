@@ -5,6 +5,7 @@
    UIDs. This is because we're able to compress sequence ranges better. */
 
 #include "lib.h"
+#include "array.h"
 #include "buffer.h"
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"

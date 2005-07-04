@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "array.h"
 #include "buffer.h"
 #include "write-full.h"
 #include "mail-index-private.h"

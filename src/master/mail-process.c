@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "fd-close-on-exec.h"
 #include "env-util.h"
 #include "str.h"

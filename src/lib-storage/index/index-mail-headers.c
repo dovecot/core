@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
+#include "array.h"
 #include "buffer.h"
 #include "str.h"
 #include "message-date.h"

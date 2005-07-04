@@ -1,4 +1,7 @@
+/* Copyright (C) 2004-2005 Timo Sirainen */
+
 #include "lib.h"
+#include "array.h"
 #include "buffer.h"
 #include "istream.h"
 #include "ostream.h"

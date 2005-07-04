@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "network.h"
+#include "array.h"
 #include "str.h"
 #include "safe-memset.h"
 #include "auth-request-handler.h"

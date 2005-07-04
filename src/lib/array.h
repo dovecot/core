@@ -1,8 +1,6 @@
 #ifndef __ARRAY_H
 #define __ARRAY_H
 
-#include "buffer.h"
-
 /* Array is a buffer accessible using fixed size elements. If DEBUG is
    enabled, it also provides compile time type safety:
 
@@ -35,27 +33,17 @@
 	struct foo *foo = array_idx(bars, 0);
    }
 */
-#if defined (DEBUG) && defined (__GNUC__)
-#  define ARRAY_TYPE_CHECKS
-#endif
+#include "array-decl.h"
+#include "buffer.h"
 
 #ifdef ARRAY_TYPE_CHECKS
-#  define ARRAY_DEFINE(name, array_type) name; array_type *name ## __ ## type
-#  define ARRAY_DEFINE_EXTERN(name, array_type) \
-	name; extern array_type *name ## __ ## type
-#  define ARRAY_DEFINE_PTR(name, array_type) \
-	name; array_type **name ## __ ## type
 #  define ARRAY_CREATE(array, pool, array_type, init_count) STMT_START { \
 	array_type **_array_tmp = array ## __ ## type; _array_tmp = NULL; \
 	array_create(array, pool, sizeof(array_type), init_count); \
 	} STMT_END
 #  define ARRAY_SET_TYPE(array, array_type) \
 	array_type **array ## __ ## type = NULL
-#  define ARRAY_INIT { 0, 0 }, 0
 #else
-#  define ARRAY_DEFINE(name, array_type) name
-#  define ARRAY_DEFINE_EXTERN(name, array_type) name
-#  define ARRAY_DEFINE_PTR(name, array_type) name
 #  define ARRAY_CREATE(array, pool, array_type, init_count) \
 	array_create(array, pool, sizeof(array_type), init_count)
 /* The reason we do this for non-ARRAY_TYPE_CHECKS as well is because if we
@@ -67,13 +55,7 @@
    unused-attribute to get rid of that with gcc. */
 #  define ARRAY_SET_TYPE(array, array_type) \
 	array_type **array ## __ ## type __attr_unused__ = NULL
-#  define ARRAY_INIT { 0, 0 }
 #endif
-
-struct array {
-	buffer_t *buffer;
-	size_t element_size;
-};
 
 static inline void
 array_create_from_buffer(array_t *array, buffer_t *buffer, size_t element_size)

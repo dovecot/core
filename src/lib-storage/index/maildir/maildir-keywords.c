@@ -5,6 +5,7 @@
    that would be racy otherwise. */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "hash.h"
 #include "str.h"

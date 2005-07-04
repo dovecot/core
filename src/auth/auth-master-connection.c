@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "buffer.h"
 #include "hash.h"
 #include "str.h"

@@ -1,6 +1,7 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "ioloop.h"
 #include "network.h"
 #include "istream.h"

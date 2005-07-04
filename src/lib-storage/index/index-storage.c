@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "buffer.h"
 #include "ioloop.h"
 #include "mail-index.h"

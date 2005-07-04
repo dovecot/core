@@ -1,6 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "buffer.h"
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"

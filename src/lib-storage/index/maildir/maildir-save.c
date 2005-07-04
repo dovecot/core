@@ -2,6 +2,8 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "array.h"
+#include "buffer.h"
 #include "ostream.h"
 #include "ostream-crlf.h"
 #include "str.h"
