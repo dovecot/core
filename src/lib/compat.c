@@ -3,6 +3,8 @@
 #include "config.h"
 #undef HAVE_CONFIG_H
 
+/* Linux needs the _XOPEN_SOURCE define, but others don't. It needs to be
+   defined before unistd.h, so we need the above config.h include hack.. */
 #ifdef PREAD_WRAPPERS
 #  define _XOPEN_SOURCE 500 /* Linux */
 #endif
