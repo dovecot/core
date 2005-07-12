@@ -74,6 +74,7 @@ liblib_a_SOURCES = \
 
 noinst_HEADERS = \
 	array.h \
+	array-decl.h \
 	base64.h \
 	buffer.h \
 	compat.h \
