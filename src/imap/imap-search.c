@@ -424,7 +424,8 @@ static int imap_search_get_msgset_arg(struct client_command_context *cmd,
 	arg->type = SEARCH_SEQSET;
 	arg->value.seqset = imap_messageset_parse(cmd->pool, messageset);
 	if (arg->value.seqset == NULL ||
-	    arg->value.seqset->seq2 > cmd->client->messages_count) {
+	    (arg->value.seqset->seq2 > cmd->client->messages_count &&
+	     arg->value.seqset->seq2 != (uint32_t)-1)) {
 		*error_r = "Invalid messageset";
 		return -1;
 	}
