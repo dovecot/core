@@ -24,6 +24,7 @@ struct ioloop_notify_handler_context {
 	struct io *event_io;
 
 	buffer_t *buf;
+	int disabled;
 };
 
 static int event_read_next(struct ioloop *ioloop)
