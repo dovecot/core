@@ -9,11 +9,12 @@ struct ioloop {
 	pool_t pool;
 
 	struct io *ios;
-	struct io *notifys, *event_io;
+	struct io *notifys;
 	struct io *next_io;
 	struct timeout *timeouts; /* sorted by next_run */
 
         struct ioloop_handler_data *handler_data;
+        struct ioloop_notify_handler_context *notify_handler_context;
 
 	unsigned int running:1;
 };
@@ -26,6 +27,8 @@ struct io {
 
 	io_callback_t *callback;
         void *context;
+
+        int notify_context;
 };
 
 struct timeout {
@@ -54,6 +57,9 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io);
 
 void io_loop_handler_init(struct ioloop *ioloop);
 void io_loop_handler_deinit(struct ioloop *ioloop);
+
+void io_loop_notify_handler_init(struct ioloop *ioloop);
+void io_loop_notify_handler_deinit(struct ioloop *ioloop);
 
 struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 			      enum io_condition condition,

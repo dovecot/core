@@ -1,4 +1,4 @@
-AC_INIT(dovecot, 1.0-test73, [dovecot@dovecot.org])
+AC_INIT(dovecot, 1.0-test77, [dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AC_CONFIG_HEADERS([config.h])
@@ -56,6 +56,13 @@ AC_ARG_WITH(ioloop,
 [  --with-ioloop=IOLOOP    Specify the I/O loop method to use],
 	ioloop=$withval,
 	ioloop=)
+
+AC_ARG_WITH(notify,
+[  --with-notify=IOLOOP    Specify the file system notification method to use
+                          (dnotify, inotify, none;
+                           default dnotify if compilable, otherwise none)],
+	notify=$withval,
+	notify=)
 
 AC_ARG_WITH(passwd,
 [  --with-passwd           Build with /etc/passwd support (default)],
@@ -324,20 +331,59 @@ if test "$have_ioloop" = "no"; then
   ioloop="select"
 fi
 
-dnl * dnotify?
-AC_TRY_COMPILE([
-  #define _GNU_SOURCE
-  #include <fcntl.h>
-  #include <signal.h>
-  #include <unistd.h>
-], [
-  fcntl(0, F_SETSIG, SIGRTMIN);
-  fcntl(0, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME | DN_MULTISHOT);
-], [
-  AC_DEFINE(IOLOOP_NOTIFY_DNOTIFY,, Use Linux dnotify)
-], [
+have_notify=no
+
+if test "$notify" = "none"; then
   AC_DEFINE(IOLOOP_NOTIFY_NONE,, No special notify support)
-])
+fi
+
+if test "$notify" = "" || test "$notify" = "dnotify"; then
+  dnl * dnotify?
+  AC_TRY_COMPILE([
+    #define _GNU_SOURCE
+    #include <fcntl.h>
+    #include <signal.h>
+    #include <unistd.h>
+  ], [
+    fcntl(0, F_SETSIG, SIGRTMIN);
+    fcntl(0, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME | DN_MULTISHOT);
+  ], [
+    AC_DEFINE(IOLOOP_NOTIFY_DNOTIFY,, Use Linux dnotify)
+    notify=dnotify
+  ], [
+    if test "$notify" = "dnotify"; then
+      AC_MSG_ERROR([dnotify requested but not available])
+    fi
+    notify=none
+    AC_DEFINE(IOLOOP_NOTIFY_NONE,, No special notify support)
+  ])
+fi
+
+if test "$notify" = "inotify"; then
+  dnl * inotify?
+  AC_TRY_COMPILE([
+    #define _GNU_SOURCE
+    #include <sys/ioctl.h>
+    #include <fcntl.h>
+    #include <linux/inotify.h>
+  ], [
+    struct inotify_watch_request req;
+    int wd, dev_fd;
+    char * fn = "/tmp";
+    dev_fd = open ("/dev/inotify", O_RDONLY);
+    req.fd = open (fn, O_RDONLY);
+    if (req.fd < 0) return -1;
+    req.mask = IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MODIFY | IN_ACCESS;
+    wd = ioctl (dev_fd, INOTIFY_WATCH, &req);
+    close(req.fd);
+    ioctl (dev_fd, INOTIFY_IGNORE, &wd);
+  ], [
+    AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
+  ], [
+    AC_MSG_ERROR([inotify requested but not available, check for existence of <linux/inotify.h>])
+    notify=none
+  ])
+fi
 
 dnl * GLIBC?
 AC_TRY_COMPILE([
@@ -1409,6 +1455,7 @@ echo
 echo "Install prefix ...................... : $prefix"
 echo "File offsets ........................ : ${offt_bits}bit"
 echo "I/O loop method ..................... : $ioloop"
+echo "File change notification method ..... : $notify"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $want_ipv6"
 echo "Building with pop3 server ........... : $want_pop3d"

@@ -19,4 +19,12 @@ void io_loop_notify_remove(struct ioloop *ioloop __attr_unused__,
 {
 }
 
+void io_loop_notify_handler_init(struct ioloop *ioloop __attr_unused__)
+{
+}
+
+void io_loop_notify_handler_deinit(struct ioloop *ioloop __attr_unused__)
+{
+}
+
 #endif

@@ -14,6 +14,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+struct ioloop_notify_handler_context {
+	struct io *event_io;
+};
+
 static int event_pipe[2] = { -1, -1 };
 
 static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
@@ -52,50 +56,19 @@ static void event_callback(void *context)
 	}
 }
 
-static int dn_init(void)
-{
-	struct sigaction act;
-
-	if (pipe(event_pipe) < 0) {
-		i_error("pipe() failed: %m");
-		return FALSE;
-	}
-
-	net_set_nonblock(event_pipe[0], TRUE);
-	net_set_nonblock(event_pipe[1], TRUE);
-
-	/* SIGIO is sent if queue gets full. we'll just ignore it. */
-        signal(SIGIO, SIG_IGN);
-
-	act.sa_sigaction = sigrt_handler;
-	sigemptyset(&act.sa_mask);
-	act.sa_flags = SA_SIGINFO | SA_RESTART | SA_NODEFER;
-
-	if (sigaction(SIGRTMIN, &act, NULL) < 0) {
-		i_error("sigaction(SIGRTMIN) failed: %m");
-		close(event_pipe[0]);
-		close(event_pipe[1]);
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 			      enum io_condition condition,
 			      io_callback_t *callback, void *context)
 {
+	struct ioloop_notify_handler_context *ctx =
+		ioloop->notify_handler_context;
 	struct io *io;
 
 	if ((condition & IO_FILE_NOTIFY) != 0)
 		return NULL;
 
-	if (event_pipe[0] == -1) {
-		if (!dn_init())
-			return NULL;
-	}
-	if (ioloop->event_io == NULL) {
-		ioloop->event_io =
+	if (ctx->event_io == NULL) {
+		ctx->event_io =
 			io_add(event_pipe[0], IO_READ, event_callback, ioloop);
 	}
 
@@ -124,6 +97,8 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 
 void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 {
+	struct ioloop_notify_handler_context *ctx =
+		ioloop->notify_handler_context;
 	struct io **io_p;
 
 	for (io_p = &ioloop->notifys; *io_p != NULL; io_p = &(*io_p)->next) {
@@ -141,9 +116,53 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 	p_free(ioloop->pool, io);
 
 	if (ioloop->notifys == NULL) {
-		io_remove(ioloop->event_io);
-		ioloop->event_io = NULL;
+		io_remove(ctx->event_io);
+		ctx->event_io = NULL;
 	}
+}
+
+void io_loop_notify_handler_init(struct ioloop *ioloop)
+{
+	struct ioloop_notify_handler_context *ctx;
+	struct sigaction act;
+
+	i_assert(event_pipe[0] == -1);
+
+	ctx = ioloop->notify_handler_context =
+		i_new(struct ioloop_notify_handler_context, 1);
+
+	if (pipe(event_pipe) < 0) {
+		i_fatal("pipe() failed: %m");
+		return;
+	}
+
+	net_set_nonblock(event_pipe[0], TRUE);
+	net_set_nonblock(event_pipe[1], TRUE);
+
+	/* SIGIO is sent if queue gets full. we'll just ignore it. */
+        signal(SIGIO, SIG_IGN);
+
+	act.sa_sigaction = sigrt_handler;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = SA_SIGINFO | SA_RESTART | SA_NODEFER;
+
+	if (sigaction(SIGRTMIN, &act, NULL) < 0)
+		i_fatal("sigaction(SIGRTMIN) failed: %m");
+}
+
+void io_loop_notify_handler_deinit(struct ioloop *ioloop __attr_unused__)
+{
+	struct ioloop_notify_handler_context *ctx =
+		ioloop->notify_handler_context;
+
+	signal(SIGRTMIN, SIG_IGN);
+
+	if (close(event_pipe[0]) < 0)
+		i_error("close(event_pipe[0]) failed: %m");
+	if (close(event_pipe[1]) < 0)
+		i_error("close(event_pipe[1]) failed: %m");
+
+	i_free(ctx);
 }
 
 #endif

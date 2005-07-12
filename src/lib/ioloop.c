@@ -247,6 +247,7 @@ struct ioloop *io_loop_create(pool_t pool)
 	ioloop->pool = pool;
 
 	io_loop_handler_init(ioloop);
+	io_loop_notify_handler_init(ioloop);
 
 	ioloop->prev = current_ioloop;
         current_ioloop = ioloop;
@@ -275,6 +276,7 @@ void io_loop_destroy(struct ioloop *ioloop)
                 timeout_destroy(ioloop, &ioloop->timeouts);
 	}
 
+	io_loop_notify_handler_deinit(ioloop);
         io_loop_handler_deinit(ioloop);
 
         /* ->prev won't work unless loops are destroyed in create order */
