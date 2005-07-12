@@ -1,11 +1,9 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #ifdef PASSDB_LDAP
 
-#include "common.h"
 #include "hash.h"
 #include "str.h"
 #include "var-expand.h"

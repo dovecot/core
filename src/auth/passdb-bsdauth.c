@@ -1,11 +1,9 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #ifdef PASSDB_BSDAUTH
 
-#include "common.h"
 #include "safe-memset.h"
 #include "passdb.h"
 #include "mycrypt.h"

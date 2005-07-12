@@ -1,11 +1,9 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #ifdef USERDB_PASSDB
 
-#include "common.h"
 #include "str.h"
 #include "var-expand.h"
 #include "userdb.h"

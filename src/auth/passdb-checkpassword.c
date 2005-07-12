@@ -1,9 +1,9 @@
-#include "config.h"
-#undef HAVE_CONFIG_H
+/* Copyright (C) 2004-2005 Timo Sirainen */
+
+#include "common.h"
 
 #ifdef PASSDB_CHECKPASSWORD
 
-#include "common.h"
 #include "buffer.h"
 #include "str.h"
 #include "ioloop.h"

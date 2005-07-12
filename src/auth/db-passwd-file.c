@@ -1,11 +1,9 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #if defined (USERDB_PASSWD_FILE) || defined(PASSDB_PASSWD_FILE)
 
-#include "common.h"
 #include "userdb.h"
 #include "db-passwd-file.h"
 

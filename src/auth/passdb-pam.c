@@ -7,12 +7,10 @@
    modified versions are marked as such.  There's absolutely no warranty.
 */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #ifdef PASSDB_PAM
 
-#include "common.h"
 #include "buffer.h"
 #include "ioloop.h"
 #include "network.h"

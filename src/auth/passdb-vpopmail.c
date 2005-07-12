@@ -2,12 +2,10 @@
 
 /* Thanks to Courier-IMAP for showing how the vpopmail API should be used */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #ifdef PASSDB_VPOPMAIL
 
-#include "common.h"
 #include "safe-memset.h"
 #include "passdb.h"
 #include "password-scheme.h"

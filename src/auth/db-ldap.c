@@ -1,11 +1,9 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #if defined(PASSDB_LDAP) || defined(USERDB_LDAP)
 
-#include "common.h"
 #include "network.h"
 #include "ioloop.h"
 #include "hash.h"

@@ -1,11 +1,9 @@
 /* Copyright (C) 2004 Timo Sirainen, Alex Howansky */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #ifdef PASSDB_SQL
 
-#include "common.h"
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"

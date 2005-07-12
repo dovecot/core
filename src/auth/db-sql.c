@@ -1,10 +1,9 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
-#include "config.h"
-#undef HAVE_CONFIG_H
+#include "common.h"
 
 #if defined(PASSDB_SQL) || defined(USERDB_SQL)
-#include "common.h"
+
 #include "settings.h"
 #include "db-sql.h"
 
