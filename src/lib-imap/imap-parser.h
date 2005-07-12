@@ -2,10 +2,11 @@
 #define __IMAP_PARSER_H
 
 /* FIXME: we don't have ']' here due to FETCH BODY[] handling failing
-   with it.. */
+   with it.. also '%' and '*' are banned due to LIST, and '\' due to it being
+   in flags. oh well.. */
 #define IS_ATOM_SPECIAL(c) \
-	((c) == '(' || (c) == ')' || (c) == '{' || (c) == '%' || (c) == '*' || \
-	 (c) == '"' || (c) == '\\' || (c) <= 32 || (c) == 0x7f)
+	((c) == '(' || (c) == ')' || (c) == '{' || \
+	 (c) == '"' || (c) <= 32 || (c) == 0x7f)
 
 enum imap_parser_flags {
 	/* Set this flag if you wish to read only size of literal argument
