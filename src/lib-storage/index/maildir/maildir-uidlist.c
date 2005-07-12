@@ -466,9 +466,13 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
 
 	uidlist->version = 1;
 
-	if (uidlist->uid_validity == 0)
-		uidlist->uid_validity = ioloop_time;
+	if (uidlist->uid_validity == 0) {
+		/* Get UIDVALIDITY from index */
+		const struct mail_index_header *hdr;
 
+		hdr = mail_index_get_header(uidlist->mbox->ibox.view);
+		uidlist->uid_validity = hdr->uid_validity;
+	}
 	str = t_str_new(4096);
 	str_printfa(str, "%u %u %u\n", uidlist->version,
 		    uidlist->uid_validity, uidlist->next_uid);

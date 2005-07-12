@@ -46,6 +46,7 @@ struct maildir_save_context {
 	time_t received_date;
 	uint32_t seq;
 
+	unsigned int synced:1;
 	unsigned int failed:1;
 };
 
@@ -105,6 +106,8 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->newdir = p_strconcat(pool, mbox->path, "/new", NULL);
 	ctx->curdir = p_strconcat(pool, mbox->path, "/cur", NULL);
 
+	ctx->synced = maildir_sync_is_synced(mbox) > 0;
+
 	ctx->keywords_buffer = buffer_create_const_data(pool, NULL, 0);
 	array_create_from_buffer(&ctx->keywords_array, ctx->keywords_buffer,
 				 sizeof(unsigned int));
@@ -116,7 +119,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 		  enum mail_flags flags, struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset __attr_unused__,
 		  const char *from_envelope __attr_unused__,
-		  struct istream *input, int want_mail __attr_unused__)
+		  struct istream *input, int want_mail)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;
@@ -182,12 +185,22 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 		       sizeof(unsigned int) * keywords->count);
 	}
 
-	/* insert into index */
-	mail_index_append(ctx->trans, 0, &ctx->seq);
-	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE, flags);
-	if (keywords != NULL) {
-		mail_index_update_keywords(ctx->trans, ctx->seq,
-					   MODIFY_REPLACE, keywords);
+	if (!ctx->synced && want_mail) {
+		if (maildir_storage_sync_force(mbox) < 0)
+			ctx->failed = TRUE;
+		else
+			ctx->synced = TRUE;
+	}
+
+	if (ctx->synced) {
+		/* insert into index */
+		mail_index_append(ctx->trans, 0, &ctx->seq);
+		mail_index_update_flags(ctx->trans, ctx->seq,
+					MODIFY_REPLACE, flags);
+		if (keywords != NULL) {
+			mail_index_update_keywords(ctx->trans, ctx->seq,
+						   MODIFY_REPLACE, keywords);
+		}
 	}
 	t_pop();
 
@@ -358,8 +371,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		return -1;
 	}
 
-	first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
-	mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
+	if (ctx->synced) {
+		first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
+		mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
+	}
 
 	flags = MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 		MAILDIR_UIDLIST_REC_FLAG_RECENT;

@@ -732,42 +732,59 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 	return ret < 0 ? -1 : (moves <= MAILDIR_RENAME_RESCAN_COUNT ? 0 : 1);
 }
 
-static int maildir_sync_quick_check(struct maildir_sync_context *ctx,
-				    int *new_changed_r, int *cur_changed_r)
+static void
+maildir_sync_update_from_header(struct maildir_mailbox *mbox)
 {
-	struct maildir_mailbox *mbox = ctx->mbox;
+	uint64_t value;
+
+	/* FIXME: ugly, replace with extension header */
+	value = mail_index_get_header(mbox->ibox.view)->sync_size;
+	mbox->last_new_mtime = value & 0xffffffff;
+	mbox->last_new_sync_time = value >> 32;
+
+	mbox->last_cur_mtime =
+		mail_index_get_header(mbox->ibox.view)->sync_stamp;
+}
+
+static int
+maildir_sync_quick_check(struct maildir_mailbox *mbox,
+			 const char *new_dir, const char *cur_dir,
+			 int *new_changed_r, int *cur_changed_r)
+{
 	struct stat st;
 	time_t new_mtime, cur_mtime;
 
 	*new_changed_r = *cur_changed_r = FALSE;
 
-	if (stat(ctx->new_dir, &st) < 0) {
+	if (stat(new_dir, &st) < 0) {
 		mail_storage_set_critical(STORAGE(mbox->storage),
-					  "stat(%s) failed: %m", ctx->new_dir);
+					  "stat(%s) failed: %m", new_dir);
 		return -1;
 	}
 	new_mtime = st.st_mtime;
 
-	if (stat(ctx->cur_dir, &st) < 0) {
+	if (stat(cur_dir, &st) < 0) {
 		mail_storage_set_critical(STORAGE(mbox->storage),
-					  "stat(%s) failed: %m", ctx->cur_dir);
+					  "stat(%s) failed: %m", cur_dir);
 		return -1;
 	}
 	cur_mtime = st.st_mtime;
 
 	/* cur stamp is kept in index, we don't have to sync if
-	   someone else has done it and updated the index. */
-	mbox->last_cur_mtime =
-		mail_index_get_header(mbox->ibox.view)->sync_stamp;
-	if (mbox->dirty_cur_time == 0 && cur_mtime != mbox->last_cur_mtime) {
+	   someone else has done it and updated the index.
+
+	   FIXME: For now we're using sync_size field as the new/ dir's stamp.
+	   Pretty ugly.. */
+        maildir_sync_update_from_header(mbox);
+	if ((mbox->dirty_cur_time == 0 && cur_mtime != mbox->last_cur_mtime) ||
+	    (new_mtime != mbox->last_new_mtime)) {
 		/* check if the index has been updated.. */
 		if (mail_index_refresh(mbox->ibox.index) < 0) {
 			mail_storage_set_index_error(&mbox->ibox);
 			return -1;
 		}
 
-		mbox->last_cur_mtime =
-			mail_index_get_header(mbox->ibox.view)->sync_stamp;
+		maildir_sync_update_from_header(mbox);
 	}
 
 	if (new_mtime != mbox->last_new_mtime ||
@@ -836,6 +853,8 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	array_t ARRAY_DEFINE(keywords, unsigned int);
 	array_t ARRAY_DEFINE(idx_keywords, unsigned int);
 	uint32_t uid_validity, next_uid;
+	uint64_t value;
+	time_t old_new_sync_time;
 	int ret = 0, full_rescan = FALSE;
 
 	i_assert(maildir_uidlist_is_locked(sync_ctx->mbox->uidlist));
@@ -1057,6 +1076,23 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			&sync_stamp, sizeof(sync_stamp), TRUE);
 	}
 
+	/* FIXME: use a header extension instead of sync_size.. */
+	value = mbox->last_new_mtime;
+	old_new_sync_time = hdr->sync_size >> 32;
+	if (mbox->last_new_mtime >= old_new_sync_time - MAILDIR_SYNC_SECS) {
+		value |= (uint64_t)mbox->last_new_sync_time << 32;
+	} else {
+		value |= (uint64_t)old_new_sync_time << 32;
+	}
+	if (value != hdr->sync_size) {
+		uint64_t sync_stamp = mbox->last_new_mtime |
+			((uint64_t)mbox->last_new_sync_time << 32);
+
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, sync_size),
+			&sync_stamp, sizeof(sync_stamp), TRUE);
+	}
+
 	if (hdr->uid_validity == 0) {
 		/* get the initial uidvalidity */
 		if (maildir_uidlist_update(mbox->uidlist) < 0)
@@ -1124,7 +1160,9 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced,
 	if (sync_last_commit) {
 		new_changed = cur_changed = FALSE;
 	} else if (!forced) {
-		if (maildir_sync_quick_check(ctx, &new_changed, &cur_changed) < 0)
+		if (maildir_sync_quick_check(ctx->mbox,
+					     ctx->new_dir, ctx->cur_dir,
+					     &new_changed, &cur_changed) < 0)
 			return -1;
 
 		if (!new_changed && !cur_changed)
@@ -1285,4 +1323,19 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	}
 
 	return index_mailbox_sync_init(box, flags, ret < 0);
+}
+
+int maildir_sync_is_synced(struct maildir_mailbox *mbox)
+{
+	const char *new_dir, *cur_dir;
+	int ret, new_changed, cur_changed;
+
+	t_push();
+	new_dir = t_strconcat(mbox->path, "/new", NULL);
+	cur_dir = t_strconcat(mbox->path, "/cur", NULL);
+
+	ret = maildir_sync_quick_check(mbox, new_dir, cur_dir,
+				       &new_changed, &cur_changed);
+	t_pop();
+	return ret < 0 ? -1 : (!new_changed && !cur_changed);
 }
