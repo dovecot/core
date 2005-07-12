@@ -9,6 +9,7 @@
 
 #include "ioloop-internal.h"
 #include "network.h"
+#include "fd-close-on-exec.h"
 
 #include <signal.h>
 #include <unistd.h>
@@ -147,6 +148,9 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 
 	net_set_nonblock(event_pipe[0], TRUE);
 	net_set_nonblock(event_pipe[1], TRUE);
+
+	fd_close_on_exec(event_pipe[0], TRUE);
+	fd_close_on_exec(event_pipe[1], TRUE);
 
 	/* SIGIO is sent if queue gets full. we'll just ignore it. */
         signal(SIGIO, SIG_IGN);

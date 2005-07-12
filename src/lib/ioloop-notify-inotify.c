@@ -113,6 +113,7 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 		i_error("ioctl(INOTIFY_WATCH) failed: %m");
 		return NULL;
 	}
+	fd_close_on_exec(watchdescriptor, TRUE);
 
 	if (ctx->event_io == NULL) {
 		ctx->event_io = io_add(ctx->inotify_fd, IO_READ,
@@ -171,6 +172,7 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 		ctx->disabled = TRUE;
 		return;
 	}
+	fd_close_on_exec(ctx->inotify_fd, TRUE);
 
 	ctx->buf = buffer_create_dynamic(default_pool, INITIAL_INOTIFY_BUFLEN);
 }
