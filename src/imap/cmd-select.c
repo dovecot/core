@@ -81,11 +81,6 @@ int _cmd_select_full(struct client_command_context *cmd, int readonly)
 			 t_strdup_printf("* OK [UIDNEXT %u] Predicted next UID",
 					 status.uidnext));
 
-	if (status.diskspace_full) {
-		client_send_line(client, "* OK [ALERT] "
-				 "Disk space is full, delete some messages.");
-	}
-
 	client_send_tagline(cmd, mailbox_is_readonly(box) ?
 			    "OK [READ-ONLY] Select completed." :
 			    "OK [READ-WRITE] Select completed.");

@@ -167,8 +167,6 @@ struct mailbox_status {
 
 	uint32_t first_unseen_seq;
 
-	unsigned int diskspace_full:1;
-
 	const array_t *ARRAY_DEFINE_PTR(keywords, const char *);
 };
 
