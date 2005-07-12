@@ -526,7 +526,7 @@ message_skip_boundary(struct message_parser_ctx *parser_ctx,
 	struct message_boundary *boundary;
 	const unsigned char *msg;
 	size_t size;
-	int end_boundary;
+	int end_boundary, i, line_count = 1;
 
 	boundary = message_find_boundary(parser_ctx->input, boundaries,
 					 boundary_size, has_nuls);
@@ -543,6 +543,7 @@ message_skip_boundary(struct message_parser_ctx *parser_ctx,
 	}
 	if (msg[0] == '\n') {
 		msg++; size--;
+		line_count++;
 	}
 	i_assert(size >= 2 && msg[0] == '-' && msg[1] == '-');
 	msg += 2; size -= 2;
@@ -555,9 +556,12 @@ message_skip_boundary(struct message_parser_ctx *parser_ctx,
 	   change boundary_size to be the found boundary's parent part */
 	boundary_size = &boundary->part->body_size;
 
-	/* skip the rest of the line */
-	message_skip_line(parser_ctx->input, boundary_size,
-			  !end_boundary, has_nuls);
+	/* skip the rest of the line. we probably have to skip two lines
+	   because input is positioned to end of boundary's previous line */
+	for (i = 0; i < line_count; i++) {
+		message_skip_line(parser_ctx->input, boundary_size,
+				  !end_boundary, has_nuls);
+	}
 
 	if (end_boundary) {
 		/* skip the footer */
