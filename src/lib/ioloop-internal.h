@@ -13,7 +13,7 @@ struct ioloop {
 	struct io *next_io;
 	struct timeout *timeouts; /* sorted by next_run */
 
-        struct ioloop_handler_data *handler_data;
+        struct ioloop_handler_context *handler_context;
         struct ioloop_notify_handler_context *notify_handler_context;
 
 	unsigned int running:1;

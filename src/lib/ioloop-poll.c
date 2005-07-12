@@ -13,7 +13,7 @@
 #  define INITIAL_POLL_FDS 128
 #endif
 
-struct ioloop_handler_data {
+struct ioloop_handler_context {
 	unsigned int fds_size, fds_pos;
 	struct pollfd *fds;
 
@@ -23,23 +23,23 @@ struct ioloop_handler_data {
 
 void io_loop_handler_init(struct ioloop *ioloop)
 {
-	struct ioloop_handler_data *data;
+	struct ioloop_handler_context *ctx;
 
-	ioloop->handler_data = data =
-		p_new(ioloop->pool, struct ioloop_handler_data, 1);
-	data->fds_size = INITIAL_POLL_FDS;
-	data->fds = p_new(ioloop->pool, struct pollfd, data->fds_size);
+	ioloop->handler_context = ctx =
+		p_new(ioloop->pool, struct ioloop_handler_context, 1);
+	ctx->fds_size = INITIAL_POLL_FDS;
+	ctx->fds = p_new(ioloop->pool, struct pollfd, ctx->fds_size);
 
-	data->idx_size = INITIAL_POLL_FDS;
-	data->fd_index = p_new(ioloop->pool, int, data->idx_size);
-        memset(data->fd_index, 0xff, sizeof(int) * data->idx_size);
+	ctx->idx_size = INITIAL_POLL_FDS;
+	ctx->fd_index = p_new(ioloop->pool, int, ctx->idx_size);
+        memset(ctx->fd_index, 0xff, sizeof(int) * ctx->idx_size);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
-        p_free(ioloop->pool, ioloop->handler_data->fds);
-        p_free(ioloop->pool, ioloop->handler_data->fd_index);
-        p_free(ioloop->pool, ioloop->handler_data);
+        p_free(ioloop->pool, ioloop->handler_context->fds);
+        p_free(ioloop->pool, ioloop->handler_context->fd_index);
+        p_free(ioloop->pool, ioloop->handler_context);
 }
 
 #define IO_POLL_INPUT (POLLIN|POLLPRI|POLLERR|POLLHUP|POLLNVAL)
@@ -47,89 +47,89 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
-	struct ioloop_handler_data *data = ioloop->handler_data;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	enum io_condition condition = io->condition;
 	unsigned int old_size;
 	int index, fd = io->fd;
 
-	if ((unsigned int) fd >= data->idx_size) {
+	if ((unsigned int)fd >= ctx->idx_size) {
                 /* grow the fd -> index array */
-		old_size = data->idx_size;
+		old_size = ctx->idx_size;
 
-		data->idx_size = nearest_power((unsigned int) fd+1);
-		i_assert(data->idx_size < (size_t)-1 / sizeof(int));
+		ctx->idx_size = nearest_power((unsigned int) fd+1);
+		i_assert(ctx->idx_size < (size_t)-1 / sizeof(int));
 
-		data->fd_index = p_realloc(ioloop->pool, data->fd_index,
-					   sizeof(int) * old_size,
-					   sizeof(int) * data->idx_size);
-		memset(data->fd_index + old_size, 0xff,
-		       sizeof(int) * (data->idx_size-old_size));
+		ctx->fd_index = p_realloc(ioloop->pool, ctx->fd_index,
+					  sizeof(int) * old_size,
+					  sizeof(int) * ctx->idx_size);
+		memset(ctx->fd_index + old_size, 0xff,
+		       sizeof(int) * (ctx->idx_size-old_size));
 	}
 
-	if (data->fds_pos >= data->fds_size) {
+	if (ctx->fds_pos >= ctx->fds_size) {
 		/* grow the fd array */
-		old_size = data->fds_size;
+		old_size = ctx->fds_size;
 
-		data->fds_size = nearest_power(data->fds_size+1);
-		i_assert(data->fds_size < (size_t)-1 / sizeof(struct pollfd));
+		ctx->fds_size = nearest_power(ctx->fds_size+1);
+		i_assert(ctx->fds_size < (size_t)-1 / sizeof(struct pollfd));
 
-		data->fds = p_realloc(ioloop->pool, data->fds,
-				      sizeof(struct pollfd) * old_size,
-				      sizeof(struct pollfd) * data->fds_size);
+		ctx->fds = p_realloc(ioloop->pool, ctx->fds,
+				     sizeof(struct pollfd) * old_size,
+				     sizeof(struct pollfd) * ctx->fds_size);
 	}
 
-	if (data->fd_index[fd] != -1) {
+	if (ctx->fd_index[fd] != -1) {
 		/* update existing pollfd */
-                index = data->fd_index[fd];
+                index = ctx->fd_index[fd];
 	} else {
                 /* add new pollfd */
-                index = data->fds_pos++;
+                index = ctx->fds_pos++;
 
-		data->fd_index[fd] = index;
-		data->fds[index].fd = fd;
-		data->fds[index].events = 0;
-		data->fds[index].revents = 0;
+		ctx->fd_index[fd] = index;
+		ctx->fds[index].fd = fd;
+		ctx->fds[index].events = 0;
+		ctx->fds[index].revents = 0;
 	}
 
         if (condition & IO_READ)
-		data->fds[index].events |= IO_POLL_INPUT;
+		ctx->fds[index].events |= IO_POLL_INPUT;
         if (condition & IO_WRITE)
-		data->fds[index].events |= IO_POLL_OUTPUT;
+		ctx->fds[index].events |= IO_POLL_OUTPUT;
 }
 
 void io_loop_handle_remove(struct ioloop *ioloop,  struct io *io)
 {
-	struct ioloop_handler_data *data = ioloop->handler_data;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	enum io_condition condition = io->condition;
 	int index, fd = io->fd;
 
-	index = data->fd_index[fd];
-	i_assert(index >= 0 && (unsigned int) index < data->fds_size);
+	index = ctx->fd_index[fd];
+	i_assert(index >= 0 && (unsigned int) index < ctx->fds_size);
 
 	if (condition & IO_READ) {
-		data->fds[index].events &= ~(POLLIN|POLLPRI);
-		data->fds[index].revents &= ~(POLLIN|POLLPRI);
+		ctx->fds[index].events &= ~(POLLIN|POLLPRI);
+		ctx->fds[index].revents &= ~(POLLIN|POLLPRI);
 	}
 	if (condition & IO_WRITE) {
-		data->fds[index].events &= ~POLLOUT;
-		data->fds[index].revents &= ~POLLOUT;
+		ctx->fds[index].events &= ~POLLOUT;
+		ctx->fds[index].revents &= ~POLLOUT;
 	}
 
-	if ((data->fds[index].events & (POLLIN|POLLOUT)) == 0) {
+	if ((ctx->fds[index].events & (POLLIN|POLLOUT)) == 0) {
 		/* remove the whole pollfd */
-		data->fd_index[data->fds[index].fd] = -1;
-		if (--data->fds_pos == (unsigned int) index)
+		ctx->fd_index[ctx->fds[index].fd] = -1;
+		if (--ctx->fds_pos == (unsigned int) index)
                         return; /* removing last one */
 
                 /* move the last pollfd over the removed one */
-		data->fds[index] = data->fds[data->fds_pos];
-		data->fd_index[data->fds[index].fd] = index;
+		ctx->fds[index] = ctx->fds[ctx->fds_pos];
+		ctx->fd_index[ctx->fds[index].fd] = index;
 	}
 }
 
 void io_loop_handler_run(struct ioloop *ioloop)
 {
-	struct ioloop_handler_data *data = ioloop->handler_data;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
         struct pollfd *pollfd;
         struct timeval tv;
 	struct io *io;
@@ -139,7 +139,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
 
-	ret = poll(data->fds, data->fds_pos, msecs);
+	ret = poll(ctx->fds, ctx->fds_pos, msecs);
 	if (ret < 0 && errno != EINTR)
 		i_fatal("poll(): %m");
 
@@ -154,7 +154,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	for (io = ioloop->ios; io != NULL && ret > 0; io = ioloop->next_io) {
 		ioloop->next_io = io->next;
 
-		pollfd = &data->fds[data->fd_index[io->fd]];
+		pollfd = &ctx->fds[ctx->fd_index[io->fd]];
 		if (pollfd->revents != 0) {
 			if (pollfd->revents & POLLNVAL) {
 				i_error("invalid I/O fd %d, callback %p",

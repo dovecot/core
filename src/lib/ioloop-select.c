@@ -11,7 +11,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-struct ioloop_handler_data {
+struct ioloop_handler_context {
 	int highest_fd;
 	fd_set read_fds, write_fds;
 };
@@ -23,31 +23,32 @@ static void update_highest_fd(struct ioloop *ioloop)
         struct io *io;
 	int max_highest_fd;
 
-        max_highest_fd = ioloop->handler_data->highest_fd-1;
-	ioloop->handler_data->highest_fd = -1;
+        max_highest_fd = ioloop->handler_context->highest_fd-1;
+	ioloop->handler_context->highest_fd = -1;
 
 	for (io = ioloop->ios; io != NULL; io = io->next) {
-		if (io->fd > ioloop->handler_data->highest_fd) {
-			ioloop->handler_data->highest_fd = io->fd;
+		if (io->fd <= ioloop->handler_context->highest_fd)
+			continue;
 
-			if (ioloop->handler_data->highest_fd == max_highest_fd)
-                                break;
-		}
+		ioloop->handler_context->highest_fd = io->fd;
+
+		if (ioloop->handler_context->highest_fd == max_highest_fd)
+			break;
 	}
 }
 
 void io_loop_handler_init(struct ioloop *ioloop)
 {
-	ioloop->handler_data =
-		p_new(ioloop->pool, struct ioloop_handler_data, 1);
-	ioloop->handler_data->highest_fd = -1;
-        FD_ZERO(&ioloop->handler_data->read_fds);
-	FD_ZERO(&ioloop->handler_data->write_fds);
+	ioloop->handler_context =
+		p_new(ioloop->pool, struct ioloop_handler_context, 1);
+	ioloop->handler_context->highest_fd = -1;
+        FD_ZERO(&ioloop->handler_context->read_fds);
+	FD_ZERO(&ioloop->handler_context->write_fds);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
-        p_free(ioloop->pool, ioloop->handler_data);
+        p_free(ioloop->pool, ioloop->handler_context);
 }
 
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
@@ -61,12 +62,12 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 		i_fatal("fd %d too large for select()", fd);
 
         if (condition & IO_READ)
-		FD_SET(fd, &ioloop->handler_data->read_fds);
+		FD_SET(fd, &ioloop->handler_context->read_fds);
         if (condition & IO_WRITE)
-		FD_SET(fd, &ioloop->handler_data->write_fds);
+		FD_SET(fd, &ioloop->handler_context->write_fds);
 
-	if (io->fd > ioloop->handler_data->highest_fd)
-		ioloop->handler_data->highest_fd = io->fd;
+	if (io->fd > ioloop->handler_context->highest_fd)
+		ioloop->handler_context->highest_fd = io->fd;
 }
 
 void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
@@ -77,12 +78,12 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	i_assert(fd >= 0 && fd < FD_SETSIZE);
 
         if (condition & IO_READ)
-		FD_CLR(fd, &ioloop->handler_data->read_fds);
+		FD_CLR(fd, &ioloop->handler_context->read_fds);
         if (condition & IO_WRITE)
-		FD_CLR(fd, &ioloop->handler_data->write_fds);
+		FD_CLR(fd, &ioloop->handler_context->write_fds);
 
 	/* check if we removed the highest fd */
-	if (io->fd == ioloop->handler_data->highest_fd)
+	if (io->fd == ioloop->handler_context->highest_fd)
 		update_highest_fd(ioloop);
 }
 
@@ -100,11 +101,12 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	/* get the time left for next timeout task */
 	io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
 
-        memcpy(&tmp_read_fds, &ioloop->handler_data->read_fds, sizeof(fd_set));
-	memcpy(&tmp_write_fds, &ioloop->handler_data->write_fds,
+	memcpy(&tmp_read_fds, &ioloop->handler_context->read_fds,
+	       sizeof(fd_set));
+	memcpy(&tmp_write_fds, &ioloop->handler_context->write_fds,
 	       sizeof(fd_set));
 
-	ret = select(ioloop->handler_data->highest_fd + 1,
+	ret = select(ioloop->handler_context->highest_fd + 1,
 		     &tmp_read_fds, &tmp_write_fds, NULL, &tv);
 	if (ret < 0 && errno != EINTR)
 		i_warning("select() : %m");

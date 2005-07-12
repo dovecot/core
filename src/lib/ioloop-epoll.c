@@ -28,7 +28,7 @@ enum {
 	EPOLL_IOS_PER_FD
 };
 
-struct ioloop_handler_data {
+struct ioloop_handler_context {
 	int epfd;
 	int events_size, events_pos;
 	struct epoll_event *events;
@@ -43,32 +43,32 @@ struct io_list {
 
 void io_loop_handler_init(struct ioloop *ioloop)
 {
-	struct ioloop_handler_data *data;
+	struct ioloop_handler_context *ctx;
 
-	ioloop->handler_data = data =
-		p_new(ioloop->pool, struct ioloop_handler_data, 1);
+	ioloop->handler_context = ctx =
+		p_new(ioloop->pool, struct ioloop_handler_context, 1);
 
-	data->events_pos = 0;
-	data->events_size = INITIAL_EPOLL_EVENTS;
-	data->events = p_new(ioloop->pool, struct epoll_event,
-			     data->events_size);
+	ctx->events_pos = 0;
+	ctx->events_size = INITIAL_EPOLL_EVENTS;
+	ctx->events = p_new(ioloop->pool, struct epoll_event,
+			    ctx->events_size);
 
-	data->idx_size = INITIAL_EPOLL_EVENTS;
-	data->fd_index = p_new(ioloop->pool, struct io_list *, data->idx_size);
+	ctx->idx_size = INITIAL_EPOLL_EVENTS;
+	ctx->fd_index = p_new(ioloop->pool, struct io_list *, ctx->idx_size);
 
-	data->epfd = epoll_create(INITIAL_EPOLL_EVENTS);
-	if (data->epfd < 0)
+	ctx->epfd = epoll_create(INITIAL_EPOLL_EVENTS);
+	if (ctx->epfd < 0)
 		i_fatal("epoll_create(): %m");
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
-	struct ioloop_handler_data *data = ioloop->handler_data;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
 
-	close(data->epfd);
-	p_free(ioloop->pool, ioloop->handler_data->events);
-	p_free(ioloop->pool, ioloop->handler_data->fd_index);
-	p_free(ioloop->pool, ioloop->handler_data);
+	close(ctx->epfd);
+	p_free(ioloop->pool, ioloop->handler_context->events);
+	p_free(ioloop->pool, ioloop->handler_context->fd_index);
+	p_free(ioloop->pool, ioloop->handler_context);
 }
 
 #define IO_EPOLL_INPUT	(EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP)
@@ -128,27 +128,27 @@ static int iolist_del(struct io_list *list, struct io *io)
 
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
-	struct ioloop_handler_data *data = ioloop->handler_data;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list *list;
 	struct epoll_event event;
 	int ret, first, op, fd = io->fd;
 
-	list = data->fd_index[fd];
+	list = ctx->fd_index[fd];
 	if (list == NULL) {
-		if ((unsigned int) fd >= data->idx_size) {
+		if ((unsigned int) fd >= ctx->idx_size) {
                 	/* grow the fd -> iolist array */
-			unsigned int old_size = data->idx_size;
+			unsigned int old_size = ctx->idx_size;
 
-			data->idx_size = nearest_power((unsigned int) fd+1);
+			ctx->idx_size = nearest_power((unsigned int) fd+1);
 
-			i_assert(data->idx_size < (size_t)-1 / sizeof(int));
+			i_assert(ctx->idx_size < (size_t)-1 / sizeof(int));
 
-			data->fd_index = p_realloc(ioloop->pool, data->fd_index,
-						   sizeof(int) * old_size,
-						   sizeof(int) * data->idx_size);
+			ctx->fd_index = p_realloc(ioloop->pool, ctx->fd_index,
+						  sizeof(int) * old_size,
+						  sizeof(int) * ctx->idx_size);
 		}
 
-		data->fd_index[fd] = list =
+		ctx->fd_index[fd] = list =
 			p_new(ioloop->pool, struct io_list, 1);
 	}
 
@@ -159,25 +159,25 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 
 	op = first ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
 
-	ret = epoll_ctl(data->epfd, op, fd, &event);
+	ret = epoll_ctl(ctx->epfd, op, fd, &event);
 	if (ret < 0)
 		i_fatal("epoll_ctl(): %m");
 
-	if (data->events_pos >= data->events_size) {
-		data->events_size = nearest_power(data->events_size + 1);
+	if (ctx->events_pos >= ctx->events_size) {
+		ctx->events_size = nearest_power(ctx->events_size + 1);
 
-		p_free(ioloop->pool, data->events);
-		data->events = p_new(ioloop->pool, struct epoll_event,
-				     data->events_size);
+		p_free(ioloop->pool, ctx->events);
+		ctx->events = p_new(ioloop->pool, struct epoll_event,
+				    ctx->events_size);
 	}
 
-	data->events_pos++;
+	ctx->events_pos++;
 }
 
 void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 {
-	struct ioloop_handler_data *data = ioloop->handler_data;
-	struct io_list *list = data->fd_index[io->fd];
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	struct io_list *list = ctx->fd_index[io->fd];
 	struct epoll_event event;
 	int ret, last, op;
 
@@ -188,16 +188,16 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 
 	op = last ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
 
-	ret = epoll_ctl(data->epfd, op, io->fd, &event);
+	ret = epoll_ctl(ctx->epfd, op, io->fd, &event);
 	if (ret < 0 && errno != EBADF)
 		i_fatal("epoll_ctl(): %m");
 
-	data->events_pos--;
+	ctx->events_pos--;
 }
 
 void io_loop_handler_run(struct ioloop *ioloop)
 {
-	struct ioloop_handler_data *data = ioloop->handler_data;
+	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct epoll_event *event;
 	struct io_list *list;
 	struct io *io;
@@ -208,7 +208,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
 
-	ret = epoll_wait(data->epfd, data->events, data->events_size, msecs);
+	ret = epoll_wait(ctx->epfd, ctx->events, ctx->events_size, msecs);
 	if (ret < 0 && errno != EINTR)
 		i_fatal("epoll_wait(): %m");
 
@@ -220,7 +220,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		return;
 	}
 
-	event = data->events;
+	event = ctx->events;
 	while (ret-- > 0) {
 		list = event->data.ptr;
 
