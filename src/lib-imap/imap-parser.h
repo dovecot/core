@@ -1,6 +1,10 @@
 #ifndef __IMAP_PARSER_H
 #define __IMAP_PARSER_H
 
+#define IS_ATOM_SPECIAL(c) \
+	((c) == '(' || (c) == ')' || (c) == '{' || (c) == '%' || (c) == '*' || \
+	 (c) == '"' || (c) == '\\' || (c) == ']' || (c) <= 32 || (c) == 0x7f)
+
 enum imap_parser_flags {
 	/* Set this flag if you wish to read only size of literal argument
 	   and not convert literal into string. Useful when you need to deal
