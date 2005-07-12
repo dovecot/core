@@ -3,7 +3,7 @@
 
 /* default lib includes */
 #ifdef HAVE_CONFIG_H
-#  include "../../config.h"
+#  include "config.h"
 #endif
 
 /* default system includes - keep these at minimum.. */

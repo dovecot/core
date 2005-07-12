@@ -2,7 +2,7 @@
 
 /* kludge a bit to remove _FILE_OFFSET_BITS definition from config.h.
    It's required to be able to include sys/sendfile.h with Linux. */
-#include "../../config.h"
+#include "config.h"
 #undef HAVE_CONFIG_H
 
 #ifdef HAVE_LINUX_SENDFILE
