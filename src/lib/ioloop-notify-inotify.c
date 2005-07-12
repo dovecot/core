@@ -94,17 +94,13 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 		ioloop->notify_handler_context;
 	struct io *io;
 	struct inotify_watch_request req;
-	int added = FALSE;
 	int watchdescriptor;
 
 	if ((condition & IO_FILE_NOTIFY) != 0)
 		return NULL;
 
-	if (ctx->event_io == NULL) {
-		added = TRUE;
-		ctx->event_io = io_add(ctx->inotify_fd, IO_READ,
-				       event_callback, ioloop);
-	}
+	if (ctx->disabled)
+		return NULL;
 
 	/* now set up the notification request and shoot it off */
 	req.fd = fd;
@@ -112,12 +108,14 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 	watchdescriptor = ioctl(ctx->inotify_fd, INOTIFY_WATCH, &req);
 	
 	if (watchdescriptor < 0) {
+		ctx->disabled = TRUE;
 		i_error("ioctl(INOTIFY_WATCH) failed: %m");
-		if (added) {
-			io_remove(ctx->event_io);
-			ctx->event_io = NULL;
-		}
 		return NULL;
+	}
+
+	if (ctx->event_io == NULL) {
+		ctx->event_io = io_add(ctx->inotify_fd, IO_READ,
+				       event_callback, ioloop);
 	}
 
 	io = p_new(ioloop->pool, struct io, 1);
@@ -138,6 +136,9 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 	struct io **io_p;
+
+	if (ctx->disabled)
+		return;
 
 	for (io_p = &ioloop->notifys; *io_p != NULL; io_p = &(*io_p)->next) {
 		if (*io_p == io) {
@@ -165,8 +166,10 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 		i_new(struct ioloop_notify_handler_context, 1);
 
 	ctx->inotify_fd = open("/dev/inotify", O_RDONLY);
-	if (ctx->inotify_fd < 0)
-		i_fatal("open(/dev/inotify) failed: %m");
+	if (ctx->inotify_fd < 0) {
+		ctx->disabled = TRUE;
+		return;
+	}
 
 	ctx->buf = buffer_create_dynamic(default_pool, INITIAL_INOTIFY_BUFLEN);
 }

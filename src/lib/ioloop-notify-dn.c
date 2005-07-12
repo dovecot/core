@@ -16,6 +16,7 @@
 
 struct ioloop_notify_handler_context {
 	struct io *event_io;
+	int disabled;
 };
 
 static int event_pipe[2] = { -1, -1 };
@@ -67,12 +68,12 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 	if ((condition & IO_FILE_NOTIFY) != 0)
 		return NULL;
 
-	if (ctx->event_io == NULL) {
-		ctx->event_io =
-			io_add(event_pipe[0], IO_READ, event_callback, ioloop);
-	}
-
 	if (fcntl(fd, F_SETSIG, SIGRTMIN) < 0) {
+		if (errno == EINVAL) {
+			/* dnotify not in kernel. disable it. */
+			ctx->disabled = TRUE;
+			return NULL;
+		}
 		i_error("fcntl(F_SETSIG) failed: %m");
 		return FALSE;
 	}
@@ -81,6 +82,11 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 		i_error("fcntl(F_NOTIFY) failed: %m");
 		(void)fcntl(fd, F_SETSIG, 0);
 		return FALSE;
+	}
+
+	if (ctx->event_io == NULL) {
+		ctx->event_io =
+			io_add(event_pipe[0], IO_READ, event_callback, ioloop);
 	}
 
 	io = p_new(ioloop->pool, struct io, 1);
@@ -100,6 +106,9 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 	struct io **io_p;
+
+	if (ctx->disabled)
+		return;
 
 	for (io_p = &ioloop->notifys; *io_p != NULL; io_p = &(*io_p)->next) {
 		if (*io_p == io) {
