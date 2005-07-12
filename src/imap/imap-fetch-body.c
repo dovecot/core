@@ -343,23 +343,6 @@ static void header_filter_eoh(struct message_header_line *hdr,
 		ctx->cur_have_eoh = TRUE;
 }
 
-static void header_filter_mime(struct message_header_line *hdr,
-			       int *matched, void *context)
-{
-	struct imap_fetch_context *ctx = context;
-
-	if (hdr == NULL)
-		return;
-
-	if (hdr->eoh) {
-		ctx->cur_have_eoh = TRUE;
-		return;
-	}
-
-	*matched = strncasecmp(hdr->name, "Content-", 8) == 0 ||
-		strcasecmp(hdr->name, "Mime-Version") == 0;
-}
-
 static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 				     const struct imap_fetch_body_data *body,
 				     const char *header_section)
@@ -383,12 +366,6 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 						      body->fields,
 						      body->fields_count,
 						      header_filter_eoh, ctx);
-	} else if (strcmp(header_section, "MIME") == 0) {
-		/* Mime-Version + Content-* fields */
-		input = i_stream_create_header_filter(ctx->cur_input,
-						      HEADER_FILTER_INCLUDE,
-						      NULL, 0,
-						      header_filter_mime, ctx);
 	} else {
 		i_error("BUG: Accepted invalid section from user: '%s'",
 			header_section);
@@ -494,10 +471,9 @@ static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 
 		if (part != NULL &&
 		    (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) &&
-		    ((*path >= '0' && *path <= '9') ||
-		     strncmp(path, "HEADER", 6) == 0)) {
-			/* if remainder of path is a number or "HEADER",
-			   skip the message/rfc822 part */
+		    (*path >= '0' && *path <= '9')) {
+			/* if we continue inside the message/rfc822, skip this
+			   body part */
 			part = part->children;
 		}
 	}
@@ -533,7 +509,32 @@ static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
 	i_stream_ref(ctx->cur_input);
 	ctx->update_partial = TRUE;
 
-	if (*section == '\0' || strcmp(section, "TEXT") == 0) {
+	if (*section == '\0') {
+		/* fetch the whole section */
+		i_stream_seek(ctx->cur_input, part->physical_pos +
+			      part->header_size.physical_size);
+		return fetch_data(ctx, body, &part->body_size);
+	}
+
+	if (strcmp(section, "MIME") == 0) {
+		/* fetch section's MIME header */
+		i_stream_seek(ctx->cur_input, part->physical_pos);
+		return fetch_data(ctx, body, &part->header_size);
+	}
+
+	/* TEXT and HEADER are only for message/rfc822 parts */
+	if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0) {
+		string_t *str = get_prefix(ctx, body, 0);
+		if (o_stream_send(ctx->client->output,
+				  str_data(str), str_len(str)) < 0)
+			return -1;
+		return 1;
+	}
+
+	i_assert(part->children != NULL && part->children->next == NULL);
+	part = part->children;
+
+	if (strcmp(section, "TEXT") == 0) {
 		i_stream_seek(ctx->cur_input, part->physical_pos +
 			      part->header_size.physical_size);
 		return fetch_data(ctx, body, &part->body_size);
@@ -545,8 +546,7 @@ static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
 		return fetch_data(ctx, body, &part->header_size);
 	}
 
-	if (strncmp(section, "HEADER", 6) == 0 ||
-	    strcmp(section, "MIME") == 0) {
+	if (strncmp(section, "HEADER", 6) == 0) {
 		i_stream_seek(ctx->cur_input, part->physical_pos);
 		return fetch_header_partial_from(ctx, body, section);
 	}
