@@ -860,7 +860,6 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 		       mailbox_notify_callback_t *callback, void *context)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
-        struct index_storage *istorage = INDEX_STORAGE(mbox->storage);
 
 	mbox->ibox.min_notify_interval = min_interval;
 	mbox->ibox.notify_callback = callback;
@@ -872,9 +871,9 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 	}
 
 	index_mailbox_check_add(&mbox->ibox,
-		t_strconcat(istorage->dir, "/new", NULL), TRUE);
+		t_strconcat(mbox->path, "/new", NULL), TRUE);
 	index_mailbox_check_add(&mbox->ibox,
-		t_strconcat(istorage->dir, "/cur", NULL), TRUE);
+		t_strconcat(mbox->path, "/cur", NULL), TRUE);
 }
 
 struct mail_storage maildir_storage = {
