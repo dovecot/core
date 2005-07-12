@@ -374,10 +374,13 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 		if (!mbox->ibox.keep_recent)
 			save_flags &= ~MAIL_RECENT;
 
-		// FIXME: set keywords
 		mail_index_append(ctx->trans, ctx->next_uid, &ctx->seq);
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 					save_flags);
+		if (keywords != NULL) {
+			mail_index_update_keywords(ctx->trans, ctx->seq,
+						   MODIFY_REPLACE, keywords);
+		}
 
 		offset = ctx->output->offset == 0 ? 0 :
 			ctx->output->offset - 1;
@@ -385,6 +388,7 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 				      mbox->mbox_ext_idx, &offset, NULL);
 		ctx->next_uid++;
 
+		/* parse and cache the mail headers as we read it */
 		if (ctx->mail == NULL)
 			ctx->mail = index_mail_alloc(_t, 0, NULL);
 		mail_set_seq(ctx->mail, ctx->seq);
