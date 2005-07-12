@@ -10,7 +10,6 @@ struct fetch_context {
 	const char **keywords;
 	unsigned int keywords_count;
 
-	//struct mail_fetch_data *fetch_data;
 	struct ostream *output;
 	string_t *str;
 	int update_seen, failed;
