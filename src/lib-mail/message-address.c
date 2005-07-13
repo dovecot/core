@@ -140,6 +140,10 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 		return -1;
 
 	ctx->addr.name = p_strdup(ctx->pool, str_c(ctx->str));
+	if (*ctx->addr.name == '\0') {
+		/* Cope with "<address>" without display name */
+		ctx->addr.name = NULL;
+	}
 	if (parse_angle_addr(ctx) < 0) {
 		/* broken */
 		ctx->addr.domain = p_strdup(ctx->pool, "SYNTAX_ERROR");
