@@ -169,7 +169,7 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	struct mail_index_map *new_map;
 	struct mail_index_ext *ext, **sorted;
 	struct mail_index_ext_header *ext_hdr;
-	uint16_t *old_offsets, min_align;
+	uint16_t *old_offsets, min_align, max_align;
 	uint32_t offset, old_records_count, rec_idx;
 	unsigned int i, count;
 	const void *src;
@@ -192,9 +192,13 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 	   requirement first. FIXME: if the extension sizes don't match
 	   alignmentation, this may not give the minimal layout. */
 	offset = sizeof(struct mail_index_record);
+	max_align = sizeof(uint32_t);
 	for (;;) {
 		min_align = (uint16_t)-1;
 		for (i = 0; i < count; i++) {
+			if (sorted[i]->record_align > max_align)
+				max_align = sorted[i]->record_align;
+
 			if (sorted[i]->record_offset == 0) {
 				if ((offset % sorted[i]->record_align) == 0)
 					break;
@@ -218,9 +222,9 @@ sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id, uint16_t old_size)
 		i_assert(offset < (uint16_t)-1);
 	}
 
-	if ((offset % sizeof(uint32_t)) != 0) {
-		/* keep 32bit alignment */
-		offset += sizeof(uint32_t) - (offset % sizeof(uint32_t));
+	if ((offset % max_align) != 0) {
+		/* keep record size divisible with maximum alignment */
+		offset += max_align - (offset % max_align);
 	}
 
 	/* create a new mapping without records. a bit kludgy. */
