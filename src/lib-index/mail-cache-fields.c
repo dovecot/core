@@ -93,8 +93,10 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 	unsigned int i;
 
 	list = p_new(pool, struct mail_cache_field, cache->fields_count);
-	for (i = 0; i < cache->fields_count; i++)
+	for (i = 0; i < cache->fields_count; i++) {
 		list[i] = cache->fields[i].field;
+		list[i].name = p_strdup(pool, list[i].name);
+	}
 
 	*count_r = cache->fields_count;
 	return list;
