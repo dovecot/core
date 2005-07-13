@@ -37,13 +37,11 @@ static int header_line_cmp(const void *p1, const void *p2)
 static void index_mail_parse_header_finish(struct index_mail *mail)
 {
 	struct index_mail_line *lines;
-	const struct mail_cache_field *all_cache_fields;
 	const unsigned char *header, *data;
 	const uint8_t *match;
 	buffer_t *buf;
 	size_t data_size;
 	unsigned int i, j, count, match_idx, match_count;
-	unsigned int all_cache_fields_count;
 	int noncontiguous;
 
 	t_push();
@@ -139,23 +137,24 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	}
 
 	/* set all non-found headers registered in cache */
-	all_cache_fields =
-		mail_cache_register_get_list(mail->ibox->cache,
-					     pool_datastack_create(),
-					     &all_cache_fields_count);
-	for (i = 0; i < all_cache_fields_count; i++) {
-		unsigned int cache_field = all_cache_fields[i].idx;
+	for (i = 0; i < mail->data.all_cache_fields_count; i++) {
+		unsigned int cache_field = mail->data.all_cache_fields[i].idx;
 
-		/* first check that it isn't already added */
-		if (all_cache_fields[i].idx < match_count &&
-		    match[cache_field] == mail->header_match_value)
+		/* first check that it isn't already added in this session */
+		if (cache_field < match_count &&
+		    (match[cache_field] & ~1) == mail->header_match_value)
 			continue;
 
-		if (strncasecmp(all_cache_fields[i].name, "hdr.", 4) != 0)
+		if (strncasecmp(mail->data.all_cache_fields[i].name,
+				"hdr.", 4) != 0)
 			continue;
 
-		mail_cache_add(mail->trans->cache_trans,
-			       mail->data.seq, cache_field, NULL, 0);
+		/* check that it hadn't been added in some older session */
+		if (mail_cache_field_exists(mail->trans->cache_view,
+					    mail->data.seq, cache_field) == 0) {
+			mail_cache_add(mail->trans->cache_trans,
+				       mail->data.seq, cache_field, NULL, 0);
+		}
 	}
 	t_pop();
 }
@@ -225,6 +224,15 @@ void index_mail_parse_header_init(struct index_mail *mail,
 			      get_header_field_idx(mail->ibox, "Date"),
 			      &mail->header_match_value);
 	}
+
+	/* get a list of all currently cached fields. we'll later set those
+	   headers that weren't found to empty. if this list is get later,
+	   it's possible that it has already changed (cache has no permanent
+	   write locks, remember!) and we set some headers to empty even
+	   though they really exist. */
+	mail->data.all_cache_fields =
+		mail_cache_register_get_list(mail->ibox->cache,
+			mail->data_pool, &mail->data.all_cache_fields_count);
 }
 
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)

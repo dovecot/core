@@ -89,6 +89,9 @@ struct index_mail_data {
 	int parsing_count;
 	array_t ARRAY_DEFINE(keywords, const char *);
 
+	const struct mail_cache_field *all_cache_fields;
+	unsigned int all_cache_fields_count;
+
 	unsigned int save_sent_date:1;
 	unsigned int save_envelope:1;
 	unsigned int save_bodystructure_header:1;
