@@ -144,6 +144,7 @@ mbox_mailbox_list_init(struct mail_storage *storage,
 			subsfile_list_init(storage, path);
 		if (ctx->subsfile_ctx == NULL) {
 			ctx->next = mbox_list_next;
+			ctx->failed = TRUE;
 			return &ctx->mailbox_ctx;
 		}
 		ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
@@ -423,7 +424,7 @@ static struct mailbox_list *mbox_list_next(struct mbox_list_context *ctx)
 	}
 
 	if (!ctx->inbox_found && (ctx->flags & MAILBOX_LIST_INBOX) != 0 &&
-	    imap_match(ctx->glob, "INBOX")  > 0) {
+	    ctx->glob != NULL && imap_match(ctx->glob, "INBOX")  > 0) {
 		/* show inbox */
 		ctx->inbox_found = TRUE;
 		return mbox_list_inbox(ctx);

@@ -66,8 +66,9 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 		if (errno != ENOENT) {
 			mail_storage_set_critical(ctx->mailbox_ctx.storage,
 				"opendir(%s) failed: %m", ctx->dir);
+			return FALSE;
 		}
-		return FALSE;
+		return TRUE;
 	}
 
 	stat_dirs = getenv("MAILDIR_STAT_DIRS") != NULL;
@@ -286,8 +287,10 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 	ctx->prefix = "";
 
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) != 0) {
-		if (!maildir_fill_subscribed(ctx, glob))
+		if (!maildir_fill_subscribed(ctx, glob)) {
+			ctx->failed = TRUE;
 			return &ctx->mailbox_ctx;
+		}
 	} else if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
 		   (p = strrchr(mask, '/')) != NULL) {
 		dir = t_strdup_until(mask, p);
@@ -301,8 +304,10 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) == 0 ||
 	    (ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
 		int update_only = (flags & MAILBOX_LIST_SUBSCRIBED) != 0;
-		if (!maildir_fill_readdir(ctx, glob, update_only))
+		if (!maildir_fill_readdir(ctx, glob, update_only)) {
+			ctx->failed = TRUE;
 			return &ctx->mailbox_ctx;
+		}
 	}
 
 	ctx->node_path = str_new(pool, 256);
@@ -314,10 +319,11 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 int maildir_mailbox_list_deinit(struct mailbox_list_context *_ctx)
 {
 	struct maildir_list_context *ctx = (struct maildir_list_context *)_ctx;
+	int ret = ctx->failed ? -1 : 0;
 
 	mailbox_tree_deinit(ctx->tree_ctx);
 	pool_unref(ctx->pool);
-	return TRUE;
+	return ret;
 }
 
 static struct mailbox_node *find_next(struct mailbox_node **node,
