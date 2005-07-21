@@ -326,6 +326,15 @@ static int mail_index_read_extensions(struct mail_index *index,
 			return -1;
 		}
 
+		if ((ext_hdr->record_offset % ext_hdr->record_align) != 0 ||
+		    (map->hdr.record_size % ext_hdr->record_align) != 0) {
+			mail_index_set_error(index, "Corrupted index file %s: "
+				"Record field %s alignmentation %u not used",
+				index->filepath, name, ext_hdr->record_align);
+			t_pop();
+			return -1;
+		}
+
 		mail_index_map_register_ext(index, map, name,
 					    offset, ext_hdr->hdr_size,
 					    ext_hdr->record_offset,
