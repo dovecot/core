@@ -71,6 +71,7 @@ struct pam_userpass {
 	const char *pass;
 };
 
+static int pam_session;
 static char *service_name;
 static struct timeout *to_wait;
 
@@ -191,6 +192,22 @@ static int pam_auth(struct auth_request *request,
 		*error = t_strdup_printf("pam_acct_mgmt() failed: %s",
 					 pam_strerror(pamh, status));
 		return status;
+	}
+
+	if (pam_session) {
+	        if ((status = pam_open_session(pamh, 0)) != PAM_SUCCESS) {
+			*error = t_strdup_printf(
+					"pam_open_session() failed: %s",
+					pam_strerror(pamh, status));
+	                return status;
+	        }
+
+	        if ((status = pam_close_session(pamh, 0)) != PAM_SUCCESS) {
+			*error = t_strdup_printf(
+					"pam_close_session() failed: %s",
+	                                pam_strerror(pamh, status));
+	                return status;
+	        }
 	}
 
 	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
@@ -387,8 +404,29 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 static void pam_init(const char *args)
 {
-	service_name = strcmp(args, "*") == 0 ? NULL :
-		i_strdup(*args != '\0' ? args : "dovecot");
+	const char *const *t_args;
+	int i;
+
+	pam_session = FALSE;
+	service_name = i_strdup("dovecot");
+
+	t_push();
+	t_args = t_strsplit(args, " ");
+        for(i = 0; t_args[i] != NULL; i++) {
+		if (strcmp(t_args[i], "-session") == 0)
+			pam_session = TRUE;
+		else if (strcmp(t_args[i], "*") == 0) {
+			i_free(service_name);
+			service_name = NULL;
+		} else {
+			if (*t_args[i] != '\0') {
+				i_free(service_name);
+				service_name = i_strdup(t_args[i]);
+			}
+		}
+	}
+	t_pop();
+
 	to_wait = NULL;
 }
 
