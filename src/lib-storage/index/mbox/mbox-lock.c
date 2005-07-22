@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "mail-index-private.h"
 #include "mbox-storage.h"
 #include "mbox-file.h"
 #include "mbox-lock.h"
@@ -516,6 +517,9 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	/* allow only unlock -> shared/exclusive or exclusive -> shared */
 	i_assert(lock_type == F_RDLCK || lock_type == F_WRLCK);
 	i_assert(lock_type == F_RDLCK || mbox->mbox_lock_type != F_RDLCK);
+
+	/* mbox must be locked before index */
+	i_assert(mbox->ibox.index->lock_type != F_WRLCK);
 
 	if (mbox->mbox_lock_type == F_UNLCK) {
 		ret = mbox_update_locking(mbox, lock_type);
