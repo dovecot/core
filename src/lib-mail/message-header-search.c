@@ -104,12 +104,15 @@ static void search_with_charset(const unsigned char *data, size_t size,
 						 data, size, &utf8_size);
 
 	if (utf8_data == NULL) {
-		/* unknown character set, or invalid data */
-	} else {
-		ctx->submatch = TRUE;
-		search_loop((const unsigned char *) utf8_data, utf8_size, ctx);
-		ctx->submatch = FALSE;
+		/* unknown character set, or invalid data. just compare it
+		   directly so at least ASCII comparision works. */
+		utf8_data = data;
+		utf8_size = size;
 	}
+
+	ctx->submatch = TRUE;
+	search_loop((const unsigned char *) utf8_data, utf8_size, ctx);
+	ctx->submatch = FALSE;
 }
 
 static void search_loop(const unsigned char *data, size_t size,
