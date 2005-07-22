@@ -331,6 +331,9 @@ static const char *digest_md5_generate(const char *plaintext, const char *user)
 	const char *realm, *str;
 	unsigned char digest[16];
 
+	if (user == NULL)
+		i_fatal("digest_md5_generate(): username not given");
+
 	/* user:realm:passwd */
 	realm = strchr(user, '@');
 	if (realm != NULL) realm++; else realm = "";
