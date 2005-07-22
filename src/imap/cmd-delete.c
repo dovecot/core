@@ -34,6 +34,13 @@ int cmd_delete(struct client_command_context *cmd)
 			return TRUE;
 	}
 
+	if ((client_workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
+	    *name != '\0' &&
+	    name[strlen(name)-1] == mail_storage_get_hierarchy_sep(storage)) {
+		/* drop the extra trailing hierarchy separator */
+		name = t_strndup(name, strlen(name)-1);
+	}
+
 	if (mail_storage_mailbox_delete(storage, name) < 0)
 		client_send_storage_error(cmd, storage);
 	else

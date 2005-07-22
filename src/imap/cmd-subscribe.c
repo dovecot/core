@@ -12,6 +12,18 @@ int _cmd_subscribe_full(struct client_command_context *cmd, int subscribe)
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
+	if ((client_workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0) {
+		storage = client_find_storage(cmd, &mailbox);
+		if (storage == NULL)
+			return TRUE;
+
+		if (*mailbox != '\0' && mailbox[strlen(mailbox)-1] ==
+		    mail_storage_get_hierarchy_sep(storage)) {
+			/* drop the extra trailing hierarchy separator */
+			mailbox = t_strndup(mailbox, strlen(mailbox)-1);
+		}
+	}
+
 	if (!client_verify_mailbox_name(cmd, mailbox, subscribe, FALSE))
 		return TRUE;
 
