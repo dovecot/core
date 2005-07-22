@@ -43,7 +43,8 @@ get_var_expand_table(struct client *client)
 	tab[7].value = my_pid;
 	tab[8].value = client->auth_mech_name == NULL ? NULL :
 		str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
-	tab[9].value = client->tls ? "TLS" : client->secured ? "SSL" : NULL;
+	tab[9].value = client->tls ? "TLS" :
+		client->secured ? "secured" : NULL;
 
 	return tab;
 }
