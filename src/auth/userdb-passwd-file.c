@@ -8,7 +8,7 @@
 #include "userdb.h"
 #include "db-passwd-file.h"
 
-struct passwd_file *userdb_pwf = NULL;
+struct db_passwd_file *userdb_pwf = NULL;
 
 static void passwd_file_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback)
@@ -42,7 +42,8 @@ static void passwd_file_init(const char *args)
 
 		/* resync */
 		userdb_pwf->userdb = TRUE;
-                userdb_pwf->stamp = 0;
+		if (userdb_pwf->default_file != NULL)
+			userdb_pwf->default_file->stamp = 0;
 	} else {
 		userdb_pwf = db_passwd_file_parse(args, TRUE);
 	}

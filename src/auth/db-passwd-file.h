@@ -15,24 +15,35 @@ struct passwd_user {
 };
 
 struct passwd_file {
-	int refcount;
+        struct db_passwd_file *db;
 	pool_t pool;
 
 	char *path;
 	time_t stamp;
 	int fd;
-	int userdb;
 
 	struct hash_table *users;
 };
 
-extern struct passwd_file *userdb_pwf;
-extern struct passwd_file *passdb_pwf;
+struct db_passwd_file {
+	int refcount;
+
+	char *path;
+	struct hash_table *files;
+        struct passwd_file *default_file;
+
+	unsigned int domain_var:1;
+	unsigned int vars:1;
+	unsigned int userdb:1;
+};
+
+extern struct db_passwd_file *userdb_pwf;
+extern struct db_passwd_file *passdb_pwf;
 
 struct passwd_user *
-db_passwd_file_lookup(struct passwd_file *pw, struct auth_request *request);
+db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request);
 
-struct passwd_file *db_passwd_file_parse(const char *path, int userdb);
-void db_passwd_file_unref(struct passwd_file *pw);
+struct db_passwd_file *db_passwd_file_parse(const char *path, int userdb);
+void db_passwd_file_unref(struct db_passwd_file *db);
 
 #endif

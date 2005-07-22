@@ -11,6 +11,7 @@
 #include "istream.h"
 #include "hash.h"
 #include "str.h"
+#include "var-expand.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -120,7 +121,21 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	hash_insert(pw->users, pu->user_realm, pu);
 }
 
-static void passwd_file_open(struct passwd_file *pw)
+static struct passwd_file *
+passwd_file_new(struct db_passwd_file *db, const char *expanded_path)
+{
+	struct passwd_file *pw;
+
+	pw = i_new(struct passwd_file, 1);
+	pw->db = db;
+	pw->path = i_strdup(expanded_path);
+	pw->fd = -1;
+
+	hash_insert(db->files, pw->path, pw);
+	return pw;
+}
+
+static int passwd_file_open(struct passwd_file *pw)
 {
 	struct istream *input;
 	const char *const *args;
@@ -129,11 +144,16 @@ static void passwd_file_open(struct passwd_file *pw)
 	int fd;
 
 	fd = open(pw->path, O_RDONLY);
-	if (fd == -1)
-		i_fatal("passwd-file %s: Can't open file: %m", pw->path);
+	if (fd == -1) {
+		i_error("passwd-file %s: Can't open file: %m", pw->path);
+		return FALSE;
+	}
 
-	if (fstat(fd, &st) != 0)
-		i_fatal("passwd-file %s: fstat() failed: %m", pw->path);
+	if (fstat(fd, &st) != 0) {
+		i_error("passwd-file %s: fstat() failed: %m", pw->path);
+		(void)close(fd);
+		return FALSE;
+	}
 
 	pw->fd = fd;
 	pw->stamp = st.st_mtime;
@@ -153,11 +173,12 @@ static void passwd_file_open(struct passwd_file *pw)
 			/* at least two fields */
 			const char *no_args = NULL;
 			passwd_file_add(pw, args[0], args[1],
-					pw->userdb ? args+2 : &no_args);
+					pw->db->userdb ? args+2 : &no_args);
 		}
 		t_pop();
 	}
 	i_stream_unref(input);
+	return TRUE;
 }
 
 static void passwd_file_close(struct passwd_file *pw)
@@ -178,51 +199,157 @@ static void passwd_file_close(struct passwd_file *pw)
 	}
 }
 
-static void passwd_file_sync(struct passwd_file *pw)
+static void passwd_file_free(struct passwd_file *pw)
+{
+	hash_remove(pw->db->files, pw->path);
+
+	passwd_file_close(pw);
+	i_free(pw->path);
+	i_free(pw);
+}
+
+static int passwd_file_sync(struct passwd_file *pw)
 {
 	struct stat st;
 
-	if (stat(pw->path, &st) < 0)
-		i_fatal("passwd-file %s: stat() failed: %m", pw->path);
+	if (stat(pw->path, &st) < 0) {
+		/* with variables don't give hard errors, or errors about
+		   nonexisting files */
+		if (errno != ENOENT)
+			i_error("passwd-file %s: stat() failed: %m", pw->path);
+
+		passwd_file_free(pw);
+		return FALSE;
+	}
 
 	if (st.st_mtime != pw->stamp) {
 		passwd_file_close(pw);
-		passwd_file_open(pw);
+		return passwd_file_open(pw);
+	}
+	return TRUE;
+}
+
+struct db_passwd_file *db_passwd_file_parse(const char *path, int userdb)
+{
+	struct db_passwd_file *db;
+	const char *p;
+	int percents = FALSE;
+
+	db = i_new(struct db_passwd_file, 1);
+	db->refcount = 1;
+	db->userdb = userdb;
+	db->files = hash_create(default_pool, default_pool, 100,
+				str_hash, (hash_cmp_callback_t *)strcmp);
+
+	for (p = path; *p != '\0'; p++) {
+		if (*p == '%' && p[1] != '\0') {
+			p++;
+			switch (var_get_key(p)) {
+			case 'd':
+				db->domain_var = TRUE;
+				db->vars = TRUE;
+				break;
+			case '%':
+				percents = TRUE;
+				break;
+			default:
+				db->vars = TRUE;
+				break;
+			}
+		}
+	}
+
+	if (percents && !db->vars) {
+		/* just extra escaped % chars. remove them. */
+		struct var_expand_table empty_table[1];
+		string_t *dest;
+
+		empty_table[0].key = '\0';
+		dest = t_str_new(256);
+		var_expand(dest, path, empty_table);
+		path = str_c(dest);
+	}
+
+	db->path = i_strdup(path);
+
+	if (!db->vars) {
+		/* no variables, open the file immediately */
+		db->default_file = passwd_file_new(db, path);
+		if (!passwd_file_open(db->default_file))
+			exit(FATAL_DEFAULT);
+	}
+	return db;
+}
+
+void db_passwd_file_unref(struct db_passwd_file *db)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	if (--db->refcount == 0) {
+		iter = hash_iterate_init(db->files);
+		while (hash_iterate(iter, &key, &value))
+			passwd_file_free(value);
+		hash_iterate_deinit(iter);
+
+		hash_destroy(db->files);
+		i_free(db->path);
+		i_free(db);
 	}
 }
 
-struct passwd_file *db_passwd_file_parse(const char *path, int userdb)
+static const char *path_fix(const char *path)
 {
-	struct passwd_file *pw;
+	const char *p;
 
-	pw = i_new(struct passwd_file, 1);
-	pw->refcount = 1;
-	pw->path = i_strdup(path);
-	pw->userdb = userdb;
+	p = strchr(path, '/');
+	if (p == NULL)
+		return path;
 
-	passwd_file_open(pw);
-	return pw;
-}
-
-void db_passwd_file_unref(struct passwd_file *pw)
-{
-	if (--pw->refcount == 0) {
-		passwd_file_close(pw);
-		i_free(pw->path);
-		i_free(pw);
-	}
+	/* most likely this is an invalid request. just cut off the '/' and
+	   everything after it. */
+	return t_strdup_until(path, p);
 }
 
 struct passwd_user *
-db_passwd_file_lookup(struct passwd_file *pw, struct auth_request *request)
+db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 {
+	struct passwd_file *pw;
 	struct passwd_user *pu;
 
-	passwd_file_sync(pw);
+	if (!db->vars)
+		pw = db->default_file;
+	else {
+		const struct var_expand_table *table;
+		string_t *dest;
 
-	pu = hash_lookup(pw->users, request->user);
+		t_push();
+
+		table = auth_request_get_var_expand_table(request, path_fix);
+		dest = t_str_new(256);
+		var_expand(dest, db->path, table);
+
+		pw = hash_lookup(db->files, str_c(dest));
+		if (pw == NULL) {
+			/* doesn't exist yet. create lookup for it. */
+			pw = passwd_file_new(db, str_c(dest));
+		}
+
+		t_pop();
+	}
+
+	if (!passwd_file_sync(pw)) {
+		auth_request_log_info(request, "passwd-file",
+				      "no passwd file");
+		return NULL;
+	}
+
+	t_push();
+	pu = hash_lookup(pw->users, !db->domain_var ? request->user :
+			 t_strcut(request->user, '@'));
 	if (pu == NULL)
                 auth_request_log_info(request, "passwd-file", "unknown user");
+	t_pop();
 
 	return pu;
 }
