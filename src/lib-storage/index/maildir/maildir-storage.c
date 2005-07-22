@@ -267,33 +267,15 @@ static const char *maildir_get_index_path(struct index_storage *storage,
 static const char *maildir_get_control_path(struct maildir_storage *storage,
 					    const char *name)
 {
-	const char *default_path, *path, *default_uidlist;
-	struct stat st;
-
-	default_path = maildir_get_path(INDEX_STORAGE(storage), name);
 	if (storage->control_dir == NULL)
-		return default_path;
+		return maildir_get_path(INDEX_STORAGE(storage), name);
 
 	if ((STORAGE(storage)->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~'))
-		path = maildir_get_absolute_path(name, FALSE);
-	else {
-		path = t_strconcat(storage->control_dir, "/"MAILDIR_FS_SEP_S,
-				   name, NULL);
-	}
+		return maildir_get_absolute_path(name, FALSE);
 
-	default_uidlist =
-		t_strconcat(default_path, "/" MAILDIR_UIDLIST_NAME, NULL);
-	if (stat(default_uidlist, &st) == 0) {
-		const char *dest_uidlist =
-			t_strconcat(path, "/" MAILDIR_UIDLIST_NAME, NULL);
-
-		if (rename(default_uidlist, dest_uidlist) < 0) {
-			i_error("rename(%s, %s) failed: %m",
-				default_uidlist, dest_uidlist);
-		}
-	}
-	return path;
+	return t_strconcat(storage->control_dir, "/"MAILDIR_FS_SEP_S,
+			   name, NULL);
 }
 
 static int mkdir_verify(struct index_storage *storage,
