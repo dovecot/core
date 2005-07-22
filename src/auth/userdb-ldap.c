@@ -109,14 +109,27 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 	}
 
 	if (!seen_uid) {
-		auth_request_log_error(auth_request, "ldap",
-			"uid not in user_attrs and no default given in "
-			"user_global_uid");
+	}
+
+	if (!seen_uid) {
+		if (conn->set.uid == (uid_t)-1) {
+			auth_request_log_error(auth_request, "ldap",
+				"uid not in user_attrs and no default given in "
+				"user_global_uid");
+		}
+
+		str_append(str, "\tuid=");
+		str_append(str, dec2str(conn->set.uid));
 	}
 	if (!seen_gid) {
-		auth_request_log_error(auth_request, "ldap",
-			"gid not in user_attrs and no default given in "
-			"user_global_gid");
+		if (conn->set.gid == (gid_t)-1) {
+			auth_request_log_error(auth_request, "ldap",
+				"gid not in user_attrs and no default given in "
+				"user_global_gid");
+		}
+
+		str_append(str, "\tgid=");
+		str_append(str, dec2str(conn->set.gid));
 	}
 
 	return str_c(str);

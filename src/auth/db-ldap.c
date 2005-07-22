@@ -9,6 +9,7 @@
 #include "hash.h"
 #include "str.h"
 #include "settings.h"
+#include "userdb.h"
 #include "db-ldap.h"
 
 #include <stddef.h>
@@ -41,8 +42,8 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, pass_attrs),
 	DEF(SET_STR, pass_filter),
 	DEF(SET_STR, default_pass_scheme),
-	DEF(SET_INT, user_global_uid),
-	DEF(SET_INT, user_global_gid)
+	DEF(SET_STR, user_global_uid),
+	DEF(SET_STR, user_global_gid)
 };
 
 struct ldap_settings default_ldap_settings = {
@@ -59,8 +60,8 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(pass_attrs) "uid,userPassword",
 	MEMBER(pass_filter) "(&(objectClass=posixAccount)(uid=%u))",
 	MEMBER(default_pass_scheme) "crypt",
-	MEMBER(user_global_uid) (uid_t)-1,
-	MEMBER(user_global_gid) (gid_t)-1
+	MEMBER(user_global_uid) "",
+	MEMBER(user_global_gid) ""
 };
 
 static struct ldap_connection *ldap_connections = NULL;
@@ -381,7 +382,29 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 		i_fatal("LDAP: No base given");
 
         conn->set.ldap_deref = deref2str(conn->set.deref);
-        conn->set.ldap_scope = scope2str(conn->set.scope);
+	conn->set.ldap_scope = scope2str(conn->set.scope);
+
+	if (*conn->set.user_global_uid == '\0')
+		conn->set.uid = (uid_t)-1;
+	else {
+		conn->set.uid =
+			userdb_parse_uid(NULL, conn->set.user_global_uid);
+		if (conn->set.uid == (uid_t)-1) {
+			i_fatal("LDAP: Invalid user_global_uid: %s",
+				conn->set.user_global_uid);
+		}
+	}
+
+	if (*conn->set.user_global_gid == '\0')
+		conn->set.gid = (gid_t)-1;
+	else {
+		conn->set.gid =
+			userdb_parse_gid(NULL, conn->set.user_global_gid);
+		if (conn->set.gid == (gid_t)-1) {
+			i_fatal("LDAP: Invalid user_global_gid: %s",
+				conn->set.user_global_gid);
+		}
+	}
 
 	conn->next = ldap_connections;
         ldap_connections = conn;
