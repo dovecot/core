@@ -257,6 +257,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 			mail_storage_set_index_error(&sync_ctx->mbox->ibox);
 			return -1;
 		}
+		i_assert(ret != 0); /* we should be looking at head index */
 
 		if (uid <= rec->uid)
 			break;
@@ -267,18 +268,20 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 		rec = NULL;
 	}
 
-	if (ret == 0 && uid < sync_ctx->idx_next_uid) {
+	if (rec == NULL && uid < sync_ctx->idx_next_uid) {
 		/* this UID was already in index and it was expunged */
 		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
 			"mbox sync: Expunged message reappeared in mailbox %s "
-			"(UID %u < %u)", sync_ctx->mbox->path, uid,
-			sync_ctx->idx_next_uid);
+			"(UID %u < %u, seq=%u, idx_msgs=%u)",
+			sync_ctx->mbox->path, uid, sync_ctx->idx_next_uid,
+			sync_ctx->seq, messages_count);
 		ret = 0; rec = NULL;
 	} else if (rec != NULL && rec->uid != uid) {
 		/* new UID in the middle of the mailbox - shouldn't happen */
 		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
 			"mbox sync: UID inserted in the middle of mailbox %s "
-			"(%u > %u)", sync_ctx->mbox->path, rec->uid, uid);
+			"(%u > %u, seq=%u, idx_msgs=%u)", sync_ctx->mbox->path,
+			rec->uid, uid, sync_ctx->seq, messages_count);
 		ret = 0; rec = NULL;
 	} else {
 		ret = 1;
