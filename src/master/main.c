@@ -36,6 +36,7 @@ static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
 static struct timeout *to;
 static unsigned int settings_reload_hup_count = 0;
 static unsigned int log_reopen_usr1_count = 0;
+static const char *env_tz;
 
 struct ioloop *ioloop;
 struct hash_table *pids;
@@ -67,6 +68,8 @@ void child_process_init_env(void)
 
 	/* we'll log through master process */
 	env_put("LOG_TO_MASTER=1");
+	if (env_tz != NULL)
+		env_put(t_strconcat("TZ=", env_tz, NULL));
 
 #ifdef DEBUG
 	if (gdb) env_put("GDB=1");
@@ -626,7 +629,11 @@ int main(int argc, char *argv[])
 	if (exec_protocol != NULL)
 		mail_process_exec(exec_protocol, exec_section);
 
-	/* we don't need any environment anymore */
+	/* save TZ environment for child processes. AIX depends on it to get
+	   the timezone correctly. */
+	env_tz = getenv("TZ");
+
+	/* we don't need any other environment anymore */
 	env_clean();
 
 	open_fds();
