@@ -187,10 +187,36 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 			break;
 		}
 
-		if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_APPEND) {
+		switch (sync_rec->type) {
+		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			if (sync_rec->uid2 >= sync_ctx->next_uid)
 				sync_ctx->next_uid = sync_rec->uid2 + 1;
 			memset(sync_rec, 0, sizeof(*sync_rec));
+			break;
+		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+			break;
+		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
+			if (sync_ctx->delay_writes) {
+				/* we're not going to write these yet */
+				uint32_t seq1, seq2;
+
+				if (mail_index_lookup_uid_range(
+						sync_ctx->sync_view,
+						sync_rec->uid1, sync_rec->uid2,
+						&seq1, &seq2) < 0) {
+					return -1;
+				}
+
+				mail_index_update_flags_range(sync_ctx->t,
+						seq1, seq2, MODIFY_ADD,
+						MAIL_INDEX_MAIL_FLAG_DIRTY);
+
+				memset(sync_rec, 0, sizeof(*sync_rec));
+			}
+			break;
 		}
 	}
 
@@ -1484,6 +1510,19 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, int leave_dirty)
 		st->st_size != mbox->mbox_dirty_size;
 }
 
+static void mbox_sync_context_free(struct mbox_sync_context *sync_ctx)
+{
+	if (sync_ctx->t != NULL)
+		mail_index_transaction_rollback(sync_ctx->t);
+	if (sync_ctx->index_sync_ctx != NULL)
+		mail_index_sync_rollback(sync_ctx->index_sync_ctx);
+	pool_unref(sync_ctx->mail_keyword_pool);
+	str_free(sync_ctx->header);
+	str_free(sync_ctx->from_line);
+	array_free(&sync_ctx->mails);
+	array_free(&sync_ctx->syncs);
+}
+
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
@@ -1492,7 +1531,11 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id = 0;
-	int ret, changed;
+	int ret, changed, delay_writes;
+
+	delay_writes = mbox->ibox.readonly ||
+		((flags & MBOX_SYNC_REWRITE) == 0 &&
+		 getenv("MBOX_LAZY_WRITES") != NULL);
 
 	mbox->ibox.sync_last_check = ioloop_time;
 
@@ -1563,6 +1606,7 @@ __again:
 
 	if (!changed && !mail_index_sync_have_more(index_sync_ctx)) {
 		/* nothing to do */
+	__nothing_to_do:
 		if (lock_id != 0)
 			(void)mbox_unlock(mbox, lock_id);
 
@@ -1573,20 +1617,6 @@ __again:
 			return -1;
 		}
 		return 0;
-	}
-
-	if (lock_id == 0) {
-		/* ok, we have something to do but no locks. we'll have to
-		   restart syncing to avoid deadlocking. */
-		mail_index_sync_rollback(index_sync_ctx);
-		changed = 1;
-		goto __again;
-	}
-
-	if (mbox_file_open_stream(mbox) < 0) {
-		mail_index_sync_rollback(index_sync_ctx);
-		(void)mbox_unlock(mbox, lock_id);
-		return -1;
 	}
 
 	memset(&sync_ctx, 0, sizeof(sync_ctx));
@@ -1609,15 +1639,51 @@ __again:
 	ARRAY_CREATE(&sync_ctx.syncs, default_pool,
 		     struct mail_index_sync_rec, 32);
 
+	sync_ctx.flags = flags;
+	sync_ctx.delay_writes = delay_writes || sync_ctx.mbox->mbox_readonly;
+
+	if (!changed && delay_writes) {
+		/* if we have only flag changes, we don't need to open the
+		   mbox file */
+		int expunged;
+
+		if (mbox_sync_read_index_syncs(&sync_ctx, 1, &expunged) < 0)
+			return -1;
+		if (sync_ctx.sync_rec.uid1 == 0) {
+			if (mail_index_transaction_commit(sync_ctx.t,
+							  &seq, &offset) < 0) {
+				mail_storage_set_index_error(&mbox->ibox);
+				mbox_sync_context_free(&sync_ctx);
+				if (lock_id != 0)
+					(void)mbox_unlock(mbox, lock_id);
+				return -1;
+			}
+			sync_ctx.t = NULL;
+
+			sync_ctx.index_sync_ctx = NULL;
+			mbox_sync_context_free(&sync_ctx);
+			goto __nothing_to_do;
+		}
+	}
+
+	if (lock_id == 0) {
+		/* ok, we have something to do but no locks. we'll have to
+		   restart syncing to avoid deadlocking. */
+		mbox_sync_context_free(&sync_ctx);
+		changed = 1;
+		goto __again;
+	}
+
+	if (mbox_file_open_stream(mbox) < 0) {
+		mbox_sync_context_free(&sync_ctx);
+		(void)mbox_unlock(mbox, lock_id);
+		return -1;
+	}
+
 	sync_ctx.file_input = sync_ctx.mbox->mbox_file_stream;
 	sync_ctx.input = sync_ctx.mbox->mbox_stream;
 	sync_ctx.write_fd = sync_ctx.mbox->mbox_readonly ? -1 :
 		sync_ctx.mbox->mbox_fd;
-	sync_ctx.flags = flags;
-	sync_ctx.delay_writes = sync_ctx.mbox->mbox_readonly ||
-		sync_ctx.mbox->ibox.readonly ||
-		((flags & MBOX_SYNC_REWRITE) == 0 &&
-		 getenv("MBOX_LAZY_WRITES") != NULL);
 
 	ret = mbox_sync_do(&sync_ctx, flags);
 
@@ -1638,6 +1704,7 @@ __again:
 		mail_storage_set_index_error(&mbox->ibox);
 		ret = -1;
 	}
+	sync_ctx.index_sync_ctx = NULL;
 
 	if (sync_ctx.base_uid_last != sync_ctx.next_uid-1 &&
 	    ret == 0 && !sync_ctx.delay_writes &&
@@ -1677,11 +1744,7 @@ __again:
 			ret = -1;
 	}
 
-	pool_unref(sync_ctx.mail_keyword_pool);
-	str_free(sync_ctx.header);
-	str_free(sync_ctx.from_line);
-	array_free(&sync_ctx.mails);
-	array_free(&sync_ctx.syncs);
+	mbox_sync_context_free(&sync_ctx);
 	return ret;
 }
 
