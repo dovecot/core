@@ -46,9 +46,10 @@ int client_parse_mail_flags(struct client_command_context *cmd,
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 			       const array_t *keywords);
 
-/* Copy keywords into dest. dest must have been initialized. */
-void client_save_keywords(struct mailbox_keywords *dest,
-			  const array_t *keywords);
+/* Copy keywords into dest. dest must have been initialized. Returns TRUE if
+   keywords changed. */
+int client_save_keywords(struct mailbox_keywords *dest,
+			 const array_t *keywords);
 
 int mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
 		   const char *name2);

@@ -159,10 +159,12 @@ static int is_valid_keyword(struct client_command_context *cmd,
 	unsigned int i, count;
 
 	/* if it already exists, skip validity checks */
-	names = array_get(&cmd->client->keywords.keywords, &count);
-	for (i = 0; i < count; i++) {
-		if (strcasecmp(names[i], keyword) == 0)
-			return TRUE;
+	if (array_is_created(&cmd->client->keywords.keywords)) {
+		names = array_get(&cmd->client->keywords.keywords, &count);
+		for (i = 0; i < count; i++) {
+			if (strcasecmp(names[i], keyword) == 0)
+				return TRUE;
+		}
 	}
 
 	if (strlen(keyword) > max_keyword_length) {
@@ -283,23 +285,47 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 	}
 }
 
-void client_save_keywords(struct mailbox_keywords *dest,
-			  const array_t *keywords)
+int client_save_keywords(struct mailbox_keywords *dest,
+			 const array_t *keywords)
 {
 	ARRAY_SET_TYPE(keywords, const char *);
-	const char *const *names;
-	unsigned int i, count;
+	const char *const *names, *const *old_names;
+	unsigned int i, count, old_count;
+	int changed;
+
+	names = array_get(keywords, &count);
+
+	/* first check if anything changes */
+	if (!array_is_created(&dest->keywords))
+		changed = count != 0;
+	else {
+		old_names = array_get(&dest->keywords, &old_count);
+		if (count != old_count)
+			changed = TRUE;
+		else {
+			changed = FALSE;
+			for (i = 0; i < count; i++) {
+				if (strcmp(names[i], old_names[i]) != 0) {
+					changed = TRUE;
+					break;
+				}
+			}
+		}
+	}
+
+	if (!changed)
+		return FALSE;
 
 	p_clear(dest->pool);
 	ARRAY_CREATE(&dest->keywords, dest->pool,
 		     const char *, array_count(keywords));
 
-	names = array_get(keywords, &count);
 	for (i = 0; i < count; i++) {
 		const char *name = p_strdup(dest->pool, names[i]);
 
 		array_append(&dest->keywords, &name, 1);
 	}
+	return TRUE;
 }
 
 int mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,

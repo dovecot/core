@@ -33,6 +33,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	       enum mailbox_sync_flags flags)
 {
 	struct imap_sync_context *ctx;
+	struct mailbox_status status;
 
 	i_assert(client->mailbox == box);
 
@@ -44,6 +45,13 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->t = mailbox_transaction_begin(box, 0);
 	ctx->mail = mail_alloc(ctx->t, MAIL_FETCH_FLAGS, 0);
 	ctx->messages_count = client->messages_count;
+
+	/* if keyword list changed, send the new list before flag changes */
+	if (mailbox_get_status(ctx->box, STATUS_KEYWORDS, &status) == 0) {
+		if (client_save_keywords(&client->keywords, status.keywords))
+			client_send_mailbox_flags(client, box, status.keywords);
+	}
+
 	return ctx;
 }
 
@@ -73,9 +81,6 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 		client_send_line(ctx->client,
 			t_strdup_printf("* %u RECENT", status.recent));
 	}
-
-	/*FIXME:client_save_keywords(&client->keywords, keywords, keywords_count);
-	client_send_mailbox_flags(client, mailbox, keywords, keywords_count);*/
 
 	t_pop();
 	i_free(ctx);
