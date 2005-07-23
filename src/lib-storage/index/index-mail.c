@@ -456,8 +456,8 @@ struct istream *index_mail_init_stream(struct index_mail *_mail,
 				if (index_mail_parse_headers(mail, NULL) < 0)
 					return NULL;
 			} else {
-				message_get_body_size(data->stream,
-						      &data->hdr_size, NULL);
+				message_get_header_size(data->stream,
+							&data->hdr_size, NULL);
 				data->hdr_size_set = TRUE;
 			}
 		}
