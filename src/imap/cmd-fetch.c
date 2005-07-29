@@ -83,10 +83,11 @@ static int cmd_fetch_finish(struct imap_fetch_context *ctx)
 	if (failed || (partial && !cmd->uid)) {
 		struct mail_storage *storage;
 		const char *error;
-		int syntax;
+		int syntax, temporary_error;
 
                 storage = mailbox_get_storage(cmd->client->mailbox);
-		error = mail_storage_get_last_error(storage, &syntax);
+		error = mail_storage_get_last_error(storage, &syntax,
+						    &temporary_error);
 		if (!syntax) {
 			/* We never want to reply NO to FETCH requests,
 			   BYE is preferrable (see imap-ml for reasons). */

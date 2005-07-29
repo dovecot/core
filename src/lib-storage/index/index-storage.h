@@ -147,7 +147,8 @@ void index_storage_set_callbacks(struct mail_storage *storage,
 				 struct mail_storage_callbacks *callbacks,
 				 void *context);
 const char *index_storage_get_last_error(struct mail_storage *storage,
-					 int *syntax_error_r);
+					 int *syntax_error_r,
+					 int *temporary_error_r);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);

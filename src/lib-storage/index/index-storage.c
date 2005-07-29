@@ -401,9 +401,11 @@ void index_storage_set_callbacks(struct mail_storage *_storage,
 }
 
 const char *index_storage_get_last_error(struct mail_storage *storage,
-					 int *syntax_error_r)
+					 int *syntax_error_r,
+					 int *temporary_error_r)
 {
 	*syntax_error_r = storage->syntax_error;
+	*temporary_error_r = storage->temporary_error;
 	return storage->error;
 }
 

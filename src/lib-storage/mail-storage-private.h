@@ -47,7 +47,8 @@ struct mail_storage_vfuncs {
 				       enum mailbox_name_status *status);
 
 	const char *(*get_last_error)(struct mail_storage *storage,
-				      int *syntax_error_r);
+				      int *syntax_error_r,
+				      int *temporary_error_r);
 };
 
 struct mail_storage {
@@ -66,7 +67,11 @@ struct mail_storage {
 	/* Module-specific contexts. See mail_storage_module_id. */
 	array_t ARRAY_DEFINE(module_contexts, void);
 
-	unsigned int syntax_error:1; /* Give a BAD reply instead of NO */
+	/* IMAP: Give a BAD reply instead of NO */
+	unsigned int syntax_error:1;
+	/* Internal temporary error, as opposed to visible user errors like
+	   "permission denied" or "out of disk space" */
+	unsigned int temporary_error:1;
 };
 
 struct mailbox_vfuncs {

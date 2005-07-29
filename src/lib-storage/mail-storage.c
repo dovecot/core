@@ -153,20 +153,18 @@ void mail_storage_clear_error(struct mail_storage *storage)
 	storage->error = NULL;
 
 	storage->syntax_error = FALSE;
+	storage->temporary_error = FALSE;
 }
 
 void mail_storage_set_error(struct mail_storage *storage, const char *fmt, ...)
 {
 	va_list va;
 
-	i_free(storage->error);
+	mail_storage_clear_error(storage);
 
-	if (fmt == NULL)
-		storage->error = NULL;
-	else {
+	if (fmt != NULL) {
 		va_start(va, fmt);
 		storage->error = i_strdup_vprintf(fmt, va);
-		storage->syntax_error = FALSE;
 		va_end(va);
 	}
 }
@@ -176,11 +174,9 @@ void mail_storage_set_syntax_error(struct mail_storage *storage,
 {
 	va_list va;
 
-	i_free(storage->error);
+	mail_storage_clear_error(storage);
 
-	if (fmt == NULL)
-		storage->error = NULL;
-	else {
+	if (fmt != NULL) {
 		va_start(va, fmt);
 		storage->error = i_strdup_vprintf(fmt, va);
 		storage->syntax_error = TRUE;
@@ -200,6 +196,7 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 		strftime(str, sizeof(str), CRITICAL_MSG_STAMP, tm) > 0 ?
 		i_strdup(str) : i_strdup(CRITICAL_MSG);
 	storage->syntax_error = FALSE;
+	storage->temporary_error = TRUE;
 }
 
 void mail_storage_set_critical(struct mail_storage *storage,
@@ -207,10 +204,8 @@ void mail_storage_set_critical(struct mail_storage *storage,
 {
 	va_list va;
 
-	i_free(storage->error);
-	if (fmt == NULL)
-		storage->error = NULL;
-	else {
+	mail_storage_clear_error(storage);
+	if (fmt != NULL) {
 		va_start(va, fmt);
 		i_error("%s", t_strdup_vprintf(fmt, va));
 		va_end(va);
@@ -284,9 +279,11 @@ int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 }
 
 const char *mail_storage_get_last_error(struct mail_storage *storage,
-					int *syntax_error_r)
+					int *syntax_error_r,
+					int *temporary_error_r)
 {
-	return storage->v.get_last_error(storage, syntax_error_r);
+	return storage->v.get_last_error(storage, syntax_error_r,
+					 temporary_error_r);
 }
 
 struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,

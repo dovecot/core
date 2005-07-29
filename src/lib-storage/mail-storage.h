@@ -284,7 +284,8 @@ int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 
 /* Returns the error message of last occured error. */
 const char *mail_storage_get_last_error(struct mail_storage *storage,
-					int *syntax_error_r);
+					int *syntax_error_r,
+					int *temporary_error_r);
 
 /* Open a mailbox. If input stream is given, mailbox is opened read-only
    using it as a backend. If storage doesn't support stream backends and its
