@@ -24,15 +24,13 @@ struct auth_request_handler {
 	void *context;
 
 	auth_request_callback_t *master_callback;
-
-	unsigned int prepend_connect_uid:1;
 };
 
 static buffer_t *auth_failures_buf;
 static struct timeout *to_auth_failures;
 
 struct auth_request_handler *
-auth_request_handler_create(struct auth *auth, int prepend_connect_uid,
+auth_request_handler_create(struct auth *auth,
 			    auth_request_callback_t *callback, void *context,
 			    auth_request_callback_t *master_callback)
 {
@@ -49,7 +47,6 @@ auth_request_handler_create(struct auth *auth, int prepend_connect_uid,
 	handler->callback = callback;
 	handler->context = context;
 	handler->master_callback = master_callback;
-	handler->prepend_connect_uid = prepend_connect_uid;
 	return handler;
 }
 
@@ -148,9 +145,6 @@ static void auth_callback(struct auth_request *request,
 	t_push();
 
 	str = t_str_new(128 + MAX_BASE64_ENCODED_SIZE(reply_size));
-	if (handler->prepend_connect_uid)
-		str_printfa(str, "%u\t", request->connect_uid);
-
 	switch (result) {
 	case AUTH_CLIENT_RESULT_CONTINUE:
 		str_printfa(str, "CONT\t%u\t", request->id);
@@ -229,8 +223,6 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 
 	auth_request_log_info(request, request->mech->mech_name, "%s", reason);
 
-	if (handler->prepend_connect_uid)
-		str_printfa(reply, "%u\t", request->connect_uid);
 	str_printfa(reply, "FAIL\t%u\treason=%s", request->id, reason);
 	handler->callback(str_c(reply), handler->context);
 
@@ -354,8 +346,6 @@ int auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	if (request == NULL) {
 		string_t *reply = t_str_new(64);
 
-		if (handler->prepend_connect_uid)
-			str_printfa(reply, "%u\t", handler->connect_uid);
 		str_printfa(reply, "FAIL\t%u\treason=Timeouted", id);
 		handler->callback(str_c(reply), handler->context);
 		return TRUE;
@@ -394,8 +384,6 @@ static void userdb_callback(const char *result, struct auth_request *request)
 	request->state = AUTH_REQUEST_STATE_FINISHED;
 
 	reply = t_str_new(256);
-	if (handler->prepend_connect_uid)
-		str_printfa(reply, "%u\t", request->connect_uid);
 	if (result == NULL)
 		str_printfa(reply, "NOTFOUND\t%u", request->id);
 	else {
@@ -417,8 +405,6 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 	string_t *reply;
 
 	reply = t_str_new(64);
-	if (handler->prepend_connect_uid)
-		str_printfa(reply, "%u\t", handler->connect_uid);
 
 	request = hash_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request == NULL) {

@@ -103,7 +103,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	/* handshake complete, we can now actually start serving requests */
         conn->refcount++;
 	conn->request_handler =
-		auth_request_handler_create(conn->auth, FALSE,
+		auth_request_handler_create(conn->auth,
 			auth_callback, conn,
 			array_count(&conn->listener->masters) != 0 ?
 			auth_master_request_callback : NULL);
