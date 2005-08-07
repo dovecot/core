@@ -88,6 +88,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 
 		if (!lines[i].cache) {
 			/* header is already cached */
+			j = i + 1;
 			continue;
 		}
 
