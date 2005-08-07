@@ -1,9 +1,11 @@
 #ifndef __USERDB_H
 #define __USERDB_H
 
+#include "auth-stream.h"
+
 struct auth_request;
 
-typedef void userdb_callback_t(const char *result,
+typedef void userdb_callback_t(struct auth_stream_reply *reply,
 			       struct auth_request *request);
 
 struct userdb_module {

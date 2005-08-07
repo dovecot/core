@@ -80,7 +80,7 @@ static int handle_ssl_error(struct ssl_proxy *proxy, int error)
 	}
 
 	if (verbose_ssl) {
-		/* fatal error occured */
+		/* fatal error occurred */
 		if (error == GNUTLS_E_FATAL_ALERT_RECEIVED) {
 			i_warning("Received SSL fatal alert: %s [%s]",
 				  get_alert_text(proxy),

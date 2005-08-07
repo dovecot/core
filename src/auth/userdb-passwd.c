@@ -12,7 +12,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 			  userdb_callback_t *callback)
 {
 	struct passwd *pw;
-	const char *result;
+	struct auth_stream_reply *reply;
 
 	pw = getpwnam(auth_request->user);
 	if (pw == NULL) {
@@ -29,11 +29,14 @@ static void passwd_lookup(struct auth_request *auth_request,
 			pw->pw_name, auth_request->user);
 	}
 
-	result = t_strdup_printf("%s\tsystem_user=%s\tuid=%s\tgid=%s\t"
-				 "home=%s", pw->pw_name, pw->pw_name,
-				 dec2str(pw->pw_uid), dec2str(pw->pw_gid),
-				 pw->pw_dir);
-	callback(result, auth_request);
+	reply = auth_stream_reply_init(auth_request);
+	auth_stream_reply_add(reply, NULL, pw->pw_name);
+	auth_stream_reply_add(reply, "system_user", pw->pw_name);
+	auth_stream_reply_add(reply, "uid", dec2str(pw->pw_uid));
+	auth_stream_reply_add(reply, "gid", dec2str(pw->pw_gid));
+	auth_stream_reply_add(reply, "home", pw->pw_dir);
+
+	callback(reply, auth_request);
 }
 
 struct userdb_module userdb_passwd = {

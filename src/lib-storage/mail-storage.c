@@ -11,7 +11,7 @@
 
 /* Message to show to users when critical error occurs */
 #define CRITICAL_MSG \
-	"Internal error occured. Refer to server log for more information."
+	"Internal error occurred. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
 unsigned int mail_storage_module_id = 0;

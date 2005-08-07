@@ -7,7 +7,7 @@
 struct subsfile_list_context *
 subsfile_list_init(struct mail_storage *storage, const char *path);
 
-/* Deinitialize subscription file listing. Returns FALSE if some error occured
+/* Deinitialize subscription file listing. Returns FALSE if some error occurred
    while listing. */
 int subsfile_list_deinit(struct subsfile_list_context *ctx);
 /* Returns the next subscribed mailbox, or NULL. */

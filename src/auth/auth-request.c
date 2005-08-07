@@ -153,11 +153,14 @@ static void auth_request_save_cache(struct auth_request *request,
 				    enum passdb_result result)
 {
 	struct passdb_module *passdb = request->passdb->passdb;
+	const char *extra_fields;
 	string_t *str;
 
-	i_assert(request->extra_fields == NULL ||
-		 (strstr(str_c(request->extra_fields), "\tpass=") == NULL &&
-		  strncmp(str_c(request->extra_fields), "pass=", 5) != 0));
+	extra_fields = request->extra_fields == NULL ? NULL :
+		auth_stream_reply_export(request->extra_fields);
+	i_assert(extra_fields == NULL ||
+		 (strstr(extra_fields, "\tpass=") == NULL &&
+		  strncmp(extra_fields, "pass=", 5) != 0));
 
 	if (passdb_cache == NULL)
 		return;
@@ -175,8 +178,7 @@ static void auth_request_save_cache(struct auth_request *request,
 	}
 
 	/* save all except the currently given password in cache */
-	str = t_str_new(32 + (request->extra_fields != NULL ? 
-			      str_len(request->extra_fields) : 0));
+	str = t_str_new(256);
 	if (request->passdb_password != NULL) {
 		if (*request->passdb_password != '{') {
 			/* cached passwords must have a known scheme */
@@ -184,12 +186,16 @@ static void auth_request_save_cache(struct auth_request *request,
 			str_append(str, passdb->default_pass_scheme);
 			str_append_c(str, '}');
 		}
+		if (strchr(request->passdb_password, '\t') != NULL)
+			i_panic("%s: Password contains TAB", request->user);
+		if (strchr(request->passdb_password, '\n') != NULL)
+			i_panic("%s: Password contains LF", request->user);
 		str_append(str, request->passdb_password);
 	}
 
-	if (request->extra_fields != NULL) {
+	if (extra_fields != NULL) {
 		str_append_c(str, '\t');
-		str_append_str(str, request->extra_fields);
+		str_append(str, extra_fields);
 	}
 	if (request->no_failure_delay) {
 		str_append_c(str, '\t');
@@ -235,7 +241,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 	    request->passdb->next != NULL) {
 		/* try next passdb. */
 		if (request->extra_fields != NULL)
-			str_truncate(request->extra_fields, 0);
+			auth_stream_reply_reset(request->extra_fields);
 
                 request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
 		request->passdb = request->passdb->next;
@@ -355,13 +361,13 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	}
 }
 
-void auth_request_userdb_callback(const char *result,
+void auth_request_userdb_callback(struct auth_stream_reply *reply,
 				  struct auth_request *request)
 {
-	if (result == NULL && request->userdb->next != NULL) {
+	if (reply == NULL && request->userdb->next != NULL) {
 		/* try next userdb. */
 		if (request->extra_fields != NULL)
-			str_truncate(request->extra_fields, 0);
+			auth_stream_reply_reset(request->extra_fields);
 
 		request->userdb = request->userdb->next;
 		auth_request_lookup_user(request,
@@ -369,13 +375,13 @@ void auth_request_userdb_callback(const char *result,
 		return;
 	}
 
-	if (result == NULL && request->client_pid != 0) {
+	if (reply == NULL && request->client_pid != 0) {
 		/* this was actual login attempt */
 		auth_request_log_error(request, "userdb",
 				       "user not found from userdb");
 	}
 
-        request->private_callback.userdb(result, request);
+        request->private_callback.userdb(reply, request);
 }
 
 void auth_request_lookup_user(struct auth_request *request,
@@ -426,8 +432,6 @@ void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
 {
-	string_t *str;
-
 	i_assert(value != NULL);
 
 	if (strcmp(name, "password") == 0) {
@@ -466,29 +470,19 @@ void auth_request_set_field(struct auth_request *request,
 		return;
 	}
 
-	str = request->extra_fields;
-	if (str == NULL)
-		request->extra_fields = str = str_new(request->pool, 64);
-
 	if (strcmp(name, "nologin") == 0) {
 		/* user can't actually login - don't keep this
 		   reply for master */
 		request->no_login = TRUE;
-		if (str_len(str) > 0)
-			str_append_c(str, '\t');
-		str_append(str, name);
 	} else if (strcmp(name, "proxy") == 0) {
 		/* we're proxying authentication for this user. send
 		   password back if using plaintext authentication. */
 		request->proxy = TRUE;
-		if (str_len(str) > 0)
-			str_append_c(str, '\t');
-		str_append(str, name);
-	} else {
-		if (str_len(str) > 0)
-			str_append_c(str, '\t');
-		str_printfa(str, "%s=%s", name, value);
 	}
+
+	if (request->extra_fields == NULL)
+		request->extra_fields = auth_stream_reply_init(request);
+	auth_stream_reply_add(request->extra_fields, name, value);
 }
 
 static const char *escape_none(const char *str)

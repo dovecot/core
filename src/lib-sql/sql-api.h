@@ -34,7 +34,7 @@ void sql_query(struct sql_db *db, const char *query,
 	       sql_query_callback_t *callback, void *context);
 
 /* Go to next row, returns 1 if ok, 0 if this was the last row or -1 if error
-   occured. This needs to be the first call for result. */
+   occurred. This needs to be the first call for result. */
 int sql_result_next_row(struct sql_result *result);
 
 /* Return number of fields in result. */

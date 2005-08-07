@@ -110,7 +110,7 @@ void message_parse_header_deinit(struct message_header_parser_ctx *ctx);
 
 /* Read and return next header line. Returns 1 if header is returned, 0 if
    input stream is non-blocking and more data needs to be read, -1 when all is
-   done or error occured (see stream's error status). */
+   done or error occurred (see stream's error status). */
 int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			      struct message_header_line **hdr_r);
 

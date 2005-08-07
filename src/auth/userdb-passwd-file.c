@@ -13,8 +13,8 @@ struct db_passwd_file *userdb_pwf = NULL;
 static void passwd_file_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback)
 {
+	struct auth_stream_reply *reply;
 	struct passwd_user *pu;
-	string_t *str;
 
 	pu = db_passwd_file_lookup(userdb_pwf, auth_request);
 	if (pu == NULL) {
@@ -22,16 +22,17 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 		return;
 	}
 
-	str = t_str_new(128);
-	str_printfa(str, "%s\tuid=%s\tgid=%s",
-		    auth_request->user, dec2str(pu->uid), dec2str(pu->gid));
+	reply = auth_stream_reply_init(auth_request);
+	auth_stream_reply_add(reply, NULL, auth_request->user);
+	auth_stream_reply_add(reply, "uid", dec2str(pu->uid));
+	auth_stream_reply_add(reply, "gid", dec2str(pu->gid));
 
 	if (pu->home != NULL)
-		str_printfa(str, "\thome=%s", pu->home);
+		auth_stream_reply_add(reply, "home", pu->home);
 	if (pu->mail != NULL)
-		str_printfa(str, "\tmail=%s", pu->mail);
+		auth_stream_reply_add(reply, "mail", pu->mail);
 
-	callback(str_c(str), auth_request);
+	callback(reply, auth_request);
 }
 
 static void passwd_file_init(const char *args)

@@ -104,16 +104,19 @@ void auth_request_handler_check_timeouts(struct auth_request_handler *handler)
 static const char *get_client_extra_fields(struct auth_request *request)
 {
 	string_t *str;
-	const char **fields;
+	const char **fields, *extra_fields;
 	unsigned int src, dest;
 
+	extra_fields = request->extra_fields == NULL ? NULL :
+		auth_stream_reply_export(request->extra_fields);
+
 	if (!request->proxy) {
-		if (request->extra_fields == NULL)
+		if (extra_fields == NULL)
 			return NULL;
 
 		/* we only wish to remove all fields prefixed with "userdb_" */
-		if (strstr(str_c(request->extra_fields), "userdb_") == NULL)
-			return str_c(request->extra_fields);
+		if (strstr(extra_fields, "userdb_") == NULL)
+			return extra_fields;
 	}
 
 	str = t_str_new(128);
@@ -123,7 +126,7 @@ static const char *get_client_extra_fields(struct auth_request *request)
 		str_printfa(str, "pass=%s", request->mech_password);
 	}
 
-	fields = t_strsplit(str_c(request->extra_fields), "\t");
+	fields = t_strsplit(extra_fields, "\t");
 	for (src = dest = 0; fields[src] != NULL; src++) {
 		if (strncmp(fields[src], "userdb_", 7) != 0) {
 			if (str_len(str) > 0)
@@ -374,23 +377,24 @@ int auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	return TRUE;
 }
 
-static void userdb_callback(const char *result, struct auth_request *request)
+static void userdb_callback(struct auth_stream_reply *reply,
+			    struct auth_request *request)
 {
         struct auth_request_handler *handler = request->context;
-	string_t *reply;
+	string_t *str;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_USERDB);
 
 	request->state = AUTH_REQUEST_STATE_FINISHED;
 
-	reply = t_str_new(256);
-	if (result == NULL)
-		str_printfa(reply, "NOTFOUND\t%u", request->id);
+	str = t_str_new(256);
+	if (reply == NULL)
+		str_printfa(str, "NOTFOUND\t%u", request->id);
 	else {
-		str_printfa(reply, "USER\t%u\t", request->id);
-		str_append(reply, result);
+		str_printfa(str, "USER\t%u\t", request->id);
+		str_append(str, auth_stream_reply_export(reply));
 	}
-	handler->master_callback(str_c(reply), request->master);
+	handler->master_callback(str_c(str), request->master);
 
 	auth_request_unref(request);
         auth_request_handler_unref(handler);

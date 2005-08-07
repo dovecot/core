@@ -87,8 +87,8 @@ static int get_pass_reply(struct auth_request *request, const char *reply,
 		if (p != NULL && (p[6] == '\0' || p[6] == '\t'))
 			request->proxy = TRUE;
 
-		request->extra_fields = str_new(request->pool, 128);
-		str_append(request->extra_fields, reply);
+		request->extra_fields = auth_stream_reply_init(request);
+		auth_stream_reply_import(request->extra_fields, reply);
 	}
 	return 0;
 }

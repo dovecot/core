@@ -90,8 +90,11 @@ static void verify_plain_callback(enum passdb_result result,
 		if (request->passdb_password != NULL)
 			str_append(str, request->passdb_password);
 		str_append_c(str, '\t');
-		if (request->extra_fields != NULL)
-			str_append_str(str, request->extra_fields);
+		if (request->extra_fields != NULL) {
+			const char *field =
+				auth_stream_reply_export(request->extra_fields);
+			str_append(str, field);
+		}
 	}
 	str_append_c(str, '\n');
 	o_stream_send(client->output, str_data(str), str_len(str));
@@ -161,8 +164,11 @@ lookup_credentials_callback(enum passdb_result result, const char *credentials,
 		str_printfa(str, "OK\t%s\t{%s}%s\t", request->user,
 			    passdb_credentials_to_str(request->credentials),
 			    credentials);
-		if (request->extra_fields != NULL)
-			str_append_str(str, request->extra_fields);
+		if (request->extra_fields != NULL) {
+			const char *field =
+				auth_stream_reply_export(request->extra_fields);
+			str_append(str, field);
+		}
 	}
 	str_append_c(str, '\n');
 	o_stream_send(client->output, str_data(str), str_len(str));
@@ -220,15 +226,16 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 }
 
 static void
-lookup_user_callback(const char *result, struct auth_request *auth_request)
+lookup_user_callback(struct auth_stream_reply *reply,
+		     struct auth_request *auth_request)
 {
 	struct auth_worker_client *client = auth_request->context;
 	string_t *str;
 
 	str = t_str_new(64);
 	str_printfa(str, "%u\t", auth_request->id);
-	if (result != NULL)
-		str_append(str, result);
+	if (reply != NULL)
+		str_append(str, auth_stream_reply_export(reply));
 	str_append_c(str, '\n');
 
 	o_stream_send(client->output, str_data(str), str_len(str));

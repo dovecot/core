@@ -63,7 +63,7 @@ int i_stream_have_bytes_left(struct istream *stream);
    needed to make a full line. */
 char *i_stream_next_line(struct istream *stream);
 /* Like i_stream_next_line(), but reads for more data if needed. Returns NULL
-   if more data is needed or error occured. */
+   if more data is needed or error occurred. */
 char *i_stream_read_next_line(struct istream *stream);
 
 /* Returns pointer to beginning of read data, or NULL if there's no data

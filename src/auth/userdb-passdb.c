@@ -2,7 +2,8 @@
 
 #include "common.h"
 
-#ifdef USERDB_PASSDB
+//#ifdef USERDB_PASSDB
+#if 1
 
 #include "str.h"
 #include "var-expand.h"
@@ -34,7 +35,10 @@ static void passdb_lookup(struct auth_request *auth_request,
 	str = t_str_new(256);
 	str_append(str, auth_request->user);
 
-	args = t_strsplit(str_c(auth_request->extra_fields), "\t");
+	/* export the request. keep all keys starting with userdb_ but strip
+	   the userdb_ away. */
+	args = t_strsplit(auth_stream_reply_export(auth_request->extra_fields),
+		"\t");
 	for (; *args != NULL; args++) {
 		const char *arg = *args;
 
@@ -75,8 +79,15 @@ static void passdb_lookup(struct auth_request *auth_request,
 
 	if (uid == (uid_t)-1 || gid == (gid_t)-1)
 		callback(NULL, auth_request);
-	else
-		callback(str_c(str), auth_request);
+	else {
+		struct auth_stream_reply *reply;
+
+		/* import the string into request. since the values were
+		   exported they are already in escaped form in the string. */
+		reply = auth_stream_reply_init(auth_request);
+		auth_stream_reply_import(reply, str_c(str));
+		callback(reply, auth_request);
+	}
 	t_pop();
 }
 

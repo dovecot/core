@@ -98,7 +98,7 @@ int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	va_end(args);
 
 	if (len < 0) {
-		/* some error occured */
+		/* some error occurred */
 		len = 0;
 		ret = -1;
 	} else if ((size_t)len >= max_chars) {

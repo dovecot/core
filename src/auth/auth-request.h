@@ -24,7 +24,7 @@ struct auth_request {
 	char *user;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
-	string_t *extra_fields;
+        struct auth_stream_reply *extra_fields;
 
 	struct mech_module *mech;
 	struct auth *auth;
@@ -116,7 +116,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const char *credentials,
 					      struct auth_request *request);
-void auth_request_userdb_callback(const char *result,
+void auth_request_userdb_callback(struct auth_stream_reply *reply,
 				  struct auth_request *request);
 
 #endif

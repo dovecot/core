@@ -268,7 +268,7 @@ mail_storage_mailbox_list_init(struct mail_storage *storage,
 struct mailbox_list *
 mail_storage_mailbox_list_next(struct mailbox_list_context *ctx);
 /* Deinitialize mailbox list request. Returns FALSE if some error
-   occured while listing. */
+   occurred while listing. */
 int mail_storage_mailbox_list_deinit(struct mailbox_list_context *ctx);
 
 /* Subscribe/unsubscribe mailbox. There should be no error when
@@ -282,7 +282,7 @@ int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 					 const char *name,
 					 enum mailbox_name_status *status);
 
-/* Returns the error message of last occured error. */
+/* Returns the error message of last occurred error. */
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					int *syntax_error_r,
 					int *temporary_error_r);
@@ -296,7 +296,7 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags);
-/* Close the box. Returns FALSE if some cleanup errors occured, but
+/* Close the box. Returns FALSE if some cleanup errors occurred, but
    the mailbox was closed anyway. */
 int mailbox_close(struct mailbox *box);
 
@@ -416,18 +416,18 @@ void mail_free(struct mail *mail);
 int mail_set_seq(struct mail *mail, uint32_t seq);
 
 /* Get the time message was received (IMAP INTERNALDATE).
-   Returns (time_t)-1 if error occured. */
+   Returns (time_t)-1 if error occurred. */
 time_t mail_get_received_date(struct mail *mail);
 /* Get the Date-header in mail. Timezone is in minutes.
-   Returns (time_t)-1 if error occured, 0 if field wasn't found or
+   Returns (time_t)-1 if error occurred, 0 if field wasn't found or
    couldn't be parsed. */
 time_t mail_get_date(struct mail *mail, int *timezone);
 
 /* Get the full virtual size of mail (IMAP RFC822.SIZE).
-   Returns (uoff_t)-1 if error occured */
+   Returns (uoff_t)-1 if error occurred */
 uoff_t mail_get_virtual_size(struct mail *mail);
 /* Get the full physical size of mail.
-   Returns (uoff_t)-1 if error occured */
+   Returns (uoff_t)-1 if error occurred */
 uoff_t mail_get_physical_size(struct mail *mail);
 
 /* Get value for single header field */

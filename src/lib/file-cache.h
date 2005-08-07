@@ -10,7 +10,7 @@ void file_cache_free(struct file_cache *cache);
 void file_cache_set_fd(struct file_cache *cache, int fd);
 
 /* Read data from file, returns how many bytes was actually read or -1 if
-   error occured. */
+   error occurred. */
 ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size);
 
 /* Returns pointer to beginning of cached file. Only parts of the returned

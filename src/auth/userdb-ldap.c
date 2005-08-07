@@ -25,57 +25,53 @@ struct userdb_ldap_request {
 
 static struct ldap_connection *userdb_ldap_conn;
 
-static int append_uid_list(struct auth_request *auth_request, string_t *str,
+static int append_uid_list(struct auth_request *auth_request,
+                           struct auth_stream_reply *reply,
 			   const char *name, char **vals)
 {
 	uid_t uid;
 
 	for (; *vals != NULL; vals++) {
-		str_append_c(str, '\t');
-		str_append(str, name);
-		str_append_c(str, '=');
-
 		uid = userdb_parse_uid(auth_request, *vals);
 		if (uid == (uid_t)-1)
 			return FALSE;
-		str_append(str, dec2str(uid));
+
+		auth_stream_reply_add(reply, name, dec2str(uid));
 	}
 
 	return TRUE;
 }
 
-static int append_gid_list(struct auth_request *auth_request, string_t *str,
+static int append_gid_list(struct auth_request *auth_request,
+                           struct auth_stream_reply *reply,
 			   const char *name, char **vals)
 {
 	gid_t gid;
 
 	for (; *vals != NULL; vals++) {
-		str_append_c(str, '\t');
-		str_append(str, name);
-		str_append_c(str, '=');
-
 		gid = userdb_parse_gid(auth_request, *vals);
 		if (gid == (gid_t)-1)
 			return FALSE;
-		str_append(str, dec2str(gid));
+
+		auth_stream_reply_add(reply, name, dec2str(gid));
 	}
 
 	return TRUE;
 }
 
-static const char *
+static struct auth_stream_reply *
 ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 		      struct auth_request *auth_request)
 {
-	string_t *str;
+	struct auth_stream_reply *reply;
 	BerElement *ber;
 	const char *name;
 	char *attr, **vals;
 	unsigned int i;
 	int seen_uid = FALSE, seen_gid = FALSE;
 
-	str = t_str_new(256);
-	str_append(str, auth_request->user);
+	reply = auth_stream_reply_init(auth_request);
+	auth_stream_reply_add(reply, NULL, auth_request->user);
 
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
@@ -84,21 +80,19 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 		if (name != NULL && vals != NULL && vals[0] != NULL) {
 			if (strcmp(name, "uid") == 0) {
-				if (!append_uid_list(auth_request, str,
+				if (!append_uid_list(auth_request, reply,
 						     name, vals))
 					return NULL;
 				seen_uid = TRUE;
 			} else if (strcmp(name, "gid") == 0) {
-				if (!append_gid_list(auth_request, str,
-						     name, vals))
+				if (!append_gid_list(auth_request, reply,
+						     name, vals)) 
 					return NULL;
 				seen_gid = TRUE;
 			} else {
 				for (i = 0; vals[i] != NULL; i++) {
-					str_append_c(str, '\t');
-					str_append(str, name);
-					str_append_c(str, '=');
-					str_append(str, vals[i]);
+					auth_stream_reply_add(reply, name,
+							      vals[i]);
 				}
 			}
 		}
@@ -109,30 +103,27 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 	}
 
 	if (!seen_uid) {
-	}
-
-	if (!seen_uid) {
 		if (conn->set.uid == (uid_t)-1) {
 			auth_request_log_error(auth_request, "ldap",
 				"uid not in user_attrs and no default given in "
 				"user_global_uid");
+			return NULL;
 		}
 
-		str_append(str, "\tuid=");
-		str_append(str, dec2str(conn->set.uid));
+		auth_stream_reply_add(reply, "uid", dec2str(conn->set.uid));
 	}
 	if (!seen_gid) {
 		if (conn->set.gid == (gid_t)-1) {
 			auth_request_log_error(auth_request, "ldap",
 				"gid not in user_attrs and no default given in "
 				"user_global_gid");
+			return NULL;
 		}
 
-		str_append(str, "\tgid=");
-		str_append(str, dec2str(conn->set.gid));
+		auth_stream_reply_add(reply, "gid", dec2str(conn->set.gid));
 	}
 
-	return str_c(str);
+	return reply;
 }
 
 static void handle_request(struct ldap_connection *conn,
@@ -142,7 +133,7 @@ static void handle_request(struct ldap_connection *conn,
 		(struct userdb_ldap_request *) request;
 	struct auth_request *auth_request = urequest->auth_request;
 	LDAPMessage *entry;
-	const char *result;
+	struct auth_stream_reply *reply = NULL;
 	int ret;
 
 	ret = ldap_result2error(conn->ld, res, 0);
@@ -159,17 +150,16 @@ static void handle_request(struct ldap_connection *conn,
 			auth_request_log_error(auth_request, "ldap",
 					       "Authenticated user not found");
 		}
-		result = NULL;
 	} else {
-		result = ldap_query_get_result(conn, entry, auth_request);
+		reply = ldap_query_get_result(conn, entry, auth_request);
 		if (ldap_next_entry(conn->ld, entry) != NULL) {
 			auth_request_log_error(auth_request, "ldap",
 				"Multiple replies found for user");
-			result = NULL;
+			reply = NULL;
 		}
 	}
 
-	urequest->userdb_callback(result, auth_request);
+	urequest->userdb_callback(reply, auth_request);
 }
 
 static void userdb_ldap_lookup(struct auth_request *auth_request,

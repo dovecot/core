@@ -5,14 +5,14 @@
    it's problems:
 
    We want to be as efficient as we can. The most efficient way to
-   check if changes have occured is to stat() the new/ and cur/
+   check if changes have occurred is to stat() the new/ and cur/
    directories and uidlist file - if their mtimes haven't changed,
    there's no changes and we don't need to do anything.
 
    Problem 1: Multiple changes can happen within a single second -
    nothing guarantees that once we synced it, someone else didn't just
    then make a modification. Such modifications wouldn't get noticed
-   until a new modification occured later.
+   until a new modification occurred later.
 
    Problem 2: Syncing cur/ directory is much more costly than syncing
    new/. Moving mails from new/ to cur/ will always change mtime of

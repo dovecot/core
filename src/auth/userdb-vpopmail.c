@@ -44,7 +44,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
-	const char *result;
+	struct auth_stream_reply *reply;
 	uid_t uid;
 	gid_t gid;
 
@@ -84,11 +84,13 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 		}
 	}
 
-	result = t_strdup_printf("%s\tuid=%s\tgid=%s\thome=%s",
-				 vpw->pw_name, dec2str(uid), dec2str(gid),
-				 vpw->pw_dir);
+	reply = auth_stream_reply_init();
+	auth_stream_reply_add(reply, NULL, vpw->pw_name);
+	auth_stream_reply_add(reply, "uid", dec2str(uid));
+	auth_stream_reply_add(reply, "gid", dec2str(gid));
+	auth_stream_reply_add(reply, "home", vpw->pw_dir);
 
-	callback(result, auth_request);
+	callback(reply, auth_request);
 }
 
 struct userdb_module userdb_vpopmail = {

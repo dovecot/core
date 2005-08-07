@@ -159,7 +159,7 @@ static int cmd_idle_continue(struct client_command_context *cmd)
 		/* outlook workaround */
 		idle_send_expunge(ctx);
 	} else if (ctx->sync_pending) {
-		/* more changes occured while we were sending changes to
+		/* more changes occurred while we were sending changes to
 		   client */
                 idle_callback(client->mailbox, client);
 	}

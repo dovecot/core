@@ -169,7 +169,7 @@ shouldn't even try to send REQUEST commands for nonexisting requests, so if
 it happens it means either a timeout caused by very high load, or client
 lying to master about the request.
 
-FAIL reply means an internal error occured. Usually either a configuration
+FAIL reply means an internal error occurred. Usually either a configuration
 mistake or temporary error caused by lost resource (eg. database down).
 
 USER reply is sent if request succeeded. It can return parameters:

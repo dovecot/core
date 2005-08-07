@@ -93,7 +93,7 @@ const char *imap_parser_get_error(struct imap_parser *parser, int *fatal);
 
 /* Read a number of arguments. This function doesn't call i_stream_read(), you
    need to do that. Returns number of arguments read (may be less than count
-   in case of EOL), -2 if more data is needed or -1 if error occured.
+   in case of EOL), -2 if more data is needed or -1 if error occurred.
 
    count-sized array of arguments are stored into args when return value is
    0 or larger. If all arguments weren't read, they're set to NIL. count

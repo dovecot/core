@@ -45,6 +45,9 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 {
 	struct passwd *pw;
 
+	if (str == NULL)
+		return (uid_t)-1;
+
 	if (*str >= '0' && *str <= '9')
 		return (uid_t)strtoul(str, NULL, 10);
 
@@ -62,6 +65,9 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 {
 	struct group *gr;
+
+	if (str == NULL)
+		return (uid_t)-1;
 
 	if (*str >= '0' && *str <= '9')
 		return (gid_t)strtoul(str, NULL, 10);

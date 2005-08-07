@@ -22,10 +22,11 @@ extern struct userdb_module userdb_sql;
 
 static struct sql_connection *userdb_sql_conn;
 
-static const char *sql_query_get_result(struct sql_result *result,
-					struct auth_request *auth_request)
+static struct auth_stream_reply *
+sql_query_get_result(struct sql_result *result,
+		     struct auth_request *auth_request)
 {
-	string_t *str;
+	struct auth_stream_reply *reply;
 	uid_t uid, gid;
 	const char *name, *value;
 	unsigned int i, fields_count;
@@ -33,8 +34,8 @@ static const char *sql_query_get_result(struct sql_result *result,
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 
-	str = t_str_new(256);
-	str_append(str, auth_request->user);
+	reply = auth_stream_reply_init(auth_request);
+	auth_stream_reply_add(reply, NULL, auth_request->user);
 
 	fields_count = sql_result_get_fields_count(result);
 	for (i = 0; i < fields_count; i++) {
@@ -43,10 +44,6 @@ static const char *sql_query_get_result(struct sql_result *result,
 
 		if (value == NULL)
 			continue;
-
-		str_append_c(str, '\t');
-		str_append(str, name);
-		str_append_c(str, '=');
 
 		/* some special handling for UID and GID. */
 		if (strcmp(name, "uid") == 0) {
@@ -61,26 +58,28 @@ static const char *sql_query_get_result(struct sql_result *result,
 			value = dec2str(gid);
 		}
 
-		str_append(str, value);
+		auth_stream_reply_add(reply, name, value);
 	}
 
 	if (uid == (uid_t)-1) {
 		auth_request_log_error(auth_request, "sql",
 			"Password query didn't return uid, or it was NULL");
+		return NULL;
 	}
 	if (gid == (gid_t)-1) {
 		auth_request_log_error(auth_request, "sql",
 			"Password query didn't return gid, or it was NULL");
+		return NULL;
 	}
 
-	return str_c(str);
+	return reply;
 }
 
 static void sql_query_callback(struct sql_result *result, void *context)
 {
 	struct userdb_sql_request *sql_request = context;
 	struct auth_request *auth_request = sql_request->auth_request;
-	const char *user_result = NULL;
+	struct auth_stream_reply *reply = NULL;
 	int ret;
 
 	ret = sql_result_next_row(result);
@@ -90,10 +89,10 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	} else if (ret == 0) {
 		auth_request_log_info(auth_request, "sql", "User not found");
 	} else {
-                user_result = sql_query_get_result(result, auth_request);
+                reply = sql_query_get_result(result, auth_request);
 	}
 
-	sql_request->callback(user_result, auth_request);
+	sql_request->callback(reply, auth_request);
 	i_free(sql_request);
 }
 

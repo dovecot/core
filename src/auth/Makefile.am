@@ -40,6 +40,7 @@ dovecot_auth_SOURCES = \
 	auth-module.c \
 	auth-request.c \
 	auth-request-handler.c \
+	auth-stream.c \
 	auth-worker-client.c \
 	auth-worker-server.c \
 	db-ldap.c \
@@ -88,6 +89,7 @@ noinst_HEADERS = \
 	auth-module.h \
 	auth-request.h \
 	auth-request-handler.h \
+	auth-stream.h \
 	auth-worker-client.h \
 	auth-worker-server.h \
 	db-ldap.h \

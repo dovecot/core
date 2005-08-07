@@ -87,7 +87,7 @@ mailbox to see what changed and notify client about it.
 Dovecot uses modify log file to log changes made to index files; currently
 message flag changes and expunges. This way only one of the Dovecot
 processes has to scan the mailbox, other processes simply check from the
-log file what changes occured.
+log file what changes occurred.
 
 All external changes that Dovecot notices (eg. another MUA expunging mails)
 are also saved into log file. They can quickly be found from there when
