@@ -435,7 +435,11 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 		mbox_sync_update_xkeywords(ctx);
 	}
 
-	i_assert(ctx->mail.uid == 0 || ctx->mail.uid == mail->uid);
+	/* we might not have done the UID validity checks in same way this
+	   time, so just overwrite conflicting UIDs if uid_broken was set in
+	   first parse time */
+	i_assert(ctx->mail.uid == 0 || ctx->mail.uid_broken ||
+		 ctx->mail.uid == mail->uid);
 	ctx->mail.uid = mail->uid;
 
 	mbox_sync_update_x_imap_base(ctx);

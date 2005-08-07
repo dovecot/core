@@ -359,13 +359,13 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 		/* UID is larger than expected. Don't allow it because
 		   incoming mails can contain untrusted X-UID fields,
 		   causing possibly DoS if the UIDs get large enough. */
-		ctx->uid_broken = TRUE;
+		ctx->mail.uid_broken = TRUE;
 		return FALSE;
 	}
 
 	if (value <= ctx->sync_ctx->prev_msg_uid) {
 		/* broken - UIDs must be growing */
-		ctx->uid_broken = TRUE;
+		ctx->mail.uid_broken = TRUE;
 		return FALSE;
 	}
 

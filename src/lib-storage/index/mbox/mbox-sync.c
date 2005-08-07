@@ -1018,7 +1018,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			return -1;
 		}
 
-		if (mail_ctx->uid_broken && partial) {
+		if (mail_ctx->mail.uid_broken && partial) {
 			/* UID ordering problems, resync everything to make
 			   sure we get everything right */
 			if (sync_ctx->mbox->mbox_sync_dirty)

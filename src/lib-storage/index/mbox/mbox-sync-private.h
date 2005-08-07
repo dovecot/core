@@ -42,8 +42,11 @@ extern struct mbox_flag_type mbox_xstatus_flags[];
 struct mbox_sync_mail {
 	uint32_t uid;
 	uint32_t idx_seq;
-	uint8_t flags;
+
 	array_t ARRAY_DEFINE(keywords, unsigned int);
+	uint8_t flags;
+
+	unsigned int uid_broken:1;
 
 	uoff_t from_offset;
 	uoff_t body_size;
@@ -86,7 +89,6 @@ struct mbox_sync_mail_context {
 	unsigned int updated:1;
 	unsigned int recent:1;
 	unsigned int dirty:1;
-	unsigned int uid_broken:1;
 	unsigned int imapbase_rewrite:1;
 	unsigned int imapbase_updated:1;
 };
