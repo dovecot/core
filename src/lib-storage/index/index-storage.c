@@ -4,7 +4,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "ioloop.h"
-#include "mail-index.h"
+#include "mail-index-private.h"
 #include "index-storage.h"
 #include "index-mail.h"
 
@@ -92,7 +92,7 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 {
 	struct index_list **list, *rec;
 	struct mail_index *index;
-	struct stat st;
+	struct stat st, st2;
 	int destroy_count;
 
 	if (index_dir == NULL || stat(index_dir, &st) < 0)
@@ -104,12 +104,27 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 	for (list = &indexes; *list != NULL;) {
 		rec = *list;
 
-		if ((index_dir != NULL && st.st_ino == rec->index_dir_ino &&
-		     CMP_DEV_T(st.st_dev, rec->index_dir_dev)) ||
-		    (index_dir == NULL && st.st_ino == 0 &&
-		     strcmp(mailbox_path, rec->mailbox_path) == 0)) {
-			rec->refcount++;
-			index = rec->index;
+		if (index_dir != NULL) {
+			if (index == NULL && st.st_ino == rec->index_dir_ino &&
+			    CMP_DEV_T(st.st_dev, rec->index_dir_dev)) {
+				/* make sure the directory still exists.
+				   it might have been renamed and we're trying
+				   to access it via its new path now. */
+				if (stat(rec->index->dir, &st2) < 0 ||
+				    st2.st_ino != st.st_ino ||
+				    !CMP_DEV_T(st2.st_dev, st.st_dev))
+					rec->destroy_time = 0;
+				else {
+					rec->refcount++;
+					index = rec->index;
+				}
+			}
+		} else {
+			if (index == NULL && st.st_ino == 0 &&
+			    strcmp(mailbox_path, rec->mailbox_path) == 0) {
+				rec->refcount++;
+				index = rec->index;
+			}
 		}
 
 		if (rec->refcount == 0) {
