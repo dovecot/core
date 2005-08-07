@@ -901,7 +901,7 @@ static int parse_section(const char *type, const char *name, void *context,
 
 	if (type == NULL) {
 		/* section closing */
-		if (--ctx->level > 0) {
+		if (ctx->level-- > 0) {
 			ctx->type = ctx->parent_type;
 			ctx->protocol = MAIL_PROTOCOL_ANY;
 
