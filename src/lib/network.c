@@ -124,8 +124,10 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
         so.sin.sin_family = ip->family;
 	fd = socket(ip->family, SOCK_STREAM, 0);
 
-	if (fd == -1)
+	if (fd == -1) {
+		i_error("socket() failed: %m");
 		return -1;
+	}
 
 	/* set socket options */
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -137,8 +139,9 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		sin_set_ip(&so, my_ip);
 		if (bind(fd, &so.sa, SIZEOF_SOCKADDR(so)) == -1) {
 			/* failed, set it back to INADDR_ANY */
-			sin_set_ip(&so, NULL);
-			bind(fd, &so.sa, SIZEOF_SOCKADDR(so));
+			i_error("bind(%s) failed: %m", net_ip2addr(my_ip));
+			close_save_errno(fd);
+			return -1;
 		}
 	}
 
@@ -175,8 +178,10 @@ int net_connect_unix(const char *path)
 
 	/* create the socket */
 	fd = socket(PF_UNIX, SOCK_STREAM, 0);
-	if (fd == -1)
+	if (fd == -1) {
+		i_error("socket(%s) failed: %m", path);
 		return -1;
+	}
 
 	net_set_nonblock(fd, TRUE);
 
@@ -270,8 +275,10 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 		fd = socket(AF_INET, SOCK_STREAM, 0);
 	}
 #endif
-	if (fd == -1)
+	if (fd == -1) {
+		i_error("socket() failed: %m");
 		return -1;
+	}
 
 	/* set socket options */
 	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -286,7 +293,9 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 #endif
 	/* specify the address/port we want to listen in */
 	ret = bind(fd, &so.sa, SIZEOF_SOCKADDR(so));
-	if (ret >= 0) {
+	if (ret < 0)
+		i_error("bind(%s) failed: %m", net_ip2addr(my_ip));
+	else {
 		/* get the actual port we started listen */
 		len = SIZEOF_SOCKADDR(so);
 		ret = getsockname(fd, &so.sa, &len);
@@ -297,7 +306,6 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 			if (listen(fd, backlog) >= 0)
                                 return fd;
 		}
-
 	}
 
         /* error */
@@ -320,11 +328,15 @@ int net_listen_unix(const char *path, int backlog)
 
 	/* create the socket */
 	fd = socket(PF_UNIX, SOCK_STREAM, 0);
-	if (fd == -1)
+	if (fd == -1) {
+		i_error("socket() failed: %m");
 		return -1;
+	}
 
 	/* bind */
-	if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) == 0) {
+	if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
+		i_error("bind(%s) failed: %m", path);
+	else {
 		/* start listening */
 		if (listen(fd, backlog) == 0)
 			return fd;
