@@ -1254,6 +1254,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 				  file_size + -sync_ctx->space_diff) < 0) {
 			mbox_set_syscall_error(sync_ctx->mbox,
 					       "file_set_size()");
+			(void)ftruncate(sync_ctx->write_fd, file_size);
 			return -1;
 		}
 		i_stream_sync(sync_ctx->input);
