@@ -58,16 +58,19 @@ static void event_callback(void *context)
 	}
 }
 
-struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
-			      enum io_condition condition,
+struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 			      io_callback_t *callback, void *context)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 	struct io *io;
+	int fd;
 
-	if ((condition & IO_FILE_NOTIFY) != 0)
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		i_error("open(%s) for dnotify failed: %m", path);
 		return NULL;
+	}
 
 	if (fcntl(fd, F_SETSIG, SIGRTMIN) < 0) {
 		if (errno == EINVAL) {
@@ -76,13 +79,17 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 			return NULL;
 		}
 		i_error("fcntl(F_SETSIG) failed: %m");
-		return FALSE;
+		return NULL;
 	}
 	if (fcntl(fd, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME |
 		  DN_MULTISHOT) < 0) {
-		i_error("fcntl(F_NOTIFY) failed: %m");
+		/* we fail here if we're trying to add dnotify to
+		   non-directory fd. fail silently in that case. */
+		if (errno != ENOTDIR)
+			i_error("fcntl(F_NOTIFY) failed: %m");
 		(void)fcntl(fd, F_SETSIG, 0);
-		return FALSE;
+		(void)close(fd);
+		return NULL;
 	}
 
 	if (ctx->event_io == NULL) {
@@ -92,7 +99,6 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 
 	io = p_new(ioloop->pool, struct io, 1);
 	io->fd = fd;
-        io->condition = condition;
 
 	io->callback = callback;
         io->context = context;
@@ -122,6 +128,8 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 		i_error("fcntl(F_NOTIFY, 0) failed: %m");
 	if (fcntl(io->fd, F_SETSIG, 0) < 0)
 		i_error("fcntl(F_SETSIG, 0) failed: %m");
+	if (close(io->fd))
+		i_error("close(dnotify) failed: %m");
 
 	p_free(ioloop->pool, io);
 

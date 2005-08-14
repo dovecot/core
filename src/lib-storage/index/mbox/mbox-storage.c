@@ -985,7 +985,7 @@ mbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 	if (callback == NULL)
 		index_mailbox_check_remove_all(&mbox->ibox);
 	else
-		index_mailbox_check_add(&mbox->ibox, mbox->path, FALSE);
+		index_mailbox_check_add(&mbox->ibox, mbox->path);
 }
 
 struct mail_storage mbox_storage = {

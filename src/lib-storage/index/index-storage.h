@@ -130,7 +130,7 @@ int index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq);
 unsigned int index_storage_get_recent_count(struct mail_index_view *view);
 
 void index_mailbox_check_add(struct index_mailbox *ibox,
-			     const char *path, int dir);
+			     const char *path);
 void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 
 struct mailbox_sync_context *

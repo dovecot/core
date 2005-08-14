@@ -61,8 +61,7 @@ void io_loop_handler_deinit(struct ioloop *ioloop);
 void io_loop_notify_handler_init(struct ioloop *ioloop);
 void io_loop_notify_handler_deinit(struct ioloop *ioloop);
 
-struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
-			      enum io_condition condition,
+struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 			      io_callback_t *callback, void *context);
 void io_loop_notify_remove(struct ioloop *ioloop, struct io *io);
 

@@ -22,11 +22,7 @@ struct io *io_add(int fd, enum io_condition condition,
 
 	i_assert(fd >= 0);
 	i_assert(callback != NULL);
-
-	if ((condition & IO_NOTIFY_MASK) != 0) {
-		return io_loop_notify_add(current_ioloop, fd, condition,
-					  callback, context);
-	}
+	i_assert((condition & IO_NOTIFY) == 0);
 
 	io = p_new(current_ioloop->pool, struct io, 1);
 	io->fd = fd;
@@ -46,9 +42,23 @@ struct io *io_add(int fd, enum io_condition condition,
 	return io;
 }
 
+struct io *io_add_notify(const char *path, io_callback_t *callback,
+			 void *context)
+{
+	struct io *io;
+
+	i_assert(path != NULL);
+	i_assert(callback != NULL);
+	
+	io = io_loop_notify_add(current_ioloop, path, callback, context);
+	if (io != NULL)
+		io->condition |= IO_NOTIFY;
+	return io;
+}
+
 void io_remove(struct io *io)
 {
-	if ((io->condition & IO_NOTIFY_MASK) != 0) {
+	if ((io->condition & IO_NOTIFY) != 0) {
 		io_loop_notify_remove(current_ioloop, io);
 		return;
 	}

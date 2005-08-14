@@ -853,9 +853,9 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 	}
 
 	index_mailbox_check_add(&mbox->ibox,
-		t_strconcat(mbox->path, "/new", NULL), TRUE);
+		t_strconcat(mbox->path, "/new", NULL));
 	index_mailbox_check_add(&mbox->ibox,
-		t_strconcat(mbox->path, "/cur", NULL), TRUE);
+		t_strconcat(mbox->path, "/cur", NULL));
 }
 
 struct mail_storage maildir_storage = {

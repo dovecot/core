@@ -5,6 +5,7 @@
 
 #ifdef IOLOOP_NOTIFY_INOTIFY
 
+#include "fd-close-on-exec.h"
 #include "ioloop-internal.h"
 #include "buffer.h"
 #include "network.h"
@@ -14,6 +15,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/inotify.h>
+#include <linux/inotify-syscalls.h>
 
 #define INITIAL_INOTIFY_BUFLEN (FILENAME_MAX + sizeof(struct inotify_event))
 #define MAXIMAL_INOTIFY_BUFLEN (32*1024)
@@ -87,33 +89,26 @@ static void event_callback(void *context)
 	while (event_read_next(ioloop)) ;
 }
 
-struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
-			      enum io_condition condition,
+struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 			      io_callback_t *callback, void *context)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 	struct io *io;
-	struct inotify_watch_request req;
 	int watchdescriptor;
-
-	if ((condition & IO_FILE_NOTIFY) != 0)
-		return NULL;
 
 	if (ctx->disabled)
 		return NULL;
 
-	/* now set up the notification request and shoot it off */
-	req.fd = fd;
-	req.mask = IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE | IN_MODIFY;
-	watchdescriptor = ioctl(ctx->inotify_fd, INOTIFY_WATCH, &req);
+	watchdescriptor = inotify_add_watch(ctx->inotify_fd, path,
+					    IN_CREATE | IN_DELETE | IN_MOVE |
+					    IN_CLOSE | IN_MODIFY);
 	
 	if (watchdescriptor < 0) {
 		ctx->disabled = TRUE;
-		i_error("ioctl(INOTIFY_WATCH) failed: %m");
+		i_error("inotify_add_watch(%s) failed: %m", path);
 		return NULL;
 	}
-	fd_close_on_exec(watchdescriptor, TRUE);
 
 	if (ctx->event_io == NULL) {
 		ctx->event_io = io_add(ctx->inotify_fd, IO_READ,
@@ -121,8 +116,7 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, int fd,
 	}
 
 	io = p_new(ioloop->pool, struct io, 1);
-	io->fd = fd;
-	io->condition = condition;
+	io->fd = -1;
 
 	io->callback = callback;
 	io->context = context;
@@ -149,8 +143,8 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 		}
 	}
 
-	if (ioctl(ctx->inotify_fd, INOTIFY_IGNORE, &io->notify_context) < 0)
-		i_error("ioctl(INOTIFY_IGNORE) failed: %m");
+	if (inotify_rm_watch(ctx->inotify_fd, io->notify_context) < 0)
+		i_error("inotify_rm_watch() failed: %m");
 
 	p_free(ioloop->pool, io);
 
@@ -167,8 +161,9 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 	ctx = ioloop->notify_handler_context =
 		i_new(struct ioloop_notify_handler_context, 1);
 
-	ctx->inotify_fd = open("/dev/inotify", O_RDONLY);
-	if (ctx->inotify_fd < 0) {
+	ctx->inotify_fd = inotify_init();
+	if (ctx->inotify_fd == -1) {
+		i_error("inotify_init() failed: %m");
 		ctx->disabled = TRUE;
 		return;
 	}
@@ -182,10 +177,12 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 
-	if (close(ctx->inotify_fd) < 0)
-		i_error("close(/dev/inotify) failed: %m");
+	if (ctx->inotify_fd != -1)
+		if (close(ctx->inotify_fd) < 0)
+			i_error("close(inotify descriptor) failed: %m");
 
-	buffer_free(ctx->buf);
+	if (ctx->buf != NULL)
+		buffer_free(ctx->buf);
 	i_free(ctx);
 }
 

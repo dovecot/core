@@ -6,8 +6,7 @@
 #ifdef IOLOOP_NOTIFY_NONE
 
 struct io *io_loop_notify_add(struct ioloop *ioloop __attr_unused__,
-			      int fd __attr_unused__,
-			      enum io_condition condition __attr_unused__,
+			      const char *path __attr_unused__,
 			      io_callback_t *callback __attr_unused__,
 			      void *context __attr_unused__)
 {

@@ -826,6 +826,7 @@ void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 {
+	int unlocked = FALSE;
 	int ret = ctx->failed ? -1 : 0;
 
 	if (!ctx->finished)
@@ -844,13 +845,15 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 			t_push();
 			ret = maildir_uidlist_rewrite(ctx->uidlist);
 			t_pop();
+			unlocked = TRUE;
 
 			if (ret == 0)
 				ctx->uidlist->need_rewrite = FALSE;
 		}
 	}
 
-	maildir_uidlist_unlock(ctx->uidlist);
+	if (!unlocked)
+		maildir_uidlist_unlock(ctx->uidlist);
 
 	if (ctx->files != NULL)
 		hash_destroy(ctx->files);

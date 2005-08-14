@@ -19,7 +19,6 @@ struct index_notify_file {
 struct index_notify_io {
 	struct index_notify_io *next;
 	struct io *io;
-	int fd;
 };
 
 static void check_timeout(void *context)
@@ -70,42 +69,31 @@ static void notify_callback(void *context)
 }
 
 void index_mailbox_check_add(struct index_mailbox *ibox,
-			     const char *path, int dir)
+			     const char *path)
 {
 	struct index_notify_file *file;
 	struct stat st;
 	struct io *io = NULL;
 	struct index_notify_io *aio;
-	int fd;
 
-	fd = open(path, O_RDONLY);
-	if (fd >= 0) {
-		io = io_add(fd, dir ? IO_DIR_NOTIFY : IO_FILE_NOTIFY,
-			    notify_callback, ibox);
-		if (io != NULL) {
-			aio = i_new(struct index_notify_io, 1);
-			aio->io = io;
-			aio->fd = fd;
-			aio->next = ibox->notify_ios;
-			ibox->notify_ios = aio;
-		}
+	io = io_add_notify(path, notify_callback, ibox);
+	if (io != NULL) {
+		aio = i_new(struct index_notify_io, 1);
+		aio->io = io;
+		aio->next = ibox->notify_ios;
+		ibox->notify_ios = aio;
 	}
 
 	file = i_new(struct index_notify_file, 1);
 	file->path = i_strdup(path);
-	if (fd < 0)
-		file->last_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
-	else
-		file->last_stamp = fstat(fd, &st) < 0 ? 0 : st.st_mtime;
-
-	if (io == NULL) {
-		/* we couldn't add it to notify list */
-		(void)close(fd);
-	}
+	file->last_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
 
 	file->next = ibox->notify_files;
-        ibox->notify_files = file;
+	ibox->notify_files = file;
 
+	/* we still add a timeout if we don't have one already,
+	 * because we don't know what happens with [di]notify
+	 * when the filesystem is remote (NFS, ...) */
 	if (ibox->notify_to == NULL)
 		ibox->notify_to = timeout_add(1000, check_timeout, ibox);
 }
@@ -131,8 +119,6 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox)
 		ibox->notify_ios = aio->next;
 
 		io_remove(aio->io);
-		if (close(aio->fd) < 0)
-			i_error("close(notify_io) failed: %m");
 		i_free(aio);
 	}
 
