@@ -58,13 +58,19 @@ static struct auth_worker_connection *auth_worker_create(void)
 		if (fd >= 0)
 			break;
 
-		if (errno != EAGAIN) {
+		if (errno == EAGAIN) {
+			/* we're busy */
+		} else if (errno == ENOENT) {
+			/* master didn't yet create it? */
+		} else {
 			i_fatal("net_connect_unix(%s) failed: %m",
 				worker_socket_path);
 		}
-		if (errno != ENOENT || try == 5) {
-			/* busy / broken */
-			return NULL;
+
+		if (try == 5) {
+			i_fatal("net_connect_unix(%s) "
+				"failed after %d tries: %m",
+				worker_socket_path, try);
 		}
 
 		/* not created yet? try again */
