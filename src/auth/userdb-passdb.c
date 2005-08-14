@@ -2,8 +2,7 @@
 
 #include "common.h"
 
-//#ifdef USERDB_PASSDB
-#if 1
+#ifdef USERDB_PASSDB
 
 #include "str.h"
 #include "var-expand.h"
