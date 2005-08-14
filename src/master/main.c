@@ -629,12 +629,16 @@ int main(int argc, char *argv[])
 	if (exec_protocol != NULL)
 		mail_process_exec(exec_protocol, exec_section);
 
-	/* save TZ environment for child processes. AIX depends on it to get
-	   the timezone correctly. */
+	/* save TZ environment. AIX depends on it to get the timezone
+	   correctly. */
 	env_tz = getenv("TZ");
 
-	/* we don't need any other environment anymore */
+	/* clean up the environment of everything */
 	env_clean();
+
+	/* put back the TZ */
+	if (env_tz != NULL)
+		env_put(t_strconcat("TZ=", env_tz, NULL));
 
 	open_fds();
 
