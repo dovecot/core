@@ -1222,16 +1222,15 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced,
 			return -1;
 	}
 
-	if ((ret = maildir_uidlist_lock(ctx->mbox->uidlist)) <= 0) {
+	ctx->partial = !cur_changed;
+	ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, ctx->partial,
+					&ctx->uidlist_sync_ctx);
+	if (ret <= 0) {
 		/* failure / timeout. if forced is TRUE, we could still go
 		   forward and check only for renamed files, but is it worth
 		   the trouble? .. */
 		return ret;
 	}
-
-	ctx->partial = !cur_changed;
-	ctx->uidlist_sync_ctx =
-		maildir_uidlist_sync_init(ctx->mbox->uidlist, ctx->partial);
 
 	if (new_changed || cur_changed) {
 		/* if we're going to check cur/ dir our current logic requires
@@ -1254,6 +1253,10 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced,
 	}
 
 	if (!ctx->mbox->syncing_commit) {
+		/* NOTE: index syncing here might cause a re-sync due to
+		   files getting lost, so this function might be called
+		   re-entrantly. FIXME: and that breaks in
+		   maildir_uidlist_sync_deinit() */
 		ret = maildir_sync_index_finish(ctx->index_sync_ctx,
 						ctx->partial);
 		if (ret < 0) {

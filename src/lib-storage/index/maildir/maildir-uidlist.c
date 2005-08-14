@@ -49,6 +49,8 @@ struct maildir_uidlist {
 
 	unsigned int initial_read:1;
 	unsigned int initial_sync:1;
+
+	unsigned int need_rewrite:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -577,20 +579,24 @@ static void maildir_uidlist_mark_all(struct maildir_uidlist *uidlist,
 	}
 }
 
-struct maildir_uidlist_sync_ctx *
-maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial)
+int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial,
+			      struct maildir_uidlist_sync_ctx **sync_ctx_r)
 {
 	struct maildir_uidlist_sync_ctx *ctx;
 	size_t size;
+	int ret;
 
-	ctx = i_new(struct maildir_uidlist_sync_ctx, 1);
+	if ((ret = maildir_uidlist_lock(uidlist)) <= 0)
+		return ret;
+
+	*sync_ctx_r = ctx = i_new(struct maildir_uidlist_sync_ctx, 1);
 	ctx->uidlist = uidlist;
 	ctx->partial = partial;
 
 	if (partial) {
 		/* initially mark all nonsynced */
                 maildir_uidlist_mark_all(uidlist, TRUE);
-		return ctx;
+		return 1;
 	}
 
 	ctx->record_pool =
@@ -600,7 +606,7 @@ maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial)
 
 	size = buffer_get_used_size(uidlist->record_buf);
 	ctx->record_buf = buffer_create_dynamic(default_pool, size);
-	return ctx;
+	return 1;
 }
 
 static int
@@ -825,17 +831,26 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 	if (!ctx->finished)
 		maildir_uidlist_sync_finish(ctx);
 
-	if (ctx->new_files_count != 0 && !ctx->failed) {
-		t_push();
-		ret = maildir_uidlist_rewrite(ctx->uidlist);
-		t_pop();
-	}
-
 	if (ctx->partial)
 		maildir_uidlist_mark_all(ctx->uidlist, FALSE);
 
-	if (UIDLIST_IS_LOCKED(ctx->uidlist))
-		maildir_uidlist_unlock(ctx->uidlist);
+	if (ctx->uidlist->need_rewrite ||
+	    (ctx->new_files_count != 0 && !ctx->failed)) {
+		if (ctx->uidlist->lock_count > 1) {
+			/* recursive sync. let the root syncing do
+			   the rewrite */
+			ctx->uidlist->need_rewrite = TRUE;
+		} else {
+			t_push();
+			ret = maildir_uidlist_rewrite(ctx->uidlist);
+			t_pop();
+
+			if (ret == 0)
+				ctx->uidlist->need_rewrite = FALSE;
+		}
+	}
+
+	maildir_uidlist_unlock(ctx->uidlist);
 
 	if (ctx->files != NULL)
 		hash_destroy(ctx->files);

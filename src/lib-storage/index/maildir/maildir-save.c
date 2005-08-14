@@ -361,8 +361,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		return -1;
 	}
 
-	ret = maildir_uidlist_lock(ctx->mbox->uidlist);
-	if (ret <= 0) {
+	if (maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE,
+				      &ctx->uidlist_sync_ctx) <= 0) {
 		/* error or timeout - our transaction is broken */
 		maildir_sync_index_abort(ctx->sync_ctx);
 		maildir_save_commit_abort(ctx, ctx->files);
@@ -378,9 +378,6 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		MAILDIR_UIDLIST_REC_FLAG_RECENT;
 
 	/* move them into new/ */
-	ctx->uidlist_sync_ctx =
-		maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE);
-
 	ret = 0;
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
 		t_push();
