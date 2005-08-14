@@ -192,9 +192,17 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	struct auth_server_connection *conn;
 	const char *handshake;
 	pool_t pool;
-	int fd;
+	int fd, try;
 
-	fd = net_connect_unix(path);
+	/* max. 1 second wait here. */
+	for (try = 0; try < 10; try++) {
+		fd = net_connect_unix(path);
+		if (fd != -1 || errno != EAGAIN)
+			break;
+
+		/* busy. wait for a while. */
+		usleep(((rand() % 10) + 1) * 10000);
+	}
 	if (fd == -1) {
 		i_error("Can't connect to auth server at %s: %m", path);
 		return NULL;
