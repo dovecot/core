@@ -506,6 +506,8 @@ static struct mail *get_mail(struct sort_context *ctx, const unsigned char *buf)
 	else {
 		if (mailbox_get_uids(ctx->box, id, id, &seq, &seq) < 0)
 			return NULL;
+		if (seq == 0)
+			return NULL;
 	}
 
 	if (mail_set_seq(ctx->other_mail, seq) < 0)
