@@ -5,6 +5,7 @@
 
 #ifdef HAVE_MODULES
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <dlfcn.h>
@@ -86,6 +87,9 @@ module_load(const char *path, const char *name, int require_init_funcs)
 		return NULL;
 	}
 
+	if (getenv("DEBUG") != NULL)
+		i_info("Module loaded: %s", path);
+
 	if (init != NULL)
 		init();
 	return module;
@@ -97,6 +101,9 @@ struct module *module_dir_load(const char *dir, int require_init_funcs)
 	struct dirent *d;
 	const char *name, *path, *p;
 	struct module *modules, *module;
+
+	if (getenv("DEBUG") != NULL)
+		i_info("Loading modules from directory: %s", dir);
 
 	dirp = opendir(dir);
 	if (dirp == NULL) {
