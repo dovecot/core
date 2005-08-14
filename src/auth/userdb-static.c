@@ -39,6 +39,7 @@ static void static_lookup(struct auth_request *auth_request,
 	}
 
 	callback(reply, auth_request);
+	t_pop();
 }
 
 static void static_init(const char *args)
