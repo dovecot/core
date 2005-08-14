@@ -293,9 +293,12 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 #endif
 	/* specify the address/port we want to listen in */
 	ret = bind(fd, &so.sa, SIZEOF_SOCKADDR(so));
-	if (ret < 0)
-		i_error("bind(%s) failed: %m", net_ip2addr(my_ip));
-	else {
+	if (ret < 0) {
+		if (errno != EADDRINUSE) {
+			i_error("bind(%s, %u) failed: %m",
+				net_ip2addr(my_ip), *port);
+		}
+	} else {
 		/* get the actual port we started listen */
 		len = SIZEOF_SOCKADDR(so);
 		ret = getsockname(fd, &so.sa, &len);
@@ -304,7 +307,10 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 
 			/* start listening */
 			if (listen(fd, backlog) >= 0)
-                                return fd;
+				return fd;
+
+			if (errno != EADDRINUSE)
+				i_error("listen() failed: %m");
 		}
 	}
 
