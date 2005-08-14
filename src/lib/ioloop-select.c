@@ -127,8 +127,10 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
 			t_id = t_push();
 			io->callback(io->context);
-			if (t_pop() != t_id)
-				i_panic("Leaked a t_pop() call!");
+			if (t_pop() != t_id) {
+				i_panic("Leaked a t_pop() call in "
+					"I/O handler %p", (void *)io->callback);
+			}
 		}
 	}
 }

@@ -206,8 +206,10 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 
                 t_id = t_push();
 		t->callback(t->context);
-		if (t_pop() != t_id)
-                        i_panic("Leaked a t_pop() call!");
+		if (t_pop() != t_id) {
+			i_panic("Leaked a t_pop() call in timeout handler %p",
+				(void *)t->callback);
+		}
 	}
 }
 
