@@ -1,4 +1,4 @@
-AC_INIT(dovecot, 1.0-test77, [dovecot@dovecot.org])
+AC_INIT(dovecot, 1.0-test80, [dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AC_CONFIG_HEADERS([config.h])
@@ -366,21 +366,28 @@ if test "$notify" = "inotify"; then
     #include <sys/ioctl.h>
     #include <fcntl.h>
     #include <linux/inotify.h>
+    #include <linux/inotify-syscalls.h>
+    #include <stdio.h>
   ], [
-    struct inotify_watch_request req;
-    int wd, dev_fd;
+    int wd, fd;
     char * fn = "/tmp";
-    dev_fd = open ("/dev/inotify", O_RDONLY);
-    req.fd = open (fn, O_RDONLY);
-    if (req.fd < 0) return -1;
-    req.mask = IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MODIFY | IN_ACCESS;
-    wd = ioctl (dev_fd, INOTIFY_WATCH, &req);
-    close(req.fd);
-    ioctl (dev_fd, INOTIFY_IGNORE, &wd);
+    
+    fd = inotify_init ();
+    if (fd < 0)
+      perror ("inotify_init");
+
+    wd = inotify_add_watch (fd, fn, IN_ALL_EVENTS);
+
+    if (wd < 0)
+      perror ("inotify_add_watch");
+
+    inotify_rm_watch (fd, wd);
+
+    close (fd);
   ], [
     AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
   ], [
-    AC_MSG_ERROR([inotify requested but not available, check for existence of <linux/inotify.h>])
+    AC_MSG_ERROR([inotify requested but not available, check for existence of <linux/inotify.h> and <linux/inotify-syscalls.h>])
     notify=none
   ])
 fi
