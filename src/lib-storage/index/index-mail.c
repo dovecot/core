@@ -450,7 +450,8 @@ struct istream *index_mail_init_stream(struct index_mail *_mail,
 	if (hdr_size != NULL || body_size != NULL)
 		(void)get_cached_msgpart_sizes(mail);
 
-	if (hdr_size != NULL) {
+	if (hdr_size != NULL || body_size != NULL) {
+		i_stream_seek(data->stream, 0);
 		if (!data->hdr_size_set) {
 			if ((data->access_part & PARSE_HDR) != 0) {
 				if (index_mail_parse_headers(mail, NULL) < 0)
@@ -466,6 +467,7 @@ struct istream *index_mail_init_stream(struct index_mail *_mail,
 	}
 
 	if (body_size != NULL) {
+		i_stream_seek(data->stream, data->hdr_size.physical_size);
 		if (!data->body_size_set) {
 			if ((data->access_part & PARSE_BODY) != 0)
 				index_mail_parse_body(mail, FALSE);
