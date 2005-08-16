@@ -342,7 +342,7 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 		return TRUE;
 	}
 
-	if (ctx->sync_ctx->seq == 1 && !ctx->seen_imapbase) {
+	if (ctx->seq == 1 && !ctx->seen_imapbase) {
 		/* Don't bother allowing X-UID before X-IMAPbase
 		   header. c-client doesn't allow it either, and this
 		   way the UID doesn't have to be reset if X-IMAPbase
