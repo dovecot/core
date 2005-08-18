@@ -89,6 +89,8 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
        indexes are in local disk but actual mails are accessed through NFS.
 
  - mbox
+     - if we made no actual visible changes to the mbox, we probably should
+       update access time == mtime at the end of syncing
      - size.physical isn't cached, but should it even be? ..
      - syncing existing indexes takes 4x longer than creating new one, why?
      - how well does dirty sync + status work? it reads the last mail every
