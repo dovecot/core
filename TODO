@@ -1,3 +1,7 @@
+ - if PAM child process doesn't finish within a minute, kill it
+ - maildir: hardlink copying + keywords are broken
+ - Support listening in multiple sockets?..
+ - Thunderbird+pop3 DELE error..?
  - calls fsync()s etc. less often (when copying). optionally disable them.
  - stop using atol(), atoi(), strtoul() etc. in places where we actually
    care about what they return, and rather create our own function which
@@ -46,7 +50,6 @@ ns->sep);
 
 
  - auth master refcounting when handling user/request?
- - prepend_uid is useless nowadays?
 
  - mail_index_map() -> sync from transaction log -> refresh -> mail_index_map()
  - buffer_create_data() behavior has changed from silent-truncating to
@@ -70,13 +73,9 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
  - keywords:
     - add some limits to how many there can be
        - don't return \* in PERMANENTFLAGS when we're full
-    - send FLAGS/PERMANENTFLAGS untagged replies when they change
     - remove unused keywords?
 
  - caching
-     - cache _all_ existing headers when headers are being parsed, not just the
-       ones client is requesting at that time.
-     - size.physical isn't cached
      - force bits should be used only for nonregistered fields
      - change envelope parsing not to use get_headers() so imap.envelope can
        actually be cached without all the headers..
@@ -84,24 +83,16 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
        (latest_mail_index_date - month)
      - when parsing mbox or saving message, parse the mail through index-mail
        so things gets saved into cache immediately
-     - we can mail_cache_add() same header multiple times..
-     - get_field() doesn't work if it's not already cached
      - we could try compressing same field values into a single
        location in cache file.
-     - Most messages are text/plain/7bit/us-ascii/no-other-content-type-params.
-       Instead of saving tons of nearly identical BODY/BODYSTRUCTURE fields
-       into cache, we could just set INDEX_MAIL_FLAG_TEXT_PLAIN_7BIT_ASCII bit
-       on and generate the bodystructure for such messages on the fly.
      - support caching all message headers. this could be useful when
        indexes are in local disk but actual mails are accessed through NFS.
 
  - mbox
+     - size.physical isn't cached, but should it even be? ..
      - syncing existing indexes takes 4x longer than creating new one, why?
      - how well does dirty sync + status work? it reads the last mail every
        time? not very good..
-     - mbox file offsets still aren't 64bit aligned for some reason..
-     - when we're updating flags with lazy writing, we're still parsing the
-       mbox, just not writing to it!
      - always add empty line. make the parser require it too? syncing should
        make sure there always exists two LFs at end of file. raw-mbox-stream
        should make sure the last message ends with LF even if it doesn't exist
@@ -122,22 +113,15 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - we probably shouldn't do duplicate detection/fixing?.. or at least stat()
       the old file before trying, because we might have just previously seen
       the old file and then new file and then we try to fix it..
-    - if .customflags is removed and Maildir files have custom flags, add
-      "unknown1" "unknown2" etc. flags to .customflags file for each found flag
     - with pop3 don't move messages from new/ to cur/ before RETR
 
  - index
     - if uoff_t or time_t size changes, don't rebuild indexes because they
       don't use them. just rebuild cache file.
-    - flag merging code is too complex in index syncing. it should be moved
-      into mbox/maildir syncing where they're combined
     - mail_index_lookup_ext() doesn't handle resizes between views. probably
       needs size_t *size_r parameter added..
     - optimize initial left_idx in mail_index_lookup_uid_range()
-    - when referencing log files, open them immediately?
     - if log file is lost, generate it from old and new index
-    - make sure when changing flags multiple times in transaction it goes ok.
-      especially replace + dirty flag
     - transaction log: when replacing log with a same sequence, we remove it
       from log's file list, but we don't do anything to existing log views.
       this can crash later in mail_transaction_log_view_set() because 'first'
@@ -155,8 +139,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - subscriptions file should contain namespace prefixes. at least optionally.
       there's the subscriptions = yes setting now for namespaces.. do it so that
       if prefix = "" has subscriptions, it contains prefixes. otherwise not.
-    - support zlib compressed mbox/maildir? mbox maybe just read-only.
-      do it through istream-zlib wrapper
     - should we allow following symlinks in mbox/maildirs? they are now.
        - if we implement shared mailboxes with shared indexes, never do that or
 	 others could symlink your personal mailboxes and see the indexes
@@ -195,7 +177,7 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - remove system_user and allow returning multiple gids instead.
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
-    - post-login-sql-command
+    - post-login-sql-command (userdb command doesn't do because of dovecot-lda)
     - does dovecot-auth really break when it runs out of fds?
     - dovecot-auth should limit how fast authentication requests are allowed from
       login processes. especially if there's one login/connection the speed
@@ -251,7 +233,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
       the above attachment scanning.
 
  - lib
-    - file cache: last block in file isn't cached.
     - ioloop-kqueue.c patch
     - dotlocking: stale_timeout should probably take into account how old the
       file is.. so uses more time with more recent locks..
@@ -265,11 +246,9 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
        be only one or two charsets which are used for nearly all conversions.
 
  - general
-    - sieve (rfc3028), we can use Cyrus Sieve
     - rfc2231 continuation support (useless?)
     - rfc2557 support for BODYSTRUCTURE, as specified by RFC3501
-    - lmtp server - is it needed? dovecot-deliver binary at least would be
-      useful
+    - lmtp server - is it needed?
     - create indexer binary
     - ~/.dovecotrc to override system wide settings. namespace settings should
       override all the previous namespace settings instead of adding new.
