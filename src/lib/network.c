@@ -340,12 +340,16 @@ int net_listen_unix(const char *path, int backlog)
 	}
 
 	/* bind */
-	if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
-		i_error("bind(%s) failed: %m", path);
-	else {
+	if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0) {
+		if (errno != EADDRINUSE)
+			i_error("bind(%s) failed: %m", path);
+	} else {
 		/* start listening */
 		if (listen(fd, backlog) == 0)
 			return fd;
+
+		if (errno != EADDRINUSE)
+			i_error("listen() failed: %m");
 	}
 
 	close_save_errno(fd);
