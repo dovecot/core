@@ -111,7 +111,7 @@ maildir_copy_init(struct maildir_mailbox *mbox)
 
 	ctx = p_new(pool, struct maildir_copy_context, 1);
 	ctx->pool = pool;
-	ctx->hardlink = getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
+	ctx->hardlink = FALSE; //FIXME:broken! getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
 	ctx->mbox = mbox;
 	return ctx;
 }
