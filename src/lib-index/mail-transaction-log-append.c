@@ -470,15 +470,6 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
-		if (ret == 0 && fsync(file->fd) < 0) {
-			/* we don't know how much of it got written,
-			   it may be corrupted now.. */
-			mail_index_file_set_syscall_error(log->index,
-							  file->filepath,
-							  "fsync()");
-			ret = -1;
-		}
-
 		if (ret == 0 && file->first_append_size != 0) {
 			/* synced - rewrite first record's header */
 			ret = pwrite_full(file->fd, &file->first_append_size,
