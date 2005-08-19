@@ -131,7 +131,12 @@ mail_storage_create_with_data(const char *data, const char *user,
 					      lock_method);
 	} else {
 		storage = mail_storage_autodetect(data, flags);
-		if (storage != NULL) {
+		if (storage == NULL) {
+			i_error("Ambiguous mail location setting, "
+				"don't know what to do with it: %s "
+				"(try prefixing it with mbox: or maildir:)",
+				data);
+		} else {
 			storage = storage->v.create(data, user, flags,
 						    lock_method);
 		}
