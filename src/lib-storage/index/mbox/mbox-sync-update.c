@@ -332,8 +332,7 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	str = t_str_new(200);
 	str_printfa(str, "%u ", sync_ctx->base_uid_validity);
 
-	ctx->last_uid_value_start_pos =
-		str_len(str) - ctx->hdr_pos[MBOX_HDR_X_IMAPBASE];
+	ctx->last_uid_value_start_pos = str_len(str);
 	ctx->imapbase_updated = TRUE;
 	str_printfa(str, "%010u", sync_ctx->next_uid - 1);
 

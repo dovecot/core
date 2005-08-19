@@ -218,6 +218,7 @@ static void mbox_sync_first_mail_written(struct mbox_sync_mail_context *ctx,
 	/* we wrote the first mail. update last-uid offset so we can find
 	   it later */
 	i_assert(ctx->last_uid_value_start_pos != 0);
+	i_assert(ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] != (size_t)-1);
 
 	ctx->sync_ctx->base_uid_last_offset = hdr_offset +
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] +
