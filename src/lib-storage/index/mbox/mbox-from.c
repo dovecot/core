@@ -86,19 +86,22 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		return -1;
 	msg += 4;
 
-	/* day */
-	if (msg[0] == ' ') {
-		if (!i_isdigit(msg[1]) || msg[2] != ' ')
+	/* day. single digit is usually preceded by extra space */
+	if (msg[0] == ' ')
+		msg++;
+	if (msg[1] == ' ') {
+		if (!i_isdigit(msg[0]))
 			return -1;
-		tm.tm_mday = msg[1]-'0';
+		tm.tm_mday = msg[0]-'0';
+		msg += 2;
 	} else {
 		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
 			return -1;
 		tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
+		msg += 3;
 	}
 	if (tm.tm_mday == 0)
 		tm.tm_mday = 1;
-	msg += 3;
 
 	/* hour */
 	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ':')
