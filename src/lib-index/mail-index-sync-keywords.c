@@ -147,7 +147,7 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	memset(&kw_rec, 0, sizeof(kw_rec));
 	kw_rec.name_offset = name_offset;
 
-	keyword_len = strlen(keyword_name);
+	keyword_len = strlen(keyword_name) + 1;
 	buffer_write(buf, rec_offset, &kw_rec, sizeof(kw_rec));
 	buffer_write(buf, name_offset_root, keyword_name, keyword_len);
 
