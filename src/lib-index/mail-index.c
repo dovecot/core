@@ -431,7 +431,7 @@ int mail_index_map_read_keywords(struct mail_index *index,
 	}
 	if (name[name_len-1] != '\0') {
 		mail_index_set_error(index, "Corrupted index file %s: "
-				     "header doesn't end with NUL",
+				     "Keyword header doesn't end with NUL",
 				     index->filepath);
 		return -1;
 	}
