@@ -347,18 +347,19 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		return 0;
 	}
 	if (file->hdr.indexid != file->log->index->indexid) {
-		if (file->log->index->fd == -1) {
-			/* creating index file, silently rebuild
-			   transaction log as well */
+		if (file->log->index->fd != -1) {
+			/* index file was probably just rebuilt and we don't
+			   know about it yet */
+			mail_transaction_log_file_set_corrupted(file,
+				"invalid indexid (%u != %u)",
+				file->hdr.indexid, file->log->index->indexid);
 			return 0;
 		}
 
-		/* index file was probably just rebuilt and we don't know
-		   about it yet */
-		mail_transaction_log_file_set_corrupted(file,
-			"invalid indexid (%u != %u)",
-			file->hdr.indexid, file->log->index->indexid);
-		return 0;
+		/* creating index file. since transaction log is created
+		   first, use the indexid in it to create the main index
+		   to avoid races. */
+		file->log->index->indexid = file->hdr.indexid;
 	}
 
 	/* make sure we already don't have a file with the same sequence

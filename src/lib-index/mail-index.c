@@ -1390,6 +1390,13 @@ static int mail_index_open_files(struct mail_index *index,
 		return -1;
 
 	if (index->fd == -1) {
+		if (index->indexid != hdr.indexid) {
+			/* looks like someone else created the transaction log
+			   before we had the chance. use its indexid so we
+			   don't try to create conflicting ones. */
+			hdr.indexid = index->indexid;
+		}
+
 		if (lock_id != 0) {
 			mail_index_unlock(index, lock_id);
 			lock_id = 0;
