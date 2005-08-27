@@ -715,6 +715,31 @@ mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 	return mail_transaction_log_file_fd_open_or_create(log, path, fd);
 }
 
+static struct mail_transaction_log_file *
+mail_transaction_log_file_open(struct mail_transaction_log *log,
+			       const char *path)
+{
+	struct mail_transaction_log_file *file;
+	int fd, ret;
+
+	fd = open(path, O_RDWR);
+	if (fd == -1) {
+		mail_index_file_set_syscall_error(log->index, path, "open()");
+		return NULL;
+	}
+
+	ret = mail_transaction_log_file_fd_open(log, &file, path, fd, TRUE);
+	if (ret <= 0) {
+		/* error / corrupted */
+		if (ret == 0)
+			mail_transaction_log_file_close(file);
+		return NULL;
+	}
+
+	mail_transaction_log_file_add_to_head(file);
+	return file;
+}
+
 void mail_transaction_logs_clean(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file **p, *next;
@@ -779,7 +804,8 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock)
 	return 0;
 }
 
-static int mail_transaction_log_refresh(struct mail_transaction_log *log)
+static int mail_transaction_log_refresh(struct mail_transaction_log *log,
+					int create_if_needed)
 {
         struct mail_transaction_log_file *file;
 	struct stat st;
@@ -802,7 +828,9 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 		return 0;
 	}
 
-	file = mail_transaction_log_file_open_or_create(log, path);
+	file = create_if_needed ?
+		mail_transaction_log_file_open_or_create(log, path) :
+		mail_transaction_log_file_open(log, path);
 	if (file == NULL)
 		return -1;
 
@@ -827,7 +855,10 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 	int ret, fd;
 
 	if (file_seq > log->head->hdr.file_seq) {
-		if (mail_transaction_log_refresh(log) < 0)
+		/* don't try to recreate log file if it gets lost. we're
+		   already in trouble and with mmap_disable the creation
+		   could cause a recursive mail_index_map() call */
+		if (mail_transaction_log_refresh(log, FALSE) < 0)
 			return -1;
 	}
 
@@ -1153,7 +1184,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log)
 			return -1;
 
 		file->refcount++;
-		ret = mail_transaction_log_refresh(log);
+		ret = mail_transaction_log_refresh(log, TRUE);
 		if (--file->refcount == 0) {
 			mail_transaction_logs_clean(log);
 			file = NULL;

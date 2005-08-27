@@ -1635,6 +1635,8 @@ int mail_index_refresh(struct mail_index *index)
 		return mail_index_reopen_if_needed(index);
 	}
 
+	i_assert(!index->mapping);
+
 	/* mail_index_map() simply reads latest changes from transaction log,
 	   which makes us fully refreshed. */
 	if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)

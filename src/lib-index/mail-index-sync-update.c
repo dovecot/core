@@ -297,6 +297,7 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 		return 0;
 
 	i_assert(map == index->map);
+	i_assert(!index->mapping); /* mail_index_sync_from_transactions() */
 
 	size = map->hdr.header_size +
 		(map->records_count + count) * map->hdr.record_size;
