@@ -53,7 +53,7 @@
 
    There are some problems, such as if a client accesses message older than
    a week, we can't know if user just started using a new client which is
-   just filling it's local cache for the first time. Or it might be a
+   just filling its local cache for the first time. Or it might be a
    client user hasn't just used for over a week. In these cases we
    shouldn't have marked the field to be permanently cached. User might
    also switch clients from non-caching to caching.

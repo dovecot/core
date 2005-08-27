@@ -225,7 +225,7 @@ int mail_index_lock_shared(struct mail_index *index, int update_index,
 		return -1;
 
 	mail_index_set_error(index, "Timeout while waiting for release of "
-			     "shared fcntl() lock for index file %s",
+			     "shared lock for index file %s",
 			     index->filepath);
 	index->index_lock_timeout = TRUE;
 	return -1;

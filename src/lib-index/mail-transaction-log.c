@@ -148,7 +148,7 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 
 	mail_index_set_error(file->log->index,
 			     "Timeout while waiting for release of "
-			     "fcntl() lock for transaction log file %s",
+			     "lock for transaction log file %s",
 			     file->filepath);
 	file->log->index->index_lock_timeout = TRUE;
 	return -1;

@@ -121,7 +121,7 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 
 		if (file_field >= cache->file_fields_count) {
 			/* new field, have to re-read fields header to figure
-			   out it's size */
+			   out its size */
 			if (mail_cache_header_fields_read(cache) < 0)
 				return -1;
 			if (file_field >= cache->file_fields_count) {
@@ -150,7 +150,7 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 		next_pos = pos + ((data_size + 3) & ~3);
 		if (data_size > cache_rec->size || next_pos > cache_rec->size) {
 			mail_cache_set_corrupted(cache,
-				"record continues outside it's allocated size");
+				"record continues outside its allocated size");
 			return -1;
 		}
 

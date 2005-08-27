@@ -1529,7 +1529,7 @@ int mail_index_reopen(struct mail_index *index, int fd)
 	old_fd = index->fd;
 	old_map->refcount++;
 
-	/* new file, new locks. the old fd can keep it's locks, they don't
+	/* new file, new locks. the old fd can keep its locks, they don't
 	   matter anymore as no-one's going to modify the file. */
 	old_lock_type = index->lock_type;
 	old_lock_id = index->lock_id;

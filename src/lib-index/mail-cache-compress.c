@@ -123,7 +123,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	uint32_t i, message_count, seq, first_new_seq, old_offset;
 	uoff_t offset;
 
-	/* get sequence of first message which doesn't need it's temp fields
+	/* get sequence of first message which doesn't need its temp fields
 	   removed. */
 	idx_hdr = mail_index_get_header(view);
 	if (idx_hdr->day_first_uid[7] == 0) {
