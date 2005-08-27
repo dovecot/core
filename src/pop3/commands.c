@@ -191,6 +191,7 @@ static int expunge_mails(struct client *client)
 	if (client->deleted_bitmask == NULL)
 		return TRUE;
 
+	memset(&seqset, 0, sizeof(seqset));
 	memset(&search_arg, 0, sizeof(search_arg));
 	seqset.seq1 = 1;
 	seqset.seq2 = client->messages_count;
@@ -443,6 +444,7 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 
 	if (enable_last_command) {
 		/* remove all \Seen flags */
+		memset(&seqset, 0, sizeof(seqset));
 		memset(&search_arg, 0, sizeof(search_arg));
 		seqset.seq1 = 1;
 		seqset.seq2 = client->messages_count;
