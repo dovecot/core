@@ -182,6 +182,7 @@ static int cmd_noop(struct client *client, const char *args __attr_unused__)
 static int expunge_mails(struct client *client)
 {
 	struct mail_search_arg search_arg;
+        struct mail_search_seqset seqset;
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	uint32_t idx;
@@ -191,7 +192,10 @@ static int expunge_mails(struct client *client)
 		return TRUE;
 
 	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
+	seqset.seq1 = 1;
+	seqset.seq2 = client->messages_count;
+	search_arg.type = SEARCH_SEQSET;
+	search_arg.value.seqset = &seqset;
 
 	ctx = mailbox_search_init(client->trans, NULL, &search_arg, NULL);
 	mail = mail_alloc(client->trans, 0, NULL);
@@ -422,6 +426,7 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 	struct mail_search_arg search_arg;
+        struct mail_search_seqset seqset;
 
 	client->last_seen = 0;
 
@@ -439,7 +444,10 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 	if (enable_last_command) {
 		/* remove all \Seen flags */
 		memset(&search_arg, 0, sizeof(search_arg));
-		search_arg.type = SEARCH_ALL;
+		seqset.seq1 = 1;
+		seqset.seq2 = client->messages_count;
+		search_arg.type = SEARCH_SEQSET;
+		search_arg.value.seqset = &seqset;
 
 		search_ctx = mailbox_search_init(client->trans, NULL,
 						 &search_arg, NULL);
@@ -591,14 +599,15 @@ cmd_uidl_init(struct client *client, unsigned int message)
 
 	ctx = i_new(struct cmd_uidl_context, 1);
 
-	if (message == 0)
-		ctx->search_arg.type = SEARCH_ALL;
-	else {
+	if (message == 0) {
+		ctx->seqset.seq1 = 1;
+		ctx->seqset.seq2 = client->messages_count;
+	} else {
 		ctx->message = message;
 		ctx->seqset.seq1 = ctx->seqset.seq2 = message;
-		ctx->search_arg.type = SEARCH_SEQSET;
-		ctx->search_arg.value.seqset = &ctx->seqset;
 	}
+	ctx->search_arg.type = SEARCH_SEQSET;
+	ctx->search_arg.value.seqset = &ctx->seqset;
 
 	wanted_fields = 0;
 	if ((uidl_keymask & UIDL_MD5) != 0)
