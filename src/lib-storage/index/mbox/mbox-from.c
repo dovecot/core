@@ -145,8 +145,8 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		   i_isdigit(msg[3]) && i_isdigit(msg[4]) && msg[5] == ' ') {
 		/* numeric timezone, use it */
                 seen_timezone = TRUE;
-		timezone = (msg[1]-'0') * 1000 + (msg[2]-'0') * 100 +
-			(msg[3]-'0') * 10 +(msg[4]-'0');
+		timezone = (msg[1]-'0') * 10*60*60 + (msg[2]-'0') * 60*60 +
+			(msg[3]-'0') * 10 + (msg[4]-'0');
 		if (msg[0] == '-') timezone = -timezone;
 		msg += 6;
 	}
@@ -166,8 +166,8 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	    i_isdigit(msg[2]) && i_isdigit(msg[3]) &&
 	    i_isdigit(msg[4]) && i_isdigit(msg[5])) {
 		seen_timezone = TRUE;
-		timezone = (msg[2]-'0') * 1000 + (msg[3]-'0') * 100 +
-			(msg[4]-'0') * 10 +(msg[5]-'0');
+		timezone = (msg[2]-'0') * 10*60*60 + (msg[3]-'0') * 60*60 +
+			(msg[4]-'0') * 10 + (msg[5]-'0');
 		if (msg[1] == '-') timezone = -timezone;
 	}
 
@@ -176,7 +176,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		if (t == (time_t)-1)
 			return -1;
 
-		t -= timezone * 60;
+		t -= timezone;
 		*time_r = t;
 	} else {
 		/* assume local timezone */
