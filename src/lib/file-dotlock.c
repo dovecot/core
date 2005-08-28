@@ -210,13 +210,28 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 	return 0;
 }
 
+static int file_write_pid(int fd, const char *path)
+{
+	const char *str;
+
+	/* write our pid and host, if possible */
+	str = t_strdup_printf("%s:%s", my_pid, my_hostname);
+	if (write_full(fd, str, strlen(str)) < 0) {
+		/* failed, leave it empty then */
+		if (ftruncate(fd, 0) < 0) {
+			i_error("ftruncate(%s) failed: %m", path);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static int
 create_temp_file(const char *prefix, const char **path_r, int write_pid)
 {
 	string_t *path;
 	size_t len;
 	struct stat st;
-	const char *str;
 	unsigned char randbuf[8];
 	int fd;
 
@@ -249,21 +264,15 @@ create_temp_file(const char *prefix, const char **path_r, int write_pid)
 	}
 
 	if (write_pid) {
-		/* write our pid and host, if possible */
-		str = t_strdup_printf("%s:%s", my_pid, my_hostname);
-		if (write_full(fd, str, strlen(str)) < 0) {
-			/* failed, leave it empty then */
-			if (ftruncate(fd, 0) < 0) {
-				i_error("ftruncate(%s) failed: %m", *path_r);
-				(void)close(fd);
-				return -1;
-			}
+		if (file_write_pid(fd, *path_r) < 0) {
+			(void)close(fd);
+			return -1;
 		}
 	}
 	return fd;
 }
 
-static int try_create_lock(struct lock_info *lock_info, int write_pid)
+static int try_create_lock_hardlink(struct lock_info *lock_info, int write_pid)
 {
 	const char *temp_prefix = lock_info->set->temp_prefix;
 	const char *str, *p;
@@ -309,6 +318,30 @@ static int try_create_lock(struct lock_info *lock_info, int write_pid)
 	return 1;
 }
 
+static int try_create_lock_excl(struct lock_info *lock_info, int write_pid)
+{
+	int fd;
+
+	fd = open(lock_info->lock_path, O_RDWR | O_EXCL | O_CREAT, 0666);
+	if (fd == -1) {
+		if (errno == EEXIST)
+			return 0;
+
+		i_error("open(%s) failed: %m", lock_info->lock_path);
+		return -1;
+	}
+
+	if (write_pid) {
+		if (file_write_pid(fd, lock_info->lock_path) < 0) {
+			(void)close(fd);
+			return -1;
+		}
+	}
+
+	lock_info->fd = fd;
+	return 1;
+}
+
 static int dotlock_create(const char *path, struct dotlock *dotlock,
 			  enum dotlock_create_flags flags, int write_pid)
 {
@@ -351,7 +384,9 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 			if ((flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0)
 				break;
 
-			ret = try_create_lock(&lock_info, write_pid);
+			ret = set->use_excl_lock ?
+				try_create_lock_excl(&lock_info, write_pid) :
+				try_create_lock_hardlink(&lock_info, write_pid);
 			if (ret != 0)
 				break;
 		}

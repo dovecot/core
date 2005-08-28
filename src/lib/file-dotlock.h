@@ -28,6 +28,10 @@ struct dotlock_settings {
 	   returns FALSE then, the lock will not be overridden. */
 	int (*callback)(unsigned int secs_left, int stale, void *context);
 	void *context;
+
+	/* Rely on O_EXCL locking to work instead of using hardlinks.
+	   It's faster, but doesn't work with all NFS implementations. */
+	unsigned int use_excl_lock:1;
 };
 
 enum dotlock_create_flags {
