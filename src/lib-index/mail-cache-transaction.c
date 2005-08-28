@@ -13,6 +13,8 @@
 #include <stddef.h>
 #include <sys/stat.h>
 
+#define MAIL_CACHE_WRITE_BUFFER 32768
+
 struct mail_cache_transaction_ctx {
 	struct mail_cache *cache;
 	struct mail_cache_view *view;
@@ -506,7 +508,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	ctx->prev_pos = 0;
 
 	array_clear(&ctx->cache_data_seq);
-	return 0;
+	return 1;
 }
 
 static void
@@ -526,7 +528,9 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 		array_append(&ctx->cache_data_seq, &ctx->prev_seq, 1);
 		ctx->prev_pos = size;
 	} else if (ctx->cache_data == NULL) {
-		ctx->cache_data = buffer_create_dynamic(default_pool, 32768);
+		ctx->cache_data =
+			buffer_create_dynamic(default_pool,
+					      MAIL_CACHE_WRITE_BUFFER);
 		ARRAY_CREATE(&ctx->cache_data_seq, default_pool, uint32_t, 64);
 	}
 
@@ -632,7 +636,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	data = buffer_get_data(buffer, &size);
 
 	if (mail_cache_transaction_get_space(ctx, size, size,
-					     &offset, &size, TRUE) <= 0)
+					     &offset, NULL, TRUE) <= 0)
 		ret = -1;
 	else if (mail_cache_write(cache, data, size, offset) < 0)
 		ret = -1;
@@ -707,10 +711,13 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	if (fixed_size == (unsigned int)-1)
 		full_size += sizeof(data_size32);
 
-	if (buffer_get_used_size(ctx->cache_data) + full_size >
-	    buffer_get_size(ctx->cache_data)) {
-		/* time to flush our buffer */
-		if (mail_cache_transaction_flush(ctx) < 0)
+	if (ctx->cache_data->used + full_size >
+	    buffer_get_size(ctx->cache_data) && ctx->prev_pos > 0) {
+		/* time to flush our buffer. if flushing fails because the
+		   cache file had been compressed and was reopened, return
+		   without adding the cached data since cache_data buffer
+		   doesn't contain the cache_rec anymore. */
+		if (mail_cache_transaction_flush(ctx) <= 0)
 			return;
 	}
 
@@ -722,7 +729,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 	buffer_append(ctx->cache_data, data, data_size);
 	if ((data_size & 3) != 0)
-                buffer_append(ctx->cache_data, null4, 4 - (data_size & 3));
+                buffer_append_zero(ctx->cache_data, 4 - (data_size & 3));
 }
 
 static int mail_cache_link_unlocked(struct mail_cache *cache,
