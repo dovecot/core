@@ -277,6 +277,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	if (ctx->append_offset == (uoff_t)-1) {
 		/* first appended mail in this transaction */
 		if (mbox->mbox_lock_type != F_WRLCK) {
+			i_assert(mbox->mbox_lock_type != F_WRLCK);
 			if (mbox_lock(mbox, F_WRLCK, &t->mbox_lock_id) <= 0)
 				return -1;
 		}

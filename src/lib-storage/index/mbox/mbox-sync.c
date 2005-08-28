@@ -1686,7 +1686,7 @@ __again:
 
 	sync_ctx.file_input = sync_ctx.mbox->mbox_file_stream;
 	sync_ctx.input = sync_ctx.mbox->mbox_stream;
-	sync_ctx.write_fd = sync_ctx.mbox->mbox_readonly ? -1 :
+	sync_ctx.write_fd = sync_ctx.mbox->mbox_lock_type != F_WRLCK ? -1 :
 		sync_ctx.mbox->mbox_fd;
 
 	ret = mbox_sync_do(&sync_ctx, flags);
