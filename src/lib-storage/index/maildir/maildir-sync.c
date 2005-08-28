@@ -263,7 +263,8 @@ int maildir_filename_get_flags(struct maildir_index_sync_context *ctx,
 					break;
 				}
 
-				array_append(keywords_r, &idx, 1);
+				array_append(keywords_r,
+					     (unsigned int *)&idx, 1);
 				break;
 			}
 
