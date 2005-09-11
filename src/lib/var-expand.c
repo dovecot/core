@@ -53,11 +53,10 @@ static const char *m_str_hash(const char *str, struct var_expand_context *ctx)
 		value %= ctx->width;
 		ctx->width = 0;
 	}
+
 	str_printfa(hash, "%x", value);
-	while (str_len(hash) < ctx->offset) {
+	while (str_len(hash) < ctx->offset)
 		str_insert(hash, 0, "0");
-		ctx->offset--;
-	}
         ctx->offset = 0;
 
 	return str_c(hash);
