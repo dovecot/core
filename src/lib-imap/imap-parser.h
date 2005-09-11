@@ -53,6 +53,11 @@ struct imap_arg {
 	 (arg)->type == IMAP_ARG_LITERAL ? \
 	 (arg)->_data.str : _imap_arg_str_error(arg))
 
+#define IMAP_ARG_STR_NONULL(arg) \
+	((arg)->type == IMAP_ARG_ATOM || (arg)->type == IMAP_ARG_STRING || \
+	 (arg)->type == IMAP_ARG_LITERAL ? \
+	 (arg)->_data.str : _imap_arg_str_error(arg))
+
 #define IMAP_ARG_LITERAL_SIZE(arg) \
 	(((arg)->type == IMAP_ARG_LITERAL_SIZE || \
 	 (arg)->type == IMAP_ARG_LITERAL_SIZE_NONSYNC) ? \

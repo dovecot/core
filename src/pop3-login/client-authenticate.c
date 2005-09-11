@@ -210,7 +210,8 @@ int cmd_auth(struct pop3_client *client, const char *args)
 
 	if (*args == '\0') {
 		/* Old-style SASL discovery, used by MS Outlook */
-		int i, count;
+		unsigned int i, count;
+
 		client_send_line(client, "+OK");
 		mech = auth_client_get_available_mechs(auth_client, &count);
 		for (i = 0; i < count; i++) {

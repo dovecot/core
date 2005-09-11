@@ -87,7 +87,7 @@ static void search_with_charset(const unsigned char *data, size_t size,
 				const char *charset,
 				struct header_search_context *ctx)
 {
-	const char *utf8_data;
+	const void *utf8_data;
 	size_t utf8_size;
 
 	if (ctx->unknown_charset) {
@@ -100,8 +100,8 @@ static void search_with_charset(const unsigned char *data, size_t size,
 		charset = ctx->key_charset;
 	}
 
-	utf8_data = charset_to_ucase_utf8_string(charset, NULL,
-						 data, size, &utf8_size);
+	utf8_data = charset_to_ucase_utf8_string(charset, NULL, data, size,
+						 &utf8_size);
 
 	if (utf8_data == NULL) {
 		/* unknown character set, or invalid data. just compare it
@@ -111,7 +111,7 @@ static void search_with_charset(const unsigned char *data, size_t size,
 	}
 
 	ctx->submatch = TRUE;
-	search_loop((const unsigned char *) utf8_data, utf8_size, ctx);
+	search_loop(utf8_data, utf8_size, ctx);
 	ctx->submatch = FALSE;
 }
 

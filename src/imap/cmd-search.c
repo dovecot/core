@@ -77,7 +77,7 @@ int cmd_search(struct client_command_context *cmd)
 		return TRUE;
 
 	if (args->type == IMAP_ARG_ATOM &&
-	    strcasecmp(IMAP_ARG_STR(args), "CHARSET") == 0) {
+	    strcasecmp(IMAP_ARG_STR_NONULL(args), "CHARSET") == 0) {
 		/* CHARSET specified */
 		args++;
 		if (args->type != IMAP_ARG_ATOM &&

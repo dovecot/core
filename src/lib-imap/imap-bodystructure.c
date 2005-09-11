@@ -591,9 +591,10 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 	if (!str_append_imap_arg(str, &args[1]))
 		return FALSE;
 
-	text = strcasecmp(IMAP_ARG_STR(&args[0]), "text") == 0;
-	message_rfc822 = strcasecmp(IMAP_ARG_STR(&args[0]), "message") == 0 &&
-		strcasecmp(IMAP_ARG_STR(&args[1]), "rfc822") == 0;
+	text = strcasecmp(IMAP_ARG_STR_NONULL(&args[0]), "text") == 0;
+	message_rfc822 =
+		strcasecmp(IMAP_ARG_STR_NONULL(&args[0]), "message") == 0 &&
+		strcasecmp(IMAP_ARG_STR_NONULL(&args[1]), "rfc822") == 0;
 
 	args += 2;
 
