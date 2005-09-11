@@ -514,6 +514,7 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	};
 	struct var_expand_table *tab;
 	string_t *str;
+	const char *uidl;
 	int ret, found = FALSE;
 
 	tab = t_malloc(sizeof(static_tab));
@@ -558,7 +559,11 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		str_truncate(str, 0);
 		str_printfa(str, ctx->message == 0 ? "%u " : "+OK %u ",
 			    ctx->mail->seq);
-		var_expand(str, uidl_format, tab);
+
+		uidl = !reuse_xuidl ? NULL :
+			mail_get_first_header(ctx->mail, "X-UIDL");
+		if (uidl == NULL)
+			var_expand(str, uidl_format, tab);
 
 		ret = client_send_line(client, "%s", str_c(str));
 		t_pop();

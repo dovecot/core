@@ -41,6 +41,7 @@ static char log_prefix[128]; /* syslog() needs this to be permanent */
 enum client_workarounds client_workarounds = 0;
 int enable_last_command = FALSE;
 int no_flag_updates = FALSE;
+int reuse_xuidl = FALSE;
 const char *uidl_format, *logout_format;
 enum uidl_keys uidl_keymask;
 
@@ -174,6 +175,7 @@ static int main_init(void)
 	parse_workarounds();
 	enable_last_command = getenv("POP3_ENABLE_LAST") != NULL;
 	no_flag_updates = getenv("POP3_NO_FLAG_UPDATES") != NULL;
+	reuse_xuidl = getenv("POP3_REUSE_XUIDL") != NULL;
 
 	uidl_format = getenv("POP3_UIDL_FORMAT");
 	if (uidl_format == NULL)

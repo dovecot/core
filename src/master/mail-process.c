@@ -227,6 +227,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("FULL_FILESYSTEM_ACCESS=1");
 	if (set->pop3_no_flag_updates)
 		env_put("POP3_NO_FLAG_UPDATES=1");
+	if (set->pop3_reuse_xuidl)
+		env_put("POP3_REUSE_XUIDL=1");
 	if (set->pop3_enable_last)
 		env_put("POP3_ENABLE_LAST=1");
 	if (set->mbox_dirty_syncs)

@@ -100,6 +100,7 @@ struct settings {
 	/* pop3 */
 	int pop3_no_flag_updates;
 	int pop3_enable_last;
+	int pop3_reuse_xuidl;
 	const char *pop3_uidl_format;
 	const char *pop3_client_workarounds;
 	const char *pop3_logout_format;
