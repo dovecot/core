@@ -21,6 +21,13 @@ You can apply a modifiers for each variable (eg. %Lp = pop3):
  %L - lowercase
  %U - uppercase
  %E - escape '"', "'" and '\' characters by inserting '\' before them.
+ %R - reverse the string
+ %H - take a 32bit hash of the variable and return it as hex. You can also
+      limit the hash value. For example %256Hu gives values 0..ff. You might
+      want padding also, so %2.256Hu gives 00..ff. This can be useful for
+      example in dividing users automatically to multiple partitions. Note
+      that if you're hashing usernames being in user@domain form, you probably
+      want to reverse the string to get better hash value variety, eg. %3RHu.
 
 You can take a substring of the variable by giving optional offset followed
 by '.' and width after the '%' character. For example %2u gives first two
