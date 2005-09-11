@@ -44,6 +44,20 @@ m_str_hex(const char *str, struct var_expand_context *ctx __attr_unused__)
 	return t_strdup_printf("%llx", l);
 }
 
+static const char *
+m_str_reverse(const char *str, struct var_expand_context *ctx __attr_unused__)
+{
+	size_t len = strlen(str);
+	char *p, *rev;
+
+	rev = t_malloc(len + 1);
+	rev[len] = '\0';
+
+	for (p = rev + len - 1; *str != '\0'; str++)
+		*p-- = *str;
+	return rev;
+}
+
 static const char *m_str_hash(const char *str, struct var_expand_context *ctx)
 {
 	unsigned int value = str_hash(str);
@@ -68,6 +82,7 @@ static const struct var_expand_modifier modifiers[] = {
 	{ 'U', m_str_ucase },
 	{ 'E', m_str_escape },
 	{ 'X', m_str_hex },
+	{ 'R', m_str_reverse },
 	{ 'H', m_str_hash },
 	{ '\0', NULL }
 };
