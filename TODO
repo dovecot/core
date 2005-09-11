@@ -1,3 +1,7 @@
+ - auth: it's not possible to have two same passdbs/userdbs with different
+   settings
+ - LDA: empty mail gives an error. <LF> mail gives another error.
+ - LDA: "message <$MSGID> for $USER: $action" logging
  - if PAM child process doesn't finish within a minute, kill it
  - maildir: hardlink copying + keywords are broken
  - Support listening in multiple sockets?..
