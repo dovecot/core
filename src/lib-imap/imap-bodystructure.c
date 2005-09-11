@@ -164,7 +164,7 @@ static void parse_content_header(struct message_part_body_data *d,
 	case 't':
 	case 'T':
 		if (strcasecmp(name, "Type") == 0 && d->content_type == NULL) {
-			d->str = t_str_new(256);
+			d->str = str_new(default_pool, 256);
 			message_content_parse_header(value, value_len,
 						     parse_content_type,
 						     parse_save_params_list, d);
@@ -177,6 +177,7 @@ static void parse_content_header(struct message_part_body_data *d,
 			}
 			d->content_type_params =
 				p_strdup_empty(pool, str_c(d->str));
+			str_free(d->str);
 		}
 		if (strcasecmp(name, "Transfer-Encoding") == 0 &&
 		    d->content_transfer_encoding == NULL) {
@@ -202,12 +203,13 @@ static void parse_content_header(struct message_part_body_data *d,
 		}
 		if (strcasecmp(name, "Disposition") == 0 &&
 		    d->content_disposition_params == NULL) {
-			d->str = t_str_new(256);
+			d->str = str_new(default_pool, 256);
 			message_content_parse_header(value, value_len,
 						     parse_content_disposition,
 						     parse_save_params_list, d);
 			d->content_disposition_params =
 				p_strdup_empty(pool, str_c(d->str));
+			str_free(d->str);
 		}
 		break;
 	}
