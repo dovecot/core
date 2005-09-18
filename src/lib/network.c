@@ -225,7 +225,7 @@ void net_set_nonblock(int fd __attr_unused__, int nonblock __attr_unused__)
 int net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
 {
 #ifdef TCP_CORK
-	return setsockopt(fd, SOL_TCP, TCP_CORK, &cork, sizeof(cork));
+	return setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork));
 #else
 	errno = ENOPROTOOPT;
 	return -1;
