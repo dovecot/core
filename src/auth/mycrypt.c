@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+
 #define _XOPEN_SOURCE 4
 #define _XOPEN_SOURCE_EXTENDED 1 /* 1 needed for AIX */
 #define _XOPEN_VERSION 4

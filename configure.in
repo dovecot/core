@@ -957,6 +957,7 @@ AC_CHECK_LIB(sendfile, sendfile, [
 
 dnl * Check for crypt() if unistd.h compiles with _XOPEN_SOURCE + _XPG6
 dnl * Add other macros there too "just in case".
+AC_MSG_CHECKING([if we should use _XPG6 macro for crypt()])
 AC_TRY_COMPILE([
   #define _XOPEN_SOURCE 4
   #define _XOPEN_SOURCE_EXTENDED 1
@@ -968,6 +969,9 @@ AC_TRY_COMPILE([
   crypt("a", "b");
 ], [
   AC_DEFINE(CRYPT_USE_XPG6,, Define if _XPG6 macro is needed for crypt())
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
 ])
 
 dnl ***
