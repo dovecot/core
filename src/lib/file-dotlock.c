@@ -629,8 +629,8 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 		if (st.st_ino != st2.st_ino ||
 		    !CMP_DEV_T(st.st_dev, st2.st_dev)) {
 			i_warning("Our dotlock file %s was overridden "
-				  "(kept it %u secs)", lock_path,
-				  dotlock->lock_time - time(NULL));
+				  "(kept it %d secs)", lock_path,
+				  (int)(dotlock->lock_time - time(NULL)));
 			errno = EEXIST;
 			file_dotlock_free(dotlock);
 			return 0;
