@@ -129,6 +129,10 @@ static int cmd_stls(struct pop3_client *client)
 	}
 
 	client_send_line(client, "+OK Begin TLS negotiation now.");
+
+	/* uncork the old fd */
+	o_stream_uncork(client->output);
+
 	if (o_stream_flush(client->output) <= 0) {
 		/* the buffer has to be flushed */
 		o_stream_set_flush_pending(client->output, TRUE);
