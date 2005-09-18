@@ -242,11 +242,7 @@ struct settings default_settings = {
 	MEMBER(listen) "*",
 	MEMBER(ssl_listen) NULL,
 
-#ifdef HAVE_SSL
 	MEMBER(ssl_disable) FALSE,
-#else
-	MEMBER(ssl_disable) TRUE,
-#endif
 	MEMBER(ssl_ca_file) NULL,
 	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
@@ -571,6 +567,11 @@ static int settings_verify(struct settings *set)
 				set->ssl_key_file);
 			return FALSE;
 		}
+	}
+#else
+	if (!set->ssl_disable) {
+		i_error("SSL support not compiled in but ssl_disable=no");
+		return FALSE;
 	}
 #endif
 
