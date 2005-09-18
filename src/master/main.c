@@ -569,7 +569,97 @@ static void daemonize(struct settings *set)
 
 static void print_help(void)
 {
-	printf("Usage: dovecot [-F] [-c <config file>]\n");
+	printf("Usage: dovecot [-F] [-c <config file>] "
+	       "[--version] [--build-options]\n");
+}
+
+static void print_build_options(void)
+{
+	printf("Build options:"
+#ifdef IOLOOP_EPOLL
+		" ioloop=epoll"
+#endif
+#ifdef IOLOOP_POLL
+		" ioloop=poll"
+#endif
+#ifdef IOLOOP_SELECT
+		" ioloop=select"
+#endif
+#ifdef IOLOOP_NOTIFY_DNOTIFY
+		" dnotify"
+#endif
+#ifdef IOLOOP_NOTIFY_INOTIFY
+		" inotify"
+#endif
+#ifdef HAVE_IPV6
+		" ipv6"
+#endif
+#ifdef HAVE_GNUTLS
+		" gnutls"
+#endif
+#ifdef HAVE_OPENSSL
+		" openssl"
+#endif
+#ifdef HAVE_MYSQL
+		" mysql"
+#endif
+#ifdef HAVE_PGSQL
+		" postgresql"
+#endif
+	"\nPassdb: "
+#ifdef PASSDB_BSDAUTH
+		"bsdauth "
+#endif
+#ifdef PASSDB_CHECKPASSWORD
+		"checkpassword "
+#endif
+#ifdef PASSDB_LDAP
+		"ldap "
+#endif
+#ifdef PASSDB_PAM
+		"pam "
+#endif
+#ifdef PASSDB_PASSWD
+		"passwd "
+#endif
+#ifdef PASSDB_PASSWD_FILE
+		"passwd-file "
+#endif
+#ifdef PASSDB_SHADOW 
+		"shadow "
+#endif
+#ifdef PASSDB_SQL 
+		"sql "
+#endif
+#ifdef PASSDB_VPOPMAIL
+		"vpopmail "
+#endif
+	"\nUserdb: "
+#ifdef USERDB_CHECKPASSWORD
+		"checkpassword "
+#endif
+#ifdef USERDB_LDAP
+		"ldap "
+#endif
+#ifdef USERDB_PASSDB 
+		"passdb "
+#endif
+#ifdef USERDB_PASSWD
+		"passwd "
+#endif
+#ifdef USERDB_PASSWD_FILE
+		"passwd-file "
+#endif
+#ifdef USERDB_SQL 
+		"sql "
+#endif
+#ifdef USERDB_STATIC 
+		"static "
+#endif
+#ifdef USERDB_VPOPMAIL
+		"vpopmail "
+#endif
+	"\n");
 }
 
 int main(int argc, char *argv[])
@@ -605,6 +695,9 @@ int main(int argc, char *argv[])
 				exec_section = argv[++i];
 		} else if (strcmp(argv[i], "--version") == 0) {
 			printf("%s\n", VERSION);
+			return 0;
+		} else if (strcmp(argv[i], "--build-options") == 0) {
+			print_build_options();
 			return 0;
 		} else {
 			print_help();
