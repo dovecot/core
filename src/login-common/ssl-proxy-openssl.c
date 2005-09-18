@@ -487,8 +487,8 @@ void ssl_proxy_init(void)
 			certfile, ssl_last_error());
 	}
 
-	if (SSL_CTX_use_RSAPrivateKey_file(ssl_ctx, keyfile,
-					   SSL_FILETYPE_PEM) != 1) {
+	if (SSL_CTX_use_PrivateKey_file(ssl_ctx, keyfile,
+					SSL_FILETYPE_PEM) != 1) {
 		i_fatal("Can't load private key file %s: %s",
 			keyfile, ssl_last_error());
 	}
