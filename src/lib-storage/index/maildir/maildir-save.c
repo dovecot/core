@@ -217,6 +217,10 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 		return -1;
 
 	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
+		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			"o_stream_send_istrea(%s) failed: %m",
+			t_strconcat(ctx->tmpdir, "/",
+				    ctx->files->basename, NULL));
 		ctx->failed = TRUE;
 		return -1;
 	}
