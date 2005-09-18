@@ -1,4 +1,4 @@
-AC_INIT(dovecot, 1.0alpha2, [dovecot@dovecot.org])
+AC_INIT(dovecot, 1.0.alpha2, [dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AC_CONFIG_HEADERS([config.h])
@@ -953,6 +953,21 @@ AC_CHECK_LIB(sendfile, sendfile, [
   ], [
     AC_MSG_RESULT(no)
   ])
+])
+
+dnl * Check for crypt() if unistd.h compiles with _XOPEN_SOURCE + _XPG6
+dnl * Add other macros there too "just in case".
+AC_TRY_COMPILE([
+  #define _XOPEN_SOURCE 4
+  #define _XOPEN_SOURCE_EXTENDED 1
+  #define _XOPEN_VERSION 4
+  #define _XPG4_2
+  #define _XPG6
+  #include <unistd.h>
+], [
+  crypt("a", "b");
+], [
+  AC_DEFINE(CRYPT_USE_XPG6,, Define if _XPG6 macro is needed for crypt())
 ])
 
 dnl ***
