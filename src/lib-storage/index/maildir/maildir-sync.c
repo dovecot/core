@@ -1167,7 +1167,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, int forced,
 			return -1;
 
 		if (!new_changed && !cur_changed)
-			return 0;
+			return 1;
 	} else {
 		new_changed = cur_changed = TRUE;
 	}
