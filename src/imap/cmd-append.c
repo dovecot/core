@@ -292,8 +292,7 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 	int failed;
 
 	if (ctx->save_ctx != NULL) {
-		if (mailbox_save_continue(ctx->save_ctx) < 0 ||
-		    client->input->closed) {
+		if (mailbox_save_continue(ctx->save_ctx) < 0) {
 			/* we still have to finish reading the message
 			   from client */
 			mailbox_save_cancel(ctx->save_ctx);
