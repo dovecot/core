@@ -105,6 +105,7 @@ static void plain_read(void *context)
 {
 	struct ssl_proxy *proxy = context;
 	ssize_t ret;
+	int corked = FALSE;
 
 	if (proxy->sslout_size == sizeof(proxy->sslout_buf)) {
 		/* buffer full, block input until it's written */
@@ -126,9 +127,16 @@ static void plain_read(void *context)
 			break;
 		} else {
 			proxy->sslout_size += ret;
+			if (!corked) {
+				net_set_cork(proxy->fd_ssl, TRUE);
+				corked = TRUE;
+			}
 			ssl_write(proxy);
 		}
 	}
+
+	if (corked)
+		net_set_cork(proxy->fd_ssl, FALSE);
 
 	ssl_proxy_unref(proxy);
 }
@@ -304,8 +312,11 @@ static void ssl_step(void *context)
 
 		if (proxy->sslout_size == 0)
 			ssl_set_io(proxy, SSL_REMOVE_OUTPUT);
-		else
+		else {
+			net_set_cork(proxy->fd_ssl, TRUE);
 			ssl_write(proxy);
+			net_set_cork(proxy->fd_ssl, FALSE);
+		}
 	}
 
 	ssl_proxy_unref(proxy);
