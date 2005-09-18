@@ -1056,17 +1056,31 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	maildir_uidlist_iter_deinit(iter);
 	array_free(&keywords);
 
-	if (!partial) {
+	if (partial) {
 		/* expunge the rest */
 		for (seq++; seq <= hdr->messages_count; seq++)
 			mail_index_expunge(trans, seq);
+
+		/* next_uid must be updated only in non-partial syncs since
+		   partial syncs don't add the new mails to index. also we'll
+		   have to do it here before syncing index records, since after
+		   that the uidlist's next_uid value may have changed. */
+		next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
+		if (next_uid != 0 && hdr->next_uid != next_uid) {
+			mail_index_update_header(trans,
+				offsetof(struct mail_index_header, next_uid),
+				&next_uid, sizeof(next_uid), FALSE);
+		}
 	}
 
-	/* now, sync the index */
-        mbox->syncing_commit = TRUE;
-	if (maildir_sync_index_records(sync_ctx) < 0)
-		ret = -1;
-	mbox->syncing_commit = FALSE;
+	if (!mbox->syncing_commit) {
+		/* now, sync the index. NOTE: may recurse back to here with
+		   partial syncs */
+		mbox->syncing_commit = TRUE;
+		if (maildir_sync_index_records(sync_ctx) < 0)
+			ret = -1;
+		mbox->syncing_commit = FALSE;
+	}
 
 	if (mbox->dirty_cur_time == 0 &&
 	    mbox->last_cur_mtime != (time_t)hdr->sync_stamp) {
@@ -1113,13 +1127,6 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
-	}
-
-	next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
-	if (next_uid != 0 && hdr->next_uid != next_uid) {
-		mail_index_update_header(trans,
-			offsetof(struct mail_index_header, next_uid),
-			&next_uid, sizeof(next_uid), FALSE);
 	}
 
 	if (ret < 0) {
