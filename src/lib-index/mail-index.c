@@ -1278,6 +1278,11 @@ static int mail_index_create(struct mail_index *index,
 		return ret < 0 ? -1 : 0;
 	}
 
+	/* mark the existing log file as synced */
+	hdr->log_file_seq = seq;
+	hdr->log_file_int_offset = offset;
+	hdr->log_file_ext_offset = offset;
+
 	/* create it fully in index.tmp first */
 	index->fd = mail_index_create_tmp_file(index, &path);
 	if (index->fd == -1)
