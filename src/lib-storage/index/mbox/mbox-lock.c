@@ -390,8 +390,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 
 	while (fcntl(ctx->mbox->mbox_fd, wait_type, &fl) < 0) {
 		if (errno != EINTR) {
-			if (errno != EAGAIN && errno != EACCES)
-				mbox_set_syscall_error(ctx->mbox, "fcntl()");
+			mbox_set_syscall_error(ctx->mbox, "fcntl()");
 			alarm(0);
 			return -1;
 		}
@@ -460,7 +459,7 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type)
 		/* read-only mbox stream. no need to lock. */
 		i_assert(mbox->mbox_readonly);
 		mbox->mbox_lock_type = lock_type;
-		return TRUE;
+		return 1;
 	}
 
 	max_wait_time = time(NULL) + lock_timeout;
