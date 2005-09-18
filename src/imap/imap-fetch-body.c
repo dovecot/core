@@ -434,7 +434,7 @@ static int fetch_body_header_fields(struct imap_fetch_context *ctx,
 
 /* Find message_part for section (eg. 1.3.4) */
 static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
-		     const struct message_part **part_r, const char **section)
+		     const struct message_part **part_r, const char **section_r)
 {
 	const struct message_part *part;
 	const char *path;
@@ -446,11 +446,11 @@ static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 
 	path = body->section;
 	while (*path >= '0' && *path <= '9' && part != NULL) {
-		/* get part number */
+		/* get part number, we have already verified its validity */
 		num = 0;
 		while (*path != '\0' && *path != '.') {
-			if (*path < '0' || *path > '9')
-				return FALSE;
+			i_assert(*path >= '0' && *path <= '9');
+
 			num = num*10 + (*path - '0');
 			path++;
 		}
@@ -479,7 +479,7 @@ static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 	}
 
 	*part_r = part;
-	*section = path;
+	*section_r = path;
 	return 0;
 }
 

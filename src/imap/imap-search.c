@@ -266,7 +266,8 @@ static int search_arg_build(struct search_build_data *data,
 					break;
 
 				if ((*args)->type != IMAP_ARG_ATOM ||
-				    strcasecmp(IMAP_ARG_STR(*args), "OR") != 0)
+				    strcasecmp(IMAP_ARG_STR_NONULL(*args),
+					       "OR") != 0)
 					break;
 
 				*args += 1;
