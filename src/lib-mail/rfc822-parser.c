@@ -230,19 +230,55 @@ int rfc822_parse_quoted_string(struct rfc822_parser_context *ctx, string_t *str)
 	return -1;
 }
 
+static int
+rfc822_parse_atom_or_dot(struct rfc822_parser_context *ctx, string_t *str)
+{
+	const unsigned char *start;
+
+	/*
+	   atom            = [CFWS] 1*atext [CFWS]
+	   atext           =
+	     ; Any character except controls, SP, and specials.
+
+	   The difference between this function and rfc822_parse_dot_atom()
+	   is that this doesn't just silently skip over all the whitespace.
+	*/
+	for (start = ctx->data; ctx->data != ctx->end; ctx->data++) {
+		if (IS_ATEXT(*ctx->data) || *ctx->data == '.')
+			continue;
+
+		str_append_n(str, start, ctx->data - start);
+		return rfc822_skip_lwsp(ctx);
+	}
+
+	str_append_n(str, start, ctx->data - start);
+	return 0;
+}
+
 int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str)
 {
 	int ret;
+
+	/*
+	   phrase     = 1*word / obs-phrase
+	   word       = atom / quoted-string
+	   obs-phrase = word *(word / "." / CFWS)
+	*/
+
+	if (*ctx->data == '.')
+		return -1;
 
 	for (;;) {
 		if (*ctx->data == '"')
 			ret = rfc822_parse_quoted_string(ctx, str);
 		else
-			ret = rfc822_parse_atom(ctx, str);
+			ret = rfc822_parse_atom_or_dot(ctx, str);
+
 		if (ret <= 0)
 			return ret;
 
-		if (!IS_ATEXT(*ctx->data) && *ctx->data != '"')
+		if (!IS_ATEXT(*ctx->data) && *ctx->data != '"'
+		    && *ctx->data != '.')
 			break;
 		str_append_c(str, ' ');
 	}
