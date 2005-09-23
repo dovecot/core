@@ -153,9 +153,9 @@ static void add_extra_listeners(void)
 		}
 
 		str = t_strdup_printf("AUTH_%u", i);
-		client_fd = create_unix_listener(str, 16);
+		client_fd = create_unix_listener(str, 64);
 		str = t_strdup_printf("AUTH_%u_MASTER", i);
-		master_fd = create_unix_listener(str, 16);
+		master_fd = create_unix_listener(str, 64);
 
 		listener = auth_master_listener_create(auth);
 		if (master_fd != -1) {
