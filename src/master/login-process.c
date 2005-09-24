@@ -192,13 +192,13 @@ static int login_process_read_group(struct login_process *p)
 		i_error("login: Server name wasn't sent");
 	else {
 		name = t_strndup(buf, len);
-		proto = strchr(buf, '/');
+		proto = strchr(name, '/');
 		if (proto == NULL) {
-			i_error("login: Missing protocol from server name '%s'",
-				name);
-			return FALSE;
+			proto = name;
+			name = "default";
+		} else {
+			name = t_strdup_until(name, proto++);
 		}
-		name = t_strdup_until(buf, proto++);
 
 		if (strcmp(proto, "imap") == 0)
 			protocol = MAIL_PROTOCOL_IMAP;
@@ -632,7 +632,7 @@ static int login_process_send_env(struct login_process *p)
 {
 	extern char **environ;
 	char **env;
-	size_t len;
+	ssize_t len;
 	int ret = 0;
 
 	/* this will clear our environment. luckily we don't need it. */
@@ -641,11 +641,21 @@ static int login_process_send_env(struct login_process *p)
 	for (env = environ; *env != NULL; env++) {
 		len = strlen(*env);
 
-		if (o_stream_send(p->output, *env, len) != (ssize_t)len ||
+		if (o_stream_send(p->output, *env, len) != len ||
 		    o_stream_send(p->output, "\n", 1) != 1) {
 			ret = -1;
 			break;
 		}
+	}
+
+	if (!p->group->set->login_chroot) {
+		/* if we're not chrooting, we need to tell login process
+		   where its base directory is */
+		const char *str = t_strdup_printf("LOGIN_DIR=%s\n",
+						  p->group->set->login_dir);
+		len = strlen(str);
+		if (o_stream_send(p->output, str, len) != len)
+			ret = -1;
 	}
 
 	if (ret == 0 && o_stream_send(p->output, "\n", 1) != 1)

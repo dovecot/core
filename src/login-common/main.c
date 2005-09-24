@@ -26,6 +26,7 @@ unsigned int max_logging_users;
 unsigned int login_process_uid;
 struct auth_client *auth_client;
 
+static const char *process_name;
 static struct ioloop *ioloop;
 static struct io *io_listen, *io_ssl_listen;
 static int main_refcount;
@@ -134,9 +135,23 @@ static void auth_connect_notify(struct auth_client *client __attr_unused__,
                 clients_notify_auth_connected();
 }
 
-static void drop_privileges()
+static void drop_privileges(void)
 {
-	i_set_failure_internal();
+	const char *env;
+
+	if (!is_inetd)
+		i_set_failure_internal();
+	else {
+		/* log to syslog */
+		i_set_failure_syslog(process_name, LOG_NDELAY, LOG_MAIL);
+
+		/* if we don't chroot, we must chdir */
+		env = getenv("LOGIN_DIR");
+		if (env != NULL) {
+			if (chdir(env) < 0)
+				i_error("chdir(%s) failed: %m", env);
+		}
+	}
 
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
@@ -190,7 +205,7 @@ static void main_init(void)
         closing_down = FALSE;
 	main_refcount = 0;
 
-	auth_client = auth_client_new((unsigned int)getpid());
+	auth_client = auth_client_new(login_process_uid);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	clients_init();
 
@@ -243,6 +258,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 	const char *name, *group_name;
 	struct ip_addr ip, local_ip;
+	unsigned int local_port;
 	struct ssl_proxy *proxy = NULL;
 	struct client *client;
 	int i, fd = -1, master_fd = -1, ssl = FALSE;
@@ -260,9 +276,9 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	if (is_inetd) {
 		/* running from inetd. create master process before
 		   dropping privileges. */
-		group_name = strrchr(argv[0], '/');
-		group_name = group_name == NULL ? argv[0] : group_name+1;
-		group_name = t_strcut(group_name, '-');
+		process_name = strrchr(argv[0], '/');
+		process_name = process_name == NULL ? argv[0] : process_name+1;
+		group_name = t_strcut(process_name, '-');
 
 		for (i = 1; i < argc; i++) {
 			if (strncmp(argv[i], "--group=", 8) == 0) {
@@ -286,18 +302,25 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 			i_fatal("%s can be started only through dovecot "
 				"master process, inetd or equilevant", argv[0]);
 		}
-		if (net_getsockname(1, &local_ip, NULL) < 0)
+		if (net_getsockname(1, &local_ip, &local_port) < 0) {
 			memset(&local_ip, 0, sizeof(local_ip));
+			local_port = 0;
+		}
 
 		fd = 1;
 		for (i = 1; i < argc; i++) {
-			if (strcmp(argv[i], "--ssl") == 0) {
-				fd = ssl_proxy_new(fd, &ip, &proxy);
-				if (fd == -1)
-					return 1;
+			if (strcmp(argv[i], "--ssl") == 0)
 				ssl = TRUE;
-			} else if (strncmp(argv[i], "--group=", 8) != 0)
+			else if (strncmp(argv[i], "--group=", 8) != 0)
 				i_fatal("Unknown parameter: %s", argv[i]);
+		}
+
+		/* hardcoded imaps and pop3s ports to be SSL by default */
+		if (local_port == 993 || local_port == 995 || ssl) {
+			ssl = TRUE;
+			fd = ssl_proxy_new(fd, &ip, &proxy);
+			if (fd == -1)
+				return 1;
 		}
 
 		master_init(master_fd, FALSE);
