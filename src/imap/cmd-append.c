@@ -263,6 +263,7 @@ static int cmd_append_continue_parsing(struct client_command_context *cmd)
 	if (!nonsync) {
 		o_stream_send(client->output, "+ OK\r\n", 6);
 		o_stream_flush(client->output);
+		o_stream_uncork(client->output);
 	}
 
 	/* after literal comes CRLF, if we fail make sure we eat it away */
