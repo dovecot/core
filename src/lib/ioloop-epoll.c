@@ -12,6 +12,8 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
+#include "array.h"
+#include "fd-close-on-exec.h"
 #include "ioloop-internal.h"
 
 #ifdef IOLOOP_EPOLL
@@ -34,7 +36,7 @@ struct ioloop_handler_context {
 	struct epoll_event *events;
 
 	unsigned int idx_size;
-	struct io_list **fd_index;
+	array_t ARRAY_DEFINE(fd_index, struct io_list *);
 };
 
 struct io_list {
@@ -54,20 +56,23 @@ void io_loop_handler_init(struct ioloop *ioloop)
 			    ctx->events_size);
 
 	ctx->idx_size = INITIAL_EPOLL_EVENTS;
-	ctx->fd_index = p_new(ioloop->pool, struct io_list *, ctx->idx_size);
+	ARRAY_CREATE(&ctx->fd_index, ioloop->pool,
+		     struct io_list *, ctx->idx_size);
 
 	ctx->epfd = epoll_create(INITIAL_EPOLL_EVENTS);
 	if (ctx->epfd < 0)
 		i_fatal("epoll_create(): %m");
+	fd_close_on_exec(ctx->epfd, TRUE);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 
-	close(ctx->epfd);
+	if (close(ctx->epfd) < 0)
+		i_error("close(epoll) failed: %m");
+	array_free(&ioloop->handler_context->fd_index);
 	p_free(ioloop->pool, ioloop->handler_context->events);
-	p_free(ioloop->pool, ioloop->handler_context->fd_index);
 	p_free(ioloop->pool, ioloop->handler_context);
 }
 
@@ -129,33 +134,18 @@ static int iolist_del(struct io_list *list, struct io *io)
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	struct io_list *list;
+	struct io_list **list;
 	struct epoll_event event;
 	int ret, first, op, fd = io->fd;
 
-	list = ctx->fd_index[fd];
-	if (list == NULL) {
-		if ((unsigned int) fd >= ctx->idx_size) {
-                	/* grow the fd -> iolist array */
-			unsigned int old_size = ctx->idx_size;
+	list = array_idx_modifyable(&ctx->fd_index, fd);
+	if (*list == NULL)
+		*list = p_new(ioloop->pool, struct io_list, 1);
 
-			ctx->idx_size = nearest_power((unsigned int) fd+1);
+	first = iolist_add(*list, io);
 
-			i_assert(ctx->idx_size < (size_t)-1 / sizeof(int));
-
-			ctx->fd_index = p_realloc(ioloop->pool, ctx->fd_index,
-						  sizeof(int) * old_size,
-						  sizeof(int) * ctx->idx_size);
-		}
-
-		ctx->fd_index[fd] = list =
-			p_new(ioloop->pool, struct io_list, 1);
-	}
-
-	first = iolist_add(list, io);
-
-	event.data.ptr = list;
-	event.events = epoll_event_mask(list);
+	event.data.ptr = *list;
+	event.events = epoll_event_mask(*list);
 
 	op = first ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
 
@@ -177,14 +167,15 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	struct io_list *list = ctx->fd_index[io->fd];
+	struct io_list **list;
 	struct epoll_event event;
 	int ret, last, op;
 
-	last = iolist_del(list, io);
+	list = array_idx_modifyable(&ctx->fd_index, io->fd);
+	last = iolist_del(*list, io);
 
-	event.data.ptr = list;
-	event.events = epoll_event_mask(list);
+	event.data.ptr = *list;
+	event.events = epoll_event_mask(*list);
 
 	op = last ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
 
