@@ -117,8 +117,12 @@ int client_send_line(struct client *client, const char *data)
 	if (o_stream_sendv(client->output, iov, 2) < 0)
 		return -1;
 
-	return o_stream_get_buffer_used_size(client->output) <
-		CLIENT_OUTPUT_OPTIMAL_SIZE;
+	if (o_stream_get_buffer_used_size(client->output) >=
+	    CLIENT_OUTPUT_OPTIMAL_SIZE) {
+		/* buffer full, try flushing */
+		return o_stream_flush(client->output);
+	}
+	return 1;
 }
 
 void client_send_tagline(struct client_command_context *cmd, const char *data)
