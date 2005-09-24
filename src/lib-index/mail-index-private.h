@@ -45,21 +45,22 @@ struct mail_index_ext {
 	const char *name;
 	uint32_t index_idx; /* index ext_id */
 	uint32_t reset_id;
-	uint32_t hdr_offset;
-	uint32_t hdr_size;
+	uint32_t hdr_offset; /* points to data[] */
+	uint32_t hdr_size; /* size of data[] */
 	uint16_t record_offset;
 	uint16_t record_size;
 	uint16_t record_align;
 };
 
 struct mail_index_ext_header {
-	uint32_t hdr_size;
+	uint32_t hdr_size; /* size of data[] */
 	uint32_t reset_id;
 	uint16_t record_offset;
 	uint16_t record_size;
 	uint16_t record_align;
 	uint16_t name_size;
-	/* unsigned char name[] */
+	/* unsigned char name[name_size] */
+	/* unsigned char data[hdr_size] (starting 64bit aligned) */
 };
 
 struct mail_index_keyword_header {
