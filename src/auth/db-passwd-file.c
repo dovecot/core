@@ -137,6 +137,7 @@ passwd_file_new(struct db_passwd_file *db, const char *expanded_path)
 
 static int passwd_file_open(struct passwd_file *pw)
 {
+	const char *no_args = NULL;
 	struct istream *input;
 	const char *const *args;
 	const char *line;
@@ -170,10 +171,12 @@ static int passwd_file_open(struct passwd_file *pw)
 		t_push();
 		args = t_strsplit(line, ":");
 		if (args[1] != NULL) {
-			/* at least two fields */
-			const char *no_args = NULL;
+			/* at least username+password */
 			passwd_file_add(pw, args[0], args[1],
 					pw->db->userdb ? args+2 : &no_args);
+		} else {
+			/* only username */
+			passwd_file_add(pw, args[0], NULL, &no_args);
 		}
 		t_pop();
 	}
