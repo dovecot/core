@@ -135,6 +135,7 @@ struct auth_passdb_settings {
 
 	const char *driver;
 	const char *args;
+	int deny;
 };
 
 struct auth_userdb_settings {

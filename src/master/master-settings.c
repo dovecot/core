@@ -197,6 +197,7 @@ static struct setting_def auth_socket_setting_defs[] = {
 static struct setting_def auth_passdb_setting_defs[] = {
 	DEF(SET_STR, driver),
 	DEF(SET_STR, args),
+	DEF(SET_BOOL, deny),
 
 	{ 0, NULL, 0 }
 };

@@ -116,7 +116,8 @@ void passdb_handle_credentials(enum passdb_result result,
 	callback(PASSDB_RESULT_OK, password, auth_request);
 }
 
-void passdb_preinit(struct auth *auth, const char *driver, const char *args)
+struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
+				   const char *args)
 {
 	struct passdb_module **p;
         struct auth_passdb *auth_passdb, **dest;
@@ -153,6 +154,7 @@ void passdb_preinit(struct auth *auth, const char *driver, const char *args)
 
 	if (auth_passdb->passdb->preinit != NULL)
 		auth_passdb->passdb->preinit(auth_passdb->args);
+	return auth_passdb;
 }
 
 void passdb_init(struct auth_passdb *passdb)

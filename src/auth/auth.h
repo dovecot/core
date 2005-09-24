@@ -11,6 +11,8 @@ struct auth_passdb {
 #ifdef HAVE_MODULES
 	struct auth_module *module;
 #endif
+        /* if user is found from this passdb, deny authentication immediately */
+	unsigned int deny:1;
 };
 
 struct auth_userdb {

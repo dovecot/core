@@ -17,6 +17,7 @@
 struct auth *auth_preinit(void)
 {
 	struct auth *auth;
+	struct auth_passdb *auth_passdb;
 	const char *driver, *args;
 	pool_t pool;
 	unsigned int i;
@@ -35,7 +36,10 @@ struct auth *auth_preinit(void)
 			break;
 
                 args = getenv(t_strdup_printf("PASSDB_%u_ARGS", i));
-		passdb_preinit(auth, driver, args);
+		auth_passdb = passdb_preinit(auth, driver, args);
+
+		if (getenv(t_strdup_printf("PASSDB_%u_DENY", i)) != NULL)
+			auth_passdb->deny = TRUE;
 
 	}
 	t_pop();

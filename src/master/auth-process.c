@@ -429,6 +429,8 @@ static void auth_set_environment(struct auth_settings *set)
 			env_put(t_strdup_printf("PASSDB_%u_ARGS=%s",
 						i, ap->args));
 		}
+		if (ap->deny)
+			env_put(t_strdup_printf("PASSDB_%u_DENY=1", i));
 	}
 	for (au = set->userdbs, i = 1; au != NULL; au = au->next, i++) {
 		env_put(t_strdup_printf("USERDB_%u_DRIVER=%s", i, au->driver));

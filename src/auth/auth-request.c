@@ -236,8 +236,14 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 			    strlen(request->passdb_password));
 	}
 
-	if (result != PASSDB_RESULT_OK &&
-	    request->passdb->next != NULL) {
+	if (result != PASSDB_RESULT_USER_UNKNOWN && request->passdb->deny) {
+		/* user found from deny passdb. deny this authentication. */
+		auth_request_log_info(request, "passdb",
+				      "User found from deny passdb");
+		result = PASSDB_RESULT_USER_DISABLED;
+	} else if (result != PASSDB_RESULT_OK &&
+		   result != PASSDB_RESULT_USER_DISABLED &&
+		   request->passdb->next != NULL) {
 		/* try next passdb. */
 		if (result == PASSDB_RESULT_INTERNAL_FAILURE)
 			request->passdb_internal_failure = TRUE;
@@ -249,9 +255,8 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 		auth_request_verify_plain(request, request->mech_password,
 			request->private_callback.verify_plain);
 		return;
-	}
-
-	if (request->passdb_internal_failure && result != PASSDB_RESULT_OK) {
+	} else if (request->passdb_internal_failure &&
+		   result != PASSDB_RESULT_OK) {
 		/* one of the passdb lookups returned internal failure.
 		   it may have had the correct password, so return internal
 		   failure instead of plain failure. */
