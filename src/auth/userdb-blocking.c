@@ -13,12 +13,13 @@ static void user_callback(struct auth_request *request, const char *reply)
 	struct auth_stream_reply *stream_reply;
 
 	if (*reply == '\0')
-		reply = NULL;
+		stream_reply = NULL;
+	else {
+		stream_reply = auth_stream_reply_init(request);
+		auth_stream_reply_import(stream_reply, reply);
+	}
 
-	stream_reply = auth_stream_reply_init(request);
-	auth_stream_reply_import(stream_reply, reply);
-
-        request->private_callback.userdb(stream_reply, request);
+        auth_request_userdb_callback(stream_reply, request);
 }
 
 void userdb_blocking_lookup(struct auth_request *request)
