@@ -247,18 +247,16 @@ struct db_passwd_file *db_passwd_file_parse(const char *path, int userdb)
 	for (p = path; *p != '\0'; p++) {
 		if (*p == '%' && p[1] != '\0') {
 			p++;
-			switch (var_get_key(p)) {
-			case 'd':
+			if (*p == 'd') {
+				/* drop domains out only if %d is given
+				   without modifiers */
 				db->domain_var = TRUE;
-				db->vars = TRUE;
-				break;
-			case '%':
-				percents = TRUE;
-				break;
-			default:
-				db->vars = TRUE;
-				break;
 			}
+
+			if (var_get_key(p) == '%')
+				percents = TRUE;
+			else
+				db->vars = TRUE;
 		}
 	}
 
