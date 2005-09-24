@@ -52,6 +52,7 @@ struct auth_request {
 
 	unsigned int successful:1;
 	unsigned int internal_failure:1;
+	unsigned int passdb_internal_failure:1;
 	unsigned int delayed_failure:1;
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;

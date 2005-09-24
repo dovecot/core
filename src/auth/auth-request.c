@@ -237,9 +237,10 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 	}
 
 	if (result != PASSDB_RESULT_OK &&
-	    result != PASSDB_RESULT_INTERNAL_FAILURE &&
 	    request->passdb->next != NULL) {
 		/* try next passdb. */
+		if (result == PASSDB_RESULT_INTERNAL_FAILURE)
+			request->passdb_internal_failure = TRUE;
 		if (request->extra_fields != NULL)
 			auth_stream_reply_reset(request->extra_fields);
 
@@ -248,6 +249,13 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 		auth_request_verify_plain(request, request->mech_password,
 			request->private_callback.verify_plain);
 		return;
+	}
+
+	if (request->passdb_internal_failure && result != PASSDB_RESULT_OK) {
+		/* one of the passdb lookups returned internal failure.
+		   it may have had the correct password, so return internal
+		   failure instead of plain failure. */
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
 	auth_request_ref(request);
