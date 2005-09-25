@@ -42,9 +42,9 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
         p_free(ioloop->pool, ioloop->handler_context);
 }
 
-#define IO_POLL_ERROR (POLLERR|POLLHUP|POLLNVAL)
-#define IO_POLL_INPUT (POLLIN|POLLPRI|IO_POLL_ERROR)
-#define IO_POLL_OUTPUT (POLLOUT|IO_POLL_ERROR)
+#define IO_POLL_ERROR (POLLERR | POLLHUP | POLLNVAL)
+#define IO_POLL_INPUT (POLLIN | POLLPRI | IO_POLL_ERROR)
+#define IO_POLL_OUTPUT (POLLOUT | IO_POLL_ERROR)
 
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
