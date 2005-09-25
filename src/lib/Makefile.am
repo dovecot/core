@@ -8,6 +8,7 @@ liblib_a_SOURCES = \
 	env-util.c \
 	failures.c \
 	fd-close-on-exec.c \
+	fd-set-nonblock.c \
 	fdpass.c \
 	file-cache.c \
 	file-dotlock.c \
@@ -83,6 +84,7 @@ noinst_HEADERS = \
 	env-util.h \
 	failures.h \
 	fd-close-on-exec.h \
+	fd-set-nonblock.h \
 	fdpass.h \
 	file-cache.h \
 	file-dotlock.h \

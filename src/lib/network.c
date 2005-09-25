@@ -1,6 +1,7 @@
-/* Copyright (c) 1999-2003 Timo Sirainen */
+/* Copyright (c) 1999-2005 Timo Sirainen */
 
 #include "lib.h"
+#include "fd-set-nonblock.h"
 #include "network.h"
 
 #include <unistd.h>
@@ -203,23 +204,10 @@ void net_disconnect(int fd)
 }
 
 /* Set socket blocking/nonblocking */
-void net_set_nonblock(int fd __attr_unused__, int nonblock __attr_unused__)
+void net_set_nonblock(int fd, int nonblock)
 {
-#ifdef HAVE_FCNTL
-	int flags;
-
-	flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1)
-		i_fatal("net_set_nonblock() failed: %m");
-
-	if (nonblock)
-		flags |= O_NONBLOCK;
-	else
-		flags &= ~O_NONBLOCK;
-
-	if (fcntl(fd, F_SETFL, flags) < 0)
-		i_fatal("net_set_nonblock() failed: %m");
-#endif
+	if (fd_set_nonblock(fd, nonblock) < 0)
+		i_fatal("fd_set_nonblock(%d) failed: %m", fd);
 }
 
 int net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
