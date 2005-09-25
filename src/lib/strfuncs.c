@@ -532,6 +532,10 @@ _strsplit(pool_t pool, const char *data, const char *separators, int spaces)
 			else {
 				*str = '\0';
 				while (str[1] == ' ') str++;
+
+				/* ignore trailing spaces */
+				if (str[1] == '\0')
+					break;
 			}
 
 			array[count++] = str+1;
