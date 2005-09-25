@@ -495,34 +495,36 @@ int strcasecmp_p(const void *p1, const void *p2)
 	return strcasecmp(*s1, *s2);
 }
 
-static const char **_strsplit(const char *data, const char *separators,
-			      int spaces)
+static char **
+_strsplit(pool_t pool, const char *data, const char *separators, int spaces)
 {
-        const char **array;
+        char **array;
 	char *str;
-        size_t alloc_len, len;
+        unsigned int count, alloc_count, new_alloc_count;
 
 	i_assert(*separators != '\0');
 
 	if (spaces)
 		while (*data == ' ') data++;
 	if (*data == '\0')
-		return t_new(const char *, 1);
+		return p_new(pool, char *, 1);
 
-	str = t_strdup_noconst(data);
+	str = p_strdup(pool, data);
 
-        alloc_len = 32;
-        array = t_buffer_get(sizeof(const char *) * alloc_len);
+	alloc_count = 32;
+	array = p_new(pool, char *, alloc_count);
 
-	array[0] = str; len = 1;
+	array[0] = str; count = 1;
 	while (*str != '\0') {
 		if (strchr(separators, *str) != NULL) {
 			/* separator found */
-			if (len+1 >= alloc_len) {
-                                alloc_len = nearest_power(alloc_len+1);
-				array = t_buffer_reget(array,
-						       sizeof(const char *) *
-						       alloc_len);
+			if (count+1 >= alloc_count) {
+                                new_alloc_count = nearest_power(alloc_count+1);
+				array = p_realloc(pool, array,
+						  sizeof(char *) * alloc_count,
+						  sizeof(char *) *
+						  new_alloc_count);
+				alloc_count = new_alloc_count;
 			}
 
 			if (*str != ' ' || !spaces)
@@ -532,27 +534,39 @@ static const char **_strsplit(const char *data, const char *separators,
 				while (str[1] == ' ') str++;
 			}
 
-			array[len++] = str+1;
+			array[count++] = str+1;
 		}
 
                 str++;
 	}
 
-	i_assert(len < alloc_len);
-        array[len] = NULL;
+	i_assert(count < alloc_count);
+        array[count] = NULL;
 
-	t_buffer_alloc(sizeof(const char *) * (len+1));
         return array;
 }
 
 const char **t_strsplit(const char *data, const char *separators)
 {
-	return _strsplit(data, separators, FALSE);
+	return (const char **)_strsplit(unsafe_data_stack_pool, data,
+					separators, FALSE);
 }
 
 const char **t_strsplit_spaces(const char *data, const char *separators)
 {
-	return _strsplit(data, separators, TRUE);
+	return (const char **)_strsplit(unsafe_data_stack_pool, data,
+					separators, TRUE);
+}
+
+char **p_strsplit(pool_t pool, const char *data, const char *separators)
+{
+	return _strsplit(pool, data, separators, FALSE);
+}
+
+char **p_strsplit_spaces(pool_t pool, const char *data,
+			 const char *separators)
+{
+	return _strsplit(pool, data, separators, TRUE);
 }
 
 unsigned int strarray_length(const char *const *arr)
@@ -596,6 +610,22 @@ const char *t_strarray_join(const char *const *arr, const char *separator)
 	str[pos] = '\0';
 	t_buffer_alloc(pos + 1);
 	return str;
+}
+
+int strarray_remove(const char **arr, const char *value)
+{
+	const char **dest;
+
+	for (; *arr != NULL; arr++) {
+		if (strcmp(*arr, value) == 0) {
+			/* found it. now move the rest. */
+			for (dest = arr, arr++; *arr != NULL; arr++, dest++)
+				*dest = *arr;
+			*dest = NULL;
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 const char *dec2str(uintmax_t number)

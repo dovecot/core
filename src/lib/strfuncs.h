@@ -58,9 +58,13 @@ int memcasecmp(const void *p1, const void *p2, size_t size);
 int bsearch_strcasecmp(const void *p1, const void *p2);
 int strcasecmp_p(const void *p1, const void *p2);
 
-/* seprators is an array of separator characters, not a separator string. */
+/* separators is an array of separator characters, not a separator string. */
+char **p_strsplit(pool_t pool, const char *data, const char *separators);
 const char **t_strsplit(const char *data, const char *separators);
-/* like t_strsplit(), but treats multiple spaces as a single separator. */
+/* like p_strsplit(), but treats multiple adjacent separators as a single
+   separator. */
+char **p_strsplit_spaces(pool_t pool, const char *data,
+			 const char *separators);
 const char **t_strsplit_spaces(const char *data, const char *separators);
 
 const char *dec2str(uintmax_t number);
@@ -69,6 +73,8 @@ const char *dec2str(uintmax_t number);
 unsigned int strarray_length(const char *const *arr);
 /* Return all strings from array joined into one string. */
 const char *t_strarray_join(const char *const *arr, const char *separator);
+/* Removes a value from NULL-terminated string array. Returns TRUE if found. */
+int strarray_remove(const char **arr, const char *value);
 
 /* INTERNAL */
 char *_vstrconcat(const char *str1, va_list args, size_t *ret_len);
