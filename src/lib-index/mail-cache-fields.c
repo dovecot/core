@@ -393,7 +393,7 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 	buffer_write(dest, 0, &hdr, sizeof(hdr));
 
 	if ((hdr.size & 3) != 0)
-		buffer_append(dest, null4, 4 - (hdr.size & 3));
+		buffer_append_zero(dest, 4 - (hdr.size & 3));
 }
 
 int mail_cache_header_fields_get_next_offset(struct mail_cache *cache,

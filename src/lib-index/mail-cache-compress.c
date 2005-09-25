@@ -94,7 +94,7 @@ mail_cache_compress_callback(struct mail_cache_view *view, uint32_t field,
 
 	buffer_append(ctx->buffer, data, data_size);
 	if ((data_size & 3) != 0)
-		buffer_append(ctx->buffer, null4, 4 - (data_size & 3));
+		buffer_append_zero(ctx->buffer, 4 - (data_size & 3));
 	return 1;
 }
 

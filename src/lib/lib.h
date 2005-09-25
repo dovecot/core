@@ -38,8 +38,6 @@ struct ostream;
 #include "array-decl.h" /* ARRAY_DEFINE()s may exist in any header */
 #include "strfuncs.h"
 
-extern unsigned char null4[4]; /* 4 zeros - useful for padding */
-
 size_t nearest_power(size_t num);
 
 void lib_init(void);
