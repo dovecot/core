@@ -7,6 +7,10 @@ struct ostream {
 	uoff_t offset;
 
 	int stream_errno;
+	/* overflow is set when some of the data given to send()
+	   functions was neither sent nor buffered. It's never unset inside
+	   ostream code. */
+	unsigned int overflow:1;
 	unsigned int closed:1;
 
 	struct _ostream *real_stream;
@@ -58,7 +62,7 @@ int o_stream_seek(struct ostream *stream, uoff_t offset);
 /* Returns number of bytes sent, -1 = error */
 ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size);
 ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
-		       size_t iov_count);
+		       unsigned int iov_count);
 ssize_t o_stream_send_str(struct ostream *stream, const char *str);
 /* Send data from input stream. Returns number of bytes sent, or -1 if error.
    Note that this function may block if either instream or outstream is

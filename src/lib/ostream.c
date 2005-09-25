@@ -101,14 +101,23 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size)
 }
 
 ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
-		       size_t iov_count)
+		       unsigned int iov_count)
 {
 	struct _ostream *_stream = stream->real_stream;
+	unsigned int i;
+	size_t total_size;
+	ssize_t ret;
 
 	if (stream->closed)
 		return -1;
 
-	return _stream->sendv(_stream, iov, iov_count);
+	for (i = 0, total_size = 0; i < iov_count; i++)
+		total_size += iov[i].iov_len;
+
+	ret = _stream->sendv(_stream, iov, iov_count);
+	if (ret != (ssize_t)total_size)
+		stream->overflow = TRUE;
+	return ret;
 }
 
 ssize_t o_stream_send_str(struct ostream *stream, const char *str)

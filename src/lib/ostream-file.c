@@ -420,10 +420,11 @@ static size_t o_stream_add(struct file_ostream *fstream,
 }
 
 static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
-		      size_t iov_count)
+		      unsigned int iov_count)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
-	size_t i, size, added, optimal_size;
+	size_t size, added, optimal_size;
+	unsigned int i;
 	ssize_t ret = 0;
 
 	stream->ostream.stream_errno = 0;
@@ -431,7 +432,7 @@ static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
 	for (i = 0, size = 0; i < iov_count; i++)
 		size += iov[i].iov_len;
 
-	if (size > get_unused_space(fstream)) {
+	if (size > get_unused_space(fstream) && !IS_STREAM_EMPTY(fstream)) {
 		if (_flush(stream) < 0)
 			return -1;
 	}

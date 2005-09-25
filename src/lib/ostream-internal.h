@@ -15,7 +15,7 @@ struct _ostream {
 	size_t (*get_used_size)(struct _ostream *stream);
 	int (*seek)(struct _ostream *stream, uoff_t offset);
 	ssize_t (*sendv)(struct _ostream *stream, const struct const_iovec *iov,
-			 size_t iov_count);
+			 unsigned int iov_count);
 	off_t (*send_istream)(struct _ostream *outstream,
 			      struct istream *instream);
 
