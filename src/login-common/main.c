@@ -74,8 +74,12 @@ void main_close_listen(void)
 	master_notify_finished();
 }
 
-static void sig_quit(int signo __attr_unused__)
+static void sig_die(int signo, void *context __attr_unused__)
 {
+	/* warn about being killed because of some signal, except SIGINT (^C)
+	   which is too common at least while testing :) */
+	if (signo != SIGINT)
+		i_warning("Killed with signal %d", signo);
 	io_loop_stop(ioloop);
 }
 
@@ -170,7 +174,10 @@ static void main_init(void)
 {
 	const char *value;
 
-	lib_init_signals(sig_quit);
+	lib_signals_init();
+        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGPIPE, FALSE, NULL, NULL);
 
 	disable_plaintext_auth = getenv("DISABLE_PLAINTEXT_AUTH") != NULL;
 	process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;
@@ -238,9 +245,6 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-        if (lib_signal_kill != 0)
-		i_warning("Killed with signal %d", lib_signal_kill);
-
 	if (io_listen != NULL) io_remove(io_listen);
 	if (io_ssl_listen != NULL) io_remove(io_ssl_listen);
 
@@ -251,6 +255,7 @@ static void main_deinit(void)
 	clients_deinit();
 	master_deinit();
 
+	lib_signals_deinit();
 	closelog();
 }
 

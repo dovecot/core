@@ -24,7 +24,6 @@ struct auth_cache {
 
 	size_t size_left;
 	unsigned int ttl_secs;
-	unsigned int hup_count, usr2_count;
 
 	unsigned int hit_count, miss_count;
 };
@@ -97,22 +96,49 @@ auth_cache_node_destroy(struct auth_cache *cache, struct cache_node *node)
 	i_free(node);
 }
 
+static void sig_auth_cache_clear(int signo __attr_unused__, void *context)
+{
+	struct auth_cache *cache = context;
+
+	i_info("SIGHUP received, clearing cache");
+	auth_cache_clear(cache);
+}
+
+static void sig_auth_cache_stats(int signo __attr_unused__, void *context)
+{
+	struct auth_cache *cache = context;
+	unsigned int total_count;
+
+	total_count = cache->hit_count + cache->miss_count;
+	i_info("Authentication cache hits %u/%u (%u%%)",
+	       cache->hit_count, total_count,
+	       cache->hit_count * 100 / total_count);
+
+	/* reset hit counter */
+	cache->hit_count = cache->miss_count = 0;
+}
+
 struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs)
 {
 	struct auth_cache *cache;
 
 	cache = i_new(struct auth_cache, 1);
-	cache->hup_count = lib_signal_hup_count;
 	cache->hash = hash_create(default_pool, default_pool, 0, str_hash,
 				  (hash_cmp_callback_t *)strcmp);
 	cache->size_left = max_size;
 	cache->ttl_secs = ttl_secs;
+
+	lib_signals_set_handler(SIGHUP, TRUE, sig_auth_cache_clear, cache);
+	lib_signals_set_handler(SIGUSR2, TRUE, sig_auth_cache_stats, cache);
 	return cache;
 }
 
 void auth_cache_free(struct auth_cache *cache)
 {
-        auth_cache_clear(cache);
+	lib_signals_unset_handler(SIGHUP, sig_auth_cache_clear, cache);
+	lib_signals_unset_handler(SIGUSR2, sig_auth_cache_stats, cache);
+
+	auth_cache_clear(cache);
 	hash_destroy(cache->hash);
 	i_free(cache);
 }
@@ -122,8 +148,6 @@ void auth_cache_clear(struct auth_cache *cache)
 	while (cache->tail != NULL)
 		auth_cache_node_destroy(cache, cache->tail);
 	hash_clear(cache->hash, FALSE);
-
-	cache->hup_count = lib_signal_hup_count;
 }
 
 const char *auth_cache_lookup(struct auth_cache *cache,
@@ -132,28 +156,8 @@ const char *auth_cache_lookup(struct auth_cache *cache,
 {
 	string_t *str;
 	struct cache_node *node;
-	unsigned int total_count;
 
 	*expired_r = FALSE;
-
-	if (cache->hup_count != lib_signal_hup_count) {
-		/* SIGHUP received - clear cache */
-		i_info("SIGHUP received, clearing cache");
-		auth_cache_clear(cache);
-		return NULL;
-	}
-
-	if (cache->usr2_count != lib_signal_usr2_count) {
-		cache->usr2_count = lib_signal_usr2_count;
-
-		total_count = cache->hit_count + cache->miss_count;
-		i_info("Authentication cache hits %u/%u (%u%%)",
-		       cache->hit_count, total_count,
-		       cache->hit_count * 100 / total_count);
-
-		/* reset hit counter */
-		cache->hit_count = cache->miss_count = 0;
-	}
 
 	str = t_str_new(256);
 	var_expand(str, key,

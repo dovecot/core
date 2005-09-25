@@ -34,8 +34,6 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
 static struct timeout *to;
-static unsigned int settings_reload_hup_count = 0;
-static unsigned int log_reopen_usr1_count = 0;
 static const char *env_tz;
 
 struct ioloop *ioloop;
@@ -95,11 +93,6 @@ void client_process_exec(const char *cmd, const char *title)
 	execv(executable, (char **)argv);
 }
 
-static void sig_quit(int signo __attr_unused__)
-{
-	io_loop_stop(ioloop);
-}
-
 static void set_logfile(struct settings *set)
 {
 	if (set->log_path == NULL)
@@ -134,6 +127,27 @@ static void settings_reload(void)
 	}
 }
 
+static void sig_die(int signo, void *context __attr_unused__)
+{
+	/* warn about being killed because of some signal, except SIGINT (^C)
+	   which is too common at least while testing :) */
+	if (signo != SIGINT)
+		i_warning("Killed with signal %d", signo);
+	io_loop_stop(ioloop);
+}
+
+static void sig_reload_settings(int signo __attr_unused__,
+				void *context __attr_unused__)
+{
+	settings_reload();
+}
+
+static void sig_reopen_logs(int signo __attr_unused__,
+			    void *context __attr_unused__)
+{
+	set_logfile(settings_root->defaults);
+}
+
 static const char *get_exit_status_message(enum fatal_exit_status status)
 {
 	switch (status) {
@@ -160,15 +174,6 @@ static void timeout_handler(void *context __attr_unused__)
 	const char *process_type_name, *msg;
 	pid_t pid;
 	int status, process_type;
-
-	if (lib_signal_hup_count != settings_reload_hup_count) {
-		settings_reload_hup_count = lib_signal_hup_count;
-		settings_reload();
-	}
-	if (lib_signal_usr1_count != log_reopen_usr1_count) {
-		log_reopen_usr1_count = lib_signal_usr1_count;
-                set_logfile(settings_root->defaults);
-	}
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		/* get the type and remove from hash */
@@ -511,7 +516,12 @@ static void main_init(void)
 
 	log_init();
 
-	lib_init_signals(sig_quit);
+	lib_signals_init();
+        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGPIPE, FALSE, NULL, NULL);
+        lib_signals_set_handler(SIGHUP, TRUE, sig_reload_settings, NULL);
+        lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
 
 	pids = hash_create(default_pool, default_pool, 128, NULL, NULL);
 	to = timeout_add(100, timeout_handler, NULL);
@@ -526,9 +536,6 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-        if (lib_signal_kill != 0)
-		i_warning("Killed with signal %d", lib_signal_kill);
-
 	(void)unlink(t_strconcat(settings_root->defaults->base_dir,
 				 "/master.pid", NULL));
 
@@ -545,6 +552,7 @@ static void main_deinit(void)
 		i_error("close(null_fd) failed: %m");
 
 	hash_destroy(pids);
+	lib_signals_deinit();
 	log_deinit();
 	closelog();
 }

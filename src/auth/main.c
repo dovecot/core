@@ -34,8 +34,12 @@ time_t process_start_time;
 static struct auth *auth;
 static struct auth_worker_client *worker_client;
 
-static void sig_quit(int signo __attr_unused__)
+static void sig_die(int signo, void *context __attr_unused__)
 {
+	/* warn about being killed because of some signal, except SIGINT (^C)
+	   which is too common at least while testing :) */
+	if (signo != SIGINT)
+		i_warning("Killed with signal %d", signo);
 	io_loop_stop(ioloop);
 }
 
@@ -195,7 +199,11 @@ static void main_init(int nodaemon)
 	struct auth_master_listener *listener;
 
         process_start_time = ioloop_time;
-	lib_init_signals(sig_quit);
+
+	lib_signals_init();
+        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGPIPE, FALSE, NULL, NULL);
 
 	mech_init();
 	auth_init(auth);
@@ -246,9 +254,6 @@ static void main_init(int nodaemon)
 
 static void main_deinit(void)
 {
-        if (lib_signal_kill != 0)
-		i_warning("Killed with signal %d", lib_signal_kill);
-
 	if (worker_client != NULL)
 		auth_worker_client_unref(worker_client);
 	else
@@ -263,6 +268,7 @@ static void main_deinit(void)
         password_schemes_deinit();
 	random_deinit();
 
+	lib_signals_deinit();
 	closelog();
 }
 

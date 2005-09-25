@@ -50,8 +50,12 @@ void (*hook_client_created)(struct client **client) = NULL;
 
 string_t *capability_string;
 
-static void sig_quit(int signo __attr_unused__)
+static void sig_die(int signo, void *context __attr_unused__)
 {
+	/* warn about being killed because of some signal, except SIGINT (^C)
+	   which is too common at least while testing :) */
+	if (signo != SIGINT)
+		i_warning("Killed with signal %d", signo);
 	io_loop_stop(ioloop);
 }
 
@@ -130,7 +134,10 @@ static void main_init(void)
 	struct client *client;
 	const char *user, *str;
 
-	lib_init_signals(sig_quit);
+	lib_signals_init();
+        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGPIPE, FALSE, NULL, NULL);
 
 	user = getenv("USER");
 	if (user == NULL) {
@@ -186,11 +193,6 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	/* warn about being killed because of some signal, except SIGINT (^C)
-	   which is too common at least while testing :) */
-	if (lib_signal_kill != 0 && lib_signal_kill != 2)
-		i_warning("Killed with signal %d", lib_signal_kill);
-
 	module_dir_unload(modules);
 
 	commands_deinit();
@@ -201,6 +203,7 @@ static void main_deinit(void)
 
 	str_free(capability_string);
 
+	lib_signals_deinit();
 	closelog();
 }
 

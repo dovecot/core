@@ -38,8 +38,12 @@ struct auth_connection {
 static struct ioloop *ioloop;
 static int return_value = EX_SOFTWARE;
 
-static void sig_quit(int signo __attr_unused__)
+static void sig_die(int signo, void *context __attr_unused__)
 {
+	/* warn about being killed because of some signal, except SIGINT (^C)
+	   which is too common at least while testing :) */
+	if (signo != SIGINT)
+		i_warning("Killed with signal %d", signo);
 	io_loop_stop(ioloop);
 }
 
@@ -349,7 +353,10 @@ int main(int argc, char *argv[])
 	const char *str;
 
 	lib_init();
-	lib_init_signals(sig_quit);
+	lib_signals_init();
+        lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
+        lib_signals_set_handler(SIGPIPE, FALSE, NULL, NULL);
 	ioloop = io_loop_create(default_pool);
 
 	destination = NULL;
@@ -453,6 +460,7 @@ int main(int argc, char *argv[])
         mail_storage_destroy(storage);
         mail_storage_deinit();
 	io_loop_destroy(ioloop);
+	lib_signals_deinit();
 	lib_deinit();
 
         return EX_OK;
