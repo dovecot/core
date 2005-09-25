@@ -132,7 +132,8 @@ void hash_clear(struct hash_table *table, int free_nodes)
 }
 
 static struct hash_node *
-hash_lookup_node(struct hash_table *table, const void *key, unsigned int hash)
+hash_lookup_node(const struct hash_table *table,
+		 const void *key, unsigned int hash)
 {
 	struct hash_node *node;
 
@@ -149,7 +150,7 @@ hash_lookup_node(struct hash_table *table, const void *key, unsigned int hash)
 	return NULL;
 }
 
-void *hash_lookup(struct hash_table *table, const void *key)
+void *hash_lookup(const struct hash_table *table, const void *key)
 {
 	struct hash_node *node;
 
@@ -157,7 +158,7 @@ void *hash_lookup(struct hash_table *table, const void *key)
 	return node != NULL ? node->value : NULL;
 }
 
-int hash_lookup_full(struct hash_table *table, const void *lookup_key,
+int hash_lookup_full(const struct hash_table *table, const void *lookup_key,
 		     void **orig_key, void **value)
 {
 	struct hash_node *node;
@@ -320,7 +321,7 @@ void hash_remove(struct hash_table *table, const void *key)
 		hash_compress(table, &table->nodes[hash % table->size]);
 }
 
-size_t hash_size(struct hash_table *table)
+size_t hash_size(const struct hash_table *table)
 {
 	return table->nodes_count;
 }
@@ -448,6 +449,21 @@ static int hash_resize(struct hash_table *table, int grow)
 
 	p_free(table->table_pool, old_nodes);
 	return TRUE;
+}
+
+void hash_copy(struct hash_table *dest, struct hash_table *src)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	hash_freeze(dest);
+
+	iter = hash_iterate_init(src);
+	while (hash_iterate(iter, &key, &value))
+		hash_insert(dest, key, value);
+	hash_iterate_deinit(iter);
+
+	hash_thaw(dest);
 }
 
 /* a char* hash function from ASU -- from glib */
