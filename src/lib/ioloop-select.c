@@ -13,10 +13,10 @@
 
 struct ioloop_handler_context {
 	int highest_fd;
-	fd_set read_fds, write_fds;
+	fd_set read_fds, write_fds, except_fds;
 };
 
-static fd_set tmp_read_fds, tmp_write_fds;
+static fd_set tmp_read_fds, tmp_write_fds, tmp_except_fds;
 
 static void update_highest_fd(struct ioloop *ioloop)
 {
@@ -44,6 +44,7 @@ void io_loop_handler_init(struct ioloop *ioloop)
 	ioloop->handler_context->highest_fd = -1;
         FD_ZERO(&ioloop->handler_context->read_fds);
 	FD_ZERO(&ioloop->handler_context->write_fds);
+	FD_ZERO(&ioloop->handler_context->except_fds);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
@@ -65,6 +66,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 		FD_SET(fd, &ioloop->handler_context->read_fds);
         if (condition & IO_WRITE)
 		FD_SET(fd, &ioloop->handler_context->write_fds);
+	FD_SET(fd, &ioloop->handler_context->except_fds);
 
 	if (io->fd > ioloop->handler_context->highest_fd)
 		ioloop->handler_context->highest_fd = io->fd;
@@ -82,14 +84,20 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
         if (condition & IO_WRITE)
 		FD_CLR(fd, &ioloop->handler_context->write_fds);
 
-	/* check if we removed the highest fd */
-	if (io->fd == ioloop->handler_context->highest_fd)
-		update_highest_fd(ioloop);
+	if (!FD_ISSET(fd, &ioloop->handler_context->read_fds) &&
+	    !FD_ISSET(fd, &ioloop->handler_context->write_fds)) {
+		FD_CLR(fd, &ioloop->handler_context->except_fds);
+
+		/* check if we removed the highest fd */
+		if (io->fd == ioloop->handler_context->highest_fd)
+			update_highest_fd(ioloop);
+	}
 }
 
 #define io_check_condition(fd, condition) \
 	((FD_ISSET((fd), &tmp_read_fds) && ((condition) & IO_READ)) || \
-	 (FD_ISSET((fd), &tmp_write_fds) && ((condition) & IO_WRITE)))
+	 (FD_ISSET((fd), &tmp_write_fds) && ((condition) & IO_WRITE)) || \
+	 (FD_ISSET((fd), &tmp_except_fds)))
 
 void io_loop_handler_run(struct ioloop *ioloop)
 {
@@ -105,9 +113,11 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	       sizeof(fd_set));
 	memcpy(&tmp_write_fds, &ioloop->handler_context->write_fds,
 	       sizeof(fd_set));
+	memcpy(&tmp_except_fds, &ioloop->handler_data->except_fds,
+	       sizeof(fd_set));
 
 	ret = select(ioloop->handler_context->highest_fd + 1,
-		     &tmp_read_fds, &tmp_write_fds, NULL, &tv);
+		     &tmp_read_fds, &tmp_write_fds, &tmp_except_fds, &tv);
 	if (ret < 0 && errno != EINTR)
 		i_warning("select() : %m");
 

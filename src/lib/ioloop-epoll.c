@@ -26,6 +26,7 @@
 enum {
 	EPOLL_LIST_INPUT,
 	EPOLL_LIST_OUTPUT,
+	EPOLL_LIST_ERROR,
 
 	EPOLL_IOS_PER_FD
 };
@@ -76,8 +77,9 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 	p_free(ioloop->pool, ioloop->handler_context);
 }
 
-#define IO_EPOLL_INPUT	(EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP)
-#define IO_EPOLL_OUTPUT	(EPOLLOUT | EPOLLERR | EPOLLHUP)
+#define IO_EPOLL_ERROR (EPOLLERR | EPOLLHUP)
+#define IO_EPOLL_INPUT (EPOLLIN | EPOLLPRI | IO_EPOLL_ERROR)
+#define IO_EPOLL_OUTPUT	(EPOLLOUT | IO_EPOLL_ERROR)
 
 static int epoll_event_mask(struct io_list *list)
 {
@@ -94,6 +96,8 @@ static int epoll_event_mask(struct io_list *list)
 			events |= IO_EPOLL_INPUT;
 		if (io->condition & IO_WRITE)
 			events |= IO_EPOLL_OUTPUT;
+		if (io->condition & IO_ERROR)
+			events |= IO_EPOLL_ERROR;
 	}
 
 	return events;
@@ -101,34 +105,43 @@ static int epoll_event_mask(struct io_list *list)
 
 static int iolist_add(struct io_list *list, struct io *io)
 {
-	if ((io->condition & IO_READ) != 0) {
-		i_assert(list->ios[EPOLL_LIST_INPUT] == NULL);
-		list->ios[EPOLL_LIST_INPUT] = io;
-		return list->ios[EPOLL_LIST_OUTPUT] == NULL;
-	}
-	if ((io->condition & IO_WRITE) != 0) {
-		i_assert(list->ios[EPOLL_LIST_OUTPUT] == NULL);
-		list->ios[EPOLL_LIST_OUTPUT] = io;
-		return list->ios[EPOLL_LIST_INPUT] == NULL;
+	int i, idx;
+
+	if ((io->condition & IO_READ) != 0)
+		idx = EPOLL_LIST_INPUT;
+	else if ((io->condition & IO_WRITE) != 0)
+		idx = EPOLL_LIST_OUTPUT;
+	else if ((io->condition & IO_ERROR) != 0)
+		idx = EPOLL_LIST_ERROR;
+	else {
+		i_unreached();
 	}
 
-	i_unreached();
+	i_assert(list->ios[idx] == NULL);
+	list->ios[idx] = io;
+
+	/* check if this was the first one */
+	for (i = 0; i < EPOLL_IOS_PER_FD; i++) {
+		if (i != idx && list->ios[i] != NULL)
+			return FALSE;
+	}
+
 	return TRUE;
 }
 
 static int iolist_del(struct io_list *list, struct io *io)
 {
-	if (list->ios[EPOLL_LIST_INPUT] == io) {
-		list->ios[EPOLL_LIST_INPUT] = NULL;
-		return list->ios[EPOLL_LIST_OUTPUT] == NULL;
-	}
-	if (list->ios[EPOLL_LIST_OUTPUT] == io) {
-		list->ios[EPOLL_LIST_OUTPUT] = NULL;
-		return list->ios[EPOLL_LIST_INPUT] == NULL;
-	}
+	int i, last = TRUE;
 
-	i_unreached();
-	return TRUE;
+	for (i = 0; i < EPOLL_IOS_PER_FD; i++) {
+		if (list->ios[i] != NULL) {
+			if (list->ios[i] == io)
+				list->ios[i] = NULL;
+			else
+				last = TRUE;
+		}
+	}
+	return last;
 }
 
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
@@ -221,13 +234,14 @@ void io_loop_handler_run(struct ioloop *ioloop)
 				continue;
 
 			call = FALSE;
-			if ((event->events & (EPOLLHUP | EPOLLERR)) != 0) {
+			if ((event->events & (EPOLLHUP | EPOLLERR)) != 0)
 				call = TRUE;
-			} else if ((io->condition & IO_READ) != 0) {
-				call = event->events & EPOLLIN;
-			} else if ((io->condition & IO_WRITE) != 0) {
-				call = event->events & EPOLLOUT;
-			}
+			else if ((io->condition & IO_READ) != 0)
+				call = (event->events & EPOLLIN) != 0;
+			else if ((io->condition & IO_WRITE) != 0)
+				call = (event->events & EPOLLOUT) != 0;
+			else if ((io->condition & IO_ERROR) != 0)
+				call = (event->events & IO_EPOLL_ERROR) != 0;
 
 			if (call) {
 				t_id = t_push();

@@ -42,8 +42,9 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
         p_free(ioloop->pool, ioloop->handler_context);
 }
 
-#define IO_POLL_INPUT (POLLIN|POLLPRI|POLLERR|POLLHUP|POLLNVAL)
-#define IO_POLL_OUTPUT (POLLOUT|POLLERR|POLLHUP|POLLNVAL)
+#define IO_POLL_ERROR (POLLERR|POLLHUP|POLLNVAL)
+#define IO_POLL_INPUT (POLLIN|POLLPRI|IO_POLL_ERROR)
+#define IO_POLL_OUTPUT (POLLOUT|IO_POLL_ERROR)
 
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
@@ -95,6 +96,8 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 		ctx->fds[index].events |= IO_POLL_INPUT;
         if (condition & IO_WRITE)
 		ctx->fds[index].events |= IO_POLL_OUTPUT;
+	if (condition & IO_ERROR)
+		ctx->fds[index].events |= IO_POLL_ERROR;
 }
 
 void io_loop_handle_remove(struct ioloop *ioloop,  struct io *io)
@@ -172,6 +175,9 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			} else if (io->condition & IO_WRITE) {
 				call = (pollfd->revents & IO_POLL_OUTPUT) != 0;
 				pollfd->revents &= ~IO_POLL_OUTPUT;
+			} else if (io->condition & IO_ERROR) {
+				call = (pollfd->revents & IO_POLL_ERROR) != 0;
+				pollfd->revents &= ~IO_POLL_ERROR;
 			} else {
 				call = FALSE;
 			}

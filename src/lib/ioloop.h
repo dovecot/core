@@ -11,6 +11,7 @@ struct ioloop;
 enum io_condition {
 	IO_READ		= 0x01,
 	IO_WRITE	= 0x02,
+	IO_ERROR	= 0x04,
 	
 	/* internal */
 	IO_NOTIFY	= 0x04,
