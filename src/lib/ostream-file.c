@@ -17,10 +17,6 @@
 #  include <sys/uio.h>
 #endif
 
-#ifndef UIO_MAXIOV
-#  define UIO_MAXIOV 16
-#endif
-
 /* try to keep the buffer size within 4k..128k. ReiserFS may actually return
    128k as optimal size. */
 #define DEFAULT_OPTIMAL_BLOCK_SIZE 4096
@@ -137,22 +133,22 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		ret = write(fstream->fd, iov->iov_base, iov->iov_len);
 	else {
 		sent = 0;
-		while (iov_size > UIO_MAXIOV) {
+		while (iov_size > IOV_MAX) {
 			size = 0;
-			for (i = 0; i < UIO_MAXIOV; i++)
+			for (i = 0; i < IOV_MAX; i++)
 				size += iov[i].iov_len;
 
 			ret = writev(fstream->fd, (const struct iovec *)iov,
-				     UIO_MAXIOV);
+				     IOV_MAX);
 			if (ret != (ssize_t)size)
 				break;
 
 			sent += ret;
-			iov += UIO_MAXIOV;
-			iov_size -= UIO_MAXIOV;
+			iov += IOV_MAX;
+			iov_size -= IOV_MAX;
 		}
 
-		if (iov_size <= UIO_MAXIOV) {
+		if (iov_size <= IOV_MAX) {
 			ret = writev(fstream->fd, (const struct iovec *)iov,
 				     iov_size);
 		}
@@ -163,6 +159,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 	if (ret < 0) {
 		if (errno == EAGAIN || errno == EINTR)
 			return 0;
+		if (errno == EINVAL) i_error("o_stream_sendv() -> EINVAL");
 		fstream->ostream.ostream.stream_errno = errno;
 		stream_closed(fstream);
 		return -1;
@@ -285,6 +282,7 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 
 	if (offset > OFF_T_MAX) {
 		stream->ostream.stream_errno = EINVAL;
+		i_error("_seek(1) -> EINVAL");
 		return -1;
 	}
 
@@ -293,11 +291,13 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 
 	ret = lseek(fstream->fd, (off_t)offset, SEEK_SET);
 	if (ret < 0) {
+		if (errno == EINVAL) i_error("_seek(2) -> EINVAL");
 		stream->ostream.stream_errno = errno;
 		return -1;
 	}
 
 	if (ret != (off_t)offset) {
+		i_error("_seek(3) -> EINVAL");
 		stream->ostream.stream_errno = EINVAL;
 		return -1;
 	}
@@ -507,6 +507,7 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 				break;
 			}
 
+			if (errno == EINVAL) i_error("io_stream_sendfile() -> EINVAL");
 			outstream->ostream.stream_errno = errno;
 			if (errno != EINVAL) {
 				/* close only if error wasn't because
@@ -656,6 +657,7 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 		ret = write_full(foutstream->fd, data, size);
 		if (ret < 0) {
 			/* error */
+			if (errno == EINVAL) i_error("copy backwards -> EINVAL");
 			outstream->ostream.stream_errno = errno;
 			return -1;
 		}
@@ -674,6 +676,7 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 
 	st = i_stream_stat(instream);
 	if (st == NULL) {
+       		if (errno == EINVAL) i_error("_send_istream() / stat -> EINVAL");
 		outstream->ostream.stream_errno = instream->stream_errno;
 		return -1;
 	}
@@ -689,6 +692,7 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 		/* copying data within same fd. we'll have to be careful with
 		   seeks and overlapping writes. */
 		if (in_size == (uoff_t)-1) {
+			i_error("_send_istream() / in_size == -1 -> EINVAL");
 			outstream->ostream.stream_errno = EINVAL;
 			return -1;
 		}

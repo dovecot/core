@@ -93,6 +93,18 @@ struct iovec {
 };
 #endif
 
+/* IOV_MAX should be in limits.h nowadays. Linux still (2005) requires
+   defining _XOPEN_SOURCE to get that value. UIO_MAXIOV works with it though,
+   so use it instead. 16 is the lowest acceptable value for all OSes. */
+#ifndef IOV_MAX
+#  include <sys/uio.h>
+#  ifdef UIO_MAXIOV
+#    define IOV_MAX UIO_MAXIOV
+#  else
+#    define IOV_MAX 16
+#  endif
+#endif
+
 #ifndef HAVE_WRITEV
 #  define writev my_writev
 struct iovec;
