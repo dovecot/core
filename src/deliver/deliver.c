@@ -353,11 +353,12 @@ int main(int argc, char *argv[])
 	const char *str;
 
 	lib_init();
+	ioloop = io_loop_create(default_pool);
+
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGPIPE, FALSE, NULL, NULL);
-	ioloop = io_loop_create(default_pool);
 
 	destination = NULL;
 	for (i = 1; i < argc; i++) {
