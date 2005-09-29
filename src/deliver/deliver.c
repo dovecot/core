@@ -460,8 +460,9 @@ int main(int argc, char *argv[])
 
         mail_storage_destroy(storage);
         mail_storage_deinit();
-	io_loop_destroy(ioloop);
 	lib_signals_deinit();
+
+	io_loop_destroy(ioloop);
 	lib_deinit();
 
         return EX_OK;
