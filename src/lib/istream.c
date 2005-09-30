@@ -114,6 +114,9 @@ const struct stat *i_stream_stat(struct istream *stream)
 {
 	struct _istream *_stream = stream->real_stream;
 
+	if (stream->closed)
+		return NULL;
+
 	return _stream->stat(_stream);
 }
 
