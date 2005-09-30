@@ -319,7 +319,8 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 	default:
 		/* locking succeeded. */
 		ret = mail_cache_compress_locked(cache, view);
-		mail_cache_unlock(cache);
+		if (mail_cache_unlock(cache) < 0)
+			ret = -1;
 		return ret;
 	}
 }

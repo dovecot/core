@@ -175,7 +175,8 @@ typedef int mail_cache_foreach_callback_t(struct mail_cache_view *view,
 /* Explicitly lock the cache file. Returns -1 if error, 1 if ok, 0 if we
    couldn't lock */
 int mail_cache_lock(struct mail_cache *cache);
-void mail_cache_unlock(struct mail_cache *cache);
+/* Returns -1 if cache is / just got corrupted, 0 if ok. */
+int mail_cache_unlock(struct mail_cache *cache);
 
 int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 		     uoff_t offset);

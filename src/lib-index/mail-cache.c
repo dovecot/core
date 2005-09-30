@@ -391,7 +391,7 @@ int mail_cache_lock(struct mail_cache *cache)
 		}
 
 		/* okay, so it was just compressed. try again. */
-		mail_cache_unlock(cache);
+		(void)mail_cache_unlock(cache);
 		if ((ret = mail_cache_reopen(cache)) <= 0)
 			break;
 		ret = 0;
@@ -406,7 +406,7 @@ int mail_cache_lock(struct mail_cache *cache)
 		if (mail_cache_map(cache, 0, 0) == 0)
 			cache->hdr_copy = *cache->hdr;
 		else {
-			mail_cache_unlock(cache);
+			(void)mail_cache_unlock(cache);
 			ret = -1;
 		}
 	}
@@ -438,29 +438,33 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 		cache->need_compress = TRUE;
 }
 
-void mail_cache_unlock(struct mail_cache *cache)
+int mail_cache_unlock(struct mail_cache *cache)
 {
+	int ret = 0;
+
 	i_assert(cache->locked);
 
 	if (cache->field_header_write_pending)
-                (void)mail_cache_header_fields_update(cache);
+                ret = mail_cache_header_fields_update(cache);
 
 	cache->locked = FALSE;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
 		/* we found it to be broken during the lock. just clean up. */
 		cache->hdr_modified = FALSE;
-		return;
+		return -1;
 	}
 
 	if (cache->hdr_modified) {
 		cache->hdr_modified = FALSE;
-		(void)mail_cache_write(cache, &cache->hdr_copy,
-				       sizeof(cache->hdr_copy), 0);
+		if (mail_cache_write(cache, &cache->hdr_copy,
+				     sizeof(cache->hdr_copy), 0) < 0)
+			ret = -1;
 		mail_cache_update_need_compress(cache);
 	}
 
 	(void)mail_cache_lock_file(cache, F_UNLCK);
+	return ret;
 }
 
 int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,

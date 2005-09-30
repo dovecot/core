@@ -18,7 +18,7 @@ static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
 		return;
 
 	if (ctx->locked)
-		mail_cache_unlock(sync_ctx->view->index->cache);
+		(void)mail_cache_unlock(sync_ctx->view->index->cache);
 	i_free(ctx);
 }
 

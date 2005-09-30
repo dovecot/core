@@ -294,17 +294,17 @@ mail_cache_free_space(struct mail_cache *cache, uint32_t offset, uint32_t size)
 	}
 }
 
-static void
+static int
 mail_cache_transaction_free_space(struct mail_cache_transaction_ctx *ctx)
 {
 	int locked = ctx->cache->locked;
 
 	if (ctx->reserved_space == 0)
-		return;
+		return 0;
 
 	if (!locked) {
 		if (mail_cache_transaction_lock(ctx) <= 0)
-			return;
+			return 0;
 	}
 
 	/* check again - locking might have reopened the cache file */
@@ -316,8 +316,11 @@ mail_cache_transaction_free_space(struct mail_cache_transaction_ctx *ctx)
                 ctx->reserved_space = 0;
 	}
 
-	if (!locked)
-		mail_cache_unlock(ctx->cache);
+	if (!locked) {
+		if (mail_cache_unlock(ctx->cache) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static int
@@ -343,8 +346,10 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 		}
 		ret = mail_cache_transaction_reserve_more(ctx, max_size,
 							  commit);
-		if (!locked)
-			mail_cache_unlock(ctx->cache);
+		if (!locked) {
+			if (mail_cache_unlock(ctx->cache) < 0)
+				return -1;
+		}
 
 		if (ret < 0)
 			return -1;
@@ -369,7 +374,8 @@ mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 	if (size == max_size && commit) {
 		/* final commit - see if we can free the rest of the
 		   reserved space */
-		mail_cache_transaction_free_space(ctx);
+		if (mail_cache_transaction_free_space(ctx) < 0)
+			return -1;
 	}
 
 	i_assert(size >= min_size);
@@ -568,7 +574,8 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 		ret = -1;
 	}
 
-	mail_cache_unlock(cache);
+	if (mail_cache_unlock(cache) < 0)
+		ret = -1;
 	mail_cache_transaction_free(ctx);
 	return ret;
 }
@@ -598,7 +605,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 							      buf[size+1]);
 				} while (size > 0);
 			}
-			mail_cache_unlock(cache);
+			(void)mail_cache_unlock(cache);
 		}
 	}
 
@@ -620,13 +627,14 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 
 	/* re-read header to make sure we don't lose any fields. */
 	if (mail_cache_header_fields_read(cache) < 0) {
-		mail_cache_unlock(cache);
+		(void)mail_cache_unlock(cache);
 		return -1;
 	}
 
 	if (ctx->cache->field_file_map[field] != (uint32_t)-1) {
 		/* it was already added */
-		mail_cache_unlock(cache);
+		if (mail_cache_unlock(cache) < 0)
+			return -1;
 		return 0;
 	}
 
@@ -660,7 +668,8 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	}
 	t_pop();
 
-	mail_cache_unlock(cache);
+	if (mail_cache_unlock(cache) < 0)
+		ret = -1;
 	return ret;
 }
 
