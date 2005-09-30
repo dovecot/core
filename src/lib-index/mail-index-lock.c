@@ -38,11 +38,11 @@ int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 {
 	int ret;
 
-	if (timeout_secs != 0)
-		alarm(MAIL_INDEX_LOCK_WAIT_TIME);
-
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return 1;
+
+	if (timeout_secs != 0)
+		alarm(MAIL_INDEX_LOCK_WAIT_TIME);
 
 	switch (index->lock_method) {
 	case MAIL_INDEX_LOCK_FCNTL: {
