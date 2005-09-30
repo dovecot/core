@@ -297,9 +297,6 @@ static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 			return -1;
 		}
 
-		if (max_wait_time == 0)
-			return 0;
-
 		now = time(NULL);
 		if (now >= max_wait_time)
 			return 0;
@@ -341,9 +338,6 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 			return -1;
 		}
 
-		if (max_wait_time == 0)
-			return 0;
-
 		now = time(NULL);
 		if (now >= max_wait_time)
 			return 0;
@@ -381,11 +375,16 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 	fl.l_start = 0;
 	fl.l_len = 0;
 
-	if (max_wait_time == 0)
+	if (max_wait_time == 0) {
+		i_assert(lock_type == F_UNLCK);
 		wait_type = F_SETLK;
-	else {
+	} else {
 		wait_type = F_SETLKW;
-		alarm(I_MIN(max_wait_time, 5));
+		now = time(NULL);
+		if (now >= max_wait_time)
+			alarm(1);
+		else
+			alarm(I_MIN(max_wait_time - now, 5));
 	}
 
 	while (fcntl(ctx->mbox->mbox_fd, wait_type, &fl) < 0) {
@@ -396,7 +395,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 		}
 
 		now = time(NULL);
-		if (max_wait_time != 0 && now >= max_wait_time) {
+		if (now >= max_wait_time) {
 			alarm(0);
 			return 0;
 		}

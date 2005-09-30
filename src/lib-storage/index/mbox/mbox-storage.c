@@ -541,7 +541,13 @@ mbox_open(struct mbox_storage *storage, const char *name,
 		index_dir = mbox_get_index_dir(istorage, name);
 	}
 
-	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
+	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
+		index = mail_index_alloc(NULL, NULL);
+	else {
+		index = index_storage_alloc(index_dir, path,
+					    MBOX_INDEX_PREFIX);
+	}
+
 	mbox = mbox_alloc(storage, index, name, flags);
 	if (mbox == NULL)
 		return NULL;
@@ -564,12 +570,26 @@ static struct mailbox *
 mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 			 struct istream *input, enum mailbox_open_flags flags)
 {
+	struct index_storage *istorage = INDEX_STORAGE(storage);
 	struct mail_index *index;
 	struct mbox_mailbox *mbox;
+	const char *path, *index_dir;
 
 	flags |= MAILBOX_OPEN_READONLY;
 
-	index = mail_index_alloc(NULL, NULL);
+	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
+		index = mail_index_alloc(NULL, NULL);
+	else {
+		path = mbox_get_path(istorage, name);
+		index_dir = mbox_get_index_dir(istorage, name);
+
+		/* make sure the required directories are also there */
+		if (create_mbox_index_dirs(istorage, name) < 0)
+			return NULL;
+
+		index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
+	}
+
 	mbox = mbox_alloc(storage, index, name, flags);
 	if (mbox == NULL)
 		return NULL;

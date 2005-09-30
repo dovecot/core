@@ -417,7 +417,12 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	index_dir = maildir_get_index_path(istorage, name);
 	control_dir = maildir_get_control_path(storage, name);
 
-	index = index_storage_alloc(index_dir, path, MAILDIR_INDEX_PREFIX);
+	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
+		index = mail_index_alloc(NULL, NULL);
+	else {
+		index = index_storage_alloc(index_dir, path,
+					    MAILDIR_INDEX_PREFIX);
+	}
 
 	/* for shared mailboxes get the create mode from the
 	   permissions of dovecot-shared file. */

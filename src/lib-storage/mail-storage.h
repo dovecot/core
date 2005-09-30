@@ -37,7 +37,9 @@ enum mailbox_open_flags {
 	   (eg. when opening mailbox just for STATUS). */
 	MAILBOX_OPEN_FAST		= 0x02,
 	/* Don't reset MAIL_RECENT flags when syncing */
-	MAILBOX_OPEN_KEEP_RECENT	= 0x04
+	MAILBOX_OPEN_KEEP_RECENT	= 0x04,
+	/* Don't create index files for the mailbox */
+	MAILBOX_OPEN_NO_INDEX_FILES	= 0x08
 };
 
 enum mailbox_list_flags {
