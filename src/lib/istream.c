@@ -72,7 +72,7 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	if (stream->closed)
 		return;
 
-	_stream->seek(_stream, stream->v_offset + count);
+	_stream->seek(_stream, stream->v_offset + count, FALSE);
 }
 
 void i_stream_seek(struct istream *stream, uoff_t v_offset)
@@ -88,7 +88,18 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 		return;
 
 	stream->eof = FALSE;
-	_stream->seek(_stream, v_offset);
+	_stream->seek(_stream, v_offset, FALSE);
+}
+
+void i_stream_seek_mark(struct istream *stream, uoff_t v_offset)
+{
+	struct _istream *_stream = stream->real_stream;
+
+	if (stream->closed)
+		return;
+
+	stream->eof = FALSE;
+	_stream->seek(_stream, v_offset, TRUE);
 }
 
 void i_stream_sync(struct istream *stream)

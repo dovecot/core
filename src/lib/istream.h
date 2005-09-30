@@ -52,6 +52,11 @@ void i_stream_skip(struct istream *stream, uoff_t count);
 /* Seek to specified position from beginning of file. Never fails, the next
    read tells if it was successful. This works only for files. */
 void i_stream_seek(struct istream *stream, uoff_t v_offset);
+/* Like i_stream_seek(), but also giving a hint that after reading some data
+   we could be seeking back to this mark or somewhere after it. If input
+   stream's implementation is slow in seeking backwards, it can use this hint
+   to cache some of the data in memory. */
+void i_stream_seek_mark(struct istream *stream, uoff_t v_offset);
 /* Returns struct stat, or NULL if error. As the underlying stream may not be
    a file, only some of the fields might be set, others would be zero.
    st_size is always set, and if it's not known, it's -1. */

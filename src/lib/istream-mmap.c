@@ -141,7 +141,8 @@ static ssize_t _read(struct _istream *stream)
 	return stream->pos - stream->skip;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset)
+static void _seek(struct _istream *stream, uoff_t v_offset,
+		  int mark __attr_unused__)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 

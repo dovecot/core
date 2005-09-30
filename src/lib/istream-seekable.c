@@ -255,7 +255,8 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset)
+static void _seek(struct _istream *stream, uoff_t v_offset,
+		  int mark __attr_unused__)
 {
 	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;

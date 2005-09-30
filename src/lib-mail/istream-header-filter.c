@@ -234,7 +234,8 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset)
+static void _seek(struct _istream *stream, uoff_t v_offset,
+		  int mark __attr_unused__)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;

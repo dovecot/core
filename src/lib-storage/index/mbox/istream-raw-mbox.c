@@ -279,7 +279,8 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset)
+static void _seek(struct _istream *stream, uoff_t v_offset,
+		  int mark __attr_unused__)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -492,8 +493,8 @@ void istream_raw_mbox_next(struct istream *stream, uoff_t body_size)
 	rstream->body_offset = (uoff_t)-1;
 
 	if (stream->v_offset != rstream->from_offset)
-		i_stream_seek(stream, rstream->from_offset);
-	i_stream_seek(rstream->input, rstream->from_offset);
+		i_stream_seek_mark(stream, rstream->from_offset);
+	i_stream_seek_mark(rstream->input, rstream->from_offset);
 
 	rstream->eof = FALSE;
 	rstream->istream.istream.eof = FALSE;
@@ -535,8 +536,8 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 		check = TRUE;
 	}
 
-	i_stream_seek(stream, offset);
-	i_stream_seek(rstream->input, offset);
+	i_stream_seek_mark(stream, offset);
+	i_stream_seek_mark(rstream->input, offset);
 
 	if (check)
 		(void)_read(&rstream->istream);

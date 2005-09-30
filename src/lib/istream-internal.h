@@ -12,7 +12,7 @@ struct _istream {
 
 /* methods: */
 	ssize_t (*read)(struct _istream *stream);
-	void (*seek)(struct _istream *stream, uoff_t v_offset);
+	void (*seek)(struct _istream *stream, uoff_t v_offset, int mark);
 	void (*sync)(struct _istream *stream);
 	const struct stat *(*stat)(struct _istream *stream);
 
