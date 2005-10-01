@@ -44,7 +44,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	/* make sure we're using the username exactly as it's in the database */
-	request->user = p_strdup(request->pool, spw->sp_namp);
+        auth_request_set_field(request, "user", spw->sp_namp, NULL);
 
 	callback(PASSDB_RESULT_OK, request);
 }

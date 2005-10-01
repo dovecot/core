@@ -120,7 +120,14 @@ int auth_request_import(struct auth_request *request,
 {
 	if (strcmp(key, "user") == 0)
 		request->user = p_strdup(request->pool, value);
-	if (strcmp(key, "service") == 0)
+	else if (strcmp(key, "cert_username") == 0) {
+		if (request->auth->ssl_username_from_cert) {
+			/* get username from SSL certificate. it overrides
+			   the username given by the auth mechanism. */
+			request->user = p_strdup(request->pool, value);
+			request->cert_username = TRUE;
+		}
+	} else if (strcmp(key, "service") == 0)
 		request->service = p_strdup(request->pool, value);
 	else if (strcmp(key, "lip") == 0)
 		net_addr2ip(value, &request->local_ip);
@@ -414,6 +421,12 @@ int auth_request_set_username(struct auth_request *request,
 			      const char *username, const char **error_r)
 {
 	unsigned char *p;
+
+	if (request->cert_username) {
+		/* cert_username overrides the username given by
+		   authentication mechanism. */
+		return TRUE;
+	}
 
 	if (*username == '\0') {
 		/* Some PAM plugins go nuts with empty usernames */

@@ -15,7 +15,7 @@ struct auth_request {
 
 	unsigned int id;
 
-	char *mech, *service;
+	char *mech, *service, *cert_username;
         enum auth_request_flags flags;
 	struct ip_addr local_ip, remote_ip;
 
@@ -67,6 +67,19 @@ auth_server_request_check_retry(struct auth_request *request, const char *data)
 	}
 }
 
+static int is_valid_string(const char *str)
+{
+	const char *p;
+
+	/* make sure we're not sending any characters that have a special
+	   meaning. */
+	for (p = str; *p != '\0'; p++) {
+		if (*p == '\t' || *p == '\n' || *p == '\r')
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static int auth_server_send_new_request(struct auth_server_connection *conn,
 					struct auth_request *request)
 {
@@ -83,6 +96,13 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 	if ((request->flags & AUTH_REQUEST_FLAG_VALID_CLIENT_CERT) != 0)
 		str_append(str, "\tvalid-client-cert");
 
+	if (request->cert_username != NULL) {
+		if (!is_valid_string(request->cert_username)) {
+			t_pop();
+			return FALSE;
+		}
+		str_printfa(str, "\tcert_username=%s", request->cert_username);
+	}
 	if (request->local_ip.family != 0)
 		str_printfa(str, "\tlip=%s", net_ip2addr(&request->local_ip));
 	if (request->remote_ip.family != 0)
@@ -309,6 +329,7 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 	request->conn = conn;
 	request->mech = i_strdup(request_info->mech);
 	request->service = i_strdup(request_info->service);
+	request->cert_username = i_strdup(request_info->cert_username);
 	request->flags = request_info->flags;
 	request->local_ip = request_info->local_ip;
 	request->remote_ip = request_info->remote_ip;
@@ -346,6 +367,7 @@ static void auth_client_request_free(struct auth_request *request)
 	i_free(request->plaintext_data);
 	i_free(request->mech);
 	i_free(request->service);
+	i_free(request->cert_username);
 	i_free(request);
 }
 

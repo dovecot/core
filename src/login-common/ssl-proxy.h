@@ -11,6 +11,7 @@ extern int ssl_initialized;
    the given fd must be simply forgotten. */
 int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r);
 int ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy);
+const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy);
 void ssl_proxy_free(struct ssl_proxy *proxy);
 
 void ssl_proxy_init(void);

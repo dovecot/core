@@ -379,6 +379,26 @@ int ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy)
 	return proxy->cert_received && !proxy->cert_broken;
 }
 
+const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
+{
+	X509 *x509;
+	char buf[1024];
+	const char *name;
+
+	if (!ssl_proxy_has_valid_client_cert(proxy))
+		return NULL;
+
+	x509 = SSL_get_peer_certificate(proxy->ssl);
+	if (x509 == NULL)
+		return NULL; /* we should have had it.. */
+
+	X509_NAME_oneline(X509_get_subject_name(x509), buf, sizeof(buf));
+	name = t_strndup(buf, sizeof(buf));
+	X509_free(x509);
+
+	return *name == '\0' ? NULL : name;
+}
+
 void ssl_proxy_free(struct ssl_proxy *proxy)
 {
 	ssl_proxy_unref(proxy);

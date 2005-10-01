@@ -25,6 +25,7 @@ struct auth_connect_id {
 struct auth_request_info {
 	const char *mech;
 	const char *service;
+	const char *cert_username;
 	enum auth_request_flags flags;
 
 	struct ip_addr local_ip, remote_ip;

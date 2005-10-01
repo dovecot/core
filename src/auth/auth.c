@@ -221,6 +221,8 @@ void auth_init(struct auth *auth)
 
 	auth->ssl_require_client_cert =
 		getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
+	auth->ssl_username_from_cert =
+		getenv("SSL_USERNAME_FROM_CERT") != NULL;
 }
 
 void auth_deinit(struct auth *auth)

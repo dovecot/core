@@ -159,6 +159,7 @@ static struct setting_def auth_setting_defs[] = {
 	DEF(SET_BOOL, verbose),
 	DEF(SET_BOOL, debug),
 	DEF(SET_BOOL, ssl_require_client_cert),
+	DEF(SET_BOOL, ssl_username_from_cert),
 
 	DEF(SET_INT, count),
 	DEF(SET_INT, worker_max_count),
@@ -356,6 +357,7 @@ struct auth_settings default_auth_settings = {
 	MEMBER(verbose) FALSE,
 	MEMBER(debug) FALSE,
 	MEMBER(ssl_require_client_cert) FALSE,
+	MEMBER(ssl_username_from_cert) FALSE,
 
 	MEMBER(count) 1,
 	MEMBER(worker_max_count) 30,
@@ -433,7 +435,7 @@ static int auth_settings_verify(struct auth_settings *auth)
 		return FALSE;
 	}
 
-	if (auth->ssl_require_client_cert) {
+	if (auth->ssl_require_client_cert || auth->ssl_username_from_cert) {
 		/* if we require valid cert, make sure we also ask for it */
 		if (auth->parent->pop3 != NULL)
 			auth->parent->pop3->ssl_verify_client_cert = TRUE;

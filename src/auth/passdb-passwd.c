@@ -44,7 +44,7 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	/* make sure we're using the username exactly as it's in the database */
-	request->user = p_strdup(request->pool, pw->pw_name);
+        auth_request_set_field(request, "user", pw->pw_name, NULL);
 
 	callback(PASSDB_RESULT_OK, request);
 }

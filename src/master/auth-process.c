@@ -456,6 +456,8 @@ static void auth_set_environment(struct auth_settings *set)
 		env_put("VERBOSE_DEBUG=1");
 	if (set->ssl_require_client_cert)
 		env_put("SSL_REQUIRE_CLIENT_CERT=1");
+	if (set->ssl_username_from_cert)
+		env_put("SSL_USERNAME_FROM_CERT=1");
 
 	restrict_process_size(set->process_size, (unsigned int)-1);
 }

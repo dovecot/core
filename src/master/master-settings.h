@@ -165,6 +165,7 @@ struct auth_settings {
 
 	int verbose, debug;
 	int ssl_require_client_cert;
+	int ssl_username_from_cert;
 
 	unsigned int count;
 	unsigned int worker_max_count;

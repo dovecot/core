@@ -42,6 +42,7 @@ struct auth {
 	char username_chars[256];
         char username_translation[256];
 	int ssl_require_client_cert;
+        int ssl_username_from_cert;
 
 	int verbose, verbose_debug;
 };

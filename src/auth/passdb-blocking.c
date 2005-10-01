@@ -59,7 +59,7 @@ static int get_pass_reply(struct auth_request *request, const char *reply,
 	}
 
 	/* username may have changed, update it */
-	request->user = p_strdup_until(request->pool, reply, p);
+        auth_request_set_field(request, "user", t_strdup_until(reply, p), NULL);
 
 	*password_r = t_strdup_until(p + 1, p2);
 	reply = p2 + 1;
