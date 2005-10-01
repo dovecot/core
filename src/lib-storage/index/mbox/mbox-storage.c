@@ -597,6 +597,7 @@ mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 	i_stream_ref(input);
 	mbox->mbox_file_stream = input;
 	mbox->mbox_readonly = TRUE;
+	mbox->no_mbox_file = TRUE;
 
 	mbox->path = "(read-only mbox stream)";
 	return &mbox->ibox.box;
@@ -1004,7 +1005,7 @@ mbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 
 	if (callback == NULL)
 		index_mailbox_check_remove_all(&mbox->ibox);
-	else
+	else if (!mbox->no_mbox_file)
 		index_mailbox_check_add(&mbox->ibox, mbox->path);
 }
 
