@@ -76,9 +76,10 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 		if (errno == EINVAL) {
 			/* dnotify not in kernel. disable it. */
 			ctx->disabled = TRUE;
-			return NULL;
+		} else {
+			i_error("fcntl(F_SETSIG) failed: %m");
 		}
-		i_error("fcntl(F_SETSIG) failed: %m");
+		(void)close(fd);
 		return NULL;
 	}
 	if (fcntl(fd, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME |
