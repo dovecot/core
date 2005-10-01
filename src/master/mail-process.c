@@ -456,8 +456,10 @@ int create_mail_process(struct login_group *group, int socket,
 
 		/* If user's home directory doesn't exist and we're not
 		   trying to chroot anywhere, fallback to /tmp as the mails
-		   could be stored elsewhere. */
-		if (ret < 0 && (errno != ENOENT || *chroot_dir != '\0')) {
+		   could be stored elsewhere. The ENOTDIR check is mostly for
+		   /dev/null home directory. */
+		if (ret < 0 && ((errno != ENOENT && errno != ENOTDIR) ||
+				*chroot_dir != '\0')) {
 			i_fatal("chdir(%s) failed with uid %s: %m",
 				full_home_dir, dec2str(uid));
 		}
