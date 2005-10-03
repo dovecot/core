@@ -105,10 +105,10 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 		flags |= MAIL_STORAGE_FLAG_SAVE_CRLF;
 
 	str = getenv("LOCK_METHOD");
-	if (str == NULL || strcmp(str, "fcntl") == 0)
-		lock_method = MAIL_STORAGE_LOCK_FCNTL;
-	else if (strcmp(str, "flock") == 0)
+	if (str == NULL || strcmp(str, "flock") == 0)
 		lock_method = MAIL_STORAGE_LOCK_FLOCK;
+	if (strcmp(str, "fcntl") == 0)
+		lock_method = MAIL_STORAGE_LOCK_FCNTL;
 	else if (strcmp(str, "dotlock") == 0)
 		lock_method = MAIL_STORAGE_LOCK_DOTLOCK;
 	else
