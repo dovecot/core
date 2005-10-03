@@ -211,7 +211,7 @@ static int main_init(void)
 	str = getenv("LOCK_METHOD");
 	if (str == NULL || strcmp(str, "flock") == 0)
 		lock_method = MAIL_STORAGE_LOCK_FLOCK;
-	if (strcmp(str, "fcntl") == 0)
+	else if (strcmp(str, "fcntl") == 0)
 		lock_method = MAIL_STORAGE_LOCK_FCNTL;
 	else if (strcmp(str, "dotlock") == 0)
 		lock_method = MAIL_STORAGE_LOCK_DOTLOCK;
