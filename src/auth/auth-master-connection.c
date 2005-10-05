@@ -92,6 +92,10 @@ user_callback(struct auth_stream_reply *reply,
 		str_append(str, auth_stream_reply_export(reply));
 		str_append_c(str, '\n');
 	}
+
+	if (conn->listener->auth->verbose_debug)
+		i_info("master out: %s", str_c(str));
+
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
 	auth_request_unref(auth_request);
 }
