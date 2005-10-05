@@ -20,7 +20,7 @@ static void static_lookup(struct auth_request *auth_request,
         const struct var_expand_table *table;
 	struct auth_stream_reply *reply;
 	string_t *str;
-	const char *const *args;
+	const char *const *args, *value;
 	unsigned int i, count;
 
 	t_push();
@@ -33,9 +33,14 @@ static void static_lookup(struct auth_request *auth_request,
 	args = array_get(&static_template, &count);
 	i_assert((count % 2) == 0);
 	for (i = 0; i < count; i += 2) {
-		str_truncate(str, 0);
-		var_expand(str, args[i+1], table);
-		auth_stream_reply_add(reply, args[i], str_c(str));
+		if (args[i+1] == NULL)
+			value = NULL;
+		else {
+			str_truncate(str, 0);
+			var_expand(str, args[i+1], table);
+			value = str_c(str);
+		}
+		auth_stream_reply_add(reply, args[i], value);
 	}
 
 	callback(reply, auth_request);
