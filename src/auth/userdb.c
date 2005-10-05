@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "auth-module.h"
+#include "auth-worker-server.h"
 #include "userdb.h"
 
 #include <stdlib.h>
@@ -126,6 +127,11 @@ void userdb_init(struct auth_userdb *userdb)
 {
 	if (userdb->userdb->init != NULL)
 		userdb->userdb->init(userdb->args);
+
+	if (userdb->userdb->blocking && !worker) {
+		/* blocking userdb - we need an auth server */
+		auth_worker_server_init();
+	}
 }
 
 void userdb_deinit(struct auth_userdb *userdb)
