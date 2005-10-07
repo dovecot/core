@@ -269,12 +269,8 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 			i_info("mbox: data=%s", data);
 		p = strchr(data, ':');
 		if (p == NULL) {
-			if (stat(data, &st) < 0) {
-				i_error("Invalid mbox path %s: %m", data);
-				return NULL;
-			}
-
-			if (S_ISDIR(st.st_mode))
+			/* if the data points to a file, treat it as an INBOX */
+			if (stat(data, &st) < 0 || S_ISDIR(st.st_mode))
 				root_dir = data;
 			else {
 				root_dir = get_root_dir(flags);
