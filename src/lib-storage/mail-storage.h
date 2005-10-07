@@ -395,6 +395,7 @@ void mailbox_save_cancel(struct mail_save_context *ctx);
    accessed using it. Note that setting it non-NULL may require mailbox
    syncing, so don't give give it unless you need it. */
 int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
+		 enum mail_flags flags, struct mail_keywords *keywords,
 		 struct mail *dest_mail);
 
 /* Returns TRUE if mailbox is now in inconsistent state, meaning that

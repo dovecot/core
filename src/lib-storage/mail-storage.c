@@ -454,9 +454,10 @@ void mailbox_save_cancel(struct mail_save_context *ctx)
 }
 
 int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
+		 enum mail_flags flags, struct mail_keywords *keywords,
 		 struct mail *dest_mail)
 {
-	return t->box->v.copy(t, mail, dest_mail);
+	return t->box->v.copy(t, mail, flags, keywords, dest_mail);
 }
 
 int mailbox_is_inconsistent(struct mailbox *box)

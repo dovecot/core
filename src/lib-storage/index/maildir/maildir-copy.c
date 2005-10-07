@@ -55,31 +55,28 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 	return 1;
 }
 
-static int maildir_copy_hardlink(struct mail *mail,
-				 struct maildir_copy_context *ctx)
+static int
+maildir_copy_hardlink(struct mail *mail,
+		      enum mail_flags flags, struct mail_keywords *keywords,
+		      struct maildir_copy_context *ctx)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)imail->ibox;
 	struct hardlink_ctx do_ctx;
 	struct rollback *rb;
-	enum mail_flags flags;
-	const char *const *keywords;
 	const char *dest_fname;
-	array_t ARRAY_DEFINE(keywords_arr, const char *);
-	unsigned int count;
+	array_t ARRAY_DEFINE(keywords_arr, unsigned int);
 
-        flags = mail_get_flags(mail);
-        keywords = mail_get_keywords(mail);
 	dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
 
-	count = strarray_length(keywords);
-	if (count > 0) {
+	if (keywords->count > 0) {
 		ARRAY_CREATE(&keywords_arr, pool_datastack_create(),
-			     const char *, count);
-		array_append(&keywords_arr, keywords, count);
+			     unsigned int, keywords->count);
+		array_append(&keywords_arr, keywords->idx, keywords->count);
 	}
 	dest_fname = maildir_filename_set_flags(NULL, // FIXME: !!!
-						dest_fname, flags, count != 0 ?
+						dest_fname, flags,
+						keywords->count != 0 ?
 						&keywords_arr : NULL);
 
 	memset(&do_ctx, 0, sizeof(do_ctx));
@@ -137,6 +134,7 @@ void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx)
 }
 
 int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
+		 enum mail_flags flags, struct mail_keywords *keywords,
 		 struct mail *dest_mail)
 {
 	struct maildir_transaction_context *t =
@@ -153,7 +151,7 @@ int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 	    mail->box->storage == STORAGE(ctx->mbox->storage)) {
 		// FIXME: handle dest_mail
 		t_push();
-		ret = maildir_copy_hardlink(mail, ctx);
+		ret = maildir_copy_hardlink(mail, flags, keywords, ctx);
 		t_pop();
 
 		if (ret > 0)
@@ -164,5 +162,5 @@ int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 		/* non-fatal hardlinking failure, try the slow way */
 	}
 
-	return mail_storage_copy(_t, mail, dest_mail);
+	return mail_storage_copy(_t, mail, flags, keywords, dest_mail);
 }

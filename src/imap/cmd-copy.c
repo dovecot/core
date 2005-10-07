@@ -11,6 +11,8 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 {
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *src_trans;
+	struct mail_keywords *keywords;
+	const char *const *keywords_list;
 	struct mail *mail;
 	int ret;
 
@@ -20,15 +22,19 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 	mail = mail_alloc(src_trans, MAIL_FETCH_STREAM_HEADER |
 			  MAIL_FETCH_STREAM_BODY, NULL);
 	ret = 1;
-	while (mailbox_search_next(search_ctx, mail) > 0) {
+	while (mailbox_search_next(search_ctx, mail) > 0 && ret > 0) {
 		if (mail->expunged) {
 			ret = 0;
 			break;
 		}
-		if (mailbox_copy(t, mail, NULL) < 0) {
+
+		keywords_list = mail_get_keywords(mail);
+		keywords = strarray_length(keywords_list) == 0 ? NULL :
+			mailbox_keywords_create(t, keywords_list);
+		if (mailbox_copy(t, mail, mail_get_flags(mail),
+				 keywords, NULL) < 0)
 			ret = -1;
-			break;
-		}
+		mailbox_keywords_free(t, keywords);
 	}
 	mail_free(mail);
 

@@ -143,6 +143,7 @@ struct mailbox_vfuncs {
 	void (*save_cancel)(struct mail_save_context *ctx);
 
 	int (*copy)(struct mailbox_transaction_context *t, struct mail *mail,
+		    enum mail_flags flags, struct mail_keywords *keywords,
 		    struct mail *dest_mail);
 
 	int (*is_inconsistent)(struct mailbox *box);

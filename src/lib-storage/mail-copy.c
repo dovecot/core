@@ -6,12 +6,12 @@
 #include "mail-copy.h"
 
 int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
+		      enum mail_flags flags, struct mail_keywords *keywords,
 		      struct mail *dest_mail)
 {
 	struct mail_save_context *ctx;
 	struct istream *input;
-	struct mail_keywords *keywords;
-	const char *from_envelope, *const *keywords_list;
+	const char *from_envelope;
 
 	input = mail_get_stream(mail, NULL, NULL);
 	if (input == NULL)
@@ -19,14 +19,9 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 
 	from_envelope = mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE);
 
-	keywords_list = mail_get_keywords(mail);
-	keywords = keywords_list == NULL ? NULL :
-		mailbox_keywords_create(t, keywords_list);
-	ctx = mailbox_save_init(t, mail_get_flags(mail), keywords,
+	ctx = mailbox_save_init(t, flags, keywords,
 				mail_get_received_date(mail),
 				0, from_envelope, input, dest_mail != NULL);
-	if (keywords != NULL)
-		mailbox_keywords_free(t, keywords);
 
 	while (i_stream_read(input) != -1) {
 		if (mailbox_save_continue(ctx) < 0)
