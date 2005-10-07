@@ -112,7 +112,7 @@ static void sig_auth_cache_stats(int signo __attr_unused__, void *context)
 	total_count = cache->hit_count + cache->miss_count;
 	i_info("Authentication cache hits %u/%u (%u%%)",
 	       cache->hit_count, total_count,
-	       cache->hit_count * 100 / total_count);
+	       total_count == 0 ? 100 : (cache->hit_count * 100 / total_count));
 
 	/* reset hit counter */
 	cache->hit_count = cache->miss_count = 0;
