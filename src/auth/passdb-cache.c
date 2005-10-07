@@ -49,6 +49,7 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 
 	if (*value == '\0') {
 		/* negative cache entry */
+		auth_request_log_info(request, "cache", "User unknown");
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
 		return TRUE;
 	}
@@ -59,6 +60,7 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	cached_pw = list[0];
 	if (*cached_pw == '\0') {
 		/* NULL password */
+		auth_request_log_info(request, "cache", "NULL password access");
 		*result_r = PASSDB_RESULT_OK;
 		return TRUE;
 	}
