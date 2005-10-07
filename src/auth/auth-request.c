@@ -184,21 +184,24 @@ static void auth_request_save_cache(struct auth_request *request,
 		return;
 	}
 
+	if (request->passdb_password == NULL) {
+		/* save to cache only if we know the password */
+		return;
+	}
+
 	/* save all except the currently given password in cache */
 	str = t_str_new(256);
-	if (request->passdb_password != NULL) {
-		if (*request->passdb_password != '{') {
-			/* cached passwords must have a known scheme */
-			str_append_c(str, '{');
-			str_append(str, passdb->default_pass_scheme);
-			str_append_c(str, '}');
-		}
-		if (strchr(request->passdb_password, '\t') != NULL)
-			i_panic("%s: Password contains TAB", request->user);
-		if (strchr(request->passdb_password, '\n') != NULL)
-			i_panic("%s: Password contains LF", request->user);
-		str_append(str, request->passdb_password);
+	if (*request->passdb_password != '{') {
+		/* cached passwords must have a known scheme */
+		str_append_c(str, '{');
+		str_append(str, passdb->default_pass_scheme);
+		str_append_c(str, '}');
 	}
+	if (strchr(request->passdb_password, '\t') != NULL)
+		i_panic("%s: Password contains TAB", request->user);
+	if (strchr(request->passdb_password, '\n') != NULL)
+		i_panic("%s: Password contains LF", request->user);
+	str_append(str, request->passdb_password);
 
 	if (extra_fields != NULL) {
 		str_append_c(str, '\t');
