@@ -263,7 +263,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	stream->skip = stream->pos = 0;
 }
 
-static const struct stat *_stat(struct _istream *stream)
+static const struct stat *_stat(struct _istream *stream, int exact)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	uoff_t old_offset;
@@ -283,7 +283,7 @@ static const struct stat *_stat(struct _istream *stream)
 	}
 
 	if (sstream->fd_input != NULL)
-		return i_stream_stat(sstream->fd_input);
+		return i_stream_stat(sstream->fd_input, exact);
 
 	stream->statbuf.st_size = sstream->buffer->used;
 	return &stream->statbuf;

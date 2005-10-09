@@ -914,7 +914,7 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
 	if (seq1 == 0) {
 		/* doesn't exist anymore, seek to end of file */
-		st = i_stream_stat(sync_ctx->mbox->mbox_file_stream);
+		st = i_stream_stat(sync_ctx->mbox->mbox_file_stream, TRUE);
 		if (st == NULL) {
 			mbox_set_syscall_error(sync_ctx->mbox,
 					       "i_stream_stat()");
@@ -1219,7 +1219,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	/* make sure i_stream_stat() doesn't try to use cached file size */
 	i_stream_sync(sync_ctx->file_input);
 
-	st = i_stream_stat(sync_ctx->file_input);
+	st = i_stream_stat(sync_ctx->file_input, TRUE);
 	if (st == NULL) {
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
@@ -1278,7 +1278,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		i_assert(sync_ctx->write_fd != -1);
 
 		/* copy trailer, then truncate the file */
-		st = i_stream_stat(sync_ctx->file_input);
+		st = i_stream_stat(sync_ctx->file_input, TRUE);
 		if (st == NULL) {
 			mbox_set_syscall_error(sync_ctx->mbox,
 					       "i_stream_stat()");
@@ -1321,7 +1321,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 {
 	const struct stat *st;
 
-	st = i_stream_stat(sync_ctx->file_input);
+	st = i_stream_stat(sync_ctx->file_input, FALSE);
 	if (st == NULL) {
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
@@ -1409,7 +1409,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	const struct stat *st;
 	int ret, partial;
 
-	st = i_stream_stat(sync_ctx->file_input);
+	st = i_stream_stat(sync_ctx->file_input, FALSE);
 	if (st == NULL) {
 		mbox_set_syscall_error(sync_ctx->mbox,
 				       "i_stream_stat()");
@@ -1485,7 +1485,7 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, int leave_dirty)
 
 	if (mbox->mbox_file_stream != NULL && mbox->mbox_fd == -1) {
 		/* read-only stream */
-		st = i_stream_stat(mbox->mbox_file_stream);
+		st = i_stream_stat(mbox->mbox_file_stream, FALSE);
 		if (st == NULL) {
 			mbox_set_syscall_error(mbox, "i_stream_stat()");
 			return -1;

@@ -92,12 +92,12 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	stream->skip = stream->pos = 0;
 }
 
-static const struct stat *_stat(struct _istream *stream)
+static const struct stat *_stat(struct _istream *stream, int exact)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	const struct stat *st;
 
-	st = i_stream_stat(lstream->input);
+	st = i_stream_stat(lstream->input, exact);
 	if (st == NULL)
 		return NULL;
 

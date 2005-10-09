@@ -185,7 +185,8 @@ static int fstat_cached(struct mmap_istream *mstream)
 	return 0;
 }
 
-static const struct stat *_stat(struct _istream *stream)
+static const struct stat *
+_stat(struct _istream *stream, int exact __attr_unused__)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 

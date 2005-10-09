@@ -206,7 +206,8 @@ static int fstat_cached(struct file_istream *fstream)
 	return 0;
 }
 
-static const struct stat *_stat(struct _istream *stream)
+static const struct stat *
+_stat(struct _istream *stream, int exact __attr_unused__)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 

@@ -110,14 +110,14 @@ void i_stream_sync(struct istream *stream)
 		_stream->sync(_stream);
 }
 
-const struct stat *i_stream_stat(struct istream *stream)
+const struct stat *i_stream_stat(struct istream *stream, int exact)
 {
 	struct _istream *_stream = stream->real_stream;
 
 	if (stream->closed)
 		return NULL;
 
-	return _stream->stat(_stream);
+	return _stream->stat(_stream, exact);
 }
 
 int i_stream_have_bytes_left(struct istream *stream)

@@ -29,7 +29,8 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	stream->istream.v_offset = v_offset;
 }
 
-static const struct stat *_stat(struct _istream *stream)
+static const struct stat *
+_stat(struct _istream *stream, int exact __attr_unused__)
 {
 	stream->statbuf.st_size = stream->pos;
 	return &stream->statbuf;

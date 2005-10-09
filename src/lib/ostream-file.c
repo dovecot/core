@@ -674,7 +674,7 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 	off_t ret;
 	int in_fd, overlapping;
 
-	st = i_stream_stat(instream);
+	st = i_stream_stat(instream, TRUE);
 	if (st == NULL) {
        		if (errno == EINVAL) i_error("_send_istream() / stat -> EINVAL");
 		outstream->ostream.stream_errno = instream->stream_errno;

@@ -59,8 +59,12 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset);
 void i_stream_seek_mark(struct istream *stream, uoff_t v_offset);
 /* Returns struct stat, or NULL if error. As the underlying stream may not be
    a file, only some of the fields might be set, others would be zero.
-   st_size is always set, and if it's not known, it's -1. */
-const struct stat *i_stream_stat(struct istream *stream);
+   st_size is always set, and if it's not known, it's -1.
+
+   If exact=FALSE, the stream may not return exactly correct values, but the
+   returned values can be compared to see if anything had changed (eg. in
+   compressed stream st_size could be compressed size) */
+const struct stat *i_stream_stat(struct istream *stream, int exact);
 /* Returns TRUE if there are any bytes left to be read or in buffer. */
 int i_stream_have_bytes_left(struct istream *stream);
 
