@@ -109,13 +109,13 @@ sendv_crlf(struct crlf_ostream *cstream, const struct const_iovec *iov,
 
 static ssize_t
 _sendv_crlf(struct _ostream *stream, const struct const_iovec *iov,
-	    size_t iov_count)
+	    unsigned int iov_count)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 	buffer_t *iov_buf, *diff_buf;
 	const unsigned char *data;
 	struct const_iovec new_iov;
-	size_t vec, i, len, start, new_iov_count = 0, new_iov_size = 0;
+	unsigned int vec, i, len, start, new_iov_count = 0, new_iov_size = 0;
 	ssize_t ret, total;
 	int last_cr;
 
@@ -217,13 +217,14 @@ sendv_lf(struct crlf_ostream *cstream, const struct const_iovec *iov,
 
 static ssize_t
 _sendv_lf(struct _ostream *stream, const struct const_iovec *iov,
-	  size_t iov_count)
+	  unsigned int iov_count)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 	buffer_t *iov_buf, *diff_buf;
 	const unsigned char *data;
 	struct const_iovec new_iov;
-	size_t vec, i, len, start, next, new_iov_count = 0, new_iov_size = 0;
+	unsigned int vec, i, len, start, next;
+	unsigned int new_iov_count = 0, new_iov_size = 0;
 	ssize_t ret, total;
 	int diff;
 
