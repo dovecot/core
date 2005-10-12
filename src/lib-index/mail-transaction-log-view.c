@@ -354,7 +354,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	if ((hdr_size - sizeof(*hdr)) % record_size != 0) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size wrong (type 0x%x, "
-			"offset=%"PRIuUOFF_T", size=%u %% %u != 0)",
+			"offset=%"PRIuUOFF_T", size=%"PRIuSIZE_T" %% %u != 0)",
 			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
                         view->cur_offset, (hdr_size - sizeof(*hdr)),
 			record_size);

@@ -299,7 +299,7 @@ static void pam_child_input(void *context)
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if ((size_t)ret < sizeof(result)) {
 		auth_request_log_error(auth_request, "pam",
-			"Child process returned only %d bytes", ret);
+			"Child process returned only %d bytes", (int)ret);
 		result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else {
 		memcpy(&result, buf, sizeof(result));

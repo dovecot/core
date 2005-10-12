@@ -43,8 +43,10 @@ static void event_callback(void *context)
 	ret = read(event_pipe[0], &fd, sizeof(fd));
 	if (ret < 0)
 		i_fatal("read(event_pipe) failed: %m");
-	if (ret != sizeof(fd))
-		i_fatal("read(event_pipe) returned %d != %d", ret, sizeof(fd));
+	if (ret != sizeof(fd)) {
+		i_fatal("read(event_pipe) returned %d != %"PRIuSIZE_T,
+			ret, sizeof(fd));
+	}
 
 	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
 		i_fatal("gettimeofday(): %m");
