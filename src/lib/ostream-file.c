@@ -159,7 +159,6 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 	if (ret < 0) {
 		if (errno == EAGAIN || errno == EINTR)
 			return 0;
-		if (errno == EINVAL) i_error("o_stream_sendv() -> EINVAL");
 		fstream->ostream.ostream.stream_errno = errno;
 		stream_closed(fstream);
 		return -1;
@@ -282,7 +281,6 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 
 	if (offset > OFF_T_MAX) {
 		stream->ostream.stream_errno = EINVAL;
-		i_error("_seek(1) -> EINVAL");
 		return -1;
 	}
 
@@ -291,13 +289,11 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 
 	ret = lseek(fstream->fd, (off_t)offset, SEEK_SET);
 	if (ret < 0) {
-		if (errno == EINVAL) i_error("_seek(2) -> EINVAL");
 		stream->ostream.stream_errno = errno;
 		return -1;
 	}
 
 	if (ret != (off_t)offset) {
-		i_error("_seek(3) -> EINVAL");
 		stream->ostream.stream_errno = EINVAL;
 		return -1;
 	}
@@ -507,7 +503,6 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 				break;
 			}
 
-			if (errno == EINVAL) i_error("io_stream_sendfile() -> EINVAL");
 			outstream->ostream.stream_errno = errno;
 			if (errno != EINVAL) {
 				/* close only if error wasn't because
@@ -657,7 +652,6 @@ static off_t io_stream_copy_backwards(struct _ostream *outstream,
 		ret = write_full(foutstream->fd, data, size);
 		if (ret < 0) {
 			/* error */
-			if (errno == EINVAL) i_error("copy backwards -> EINVAL");
 			outstream->ostream.stream_errno = errno;
 			return -1;
 		}
@@ -676,7 +670,6 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 
 	st = i_stream_stat(instream, TRUE);
 	if (st == NULL) {
-       		if (errno == EINVAL) i_error("_send_istream() / stat -> EINVAL");
 		outstream->ostream.stream_errno = instream->stream_errno;
 		return -1;
 	}
@@ -692,7 +685,6 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 		/* copying data within same fd. we'll have to be careful with
 		   seeks and overlapping writes. */
 		if (in_size == (uoff_t)-1) {
-			i_error("_send_istream() / in_size == -1 -> EINVAL");
 			outstream->ostream.stream_errno = EINVAL;
 			return -1;
 		}
