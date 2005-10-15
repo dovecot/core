@@ -367,10 +367,7 @@ static void stream_send_io(void *context)
 			fstream->io = NULL;
 		}
 	} else {
-		if (fstream->io == NULL) {
-			fstream->io = io_add(fstream->fd, IO_WRITE,
-					     stream_send_io, fstream);
-		}
+		i_assert(fstream->io != NULL);
 	}
 
 	o_stream_unref(&fstream->ostream.ostream);
