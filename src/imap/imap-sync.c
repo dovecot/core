@@ -117,7 +117,11 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			if (ctx->seq == 0)
 				ctx->seq = ctx->sync_rec.seq1;
 
+			ret = 1;
 			for (; ctx->seq <= ctx->sync_rec.seq2; ctx->seq++) {
+				if (ret <= 0)
+					break;
+
 				if (mail_set_seq(ctx->mail, ctx->seq) < 0) {
 					t_pop();
 					return -1;
@@ -131,11 +135,8 @@ int imap_sync_more(struct imap_sync_context *ctx)
 					    ctx->seq);
 				imap_write_flags(str, flags, keywords);
 				str_append(str, "))");
+
 				ret = client_send_line(ctx->client, str_c(str));
-				if (ret <= 0) {
-					t_pop();
-					return ret;
-				}
 			}
 			break;
 		case MAILBOX_SYNC_TYPE_EXPUNGE:
@@ -145,17 +146,22 @@ int imap_sync_more(struct imap_sync_context *ctx)
 					ctx->sync_rec.seq2 -
 					ctx->sync_rec.seq1 + 1;
 			}
+			ret = 1;
 			for (; ctx->seq >= ctx->sync_rec.seq1; ctx->seq--) {
+				if (ret <= 0)
+					break;
+
 				str_truncate(str, 0);
 				str_printfa(str, "* %u EXPUNGE", ctx->seq);
 				ret = client_send_line(ctx->client, str_c(str));
-				if (ret <= 0) {
-					t_pop();
-					return ret;
-				}
 			}
 			break;
 		}
+		if (ret <= 0) {
+			/* failure / buffer full */
+			break;
+		}
+
 		ctx->seq = 0;
 	}
 	t_pop();
@@ -177,9 +183,13 @@ int imap_sync_nonselected(struct mailbox *box, enum mailbox_sync_flags flags)
 static int cmd_sync_continue(struct client_command_context *cmd)
 {
 	struct cmd_sync_context *ctx = cmd->context;
+	int ret;
 
-	if (imap_sync_more(ctx->sync_ctx) == 0)
+	if ((ret = imap_sync_more(ctx->sync_ctx)) == 0)
 		return FALSE;
+
+	if (ret < 0)
+		ctx->sync_ctx->failed = TRUE;
 
 	if (imap_sync_deinit(ctx->sync_ctx) < 0) {
 		client_send_untagged_storage_error(cmd->client,
