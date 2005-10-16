@@ -24,7 +24,6 @@ static const char *default_attr_map[] = {
 struct passdb_ldap_request {
 	struct ldap_request request;
 
-	enum passdb_credentials credentials;
 	union {
 		verify_plain_callback_t *verify_plain;
                 lookup_credentials_callback_t *lookup_credentials;
@@ -139,9 +138,8 @@ static void handle_request(struct ldap_connection *conn,
 	/* auth_request_set_field() sets scheme */
 	i_assert(password == NULL || scheme != NULL);
 
-	if (ldap_request->credentials != -1) {
-		passdb_handle_credentials(passdb_result,
-			ldap_request->credentials, password, scheme,
+	if (auth_request->credentials != -1) {
+		passdb_handle_credentials(passdb_result, password, scheme,
 			ldap_request->callback.lookup_credentials,
 			auth_request);
 		return;
@@ -210,20 +208,17 @@ ldap_verify_plain(struct auth_request *request,
 	struct passdb_ldap_request *ldap_request;
 
 	ldap_request = p_new(request->pool, struct passdb_ldap_request, 1);
-	ldap_request->credentials = -1;
 	ldap_request->callback.verify_plain = callback;
 
         ldap_lookup_pass(request, &ldap_request->request);
 }
 
 static void ldap_lookup_credentials(struct auth_request *request,
-				    enum passdb_credentials credentials,
 				    lookup_credentials_callback_t *callback)
 {
 	struct passdb_ldap_request *ldap_request;
 
 	ldap_request = p_new(request->pool, struct passdb_ldap_request, 1);
-	ldap_request->credentials = credentials;
 	ldap_request->callback.lookup_credentials = callback;
 
         ldap_lookup_pass(request, &ldap_request->request);

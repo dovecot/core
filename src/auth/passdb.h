@@ -31,7 +31,7 @@ enum passdb_result {
 typedef void verify_plain_callback_t(enum passdb_result result,
 				     struct auth_request *request);
 typedef void lookup_credentials_callback_t(enum passdb_result result,
-					   const char *credentials,
+					   const char *password,
 					   struct auth_request *request);
 
 struct passdb_module {
@@ -54,15 +54,17 @@ struct passdb_module {
 	void (*verify_plain)(struct auth_request *request, const char *password,
 			     verify_plain_callback_t *callback);
 
-	/* Return authentication credentials. Type is authentication mechanism
-	   specific value that is requested. */
+	/* Return authentication credentials, set in
+	   auth_request->credentials. */
 	void (*lookup_credentials)(struct auth_request *request, 
-				   enum passdb_credentials credentials,
 				   lookup_credentials_callback_t *callback);
 };
 
+const char *
+passdb_get_credentials(struct auth_request *auth_request,
+		       const char *password, const char *scheme);
+
 void passdb_handle_credentials(enum passdb_result result,
-			       enum passdb_credentials credentials,
 			       const char *password, const char *scheme,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);

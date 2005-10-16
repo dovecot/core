@@ -74,37 +74,25 @@ passdb_credentials_to_str(enum passdb_credentials credentials)
 	return "??";
 }
 
-void passdb_handle_credentials(enum passdb_result result,
-			       enum passdb_credentials credentials,
-			       const char *password, const char *scheme,
-			       lookup_credentials_callback_t *callback,
-                               struct auth_request *auth_request)
+const char *
+passdb_get_credentials(struct auth_request *auth_request,
+		       const char *password, const char *scheme)
 {
 	const char *wanted_scheme;
 
-	if (result != PASSDB_RESULT_OK) {
-		callback(result, NULL, auth_request);
-		return;
-	}
-	i_assert(password != NULL);
-
-	if (credentials == PASSDB_CREDENTIALS_CRYPT) {
+	if (auth_request->credentials == PASSDB_CREDENTIALS_CRYPT) {
 		/* anything goes */
-		password = t_strdup_printf("{%s}%s", scheme, password);
-		callback(result, password, auth_request);
-		return;
+		return t_strdup_printf("{%s}%s", scheme, password);
 	}
 
-	wanted_scheme = passdb_credentials_to_str(credentials);
+	wanted_scheme = passdb_credentials_to_str(auth_request->credentials);
 	if (strcasecmp(scheme, wanted_scheme) != 0) {
 		if (strcasecmp(scheme, "PLAIN") != 0 &&
 		    strcasecmp(scheme, "CLEARTEXT") != 0) {
 			auth_request_log_info(auth_request, "password",
 				"Requested %s scheme, but we have only %s",
 				wanted_scheme, scheme);
-			callback(PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
-				 NULL, auth_request);
-			return;
+			return NULL;
 		}
 
 		/* we can generate anything out of plaintext passwords */
@@ -113,7 +101,24 @@ void passdb_handle_credentials(enum passdb_result result,
 		i_assert(password != NULL);
 	}
 
-	callback(PASSDB_RESULT_OK, password, auth_request);
+	return password;
+}
+
+void passdb_handle_credentials(enum passdb_result result,
+			       const char *password, const char *scheme,
+			       lookup_credentials_callback_t *callback,
+                               struct auth_request *auth_request)
+{
+	if (result != PASSDB_RESULT_OK) {
+		callback(result, NULL, auth_request);
+		return;
+	}
+	i_assert(password != NULL);
+
+	password = passdb_get_credentials(auth_request, password, scheme);
+	if (password == NULL)
+		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
+	callback(result, password, auth_request);
 }
 
 struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,

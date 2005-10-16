@@ -221,8 +221,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	}
 
 	auth_request->passdb->passdb->
-		lookup_credentials(auth_request, credentials,
-				   lookup_credentials_callback);
+		lookup_credentials(auth_request, lookup_credentials_callback);
 }
 
 static void

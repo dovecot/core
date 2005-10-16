@@ -46,7 +46,6 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 
 static void
 passwd_file_lookup_credentials(struct auth_request *request,
-			       enum passdb_credentials credentials,
 			       lookup_credentials_callback_t *callback)
 {
 	struct passwd_user *pu;
@@ -61,8 +60,8 @@ passwd_file_lookup_credentials(struct auth_request *request,
 	crypted_pass = pu->password;
 	scheme = password_get_scheme(&crypted_pass);
 
-	passdb_handle_credentials(PASSDB_RESULT_OK, credentials, crypted_pass,
-				  scheme, callback, request);
+	passdb_handle_credentials(PASSDB_RESULT_OK, crypted_pass, scheme,
+				  callback, request);
 }
 
 static void passwd_file_init(const char *args)

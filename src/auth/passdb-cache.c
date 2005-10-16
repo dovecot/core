@@ -82,8 +82,10 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 }
 
 int passdb_cache_lookup_credentials(struct auth_request *request,
-				    const char *key, const char **result_r,
-				    const char **scheme_r, int use_expired)
+				    const char *key, const char **password_r,
+				    const char **scheme_r,
+				    enum passdb_result *result_r,
+				    int use_expired)
 {
 	const char *value, *const *list;
 	int expired;
@@ -97,7 +99,8 @@ int passdb_cache_lookup_credentials(struct auth_request *request,
 
 	if (*value == '\0') {
 		/* negative cache entry */
-		*result_r = NULL;
+		*result_r = PASSDB_RESULT_USER_UNKNOWN;
+		*password_r = NULL;
 		*scheme_r = NULL;
 		return TRUE;
 	}
@@ -105,8 +108,9 @@ int passdb_cache_lookup_credentials(struct auth_request *request,
 	list = t_strsplit(value, "\t");
         list_save(request, list + 1);
 
-	*result_r = list[0];
-	*scheme_r = password_get_scheme(result_r);
+	*result_r = PASSDB_RESULT_OK;
+	*password_r = list[0];
+	*scheme_r = password_get_scheme(password_r);
 	i_assert(*scheme_r != NULL);
 	return TRUE;
 }

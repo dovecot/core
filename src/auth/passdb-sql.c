@@ -19,7 +19,6 @@ extern struct passdb_module passdb_sql;
 
 struct passdb_sql_request {
 	struct auth_request *auth_request;
-	enum passdb_credentials credentials;
 	union {
 		verify_plain_callback_t *verify_plain;
                 lookup_credentials_callback_t *lookup_credentials;
@@ -92,9 +91,8 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	/* auth_request_set_field() sets scheme */
 	i_assert(password == NULL || scheme != NULL);
 
-	if (sql_request->credentials != -1) {
-		passdb_handle_credentials(passdb_result,
-			sql_request->credentials, password, scheme,
+	if (auth_request->credentials != -1) {
+		passdb_handle_credentials(passdb_result, password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);
 		return;
@@ -144,21 +142,18 @@ static void sql_verify_plain(struct auth_request *request,
 
 	sql_request = p_new(request->pool, struct passdb_sql_request, 1);
 	sql_request->auth_request = request;
-	sql_request->credentials = -1;
 	sql_request->callback.verify_plain = callback;
 
 	sql_lookup_pass(sql_request);
 }
 
 static void sql_lookup_credentials(struct auth_request *request,
-				   enum passdb_credentials credentials,
 				   lookup_credentials_callback_t *callback)
 {
 	struct passdb_sql_request *sql_request;
 
 	sql_request = p_new(request->pool, struct passdb_sql_request, 1);
 	sql_request->auth_request = request;
-	sql_request->credentials = credentials;
 	sql_request->callback.lookup_credentials = callback;
 
         sql_lookup_pass(sql_request);

@@ -135,8 +135,7 @@ lookup_credentials_callback(struct auth_request *request, const char *reply)
 			result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
-	passdb_handle_credentials(result, request->credentials,
-				  password, scheme,
+	passdb_handle_credentials(result, password, scheme,
 				  auth_request_lookup_credentials_callback,
 				  request);
 }

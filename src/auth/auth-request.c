@@ -29,6 +29,7 @@ auth_request_new(struct auth *auth, struct mech_module *mech,
 
 	request->refcount = 1;
 	request->created = ioloop_time;
+	request->credentials = -1;
 
 	request->auth = auth;
 	request->mech = mech;
@@ -51,6 +52,7 @@ struct auth_request *auth_request_new_dummy(struct auth *auth)
 	auth_request->auth = auth;
 	auth_request->passdb = auth->passdbs;
 	auth_request->userdb = auth->userdbs;
+	auth_request->credentials = -1;
 
 	return auth_request;
 }
@@ -163,6 +165,21 @@ static void auth_request_save_cache(struct auth_request *request,
 	const char *extra_fields;
 	string_t *str;
 
+	switch (result) {
+	case PASSDB_RESULT_USER_UNKNOWN:
+	case PASSDB_RESULT_PASSWORD_MISMATCH:
+	case PASSDB_RESULT_OK:
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+		/* can be cached */
+		break;
+	case PASSDB_RESULT_USER_DISABLED:
+		/* FIXME: we can't cache this now, or cache lookup would
+		   return success. */
+		return;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		i_unreached();
+	}
+
 	extra_fields = request->extra_fields == NULL ? NULL :
 		auth_stream_reply_export(request->extra_fields);
 	i_assert(extra_fields == NULL ||
@@ -214,69 +231,84 @@ static void auth_request_save_cache(struct auth_request *request,
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str));
 }
 
-void auth_request_verify_plain_callback(enum passdb_result result,
-					struct auth_request *request)
+static int
+auth_request_handle_passdb_callback(enum passdb_result *result,
+				    struct auth_request *request)
 {
-	const char *cache_key;
-
-	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
-
-	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
-
-        auth_request_save_cache(request, result);
-
-	cache_key = passdb_cache == NULL ? NULL :
-		request->passdb->passdb->cache_key;
-	if (result == PASSDB_RESULT_INTERNAL_FAILURE && cache_key != NULL) {
-		/* lookup failed. if we're looking here only because the
-		   request was expired in cache, fallback to using cached
-		   expired record. */
-		if (passdb_cache_verify_plain(request, cache_key,
-					      request->mech_password,
-					      &result, TRUE)) {
-			request->private_callback.verify_plain(result, request);
-			safe_memset(request->mech_password, 0,
-				    strlen(request->mech_password));
-			return;
-		}
-	}
-
 	if (request->passdb_password != NULL) {
 		safe_memset(request->passdb_password, 0,
 			    strlen(request->passdb_password));
 	}
 
-	if (result != PASSDB_RESULT_USER_UNKNOWN && request->passdb->deny) {
-		/* user found from deny passdb. deny this authentication. */
-		auth_request_log_info(request, "passdb",
-				      "User found from deny passdb");
-		result = PASSDB_RESULT_USER_DISABLED;
-	} else if (result != PASSDB_RESULT_OK &&
-		   result != PASSDB_RESULT_USER_DISABLED &&
+	if (request->passdb->deny && *result != PASSDB_RESULT_USER_UNKNOWN) {
+		/* deny passdb. we can get through this step only if the
+		   lookup returned that user doesn't exist in it. internal
+		   errors are fatal here. */
+		if (*result != PASSDB_RESULT_INTERNAL_FAILURE) {
+			auth_request_log_info(request, "passdb",
+					      "User found from deny passdb");
+			*result = PASSDB_RESULT_USER_DISABLED;
+		}
+	} else if (*result != PASSDB_RESULT_OK &&
+		   *result != PASSDB_RESULT_USER_DISABLED &&
 		   request->passdb->next != NULL) {
 		/* try next passdb. */
-		if (result == PASSDB_RESULT_INTERNAL_FAILURE)
+		if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
+			/* remember that we have had an internal failure. at
+			   the end return internal failure if we couldn't
+			   successfully login. */
 			request->passdb_internal_failure = TRUE;
+		}
 		if (request->extra_fields != NULL)
 			auth_stream_reply_reset(request->extra_fields);
 
-                request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
-		request->passdb = request->passdb->next;
-		auth_request_verify_plain(request, request->mech_password,
-			request->private_callback.verify_plain);
-		return;
+		return FALSE;
 	} else if (request->passdb_internal_failure &&
-		   result != PASSDB_RESULT_OK) {
+		   *result != PASSDB_RESULT_OK) {
 		/* one of the passdb lookups returned internal failure.
 		   it may have had the correct password, so return internal
 		   failure instead of plain failure. */
-		result = PASSDB_RESULT_INTERNAL_FAILURE;
+		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
-	auth_request_ref(request);
-	request->private_callback.verify_plain(result, request);
-        safe_memset(request->mech_password, 0, strlen(request->mech_password));
-	auth_request_unref(request);
+	return TRUE;
+}
+
+void auth_request_verify_plain_callback(enum passdb_result result,
+					struct auth_request *request)
+{
+	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
+
+	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
+
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
+		auth_request_save_cache(request, result);
+	else {
+		/* lookup failed. if we're looking here only because the
+		   request was expired in cache, fallback to using cached
+		   expired record. */
+		const char *cache_key = request->passdb->passdb->cache_key;
+
+		if (passdb_cache_verify_plain(request, cache_key,
+					      request->mech_password,
+					      &result, TRUE)) {
+			auth_request_log_info(request, "passdb",
+				"Fallbacking to expired data from cache");
+		}
+	}
+
+	if (!auth_request_handle_passdb_callback(&result, request)) {
+		/* try next passdb */
+		request->passdb = request->passdb->next;
+		auth_request_verify_plain(request, request->mech_password,
+			request->private_callback.verify_plain);
+	} else {
+		auth_request_ref(request);
+		request->private_callback.verify_plain(result, request);
+		safe_memset(request->mech_password, 0,
+			    strlen(request->mech_password));
+		auth_request_unref(request);
+	}
 }
 
 void auth_request_verify_plain(struct auth_request *request,
@@ -303,6 +335,7 @@ void auth_request_verify_plain(struct auth_request *request,
 	}
 
 	request->state = AUTH_REQUEST_STATE_PASSDB;
+	request->credentials = -1;
 
 	if (passdb->blocking)
 		passdb_blocking_verify_plain(request);
@@ -313,41 +346,45 @@ void auth_request_verify_plain(struct auth_request *request,
 }
 
 void auth_request_lookup_credentials_callback(enum passdb_result result,
-					      const char *credentials,
+					      const char *password,
 					      struct auth_request *request)
 {
-	const char *cache_key, *scheme;
+	const char *scheme;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
 	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
-        auth_request_save_cache(request, result);
 
-	if (request->passdb_password != NULL) {
-		safe_memset(request->passdb_password, 0,
-			    strlen(request->passdb_password));
-	}
-
-	cache_key = passdb_cache == NULL ? NULL :
-		request->passdb->passdb->cache_key;
-	if (result == PASSDB_RESULT_INTERNAL_FAILURE && cache_key != NULL) {
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
+		auth_request_save_cache(request, result);
+	else {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
 		   expired record. */
+		const char *cache_key = request->passdb->passdb->cache_key;
+
 		if (passdb_cache_lookup_credentials(request, cache_key,
-						    &credentials, &scheme,
-						    TRUE)) {
-			passdb_handle_credentials(credentials != NULL ?
-				PASSDB_RESULT_OK : PASSDB_RESULT_USER_UNKNOWN,
-				request->credentials, credentials, scheme,
-				request->private_callback.lookup_credentials,
-				request);
-			return;
+						    &password, &scheme,
+						    &result, TRUE)) {
+			auth_request_log_info(request, "passdb",
+				"Fallbacking to expired data from cache");
+			password = result != PASSDB_RESULT_OK ? NULL :
+				passdb_get_credentials(request, password,
+						       scheme);
+			if (password == NULL && result == PASSDB_RESULT_OK)
+				result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 		}
 	}
 
-	request->private_callback.lookup_credentials(result, credentials,
-						     request);
+	if (!auth_request_handle_passdb_callback(&result, request)) {
+		/* try next passdb */
+		request->passdb = request->passdb->next;
+		auth_request_lookup_credentials(request, request->credentials,
+                	request->private_callback.lookup_credentials);
+	} else {
+		request->private_callback.
+			lookup_credentials(result, password, request);
+	}
 }
 
 void auth_request_lookup_credentials(struct auth_request *request,
@@ -355,18 +392,17 @@ void auth_request_lookup_credentials(struct auth_request *request,
 				     lookup_credentials_callback_t *callback)
 {
 	struct passdb_module *passdb = request->passdb->passdb;
-	const char *cache_key, *result, *scheme;
+	const char *cache_key, *password, *scheme;
+	enum passdb_result result;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (cache_key != NULL) {
 		if (passdb_cache_lookup_credentials(request, cache_key,
-						    &result, &scheme, FALSE)) {
-			passdb_handle_credentials(result != NULL ?
-						  PASSDB_RESULT_OK :
-						  PASSDB_RESULT_USER_UNKNOWN,
-						  credentials, result, scheme,
+						    &password, &scheme,
+						    &result, FALSE)) {
+			passdb_handle_credentials(result, password, scheme,
 						  callback, request);
 			return;
 		}
@@ -378,9 +414,13 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	if (passdb->blocking)
 		passdb_blocking_lookup_credentials(request);
-	else {
-		passdb->lookup_credentials(request, credentials,
+	else if (passdb->lookup_credentials != NULL) {
+		passdb->lookup_credentials(request,
 			auth_request_lookup_credentials_callback);
+	} else {
+		/* this passdb doesn't support credentials */
+		auth_request_lookup_credentials_callback(
+			PASSDB_RESULT_SCHEME_NOT_AVAILABLE, NULL, request);
 	}
 }
 
