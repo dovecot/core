@@ -343,6 +343,7 @@ expand_mail_env(const char *env, const struct var_expand_table *table)
 int main(int argc, char *argv[])
 {
 	const char *auth_socket = DEFAULT_AUTH_SOCKET_PATH;
+	const char *mailbox = "INBOX";
 	const char *destination, *mail;
         const struct var_expand_table *table;
         enum mail_storage_flags flags;
@@ -378,6 +379,14 @@ int main(int argc, char *argv[])
 					"Missing auth socket path argument");
 			}
 			auth_socket = argv[i];
+		} else if (strcmp(argv[i], "-m") == 0) {
+			/* destination mailbox */
+			i++;
+			if (i == argc) {
+				i_fatal_status(EX_USAGE,
+					       "Missing mailbox argument");
+			}
+			mailbox = argv[i];
 		} else {
 			i_fatal_status(EX_USAGE,
 				       "Unknown argument: %s", argv[1]);
@@ -454,7 +463,7 @@ int main(int argc, char *argv[])
 
 	net_set_nonblock(0, TRUE);
 	input = i_stream_create_file(0, default_pool, 8192, FALSE);
-	if (save_mail(storage, "INBOX", input) < 0)
+	if (save_mail(storage, mailbox, input) < 0)
 		return EX_TEMPFAIL;
 	i_stream_unref(input);
 
