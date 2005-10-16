@@ -37,17 +37,7 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 
 static void passwd_file_init(const char *args)
 {
-	if (passdb_pwf != NULL && strcmp(passdb_pwf->path, args) == 0) {
-		userdb_pwf = passdb_pwf;
-		userdb_pwf->refcount++;
-
-		/* resync */
-		userdb_pwf->userdb = TRUE;
-		if (userdb_pwf->default_file != NULL)
-			userdb_pwf->default_file->stamp = 0;
-	} else {
-		userdb_pwf = db_passwd_file_parse(args, TRUE);
-	}
+	userdb_pwf = db_passwd_file_parse(args, TRUE);
 }
 
 static void passwd_file_deinit(void)

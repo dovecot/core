@@ -413,9 +413,18 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 
 void db_ldap_unref(struct ldap_connection *conn)
 {
+	struct ldap_connection **p;
+
+	i_assert(conn->refcount >= 0);
 	if (--conn->refcount > 0)
 		return;
-	i_assert(conn->refcount == 0);
+
+	for (p = &ldap_connections; *p != NULL; p = &(*p)->next) {
+		if (*p == conn) {
+			*p = conn->next;
+			break;
+		}
+	}
 
 	ldap_conn_close(conn);
 

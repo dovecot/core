@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Timo Sirainen */
+/* Copyright (C) 2002-2005 Timo Sirainen */
 
 /* Thanks to Courier-IMAP for showing how the vpopmail API should be used */
 
@@ -15,9 +15,6 @@
 #include <stdlib.h>
 
 #define VPOPMAIL_DEFAULT_PASS_SCHEME "CRYPT"
-
-extern struct passdb_module passdb_vpopmail;
-static char *vpopmail_cache_key;
 
 static void
 vpopmail_verify_plain(struct auth_request *request, const char *password,
@@ -50,7 +47,8 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 
 	crypted_pass = vpw->pw_passwd;
 	scheme = password_get_scheme(&crypted_pass);
-	if (scheme == NULL) scheme = passdb_vpopmail.default_pass_scheme;
+	if (scheme == NULL)
+		scheme = request->passdb->passdb->default_pass_scheme;
 
 	ret = password_verify(password, crypted_pass, scheme, request->user);
 
@@ -94,30 +92,31 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	callback(PASSDB_RESULT_OK, request);
 }
 
-static void vpopmail_init(const char *args)
+static struct passdb_module *
+vpopmail_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
-	vpopmail_cache_key = NULL;
+	struct passdb_module *module;
 
-	if (strncmp(args, "cache_key=", 10) == 0)
-		vpopmail_cache_key = i_strdup(args + 10);
+	module = p_new(auth_passdb->auth->pool, struct passdb_module, 1);
+	module->default_pass_scheme = VPOPMAIL_DEFAULT_PASS_SCHEME;
 
-	passdb_vpopmail.cache_key = vpopmail_cache_key;
+	if (strncmp(args, "cache_key=", 10) == 0) {
+		module->cache_key =
+			p_strdup(auth_passdb->auth->pool, args + 10);
+	}
+	return module;
 }
 
-static void vpopmail_deinit(void)
+static void vpopmail_deinit(struct passdb_module *module __attr_unused__)
 {
 	vclose();
-	i_free(vpopmail_cache_key);
 }
 
-struct passdb_module passdb_vpopmail = {
+struct passdb_module_interface passdb_vpopmail = {
 	"vpopmail",
-	NULL,
-	VPOPMAIL_DEFAULT_PASS_SCHEME,
-	FALSE,
 
+	vpopmail_preinit,
 	NULL,
-	vpopmail_init,
 	vpopmail_deinit,
 
 	vpopmail_verify_plain,

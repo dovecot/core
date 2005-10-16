@@ -18,6 +18,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+static struct db_passwd_file *passwd_files;
+
 static void passwd_file_add(struct passwd_file *pw, const char *username,
 			    const char *pass, const char *const *args)
 {
@@ -232,11 +234,36 @@ static int passwd_file_sync(struct passwd_file *pw)
 	return TRUE;
 }
 
+static struct db_passwd_file *db_passwd_file_find(const char *path)
+{
+	struct db_passwd_file *f;
+
+	for (f = passwd_files; f != NULL; f = f->next) {
+		if (strcmp(f->path, path) == 0)
+			return f;
+	}
+
+	return NULL;
+}
+
 struct db_passwd_file *db_passwd_file_parse(const char *path, int userdb)
 {
 	struct db_passwd_file *db;
 	const char *p;
 	int percents = FALSE;
+
+	db = db_passwd_file_find(path);
+	if (db != NULL) {
+		db->refcount++;
+		if (userdb && !db->userdb) {
+			db->userdb = TRUE;
+			if (db->default_file != NULL) {
+				/* resync */
+				db->default_file->stamp = 0;
+			}
+		}
+		return db;
+	}
 
 	db = i_new(struct db_passwd_file, 1);
 	db->refcount = 1;
@@ -279,24 +306,37 @@ struct db_passwd_file *db_passwd_file_parse(const char *path, int userdb)
 		if (!passwd_file_open(db->default_file))
 			exit(FATAL_DEFAULT);
 	}
+
+	db->next = passwd_files;
+	passwd_files = db;
 	return db;
 }
 
 void db_passwd_file_unref(struct db_passwd_file *db)
 {
+        struct db_passwd_file **p;
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	if (--db->refcount == 0) {
-		iter = hash_iterate_init(db->files);
-		while (hash_iterate(iter, &key, &value))
-			passwd_file_free(value);
-		hash_iterate_deinit(iter);
+	i_assert(db->refcount >= 0);
+	if (--db->refcount > 0)
+		return;
 
-		hash_destroy(db->files);
-		i_free(db->path);
-		i_free(db);
+	for (p = &passwd_files; *p != NULL; p = &(*p)->next) {
+		if (*p == db) {
+			*p = db->next;
+			break;
+		}
 	}
+
+	iter = hash_iterate_init(db->files);
+	while (hash_iterate(iter, &key, &value))
+		passwd_file_free(value);
+	hash_iterate_deinit(iter);
+
+	hash_destroy(db->files);
+	i_free(db->path);
+	i_free(db);
 }
 
 static const char *path_fix(const char *path)

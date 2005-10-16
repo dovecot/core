@@ -347,8 +347,8 @@ void auth_request_verify_plain(struct auth_request *request,
 	if (passdb->blocking)
 		passdb_blocking_verify_plain(request);
 	else {
-		passdb->verify_plain(request, password,
-				     auth_request_verify_plain_callback);
+		passdb->iface->verify_plain(request, password,
+					    auth_request_verify_plain_callback);
 	}
 }
 
@@ -421,8 +421,8 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	if (passdb->blocking)
 		passdb_blocking_lookup_credentials(request);
-	else if (passdb->lookup_credentials != NULL) {
-		passdb->lookup_credentials(request,
+	else if (passdb->iface->lookup_credentials != NULL) {
+		passdb->iface->lookup_credentials(request,
 			auth_request_lookup_credentials_callback);
 	} else {
 		/* this passdb doesn't support credentials */

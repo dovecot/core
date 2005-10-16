@@ -56,18 +56,23 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 	callback(PASSDB_RESULT_OK, request);
 }
 
-static void passwd_deinit(void)
+static void passwd_init(struct passdb_module *module,
+			const char *args __attr_unused__)
+{
+	module->cache_key = PASSWD_CACHE_KEY;
+	module->default_pass_scheme = PASSWD_PASS_SCHEME;
+}
+
+static void passwd_deinit(struct passdb_module *module __attr_unused__)
 {
 	endpwent();
 }
 
-struct passdb_module passdb_passwd = {
+struct passdb_module_interface passdb_passwd = {
 	"passwd",
-        PASSWD_CACHE_KEY,
-        PASSWD_PASS_SCHEME,
-	FALSE,
 
-	NULL, NULL,
+	NULL,
+	passwd_init,
 	passwd_deinit,
 
 	passwd_verify_plain,

@@ -15,7 +15,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern struct passdb_module passdb_sql;
+struct sql_passdb_module {
+	struct passdb_module module;
+
+	struct sql_connection *conn;
+};
 
 struct passdb_sql_request {
 	struct auth_request *auth_request;
@@ -25,13 +29,12 @@ struct passdb_sql_request {
 	} callback;
 };
 
-static struct sql_connection *passdb_sql_conn;
-static char *passdb_sql_cache_key;
-
 static void sql_query_save_results(struct sql_result *result,
 				   struct passdb_sql_request *sql_request)
 {
 	struct auth_request *auth_request = sql_request->auth_request;
+	struct passdb_module *_module = auth_request->passdb->passdb;
+	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
 	unsigned int i, fields_count;
 	const char *name, *value;
 
@@ -42,7 +45,7 @@ static void sql_query_save_results(struct sql_result *result,
 
 		if (value != NULL) {
 			auth_request_set_field(auth_request, name, value,
-				passdb_sql_conn->set.default_pass_scheme);
+				module->conn->set.default_pass_scheme);
 		}
 	}
 }
@@ -120,17 +123,20 @@ static void sql_query_callback(struct sql_result *result, void *context)
 
 static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 {
+	struct passdb_module *_module =
+		sql_request->auth_request->passdb->passdb;
+	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
 	string_t *query;
 
 	query = t_str_new(512);
-	var_expand(query, passdb_sql_conn->set.password_query,
+	var_expand(query, module->conn->set.password_query,
 		   auth_request_get_var_expand_table(sql_request->auth_request,
 						     str_escape));
 
 	auth_request_log_debug(sql_request->auth_request, "sql",
 			       "query: %s", str_c(query));
 
-	sql_query(passdb_sql_conn->db, str_c(query),
+	sql_query(module->conn->db, str_c(query),
 		  sql_query_callback, sql_request);
 }
 
@@ -159,36 +165,45 @@ static void sql_lookup_credentials(struct auth_request *request,
         sql_lookup_pass(sql_request);
 }
 
-static void passdb_sql_preinit(const char *args)
+static struct passdb_module *
+passdb_sql_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
-	passdb_sql_conn = db_sql_init(args);
+	struct sql_passdb_module *module;
+	struct sql_connection *conn;
 
-	passdb_sql.cache_key = passdb_sql_cache_key =
-		auth_cache_parse_key(passdb_sql_conn->set.password_query);
-	passdb_sql.default_pass_scheme =
-		passdb_sql_conn->set.default_pass_scheme;
+	module = p_new(auth_passdb->auth->pool, struct sql_passdb_module, 1);
+	module->conn = conn = db_sql_init(args);
+
+	module->module.cache_key =
+		auth_cache_parse_key(conn->set.password_query);
+	module->module.default_pass_scheme = conn->set.default_pass_scheme;
+	return &module->module;
 }
 
-static void passdb_sql_init(const char *args __attr_unused__)
+static void passdb_sql_init(struct passdb_module *_module,
+			    const char *args __attr_unused__)
 {
+	struct sql_passdb_module *module =
+		(struct sql_passdb_module *)_module;
 	enum sql_db_flags flags;
 
-	flags = sql_get_flags(passdb_sql_conn->db);
-	passdb_sql.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
+	flags = sql_get_flags(module->conn->db);
+	module->module.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 
-	if (!passdb_sql.blocking || worker)
-                sql_connect(passdb_sql_conn->db);
+	if (!module->module.blocking || worker)
+                sql_connect(module->conn->db);
 }
 
-static void passdb_sql_deinit(void)
+static void passdb_sql_deinit(struct passdb_module *_module)
 {
-	db_sql_unref(passdb_sql_conn);
-	i_free(passdb_sql_cache_key);
+	struct sql_passdb_module *module =
+		(struct sql_passdb_module *)_module;
+
+	db_sql_unref(module->conn);
 }
 
-struct passdb_module passdb_sql = {
+struct passdb_module_interface passdb_sql = {
 	"sql",
-	NULL, NULL, FALSE,
 
 	passdb_sql_preinit,
 	passdb_sql_init,

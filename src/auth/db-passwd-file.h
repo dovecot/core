@@ -26,6 +26,8 @@ struct passwd_file {
 };
 
 struct db_passwd_file {
+	struct db_passwd_file *next;
+
 	int refcount;
 
 	char *path;
@@ -36,9 +38,6 @@ struct db_passwd_file {
 	unsigned int vars:1;
 	unsigned int userdb:1;
 };
-
-extern struct db_passwd_file *userdb_pwf;
-extern struct db_passwd_file *passdb_pwf;
 
 struct passwd_user *
 db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request);

@@ -56,18 +56,23 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 	callback(PASSDB_RESULT_OK, request);
 }
 
-static void shadow_deinit(void)
+static void shadow_init(struct passdb_module *module,
+			const char *args __attr_unused__)
+{
+	module->cache_key = SHADOW_CACHE_KEY;
+	module->default_pass_scheme = SHADOW_PASS_SCHEME;
+}
+
+static void shadow_deinit(struct passdb_module *module __attr_unused__)
 {
         endspent();
 }
 
-struct passdb_module passdb_shadow = {
+struct passdb_module_interface passdb_shadow = {
 	"shadow",
-        SHADOW_CACHE_KEY,
-        SHADOW_PASS_SCHEME,
-	FALSE,
 
-	NULL, NULL,
+	NULL,
+	shadow_init,
 	shadow_deinit,
 
 	shadow_verify_plain,

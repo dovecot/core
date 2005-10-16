@@ -8,17 +8,17 @@
 
 #include <stdlib.h>
 
-extern struct passdb_module passdb_passwd;
-extern struct passdb_module passdb_bsdauth;
-extern struct passdb_module passdb_shadow;
-extern struct passdb_module passdb_passwd_file;
-extern struct passdb_module passdb_pam;
-extern struct passdb_module passdb_checkpassword;
-extern struct passdb_module passdb_vpopmail;
-extern struct passdb_module passdb_ldap;
-extern struct passdb_module passdb_sql;
+extern struct passdb_module_interface passdb_passwd;
+extern struct passdb_module_interface passdb_bsdauth;
+extern struct passdb_module_interface passdb_shadow;
+extern struct passdb_module_interface passdb_passwd_file;
+extern struct passdb_module_interface passdb_pam;
+extern struct passdb_module_interface passdb_checkpassword;
+extern struct passdb_module_interface passdb_vpopmail;
+extern struct passdb_module_interface passdb_ldap;
+extern struct passdb_module_interface passdb_sql;
 
-struct passdb_module *passdbs[] = {
+struct passdb_module_interface *passdb_interfaces[] = {
 #ifdef PASSDB_PASSWD
 	&passdb_passwd,
 #endif
@@ -124,7 +124,7 @@ void passdb_handle_credentials(enum passdb_result result,
 struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
 				   const char *args)
 {
-	struct passdb_module **p;
+	struct passdb_module_interface **p, *iface;
         struct auth_passdb *auth_passdb, **dest;
 
 	if (args == NULL) args = "";
@@ -137,35 +137,41 @@ struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
 		auth_passdb->num++;
 	*dest = auth_passdb;
 
-	for (p = passdbs; *p != NULL; p++) {
+	iface = NULL;
+	for (p = passdb_interfaces; *p != NULL; p++) {
 		if (strcmp((*p)->name, driver) == 0) {
-			auth_passdb->passdb = *p;
+			iface = *p;
 			break;
 		}
 	}
 	
 #ifdef HAVE_MODULES
-	if (auth_passdb->passdb == NULL)
+	if (iface == NULL)
 		auth_passdb->module = auth_module_open(driver);
 	if (auth_passdb->module != NULL) {
-		auth_passdb->passdb =
-			auth_module_sym(auth_passdb->module,
+		iface = auth_module_sym(auth_passdb->module,
 					t_strconcat("passdb_", driver, NULL));
 	}
 #endif
 
-	if (auth_passdb->passdb == NULL)
+	if (iface == NULL)
 		i_fatal("Unknown passdb driver '%s'", driver);
 
-	if (auth_passdb->passdb->preinit != NULL)
-		auth_passdb->passdb->preinit(auth_passdb->args);
+	if (iface->preinit == NULL) {
+		auth_passdb->passdb =
+			p_new(auth->pool, struct passdb_module, 1);
+	} else {
+		auth_passdb->passdb =
+			iface->preinit(auth_passdb, auth_passdb->args);
+	}
+	auth_passdb->passdb->iface = iface;
 	return auth_passdb;
 }
 
 void passdb_init(struct auth_passdb *passdb)
 {
-	if (passdb->passdb->init != NULL)
-		passdb->passdb->init(passdb->args);
+	if (passdb->passdb->iface->init != NULL)
+		passdb->passdb->iface->init(passdb->passdb, passdb->args);
 
 	i_assert(passdb->passdb->default_pass_scheme != NULL ||
 		 passdb->passdb->cache_key == NULL);
@@ -178,8 +184,8 @@ void passdb_init(struct auth_passdb *passdb)
 
 void passdb_deinit(struct auth_passdb *passdb)
 {
-	if (passdb->passdb->deinit != NULL)
-		passdb->passdb->deinit();
+	if (passdb->passdb->iface->deinit != NULL)
+		passdb->passdb->iface->deinit(passdb->passdb);
 #ifdef HAVE_MODULES
 	if (passdb->module != NULL)
                 auth_module_close(passdb->module);

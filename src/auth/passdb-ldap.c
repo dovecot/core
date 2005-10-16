@@ -15,10 +15,14 @@
 #include <ldap.h>
 #include <stdlib.h>
 
-extern struct passdb_module passdb_ldap;
-
 static const char *default_attr_map[] = {
 	"user", "password", NULL
+};
+
+struct ldap_passdb_module {
+	struct passdb_module module;
+
+	struct ldap_connection *conn;
 };
 
 struct passdb_ldap_request {
@@ -29,9 +33,6 @@ struct passdb_ldap_request {
                 lookup_credentials_callback_t *lookup_credentials;
 	} callback;
 };
-
-static struct ldap_connection *passdb_ldap_conn;
-static char *passdb_ldap_cache_key;
 
 static void
 ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
@@ -45,7 +46,7 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
-		name = hash_lookup(passdb_ldap_conn->pass_attr_map, attr);
+		name = hash_lookup(conn->pass_attr_map, attr);
 		vals = ldap_get_values(conn->ld, entry, attr);
 
 		if (auth_request->auth->verbose_debug) {
@@ -170,7 +171,10 @@ static void handle_request(struct ldap_connection *conn,
 static void ldap_lookup_pass(struct auth_request *auth_request,
 			     struct ldap_request *ldap_request)
 {
-	struct ldap_connection *conn = passdb_ldap_conn;
+	struct passdb_module *_module = auth_request->passdb->passdb;
+	struct ldap_passdb_module *module =
+		(struct ldap_passdb_module *)_module;
+	struct ldap_connection *conn = module->conn;
         const struct var_expand_table *vars;
 	const char **attr_names = (const char **)conn->pass_attr_names;
 	const char *filter, *base;
@@ -195,9 +199,8 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 			       base, conn->set.scope, filter,
 			       t_strarray_join(attr_names, ","));
 
-	db_ldap_search(conn, base, conn->set.ldap_scope,
-		       filter, passdb_ldap_conn->pass_attr_names,
-		       ldap_request);
+	db_ldap_search(conn, base, conn->set.ldap_scope, filter,
+		       conn->pass_attr_names, ldap_request);
 }
 
 static void
@@ -224,37 +227,44 @@ static void ldap_lookup_credentials(struct auth_request *request,
         ldap_lookup_pass(request, &ldap_request->request);
 }
 
-static void passdb_ldap_preinit(const char *args)
+static struct passdb_module *
+passdb_ldap_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
-	passdb_ldap_conn = db_ldap_init(args);
-	passdb_ldap_conn->pass_attr_map =
-		hash_create(default_pool, passdb_ldap_conn->pool, 0, str_hash,
+	struct ldap_passdb_module *module;
+	struct ldap_connection *conn;
+
+	module = p_new(auth_passdb->auth->pool, struct ldap_passdb_module, 1);
+	module->conn = conn = db_ldap_init(args);
+	conn->pass_attr_map =
+		hash_create(default_pool, conn->pool, 0, str_hash,
 			    (hash_cmp_callback_t *)strcmp);
 
-	db_ldap_set_attrs(passdb_ldap_conn, passdb_ldap_conn->set.pass_attrs,
-                          &passdb_ldap_conn->pass_attr_names,
-			  passdb_ldap_conn->pass_attr_map,
-			  default_attr_map);
-	passdb_ldap.cache_key = passdb_ldap_cache_key =
-		auth_cache_parse_key(passdb_ldap_conn->set.pass_filter);
-	passdb_ldap.default_pass_scheme =
-		passdb_ldap_conn->set.default_pass_scheme;
+	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
+			  conn->pass_attr_map, default_attr_map);
+	module->module.cache_key = auth_cache_parse_key(conn->set.pass_filter);
+	module->module.default_pass_scheme = conn->set.default_pass_scheme;
+	return &module->module;
 }
 
-static void passdb_ldap_init(const char *args __attr_unused__)
+static void passdb_ldap_init(struct passdb_module *_module,
+			     const char *args __attr_unused__)
 {
-	(void)db_ldap_connect(passdb_ldap_conn);
+	struct ldap_passdb_module *module =
+		(struct ldap_passdb_module *)_module;
+
+	(void)db_ldap_connect(module->conn);
 }
 
-static void passdb_ldap_deinit(void)
+static void passdb_ldap_deinit(struct passdb_module *_module)
 {
-	db_ldap_unref(passdb_ldap_conn);
-	i_free(passdb_ldap_cache_key);
+	struct ldap_passdb_module *module =
+		(struct ldap_passdb_module *)_module;
+
+	db_ldap_unref(module->conn);
 }
 
-struct passdb_module passdb_ldap = {
+struct passdb_module_interface passdb_ldap = {
 	"ldap",
-	NULL, NULL, FALSE,
 
 	passdb_ldap_preinit,
 	passdb_ldap_init,

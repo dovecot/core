@@ -11,17 +11,24 @@
 #define PASSWD_FILE_CACHE_KEY "%u"
 #define PASSWD_FILE_DEFAULT_SCHEME "CRYPT"
 
-struct db_passwd_file *passdb_pwf = NULL;
+struct passwd_file_passdb_module {
+	struct passdb_module module;
+
+	struct db_passwd_file *pwf;
+};
 
 static void
 passwd_file_verify_plain(struct auth_request *request, const char *password,
 			 verify_plain_callback_t *callback)
 {
+	struct passdb_module *_module = request->passdb->passdb;
+	struct passwd_file_passdb_module *module =
+		(struct passwd_file_passdb_module *)_module;
 	struct passwd_user *pu;
 	const char *scheme, *crypted_pass;
 	int ret;
 
-	pu = db_passwd_file_lookup(passdb_pwf, request);
+	pu = db_passwd_file_lookup(module->pwf, request);
 	if (pu == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
@@ -29,7 +36,7 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 
 	crypted_pass = pu->password;
 	scheme = password_get_scheme(&crypted_pass);
-	if (scheme == NULL) scheme = PASSWD_FILE_DEFAULT_SCHEME;
+	if (scheme == NULL) scheme = _module->default_pass_scheme;
 
 	/* save the password so cache can use it */
 	auth_request_set_field(request, "password", crypted_pass, scheme);
@@ -54,10 +61,13 @@ static void
 passwd_file_lookup_credentials(struct auth_request *request,
 			       lookup_credentials_callback_t *callback)
 {
+	struct passdb_module *_module = request->passdb->passdb;
+	struct passwd_file_passdb_module *module =
+		(struct passwd_file_passdb_module *)_module;
 	struct passwd_user *pu;
 	const char *crypted_pass, *scheme;
 
-	pu = db_passwd_file_lookup(passdb_pwf, request);
+	pu = db_passwd_file_lookup(module->pwf, request);
 	if (pu == NULL) {
 		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, request);
 		return;
@@ -70,28 +80,39 @@ passwd_file_lookup_credentials(struct auth_request *request,
 				  callback, request);
 }
 
-static void passwd_file_init(const char *args)
+static struct passdb_module *
+passwd_file_preinit(struct auth_passdb *auth_passdb,
+		    const char *args __attr_unused__)
 {
-	if (userdb_pwf != NULL && strcmp(userdb_pwf->path, args) == 0) {
-		passdb_pwf = userdb_pwf;
-                passdb_pwf->refcount++;
-	} else {
-		passdb_pwf = db_passwd_file_parse(args, FALSE);
-	}
+	struct passwd_file_passdb_module *module;
+
+	module = p_new(auth_passdb->auth->pool,
+		       struct passwd_file_passdb_module, 1);
+	module->module.cache_key = PASSWD_FILE_CACHE_KEY;
+	module->module.default_pass_scheme = PASSWD_FILE_DEFAULT_SCHEME;
+	return &module->module;
 }
 
-static void passwd_file_deinit(void)
+static void passwd_file_init(struct passdb_module *_module, const char *args)
 {
-	db_passwd_file_unref(passdb_pwf);
+	struct passwd_file_passdb_module *module =
+		(struct passwd_file_passdb_module *)_module;
+
+	module->pwf = db_passwd_file_parse(args, FALSE);
 }
 
-struct passdb_module passdb_passwd_file = {
+static void passwd_file_deinit(struct passdb_module *_module)
+{
+	struct passwd_file_passdb_module *module =
+		(struct passwd_file_passdb_module *)_module;
+
+	db_passwd_file_unref(module->pwf);
+}
+
+struct passdb_module_interface passdb_passwd_file = {
 	"passwd-file",
-	PASSWD_FILE_CACHE_KEY,
-	NULL,
-	FALSE,
 
-	NULL,
+	passwd_file_preinit,
 	passwd_file_init,
 	passwd_file_deinit,
 

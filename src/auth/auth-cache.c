@@ -28,7 +28,7 @@ struct auth_cache {
 	unsigned int hit_count, miss_count;
 };
 
-char *auth_cache_parse_key(const char *query)
+const char *auth_cache_parse_key(const char *query)
 {
 	string_t *str;
 	char key_seen[256];
@@ -36,7 +36,7 @@ char *auth_cache_parse_key(const char *query)
 
 	memset(key_seen, 0, sizeof(key_seen));
 
-	str = str_new(default_pool, 32);
+	str = t_str_new(32);
 	for (; *query != '\0'; query++) {
 		if (*query == '%' && query[1] != '\0') {
 			query++;
@@ -52,7 +52,7 @@ char *auth_cache_parse_key(const char *query)
 			}
 		}
 	}
-	return str_free_without_data(str);
+	return str_c(str);
 }
 
 static void

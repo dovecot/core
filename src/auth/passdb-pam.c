@@ -58,6 +58,14 @@ typedef linux_const void *pam_item_t;
 #  define USERPASS_USER_FIXED		3
 #endif
 
+struct pam_passdb_module {
+	struct passdb_module module;
+
+	int pam_session;
+	const char *service_name, *pam_cache_key;
+	struct timeout *to_wait;
+};
+
 struct pam_auth_request {
 	int fd;
 	struct io *io;
@@ -70,12 +78,6 @@ struct pam_userpass {
 	const char *user;
 	const char *pass;
 };
-
-extern struct passdb_module passdb_pam;
-
-static int pam_session;
-static char *service_name, *pam_cache_key;
-static struct timeout *to_wait;
 
 static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	struct pam_response **resp, void *appdata_ptr)
@@ -171,6 +173,8 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 static int pam_auth(struct auth_request *request,
 		    pam_handle_t *pamh, const char **error)
 {
+        struct passdb_module *_module = request->passdb->passdb;
+        struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
 	void *item;
 	int status;
 
@@ -196,7 +200,7 @@ static int pam_auth(struct auth_request *request,
 		return status;
 	}
 
-	if (pam_session) {
+	if (module->pam_session) {
 	        if ((status = pam_open_session(pamh, 0)) != PAM_SUCCESS) {
 			*error = t_strdup_printf(
 					"pam_open_session() failed: %s",
@@ -332,8 +336,9 @@ static void pam_child_input(void *context)
 	i_free(request);
 }
 
-static void wait_timeout(void *context __attr_unused__)
+static void wait_timeout(void *context)
 {
+        struct pam_passdb_module *module = context;
 	int status;
 	pid_t pid;
 
@@ -341,8 +346,8 @@ static void wait_timeout(void *context __attr_unused__)
 	while ((pid = waitpid(-1, &status, WNOHANG)) != 0) {
 		if (pid == -1) {
 			if (errno == ECHILD) {
-				timeout_remove(to_wait);
-				to_wait = NULL;
+				timeout_remove(module->to_wait);
+				module->to_wait = NULL;
 			} else if (errno != EINTR)
 				i_error("waitpid() failed: %m");
 			return;
@@ -359,12 +364,15 @@ static void
 pam_verify_plain(struct auth_request *request, const char *password,
 		 verify_plain_callback_t *callback)
 {
+        struct passdb_module *_module = request->passdb->passdb;
+        struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
         struct pam_auth_request *pam_auth_request;
 	const char *service;
 	int fd[2];
 	pid_t pid;
 
-	service = service_name != NULL ? service_name : request->service;
+	service = module->service_name != NULL ?
+		module->service_name : request->service;
 	if (pipe(fd) < 0) {
 		auth_request_log_error(request, "pam", "pipe() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
@@ -400,57 +408,57 @@ pam_verify_plain(struct auth_request *request, const char *password,
 	pam_auth_request->io =
 		io_add(fd[0], IO_READ, pam_child_input, pam_auth_request);
 
-	if (to_wait == NULL)
-		to_wait = timeout_add(1000, wait_timeout, NULL);
+	if (module->to_wait == NULL)
+		module->to_wait = timeout_add(1000, wait_timeout, module);
 }
 
-static void pam_init(const char *args)
+static struct passdb_module *
+pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
+	struct pam_passdb_module *module;
 	const char *const *t_args;
 	int i;
 
-	pam_session = FALSE;
-	service_name = i_strdup("dovecot");
-        pam_cache_key = NULL;
+	module = p_new(auth_passdb->auth->pool, struct pam_passdb_module, 1);
+	module->service_name = "dovecot";
 
 	t_push();
 	t_args = t_strsplit(args, " ");
         for(i = 0; t_args[i] != NULL; i++) {
 		if (strcmp(t_args[i], "-session") == 0)
-			pam_session = TRUE;
+			module->pam_session = TRUE;
 		else if (strncmp(t_args[i], "cache_key=", 10) == 0) {
-			i_free(pam_cache_key);
-			pam_cache_key = i_strdup(t_args[i] + 10);
+			module->module.cache_key =
+				p_strdup(auth_passdb->auth->pool,
+					 t_args[i] + 10);
 		} else if (strcmp(t_args[i], "*") == 0) {
-			i_free(service_name);
-			service_name = NULL;
+			module->service_name = NULL;
 		} else {
 			if (*t_args[i] != '\0') {
-				i_free(service_name);
-				service_name = i_strdup(t_args[i]);
+				module->service_name =
+					p_strdup(auth_passdb->auth->pool,
+						 t_args[i]);
 			}
 		}
 	}
 	t_pop();
 
-	to_wait = NULL;
-        passdb_pam.cache_key = pam_cache_key;
+	return &module->module;
 }
 
-static void pam_deinit(void)
+static void pam_deinit(struct passdb_module *_module)
 {
-	if (to_wait != NULL)
-		timeout_remove(to_wait);
-	i_free(service_name);
-	i_free(pam_cache_key);
+        struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
+
+	if (module->to_wait != NULL)
+		timeout_remove(module->to_wait);
 }
 
-struct passdb_module passdb_pam = {
+struct passdb_module_interface passdb_pam = {
 	"pam",
-	NULL, NULL, FALSE,
 
+	pam_preinit,
 	NULL,
-	pam_init,
 	pam_deinit,
 
 	pam_verify_plain,

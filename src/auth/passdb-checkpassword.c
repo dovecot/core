@@ -15,6 +15,14 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+struct checkpassword_passdb_module {
+	struct passdb_module module;
+
+	const char *checkpassword_path, *checkpassword_reply_path;
+	struct hash_table *clients;
+	struct timeout *to_wait;
+};
+
 struct chkpw_auth_request {
 	int fd_out, fd_in;
 	struct io *io_out, *io_in;
@@ -30,10 +38,6 @@ struct chkpw_auth_request {
 	int exit_status;
 	unsigned int exited:1;
 };
-
-static char *checkpassword_path, *checkpassword_reply_path;
-struct hash_table *clients;
-static struct timeout *to_wait;
 
 static void checkpassword_request_close(struct chkpw_auth_request *request)
 {
@@ -58,7 +62,11 @@ static void checkpassword_request_close(struct chkpw_auth_request *request)
 static void checkpassword_request_finish(struct chkpw_auth_request *request,
 					 enum passdb_result result)
 {
-	hash_remove(clients, POINTER_CAST(request->pid));
+	struct passdb_module *_module = request->request->passdb->passdb;
+	struct checkpassword_passdb_module *module =
+		(struct checkpassword_passdb_module *)_module;
+
+	hash_remove(module->clients, POINTER_CAST(request->pid));
 
 	if (result == PASSDB_RESULT_OK) {
 		request->request->extra_fields =
@@ -115,8 +123,9 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 	}
 }
 
-static void wait_timeout(void *context __attr_unused__)
+static void wait_timeout(void *context)
 {
+	struct checkpassword_passdb_module *module = context;
 	struct chkpw_auth_request *request;
 	int status;
 	pid_t pid;
@@ -125,14 +134,14 @@ static void wait_timeout(void *context __attr_unused__)
 	while ((pid = waitpid(-1, &status, WNOHANG)) != 0) {
 		if (pid == -1) {
 			if (errno == ECHILD) {
-				timeout_remove(to_wait);
-				to_wait = NULL;
+				timeout_remove(module->to_wait);
+				module->to_wait = NULL;
 			} else if (errno != EINTR)
 				i_error("waitpid() failed: %m");
 			return;
 		}
 
-		request = hash_lookup(clients, POINTER_CAST(pid));
+		request = hash_lookup(module->clients, POINTER_CAST(pid));
 
 		if (WIFSIGNALED(status)) {
 			i_error("checkpassword: Child %s died with signal %d",
@@ -151,22 +160,24 @@ static void wait_timeout(void *context __attr_unused__)
 	}
 }
 
-static void checkpassword_verify_plain_child(int fd_in, int fd_out)
+static void
+checkpassword_verify_plain_child(struct checkpassword_passdb_module *module,
+				 int fd_in, int fd_out)
 {
-	char *args[3];
+	const char *args[3];
 
 	if (dup2(fd_out, 3) < 0)
 		i_error("checkpassword: dup2() failed: %m");
 	else if (dup2(fd_in, 4) < 0)
 		i_error("checkpassword: dup2() failed: %m");
 	else {
-		args[0] = checkpassword_path;
-		args[1] = checkpassword_reply_path;
+		args[0] = module->checkpassword_path;
+		args[1] = module->checkpassword_reply_path;
 		args[2] = NULL;
 
-		execv(checkpassword_path, args);
+		execv(module->checkpassword_path, (char **)args);
 		i_error("checkpassword: execv(%s) failed: %m",
-			checkpassword_path);
+			module->checkpassword_path);
 	}
 	exit(2);
 }
@@ -243,6 +254,9 @@ static void
 checkpassword_verify_plain(struct auth_request *request, const char *password,
 			   verify_plain_callback_t *callback)
 {
+	struct passdb_module *_module = request->passdb->passdb;
+	struct checkpassword_passdb_module *module =
+		(struct checkpassword_passdb_module *)_module;
 	struct chkpw_auth_request *chkpw_auth_request;
 	int fd_in[2], fd_out[2];
 	pid_t pid;
@@ -274,7 +288,7 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 	if (pid == 0) {
 		(void)close(fd_in[0]);
 		(void)close(fd_out[1]);
-		checkpassword_verify_plain_child(fd_in[1], fd_out[0]);
+		checkpassword_verify_plain_child(module, fd_in[1], fd_out[0]);
 	}
 
 	if (close(fd_in[1]) < 0) {
@@ -302,50 +316,54 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 		io_add(fd_out[1], IO_WRITE, checkpassword_child_output,
 		       chkpw_auth_request);
 
-	hash_insert(clients, POINTER_CAST(pid), chkpw_auth_request);
+	hash_insert(module->clients, POINTER_CAST(pid), chkpw_auth_request);
 
-	if (to_wait == NULL) {
+	if (module->to_wait == NULL) {
 		/* FIXME: we could use SIGCHLD */
-		to_wait = timeout_add(100, wait_timeout, NULL);
+		module->to_wait = timeout_add(100, wait_timeout, module);
 	}
 }
 
-static void checkpassword_init(const char *args)
+static struct passdb_module *
+checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
-	checkpassword_path = i_strdup(args);
-	checkpassword_reply_path =
-		i_strdup(PKG_LIBEXECDIR"/checkpassword-reply");
+	struct checkpassword_passdb_module *module;
 
-	to_wait = NULL;
-	clients = hash_create(default_pool, default_pool, 0, NULL, NULL);
+	module = p_new(auth_passdb->auth->pool,
+		       struct checkpassword_passdb_module, 1);
+	module->checkpassword_path = p_strdup(auth_passdb->auth->pool, args);
+	module->checkpassword_reply_path =
+		PKG_LIBEXECDIR"/checkpassword-reply";
+
+	module->clients =
+		hash_create(default_pool, default_pool, 0, NULL, NULL);
+	return &module->module;
 }
 
-static void checkpassword_deinit(void)
+static void checkpassword_deinit(struct passdb_module *_module)
 {
+	struct checkpassword_passdb_module *module =
+		(struct checkpassword_passdb_module *)_module;
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	iter = hash_iterate_init(clients);
+	iter = hash_iterate_init(module->clients);
 	while (hash_iterate(iter, &key, &value)) {
 		checkpassword_request_finish(value,
 					     PASSDB_RESULT_INTERNAL_FAILURE);
 	}
 	hash_iterate_deinit(iter);
-	hash_destroy(clients);
+	hash_destroy(module->clients);
 
-	if (to_wait != NULL)
-		timeout_remove(to_wait);
-
-	i_free(checkpassword_path);
-	i_free(checkpassword_reply_path);
+	if (module->to_wait != NULL)
+		timeout_remove(module->to_wait);
 }
 
-struct passdb_module passdb_checkpassword = {
+struct passdb_module_interface passdb_checkpassword = {
 	"checkpassword",
-	NULL, NULL, FALSE,
 
+	checkpassword_preinit,
 	NULL,
-	checkpassword_init,
 	checkpassword_deinit,
 
 	checkpassword_verify_plain,

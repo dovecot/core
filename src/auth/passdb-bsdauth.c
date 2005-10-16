@@ -12,9 +12,6 @@
 #include <bsd_auth.h>
 #include <pwd.h>
 
-extern struct passdb_module passdb_bsdauth;
-static char *bsdauth_cache_key;
-
 static void
 bsdauth_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
@@ -55,28 +52,30 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	callback(PASSDB_RESULT_OK, request);
 }
 
-static void bsdauth_init(const char *args)
+static struct passdb_module *
+bsdauth_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
-	bsdauth_cache_key = NULL;
+	struct passdb_module *module;
 
-	if (strncmp(args, "cache_key=", 10) == 0)
-		bsdauth_cache_key = i_strdup(args + 10);
+	module = p_new(auth_passdb->auth->pool, struct passdb_module, 1);
 
-	passdb_bsdauth.cache_key = bsdauth_cache_key;
+	if (strncmp(args, "cache_key=", 10) == 0) {
+		module->cache_key =
+			p_strdup(auth_passdb->auth->pool, args + 10);
+	}
+	return module;
 }
 
-static void bsdauth_deinit(void)
+static void bsdauth_deinit(struct passdb_module *module __attr_unused__)
 {
 	endpwent();
-	i_free(bsdauth_cache_key);
 }
 
-struct passdb_module passdb_bsdauth = {
+struct passdb_module_interface passdb_bsdauth = {
 	"bsdauth",
-	NULL, NULL, FALSE,
 
+	bsdauth_preinit,
 	NULL,
-	bsdauth_init,
 	bsdauth_deinit,
 
 	bsdauth_verify_plain,
