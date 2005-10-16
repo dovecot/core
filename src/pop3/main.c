@@ -185,7 +185,7 @@ static int main_init(void)
 	reuse_xuidl = getenv("POP3_REUSE_XUIDL") != NULL;
 
 	uidl_format = getenv("POP3_UIDL_FORMAT");
-	if (uidl_format == NULL)
+	if (uidl_format == NULL || *uidl_format == '\0')
 		i_fatal("Set pop3_uidl_format setting in config file");
 	logout_format = getenv("POP3_LOGOUT_FORMAT");
 	if (logout_format == NULL)
