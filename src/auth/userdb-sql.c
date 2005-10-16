@@ -13,14 +13,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct sql_userdb_module {
+	struct userdb_module module;
+
+	struct sql_connection *conn;
+};
+
 struct userdb_sql_request {
 	struct auth_request *auth_request;
 	userdb_callback_t *callback;
 };
-
-extern struct userdb_module userdb_sql;
-
-static struct sql_connection *userdb_sql_conn;
 
 static struct auth_stream_reply *
 sql_query_get_result(struct sql_result *result,
@@ -99,11 +101,14 @@ static void sql_query_callback(struct sql_result *result, void *context)
 static void userdb_sql_lookup(struct auth_request *auth_request,
 			      userdb_callback_t *callback)
 {
+	struct userdb_module *_module = auth_request->userdb->userdb;
+	struct sql_userdb_module *module =
+		(struct sql_userdb_module *)_module;
 	struct userdb_sql_request *sql_request;
 	string_t *query;
 
 	query = t_str_new(512);
-	var_expand(query, userdb_sql_conn->set.user_query,
+	var_expand(query, module->conn->set.user_query,
 		   auth_request_get_var_expand_table(auth_request,
 						     str_escape));
 
@@ -113,34 +118,44 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 
 	auth_request_log_debug(auth_request, "sql", "%s", str_c(query));
 
-	sql_query(userdb_sql_conn->db, str_c(query),
+	sql_query(module->conn->db, str_c(query),
 		  sql_query_callback, sql_request);
 }
 
-static void userdb_sql_preinit(const char *args)
+static struct userdb_module *
+userdb_sql_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
-	userdb_sql_conn = db_sql_init(args);
+	struct sql_userdb_module *module;
+
+	module = p_new(auth_userdb->auth->pool, struct sql_userdb_module, 1);
+	module->conn = db_sql_init(args);
+	return &module->module;
 }
 
-static void userdb_sql_init(const char *args __attr_unused__)
+static void userdb_sql_init(struct userdb_module *_module,
+			    const char *args __attr_unused__)
 {
+	struct sql_userdb_module *module =
+		(struct sql_userdb_module *)_module;
 	enum sql_db_flags flags;
 
-	flags = sql_get_flags(userdb_sql_conn->db);
-	userdb_sql.blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
+	flags = sql_get_flags(module->conn->db);
+	_module->blocking = (flags & SQL_DB_FLAG_BLOCKING) != 0;
 
-	if (!userdb_sql.blocking || worker)
-		sql_connect(userdb_sql_conn->db);
+	if (!_module->blocking || worker)
+		sql_connect(module->conn->db);
 }
 
-static void userdb_sql_deinit(void)
+static void userdb_sql_deinit(struct userdb_module *_module)
 {
-	db_sql_unref(userdb_sql_conn);
+	struct sql_userdb_module *module =
+		(struct sql_userdb_module *)_module;
+
+	db_sql_unref(module->conn);
 }
 
-struct userdb_module userdb_sql = {
+struct userdb_module_interface userdb_sql = {
 	"sql",
-	FALSE,
 
 	userdb_sql_preinit,
 	userdb_sql_init,

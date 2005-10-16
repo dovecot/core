@@ -273,7 +273,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		}
 	}
 
-	auth_request->userdb->userdb->
+	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);
 }
 

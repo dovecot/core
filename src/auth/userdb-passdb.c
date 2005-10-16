@@ -90,9 +90,8 @@ static void passdb_lookup(struct auth_request *auth_request,
 	t_pop();
 }
 
-struct userdb_module userdb_passdb = {
+struct userdb_module_interface userdb_passdb = {
 	"passdb",
-	FALSE,
 
 	NULL,
 	NULL,

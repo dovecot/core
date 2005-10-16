@@ -13,8 +13,10 @@
 #include <ldap.h>
 #include <stdlib.h>
 
-static const char *default_attr_map[] = {
-	"", "home", "mail", "system_user", "uid", "gid", NULL
+struct ldap_userdb_module {
+	struct userdb_module module;
+
+	struct ldap_connection *conn;
 };
 
 struct userdb_ldap_request {
@@ -23,7 +25,9 @@ struct userdb_ldap_request {
         userdb_callback_t *userdb_callback;
 };
 
-static struct ldap_connection *userdb_ldap_conn;
+static const char *default_attr_map[] = {
+	"", "home", "mail", "system_user", "uid", "gid", NULL
+};
 
 static int append_uid_list(struct auth_request *auth_request,
                            struct auth_stream_reply *reply,
@@ -75,7 +79,7 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
-		name = hash_lookup(userdb_ldap_conn->user_attr_map, attr);
+		name = hash_lookup(conn->user_attr_map, attr);
 		vals = ldap_get_values(conn->ld, entry, attr);
 
 		if (name != NULL && vals != NULL && vals[0] != NULL) {
@@ -165,10 +169,12 @@ static void handle_request(struct ldap_connection *conn,
 static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback)
 {
-	struct ldap_connection *conn = userdb_ldap_conn;
+	struct userdb_module *_module = auth_request->userdb->userdb;
+	struct ldap_userdb_module *module =
+		(struct ldap_userdb_module *)_module;
+	struct ldap_connection *conn = module->conn;
         const struct var_expand_table *vars;
-	const char **attr_names =
-		(const char **)userdb_ldap_conn->user_attr_names;
+	const char **attr_names = (const char **)conn->user_attr_names;
 	struct userdb_ldap_request *request;
 	const char *filter, *base;
 	string_t *str;
@@ -193,37 +199,46 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       base, conn->set.scope, filter,
 			       t_strarray_join(attr_names, ","));
 
-	db_ldap_search(conn, base, conn->set.ldap_scope,
-		       filter, userdb_ldap_conn->user_attr_names,
-		       &request->request);
+	db_ldap_search(conn, base, conn->set.ldap_scope, filter,
+		       conn->user_attr_names, &request->request);
 }
 
-static void userdb_ldap_preinit(const char *args)
+static struct userdb_module *
+userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
-	userdb_ldap_conn = db_ldap_init(args);
-	userdb_ldap_conn->user_attr_map =
-		hash_create(default_pool, userdb_ldap_conn->pool, 0, str_hash,
+	struct ldap_userdb_module *module;
+	struct ldap_connection *conn;
+
+	module = p_new(auth_userdb->auth->pool, struct ldap_userdb_module, 1);
+	module->conn = conn = db_ldap_init(args);
+	conn->user_attr_map =
+		hash_create(default_pool, conn->pool, 0, str_hash,
 			    (hash_cmp_callback_t *)strcmp);
 
-	db_ldap_set_attrs(userdb_ldap_conn, userdb_ldap_conn->set.user_attrs,
-                          &userdb_ldap_conn->user_attr_names,
-			  userdb_ldap_conn->user_attr_map,
-			  default_attr_map);
+	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
+			  conn->user_attr_map, default_attr_map);
+	return &module->module;
 }
 
-static void userdb_ldap_init(const char *args __attr_unused__)
+static void userdb_ldap_init(struct userdb_module *_module,
+			     const char *args __attr_unused__)
 {
-	(void)db_ldap_connect(userdb_ldap_conn);
+	struct ldap_userdb_module *module =
+		(struct ldap_userdb_module *)_module;
+
+	(void)db_ldap_connect(module->conn);
 }
 
-static void userdb_ldap_deinit(void)
+static void userdb_ldap_deinit(struct userdb_module *_module)
 {
-	db_ldap_unref(userdb_ldap_conn);
+	struct ldap_userdb_module *module =
+		(struct ldap_userdb_module *)_module;
+
+	db_ldap_unref(module->conn);
 }
 
-struct userdb_module userdb_ldap = {
+struct userdb_module_interface userdb_ldap = {
 	"ldap",
-	FALSE,
 
 	userdb_ldap_preinit,
 	userdb_ldap_init,

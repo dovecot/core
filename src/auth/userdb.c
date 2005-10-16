@@ -9,15 +9,15 @@
 #include <pwd.h>
 #include <grp.h>
 
-extern struct userdb_module userdb_passdb;
-extern struct userdb_module userdb_static;
-extern struct userdb_module userdb_passwd;
-extern struct userdb_module userdb_passwd_file;
-extern struct userdb_module userdb_vpopmail;
-extern struct userdb_module userdb_ldap;
-extern struct userdb_module userdb_sql;
+extern struct userdb_module_interface userdb_passdb;
+extern struct userdb_module_interface userdb_static;
+extern struct userdb_module_interface userdb_passwd;
+extern struct userdb_module_interface userdb_passwd_file;
+extern struct userdb_module_interface userdb_vpopmail;
+extern struct userdb_module_interface userdb_ldap;
+extern struct userdb_module_interface userdb_sql;
 
-struct userdb_module *userdbs[] = {
+struct userdb_module_interface *userdb_interfaces[] = {
 #ifdef USERDB_PASSWD
 	&userdb_passwd,
 #endif
@@ -86,7 +86,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 
 void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 {
-	struct userdb_module **p;
+	struct userdb_module_interface **p, *iface;
         struct auth_userdb *auth_userdb, **dest;
 
 	if (args == NULL) args = "";
@@ -99,9 +99,10 @@ void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 		auth_userdb->num++;
 	*dest = auth_userdb;
 
-	for (p = userdbs; *p != NULL; p++) {
+	iface = NULL;
+	for (p = userdb_interfaces; *p != NULL; p++) {
 		if (strcmp((*p)->name, driver) == 0) {
-			auth_userdb->userdb = *p;
+			iface = *p;
 			break;
 		}
 	}
@@ -110,23 +111,28 @@ void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 	if (auth_userdb->userdb == NULL)
 		auth_userdb->module = auth_module_open(driver);
 	if (auth_userdb->module != NULL) {
-		auth_userdb->userdb =
-			auth_module_sym(auth_userdb->module,
+		iface = auth_module_sym(auth_userdb->module,
 					t_strconcat("userdb_", driver, NULL));
 	}
 #endif
 
-	if (auth_userdb->userdb == NULL)
+	if (iface == NULL)
 		i_fatal("Unknown userdb driver '%s'", driver);
 
-	if (auth_userdb->userdb->preinit != NULL)
-		auth_userdb->userdb->preinit(auth_userdb->args);
+	if (iface->preinit == NULL) {
+		auth_userdb->userdb =
+			p_new(auth->pool, struct userdb_module, 1);
+	} else {
+		auth_userdb->userdb =
+			iface->preinit(auth_userdb, auth_userdb->args);
+	}
+	auth_userdb->userdb->iface = iface;
 }
 
 void userdb_init(struct auth_userdb *userdb)
 {
-	if (userdb->userdb->init != NULL)
-		userdb->userdb->init(userdb->args);
+	if (userdb->userdb->iface->init != NULL)
+		userdb->userdb->iface->init(userdb->userdb, userdb->args);
 
 	if (userdb->userdb->blocking && !worker) {
 		/* blocking userdb - we need an auth server */
@@ -136,8 +142,8 @@ void userdb_init(struct auth_userdb *userdb)
 
 void userdb_deinit(struct auth_userdb *userdb)
 {
-	if (userdb->userdb->deinit != NULL)
-		userdb->userdb->deinit();
+	if (userdb->userdb->iface->deinit != NULL)
+		userdb->userdb->iface->deinit(userdb->userdb);
 #ifdef HAVE_MODULES
 	if (userdb->module != NULL)
                 auth_module_close(userdb->module);

@@ -8,15 +8,22 @@
 #include "userdb.h"
 #include "db-passwd-file.h"
 
-struct db_passwd_file *userdb_pwf = NULL;
+struct passwd_file_userdb_module {
+        struct userdb_module module;
+
+	struct db_passwd_file *pwf;
+};
 
 static void passwd_file_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback)
 {
+	struct userdb_module *_module = auth_request->userdb->userdb;
+	struct passwd_file_userdb_module *module =
+		(struct passwd_file_userdb_module *)_module;
 	struct auth_stream_reply *reply;
 	struct passwd_user *pu;
 
-	pu = db_passwd_file_lookup(userdb_pwf, auth_request);
+	pu = db_passwd_file_lookup(module->pwf, auth_request);
 	if (pu == NULL) {
 		callback(NULL, auth_request);
 		return;
@@ -35,21 +42,37 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	callback(reply, auth_request);
 }
 
-static void passwd_file_init(const char *args)
+static struct userdb_module *
+passwd_file_preinit(struct auth_userdb *auth_userdb,
+		    const char *args __attr_unused__)
 {
-	userdb_pwf = db_passwd_file_parse(args, TRUE);
+	struct passwd_file_userdb_module *module;
+
+	module = p_new(auth_userdb->auth->pool,
+		       struct passwd_file_userdb_module, 1);
+	return &module->module;
 }
 
-static void passwd_file_deinit(void)
+static void passwd_file_init(struct userdb_module *_module, const char *args)
 {
-	db_passwd_file_unref(userdb_pwf);
+	struct passwd_file_userdb_module *module =
+		(struct passwd_file_userdb_module *)_module;
+
+	module->pwf = db_passwd_file_parse(args, TRUE);
 }
 
-struct userdb_module userdb_passwd_file = {
+static void passwd_file_deinit(struct userdb_module *_module)
+{
+	struct passwd_file_userdb_module *module =
+		(struct passwd_file_userdb_module *)_module;
+
+	db_passwd_file_unref(module->pwf);
+}
+
+struct userdb_module_interface userdb_passwd_file = {
 	"passwd-file",
-	FALSE,
 
-	NULL,
+	passwd_file_preinit,
 	passwd_file_init,
 	passwd_file_deinit,
 

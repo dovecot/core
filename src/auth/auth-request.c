@@ -464,7 +464,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	if (userdb->blocking)
 		userdb_blocking_lookup(request);
 	else
-		userdb->lookup(request, auth_request_userdb_callback);
+		userdb->iface->lookup(request, auth_request_userdb_callback);
 }
 
 int auth_request_set_username(struct auth_request *request,
