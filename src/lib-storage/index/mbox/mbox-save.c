@@ -277,7 +277,15 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	if (ctx->append_offset == (uoff_t)-1) {
 		/* first appended mail in this transaction */
 		if (mbox->mbox_lock_type != F_WRLCK) {
-			i_assert(mbox->mbox_lock_type != F_RDLCK);
+			if (mbox->mbox_lock_type == F_RDLCK) {
+				/* FIXME: we shouldn't fail here. it's just
+				   a locking issue that should be possible to
+				   fix.. */
+				mail_storage_set_error(
+					STORAGE(ctx->mbox->storage),
+					"Can't copy mails inside same mailbox");
+				return -1;
+			}
 			if (mbox_lock(mbox, F_WRLCK, &t->mbox_lock_id) <= 0)
 				return -1;
 		}
