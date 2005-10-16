@@ -119,9 +119,14 @@ struct cmd_list_context {
 static void cmd_list_callback(struct client *client)
 {
 	struct cmd_list_context *ctx = client->cmd_context;
-	int ret;
+	int ret = 1;
 
 	for (; ctx->msgnum != client->messages_count; ctx->msgnum++) {
+		if (ret == 0) {
+			/* buffer full */
+			return;
+		}
+
 		if (client->deleted) {
 			if (client->deleted_bitmask[ctx->msgnum / CHAR_BIT] &
 			    (1 << (ctx->msgnum % CHAR_BIT)))
@@ -132,8 +137,6 @@ static void cmd_list_callback(struct client *client)
 				       client->message_sizes[ctx->msgnum]);
 		if (ret < 0)
 			break;
-		if (ret == 0)
-			return;
 	}
 
 	client_send_line(client, ".");
