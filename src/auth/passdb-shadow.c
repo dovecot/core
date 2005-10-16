@@ -10,6 +10,9 @@
 
 #include <shadow.h>
 
+#define SHADOW_CACHE_KEY "%u"
+#define SHADOW_PASS_SCHEME "CRYPT"
+
 static void
 shadow_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
@@ -30,6 +33,10 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
 	}
+
+	/* save the password so cache can use it */
+	auth_request_set_field(request, "password", spw->sp_pwdp,
+			       SHADOW_PASS_SCHEME);
 
 	/* check if the password is valid */
 	result = strcmp(mycrypt(password, spw->sp_pwdp), spw->sp_pwdp) == 0;
@@ -56,7 +63,9 @@ static void shadow_deinit(void)
 
 struct passdb_module passdb_shadow = {
 	"shadow",
-	"%u", "CRYPT", FALSE,
+        SHADOW_CACHE_KEY,
+        SHADOW_PASS_SCHEME,
+	FALSE,
 
 	NULL, NULL,
 	shadow_deinit,

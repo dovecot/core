@@ -8,6 +8,9 @@
 #include "password-scheme.h"
 #include "db-passwd-file.h"
 
+#define PASSWD_FILE_CACHE_KEY "%u"
+#define PASSWD_FILE_DEFAULT_SCHEME "CRYPT"
+
 struct db_passwd_file *passdb_pwf = NULL;
 
 static void
@@ -26,7 +29,10 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 
 	crypted_pass = pu->password;
 	scheme = password_get_scheme(&crypted_pass);
-	if (scheme == NULL) scheme = "CRYPT";
+	if (scheme == NULL) scheme = PASSWD_FILE_DEFAULT_SCHEME;
+
+	/* save the password so cache can use it */
+	auth_request_set_field(request, "password", crypted_pass, scheme);
 
 	ret = password_verify(password, crypted_pass, scheme,
 			      request->user);
@@ -81,7 +87,9 @@ static void passwd_file_deinit(void)
 
 struct passdb_module passdb_passwd_file = {
 	"passwd-file",
-	NULL, NULL, FALSE,
+	PASSWD_FILE_CACHE_KEY,
+	NULL,
+	FALSE,
 
 	NULL,
 	passwd_file_init,

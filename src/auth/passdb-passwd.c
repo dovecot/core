@@ -10,6 +10,9 @@
 
 #include <pwd.h>
 
+#define PASSWD_CACHE_KEY "%u"
+#define PASSWD_PASS_SCHEME "CRYPT"
+
 static void
 passwd_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
@@ -30,6 +33,10 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 		callback(PASSDB_RESULT_USER_DISABLED, request);
 		return;
 	}
+
+	/* save the password so cache can use it */
+	auth_request_set_field(request, "password", pw->pw_passwd,
+			       PASSWD_PASS_SCHEME);
 
 	/* check if the password is valid */
 	result = strcmp(mycrypt(password, pw->pw_passwd), pw->pw_passwd) == 0;
@@ -56,7 +63,9 @@ static void passwd_deinit(void)
 
 struct passdb_module passdb_passwd = {
 	"passwd",
-	"%u", "CRYPT", FALSE,
+        PASSWD_CACHE_KEY,
+        PASSWD_PASS_SCHEME,
+	FALSE,
 
 	NULL, NULL,
 	passwd_deinit,

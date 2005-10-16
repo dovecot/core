@@ -14,7 +14,10 @@
 
 #include <stdlib.h>
 
+#define VPOPMAIL_DEFAULT_PASS_SCHEME "CRYPT"
+
 extern struct passdb_module passdb_vpopmail;
+static char *vpopmail_cache_key;
 
 static void
 vpopmail_verify_plain(struct auth_request *request, const char *password,
@@ -91,16 +94,30 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	callback(PASSDB_RESULT_OK, request);
 }
 
+static void vpopmail_init(const char *args)
+{
+	vpopmail_cache_key = NULL;
+
+	if (strncmp(args, "cache_key=", 10) == 0)
+		vpopmail_cache_key = i_strdup(args + 10);
+
+	passdb_vpopmail.cache_key = vpopmail_cache_key;
+}
+
 static void vpopmail_deinit(void)
 {
 	vclose();
+	i_free(vpopmail_cache_key);
 }
 
 struct passdb_module passdb_vpopmail = {
 	"vpopmail",
-	"%u", "CRYPT", FALSE,
+	NULL,
+	VPOPMAIL_DEFAULT_PASS_SCHEME,
+	FALSE,
 
-	NULL, NULL,
+	NULL,
+	vpopmail_init,
 	vpopmail_deinit,
 
 	vpopmail_verify_plain,

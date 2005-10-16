@@ -71,8 +71,10 @@ struct pam_userpass {
 	const char *pass;
 };
 
+extern struct passdb_module passdb_pam;
+
 static int pam_session;
-static char *service_name;
+static char *service_name, *pam_cache_key;
 static struct timeout *to_wait;
 
 static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
@@ -409,13 +411,17 @@ static void pam_init(const char *args)
 
 	pam_session = FALSE;
 	service_name = i_strdup("dovecot");
+        pam_cache_key = NULL;
 
 	t_push();
 	t_args = t_strsplit(args, " ");
         for(i = 0; t_args[i] != NULL; i++) {
 		if (strcmp(t_args[i], "-session") == 0)
 			pam_session = TRUE;
-		else if (strcmp(t_args[i], "*") == 0) {
+		else if (strncmp(t_args[i], "cache_key=", 10) == 0) {
+			i_free(pam_cache_key);
+			pam_cache_key = i_strdup(t_args[i] + 10);
+		} else if (strcmp(t_args[i], "*") == 0) {
 			i_free(service_name);
 			service_name = NULL;
 		} else {
@@ -428,6 +434,7 @@ static void pam_init(const char *args)
 	t_pop();
 
 	to_wait = NULL;
+        passdb_pam.cache_key = pam_cache_key;
 }
 
 static void pam_deinit(void)
@@ -435,6 +442,7 @@ static void pam_deinit(void)
 	if (to_wait != NULL)
 		timeout_remove(to_wait);
 	i_free(service_name);
+	i_free(pam_cache_key);
 }
 
 struct passdb_module passdb_pam = {

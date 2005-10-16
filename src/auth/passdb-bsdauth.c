@@ -12,6 +12,9 @@
 #include <bsd_auth.h>
 #include <pwd.h>
 
+extern struct passdb_module passdb_bsdauth;
+static char *bsdauth_cache_key;
+
 static void
 bsdauth_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
@@ -52,16 +55,28 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	callback(PASSDB_RESULT_OK, request);
 }
 
+static void bsdauth_init(const char *args)
+{
+	bsdauth_cache_key = NULL;
+
+	if (strncmp(args, "cache_key=", 10) == 0)
+		bsdauth_cache_key = i_strdup(args + 10);
+
+	passdb_bsdauth.cache_key = bsdauth_cache_key;
+}
+
 static void bsdauth_deinit(void)
 {
 	endpwent();
+	i_free(bsdauth_cache_key);
 }
 
 struct passdb_module passdb_bsdauth = {
 	"bsdauth",
-	"%u", "CRYPT", FALSE,
+	NULL, NULL, FALSE,
 
-	NULL, NULL,
+	NULL,
+	bsdauth_init,
 	bsdauth_deinit,
 
 	bsdauth_verify_plain,

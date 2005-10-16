@@ -202,8 +202,13 @@ static void auth_request_save_cache(struct auth_request *request,
 	}
 
 	if (request->passdb_password == NULL) {
-		/* save to cache only if we know the password */
-		return;
+		/* passdb didn't provide the correct password */
+		if (result != PASSDB_RESULT_OK ||
+		    request->mech_password == NULL)
+			return;
+
+		/* we can still cache valid password lookups though */
+		request->passdb_password = request->mech_password;
 	}
 
 	/* save all except the currently given password in cache */
@@ -323,6 +328,8 @@ void auth_request_verify_plain(struct auth_request *request,
 
 	if (request->mech_password == NULL)
 		request->mech_password = p_strdup(request->pool, password);
+	else
+		i_assert(request->mech_password == password);
 	request->private_callback.verify_plain = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
