@@ -337,10 +337,11 @@ void i_set_failure_file(const char *path, const char *prefix)
 	i_free(log_prefix);
 	log_prefix = i_strconcat(prefix, ": ", NULL);
 
-	open_log_file(&log_fd, path);
-
-	if (log_info_fd != NULL && log_info_fd != stderr)
+	if (log_info_fd != NULL && log_info_fd != log_fd &&
+	    log_info_fd != stderr)
 		(void)fclose(log_info_fd);
+
+	open_log_file(&log_fd, path);
 	log_info_fd = log_fd;
 
 	i_set_panic_handler(NULL);
