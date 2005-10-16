@@ -186,7 +186,7 @@ static int main_init(void)
 
 	uidl_format = getenv("POP3_UIDL_FORMAT");
 	if (uidl_format == NULL)
-		uidl_format = "%v.%u";
+		i_fatal("Set pop3_uidl_format setting in config file");
 	logout_format = getenv("POP3_LOGOUT_FORMAT");
 	if (logout_format == NULL)
 		logout_format = "top=%t/%T, retr=%r/%R, del=%d/%m, size=%s";
