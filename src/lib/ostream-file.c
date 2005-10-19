@@ -367,7 +367,13 @@ static void stream_send_io(void *context)
 			fstream->io = NULL;
 		}
 	} else {
-		i_assert(fstream->io != NULL);
+		/* Add the IO handler if it's not there already. Callback
+		   might have just returned 0 without there being any data
+		   to be sent. */
+		if (fstream->io == NULL) {
+			fstream->io = io_add(fstream->fd, IO_WRITE,
+					     stream_send_io, fstream);
+		}
 	}
 
 	o_stream_unref(&fstream->ostream.ostream);
