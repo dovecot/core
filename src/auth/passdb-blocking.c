@@ -47,7 +47,7 @@ check_failure(struct auth_request *request, const char **reply)
 static int get_pass_reply(struct auth_request *request, const char *reply,
 			  const char **password_r, const char **scheme_r)
 {
-	const char *p, *p2;
+	const char *p, *p2, **tmp;
 
 	/* user \t {scheme}password [\t extra] */
 	p = strchr(reply, '\t');
@@ -83,12 +83,16 @@ static int get_pass_reply(struct auth_request *request, const char *reply,
 	if (*reply != '\0') {
 		i_assert(request->extra_fields == NULL);
 
-		p = strstr(reply, "\tproxy");
-		if (p != NULL && (p[6] == '\0' || p[6] == '\t'))
-			request->proxy = TRUE;
-
-		request->extra_fields = auth_stream_reply_init(request);
-		auth_stream_reply_import(request->extra_fields, reply);
+		for (tmp = t_strsplit(reply, "\t"); *tmp != NULL; tmp++) {
+			p = strchr(*tmp, '=');
+			if (p == NULL)
+				p = "";
+			else {
+				*tmp = t_strdup_until(*tmp, p);
+				p++;
+			}
+			auth_request_set_field(request, *tmp, p, NULL);
+		}
 	}
 	return 0;
 }
