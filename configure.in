@@ -145,14 +145,14 @@ AC_ARG_WITH(static-userdb,
 	fi,
 	want_static_userdb=yes)
 
-AC_ARG_WITH(passdb-userdb,
-[  --with-passdb-userdb    Build with passdb userdb support (default)],
+AC_ARG_WITH(prefetch-userdb,
+[  --with-prefetch-userdb  Build with prefetch userdb support (default)],
 	if test x$withval = xno; then
-		want_passdb_userdb=no
+		want_prefetch_userdb=no
 	else
-		want_passdb_userdb=yes
+		want_prefetch_userdb=yes
 	fi,
-	want_passdb_userdb=yes)
+	want_prefetch_userdb=yes)
 
 AC_ARG_WITH(pgsql,
 [  --with-pgsql            Build with PostgreSQL support],
@@ -1119,9 +1119,9 @@ if test $want_static_userdb = yes; then
 	userdb="$userdb static"
 fi
 
-if test $want_passdb_userdb = yes; then
-        AC_DEFINE(USERDB_PASSDB,, Build with passdb userdb support)
-	userdb="$userdb passdb"
+if test $want_prefetch_userdb = yes; then
+        AC_DEFINE(USERDB_PREFETCH,, Build with prefetch userdb support)
+	userdb="$userdb prefetch"
 fi
 
 if test $want_passwd = yes; then

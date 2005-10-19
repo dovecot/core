@@ -9,7 +9,7 @@
 #include <pwd.h>
 #include <grp.h>
 
-extern struct userdb_module_interface userdb_passdb;
+extern struct userdb_module_interface userdb_prefetch;
 extern struct userdb_module_interface userdb_static;
 extern struct userdb_module_interface userdb_passwd;
 extern struct userdb_module_interface userdb_passwd_file;
@@ -24,8 +24,8 @@ struct userdb_module_interface *userdb_interfaces[] = {
 #ifdef USERDB_PASSWD_FILE
 	&userdb_passwd_file,
 #endif
-#ifdef USERDB_PASSDB
-	&userdb_passdb,
+#ifdef USERDB_PREFETCH
+	&userdb_prefetch,
 #endif
 #ifdef USERDB_STATIC
 	&userdb_static,

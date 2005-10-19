@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-#ifdef USERDB_PASSDB
+#ifdef USERDB_PREFETCH
 
 #include "str.h"
 #include "var-expand.h"
@@ -10,8 +10,8 @@
 
 #include <stdlib.h>
 
-static void passdb_lookup(struct auth_request *auth_request,
-			  userdb_callback_t *callback)
+static void prefetch_lookup(struct auth_request *auth_request,
+			    userdb_callback_t *callback)
 {
 	const char *const *args;
 	string_t *str;
@@ -20,7 +20,7 @@ static void passdb_lookup(struct auth_request *auth_request,
 	int uid_seen, gid_seen;
 
 	if (auth_request->extra_fields == NULL) {
-		auth_request_log_error(auth_request, "passdb",
+		auth_request_log_error(auth_request, "prefetch",
 				       "passdb didn't return userdb entries");
 		callback(NULL, auth_request);
 		return;
@@ -68,11 +68,11 @@ static void passdb_lookup(struct auth_request *auth_request,
 	}
 
 	if (!uid_seen) {
-		auth_request_log_error(auth_request, "passdb",
+		auth_request_log_error(auth_request, "prefetch",
 				       "userdb_uid not returned");
 	}
 	if (!gid_seen) {
-		auth_request_log_error(auth_request, "passdb",
+		auth_request_log_error(auth_request, "prefetch",
 				       "userdb_gid not returned");
 	}
 
@@ -90,14 +90,14 @@ static void passdb_lookup(struct auth_request *auth_request,
 	t_pop();
 }
 
-struct userdb_module_interface userdb_passdb = {
-	"passdb",
+struct userdb_module_interface userdb_prefetch = {
+	"prefetch",
 
 	NULL,
 	NULL,
 	NULL,
 
-	passdb_lookup
+	prefetch_lookup
 };
 
 #endif

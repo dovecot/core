@@ -71,9 +71,9 @@ dovecot_auth_SOURCES = \
 	userdb.c \
 	userdb-blocking.c \
 	userdb-ldap.c \
-	userdb-passdb.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
+	userdb-prefetch.c \
 	userdb-static.c \
 	userdb-vpopmail.c \
 	userdb-sql.c
