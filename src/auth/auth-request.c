@@ -550,10 +550,12 @@ void auth_request_set_field(struct auth_request *request,
 		/* user can't actually login - don't keep this
 		   reply for master */
 		request->no_login = TRUE;
+		value = NULL;
 	} else if (strcmp(name, "proxy") == 0) {
 		/* we're proxying authentication for this user. send
 		   password back if using plaintext authentication. */
 		request->proxy = TRUE;
+		value = NULL;
 	}
 
 	if (request->extra_fields == NULL)
