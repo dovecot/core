@@ -57,6 +57,7 @@ struct auth_request {
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;
 	unsigned int no_login:1;
+	unsigned int no_password:1;
 	unsigned int proxy:1;
 	unsigned int cert_username:1;
 

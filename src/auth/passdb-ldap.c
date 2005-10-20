@@ -126,6 +126,8 @@ static void handle_request(struct ldap_connection *conn,
 					       "Multiple password replies");
 		} else {
 			password = auth_request->passdb_password;
+			if (password == NULL)
+				auth_request->no_password = TRUE;
 			passdb_result = PASSDB_RESULT_OK;
 		}
 	}

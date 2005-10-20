@@ -201,29 +201,34 @@ static void auth_request_save_cache(struct auth_request *request,
 		return;
 	}
 
-	if (request->passdb_password == NULL) {
+	if (!request->no_password && request->passdb_password == NULL) {
 		/* passdb didn't provide the correct password */
 		if (result != PASSDB_RESULT_OK ||
 		    request->mech_password == NULL)
 			return;
 
-		/* we can still cache valid password lookups though */
-		request->passdb_password = request->mech_password;
+		/* we can still cache valid password lookups though.
+		   strdup() it so that mech_password doesn't get
+		   cleared too early. */
+		request->passdb_password =
+			p_strdup(request->pool, request->mech_password);
 	}
 
 	/* save all except the currently given password in cache */
 	str = t_str_new(256);
-	if (*request->passdb_password != '{') {
-		/* cached passwords must have a known scheme */
-		str_append_c(str, '{');
-		str_append(str, passdb->default_pass_scheme);
-		str_append_c(str, '}');
+	if (request->passdb_password != NULL) {
+		if (*request->passdb_password != '{') {
+			/* cached passwords must have a known scheme */
+			str_append_c(str, '{');
+			str_append(str, passdb->default_pass_scheme);
+			str_append_c(str, '}');
+		}
+		if (strchr(request->passdb_password, '\t') != NULL)
+			i_panic("%s: Password contains TAB", request->user);
+		if (strchr(request->passdb_password, '\n') != NULL)
+			i_panic("%s: Password contains LF", request->user);
+		str_append(str, request->passdb_password);
 	}
-	if (strchr(request->passdb_password, '\t') != NULL)
-		i_panic("%s: Password contains TAB", request->user);
-	if (strchr(request->passdb_password, '\n') != NULL)
-		i_panic("%s: Password contains LF", request->user);
-	str_append(str, request->passdb_password);
 
 	if (extra_fields != NULL) {
 		str_append_c(str, '\t');
@@ -543,6 +548,13 @@ void auth_request_set_field(struct auth_request *request,
 	if (strcmp(name, "nodelay") == 0) {
 		/* don't delay replying to client of the failure */
 		request->no_failure_delay = TRUE;
+		return;
+	}
+
+	if (strcmp(name, "nopassword") == 0) {
+		/* NULL password - anything goes */
+		i_assert(request->passdb_password == NULL);
+		request->no_password = TRUE;
 		return;
 	}
 

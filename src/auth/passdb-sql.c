@@ -86,6 +86,8 @@ static void sql_query_callback(struct sql_result *result, void *context)
 				"Password query returned multiple matches");
 		} else {
 			password = auth_request->passdb_password;
+			if (password == NULL)
+				auth_request->no_password = TRUE;
 			passdb_result = PASSDB_RESULT_OK;
 		}
 	}
