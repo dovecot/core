@@ -1,3 +1,8 @@
+ - with blocking passdb we're not caching lookups if the password was wrong
+ - blocking passdb/userdb works only as root since it can't access
+   /var/run/auth-worker.* files..
+ - configurable syslog facility
+ - LIST replies 2049 bytes (more would come) -> dovecot gets stuck?
  - auth: it's not possible to have two same passdbs/userdbs with different
    settings
  - LDA: empty mail gives an error. <LF> mail gives another error.
@@ -55,7 +60,6 @@ ns->sep);
 
  - auth master refcounting when handling user/request?
 
- - mail_index_map() -> sync from transaction log -> refresh -> mail_index_map()
  - buffer_create_data() behavior has changed from silent-truncating to
    hard-crashing. See if it breaks anywhere (PAM!)
  - PAM / checkpassword should use passdb-blocking
