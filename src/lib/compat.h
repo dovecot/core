@@ -1,6 +1,10 @@
 #ifndef __COMPAT_H
 #define __COMPAT_H
 
+#if defined (HAVE_INTTYPES_H) && defined(TRU64)
+#  include <inttypes.h>
+#endif
+
 /* well, this is obviously wrong since it assumes it's 64bit, but older
    GCCs don't define it and we really want it. */
 #ifndef LLONG_MAX

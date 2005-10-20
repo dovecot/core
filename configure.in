@@ -14,7 +14,7 @@ AC_C_INLINE
 AM_PROG_LIBTOOL
 AM_ICONV
 
-AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h \
+AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h inttypes.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h)
 
 # check posix headers
