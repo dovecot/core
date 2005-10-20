@@ -1,7 +1,7 @@
 #ifndef __COMPAT_H
 #define __COMPAT_H
 
-#if defined (HAVE_INTTYPES_H) && defined(TRU64)
+#if defined (HAVE_INTTYPES_H) && defined(__osf__)
 #  include <inttypes.h>
 #endif
 
