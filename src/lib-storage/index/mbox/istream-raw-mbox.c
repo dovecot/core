@@ -177,7 +177,11 @@ static ssize_t _read(struct _istream *stream)
 			stream->buffer = buf;
 			stream->pos = pos;
 
-			rstream->eof = TRUE;
+			if (stream->istream.v_offset == rstream->from_offset) {
+				/* haven't seen From-line yet, so this mbox
+				   stream is now at EOF */
+				rstream->eof = TRUE;
+			}
 			stream->istream.eof = TRUE;
 			handle_end_of_mail(rstream, pos);
 			return ret < 0 ? _read(stream) : ret;
