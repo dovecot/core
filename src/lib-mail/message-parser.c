@@ -748,6 +748,12 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 		if (ret <= 0 && startpos == size) {
 			if (ret == -1) {
+				if (startpos > 0) {
+					/* header ended unexpectedly. */
+					line->no_newline = TRUE;
+					ctx->skip = startpos;
+					break;
+				}
 				/* error / EOF with no bytes */
 				return -1;
 			}
