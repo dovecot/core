@@ -372,6 +372,13 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 	ctx->sync_ctx->prev_msg_uid = value;
 	ctx->mail.uid = value;
 
+	if (ctx->sync_ctx->dest_first_mail && ctx->seq != 1) {
+		/* if we're expunging the first mail, delete this header since
+		   otherwise X-IMAPbase header would be added after this, which
+		   we don't like */
+		return FALSE;
+	}
+
 	ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
 	ctx->parsed_uid = value;
 	parse_trailing_whitespace(ctx, hdr);
