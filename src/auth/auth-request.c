@@ -409,6 +409,8 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
+	request->credentials = credentials;
+
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (cache_key != NULL) {
 		if (passdb_cache_lookup_credentials(request, cache_key,
@@ -421,7 +423,6 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	}
 
 	request->state = AUTH_REQUEST_STATE_PASSDB;
-	request->credentials = credentials;
 	request->private_callback.lookup_credentials = callback;
 
 	if (passdb->blocking)
