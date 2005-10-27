@@ -376,7 +376,8 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 	fl.l_len = 0;
 
 	if (max_wait_time == 0) {
-		i_assert(lock_type == F_UNLCK);
+		/* usually we're waiting here, but if we came from
+		   mbox_lock_dotlock(), we just want to try locking */
 		wait_type = F_SETLK;
 	} else {
 		wait_type = F_SETLKW;
