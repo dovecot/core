@@ -309,28 +309,22 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	return 1;
 }
 
-static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
-				   struct mbox_sync_mail *mails,
-				   uint32_t seq, uint32_t idx, uint32_t padding,
-				   off_t move_diff, uoff_t expunged_space,
-				   uoff_t end_offset, int first_nonexpunged)
+static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
+				struct mbox_sync_mail_context *mail_ctx,
+				struct mbox_sync_mail *mails,
+				uint32_t seq, uint32_t idx,
+				uoff_t expunged_space)
 {
-	struct mbox_sync_mail_context mail_ctx;
 	uint32_t old_prev_msg_uid;
-	uoff_t hdr_offset, offset, dest_offset;
-	size_t need_space;
 
-	if (mbox_sync_seek(sync_ctx, mails[idx].from_offset) < 0)
-		return -1;
+	memset(mail_ctx, 0, sizeof(*mail_ctx));
+	mail_ctx->sync_ctx = sync_ctx;
+	mail_ctx->seq = seq;
+	mail_ctx->header = sync_ctx->header;
 
-	memset(&mail_ctx, 0, sizeof(mail_ctx));
-	mail_ctx.sync_ctx = sync_ctx;
-	mail_ctx.seq = seq;
-	mail_ctx.header = sync_ctx->header;
-
-	hdr_offset = istream_raw_mbox_get_header_offset(sync_ctx->input);
-	mail_ctx.mail.offset = hdr_offset;
-	mail_ctx.mail.body_size = mails[idx].body_size;
+	mail_ctx->mail.offset =
+		istream_raw_mbox_get_header_offset(sync_ctx->input);
+	mail_ctx->mail.body_size = mails[idx].body_size;
 
 	/* mbox_sync_parse_next_mail() checks that UIDs are growing,
 	   so we have to fool it. */
@@ -345,18 +339,44 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		mails[idx].from_offset++;
 	}
 
-	mbox_sync_parse_next_mail(sync_ctx->input, &mail_ctx);
+	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx);
 	if (mails[idx].space != 0) {
 		if (mails[idx].space < 0) {
 			/* remove all possible spacing before updating */
-			mbox_sync_headers_remove_space(&mail_ctx, (size_t)-1);
+			mbox_sync_headers_remove_space(mail_ctx, (size_t)-1);
 		}
-		mbox_sync_update_header_from(&mail_ctx, &mails[idx]);
+		mbox_sync_update_header_from(mail_ctx, &mails[idx]);
 	} else {
 		/* updating might just try to add headers and mess up our
 		   calculations completely. so only add the EOH here. */
-		if (mail_ctx.have_eoh)
-			str_append_c(mail_ctx.header, '\n');
+		if (mail_ctx->have_eoh)
+			str_append_c(mail_ctx->header, '\n');
+	}
+
+	sync_ctx->prev_msg_uid = old_prev_msg_uid;
+}
+
+static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
+                                   struct mbox_sync_mail_context *mail_ctx,
+				   struct mbox_sync_mail *mails,
+				   uint32_t seq, uint32_t idx, uint32_t padding,
+				   off_t move_diff, uoff_t expunged_space,
+				   uoff_t end_offset, int first_nonexpunged)
+{
+	struct mbox_sync_mail_context new_mail_ctx;
+	uoff_t offset, dest_offset;
+	size_t need_space;
+
+	if (mail_ctx == NULL) {
+		if (mbox_sync_seek(sync_ctx, mails[idx].from_offset) < 0)
+			return -1;
+
+		mbox_sync_read_next(sync_ctx, &new_mail_ctx, mails, seq, idx,
+				    expunged_space);
+		mail_ctx = &new_mail_ctx;
+	} else {
+		if (mail_ctx->mail.space < 0)
+			mail_ctx->mail.space = 0;
 	}
 
 	if (first_nonexpunged && expunged_space > 0) {
@@ -368,20 +388,18 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 			return -1;
 	}
 
-	sync_ctx->prev_msg_uid = old_prev_msg_uid;
-
-	need_space = str_len(mail_ctx.header) - mail_ctx.mail.space -
-		(mail_ctx.body_offset - mail_ctx.hdr_offset);
+	need_space = str_len(mail_ctx->header) - mail_ctx->mail.space -
+		(mail_ctx->body_offset - mail_ctx->hdr_offset);
 	i_assert(need_space == (uoff_t)-mails[idx].space);
 
 	if (mails[idx].space == 0) {
 		/* don't touch spacing */
-	} else if (padding < (uoff_t)mail_ctx.mail.space) {
-		mbox_sync_headers_remove_space(&mail_ctx, mail_ctx.mail.space -
+	} else if (padding < (uoff_t)mail_ctx->mail.space) {
+		mbox_sync_headers_remove_space(mail_ctx, mail_ctx->mail.space -
 					       padding);
 	} else {
-		mbox_sync_headers_add_space(&mail_ctx, padding -
-					    mail_ctx.mail.space);
+		mbox_sync_headers_add_space(mail_ctx, padding -
+					    mail_ctx->mail.space);
 	}
 
 	/* move the body of this message and headers of next message forward,
@@ -394,26 +412,28 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 
 	/* the header may actually be moved backwards if there was expunged
 	   space which we wanted to remove */
-	i_assert(dest_offset >= str_len(mail_ctx.header));
-	dest_offset -= str_len(mail_ctx.header);
-	if (pwrite_full(sync_ctx->write_fd, str_data(mail_ctx.header),
-			str_len(mail_ctx.header), dest_offset) < 0) {
+	i_assert(dest_offset >= str_len(mail_ctx->header));
+	dest_offset -= str_len(mail_ctx->header);
+	i_assert(dest_offset >= mails[idx].from_offset - expunged_space);
+	if (pwrite_full(sync_ctx->write_fd, str_data(mail_ctx->header),
+			str_len(mail_ctx->header), dest_offset) < 0) {
 		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
 	}
 
 	if (sync_ctx->dest_first_mail) {
-		mbox_sync_first_mail_written(&mail_ctx, dest_offset);
+		mbox_sync_first_mail_written(mail_ctx, dest_offset);
 		sync_ctx->dest_first_mail = FALSE;
 	}
 
 	mails[idx].offset = dest_offset +
-		(mail_ctx.mail.offset - mail_ctx.hdr_offset);
-	mails[idx].space = mail_ctx.mail.space;
+		(mail_ctx->mail.offset - mail_ctx->hdr_offset);
+	mails[idx].space = mail_ctx->mail.space;
 	return 0;
 }
 
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
+		      struct mbox_sync_mail_context *mail_ctx,
 		      uoff_t end_offset, off_t move_diff, uoff_t extra_space,
 		      uint32_t first_seq, uint32_t last_seq)
 {
@@ -471,7 +491,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 			int first_nonexpunged = idx == first_nonexpunged_idx;
 
 			next_move_diff = -mails[idx].space;
-			if (mbox_sync_read_and_move(sync_ctx, mails,
+			if (mbox_sync_read_and_move(sync_ctx, mail_ctx, mails,
 						    first_seq + idx, idx,
 						    padding_per_mail,
 						    move_diff, expunged_space,
@@ -480,6 +500,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 				ret = -1;
 				break;
 			}
+			mail_ctx = NULL;
 			move_diff -= next_move_diff + mails[idx].space;
 		} else {
 			/* this mail provides more space. just move it forward

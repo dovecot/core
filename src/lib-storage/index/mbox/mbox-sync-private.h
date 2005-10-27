@@ -140,6 +140,7 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 				  const struct mbox_sync_mail *mail);
 int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff);
 int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
+                      struct mbox_sync_mail_context *mail_ctx,
 		      uoff_t end_offset, off_t move_diff, uoff_t extra_space,
 		      uint32_t first_seq, uint32_t last_seq);
 

@@ -824,8 +824,9 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		extra_space = sync_ctx->space_diff;
 	}
 
-	if (mbox_sync_rewrite(sync_ctx, end_offset, move_diff, extra_space,
-			      sync_ctx->need_space_seq, last_seq) < 0)
+	if (mbox_sync_rewrite(sync_ctx, mail_ctx, end_offset, move_diff,
+			      extra_space, sync_ctx->need_space_seq,
+			      last_seq) < 0)
 		return -1;
 
 	update_from_offsets(sync_ctx);
@@ -1263,7 +1264,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		}
 		i_stream_sync(sync_ctx->input);
 
-		if (mbox_sync_rewrite(sync_ctx, file_size,
+		if (mbox_sync_rewrite(sync_ctx, mail_ctx, file_size,
 				      -sync_ctx->space_diff, padding,
 				      sync_ctx->need_space_seq,
 				      sync_ctx->seq) < 0)
