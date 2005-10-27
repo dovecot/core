@@ -161,7 +161,7 @@ static ssize_t _read(struct _istream *stream)
 				stream->buffer = buf;
 				return -2;
 			}
-		} else {
+		} else if (stream->istream.v_offset != 0) {
 			/* we've read the whole file, final byte should be
 			   the \n trailer */
 			if (pos > 0 && buf[pos-1] == '\n') {
