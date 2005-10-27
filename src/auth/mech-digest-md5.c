@@ -619,6 +619,7 @@ struct mech_module mech_digest_md5 = {
 	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |
 		MECH_SEC_MUTUAL_AUTH,
 
+	MEMBER(need_passdb) TRUE,
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
 

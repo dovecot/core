@@ -24,6 +24,7 @@ struct mech_module {
 	const char *mech_name;
 
         enum mech_security_flags flags;
+	unsigned int need_passdb:1;
 	unsigned int passdb_need_plain:1;
 	unsigned int passdb_need_credentials:1;
 

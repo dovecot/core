@@ -56,8 +56,6 @@ struct auth *auth_preinit(void)
 	}
 	t_pop();
 
-	if (auth->passdbs == NULL)
-		i_fatal("No password databases set");
 	if (auth->userdbs == NULL)
 		i_fatal("No user databases set");
 	return auth;
@@ -130,6 +128,8 @@ static void auth_mech_list_verify_passdb(struct auth *auth)
 	struct mech_module_list *list;
 
 	for (list = auth->mech_modules; list != NULL; list = list->next) {
+		if (list->module.need_passdb && auth->passdbs == NULL)
+			break;
 		if (list->module.passdb_need_plain &&
 		    !auth_passdb_list_have_plain(auth))
 			break;

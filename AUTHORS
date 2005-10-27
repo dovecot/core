@@ -12,6 +12,8 @@ Andrey Panin <pazke@donpac.ru> (src/auth/mech-apop.c, src/auth/mech-login.c,
 Joshua Goodall <joshua@roughtrade.net> (src/auth/password-scheme-cram-md5.c,
   src/util/dovecotpw.c)
 
+Jelmer Vernooij <jelmer@samba.org> (src/auth/mech-gssapi.c)
+
 This product includes software developed by Computing Services
 at Carnegie Mellon University (http://www.cmu.edu/computing/).
 (src/lib/base64.c, src/lib/mkgmtime.c)

@@ -57,6 +57,7 @@ struct mech_module mech_anonymous = {
 
 	MEMBER(flags) MECH_SEC_ANONYMOUS,
 
+	MEMBER(need_passdb) TRUE,
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) FALSE,
 

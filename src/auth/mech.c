@@ -54,6 +54,9 @@ extern struct mech_module mech_digest_md5;
 extern struct mech_module mech_ntlm;
 extern struct mech_module mech_rpa;
 extern struct mech_module mech_anonymous;
+#ifdef HAVE_GSSAPI
+extern struct mech_module mech_gssapi;
+#endif
 
 void mech_init(void)
 {
@@ -65,6 +68,9 @@ void mech_init(void)
 	mech_register_module(&mech_ntlm);
 	mech_register_module(&mech_rpa);
 	mech_register_module(&mech_anonymous);
+#ifdef HAVE_GSSAPI
+	mech_register_module(&mech_gssapi);
+#endif
 }
 
 void mech_deinit(void)
@@ -77,4 +83,7 @@ void mech_deinit(void)
 	mech_unregister_module(&mech_ntlm);
 	mech_unregister_module(&mech_rpa);
 	mech_unregister_module(&mech_anonymous);
+#ifdef HAVE_GSSAPI
+	mech_unregister_module(&mech_gssapi);
+#endif
 }

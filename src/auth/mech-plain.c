@@ -103,6 +103,7 @@ struct mech_module mech_plain = {
 
 	MEMBER(flags) MECH_SEC_PLAINTEXT,
 
+	MEMBER(need_passdb) TRUE,
 	MEMBER(passdb_need_plain) TRUE,
 	MEMBER(passdb_need_credentials) FALSE,
 

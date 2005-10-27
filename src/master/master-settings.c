@@ -155,6 +155,7 @@ static struct setting_def auth_setting_defs[] = {
 	DEF(SET_STR, username_chars),
 	DEF(SET_STR, username_translation),
 	DEF(SET_STR, anonymous_username),
+	DEF(SET_STR, krb5_keytab),
 
 	DEF(SET_BOOL, verbose),
 	DEF(SET_BOOL, debug),
@@ -353,6 +354,7 @@ struct auth_settings default_auth_settings = {
 	MEMBER(username_chars) "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-_@",
 	MEMBER(username_translation) "",
 	MEMBER(anonymous_username) "anonymous",
+	MEMBER(krb5_keytab) NULL,
 
 	MEMBER(verbose) FALSE,
 	MEMBER(debug) FALSE,

@@ -162,6 +162,7 @@ struct auth_settings {
 	const char *username_chars;
 	const char *username_translation;
 	const char *anonymous_username;
+	const char *krb5_keytab;
 
 	int verbose, debug;
 	int ssl_require_client_cert;
