@@ -164,7 +164,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 
 	ret = epoll_ctl(ctx->epfd, op, fd, &event);
 	if (ret < 0)
-		i_fatal("epoll_ctl(%d): %m", op);
+		i_fatal("io_loop_handle_add: epoll_ctl(%d, %d): %m", op, fd);
 
 	if (ctx->events_pos >= ctx->events_size) {
 		ctx->events_size = nearest_power(ctx->events_size + 1);
@@ -193,8 +193,10 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	op = last ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
 
 	ret = epoll_ctl(ctx->epfd, op, io->fd, &event);
-	if (ret < 0 && errno != EBADF)
-		i_fatal("epoll_ctl(%d): %m", op);
+	if (ret < 0 && errno != EBADF) {
+		i_fatal("io_loop_handle_remove: epoll_ctl(%d, %d): %m",
+			op, io->fd);
+	}
 
 	ctx->events_pos--;
 }
