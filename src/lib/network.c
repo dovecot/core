@@ -379,7 +379,7 @@ ssize_t net_receive(int fd, void *buf, size_t len)
 	i_assert(buf != NULL);
 	i_assert(len <= SSIZE_T_MAX);
 
-	ret = recv(fd, buf, len, 0);
+	ret = read(fd, buf, len);
 	if (ret == 0) {
 		/* disconnected */
 		errno = 0;
