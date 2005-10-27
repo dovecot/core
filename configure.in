@@ -123,7 +123,7 @@ AC_ARG_WITH(gssapi,
     if test x$withval = xno; then
 		want_gssapi=no
 	else
-		want_gssapi_yes
+		want_gssapi=yes
 	fi,
 	want_gssapi=yes)
 
