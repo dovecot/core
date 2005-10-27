@@ -15,6 +15,7 @@ The variables are:
  %p - PID of the current process (login or imap/pop3 process)
  %l - local IP address
  %r - remote IP address
+ %w - plaintext password from plaintext authentication mechanism
 
 You can apply a modifiers for each variable (eg. %Lp = pop3):
 

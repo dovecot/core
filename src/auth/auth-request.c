@@ -594,6 +594,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		{ 'l', NULL },
 		{ 'r', NULL },
 		{ 'p', NULL },
+		{ 'w', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -616,6 +617,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	if (auth_request->remote_ip.family != 0)
 		tab[6].value = net_ip2addr(&auth_request->remote_ip);
 	tab[7].value = dec2str(auth_request->client_pid);
+	if (auth_request->mech_password != NULL)
+		tab[8].value = escape_func(auth_request->mech_password);
 	return tab;
 }
 
