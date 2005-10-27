@@ -1098,7 +1098,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			sync_ctx->prev_msg_uid = mail_ctx->mail.uid;
 		}
 
-		mail_ctx->mail.idx_seq = sync_ctx->idx_seq;
+		if (!mail_ctx->pseudo)
+			mail_ctx->mail.idx_seq = sync_ctx->idx_seq;
 
 		if (!expunged) {
 			if (mbox_sync_handle_header(mail_ctx) < 0)
