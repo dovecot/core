@@ -378,6 +378,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		i_assert(seq == mail_ctx->seq);
 		if (mail_ctx->mail.space < 0)
 			mail_ctx->mail.space = 0;
+		i_stream_seek(sync_ctx->input, mail_ctx->body_offset);
 	}
 
 	if (first_nonexpunged && expunged_space > 0) {
