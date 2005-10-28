@@ -393,8 +393,10 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	child_process_init_env();
 
 	/* setup access environment - needs to be done after
-	   clean_child_process() since it clears environment */
-	restrict_access_set_env(set->login_user, set->login_uid,
+	   clean_child_process() since it clears environment. Don't use
+	   login_user since we don't want to call initgroups() for login
+	   processes. */
+	restrict_access_set_env(NULL, set->login_uid,
 				set->server->login_gid,
 				set->login_chroot ? set->login_dir : NULL,
 				0, 0, NULL);
