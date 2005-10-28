@@ -43,7 +43,7 @@ struct auth_request *auth_request_new_dummy(struct auth *auth)
 	struct auth_request *auth_request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("auth_request", 512);
+	pool = pool_alloconly_create("auth_request", 1024);
 	auth_request = p_new(pool, struct auth_request, 1);
 	auth_request->pool = pool;
 

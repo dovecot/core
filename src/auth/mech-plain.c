@@ -92,7 +92,7 @@ static struct auth_request *mech_plain_auth_new(void)
         struct auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("plain_auth_request", 512);
+	pool = pool_alloconly_create("plain_auth_request", 1024);
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
 	return request;

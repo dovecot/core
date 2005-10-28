@@ -268,7 +268,7 @@ static struct auth_request *mech_ntlm_auth_new(void)
 	struct ntlm_auth_request *request;
 	pool_t pool;
 
-	pool = pool_alloconly_create("ntlm_auth_request", 512);
+	pool = pool_alloconly_create("ntlm_auth_request", 1024);
 	request = p_new(pool, struct ntlm_auth_request, 1);
 	request->pool = pool;
 
