@@ -88,7 +88,12 @@ void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 
 	if (ctx->pseudo)
 		start_pos = ctx->hdr_pos[MBOX_HDR_X_IMAPBASE];
-	else {
+	else if (ctx->mail.space > 0) {
+		/* update the header using the existing offset.
+		   otherwise we might chose wrong header and just decrease
+		   the available space */
+		start_pos = ctx->mail.offset - ctx->hdr_offset;
+	} else {
 		/* Append at the end of X-Keywords header,
 		   or X-UID if it doesn't exist */
 		start_pos = ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] != (size_t)-1 ?
