@@ -107,6 +107,11 @@ static int auth_client_input_done(struct auth_server_connection *conn)
 	conn->available_auth_mechs_count =
 		conn->auth_mechs_buf->used / sizeof(struct auth_mech_desc);
 
+	if (conn->available_auth_mechs_count == 0) {
+		i_error("BUG: Authentication server returned no mechanisms");
+		return FALSE;
+	}
+
 	conn->handshake_received = TRUE;
 	conn->client->conn_waiting_handshake_count--;
 	update_available_auth_mechs(conn);
