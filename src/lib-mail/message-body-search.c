@@ -112,7 +112,7 @@ static int message_search_header(struct part_search_context *ctx,
 						    "UTF-8", NULL);
 	if (hdr_search_ctx == NULL) {
 		/* Invalid key. */
-		return FALSE;
+		return -1;
 	}
 
 	/* we default to text content-type */
@@ -386,7 +386,7 @@ static int message_body_search_ctx(struct body_search_context *ctx,
 				   const struct message_part *part)
 {
 	struct part_search_context part_ctx;
-	int found;
+	int ret, found;
 
 	found = FALSE;
 	while (part != NULL && !found) {
@@ -401,13 +401,17 @@ static int message_body_search_ctx(struct body_search_context *ctx,
 
 		t_push();
 
-		if (message_search_header(&part_ctx, input)) {
-			found = TRUE;
+		ret = message_search_header(&part_ctx, input);
+		if (ret != 0) {
+			/* found / invalid */
+			found = ret > 0;
 		} else if (part->children != NULL) {
 			/* multipart/xxx or message/rfc822 */
 			if (message_body_search_ctx(ctx, input, part->children))
 				found = TRUE;
 		} else {
+			i_assert(input->v_offset == part->physical_pos +
+				 part->header_size.physical_size);
 			if (message_search_body(&part_ctx, input, part))
 				found = TRUE;
 		}
