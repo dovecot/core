@@ -274,12 +274,18 @@ static void mbox_sync_update_line(struct mbox_sync_mail_context *ctx,
 	if (ctx->header_first_change > pos)
 		ctx->header_first_change = pos;
 
-	hdr = str_c(ctx->header) + pos;
-	p = strchr(hdr, '\n');
-
-	if (p == NULL) {
-		/* shouldn't really happen, but allow anyway.. */
-		p = hdr + strlen(hdr);
+	/* set p = end of header, handle also wrapped headers */
+	hdr = p = str_c(ctx->header) + pos;
+	for (;;) {
+		p = strchr(p, '\n');
+		if (p == NULL) {
+			/* shouldn't really happen, but allow anyway.. */
+			p = hdr + strlen(hdr);
+			break;
+		}
+		if (p[1] != '\t' && p[1] != ' ')
+			break;
+		p += 2;
 	}
 
 	file_pos = pos + ctx->hdr_offset;
