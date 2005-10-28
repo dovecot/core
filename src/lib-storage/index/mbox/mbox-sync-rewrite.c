@@ -375,6 +375,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 				    expunged_space);
 		mail_ctx = &new_mail_ctx;
 	} else {
+		i_assert(seq == mail_ctx->seq);
 		if (mail_ctx->mail.space < 0)
 			mail_ctx->mail.space = 0;
 	}
@@ -500,7 +501,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 				ret = -1;
 				break;
 			}
-			mail_ctx = NULL;
 			move_diff -= next_move_diff + mails[idx].space;
 		} else {
 			/* this mail provides more space. just move it forward
@@ -534,6 +534,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 			}
 			mails[idx].offset += move_diff;
 		}
+		mail_ctx = NULL;
 
 		i_assert(move_diff >= 0 || idx == first_nonexpunged_idx);
 		i_assert(next_end_offset <= end_offset);
