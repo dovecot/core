@@ -255,9 +255,10 @@ static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 			    struct message_header_line *hdr)
 {
 	array_t ARRAY_DEFINE(keyword_list, unsigned int);
+	const unsigned int *list;
 	string_t *keyword;
 	size_t keyword_start;
-	unsigned int idx;
+	unsigned int i, idx, count;
 	size_t pos;
 
 	if (array_is_created(&ctx->mail.keywords))
@@ -292,7 +293,16 @@ static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 			return FALSE;
 		}
 
-		array_append(&keyword_list, &idx, 1);
+		/* check that the keyword isn't already added there.
+		   we don't want duplicates. */
+		list = array_get(&keyword_list, &count);
+		for (i = 0; i < count; i++) {
+			if (list[i] == idx)
+				break;
+		}
+
+		if (i == count)
+			array_append(&keyword_list, &idx, 1);
 	}
 
 	/* once we know how many keywords there are, we can allocate the array
