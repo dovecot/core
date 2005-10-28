@@ -82,7 +82,8 @@ static int validate_chroot(struct settings *set, const char *dir)
 static const struct var_expand_table *
 get_var_expand_table(const char *protocol,
 		     const char *user, const char *home,
-		     const char *local_ip, const char *remote_ip, pid_t pid)
+		     const char *local_ip, const char *remote_ip,
+		     pid_t pid, uid_t uid)
 {
 	static struct var_expand_table static_tab[] = {
 		{ 'u', NULL },
@@ -93,6 +94,7 @@ get_var_expand_table(const char *protocol,
 		{ 'l', NULL },
 		{ 'r', NULL },
 		{ 'p', NULL },
+		{ 'i', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -109,6 +111,7 @@ get_var_expand_table(const char *protocol,
 	tab[5].value = local_ip;
 	tab[6].value = remote_ip;
 	tab[7].value = dec2str(pid);
+	tab[8].value = dec2str(uid);
 
 	return tab;
 }
@@ -291,7 +294,8 @@ void mail_process_exec(const char *protocol, const char *section)
 	var_expand_table =
 		get_var_expand_table(protocol, getenv("USER"), getenv("HOME"),
 				     getenv("TCPLOCALIP"),
-				     getenv("TCPREMOTEIP"), getpid());
+				     getenv("TCPREMOTEIP"),
+				     getpid(), geteuid());
 
 	mail_process_set_environment(set, getenv("MAIL"), var_expand_table);
         client_process_exec(set->mail_executable, "");
@@ -387,7 +391,7 @@ int create_mail_process(struct login_group *group, int socket,
 				     user, home_dir,
 				     net_ip2addr(local_ip),
 				     net_ip2addr(remote_ip),
-				     pid != 0 ? pid : getpid());
+				     pid != 0 ? pid : getpid(), uid);
 	str = t_str_new(128);
 
 	if (pid != 0) {
