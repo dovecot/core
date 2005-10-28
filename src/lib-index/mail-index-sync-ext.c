@@ -332,6 +332,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 		unsigned i, count = array_count(&map->extensions);
 		ssize_t diff = (ssize_t)new_size - (ssize_t)old_size;
 
+		ext = array_idx_modifyable(&map->extensions, 0);
 		for (i = ext_id + 1; i < count; i++)
 			ext[i].hdr_offset += diff;
 	}
