@@ -209,12 +209,11 @@ static int message_part_deserialize_part(struct deserialize_context *ctx,
 		}
 
 		if (children_count > 0) {
-			/* our children must be after our physical_pos and
-			   the last child must be within our size. */
-			ctx->pos = part->physical_pos;
-			pos = part->physical_pos +
-				part->header_size.physical_size +
-				part->body_size.physical_size;
+			/* our children must be after our physical_pos+header
+			   and the last child must be within our size. */
+			ctx->pos = part->physical_pos +
+				part->header_size.physical_size;
+			pos = ctx->pos + part->body_size.physical_size;
 
 			if (!message_part_deserialize_part(ctx, part,
 							   children_count,
