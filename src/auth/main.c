@@ -204,6 +204,7 @@ static void main_init(int nodaemon)
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGPIPE, FALSE, NULL, NULL);
+        lib_signals_set_handler(SIGALRM, FALSE, NULL, NULL);
 
 	/* If auth caches aren't used, just ignore these signals */
 	lib_signals_set_handler(SIGHUP, FALSE, NULL, NULL);
