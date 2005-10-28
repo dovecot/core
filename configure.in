@@ -1205,10 +1205,15 @@ have_gssapi=no
 if test $want_gssapi = yes; then
 	AC_CHECK_PROG(KRB5CONFIG, krb5-config, YES, NO)
 	if test $KRB5CONFIG = YES; then
-		AUTH_LIBS="$AUTH_LIBS `krb5-config --libs gssapi`"
-		AUTH_CFLAGS="$AUTH_CFLAGS `krb5-config --cflags gssapi`"
-		AC_DEFINE(HAVE_GSSAPI,, Build with GSSAPI support)
-		have_gssapi=yes
+		# we have a kludgy check here to check that we have
+		# version >= v1.3. Although this doesn't work right with
+		# non-MIT kerberos versioning..
+		if `krb5-config --version|grep -qv '1\.2'`; then
+			AUTH_LIBS="$AUTH_LIBS `krb5-config --libs gssapi`"
+			AUTH_CFLAGS="$AUTH_CFLAGS `krb5-config --cflags gssapi`"
+			AC_DEFINE(HAVE_GSSAPI,, Build with GSSAPI support)
+			have_gssapi=yes
+		fi
 	fi
 fi
 
