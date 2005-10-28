@@ -773,9 +773,24 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 	return 0;
 }
 
+static int find_offset(array_t *array, uint32_t offset)
+{
+	ARRAY_SET_TYPE(array, uint32_t);
+	const uint32_t *offsets;
+	unsigned int i, count;
+
+	offsets = array_get(array, &count);
+	for (i = 0; i < count; i++) {
+		if (offsets[i] == offset)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 {
 	const struct mail_cache_record *cache_rec;
+	array_t ARRAY_DEFINE(tmp_offsets, uint32_t);
 
 	i_assert(cache->locked);
 
@@ -789,12 +804,29 @@ int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 	   the data. also it's actually useful as some index views are still
 	   able to ask cached data from messages that have already been
 	   expunged. */
-	do {
+	t_push();
+	ARRAY_CREATE(&tmp_offsets, pool_datastack_create(), uint32_t, 8);
+	array_append(&tmp_offsets, &offset, 1);
+	for (;;) {
 		cache->hdr_copy.deleted_space += cache_rec->size;
 		if (mail_cache_get_record(cache, cache_rec->prev_offset,
-					  &cache_rec) < 0)
+					  &cache_rec) < 0) {
+			t_pop();
 			return -1;
-	} while (cache_rec != NULL);
+		}
+
+		if (cache_rec == NULL)
+			break;
+
+		if (find_offset(&tmp_offsets, cache_rec->prev_offset)) {
+			mail_cache_set_corrupted(cache,
+						 "record list is circular");
+			t_pop();
+			return -1;
+		}
+		array_append(&tmp_offsets, &cache_rec->prev_offset, 1);
+	}
+	t_pop();
 
 	cache->hdr_modified = TRUE;
 	return 0;
