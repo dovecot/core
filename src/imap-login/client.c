@@ -389,12 +389,27 @@ static void client_destroy_oldest(void)
 	}
 }
 
+static void client_send_greeting(struct imap_client *client)
+{
+	string_t *greet;
+
+	greet = t_str_new(128);
+	str_append(greet, "* OK ");
+	if (greeting_capability) {
+		i_assert(auth_client_is_connected(auth_client));
+		str_printfa(greet, "[CAPABILITY %s] ", get_capability(client));
+	}
+	str_append(greet, greeting);
+
+	client_send_line(client, str_c(greet));
+	client->greeting_sent = TRUE;
+}
+
 struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip)
 {
 	struct imap_client *client;
 	const char *addr;
-	string_t *greet;
 
 	if (max_logging_users > CLIENT_DESTROY_OLDEST_COUNT &&
 	    hash_size(clients) >= max_logging_users) {
@@ -429,13 +444,8 @@ struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
 
 	main_ref();
 
-	greet = t_str_new(128);
-	str_append(greet, "* OK ");
-	if (greeting_capability)
-		str_printfa(greet, "[CAPABILITY %s] ", get_capability(client));
-	str_append(greet, greeting);
-
-	client_send_line(client, str_c(greet));
+	if (!greeting_capability || auth_client_is_connected(auth_client))
+                client_send_greeting(client);
 	client_set_title(client);
 
 	client->created = TRUE;
@@ -591,6 +601,8 @@ void clients_notify_auth_connected(void)
 	while (hash_iterate(iter, &key, &value)) {
 		struct imap_client *client = key;
 
+		if (!client->greeting_sent)
+			client_send_greeting(client);
 		if (client->input_blocked) {
 			client->input_blocked = FALSE;
 			client_input(client);

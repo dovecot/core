@@ -29,6 +29,7 @@ struct imap_client {
 	unsigned int skip_line:1;
 	unsigned int input_blocked:1;
 	unsigned int destroyed:1;
+	unsigned int greeting_sent:1;
 };
 
 void client_destroy(struct imap_client *client, const char *reason);
