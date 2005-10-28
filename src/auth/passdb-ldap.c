@@ -243,7 +243,9 @@ passdb_ldap_preinit(struct auth_passdb *auth_passdb, const char *args)
 
 	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
 			  conn->pass_attr_map, default_attr_map);
-	module->module.cache_key = auth_cache_parse_key(conn->set.pass_filter);
+	module->module.cache_key =
+		auth_cache_parse_key(auth_passdb->auth->pool,
+				     conn->set.pass_filter);
 	module->module.default_pass_scheme = conn->set.default_pass_scheme;
 	return &module->module;
 }

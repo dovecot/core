@@ -177,7 +177,8 @@ passdb_sql_preinit(struct auth_passdb *auth_passdb, const char *args)
 	module->conn = conn = db_sql_init(args);
 
 	module->module.cache_key =
-		auth_cache_parse_key(conn->set.password_query);
+		auth_cache_parse_key(auth_passdb->auth->pool,
+				     conn->set.password_query);
 	module->module.default_pass_scheme = conn->set.default_pass_scheme;
 	return &module->module;
 }

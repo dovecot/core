@@ -6,7 +6,7 @@ struct auth_request;
 
 /* Parses all %x variables from query and compresses them into tab-separated
    list, so it can be used as a cache key. */
-const char *auth_cache_parse_key(const char *query);
+char *auth_cache_parse_key(pool_t pool, const char *query);
 
 /* Create a new cache. max_size specifies the maximum amount of memory in
    bytes to use for cache (it's not fully exact). ttl_secs specifies time to
