@@ -117,7 +117,7 @@ static void keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
 				  &keywords_count);
 	keyword_indexes = array_get(keyword_indexes_arr, &idx_count);
 
-	for (i = 0, last_break = 0; i < idx_count; i++) {
+	for (i = 0, last_break = str_len(dest); i < idx_count; i++) {
 		i_assert(keyword_indexes[i] < keywords_count);
 
 		/* try avoid overly long lines but cutting them
