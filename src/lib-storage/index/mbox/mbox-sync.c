@@ -824,9 +824,10 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		extra_space = sync_ctx->space_diff;
 	}
 
-	if (mbox_sync_rewrite(sync_ctx, mail_ctx, end_offset, move_diff,
-			      extra_space, sync_ctx->need_space_seq,
-			      last_seq) < 0)
+	if (mbox_sync_rewrite(sync_ctx,
+			      last_seq == sync_ctx->seq ? mail_ctx : NULL,
+			      end_offset, move_diff, extra_space,
+			      sync_ctx->need_space_seq, last_seq) < 0)
 		return -1;
 
 	update_from_offsets(sync_ctx);
