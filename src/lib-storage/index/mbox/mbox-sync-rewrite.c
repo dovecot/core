@@ -100,10 +100,10 @@ void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 			ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] :
 			ctx->hdr_pos[MBOX_HDR_X_UID];
 	}
-	i_assert(start_pos != (size_t)-1);
 
 	data = str_data(ctx->header);
 	data_size = str_len(ctx->header);
+	i_assert(start_pos < data_size);
 
 	for (pos = start_pos; pos < data_size; pos++) {
 		if (data[pos] == '\n') {
