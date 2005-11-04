@@ -69,7 +69,8 @@ const struct stat *i_stream_stat(struct istream *stream, int exact);
 int i_stream_have_bytes_left(struct istream *stream);
 
 /* Gets the next line from stream and returns it, or NULL if more data is
-   needed to make a full line. */
+   needed to make a full line. Note that if the stream ends with LF not being
+   the last character, this function doesn't return the last line. */
 char *i_stream_next_line(struct istream *stream);
 /* Like i_stream_next_line(), but reads for more data if needed. Returns NULL
    if more data is needed or error occurred. */
