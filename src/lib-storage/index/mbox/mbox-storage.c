@@ -455,10 +455,6 @@ static int verify_inbox(struct index_storage *storage)
 			"open(%s, O_CREAT) failed: %m", storage->inbox_path);
 	}
 
-	/* make sure the index directories exist */
-	if (create_mbox_index_dirs(storage, "INBOX") < 0)
-		return -1;
-
 	return 0;
 }
 
@@ -540,6 +536,12 @@ mbox_open(struct mbox_storage *storage, const char *name,
 
 	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
 		index_dir = NULL;
+
+	if (index_dir != NULL) {
+		/* make sure the index directories exist */
+		if (create_mbox_index_dirs(storage, "INBOX") < 0)
+			return -1;
+	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
 	mbox = mbox_alloc(storage, index, name, flags);
@@ -629,10 +631,6 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 				"Mailbox isn't selectable: %s", name);
 			return NULL;
 		}
-
-		/* exists - make sure the required directories are also there */
-		if (create_mbox_index_dirs(istorage, name) < 0)
-			return NULL;
 
 		return mbox_open(storage, name, flags);
 	}
