@@ -523,9 +523,7 @@ int file_dotlock_delete(struct dotlock **dotlock_p)
 	dotlock = *dotlock_p;
 	*dotlock_p = NULL;
 
-	lock_path = t_strconcat(dotlock->path,
-				dotlock->settings.lock_suffix, NULL);
-
+	lock_path = file_dotlock_get_lock_path(dotlock);
 	if (lstat(lock_path, &st) < 0) {
 		if (errno == ENOENT) {
 			i_warning("Our dotlock file %s was deleted "
@@ -611,8 +609,7 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 	if ((flags & DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) != 0)
 		dotlock->fd = -1;
 
-	lock_path = t_strconcat(dotlock->path,
-				dotlock->settings.lock_suffix, NULL);
+	lock_path = file_dotlock_get_lock_path(dotlock);
 	if ((flags & DOTLOCK_REPLACE_FLAG_VERIFY_OWNER) != 0) {
 		if (fstat(fd, &st) < 0) {
 			i_error("fstat(%s) failed: %m", lock_path);
@@ -644,4 +641,9 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 	}
 	file_dotlock_free(dotlock);
 	return 1;
+}
+
+const char *file_dotlock_get_lock_path(struct dotlock *dotlock)
+{
+	return t_strconcat(dotlock->path, dotlock->settings.lock_suffix, NULL);
 }

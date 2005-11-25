@@ -69,4 +69,7 @@ int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 int file_dotlock_replace(struct dotlock **dotlock,
 			 enum dotlock_replace_flags flags);
 
+/* Returns the lock file path. */
+const char *file_dotlock_get_lock_path(struct dotlock *dotlock);
+
 #endif
