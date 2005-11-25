@@ -61,6 +61,7 @@ liblib_a_SOURCES = \
 	safe-memset.c \
 	safe-mkdir.c \
 	sendfile-util.c \
+	seq-range-array.c \
 	sha1.c \
 	str.c \
 	str-sanitize.c \
@@ -125,6 +126,7 @@ noinst_HEADERS = \
 	safe-memset.h \
 	safe-mkdir.h \
 	sendfile-util.h \
+	seq-range-array.h \
 	sha1.h \
 	str.h \
 	str-sanitize.h \

@@ -6,7 +6,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "buffer.h"
+#include "seq-range-array.h"
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"
 #include "mail-cache-private.h"
@@ -280,159 +280,6 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 	*next_uid_r = first_uid;
 }
 
-struct seq_range {
-	uint32_t seq1, seq2;
-};
-
-static void
-mail_index_seq_range_array_add(array_t *array, unsigned int init_count,
-			       uint32_t seq)
-{
-        ARRAY_SET_TYPE(array, struct seq_range);
-	struct seq_range *data, value;
-	unsigned int idx, left_idx, right_idx, count;
-
-	value.seq1 = value.seq2 = seq;
-
-	if (!array_is_created(array)) {
-		array_create(array, default_pool,
-			     sizeof(struct seq_range), init_count);
-		array_append(array, &value, 1);
-		return;
-	}
-
-	data = array_get_modifyable(array, &count);
-	i_assert(count > 0);
-
-	/* quick checks */
-	if (data[count-1].seq2 == seq-1) {
-		/* grow last range */
-		data[count-1].seq2 = seq;
-		return;
-	}
-	if (data[count-1].seq2 < seq) {
-		array_append(array, &value, 1);
-		return;
-	}
-	if (data[0].seq1 == seq+1) {
-		/* grow down first range */
-		data[0].seq1 = seq;
-		return;
-	}
-	if (data[0].seq1 > seq) {
-		array_insert(array, 0, &value, 1);
-		return;
-	}
-
-	/* somewhere in the middle, array is sorted so find it with
-	   binary search */
-	idx = 0; left_idx = 0; right_idx = count;
-	while (left_idx < right_idx) {
-		idx = (left_idx + right_idx) / 2;
-
-		if (data[idx].seq1 <= seq) {
-			if (data[idx].seq2 >= seq) {
-				/* it's already in the range */
-				return;
-			}
-			left_idx = idx+1;
-		} else {
-			right_idx = idx;
-		}
-	}
-
-	if (data[idx].seq2 < seq)
-		idx++;
-
-        /* idx == count couldn't happen because we already handle it above */
-	i_assert(idx < count && data[idx].seq1 >= seq);
-	i_assert(data[idx].seq1 > seq || data[idx].seq2 < seq);
-
-	if (data[idx].seq1 == seq+1) {
-		data[idx].seq1 = seq;
-		if (idx > 0 && data[idx-1].seq2 == seq-1) {
-			/* merge */
-			data[idx-1].seq2 = data[idx].seq2;
-			array_delete(array, idx, 1);
-		}
-	} else if (data[idx].seq2 == seq-1) {
-		i_assert(idx+1 < count); /* already handled above */
-		data[idx].seq2 = seq;
-		if (data[idx+1].seq1 == seq+1) {
-			/* merge */
-			data[idx+1].seq1 = data[idx].seq1;
-			array_delete(array, idx, 1);
-		}
-	} else {
-		array_insert(array, idx, &value, 1);
-	}
-}
-
-static void mail_index_seq_range_array_remove(array_t *array, uint32_t seq)
-{
-        ARRAY_SET_TYPE(array, struct seq_range);
-	struct seq_range *data, value;
-	unsigned int idx, left_idx, right_idx, count;
-
-	if (!array_is_created(array))
-		return;
-
-	data = array_get_modifyable(array, &count);
-	i_assert(count > 0);
-
-	/* quick checks */
-	if (seq > data[count-1].seq2 || seq < data[0].seq1) {
-		/* outside the range */
-		return;
-	}
-	if (data[count-1].seq2 == seq) {
-		/* shrink last range */
-		data[count-1].seq2--;
-		return;
-	}
-	if (data[0].seq1 == seq) {
-		/* shrink up first range */
-		data[0].seq1++;
-		return;
-	}
-
-	/* somewhere in the middle, array is sorted so find it with
-	   binary search */
-	idx = 0; left_idx = 0; right_idx = count;
-	while (left_idx < right_idx) {
-		idx = (left_idx + right_idx) / 2;
-
-		if (data[idx].seq1 > seq)
-			right_idx = idx;
-		else if (data[idx].seq2 < seq)
-			left_idx = idx+1;
-		else {
-			/* found it */
-			if (data[idx].seq1 == seq) {
-				if (data[idx].seq1 == data[idx].seq2) {
-					/* a single sequence range.
-					   remove it entirely */
-					array_delete(array, idx, 1);
-				} else {
-					/* shrink the range */
-					data[idx].seq1++;
-				}
-			} else if (data[idx].seq2 == seq) {
-				/* shrink the range */
-				data[idx].seq2--;
-			} else {
-				/* split the sequence range */
-				value.seq1 = seq + 1;
-				value.seq2 = data[idx].seq2;
-				data[idx].seq2 = seq - 1;
-
-				array_insert(array, idx, &value, 1);
-			}
-			break;
-		}
-	}
-}
-
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
@@ -440,7 +287,7 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	t->log_updates = TRUE;
 
 	/* expunges is a sorted array of {seq1, seq2, ..}, .. */
-	mail_index_seq_range_array_add(&t->expunges, 128, seq);
+	seq_range_array_add(&t->expunges, 128, seq);
 }
 
 static void
@@ -943,28 +790,28 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		for (i = 0; i < keywords->count; i++) {
 			u = array_idx_modifyable(&t->keyword_updates,
 						 keywords->idx[i]);
-			mail_index_seq_range_array_add(&u->add_seq, 16, seq);
-			mail_index_seq_range_array_remove(&u->remove_seq, seq);
+			seq_range_array_add(&u->add_seq, 16, seq);
+			seq_range_array_remove(&u->remove_seq, seq);
 		}
 		break;
 	case MODIFY_REMOVE:
 		for (i = 0; i < keywords->count; i++) {
 			u = array_idx_modifyable(&t->keyword_updates,
 						 keywords->idx[i]);
-			mail_index_seq_range_array_remove(&u->add_seq, seq);
-			mail_index_seq_range_array_add(&u->remove_seq, 16, seq);
+			seq_range_array_remove(&u->add_seq, seq);
+			seq_range_array_add(&u->remove_seq, 16, seq);
 		}
 		break;
 	case MODIFY_REPLACE:
 		for (i = 0; i < keywords->count; i++) {
 			u = array_idx_modifyable(&t->keyword_updates,
 						 keywords->idx[i]);
-			mail_index_seq_range_array_add(&u->add_seq, 16, seq);
+			seq_range_array_add(&u->add_seq, 16, seq);
 		}
 
 		/* If t->keyword_resets is set for a sequence, there's no
 		   need to update remove_seq as it will remove all keywords. */
-		mail_index_seq_range_array_add(&t->keyword_resets, 16, seq);
+		seq_range_array_add(&t->keyword_resets, 16, seq);
 		break;
 	}
 
