@@ -14,7 +14,7 @@ AC_C_INLINE
 AM_PROG_LIBTOOL
 AM_ICONV
 
-AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h inttypes.h \
+AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h)
 
 # check posix headers
@@ -250,7 +250,7 @@ AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" = "yes")
 AC_ARG_WITH(storages,
 [  --with-storages         Build specified mail storage formats (maildir,mbox)], [
 	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
-	mail_storages="maildir mbox")
+	mail_storages="maildir mbox dbox")
 AC_SUBST(mail_storages)
 
 AC_ARG_WITH(moduledir,
@@ -1449,6 +1449,7 @@ dnl **
 
 maildir_libs="../lib-storage/index/maildir/libstorage_maildir.a"
 mbox_libs="../lib-storage/index/mbox/libstorage_mbox.a"
+dbox_libs="../lib-storage/index/dbox/libstorage_dbox.a"
 index_libs="../lib-storage/index/libstorage_index.a ../lib-index/libindex.a"
 
 STORAGE_LIBS=
@@ -1485,6 +1486,7 @@ src/lib-storage/Makefile
 src/lib-storage/index/Makefile
 src/lib-storage/index/maildir/Makefile
 src/lib-storage/index/mbox/Makefile
+src/lib-storage/index/dbox/Makefile
 src/lib-storage/subscription-file/Makefile
 src/lib-storage/register/Makefile
 src/auth/Makefile

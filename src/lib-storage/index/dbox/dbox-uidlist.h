@@ -1,0 +1,60 @@
+#ifndef __DBOX_UIDLIST_H
+#define __DBOX_UIDLIST_H
+
+struct dbox_file;
+struct dbox_mailbox;
+struct dbox_uidlist_sync_ctx;
+
+struct dbox_uidlist_entry {
+	array_t ARRAY_DEFINE(uid_list, struct seq_range);
+
+	uint32_t file_seq;
+	time_t last_write;
+	uoff_t file_size;
+};
+
+struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox);
+void dbox_uidlist_deinit(struct dbox_uidlist *uidlist);
+
+struct dbox_uidlist_entry *
+dbox_uidlist_entry_lookup(struct dbox_uidlist *uidlist, uint32_t file_seq);
+
+struct dbox_uidlist_append_ctx *
+dbox_uidlist_append_init(struct dbox_uidlist *uidlist);
+int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx);
+void dbox_uidlist_append_rollback(struct dbox_uidlist_append_ctx *ctx);
+
+/* Open/create a file for appending a new message and lock it.
+   Returns -1 if failed, 0 if ok. If new file is created, the file's header is
+   already appended. */
+int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
+			       struct dbox_file **file_r);
+void dbox_uidlist_append_finish_mail(struct dbox_uidlist_append_ctx *ctx,
+				     struct dbox_file *file);
+
+struct dbox_file *
+dbox_uidlist_append_lookup_file(struct dbox_uidlist_append_ctx *ctx,
+				uint32_t file_seq);
+
+uint32_t dbox_uidlist_get_new_file_seq(struct dbox_uidlist *uidlist);
+int dbox_uidlist_append_get_first_uid(struct dbox_uidlist_append_ctx *ctx,
+				      uint32_t *uid_r);
+
+int dbox_uidlist_sync_init(struct dbox_uidlist *uidlist,
+			   struct dbox_uidlist_sync_ctx **ctx_r);
+int dbox_uidlist_sync_commit(struct dbox_uidlist_sync_ctx *ctx,
+			     time_t *mtime_r);
+void dbox_uidlist_sync_rollback(struct dbox_uidlist_sync_ctx *ctx);
+
+void dbox_uidlist_sync_set_modified(struct dbox_uidlist_sync_ctx *ctx);
+void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
+			      const struct dbox_uidlist_entry *entry);
+int dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
+			     uint32_t file_seq);
+
+uint32_t dbox_uidlist_sync_get_uid_validity(struct dbox_uidlist_sync_ctx *ctx);
+uint32_t dbox_uidlist_sync_get_next_uid(struct dbox_uidlist_sync_ctx *ctx);
+
+int dbox_uidlist_get_mtime(struct dbox_uidlist *uidlist, time_t *mtime_r);
+
+#endif
