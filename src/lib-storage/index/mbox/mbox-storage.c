@@ -679,11 +679,11 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 		return -1;
 	}
 
-	if (errno != ENOENT && errno != ELOOP && errno != EACCES) {
+	if (errno != ENOENT) {
 		if (errno == ENOTDIR) {
 			mail_storage_set_error(_storage,
 				"Mailbox doesn't allow inferior mailboxes");
-		} else {
+		} else if (!mbox_handle_errors(storage)) {
 			mail_storage_set_critical(_storage,
 				"stat() failed for mbox file %s: %m", path);
 		}
