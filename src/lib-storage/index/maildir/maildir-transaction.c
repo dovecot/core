@@ -41,12 +41,10 @@ int maildir_transaction_commit(struct mailbox_transaction_context *_t,
 		ret = -1;
 
 	/* transaction is destroyed. */
+	t = NULL; _t = NULL;
 
-	if (save_ctx != NULL) {
-		/* unlock uidlist file after writing to transaction log,
-		   to make sure we don't write uids in wrong order. */
+	if (save_ctx != NULL)
 		maildir_transaction_save_commit_post(save_ctx);
-	}
 
 	return ret < 0 ? -1 : maildir_sync_last_commit(mbox);
 }

@@ -359,6 +359,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 	i_assert(ctx->output == NULL);
 
+	/* Start syncing so that keywords_sync_ctx gets set.. */
 	ctx->sync_ctx = maildir_sync_index_begin(ctx->mbox);
 	if (ctx->sync_ctx == NULL) {
 		maildir_save_commit_abort(ctx, ctx->files);
@@ -399,29 +400,22 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		t_pop();
 	}
 
-	if (ret == 0) {
-		/* finish uidlist syncing, but keep it still locked */
-		maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
-	}
-
-	if (ret < 0) {
-		/* deinit only if we failed. otherwise save_commit_post()
-		   does it. */
-		if (maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx) < 0)
-			ret = -1;
-		ctx->uidlist_sync_ctx = NULL;
-	}
+	if (maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx) < 0)
+		ret = -1;
+	ctx->uidlist_sync_ctx = NULL;
 
 	return ret;
 }
 
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 {
-	/* can't do anything anymore if we fail */
-	(void)maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
+	/* since we've allocated more UIDs, the index must be kept locked
+	   from that time until the changes are written to transaction log.
+	   keeping the syncing open until here we also keep the lock open.
 
-	/* to avoid deadlocks uidlist must not be left locked without index
-	   being locked, so we can't put call to save_commit_pre(). */
+	   if the transaction log writer itself had to grab the lock, it'd
+	   mean that there's a chance for another process to start maildir
+	   sync and write the same UIDs twice for the transaction log. */
 	maildir_sync_index_abort(ctx->sync_ctx);
 
 	pool_unref(ctx->pool);
