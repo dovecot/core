@@ -747,6 +747,11 @@ mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
 	unsigned int count;
 
 	count = array_count(keyword_indexes);
+	if (count == 0) {
+		k = i_new(struct mail_keywords, 1);
+		k->index = t->view->index;
+		return k;
+	}
 
 	/* @UNSAFE */
 	k = i_malloc(sizeof(struct mail_keywords) +
