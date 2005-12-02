@@ -45,14 +45,18 @@ static void sig_die(int signo, void *context __attr_unused__)
 
 static void open_logfile(void)
 {
+	const char *env;
+
 	if (getenv("LOG_TO_MASTER") != NULL) {
 		i_set_failure_internal();
 		return;
 	}
 
-	if (getenv("USE_SYSLOG") != NULL)
-		i_set_failure_syslog("dovecot-auth", LOG_NDELAY, LOG_MAIL);
-	else {
+	if (getenv("USE_SYSLOG") != NULL) {
+		env = getenv("SYSLOG_FACILITY");
+		i_set_failure_syslog("dovecot-auth", LOG_NDELAY,
+				     env == NULL ? LOG_MAIL : atoi(env));
+	} else {
 		/* log to file or stderr */
 		i_set_failure_file(getenv("LOGFILE"), "dovecot-auth");
 	}

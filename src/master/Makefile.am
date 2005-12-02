@@ -23,6 +23,7 @@ dovecot_SOURCES = \
 	mail-process.c \
 	main.c \
 	master-settings.c \
+	syslog-util.c \
 	ssl-init.c \
 	ssl-init-gnutls.c \
 	ssl-init-openssl.c
@@ -35,4 +36,5 @@ noinst_HEADERS = \
 	mail-process.h \
 	master-login-interface.h \
 	master-settings.h \
+	syslog-util.h \
 	ssl-init.h

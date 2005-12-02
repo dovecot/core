@@ -147,7 +147,9 @@ static void drop_privileges(void)
 		i_set_failure_internal();
 	else {
 		/* log to syslog */
-		i_set_failure_syslog(process_name, LOG_NDELAY, LOG_MAIL);
+		env = getenv("SYSLOG_FACILITY");
+		i_set_failure_syslog(process_name, LOG_NDELAY,
+				     env == NULL ? LOG_MAIL : atoi(env));
 
 		/* if we don't chroot, we must chdir */
 		env = getenv("LOGIN_DIR");

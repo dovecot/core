@@ -104,9 +104,11 @@ static void open_logfile(void)
 	}
 	i_snprintf(log_prefix, sizeof(log_prefix), "imap(%s)", user);
 
-	if (getenv("USE_SYSLOG") != NULL)
-		i_set_failure_syslog(log_prefix, LOG_NDELAY, LOG_MAIL);
-	else {
+	if (getenv("USE_SYSLOG") != NULL) {
+		const char *env = getenv("SYSLOG_FACILITY");
+		i_set_failure_syslog(log_prefix, LOG_NDELAY,
+				     env == NULL ? LOG_MAIL : atoi(env));
+	} else {
 		/* log to file or stderr */
 		i_set_failure_file(getenv("LOGFILE"), log_prefix);
 	}

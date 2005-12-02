@@ -11,6 +11,7 @@
 #include "auth-process.h"
 #include "login-process.h"
 #include "mail-process.h"
+#include "syslog-util.h"
 #include "ssl-init.h"
 #include "log.h"
 
@@ -61,6 +62,8 @@ int validate_str(const char *str, size_t max_len)
 
 void child_process_init_env(void)
 {
+	int facility;
+
 	/* remove all environment, we don't need them */
 	env_clean();
 
@@ -68,6 +71,11 @@ void child_process_init_env(void)
 	env_put("LOG_TO_MASTER=1");
 	if (env_tz != NULL)
 		env_put(t_strconcat("TZ=", env_tz, NULL));
+
+	if (!syslog_facility_find(settings_root->defaults->syslog_facility,
+				  &facility))
+		facility = LOG_MAIL;
+	env_put(t_strdup_printf("SYSLOG_FACILITY=%d", facility));
 
 #ifdef DEBUG
 	if (gdb) env_put("GDB=1");
@@ -95,9 +103,14 @@ void client_process_exec(const char *cmd, const char *title)
 
 static void set_logfile(struct settings *set)
 {
-	if (set->log_path == NULL)
-		i_set_failure_syslog("dovecot", LOG_NDELAY, LOG_MAIL);
-	else {
+	int facility;
+
+	if (set->log_path == NULL) {
+		if (!syslog_facility_find(set->syslog_facility, &facility))
+			facility = LOG_MAIL;
+
+		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
+	} else {
 		/* log to file or stderr */
 		i_set_failure_file(set->log_path, "dovecot");
 	}

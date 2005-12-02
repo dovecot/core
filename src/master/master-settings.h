@@ -18,6 +18,7 @@ struct settings {
 	const char *log_path;
 	const char *info_log_path;
 	const char *log_timestamp;
+	const char *syslog_facility;
 
 	/* general */
 	const char *protocols;

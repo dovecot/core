@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "safe-mkdir.h"
 #include "unlink-directory.h"
+#include "syslog-util.h"
 #include "settings.h"
 
 #include <stdio.h>
@@ -47,6 +48,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, log_path),
 	DEF(SET_STR, info_log_path),
 	DEF(SET_STR, log_timestamp),
+	DEF(SET_STR, syslog_facility),
 
 	/* general */
 	DEF(SET_STR, protocols),
@@ -239,6 +241,7 @@ struct settings default_settings = {
 	MEMBER(log_path) NULL,
 	MEMBER(info_log_path) NULL,
 	MEMBER(log_timestamp) DEFAULT_FAILURE_STAMP_FORMAT,
+	MEMBER(syslog_facility) "mail",
 
 	/* general */
 	MEMBER(protocols) "imap imaps",
@@ -511,6 +514,7 @@ static int settings_have_connect_sockets(struct settings *set)
 static int settings_verify(struct settings *set)
 {
 	const char *dir;
+	int facility;
 
 	if (!get_login_uid(set))
 		return FALSE;
@@ -551,6 +555,11 @@ static int settings_verify(struct settings *set)
 				dir);
 			return FALSE;
 		}
+	}
+
+	if (!syslog_facility_find(set->syslog_facility, &facility)) {
+		i_error("Unknown syslog_facility '%s'", set->syslog_facility);
+		return FALSE;
 	}
 
 #ifdef HAVE_SSL
