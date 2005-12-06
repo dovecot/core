@@ -105,6 +105,8 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 		}
 		/* missing input - fall through */
 	case 1:
+		auth_request_log_info(request->request, "checkpassword",
+				      "Unknown user");
 		checkpassword_request_finish(request,
 					     PASSDB_RESULT_USER_UNKNOWN);
 		break;
@@ -115,7 +117,8 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 		/* temporary problem, treat as internal error */
 	default:
 		/* whatever error.. */
-		i_error("checkpassword: Child %s exited with status %d",
+		auth_request_log_error(request->request, "checkpassword",
+			"Child %s exited with status %d",
 			dec2str(request->pid), request->exit_status);
 		checkpassword_request_finish(request,
 					     PASSDB_RESULT_INTERNAL_FAILURE);
@@ -147,10 +150,18 @@ static void wait_timeout(void *context)
 			i_error("checkpassword: Child %s died with signal %d",
 				dec2str(pid), WTERMSIG(status));
 		} else if (WIFEXITED(status) && request != NULL) {
+			auth_request_log_debug(request->request,
+				"checkpassword", "exit_status=%d",
+				request->exit_status);
+
 			request->exited = TRUE;
 			request->exit_status = WEXITSTATUS(status);
 			checkpassword_request_half_finish(request);
 			request = NULL;
+		} else {
+			auth_request_log_debug(request->request,
+				"checkpassword", "Child exited with status=%d",
+				status);
 		}
 
 		if (request != NULL) {
@@ -161,23 +172,26 @@ static void wait_timeout(void *context)
 }
 
 static void
-checkpassword_verify_plain_child(struct checkpassword_passdb_module *module,
+checkpassword_verify_plain_child(struct auth_request *request,
+				 struct checkpassword_passdb_module *module,
 				 int fd_in, int fd_out)
 {
 	const char *args[3];
 
-	if (dup2(fd_out, 3) < 0)
-		i_error("checkpassword: dup2() failed: %m");
-	else if (dup2(fd_in, 4) < 0)
-		i_error("checkpassword: dup2() failed: %m");
-	else {
+	if (dup2(fd_out, 3) < 0 || dup2(fd_in, 4) < 0) {
+		auth_request_log_error(request, "checkpassword",
+				       "dup2() failed: %m");
+	} else {
 		args[0] = module->checkpassword_path;
 		args[1] = module->checkpassword_reply_path;
 		args[2] = NULL;
 
+		auth_request_log_debug(request, "checkpassword",
+			"Executed: %s %s", args[0], args[1]);
+
 		execv(module->checkpassword_path, (char **)args);
-		i_error("checkpassword: execv(%s) failed: %m",
-			module->checkpassword_path);
+		auth_request_log_error(request, "checkpassword",
+			"execv(%s) failed: %m", module->checkpassword_path);
 	}
 	exit(2);
 }
@@ -190,14 +204,22 @@ static void checkpassword_child_input(void *context)
 
 	ret = read(request->fd_in, buf, sizeof(buf));
 	if (ret <= 0) {
-		if (ret < 0)
-			i_error("checkpassword: read() failed: %m");
+		if (ret < 0) {
+			auth_request_log_error(request->request,
+				"checkpassword", "read() failed: %m");
+		}
+
+		auth_request_log_debug(request->request, "checkpassword",
+				       "Received no input");
 		checkpassword_request_close(request);
 		checkpassword_request_half_finish(request);
 	} else {
 		if (request->input_buf == NULL)
 			request->input_buf = str_new(default_pool, 512);
 		str_append_n(request->input_buf, buf, ret);
+
+		auth_request_log_debug(request->request, "checkpassword",
+			"Received input: %s", str_c(request->input_buf));
 	}
 }
 
@@ -221,8 +243,8 @@ static void checkpassword_child_output(void *context)
 	data = buffer_get_data(buf, &size);
 
 	if (size > 512) {
-		i_error("checkpassword: output larger than 512 bytes: "
-			"%"PRIuSIZE_T, size);
+		auth_request_log_error(request->request, "checkpassword",
+			"output larger than 512 bytes: %"PRIuSIZE_T, size);
 		checkpassword_request_finish(request,
 					     PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
@@ -231,8 +253,10 @@ static void checkpassword_child_output(void *context)
 	ret = write(request->fd_out, data + request->write_pos,
 		    size - request->write_pos);
 	if (ret <= 0) {
-		if (ret < 0)
-			i_error("checkpassword: write() failed: %m");
+		if (ret < 0) {
+			auth_request_log_error(request->request,
+				"checkpassword", "write() failed: %m");
+		}
 		checkpassword_request_finish(request,
 					     PASSDB_RESULT_INTERNAL_FAILURE);
 		return;
@@ -288,7 +312,9 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 	if (pid == 0) {
 		(void)close(fd_in[0]);
 		(void)close(fd_out[1]);
-		checkpassword_verify_plain_child(module, fd_in[1], fd_out[0]);
+		checkpassword_verify_plain_child(request, module,
+						 fd_in[1], fd_out[0]);
+		/* not reached */
 	}
 
 	if (close(fd_in[1]) < 0) {
