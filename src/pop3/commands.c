@@ -567,7 +567,8 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 			mail_get_first_header(ctx->mail, "X-UIDL");
 		if (uidl == NULL)
 			var_expand(str, uidl_format, tab);
-
+		else
+			str_append(str, uidl);
 		ret = client_send_line(client, "%s", str_c(str));
 		t_pop();
 
