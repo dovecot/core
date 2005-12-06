@@ -263,6 +263,8 @@ static void main_init(int nodaemon)
 
 static void main_deinit(void)
 {
+	auth_deinit(auth);
+
 	if (worker_client != NULL)
 		auth_worker_client_unref(worker_client);
 	else
@@ -271,7 +273,6 @@ static void main_deinit(void)
         auth_worker_server_deinit();
 	auth_master_listeners_deinit();
 	auth_request_handler_deinit();
-	auth_deinit(auth);
 	mech_deinit();
 
         password_schemes_deinit();
