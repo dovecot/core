@@ -34,6 +34,11 @@ static void idle_finish(struct cmd_idle_context *ctx, int done_ok)
 		ctx->to = NULL;
 	}
 
+	if (ctx->sync_ctx != NULL) {
+		/* we're here only in connection failure cases */
+		(void)imap_sync_deinit(ctx->sync_ctx);
+	}
+
 	o_stream_cork(client->output);
 
 	if (ctx->dummy_seq != 0) {
@@ -75,6 +80,14 @@ static void idle_client_input(void *context)
 	case -2:
 		client->input_skip_line = TRUE;
 		idle_finish(ctx, FALSE);
+		return;
+	}
+
+	if (ctx->sync_ctx != NULL) {
+		/* we're still sending output to client. wait until it's all
+		   sent so we don't lose any changes. */
+		io_remove(client->io);
+		client->io = NULL;
 		return;
 	}
 
@@ -163,8 +176,14 @@ static int cmd_idle_continue(struct client_command_context *cmd)
 		   client */
                 idle_callback(client->mailbox, client);
 	}
-
         client->output_pending = FALSE;
+
+	if (client->io == NULL) {
+		/* input is pending */
+		client->io = io_add(i_stream_get_fd(client->input),
+				    IO_READ, idle_client_input, ctx);
+		idle_client_input(ctx);
+	}
 	return FALSE;
 }
 
