@@ -539,8 +539,8 @@ mbox_open(struct mbox_storage *storage, const char *name,
 
 	if (index_dir != NULL) {
 		/* make sure the index directories exist */
-		if (create_mbox_index_dirs(storage, "INBOX") < 0)
-			return -1;
+		if (create_mbox_index_dirs(istorage, name) < 0)
+			return NULL;
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
