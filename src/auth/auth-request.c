@@ -338,12 +338,10 @@ void auth_request_verify_plain(struct auth_request *request,
 	request->private_callback.verify_plain = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
-	if (cache_key != NULL) {
-		if (passdb_cache_verify_plain(request, cache_key, password,
-					      &result, FALSE)) {
-			callback(result, request);
-			return;
-		}
+	if (passdb_cache_verify_plain(request, cache_key, password,
+				      &result, FALSE)) {
+		callback(result, request);
+		return;
 	}
 
 	request->state = AUTH_REQUEST_STATE_PASSDB;

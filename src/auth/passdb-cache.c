@@ -39,7 +39,7 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	const char *value, *cached_pw, *scheme, *const *list;
 	int ret, expired;
 
-	if (passdb_cache == NULL)
+	if (passdb_cache == NULL || key == NULL)
 		return FALSE;
 
 	/* value = password \t ... */
