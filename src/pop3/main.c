@@ -194,6 +194,9 @@ static int main_init(void)
 	if (logout_format == NULL)
 		logout_format = "top=%t/%T, retr=%r/%R, del=%d/%m, size=%s";
 	uidl_keymask = parse_uidl_keymask(uidl_format);
+	if (uidl_keymask == 0)
+		i_fatal("pop3_uidl_format setting doesn't contain any "
+			"%% variables.");
 
 	flags = 0;
 	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
