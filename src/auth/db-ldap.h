@@ -56,11 +56,13 @@ struct ldap_connection {
 struct ldap_request {
 	db_search_callback_t *callback;
 	void *context;
+
+	const char *base;
+	const char *filter;
+	char **attributes; /* points to pass_attr_names / user_attr_names */
 };
 
-void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
-		    const char *filter, char **attributes,
-		    struct ldap_request *request);
+void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request);
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,

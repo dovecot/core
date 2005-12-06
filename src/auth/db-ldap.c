@@ -66,7 +66,7 @@ struct ldap_settings default_ldap_settings = {
 
 static struct ldap_connection *ldap_connections = NULL;
 
-static void ldap_conn_close(struct ldap_connection *conn);
+static void ldap_conn_close(struct ldap_connection *conn, int flush_requests);
 
 static int deref2str(const char *str)
 {
@@ -108,9 +108,7 @@ const char *ldap_get_error(struct ldap_connection *conn)
 	return ldap_err2string(err);
 }
 
-void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
-		    const char *filter, char **attributes,
-		    struct ldap_request *request)
+void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request)
 {
 	int msgid;
 
@@ -121,15 +119,51 @@ void db_ldap_search(struct ldap_connection *conn, const char *base, int scope,
 		}
 	}
 
-	msgid = ldap_search(conn->ld, base, scope, filter, attributes, 0);
+	msgid = ldap_search(conn->ld, request->base, conn->set.ldap_scope,
+			    request->filter, request->attributes, 0);
 	if (msgid == -1) {
 		i_error("LDAP: ldap_search() failed (filter %s): %s",
-			filter, ldap_get_error(conn));
+			request->filter, ldap_get_error(conn));
 		request->callback(conn, request, NULL);
 		return;
 	}
 
 	hash_insert(conn->requests, POINTER_CAST(msgid), request);
+}
+
+static void ldap_conn_retry_requests(struct ldap_connection *conn)
+{
+	struct hash_table *old_requests;
+        struct hash_iterate_context *iter;
+	void *key, *value;
+
+	i_assert(conn->connected);
+
+	if (hash_size(conn->requests) == 0)
+		return;
+
+	old_requests = conn->requests;
+	conn->requests = hash_create(default_pool, conn->pool, 0, NULL, NULL);
+
+	iter = hash_iterate_init(old_requests);
+	while (hash_iterate(iter, &key, &value)) {
+		struct ldap_request *request = value;
+
+		i_assert(conn->connected);
+		db_ldap_search(conn, request);
+	}
+	hash_iterate_deinit(iter);
+	hash_destroy(old_requests);
+}
+
+static void ldap_conn_reconnect(struct ldap_connection *conn)
+{
+	ldap_conn_close(conn, FALSE);
+
+	if (!db_ldap_connect(conn)) {
+		/* failed to reconnect. fail all requests. */
+		ldap_conn_close(conn, TRUE);
+	}
 }
 
 static void ldap_input(void *context)
@@ -154,8 +188,7 @@ static void ldap_input(void *context)
 			if (ret < 0) {
 				i_error("LDAP: ldap_result() failed: %s",
 					ldap_get_error(conn));
-				/* reconnect */
-				ldap_conn_close(conn);
+				ldap_conn_reconnect(conn);
 			}
 			return;
 		}
@@ -237,22 +270,27 @@ int db_ldap_connect(struct ldap_connection *conn)
 
 	net_set_nonblock(fd, TRUE);
 	conn->io = io_add(fd, IO_READ, ldap_input, conn);
+
+	/* in case there are requests waiting, retry them */
+        ldap_conn_retry_requests(conn);
 	return TRUE;
 }
 
-static void ldap_conn_close(struct ldap_connection *conn)
+static void ldap_conn_close(struct ldap_connection *conn, int flush_requests)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
-	iter = hash_iterate_init(conn->requests);
-	while (hash_iterate(iter, &key, &value)) {
-		struct ldap_request *request = value;
+	if (flush_requests) {
+		iter = hash_iterate_init(conn->requests);
+		while (hash_iterate(iter, &key, &value)) {
+			struct ldap_request *request = value;
 
-		request->callback(conn, request, NULL);
+			request->callback(conn, request, NULL);
+		}
+		hash_iterate_deinit(iter);
+		hash_clear(conn->requests, FALSE);
 	}
-	hash_iterate_deinit(iter);
-	hash_clear(conn->requests, FALSE);
 
 	conn->connected = FALSE;
 
@@ -426,7 +464,7 @@ void db_ldap_unref(struct ldap_connection *conn)
 		}
 	}
 
-	ldap_conn_close(conn);
+	ldap_conn_close(conn, TRUE);
 
 	hash_destroy(conn->requests);
 	if (conn->pass_attr_map != NULL)

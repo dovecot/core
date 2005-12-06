@@ -176,31 +176,32 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
         const struct var_expand_table *vars;
 	const char **attr_names = (const char **)conn->user_attr_names;
 	struct userdb_ldap_request *request;
-	const char *filter, *base;
 	string_t *str;
-
-	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
-
-	str = t_str_new(512);
-	var_expand(str, conn->set.base, vars);
-	base = t_strdup(str_c(str));
-
-	str_truncate(str, 0);
-	var_expand(str, conn->set.user_filter, vars);
-	filter = str_c(str);
 
 	request = p_new(auth_request->pool, struct userdb_ldap_request, 1);
 	request->request.callback = handle_request;
 	request->auth_request = auth_request;
 	request->userdb_callback = callback;
 
+	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
+
+	str = t_str_new(512);
+	var_expand(str, conn->set.base, vars);
+	request->request.base = p_strdup(auth_request->pool, str_c(str));
+
+	str_truncate(str, 0);
+	var_expand(str, conn->set.user_filter, vars);
+	request->request.filter = p_strdup(auth_request->pool, str_c(str));
+
+	request->request.attributes = conn->user_attr_names;
+
 	auth_request_log_debug(auth_request, "ldap",
 			       "base=%s scope=%s filter=%s fields=%s",
-			       base, conn->set.scope, filter,
+			       request->request.base, conn->set.scope,
+			       request->request.filter,
 			       t_strarray_join(attr_names, ","));
 
-	db_ldap_search(conn, base, conn->set.ldap_scope, filter,
-		       conn->user_attr_names, &request->request);
+	db_ldap_search(conn, &request->request);
 }
 
 static struct userdb_module *

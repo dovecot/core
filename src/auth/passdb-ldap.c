@@ -179,30 +179,30 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	struct ldap_connection *conn = module->conn;
         const struct var_expand_table *vars;
 	const char **attr_names = (const char **)conn->pass_attr_names;
-	const char *filter, *base;
 	string_t *str;
 
 	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
 
 	str = t_str_new(512);
 	var_expand(str, conn->set.base, vars);
-	base = t_strdup(str_c(str));
+	ldap_request->base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
 	var_expand(str, conn->set.pass_filter, vars);
-	filter = str_c(str);
+	ldap_request->filter = p_strdup(auth_request->pool, str_c(str));
 
 	auth_request_ref(auth_request);
 	ldap_request->callback = handle_request;
 	ldap_request->context = auth_request;
+	ldap_request->attributes = conn->pass_attr_names;
 
 	auth_request_log_debug(auth_request, "ldap",
 			       "base=%s scope=%s filter=%s fields=%s",
-			       base, conn->set.scope, filter,
+			       ldap_request->base, conn->set.scope,
+			       ldap_request->filter,
 			       t_strarray_join(attr_names, ","));
 
-	db_ldap_search(conn, base, conn->set.ldap_scope, filter,
-		       conn->pass_attr_names, ldap_request);
+	db_ldap_search(conn, ldap_request);
 }
 
 static void
