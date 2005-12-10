@@ -1499,6 +1499,10 @@ src/pop3/Makefile
 src/pop3-login/Makefile
 src/deliver/Makefile
 src/util/Makefile
+src/plugins/Makefile
+src/plugins/quota/Makefile
+src/plugins/imap-quota/Makefile
+src/plugins/trash/Makefile
 stamp.h
 dovecot.spec
 dovecot-config])

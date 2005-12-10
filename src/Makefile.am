@@ -25,4 +25,5 @@ SUBDIRS = \
 	imap \
 	$(POP3D) \
 	$(DELIVER) \
-	util
+	util \
+	plugins
