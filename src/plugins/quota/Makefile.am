@@ -16,9 +16,14 @@ libquota_plugin_la_SOURCES = \
         quota-plugin.c \
 	quota-storage.c
 
+noinst_HEADERS = \
+	quota.h \
+	quota-plugin.h \
+	quota-private.h
+
 install-exec-local:
-	$(mkdir_p) $(moduledir)/imap $(moduledir)/lda
+	$(mkdir_p) $(DESTDIR)$(moduledir)/imap $(DESTDIR)$(moduledir)/lda
 	for d in imap lda; do \
-	  rm -f $(moduledir)/$$d/libquota_plugin.so; \
-	  $(LN_S) ../libquota_plugin.so $(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/libquota_plugin.so; \
+	  $(LN_S) ../libquota_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done

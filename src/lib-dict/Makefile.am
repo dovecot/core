@@ -11,4 +11,5 @@ libdict_a_SOURCES = \
 
 noinst_HEADERS = \
 	dict.h \
-	dict-private.h
+	dict-private.h \
+	dict-sql.h

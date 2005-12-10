@@ -12,10 +12,13 @@ module_LTLIBRARIES = \
 libtrash_plugin_la_SOURCES = \
 	trash-plugin.c
 
+noinst_HEADERS = \
+	trash-plugin.h
+
 install-exec-local:
-	$(mkdir_p) $(moduledir)/imap $(moduledir)/lda
+	$(mkdir_p) $(DESTDIR)$(moduledir)/imap $(DESTDIR)$(moduledir)/lda
 	for d in imap lda; do \
-	  rm -f $(moduledir)/$$d/libtrash_plugin.so; \
-	  $(LN_S) ../libtrash_plugin.so $(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/libtrash_plugin.so; \
+	  $(LN_S) ../libtrash_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done
 

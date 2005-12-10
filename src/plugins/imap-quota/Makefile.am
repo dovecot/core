@@ -15,3 +15,6 @@ imap_module_LTLIBRARIES = \
 
 libimap_quota_plugin_la_SOURCES = \
 	imap-quota-plugin.c
+
+noinst_HEADERS = \
+	imap-quota-plugin.h
