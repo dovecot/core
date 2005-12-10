@@ -8,6 +8,7 @@ endif
 
 SUBDIRS = \
 	lib \
+	lib-dict \
 	lib-sql \
 	lib-ntlm \
 	lib-settings \
