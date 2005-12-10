@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "str.h"
 #include "sql-api-private.h"
 
 #ifdef HAVE_MYSQL
@@ -59,6 +60,12 @@ struct mysql_result {
 
 	MYSQL_FIELD *fields;
 	unsigned int fields_count;
+};
+
+struct mysql_transaction_context {
+	struct sql_transaction_context ctx;
+
+	string_t *queries;
 };
 
 extern struct sql_result driver_mysql_result;
@@ -340,43 +347,59 @@ static void driver_mysql_exec(struct sql_db *_db, const char *query)
 	(void)driver_mysql_do_query(db, query, &conn);
 }
 
-static void driver_mysql_query(struct sql_db *_db, const char *query,
+static void driver_mysql_query(struct sql_db *db, const char *query,
 			       sql_query_callback_t *callback, void *context)
+{
+	struct sql_result *result;
+
+	result = sql_query_s(db, query);
+	result->callback = TRUE;
+	callback(result, context);
+	sql_result_free(result);
+}
+
+static struct sql_result *
+driver_mysql_query_s(struct sql_db *_db, const char *query)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
-	struct mysql_result result;
+	struct mysql_result *result;
+
+	result = i_new(struct mysql_result, 1);
+	result->api = driver_mysql_result;
+	result->api.db = _db;
+	result->conn = conn;
 
 	switch (driver_mysql_do_query(db, query, &conn)) {
 	case 0:
 		/* not connected */
-		callback(&sql_not_connected_result, context);
-		return;
-
+		result->api = sql_not_connected_result;
+		break;
 	case 1:
 		/* query ok */
-		memset(&result, 0, sizeof(result));
-		result.api = driver_mysql_result;
-		result.api.db = _db;
-		result.conn = conn;
-		result.result = mysql_store_result(conn->mysql);
-		if (result.result == NULL)
+		result->result = mysql_store_result(conn->mysql);
+		if (result->result != NULL)
 			break;
-
-		callback(&result.api, context);
-                mysql_free_result(result.result);
-		return;
+		/* fallback */
 	case -1:
 		/* error */
+		result->api = driver_mysql_error_result;
 		break;
 	}
 
-	/* error */
-	memset(&result, 0, sizeof(result));
-	result.api = driver_mysql_error_result;
-	result.api.db = _db;
-	result.conn = conn;
-	callback(&result.api, context);
+	return &result->api;
+}
+
+static void driver_mysql_result_free(struct sql_result *_result)
+{
+	struct mysql_result *result = (struct mysql_result *)_result;
+
+	if (_result == &sql_not_connected_result || _result->callback)
+		return;
+
+	if (result->result != NULL)
+		mysql_free_result(result->result);
+	i_free(result);
 }
 
 static int driver_mysql_result_next_row(struct sql_result *_result)
@@ -468,18 +491,106 @@ static const char *driver_mysql_result_get_error(struct sql_result *_result)
 	return mysql_error(result->conn->mysql);
 }
 
+static struct sql_transaction_context *
+driver_mysql_transaction_begin(struct sql_db *db)
+{
+	struct mysql_transaction_context *ctx;
+
+	ctx = i_new(struct mysql_transaction_context, 1);
+	ctx->ctx.db = db;
+	ctx->queries = str_new(default_pool, 1024);
+	return &ctx->ctx;
+}
+
+static void
+driver_mysql_transaction_commit(struct sql_transaction_context *ctx,
+				sql_commit_callback_t *callback, void *context)
+{
+	const char *error;
+
+	if (sql_transaction_commit_s(ctx, &error) < 0)
+		callback(error, context);
+	else
+		callback(NULL, context);
+}
+
+static int
+driver_mysql_transaction_commit_s(struct sql_transaction_context *_ctx,
+				  const char **error_r)
+{
+	struct mysql_transaction_context *ctx =
+		(struct mysql_transaction_context *)_ctx;
+	struct sql_result *result;
+	int ret = 0;
+
+	*error_r = NULL;
+
+	if (str_len(ctx->queries) > 0) {
+		str_append(ctx->queries, "COMMIT;");
+
+		result = sql_query_s(_ctx->db, str_c(ctx->queries));
+		if (sql_result_next_row(result) < 0) {
+			*error_r = sql_result_get_error(result);
+			ret = -1;
+		}
+		sql_result_free(result);
+	}
+	sql_transaction_rollback(_ctx);
+	return ret;
+}
+
+static void
+driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
+{
+	struct mysql_transaction_context *ctx =
+		(struct mysql_transaction_context *)_ctx;
+
+	str_free(ctx->queries);
+	i_free(ctx);
+}
+
+static void
+driver_mysql_update(struct sql_transaction_context *_ctx, const char *query)
+{
+	struct mysql_transaction_context *ctx =
+		(struct mysql_transaction_context *)_ctx;
+
+	/* FIXME: with mysql we're just appending everything into one big
+	   string which gets committed in sql_transaction_commit(). we could
+	   avoid this if we knew for sure that transactions actually worked,
+	   but I don't know how to do that.. */
+	if (str_len(ctx->queries) == 0) {
+		/* try to use a transaction in any case,
+		   even if it doesn't work. */
+		str_append(ctx->queries, "BEGIN;");
+	}
+	str_append(ctx->queries, query);
+	str_append_c(ctx->queries, ';');
+}
+
 struct sql_db driver_mysql_db = {
+	"mysql",
+
 	driver_mysql_init,
 	driver_mysql_deinit,
 	driver_mysql_get_flags,
         driver_mysql_connect_all,
 	driver_mysql_exec,
-	driver_mysql_query
+	driver_mysql_query,
+	driver_mysql_query_s,
+
+	driver_mysql_transaction_begin,
+	driver_mysql_transaction_commit,
+	driver_mysql_transaction_commit_s,
+	driver_mysql_transaction_rollback,
+
+	driver_mysql_update
 };
 
 struct sql_result driver_mysql_result = {
 	NULL,
 
+	driver_mysql_result_free,
 	driver_mysql_result_next_row,
 	driver_mysql_result_get_fields_count,
 	driver_mysql_result_get_field_name,
@@ -487,7 +598,9 @@ struct sql_result driver_mysql_result = {
 	driver_mysql_result_get_field_value,
 	driver_mysql_result_find_field_value,
 	driver_mysql_result_get_values,
-	driver_mysql_result_get_error
+	driver_mysql_result_get_error,
+
+	FALSE
 };
 
 static int
@@ -499,8 +612,11 @@ driver_mysql_result_error_next_row(struct sql_result *result __attr_unused__)
 struct sql_result driver_mysql_error_result = {
 	NULL,
 
+	driver_mysql_result_free,
 	driver_mysql_result_error_next_row,
 	NULL, NULL, NULL, NULL, NULL, NULL,
-	driver_mysql_result_get_error
+	driver_mysql_result_get_error,
+
+	FALSE
 };
 #endif

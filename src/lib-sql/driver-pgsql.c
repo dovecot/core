@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "ioloop-internal.h" /* kind of dirty, but it should be fine.. */
 #include "sql-api-private.h"
 
 #ifdef HAVE_PGSQL
@@ -22,6 +23,10 @@ struct pgsql_db {
 	struct pgsql_queue *queue, **queue_tail;
 	struct timeout *queue_to;
 
+	struct ioloop *ioloop;
+	struct sql_result *sync_result;
+
+	char *error;
 	time_t last_connect;
 	unsigned int connecting:1;
 	unsigned int connected:1;
@@ -47,6 +52,18 @@ struct pgsql_queue {
 	time_t created;
 	char *query;
 	struct pgsql_result *result;
+};
+
+struct pgsql_transaction_context {
+	struct sql_transaction_context ctx;
+
+	sql_commit_callback_t *callback;
+	void *context;
+
+	const char *error;
+
+	unsigned int opened:1;
+	unsigned int failed:1;
 };
 
 extern struct sql_result driver_pgsql_result;
@@ -167,11 +184,12 @@ static void driver_pgsql_deinit(struct sql_db *_db)
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 
         driver_pgsql_close(db);
+	i_free(db->error);
 	i_free(db);
 }
 
 static enum sql_db_flags
-driver_mysql_get_flags(struct sql_db *db __attr_unused__)
+driver_pgsql_get_flags(struct sql_db *db __attr_unused__)
 {
 	return 0;
 }
@@ -199,12 +217,14 @@ static void consume_results(void *context)
 		queue_send_next(db);
 }
 
-static void result_finish(struct pgsql_result *result)
+static void driver_pgsql_result_free(struct sql_result *_result)
 {
-	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	struct pgsql_db *db = (struct pgsql_db *)_result->db;
+        struct pgsql_result *result = (struct pgsql_result *)_result;
 
-	if (result->callback != NULL)
-		result->callback(&result->api, result->context);
+	if (result->api.callback)
+		return;
+
 	if (result->pgres != NULL) {
 		PQclear(result->pgres);
 
@@ -212,6 +232,7 @@ static void result_finish(struct pgsql_result *result)
 		i_assert(db->io == NULL);
 		db->io = io_add(PQsocket(db->pg), IO_READ,
 				consume_results, db);
+		db->io_dir = IO_READ;
 		consume_results(db);
 	} else {
 		db->querying = FALSE;
@@ -223,6 +244,20 @@ static void result_finish(struct pgsql_result *result)
 
 	if (db->queue != NULL && !db->querying && db->connected)
 		queue_send_next(db);
+}
+
+static void result_finish(struct pgsql_result *result)
+{
+	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
+	int free_result = TRUE;
+
+	if (result->callback != NULL) {
+		result->api.callback = TRUE;
+		result->callback(&result->api, result->context);
+		free_result = db->sync_result != &result->api;
+	}
+	if (free_result)
+		driver_pgsql_result_free(&result->api);
 }
 
 static void get_result(void *context)
@@ -240,6 +275,7 @@ static void get_result(void *context)
 		if (db->io == NULL) {
  			db->io = io_add(PQsocket(db->pg), IO_READ,
 					get_result, result);
+			db->io_dir = IO_READ;
 		}
 		return;
 	}
@@ -302,6 +338,7 @@ static void send_query(struct pgsql_result *result, const char *query)
 		/* write blocks */
 		db->io = io_add(PQsocket(db->pg), IO_WRITE,
 				flush_callback, result);
+		db->io_dir = IO_WRITE;
 	} else {
 		get_result(result);
 	}
@@ -416,6 +453,44 @@ static void driver_pgsql_query(struct sql_db *db, const char *query,
 	result->context = context;
 
 	do_query(result, query);
+}
+
+static void pgsql_query_s_callback(struct sql_result *result, void *context)
+{
+        struct pgsql_db *db = context;
+
+	db->sync_result = result;
+	io_loop_stop(db->ioloop);
+}
+
+static struct sql_result *
+driver_pgsql_query_s(struct sql_db *_db, const char *query)
+{
+        struct pgsql_db *db = (struct pgsql_db *)_db;
+	struct io old_io;
+
+	if (db->io == NULL)
+		db->ioloop = io_loop_create(default_pool);
+	else {
+		/* have to move our existing I/O handler to new I/O loop */
+		old_io = *db->io;
+		io_remove(db->io);
+
+		db->ioloop = io_loop_create(default_pool);
+
+		db->io = io_add(old_io.fd, old_io.condition,
+				old_io.callback, old_io.context);
+	}
+
+	driver_pgsql_query(_db, query, pgsql_query_s_callback, db);
+
+	io_loop_run(db->ioloop);
+	io_loop_destroy(db->ioloop);
+	db->ioloop = NULL;
+
+	i_assert(db->io == NULL);
+
+	return db->sync_result;
 }
 
 static int driver_pgsql_result_next_row(struct sql_result *_result)
@@ -543,6 +618,7 @@ driver_pgsql_result_get_values(struct sql_result *_result)
 static const char *driver_pgsql_result_get_error(struct sql_result *_result)
 {
 	struct pgsql_result *result = (struct pgsql_result *)_result;
+	struct pgsql_db *db = (struct pgsql_db *)_result->db;
 	const char *msg;
 	size_t len;
 
@@ -552,22 +628,141 @@ static const char *driver_pgsql_result_get_error(struct sql_result *_result)
 
 	/* Error message should contain trailing \n, we don't want it */
 	len = strlen(msg);
-	return len == 0 || msg[len-1] != '\n' ? msg :
-		t_strndup(msg, len-1);
+	i_free(db->error);
+	db->error = len == 0 || msg[len-1] != '\n' ?
+		i_strdup(msg) : i_strndup(msg, len-1);
+
+	return db->error;
+}
+
+static struct sql_transaction_context *
+driver_pgsql_transaction_begin(struct sql_db *db)
+{
+	struct pgsql_transaction_context *ctx;
+
+	ctx = i_new(struct pgsql_transaction_context, 1);
+	ctx->ctx.db = db;
+	return &ctx->ctx;
+}
+
+static void
+transaction_commit_callback(struct sql_result *result, void *context)
+{
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)context;
+
+	if (sql_result_next_row(result) < 0)
+		ctx->callback(sql_result_get_error(result), ctx->context);
+	else
+		ctx->callback(NULL, ctx->context);
+}
+
+static void
+driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
+				sql_commit_callback_t *callback, void *context)
+{
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)_ctx;
+
+	if (ctx->failed) {
+		callback(ctx->error, context);
+		sql_exec(_ctx->db, "ROLLBACK");
+		i_free(ctx);
+		return;
+	}
+
+	ctx->callback = callback;
+	ctx->context = context;
+
+	sql_query(_ctx->db, "COMMIT", transaction_commit_callback, ctx);
+}
+
+static int
+driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
+				  const char **error_r)
+{
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)_ctx;
+	struct sql_result *result;
+
+	if (ctx->failed) {
+		*error_r = ctx->error;
+		sql_exec(_ctx->db, "ROLLBACK");
+	} else {
+		result = sql_query_s(_ctx->db, "COMMIT");
+		if (sql_result_next_row(result) < 0)
+			*error_r = sql_result_get_error(result);
+		else
+			*error_r = NULL;
+		sql_result_free(result);
+	}
+
+	i_free(ctx);
+	return *error_r == NULL ? 0 : -1;
+}
+
+static void
+driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
+{
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)_ctx;
+
+	sql_exec(_ctx->db, "ROLLBACK");
+	i_free(ctx);
+}
+
+static void
+transaction_update_callback(struct sql_result *result, void *context)
+{
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)context;
+
+	if (sql_result_next_row(result) < 0) {
+		ctx->failed = TRUE;
+		ctx->error = sql_result_get_error(result);
+	}
+}
+
+static void
+driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query)
+{
+	struct pgsql_transaction_context *ctx =
+		(struct pgsql_transaction_context *)_ctx;
+
+	if (ctx->failed)
+		return;
+
+	if (!ctx->opened) {
+		ctx->opened = TRUE;
+		sql_query(_ctx->db, "BEGIN", transaction_update_callback, ctx);
+	}
+
+	sql_query(_ctx->db, query, transaction_update_callback, ctx);
 }
 
 struct sql_db driver_pgsql_db = {
+	"pgsql",
+
 	driver_pgsql_init,
 	driver_pgsql_deinit,
-        driver_mysql_get_flags,
+        driver_pgsql_get_flags,
 	driver_pgsql_connect,
 	driver_pgsql_exec,
-	driver_pgsql_query
+	driver_pgsql_query,
+	driver_pgsql_query_s,
+
+	driver_pgsql_transaction_begin,
+	driver_pgsql_transaction_commit,
+	driver_pgsql_transaction_commit_s,
+	driver_pgsql_transaction_rollback,
+
+	driver_pgsql_update
 };
 
 struct sql_result driver_pgsql_result = {
 	NULL,
 
+	driver_pgsql_result_free,
 	driver_pgsql_result_next_row,
 	driver_pgsql_result_get_fields_count,
 	driver_pgsql_result_get_field_name,
@@ -575,7 +770,9 @@ struct sql_result driver_pgsql_result = {
 	driver_pgsql_result_get_field_value,
 	driver_pgsql_result_find_field_value,
 	driver_pgsql_result_get_values,
-	driver_pgsql_result_get_error
+	driver_pgsql_result_get_error,
+
+	FALSE
 };
 
 #endif
