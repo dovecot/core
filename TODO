@@ -1,10 +1,10 @@
+ - IDLE: Send "OK Timeout in n minutes" every 2 minutes to fix NAT/FW timeouts
+ - inetd: pop3-login logs in with imap executable
+ - dovecot --exec-mail imap doesn't set MAIL environment?
  - with blocking passdb we're not caching lookups if the password was wrong
  - blocking passdb/userdb works only as root since it can't access
    /var/run/auth-worker.* files..
- - configurable syslog facility
  - LIST replies 2049 bytes (more would come) -> dovecot gets stuck?
- - auth: it's not possible to have two same passdbs/userdbs with different
-   settings
  - LDA: empty mail gives an error. <LF> mail gives another error.
  - LDA: "message <$MSGID> for $USER: $action" logging
  - if PAM child process doesn't finish within a minute, kill it
@@ -63,7 +63,6 @@ ns->sep);
  - buffer_create_data() behavior has changed from silent-truncating to
    hard-crashing. See if it breaks anywhere (PAM!)
  - PAM / checkpassword should use passdb-blocking
- - if capability is sent in greeting, it's not waiting for AUTH=xx..
  - if ssl isn't compiled in, it doesn't complain anything if it's tried to
    be used .. and configure summary even says it's enabled
     - SSL_read in -lssl -> no
@@ -167,6 +166,8 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
        x login cras pass
        * BYE Disconnected for inactivity.
 	^ but it's not disconnecting! (buggy dovecot-auth not replying)
+	  probably because userdb lookup didn't reply, and fd was already sent
+	  for master.. should imap-login be handling it anymore?..
     - imap-login: Authenticate PLAIN failed: Authentication failed:
       Authentication server isn't connected, try again later.. [127.0.0.1]
         ^ NO Authentication failed. (should be Temporary login failure!)
@@ -179,7 +180,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
       maybe just log the IP immediately.
 
  - auth
-    - APOP is broken?
     - support specifying hex/base64 encoding in password scheme. for example
       {plain-md5.base64}
     - auth protocol: make sure values can't have tabs/lfs
