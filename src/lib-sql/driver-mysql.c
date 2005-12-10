@@ -336,6 +336,7 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 			conn[i].connect_delay = CONNECT_RESET_DELAY;
 	}
 
+	*conn_r = NULL;
 	return 0;
 }
 
@@ -368,7 +369,6 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 	result = i_new(struct mysql_result, 1);
 	result->api = driver_mysql_result;
 	result->api.db = _db;
-	result->conn = conn;
 
 	switch (driver_mysql_do_query(db, query, &conn)) {
 	case 0:
@@ -387,6 +387,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 		break;
 	}
 
+	result->conn = conn;
 	return &result->api;
 }
 
