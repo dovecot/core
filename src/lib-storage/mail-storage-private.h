@@ -208,6 +208,7 @@ struct mailbox_list_context {
 
 struct mailbox_transaction_context {
 	struct mailbox *box;
+	array_t ARRAY_DEFINE(module_contexts, void);
 };
 
 struct mail_search_context {

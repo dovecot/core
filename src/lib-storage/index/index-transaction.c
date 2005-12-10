@@ -1,6 +1,7 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "index-storage.h"
 #include "index-mail.h"
 
@@ -11,6 +12,9 @@ void index_transaction_init(struct index_transaction_context *t,
 	t->mailbox_ctx.box = &ibox->box;
 	t->ibox = ibox;
 	t->flags = flags;
+
+	array_create(&t->mailbox_ctx.module_contexts, default_pool,
+		     sizeof(void *), 5);
 
 	t->trans = mail_index_transaction_begin(ibox->view,
 		(flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0,
@@ -25,6 +29,7 @@ static void index_transaction_free(struct index_transaction_context *t)
 	mail_cache_view_close(t->cache_view);
 	mail_index_view_close(t->trans_view);
 	mail_index_view_unlock(t->ibox->view);
+	array_free(&t->mailbox_ctx.module_contexts);
 	i_free(t);
 }
 
