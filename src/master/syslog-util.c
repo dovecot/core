@@ -5,12 +5,40 @@
 #include <syslog.h>
 
 struct syslog_facility_list syslog_facilities[] = {
+#ifdef LOG_AUTH
 	{ "auth", LOG_AUTH },
+#endif
+#ifdef LOG_AUTHPRIV
 	{ "authpriv", LOG_AUTHPRIV },
+#endif
+#ifdef LOG_CRON
 	{ "cron", LOG_CRON },
+#endif
+#ifdef LOG_DAEMON
 	{ "daemon", LOG_DAEMON },
+#endif
+#ifdef LOG_FTP
 	{ "ftp", LOG_FTP },
+#endif
+#ifdef LOG_KERN
 	{ "kern", LOG_KERN },
+#endif
+#ifdef LOG_LPR
+	{ "lpr", LOG_LPR },
+#endif
+#ifdef LOG_MAIL
+	{ "mail", LOG_MAIL },
+#endif
+#ifdef LOG_NEWS
+	{ "news", LOG_NEWS },
+#endif
+#ifdef LOG_SYSLOG
+	{ "syslog", LOG_SYSLOG },
+#endif
+#ifdef LOG_UUCP
+	{ "uucp", LOG_UUCP },
+#endif
+	{ "user", LOG_USER },
 	{ "local0", LOG_LOCAL0 },
 	{ "local1", LOG_LOCAL1 },
 	{ "local2", LOG_LOCAL2 },
@@ -19,12 +47,6 @@ struct syslog_facility_list syslog_facilities[] = {
 	{ "local5", LOG_LOCAL5 },
 	{ "local6", LOG_LOCAL6 },
 	{ "local7", LOG_LOCAL7 },
-	{ "lpr", LOG_LPR },
-	{ "mail", LOG_MAIL },
-	{ "news", LOG_NEWS },
-	{ "syslog", LOG_SYSLOG },
-	{ "user", LOG_USER },
-	{ "uucp", LOG_UUCP },
 
 	{ NULL, 0 }
 };
