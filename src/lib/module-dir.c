@@ -127,7 +127,7 @@ struct module *module_dir_load(const char *dir, int require_init_funcs)
 			name += 3;
 
 		t_push();
-		name = t_strdup_until(d->d_name, p);
+		name = t_strdup_until(name, p);
 		path = t_strconcat(dir, "/", d->d_name, NULL);
 		module = module_load(path, name, require_init_funcs);
 		t_pop();
