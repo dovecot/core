@@ -340,11 +340,7 @@ if test "$have_ioloop" = "no"; then
   ioloop="select"
 fi
 
-have_notify=no
-
-if test "$notify" = "none"; then
-  AC_DEFINE(IOLOOP_NOTIFY_NONE,, No special notify support)
-fi
+have_notify=none
 
 if test "$notify" = "" || test "$notify" = "dnotify"; then
   dnl * dnotify?
@@ -358,17 +354,13 @@ if test "$notify" = "" || test "$notify" = "dnotify"; then
     fcntl(0, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME | DN_MULTISHOT);
   ], [
     AC_DEFINE(IOLOOP_NOTIFY_DNOTIFY,, Use Linux dnotify)
-    notify=dnotify
+    have_notify=dnotify
   ], [
     if test "$notify" = "dnotify"; then
       AC_MSG_ERROR([dnotify requested but not available])
     fi
-    notify=none
-    AC_DEFINE(IOLOOP_NOTIFY_NONE,, No special notify support)
   ])
-fi
-
-if test "$notify" = "inotify"; then
+elif test "$notify" = "inotify"; then
   dnl * inotify?
   AC_TRY_COMPILE([
     #define _GNU_SOURCE
@@ -394,11 +386,17 @@ if test "$notify" = "inotify"; then
 
     close (fd);
   ], [
+    have_notify=inotify
     AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
   ], [
     AC_MSG_ERROR([inotify requested but not available, check for existence of <linux/inotify.h> and <linux/inotify-syscalls.h>])
-    notify=none
   ])
+else
+  AC_MSG_ERROR([Unknown notify method: $notify])
+fi
+
+if test "$have_notify" = "none"; then
+  AC_DEFINE(IOLOOP_NOTIFY_NONE,, No special notify support)
 fi
 
 dnl * GLIBC?
@@ -983,6 +981,23 @@ AC_TRY_COMPILE([
   AC_MSG_RESULT(no)
 ])
 
+dnl * Check if statfs() can be used to find out block device for files
+AC_MSG_CHECKING([if statfs.f_mntfromname exists])
+AC_TRY_COMPILE([
+  #include <sys/param.h>
+  #include <sys/mount.h>
+], [
+  struct statfs buf;
+  char *p = buf.f_mntfromname;
+
+  statfs(".", &buf);
+], [
+  AC_DEFINE(HAVE_STATFS_MNTFROMNAME,, Define if you have statfs.f_mntfromname)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+])
+
 dnl ***
 dnl *** va_copy checks (from GLIB)
 dnl ***
@@ -1513,7 +1528,7 @@ echo
 echo "Install prefix ...................... : $prefix"
 echo "File offsets ........................ : ${offt_bits}bit"
 echo "I/O loop method ..................... : $ioloop"
-echo "File change notification method ..... : $notify"
+echo "File change notification method ..... : $have_notify"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $want_ipv6"
 echo "Building with pop3 server ........... : $want_pop3d"
