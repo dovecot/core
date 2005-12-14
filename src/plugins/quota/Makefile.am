@@ -4,12 +4,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage
 
-libquota_plugin_la_LDFLAGS = -module -avoid-version
+lib01_quota_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
-	libquota_plugin.la
+	lib01_quota_plugin.la
 
-libquota_plugin_la_SOURCES = \
+lib01_quota_plugin_la_SOURCES = \
 	quota.c \
 	quota-fs.c \
 	quota-dict.c \
@@ -26,6 +26,6 @@ noinst_HEADERS = \
 install-exec-local:
 	$(mkdir_p) $(DESTDIR)$(moduledir)/imap $(DESTDIR)$(moduledir)/lda
 	for d in imap lda; do \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/libquota_plugin.so; \
-	  $(LN_S) ../libquota_plugin.so $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib01_quota_plugin.so; \
+	  $(LN_S) ../lib01_quota_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done

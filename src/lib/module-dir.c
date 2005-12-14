@@ -1,6 +1,7 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "module-dir.h"
 
 #ifdef HAVE_MODULES
@@ -95,12 +96,27 @@ module_load(const char *path, const char *name, int require_init_funcs)
 	return module;
 }
 
+static int module_name_cmp(const void *p1, const void *p2)
+{
+	const char *n1 = p1, *n2 = p2;
+
+	if (strncmp(n1, "lib", 3) == 0)
+		n1 += 3;
+	if (strncmp(n2, "lib", 3) == 0)
+		n1 += 3;
+
+	return strcmp(n1, n2);
+}
+
 struct module *module_dir_load(const char *dir, int require_init_funcs)
 {
 	DIR *dirp;
 	struct dirent *d;
-	const char *name, *path, *p;
+	const char *name, *path, *p, *stripped_name, **names_p;
 	struct module *modules, *module;
+	unsigned int i, count;
+	array_t ARRAY_DEFINE(names, const char *);
+	pool_t pool;
 
 	if (getenv("DEBUG") != NULL)
 		i_info("Loading modules from directory: %s", dir);
@@ -111,6 +127,9 @@ struct module *module_dir_load(const char *dir, int require_init_funcs)
 			i_error("opendir(%s) failed: %m", dir);
 		return NULL;
 	}
+
+	pool = pool_alloconly_create("module loader", 1024);
+	ARRAY_CREATE(&names, pool, const char *, 32);
 
 	modules = NULL;
 	while ((d = readdir(dirp)) != NULL) {
@@ -123,13 +142,36 @@ struct module *module_dir_load(const char *dir, int require_init_funcs)
 		if (p == NULL || strlen(p) != 3)
 			continue;
 
-		if (strncmp(name, "lib", 3) == 0)
-			name += 3;
+		name = p_strdup(pool, d->d_name);
+		array_append(&names, &name, 1);
+	}
+
+	names_p = array_get_modifyable(&names, NULL);
+	count = array_count(&names);
+	qsort(names_p, count, sizeof(const char *), module_name_cmp);
+
+	for (i = 0; i < count; i++) {
+		const char *name = names_p[i];
+
+		/* [lib][nn_]name(.so) */
+                stripped_name = name;
+		if (strncmp(stripped_name, "lib", 3) == 0)
+			stripped_name += 3;
+
+		for (p = stripped_name; *p != '\0'; p++) {
+			if (*p < '0' || *p > '9')
+				break;
+		}
+		if (*p == '_')
+			stripped_name = p + 1;
+
+		p = strstr(stripped_name, ".so");
+		i_assert(p != NULL);
 
 		t_push();
-		name = t_strdup_until(name, p);
-		path = t_strconcat(dir, "/", d->d_name, NULL);
-		module = module_load(path, name, require_init_funcs);
+		stripped_name = t_strdup_until(stripped_name, p);
+		path = t_strconcat(dir, "/", name, NULL);
+		module = module_load(path, stripped_name, require_init_funcs);
 		t_pop();
 
 		if (module != NULL) {
@@ -137,6 +179,7 @@ struct module *module_dir_load(const char *dir, int require_init_funcs)
 			modules = module;
 		}
 	}
+	pool_unref(pool);
 
 	if (closedir(dirp) < 0)
 		i_error("closedir(%s) failed: %m", dir);

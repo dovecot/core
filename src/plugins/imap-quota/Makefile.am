@@ -8,12 +8,12 @@ AM_CPPFLAGS = \
 
 imap_moduledir = $(moduledir)/imap
 
-libimap_quota_plugin_la_LDFLAGS = -module -avoid-version
+lib02_imap_quota_plugin_la_LDFLAGS = -module -avoid-version
 
 imap_module_LTLIBRARIES = \
-	libimap_quota_plugin.la
+	lib02_imap_quota_plugin.la
 
-libimap_quota_plugin_la_SOURCES = \
+lib02_imap_quota_plugin_la_SOURCES = \
 	imap-quota-plugin.c
 
 noinst_HEADERS = \
