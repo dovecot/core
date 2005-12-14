@@ -35,3 +35,5 @@ Sebastian Wilhelmi <wilhelmi@ira.uka.de>
 Simon Tatham (src/lib-storage/mail-thread.c merge sorting)
 
 Grepping 'Patch by' from ChangeLog shows up more people.
+
+Vaclav Haisman <v.haisman@sh.cvut.cz> (src/lib/ioloop-kqueue.c)

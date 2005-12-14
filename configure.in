@@ -327,6 +327,15 @@ if test "$ioloop" = "epoll"; then
   ])
 fi
 
+if test "$ioloop" = "kqueue"; then
+  AC_CHECK_FUNC(kqueue, [
+    AC_DEFINE(IOLOOP_KQUEUE,, [Implement I/O loop with FreeBSD kqueue()])
+    have_ioloop=yes
+  ], [
+    ioloop=""
+  ])
+fi
+
 if test "$ioloop" = "" || test "$ioloop" = "poll"; then
   AC_CHECK_FUNC(poll, [
     AC_DEFINE(IOLOOP_POLL,, Implement I/O loop with poll())

@@ -35,6 +35,7 @@ liblib_a_SOURCES = \
 	ioloop-poll.c \
 	ioloop-select.c \
 	ioloop-epoll.c \
+	ioloop-kqueue.c \
 	lib.c \
 	lib-signals.c \
 	md4.c \
