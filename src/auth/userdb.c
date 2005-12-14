@@ -116,8 +116,12 @@ void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 	}
 #endif
 
-	if (iface == NULL)
-		i_fatal("Unknown userdb driver '%s'", driver);
+	if (iface == NULL) {
+		i_fatal("Unknown userdb driver '%s' "
+			"(typo, or Dovecot was built without support for it? "
+			"Check with dovecot --build-options)",
+			driver);
+	}
 
 	if (iface->preinit == NULL) {
 		auth_userdb->userdb =

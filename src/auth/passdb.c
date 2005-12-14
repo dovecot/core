@@ -154,8 +154,12 @@ struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
 	}
 #endif
 
-	if (iface == NULL)
-		i_fatal("Unknown passdb driver '%s'", driver);
+	if (iface == NULL) {
+		i_fatal("Unknown passdb driver '%s' "
+			"(typo, or Dovecot was built without support for it? "
+			"Check with dovecot --build-options)",
+			driver);
+	}
 
 	if (iface->preinit == NULL) {
 		auth_passdb->passdb =
