@@ -183,14 +183,14 @@ static int cmd_setquota(struct client_command_context *cmd)
 	return TRUE;
 }
 
-void imap_quota_init(void)
+void imap_quota_plugin_init(void)
 {
 	command_register("GETQUOTAROOT", cmd_getquotaroot);
 	command_register("GETQUOTA", cmd_getquota);
 	command_register("SETQUOTA", cmd_setquota);
 }
 
-void imap_quota_deinit(void)
+void imap_quota_plugin_deinit(void)
 {
 	command_unregister("GETQUOTAROOT");
 	command_unregister("GETQUOTA");
