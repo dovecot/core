@@ -6,6 +6,9 @@
 
 struct dict;
 
+void dict_class_register_all(void);
+void dict_class_unregister_all(void);
+
 void dict_class_register(struct dict *dict_class);
 void dict_class_unregister(struct dict *dict_class);
 

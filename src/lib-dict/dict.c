@@ -6,14 +6,13 @@
 #include "dict-private.h"
 
 static array_t ARRAY_DEFINE(dict_classes, struct dict *);
-static int dict_count = 0;
 
-static void dict_class_register_all(void)
+void dict_class_register_all(void)
 {
 	dict_sql_register();
 }
 
-static void dict_class_unregister_all(void)
+void dict_class_unregister_all(void)
 {
 	dict_sql_unregister();
 }
@@ -67,9 +66,6 @@ struct dict *dict_init(const char *uri)
 	struct dict *dict;
 	const char *p;
 
-	if (dict_count++ == 0)
-		dict_class_register_all();
-
 	p = strchr(uri, ':');
 	if (p == NULL) {
 		i_error("URI is missing ':': %s", uri);
@@ -88,9 +84,6 @@ struct dict *dict_init(const char *uri)
 void dict_deinit(struct dict *dict)
 {
 	dict->v.deinit(dict);
-
-	if (--dict_count == 0)
-		dict_class_unregister_all();
 }
 
 char *dict_lookup(struct dict *dict, pool_t pool, const char *key)
