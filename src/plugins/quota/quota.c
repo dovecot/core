@@ -3,13 +3,21 @@
 #include "lib.h"
 #include "array.h"
 #include "quota-private.h"
+#include "quota-fs.h"
 
 unsigned int quota_module_id = 0;
 
 extern struct quota dirsize_quota;
 extern struct quota dict_quota;
+extern struct quota fs_quota;
 
-static struct quota *quota_classes[] = { &dirsize_quota, &dict_quota };
+static struct quota *quota_classes[] = {
+	&dirsize_quota,
+	&dict_quota,
+#ifdef HAVE_FS_QUOTA
+	&fs_quota
+#endif
+};
 #define QUOTA_CLASS_COUNT (sizeof(quota_classes)/sizeof(quota_classes[0]))
 
 struct quota *quota_init(const char *data)
@@ -44,10 +52,11 @@ struct quota *quota_init(const char *data)
 
 void quota_deinit(struct quota *quota)
 {
-	array_t *module_contexts = &quota->quota_module_contexts;
+	/* make a copy, since quota is freed */
+	array_t module_contexts = quota->quota_module_contexts;
 
 	quota->deinit(quota);
-	array_free(module_contexts);
+	array_free(&module_contexts);
 }
 
 struct quota_root_iter *

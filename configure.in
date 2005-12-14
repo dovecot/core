@@ -15,7 +15,8 @@ AM_PROG_LIBTOOL
 AM_ICONV
 
 AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h \
-  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h)
+  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
+  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h mntent.h sys/mnttab.h)
 
 # check posix headers
 AC_CHECK_HEADERS(sys/time.h)
@@ -311,7 +312,7 @@ dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
-	       strtoull strtouq setpriority)
+	       strtoull strtouq setpriority quotactl getmntent)
 
 dnl * I/O loop function
 have_ioloop=no

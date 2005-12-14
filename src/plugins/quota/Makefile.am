@@ -11,6 +11,7 @@ module_LTLIBRARIES = \
 
 libquota_plugin_la_SOURCES = \
 	quota.c \
+	quota-fs.c \
 	quota-dict.c \
 	quota-dirsize.c \
         quota-plugin.c \
@@ -18,6 +19,7 @@ libquota_plugin_la_SOURCES = \
 
 noinst_HEADERS = \
 	quota.h \
+	quota-fs.h \
 	quota-plugin.h \
 	quota-private.h
 
