@@ -879,8 +879,8 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 
 		/* try locking the file. */
 		str_truncate(str, 0);
-		str_printfa(str, "%s/"DBOX_MAILDIR_NAME"/msg.%u",
-			    mbox->path, file_seq);
+		str_printfa(str, "%s/"DBOX_MAILDIR_NAME"/"
+			    DBOX_MAIL_FILE_PREFIX"%u", mbox->path, file_seq);
 		ret = file_dotlock_create(&dbox_file_dotlock_set, str_c(str),
 					  DOTLOCK_CREATE_FLAG_NONBLOCK,
 					  &dotlock);
@@ -1092,7 +1092,8 @@ int dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
 	entry = dbox_uidlist_entry_lookup_int(ctx->uidlist, file_seq, &idx);
 	i_assert(entry != NULL);
 
-	path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/msg.%u",
+	path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
+			       DBOX_MAIL_FILE_PREFIX"%u",
 			       ctx->uidlist->mbox->path, entry->file_seq);
 	if (unlink(path) < 0) {
 		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
