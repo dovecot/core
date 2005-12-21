@@ -368,12 +368,12 @@ int mail_index_sync_begin(struct mail_index *index,
 	mail_index_view_close(dummy_view);
 
 	if (index->hdr->log_file_seq == seq &&
-	    index->hdr->log_file_int_offset > offset) {
+	    index->hdr->log_file_ext_offset > offset) {
 		/* synced offset is greater than what we have available.
 		   the log sequences have gotten messed up. */
 		mail_transaction_log_file_set_corrupted(index->log->head,
-			"log_file_int_offset (%u) > log size (%"PRIuUOFF_T")",
-			index->hdr->log_file_int_offset, offset);
+			"log_file_ext_offset (%u) > log size (%"PRIuUOFF_T")",
+			index->hdr->log_file_ext_offset, offset);
                 mail_index_sync_rollback(ctx);
 		return -1;
 	}
