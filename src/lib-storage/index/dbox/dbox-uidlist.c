@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "hex-dec.h"
 #include "array.h"
+#include "bsearch-insert-pos.h"
 #include "seq-range-array.h"
 #include "str.h"
 #include "istream.h"
@@ -14,6 +15,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <utime.h>
@@ -153,7 +155,7 @@ static int uidlist_merge(array_t *uid_list, const struct seq_range *seqs)
 static int dbox_uidlist_entry_cmp(const void *key, const void *p)
 {
 	const unsigned int *file_seq = key;
-	const struct dbox_uidlist_entry **entry = p;
+	struct dbox_uidlist_entry *const *entry = p;
 
 	return (int)file_seq - (int)(*entry)->file_seq;
 }
@@ -179,7 +181,7 @@ static int dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 		/* merge to existing entry. they're written in order, so we
 		   don't try to handle non-merging inserting. */
 		entries = array_get_modifyable(&uidlist->entries, &count);
-		pos = bsearch(src_entry->file_seq, entries, count,
+		pos = bsearch(&src_entry->file_seq, entries, count,
 			      sizeof(*entries), dbox_uidlist_entry_cmp);
 		if (pos == NULL) {
 			mail_storage_set_critical(
@@ -434,16 +436,16 @@ dbox_uidlist_entry_lookup_int(struct dbox_uidlist *uidlist, uint32_t file_seq,
 			      unsigned int *idx_r)
 {
 	struct dbox_uidlist_entry *const *entries, **entry;
-	unsigned int i, count;
+	unsigned int count;
 
 	entries = array_get(&uidlist->entries, &count);
-	entry = bsearch(file_seq, entries, count, sizeof(*entries),
+	entry = bsearch(&file_seq, entries, count, sizeof(*entries),
 			dbox_uidlist_entry_cmp);
 	if (entry == NULL)
 		return NULL;
 
 	*idx_r = entry - entries;
-	return entry;
+	return *entry;
 }
 
 struct dbox_uidlist_entry *
@@ -1061,6 +1063,10 @@ int dbox_uidlist_sync_commit(struct dbox_uidlist_sync_ctx *ctx, time_t *mtime_r)
 
 void dbox_uidlist_sync_rollback(struct dbox_uidlist_sync_ctx *ctx)
 {
+	array_clear(&ctx->uidlist->entries);
+	ctx->uidlist->ino = 0;
+	ctx->uidlist->mtime = 0;
+
 	dbox_uidlist_unlock(ctx->uidlist);
 	i_free(ctx);
 }
@@ -1073,7 +1079,9 @@ void dbox_uidlist_sync_set_modified(struct dbox_uidlist_sync_ctx *ctx)
 void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 			      const struct dbox_uidlist_entry *entry)
 {
+	struct dbox_uidlist_entry *const *entries, **pos;
 	struct dbox_uidlist_entry *new_entry;
+	unsigned int count;
 
 	new_entry = p_new(ctx->uidlist->entry_pool,
 			  struct dbox_uidlist_entry, 1);
@@ -1083,7 +1091,16 @@ void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 		     struct seq_range, array_count(&entry->uid_list) + 1);
 	array_append_array(&new_entry->uid_list, &entry->uid_list);
 
-	array_append(&ctx->uidlist->entries, &new_entry, 1);
+	entries = array_get(&ctx->uidlist->entries, &count);
+	if (count == 0 || entries[count-1]->file_seq < new_entry->file_seq)
+		array_append(&ctx->uidlist->entries, &new_entry, 1);
+	else {
+		pos = bsearch_insert_pos(&new_entry->file_seq, entries,
+					 count, sizeof(*entries),
+					 dbox_uidlist_entry_cmp);
+		array_insert(&ctx->uidlist->entries, pos - entries,
+			     &new_entry, 1);
+	}
 }
 
 int dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
