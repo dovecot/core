@@ -126,6 +126,9 @@ int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset)
 			return -1;
 	}
 
+	if (offset == 0)
+		offset = mbox->file->header_size;
+
 	return dbox_file_read_mail_header(mbox, mbox->file, offset);
 }
 

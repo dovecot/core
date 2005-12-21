@@ -15,6 +15,7 @@ libstorage_dbox_a_SOURCES = \
 	dbox-save.c \
 	dbox-sync.c \
 	dbox-sync-expunge.c \
+	dbox-sync-full.c \
 	dbox-storage.c \
 	dbox-transaction.c \
 	dbox-uidlist.c

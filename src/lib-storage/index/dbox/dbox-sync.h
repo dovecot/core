@@ -41,6 +41,10 @@ struct dbox_sync_context {
 	uint32_t prev_file_seq;
 
 	uint32_t dotlock_failed_file_seq;
+
+	/* full sync: */
+	uint32_t mail_index_next_uid;
+	array_t ARRAY_DEFINE(exists, struct seq_range);
 };
 
 int dbox_sync(struct dbox_mailbox *mbox, int force);
@@ -57,5 +61,6 @@ int dbox_sync_update_flags(struct dbox_sync_context *ctx,
 int dbox_sync_expunge(struct dbox_sync_context *ctx,
 		      const struct dbox_sync_file_entry *entry,
                       unsigned int sync_idx);
+int dbox_sync_full(struct dbox_sync_context *ctx);
 
 #endif

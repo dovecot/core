@@ -41,12 +41,15 @@ int dbox_uidlist_append_get_first_uid(struct dbox_uidlist_append_ctx *ctx,
 				      uint32_t *uid_r);
 
 int dbox_uidlist_sync_init(struct dbox_uidlist *uidlist,
-			   struct dbox_uidlist_sync_ctx **ctx_r);
+			   struct dbox_uidlist_sync_ctx **ctx_r,
+			   time_t *mtime_r);
 int dbox_uidlist_sync_commit(struct dbox_uidlist_sync_ctx *ctx,
 			     time_t *mtime_r);
 void dbox_uidlist_sync_rollback(struct dbox_uidlist_sync_ctx *ctx);
 
+void dbox_uidlist_sync_from_scratch(struct dbox_uidlist_sync_ctx *ctx);
 void dbox_uidlist_sync_set_modified(struct dbox_uidlist_sync_ctx *ctx);
+
 void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 			      const struct dbox_uidlist_entry *entry);
 int dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
