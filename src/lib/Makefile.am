@@ -2,6 +2,7 @@ noinst_LIBRARIES = liblib.a
 
 liblib_a_SOURCES = \
 	base64.c \
+	bsearch-insert-pos.c \
 	buffer.c \
 	compat.c \
 	data-stack.c \
@@ -81,6 +82,7 @@ noinst_HEADERS = \
 	array.h \
 	array-decl.h \
 	base64.h \
+	bsearch-insert-pos.h \
 	buffer.h \
 	compat.h \
 	data-stack.h \
