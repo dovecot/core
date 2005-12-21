@@ -150,10 +150,18 @@ static int uidlist_merge(array_t *uid_list, const struct seq_range *seqs)
 	return TRUE;
 }
 
+static int dbox_uidlist_entry_cmp(const void *key, const void *p)
+{
+	const unsigned int *file_seq = key;
+	const struct dbox_uidlist_entry **entry = p;
+
+	return (int)file_seq - (int)(*entry)->file_seq;
+}
+
 static int dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 				  const struct dbox_uidlist_entry *src_entry)
 {
-	struct dbox_uidlist_entry *dest_entry, **entries;
+	struct dbox_uidlist_entry *dest_entry, **entries, **pos;
 	const struct seq_range *range;
 	unsigned int i, count;
 
@@ -169,14 +177,11 @@ static int dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
                         uidlist->last_file_seq = src_entry->file_seq;
 	} else {
 		/* merge to existing entry. they're written in order, so we
-		   don't try to handle non-merging inserting. FIXME: we could
-		   use binary lookup for the entry */
+		   don't try to handle non-merging inserting. */
 		entries = array_get_modifyable(&uidlist->entries, &count);
-		for (i = 0; i < count; i++) {
-			if (entries[i]->file_seq == src_entry->file_seq)
-				break;
-		}
-		if (i == count) {
+		pos = bsearch(src_entry->file_seq, entries, count,
+			      sizeof(*entries), dbox_uidlist_entry_cmp);
+		if (pos == NULL) {
 			mail_storage_set_critical(
 				STORAGE(uidlist->mbox->storage),
 				"%s: File sequences not ordered (%u < %u)",
@@ -187,7 +192,7 @@ static int dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 
 		/* now, do the merging. UIDs must be growing since only new
 		   mails are appended */
-		dest_entry = entries[i];
+		dest_entry = *pos;
 		if (src_entry->last_write > dest_entry->last_write)
 			dest_entry->last_write = src_entry->last_write;
 		if (src_entry->file_size > dest_entry->file_size)
@@ -428,18 +433,17 @@ static struct dbox_uidlist_entry *
 dbox_uidlist_entry_lookup_int(struct dbox_uidlist *uidlist, uint32_t file_seq,
 			      unsigned int *idx_r)
 {
-	struct dbox_uidlist_entry *const *entries;
+	struct dbox_uidlist_entry *const *entries, **entry;
 	unsigned int i, count;
 
-	/* FIXME: binary lookup */
 	entries = array_get(&uidlist->entries, &count);
-	for (i = 0; i < count; i++) {
-		if (entries[i]->file_seq == file_seq) {
-			*idx_r = i;
-			return entries[i];
-		}
-	}
-	return NULL;
+	entry = bsearch(file_seq, entries, count, sizeof(*entries),
+			dbox_uidlist_entry_cmp);
+	if (entry == NULL)
+		return NULL;
+
+	*idx_r = entry - entries;
+	return entry;
 }
 
 struct dbox_uidlist_entry *
