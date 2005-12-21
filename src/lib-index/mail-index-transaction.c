@@ -186,6 +186,14 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 	return 0;
 }
 
+static int mail_index_append_rec_cmp(const void *p1, const void *p2)
+{
+	const struct mail_index_record *rec1 = p1, *rec2 = p2;
+
+	return rec1->uid < rec2->uid ? -1 :
+		rec1->uid > rec2->uid ? 1 : 0;
+}
+
 int mail_index_transaction_commit(struct mail_index_transaction *t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r)
@@ -200,6 +208,14 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 	if (t->cache_trans_ctx != NULL) {
 		mail_cache_transaction_commit(t->cache_trans_ctx);
                 t->cache_trans_ctx = NULL;
+	}
+
+	if (t->appends_nonsorted) {
+		struct mail_index_record *recs;
+		unsigned int count;
+
+		recs = array_get_modifyable(&t->appends, &count);
+		qsort(recs, count, sizeof(*recs), mail_index_append_rec_cmp);
 	}
 
 	if (mail_index_transaction_convert_to_uids(t) < 0)
@@ -252,7 +268,17 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 		*seq_r = t->last_new_seq = t->first_new_seq;
 
 	rec = array_append_space(&t->appends);
-	rec->uid = uid;
+	if (uid != 0) {
+		rec->uid = uid;
+		if (!t->appends_nonsorted &&
+		    t->last_new_seq != t->first_new_seq) {
+			/* if previous record's UID is larger than this one,
+			   we'll have to sort the appends later */
+			rec = mail_index_transaction_lookup(t, *seq_r - 1);
+			if (rec->uid > uid)
+				t->appends_nonsorted = TRUE;
+		}
+	}
 }
 
 void mail_index_append_assign_uids(struct mail_index_transaction *t,

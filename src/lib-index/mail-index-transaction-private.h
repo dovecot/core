@@ -36,6 +36,7 @@ struct mail_index_transaction {
 
 	unsigned int hide_transaction:1;
 	unsigned int no_appends:1;
+	unsigned int appends_nonsorted:1;
 	unsigned int external:1;
 	unsigned int pre_hdr_changed:1;
 	unsigned int post_hdr_changed:1;
