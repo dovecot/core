@@ -2,10 +2,10 @@
 #define __DBOX_SYNC_H
 
 #include "mail-index.h"
+#include "mail-storage.h"
 
 struct mailbox;
 struct dbox_mailbox;
-enum mailbox_sync_flags;
 
 struct dbox_sync_rec {
 	uint32_t seq1, seq2;
@@ -52,6 +52,8 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 int dbox_sync_get_file_offset(struct dbox_sync_context *ctx, uint32_t seq,
 			      uint32_t *file_seq_r, uoff_t *offset_r);
 
+int dbox_sync_update_flags(struct dbox_sync_context *ctx,
+			   const struct dbox_sync_rec *sync_rec);
 int dbox_sync_expunge(struct dbox_sync_context *ctx,
 		      const struct dbox_sync_file_entry *entry,
                       unsigned int sync_idx);

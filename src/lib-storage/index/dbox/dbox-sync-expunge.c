@@ -4,7 +4,6 @@
 #include "array.h"
 #include "istream.h"
 #include "ostream.h"
-#include "write-full.h"
 #include "seq-range-array.h"
 #include "dbox-storage.h"
 #include "dbox-uidlist.h"
@@ -322,52 +321,11 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	return 0;
 }
 
-static int
-dbox_sync_expunge_mark_flags(struct dbox_sync_context *ctx,
-			     const struct dbox_sync_file_entry *entry,
-			     unsigned int sync_idx)
-{
-	struct dbox_mailbox *mbox = ctx->mbox;
-	const struct dbox_sync_rec *sync_rec;
-	unsigned char expunged_flag = '1';
-	uint32_t file_seq, uid2;
-	uoff_t offset;
-	int ret;
-
-	sync_rec = array_idx(&entry->sync_recs, sync_idx);
-	if (dbox_sync_get_file_offset(ctx, sync_rec->seq1,
-				      &file_seq, &offset) < 0)
-		return -1;
-
-	if (mail_index_lookup_uid(ctx->sync_view, sync_rec->seq2, &uid2) < 0) {
-		mail_storage_set_index_error(&ctx->mbox->ibox);
-		return -1;
-	}
-
-	while (mbox->file->seeked_uid <= uid2) {
-		ret = pwrite_full(ctx->mbox->file->fd, &expunged_flag, 1,
-				  offset + offsetof(struct dbox_mail_header,
-						    expunged));
-		if (ret < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
-				"pwrite(%s) failed: %m", mbox->path);
-			return -1;
-		}
-
-		ret = dbox_file_seek_next_nonexpunged(mbox);
-		if (ret <= 0) {
-			if (ret == 0)
-				break;
-			return -1;
-		}
-	}
-	return 0;
-}
-
 int dbox_sync_expunge(struct dbox_sync_context *ctx,
 		      const struct dbox_sync_file_entry *entry,
 		      unsigned int sync_idx)
 {
+	const struct dbox_sync_rec *sync_rec;
 	struct dotlock *dotlock;
 	const char *path;
 	int ret;
@@ -400,5 +358,6 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 	   choice but to just mark the mail expunged. otherwise we'd
 	   deadlock (appending process waits for uidlist lock which
 	   we have, we wait for file lock which append process has) */
-	return dbox_sync_expunge_mark_flags(ctx, entry, sync_idx);
+	sync_rec = array_idx(&entry->sync_recs, sync_idx);
+	return dbox_sync_update_flags(ctx, sync_rec);
 }

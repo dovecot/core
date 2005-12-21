@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "hash.h"
+#include "write-full.h"
 #include "dbox-file.h"
 #include "dbox-sync.h"
 #include "dbox-uidlist.h"
@@ -117,6 +118,90 @@ static int dbox_sync_add(struct dbox_sync_context *ctx,
 	return 0;
 }
 
+int dbox_sync_update_flags(struct dbox_sync_context *ctx,
+			   const struct dbox_sync_rec *sync_rec)
+{
+	static enum mail_flags dbox_flag_list[] = {
+		MAIL_ANSWERED,
+		MAIL_FLAGGED,
+		MAIL_DELETED,
+		MAIL_SEEN,
+		MAIL_DRAFT,
+		0 /* expunged */
+	};
+#define DBOX_FLAG_COUNT (sizeof(dbox_flag_list)/sizeof(dbox_flag_list[0]))
+	struct dbox_mailbox *mbox = ctx->mbox;
+	unsigned char dbox_flag_array[DBOX_FLAG_COUNT];
+	unsigned char dbox_flag_mask[DBOX_FLAG_COUNT];
+	uint32_t file_seq, uid2;
+	uoff_t offset;
+	unsigned int i, start, first_flag_offset;
+	int ret;
+
+	/* first build flag array and mask */
+	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
+		memset(dbox_flag_array, '0', sizeof(dbox_flag_array));
+		memset(dbox_flag_mask, 0, sizeof(dbox_flag_mask));
+		dbox_flag_mask[5] = 1;
+		dbox_flag_array[5] = '1';
+	} else {
+		i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
+		for (i = 0; i < DBOX_FLAG_COUNT; i++) {
+			dbox_flag_array[i] =
+				(sync_rec->value.flags.add &
+				 dbox_flag_list[i]) != 0 ? '1' : '0';
+			dbox_flag_mask[i] = dbox_flag_array[i] ||
+				(sync_rec->value.flags.remove &
+				 dbox_flag_list[i]) != 0;
+		}
+	}
+	first_flag_offset = offsetof(struct dbox_mail_header, answered);
+
+	if (dbox_sync_get_file_offset(ctx, sync_rec->seq1,
+				      &file_seq, &offset) < 0)
+		return -1;
+
+	if (mail_index_lookup_uid(ctx->sync_view, sync_rec->seq2, &uid2) < 0) {
+		mail_storage_set_index_error(&ctx->mbox->ibox);
+		return -1;
+	}
+
+	if ((ret = dbox_file_seek(mbox, file_seq, offset)) <= 0)
+		return ret;
+
+	while (mbox->file->seeked_uid <= uid2) {
+		for (i = 0; i < DBOX_FLAG_COUNT; ) {
+			if (!dbox_flag_mask[i])
+				continue;
+
+			start = i;
+			while (i < DBOX_FLAG_COUNT) {
+				if (!dbox_flag_mask[i])
+					break;
+				i++;
+			}
+			ret = pwrite_full(ctx->mbox->file->fd,
+					  dbox_flag_array+start, i - start,
+					  offset + first_flag_offset + start);
+			if (ret < 0) {
+				mail_storage_set_critical(
+					STORAGE(mbox->storage),
+					"pwrite(%s) failed: %m", mbox->path);
+				return -1;
+			}
+		}
+
+		ret = dbox_file_seek_next_nonexpunged(mbox);
+		if (ret <= 0) {
+			if (ret == 0)
+				break;
+			return -1;
+		}
+		offset = mbox->file->seeked_offset;
+	}
+	return 0;
+}
+
 static int dbox_sync_file(struct dbox_sync_context *ctx,
                           const struct dbox_sync_file_entry *entry)
 {
@@ -140,6 +225,9 @@ static int dbox_sync_file(struct dbox_sync_context *ctx,
 			/* handled expunging by writing expunge flags */
 			break;
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+			if (dbox_sync_update_flags(ctx, &sync_recs[i]) < 0)
+				return -1;
+			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
