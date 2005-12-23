@@ -14,6 +14,10 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#ifdef HAVE_STRUCT_DQBLK_CURSPACE
+#  define dqb_curblocks dqb_curspace
+#endif
+
 #define MTAB_PATH "/etc/mtab"
 
 struct fs_quota {
