@@ -424,8 +424,10 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 
 	t_push();
 	t_args = t_strsplit(args, " ");
-        for(i = 0; t_args[i] != NULL; i++) {
-		if (strcmp(t_args[i], "-session") == 0)
+	for(i = 0; t_args[i] != NULL; i++) {
+		/* -session for backwards compatibility */
+		if (strcmp(t_args[i], "-session") == 0 ||
+		    strcmp(t_args[i], "session=yes") == 0)
 			module->pam_session = TRUE;
 		else if (strncmp(t_args[i], "cache_key=", 10) == 0) {
 			module->module.cache_key =
@@ -433,12 +435,14 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 					 t_args[i] + 10);
 		} else if (strcmp(t_args[i], "*") == 0) {
 			module->service_name = NULL;
-		} else {
+		} else if (t_args[i+1] == NULL) {
 			if (*t_args[i] != '\0') {
 				module->service_name =
 					p_strdup(auth_passdb->auth->pool,
 						 t_args[i]);
 			}
+		} else {
+			i_fatal("Unexpected PAM parameter: %s", t_args[i]);
 		}
 	}
 	t_pop();
