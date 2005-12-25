@@ -67,7 +67,7 @@ int cmd_thread(struct client_command_context *cmd)
 		pool_unref(pool);
 		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
 				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
-				"OK Thread completed.");
+				0, "OK Thread completed.");
 	} else {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));

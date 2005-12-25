@@ -124,8 +124,15 @@ int cmd_store(struct client_command_context *cmd)
 	}
 
 	if (!failed) {
+		/* With UID STORE we have to return UID for the flags as well.
+		   Unfortunately we don't have the ability to separate those
+		   flag changes that were caused by UID STORE and those that
+		   came externally, so we'll just send the UID for all flag
+		   changes that we see. */
 		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
 				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
+				cmd->uid && !silent ?
+				IMAP_SYNC_FLAG_SEND_UID : 0,
 				"OK Store completed.");
 	} else {
 		client_send_storage_error(cmd, mailbox_get_storage(box));

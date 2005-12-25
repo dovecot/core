@@ -15,6 +15,7 @@ struct cmd_sync_context {
 struct imap_sync_context {
 	struct client *client;
 	struct mailbox *box;
+        enum imap_sync_flags imap_flags;
 
 	struct mailbox_transaction_context *t;
 	struct mailbox_sync_context *sync_ctx;
@@ -30,7 +31,7 @@ struct imap_sync_context {
 
 struct imap_sync_context *
 imap_sync_init(struct client *client, struct mailbox *box,
-	       enum mailbox_sync_flags flags)
+	       enum imap_sync_flags imap_flags, enum mailbox_sync_flags flags)
 {
 	struct imap_sync_context *ctx;
 	struct mailbox_status status;
@@ -40,6 +41,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx = i_new(struct imap_sync_context, 1);
 	ctx->client = client;
 	ctx->box = box;
+	ctx->imap_flags = imap_flags;
 
 	ctx->sync_ctx = mailbox_sync_init(box, flags);
 	ctx->t = mailbox_transaction_begin(box, 0);
@@ -131,8 +133,12 @@ int imap_sync_more(struct imap_sync_context *ctx)
 				keywords = mail_get_keywords(ctx->mail);
 
 				str_truncate(str, 0);
-				str_printfa(str, "* %u FETCH (FLAGS (",
-					    ctx->seq);
+				str_printfa(str, "* %u FETCH (", ctx->seq);
+				if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID) {
+					str_printfa(str, "UID %u ",
+						    ctx->mail->uid);
+				}
+				str_append(str, "FLAGS (");
 				imap_write_flags(str, flags, keywords);
 				str_append(str, "))");
 
@@ -201,7 +207,7 @@ static int cmd_sync_continue(struct client_command_context *cmd)
 }
 
 int cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
-	     const char *tagline)
+	     enum imap_sync_flags imap_flags, const char *tagline)
 {
         struct cmd_sync_context *ctx;
 
@@ -223,7 +229,7 @@ int cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	ctx = p_new(cmd->pool, struct cmd_sync_context, 1);
 	ctx->tagline = p_strdup(cmd->pool, tagline);
 	ctx->sync_ctx = imap_sync_init(cmd->client, cmd->client->mailbox,
-				       flags);
+				       imap_flags, flags);
 
 	cmd->func = cmd_sync_continue;
 	cmd->context = ctx;

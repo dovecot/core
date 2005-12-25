@@ -212,7 +212,7 @@ static int cmd_append_continue_parsing(struct client_command_context *cmd)
 			0 : MAILBOX_SYNC_FLAG_FAST;
 
 		cmd_append_finish(ctx);
-		return cmd_sync(cmd, sync_flags, "OK Append completed.");
+		return cmd_sync(cmd, sync_flags, 0, "OK Append completed.");
 	}
 
 	if (!validate_args(args, &flags_list, &internal_date_str,

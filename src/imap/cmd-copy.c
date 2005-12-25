@@ -106,10 +106,10 @@ int cmd_copy(struct client_command_context *cmd)
 	}
 
 	if (ret > 0)
-		return cmd_sync(cmd, sync_flags, "OK Copy completed.");
+		return cmd_sync(cmd, sync_flags, 0, "OK Copy completed.");
 	else if (ret == 0) {
 		/* some messages were expunged, sync them */
-		return cmd_sync(cmd, 0,
+		return cmd_sync(cmd, 0, 0,
 			"NO Some of the requested messages no longer exist.");
 	} else {
 		client_send_storage_error(cmd, storage);

@@ -101,7 +101,7 @@ int cmd_search(struct client_command_context *cmd)
 	} else if (imap_search(cmd, charset, sargs)) {
 		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
 				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
-				"OK Search completed.");
+				0, "OK Search completed.");
 	} else {
 		client_send_storage_error(cmd,
 					  mailbox_get_storage(client->mailbox));
