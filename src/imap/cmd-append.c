@@ -105,8 +105,6 @@ static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 
 static void cmd_append_finish(struct cmd_append_context *ctx)
 {
-	size_t size;
-
 	ctx->client->input_skip_line = TRUE;
 
 	io_remove(ctx->client->io);
@@ -125,9 +123,6 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 
 	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL)
 		mailbox_close(ctx->box);
-
-	(void)i_stream_get_data(ctx->client->input, &size);
-	ctx->client->input_pending = size != 0;
 }
 
 static int cmd_append_continue_cancel(struct client_command_context *cmd)

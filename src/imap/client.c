@@ -239,6 +239,7 @@ int client_read_string_args(struct client_command_context *cmd,
 void _client_reset_command(struct client *client)
 {
 	pool_t pool;
+	size_t size;
 
 	/* reset input idle time because command output might have taken a
 	   long time and we don't want to disconnect client immediately then */
@@ -258,6 +259,13 @@ void _client_reset_command(struct client *client)
 	client->cmd.client = client;
 
 	imap_parser_reset(client->parser);
+
+	/* if there's unread data in buffer, remember that there's input
+	   pending and we should get around to calling client_input() soon.
+	   This is mostly for APPEND/IDLE. */
+	(void)i_stream_get_data(client->input, &size);
+	if (size > 0)
+		client->input_pending = TRUE;
 }
 
 /* Skip incoming data until newline is found,

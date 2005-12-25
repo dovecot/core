@@ -62,6 +62,9 @@ static void idle_finish(struct cmd_idle_context *ctx, int done_ok)
 
 	client->bad_counter = 0;
 	_client_reset_command(client);
+
+	if (client->input_pending)
+		_client_input(client);
 }
 
 static void idle_client_input(void *context)
