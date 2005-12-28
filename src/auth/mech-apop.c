@@ -162,7 +162,6 @@ const struct mech_module mech_apop = {
 
 	MEMBER(flags) MECH_SEC_PRIVATE | MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
 
-	MEMBER(need_passdb) TRUE,
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
 

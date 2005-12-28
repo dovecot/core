@@ -394,7 +394,6 @@ const struct mech_module mech_gssapi = {
 
 	MEMBER(flags) 0,
 
-	MEMBER(need_passdb) FALSE,
 	MEMBER(passdb_need_plain) FALSE, 
 	MEMBER(passdb_need_credentials) FALSE, 
 

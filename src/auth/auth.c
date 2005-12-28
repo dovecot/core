@@ -128,8 +128,6 @@ static void auth_mech_list_verify_passdb(struct auth *auth)
 	struct mech_module_list *list;
 
 	for (list = auth->mech_modules; list != NULL; list = list->next) {
-		if (list->module.need_passdb && auth->passdbs == NULL)
-			break;
 		if (list->module.passdb_need_plain &&
 		    !auth_passdb_list_have_plain(auth))
 			break;
@@ -139,6 +137,11 @@ static void auth_mech_list_verify_passdb(struct auth *auth)
 	}
 
 	if (list != NULL) {
+		if (auth->passdbs == NULL) {
+			i_fatal("No passdbs specified in configuration file. "
+				"%s mechanism needs one",
+				list->module.mech_name);
+		}
 		i_fatal("%s mechanism can't be supported with given passdbs",
 			list->module.mech_name);
 	}
