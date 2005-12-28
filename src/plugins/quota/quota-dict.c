@@ -26,13 +26,6 @@ struct dict_quota_root_iter {
 	int sent;
 };
 
-struct dict_quota_transaction_context {
-	struct quota_transaction_context ctx;
-
-	uint64_t storage_limit;
-	uint64_t storage_current;
-};
-
 extern struct quota dict_quota;
 
 static struct quota *dict_quota_init(const char *data)
@@ -179,11 +172,11 @@ static struct quota_transaction_context *
 dict_quota_transaction_begin(struct quota *_quota)
 {
 	struct dict_quota *quota = (struct dict_quota *)_quota;
-	struct dict_quota_transaction_context *ctx;
+	struct quota_transaction_context *ctx;
 	const char *value;
 
-	ctx = i_new(struct dict_quota_transaction_context, 1);
-	ctx->ctx.quota = _quota;
+	ctx = i_new(struct quota_transaction_context, 1);
+	ctx->quota = _quota;
 
 	if (quota->dict != NULL) {
 		t_push();
@@ -201,22 +194,20 @@ dict_quota_transaction_begin(struct quota *_quota)
 		ctx->storage_limit = (uint64_t)-1;
 	}
 
-	return &ctx->ctx;
+	return ctx;
 }
 
 static int
-dict_quota_transaction_commit(struct quota_transaction_context *_ctx)
+dict_quota_transaction_commit(struct quota_transaction_context *ctx)
 {
-	struct dict_quota_transaction_context *ctx =
-		(struct dict_quota_transaction_context *)_ctx;
-	struct dict_quota *quota = (struct dict_quota *)_ctx->quota;
+	struct dict_quota *quota = (struct dict_quota *)ctx->quota;
 
 	if (quota->dict != NULL) {
 		struct dict_transaction_context *dt;
 
 		dt = dict_transaction_begin(quota->dict);
 		dict_atomic_inc(dt, DICT_QUOTA_CURRENT_PATH"storage",
-				_ctx->bytes_diff);
+				ctx->bytes_diff);
 		if (dict_transaction_commit(dt) < 0)
 			i_error("dict_quota: Couldn't update quota");
 	}
@@ -232,20 +223,18 @@ dict_quota_transaction_rollback(struct quota_transaction_context *ctx)
 }
 
 static int
-dict_quota_try_alloc(struct quota_transaction_context *_ctx,
+dict_quota_try_alloc(struct quota_transaction_context *ctx,
 		     struct mail *mail, int *too_large_r)
 {
-	struct dict_quota_transaction_context *ctx =
-		(struct dict_quota_transaction_context *)_ctx;
 	uoff_t size;
 
 	size = mail_get_physical_size(mail);
 	*too_large_r = size > ctx->storage_limit;
 
-	if (ctx->storage_current + _ctx->bytes_diff + size > ctx->storage_limit)
+	if (ctx->storage_current + ctx->bytes_diff + size > ctx->storage_limit)
 		return 0;
 
-	_ctx->bytes_diff += size;
+	ctx->bytes_diff += size;
 	return 1;
 }
 

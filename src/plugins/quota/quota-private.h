@@ -61,6 +61,9 @@ struct quota_transaction_context {
 
 	int count_diff;
 	int64_t bytes_diff;
+
+	uint64_t storage_limit;
+	uint64_t storage_current;
 };
 
 #endif
