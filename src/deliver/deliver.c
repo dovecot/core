@@ -21,7 +21,7 @@
 #include <sysexits.h>
 
 #define DEFAULT_CONFIG_FILE SYSCONFDIR"/dovecot-deliver.conf"
-#define DEFAULT_AUTH_SOCKET_PATH "/var/run/dovecot/auth-master"
+#define DEFAULT_AUTH_SOCKET_PATH "/var/run/dovecot-auth-master"
 
 #define MAX_INBUF_SIZE 8192
 #define MAX_OUTBUF_SIZE 512
