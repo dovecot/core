@@ -322,7 +322,7 @@ dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
-	       strtoull strtouq setpriority quotactl getmntent)
+	       strtoull strtouq setpriority quotactl getmntent kqueue kevent)
 
 dnl * I/O loop function
 have_ioloop=no
