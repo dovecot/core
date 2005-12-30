@@ -10,6 +10,7 @@
 #include "randgen.h"
 #include "module-dir.h"
 #include "var-expand.h"
+#include "dict-client.h"
 #include "mail-storage.h"
 
 #include <stdio.h>
@@ -167,6 +168,7 @@ static int main_init(void)
 		       dec2str(geteuid()), dec2str(getegid()));
 	}
 
+	dict_client_register();
         mail_storage_init();
 	mail_storage_register_all();
 	clients_init();
@@ -253,6 +255,7 @@ static void main_deinit(void)
 
 	clients_deinit();
         mail_storage_deinit();
+	dict_client_unregister();
 	random_deinit();
 
 	lib_signals_deinit();

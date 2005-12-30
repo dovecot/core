@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = pop3
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage
 
@@ -14,6 +15,7 @@ libs = \
 	../lib-storage/subscription-file/libstorage_subscription_file.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
+	../lib-dict/libdict.a \
 	../lib-charset/libcharset.a \
 	../lib/liblib.a
 

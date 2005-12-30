@@ -11,6 +11,7 @@
 #include "process-title.h"
 #include "randgen.h"
 #include "module-dir.h"
+#include "dict-client.h"
 #include "mail-storage.h"
 #include "commands.h"
 #include "namespace.h"
@@ -158,6 +159,7 @@ static void main_init(void)
 	capability_string = str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
 	str_append(capability_string, CAPABILITY_STRING);
 
+	dict_client_register();
         mail_storage_init();
 	mail_storage_register_all();
 	clients_init();
@@ -201,6 +203,7 @@ static void main_deinit(void)
 	commands_deinit();
 	clients_deinit();
         mail_storage_deinit();
+	dict_client_unregister();
 	random_deinit();
 	pool_unref(namespace_pool);
 
