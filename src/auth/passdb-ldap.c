@@ -341,8 +341,9 @@ ldap_verify_plain(struct auth_request *request,
 	ldap_request = p_new(request->pool, struct passdb_ldap_request, 1);
 	ldap_request->callback.verify_plain = callback;
 
-	conn->set.auth_bind ?
-		ldap_verify_plain_authbind(request, &ldap_request->request) :
+	if (conn->set.auth_bind)
+		ldap_verify_plain_authbind(request, &ldap_request->request);
+	else
 		ldap_lookup_pass(request, &ldap_request->request);
 }
 
