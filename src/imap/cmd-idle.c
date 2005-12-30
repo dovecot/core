@@ -78,6 +78,7 @@ static void idle_client_input(void *context)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
+		idle_finish(ctx, FALSE);
 		client_destroy(client);
 		return;
 	case -2:
@@ -134,17 +135,23 @@ static void idle_timeout(void *context)
 	idle_send_expunge(ctx);
 }
 
+static void idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
+{
+	i_assert(ctx->sync_ctx == NULL);
+
+	ctx->sync_pending = FALSE;
+	ctx->sync_ctx = imap_sync_init(ctx->client, box, 0, 0);
+	cmd_idle_continue(ctx->cmd);
+}
+
 static void idle_callback(struct mailbox *box, void *context)
 {
         struct cmd_idle_context *ctx = context;
 
 	if (ctx->sync_ctx != NULL)
 		ctx->sync_pending = TRUE;
-	else {
-		ctx->sync_pending = FALSE;
-		ctx->sync_ctx = imap_sync_init(ctx->client, box, 0, 0);
-		cmd_idle_continue(ctx->cmd);
-	}
+	else
+                idle_sync_now(box, ctx);
 }
 
 static int cmd_idle_continue(struct client_command_context *cmd)
@@ -177,7 +184,7 @@ static int cmd_idle_continue(struct client_command_context *cmd)
 	} else if (ctx->sync_pending) {
 		/* more changes occurred while we were sending changes to
 		   client */
-                idle_callback(client->mailbox, client);
+                idle_sync_now(client->mailbox, ctx);
 	}
         client->output_pending = FALSE;
 
@@ -225,5 +232,9 @@ int cmd_idle(struct client_command_context *cmd)
 	client->command_pending = TRUE;
 	cmd->func = cmd_idle_continue;
 	cmd->context = ctx;
+
+	/* check immediately if there are changes. if they came before we
+	   added mailbox-notifier, we wouldn't see them otherwise. */
+	idle_sync_now(client->mailbox, ctx);
 	return FALSE;
 }
