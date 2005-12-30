@@ -33,6 +33,7 @@ liblib_a_SOURCES = \
 	ioloop-notify-none.c \
 	ioloop-notify-dn.c \
 	ioloop-notify-inotify.c \
+	ioloop-notify-kqueue.c \
 	ioloop-poll.c \
 	ioloop-select.c \
 	ioloop-epoll.c \

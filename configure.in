@@ -339,12 +339,17 @@ if test "$ioloop" = "epoll"; then
 fi
 
 if test "$ioloop" = "kqueue"; then
-  AC_CHECK_FUNC(kqueue, [
-    AC_DEFINE(IOLOOP_KQUEUE,, [Implement I/O loop with FreeBSD kqueue()])
-    have_ioloop=yes
-  ], [
+  if test "$ac_cv_func_kqueue" != yes ; then
+    AC_MSG_WARN([kqueue ioloop requested but kqueue() is not available])
     ioloop=""
-  ])
+  elif test "$ac_cv_func_kevent" != yes ; then
+    AC_MSG_WARN([kqueue ioloop requested but kevent() is not available])
+    ioloop=""
+  else
+    AC_DEFINE(IOLOOP_KQUEUE,, [Implement I/O loop with BSD kqueue()])
+    ioloop=kqueue
+    have_ioloop=yes
+  fi
 fi
 
 if test "$ioloop" = "" || test "$ioloop" = "poll"; then
@@ -411,6 +416,19 @@ elif test "$notify" = "inotify"; then
   ], [
     AC_MSG_ERROR([inotify requested but not available, check for existence of <linux/inotify.h> and <linux/inotify-syscalls.h>])
   ])
+elif test "$notify" = "kqueue"; then
+  dnl * BSD kqueue() notify
+  if test "$ac_cv_func_kqueue" != yes ; then
+    AC_MSG_WARN([kqueue notify requested but kqueue() is not available])
+    notify=""
+  elif test "$ac_cv_func_kevent" != yes ; then
+    AC_MSG_WARN([kqueue notify requested but kevent() is not available])
+    notify=""
+  else
+    have_notify=kqueue
+    AC_DEFINE(IOLOOP_NOTIFY_KQUEUE,,
+      Use BSD kqueue directory changes notificaton)
+  fi
 else
   AC_MSG_ERROR([Unknown notify method: $notify])
 fi
@@ -1542,6 +1560,7 @@ AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", IMAP capabilities)
 
 CFLAGS="$CFLAGS $EXTRA_CFLAGS"
 
+AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([
 Makefile
 doc/Makefile
