@@ -1062,7 +1062,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	maildir_uidlist_iter_deinit(iter);
 	array_free(&keywords);
 
-	if (partial) {
+	if (!partial) {
 		/* expunge the rest */
 		for (seq++; seq <= hdr->messages_count; seq++)
 			mail_index_expunge(trans, seq);
