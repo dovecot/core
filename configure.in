@@ -261,6 +261,16 @@ AC_ARG_WITH(moduledir,
 )
 AC_SUBST(moduledir)
 
+AC_ARG_WITH(docs,
+[  --with-docs            Install documentation (default)],
+	if test x$withval = xno; then
+		want_docs=no
+	else
+		want_docs=yes
+	fi,
+	want_docs=yes)
+AM_CONDITIONAL(BUILD_DOCS, test "$want_docs" = "yes")
+
 dnl * gcc specific options
 if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	# -Wcast-qual -Wcast-align -Wconversion # too many warnings
@@ -1546,6 +1556,7 @@ src/lib-storage/index/dbox/Makefile
 src/lib-storage/subscription-file/Makefile
 src/lib-storage/register/Makefile
 src/auth/Makefile
+src/dict/Makefile
 src/imap/Makefile
 src/imap-login/Makefile
 src/login-common/Makefile

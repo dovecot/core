@@ -1,4 +1,10 @@
-SUBDIRS = src doc
+if BUILD_DOCS
+DOCS = doc
+endif
+
+SUBDIRS = \
+	src \
+	$(DOCS)
 
 confdir = $(sysconfdir)
 conf_DATA = dovecot-example.conf
