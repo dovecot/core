@@ -1276,8 +1276,16 @@ if test $want_gssapi = yes; then
 		if `krb5-config --version|grep -qv '1\.2'`; then
 			AUTH_LIBS="$AUTH_LIBS `krb5-config --libs gssapi`"
 			AUTH_CFLAGS="$AUTH_CFLAGS `krb5-config --cflags gssapi`"
-			AC_DEFINE(HAVE_GSSAPI,, Build with GSSAPI support)
-			have_gssapi=yes
+			
+			# Although krb5-config exists, all systems still don't
+			# have gssapi.h
+			old_CFLAGS=$CFLAGS
+			CFLAGS="$CFLAGS `krb5-config --cflags gssapi`"
+			AC_CHECK_HEADER([gssapi/gssapi.h], [
+				AC_DEFINE(HAVE_GSSAPI,, Build with GSSAPI support)
+				have_gssapi=yes
+			])
+			CFLAGS=$old_CFLAGS
 		fi
 	fi
 fi
