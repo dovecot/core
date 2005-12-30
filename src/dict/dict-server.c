@@ -424,6 +424,7 @@ void dict_server_deinit(struct dict_server *server)
 	dict_cache_deinit(server->cache);
 	if (close(server->fd) < 0)
 		i_error("close(%s) failed: %m", server->path);
+	io_remove(server->io);
 	i_free(server->path);
 	i_free(server);
 }

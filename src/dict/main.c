@@ -74,7 +74,7 @@ static void main_deinit(void)
 int main(void)
 {
 #ifdef DEBUG
-	if (getenv("LOGGED_IN") != NULL && getenv("GDB") == NULL)
+	if (getenv("GDB") == NULL)
 		fd_debug_verify_leaks(3, 1024);
 #endif
 
