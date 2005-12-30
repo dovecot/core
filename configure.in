@@ -1,25 +1,24 @@
-AC_INIT(dovecot, 1.0.alpha5, [dovecot@dovecot.org])
+AC_PREREQ([2.59])
+AC_INIT([dovecot],[1.0.alpha5],[dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
-AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE
 
 AM_MAINTAINER_MODE
 
 AC_ISC_POSIX
+AC_GNU_SOURCE
 AC_PROG_CC
 AC_PROG_CPP
 AC_HEADER_STDC
 AC_C_INLINE
-AM_PROG_LIBTOOL
+AC_PROG_LIBTOOL
 AM_ICONV
 
 AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
-  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h mntent.h sys/mnttab.h)
-
-# check posix headers
-AC_CHECK_HEADERS(sys/time.h)
+  sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h mntent.h sys/mnttab.h \
+  sys/event.h sys/time.h)
 
 AC_ARG_ENABLE(ipv6,
 [  --enable-ipv6           Enable IPv6 support (default)],
@@ -54,13 +53,14 @@ AC_ARG_WITH(mem-align,
 	mem_align=8)
 
 AC_ARG_WITH(ioloop,
-[  --with-ioloop=IOLOOP    Specify the I/O loop method to use],
+[  --with-ioloop=IOLOOP    Specify the I/O loop method to use
+                          (epoll, kqueue, poll; default is poll)],
 	ioloop=$withval,
 	ioloop=)
 
 AC_ARG_WITH(notify,
 [  --with-notify=IOLOOP    Specify the file system notification method to use
-                          (dnotify, inotify, none;
+                          (dnotify, inotify, kqueue, none;
                            default dnotify if compilable, otherwise none)],
 	notify=$withval,
 	notify=)
