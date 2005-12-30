@@ -4,6 +4,8 @@
 #include "array.h"
 #include "ioloop.h"
 #include "maildir-storage.h"
+#include "maildir-uidlist.h"
+#include "maildir-keywords.h"
 #include "index-mail.h"
 #include "mail-copy.h"
 
@@ -13,6 +15,9 @@
 struct maildir_copy_context {
 	struct maildir_mailbox *mbox;
 	int hardlink;
+
+        struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
+	struct maildir_keywords_sync_ctx *keywords_sync_ctx;
 
 	pool_t pool;
 	struct rollback *rollbacks;
@@ -61,29 +66,57 @@ maildir_copy_hardlink(struct mail *mail,
 		      struct maildir_copy_context *ctx)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)imail->ibox;
+	struct maildir_mailbox *dest_mbox = ctx->mbox;
+	struct maildir_mailbox *src_mbox =
+		(struct maildir_mailbox *)imail->ibox;
 	struct hardlink_ctx do_ctx;
 	struct rollback *rb;
 	const char *dest_fname;
+	unsigned int keywords_count;
 	array_t ARRAY_DEFINE(keywords_arr, unsigned int);
 
 	dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
 
-	if (keywords->count > 0) {
+	keywords_count = keywords == NULL ? 0 : keywords->count;
+	if (keywords_count > 0) {
 		ARRAY_CREATE(&keywords_arr, pool_datastack_create(),
 			     unsigned int, keywords->count);
 		array_append(&keywords_arr, keywords->idx, keywords->count);
+
+		if (ctx->keywords_sync_ctx == NULL) {
+			/* uidlist must be locked while accessing
+			   keywords files */
+			if (maildir_uidlist_sync_init(dest_mbox->uidlist, TRUE,
+						&ctx->uidlist_sync_ctx) <= 0) {
+				/* error or timeout */
+				return -1;
+			}
+
+			ctx->keywords_sync_ctx =
+				maildir_keywords_sync_init(dest_mbox->keywords,
+							dest_mbox->ibox.index);
+		}
 	}
-	dest_fname = maildir_filename_set_flags(NULL, // FIXME: !!!
+
+	flags &= ~MAIL_RECENT;
+	if (dest_mbox->ibox.keep_recent)
+		flags |= MAIL_RECENT;
+
+	dest_fname = maildir_filename_set_flags(ctx->keywords_sync_ctx,
 						dest_fname, flags,
-						keywords->count != 0 ?
+						keywords_count != 0 ?
 						&keywords_arr : NULL);
+
+	if (keywords_count == 0 && flags == MAIL_RECENT)
+		dest_fname = t_strconcat("new/", dest_fname, NULL);
+	else
+		dest_fname = t_strconcat("cur/", dest_fname, NULL);
 
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path =
-		t_strconcat(ctx->mbox->path, "/new/", dest_fname, NULL);
+		t_strconcat(dest_mbox->path, "/", dest_fname, NULL);
 
-	if (maildir_file_do(mbox, imail->mail.mail.uid,
+	if (maildir_file_do(src_mbox, imail->mail.mail.uid,
 			    do_hardlink, &do_ctx) < 0)
 		return -1;
 
@@ -108,13 +141,17 @@ maildir_copy_init(struct maildir_mailbox *mbox)
 
 	ctx = p_new(pool, struct maildir_copy_context, 1);
 	ctx->pool = pool;
-	ctx->hardlink = FALSE; //FIXME:broken! getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
+	ctx->hardlink = getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
 	ctx->mbox = mbox;
 	return ctx;
 }
 
 int maildir_transaction_copy_commit(struct maildir_copy_context *ctx)
 {
+	if (ctx->keywords_sync_ctx != NULL) {
+		maildir_keywords_sync_deinit(ctx->keywords_sync_ctx);
+		maildir_uidlist_sync_deinit(ctx->uidlist_sync_ctx);
+	}
 	pool_unref(ctx->pool);
 	return 0;
 }
@@ -125,8 +162,8 @@ void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx)
 
 	for (rb = ctx->rollbacks; rb != NULL; rb = rb->next) {
 		t_push();
-		(void)unlink(t_strconcat(ctx->mbox->path,
-					 "/new/", rb->fname, NULL));
+		(void)unlink(t_strconcat(ctx->mbox->path, "/",
+					 rb->fname, NULL));
 		t_pop();
 	}
 

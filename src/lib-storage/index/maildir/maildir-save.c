@@ -321,8 +321,9 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 
 	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
 				 mf->keywords_count * sizeof(unsigned int));
-	return maildir_filename_set_flags(ctx->sync_ctx, mf->basename,
-					  mf->flags, &ctx->keywords_array);
+	return maildir_filename_set_flags(
+			maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx),
+			mf->basename, mf->flags, &ctx->keywords_array);
 }
 
 static void
