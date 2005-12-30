@@ -504,8 +504,11 @@ _strsplit(pool_t pool, const char *data, const char *separators, int spaces)
 
 	i_assert(*separators != '\0');
 
-	if (spaces)
-		while (*data == ' ') data++;
+	if (spaces) {
+		/* skip leading separators */
+		while (strchr(separators, *data) != NULL)
+			data++;
+	}
 	if (*data == '\0')
 		return p_new(pool, char *, 1);
 
@@ -527,13 +530,12 @@ _strsplit(pool_t pool, const char *data, const char *separators, int spaces)
 				alloc_count = new_alloc_count;
 			}
 
-			if (*str != ' ' || !spaces)
-				*str = '\0';
-			else {
-				*str = '\0';
-				while (str[1] == ' ') str++;
+			*str = '\0';
+			if (spaces) {
+				while (strchr(separators, str[1]) != NULL)
+					str++;
 
-				/* ignore trailing spaces */
+				/* ignore trailing separators */
 				if (str[1] == '\0')
 					break;
 			}
