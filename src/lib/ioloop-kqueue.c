@@ -1,5 +1,5 @@
 /*
- * FreeBSD kqueue() based ioloop handler.
+ * BSD kqueue() based ioloop handler.
  *
  * Copyright (c) 2005 Vaclav Haisman <v.haisman@sh.cvut.cz>
  *
@@ -16,6 +16,7 @@
 
 #ifdef IOLOOP_KQUEUE
 
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
@@ -23,6 +24,8 @@
 #ifndef INITIAL_BUF_SIZE
 #  define INITIAL_BUF_SIZE 128
 #endif
+
+#define MASK (IO_READ | IO_WRITE | IO_ERROR)
 
 struct ioloop_handler_context {
         int kq;
@@ -57,6 +60,8 @@ void io_loop_handler_init(struct ioloop *ioloop)
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
+	if (close(ioloop->handler_context->kq) < 0)
+		i_error("close(kqueue) failed: %m");
         p_free(ioloop->pool, ioloop->handler_context->evbuf);
         p_free(ioloop->pool, ioloop->handler_context->fds);
         p_free(ioloop->pool, ioloop->handler_context);
@@ -66,8 +71,8 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
         struct ioloop_handler_context *ctx = ioloop->handler_context;
         const int fd = io->fd;
-        struct kevent ev = {fd, 0, EV_ADD | EV_CLEAR | EV_EOF, 0, 0, NULL};
-        enum io_condition condition = io->condition;
+        struct kevent ev = { fd, 0, EV_ADD | EV_EOF, 0, 0, NULL };
+        enum io_condition condition = io->condition & MASK;
 
         /* grow ctx->fds array if necessary */
         if ((size_t)fd >= ctx->fds_size) {
@@ -103,10 +108,10 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 {
         struct ioloop_handler_context *ctx = ioloop->handler_context;
+        const int fd = io->fd;
         struct kevent ev = { fd, 0, EV_DELETE, 0, 0, NULL };
         struct fdrecord *const fds = ctx->fds;
-        const int fd = io->fd;
-        const enum io_condition condition = io->condition;
+        const enum io_condition condition = io->condition & MASK;
 
         i_assert((size_t)fd < ctx->fds_size);
         i_assert(fds[fd].mode != 0);
@@ -160,7 +165,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
                 struct io *io = ctx->evbuf[i].udata;
 
                 i_assert(ctx->evbuf[i].ident < ctx->fds_size);
-                if (ctx->fds[ctx->evbuf[i].ident].mode & IO_ERROR) {
+		if ((ctx->fds[ctx->evbuf[i].ident].mode & IO_ERROR) &&
+		    (ctx->evbuf[i].flags & EV_EOF)) {
                         struct io *errio = ctx->fds[ctx->evbuf[i].ident].errio;
 
                         t_id = t_push();
@@ -170,9 +176,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
                                         " in I/O handler %p",
 					(void *)errio->callback);
 			}
-                }
-
-                if (ctx->fds[ctx->evbuf[i].ident].mode & (IO_WRITE | IO_READ)) {
+                } else if (ctx->fds[ctx->evbuf[i].ident].mode
+                         & (IO_WRITE | IO_READ)) {
                         t_id = t_push();
                         io->callback(io->context);
 			if (t_pop() != t_id) {
@@ -180,7 +185,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
                                         " in I/O handler %p",
 					(void *)io->callback);
 			}
-                }
+                } else
+                        i_panic("Unrecognized event");
         }
 }
 
