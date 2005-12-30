@@ -55,6 +55,11 @@ __again:
 
 		i_assert(mbox->mbox_lock_type != F_UNLCK);
 		t->mbox_lock_id = mbox->mbox_lock_id;
+	} else if ((sync_flags & MBOX_SYNC_FORCE_SYNC) != 0) {
+		/* dirty offsets are broken and mbox is write-locked.
+		   sync it to update offsets. */
+		if (mbox_sync(mbox, sync_flags) < 0)
+			return -1;
 	}
 
 	if (mbox_file_open_stream(mbox) < 0)
