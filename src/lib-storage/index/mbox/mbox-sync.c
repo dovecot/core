@@ -1464,6 +1464,8 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 			return -1;
 		}
 	}
+	i_assert(!sync_ctx->mbox->mbox_sync_dirty ||
+		 (flags & MBOX_SYNC_UNDIRTY) == 0);
 
 	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
 		return -1;
