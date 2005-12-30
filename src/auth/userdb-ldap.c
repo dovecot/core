@@ -201,7 +201,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       request->request.filter,
 			       t_strarray_join(attr_names, ","));
 
-	db_ldap_search(conn, &request->request);
+	db_ldap_search(conn, &request->request, conn->set.ldap_scope);
 }
 
 static struct userdb_module *

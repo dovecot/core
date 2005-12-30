@@ -168,14 +168,14 @@ struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
 		auth_passdb->passdb =
 			iface->preinit(auth_passdb, auth_passdb->args);
 	}
-	auth_passdb->passdb->iface = iface;
+	auth_passdb->passdb->iface = *iface;
 	return auth_passdb;
 }
 
 void passdb_init(struct auth_passdb *passdb)
 {
-	if (passdb->passdb->iface->init != NULL)
-		passdb->passdb->iface->init(passdb->passdb, passdb->args);
+	if (passdb->passdb->iface.init != NULL)
+		passdb->passdb->iface.init(passdb->passdb, passdb->args);
 
 	i_assert(passdb->passdb->default_pass_scheme != NULL ||
 		 passdb->passdb->cache_key == NULL);
@@ -188,8 +188,8 @@ void passdb_init(struct auth_passdb *passdb)
 
 void passdb_deinit(struct auth_passdb *passdb)
 {
-	if (passdb->passdb->iface->deinit != NULL)
-		passdb->passdb->iface->deinit(passdb->passdb);
+	if (passdb->passdb->iface.deinit != NULL)
+		passdb->passdb->iface.deinit(passdb->passdb);
 #ifdef HAVE_MODULES
 	if (passdb->module != NULL)
                 auth_module_close(passdb->module);

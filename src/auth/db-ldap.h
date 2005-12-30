@@ -15,6 +15,7 @@ struct ldap_settings {
 	const char *uris;
 	const char *dn;
 	const char *dnpass;
+	int auth_bind;
 	const char *deref;
 	const char *scope;
 	const char *base;
@@ -62,7 +63,8 @@ struct ldap_request {
 	char **attributes; /* points to pass_attr_names / user_attr_names */
 };
 
-void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request);
+void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
+		    int scope);
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,

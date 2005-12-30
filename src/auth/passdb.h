@@ -34,19 +34,6 @@ typedef void lookup_credentials_callback_t(enum passdb_result result,
 					   const char *password,
 					   struct auth_request *request);
 
-struct passdb_module {
-	/* The caching key for this module, or NULL if caching isn't wanted. */
-	const char *cache_key;
-	/* Default password scheme for this module.
-	   If cache_key is set, must not be NULL. */
-	const char *default_pass_scheme;
-	/* If blocking is set to TRUE, use child processes to access
-	   this passdb. */
-	int blocking;
-
-	const struct passdb_module_interface *iface;
-};
-
 struct passdb_module_interface {
 	const char *name;
 
@@ -63,6 +50,19 @@ struct passdb_module_interface {
 	   auth_request->credentials. */
 	void (*lookup_credentials)(struct auth_request *request, 
 				   lookup_credentials_callback_t *callback);
+};
+
+struct passdb_module {
+	/* The caching key for this module, or NULL if caching isn't wanted. */
+	const char *cache_key;
+	/* Default password scheme for this module.
+	   If cache_key is set, must not be NULL. */
+	const char *default_pass_scheme;
+	/* If blocking is set to TRUE, use child processes to access
+	   this passdb. */
+	int blocking;
+
+	struct passdb_module_interface iface;
 };
 
 const char *

@@ -33,6 +33,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, uris),
 	DEF(SET_STR, dn),
 	DEF(SET_STR, dnpass),
+	DEF(SET_BOOL, auth_bind),
 	DEF(SET_STR, deref),
 	DEF(SET_STR, scope),
 	DEF(SET_STR, base),
@@ -51,6 +52,7 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(uris) NULL,
 	MEMBER(dn) NULL,
 	MEMBER(dnpass) NULL,
+	MEMBER(auth_bind) FALSE,
 	MEMBER(deref) "never",
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
@@ -108,7 +110,8 @@ const char *ldap_get_error(struct ldap_connection *conn)
 	return ldap_err2string(err);
 }
 
-void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request)
+void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
+		    int scope)
 {
 	int msgid;
 
@@ -119,7 +122,7 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request)
 		}
 	}
 
-	msgid = ldap_search(conn->ld, request->base, conn->set.ldap_scope,
+	msgid = ldap_search(conn->ld, request->base, scope,
 			    request->filter, request->attributes, 0);
 	if (msgid == -1) {
 		i_error("LDAP: ldap_search() failed (filter %s): %s",
@@ -150,7 +153,7 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 		struct ldap_request *request = value;
 
 		i_assert(conn->connected);
-		db_ldap_search(conn, request);
+		db_ldap_search(conn, request, conn->set.ldap_scope);
 	}
 	hash_iterate_deinit(iter);
 	hash_destroy(old_requests);
@@ -245,8 +248,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 		}
 	}
 
-	/* NOTE: we use blocking connect, we couldn't do anything anyway
-	   until it's done. */
+	/* FIXME: we shouldn't use blocking bind */
 	ret = ldap_simple_bind_s(conn->ld, conn->set.dn, conn->set.dnpass);
 	if (ret == LDAP_SERVER_DOWN) {
 		i_error("LDAP: Can't connect to server: %s", conn->set.hosts);

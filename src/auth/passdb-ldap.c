@@ -84,58 +84,77 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 	}
 }
 
+static LDAPMessage *
+handle_request_get_entry(struct ldap_connection *conn,
+			 struct auth_request *auth_request,
+			 struct passdb_ldap_request *request, LDAPMessage *res)
+{
+	enum passdb_result passdb_result;
+	LDAPMessage *entry;
+	int ret;
+
+	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+
+	if (!auth_request_unref(auth_request)) {
+		/* Auth request is already aborted */
+	} else if (res != NULL) {
+		/* LDAP query returned something */
+		ret = ldap_result2error(conn->ld, res, 0);
+		if (ret != LDAP_SUCCESS) {
+			auth_request_log_error(auth_request, "ldap",
+					       "ldap_search() failed: %s",
+					       ldap_err2string(ret));
+		} else {
+			/* get the reply */
+			entry = ldap_first_entry(conn->ld, res);
+			if (entry != NULL) {
+				/* success */
+				return entry;
+			}
+
+			/* no entries returned */
+			auth_request_log_info(auth_request, "ldap",
+					      "unknown user");
+			passdb_result = PASSDB_RESULT_USER_UNKNOWN;
+		}
+	}
+
+	request->callback.verify_plain(passdb_result, auth_request);
+	return NULL;
+}
+
 static void handle_request(struct ldap_connection *conn,
 			   struct ldap_request *request, LDAPMessage *res)
 {
 	struct passdb_ldap_request *ldap_request =
-		(struct passdb_ldap_request *) request;
+		(struct passdb_ldap_request *)request;
         struct auth_request *auth_request = request->context;
 	enum passdb_result passdb_result;
 	LDAPMessage *entry;
 	const char *password, *scheme;
 	int ret;
 
+	entry = handle_request_get_entry(conn, auth_request, ldap_request, res);
+	if (entry == NULL)
+		return;
+
+	/* got first LDAP entry */
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	password = NULL;
 
-	if (res != NULL) {
-		ret = ldap_result2error(conn->ld, res, 0);
-		if (ret != LDAP_SUCCESS) {
-			auth_request_log_error(auth_request, "ldap",
-					       "ldap_search() failed: %s",
-					       ldap_err2string(ret));
-			res = NULL;
-		}
-	}
-
-	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
-	if (entry == NULL) {
-		if (res != NULL) {
-			auth_request_log_info(auth_request, "ldap",
-					      "unknown user");
-			passdb_result = PASSDB_RESULT_USER_UNKNOWN;
-		}
+	ldap_query_save_result(conn, entry, auth_request);
+	if (auth_request->passdb_password == NULL) {
+		auth_request_log_error(auth_request, "ldap",
+				       "No password in reply");
+	} else if (ldap_next_entry(conn->ld, entry) != NULL) {
+		auth_request_log_error(auth_request, "ldap",
+				       "Multiple password replies");
 	} else {
-		ldap_query_save_result(conn, entry, auth_request);
-
-		if (auth_request->passdb_password == NULL) {
-			auth_request_log_error(auth_request, "ldap",
-					       "No password in reply");
-		} else if (ldap_next_entry(conn->ld, entry) != NULL) {
-			auth_request_log_error(auth_request, "ldap",
-					       "Multiple password replies");
-		} else {
-			password = auth_request->passdb_password;
-			if (password == NULL)
-				auth_request->no_password = TRUE;
-			passdb_result = PASSDB_RESULT_OK;
-		}
+		password = auth_request->passdb_password;
+		if (password == NULL)
+			auth_request->no_password = TRUE;
+		passdb_result = PASSDB_RESULT_OK;
 	}
-
-	/* LDAP result is freed now. we can check if auth_request is
-	   even needed anymore */
-	if (!auth_request_unref(auth_request))
-		return;
 
 	scheme = password_get_scheme(&password);
 	/* auth_request_set_field() sets scheme */
@@ -170,6 +189,73 @@ static void handle_request(struct ldap_connection *conn,
 					    auth_request);
 }
 
+static void
+handle_request_authbind(struct ldap_connection *conn,
+			struct ldap_request *request, LDAPMessage *res)
+{
+	struct passdb_ldap_request *passdb_ldap_request =
+		(struct passdb_ldap_request *)request;
+	struct auth_request *auth_request = request->context;
+	enum passdb_result passdb_result;
+	int ret;
+
+	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+
+	if (!auth_request_unref(auth_request)) {
+		/* Auth request is already aborted */
+	} else if (res != NULL) {
+		ret = ldap_result2error(conn->ld, res, 0);
+		if (ret == LDAP_SUCCESS)
+			passdb_result = PASSDB_RESULT_OK;
+		else if (ret == LDAP_INVALID_CREDENTIALS)
+			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+		else {
+			auth_request_log_error(request->context, "ldap",
+					       "ldap_bind() failed: %s",
+					       ldap_err2string(ret));
+		}
+	}
+
+	passdb_ldap_request->callback.verify_plain(passdb_result, auth_request);
+}
+
+static void
+handle_request_authbind_search(struct ldap_connection *conn,
+			       struct ldap_request *ldap_request,
+			       LDAPMessage *res)
+{
+	struct passdb_ldap_request *passdb_ldap_request =
+		(struct passdb_ldap_request *)ldap_request;
+	struct auth_request *auth_request = ldap_request->context;
+	LDAPMessage *entry;
+	const char *dn;
+	int msgid;
+
+	entry = handle_request_get_entry(conn, auth_request,
+					 passdb_ldap_request, res);
+	if (entry == NULL)
+		return;
+
+	dn = ldap_get_dn(conn->ld, entry);
+
+	/* switch the handler to the authenticated bind handler */
+	ldap_request->callback = handle_request_authbind;
+
+	msgid = ldap_bind(conn->ld, dn, auth_request->mech_password,
+			  LDAP_AUTH_SIMPLE);
+	if (msgid == -1) {
+		i_error("ldap_bind() failed: %s", ldap_get_error(conn));
+		passdb_ldap_request->callback.
+			verify_plain(PASSDB_RESULT_INTERNAL_FAILURE,
+				     auth_request);
+		return;
+	}
+
+	/* Bind started */
+	auth_request_ref(auth_request);
+	hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
+}
+
 static void ldap_lookup_pass(struct auth_request *auth_request,
 			     struct ldap_request *ldap_request)
 {
@@ -202,7 +288,43 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 			       ldap_request->filter,
 			       t_strarray_join(attr_names, ","));
 
-	db_ldap_search(conn, ldap_request);
+	db_ldap_search(conn, ldap_request, conn->set.ldap_scope);
+}
+
+static void
+ldap_verify_plain_authbind(struct auth_request *auth_request,
+			   struct ldap_request *ldap_request)
+{
+	struct passdb_module *_module = auth_request->passdb->passdb;
+	struct ldap_passdb_module *module =
+		(struct ldap_passdb_module *)_module;
+	struct ldap_connection *conn = module->conn;
+	const struct var_expand_table *vars;
+	string_t *str;
+
+	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
+
+	str = t_str_new(512);
+	var_expand(str, conn->set.base, vars);
+	ldap_request->base = p_strdup(auth_request->pool, str_c(str));
+
+	str_truncate(str, 0);
+	var_expand(str, conn->set.pass_filter, vars);
+	ldap_request->filter = p_strdup(auth_request->pool, str_c(str));
+
+	/* we don't want any attributes in our search results;
+	   we only need the DN. */
+	ldap_request->attributes = p_new(auth_request->pool, char *, 1);
+
+	auth_request_ref(auth_request);
+	ldap_request->context = auth_request;
+	ldap_request->callback = handle_request_authbind_search;
+
+	auth_request_log_debug(auth_request, "ldap",
+			       "bind search: base=%s filter=%s",
+			       ldap_request->base, ldap_request->filter);
+
+        db_ldap_search(conn, ldap_request, LDAP_SCOPE_SUBTREE);
 }
 
 static void
@@ -210,12 +332,18 @@ ldap_verify_plain(struct auth_request *request,
 		  const char *password __attr_unused__,
 		  verify_plain_callback_t *callback)
 {
+	struct passdb_module *_module = request->passdb->passdb;
+	struct ldap_passdb_module *module =
+		(struct ldap_passdb_module *)_module;
+	struct ldap_connection *conn = module->conn;
 	struct passdb_ldap_request *ldap_request;
 
 	ldap_request = p_new(request->pool, struct passdb_ldap_request, 1);
 	ldap_request->callback.verify_plain = callback;
 
-        ldap_lookup_pass(request, &ldap_request->request);
+	conn->set.auth_bind ?
+		ldap_verify_plain_authbind(request, &ldap_request->request) :
+		ldap_lookup_pass(request, &ldap_request->request);
 }
 
 static void ldap_lookup_credentials(struct auth_request *request,
@@ -257,6 +385,11 @@ static void passdb_ldap_init(struct passdb_module *_module,
 		(struct ldap_passdb_module *)_module;
 
 	(void)db_ldap_connect(module->conn);
+
+	if (module->conn->set.auth_bind) {
+		/* Credential lookups can't be done with authentication binds */
+		_module->iface.lookup_credentials = NULL;
+	}
 }
 
 static void passdb_ldap_deinit(struct passdb_module *_module)

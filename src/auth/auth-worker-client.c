@@ -146,7 +146,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 		}
 	}
 
-	auth_request->passdb->passdb->iface->
+	auth_request->passdb->passdb->iface.
 		verify_plain(auth_request, password, verify_plain_callback);
 }
 
@@ -222,7 +222,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 		}
 	}
 
-	auth_request->passdb->passdb->iface->
+	auth_request->passdb->passdb->iface.
 		lookup_credentials(auth_request, lookup_credentials_callback);
 }
 
