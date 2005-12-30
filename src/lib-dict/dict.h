@@ -6,9 +6,6 @@
 
 struct dict;
 
-void dict_class_register_all(void);
-void dict_class_unregister_all(void);
-
 void dict_class_register(struct dict *dict_class);
 void dict_class_unregister(struct dict *dict_class);
 
@@ -18,8 +15,9 @@ struct dict *dict_init(const char *uri);
 /* Close dictionary. */
 void dict_deinit(struct dict *dict);
 
-/* Return value for key, or NULL if not found. */
-char *dict_lookup(struct dict *dict, pool_t pool, const char *key);
+/* Lookup value for key. Set it to NULL if it's not found.
+   Returns 1 if found, 0 if not found and -1 if lookup failed. */
+int dict_lookup(struct dict *dict, pool_t pool, const char *key, const char **value_r);
 
 /* Iterate through all values in a path. If recurse is FALSE, keys in
    the given path are returned, but not their children. */

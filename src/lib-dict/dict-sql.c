@@ -27,6 +27,12 @@ struct sql_dict_iterate_context {
 	struct sql_result *result;
 };
 
+struct sql_dict_transaction_context {
+	struct dict_transaction_context ctx;
+
+	struct sql_transaction_context *sql_ctx;
+};
+
 static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 {
 	struct istream *input;
@@ -91,14 +97,16 @@ static void sql_dict_deinit(struct dict *_dict)
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 
 	sql_deinit(dict->db);
+	pool_unref(dict->pool);
 }
 
-static char *sql_dict_lookup(struct dict *_dict, pool_t pool, const char *key)
+static int sql_dict_lookup(struct dict *_dict, pool_t pool,
+			   const char *key, const char **value_r)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 	struct sql_result *result;
 	const char *query;
-	char *ret;
+	int ret;
 
 	t_push();
 	query = t_strdup_printf("SELECT %s FROM %s WHERE %s = '%s'",
@@ -107,10 +115,13 @@ static char *sql_dict_lookup(struct dict *_dict, pool_t pool, const char *key)
 	result = sql_query_s(dict->db, query);
 	t_pop();
 
-	if (sql_result_next_row(result) <= 0)
-		ret = NULL;
-	else
-                ret = p_strdup(pool, sql_result_get_field_value(result, 0));
+	ret = sql_result_next_row(result);
+	if (ret <= 0)
+		*value_r = NULL;
+	else {
+		*value_r =
+			p_strdup(pool, sql_result_get_field_value(result, 0));
+	}
 
 	sql_result_free(result);
 	return ret;
@@ -162,13 +173,8 @@ static void sql_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 		(struct sql_dict_iterate_context *)_ctx;
 
 	sql_result_free(ctx->result);
+	i_free(ctx);
 }
-
-struct sql_dict_transaction_context {
-	struct dict_transaction_context ctx;
-
-	struct sql_transaction_context *sql_ctx;
-};
 
 static struct dict_transaction_context *
 sql_dict_transaction_init(struct dict *_dict)

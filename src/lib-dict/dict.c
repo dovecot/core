@@ -7,16 +7,6 @@
 
 static array_t ARRAY_DEFINE(dict_classes, struct dict *);
 
-void dict_class_register_all(void)
-{
-	dict_sql_register();
-}
-
-void dict_class_unregister_all(void)
-{
-	dict_sql_unregister();
-}
-
 static struct dict *dict_class_lookup(const char *name)
 {
 	struct dict *const *dicts;
@@ -86,9 +76,10 @@ void dict_deinit(struct dict *dict)
 	dict->v.deinit(dict);
 }
 
-char *dict_lookup(struct dict *dict, pool_t pool, const char *key)
+int dict_lookup(struct dict *dict, pool_t pool, const char *key,
+		const char **value_r)
 {
-	return dict->v.lookup(dict, pool, key);
+	return dict->v.lookup(dict, pool, key, value_r);
 }
 
 struct dict_iterate_context *

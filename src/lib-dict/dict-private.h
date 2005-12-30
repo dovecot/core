@@ -7,7 +7,8 @@ struct dict_vfuncs {
 	struct dict *(*init)(struct dict *dict_class, const char *uri);
 	void (*deinit)(struct dict *dict);
 
-	char *(*lookup)(struct dict *dict, pool_t pool, const char *key);
+	int (*lookup)(struct dict *dict, pool_t pool,
+		      const char *key, const char **value_r);
 
 	struct dict_iterate_context *
 		(*iterate_init)(struct dict *dict, const char *path,

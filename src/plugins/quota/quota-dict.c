@@ -131,22 +131,24 @@ dict_quota_get_resource(struct quota_root *root, const char *name,
 {
 	struct dict_quota *quota = (struct dict_quota *)root->quota;
 	const char *value;
+	int ret;
 
 	if (quota->dict == NULL)
 		return 0;
 
 	t_push();
-	value = dict_lookup(quota->dict, unsafe_data_stack_pool,
-			    t_strconcat(DICT_QUOTA_LIMIT_PATH, name, NULL));
+	ret = dict_lookup(quota->dict, unsafe_data_stack_pool,
+			  t_strconcat(DICT_QUOTA_LIMIT_PATH, name, NULL),
+			  &value);
 	*limit_r = value == NULL ? 0 : strtoull(value, NULL, 10);
 
 	if (value == NULL) {
 		/* resource doesn't exist */
 		*value_r = 0;
 	} else {
-		value = dict_lookup(quota->dict, unsafe_data_stack_pool,
-				    t_strconcat(DICT_QUOTA_CURRENT_PATH,
-						name, NULL));
+		ret = dict_lookup(quota->dict, unsafe_data_stack_pool,
+				  t_strconcat(DICT_QUOTA_CURRENT_PATH,
+					      name, NULL), &value);
 		*value_r = value == NULL ? 0 : strtoull(value, NULL, 10);
 	}
 	t_pop();
@@ -154,7 +156,7 @@ dict_quota_get_resource(struct quota_root *root, const char *name,
 	*limit_r /= 1024;
 	*value_r /= 1024;
 
-	return value == NULL;
+	return ret;
 }
 
 static int
@@ -180,13 +182,13 @@ dict_quota_transaction_begin(struct quota *_quota)
 
 	if (quota->dict != NULL) {
 		t_push();
-		value = dict_lookup(quota->dict, unsafe_data_stack_pool,
-				    DICT_QUOTA_LIMIT_PATH"storage");
+		(void)dict_lookup(quota->dict, unsafe_data_stack_pool,
+				  DICT_QUOTA_LIMIT_PATH"storage", &value);
 		ctx->storage_limit = value == NULL ? 0 :
 			strtoull(value, NULL, 10);
 
-		value = dict_lookup(quota->dict, unsafe_data_stack_pool,
-				    DICT_QUOTA_CURRENT_PATH"storage");
+		(void)dict_lookup(quota->dict, unsafe_data_stack_pool,
+				  DICT_QUOTA_CURRENT_PATH"storage", &value);
 		ctx->storage_current = value == NULL ? 0 :
 			strtoull(value, NULL, 10);
 		t_pop();
