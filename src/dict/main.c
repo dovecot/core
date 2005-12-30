@@ -14,8 +14,6 @@
 #include <stdlib.h>
 #include <syslog.h>
 
-#define DICT_SERVER_PATH "/var/run/dovecot/dict-server"
-
 struct ioloop *ioloop;
 
 static struct module *modules;
@@ -56,7 +54,7 @@ static void main_init(void)
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
 		module_dir_load(getenv("MODULE_DIR"), TRUE);
 
-	dict_server = dict_server_init(DICT_SERVER_PATH);
+	dict_server = dict_server_init(DEFAULT_DICT_SERVER_SOCKET_PATH);
 }
 
 static void main_deinit(void)

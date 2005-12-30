@@ -54,7 +54,7 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn);
 static int cmd_lookup(struct dict_client_connection *conn, const char *line)
 {
 	const char *reply;
-	char *value;
+	const char *value;
 	int ret;
 
 	/* <key> */
