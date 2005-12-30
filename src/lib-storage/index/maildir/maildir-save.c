@@ -425,16 +425,21 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 {
 	struct maildir_filename *mf;
 	string_t *str;
+	size_t dir_len;
 
 	i_assert(ctx->output == NULL);
 
 	t_push();
 	str = t_str_new(1024);
 
+	str_append(str, ctx->tmpdir);
+	str_append_c(str, '/');
+        dir_len = str_len(str);
+
 	/* clean up the temp files */
 	for (mf = ctx->files; mf != NULL; mf = mf->next) {
-		str_truncate(str, 0);
-		str_printfa(str, "%s/%s", ctx->tmpdir, mf->basename);
+		str_truncate(str, dir_len);
+		str_append(str, mf->basename);
 		(void)unlink(str_c(str));
 	}
 	t_pop();
