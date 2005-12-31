@@ -13,7 +13,7 @@ time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
 struct timezone ioloop_timezone;
 
-static struct ioloop *current_ioloop = NULL;
+struct ioloop *current_ioloop = NULL;
 
 struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context)

@@ -26,6 +26,8 @@ extern time_t ioloop_time;
 extern struct timeval ioloop_timeval;
 extern struct timezone ioloop_timezone;
 
+extern struct ioloop *current_ioloop;
+
 /* I/O listeners - you can create different handlers for IO_READ and IO_WRITE,
    but make sure you don't create multiple handlers of same type, it's not
    checked and removing one will stop the other from working as well.
