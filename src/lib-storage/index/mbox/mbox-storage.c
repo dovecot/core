@@ -31,6 +31,7 @@ const char *mbox_hide_headers[] = {
 	"X-Keywords",
 	"X-Status",
 	"X-UID",
+	"X-UIDL"
 };
 unsigned int mbox_hide_headers_count = 7;
 
