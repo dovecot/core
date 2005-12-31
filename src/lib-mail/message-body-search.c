@@ -110,10 +110,8 @@ static int message_search_header(struct part_search_context *ctx,
 	hdr_search_ctx = message_header_search_init(pool_datastack_create(),
 						    ctx->body_ctx->key,
 						    "UTF-8", NULL);
-	if (hdr_search_ctx == NULL) {
-		/* Invalid key. */
-		return -1;
-	}
+	/* Our key is in UTF-8. It can't be invalid. */
+	i_assert(hdr_search_ctx != NULL);
 
 	/* we default to text content-type */
 	ctx->content_type_text = TRUE;
@@ -357,14 +355,14 @@ static int message_search_body(struct part_search_context *ctx,
 
 static int message_body_search_init(struct body_search_context *ctx,
 				    const char *key, const char *charset,
-				    int *unknown_charset, int search_header)
+				    int *unknown_charset_r, int search_header)
 {
 	size_t key_len;
 
 	memset(ctx, 0, sizeof(struct body_search_context));
 
 	/* get the key uppercased */
-	key = charset_to_ucase_utf8_string(charset, unknown_charset,
+	key = charset_to_ucase_utf8_string(charset, unknown_charset_r,
 					   (const unsigned char *) key,
 					   strlen(key), &key_len);
 	if (key == NULL)
@@ -386,10 +384,10 @@ static int message_body_search_ctx(struct body_search_context *ctx,
 				   const struct message_part *part)
 {
 	struct part_search_context part_ctx;
-	int ret, found;
+	int ret;
 
-	found = FALSE;
-	while (part != NULL && !found) {
+	ret = 0;
+	while (part != NULL && ret == 0) {
 		i_assert(input->v_offset <= part->physical_pos);
 
 		i_stream_skip(input, part->physical_pos - input->v_offset);
@@ -401,19 +399,20 @@ static int message_body_search_ctx(struct body_search_context *ctx,
 
 		t_push();
 
-		ret = message_search_header(&part_ctx, input);
-		if (ret != 0) {
-			/* found / invalid */
-			found = ret > 0;
+		if (message_search_header(&part_ctx, input)) {
+			/* found / invalid search key */
+			ret = 1;
 		} else if (part->children != NULL) {
 			/* multipart/xxx or message/rfc822 */
 			if (message_body_search_ctx(ctx, input, part->children))
-				found = TRUE;
+				ret = 1;
 		} else {
-			i_assert(input->v_offset == part->physical_pos +
-				 part->header_size.physical_size);
-			if (message_search_body(&part_ctx, input, part))
-				found = TRUE;
+			if (input->v_offset != part->physical_pos +
+			    part->header_size.physical_size) {
+				/* header size changed. */
+				ret = -1;
+			} else if (message_search_body(&part_ctx, input, part))
+				ret = 1;
 		}
 
 		i_free(part_ctx.content_type);
@@ -424,18 +423,26 @@ static int message_body_search_ctx(struct body_search_context *ctx,
 		part = part->next;
 	}
 
-	return found;
+	return ret;
 }
 
 int message_body_search(const char *key, const char *charset,
-			int *unknown_charset, struct istream *input,
-			const struct message_part *part, int search_header)
+			struct istream *input,
+			const struct message_part *part, int search_header,
+                        enum message_body_search_error *error_r)
 {
         struct body_search_context ctx;
+	int ret, unknown_charset;
 
-	if (!message_body_search_init(&ctx, key, charset, unknown_charset,
-				      search_header))
+	if (!message_body_search_init(&ctx, key, charset, &unknown_charset,
+				      search_header)) {
+		*error_r = unknown_charset ?
+			MESSAGE_BODY_SEARCH_ERROR_UNKNOWN_CHARSET :
+                        MESSAGE_BODY_SEARCH_ERROR_INVALID_KEY;
 		return -1;
+	}
 
-	return message_body_search_ctx(&ctx, input, part);
+	if ((ret = message_body_search_ctx(&ctx, input, part)) < 0)
+		*error_r = MESSAGE_BODY_SEARCH_ERROR_MESSAGE_PART_BROKEN;
+	return ret;
 }

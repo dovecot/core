@@ -438,25 +438,47 @@ static void search_header(struct message_part *part __attr_unused__,
 static void search_body(struct mail_search_arg *arg, void *context)
 {
 	struct search_body_context *ctx = context;
-	int ret, unknown_charset;
+        enum message_body_search_error error;
+	int ret, retry = FALSE;
 
 	if (ctx->index_ctx->error != NULL)
 		return;
 
-	if (arg->type == SEARCH_TEXT || arg->type == SEARCH_BODY) {
-		i_stream_seek(ctx->input, 0);
-		ret = message_body_search(arg->value.str,
-					  ctx->index_ctx->charset,
-					  &unknown_charset, ctx->input,
-					  ctx->part, arg->type == SEARCH_TEXT);
+	if (arg->type != SEARCH_TEXT && arg->type != SEARCH_BODY)
+		return;
 
-		if (ret < 0) {
-			ctx->index_ctx->error = unknown_charset ?
-				TXT_UNKNOWN_CHARSET : TXT_INVALID_SEARCH_KEY;
+__retry:
+	i_stream_seek(ctx->input, 0);
+	ret = message_body_search(arg->value.str, ctx->index_ctx->charset,
+				  ctx->input, ctx->part,
+				  arg->type == SEARCH_TEXT, &error);
+
+	if (ret < 0) {
+		switch (error) {
+		case MESSAGE_BODY_SEARCH_ERROR_UNKNOWN_CHARSET:
+			ctx->index_ctx->error = TXT_UNKNOWN_CHARSET;
+			break;
+		case MESSAGE_BODY_SEARCH_ERROR_INVALID_KEY:
+			ctx->index_ctx->error = TXT_INVALID_SEARCH_KEY;
+			break;
+		case MESSAGE_BODY_SEARCH_ERROR_MESSAGE_PART_BROKEN:
+			if (retry)
+				i_panic("Couldn't fix broken body structure");
+
+			mail_cache_set_corrupted(ctx->index_ctx->ibox->cache,
+				"Broken message structure for mail UID %u",
+				ctx->index_ctx->mail->uid);
+
+			/* get the body parts, and try again */
+			ctx->index_ctx->imail->data.parts = NULL;
+			ctx->part = mail_get_parts(ctx->index_ctx->mail);
+
+			retry = TRUE;
+			goto __retry;
 		}
-
-		ARG_SET_RESULT(arg, ret > 0);
 	}
+
+	ARG_SET_RESULT(arg, ret > 0);
 }
 
 static int search_arg_match_text(struct mail_search_arg *args,

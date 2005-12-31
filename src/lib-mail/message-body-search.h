@@ -3,12 +3,21 @@
 
 struct message_part;
 
+enum message_body_search_error {
+	/* Don't know the given charset. */
+	MESSAGE_BODY_SEARCH_ERROR_UNKNOWN_CHARSET,
+	/* Key contains invalid characters in given charset. */
+	MESSAGE_BODY_SEARCH_ERROR_INVALID_KEY,
+	/* Message_part doesn't match the reality in input stream. */
+	MESSAGE_BODY_SEARCH_ERROR_MESSAGE_PART_BROKEN
+};
+
 /* Returns 1 if key is found from input buffer, 0 if not and -1 if error.
-   There's two possible errors: either the charset is unknown or the key
-   is invalid. If charset is NULL, the key isn't assumed to be in any
-   specific charset but is compared to message data without any translation. */
+   If charset is NULL, the key isn't assumed to be in any specific charset but
+   is compared to message data without any translation. */
 int message_body_search(const char *key, const char *charset,
-			int *unknown_charset, struct istream *input,
-			const struct message_part *part, int search_header);
+			struct istream *input,
+			const struct message_part *part, int search_header,
+                        enum message_body_search_error *error_r);
 
 #endif
