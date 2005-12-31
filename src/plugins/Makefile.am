@@ -1,1 +1,1 @@
-SUBDIRS = quota imap-quota trash
+SUBDIRS = quota imap-quota trash zlib

@@ -1595,6 +1595,7 @@ src/plugins/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/trash/Makefile
+src/plugins/zlib/Makefile
 stamp.h
 dovecot.spec
 dovecot-config])
