@@ -22,7 +22,10 @@
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
-/* NOTE: must be sorted for istream-header-filter. */
+/* NOTE: must be sorted for istream-header-filter. Note that it's not such
+   a good idea to change this list, as the messages will then change from
+   client's point of view. So if you do it, change all mailboxes' UIDVALIDITY
+   so all caches are reset. */
 const char *mbox_hide_headers[] = {
 	"Content-Length",
 	"Status",
@@ -30,10 +33,10 @@ const char *mbox_hide_headers[] = {
 	"X-IMAPbase",
 	"X-Keywords",
 	"X-Status",
-	"X-UID",
-	"X-UIDL"
+	"X-UID"
 };
-unsigned int mbox_hide_headers_count = 7;
+unsigned int mbox_hide_headers_count =
+	sizeof(mbox_hide_headers) / sizeof(mbox_hide_headers[0]);
 
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
