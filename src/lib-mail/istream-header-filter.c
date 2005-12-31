@@ -298,7 +298,7 @@ i_stream_create_header_filter(struct istream *input,
 
 	i_assert((flags & (HEADER_FILTER_INCLUDE|HEADER_FILTER_EXCLUDE)) != 0);
 
-	pool = pool_alloconly_create("header filter stream", 2048);
+	pool = pool_alloconly_create("header filter stream", 4096);
 	mstream = p_new(pool, struct header_filter_istream, 1);
 	mstream->pool = pool;
 
