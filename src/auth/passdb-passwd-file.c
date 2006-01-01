@@ -39,7 +39,10 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 	if (scheme == NULL) scheme = _module->default_pass_scheme;
 
 	/* save the password so cache can use it */
-	auth_request_set_field(request, "password", crypted_pass, scheme);
+	if (crypted_pass != NULL) {
+		auth_request_set_field(request, "password",
+				       crypted_pass, scheme);
+	}
 
 	ret = password_verify(password, crypted_pass, scheme,
 			      request->user);
