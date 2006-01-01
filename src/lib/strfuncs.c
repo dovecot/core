@@ -506,7 +506,7 @@ _strsplit(pool_t pool, const char *data, const char *separators, int spaces)
 
 	if (spaces) {
 		/* skip leading separators */
-		while (strchr(separators, *data) != NULL)
+		while (*data != '\0' && strchr(separators, *data) != NULL)
 			data++;
 	}
 	if (*data == '\0')
@@ -532,7 +532,8 @@ _strsplit(pool_t pool, const char *data, const char *separators, int spaces)
 
 			*str = '\0';
 			if (spaces) {
-				while (strchr(separators, str[1]) != NULL)
+				while (str[1] != '\0' &&
+				       strchr(separators, str[1]) != NULL)
 					str++;
 
 				/* ignore trailing separators */
