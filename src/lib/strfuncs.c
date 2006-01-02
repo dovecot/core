@@ -601,7 +601,7 @@ const char *t_strarray_join(const char *const *arr, const char *separator)
 	for (pos = 0; *arr != NULL; arr++) {
 		len = strlen(*arr);
 		needed_space = pos + len + sep_len + 1;
-		if (needed_space < alloc_len) {
+		if (needed_space > alloc_len) {
 			alloc_len = nearest_power(needed_space);
 			str = t_buffer_reget(str, alloc_len);
 		}
