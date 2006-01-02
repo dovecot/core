@@ -27,8 +27,10 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 	view->index->map = map;
 	view->index->hdr = &map->hdr;
 
-	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_INDEX)
+	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_INDEX) {
 		map->write_to_disk = TRUE;
+		map->write_atomic = TRUE;
+	}
 }
 
 static void
@@ -121,6 +123,9 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	}
 	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
 
+	/* we want atomic rename()ing */
+	map->write_atomic = TRUE;
+
 	if (mail_index_lookup_uid_range(view, e->uid1, e->uid2,
 					&seq1, &seq2) < 0)
 		return -1;
@@ -210,6 +215,10 @@ static int sync_append(const struct mail_index_record *rec,
 	map->records_count++;
 	view->hdr.messages_count++;
 
+	if (map->write_seq_first == 0)
+		map->write_seq_first = map->hdr.messages_count;
+	map->write_seq_last = map->hdr.messages_count;
+
 	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
@@ -240,6 +249,12 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 
 	if (seq1 == 0)
 		return 1;
+
+	if (view->map->write_seq_first == 0 ||
+	    view->map->write_seq_first > seq1)
+		view->map->write_seq_first = seq1;
+	if (view->map->write_seq_last < seq2)
+		view->map->write_seq_last = seq2;
 
 	hdr = &view->map->hdr;
 	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
@@ -725,13 +740,16 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	}
 
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+		unsigned int base_size,
+
+		base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
 		map->mmap_used_size = index->hdr->header_size +
 			map->records_count * map->hdr.record_size;
 
-		memcpy(map->mmap_base, &map->hdr, sizeof(map->hdr));
-		memcpy(PTR_OFFSET(map->mmap_base, sizeof(map->hdr)),
-		       PTR_OFFSET(map->hdr_base, sizeof(map->hdr)),
-		       map->hdr.header_size - sizeof(map->hdr));
+		memcpy(map->mmap_base, &map->hdr, base_size);
+		memcpy(PTR_OFFSET(map->mmap_base, base_size),
+		       PTR_OFFSET(map->hdr_base, base_size),
+		       map->hdr.header_size - base_size);
 		if (msync(map->mmap_base, map->mmap_used_size, MS_SYNC) < 0) {
 			mail_index_set_syscall_error(index, "msync()");
 			ret = -1;

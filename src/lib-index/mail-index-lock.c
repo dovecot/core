@@ -241,6 +241,8 @@ int mail_index_lock_shared(struct mail_index *index, int update_index,
 
 static int mail_index_copy(struct mail_index *index)
 {
+	struct mail_index_map *map = index->map;
+	unsigned int base_size;
 	const char *path;
 	int ret, fd;
 
@@ -251,22 +253,16 @@ static int mail_index_copy(struct mail_index *index)
 		return -1;
 
 	/* write base header */
-	ret = write_full(fd, &index->map->hdr,
-			 index->map->hdr.base_header_size);
+	base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
+	ret = write_full(fd, &map->hdr, base_size);
 	if (ret == 0) {
 		/* write extended headers */
-		const struct mail_index_header *hdr;
-		const void *hdr_ext;
-
-		hdr = index->map->hdr_base;
-		hdr_ext = CONST_PTR_OFFSET(hdr, hdr->base_header_size);
-		ret = write_full(fd, hdr_ext, hdr->header_size -
-				 hdr->base_header_size);
+		ret = write_full(fd, CONST_PTR_OFFSET(map->hdr_base, base_size),
+				 map->hdr.header_size - base_size);
 	}
 
-	if (ret < 0 || write_full(fd, index->map->records,
-				  index->map->records_count *
-				  index->map->hdr.record_size) < 0) {
+	if (ret < 0 || write_full(fd, map->records, map->records_count *
+				  map->hdr.record_size) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write_full()");
 		(void)close(fd);
 		(void)unlink(path);
@@ -366,14 +362,45 @@ static int mail_index_copy_lock_finish(struct mail_index *index)
 	return 0;
 }
 
-static void mail_index_excl_unlock_finish(struct mail_index *index)
+static int mail_index_write_map_over(struct mail_index *index)
 {
+	struct mail_index_map *map = index->map;
+	unsigned int base_size;
+
+	/* write records. */
+	if (map->write_seq_first != 0) {
+		uoff_t offset = map->hdr.header_size +
+			(map->write_seq_first-1) * map->hdr.record_size;
+
+		if (pwrite_full(index->fd, map->records,
+				(map->write_seq_last -
+				 map->write_seq_first + 1) *
+				map->hdr.record_size, offset) < 0)
+			return -1;
+	}
+
+	/* write base header */
+	base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
+	if (pwrite_full(index->fd, &map->hdr, base_size, 0) < 0)
+		return -1;
+
+	/* write extended headers */
+	if (pwrite_full(index->fd, CONST_PTR_OFFSET(map->hdr_base, base_size),
+			map->hdr.header_size - base_size, base_size) < 0)
+		return -1;
+	return 0;
+}
+
+static void mail_index_write_map(struct mail_index *index)
+{
+	struct mail_index_map *map = index->map;
 	int fd;
 
-	if (index->map != NULL && index->map->write_to_disk) {
+	if (map->write_atomic || index->copy_lock_path != NULL ||
+	    index->fd == -1) {
+		/* write by recreating the index */
 		i_assert(index->log_locked);
 
-                index->map->write_to_disk = FALSE;
 		if (index->copy_lock_path != NULL) {
 			/* new mapping replaces the old */
 			(void)unlink(index->copy_lock_path);
@@ -388,7 +415,22 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 			else
 				(void)close(fd);
 		}
+	} else {
+		/* write the modified parts. header is small enough to be
+		   always written, write_seq_* specifies the record range. */
+                if (mail_index_write_map_over(index) < 0)
+			mail_index_set_inconsistent(index);
 	}
+
+	map->write_to_disk = FALSE;
+	map->write_atomic = FALSE;
+	map->write_seq_first = map->write_seq_last = 0;
+}
+
+static void mail_index_excl_unlock_finish(struct mail_index *index)
+{
+	if (index->map != NULL && index->map->write_to_disk)
+		mail_index_write_map(index);
 
 	if (index->shared_lock_count > 0 &&
 	    index->lock_method != MAIL_INDEX_LOCK_DOTLOCK) {

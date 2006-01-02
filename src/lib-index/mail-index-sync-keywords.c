@@ -210,6 +210,12 @@ keywords_update_records(struct mail_index_view *view,
 	if (seq1 == 0)
 		return 1;
 
+	if (view->map->write_seq_first == 0 ||
+	    view->map->write_seq_first > seq1)
+		view->map->write_seq_first = seq1;
+	if (view->map->write_seq_last < seq2)
+		view->map->write_seq_last = seq2;
+
 	data_offset = keyword_idx / CHAR_BIT;
 	data_mask = 1 << (keyword_idx % CHAR_BIT);
 
@@ -344,6 +350,11 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 			return -1;
 		if (seq1 == 0)
 			continue;
+
+		if (map->write_seq_first == 0 || map->write_seq_first > seq1)
+			map->write_seq_first = seq1;
+		if (map->write_seq_last < seq2)
+			map->write_seq_last = seq2;
 
 		for (seq1--; seq1 < seq2; seq1++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq1);

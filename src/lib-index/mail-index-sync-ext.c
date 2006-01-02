@@ -340,6 +340,10 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 	if (old_record_size != u->record_size) {
 		map = sync_ext_reorder(map, ext_id, old_record_size);
 		mail_index_sync_replace_map(ctx, map);
+	} else if (modified) {
+		/* header size changed. recreate index file. */
+		map = mail_index_map_clone(map, map->hdr.record_size);
+		mail_index_sync_replace_map(ctx, map);
 	}
 }
 
@@ -477,6 +481,8 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 		memset(PTR_OFFSET(rec, ext->record_offset), 0,
 		       ext->record_size);
 	}
+	map->write_seq_first = 1;
+	map->write_seq_last = view->map->records_count;
 
 	ext_hdr = get_ext_header(map, ext);
 	ext_hdr->reset_id = u->new_reset_id;
@@ -544,6 +550,11 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 		if (ret <= 0)
 			return ret;
 	}
+
+	if (view->map->write_seq_first == 0 || view->map->write_seq_first > seq)
+		view->map->write_seq_first = seq;
+	if (view->map->write_seq_last < seq)
+                view->map->write_seq_last = seq;
 
 	/* @UNSAFE */
 	memcpy(old_data, u + 1, ext->record_size);

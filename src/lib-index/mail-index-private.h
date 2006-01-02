@@ -94,7 +94,13 @@ struct mail_index_map {
 
 	array_t ARRAY_DEFINE(keyword_idx_map, unsigned int); /* file -> index */
 
+	/* If write_to_disk=TRUE and write_atomic=FALSE, these sequences
+	   specify the range that needs to be written. Header should always
+	   be rewritten. */
+	uint32_t write_seq_first, write_seq_last;
+
 	unsigned int write_to_disk:1;
+	unsigned int write_atomic:1; /* copy to new file and rename() */
 };
 
 struct mail_index {
