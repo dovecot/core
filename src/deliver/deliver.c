@@ -1,6 +1,7 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 /* FIXME: pretty ugly thing. */
+#error This program is somewhat out of date, use dovecot-lda instead
 
 #include "lib.h"
 #include "lib-signals.h"
