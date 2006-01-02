@@ -568,11 +568,10 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 	if (mail_cache_transaction_flush(ctx) < 0)
 		ret = -1;
 
-	/* make sure everything's written before updating offsets */
-	if (fdatasync(cache->fd) < 0) {
-		mail_cache_set_syscall_error(cache, "fdatasync()");
-		ret = -1;
-	}
+	/* Here would be a good place to do fdatasync() to make sure
+	   everything is written before offsets are updated to index.
+	   However it slows down I/O unneededly and we're pretty good at
+	   catching and fixing cache corruption, so we no longer do it. */
 
 	if (mail_cache_unlock(cache) < 0)
 		ret = -1;
