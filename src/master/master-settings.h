@@ -6,7 +6,8 @@
 enum mail_protocol {
         MAIL_PROTOCOL_ANY,
         MAIL_PROTOCOL_IMAP,
-        MAIL_PROTOCOL_POP3
+	MAIL_PROTOCOL_POP3,
+	MAIL_PROTOCOL_LDA
 };
 
 struct settings {

@@ -970,6 +970,8 @@ static int parse_section(const char *type, const char *name, void *context,
 			ctx->protocol = MAIL_PROTOCOL_IMAP;
 		else if (strcmp(name, "pop3") == 0)
 			ctx->protocol = MAIL_PROTOCOL_POP3;
+		else if (strcmp(name, "lda") == 0)
+			ctx->protocol = MAIL_PROTOCOL_LDA;
 		else {
 			*errormsg = "Unknown protocol name";
 			return FALSE;
