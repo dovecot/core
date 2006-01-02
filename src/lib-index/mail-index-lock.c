@@ -369,13 +369,15 @@ static int mail_index_write_map_over(struct mail_index *index)
 
 	/* write records. */
 	if (map->write_seq_first != 0) {
-		uoff_t offset = map->hdr.header_size +
+		size_t rec_offset =
 			(map->write_seq_first-1) * map->hdr.record_size;
 
-		if (pwrite_full(index->fd, map->records,
+		if (pwrite_full(index->fd,
+				CONST_PTR_OFFSET(map->records, rec_offset),
 				(map->write_seq_last -
 				 map->write_seq_first + 1) *
-				map->hdr.record_size, offset) < 0)
+				map->hdr.record_size,
+				map->hdr.header_size + rec_offset) < 0)
 			return -1;
 	}
 
