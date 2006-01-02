@@ -740,7 +740,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	}
 
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
-		unsigned int base_size,
+		unsigned int base_size;
 
 		base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
 		map->mmap_used_size = index->hdr->header_size +
