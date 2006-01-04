@@ -87,6 +87,5 @@ void clients_deinit(void);
 
 void _client_reset_command(struct client *client);
 void _client_input(void *context);
-int _client_output(void *context);
 
 #endif

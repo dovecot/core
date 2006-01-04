@@ -15,6 +15,8 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
+static int _client_output(void *context);
+
 struct client *client_create(int hin, int hout, struct namespace *namespaces)
 {
 	struct client *client;
@@ -250,6 +252,7 @@ void _client_reset_command(struct client *client)
 		client->io = io_add(i_stream_get_fd(client->input),
 				    IO_READ, _client_input, client);
 	}
+	o_stream_set_flush_callback(client->output, _client_output, client);
 
 	pool = client->cmd.pool;
 	memset(&client->cmd, 0, sizeof(client->cmd));
@@ -407,7 +410,7 @@ void _client_input(void *context)
 		client_destroy(client);
 }
 
-int _client_output(void *context)
+static int _client_output(void *context)
 {
 	struct client *client = context;
 	struct client_command_context *cmd = &client->cmd;
