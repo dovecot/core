@@ -9,7 +9,9 @@ struct dbox_uidlist_entry {
 	array_t ARRAY_DEFINE(uid_list, struct seq_range);
 
 	uint32_t file_seq;
-	time_t last_write;
+	/* file creation timestamp. used for rotation checks. */
+	time_t create_time;
+	/* the used file size. the actual file size may be larger. */
 	uoff_t file_size;
 };
 

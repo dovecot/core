@@ -18,6 +18,7 @@ struct dbox_uidlist;
 struct dbox_file_header {
 	unsigned char header_size_hex[8];
 	unsigned char append_offset_hex[16];
+	unsigned char create_time_hex[8];
 	unsigned char mail_header_size_hex[4];
 	unsigned char mail_header_padding_hex[4];
 	unsigned char keyword_count_hex[4];
@@ -51,7 +52,8 @@ struct dbox_file {
 	struct istream *input;
 	struct ostream *output; /* while appending mails */
 
-	uint16_t header_size;
+	uint32_t header_size;
+	time_t create_time;
 	uint64_t append_offset;
 	uint16_t mail_header_size;
 	uint16_t mail_header_padding;

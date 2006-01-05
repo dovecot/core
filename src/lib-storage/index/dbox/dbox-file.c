@@ -154,10 +154,12 @@ void dbox_file_header_init(struct dbox_file_header *hdr)
 	uint16_t header_size = sizeof(*hdr);
 	uint32_t append_offset = header_size;
 	uint16_t mail_header_size = sizeof(struct dbox_mail_header);
+	uint32_t create_time = ioloop_time;
 
 	memset(hdr, '0', sizeof(*hdr));
 	DEC2HEX(hdr->header_size_hex, header_size);
 	DEC2HEX(hdr->append_offset_hex, append_offset);
+	DEC2HEX(hdr->create_time_hex, create_time);
 	DEC2HEX(hdr->mail_header_size_hex, mail_header_size);
 	// FIXME: set keyword_count
 }
@@ -189,6 +191,8 @@ int dbox_file_read_header(struct dbox_mailbox *mbox, struct dbox_file *file)
 				    sizeof(hdr.header_size_hex));
 	file->append_offset = hex2dec(hdr.append_offset_hex,
 				      sizeof(hdr.append_offset_hex));
+	file->create_time = hex2dec(hdr.create_time_hex,
+				    sizeof(hdr.create_time_hex));
 	file->mail_header_size = hex2dec(hdr.mail_header_size_hex,
 					 sizeof(hdr.mail_header_size_hex));
 	file->mail_header_padding =

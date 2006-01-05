@@ -23,6 +23,7 @@
 
 /* FIXME: configurable */
 #define DBOX_FILE_ROTATE_SIZE (1024*1024*2)
+#define DBOX_FILE_TIMESTAMP_DAYS 1
 #define DBOX_APPEND_MAX_OPEN_FDS 64
 
 #define DBOX_UIDLIST_VERSION 1
@@ -33,9 +34,6 @@ struct dbox_save_file {
 
 	dev_t dev;
 	ino_t ino;
-
-	time_t mtime;
-	uoff_t file_size;
 
 	struct dotlock *dotlock;
 	array_t ARRAY_DEFINE(seqs, unsigned int);
@@ -195,8 +193,8 @@ static int dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 		/* now, do the merging. UIDs must be growing since only new
 		   mails are appended */
 		dest_entry = *pos;
-		if (src_entry->last_write > dest_entry->last_write)
-			dest_entry->last_write = src_entry->last_write;
+		if (src_entry->create_time > dest_entry->create_time)
+			dest_entry->create_time = src_entry->create_time;
 		if (src_entry->file_size > dest_entry->file_size)
 			dest_entry->file_size = src_entry->file_size;
 
@@ -268,23 +266,21 @@ static int dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 		digit = digit * 10 + *line-'0';
 	entry->file_seq = digit;
 
-	if (*line != '\0') {
-		/* get optional timestamp and filesize */
-		line++;
-		for (; *line >= '0' && *line <= '9'; line++)
-			entry->last_write = entry->last_write * 10 + *line-'0';
+	/* get create timestamp */
+	line++;
+	for (; *line >= '0' && *line <= '9'; line++)
+		entry->create_time = entry->create_time * 10 + *line-'0';
 
-		if (*line != ' ') {
-			mail_storage_set_critical(
-				STORAGE(uidlist->mbox->storage),
-				"%s: Corrupted entry (opt)", uidlist->path);
+	if (*line != ' ') {
+		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+					  "%s: Corrupted entry", uidlist->path);
 
-			t_pop();
-			return FALSE;
-		}
-		for (; *line >= '0' && *line <= '9'; line++)
-			entry->file_size = entry->file_size * 10 + *line-'0';
+		t_pop();
+		return FALSE;
 	}
+	/* get file size */
+	for (; *line >= '0' && *line <= '9'; line++)
+		entry->file_size = entry->file_size * 10 + *line-'0';
 
 	ret = dbox_uidlist_add_entry(uidlist, entry);
 	t_pop();
@@ -513,12 +509,9 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 					    range[ui].seq1, range[ui].seq2);
 			}
 		}
-		str_printfa(str, " %u", entries[i]->file_seq);
-		if (entries[i]->last_write != 0) {
-			str_printfa(str, " %s %"PRIuUOFF_T,
-				    dec2str(entries[i]->last_write),
-				    entries[i]->file_size);
-		}
+		str_printfa(str, " %u %s %"PRIuUOFF_T, entries[i]->file_seq,
+			    dec2str(entries[i]->create_time),
+			    entries[i]->file_size);
 		str_append_c(str, '\n');
 		if (o_stream_send(output, str_data(str), str_len(str)) < 0)
 			break;
@@ -584,7 +577,6 @@ static void dbox_uidlist_build_update_line(struct dbox_save_file *save_file,
 					   string_t *str, uint32_t uid_start)
 {
 	const unsigned int *seqs;
-	struct stat st;
 	unsigned int seq, seq_count, start;
 
 	str_truncate(str, 0);
@@ -607,12 +599,9 @@ static void dbox_uidlist_build_update_line(struct dbox_save_file *save_file,
 	}
 	str_printfa(str, " %u", save_file->file->file_seq);
 
-	if (save_file->file->fd != -1 &&
-	    fstat(save_file->file->fd, &st) == 0) {
-		/* add optional mtime and file size */
-		str_printfa(str, " %s %s", dec2str(st.st_mtime),
-			    dec2str(st.st_size));
-	}
+	/* add creation time and file size */
+	str_printfa(str, " %s %s", dec2str(save_file->file->create_time),
+		    dec2str(save_file->append_offset));
 	str_append_c(str, '\n');
 }
 
@@ -815,6 +804,7 @@ static int dbox_file_write_header(struct dbox_mailbox *mbox,
 	// FIXME: code duplication
 	file->header_size = sizeof(hdr);
 	file->append_offset = file->header_size;
+	file->create_time = ioloop_time;
 	file->mail_header_size = sizeof(struct dbox_mail_header);
 
 	dbox_file_header_init(&hdr);
@@ -840,6 +830,26 @@ static int dbox_uidlist_files_lookup(struct dbox_uidlist_append_ctx *ctx,
 	return FALSE;
 }
 
+static time_t get_min_timestamp(unsigned int days)
+{
+	struct tm tm;
+	time_t stamp;
+
+	if (days == 0)
+		return 0;
+
+	/* get beginning of today */
+	tm = *localtime(&ioloop_time);
+	tm.tm_hour = 0;
+	tm.tm_min = 0;
+	tm.tm_sec = 0;
+	stamp = mktime(&tm);
+	if (stamp == (time_t)-1)
+		i_panic("mktime(today) failed");
+
+	return stamp - (3600*24 * (days-1));
+}
+
 int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 			       struct dbox_file **file_r)
 {
@@ -852,12 +862,16 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	unsigned int i, count;
 	struct stat st;
 	uint32_t file_seq;
+	time_t min_usable_timestamp;
 	int ret;
+
+        min_usable_timestamp = get_min_timestamp(DBOX_FILE_TIMESTAMP_DAYS);
 
 	/* check first from already opened files */
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
-		if (files[i]->append_offset < DBOX_FILE_ROTATE_SIZE) {
+		if (files[i]->file->create_time >= min_usable_timestamp ||
+		    files[i]->append_offset < DBOX_FILE_ROTATE_SIZE) {
 			if (dbox_reopen_file(ctx, files[i]) < 0)
 				return -1;
 
@@ -874,7 +888,8 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	for (i = 0;; i++) {
                 file_seq = 0; 
 		for (; i < count; i++) {
-			if (entries[i]->file_size < DBOX_FILE_ROTATE_SIZE &&
+			if ((entries[i]->create_time >= min_usable_timestamp ||
+			     entries[i]->file_size < DBOX_FILE_ROTATE_SIZE) &&
 			    !dbox_uidlist_files_lookup(ctx,
 						       entries[i]->file_seq)) {
 				file_seq = entries[i]->file_seq;
@@ -927,15 +942,11 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 		(void)close(file->fd);
 		return -1;
 	}
-	save_file->dev = st.st_dev;
-	save_file->ino = st.st_ino;
-	save_file->mtime = st.st_mtime;
-	save_file->file_size = st.st_size;
 
 	file->input = i_stream_create_file(file->fd, default_pool,
 					   65536, FALSE);
 	file->output = o_stream_create_file(file->fd, default_pool, 0, FALSE);
-	if (save_file->file_size < sizeof(struct dbox_file_header)) {
+	if (st.st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {
 			dbox_file_close(file);
 			return -1;
@@ -948,6 +959,8 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 		o_stream_seek(file->output, file->append_offset);
 	}
 
+	save_file->dev = st.st_dev;
+	save_file->ino = st.st_ino;
 	ARRAY_CREATE(&save_file->seqs, ctx->pool, unsigned int, 8);
 
 	array_append(&ctx->files, &save_file, 1);
