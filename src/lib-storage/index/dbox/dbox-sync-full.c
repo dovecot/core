@@ -49,15 +49,15 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 	}
 
 	flags = 0;
-	if (hdr->answered)
+	if (hdr->answered == '1')
 		flags |= MAIL_ANSWERED;
-	if (hdr->flagged)
+	if (hdr->flagged == '1')
 		flags |= MAIL_FLAGGED;
-	if (hdr->deleted)
+	if (hdr->deleted == '1')
 		flags |= MAIL_DELETED;
-	if (hdr->seen)
+	if (hdr->seen == '1')
 		flags |= MAIL_SEEN;
-	if (hdr->draft)
+	if (hdr->draft == '1')
 		flags |= MAIL_DRAFT;
 	mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE, flags);
 	// FIXME: keywords
