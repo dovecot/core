@@ -13,6 +13,10 @@
 #define INDEX_STORAGE(mbox_storage) \
 	(&(mbox_storage)->storage)
 
+/* Default rotation settings */
+#define DBOX_DEFAULT_ROTATE_SIZE (2*1024*1024)
+#define DBOX_DEFAULT_ROTATE_DAYS 0
+
 struct dbox_uidlist;
 
 struct dbox_file_header {
@@ -75,6 +79,9 @@ struct dbox_mailbox {
         struct dbox_file *file;
 	uint32_t dbox_file_ext_idx;
 	uint32_t dbox_offset_ext_idx;
+
+	uoff_t rotate_size;
+	unsigned int rotate_days;
 };
 
 struct dbox_transaction_context {

@@ -21,9 +21,6 @@
 #include <utime.h>
 #include <sys/stat.h>
 
-/* FIXME: configurable */
-#define DBOX_FILE_ROTATE_SIZE (1024*1024*2)
-#define DBOX_FILE_TIMESTAMP_DAYS 1
 #define DBOX_APPEND_MAX_OPEN_FDS 64
 
 #define DBOX_UIDLIST_VERSION 1
@@ -865,13 +862,13 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	time_t min_usable_timestamp;
 	int ret;
 
-        min_usable_timestamp = get_min_timestamp(DBOX_FILE_TIMESTAMP_DAYS);
+        min_usable_timestamp = get_min_timestamp(mbox->rotate_days);
 
 	/* check first from already opened files */
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		if (files[i]->file->create_time >= min_usable_timestamp ||
-		    files[i]->append_offset < DBOX_FILE_ROTATE_SIZE) {
+		    files[i]->append_offset < mbox->rotate_size) {
 			if (dbox_reopen_file(ctx, files[i]) < 0)
 				return -1;
 
@@ -889,7 +886,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
                 file_seq = 0; 
 		for (; i < count; i++) {
 			if ((entries[i]->create_time >= min_usable_timestamp ||
-			     entries[i]->file_size < DBOX_FILE_ROTATE_SIZE) &&
+			     entries[i]->file_size < mbox->rotate_size) &&
 			    !dbox_uidlist_files_lookup(ctx,
 						       entries[i]->file_seq)) {
 				file_seq = entries[i]->file_seq;

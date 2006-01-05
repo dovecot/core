@@ -116,6 +116,8 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_BOOL, mbox_dirty_syncs),
 	DEF(SET_BOOL, mbox_very_dirty_syncs),
 	DEF(SET_BOOL, mbox_lazy_writes),
+	DEF(SET_INT, dbox_rotate_size),
+	DEF(SET_INT, dbox_rotate_days),
 	DEF(SET_INT, umask),
 	DEF(SET_BOOL, mail_drop_priv_before_exec),
 
@@ -313,6 +315,8 @@ struct settings default_settings = {
 	MEMBER(mbox_dirty_syncs) TRUE,
 	MEMBER(mbox_very_dirty_syncs) FALSE,
 	MEMBER(mbox_lazy_writes) TRUE,
+	MEMBER(dbox_rotate_size) 2048,
+	MEMBER(dbox_rotate_days) 1,
 	MEMBER(umask) 0077,
 	MEMBER(mail_drop_priv_before_exec) FALSE,
 

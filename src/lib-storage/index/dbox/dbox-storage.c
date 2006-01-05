@@ -275,7 +275,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	struct index_storage *istorage = INDEX_STORAGE(storage);
 	struct dbox_mailbox *mbox;
 	struct mail_index *index;
-	const char *path, *index_dir;
+	const char *path, *index_dir, *value;
 	pool_t pool;
 
 	path = dbox_get_path(istorage, name);
@@ -300,6 +300,17 @@ dbox_open(struct dbox_storage *storage, const char *name,
 		/* the memory was already freed */
 		return NULL;
 	}
+
+	value = getenv("DBOX_ROTATE_SIZE");
+	if (value != NULL)
+		mbox->rotate_size = (uoff_t)strtoul(value, NULL, 10) * 1024;
+	else
+		mbox->rotate_size = DBOX_DEFAULT_ROTATE_SIZE;
+	value = getenv("DBOX_ROTATE_DAYS");
+	if (value != NULL)
+		mbox->rotate_days = (unsigned int)strtoul(value, NULL, 10);
+	else
+		mbox->rotate_size = DBOX_DEFAULT_ROTATE_DAYS;
 
 	mbox->storage = storage;
 	mbox->path = p_strdup(pool, path);
