@@ -80,8 +80,8 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->ibox;
 	uint32_t seq = mail->mail.mail.seq;
-	uint32_t file_seq;
-	uoff_t offset;
+	uint32_t file_seq, prev_file_seq = 0;
+	uoff_t offset, prev_offset = 0;
 	int i, ret;
 
 	if (mail->mail.mail.expunged)
@@ -104,15 +104,21 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 			return dbox_mail_parse_mail_header(mail, mbox->file);
 		}
 
+		if (prev_file_seq == file_seq && prev_offset == offset) {
+			/* broken offset */
+			break;
+		}
+
 		/* mail was moved. resync index file to find out the new offset
 		   and try again. */
 		if (mail_index_refresh(mbox->ibox.index) < 0) {
 			mail_storage_set_index_error(&mbox->ibox);
 			return -1;
 		}
+		prev_file_seq = file_seq;
+		prev_offset = offset;
 	}
 
-	/* FIXME: index just might not be updated yet.. */
 	mail_storage_set_critical(STORAGE(mbox->storage),
 				  "Cached message offset lost for seq %u in "
 				  "dbox file %s", seq, mbox->path);
