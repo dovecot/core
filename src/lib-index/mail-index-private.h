@@ -91,7 +91,8 @@ struct mail_index_registered_ext {
 	uint16_t record_size;
 	uint16_t record_align;
 
-        struct mail_index_sync_handler sync_handler;
+	struct mail_index_sync_handler sync_handler;
+        mail_index_expunge_handler_t *expunge_handler;
 };
 
 struct mail_index_map {
@@ -135,7 +136,6 @@ struct mail_index {
 	pool_t extension_pool;
 	array_t ARRAY_DEFINE(extensions, struct mail_index_registered_ext);
 
-	array_t ARRAY_DEFINE(expunge_handlers, mail_index_expunge_handler_t *);
 	array_t ARRAY_DEFINE(sync_lost_handlers,
 			     mail_index_sync_lost_handler_t *);
 

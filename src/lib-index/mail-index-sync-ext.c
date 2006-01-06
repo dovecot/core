@@ -11,25 +11,18 @@
 
 void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 {
-	mail_index_expunge_handler_t *const *handlers;
-        const struct mail_index_ext *extensions;
+        const struct mail_index_ext *ext;
+	const struct mail_index_registered_ext *rext;
 	const uint32_t *id_map;
 	void **contexts;
 	struct mail_index_expunge_handler eh;
-	unsigned int count, ext_count, id_map_count;
-	unsigned int handlers_count, context_count;
+	unsigned int ext_count, id_map_count;
+	unsigned int rext_count, context_count;
 	uint32_t idx_ext_id, map_ext_id;
 
 	if (!array_is_created(&ctx->view->map->extensions))
 		return;
 
-	handlers = array_get(&ctx->view->index->expunge_handlers,
-			     &handlers_count);
-
-	if (handlers_count == 0)
-		return;
-
-	/* set expunge handlers */
 	memset(&eh, 0, sizeof(eh));
 	if (array_is_created(&ctx->expunge_handlers))
 		array_clear(&ctx->expunge_handlers);
@@ -38,20 +31,23 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 			     struct mail_index_expunge_handler, 64);
 	}
 
-	extensions = array_get(&ctx->view->map->extensions, &ext_count);
+	rext = array_get(&ctx->view->index->extensions, &rext_count);
+	ext = array_get(&ctx->view->map->extensions, &ext_count);
 	id_map = array_get(&ctx->view->map->ext_id_map, &id_map_count);
 	contexts = array_get_modifyable(&ctx->extra_contexts, &context_count);
 
-	count = I_MIN(handlers_count, id_map_count);
-	for (idx_ext_id = 0; idx_ext_id < count; idx_ext_id++) {
+	i_assert(id_map_count <= rext_count);
+
+	for (idx_ext_id = 0; idx_ext_id < id_map_count; idx_ext_id++) {
 		map_ext_id = id_map[idx_ext_id];
-		if (handlers[idx_ext_id] == NULL || map_ext_id == (uint32_t)-1)
+		if (rext[idx_ext_id].expunge_handler == NULL ||
+		    map_ext_id == (uint32_t)-1)
 			continue;
 
 		i_assert(map_ext_id < context_count);
-		eh.handler = handlers[idx_ext_id];
+		eh.handler = rext[idx_ext_id].expunge_handler;
 		eh.context = &contexts[map_ext_id];
-		eh.record_offset = extensions[map_ext_id].record_offset;
+		eh.record_offset = ext[map_ext_id].record_offset;
 		array_append(&ctx->expunge_handlers, &eh, 1);
 	}
 	ctx->expunge_handlers_set = TRUE;

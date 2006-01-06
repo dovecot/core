@@ -34,8 +34,6 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	ARRAY_CREATE(&index->extensions, index->extension_pool,
 		     struct mail_index_registered_ext, 5);
 
-	ARRAY_CREATE(&index->expunge_handlers, default_pool,
-		     mail_index_expunge_handler_t *, 4);
 	ARRAY_CREATE(&index->sync_lost_handlers, default_pool,
 		     mail_index_sync_lost_handler_t *, 4);
 
@@ -61,7 +59,6 @@ void mail_index_free(struct mail_index *index)
 	pool_unref(index->keywords_pool);
 
 	array_free(&index->sync_lost_handlers);
-	array_free(&index->expunge_handlers);
 	array_free(&index->keywords);
 
 	i_free(index->error);
@@ -109,23 +106,23 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
 					 mail_index_expunge_handler_t *cb)
 {
-        mail_index_expunge_handler_t **p;
+	struct mail_index_registered_ext *rext;
 
-	p = array_idx_modifyable(&index->expunge_handlers, ext_id);
-	i_assert(*p == NULL);
+	rext = array_idx_modifyable(&index->extensions, ext_id);
+	i_assert(rext->expunge_handler == NULL);
 
-	*p = cb;
+	rext->expunge_handler = cb;
 }
 
 void mail_index_unregister_expunge_handler(struct mail_index *index,
 					   uint32_t ext_id)
 {
-        mail_index_expunge_handler_t **p;
+	struct mail_index_registered_ext *rext;
 
-	p = array_idx_modifyable(&index->expunge_handlers, ext_id);
-	i_assert(*p != NULL);
+	rext = array_idx_modifyable(&index->extensions, ext_id);
+	i_assert(rext->expunge_handler != NULL);
 
-	*p = NULL;
+	rext->expunge_handler = NULL;
 }
 
 void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
