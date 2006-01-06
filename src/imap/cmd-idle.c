@@ -184,7 +184,7 @@ static int cmd_idle_continue(struct client_command_context *cmd)
 	} else if (ctx->sync_pending) {
 		/* more changes occurred while we were sending changes to
 		   client */
-                idle_sync_now(client->mailbox, ctx);
+		idle_sync_now(client->mailbox, ctx);
 	}
         client->output_pending = FALSE;
 
@@ -235,6 +235,7 @@ int cmd_idle(struct client_command_context *cmd)
 
 	/* check immediately if there are changes. if they came before we
 	   added mailbox-notifier, we wouldn't see them otherwise. */
-	idle_sync_now(client->mailbox, ctx);
+	if (client->mailbox != NULL)
+		idle_sync_now(client->mailbox, ctx);
 	return FALSE;
 }
