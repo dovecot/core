@@ -36,12 +36,13 @@ static void _view_close(struct mail_index_view *view)
 	mail_index_view_unlock(view);
 	mail_transaction_log_view_close(view->log_view);
 
-	if (view->log_syncs != NULL)
-		buffer_free(view->log_syncs);
+	if (array_is_created(&view->log_syncs))
+		array_free(&view->log_syncs);
 	mail_index_unmap(view->index, view->map);
-	mail_index_view_unref_maps(view);
-	if (view->map_refs != NULL)
-		buffer_free(view->map_refs);
+	if (array_is_created(&view->map_refs)) {
+		mail_index_view_unref_maps(view);
+		array_free(&view->map_refs);
+	}
 	i_free(view);
 }
 
@@ -123,40 +124,39 @@ void mail_index_view_transaction_unref(struct mail_index_view *view)
 static void mail_index_view_ref_map(struct mail_index_view *view,
 				    struct mail_index_map *map)
 {
-	const struct mail_index_map *const *maps;
-	size_t i, size;
+	struct mail_index_map *const *maps;
+	unsigned int i, count;
 
-	if (view->map_refs != NULL) {
-		maps = buffer_get_data(view->map_refs, &size);
-		size /= sizeof(*maps);
+	if (array_is_created(&view->map_refs)) {
+		maps = array_get(&view->map_refs, &count);
 
-		for (i = 0; i < size; i++) {
+		/* if map is already referenced, do nothing */
+		for (i = 0; i < count; i++) {
 			if (maps[i] == map)
 				return;
 		}
 	} else {
-		view->map_refs = buffer_create_dynamic(default_pool, 128);
+		ARRAY_CREATE(&view->map_refs, default_pool,
+			     struct mail_index_map *, 4);
 	}
 
 	map->refcount++;
-	buffer_append(view->map_refs, &map, sizeof(map));
+	array_append(&view->map_refs, &map, 1);
 }
 
 void mail_index_view_unref_maps(struct mail_index_view *view)
 {
 	struct mail_index_map *const *maps;
-	size_t i, size;
+	unsigned int i, count;
 
-	if (view->map_refs == NULL)
+	if (!array_is_created(&view->map_refs))
 		return;
 
-	maps = buffer_get_data(view->map_refs, &size);
-	size /= sizeof(*maps);
-
-	for (i = 0; i < size; i++)
+	maps = array_get(&view->map_refs, &count);
+	for (i = 0; i < count; i++)
 		mail_index_unmap(view->index, maps[i]);
 
-	buffer_set_used_size(view->map_refs, 0);
+	array_clear(&view->map_refs);
 }
 
 static uint32_t _view_get_messages_count(struct mail_index_view *view)

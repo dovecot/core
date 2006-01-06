@@ -255,17 +255,16 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 static int view_is_transaction_synced(struct mail_index_view *view,
 				      uint32_t seq, uoff_t offset)
 {
-	const struct mail_index_view_log_sync_pos *pos, *end;
-	size_t size;
+	const struct mail_index_view_log_sync_pos *pos;
+	unsigned int i, count;
 
-	if (view->log_syncs == NULL)
+	if (!array_is_created(&view->log_syncs))
 		return 0;
 
-	pos = buffer_get_data(view->log_syncs, &size);
-	end = CONST_PTR_OFFSET(pos, size);
-
-	for (; pos != end; pos++) {
-		if (pos->log_file_offset == offset && pos->log_file_seq == seq)
+	pos = array_get(&view->log_syncs, &count);
+	for (i = 0; i < count; i++) {
+		if (pos[i].log_file_offset == offset &&
+		    pos[i].log_file_seq == seq)
 			return 1;
 	}
 
@@ -450,8 +449,8 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 	if (ctx->sync_map_update)
 		mail_index_sync_map_deinit(&ctx->sync_map_ctx);
 
-	if (view->log_syncs != NULL && !ctx->skipped_some)
-		buffer_set_used_size(view->log_syncs, 0);
+	if (array_is_created(&view->log_syncs) && !ctx->skipped_some)
+		array_clear(&view->log_syncs);
 
 	if (!ctx->last_read && ctx->hdr != NULL &&
 	    ctx->data_offset != ctx->hdr->size) {
@@ -484,13 +483,14 @@ void mail_index_view_add_synced_transaction(struct mail_index_view *view,
 					    uint32_t log_file_seq,
 					    uoff_t log_file_offset)
 {
-	struct mail_index_view_log_sync_pos pos;
+	struct mail_index_view_log_sync_pos *pos;
 
-	memset(&pos, 0, sizeof(pos));
-	pos.log_file_seq = log_file_seq;
-	pos.log_file_offset = log_file_offset;
+	if (!array_is_created(&view->log_syncs)) {
+		ARRAY_CREATE(&view->log_syncs, default_pool,
+                             struct mail_index_view_log_sync_pos, 32);
+	}
 
-	if (view->log_syncs == NULL)
-		view->log_syncs = buffer_create_dynamic(default_pool, 128);
-	buffer_append(view->log_syncs, &pos, sizeof(pos));
+	pos = array_append_space(&view->log_syncs);
+	pos->log_file_seq = log_file_seq;
+	pos->log_file_offset = log_file_offset;
 }

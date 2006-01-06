@@ -36,13 +36,13 @@ struct mail_index_view {
 	unsigned int indexid;
 	struct mail_index_map *map;
 	struct mail_index_map *new_map;
-	buffer_t *map_refs;
+	array_t ARRAY_DEFINE(map_refs, struct mail_index_map *);
 
 	struct mail_index_header hdr;
 
 	uint32_t log_file_seq;
 	uoff_t log_file_offset;
-        buffer_t *log_syncs;
+	array_t ARRAY_DEFINE(log_syncs, struct mail_index_view_log_sync_pos);
 
 	int transactions;
 	unsigned int lock_id;
