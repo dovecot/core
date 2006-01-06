@@ -230,8 +230,6 @@ mail_index_map_register_ext(struct mail_index *index,
 	i_assert(mail_index_map_lookup_ext(map, name) == (uint32_t)-1);
 
 	ext = array_append_space(&map->extensions);
-	memset(ext, 0, sizeof(*ext));
-
 	ext->name = p_strdup(map->extension_pool, name);
 	ext->hdr_offset = hdr_offset;
 	ext->hdr_size = hdr_size;
@@ -243,6 +241,8 @@ mail_index_map_register_ext(struct mail_index *index,
 	ext->index_idx = mail_index_ext_register(index, name, hdr_size,
 						 record_size, record_align);
 
+	/* Update index ext_id -> map ext_id mapping. Fill non-used
+	   ext_ids with (uint32_t)-1 */
 	while (array_count(&map->ext_id_map) < ext->index_idx)
 		array_append(&map->ext_id_map, &empty_idx, 1);
 	array_idx_set(&map->ext_id_map, ext->index_idx, &idx);
@@ -290,6 +290,13 @@ static int mail_index_read_extensions(struct mail_index *index,
 	while (offset < map->hdr.header_size) {
 		ext_hdr = CONST_PTR_OFFSET(map->hdr_base, offset);
 
+		/* Extension header contains:
+		   - struct mail_index_ext_header
+		   - name (not 0-terminated)
+		   - 64bit alignment padding
+		   - extension header contents
+		   - 64bit alignment padding
+		*/
 		size_left = map->hdr.header_size - offset;
 		if (!size_check(&size_left, sizeof(*ext_hdr)) ||
 		    !size_check(&size_left, ext_hdr->name_size) ||
@@ -346,6 +353,9 @@ int mail_index_keyword_lookup(struct mail_index *index,
 	char *keyword_dup;
 	void *value;
 
+	/* keywords_hash keeps a name => index mapping of keywords.
+	   Keywords are never removed from it, so the index values are valid
+	   for the lifetime of the mail_index. */
 	if (hash_lookup_full(index->keywords_hash, keyword, NULL, &value)) {
 		*idx_r = POINTER_CAST_TO(value, unsigned int);
 		return TRUE;
@@ -371,7 +381,7 @@ int mail_index_map_read_keywords(struct mail_index *index,
 	const struct mail_index_keyword_header *kw_hdr;
 	const struct mail_index_keyword_header_rec *kw_rec;
 	const char *name;
-	unsigned int i, name_len, old_count;
+	unsigned int i, name_area_end_offset, old_count;
 	uint32_t ext_id;
 
 	ext_id = mail_index_map_lookup_ext(map, "keywords");
@@ -383,6 +393,11 @@ int mail_index_map_read_keywords(struct mail_index *index,
 
 	ext = array_idx(&map->extensions, ext_id);
 
+	/* Extension header contains:
+	   - struct mail_index_keyword_header
+	   - struct mail_index_keyword_header_rec * keywords_count
+	   - const char names[] * keywords_count
+	*/
 	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
 	kw_rec = (const void *)(kw_hdr + 1);
 	name = (const char *)(kw_rec + kw_hdr->keywords_count);
@@ -390,7 +405,8 @@ int mail_index_map_read_keywords(struct mail_index *index,
 	old_count = !array_is_created(&map->keyword_idx_map) ? 0 :
 		array_count(&map->keyword_idx_map);
 
-	/* Keywords can only be added in mapping. */
+	/* Keywords can only be added into same mapping. Removing requires a
+	   new mapping (recreating the index file) */
 	if (kw_hdr->keywords_count == old_count) {
 		/* nothing changed */
 		return 0;
@@ -411,16 +427,16 @@ int mail_index_map_read_keywords(struct mail_index *index,
 		return -1;
 	}
 
-	name_len = (const char *)kw_hdr + ext->hdr_size - name;
+	name_area_end_offset = (const char *)kw_hdr + ext->hdr_size - name;
 	for (i = 0; i < kw_hdr->keywords_count; i++) {
-		if (kw_rec[i].name_offset > name_len) {
+		if (kw_rec[i].name_offset > name_area_end_offset) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"name_offset points outside allocated header",
 				index->filepath);
 			return -1;
 		}
 	}
-	if (name[name_len-1] != '\0') {
+	if (name[name_area_end_offset-1] != '\0') {
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "Keyword header doesn't end with NUL",
 				     index->filepath);
@@ -434,6 +450,8 @@ int mail_index_map_read_keywords(struct mail_index *index,
 	}
 
 #ifdef DEBUG
+	/* Check that existing headers are still the same. It's behind DEBUG
+	   since it's pretty useless waste of CPU normally. */
 	for (i = 0; i < array_count(&map->keyword_idx_map); i++) {
 		const char *keyword = name + kw_rec[i].name_offset;
 		const unsigned int *old_idx;
@@ -449,6 +467,7 @@ int mail_index_map_read_keywords(struct mail_index *index,
 		}
 	}
 #endif
+	/* Register the newly seen keywords */
 	i = array_count(&map->keyword_idx_map);
 	for (; i < kw_hdr->keywords_count; i++) {
 		const char *keyword = name + kw_rec[i].name_offset;
@@ -462,7 +481,10 @@ int mail_index_map_read_keywords(struct mail_index *index,
 
 const array_t *mail_index_get_keywords(struct mail_index *index)
 {
+	/* Make sure all the keywords are in index->keywords. It's quick to do
+	   if nothing has changed. */
 	(void)mail_index_map_read_keywords(index, index->map);
+
 	return &index->keywords;
 }
 
