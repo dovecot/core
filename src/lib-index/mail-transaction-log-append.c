@@ -449,6 +449,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	if (array_is_created(&t->expunges) && ret == 0) {
+		/* Expunges cannot be hidden */
+		visibility_changes = FALSE;
 		ret = log_append_buffer(file, t->expunges.buffer, NULL,
 					MAIL_TRANSACTION_EXPUNGE, t->external);
 	}
@@ -465,6 +467,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	if (ret == 0 && visibility_changes && t->hide_transaction) {
+		/* There are non-expunge changes that change the view, and
+		   we want them hidden. */
 		mail_index_view_add_synced_transaction(view, file->hdr.file_seq,
 						       append_offset);
 	}

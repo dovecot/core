@@ -140,6 +140,8 @@ static void mail_index_view_ref_map(struct mail_index_view *view,
 			     struct mail_index_map *, 4);
 	}
 
+	/* reference the given mapping. the reference is dropped when the view
+	   is synchronized or closed. */
 	map->refcount++;
 	array_append(&view->map_refs, &map, 1);
 }
@@ -175,51 +177,59 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 			     const struct mail_index_record **rec_r)
 {
 	struct mail_index_map *map;
-	const struct mail_index_record *rec, *n_rec;
-	uint32_t uid;
+	const struct mail_index_record *rec, *head_rec;
 
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(view));
 
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
+	/* look up the record */
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 	if (view->map == view->index->map) {
+		/* view's mapping is latest. we can use it directly. */
 		*map_r = view->map;
 		*rec_r = rec;
 		return 1;
 	}
 
+	/* look up the record from head mapping. it may contain some changes. */
 	if (mail_index_view_lock_head(view, FALSE) < 0)
 		return -1;
 
-	/* look for it in the head mapping */
-	map = view->index->map;
+	/* start looking up from the same sequence as in the old view.
+	   if there are no expunges, it's there. otherwise it's somewhere
+	   before (since records can't be inserted).
 
-	uid = rec->uid;
+	   usually there are only a few expunges, so just going downwards from
+	   our initial sequence position is probably faster than binary
+	   search. */
 	if (seq > view->index->hdr->messages_count)
 		seq = view->index->hdr->messages_count;
-
 	if (seq == 0) {
+		/* everything is expunged from head. use the old record. */
 		*map_r = view->map;
 		*rec_r = rec;
 		return 0;
 	}
 
+	map = view->index->map;
 	do {
-		// FIXME: we could be skipping more by uid diff
 		seq--;
-		n_rec = MAIL_INDEX_MAP_IDX(map, seq);
-		if (n_rec->uid <= uid)
+		head_rec = MAIL_INDEX_MAP_IDX(map, seq);
+		if (head_rec->uid <= rec->uid)
 			break;
 	} while (seq > 0);
 
-	if (n_rec->uid == uid) {
+	if (head_rec->uid == rec->uid) {
+		/* found it. use it. reference the index mapping so that the
+		   returned record doesn't get invalidated after next sync. */
 		mail_index_view_ref_map(view, view->index->map);
 		*map_r = view->index->map;
-		*rec_r = n_rec;
+		*rec_r = head_rec;
 		return 1;
 	} else {
+		/* expuned from head. use the old record. */
 		*map_r = view->map;
 		*rec_r = rec;
 		return 0;

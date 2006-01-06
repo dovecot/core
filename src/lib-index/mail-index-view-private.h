@@ -35,13 +35,18 @@ struct mail_index_view {
 
 	unsigned int indexid;
 	struct mail_index_map *map;
-	struct mail_index_map *new_map;
+	/* After syncing view, map is replaced with sync_new_map. */
+	struct mail_index_map *sync_new_map;
+	/* All mappings where we have returned records. They need to be kept
+	   valid until view is synchronized. */
 	array_t ARRAY_DEFINE(map_refs, struct mail_index_map *);
 
 	struct mail_index_header hdr;
 
 	uint32_t log_file_seq;
 	uoff_t log_file_offset;
+	/* Contains a list of transaction log offsets which we don't want to
+	   return when syncing. */
 	array_t ARRAY_DEFINE(log_syncs, struct mail_index_view_log_sync_pos);
 
 	int transactions;

@@ -1455,7 +1455,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		i_strdup("(in-memory index)") :
 		i_strconcat(index->dir, "/", index->prefix, NULL);
 
-	do {
+	for (;;) {
 		index->shared_lock_count = 0;
 		index->excl_lock_count = 0;
 		index->lock_type = F_UNLCK;
@@ -1497,7 +1497,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 			}
 		}
 		break;
-	} while (1);
+	}
 
 	if (ret <= 0)
 		mail_index_close(index);

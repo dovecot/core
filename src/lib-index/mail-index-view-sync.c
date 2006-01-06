@@ -10,7 +10,7 @@
 
 struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
-	enum mail_transaction_type trans_sync_mask;
+	enum mail_transaction_type visible_sync_mask;
 	struct mail_index_sync_map_ctx sync_map_ctx;
 	array_t ARRAY_DEFINE(expunges, struct mail_transaction_expunge);
 
@@ -143,7 +143,12 @@ view_sync_get_expunges(struct mail_index_view *view, array_t *expunges_r)
 	return 0;
 }
 
-#define MAIL_INDEX_VIEW_VISIBLE_SYNC_MASK \
+#define MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK \
+	(MAIL_INDEX_SYNC_TYPE_FLAGS | \
+	 MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET | \
+	 MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD | MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE)
+
+#define MAIL_TRANSACTION_VISIBLE_SYNC_MASK \
 	(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND | \
 	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE | \
 	 MAIL_TRANSACTION_KEYWORD_RESET)
@@ -155,12 +160,13 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	const struct mail_index_header *hdr;
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
-	enum mail_transaction_type mask, want_mask;
+	enum mail_transaction_type log_get_mask, visible_mask;
 	array_t expunges = { 0, 0 };
 
 	/* We must sync flags as long as view is mmap()ed, as the flags may
 	   have already changed under us. */
-	i_assert((sync_mask & MAIL_INDEX_SYNC_TYPE_FLAGS) != 0);
+	i_assert((sync_mask & MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK) ==
+		 MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK);
 	/* Currently we're not handling correctly expunges + no-appends case */
 	i_assert((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) == 0 ||
 		 (sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0);
@@ -179,17 +185,21 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	}
 
 	/* only flags, appends and expunges can be left to be synced later */
-	want_mask = mail_transaction_type_mask_get(sync_mask);
-	i_assert((want_mask & ~MAIL_INDEX_VIEW_VISIBLE_SYNC_MASK) == 0);
-	mask = want_mask |
-		(MAIL_TRANSACTION_TYPE_MASK ^
-		 MAIL_INDEX_VIEW_VISIBLE_SYNC_MASK);
+	visible_mask = mail_transaction_type_mask_get(sync_mask);
+	i_assert((visible_mask & ~MAIL_TRANSACTION_VISIBLE_SYNC_MASK) == 0);
+
+	/* we want to also get non-visible changes. especially because we use
+	   the returned skipped-flag in mail_transaction_log_view_next() to
+	   tell us if any visible changes were skipped. */
+	log_get_mask = visible_mask | (MAIL_TRANSACTION_TYPE_MASK ^
+				       MAIL_TRANSACTION_VISIBLE_SYNC_MASK);
 
 	if (mail_transaction_log_view_set(view->log_view,
 					  view->log_file_seq,
 					  view->log_file_offset,
 					  hdr->log_file_seq,
-					  hdr->log_file_int_offset, mask) < 0) {
+					  hdr->log_file_int_offset,
+					  log_get_mask) < 0) {
 		if (array_is_created(&expunges))
 			array_free(&expunges);
 		return -1;
@@ -197,29 +207,39 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 
 	ctx = i_new(struct mail_index_view_sync_ctx, 1);
 	ctx->view = view;
-	ctx->trans_sync_mask = want_mask;
+	ctx->visible_sync_mask = visible_mask;
 	ctx->expunges = expunges;
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
 	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0 &&
 	    (sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0) {
-		view->new_map = view->index->map;
-		view->new_map->refcount++;
+		view->sync_new_map = view->index->map;
+		view->sync_new_map->refcount++;
 
 		/* keep the old mapping without expunges until we're
 		   fully synced */
 	} else {
-		/* we need a private copy of the map if we don't want to
-		   sync expunges. we need to sync mapping only if we're not
-		   using the latest one. */
+		/* We need a private copy of the map if we don't want to
+		   sync expunges.
+
+		   If view's map is the head map, it means that it contains
+		   already all the latest changes and there's no need for us
+		   to apply any changes to it. This can only happen if there
+		   hadn't been any expunges. */
 		uint32_t old_records_count = view->map->records_count;
 
 		if (view->map != view->index->map) {
+			/* Using non-head mapping. We have to apply
+			   transactions to it to get latest changes into it. */
+			ctx->sync_map_update = TRUE;
+
+			/* Copy only the mails that we see currently, since
+			   we're going to append the new ones when we see
+			   their transactions. */
 			i_assert(view->map->records_count >=
 				 view->hdr.messages_count);
-                        view->map->records_count = view->hdr.messages_count;
-			ctx->sync_map_update = TRUE;
+			view->map->records_count = view->hdr.messages_count;
 		}
 
 		map = mail_index_map_clone(view->map,
@@ -229,14 +249,11 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		view->map = map;
 
 		if (ctx->sync_map_update) {
-			if (map->hdr_base != map->hdr_copy_buf->data) {
-				buffer_reset(map->hdr_copy_buf);
-				buffer_append(map->hdr_copy_buf, map->hdr_base,
-					      map->hdr.header_size);
-				map->hdr_base = map->hdr_copy_buf->data;
-			}
-
-			/* start from our old view's header. */
+			/* Start the sync using our old view's header.
+			   The old view->hdr may differ from map->hdr if
+			   another view sharing the map with us had synced
+			   itself. */
+			i_assert(map->hdr_base == map->hdr_copy_buf->data);
 			buffer_write(map->hdr_copy_buf, 0,
 				     &view->hdr, sizeof(view->hdr));
 			map->hdr = view->hdr;
@@ -245,6 +262,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		i_assert(map->records_count == map->hdr.messages_count);
 	}
 
+	/* Syncing the view invalidates all previous looked up records.
+	   Unreference the mappings this view keeps because of them. */
 	mail_index_view_unref_maps(view);
 	view->syncing = TRUE;
 
@@ -259,58 +278,84 @@ static int view_is_transaction_synced(struct mail_index_view *view,
 	unsigned int i, count;
 
 	if (!array_is_created(&view->log_syncs))
-		return 0;
+		return FALSE;
 
 	pos = array_get(&view->log_syncs, &count);
 	for (i = 0; i < count; i++) {
 		if (pos[i].log_file_offset == offset &&
 		    pos[i].log_file_seq == seq)
-			return 1;
+			return TRUE;
 	}
 
-	return 0;
+	return FALSE;
 }
 
-static int mail_index_view_sync_next_trans(struct mail_index_view_sync_ctx *ctx,
-					   uint32_t *seq_r, uoff_t *offset_r)
+static int
+mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 {
         struct mail_transaction_log_view *log_view = ctx->view->log_view;
 	struct mail_index_view *view = ctx->view;
+	uint32_t seq;
+	uoff_t offset;
 	int ret, skipped;
 
-	ret = mail_transaction_log_view_next(log_view, &ctx->hdr, &ctx->data,
-					     &skipped);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
+	for (;;) {
+		/* Get the next transaction from log. */
+		ret = mail_transaction_log_view_next(log_view, &ctx->hdr,
+						     &ctx->data, &skipped);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
 
-		ctx->hdr = NULL;
-		ctx->last_read = TRUE;
-		return 1;
+			ctx->hdr = NULL;
+			ctx->last_read = TRUE;
+			return 0;
+		}
+
+		mail_transaction_log_view_get_prev_pos(log_view, &seq, &offset);
+
+		if (skipped) {
+			/* We skipped some (visible) transactions that were
+			   outside our sync mask. */
+			ctx->skipped_some = TRUE;
+		} else if (!ctx->skipped_some) {
+			/* We haven't skipped anything while syncing this view.
+			   Update this view's synced log offset. */
+			view->log_file_seq = seq;
+			view->log_file_offset = offset + sizeof(*ctx->hdr) +
+				ctx->hdr->size;
+		}
+
+		/* skip flag changes that we committed ourself or have
+		   already synced */
+		if (view_is_transaction_synced(view, seq, offset))
+			continue;
+
+		/* Apply transaction to view's mapping if needed (meaning we
+		   didn't just re-map the view to head mapping). */
+		if (ctx->sync_map_update) {
+			i_assert((ctx->hdr->type &
+				  MAIL_TRANSACTION_EXPUNGE) == 0);
+
+			if (mail_index_sync_record(&ctx->sync_map_ctx,
+						   ctx->hdr, ctx->data) < 0)
+				return -1;
+		}
+
+		if ((ctx->hdr->type & ctx->visible_sync_mask) == 0) {
+			/* non-visible change that we just wanted to update
+			   to map. */
+			continue;
+		}
+		break;
 	}
 
-	if (skipped)
-		ctx->skipped_some = TRUE;
-
-	mail_transaction_log_view_get_prev_pos(log_view, seq_r, offset_r);
-
-	/* skip flag changes that we committed ourself or have already synced */
-	if (view_is_transaction_synced(view, *seq_r, *offset_r))
-		return 0;
-
-	/* expunges have to be synced afterwards so that caller can still get
-	   information of the messages. otherwise caller most likely wants to
-	   see only updated information. */
-	if (ctx->sync_map_update &&
-	    (ctx->hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0) {
-		if (mail_index_sync_record(&ctx->sync_map_ctx, ctx->hdr,
-					   ctx->data) < 0)
-			return -1;
+	if (ctx->skipped_some) {
+		/* We've been skipping some transactions, which means we'll
+		   go through these same transaction again later. Since we're
+		   syncing this one, we don't want to do it again. */
+		mail_index_view_add_synced_transaction(view, seq, offset);
 	}
-
-	if ((ctx->hdr->type & ctx->trans_sync_mask) == 0)
-		return 0;
-
 	return 1;
 }
 
@@ -327,6 +372,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_APPEND: {
+		/* data contains the appended records, but we don't care */
 		rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
 		rec->uid1 = rec->uid2 = 0;
 		ctx->data_offset += hdr->size;
@@ -336,6 +382,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		const struct mail_transaction_expunge *exp =
 			CONST_PTR_OFFSET(data, ctx->data_offset);
 
+		/* data contains mail_transaction_expunge[] */
 		ctx->data_offset += sizeof(*exp);
                 mail_index_sync_get_expunge(rec, exp);
 		break;
@@ -344,11 +391,13 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		const struct mail_transaction_flag_update *update =
 			CONST_PTR_OFFSET(data, ctx->data_offset);
 
+		/* data contains mail_transaction_flag_update[] */
 		for (;;) {
 			ctx->data_offset += sizeof(*update);
 			if (!FLAG_UPDATE_IS_INTERNAL(update))
 				break;
 
+			/* skip internal flag changes */
 			if (ctx->data_offset == ctx->hdr->size)
 				return 0;
 
@@ -361,17 +410,24 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		const struct mail_transaction_keyword_update *update = data;
 		const uint32_t *uids;
 
+		/* data contains mail_transaction_keyword_update header,
+		   the keyword name and an array of { uint32_t uid1, uid2; } */
+
 		if (ctx->data_offset == 0) {
+			/* skip over the header and name */
 			ctx->data_offset = sizeof(*update) + update->name_size;
 			if ((ctx->data_offset % 4) != 0)
 				ctx->data_offset += 4 - (ctx->data_offset % 4);
 		}
 
 		uids = CONST_PTR_OFFSET(data, ctx->data_offset);
-		/* FIXME: this isn't exactly correct.. but no-one cares? */
+		/* FIXME: rec->keyword_idx isn't set, but no-one cares
+		   currently. perhaps the whole view syncing API should just
+		   be returning type and uid range.. */
 		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD;
 		rec->uid1 = uids[0];
 		rec->uid2 = uids[1];
+
 		ctx->data_offset += sizeof(uint32_t) * 2;
 		break;
 	}
@@ -379,6 +435,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		const struct mail_transaction_keyword_reset *reset =
 			CONST_PTR_OFFSET(data, ctx->data_offset);
 
+		/* data contains mail_transaction_keyword_reset[] */
 		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET;
 		rec->uid1 = reset->uid1;
 		rec->uid2 = reset->uid2;
@@ -394,36 +451,15 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 			      struct mail_index_sync_rec *sync_rec)
 {
-	struct mail_index_view *view = ctx->view;
-	uint32_t seq;
-	uoff_t offset;
 	int ret;
 
 	do {
 		if (ctx->hdr == NULL || ctx->data_offset == ctx->hdr->size) {
+			ret = mail_index_view_sync_get_next_transaction(ctx);
+			if (ret <= 0)
+				return ret;
+
 			ctx->data_offset = 0;
-			do {
-				ret = mail_index_view_sync_next_trans(ctx, &seq,
-								      &offset);
-				if (ret < 0)
-					return -1;
-
-				if (ctx->last_read)
-					return 0;
-
-				if (!ctx->skipped_some) {
-					view->log_file_seq = seq;
-					view->log_file_offset = offset +
-						sizeof(*ctx->hdr) +
-						ctx->hdr->size;
-				}
-			} while (ret == 0);
-
-			if (ctx->skipped_some) {
-				mail_index_view_add_synced_transaction(view,
-								       seq,
-								       offset);
-			}
 		}
 	} while (!mail_index_view_sync_get_rec(ctx, sync_rec));
 
@@ -440,6 +476,34 @@ mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 	return (const uint32_t *)data;
 }
 
+static void
+mail_index_view_sync_clean_log_syncs(struct mail_index_view_sync_ctx *ctx)
+{
+	struct mail_index_view *view = ctx->view;
+	const struct mail_index_view_log_sync_pos *pos;
+	unsigned int i, count;
+
+	if (!array_is_created(&view->log_syncs))
+		return;
+
+	if (!ctx->skipped_some) {
+		/* Nothing skipped. Clean it up the quick way. */
+		array_clear(&view->log_syncs);
+		return;
+	}
+
+	/* Clean up until view's current syncing position */
+	pos = array_get(&view->log_syncs, &count);
+	for (i = 0; i < count; i++) {
+		if ((pos[i].log_file_offset >= view->log_file_offset &&
+                     pos[i].log_file_seq == view->log_file_seq) ||
+		    pos[i].log_file_seq > view->log_file_seq)
+			break;
+	}
+	if (i > 0)
+		array_delete(&view->log_syncs, 0, i);
+}
+
 void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 {
         struct mail_index_view *view = ctx->view;
@@ -448,9 +512,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 
 	if (ctx->sync_map_update)
 		mail_index_sync_map_deinit(&ctx->sync_map_ctx);
-
-	if (array_is_created(&view->log_syncs) && !ctx->skipped_some)
-		array_clear(&view->log_syncs);
+	mail_index_view_sync_clean_log_syncs(ctx);
 
 	if (!ctx->last_read && ctx->hdr != NULL &&
 	    ctx->data_offset != ctx->hdr->size) {
@@ -458,10 +520,10 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 		view->inconsistent = TRUE;
 	}
 
-	if (view->new_map != NULL) {
+	if (view->sync_new_map != NULL) {
 		mail_index_unmap(view->index, view->map);
-		view->map = view->new_map;
-		view->new_map = NULL;
+		view->map = view->sync_new_map;
+		view->sync_new_map = NULL;
 	}
 	view->hdr = view->map->hdr;
 

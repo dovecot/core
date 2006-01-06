@@ -176,7 +176,13 @@ int mail_index_view_is_inconsistent(struct mail_index_view *view);
 
 /* Transaction has to be opened to be able to modify index. You can have
    multiple transactions open simultaneously. Note that committed transactions
-   won't show up until you've synchronized mailbox (mail_index_sync_begin). */
+   won't show up until you've synchronized mailbox (mail_index_sync_begin).
+
+   If transaction is marked as hidden, the changes won't be listed when the
+   view is synchronized. Expunges can't be hidden.
+
+   External transactions describe changes to mailbox that have already
+   happened. */
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
 			     int hide, int external);
