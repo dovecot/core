@@ -70,13 +70,6 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 				 struct mail_index_map *map);
 
-void
-mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
-			    const struct mail_transaction_expunge *exp);
-void
-mail_index_sync_get_update(struct mail_index_sync_rec *rec,
-			   const struct mail_transaction_flag_update *update);
-
 void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx);
 void
 mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx);

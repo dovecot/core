@@ -173,7 +173,7 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 {
 	struct index_mailbox_sync_context *ctx =
 		(struct index_mailbox_sync_context *)_ctx;
-	struct mail_index_sync_rec sync;
+	struct mail_index_view_sync_rec sync;
 	int ret;
 
 	if (ctx->failed)

@@ -365,7 +365,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 
 static int
 mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
-			     struct mail_index_sync_rec *rec)
+			     struct mail_index_view_sync_rec *rec)
 {
 	const struct mail_transaction_header *hdr = ctx->hdr;
 	const void *data = ctx->data;
@@ -383,8 +383,11 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 			CONST_PTR_OFFSET(data, ctx->data_offset);
 
 		/* data contains mail_transaction_expunge[] */
+		rec->type = MAIL_INDEX_SYNC_TYPE_EXPUNGE;
+		rec->uid1 = exp->uid1;
+		rec->uid2 = exp->uid2;
+
 		ctx->data_offset += sizeof(*exp);
-                mail_index_sync_get_expunge(rec, exp);
 		break;
 	}
 	case MAIL_TRANSACTION_FLAG_UPDATE: {
@@ -403,7 +406,10 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 
 			update = CONST_PTR_OFFSET(data, ctx->data_offset);
 		}
-                mail_index_sync_get_update(rec, update);
+
+		rec->type = MAIL_INDEX_SYNC_TYPE_FLAGS;
+		rec->uid1 = update->uid1;
+		rec->uid2 = update->uid2;
 		break;
 	}
 	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
@@ -421,9 +427,6 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		}
 
 		uids = CONST_PTR_OFFSET(data, ctx->data_offset);
-		/* FIXME: rec->keyword_idx isn't set, but no-one cares
-		   currently. perhaps the whole view syncing API should just
-		   be returning type and uid range.. */
 		rec->type = MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD;
 		rec->uid1 = uids[0];
 		rec->uid2 = uids[1];
@@ -449,7 +452,7 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 }
 
 int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
-			      struct mail_index_sync_rec *sync_rec)
+			      struct mail_index_view_sync_rec *sync_rec)
 {
 	int ret;
 

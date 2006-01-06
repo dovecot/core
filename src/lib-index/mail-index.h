@@ -135,6 +135,13 @@ struct mail_index_sync_rec {
 	unsigned int keyword_idx;
 };
 
+struct mail_index_view_sync_rec {
+	uint32_t uid1, uid2;
+	/* keyword appends and removes are packed into one and same
+	   MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD */
+	enum mail_index_sync_type type;
+};
+
 struct mail_index;
 struct mail_index_map;
 struct mail_index_view;
@@ -254,7 +261,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			       struct mail_index_view_sync_ctx **ctx_r);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
-			      struct mail_index_sync_rec *sync_rec);
+			      struct mail_index_view_sync_rec *sync_rec);
 const uint32_t *
 mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 				 unsigned int *count_r);

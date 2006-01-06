@@ -430,7 +430,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	return 1;
 }
 
-void
+static void
 mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 			    const struct mail_transaction_expunge *exp)
 {
@@ -439,7 +439,7 @@ mail_index_sync_get_expunge(struct mail_index_sync_rec *rec,
 	rec->uid2 = exp->uid2;
 }
 
-void
+static void
 mail_index_sync_get_update(struct mail_index_sync_rec *rec,
 			   const struct mail_transaction_flag_update *update)
 {
