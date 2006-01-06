@@ -294,6 +294,11 @@ log_append_keyword_update(struct mail_transaction_log_file *file,
 	if ((hdr_buf->used % 4) != 0)
 		buffer_append_zero(hdr_buf, 4 - (hdr_buf->used % 4));
 
+	if (t->hide_transaction) {
+		mail_index_view_add_synced_transaction(t->view,
+			file->hdr.file_seq, file->sync_offset);
+	}
+
 	return log_append_buffer(file, buffer, hdr_buf,
 				 MAIL_TRANSACTION_KEYWORD_UPDATE, t->external);
 }
@@ -346,8 +351,9 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	struct mail_transaction_log_file *file;
 	struct mail_index_header idx_hdr;
 	uoff_t append_offset;
+	unsigned int old_log_syncs_pos;
 	unsigned int lock_id;
-	int ret, visibility_changes = FALSE;
+	int ret;
 
 	index = mail_index_view_get_index(view);
 	log = index->log;
@@ -409,6 +415,9 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	file->first_append_size = 0;
 	append_offset = file->sync_offset;
 
+	old_log_syncs_pos = !array_is_created(&view->log_syncs) ? 0 :
+		array_count(&view->log_syncs);
+
 	ret = 0;
 
 	/* send all extension introductions and resizes before appends
@@ -422,12 +431,18 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 					t->external);
 	}
 	if (array_is_created(&t->appends) && ret == 0) {
-                visibility_changes = TRUE;
+		if (t->hide_transaction) {
+			mail_index_view_add_synced_transaction(view,
+				file->hdr.file_seq, file->sync_offset);
+		}
 		ret = log_append_buffer(file, t->appends.buffer, NULL,
 					MAIL_TRANSACTION_APPEND, t->external);
 	}
 	if (array_is_created(&t->updates) && ret == 0) {
-                visibility_changes = TRUE;
+		if (t->hide_transaction) {
+			mail_index_view_add_synced_transaction(view,
+				file->hdr.file_seq, file->sync_offset);
+		}
 		ret = log_append_buffer(file, t->updates.buffer, NULL,
 					MAIL_TRANSACTION_FLAG_UPDATE,
 					t->external);
@@ -438,19 +453,19 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	/* keyword resets before updates */
 	if (array_is_created(&t->keyword_resets) && ret == 0) {
-                visibility_changes = TRUE;
+		if (t->hide_transaction) {
+			mail_index_view_add_synced_transaction(view,
+				file->hdr.file_seq, file->sync_offset);
+		}
 		ret = log_append_buffer(file, t->keyword_resets.buffer, NULL,
 					MAIL_TRANSACTION_KEYWORD_RESET,
 					t->external);
 	}
-	if (array_is_created(&t->keyword_updates) && ret == 0) {
-                visibility_changes = TRUE;
+	if (array_is_created(&t->keyword_updates) && ret == 0)
 		ret = log_append_keyword_updates(file, t);
-	}
 
 	if (array_is_created(&t->expunges) && ret == 0) {
 		/* Expunges cannot be hidden */
-		visibility_changes = FALSE;
 		ret = log_append_buffer(file, t->expunges.buffer, NULL,
 					MAIL_TRANSACTION_EXPUNGE, t->external);
 	}
@@ -466,13 +481,6 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 					t->external);
 	}
 
-	if (ret == 0 && visibility_changes && t->hide_transaction) {
-		/* There are non-expunge changes that change the view, and
-		   we want them hidden. */
-		mail_index_view_add_synced_transaction(view, file->hdr.file_seq,
-						       append_offset);
-	}
-
 	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
 		if (ret == 0 && file->first_append_size != 0) {
 			/* synced - rewrite first record's header */
@@ -485,8 +493,15 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 		}
 	}
 
-	if (ret < 0)
+	if (ret < 0) {
+		if (array_is_created(&view->log_syncs)) {
+			/* revert changes to log_syncs */
+			array_delete(&view->log_syncs, old_log_syncs_pos,
+				     array_count(&view->log_syncs) -
+				     old_log_syncs_pos);
+		}
 		file->sync_offset = append_offset;
+	}
 
 	*log_file_seq_r = file->hdr.file_seq;
 	*log_file_offset_r = file->sync_offset;
