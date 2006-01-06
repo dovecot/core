@@ -30,6 +30,9 @@
 static struct mail_transaction_log_file *
 mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 					 const char *path);
+static int
+mail_transaction_log_file_read(struct mail_transaction_log_file *file,
+			       uoff_t offset);
 
 void
 mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
@@ -237,8 +240,13 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 	log->head = mail_transaction_log_file_open_or_create(log, path);
 	if (log->head == NULL) {
-		mail_transaction_log_close(log);
-		return NULL;
+		/* fallback to in-memory indexes */
+		if (mail_index_move_to_memory(index) < 0) {
+			mail_transaction_log_close(log);
+			return NULL;
+		}
+		log->head = mail_transaction_log_file_open_or_create(log, path);
+		i_assert(log->head != NULL);
 	}
 
 	if (index->fd != -1 &&
@@ -268,16 +276,16 @@ void mail_transaction_log_close(struct mail_transaction_log *log)
 }
 
 static void
-mail_transaction_log_file_close(struct mail_transaction_log_file *file)
+mail_transaction_log_file_free(struct mail_transaction_log_file *file)
 {
+	mail_transaction_log_file_unlock(file);
+
 	if (file == file->log->head)
 		file->log->head = NULL;
 	if (file == file->log->tail)
 		file->log->tail = file->next;
 
-	mail_transaction_log_file_unlock(file);
-
-	if (file->buffer != NULL)
+	if (file->buffer != NULL) 
 		buffer_free(file->buffer);
 
 	if (file->mmap_base != NULL) {
@@ -298,6 +306,44 @@ mail_transaction_log_file_close(struct mail_transaction_log_file *file)
 
 	i_free(file->filepath);
 	i_free(file);
+}
+
+int mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
+{
+	struct mail_transaction_log_file *file = log->head;
+
+	if (file == NULL || MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
+		return 0;
+
+	/* read the whole file to memory. we might currently be appending
+	   data into it, so we want to read it up to end of file */
+        file->buffer_offset = 0;
+
+	if (file->buffer != NULL) {
+		buffer_free(file->buffer);
+		file->buffer = NULL;
+	}
+
+	if (file->mmap_base != NULL) {
+		if (munmap(file->mmap_base, file->mmap_size) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "munmap()");
+		}
+		file->mmap_base = NULL;
+	}
+
+	if (mail_transaction_log_file_read(file, 0) <= 0)
+		return -1;
+
+	/* after we've read the file into memory, make it into in-memory
+	   log file */
+	if (close(file->fd) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath, "close()");
+	}
+	file->fd = -1;
+	return 0;
 }
 
 static int
@@ -610,7 +656,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 
 	ret = mail_transaction_log_file_read_hdr(file, head);
 	if (ret < 0) {
-		mail_transaction_log_file_close(file);
+		mail_transaction_log_file_free(file);
 		return -1;
 	}
 
@@ -660,7 +706,7 @@ mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log *log,
 		}
 	}
 	if (ret <= 0) {
-		mail_transaction_log_file_close(file);
+		mail_transaction_log_file_free(file);
 		return NULL;
 	}
 
@@ -733,7 +779,7 @@ mail_transaction_log_file_open(struct mail_transaction_log *log,
 	if (ret <= 0) {
 		/* error / corrupted */
 		if (ret == 0)
-			mail_transaction_log_file_close(file);
+			mail_transaction_log_file_free(file);
 		return NULL;
 	}
 
@@ -750,7 +796,7 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
                         p = &(*p)->next;
 		else {
 			next = (*p)->next;
-			mail_transaction_log_file_close(*p);
+			mail_transaction_log_file_free(*p);
 			*p = next;
 		}
 	}
@@ -905,7 +951,7 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 				i_error("unlink(%s) failed: %m",
 					file->filepath);
 			}
-			mail_transaction_log_file_close(file);
+			mail_transaction_log_file_free(file);
 			return 0;
 		}
 		return -1;

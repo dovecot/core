@@ -17,6 +17,7 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 	struct mail_transaction_header hdr;
 	const void *data, *hdr_data;
 	size_t size, hdr_data_size;
+	uoff_t offset;
 	uint32_t hdr_size;
 
 	i_assert((type & MAIL_TRANSACTION_TYPE_MASK) != 0);
@@ -45,38 +46,56 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 	hdr_size = mail_index_uint32_to_offset(sizeof(hdr) + size +
 					       hdr_data_size);
 	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
-		if (file->first_append_size == 0) {
-			/* size will be written later once everything is in
-			   disk */
-			file->first_append_size = hdr_size;
-		} else {
-			hdr.size = hdr_size;
-		}
-		if (pwrite_full(file->fd, &hdr, sizeof(hdr),
-				file->sync_offset) < 0)
+		do {
+			offset = file->sync_offset;
+			if (file->first_append_size == 0) {
+				/* size will be written later once everything
+				   is in disk */
+				file->first_append_size = hdr_size;
+			} else {
+				hdr.size = hdr_size;
+			}
+			if (pwrite_full(file->fd, &hdr, sizeof(hdr),
+					offset) < 0)
+				break;
+			offset += sizeof(hdr);
+
+			if (hdr_data_size > 0) {
+				if (pwrite_full(file->fd, hdr_data,
+						hdr_data_size, offset) < 0)
+					break;
+				offset += hdr_data_size;
+			}
+
+			if (pwrite_full(file->fd, data, size, offset) < 0)
+				break;
+
+			file->sync_offset = offset + size;
+			return 0;
+		} while (0);
+
+		/* write failure. */
+		if (!ENOSPACE(errno)) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "pwrite_full()");
 			return -1;
-		file->sync_offset += sizeof(hdr);
-
-		if (hdr_data_size > 0) {
-			if (pwrite_full(file->fd, hdr_data, hdr_data_size,
-					file->sync_offset) < 0)
-				return -1;
-			file->sync_offset += hdr_data_size;
 		}
 
-		if (pwrite_full(file->fd, data, size, file->sync_offset) < 0)
+		/* not enough space. fallback to in-memory indexes. */
+		if (mail_index_move_to_memory(file->log->index) < 0)
 			return -1;
-		file->sync_offset += size;
-	} else {
-		hdr.size = hdr_size;
-
-		i_assert(file->buffer_offset + file->buffer->used ==
-			 file->sync_offset);
-		buffer_append(file->buffer, &hdr, sizeof(hdr));
-		buffer_append(file->buffer, hdr_data, hdr_data_size);
-		buffer_append(file->buffer, data, size);
-		file->sync_offset = file->buffer_offset + file->buffer->used;
+		i_assert(MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));
 	}
+
+	hdr.size = hdr_size;
+
+	i_assert(file->buffer_offset + file->buffer->used ==
+		 file->sync_offset);
+	buffer_append(file->buffer, &hdr, sizeof(hdr));
+	buffer_append(file->buffer, hdr_data, hdr_data_size);
+	buffer_append(file->buffer, data, size);
+	file->sync_offset = file->buffer_offset + file->buffer->used;
 	return 0;
 }
 
@@ -470,10 +489,6 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 					MAIL_TRANSACTION_EXPUNGE, t->external);
 	}
 
-	if (ret < 0) {
-		mail_index_file_set_syscall_error(log->index, file->filepath,
-						  "pwrite()");
-	}
 	if (t->post_hdr_changed && ret == 0) {
 		ret = log_append_buffer(file,
 					log_get_hdr_update_buffer(t, FALSE),
@@ -481,8 +496,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 					t->external);
 	}
 
-	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
-		if (ret == 0 && file->first_append_size != 0) {
+	if (ret == 0 && file->first_append_size != 0) {
+		if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
 			/* synced - rewrite first record's header */
 			ret = pwrite_full(file->fd, &file->first_append_size,
 					  sizeof(uint32_t), append_offset);
@@ -490,6 +505,12 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 				mail_index_file_set_syscall_error(log->index,
 					file->filepath, "pwrite()");
 			}
+		} else {
+			/* changed into in-memory buffer in the middle */
+			buffer_write(file->buffer,
+				     append_offset - file->buffer_offset,
+				     &file->first_append_size,
+				     sizeof(file->first_append_size));
 		}
 	}
 

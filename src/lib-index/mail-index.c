@@ -1410,8 +1410,11 @@ static int mail_index_open_files(struct mail_index *index,
 			lock_id = 0;
 		}
 		if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
-			if (mail_index_create(index, &hdr) < 0)
-				return -1;
+			if (mail_index_create(index, &hdr) < 0) {
+				/* fallback to in-memory index */
+				mail_index_move_to_memory(index);
+				mail_index_create_in_memory(index, &hdr);
+			}
 		} else {
 			mail_index_create_in_memory(index, &hdr);
 		}
@@ -1689,6 +1692,12 @@ int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 void mail_index_set_inconsistent(struct mail_index *index)
 {
 	index->indexid = 0;
+}
+
+int mail_index_move_to_memory(struct mail_index *index)
+{
+	i_free_and_null(index->dir);
+	return mail_transaction_log_move_to_memory(index->log);
 }
 
 void mail_index_mark_corrupted(struct mail_index *index)

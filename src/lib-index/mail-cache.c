@@ -373,7 +373,8 @@ int mail_cache_lock(struct mail_cache *cache)
 
 	i_assert(!cache->locked);
 
-	if (MAIL_CACHE_IS_UNUSABLE(cache))
+	if (MAIL_CACHE_IS_UNUSABLE(cache) ||
+	    MAIL_INDEX_IS_IN_MEMORY(cache->index))
 		return 0;
 
 	view = mail_index_view_open(cache->index);
