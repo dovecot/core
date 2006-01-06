@@ -449,6 +449,10 @@ static void mail_index_excl_unlock_finish(struct mail_index *index)
 
 		if (mail_index_copy_lock_finish(index) < 0)
 			mail_index_set_inconsistent(index);
+
+		/* We may still have shared locks for the old file, but they
+		   don't matter. They're invalidated when we re-open the new
+		   index file. */
 	}
 }
 

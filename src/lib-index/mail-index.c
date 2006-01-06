@@ -584,13 +584,6 @@ void mail_index_unmap(struct mail_index *index, struct mail_index_map *map)
 	i_free(map);
 }
 
-static void mail_index_unmap_forced(struct mail_index *index,
-				    struct mail_index_map *map)
-{
-	mail_index_map_clear(index, map);
-	mail_index_unmap(index, map);
-}
-
 static void mail_index_map_copy_hdr(struct mail_index_map *map,
 				    const struct mail_index_header *hdr)
 {
@@ -1034,7 +1027,8 @@ int mail_index_map(struct mail_index *index, int force)
 	}
 
 	if (ret <= 0) {
-		mail_index_unmap_forced(index, map);
+		mail_index_map_clear(index, map);
+		mail_index_unmap(index, map);
 		index->mapping = FALSE;
 		return ret;
 	}
