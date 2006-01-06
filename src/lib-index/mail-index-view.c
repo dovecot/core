@@ -86,6 +86,11 @@ int mail_index_view_lock(struct mail_index_view *view)
 	if (mail_index_view_is_inconsistent(view))
 		return -1;
 
+	if (view->map != view->index->map) {
+		/* not head mapping, no need to lock */
+		return 0;
+	}
+
 	return mail_index_view_lock_head(view, FALSE);
 }
 
