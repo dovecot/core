@@ -67,11 +67,8 @@ struct mail_index_header {
 	uint32_t header_size; /* base + extended header size */
 	uint32_t record_size;
 
-	/* 0 = flags
-	   1 = sizeof(uoff_t)
-	   2 = sizeof(time_t)
-	   3 = unused */
-	uint8_t compat_data[4];
+	uint8_t compat_flags; /* enum mail_index_header_compat_flags */
+	uint8_t unused[3];
 
 	uint32_t indexid;
 	uint32_t flags;

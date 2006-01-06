@@ -492,20 +492,17 @@ static int mail_index_check_header(struct mail_index *index,
 				   struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr = &map->hdr;
-	unsigned char compat_data[sizeof(hdr->compat_data)];
+        enum mail_index_header_compat_flags compat_flags = 0;
 
-	memset(compat_data, 0, sizeof(compat_data));
 #ifndef WORDS_BIGENDIAN
-	compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+	compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
-	compat_data[1] = sizeof(uoff_t);
-	compat_data[2] = sizeof(time_t);
 
 	if (hdr->major_version != MAIL_INDEX_MAJOR_VERSION) {
 		/* major version change - handle silently(?) */
 		return -1;
 	}
-	if (memcmp(hdr->compat_data, compat_data, sizeof(compat_data)) != 0) {
+	if (hdr->compat_flags != compat_flags) {
 		/* architecture change - handle silently(?) */
 		return -1;
 	}
@@ -1350,10 +1347,8 @@ static void mail_index_header_init(struct mail_index_header *hdr)
 	hdr->record_size = sizeof(struct mail_index_record);
 
 #ifndef WORDS_BIGENDIAN
-	hdr->compat_data[0] = MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+	hdr->compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
-	hdr->compat_data[1] = sizeof(uoff_t);
-	hdr->compat_data[2] = sizeof(time_t);
 
 	hdr->indexid = now;
 

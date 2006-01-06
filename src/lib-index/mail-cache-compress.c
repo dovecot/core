@@ -144,6 +144,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.version = MAIL_CACHE_VERSION;
+	hdr.compat_sizeof_uoff_t = sizeof(uoff_t);
+	hdr.compat_sizeof_time_t = sizeof(time_t);
 	hdr.indexid = idx_hdr->indexid;
 	hdr.file_seq = get_next_file_seq(cache, view);
 	o_stream_send(output, &hdr, sizeof(hdr));

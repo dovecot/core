@@ -44,7 +44,9 @@ struct mail_cache_header {
 	/* version is increased only when you can't have backwards
 	   compatibility. */
 	uint8_t version;
-	uint8_t unused[3];
+	uint8_t compat_sizeof_uoff_t;
+	uint8_t compat_sizeof_time_t;
+	uint8_t unused;
 
 	uint32_t indexid;
 	uint32_t file_seq;
