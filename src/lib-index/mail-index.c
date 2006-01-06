@@ -816,7 +816,8 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 					  map_hdr->log_file_seq,
 					  map_hdr->log_file_int_offset,
 					  max_seq, max_offset,
-					  MAIL_TRANSACTION_TYPE_MASK) < 0) {
+					  MAIL_TRANSACTION_TYPE_MASK) <= 0) {
+		/* can't use it. sync by re-reading index. */
 		mail_transaction_log_view_close(log_view);
 		return 0;
 	}

@@ -113,7 +113,7 @@ struct mail_transaction_log_view *
 mail_transaction_log_view_open(struct mail_transaction_log *log);
 void mail_transaction_log_view_close(struct mail_transaction_log_view *view);
 
-/* Set view boundaries. Returns -1 if error, 0 if ok. */
+/* Set view boundaries. Returns -1 if error, 0 if files are lost, 1 if ok. */
 int
 mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			      uint32_t min_file_seq, uoff_t min_file_offset,
@@ -159,5 +159,8 @@ void mail_transaction_log_sync_unlock(struct mail_transaction_log *log);
 /* Returns the current head. Works only when log is locked. */
 void mail_transaction_log_get_head(struct mail_transaction_log *log,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r);
+/* Returns TRUE if given seq/offset is current head log's rotate point. */
+int mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
+				      uint32_t file_seq, uoff_t file_offset);
 
 #endif

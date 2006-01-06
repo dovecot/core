@@ -28,7 +28,8 @@ static int mail_index_fsck_locked(struct mail_index *index,
 {
 	struct mail_index_header hdr;
 	const struct mail_index_record *rec;
-	uint32_t i, last_uid;
+	uint32_t i, last_uid, log_seq;
+	uoff_t log_offset;
 
 	*error_r = NULL;
 
@@ -38,6 +39,26 @@ static int mail_index_fsck_locked(struct mail_index *index,
 	if (hdr.uid_validity == 0 && hdr.next_uid != 1) {
 		*error_r = "uid_validity = 0 && next_uid != 1";
 		return 0;
+	}
+
+	mail_transaction_log_get_head(index->log, &log_seq, &log_offset);
+	if (hdr.log_file_int_offset > hdr.log_file_ext_offset) {
+		mail_index_fsck_error(index,
+			"log_file_int_offset > log_file_ext_offset");
+		hdr.log_file_int_offset = hdr.log_file_ext_offset;
+	}
+	if ((hdr.log_file_seq == log_seq &&
+	     hdr.log_file_ext_offset > log_offset) ||
+	    (hdr.log_file_seq != log_seq &&
+	     !mail_transaction_log_is_head_prev(index->log,
+						hdr.log_file_seq,
+						hdr.log_file_ext_offset))) {
+		mail_index_fsck_error(index,
+			"log file sync pos %u,%u -> %u, %"PRIuUOFF_T,
+			hdr.log_file_seq, hdr.log_file_ext_offset,
+			log_seq, log_offset);
+		hdr.log_file_seq = log_seq;
+		hdr.log_file_int_offset = hdr.log_file_ext_offset = log_offset;
 	}
 
 	hdr.flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;

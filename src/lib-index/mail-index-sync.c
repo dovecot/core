@@ -274,11 +274,37 @@ static int mail_index_need_lock(struct mail_index *index, int sync_recent,
 	return 1;
 }
 
-static int mail_index_sync_commit_external(struct mail_index_sync_ctx *ctx,
-					   uint32_t seq, uoff_t offset)
+static int
+mail_index_sync_set_log_view(struct mail_index_view *view,
+			     uint32_t start_file_seq, uoff_t start_file_offset)
+{
+	uint32_t log_seq;
+	uoff_t log_offset;
+	int ret;
+
+	mail_transaction_log_get_head(view->index->log, &log_seq, &log_offset);
+
+	ret = mail_transaction_log_view_set(view->log_view,
+                                            start_file_seq, start_file_offset,
+					    log_seq, log_offset,
+					    MAIL_TRANSACTION_TYPE_MASK);
+	if (ret <= 0) {
+		/* either corrupted or the file was deleted for
+		   some reason. either way, we can't go forward */
+		mail_index_set_error(view->index,
+			"Unexpected transaction log desync with index %s",
+			view->index->filepath);
+		mail_index_set_inconsistent(view->index);
+		return -1;
+	}
+	return 0;
+}
+
+static int mail_index_sync_commit_external(struct mail_index_sync_ctx *ctx)
 {
 	int ret;
 
+	/* find the first external transaction, if there are any */
 	while ((ret = mail_transaction_log_view_next(ctx->view->log_view,
 						     &ctx->hdr, &ctx->data,
 						     NULL)) > 0) {
@@ -289,10 +315,14 @@ static int mail_index_sync_commit_external(struct mail_index_sync_ctx *ctx,
 		return -1;
 
 	if (ret > 0) {
-		if (mail_transaction_log_view_set(ctx->view->log_view,
-				ctx->index->hdr->log_file_seq,
-				ctx->index->hdr->log_file_ext_offset,
-				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0)
+		uint32_t seq;
+		uoff_t offset;
+
+		/* found it. update log view's range to begin from it and
+		   write all external transactions to index. */
+		mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
+						       &seq, &offset);
+		if (mail_index_sync_set_log_view(ctx->view, seq, offset) < 0)
 			return -1;
 		if (mail_index_sync_update_index(ctx, TRUE) < 0)
 			return -1;
@@ -355,6 +385,21 @@ int mail_index_sync_begin(struct mail_index *index,
 		return 0;
 	}
 
+	if (index->hdr->log_file_int_offset > index->hdr->log_file_ext_offset ||
+	    (index->hdr->log_file_seq == seq &&
+	     index->hdr->log_file_ext_offset > offset) ||
+	    (index->hdr->log_file_seq != seq &&
+	     !mail_transaction_log_is_head_prev(index->log,
+	     				index->hdr->log_file_seq,
+					index->hdr->log_file_ext_offset))) {
+		/* broken sync positions. fix them. */
+		if (mail_index_fsck(index) <= 0) {
+			mail_index_unlock(index, lock_id);
+			mail_transaction_log_sync_unlock(index->log);
+			return -1;
+		}
+	}
+
 	ctx = i_new(struct mail_index_sync_ctx, 1);
 	ctx->index = index;
 	ctx->lock_id = lock_id;
@@ -367,22 +412,9 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->trans = mail_index_transaction_begin(dummy_view, FALSE, TRUE);
 	mail_index_view_close(dummy_view);
 
-	if (index->hdr->log_file_seq == seq &&
-	    index->hdr->log_file_ext_offset > offset) {
-		/* synced offset is greater than what we have available.
-		   the log sequences have gotten messed up. */
-		mail_transaction_log_file_set_corrupted(index->log->head,
-			"log_file_ext_offset (%u) > log size (%"PRIuUOFF_T")",
-			index->hdr->log_file_ext_offset, offset);
-                mail_index_sync_rollback(ctx);
-		return -1;
-	}
-
-	if (mail_transaction_log_view_set(ctx->view->log_view,
-					  index->hdr->log_file_seq,
-					  index->hdr->log_file_int_offset,
-					  seq, offset,
-					  MAIL_TRANSACTION_TYPE_MASK) < 0) {
+	if (mail_index_sync_set_log_view(ctx->view,
+					 index->hdr->log_file_seq,
+					 index->hdr->log_file_int_offset) < 0) {
                 mail_index_sync_rollback(ctx);
 		return -1;
 	}
@@ -400,7 +432,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	   yet. They need to be synced with the real mailbox first. */
 	if (seq != index->hdr->log_file_seq ||
 	    offset != index->hdr->log_file_ext_offset) {
-		if (mail_index_sync_commit_external(ctx, seq, offset) < 0) {
+		if (mail_index_sync_commit_external(ctx) < 0) {
 			mail_index_sync_rollback(ctx);
 			return -1;
 		}
@@ -408,14 +440,10 @@ int mail_index_sync_begin(struct mail_index *index,
 		mail_index_view_close(ctx->view);
 		ctx->view = mail_index_view_open(index);
 
-		if (mail_transaction_log_view_set(ctx->view->log_view,
+		if (mail_index_sync_set_log_view(ctx->view,
 					index->hdr->log_file_seq,
-					index->hdr->log_file_int_offset,
-					seq, offset,
-					MAIL_TRANSACTION_TYPE_MASK) < 0) {
-			mail_index_sync_rollback(ctx);
+					index->hdr->log_file_int_offset) < 0)
 			return -1;
-		}
 	}
 
 	/* we need to have all the transactions sorted to optimize
@@ -606,8 +634,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 {
 	struct mail_index *index = ctx->index;
 	const struct mail_index_header *hdr;
-	uint32_t seq, seq2;
-	uoff_t offset, offset2;
+	uint32_t seq;
+	uoff_t offset;
 	int ret = 0;
 
 	if (mail_transaction_log_view_is_corrupted(ctx->view->log_view))
@@ -622,9 +650,10 @@ int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 	if (ret == 0 && (hdr->log_file_seq != seq ||
 			 hdr->log_file_int_offset != offset ||
 			 hdr->log_file_ext_offset != offset)) {
-		if (mail_transaction_log_view_set(ctx->view->log_view,
-				hdr->log_file_seq, hdr->log_file_int_offset,
-				seq, offset, MAIL_TRANSACTION_TYPE_MASK) < 0)
+		/* write all pending changes to index. */
+		if (mail_index_sync_set_log_view(ctx->view,
+						 hdr->log_file_seq,
+						 hdr->log_file_int_offset) < 0)
 			ret = -1;
 		else if (mail_index_sync_update_index(ctx, FALSE) < 0)
 			ret = -1;
@@ -635,11 +664,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 			ret = -1;
 		else {
 			/* cache_offsets have changed, sync them */
-			mail_transaction_log_get_head(index->log,
-						      &seq2, &offset2);
-			if (mail_transaction_log_view_set(ctx->view->log_view,
-					seq, offset, seq2, offset2,
-					MAIL_TRANSACTION_TYPE_MASK) < 0)
+			if (mail_index_sync_set_log_view(ctx->view,
+							 seq, offset) < 0)
 				ret = -1;
 			else if (mail_index_sync_update_index(ctx, FALSE) < 0)
 				ret = -1;

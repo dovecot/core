@@ -93,6 +93,31 @@ mail_transaction_log_sort_expunges(array_t *expunges,
 	}
 }
 
+static int view_sync_set_log_view_range(struct mail_index_view *view,
+					enum mail_transaction_type type_mask)
+{
+	const struct mail_index_header *hdr = view->index->hdr;
+	int ret;
+
+	ret = mail_transaction_log_view_set(view->log_view,
+					    view->log_file_seq,
+					    view->log_file_offset,
+					    hdr->log_file_seq,
+					    hdr->log_file_int_offset,
+					    type_mask);
+	if (ret <= 0) {
+		if (ret == 0) {
+			/* FIXME: use the new index to get needed changes */
+			mail_index_set_error(view->index,
+				"Transaction log got desynced for index %s",
+				view->index->filepath);
+			mail_index_set_inconsistent(view->index);
+		}
+		return -1;
+	}
+	return 0;
+}
+
 static int
 view_sync_get_expunges(struct mail_index_view *view, array_t *expunges_r)
 {
@@ -103,12 +128,7 @@ view_sync_get_expunges(struct mail_index_view *view, array_t *expunges_r)
 	unsigned int count;
 	int ret;
 
-	if (mail_transaction_log_view_set(view->log_view,
-					  view->log_file_seq,
-					  view->log_file_offset,
-					  view->index->hdr->log_file_seq,
-					  view->index->hdr->log_file_int_offset,
-					  MAIL_TRANSACTION_EXPUNGE) < 0)
+	if (view_sync_set_log_view_range(view, MAIL_TRANSACTION_EXPUNGE) < 0)
 		return -1;
 
 	ARRAY_CREATE(expunges_r, default_pool,
@@ -193,13 +213,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	   tell us if any visible changes were skipped. */
 	log_get_mask = visible_mask | (MAIL_TRANSACTION_TYPE_MASK ^
 				       MAIL_TRANSACTION_VISIBLE_SYNC_MASK);
-
-	if (mail_transaction_log_view_set(view->log_view,
-					  view->log_file_seq,
-					  view->log_file_offset,
-					  hdr->log_file_seq,
-					  hdr->log_file_int_offset,
-					  log_get_mask) < 0) {
+	if (view_sync_set_log_view_range(view, log_get_mask) < 0) {
 		if (array_is_created(&expunges))
 			array_free(&expunges);
 		return -1;
@@ -530,6 +544,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 	}
 	view->hdr = view->map->hdr;
 
+	/* set log view to empty range so unneeded memory gets freed */
 	(void)mail_transaction_log_view_set(view->log_view,
 					    view->log_file_seq,
 					    view->log_file_offset,

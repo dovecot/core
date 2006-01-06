@@ -76,17 +76,19 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			      uint32_t max_file_seq, uoff_t max_file_offset,
 			      enum mail_transaction_type type_mask)
 {
-	/* FIXME: error handling for "not found" case is bad.. should the
-	   caller after all check it and handle as it sees best..? */
 	struct mail_transaction_log_file *file, *first;
 	uint32_t seq;
 	uoff_t end_offset;
 	int ret;
 
+	i_assert(view->log != NULL);
 	i_assert(min_file_seq <= max_file_seq);
 
-	if (view->log == NULL)
+	if (view->log == NULL) {
+		/* transaction log is closed already. this log view shouldn't
+		   be used anymore. */
 		return -1;
+	}
 
 	if (min_file_seq == 0) {
 		/* new index, transaction file not synced yet */
@@ -114,15 +116,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	/* find the oldest log file first. */
 	ret = mail_transaction_log_file_find(view->log, min_file_seq, &file);
-	if (ret <= 0) {
-		if (ret == 0) {
-			mail_index_set_error(view->log->index,
-				"Lost transaction log file %s seq %u",
-				view->log->tail->filepath, min_file_seq);
-			mail_index_set_inconsistent(view->log->index);
-		}
-		return -1;
-	}
+	if (ret <= 0)
+		return ret;
 
 	if (min_file_offset == 0) {
 		/* this could happen if internal transactions haven't yet been
@@ -144,16 +139,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	end_offset = min_file_seq == max_file_seq ?
 		max_file_offset : (uoff_t)-1;
 	ret = mail_transaction_log_file_map(file, min_file_offset, end_offset);
-	if (ret <= 0) {
-		if (ret == 0) {
-			/* File is corrupted or stale NFS handle */
-			mail_index_set_error(view->log->index,
-				"Lost transaction log file %s seq %u",
-				file->filepath, file->hdr.file_seq);
-			mail_index_set_inconsistent(view->log->index);
-		}
-		return -1;
-	}
+	if (ret <= 0)
+		return ret;
 	first = file;
 
 	for (seq = min_file_seq+1; seq <= max_file_seq; seq++) {
@@ -179,26 +166,15 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			}
 
 			/* missing files in the middle */
-			mail_index_set_error(view->log->index,
-				"Lost transaction log file %s seq %u",
-				view->log->tail->filepath, seq);
-			mail_index_set_inconsistent(view->log->index);
-			return -1;
+			return 0;
 		}
 
 		end_offset = file->hdr.file_seq == max_file_seq ?
 			max_file_offset : (uoff_t)-1;
 		ret = mail_transaction_log_file_map(file, file->hdr.hdr_size,
 						    end_offset);
-		if (ret == 0) {
-			/* File is corrupted or stale NFS handle */
-			mail_index_set_error(view->log->index,
-				"Lost transaction log file %s seq %u",
-				file->filepath, file->hdr.file_seq);
-			mail_index_set_inconsistent(view->log->index);
-		}
 		if (ret <= 0)
-			return -1;
+			return ret;
 	}
 
 	i_assert(max_file_offset == (uoff_t)-1 ||
@@ -236,7 +212,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	i_assert(view->cur_offset <= view->cur->sync_offset);
 	i_assert(view->cur->hdr.file_seq == min_file_seq);
-	return 0;
+	return 1;
 }
 
 void

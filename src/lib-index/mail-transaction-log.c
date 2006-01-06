@@ -1037,8 +1037,6 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	if (errno == ESTALE) {
 		/* log file was deleted in NFS server, fail silently */
-		buffer_set_used_size(file->buffer,
-				     offset - file->buffer_offset);
 		return 0;
 	}
 
@@ -1073,8 +1071,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 
 	/* with mmap_no_write we could alternatively just write to log with
-	   msync() rather than pwrite(). that'd cause slightly more disk I/O,
-	   so rather use more memory. */
+	   msync() rather than pwrite(). but since there aren't many such OSes
+	   left, it's easier to just use mmap_disable behavior with it */
 	use_mmap = !index->mmap_disable && !index->mmap_no_write;
 
 	if (file->buffer != NULL && file->buffer_offset <= start_offset) {
@@ -1084,24 +1082,29 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 			return 1;
 	}
 
-	if (fstat(file->fd, &st) < 0) {
-		mail_index_file_set_syscall_error(index, file->filepath,
-						  "fstat()");
-		return -1;
-	}
-	if (start_offset > (uoff_t)st.st_size) {
-		mail_transaction_log_file_set_corrupted(file,
-			"start_offset (%"PRIuUOFF_T") > file size "
-			"(%"PRIuUOFF_T")", start_offset, (uoff_t)st.st_size);
-		return -1;
-	}
-
-	if (file->mmap_base != NULL && (uoff_t)st.st_size == file->mmap_size &&
-	    file->buffer_offset <= start_offset && end_offset == (uoff_t)-1) {
-		/* it's all mmaped already */
-		if (mail_transaction_log_file_sync(file) < 0)
+	if (use_mmap) {
+		if (fstat(file->fd, &st) < 0) {
+			mail_index_file_set_syscall_error(index, file->filepath,
+							  "fstat()");
 			return -1;
-		return 1;
+		}
+		if (start_offset > (uoff_t)st.st_size) {
+			mail_transaction_log_file_set_corrupted(file,
+				"start_offset (%"PRIuUOFF_T") > file size "
+				"(%"PRIuUOFF_T")", start_offset,
+				(uoff_t)st.st_size);
+			return -1;
+		}
+
+		if (file->mmap_base != NULL &&
+		    (uoff_t)st.st_size == file->mmap_size &&
+		    file->buffer_offset <= start_offset &&
+		    end_offset == (uoff_t)-1) {
+			/* it's all mmaped already */
+			if (mail_transaction_log_file_sync(file) < 0)
+				return -1;
+			return 1;
+		}
 	}
 
 	if (file->buffer != NULL &&
@@ -1244,4 +1247,11 @@ void mail_transaction_log_get_head(struct mail_transaction_log *log,
 
 	*file_seq_r = log->head->hdr.file_seq;
 	*file_offset_r = log->head->sync_offset;
+}
+
+int mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
+				      uint32_t file_seq, uoff_t file_offset)
+{
+	return log->head->hdr.prev_file_seq == file_seq &&
+		log->head->hdr.prev_file_offset == file_offset;
 }
