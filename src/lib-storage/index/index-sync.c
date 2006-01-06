@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "buffer.h"
 #include "index-storage.h"
 
