@@ -417,10 +417,9 @@ static int _view_get_header_ext(struct mail_index_view *view,
 	const struct mail_index_ext *ext;
 	uint32_t idx;
 
-	if (map != NULL) {
-		if (mail_index_view_lock(view) < 0)
-			return -1;
-	} else {
+	/* if we have a mapping, the view where it's from is already locked */
+	if (map == NULL) {
+		/* no mapping given, use head mapping */
 		if (mail_index_view_lock_head(view, FALSE) < 0)
 			return -1;
 
@@ -428,6 +427,7 @@ static int _view_get_header_ext(struct mail_index_view *view,
 	}
 
 	if (!mail_index_map_get_ext_idx(map, ext_id, &idx)) {
+		/* extension doesn't exist in this index file */
 		*data_r = NULL;
 		*data_size_r = 0;
 		return 0;
@@ -478,24 +478,31 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 {
 	ARRAY_SET_TYPE(keyword_idx, unsigned int);
 	struct mail_index_map *map;
-	const struct mail_index_ext *ext;
 	const void *data;
+	const unsigned char *keyword_data;
 	const unsigned int *keyword_idx_map;
 	unsigned int i, j, keyword_count, index_idx;
 	uint32_t ext_id, idx;
+	uint16_t record_size;
 	int ret;
 
 	array_clear(keyword_idx);
 
+	/* get the keywords data. */
 	ext_id = view->index->keywords_ext_id;
 	ret = mail_index_lookup_ext_full(view, seq, ext_id, &map, &data);
 	if (ret < 0)
 		return -1;
 
-	if (!mail_index_map_get_ext_idx(map, ext_id, &idx))
+	if (data == NULL) {
+		/* no keywords at all in index */
 		return ret;
+	}
 
-	ext = array_idx(&map->extensions, idx);
+	(void)mail_index_ext_get_size(view, ext_id, map, NULL,
+				      &record_size, NULL);
+
+	/* keyword_idx_map[] contains file => index keyword mapping */
 	if (!array_is_created(&map->keyword_idx_map)) {
 		keyword_idx_map = NULL;
 		keyword_count = 0;
@@ -504,13 +511,15 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 					    &keyword_count);
 	}
 
-	for (i = 0, idx = 0; i < ext->record_size; i++) {
-		if (((const unsigned char *)data)[i] == 0)
+        keyword_data = data;
+	for (i = 0, idx = 0; i < record_size; i++) {
+		/* first do the quick check to see if there's keywords at all */
+		if (keyword_data[i] == 0)
 			continue;
 
 		idx = i * CHAR_BIT;
 		for (j = 0; j < CHAR_BIT; j++, idx++) {
-			if ((((const unsigned char *)data)[i] & (1 << j)) == 0)
+			if ((keyword_data[i] & (1 << j)) == 0)
 				continue;
 
 			if (idx >= keyword_count) {
@@ -524,6 +533,7 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 				if (!array_is_created(&map->keyword_idx_map))
 					return ret;
 
+				/* pointer may have changed. update it. */
 				keyword_idx_map =
 					array_get(&map->keyword_idx_map,
 						  &keyword_count);
@@ -590,6 +600,37 @@ int mail_index_map_get_header_ext(struct mail_index_view *view,
 {
 	return view->methods.get_header_ext(view, map, ext_id,
 					    data_r, data_size_r);
+}
+
+int mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,
+			    uint32_t ext_id, struct mail_index_map *map,
+			    uint32_t *hdr_size_r, uint16_t *record_size_r,
+			    uint16_t *record_align_r)
+{
+	const struct mail_index_ext *ext;
+	uint32_t idx;
+
+	i_assert(map != NULL);
+
+	if (!mail_index_map_get_ext_idx(map, ext_id, &idx)) {
+		/* extension doesn't exist in this index file */
+		if (hdr_size_r != NULL)
+			*hdr_size_r = 0;
+		if (record_size_r != NULL)
+			*record_size_r = 0;
+		if (record_align_r != NULL)
+			*record_align_r = 0;
+		return 0;
+	}
+
+	ext = array_idx(&map->extensions, idx);
+	if (hdr_size_r != NULL)
+		*hdr_size_r = ext->hdr_size;
+	if (record_size_r != NULL)
+		*record_size_r = ext->record_size;
+	if (record_align_r != NULL)
+		*record_align_r = ext->record_align;
+	return 0;
 }
 
 static struct mail_index_view_methods view_methods = {

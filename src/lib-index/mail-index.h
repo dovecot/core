@@ -368,11 +368,6 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 				 uint32_t default_hdr_size,
 				 uint16_t default_record_size,
 				 uint16_t default_record_align);
-/* Get current extension sizes. Returns 1 if ok, 0 if extension doesn't exist
-   in view. */
-int mail_index_ext_get_size(struct mail_index_view *view, uint32_t ext_id,
-			    uint32_t *hdr_size_r, uint16_t *record_size_r,
-			    uint16_t *record_align_r);
 /* Resize existing extension data. If size is grown, the new data will be
    zero-filled. If size is shrinked, the data is simply dropped. */
 void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
@@ -398,6 +393,12 @@ int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
 int mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 			       uint32_t ext_id, struct mail_index_map **map_r,
 			       const void **data_r);
+/* Get current extension sizes. Returns 1 if ok, 0 if extension doesn't exist
+   in view. Any of the _r parameters may be NULL. */
+int mail_index_ext_get_size(struct mail_index_view *view,
+			    uint32_t ext_id, struct mail_index_map *map,
+			    uint32_t *hdr_size_r, uint16_t *record_size_r,
+			    uint16_t *record_align_r);
 /* Update extension header field. */
 void mail_index_update_header_ext(struct mail_index_transaction *t,
 				  uint32_t ext_id, size_t offset,
