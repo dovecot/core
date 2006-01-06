@@ -45,8 +45,8 @@ struct mail_index_ext {
 	const char *name;
 	uint32_t index_idx; /* index ext_id */
 	uint32_t reset_id;
-	uint32_t hdr_offset; /* points to data[] */
-	uint32_t hdr_size; /* size of data[] */
+	uint32_t hdr_offset; /* points to mail_index_ext_header.data[] */
+	uint32_t hdr_size; /* size of mail_index_ext_header.data[] */
 	uint16_t record_offset;
 	uint16_t record_size;
 	uint16_t record_align;
@@ -72,6 +72,26 @@ struct mail_index_keyword_header {
 struct mail_index_keyword_header_rec {
 	uint32_t count;
 	uint32_t name_offset; /* relative to beginning of name[] */
+};
+
+enum mail_index_sync_handler_type {
+	MAIL_INDEX_SYNC_HANDLER_INDEX	= 0x01,
+	MAIL_INDEX_SYNC_HANDLER_VIEW	= 0x02
+};
+
+struct mail_index_sync_handler {
+	mail_index_sync_handler_t *callback;
+        enum mail_index_sync_handler_type type;
+};
+
+struct mail_index_registered_ext {
+	const char *name;
+	uint32_t index_idx; /* index ext_id */
+	uint32_t hdr_size; /* size of mail_index_ext_header.data[] */
+	uint16_t record_size;
+	uint16_t record_align;
+
+        struct mail_index_sync_handler sync_handler;
 };
 
 struct mail_index_map {
@@ -113,10 +133,9 @@ struct mail_index {
 	gid_t gid;
 
 	pool_t extension_pool;
-	array_t ARRAY_DEFINE(extensions, struct mail_index_ext);
+	array_t ARRAY_DEFINE(extensions, struct mail_index_registered_ext);
 
 	array_t ARRAY_DEFINE(expunge_handlers, mail_index_expunge_handler_t *);
-	array_t ARRAY_DEFINE(sync_handlers, struct mail_index_sync_handler);
 	array_t ARRAY_DEFINE(sync_lost_handlers,
 			     mail_index_sync_lost_handler_t *);
 
@@ -157,16 +176,6 @@ struct mail_index {
 	unsigned int fsck:1;
 	unsigned int sync_update:1;
 	unsigned int mapping:1;
-};
-
-enum mail_index_sync_handler_type {
-	MAIL_INDEX_SYNC_HANDLER_INDEX	= 0x01,
-	MAIL_INDEX_SYNC_HANDLER_VIEW	= 0x02
-};
-
-struct mail_index_sync_handler {
-	mail_index_sync_handler_t *callback;
-        enum mail_index_sync_handler_type type;
 };
 
 /* Add/replace sync handler for specified extra record. */

@@ -101,34 +101,30 @@ void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 
 void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx)
 {
-	const struct mail_index_sync_handler *sync_handlers;
 	const struct mail_index_ext *ext;
+	const struct mail_index_registered_ext *rext;
 	void **extra_contexts;
-	unsigned int i, count, synch_count, context_count;
+	unsigned int i, count, rext_count, context_count;
 
 	if (!array_is_created(&ctx->extra_contexts))
 		return;
-
-	sync_handlers =
-		array_get(&ctx->view->index->sync_handlers, &synch_count);
 
 	if (!array_is_created(&ctx->view->map->extensions)) {
 		ext = NULL;
 		count = 0;
 	} else {
 		ext = array_get(&ctx->view->map->extensions, &count);
-		i_assert(count <= synch_count);
 	}
+	rext = array_get(&ctx->view->index->extensions, &rext_count);
 
-	/* sync_handlers[] is ordered by index->extensions while
-	   extra_contexts[] is ordered by map->extensions. */
+	/* extra_contexts[] is ordered by map->extensions. */
 	extra_contexts =
 		array_get_modifyable(&ctx->extra_contexts, &context_count);
 	i_assert(count <= context_count);
 
 	for (i = 0; i < count; i++) {
 		if (extra_contexts[i] != NULL) {
-			sync_handlers[ext[i].index_idx].
+			rext[ext[i].index_idx].sync_handler.
 				callback(ctx, 0, NULL, NULL,
 					 &extra_contexts[i]);
 		}
@@ -518,8 +514,8 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 {
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
-        const struct mail_index_sync_handler *sync_handlers;
 	const struct mail_index_ext *ext;
+	const struct mail_index_registered_ext *rext;
 	void *old_data;
 	uint32_t seq;
 	int ret;
@@ -538,15 +534,16 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 	old_data = PTR_OFFSET(rec, ext->record_offset);
 
-	sync_handlers = array_idx(&view->index->sync_handlers, ext->index_idx);
+	rext = array_idx(&view->index->extensions, ext->index_idx);
 
-	/* call sync handlers only when we're syncing index (not view) */
-	if ((sync_handlers->type & ctx->type) != 0) {
+	/* call sync handlers only when its registered type matches with
+	   current synchronization type (index/view) */
+	if ((rext->sync_handler.type & ctx->type) != 0) {
 		void **extra_context =
 			array_idx_modifyable(&ctx->extra_contexts,
 					     ctx->cur_ext_id);
-		ret = sync_handlers->callback(ctx, seq, old_data, u + 1,
-					      extra_context);
+		ret = rext->sync_handler.callback(ctx, seq, old_data, u + 1,
+						  extra_context);
 		if (ret <= 0)
 			return ret;
 	}

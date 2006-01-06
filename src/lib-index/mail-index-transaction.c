@@ -627,22 +627,32 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 			   uint16_t record_align)
 {
 	struct mail_transaction_ext_intro intro;
-	const struct mail_index_ext *ext;
+	uint32_t old_record_size, old_record_align;
 
 	memset(&intro, 0, sizeof(intro));
 
+	/* get ext_id from transaction's map if it's there */
 	if (!mail_index_map_get_ext_idx(t->view->map, ext_id, &intro.ext_id)) {
+		/* have to create it */
+		const struct mail_index_registered_ext *rext;
+
 		intro.ext_id = (uint32_t)-1;
-		ext = array_idx(&t->view->index->extensions, ext_id);
+		rext = array_idx(&t->view->index->extensions, ext_id);
+		old_record_size = rext->record_size;
+		old_record_align = rext->record_align;
 	} else {
+		const struct mail_index_ext *ext;
+
 		ext = array_idx(&t->view->map->extensions, ext_id);
+		old_record_size = ext->record_size;
+		old_record_align = ext->record_align;
 	}
 
 	/* allow only header size changes if extension records have already
 	   been changed in transaction */
 	i_assert(!array_is_created(&t->ext_rec_updates) ||
-		 (ext->record_size == record_size &&
-		  ext->record_align == record_align));
+		 (old_record_size == record_size &&
+		  old_record_align == record_align));
 
 	t->log_updates = TRUE;
 
@@ -693,7 +703,7 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 			   uint32_t ext_id, const void *data, void *old_data_r)
 {
 	struct mail_index *index = t->view->index;
-        const struct mail_index_ext *ext;
+        const struct mail_index_registered_ext *rext;
 	const struct mail_transaction_ext_intro *intro;
 	uint16_t record_size;
 	array_t *array;
@@ -716,8 +726,8 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 		/* resized record */
 		record_size = intro[ext_id].record_size;
 	} else {
-		ext = array_idx(&index->extensions, ext_id);
-		record_size = ext->record_size;
+		rext = array_idx(&index->extensions, ext_id);
+		record_size = rext->record_size;
 	}
 
 	if (!array_is_created(&t->ext_rec_updates)) {

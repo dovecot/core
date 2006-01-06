@@ -32,12 +32,10 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 
 	index->extension_pool = pool_alloconly_create("extension", 512);
 	ARRAY_CREATE(&index->extensions, index->extension_pool,
-		     struct mail_index_ext, 5);
+		     struct mail_index_registered_ext, 5);
 
 	ARRAY_CREATE(&index->expunge_handlers, default_pool,
 		     mail_index_expunge_handler_t *, 4);
-	ARRAY_CREATE(&index->sync_handlers, default_pool,
-		     struct mail_index_sync_handler, 4);
 	ARRAY_CREATE(&index->sync_lost_handlers, default_pool,
 		     mail_index_sync_lost_handler_t *, 4);
 
@@ -62,7 +60,6 @@ void mail_index_free(struct mail_index *index)
 	pool_unref(index->extension_pool);
 	pool_unref(index->keywords_pool);
 
-	array_free(&index->sync_handlers);
 	array_free(&index->sync_lost_handlers);
 	array_free(&index->expunge_handlers);
 	array_free(&index->keywords);
@@ -85,13 +82,11 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 				 uint16_t default_record_size,
 				 uint16_t default_record_align)
 {
-        const struct mail_index_ext *extensions;
-	struct mail_index_ext ext;
+        const struct mail_index_registered_ext *extensions;
+	struct mail_index_registered_ext rext;
 	unsigned int i, ext_count;
 
 	extensions = array_get(&index->extensions, &ext_count);
-
-	i_assert(array_count(&index->sync_handlers) == ext_count);
 
 	/* see if it's already there */
 	for (i = 0; i < ext_count; i++) {
@@ -99,15 +94,14 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 			return i;
 	}
 
-	memset(&ext, 0, sizeof(ext));
-	ext.name = p_strdup(index->extension_pool, name);
-	ext.index_idx = ext_count;
-	ext.hdr_size = default_hdr_size;
-	ext.record_size = default_record_size;
-	ext.record_align = default_record_align;
+	memset(&rext, 0, sizeof(rext));
+	rext.name = p_strdup(index->extension_pool, name);
+	rext.index_idx = ext_count;
+	rext.hdr_size = default_hdr_size;
+	rext.record_size = default_record_size;
+	rext.record_align = default_record_align;
 
-	array_append(&index->extensions, &ext, 1);
-	(void)array_append_space(&index->sync_handlers);
+	array_append(&index->extensions, &rext, 1);
 	return ext_count;
 }
 
@@ -138,25 +132,25 @@ void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
 				      mail_index_sync_handler_t *cb,
 				      enum mail_index_sync_handler_type type)
 {
-	struct mail_index_sync_handler *h;
+	struct mail_index_registered_ext *rext;
 
-	h = array_idx_modifyable(&index->sync_handlers, ext_id);
-	i_assert(h->callback == NULL);
+	rext = array_idx_modifyable(&index->extensions, ext_id);
+	i_assert(rext->sync_handler.callback == NULL);
 
-	h->callback = cb;
-	h->type = type;
+	rext->sync_handler.callback = cb;
+	rext->sync_handler.type = type;
 }
 
 void mail_index_unregister_sync_handler(struct mail_index *index,
 					uint32_t ext_id)
 {
-	struct mail_index_sync_handler *h;
+	struct mail_index_registered_ext *rext;
 
-	h = array_idx_modifyable(&index->sync_handlers, ext_id);
-	i_assert(h->callback != NULL);
+	rext = array_idx_modifyable(&index->extensions, ext_id);
+	i_assert(rext->sync_handler.callback != NULL);
 
-	h->callback = NULL;
-	h->type = 0;
+	rext->sync_handler.callback = NULL;
+	rext->sync_handler.type = 0;
 }
 
 void mail_index_register_sync_lost_handler(struct mail_index *index,

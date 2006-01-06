@@ -136,7 +136,6 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
-        const struct mail_index_ext *ext;
 	const array_t *ext_buf;
 	ARRAY_SET_TYPE(ext_buf, void *);
 	const void *data;
@@ -146,7 +145,6 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 
 	*map_r = view->index->map;
 
-	ext = array_idx(&view->index->extensions, ext_id);
 	if (array_is_created(&tview->t->ext_rec_updates) &&
 	    ext_id < array_count(&tview->t->ext_rec_updates)) {
 		/* there are some ext updates in transaction.

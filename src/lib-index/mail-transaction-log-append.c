@@ -117,7 +117,7 @@ static int log_append_ext_intro(struct mail_transaction_log_file *file,
 				struct mail_index_transaction *t,
 				uint32_t ext_id, uint32_t reset_id)
 {
-	const struct mail_index_ext *ext;
+	const struct mail_index_registered_ext *rext;
         struct mail_transaction_ext_intro *intro;
 	buffer_t *buf;
 	uint32_t idx;
@@ -128,7 +128,7 @@ static int log_append_ext_intro(struct mail_transaction_log_file *file,
 		idx = (uint32_t)-1;
 	}
 
-	ext = array_idx(&t->view->index->extensions, ext_id);
+	rext = array_idx(&t->view->index->extensions, ext_id);
 	if (!array_is_created(&t->ext_resizes)) {
 		intro = NULL;
 		count = 0;
@@ -143,17 +143,17 @@ static int log_append_ext_intro(struct mail_transaction_log_file *file,
 
 		i_assert(intro->ext_id == idx);
 		intro->name_size = idx != (uint32_t)-1 ? 0 :
-			strlen(ext->name);
+			strlen(rext->name);
 		buffer_append(buf, intro, sizeof(*intro));
 	} else {
 		/* generate a new intro structure */
 		intro = buffer_append_space_unsafe(buf, sizeof(*intro));
 		intro->ext_id = idx;
-		intro->hdr_size = ext->hdr_size;
-		intro->record_size = ext->record_size;
-		intro->record_align = ext->record_align;
+		intro->hdr_size = rext->hdr_size;
+		intro->record_size = rext->record_size;
+		intro->record_align = rext->record_align;
 		intro->name_size = idx != (uint32_t)-1 ? 0 :
-			strlen(ext->name);
+			strlen(rext->name);
 	}
 	if (reset_id != 0) {
 		/* we're going to reset this extension in this transaction */
@@ -166,7 +166,7 @@ static int log_append_ext_intro(struct mail_transaction_log_file *file,
 	} else {
 		/* new extension, reset_id defaults to 0 */
 	}
-	buffer_append(buf, ext->name, intro->name_size);
+	buffer_append(buf, rext->name, intro->name_size);
 
 	if ((buf->used % 4) != 0)
 		buffer_append_zero(buf, 4 - (buf->used % 4));
