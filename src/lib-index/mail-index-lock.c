@@ -81,7 +81,8 @@ int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 	}
 	case MAIL_INDEX_LOCK_FLOCK: {
 #ifndef HAVE_FLOCK
-		i_fatal("flock() locks not supported");
+		i_fatal("flock() locks not supported "
+			"(see lock_method setting in config file)");
 #else
 		int operation = timeout_secs != 0 ? 0 : LOCK_NB;
 
