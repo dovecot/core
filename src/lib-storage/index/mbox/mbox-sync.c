@@ -517,7 +517,8 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		}
 
 		if ((idx_mail.flags & MAIL_INDEX_MAIL_FLAG_DIRTY) == 0 &&
-		    !array_cmp(&idx_mail.keywords, &mail_ctx->mail.keywords))
+		    !index_keyword_array_cmp(&idx_mail.keywords,
+					     &mail_ctx->mail.keywords))
 			mbox_sync_update_index_keywords(mail_ctx);
 		t_pop();
 

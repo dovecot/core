@@ -1044,12 +1044,11 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		}
 
 		/* update keywords if they have changed */
-		array_clear(&idx_keywords);
 		if (mail_index_lookup_keywords(view, seq, &idx_keywords) < 0) {
 			ret = -1;
 			break;
 		}
-		if (!array_cmp(&keywords, &idx_keywords)) {
+		if (!index_keyword_array_cmp(&keywords, &idx_keywords)) {
 			struct mail_keywords *kw;
 
 			kw = mail_index_keywords_create_from_indexes(

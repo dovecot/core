@@ -179,4 +179,6 @@ void index_transaction_init(struct index_transaction_context *t,
 int index_transaction_commit(struct mailbox_transaction_context *t);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
 
+int index_keyword_array_cmp(const array_t *k1, const array_t *k2);
+
 #endif

@@ -267,3 +267,32 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	i_free(ctx);
 	return ret;
 }
+
+int index_keyword_array_cmp(const array_t *k1, const array_t *k2)
+{
+	ARRAY_SET_TYPE(k1, unsigned int);
+	ARRAY_SET_TYPE(k2, unsigned int);
+	const unsigned int *idx1, *idx2;
+	unsigned int i, j, count1, count2;
+
+	/* The arrays may not be sorted, but they usually are. Optimize for
+	   the assumption that they are */
+	idx1 = array_get(k1, &count1);
+	idx2 = array_get(k2, &count2);
+
+	if (count1 != count2)
+		return FALSE;
+
+	for (i = 0; i < count1; i++) {
+		if (idx1[i] != idx2[i]) {
+			/* not found / unsorted array. check. */
+			for (j = 0; j < count1; j++) {
+				if (idx1[i] == idx2[j])
+					break;
+			}
+			if (j == count1)
+				return FALSE;
+		}
+	}
+	return TRUE;
+}

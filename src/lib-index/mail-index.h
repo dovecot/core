@@ -264,6 +264,7 @@ int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
 int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 			   struct mail_index_map **map_r,
 			   const struct mail_index_record **rec_r);
+/* Note that returned keyword indexes aren't sorted. */
 int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 			       array_t *keyword_idx);
 /* Returns the UID for given message. May be slightly faster than
