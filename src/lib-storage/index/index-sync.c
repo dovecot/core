@@ -276,6 +276,11 @@ int index_keyword_array_cmp(const array_t *k1, const array_t *k2)
 	const unsigned int *idx1, *idx2;
 	unsigned int i, j, count1, count2;
 
+	if (!array_is_created(k1))
+		return !array_is_created(k2) || array_count(k2) == 0;
+	if (!array_is_created(k2))
+		return FALSE;
+
 	/* The arrays may not be sorted, but they usually are. Optimize for
 	   the assumption that they are */
 	idx1 = array_get(k1, &count1);
