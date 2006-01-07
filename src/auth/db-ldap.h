@@ -16,6 +16,7 @@ struct ldap_settings {
 	const char *dn;
 	const char *dnpass;
 	int auth_bind;
+	const char *auth_bind_userdn;
 	const char *deref;
 	const char *scope;
 	const char *base;

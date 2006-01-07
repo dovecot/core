@@ -219,32 +219,18 @@ handle_request_authbind(struct ldap_connection *conn,
 	passdb_ldap_request->callback.verify_plain(passdb_result, auth_request);
 }
 
-static void
-handle_request_authbind_search(struct ldap_connection *conn,
-			       struct ldap_request *ldap_request,
-			       LDAPMessage *res)
+static void authbind_start(struct ldap_connection *conn,
+			   struct ldap_request *ldap_request, const char *dn)
 {
 	struct passdb_ldap_request *passdb_ldap_request =
 		(struct passdb_ldap_request *)ldap_request;
 	struct auth_request *auth_request = ldap_request->context;
-	LDAPMessage *entry;
-	const char *dn;
 	int msgid;
-
-	entry = handle_request_get_entry(conn, auth_request,
-					 passdb_ldap_request, res);
-	if (entry == NULL)
-		return;
-
-	dn = ldap_get_dn(conn->ld, entry);
-
-	/* switch the handler to the authenticated bind handler */
-	ldap_request->callback = handle_request_authbind;
 
 	msgid = ldap_bind(conn->ld, dn, auth_request->mech_password,
 			  LDAP_AUTH_SIMPLE);
 	if (msgid == -1) {
-		i_error("ldap_bind() failed: %s", ldap_get_error(conn));
+		i_error("ldap_bind(%s) failed: %s", dn, ldap_get_error(conn));
 		passdb_ldap_request->callback.
 			verify_plain(PASSDB_RESULT_INTERNAL_FAILURE,
 				     auth_request);
@@ -254,6 +240,27 @@ handle_request_authbind_search(struct ldap_connection *conn,
 	/* Bind started */
 	auth_request_ref(auth_request);
 	hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
+}
+
+static void
+handle_request_authbind_search(struct ldap_connection *conn,
+			       struct ldap_request *ldap_request,
+			       LDAPMessage *res)
+{
+	struct passdb_ldap_request *passdb_ldap_request =
+		(struct passdb_ldap_request *)ldap_request;
+	struct auth_request *auth_request = ldap_request->context;
+	LDAPMessage *entry;
+
+	entry = handle_request_get_entry(conn, auth_request,
+					 passdb_ldap_request, res);
+	if (entry == NULL)
+		return;
+
+	/* switch the handler to the authenticated bind handler */
+	ldap_request->callback = handle_request_authbind;
+
+        authbind_start(conn, ldap_request, ldap_get_dn(conn->ld, entry));
 }
 
 static void ldap_lookup_pass(struct auth_request *auth_request,
@@ -289,6 +296,27 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 			       t_strarray_join(attr_names, ","));
 
 	db_ldap_search(conn, ldap_request, conn->set.ldap_scope);
+}
+
+static void
+ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
+				   struct ldap_request *ldap_request)
+{
+	struct passdb_module *_module = auth_request->passdb->passdb;
+	struct ldap_passdb_module *module =
+		(struct ldap_passdb_module *)_module;
+	struct ldap_connection *conn = module->conn;
+        const struct var_expand_table *vars;
+	string_t *dn;
+
+	vars = auth_request_get_var_expand_table(auth_request, ldap_escape);
+	dn = t_str_new(512);
+	var_expand(dn, conn->set.auth_bind_userdn, vars);
+
+	ldap_request->callback = handle_request_authbind;
+	ldap_request->context = auth_request;
+
+        authbind_start(conn, ldap_request, str_c(dn));
 }
 
 static void
@@ -341,7 +369,9 @@ ldap_verify_plain(struct auth_request *request,
 	ldap_request = p_new(request->pool, struct passdb_ldap_request, 1);
 	ldap_request->callback.verify_plain = callback;
 
-	if (conn->set.auth_bind)
+	if (conn->set.auth_bind_userdn != NULL)
+		ldap_verify_plain_auth_bind_userdn(request, &ldap_request->request);
+	else if (conn->set.auth_bind)
 		ldap_verify_plain_authbind(request, &ldap_request->request);
 	else
 		ldap_lookup_pass(request, &ldap_request->request);
