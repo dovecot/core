@@ -10,13 +10,16 @@
 #include <stdlib.h>
 
 #define DEFAULT_IDLE_CHECK_INTERVAL 30
+/* Send some noice to client every few minutes to avoid NATs and stateful
+   firewalls from closing the connection */
+#define KEEPALIVE_TIMEOUT (2*60)
 
 struct cmd_idle_context {
 	struct client *client;
 	struct client_command_context *cmd;
 
 	struct imap_sync_context *sync_ctx;
-	struct timeout *to;
+	struct timeout *idle_to, *keepalive_to;
 	uint32_t dummy_seq;
 
 	unsigned int idle_timeout:1;
@@ -29,9 +32,13 @@ static void idle_finish(struct cmd_idle_context *ctx, int done_ok)
 {
 	struct client *client = ctx->client;
 
-	if (ctx->to != NULL) {
-		timeout_remove(ctx->to);
-		ctx->to = NULL;
+	if (ctx->idle_to != NULL) {
+		timeout_remove(ctx->idle_to);
+		ctx->idle_to = NULL;
+	}
+	if (ctx->keepalive_to != NULL) {
+		timeout_remove(ctx->keepalive_to);
+		ctx->keepalive_to = NULL;
 	}
 
 	if (ctx->sync_ctx != NULL) {
@@ -123,8 +130,8 @@ static void idle_timeout(void *context)
 	   we're about to disconnect unless it does something. send a fake
 	   EXISTS to see if it responds. it's expunged later. */
 
-	timeout_remove(ctx->to);
-	ctx->to = NULL;
+	timeout_remove(ctx->idle_to);
+	ctx->idle_to = NULL;
 
 	if (ctx->sync_ctx != NULL) {
 		/* we're already syncing.. do this after it's finished */
@@ -133,6 +140,18 @@ static void idle_timeout(void *context)
 	}
 
 	idle_send_expunge(ctx);
+}
+
+static void keepalive_timeout(void *context)
+{
+	struct cmd_idle_context *ctx = context;
+
+	if (ctx->client->output_pending) {
+		/* it's busy sending output */
+		return;
+	}
+
+	client_send_line(ctx->client, "* OK Still here");
 }
 
 static void idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
@@ -210,9 +229,11 @@ int cmd_idle(struct client_command_context *cmd)
 
 	if ((client_workarounds & WORKAROUND_OUTLOOK_IDLE) != 0 &&
 	    client->mailbox != NULL) {
-		ctx->to = timeout_add((CLIENT_IDLE_TIMEOUT - 60) * 1000,
-				      idle_timeout, ctx);
+		ctx->idle_to = timeout_add((CLIENT_IDLE_TIMEOUT - 60) * 1000,
+					   idle_timeout, ctx);
 	}
+	ctx->keepalive_to = timeout_add(KEEPALIVE_TIMEOUT * 1000,
+					keepalive_timeout, ctx);
 
 	str = getenv("MAILBOX_IDLE_CHECK_INTERVAL");
 	interval = str == NULL ? 0 : (unsigned int)strtoul(str, NULL, 10);
