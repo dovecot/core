@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+/* Assume that if atime < mtime, there are new mails. If it's good enough for
+   UW-IMAP, it's good enough for us. */
 #define STAT_GET_MARKED(st) \
 	((st).st_size == 0 ? MAILBOX_UNMARKED : \
 	 (st).st_atime < (st).st_mtime ? MAILBOX_MARKED : MAILBOX_UNMARKED)
