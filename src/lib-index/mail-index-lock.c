@@ -38,7 +38,7 @@ int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 {
 	int ret;
 
-	if (index->fd == -1) {
+	if (fd == -1) {
 		i_assert(MAIL_INDEX_IS_IN_MEMORY(index));
 		return 1;
 	}
