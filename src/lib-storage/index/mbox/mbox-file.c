@@ -8,6 +8,7 @@
 #include "istream-raw-mbox.h"
 
 #include <sys/stat.h>
+#include <utime.h>
 
 int mbox_file_open(struct mbox_mailbox *mbox)
 {
@@ -96,8 +97,35 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 	return 0;
 }
 
+static void mbox_file_fix_atime(struct mbox_mailbox *mbox)
+{
+	struct utimbuf buf;
+	struct stat st;
+
+	if (mbox->ibox.recent_flags_count > 0 && mbox->ibox.keep_recent &&
+	    mbox->mbox_fd != -1) {
+		/* we've seen recent messages which we want to keep recent.
+		   keep file's atime lower than mtime so \Marked status
+		   gets shown while listing */
+		if (fstat(mbox->mbox_fd, &st) < 0) {
+			mbox_set_syscall_error(mbox, "fstat()");
+			return;
+		}
+		if (st.st_atime >= st.st_mtime) {
+			buf.modtime = st.st_mtime;
+			buf.actime = buf.modtime - 1;
+			if (utime(mbox->path, &buf) < 0) {
+				mbox_set_syscall_error(mbox, "utimes()");
+				return;
+			}
+		}
+	}
+}
 void mbox_file_close_stream(struct mbox_mailbox *mbox)
 {
+	/* if we read anything, fix the atime if needed */
+	mbox_file_fix_atime(mbox);
+
 	if (mbox->mbox_stream != NULL) {
 		i_stream_unref(mbox->mbox_stream);
 		mbox->mbox_stream = NULL;

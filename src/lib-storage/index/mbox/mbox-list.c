@@ -10,13 +10,9 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-/* atime < mtime is a reliable way to know that something changed in the file.
-   atime >= mtime is not however reliable, especially because atime gets
-   updated whenever we open the mbox file, and STATUS/EXAMINE shouldn't change
-   \Marked mailbox to \Unmarked.. */
 #define STAT_GET_MARKED(st) \
 	((st).st_size == 0 ? MAILBOX_UNMARKED : \
-	 (st).st_atime < (st).st_mtime ? MAILBOX_MARKED : 0)
+	 (st).st_atime < (st).st_mtime ? MAILBOX_MARKED : MAILBOX_UNMARKED)
 
 struct list_dir_context {
 	struct list_dir_context *prev;
