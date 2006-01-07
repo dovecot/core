@@ -17,12 +17,44 @@ static const char *months[] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
+static int mbox_parse_month(const unsigned char *msg, struct tm *tm)
+{
+	int i;
+
+	for (i = 0; i < 12; i++) {
+		if (memcasecmp(months[i], msg, 3) == 0) {
+			tm->tm_mon = i;
+			break;
+		}
+	}
+
+	if (i == 12 && memcmp(msg, "???", 3) == 0) {
+		/* just a hack to parse one special mbox I have :) */
+		i = 0;
+	}
+
+	if (i == 12 || msg[3] != ' ')
+		return -1;
+	return 0;
+}
+
+static int mbox_parse_year(const unsigned char *msg, struct tm *tm)
+{
+	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
+	    !i_isdigit(msg[2]) || !i_isdigit(msg[3]))
+		return -1;
+
+	tm->tm_year = (msg[0]-'0') * 1000 + (msg[1]-'0') * 100 +
+		(msg[2]-'0') * 10 + (msg[3]-'0') - 1900;
+	return 0;
+}
+
 int mbox_from_parse(const unsigned char *msg, size_t size,
 		    time_t *time_r, char **sender_r)
 {
 	const unsigned char *msg_start, *sender_end, *msg_end;
 	struct tm tm;
-	int i, esc, timezone = 0, seen_timezone = FALSE;
+	int esc, alt_stamp, timezone = 0, seen_timezone = FALSE;
 	time_t t;
 
 	*time_r = (time_t)-1;
@@ -55,7 +87,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	while (msg < msg_end && *msg == ' ') msg++;
 
 	/* next 24 chars should be in the date in asctime() format, eg.
-	   "Thu Nov 29 22:33:52 2001 +0300"
+	   "Thu Nov  9 22:33:52 2001 +0300"
 
 	   - Some put the timezone before the year
 	   - Some use a named timezone before or after year, which we ignore
@@ -70,35 +102,49 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	msg += 4;
 
 	/* month */
-	for (i = 0; i < 12; i++) {
-		if (memcasecmp(months[i], msg, 3) == 0) {
-			tm.tm_mon = i;
-			break;
-		}
-	}
-
-	if (i == 12 && memcmp(msg, "???", 3) == 0) {
-		/* just a hack to parse one special mbox I have :) */
-		i = 0;
-	}
-
-	if (i == 12 || msg[3] != ' ')
-		return -1;
-	msg += 4;
-
-	/* day. single digit is usually preceded by extra space */
-	if (msg[0] == ' ')
+	if (mbox_parse_month(msg, &tm) < 0) {
+		/* Try alternate timestamp: "Thu, 9 Nov 2002 22:33:52" */
+		alt_stamp = TRUE;
 		msg++;
-	if (msg[1] == ' ') {
+
 		if (!i_isdigit(msg[0]))
 			return -1;
 		tm.tm_mday = msg[0]-'0';
-		msg += 2;
-	} else {
-		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
+		msg++;
+
+		if (i_isdigit(msg[0])) {
+			tm.tm_mday = tm.tm_mday*10 + msg[0]-'0';
+			msg++;
+		}
+		if (msg[0] != ' ')
 			return -1;
-		tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
-		msg += 3;
+		msg++;
+
+		if (mbox_parse_month(msg, &tm) < 0)
+			return -1;
+		msg += 4;
+
+		if (mbox_parse_year(msg, &tm) < 0)
+			return -1;
+		msg += 5;
+	} else {
+		alt_stamp = FALSE;
+		msg += 4;
+
+		/* day. single digit is usually preceded by extra space */
+		if (msg[0] == ' ')
+			msg++;
+		if (msg[1] == ' ') {
+			if (!i_isdigit(msg[0]))
+				return -1;
+			tm.tm_mday = msg[0]-'0';
+			msg += 2;
+		} else {
+			if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
+				return -1;
+			tm.tm_mday = (msg[0]-'0') * 10 + (msg[1]-'0');
+			msg += 3;
+		}
 	}
 	if (tm.tm_mday == 0)
 		tm.tm_mday = 1;
@@ -118,10 +164,15 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	/* optional second */
 	if (msg[0] == ':') {
 		msg++;
-		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) || msg[2] != ' ')
+		if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]))
 			return -1;
 		tm.tm_sec = (msg[0]-'0') * 10 + (msg[1]-'0');
-		msg += 3;
+		msg += 2;
+
+		if (msg[0] == ' ')
+			msg++;
+		else if (!alt_stamp)
+			return -1;
 	} else {
 		if (msg[0] != ' ')
 			return -1;
@@ -129,8 +180,10 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 	}
 
 	/* optional named timezone */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
-	    !i_isdigit(msg[2]) || !i_isdigit(msg[3])) {
+	if (alt_stamp)
+		;
+	else if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
+		 !i_isdigit(msg[2]) || !i_isdigit(msg[3])) {
 		/* skip to next space */
 		while (msg < msg_end && *msg != ' ') {
 			if (*msg == '\r' || *msg == '\n')
@@ -151,14 +204,12 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 		msg += 6;
 	}
 
-	/* year */
-	if (!i_isdigit(msg[0]) || !i_isdigit(msg[1]) ||
-	    !i_isdigit(msg[2]) || !i_isdigit(msg[3]))
-		return -1;
-
-	tm.tm_year = (msg[0]-'0') * 1000 + (msg[1]-'0') * 100 +
-		(msg[2]-'0') * 10 + (msg[3]-'0') - 1900;
-	msg += 4;
+	if (!alt_stamp) {
+		/* year */
+		if (mbox_parse_year(msg, &tm) < 0)
+			return -1;
+		msg += 4;
+	}
 
 	tm.tm_isdst = -1;
 	if (!seen_timezone &&
