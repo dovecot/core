@@ -19,6 +19,7 @@ SUBDIRS = \
 	lib-storage \
 	lib-auth \
 	auth \
+	dict \
 	master \
 	login-common \
 	imap-login \
