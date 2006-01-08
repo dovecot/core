@@ -1589,7 +1589,6 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
-src/deliver/Makefile
 src/util/Makefile
 src/plugins/Makefile
 src/plugins/quota/Makefile
@@ -1610,7 +1609,7 @@ echo "File change notification method ..... : $have_notify"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $want_ipv6"
 echo "Building with pop3 server ........... : $want_pop3d"
-echo "Building with mail delivery agent  .. : $want_deliver"
+#echo "Building with mail delivery agent  .. : $want_deliver"
 echo "Building with GSSAPI support ........ : $have_gssapi"
 echo "Building with user database modules . :$userdb"
 echo "Building with password lookup modules :$passdb"
