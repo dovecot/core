@@ -44,6 +44,15 @@ void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 				ctx->hdr_pos[i] += diff;
 		}
 
+		if (ctx->mail.space > 0) {
+			i_assert(ctx->mail.offset + ctx->mail.space <= pos ||
+				 ctx->mail.offset > pos + have);
+			if (ctx->mail.offset > pos) {
+				/* free space offset moves */
+				ctx->mail.offset += diff;
+			}
+		}
+
 		if (diff < 0)
 			str_delete(ctx->header, pos, -diff);
 		else {
