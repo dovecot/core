@@ -231,6 +231,9 @@ dict_quota_try_alloc(struct quota_transaction_context *ctx,
 	uoff_t size;
 
 	size = mail_get_physical_size(mail);
+	if (size == (uoff_t)-1)
+		return -1;
+
 	*too_large_r = size > ctx->storage_limit;
 
 	if (ctx->storage_current + ctx->bytes_diff + size > ctx->storage_limit)
