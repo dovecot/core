@@ -18,16 +18,20 @@
 struct ioloop_notify_handler_context {
 	struct io *event_io;
 	int disabled;
+
+	int event_pipe[2];
 };
 
-static int event_pipe[2] = { -1, -1 };
+static int sigrt_refcount = 0;
 
 static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
 			  void *data __attr_unused__)
 {
+	struct ioloop_notify_handler_context *ctx =
+		current_ioloop->notify_handler_context;
 	int ret;
 
-	ret = write(event_pipe[1], &si->si_fd, sizeof(int));
+	ret = write(ctx->event_pipe[1], &si->si_fd, sizeof(int));
 	if (ret < 0 && errno != EINTR && errno != EAGAIN)
 		i_fatal("write(event_pipe) failed: %m");
 
@@ -37,10 +41,12 @@ static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
 static void event_callback(void *context)
 {
 	struct ioloop *ioloop = context;
+	struct ioloop_notify_handler_context *ctx =
+		ioloop->notify_handler_context;
 	struct io *io;
 	int fd, ret;
 
-	ret = read(event_pipe[0], &fd, sizeof(fd));
+	ret = read(ctx->event_pipe[0], &fd, sizeof(fd));
 	if (ret < 0)
 		i_fatal("read(event_pipe) failed: %m");
 	if (ret != sizeof(fd)) {
@@ -97,7 +103,8 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 
 	if (ctx->event_io == NULL) {
 		ctx->event_io =
-			io_add(event_pipe[0], IO_READ, event_callback, ioloop);
+			io_add(ctx->event_pipe[0], IO_READ,
+			       event_callback, ioloop);
 	}
 
 	io = p_new(ioloop->pool, struct io, 1);
@@ -147,31 +154,31 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 	struct ioloop_notify_handler_context *ctx;
 	struct sigaction act;
 
-	i_assert(event_pipe[0] == -1);
-
 	ctx = ioloop->notify_handler_context =
 		i_new(struct ioloop_notify_handler_context, 1);
 
-	if (pipe(event_pipe) < 0) {
+	if (pipe(ctx->event_pipe) < 0) {
 		i_fatal("pipe() failed: %m");
 		return;
 	}
 
-	fd_set_nonblock(event_pipe[0], TRUE);
-	fd_set_nonblock(event_pipe[1], TRUE);
+	fd_set_nonblock(ctx->event_pipe[0], TRUE);
+	fd_set_nonblock(ctx->event_pipe[1], TRUE);
 
-	fd_close_on_exec(event_pipe[0], TRUE);
-	fd_close_on_exec(event_pipe[1], TRUE);
+	fd_close_on_exec(ctx->event_pipe[0], TRUE);
+	fd_close_on_exec(ctx->event_pipe[1], TRUE);
 
-	/* SIGIO is sent if queue gets full. we'll just ignore it. */
-        signal(SIGIO, SIG_IGN);
+	if (sigrt_refcount++ == 0) {
+		/* SIGIO is sent if queue gets full. we'll just ignore it. */
+		signal(SIGIO, SIG_IGN);
 
-	act.sa_sigaction = sigrt_handler;
-	sigemptyset(&act.sa_mask);
-	act.sa_flags = SA_SIGINFO | SA_RESTART | SA_NODEFER;
+		act.sa_sigaction = sigrt_handler;
+		sigemptyset(&act.sa_mask);
+		act.sa_flags = SA_SIGINFO | SA_RESTART | SA_NODEFER;
 
-	if (sigaction(SIGRTMIN, &act, NULL) < 0)
-		i_fatal("sigaction(SIGRTMIN) failed: %m");
+		if (sigaction(SIGRTMIN, &act, NULL) < 0)
+			i_fatal("sigaction(SIGRTMIN) failed: %m");
+	}
 }
 
 void io_loop_notify_handler_deinit(struct ioloop *ioloop __attr_unused__)
@@ -179,11 +186,12 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop __attr_unused__)
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 
-	signal(SIGRTMIN, SIG_IGN);
+	if (--sigrt_refcount == 0)
+		signal(SIGRTMIN, SIG_IGN);
 
-	if (close(event_pipe[0]) < 0)
+	if (close(ctx->event_pipe[0]) < 0)
 		i_error("close(event_pipe[0]) failed: %m");
-	if (close(event_pipe[1]) < 0)
+	if (close(ctx->event_pipe[1]) < 0)
 		i_error("close(event_pipe[1]) failed: %m");
 
 	i_free(ctx);
