@@ -306,6 +306,11 @@ dbox_open(struct dbox_storage *storage, const char *name,
 		mbox->rotate_size = (uoff_t)strtoul(value, NULL, 10) * 1024;
 	else
 		mbox->rotate_size = DBOX_DEFAULT_ROTATE_SIZE;
+	value = getenv("DBOX_ROTATE_MIN_SIZE");
+	if (value != NULL)
+		mbox->rotate_min_size = (uoff_t)strtoul(value, NULL, 10) * 1024;
+	else
+		mbox->rotate_min_size = DBOX_DEFAULT_ROTATE_MIN_SIZE;
 	value = getenv("DBOX_ROTATE_DAYS");
 	if (value != NULL)
 		mbox->rotate_days = (unsigned int)strtoul(value, NULL, 10);

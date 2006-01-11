@@ -86,6 +86,7 @@ struct settings {
 	int mbox_very_dirty_syncs;
 	int mbox_lazy_writes;
 	unsigned int dbox_rotate_size;
+	unsigned int dbox_rotate_min_size;
 	unsigned int dbox_rotate_days;
 	unsigned int umask;
 	int mail_drop_priv_before_exec;

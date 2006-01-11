@@ -15,6 +15,7 @@
 
 /* Default rotation settings */
 #define DBOX_DEFAULT_ROTATE_SIZE (2*1024*1024)
+#define DBOX_DEFAULT_ROTATE_MIN_SIZE (1024*16)
 #define DBOX_DEFAULT_ROTATE_DAYS 0
 
 struct dbox_uidlist;
@@ -80,7 +81,7 @@ struct dbox_mailbox {
 	uint32_t dbox_file_ext_idx;
 	uint32_t dbox_offset_ext_idx;
 
-	uoff_t rotate_size;
+	uoff_t rotate_size, rotate_min_size;
 	unsigned int rotate_days;
 };
 

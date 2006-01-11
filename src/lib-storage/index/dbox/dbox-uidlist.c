@@ -847,6 +847,11 @@ static time_t get_min_timestamp(unsigned int days)
 	return stamp - (3600*24 * (days-1));
 }
 
+#define DBOX_CAN_APPEND(mbox, create_time, file_size, min_usable_timestamp) \
+	(((create_time) >= (min_usable_timestamp) && \
+	  (file_size) < (mbox)->rotate_size) || \
+	 (file_size) < (mbox)->rotate_min_size)
+
 int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 			       struct dbox_file **file_r)
 {
@@ -867,8 +872,9 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	/* check first from already opened files */
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
-		if (files[i]->file->create_time >= min_usable_timestamp ||
-		    files[i]->append_offset < mbox->rotate_size) {
+		if (DBOX_CAN_APPEND(mbox, files[i]->file->create_time,
+				    files[i]->append_offset,
+				    min_usable_timestamp)) {
 			if (dbox_reopen_file(ctx, files[i]) < 0)
 				return -1;
 
@@ -885,8 +891,9 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	for (i = 0;; i++) {
                 file_seq = 0; 
 		for (; i < count; i++) {
-			if ((entries[i]->create_time >= min_usable_timestamp ||
-			     entries[i]->file_size < mbox->rotate_size) &&
+			if (DBOX_CAN_APPEND(mbox, entries[i]->create_time,
+					    entries[i]->file_size,
+					    min_usable_timestamp) &&
 			    !dbox_uidlist_files_lookup(ctx,
 						       entries[i]->file_seq)) {
 				file_seq = entries[i]->file_seq;
