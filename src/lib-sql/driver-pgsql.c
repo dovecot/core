@@ -172,6 +172,8 @@ static struct sql_db *driver_pgsql_init(const char *connect_string)
 {
 	struct pgsql_db *db;
 
+	i_assert(connect_string != NULL);
+
 	db = i_new(struct pgsql_db, 1);
 	db->connect_string = i_strdup(connect_string);
 	db->api = driver_pgsql_db;
