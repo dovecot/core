@@ -38,7 +38,7 @@ static int dbox_mail_parse_mail_header(struct index_mail *mail,
 		return 0;
 	}
 
-	mail->data.physical_size =
+	mail->data.physical_size = mail->data.virtual_size =
 		hex2dec(hdr->mail_size_hex, sizeof(hdr->mail_size_hex));
 	mail->data.received_date =
 		hex2dec(hdr->received_time_hex, sizeof(hdr->received_time_hex));
@@ -201,7 +201,7 @@ struct mail_vfuncs dbox_mail_vfuncs = {
 	index_mail_get_parts,
 	dbox_mail_get_received_date,
 	index_mail_get_date,
-	index_mail_get_virtual_size,
+	dbox_mail_get_physical_size, /* physical = virtual in our case */
 	dbox_mail_get_physical_size,
 	index_mail_get_first_header,
 	index_mail_get_headers,

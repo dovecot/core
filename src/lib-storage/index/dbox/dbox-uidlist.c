@@ -860,6 +860,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	struct dbox_uidlist_entry *const *entries;
 	struct dbox_file *file;
 	struct dotlock *dotlock;
+	struct ostream *output;
 	string_t *str;
 	unsigned int i, count;
 	struct stat st;
@@ -949,7 +950,12 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 
 	file->input = i_stream_create_file(file->fd, default_pool,
 					   65536, FALSE);
-	file->output = o_stream_create_file(file->fd, default_pool, 0, FALSE);
+
+	/* we'll be using CRLF linefeeds always */
+	output = o_stream_create_file(file->fd, default_pool, 0, FALSE);
+	file->output = o_stream_create_crlf(default_pool, output);
+	o_stream_unref(output);
+
 	if (st.st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {
 			dbox_file_close(file);
