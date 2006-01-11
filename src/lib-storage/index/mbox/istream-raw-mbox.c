@@ -397,6 +397,12 @@ uoff_t istream_raw_mbox_get_header_offset(struct istream *stream)
 	if (rstream->hdr_offset == rstream->from_offset)
 		(void)_read(&rstream->istream);
 
+	if (rstream->corrupted) {
+		i_error("Unexpectedly lost From-line at "
+			"%"PRIuUOFF_T, rstream->from_offset);
+		return (uoff_t)-1;
+	}
+
 	return rstream->hdr_offset;
 }
 
@@ -416,8 +422,15 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 		i_stream_get_data(stream, &pos);
 		i_stream_skip(stream, pos);
 
-		if (_read(&rstream->istream) < 0)
+		if (_read(&rstream->istream) < 0) {
+			if (rstream->corrupted) {
+				i_error("Unexpectedly lost From-line at "
+					"%"PRIuUOFF_T, rstream->from_offset);
+			} else {
+				i_assert(rstream->body_offset != (uoff_t)-1);
+			}
 			break;
+		}
 	}
 
 	i_stream_seek(stream, offset);

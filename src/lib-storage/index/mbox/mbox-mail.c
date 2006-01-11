@@ -160,6 +160,8 @@ static uoff_t mbox_mail_get_physical_size(struct mail *_mail)
 	stream = mbox->mbox_stream;
 	hdr_offset = istream_raw_mbox_get_header_offset(stream);
 	body_offset = istream_raw_mbox_get_body_offset(stream);
+	if (body_offset == (uoff_t)-1)
+		return (uoff_t)-1;
 	body_size = istream_raw_mbox_get_body_size(stream, (uoff_t)-1);
 
 	data->physical_size = (body_offset - hdr_offset) + body_size;
