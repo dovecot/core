@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <pwd.h>
 
 enum settings_type {
@@ -601,10 +602,7 @@ static int settings_verify(struct settings *set)
 
 	/* since they're under /var/run by default, they may have been
 	   deleted. */
-	if (safe_mkdir(set->base_dir, 0700, master_uid, getegid()) == 0) {
-		i_warning("Corrected permissions for base directory %s",
-			  set->base_dir);
-	}
+	(void)mkdir(set->base_dir, 0777);
 
 	if (!settings_have_connect_sockets(set)) {
 		/* we are not using external authentication, so make sure the
