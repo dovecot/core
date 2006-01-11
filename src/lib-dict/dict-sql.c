@@ -36,7 +36,7 @@ struct sql_dict_transaction_context {
 static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 {
 	struct istream *input;
-	const char *line, *value;
+	const char *line, *value, *p;
 	int fd;
 
 	fd = open(path, O_RDONLY);
@@ -47,13 +47,16 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 
 	input = i_stream_create_file(fd, default_pool, (size_t)-1, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
+		while (*line == ' ') line++;
 		value = strchr(line, '=');
 		if (value == NULL)
 			continue;
 
 		t_push();
-		line = t_strdup_until(line, value);
+		for (p = value; p[-1] == ' ' && p != line; p--) ;
+		line = t_strdup_until(line, p);
 		value++;
+		while (*value == ' ') value++;
 
 		if (strcmp(line, "connect") == 0)
 			dict->connect_string = p_strdup(dict->pool, value);
@@ -68,6 +71,24 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 	}
 	i_stream_unref(input);
 	(void)close(fd);
+
+	if (dict->connect_string == NULL) {
+		i_error("%s: 'connect' missing", path);
+		return -1;
+	}
+	if (dict->table == NULL) {
+		i_error("%s: 'table' missing", path);
+		return -1;
+	}
+	if (dict->select_field == NULL) {
+		i_error("%s: 'select_field' missing", path);
+		return -1;
+	}
+	if (dict->where_field == NULL) {
+		i_error("%s: 'where_field' missing", path);
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -81,7 +102,7 @@ static struct dict *sql_dict_init(struct dict *dict_class, const char *uri)
 	dict->pool = pool;
 	dict->dict = *dict_class;
 
-	if (sql_dict_read_config(dict, uri) <= 0) {
+	if (sql_dict_read_config(dict, uri) < 0) {
 		pool_unref(pool);
 		return NULL;
 	}
