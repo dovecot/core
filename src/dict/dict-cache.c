@@ -40,6 +40,7 @@ struct dict *dict_cache_get(struct dict_cache *cache, const char *uri)
 		entry = i_new(struct dict_entry, 1);
 		entry->dict = dict_init(uri);
 		entry->uri = i_strdup(uri);
+		hash_insert(cache->dicts, entry->uri, entry);
 	}
 	entry->refcount++;
 	return entry->dict;

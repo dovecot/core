@@ -60,10 +60,11 @@ static int cmd_lookup(struct dict_client_connection *conn, const char *line)
 	/* <key> */
 	ret = dict_lookup(conn->dict, pool_datastack_create(), line, &value);
 	if (ret > 0) {
-		reply = t_strdup_printf("%c%s", DICT_PROTOCOL_REPLY_OK, value);
+		reply = t_strdup_printf("%c%s\n",
+					DICT_PROTOCOL_REPLY_OK, value);
 		o_stream_send_str(conn->output, reply);
 	} else {
-		reply = t_strdup_printf("%c", ret == 0 ?
+		reply = t_strdup_printf("%c\n", ret == 0 ?
 					DICT_PROTOCOL_REPLY_NOTFOUND :
 					DICT_PROTOCOL_REPLY_FAIL);
 		o_stream_send_str(conn->output, reply);
@@ -91,7 +92,7 @@ static int cmd_iterate(struct dict_client_connection *conn, const char *line)
 		/* FIXME: we don't want to keep blocking here. set a flush
 		   function and send the replies there when buffer gets full */
 		t_push();
-		reply = t_strdup_printf("%s\t%s", key, value);
+		reply = t_strdup_printf("%s\t%s\n", key, value);
 		o_stream_send_str(conn->output, reply);
 		t_pop();
 	}
@@ -193,7 +194,7 @@ static int cmd_commit(struct dict_client_connection *conn, const char *line)
 		return -1;
 
 	ret = dict_transaction_commit(trans->ctx);
-	reply = t_strdup_printf("%c", ret == 0 ? DICT_PROTOCOL_REPLY_OK :
+	reply = t_strdup_printf("%c\n", ret == 0 ? DICT_PROTOCOL_REPLY_OK :
 				DICT_PROTOCOL_REPLY_FAIL);
 	o_stream_send_str(conn->output, reply);
 	dict_server_transaction_array_remove(conn, trans);
@@ -298,6 +299,9 @@ static int dict_client_parse_handshake(struct dict_client_connection *conn,
 	/* the rest is dict URI */
 	conn->uri = i_strdup(line);
 	conn->dict = dict_cache_get(conn->server->cache, conn->uri);
+	if (conn->dict == NULL)
+		return -1;
+
 	return 0;
 }
 
@@ -356,10 +360,12 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 	const struct dict_server_transaction *transactions;
 	unsigned int i, count;
 
-	transactions = array_get(&conn->transactions, &count);
-	for (i = 0; i < count; i++)
-                dict_transaction_rollback(transactions[i].ctx);
-	array_free(&conn->transactions);
+	if (array_is_created(&conn->transactions)) {
+		transactions = array_get(&conn->transactions, &count);
+		for (i = 0; i < count; i++)
+			dict_transaction_rollback(transactions[i].ctx);
+		array_free(&conn->transactions);
+	}
 
 	io_remove(conn->io);
 	i_stream_unref(conn->input);

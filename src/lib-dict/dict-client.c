@@ -189,7 +189,7 @@ static int client_dict_connect(struct client_dict *dict)
 	dict->transaction_id_counter = 0;
 
 	t_push();
-	query = t_strdup_printf("%c%u\t%u\t%s\t%s", DICT_PROTOCOL_CMD_HELLO,
+	query = t_strdup_printf("%c%u\t%u\t%s\t%s\n", DICT_PROTOCOL_CMD_HELLO,
 				DICT_CLIENT_PROTOCOL_MAJOR_VERSION,
 				DICT_CLIENT_PROTOCOL_MINOR_VERSION,
 				dict->username, dict->uri);
