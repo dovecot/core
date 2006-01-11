@@ -9,6 +9,7 @@
 #include "write-full.h"
 
 #include "auth-process.h"
+#include "dict-process.h"
 #include "login-process.h"
 #include "mail-process.h"
 #include "syslog-util.h"
@@ -193,11 +194,18 @@ static void timeout_handler(void *context __attr_unused__)
 		process_type = PID_GET_PROCESS_TYPE(pid);
 		PID_REMOVE_PROCESS_TYPE(pid);
 
-		if (process_type == PROCESS_TYPE_IMAP ||
-		    process_type == PROCESS_TYPE_POP3)
+		switch (process_type) {
+		case PROCESS_TYPE_IMAP:
+		case PROCESS_TYPE_POP3:
 			mail_process_destroyed(pid);
-		if (process_type == PROCESS_TYPE_SSL_PARAM)
+			break;
+		case PROCESS_TYPE_SSL_PARAM:
 			ssl_parameter_process_destroyed(pid);
+			break;
+		case PROCESS_TYPE_DICT:
+			dict_process_restart();
+			break;
+		}
 
 		/* write errors to syslog */
 		process_type_name = process_names[process_type];
@@ -540,6 +548,7 @@ static void main_init(void)
 	to = timeout_add(100, timeout_handler, NULL);
 
 	ssl_init();
+	dict_process_init();
 	auth_processes_init();
 	login_processes_init();
 
@@ -557,6 +566,7 @@ static void main_deinit(void)
 
 	login_processes_deinit();
 	auth_processes_deinit();
+	dict_process_deinit();
 	ssl_deinit();
 
 	timeout_remove(to);

@@ -3,7 +3,7 @@
 
 struct dict;
 
-struct dict_server *dict_server_init(const char *path);
+struct dict_server *dict_server_init(const char *path, int fd);
 void dict_server_deinit(struct dict_server *server);
 
 #endif

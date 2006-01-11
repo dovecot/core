@@ -608,7 +608,7 @@ static int create_auth_worker(struct auth_process *process, int fd)
 		i_fatal("dup2(stderr) failed: %m");
 
 	if (dup2(fd, 4) < 0)
-		i_fatal("dup2(stdin) failed: %m");
+		i_fatal("dup2(4) failed: %m");
 
 	for (i = 0; i <= 2; i++)
 		fd_close_on_exec(i, FALSE);

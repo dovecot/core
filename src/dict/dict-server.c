@@ -410,20 +410,21 @@ static void dict_server_listener_accept(void *context)
 	}
 }
 
-struct dict_server *dict_server_init(const char *path)
+struct dict_server *dict_server_init(const char *path, int fd)
 {
 	struct dict_server *server;
 	int i;
 
 	server = i_new(struct dict_server, 1);
 	server->path = i_strdup(path);
+	server->fd = fd;
 
-	for (i = 0; i < 2; i++) {
+	while (server->fd == -1) {
 		server->fd = net_listen_unix(path, 64);
 		if (server->fd != -1)
 			break;
 
-		if (errno != EADDRINUSE)
+		if (errno != EADDRINUSE || ++i == 2)
 			i_fatal("net_listen_unix(%s) failed: %m", path);
 
 		/* see if it really exists */

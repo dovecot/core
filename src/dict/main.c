@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <syslog.h>
 
+#define DICT_MASTER_LISTENER_FD 3
+
 struct ioloop *ioloop;
 
 static struct module *modules;
@@ -42,6 +44,9 @@ static void drop_privileges(void)
 
 static void main_init(void)
 {
+	const char *path;
+	int fd;
+
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
@@ -54,7 +59,12 @@ static void main_init(void)
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
 		module_dir_load(getenv("MODULE_DIR"), TRUE);
 
-	dict_server = dict_server_init(DEFAULT_DICT_SERVER_SOCKET_PATH);
+	path = getenv("DICT_LISTEN_FROM_FD");
+	fd = path == NULL ? -1 : DICT_MASTER_LISTENER_FD;
+	if (path == NULL)
+		path = DEFAULT_DICT_SERVER_SOCKET_PATH;
+
+	dict_server = dict_server_init(path, fd);
 }
 
 static void main_deinit(void)
@@ -75,7 +85,7 @@ int main(void)
 {
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)
-		fd_debug_verify_leaks(3, 1024);
+		fd_debug_verify_leaks(DICT_MASTER_LISTENER_FD+1, 1024);
 #endif
 
 	/* NOTE: we start rooted, so keep the code minimal until
