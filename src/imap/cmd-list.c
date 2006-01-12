@@ -92,6 +92,20 @@ parse_list_flags(struct client_command_context *cmd, struct imap_arg *args,
 	return TRUE;
 }
 
+static void
+list_namespace_inbox(struct client *client, struct cmd_list_context *ctx)
+{
+	const char *str;
+
+	if (!ctx->inbox_found && ctx->ns->inbox && ctx->match_inbox &&
+	    (ctx->list_flags & MAILBOX_LIST_SUBSCRIBED) == 0) {
+		/* INBOX always exists */
+		str = t_strdup_printf("* LIST (\\Unmarked) \"%s\" \"INBOX\"",
+				      ctx->ns->sep_str);
+		client_send_line(client, str);
+	}
+}
+
 static int
 list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 {
@@ -100,8 +114,10 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 	string_t *str, *name_str;
 	int ret;
 
-	if (ctx->list_ctx == NULL)
+	if (ctx->list_ctx == NULL) {
+		list_namespace_inbox(client, ctx);
 		return 1;
+	}
 
 	t_push();
 	str = t_str_new(256);
@@ -147,14 +163,7 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 		}
 	}
 
-	if (!ctx->inbox_found && ctx->ns->inbox && ctx->match_inbox &&
-	    (ctx->list_flags & MAILBOX_LIST_SUBSCRIBED) == 0) {
-		/* INBOX always exists */
-		str_truncate(str, 0);
-		str_printfa(str, "* LIST (\\Unmarked) \"%s\" \"INBOX\"",
-			    ctx->ns->sep_str);
-		client_send_line(client, str_c(str));
-	}
+        list_namespace_inbox(client, ctx);
 	t_pop();
 
 	ret = mail_storage_mailbox_list_deinit(ctx->list_ctx);
@@ -164,17 +173,28 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 
 static void skip_prefix(const char **prefix, const char **mask, int inbox)
 {
-	size_t mask_len, prefix_len, len;
+	size_t mask_len, prefix_len;
+	int match;
 
 	prefix_len = strlen(*prefix);
 	mask_len = strlen(*mask);
-	len = I_MIN(prefix_len, mask_len);
 
-	if (strncmp(*prefix, *mask, len) == 0 ||
-	    (inbox && len >= 6 &&
-	     strncasecmp(*prefix, *mask, 6) == 0)) {
-		*prefix += len;
-		*mask += len;
+	if (mask_len < prefix_len) {
+		/* eg. namespace prefix = "INBOX.", mask = "INBOX" */
+		return;
+	}
+
+	match = strncmp(*prefix, *mask, prefix_len) == 0;
+	if (!match && inbox) {
+		/* try INBOX check. */
+		match = prefix_len >= 5 &&
+			strncasecmp(*prefix, *mask, 5) == 0 &&
+			strncmp(*prefix + 5, *mask + 5, prefix_len - 5) == 0;
+	}
+
+	if (match) {
+		*prefix += prefix_len;
+		*mask += prefix_len;
 	}
 }
 
@@ -205,12 +225,13 @@ list_namespace_init(struct client_command_context *cmd,
 	}
 
 	if (*cur_ref == '\0' && *cur_prefix != '\0') {
+		/* no reference parameter. skip namespace prefix from mask. */
 		skip_prefix(&cur_prefix, &cur_mask,
 			    ctx->inbox && cur_ref == ctx->ref);
 	}
 
 	ctx->glob = imap_match_init(cmd->pool, ctx->mask,
-				    ctx->inbox && cur_ref == ctx->ref, ns->sep);
+				    cur_ref == ctx->ref, ns->sep);
 
 	if (*cur_ref != '\0' || *cur_prefix == '\0')
 		match = IMAP_MATCH_CHILDREN;
@@ -246,6 +267,8 @@ list_namespace_init(struct client_command_context *cmd,
 		}
 	}
 
+	ctx->match_inbox = imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES;
+
 	if (match < 0)
 		return;
 
@@ -280,8 +303,6 @@ list_namespace_init(struct client_command_context *cmd,
 			count--;
 		}
 	}
-
-	ctx->match_inbox = imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES;
 
 	if (*cur_mask != '*' || strcmp(ctx->mask, "*") == 0) {
 		/* a) we don't have '*' in mask
@@ -405,14 +426,18 @@ int _cmd_list_full(struct client_command_context *cmd, int lsub)
 		}
 		client_send_tagline(cmd, "OK List completed.");
 	} else {
+		const char *inbox_arg;
+
 		ctx = p_new(cmd->pool, struct cmd_list_context, 1);
 		ctx->ref = ref;
 		ctx->mask = mask;
 		ctx->list_flags = list_flags;
 		ctx->lsub = lsub;
-		ctx->inbox = strncasecmp(ref, "INBOX", 5) == 0 ||
-			(*ref == '\0' && strncasecmp(mask, "INBOX", 5) == 0);
 		ctx->ns = client->namespaces;
+
+		inbox_arg = *ref != '\0' ? ref : mask;
+		ctx->inbox = strncasecmp(inbox_arg, "INBOX", 5) == 0 &&
+			(inbox_arg[5] == ctx->ns->sep || inbox_arg[5] == '\0');
 
 		cmd->context = ctx;
 		if (!cmd_list_continue(cmd)) {
