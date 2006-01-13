@@ -8,6 +8,7 @@
 #include "str.h"
 #include "istream.h"
 #include "ostream.h"
+#include "ostream-crlf.h"
 #include "write-full.h"
 #include "dbox-file.h"
 #include "dbox-storage.h"

@@ -67,7 +67,7 @@ const char *dict_client_escape(const char *src)
 	dest = t_str_new(256);
 	str_append_n(dest, src, p - src);
 
-	for (; *p != '\0'; *p++) {
+	for (; *p != '\0'; p++) {
 		switch (*p) {
 		case '\t':
 			str_append_c(dest, '\001');

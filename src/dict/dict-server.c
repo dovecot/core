@@ -413,7 +413,7 @@ static void dict_server_listener_accept(void *context)
 struct dict_server *dict_server_init(const char *path, int fd)
 {
 	struct dict_server *server;
-	int i;
+	int i= 0;
 
 	server = i_new(struct dict_server, 1);
 	server->path = i_strdup(path);
