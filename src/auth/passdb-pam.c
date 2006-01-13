@@ -283,8 +283,10 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 	if ((ret = write(fd, buf_data, buf->used)) != (int)buf->used) {
 		if (ret < 0)
 			i_error("write() failed: %m");
-		else
-			i_error("write() failed: %d != %u", ret, buf->used);
+		else {
+			i_error("write() failed: %d != %"PRIuSIZE_T,
+				ret, buf->used);
+		}
 	}
 }
 
