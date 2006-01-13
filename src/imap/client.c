@@ -149,7 +149,7 @@ void client_send_command_error(struct client_command_context *cmd,
 {
 	struct client *client = cmd->client;
 	const char *error, *cmd_name;
-	int fatal;
+	bool fatal;
 
 	if (msg == NULL) {
 		msg = imap_parser_get_error(client->parser, &fatal);
@@ -182,8 +182,8 @@ void client_send_command_error(struct client_command_context *cmd,
 	cmd->param_error = TRUE;
 }
 
-int client_read_args(struct client_command_context *cmd, unsigned int count,
-		     unsigned int flags, struct imap_arg **args)
+bool client_read_args(struct client_command_context *cmd, unsigned int count,
+		      unsigned int flags, struct imap_arg **args)
 {
 	int ret;
 
@@ -204,8 +204,8 @@ int client_read_args(struct client_command_context *cmd, unsigned int count,
 	}
 }
 
-int client_read_string_args(struct client_command_context *cmd,
-			    unsigned int count, ...)
+bool client_read_string_args(struct client_command_context *cmd,
+			     unsigned int count, ...)
 {
 	struct imap_arg *imap_args;
 	va_list va;
@@ -273,7 +273,7 @@ void _client_reset_command(struct client *client)
 
 /* Skip incoming data until newline is found,
    returns TRUE if newline was found. */
-static int client_skip_line(struct client *client)
+static bool client_skip_line(struct client *client)
 {
 	const unsigned char *data;
 	size_t i, data_size;
@@ -292,7 +292,7 @@ static int client_skip_line(struct client *client)
 	return !client->input_skip_line;
 }
 
-static int client_handle_input(struct client_command_context *cmd)
+static bool client_handle_input(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 
@@ -414,7 +414,8 @@ static int _client_output(void *context)
 {
 	struct client *client = context;
 	struct client_command_context *cmd = &client->cmd;
-	int ret, finished;
+	int ret;
+	bool finished;
 
 	client->last_output = ioloop_time;
 

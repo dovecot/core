@@ -134,7 +134,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
-static int mbox_sync_buf_have_expunges(array_t *syncs_arr)
+static bool mbox_sync_buf_have_expunges(array_t *syncs_arr)
 {
 	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
 	const struct mail_index_sync_rec *syncs;
@@ -149,7 +149,7 @@ static int mbox_sync_buf_have_expunges(array_t *syncs_arr)
 }
 
 static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
-				      uint32_t uid, int *sync_expunge_r)
+				      uint32_t uid, bool *sync_expunge_r)
 {
 	struct mail_index_sync_rec *sync_rec = &sync_ctx->sync_rec;
 	int ret;
@@ -231,7 +231,7 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 
 void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
 				 struct mbox_sync_mail *mail,
-				 int *keywords_changed_r)
+				 bool *keywords_changed_r)
 {
 	const struct mail_index_sync_rec *syncs;
 	unsigned int i, count;
@@ -363,7 +363,7 @@ static int mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
 static int
 mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
                              struct mbox_sync_mail *mail,
-			     int nocheck)
+			     bool nocheck)
 {
 	const void *data;
 	uint64_t offset;
@@ -457,7 +457,7 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		   sync records are automatically applied to rec->flags at the
 		   end of index syncing, so calculate those new flags first */
 		struct mbox_sync_mail idx_mail;
-		int keywords_changed;
+		bool keywords_changed;
 
 		memset(&idx_mail, 0, sizeof(idx_mail));
 		idx_mail.flags = rec->flags;
@@ -507,8 +507,8 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 			if (((idx_mail.flags ^ mbox_flags) &
 			     MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 				/* dirty flag state changed */
-				int dirty = (mbox_flags &
-					     MAIL_INDEX_MAIL_FLAG_DIRTY) != 0;
+				bool dirty = (mbox_flags &
+					      MAIL_INDEX_MAIL_FLAG_DIRTY) != 0;
 				mail_index_update_flags(sync_ctx->t,
 					sync_ctx->idx_seq,
 					dirty ? MODIFY_ADD : MODIFY_REMOVE,
@@ -539,7 +539,7 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 	/* update from_offsets, but not if we're going to rewrite this message.
 	   rewriting would just move it anyway. */
 	if (sync_ctx->need_space_seq == 0) {
-		int nocheck = rec == NULL || sync_ctx->expunged_space > 0;
+		bool nocheck = rec == NULL || sync_ctx->expunged_space > 0;
 		if (mbox_sync_update_from_offset(sync_ctx, mail, nocheck) < 0)
 			return -1;
 	}
@@ -849,7 +849,8 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 	struct mbox_mailbox *mbox = sync_ctx->mbox;
 	uoff_t old_offset;
 	uint32_t uid;
-	int ret, deleted;
+	int ret;
+        bool deleted;
 
 	if (seq == 0) {
 		if (istream_raw_mbox_seek(mbox->mbox_stream, 0) < 0) {
@@ -941,8 +942,8 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 }
 
 static int mbox_sync_partial_seek_next(struct mbox_sync_context *sync_ctx,
-				       uint32_t next_uid, int *partial,
-				       int *skipped_mails)
+				       uint32_t next_uid, bool *partial,
+				       bool *skipped_mails)
 {
 	uint32_t messages_count;
 	int ret;
@@ -988,12 +989,13 @@ static int mbox_sync_partial_seek_next(struct mbox_sync_context *sync_ctx,
 
 static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
                           struct mbox_sync_mail_context *mail_ctx,
-			  int partial)
+			  bool partial)
 {
 	const struct mail_index_record *rec;
 	uint32_t uid, messages_count;
 	uoff_t offset;
-	int ret, expunged, skipped_mails;
+	int ret;
+	bool expunged, skipped_mails;
 
 	messages_count =
 		mail_index_view_get_messages_count(sync_ctx->sync_view);
@@ -1483,7 +1485,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-int mbox_sync_has_changed(struct mbox_mailbox *mbox, int leave_dirty)
+int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 {
 	const struct mail_index_header *hdr;
 	const struct stat *st;
@@ -1541,7 +1543,8 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id = 0;
-	int ret, changed, delay_writes;
+	int ret;
+	bool changed, delay_writes;
 
 	delay_writes = mbox->ibox.readonly ||
 		((flags & MBOX_SYNC_REWRITE) == 0 &&
@@ -1561,7 +1564,7 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	    (flags & MBOX_SYNC_FORCE_SYNC) != 0)
 		changed = 1;
 	else {
-		int leave_dirty = (flags & MBOX_SYNC_UNDIRTY) == 0;
+		bool leave_dirty = (flags & MBOX_SYNC_UNDIRTY) == 0;
 		if ((changed = mbox_sync_has_changed(mbox, leave_dirty)) < 0) {
 			if ((flags & MBOX_SYNC_LOCK_READING) != 0)
 				(void)mbox_unlock(mbox, lock_id);
@@ -1655,7 +1658,7 @@ __again:
 	if (!changed && delay_writes) {
 		/* if we have only flag changes, we don't need to open the
 		   mbox file */
-		int expunged;
+		bool expunged;
 
 		if (mbox_sync_read_index_syncs(&sync_ctx, 1, &expunged) < 0)
 			return -1;

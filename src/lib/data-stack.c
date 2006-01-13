@@ -202,12 +202,12 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	return block;
 }
 
-static void *t_malloc_real(size_t size, int permanent)
+static void *t_malloc_real(size_t size, bool permanent)
 {
 	struct stack_block *block;
         void *ret;
 #ifdef DEBUG
-	int warn = FALSE;
+	bool warn = FALSE;
 #endif
 
 	if (size == 0 || size > SSIZE_T_MAX)
@@ -284,7 +284,7 @@ void *t_malloc0(size_t size)
         return mem;
 }
 
-int t_try_realloc(void *mem, size_t size)
+bool t_try_realloc(void *mem, size_t size)
 {
 	size_t last_alloc_size;
 
@@ -489,7 +489,7 @@ void *t_malloc0(size_t size)
 	return mem;
 }
 
-int t_try_realloc(void *mem __attr_unused__, size_t size __attr_unused__)
+bool t_try_realloc(void *mem __attr_unused__, size_t size __attr_unused__)
 {
 	return FALSE;
 }

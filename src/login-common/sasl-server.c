@@ -22,7 +22,7 @@ client_get_auth_flags(struct client *client)
 	return auth_flags;
 }
 
-static void master_callback(struct client *client, int success)
+static void master_callback(struct client *client, bool success)
 {
 	client->authenticating = FALSE;
 	client->sasl_callback(client, success ? SASL_SERVER_REPLY_SUCCESS :
@@ -35,7 +35,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 {
 	struct client *client = context;
 	unsigned int i;
-	int nologin;
+	bool nologin;
 
 	if (!client->authenticating) {
 		/* client aborted */

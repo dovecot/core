@@ -112,7 +112,7 @@ void imap_parser_reset(struct imap_parser *parser)
 	imap_args_realloc(parser, LIST_ALLOC_SIZE);
 }
 
-const char *imap_parser_get_error(struct imap_parser *parser, int *fatal)
+const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal)
 {
         *fatal = parser->fatal_error;
 	return parser->error;

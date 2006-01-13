@@ -11,7 +11,7 @@ typedef void userdb_callback_t(struct auth_stream_reply *reply,
 struct userdb_module {
 	/* If blocking is set to TRUE, use child processes to access
 	   this userdb. */
-	int blocking;
+	bool blocking;
 
 	const struct userdb_module_interface *iface;
 };

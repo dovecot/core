@@ -8,7 +8,7 @@ char *imap_quote(pool_t pool, const unsigned char *value, size_t value_len);
 
 /* Append to existing string. */
 void imap_quote_append(string_t *str, const unsigned char *value,
-		       size_t value_len, int compress_lwsp);
+		       size_t value_len, bool compress_lwsp);
 
 #define imap_quote_append_string(str, value, compress_lwsp) \
 	imap_quote_append(str, (const unsigned char *) value, \

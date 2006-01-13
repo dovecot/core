@@ -59,7 +59,7 @@ static void parse_content_type(const unsigned char *value, size_t value_len,
 static void
 parse_content_type_param(const unsigned char *name, size_t name_len,
 			 const unsigned char *value, size_t value_len,
-			 int value_quoted, void *context)
+			 bool value_quoted, void *context)
 {
 	struct part_search_context *ctx = context;
 
@@ -99,13 +99,14 @@ static void parse_content_encoding(const unsigned char *value, size_t value_len,
 	}
 }
 
-static int message_search_header(struct part_search_context *ctx,
-				 struct istream *input)
+static bool message_search_header(struct part_search_context *ctx,
+				  struct istream *input)
 {
 	struct header_search_context *hdr_search_ctx;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
-	int ret, found = FALSE;
+	int ret;
+	bool found = FALSE;
 
 	hdr_search_ctx = message_header_search_init(pool_datastack_create(),
 						    ctx->body_ctx->key,
@@ -159,8 +160,8 @@ static int message_search_header(struct part_search_context *ctx,
 	return found;
 }
 
-static int message_search_decoded_block(struct part_search_context *ctx,
-					buffer_t *block)
+static bool message_search_decoded_block(struct part_search_context *ctx,
+					 buffer_t *block)
 {
 	const unsigned char *p, *end, *key;
 	size_t key_len, block_size, *matches, match_count, value;
@@ -267,16 +268,16 @@ static int message_search_body_block(struct part_search_context *ctx,
 	return 0;
 }
 
-static int message_search_body(struct part_search_context *ctx,
-			       struct istream *input,
-			       const struct message_part *part)
+static bool message_search_body(struct part_search_context *ctx,
+				struct istream *input,
+				const struct message_part *part)
 {
 	const unsigned char *data;
 	buffer_t *decodebuf;
 	pool_t pool;
 	size_t data_size, pos;
 	ssize_t ret;
-	int found;
+	bool found;
 
 	if (ctx->content_unknown) {
 		/* unknown content-encoding-type, ignore */
@@ -353,9 +354,10 @@ static int message_search_body(struct part_search_context *ctx,
 	return found;
 }
 
-static int message_body_search_init(struct body_search_context *ctx,
-				    const char *key, const char *charset,
-				    int *unknown_charset_r, int search_header)
+static bool
+message_body_search_init(struct body_search_context *ctx,
+			 const char *key, const char *charset,
+			 bool *unknown_charset_r, bool search_header)
 {
 	size_t key_len;
 
@@ -428,11 +430,12 @@ static int message_body_search_ctx(struct body_search_context *ctx,
 
 int message_body_search(const char *key, const char *charset,
 			struct istream *input,
-			const struct message_part *part, int search_header,
+			const struct message_part *part, bool search_header,
                         enum message_body_search_error *error_r)
 {
         struct body_search_context ctx;
-	int ret, unknown_charset;
+	int ret;
+	bool unknown_charset;
 
 	if (!message_body_search_init(&ctx, key, charset, &unknown_charset,
 				      search_header)) {

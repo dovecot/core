@@ -60,7 +60,7 @@ static void parse_content_type(const unsigned char *value, size_t value_len,
 
 static void parse_save_params_list(const unsigned char *name, size_t name_len,
 				   const unsigned char *value, size_t value_len,
-				   int value_quoted __attr_unused__,
+				   bool value_quoted __attr_unused__,
 				   void *context)
 {
         struct message_part_body_data *data = context;
@@ -220,7 +220,7 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 {
 	struct message_part_body_data *part_data;
 	struct message_part_envelope_data *envelope;
-	int parent_rfc822;
+	bool parent_rfc822;
 
 	if (hdr == NULL) {
 		/* If there was no Mime-Version, forget all the Content-stuff */
@@ -264,7 +264,7 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 }
 
 static void part_write_body_multipart(struct message_part *part,
-				      string_t *str, int extended)
+				      string_t *str, bool extended)
 {
 	struct message_part_body_data *data = part->context;
 
@@ -330,10 +330,10 @@ static void part_write_body_multipart(struct message_part *part,
 }
 
 static void part_write_body(struct message_part *part,
-			    string_t *str, int extended)
+			    string_t *str, bool extended)
 {
 	struct message_part_body_data *data = part->context;
-	int text;
+	bool text;
 
 	if (data == NULL) {
 		/* there was no content headers, use an empty structure */
@@ -441,7 +441,7 @@ static void part_write_body(struct message_part *part,
 	}
 }
 
-int imap_bodystructure_is_plain_7bit(struct message_part *part)
+bool imap_bodystructure_is_plain_7bit(struct message_part *part)
 {
 	struct message_part_body_data *data = part->context;
 
@@ -487,7 +487,7 @@ int imap_bodystructure_is_plain_7bit(struct message_part *part)
 }
 
 void imap_bodystructure_write(struct message_part *part,
-			      string_t *dest, int extended)
+			      string_t *dest, bool extended)
 {
 	i_assert(part->parent != NULL || part->next == NULL);
 
@@ -507,7 +507,7 @@ void imap_bodystructure_write(struct message_part *part,
 	}
 }
 
-static int str_append_imap_arg(string_t *str, const struct imap_arg *arg)
+static bool str_append_imap_arg(string_t *str, const struct imap_arg *arg)
 {
 	switch (arg->type) {
 	case IMAP_ARG_NIL:
@@ -535,7 +535,7 @@ static int str_append_imap_arg(string_t *str, const struct imap_arg *arg)
 	return TRUE;
 }
 
-static int imap_write_list(const struct imap_arg *args, string_t *str)
+static bool imap_write_list(const struct imap_arg *args, string_t *str)
 {
 	/* don't do any typechecking, just write it out */
 	str_append_c(str, '(');
@@ -556,12 +556,13 @@ static int imap_write_list(const struct imap_arg *args, string_t *str)
 	return TRUE;
 }
 
-static int imap_parse_bodystructure_args(const struct imap_arg *args,
-					 string_t *str)
+static bool imap_parse_bodystructure_args(const struct imap_arg *args,
+					  string_t *str)
 {
 	struct imap_arg *subargs;
 	struct imap_arg_list *list;
-	int i, multipart, text, message_rfc822;
+	bool multipart, text, message_rfc822;
+	int i;
 
 	multipart = FALSE;
 	while (args->type == IMAP_ARG_LIST) {
@@ -663,8 +664,8 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 	return TRUE;
 }
 
-int imap_body_parse_from_bodystructure(const char *bodystructure,
-				       string_t *dest)
+bool imap_body_parse_from_bodystructure(const char *bodystructure,
+					string_t *dest)
 {
 	struct istream *input;
 	struct imap_parser *parser;

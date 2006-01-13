@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_delete(struct client_command_context *cmd)
+bool cmd_delete(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mail_storage *storage;

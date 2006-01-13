@@ -352,7 +352,7 @@ const char *t_strcut(const char *str, char cutchar)
         return str;
 }
 
-int is_numeric(const char *str, char end_char)
+bool is_numeric(const char *str, char end_char)
 {
 	if (*str == '\0' || *str == end_char)
 		return FALSE;
@@ -619,7 +619,7 @@ const char *t_strarray_join(const char *const *arr, const char *separator)
 	return str;
 }
 
-int strarray_remove(const char **arr, const char *value)
+bool strarray_remove(const char **arr, const char *value)
 {
 	const char **dest;
 

@@ -166,7 +166,7 @@ mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
 	return 1;
 }
 
-static int find_offset(struct mail_cache_view *view, uint32_t offset)
+static bool find_offset(struct mail_cache_view *view, uint32_t offset)
 {
 	const uint32_t *offsets;
 	unsigned int i, count;
@@ -294,7 +294,7 @@ mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field)
 struct mail_cache_lookup_context {
 	buffer_t *dest_buf;
 	uint32_t field;
-	int found;
+	bool found;
 };
 
 static int

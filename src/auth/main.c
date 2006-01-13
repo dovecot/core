@@ -28,7 +28,7 @@
 #include <sys/stat.h>
 
 struct ioloop *ioloop;
-int standalone = FALSE, worker = FALSE;
+bool standalone = FALSE, worker = FALSE;
 time_t process_start_time;
 
 static struct auth *auth;
@@ -198,7 +198,7 @@ static void drop_privileges(void)
 	restrict_access_by_env(FALSE);
 }
 
-static void main_init(int nodaemon)
+static void main_init(bool nodaemon)
 {
 	struct auth_master_listener *listener;
 
@@ -284,7 +284,7 @@ static void main_deinit(void)
 
 int main(int argc __attr_unused__, char *argv[])
 {
-	int foreground = FALSE;
+	bool foreground = FALSE;
 
 #ifdef DEBUG
 	if (getenv("GDB") == NULL)

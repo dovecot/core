@@ -32,12 +32,13 @@ static void list_save(struct auth_request *request, const char *const *list)
 	}
 }
 
-int passdb_cache_verify_plain(struct auth_request *request, const char *key,
-			      const char *password,
-			      enum passdb_result *result_r, int use_expired)
+bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
+			       const char *password,
+			       enum passdb_result *result_r, int use_expired)
 {
 	const char *value, *cached_pw, *scheme, *const *list;
-	int ret, expired;
+	int ret;
+	bool expired;
 
 	if (passdb_cache == NULL || key == NULL)
 		return FALSE;
@@ -81,14 +82,14 @@ int passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	return TRUE;
 }
 
-int passdb_cache_lookup_credentials(struct auth_request *request,
-				    const char *key, const char **password_r,
-				    const char **scheme_r,
-				    enum passdb_result *result_r,
-				    int use_expired)
+bool passdb_cache_lookup_credentials(struct auth_request *request,
+				     const char *key, const char **password_r,
+				     const char **scheme_r,
+				     enum passdb_result *result_r,
+				     bool use_expired)
 {
 	const char *value, *const *list;
-	int expired;
+	bool expired;
 
 	if (passdb_cache == NULL)
 		return FALSE;

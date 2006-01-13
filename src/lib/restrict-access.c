@@ -122,7 +122,7 @@ static void grant_extra_groups(const char *groups)
 	t_pop();
 }
 
-void restrict_access_by_env(int disallow_root)
+void restrict_access_by_env(bool disallow_root)
 {
 	const char *env;
 	gid_t gid;

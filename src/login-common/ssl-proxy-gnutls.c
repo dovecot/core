@@ -54,7 +54,7 @@ static gnutls_rsa_params rsa_params;
 
 static void ssl_input(void *context);
 static void plain_input(void *context);
-static int ssl_proxy_destroy(struct ssl_proxy *proxy);
+static bool ssl_proxy_destroy(struct ssl_proxy *proxy);
 
 static const char *get_alert_text(struct ssl_proxy *proxy)
 {

@@ -18,7 +18,7 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
 	struct passwd *pw;
-	int result;
+	bool result;
 
 	pw = getpwnam(request->user);
 	if (pw == NULL) {

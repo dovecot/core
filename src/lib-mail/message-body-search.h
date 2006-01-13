@@ -17,7 +17,7 @@ enum message_body_search_error {
    is compared to message data without any translation. */
 int message_body_search(const char *key, const char *charset,
 			struct istream *input,
-			const struct message_part *part, int search_header,
+			const struct message_part *part, bool search_header,
                         enum message_body_search_error *error_r);
 
 #endif

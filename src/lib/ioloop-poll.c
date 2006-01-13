@@ -135,7 +135,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
         struct timeval tv;
 	struct io *io;
 	unsigned int t_id;
-	int msecs, ret, call;
+	int msecs, ret;
+	bool call;
 
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);

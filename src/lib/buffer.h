@@ -85,7 +85,7 @@ void buffer_set_used_size(buffer_t *buf, size_t used_size);
 size_t buffer_get_size(const buffer_t *buf);
 
 /* Returns TRUE if buffer contents are identical. */
-int buffer_cmp(const buffer_t *buf1, const buffer_t *buf2);
+bool buffer_cmp(const buffer_t *buf1, const buffer_t *buf2);
 
 /* Returns pointer to beginning of buffer data. Current used size of buffer is
    stored in used_size if it's non-NULL. */

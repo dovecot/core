@@ -10,7 +10,7 @@ enum charset_result {
 
 /* Begin translation to UTF-8. */
 struct charset_translation *charset_to_utf8_begin(const char *charset,
-						  int *unknown_charset);
+						  bool *unknown_charset);
 
 void charset_to_utf8_end(struct charset_translation *t);
 
@@ -26,11 +26,11 @@ charset_to_ucase_utf8(struct charset_translation *t,
 /* Simple wrappers for above functions. If utf8_size is non-NULL, it's set
    to same as strlen(returned data). */
 const char *
-charset_to_utf8_string(const char *charset, int *unknown_charset,
+charset_to_utf8_string(const char *charset, bool *unknown_charset,
 		       const unsigned char *data, size_t size,
 		       size_t *utf8_size_r);
 const char *
-charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
+charset_to_ucase_utf8_string(const char *charset, bool *unknown_charset,
 			     const unsigned char *data, size_t size,
 			     size_t *utf8_size_r);
 

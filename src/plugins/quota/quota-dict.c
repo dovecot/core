@@ -23,7 +23,7 @@ struct dict_quota {
 struct dict_quota_root_iter {
 	struct quota_root_iter iter;
 
-	int sent;
+	bool sent;
 };
 
 extern struct quota dict_quota;
@@ -226,7 +226,7 @@ dict_quota_transaction_rollback(struct quota_transaction_context *ctx)
 
 static int
 dict_quota_try_alloc(struct quota_transaction_context *ctx,
-		     struct mail *mail, int *too_large_r)
+		     struct mail *mail, bool *too_large_r)
 {
 	uoff_t size;
 

@@ -71,12 +71,12 @@ struct mysql_transaction_context {
 extern struct sql_result driver_mysql_result;
 extern struct sql_result driver_mysql_error_result;
 
-static int driver_mysql_connect(struct mysql_connection *conn)
+static bool driver_mysql_connect(struct mysql_connection *conn)
 {
 	struct mysql_db *db = conn->db;
 	const char *unix_socket, *host;
 	time_t now;
-	int failed;
+	bool failed;
 
 	if (conn->connected)
 		return TRUE;
@@ -302,8 +302,9 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 {
 	struct mysql_connection *conn;
 	size_t size;
-	int reset, ret;
 	unsigned int i, start;
+	bool reset;
+	int ret;
 
 	conn = buffer_get_modifyable_data(db->connections, &size);
 	size /= sizeof(*conn);
@@ -313,7 +314,7 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 	start = db->next_query_connection % size;
 	db->next_query_connection++;
 
-	for (reset = 0;; reset++) {
+	for (reset = FALSE;; reset = TRUE) {
 		i = start;
 		do {
 			ret = driver_mysql_connection_do_query(&conn[i], query);

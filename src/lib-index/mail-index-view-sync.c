@@ -285,8 +285,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	return 0;
 }
 
-static int view_is_transaction_synced(struct mail_index_view *view,
-				      uint32_t seq, uoff_t offset)
+static bool view_is_transaction_synced(struct mail_index_view *view,
+				       uint32_t seq, uoff_t offset)
 {
 	const struct mail_index_view_log_sync_pos *pos;
 	unsigned int i, count;
@@ -311,7 +311,8 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	struct mail_index_view *view = ctx->view;
 	uint32_t seq;
 	uoff_t offset;
-	int ret, skipped;
+	int ret;
+	bool skipped;
 
 	for (;;) {
 		/* Get the next transaction from log. */

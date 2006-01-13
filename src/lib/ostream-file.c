@@ -209,7 +209,7 @@ static int buffer_flush(struct file_ostream *fstream)
 	return IS_STREAM_EMPTY(fstream) ? 1 : 0;
 }
 
-static void _cork(struct _ostream *stream, int set)
+static void _cork(struct _ostream *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 	int ret;
@@ -242,7 +242,7 @@ static int _flush(struct _ostream *stream)
 	return buffer_flush(fstream);
 }
 
-static void _flush_pending(struct _ostream *stream, int set)
+static void _flush_pending(struct _ostream *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 
@@ -722,7 +722,7 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 
 struct ostream *
 o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
-		     int autoclose_fd)
+		     bool autoclose_fd)
 {
 	struct file_ostream *fstream;
 	struct ostream *ostream;

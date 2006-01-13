@@ -42,7 +42,7 @@ struct db_passwd_file {
 struct passwd_user *
 db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request);
 
-struct db_passwd_file *db_passwd_file_parse(const char *path, int userdb);
+struct db_passwd_file *db_passwd_file_parse(const char *path, bool userdb);
 void db_passwd_file_unref(struct db_passwd_file *db);
 
 #endif

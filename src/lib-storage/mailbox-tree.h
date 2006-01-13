@@ -16,7 +16,7 @@ void mailbox_tree_deinit(struct mailbox_tree_context *ctx);
 
 struct mailbox_node *
 mailbox_tree_get(struct mailbox_tree_context *ctx, const char *path,
-		 int *created);
+		 bool *created);
 
 struct mailbox_node *
 mailbox_tree_update(struct mailbox_tree_context *ctx, const char *path);

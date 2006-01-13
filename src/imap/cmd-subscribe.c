@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int _cmd_subscribe_full(struct client_command_context *cmd, int subscribe)
+bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
         struct mail_storage *storage;
 	const char *mailbox, *verify_name;
@@ -42,7 +42,7 @@ int _cmd_subscribe_full(struct client_command_context *cmd, int subscribe)
 	return TRUE;
 }
 
-int cmd_subscribe(struct client_command_context *cmd)
+bool cmd_subscribe(struct client_command_context *cmd)
 {
 	return _cmd_subscribe_full(cmd, TRUE);
 }

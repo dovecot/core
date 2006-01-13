@@ -284,7 +284,7 @@ static ssize_t _read(struct _istream *stream)
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  int mark __attr_unused__)
+		  bool mark __attr_unused__)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -306,7 +306,7 @@ static void _sync(struct _istream *stream)
 	rstream->istream.pos = 0;
 }
 
-static const struct stat *_stat(struct _istream *stream, int exact)
+static const struct stat *_stat(struct _istream *stream, bool exact)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -340,7 +340,7 @@ struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input)
 				input->real_stream->abs_start_offset);
 }
 
-static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
+static bool istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 {
 	const unsigned char *data;
 	size_t size;
@@ -521,7 +521,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 {
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;
-	int check;
+	bool check;
 
 	rstream->corrupted = FALSE;
 	rstream->eof = FALSE;
@@ -561,7 +561,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 	return rstream->corrupted ? -1 : 0;
 }
 
-int istream_raw_mbox_is_eof(struct istream *stream)
+bool istream_raw_mbox_is_eof(struct istream *stream)
 {
 	struct raw_mbox_istream *rstream =
 		(struct raw_mbox_istream *)stream->real_stream;

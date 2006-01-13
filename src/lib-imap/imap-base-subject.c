@@ -9,8 +9,8 @@
 #include "message-header-decode.h"
 #include "imap-base-subject.h"
 
-static int header_decode(const unsigned char *data, size_t size,
-			 const char *charset, void *context)
+static bool header_decode(const unsigned char *data, size_t size,
+			  const char *charset, void *context)
 {
 	buffer_t *buf = context;
         struct charset_translation *t;
@@ -45,7 +45,7 @@ static int header_decode(const unsigned char *data, size_t size,
 static void pack_whitespace(buffer_t *buf)
 {
 	char *data, *dest;
-	int last_lwsp;
+	bool last_lwsp;
 
 	data = buffer_get_modifyable_data(buf, NULL);
 
@@ -82,7 +82,7 @@ static void pack_whitespace(buffer_t *buf)
 }
 
 static void remove_subj_trailers(buffer_t *buf, size_t start_pos,
-				 int *is_reply_or_forward_r)
+				 bool *is_reply_or_forward_r)
 {
 	const char *data;
 	size_t orig_size, size;
@@ -112,7 +112,7 @@ static void remove_subj_trailers(buffer_t *buf, size_t start_pos,
 	}
 }
 
-static int remove_blob(const char **datap)
+static bool remove_blob(const char **datap)
 {
 	const char *data = *datap;
 
@@ -134,11 +134,11 @@ static int remove_blob(const char **datap)
 	return TRUE;
 }
 
-static int remove_subj_leader(buffer_t *buf, size_t *start_pos,
-			      int *is_reply_or_forward_r)
+static bool remove_subj_leader(buffer_t *buf, size_t *start_pos,
+			       bool *is_reply_or_forward_r)
 {
 	const char *data, *orig_data;
-	int ret = FALSE;
+	bool ret = FALSE;
 
 	/* subj-leader     = (*subj-blob subj-refwd) / WSP
 
@@ -188,7 +188,7 @@ static int remove_subj_leader(buffer_t *buf, size_t *start_pos,
 	return TRUE;
 }
 
-static int remove_blob_when_nonempty(buffer_t *buf, size_t *start_pos)
+static bool remove_blob_when_nonempty(buffer_t *buf, size_t *start_pos)
 {
 	const char *data, *orig_data;
 
@@ -203,8 +203,8 @@ static int remove_blob_when_nonempty(buffer_t *buf, size_t *start_pos)
 	return FALSE;
 }
 
-static int remove_subj_fwd_hdr(buffer_t *buf, size_t *start_pos,
-			       int *is_reply_or_forward_r)
+static bool remove_subj_fwd_hdr(buffer_t *buf, size_t *start_pos,
+				bool *is_reply_or_forward_r)
 {
 	const char *data;
 	size_t size;
@@ -231,11 +231,11 @@ static int remove_subj_fwd_hdr(buffer_t *buf, size_t *start_pos,
 }
 
 const char *imap_get_base_subject_cased(pool_t pool, const char *subject,
-					int *is_reply_or_forward_r)
+					bool *is_reply_or_forward_r)
 {
 	buffer_t *buf;
 	size_t start_pos, subject_len;
-	int found;
+	bool found;
 
 	if (is_reply_or_forward_r != NULL)
 		*is_reply_or_forward_r = FALSE;

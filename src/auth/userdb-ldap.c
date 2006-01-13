@@ -29,9 +29,9 @@ static const char *default_attr_map[] = {
 	"", "home", "mail", "system_user", "uid", "gid", NULL
 };
 
-static int append_uid_list(struct auth_request *auth_request,
-                           struct auth_stream_reply *reply,
-			   const char *name, char **vals)
+static bool append_uid_list(struct auth_request *auth_request,
+			    struct auth_stream_reply *reply,
+			    const char *name, char **vals)
 {
 	uid_t uid;
 
@@ -46,9 +46,9 @@ static int append_uid_list(struct auth_request *auth_request,
 	return TRUE;
 }
 
-static int append_gid_list(struct auth_request *auth_request,
-                           struct auth_stream_reply *reply,
-			   const char *name, char **vals)
+static bool append_gid_list(struct auth_request *auth_request,
+			    struct auth_stream_reply *reply,
+			    const char *name, char **vals)
 {
 	gid_t gid;
 
@@ -72,7 +72,7 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 	const char *name;
 	char *attr, **vals;
 	unsigned int i;
-	int seen_uid = FALSE, seen_gid = FALSE;
+	bool seen_uid = FALSE, seen_gid = FALSE;
 
 	reply = auth_stream_reply_init(auth_request);
 	auth_stream_reply_add(reply, NULL, auth_request->user);

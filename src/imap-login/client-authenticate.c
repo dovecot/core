@@ -17,7 +17,7 @@
 
 #include <stdlib.h>
 
-const char *client_authenticate_get_capabilities(int secured)
+const char *client_authenticate_get_capabilities(bool secured)
 {
 	const struct auth_mech_desc *mech;
 	unsigned int i, count;
@@ -79,13 +79,13 @@ static void client_auth_input(void *context)
 	safe_memset(line, 0, strlen(line));
 }
 
-static int client_handle_args(struct imap_client *client,
-			      const char *const *args, int nologin)
+static bool client_handle_args(struct imap_client *client,
+			       const char *const *args, bool nologin)
 {
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	string_t *reply;
 	unsigned int port = 143;
-	int proxy = FALSE, temp = FALSE;
+	bool proxy = FALSE, temp = FALSE;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
@@ -244,7 +244,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 
 	mech_name = IMAP_ARG_STR(&args[0]);
 	if (*mech_name == '\0')
-		return FALSE;
+		return 0;
 
 	client_ref(client);
 	sasl_server_auth_begin(&client->common, "IMAP", mech_name, NULL,

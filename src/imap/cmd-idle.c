@@ -26,9 +26,9 @@ struct cmd_idle_context {
 	unsigned int sync_pending:1;
 };
 
-static int cmd_idle_continue(struct client_command_context *cmd);
+static bool cmd_idle_continue(struct client_command_context *cmd);
 
-static void idle_finish(struct cmd_idle_context *ctx, int done_ok)
+static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
 {
 	struct client *client = ctx->client;
 
@@ -173,7 +173,7 @@ static void idle_callback(struct mailbox *box, void *context)
                 idle_sync_now(box, ctx);
 }
 
-static int cmd_idle_continue(struct client_command_context *cmd)
+static bool cmd_idle_continue(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_idle_context *ctx = cmd->context;
@@ -216,7 +216,7 @@ static int cmd_idle_continue(struct client_command_context *cmd)
 	return FALSE;
 }
 
-int cmd_idle(struct client_command_context *cmd)
+bool cmd_idle(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_idle_context *ctx;

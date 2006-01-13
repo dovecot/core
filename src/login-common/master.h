@@ -5,7 +5,7 @@ struct client;
 
 #include "../master/master-login-interface.h"
 
-typedef void master_callback_t(struct client *client, int success);
+typedef void master_callback_t(struct client *client, bool success);
 
 void master_request_login(struct client *client, master_callback_t *callback,
 			  unsigned int auth_pid, unsigned int auth_id);
@@ -20,7 +20,7 @@ void master_close(void);
 /* inetd: Connect to existing master process, or create new one. */
 int master_connect(const char *group_name);
 
-void master_init(int fd, int notify);
+void master_init(int fd, bool notify);
 void master_deinit(void);
 
 #endif

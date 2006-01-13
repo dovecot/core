@@ -144,7 +144,7 @@ void mbox_file_close_stream(struct mbox_mailbox *mbox)
 }
 
 int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
-		   uint32_t seq, int *deleted_r)
+		   uint32_t seq, bool *deleted_r)
 {
 	const void *data;
 	uint64_t offset;

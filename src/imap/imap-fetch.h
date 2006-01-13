@@ -12,14 +12,14 @@ struct imap_fetch_handler {
 	const char *name;
 
 	/* Returns FALSE if arg is invalid. */
-	int (*init)(struct imap_fetch_context *ctx, const char *name,
-		    struct imap_arg **args);
+	bool (*init)(struct imap_fetch_context *ctx, const char *name,
+		     struct imap_arg **args);
 };
 
 struct imap_fetch_context_handler {
 	imap_fetch_handler_t *handler;
 	void *context;
-	int buffered;
+	bool buffered;
 };
 
 struct imap_fetch_context {
@@ -43,7 +43,7 @@ struct imap_fetch_context {
 	uoff_t cur_size, cur_offset;
 	string_t *cur_str;
 	struct istream *cur_input;
-	int skip_cr;
+	bool skip_cr;
 	int (*cont_handler)(struct imap_fetch_context *ctx);
 
 	unsigned int select_counter;
@@ -63,21 +63,21 @@ struct imap_fetch_context {
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 				  size_t count);
 
-void imap_fetch_add_handler(struct imap_fetch_context *ctx, int buffered,
+void imap_fetch_add_handler(struct imap_fetch_context *ctx, bool buffered,
 			    imap_fetch_handler_t *handler, void *context);
 
 struct imap_fetch_context *imap_fetch_init(struct client_command_context *cmd);
 int imap_fetch_deinit(struct imap_fetch_context *ctx);
-int imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
-			    struct imap_arg **args);
+bool imap_fetch_init_handler(struct imap_fetch_context *ctx, const char *name,
+			     struct imap_arg **args);
 
 void imap_fetch_begin(struct imap_fetch_context *ctx,
 		      struct mail_search_arg *search_arg);
 int imap_fetch(struct imap_fetch_context *ctx);
 
-int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
-			    struct imap_arg **args);
-int fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
-		      struct imap_arg **args);
+bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
+			     struct imap_arg **args);
+bool fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
+		       struct imap_arg **args);
 
 #endif

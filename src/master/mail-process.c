@@ -25,8 +25,8 @@
 
 static unsigned int mail_process_count = 0;
 
-static int validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
-			    const char *user)
+static bool validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
+			     const char *user)
 {
 	if (uid == 0) {
 		i_error("Logins with UID 0 not permitted (user %s)", user);
@@ -58,7 +58,7 @@ static int validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
 	return TRUE;
 }
 
-static int validate_chroot(struct settings *set, const char *dir)
+static bool validate_chroot(struct settings *set, const char *dir)
 {
 	const char *const *chroot_dirs;
 
@@ -304,10 +304,10 @@ void mail_process_exec(const char *protocol, const char *section)
 		       set->mail_executable);
 }
 
-int create_mail_process(struct login_group *group, int socket,
-			const struct ip_addr *local_ip,
-			const struct ip_addr *remote_ip,
-			const char *user, const char *const *args)
+bool create_mail_process(struct login_group *group, int socket,
+			 const struct ip_addr *local_ip,
+			 const struct ip_addr *remote_ip,
+			 const char *user, const char *const *args)
 {
 	struct settings *set = group->set;
 	const struct var_expand_table *var_expand_table;

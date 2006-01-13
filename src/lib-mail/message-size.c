@@ -6,7 +6,7 @@
 #include "message-size.h"
 
 void message_get_header_size(struct istream *input, struct message_size *hdr,
-			     int *has_nuls)
+			     bool *has_nuls)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos, missing_cr_count;
@@ -62,11 +62,11 @@ void message_get_header_size(struct istream *input, struct message_size *hdr,
 }
 
 void message_get_body_size(struct istream *input, struct message_size *body,
-			   int *has_nuls)
+			   bool *has_nuls)
 {
 	const unsigned char *msg;
 	size_t i, size, missing_cr_count;
-	int last_cr;
+	bool last_cr;
 
 	memset(body, 0, sizeof(struct message_size));
 	if (has_nuls != NULL)

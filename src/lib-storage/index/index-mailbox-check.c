@@ -27,7 +27,7 @@ static void check_timeout(void *context)
 	struct index_notify_file *file;
 	struct stat st;
 	time_t last_check;
-	int notify;
+	bool notify;
 
 	/* check changes only when we can also notify of new mail */
 	last_check = I_MAX(ibox->sync_last_check, ibox->notify_last_check);

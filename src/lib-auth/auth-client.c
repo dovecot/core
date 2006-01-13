@@ -86,8 +86,9 @@ auth_client_find_mech(struct auth_client *client, const char *name)
 	return NULL;
 }
 
-int auth_client_reserve_connection(struct auth_client *client, const char *mech,
-				   struct auth_connect_id *id_r)
+bool auth_client_reserve_connection(struct auth_client *client,
+				    const char *mech,
+				    struct auth_connect_id *id_r)
 {
 	struct auth_server_connection *conn;
 	const char *error;
@@ -102,7 +103,7 @@ int auth_client_reserve_connection(struct auth_client *client, const char *mech,
 	return TRUE;
 }
 
-int auth_client_is_connected(struct auth_client *client)
+bool auth_client_is_connected(struct auth_client *client)
 {
 	return !client->reconnect &&
 		client->conn_waiting_handshake_count == 0;

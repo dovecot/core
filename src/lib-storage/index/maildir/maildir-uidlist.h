@@ -16,7 +16,7 @@ enum maildir_uidlist_rec_flag {
 int maildir_uidlist_lock(struct maildir_uidlist *uidlist);
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
 void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
-int maildir_uidlist_is_locked(struct maildir_uidlist *uidlist);
+bool maildir_uidlist_is_locked(struct maildir_uidlist *uidlist);
 
 struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox);
 void maildir_uidlist_deinit(struct maildir_uidlist *uidlist);
@@ -29,7 +29,7 @@ const char *
 maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 		       enum maildir_uidlist_rec_flag *flags_r);
 /* Returns TRUE if mail with given UID is recent. */
-int maildir_uidlist_is_recent(struct maildir_uidlist *uidlist, uint32_t uid);
+bool maildir_uidlist_is_recent(struct maildir_uidlist *uidlist, uint32_t uid);
 /* Returns number of recent messages. */
 uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist);
 
@@ -41,7 +41,7 @@ void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 
 /* Sync uidlist with what's actually on maildir. Returns same as
    maildir_uidlist_lock(). */
-int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial,
+int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, bool partial,
 			      struct maildir_uidlist_sync_ctx **sync_ctx_r);
 /* Returns 1 = ok, -1 = error, 0 = new file and dovecot-uidlist is locked */
 int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,

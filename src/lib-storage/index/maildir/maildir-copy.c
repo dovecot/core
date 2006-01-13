@@ -14,7 +14,7 @@
 
 struct maildir_copy_context {
 	struct maildir_mailbox *mbox;
-	int hardlink;
+	bool hardlink;
 
         struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
 	struct maildir_keywords_sync_ctx *keywords_sync_ctx;
@@ -25,7 +25,7 @@ struct maildir_copy_context {
 
 struct hardlink_ctx {
 	const char *dest_path;
-	int found;
+	bool found;
 };
 
 struct rollback {

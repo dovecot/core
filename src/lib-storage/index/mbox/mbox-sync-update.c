@@ -377,7 +377,7 @@ static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
 {
 	uint8_t old_flags;
-	int keywords_changed;
+	bool keywords_changed;
 
 	i_assert(ctx->mail.uid != 0 || ctx->pseudo);
 

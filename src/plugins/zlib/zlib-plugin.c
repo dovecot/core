@@ -24,7 +24,7 @@ static void (*zlib_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 
 static unsigned int zlib_storage_module_id = 0;
-static int zlib_storage_module_id_set = FALSE;
+static bool zlib_storage_module_id_set = FALSE;
 
 static const char *
 mbox_get_path(struct index_storage *storage, const char *name)

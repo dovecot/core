@@ -32,8 +32,8 @@ struct apop_auth_request {
 	unsigned char digest[16];
 };
 
-static int verify_credentials(struct apop_auth_request *request,
-			      const char *credentials)
+static bool verify_credentials(struct apop_auth_request *request,
+			       const char *credentials)
 {
 	unsigned char digest[16];
 	struct md5_context ctx;

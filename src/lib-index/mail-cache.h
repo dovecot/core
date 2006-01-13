@@ -55,7 +55,7 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 			     unsigned int *count_r);
 
 /* Returns TRUE if cache should be compressed. */
-int mail_cache_need_compress(struct mail_cache *cache);
+bool mail_cache_need_compress(struct mail_cache *cache);
 /* Compress cache file. */
 int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view);
 

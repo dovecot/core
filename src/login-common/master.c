@@ -225,7 +225,7 @@ static void master_input(void *context __attr_unused__)
 	master_pos = 0;
 }
 
-void master_init(int fd, int notify)
+void master_init(int fd, bool notify)
 {
 	main_ref();
 

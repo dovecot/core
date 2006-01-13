@@ -283,7 +283,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	return ret;
 }
 
-int dbox_sync(struct dbox_mailbox *mbox, int force)
+int dbox_sync(struct dbox_mailbox *mbox, bool force)
 {
 	struct dbox_sync_context ctx;
 	const struct mail_index_header *hdr;

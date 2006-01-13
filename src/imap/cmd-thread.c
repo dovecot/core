@@ -6,7 +6,7 @@
 #include "imap-search.h"
 #include "imap-thread.h"
 
-int cmd_thread(struct client_command_context *cmd)
+bool cmd_thread(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	enum mail_thread_type threading;

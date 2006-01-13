@@ -47,7 +47,7 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 	return ret;
 }
 
-int cmd_copy(struct client_command_context *cmd)
+bool cmd_copy(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mail_storage *storage;

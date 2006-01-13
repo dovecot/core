@@ -60,7 +60,7 @@ struct passdb_module {
 	const char *default_pass_scheme;
 	/* If blocking is set to TRUE, use child processes to access
 	   this passdb. */
-	int blocking;
+	bool blocking;
 
 	struct passdb_module_interface iface;
 };

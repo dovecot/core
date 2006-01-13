@@ -8,7 +8,7 @@ typedef void parse_content_param_callback_t(const unsigned char *name,
 					    size_t name_len,
 					    const unsigned char *value,
 					    size_t value_len,
-					    int value_quoted, void *context);
+					    bool value_quoted, void *context);
 
 void message_content_parse_header(const unsigned char *data, size_t size,
 				  parse_content_callback_t *callback,

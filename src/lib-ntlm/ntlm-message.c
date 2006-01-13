@@ -22,7 +22,7 @@
 #include <ctype.h>
 
 const char * __ntlmssp_t_str(const void *message, struct ntlmssp_buffer *buffer,
-			     int unicode)
+			     bool unicode)
 {
 	unsigned int len = read_le16(&buffer->length);
 	const char *p = ((char *) message) + read_le32(&buffer->offset);
@@ -42,7 +42,7 @@ const char * __ntlmssp_t_str(const void *message, struct ntlmssp_buffer *buffer,
 }
 
 static unsigned int append_string(buffer_t *buf, const char *str, 
-				  int ucase, int unicode)
+				  bool ucase, bool unicode)
 {
 	unsigned int length = 0;
 
@@ -200,52 +200,52 @@ static int ntlmssp_check_buffer(const struct ntlmssp_buffer *buffer,
 	return 1;
 }
 
-int ntlmssp_check_request(const struct ntlmssp_request *request,
-			  size_t data_size, const char **error)
+bool ntlmssp_check_request(const struct ntlmssp_request *request,
+			   size_t data_size, const char **error)
 {
 	uint32_t flags;
 
 	if (data_size < sizeof(struct ntlmssp_request)) {
 		*error = "request too short";
-		return 0;
+		return FALSE;
 	}
 
 	if (read_le64(&request->magic) != NTLMSSP_MAGIC) {
 		*error = "signature mismatch";
-		return 0;
+		return FALSE;
 	}
 
 	if (read_le32(&request->type) != NTLMSSP_MSG_TYPE1) {
 		*error = "message type mismatch";
-		return 0;
+		return FALSE;
 	}
 
 	flags = read_le32(&request->flags);
 
 	if ((flags & NTLMSSP_NEGOTIATE_NTLM) == 0) {
 		*error = "client doesn't advertise NTLM support";
-		return 0;
+		return FALSE;
 	}
 
-	return 1;
+	return TRUE;
 }
 
-int ntlmssp_check_response(const struct ntlmssp_response *response,
-			   size_t data_size, const char **error)
+bool ntlmssp_check_response(const struct ntlmssp_response *response,
+			    size_t data_size, const char **error)
 {
 	if (data_size < sizeof(struct ntlmssp_response)) {
 		*error = "response too short";
-		return 0;
+		return FALSE;
 	}
 
 	if (read_le64(&response->magic) != NTLMSSP_MAGIC) {
 		*error = "signature mismatch";
-		return 0;
+		return FALSE;
 	}
 
 	if (read_le32(&response->type) != NTLMSSP_MSG_TYPE3) {
 		*error = "message type mismatch";
-		return 0;
+		return FALSE;
 	}
 
 	if (!ntlmssp_check_buffer(&response->lm_response, data_size, error) ||
@@ -253,7 +253,7 @@ int ntlmssp_check_response(const struct ntlmssp_response *response,
 	    !ntlmssp_check_buffer(&response->domain, data_size, error) ||
 	    !ntlmssp_check_buffer(&response->user, data_size, error) ||
 	    !ntlmssp_check_buffer(&response->workstation, data_size, error))
-		return 0;
+		return FALSE;
 
-	return 1;
+	return TRUE;
 }

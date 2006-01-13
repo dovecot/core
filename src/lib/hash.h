@@ -20,11 +20,11 @@ void hash_destroy(struct hash_table *table);
 /* Remove all nodes from hash table. If free_collisions is TRUE, the
    memory allocated from node_pool is freed, or discarded with
    alloconly pools. */
-void hash_clear(struct hash_table *table, int free_collisions);
+void hash_clear(struct hash_table *table, bool free_collisions);
 
 void *hash_lookup(const struct hash_table *table, const void *key);
-int hash_lookup_full(const struct hash_table *table, const void *lookup_key,
-		     void **orig_key, void **value);
+bool hash_lookup_full(const struct hash_table *table, const void *lookup_key,
+		      void **orig_key, void **value);
 
 /* Insert/update node in hash table. The difference is that hash_insert()
    replaces the key in table to given one, while hash_update() doesnt. */
@@ -38,8 +38,8 @@ size_t hash_size(const struct hash_table *table);
    functions while iterating, but if you add any new nodes, they may or may
    not be called for in this iteration. */
 struct hash_iterate_context *hash_iterate_init(struct hash_table *table);
-int hash_iterate(struct hash_iterate_context *ctx,
-		 void **key_r, void **value_r);
+bool hash_iterate(struct hash_iterate_context *ctx,
+		  void **key_r, void **value_r);
 void hash_iterate_deinit(struct hash_iterate_context *ctx);
 
 /* Hash table isn't resized, and removed nodes aren't removed from

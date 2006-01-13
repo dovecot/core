@@ -14,7 +14,7 @@ struct mail_storage_vfuncs {
 			  enum mail_storage_lock_method lock_method);
 	void (*destroy)(struct mail_storage *storage);
 
-	int (*autodetect)(const char *data, enum mail_storage_flags flags);
+	bool (*autodetect)(const char *data, enum mail_storage_flags flags);
 
 	void (*set_callbacks)(struct mail_storage *storage,
 			      struct mail_storage_callbacks *callbacks,
@@ -26,7 +26,7 @@ struct mail_storage_vfuncs {
 					enum mailbox_open_flags flags);
 
 	int (*mailbox_create)(struct mail_storage *storage, const char *name,
-			      int directory);
+			      bool directory);
 	int (*mailbox_delete)(struct mail_storage *storage, const char *name);
 	int (*mailbox_rename)(struct mail_storage *storage, const char *oldname,
 			      const char *newname);
@@ -40,15 +40,15 @@ struct mail_storage_vfuncs {
 	int (*mailbox_list_deinit)(struct mailbox_list_context *ctx);
 
 	int (*set_subscribed)(struct mail_storage *storage,
-			      const char *name, int set);
+			      const char *name, bool set);
 
 	int (*get_mailbox_name_status)(struct mail_storage *storage,
 				       const char *name,
 				       enum mailbox_name_status *status);
 
 	const char *(*get_last_error)(struct mail_storage *storage,
-				      int *syntax_error_r,
-				      int *temporary_error_r);
+				      bool *syntax_error_r,
+				      bool *temporary_error_r);
 };
 
 struct mail_storage {
@@ -75,8 +75,8 @@ struct mail_storage {
 };
 
 struct mailbox_vfuncs {
-	int (*is_readonly)(struct mailbox *box);
-	int (*allow_new_keywords)(struct mailbox *box);
+	bool (*is_readonly)(struct mailbox *box);
+	bool (*allow_new_keywords)(struct mailbox *box);
 
 	int (*close)(struct mailbox *box);
 
@@ -136,7 +136,7 @@ struct mailbox_vfuncs {
 			     struct mail_keywords *keywords,
 			     time_t received_date, int timezone_offset,
 			     const char *from_envelope, struct istream *input,
-			     int want_mail);
+			     bool want_mail);
 	int (*save_continue)(struct mail_save_context *ctx);
 	int (*save_finish)(struct mail_save_context *ctx,
 			   struct mail *dest_mail);
@@ -146,7 +146,7 @@ struct mailbox_vfuncs {
 		    enum mail_flags flags, struct mail_keywords *keywords,
 		    struct mail *dest_mail);
 
-	int (*is_inconsistent)(struct mailbox *box);
+	bool (*is_inconsistent)(struct mailbox *box);
 };
 
 struct mailbox {
@@ -239,6 +239,6 @@ void mail_storage_set_critical(struct mail_storage *storage,
 void mail_storage_set_internal_error(struct mail_storage *storage);
 
 const char *mail_storage_class_get_last_error(struct mail_storage *storage,
-					      int *syntax_error_r);
+					      bool *syntax_error_r);
 
 #endif

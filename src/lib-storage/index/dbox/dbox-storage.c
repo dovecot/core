@@ -19,7 +19,7 @@
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
 struct rename_context {
-	int found;
+	bool found;
 	size_t oldnamelen;
 	const char *newname;
 };
@@ -27,7 +27,7 @@ struct rename_context {
 extern struct mail_storage dbox_storage;
 extern struct mailbox dbox_mailbox;
 
-static int dbox_handle_errors(struct index_storage *istorage)
+static bool dbox_handle_errors(struct index_storage *istorage)
 {
 	struct mail_storage *storage = &istorage->storage;
 
@@ -47,7 +47,7 @@ dbox_create(const char *data, const char *user,
 	    enum mail_storage_flags flags,
 	    enum mail_storage_lock_method lock_method)
 {
-	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	struct dbox_storage *storage;
 	struct index_storage *istorage;
 	const char *root_dir, *index_dir, *p;
@@ -125,9 +125,9 @@ static void dbox_free(struct mail_storage *_storage)
 	pool_unref(storage->storage.pool);
 }
 
-static int dbox_autodetect(const char *data, enum mail_storage_flags flags)
+static bool dbox_autodetect(const char *data, enum mail_storage_flags flags)
 {
-	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	struct stat st;
 	const char *path;
 
@@ -148,10 +148,10 @@ static int dbox_autodetect(const char *data, enum mail_storage_flags flags)
 	return TRUE;
 }
 
-int dbox_is_valid_mask(struct mail_storage *storage, const char *mask)
+bool dbox_is_valid_mask(struct mail_storage *storage, const char *mask)
 {
 	const char *p;
-	int newdir;
+	bool newdir;
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0)
 		return TRUE;
@@ -171,8 +171,8 @@ int dbox_is_valid_mask(struct mail_storage *storage, const char *mask)
 	return TRUE;
 }
 
-static int dbox_is_valid_create_name(struct mail_storage *storage,
-				     const char *name)
+static bool dbox_is_valid_create_name(struct mail_storage *storage,
+				      const char *name)
 {
 	size_t len;
 
@@ -184,8 +184,8 @@ static int dbox_is_valid_create_name(struct mail_storage *storage,
 	return dbox_is_valid_mask(storage, name);
 }
 
-static int dbox_is_valid_existing_name(struct mail_storage *storage,
-				       const char *name)
+static bool dbox_is_valid_existing_name(struct mail_storage *storage,
+					const char *name)
 {
 	size_t len;
 
@@ -242,8 +242,8 @@ static int create_index_dir(struct index_storage *storage, const char *name)
 	return 0;
 }
 
-static int dbox_is_recent(struct index_mailbox *ibox __attr_unused__,
-			  uint32_t uid __attr_unused__)
+static bool dbox_is_recent(struct index_mailbox *ibox __attr_unused__,
+			   uint32_t uid __attr_unused__)
 {
 	return FALSE;
 }
@@ -371,7 +371,7 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 
 static int dbox_mailbox_create(struct mail_storage *_storage,
 			       const char *name,
-			       int directory __attr_unused__)
+			       bool directory __attr_unused__)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct index_storage *istorage = INDEX_STORAGE(storage);
@@ -530,7 +530,7 @@ static int dbox_mailbox_rename(struct mail_storage *_storage,
 }
 
 static int dbox_set_subscribed(struct mail_storage *_storage,
-			       const char *name, int set)
+			       const char *name, bool set)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	const char *path;

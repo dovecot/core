@@ -15,7 +15,7 @@ struct ldap_settings {
 	const char *uris;
 	const char *dn;
 	const char *dnpass;
-	int auth_bind;
+	bool auth_bind;
 	const char *auth_bind_userdn;
 	const char *deref;
 	const char *scope;
@@ -31,6 +31,7 @@ struct ldap_settings {
 	const char *user_global_uid;
 	const char *user_global_gid;
 
+	/* ... */
 	int ldap_deref, ldap_scope;
 	uid_t uid;
 	gid_t gid;
@@ -74,7 +75,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 struct ldap_connection *db_ldap_init(const char *config_path);
 void db_ldap_unref(struct ldap_connection *conn);
 
-int db_ldap_connect(struct ldap_connection *conn);
+bool db_ldap_connect(struct ldap_connection *conn);
 
 const char *ldap_escape(const char *str);
 const char *ldap_get_error(struct ldap_connection *conn);

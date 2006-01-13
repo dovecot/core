@@ -75,12 +75,12 @@ void client_send_command_error(struct client_command_context *cmd,
 
 /* Read a number of arguments. Returns TRUE if everything was read or
    FALSE if either needs more data or error occurred. */
-int client_read_args(struct client_command_context *cmd, unsigned int count,
-		     unsigned int flags, struct imap_arg **args);
+bool client_read_args(struct client_command_context *cmd, unsigned int count,
+		      unsigned int flags, struct imap_arg **args);
 /* Reads a number of string arguments. ... is a list of pointers where to
    store the arguments. */
-int client_read_string_args(struct client_command_context *cmd,
-			    unsigned int count, ...);
+bool client_read_string_args(struct client_command_context *cmd,
+			     unsigned int count, ...);
 
 void clients_init(void);
 void clients_deinit(void);

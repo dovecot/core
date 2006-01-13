@@ -79,7 +79,7 @@ static const char *imap_parse_date_internal(const char *str, struct tm *tm)
 	return str;
 }
 
-int imap_parse_date(const char *str, time_t *time)
+bool imap_parse_date(const char *str, time_t *time)
 {
 	struct tm tm;
 
@@ -92,7 +92,7 @@ int imap_parse_date(const char *str, time_t *time)
 	return *time != (time_t)-1;
 }
 
-int imap_parse_datetime(const char *str, time_t *time, int *timezone_offset)
+bool imap_parse_datetime(const char *str, time_t *time, int *timezone_offset)
 {
 	struct tm tm;
 

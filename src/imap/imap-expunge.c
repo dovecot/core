@@ -5,14 +5,14 @@
 #include "mail-search.h"
 #include "imap-expunge.h"
 
-int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
+bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 {
 	struct mail_search_context *ctx;
         struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct mail_search_arg search_arg;
         enum mailbox_sync_flags flags;
-	int failed = FALSE;
+	bool failed = FALSE;
 
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_DELETED;

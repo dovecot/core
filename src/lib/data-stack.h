@@ -58,7 +58,7 @@ void *t_malloc0(size_t size);
 
 /* Try growing allocated memory. Returns TRUE if successful. Works only
    for last allocated memory in current stack frame. */
-int t_try_realloc(void *mem, size_t size);
+bool t_try_realloc(void *mem, size_t size);
 
 /* Returns the number of bytes available in data stack without allocating
    more memory. */

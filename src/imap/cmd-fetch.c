@@ -17,7 +17,7 @@ const char *full_macro[] = {
 	"FLAGS", "INTERNALDATE", "RFC822.SIZE", "ENVELOPE", "BODY", NULL
 };
 
-static int
+static bool
 fetch_parse_args(struct imap_fetch_context *ctx, struct imap_arg *arg)
 {
 	const char *str, *const *macro;
@@ -68,11 +68,11 @@ fetch_parse_args(struct imap_fetch_context *ctx, struct imap_arg *arg)
 	return TRUE;
 }
 
-static int cmd_fetch_finish(struct imap_fetch_context *ctx)
+static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 {
 	struct client_command_context *cmd = ctx->cmd;
 	static const char *ok_message = "OK Fetch completed.";
-	int failed, partial;
+	bool failed, partial;
 
 	partial = ctx->partial_fetch;
 	failed = ctx->failed;
@@ -83,7 +83,7 @@ static int cmd_fetch_finish(struct imap_fetch_context *ctx)
 	if (failed || (partial && !cmd->uid)) {
 		struct mail_storage *storage;
 		const char *error;
-		int syntax, temporary_error;
+		bool syntax, temporary_error;
 
                 storage = mailbox_get_storage(cmd->client->mailbox);
 		error = mail_storage_get_last_error(storage, &syntax,
@@ -108,7 +108,7 @@ static int cmd_fetch_finish(struct imap_fetch_context *ctx)
 			ok_message);
 }
 
-static int cmd_fetch_continue(struct client_command_context *cmd)
+static bool cmd_fetch_continue(struct client_command_context *cmd)
 {
         struct imap_fetch_context *ctx = cmd->context;
 	int ret;
@@ -127,7 +127,7 @@ static int cmd_fetch_continue(struct client_command_context *cmd)
 	return cmd_fetch_finish(ctx);
 }
 
-int cmd_fetch(struct client_command_context *cmd)
+bool cmd_fetch(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct imap_fetch_context *ctx;

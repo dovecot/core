@@ -51,7 +51,7 @@ struct syslog_facility_list syslog_facilities[] = {
 	{ NULL, 0 }
 };
 
-int syslog_facility_find(const char *name, int *facility_r)
+bool syslog_facility_find(const char *name, int *facility_r)
 {
 	int i;
 

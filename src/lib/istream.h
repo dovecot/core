@@ -15,10 +15,10 @@ struct istream {
 };
 
 struct istream *i_stream_create_file(int fd, pool_t pool,
-				     size_t max_buffer_size, int autoclose_fd);
+				     size_t max_buffer_size, bool autoclose_fd);
 struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 				     uoff_t start_offset, uoff_t v_size,
-				     int autoclose_fd);
+				     bool autoclose_fd);
 struct istream *i_stream_create_from_data(pool_t pool, const void *data,
 					  size_t size);
 struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
@@ -64,9 +64,9 @@ void i_stream_seek_mark(struct istream *stream, uoff_t v_offset);
    If exact=FALSE, the stream may not return exactly correct values, but the
    returned values can be compared to see if anything had changed (eg. in
    compressed stream st_size could be compressed size) */
-const struct stat *i_stream_stat(struct istream *stream, int exact);
+const struct stat *i_stream_stat(struct istream *stream, bool exact);
 /* Returns TRUE if there are any bytes left to be read or in buffer. */
-int i_stream_have_bytes_left(struct istream *stream);
+bool i_stream_have_bytes_left(struct istream *stream);
 
 /* Gets the next line from stream and returns it, or NULL if more data is
    needed to make a full line. Note that if the stream ends with LF not being

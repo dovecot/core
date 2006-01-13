@@ -240,7 +240,7 @@ void io_loop_set_running(struct ioloop *ioloop)
         ioloop->running = TRUE;
 }
 
-int io_loop_is_running(struct ioloop *ioloop)
+bool io_loop_is_running(struct ioloop *ioloop)
 {
         return ioloop->running;
 }

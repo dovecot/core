@@ -24,7 +24,8 @@ int mbox_transaction_commit(struct mailbox_transaction_context *_t,
 		(struct mbox_transaction_context *)_t;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->ictx.ibox;
 	unsigned int lock_id = t->mbox_lock_id;
-	int mbox_modified, ret = 0;
+	bool mbox_modified;
+	int ret = 0;
 
 	if (t->save_ctx != NULL)
 		ret = mbox_transaction_save_commit(t->save_ctx);

@@ -55,7 +55,7 @@ const struct command imap_ext_commands[] = {
 	(sizeof(imap_ext_commands) / sizeof(imap_ext_commands[0]))
 
 static buffer_t *cmdbuf;
-static int cmdbuf_unsorted;
+static bool cmdbuf_unsorted;
 
 void command_register(const char *name, command_func_t *func)
 {

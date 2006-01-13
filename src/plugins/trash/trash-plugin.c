@@ -46,7 +46,7 @@ extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 
 static void (*trash_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
-static int quota_initialized;
+static bool quota_initialized;
 static unsigned int trash_quota_module_id;
 
 static pool_t config_pool;
@@ -169,7 +169,7 @@ __err:
 
 static int
 trash_quota_try_alloc(struct quota_transaction_context *ctx,
-		      struct mail *mail, int *too_large_r)
+		      struct mail *mail, bool *too_large_r)
 {
 	struct trash_quota *tquota = TRASH_CONTEXT(quota);
 	int ret, i;

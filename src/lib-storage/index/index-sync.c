@@ -41,7 +41,7 @@ void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq)
 	}
 }
 
-int index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq)
+bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq)
 {
 	const unsigned char *data;
 	size_t size;
@@ -125,7 +125,7 @@ static int index_mailbox_update_recent(struct index_mailbox *ibox,
 
 struct mailbox_sync_context *
 index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
-			int failed)
+			bool failed)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
         struct index_mailbox_sync_context *ctx;
@@ -269,7 +269,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	return ret;
 }
 
-int index_keyword_array_cmp(const array_t *k1, const array_t *k2)
+bool index_keyword_array_cmp(const array_t *k1, const array_t *k2)
 {
 	ARRAY_SET_TYPE(k1, unsigned int);
 	ARRAY_SET_TYPE(k2, unsigned int);

@@ -32,7 +32,7 @@ static void search_loop(const unsigned char *data, size_t size,
 
 struct header_search_context *
 message_header_search_init(pool_t pool, const char *key, const char *charset,
-			   int *unknown_charset)
+			   bool *unknown_charset)
 {
 	struct header_search_context *ctx;
 	size_t key_len;
@@ -121,7 +121,7 @@ static void search_loop(const unsigned char *data, size_t size,
 	size_t pos, *matches, match_count, value;
 	ssize_t i;
 	unsigned char chr;
-	int last_newline;
+	bool last_newline;
 
 	matches = buffer_get_modifyable_data(ctx->match_buf, &match_count);
 	match_count /= sizeof(size_t);
@@ -188,8 +188,8 @@ static void search_loop(const unsigned char *data, size_t size,
 	ctx->last_newline = last_newline;
 }
 
-static int search_block(const unsigned char *data, size_t size,
-			const char *charset, void *context)
+static bool search_block(const unsigned char *data, size_t size,
+			 const char *charset, void *context)
 {
 	struct header_search_context *ctx = context;
 
@@ -205,8 +205,8 @@ static int search_block(const unsigned char *data, size_t size,
 	return !ctx->found;
 }
 
-int message_header_search(const unsigned char *header_block, size_t size,
-			  struct header_search_context *ctx)
+bool message_header_search(const unsigned char *header_block, size_t size,
+			   struct header_search_context *ctx)
 {
 	if (!ctx->found)
 		message_header_decode(header_block, size, search_block, ctx);

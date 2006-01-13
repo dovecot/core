@@ -81,7 +81,7 @@ array_free(array_t *array)
 	array->buffer = NULL;
 }
 
-static inline int
+static inline bool
 array_is_created(const array_t *array)
 {
 	return array->buffer != NULL;
@@ -262,7 +262,7 @@ array_count(const array_t *array)
 	return array->buffer->used / array->element_size;
 }
 
-static inline int
+static inline bool
 array_cmp(const array_t *array1, const array_t *array2)
 {
 	if (!array_is_created(array1) || array1->buffer->used == 0)

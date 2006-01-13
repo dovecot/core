@@ -20,13 +20,13 @@ client_find_storage(struct client_command_context *cmd, const char **mailbox);
 
    If should_exist is FALSE, the should_not_exist specifies if we should
    return TRUE or FALSE if mailbox doesn't exist. */
-int client_verify_mailbox_name(struct client_command_context *cmd,
-			       const char *mailbox,
-			       int should_exist, int should_not_exist);
+bool client_verify_mailbox_name(struct client_command_context *cmd,
+				const char *mailbox,
+				bool should_exist, bool should_not_exist);
 
 /* Returns TRUE if mailbox is selected. If not, sends "No mailbox selected"
    error message to client. */
-int client_verify_open_mailbox(struct client_command_context *cmd);
+bool client_verify_open_mailbox(struct client_command_context *cmd);
 
 /* Send last mail storage error message to client. */
 void client_send_storage_error(struct client_command_context *cmd,
@@ -38,9 +38,9 @@ void client_send_untagged_storage_error(struct client *client,
 
 /* Parse flags. Returns TRUE if successful, if not sends an error message to
    client. */
-int client_parse_mail_flags(struct client_command_context *cmd,
-			    struct imap_arg *args, enum mail_flags *flags_r,
-			    const char *const **keywords_r);
+bool client_parse_mail_flags(struct client_command_context *cmd,
+			     struct imap_arg *args, enum mail_flags *flags_r,
+			     const char *const **keywords_r);
 
 /* Send FLAGS + PERMANENTFLAGS to client. */
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
@@ -48,11 +48,11 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 
 /* Copy keywords into dest. dest must have been initialized. Returns TRUE if
    keywords changed. */
-int client_save_keywords(struct mailbox_keywords *dest,
-			 const array_t *keywords);
+bool client_save_keywords(struct mailbox_keywords *dest,
+			  const array_t *keywords);
 
-int mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
-		   const char *name2);
+bool mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
+		    const char *name2);
 
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str);
 void msgset_generator_next(struct msgset_generator_context *ctx, uint32_t uid);

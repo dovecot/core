@@ -232,8 +232,8 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 	auth_request_handler_remove(handler, request);
 }
 
-int auth_request_handler_auth_begin(struct auth_request_handler *handler,
-				    const char *args)
+bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
+				     const char *args)
 {
 	struct mech_module *mech;
 	struct auth_request *request;
@@ -242,7 +242,7 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	size_t initial_resp_len;
 	unsigned int id;
 	buffer_t *buf;
-	int valid_client_cert;
+	bool valid_client_cert;
 
 	/* <id> <mechanism> [...] */
 	list = t_strsplit(args, "\t");
@@ -328,8 +328,8 @@ int auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	return TRUE;
 }
 
-int auth_request_handler_auth_continue(struct auth_request_handler *handler,
-				       const char *args)
+bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
+					const char *args)
 {
 	struct auth_request *request;
 	const char *data;

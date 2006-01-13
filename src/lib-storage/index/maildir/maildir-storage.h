@@ -103,7 +103,7 @@ struct maildir_index_sync_context *
 maildir_sync_index_begin(struct maildir_mailbox *mbox);
 void maildir_sync_index_abort(struct maildir_index_sync_context *sync_ctx);
 int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
-			      int partial);
+			      bool partial);
 
 struct mailbox_transaction_context *
 maildir_transaction_begin(struct mailbox *box,
@@ -117,7 +117,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 		  enum mail_flags flags, struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset,
 		  const char *from_envelope, struct istream *input,
-		  int want_mail);
+		  bool want_mail);
 int maildir_save_continue(struct mail_save_context *ctx);
 int maildir_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void maildir_save_cancel(struct mail_save_context *ctx);

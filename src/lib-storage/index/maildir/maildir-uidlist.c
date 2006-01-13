@@ -73,7 +73,7 @@ struct maildir_uidlist_iter_ctx {
 };
 
 static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
-					int nonblock)
+					bool nonblock)
 {
 	const char *path;
 	mode_t old_mask;
@@ -118,7 +118,7 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 	return maildir_uidlist_lock_timeout(uidlist, TRUE);
 }
 
-int maildir_uidlist_is_locked(struct maildir_uidlist *uidlist)
+bool maildir_uidlist_is_locked(struct maildir_uidlist *uidlist)
 {
 	return UIDLIST_IS_LOCKED(uidlist);
 }
@@ -391,7 +391,7 @@ maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 	return rec->filename;
 }
 
-int maildir_uidlist_is_recent(struct maildir_uidlist *uidlist, uint32_t uid)
+bool maildir_uidlist_is_recent(struct maildir_uidlist *uidlist, uint32_t uid)
 {
 	enum maildir_uidlist_rec_flag flags;
 
@@ -562,7 +562,7 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 }
 
 static void maildir_uidlist_mark_all(struct maildir_uidlist *uidlist,
-				     int nonsynced)
+				     bool nonsynced)
 {
 	struct maildir_uidlist_rec **rec_p;
 	size_t i, size;
@@ -579,7 +579,7 @@ static void maildir_uidlist_mark_all(struct maildir_uidlist *uidlist,
 	}
 }
 
-int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, int partial,
+int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, bool partial,
 			      struct maildir_uidlist_sync_ctx **sync_ctx_r)
 {
 	struct maildir_uidlist_sync_ctx *ctx;
@@ -826,7 +826,7 @@ void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 {
-	int unlocked = FALSE;
+	bool unlocked = FALSE;
 	int ret = ctx->failed ? -1 : 0;
 
 	if (!ctx->finished)

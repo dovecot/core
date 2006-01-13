@@ -109,7 +109,7 @@ static int client_output_starttls(void *context)
 	return 1;
 }
 
-static int cmd_stls(struct pop3_client *client)
+static bool cmd_stls(struct pop3_client *client)
 {
 	if (client->common.tls) {
 		client_send_line(client, "-ERR TLS is already active.");
@@ -144,15 +144,15 @@ static int cmd_stls(struct pop3_client *client)
 	return TRUE;
 }
 
-static int cmd_quit(struct pop3_client *client)
+static bool cmd_quit(struct pop3_client *client)
 {
 	client_send_line(client, "+OK Logging out");
 	client_destroy(client, "Aborted login");
 	return TRUE;
 }
 
-static int client_command_execute(struct pop3_client *client, const char *cmd,
-				  const char *args)
+static bool client_command_execute(struct pop3_client *client, const char *cmd,
+				   const char *args)
 {
 	cmd = t_str_ucase(cmd);
 	if (strcmp(cmd, "CAPA") == 0)
@@ -174,7 +174,7 @@ static int client_command_execute(struct pop3_client *client, const char *cmd,
 	return FALSE;
 }
 
-int client_read(struct pop3_client *client)
+bool client_read(struct pop3_client *client)
 {
 	switch (i_stream_read(client->input)) {
 	case -2:
@@ -298,7 +298,7 @@ static void client_auth_ready(struct pop3_client *client)
 					     client->apop_challenge, NULL));
 }
 
-struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
+struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip)
 {
 	struct pop3_client *client;
@@ -408,7 +408,7 @@ void client_ref(struct pop3_client *client)
 	client->refcount++;
 }
 
-int client_unref(struct pop3_client *client)
+bool client_unref(struct pop3_client *client)
 {
 	if (--client->refcount > 0)
 		return TRUE;

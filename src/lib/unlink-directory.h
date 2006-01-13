@@ -3,6 +3,6 @@
 
 /* Unlink directory and/or everything under it.
    Returns 0 if successful, -1 if error. */
-int unlink_directory(const char *dir, int unlink_dir);
+int unlink_directory(const char *dir, bool unlink_dir);
 
 #endif

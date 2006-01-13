@@ -32,7 +32,7 @@ struct mbox_list_context {
 	struct imap_match_glob *glob;
 	struct subsfile_list_context *subsfile_ctx;
 
-	int failed, inbox_found;
+	bool failed, inbox_found;
 
 	struct mailbox_list *(*next)(struct mbox_list_context *ctx);
 
@@ -69,7 +69,7 @@ mbox_get_path(struct index_storage *storage, const char *name)
 }
 
 static int list_opendir(struct mail_storage *storage,
-			const char *path, int root, DIR **dirp)
+			const char *path, bool root, DIR **dirp)
 {
 	*dirp = opendir(*path == '\0' ? "/" : path);
 	if (*dirp != NULL)
@@ -222,7 +222,8 @@ static int list_file(struct mbox_list_context *ctx, const char *fname)
 	DIR *dirp;
 	size_t len;
 	enum imap_match_result match, match2;
-	int ret, noselect;
+	int ret;
+	bool noselect;
 
 	/* skip all hidden files */
 	if (fname[0] == '.')

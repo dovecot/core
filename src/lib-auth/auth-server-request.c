@@ -31,8 +31,8 @@ struct auth_request {
 	unsigned int retrying:1;
 };
 
-static int auth_server_send_new_request(struct auth_server_connection *conn,
-					struct auth_request *request);
+static bool auth_server_send_new_request(struct auth_server_connection *conn,
+					 struct auth_request *request);
 static void auth_client_request_free(struct auth_request *request);
 
 static struct auth_server_connection *
@@ -67,7 +67,7 @@ auth_server_request_check_retry(struct auth_request *request, const char *data)
 	}
 }
 
-static int is_valid_string(const char *str)
+static bool is_valid_string(const char *str)
 {
 	const char *p;
 
@@ -80,8 +80,8 @@ static int is_valid_string(const char *str)
 	return TRUE;
 }
 
-static int auth_server_send_new_request(struct auth_server_connection *conn,
-					struct auth_request *request)
+static bool auth_server_send_new_request(struct auth_server_connection *conn,
+					 struct auth_request *request)
 {
 	string_t *str;
 	ssize_t ret;
@@ -148,7 +148,7 @@ static void auth_server_send_continue(struct auth_server_connection *conn,
 	}
 }
 
-int auth_client_input_ok(struct auth_server_connection *conn, const char *args)
+bool auth_client_input_ok(struct auth_server_connection *conn, const char *args)
 {
 	const char *const *list, *const *args_list, *data_base64;
 	struct auth_request *request;
@@ -187,8 +187,8 @@ int auth_client_input_ok(struct auth_server_connection *conn, const char *args)
 	return TRUE;
 }
 
-int auth_client_input_cont(struct auth_server_connection *conn,
-			   const char *args)
+bool auth_client_input_cont(struct auth_server_connection *conn,
+			    const char *args)
 {
 	struct auth_request *request;
 	const char *data;
@@ -217,8 +217,8 @@ int auth_client_input_cont(struct auth_server_connection *conn,
 	return TRUE;
 }
 
-int auth_client_input_fail(struct auth_server_connection *conn,
-			   const char *args)
+bool auth_client_input_fail(struct auth_server_connection *conn,
+			    const char *args)
 {
 	struct auth_request *request;
         struct auth_server_connection *next;

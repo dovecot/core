@@ -7,6 +7,6 @@ struct seq_range {
 
 void seq_range_array_add(array_t *array, unsigned int init_count, uint32_t seq);
 void seq_range_array_remove(array_t *array, uint32_t seq);
-int seq_range_exists(array_t *array, uint32_t seq);
+bool seq_range_exists(array_t *array, uint32_t seq);
 
 #endif

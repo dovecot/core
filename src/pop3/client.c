@@ -57,7 +57,8 @@ static int init_mailbox(struct client *client)
         struct mailbox_status status;
 	struct mail *mail;
 	buffer_t *message_sizes_buf;
-	int i, failed;
+	int i;
+	bool failed;
 
 	message_sizes_buf = buffer_create_dynamic(default_pool, 512);
 
@@ -130,7 +131,7 @@ struct client *client_create(int hin, int hout, struct mail_storage *storage)
 {
 	struct client *client;
         enum mailbox_open_flags flags;
-	int syntax_error, temporary_error;
+	bool syntax_error, temporary_error;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(hin, TRUE);
@@ -300,7 +301,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 void client_send_storage_error(struct client *client)
 {
 	const char *error;
-	int syntax, temporary_error;
+	bool syntax, temporary_error;
 
 	if (mailbox_is_inconsistent(client->mailbox)) {
 		client_send_line(client, "-ERR Mailbox is in inconsistent "

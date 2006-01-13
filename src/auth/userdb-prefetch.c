@@ -17,7 +17,7 @@ static void prefetch_lookup(struct auth_request *auth_request,
 	string_t *str;
 	uid_t uid;
 	gid_t gid;
-	int uid_seen, gid_seen;
+	bool uid_seen, gid_seen;
 
 	if (auth_request->extra_fields == NULL) {
 		auth_request_log_error(auth_request, "prefetch",

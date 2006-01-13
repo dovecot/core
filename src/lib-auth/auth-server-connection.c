@@ -34,7 +34,7 @@ static void update_available_auth_mechs(struct auth_server_connection *conn)
 	}
 }
 
-static int
+static bool
 auth_client_input_mech(struct auth_server_connection *conn, const char *args)
 {
 	const char *const *list;
@@ -77,7 +77,7 @@ auth_client_input_mech(struct auth_server_connection *conn, const char *args)
 	return TRUE;
 }
 
-static int
+static bool
 auth_client_input_spid(struct auth_server_connection *conn, const char *args)
 {
 	if (conn->handshake_received) {
@@ -89,7 +89,7 @@ auth_client_input_spid(struct auth_server_connection *conn, const char *args)
 	return TRUE;
 }
 
-static int
+static bool
 auth_client_input_cuid(struct auth_server_connection *conn, const char *args)
 {
 	if (conn->handshake_received) {
@@ -101,7 +101,7 @@ auth_client_input_cuid(struct auth_server_connection *conn, const char *args)
 	return TRUE;
 }
 
-static int auth_client_input_done(struct auth_server_connection *conn)
+static bool auth_client_input_done(struct auth_server_connection *conn)
 {
 	conn->available_auth_mechs = conn->auth_mechs_buf->data;
 	conn->available_auth_mechs_count =
@@ -256,7 +256,7 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 }
 
 void auth_server_connection_destroy(struct auth_server_connection *conn,
-				    int reconnect)
+				    bool reconnect)
 {
 	struct auth_client *client = conn->client;
 	struct auth_server_connection **pos;

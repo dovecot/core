@@ -70,7 +70,7 @@ struct ldap_settings default_ldap_settings = {
 
 static struct ldap_connection *ldap_connections = NULL;
 
-static void ldap_conn_close(struct ldap_connection *conn, int flush_requests);
+static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests);
 
 static int deref2str(const char *str)
 {
@@ -212,7 +212,7 @@ static void ldap_input(void *context)
 	}
 }
 
-int db_ldap_connect(struct ldap_connection *conn)
+bool db_ldap_connect(struct ldap_connection *conn)
 {
 	int ret, fd;
 
@@ -280,7 +280,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 	return TRUE;
 }
 
-static void ldap_conn_close(struct ldap_connection *conn, int flush_requests)
+static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;

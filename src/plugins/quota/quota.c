@@ -124,7 +124,7 @@ void quota_transaction_rollback(struct quota_transaction_context *ctx)
 }
 
 int quota_try_alloc(struct quota_transaction_context *ctx,
-		    struct mail *mail, int *too_large_r)
+		    struct mail *mail, bool *too_large_r)
 {
 	return ctx->quota->try_alloc(ctx, mail, too_large_r);
 }

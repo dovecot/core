@@ -4,7 +4,7 @@
 #include "array.h"
 #include "seq-range-array.h"
 
-static int seq_range_lookup(array_t *array, uint32_t seq, unsigned int *idx_r)
+static bool seq_range_lookup(array_t *array, uint32_t seq, unsigned int *idx_r)
 {
         ARRAY_SET_TYPE(array, struct seq_range);
 	struct seq_range *data;
@@ -167,7 +167,7 @@ void seq_range_array_remove(array_t *array, uint32_t seq)
 	}
 }
 
-int seq_range_exists(array_t *array, uint32_t seq)
+bool seq_range_exists(array_t *array, uint32_t seq)
 {
 	unsigned int idx;
 

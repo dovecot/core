@@ -4,7 +4,7 @@
 #include "commands.h"
 #include "imap-expunge.h"
 
-int cmd_close(struct client_command_context *cmd)
+bool cmd_close(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mailbox *mailbox = client->mailbox;

@@ -73,7 +73,7 @@ typedef void (*mail_search_foreach_callback_t)(struct mail_search_arg *arg,
 
 /* Reset the results in search arguments. match_always is reset only if
    full_reset is TRUE. */
-void mail_search_args_reset(struct mail_search_arg *args, int full_reset);
+void mail_search_args_reset(struct mail_search_arg *args, bool full_reset);
 
 /* goes through arguments in list that don't have a result yet.
    Returns 1 = search matched, 0 = search unmatched, -1 = don't know yet */
@@ -86,6 +86,6 @@ int mail_search_args_foreach(struct mail_search_arg *args,
    NULL if we're searching for TEXT. */
 const char *const *
 mail_search_args_analyze(struct mail_search_arg *args,
-			 int *have_headers, int *have_body);
+			 bool *have_headers, bool *have_body);
 
 #endif

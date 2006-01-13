@@ -38,13 +38,13 @@ typedef void auth_request_callback_t(struct auth_request *request, int status,
 				     const char *const *args, void *context);
 
 typedef void auth_connect_notify_callback_t(struct auth_client *client,
-					    int connected, void *context);
+					    bool connected, void *context);
 
 /* Create new authentication client. */
 struct auth_client *auth_client_new(unsigned int client_pid);
 void auth_client_free(struct auth_client *client);
 
-int auth_client_is_connected(struct auth_client *client);
+bool auth_client_is_connected(struct auth_client *client);
 void auth_client_set_connect_notify(struct auth_client *client,
 				    auth_connect_notify_callback_t *callback,
 				    void *context);
@@ -58,8 +58,9 @@ auth_client_find_mech(struct auth_client *client, const char *name);
    auth_client_request_new() to force it to use the same connection, or fail.
    This is currently useful only for APOP authentication. Returns TRUE if
    successfull. */
-int auth_client_reserve_connection(struct auth_client *client, const char *mech,
-				   struct auth_connect_id *id_r);
+bool auth_client_reserve_connection(struct auth_client *client,
+				    const char *mech,
+				    struct auth_connect_id *id_r);
 
 /* Create a new authentication request. callback is called whenever something
    happens for the request. id can be NULL. */

@@ -35,7 +35,8 @@ static int mbox_mail_seek(struct index_mail *mail)
 		(struct mbox_transaction_context *)mail->trans;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 	enum mbox_sync_flags sync_flags = 0;
-	int ret, deleted;
+	int ret;
+	bool deleted;
 
 	if (mail->mail.mail.expunged)
 		return 0;

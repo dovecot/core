@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_uid(struct client_command_context *cmd)
+bool cmd_uid(struct client_command_context *cmd)
 {
 	const char *cmd_name;
 

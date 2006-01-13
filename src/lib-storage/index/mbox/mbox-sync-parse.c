@@ -22,8 +22,8 @@
 
 struct mbox_sync_header_func {
 	const char *header;
-	int (*func)(struct mbox_sync_mail_context *ctx,
-		    struct message_header_line *hdr);
+	bool (*func)(struct mbox_sync_mail_context *ctx,
+		     struct message_header_line *hdr);
 };
 
 struct mbox_flag_type mbox_status_flags[] = {
@@ -93,23 +93,23 @@ static void parse_status_flags(struct mbox_sync_mail_context *ctx,
 	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 }
 
-static int parse_status(struct mbox_sync_mail_context *ctx,
-			struct message_header_line *hdr)
+static bool parse_status(struct mbox_sync_mail_context *ctx,
+			 struct message_header_line *hdr)
 {
 	parse_status_flags(ctx, hdr, mbox_status_flags);
 	ctx->hdr_pos[MBOX_HDR_STATUS] = str_len(ctx->header);
 	return TRUE;
 }
 
-static int parse_x_status(struct mbox_sync_mail_context *ctx,
-			  struct message_header_line *hdr)
+static bool parse_x_status(struct mbox_sync_mail_context *ctx,
+			   struct message_header_line *hdr)
 {
 	parse_status_flags(ctx, hdr, mbox_xstatus_flags);
 	ctx->hdr_pos[MBOX_HDR_X_STATUS] = str_len(ctx->header);
 	return TRUE;
 }
 
-static int keyword_is_valid(const char *keyword)
+static bool keyword_is_valid(const char *keyword)
 {
 	/* try to only prevent the most malicious looking keywords. */
 	for (; *keyword != '\0'; keyword++) {
@@ -165,8 +165,8 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 	}
 }
 
-static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
-			     struct message_header_line *hdr)
+static bool parse_x_imap_base(struct mbox_sync_mail_context *ctx,
+			      struct message_header_line *hdr)
 {
 	size_t i, j, uid_last_pos;
 	uint32_t uid_validity, uid_last;
@@ -239,8 +239,8 @@ static int parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static int parse_x_imap(struct mbox_sync_mail_context *ctx,
-			struct message_header_line *hdr)
+static bool parse_x_imap(struct mbox_sync_mail_context *ctx,
+			 struct message_header_line *hdr)
 {
 	if (!parse_x_imap_base(ctx, hdr))
 		return FALSE;
@@ -251,8 +251,8 @@ static int parse_x_imap(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
-			    struct message_header_line *hdr)
+static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
+			     struct message_header_line *hdr)
 {
 	array_t ARRAY_DEFINE(keyword_list, unsigned int);
 	const unsigned int *list;
@@ -321,8 +321,8 @@ static int parse_x_keywords(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static int parse_x_uid(struct mbox_sync_mail_context *ctx,
-		       struct message_header_line *hdr)
+static bool parse_x_uid(struct mbox_sync_mail_context *ctx,
+			struct message_header_line *hdr)
 {
 	uint32_t value = 0;
 	size_t i;
@@ -395,8 +395,8 @@ static int parse_x_uid(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static int parse_content_length(struct mbox_sync_mail_context *ctx,
-				struct message_header_line *hdr)
+static bool parse_content_length(struct mbox_sync_mail_context *ctx,
+				 struct message_header_line *hdr)
 {
 	uoff_t value = 0;
 	size_t i;

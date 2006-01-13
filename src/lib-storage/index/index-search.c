@@ -124,7 +124,7 @@ static int search_arg_match_index(struct index_mail *imail,
 static void search_index_arg(struct mail_search_arg *arg, void *context)
 {
 	struct index_search_context *ctx = context;
-	int found;
+	bool found;
 
 	if (arg->type == SEARCH_SEQSET) {
 		found = seqset_contains(arg->value.seqset, ctx->mail->seq);
@@ -285,7 +285,7 @@ static struct header_search_context *
 search_header_context(struct index_search_context *ctx,
 		      struct mail_search_arg *arg)
 {
-	int unknown_charset;
+	bool unknown_charset;
 
 	if (arg->context != NULL) {
                 message_header_search_reset(arg->context);
@@ -439,7 +439,8 @@ static void search_body(struct mail_search_arg *arg, void *context)
 {
 	struct search_body_context *ctx = context;
         enum message_body_search_error error;
-	int ret, retry = FALSE;
+	int ret;
+	bool retry = FALSE;
 
 	if (ctx->index_ctx->error != NULL)
 		return;
@@ -481,13 +482,13 @@ __retry:
 	ARG_SET_RESULT(arg, ret > 0);
 }
 
-static int search_arg_match_text(struct mail_search_arg *args,
-				 struct index_search_context *ctx)
+static bool search_arg_match_text(struct mail_search_arg *args,
+				  struct index_search_context *ctx)
 {
 	struct istream *input;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	const char *const *headers;
-	int have_headers, have_body;
+	bool have_headers, have_body;
 
 	/* first check what we need to use */
 	headers = mail_search_args_analyze(args, &have_headers, &have_body);
@@ -791,7 +792,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	return ret;
 }
 
-static int search_match_next(struct index_search_context *ctx)
+static bool search_match_next(struct index_search_context *ctx)
 {
         struct mail_search_arg *arg;
 	int ret;

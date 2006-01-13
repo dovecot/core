@@ -46,7 +46,7 @@ void auth_master_request_callback(const char *reply, void *context)
 	(void)o_stream_sendv(conn->output, iov, 2);
 }
 
-static int
+static bool
 master_input_request(struct auth_master_connection *conn, const char *args)
 {
 	struct auth_client_connection *client_conn;
@@ -100,7 +100,7 @@ user_callback(struct auth_stream_reply *reply,
 	auth_request_unref(auth_request);
 }
 
-static int
+static bool
 master_input_user(struct auth_master_connection *conn, const char *args)
 {
 	struct auth_request *auth_request;
@@ -141,7 +141,7 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
-static int
+static bool
 master_input_die(struct auth_master_connection *conn)
 {
 	return TRUE;
@@ -151,7 +151,7 @@ static void master_input(void *context)
 {
 	struct auth_master_connection *conn = context;
  	char *line;
-	int ret;
+	bool ret;
 
 	switch (i_stream_read(conn->input)) {
 	case 0:

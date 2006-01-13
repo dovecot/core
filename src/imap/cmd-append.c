@@ -26,7 +26,7 @@ struct cmd_append_context {
 	struct mail_save_context *save_ctx;
 };
 
-static int cmd_append_continue_message(struct client_command_context *cmd);
+static bool cmd_append_continue_message(struct client_command_context *cmd);
 
 static void client_input(void *context)
 {
@@ -72,7 +72,7 @@ static void client_input(void *context)
    set when successful. */
 static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 			 const char **internal_date, uoff_t *msg_size,
-			 int *nonsync)
+			 bool *nonsync)
 {
 	/* [<flags>] */
 	if (args->type != IMAP_ARG_LIST)
@@ -123,7 +123,7 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 		mailbox_close(ctx->box);
 }
 
-static int cmd_append_continue_cancel(struct client_command_context *cmd)
+static bool cmd_append_continue_cancel(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
@@ -139,7 +139,7 @@ static int cmd_append_continue_cancel(struct client_command_context *cmd)
 	return FALSE;
 }
 
-static int cmd_append_cancel(struct cmd_append_context *ctx, int nonsync)
+static bool cmd_append_cancel(struct cmd_append_context *ctx, bool nonsync)
 {
 	if (!nonsync) {
 		cmd_append_finish(ctx);
@@ -158,7 +158,7 @@ static int cmd_append_cancel(struct cmd_append_context *ctx, int nonsync)
 	return cmd_append_continue_cancel(ctx->cmd);
 }
 
-static int cmd_append_continue_parsing(struct client_command_context *cmd)
+static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
@@ -169,7 +169,8 @@ static int cmd_append_continue_parsing(struct client_command_context *cmd)
 	struct mail_keywords *keywords;
 	const char *internal_date_str;
 	time_t internal_date;
-	int ret, timezone_offset, nonsync;
+	int ret, timezone_offset;
+	bool nonsync;
 
 	/* if error occurs, the CRLF is already read. */
 	client->input_skip_line = FALSE;
@@ -278,12 +279,12 @@ static int cmd_append_continue_parsing(struct client_command_context *cmd)
 	return cmd_append_continue_message(cmd);
 }
 
-static int cmd_append_continue_message(struct client_command_context *cmd)
+static bool cmd_append_continue_message(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
-	int failed;
+	bool failed;
 
 	if (ctx->save_ctx != NULL) {
 		if (mailbox_save_continue(ctx->save_ctx) < 0) {
@@ -302,7 +303,7 @@ static int cmd_append_continue_message(struct client_command_context *cmd)
 
 	if (ctx->input->eof || client->input->closed) {
 		/* finished */
-		int all_written = ctx->input->v_offset == ctx->msg_size;
+		bool all_written = ctx->input->v_offset == ctx->msg_size;
 
 		i_stream_unref(ctx->input);
 		ctx->input = NULL;
@@ -365,7 +366,7 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 	return box;
 }
 
-int cmd_append(struct client_command_context *cmd)
+bool cmd_append(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
         struct cmd_append_context *ctx;

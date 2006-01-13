@@ -126,7 +126,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
    Returns -1 if error, 0 if we're at end of the view, 1 if ok. */
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 				   const struct mail_transaction_header **hdr_r,
-				   const void **data_r, int *skipped_r);
+				   const void **data_r, bool *skipped_r);
 
 /* Returns the position of the record returned previously with
    mail_transaction_log_view_next() */
@@ -140,7 +140,7 @@ void
 mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 					const char *fmt, ...)
 	__attr_format__(2, 3);
-int
+bool
 mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view);
 
 void mail_transaction_log_views_close(struct mail_transaction_log *log);
@@ -162,7 +162,7 @@ void mail_transaction_log_sync_unlock(struct mail_transaction_log *log);
 void mail_transaction_log_get_head(struct mail_transaction_log *log,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r);
 /* Returns TRUE if given seq/offset is current head log's rotate point. */
-int mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
-				      uint32_t file_seq, uoff_t file_offset);
+bool mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
+				       uint32_t file_seq, uoff_t file_offset);
 
 #endif

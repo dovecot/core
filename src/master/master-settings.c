@@ -394,7 +394,7 @@ static void fix_base_path(struct settings *set, const char **str)
 	}
 }
 
-static int get_login_uid(struct settings *set)
+static bool get_login_uid(struct settings *set)
 {
 	struct passwd *pw;
 
@@ -416,7 +416,7 @@ static int get_login_uid(struct settings *set)
 	return TRUE;
 }
 
-static int auth_settings_verify(struct auth_settings *auth)
+static bool auth_settings_verify(struct auth_settings *auth)
 {
 	struct passwd *pw;
 
@@ -458,7 +458,7 @@ static int auth_settings_verify(struct auth_settings *auth)
 	return TRUE;
 }
 
-static int namespace_settings_verify(struct namespace_settings *ns)
+static bool namespace_settings_verify(struct namespace_settings *ns)
 {
 	const char *name;
 
@@ -489,7 +489,7 @@ static const char *get_directory(const char *path)
 	}
 }
 
-static int settings_is_active(struct settings *set)
+static bool settings_is_active(struct settings *set)
 {
 	if (set->protocol == MAIL_PROTOCOL_IMAP) {
 		if (strstr(set->protocols, "imap") == NULL)
@@ -502,7 +502,7 @@ static int settings_is_active(struct settings *set)
 	return TRUE;
 }
 
-static int settings_have_connect_sockets(struct settings *set)
+static bool settings_have_connect_sockets(struct settings *set)
 {
 	struct auth_settings *auth;
 	struct server_settings *server;
@@ -518,7 +518,7 @@ static int settings_have_connect_sockets(struct settings *set)
 	return FALSE;
 }
 
-static int settings_verify(struct settings *set)
+static bool settings_verify(struct settings *set)
 {
 	const char *dir;
 	int facility;
@@ -914,8 +914,8 @@ create_new_server(const char *name,
 	return server;
 }
 
-static int parse_section(const char *type, const char *name, void *context,
-			 const char **errormsg)
+static bool parse_section(const char *type, const char *name, void *context,
+			  const char **errormsg)
 {
 	struct settings_parse_ctx *ctx = context;
 	struct server_settings *server;
@@ -1046,7 +1046,7 @@ static int parse_section(const char *type, const char *name, void *context,
 	return FALSE;
 }
 
-int master_settings_read(const char *path, int nochecks)
+bool master_settings_read(const char *path, bool nochecks)
 {
 	struct settings_parse_ctx ctx;
 	struct server_settings *server, *prev;

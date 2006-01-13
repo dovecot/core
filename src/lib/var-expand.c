@@ -97,7 +97,7 @@ void var_expand(string_t *dest, const char *str,
 	const char *(*modifier[MAX_MODIFIER_COUNT])
 		(const char *, struct var_expand_context *);
 	unsigned int i, modifier_count;
-	int zero_padding = FALSE;
+	bool zero_padding = FALSE;
 
 	memset(&ctx, 0, sizeof(ctx));
 	for (; *str != '\0'; str++) {

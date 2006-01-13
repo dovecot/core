@@ -112,7 +112,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 	return 1;
 }
 
-static int mail_cache_verify_header(struct mail_cache *cache)
+static bool mail_cache_verify_header(struct mail_cache *cache)
 {
 	const struct mail_cache_header *hdr = cache->data;
 

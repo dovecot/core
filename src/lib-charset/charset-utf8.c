@@ -42,7 +42,7 @@ struct charset_translation {
 static struct charset_translation ascii_translation, utf8_translation;
 
 struct charset_translation *charset_to_utf8_begin(const char *charset,
-						  int *unknown_charset)
+						  bool *unknown_charset)
 {
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
@@ -87,7 +87,7 @@ charset_to_ucase_utf8(struct charset_translation *t __attr_unused__,
 }
 
 const char *
-charset_to_utf8_string(const char *charset, int *unknown_charset,
+charset_to_utf8_string(const char *charset, bool *unknown_charset,
 		       const unsigned char *data, size_t size,
 		       size_t *utf8_size_r)
 {
@@ -108,7 +108,7 @@ charset_to_utf8_string(const char *charset, int *unknown_charset,
 }
 
 const char *
-charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
+charset_to_ucase_utf8_string(const char *charset, bool *unknown_charset,
 			     const unsigned char *data, size_t size,
 			     size_t *utf8_size_r)
 {

@@ -153,7 +153,7 @@ void auth_master_listeners_send_handshake(void)
 		auth_master_listener_send_handshakes(listeners[i]);
 }
 
-int auth_master_listeners_masters_left(void)
+bool auth_master_listeners_masters_left(void)
 {
         struct auth_master_listener *const *listeners;
 	unsigned int i, count;

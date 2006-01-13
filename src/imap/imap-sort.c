@@ -49,7 +49,7 @@ struct sort_context {
 	uoff_t last_size;
 	char *last_cc, *last_from, *last_subject, *last_to;
 
-	int written, id_is_uid;
+	bool written, id_is_uid;
 };
 
 static void mail_sort_input(struct sort_context *ctx, struct mail *mail);
@@ -59,10 +59,10 @@ static enum mail_sort_type
 mail_sort_normalize(const enum mail_sort_type *input, buffer_t *output)
 {
         enum mail_sort_type type, mask = 0;
-	int pos, reverse;
+	bool reverse;
 
 	reverse = FALSE;
-	for (pos = 0; *input != MAIL_SORT_END; input++) {
+	for (; *input != MAIL_SORT_END; input++) {
 		if (*input == MAIL_SORT_REVERSE)
 			reverse = !reverse;
 		else {
@@ -306,7 +306,7 @@ static void mail_sort_check_flush(struct sort_context *ctx, struct mail *mail)
 	const char *str;
 	time_t t;
 	uoff_t size;
-	int changed = FALSE;
+	bool changed = FALSE;
 
 	if (ctx->common_mask & MAIL_SORT_ARRIVAL) {
 		t = mail_get_received_date(mail);
@@ -633,7 +633,8 @@ static const char *get_str(enum mail_sort_type type, const unsigned char *buf,
 static int mail_sort_qsort_func(const void *p1, const void *p2)
 {
 	enum mail_sort_type *sorting;
-	int ret, reverse = FALSE;
+	int ret;
+	bool reverse = FALSE;
 
 	sorting = qsort_context->sort_program;
 

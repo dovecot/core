@@ -34,7 +34,7 @@ struct client_dict_iterate_context {
 	struct dict_iterate_context ctx;
 
 	pool_t pool;
-	int failed;
+	bool failed;
 };
 
 struct client_dict_transaction_context {
@@ -43,7 +43,7 @@ struct client_dict_transaction_context {
 	unsigned int id;
 	unsigned int connect_counter;
 
-	int failed;
+	bool failed;
 };
 
 static int client_dict_connect(struct client_dict *dict);
@@ -300,7 +300,7 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool,
 }
 
 static struct dict_iterate_context *
-client_dict_iterate_init(struct dict *_dict, const char *path, int recurse)
+client_dict_iterate_init(struct dict *_dict, const char *path, bool recurse)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
         struct client_dict_iterate_context *ctx;

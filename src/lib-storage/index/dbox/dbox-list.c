@@ -26,7 +26,7 @@ struct dbox_list_context {
 	struct imap_match_glob *glob;
 	struct subsfile_list_context *subsfile_ctx;
 
-	int failed, inbox_found;
+	bool failed, inbox_found;
 
 	struct mailbox_list *(*next)(struct dbox_list_context *ctx);
 
@@ -63,7 +63,7 @@ dbox_get_path(struct index_storage *storage, const char *name)
 }
 
 static int list_opendir(struct mail_storage *storage,
-			const char *path, int root, DIR **dirp)
+			const char *path, bool root, DIR **dirp)
 {
 	*dirp = opendir(*path == '\0' ? "/" : path);
 	if (*dirp != NULL)

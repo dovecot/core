@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 
 static struct timeout *to;
-static int generating;
+static bool generating;
 
 static void generate_parameters_file(const char *fname)
 {
@@ -64,7 +64,7 @@ void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
 	generating = FALSE;
 }
 
-static int check_parameters_file_set(struct settings *set)
+static bool check_parameters_file_set(struct settings *set)
 {
 	struct stat st;
 	time_t regen_time;

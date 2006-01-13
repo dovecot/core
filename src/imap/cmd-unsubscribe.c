@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_unsubscribe(struct client_command_context *cmd)
+bool cmd_unsubscribe(struct client_command_context *cmd)
 {
 	return _cmd_subscribe_full(cmd, FALSE);
 }

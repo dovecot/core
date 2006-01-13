@@ -63,7 +63,7 @@ mailbox_flags2str(enum mailbox_flags flags, enum mailbox_list_flags list_flags)
 	return *str == '\0' ? "" : str+1;
 }
 
-static int
+static bool
 parse_list_flags(struct client_command_context *cmd, struct imap_arg *args,
 		 enum mailbox_list_flags *list_flags)
 {
@@ -171,10 +171,10 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 	return ret < 0 ? -1 : 1;
 }
 
-static void skip_prefix(const char **prefix, const char **mask, int inbox)
+static void skip_prefix(const char **prefix, const char **mask, bool inbox)
 {
 	size_t mask_len, prefix_len;
-	int match;
+	bool match;
 
 	prefix_len = strlen(*prefix);
 	mask_len = strlen(*mask);
@@ -323,7 +323,7 @@ list_namespace_init(struct client_command_context *cmd,
 						       list_flags);
 }
 
-static int cmd_list_continue(struct client_command_context *cmd)
+static bool cmd_list_continue(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
         struct cmd_list_context *ctx = cmd->context;
@@ -347,7 +347,7 @@ static int cmd_list_continue(struct client_command_context *cmd)
 	return TRUE;
 }
 
-int _cmd_list_full(struct client_command_context *cmd, int lsub)
+bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 {
 	struct client *client = cmd->client;
 	struct namespace *ns;
@@ -453,7 +453,7 @@ int _cmd_list_full(struct client_command_context *cmd, int lsub)
 	return TRUE;
 }
 
-int cmd_list(struct client_command_context *cmd)
+bool cmd_list(struct client_command_context *cmd)
 {
 	return _cmd_list_full(cmd, FALSE);
 }

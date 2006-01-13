@@ -4,7 +4,7 @@
 #include "buffer.h"
 #include "mail-search.h"
 
-void mail_search_args_reset(struct mail_search_arg *args, int full_reset)
+void mail_search_args_reset(struct mail_search_arg *args, bool full_reset)
 {
 	while (args != NULL) {
 		if (args->type == SEARCH_OR || args->type == SEARCH_SUB)
@@ -106,7 +106,7 @@ int mail_search_args_foreach(struct mail_search_arg *args,
 
 static void
 search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
-		   int *have_body, int *have_text)
+		   bool *have_body, bool *have_text)
 {
 	static const char *date_hdr = "Date";
 	struct mail_search_arg *subarg;
@@ -151,11 +151,11 @@ search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
 
 const char *const *
 mail_search_args_analyze(struct mail_search_arg *args,
-			 int *have_headers, int *have_body)
+			 bool *have_headers, bool *have_body)
 {
 	const char *null = NULL;
 	buffer_t *headers;
-	int have_text;
+	bool have_text;
 
 	*have_headers = *have_body = have_text = FALSE;
 

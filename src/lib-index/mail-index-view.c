@@ -46,7 +46,7 @@ static void _view_close(struct mail_index_view *view)
 	i_free(view);
 }
 
-int mail_index_view_lock_head(struct mail_index_view *view, int update_index)
+int mail_index_view_lock_head(struct mail_index_view *view, bool update_index)
 {
 	unsigned int lock_id;
 
@@ -102,7 +102,7 @@ void mail_index_view_unlock(struct mail_index_view *view)
 	}
 }
 
-int mail_index_view_is_inconsistent(struct mail_index_view *view)
+bool mail_index_view_is_inconsistent(struct mail_index_view *view)
 {
 	if (view->index->indexid != view->indexid)
 		view->inconsistent = TRUE;

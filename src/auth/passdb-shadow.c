@@ -18,7 +18,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
 	struct spwd *spw;
-	int result;
+	bool result;
 
 	spw = getspnam(request->user);
 	if (spw == NULL) {

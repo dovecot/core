@@ -60,7 +60,7 @@ void mail_index_view_clone(struct mail_index_view *dest,
 			   const struct mail_index_view *src);
 void mail_index_view_ref(struct mail_index_view *view);
 int mail_index_view_lock(struct mail_index_view *view);
-int mail_index_view_lock_head(struct mail_index_view *view, int update_index);
+int mail_index_view_lock_head(struct mail_index_view *view, bool update_index);
 void mail_index_view_unref_maps(struct mail_index_view *view);
 void mail_index_view_add_synced_transaction(struct mail_index_view *view,
 					    uint32_t log_file_seq,

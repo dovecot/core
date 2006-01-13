@@ -42,7 +42,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	buffer_t *buf;
 	size_t data_size;
 	unsigned int i, j, count, match_idx, match_count;
-	int noncontiguous;
+	bool noncontiguous;
 
 	t_push();
 
@@ -444,7 +444,7 @@ static int index_mail_header_is_parsed(struct index_mail *mail,
 	return -1;
 }
 
-static int skip_header(const unsigned char **data, size_t len)
+static bool skip_header(const unsigned char **data, size_t len)
 {
 	const unsigned char *p = *data;
 	size_t i;
@@ -585,7 +585,7 @@ const char *index_mail_get_first_header(struct mail *mail, const char *field)
 }
 
 static void header_cache_callback(struct message_header_line *hdr,
-				  int *matched, void *context)
+				  bool *matched, void *context)
 {
 	struct index_mail *mail = context;
 

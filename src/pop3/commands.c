@@ -90,7 +90,7 @@ static const char *get_size(struct client *client, const char *args,
 static int cmd_capa(struct client *client, const char *args __attr_unused__)
 {
 	client_send_line(client, "+OK\r\n"POP3_CAPABILITY_REPLY".");
-	return TRUE;
+	return 1;
 }
 
 static int cmd_dele(struct client *client, const char *args)
@@ -98,7 +98,7 @@ static int cmd_dele(struct client *client, const char *args)
 	unsigned int msgnum;
 
 	if (get_msgnum(client, args, &msgnum) == NULL)
-		return FALSE;
+		return 0;
 
 	if (!client->deleted) {
 		client->deleted_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
@@ -109,7 +109,7 @@ static int cmd_dele(struct client *client, const char *args)
 	client->deleted_count++;
 	client->deleted_size += client->message_sizes[msgnum];
 	client_send_line(client, "+OK Marked to be deleted.");
-	return TRUE;
+	return 1;
 }
 
 struct cmd_list_context {
@@ -161,35 +161,35 @@ static int cmd_list(struct client *client, const char *args)
 		unsigned int msgnum;
 
 		if (get_msgnum(client, args, &msgnum) == NULL)
-			return FALSE;
+			return 0;
 
 		client_send_line(client, "+OK %u %"PRIuUOFF_T, msgnum+1,
 				 client->message_sizes[msgnum]);
 	}
 
-	return TRUE;
+	return 1;
 }
 
 static int cmd_last(struct client *client, const char *args __attr_unused__)
 {
 	client_send_line(client, "+OK %u", client->last_seen);
-	return TRUE;
+	return 1;
 }
 
 static int cmd_noop(struct client *client, const char *args __attr_unused__)
 {
 	client_send_line(client, "+OK");
-	return TRUE;
+	return 1;
 }
 
-static int expunge_mails(struct client *client)
+static bool expunge_mails(struct client *client)
 {
 	struct mail_search_arg search_arg;
         struct mail_search_seqset seqset;
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	uint32_t idx;
-	int ret = TRUE;
+	bool ret = TRUE;
 
 	if (client->deleted_bitmask == NULL)
 		return TRUE;
@@ -225,8 +225,9 @@ static int cmd_quit(struct client *client, const char *args __attr_unused__)
 	if (client->deleted) {
 		if (!expunge_mails(client)) {
 			client_send_storage_error(client);
-			client_disconnect(client, "Storage error during logout.");
-			return TRUE;
+			client_disconnect(client,
+				"Storage error during logout.");
+			return 1;
 		}
 	}
 
@@ -239,7 +240,7 @@ static int cmd_quit(struct client *client, const char *args __attr_unused__)
 		client_send_line(client, "+OK Logging out, messages deleted.");
 
 	client_disconnect(client, "Logout.");
-	return TRUE;
+	return 1;
 }
 
 struct fetch_context {
@@ -252,7 +253,7 @@ struct fetch_context {
         struct mail_search_seqset seqset;
 
 	unsigned char last;
-	int cr_skipped, in_body;
+	bool cr_skipped, in_body;
 };
 
 static void fetch_deinit(struct fetch_context *ctx)
@@ -412,7 +413,7 @@ static int cmd_retr(struct client *client, const char *args)
 	unsigned int msgnum;
 
 	if (get_msgnum(client, args, &msgnum) == NULL)
-		return FALSE;
+		return 0;
 
 	if (client->last_seen <= msgnum)
 		client->last_seen = msgnum+1;
@@ -422,7 +423,7 @@ static int cmd_retr(struct client *client, const char *args)
 	client->byte_counter_offset = client->output->offset;
 
 	fetch(client, msgnum, (uoff_t)-1);
-	return TRUE;
+	return 1;
 }
 
 static int cmd_rset(struct client *client, const char *args __attr_unused__)
@@ -467,7 +468,7 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 	}
 
 	client_send_line(client, "+OK");
-	return TRUE;
+	return 1;
 }
 
 static int cmd_stat(struct client *client, const char *args __attr_unused__)
@@ -475,7 +476,7 @@ static int cmd_stat(struct client *client, const char *args __attr_unused__)
 	client_send_line(client, "+OK %u %"PRIuUOFF_T, client->
 			 messages_count - client->deleted_count,
 			 client->total_size - client->deleted_size);
-	return TRUE;
+	return 1;
 }
 
 static int cmd_top(struct client *client, const char *args)
@@ -485,16 +486,16 @@ static int cmd_top(struct client *client, const char *args)
 
 	args = get_msgnum(client, args, &msgnum);
 	if (args == NULL)
-		return FALSE;
+		return 0;
 	if (get_size(client, args, &max_lines) == NULL)
-		return FALSE;
+		return 0;
 
 	client->top_count++;
 	client->byte_counter = &client->top_bytes;
 	client->byte_counter_offset = client->output->offset;
 
 	fetch(client, msgnum, max_lines);
-	return TRUE;
+	return 1;
 }
 
 struct cmd_uidl_context {
@@ -506,7 +507,7 @@ struct cmd_uidl_context {
 	struct mail_search_seqset seqset;
 };
 
-static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
+static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 {
 	static struct var_expand_table static_tab[] = {
 		{ 'v', NULL },
@@ -518,7 +519,8 @@ static int list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 	struct var_expand_table *tab;
 	string_t *str;
 	const char *uidl;
-	int ret, found = FALSE;
+	int ret;
+	bool found = FALSE;
 
 	tab = t_malloc(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
@@ -646,14 +648,14 @@ static int cmd_uidl(struct client *client, const char *args)
 		unsigned int msgnum;
 
 		if (get_msgnum(client, args, &msgnum) == NULL)
-			return FALSE;
+			return 0;
 
 		ctx = cmd_uidl_init(client, msgnum+1);
 		if (!list_uids_iter(client, ctx))
 			client_send_line(client, "-ERR Message not found.");
 	}
 
-	return TRUE;
+	return 1;
 }
 
 int client_command_execute(struct client *client,

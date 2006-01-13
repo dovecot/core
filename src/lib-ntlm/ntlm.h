@@ -31,6 +31,6 @@ static inline unsigned int __ntlmssp_buffer_length(struct ntlmssp_buffer *buffer
 
 const char * __ntlmssp_t_str(const void *message,
 			     struct ntlmssp_buffer *buffer,
-			     int unicode);
+			     bool unicode);
 
 #endif

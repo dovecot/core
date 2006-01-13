@@ -100,7 +100,7 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 }
 
 static const buffer_t *
-log_get_hdr_update_buffer(struct mail_index_transaction *t, int prepend)
+log_get_hdr_update_buffer(struct mail_index_transaction *t, bool prepend)
 {
 	buffer_t *buf;
 	const unsigned char *data, *mask;

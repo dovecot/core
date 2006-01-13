@@ -34,6 +34,6 @@ void istream_raw_mbox_next(struct istream *stream, uoff_t body_size);
 int istream_raw_mbox_seek(struct istream *stream, uoff_t offset);
 
 /* Returns TRUE if we've read the whole mbox. */
-int istream_raw_mbox_is_eof(struct istream *stream);
+bool istream_raw_mbox_is_eof(struct istream *stream);
 
 #endif

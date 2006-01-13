@@ -30,7 +30,7 @@ void mailbox_tree_deinit(struct mailbox_tree_context *ctx)
 
 static struct mailbox_node *
 mailbox_tree_traverse(struct mailbox_tree_context *ctx, const char *path,
-		      int create, int *created)
+		      bool create, bool *created)
 {
 	struct mailbox_node **node;
 	const char *name;
@@ -96,7 +96,7 @@ mailbox_tree_traverse(struct mailbox_tree_context *ctx, const char *path,
 
 struct mailbox_node *
 mailbox_tree_get(struct mailbox_tree_context *ctx, const char *path,
-		 int *created)
+		 bool *created)
 {
 	return mailbox_tree_traverse(ctx, path, TRUE, created);
 }

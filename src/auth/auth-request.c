@@ -87,7 +87,7 @@ void auth_request_ref(struct auth_request *request)
 	request->refcount++;
 }
 
-int auth_request_unref(struct auth_request *request)
+bool auth_request_unref(struct auth_request *request)
 {
 	i_assert(request->refcount > 0);
 	if (--request->refcount > 0)
@@ -117,8 +117,8 @@ void auth_request_export(struct auth_request *request, string_t *str)
 	}
 }
 
-int auth_request_import(struct auth_request *request,
-			const char *key, const char *value)
+bool auth_request_import(struct auth_request *request,
+			 const char *key, const char *value)
 {
 	if (strcmp(key, "user") == 0)
 		request->user = p_strdup(request->pool, value);
@@ -241,7 +241,7 @@ static void auth_request_save_cache(struct auth_request *request,
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str));
 }
 
-static int
+static bool
 auth_request_handle_passdb_callback(enum passdb_result *result,
 				    struct auth_request *request)
 {
@@ -471,8 +471,8 @@ void auth_request_lookup_user(struct auth_request *request,
 		userdb->iface->lookup(request, auth_request_userdb_callback);
 }
 
-int auth_request_set_username(struct auth_request *request,
-			      const char *username, const char **error_r)
+bool auth_request_set_username(struct auth_request *request,
+			       const char *username, const char **error_r)
 {
 	unsigned char *p;
 

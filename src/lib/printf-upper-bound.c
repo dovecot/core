@@ -69,7 +69,7 @@ size_t printf_string_upper_bound(const char **format_p, va_list args)
 {
   const char *format = *format_p;
   size_t len = 1;
-  int fix_format = FALSE;
+  bool fix_format = FALSE;
 
   if (!format)
     return len;
@@ -96,7 +96,7 @@ size_t printf_string_upper_bound(const char **format_p, va_list args)
       else
         {
           PrintfArgSpec spec;
-          int seen_l = FALSE, conv_done = FALSE;
+          bool seen_l = FALSE, conv_done = FALSE;
           unsigned int conv_len = 0;
 
           memset(&spec, 0, sizeof(spec));

@@ -136,8 +136,8 @@ static int mail_cache_grow_file(struct mail_cache *cache, size_t size)
 	return 0;
 }
 
-static int mail_cache_unlink_hole(struct mail_cache *cache, size_t size,
-				  struct mail_cache_hole_header *hole_r)
+static bool mail_cache_unlink_hole(struct mail_cache *cache, size_t size,
+				   struct mail_cache_hole_header *hole_r)
 {
 	struct mail_cache_header *hdr = &cache->hdr_copy;
 	struct mail_cache_hole_header hole;
@@ -195,7 +195,7 @@ mail_cache_transaction_add_reservation(struct mail_cache_transaction_ctx *ctx,
 
 static int
 mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
-				    size_t block_size, int commit)
+				    size_t block_size, bool commit)
 {
 	struct mail_cache *cache = ctx->cache;
 	struct mail_cache_header *hdr = &cache->hdr_copy;
@@ -297,7 +297,7 @@ mail_cache_free_space(struct mail_cache *cache, uint32_t offset, uint32_t size)
 static int
 mail_cache_transaction_free_space(struct mail_cache_transaction_ctx *ctx)
 {
-	int locked = ctx->cache->locked;
+	bool locked = ctx->cache->locked;
 
 	if (ctx->reserved_space == 0)
 		return 0;
@@ -327,9 +327,9 @@ static int
 mail_cache_transaction_get_space(struct mail_cache_transaction_ctx *ctx,
 				 size_t min_size, size_t max_size,
 				 uint32_t *offset_r, size_t *available_space_r,
-				 int commit)
+				 bool commit)
 {
-	int locked = ctx->cache->locked;
+	bool locked = ctx->cache->locked;
 	uint32_t cache_file_seq;
 	size_t size;
 	int ret;
@@ -442,7 +442,8 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	uint32_t write_offset, write_size, rec_pos, seq_idx, seq_limit;
 	size_t size, max_size;
 	unsigned int seq_count;
-	int ret, commit;
+	int ret;
+	bool commit;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
 		return -1;
@@ -772,7 +773,7 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 	return 0;
 }
 
-static int find_offset(array_t *array, uint32_t offset)
+static bool find_offset(array_t *array, uint32_t offset)
 {
 	ARRAY_SET_TYPE(array, uint32_t);
 	const uint32_t *offsets;

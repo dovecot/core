@@ -12,7 +12,7 @@ struct dict_vfuncs {
 
 	struct dict_iterate_context *
 		(*iterate_init)(struct dict *dict, const char *path,
-				int recurse);
+				bool recurse);
 	int (*iterate)(struct dict_iterate_context *ctx,
 		       const char **key_r, const char **value_r);
 	void (*iterate_deinit)(struct dict_iterate_context *ctx);

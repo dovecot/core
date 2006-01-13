@@ -69,7 +69,7 @@ auth_request_new(struct auth *auth, struct mech_module *mech,
 		 mech_callback_t *callback, void *context);
 struct auth_request *auth_request_new_dummy(struct auth *auth);
 void auth_request_ref(struct auth_request *request);
-int auth_request_unref(struct auth_request *request);
+bool auth_request_unref(struct auth_request *request);
 
 void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size);
@@ -77,8 +77,8 @@ void auth_request_fail(struct auth_request *request);
 void auth_request_internal_failure(struct auth_request *request);
 
 void auth_request_export(struct auth_request *request, string_t *str);
-int auth_request_import(struct auth_request *request,
-			const char *key, const char *value);
+bool auth_request_import(struct auth_request *request,
+			 const char *key, const char *value);
 
 void auth_request_initial(struct auth_request *request,
 			  const unsigned char *data, size_t data_size);
@@ -94,8 +94,8 @@ void auth_request_lookup_credentials(struct auth_request *request,
 void auth_request_lookup_user(struct auth_request *request,
 			      userdb_callback_t *callback);
 
-int auth_request_set_username(struct auth_request *request,
-			      const char *username, const char **error_r);
+bool auth_request_set_username(struct auth_request *request,
+			       const char *username, const char **error_r);
 
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,

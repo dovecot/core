@@ -91,7 +91,7 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 	t_pop();
 }
 
-static int
+static bool
 auth_process_input_user(struct auth_process *process, const char *args)
 {
 	void *context;
@@ -120,7 +120,7 @@ auth_process_input_user(struct auth_process *process, const char *args)
 	return TRUE;
 }
 
-static int
+static bool
 auth_process_input_notfound(struct auth_process *process, const char *args)
 {
 	void *context;
@@ -140,7 +140,7 @@ auth_process_input_notfound(struct auth_process *process, const char *args)
 	return TRUE;
 }
 
-static int
+static bool
 auth_process_input_spid(struct auth_process *process, const char *args)
 {
 	unsigned int pid;
@@ -167,7 +167,7 @@ auth_process_input_spid(struct auth_process *process, const char *args)
 	return TRUE;
 }
 
-static int
+static bool
 auth_process_input_fail(struct auth_process *process, const char *args)
 {
 	void *context;
@@ -196,7 +196,7 @@ static void auth_process_input(void *context)
 {
 	struct auth_process *process = context;
 	const char *line;
-	int ret;
+	bool ret;
 
 	switch (i_stream_read(process->input)) {
 	case 0:

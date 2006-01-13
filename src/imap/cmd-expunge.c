@@ -5,7 +5,7 @@
 #include "imap-search.h"
 #include "imap-expunge.h"
 
-int cmd_uid_expunge(struct client_command_context *cmd)
+bool cmd_uid_expunge(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct imap_arg *args;
@@ -37,7 +37,7 @@ int cmd_uid_expunge(struct client_command_context *cmd)
 	}
 }
 
-int cmd_expunge(struct client_command_context *cmd)
+bool cmd_expunge(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 

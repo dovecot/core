@@ -47,7 +47,7 @@ struct dbox_sync_context {
 	array_t ARRAY_DEFINE(exists, struct seq_range);
 };
 
-int dbox_sync(struct dbox_mailbox *mbox, int force);
+int dbox_sync(struct dbox_mailbox *mbox, bool force);
 int dbox_sync_if_changed(struct dbox_mailbox *mbox);
 
 struct mailbox_sync_context *

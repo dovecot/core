@@ -25,7 +25,7 @@ union sockaddr_union {
 #  define SIZEOF_SOCKADDR(so) (sizeof(so.sin))
 #endif
 
-int net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
+bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
 {
 	if (ip1->family != ip2->family)
 		return 0;
@@ -204,16 +204,18 @@ void net_disconnect(int fd)
 }
 
 /* Set socket blocking/nonblocking */
-void net_set_nonblock(int fd, int nonblock)
+void net_set_nonblock(int fd, bool nonblock)
 {
 	if (fd_set_nonblock(fd, nonblock) < 0)
 		i_fatal("fd_set_nonblock(%d) failed: %m", fd);
 }
 
-int net_set_cork(int fd __attr_unused__, int cork __attr_unused__)
+int net_set_cork(int fd __attr_unused__, bool cork __attr_unused__)
 {
 #ifdef TCP_CORK
-	return setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork));
+	int val = cork;
+
+	return setsockopt(fd, IPPROTO_TCP, TCP_CORK, &val, sizeof(val));
 #else
 	errno = ENOPROTOOPT;
 	return -1;
@@ -639,24 +641,24 @@ const char *net_getservbyport(unsigned short port)
 	return entry == NULL ? NULL : entry->s_name;
 }
 
-int is_ipv4_address(const char *addr)
+bool is_ipv4_address(const char *addr)
 {
 	while (*addr != '\0') {
 		if (*addr != '.' && !i_isdigit(*addr))
-			return 0;
+			return FALSE;
                 addr++;
 	}
 
-	return 1;
+	return TRUE;
 }
 
-int is_ipv6_address(const char *addr)
+bool is_ipv6_address(const char *addr)
 {
 	while (*addr != '\0') {
 		if (*addr != ':' && !i_isxdigit(*addr))
-			return 0;
+			return FALSE;
                 addr++;
 	}
 
-	return 1;
+	return TRUE;
 }

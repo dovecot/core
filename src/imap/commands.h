@@ -8,7 +8,7 @@ struct client_command_context;
 #include "imap-sync.h"
 #include "commands-util.h"
 
-typedef int command_func_t(struct client_command_context *cmd);
+typedef bool command_func_t(struct client_command_context *cmd);
 
 struct command {
 	const char *name;
@@ -32,51 +32,51 @@ void commands_deinit(void);
 /* IMAP4rev1 commands: */
 
 /* Non-Authenticated State */
-int cmd_authenticate(struct client_command_context *cmd);
-int cmd_login(struct client_command_context *cmd);
-int cmd_logout(struct client_command_context *cmd);
+bool cmd_authenticate(struct client_command_context *cmd);
+bool cmd_login(struct client_command_context *cmd);
+bool cmd_logout(struct client_command_context *cmd);
 
-int cmd_capability(struct client_command_context *cmd);
-int cmd_noop(struct client_command_context *cmd);
+bool cmd_capability(struct client_command_context *cmd);
+bool cmd_noop(struct client_command_context *cmd);
 
 /* Authenticated State */
-int cmd_select(struct client_command_context *cmd);
-int cmd_examine(struct client_command_context *cmd);
+bool cmd_select(struct client_command_context *cmd);
+bool cmd_examine(struct client_command_context *cmd);
 
-int cmd_create(struct client_command_context *cmd);
-int cmd_delete(struct client_command_context *cmd);
-int cmd_rename(struct client_command_context *cmd);
+bool cmd_create(struct client_command_context *cmd);
+bool cmd_delete(struct client_command_context *cmd);
+bool cmd_rename(struct client_command_context *cmd);
 
-int cmd_subscribe(struct client_command_context *cmd);
-int cmd_unsubscribe(struct client_command_context *cmd);
+bool cmd_subscribe(struct client_command_context *cmd);
+bool cmd_unsubscribe(struct client_command_context *cmd);
 
-int cmd_list(struct client_command_context *cmd);
-int cmd_lsub(struct client_command_context *cmd);
+bool cmd_list(struct client_command_context *cmd);
+bool cmd_lsub(struct client_command_context *cmd);
 
-int cmd_status(struct client_command_context *cmd);
-int cmd_append(struct client_command_context *cmd);
+bool cmd_status(struct client_command_context *cmd);
+bool cmd_append(struct client_command_context *cmd);
 
 /* Selected state */
-int cmd_check(struct client_command_context *cmd);
-int cmd_close(struct client_command_context *cmd);
-int cmd_expunge(struct client_command_context *cmd);
-int cmd_search(struct client_command_context *cmd);
-int cmd_fetch(struct client_command_context *cmd);
-int cmd_store(struct client_command_context *cmd);
-int cmd_copy(struct client_command_context *cmd);
-int cmd_uid(struct client_command_context *cmd);
+bool cmd_check(struct client_command_context *cmd);
+bool cmd_close(struct client_command_context *cmd);
+bool cmd_expunge(struct client_command_context *cmd);
+bool cmd_search(struct client_command_context *cmd);
+bool cmd_fetch(struct client_command_context *cmd);
+bool cmd_store(struct client_command_context *cmd);
+bool cmd_copy(struct client_command_context *cmd);
+bool cmd_uid(struct client_command_context *cmd);
 
 /* IMAP extensions: */
-int cmd_idle(struct client_command_context *cmd);
-int cmd_namespace(struct client_command_context *cmd);
-int cmd_sort(struct client_command_context *cmd);
-int cmd_thread(struct client_command_context *cmd);
-int cmd_uid_expunge(struct client_command_context *cmd);
-int cmd_unselect(struct client_command_context *cmd);
+bool cmd_idle(struct client_command_context *cmd);
+bool cmd_namespace(struct client_command_context *cmd);
+bool cmd_sort(struct client_command_context *cmd);
+bool cmd_thread(struct client_command_context *cmd);
+bool cmd_uid_expunge(struct client_command_context *cmd);
+bool cmd_unselect(struct client_command_context *cmd);
 
 /* private: */
-int _cmd_list_full(struct client_command_context *cmd, int lsub);
-int _cmd_select_full(struct client_command_context *cmd, int readonly);
-int _cmd_subscribe_full(struct client_command_context *cmd, int subscribe);
+bool _cmd_list_full(struct client_command_context *cmd, bool lsub);
+bool _cmd_select_full(struct client_command_context *cmd, bool readonly);
+bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe);
 
 #endif

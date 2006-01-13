@@ -45,6 +45,6 @@ void client_process_exec(const char *cmd, const char *title);
 /* misc */
 #define VALIDATE_STR(str) \
 	validate_str(str, sizeof(str))
-int validate_str(const char *str, size_t max_len);
+bool validate_str(const char *str, size_t max_len);
 
 #endif

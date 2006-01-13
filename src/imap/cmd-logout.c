@@ -4,7 +4,7 @@
 #include "ostream.h"
 #include "commands.h"
 
-int cmd_logout(struct client_command_context *cmd)
+bool cmd_logout(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 

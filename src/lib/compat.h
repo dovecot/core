@@ -11,6 +11,14 @@
 #  define LLONG_MAX 9223372036854775807LL
 #endif
 
+#ifndef __cplusplus
+#ifdef HAVE__BOOL
+typedef _Bool bool;
+#else
+typedef int bool;
+#endif
+#endif
+
 #if defined (UOFF_T_INT)
 typedef unsigned int uoff_t;
 #elif defined (UOFF_T_LONG)

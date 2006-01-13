@@ -29,7 +29,7 @@ struct dbox_save_context {
 	uint64_t hdr_offset;
 	uint64_t mail_offset;
 
-	int failed;
+	bool failed;
 };
 
 struct mail_save_context *
@@ -37,7 +37,7 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 	       enum mail_flags flags, struct mail_keywords *keywords,
 	       time_t received_date, int timezone_offset __attr_unused__,
 	       const char *from_envelope __attr_unused__,
-	       struct istream *input, int want_mail __attr_unused__)
+	       struct istream *input, bool want_mail __attr_unused__)
 {
 	struct dbox_transaction_context *t =
 		(struct dbox_transaction_context *)_t;

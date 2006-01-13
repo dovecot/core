@@ -36,7 +36,7 @@ const char *t_strcut(const char *str, char cutchar);
 
 /* Return TRUE if all characters in string are numbers.
    Stop when `end_char' is found from string. */
-int is_numeric(const char *str, char end_char);
+bool is_numeric(const char *str, char end_char);
 
 /* Like strlcpy(), but return -1 if buffer was overflown, 0 if not. */
 int strocpy(char *dest, const char *src, size_t dstsize);
@@ -74,7 +74,7 @@ unsigned int strarray_length(const char *const *arr);
 /* Return all strings from array joined into one string. */
 const char *t_strarray_join(const char *const *arr, const char *separator);
 /* Removes a value from NULL-terminated string array. Returns TRUE if found. */
-int strarray_remove(const char **arr, const char *value);
+bool strarray_remove(const char **arr, const char *value);
 
 /* INTERNAL */
 char *_vstrconcat(const char *str1, va_list args, size_t *ret_len);

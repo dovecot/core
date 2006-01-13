@@ -215,7 +215,7 @@ static void pool_alloconly_free(pool_t pool, void *mem)
 	}
 }
 
-static int pool_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
+static bool pool_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
 {
 	/* see if we want to grow the memory we allocated last */
 	if (POOL_BLOCK_DATA(apool->block) +

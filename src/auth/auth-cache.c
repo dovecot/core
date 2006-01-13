@@ -152,7 +152,7 @@ void auth_cache_clear(struct auth_cache *cache)
 
 const char *auth_cache_lookup(struct auth_cache *cache,
 			      const struct auth_request *request,
-			      const char *key, int *expired_r)
+			      const char *key, bool *expired_r)
 {
 	string_t *str;
 	struct cache_node *node;

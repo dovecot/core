@@ -83,7 +83,7 @@ int dict_lookup(struct dict *dict, pool_t pool, const char *key,
 }
 
 struct dict_iterate_context *
-dict_iterate_init(struct dict *dict, const char *path, int recurse)
+dict_iterate_init(struct dict *dict, const char *path, bool recurse)
 {
 	return dict->v.iterate_init(dict, path, recurse);
 }

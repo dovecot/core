@@ -19,7 +19,7 @@
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
 struct rename_context {
-	int found;
+	bool found;
 	size_t oldnamelen;
 	const char *newname;
 };
@@ -36,7 +36,7 @@ maildir_create(const char *data, const char *user,
 	       enum mail_storage_flags flags,
 	       enum mail_storage_lock_method lock_method)
 {
-	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	struct maildir_storage *storage;
 	struct index_storage *istorage;
 	const char *root_dir, *inbox_dir, *index_dir, *control_dir;
@@ -150,9 +150,9 @@ static void maildir_free(struct mail_storage *_storage)
 	pool_unref(storage->storage.pool);
 }
 
-static int maildir_autodetect(const char *data, enum mail_storage_flags flags)
+static bool maildir_autodetect(const char *data, enum mail_storage_flags flags)
 {
-	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	struct stat st;
 	const char *path;
 
@@ -173,8 +173,8 @@ static int maildir_autodetect(const char *data, enum mail_storage_flags flags)
 	return TRUE;
 }
 
-static int maildir_is_valid_create_name(struct mail_storage *storage,
-					const char *name)
+static bool maildir_is_valid_create_name(struct mail_storage *storage,
+					 const char *name)
 {
 	size_t len;
 
@@ -193,8 +193,8 @@ static int maildir_is_valid_create_name(struct mail_storage *storage,
 	return TRUE;
 }
 
-static int maildir_is_valid_existing_name(struct mail_storage *storage,
-					  const char *name)
+static bool maildir_is_valid_existing_name(struct mail_storage *storage,
+					   const char *name)
 {
 	if (name[0] == '\0' || name[strlen(name)-1] == '/')
 		return FALSE;
@@ -208,7 +208,7 @@ static int maildir_is_valid_existing_name(struct mail_storage *storage,
 	return TRUE;
 }
 
-static const char *maildir_get_absolute_path(const char *name, int unlink)
+static const char *maildir_get_absolute_path(const char *name, bool unlink)
 {
 	const char *p;
 
@@ -279,7 +279,7 @@ static const char *maildir_get_control_path(struct maildir_storage *storage,
 }
 
 static int mkdir_verify(struct index_storage *storage,
-			const char *dir, int verify)
+			const char *dir, bool verify)
 {
 	struct stat st;
 
@@ -308,7 +308,7 @@ static int mkdir_verify(struct index_storage *storage,
 
 /* create or fix maildir, ignore if it already exists */
 static int create_maildir(struct index_storage *storage,
-			  const char *dir, int verify)
+			  const char *dir, bool verify)
 {
 	const char **tmp, *path;
 
@@ -394,7 +394,7 @@ static int verify_inbox(struct maildir_storage *storage)
 	return 0;
 }
 
-static int maildir_is_recent(struct index_mailbox *ibox, uint32_t uid)
+static bool maildir_is_recent(struct index_mailbox *ibox, uint32_t uid)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)ibox;
 
@@ -537,7 +537,7 @@ static int maildir_create_shared(struct mail_storage *storage,
 
 static int maildir_mailbox_create(struct mail_storage *_storage,
 				  const char *name,
-				  int directory __attr_unused__)
+				  bool directory __attr_unused__)
 {
 	struct index_storage *storage = (struct index_storage *)_storage;
 	struct stat st;
@@ -729,7 +729,8 @@ static int maildir_mailbox_rename(struct mail_storage *_storage,
 {
 	struct index_storage *storage = (struct index_storage *)_storage;
 	const char *oldpath, *newpath;
-	int ret, found;
+	int ret;
+        bool found;
 
 	mail_storage_clear_error(_storage);
 
@@ -779,7 +780,7 @@ static int maildir_mailbox_rename(struct mail_storage *_storage,
 }
 
 static int maildir_set_subscribed(struct mail_storage *_storage,
-				  const char *name, int set)
+				  const char *name, bool set)
 {
 	struct maildir_storage *storage = (struct maildir_storage *)_storage;
 	const char *path;

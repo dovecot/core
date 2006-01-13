@@ -4,7 +4,7 @@
 #include "commands.h"
 #include "str.h"
 
-int cmd_capability(struct client_command_context *cmd)
+bool cmd_capability(struct client_command_context *cmd)
 {
 	client_send_line(cmd->client,
 			 t_strconcat("* CAPABILITY ",

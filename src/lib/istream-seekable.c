@@ -163,7 +163,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 	return ret;
 }
 
-static int read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
+static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
 {
 	struct _istream *stream = &sstream->istream;
 	const unsigned char *data;
@@ -256,14 +256,14 @@ static ssize_t _read(struct _istream *stream)
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  int mark __attr_unused__)
+		  bool mark __attr_unused__)
 {
 	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 }
 
-static const struct stat *_stat(struct _istream *stream, int exact)
+static const struct stat *_stat(struct _istream *stream, bool exact)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	uoff_t old_offset;

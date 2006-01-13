@@ -203,14 +203,14 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r);
 /* Returns 0 = ok, -1 = error. If update_index is TRUE, reopens the index
    file if needed to get later version of it (not necessarily latest due to
    races, unless transaction log is exclusively locked). */
-int mail_index_lock_shared(struct mail_index *index, int update_index,
+int mail_index_lock_shared(struct mail_index *index, bool update_index,
 			   unsigned int *lock_id_r);
 /* Returns 0 = ok, -1 = error. */
 int mail_index_lock_exclusive(struct mail_index *index,
 			      unsigned int *lock_id_r);
 void mail_index_unlock(struct mail_index *index, unsigned int lock_id);
-/* Returns 1 if given lock_id is valid, 0 if not. */
-int mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
+/* Returns TRUE if given lock_id is valid. */
+bool mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
 
 int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 		       int lock_type, unsigned int timeout_secs);
@@ -221,7 +221,7 @@ int mail_index_reopen_if_needed(struct mail_index *index);
 /* Map index file to memory, replacing the previous mapping for index.
    Returns 1 = ok, 0 = corrupted, -1 = error. If index needs fscking, it
    returns 1 but sets index->fsck = TRUE. */
-int mail_index_map(struct mail_index *index, int force);
+int mail_index_map(struct mail_index *index, bool force);
 /* Read the latest available header. Normally this is pretty much the same as
    calling mail_index_map(), but with mmap_disable the header can be generated
    by reading just log files, so eg. log_file_*_offset values can be wrong.

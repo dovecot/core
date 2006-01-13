@@ -36,7 +36,7 @@ struct hash_iterate_context {
 	size_t pos;
 };
 
-static int hash_resize(struct hash_table *table, int grow);
+static bool hash_resize(struct hash_table *table, bool grow);
 
 static int direct_cmp(const void *p1, const void *p2)
 {
@@ -114,7 +114,7 @@ void hash_destroy(struct hash_table *table)
 	p_free(table->table_pool, table);
 }
 
-void hash_clear(struct hash_table *table, int free_nodes)
+void hash_clear(struct hash_table *table, bool free_nodes)
 {
 	if (!table->node_pool->alloconly_pool)
 		hash_destroy_nodes(table);
@@ -158,8 +158,8 @@ void *hash_lookup(const struct hash_table *table, const void *key)
 	return node != NULL ? node->value : NULL;
 }
 
-int hash_lookup_full(const struct hash_table *table, const void *lookup_key,
-		     void **orig_key, void **value)
+bool hash_lookup_full(const struct hash_table *table, const void *lookup_key,
+		      void **orig_key, void **value)
 {
 	struct hash_node *node;
 
@@ -177,7 +177,7 @@ int hash_lookup_full(const struct hash_table *table, const void *lookup_key,
 
 static struct hash_node *
 hash_insert_node(struct hash_table *table, void *key, void *value,
-		 int check_existing)
+		 bool check_existing)
 {
 	struct hash_node *node, *prev;
 	unsigned int hash;
@@ -355,8 +355,8 @@ static struct hash_node *hash_iterate_next(struct hash_iterate_context *ctx,
 	return node;
 }
 
-int hash_iterate(struct hash_iterate_context *ctx,
-		 void **key_r, void **value_r)
+bool hash_iterate(struct hash_iterate_context *ctx,
+		  void **key_r, void **value_r)
 {
 	struct hash_node *node;
 
@@ -398,7 +398,7 @@ void hash_thaw(struct hash_table *table)
 	}
 }
 
-static int hash_resize(struct hash_table *table, int grow)
+static bool hash_resize(struct hash_table *table, bool grow)
 {
 	struct hash_node *old_nodes, *node, *next;
 	size_t next_size, old_size, i;

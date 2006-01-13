@@ -21,7 +21,7 @@
 #include <ctype.h>
 
 static unsigned char *
-t_unicode_str(const char *src, int ucase, size_t *size)
+t_unicode_str(const char *src, bool ucase, size_t *size)
 {
 	buffer_t *wstr;
 

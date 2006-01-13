@@ -149,7 +149,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 }
 
 static struct dict_iterate_context *
-sql_dict_iterate_init(struct dict *_dict, const char *path, int recurse)
+sql_dict_iterate_init(struct dict *_dict, const char *path, bool recurse)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
         struct sql_dict_iterate_context *ctx;

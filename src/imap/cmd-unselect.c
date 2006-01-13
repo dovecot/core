@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_unselect(struct client_command_context *cmd)
+bool cmd_unselect(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mailbox *mailbox = client->mailbox;

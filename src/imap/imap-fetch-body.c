@@ -37,17 +37,17 @@ struct partial_cache {
 	unsigned int uid;
 
 	uoff_t physical_start;
-	int cr_skipped;
+	bool cr_skipped;
 	struct message_size pos;
 };
 
 static struct partial_cache partial = { 0, 0, 0, 0, { 0, 0, 0 } };
 
-static int seek_partial(unsigned int select_counter, unsigned int uid,
-			struct partial_cache *partial, struct istream *stream,
-			uoff_t virtual_skip)
+static bool seek_partial(unsigned int select_counter, unsigned int uid,
+			 struct partial_cache *partial, struct istream *stream,
+			 uoff_t virtual_skip)
 {
-	int cr_skipped;
+	bool cr_skipped;
 
 	if (select_counter == partial->select_counter && uid == partial->uid &&
 	    stream->v_offset == partial->physical_start &&
@@ -107,15 +107,15 @@ static string_t *get_prefix(struct imap_fetch_context *ctx,
 }
 
 static off_t imap_fetch_send(struct ostream *output, struct istream *input,
-			     int cr_skipped, uoff_t virtual_size,
-			     int add_missing_eoh, int *last_cr)
+			     bool cr_skipped, uoff_t virtual_size,
+			     bool add_missing_eoh, bool *last_cr)
 {
 	const unsigned char *msg;
 	size_t i, size;
 	uoff_t vsize_left, sent;
 	off_t ret;
 	unsigned char add;
-	int blocks = FALSE;
+	bool blocks = FALSE;
 
 	/* go through the message data and insert CRs where needed.  */
 	sent = 0; vsize_left = virtual_size;
@@ -335,7 +335,7 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static void header_filter_eoh(struct message_header_line *hdr,
-			      int *matched __attr_unused__, void *context)
+			      bool *matched __attr_unused__, void *context)
 {
 	struct imap_fetch_context *ctx = context;
 
@@ -555,7 +555,7 @@ static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
 	return 1;
 }
 
-static int fetch_body_header_fields_check(const char *section)
+static bool fetch_body_header_fields_check(const char *section)
 {
 	if (*section++ != '(')
 		return FALSE;
@@ -577,9 +577,9 @@ static int fetch_body_header_fields_check(const char *section)
 	return TRUE;
 }
 
-static int fetch_body_header_fields_init(struct imap_fetch_context *ctx,
-					 struct imap_fetch_body_data *body,
-					 const char *section)
+static bool fetch_body_header_fields_init(struct imap_fetch_context *ctx,
+					  struct imap_fetch_body_data *body,
+					  const char *section)
 {
 	const char *const *arr;
 
@@ -608,8 +608,8 @@ static int fetch_body_header_fields_init(struct imap_fetch_context *ctx,
 	return TRUE;
 }
 
-static int fetch_body_section_name_init(struct imap_fetch_context *ctx,
-					struct imap_fetch_body_data *body)
+static bool fetch_body_section_name_init(struct imap_fetch_context *ctx,
+					 struct imap_fetch_body_data *body)
 {
 	const char *section = body->section;
 
@@ -672,7 +672,7 @@ static int fetch_body_section_name_init(struct imap_fetch_context *ctx,
 
 /* Parse next digits in string into integer. Returns FALSE if the integer
    becomes too big and wraps. */
-static int read_uoff_t(const char **p, uoff_t *value)
+static bool read_uoff_t(const char **p, uoff_t *value)
 {
 	uoff_t prev;
 
@@ -690,10 +690,10 @@ static int read_uoff_t(const char **p, uoff_t *value)
 	return TRUE;
 }
 
-static int body_section_build(struct imap_fetch_context *ctx,
-			      struct imap_fetch_body_data *body,
-			      const char *prefix,
-			      const struct imap_arg_list *list)
+static bool body_section_build(struct imap_fetch_context *ctx,
+			       struct imap_fetch_body_data *body,
+			       const char *prefix,
+			       const struct imap_arg_list *list)
 {
 	string_t *str;
 	const char **arr;
@@ -736,8 +736,8 @@ static int body_section_build(struct imap_fetch_context *ctx,
 	return TRUE;
 }
   
-int fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
-			    struct imap_arg **args)
+bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
+			     struct imap_arg **args)
 {
 	struct imap_fetch_body_data *body;
 	const char *partial;
@@ -916,8 +916,8 @@ static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 	return fetch_stream(ctx, &body_size);
 }
 
-int fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
-		      struct imap_arg **args __attr_unused__)
+bool fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
+		       struct imap_arg **args __attr_unused__)
 {
 	if (name[6] == '\0') {
 		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |

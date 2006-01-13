@@ -120,7 +120,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 		  enum mail_flags flags, struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset __attr_unused__,
 		  const char *from_envelope __attr_unused__,
-		  struct istream *input, int want_mail)
+		  struct istream *input, bool want_mail)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;

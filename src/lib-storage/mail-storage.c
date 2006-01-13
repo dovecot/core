@@ -235,7 +235,7 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 }
 
 int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
-				int directory)
+				bool directory)
 {
 	return storage->v.mailbox_create(storage, name, directory);
 }
@@ -271,7 +271,7 @@ int mail_storage_mailbox_list_deinit(struct mailbox_list_context *ctx)
 }
 
 int mail_storage_set_subscribed(struct mail_storage *storage,
-				const char *name, int set)
+				const char *name, bool set)
 {
 	return storage->v.set_subscribed(storage, name, set);
 }
@@ -284,8 +284,8 @@ int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 }
 
 const char *mail_storage_get_last_error(struct mail_storage *storage,
-					int *syntax_error_r,
-					int *temporary_error_r)
+					bool *syntax_error_r,
+					bool *temporary_error_r)
 {
 	return storage->v.get_last_error(storage, syntax_error_r,
 					 temporary_error_r);
@@ -313,12 +313,12 @@ const char *mailbox_get_name(struct mailbox *box)
 	return box->name;
 }
 
-int mailbox_is_readonly(struct mailbox *box)
+bool mailbox_is_readonly(struct mailbox *box)
 {
 	return box->v.is_readonly(box);
 }
 
-int mailbox_allow_new_keywords(struct mailbox *box)
+bool mailbox_allow_new_keywords(struct mailbox *box)
 {
 	return box->v.allow_new_keywords(box);
 }
@@ -431,7 +431,7 @@ mailbox_save_init(struct mailbox_transaction_context *t,
 		  enum mail_flags flags, struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset,
 		  const char *from_envelope, struct istream *input,
-		  int want_mail)
+		  bool want_mail)
 {
 	return t->box->v.save_init(t, flags, keywords,
 				   received_date, timezone_offset,
@@ -460,7 +460,7 @@ int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	return t->box->v.copy(t, mail, flags, keywords, dest_mail);
 }
 
-int mailbox_is_inconsistent(struct mailbox *box)
+bool mailbox_is_inconsistent(struct mailbox *box)
 {
 	return box->v.is_inconsistent(box);
 }

@@ -11,8 +11,8 @@
 
 extern const char *login_protocol;
 
-extern int disable_plaintext_auth, process_per_connection, greeting_capability;
-extern int verbose_proctitle, verbose_ssl, verbose_auth;
+extern bool disable_plaintext_auth, process_per_connection, greeting_capability;
+extern bool verbose_proctitle, verbose_ssl, verbose_auth;
 extern const char *greeting, *log_format;
 extern const char *const *log_format_elements;
 extern unsigned int max_logging_users;

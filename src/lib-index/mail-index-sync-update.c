@@ -587,7 +587,7 @@ static void mail_index_sync_remove_recent(struct mail_index_sync_ctx *sync_ctx)
 }
 
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
-				 int sync_only_external)
+				 bool sync_only_external)
 {
 	struct mail_index *index = sync_ctx->index;
 	struct mail_index_view *view = sync_ctx->view;
@@ -598,7 +598,8 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	unsigned int count, old_lock_id;
 	uint32_t seq, i, first_append_uid;
 	uoff_t offset;
-	int ret, had_dirty, skipped, check_ext_offsets;
+	int ret;
+	bool had_dirty, skipped, check_ext_offsets;
 
 	mail_index_sync_map_init(&sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_INDEX);

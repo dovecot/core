@@ -19,7 +19,7 @@
 
 #include <stdlib.h>
 
-int cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
+bool cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 {
 	const struct auth_mech_desc *mech;
 	unsigned int i, count;
@@ -83,13 +83,13 @@ static void client_auth_input(void *context)
 	safe_memset(line, 0, strlen(line));
 }
 
-static int client_handle_args(struct pop3_client *client,
-			      const char *const *args, int nologin)
+static bool client_handle_args(struct pop3_client *client,
+			       const char *const *args, bool nologin)
 {
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	string_t *reply;
 	unsigned int port = 110;
-	int proxy = FALSE, temp = FALSE;
+	bool proxy = FALSE, temp = FALSE;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
@@ -203,7 +203,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	client_unref(client);
 }
 
-int cmd_auth(struct pop3_client *client, const char *args)
+bool cmd_auth(struct pop3_client *client, const char *args)
 {
 	const struct auth_mech_desc *mech;
 	const char *mech_name, *p;
@@ -248,7 +248,7 @@ int cmd_auth(struct pop3_client *client, const char *args)
 	return TRUE;
 }
 
-int cmd_user(struct pop3_client *client, const char *args)
+bool cmd_user(struct pop3_client *client, const char *args)
 {
 	if (!client->common.secured && disable_plaintext_auth) {
 		if (verbose_auth) {
@@ -267,7 +267,7 @@ int cmd_user(struct pop3_client *client, const char *args)
 	return TRUE;
 }
 
-int cmd_pass(struct pop3_client *client, const char *args)
+bool cmd_pass(struct pop3_client *client, const char *args)
 {
 	string_t *plain_login, *base64;
 
@@ -304,7 +304,7 @@ int cmd_pass(struct pop3_client *client, const char *args)
 	return TRUE;
 }
 
-int cmd_apop(struct pop3_client *client, const char *args)
+bool cmd_apop(struct pop3_client *client, const char *args)
 {
 	buffer_t *apop_data, *base64;
 	const char *p;

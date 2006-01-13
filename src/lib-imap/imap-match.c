@@ -12,7 +12,7 @@
 struct imap_match_glob {
 	pool_t pool;
 
-	int inboxcase;
+	bool inboxcase;
 	const char *inboxcase_end;
 
 	char sep_char;
@@ -24,7 +24,7 @@ static const char inbox[] = "INBOX";
 #define INBOXLEN (sizeof(inbox) - 1)
 
 struct imap_match_glob *
-imap_match_init(pool_t pool, const char *mask, int inboxcase, char separator)
+imap_match_init(pool_t pool, const char *mask, bool inboxcase, char separator)
 {
 	struct imap_match_glob *glob;
 	const char *p, *inboxp;
@@ -91,8 +91,8 @@ void imap_match_deinit(struct imap_match_glob *glob)
 	p_free(glob->pool, glob);
 }
 
-static inline int cmp_chr(const struct imap_match_glob *glob,
-			  const char *data, char maskchr)
+static inline bool cmp_chr(const struct imap_match_glob *glob,
+			   const char *data, char maskchr)
 {
 	return *data == maskchr ||
 		(glob->inboxcase_end != NULL && data < glob->inboxcase_end &&

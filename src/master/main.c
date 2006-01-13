@@ -43,13 +43,13 @@ struct hash_table *pids;
 int null_fd, inetd_login_fd;
 uid_t master_uid;
 #ifdef DEBUG
-static int gdb;
+static bool gdb;
 #endif
 
-static void listen_fds_open(int retry);
+static void listen_fds_open(bool retry);
 static void listen_fds_close(struct server_settings *server);
 
-int validate_str(const char *str, size_t max_len)
+bool validate_str(const char *str, size_t max_len)
 {
 	size_t i;
 
@@ -330,7 +330,7 @@ static void check_conflicts(const struct ip_addr *ip, unsigned int port,
 	}
 }
 
-static void listen_protocols(struct settings *set, int retry)
+static void listen_protocols(struct settings *set, bool retry)
 {
 	struct ip_addr *ip;
 	const char *const *proto;
@@ -421,7 +421,7 @@ static void listen_protocols(struct settings *set, int retry)
 		set->ssl_listen_fd = null_fd;
 }
 
-static void listen_fds_open(int retry)
+static void listen_fds_open(bool retry)
 {
 	struct server_settings *server;
 
@@ -455,7 +455,7 @@ static void listen_fds_close(struct server_settings *server)
 	}
 }
 
-static int have_stderr_set(struct settings *set)
+static bool have_stderr_set(struct settings *set)
 {
 	if (set->log_path != NULL &&
 	    strcmp(set->log_path, "/dev/stderr") == 0)
@@ -468,7 +468,7 @@ static int have_stderr_set(struct settings *set)
 	return FALSE;
 }
 
-static int have_stderr(struct server_settings *server)
+static bool have_stderr(struct server_settings *server)
 {
 	while (server != NULL) {
 		if (server->imap != NULL && have_stderr_set(server->imap))
@@ -697,7 +697,7 @@ int main(int argc, char *argv[])
 {
 	/* parse arguments */
 	const char *exec_protocol = NULL, *exec_section = NULL;
-	int foreground = FALSE;
+	bool foreground = FALSE;
 	int i;
 
 #ifdef DEBUG

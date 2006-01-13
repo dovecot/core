@@ -42,7 +42,7 @@ do_stat(struct maildir_mailbox *mbox, const char *path, void *context)
 }
 
 static struct istream *
-maildir_open_mail(struct maildir_mailbox *mbox, uint32_t uid, int *deleted)
+maildir_open_mail(struct maildir_mailbox *mbox, uint32_t uid, bool *deleted)
 {
 	int fd;
 
@@ -223,7 +223,7 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
-	int deleted;
+	bool deleted;
 
 	if (data->stream == NULL) {
 		data->stream = maildir_open_mail(mbox,

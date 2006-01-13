@@ -40,9 +40,9 @@ void (*hook_client_created)(struct client **client) = NULL;
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 enum client_workarounds client_workarounds = 0;
-int enable_last_command = FALSE;
-int no_flag_updates = FALSE;
-int reuse_xuidl = FALSE;
+bool enable_last_command = FALSE;
+bool no_flag_updates = FALSE;
+bool reuse_xuidl = FALSE;
 const char *uidl_format, *logout_format;
 enum uidl_keys uidl_keymask;
 

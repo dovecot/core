@@ -240,7 +240,7 @@ mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 	va_end(va);
 }
 
-int
+bool
 mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view)
 {
 	return view->broken;
@@ -388,7 +388,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 				   const struct mail_transaction_header **hdr_r,
-				   const void **data_r, int *skipped_r)
+				   const void **data_r, bool *skipped_r)
 {
 	const struct mail_transaction_header *hdr;
 	const void *data;

@@ -50,7 +50,7 @@ int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 	return -1;
 }
 
-static int mbox_handle_errors(struct index_storage *istorage)
+static bool mbox_handle_errors(struct index_storage *istorage)
 {
 	struct mail_storage *storage = &istorage->storage;
 
@@ -65,7 +65,7 @@ static int mbox_handle_errors(struct index_storage *istorage)
 	return TRUE;
 }
 
-static int mbox_is_file(const char *path, const char *name, int debug)
+static bool mbox_is_file(const char *path, const char *name, bool debug)
 {
 	struct stat st;
 
@@ -96,7 +96,7 @@ static int mbox_is_file(const char *path, const char *name, int debug)
 	return TRUE;
 }
 
-static int mbox_is_dir(const char *path, const char *name, int debug)
+static bool mbox_is_dir(const char *path, const char *name, bool debug)
 {
 	struct stat st;
 
@@ -127,9 +127,9 @@ static int mbox_is_dir(const char *path, const char *name, int debug)
 	return TRUE;
 }
 
-static int mbox_autodetect(const char *data, enum mail_storage_flags flags)
+static bool mbox_autodetect(const char *data, enum mail_storage_flags flags)
 {
-	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	const char *path;
 
 	path = t_strcut(data, ':');
@@ -159,7 +159,7 @@ static int mbox_autodetect(const char *data, enum mail_storage_flags flags)
 static const char *get_root_dir(enum mail_storage_flags flags)
 {
 	const char *home, *path;
-	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 
 	home = getenv("HOME");
 	if (home != NULL) {
@@ -194,7 +194,7 @@ static const char *get_root_dir(enum mail_storage_flags flags)
 }
 
 static const char *
-get_inbox_file(const char *root_dir, int only_root, int debug)
+get_inbox_file(const char *root_dir, bool only_root, bool debug)
 {
 	const char *user, *path;
 
@@ -224,7 +224,7 @@ get_inbox_file(const char *root_dir, int only_root, int debug)
 	return path;
 }
 
-static const char *create_root_dir(int debug)
+static const char *create_root_dir(bool debug)
 {
 	const char *home, *path;
 
@@ -250,12 +250,12 @@ static struct mail_storage *
 mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 	    enum mail_storage_lock_method lock_method)
 {
-	int debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
+	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	struct mbox_storage *storage;
 	struct index_storage *istorage;
 	const char *root_dir, *inbox_file, *index_dir, *p;
 	struct stat st;
-	int autodetect;
+	bool autodetect;
 	pool_t pool;
 
 	root_dir = inbox_file = index_dir = NULL;
@@ -354,10 +354,10 @@ static void mbox_free(struct mail_storage *_storage)
 	pool_unref(storage->storage.pool);
 }
 
-int mbox_is_valid_mask(struct mail_storage *storage, const char *mask)
+bool mbox_is_valid_mask(struct mail_storage *storage, const char *mask)
 {
 	const char *p;
-	int newdir;
+	bool newdir;
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0)
 		return TRUE;
@@ -377,8 +377,8 @@ int mbox_is_valid_mask(struct mail_storage *storage, const char *mask)
 	return TRUE;
 }
 
-static int mbox_is_valid_create_name(struct mail_storage *storage,
-				     const char *name)
+static bool mbox_is_valid_create_name(struct mail_storage *storage,
+				      const char *name)
 {
 	size_t len;
 
@@ -390,8 +390,8 @@ static int mbox_is_valid_create_name(struct mail_storage *storage,
 	return mbox_is_valid_mask(storage, name);
 }
 
-static int mbox_is_valid_existing_name(struct mail_storage *storage,
-				       const char *name)
+static bool mbox_is_valid_existing_name(struct mail_storage *storage,
+					const char *name)
 {
 	size_t len;
 
@@ -473,8 +473,8 @@ mbox_get_path(struct index_storage *storage, const char *name)
 	return t_strconcat(storage->dir, "/", name, NULL);
 }
 
-static int mbox_mail_is_recent(struct index_mailbox *ibox __attr_unused__,
-			       uint32_t uid __attr_unused__)
+static bool mbox_mail_is_recent(struct index_mailbox *ibox __attr_unused__,
+				uint32_t uid __attr_unused__)
 {
 	return FALSE;
 }
@@ -651,7 +651,7 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 }
 
 static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
-			       int directory)
+			       bool directory)
 {
 	struct index_storage *storage = (struct index_storage *)_storage;
 	const char *path, *p;
@@ -907,7 +907,7 @@ static int mbox_mailbox_rename(struct mail_storage *_storage,
 }
 
 static int mbox_set_subscribed(struct mail_storage *_storage,
-			       const char *name, int set)
+			       const char *name, bool set)
 {
 	struct index_storage *storage = (struct index_storage *)_storage;
 	const char *path;

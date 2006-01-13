@@ -51,7 +51,8 @@ int dbox_mail_lookup_offset(struct index_transaction_context *trans,
 {
 	struct dbox_mailbox *mbox =
 		(struct dbox_mailbox *)trans->ibox;
-	int synced = FALSE, ret;
+	bool synced = FALSE;
+	int ret;
 
 	for (;;) {
 		ret = dbox_file_lookup_offset(mbox, trans->trans_view, seq,

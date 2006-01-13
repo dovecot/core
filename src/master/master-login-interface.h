@@ -23,7 +23,7 @@ struct master_login_request {
 
 struct master_login_reply {
 	unsigned int tag;
-	int success;
+	bool success;
 };
 
 #endif

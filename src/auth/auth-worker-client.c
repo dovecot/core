@@ -279,7 +279,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		lookup(auth_request, lookup_user_callback);
 }
 
-static int
+static bool
 auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 {
 	const char *p;
@@ -306,7 +306,7 @@ static void auth_worker_input(void *context)
 {
 	struct auth_worker_client *client = context;
 	char *line;
-	int ret;
+	bool ret;
 
 	switch (i_stream_read(client->input)) {
 	case 0:

@@ -25,7 +25,7 @@ const char *imap_envelope_headers[] = {
 	NULL
 };
 
-int imap_envelope_get_field(const char *name, enum imap_envelope_field *ret)
+bool imap_envelope_get_field(const char *name, enum imap_envelope_field *ret)
 {
 	*ret = (enum imap_envelope_field)-1;
 
@@ -211,8 +211,8 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 	str_append(str, NVL(data->message_id, "NIL"));
 }
 
-static int imap_address_arg_append(struct imap_arg *arg, string_t *str,
-				   int *in_group)
+static bool imap_address_arg_append(struct imap_arg *arg, string_t *str,
+				    bool *in_group)
 {
 	struct imap_arg_list *list;
 	const char *args[4];
@@ -293,7 +293,7 @@ static const char *imap_envelope_parse_address(struct imap_arg *arg)
 	struct imap_arg_list *list;
 	string_t *str;
 	size_t i;
-	int in_group;
+	bool in_group;
 
 	if (arg->type != IMAP_ARG_LIST)
 		return NULL;
@@ -333,11 +333,11 @@ static const char *imap_envelope_parse_first_mailbox(struct imap_arg *arg)
 	return t_strdup(imap_arg_string(&list->args[2]));
 }
 
-static int imap_envelope_parse_arg(struct imap_arg *arg,
-				   enum imap_envelope_field field,
-				   const char *envelope,
-				   enum imap_envelope_result_type result_type,
-				   const char **result)
+static bool
+imap_envelope_parse_arg(struct imap_arg *arg, enum imap_envelope_field field,
+			const char *envelope,
+			enum imap_envelope_result_type result_type,
+			const char **result)
 {
 	const char *value = NULL;
 
@@ -370,9 +370,9 @@ static int imap_envelope_parse_arg(struct imap_arg *arg,
 	}
 }
 
-int imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
-			enum imap_envelope_result_type result_type,
-			const char **result)
+bool imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
+			 enum imap_envelope_result_type result_type,
+			 const char **result)
 {
 	struct istream *input;
 	struct imap_parser *parser;

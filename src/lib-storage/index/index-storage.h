@@ -44,7 +44,7 @@ struct index_mailbox {
 	struct mail_cache *cache;
 	struct mail_vfuncs *mail_vfuncs;
 
-	int (*is_recent)(struct index_mailbox *ibox, uint32_t uid);
+	bool (*is_recent)(struct index_mailbox *ibox, uint32_t uid);
 
 	uint32_t md5hdr_ext_idx;
 
@@ -91,7 +91,7 @@ struct index_transaction_context {
 	unsigned int cache_trans_failed:1;
 };
 
-int mail_storage_set_index_error(struct index_mailbox *ibox);
+void mail_storage_set_index_error(struct index_mailbox *ibox);
 
 void index_storage_lock_notify(struct index_mailbox *ibox,
 			       enum mailbox_lock_notify_type notify_type,
@@ -114,9 +114,9 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 			       enum mailbox_open_flags flags);
 void index_storage_mailbox_free(struct mailbox *box);
 
-int index_storage_is_readonly(struct mailbox *box);
-int index_storage_allow_new_keywords(struct mailbox *box);
-int index_storage_is_inconsistent(struct mailbox *box);
+bool index_storage_is_readonly(struct mailbox *box);
+bool index_storage_allow_new_keywords(struct mailbox *box);
+bool index_storage_is_inconsistent(struct mailbox *box);
 
 struct mail_keywords *
 index_keywords_create(struct mailbox_transaction_context *t,
@@ -125,7 +125,7 @@ void index_keywords_free(struct mailbox_transaction_context *t,
 			 struct mail_keywords *keywords);
 
 void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq);
-int index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq);
+bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq);
 
 unsigned int index_storage_get_recent_count(struct mail_index_view *view);
 
@@ -135,7 +135,7 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 
 struct mailbox_sync_context *
 index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
-			int failed);
+			bool failed);
 int index_mailbox_sync_next(struct mailbox_sync_context *ctx,
 			    struct mailbox_sync_rec *sync_rec_r);
 int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
@@ -147,8 +147,8 @@ void index_storage_set_callbacks(struct mail_storage *storage,
 				 struct mail_storage_callbacks *callbacks,
 				 void *context);
 const char *index_storage_get_last_error(struct mail_storage *storage,
-					 int *syntax_error_r,
-					 int *temporary_error_r);
+					 bool *syntax_error_r,
+					 bool *temporary_error_r);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);
@@ -179,6 +179,6 @@ void index_transaction_init(struct index_transaction_context *t,
 int index_transaction_commit(struct mailbox_transaction_context *t);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
 
-int index_keyword_array_cmp(const array_t *k1, const array_t *k2);
+bool index_keyword_array_cmp(const array_t *k1, const array_t *k2);
 
 #endif

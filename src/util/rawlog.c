@@ -230,7 +230,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 
 static struct rawlog_proxy *
 rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
-		    const char *path, int write_timestamps)
+		    const char *path, bool write_timestamps)
 {
 	struct rawlog_proxy *proxy;
 
@@ -261,7 +261,7 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	return proxy;
 }
 
-static void rawlog_open(int write_timestamps)
+static void rawlog_open(bool write_timestamps)
 {
 	const char *home, *path;
 	struct stat st;

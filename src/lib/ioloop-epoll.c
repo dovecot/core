@@ -103,7 +103,7 @@ static int epoll_event_mask(struct io_list *list)
 	return events;
 }
 
-static int iolist_add(struct io_list *list, struct io *io)
+static bool iolist_add(struct io_list *list, struct io *io)
 {
 	int i, idx;
 
@@ -129,9 +129,10 @@ static int iolist_add(struct io_list *list, struct io *io)
 	return TRUE;
 }
 
-static int iolist_del(struct io_list *list, struct io *io)
+static bool iolist_del(struct io_list *list, struct io *io)
 {
-	int i, last = TRUE;
+	bool last = TRUE;
+	int i;
 
 	for (i = 0; i < EPOLL_IOS_PER_FD; i++) {
 		if (list->ios[i] != NULL) {
@@ -149,7 +150,8 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list **list;
 	struct epoll_event event;
-	int ret, first, op, fd = io->fd;
+	int ret, op, fd = io->fd;
+	bool first;
 
 	list = array_idx_modifyable(&ctx->fd_index, fd);
 	if (*list == NULL)
@@ -182,7 +184,8 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list **list;
 	struct epoll_event event;
-	int ret, last, op;
+	int ret, op;
+	bool last;
 
 	list = array_idx_modifyable(&ctx->fd_index, io->fd);
 	last = iolist_del(*list, io);
@@ -209,7 +212,8 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct io *io;
 	struct timeval tv;
 	unsigned int t_id;
-	int msecs, ret, i, call;
+	int msecs, ret, i;
+	bool call;
 
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);

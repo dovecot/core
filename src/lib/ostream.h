@@ -25,7 +25,7 @@ typedef int stream_flush_callback_t(void *context);
    If max_buffer_size is 0, an "optimal" buffer size is used (max 128kB). */
 struct ostream *
 o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
-		     int autoclose_fd);
+		     bool autoclose_fd);
 
 /* Reference counting. References start from 1, so calling o_stream_unref()
    destroys the stream if o_stream_ref() is never used. */
@@ -52,7 +52,7 @@ void o_stream_uncork(struct ostream *stream);
 int o_stream_flush(struct ostream *stream);
 /* Set "flush pending" state of stream. If set, the flush callback is called
    when more data is allowed to be sent, even if the buffer itself is empty. */
-void o_stream_set_flush_pending(struct ostream *stream, int set);
+void o_stream_set_flush_pending(struct ostream *stream, bool set);
 /* Returns number of bytes currently in buffer. */
 size_t o_stream_get_buffer_used_size(struct ostream *stream);
 

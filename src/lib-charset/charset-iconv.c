@@ -11,15 +11,15 @@
 
 struct charset_translation {
 	iconv_t cd;
-	int ascii;
+	bool ascii;
 };
 
 struct charset_translation *charset_to_utf8_begin(const char *charset,
-						  int *unknown_charset)
+						  bool *unknown_charset)
 {
 	struct charset_translation *t;
 	iconv_t cd;
-	int ascii;
+	bool ascii;
 
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
@@ -110,9 +110,9 @@ charset_to_ucase_utf8(struct charset_translation *t,
 }
 
 static const char *
-charset_to_utf8_string_int(const char *charset, int *unknown_charset,
+charset_to_utf8_string_int(const char *charset, bool *unknown_charset,
 			   const unsigned char *data, size_t size,
-			   size_t *utf8_size_r, int ucase)
+			   size_t *utf8_size_r, bool ucase)
 {
 	iconv_t cd;
 	ICONV_CONST char *inbuf;
@@ -180,7 +180,7 @@ charset_to_utf8_string_int(const char *charset, int *unknown_charset,
 }
 
 const char *
-charset_to_utf8_string(const char *charset, int *unknown_charset,
+charset_to_utf8_string(const char *charset, bool *unknown_charset,
 		       const unsigned char *data, size_t size,
 		       size_t *utf8_size_r)
 {
@@ -189,7 +189,7 @@ charset_to_utf8_string(const char *charset, int *unknown_charset,
 }
 
 const char *
-charset_to_ucase_utf8_string(const char *charset, int *unknown_charset,
+charset_to_ucase_utf8_string(const char *charset, bool *unknown_charset,
 			     const unsigned char *data, size_t size,
 			     size_t *utf8_size_r)
 {

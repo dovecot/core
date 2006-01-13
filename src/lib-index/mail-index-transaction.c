@@ -17,7 +17,7 @@
 
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
-			     int hide, int external)
+			     bool hide, bool external)
 {
 	struct mail_index_transaction *t;
 
@@ -101,23 +101,23 @@ void mail_index_transaction_unref(struct mail_index_transaction *t)
 
 static void
 mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
-				  array_t *array, int range)
+				  array_t *array, bool range)
 {
         ARRAY_SET_TYPE(array, uint32_t);
         struct mail_index_view *view = t->view;
 	const struct mail_index_record *rec;
 	uint32_t *seq;
-	unsigned int i, count;
-	int j;
+	unsigned int i, j, count, range_count;
 
 	if (!array_is_created(array))
 		return;
 
 	count = array_count(array);
+	range_count = range ? 1 : 0;
 	for (i = 0; i < count; i++) {
 		seq = array_idx_modifyable(array, i);
 
-		for (j = 0; j <= range; j++, seq++) {
+		for (j = 0; j <= range_count; j++, seq++) {
 			if (*seq >= t->first_new_seq) {
 				rec = mail_index_transaction_lookup(t, *seq);
 				*seq = rec->uid;
@@ -132,7 +132,7 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 }
 
 static void arrays_convert_to_uids(struct mail_index_transaction *t,
-				   array_t *array, int range)
+				   array_t *array, bool range)
 {
 	ARRAY_SET_TYPE(array, array_t);
 	array_t *updates;
@@ -529,8 +529,8 @@ void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 	mail_index_update_flags_range(t, seq, seq, modify_type, flags);
 }
 
-int mail_index_seq_array_lookup(const array_t *array, uint32_t seq,
-				unsigned int *idx_r)
+bool mail_index_seq_array_lookup(const array_t *array, uint32_t seq,
+				 unsigned int *idx_r)
 {
         ARRAY_SET_TYPE(array, uint32_t);
 	unsigned int idx, left_idx, right_idx, count;
@@ -567,9 +567,9 @@ int mail_index_seq_array_lookup(const array_t *array, uint32_t seq,
 	return FALSE;
 }
 
-static int mail_index_seq_array_add(array_t *array, uint32_t seq,
-				    const void *record, size_t record_size,
-				    void *old_record)
+static bool mail_index_seq_array_add(array_t *array, uint32_t seq,
+				     const void *record, size_t record_size,
+				     void *old_record)
 {
         ARRAY_SET_TYPE(array, void *);
 	void *p;
@@ -602,7 +602,7 @@ static int mail_index_seq_array_add(array_t *array, uint32_t seq,
 
 void mail_index_update_header(struct mail_index_transaction *t,
 			      size_t offset, const void *data, size_t size,
-			      int prepend)
+			      bool prepend)
 {
 	i_assert(offset < sizeof(t->pre_hdr_change));
 	i_assert(size <= sizeof(t->pre_hdr_change) - offset);

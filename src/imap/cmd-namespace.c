@@ -9,7 +9,7 @@
 static void list_namespaces(struct namespace *ns, enum namespace_type type,
 			    string_t *str)
 {
-	int found = FALSE;
+	bool found = FALSE;
 
 	while (ns != NULL) {
 		if (ns->type == type && !ns->hidden) {
@@ -33,7 +33,7 @@ static void list_namespaces(struct namespace *ns, enum namespace_type type,
 		str_append(str, "NIL");
 }
 
-int cmd_namespace(struct client_command_context *cmd)
+bool cmd_namespace(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	string_t *str;

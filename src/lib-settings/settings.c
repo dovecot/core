@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-static const char *get_bool(const char *value, int *result)
+static const char *get_bool(const char *value, bool *result)
 {
 	if (strcasecmp(value, "yes") == 0)
 		*result = TRUE;
@@ -50,7 +50,7 @@ parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
 				   as octal value with umasks */
 				return get_uint(value, (unsigned int *) ptr);
 			case SET_BOOL:
-				return get_bool(value, (int *) ptr);
+				return get_bool(value, (bool *) ptr);
 			}
 		}
 	}
@@ -60,9 +60,9 @@ parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
-int settings_read(const char *path, const char *section,
-		  settings_callback_t *callback,
-		  settings_section_callback_t *sect_callback, void *context)
+bool settings_read(const char *path, const char *section,
+		   settings_callback_t *callback,
+		   settings_section_callback_t *sect_callback, void *context)
 {
 	struct istream *input;
 	const char *errormsg, *next_section;

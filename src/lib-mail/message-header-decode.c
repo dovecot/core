@@ -6,9 +6,9 @@
 #include "quoted-printable.h"
 #include "message-header-decode.h"
 
-static int split_encoded(const unsigned char *data, size_t *size_p,
-			 const char **charset, const char **encoding,
-			 const unsigned char **text, size_t *text_size_r)
+static bool split_encoded(const unsigned char *data, size_t *size_p,
+			  const char **charset, const char **encoding,
+			  const unsigned char **text, size_t *text_size_r)
 {
 	size_t size, pos, textpos;
 
@@ -44,7 +44,7 @@ static int split_encoded(const unsigned char *data, size_t *size_p,
 	return TRUE;
 }
 
-static int
+static bool
 message_header_decode_encoded(const unsigned char *data, size_t *size,
 			      message_header_decode_callback_t *callback,
 			      void *context)

@@ -11,6 +11,6 @@ void restrict_access_set_env(const char *user, uid_t uid, gid_t gid,
 /* chroot, setuid() and setgid() based on environment variables.
    If disallow_roots is TRUE, we'll kill ourself if we didn't have the
    environment settings and we have root uid or gid. */
-void restrict_access_by_env(int disallow_root);
+void restrict_access_by_env(bool disallow_root);
 
 #endif

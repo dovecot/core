@@ -137,7 +137,7 @@ passwd_file_new(struct db_passwd_file *db, const char *expanded_path)
 	return pw;
 }
 
-static int passwd_file_open(struct passwd_file *pw)
+static bool passwd_file_open(struct passwd_file *pw)
 {
 	const char *no_args = NULL;
 	struct istream *input;
@@ -213,7 +213,7 @@ static void passwd_file_free(struct passwd_file *pw)
 	i_free(pw);
 }
 
-static int passwd_file_sync(struct passwd_file *pw)
+static bool passwd_file_sync(struct passwd_file *pw)
 {
 	struct stat st;
 
@@ -246,11 +246,11 @@ static struct db_passwd_file *db_passwd_file_find(const char *path)
 	return NULL;
 }
 
-struct db_passwd_file *db_passwd_file_parse(const char *path, int userdb)
+struct db_passwd_file *db_passwd_file_parse(const char *path, bool userdb)
 {
 	struct db_passwd_file *db;
 	const char *p;
-	int percents = FALSE;
+	bool percents = FALSE;
 
 	db = db_passwd_file_find(path);
 	if (db != NULL) {

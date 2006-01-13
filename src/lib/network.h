@@ -40,7 +40,7 @@ struct ip_addr {
 #define IPADDR_IS_V6(ip) ((ip)->family == AF_INET6)
 
 /* returns 1 if IPADDRs are the same */
-int net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2);
+bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2);
 
 /* Connect to socket with ip address */
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
@@ -51,10 +51,10 @@ int net_connect_unix(const char *path);
 void net_disconnect(int fd);
 
 /* Set socket blocking/nonblocking */
-void net_set_nonblock(int fd, int nonblock);
+void net_set_nonblock(int fd, bool nonblock);
 /* Set TCP_CORK if supported, ie. don't send out partial frames.
    Returns 0 if ok, -1 if failed. */
-int net_set_cork(int fd, int cork);
+int net_set_cork(int fd, bool cork);
 
 /* Set IP to contain INADDR_ANY for IPv4 or IPv6. The IPv6 any address may
    include IPv4 depending on the system (Linux yes, BSD no). */
@@ -100,7 +100,7 @@ int net_geterror(int fd);
 /* Get name of TCP service */
 const char *net_getservbyport(unsigned short port);
 
-int is_ipv4_address(const char *addr);
-int is_ipv6_address(const char *addr);
+bool is_ipv4_address(const char *addr);
+bool is_ipv6_address(const char *addr);
 
 #endif

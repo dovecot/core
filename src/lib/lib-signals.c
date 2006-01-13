@@ -14,7 +14,7 @@ struct signal_handler {
 	signal_handler_t *handler;
 	void *context;
 
-	int delayed;
+	bool delayed;
         struct signal_handler *next;
 };
 
@@ -29,7 +29,7 @@ static struct io *io_sig;
 static void sig_handler(int signo)
 {
 	struct signal_handler *h;
-	int delayed_sent = FALSE;
+	bool delayed_sent = FALSE;
 
 	if (signo < 0 || signo > MAX_SIGNAL_VALUE)
 		return;
@@ -93,7 +93,7 @@ static void signal_read(void *context __attr_unused__)
 	}
 }
 
-void lib_signals_set_handler(int signo, int delayed,
+void lib_signals_set_handler(int signo, bool delayed,
 			     signal_handler_t *handler, void *context)
 {
 	struct signal_handler *h;

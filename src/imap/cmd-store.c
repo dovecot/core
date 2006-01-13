@@ -6,8 +6,9 @@
 #include "imap-search.h"
 #include "imap-util.h"
 
-static int get_modify_type(struct client_command_context *cmd, const char *item,
-			   enum modify_type *modify_type, int *silent)
+static bool
+get_modify_type(struct client_command_context *cmd, const char *item,
+		enum modify_type *modify_type, bool *silent)
 {
 	if (*item == '+') {
 		*modify_type = MODIFY_ADD;
@@ -35,7 +36,7 @@ static int get_modify_type(struct client_command_context *cmd, const char *item,
 	return TRUE;
 }
 
-int cmd_store(struct client_command_context *cmd)
+bool cmd_store(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct imap_arg *args;
@@ -49,7 +50,7 @@ int cmd_store(struct client_command_context *cmd)
         struct mailbox_transaction_context *t;
 	struct mail *mail;
 	const char *messageset, *item;
-	int silent, failed;
+	bool silent, failed;
 
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;

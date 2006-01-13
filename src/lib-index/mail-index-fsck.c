@@ -135,7 +135,8 @@ int mail_index_fsck(struct mail_index *index)
 	unsigned int lock_id;
 	uint32_t file_seq;
 	uoff_t file_offset;
-	int ret, lock_log;
+	int ret;
+	bool lock_log;
 
 	if (index->sync_update) {
 		/* we're modifying index, don't do anything */

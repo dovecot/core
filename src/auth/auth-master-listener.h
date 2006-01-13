@@ -25,7 +25,7 @@ void auth_master_listener_add(struct auth_master_listener *listener,
 			      enum listener_type type);
 
 void auth_master_listeners_send_handshake(void);
-int auth_master_listeners_masters_left(void);
+bool auth_master_listeners_masters_left(void);
 
 void auth_master_listeners_init(void);
 void auth_master_listeners_deinit(void);

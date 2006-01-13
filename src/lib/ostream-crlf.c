@@ -15,7 +15,7 @@ struct crlf_ostream {
 	struct _ostream ostream;
 
         struct ostream *output;
-	int last_cr;
+	bool last_cr;
 };
 
 static const struct const_iovec cr_iov = { "\r", 1 };
@@ -38,7 +38,7 @@ static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
 	o_stream_set_max_buffer_size(cstream->output, max_size);
 }
 
-static void _cork(struct _ostream *stream, int set)
+static void _cork(struct _ostream *stream, bool set)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
@@ -55,7 +55,7 @@ static int _flush(struct _ostream *stream)
 	return o_stream_flush(cstream->output);
 }
 
-static void _flush_pending(struct _ostream *stream, int set)
+static void _flush_pending(struct _ostream *stream, bool set)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
@@ -117,7 +117,7 @@ _sendv_crlf(struct _ostream *stream, const struct const_iovec *iov,
 	struct const_iovec new_iov;
 	unsigned int vec, i, len, start, new_iov_count = 0, new_iov_size = 0;
 	ssize_t ret, total;
-	int last_cr;
+	bool last_cr;
 
 	last_cr = cstream->last_cr;
 

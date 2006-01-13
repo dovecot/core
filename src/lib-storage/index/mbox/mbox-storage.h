@@ -34,7 +34,7 @@ struct mbox_mailbox {
 	unsigned int mbox_excl_locks, mbox_shared_locks;
 	struct dotlock *mbox_dotlock;
 	unsigned int mbox_lock_id;
-	int mbox_readonly, mbox_writeonly;
+	bool mbox_readonly, mbox_writeonly;
 	time_t mbox_dirty_stamp;
 	off_t mbox_dirty_size;
 
@@ -83,7 +83,8 @@ struct mail_save_context *
 mbox_save_init(struct mailbox_transaction_context *_t,
 	       enum mail_flags flags, struct mail_keywords *keywords,
 	       time_t received_date, int timezone_offset,
-	       const char *from_envelope, struct istream *input, int want_mail);
+	       const char *from_envelope, struct istream *input,
+	       bool want_mail);
 int mbox_save_continue(struct mail_save_context *ctx);
 int mbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void mbox_save_cancel(struct mail_save_context *ctx);
@@ -91,6 +92,6 @@ void mbox_save_cancel(struct mail_save_context *ctx);
 int mbox_transaction_save_commit(struct mbox_save_context *ctx);
 void mbox_transaction_save_rollback(struct mbox_save_context *ctx);
 
-int mbox_is_valid_mask(struct mail_storage *storage, const char *mask);
+bool mbox_is_valid_mask(struct mail_storage *storage, const char *mask);
 
 #endif

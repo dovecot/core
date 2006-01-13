@@ -13,7 +13,7 @@ void message_content_parse_header(const unsigned char *data, size_t size,
 	struct rfc822_parser_context parser;
 	string_t *str;
 	size_t key_len;
-	int quoted_string;
+	bool quoted_string;
 
 	rfc822_parser_init(&parser, data, size, NULL);
 

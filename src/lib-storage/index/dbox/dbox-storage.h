@@ -112,7 +112,7 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 	       enum mail_flags flags, struct mail_keywords *keywords,
 	       time_t received_date, int timezone_offset,
 	       const char *from_envelope, struct istream *input,
-	       int want_mail);
+	       bool want_mail);
 int dbox_save_continue(struct mail_save_context *ctx);
 int dbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void dbox_save_cancel(struct mail_save_context *ctx);
@@ -121,7 +121,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx);
 void dbox_transaction_save_commit_post(struct dbox_save_context *ctx);
 void dbox_transaction_save_rollback(struct dbox_save_context *ctx);
 
-int dbox_is_valid_mask(struct mail_storage *storage, const char *mask);
+bool dbox_is_valid_mask(struct mail_storage *storage, const char *mask);
 
 int dbox_mail_lookup_offset(struct index_transaction_context *trans,
 			    uint32_t seq, uint32_t *file_seq_r,

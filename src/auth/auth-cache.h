@@ -21,7 +21,7 @@ void auth_cache_clear(struct auth_cache *cache);
    auth_cache_parse_key(). */
 const char *auth_cache_lookup(struct auth_cache *cache,
 			      const struct auth_request *request,
-			      const char *key, int *expired_r);
+			      const char *key, bool *expired_r);
 /* Insert key => value into cache. */
 void auth_cache_insert(struct auth_cache *cache,
 		       const struct auth_request *request,

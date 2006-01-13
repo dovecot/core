@@ -5,10 +5,10 @@
 #include "imap-quote.h"
 
 void imap_quote_append(string_t *str, const unsigned char *value,
-		       size_t value_len, int compress_lwsp)
+		       size_t value_len, bool compress_lwsp)
 {
 	size_t i, extra = 0;
-	int last_lwsp = TRUE, literal = FALSE, modify = FALSE;
+	bool last_lwsp = TRUE, literal = FALSE, modify = FALSE;
 
 	if (value == NULL) {
 		str_append(str, "NIL");

@@ -278,7 +278,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 	struct mail_index_ext *ext;
 	struct mail_index_ext_header *ext_hdr;
 	uint32_t old_size, new_size, old_record_size;
-	int modified = FALSE;
+	bool modified = FALSE;
 
 	ext = array_idx_modifyable(&map->extensions, ext_id);
 

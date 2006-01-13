@@ -223,7 +223,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	return 1;
 }
 
-int mail_index_lock_shared(struct mail_index *index, int update_index,
+int mail_index_lock_shared(struct mail_index *index, bool update_index,
 			   unsigned int *lock_id_r)
 {
 	int ret;
@@ -488,7 +488,7 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 	}
 }
 
-int mail_index_is_locked(struct mail_index *index, unsigned int lock_id)
+bool mail_index_is_locked(struct mail_index *index, unsigned int lock_id)
 {
 	if ((index->lock_id ^ lock_id) <= 1) {
 		i_assert(index->lock_type != F_UNLCK);

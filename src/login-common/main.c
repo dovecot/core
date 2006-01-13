@@ -18,8 +18,8 @@
 #include <unistd.h>
 #include <syslog.h>
 
-int disable_plaintext_auth, process_per_connection, greeting_capability;
-int verbose_proctitle, verbose_ssl, verbose_auth;
+bool disable_plaintext_auth, process_per_connection, greeting_capability;
+bool verbose_proctitle, verbose_ssl, verbose_auth;
 const char *greeting, *log_format;
 const char *const *log_format_elements;
 unsigned int max_logging_users;
@@ -30,7 +30,7 @@ static const char *process_name;
 static struct ioloop *ioloop;
 static struct io *io_listen, *io_ssl_listen;
 static int main_refcount;
-static int is_inetd, closing_down;
+static bool is_inetd, closing_down;
 
 void main_ref(void)
 {
@@ -133,7 +133,7 @@ static void login_accept_ssl(void *context __attr_unused__)
 }
 
 static void auth_connect_notify(struct auth_client *client __attr_unused__,
-				int connected, void *context __attr_unused__)
+				bool connected, void *context __attr_unused__)
 {
 	if (connected)
                 clients_notify_auth_connected();
@@ -268,7 +268,8 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	unsigned int local_port;
 	struct ssl_proxy *proxy = NULL;
 	struct client *client;
-	int i, fd = -1, master_fd = -1, ssl = FALSE;
+	int i, fd = -1, master_fd = -1;
+	bool ssl = FALSE;
 
 	is_inetd = getenv("DOVECOT_MASTER") == NULL;
 

@@ -177,7 +177,7 @@ rpa_check_message(const unsigned char *data, const unsigned char *end,
 	return p + sizeof(rpa_oid);
 }
 
-static int
+static bool
 rpa_parse_token1(const void *data, size_t data_size, const char **error)
 {
 	const unsigned char *end = ((unsigned char *) data) + data_size;
@@ -238,7 +238,7 @@ rpa_read_buffer(pool_t pool, const unsigned char **data,
 	return len;
 }
 
-static int
+static bool
 rpa_verify_realm(struct rpa_auth_request *request, const char *realm)
 {
 	const char *default_realm;
@@ -254,10 +254,10 @@ rpa_verify_realm(struct rpa_auth_request *request, const char *realm)
 			request->auth_request.auth->default_realm :
 			my_hostname;
 
-	return strcasecmp(realm, default_realm) == 0 ? TRUE : FALSE;
+	return strcasecmp(realm, default_realm) == 0;
 }
 
-static int
+static bool
 rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 		 size_t data_size, const char **error)
 {
@@ -439,8 +439,8 @@ mech_rpa_build_token4(struct rpa_auth_request *request, size_t *size)
 	return buffer_free_without_data(buf);
 }
 
-static int verify_credentials(struct rpa_auth_request *request,
-			      const char *credentials)
+static bool verify_credentials(struct rpa_auth_request *request,
+			       const char *credentials)
 {
 	unsigned char response[16];
 	buffer_t *hash_buffer;

@@ -3,9 +3,9 @@
 
 /* Return FALSE if you wish to stop decoding. charset is NULL when it's not
    RFC2047-encoded. */
-typedef int message_header_decode_callback_t(const unsigned char *data,
-					     size_t size, const char *charset,
-					     void *context);
+typedef bool message_header_decode_callback_t(const unsigned char *data,
+					      size_t size, const char *charset,
+					      void *context);
 
 /* Decode RFC2047 encoded words. Call specified function for each
    decoded block. */

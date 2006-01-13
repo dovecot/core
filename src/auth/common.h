@@ -9,7 +9,7 @@
 #define WORKER_SERVER_FD 4
 
 extern struct ioloop *ioloop;
-extern int standalone, worker;
+extern bool standalone, worker;
 extern time_t process_start_time;
 
 #endif

@@ -46,8 +46,8 @@ static const char *get_cram_challenge(void)
 			       dec2str(ioloop_time), my_hostname);
 }
 
-static int verify_credentials(struct cram_auth_request *request,
-			      const char *credentials)
+static bool verify_credentials(struct cram_auth_request *request,
+			       const char *credentials)
 {
 	
 	unsigned char digest[16], context_digest[32];
@@ -80,9 +80,9 @@ static int verify_credentials(struct cram_auth_request *request,
 	return TRUE;
 }
 
-static int parse_cram_response(struct cram_auth_request *request,
-			       const unsigned char *data, size_t size,
-			       const char **error_r)
+static bool parse_cram_response(struct cram_auth_request *request,
+				const unsigned char *data, size_t size,
+				const char **error_r)
 {
 	size_t i, space;
 

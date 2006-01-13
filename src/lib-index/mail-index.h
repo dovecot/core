@@ -179,7 +179,7 @@ void mail_index_view_unlock(struct mail_index_view *view);
 /* Returns number of mails in view. */
 uint32_t mail_index_view_get_messages_count(struct mail_index_view *view);
 /* Returns TRUE if we lost track of changes for some reason. */
-int mail_index_view_is_inconsistent(struct mail_index_view *view);
+bool mail_index_view_is_inconsistent(struct mail_index_view *view);
 
 /* Transaction has to be opened to be able to modify index. You can have
    multiple transactions open simultaneously. Note that committed transactions
@@ -192,7 +192,7 @@ int mail_index_view_is_inconsistent(struct mail_index_view *view);
    happened. */
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
-			     int hide, int external);
+			     bool hide, bool external);
 int mail_index_transaction_commit(struct mail_index_transaction *t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r);
@@ -231,12 +231,12 @@ int mail_index_sync_begin(struct mail_index *index,
 			  struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
-			  int sync_recent, int sync_dirty);
+			  bool sync_recent, bool sync_dirty);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);
-/* Returns 1 if there's more to sync, 0 if not. */
-int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
+/* Returns TRUE if there's more to sync. */
+bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
 /* Reset syncing to initial state after mail_index_sync_begin(), so you can
    go through all the sync records again with mail_index_sync_next(). */
 void mail_index_sync_reset(struct mail_index_sync_ctx *ctx);
@@ -316,9 +316,9 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 
 /* Lookup a keyword, returns TRUE if found, FALSE if not. If autocreate is
    TRUE, the keyword is automatically created and TRUE is always returned. */
-int mail_index_keyword_lookup(struct mail_index *index,
-			      const char *keyword, int autocreate,
-			      unsigned int *idx_r);
+bool mail_index_keyword_lookup(struct mail_index *index,
+			       const char *keyword, bool autocreate,
+			       unsigned int *idx_r);
 /* Return a pointer to array of NULL-terminated list of keywords. Note that
    the array contents (and thus pointers inside it) may change after calling
    mail_index_keywords_create() or mail_index_sync_begin(). */
@@ -343,7 +343,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
    before message syncing begins. */
 void mail_index_update_header(struct mail_index_transaction *t,
 			      size_t offset, const void *data, size_t size,
-			      int prepend);
+			      bool prepend);
 
 /* Returns the last error code. */
 enum mail_index_error mail_index_get_last_error(struct mail_index *index);
@@ -359,8 +359,8 @@ void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 				 uint8_t *flags);
 /* Apply changes in MAIL_INDEX_SYNC_TYPE_KEYWORD_* typed sync records to given
    keywords array. Returns TRUE If something was changed. */
-int mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
-				   array_t *keywords);
+bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
+				    array_t *keywords);
 
 /* register index extension. name is a unique identifier for the extension.
    returns unique identifier for the name. */

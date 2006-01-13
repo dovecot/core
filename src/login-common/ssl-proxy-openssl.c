@@ -54,7 +54,7 @@ static void plain_write(void *context);
 static void ssl_write(struct ssl_proxy *proxy);
 static void ssl_step(void *context);
 static void ssl_proxy_destroy(struct ssl_proxy *proxy);
-static int ssl_proxy_unref(struct ssl_proxy *proxy);
+static void ssl_proxy_unref(struct ssl_proxy *proxy);
 
 static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
 {
@@ -86,7 +86,7 @@ static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
 	}
 }
 
-static void plain_block_input(struct ssl_proxy *proxy, int block)
+static void plain_block_input(struct ssl_proxy *proxy, bool block)
 {
 	if (block) {
 		if (proxy->io_plain_read != NULL) {
@@ -105,7 +105,7 @@ static void plain_read(void *context)
 {
 	struct ssl_proxy *proxy = context;
 	ssize_t ret;
-	int corked = FALSE;
+	bool corked = FALSE;
 
 	if (proxy->sslout_size == sizeof(proxy->sslout_buf)) {
 		/* buffer full, block input until it's written */
@@ -374,7 +374,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 	return sfd[1];
 }
 
-int ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy)
+bool ssl_proxy_has_valid_client_cert(struct ssl_proxy *proxy)
 {
 	return proxy->cert_received && !proxy->cert_broken;
 }
@@ -404,17 +404,16 @@ void ssl_proxy_free(struct ssl_proxy *proxy)
 	ssl_proxy_unref(proxy);
 }
 
-static int ssl_proxy_unref(struct ssl_proxy *proxy)
+static void ssl_proxy_unref(struct ssl_proxy *proxy)
 {
 	if (--proxy->refcount > 0)
-		return TRUE;
+		return;
 	i_assert(proxy->refcount == 0);
 
 	SSL_free(proxy->ssl);
 	i_free(proxy);
 
 	main_unref();
-	return FALSE;
 }
 
 static void ssl_proxy_destroy(struct ssl_proxy *proxy)

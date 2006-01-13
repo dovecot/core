@@ -38,11 +38,11 @@ void client_destroy_internal_failure(struct pop3_client *client);
 
 void client_send_line(struct pop3_client *client, const char *line);
 
-int client_read(struct pop3_client *client);
+bool client_read(struct pop3_client *client);
 void client_input(void *context);
 
 void client_ref(struct pop3_client *client);
-int client_unref(struct pop3_client *client);
+bool client_unref(struct pop3_client *client);
 
 void clients_init(void);
 void clients_deinit(void);

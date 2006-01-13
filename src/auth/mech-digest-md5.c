@@ -59,7 +59,8 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	string_t *str;
 	const char *const *tmp;
 	unsigned char nonce[16];
-	int i, first_qop;
+	int i;
+	bool first_qop;
 
 	/*
 	   realm="hostname" (multiple allowed)
@@ -109,8 +110,8 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 	return str;
 }
 
-static int verify_credentials(struct digest_auth_request *request,
-			      const char *credentials)
+static bool verify_credentials(struct digest_auth_request *request,
+			       const char *credentials)
 {
 	struct md5_context ctx;
 	unsigned char digest[16];
@@ -222,7 +223,7 @@ static int verify_credentials(struct digest_auth_request *request,
 	return TRUE;
 }
 
-static int verify_realm(struct digest_auth_request *request, const char *realm)
+static bool verify_realm(struct digest_auth_request *request, const char *realm)
 {
 	const char *const *tmp;
 
@@ -238,7 +239,7 @@ static int verify_realm(struct digest_auth_request *request, const char *realm)
 	return FALSE;
 }
 
-static int parse_next(char **data, char **key, char **value)
+static bool parse_next(char **data, char **key, char **value)
 {
 	/* @UNSAFE */
 	char *p, *dest;
@@ -291,8 +292,8 @@ static int parse_next(char **data, char **key, char **value)
 	return TRUE;
 }
 
-static int auth_handle_response(struct digest_auth_request *request,
-				char *key, char *value, const char **error)
+static bool auth_handle_response(struct digest_auth_request *request,
+				 char *key, char *value, const char **error)
 {
 	int i;
 
@@ -449,12 +450,12 @@ static int auth_handle_response(struct digest_auth_request *request,
 	return TRUE;
 }
 
-static int parse_digest_response(struct digest_auth_request *request,
-				 const unsigned char *data, size_t size,
-				 const char **error)
+static bool parse_digest_response(struct digest_auth_request *request,
+				  const unsigned char *data, size_t size,
+				  const char **error)
 {
 	char *copy, *key, *value;
-	int failed;
+	bool failed;
 
 	/*
 	   realm="realm"

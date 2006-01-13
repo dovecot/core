@@ -27,12 +27,12 @@ static struct log_io *log_ios;
 static struct timeout *to;
 static unsigned int throttle_count;
 
-static int log_it(struct log_io *log_io, const char *line, int continues);
+static int log_it(struct log_io *log_io, const char *line, bool continues);
 static void log_read(void *context);
 static void log_io_free(struct log_io *log_io);
 static void log_throttle_timeout(void *context);
 
-static int log_write_pending(struct log_io *log_io)
+static bool log_write_pending(struct log_io *log_io)
 {
 	const char *line;
 
@@ -80,7 +80,7 @@ static void log_unthrottle(struct log_io *log_io)
 			    IO_READ, log_read, log_io);
 }
 
-static int log_it(struct log_io *log_io, const char *line, int continues)
+static int log_it(struct log_io *log_io, const char *line, bool continues)
 {
 	const char *prefix;
 

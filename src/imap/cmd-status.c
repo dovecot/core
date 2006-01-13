@@ -44,13 +44,13 @@ get_status_items(struct client_command_context *cmd, struct imap_arg *args)
 	return items;
 }
 
-static int get_mailbox_status(struct client *client,
-			      struct mail_storage *storage, const char *mailbox,
-			      enum mailbox_status_items items,
-			      struct mailbox_status *status)
+static bool
+get_mailbox_status(struct client *client, struct mail_storage *storage,
+		   const char *mailbox, enum mailbox_status_items items,
+		   struct mailbox_status *status)
 {
 	struct mailbox *box;
-	int failed;
+	bool failed;
 
 	if (client->mailbox != NULL &&
 	    mailbox_equals(client->mailbox, storage, mailbox)) {
@@ -76,7 +76,7 @@ static int get_mailbox_status(struct client *client,
 	return !failed;
 }
 
-int cmd_status(struct client_command_context *cmd)
+bool cmd_status(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct imap_arg *args;

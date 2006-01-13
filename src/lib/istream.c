@@ -110,7 +110,7 @@ void i_stream_sync(struct istream *stream)
 		_stream->sync(_stream);
 }
 
-const struct stat *i_stream_stat(struct istream *stream, int exact)
+const struct stat *i_stream_stat(struct istream *stream, bool exact)
 {
 	struct _istream *_stream = stream->real_stream;
 
@@ -120,7 +120,7 @@ const struct stat *i_stream_stat(struct istream *stream, int exact)
 	return _stream->stat(_stream, exact);
 }
 
-int i_stream_have_bytes_left(struct istream *stream)
+bool i_stream_have_bytes_left(struct istream *stream)
 {
 	struct _istream *_stream = stream->real_stream;
 
@@ -232,7 +232,7 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data,
 		       size_t *size, size_t threshold)
 {
 	ssize_t ret = 0;
-	int read_more = FALSE;
+	bool read_more = FALSE;
 
 	do {
 		*data = i_stream_get_data(stream, size);

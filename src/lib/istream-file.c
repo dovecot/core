@@ -160,7 +160,7 @@ static ssize_t _read(struct _istream *stream)
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  int mark __attr_unused__)
+		  bool mark __attr_unused__)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
@@ -207,7 +207,7 @@ static int fstat_cached(struct file_istream *fstream)
 }
 
 static const struct stat *
-_stat(struct _istream *stream, int exact __attr_unused__)
+_stat(struct _istream *stream, bool exact __attr_unused__)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
@@ -220,7 +220,7 @@ _stat(struct _istream *stream, int exact __attr_unused__)
 }
 
 struct istream *i_stream_create_file(int fd, pool_t pool,
-				     size_t max_buffer_size, int autoclose_fd)
+				     size_t max_buffer_size, bool autoclose_fd)
 {
 	struct file_istream *fstream;
 	struct stat st;

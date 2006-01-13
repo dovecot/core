@@ -156,8 +156,8 @@ static int dbox_uidlist_entry_cmp(const void *key, const void *p)
 	return (int)*file_seq - (int)(*entry)->file_seq;
 }
 
-static int dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
-				  const struct dbox_uidlist_entry *src_entry)
+static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
+				   const struct dbox_uidlist_entry *src_entry)
 {
 	struct dbox_uidlist_entry *dest_entry, **entries, **pos;
 	const struct seq_range *range;
@@ -210,7 +210,7 @@ static int dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 	return TRUE;
 }
 
-static int dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
+static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 {
 	struct dbox_uidlist_entry *entry;
 	struct seq_range range;

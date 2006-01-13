@@ -26,7 +26,7 @@ struct dirsize_quota {
 struct dirsize_quota_root_iter {
 	struct quota_root_iter iter;
 
-	int sent;
+	bool sent;
 };
 
 extern struct quota dirsize_quota;
@@ -261,7 +261,7 @@ dirsize_quota_transaction_rollback(struct quota_transaction_context *ctx)
 
 static int
 dirsize_quota_try_alloc(struct quota_transaction_context *ctx,
-			struct mail *mail, int *too_large_r)
+			struct mail *mail, bool *too_large_r)
 {
 	uoff_t size;
 

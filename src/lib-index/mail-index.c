@@ -249,7 +249,7 @@ mail_index_map_register_ext(struct mail_index *index,
 	return idx;
 }
 
-static int size_check(size_t *size_left, size_t size)
+static bool size_check(size_t *size_left, size_t size)
 {
 	if (size > *size_left)
 		return FALSE;
@@ -346,9 +346,9 @@ static int mail_index_read_extensions(struct mail_index *index,
 	return 1;
 }
 
-int mail_index_keyword_lookup(struct mail_index *index,
-			      const char *keyword, int autocreate,
-			      unsigned int *idx_r)
+bool mail_index_keyword_lookup(struct mail_index *index,
+			       const char *keyword, bool autocreate,
+			       unsigned int *idx_r)
 {
 	char *keyword_dup;
 	void *value;
@@ -675,7 +675,7 @@ static int mail_index_read_header(struct mail_index *index,
 }
 
 static int mail_index_read_map(struct mail_index *index,
-			       struct mail_index_map *map, int *retry_r)
+			       struct mail_index_map *map, bool *retry_r)
 {
 	struct mail_index_header hdr;
 	void *data = NULL;
@@ -760,7 +760,7 @@ static int mail_index_read_map(struct mail_index *index,
 
 static int mail_index_sync_from_transactions(struct mail_index *index,
 					     struct mail_index_map **map,
-					     int sync_to_index)
+					     bool sync_to_index)
 {
 	const struct mail_index_header *map_hdr = &(*map)->hdr;
 	struct mail_index_view *view;
@@ -772,7 +772,8 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	uint32_t prev_seq, max_seq;
 	uoff_t prev_offset, max_offset;
 	size_t pos;
-	int ret, skipped;
+	int ret;
+	bool skipped;
 
 	if (sync_to_index) {
 		/* read the real log position where we are supposed to be
@@ -866,11 +867,12 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 
 static int mail_index_read_map_with_retry(struct mail_index *index,
 					  struct mail_index_map **map,
-					  int sync_to_index)
+					  bool sync_to_index)
 {
 	mail_index_sync_lost_handler_t *const *handlers;
 	unsigned int i, count;
-	int ret, retry;
+	int ret;
+	bool retry;
 
 	if (index->log_locked) {
 		/* we're most likely syncing the index and we really don't
@@ -945,7 +947,7 @@ static int mail_index_map_try_existing(struct mail_index_map *map)
 	return 0;
 }
 
-int mail_index_map(struct mail_index *index, int force)
+int mail_index_map(struct mail_index *index, bool force)
 {
 	struct mail_index_map *map;
 	int ret;
@@ -1377,7 +1379,8 @@ static int mail_index_open_files(struct mail_index *index,
 {
 	struct mail_index_header hdr;
 	unsigned int lock_id = 0;
-	int ret, created = FALSE;
+	int ret;
+	bool created = FALSE;
 
 	ret = mail_index_try_open(index, &lock_id);
 	if (ret > 0)

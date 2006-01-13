@@ -148,7 +148,7 @@ static int unlink_directory_r(const char *dir)
 	return 0;
 }
 
-int unlink_directory(const char *dir, int unlink_dir)
+int unlink_directory(const char *dir, bool unlink_dir)
 {
 	int fd, ret, old_errno;
 

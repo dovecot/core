@@ -245,7 +245,7 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
    can contain children. The mailbox itself doesn't have to be
    created as long as it shows in LIST. */
 int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
-				int directory);
+				bool directory);
 /* Only the specified mailbox is deleted, ie. folders under the
    specified mailbox must not be deleted. */
 int mail_storage_mailbox_delete(struct mail_storage *storage, const char *name);
@@ -277,7 +277,7 @@ int mail_storage_mailbox_list_deinit(struct mailbox_list_context *ctx);
    subscribing to already subscribed mailbox. Subscribing to
    unexisting mailboxes is optional. */
 int mail_storage_set_subscribed(struct mail_storage *storage,
-				const char *name, int set);
+				const char *name, bool set);
 
 /* Returns mailbox name status */
 int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
@@ -286,8 +286,8 @@ int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 
 /* Returns the error message of last occurred error. */
 const char *mail_storage_get_last_error(struct mail_storage *storage,
-					int *syntax_error_r,
-					int *temporary_error_r);
+					bool *syntax_error_r,
+					bool *temporary_error_r);
 
 /* Open a mailbox. If input stream is given, mailbox is opened read-only
    using it as a backend. If storage doesn't support stream backends and its
@@ -298,7 +298,7 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags);
-/* Close the box. Returns FALSE if some cleanup errors occurred, but
+/* Close the box. Returns -1 if some cleanup errors occurred, but
    the mailbox was closed anyway. */
 int mailbox_close(struct mailbox *box);
 
@@ -309,10 +309,10 @@ struct mail_storage *mailbox_get_storage(struct mailbox *box);
 const char *mailbox_get_name(struct mailbox *box);
 
 /* Returns TRUE if mailbox is read-only. */
-int mailbox_is_readonly(struct mailbox *box);
+bool mailbox_is_readonly(struct mailbox *box);
 
 /* Returns TRUE if mailbox currently supports adding keywords. */
-int mailbox_allow_new_keywords(struct mailbox *box);
+bool mailbox_allow_new_keywords(struct mailbox *box);
 
 /* Gets the mailbox status information. */
 int mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
@@ -386,7 +386,7 @@ mailbox_save_init(struct mailbox_transaction_context *t,
 		  enum mail_flags flags, struct mail_keywords *keywords,
 		  time_t received_date, int timezone_offset,
 		  const char *from_envelope, struct istream *input,
-		  int want_mail);
+		  bool want_mail);
 int mailbox_save_continue(struct mail_save_context *ctx);
 int mailbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void mailbox_save_cancel(struct mail_save_context *ctx);
@@ -403,7 +403,7 @@ int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
    would be to fully close the mailbox and reopen it. With IMAP
    connection this would mean a forced disconnection since we can't
    do forced CLOSE. */
-int mailbox_is_inconsistent(struct mailbox *box);
+bool mailbox_is_inconsistent(struct mailbox *box);
 
 /* Returns message's flags */
 enum mail_flags mail_get_flags(struct mail *mail);

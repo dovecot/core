@@ -251,7 +251,7 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 static void result_finish(struct pgsql_result *result)
 {
 	struct pgsql_db *db = (struct pgsql_db *)result->api.db;
-	int free_result = TRUE;
+	bool free_result = TRUE;
 
 	if (result->callback != NULL) {
 		result->api.callback = TRUE;

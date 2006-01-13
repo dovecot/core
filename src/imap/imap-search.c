@@ -18,7 +18,7 @@ imap_uidset_parse(pool_t pool, struct mailbox *box, const char *uidset,
 		  struct mail_search_seqset **seqset_r, const char **error_r)
 {
 	struct mail_search_seqset *seqset, **p;
-	int syntax, temporary, last;
+	bool syntax, temporary, last;
 
 	*seqset_r = imap_messageset_parse(pool, uidset);
 	if (*seqset_r == NULL) {
@@ -78,10 +78,10 @@ search_arg_new(pool_t pool, enum mail_search_arg_type type)
 #define ARG_NEW_HEADER(type, hdr_name) \
 	arg_new(data, args, next_sarg, type, TRUE, hdr_name)
 
-static int arg_new(struct search_build_data *data, struct imap_arg **args,
-		   struct mail_search_arg **next_sarg,
-		   enum mail_search_arg_type type, int have_value,
-		   const char *hdr_name)
+static bool arg_new(struct search_build_data *data, struct imap_arg **args,
+		    struct mail_search_arg **next_sarg,
+		    enum mail_search_arg_type type, bool have_value,
+		    const char *hdr_name)
 {
 	struct mail_search_arg *sarg;
 
@@ -109,9 +109,9 @@ static int arg_new(struct search_build_data *data, struct imap_arg **args,
 	return TRUE;
 }
 
-static int search_arg_build(struct search_build_data *data,
-			    struct imap_arg **args,
-			    struct mail_search_arg **next_sarg)
+static bool search_arg_build(struct search_build_data *data,
+			     struct imap_arg **args,
+			     struct mail_search_arg **next_sarg)
 {
         struct mail_search_seqset *seqset;
 	struct mail_search_arg **subargs;
@@ -450,7 +450,7 @@ imap_search_get_uidset_arg(pool_t pool, struct mailbox *box, const char *uidset,
 
 struct mail_search_arg *
 imap_search_get_arg(struct client_command_context *cmd,
-		    const char *set, int uid)
+		    const char *set, bool uid)
 {
 	struct mail_search_arg *search_arg;
 	const char *error;

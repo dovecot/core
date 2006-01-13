@@ -295,7 +295,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 
 void message_address_write(string_t *str, const struct message_address *addr)
 {
-	int first = TRUE, in_group = FALSE;
+	bool first = TRUE, in_group = FALSE;
 
 	/* a) mailbox@domain
 	   b) name <@route:mailbox@domain>

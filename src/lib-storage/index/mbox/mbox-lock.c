@@ -39,10 +39,10 @@ enum mbox_lock_type {
 struct mbox_lock_context {
 	struct mbox_mailbox *mbox;
 	int lock_status[MBOX_LOCK_COUNT];
-	int checked_file;
+	bool checked_file;
 
 	int lock_type;
-	int dotlock_last_stale;
+	bool dotlock_last_stale;
 };
 
 struct mbox_lock_data {
@@ -77,7 +77,7 @@ struct mbox_lock_data lock_data[] = {
 	{ 0, NULL, NULL }
 };
 
-static int lock_settings_initialized = FALSE;
+static bool lock_settings_initialized = FALSE;
 static enum mbox_lock_type read_locks[MBOX_LOCK_COUNT+1];
 static enum mbox_lock_type write_locks[MBOX_LOCK_COUNT+1];
 static int lock_timeout, dotlock_change_timeout;
@@ -184,7 +184,7 @@ static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
 	return 0;
 }
 
-static int dotlock_callback(unsigned int secs_left, int stale, void *context)
+static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 {
         struct mbox_lock_context *ctx = context;
 	enum mbox_lock_type *lock_types;
@@ -448,7 +448,8 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type)
 {
 	struct mbox_lock_context ctx;
 	time_t max_wait_time;
-	int ret, i, drop_locks;
+	int ret, i;
+	bool drop_locks;
 
         index_storage_lock_notify_reset(&mbox->ibox);
 

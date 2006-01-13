@@ -40,7 +40,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	/* clear the passwords from memory */
 	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 
-	if (!result) {
+	if (result == 0) {
 		auth_request_log_info(request, "bsdauth", "password mismatch");
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;

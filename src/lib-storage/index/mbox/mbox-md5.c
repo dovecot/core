@@ -9,17 +9,17 @@
 
 struct mbox_md5_context {
 	struct md5_context hdr_md5_ctx;
-	int seen_received_hdr;
+	bool seen_received_hdr;
 };
 
 struct mbox_md5_header_func {
 	const char *header;
-	int (*func)(struct mbox_md5_context *ctx,
-		    struct message_header_line *hdr);
+	bool (*func)(struct mbox_md5_context *ctx,
+		     struct message_header_line *hdr);
 };
 
-static int parse_date(struct mbox_md5_context *ctx,
-		      struct message_header_line *hdr)
+static bool parse_date(struct mbox_md5_context *ctx,
+		       struct message_header_line *hdr)
 {
 	if (!ctx->seen_received_hdr) {
 		/* Received-header contains date too, and more trusted one */
@@ -28,15 +28,15 @@ static int parse_date(struct mbox_md5_context *ctx,
 	return TRUE;
 }
 
-static int parse_delivered_to(struct mbox_md5_context *ctx,
-			      struct message_header_line *hdr)
+static bool parse_delivered_to(struct mbox_md5_context *ctx,
+			       struct message_header_line *hdr)
 {
 	md5_update(&ctx->hdr_md5_ctx, hdr->value, hdr->value_len);
 	return TRUE;
 }
 
-static int parse_message_id(struct mbox_md5_context *ctx,
-			    struct message_header_line *hdr)
+static bool parse_message_id(struct mbox_md5_context *ctx,
+			     struct message_header_line *hdr)
 {
 	if (!ctx->seen_received_hdr) {
 		/* Received-header contains unique ID too,
@@ -46,8 +46,8 @@ static int parse_message_id(struct mbox_md5_context *ctx,
 	return TRUE;
 }
 
-static int parse_received(struct mbox_md5_context *ctx,
-			  struct message_header_line *hdr)
+static bool parse_received(struct mbox_md5_context *ctx,
+			   struct message_header_line *hdr)
 {
 	if (!ctx->seen_received_hdr) {
 		/* get only the first received-header */
@@ -58,8 +58,8 @@ static int parse_received(struct mbox_md5_context *ctx,
 	return TRUE;
 }
 
-static int parse_x_delivery_id(struct mbox_md5_context *ctx,
-			       struct message_header_line *hdr)
+static bool parse_x_delivery_id(struct mbox_md5_context *ctx,
+				struct message_header_line *hdr)
 {
 	/* Let the local delivery agent help generate unique ID's but don't
 	   blindly trust this header alone as it could just as easily come from

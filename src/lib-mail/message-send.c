@@ -9,7 +9,7 @@
 
 void message_skip_virtual(struct istream *input, uoff_t virtual_skip,
 			  struct message_size *msg_size,
-			  int cr_skipped, int *last_cr)
+			  bool cr_skipped, bool *last_cr)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos;

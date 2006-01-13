@@ -32,7 +32,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 {
         struct namespace *ns;
         const char *sep, *type, *prefix;
-	int inbox, hidden, subscriptions;
+	bool inbox, hidden, subscriptions;
 
 	ns = p_new(pool, struct namespace, 1);
 
@@ -200,7 +200,7 @@ namespace_find(struct namespace *namespaces, const char **mailbox)
 	const char *box = *mailbox;
 	struct namespace *best = NULL;
 	size_t best_len = 0;
-	int inbox;
+	bool inbox;
 
 	inbox = strncasecmp(box, "INBOX", 5) == 0;
 	if (inbox && box[5] == '\0') {

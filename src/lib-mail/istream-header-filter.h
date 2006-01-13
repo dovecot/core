@@ -16,7 +16,7 @@ enum header_filter_flags {
 struct message_header_line;
 
 typedef void header_filter_callback(struct message_header_line *hdr,
-				    int *matched, void *context);
+				    bool *matched, void *context);
 
 /* NOTE: headers list must be sorted. */
 struct istream *

@@ -101,7 +101,7 @@ static void auth_mech_register(struct auth *auth, struct mech_module *mech)
 	auth->mech_modules = list;
 }
 
-static int auth_passdb_list_have_plain(struct auth *auth)
+static bool auth_passdb_list_have_plain(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 
@@ -112,7 +112,7 @@ static int auth_passdb_list_have_plain(struct auth *auth)
 	return FALSE;
 }
 
-static int auth_passdb_list_have_credentials(struct auth *auth)
+static bool auth_passdb_list_have_credentials(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 

@@ -26,16 +26,16 @@ struct settings {
 	const char *listen;
 	const char *ssl_listen;
 
-	int ssl_disable;
+	bool ssl_disable;
 	const char *ssl_ca_file;
 	const char *ssl_cert_file;
 	const char *ssl_key_file;
 	const char *ssl_parameters_file;
 	unsigned int ssl_parameters_regenerate;
 	const char *ssl_cipher_list;
-	int ssl_verify_client_cert;
-	int disable_plaintext_auth;
-	int verbose_ssl;
+	bool ssl_verify_client_cert;
+	bool disable_plaintext_auth;
+	bool verbose_ssl;
 
 	/* login */
 	const char *login_dir;
@@ -45,9 +45,9 @@ struct settings {
 	const char *login_log_format_elements;
 	const char *login_log_format;
 
-	int login_process_per_connection;
-	int login_chroot;
-	int login_greeting_capability;
+	bool login_process_per_connection;
+	bool login_chroot;
+	bool login_greeting_capability;
 
 	unsigned int login_process_size;
 	unsigned int login_processes_count;
@@ -58,7 +58,7 @@ struct settings {
 	const char *valid_chroot_dirs;
 	const char *mail_chroot;
 	unsigned int max_mail_processes;
-	int verbose_proctitle;
+	bool verbose_proctitle;
 
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
@@ -68,32 +68,32 @@ struct settings {
 	const char *mail_cache_fields;
 	const char *mail_never_cache_fields;
 	unsigned int mailbox_idle_check_interval;
-	int mail_debug;
-	int mail_full_filesystem_access;
-	int mail_max_keyword_length;
-	int mail_save_crlf;
-	int mail_read_mmaped;
-	int mmap_disable;
-	int mmap_no_write;
+	bool mail_debug;
+	bool mail_full_filesystem_access;
+	bool mail_max_keyword_length;
+	bool mail_save_crlf;
+	bool mail_read_mmaped;
+	bool mmap_disable;
+	bool mmap_no_write;
 	const char *lock_method;
-	int maildir_stat_dirs;
-	int maildir_copy_with_hardlinks;
+	bool maildir_stat_dirs;
+	bool maildir_copy_with_hardlinks;
 	const char *mbox_read_locks;
 	const char *mbox_write_locks;
 	unsigned int mbox_lock_timeout;
 	unsigned int mbox_dotlock_change_timeout;
-	int mbox_dirty_syncs;
-	int mbox_very_dirty_syncs;
-	int mbox_lazy_writes;
+	bool mbox_dirty_syncs;
+	bool mbox_very_dirty_syncs;
+	bool mbox_lazy_writes;
 	unsigned int dbox_rotate_size;
 	unsigned int dbox_rotate_min_size;
 	unsigned int dbox_rotate_days;
 	unsigned int umask;
-	int mail_drop_priv_before_exec;
+	bool mail_drop_priv_before_exec;
 
 	const char *mail_executable;
 	unsigned int mail_process_size;
-	int mail_use_modules;
+	bool mail_use_modules;
 	const char *mail_modules;
 	const char *mail_log_prefix;
 
@@ -103,9 +103,9 @@ struct settings {
 	const char *imap_client_workarounds;
 
 	/* pop3 */
-	int pop3_no_flag_updates;
-	int pop3_enable_last;
-	int pop3_reuse_xuidl;
+	bool pop3_no_flag_updates;
+	bool pop3_enable_last;
+	bool pop3_reuse_xuidl;
 	const char *pop3_uidl_format;
 	const char *pop3_client_workarounds;
 	const char *pop3_logout_format;
@@ -140,7 +140,7 @@ struct auth_passdb_settings {
 
 	const char *driver;
 	const char *args;
-	int deny;
+	bool deny;
 };
 
 struct auth_userdb_settings {
@@ -169,9 +169,9 @@ struct auth_settings {
 	const char *anonymous_username;
 	const char *krb5_keytab;
 
-	int verbose, debug;
-	int ssl_require_client_cert;
-	int ssl_username_from_cert;
+	bool verbose, debug;
+	bool ssl_require_client_cert;
+	bool ssl_username_from_cert;
 
 	unsigned int count;
 	unsigned int worker_max_count;
@@ -194,8 +194,8 @@ struct namespace_settings {
 	const char *prefix;
 	const char *location;
 
-	int inbox;
-	int hidden;
+	bool inbox;
+	bool hidden;
 };
 
 struct server_settings {
@@ -214,7 +214,7 @@ struct server_settings {
 
 extern struct server_settings *settings_root;
 
-int master_settings_read(const char *path, int nochecks);
+bool master_settings_read(const char *path, bool nochecks);
 
 void master_settings_init(void);
 void master_settings_deinit(void);

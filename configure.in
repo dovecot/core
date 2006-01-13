@@ -716,6 +716,8 @@ if test $i_cv_type_socklen_t = yes; then
   AC_DEFINE(HAVE_SOCKLEN_T,, Define to 'int' if you don't have socklen_t)
 fi
 
+AC_CHECK_TYPES(_Bool)
+
 AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align, Required memory alignment)
 
 dnl * find random source

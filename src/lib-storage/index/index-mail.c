@@ -31,9 +31,9 @@ struct mail_cache_field global_cache_fields[MAIL_CACHE_FIELD_COUNT] = {
 	{ "mime.parts", 0, MAIL_CACHE_FIELD_VARIABLE_SIZE, 0, 0 }
 };
 
-static void index_mail_parse_body(struct index_mail *mail, int need_parts);
+static void index_mail_parse_body(struct index_mail *mail, bool need_parts);
 
-static int get_cached_parts(struct index_mail *mail)
+static bool get_cached_parts(struct index_mail *mail)
 {
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct message_part *part;
@@ -88,9 +88,9 @@ const char *index_mail_get_cached_string(struct index_mail *mail,
 	return str_c(str);
 }
 
-static int index_mail_get_fixed_field(struct index_mail *mail,
-				      enum index_cache_field field,
-				      void *data, size_t data_size)
+static bool index_mail_get_fixed_field(struct index_mail *mail,
+				       enum index_cache_field field,
+				       void *data, size_t data_size)
 {
 	buffer_t *buf;
 	int ret;
@@ -270,7 +270,7 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 	return data->sent_date.time;
 }
 
-static int get_cached_msgpart_sizes(struct index_mail *mail)
+static bool get_cached_msgpart_sizes(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 
@@ -344,7 +344,7 @@ static void parse_bodystructure_part_header(struct message_part *part,
 	imap_bodystructure_parse_header(pool, part, hdr);
 }
 
-static void index_mail_parse_body(struct index_mail *mail, int need_parts)
+static void index_mail_parse_body(struct index_mail *mail, bool need_parts)
 {
 	struct index_mail_data *data = &mail->data;
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
@@ -499,8 +499,8 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	enum mail_cache_decision_type dec;
 	string_t *str;
-	int bodystructure_cached = FALSE;
-	int plain_bodystructure = FALSE;
+	bool bodystructure_cached = FALSE;
+	bool plain_bodystructure = FALSE;
 
 	if (!data->parsed_bodystructure) {
 		if (data->save_bodystructure_header ||
@@ -577,7 +577,7 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 
 static void
 index_mail_get_plain_bodystructure(struct index_mail *mail, string_t *str,
-				   int extended)
+				   bool extended)
 {
 	str_printfa(str, IMAP_BODY_PLAIN_7BIT_ASCII" %"PRIuUOFF_T" %u",
 		    mail->data.parts->body_size.virtual_size,

@@ -3,7 +3,7 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_rename(struct client_command_context *cmd)
+bool cmd_rename(struct client_command_context *cmd)
 {
 	struct mail_storage *old_storage, *new_storage;
 	const char *oldname, *newname;

@@ -147,7 +147,7 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream, uoff_t v_offset, int mark)
+static void _seek(struct _istream *stream, uoff_t v_offset, bool mark)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
 	uoff_t start_offset = stream->istream.v_offset - stream->skip;
@@ -199,7 +199,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset, int mark)
 	}
 }
 
-static const struct stat *_stat(struct _istream *stream, int exact)
+static const struct stat *_stat(struct _istream *stream, bool exact)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
 	size_t size;

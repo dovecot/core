@@ -159,7 +159,7 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_index_record *rec;
 	uint32_t seq, messages_count;
-	int seen_recent = FALSE;
+	bool seen_recent = FALSE;
 
 	messages_count = mail_index_view_get_messages_count(ctx->view);
 	for (seq = 1; seq <= messages_count; seq++) {
@@ -184,7 +184,7 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 
 static int
 mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
-			      int *seen_external_r)
+			      bool *seen_external_r)
 {
 	struct mail_index_sync_list *synclist;
         const struct mail_index_transaction_keyword_update *keyword_updates;
@@ -257,7 +257,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 	return ret;
 }
 
-static int mail_index_need_lock(struct mail_index *index, int sync_recent,
+static int mail_index_need_lock(struct mail_index *index, bool sync_recent,
 				uint32_t log_file_seq, uoff_t log_file_offset)
 {
 	if (sync_recent && index->hdr->recent_messages_count > 0)
@@ -339,14 +339,14 @@ int mail_index_sync_begin(struct mail_index *index,
                           struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
-			  int sync_recent, int sync_dirty)
+			  bool sync_recent, bool sync_dirty)
 {
 	struct mail_index_sync_ctx *ctx;
 	struct mail_index_view *dummy_view;
 	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id = 0;
-	int seen_external;
+	bool seen_external;
 
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;
@@ -500,8 +500,8 @@ static void mail_index_sync_get_keyword_reset(struct mail_index_sync_rec *rec,
 	rec->uid2 = range->uid2;
 }
 
-static int mail_index_sync_rec_check(struct mail_index_view *view,
-				     struct mail_index_sync_rec *rec)
+static bool mail_index_sync_rec_check(struct mail_index_view *view,
+				      struct mail_index_sync_rec *rec)
 {
 	switch (rec->type) {
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
@@ -589,7 +589,7 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	return 1;
 }
 
-int mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
+bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_index_sync_list *sync_list;
 	unsigned int i, count;
@@ -692,8 +692,8 @@ void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 	*flags = (*flags & ~sync_rec->remove_flags) | sync_rec->add_flags;
 }
 
-int mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
-				   array_t *keywords)
+bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
+				    array_t *keywords)
 {
 	ARRAY_SET_TYPE(keywords, unsigned int);
 	const unsigned int *keyword_indexes;

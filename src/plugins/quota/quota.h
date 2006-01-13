@@ -53,7 +53,7 @@ void quota_transaction_rollback(struct quota_transaction_context *ctx);
    -1 if error. If mail size is larger than even maximum allowed quota,
    too_large_r is set to TRUE. */
 int quota_try_alloc(struct quota_transaction_context *ctx,
-		    struct mail *mail, int *too_large_r);
+		    struct mail *mail, bool *too_large_r);
 /* Update quota by allocating/freeing space used by mail. */
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail);
 void quota_free(struct quota_transaction_context *ctx, struct mail *mail);

@@ -8,15 +8,16 @@
 
 #define STRBUF_SIZE 1024
 
-static int imap_search(struct client_command_context *cmd, const char *charset,
-		       struct mail_search_arg *sargs)
+static bool imap_search(struct client_command_context *cmd, const char *charset,
+			struct mail_search_arg *sargs)
 {
 	struct client *client = cmd->client;
         struct mail_search_context *ctx;
         struct mailbox_transaction_context *trans;
 	struct mail *mail;
 	string_t *str;
-	int ret, uid, first = TRUE;
+	int ret;
+	bool uid, first = TRUE;
 
 	str = t_str_new(STRBUF_SIZE);
 	uid = cmd->uid;
@@ -55,7 +56,7 @@ static int imap_search(struct client_command_context *cmd, const char *charset,
 	return ret == 0;
 }
 
-int cmd_search(struct client_command_context *cmd)
+bool cmd_search(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mail_search_arg *sargs;

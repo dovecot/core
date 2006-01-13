@@ -9,6 +9,6 @@ struct syslog_facility_list {
 extern struct syslog_facility_list syslog_facilities[];
 
 /* Returns TRUE if found. */
-int syslog_facility_find(const char *name, int *facility_r);
+bool syslog_facility_find(const char *name, int *facility_r);
 
 #endif

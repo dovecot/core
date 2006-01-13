@@ -3,11 +3,11 @@
 #include "common.h"
 #include "commands.h"
 
-int cmd_create(struct client_command_context *cmd)
+bool cmd_create(struct client_command_context *cmd)
 {
 	struct mail_storage *storage;
 	const char *mailbox, *full_mailbox;
-	int directory;
+	bool directory;
 	size_t len;
 
 	/* <mailbox> */

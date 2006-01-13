@@ -46,7 +46,7 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 	t_pop();
 }
 
-static int cmd_getquotaroot(struct client_command_context *cmd)
+static bool cmd_getquotaroot(struct client_command_context *cmd)
 {
 	struct mail_storage *storage;
 	struct mailbox *box;
@@ -109,7 +109,7 @@ static int cmd_getquotaroot(struct client_command_context *cmd)
 	return TRUE;
 }
 
-static int cmd_getquota(struct client_command_context *cmd)
+static bool cmd_getquota(struct client_command_context *cmd)
 {
 	const char *root_name;
         struct quota_root *root;
@@ -134,7 +134,7 @@ static int cmd_getquota(struct client_command_context *cmd)
 	return TRUE;
 }
 
-static int cmd_setquota(struct client_command_context *cmd)
+static bool cmd_setquota(struct client_command_context *cmd)
 {
 	struct quota_root *root;
         struct imap_arg *args, *arg;

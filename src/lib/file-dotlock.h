@@ -26,7 +26,7 @@ struct dotlock_settings {
 	/* Callback is called once in a while. stale is set to TRUE if stale
 	   lock is detected and will be overridden in secs_left. If callback
 	   returns FALSE then, the lock will not be overridden. */
-	int (*callback)(unsigned int secs_left, int stale, void *context);
+	bool (*callback)(unsigned int secs_left, bool stale, void *context);
 	void *context;
 
 	/* Rely on O_EXCL locking to work instead of using hardlinks.

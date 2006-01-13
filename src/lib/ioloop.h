@@ -47,7 +47,7 @@ void timeout_remove(struct timeout *timeout);
 void io_loop_run(struct ioloop *ioloop);
 void io_loop_stop(struct ioloop *ioloop); /* safe to run in signal handler */
 
-int io_loop_is_running(struct ioloop *ioloop);
+bool io_loop_is_running(struct ioloop *ioloop);
 
 /* call these if you wish to run the iteration only once */
 void io_loop_set_running(struct ioloop *ioloop);

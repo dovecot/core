@@ -17,12 +17,13 @@ void dict_deinit(struct dict *dict);
 
 /* Lookup value for key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */
-int dict_lookup(struct dict *dict, pool_t pool, const char *key, const char **value_r);
+int dict_lookup(struct dict *dict, pool_t pool,
+		const char *key, const char **value_r);
 
 /* Iterate through all values in a path. If recurse is FALSE, keys in
    the given path are returned, but not their children. */
 struct dict_iterate_context *
-dict_iterate_init(struct dict *dict, const char *path, int recurse);
+dict_iterate_init(struct dict *dict, const char *path, bool recurse);
 /* Returns -1 = error, 0 = finished, 1 = key/value set */
 int dict_iterate(struct dict_iterate_context *ctx,
 		 const char **key_r, const char **value_r);

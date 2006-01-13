@@ -63,7 +63,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	struct message_header_line *hdr;
 	size_t pos;
 	ssize_t ret;
-	int matched, hdr_ret;
+	bool matched;
+	int hdr_ret;
 
 	if (mstream->header_read &&
 	    mstream->istream.istream.v_offset +
@@ -235,7 +236,7 @@ static ssize_t _read(struct _istream *stream)
 }
 
 static void _seek(struct _istream *stream, uoff_t v_offset,
-		  int mark __attr_unused__)
+		  bool mark __attr_unused__)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -279,7 +280,7 @@ static void _sync(struct _istream *stream __attr_unused__)
 }
 
 static const struct stat *
-_stat(struct _istream *stream, int exact __attr_unused__)
+_stat(struct _istream *stream, bool exact __attr_unused__)
 {
 	/* return size and others as unknown */
 	return &stream->statbuf;

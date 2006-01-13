@@ -4,8 +4,8 @@
 struct password_scheme {
 	const char *name;
 
-	int (*password_verify)(const char *plaintext, const char *password,
-			       const char *user);
+	bool (*password_verify)(const char *plaintext, const char *password,
+				const char *user);
 	const char *(*password_generate)(const char *plaintext,
 					 const char *user);
 };

@@ -263,7 +263,7 @@ mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 
 static int
 mbox_save_init_file(struct mbox_save_context *ctx,
-		    struct mbox_transaction_context *t, int want_mail)
+		    struct mbox_transaction_context *t, bool want_mail)
 {
 	struct mbox_mailbox *mbox = ctx->mbox;
 	int ret;
@@ -322,7 +322,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 }
 
 static void save_header_callback(struct message_header_line *hdr,
-				 int *matched, void *context)
+				 bool *matched, void *context)
 {
 	struct mbox_save_context *ctx = context;
 
@@ -343,7 +343,7 @@ struct mail_save_context *
 mbox_save_init(struct mailbox_transaction_context *_t,
 	       enum mail_flags flags, struct mail_keywords *keywords,
 	       time_t received_date, int timezone_offset __attr_unused__,
-	       const char *from_envelope, struct istream *input, int want_mail)
+	       const char *from_envelope, struct istream *input, bool want_mail)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)_t;

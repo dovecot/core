@@ -486,7 +486,8 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 	struct mail_transaction_log_header hdr;
 	struct stat st;
 	const char *path2;
-	int fd2, ret, found;
+	int fd2, ret;
+	bool found;
 
 	/* log creation is locked now - see if someone already created it */
 	fd2 = open(path, O_RDWR);
@@ -628,7 +629,7 @@ mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 static int
 mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
                                   struct mail_transaction_log_file **file_r,
-				  const char *path, int fd, int head)
+				  const char *path, int fd, bool head)
 {
         struct mail_transaction_log_file *file;
 	struct stat st;
@@ -802,7 +803,7 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 	}
 }
 
-int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock)
+int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock)
 {
 	struct mail_transaction_log_file *file;
 	const char *path = log->head->filepath;
@@ -852,7 +853,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, int lock)
 }
 
 static int mail_transaction_log_refresh(struct mail_transaction_log *log,
-					int create_if_needed)
+					bool create_if_needed)
 {
         struct mail_transaction_log_file *file;
 	struct stat st;
@@ -1295,8 +1296,8 @@ void mail_transaction_log_get_head(struct mail_transaction_log *log,
 	*file_offset_r = log->head->sync_offset;
 }
 
-int mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
-				      uint32_t file_seq, uoff_t file_offset)
+bool mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
+				       uint32_t file_seq, uoff_t file_offset)
 {
 	return log->head->hdr.prev_file_seq == file_seq &&
 		log->head->hdr.prev_file_offset == file_offset;

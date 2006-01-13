@@ -29,10 +29,10 @@ struct maildir_list_context {
 	size_t parent_pos;
 	struct mailbox_node *root, *next_node;
 	struct mailbox_list list;
-	int failed;
+	bool failed;
 };
 
-static void maildir_nodes_fix(struct mailbox_node *node, int is_subs)
+static void maildir_nodes_fix(struct mailbox_node *node, bool is_subs)
 {
 	while (node != NULL) {
 		if (node->children != NULL) {
@@ -49,8 +49,9 @@ static void maildir_nodes_fix(struct mailbox_node *node, int is_subs)
 	}
 }
 
-static int maildir_fill_readdir(struct maildir_list_context *ctx,
-				struct imap_match_glob *glob, int update_only)
+static bool
+maildir_fill_readdir(struct maildir_list_context *ctx,
+		     struct imap_match_glob *glob, bool update_only)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -59,7 +60,7 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 	string_t *mailbox;
 	enum imap_match_result match;
 	struct mailbox_node *node;
-	int stat_dirs, created, hide;
+	bool stat_dirs, created, hide;
 
 	dirp = opendir(ctx->dir);
 	if (dirp == NULL) {
@@ -196,15 +197,15 @@ static int maildir_fill_readdir(struct maildir_list_context *ctx,
 	return TRUE;
 }
 
-static int maildir_fill_subscribed(struct maildir_list_context *ctx,
-				   struct imap_match_glob *glob)
+static bool maildir_fill_subscribed(struct maildir_list_context *ctx,
+				    struct imap_match_glob *glob)
 {
 	struct maildir_storage *storage =
 		(struct maildir_storage *)ctx->mailbox_ctx.storage;
 	struct subsfile_list_context *subsfile_ctx;
 	const char *path, *name, *p;
 	struct mailbox_node *node;
-	int created;
+	bool created;
 
 	path = t_strconcat(storage->control_dir != NULL ?
 			   storage->control_dir : INDEX_STORAGE(storage)->dir,
@@ -303,7 +304,7 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) == 0 ||
 	    (ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
-		int update_only = (flags & MAILBOX_LIST_SUBSCRIBED) != 0;
+		bool update_only = (flags & MAILBOX_LIST_SUBSCRIBED) != 0;
 		if (!maildir_fill_readdir(ctx, glob, update_only)) {
 			ctx->failed = TRUE;
 			return &ctx->mailbox_ctx;

@@ -30,9 +30,9 @@ client_find_storage(struct client_command_context *cmd, const char **mailbox)
 	return NULL;
 }
 
-int client_verify_mailbox_name(struct client_command_context *cmd,
-			       const char *mailbox,
-			       int should_exist, int should_not_exist)
+bool client_verify_mailbox_name(struct client_command_context *cmd,
+				const char *mailbox,
+				bool should_exist, bool should_not_exist)
 {
 	struct mail_storage *storage;
 	enum mailbox_name_status mailbox_status;
@@ -104,7 +104,7 @@ int client_verify_mailbox_name(struct client_command_context *cmd,
 	return FALSE;
 }
 
-int client_verify_open_mailbox(struct client_command_context *cmd)
+bool client_verify_open_mailbox(struct client_command_context *cmd)
 {
 	if (cmd->client->mailbox != NULL)
 		return TRUE;
@@ -118,7 +118,7 @@ void client_send_storage_error(struct client_command_context *cmd,
 			       struct mail_storage *storage)
 {
 	const char *error;
-	int syntax, temporary_error;
+	bool syntax, temporary_error;
 
 	if (cmd->client->mailbox != NULL &&
 	    mailbox_is_inconsistent(cmd->client->mailbox)) {
@@ -137,7 +137,7 @@ void client_send_untagged_storage_error(struct client *client,
 					struct mail_storage *storage)
 {
 	const char *error;
-	int syntax, temporary_error;
+	bool syntax, temporary_error;
 
 	if (client->mailbox != NULL &&
 	    mailbox_is_inconsistent(client->mailbox)) {
@@ -152,8 +152,8 @@ void client_send_untagged_storage_error(struct client *client,
 			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
 }
 
-static int is_valid_keyword(struct client_command_context *cmd,
-			    const char *keyword)
+static bool is_valid_keyword(struct client_command_context *cmd,
+			     const char *keyword)
 {
 	const char *const *names;
 	unsigned int i, count;
@@ -178,9 +178,9 @@ static int is_valid_keyword(struct client_command_context *cmd,
 	return TRUE;
 }
 
-int client_parse_mail_flags(struct client_command_context *cmd,
-			    struct imap_arg *args, enum mail_flags *flags_r,
-			    const char *const **keywords_r)
+bool client_parse_mail_flags(struct client_command_context *cmd,
+			     struct imap_arg *args, enum mail_flags *flags_r,
+			     const char *const **keywords_r)
 {
 	const char *const *keywords;
 	char *atom;
@@ -285,13 +285,13 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 	}
 }
 
-int client_save_keywords(struct mailbox_keywords *dest,
-			 const array_t *keywords)
+bool client_save_keywords(struct mailbox_keywords *dest,
+			  const array_t *keywords)
 {
 	ARRAY_SET_TYPE(keywords, const char *);
 	const char *const *names, *const *old_names;
 	unsigned int i, count, old_count;
-	int changed;
+	bool changed;
 
 	names = array_get(keywords, &count);
 
@@ -328,8 +328,8 @@ int client_save_keywords(struct mailbox_keywords *dest,
 	return TRUE;
 }
 
-int mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
-		   const char *name2)
+bool mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
+		    const char *name2)
 {
 	struct mail_storage *storage1 = mailbox_get_storage(box1);
 	const char *name1;

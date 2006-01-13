@@ -25,8 +25,8 @@ struct ntlm_auth_request {
 	pool_t pool;
 
 	/* requested: */
-	int ntlm2_negotiated;
-	int unicode_negotiated;
+	bool ntlm2_negotiated;
+	bool unicode_negotiated;
 	const unsigned char *challenge;
 
 	/* received: */

@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 
 struct mail_cache_copy_context {
-	int new_msg;
+	bool new_msg;
 	buffer_t *buffer, *field_seen;
 	uint8_t field_seen_value;
 };
@@ -327,7 +327,7 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 	}
 }
 
-int mail_cache_need_compress(struct mail_cache *cache)
+bool mail_cache_need_compress(struct mail_cache *cache)
 {
 	return cache->need_compress;
 }

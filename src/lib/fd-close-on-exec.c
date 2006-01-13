@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 
-void fd_close_on_exec(int fd, int set)
+void fd_close_on_exec(int fd, bool set)
 {
 	int flags;
 

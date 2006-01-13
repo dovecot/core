@@ -36,7 +36,7 @@ struct fs_quota {
 struct fs_quota_root_iter {
 	struct quota_root_iter iter;
 
-	int sent;
+	bool sent;
 };
 
 extern struct quota fs_quota;
@@ -251,7 +251,7 @@ fs_quota_transaction_rollback(struct quota_transaction_context *ctx)
 static int
 fs_quota_try_alloc(struct quota_transaction_context *ctx __attr_unused__,
 		   struct mail *mail __attr_unused__,
-		   int *too_large_r __attr_unused__)
+		   bool *too_large_r __attr_unused__)
 {
 	/* no-op */
 	return 1;

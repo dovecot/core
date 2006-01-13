@@ -49,7 +49,7 @@ get_var_expand_table(struct client *client)
 	return tab;
 }
 
-static int have_key(const struct var_expand_table *table, const char *str)
+static bool have_key(const struct var_expand_table *table, const char *str)
 {
 	char key;
 	unsigned int i;

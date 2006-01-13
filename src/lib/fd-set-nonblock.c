@@ -5,7 +5,7 @@
 
 #include <fcntl.h>
 
-int fd_set_nonblock(int fd, int nonblock)
+int fd_set_nonblock(int fd, bool nonblock)
 {
 	int flags;
 

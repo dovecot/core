@@ -366,7 +366,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 				   struct mbox_sync_mail *mails,
 				   uint32_t seq, uint32_t idx, uint32_t padding,
 				   off_t move_diff, uoff_t expunged_space,
-				   uoff_t end_offset, int first_nonexpunged)
+				   uoff_t end_offset, bool first_nonexpunged)
 {
 	struct mbox_sync_mail_context new_mail_ctx;
 	uoff_t offset, dest_offset;
@@ -495,7 +495,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 			/* give space to this mail. end_offset is left to
 			   contain this message's From-line (ie. below we
 			   move only headers + body). */
-			int first_nonexpunged = idx == first_nonexpunged_idx;
+			bool first_nonexpunged = idx == first_nonexpunged_idx;
 
 			next_move_diff = -mails[idx].space;
 			if (mbox_sync_read_and_move(sync_ctx, mail_ctx, mails,

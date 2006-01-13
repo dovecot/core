@@ -12,6 +12,6 @@ imap_search_args_build(pool_t pool, struct mailbox *box, struct imap_arg *args,
 
 struct mail_search_arg *
 imap_search_get_arg(struct client_command_context *cmd,
-		    const char *set, int uid);
+		    const char *set, bool uid);
 
 #endif

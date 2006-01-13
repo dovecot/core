@@ -28,7 +28,7 @@ struct message_part_envelope_data;
 
 extern const char *imap_envelope_headers[];
 
-int imap_envelope_get_field(const char *name, enum imap_envelope_field *ret);
+bool imap_envelope_get_field(const char *name, enum imap_envelope_field *ret);
 
 /* Update envelope data based from given header field */
 void imap_envelope_parse_header(pool_t pool,
@@ -41,8 +41,8 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 
 /* Parse envelope and store specified field to result. NIL is stored as NULL.
    Returns TRUE if successful. */
-int imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
-			enum imap_envelope_result_type result_type,
-			const char **result);
+bool imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
+			 enum imap_envelope_result_type result_type,
+			 const char **result);
 
 #endif

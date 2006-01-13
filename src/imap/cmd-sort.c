@@ -71,7 +71,7 @@ get_sort_program(struct client_command_context *cmd, struct imap_arg *args)
 	return buffer_free_without_data(buf);
 }
 
-int cmd_sort(struct client_command_context *cmd)
+bool cmd_sort(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mail_search_arg *sargs;

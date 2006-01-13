@@ -212,7 +212,8 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	unsigned int i, count, sync_count;
 	uint32_t file_seq, uid, uid1, uid2, first_expunged_uid;
 	uoff_t offset;
-	int ret, seen_expunges, skipped_expunges;
+	int ret;
+	bool seen_expunges, skipped_expunges;
 
 	sync_recs = array_get(&sync_entry->sync_recs, &sync_count);
 	if (dbox_sync_get_file_offset(ctx, sync_recs[sync_idx].seq1,

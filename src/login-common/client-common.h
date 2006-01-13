@@ -26,7 +26,7 @@ struct client {
 	/* ... */
 };
 
-struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
+struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip);
 
 void client_syslog(struct client *client, const char *msg);

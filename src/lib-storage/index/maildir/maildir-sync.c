@@ -201,7 +201,7 @@
 struct maildir_sync_context {
         struct maildir_mailbox *mbox;
 	const char *new_dir, *cur_dir;
-	int partial;
+	bool partial;
 
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
         struct maildir_index_sync_context *index_sync_ctx;
@@ -464,7 +464,7 @@ maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
 	struct mail_index_sync_rec *recs;
 	unsigned int i, count;
 	uint32_t seq, uid;
-	int expunged, flag_changed;
+	bool expunged, flag_changed;
 
 	recs = array_get_modifyable(&ctx->sync_recs, &count);
 	for (seq = recs[0].uid1; seq <= last_seq; seq++) {
@@ -636,7 +636,7 @@ static int maildir_fix_duplicate(struct maildir_mailbox *mbox, const char *dir,
 	return ret;
 }
 
-static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
+static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 {
 	struct mail_storage *storage = STORAGE(ctx->mbox->storage);
 	const char *dir;
@@ -645,7 +645,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, int new_dir)
 	struct dirent *dp;
 	enum maildir_uidlist_rec_flag flags;
 	unsigned int moves = 0;
-	int move_new, ret = 1;
+	int ret = 1;
+	bool move_new;
 
 	dir = new_dir ? ctx->new_dir : ctx->cur_dir;
 	dirp = opendir(dir);
@@ -756,7 +757,7 @@ maildir_sync_update_from_header(struct maildir_mailbox *mbox)
 static int
 maildir_sync_quick_check(struct maildir_mailbox *mbox,
 			 const char *new_dir, const char *cur_dir,
-			 int *new_changed_r, int *cur_changed_r)
+			 bool *new_changed_r, bool *cur_changed_r)
 {
 	struct stat st;
 	time_t new_mtime, cur_mtime;
@@ -845,7 +846,7 @@ void maildir_sync_index_abort(struct maildir_index_sync_context *sync_ctx)
 }
 
 int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
-			      int partial)
+			      bool partial)
 {
 	struct maildir_mailbox *mbox = sync_ctx->mbox;
 	struct mail_index_view *view = sync_ctx->view;
@@ -862,7 +863,8 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	uint32_t uid_validity, next_uid;
 	uint64_t value;
 	time_t old_new_sync_time;
-	int ret = 0, full_rescan = FALSE;
+	int ret = 0;
+	bool full_rescan = FALSE;
 
 	i_assert(maildir_uidlist_is_locked(sync_ctx->mbox->uidlist));
 
@@ -1164,11 +1166,11 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
 
-static int maildir_sync_context(struct maildir_sync_context *ctx, int forced,
-				int sync_last_commit)
+static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
+				bool sync_last_commit)
 {
-	int ret, new_changed, cur_changed;
-	int full_rescan = FALSE;
+	bool new_changed, cur_changed, full_rescan = FALSE;
+	int ret;
 
 	if (sync_last_commit) {
 		new_changed = cur_changed = FALSE;
@@ -1344,7 +1346,8 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 int maildir_sync_is_synced(struct maildir_mailbox *mbox)
 {
 	const char *new_dir, *cur_dir;
-	int ret, new_changed, cur_changed;
+	bool new_changed, cur_changed;
+	int ret;
 
 	t_push();
 	new_dir = t_strconcat(mbox->path, "/new", NULL);

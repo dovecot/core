@@ -69,7 +69,7 @@ static void auth_callback(const char *reply, void *context)
 	auth_client_send(conn, "%s", reply);
 }
 
-static int
+static bool
 auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 {
         struct auth_client_connection *old;
@@ -130,7 +130,7 @@ static int auth_client_output(void *context)
 	return 1;
 }
 
-static int
+static bool
 auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 {
 	if (conn->auth->verbose_debug)
@@ -153,7 +153,7 @@ static void auth_client_input(void *context)
 {
 	struct auth_client_connection *conn = context;
 	char *line;
-	int ret;
+	bool ret;
 
 	switch (i_stream_read(conn->input)) {
 	case 0:

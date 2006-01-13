@@ -26,10 +26,10 @@ struct ioloop_notify_handler_context {
 	struct io *event_io;
 
 	buffer_t *buf;
-	int disabled;
+	bool disabled;
 };
 
-static int event_read_next(struct ioloop *ioloop)
+static bool event_read_next(struct ioloop *ioloop)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;

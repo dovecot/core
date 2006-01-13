@@ -41,10 +41,10 @@ struct auth {
 	const char *anonymous_username;
 	char username_chars[256];
         char username_translation[256];
-	int ssl_require_client_cert;
-        int ssl_username_from_cert;
+	bool ssl_require_client_cert;
+        bool ssl_username_from_cert;
 
-	int verbose, verbose_debug;
+	bool verbose, verbose_debug;
 };
 
 const string_t *auth_mechanisms_get_list(struct auth *auth);

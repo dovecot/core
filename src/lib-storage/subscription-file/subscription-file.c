@@ -23,7 +23,7 @@ struct subsfile_list_context {
 	struct istream *input;
 	const char *path;
 
-	int failed;
+	bool failed;
 };
 
 static void subsfile_set_syscall_error(struct mail_storage *storage,
@@ -41,7 +41,7 @@ static void subsfile_set_syscall_error(struct mail_storage *storage,
 }
 
 static const char *next_line(struct mail_storage *storage, const char *path,
-			     struct istream *input, int *failed)
+			     struct istream *input, bool *failed)
 {
 	const char *line;
 
@@ -68,14 +68,15 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 }
 
 int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
-			    const char *temp_prefix, const char *name, int set)
+			    const char *temp_prefix, const char *name, bool set)
 {
 	struct dotlock_settings dotlock_set;
 	struct dotlock *dotlock;
 	const char *line;
 	struct istream *input;
 	struct ostream *output;
-	int fd_in, fd_out, found, failed = FALSE;
+	int fd_in, fd_out;
+	bool found, failed = FALSE;
 
 	if (strcasecmp(name, "INBOX") == 0)
 		name = "INBOX";
@@ -185,7 +186,7 @@ subsfile_list_init(struct mail_storage *storage, const char *path)
 
 int subsfile_list_deinit(struct subsfile_list_context *ctx)
 {
-	int failed;
+	bool failed;
 
 	failed = ctx->failed;
 	if (ctx->input != NULL)

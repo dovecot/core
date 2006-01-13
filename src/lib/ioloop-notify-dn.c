@@ -17,7 +17,7 @@
 
 struct ioloop_notify_handler_context {
 	struct io *event_io;
-	int disabled;
+	bool disabled;
 
 	int event_pipe[2];
 };

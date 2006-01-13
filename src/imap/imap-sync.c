@@ -26,7 +26,7 @@ struct imap_sync_context {
 
 	unsigned int messages_count;
 
-	int failed;
+	bool failed;
 };
 
 struct imap_sync_context *
@@ -186,7 +186,7 @@ int imap_sync_nonselected(struct mailbox *box, enum mailbox_sync_flags flags)
 	return mailbox_sync_deinit(ctx, &status);
 }
 
-static int cmd_sync_continue(struct client_command_context *cmd)
+static bool cmd_sync_continue(struct client_command_context *cmd)
 {
 	struct cmd_sync_context *ctx = cmd->context;
 	int ret;
@@ -206,8 +206,8 @@ static int cmd_sync_continue(struct client_command_context *cmd)
 	return TRUE;
 }
 
-int cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
-	     enum imap_sync_flags imap_flags, const char *tagline)
+bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
+	      enum imap_sync_flags imap_flags, const char *tagline)
 {
         struct cmd_sync_context *ctx;
 

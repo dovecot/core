@@ -75,7 +75,7 @@ static void client_open_streams(struct imap_client *client, int fd)
 
 /* Skip incoming data until newline is found,
    returns TRUE if newline was found. */
-int client_skip_line(struct imap_client *client)
+bool client_skip_line(struct imap_client *client)
 {
 	const unsigned char *data;
 	size_t i, data_size;
@@ -109,7 +109,7 @@ static int cmd_capability(struct imap_client *client)
 	client_send_line(client, t_strconcat("* CAPABILITY ",
 					     get_capability(client), NULL));
 	client_send_tagline(client, "OK Capability completed.");
-	return TRUE;
+	return 1;
 }
 
 static void client_start_tls(struct imap_client *client)
@@ -159,12 +159,12 @@ static int cmd_starttls(struct imap_client *client)
 {
 	if (client->common.tls) {
 		client_send_tagline(client, "BAD TLS is already active.");
-		return TRUE;
+		return 1;
 	}
 
 	if (!ssl_initialized) {
 		client_send_tagline(client, "BAD TLS support isn't enabled.");
-		return TRUE;
+		return 1;
 	}
 
 	/* remove input handler, SSL proxy gives us a new fd. we also have to
@@ -187,13 +187,13 @@ static int cmd_starttls(struct imap_client *client)
 	} else {
 		client_start_tls(client);
 	}
-	return TRUE;
+	return 1;
 }
 
 static int cmd_noop(struct imap_client *client)
 {
 	client_send_tagline(client, "OK NOOP completed.");
-	return TRUE;
+	return 1;
 }
 
 static int cmd_logout(struct imap_client *client)
@@ -201,7 +201,7 @@ static int cmd_logout(struct imap_client *client)
 	client_send_line(client, "* BYE Logging out");
 	client_send_tagline(client, "OK Logout completed.");
 	client_destroy(client, "Aborted login");
-	return TRUE;
+	return 1;
 }
 
 static int client_command_execute(struct imap_client *client, const char *cmd,
@@ -224,11 +224,12 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 	return -1;
 }
 
-static int client_handle_input(struct imap_client *client)
+static bool client_handle_input(struct imap_client *client)
 {
 	struct imap_arg *args;
 	const char *msg;
-	int ret, fatal;
+	int ret;
+	bool fatal;
 
 	i_assert(!client->common.authenticating);
 
@@ -307,7 +308,7 @@ static int client_handle_input(struct imap_client *client)
 	return ret != 0;
 }
 
-int client_read(struct imap_client *client)
+bool client_read(struct imap_client *client)
 {
 	switch (i_stream_read(client->input)) {
 	case -2:
@@ -405,7 +406,7 @@ static void client_send_greeting(struct imap_client *client)
 	client->greeting_sent = TRUE;
 }
 
-struct client *client_create(int fd, int ssl, const struct ip_addr *local_ip,
+struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip)
 {
 	struct imap_client *client;
@@ -520,7 +521,7 @@ void client_ref(struct imap_client *client)
 	client->refcount++;
 }
 
-int client_unref(struct imap_client *client)
+bool client_unref(struct imap_client *client)
 {
 	if (--client->refcount > 0)
 		return TRUE;

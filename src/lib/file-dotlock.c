@@ -46,7 +46,7 @@ struct lock_info {
 	time_t last_ctime, last_mtime;
 	time_t last_change;
 
-	int have_pid;
+	bool have_pid;
 	time_t last_pid_check;
 };
 
@@ -229,7 +229,7 @@ static int file_write_pid(int fd, const char *path)
 }
 
 static int
-create_temp_file(const char *prefix, const char **path_r, int write_pid)
+create_temp_file(const char *prefix, const char **path_r, bool write_pid)
 {
 	string_t *path;
 	size_t len;
@@ -274,7 +274,7 @@ create_temp_file(const char *prefix, const char **path_r, int write_pid)
 	return fd;
 }
 
-static int try_create_lock_hardlink(struct lock_info *lock_info, int write_pid)
+static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid)
 {
 	const char *temp_prefix = lock_info->set->temp_prefix;
 	const char *str, *p;
@@ -320,7 +320,7 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, int write_pid)
 	return 1;
 }
 
-static int try_create_lock_excl(struct lock_info *lock_info, int write_pid)
+static int try_create_lock_excl(struct lock_info *lock_info, bool write_pid)
 {
 	int fd;
 
@@ -345,7 +345,7 @@ static int try_create_lock_excl(struct lock_info *lock_info, int write_pid)
 }
 
 static int dotlock_create(const char *path, struct dotlock *dotlock,
-			  enum dotlock_create_flags flags, int write_pid)
+			  enum dotlock_create_flags flags, bool write_pid)
 {
 	const struct dotlock_settings *set = &dotlock->settings;
 	const char *lock_path;
@@ -354,7 +354,8 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 	unsigned int stale_notify_threshold;
 	unsigned int change_secs, wait_left;
 	time_t now, max_wait_time, last_notify;
-	int do_wait, ret;
+	int ret;
+	bool do_wait;
 
 	now = time(NULL);
 

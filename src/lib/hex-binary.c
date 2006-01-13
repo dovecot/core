@@ -5,7 +5,7 @@
 #include "hex-binary.h"
 
 static const char *
-binary_to_hex_case(const unsigned char *data, size_t size, int ucase)
+binary_to_hex_case(const unsigned char *data, size_t size, bool ucase)
 {
 	char *buf, *p, base_char;
 	size_t i;

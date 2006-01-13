@@ -41,8 +41,8 @@ struct message_header_parser_ctx {
 	buffer_t *value_buf;
 	size_t skip;
 
-	int skip_initial_lwsp;
-	int has_nuls;
+	bool skip_initial_lwsp;
+	bool has_nuls;
 };
 
 static void
@@ -54,12 +54,12 @@ message_parse_part_body(struct message_parser_ctx *parser_ctx);
 static struct message_part *
 message_parse_body(struct message_parser_ctx *parser_ctx,
 		   struct message_boundary *boundaries,
-		   struct message_size *msg_size, int *has_nuls);
+		   struct message_size *msg_size, bool *has_nuls);
 
 static struct message_part *
 message_skip_boundary(struct message_parser_ctx *parser_ctx,
 		      struct message_boundary *boundaries,
-		      struct message_size *boundary_size, int *has_nuls);
+		      struct message_size *boundary_size, bool *has_nuls);
 
 static void message_size_add_part(struct message_size *dest,
 				  struct message_part *part)
@@ -125,7 +125,7 @@ static void parse_content_type(const unsigned char *value, size_t value_len,
 static void
 parse_content_type_param(const unsigned char *name, size_t name_len,
 			 const unsigned char *value, size_t value_len,
-			 int value_quoted, void *context)
+			 bool value_quoted, void *context)
 {
 	struct message_parser_ctx *parser_ctx = context;
 
@@ -146,7 +146,7 @@ message_parse_multipart(struct message_parser_ctx *parser_ctx)
 {
 	struct message_part *parent_part, *next_part, *part;
 	struct message_boundary *b;
-	int has_nuls;
+	bool has_nuls;
 
 	/* multipart message. add new boundary */
 	b = p_new(parser_ctx->parser_pool, struct message_boundary, 1);
@@ -263,7 +263,7 @@ message_parse_part_body(struct message_parser_ctx *parser_ctx)
 {
 	struct message_part *part = parser_ctx->part;
         struct message_part *next_part;
-	int has_nuls;
+	bool has_nuls;
 
 	if (parser_ctx->last_boundary != NULL)
 		return message_parse_multipart(parser_ctx);
@@ -317,8 +317,8 @@ message_parse_part_body(struct message_parser_ctx *parser_ctx)
 }
 
 static void message_skip_line(struct istream *input,
-			      struct message_size *msg_size, int skip_lf,
-			      int *has_nuls)
+			      struct message_size *msg_size, bool skip_lf,
+			      bool *has_nuls)
 {
 	const unsigned char *msg;
 	size_t i, size, startpos;
@@ -386,7 +386,7 @@ boundary_find(struct message_boundary *boundaries,
 static struct message_boundary *
 message_find_boundary(struct istream *input,
 		      struct message_boundary *boundaries,
-		      struct message_size *msg_size, int *has_nuls)
+		      struct message_size *msg_size, bool *has_nuls)
 {
 	struct message_boundary *boundary;
 	const unsigned char *msg;
@@ -499,7 +499,7 @@ message_find_boundary(struct istream *input,
 static struct message_part *
 message_parse_body(struct message_parser_ctx *parser_ctx,
 		   struct message_boundary *boundaries,
-		   struct message_size *msg_size, int *has_nuls)
+		   struct message_size *msg_size, bool *has_nuls)
 {
 	struct message_boundary *boundary;
 	struct message_size body_size;
@@ -521,7 +521,7 @@ message_parse_body(struct message_parser_ctx *parser_ctx,
 static struct message_part *
 message_skip_boundary(struct message_parser_ctx *parser_ctx,
 		      struct message_boundary *boundaries,
-		      struct message_size *boundary_size, int *has_nuls)
+		      struct message_size *boundary_size, bool *has_nuls)
 {
 	struct message_boundary *boundary;
 	const unsigned char *msg;
@@ -666,7 +666,7 @@ void message_parse_header(struct message_part *part, struct istream *input,
 
 struct message_header_parser_ctx *
 message_parse_header_init(struct istream *input, struct message_size *hdr_size,
-			  int skip_initial_lwsp)
+			  bool skip_initial_lwsp)
 {
 	struct message_header_parser_ctx *ctx;
 
@@ -696,7 +696,8 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
         struct message_header_line *line = &ctx->line;
 	const unsigned char *msg;
 	size_t i, size, startpos, colon_pos, parse_size;
-	int ret, last_no_newline;
+	int ret;
+	bool last_no_newline;
 
 	*hdr_r = NULL;
 	if (line->eoh)

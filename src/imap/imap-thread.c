@@ -84,7 +84,7 @@ struct thread_context {
 	struct node root_node;
 	size_t root_count; /* not exact after prune_dummy_messages() */
 
-	int id_is_uid;
+	bool id_is_uid;
 };
 
 static void mail_thread_input(struct thread_context *ctx, struct mail *mail);
@@ -220,7 +220,7 @@ static struct node *update_message(struct thread_context *ctx,
 	return node;
 }
 
-static int get_untokenized_msgid(const char **msgid_p, string_t *msgid)
+static bool get_untokenized_msgid(const char **msgid_p, string_t *msgid)
 {
 	struct rfc822_parser_context parser;
 
@@ -279,7 +279,7 @@ static const char *get_msgid(const char **msgid_p)
 	const char *msgid = *msgid_p;
 	const char *p;
 	string_t *str = NULL;
-	int found_at;
+	bool found_at;
 
 	if (*msgid_p == NULL)
 		return NULL;
@@ -341,7 +341,7 @@ static const char *get_msgid(const char **msgid_p)
 }
 
 static void unlink_child(struct thread_context *ctx,
-			 struct node *child, int add_to_root)
+			 struct node *child, bool add_to_root)
 {
 	struct node **node;
 
@@ -360,7 +360,7 @@ static void unlink_child(struct thread_context *ctx,
 		add_root(ctx, child);
 }
 
-static int find_child(struct node *node, struct node *child)
+static bool find_child(struct node *node, struct node *child)
 {
 	do {
 		if (node == child)
@@ -378,7 +378,7 @@ static int find_child(struct node *node, struct node *child)
 }
 
 static void link_node(struct thread_context *ctx, const char *parent_msgid,
-		      struct node *child, int replace)
+		      struct node *child, bool replace)
 {
 	struct node *parent, **node;
 
@@ -415,7 +415,7 @@ static void link_node(struct thread_context *ctx, const char *parent_msgid,
 
 static void link_message(struct thread_context *ctx,
 			 const char *parent_msgid, const char *child_msgid,
-			 int replace)
+			 bool replace)
 {
 	struct node *child;
 
@@ -426,8 +426,8 @@ static void link_message(struct thread_context *ctx,
 	link_node(ctx, parent_msgid, child, replace);
 }
 
-static int link_references(struct thread_context *ctx,
-			   struct node *node, const char *references)
+static bool link_references(struct thread_context *ctx,
+			    struct node *node, const char *references)
 {
 	const char *parent_id, *child_id;
 
@@ -638,7 +638,7 @@ static void add_base_subject(struct thread_context *ctx,
 	struct node *hash_node;
 	char *hash_subject;
 	void *key, *value;
-	int is_reply_or_forward;
+	bool is_reply_or_forward;
 
 	if (subject == NULL)
 		return;
@@ -845,8 +845,8 @@ static void sort_root_nodes(struct thread_context *ctx)
 	ctx->root_node.first_child = sort_nodes(ctx->root_node.first_child);
 }
 
-static int send_nodes(struct thread_context *ctx,
-		      string_t *str, struct node *node)
+static bool send_nodes(struct thread_context *ctx,
+		       string_t *str, struct node *node)
 {
 	if (node->next == NULL && NODE_HAS_PARENT(ctx, node)) {
 		/* no siblings - special case to avoid extra paranthesis */

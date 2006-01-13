@@ -105,8 +105,8 @@ static int next_token(struct message_date_parser_context *ctx,
 	return ret < 0 ? -1 : *value_len > 0;
 }
 
-static int message_date_parser_tokens(struct message_date_parser_context *ctx,
-				      time_t *time, int *timezone_offset)
+static bool message_date_parser_tokens(struct message_date_parser_context *ctx,
+				       time_t *time, int *timezone_offset)
 {
 	struct tm tm;
 	const unsigned char *value;
@@ -228,32 +228,33 @@ static int message_date_parser_tokens(struct message_date_parser_context *ctx,
 	return TRUE;
 }
 
-int message_date_parse(const unsigned char *data, size_t size,
+bool message_date_parse(const unsigned char *data, size_t size,
 		       time_t *time, int *timezone_offset)
 {
 	struct message_date_parser_context ctx;
-	int ret;
+	bool success;
 
 	t_push();
 	rfc822_parser_init(&ctx.parser, data, size, NULL);
 	ctx.str = t_str_new(128);
-	ret = message_date_parser_tokens(&ctx, time, timezone_offset);
+	success = message_date_parser_tokens(&ctx, time, timezone_offset);
 	t_pop();
 
-	return ret;
+	return success;
 }
 
 const char *message_date_create(time_t time)
 {
 	struct tm *tm;
-	int offset, negative;
+	int offset;
+	bool negative;
 
 	tm = localtime(&time);
 	offset = utc_offset(tm, time);
 	if (offset >= 0)
-		negative = 0;
+		negative = FALSE;
 	else {
-		negative = 1;
+		negative = TRUE;
 		offset = -offset;
 	}
 

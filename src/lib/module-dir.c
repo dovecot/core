@@ -37,7 +37,7 @@ void *module_get_symbol(struct module *module, const char *symbol)
 	return ret;
 }
 
-static void *get_symbol(struct module *module, const char *symbol, int quiet)
+static void *get_symbol(struct module *module, const char *symbol, bool quiet)
 {
 	if (quiet)
 		return dlsym(module->handle, symbol);
@@ -57,7 +57,7 @@ static void module_free(struct module *module)
 }
 
 static struct module *
-module_load(const char *path, const char *name, int require_init_funcs)
+module_load(const char *path, const char *name, bool require_init_funcs)
 {
 	void *handle;
 	void (*init)(void);
@@ -108,7 +108,7 @@ static int module_name_cmp(const void *p1, const void *p2)
 	return strcmp(n1, n2);
 }
 
-struct module *module_dir_load(const char *dir, int require_init_funcs)
+struct module *module_dir_load(const char *dir, bool require_init_funcs)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -200,7 +200,8 @@ void module_dir_unload(struct module *modules)
 
 #else
 
-struct module *module_dir_load(const char *dir __attr_unused__, int require_init_funcs __attr_unused__)
+struct module *module_dir_load(const char *dir __attr_unused__,
+			       bool require_init_funcs __attr_unused__)
 {
 	i_error("Dynamically loadable module support not built in");
 	return NULL;

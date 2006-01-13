@@ -100,8 +100,8 @@ const char *password_generate(const char *plaintext, const char *user,
 	return NULL;
 }
 
-static int crypt_verify(const char *plaintext, const char *password,
-			const char *user __attr_unused__)
+static bool crypt_verify(const char *plaintext, const char *password,
+			 const char *user __attr_unused__)
 {
 	return strcmp(mycrypt(plaintext, password), password) == 0;
 }
@@ -118,8 +118,8 @@ static const char *crypt_generate(const char *plaintext,
 	return t_strdup(mycrypt(plaintext, salt));
 }
 
-static int md5_verify(const char *plaintext, const char *password,
-		      const char *user __attr_unused__)
+static bool md5_verify(const char *plaintext, const char *password,
+		       const char *user __attr_unused__)
 {
 	const char *str;
 
@@ -152,8 +152,8 @@ static const char *sha1_generate(const char *plaintext,
 	return str_c(str);
 }
 
-static int sha1_verify(const char *plaintext, const char *password,
-		      const char *user __attr_unused__)
+static bool sha1_verify(const char *plaintext, const char *password,
+			const char *user __attr_unused__)
 {
 	unsigned char sha1_digest[SHA1_RESULTLEN];
 	const char *data;
@@ -200,8 +200,8 @@ static const char *ssha_generate(const char *plaintext,
 	return str_c(str);
 }
 
-static int ssha_verify(const char *plaintext, const char *password,
-			    const char *user __attr_unused__)
+static bool ssha_verify(const char *plaintext, const char *password,
+			const char *user __attr_unused__)
 {
 	unsigned char sha1_digest[SHA1_RESULTLEN];
 	buffer_t *buf;
@@ -252,8 +252,8 @@ static const char *smd5_generate(const char *plaintext,
 	return str_c(str);
 }
 
-static int smd5_verify(const char *plaintext, const char *password,
-		       const char *user __attr_unused__)
+static bool smd5_verify(const char *plaintext, const char *password,
+			const char *user __attr_unused__)
 {
 	unsigned char md5_digest[16];
 	buffer_t *buf;
@@ -284,8 +284,8 @@ static int smd5_verify(const char *plaintext, const char *password,
 	return memcmp(md5_digest, data, 16) == 0;
 }
 
-static int plain_verify(const char *plaintext, const char *password,
-			const char *user __attr_unused__)
+static bool plain_verify(const char *plaintext, const char *password,
+			 const char *user __attr_unused__)
 {
 	return strcmp(password, plaintext) == 0;
 }
@@ -296,8 +296,8 @@ static const char *plain_generate(const char *plaintext,
 	return plaintext;
 }
 
-static int hmac_md5_verify(const char *plaintext, const char *password,
-			   const char *user __attr_unused__)
+static bool hmac_md5_verify(const char *plaintext, const char *password,
+			    const char *user __attr_unused__)
 {
 	return strcmp(password_generate_cram_md5(plaintext), password) == 0;
 }
@@ -308,8 +308,8 @@ static const char *hmac_md5_generate(const char *plaintext,
 	return password_generate_cram_md5(plaintext);
 }
 
-static int digest_md5_verify(const char *plaintext, const char *password,
-			     const char *user)
+static bool digest_md5_verify(const char *plaintext, const char *password,
+			      const char *user)
 {
 	unsigned char digest[16];
 	const char *realm, *str;
@@ -344,8 +344,8 @@ static const char *digest_md5_generate(const char *plaintext, const char *user)
 	return binary_to_hex(digest, sizeof(digest));
 }
 
-static int plain_md5_verify(const char *plaintext, const char *password,
-			    const char *user __attr_unused__)
+static bool plain_md5_verify(const char *plaintext, const char *password,
+			     const char *user __attr_unused__)
 {
 	unsigned char digest[16];
 	const char *str;
@@ -376,8 +376,8 @@ static const char *ldap_md5_generate(const char *plaintext,
 	return str_c(str);
 }
 
-static int ldap_md5_verify(const char *plaintext, const char *password,
-			   const char *user __attr_unused__)
+static bool ldap_md5_verify(const char *plaintext, const char *password,
+			    const char *user __attr_unused__)
 {
 	unsigned char md5_digest[16];
 	buffer_t *buf;
@@ -405,8 +405,8 @@ static int ldap_md5_verify(const char *plaintext, const char *password,
 	return memcmp(md5_digest, data, 16) == 0;
 }
 
-static int lm_verify(const char *plaintext, const char *password,
-		       const char *user __attr_unused__)
+static bool lm_verify(const char *plaintext, const char *password,
+		      const char *user __attr_unused__)
 {
 	return strcasecmp(password, password_generate_lm(plaintext)) == 0;
 }
@@ -417,8 +417,8 @@ static const char *lm_generate(const char *plaintext,
 	return password_generate_lm(plaintext);
 }
 
-static int ntlm_verify(const char *plaintext, const char *password,
-		       const char *user __attr_unused__)
+static bool ntlm_verify(const char *plaintext, const char *password,
+			const char *user __attr_unused__)
 {
 	return strcasecmp(password, password_generate_ntlm(plaintext)) == 0;
 }
@@ -429,8 +429,8 @@ static const char *ntlm_generate(const char *plaintext,
 	return password_generate_ntlm(plaintext);
 }
 
-static int rpa_verify(const char *plaintext, const char *password,
-		      const char *user __attr_unused__)
+static bool rpa_verify(const char *plaintext, const char *password,
+		       const char *user __attr_unused__)
 {
 	return strcasecmp(password, password_generate_rpa(plaintext)) == 0;
 }

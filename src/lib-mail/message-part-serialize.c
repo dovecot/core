@@ -44,7 +44,7 @@ _message_part_serialize(struct message_part *part, buffer_t *dest)
 {
 	unsigned int count, children_count;
 	size_t children_offset;
-	int root = part->parent == NULL;
+	bool root = part->parent == NULL;
 
 	count = 0;
 	while (part != NULL) {
@@ -103,8 +103,8 @@ void message_part_serialize(struct message_part *part, buffer_t *dest)
 	_message_part_serialize(part, dest);
 }
 
-static int read_next(struct deserialize_context *ctx,
-		     void *buffer, size_t buffer_size)
+static bool read_next(struct deserialize_context *ctx,
+		      void *buffer, size_t buffer_size)
 {
 	if (ctx->data + buffer_size > ctx->end) {
 		ctx->error = "Not enough data";
@@ -116,15 +116,16 @@ static int read_next(struct deserialize_context *ctx,
 	return TRUE;
 }
 
-static int message_part_deserialize_part(struct deserialize_context *ctx,
-					 struct message_part *parent,
-					 unsigned int siblings,
-                                         struct message_part **part_r)
+static bool
+message_part_deserialize_part(struct deserialize_context *ctx,
+			      struct message_part *parent,
+			      unsigned int siblings,
+			      struct message_part **part_r)
 {
 	struct message_part *part, *first_part, **next_part;
 	unsigned int children_count;
 	uoff_t pos;
-	int root = parent == NULL;
+	bool root = parent == NULL;
 
 	first_part = NULL;
 	next_part = NULL;

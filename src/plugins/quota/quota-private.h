@@ -38,7 +38,7 @@ struct quota {
 	void (*transaction_rollback)(struct quota_transaction_context *ctx);
 
 	int (*try_alloc)(struct quota_transaction_context *ctx,
-			 struct mail *mail, int *too_large_r);
+			 struct mail *mail, bool *too_large_r);
 	void (*alloc)(struct quota_transaction_context *ctx, struct mail *mail);
 	void (*free)(struct quota_transaction_context *ctx, struct mail *mail);
 

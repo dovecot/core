@@ -61,7 +61,7 @@ typedef linux_const void *pam_item_t;
 struct pam_passdb_module {
 	struct passdb_module module;
 
-	int pam_session;
+	bool pam_session;
 	const char *service_name, *pam_cache_key;
 	struct timeout *to_wait;
 };

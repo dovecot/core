@@ -28,7 +28,7 @@ struct quota_mail {
 };
 
 static unsigned int quota_storage_module_id = 0;
-static int quota_storage_module_id_set = FALSE;
+static bool quota_storage_module_id_set = FALSE;
 
 static int quota_mail_expunge(struct mail *_mail)
 {
@@ -156,7 +156,7 @@ quota_save_init(struct mailbox_transaction_context *t,
 		enum mail_flags flags, struct mail_keywords *keywords,
 		time_t received_date, int timezone_offset,
 		const char *from_envelope, struct istream *input,
-		int want_mail __attr_unused__)
+		bool want_mail __attr_unused__)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
 	const struct stat *st;

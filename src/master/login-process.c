@@ -51,7 +51,7 @@ static struct login_group *login_groups;
 
 static void login_process_destroy(struct login_process *p);
 static void login_process_unref(struct login_process *p);
-static int login_process_init_group(struct login_process *p);
+static bool login_process_init_group(struct login_process *p);
 
 static void login_group_create(struct settings *set)
 {
@@ -163,7 +163,7 @@ login_group_process_find(const char *name, enum mail_protocol protocol)
 	return NULL;
 }
 
-static int login_process_read_group(struct login_process *p)
+static bool login_process_read_group(struct login_process *p)
 {
 	struct login_group *group;
 	const char *name, *proto;
@@ -667,7 +667,7 @@ static int login_process_send_env(struct login_process *p)
 	return ret;
 }
 
-static int login_process_init_group(struct login_process *p)
+static bool login_process_init_group(struct login_process *p)
 {
 	p->group->processes++;
 	p->group->listening_processes++;

@@ -149,7 +149,7 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 	return index;
 }
 
-static void destroy_unrefed(int all)
+static void destroy_unrefed(bool all)
 {
 	struct index_list **list, *rec;
 
@@ -225,7 +225,7 @@ static void set_cache_decisions(const char *set, const char *fields,
 
 static void index_cache_register_defaults(struct index_mailbox *ibox)
 {
-	static int initialized = FALSE;
+	static bool initialized = FALSE;
 	struct mail_cache *cache = ibox->cache;
 	const char *cache_env, *never_env;
 
@@ -383,14 +383,14 @@ void index_storage_mailbox_free(struct mailbox *box)
 	pool_unref(box->pool);
 }
 
-int index_storage_is_readonly(struct mailbox *box)
+bool index_storage_is_readonly(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
 	return ibox->readonly;
 }
 
-int index_storage_allow_new_keywords(struct mailbox *box)
+bool index_storage_allow_new_keywords(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
@@ -398,7 +398,7 @@ int index_storage_allow_new_keywords(struct mailbox *box)
 	return !ibox->readonly;
 }
 
-int index_storage_is_inconsistent(struct mailbox *box)
+bool index_storage_is_inconsistent(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
@@ -416,15 +416,15 @@ void index_storage_set_callbacks(struct mail_storage *_storage,
 }
 
 const char *index_storage_get_last_error(struct mail_storage *storage,
-					 int *syntax_error_r,
-					 int *temporary_error_r)
+					 bool *syntax_error_r,
+					 bool *temporary_error_r)
 {
 	*syntax_error_r = storage->syntax_error;
 	*temporary_error_r = storage->temporary_error;
 	return storage->error;
 }
 
-int mail_storage_set_index_error(struct index_mailbox *ibox)
+void mail_storage_set_index_error(struct index_mailbox *ibox)
 {
 	switch (mail_index_get_last_error(ibox->index)) {
 	case MAIL_INDEX_ERROR_NONE:
@@ -439,7 +439,6 @@ int mail_storage_set_index_error(struct index_mailbox *ibox)
 	if (ibox->view != NULL)
 		mail_index_view_unlock(ibox->view);
 	mail_index_reset_error(ibox->index);
-	return FALSE;
 }
 
 struct mail_keywords *

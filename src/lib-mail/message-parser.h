@@ -105,7 +105,7 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
    struct message_header_line. */
 struct message_header_parser_ctx *
 message_parse_header_init(struct istream *input, struct message_size *hdr_size,
-			 int skip_initial_lwsp);
+			 bool skip_initial_lwsp);
 void message_parse_header_deinit(struct message_header_parser_ctx *ctx);
 
 /* Read and return next header line. Returns 1 if header is returned, 0 if
