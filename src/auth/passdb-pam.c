@@ -235,7 +235,7 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 	struct pam_userpass userpass;
 	struct pam_conv conv;
 	enum passdb_result result;
-	int status, status2;
+	int ret, status, status2;
 	const char *str;
 	char buf_data[512];
 	buffer_t *buf;
@@ -280,7 +280,12 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 		buffer_append(buf, str, strlen(str));
 	}
 
-	write(fd, buf_data, buffer_get_used_size(buf));
+	if ((ret = write(fd, buf_data, buf->used)) != (int)buf->used) {
+		if (ret < 0)
+			i_error("write() failed: %m");
+		else
+			i_error("write() failed: %d != %u", ret, buf->used);
+	}
 }
 
 static void pam_child_input(void *context)
