@@ -957,7 +957,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	file->output = o_stream_create_crlf(default_pool, output);
 	o_stream_unref(output);
 
-	if (st.st_size < sizeof(struct dbox_file_header)) {
+	if ((uoff_t)st.st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {
 			dbox_file_close(file);
 			return -1;
