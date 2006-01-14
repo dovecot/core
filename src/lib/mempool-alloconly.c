@@ -41,7 +41,7 @@ struct pool_block {
 
 static const char *pool_alloconly_get_name(pool_t pool);
 static void pool_alloconly_ref(pool_t pool);
-static void pool_alloconly_unref(pool_t pool);
+static void pool_alloconly_unref(pool_t *pool);
 static void *pool_alloconly_malloc(pool_t pool, size_t size);
 static void pool_alloconly_free(pool_t pool, void *mem);
 static void *pool_alloconly_realloc(pool_t pool, void *mem,
@@ -137,9 +137,13 @@ static void pool_alloconly_ref(pool_t pool)
 	apool->refcount++;
 }
 
-static void pool_alloconly_unref(pool_t pool)
+static void pool_alloconly_unref(pool_t *pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+	struct alloconly_pool *apool = (struct alloconly_pool *)*pool;
+
+	/* erase the pointer before freeing anything, as the pointer may
+	   exist inside the pool's memory area */
+	*pool = NULL;
 
 	if (--apool->refcount == 0)
 		pool_alloconly_destroy(apool);

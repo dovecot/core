@@ -7,7 +7,7 @@
 
 static const char *pool_data_stack_get_name(pool_t pool);
 static void pool_data_stack_ref(pool_t pool);
-static void pool_data_stack_unref(pool_t pool);
+static void pool_data_stack_unref(pool_t *pool);
 static void *pool_data_stack_malloc(pool_t pool, size_t size);
 static void pool_data_stack_free(pool_t pool, void *mem);
 static void *pool_data_stack_realloc(pool_t pool, void *mem,
@@ -66,15 +66,17 @@ static void pool_data_stack_ref(pool_t pool)
 	dpool->refcount++;
 }
 
-static void pool_data_stack_unref(pool_t pool)
+static void pool_data_stack_unref(pool_t *pool)
 {
-	struct datastack_pool *dpool = (struct datastack_pool *) pool;
+	struct datastack_pool *dpool = (struct datastack_pool *)*pool;
 
 	if (dpool->data_stack_frame != data_stack_frame)
 		i_panic("pool_data_stack_unref(): stack frame changed");
 
 	dpool->refcount--;
 	i_assert(dpool->refcount >= 0);
+
+	*pool = NULL;
 }
 
 static void *pool_data_stack_malloc(pool_t pool __attr_unused__, size_t size)

@@ -7,7 +7,7 @@
 
 static const char *pool_unsafe_data_stack_get_name(pool_t pool);
 static void pool_unsafe_data_stack_ref(pool_t pool);
-static void pool_unsafe_data_stack_unref(pool_t pool);
+static void pool_unsafe_data_stack_unref(pool_t *pool);
 static void *pool_unsafe_data_stack_malloc(pool_t pool, size_t size);
 static void pool_unsafe_data_stack_free(pool_t pool, void *mem);
 static void *pool_unsafe_data_stack_realloc(pool_t pool, void *mem,
@@ -44,7 +44,7 @@ static void pool_unsafe_data_stack_ref(pool_t pool __attr_unused__)
 {
 }
 
-static void pool_unsafe_data_stack_unref(pool_t pool __attr_unused__)
+static void pool_unsafe_data_stack_unref(pool_t *pool __attr_unused__)
 {
 }
 

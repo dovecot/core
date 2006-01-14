@@ -13,7 +13,7 @@ struct pool {
 	const char *(*get_name)(pool_t pool);
 
 	void (*ref)(pool_t pool);
-	void (*unref)(pool_t pool);
+	void (*unref)(pool_t *pool);
 
 	void *(*malloc)(pool_t pool, size_t size);
 	void (*free)(pool_t pool, void *mem);
@@ -58,7 +58,7 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 /* Pools should be used through these macros: */
 #define pool_get_name(pool) (pool)->get_name(pool)
 #define pool_ref(pool) (pool)->ref(pool)
-#define pool_unref(pool) (pool)->unref(pool)
+#define pool_unref(pool) (pool)->unref(&(pool))
 
 #define p_new(pool, type, count) \
 	((type *) p_malloc(pool, sizeof(type) * (count)))
