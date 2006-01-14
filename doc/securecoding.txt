@@ -36,6 +36,7 @@ Prevent Buffer Overflows
 Avoid writing to buffers directly. Write everything through buffer API
 (lib/buffer.h) which guarantees protection against buffer overflows.
 There are various safe string APIs as well (lib/str.h, lib/strfuncs.h).
+Dovecot also provides a type safe array API (lib/array.h).
 
 If you do write to buffers directly, mark the code with /* @UNSAFE */
 unless it's _obviously_ safe. Only obviously safe code is calling a
@@ -64,11 +65,16 @@ memory pools.
 
 Data stack works in somewhat similiar way to C's control stack. alloca() is
 quite near to what it does, but there's one major difference: Stack frames
-are explicitly defined so functions can return values allocated from data
-stack. t_strdup_printf() call is an excellent example of why this is useful.
-Rather than creating some arbitrary sized buffer and using snprintf() which
-may truncate the value, you can just use t_strdup_printf() without worrying
-about buffer sizes being large enough. See lib/data-stack.h
+are explicitly defined, so functions can return values allocated from data
+stack. t_strdup_printf() call is an excellent example of why this is
+useful. Rather than creating some arbitrary sized buffer and using
+snprintf() which may truncate the value, you can just use t_strdup_printf()
+without worrying about buffer sizes being large enough.
+
+Try to keep the allocations from data stack small, since the data stack's
+highest memory usage size is kept for the rest of the process's lifetime.
+The initial data stack size is 32kB and it should be enough in normal use.
+See lib/data-stack.h.
 
 Memory pools are useful when you have to construct an object from multiple
 pieces and you can free it all at once. Actually Dovecot's Memory Pool API
