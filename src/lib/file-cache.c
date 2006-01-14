@@ -26,8 +26,12 @@ struct file_cache *file_cache_new(int fd)
 	return cache;
 }
 
-void file_cache_free(struct file_cache *cache)
+void file_cache_free(struct file_cache **_cache)
 {
+	struct file_cache *cache = *_cache;
+
+	*_cache = NULL;
+
 	if (cache->mmap_base != NULL) {
 		if (munmap_anon(cache->mmap_base, cache->mmap_length) < 0)
 			i_error("munmap_anon() failed: %m");

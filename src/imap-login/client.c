@@ -129,9 +129,9 @@ static void client_start_tls(struct imap_client *client)
 	client_set_title(client);
 
 	client->common.fd = fd_ssl;
-	i_stream_unref(client->input);
-	o_stream_unref(client->output);
-	imap_parser_destroy(client->parser);
+	i_stream_unref(&client->input);
+	o_stream_unref(&client->output);
+	imap_parser_destroy(&client->parser);
 
 	/* CRLF is lost from buffer when streams are reopened. */
 	client->skip_line = FALSE;
@@ -169,10 +169,8 @@ static int cmd_starttls(struct imap_client *client)
 
 	/* remove input handler, SSL proxy gives us a new fd. we also have to
 	   remove it in case we have to wait for buffer to be flushed */
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 
 	client_send_tagline(client, "OK Begin TLS negotiation now.");
 
@@ -477,10 +475,8 @@ void client_destroy(struct imap_client *client, const char *reason)
 	if (client->common.master_tag != 0)
 		master_request_abort(&client->common);
 
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 
 	if (client->common.fd != -1) {
 		net_disconnect(client->common.fd);
@@ -526,12 +522,12 @@ bool client_unref(struct imap_client *client)
 	if (--client->refcount > 0)
 		return TRUE;
 
-	imap_parser_destroy(client->parser);
+	imap_parser_destroy(&client->parser);
 
 	if (client->input != NULL)
-		i_stream_unref(client->input);
+		i_stream_unref(&client->input);
 	if (client->output != NULL)
-		o_stream_unref(client->output);
+		o_stream_unref(&client->output);
 
 	i_free(client->common.virtual_user);
 	i_free(client->common.auth_mech_name);
@@ -637,5 +633,5 @@ void clients_deinit(void)
 	clients_destroy_all();
 	hash_destroy(clients);
 
-	timeout_remove(to_idle);
+	timeout_remove(&to_idle);
 }

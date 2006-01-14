@@ -177,7 +177,7 @@ static void parse_content_header(struct message_part_body_data *d,
 			}
 			d->content_type_params =
 				p_strdup_empty(pool, str_c(d->str));
-			str_free(d->str);
+			str_free(&d->str);
 		}
 		if (strcasecmp(name, "Transfer-Encoding") == 0 &&
 		    d->content_transfer_encoding == NULL) {
@@ -209,7 +209,7 @@ static void parse_content_header(struct message_part_body_data *d,
 						     parse_save_params_list, d);
 			d->content_disposition_params =
 				p_strdup_empty(pool, str_c(d->str));
-			str_free(d->str);
+			str_free(&d->str);
 		}
 		break;
 	}
@@ -684,7 +684,7 @@ bool imap_body_parse_from_bodystructure(const char *bodystructure,
 	if (!ret)
 		i_error("Error parsing IMAP bodystructure: %s", bodystructure);
 
-	imap_parser_destroy(parser);
-	i_stream_unref(input);
+	imap_parser_destroy(&parser);
+	i_stream_unref(&input);
 	return ret;
 }

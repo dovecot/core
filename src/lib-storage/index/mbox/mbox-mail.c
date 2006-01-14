@@ -194,7 +194,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 						      mbox_hide_headers,
 						      mbox_hide_headers_count,
 						      NULL, NULL);
-		i_stream_unref(raw_stream);
+		i_stream_unref(&raw_stream);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size);

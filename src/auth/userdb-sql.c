@@ -95,6 +95,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	}
 
 	sql_request->callback(reply, auth_request);
+	auth_request_unref(&auth_request);
 	i_free(sql_request);
 }
 
@@ -112,6 +113,7 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 		   auth_request_get_var_expand_table(auth_request,
 						     str_escape));
 
+	auth_request_ref(auth_request);
 	sql_request = i_new(struct userdb_sql_request, 1);
 	sql_request->callback = callback;
 	sql_request->auth_request = auth_request;
@@ -151,7 +153,7 @@ static void userdb_sql_deinit(struct userdb_module *_module)
 	struct sql_userdb_module *module =
 		(struct sql_userdb_module *)_module;
 
-	db_sql_unref(module->conn);
+	db_sql_unref(&module->conn);
 }
 
 struct userdb_module_interface userdb_sql = {

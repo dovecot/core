@@ -113,19 +113,22 @@ buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size)
 	return (buffer_t *)buf;
 }
 
-void buffer_free(buffer_t *_buf)
+void _buffer_free(buffer_t **_buf)
 {
-	struct real_buffer *buf = (struct real_buffer *)_buf;
+	struct real_buffer *buf = (struct real_buffer *)*_buf;
 
+	*_buf = NULL;
 	if (buf->alloced)
 		p_free(buf->pool, buf->w_buffer);
 	p_free(buf->pool, buf);
 }
 
-void *buffer_free_without_data(buffer_t *_buf)
+void *_buffer_free_without_data(buffer_t **_buf)
 {
-	struct real_buffer *buf = (struct real_buffer *)_buf;
+	struct real_buffer *buf = (struct real_buffer *)*_buf;
 	void *data;
+
+	*_buf = NULL;
 
 	data = buf->w_buffer;
 	p_free(buf->pool, buf);

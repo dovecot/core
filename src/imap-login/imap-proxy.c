@@ -139,10 +139,8 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 	client->proxy_password = i_strdup(password);
 
 	/* disable input until authentication is finished */
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 
 	return 0;
 }

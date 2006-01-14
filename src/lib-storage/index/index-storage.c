@@ -81,7 +81,7 @@ static void index_storage_add(struct mail_index *index,
 
 static void index_list_free(struct index_list *list)
 {
-	mail_index_free(list->index);
+	mail_index_free(&list->index);
 	i_free(list->mailbox_path);
 	i_free(list);
 }
@@ -165,10 +165,8 @@ static void destroy_unrefed(bool all)
 		}
 	}
 
-	if (indexes == NULL && to_index != NULL) {
-		timeout_remove(to_index);
-		to_index = NULL;
-	}
+	if (indexes == NULL && to_index != NULL)
+		timeout_remove(&to_index);
 }
 
 static void index_removal_timeout(void *context __attr_unused__)
@@ -374,7 +372,7 @@ void index_storage_mailbox_free(struct mailbox *box)
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
 	if (ibox->view != NULL)
-		mail_index_view_close(ibox->view);
+		mail_index_view_close(&ibox->view);
 
 	index_mailbox_check_remove_all(ibox);
 	if (ibox->index != NULL)
@@ -454,5 +452,5 @@ index_keywords_create(struct mailbox_transaction_context *_t,
 void index_keywords_free(struct mailbox_transaction_context *t __attr_unused__,
 			 struct mail_keywords *keywords)
 {
-	mail_index_keywords_free(keywords);
+	mail_index_keywords_free(&keywords);
 }

@@ -26,9 +26,10 @@ struct sql_db *sql_init(const char *db_driver,
 	i_fatal("Unknown database driver '%s'", db_driver);
 }
 
-void sql_deinit(struct sql_db *db)
+void sql_deinit(struct sql_db **db)
 {
-	db->deinit(db);
+	(*db)->deinit(*db);
+	*db = NULL;
 }
 
 enum sql_db_flags sql_get_flags(struct sql_db *db)
@@ -127,20 +128,29 @@ struct sql_transaction_context *sql_transaction_begin(struct sql_db *db)
 	return db->transaction_begin(db);
 }
 
-void sql_transaction_commit(struct sql_transaction_context *ctx,
+void sql_transaction_commit(struct sql_transaction_context **_ctx,
 			    sql_commit_callback_t *callback, void *context)
 {
+	struct sql_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	ctx->db->transaction_commit(ctx, callback, context);
 }
 
-int sql_transaction_commit_s(struct sql_transaction_context *ctx,
+int sql_transaction_commit_s(struct sql_transaction_context **_ctx,
 			     const char **error_r)
 {
+	struct sql_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	return ctx->db->transaction_commit_s(ctx, error_r);
 }
 
-void sql_transaction_rollback(struct sql_transaction_context *ctx)
+void sql_transaction_rollback(struct sql_transaction_context **_ctx)
 {
+	struct sql_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	ctx->db->transaction_rollback(ctx);
 }
 

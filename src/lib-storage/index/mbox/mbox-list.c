@@ -201,7 +201,7 @@ int mbox_mailbox_list_deinit(struct mailbox_list_context *_ctx)
 	if (ctx->list_pool != NULL)
 		pool_unref(ctx->list_pool);
 	if (ctx->glob != NULL)
-		imap_match_deinit(ctx->glob);
+		imap_match_deinit(&ctx->glob);
 	i_free(ctx);
 
 	return ret;

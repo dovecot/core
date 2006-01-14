@@ -97,7 +97,7 @@ user_callback(struct auth_stream_reply *reply,
 		i_info("master out: %s", str_c(str));
 
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
-	auth_request_unref(auth_request);
+	auth_request_unref(&auth_request);
 }
 
 static bool
@@ -133,7 +133,7 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 
 	if (auth_request->service == NULL) {
 		i_error("BUG: Master sent USER request without service");
-		auth_request_unref(auth_request);
+		auth_request_unref(&auth_request);
 		return FALSE;
 	}
 
@@ -158,13 +158,13 @@ static void master_input(void *context)
 		return;
 	case -1:
 		/* disconnected */
-                auth_master_connection_destroy(conn);
+                auth_master_connection_destroy(&conn);
 		return;
 	case -2:
 		/* buffer full */
 		i_error("BUG: Master sent us more than %d bytes",
 			(int)MAX_INBUF_SIZE);
-                auth_master_connection_destroy(conn);
+                auth_master_connection_destroy(&conn);
 		return;
 	}
 
@@ -179,7 +179,7 @@ static void master_input(void *context)
 		    AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
 			i_error("Master not compatible with this server "
 				"(mixed old and new binaries?)");
-			auth_master_connection_destroy(conn);
+			auth_master_connection_destroy(&conn);
 			return;
 		}
 		conn->version_received = TRUE;
@@ -203,7 +203,7 @@ static void master_input(void *context)
 		t_pop();
 
 		if (!ret) {
-			auth_master_connection_destroy(conn);
+			auth_master_connection_destroy(&conn);
 			return;
 		}
 	}
@@ -216,7 +216,7 @@ static int master_output(void *context)
 
 	if ((ret = o_stream_flush(conn->output)) < 0) {
 		/* transmit error, probably master died */
-		auth_master_connection_destroy(conn);
+		auth_master_connection_destroy(&conn);
 		return 1;
 	}
 
@@ -260,11 +260,13 @@ void auth_master_connection_send_handshake(struct auth_master_connection *conn)
 	(void)o_stream_send_str(conn->output, line);
 }
 
-void auth_master_connection_destroy(struct auth_master_connection *conn)
+void auth_master_connection_destroy(struct auth_master_connection **_conn)
 {
+        struct auth_master_connection *conn = *_conn;
         struct auth_master_connection *const *conns;
 	unsigned int i, count;
 
+	*_conn = NULL;
 	if (conn->destroyed)
 		return;
 	conn->destroyed = TRUE;
@@ -274,11 +276,11 @@ void auth_master_connection_destroy(struct auth_master_connection *conn)
 			i_error("close(): %m");
 	}
 	if (conn->input != NULL)
-		i_stream_unref(conn->input);
+		i_stream_unref(&conn->input);
 	if (conn->output != NULL)
-		o_stream_unref(conn->output);
+		o_stream_unref(&conn->output);
 	if (conn->io != NULL)
-		io_remove(conn->io);
+		io_remove(&conn->io);
 
 	conns = array_get(&conn->listener->masters, &count);
 	for (i = 0; i < count; i++) {

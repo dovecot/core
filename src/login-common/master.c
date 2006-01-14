@@ -97,8 +97,7 @@ void master_close(void)
 		i_fatal("close(master) failed: %m");
 	master_fd = -1;
 
-	io_remove(io_master);
-	io_master = NULL;
+	io_remove(&io_master);
 
         main_close_listen();
 	main_unref();
@@ -153,7 +152,7 @@ static void master_read_env(int fd)
 			env_put(line);
 	} while (line == NULL);
 
-	i_stream_unref(input);
+	i_stream_unref(&input);
 }
 
 int master_connect(const char *group_name)
@@ -248,5 +247,5 @@ void master_deinit(void)
 	hash_destroy(master_requests);
 
 	if (io_master != NULL)
-		io_remove(io_master);
+		io_remove(&io_master);
 }

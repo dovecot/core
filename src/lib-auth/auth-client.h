@@ -42,7 +42,7 @@ typedef void auth_connect_notify_callback_t(struct auth_client *client,
 
 /* Create new authentication client. */
 struct auth_client *auth_client_new(unsigned int client_pid);
-void auth_client_free(struct auth_client *client);
+void auth_client_free(struct auth_client **client);
 
 bool auth_client_is_connected(struct auth_client *client);
 void auth_client_set_connect_notify(struct auth_client *client,

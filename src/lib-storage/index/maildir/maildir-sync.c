@@ -840,7 +840,7 @@ maildir_sync_index_begin(struct maildir_mailbox *mbox)
 
 void maildir_sync_index_abort(struct maildir_index_sync_context *sync_ctx)
 {
-	mail_index_sync_rollback(sync_ctx->sync_ctx);
+	mail_index_sync_rollback(&sync_ctx->sync_ctx);
 	maildir_keywords_sync_deinit(sync_ctx->keywords_sync_ctx);
 	i_free(sync_ctx);
 }
@@ -955,7 +955,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 					trans, &keywords);
 				mail_index_update_keywords(trans, seq,
 							   MODIFY_REPLACE, kw);
-				mail_index_keywords_free(kw);
+				mail_index_keywords_free(&kw);
 			}
 			continue;
 		}
@@ -1057,7 +1057,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 				trans, &keywords);
 			mail_index_update_keywords(trans, seq,
 						   MODIFY_REPLACE, kw);
-			mail_index_keywords_free(kw);
+			mail_index_keywords_free(&kw);
 		}
 	}
 	maildir_uidlist_iter_deinit(iter);
@@ -1137,19 +1137,19 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 	}
 
 	if (ret < 0) {
-		mail_index_transaction_rollback(trans);
-		mail_index_sync_rollback(sync_ctx->sync_ctx);
+		mail_index_transaction_rollback(&trans);
+		mail_index_sync_rollback(&sync_ctx->sync_ctx);
 	} else {
 		uint32_t seq;
 		uoff_t offset;
 
-		if (mail_index_transaction_commit(trans, &seq, &offset) < 0)
+		if (mail_index_transaction_commit(&trans, &seq, &offset) < 0)
 			ret = -1;
 		else if (seq != 0) {
 			mbox->ibox.commit_log_file_seq = seq;
 			mbox->ibox.commit_log_file_offset = offset;
 		}
-		if (mail_index_sync_commit(sync_ctx->sync_ctx) < 0)
+		if (mail_index_sync_commit(&sync_ctx->sync_ctx) < 0)
 			ret = -1;
 	}
 	maildir_keywords_sync_deinit(sync_ctx->keywords_sync_ctx);

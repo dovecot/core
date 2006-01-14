@@ -371,7 +371,7 @@ static void index_mail_parse_body(struct index_mail *mail, bool need_parts)
 	} else {
 		message_parser_parse_body(data->parser_ctx, NULL, NULL, NULL);
 	}
-	data->parts = message_parser_deinit(data->parser_ctx);
+	data->parts = message_parser_deinit(&data->parser_ctx);
         data->parser_ctx = NULL;
 
 	if (data->parsed_bodystructure &&
@@ -734,9 +734,9 @@ index_mail_alloc(struct mailbox_transaction_context *_t,
 static void index_mail_close(struct index_mail *mail)
 {
 	if (mail->data.stream != NULL)
-		i_stream_unref(mail->data.stream);
+		i_stream_unref(&mail->data.stream);
 	if (mail->data.filter_stream != NULL)
-		i_stream_unref(mail->data.filter_stream);
+		i_stream_unref(&mail->data.filter_stream);
 }
 
 int index_mail_set_seq(struct mail *_mail, uint32_t seq)

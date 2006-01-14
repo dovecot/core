@@ -30,18 +30,18 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 				break;
 			}
 		}
-		mail_free(mail);
+		mail_free(&mail);
 	}
 
-	if (mailbox_search_deinit(ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0)
 		return FALSE;
 
 	if (failed)
-		mailbox_transaction_rollback(t);
+		mailbox_transaction_rollback(&t);
 	else {
 		flags = MAILBOX_SYNC_FLAG_FULL_READ |
 			MAILBOX_SYNC_FLAG_FULL_WRITE;
-		if (mailbox_transaction_commit(t, flags) < 0)
+		if (mailbox_transaction_commit(&t, flags) < 0)
 			failed = TRUE;
 	}
 

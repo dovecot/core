@@ -11,11 +11,12 @@ struct mail *mail_alloc(struct mailbox_transaction_context *t,
 	return t->box->v.mail_alloc(t, wanted_fields, wanted_headers);
 }
 
-void mail_free(struct mail *mail)
+void mail_free(struct mail **mail)
 {
-	struct mail_private *p = (struct mail_private *)mail;
+	struct mail_private *p = (struct mail_private *)*mail;
 
-	p->v.free(mail);
+	p->v.free(*mail);
+	*mail = NULL;
 }
 
 int mail_set_seq(struct mail *mail, uint32_t seq)

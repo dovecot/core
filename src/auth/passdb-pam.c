@@ -336,10 +336,10 @@ static void pam_child_input(void *context)
 				       "close(child input) failed: %m");
 	}
 
-	if (auth_request_unref(auth_request))
-		request->callback(result, auth_request);
+	request->callback(result, auth_request);
+	auth_request_unref(&auth_request);
 
-	io_remove(request->io);
+	io_remove(&request->io);
 	i_free(request);
 }
 
@@ -352,10 +352,9 @@ static void wait_timeout(void *context)
 	/* FIXME: if we ever do some other kind of forking, this needs fixing */
 	while ((pid = waitpid(-1, &status, WNOHANG)) != 0) {
 		if (pid == -1) {
-			if (errno == ECHILD) {
-				timeout_remove(module->to_wait);
-				module->to_wait = NULL;
-			} else if (errno != EINTR)
+			if (errno == ECHILD)
+				timeout_remove(&module->to_wait);
+			else if (errno != EINTR)
 				i_error("waitpid() failed: %m");
 			return;
 		}
@@ -462,7 +461,7 @@ static void pam_deinit(struct passdb_module *_module)
         struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
 
 	if (module->to_wait != NULL)
-		timeout_remove(module->to_wait);
+		timeout_remove(&module->to_wait);
 }
 
 struct passdb_module_interface passdb_pam = {

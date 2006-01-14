@@ -28,7 +28,7 @@ static void _destroy(struct _iostream *stream)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
-	o_stream_unref(cstream->output);
+	o_stream_unref(&cstream->output);
 }
 
 static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)

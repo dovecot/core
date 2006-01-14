@@ -215,8 +215,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	if (o_stream_flush(output) < 0) {
 		errno = output->stream_errno;
 		mail_cache_set_syscall_error(cache, "o_stream_flush()");
-		(void)mail_index_transaction_rollback(t);
-		o_stream_unref(output);
+		(void)mail_index_transaction_rollback(&t);
+		o_stream_unref(&output);
 		return -1;
 	}
 
@@ -225,15 +225,15 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		(void)file_set_size(fd, MAIL_CACHE_INITIAL_SIZE);
 	}
 
-	o_stream_unref(output);
+	o_stream_unref(&output);
 
 	if (fdatasync(fd) < 0) {
 		mail_cache_set_syscall_error(cache, "fdatasync()");
-		(void)mail_index_transaction_rollback(t);
+		(void)mail_index_transaction_rollback(&t);
 		return -1;
 	}
 
-	return mail_index_transaction_commit(t, &seq, &offset);
+	return mail_index_transaction_commit(&t, &seq, &offset);
 }
 
 static int mail_cache_compress_locked(struct mail_cache *cache,

@@ -192,6 +192,6 @@ void passdb_deinit(struct auth_passdb *passdb)
 		passdb->passdb->iface.deinit(passdb->passdb);
 #ifdef HAVE_MODULES
 	if (passdb->module != NULL)
-                auth_module_close(passdb->module);
+                auth_module_close(&passdb->module);
 #endif
 }

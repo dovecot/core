@@ -50,8 +50,11 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	return index;
 }
 
-void mail_index_free(struct mail_index *index)
+void mail_index_free(struct mail_index **_index)
 {
+	struct mail_index *index = *_index;
+
+	*_index = NULL;
 	mail_index_close(index);
 
 	hash_destroy(index->keywords_hash);
@@ -569,8 +572,11 @@ static void mail_index_map_clear(struct mail_index *index,
 	}
 }
 
-void mail_index_unmap(struct mail_index *index, struct mail_index_map *map)
+void mail_index_unmap(struct mail_index *index, struct mail_index_map **_map)
 {
+	struct mail_index_map *map = *_map;
+
+	*_map = NULL;
 	if (--map->refcount > 0)
 		return;
 
@@ -819,7 +825,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 					  max_seq, max_offset,
 					  MAIL_TRANSACTION_TYPE_MASK) <= 0) {
 		/* can't use it. sync by re-reading index. */
-		mail_transaction_log_view_close(log_view);
+		mail_transaction_log_view_close(&log_view);
 		return 0;
 	}
 
@@ -847,8 +853,8 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 		index->map->hdr.log_file_ext_offset = prev_offset;
 
 	mail_index_sync_map_deinit(&sync_map_ctx);
-	mail_index_view_close(view);
-	mail_transaction_log_view_close(log_view);
+	mail_index_view_close(&view);
+	mail_transaction_log_view_close(&log_view);
 
 	*map = index->map;
 	index->map = NULL;
@@ -1031,7 +1037,7 @@ int mail_index_map(struct mail_index *index, bool force)
 
 	if (ret <= 0) {
 		mail_index_map_clear(index, map);
-		mail_index_unmap(index, map);
+		mail_index_unmap(index, &map);
 		index->mapping = FALSE;
 		return ret;
 	}
@@ -1508,20 +1514,12 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 
 void mail_index_close(struct mail_index *index)
 {
-	if (index->log != NULL) {
-		mail_transaction_log_close(index->log);
-		index->log = NULL;
-	}
-
-	if (index->map != NULL) {
-		mail_index_unmap(index, index->map);
-		index->map = NULL;
-	}
-
-	if (index->cache != NULL) {
-		mail_cache_free(index->cache);
-		index->cache = NULL;
-	}
+	if (index->log != NULL)
+		mail_transaction_log_close(&index->log);
+	if (index->map != NULL)
+		mail_index_unmap(index, &index->map);
+	if (index->cache != NULL)
+		mail_cache_free(&index->cache);
 
 	if (index->fd != -1) {
 		if (close(index->fd) < 0)
@@ -1529,10 +1527,8 @@ void mail_index_close(struct mail_index *index)
 		index->fd = -1;
 	}
 
-	i_free(index->copy_lock_path);
-	index->copy_lock_path = NULL;
-	i_free(index->filepath);
-	index->filepath = NULL;
+	i_free_and_null(index->copy_lock_path);
+	i_free_and_null(index->filepath);
 
 	index->indexid = 0;
 	index->opened = FALSE;
@@ -1587,12 +1583,12 @@ int mail_index_reopen(struct mail_index *index, int fd)
 		mail_index_unlock(index, lock_id);
 
 	if (ret == 0) {
-		mail_index_unmap(index, old_map);
+		mail_index_unmap(index, &old_map);
 		if (close(old_fd) < 0)
 			mail_index_set_syscall_error(index, "close()");
 	} else {
 		if (index->map != NULL)
-			mail_index_unmap(index, index->map);
+			mail_index_unmap(index, &index->map);
 		if (index->fd != -1) {
 			if (close(index->fd) < 0)
 				mail_index_set_syscall_error(index, "close()");

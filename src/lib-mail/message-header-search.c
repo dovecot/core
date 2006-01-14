@@ -71,8 +71,9 @@ message_header_search_init(pool_t pool, const char *key, const char *charset,
 	return ctx;
 }
 
-void message_header_search_free(struct header_search_context *ctx)
+void message_header_search_free(struct header_search_context **_ctx)
 {
+        struct header_search_context *ctx = *_ctx;
 	pool_t pool;
 
 	buffer_free(ctx->match_buf);
@@ -81,6 +82,8 @@ void message_header_search_free(struct header_search_context *ctx)
 	p_free(pool, ctx->key);
 	p_free(pool, ctx->key_charset);
 	p_free(pool, ctx);
+
+	*_ctx = NULL;
 }
 
 static void search_with_charset(const unsigned char *data, size_t size,

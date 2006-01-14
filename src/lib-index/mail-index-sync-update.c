@@ -20,10 +20,10 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 	/* if map still exists after this, it's only in views. */
 	view->map->write_to_disk = FALSE;
 
-	mail_index_unmap(view->index, view->map);
+	mail_index_unmap(view->index, &view->map);
 	view->map = map;
 	view->map->refcount++;
-	mail_index_unmap(view->index, view->index->map);
+	mail_index_unmap(view->index, &view->index->map);
 	view->index->map = map;
 	view->index->hdr = &map->hdr;
 
@@ -625,7 +625,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	}
 	i_assert(map->hdr.base_header_size >= sizeof(map->hdr));
 
-	mail_index_unmap(index, view->map);
+	mail_index_unmap(index, &view->map);
 	view->map = map;
 	view->map->refcount++;
 
@@ -681,7 +681,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 			}
 			if (map != index->map) {
 				map = index->map;
-				mail_index_unmap(view->index, view->map);
+				mail_index_unmap(view->index, &view->map);
 				view->map = map;
 				view->map->refcount++;
 			}

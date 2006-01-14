@@ -61,7 +61,7 @@ struct charset_translation *charset_to_utf8_begin(const char *charset,
 	return NULL;
 }
 
-void charset_to_utf8_end(struct charset_translation *t __attr_unused__)
+void charset_to_utf8_end(struct charset_translation **t __attr_unused__)
 {
 }
 

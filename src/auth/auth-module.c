@@ -73,10 +73,12 @@ struct auth_module *auth_module_open(const char *name)
 	return module;
 }
 
-void auth_module_close(struct auth_module *module)
+void auth_module_close(struct auth_module **_module)
 {
+        struct auth_module *module = *_module;
 	struct auth_module **pos;
 
+	*_module = NULL;
 	if (--module->refcount > 0)
 		return;
 

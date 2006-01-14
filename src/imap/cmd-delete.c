@@ -26,7 +26,7 @@ bool cmd_delete(struct client_command_context *cmd)
 		storage = mailbox_get_storage(mailbox);
 		client->mailbox = NULL;
 
-		if (mailbox_close(mailbox) < 0)
+		if (mailbox_close(&mailbox) < 0)
 			client_send_untagged_storage_error(client, storage);
 	} else {
 		storage = client_find_storage(cmd, &name);

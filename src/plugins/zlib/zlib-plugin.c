@@ -57,7 +57,7 @@ zlib_mailbox_open(struct mail_storage *storage, const char *name,
 	box = qstorage->super.mailbox_open(storage, name, input, flags);
 
 	if (zlib_input != NULL)
-		i_stream_unref(zlib_input);
+		i_stream_unref(&zlib_input);
 
 	return box;
 }

@@ -57,7 +57,7 @@ void dict_cache_unref(struct dict_cache *cache, const char *uri)
 		return;
 
 	hash_remove(cache->dicts, uri);
-	dict_deinit(entry->dict);
+	dict_deinit(&entry->dict);
 	i_free(entry->uri);
 	i_free(entry);
 }

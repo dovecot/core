@@ -298,10 +298,8 @@ static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
 
 	conn->connected = FALSE;
 
-	if (conn->io != NULL) {
-		io_remove(conn->io);
-		conn->io = NULL;
-	}
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 
 	if (conn->ld != NULL) {
 		ldap_unbind(conn->ld);
@@ -453,10 +451,12 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	return conn;
 }
 
-void db_ldap_unref(struct ldap_connection *conn)
+void db_ldap_unref(struct ldap_connection **_conn)
 {
+        struct ldap_connection *conn = *_conn;
 	struct ldap_connection **p;
 
+	*_conn = NULL;
 	i_assert(conn->refcount >= 0);
 	if (--conn->refcount > 0)
 		return;

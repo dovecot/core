@@ -165,7 +165,7 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
         list_namespace_inbox(client, ctx);
 	t_pop();
 
-	ret = mail_storage_mailbox_list_deinit(ctx->list_ctx);
+	ret = mail_storage_mailbox_list_deinit(&ctx->list_ctx);
 	ctx->list_ctx = NULL;
 	return ret < 0 ? -1 : 1;
 }

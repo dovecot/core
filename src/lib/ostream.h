@@ -30,7 +30,8 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 /* Reference counting. References start from 1, so calling o_stream_unref()
    destroys the stream if o_stream_ref() is never used. */
 void o_stream_ref(struct ostream *stream);
-void o_stream_unref(struct ostream *stream);
+/* Unreferences the stream and sets stream pointer to NULL. */
+void o_stream_unref(struct ostream **stream);
 
 /* Mark the stream closed. Nothing will be sent after this call. */
 void o_stream_close(struct ostream *stream);

@@ -159,7 +159,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 		       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 		o_stream_create_crlf(default_pool, output) :
 		o_stream_create_lf(default_pool, output);
-	o_stream_unref(output);
+	o_stream_unref(&output);
 
 	flags &= ~MAIL_RECENT;
 	if (mbox->ibox.keep_recent)
@@ -255,8 +255,7 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	}
 
 	output_errno = ctx->output->stream_errno;
-	o_stream_unref(ctx->output);
-	ctx->output = NULL;
+	o_stream_unref(&ctx->output);
 
 	/* FIXME: when saving multiple messages, we could get better
 	   performance if we left the fd open and fsync()ed it later */

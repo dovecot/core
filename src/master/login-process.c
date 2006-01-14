@@ -361,7 +361,7 @@ static void login_process_destroy(struct login_process *p)
 		p->group->listening_processes--;
 
 	o_stream_close(p->output);
-	io_remove(p->io);
+	io_remove(&p->io);
 	if (close(p->fd) < 0)
 		i_error("close(login) failed: %m");
 
@@ -382,7 +382,7 @@ static void login_process_unref(struct login_process *p)
 	if (--p->refcount > 0)
 		return;
 
-	o_stream_unref(p->output);
+	o_stream_unref(&p->output);
 	i_free(p);
 }
 
@@ -718,9 +718,9 @@ void login_processes_init(void)
 void login_processes_deinit(void)
 {
 	if (to != NULL)
-		timeout_remove(to);
+		timeout_remove(&to);
 	if (io_listen != NULL)
-		io_remove(io_listen);
+		io_remove(&io_listen);
 
         login_processes_destroy_all();
 	hash_destroy(processes);

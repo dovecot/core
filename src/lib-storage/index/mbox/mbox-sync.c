@@ -401,7 +401,7 @@ mbox_sync_update_index_keywords(struct mbox_sync_mail_context *mail_ctx)
 						&mail_ctx->mail.keywords);
 	mail_index_update_keywords(sync_ctx->t, sync_ctx->idx_seq,
 				   MODIFY_REPLACE, keywords);
-	mail_index_keywords_free(keywords);
+	mail_index_keywords_free(&keywords);
 }
 
 static int
@@ -1457,7 +1457,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		i_assert(sync_ctx->mbox->mbox_sync_dirty);
 		mbox_sync_restart(sync_ctx);
 
-		mail_index_transaction_rollback(sync_ctx->t);
+		mail_index_transaction_rollback(&sync_ctx->t);
 		sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view,
 							   FALSE, TRUE);
 
@@ -1525,12 +1525,12 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 static void mbox_sync_context_free(struct mbox_sync_context *sync_ctx)
 {
 	if (sync_ctx->t != NULL)
-		mail_index_transaction_rollback(sync_ctx->t);
+		mail_index_transaction_rollback(&sync_ctx->t);
 	if (sync_ctx->index_sync_ctx != NULL)
-		mail_index_sync_rollback(sync_ctx->index_sync_ctx);
+		mail_index_sync_rollback(&sync_ctx->index_sync_ctx);
 	pool_unref(sync_ctx->mail_keyword_pool);
-	str_free(sync_ctx->header);
-	str_free(sync_ctx->from_line);
+	str_free(&sync_ctx->header);
+	str_free(&sync_ctx->from_line);
 	array_free(&sync_ctx->mails);
 	array_free(&sync_ctx->syncs);
 }
@@ -1625,7 +1625,7 @@ __again:
 
 		/* index may need to do internal syncing though, so commit
 		   instead of rollbacking. */
-		if (mail_index_sync_commit(index_sync_ctx) < 0) {
+		if (mail_index_sync_commit(&index_sync_ctx) < 0) {
 			mail_storage_set_index_error(&mbox->ibox);
 			return -1;
 		}
@@ -1663,7 +1663,7 @@ __again:
 		if (mbox_sync_read_index_syncs(&sync_ctx, 1, &expunged) < 0)
 			return -1;
 		if (sync_ctx.sync_rec.uid1 == 0) {
-			if (mail_index_transaction_commit(sync_ctx.t,
+			if (mail_index_transaction_commit(&sync_ctx.t,
 							  &seq, &offset) < 0) {
 				mail_storage_set_index_error(&mbox->ibox);
 				mbox_sync_context_free(&sync_ctx);
@@ -1701,8 +1701,9 @@ __again:
 	ret = mbox_sync_do(&sync_ctx, flags);
 
 	if (ret < 0)
-		mail_index_transaction_rollback(sync_ctx.t);
-	else if (mail_index_transaction_commit(sync_ctx.t, &seq, &offset) < 0) {
+		mail_index_transaction_rollback(&sync_ctx.t);
+	else if (mail_index_transaction_commit(&sync_ctx.t,
+					       &seq, &offset) < 0) {
 		mail_storage_set_index_error(&mbox->ibox);
 		ret = -1;
 	} else {
@@ -1712,8 +1713,8 @@ __again:
 	sync_ctx.t = NULL;
 
 	if (ret < 0)
-		mail_index_sync_rollback(index_sync_ctx);
-	else if (mail_index_sync_commit(index_sync_ctx) < 0) {
+		mail_index_sync_rollback(&index_sync_ctx);
+	else if (mail_index_sync_commit(&index_sync_ctx) < 0) {
 		mail_storage_set_index_error(&mbox->ibox);
 		ret = -1;
 	}

@@ -213,9 +213,9 @@ static bool expunge_mails(struct client *client)
 			}
 		}
 	}
-	mail_free(mail);
+	mail_free(&mail);
 
-	if (mailbox_search_deinit(ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0)
 		ret = FALSE;
 	return ret;
 }
@@ -231,8 +231,8 @@ static int cmd_quit(struct client *client, const char *args __attr_unused__)
 		}
 	}
 
-	mailbox_transaction_commit(client->trans, MAILBOX_SYNC_FLAG_FULL_WRITE);
-	client->trans = NULL;
+	mailbox_transaction_commit(&client->trans,
+				   MAILBOX_SYNC_FLAG_FULL_WRITE);
 
 	if (!client->deleted)
 		client_send_line(client, "+OK Logging out.");
@@ -258,8 +258,8 @@ struct fetch_context {
 
 static void fetch_deinit(struct fetch_context *ctx)
 {
-	(void)mailbox_search_deinit(ctx->search_ctx);
-	mail_free(ctx->mail);
+	(void)mailbox_search_deinit(&ctx->search_ctx);
+	mail_free(&ctx->mail);
 	i_free(ctx);
 }
 
@@ -443,7 +443,7 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 	}
 
 	/* forget all our seen flag updates as well.. */
-	mailbox_transaction_rollback(client->trans);
+	mailbox_transaction_rollback(&client->trans);
 	client->trans = mailbox_transaction_begin(client->mailbox, 0);
 
 	if (enable_last_command) {
@@ -463,8 +463,8 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 					      MAIL_SEEN) < 0)
 				break;
 		}
-		mail_free(mail);
-		(void)mailbox_search_deinit(search_ctx);
+		mail_free(&mail);
+		(void)mailbox_search_deinit(&search_ctx);
 	}
 
 	client_send_line(client, "+OK");
@@ -579,15 +579,15 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		if (ret == 0 && ctx->message == 0) {
 			/* output is being buffered, continue when there's
 			   more space */
-			str_free(str);
+			str_free(&str);
 			return 0;
 		}
 	}
-	str_free(str);
+	str_free(&str);
 
 	/* finished */
-	mail_free(ctx->mail);
-	(void)mailbox_search_deinit(ctx->search_ctx);
+	mail_free(&ctx->mail);
+	(void)mailbox_search_deinit(&ctx->search_ctx);
 
 	client->cmd = NULL;
 

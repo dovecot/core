@@ -34,11 +34,11 @@ static void _view_close(struct mail_index_view *view)
 	i_assert(view->refcount == 0);
 
 	mail_index_view_unlock(view);
-	mail_transaction_log_view_close(view->log_view);
+	mail_transaction_log_view_close(&view->log_view);
 
 	if (array_is_created(&view->log_syncs))
 		array_free(&view->log_syncs);
-	mail_index_unmap(view->index, view->map);
+	mail_index_unmap(view->index, &view->map);
 	if (array_is_created(&view->map_refs)) {
 		mail_index_view_unref_maps(view);
 		array_free(&view->map_refs);
@@ -153,15 +153,15 @@ static void mail_index_view_ref_map(struct mail_index_view *view,
 
 void mail_index_view_unref_maps(struct mail_index_view *view)
 {
-	struct mail_index_map *const *maps;
+	struct mail_index_map **maps;
 	unsigned int i, count;
 
 	if (!array_is_created(&view->map_refs))
 		return;
 
-	maps = array_get(&view->map_refs, &count);
+	maps = array_get_modifyable(&view->map_refs, &count);
 	for (i = 0; i < count; i++)
-		mail_index_unmap(view->index, maps[i]);
+		mail_index_unmap(view->index, &maps[i]);
 
 	array_clear(&view->map_refs);
 }
@@ -439,8 +439,11 @@ static int _view_get_header_ext(struct mail_index_view *view,
 	return 0;
 }
 
-void mail_index_view_close(struct mail_index_view *view)
+void mail_index_view_close(struct mail_index_view **_view)
 {
+	struct mail_index_view *view = *_view;
+
+	*_view = NULL;
 	if (--view->refcount > 0)
 		return;
 

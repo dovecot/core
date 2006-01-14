@@ -248,7 +248,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	int ret = ctx->failed ? -1 : 0;
 
 	if (ctx->sync_ctx != NULL)
-		mail_index_view_sync_end(ctx->sync_ctx);
+		mail_index_view_sync_end(&ctx->sync_ctx);
 
 	if (ret == 0) {
 		messages_count = mail_index_view_get_messages_count(ibox->view);

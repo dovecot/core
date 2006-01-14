@@ -109,18 +109,18 @@ bool cmd_store(struct client_command_context *cmd)
 			}
 		}
 	}
-	mail_free(mail);
+	mail_free(&mail);
 
 	if (keywords != NULL)
-		mailbox_keywords_free(t, keywords);
+		mailbox_keywords_free(t, &keywords);
 
-	if (mailbox_search_deinit(search_ctx) < 0)
+	if (mailbox_search_deinit(&search_ctx) < 0)
 		failed = TRUE;
 
 	if (failed)
-		mailbox_transaction_rollback(t);
+		mailbox_transaction_rollback(&t);
 	else {
-		if (mailbox_transaction_commit(t, 0) < 0)
+		if (mailbox_transaction_commit(&t, 0) < 0)
 			failed = TRUE;
 	}
 

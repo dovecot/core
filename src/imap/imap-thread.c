@@ -142,17 +142,17 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 	while (mailbox_search_next(ctx->search_ctx, mail) > 0)
 		mail_thread_input(ctx, mail);
 
-	mail_free(mail);
+	mail_free(&mail);
 
 	o_stream_send_str(client->output, "* THREAD");
 	mail_thread_finish(ctx);
 	o_stream_send_str(client->output, "\r\n");
 
-	ret = mailbox_search_deinit(ctx->search_ctx);
-	if (mailbox_transaction_commit(ctx->t, 0) < 0)
+	ret = mailbox_search_deinit(&ctx->search_ctx);
+	if (mailbox_transaction_commit(&ctx->t, 0) < 0)
 		ret = -1;
 
-	mailbox_header_lookup_deinit(headers_ctx);
+	mailbox_header_lookup_deinit(&headers_ctx);
         mail_thread_deinit(ctx);
 	return ret;
 }
@@ -708,8 +708,8 @@ static void gather_base_subjects(struct thread_context *ctx)
 		}
 	}
 
-	mail_free(ctx->mail);
-	mailbox_header_lookup_deinit(headers_ctx);
+	mail_free(&ctx->mail);
+	mailbox_header_lookup_deinit(&headers_ctx);
 }
 
 static void reset_children_parent(struct node *parent)

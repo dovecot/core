@@ -27,7 +27,8 @@ struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
 /* Reference counting. References start from 1, so calling i_stream_unref()
    destroys the stream if i_stream_ref() is never used. */
 void i_stream_ref(struct istream *stream);
-void i_stream_unref(struct istream *stream);
+/* Unreferences the stream and sets stream pointer to NULL. */
+void i_stream_unref(struct istream **stream);
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int i_stream_get_fd(struct istream *stream);

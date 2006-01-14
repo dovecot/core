@@ -39,7 +39,7 @@ int dbox_file_lookup_offset(struct dbox_mailbox *mbox,
 void dbox_file_close(struct dbox_file *file)
 {
 	if (file->input != NULL)
-		i_stream_unref(file->input);
+		i_stream_unref(&file->input);
 	if (file->fd != -1) {
 		if (close(file->fd) < 0)
 			i_error("close(dbox) failed: %m");

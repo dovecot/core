@@ -21,7 +21,7 @@ static void _destroy(struct _iostream *stream)
 	/* get to same position in parent stream */
 	i_stream_seek(lstream->input, lstream->v_start_offset +
 		      lstream->istream.istream.v_offset);
-	i_stream_unref(lstream->input);
+	i_stream_unref(&lstream->input);
 }
 
 static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)

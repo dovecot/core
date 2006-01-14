@@ -95,9 +95,7 @@ handle_request_get_entry(struct ldap_connection *conn,
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 
-	if (!auth_request_unref(auth_request)) {
-		/* Auth request is already aborted */
-	} else if (res != NULL) {
+	if (res != NULL) {
 		/* LDAP query returned something */
 		ret = ldap_result2error(conn->ld, res, 0);
 		if (ret != LDAP_SUCCESS) {
@@ -120,6 +118,7 @@ handle_request_get_entry(struct ldap_connection *conn,
 	}
 
 	request->callback.verify_plain(passdb_result, auth_request);
+	auth_request_unref(&auth_request);
 	return NULL;
 }
 
@@ -164,6 +163,7 @@ static void handle_request(struct ldap_connection *conn,
 		passdb_handle_credentials(passdb_result, password, scheme,
 			ldap_request->callback.lookup_credentials,
 			auth_request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
@@ -171,6 +171,7 @@ static void handle_request(struct ldap_connection *conn,
 	if (password == NULL) {
 		ldap_request->callback.verify_plain(passdb_result,
 						    auth_request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
@@ -187,6 +188,7 @@ static void handle_request(struct ldap_connection *conn,
 	ldap_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					    PASSDB_RESULT_PASSWORD_MISMATCH,
 					    auth_request);
+	auth_request_unref(&auth_request);
 }
 
 static void
@@ -201,9 +203,7 @@ handle_request_authbind(struct ldap_connection *conn,
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 
-	if (!auth_request_unref(auth_request)) {
-		/* Auth request is already aborted */
-	} else if (res != NULL) {
+	if (res != NULL) {
 		ret = ldap_result2error(conn->ld, res, 0);
 		if (ret == LDAP_SUCCESS)
 			passdb_result = PASSDB_RESULT_OK;
@@ -217,6 +217,7 @@ handle_request_authbind(struct ldap_connection *conn,
 	}
 
 	passdb_ldap_request->callback.verify_plain(passdb_result, auth_request);
+        auth_request_unref(&auth_request);
 }
 
 static void authbind_start(struct ldap_connection *conn,
@@ -261,6 +262,7 @@ handle_request_authbind_search(struct ldap_connection *conn,
 	ldap_request->callback = handle_request_authbind;
 
         authbind_start(conn, ldap_request, ldap_get_dn(conn->ld, entry));
+	auth_request_unref(&auth_request);
 }
 
 static void ldap_lookup_pass(struct auth_request *auth_request,
@@ -428,7 +430,7 @@ static void passdb_ldap_deinit(struct passdb_module *_module)
 	struct ldap_passdb_module *module =
 		(struct ldap_passdb_module *)_module;
 
-	db_ldap_unref(module->conn);
+	db_ldap_unref(&module->conn);
 }
 
 struct passdb_module_interface passdb_ldap = {

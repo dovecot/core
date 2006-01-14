@@ -146,23 +146,18 @@ __err:
 	for (i = 0; i < count; i++) {
 		struct trash_mailbox *trash = &trashes[i];
 
-		mail_free(trash->mail);
-		trash->mail = NULL;
-
-		(void)mailbox_search_deinit(trash->search_ctx);
-		trash->search_ctx = NULL;
+		mail_free(&trash->mail);
+		(void)mailbox_search_deinit(&trash->search_ctx);
 
 		if (size_needed == 0) {
-			(void)mailbox_transaction_commit(trash->trans,
+			(void)mailbox_transaction_commit(&trash->trans,
 				MAILBOX_SYNC_FLAG_FULL_WRITE);
 		} else {
 			/* couldn't get enough space, don't expunge anything */
-                        mailbox_transaction_rollback(trash->trans);
+                        mailbox_transaction_rollback(&trash->trans);
 		}
-		trash->trans = NULL;
 
-		mailbox_close(trash->box);
-		trash->box = NULL;
+		mailbox_close(&trash->box);
 	}
 	return size_needed == 0;
 }
@@ -265,7 +260,7 @@ static int read_configuration(const char *path)
 		trash->name = p_strdup(config_pool, name+1);
 		trash->priority = atoi(t_strdup_until(line, name));
 	}
-	i_stream_unref(input);
+	i_stream_unref(&input);
 	(void)close(fd);
 
 	qsort(array_get_modifyable(&trash_boxes, NULL),

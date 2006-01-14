@@ -512,7 +512,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			str_append_c(ctx->header, '\n');
 	}
 	i_assert(ret != 0);
-	message_parse_header_deinit(hdr_ctx);
+	message_parse_header_deinit(&hdr_ctx);
 
 	mbox_md5_finish(mbox_md5_ctx, ctx->hdr_md5_sum);
 
@@ -575,7 +575,7 @@ int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 		}
 	}
 	i_assert(ret != 0);
-	message_parse_header_deinit(hdr_ctx);
+	message_parse_header_deinit(&hdr_ctx);
 
 	mbox_md5_finish(mbox_md5_ctx, ctx.hdr_md5_sum);
 

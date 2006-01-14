@@ -182,7 +182,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 		}
 		t_pop();
 	}
-	i_stream_unref(input);
+	i_stream_unref(&input);
 	return TRUE;
 }
 
@@ -312,12 +312,14 @@ struct db_passwd_file *db_passwd_file_parse(const char *path, bool userdb)
 	return db;
 }
 
-void db_passwd_file_unref(struct db_passwd_file *db)
+void db_passwd_file_unref(struct db_passwd_file **_db)
 {
+        struct db_passwd_file *db = *_db;
         struct db_passwd_file **p;
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
+	*_db = NULL;
 	i_assert(db->refcount >= 0);
 	if (--db->refcount > 0)
 		return;

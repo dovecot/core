@@ -86,9 +86,10 @@ imap_match_init(pool_t pool, const char *mask, bool inboxcase, char separator)
 	return glob;
 }
 
-void imap_match_deinit(struct imap_match_glob *glob)
+void imap_match_deinit(struct imap_match_glob **glob)
 {
-	p_free(glob->pool, glob);
+	p_free((*glob)->pool, *glob);
+	*glob = NULL;
 }
 
 static inline bool cmp_chr(const struct imap_match_glob *glob,

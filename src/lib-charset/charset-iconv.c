@@ -48,8 +48,12 @@ struct charset_translation *charset_to_utf8_begin(const char *charset,
 	return t;
 }
 
-void charset_to_utf8_end(struct charset_translation *t)
+void charset_to_utf8_end(struct charset_translation **_t)
 {
+	struct charset_translation *t = *_t;
+
+	*_t = NULL;
+
 	if (t->cd != (iconv_t)-1)
 		iconv_close(t->cd);
 	i_free(t);

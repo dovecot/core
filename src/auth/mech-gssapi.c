@@ -115,7 +115,7 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 				       GSS_C_NT_HOSTBASED_SERVICE,
 				       &gss_principal);
 
-	str_free(principal_name);
+	str_free(&principal_name);
 
 	if (GSS_ERROR(major_status)) {
 		auth_request_log_gss_error(request, major_status,

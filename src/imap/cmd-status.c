@@ -71,7 +71,7 @@ get_mailbox_status(struct client *client, struct mail_storage *storage,
 		failed = mailbox_get_status(box, items, status) < 0;
 
 	if (box != client->mailbox)
-		mailbox_close(box);
+		mailbox_close(&box);
 
 	return !failed;
 }

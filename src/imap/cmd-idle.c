@@ -32,14 +32,10 @@ static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
 {
 	struct client *client = ctx->client;
 
-	if (ctx->idle_to != NULL) {
-		timeout_remove(ctx->idle_to);
-		ctx->idle_to = NULL;
-	}
-	if (ctx->keepalive_to != NULL) {
-		timeout_remove(ctx->keepalive_to);
-		ctx->keepalive_to = NULL;
-	}
+	if (ctx->idle_to != NULL)
+		timeout_remove(&ctx->idle_to);
+	if (ctx->keepalive_to != NULL)
+		timeout_remove(&ctx->keepalive_to);
 
 	if (ctx->sync_ctx != NULL) {
 		/* we're here only in connection failure cases */
@@ -54,8 +50,7 @@ static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
 			t_strdup_printf("* %u EXPUNGE", ctx->dummy_seq));
 	}
 
-	io_remove(client->io);
-	client->io = NULL;
+	io_remove(&client->io);
 
 	if (client->mailbox != NULL)
 		mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
@@ -97,8 +92,7 @@ static void idle_client_input(void *context)
 	if (ctx->sync_ctx != NULL) {
 		/* we're still sending output to client. wait until it's all
 		   sent so we don't lose any changes. */
-		io_remove(client->io);
-		client->io = NULL;
+		io_remove(&client->io);
 		return;
 	}
 
@@ -130,8 +124,7 @@ static void idle_timeout(void *context)
 	   we're about to disconnect unless it does something. send a fake
 	   EXISTS to see if it responds. it's expunged later. */
 
-	timeout_remove(ctx->idle_to);
-	ctx->idle_to = NULL;
+	timeout_remove(&ctx->idle_to);
 
 	if (ctx->sync_ctx != NULL) {
 		/* we're already syncing.. do this after it's finished */
@@ -246,7 +239,7 @@ bool cmd_idle(struct client_command_context *cmd)
 	}
 	client_send_line(client, "+ idling");
 
-	io_remove(client->io);
+	io_remove(&client->io);
 	client->io = io_add(i_stream_get_fd(client->input),
 			    IO_READ, idle_client_input, ctx);
 

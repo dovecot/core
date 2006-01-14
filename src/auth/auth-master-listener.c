@@ -51,17 +51,20 @@ auth_master_listener_socket_free(struct auth_master_listener_socket *socket)
 	}
 
 	net_disconnect(socket->fd);
-	io_remove(socket->io);
+	io_remove(&socket->io);
 	i_free(socket);
 }
 
-void auth_master_listener_destroy(struct auth_master_listener *listener)
+void auth_master_listener_destroy(struct auth_master_listener **_listener)
 {
+        struct auth_master_listener *listener = *_listener;
 	struct auth_master_listener *const *listeners;
-	struct auth_master_listener_socket *const *sockets;
-	struct auth_master_connection *const *masters;
-	struct auth_client_connection *const *clients;
+	struct auth_master_listener_socket **sockets;
+	struct auth_master_connection **masters;
+	struct auth_client_connection **clients;
 	unsigned int i, count;
+
+	*_listener = NULL;
 
 	listeners = array_get(&master_listeners, &count);
 	for (i = 0; i < count; i++) {
@@ -71,17 +74,17 @@ void auth_master_listener_destroy(struct auth_master_listener *listener)
 		}
 	}
 
-	sockets = array_get(&listener->sockets, &count);
+	sockets = array_get_modifyable(&listener->sockets, &count);
 	for (i = count; i > 0; i--)
 		auth_master_listener_socket_free(sockets[i-1]);
 
-	masters = array_get(&listener->masters, &count);
+	masters = array_get_modifyable(&listener->masters, &count);
 	for (i = count; i > 0; i--)
-		auth_master_connection_destroy(masters[i-1]);
+		auth_master_connection_destroy(&masters[i-1]);
 
-	clients = array_get(&listener->clients, &count);
+	clients = array_get_modifyable(&listener->clients, &count);
 	for (i = count; i > 0; i--)
-		auth_client_connection_destroy(clients[i-1]);
+		auth_client_connection_destroy(&clients[i-1]);
 
         auth_client_connections_deinit(listener);
 	array_free(&listener->sockets);
@@ -174,11 +177,11 @@ void auth_master_listeners_init(void)
 
 void auth_master_listeners_deinit(void)
 {
-        struct auth_master_listener *const *listeners;
+        struct auth_master_listener **listeners;
 	unsigned int i, count;
 
-	listeners = array_get(&master_listeners, &count);
+	listeners = array_get_modifyable(&master_listeners, &count);
 	for (i = count; i > 0; i--)
-		auth_master_listener_destroy(listeners[i-1]);
+		auth_master_listener_destroy(&listeners[i-1]);
 	array_free(&master_listeners);
 }

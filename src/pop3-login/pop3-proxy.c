@@ -153,10 +153,7 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 	client->proxy_password = i_strdup(password);
 
 	/* disable input until authentication is finished */
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
-
+	if (client->io != NULL)
+		io_remove(&client->io);
 	return 0;
 }

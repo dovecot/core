@@ -36,10 +36,8 @@ auth_worker_client_check_throttle(struct auth_worker_client *client)
 	    OUTBUF_THROTTLE_SIZE) {
 		/* stop reading new requests until client has read the pending
 		   replies. */
-		if (client->io != NULL) {
-			io_remove(client->io);
-			client->io = NULL;
-		}
+		if (client->io != NULL)
+			io_remove(&client->io);
 	}
 }
 
@@ -101,9 +99,9 @@ static void verify_plain_callback(enum passdb_result result,
 	str_append_c(str, '\n');
 	o_stream_send(client->output, str_data(str), str_len(str));
 
-	auth_request_unref(request);
+	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(client);
+	auth_worker_client_unref(&client);
 }
 
 static void
@@ -133,7 +131,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 
 	if (auth_request->user == NULL || auth_request->service == NULL) {
 		i_error("BUG: PASSV had missing parameters");
-		auth_request_unref(auth_request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
@@ -141,7 +139,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 		auth_request->passdb = auth_request->passdb->next;
 		if (auth_request->passdb == NULL) {
 			i_error("BUG: PASSV had invalid passdb num");
-			auth_request_unref(auth_request);
+			auth_request_unref(&auth_request);
 			return;
 		}
 	}
@@ -175,9 +173,9 @@ lookup_credentials_callback(enum passdb_result result, const char *credentials,
 	str_append_c(str, '\n');
 	o_stream_send(client->output, str_data(str), str_len(str));
 
-	auth_request_unref(request);
+	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(client);
+	auth_worker_client_unref(&client);
 }
 
 static void
@@ -209,7 +207,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 
 	if (auth_request->user == NULL || auth_request->service == NULL) {
 		i_error("BUG: PASSL had missing parameters");
-		auth_request_unref(auth_request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
@@ -217,7 +215,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 		auth_request->passdb = auth_request->passdb->next;
 		if (auth_request->passdb == NULL) {
 			i_error("BUG: PASSL had invalid passdb num");
-			auth_request_unref(auth_request);
+			auth_request_unref(&auth_request);
 			return;
 		}
 	}
@@ -241,9 +239,9 @@ lookup_user_callback(struct auth_stream_reply *reply,
 
 	o_stream_send(client->output, str_data(str), str_len(str));
 
-	auth_request_unref(auth_request);
+	auth_request_unref(&auth_request);
 	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(client);
+	auth_worker_client_unref(&client);
 }
 
 static void
@@ -262,7 +260,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 
 	if (auth_request->user == NULL || auth_request->service == NULL) {
 		i_error("BUG: USER had missing parameters");
-		auth_request_unref(auth_request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
@@ -270,7 +268,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		auth_request->userdb = auth_request->userdb->next;
 		if (auth_request->userdb == NULL) {
 			i_error("BUG: USER had invalid userdb num");
-			auth_request_unref(auth_request);
+			auth_request_unref(&auth_request);
 			return;
 		}
 	}
@@ -313,13 +311,13 @@ static void auth_worker_input(void *context)
 		return;
 	case -1:
 		/* disconnected */
-		auth_worker_client_destroy(client);
+		auth_worker_client_destroy(&client);
 		return;
 	case -2:
 		/* buffer full */
 		i_error("BUG: Auth worker server sent us more than %d bytes",
 			(int)AUTH_WORKER_MAX_LINE_LENGTH);
-		auth_worker_client_destroy(client);
+		auth_worker_client_destroy(&client);
 		return;
 	}
 
@@ -332,11 +330,11 @@ static void auth_worker_input(void *context)
 		t_pop();
 
 		if (!ret) {
-			auth_worker_client_destroy(client);
+			auth_worker_client_destroy(&client);
 			break;
 		}
 	}
-	auth_worker_client_unref(client);
+	auth_worker_client_unref(&client);
 }
 
 static int auth_worker_output(void *context)
@@ -344,7 +342,7 @@ static int auth_worker_output(void *context)
 	struct auth_worker_client *client = context;
 
 	if (o_stream_flush(client->output) < 0) {
-		auth_worker_client_destroy(client);
+		auth_worker_client_destroy(&client);
 		return 1;
 	}
 
@@ -362,7 +360,7 @@ static void auth_worker_client_timeout(void *context)
 	struct auth_worker_client *client = context;
 
 	if (client->last_request + AUTH_WORKER_MAX_IDLE <= ioloop_time)
-                auth_worker_client_destroy(client);
+                auth_worker_client_destroy(&client);
 }
 
 struct auth_worker_client *
@@ -389,20 +387,21 @@ auth_worker_client_create(struct auth *auth, int fd)
 	return client;
 }
 
-void auth_worker_client_destroy(struct auth_worker_client *client)
+void auth_worker_client_destroy(struct auth_worker_client **_client)
 {
+	struct auth_worker_client *client = *_client;
+
+	*_client = NULL;
 	if (client->fd == -1)
 		return;
 
-	timeout_remove(client->to);
+	timeout_remove(&client->to);
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 
 	net_disconnect(client->fd);
 	client->fd = -1;
@@ -410,15 +409,19 @@ void auth_worker_client_destroy(struct auth_worker_client *client)
 	io_loop_stop(ioloop);
 }
 
-void auth_worker_client_unref(struct auth_worker_client *client)
+void auth_worker_client_unref(struct auth_worker_client **_client)
 {
-	if (--client->refcount > 0)
+	struct auth_worker_client *client = *_client;
+
+	if (--client->refcount > 0) {
+		*_client = NULL;
 		return;
+	}
 
 	if (client->fd != -1)
-		auth_worker_client_destroy(client);
+		auth_worker_client_destroy(_client);
 
-	i_stream_unref(client->input);
-	o_stream_unref(client->output);
+	i_stream_unref(&client->input);
+	o_stream_unref(&client->output);
 	i_free(client);
 }

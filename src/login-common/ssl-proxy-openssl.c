@@ -66,10 +66,8 @@ static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
 					    ssl_step, proxy);
 		break;
 	case SSL_REMOVE_INPUT:
-		if (proxy->io_ssl_read != NULL) {
-			io_remove(proxy->io_ssl_read);
-			proxy->io_ssl_read = NULL;
-		}
+		if (proxy->io_ssl_read != NULL)
+			io_remove(&proxy->io_ssl_read);
 		break;
 	case SSL_ADD_OUTPUT:
 		if (proxy->io_ssl_write != NULL)
@@ -78,10 +76,8 @@ static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
 					     ssl_step, proxy);
 		break;
 	case SSL_REMOVE_OUTPUT:
-		if (proxy->io_ssl_write != NULL) {
-			io_remove(proxy->io_ssl_write);
-			proxy->io_ssl_write = NULL;
-		}
+		if (proxy->io_ssl_write != NULL)
+			io_remove(&proxy->io_ssl_write);
 		break;
 	}
 }
@@ -89,10 +85,8 @@ static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
 static void plain_block_input(struct ssl_proxy *proxy, bool block)
 {
 	if (block) {
-		if (proxy->io_plain_read != NULL) {
-			io_remove(proxy->io_plain_read);
-			proxy->io_plain_read = NULL;
-		}
+		if (proxy->io_plain_read != NULL)
+			io_remove(&proxy->io_plain_read);
 	} else {
 		if (proxy->io_plain_read == NULL) {
 			proxy->io_plain_read = io_add(proxy->fd_plain, IO_READ,
@@ -164,10 +158,8 @@ static void plain_write(void *context)
 					       plain_write, proxy);
 			}
 		} else {
-			if (proxy->io_plain_write != NULL) {
-				io_remove(proxy->io_plain_write);
-                                proxy->io_plain_write = NULL;
-			}
+			if (proxy->io_plain_write != NULL)
+				io_remove(&proxy->io_plain_write);
 		}
 
 		ssl_set_io(proxy, SSL_ADD_INPUT);
@@ -428,13 +420,13 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 	(void)net_disconnect(proxy->fd_plain);
 
 	if (proxy->io_ssl_read != NULL)
-		io_remove(proxy->io_ssl_read);
+		io_remove(&proxy->io_ssl_read);
 	if (proxy->io_ssl_write != NULL)
-		io_remove(proxy->io_ssl_write);
+		io_remove(&proxy->io_ssl_write);
 	if (proxy->io_plain_read != NULL)
-		io_remove(proxy->io_plain_read);
+		io_remove(&proxy->io_plain_read);
 	if (proxy->io_plain_write != NULL)
-		io_remove(proxy->io_plain_write);
+		io_remove(&proxy->io_plain_write);
 
 	ssl_proxy_unref(proxy);
 }

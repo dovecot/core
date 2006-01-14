@@ -57,10 +57,8 @@ static void stream_closed(struct file_ostream *fstream)
 		fstream->fd = -1;
 	}
 
-	if (fstream->io != NULL) {
-		io_remove(fstream->io);
-		fstream->io = NULL;
-	}
+	if (fstream->io != NULL)
+		io_remove(&fstream->io);
 
 	fstream->ostream.ostream.closed = TRUE;
 }
@@ -215,10 +213,9 @@ static void _cork(struct _ostream *stream, bool set)
 	int ret;
 
 	if (fstream->corked != set && !stream->ostream.closed) {
-		if (set && fstream->io != NULL) {
-			io_remove(fstream->io);
-			fstream->io = NULL;
-		} else if (!set) {
+		if (set && fstream->io != NULL)
+			io_remove(&fstream->io);
+		else if (!set) {
 			ret = buffer_flush(fstream);
 			if (fstream->io == NULL &&
 			    (ret == 0 || fstream->flush_pending)) {
@@ -343,6 +340,7 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 static void stream_send_io(void *context)
 {
 	struct file_ostream *fstream = context;
+	struct ostream *ostream = &fstream->ostream.ostream;
 	int ret;
 
 	/* Set flush_pending = FALSE first before calling the flush callback,
@@ -351,7 +349,7 @@ static void stream_send_io(void *context)
 	   forget it even if flush callback returns 1. */
 	fstream->flush_pending = FALSE;
 
-	o_stream_ref(&fstream->ostream.ostream);
+	o_stream_ref(ostream);
 	if (fstream->ostream.callback != NULL)
 		ret = fstream->ostream.callback(fstream->ostream.context);
 	else
@@ -363,8 +361,7 @@ static void stream_send_io(void *context)
 	if (!fstream->flush_pending && IS_STREAM_EMPTY(fstream)) {
 		if (fstream->io != NULL) {
 			/* all sent */
-			io_remove(fstream->io);
-			fstream->io = NULL;
+			io_remove(&fstream->io);
 		}
 	} else {
 		/* Add the IO handler if it's not there already. Callback
@@ -376,7 +373,7 @@ static void stream_send_io(void *context)
 		}
 	}
 
-	o_stream_unref(&fstream->ostream.ostream);
+	o_stream_unref(&ostream);
 }
 
 static size_t o_stream_add(struct file_ostream *fstream,

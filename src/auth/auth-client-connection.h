@@ -20,7 +20,7 @@ struct auth_client_connection {
 
 struct auth_client_connection *
 auth_client_connection_create(struct auth_master_listener *listener, int fd);
-void auth_client_connection_destroy(struct auth_client_connection *conn);
+void auth_client_connection_destroy(struct auth_client_connection **conn);
 
 struct auth_client_connection *
 auth_client_connection_lookup(struct auth_master_listener *listener,

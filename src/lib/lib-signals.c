@@ -186,7 +186,7 @@ void lib_signals_deinit(void)
 	}
 
 	if (io_sig != NULL)
-		io_remove(io_sig);
+		io_remove(&io_sig);
 	if (sig_pipe_fd[0] != -1) {
 		if (close(sig_pipe_fd[0]) < 0)
 			i_error("close(sigpipe) failed: %m");

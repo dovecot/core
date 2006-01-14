@@ -73,7 +73,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       const char *const default_attr_map[]);
 
 struct ldap_connection *db_ldap_init(const char *config_path);
-void db_ldap_unref(struct ldap_connection *conn);
+void db_ldap_unref(struct ldap_connection **conn);
 
 bool db_ldap_connect(struct ldap_connection *conn);
 

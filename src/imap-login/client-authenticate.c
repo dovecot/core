@@ -168,7 +168,7 @@ static bool client_handle_args(struct imap_client *client,
 
 	/* get back to normal client input. */
 	if (client->io != NULL)
-		io_remove(client->io);
+		io_remove(&client->io);
 	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 	return TRUE;
 }
@@ -201,7 +201,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 
 		/* get back to normal client input. */
 		if (client->io != NULL)
-			io_remove(client->io);
+			io_remove(&client->io);
 		client->io = io_add(client->common.fd, IO_READ,
 				    client_input, client);
 		break;
@@ -254,7 +254,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 
 	/* following input data will go to authentication */
 	if (client->io != NULL)
-		io_remove(client->io);
+		io_remove(&client->io);
 	client->io = io_add(client->common.fd, IO_READ,
 			    client_auth_input, client);
 	return 0;
@@ -308,10 +308,8 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 		return 1;
 
 	/* don't read any input from client until login is finished */
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 
 	return 0;
 }

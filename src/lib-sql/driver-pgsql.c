@@ -72,10 +72,8 @@ static void queue_send_next(struct pgsql_db *db);
 
 static void driver_pgsql_close(struct pgsql_db *db)
 {
-	if (db->io != NULL) {
-		io_remove(db->io);
-		db->io = NULL;
-	}
+	if (db->io != NULL)
+		io_remove(&db->io);
 	db->io_dir = 0;
 
 	PQfinish(db->pg);
@@ -131,7 +129,7 @@ static void connect_callback(void *context)
 
 	if (db->io_dir != io_dir) {
 		if (db->io != NULL)
-			io_remove(db->io);
+			io_remove(&db->io);
 		db->io = io_dir == 0 ? NULL :
 			io_add(PQsocket(db->pg), io_dir, connect_callback, db);
 		db->io_dir = io_dir;
@@ -211,8 +209,7 @@ static void consume_results(void *context)
 
 	} while (PQgetResult(db->pg) != NULL);
 
-	io_remove(db->io);
-	db->io = NULL;
+	io_remove(&db->io);
 
 	db->querying = FALSE;
 	if (db->queue != NULL && db->connected)
@@ -283,10 +280,8 @@ static void get_result(void *context)
 		return;
 	}
 
-	if (db->io != NULL) {
-		io_remove(db->io);
-		db->io = NULL;
-	}
+	if (db->io != NULL)
+		io_remove(&db->io);
 
 	result->pgres = PQgetResult(db->pg);
 	result_finish(result);
@@ -302,8 +297,7 @@ static void flush_callback(void *context)
 	if (ret > 0)
 		return;
 
-	io_remove(db->io);
-        db->io = NULL;
+	io_remove(&db->io);
 
 	if (ret < 0) {
 		db->connected = FALSE;
@@ -375,10 +369,8 @@ static void queue_timeout(void *context)
 	if (db->queue != NULL)
 		queue_send_next(db);
 
-	if (db->queue == NULL) {
-		timeout_remove(db->queue_to);
-                db->queue_to = NULL;
-	}
+	if (db->queue == NULL)
+		timeout_remove(&db->queue_to);
 }
 
 static void
@@ -477,7 +469,7 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 	else {
 		/* have to move our existing I/O handler to new I/O loop */
 		old_io = *db->io;
-		io_remove(db->io);
+		io_remove(&db->io);
 
 		db->ioloop = io_loop_create(default_pool);
 
@@ -488,8 +480,7 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 	driver_pgsql_query(_db, query, pgsql_query_s_callback, db);
 
 	io_loop_run(db->ioloop);
-	io_loop_destroy(db->ioloop);
-	db->ioloop = NULL;
+	io_loop_destroy(&db->ioloop);
 
 	i_assert(db->io == NULL);
 

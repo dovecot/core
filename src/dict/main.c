@@ -71,7 +71,7 @@ static void main_deinit(void)
 {
 	dict_server_deinit(dict_server);
 
-	module_dir_unload(modules);
+	module_dir_unload(&modules);
 
 	dict_sql_unregister();
 	dict_client_unregister();
@@ -99,7 +99,7 @@ int main(void)
         io_loop_run(ioloop);
 	main_deinit();
 
-	io_loop_destroy(ioloop);
+	io_loop_destroy(&ioloop);
 	lib_deinit();
 
 	return 0;

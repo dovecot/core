@@ -18,7 +18,7 @@
 
 #define OUTBUF_THROTTLE_SIZE (1024*50)
 
-static void auth_client_connection_unref(struct auth_client_connection *conn);
+static void auth_client_connection_unref(struct auth_client_connection **_conn);
 
 static void auth_client_input(void *context);
 static void auth_client_send(struct auth_client_connection *conn,
@@ -47,10 +47,8 @@ static void auth_client_send(struct auth_client_connection *conn,
 	    OUTBUF_THROTTLE_SIZE) {
 		/* stop reading new requests until client has read the pending
 		   replies. */
-		if (conn->io != NULL) {
-			io_remove(conn->io);
-			conn->io = NULL;
-		}
+		if (conn->io != NULL)
+			io_remove(&conn->io);
 	}
 	va_end(args);
 	t_pop();
@@ -62,7 +60,7 @@ static void auth_callback(const char *reply, void *context)
 
 	if (reply == NULL) {
 		/* handler destroyed */
-		auth_client_connection_unref(conn);
+		auth_client_connection_unref(&conn);
 		return;
 	}
 
@@ -89,7 +87,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 		   see if the old connection is still there. */
 		i_assert(old != conn);
 		if (i_stream_read(old->input) == -1) {
-                        auth_client_connection_destroy(old);
+                        auth_client_connection_destroy(&old);
 			old = NULL;
 		}
 	}
@@ -118,7 +116,7 @@ static int auth_client_output(void *context)
 	struct auth_client_connection *conn = context;
 
 	if (o_stream_flush(conn->output) < 0) {
-		auth_client_connection_destroy(conn);
+		auth_client_connection_destroy(&conn);
 		return 1;
 	}
 
@@ -160,13 +158,13 @@ static void auth_client_input(void *context)
 		return;
 	case -1:
 		/* disconnected */
-		auth_client_connection_destroy(conn);
+		auth_client_connection_destroy(&conn);
 		return;
 	case -2:
 		/* buffer full */
 		i_error("BUG: Auth client %u sent us more than %d bytes",
 			conn->pid, (int)AUTH_CLIENT_MAX_LINE_LENGTH);
-		auth_client_connection_destroy(conn);
+		auth_client_connection_destroy(&conn);
 		return;
 	}
 
@@ -184,7 +182,7 @@ static void auth_client_input(void *context)
 				i_error("Authentication client "
 					"not compatible with this server "
 					"(mixed old and new binaries?)");
-				auth_client_connection_destroy(conn);
+				auth_client_connection_destroy(&conn);
 				return;
 			}
 			conn->version_received = TRUE;
@@ -193,7 +191,7 @@ static void auth_client_input(void *context)
 
 		if (strncmp(line, "CPID\t", 5) == 0) {
 			if (!auth_client_input_cpid(conn, line + 5)) {
-				auth_client_connection_destroy(conn);
+				auth_client_connection_destroy(&conn);
 				return;
 			}
 		}
@@ -207,11 +205,11 @@ static void auth_client_input(void *context)
 		t_pop();
 
 		if (!ret) {
-			auth_client_connection_destroy(conn);
+			auth_client_connection_destroy(&conn);
 			break;
 		}
 	}
-	auth_client_connection_unref(conn);
+	auth_client_connection_unref(&conn);
 }
 
 struct auth_client_connection *
@@ -250,19 +248,19 @@ auth_client_connection_create(struct auth_master_listener *listener, int fd)
 	iov[1].iov_base = str_data(str);
 	iov[1].iov_len = str_len(str);
 
-	if (o_stream_sendv(conn->output, iov, 2) < 0) {
-		auth_client_connection_destroy(conn);
-		conn = NULL;
-	}
+	if (o_stream_sendv(conn->output, iov, 2) < 0)
+		auth_client_connection_destroy(&conn);
 
 	return conn;
 }
 
-void auth_client_connection_destroy(struct auth_client_connection *conn)
+void auth_client_connection_destroy(struct auth_client_connection **_conn)
 {
+        struct auth_client_connection *conn = *_conn;
 	struct auth_client_connection *const *clients;
 	unsigned int i, count;
 
+	*_conn = NULL;
 	if (conn->fd == -1)
 		return;
 
@@ -277,27 +275,28 @@ void auth_client_connection_destroy(struct auth_client_connection *conn)
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
 
-	if (conn->io != NULL) {
-		io_remove(conn->io);
-		conn->io = NULL;
-	}
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 
 	net_disconnect(conn->fd);
 	conn->fd = -1;
 
 	if (conn->request_handler != NULL)
-		auth_request_handler_unref(conn->request_handler);
+		auth_request_handler_unref(&conn->request_handler);
 
-        auth_client_connection_unref(conn);
+        auth_client_connection_unref(&conn);
 }
 
-static void auth_client_connection_unref(struct auth_client_connection *conn)
+static void auth_client_connection_unref(struct auth_client_connection **_conn)
 {
+        struct auth_client_connection *conn = *_conn;
+
+	*_conn = NULL;
 	if (--conn->refcount > 0)
 		return;
 
-	i_stream_unref(conn->input);
-	o_stream_unref(conn->output);
+	i_stream_unref(&conn->input);
+	o_stream_unref(&conn->output);
 	i_free(conn);
 }
 
@@ -339,8 +338,6 @@ void auth_client_connections_init(struct auth_master_listener *listener)
 
 void auth_client_connections_deinit(struct auth_master_listener *listener)
 {
-	if (listener->to_clients != NULL) {
-		timeout_remove(listener->to_clients);
-		listener->to_clients = NULL;
-	}
+	if (listener->to_clients != NULL)
+		timeout_remove(&listener->to_clients);
 }

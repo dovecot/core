@@ -15,8 +15,7 @@ bool cmd_logout(struct client_command_context *cmd)
 		/* this could be done at client_disconnect() as well,
 		   but eg. mbox rewrite takes a while so the waiting is
 		   better to happen before "OK" message. */
-		mailbox_close(client->mailbox);
-		client->mailbox = NULL;
+		mailbox_close(&client->mailbox);
 	}
 
 	client_send_tagline(cmd, "OK Logout completed.");

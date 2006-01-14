@@ -86,7 +86,7 @@ struct imap_arg_list {
 struct imap_parser *
 imap_parser_create(struct istream *input, struct ostream *output,
 		   size_t max_line_size);
-void imap_parser_destroy(struct imap_parser *parser);
+void imap_parser_destroy(struct imap_parser **parser);
 
 /* Reset the parser to initial state. */
 void imap_parser_reset(struct imap_parser *parser);

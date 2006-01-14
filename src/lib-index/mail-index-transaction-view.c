@@ -18,7 +18,7 @@ static void _tview_close(struct mail_index_view *view)
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
 
-	mail_index_transaction_unref(tview->t);
+	mail_index_transaction_unref(&tview->t);
 	tview->parent->close(view);
 }
 

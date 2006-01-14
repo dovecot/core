@@ -137,7 +137,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 		strp = array_idx_modifyable(&mk->list, idx);
 		*strp = new_name;
 	}
-	i_stream_unref(input);
+	i_stream_unref(&input);
 
 	if (close(fd) < 0) {
                 mail_storage_set_critical(STORAGE(mk->mbox->storage),

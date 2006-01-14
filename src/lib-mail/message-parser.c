@@ -253,7 +253,7 @@ static void message_parse_part_header(struct message_parser_ctx *parser_ctx)
 		parser_ctx->callback(part, NULL, parser_ctx->context);
 	if (hdr_ctx->has_nuls)
 		part->flags |= MESSAGE_PART_FLAG_HAS_NULS;
-	message_parse_header_deinit(hdr_ctx);
+	message_parse_header_deinit(&hdr_ctx);
 
 	i_assert((part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
 }
@@ -587,10 +587,12 @@ message_parser_init(pool_t part_pool, struct istream *input)
 	return ctx;
 }
 
-struct message_part *message_parser_deinit(struct message_parser_ctx *ctx)
+struct message_part *message_parser_deinit(struct message_parser_ctx **_ctx)
 {
+        struct message_parser_ctx *ctx = *_ctx;
 	struct message_part *parts = ctx->parts;
 
+	*_ctx = NULL;
 	pool_unref(ctx->parser_pool);
 	return parts;
 }
@@ -658,7 +660,7 @@ void message_parse_header(struct message_part *part, struct istream *input,
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0)
 		callback(part, hdr, context);
 	i_assert(ret != 0);
-	message_parse_header_deinit(hdr_ctx);
+	message_parse_header_deinit(&hdr_ctx);
 
 	/* call after the final skipping */
 	callback(part, NULL, context);
@@ -681,13 +683,17 @@ message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 	return ctx;
 }
 
-void message_parse_header_deinit(struct message_header_parser_ctx *ctx)
+void message_parse_header_deinit(struct message_header_parser_ctx **_ctx)
 {
+	struct message_header_parser_ctx *ctx = *_ctx;
+
 	i_stream_skip(ctx->input, ctx->skip);
 	if (ctx->value_buf != NULL)
 		buffer_free(ctx->value_buf);
-	str_free(ctx->name);
+	str_free(&ctx->name);
 	i_free(ctx);
+
+	*_ctx = NULL;
 }
 
 int message_parse_header_next(struct message_header_parser_ctx *ctx,

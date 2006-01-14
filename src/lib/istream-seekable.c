@@ -50,9 +50,9 @@ static void _destroy(struct _iostream *stream)
 	if (sstream->buffer != NULL)
 		buffer_free(sstream->buffer);
 	if (sstream->fd_input != NULL)
-		i_stream_unref(sstream->fd_input);
+		i_stream_unref(&sstream->fd_input);
 	for (i = 0; sstream->input[i] != NULL; i++)
-		i_stream_unref(sstream->input[i]);
+		i_stream_unref(&sstream->input[i]);
 
 	p_free(sstream->pool, sstream->temp_prefix);
 	pool_unref(sstream->pool);

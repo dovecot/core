@@ -54,7 +54,7 @@ struct auth_server_connection {
 
 struct auth_server_connection *
 auth_server_connection_new(struct auth_client *client, const char *path);
-void auth_server_connection_destroy(struct auth_server_connection *conn,
+void auth_server_connection_destroy(struct auth_server_connection **conn,
 				    bool reconnect);
 
 struct auth_server_connection *

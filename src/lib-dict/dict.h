@@ -13,7 +13,7 @@ void dict_class_unregister(struct dict *dict_class);
    If URI is invalid, returns NULL. */
 struct dict *dict_init(const char *uri);
 /* Close dictionary. */
-void dict_deinit(struct dict *dict);
+void dict_deinit(struct dict **dict);
 
 /* Lookup value for key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */

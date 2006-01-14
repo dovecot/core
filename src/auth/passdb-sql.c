@@ -100,12 +100,14 @@ static void sql_query_callback(struct sql_result *result, void *context)
 		passdb_handle_credentials(passdb_result, password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
 	/* verify plain */
 	if (password == NULL) {
 		sql_request->callback.verify_plain(passdb_result, auth_request);
+		auth_request_unref(&auth_request);
 		return;
 	}
 
@@ -121,6 +123,7 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					   PASSDB_RESULT_PASSWORD_MISMATCH,
 					   auth_request);
+	auth_request_unref(&auth_request);
 }
 
 static void sql_lookup_pass(struct passdb_sql_request *sql_request)
@@ -138,6 +141,7 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 	auth_request_log_debug(sql_request->auth_request, "sql",
 			       "query: %s", str_c(query));
 
+	auth_request_ref(sql_request->auth_request);
 	sql_query(module->conn->db, str_c(query),
 		  sql_query_callback, sql_request);
 }
@@ -202,7 +206,7 @@ static void passdb_sql_deinit(struct passdb_module *_module)
 	struct sql_passdb_module *module =
 		(struct sql_passdb_module *)_module;
 
-	db_sql_unref(module->conn);
+	db_sql_unref(&module->conn);
 }
 
 struct passdb_module_interface passdb_sql = {

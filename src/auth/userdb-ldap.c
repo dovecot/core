@@ -164,6 +164,7 @@ static void handle_request(struct ldap_connection *conn,
 	}
 
 	urequest->userdb_callback(reply, auth_request);
+	auth_request_unref(&auth_request);
 }
 
 static void userdb_ldap_lookup(struct auth_request *auth_request,
@@ -178,6 +179,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	struct userdb_ldap_request *request;
 	string_t *str;
 
+	auth_request_ref(auth_request);
 	request = p_new(auth_request->pool, struct userdb_ldap_request, 1);
 	request->request.callback = handle_request;
 	request->auth_request = auth_request;
@@ -235,7 +237,7 @@ static void userdb_ldap_deinit(struct userdb_module *_module)
 	struct ldap_userdb_module *module =
 		(struct ldap_userdb_module *)_module;
 
-	db_ldap_unref(module->conn);
+	db_ldap_unref(&module->conn);
 }
 
 struct userdb_module_interface userdb_ldap = {

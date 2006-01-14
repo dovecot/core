@@ -34,7 +34,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	input = i_stream_create_limit(default_pool, sync_ctx->file_input,
 				      source, size);
 	ret = o_stream_send_istream(output, input);
-	i_stream_unref(input);
+	i_stream_unref(&input);
 
         if (ret == (off_t)size)
 		ret = 0;
@@ -51,7 +51,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	}
 
 	i_stream_sync(sync_ctx->input);
-	o_stream_unref(output);
+	o_stream_unref(&output);
 	return (int)ret;
 }
 

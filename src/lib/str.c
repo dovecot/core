@@ -17,9 +17,9 @@ string_t *t_str_new(size_t initial_size)
 	return str_new(pool_datastack_create(), initial_size);
 }
 
-void str_free(string_t *str)
+void str_free(string_t **str)
 {
-	buffer_free(str);
+	buffer_free(*str);
 }
 
 static void str_add_nul(string_t *str)
@@ -33,10 +33,10 @@ static void str_add_nul(string_t *str)
 	buffer_set_used_size(str, len);
 }
 
-char *str_free_without_data(string_t *str)
+char *str_free_without_data(string_t **str)
 {
-	str_add_nul(str);
-	return buffer_free_without_data(str);
+	str_add_nul(*str);
+	return buffer_free_without_data(*str);
 }
 
 const char *str_c(string_t *str)

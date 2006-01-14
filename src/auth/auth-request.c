@@ -87,17 +87,19 @@ void auth_request_ref(struct auth_request *request)
 	request->refcount++;
 }
 
-bool auth_request_unref(struct auth_request *request)
+void auth_request_unref(struct auth_request **_request)
 {
+	struct auth_request *request = *_request;
+
+	*_request = NULL;
 	i_assert(request->refcount > 0);
 	if (--request->refcount > 0)
-		return TRUE;
+		return;
 
 	if (request->mech != NULL)
 		request->mech->auth_free(request);
 	else
 		pool_unref(request->pool);
-	return FALSE;
 }
 
 void auth_request_export(struct auth_request *request, string_t *str)
@@ -317,7 +319,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 		request->private_callback.verify_plain(result, request);
 		safe_memset(request->mech_password, 0,
 			    strlen(request->mech_password));
-		auth_request_unref(request);
+		auth_request_unref(&request);
 	}
 }
 

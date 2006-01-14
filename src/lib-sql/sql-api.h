@@ -20,7 +20,7 @@ extern struct sql_db *sql_db_drivers[];
 /* Initialize database connections. db_driver is the database driver name,
    eg. "mysql" or "pgsql". connect_string is driver-specific. */
 struct sql_db *sql_init(const char *db_driver, const char *connect_string);
-void sql_deinit(struct sql_db *db);
+void sql_deinit(struct sql_db **db);
 
 /* Returns SQL database state flags. */
 enum sql_db_flags sql_get_flags(struct sql_db *db);
@@ -68,12 +68,12 @@ const char *sql_result_get_error(struct sql_result *result);
    transaction at a time. */
 struct sql_transaction_context *sql_transaction_begin(struct sql_db *db);
 /* Commit transaction. */
-void sql_transaction_commit(struct sql_transaction_context *ctx,
+void sql_transaction_commit(struct sql_transaction_context **ctx,
 			    sql_commit_callback_t *callback, void *context);
 /* Synchronous commit. Returns 0 if ok, -1 if error. */
-int sql_transaction_commit_s(struct sql_transaction_context *ctx,
+int sql_transaction_commit_s(struct sql_transaction_context **ctx,
 			     const char **error_r);
-void sql_transaction_rollback(struct sql_transaction_context *ctx);
+void sql_transaction_rollback(struct sql_transaction_context **ctx);
 
 /* Execute query in given transaction. */
 void sql_update(struct sql_transaction_context *ctx, const char *query);

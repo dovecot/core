@@ -107,13 +107,13 @@ struct mail_transaction_ext_rec_update {
 
 struct mail_transaction_log *
 mail_transaction_log_open_or_create(struct mail_index *index);
-void mail_transaction_log_close(struct mail_transaction_log *log);
+void mail_transaction_log_close(struct mail_transaction_log **log);
 
 int mail_transaction_log_move_to_memory(struct mail_transaction_log *log);
 
 struct mail_transaction_log_view *
 mail_transaction_log_view_open(struct mail_transaction_log *log);
-void mail_transaction_log_view_close(struct mail_transaction_log_view *view);
+void mail_transaction_log_view_close(struct mail_transaction_log_view **view);
 
 /* Set view boundaries. Returns -1 if error, 0 if files are lost, 1 if ok. */
 int

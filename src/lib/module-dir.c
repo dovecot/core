@@ -187,15 +187,16 @@ struct module *module_dir_load(const char *dir, bool require_init_funcs)
 	return modules;
 }
 
-void module_dir_unload(struct module *modules)
+void module_dir_unload(struct module **modules)
 {
-	struct module *next;
+	struct module *module, *next;
 
-	while (modules != NULL) {
-		next = modules->next;
-		module_free(modules);
-		modules = next;
+	for (module = *modules; module != NULL; module = next) {
+		next = module->next;
+		module_free(module);
 	}
+
+	*modules = NULL;
 }
 
 #else

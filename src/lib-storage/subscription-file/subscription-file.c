@@ -139,8 +139,8 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	}
 
 	if (input != NULL)
-		i_stream_unref(input);
-	o_stream_unref(output);
+		i_stream_unref(&input);
+	o_stream_unref(&output);
 
 	if (failed || (set && found) || (!set && !found)) {
 		if (file_dotlock_delete(&dotlock) < 0) {
@@ -190,7 +190,7 @@ int subsfile_list_deinit(struct subsfile_list_context *ctx)
 
 	failed = ctx->failed;
 	if (ctx->input != NULL)
-		i_stream_unref(ctx->input);
+		i_stream_unref(&ctx->input);
 	pool_unref(ctx->pool);
 
 	return failed ? -1 : 0;

@@ -148,7 +148,7 @@ quota_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	ret = qbox->save_hack ? 0 : quota_check(t, copy_dest_mail);
 
 	if (copy_dest_mail != dest_mail)
-		mail_free(copy_dest_mail);
+		mail_free(&copy_dest_mail);
 	return ret;
 }
 
@@ -196,7 +196,7 @@ static int quota_save_finish(struct mail_save_context *ctx,
 	ret = quota_check(ctx->transaction, save_dest_mail);
 
 	if (save_dest_mail != dest_mail)
-		mail_free(save_dest_mail);
+		mail_free(&save_dest_mail);
 	return ret;
 }
 

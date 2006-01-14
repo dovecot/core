@@ -9,9 +9,10 @@ void o_stream_ref(struct ostream *stream)
 	_io_stream_ref(&stream->real_stream->iostream);
 }
 
-void o_stream_unref(struct ostream *stream)
+void o_stream_unref(struct ostream **stream)
 {
-	_io_stream_unref(&stream->real_stream->iostream);
+	_io_stream_unref(&(*stream)->real_stream->iostream);
+	*stream = NULL;
 }
 
 void o_stream_close(struct ostream *stream)

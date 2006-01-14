@@ -242,7 +242,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	}
 
 	if (dbox_uidlist_append_commit(ctx->append_ctx) < 0) {
-		mail_index_sync_rollback(ctx->index_sync_ctx);
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
 		i_free(ctx);
 		return -1;
 	}
@@ -251,14 +251,14 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 {
-	mail_index_sync_rollback(ctx->index_sync_ctx);
+	mail_index_sync_rollback(&ctx->index_sync_ctx);
 	i_free(ctx);
 }
 
 void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
 {
 	if (ctx->index_sync_ctx != NULL)
-		mail_index_sync_rollback(ctx->index_sync_ctx);
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
 
         dbox_uidlist_append_rollback(ctx->append_ctx);
 	i_free(ctx);

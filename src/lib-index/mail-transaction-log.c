@@ -242,7 +242,7 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 	if (log->head == NULL) {
 		/* fallback to in-memory indexes */
 		if (mail_index_move_to_memory(index) < 0) {
-			mail_transaction_log_close(log);
+			mail_transaction_log_close(&log);
 			return NULL;
 		}
 		log->head = mail_transaction_log_file_open_or_create(log, path);
@@ -255,15 +255,17 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 		   shouldn't happen except in race conditions.
 		   lock them and check again */
 		if (mail_transaction_log_check_file_seq(log) < 0) {
-			mail_transaction_log_close(log);
+			mail_transaction_log_close(&log);
 			return NULL;
 		}
 	}
 	return log;
 }
 
-void mail_transaction_log_close(struct mail_transaction_log *log)
+void mail_transaction_log_close(struct mail_transaction_log **_log)
 {
+	struct mail_transaction_log *log = *_log;
+
 	mail_transaction_log_views_close(log);
 
 	if (log->head != NULL) {
@@ -271,6 +273,7 @@ void mail_transaction_log_close(struct mail_transaction_log *log)
 		mail_transaction_logs_clean(log);
 	}
 
+	*_log = NULL;
 	log->index->log = NULL;
 	i_free(log);
 }

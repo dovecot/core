@@ -27,7 +27,7 @@ void index_transaction_init(struct index_transaction_context *t,
 static void index_transaction_free(struct index_transaction_context *t)
 {
 	mail_cache_view_close(t->cache_view);
-	mail_index_view_close(t->trans_view);
+	mail_index_view_close(&t->trans_view);
 	mail_index_view_unlock(t->ibox->view);
 	array_free(&t->mailbox_ctx.module_contexts);
 	i_free(t);
@@ -41,7 +41,7 @@ int index_transaction_commit(struct mailbox_transaction_context *_t)
 	uoff_t offset;
 	int ret;
 
-	ret = mail_index_transaction_commit(t->trans, &seq, &offset);
+	ret = mail_index_transaction_commit(&t->trans, &seq, &offset);
 	if (ret < 0)
 		mail_storage_set_index_error(t->ibox);
 	else {
@@ -60,6 +60,6 @@ void index_transaction_rollback(struct mailbox_transaction_context *_t)
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 
-	mail_index_transaction_rollback(t->trans);
+	mail_index_transaction_rollback(&t->trans);
 	index_transaction_free(t);
 }

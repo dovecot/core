@@ -260,7 +260,7 @@ static int fetch_stream(struct imap_fetch_context *ctx,
 		input = i_stream_create_limit(default_pool, ctx->cur_input,
 					      ctx->cur_input->v_offset,
 					      ctx->cur_size);
-		i_stream_unref(ctx->cur_input);
+		i_stream_unref(&ctx->cur_input);
 		ctx->cur_input = input;
 
 		ctx->cont_handler = fetch_stream_send_direct;
@@ -372,7 +372,7 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 		return -1;
 	}
 
-	i_stream_unref(ctx->cur_input);
+	i_stream_unref(&ctx->cur_input);
 	ctx->cur_input = input;
 	ctx->update_partial = FALSE;
 

@@ -105,22 +105,21 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 {
 	ctx->client->input_skip_line = TRUE;
 
-	io_remove(ctx->client->io);
-	ctx->client->io = NULL;
+	io_remove(&ctx->client->io);
 
-        imap_parser_destroy(ctx->save_parser);
+        imap_parser_destroy(&ctx->save_parser);
 
 	if (ctx->input != NULL)
-		i_stream_unref(ctx->input);
+		i_stream_unref(&ctx->input);
 
 	if (ctx->save_ctx != NULL)
-		mailbox_save_cancel(ctx->save_ctx);
+		mailbox_save_cancel(&ctx->save_ctx);
 
 	if (ctx->t != NULL)
-		mailbox_transaction_rollback(ctx->t);
+		mailbox_transaction_rollback(&ctx->t);
 
 	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL)
-		mailbox_close(ctx->box);
+		mailbox_close(&ctx->box);
 }
 
 static bool cmd_append_continue_cancel(struct client_command_context *cmd)
@@ -199,8 +198,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			return TRUE;
 		}
 
-		ret = mailbox_transaction_commit(ctx->t, 0);
-		ctx->t = NULL;
+		ret = mailbox_transaction_commit(&ctx->t, 0);
 		if (ret < 0) {
 			client_send_storage_error(cmd, ctx->storage);
 			cmd_append_finish(ctx);
@@ -272,7 +270,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 					  ctx->input, FALSE);
 
 	if (keywords != NULL)
-		mailbox_keywords_free(ctx->t, keywords);
+		mailbox_keywords_free(ctx->t, &keywords);
 
 	client->command_pending = TRUE;
 	cmd->func = cmd_append_continue_message;
@@ -290,8 +288,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		if (mailbox_save_continue(ctx->save_ctx) < 0) {
 			/* we still have to finish reading the message
 			   from client */
-			mailbox_save_cancel(ctx->save_ctx);
-			ctx->save_ctx = NULL;
+			mailbox_save_cancel(&ctx->save_ctx);
 		}
 	}
 
@@ -305,7 +302,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		/* finished */
 		bool all_written = ctx->input->v_offset == ctx->msg_size;
 
-		i_stream_unref(ctx->input);
+		i_stream_unref(&ctx->input);
 		ctx->input = NULL;
 
 		if (ctx->save_ctx == NULL) {
@@ -316,8 +313,8 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 			/* client disconnected before it finished sending the
 			   whole message. */
 			failed = TRUE;
-			mailbox_save_cancel(ctx->save_ctx);
-		} else if (mailbox_save_finish(ctx->save_ctx, NULL) < 0) {
+			mailbox_save_cancel(&ctx->save_ctx);
+		} else if (mailbox_save_finish(&ctx->save_ctx, NULL) < 0) {
 			failed = TRUE;
 			client_send_storage_error(cmd, ctx->storage);
 		} else {
@@ -387,8 +384,7 @@ bool cmd_append(struct client_command_context *cmd)
 		if (mailbox_get_status(ctx->box, STATUS_KEYWORDS,
 				       &status) < 0) {
 			client_send_storage_error(cmd, ctx->storage);
-			mailbox_close(ctx->box);
-			ctx->box = NULL;
+			mailbox_close(&ctx->box);
 		} else {
 			client_save_keywords(&client->keywords,
 					     status.keywords);
@@ -398,7 +394,7 @@ bool cmd_append(struct client_command_context *cmd)
 				MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 	}
 
-	io_remove(client->io);
+	io_remove(&client->io);
 	client->io = io_add(i_stream_get_fd(client->input), IO_READ,
 			    client_input, client);
 	/* append is special because we're only waiting on client input, not

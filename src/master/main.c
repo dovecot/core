@@ -569,7 +569,7 @@ static void main_deinit(void)
 	dict_process_deinit();
 	ssl_deinit();
 
-	timeout_remove(to);
+	timeout_remove(&to);
 
 	if (close(null_fd) < 0)
 		i_error("close(null_fd) failed: %m");
@@ -776,7 +776,7 @@ int main(int argc, char *argv[])
 	main_deinit();
 
 	master_settings_deinit();
-	io_loop_destroy(ioloop);
+	io_loop_destroy(&ioloop);
 	lib_deinit();
 
         return 0;

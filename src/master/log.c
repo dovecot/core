@@ -57,10 +57,8 @@ static void log_throttle(struct log_io *log_io)
 		       FALSE);
 	}
 
-	if (log_io->io != NULL) {
-		io_remove(log_io->io);
-		log_io->io = NULL;
-	}
+	if (log_io->io != NULL)
+		io_remove(&log_io->io);
 
 	if (to == NULL)
 		to = timeout_add(1000, log_throttle_timeout, NULL);
@@ -72,10 +70,8 @@ static void log_unthrottle(struct log_io *log_io)
 	if (log_io->io != NULL)
 		return;
 
-	if (--throttle_count == 0 && to != NULL) {
-		timeout_remove(to);
-		to = NULL;
-	}
+	if (--throttle_count == 0 && to != NULL)
+		timeout_remove(&to);
 	log_io->io = io_add(i_stream_get_fd(log_io->stream),
 			    IO_READ, log_read, log_io);
 }
@@ -218,10 +214,10 @@ static void log_io_free(struct log_io *log_io)
 		log_io->next->prev = log_io->prev;
 
 	if (log_io->io != NULL)
-		io_remove(log_io->io);
+		io_remove(&log_io->io);
 	else
 		throttle_count--;
-	i_stream_unref(log_io->stream);
+	i_stream_unref(&log_io->stream);
 	i_free(log_io->prefix);
 	i_free(log_io);
 }
@@ -264,5 +260,5 @@ void log_deinit(void)
 	}
 
 	if (to != NULL)
-		timeout_remove(to);
+		timeout_remove(&to);
 }

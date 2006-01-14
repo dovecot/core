@@ -150,7 +150,7 @@ struct mail_index_sync_ctx;
 struct mail_index_view_sync_ctx;
 
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix);
-void mail_index_free(struct mail_index *index);
+void mail_index_free(struct mail_index **index);
 
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid);
@@ -170,7 +170,7 @@ int mail_index_refresh(struct mail_index *index);
    only when you synchronize it. The view acquires required locks
    automatically, but you'll have to drop them manually. */
 struct mail_index_view *mail_index_view_open(struct mail_index *index);
-void mail_index_view_close(struct mail_index_view *view);
+void mail_index_view_close(struct mail_index_view **view);
 
 /* Returns the index for given view. */
 struct mail_index *mail_index_view_get_index(struct mail_index_view *view);
@@ -193,10 +193,10 @@ bool mail_index_view_is_inconsistent(struct mail_index_view *view);
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
 			     bool hide, bool external);
-int mail_index_transaction_commit(struct mail_index_transaction *t,
+int mail_index_transaction_commit(struct mail_index_transaction **t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r);
-void mail_index_transaction_rollback(struct mail_index_transaction *t);
+void mail_index_transaction_rollback(struct mail_index_transaction **t);
 
 /* Returns a view to transaction. Currently this differs from normal view only
    in that it contains newly appended messages in transaction. The view can
@@ -241,10 +241,10 @@ bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
    go through all the sync records again with mail_index_sync_next(). */
 void mail_index_sync_reset(struct mail_index_sync_ctx *ctx);
 /* Commit synchronization by writing all changes to mail index file. */
-int mail_index_sync_commit(struct mail_index_sync_ctx *ctx);
+int mail_index_sync_commit(struct mail_index_sync_ctx **ctx);
 /* Rollback synchronization - none of the changes listed by sync_next() are
    actually written to index file. */
-void mail_index_sync_rollback(struct mail_index_sync_ctx *ctx);
+void mail_index_sync_rollback(struct mail_index_sync_ctx **ctx);
 
 /* Mark index file corrupted. Invalidates all views. */
 void mail_index_mark_corrupted(struct mail_index *index);
@@ -265,7 +265,7 @@ int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 const uint32_t *
 mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 				 unsigned int *count_r);
-void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx);
+void mail_index_view_sync_end(struct mail_index_view_sync_ctx **ctx);
 
 /* Returns the index header. */
 const struct mail_index_header *
@@ -333,7 +333,7 @@ struct mail_keywords *
 mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
 					const array_t *keyword_indexes);
 /* Free the keywords. */
-void mail_index_keywords_free(struct mail_keywords *keywords);
+void mail_index_keywords_free(struct mail_keywords **keywords);
 /* Update keywords for given message. */
 void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 				enum modify_type modify_type,

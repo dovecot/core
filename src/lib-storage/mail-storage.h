@@ -223,7 +223,7 @@ struct mail_storage *
 mail_storage_create(const char *name, const char *data, const char *user,
 		    enum mail_storage_flags flags,
 		    enum mail_storage_lock_method lock_method);
-void mail_storage_destroy(struct mail_storage *storage);
+void mail_storage_destroy(struct mail_storage **storage);
 
 struct mail_storage *
 mail_storage_create_default(const char *user, enum mail_storage_flags flags,
@@ -271,7 +271,7 @@ struct mailbox_list *
 mail_storage_mailbox_list_next(struct mailbox_list_context *ctx);
 /* Deinitialize mailbox list request. Returns FALSE if some error
    occurred while listing. */
-int mail_storage_mailbox_list_deinit(struct mailbox_list_context *ctx);
+int mail_storage_mailbox_list_deinit(struct mailbox_list_context **ctx);
 
 /* Subscribe/unsubscribe mailbox. There should be no error when
    subscribing to already subscribed mailbox. Subscribing to
@@ -300,7 +300,7 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 			     enum mailbox_open_flags flags);
 /* Close the box. Returns -1 if some cleanup errors occurred, but
    the mailbox was closed anyway. */
-int mailbox_close(struct mailbox *box);
+int mailbox_close(struct mailbox **box);
 
 /* Returns storage of given mailbox */
 struct mail_storage *mailbox_get_storage(struct mailbox *box);
@@ -323,7 +323,7 @@ struct mailbox_sync_context *
 mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 int mailbox_sync_next(struct mailbox_sync_context *ctx,
 		      struct mailbox_sync_rec *sync_rec_r);
-int mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+int mailbox_sync_deinit(struct mailbox_sync_context **ctx,
 			struct mailbox_status *status_r);
 
 /* Call given callback function when something changes in the mailbox.
@@ -334,16 +334,16 @@ void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags);
-int mailbox_transaction_commit(struct mailbox_transaction_context *t,
+int mailbox_transaction_commit(struct mailbox_transaction_context **t,
 			       enum mailbox_sync_flags flags);
-void mailbox_transaction_rollback(struct mailbox_transaction_context *t);
+void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
 
 /* Build mail_keywords from NULL-terminated keywords list. */
 struct mail_keywords *
 mailbox_keywords_create(struct mailbox_transaction_context *t,
 			const char *const keywords[]);
 void mailbox_keywords_free(struct mailbox_transaction_context *t,
-			   struct mail_keywords *keywords);
+			   struct mail_keywords **keywords);
 
 /* Convert uid range to sequence range. */
 int mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
@@ -352,7 +352,7 @@ int mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 /* Initialize header lookup for given headers. */
 struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
-void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx);
+void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx **ctx);
 
 /* Modify sort_program to specify a sort program acceptable for
    search_init(). If mailbox supports no sorting, it's simply set to
@@ -370,7 +370,7 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    const char *charset, struct mail_search_arg *args,
 		    const enum mail_sort_type *sort_program);
 /* Deinitialize search request. */
-int mailbox_search_deinit(struct mail_search_context *ctx);
+int mailbox_search_deinit(struct mail_search_context **ctx);
 /* Search the next message. Returns 1 if found, 0 if not, -1 if failure. */
 int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
 
@@ -388,8 +388,8 @@ mailbox_save_init(struct mailbox_transaction_context *t,
 		  const char *from_envelope, struct istream *input,
 		  bool want_mail);
 int mailbox_save_continue(struct mail_save_context *ctx);
-int mailbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
-void mailbox_save_cancel(struct mail_save_context *ctx);
+int mailbox_save_finish(struct mail_save_context **ctx, struct mail *dest_mail);
+void mailbox_save_cancel(struct mail_save_context **ctx);
 
 /* Copy given message. If dest_mail is non-NULL, the copied message can be
    accessed using it. Note that setting it non-NULL may require mailbox
@@ -415,7 +415,7 @@ const struct message_part *mail_get_parts(struct mail *mail);
 struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
 			struct mailbox_header_lookup_ctx *wanted_headers);
-void mail_free(struct mail *mail);
+void mail_free(struct mail **mail);
 int mail_set_seq(struct mail *mail, uint32_t seq);
 
 /* Get the time message was received (IMAP INTERNALDATE).

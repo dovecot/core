@@ -48,13 +48,13 @@ static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 			i_error("close(out) failed: %m");
 	}
 	if (proxy->client_io != NULL)
-		io_remove(proxy->client_io);
+		io_remove(&proxy->client_io);
 	if (proxy->server_io != NULL)
-		io_remove(proxy->server_io);
+		io_remove(&proxy->server_io);
 
-	i_stream_unref(proxy->server_input);
-	o_stream_unref(proxy->client_output);
-	o_stream_unref(proxy->server_output);
+	i_stream_unref(&proxy->server_input);
+	o_stream_unref(&proxy->client_output);
+	o_stream_unref(&proxy->server_output);
 
 	if (close(proxy->client_in_fd) < 0)
 		i_error("close(client_in_fd) failed: %m");
@@ -121,8 +121,7 @@ static void server_input(void *context)
 	    OUTBUF_THRESHOLD) {
 		/* client's output buffer is already quite full.
 		   don't send more until we're below threshold. */
-		io_remove(proxy->server_io);
-		proxy->server_io = NULL;
+		io_remove(&proxy->server_io);
 		return;
 	}
 
@@ -144,8 +143,7 @@ static void client_input(void *context)
 	    OUTBUF_THRESHOLD) {
 		/* proxy's output buffer is already quite full.
 		   don't send more until we're below threshold. */
-		io_remove(proxy->client_io);
-		proxy->client_io = NULL;
+		io_remove(&proxy->client_io);
 		return;
 	}
 
@@ -309,7 +307,7 @@ static void rawlog_open(bool write_timestamps)
 	ioloop = io_loop_create(system_pool);
 	rawlog_proxy_create(0, 1, sfd[0], path, write_timestamps);
 	io_loop_run(ioloop);
-	io_loop_destroy(ioloop);
+	io_loop_destroy(&ioloop);
 
 	lib_deinit();
 	exit(0);

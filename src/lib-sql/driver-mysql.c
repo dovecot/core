@@ -510,7 +510,7 @@ driver_mysql_transaction_commit(struct sql_transaction_context *ctx,
 {
 	const char *error;
 
-	if (sql_transaction_commit_s(ctx, &error) < 0)
+	if (sql_transaction_commit_s(&ctx, &error) < 0)
 		callback(error, context);
 	else
 		callback(NULL, context);
@@ -537,7 +537,7 @@ driver_mysql_transaction_commit_s(struct sql_transaction_context *_ctx,
 		}
 		sql_result_free(result);
 	}
-	sql_transaction_rollback(_ctx);
+	sql_transaction_rollback(&_ctx);
 	return ret;
 }
 
@@ -547,7 +547,7 @@ driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
 
-	str_free(ctx->queries);
+	str_free(&ctx->queries);
 	i_free(ctx);
 }
 

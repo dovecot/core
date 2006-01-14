@@ -84,7 +84,7 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 		array_free(&t->ext_resets);
 
 	mail_index_view_transaction_unref(t->view);
-	mail_index_view_close(t->view);
+	mail_index_view_close(&t->view);
 	i_free(t);
 }
 
@@ -93,8 +93,11 @@ void mail_index_transaction_ref(struct mail_index_transaction *t)
 	t->refcount++;
 }
 
-void mail_index_transaction_unref(struct mail_index_transaction *t)
+void mail_index_transaction_unref(struct mail_index_transaction **_t)
 {
+	struct mail_index_transaction *t = *_t;
+
+	*_t = NULL;
 	if (--t->refcount == 0)
 		mail_index_transaction_free(t);
 }
@@ -194,14 +197,15 @@ static int mail_index_append_rec_cmp(const void *p1, const void *p2)
 		rec1->uid > rec2->uid ? 1 : 0;
 }
 
-int mail_index_transaction_commit(struct mail_index_transaction *t,
+int mail_index_transaction_commit(struct mail_index_transaction **_t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r)
 {
+	struct mail_index_transaction *t = *_t;
 	int ret;
 
 	if (mail_index_view_is_inconsistent(t->view)) {
-		mail_index_transaction_rollback(t);
+		mail_index_transaction_rollback(_t);
 		return -1;
 	}
 
@@ -225,17 +229,19 @@ int mail_index_transaction_commit(struct mail_index_transaction *t,
 						  log_file_offset_r);
 	}
 
-	mail_index_transaction_unref(t);
+	mail_index_transaction_unref(_t);
 	return ret;
 }
 
-void mail_index_transaction_rollback(struct mail_index_transaction *t)
+void mail_index_transaction_rollback(struct mail_index_transaction **_t)
 {
+	struct mail_index_transaction *t = *_t;
+
 	if (t->cache_trans_ctx != NULL) {
 		mail_cache_transaction_rollback(t->cache_trans_ctx);
                 t->cache_trans_ctx = NULL;
 	}
-        mail_index_transaction_unref(t);
+        mail_index_transaction_unref(_t);
 }
 
 struct mail_index_record *
@@ -800,9 +806,10 @@ mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
 	return k;
 }
 
-void mail_index_keywords_free(struct mail_keywords *keywords)
+void mail_index_keywords_free(struct mail_keywords **keywords)
 {
-	i_free(keywords);
+	i_free(*keywords);
+	*keywords = NULL;
 }
 
 void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,

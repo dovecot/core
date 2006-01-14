@@ -397,7 +397,7 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 		uidlist->fd = -1;
 	}
 
-	i_stream_unref(input);
+	i_stream_unref(&input);
 	return ret;
 }
 
@@ -521,7 +521,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 			"write(%s) failed: %m", uidlist->path);
 		ret = -1;
 	}
-	o_stream_unref(output);
+	o_stream_unref(&output);
 
 	if (ret < 0)
 		return -1;
@@ -664,7 +664,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 			"write(%s) failed: %m", ctx->uidlist->path);
 		ret = -1;
 	}
-	o_stream_unref(output);
+	o_stream_unref(&output);
 
 	if (ret < 0)
 		return -1;
@@ -933,7 +933,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	save_file->file = file = p_new(ctx->pool, struct dbox_file, 1);
         save_file->dotlock = dotlock;
 	file->file_seq = file_seq;
-	file->path = str_free_without_data(str);
+	file->path = str_free_without_data(&str);
 
 	file->fd = open(file->path, O_CREAT | O_RDWR, 0600);
 	if (file->fd == -1) {
@@ -955,7 +955,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	/* we'll be using CRLF linefeeds always */
 	output = o_stream_create_file(file->fd, default_pool, 0, FALSE);
 	file->output = o_stream_create_crlf(default_pool, output);
-	o_stream_unref(output);
+	o_stream_unref(&output);
 
 	if ((uoff_t)st.st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {

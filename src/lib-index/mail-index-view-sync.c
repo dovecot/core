@@ -259,7 +259,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		map = mail_index_map_clone(view->map,
 					   view->map->hdr.record_size);
 		view->map->records_count = old_records_count;
-		mail_index_unmap(view->index, view->map);
+		mail_index_unmap(view->index, &view->map);
 		view->map = map;
 
 		if (ctx->sync_map_update) {
@@ -522,12 +522,14 @@ mail_index_view_sync_clean_log_syncs(struct mail_index_view_sync_ctx *ctx)
 		array_delete(&view->log_syncs, 0, i);
 }
 
-void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
+void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 {
+        struct mail_index_view_sync_ctx *ctx = *_ctx;
         struct mail_index_view *view = ctx->view;
 
 	i_assert(view->syncing);
 
+	*_ctx = NULL;
 	if (ctx->sync_map_update)
 		mail_index_sync_map_deinit(&ctx->sync_map_ctx);
 	mail_index_view_sync_clean_log_syncs(ctx);
@@ -539,7 +541,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx *ctx)
 	}
 
 	if (view->sync_new_map != NULL) {
-		mail_index_unmap(view->index, view->map);
+		mail_index_unmap(view->index, &view->map);
 		view->map = view->sync_new_map;
 		view->sync_new_map = NULL;
 	}

@@ -118,12 +118,10 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox)
 		aio = ibox->notify_ios;
 		ibox->notify_ios = aio->next;
 
-		io_remove(aio->io);
+		io_remove(&aio->io);
 		i_free(aio);
 	}
 
-	if (ibox->notify_to != NULL) {
-		timeout_remove(ibox->notify_to);
-		ibox->notify_to = NULL;
-	}
+	if (ibox->notify_to != NULL)
+		timeout_remove(&ibox->notify_to);
 }

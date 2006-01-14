@@ -263,10 +263,10 @@ static void main_init(bool nodaemon)
 
 static void main_deinit(void)
 {
-	auth_deinit(auth);
+	auth_deinit(&auth);
 
 	if (worker_client != NULL)
-		auth_worker_client_unref(worker_client);
+		auth_worker_client_unref(&worker_client);
 	else
 		auth_request_handler_flush_failures();
 
@@ -309,7 +309,7 @@ int main(int argc __attr_unused__, char *argv[])
         io_loop_run(ioloop);
 	main_deinit();
 
-	io_loop_destroy(ioloop);
+	io_loop_destroy(&ioloop);
 	lib_deinit();
 
         return 0;

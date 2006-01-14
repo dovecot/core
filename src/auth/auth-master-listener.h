@@ -18,7 +18,7 @@ struct auth_master_listener {
 };
 
 struct auth_master_listener *auth_master_listener_create(struct auth *auth);
-void auth_master_listener_destroy(struct auth_master_listener *listener);
+void auth_master_listener_destroy(struct auth_master_listener **listener);
 
 void auth_master_listener_add(struct auth_master_listener *listener,
 			      int fd, const char *path,

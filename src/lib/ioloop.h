@@ -37,12 +37,14 @@ struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context);
 struct io *io_add_notify(const char *path, io_callback_t *callback,
 			 void *context);
-void io_remove(struct io *io);
+/* Remove I/O handler, and set io pointer to NULL. */
+void io_remove(struct io **io);
 
 /* Timeout handlers */
 struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 			    void *context);
-void timeout_remove(struct timeout *timeout);
+/* Remove timeout handler, and set timeout pointer to NULL. */
+void timeout_remove(struct timeout **timeout);
 
 void io_loop_run(struct ioloop *ioloop);
 void io_loop_stop(struct ioloop *ioloop); /* safe to run in signal handler */
@@ -54,6 +56,7 @@ void io_loop_set_running(struct ioloop *ioloop);
 void io_loop_handler_run(struct ioloop *ioloop);
 
 struct ioloop *io_loop_create(pool_t pool);
-void io_loop_destroy(struct ioloop *ioloop);
+/* Destroy I/O loop and set ioloop pointer to NULL. */
+void io_loop_destroy(struct ioloop **ioloop);
 
 #endif

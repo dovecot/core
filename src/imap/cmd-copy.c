@@ -34,14 +34,14 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 		if (mailbox_copy(t, mail, mail_get_flags(mail),
 				 keywords, NULL) < 0)
 			ret = -1;
-		mailbox_keywords_free(t, keywords);
+		mailbox_keywords_free(t, &keywords);
 	}
-	mail_free(mail);
+	mail_free(&mail);
 
-	if (mailbox_search_deinit(search_ctx) < 0)
+	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
 
-	if (mailbox_transaction_commit(src_trans, 0) < 0)
+	if (mailbox_transaction_commit(&src_trans, 0) < 0)
 		ret = -1;
 
 	return ret;
@@ -94,15 +94,15 @@ bool cmd_copy(struct client_command_context *cmd)
 	ret = fetch_and_copy(t, client->mailbox, search_arg);
 
 	if (ret <= 0)
-		mailbox_transaction_rollback(t);
+		mailbox_transaction_rollback(&t);
 	else {
-		if (mailbox_transaction_commit(t, 0) < 0)
+		if (mailbox_transaction_commit(&t, 0) < 0)
 			ret = -1;
 	}
 
 	if (destbox != client->mailbox) {
 		sync_flags |= MAILBOX_SYNC_FLAG_FAST;
-		mailbox_close(destbox);
+		mailbox_close(&destbox);
 	}
 
 	if (ret > 0)

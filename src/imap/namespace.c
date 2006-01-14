@@ -173,7 +173,7 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 void namespace_deinit(struct namespace *namespaces)
 {
 	while (namespaces != NULL) {
-		mail_storage_destroy(namespaces->storage);
+		mail_storage_destroy(&namespaces->storage);
 		namespaces = namespaces->next;
 	}
 }

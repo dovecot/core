@@ -4,7 +4,8 @@
 /* Create a new file cache. It works very much like file-backed mmap()ed
    memory, but it works more nicely with remote filesystems (no SIGBUS). */
 struct file_cache *file_cache_new(int fd);
-void file_cache_free(struct file_cache *cache);
+/* Destroy the cache and set cache pointer to NULL. */
+void file_cache_free(struct file_cache **cache);
 
 /* Change cached file descriptor. Invalidates the whole cache. */
 void file_cache_set_fd(struct file_cache *cache, int fd);

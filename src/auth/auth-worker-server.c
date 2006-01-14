@@ -121,7 +121,7 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 	for (i = 0; i < size; i++) {
 		if (request[i].id != 0) {
 			request[i].callback(request[i].auth_request, reply);
-			auth_request_unref(request[i].auth_request);
+			auth_request_unref(&request[i].auth_request);
 		}
 	}
 
@@ -129,9 +129,9 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 		i_error("close(auth worker) failed: %m");
 
 	buffer_free(conn->requests);
-	io_remove(conn->io);
-	i_stream_unref(conn->input);
-	o_stream_unref(conn->output);
+	io_remove(&conn->io);
+	i_stream_unref(&conn->input);
+	o_stream_unref(&conn->output);
 	i_free(conn);
 }
 
@@ -189,7 +189,7 @@ static void auth_worker_handle_request(struct auth_worker_connection *conn,
 				       const char *line)
 {
 	request->callback(request->auth_request, line);
-	auth_request_unref(request->auth_request);
+	auth_request_unref(&request->auth_request);
 
 	/* mark the record empty so it can be used for future requests */
 	memset(request, 0, sizeof(*request));
@@ -378,6 +378,6 @@ void auth_worker_server_deinit(void)
 	buffer_free(connections);
 	connections = NULL;
 
-	timeout_remove(to);
+	timeout_remove(&to);
 	i_free(worker_socket_path);
 }

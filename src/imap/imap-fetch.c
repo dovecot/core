@@ -236,10 +236,8 @@ int imap_fetch(struct imap_fetch_context *ctx)
 		}
 
 		if (ctx->cur_mail == NULL) {
-			if (ctx->cur_input != NULL) {
-				i_stream_unref(ctx->cur_input);
-                                ctx->cur_input = NULL;
-			}
+			if (ctx->cur_input != NULL)
+				i_stream_unref(&ctx->cur_input);
 
 			if (mailbox_search_next(ctx->search_ctx,
 						ctx->mail) <= 0)
@@ -304,33 +302,31 @@ int imap_fetch(struct imap_fetch_context *ctx)
 
 int imap_fetch_deinit(struct imap_fetch_context *ctx)
 {
-	str_free(ctx->cur_str);
+	str_free(&ctx->cur_str);
 
 	if (!ctx->line_finished) {
 		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
 			ctx->failed = TRUE;
 	}
 
-	if (ctx->cur_input != NULL) {
-		i_stream_unref(ctx->cur_input);
-		ctx->cur_input = NULL;
-	}
+	if (ctx->cur_input != NULL)
+		i_stream_unref(&ctx->cur_input);
 
 	if (ctx->mail != NULL)
-		mail_free(ctx->mail);
+		mail_free(&ctx->mail);
 
 	if (ctx->search_ctx != NULL) {
-		if (mailbox_search_deinit(ctx->search_ctx) < 0)
+		if (mailbox_search_deinit(&ctx->search_ctx) < 0)
 			ctx->failed = TRUE;
 	}
 	if (ctx->all_headers_ctx != NULL)
-		mailbox_header_lookup_deinit(ctx->all_headers_ctx);
+		mailbox_header_lookup_deinit(&ctx->all_headers_ctx);
 
 	if (ctx->trans != NULL) {
 		if (ctx->failed)
-			mailbox_transaction_rollback(ctx->trans);
+			mailbox_transaction_rollback(&ctx->trans);
 		else {
-			if (mailbox_transaction_commit(ctx->trans, 0) < 0)
+			if (mailbox_transaction_commit(&ctx->trans, 0) < 0)
 				ctx->failed = TRUE;
 		}
 	}

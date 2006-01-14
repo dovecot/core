@@ -29,9 +29,9 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	}
 
 	if (input->stream_errno != 0) {
-		mailbox_save_cancel(ctx);
+		mailbox_save_cancel(&ctx);
 		return -1;
 	}
 
-	return mailbox_save_finish(ctx, dest_mail);
+	return mailbox_save_finish(&ctx, dest_mail);
 }

@@ -46,7 +46,7 @@ static int sync_mailbox(struct mailbox *box, struct mailbox_status *status)
 	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
 	while (mailbox_sync_next(ctx, &sync_rec) > 0)
 		;
-	return mailbox_sync_deinit(ctx, status);
+	return mailbox_sync_deinit(&ctx, status);
 }
 
 static int init_mailbox(struct client *client)
@@ -76,7 +76,7 @@ static int init_mailbox(struct client *client)
 		ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
 		if (ctx == NULL) {
 			client_send_storage_error(client);
-			mailbox_transaction_rollback(t);
+			mailbox_transaction_rollback(&t);
 			break;
 		}
 
@@ -103,10 +103,10 @@ static int init_mailbox(struct client *client)
 		client->messages_count =
 			message_sizes_buf->used / sizeof(uoff_t);
 
-		mail_free(mail);
-		if (mailbox_search_deinit(ctx) < 0) {
+		mail_free(&mail);
+		if (mailbox_search_deinit(&ctx) < 0) {
 			client_send_storage_error(client);
-			mailbox_transaction_rollback(t);
+			mailbox_transaction_rollback(&t);
 			break;
 		}
 
@@ -118,7 +118,7 @@ static int init_mailbox(struct client *client)
 		}
 
 		/* well, sync and try again */
-		mailbox_transaction_rollback(t);
+		mailbox_transaction_rollback(&t);
 	}
 
 	if (i == 2)
@@ -220,19 +220,19 @@ void client_destroy(struct client *client, const char *reason)
 		i_assert(client->cmd == NULL);
 	}
 	if (client->trans != NULL)
-		mailbox_transaction_rollback(client->trans);
+		mailbox_transaction_rollback(&client->trans);
 	if (client->mailbox != NULL)
-		mailbox_close(client->mailbox);
-	mail_storage_destroy(client->storage);
+		mailbox_close(&client->mailbox);
+	mail_storage_destroy(&client->storage);
 
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);
 
 	if (client->io != NULL)
-		io_remove(client->io);
+		io_remove(&client->io);
 
-	i_stream_unref(client->input);
-	o_stream_unref(client->output);
+	i_stream_unref(&client->input);
+	o_stream_unref(&client->output);
 
 	i_free(client);
 
@@ -281,8 +281,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 			if (client->io != NULL) {
 				/* no more input until client has read
 				   our output */
-				io_remove(client->io);
-				client->io = NULL;
+				io_remove(&client->io);
 
 				/* If someone happens to flush output,
 				   we want to get our IO handler back in
@@ -325,8 +324,7 @@ static void client_input(void *context)
 	if (client->cmd != NULL) {
 		/* we're still processing a command. wait until it's
 		   finished. */
-		io_remove(client->io);
-		client->io = NULL;
+		io_remove(&client->io);
 		client->waiting_input = TRUE;
 		return;
 	}
@@ -441,5 +439,5 @@ void clients_deinit(void)
 		client_destroy(my_client, "Server shutting down.");
 	}
 
-	timeout_remove(to_idle);
+	timeout_remove(&to_idle);
 }

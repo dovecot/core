@@ -12,7 +12,7 @@ enum charset_result {
 struct charset_translation *charset_to_utf8_begin(const char *charset,
 						  bool *unknown_charset);
 
-void charset_to_utf8_end(struct charset_translation *t);
+void charset_to_utf8_end(struct charset_translation **t);
 
 void charset_to_utf8_reset(struct charset_translation *t);
 

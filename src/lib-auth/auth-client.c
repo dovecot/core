@@ -34,11 +34,14 @@ struct auth_client *auth_client_new_external(unsigned int client_pid,
 	return client;
 }
 
-void auth_client_free(struct auth_client *client)
+void auth_client_free(struct auth_client **_client)
 {
+	struct auth_client *client = *_client;
 	struct auth_server_connection *next;
 	struct auth_mech_desc *mech;
 	size_t i, size;
+
+	*_client = NULL;
 
 	mech = buffer_get_modifyable_data(client->available_auth_mechs, &size);
 	size /= sizeof(*mech);
@@ -48,12 +51,12 @@ void auth_client_free(struct auth_client *client)
 
 	while (client->connections != NULL) {
 		next = client->connections->next;
-		auth_server_connection_destroy(client->connections, FALSE);
+		auth_server_connection_destroy(&client->connections, FALSE);
 		client->connections = next;
 	}
 
 	if (client->to_reconnect != NULL)
-		timeout_remove(client->to_reconnect);
+		timeout_remove(&client->to_reconnect);
 	i_free(client->socket_paths);
 	i_free(client);
 }
@@ -189,10 +192,8 @@ void auth_client_connect_missing_servers(struct auth_client *client)
 			client->to_reconnect =
 				timeout_add(5000, reconnect_timeout, client);
 		}
-	} else if (client->to_reconnect != NULL) {
-		timeout_remove(client->to_reconnect);
-		client->to_reconnect = NULL;
-	}
+	} else if (client->to_reconnect != NULL)
+		timeout_remove(&client->to_reconnect);
 
 	if (client->connect_notify_callback != NULL) {
 		client->connect_notify_callback(client,

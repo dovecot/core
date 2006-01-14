@@ -46,13 +46,11 @@ static void checkpassword_request_close(struct chkpw_auth_request *request)
 			i_error("checkpassword: close() failed: %m");
 		request->fd_in = -1;
 	}
-	if (request->io_in != NULL) {
-		io_remove(request->io_in);
-		request->io_in = NULL;
-	}
+	if (request->io_in != NULL)
+		io_remove(&request->io_in);
 
 	if (request->io_out != NULL)
-		io_remove(request->io_out);
+		io_remove(&request->io_out);
 	if (request->fd_out != -1) {
 		if (close(request->fd_out) < 0)
 			i_error("checkpassword: close() failed: %m");
@@ -75,16 +73,13 @@ static void checkpassword_request_finish(struct chkpw_auth_request *request,
 					 str_c(request->input_buf));
 	}
 
-	if (auth_request_unref(request->request)) {
-		request->callback(result, request->request);
-	}
+	request->callback(result, request->request);
+	auth_request_unref(&request->request);
 
         checkpassword_request_close(request);
 
-	if (request->input_buf != NULL) {
-		str_free(request->input_buf);
-		request->input_buf = NULL;
-	}
+	if (request->input_buf != NULL)
+		str_free(&request->input_buf);
 
 	safe_memset(request->password, 0, strlen(request->password));
 	i_free(request->password);
@@ -136,10 +131,9 @@ static void wait_timeout(void *context)
 	/* FIXME: if we ever do some other kind of forking, this needs fixing */
 	while ((pid = waitpid(-1, &status, WNOHANG)) != 0) {
 		if (pid == -1) {
-			if (errno == ECHILD) {
-				timeout_remove(module->to_wait);
-				module->to_wait = NULL;
-			} else if (errno != EINTR)
+			if (errno == ECHILD)
+				timeout_remove(&module->to_wait);
+			else if (errno != EINTR)
 				i_error("waitpid() failed: %m");
 			return;
 		}
@@ -270,8 +264,7 @@ static void checkpassword_child_output(void *context)
 		i_error("checkpassword: close() failed: %m");
         request->fd_out = -1;
 
-	io_remove(request->io_out);
-	request->io_out = NULL;
+	io_remove(&request->io_out);
 }
 
 static void
@@ -382,7 +375,7 @@ static void checkpassword_deinit(struct passdb_module *_module)
 	hash_destroy(module->clients);
 
 	if (module->to_wait != NULL)
-		timeout_remove(module->to_wait);
+		timeout_remove(&module->to_wait);
 }
 
 struct passdb_module_interface passdb_checkpassword = {

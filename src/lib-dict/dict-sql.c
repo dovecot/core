@@ -69,7 +69,7 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 
 		t_pop();
 	}
-	i_stream_unref(input);
+	i_stream_unref(&input);
 	(void)close(fd);
 
 	if (dict->connect_string == NULL) {
@@ -117,7 +117,7 @@ static void sql_dict_deinit(struct dict *_dict)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 
-	sql_deinit(dict->db);
+	sql_deinit(&dict->db);
 	pool_unref(dict->pool);
 }
 
@@ -217,7 +217,7 @@ static int sql_dict_transaction_commit(struct dict_transaction_context *_ctx)
 	const char *error;
 	int ret;
 
-	ret = sql_transaction_commit_s(ctx->sql_ctx, &error);
+	ret = sql_transaction_commit_s(&ctx->sql_ctx, &error);
 	if (ret < 0)
 		i_error("sql dict: commit failed: %s", error);
 	i_free(ctx);
@@ -229,7 +229,7 @@ static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
 
-	sql_transaction_rollback(ctx->sql_ctx);
+	sql_transaction_rollback(&ctx->sql_ctx);
 	i_free(ctx);
 }
 

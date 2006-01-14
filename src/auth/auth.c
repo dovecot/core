@@ -228,10 +228,13 @@ void auth_init(struct auth *auth)
 		getenv("SSL_USERNAME_FROM_CERT") != NULL;
 }
 
-void auth_deinit(struct auth *auth)
+void auth_deinit(struct auth **_auth)
 {
+        struct auth *auth = *_auth;
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
+
+	*_auth = NULL;
 
 	passdb_cache_deinit();
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)

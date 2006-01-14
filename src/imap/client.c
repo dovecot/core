@@ -77,15 +77,15 @@ void client_destroy(struct client *client)
 	}
 
 	if (client->mailbox != NULL)
-		mailbox_close(client->mailbox);
+		mailbox_close(&client->mailbox);
 	namespace_deinit(client->namespaces);
 
-	imap_parser_destroy(client->parser);
+	imap_parser_destroy(&client->parser);
 	if (client->io != NULL)
-		io_remove(client->io);
+		io_remove(&client->io);
 
-	i_stream_unref(client->input);
-	o_stream_unref(client->output);
+	i_stream_unref(&client->input);
+	o_stream_unref(&client->output);
 
 	pool_unref(client->keywords.pool);
 	pool_unref(client->cmd.pool);
@@ -377,8 +377,7 @@ void _client_input(void *context)
 
 	if (client->command_pending) {
 		/* already processing one command. wait. */
-		io_remove(client->io);
-		client->io = NULL;
+		io_remove(&client->io);
 		return;
 	}
 
@@ -495,5 +494,5 @@ void clients_deinit(void)
 		client_destroy(my_client);
 	}
 
-	timeout_remove(to_idle);
+	timeout_remove(&to_idle);
 }

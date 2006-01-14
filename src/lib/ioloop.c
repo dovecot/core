@@ -56,8 +56,12 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 	return io;
 }
 
-void io_remove(struct io *io)
+void io_remove(struct io **_io)
 {
+	struct io *io = *_io;
+
+	*_io = NULL;
+
 	if ((io->condition & IO_NOTIFY) != 0) {
 		io_loop_notify_remove(current_ioloop, io);
 		return;
@@ -134,11 +138,12 @@ struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 	return timeout;
 }
 
-void timeout_remove(struct timeout *timeout)
+void timeout_remove(struct timeout **timeout)
 {
-	i_assert(timeout != NULL);
+	i_assert(*timeout != NULL);
 
-	timeout->destroyed = TRUE;
+	(*timeout)->destroyed = TRUE;
+	*timeout = NULL;
 }
 
 void timeout_destroy(struct ioloop *ioloop, struct timeout **timeout_p)
@@ -267,15 +272,18 @@ struct ioloop *io_loop_create(pool_t pool)
         return ioloop;
 }
 
-void io_loop_destroy(struct ioloop *ioloop)
+void io_loop_destroy(struct ioloop **_ioloop)
 {
+        struct ioloop *ioloop = *_ioloop;
 	pool_t pool;
+
+	*_ioloop = NULL;
 
 	while (ioloop->ios != NULL) {
 		struct io *io = ioloop->ios;
 
 		i_warning("I/O leak: %p (%d)", (void *)io->callback, io->fd);
-		io_remove(io);
+		io_remove(&io);
 	}
 
 	while (ioloop->timeouts != NULL) {
@@ -283,7 +291,7 @@ void io_loop_destroy(struct ioloop *ioloop)
 
 		if (!to->destroyed) {
 			i_warning("Timeout leak: %p", (void *)to->callback);
-			timeout_remove(to);
+			timeout_remove(&to);
 		}
                 timeout_destroy(ioloop, &ioloop->timeouts);
 	}

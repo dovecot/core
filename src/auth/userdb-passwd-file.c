@@ -66,7 +66,7 @@ static void passwd_file_deinit(struct userdb_module *_module)
 	struct passwd_file_userdb_module *module =
 		(struct passwd_file_userdb_module *)_module;
 
-	db_passwd_file_unref(module->pwf);
+	db_passwd_file_unref(&module->pwf);
 }
 
 struct userdb_module_interface userdb_passwd_file = {

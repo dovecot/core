@@ -145,10 +145,13 @@ mail_storage_create_with_data(const char *data, const char *user,
 	return storage;
 }
 
-void mail_storage_destroy(struct mail_storage *storage)
+void mail_storage_destroy(struct mail_storage **_storage)
 {
+	struct mail_storage *storage = *_storage;
+
 	i_assert(storage != NULL);
 
+	*_storage = NULL;
 	storage->v.destroy(storage);
 }
 
@@ -265,8 +268,11 @@ mail_storage_mailbox_list_next(struct mailbox_list_context *ctx)
 	return ctx->storage->v.mailbox_list_next(ctx);
 }
 
-int mail_storage_mailbox_list_deinit(struct mailbox_list_context *ctx)
+int mail_storage_mailbox_list_deinit(struct mailbox_list_context **_ctx)
 {
+	struct mailbox_list_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	return ctx->storage->v.mailbox_list_deinit(ctx);
 }
 
@@ -298,8 +304,11 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 	return storage->v.mailbox_open(storage, name, input, flags);
 }
 
-int mailbox_close(struct mailbox *box)
+int mailbox_close(struct mailbox **_box)
 {
+	struct mailbox *box = *_box;
+
+	*_box = NULL;
 	return box->v.close(box);
 }
 
@@ -342,9 +351,12 @@ int mailbox_sync_next(struct mailbox_sync_context *ctx,
 	return ctx->box->v.sync_next(ctx, sync_rec_r);
 }
 
-int mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 			struct mailbox_status *status_r)
 {
+	struct mailbox_sync_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	return ctx->box->v.sync_deinit(ctx, status_r);
 }
 
@@ -362,8 +374,11 @@ mailbox_keywords_create(struct mailbox_transaction_context *t,
 }
 
 void mailbox_keywords_free(struct mailbox_transaction_context *t,
-			   struct mail_keywords *keywords)
+			   struct mail_keywords **_keywords)
 {
+	struct mail_keywords *keywords = *_keywords;
+
+	*_keywords = NULL;
 	t->box->v.keywords_free(t, keywords);
 }
 
@@ -379,8 +394,11 @@ mailbox_header_lookup_init(struct mailbox *box, const char *const headers[])
 	return box->v.header_lookup_init(box, headers);
 }
 
-void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx)
+void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx **_ctx)
 {
+	struct mailbox_header_lookup_ctx *ctx = *_ctx;
+
+	*_ctx = NULL;
 	ctx->box->v.header_lookup_deinit(ctx);
 }
 
@@ -398,8 +416,11 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 	return t->box->v.search_init(t, charset, args, sort_program);
 }
 
-int mailbox_search_deinit(struct mail_search_context *ctx)
+int mailbox_search_deinit(struct mail_search_context **_ctx)
 {
+	struct mail_search_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	return ctx->transaction->box->v.search_deinit(ctx);
 }
 
@@ -415,14 +436,20 @@ mailbox_transaction_begin(struct mailbox *box,
 	return box->v.transaction_begin(box, flags);
 }
 
-int mailbox_transaction_commit(struct mailbox_transaction_context *t,
+int mailbox_transaction_commit(struct mailbox_transaction_context **_t,
 			       enum mailbox_sync_flags flags)
 {
+	struct mailbox_transaction_context *t = *_t;
+
+	*_t = NULL;
 	return t->box->v.transaction_commit(t, flags);
 }
 
-void mailbox_transaction_rollback(struct mailbox_transaction_context *t)
+void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 {
+	struct mailbox_transaction_context *t = *_t;
+
+	*_t = NULL;
 	t->box->v.transaction_rollback(t);
 }
 
@@ -443,13 +470,19 @@ int mailbox_save_continue(struct mail_save_context *ctx)
 	return ctx->transaction->box->v.save_continue(ctx);
 }
 
-int mailbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail)
+int mailbox_save_finish(struct mail_save_context **_ctx, struct mail *dest_mail)
 {
+	struct mail_save_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	return ctx->transaction->box->v.save_finish(ctx, dest_mail);
 }
 
-void mailbox_save_cancel(struct mail_save_context *ctx)
+void mailbox_save_cancel(struct mail_save_context **_ctx)
 {
+	struct mail_save_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	ctx->transaction->box->v.save_cancel(ctx);
 }
 

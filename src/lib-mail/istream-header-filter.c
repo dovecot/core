@@ -45,8 +45,8 @@ static void _destroy(struct _iostream *stream)
 		(struct header_filter_istream *)stream;
 
 	if (mstream->hdr_ctx != NULL)
-		message_parse_header_deinit(mstream->hdr_ctx);
-	i_stream_unref(mstream->input);
+		message_parse_header_deinit(&mstream->hdr_ctx);
+	i_stream_unref(&mstream->input);
 	pool_unref(mstream->pool);
 }
 
@@ -166,7 +166,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 
 	if (hdr == NULL) {
 		/* finished */
-		message_parse_header_deinit(mstream->hdr_ctx);
+		message_parse_header_deinit(&mstream->hdr_ctx);
 		mstream->hdr_ctx = NULL;
 
 		if (!mstream->header_parsed && mstream->callback != NULL)
@@ -255,7 +255,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 	stream->buffer = NULL;
 
 	if (mstream->hdr_ctx != NULL) {
-		message_parse_header_deinit(mstream->hdr_ctx);
+		message_parse_header_deinit(&mstream->hdr_ctx);
 		mstream->hdr_ctx = NULL;
 	}
 

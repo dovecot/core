@@ -117,7 +117,7 @@ static bool auth_server_send_new_request(struct auth_server_connection *conn,
 	if (ret < 0) {
 		errno = conn->output->stream_errno;
 		i_warning("Error sending request to auth server: %m");
-		auth_server_connection_destroy(conn, TRUE);
+		auth_server_connection_destroy(&conn, TRUE);
 		return FALSE;
 	}
 
@@ -144,7 +144,7 @@ static void auth_server_send_continue(struct auth_server_connection *conn,
 	if (o_stream_sendv(conn->output, iov, 3) < 0) {
 		errno = conn->output->stream_errno;
 		i_warning("Error sending continue request to auth server: %m");
-		auth_server_connection_destroy(conn, TRUE);
+		auth_server_connection_destroy(&conn, TRUE);
 	}
 }
 

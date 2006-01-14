@@ -135,13 +135,13 @@ static void auth_client_input(void *context)
 		return;
 	case -1:
 		/* disconnected */
-		auth_server_connection_destroy(conn, TRUE);
+		auth_server_connection_destroy(&conn, TRUE);
 		return;
 	case -2:
 		/* buffer full - can't happen unless auth is buggy */
 		i_error("BUG: Auth server sent us more than %d bytes of data",
 			AUTH_CLIENT_MAX_LINE_LENGTH);
-		auth_server_connection_destroy(conn, FALSE);
+		auth_server_connection_destroy(&conn, FALSE);
 		return;
 	}
 
@@ -156,7 +156,7 @@ static void auth_client_input(void *context)
 		    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION) {
 			i_error("Authentication server not compatible with "
 				"this client (mixed old and new binaries?)");
-			auth_server_connection_destroy(conn, FALSE);
+			auth_server_connection_destroy(&conn, FALSE);
 			return;
 		}
 		conn->version_received = TRUE;
@@ -184,7 +184,7 @@ static void auth_client_input(void *context)
 		}
 
 		if (!ret) {
-			auth_server_connection_destroy(conn, FALSE);
+			auth_server_connection_destroy(&conn, FALSE);
 			break;
 		}
 	}
@@ -249,17 +249,20 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	if (o_stream_send_str(conn->output, handshake) < 0) {
 		errno = conn->output->stream_errno;
 		i_warning("Error sending handshake to auth server: %m");
-		auth_server_connection_destroy(conn, TRUE);
+		auth_server_connection_destroy(&conn, TRUE);
 		return NULL;
 	}
 	return conn;
 }
 
-void auth_server_connection_destroy(struct auth_server_connection *conn,
+void auth_server_connection_destroy(struct auth_server_connection **_conn,
 				    bool reconnect)
 {
+        struct auth_server_connection *conn = *_conn;
 	struct auth_client *client = conn->client;
 	struct auth_server_connection **pos;
+
+	*_conn = NULL;
 
 	if (conn->fd == -1)
 		return;
@@ -279,10 +282,8 @@ void auth_server_connection_destroy(struct auth_server_connection *conn,
 		client->ext_input_remove(conn->ext_input_io);
 		conn->ext_input_io = NULL;
 	}
-	if (conn->io != NULL) {
-		io_remove(conn->io);
-		conn->io = NULL;
-	}
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
@@ -312,8 +313,8 @@ static void auth_server_connection_unref(struct auth_server_connection *conn)
 	hash_destroy(conn->requests);
 	buffer_free(conn->auth_mechs_buf);
 
-	i_stream_unref(conn->input);
-	o_stream_unref(conn->output);
+	i_stream_unref(&conn->input);
+	o_stream_unref(&conn->output);
 	pool_unref(conn->pool);
 }
 

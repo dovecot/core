@@ -492,7 +492,7 @@ void password_schemes_init(void)
 void password_schemes_deinit(void)
 {
 #ifdef HAVE_MODULES
-	module_dir_unload(scheme_modules);
+	module_dir_unload(&scheme_modules);
 #endif
 
 	buffer_free(schemes_buf);

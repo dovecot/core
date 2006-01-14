@@ -201,7 +201,7 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 	ctx->synced = TRUE;
         t->mbox_modified = TRUE;
 
-	mail_index_view_close(view);
+	mail_index_view_close(&view);
 }
 
 static void status_flags_append(string_t *str, enum mail_flags flags,
@@ -524,14 +524,10 @@ int mbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 			ctx->failed = TRUE;
 	}
 
-	if (ctx->input != NULL) {
-		i_stream_unref(ctx->input);
-		ctx->input = NULL;
-	}
-	if (ctx->body_output != NULL) {
-		o_stream_unref(ctx->body_output);
-		ctx->body_output = NULL;
-	}
+	if (ctx->input != NULL)
+		i_stream_unref(&ctx->input);
+	if (ctx->body_output != NULL)
+		o_stream_unref(&ctx->body_output);
 
 	if (ctx->failed && ctx->mail_offset != (uoff_t)-1) {
 		/* saving this mail failed - truncate back to beginning of it */
@@ -566,10 +562,10 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 	i_assert(ctx->body_output == NULL);
 
 	if (ctx->output != NULL)
-		o_stream_unref(ctx->output);
+		o_stream_unref(&ctx->output);
 	if (ctx->mail != NULL)
 		index_mail_free(ctx->mail);
-	str_free(ctx->headers);
+	str_free(&ctx->headers);
 	i_free(ctx);
 }
 

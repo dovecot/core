@@ -347,7 +347,7 @@ static void auth_process_destroy(struct auth_process *p)
 
 	if (close(p->worker_listen_fd) < 0)
 		i_error("close(worker_listen) failed: %m");
-	io_remove(p->worker_io);
+	io_remove(&p->worker_io);
 
 	iter = hash_iterate_init(p->requests);
 	while (hash_iterate(iter, &key, &value))
@@ -355,9 +355,9 @@ static void auth_process_destroy(struct auth_process *p)
 	hash_iterate_deinit(iter);
 	hash_destroy(p->requests);
 
-	i_stream_unref(p->input);
-	o_stream_unref(p->output);
-	io_remove(p->io);
+	i_stream_unref(&p->input);
+	o_stream_unref(&p->output);
+	io_remove(&p->io);
 	if (close(p->fd) < 0)
 		i_error("close(auth) failed: %m");
 	i_free(p);
@@ -738,6 +738,6 @@ void auth_processes_init(void)
 
 void auth_processes_deinit(void)
 {
-	timeout_remove(to);
+	timeout_remove(&to);
 	auth_processes_destroy_all();
 }

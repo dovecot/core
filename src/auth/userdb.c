@@ -150,6 +150,6 @@ void userdb_deinit(struct auth_userdb *userdb)
 		userdb->userdb->iface->deinit(userdb->userdb);
 #ifdef HAVE_MODULES
 	if (userdb->module != NULL)
-                auth_module_close(userdb->module);
+                auth_module_close(&userdb->module);
 #endif
 }

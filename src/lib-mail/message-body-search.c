@@ -155,7 +155,7 @@ static bool message_search_header(struct part_search_context *ctx,
 		}
 	}
 	i_assert(ret != 0);
-	message_parse_header_deinit(hdr_ctx);
+	message_parse_header_deinit(&hdr_ctx);
 
 	return found;
 }
@@ -346,10 +346,10 @@ static bool message_search_body(struct part_search_context *ctx,
 		pos -= data_size;
 	}
 
-	i_stream_unref(input);
+	i_stream_unref(&input);
 
 	if (ctx->translation != NULL)
-		charset_to_utf8_end(ctx->translation);
+		charset_to_utf8_end(&ctx->translation);
 	buffer_free(ctx->decode_buf);
 	return found;
 }

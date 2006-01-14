@@ -42,10 +42,13 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 	return view;
 }
 
-void mail_transaction_log_view_close(struct mail_transaction_log_view *view)
+void mail_transaction_log_view_close(struct mail_transaction_log_view **_view)
 {
+        struct mail_transaction_log_view *view = *_view;
 	struct mail_transaction_log_view **p;
 	struct mail_transaction_log_file *file;
+
+	*_view = NULL;
 
 	for (p = &view->log->views; *p != NULL; p = &(*p)->next) {
 		if (*p == view) {

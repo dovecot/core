@@ -12,7 +12,7 @@ char *auth_cache_parse_key(pool_t pool, const char *query);
    bytes to use for cache (it's not fully exact). ttl_secs specifies time to
    live for cache record, requests older than that are not used. */
 struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs);
-void auth_cache_free(struct auth_cache *cache);
+void auth_cache_free(struct auth_cache **cache);
 
 /* Clear the cache. */
 void auth_cache_clear(struct auth_cache *cache);

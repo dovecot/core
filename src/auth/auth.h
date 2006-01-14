@@ -51,6 +51,6 @@ const string_t *auth_mechanisms_get_list(struct auth *auth);
 
 struct auth *auth_preinit(void);
 void auth_init(struct auth *auth);
-void auth_deinit(struct auth *auth);
+void auth_deinit(struct auth **auth);
 
 #endif

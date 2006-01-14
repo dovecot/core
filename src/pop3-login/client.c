@@ -87,8 +87,8 @@ static void client_start_tls(struct pop3_client *client)
 
 	client->common.fd = fd_ssl;
 
-	i_stream_unref(client->input);
-	o_stream_unref(client->output);
+	i_stream_unref(&client->input);
+	o_stream_unref(&client->output);
 
 	client_open_streams(client, fd_ssl);
 	client->io = io_add(client->common.fd, IO_READ, client_input, client);
@@ -123,10 +123,8 @@ static bool cmd_stls(struct pop3_client *client)
 
 	/* remove input handler, SSL proxy gives us a new fd. we also have to
 	   remove it in case we have to wait for buffer to be flushed */
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 
 	client_send_line(client, "+OK Begin TLS negotiation now.");
 
@@ -366,10 +364,8 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	if (client->common.master_tag != 0)
 		master_request_abort(&client->common);
 
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 
 	if (client->common.fd != -1) {
 		net_disconnect(client->common.fd);
@@ -414,9 +410,9 @@ bool client_unref(struct pop3_client *client)
 		return TRUE;
 
 	if (client->input != NULL)
-		i_stream_unref(client->input);
+		i_stream_unref(&client->input);
 	if (client->output != NULL)
-		o_stream_unref(client->output);
+		o_stream_unref(&client->output);
 
 	i_free(client->last_user);
 	i_free(client->apop_challenge);
@@ -515,5 +511,5 @@ void clients_deinit(void)
 	clients_destroy_all();
 	hash_destroy(clients);
 
-	timeout_remove(to_idle);
+	timeout_remove(&to_idle);
 }

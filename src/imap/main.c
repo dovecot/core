@@ -198,7 +198,7 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	module_dir_unload(modules);
+	module_dir_unload(&modules);
 
 	commands_deinit();
 	clients_deinit();
@@ -207,7 +207,7 @@ static void main_deinit(void)
 	random_deinit();
 	pool_unref(namespace_pool);
 
-	str_free(capability_string);
+	str_free(&capability_string);
 
 	lib_signals_deinit();
 	closelog();
@@ -238,7 +238,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
         io_loop_run(ioloop);
 	main_deinit();
 
-	io_loop_destroy(ioloop);
+	io_loop_destroy(&ioloop);
 	lib_deinit();
 
 	return 0;

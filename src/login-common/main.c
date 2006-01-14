@@ -58,16 +58,14 @@ void main_close_listen(void)
 		if (close(LOGIN_LISTEN_FD) < 0)
 			i_fatal("close(listen) failed: %m");
 
-		io_remove(io_listen);
-		io_listen = NULL;
+		io_remove(&io_listen);
 	}
 
 	if (io_ssl_listen != NULL) {
 		if (close(LOGIN_SSL_LISTEN_FD) < 0)
 			i_fatal("close(ssl_listen) failed: %m");
 
-		io_remove(io_ssl_listen);
-		io_ssl_listen = NULL;
+		io_remove(&io_ssl_listen);
 	}
 
 	closing_down = TRUE;
@@ -247,13 +245,13 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	if (io_listen != NULL) io_remove(io_listen);
-	if (io_ssl_listen != NULL) io_remove(io_ssl_listen);
+	if (io_listen != NULL) io_remove(&io_listen);
+	if (io_ssl_listen != NULL) io_remove(&io_ssl_listen);
 
 	ssl_proxy_deinit();
 	login_proxy_deinit();
 
-	auth_client_free(auth_client);
+	auth_client_free(&auth_client);
 	clients_deinit();
 	master_deinit();
 
@@ -343,7 +341,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	io_loop_run(ioloop);
 	main_deinit();
 
-	io_loop_destroy(ioloop);
+	io_loop_destroy(&ioloop);
 	lib_deinit();
 
         return 0;

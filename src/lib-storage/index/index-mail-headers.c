@@ -406,7 +406,7 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 				     imap_envelope_parse_callback, mail);
 		mail->data.save_envelope = FALSE;
 	}
-	mailbox_header_lookup_deinit(header_ctx);
+	mailbox_header_lookup_deinit(&header_ctx);
 }
 
 static size_t get_header_size(buffer_t *buffer, size_t pos)
@@ -539,7 +539,7 @@ const char *const *index_mail_get_headers(struct mail *_mail, const char *field)
 		headers_ctx = mailbox_header_lookup_init(&mail->ibox->box,
 							 headers);
 		ret = index_mail_parse_headers(mail, headers_ctx);
-		mailbox_header_lookup_deinit(headers_ctx);
+		mailbox_header_lookup_deinit(&headers_ctx);
 		if (ret < 0)
 			return NULL;
 
@@ -624,7 +624,7 @@ index_mail_get_header_stream(struct mail *_mail,
 		return NULL;
 
 	if (mail->data.filter_stream != NULL)
-		i_stream_unref(mail->data.filter_stream);
+		i_stream_unref(&mail->data.filter_stream);
 
 	index_mail_parse_header_init(mail, _headers);
 	mail->data.filter_stream =

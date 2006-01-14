@@ -332,7 +332,7 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
                 uidlist->last_mtime = 0;
 	}
 
-	i_stream_unref(input);
+	i_stream_unref(&input);
 	uidlist->initial_read = TRUE;
 	return ret;
 }

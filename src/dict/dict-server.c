@@ -367,9 +367,9 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 		array_free(&conn->transactions);
 	}
 
-	io_remove(conn->io);
-	i_stream_unref(conn->input);
-	o_stream_unref(conn->output);
+	io_remove(&conn->io);
+	i_stream_unref(&conn->input);
+	o_stream_unref(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(dict client) failed: %m");
 
@@ -447,7 +447,7 @@ void dict_server_deinit(struct dict_server *server)
 	dict_cache_deinit(server->cache);
 	if (close(server->fd) < 0)
 		i_error("close(%s) failed: %m", server->path);
-	io_remove(server->io);
+	io_remove(&server->io);
 	i_free(server->path);
 	i_free(server);
 }

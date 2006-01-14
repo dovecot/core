@@ -251,7 +251,7 @@ static int main_init(void)
 
 static void main_deinit(void)
 {
-	module_dir_unload(modules);
+	module_dir_unload(&modules);
 
 	clients_deinit();
         mail_storage_deinit();
@@ -287,7 +287,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 		io_loop_run(ioloop);
 	main_deinit();
 
-	io_loop_destroy(ioloop);
+	io_loop_destroy(&ioloop);
 	lib_deinit();
 
 	return 0;

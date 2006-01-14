@@ -229,7 +229,7 @@ int mail_index_map(struct mail_index *index, bool force);
 int mail_index_get_latest_header(struct mail_index *index,
 				 struct mail_index_header *hdr_r);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
-void mail_index_unmap(struct mail_index *index, struct mail_index_map *map);
+void mail_index_unmap(struct mail_index *index, struct mail_index_map **map);
 struct mail_index_map *
 mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size);
 

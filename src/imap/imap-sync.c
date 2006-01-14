@@ -61,15 +61,15 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 {
 	struct mailbox_status status;
 
-	mail_free(ctx->mail);
+	mail_free(&ctx->mail);
 
-	if (mailbox_sync_deinit(ctx->sync_ctx, &status) < 0 || ctx->failed) {
-		mailbox_transaction_rollback(ctx->t);
+	if (mailbox_sync_deinit(&ctx->sync_ctx, &status) < 0 || ctx->failed) {
+		mailbox_transaction_rollback(&ctx->t);
 		i_free(ctx);
 		return -1;
 	}
 
-	mailbox_transaction_commit(ctx->t, 0);
+	mailbox_transaction_commit(&ctx->t, 0);
 
 	t_push();
 
@@ -183,7 +183,7 @@ int imap_sync_nonselected(struct mailbox *box, enum mailbox_sync_flags flags)
 	ctx = mailbox_sync_init(box, flags);
 	while (mailbox_sync_next(ctx, &sync_rec) > 0)
 		;
-	return mailbox_sync_deinit(ctx, &status);
+	return mailbox_sync_deinit(&ctx, &status);
 }
 
 static bool cmd_sync_continue(struct client_command_context *cmd)

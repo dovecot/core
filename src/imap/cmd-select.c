@@ -21,7 +21,7 @@ bool _cmd_select_full(struct client_command_context *cmd, bool readonly)
 		client->mailbox = NULL;
 
                 storage = mailbox_get_storage(box);
-		if (mailbox_close(box) < 0)
+		if (mailbox_close(&box) < 0)
 			client_send_untagged_storage_error(client, storage);
 	}
 
@@ -38,7 +38,7 @@ bool _cmd_select_full(struct client_command_context *cmd, bool readonly)
 
 	if (imap_sync_nonselected(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		client_send_storage_error(cmd, storage);
-		mailbox_close(box);
+		mailbox_close(&box);
 		return TRUE;
 	}
 
@@ -47,7 +47,7 @@ bool _cmd_select_full(struct client_command_context *cmd, bool readonly)
 			       STATUS_UIDNEXT | STATUS_KEYWORDS,
 			       &status) < 0) {
 		client_send_storage_error(cmd, storage);
-		mailbox_close(box);
+		mailbox_close(&box);
 		return TRUE;
 	}
 

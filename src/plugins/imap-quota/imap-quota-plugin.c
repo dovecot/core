@@ -103,7 +103,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 			"* BAD ", quota_last_error(quota), NULL));
 	}
 
-	mailbox_close(box);
+	mailbox_close(&box);
 
 	client_send_tagline(cmd, "OK Getquotaroot completed.");
 	return TRUE;

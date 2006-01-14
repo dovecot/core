@@ -38,7 +38,7 @@ static void server_input(void *context)
 	    OUTBUF_THRESHOLD) {
 		/* client's output buffer is already quite full.
 		   don't send more until we're below threshold. */
-		io_remove(proxy->server_io);
+		io_remove(&proxy->server_io);
 		proxy->server_io = NULL;
 		return;
 	}
@@ -60,7 +60,7 @@ static void proxy_client_input(void *context)
 	    OUTBUF_THRESHOLD) {
 		/* proxy's output buffer is already quite full.
 		   don't send more until we're below threshold. */
-		io_remove(proxy->client_io);
+		io_remove(&proxy->client_io);
 		proxy->client_io = NULL;
 		return;
 	}
@@ -141,7 +141,7 @@ static void proxy_wait_connect(void *context)
 		o_stream_create_file(proxy->server_fd, default_pool,
 				     (size_t)-1, FALSE);
 
-	io_remove(proxy->server_io);
+	io_remove(&proxy->server_io);
 	proxy->server_io =
 		io_add(proxy->server_fd, IO_READ, proxy_prelogin_input, proxy);
 }
@@ -205,9 +205,9 @@ void login_proxy_free(struct login_proxy *proxy)
 		       proxy->user, net_ip2addr(&ip));
 
 		if (proxy->client_io != NULL)
-			io_remove(proxy->client_io);
+			io_remove(&proxy->client_io);
 		if (proxy->client_output != NULL)
-			o_stream_unref(proxy->client_output);
+			o_stream_unref(&proxy->client_output);
 		net_disconnect(proxy->client_fd);
 	} else {
 		proxy->destroying = TRUE;
@@ -215,11 +215,11 @@ void login_proxy_free(struct login_proxy *proxy)
 	}
 
 	if (proxy->server_io != NULL)
-		io_remove(proxy->server_io);
+		io_remove(&proxy->server_io);
 	if (proxy->server_input != NULL)
-		i_stream_unref(proxy->server_input);
+		i_stream_unref(&proxy->server_input);
 	if (proxy->server_output != NULL)
-		o_stream_unref(proxy->server_output);
+		o_stream_unref(&proxy->server_output);
 	net_disconnect(proxy->server_fd);
 
 	i_free(proxy->host);
@@ -243,16 +243,16 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 	data = i_stream_get_data(client_input, &size);
 	if (size != 0)
 		(void)o_stream_send(proxy->server_output, data, size);
-	i_stream_unref(client_input);
+	i_stream_unref(&client_input);
 
 	/* from now on, just do dummy proxying */
-	io_remove(proxy->server_io);
+	io_remove(&proxy->server_io);
 	proxy->server_io = io_add(proxy->server_fd, IO_READ, server_input, proxy);
 	proxy->client_io = io_add(proxy->client_fd, IO_READ,
 				  proxy_client_input, proxy);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
 
-	i_stream_unref(proxy->server_input);
+	i_stream_unref(&proxy->server_input);
         proxy->server_input = NULL;
 
 	if (login_proxies == NULL) {

@@ -138,7 +138,7 @@ static bool client_handle_args(struct pop3_client *client,
 
 	/* get back to normal client input. */
 	if (client->io != NULL)
-		io_remove(client->io);
+		io_remove(&client->io);
 	client->io = io_add(client->common.fd, IO_READ,
 			    client_input, client);
 	return TRUE;
@@ -172,7 +172,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 
 		/* get back to normal client input. */
 		if (client->io != NULL)
-			io_remove(client->io);
+			io_remove(&client->io);
 		client->io = io_add(client->common.fd, IO_READ,
 				    client_input, client);
 		break;
@@ -242,7 +242,7 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 
 	/* following input data will go to authentication */
 	if (client->io != NULL)
-		io_remove(client->io);
+		io_remove(&client->io);
 	client->io = io_add(client->common.fd, IO_READ,
 			    client_auth_input, client);
 	return TRUE;
@@ -297,10 +297,8 @@ bool cmd_pass(struct pop3_client *client, const char *args)
 		return TRUE;
 
 	/* don't read any input from client until login is finished */
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 	return TRUE;
 }
 
@@ -357,9 +355,7 @@ bool cmd_apop(struct pop3_client *client, const char *args)
 		return TRUE;
 
 	/* don't read any input from client until login is finished */
-	if (client->io != NULL) {
-		io_remove(client->io);
-		client->io = NULL;
-	}
+	if (client->io != NULL)
+		io_remove(&client->io);
 	return TRUE;
 }

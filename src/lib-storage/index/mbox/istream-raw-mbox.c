@@ -32,7 +32,7 @@ static void _destroy(struct _iostream *stream)
 	i_free(rstream->next_sender);
 
 	i_stream_seek(rstream->input, rstream->istream.istream.v_offset);
-	i_stream_unref(rstream->input);
+	i_stream_unref(&rstream->input);
 }
 
 static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)

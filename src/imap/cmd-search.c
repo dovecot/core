@@ -25,7 +25,7 @@ static bool imap_search(struct client_command_context *cmd, const char *charset,
 	trans = mailbox_transaction_begin(client->mailbox, 0);
 	ctx = mailbox_search_init(trans, charset, sargs, NULL);
 	if (ctx == NULL) {
-		mailbox_transaction_rollback(trans);
+		mailbox_transaction_rollback(&trans);
 		return FALSE;
 	}
 
@@ -42,11 +42,11 @@ static bool imap_search(struct client_command_context *cmd, const char *charset,
 
 		str_printfa(str, " %u", uid ? mail->uid : mail->seq);
 	}
-	mail_free(mail);
+	mail_free(&mail);
 
-	ret = mailbox_search_deinit(ctx);
+	ret = mailbox_search_deinit(&ctx);
 
-	if (mailbox_transaction_commit(trans, 0) < 0)
+	if (mailbox_transaction_commit(&trans, 0) < 0)
 		ret = -1;
 
 	if (!first || ret == 0) {

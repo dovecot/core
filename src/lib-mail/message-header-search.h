@@ -10,7 +10,7 @@ message_header_search_init(pool_t pool, const char *key, const char *charset,
 			   bool *unknown_charset);
 
 /* Free search context. Not needed if you just destroy the pool. */
-void message_header_search_free(struct header_search_context *ctx);
+void message_header_search_free(struct header_search_context **ctx);
 
 /* Returns TRUE if key is found from header. This function may be called
    multiple times with partial header blocks, but the blocks must contain only

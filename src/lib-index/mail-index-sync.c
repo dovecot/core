@@ -77,7 +77,7 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 		}
 	}
 
-	mail_index_keywords_free(keywords);
+	mail_index_keywords_free(&keywords);
 	t_pop();
 }
 
@@ -95,7 +95,7 @@ static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
 						   MODIFY_REPLACE, keywords);
 		}
 	}
-	mail_index_keywords_free(keywords);
+	mail_index_keywords_free(&keywords);
 }
 
 static void mail_index_sync_add_append(struct mail_index_sync_ctx *ctx)
@@ -410,12 +410,12 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	dummy_view = mail_index_dummy_view_open(index);
 	ctx->trans = mail_index_transaction_begin(dummy_view, FALSE, TRUE);
-	mail_index_view_close(dummy_view);
+	mail_index_view_close(&dummy_view);
 
 	if (mail_index_sync_set_log_view(ctx->view,
 					 index->hdr->log_file_seq,
 					 index->hdr->log_file_int_offset) < 0) {
-                mail_index_sync_rollback(ctx);
+                mail_index_sync_rollback(&ctx);
 		return -1;
 	}
 
@@ -433,11 +433,11 @@ int mail_index_sync_begin(struct mail_index *index,
 	if (seq != index->hdr->log_file_seq ||
 	    offset != index->hdr->log_file_ext_offset) {
 		if (mail_index_sync_commit_external(ctx) < 0) {
-			mail_index_sync_rollback(ctx);
+			mail_index_sync_rollback(&ctx);
 			return -1;
 		}
 
-		mail_index_view_close(ctx->view);
+		mail_index_view_close(&ctx->view);
 		ctx->view = mail_index_view_open(index);
 
 		if (mail_index_sync_set_log_view(ctx->view,
@@ -449,7 +449,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	/* we need to have all the transactions sorted to optimize
 	   caller's mailbox access patterns */
 	if (mail_index_sync_read_and_sort(ctx, &seen_external) < 0) {
-                mail_index_sync_rollback(ctx);
+                mail_index_sync_rollback(&ctx);
 		return -1;
 	}
 
@@ -618,20 +618,24 @@ void mail_index_sync_reset(struct mail_index_sync_ctx *ctx)
 		sync_list[i].idx = 0;
 }
 
-static void mail_index_sync_end(struct mail_index_sync_ctx *ctx)
+static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 {
+        struct mail_index_sync_ctx *ctx = *_ctx;
+
+	*_ctx = NULL;
 	mail_index_unlock(ctx->index, ctx->lock_id);
 
 	i_assert(!ctx->index->map->write_to_disk);
 	mail_transaction_log_sync_unlock(ctx->index->log);
 
-	mail_index_view_close(ctx->view);
-	mail_index_transaction_rollback(ctx->trans);
+	mail_index_view_close(&ctx->view);
+	mail_index_transaction_rollback(&ctx->trans);
 	i_free(ctx);
 }
 
-int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
+int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 {
+        struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
 	const struct mail_index_header *hdr;
 	uint32_t seq;
@@ -675,11 +679,11 @@ int mail_index_sync_commit(struct mail_index_sync_ctx *ctx)
 	index->sync_log_file_seq = index->map->hdr.log_file_seq;
 	index->sync_log_file_offset = index->map->hdr.log_file_int_offset;
 
-	mail_index_sync_end(ctx);
+	mail_index_sync_end(_ctx);
 	return ret;
 }
 
-void mail_index_sync_rollback(struct mail_index_sync_ctx *ctx)
+void mail_index_sync_rollback(struct mail_index_sync_ctx **ctx)
 {
 	mail_index_sync_end(ctx);
 }

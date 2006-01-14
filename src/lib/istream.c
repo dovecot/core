@@ -10,15 +10,16 @@ void i_stream_ref(struct istream *stream)
 	_io_stream_ref(&stream->real_stream->iostream);
 }
 
-void i_stream_unref(struct istream *stream)
+void i_stream_unref(struct istream **stream)
 {
-	struct _istream *_stream = stream->real_stream;
+	struct _istream *_stream = (*stream)->real_stream;
 
 	if (_stream->iostream.refcount == 1) {
 		if (_stream->line_str != NULL)
-			str_free(_stream->line_str);
+			str_free(&_stream->line_str);
 	}
-	_io_stream_unref(&stream->real_stream->iostream);
+	_io_stream_unref(&(*stream)->real_stream->iostream);
+	*stream = NULL;
 }
 
 int i_stream_get_fd(struct istream *stream)

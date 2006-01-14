@@ -103,8 +103,12 @@ static void hash_destroy_nodes(struct hash_table *table)
 	}
 }
 
-void hash_destroy(struct hash_table *table)
+void _hash_destroy(struct hash_table **_table)
 {
+	struct hash_table *table = *_table;
+
+	*_table = NULL;
+
 	if (!table->node_pool->alloconly_pool) {
 		hash_destroy_nodes(table);
 		destroy_node_list(table, table->free_nodes);

@@ -123,7 +123,7 @@ void ssl_init(void)
 
 void ssl_deinit(void)
 {
-	timeout_remove(to);
+	timeout_remove(&to);
 }
 
 #else

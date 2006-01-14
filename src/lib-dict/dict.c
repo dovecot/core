@@ -71,8 +71,11 @@ struct dict *dict_init(const char *uri)
 	return dict->v.init(dict, p+1);
 }
 
-void dict_deinit(struct dict *dict)
+void dict_deinit(struct dict **_dict)
 {
+	struct dict *dict = *_dict;
+
+	*_dict = NULL;
 	dict->v.deinit(dict);
 }
 

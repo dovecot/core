@@ -52,7 +52,7 @@ char *auth_cache_parse_key(pool_t pool, const char *query)
 			}
 		}
 	}
-	return str_free_without_data(str);
+	return str_free_without_data(&str);
 }
 
 static void
@@ -133,8 +133,11 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs)
 	return cache;
 }
 
-void auth_cache_free(struct auth_cache *cache)
+void auth_cache_free(struct auth_cache **_cache)
 {
+	struct auth_cache *cache = *_cache;
+
+	*_cache = NULL;
 	lib_signals_unset_handler(SIGHUP, sig_auth_cache_clear, cache);
 	lib_signals_unset_handler(SIGUSR2, sig_auth_cache_stats, cache);
 

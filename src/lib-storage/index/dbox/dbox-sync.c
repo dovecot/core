@@ -307,7 +307,7 @@ int dbox_sync(struct dbox_mailbox *mbox, bool force)
 	}
 	if (dbox_uidlist_sync_init(mbox->uidlist, &ctx.uidlist_sync_ctx,
 				   &mtime) < 0) {
-		mail_index_sync_rollback(ctx.index_sync_ctx);
+		mail_index_sync_rollback(&ctx.index_sync_ctx);
 		return -1;
 	}
 
@@ -325,7 +325,7 @@ int dbox_sync(struct dbox_mailbox *mbox, bool force)
 		ret = dbox_sync_index(&ctx);
 
 	if (ret < 0) {
-		mail_index_sync_rollback(ctx.index_sync_ctx);
+		mail_index_sync_rollback(&ctx.index_sync_ctx);
 		dbox_uidlist_sync_rollback(ctx.uidlist_sync_ctx);
 		return -1;
 	}
@@ -346,7 +346,7 @@ int dbox_sync(struct dbox_mailbox *mbox, bool force)
 	}
 
 	if (dbox_uidlist_sync_commit(ctx.uidlist_sync_ctx, &mtime) < 0) {
-		mail_index_sync_rollback(ctx.index_sync_ctx);
+		mail_index_sync_rollback(&ctx.index_sync_ctx);
 		return -1;
 	}
 
@@ -358,18 +358,18 @@ int dbox_sync(struct dbox_mailbox *mbox, bool force)
 			&sync_stamp, sizeof(sync_stamp), TRUE);
 	}
 
-	if (mail_index_transaction_commit(ctx.trans, &seq, &offset) < 0) {
+	if (mail_index_transaction_commit(&ctx.trans, &seq, &offset) < 0) {
 		mail_storage_set_index_error(&mbox->ibox);
-		mail_index_sync_rollback(ctx.index_sync_ctx);
+		mail_index_sync_rollback(&ctx.index_sync_ctx);
 		return -1;
 	}
 
 	if (force) {
-		mail_index_sync_rollback(ctx.index_sync_ctx);
+		mail_index_sync_rollback(&ctx.index_sync_ctx);
 		/* now that indexes are ok, sync changes from the index */
 		return dbox_sync(mbox, FALSE);
 	} else {
-		if (mail_index_sync_commit(ctx.index_sync_ctx) < 0) {
+		if (mail_index_sync_commit(&ctx.index_sync_ctx) < 0) {
 			mail_storage_set_index_error(&mbox->ibox);
 			return -1;
 		}

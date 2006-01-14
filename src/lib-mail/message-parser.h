@@ -84,7 +84,7 @@ void message_parse_header(struct message_part *part, struct istream *input,
    are allocated from. */
 struct message_parser_ctx *
 message_parser_init(pool_t part_pool, struct istream *input);
-struct message_part *message_parser_deinit(struct message_parser_ctx *ctx);
+struct message_part *message_parser_deinit(struct message_parser_ctx **ctx);
 
 /* Read and parse header. */
 void message_parser_parse_header(struct message_parser_ctx *ctx,
@@ -106,7 +106,7 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 struct message_header_parser_ctx *
 message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 			 bool skip_initial_lwsp);
-void message_parse_header_deinit(struct message_header_parser_ctx *ctx);
+void message_parse_header_deinit(struct message_header_parser_ctx **ctx);
 
 /* Read and return next header line. Returns 1 if header is returned, 0 if
    input stream is non-blocking and more data needs to be read, -1 when all is

@@ -88,12 +88,15 @@ struct sql_connection *db_sql_init(const char *config_path)
 	return conn;
 }
 
-void db_sql_unref(struct sql_connection *conn)
+void db_sql_unref(struct sql_connection **_conn)
 {
+        struct sql_connection *conn = *_conn;
+
+	*_conn = NULL;
 	if (--conn->refcount > 0)
 		return;
 
-	sql_deinit(conn->db);
+	sql_deinit(&conn->db);
 	pool_unref(conn->pool);
 }
 

@@ -248,12 +248,12 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 		mail_sort_input(ctx, mail);
 
 	mail_sort_flush(ctx);
-	ret = mailbox_search_deinit(ctx->search_ctx);
+	ret = mailbox_search_deinit(&ctx->search_ctx);
 
-	mail_free(mail);
-	mail_free(ctx->other_mail);
+	mail_free(&mail);
+	mail_free(&ctx->other_mail);
 
-	if (mailbox_transaction_commit(ctx->t, 0) < 0)
+	if (mailbox_transaction_commit(&ctx->t, 0) < 0)
 		ret = -1;
 
 	if (ctx->written || ret == 0) {
@@ -263,7 +263,7 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 	}
 
 	if (headers_ctx != NULL)
-		mailbox_header_lookup_deinit(headers_ctx);
+		mailbox_header_lookup_deinit(&headers_ctx);
         mail_sort_deinit(ctx);
 	return ret;
 }

@@ -50,11 +50,13 @@ auth_request_handler_create(struct auth *auth,
 	return handler;
 }
 
-void auth_request_handler_unref(struct auth_request_handler *handler)
+void auth_request_handler_unref(struct auth_request_handler **_handler)
 {
+        struct auth_request_handler *handler = *_handler;
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
+	*_handler = NULL;
 	i_assert(handler->refcount > 0);
 	if (--handler->refcount > 0)
 		return;
@@ -83,7 +85,7 @@ static void auth_request_handler_remove(struct auth_request_handler *handler,
 					struct auth_request *request)
 {
 	hash_remove(handler->requests, POINTER_CAST(request->id));
-	auth_request_unref(request);
+	auth_request_unref(&request);
 }
 
 void auth_request_handler_check_timeouts(struct auth_request_handler *handler)
@@ -200,7 +202,7 @@ static void auth_callback(struct auth_request *request,
 			/* passdb specifically requested not to delay the
 			   reply. */
 			handler->callback(str_c(str), handler->context);
-			auth_request_unref(request);
+			auth_request_unref(&request);
 		} else {
 			/* failure. don't announce it immediately to avoid
 			   a) timing attacks, b) flooding */
@@ -213,7 +215,7 @@ static void auth_callback(struct auth_request *request,
 	}
 	/* NOTE: request may be destroyed now */
 
-        auth_request_handler_unref(handler);
+        auth_request_handler_unref(&handler);
 
 	t_pop();
 }
@@ -293,7 +295,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		i_error("BUG: Authentication client %u "
 			"didn't specify service in request",
 			handler->client_pid);
-		auth_request_unref(request);
+		auth_request_unref(&request);
 		return FALSE;
 	}
 
@@ -396,8 +398,8 @@ static void userdb_callback(struct auth_stream_reply *reply,
 	}
 	handler->master_callback(str_c(str), request->master);
 
-	auth_request_unref(request);
-        auth_request_handler_unref(handler);
+	auth_request_unref(&request);
+        auth_request_handler_unref(&handler);
 }
 
 void auth_request_handler_master_request(struct auth_request_handler *handler,
@@ -455,7 +457,7 @@ void auth_request_handler_flush_failures(void)
 		i_assert(auth_request[i]->state == AUTH_REQUEST_STATE_FINISHED);
 		auth_request[i]->callback(auth_request[i],
 					  AUTH_CLIENT_RESULT_FAILURE, NULL, 0);
-		auth_request_unref(auth_request[i]);
+		auth_request_unref(&auth_request[i]);
 	}
 	buffer_set_used_size(auth_failures_buf, 0);
 }
@@ -474,5 +476,5 @@ void auth_request_handler_init(void)
 void auth_request_handler_deinit(void)
 {
 	buffer_free(auth_failures_buf);
-	timeout_remove(to_auth_failures);
+	timeout_remove(&to_auth_failures);
 }

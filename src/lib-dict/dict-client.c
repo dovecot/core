@@ -208,14 +208,10 @@ static void client_dict_disconnect(struct client_dict *dict)
 	dict->connect_counter++;
 	dict->handshaked = FALSE;
 
-	if (dict->input != NULL) {
-		i_stream_unref(dict->input);
-		dict->input = NULL;
-	}
-	if (dict->output != NULL) {
-		o_stream_unref(dict->output);
-		dict->output = NULL;
-	}
+	if (dict->input != NULL)
+		i_stream_unref(&dict->input);
+	if (dict->output != NULL)
+		o_stream_unref(&dict->output);
 
 	if (dict->fd != -1) {
 		if (close(dict->fd) < 0)
