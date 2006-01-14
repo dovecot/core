@@ -4,7 +4,8 @@ pkglibexec_PROGRAMS = dict
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-dict
+	-I$(top_srcdir)/src/lib-dict \
+	-DPKG_RUNDIR=\""$(rundir)"\"
 
 libs = \
 	../lib-dict/libdict.a \
