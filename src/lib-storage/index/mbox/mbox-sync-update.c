@@ -9,6 +9,11 @@
 #include "mbox-storage.h"
 #include "mbox-sync-private.h"
 
+/* Line length when to wrap X-IMAP, X-IMAPbase and X-Keywords headers to next
+   line. Keep this pretty long, as after we wrap we lose compatibility with
+   UW-IMAP */
+#define KEYWORD_WRAP_LINE_LENGTH 1024
+
 static void status_flags_append(struct mbox_sync_mail_context *ctx,
 				const struct mbox_flag_type *flags_list)
 {
@@ -130,9 +135,8 @@ static void keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
 	for (i = 0, last_break = str_len(dest); i < idx_count; i++) {
 		i_assert(keyword_indexes[i] < keywords_count);
 
-		/* try avoid overly long lines but cutting them
-		   every 70 chars or so */
-		if (str_len(dest) - last_break < 70) {
+		/* wrap the line whenever it gets too long */
+		if (str_len(dest) - last_break < KEYWORD_WRAP_LINE_LENGTH) {
 			if (i > 0)
 				str_append_c(dest, ' ');
 		} else {
@@ -152,7 +156,7 @@ keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest)
 	size_t last_break;
 
 	p = str_data(dest);
-	if (str_len(dest) < 70)
+	if (str_len(dest) < KEYWORD_WRAP_LINE_LENGTH)
 		last_break = 0;
 	else {
 		/* set last_break to beginning of line */
@@ -164,9 +168,8 @@ keywords_append_all(struct mbox_sync_mail_context *ctx, string_t *dest)
 
 	names = array_get(ctx->sync_ctx->mbox->ibox.keyword_names, &count);
 	for (i = 0; i < count; i++) {
-		/* try avoid overly long lines but cutting them
-		   every 70 chars or so */
-		if (str_len(dest) - last_break < 70)
+		/* wrap the line whenever it gets too long */
+		if (str_len(dest) - last_break < KEYWORD_WRAP_LINE_LENGTH)
 			str_append_c(dest, ' ');
 		else {
 			str_append(dest, "\n\t");
