@@ -953,7 +953,6 @@ static void mail_thread_finish(struct thread_context *ctx)
 
 	if (ctx->root_node.first_child == NULL) {
 		/* no messages */
-		mail_thread_deinit(ctx);
 		return;
 	}
 
