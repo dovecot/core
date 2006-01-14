@@ -4,6 +4,7 @@ endif
 
 if BUILD_DELIVER
 #DELIVER = deliver
+DELIVER =
 endif
 
 SUBDIRS = \
