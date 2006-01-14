@@ -149,7 +149,7 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 	p_free(ioloop->pool, io);
 
 	if (ioloop->notifys == NULL) {
-		io_remove(ctx->event_io);
+		io_remove(&ctx->event_io);
 		ctx->event_io = NULL;
 	}
 }
