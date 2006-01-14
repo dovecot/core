@@ -46,6 +46,7 @@ struct client {
 	struct imap_parser *parser;
 	struct client_command_context cmd;
 
+	unsigned int destroyed:1;
 	unsigned int command_pending:1;
 	unsigned int input_pending:1;
 	unsigned int output_pending:1;

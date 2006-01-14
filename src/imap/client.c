@@ -62,11 +62,16 @@ void client_destroy(struct client *client)
 {
 	int ret;
 
+	i_assert(!client->destroyed);
+	client->destroyed = TRUE;
+
 	if (client->command_pending) {
 		/* try to deinitialize the command */
 		i_assert(client->cmd.func != NULL);
 		i_stream_close(client->input);
 		o_stream_close(client->output);
+		client->input_pending = FALSE;
+
 		ret = client->cmd.func(&client->cmd);
 		i_assert(ret);
 	}
@@ -268,7 +273,7 @@ void _client_reset_command(struct client *client)
 	   pending and we should get around to calling client_input() soon.
 	   This is mostly for APPEND/IDLE. */
 	(void)i_stream_get_data(client->input, &size);
-	if (size > 0)
+	if (size > 0 && !client->destroyed)
 		client->input_pending = TRUE;
 }
 
