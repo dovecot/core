@@ -193,9 +193,12 @@ const char *namespace_fix_sep(struct namespace *ns, const char *name)
 	return ret;
 }
 
-struct namespace *
-namespace_find(struct namespace *namespaces, const char **mailbox)
+static struct namespace *
+namespace_find_int(struct namespace *namespaces, const char **mailbox,
+		   int show_hidden)
 {
+#define CHECK_VISIBILITY(ns, show_hidden) \
+	((!(ns)->hidden) || (show_hidden))
         struct namespace *ns = namespaces;
 	const char *box = *mailbox;
 	struct namespace *best = NULL;
@@ -207,7 +210,7 @@ namespace_find(struct namespace *namespaces, const char **mailbox)
 		/* find the INBOX namespace */
 		*mailbox = "INBOX";
 		while (ns != NULL) {
-			if (ns->inbox)
+			if (ns->inbox && CHECK_VISIBILITY(ns, show_hidden))
 				return ns;
 			if (*ns->prefix == '\0')
 				best = ns;
@@ -220,7 +223,8 @@ namespace_find(struct namespace *namespaces, const char **mailbox)
 		if (ns->prefix_len >= best_len &&
 		    (strncmp(ns->prefix, box, ns->prefix_len) == 0 ||
 		     (inbox && strncmp(ns->prefix, "INBOX", 5) == 0 &&
-		      strncmp(ns->prefix+5, box+5, ns->prefix_len-5) == 0))) {
+		      strncmp(ns->prefix+5, box+5, ns->prefix_len-5) == 0)) &&
+		    CHECK_VISIBILITY(ns, show_hidden)) {
 			best = ns;
 			best_len = ns->prefix_len;
 		}
@@ -236,4 +240,16 @@ namespace_find(struct namespace *namespaces, const char **mailbox)
 	}
 
 	return best;
+}
+
+struct namespace *
+namespace_find(struct namespace *namespaces, const char **mailbox)
+{
+	return namespace_find_int(namespaces, mailbox, TRUE);
+}
+
+struct namespace *
+namespace_find_visible(struct namespace *namespaces, const char **mailbox)
+{
+	return namespace_find_int(namespaces, mailbox, FALSE);
 }

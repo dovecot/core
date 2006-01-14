@@ -27,5 +27,7 @@ const char *namespace_fix_sep(struct namespace *ns, const char *name);
 
 struct namespace *
 namespace_find(struct namespace *namespaces, const char **mailbox);
+struct namespace *
+namespace_find_visible(struct namespace *namespaces, const char **mailbox);
 
 #endif

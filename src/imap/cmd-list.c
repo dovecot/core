@@ -444,7 +444,7 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 		   concept which probably no other client uses than Pine.
 		   Just try our best to emulate UW-IMAP behavior and hopefully
 		   we're fine. */
-		ns = namespace_find(client->namespaces, &ref);
+		ns = namespace_find_visible(client->namespaces, &ref);
 		if (ns == NULL) {
 			const char *empty = "";
 			ns = namespace_find(client->namespaces, &empty);
