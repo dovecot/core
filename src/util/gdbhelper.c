@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 		cmd = "handle SIGPIPE nostop\n"
 			"handle SIGALRM nostop\n"
 			"cont\n"
-			"where\n"
+			"bt full\n"
 			"quit\n";
 		if (write(fd_in[1], cmd, strlen(cmd)) < 0)
 			i_fatal("write() failed: %m");
