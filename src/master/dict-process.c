@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define DEFAULT_DICT_SERVER_SOCKET_PATH "/var/run/dovecot/dict-server"
+#define DEFAULT_DICT_SERVER_SOCKET_PATH PKG_RUNDIR"/dict-server"
 
 struct dict_process {
 	const char *path;
