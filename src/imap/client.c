@@ -64,6 +64,7 @@ void client_destroy(struct client *client)
 
 	if (client->command_pending) {
 		/* try to deinitialize the command */
+		i_assert(client->cmd.func != NULL);
 		i_stream_close(client->input);
 		o_stream_close(client->output);
 		ret = client->cmd.func(&client->cmd);
