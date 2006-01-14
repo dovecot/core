@@ -182,7 +182,7 @@ AC_ARG_WITH(mysql,
 	want_mysql=no)
 
 AC_ARG_WITH(ssl,
-[  --with-ssl=[gnutls|openssl] Build with GNUTLS (default) or OpenSSL],
+[  --with-ssl=[gnutls|openssl] Build with GNUTLS or OpenSSL (default)],
 	if test x$withval = xno; then
 		want_gnutls=no
 		want_openssl=no
