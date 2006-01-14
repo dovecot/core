@@ -1543,8 +1543,8 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id = 0;
-	int ret;
-	bool changed, delay_writes;
+	int ret, changed;
+	bool delay_writes;
 
 	delay_writes = mbox->ibox.readonly ||
 		((flags & MBOX_SYNC_REWRITE) == 0 &&

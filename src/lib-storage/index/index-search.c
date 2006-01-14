@@ -124,11 +124,12 @@ static int search_arg_match_index(struct index_mail *imail,
 static void search_index_arg(struct mail_search_arg *arg, void *context)
 {
 	struct index_search_context *ctx = context;
-	bool found;
 
 	if (arg->type == SEARCH_SEQSET) {
-		found = seqset_contains(arg->value.seqset, ctx->mail->seq);
-		ARG_SET_RESULT(arg, found);
+		if (seqset_contains(arg->value.seqset, ctx->mail->seq))
+			ARG_SET_RESULT(arg, 1);
+		else
+			ARG_SET_RESULT(arg, 0);
 		return;
 	}
 

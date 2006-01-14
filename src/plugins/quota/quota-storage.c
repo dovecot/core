@@ -109,7 +109,8 @@ quota_mail_alloc(struct mailbox_transaction_context *t,
 static int quota_check(struct mailbox_transaction_context *t, struct mail *mail)
 {
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
-	int ret, too_large;
+	int ret;
+	bool too_large;
 
 	ret = quota_try_alloc(qt, mail, &too_large);
 	if (ret > 0)
