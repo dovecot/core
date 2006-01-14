@@ -1,6 +1,6 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
-pkglibexec_PROGRAMS = rawlog
+pkglibexec_PROGRAMS = rawlog gdbhelper
 sbin_PROGRAMS = dovecotpw
 
 AM_CPPFLAGS = \
@@ -12,6 +12,12 @@ rawlog_LDADD = \
 
 rawlog_SOURCES = \
 	rawlog.c
+
+gdbhelper_LDADD = \
+	../lib/liblib.a
+
+gdbhelper_SOURCES = \
+	gdbhelper.c
 
 dovecotpw_LDADD = \
 	../auth/libpassword.a \

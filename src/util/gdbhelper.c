@@ -1,0 +1,62 @@
+/* Copyright (C) 2006 Timo Sirainen */
+
+#include "lib.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <time.h>
+#include <sys/wait.h>
+
+int main(int argc, char *argv[])
+{
+	pid_t pid = fork();
+	const char *path, *cmd;
+	int fd_in[2], fd_log, status;
+
+	if (argc < 2)
+		i_fatal("Usage: gdbhelper <program> [<args>]");
+
+	switch (pid) {
+	case 1:
+		i_fatal("fork() failed: %m");
+	case 0:
+		/* child */
+		(void)execvp(argv[1], argv+1);
+		i_fatal("execvp(%s) failed: %m", argv[1]);
+	default:
+		path = t_strdup_printf("/tmp/gdbhelper.%s.%s",
+				       dec2str(time(NULL)), dec2str(pid));
+		fd_log = open(path, O_CREAT | O_WRONLY, 0600);
+		if (fd_log < 0)
+			i_fatal("open(%s) failed: %m", path);
+
+		if (pipe(fd_in) < 0)
+			i_fatal("pipe() failed: %m");
+		cmd = "handle SIGPIPE nostop\n"
+			"handle SIGALRM nostop\n"
+			"cont\n"
+			"where\n"
+			"quit\n";
+		if (write(fd_in[1], cmd, strlen(cmd)) < 0)
+			i_fatal("write() failed: %m");
+
+		if (dup2(fd_in[0], 0) < 0 ||
+		    dup2(fd_log, 1) < 0 ||
+		    dup2(fd_log, 2) < 0)
+			i_fatal("dup2() failed: %m");
+
+		cmd = t_strdup_printf("gdb %s %s", argv[1], dec2str(pid));
+		if (system(cmd) < 0)
+			i_fatal("system() failed: %m");
+
+		if (wait(&status) < 0)
+			i_fatal("wait() failed: %m");
+		if (status == 0) {
+			if (unlink(path) < 0 && errno != ENOENT)
+				i_error("unlink(%s) failed: %m", path);
+		}
+	}
+	return 0;
+}
