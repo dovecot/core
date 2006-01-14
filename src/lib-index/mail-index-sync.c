@@ -500,8 +500,8 @@ static void mail_index_sync_get_keyword_reset(struct mail_index_sync_rec *rec,
 	rec->uid2 = range->uid2;
 }
 
-static bool mail_index_sync_rec_check(struct mail_index_view *view,
-				      struct mail_index_sync_rec *rec)
+static int mail_index_sync_rec_check(struct mail_index_view *view,
+				     struct mail_index_sync_rec *rec)
 {
 	switch (rec->type) {
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
@@ -513,13 +513,13 @@ static bool mail_index_sync_rec_check(struct mail_index_view *view,
 			mail_transaction_log_view_set_corrupted(view->log_view,
 				"Broken UID range: %u..%u (type 0x%x)",
 				rec->uid1, rec->uid2, rec->type);
-			return FALSE;
+			return -1;
 		}
 		break;
 	case MAIL_INDEX_SYNC_TYPE_APPEND:
 		break;
 	}
-	return TRUE;
+	return 0;
 }
 
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
