@@ -4,8 +4,8 @@
 #include "mail-transaction-log.h"
 
 struct mail_index_transaction_keyword_update {
-	array_t ARRAY_DEFINE(add_seq, uint32_t);
-	array_t ARRAY_DEFINE(remove_seq, uint32_t);
+	array_t ARRAY_DEFINE(add_seq, struct seq_range);
+	array_t ARRAY_DEFINE(remove_seq, struct seq_range);
 };
 
 struct mail_index_transaction {

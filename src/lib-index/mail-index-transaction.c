@@ -121,15 +121,24 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 		seq = array_idx_modifyable(array, i);
 
 		for (j = 0; j <= range_count; j++, seq++) {
-			if (*seq >= t->first_new_seq) {
+			i_assert(*seq > 0);
+
+			if (*seq >= t->first_new_seq)
 				rec = mail_index_transaction_lookup(t, *seq);
-				*seq = rec->uid;
-			} else {
+			else {
 				i_assert(*seq <= view->map->records_count);
-				*seq = MAIL_INDEX_MAP_IDX(view->map,
-							  *seq - 1)->uid;
+				rec = MAIL_INDEX_MAP_IDX(view->map, *seq - 1);
 			}
-			i_assert(*seq != 0);
+
+			if (rec->uid == 0) {
+				/* FIXME: replace with simple assert once we
+				   figure out why this happens.. */
+				i_panic("seq = %u, rec->uid = %u, "
+					"first_new_seq = %u, records = %u",
+					*seq, rec->uid, t->first_new_seq,
+					view->map->records_count);
+			}
+			*seq = rec->uid;
 		}
 	}
 }
