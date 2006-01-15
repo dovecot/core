@@ -12,10 +12,10 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define DEFAULT_DICT_SERVER_SOCKET_PATH PKG_RUNDIR"/dict-server"
+#define DICT_SERVER_SOCKET_NAME "dict-server"
 
 struct dict_process {
-	const char *path;
+	char *path;
 	int fd;
 	struct io *io;
 };
@@ -149,13 +149,15 @@ void dict_process_init(void)
 {
 	process = i_new(struct dict_process, 1);
 	process->fd = -1;
-	process->path = DEFAULT_DICT_SERVER_SOCKET_PATH;
+	process->path = i_strconcat(settings_root->defaults->base_dir,
+				    DICT_SERVER_SOCKET_NAME, NULL);
 	(void)dict_process_listen(process);
 }
 
 void dict_process_deinit(void)
 {
 	dict_process_unlisten(process);
+	i_free(process->path);
 	i_free(process);
 }
 
