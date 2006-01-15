@@ -18,12 +18,16 @@ static bool generating;
 static void generate_parameters_file(const char *fname)
 {
 	const char *temp_fname;
+	mode_t old_mask;
 	int fd;
 
 	temp_fname = t_strconcat(fname, ".tmp", NULL);
 	(void)unlink(temp_fname);
 
-	fd = open(temp_fname, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	old_mask = umask(0);
+	fd = open(temp_fname, O_WRONLY | O_CREAT | O_EXCL, 0644);
+	umask(old_mask);
+
 	if (fd == -1) {
 		i_fatal("Can't create temporary SSL parameters file %s: %m",
 			temp_fname);
@@ -82,10 +86,11 @@ static bool check_parameters_file_set(struct settings *set)
 		st.st_mtime = 0;
 	}
 
-	/* make sure it's new enough and the permissions are correct */
+	/* make sure it's new enough, it's not 0 sized, and the permissions
+	   are correct */
 	regen_time = st.st_mtime +
 		(time_t)(set->ssl_parameters_regenerate*3600);
-	if (regen_time < ioloop_time || (st.st_mode & 077) != 0 ||
+	if (regen_time < ioloop_time || st.st_size == 0 ||
 	    st.st_uid != master_uid || st.st_gid != getegid()) {
 		start_generate_process(set);
 		return FALSE;

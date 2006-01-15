@@ -1,10 +1,16 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "ioloop.h"
 #include "network.h"
+#include "read-full.h"
 #include "hash.h"
 #include "ssl-proxy.h"
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 #ifdef HAVE_OPENSSL
 
@@ -16,6 +22,8 @@
 #include <openssl/rand.h>
 
 #define DOVECOT_SSL_DEFAULT_CIPHER_LIST "ALL:!LOW"
+/* Check every 30 minutes if parameters file has been updated */
+#define SSL_PARAMFILE_CHECK_INTERVAL (60*30)
 
 enum ssl_io_action {
 	SSL_ADD_INPUT,
@@ -45,9 +53,18 @@ struct ssl_proxy {
 	unsigned int cert_broken:1;
 };
 
+struct ssl_parameters {
+	const char *fname;
+	time_t last_mtime;
+	int fd;
+
+	DH *dh_512, *dh_1024;
+};
+
 static int extdata_index;
 static SSL_CTX *ssl_ctx;
 static struct hash_table *ssl_proxies;
+static struct ssl_parameters ssl_params;
 
 static void plain_read(void *context);
 static void plain_write(void *context);
@@ -55,6 +72,111 @@ static void ssl_write(struct ssl_proxy *proxy);
 static void ssl_step(void *context);
 static void ssl_proxy_destroy(struct ssl_proxy *proxy);
 static void ssl_proxy_unref(struct ssl_proxy *proxy);
+
+static void read_next(struct ssl_parameters *params, void *data, size_t size)
+{
+	int ret;
+
+	if ((ret = read_full(params->fd, data, size)) < 0)
+		i_fatal("read(%s) failed: %m", params->fname);
+	if (ret == 0)
+		i_fatal("read(%s) failed: Unexpected EOF", params->fname);
+}
+
+static bool read_dh_parameters_next(struct ssl_parameters *params)
+{
+	unsigned char *buf;
+	const unsigned char *cbuf;
+	unsigned int len;
+	int bits;
+
+	/* read bit size. 0 ends the DH parameters list. */
+	read_next(params, &bits, sizeof(bits));
+
+	if (bits == 0)
+		return FALSE;
+
+	/* read data size. */
+	read_next(params, &len, sizeof(len));
+	if (len > 1024*100) /* should be enough? */
+		i_fatal("Corrupted SSL parameters file: %s", params->fname);
+
+	buf = i_malloc(len);
+	read_next(params, buf, len);
+
+	cbuf = buf;
+	switch (bits) {
+	case 512:
+		params->dh_512 = d2i_DHparams(NULL, &cbuf, len);
+		break;
+	case 1024:
+		params->dh_1024 = d2i_DHparams(NULL, &cbuf, len);
+		break;
+	}
+
+	i_free(buf);
+	return TRUE;
+}
+
+static void ssl_free_parameters(struct ssl_parameters *params)
+{
+	if (params->dh_512 != NULL) {
+		DH_free(params->dh_512);
+                params->dh_512 = NULL;
+	}
+	if (params->dh_1024 != NULL) {
+		DH_free(params->dh_1024);
+                params->dh_1024 = NULL;
+	}
+}
+
+static void ssl_read_parameters(struct ssl_parameters *params)
+{
+	bool warned = FALSE;
+
+	/* we'll wait until parameter file exists */
+	for (;;) {
+		params->fd = open(params->fname, O_RDONLY);
+		if (params->fd != -1)
+			break;
+
+		if (errno != ENOENT) {
+			i_fatal("Can't open SSL parameter file %s: %m",
+				params->fname);
+		}
+
+		if (!warned) {
+			i_warning("Waiting for SSL parameter file %s",
+				  params->fname);
+			warned = TRUE;
+		}
+		sleep(1);
+	}
+
+	ssl_free_parameters(params);
+	while (read_dh_parameters_next(params)) ;
+
+	if (close(params->fd) < 0)
+		i_error("close() failed: %m");
+	params->fd = -1;
+}
+
+static void ssl_refresh_parameters(struct ssl_parameters *params)
+{
+	struct stat st;
+
+	if (params->last_mtime > ioloop_time - SSL_PARAMFILE_CHECK_INTERVAL)
+		return;
+
+	if (params->last_mtime == 0)
+		ssl_read_parameters(params);
+	else {
+		if (stat(params->fname, &st) < 0)
+			i_error("stat(%s) failed: %m", params->fname);
+		else if (st.st_mtime != params->last_mtime)
+			ssl_read_parameters(params);
+	}
+}
 
 static void ssl_set_io(struct ssl_proxy *proxy, enum ssl_io_action action)
 {
@@ -327,6 +449,8 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 		return -1;
 	}
 
+	ssl_refresh_parameters(&ssl_params);
+
 	ssl = SSL_new(ssl_ctx);
 	if (ssl == NULL) {
 		i_error("SSL_new() failed: %s", ssl_last_error());
@@ -437,6 +561,17 @@ static RSA *ssl_gen_rsa_key(SSL *ssl __attr_unused__,
 	return RSA_generate_key(keylength, RSA_F4, NULL, NULL);
 }
 
+static DH *ssl_tmp_dh_callback(SSL *ssl __attr_unused__,
+			       int is_export, int keylength)
+{
+	/* Well, I'm not exactly sure why the logic in here is this.
+	   It's the same as in Postfix, so it can't be too wrong. */
+	if (is_export && keylength == 512 && ssl_params.dh_512 != NULL)
+		return ssl_params.dh_512;
+
+	return ssl_params.dh_1024;
+}
+
 static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 {
 	SSL *ssl;
@@ -455,15 +590,17 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 
 void ssl_proxy_init(void)
 {
-	const char *cafile, *certfile, *keyfile, *paramfile, *cipher_list;
+	const char *cafile, *certfile, *keyfile, *cipher_list;
 	unsigned char buf;
+
+	memset(&ssl_params, 0, sizeof(ssl_params));
 
 	cafile = getenv("SSL_CA_FILE");
 	certfile = getenv("SSL_CERT_FILE");
 	keyfile = getenv("SSL_KEY_FILE");
-	paramfile = getenv("SSL_PARAM_FILE");
+	ssl_params.fname = getenv("SSL_PARAM_FILE");
 
-	if (certfile == NULL || keyfile == NULL || paramfile == NULL) {
+	if (certfile == NULL || keyfile == NULL || ssl_params.fname == NULL) {
 		/* SSL support is disabled */
 		return;
 	}
@@ -506,6 +643,7 @@ void ssl_proxy_init(void)
 
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
+	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
 
 	if (getenv("SSL_VERIFY_CLIENT_CERT") != NULL) {
 		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER |
@@ -537,6 +675,7 @@ void ssl_proxy_deinit(void)
 	hash_iterate_deinit(iter);
 	hash_destroy(ssl_proxies);
 
+	ssl_free_parameters(&ssl_params);
 	SSL_CTX_free(ssl_ctx);
 }
 

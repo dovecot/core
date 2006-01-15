@@ -257,7 +257,7 @@ struct settings default_settings = {
 	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
 	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
-	MEMBER(ssl_parameters_regenerate) 24,
+	MEMBER(ssl_parameters_regenerate) 168,
 	MEMBER(ssl_cipher_list) NULL,
 	MEMBER(ssl_verify_client_cert) FALSE,
 	MEMBER(disable_plaintext_auth) TRUE,
