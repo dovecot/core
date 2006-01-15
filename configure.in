@@ -390,8 +390,7 @@ elif test "$notify" = "inotify"; then
     #define _GNU_SOURCE
     #include <sys/ioctl.h>
     #include <fcntl.h>
-    #include <linux/inotify.h>
-    #include <linux/inotify-syscalls.h>
+    #include <sys/inotify.h>
     #include <stdio.h>
   ], [
     int wd, fd;
@@ -413,7 +412,7 @@ elif test "$notify" = "inotify"; then
     have_notify=inotify
     AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
   ], [
-    AC_MSG_ERROR([inotify requested but not available, check for existence of <linux/inotify.h> and <linux/inotify-syscalls.h>])
+    AC_MSG_ERROR([inotify requested but not available, check for existence of <sys/inotify.h>])
   ])
 elif test "$notify" = "kqueue"; then
   dnl * BSD kqueue() notify
