@@ -80,7 +80,6 @@ static void idle_client_input(void *context)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
-		idle_finish(ctx, FALSE);
 		client_destroy(client);
 		return;
 	case -2:
