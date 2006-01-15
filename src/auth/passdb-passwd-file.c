@@ -14,6 +14,7 @@
 struct passwd_file_passdb_module {
 	struct passdb_module module;
 
+	struct auth *auth;
 	struct db_passwd_file *pwf;
 };
 
@@ -91,6 +92,7 @@ passwd_file_preinit(struct auth_passdb *auth_passdb,
 
 	module = p_new(auth_passdb->auth->pool,
 		       struct passwd_file_passdb_module, 1);
+	module->auth = auth_passdb->auth;
 	module->module.cache_key = PASSWD_FILE_CACHE_KEY;
 	module->module.default_pass_scheme = PASSWD_FILE_DEFAULT_SCHEME;
 	return &module->module;
@@ -101,7 +103,8 @@ static void passwd_file_init(struct passdb_module *_module, const char *args)
 	struct passwd_file_passdb_module *module =
 		(struct passwd_file_passdb_module *)_module;
 
-	module->pwf = db_passwd_file_parse(args, FALSE);
+	module->pwf =
+		db_passwd_file_parse(args, FALSE, module->auth->verbose_debug);
 }
 
 static void passwd_file_deinit(struct passdb_module *_module)

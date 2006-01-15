@@ -183,6 +183,11 @@ static bool passwd_file_open(struct passwd_file *pw)
 		t_pop();
 	}
 	i_stream_unref(&input);
+
+	if (pw->db->debug) {
+		i_info("passwd-file %s: Read %u users",
+		       pw->path, hash_size(pw->users));
+	}
 	return TRUE;
 }
 
@@ -246,7 +251,8 @@ static struct db_passwd_file *db_passwd_file_find(const char *path)
 	return NULL;
 }
 
-struct db_passwd_file *db_passwd_file_parse(const char *path, bool userdb)
+struct db_passwd_file *
+db_passwd_file_parse(const char *path, bool userdb, bool debug)
 {
 	struct db_passwd_file *db;
 	const char *p;
@@ -268,6 +274,7 @@ struct db_passwd_file *db_passwd_file_parse(const char *path, bool userdb)
 	db = i_new(struct db_passwd_file, 1);
 	db->refcount = 1;
 	db->userdb = userdb;
+	db->debug = debug;
 	db->files = hash_create(default_pool, default_pool, 100,
 				str_hash, (hash_cmp_callback_t *)strcmp);
 

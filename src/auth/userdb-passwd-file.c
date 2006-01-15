@@ -11,6 +11,7 @@
 struct passwd_file_userdb_module {
         struct userdb_module module;
 
+	struct auth *auth;
 	struct db_passwd_file *pwf;
 };
 
@@ -50,6 +51,7 @@ passwd_file_preinit(struct auth_userdb *auth_userdb,
 
 	module = p_new(auth_userdb->auth->pool,
 		       struct passwd_file_userdb_module, 1);
+	module->auth = auth_userdb->auth;
 	return &module->module;
 }
 
@@ -58,7 +60,8 @@ static void passwd_file_init(struct userdb_module *_module, const char *args)
 	struct passwd_file_userdb_module *module =
 		(struct passwd_file_userdb_module *)_module;
 
-	module->pwf = db_passwd_file_parse(args, TRUE);
+	module->pwf =
+		db_passwd_file_parse(args, TRUE, module->auth->verbose_debug);
 }
 
 static void passwd_file_deinit(struct userdb_module *_module)
