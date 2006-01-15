@@ -84,10 +84,9 @@ static bool check_parameters_file_set(struct settings *set)
 		}
 
 		st.st_mtime = 0;
-	}
-
-	if (st.st_size == 0) {
+	} else if (st.st_size == 0) {
 		/* broken, delete it (mostly for backwards compatibility) */
+		st.st_mtime = 0;
 		(void)unlink(set->ssl_parameters_file);
 	}
 
@@ -97,6 +96,10 @@ static bool check_parameters_file_set(struct settings *set)
 		st.st_mtime + (time_t)(set->ssl_parameters_regenerate*3600);
 	if (regen_time < ioloop_time || st.st_size == 0 ||
 	    st.st_uid != master_uid || st.st_gid != getegid()) {
+		if (st.st_mtime == 0) {
+			i_info("Generating Diffie-Hellman parameters "
+			       "for the first time. This may take a while..");
+		}
 		start_generate_process(set);
 		return FALSE;
 	}
