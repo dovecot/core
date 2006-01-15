@@ -151,7 +151,8 @@ void dict_process_init(void)
 	process->fd = -1;
 	process->path = i_strconcat(settings_root->defaults->base_dir,
 				    DICT_SERVER_SOCKET_NAME, NULL);
-	(void)dict_process_listen(process);
+	/* FIXME: disabled, until it works right */
+	/*(void)dict_process_listen(process);*/
 }
 
 void dict_process_deinit(void)
