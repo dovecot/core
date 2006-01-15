@@ -3,6 +3,7 @@
 #include "common.h"
 #include "istream.h"
 #include "safe-mkdir.h"
+#include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "syslog-util.h"
 #include "settings.h"
@@ -523,6 +524,7 @@ static bool settings_have_connect_sockets(struct settings *set)
 static bool settings_verify(struct settings *set)
 {
 	const char *dir;
+	struct stat st;
 	int facility;
 
 	if (!get_login_uid(set))
@@ -602,9 +604,26 @@ static bool settings_verify(struct settings *set)
 	fix_base_path(set, &set->ssl_parameters_file);
 	fix_base_path(set, &set->login_dir);
 
-	/* since they're under /var/run by default, they may have been
+	/* since base dir is under /var/run by default, it may have been
 	   deleted. */
-	(void)mkdir(set->base_dir, 0777);
+	if (mkdir_parents(set->base_dir, 0777) < 0 && errno != EEXIST) {
+		i_error("mkdir(%s) failed: %m", set->base_dir);
+		return FALSE;
+	}
+	if (lstat(set->base_dir, &st) < 0) {
+		i_error("lstat(%s) failed: %m", set->base_dir);
+		return FALSE;
+	}
+	if ((st.st_mode & 0750) != 0750) {
+		/* FIXME: backwards compatibility: fix permissions so that
+		   login processes can find ssl-parameters file. Group rx is
+		   enough, but change it to world-rx so that we don't have to
+		   start changing groups and causing possibly other problems. */
+		i_warning("Fixing permissions of %s to be world-readable",
+			  set->base_dir);
+		if (chmod(set->base_dir, 0777) < 0)
+			i_error("chmod(%s) failed: %m", set->base_dir);
+	}
 
 	if (!settings_have_connect_sockets(set)) {
 		/* we are not using external authentication, so make sure the
