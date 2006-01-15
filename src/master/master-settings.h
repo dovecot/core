@@ -71,7 +71,7 @@ struct settings {
 	unsigned int mailbox_idle_check_interval;
 	bool mail_debug;
 	bool mail_full_filesystem_access;
-	bool mail_max_keyword_length;
+	unsigned int mail_max_keyword_length;
 	bool mail_save_crlf;
 	bool mail_read_mmaped;
 	bool mmap_disable;
