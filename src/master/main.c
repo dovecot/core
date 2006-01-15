@@ -751,9 +751,11 @@ int main(int argc, char *argv[])
 	}
 
 	/* read and verify settings before forking */
+	t_push();
 	master_settings_init();
 	if (!master_settings_read(configfile, exec_protocol != NULL))
 		exit(FATAL_DEFAULT);
+	t_pop();
 
 	if (ask_key_pass) {
 		const char *prompt;

@@ -14,6 +14,7 @@
 #include "mail-process.h"
 #include "master-login-interface.h"
 #include "log.h"
+#include "ssl-init.h"
 
 #include <unistd.h>
 #include <syslog.h>
@@ -419,8 +420,7 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 				    set->ssl_key_file, NULL));
 		env_put(t_strconcat("SSL_KEY_PASSWORD=",
 				    ssl_key_password, NULL));
-		env_put(t_strconcat("SSL_PARAM_FILE=",
-				    set->ssl_parameters_file, NULL));
+		env_put("SSL_PARAM_FILE="SSL_PARAMETERS_FILENAME);
 		if (set->ssl_cipher_list != NULL) {
 			env_put(t_strconcat("SSL_CIPHER_LIST=",
 					    set->ssl_cipher_list, NULL));

@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "str.h"
 #include "istream.h"
 #include "safe-mkdir.h"
 #include "mkdir-parents.h"
@@ -10,6 +11,7 @@
 
 #include <stdio.h>
 #include <stddef.h>
+#include <dirent.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -62,7 +64,6 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, ssl_cert_file),
 	DEF(SET_STR, ssl_key_file),
 	DEF(SET_STR, ssl_key_password),
-	DEF(SET_STR, ssl_parameters_file),
 	DEF(SET_STR, ssl_parameters_regenerate),
 	DEF(SET_STR, ssl_cipher_list),
 	DEF(SET_BOOL, ssl_verify_client_cert),
@@ -259,7 +260,6 @@ struct settings default_settings = {
 	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
 	MEMBER(ssl_key_password) NULL,
-	MEMBER(ssl_parameters_file) "ssl-parameters.dat",
 	MEMBER(ssl_parameters_regenerate) 168,
 	MEMBER(ssl_cipher_list) NULL,
 	MEMBER(ssl_verify_client_cert) FALSE,
@@ -521,6 +521,37 @@ static bool settings_have_connect_sockets(struct settings *set)
 	return FALSE;
 }
 
+static void unlink_auth_sockets(const char *path)
+{
+	DIR *dirp;
+	struct dirent *dp;
+	struct stat st;
+	string_t *str;
+
+	dirp = opendir(path);
+	if (dirp == NULL) {
+		i_error("opendir(%s) failed: %m", path);
+		return;
+	}
+
+	str = t_str_new(256);
+	while ((dp = readdir(dirp)) != NULL) {
+		if (dp->d_name[0] == '.')
+			continue;
+
+		str_truncate(str, 0);
+		str_printfa(str, "%s/%s", path, dp->d_name);
+		if (lstat(str_c(str), &st) < 0) {
+			if (errno != ENOENT)
+				i_error("lstat(%s) failed: %m", str_c(str));
+		} else if (S_ISSOCK(st.st_mode)) {
+			if (unlink(str_c(str)) < 0 && errno != ENOENT)
+				i_error("unlink(%s) failed: %m", str_c(str));
+		}
+	}
+	(void)closedir(dirp);
+}
+
 static bool settings_verify(struct settings *set)
 {
 	const char *dir;
@@ -601,7 +632,6 @@ static bool settings_verify(struct settings *set)
 #endif
 
 	/* fix relative paths */
-	fix_base_path(set, &set->ssl_parameters_file);
 	fix_base_path(set, &set->login_dir);
 
 	/* since base dir is under /var/run by default, it may have been
@@ -631,17 +661,13 @@ static bool settings_verify(struct settings *set)
 		   empty. with external auth we wouldn't want to delete
 		   existing sockets or break the permissions required by the
 		   auth server. */
-		if (unlink_directory(set->login_dir, FALSE) < 0) {
-			i_error("unlink_directory() failed for %s: %m",
-				set->login_dir);
-			return FALSE;
-		}
-
 		if (safe_mkdir(set->login_dir, 0750,
 			       master_uid, set->server->login_gid) == 0) {
 			i_warning("Corrected permissions for login directory "
 				  "%s", set->login_dir);
 		}
+
+		unlink_auth_sockets(set->login_dir);
 	}
 
 	if (set->max_mail_processes < 1) {

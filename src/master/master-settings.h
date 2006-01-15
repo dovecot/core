@@ -31,7 +31,6 @@ struct settings {
 	const char *ssl_cert_file;
 	const char *ssl_key_file;
 	const char *ssl_key_password;
-	const char *ssl_parameters_file;
 	unsigned int ssl_parameters_regenerate;
 	const char *ssl_cipher_list;
 	bool ssl_verify_client_cert;

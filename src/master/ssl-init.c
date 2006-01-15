@@ -42,7 +42,7 @@ static void generate_parameters_file(const char *fname)
 		i_fatal("rename(%s, %s) failed: %m", temp_fname, fname);
 }
 
-static void start_generate_process(struct settings *set)
+static void start_generate_process(const char *fname)
 {
 	pid_t pid;
 
@@ -54,7 +54,7 @@ static void start_generate_process(struct settings *set)
 
 	if (pid == 0) {
 		/* child */
-		generate_parameters_file(set->ssl_parameters_file);
+		generate_parameters_file(fname);
 		exit(0);
 	} else {
 		/* parent */
@@ -70,16 +70,18 @@ void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
 
 static bool check_parameters_file_set(struct settings *set)
 {
+	const char *path;
 	struct stat st;
 	time_t regen_time;
 
-	if (set->ssl_parameters_file == NULL || set->ssl_disable)
+	if (set->ssl_disable)
 		return TRUE;
 
-	if (lstat(set->ssl_parameters_file, &st) < 0) {
+	path = t_strconcat(set->login_dir, "/"SSL_PARAMETERS_FILENAME, NULL);
+	if (lstat(path, &st) < 0) {
 		if (errno != ENOENT) {
 			i_error("lstat() failed for SSL parameters file %s: %m",
-				set->ssl_parameters_file);
+				path);
 			return TRUE;
 		}
 
@@ -87,7 +89,7 @@ static bool check_parameters_file_set(struct settings *set)
 	} else if (st.st_size == 0) {
 		/* broken, delete it (mostly for backwards compatibility) */
 		st.st_mtime = 0;
-		(void)unlink(set->ssl_parameters_file);
+		(void)unlink(path);
 	}
 
 	/* make sure it's new enough, it's not 0 sized, and the permissions
@@ -100,7 +102,7 @@ static bool check_parameters_file_set(struct settings *set)
 			i_info("Generating Diffie-Hellman parameters "
 			       "for the first time. This may take a while..");
 		}
-		start_generate_process(set);
+		start_generate_process(path);
 		return FALSE;
 	}
 
