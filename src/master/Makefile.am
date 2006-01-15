@@ -18,6 +18,7 @@ dovecot_LDADD = \
 
 dovecot_SOURCES = \
 	auth-process.c \
+	askpass.c \
 	dict-process.c \
 	log.c \
 	login-process.c \
@@ -31,6 +32,7 @@ dovecot_SOURCES = \
 
 noinst_HEADERS = \
 	auth-process.h \
+	askpass.h \
 	dict-process.h \
 	common.h \
 	log.h \

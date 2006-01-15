@@ -588,9 +588,25 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	return 1;
 }
 
+static int
+pem_password_callback(char *buf, int size, int rwflag __attr_unused__,
+		      void *userdata)
+{
+	if (userdata == NULL) {
+		i_error("SSL private key file is password protected, "
+			"but password isn't given");
+		return 0;
+	}
+
+	if (strocpy(buf, userdata, size) < 0)
+		return 0;
+	return strlen(buf);
+}
+
 void ssl_proxy_init(void)
 {
 	const char *cafile, *certfile, *keyfile, *cipher_list;
+	char *password;
 	unsigned char buf;
 
 	memset(&ssl_params, 0, sizeof(ssl_params));
@@ -599,6 +615,7 @@ void ssl_proxy_init(void)
 	certfile = getenv("SSL_CERT_FILE");
 	keyfile = getenv("SSL_KEY_FILE");
 	ssl_params.fname = getenv("SSL_PARAM_FILE");
+	password = getenv("SSL_KEY_PASSWORD");
 
 	if (certfile == NULL || keyfile == NULL || ssl_params.fname == NULL) {
 		/* SSL support is disabled */
@@ -635,6 +652,8 @@ void ssl_proxy_init(void)
 			certfile, ssl_last_error());
 	}
 
+        SSL_CTX_set_default_passwd_cb(ssl_ctx, pem_password_callback);
+        SSL_CTX_set_default_passwd_cb_userdata(ssl_ctx, password);
 	if (SSL_CTX_use_PrivateKey_file(ssl_ctx, keyfile,
 					SSL_FILETYPE_PEM) != 1) {
 		i_fatal("Can't load private key file %s: %s",

@@ -404,6 +404,11 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	env_put("DOVECOT_MASTER=1");
 
 	if (!set->ssl_disable) {
+		const char *ssl_key_password = NULL;
+
+		ssl_key_password = set->ssl_key_password != NULL ?
+			set->ssl_key_password : ssl_manual_key_password;
+
 		if (set->ssl_ca_file != NULL) {
 			env_put(t_strconcat("SSL_CA_FILE=",
 					    set->ssl_ca_file, NULL));
@@ -412,6 +417,8 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 				    set->ssl_cert_file, NULL));
 		env_put(t_strconcat("SSL_KEY_FILE=",
 				    set->ssl_key_file, NULL));
+		env_put(t_strconcat("SSL_KEY_PASSWORD=",
+				    ssl_key_password, NULL));
 		env_put(t_strconcat("SSL_PARAM_FILE=",
 				    set->ssl_parameters_file, NULL));
 		if (set->ssl_cipher_list != NULL) {

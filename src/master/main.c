@@ -8,6 +8,7 @@
 #include "fd-close-on-exec.h"
 #include "write-full.h"
 
+#include "askpass.h"
 #include "auth-process.h"
 #include "dict-process.h"
 #include "login-process.h"
@@ -42,6 +43,7 @@ struct ioloop *ioloop;
 struct hash_table *pids;
 int null_fd, inetd_login_fd;
 uid_t master_uid;
+char ssl_manual_key_password[100];
 #ifdef DEBUG
 static bool gdb;
 #endif
@@ -697,7 +699,7 @@ int main(int argc, char *argv[])
 {
 	/* parse arguments */
 	const char *exec_protocol = NULL, *exec_section = NULL;
-	bool foreground = FALSE;
+	bool foreground = FALSE, ask_key_pass = FALSE;
 	int i;
 
 #ifdef DEBUG
@@ -716,6 +718,9 @@ int main(int argc, char *argv[])
 			i++;
 			if (i == argc) i_fatal("Missing config file argument");
 			configfile = argv[i];
+		} else if (strcmp(argv[i], "-p") == 0) {
+			/* Ask SSL private key password */
+			ask_key_pass = TRUE;
 		} else if (strcmp(argv[i], "--exec-mail") == 0) {
 			/* <protocol> [<server section>]
 			   read configuration and execute mail process */
@@ -749,6 +754,18 @@ int main(int argc, char *argv[])
 	master_settings_init();
 	if (!master_settings_read(configfile, exec_protocol != NULL))
 		exit(FATAL_DEFAULT);
+
+	if (ask_key_pass) {
+		const char *prompt;
+
+		t_push();
+		prompt = t_strdup_printf("Give the password for SSL key file "
+					 "%s: ",
+					 settings_root->defaults->ssl_key_file);
+		askpass(prompt, ssl_manual_key_password,
+			sizeof(ssl_manual_key_password));
+		t_pop();
+	}
 
 	if (exec_protocol != NULL)
 		mail_process_exec(exec_protocol, exec_section);
