@@ -698,7 +698,7 @@ static void print_build_options(void)
 int main(int argc, char *argv[])
 {
 	/* parse arguments */
-	const char *exec_protocol = NULL, *exec_section = NULL;
+	const char *exec_protocol = NULL, *exec_section = NULL, *user, *home;
 	bool foreground = FALSE, ask_key_pass = FALSE;
 	int i;
 
@@ -767,12 +767,11 @@ int main(int argc, char *argv[])
 		t_pop();
 	}
 
-	if (exec_protocol != NULL)
-		mail_process_exec(exec_protocol, exec_section);
-
 	/* save TZ environment. AIX depends on it to get the timezone
 	   correctly. */
 	env_tz = getenv("TZ");
+	user = getenv("USER");
+	home = getenv("HOME");
 
 	/* clean up the environment of everything */
 	env_clean();
@@ -780,6 +779,13 @@ int main(int argc, char *argv[])
 	/* put back the TZ */
 	if (env_tz != NULL)
 		env_put(t_strconcat("TZ=", env_tz, NULL));
+
+	if (exec_protocol != NULL) {
+		/* Put back user and home */
+		env_put(t_strconcat("USER=", user, NULL));
+		env_put(t_strconcat("HOME=", home, NULL));
+		mail_process_exec(exec_protocol, exec_section);
+	}
 
 	open_fds();
 
