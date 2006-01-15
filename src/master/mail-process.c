@@ -103,8 +103,8 @@ get_var_expand_table(const char *protocol,
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = user;
-	tab[1].value = t_strcut(user, '@');
-	tab[2].value = strchr(user, '@');
+	tab[1].value = user == NULL ? NULL : t_strcut(user, '@');
+	tab[2].value = user == NULL ? NULL : strchr(user, '@');
 	if (tab[2].value != NULL) tab[2].value++;
 	tab[3].value = t_str_ucase(protocol);
 	tab[4].value = home;
