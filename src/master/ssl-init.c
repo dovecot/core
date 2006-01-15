@@ -86,6 +86,11 @@ static bool check_parameters_file_set(struct settings *set)
 		st.st_mtime = 0;
 	}
 
+	if (st.st_size == 0) {
+		/* broken, delete it (mostly for backwards compatibility) */
+		(void)unlink(set->ssl_parameters_file);
+	}
+
 	/* make sure it's new enough, it's not 0 sized, and the permissions
 	   are correct */
 	regen_time = st.st_mtime +
