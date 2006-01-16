@@ -1,21 +1,17 @@
- - IDLE: Send "OK Timeout in n minutes" every 2 minutes to fix NAT/FW timeouts
+ - dict-server should have some config file which lists the allowed dicts
+ - file_dotlock_open()/create() should maybe take file creation mode..
  - inetd: pop3-login logs in with imap executable
- - dovecot --exec-mail imap doesn't set MAIL environment?
  - with blocking passdb we're not caching lookups if the password was wrong
- - blocking passdb/userdb works only as root since it can't access
-   /var/run/auth-worker.* files..
  - LIST replies 2049 bytes (more would come) -> dovecot gets stuck?
- - LDA: empty mail gives an error. <LF> mail gives another error.
+ - LDA: empty mail gives an error.
  - LDA: "message <$MSGID> for $USER: $action" logging
  - if PAM child process doesn't finish within a minute, kill it
- - maildir: hardlink copying + keywords are broken
  - Support listening in multiple sockets?..
  - Thunderbird+pop3 DELE error..?
  - calls fsync()s etc. less often (when copying). optionally disable them.
  - stop using atol(), atoi(), strtoul() etc. in places where we actually
    care about what they return, and rather create our own function which
    checks if the input overflows the integer, and if so call i_fatal()
-- for master/config rewrite: make sure the log changes will work
  - when sorting maildir files, sort based on Mxxxx first so the files are
    sorted always in ascending order. required for proper out-of-quota uidlist
    handling
@@ -44,20 +40,6 @@ x OK Store completed.
    there should be a completely separate simple PAM authenticator binary.
  - namespaces: add new "auto_disable" flag so if the mailbox can't be opened
    (eg. file doesn't exist), just ignore the problem and disable the namespace
-diff -u -r1.44 cmd-list.c
---- src/imap/cmd-list.c 5 Feb 2005 18:07:26 -0000       1.44
-+++ src/imap/cmd-list.c 15 Mar 2005 16:15:27 -0000
-@@ -213,7 +213,7 @@
-                                    ctx->inbox && cur_ref == ctx->ref,
-ns->sep);
-        if (*cur_ref != '\0' || *cur_prefix == '\0')
--               match = IMAP_MATCH_CHILDREN;
-+               match = ns->hidden ? IMAP_MATCH_NO : IMAP_MATCH_CHILDREN;
-        else {
-                len = strlen(cur_prefix);
-                if (cur_prefix[len-1] == ns->sep)
-
-
  - auth master refcounting when handling user/request?
 
  - buffer_create_data() behavior has changed from silent-truncating to
@@ -83,31 +65,30 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - remove unused keywords?
 
  - caching
-     - force bits should be used only for nonregistered fields
-     - change envelope parsing not to use get_headers() so imap.envelope can
-       actually be cached without all the headers..
-     - compression should drop fields with last_used <
-       (latest_mail_index_date - month)
-     - when parsing mbox or saving message, parse the mail through index-mail
-       so things gets saved into cache immediately
-     - we could try compressing same field values into a single
-       location in cache file.
-     - support caching all message headers. this could be useful when
-       indexes are in local disk but actual mails are accessed through NFS.
+    - force bits should be used only for nonregistered fields
+    - change envelope parsing not to use get_headers() so imap.envelope can
+      actually be cached without all the headers..
+    - compression should drop fields with last_used <
+      (latest_mail_index_date - month)
+    - when parsing mbox or saving message, parse the mail through index-mail
+      so things gets saved into cache immediately
+    - we could try compressing same field values into a single
+      location in cache file.
+    - support caching all message headers. this could be useful when
+      indexes are in local disk but actual mails are accessed through NFS.
 
  - mbox
-     - if we made no actual visible changes to the mbox, we probably should
-       update access time == mtime at the end of syncing
-     - size.physical isn't cached, but should it even be? ..
-     - syncing existing indexes takes 4x longer than creating new one, why?
-     - how well does dirty sync + status work? it reads the last mail every
-       time? not very good..
-     - always add empty line. make the parser require it too? syncing should
-       make sure there always exists two LFs at end of file. raw-mbox-stream
-       should make sure the last message ends with LF even if it doesn't exist
-       in the file
+    - size.physical isn't cached, but should it even be? ..
+    - syncing existing indexes takes 4x longer than creating new one, why?
+    - how well does dirty sync + status work? it reads the last mail every
+      time? not very good..
+    - always add empty line. make the parser require it too? syncing should
+      make sure there always exists two LFs at end of file. raw-mbox-stream
+      should make sure the last message ends with LF even if it doesn't exist
+      in the file
+    - Quote "From ", unquote ">From "
     - COPY doesn't work to itself (lock assert crash)
-    - keep mbox lock for two extra seconds after sync
+    - keep mbox lock for two extra seconds after sync (do we really need to?)
     - move /var/mail/user to ~/mbox if ~/mbox exists.. supposedly this
       could be useful if /var/mail doesn't have quota, but ~/mail does.
       now, what do we then do if we can move only some of the mails?..
@@ -125,10 +106,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - with pop3 don't move messages from new/ to cur/ before RETR
 
  - index
-    - if uoff_t or time_t size changes, don't rebuild indexes because they
-      don't use them. just rebuild cache file.
-    - mail_index_lookup_ext() doesn't handle resizes between views. probably
-      needs size_t *size_r parameter added..
     - optimize initial left_idx in mail_index_lookup_uid_range()
     - if log file is lost, generate it from old and new index
     - transaction log: when replacing log with a same sequence, we remove it
@@ -217,13 +194,7 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
  - ssl
     - add setting: ssl_options = bitmask. by default we enable all openssl
       workarounds, this could be used to disable some of them
-    - open("/var/run/dovecot//ssl-parameters.dat", O_RDONLY|O_LARGEFILE) =-1 ENOENT
-       ^ loops forever
     - gnutls support isn't working
-    - OpenSSL: support generated DH parameters
-    - SSL: Support password protected key files. Support reading the password
-      from user at runtime (dovecot startssl or something). currently it just
-      hangs.
 
  - search
     - message header search: we should ignore LWSP between two MIME blocks
@@ -243,7 +214,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
       the above attachment scanning.
 
  - lib
-    - ioloop-kqueue.c patch
     - dotlocking: stale_timeout should probably take into account how old the
       file is.. so uses more time with more recent locks..
 
