@@ -40,6 +40,8 @@ static void generate_parameters_file(const char *fname)
 
 	if (rename(temp_fname, fname) < 0)
 		i_fatal("rename(%s, %s) failed: %m", temp_fname, fname);
+
+	i_info("SSL parameters regeneration completed");
 }
 
 static void start_generate_process(const char *fname)
