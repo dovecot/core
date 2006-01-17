@@ -14,8 +14,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <linux/inotify.h>
-#include <linux/inotify-syscalls.h>
+#include <sys/inotify.h>
 
 #define INITIAL_INOTIFY_BUFLEN (FILENAME_MAX + sizeof(struct inotify_event))
 #define MAXIMAL_INOTIFY_BUFLEN (32*1024)
