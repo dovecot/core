@@ -20,9 +20,9 @@ struct hash_table {
 	pool_t table_pool, node_pool;
 
 	int frozen;
-	size_t initial_size, nodes_count, removed_count;
+	unsigned int initial_size, nodes_count, removed_count;
 
-	size_t size;
+	unsigned int size;
 	struct hash_node *nodes;
 	struct hash_node *free_nodes;
 
@@ -33,7 +33,7 @@ struct hash_table {
 struct hash_iterate_context {
 	struct hash_table *table;
 	struct hash_node *next;
-	size_t pos;
+	unsigned int pos;
 };
 
 static bool hash_resize(struct hash_table *table, bool grow);
@@ -50,7 +50,7 @@ static unsigned int direct_hash(const void *p)
 }
 
 struct hash_table *
-hash_create(pool_t table_pool, pool_t node_pool, size_t initial_size,
+hash_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
 	    hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
 {
 	struct hash_table *table;
@@ -95,7 +95,7 @@ static void destroy_node_list(struct hash_table *table, struct hash_node *node)
 
 static void hash_destroy_nodes(struct hash_table *table)
 {
-	size_t i;
+	unsigned int i;
 
 	for (i = 0; i < table->size; i++) {
 		if (table->nodes[i].next != NULL)
@@ -297,7 +297,7 @@ static void hash_compress(struct hash_table *table, struct hash_node *node)
 
 static void hash_compress_removed(struct hash_table *table)
 {
-	size_t i;
+	unsigned int i;
 
 	for (i = 0; i < table->size; i++)
 		hash_compress(table, &table->nodes[i]);
@@ -325,7 +325,7 @@ void hash_remove(struct hash_table *table, const void *key)
 		hash_compress(table, &table->nodes[hash % table->size]);
 }
 
-size_t hash_size(const struct hash_table *table)
+unsigned int hash_size(const struct hash_table *table)
 {
 	return table->nodes_count;
 }
@@ -405,7 +405,7 @@ void hash_thaw(struct hash_table *table)
 static bool hash_resize(struct hash_table *table, bool grow)
 {
 	struct hash_node *old_nodes, *node, *next;
-	size_t next_size, old_size, i;
+	unsigned int next_size, old_size, i;
 	float nodes_per_list;
 
         nodes_per_list = (float) table->nodes_count / (float) table->size;

@@ -13,7 +13,7 @@ typedef int hash_cmp_callback_t(const void *p1, const void *p2);
    for smaller allocations and can also be alloconly pool. The pools must not
    be free'd before hash_destroy() is called. */
 struct hash_table *
-hash_create(pool_t table_pool, pool_t node_pool, size_t initial_size,
+hash_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
 	    hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb);
 void _hash_destroy(struct hash_table **table);
 #define hash_destroy(table) _hash_destroy(&(table))
@@ -32,7 +32,7 @@ void hash_insert(struct hash_table *table, void *key, void *value);
 void hash_update(struct hash_table *table, void *key, void *value);
 
 void hash_remove(struct hash_table *table, const void *key);
-size_t hash_size(const struct hash_table *table);
+unsigned int hash_size(const struct hash_table *table);
 
 /* Iterates through all nodes in hash table. You may safely call hash_*()
    functions while iterating, but if you add any new nodes, they may or may
