@@ -768,7 +768,7 @@ static int mbox_mailbox_delete(struct mail_storage *_storage, const char *name)
 
 		if (index_dir != NULL && rmdir(index_dir) < 0 &&
 		    !ENOTFOUND(errno) && errno != ENOTEMPTY) {
-			if (!mbox_handle_errors(storage) < 0) {
+			if (!mbox_handle_errors(storage)) {
 				mail_storage_set_critical(_storage,
 					"rmdir() failed for %s: %m", index_dir);
 				return -1;
