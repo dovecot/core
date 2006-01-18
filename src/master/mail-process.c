@@ -251,6 +251,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 				set->mbox_lock_timeout));
 	env_put(t_strdup_printf("MBOX_DOTLOCK_CHANGE_TIMEOUT=%u",
 				set->mbox_dotlock_change_timeout));
+	env_put(t_strdup_printf("MBOX_MIN_INDEX_SIZE=%u",
+				set->mbox_min_index_size));
 
 	if (set->mail_use_modules &&
 	    set->mail_modules != NULL && *set->mail_modules != '\0') {

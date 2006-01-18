@@ -479,9 +479,35 @@ static bool mbox_mail_is_recent(struct index_mailbox *ibox __attr_unused__,
 	return FALSE;
 }
 
+static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
+{
+	const char *env;
+	struct stat st;
+	unsigned int min_size;
+
+	env = getenv("MBOX_MIN_INDEXED_SIZE");
+	if (env == NULL)
+		return FALSE;
+
+	min_size = strtoul(env, NULL, 10);
+	if (min_size == 0)
+		return FALSE;
+
+	if (stat(path, &st) < 0) {
+		if (errno == ENOENT)
+			st.st_size = 0;
+		else {
+			mail_storage_set_critical(STORAGE(storage),
+						  "stat(%s) failed: %m", path);
+			return FALSE;
+		}
+	}
+	return st.st_size / 1024 < min_size;
+}
+
 static struct mbox_mailbox *
 mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
-	   const char *name, enum mailbox_open_flags flags)
+	   const char *name, const char *path, enum mailbox_open_flags flags)
 {
 	struct mbox_mailbox *mbox;
 	pool_t pool;
@@ -494,7 +520,8 @@ mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
 	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
 	mbox->ibox.is_recent = mbox_mail_is_recent;
 
-	if (index_storage_mailbox_init(&mbox->ibox, index, name, flags) < 0) {
+	if (index_storage_mailbox_init(&mbox->ibox, index, name, flags,
+				want_memory_indexes(storage, path)) < 0) {
 		/* the memory is already freed here, no need to deinit */
 		return NULL;
 	}
@@ -548,7 +575,7 @@ mbox_open(struct mbox_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
-	mbox = mbox_alloc(storage, index, name, flags);
+	mbox = mbox_alloc(storage, index, name, path, flags);
 	if (mbox == NULL)
 		return NULL;
 
@@ -589,7 +616,7 @@ mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
-	mbox = mbox_alloc(storage, index, name, flags);
+	mbox = mbox_alloc(storage, index, name, path, flags);
 	if (mbox == NULL)
 		return NULL;
 

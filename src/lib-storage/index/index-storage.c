@@ -311,11 +311,13 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 
 int index_storage_mailbox_init(struct index_mailbox *ibox,
 			       struct mail_index *index, const char *name,
-			       enum mailbox_open_flags flags)
+			       enum mailbox_open_flags flags,
+			       bool move_to_memory)
 {
 	struct mail_storage *storage = &ibox->storage->storage;
 	enum mail_index_open_flags index_flags;
 	enum mail_index_lock_method lock_method = 0;
+	int ret;
 
 	i_assert(name != NULL);
 
@@ -324,7 +326,7 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 	array_create(&ibox->box.module_contexts,
 		     ibox->box.pool, sizeof(void *), 5);
 
-	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
+	index_flags = move_to_memory ? 0 : MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((flags & MAILBOX_OPEN_FAST) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_FAST;
 	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
@@ -355,10 +357,18 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 	ibox->mail_read_mmaped = (storage->flags &
 				  MAIL_STORAGE_FLAG_MMAP_MAILS) != 0;
 
-	if (mail_index_open(index, index_flags, lock_method) < 0) {
-		mail_storage_set_index_error(ibox);
-		index_storage_mailbox_free(&ibox->box);
-		return -1;
+	ret = mail_index_open(index, index_flags, lock_method);
+	if (ret <= 0 || move_to_memory) {
+		if (mail_index_move_to_memory(index) < 0) {
+			/* try opening once more. it should be created
+			   directly into memory now. */
+			ret = mail_index_open(index, index_flags, lock_method);
+			if (ret <= 0) {
+				mail_storage_set_index_error(ibox);
+				index_storage_mailbox_free(&ibox->box);
+				return -1;
+			}
+		}
 	}
 
 	ibox->md5hdr_ext_idx =

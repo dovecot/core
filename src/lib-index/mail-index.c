@@ -1393,7 +1393,8 @@ static int mail_index_open_files(struct mail_index *index,
 		hdr = *index->hdr;
 	else if (ret == 0) {
 		/* doesn't exist, or corrupted */
-		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
+		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0 &&
+		    !MAIL_INDEX_IS_IN_MEMORY(index))
 			return 0;
 		mail_index_header_init(&hdr);
 		index->hdr = &hdr;
@@ -1700,6 +1701,13 @@ int mail_index_move_to_memory(struct mail_index *index)
 
 	/* set the index as being into memory */
 	i_free_and_null(index->dir);
+
+	if (index->map == NULL) {
+		/* mbox file was never even opened. just mark it as being in
+		   memory and let the caller re-open the index. */
+		i_assert(index->fd == -1);
+		return -1;
+	}
 
 	/* move index map to memory */
 	map = mail_index_map_clone(index->map, index->map->hdr.record_size);

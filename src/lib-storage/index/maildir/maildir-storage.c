@@ -437,7 +437,8 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
 	mbox->ibox.is_recent = maildir_is_recent;
 
-	if (index_storage_mailbox_init(&mbox->ibox, index, name, flags) < 0) {
+	if (index_storage_mailbox_init(&mbox->ibox, index, name, flags,
+				       FALSE) < 0) {
 		/* the memory was already freed */
 		return NULL;
 	}
