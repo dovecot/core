@@ -260,9 +260,9 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 			tz = 0;
 		}
 		data->sent_date.timezone = tz;
-		mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-			       cache_fields[MAIL_CACHE_SENT_DATE].idx,
-			       &data->sent_date, sizeof(data->sent_date));
+		index_mail_cache_add(mail,
+				     cache_fields[MAIL_CACHE_SENT_DATE].idx,
+				     &data->sent_date, sizeof(data->sent_date));
 	}
 
 	if (timezone != NULL)
@@ -311,9 +311,9 @@ uoff_t index_mail_get_virtual_size(struct mail *_mail)
 	}
 
 	i_assert(data->virtual_size != (uoff_t)-1);
-	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-		       cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx,
-		       &data->virtual_size, sizeof(data->virtual_size));
+	index_mail_cache_add(mail,
+			     cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx,
+			     &data->virtual_size, sizeof(data->virtual_size));
 	return data->virtual_size;
 }
 
@@ -333,6 +333,21 @@ uoff_t index_mail_get_physical_size(struct mail *_mail)
 		return data->physical_size;
 
 	return (uoff_t)-1;
+}
+
+void index_mail_cache_add(struct index_mail *mail, unsigned int field,
+			  const void *data, size_t data_size)
+{
+	const struct mail_index_header *hdr;
+
+	/* First check if we've configured caching not to be used with
+	   low enough message count. */
+	hdr = mail_index_get_header(mail->ibox->view);
+	if (hdr->messages_count < mail->ibox->mail_cache_min_mail_count)
+		return;
+
+	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
+		       field, data, data_size);
 }
 
 static void parse_bodystructure_part_header(struct message_part *part,
@@ -412,9 +427,8 @@ static void index_mail_parse_body(struct index_mail *mail, bool need_parts)
 
 	if (cache_flags != data->cache_flags) {
 		data->cache_flags = cache_flags;
-		mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-			       cache_fields[MAIL_CACHE_FLAGS].idx,
-			       &cache_flags, sizeof(cache_flags));
+		index_mail_cache_add(mail, cache_fields[MAIL_CACHE_FLAGS].idx,
+				     &cache_flags, sizeof(cache_flags));
 	}
 
 	/* see if we want to cache the message part */
@@ -432,9 +446,9 @@ static void index_mail_parse_body(struct index_mail *mail, bool need_parts)
 		message_part_serialize(mail->data.parts, buffer);
 
 		buf_data = buffer_get_data(buffer, &buf_size);
-		mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-			       cache_fields[MAIL_CACHE_MESSAGEPART].idx,
-			       buf_data, buf_size);
+                index_mail_cache_add(mail,
+				     cache_fields[MAIL_CACHE_MESSAGEPART].idx,
+				     buf_data, buf_size);
 		t_pop();
 		data->messageparts_saved_to_cache = TRUE;
 	}
@@ -548,7 +562,7 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 		if (!plain_bodystructure &&
 		    dec != (MAIL_CACHE_DECISION_NO |
 			    MAIL_CACHE_DECISION_FORCED)) {
-			mail_cache_add(mail->trans->cache_trans, data->seq,
+			index_mail_cache_add(mail,
 				cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx,
 				str_c(str), str_len(str)+1);
 			bodystructure_cached = TRUE;
@@ -568,7 +582,7 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 		if (!bodystructure_cached && !plain_bodystructure &&
 		    dec != (MAIL_CACHE_DECISION_NO |
 			    MAIL_CACHE_DECISION_FORCED)) {
-			mail_cache_add(mail->trans->cache_trans, data->seq,
+			index_mail_cache_add(mail,
 				       cache_fields[MAIL_CACHE_IMAP_BODY].idx,
 				       str_c(str), str_len(str)+1);
 		}

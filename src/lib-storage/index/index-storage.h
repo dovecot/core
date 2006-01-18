@@ -64,8 +64,11 @@ struct index_mailbox {
 
 	const array_t *ARRAY_DEFINE_PTR(keyword_names, const char *);
 	struct mail_cache_field *cache_fields;
+	unsigned int mail_cache_min_mail_count;
+
 	buffer_t *recent_flags;
 	uint32_t recent_flags_start_seq, recent_flags_count;
+
 	uint32_t synced_recent_count;
 	time_t sync_last_check;
 

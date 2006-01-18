@@ -106,9 +106,8 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 		data->received_date = 0;
 	}
 
-	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-		       MAIL_CACHE_RECEIVED_DATE,
-		       &data->received_date, sizeof(data->received_date));
+	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE,
+			     &data->received_date, sizeof(data->received_date));
 	return data->received_date;
 }
 

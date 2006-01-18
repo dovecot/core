@@ -99,9 +99,8 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 	}
 
 	data->received_date = st.st_mtime;
-	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-		       MAIL_CACHE_RECEIVED_DATE,
-		       &data->received_date, sizeof(data->received_date));
+	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE,
+			     &data->received_date, sizeof(data->received_date));
 	return data->received_date;
 }
 
@@ -140,9 +139,9 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 
 		if (*p == MAILDIR_INFO_SEP || *p == MAILDIR_EXTRA_SEP ||
 		    *p == '\0') {
-			mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-				       MAIL_CACHE_VIRTUAL_FULL_SIZE,
-				       &virtual_size, sizeof(virtual_size));
+			index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
+					     &virtual_size,
+					     sizeof(virtual_size));
 			return virtual_size;
 		}
 	}
@@ -209,8 +208,8 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 		size = st.st_size;
 	}
 
-	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-		       MAIL_CACHE_PHYSICAL_FULL_SIZE, &size, sizeof(size));
+	index_mail_cache_add(mail, MAIL_CACHE_PHYSICAL_FULL_SIZE,
+			     &size, sizeof(size));
 	data->physical_size = size;
 	return size;
 

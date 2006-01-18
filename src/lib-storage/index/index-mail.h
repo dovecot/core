@@ -172,4 +172,7 @@ uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail);
 time_t index_mail_get_cached_received_date(struct index_mail *mail);
 
+void index_mail_cache_add(struct index_mail *mail, unsigned int field,
+			  const void *data, size_t data_size);
+
 #endif

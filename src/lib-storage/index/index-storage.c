@@ -225,7 +225,7 @@ static void index_cache_register_defaults(struct index_mailbox *ibox)
 {
 	static bool initialized = FALSE;
 	struct mail_cache *cache = ibox->cache;
-	const char *cache_env, *never_env;
+	const char *cache_env, *never_env, *env;
 
 	if (!initialized) {
 		initialized = TRUE;
@@ -242,6 +242,10 @@ static void index_cache_register_defaults(struct index_mailbox *ibox)
 		set_cache_decisions("mail_never_cache_fields", never_env,
 				    MAIL_CACHE_DECISION_NO |
 				    MAIL_CACHE_DECISION_FORCED);
+
+		env = getenv("MAIL_CACHE_MIN_MAIL_COUNT");
+		if (env != NULL)
+			ibox->mail_cache_min_mail_count = atoi(env);
 	}
 
 	ibox->cache_fields = i_malloc(sizeof(global_cache_fields));

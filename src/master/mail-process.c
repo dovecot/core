@@ -195,6 +195,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 			    set->mail_cache_fields, NULL));
 	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
 			    set->mail_never_cache_fields, NULL));
+	env_put(t_strdup_printf("MAIL_CACHE_MIN_MAIL_COUNT=%u",
+				set->mail_cache_min_mail_count));
 	env_put(t_strdup_printf("MAILBOX_IDLE_CHECK_INTERVAL=%u",
 				set->mailbox_idle_check_interval));
 	env_put(t_strdup_printf("MAIL_MAX_KEYWORD_LENGTH=%u",
