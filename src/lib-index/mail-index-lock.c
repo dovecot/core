@@ -370,6 +370,9 @@ static int mail_index_write_map_over(struct mail_index *index)
 	struct mail_index_map *map = index->map;
 	unsigned int base_size;
 
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		return 0;
+
 	/* write records. */
 	if (map->write_seq_first != 0) {
 		size_t rec_offset =
