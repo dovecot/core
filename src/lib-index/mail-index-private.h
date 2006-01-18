@@ -256,7 +256,6 @@ void mail_index_view_transaction_ref(struct mail_index_view *view);
 void mail_index_view_transaction_unref(struct mail_index_view *view);
 
 void mail_index_set_inconsistent(struct mail_index *index);
-int mail_index_move_to_memory(struct mail_index *index);
 
 int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	__attr_format__(2, 3);

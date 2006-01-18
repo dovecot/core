@@ -159,6 +159,9 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		    enum mail_index_lock_method lock_method);
 void mail_index_close(struct mail_index *index);
 
+/* Move the index into memory. Returns 0 if ok, -1 if error occurred. */
+int mail_index_move_to_memory(struct mail_index *index);
+
 struct mail_cache *mail_index_get_cache(struct mail_index *index);
 
 /* Refresh index so mail_index_lookup*() will return latest values. Note that

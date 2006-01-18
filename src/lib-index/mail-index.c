@@ -1695,8 +1695,28 @@ void mail_index_set_inconsistent(struct mail_index *index)
 
 int mail_index_move_to_memory(struct mail_index *index)
 {
+	struct mail_index_map *map;
+	int ret = 0;
+
+	/* set the index as being into memory */
 	i_free_and_null(index->dir);
-	return mail_transaction_log_move_to_memory(index->log);
+
+	/* move index map to memory */
+	map = mail_index_map_clone(index->map, index->map->hdr.record_size);
+	mail_index_unmap(index, &index->map);
+	index->map = map;
+	index->hdr = &map->hdr;
+
+	/* move transaction log to memory */
+	if (mail_transaction_log_move_to_memory(index->log) < 0)
+		ret = -1;
+
+	/* close the index file. */
+	if (close(index->fd) < 0)
+		mail_index_set_syscall_error(index, "close()");
+	index->fd = -1;
+
+	return ret;
 }
 
 void mail_index_mark_corrupted(struct mail_index *index)
