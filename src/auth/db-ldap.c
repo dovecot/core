@@ -406,6 +406,9 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 		return conn;
 	}
 
+	if (*config_path == '\0')
+		i_fatal("LDAP: Configuration file path not given");
+
 	pool = pool_alloconly_create("ldap_connection", 1024);
 	conn = p_new(pool, struct ldap_connection, 1);
 	conn->pool = pool;
