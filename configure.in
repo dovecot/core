@@ -592,33 +592,42 @@ AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits,
 AC_CHECK_TYPES(_Bool)
 
 AC_CHECK_TYPE(uoff_t, [
+  have_uoff_t=yes
   AC_DEFINE(HAVE_UOFF_T,, Define if you have a native uoff_t type)
 ], [
-  AC_TYPEOF(off_t, long int long-long)
-  case "$typeof_off_t" in
-    int)
-      offt_max=INT_MAX
-      uofft_fmt="u"
-      AC_DEFINE(UOFF_T_INT,, Define if off_t is int)
-      offt_bits=`expr 8 \* $ac_cv_sizeof_int`
-      ;;
-    long)
-      offt_max=LONG_MAX
-      uofft_fmt="lu"
-      AC_DEFINE(UOFF_T_LONG,, Define if off_t is long)
-      offt_bits=`expr 8 \* $ac_cv_sizeof_long`
-      ;;
-    "long long")
-      offt_max=LLONG_MAX
-      uofft_fmt="llu"
-      AC_DEFINE(UOFF_T_LONG_LONG,, Define if off_t is long long)
-      offt_bits=`expr 8 \* $ac_cv_sizeof_long_long`
-      ;;
-    *)
-      AC_MSG_ERROR([Unsupported off_t type])
-      ;;
-  esac
+  have_uoff_t=no
 ])
+
+AC_TYPEOF(off_t, long int long-long)
+case "$typeof_off_t" in
+  int)
+    offt_max=INT_MAX
+    uofft_fmt="u"
+    if test "$have_uoff_t" != "yes"; then
+      AC_DEFINE(UOFF_T_INT,, Define if off_t is int)
+    fi
+    offt_bits=`expr 8 \* $ac_cv_sizeof_int`
+    ;;
+  long)
+    offt_max=LONG_MAX
+    uofft_fmt="lu"
+    if test "$have_uoff_t" != "yes"; then
+      AC_DEFINE(UOFF_T_LONG,, Define if off_t is long)
+    fi
+    offt_bits=`expr 8 \* $ac_cv_sizeof_long`
+    ;;
+  "long long")
+    offt_max=LLONG_MAX
+    uofft_fmt="llu"
+    if test "$have_uoff_t" != "yes"; then
+      AC_DEFINE(UOFF_T_LONG_LONG,, Define if off_t is long long)
+    fi
+    offt_bits=`expr 8 \* $ac_cv_sizeof_long_long`
+    ;;
+  *)
+    AC_MSG_ERROR([Unsupported off_t type])
+    ;;
+esac
 
 dnl * Do we have struct dirent->d_type
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
