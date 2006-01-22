@@ -109,7 +109,8 @@ bool auth_client_reserve_connection(struct auth_client *client,
 bool auth_client_is_connected(struct auth_client *client)
 {
 	return !client->reconnect &&
-		client->conn_waiting_handshake_count == 0;
+		client->conn_waiting_handshake_count == 0 &&
+		client->connections != NULL;
 }
 
 void auth_client_set_connect_notify(struct auth_client *client,
