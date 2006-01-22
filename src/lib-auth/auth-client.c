@@ -176,7 +176,10 @@ void auth_client_connect_missing_servers(struct auth_client *client)
 				continue;
 			}
 
-			if (stat(name, &st) == 0 && S_ISSOCK(st.st_mode)) {
+			/* Normally they're sockets, but in UnixWare they're
+			   created as fifos. */
+			if (stat(name, &st) == 0 &&
+			    (S_ISSOCK(st.st_mode) || S_ISFIFO(st.st_mode))) {
 				if (auth_server_connection_new(client,
 							       name) == NULL)
 					client->reconnect = TRUE;
