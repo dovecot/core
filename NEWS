@@ -1,3 +1,37 @@
+v1.0.beta2 2006-01-22  Timo Sirainen <tss@iki.fi>
+
+	+ Added SQLite support. Patch by Jakob Hirsch.
+	+ Added auth_debug_passwords setting. If it's not enabled, hide all
+	  password strings from logs.
+	+ Added mail_cache_min_mail_count and mbox_min_index_size settings
+	  which can be used to make Dovecot do less disk writes in small
+	  mailboxes where they don't benefit that much.
+	+ Added --build-ssl-parameters parameter to dovecot binary
+	- SSL parameters were being regenerated every 10 minutes, although
+	  not with all systems.
+	- Fixed dovecot-auth crashing at startup. Happened only with some
+	  specific compilers.
+	- base_dir was supposed to be set world-readable, not world-writable
+
+v1.0.beta1 2006-01-16  Timo Sirainen <tss@iki.fi>
+
+	* Almost a complete rewrite since 0.99.x, but some of the major
+	  changes are:
+
+	+ Index file code rewritten to do less disk I/O, wait locks less and
+	  in generate be smarter. They also support being in clustered
+	  filesystems and NFS support is mostly working also.
+	+ Mail caching is smarter. Only the data that client requests is
+	  cached. Before Dovecot opened and cached all mails when mailbox was
+	  opened the first time, which was slow.
+	+ Mbox handling code rewritten to be much faster, safer and correct
+	+ New authentication mechanisms: APOP, GSSAPI, LOGIN, NTLM and RPA.
+	+ LDAP supports authentication binds
+	+ Authentication server can cache password database lookups
+	+ Support for multiple authentication databases
+	+ Namespace configuration
+	+ Dovecot works with shared 
+
 v0.99.10 2003-06-26  Timo Sirainen <tss@iki.fi>
 
 	* Default PAM service name changed to "dovecot". This means that
