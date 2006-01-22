@@ -70,7 +70,7 @@ void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
 	generating = FALSE;
 }
 
-static bool check_parameters_file_set(struct settings *set)
+static bool check_parameters_file_set(struct settings *set, bool foreground)
 {
 	const char *path;
 	struct stat st;
@@ -100,18 +100,27 @@ static bool check_parameters_file_set(struct settings *set)
 		st.st_mtime + (time_t)(set->ssl_parameters_regenerate*3600);
 	if (regen_time < ioloop_time || st.st_size == 0 ||
 	    st.st_uid != master_uid || st.st_gid != getegid()) {
-		if (st.st_mtime == 0) {
-			i_info("Generating Diffie-Hellman parameters "
-			       "for the first time. This may take a while..");
+		if (foreground) {
+			i_info("Generating Diffie-Hellman parameters. "
+			       "This may take a while..");
+			generate_parameters_file(path);
+		} else {
+			if (st.st_mtime == 0) {
+				i_info("Generating Diffie-Hellman parameters "
+				       "for the first time. This may take "
+				       "a while..");
+			}
+			start_generate_process(path);
 		}
-		start_generate_process(path);
 		return FALSE;
+	} else if (foreground) {
+		i_info("Diffie-Hellman parameter file already exists.");
 	}
 
 	return TRUE;
 }
 
-static void check_parameters_file(void *context __attr_unused__)
+void ssl_check_parameters_file(bool foreground)
 {
 	struct server_settings *server;
 
@@ -119,13 +128,15 @@ static void check_parameters_file(void *context __attr_unused__)
 		return;
 
 	for (server = settings_root; server != NULL; server = server->next) {
-		if (server->imap != NULL &&
-		    !check_parameters_file_set(server->imap))
-			break;
-		if (server->pop3 != NULL &&
-		    !check_parameters_file_set(server->pop3))
+		if (server->defaults != NULL &&
+		    !check_parameters_file_set(server->defaults, foreground))
 			break;
 	}
+}
+
+static void check_parameters_file_timeout(void *context __attr_unused__)
+{
+	ssl_check_parameters_file(FALSE);
 }
 
 void ssl_init(void)
@@ -133,9 +144,9 @@ void ssl_init(void)
 	generating = FALSE;
 
 	/* check every 10 mins */
-	to = timeout_add(600 * 1000, check_parameters_file, NULL);
+	to = timeout_add(600 * 1000, check_parameters_file_timeout, NULL);
 
-	check_parameters_file(NULL);
+        ssl_check_parameters_file(FALSE);
 }
 
 void ssl_deinit(void)

@@ -602,8 +602,9 @@ static void daemonize(struct settings *set)
 
 static void print_help(void)
 {
-	printf("Usage: dovecot [-F] [-c <config file>] "
-	       "[--version] [--build-options]\n");
+	printf(
+"Usage: dovecot [-F] [-c <config file>] [-p] [--build-ssl-parameters]\n"
+"       [--exec-mail <protocol>] [--version] [--build-options]\n");
 }
 
 static void print_build_options(void)
@@ -699,7 +700,7 @@ int main(int argc, char *argv[])
 {
 	/* parse arguments */
 	const char *exec_protocol = NULL, *exec_section = NULL, *user, *home;
-	bool foreground = FALSE, ask_key_pass = FALSE;
+	bool foreground = FALSE, ask_key_pass = FALSE, build_parameters = FALSE;
 	int i;
 
 #ifdef DEBUG
@@ -729,6 +730,8 @@ int main(int argc, char *argv[])
 			exec_protocol = argv[i];
 			if (i+1 != argc) 
 				exec_section = argv[++i];
+		} else if (strcmp(argv[i], "--build-ssl-parameters") == 0) {
+			build_parameters = TRUE;
 		} else if (strcmp(argv[i], "--version") == 0) {
 			printf("%s\n", VERSION);
 			return 0;
@@ -767,6 +770,10 @@ int main(int argc, char *argv[])
 		askpass(prompt, ssl_manual_key_password,
 			sizeof(ssl_manual_key_password));
 		t_pop();
+	}
+	if (build_parameters) {
+		ssl_check_parameters_file(TRUE);
+		exit(0);
 	}
 
 	/* save TZ environment. AIX depends on it to get the timezone
