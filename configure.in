@@ -589,30 +589,36 @@ dnl * off_t checks, try to make it 64bit
 AC_DEFINE_UNQUOTED(_FILE_OFFSET_BITS, $preferred_off_t_bits,
   [If set to 64, enables 64bit off_t for some systems (eg. Linux, Solaris)])
 
-AC_TYPEOF(off_t, long int long-long)
-case "$typeof_off_t" in
-  int)
-    offt_max=INT_MAX
-    uofft_fmt="u"
-    AC_DEFINE(UOFF_T_INT,, Define if off_t is int)
-    offt_bits=`expr 8 \* $ac_cv_sizeof_int`
-    ;;
-  long)
-    offt_max=LONG_MAX
-    uofft_fmt="lu"
-    AC_DEFINE(UOFF_T_LONG,, Define if off_t is long)
-    offt_bits=`expr 8 \* $ac_cv_sizeof_long`
-    ;;
-  "long long")
-    offt_max=LLONG_MAX
-    uofft_fmt="llu"
-    AC_DEFINE(UOFF_T_LONG_LONG,, Define if off_t is long long)
-    offt_bits=`expr 8 \* $ac_cv_sizeof_long_long`
-    ;;
-  *)
-    AC_MSG_ERROR([Unsupported off_t type])
-    ;;
-esac
+AC_CHECK_TYPES(_Bool)
+
+AC_CHECK_TYPE(uoff_t, [
+  AC_DEFINE(HAVE_UOFF_T,, Define if you have a native uoff_t type)
+], [
+  AC_TYPEOF(off_t, long int long-long)
+  case "$typeof_off_t" in
+    int)
+      offt_max=INT_MAX
+      uofft_fmt="u"
+      AC_DEFINE(UOFF_T_INT,, Define if off_t is int)
+      offt_bits=`expr 8 \* $ac_cv_sizeof_int`
+      ;;
+    long)
+      offt_max=LONG_MAX
+      uofft_fmt="lu"
+      AC_DEFINE(UOFF_T_LONG,, Define if off_t is long)
+      offt_bits=`expr 8 \* $ac_cv_sizeof_long`
+      ;;
+    "long long")
+      offt_max=LLONG_MAX
+      uofft_fmt="llu"
+      AC_DEFINE(UOFF_T_LONG_LONG,, Define if off_t is long long)
+      offt_bits=`expr 8 \* $ac_cv_sizeof_long_long`
+      ;;
+    *)
+      AC_MSG_ERROR([Unsupported off_t type])
+      ;;
+  esac
+])
 
 dnl * Do we have struct dirent->d_type
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -723,8 +729,6 @@ AC_CHECKTYPE2(socklen_t, [#include <sys/socket.h>])
 if test $i_cv_type_socklen_t = yes; then
   AC_DEFINE(HAVE_SOCKLEN_T,, Define to 'int' if you don't have socklen_t)
 fi
-
-AC_CHECK_TYPES(_Bool)
 
 AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align, Required memory alignment)
 
