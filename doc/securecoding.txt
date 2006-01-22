@@ -86,6 +86,15 @@ to allow caller to specify where the memory is allocated from.
 See lib/mempool.h
 
 
+Deinitialize safely
+-------------------
+
+Whenever you free a pointer, set it to NULL. That way if you accidentally
+try to free it again, it's less likely to cause a security hole. Dovecot
+does this automatically with most of its free() calls, but you should also
+make it a habit of making all your _destroy() functions take a
+pointer-to-pointer parameter which you set to NULL.
+
 Don't Keep Secrets
 ------------------
 
