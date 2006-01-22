@@ -3,7 +3,6 @@
 
 #include "auth-cache.h"
 
-enum passdb_result;
 extern struct auth_cache *passdb_cache;
 
 bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
