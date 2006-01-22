@@ -53,6 +53,9 @@ typedef int socklen_t;
 
 #ifdef HAVE_SYS_SYSMACROS_H
 #  include <sys/sysmacros.h>
+#  ifdef HAVE_SYS_MKDEV_H
+#    include <sys/mkdev.h> /* UnixWare */
+#  endif
 #  define CMP_DEV_T(a, b) (major(a) == major(b) && minor(a) == minor(b))
 #elif !defined (DEV_T_STRUCT)
 #  define CMP_DEV_T(a, b) ((a) == (b))
