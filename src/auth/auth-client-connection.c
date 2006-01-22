@@ -41,8 +41,6 @@ static void auth_client_send(struct auth_client_connection *conn,
 {
 	string_t *str;
 
-	i_assert(conn->refcount > 1);
-
 	t_push();
 	str = t_str_new(256);
 	str_append(str, cmd);
