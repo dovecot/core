@@ -85,7 +85,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	}
 
 	reply = auth_stream_reply_init(auth_request);
-	auth_stream_reply_add(reply, NULL, request->user);
+	auth_stream_reply_add(reply, NULL, auth_request->user);
 	auth_stream_reply_add(reply, "uid", dec2str(uid));
 	auth_stream_reply_add(reply, "gid", dec2str(gid));
 	auth_stream_reply_add(reply, "home", vpw->pw_dir);
