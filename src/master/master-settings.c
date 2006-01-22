@@ -650,7 +650,7 @@ static bool settings_verify(struct settings *set)
 		i_error("lstat(%s) failed: %m", set->base_dir);
 		return FALSE;
 	}
-	if ((st.st_mode & 0750) != 0750 || (st.st_mode == 0777)) {
+	if ((st.st_mode & 0750) != 0750 || (st.st_mode & 0777) == 0777) {
 		/* FIXME: backwards compatibility: fix permissions so that
 		   login processes can find ssl-parameters file. Group rx is
 		   enough, but change it to world-rx so that we don't have to
