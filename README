@@ -7,26 +7,8 @@ See INSTALL file.
 Configuration
 -------------
 
-See doc/configuration.txt file.
-
-
-Code
-----
-
-The code is split into a several libraries and binaries:
-
- src/master      - imap-master binary (see docs/design.txt)
- src/login       - imap-login binary
- src/auth        - imap-auth binary
- src/imap        - imap binary
-
- src/lib         - Generic library functions
- src/lib-mail    - RFC-822 and MIME parsering code
- src/lib-imap    - IMAP-specific functions for parsing, sending, etc.
- src/lib-index   - Mailbox indexing library, slightly IMAP-specific
- src/lib-storage - Mail storage separated into interface and implementation.
-                   imap binary uses only the interface so it's possible to
-                   add support for any kind of mail storage (eg. SQL).
+http://wiki.dovecot.org/ contains the most up-to-date documentation.
+Most of the files in doc/ are currently out of date.
 
 
 RFCs conformed
@@ -56,4 +38,4 @@ RFCs conformed
 Contact info
 ------------
 
-Timo Sirainen <tss@iki.fi>, http://dovecot.procontrol.fi/
+Timo Sirainen <tss@iki.fi>, http://www.dovecot.org/
