@@ -252,11 +252,9 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 		str = t_strdup_printf("pam_start() failed: %s",
 				      pam_strerror(pamh, status));
 	} else {
-#ifdef PAM_RHOST
 		const char *host = net_ip2addr(&request->remote_ip);
 		if (host != NULL)
 			pam_set_item(pamh, PAM_RHOST, host);
-#endif
 
 		status = pam_auth(request, pamh, &str);
 		if ((status2 = pam_end(pamh, status)) == PAM_SUCCESS) {
