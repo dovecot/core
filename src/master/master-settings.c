@@ -170,6 +170,7 @@ static struct setting_def auth_setting_defs[] = {
 
 	DEF(SET_BOOL, verbose),
 	DEF(SET_BOOL, debug),
+	DEF(SET_BOOL, debug_passwords),
 	DEF(SET_BOOL, ssl_require_client_cert),
 	DEF(SET_BOOL, ssl_username_from_cert),
 
@@ -375,6 +376,7 @@ struct auth_settings default_auth_settings = {
 
 	MEMBER(verbose) FALSE,
 	MEMBER(debug) FALSE,
+	MEMBER(debug_passwords) FALSE,
 	MEMBER(ssl_require_client_cert) FALSE,
 	MEMBER(ssl_username_from_cert) FALSE,
 

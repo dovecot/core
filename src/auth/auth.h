@@ -44,7 +44,7 @@ struct auth {
 	bool ssl_require_client_cert;
         bool ssl_username_from_cert;
 
-	bool verbose, verbose_debug;
+	bool verbose, verbose_debug, verbose_debug_passwords;
 };
 
 const string_t *auth_mechanisms_get_list(struct auth *auth);

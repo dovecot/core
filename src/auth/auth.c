@@ -28,6 +28,8 @@ struct auth *auth_preinit(void)
 
 	auth->verbose = getenv("VERBOSE") != NULL;
 	auth->verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
+	auth->verbose_debug_passwords =
+		getenv("VERBOSE_DEBUG_PASSWORDS") != NULL;
 
 	t_push();
 	for (i = 1; ; i++) {

@@ -15,6 +15,7 @@
 #include "passdb-blocking.h"
 #include "userdb-blocking.h"
 #include "passdb-cache.h"
+#include "password-scheme.h"
 
 struct auth_request *
 auth_request_new(struct auth *auth, struct mech_module *mech,
@@ -574,6 +575,31 @@ void auth_request_set_field(struct auth_request *request,
 	if (request->extra_fields == NULL)
 		request->extra_fields = auth_stream_reply_init(request);
 	auth_stream_reply_add(request->extra_fields, name, value);
+}
+
+int auth_request_password_verify(struct auth_request *request,
+				 const char *plain_password,
+				 const char *crypted_password,
+				 const char *scheme, const char *subsystem)
+{
+	int ret;
+
+	ret = password_verify(plain_password, crypted_password, scheme,
+			      request->user);
+	if (ret < 0) {
+		auth_request_log_error(request, subsystem,
+				       "Unknown password scheme %s", scheme);
+	} else if (ret == 0) {
+		auth_request_log_info(request, subsystem,
+				      "Password mismatch");
+		if (request->auth->verbose_debug_passwords) {
+			auth_request_log_debug(request, subsystem,
+					       "%s(%s) != '%s'", scheme,
+					       plain_password,
+					       crypted_password);
+		}
+	}
+	return ret;
 }
 
 static const char *escape_none(const char *str)

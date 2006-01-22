@@ -454,6 +454,8 @@ static void auth_set_environment(struct auth_settings *set)
 		env_put("VERBOSE=1");
 	if (set->debug)
 		env_put("VERBOSE_DEBUG=1");
+	if (set->debug_passwords)
+		env_put("VERBOSE_DEBUG_PASSWORDS=1");
 	if (set->ssl_require_client_cert)
 		env_put("SSL_REQUIRE_CLIENT_CERT=1");
 	if (set->ssl_username_from_cert)

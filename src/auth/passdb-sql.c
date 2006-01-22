@@ -111,14 +111,9 @@ static void sql_query_callback(struct sql_result *result, void *context)
 		return;
 	}
 
-	ret = password_verify(auth_request->mech_password, password,
-			      scheme, user);
-	if (ret < 0) {
-		auth_request_log_error(auth_request, "sql",
-				       "Unknown password scheme %s", scheme);
-	} else if (ret == 0) {
-		auth_request_log_info(auth_request, "sql", "Password mismatch");
-	}
+	ret = auth_request_password_verify(auth_request,
+					   auth_request->mech_password,
+					   password, scheme, "sql");
 
 	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					   PASSDB_RESULT_PASSWORD_MISMATCH,

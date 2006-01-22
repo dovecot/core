@@ -101,6 +101,11 @@ void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme);
 
+int auth_request_password_verify(struct auth_request *request,
+				 const char *plain_password,
+				 const char *crypted_password,
+				 const char *scheme, const char *subsystem);
+
 const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
 				  const char *(*escape_func)(const char *));

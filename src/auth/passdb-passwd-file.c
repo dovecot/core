@@ -45,20 +45,11 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 				       crypted_pass, scheme);
 	}
 
-	ret = password_verify(password, crypted_pass, scheme,
-			      request->user);
-	if (ret > 0)
-		callback(PASSDB_RESULT_OK, request);
-	else {
-		if (ret < 0) {
-			auth_request_log_error(request, "passwd-file",
-				"unknown password scheme %s", scheme);
-		} else {
-			auth_request_log_info(request, "passwd-file",
-					      "password mismatch");
-		}
-		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
-	}
+	ret = auth_request_password_verify(request, password, crypted_pass,
+					   scheme, "passwd-file");
+
+	callback(ret > 0 ? PASSDB_RESULT_OK : PASSDB_RESULT_PASSWORD_MISMATCH,
+		 request);
 }
 
 static void

@@ -21,26 +21,38 @@
 static void auth_client_connection_unref(struct auth_client_connection **_conn);
 
 static void auth_client_input(void *context);
-static void auth_client_send(struct auth_client_connection *conn,
-			     const char *fmt, ...) __attr_format__(2, 3);
+
+static const char *reply_line_hide_pass(const char *line)
+{
+	const char *p, *p2;
+
+	/* hide proxy reply password */
+	p = strstr(line, "\tpass=");
+	if (p == NULL)
+		return line;
+	p += 6;
+
+	p2 = strchr(p, '\t');
+	return t_strconcat(t_strdup_until(line, p), "<hidden>", p2, NULL);
+}
 
 static void auth_client_send(struct auth_client_connection *conn,
-			     const char *fmt, ...)
+			     const char *cmd)
 {
-	va_list args;
 	string_t *str;
 
 	i_assert(conn->refcount > 1);
 
 	t_push();
-	va_start(args, fmt);
 	str = t_str_new(256);
-	str_vprintfa(str, fmt, args);
-
-	if (conn->auth->verbose_debug)
-		i_info("client out: %s", str_c(str));
-
+	str_append(str, cmd);
 	str_append_c(str, '\n');
+
+	if (conn->auth->verbose_debug) {
+		i_info("client out: %s", conn->auth->verbose_debug_passwords ?
+		       cmd : reply_line_hide_pass(cmd));
+	}
+
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
 
 	if (o_stream_get_buffer_used_size(conn->output) >=
@@ -50,7 +62,6 @@ static void auth_client_send(struct auth_client_connection *conn,
 		if (conn->io != NULL)
 			io_remove(&conn->io);
 	}
-	va_end(args);
 	t_pop();
 }
 
@@ -64,7 +75,7 @@ static void auth_callback(const char *reply, void *context)
 		return;
 	}
 
-	auth_client_send(conn, "%s", reply);
+	auth_client_send(conn, reply);
 }
 
 static bool
@@ -128,22 +139,55 @@ static int auth_client_output(void *context)
 	return 1;
 }
 
+static const char *auth_line_hide_pass(const char *line)
+{
+	const char *p, *p2;
+
+	p = strstr(line, "\tresp=");
+	if (p == NULL)
+		return line;
+	p += 6;
+
+	p2 = strchr(p, '\t');
+	return t_strconcat(t_strdup_until(line, p), "<hidden>", p2, NULL);
+}
+
+static const char *cont_line_hide_pass(const char *line)
+{
+	const char *p;
+
+	p = strchr(line, '\t');
+	if (p == NULL)
+		return line;
+
+	return t_strconcat(t_strdup_until(line, p), "<hidden>", NULL);
+}
+
 static bool
 auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 {
-	if (conn->auth->verbose_debug)
-		i_info("client in: %s", line);
-
 	if (strncmp(line, "AUTH\t", 5) == 0) {
+		if (conn->auth->verbose_debug) {
+			i_info("client in: %s",
+			       conn->auth->verbose_debug_passwords ? line :
+			       auth_line_hide_pass(line));
+		}
 		return auth_request_handler_auth_begin(conn->request_handler,
 						       line + 5);
 	}
 	if (strncmp(line, "CONT\t", 5) == 0) {
+		if (conn->auth->verbose_debug) {
+			i_info("client in: %s",
+			       conn->auth->verbose_debug_passwords ? line :
+			       cont_line_hide_pass(line));
+		}
 		return auth_request_handler_auth_continue(conn->request_handler,
 							  line + 5);
 	}
 
 	/* ignore unknown command */
+	if (conn->auth->verbose_debug)
+		i_info("client in (unknown command): %s", line);
 	return TRUE;
 }
 

@@ -175,15 +175,9 @@ static void handle_request(struct ldap_connection *conn,
 		return;
 	}
 
-	ret = password_verify(auth_request->mech_password, password, scheme,
-			      auth_request->user);
-	if (ret < 0) {
-		auth_request_log_error(auth_request, "ldap",
-			"Unknown password scheme %s", scheme);
-	} else if (ret == 0) {
-		auth_request_log_info(auth_request, "ldap",
-				      "password mismatch");
-	}
+	ret = auth_request_password_verify(auth_request,
+					   auth_request->mech_password,
+					   password, scheme, "ldap");
 
 	ldap_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					    PASSDB_RESULT_PASSWORD_MISMATCH,

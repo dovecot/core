@@ -50,7 +50,8 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	if (scheme == NULL)
 		scheme = request->passdb->passdb->default_pass_scheme;
 
-	ret = password_verify(password, crypted_pass, scheme, request->user);
+	ret = auth_request_password_verify(request, password, crypted_pass,
+					   scheme, "vpopmail");
 
 	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
 	if (vpw->pw_clear_passwd != NULL) {
@@ -59,13 +60,6 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	if (ret <= 0) {
-		if (ret < 0) {
-			auth_request_log_error(request, "vpopmail",
-				"Unknown password scheme %s", scheme);
-		} else {
-			auth_request_log_info(request, "vpopmail",
-					      "password mismatch");
-		}
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}

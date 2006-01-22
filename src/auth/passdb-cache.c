@@ -69,13 +69,8 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	scheme = password_get_scheme(&cached_pw);
 	i_assert(scheme != NULL);
 
-	ret = password_verify(password, cached_pw, scheme, request->user);
-	if (ret < 0) {
-		auth_request_log_error(request, "cache",
-				       "Unknown password scheme %s", scheme);
-	} else if (ret == 0) {
-		auth_request_log_info(request, "cache", "Password mismatch");
-	}
+	ret = auth_request_password_verify(request, password, cached_pw,
+					   scheme, "cache");
 
 	*result_r = ret > 0 ? PASSDB_RESULT_OK :
 		PASSDB_RESULT_PASSWORD_MISMATCH;
