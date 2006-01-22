@@ -650,14 +650,17 @@ static bool settings_verify(struct settings *set)
 		i_error("lstat(%s) failed: %m", set->base_dir);
 		return FALSE;
 	}
-	if ((st.st_mode & 0750) != 0750) {
+	if ((st.st_mode & 0750) != 0750 || (st.st_mode == 0777)) {
 		/* FIXME: backwards compatibility: fix permissions so that
 		   login processes can find ssl-parameters file. Group rx is
 		   enough, but change it to world-rx so that we don't have to
-		   start changing groups and causing possibly other problems. */
+		   start changing groups and causing possibly other problems.
+
+		   The second check is to fix 1.0beta1's accidental 0777
+		   mode change.. */
 		i_warning("Fixing permissions of %s to be world-readable",
 			  set->base_dir);
-		if (chmod(set->base_dir, 0777) < 0)
+		if (chmod(set->base_dir, 0755) < 0)
 			i_error("chmod(%s) failed: %m", set->base_dir);
 	}
 
