@@ -97,7 +97,7 @@ static bool check_parameters_file_set(struct settings *set, bool foreground)
 	/* make sure it's new enough, it's not 0 sized, and the permissions
 	   are correct */
 	regen_time = set->ssl_parameters_regenerate == 0 ? ioloop_time :
-		st.st_mtime + (time_t)(set->ssl_parameters_regenerate*3600);
+		(st.st_mtime + (time_t)(set->ssl_parameters_regenerate*3600));
 	if (regen_time < ioloop_time || st.st_size == 0 ||
 	    st.st_uid != master_uid || st.st_gid != getegid()) {
 		if (foreground) {
