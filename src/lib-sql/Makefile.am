@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 libsql_a_SOURCES = \
 	driver-mysql.c \
 	driver-pgsql.c \
+	driver-sqlite.c \
 	sql-api.c
 
 noinst_HEADERS = \

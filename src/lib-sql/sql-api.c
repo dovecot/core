@@ -10,6 +10,9 @@ struct sql_db *sql_db_drivers[] = {
 #ifdef HAVE_MYSQL
 	&driver_mysql_db,
 #endif
+#ifdef HAVE_SQLITE
+	&driver_sqlite_db,
+#endif
 	NULL
 };
 

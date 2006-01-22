@@ -181,6 +181,15 @@ AC_ARG_WITH(mysql,
 	fi,
 	want_mysql=no)
 
+AC_ARG_WITH(sqlite,
+[  --with-sqlite            Build with SQLite3 support],
+	if test x$withval = xno; then
+		want_sqlite=no
+	else
+	want_sqlite=yes
+	fi,
+	want_sqlite=no)
+
 AC_ARG_WITH(ssl,
 [  --with-ssl=[gnutls|openssl] Build with GNUTLS or OpenSSL (default)],
 	if test x$withval = xno; then
@@ -1428,6 +1437,57 @@ if test $want_mysql = yes; then
 			have_sql=yes
 			userdb="$userdb mysql"
 			passdb="$passdb mysql"
+		])
+		CPPFLAGS=$old_CPPFLAGS
+	fi
+
+	LIBS=$old_LIBS
+fi
+
+if test $want_sqlite = yes; then
+	# stolen from the mysql code above 
+	for i in /usr /usr/local /usr/local; do
+		for j in include  ""; do
+			if test -r "$i/$j/sqlite3.h"; then
+				MYSQL_INCLUDE=$i/$j
+			fi
+		done
+		for j in lib lib/sqlite3 ""; do
+			if test -f "$i/$j/libsqlite3.so" || test -f "$i/$j/libsqlite3.a"; then
+				MYSQL_LIBDIR=$i/$j
+			fi
+		done
+	done
+
+	old_LIBS=$LIBS
+	if test "$SQLITE_LIBDIR" != ""; then
+		LIBS="$LIBS -L$SQLITE_LIBDIR"
+	fi
+
+	sqlite_lib=""
+	LIBS="$LIBS -lz"
+	AC_CHECK_LIB(sqlite3, sqlite3_open, [
+		sqlite_lib="-lsqlite3 -lz"
+	])
+
+	if test "$sqlite_lib" != ""; then
+		old_CPPFLAGS=$CPPFLAGS
+		if test "$SQLITE_INCLUDE" != ""; then
+			CPPFLAGS="$CPPFLAGS -I $SQLITE_INCLUDE"
+		fi
+		AC_CHECK_HEADER(sqlite3.h, [
+			if test "$SQLITE_INCLUDE" != ""; then
+				SQL_CFLAGS="$SQL_CFLAGS -I$SQLITE_INCLUDE"
+			fi
+			if test "$SQLITE_LIBDIR" != ""; then
+				SQL_LIBS="$SQL_LIBS -L$SQLITE_LIBDIR"
+			fi
+			SQL_LIBS="$SQL_LIBS $sqlite_lib"
+
+			AC_DEFINE(HAVE_SQLITE,, Build with SQLite3 support)
+			have_sql=yes
+			userdb="$userdb sqlite"
+			passdb="$passdb sqlite"
 		])
 		CPPFLAGS=$old_CPPFLAGS
 	fi

@@ -640,6 +640,9 @@ static void print_build_options(void)
 #ifdef HAVE_PGSQL
 		" postgresql"
 #endif
+#ifdef HAVE_SQLITE
+		" sqlite"
+#endif
 	"\nPassdb: "
 #ifdef PASSDB_BSDAUTH
 		"bsdauth "
