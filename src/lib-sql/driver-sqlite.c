@@ -204,7 +204,7 @@ driver_sqlite_result_get_field_value(struct sql_result *_result,
 {
 	struct sqlite_result *result = (struct sqlite_result *)_result;
 
-	return sqlite3_column_text(result->stmt, idx);
+	return (const char*)sqlite3_column_text(result->stmt, idx);
 }
 
 static const char *
