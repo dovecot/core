@@ -157,6 +157,7 @@ void ssl_deinit(void)
 #else
 
 void ssl_parameter_process_destroyed(pid_t pid __attr_unused__) {}
+void ssl_check_parameters_file(bool foreground __attr_unused__) {}
 void ssl_init(void) {}
 void ssl_deinit(void) {}
 
