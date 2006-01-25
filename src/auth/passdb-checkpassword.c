@@ -180,22 +180,23 @@ checkpassword_verify_plain_child(struct auth_request *request,
 				 struct checkpassword_passdb_module *module,
 				 int fd_in, int fd_out)
 {
-	const char *args[3];
+	const char *cmd, *const *args;
 
 	if (dup2(fd_out, 3) < 0 || dup2(fd_in, 4) < 0) {
 		auth_request_log_error(request, "checkpassword",
 				       "dup2() failed: %m");
 	} else {
-		args[0] = module->checkpassword_path;
-		args[1] = module->checkpassword_reply_path;
-		args[2] = NULL;
+		/* very simple argument splitting. */
+		cmd = t_strconcat(module->checkpassword_path, " ",
+				  module->checkpassword_reply_path, NULL);
+		args = t_strsplit(cmd, " ");
 
 		auth_request_log_debug(request, "checkpassword",
-			"Executed: %s %s", args[0], args[1]);
+				       "Executed: %s", cmd);
 
-		execv(module->checkpassword_path, (char **)args);
+		execv(args[0], (char **)args);
 		auth_request_log_error(request, "checkpassword",
-			"execv(%s) failed: %m", module->checkpassword_path);
+				       "execv(%s) failed: %m", args[0]);
 	}
 	exit(2);
 }
