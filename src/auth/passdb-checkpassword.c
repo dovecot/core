@@ -139,11 +139,20 @@ static void wait_timeout(void *context)
 		}
 
 		request = hash_lookup(module->clients, POINTER_CAST(pid));
+		if (request == NULL) {
+			/* unknown child finished */
+			if (WIFSIGNALED(status)) {
+				i_error("checkpassword: Unknown child %s died "
+					"with signal %d", dec2str(pid),
+					WTERMSIG(status));
+			}
+			continue;
+		}
 
 		if (WIFSIGNALED(status)) {
 			i_error("checkpassword: Child %s died with signal %d",
 				dec2str(pid), WTERMSIG(status));
-		} else if (WIFEXITED(status) && request != NULL) {
+		} else if (WIFEXITED(status)) {
 			auth_request_log_debug(request->request,
 				"checkpassword", "exit_status=%d",
 				request->exit_status);
@@ -153,6 +162,7 @@ static void wait_timeout(void *context)
 			checkpassword_request_half_finish(request);
 			request = NULL;
 		} else {
+			/* shouldn't happen */
 			auth_request_log_debug(request->request,
 				"checkpassword", "Child exited with status=%d",
 				status);
