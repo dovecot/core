@@ -270,6 +270,9 @@ AC_ARG_WITH(sql-drivers,
 if test "$sql_driver" = "all"; then
   all_sql_drivers=yes
   sql_driver=
+elif test "$sql_driver" = "no"; then
+  # --without-sql-drivers given
+  sql_driver=
 fi
 
 AC_ARG_WITH(moduledir,
