@@ -340,7 +340,7 @@ struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input)
 				input->real_stream->abs_start_offset);
 }
 
-static bool istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
+static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 {
 	const unsigned char *data;
 	size_t size;
@@ -354,7 +354,7 @@ static bool istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	if ((size == 1 && data[0] == '\n') ||
 	    (size == 2 && data[0] == '\r' && data[1] == '\n')) {
 		/* EOF */
-		return TRUE;
+		return 1;
 	}
 
 	if (size > 31 && memcmp(data, "\nFrom ", 6) == 0) {
@@ -364,7 +364,7 @@ static bool istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 		data += 7;
 		size -= 7;
 	} else {
-		return FALSE;
+		return 0;
 	}
 
 	while (memchr(data, '\n', size) == NULL) {
@@ -373,12 +373,12 @@ static bool istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	}
 
 	if (mbox_from_parse(data, size, &received_time, &sender) < 0)
-		return FALSE;
+		return 0;
 
 	rstream->next_received_time = received_time;
 	i_free(rstream->next_sender);
 	rstream->next_sender = sender;
-	return TRUE;
+	return 1;
 }
 
 uoff_t istream_raw_mbox_get_start_offset(struct istream *stream)
