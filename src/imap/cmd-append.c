@@ -58,10 +58,10 @@ static void client_input(void *context)
 	}
 
 	if (cmd->func(cmd)) {
-		/* command execution was finished */
-		client->bad_counter = 0;
-		_client_reset_command(client);
-
+		/* command execution was finished. Note that if cmd_sync()
+		   didn't finish, we didn't get here but the input handler
+		   has already been moved. So don't do anything important
+		   here.. */
 		if (client->input_pending)
 			_client_input(client);
 	}
@@ -120,6 +120,9 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 
 	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL)
 		mailbox_close(&ctx->box);
+
+	ctx->client->bad_counter = 0;
+	_client_reset_command(ctx->client);
 }
 
 static bool cmd_append_continue_cancel(struct client_command_context *cmd)
