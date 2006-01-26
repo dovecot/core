@@ -4,7 +4,7 @@
 #include "str.h"
 #include "sql-api-private.h"
 
-#ifdef HAVE_SQLITE
+#ifdef BUILD_SQLITE
 #include <stdlib.h>
 #include <time.h>
 #include <sqlite3.h>
@@ -34,6 +34,7 @@ struct sqlite_transaction_context {
 	unsigned int failed:1;
 };
 
+extern struct sql_db driver_sqlite_db;
 extern struct sql_result driver_sqlite_result;
 extern struct sql_result driver_sqlite_error_result;
 
@@ -58,7 +59,7 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	}
 }
 
-static struct sql_db *driver_sqlite_init(const char *connect_string)
+static struct sql_db *_driver_sqlite_init(const char *connect_string)
 {
 	struct sqlite_db *db;
 	pool_t pool;
@@ -75,7 +76,7 @@ static struct sql_db *driver_sqlite_init(const char *connect_string)
 	return &db->api;
 }
 
-static void driver_sqlite_deinit(struct sql_db *_db)
+static void _driver_sqlite_deinit(struct sql_db *_db)
 {
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 
@@ -331,8 +332,8 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_sqlite_db = {
 	"sqlite",
 
-	driver_sqlite_init,
-	driver_sqlite_deinit,
+	_driver_sqlite_init,
+	_driver_sqlite_deinit,
 	driver_sqlite_get_flags,
 	driver_sqlite_connect,
 	driver_sqlite_exec,
@@ -378,5 +379,18 @@ struct sql_result driver_sqlite_error_result = {
 
 	FALSE
 };
+
+void driver_sqlite_init(void);
+void driver_sqlite_deinit(void);
+
+void driver_sqlite_init(void)
+{
+	sql_driver_register(&driver_sqlite_db);
+}
+
+void driver_sqlite_deinit(void)
+{
+	sql_driver_unregister(&driver_sqlite_db);
+}
 
 #endif

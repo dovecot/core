@@ -257,10 +257,20 @@ AC_ARG_WITH(deliver,
 AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" = "yes")
 
 AC_ARG_WITH(storages,
-[  --with-storages         Build specified mail storage formats (maildir,mbox)], [
+[  --with-storages         Build with specified mail storage formats (maildir,mbox)], [
 	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
 	mail_storages="maildir mbox dbox")
 AC_SUBST(mail_storages)
+
+AC_ARG_WITH(sql-drivers,
+[  --with-sql-drivers      Build with specified SQL drivers (all)], [
+	sql_drivers=`echo "$withval"|sed 's/,/ /g'` ],
+	sql_driver="all")
+
+if test "$sql_driver" = "all"; then
+  all_sql_drivers=yes
+  sql_driver=
+fi
 
 AC_ARG_WITH(moduledir,
 [  --with-moduledir=DIR    Base directory for dynamically loadable modules],
@@ -1380,9 +1390,11 @@ if test $want_pgsql = yes; then
 			fi
 			SQL_LIBS="$SQL_LIBS -lpq"
 			AC_DEFINE(HAVE_PGSQL,, Build with PostgreSQL support)
-			have_sql=yes
-			userdb="$userdb pgsql"
-			passdb="$passdb pgsql"
+			found_sql_drivers="$found_sql_drivers pgsql"
+
+                        if test "$all_sql_drivers" = "yes"; then
+			  sql_drivers="$sql_drivers pgsql"
+			fi
 		])
 		CPPFLAGS=$old_CPPFLAGS
 	])
@@ -1447,9 +1459,7 @@ if test $want_mysql = yes; then
 			])
 			
 			AC_DEFINE(HAVE_MYSQL,, Build with MySQL support)
-			have_sql=yes
-			userdb="$userdb mysql"
-			passdb="$passdb mysql"
+			found_sql_drivers="$found_sql_drivers mysql"
 		])
 		CPPFLAGS=$old_CPPFLAGS
 	fi
@@ -1498,9 +1508,7 @@ if test $want_sqlite = yes; then
 			SQL_LIBS="$SQL_LIBS $sqlite_lib"
 
 			AC_DEFINE(HAVE_SQLITE,, Build with SQLite3 support)
-			have_sql=yes
-			userdb="$userdb sqlite"
-			passdb="$passdb sqlite"
+			found_sql_drivers="$found_sql_drivers sqlite"
 		])
 		CPPFLAGS=$old_CPPFLAGS
 	fi
@@ -1508,10 +1516,16 @@ if test $want_sqlite = yes; then
 	LIBS=$old_LIBS
 fi
 
-if test "$have_sql" = yes; then
+if test "$found_sql_drivers" != ""; then
+	if test "$all_sql_drivers" = "yes"; then
+	  sql_drivers="$found_sql_drivers"
+	fi
+
 	AC_DEFINE(PASSDB_SQL,, Build with SQL support)
 	AC_DEFINE(USERDB_SQL,, Build with SQL support)
 	AUTH_LIBS="$AUTH_LIBS $SQL_LIBS"
+	passdb="$userdb sql"
+	userdb="$userdb sql"
 fi
 
 if test $want_vpopmail = yes; then
@@ -1623,6 +1637,22 @@ done
 STORAGE_LIBS="$STORAGE_LIBS $index_libs"
 AC_SUBST(STORAGE_LIBS)
 
+
+dnl **
+dnl ** SQL drivers
+dnl **
+
+for driver in $sql_drivers; do
+  if test "$driver" = "pgsql"; then
+    AC_DEFINE(BUILD_PGSQL,, Built-in PostgreSQL support)
+  elif test "$driver" = "mysql"; then
+    AC_DEFINE(BUILD_MYSQL,, Built-in MySQL support)
+  elif test "$driver" = "sqlite"; then
+    AC_DEFINE(BUILD_SQLITE,, Built-in SQLite support)
+  fi
+done
+
+AC_SUBST(sql_drivers)
 
 dnl **
 dnl ** capabilities

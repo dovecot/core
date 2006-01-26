@@ -7,6 +7,7 @@
 #include "lib-signals.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
+#include "sql-api.h"
 #include "randgen.h"
 #include "password-scheme.h"
 #include "mech.h"
@@ -185,6 +186,10 @@ static void drop_privileges(void)
 	/* Open /dev/urandom before chrooting */
 	random_init();
 
+	/* Load built-in SQL drivers (if any) */
+	sql_drivers_init();
+	sql_drivers_register_all();
+
 	/* Initialize databases so their configuration files can be readable
 	   only by root. Also load all modules here. */
 	auth = auth_preinit();
@@ -276,6 +281,7 @@ static void main_deinit(void)
 	mech_deinit();
 
         password_schemes_deinit();
+	sql_drivers_deinit();
 	random_deinit();
 
 	lib_signals_deinit();

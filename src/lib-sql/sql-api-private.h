@@ -54,10 +54,7 @@ struct sql_transaction_context {
 	struct sql_db *db;
 };
 
-extern struct sql_db driver_mysql_db;
-extern struct sql_db driver_pgsql_db;
-extern struct sql_db driver_sqlite_db;
-
+extern array_t ARRAY_DEFINE(sql_drivers, const struct sql_db *);
 extern struct sql_result sql_not_connected_result;
 
 #endif

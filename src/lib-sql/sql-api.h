@@ -15,7 +15,14 @@ struct sql_result;
 typedef void sql_query_callback_t(struct sql_result *result, void *context);
 typedef void sql_commit_callback_t(const char *error, void *context);
 
-extern struct sql_db *sql_db_drivers[];
+void sql_drivers_init(void);
+void sql_drivers_deinit(void);
+
+/* register all built-in SQL drivers */
+void sql_drivers_register_all(void);
+
+void sql_driver_register(const struct sql_db *driver);
+void sql_driver_unregister(const struct sql_db *driver);
 
 /* Initialize database connections. db_driver is the database driver name,
    eg. "mysql" or "pgsql". connect_string is driver-specific. */

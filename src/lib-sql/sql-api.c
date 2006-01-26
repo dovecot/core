@@ -1,29 +1,50 @@
-/* Copyright (c) 2004 Timo Sirainen */
+/* Copyright (c) 2004-2006 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "sql-api-private.h"
 
-struct sql_db *sql_db_drivers[] = {
-#ifdef HAVE_PGSQL
-	&driver_pgsql_db,
-#endif
-#ifdef HAVE_MYSQL
-	&driver_mysql_db,
-#endif
-#ifdef HAVE_SQLITE
-	&driver_sqlite_db,
-#endif
-	NULL
-};
+array_t ARRAY_DEFINE(sql_drivers, const struct sql_db *);
+
+void sql_drivers_init(void)
+{
+	ARRAY_CREATE(&sql_drivers, default_pool, const struct sql_db *, 8);
+}
+
+void sql_drivers_deinit(void)
+{
+	array_free(&sql_drivers);
+}
+
+void sql_driver_register(const struct sql_db *driver)
+{
+	array_append(&sql_drivers, &driver, 1);
+}
+
+void sql_driver_unregister(const struct sql_db *driver)
+{
+	const struct sql_db *const *drivers;
+	unsigned int i, count;
+
+	drivers = array_get(&sql_drivers, &count);
+	for (i = 0; i < count; i++) {
+		if (drivers[i] == driver) {
+			array_delete(&sql_drivers, i, 1);
+			break;
+		}
+	}
+}
 
 struct sql_db *sql_init(const char *db_driver,
 			const char *connect_string __attr_unused__)
 {
-	int i;
+	const struct sql_db *const *drivers;
+	unsigned int i, count;
 
-	for (i = 0; sql_db_drivers[i] != NULL; i++) {
-		if (strcmp(db_driver, sql_db_drivers[i]->name) == 0)
-			return sql_db_drivers[i]->init(connect_string);
+	drivers = array_get(&sql_drivers, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(db_driver, drivers[i]->name) == 0)
+			return drivers[i]->init(connect_string);
 	}
 
 	i_fatal("Unknown database driver '%s'", db_driver);

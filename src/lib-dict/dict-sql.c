@@ -1,6 +1,7 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "istream.h"
 #include "str.h"
 #include "strescape.h"
@@ -288,15 +289,16 @@ static struct dict *dict_sql_classes;
 
 void dict_sql_register(void)
 {
-	int i, count;
+        const struct sql_db *const *drivers;
+	unsigned int i, count;
 
 	/* @UNSAFE */
-	for (count = 0; sql_db_drivers[count] != NULL; count++) ;
-	dict_sql_classes = i_new(struct dict, count);
+	drivers = array_get(&sql_drivers, &count);
+	dict_sql_classes = i_new(struct dict, count + 1);
 
 	for (i = 0; i < count; i++) {
 		dict_sql_classes[i] = sql_dict;
-		dict_sql_classes[i].name = sql_db_drivers[i]->name;
+		dict_sql_classes[i].name = drivers[i]->name;
 
 		dict_class_register(&dict_sql_classes[i]);
 	}
@@ -306,7 +308,7 @@ void dict_sql_unregister(void)
 {
 	int i;
 
-	for (i = 0; sql_db_drivers[i] != NULL; i++)
+	for (i = 0; dict_sql_classes[i].name != NULL; i++)
 		dict_class_unregister(&dict_sql_classes[i]);
 	i_free(dict_sql_classes);
 }

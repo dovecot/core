@@ -5,7 +5,7 @@
 #include "ioloop-internal.h" /* kind of dirty, but it should be fine.. */
 #include "sql-api-private.h"
 
-#ifdef HAVE_PGSQL
+#ifdef BUILD_PGSQL
 #include <stdlib.h>
 #include <time.h>
 #include <libpq-fe.h>
@@ -66,6 +66,7 @@ struct pgsql_transaction_context {
 	unsigned int failed:1;
 };
 
+extern struct sql_db driver_pgsql_db;
 extern struct sql_result driver_pgsql_result;
 
 static void queue_send_next(struct pgsql_db *db);
@@ -166,7 +167,7 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	}
 }
 
-static struct sql_db *driver_pgsql_init(const char *connect_string)
+static struct sql_db *_driver_pgsql_init(const char *connect_string)
 {
 	struct pgsql_db *db;
 
@@ -179,7 +180,7 @@ static struct sql_db *driver_pgsql_init(const char *connect_string)
 	return &db->api;
 }
 
-static void driver_pgsql_deinit(struct sql_db *_db)
+static void _driver_pgsql_deinit(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 
@@ -737,8 +738,8 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_pgsql_db = {
 	"pgsql",
 
-	driver_pgsql_init,
-	driver_pgsql_deinit,
+	_driver_pgsql_init,
+	_driver_pgsql_deinit,
         driver_pgsql_get_flags,
 	driver_pgsql_connect,
 	driver_pgsql_exec,
@@ -768,5 +769,18 @@ struct sql_result driver_pgsql_result = {
 
 	FALSE
 };
+
+void driver_pgsql_init(void);
+void driver_pgsql_deinit(void);
+
+void driver_pgsql_init(void)
+{
+	sql_driver_register(&driver_pgsql_db);
+}
+
+void driver_pgsql_deinit(void)
+{
+	sql_driver_unregister(&driver_pgsql_db);
+}
 
 #endif

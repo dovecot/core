@@ -5,7 +5,7 @@
 #include "str.h"
 #include "sql-api-private.h"
 
-#ifdef HAVE_MYSQL
+#ifdef BUILD_MYSQL
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
@@ -68,6 +68,7 @@ struct mysql_transaction_context {
 	string_t *queries;
 };
 
+extern struct sql_db driver_mysql_db;
 extern struct sql_result driver_mysql_result;
 extern struct sql_result driver_mysql_error_result;
 
@@ -231,7 +232,7 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 		i_fatal("mysql: No hosts given in connect string");
 }
 
-static struct sql_db *driver_mysql_init(const char *connect_string)
+static struct sql_db *_driver_mysql_init(const char *connect_string)
 {
 	struct mysql_db *db;
 	pool_t pool;
@@ -249,7 +250,7 @@ static struct sql_db *driver_mysql_init(const char *connect_string)
 	return &db->api;
 }
 
-static void driver_mysql_deinit(struct sql_db *_db)
+static void _driver_mysql_deinit(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
@@ -573,8 +574,8 @@ driver_mysql_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_mysql_db = {
 	"mysql",
 
-	driver_mysql_init,
-	driver_mysql_deinit,
+	_driver_mysql_init,
+	_driver_mysql_deinit,
 	driver_mysql_get_flags,
         driver_mysql_connect_all,
 	driver_mysql_exec,
@@ -621,4 +622,18 @@ struct sql_result driver_mysql_error_result = {
 
 	FALSE
 };
+
+void driver_mysql_init(void);
+void driver_mysql_deinit(void);
+
+void driver_mysql_init(void)
+{
+	sql_driver_register(&driver_mysql_db);
+}
+
+void driver_mysql_deinit(void)
+{
+	sql_driver_unregister(&driver_mysql_db);
+}
+
 #endif
