@@ -99,7 +99,7 @@ static bool check_parameters_file_set(struct settings *set, bool foreground)
 	regen_time = set->ssl_parameters_regenerate == 0 ? ioloop_time :
 		(st.st_mtime + (time_t)(set->ssl_parameters_regenerate*3600));
 	if (regen_time < ioloop_time || st.st_size == 0 ||
-	    st.st_uid != master_uid || st.st_gid != getegid()) {
+	    st.st_uid != master_uid) {
 		if (foreground) {
 			i_info("Generating Diffie-Hellman parameters. "
 			       "This may take a while..");
