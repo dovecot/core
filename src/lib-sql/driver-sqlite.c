@@ -109,6 +109,7 @@ static void driver_sqlite_query(struct sql_db *db, const char *query,
 	result = sql_query_s(db, query);
 	result->callback = TRUE;
 	callback(result, context);
+	result->callback = FALSE;
 	sql_result_free(result);
 }
 
