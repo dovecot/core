@@ -265,14 +265,14 @@ AC_SUBST(mail_storages)
 AC_ARG_WITH(sql-drivers,
 [  --with-sql-drivers      Build with specified SQL drivers (all)], [
 	sql_drivers=`echo "$withval"|sed 's/,/ /g'` ],
-	sql_driver="all")
+	sql_drivers="all")
 
-if test "$sql_driver" = "all"; then
+if test "$sql_drivers" = "all"; then
   all_sql_drivers=yes
-  sql_driver=
-elif test "$sql_driver" = "no"; then
+  sql_drivers=
+elif test "$sql_drivers" = "no"; then
   # --without-sql-drivers given
-  sql_driver=
+  sql_drivers=
 fi
 
 AC_ARG_WITH(moduledir,
