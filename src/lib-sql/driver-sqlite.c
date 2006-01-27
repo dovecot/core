@@ -5,8 +5,6 @@
 #include "sql-api-private.h"
 
 #ifdef BUILD_SQLITE
-#include <stdlib.h>
-#include <time.h>
 #include <sqlite3.h>
 
 /* retry time if db is busy (in ms) */
@@ -142,6 +140,9 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 	struct sqlite_result *result = (struct sqlite_result *)_result;
 	struct sqlite_db *db = (struct sqlite_db *)	result->api.db;
 	int rc;
+
+	if (_result->callback)
+		return;
 
 	if (result->stmt != NULL) {
 		if ((rc = sqlite3_finalize(result->stmt)) != SQLITE_OK) {
