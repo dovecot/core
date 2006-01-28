@@ -61,7 +61,11 @@ static void client_input(void *context)
 		/* command execution was finished. Note that if cmd_sync()
 		   didn't finish, we didn't get here but the input handler
 		   has already been moved. So don't do anything important
-		   here.. */
+		   here..
+
+		   reset command once again to reset cmd_sync()'s changes. */
+		_client_reset_command(client);
+
 		if (client->input_pending)
 			_client_input(client);
 	}
@@ -122,6 +126,7 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 		mailbox_close(&ctx->box);
 
 	ctx->client->bad_counter = 0;
+	/* reset command so that flush callback gets changed back to normal. */
 	_client_reset_command(ctx->client);
 }
 
