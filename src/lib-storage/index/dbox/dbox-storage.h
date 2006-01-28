@@ -6,6 +6,9 @@
 #define DBOX_MAILDIR_NAME "Mails"
 #define DBOX_MAIL_FILE_PREFIX "msg."
 
+#define DBOX_KEYWORD_COUNT 64
+#define DBOX_KEYWORD_NAMES_RESERVED_SPACE (2048-sizeof(struct dbox_file_header))
+
 #include "index-storage.h"
 
 #define STORAGE(mbox_storage) \
@@ -21,17 +24,37 @@
 struct dbox_uidlist;
 
 struct dbox_file_header {
+	/* Size of the base header. sizeof(struct dbox_file_header) */
+	unsigned char base_header_size_hex[4];
+	/* Size of the full header, including keywords list and padding */
 	unsigned char header_size_hex[8];
+	/* Offset where to store the next mail. note that a mail may already
+	   have been fully written here and added to uidlist, but this offset
+	   just wasn't updated. In that case the append_offset should be
+	   updated instead of overwriting the mail. */
 	unsigned char append_offset_hex[16];
+	/* Initial file creation time as UNIX timestamp. */
 	unsigned char create_time_hex[8];
+	/* Size of each message's header. */
 	unsigned char mail_header_size_hex[4];
-	unsigned char mail_header_padding_hex[4];
+	/* If set, mail headers start always at given alignmentation.
+	   Currently not supported. */
+	unsigned char mail_header_align_hex[4];
+	/* Number of keywords allocated for each mail (not necessarily used) */
 	unsigned char keyword_count_hex[4];
-	/* possible padding to fill header_size */
+	/* Offset for the keyword list inside the file header. */
+	unsigned char keyword_list_offset_hex[8];
+
+	/* space reserved for keyword list and possible other future
+	   extensions. */
+	/* unsigned char [header_size - header_base_size]; */
 };
 
 #define DBOX_MAIL_HEADER_MAGIC "\001\003"
 struct dbox_mail_header {
+	/* This field acts as kind of a verification marker to make sure that
+	   seeked offset is valid. So the magic value should be something that
+	   normally doesn't occur in mails. */
 	unsigned char magic[2];
 	unsigned char uid_hex[8];
 	unsigned char mail_size_hex[16];
@@ -42,11 +65,16 @@ struct dbox_mail_header {
 	unsigned char seen;
 	unsigned char draft;
 	unsigned char expunged;
-	/* unsigned char keywords[]; */
+	/* unsigned char keywords[keywords_count]; */
 };
 
 struct dbox_storage {
 	struct index_storage storage;
+};
+
+struct keyword_map {
+	unsigned int index_idx;
+	unsigned int file_idx;
 };
 
 struct dbox_file {
@@ -57,17 +85,27 @@ struct dbox_file {
 	struct istream *input;
 	struct ostream *output; /* while appending mails */
 
+	uint16_t base_header_size;
 	uint32_t header_size;
 	time_t create_time;
 	uint64_t append_offset;
 	uint16_t mail_header_size;
-	uint16_t mail_header_padding;
+	uint16_t mail_header_align;
 	uint16_t keyword_count;
+	uint64_t keyword_list_offset;
+	uint32_t keyword_list_size_alloc;
+	uint32_t keyword_list_size_used;
 
 	uoff_t seeked_offset;
 	uoff_t seeked_mail_size;
 	uint32_t seeked_uid;
-        struct dbox_mail_header seeked_mail_header;
+	struct dbox_mail_header seeked_mail_header;
+	unsigned char *seeked_keywords;
+
+	/* Keywords list, sorted by index_idx. */
+	array_t ARRAY_DEFINE(idx_file_keywords, struct keyword_map);
+	/* idx -> index_idx array */
+	array_t ARRAY_DEFINE(file_idx_keywords, unsigned int);
 };
 
 struct dbox_mailbox {

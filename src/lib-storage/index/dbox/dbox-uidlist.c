@@ -794,26 +794,6 @@ static int dbox_reopen_file(struct dbox_uidlist_append_ctx *ctx,
 	return 0;
 }
 
-static int dbox_file_write_header(struct dbox_mailbox *mbox,
-				  struct dbox_file *file)
-{
-	struct dbox_file_header hdr;
-
-	// FIXME: code duplication
-	file->header_size = sizeof(hdr);
-	file->append_offset = file->header_size;
-	file->create_time = ioloop_time;
-	file->mail_header_size = sizeof(struct dbox_mail_header);
-
-	dbox_file_header_init(&hdr);
-	if (o_stream_send(file->output, &hdr, sizeof(hdr)) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
-			"write(%s) failed: %m", file->path);
-		return -1;
-	}
-	return 0;
-}
-
 static int dbox_uidlist_files_lookup(struct dbox_uidlist_append_ctx *ctx,
 				     uint32_t file_seq)
 {
@@ -951,12 +931,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 
 	file->input = i_stream_create_file(file->fd, default_pool,
 					   65536, FALSE);
-
-	/* we'll be using CRLF linefeeds always */
-	output = o_stream_create_file(file->fd, default_pool, 0, FALSE);
-	file->output = o_stream_create_crlf(default_pool, output);
-	o_stream_unref(&output);
-
+	file->output = o_stream_create_file(file->fd, default_pool, 0, FALSE);
 	if ((uoff_t)st.st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {
 			dbox_file_close(file);
@@ -967,8 +942,15 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 			dbox_file_close(file);
 			return -1;
 		}
-		o_stream_seek(file->output, file->append_offset);
 	}
+
+	/* we'll always use CRLF linefeeds for mails (but not the header,
+	   so don't do this before dbox_file_write_header()) */
+	output = o_stream_create_crlf(default_pool, file->output);
+	o_stream_unref(&file->output);
+	file->output = output;
+
+	o_stream_seek(file->output, file->append_offset);
 
 	save_file->dev = st.st_dev;
 	save_file->ino = st.st_ino;

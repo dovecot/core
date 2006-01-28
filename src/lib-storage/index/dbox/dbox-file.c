@@ -1,6 +1,8 @@
-/* Copyright (C) 2005 Timo Sirainen */
+/* Copyright (C) 2005-2006 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
+#include "bsearch-insert-pos.h"
 #include "hex-dec.h"
 #include "istream.h"
 #include "ostream.h"
@@ -38,12 +40,18 @@ int dbox_file_lookup_offset(struct dbox_mailbox *mbox,
 
 void dbox_file_close(struct dbox_file *file)
 {
+	if (array_is_created(&file->file_idx_keywords)) {
+		array_free(&file->idx_file_keywords);
+		array_free(&file->file_idx_keywords);
+	}
+
 	if (file->input != NULL)
 		i_stream_unref(&file->input);
 	if (file->fd != -1) {
 		if (close(file->fd) < 0)
 			i_error("close(dbox) failed: %m");
 	}
+	i_free(file->seeked_keywords);
 	i_free(file->path);
 	i_free(file);
 }
@@ -56,6 +64,7 @@ dbox_file_read_mail_header(struct dbox_mailbox *mbox, struct dbox_file *file,
 	const unsigned char *data;
 	size_t size;
 
+	/* read the header */
 	i_stream_seek(file->input, offset);
 	(void)i_stream_read_data(file->input, &data, &size,
 				 file->mail_header_size-1);
@@ -68,10 +77,15 @@ dbox_file_read_mail_header(struct dbox_mailbox *mbox, struct dbox_file *file,
 					  "read(%s) failed: %m", file->path);
 		return -1;
 	}
+
 	memcpy(&file->seeked_mail_header, data,
 	       sizeof(file->seeked_mail_header));
+	/* @UNSAFE */
+	memcpy(file->seeked_keywords, data + sizeof(file->seeked_mail_header),
+	       file->keyword_count);
 	file->seeked_offset = offset;
 
+	/* parse the header */
 	hdr = &file->seeked_mail_header;
 	file->seeked_mail_size =
 		hex2dec(hdr->mail_size_hex, sizeof(hdr->mail_size_hex));
@@ -83,15 +97,13 @@ dbox_file_read_mail_header(struct dbox_mailbox *mbox, struct dbox_file *file,
 			"Corrupted mail header in dbox file %s", file->path);
 		return -1;
 	}
-	if (file->seeked_mail_size == 0 || file->seeked_uid == 0) {
-		/* could be legitimately just not written yet. we're at EOF. */
-		return 0;
-	}
 	return 1;
 }
 
 int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset)
 {
+	int ret;
+
 	if (mbox->file != NULL && mbox->file->file_seq != file_seq) {
 		dbox_file_close(mbox->file);
 		mbox->file = NULL;
@@ -129,39 +141,99 @@ int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset)
 	if (offset == 0)
 		offset = mbox->file->header_size;
 
-	return dbox_file_read_mail_header(mbox, mbox->file, offset);
+	if ((ret = dbox_file_read_mail_header(mbox, mbox->file, offset)) <= 0)
+		return ret;
+
+	if (mbox->file->seeked_mail_size == 0 || mbox->file->seeked_uid == 0) {
+		/* could be legitimately just not written yet. we're at EOF. */
+		return 0;
+	}
+	return 1;
 }
 
 int dbox_file_seek_next_nonexpunged(struct dbox_mailbox *mbox)
 {
+	const struct dbox_mail_header *hdr;
 	uoff_t offset;
 	int ret;
 
-	offset = mbox->file->seeked_offset +
-		mbox->file->mail_header_size + mbox->file->seeked_mail_size;
+	for (;;) {
+		offset = mbox->file->seeked_offset +
+			mbox->file->mail_header_size +
+			mbox->file->seeked_mail_size;
 
-	while ((ret = dbox_file_seek(mbox, mbox->file->file_seq, offset)) > 0) {
-		if (mbox->file->seeked_mail_header.expunged != '1')
+		ret = dbox_file_seek(mbox, mbox->file->file_seq, offset);
+		if (ret <= 0)
+			return ret;
+
+		hdr = &mbox->file->seeked_mail_header;
+		if (hdr->expunged != '1') {
+			/* non-expunged mail found */
 			break;
-
-		/* marked expunged, get to next mail. */
+		}
 	}
-	return ret;
+
+	return 1;
 }
 
 void dbox_file_header_init(struct dbox_file_header *hdr)
 {
-	uint16_t header_size = sizeof(*hdr);
+	uint16_t base_header_size = sizeof(*hdr);
+	uint32_t header_size =
+		base_header_size + DBOX_KEYWORD_NAMES_RESERVED_SPACE;
 	uint32_t append_offset = header_size;
-	uint16_t mail_header_size = sizeof(struct dbox_mail_header);
+	uint16_t keyword_count = DBOX_KEYWORD_COUNT;
+	uint16_t mail_header_size =
+		sizeof(struct dbox_mail_header) + keyword_count;
 	uint32_t create_time = ioloop_time;
 
 	memset(hdr, '0', sizeof(*hdr));
+	DEC2HEX(hdr->base_header_size_hex, base_header_size);
 	DEC2HEX(hdr->header_size_hex, header_size);
 	DEC2HEX(hdr->append_offset_hex, append_offset);
 	DEC2HEX(hdr->create_time_hex, create_time);
 	DEC2HEX(hdr->mail_header_size_hex, mail_header_size);
-	// FIXME: set keyword_count
+	DEC2HEX(hdr->keyword_list_offset_hex, base_header_size);
+	DEC2HEX(hdr->keyword_count_hex, keyword_count);
+}
+
+int dbox_file_header_parse(struct dbox_mailbox *mbox, struct dbox_file *file,
+			   const struct dbox_file_header *hdr)
+{
+	file->base_header_size = hex2dec(hdr->base_header_size_hex,
+					 sizeof(hdr->base_header_size_hex));
+	file->header_size = hex2dec(hdr->header_size_hex,
+				    sizeof(hdr->header_size_hex));
+	file->append_offset = hex2dec(hdr->append_offset_hex,
+				      sizeof(hdr->append_offset_hex));
+	file->create_time = hex2dec(hdr->create_time_hex,
+				    sizeof(hdr->create_time_hex));
+	file->mail_header_size = hex2dec(hdr->mail_header_size_hex,
+					 sizeof(hdr->mail_header_size_hex));
+	file->mail_header_align =
+		hex2dec(hdr->mail_header_align_hex,
+			sizeof(hdr->mail_header_align_hex));
+	file->keyword_count = hex2dec(hdr->keyword_count_hex,
+				      sizeof(hdr->keyword_count_hex));
+	file->keyword_list_offset =
+		hex2dec(hdr->keyword_list_offset_hex,
+			sizeof(hdr->keyword_list_offset_hex));
+
+	if (file->base_header_size == 0 ||
+	    file->header_size < file->base_header_size ||
+	    file->append_offset < file->header_size ||
+            file->keyword_list_offset < file->base_header_size ||
+	    file->mail_header_size < sizeof(struct dbox_mail_header) ||
+	    file->keyword_count > file->mail_header_size -
+	    sizeof(struct dbox_mail_header)) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+			"dbox %s: broken file header", file->path);
+		return -1;
+	}
+
+	i_free(file->seeked_keywords);
+	file->seeked_keywords = i_malloc(file->keyword_count);
+	return 0;
 }
 
 int dbox_file_read_header(struct dbox_mailbox *mbox, struct dbox_file *file)
@@ -170,6 +242,7 @@ int dbox_file_read_header(struct dbox_mailbox *mbox, struct dbox_file *file)
 	const unsigned char *data;
 	size_t size;
 
+	/* read the file header */
 	i_stream_seek(file->input, 0);
 	(void)i_stream_read_data(file->input, &data, &size, sizeof(hdr)-1);
 	if (size < sizeof(hdr)) {
@@ -187,25 +260,46 @@ int dbox_file_read_header(struct dbox_mailbox *mbox, struct dbox_file *file)
 	memcpy(&hdr, data, sizeof(hdr));
 
 	/* parse the header */
-	file->header_size = hex2dec(hdr.header_size_hex,
-				    sizeof(hdr.header_size_hex));
-	file->append_offset = hex2dec(hdr.append_offset_hex,
-				      sizeof(hdr.append_offset_hex));
-	file->create_time = hex2dec(hdr.create_time_hex,
-				    sizeof(hdr.create_time_hex));
-	file->mail_header_size = hex2dec(hdr.mail_header_size_hex,
-					 sizeof(hdr.mail_header_size_hex));
-	file->mail_header_padding =
-		hex2dec(hdr.mail_header_padding_hex,
-			sizeof(hdr.mail_header_padding_hex));
-	file->keyword_count = hex2dec(hdr.keyword_count_hex,
-				      sizeof(hdr.keyword_count_hex));
-
-	if (file->header_size == 0 || file->append_offset < sizeof(hdr) ||
-	    file->mail_header_size < sizeof(struct dbox_mail_header)) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
-			"dbox %s: broken file header", file->path);
+	if (dbox_file_header_parse(mbox, file, &hdr) < 0)
 		return -1;
+
+	/* keywords may not be up to date anymore */
+	if (array_is_created(&file->idx_file_keywords)) {
+		array_free(&file->idx_file_keywords);
+		array_free(&file->file_idx_keywords);
+	}
+	return 0;
+}
+
+int dbox_file_write_header(struct dbox_mailbox *mbox, struct dbox_file *file)
+{
+	struct dbox_file_header hdr;
+	char buf[1024];
+	int ret;
+
+	dbox_file_header_init(&hdr);
+	ret = dbox_file_header_parse(mbox, file, &hdr);
+	i_assert(ret == 0);
+
+	/* write header + LF to mark end-of-keywords list */
+	if (o_stream_send(file->output, &hdr, sizeof(hdr)) < 0 ||
+	    o_stream_send_str(file->output, "\n") < 0) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+			"write(%s) failed: %m", file->path);
+		return -1;
+	}
+
+	/* fill the rest of the header with spaces */
+	memset(buf, ' ', sizeof(buf));
+	while (file->output->offset < file->header_size) {
+		unsigned int size = I_MIN(sizeof(buf), file->header_size -
+					  file->output->offset);
+
+		if (o_stream_send(file->output, buf, size) < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"write(%s) failed: %m", file->path);
+			return -1;
+		}
 	}
 	return 0;
 }

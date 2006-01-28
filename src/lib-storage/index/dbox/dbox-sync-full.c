@@ -6,6 +6,7 @@
 #include "dbox-storage.h"
 #include "dbox-uidlist.h"
 #include "dbox-file.h"
+#include "dbox-keywords.h"
 #include "dbox-sync.h"
 
 #include <stdlib.h>
@@ -13,11 +14,36 @@
 #include <fcntl.h>
 #include <dirent.h>
 
+static int
+dbox_mail_get_keywords(struct dbox_mailbox *mbox, struct dbox_file *file,
+		       array_t *keywords)
+{
+	const unsigned int *map;
+	unsigned int i, count;
+
+	ARRAY_SET_TYPE(keywords, unsigned int);
+
+	if (!array_is_created(&file->file_idx_keywords)) {
+		if (dbox_file_read_keywords(mbox, file) < 0)
+			return -1;
+	}
+
+	map = array_get(&file->file_idx_keywords, &count);
+	for (i = 0; i < count; i++) {
+		if (file->seeked_keywords[i] != '0')
+			array_append(keywords, &map[i], 1);
+	}
+
+	return 0;
+}
+
 static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 {
 	struct dbox_mailbox *mbox = ctx->mbox;
 	const struct dbox_mail_header *hdr = &mbox->file->seeked_mail_header;
 	enum mail_flags flags;
+        struct mail_keywords *keywords;
+	array_t ARRAY_DEFINE(keywords_arr, unsigned int);
 	uint32_t seq;
 	uint64_t hdr_offset = mbox->file->seeked_offset;
 
@@ -60,7 +86,20 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 	if (hdr->draft == '1')
 		flags |= MAIL_DRAFT;
 	mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE, flags);
-	// FIXME: keywords
+
+	t_push();
+	ARRAY_CREATE(&keywords_arr, pool_datastack_create(),
+		     unsigned int, mbox->file->keyword_count);
+	if (dbox_mail_get_keywords(mbox, mbox->file, &keywords_arr) < 0) {
+		t_pop();
+		return -1;
+	}
+	keywords = mail_index_keywords_create_from_indexes(ctx->trans,
+							   &keywords_arr);
+	mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE, keywords);
+	mail_index_keywords_free(&keywords);
+	t_pop();
+
 	mail_index_update_ext(ctx->trans, seq, mbox->dbox_file_ext_idx,
 			      &mbox->file->file_seq, NULL);
 	mail_index_update_ext(ctx->trans, seq, mbox->dbox_offset_ext_idx,

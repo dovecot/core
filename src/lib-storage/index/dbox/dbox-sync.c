@@ -4,8 +4,10 @@
 #include "ioloop.h"
 #include "array.h"
 #include "hash.h"
+#include "seq-range-array.h"
 #include "write-full.h"
 #include "dbox-file.h"
+#include "dbox-keywords.h"
 #include "dbox-sync.h"
 #include "dbox-uidlist.h"
 #include "dbox-storage.h"
@@ -120,44 +122,17 @@ static int dbox_sync_add(struct dbox_sync_context *ctx,
 	return 0;
 }
 
-int dbox_sync_update_flags(struct dbox_sync_context *ctx,
-			   const struct dbox_sync_rec *sync_rec)
+static int
+dbox_sync_write_mask(struct dbox_sync_context *ctx,
+		     const struct dbox_sync_rec *sync_rec,
+                     unsigned int first_flag_offset, unsigned int flag_count,
+		     const unsigned char *array, const unsigned char *mask)
 {
-	static enum mail_flags dbox_flag_list[] = {
-		MAIL_ANSWERED,
-		MAIL_FLAGGED,
-		MAIL_DELETED,
-		MAIL_SEEN,
-		MAIL_DRAFT,
-		0 /* expunged */
-	};
-#define DBOX_FLAG_COUNT (sizeof(dbox_flag_list)/sizeof(dbox_flag_list[0]))
 	struct dbox_mailbox *mbox = ctx->mbox;
-	unsigned char dbox_flag_array[DBOX_FLAG_COUNT];
-	unsigned char dbox_flag_mask[DBOX_FLAG_COUNT];
 	uint32_t file_seq, uid2;
 	uoff_t offset;
-	unsigned int i, start, first_flag_offset;
+	unsigned int i, start;
 	int ret;
-
-	/* first build flag array and mask */
-	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
-		memset(dbox_flag_array, '0', sizeof(dbox_flag_array));
-		memset(dbox_flag_mask, 0, sizeof(dbox_flag_mask));
-		dbox_flag_mask[5] = 1;
-		dbox_flag_array[5] = '1';
-	} else {
-		i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
-		for (i = 0; i < DBOX_FLAG_COUNT; i++) {
-			dbox_flag_array[i] =
-				(sync_rec->value.flags.add &
-				 dbox_flag_list[i]) != 0 ? '1' : '0';
-			dbox_flag_mask[i] = dbox_flag_array[i] ||
-				(sync_rec->value.flags.remove &
-				 dbox_flag_list[i]) != 0;
-		}
-	}
-	first_flag_offset = offsetof(struct dbox_mail_header, answered);
 
 	if (dbox_sync_get_file_offset(ctx, sync_rec->seq1,
 				      &file_seq, &offset) < 0)
@@ -172,18 +147,18 @@ int dbox_sync_update_flags(struct dbox_sync_context *ctx,
 		return ret;
 
 	while (mbox->file->seeked_uid <= uid2) {
-		for (i = 0; i < DBOX_FLAG_COUNT; ) {
-			if (!dbox_flag_mask[i])
+		for (i = 0; i < flag_count; ) {
+			if (!mask[i])
 				continue;
 
 			start = i;
-			while (i < DBOX_FLAG_COUNT) {
-				if (!dbox_flag_mask[i])
+			while (i < flag_count) {
+				if (!mask[i])
 					break;
 				i++;
 			}
 			ret = pwrite_full(ctx->mbox->file->fd,
-					  dbox_flag_array+start, i - start,
+					  array + start, i - start,
 					  offset + first_flag_offset + start);
 			if (ret < 0) {
 				mail_storage_set_critical(
@@ -205,11 +180,143 @@ int dbox_sync_update_flags(struct dbox_sync_context *ctx,
 	return 0;
 }
 
+int dbox_sync_update_flags(struct dbox_sync_context *ctx,
+			   const struct dbox_sync_rec *sync_rec)
+{
+	static enum mail_flags dbox_flag_list[] = {
+		MAIL_ANSWERED,
+		MAIL_FLAGGED,
+		MAIL_DELETED,
+		MAIL_SEEN,
+		MAIL_DRAFT,
+		0 /* expunged */
+	};
+#define DBOX_FLAG_COUNT (sizeof(dbox_flag_list)/sizeof(dbox_flag_list[0]))
+	unsigned char dbox_flag_array[DBOX_FLAG_COUNT];
+	unsigned char dbox_flag_mask[DBOX_FLAG_COUNT];
+	unsigned int i, first_flag_offset;
+
+	/* first build flag array and mask */
+	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
+		memset(dbox_flag_array, '0', sizeof(dbox_flag_array));
+		memset(dbox_flag_mask, 0, sizeof(dbox_flag_mask));
+		dbox_flag_mask[5] = 1;
+		dbox_flag_array[5] = '1';
+	} else {
+		i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
+		for (i = 0; i < DBOX_FLAG_COUNT; i++) {
+			dbox_flag_array[i] =
+				(sync_rec->value.flags.add &
+				 dbox_flag_list[i]) != 0 ? '1' : '0';
+			dbox_flag_mask[i] = dbox_flag_array[i] ||
+				(sync_rec->value.flags.remove &
+				 dbox_flag_list[i]) != 0;
+		}
+	}
+	first_flag_offset = offsetof(struct dbox_mail_header, answered);
+
+	return dbox_sync_write_mask(ctx, sync_rec,
+				    first_flag_offset, DBOX_FLAG_COUNT,
+				    dbox_flag_array, dbox_flag_mask);
+}
+
+static int
+dbox_sync_update_keyword(struct dbox_sync_context *ctx,
+			 const struct dbox_sync_rec *sync_rec, bool set)
+{
+	unsigned char keyword_array, keyword_mask = 1;
+	unsigned int file_idx, first_flag_offset;
+
+	keyword_array = set ? '1' : '0';
+
+	if (!dbox_file_lookup_keyword(ctx->mbox, ctx->mbox->file,
+				      sync_rec->value.keyword_idx, &file_idx)) {
+		/* not found. if removing, just ignore.
+
+		   if adding, it currently happens only if the maximum keyword
+		   count was reached. once we support moving mails to new file
+		   to grow keywords count, this should never happen.
+		   for now, just ignore this. */
+		return 0;
+	}
+
+	first_flag_offset = sizeof(struct dbox_mail_header) + file_idx;
+	return dbox_sync_write_mask(ctx, sync_rec, first_flag_offset, 1,
+				    &keyword_array, &keyword_mask);
+}
+
+static int
+dbox_sync_reset_keyword(struct dbox_sync_context *ctx,
+			 const struct dbox_sync_rec *sync_rec)
+{
+	unsigned char *keyword_array, *keyword_mask;
+	unsigned int first_flag_offset;
+	int ret;
+
+	t_push();
+	keyword_array = t_malloc(ctx->mbox->file->keyword_count);
+	keyword_mask = t_malloc(ctx->mbox->file->keyword_count);
+	memset(keyword_array, '0', ctx->mbox->file->keyword_count);
+	memset(keyword_mask, 1, ctx->mbox->file->keyword_count);
+
+	first_flag_offset = sizeof(struct dbox_mail_header);
+	ret = dbox_sync_write_mask(ctx, sync_rec, first_flag_offset,
+				   ctx->mbox->file->keyword_count,
+				   keyword_array, keyword_mask);
+	t_pop();
+	return ret;
+}
+
+static int
+dbox_sync_file_add_keywords(struct dbox_sync_context *ctx,
+			    const struct dbox_sync_file_entry *entry,
+			    unsigned int i)
+{
+	array_t ARRAY_DEFINE(keywords, struct seq_range);
+	const struct dbox_sync_rec *sync_recs;
+	const struct seq_range *range;
+	unsigned int count, file_idx, keyword_idx;
+	int ret = 0;
+
+	if (dbox_file_seek(ctx->mbox, entry->file_seq, 0) <= 0)
+		return -1;
+
+	/* Get a list of all new keywords. Using seq_range is the easiest
+	   way to do this and should be pretty fast too. */
+	t_push();
+	ARRAY_CREATE(&keywords, pool_datastack_create(), struct seq_range, 16);
+	sync_recs = array_get(&entry->sync_recs, &count);
+	for (; i < count; i++) {
+		if (sync_recs[i].type != MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD)
+			continue;
+
+		/* check if it's already in the file */
+                keyword_idx = sync_recs[i].value.keyword_idx;
+		if (dbox_file_lookup_keyword(ctx->mbox, ctx->mbox->file,
+					     keyword_idx, &file_idx))
+			continue;
+
+		/* add it. if it already exists, it's handled internally. */
+		seq_range_array_add(&keywords, 0, keyword_idx);
+	}
+
+	/* now, write them to file */
+	range = array_get(&keywords, &count);
+	if (count > 0) {
+		ret = dbox_file_append_keywords(ctx->mbox, ctx->mbox->file,
+						range, count);
+	}
+
+	t_pop();
+	return ret;
+}
+
 static int dbox_sync_file(struct dbox_sync_context *ctx,
                           const struct dbox_sync_file_entry *entry)
 {
 	const struct dbox_sync_rec *sync_recs;
 	unsigned int i, count;
+	bool first_keyword = TRUE;
 	int ret;
 
 	sync_recs = array_get(&entry->sync_recs, &count);
@@ -232,9 +339,25 @@ static int dbox_sync_file(struct dbox_sync_context *ctx,
 				return -1;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+			if (first_keyword) {
+				/* add all new keywords in one go */
+				first_keyword = FALSE;
+				if (dbox_sync_file_add_keywords(ctx, entry,
+								i) < 0)
+					return -1;
+			}
+			if (dbox_sync_update_keyword(ctx, &sync_recs[i],
+						     TRUE) < 0)
+				return -1;
+			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+			if (dbox_sync_update_keyword(ctx, &sync_recs[i],
+						     FALSE) < 0)
+				return -1;
+			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			/* FIXME */
+			if (dbox_sync_reset_keyword(ctx, &sync_recs[i]) < 0)
+				return -1;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			i_unreached();
