@@ -6,11 +6,14 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	$(SQL_CFLAGS)
 
-libsql_a_SOURCES = \
+dist_sources = \
 	driver-mysql.c \
 	driver-pgsql.c \
 	driver-sqlite.c \
-	sql-api.c \
+	sql-api.c
+
+libsql_a_SOURCES = \
+	$(dist_sources) \
 	sql-drivers-register.c
 
 noinst_HEADERS = \
@@ -31,7 +34,7 @@ sql-drivers-register.c: Makefile
 	done
 	echo '}' >>$@
 
-DISTFILES = $(DIST_COMMON) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+DISTFILES = $(DIST_COMMON) $(dist_sources) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 distclean-generic:
 	rm -f Makefile sql-drivers-register.c
