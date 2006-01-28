@@ -15,6 +15,11 @@
 
 #define MAIL_CACHE_WRITE_BUFFER 32768
 
+struct mail_cache_reservation {
+	uint32_t offset;
+	uint32_t size;
+};
+
 struct mail_cache_transaction_ctx {
 	struct mail_cache *cache;
 	struct mail_cache_view *view;
@@ -27,7 +32,7 @@ struct mail_cache_transaction_ctx {
 	uint32_t prev_seq;
 	size_t prev_pos;
 
-        buffer_t *reservations;
+        array_t ARRAY_DEFINE(reservations, struct mail_cache_reservation);
 	uint32_t reserved_space_offset, reserved_space;
 	uint32_t last_grow_size;
 
@@ -50,7 +55,8 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	ctx->cache = view->cache;
 	ctx->view = view;
 	ctx->trans = t;
-	ctx->reservations = buffer_create_dynamic(system_pool, 256);
+	ARRAY_CREATE(&ctx->reservations, default_pool,
+		     struct mail_cache_reservation, 32);
 
 	if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
 		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
@@ -74,7 +80,7 @@ static void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
 	ctx->prev_seq = 0;
 	ctx->prev_pos = 0;
 
-	buffer_set_used_size(ctx->reservations, 0);
+	array_clear(&ctx->reservations);
 	ctx->reserved_space_offset = 0;
 	ctx->reserved_space = 0;
 	ctx->last_grow_size = 0;
@@ -91,7 +97,7 @@ static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 		buffer_free(ctx->cache_data);
 	if (array_is_created(&ctx->cache_data_seq))
 		array_free(&ctx->cache_data_seq);
-	buffer_free(ctx->reservations);
+	array_free(&ctx->reservations);
 	i_free(ctx);
 }
 
@@ -186,11 +192,15 @@ static void
 mail_cache_transaction_add_reservation(struct mail_cache_transaction_ctx *ctx,
 				       uint32_t offset, uint32_t size)
 {
+	struct mail_cache_reservation res;
+
 	ctx->reserved_space_offset = offset;
 	ctx->reserved_space = size;
 
-	buffer_append(ctx->reservations, &offset, sizeof(offset));
-	buffer_append(ctx->reservations, &size, sizeof(size));
+	res.offset = offset;
+	res.size = size;
+
+	array_append(&ctx->reservations, &res, 1);
 }
 
 static int
@@ -200,8 +210,8 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 	struct mail_cache *cache = ctx->cache;
 	struct mail_cache_header *hdr = &cache->hdr_copy;
 	struct mail_cache_hole_header hole;
-	uint32_t *buf;
-	size_t size;
+	struct mail_cache_reservation *reservations;
+	unsigned int count;
 
 	i_assert(cache->locked);
 
@@ -245,15 +255,15 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 		/* grow reservation. it's probably the last one in the buffer,
 		   but it's not guarateed because we might have used holes
 		   as well */
-		buf = buffer_get_modifyable_data(ctx->reservations, &size);
-		size /= sizeof(uint32_t);
+		reservations = array_get_modifyable(&ctx->reservations, &count);
 
 		do {
-			i_assert(size >= 2);
-			size -= 2;
-		} while (buf[size] + buf[size+1] != hdr->used_file_size);
+			i_assert(count > 0);
+			count--;
+		} while (reservations[count].offset +
+			 reservations[count].size != hdr->used_file_size);
 
-		buf[size+1] += block_size;
+		reservations[count].size += block_size;
 		ctx->reserved_space += block_size;
 	} else {
 		mail_cache_transaction_add_reservation(ctx, hdr->used_file_size,
@@ -583,27 +593,23 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx)
 void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 {
 	struct mail_cache *cache = ctx->cache;
-	const uint32_t *buf;
-	size_t size;
+	const struct mail_cache_reservation *reservations;
+	unsigned int count;
 
-	if ((ctx->reserved_space > 0 || ctx->reservations->used > 0) &&
+	if ((ctx->reserved_space > 0 || array_count(&ctx->reservations) > 0) &&
 	    !MAIL_CACHE_IS_UNUSABLE(cache)) {
 		if (mail_cache_transaction_lock(ctx) > 0) {
-			buf = buffer_get_data(ctx->reservations, &size);
-			i_assert(size % sizeof(uint32_t)*2 == 0);
-			size /= sizeof(*buf);
+			reservations = array_get(&ctx->reservations, &count);
 
-			if (size > 0) {
-				/* free flushed data as well. do it from end to
-				   beginning so we have a better chance of
-				   updating used_file_size instead of adding
-				   holes */
-				do {
-					size -= 2;
-					mail_cache_free_space(ctx->cache,
-							      buf[size],
-							      buf[size+1]);
-				} while (size > 0);
+			/* free flushed data as well. do it from end to
+			   beginning so we have a better chance of
+			   updating used_file_size instead of adding
+			   holes */
+			while (count > 0) {
+				count--;
+				mail_cache_free_space(ctx->cache,
+					reservations[count].offset,
+					reservations[count].size);
 			}
 			(void)mail_cache_unlock(cache);
 		}
