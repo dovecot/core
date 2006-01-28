@@ -409,6 +409,8 @@ bool client_unref(struct pop3_client *client)
 	if (--client->refcount > 0)
 		return TRUE;
 
+	i_assert(client->destroyed);
+
 	if (client->input != NULL)
 		i_stream_unref(&client->input);
 	if (client->output != NULL)

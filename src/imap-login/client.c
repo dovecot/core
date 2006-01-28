@@ -522,6 +522,8 @@ bool client_unref(struct imap_client *client)
 	if (--client->refcount > 0)
 		return TRUE;
 
+	i_assert(client->destroyed);
+
 	imap_parser_destroy(&client->parser);
 
 	if (client->input != NULL)
