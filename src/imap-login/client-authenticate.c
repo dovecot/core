@@ -179,7 +179,6 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	struct imap_client *client = (struct imap_client *)_client;
 	struct const_iovec iov[3];
 	size_t data_len;
-	ssize_t ret;
 
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
@@ -217,16 +216,10 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		iov[2].iov_base = "\r\n";
 		iov[2].iov_len = 2;
 
-		ret = o_stream_sendv(client->output, iov, 3);
-		if (ret < 0)
-			client_destroy(client, "Disconnected");
-		else if ((size_t)ret != 2 + data_len + 2)
-			client_destroy(client, "Transmit buffer full");
-		else {
-			/* continue */
-			return;
-		}
-		break;
+		/* don't check return value here. it gets tricky if we try
+		   to call client_destroy() in here. */
+		(void)o_stream_sendv(client->output, iov, 3);
+		return;
 	}
 
 	client_unref(client);

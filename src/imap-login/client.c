@@ -519,6 +519,7 @@ void client_ref(struct imap_client *client)
 
 bool client_unref(struct imap_client *client)
 {
+	i_assert(client->refcount > 0);
 	if (--client->refcount > 0)
 		return TRUE;
 
