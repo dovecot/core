@@ -62,8 +62,11 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 		return;
 
 	iter = hash_iterate_init(handler->requests);
-	while (hash_iterate(iter, &key, &value))
-		auth_request_unref(value);
+	while (hash_iterate(iter, &key, &value)) {
+		struct auth_request *auth_request = value;
+
+		auth_request_unref(&auth_request);
+	}
 	hash_iterate_deinit(iter);
 
 	/* notify parent that we're done with all requests */
