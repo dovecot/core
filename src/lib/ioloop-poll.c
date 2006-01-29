@@ -7,6 +7,7 @@
 
 #ifdef IOLOOP_POLL
 
+#include <fcntl.h>
 #include <sys/poll.h>
 
 #ifndef INITIAL_POLL_FDS
@@ -106,6 +107,19 @@ void io_loop_handle_remove(struct ioloop *ioloop,  struct io *io)
 
 	index = ctx->fd_index[fd];
 	i_assert(index >= 0 && (unsigned int) index < ctx->fds_count);
+
+#ifdef DEBUG
+	/* io_remove() is required to be called before fd is closed.
+	   This is required by kqueue, but since poll is more commonly used
+	   while developing, this check here should catch the error early
+	   enough not to cause problems for kqueue users. */
+	if (fcntl(io->fd, F_GETFD, 0) < 0) {
+		if (errno == EBADF)
+			i_panic("io_remove(%d) called too late", io->fd);
+		else
+			i_error("fcntl(%d, F_GETFD) failed: %m", io->fd);
+	}
+#endif
 
 	if (condition & IO_READ) {
 		ctx->fds[index].events &= ~(POLLIN|POLLPRI);
