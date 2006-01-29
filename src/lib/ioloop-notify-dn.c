@@ -112,9 +112,6 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 
 	io->callback = callback;
         io->context = context;
-
-	io->next = ioloop->notifys;
-	ioloop->notifys = io;
 	return io;
 }
 
@@ -122,17 +119,6 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
-	struct io **io_p;
-
-	if (ctx->disabled)
-		return;
-
-	for (io_p = &ioloop->notifys; *io_p != NULL; io_p = &(*io_p)->next) {
-		if (*io_p == io) {
-			*io_p = io->next;
-			break;
-		}
-	}
 
 	if (fcntl(io->fd, F_NOTIFY, 0) < 0)
 		i_error("fcntl(F_NOTIFY, 0) failed: %m");
@@ -140,8 +126,6 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 		i_error("fcntl(F_SETSIG, 0) failed: %m");
 	if (close(io->fd))
 		i_error("close(dnotify) failed: %m");
-
-	p_free(ioloop->pool, io);
 
 	if (ioloop->notifys == NULL)
 		io_remove(&ctx->event_io);

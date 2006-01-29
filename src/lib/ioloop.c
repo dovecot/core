@@ -33,7 +33,6 @@ struct io *io_add(int fd, enum io_condition condition,
 
 	io_loop_handle_add(current_ioloop, io);
 
-	/* have to append it, or io_destroy() breaks */
 	io->next = current_ioloop->ios;
 	current_ioloop->ios = io;
 
@@ -53,6 +52,12 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 	io = io_loop_notify_add(current_ioloop, path, callback, context);
 	if (io != NULL)
 		io->condition |= IO_NOTIFY;
+
+	io->next = current_ioloop->notifys;
+	current_ioloop->notifys = io;
+
+	if (io->next != NULL)
+		io->next->prev = io;
 	return io;
 }
 
@@ -62,23 +67,28 @@ void io_remove(struct io **_io)
 
 	*_io = NULL;
 
-	if ((io->condition & IO_NOTIFY) != 0) {
-		io_loop_notify_remove(current_ioloop, io);
-		return;
-	}
-
-	/* notify the real I/O handler */
-	io_loop_handle_remove(current_ioloop, io);
-
-	if (current_ioloop->next_io == io)
-                current_ioloop->next_io = io->next;
-
-	if (io->prev == NULL)
-		current_ioloop->ios = io->next;
-	else
+	/* unlink from linked list */
+	if (io->prev != NULL)
 		io->prev->next = io->next;
+	else {
+		if ((io->condition & IO_NOTIFY) == 0)
+			current_ioloop->ios = io->next;
+		else
+			current_ioloop->notifys = io->next;
+	}
 	if (io->next != NULL)
 		io->next->prev = io->prev;
+
+	if ((io->condition & IO_NOTIFY) == 0) {
+		/* if we got here from an I/O handler callback, make sure we
+		   don't try to handle this one next. */
+		if (current_ioloop->next_io == io)
+			current_ioloop->next_io = io->next;
+
+		io_loop_handle_remove(current_ioloop, io);
+	} else {
+		io_loop_notify_remove(current_ioloop, io);
+	}
 
 	p_free(current_ioloop->pool, io);
 }

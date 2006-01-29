@@ -20,6 +20,7 @@ struct ioloop {
 };
 
 struct io {
+	/* use a doubly linked list so that io_remove() is quick */
 	struct io *prev, *next;
 
 	int fd;
@@ -27,8 +28,6 @@ struct io {
 
 	io_callback_t *callback;
         void *context;
-
-        int notify_context;
 };
 
 struct timeout {

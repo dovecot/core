@@ -38,10 +38,8 @@ static void event_callback(void *context)
 		i_fatal("gettimeofday() failed: %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 
-	if (kevent(ctx->kq, NULL, 0, &ev, 1, 0) < 0) {
+	if (kevent(ctx->kq, NULL, 0, &ev, 1, 0) < 0)
 		i_fatal("kevent() failed: %m");
-		return;
-	}
 	io = ev.udata;
 	io->callback(io->context);
 }
@@ -52,7 +50,6 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 
 	ctx = ioloop->notify_handler_context =
 		p_new(ioloop->pool, struct ioloop_notify_handler_context, 1);
-	ctx->event_io = NULL;
 	ctx->kq = kqueue();
 	if (ctx->kq < 0)
 		i_fatal("kqueue() in io_loop_notify_handler_init() failed: %m");
@@ -69,22 +66,6 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 	if (close(ctx->kq) < 0)
 		i_error("close(kqueue notify) failed: %m");
 	p_free(ioloop->pool, ctx);
-}
-
-static void unchain_io (struct ioloop *ioloop, struct io * io)
-{
-	struct io **io_p;
-
-	for (io_p = &ioloop->notifys; *io_p != NULL; io_p = &(*io_p)->next) {
-		if (*io_p == io) {
-			*io_p = io->next;
-			if (io->next != NULL)
-				io->next->prev = io->prev;
-			io->prev = NULL;
-			io->next = NULL;
-			break;
-		}
-	}
 }
 
 struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
@@ -129,11 +110,6 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 		p_free(ioloop->pool, io);
 		return NULL;
 	}
-	io->next = ioloop->notifys;
-	io->prev = NULL;
-	if (ioloop->notifys != NULL)
-		ioloop->notifys->prev = io;
-	ioloop->notifys = io;
 
 	if (ctx->event_io == NULL) {
 		ctx->event_io =
@@ -155,8 +131,6 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 		i_error("kevent(%d) for notify remove failed: %m", io->fd);
 	if (close(io->fd) < 0)
 		i_error("close(%d) failed: %m", io->fd);
-	unchain_io(ioloop, io);
-	p_free(ioloop->pool, io);
 }
 
 #endif

@@ -19,6 +19,11 @@
 #define INITIAL_INOTIFY_BUFLEN (FILENAME_MAX + sizeof(struct inotify_event))
 #define MAXIMAL_INOTIFY_BUFLEN (32*1024)
 
+struct inotify_io {
+	struct io io;
+	int wd;
+};
+
 struct ioloop_notify_handler_context {
 	int inotify_fd;
 
@@ -62,7 +67,9 @@ static bool event_read_next(struct ioloop *ioloop)
 
 	while ((size_t)required_bytes > sizeof(*event)) {
 		for (io = ioloop->notifys; io != NULL; io = io->next) {
-			if (io->notify_context == event->wd) {
+			struct inotify_io *iio = (struct inotify_io *)io;
+
+			if (iio->wd == event->wd) {
 				io->callback(io->context);
 				break;
 			}
@@ -93,7 +100,7 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
-	struct io *io;
+	struct inotify_io *io;
 	int watchdescriptor;
 
 	if (ctx->disabled)
@@ -114,43 +121,26 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 				       event_callback, ioloop);
 	}
 
-	io = p_new(ioloop->pool, struct io, 1);
-	io->fd = -1;
+	io = p_new(ioloop->pool, struct inotify_io, 1);
+	io->io.fd = -1;
 
-	io->callback = callback;
-	io->context = context;
-	io->notify_context = watchdescriptor;
-
-	io->next = ioloop->notifys;
-	ioloop->notifys = io;
+	io->io.callback = callback;
+	io->io.context = context;
+	io->wd = watchdescriptor;
 	return io;
 }
 
-void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
+void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
-	struct io **io_p;
+	struct inotify_io *io = (struct inotify_io *)_io;
 
-	if (ctx->disabled)
-		return;
-
-	for (io_p = &ioloop->notifys; *io_p != NULL; io_p = &(*io_p)->next) {
-		if (*io_p == io) {
-			*io_p = io->next;
-			break;
-		}
-	}
-
-	if (inotify_rm_watch(ctx->inotify_fd, io->notify_context) < 0)
+	if (inotify_rm_watch(ctx->inotify_fd, io->wd) < 0)
 		i_error("inotify_rm_watch() failed: %m");
 
-	p_free(ioloop->pool, io);
-
-	if (ioloop->notifys == NULL) {
+	if (ioloop->notifys == NULL)
 		io_remove(&ctx->event_io);
-		ctx->event_io = NULL;
-	}
 }
 
 void io_loop_notify_handler_init(struct ioloop *ioloop)
