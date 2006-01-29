@@ -216,10 +216,6 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 		return TRUE;
 	}
 
-	/* make sure that flush callback gets set to normal. this is
-	   currently needed only with APPEND. */
-	_client_reset_command(cmd->client);
-
 	if ((client_workarounds & WORKAROUND_DELAY_NEWMAIL) != 0 &&
 	    (flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
 		/* expunges might break just as badly as new mail

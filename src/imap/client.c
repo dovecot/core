@@ -16,8 +16,6 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static int _client_output(void *context);
-
 struct client *client_create(int fd_in, int fd_out,
 			     struct namespace *namespaces)
 {
@@ -426,7 +424,7 @@ void _client_input(void *context)
 		client_destroy(client);
 }
 
-static int _client_output(void *context)
+int _client_output(void *context)
 {
 	struct client *client = context;
 	struct client_command_context *cmd = &client->cmd;

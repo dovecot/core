@@ -126,6 +126,8 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 		mailbox_close(&ctx->box);
 
 	ctx->client->bad_counter = 0;
+	o_stream_set_flush_callback(ctx->client->output,
+				    _client_output, ctx->client);
 }
 
 static bool cmd_append_continue_cancel(struct client_command_context *cmd)
