@@ -126,8 +126,6 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 		mailbox_close(&ctx->box);
 
 	ctx->client->bad_counter = 0;
-	/* reset command so that flush callback gets changed back to normal. */
-	_client_reset_command(ctx->client);
 }
 
 static bool cmd_append_continue_cancel(struct client_command_context *cmd)
