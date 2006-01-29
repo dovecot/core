@@ -12,6 +12,9 @@ lib01_zlib_plugin_la_LDFLAGS = -module -avoid-version
 imap_module_LTLIBRARIES = \
 	lib01_zlib_plugin.la
 
+lib01_zlib_plugin_la_LIBADD = \
+	-lz
+
 lib01_zlib_plugin_la_SOURCES = \
 	istream-zlib.c \
 	zlib-plugin.c
