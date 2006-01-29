@@ -279,6 +279,8 @@ void io_loop_destroy(struct ioloop **_ioloop)
 
 	*_ioloop = NULL;
 
+	io_loop_notify_handler_deinit(ioloop);
+
 	while (ioloop->ios != NULL) {
 		struct io *io = ioloop->ios;
 
@@ -295,8 +297,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 		}
                 timeout_destroy(ioloop, &ioloop->timeouts);
 	}
-
-	io_loop_notify_handler_deinit(ioloop);
+	
         io_loop_handler_deinit(ioloop);
 
         /* ->prev won't work unless loops are destroyed in create order */

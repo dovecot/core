@@ -15,11 +15,13 @@
 #ifdef IOLOOP_NOTIFY_KQUEUE
 
 #include "ioloop-internal.h"
+#include "fd-close-on-exec.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 
 struct ioloop_notify_handler_context {
 	int kq;
@@ -53,7 +55,8 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 	ctx->event_io = NULL;
 	ctx->kq = kqueue();
 	if (ctx->kq < 0)
-		i_fatal("kqueue() failed: %m");
+		i_fatal("kqueue() in io_loop_notify_handler_init() failed: %m");
+	fd_close_on_exec(ctx->kq, TRUE);
 }
 
 void io_loop_notify_handler_deinit(struct ioloop *ioloop)
@@ -61,8 +64,8 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 
-        if (ctx->event_io)
-                io_remove(ctx->event_io);
+	if (ctx->event_io)
+		io_remove(&ctx->event_io);
 	if (close(ctx->kq) < 0)
 		i_error("close(kqueue notify) failed: %m");
 	p_free(ioloop->pool, ctx);
@@ -75,6 +78,10 @@ static void unchain_io (struct ioloop *ioloop, struct io * io)
 	for (io_p = &ioloop->notifys; *io_p != NULL; io_p = &(*io_p)->next) {
 		if (*io_p == io) {
 			*io_p = io->next;
+			if (io->next != NULL)
+				io->next->prev = io->prev;
+			io->prev = NULL;
+			io->next = NULL;
 			break;
 		}
 	}
@@ -90,25 +97,42 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 			     | NOTE_REVOKE, 0, NULL };
 	struct io *io;
 	int fd;
+	struct stat sb;
+
+	i_assert(callback != NULL);
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		i_error("open(%s) for notify failed: %m", path);
+		i_error("open(%s) for kq notify failed: %m", path);
 		return NULL;
 	}
 
-	ev.ident = fd;
-	ev.udata = io;
-	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
-		i_error("kevent(%s) for notify failed: %m", path);
+	if (fstat(fd, &sb) < 0) {
+		i_error("fstat(%d, %s) for kq notify failed: %m", fd, path);
+		(void)close(fd);
 		return NULL;
 	}
+	if (!S_ISDIR(sb.st_mode)) {
+		(void)close(fd);
+		return NULL;
+	}
+	fd_close_on_exec(fd, TRUE);
 
 	io = p_new(ioloop->pool, struct io, 1);
 	io->fd = fd;
 	io->callback = callback;
 	io->context = context;
+	ev.ident = fd;
+	ev.udata = io;
+	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
+		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
+		p_free(ioloop->pool, io);
+		return NULL;
+	}
 	io->next = ioloop->notifys;
+	io->prev = NULL;
+	if (ioloop->notifys != NULL)
+		ioloop->notifys->prev = io;
 	ioloop->notifys = io;
 
 	if (ctx->event_io == NULL) {
@@ -116,7 +140,6 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 			io_add(ctx->kq, IO_READ, event_callback,
 			       ioloop->notify_handler_context);
 	}
-
 	return io;
 }
 
@@ -124,15 +147,16 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
-	struct kevent ev = { io->fd, 0, EV_DELETE, 0, 0, NULL };
-	int ret;
+	struct kevent ev = { io->fd, EVFILT_VNODE, EV_DELETE, 0, 0, NULL };
 
+	i_assert((io->condition & IO_NOTIFY) != 0);
+
+	if (kevent(ctx->kq, &ev, 1, NULL, 0, 0) < 0)
+		i_error("kevent(%d) for notify remove failed: %m", io->fd);
+	if (close(io->fd) < 0)
+		i_error("close(%d) failed: %m", io->fd);
 	unchain_io(ioloop, io);
 	p_free(ioloop->pool, io);
-
-	ret = kevent(ctx->kq, &ev, 1, NULL, 0, 0);
-	if (ret == -1)
-		i_error("kevent() for notify failed: %m");
 }
 
 #endif
