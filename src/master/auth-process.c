@@ -345,9 +345,9 @@ static void auth_process_destroy(struct auth_process *p)
 			       dec2str(p->pid));
 	(void)unlink(path);
 
+	io_remove(&p->worker_io);
 	if (close(p->worker_listen_fd) < 0)
 		i_error("close(worker_listen) failed: %m");
-	io_remove(&p->worker_io);
 
 	iter = hash_iterate_init(p->requests);
 	while (hash_iterate(iter, &key, &value))

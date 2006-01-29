@@ -7,7 +7,7 @@ struct mail_storage;
 typedef void command_func_t(struct client *client);
 
 struct client {
-	int socket;
+	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -46,7 +46,8 @@ struct client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int hin, int hout, struct mail_storage *storage);
+struct client *client_create(int fd_in, int fd_out,
+			     struct mail_storage *storage);
 void client_destroy(struct client *client, const char *reason);
 
 /* Disconnect client connection */

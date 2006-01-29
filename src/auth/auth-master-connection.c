@@ -271,16 +271,16 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 		return;
 	conn->destroyed = TRUE;
 
-	if (conn->fd != -1) {
-		if (close(conn->fd) < 0)
-			i_error("close(): %m");
-	}
 	if (conn->input != NULL)
 		i_stream_unref(&conn->input);
 	if (conn->output != NULL)
 		o_stream_unref(&conn->output);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
+	if (conn->fd != -1) {
+		if (close(conn->fd) < 0)
+			i_error("close(): %m");
+	}
 
 	conns = array_get(&conn->listener->masters, &count);
 	for (i = 0; i < count; i++) {

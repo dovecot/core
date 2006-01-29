@@ -144,13 +144,13 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 
 	gnutls_deinit(proxy->session);
 
-	(void)net_disconnect(proxy->fd_ssl);
-	(void)net_disconnect(proxy->fd_plain);
-
 	if (proxy->io_ssl != NULL)
 		io_remove(proxy->io_ssl);
 	if (proxy->io_plain != NULL)
 		io_remove(proxy->io_plain);
+
+	(void)net_disconnect(proxy->fd_ssl);
+	(void)net_disconnect(proxy->fd_plain);
 
 	i_free(proxy);
 

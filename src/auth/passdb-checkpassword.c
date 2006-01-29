@@ -271,11 +271,11 @@ static void checkpassword_child_output(void *context)
 	if (request->write_pos < size)
 		return;
 
+	io_remove(&request->io_out);
+
 	if (close(request->fd_out) < 0)
 		i_error("checkpassword: close() failed: %m");
         request->fd_out = -1;
-
-	io_remove(&request->io_out);
 }
 
 static void

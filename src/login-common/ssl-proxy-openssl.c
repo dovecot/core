@@ -540,9 +540,6 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 
 	hash_remove(ssl_proxies, proxy);
 
-	(void)net_disconnect(proxy->fd_ssl);
-	(void)net_disconnect(proxy->fd_plain);
-
 	if (proxy->io_ssl_read != NULL)
 		io_remove(&proxy->io_ssl_read);
 	if (proxy->io_ssl_write != NULL)
@@ -551,6 +548,9 @@ static void ssl_proxy_destroy(struct ssl_proxy *proxy)
 		io_remove(&proxy->io_plain_read);
 	if (proxy->io_plain_write != NULL)
 		io_remove(&proxy->io_plain_write);
+
+	(void)net_disconnect(proxy->fd_ssl);
+	(void)net_disconnect(proxy->fd_plain);
 
 	ssl_proxy_unref(proxy);
 }

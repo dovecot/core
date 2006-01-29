@@ -51,14 +51,14 @@ static void stream_send_io(void *context);
 
 static void stream_closed(struct file_ostream *fstream)
 {
+	if (fstream->io != NULL)
+		io_remove(&fstream->io);
+
 	if (fstream->autoclose_fd && fstream->fd != -1) {
 		if (close(fstream->fd) < 0)
 			i_error("file_ostream.close() failed: %m");
 		fstream->fd = -1;
 	}
-
-	if (fstream->io != NULL)
-		io_remove(&fstream->io);
 
 	fstream->ostream.ostream.closed = TRUE;
 }

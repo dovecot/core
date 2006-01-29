@@ -138,11 +138,11 @@ static void dict_process_unlisten(struct dict_process *process)
 	if (process->fd == -1)
 		return;
 
+	io_remove(&process->io);
+
 	if (close(process->fd) < 0)
 		i_error("close(dict) failed: %m");
 	process->fd = -1;
-
-	io_remove(&process->io);
 }
 
 void dict_process_init(void)

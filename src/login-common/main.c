@@ -55,17 +55,15 @@ void main_close_listen(void)
 		return;
 
 	if (io_listen != NULL) {
+		io_remove(&io_listen);
 		if (close(LOGIN_LISTEN_FD) < 0)
 			i_fatal("close(listen) failed: %m");
-
-		io_remove(&io_listen);
 	}
 
 	if (io_ssl_listen != NULL) {
+		io_remove(&io_ssl_listen);
 		if (close(LOGIN_SSL_LISTEN_FD) < 0)
 			i_fatal("close(ssl_listen) failed: %m");
-
-		io_remove(&io_ssl_listen);
 	}
 
 	closing_down = TRUE;

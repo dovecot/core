@@ -93,11 +93,10 @@ void master_close(void)
 	if (io_master == NULL)
 		return;
 
+	io_remove(&io_master);
 	if (close(master_fd) < 0)
 		i_fatal("close(master) failed: %m");
 	master_fd = -1;
-
-	io_remove(&io_master);
 
         main_close_listen();
 	main_unref();

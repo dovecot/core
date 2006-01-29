@@ -29,7 +29,7 @@ struct client_command_context {
 };
 
 struct client {
-	int socket;
+	int fd_in, fd_out;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -57,7 +57,8 @@ struct client {
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int hin, int hout, struct namespace *namespaces);
+struct client *client_create(int fd_in, int fd_out,
+			     struct namespace *namespaces);
 void client_destroy(struct client *client);
 
 /* Disconnect client connection */

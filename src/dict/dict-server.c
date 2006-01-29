@@ -445,9 +445,9 @@ struct dict_server *dict_server_init(const char *path, int fd)
 void dict_server_deinit(struct dict_server *server)
 {
 	dict_cache_deinit(server->cache);
+	io_remove(&server->io);
 	if (close(server->fd) < 0)
 		i_error("close(%s) failed: %m", server->path);
-	io_remove(&server->io);
 	i_free(server->path);
 	i_free(server);
 }

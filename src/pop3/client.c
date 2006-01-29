@@ -13,6 +13,7 @@
 #include "mail-search.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 
 /* max. length of input command line (spec says 512) */
 #define MAX_INBUF_SIZE 2048
@@ -127,24 +128,27 @@ static int init_mailbox(struct client *client)
 	return FALSE;
 }
 
-struct client *client_create(int hin, int hout, struct mail_storage *storage)
+struct client *client_create(int fd_in, int fd_out,
+			     struct mail_storage *storage)
 {
 	struct client *client;
         enum mailbox_open_flags flags;
 	bool syntax_error, temporary_error;
 
 	/* always use nonblocking I/O */
-	net_set_nonblock(hin, TRUE);
-	net_set_nonblock(hout, TRUE);
+	net_set_nonblock(fd_in, TRUE);
+	net_set_nonblock(fd_out, TRUE);
 
 	client = i_new(struct client, 1);
-	client->input = i_stream_create_file(hin, default_pool,
+	client->fd_in = fd_in;
+	client->fd_out = fd_out;
+	client->input = i_stream_create_file(fd_in, default_pool,
 					     MAX_INBUF_SIZE, FALSE);
-	client->output = o_stream_create_file(hout, default_pool,
+	client->output = o_stream_create_file(fd_out, default_pool,
 					      (size_t)-1, FALSE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 
-	client->io = io_add(hin, IO_READ, client_input, client);
+	client->io = io_add(fd_in, IO_READ, client_input, client);
         client->last_input = ioloop_time;
 	client->storage = storage;
 
@@ -233,6 +237,13 @@ void client_destroy(struct client *client, const char *reason)
 
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
+
+	if (close(client->fd_in) < 0)
+		i_error("close(client in) failed: %m");
+	if (client->fd_in != client->fd_out) {
+		if (close(client->fd_out) < 0)
+			i_error("close(client out) failed: %m");
+	}
 
 	i_free(client);
 

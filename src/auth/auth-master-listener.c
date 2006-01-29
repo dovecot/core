@@ -50,8 +50,8 @@ auth_master_listener_socket_free(struct auth_master_listener_socket *socket)
 		i_free(socket->path);
 	}
 
-	net_disconnect(socket->fd);
 	io_remove(&socket->io);
+	net_disconnect(socket->fd);
 	i_free(socket);
 }
 

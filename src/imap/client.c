@@ -9,6 +9,7 @@
 #include "namespace.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 
 extern struct mail_storage_callbacks mail_storage_callbacks;
 
@@ -17,23 +18,26 @@ static struct timeout *to_idle;
 
 static int _client_output(void *context);
 
-struct client *client_create(int hin, int hout, struct namespace *namespaces)
+struct client *client_create(int fd_in, int fd_out,
+			     struct namespace *namespaces)
 {
 	struct client *client;
 
 	/* always use nonblocking I/O */
-	net_set_nonblock(hin, TRUE);
-	net_set_nonblock(hout, TRUE);
+	net_set_nonblock(fd_in, TRUE);
+	net_set_nonblock(fd_out, TRUE);
 
 	client = i_new(struct client, 1);
-	client->input = i_stream_create_file(hin, default_pool,
+	client->fd_in = fd_in;
+	client->fd_out = fd_out;
+	client->input = i_stream_create_file(fd_in, default_pool,
 					     imap_max_line_length, FALSE);
-	client->output = o_stream_create_file(hout, default_pool,
+	client->output = o_stream_create_file(fd_out, default_pool,
 					      (size_t)-1, FALSE);
 
 	o_stream_set_flush_callback(client->output, _client_output, client);
 
-	client->io = io_add(hin, IO_READ, _client_input, client);
+	client->io = io_add(fd_in, IO_READ, _client_input, client);
 	client->parser = imap_parser_create(client->input, client->output,
 					    imap_max_line_length);
         client->last_input = ioloop_time;
@@ -86,6 +90,13 @@ void client_destroy(struct client *client)
 
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
+
+	if (close(client->fd_in) < 0)
+		i_error("close(client in) failed: %m");
+	if (client->fd_in != client->fd_out) {
+		if (close(client->fd_out) < 0)
+			i_error("close(client out) failed: %m");
+	}
 
 	pool_unref(client->keywords.pool);
 	pool_unref(client->cmd.pool);
