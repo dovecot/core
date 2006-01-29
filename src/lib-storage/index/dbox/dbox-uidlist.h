@@ -23,7 +23,8 @@ dbox_uidlist_entry_lookup(struct dbox_uidlist *uidlist, uint32_t file_seq);
 
 struct dbox_uidlist_append_ctx *
 dbox_uidlist_append_init(struct dbox_uidlist *uidlist);
-int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx);
+int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx,
+			       time_t *mtime_r);
 void dbox_uidlist_append_rollback(struct dbox_uidlist_append_ctx *ctx);
 
 /* Open/create a file for appending a new message and lock it.
@@ -40,7 +41,7 @@ dbox_uidlist_append_lookup_file(struct dbox_uidlist_append_ctx *ctx,
 
 uint32_t dbox_uidlist_get_new_file_seq(struct dbox_uidlist *uidlist);
 int dbox_uidlist_append_get_first_uid(struct dbox_uidlist_append_ctx *ctx,
-				      uint32_t *uid_r);
+				      uint32_t *uid_r, time_t *mtime_r);
 
 int dbox_uidlist_sync_init(struct dbox_uidlist *uidlist,
 			   struct dbox_uidlist_sync_ctx **ctx_r,

@@ -106,6 +106,7 @@ struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox)
 	uidlist = i_new(struct dbox_uidlist, 1);
 	uidlist->mbox = mbox;
 	uidlist->fd = -1;
+	uidlist->mtime = -1;
 	uidlist->lock_fd = -1;
 	uidlist->entry_pool =
 		pool_alloconly_create("uidlist entry pool", 10240);
@@ -311,6 +312,7 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 		}
 	}
 
+	uidlist->mtime = -1;
 	if (uidlist->fd != -1) {
 		if (close(uidlist->fd) < 0)
 			i_error("close(%s) failed: %m", uidlist->path);
@@ -390,11 +392,13 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 	}
 
 	if (ret == 0) {
+		/* broken file */
 		(void)unlink(uidlist->path);
 
 		if (close(uidlist->fd) < 0)
 			i_error("close(%s) failed: %m", uidlist->path);
 		uidlist->fd = -1;
+		uidlist->mtime = -1;
 	}
 
 	i_stream_unref(&input);
@@ -716,13 +720,15 @@ dbox_uidlist_write_append_offsets(struct dbox_uidlist_append_ctx *ctx)
 	return ret;
 }
 
-int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx)
+int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx,
+			       time_t *mtime_r)
 {
 	int ret;
 
 	if (ctx->mail_count == 0) {
 		/* nothing actually appended */
 		dbox_uidlist_append_rollback(ctx);
+		*mtime_r = ctx->uidlist->mtime;
 		return 0;
 	}
 
@@ -741,6 +747,7 @@ int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx)
 		}
 	}
 
+	*mtime_r = ctx->uidlist->mtime;
 	dbox_uidlist_append_rollback(ctx);
 	return ret;
 }
@@ -1007,7 +1014,7 @@ uint32_t dbox_uidlist_get_new_file_seq(struct dbox_uidlist *uidlist)
 }
 
 int dbox_uidlist_append_get_first_uid(struct dbox_uidlist_append_ctx *ctx,
-				      uint32_t *uid_r)
+				      uint32_t *uid_r, time_t *mtime_r)
 {
 	int ret;
 
@@ -1027,6 +1034,7 @@ int dbox_uidlist_append_get_first_uid(struct dbox_uidlist_append_ctx *ctx,
 		}
 	}
 
+	*mtime_r = ctx->uidlist->mtime;
 	*uid_r = ctx->uidlist->last_uid + 1;
 	return 0;
 }

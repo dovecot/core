@@ -17,7 +17,7 @@ dbox_transaction_begin(struct mailbox *box,
 }
 
 int dbox_transaction_commit(struct mailbox_transaction_context *_t,
-			    enum mailbox_sync_flags flags)
+			    enum mailbox_sync_flags flags __attr_unused__)
 {
 	struct dbox_transaction_context *t =
 		(struct dbox_transaction_context *)_t;
@@ -49,24 +49,11 @@ int dbox_transaction_commit(struct mailbox_transaction_context *_t,
 		dbox_transaction_save_commit_post(save_ctx);
 	}
 
-#if 0
-	if (lock_id != 0 && dbox->dbox_lock_type != F_WRLCK) {
-		/* unlock before writing any changes */
-		(void)dbox_unlock(dbox, lock_id);
-		lock_id = 0;
-	}
-#endif
 	if (ret == 0) {
 		if (dbox_sync(dbox, FALSE) < 0)
 			ret = -1;
 	}
 
-#if 0
-	if (lock_id != 0) {
-		if (dbox_unlock(dbox, lock_id) < 0)
-			ret = -1;
-	}
-#endif
 	return ret;
 }
 
@@ -74,12 +61,9 @@ void dbox_transaction_rollback(struct mailbox_transaction_context *_t)
 {
 	struct dbox_transaction_context *t =
 		(struct dbox_transaction_context *)_t;
-	struct dbox_mailbox *dbox = (struct dbox_mailbox *)t->ictx.ibox;
 
 	if (t->save_ctx != NULL)
 		dbox_transaction_save_rollback(t->save_ctx);
 
-	/*if (t->dbox_lock_id != 0)
-		(void)dbox_unlock(dbox, t->dbox_lock_id);*/
 	index_transaction_rollback(_t);
 }

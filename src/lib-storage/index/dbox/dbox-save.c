@@ -195,12 +195,15 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	struct dbox_mail_header hdr;
 	struct dbox_file *file;
 	struct mail_index_view *view;
+	const struct mail_index_header *idx_hdr;
 	uint32_t seq, uid, last_uid, file_seq;
+	time_t old_mtime, new_mtime;
 	uoff_t offset;
 	int ret;
 
 	/* we want the index file to be locked from here until the appends
-	   have been written to transaction log */
+	   have been written to transaction log. this is so that the
+	   transaction log gets locked before uidlist, not after */
 	if (mail_index_sync_begin(ctx->mbox->ibox.index, &ctx->index_sync_ctx,
 				  &view, (uint32_t)-1, (uoff_t)-1,
 				  FALSE, FALSE) < 0) {
@@ -211,7 +214,8 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 	/* uidlist gets locked here. do it after starting index syncing to
 	   avoid deadlocks */
-	if (dbox_uidlist_append_get_first_uid(ctx->append_ctx, &uid) < 0) {
+	if (dbox_uidlist_append_get_first_uid(ctx->append_ctx,
+					      &uid, &old_mtime) < 0) {
 		ctx->failed = TRUE;
 		dbox_transaction_save_rollback(ctx);
 		return -1;
@@ -241,11 +245,23 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 		}
 	}
 
-	if (dbox_uidlist_append_commit(ctx->append_ctx) < 0) {
+	if (dbox_uidlist_append_commit(ctx->append_ctx, &new_mtime) < 0) {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 		i_free(ctx);
 		return -1;
 	}
+
+	idx_hdr = mail_index_get_header(view);
+	if ((uint32_t)old_mtime == idx_hdr->sync_stamp &&
+	    old_mtime != new_mtime) {
+		/* index was fully synced. keep it that way. */
+		uint32_t sync_stamp = new_mtime;
+
+		mail_index_update_header(ctx->trans,
+			offsetof(struct mail_index_header, sync_stamp),
+			&sync_stamp, sizeof(sync_stamp), TRUE);
+	}
+
 	return 0;
 }
 
