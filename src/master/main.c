@@ -32,7 +32,8 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 	"login",
 	"imap",
 	"pop3",
-	"ssl-param"
+	"ssl-param",
+	"dict"
 };
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
