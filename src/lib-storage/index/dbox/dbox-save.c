@@ -1,11 +1,14 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "hex-dec.h"
 #include "write-full.h"
 #include "ostream.h"
+#include "seq-range-array.h"
 #include "dbox-uidlist.h"
+#include "dbox-keywords.h"
 #include "dbox-sync.h"
 #include "dbox-storage.h"
 
@@ -32,6 +35,64 @@ struct dbox_save_context {
 	bool failed;
 };
 
+static int
+dbox_save_add_keywords(struct dbox_save_context *ctx,
+		       const struct mail_keywords *keywords,
+		       buffer_t *file_keywords)
+{
+	array_t ARRAY_DEFINE(new_keywords, struct seq_range);
+	const struct seq_range *range;
+	unsigned int i, count, file_idx;
+	int ret = 0;
+
+	/* Get a list of all new keywords. Using seq_range is the easiest
+	   way to do this and should be pretty fast too. */
+	t_push();
+	ARRAY_CREATE(&new_keywords, pool_datastack_create(),
+		     struct seq_range, 16);
+	for (i = 0; i < keywords->count; i++) {
+		/* check if it's already in the file */
+		if (dbox_file_lookup_keyword(ctx->mbox, ctx->file,
+					     keywords->idx[i], &file_idx)) {
+			buffer_write(file_keywords, file_idx, "1", 1);
+			continue;
+		}
+
+		/* add it. if it already exists, it's handled internally. */
+		seq_range_array_add(&new_keywords, 0, keywords->idx[i]);
+	}
+
+	/* now, write them to file */
+	range = array_get(&new_keywords, &count);
+	if (count > 0) {
+		if (dbox_file_append_keywords(ctx->mbox, ctx->file,
+					      range, count) < 0) {
+			ret = -1;
+			count = 0;
+		}
+
+		/* write the new keywords to file_keywords */
+		for (i = 0; i < count; i++) {
+			unsigned int kw;
+
+			for (kw = range[i].seq1; kw <= range[i].seq2; kw++) {
+				if (!dbox_file_lookup_keyword(ctx->mbox,
+							      ctx->file, kw,
+							      &file_idx)) {
+					/* it should have been found */
+					i_unreached();
+					continue;
+				}
+
+				buffer_write(file_keywords, file_idx, "1", 1);
+			}
+		}
+	}
+
+	t_pop();
+	return ret;
+}
+
 struct mail_save_context *
 dbox_save_init(struct mailbox_transaction_context *_t,
 	       enum mail_flags flags, struct mail_keywords *keywords,
@@ -44,8 +105,9 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)t->ictx.ibox;
 	struct dbox_save_context *ctx = t->save_ctx;
 	struct dbox_mail_header hdr;
+	buffer_t *file_keywords = NULL;
 	enum mail_flags save_flags;
-	unsigned int left;
+	unsigned int i, pos, left;
 	char buf[128];
 	int ret;
 
@@ -80,6 +142,19 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 	}
 	ctx->hdr_offset = ctx->file->output->offset;
 
+	t_push();
+	if (keywords != NULL && keywords->count > 0) {
+		/* write keywords to the file */
+		file_keywords = buffer_create_dynamic(pool_datastack_create(),
+						      DBOX_KEYWORD_COUNT);
+		if (dbox_save_add_keywords(ctx, keywords, file_keywords) < 0) {
+			ctx->failed = TRUE;
+			t_pop();
+			return &ctx->ctx;
+		}
+		o_stream_seek(ctx->file->output, ctx->hdr_offset);
+	}
+
 	/* append mail header. UID and mail size are written later. */
 	memset(&hdr, '0', sizeof(hdr));
 	memcpy(hdr.magic, DBOX_MAIL_HEADER_MAGIC, sizeof(hdr.magic));
@@ -90,12 +165,30 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 	hdr.seen = (flags & MAIL_SEEN) != 0 ? '1' : '0';
 	hdr.draft = (flags & MAIL_DRAFT) != 0 ? '1' : '0';
 	hdr.expunged = '0';
-	// FIXME: keywords
 	o_stream_send(ctx->file->output, &hdr, sizeof(hdr));
 
-	/* write rest of the header with '0' characters */
-	left = ctx->file->mail_header_size - sizeof(hdr);
-	memset(buf, '0', sizeof(buf));
+	/* write keywords */
+	if (file_keywords != NULL) {
+		unsigned char *keyword_string;
+		size_t size;
+
+		keyword_string =
+			buffer_get_modifyable_data(file_keywords, &size);
+
+		/* string should be filled with NULs and '1' now.
+		   Change NULs to '0'. */
+		for (i = 0; i < size; i++) {
+			if (keyword_string[i] == '\0')
+				keyword_string[i] = '0';
+		}
+		o_stream_send(ctx->file->output, keyword_string, size);
+	}
+
+	/* fill rest of the header with '0' characters */
+	pos = ctx->file->output->offset - ctx->hdr_offset;
+	i_assert(pos <= ctx->file->mail_header_size);
+	left = ctx->file->mail_header_size - pos;
+	memset(buf, '0', I_MIN(sizeof(buf), left));
 	while (left > sizeof(buf)) {
 		o_stream_send(ctx->file->output, buf, sizeof(buf));
 		left -= sizeof(buf);
@@ -120,6 +213,7 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 
 	if (ctx->first_append_seq == 0)
 		ctx->first_append_seq = ctx->seq;
+	t_pop();
 	return &ctx->ctx;
 }
 
