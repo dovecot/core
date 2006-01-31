@@ -70,6 +70,7 @@ extern struct sql_db driver_pgsql_db;
 extern struct sql_result driver_pgsql_result;
 
 static void queue_send_next(struct pgsql_db *db);
+static void result_finish(struct pgsql_result *result);
 
 static void driver_pgsql_close(struct pgsql_db *db)
 {
@@ -135,6 +136,9 @@ static void connect_callback(void *context)
 			io_add(PQsocket(db->pg), io_dir, connect_callback, db);
 		db->io_dir = io_dir;
 	}
+
+	if (db->connected && db->queue != NULL)
+		queue_send_next(db);
 }
 
 static int driver_pgsql_connect(struct sql_db *_db)
@@ -184,6 +188,18 @@ static void _driver_pgsql_deinit(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 
+	while (db->queue != NULL) {
+		struct pgsql_queue *next = db->queue->next;
+
+                result_finish(db->queue->result);
+		i_free(db->queue->query);
+		i_free(db->queue);
+
+		db->queue = next;
+	}
+
+	if (db->queue_to != 0)
+		timeout_remove(&db->queue_to);
         driver_pgsql_close(db);
 	i_free(db->error);
 	i_free(db);
