@@ -220,13 +220,14 @@ static void client_dict_disconnect(struct client_dict *dict)
 	}
 }
 
-static struct dict *client_dict_init(struct dict *dict_class, const char *uri)
+static struct dict *client_dict_init(struct dict *dict_class, const char *uri,
+				     const char *username)
 {
 	struct client_dict *dict;
-	const char *path, *dest_uri;
+	const char *dest_uri;
 	pool_t pool;
 
-	/* uri = <username> [" " <path>] ":" <uri> */
+	/* uri = [<path>] ":" <uri> */
 	dest_uri = strchr(uri, ':');
 	if (dest_uri == NULL) {
 		i_error("dict-client: Invalid URI: %s", uri);
@@ -237,17 +238,15 @@ static struct dict *client_dict_init(struct dict *dict_class, const char *uri)
 	dict = p_new(pool, struct client_dict, 1);
 	dict->pool = pool;
 	dict->dict = *dict_class;
+	dict->username = p_strdup(pool, username);
 
 	dict->fd = -1;
 
-	path = strchr(uri, ' ');
-	if (path != NULL && path < dest_uri) {
+	if (*uri != ':') {
 		/* path given */
-		dict->path = p_strdup_until(pool, path + 1, dest_uri);
-		dict->username = p_strdup_until(pool, uri, path);
+		dict->path = p_strdup_until(pool, uri, dest_uri);
 	} else {
 		dict->path = DEFAULT_DICT_SERVER_SOCKET_PATH;
-		dict->username = p_strdup_until(pool, uri, dest_uri);
 	}
 	dict->uri = p_strdup(pool, dest_uri + 1);
 

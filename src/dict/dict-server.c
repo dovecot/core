@@ -294,11 +294,12 @@ static int dict_client_parse_handshake(struct dict_client_connection *conn,
 	if (*line++ != '\t')
 		return -1;
 
-	conn->username = i_strdup(username);
+	conn->username = i_strdup_until(username, line - 1);
 
 	/* the rest is dict URI */
 	conn->uri = i_strdup(line);
-	conn->dict = dict_cache_get(conn->server->cache, conn->uri);
+	conn->dict = dict_cache_get(conn->server->cache, conn->uri,
+				    conn->username);
 	if (conn->dict == NULL)
 		return -1;
 

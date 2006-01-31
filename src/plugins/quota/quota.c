@@ -39,14 +39,16 @@ struct quota *quota_init(const char *data)
 		if (strcmp(quota_classes[i]->name, name) == 0)
 			break;
 	}
-	t_pop();
 
-	quota = i == QUOTA_CLASS_COUNT ? NULL :
-		quota_classes[i]->init(data);
-	if (quota != NULL) {
+	if (i == QUOTA_CLASS_COUNT) {
+		i_error("Unknown quota module: %s", name);
+		quota = NULL;
+	} else {
+		quota = quota_classes[i]->init(data);
 		array_create(&quota->quota_module_contexts,
 			     default_pool, sizeof(void *), 5);
 	}
+	t_pop();
 	return quota;
 }
 

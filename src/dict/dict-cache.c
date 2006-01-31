@@ -31,14 +31,15 @@ void dict_cache_deinit(struct dict_cache *cache)
 	i_free(cache);
 }
 
-struct dict *dict_cache_get(struct dict_cache *cache, const char *uri)
+struct dict *dict_cache_get(struct dict_cache *cache, const char *uri,
+			    const char *username)
 {
 	struct dict_entry *entry;
 
 	entry = hash_lookup(cache->dicts, uri);
 	if (entry == NULL) {
 		entry = i_new(struct dict_entry, 1);
-		entry->dict = dict_init(uri);
+		entry->dict = dict_init(uri, username);
 		entry->uri = i_strdup(uri);
 		hash_insert(cache->dicts, entry->uri, entry);
 	}

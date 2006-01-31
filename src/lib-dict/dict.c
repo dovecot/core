@@ -51,10 +51,10 @@ void dict_class_unregister(struct dict *dict_class)
 		array_free(&dict_classes);
 }
 
-struct dict *dict_init(const char *uri)
+struct dict *dict_init(const char *uri, const char *username)
 {
 	struct dict *dict;
-	const char *p;
+	const char *p, *name;
 
 	p = strchr(uri, ':');
 	if (p == NULL) {
@@ -63,12 +63,16 @@ struct dict *dict_init(const char *uri)
 	}
 
 	t_push();
-	dict = dict_class_lookup(t_strdup_until(uri, p));
-	t_pop();
-	if (dict == NULL)
+	name = t_strdup_until(uri, p);
+	dict = dict_class_lookup(name);
+	if (dict == NULL) {
+		i_error("Unknown dict module: %s", name);
+		t_pop();
 		return NULL;
+	}
+	t_pop();
 
-	return dict->v.init(dict, p+1);
+	return dict->v.init(dict, p+1, username);
 }
 
 void dict_deinit(struct dict **_dict)

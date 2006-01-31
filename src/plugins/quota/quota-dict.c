@@ -37,7 +37,7 @@ static struct quota *dict_quota_init(const char *data)
 	if (getenv("DEBUG") != NULL)
 		i_info("dict quota uri = %s", data);
 
-	dict = dict_init(data);
+	dict = dict_init(data, getenv("USER"));
 	if (dict == NULL)
 		return NULL;
 

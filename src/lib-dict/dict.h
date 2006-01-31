@@ -11,7 +11,7 @@ void dict_class_unregister(struct dict *dict_class);
 
 /* Open dictionary with given URI (type:data).
    If URI is invalid, returns NULL. */
-struct dict *dict_init(const char *uri);
+struct dict *dict_init(const char *uri, const char *username);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);
 

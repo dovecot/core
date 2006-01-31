@@ -6,6 +6,7 @@
 #include "fd-close-on-exec.h"
 #include "restrict-access.h"
 #include "randgen.h"
+#include "sql-api.h"
 #include "dict-sql.h"
 #include "dict-client.h"
 #include "dict-server.h"
@@ -38,6 +39,10 @@ static void drop_privileges(void)
 	/* Maybe needed. Have to open /dev/urandom before possible
 	   chrooting. */
 	random_init();
+
+	/* Load built-in SQL drivers (if any) */
+	sql_drivers_init();
+	sql_drivers_register_all();
 
 	restrict_access_by_env(FALSE);
 }
@@ -76,6 +81,7 @@ static void main_deinit(void)
 	dict_sql_unregister();
 	dict_client_unregister();
 
+	sql_drivers_deinit();
 	random_deinit();
 	lib_signals_deinit();
 	closelog();
