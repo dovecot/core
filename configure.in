@@ -1658,6 +1658,16 @@ done
 AC_SUBST(sql_drivers)
 
 dnl **
+dnl ** Plugins
+dnl **
+
+have_zlib=no
+AC_CHECK_HEADER(zlib.h, [
+  have_zlib=yes
+])
+AM_CONDITIONAL(BUILD_ZLIB, test "$have_zlib" = "yes")
+
+dnl **
 dnl ** capabilities
 dnl **
 
