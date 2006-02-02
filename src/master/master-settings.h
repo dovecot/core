@@ -118,6 +118,8 @@ struct settings {
 	int listen_fd, ssl_listen_fd;
 	struct ip_addr listen_ip, ssl_listen_ip;
 	unsigned int listen_port, ssl_listen_port;
+
+	array_t ARRAY_DEFINE(plugin_envs, const char *);
 };
 
 struct socket_settings {

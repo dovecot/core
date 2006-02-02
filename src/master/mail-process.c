@@ -191,6 +191,10 @@ static void
 mail_process_set_environment(struct settings *set, const char *mail,
 			     const struct var_expand_table *var_expand_table)
 {
+	const char *const *envs;
+	string_t *str;
+	unsigned int i, count;
+
 	env_put(t_strconcat("MAIL_CACHE_FIELDS=",
 			    set->mail_cache_fields, NULL));
 	env_put(t_strconcat("MAIL_NEVER_CACHE_FIELDS=",
@@ -270,6 +274,17 @@ mail_process_set_environment(struct settings *set, const char *mail,
 	if (set->server->namespaces != NULL) {
 		env_put_namespace(set->server->namespaces,
 				  mail, var_expand_table);
+	}
+
+	str = t_str_new(256);
+	envs = array_get(&set->plugin_envs, &count);
+	i_assert((count % 2) == 0);
+	for (i = 0; i < count; i += 2) {
+		str_truncate(str, 0);
+		var_expand(str, envs[i+1], var_expand_table);
+
+		env_put(t_strconcat(t_str_ucase(envs[i]), "=",
+				    str_c(str), NULL));
 	}
 }
 

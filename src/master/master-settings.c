@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "str.h"
 #include "istream.h"
 #include "safe-mkdir.h"
@@ -25,7 +26,8 @@ enum settings_type {
 	SETTINGS_TYPE_AUTH_PASSDB,
 	SETTINGS_TYPE_AUTH_USERDB,
         SETTINGS_TYPE_NAMESPACE,
-	SETTINGS_TYPE_SOCKET
+	SETTINGS_TYPE_SOCKET,
+	SETTINGS_TYPE_PLUGIN
 };
 
 struct settings_parse_ctx {
@@ -934,6 +936,23 @@ static const char *parse_setting(const char *key, const char *value,
 		return parse_setting_from_defs(settings_pool,
 					       socket_setting_defs,
 					       ctx->socket, key, value);
+	case SETTINGS_TYPE_PLUGIN:
+		key = p_strdup(settings_pool, key);
+		value = p_strdup(settings_pool, value);
+
+		if (ctx->protocol == MAIL_PROTOCOL_ANY ||
+		    ctx->protocol == MAIL_PROTOCOL_IMAP) {
+			array_append(&ctx->server->imap->plugin_envs, &key, 1);
+			array_append(&ctx->server->imap->plugin_envs,
+				     &value, 1);
+		}
+		if (ctx->protocol == MAIL_PROTOCOL_ANY ||
+		    ctx->protocol == MAIL_PROTOCOL_POP3) {
+			array_append(&ctx->server->pop3->plugin_envs, &key, 1);
+			array_append(&ctx->server->pop3->plugin_envs,
+				     &value, 1);
+		}
+		return NULL;
 	}
 
 	i_unreached();
@@ -954,6 +973,11 @@ create_new_server(const char *name,
 
 	*server->imap = *imap_defaults;
 	*server->pop3 = *pop3_defaults;
+
+	ARRAY_CREATE(&server->imap->plugin_envs, settings_pool,
+		     const char *, 8);
+	ARRAY_CREATE(&server->pop3->plugin_envs, settings_pool,
+		     const char *, 8);
 
 	server->imap->server = server;
 	server->imap->protocol = MAIL_PROTOCOL_IMAP;
@@ -1096,6 +1120,17 @@ static bool parse_section(const char *type, const char *name, void *context,
 		ctx->namespace = parse_new_namespace(ctx->server, name,
 						     errormsg);
 		return ctx->namespace != NULL;
+	}
+
+	if (strcmp(type, "plugin") == 0) {
+		if (ctx->type != SETTINGS_TYPE_ROOT &&
+		    ctx->type != SETTINGS_TYPE_SERVER) {
+			*errormsg = "Plugin section not allowed here";
+			return FALSE;
+		}
+
+		ctx->type = SETTINGS_TYPE_PLUGIN;
+		return TRUE;
 	}
 
 	*errormsg = "Unknown section type";

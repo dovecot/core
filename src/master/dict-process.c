@@ -150,9 +150,8 @@ void dict_process_init(void)
 	process = i_new(struct dict_process, 1);
 	process->fd = -1;
 	process->path = i_strconcat(settings_root->defaults->base_dir,
-				    DICT_SERVER_SOCKET_NAME, NULL);
-	/* FIXME: disabled, until it works right */
-	/*(void)dict_process_listen(process);*/
+				    "/"DICT_SERVER_SOCKET_NAME, NULL);
+	(void)dict_process_listen(process);
 }
 
 void dict_process_deinit(void)
