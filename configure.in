@@ -1628,10 +1628,10 @@ dnl **
 dnl ** storage classes
 dnl **
 
-maildir_libs="../lib-storage/index/maildir/libstorage_maildir.a"
-mbox_libs="../lib-storage/index/mbox/libstorage_mbox.a"
-dbox_libs="../lib-storage/index/dbox/libstorage_dbox.a"
-index_libs="../lib-storage/index/libstorage_index.a ../lib-index/libindex.a"
+maildir_libs='$(top_srcdir)/src/lib-storage/index/maildir/libstorage_maildir.a'
+mbox_libs='$(top_srcdir)/src/lib-storage/index/mbox/libstorage_mbox.a'
+dbox_libs='$(top_srcdir)/src/lib-storage/index/dbox/libstorage_dbox.a'
+index_libs='$(top_srcdir)/src/lib-storage/index/libstorage_index.a $(top_srcdir)/src/lib-index/libindex.a'
 
 STORAGE_LIBS=
 for storage in $mail_storages; do
@@ -1639,7 +1639,6 @@ for storage in $mail_storages; do
 done
 STORAGE_LIBS="$STORAGE_LIBS $index_libs"
 AC_SUBST(STORAGE_LIBS)
-
 
 dnl **
 dnl ** SQL drivers
@@ -1708,6 +1707,7 @@ src/pop3/Makefile
 src/pop3-login/Makefile
 src/util/Makefile
 src/plugins/Makefile
+src/plugins/convert/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/trash/Makefile
