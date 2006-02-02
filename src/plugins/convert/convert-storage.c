@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 
-#define CONVERT_LOCK_FILENAME ".dovecot-convert.lock"
+#define CONVERT_LOCK_FILENAME ".dovecot.convert"
 
 const struct dotlock_settings dotlock_settings = {
 	NULL,
@@ -194,14 +194,26 @@ int convert_storage(const char *user, const char *home_dir,
 		return -1;
 	}
 
+	/* just in case if another process just had converted the mailbox,
+	   reopen the source storage */
+	mail_storage_destroy(&source_storage);
+	source_storage = mail_storage_create_with_data(source_data, user,
+						       flags, lock_method);
+	if (source_storage == NULL) {
+		/* No need for conversion anymore. */
+		file_dotlock_delete(&dotlock);
+		return 0;
+	}
+
 	dest_storage = mail_storage_create_with_data(dest_data, user,
 						     flags, lock_method);
 	if (dest_storage == NULL) {
 		i_error("Mailbox conversion: Failed to create destination "
 			"storage with data: %s", dest_data);
+		ret = -1;
+	} else {
+		ret = mailbox_list_copy(source_storage, dest_storage);
 	}
-
-	ret = mailbox_list_copy(source_storage, dest_storage);
 
 	if (ret == 0) {
 		/* all finished. rename the source directory to mark the
@@ -220,7 +232,9 @@ int convert_storage(const char *user, const char *home_dir,
 		ret = 1;
 	}
 
+	file_dotlock_delete(&dotlock);
+	if (dest_storage != NULL)
+		mail_storage_destroy(&dest_storage);
 	mail_storage_destroy(&source_storage);
-	mail_storage_destroy(&dest_storage);
 	return ret;
 }
