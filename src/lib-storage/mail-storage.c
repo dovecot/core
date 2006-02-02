@@ -49,6 +49,36 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 	}
 }
 
+void mail_storage_parse_env(enum mail_storage_flags *flags_r,
+			    enum mail_storage_lock_method *lock_method_r)
+{
+	const char *str;
+
+	*flags_r = 0;
+	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
+		*flags_r |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
+	if (getenv("DEBUG") != NULL)
+		*flags_r |= MAIL_STORAGE_FLAG_DEBUG;
+	if (getenv("MMAP_DISABLE") != NULL)
+		*flags_r |= MAIL_STORAGE_FLAG_MMAP_DISABLE;
+	if (getenv("MMAP_NO_WRITE") != NULL)
+		*flags_r |= MAIL_STORAGE_FLAG_MMAP_NO_WRITE;
+	if (getenv("MAIL_READ_MMAPED") != NULL)
+		*flags_r |= MAIL_STORAGE_FLAG_MMAP_MAILS;
+	if (getenv("MAIL_SAVE_CRLF") != NULL)
+		*flags_r |= MAIL_STORAGE_FLAG_SAVE_CRLF;
+
+	str = getenv("LOCK_METHOD");
+	if (str == NULL || strcmp(str, "flock") == 0)
+		*lock_method_r = MAIL_STORAGE_LOCK_FLOCK;
+	else if (strcmp(str, "fcntl") == 0)
+		*lock_method_r = MAIL_STORAGE_LOCK_FCNTL;
+	else if (strcmp(str, "dotlock") == 0)
+		*lock_method_r = MAIL_STORAGE_LOCK_DOTLOCK;
+	else
+		i_fatal("Unknown lock_method: %s", str);
+}
+
 static struct mail_storage *mail_storage_find(const char *name)
 {
 	struct mail_storage *const *classes;

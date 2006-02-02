@@ -213,6 +213,10 @@ void mail_storage_register_all(void);
 void mail_storage_class_register(struct mail_storage *storage_class);
 void mail_storage_class_unregister(struct mail_storage *storage_class);
 
+/* Returns flags and lock_method based on environment settings. */
+void mail_storage_parse_env(enum mail_storage_flags *flags_r,
+			    enum mail_storage_lock_method *lock_method_r);
+
 /* Create a new instance of registered mail storage class with given
    storage-specific data. If data is NULL, it tries to use defaults.
    May return NULL if anything fails.

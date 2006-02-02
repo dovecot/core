@@ -87,33 +87,10 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 	struct namespace *namespaces, *ns, **ns_p;
 	enum mail_storage_flags flags;
         enum mail_storage_lock_method lock_method;
-	const char *str, *mail, *data;
+	const char *mail, *data;
 	unsigned int i;
 
-	flags = 0;
-	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
-		flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
-	if (getenv("DEBUG") != NULL)
-		flags |= MAIL_STORAGE_FLAG_DEBUG;
-	if (getenv("MMAP_DISABLE") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_DISABLE;
-	if (getenv("MMAP_NO_WRITE") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_NO_WRITE;
-	if (getenv("MAIL_READ_MMAPED") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_MAILS;
-	if (getenv("MAIL_SAVE_CRLF") != NULL)
-		flags |= MAIL_STORAGE_FLAG_SAVE_CRLF;
-
-	str = getenv("LOCK_METHOD");
-	if (str == NULL || strcmp(str, "flock") == 0)
-		lock_method = MAIL_STORAGE_LOCK_FLOCK;
-	else if (strcmp(str, "fcntl") == 0)
-		lock_method = MAIL_STORAGE_LOCK_FCNTL;
-	else if (strcmp(str, "dotlock") == 0)
-		lock_method = MAIL_STORAGE_LOCK_DOTLOCK;
-	else
-		i_fatal("Unknown lock_method: %s", str);
-
+	mail_storage_parse_env(&flags, &lock_method);
         namespaces = NULL; ns_p = &namespaces;
 
 	/* first try NAMESPACE_* environments */

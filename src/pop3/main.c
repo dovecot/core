@@ -152,7 +152,7 @@ static int main_init(void)
         enum mail_storage_flags flags;
         enum mail_storage_lock_method lock_method;
 	struct mail_storage *storage;
-	const char *str, *mail;
+	const char *mail;
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
@@ -200,32 +200,7 @@ static int main_init(void)
 		i_fatal("pop3_uidl_format setting doesn't contain any "
 			"%% variables.");
 
-	flags = 0;
-	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
-		flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
-	if (getenv("DEBUG") != NULL)
-		flags |= MAIL_STORAGE_FLAG_DEBUG;
-	if (getenv("MMAP_DISABLE") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_DISABLE;
-	if (getenv("MMAP_NO_WRITE") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_NO_WRITE;
-	if (getenv("MAIL_READ_MMAPED") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_MAILS;
-	if (getenv("MAIL_SAVE_CRLF") != NULL)
-		flags |= MAIL_STORAGE_FLAG_SAVE_CRLF;
-	if ((uidl_keymask & UIDL_MD5) != 0)
-		flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
-
-	str = getenv("LOCK_METHOD");
-	if (str == NULL || strcmp(str, "flock") == 0)
-		lock_method = MAIL_STORAGE_LOCK_FLOCK;
-	else if (strcmp(str, "fcntl") == 0)
-		lock_method = MAIL_STORAGE_LOCK_FCNTL;
-	else if (strcmp(str, "dotlock") == 0)
-		lock_method = MAIL_STORAGE_LOCK_DOTLOCK;
-	else
-		i_fatal("Unknown lock_method: %s", str);
-
+	mail_storage_parse_env(&flags, &lock_method);
 	storage = mail_storage_create_with_data(mail, getenv("USER"),
 						flags, lock_method);
 	if (storage == NULL) {
