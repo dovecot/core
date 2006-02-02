@@ -75,11 +75,6 @@ static int init_mailbox(struct client *client)
 
 		t = mailbox_transaction_begin(client->mailbox, 0);
 		ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
-		if (ctx == NULL) {
-			client_send_storage_error(client);
-			mailbox_transaction_rollback(&t);
-			break;
-		}
 
 		client->last_seen = 0;
 		client->total_size = 0;

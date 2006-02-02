@@ -20,18 +20,15 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 
 	t = mailbox_transaction_begin(box, 0);
 	ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
-	if (ctx == NULL)
-		failed = TRUE;
-	else {
-		mail = mail_alloc(t, 0, NULL);
-		while (mailbox_search_next(ctx, mail) > 0) {
-			if (mail_expunge(mail) < 0) {
-				failed = TRUE;
-				break;
-			}
+
+	mail = mail_alloc(t, 0, NULL);
+	while (mailbox_search_next(ctx, mail) > 0) {
+		if (mail_expunge(mail) < 0) {
+			failed = TRUE;
+			break;
 		}
-		mail_free(&mail);
 	}
+	mail_free(&mail);
 
 	if (mailbox_search_deinit(&ctx) < 0)
 		return FALSE;

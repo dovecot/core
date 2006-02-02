@@ -24,10 +24,6 @@ static bool imap_search(struct client_command_context *cmd, const char *charset,
 
 	trans = mailbox_transaction_begin(client->mailbox, 0);
 	ctx = mailbox_search_init(trans, charset, sargs, NULL);
-	if (ctx == NULL) {
-		mailbox_transaction_rollback(&trans);
-		return FALSE;
-	}
 
 	str_append(str, "* SEARCH");
 	mail = mail_alloc(trans, 0, NULL);
