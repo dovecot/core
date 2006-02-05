@@ -13,15 +13,16 @@
 #include <stddef.h>
 
 static const struct dotlock_settings new_file_dotlock_set = {
-	NULL,
-	NULL,
+	MEMBER(temp_prefix) NULL,
+	MEMBER(lock_suffix) NULL,
 
-	30, 5, 5,
+	MEMBER(timeout) 60,
+	MEMBER(stale_timeout) 30,
 
-	NULL,
-	NULL,
+	MEMBER(callback) NULL,
+	MEMBER(context) NULL,
 
-	FALSE
+	MEMBER(use_excl_lock) FALSE
 };
 
 static int
@@ -112,6 +113,8 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 			       DBOX_MAIL_FILE_PREFIX"%u",
 			       mbox->path, file_seq);
 	fd = file_dotlock_open(&new_file_dotlock_set, path, 0, &dotlock);
+	if (fd < 0)
+		return -1;
 	output = o_stream_create_file(fd, default_pool, 0, FALSE);
 
 	memset(&dest_entry, 0, sizeof(dest_entry));

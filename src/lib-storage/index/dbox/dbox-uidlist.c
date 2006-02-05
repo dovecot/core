@@ -82,21 +82,29 @@ struct dbox_uidlist_sync_ctx {
 };
 
 const struct dotlock_settings uidlist_dotlock_settings = {
-	NULL, NULL,
+	MEMBER(temp_prefix) NULL,
+	MEMBER(lock_suffix) NULL,
 
-	60, 30, 120,
+	MEMBER(timeout) 120,
+	MEMBER(stale_timeout) 60,
 
-	NULL, NULL,
-	FALSE
+	MEMBER(callback) NULL,
+	MEMBER(context) NULL,
+
+	MEMBER(use_excl_lock) FALSE
 };
 
 const struct dotlock_settings dbox_file_dotlock_set = {
-	NULL, NULL,
+	MEMBER(temp_prefix) NULL,
+	MEMBER(lock_suffix) NULL,
 
-	60, 30, 120,
+	MEMBER(timeout) 120,
+	MEMBER(stale_timeout) 60,
 
-	NULL, NULL,
-	FALSE
+	MEMBER(callback) NULL,
+	MEMBER(context) NULL,
+
+	MEMBER(use_excl_lock) FALSE
 };
 
 struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox)
