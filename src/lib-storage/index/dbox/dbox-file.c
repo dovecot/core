@@ -232,7 +232,8 @@ int dbox_file_header_parse(struct dbox_mailbox *mbox, struct dbox_file *file,
 	}
 
 	i_free(file->seeked_keywords);
-	file->seeked_keywords = i_malloc(file->keyword_count);
+	file->seeked_keywords = file->keyword_count == 0 ? NULL :
+		i_malloc(file->keyword_count);
 	return 0;
 }
 
