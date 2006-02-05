@@ -150,7 +150,6 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	struct pop3_client *client = (struct pop3_client *)_client;
 	struct const_iovec iov[3];
 	size_t data_len;
-	ssize_t ret;
 
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
