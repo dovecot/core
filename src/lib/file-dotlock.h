@@ -41,7 +41,7 @@ enum dotlock_create_flags {
 };
 
 enum dotlock_replace_flags {
-	/* Check that lock file hasn't been overwritten before renaming. */
+	/* Check that lock file hasn't been overridden before renaming. */
 	DOTLOCK_REPLACE_FLAG_VERIFY_OWNER	= 0x01,
 	/* Don't close the file descriptor. */
 	DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD	= 0x02
@@ -66,6 +66,10 @@ int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 /* Replaces the file dotlock protects with the dotlock file itself. */
 int file_dotlock_replace(struct dotlock **dotlock,
 			 enum dotlock_replace_flags flags);
+/* Update dotlock's mtime. If you're keeping the dotlock for a long time,
+   it's a good idea to update it once in a while so others won't override it.
+   If the timestamp is less than a second old, it's not updated. */
+int file_dotlock_touch(struct dotlock *dotlock);
 
 /* Returns the lock file path. */
 const char *file_dotlock_get_lock_path(struct dotlock *dotlock);

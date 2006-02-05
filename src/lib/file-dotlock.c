@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
+#include <utime.h>
 #include <sys/stat.h>
 
 #define DEFAULT_LOCK_SUFFIX ".lock"
@@ -29,7 +30,7 @@ struct dotlock {
 	char *path;
 	int fd;
 
-	time_t lock_time;
+	time_t lock_time, lock_update_mtime;
 };
 
 struct file_change_info {
@@ -434,6 +435,7 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 			dotlock->path = i_strdup(path);
 			dotlock->fd = lock_info.fd;
                         dotlock->lock_time = now;
+                        dotlock->lock_update_mtime = now;
 			lock_info.fd = -1;
 		}
 	}
@@ -643,6 +645,29 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 	}
 	file_dotlock_free(dotlock);
 	return 1;
+}
+
+int file_dotlock_touch(struct dotlock *dotlock)
+{
+	time_t now = time(NULL);
+	struct utimbuf buf;
+	const char *lock_path;
+	int ret = 0;
+
+	if (dotlock->lock_update_mtime == now)
+		return 0;
+
+	dotlock->lock_update_mtime = now;
+	buf.actime = buf.modtime = now;
+
+	t_push();
+	lock_path = file_dotlock_get_lock_path(dotlock);
+	if (utime(lock_path, &buf) < 0) {
+		i_error("utime(%s) failed: %m", lock_path);
+		ret = -1;
+	}
+	t_pop();
+	return ret;
 }
 
 const char *file_dotlock_get_lock_path(struct dotlock *dotlock)
