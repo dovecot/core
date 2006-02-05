@@ -279,7 +279,7 @@ bool index_keyword_array_cmp(const array_t *k1, const array_t *k2)
 	if (!array_is_created(k1))
 		return !array_is_created(k2) || array_count(k2) == 0;
 	if (!array_is_created(k2))
-		return FALSE;
+		return array_count(k1) == 0;
 
 	/* The arrays may not be sorted, but they usually are. Optimize for
 	   the assumption that they are */
