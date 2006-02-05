@@ -35,7 +35,8 @@ static int sync_mailbox(struct mailbox *box)
 	return mailbox_sync_deinit(&ctx, &status);
 }
 
-static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox)
+static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
+			      struct dotlock *dotlock)
 {
 	struct mail_search_context *ctx;
 	struct mailbox_transaction_context *src_trans, *dest_trans;
@@ -61,6 +62,12 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox)
 	while (mailbox_search_next(ctx, mail) > 0) {
 		struct mail_keywords *keywords;
 		const char *const *keywords_list;
+
+		if ((mail->seq % 100) == 0) {
+			/* touch the lock file so that if there are tons of
+			   mails another process won't override our lock. */
+			(void)file_dotlock_touch(dotlock);
+		}
 
 		keywords_list = mail_get_keywords(mail);
 		keywords = strarray_length(keywords_list) == 0 ? NULL :
@@ -93,7 +100,8 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox)
 
 static int mailbox_convert_list_item(struct mail_storage *source_storage,
 				     struct mail_storage *dest_storage,
-				     struct mailbox_list *list)
+				     struct mailbox_list *list,
+				     struct dotlock *dotlock)
 {
 	struct mailbox *srcbox, *destbox;
 	int ret = 0;
@@ -136,7 +144,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 		return -1;
 	}
 
-	if (mailbox_copy_mails(srcbox, destbox) < 0) {
+	if (mailbox_copy_mails(srcbox, destbox, dotlock) < 0) {
 		i_error("Mailbox conversion: Couldn't copy mailbox %s",
 			mailbox_get_name(srcbox));
 	}
@@ -147,7 +155,8 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 }
 
 static int mailbox_list_copy(struct mail_storage *source_storage,
-			     struct mail_storage *dest_storage)
+			     struct mail_storage *dest_storage,
+			     struct dotlock *dotlock)
 {
 	struct mailbox_list_context *iter;
 	struct mailbox_list *list;
@@ -157,10 +166,14 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
                                               MAILBOX_LIST_FAST_FLAGS);
 	while ((list = mail_storage_mailbox_list_next(iter)) != NULL) {
 		if (mailbox_convert_list_item(source_storage, dest_storage,
-					      list) < 0) {
+					      list, dotlock) < 0) {
 			ret = -1;
 			break;
 		}
+
+		/* In case there are lots of mailboxes. Also the other touch
+		   is done only after 100 mails. */
+		(void)file_dotlock_touch(dotlock);
 	}
 	if (mail_storage_mailbox_list_deinit(&iter) < 0)
 		ret = -1;
@@ -211,7 +224,7 @@ int convert_storage(const char *user, const char *home_dir,
 			"storage with data: %s", dest_data);
 		ret = -1;
 	} else {
-		ret = mailbox_list_copy(source_storage, dest_storage);
+		ret = mailbox_list_copy(source_storage, dest_storage, dotlock);
 	}
 
 	if (ret == 0) {
