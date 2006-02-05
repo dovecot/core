@@ -21,8 +21,7 @@
 
 /* this lock should never exist for a long time.. */
 #define LOG_DOTLOCK_TIMEOUT 60
-#define LOG_DOTLOCK_STALE_TIMEOUT 0
-#define LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT 60
+#define LOG_DOTLOCK_STALE_TIMEOUT 60
 
 #define MAIL_TRANSACTION_LOG_SUFFIX ".log"
 #define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
@@ -230,8 +229,6 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 
 	log->dotlock_settings.timeout = LOG_DOTLOCK_TIMEOUT;
 	log->dotlock_settings.stale_timeout = LOG_DOTLOCK_STALE_TIMEOUT;
-	log->dotlock_settings.immediate_stale_timeout =
-		LOG_DOTLOCK_IMMEDIATE_STALE_TIMEOUT;
 
 	log->new_dotlock_settings = log->dotlock_settings;
 	log->new_dotlock_settings.lock_suffix = LOG_NEW_DOTLOCK_SUFFIX;

@@ -14,7 +14,6 @@
 
 #define SUBSCRIPTION_FILE_LOCK_TIMEOUT 120
 #define SUBSCRIPTION_FILE_CHANGE_TIMEOUT 30
-#define SUBSCRIPTION_FILE_IMMEDIATE_TIMEOUT (5*60)
 
 struct subsfile_list_context {
 	pool_t pool;
@@ -85,7 +84,6 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	dotlock_set.temp_prefix = temp_prefix;
 	dotlock_set.timeout = SUBSCRIPTION_FILE_LOCK_TIMEOUT;
 	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;
-	dotlock_set.immediate_stale_timeout = SUBSCRIPTION_FILE_IMMEDIATE_TIMEOUT;
 
 	/* FIXME: set lock notification callback */
 	fd_out = file_dotlock_open(&dotlock_set, path, 0, &dotlock);

@@ -31,7 +31,6 @@
 
 #define MAIL_CACHE_LOCK_TIMEOUT 120
 #define MAIL_CACHE_LOCK_CHANGE_TIMEOUT 60
-#define MAIL_CACHE_LOCK_IMMEDIATE_TIMEOUT (5*60)
 
 #define CACHE_RECORD(cache, offset) \
 	((const struct mail_cache_record *) \

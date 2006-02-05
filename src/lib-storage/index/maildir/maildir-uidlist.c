@@ -17,7 +17,7 @@
 #include <utime.h>
 
 /* how many seconds to wait before overriding uidlist.lock */
-#define UIDLIST_LOCK_STALE_TIMEOUT (60*5)
+#define UIDLIST_LOCK_STALE_TIMEOUT (60*2)
 
 #define UIDLIST_IS_LOCKED(uidlist) \
 	((uidlist)->lock_count > 0)
@@ -148,10 +148,8 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 				     maildir_hash, maildir_cmp);
 	uidlist->next_uid = 1;
 
-	uidlist->dotlock_settings.timeout = UIDLIST_LOCK_STALE_TIMEOUT;
+	uidlist->dotlock_settings.timeout = UIDLIST_LOCK_STALE_TIMEOUT + 2;
 	uidlist->dotlock_settings.stale_timeout = UIDLIST_LOCK_STALE_TIMEOUT;
-	uidlist->dotlock_settings.immediate_stale_timeout =
-		UIDLIST_LOCK_STALE_TIMEOUT;
 	uidlist->dotlock_settings.temp_prefix =
 		INDEX_STORAGE(mbox->storage)->temp_prefix;
 

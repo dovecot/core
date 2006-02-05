@@ -11,17 +11,16 @@
 #define CONVERT_LOCK_FILENAME ".dovecot.convert"
 
 const struct dotlock_settings dotlock_settings = {
-	NULL,
-	NULL,
+	MEMBER(temp_prefix) NULL,
+	MEMBER(lock_suffix) NULL,
 
-	60*5,
-	0,
-	60*5,
+	MEMBER(timeout) 60*5,
+	MEMBER(stale_timeout) 60*5,
 
-	NULL,
-	NULL,
+	MEMBER(callback) NULL,
+	MEMBER(context) NULL,
 
-	FALSE
+	MEMBER(use_excl_lock) FALSE
 };
 
 static int sync_mailbox(struct mailbox *box)

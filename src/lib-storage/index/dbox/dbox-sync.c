@@ -253,6 +253,9 @@ dbox_sync_reset_keyword(struct dbox_sync_context *ctx,
 	unsigned int first_flag_offset;
 	int ret;
 
+	if (ctx->mbox->file->keyword_count == 0)
+		return 0;
+
 	t_push();
 	keyword_array = t_malloc(ctx->mbox->file->keyword_count);
 	keyword_mask = t_malloc(ctx->mbox->file->keyword_count);

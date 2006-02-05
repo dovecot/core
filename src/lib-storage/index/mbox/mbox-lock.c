@@ -25,7 +25,7 @@
 /* lock timeout */
 #define DEFAULT_LOCK_TIMEOUT (10*60)
 /* assume stale dotlock if mbox file hasn't changed for n seconds */
-#define DEFAULT_DOTLOCK_CHANGE_TIMEOUT (5*60)
+#define DEFAULT_DOTLOCK_CHANGE_TIMEOUT (10)
 
 enum mbox_lock_type {
 	MBOX_LOCK_DOTLOCK,

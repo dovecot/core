@@ -17,11 +17,9 @@ struct dotlock_settings {
 
 	/* Abort after this many seconds. */
 	unsigned int timeout;
-	/* If file specified in path doesn't change in stale_timeout seconds
-	   and it's still locked, override the lock file. */
+	/* Override the lock file when it and the file we're protecting is
+	   older than stale_timeout. */
 	unsigned int stale_timeout;
-	/* If file is older than this, override the lock immediately. */
-	unsigned int immediate_stale_timeout;
 
 	/* Callback is called once in a while. stale is set to TRUE if stale
 	   lock is detected and will be overridden in secs_left. If callback

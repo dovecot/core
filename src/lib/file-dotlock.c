@@ -32,22 +32,24 @@ struct dotlock {
 	time_t lock_time;
 };
 
+struct file_change_info {
+	dev_t dev;
+	ino_t ino;
+	off_t size;
+	time_t ctime, mtime;
+};
+
 struct lock_info {
 	const struct dotlock_settings *set;
 	const char *path, *lock_path, *temp_path;
 	int fd;
 
-	dev_t dev;
-	ino_t ino;
-	off_t size;
-	time_t ctime, mtime;
-
-	off_t last_size;
-	time_t last_ctime, last_mtime;
-	time_t last_change;
+	struct file_change_info lock_info;
+	struct file_change_info file_info;
 
 	bool have_pid;
 	time_t last_pid_check;
+	time_t last_change;
 };
 
 static struct dotlock *
@@ -100,10 +102,33 @@ static pid_t read_local_pid(const char *lock_path)
 	return (pid_t)strtoul(buf, NULL, 0);
 }
 
+static bool
+update_change_info(const struct stat *st, struct file_change_info *change,
+		   time_t *last_change_r, time_t now)
+{
+	if (change->ino != st->st_ino || !CMP_DEV_T(change->dev, st->st_dev) ||
+	    change->ctime != st->st_ctime || change->mtime != st->st_mtime ||
+	    change->size != st->st_size) {
+		time_t change_time = now;
+
+		if (change->ctime == 0) {
+			/* first check, set last_change to file's change time */
+			change_time = I_MAX(st->st_ctime, st->st_mtime);
+		}
+		if (*last_change_r < change_time)
+			*last_change_r = change_time;
+		change->ino = st->st_ino;
+		change->dev = st->st_dev;
+		change->ctime = st->st_ctime;
+		change->mtime = st->st_mtime;
+		change->size = st->st_size;
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static int check_lock(time_t now, struct lock_info *lock_info)
 {
-	time_t immediate_stale_timeout =
-		lock_info->set->immediate_stale_timeout;
 	time_t stale_timeout = lock_info->set->stale_timeout;
 	struct stat st;
 	pid_t pid;
@@ -116,32 +141,11 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		return 1;
 	}
 
-	if (lock_info->set->immediate_stale_timeout != 0 &&
-	    now > st.st_mtime + immediate_stale_timeout &&
-	    now > st.st_ctime + immediate_stale_timeout) {
-		/* old lock file */
-		if (unlink(lock_info->lock_path) < 0 && errno != ENOENT) {
-			i_error("unlink(%s) failed: %m", lock_info->lock_path);
-			return -1;
-		}
-		return 1;
-	}
-
-	if (lock_info->ino != st.st_ino ||
-	    !CMP_DEV_T(lock_info->dev, st.st_dev) ||
-	    lock_info->ctime != st.st_ctime ||
-	    lock_info->mtime != st.st_mtime ||
-	    lock_info->size != st.st_size) {
+	if (update_change_info(&st, &lock_info->lock_info,
+			       &lock_info->last_change, now)) {
 		/* either our first check or someone else got the lock file. */
-		lock_info->dev = st.st_dev;
-		lock_info->ino = st.st_ino;
-		lock_info->ctime = st.st_ctime;
-		lock_info->mtime = st.st_mtime;
-		lock_info->size = st.st_size;
-
 		pid = read_local_pid(lock_info->lock_path);
 		lock_info->have_pid = pid != -1;
-		lock_info->last_change = now;
 	} else if (!lock_info->have_pid) {
 		/* no pid checking */
 		pid = -1;
@@ -181,7 +185,9 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		return 0;
 	}
 
-	if (lock_info->last_change != now) {
+	if (now > lock_info->last_change + stale_timeout) {
+		/* possibly stale lock file. check also the timestamp of the
+		   file we're protecting. */
 		if (stat(lock_info->path, &st) < 0) {
 			if (errno == ENOENT) {
 				/* file doesn't exist. treat it as if
@@ -190,13 +196,9 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 				i_error("stat(%s) failed: %m", lock_info->path);
 				return -1;
 			}
-		} else if (lock_info->last_size != st.st_size ||
-			   lock_info->last_ctime != st.st_ctime ||
-			   lock_info->last_mtime != st.st_mtime) {
-			lock_info->last_change = now;
-			lock_info->last_size = st.st_size;
-			lock_info->last_ctime = st.st_ctime;
-			lock_info->last_mtime = st.st_mtime;
+		} else {
+			(void)update_change_info(&st, &lock_info->file_info,
+						 &lock_info->last_change, now);
 		}
 	}
 
@@ -368,7 +370,6 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 	lock_info.path = path;
 	lock_info.set = set;
 	lock_info.lock_path = lock_path;
-	lock_info.last_change = now;
 	lock_info.fd = -1;
 
 	last_notify = 0; do_wait = FALSE;
