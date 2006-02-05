@@ -2,6 +2,8 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "env-util.h"
+#include "log.h"
 #include "ssl-init.h"
 
 #ifdef HAVE_SSL
@@ -15,54 +17,41 @@
 static struct timeout *to;
 static bool generating;
 
-static void generate_parameters_file(const char *fname)
-{
-	const char *temp_fname;
-	mode_t old_mask;
-	int fd;
-
-	temp_fname = t_strconcat(fname, ".tmp", NULL);
-	(void)unlink(temp_fname);
-
-	old_mask = umask(0);
-	fd = open(temp_fname, O_WRONLY | O_CREAT | O_EXCL, 0644);
-	umask(old_mask);
-
-	if (fd == -1) {
-		i_fatal("Can't create temporary SSL parameters file %s: %m",
-			temp_fname);
-	}
-
-	_ssl_generate_parameters(fd, temp_fname);
-
-	if (close(fd) < 0)
-		i_fatal("close(%s) failed: %m", temp_fname);
-
-	if (rename(temp_fname, fname) < 0)
-		i_fatal("rename(%s, %s) failed: %m", temp_fname, fname);
-
-	i_info("SSL parameters regeneration completed");
-}
-
 static void start_generate_process(const char *fname)
 {
+	const char *binpath = PKG_LIBEXECDIR"/ssl-build-param";
+	struct log_io *log;
 	pid_t pid;
+	int log_fd;
 
-	pid = fork();
-	if (pid < 0) {
-		i_error("fork() failed: %m");
+	log_fd = log_create_pipe(&log, 10);
+	if (log_fd == -1)
+		pid = -1;
+	else {
+		pid = fork();
+		if (pid < 0)
+			i_error("fork() failed: %m");
+	}
+	if (pid == -1) {
+		(void)close(log_fd);
 		return;
 	}
 
-	if (pid == 0) {
-		/* child */
-		generate_parameters_file(fname);
-		exit(0);
-	} else {
+	log_set_prefix(log, "ssl-build-param: ");
+	if (pid != 0) {
 		/* parent */
 		generating = TRUE;
 		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_SSL_PARAM);
+		return;
 	}
+
+	/* child. */
+	if (dup2(log_fd, 2) < 0)
+		i_fatal("dup2(stderr) failed: %m");
+
+	child_process_init_env();
+	client_process_exec(t_strconcat(binpath, " ", fname, NULL), "");
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", binpath);
 }
 
 void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
@@ -70,7 +59,7 @@ void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
 	generating = FALSE;
 }
 
-static bool check_parameters_file_set(struct settings *set, bool foreground)
+static bool check_parameters_file_set(struct settings *set)
 {
 	const char *path;
 	struct stat st;
@@ -100,27 +89,19 @@ static bool check_parameters_file_set(struct settings *set, bool foreground)
 		(st.st_mtime + (time_t)(set->ssl_parameters_regenerate*3600));
 	if (regen_time < ioloop_time || st.st_size == 0 ||
 	    st.st_uid != master_uid) {
-		if (foreground) {
-			i_info("Generating Diffie-Hellman parameters. "
-			       "This may take a while..");
-			generate_parameters_file(path);
-		} else {
-			if (st.st_mtime == 0) {
-				i_info("Generating Diffie-Hellman parameters "
-				       "for the first time. This may take "
-				       "a while..");
-			}
-			start_generate_process(path);
+		if (st.st_mtime == 0) {
+			i_info("Generating Diffie-Hellman parameters "
+			       "for the first time. This may take "
+			       "a while..");
 		}
+		start_generate_process(path);
 		return FALSE;
-	} else if (foreground) {
-		i_info("Diffie-Hellman parameter file already exists.");
 	}
 
 	return TRUE;
 }
 
-void ssl_check_parameters_file(bool foreground)
+void ssl_check_parameters_file(void)
 {
 	struct server_settings *server;
 
@@ -129,14 +110,14 @@ void ssl_check_parameters_file(bool foreground)
 
 	for (server = settings_root; server != NULL; server = server->next) {
 		if (server->defaults != NULL &&
-		    !check_parameters_file_set(server->defaults, foreground))
+		    !check_parameters_file_set(server->defaults))
 			break;
 	}
 }
 
 static void check_parameters_file_timeout(void *context __attr_unused__)
 {
-	ssl_check_parameters_file(FALSE);
+	ssl_check_parameters_file();
 }
 
 void ssl_init(void)
@@ -146,7 +127,7 @@ void ssl_init(void)
 	/* check every 10 mins */
 	to = timeout_add(600 * 1000, check_parameters_file_timeout, NULL);
 
-        ssl_check_parameters_file(FALSE);
+        ssl_check_parameters_file();
 }
 
 void ssl_deinit(void)
@@ -157,7 +138,7 @@ void ssl_deinit(void)
 #else
 
 void ssl_parameter_process_destroyed(pid_t pid __attr_unused__) {}
-void ssl_check_parameters_file(bool foreground __attr_unused__) {}
+void ssl_check_parameters_file(void) {}
 void ssl_init(void) {}
 void ssl_deinit(void) {}
 

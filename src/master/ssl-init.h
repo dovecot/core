@@ -5,7 +5,7 @@
 
 void ssl_parameter_process_destroyed(pid_t pid);
 
-void ssl_check_parameters_file(bool foreground);
+void ssl_check_parameters_file(void);
 void _ssl_generate_parameters(int fd, const char *fname);
 
 void ssl_init(void);

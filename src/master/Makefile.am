@@ -1,6 +1,7 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
 sbin_PROGRAMS = dovecot
+pkglibexec_PROGRAMS = ssl-build-param
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -13,8 +14,7 @@ AM_CPPFLAGS = \
 
 dovecot_LDADD = \
 	../lib-settings/libsettings.a \
-	../lib/liblib.a \
-	$(SSL_LIBS)
+	../lib/liblib.a
 
 dovecot_SOURCES = \
 	auth-process.c \
@@ -26,9 +26,7 @@ dovecot_SOURCES = \
 	main.c \
 	master-settings.c \
 	syslog-util.c \
-	ssl-init.c \
-	ssl-init-gnutls.c \
-	ssl-init-openssl.c
+	ssl-init.c
 
 noinst_HEADERS = \
 	auth-process.h \
@@ -42,3 +40,13 @@ noinst_HEADERS = \
 	master-settings.h \
 	syslog-util.h \
 	ssl-init.h
+
+ssl_build_param_SOURCES = \
+	ssl-init-main.c \
+	ssl-init-openssl.c \
+	ssl-init-gnutls.c
+
+ssl_build_param_LDADD = \
+	../lib/liblib.a \
+	$(SSL_LIBS)
+

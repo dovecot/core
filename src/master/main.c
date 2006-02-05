@@ -32,7 +32,7 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 	"login",
 	"imap",
 	"pop3",
-	"ssl-param",
+	"ssl-build-param",
 	"dict"
 };
 
@@ -44,6 +44,7 @@ struct ioloop *ioloop;
 struct hash_table *pids;
 int null_fd, inetd_login_fd;
 uid_t master_uid;
+char program_path[PATH_MAX];
 char ssl_manual_key_password[100];
 #ifdef DEBUG
 static bool gdb;
@@ -604,7 +605,7 @@ static void daemonize(struct settings *set)
 static void print_help(void)
 {
 	printf(
-"Usage: dovecot [-F] [-c <config file>] [-p] [--build-ssl-parameters]\n"
+"Usage: dovecot [-F] [-c <config file>] [-p]\n"
 "       [--exec-mail <protocol>] [--version] [--build-options]\n");
 }
 
@@ -704,7 +705,7 @@ int main(int argc, char *argv[])
 {
 	/* parse arguments */
 	const char *exec_protocol = NULL, *exec_section = NULL, *user, *home;
-	bool foreground = FALSE, ask_key_pass = FALSE, build_parameters = FALSE;
+	bool foreground = FALSE, ask_key_pass = FALSE;
 	int i;
 
 #ifdef DEBUG
@@ -734,8 +735,6 @@ int main(int argc, char *argv[])
 			exec_protocol = argv[i];
 			if (i+1 != argc) 
 				exec_section = argv[++i];
-		} else if (strcmp(argv[i], "--build-ssl-parameters") == 0) {
-			build_parameters = TRUE;
 		} else if (strcmp(argv[i], "--version") == 0) {
 			printf("%s\n", VERSION);
 			return 0;
@@ -774,10 +773,6 @@ int main(int argc, char *argv[])
 		askpass(prompt, ssl_manual_key_password,
 			sizeof(ssl_manual_key_password));
 		t_pop();
-	}
-	if (build_parameters) {
-		ssl_check_parameters_file(TRUE);
-		exit(0);
 	}
 
 	/* save TZ environment. AIX depends on it to get the timezone

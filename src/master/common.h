@@ -24,6 +24,7 @@ extern struct ioloop *ioloop;
 extern struct hash_table *pids;
 extern int null_fd, inetd_login_fd;
 extern uid_t master_uid;
+extern char program_path[];
 extern const char *process_names[];
 extern char ssl_manual_key_password[];
 
