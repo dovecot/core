@@ -237,7 +237,7 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 	enum passdb_result result;
 	int ret, status, status2;
 	const char *str;
-	char buf_data[512];
+	size_t size;
 	buffer_t *buf;
 
 	conv.conv = pam_userpass_conv;
@@ -269,16 +269,16 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 		}
 	}
 
-	buf = buffer_create_data(pool_datastack_create(),
-				 buf_data, sizeof(buf_data));
+	buf = buffer_create_dynamic(pool_datastack_create(), 512);
 	buffer_append(buf, &result, sizeof(result));
 
-	if (str != NULL) {
-		/* may truncate the error. tough luck. */
+	if (str != NULL) 
 		buffer_append(buf, str, strlen(str));
-	}
 
-	if ((ret = write(fd, buf_data, buf->used)) != (int)buf->used) {
+	/* Don't send larger writes than what would block. truncated error
+	   message isn't that bad.. */
+        size = I_MIN(buf->used, PIPE_BUF);
+	if ((ret = write(fd, buf->data, size)) != (int)size) {
 		if (ret < 0)
 			i_error("write() failed: %m");
 		else {
@@ -293,11 +293,11 @@ static void pam_child_input(void *context)
 	struct pam_auth_request *request = context;
 	struct auth_request *auth_request = request->request;
 	enum passdb_result result;
-	char buf[513];
+	char buf[PIPE_BUF + 1];
 	ssize_t ret;
 
-	/* POSIX guarantees that writing 512 bytes or less to pipes is atomic.
-	   We rely on that. */
+	/* POSIX guarantees that writing PIPE_BUF bytes or less to pipes is
+	   atomic. We rely on that. */
 	ret = read(request->fd, buf, sizeof(buf)-1);
 	if (ret < 0) {
 		auth_request_log_error(auth_request, "pam",
