@@ -55,7 +55,7 @@ struct sort_context {
 static void mail_sort_input(struct sort_context *ctx, struct mail *mail);
 static void mail_sort_flush(struct sort_context *ctx);
 
-static enum mail_sort_type
+static void
 mail_sort_normalize(const enum mail_sort_type *input, buffer_t *output)
 {
         enum mail_sort_type type, mask = 0;
@@ -83,8 +83,6 @@ mail_sort_normalize(const enum mail_sort_type *input, buffer_t *output)
 
 	type = MAIL_SORT_END;
 	buffer_append(output, &type, sizeof(type));
-
-	return mask;
 }
 
 static enum mail_sort_type
@@ -205,7 +203,9 @@ int imap_sort(struct client_command_context *cmd, const char *charset,
 
 	ctx = t_new(struct sort_context, 1);
 
-	/* normalize sorting program */
+	/* normalize sorting program. note that although we're using a hard
+	   buffer size here, it shouldn't be possible to overflow it since
+	   the normalized sort program can't exceed MAX_SORT_PROGRAM_SIZE. */
 	buf = buffer_create_data(pool_datastack_create(),
 				 norm_prog, sizeof(norm_prog));
 	mail_sort_normalize(sort_program, buf);
