@@ -22,6 +22,10 @@
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
+/* Don't allow creating too long mailbox names. They could start causing
+   problems when they reach the limit. */
+#define MBOX_MAX_MAILBOX_NAME_LENGTH (PATH_MAX/2)
+
 /* NOTE: must be sorted for istream-header-filter. Note that it's not such
    a good idea to change this list, as the messages will then change from
    client's point of view. So if you do it, change all mailboxes' UIDVALIDITY
@@ -384,7 +388,8 @@ static bool mbox_is_valid_create_name(struct mail_storage *storage,
 
 	len = strlen(name);
 	if (name[0] == '\0' || name[len-1] == '/' ||
-	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
+	    strchr(name, '*') != NULL || strchr(name, '%') != NULL ||
+	    len > MBOX_MAX_MAILBOX_NAME_LENGTH)
 		return FALSE;
 
 	return mbox_is_valid_mask(storage, name);

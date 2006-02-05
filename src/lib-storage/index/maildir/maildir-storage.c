@@ -18,6 +18,10 @@
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
+/* Don't allow creating too long mailbox names. They could start causing
+   problems when they reach the limit. */
+#define MAILDIR_MAX_MAILBOX_NAME_LENGTH (PATH_MAX/2)
+
 struct rename_context {
 	bool found;
 	size_t oldnamelen;
@@ -179,8 +183,8 @@ static bool maildir_is_valid_create_name(struct mail_storage *storage,
 	size_t len;
 
 	len = strlen(name);
-	if (len == 0 || name[0] == MAILDIR_FS_SEP ||
-	    name[len-1] == MAILDIR_FS_SEP ||
+	if (len == 0 || len > MAILDIR_MAX_MAILBOX_NAME_LENGTH ||
+	    name[0] == MAILDIR_FS_SEP || name[len-1] == MAILDIR_FS_SEP ||
 	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
 		return FALSE;
 
