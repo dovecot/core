@@ -187,6 +187,18 @@ struct module *module_dir_load(const char *dir, bool require_init_funcs)
 	return modules;
 }
 
+void module_dir_deinit(struct module *modules)
+{
+	struct module *module;
+
+	for (module = modules; module != NULL; module = module->next) {
+		if (module->deinit != NULL) {
+			module->deinit();
+			module->deinit = NULL;
+		}
+	}
+}
+
 void module_dir_unload(struct module **modules)
 {
 	struct module *module, *next;
@@ -208,7 +220,11 @@ struct module *module_dir_load(const char *dir __attr_unused__,
 	return NULL;
 }
 
-void module_dir_unload(struct module *modules __attr_unused__)
+void module_dir_deinit(struct module *modules __attr_unused__)
+{
+}
+
+void module_dir_unload(struct module **modules __attr_unused__)
 {
 }
 

@@ -12,6 +12,9 @@ struct module {
 
 /* Load all modules in given directory. */
 struct module *module_dir_load(const char *dir, bool require_init_funcs);
+/* Call deinit() in all modules and mark them NULL so module_dir_unload()
+   won't do it again. */
+void module_dir_deinit(struct module *modules);
 /* Unload all modules */
 void module_dir_unload(struct module **modules);
 
