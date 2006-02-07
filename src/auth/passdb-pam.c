@@ -329,6 +329,7 @@ static void pam_child_input(void *context)
 		}
 	}
 
+	io_remove(&request->io);
 	if (close(request->fd) < 0) {
 		auth_request_log_error(auth_request, "pam",
 				       "close(child input) failed: %m");
@@ -337,7 +338,6 @@ static void pam_child_input(void *context)
 	request->callback(result, auth_request);
 	auth_request_unref(&auth_request);
 
-	io_remove(&request->io);
 	i_free(request);
 }
 
