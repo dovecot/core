@@ -103,7 +103,7 @@ static int module_name_cmp(const void *p1, const void *p2)
 	if (strncmp(n1, "lib", 3) == 0)
 		n1 += 3;
 	if (strncmp(n2, "lib", 3) == 0)
-		n1 += 3;
+		n2 += 3;
 
 	return strcmp(n1, n2);
 }
