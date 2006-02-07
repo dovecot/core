@@ -188,6 +188,7 @@ void imap_quota_plugin_init(void)
 	command_register("GETQUOTAROOT", cmd_getquotaroot);
 	command_register("GETQUOTA", cmd_getquota);
 	command_register("SETQUOTA", cmd_setquota);
+	str_append(capability_string, " QUOTA");
 }
 
 void imap_quota_plugin_deinit(void)
