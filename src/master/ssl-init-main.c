@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#ifdef HAVE_SSL
 static void generate_parameters_file(const char *fname)
 {
 	const char *temp_fname;
@@ -38,6 +39,12 @@ static void generate_parameters_file(const char *fname)
 
 	i_info("SSL parameters regeneration completed");
 }
+#else
+static void generate_parameters_file(const char *fname __attr_unused__)
+{
+	i_fatal("Dovecot built without SSL support");
+}
+#endif
 
 int main(int argc, char *argv[])
 {
