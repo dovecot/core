@@ -392,7 +392,7 @@ static int client_dict_transaction_commit(struct dict_transaction_context *_ctx)
 		ret = -1;
 	else {
 		t_push();
-		query = t_strdup_printf("%c%u", !ctx->failed ?
+		query = t_strdup_printf("%c%u\n", !ctx->failed ?
 					DICT_PROTOCOL_CMD_COMMIT :
 					DICT_PROTOCOL_CMD_ROLLBACK,
 					ctx->id);
@@ -425,7 +425,7 @@ client_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 
 	if (ctx->connect_counter == dict->connect_counter) {
 		t_push();
-		query = t_strdup_printf("%c%u", DICT_PROTOCOL_CMD_ROLLBACK,
+		query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_ROLLBACK,
 					ctx->id);
 		(void)client_dict_send_query(dict, query);
 		t_pop();
@@ -445,7 +445,8 @@ static void client_dict_set(struct dict_transaction_context *_ctx,
 		return;
 
 	t_push();
-	query = t_strdup_printf("%c%u\t%s\t%s", DICT_PROTOCOL_CMD_SET, ctx->id,
+	query = t_strdup_printf("%c%u\t%s\t%s\n",
+				DICT_PROTOCOL_CMD_SET, ctx->id,
 				dict_client_escape(key),
 				dict_client_escape(value));
 	if (client_dict_send_query(dict, query) < 0)
@@ -454,7 +455,7 @@ static void client_dict_set(struct dict_transaction_context *_ctx,
 }
 
 static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
-				const char *key, long long diff)
+				   const char *key, long long diff)
 {
 	struct client_dict_transaction_context *ctx =
 		(struct client_dict_transaction_context *)_ctx;
@@ -465,7 +466,8 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		return;
 
 	t_push();
-	query = t_strdup_printf("%c%u\t%s\t%lld", DICT_PROTOCOL_CMD_ATOMIC_INC,
+	query = t_strdup_printf("%c%u\t%s\t%lld\n",
+				DICT_PROTOCOL_CMD_ATOMIC_INC,
 				ctx->id, dict_client_escape(key), diff);
 	if (client_dict_send_query(dict, query) < 0)
 		ctx->failed = TRUE;
