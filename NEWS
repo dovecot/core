@@ -1,3 +1,30 @@
+v1.0.beta3 2006-02-08  Timo Sirainen <tss@iki.fi>
+
+	* Dotlock code changed to timeout faster in some situations when
+	  the lock file is old.
+	+ Added support for loading SQL drivers dynamically (see INSTALL file
+	  for how to build them)
+	+ Keywords are stored to dboxes, and other dbox improvements.
+	+ dict-sql could actually work now, making quota-in-sql-database
+	  possibly working now (not fully tested)
+	+ Added mail storage conversion plugin to convert automatically from
+	  one mailbox format to another while user logs in. Doesn't preserve
+	  UIDVALIDITY/UIDs though.
+	+ Added plugin { .. } section to dovecot.conf for passing parameters
+	  to plugins (see dovecot-example.conf).
+	+ Added ssl-build-param binary which is used to generate
+	  ssl-parameters.dat. Main dovecot binary doesn't anymore link to
+	  SSL libraries, and this also makes the process title be clearer
+	  about why the process is eating all the CPU.
+	- Fix building without OpenSSL
+	- Fixed memory leak in MySQL driver
+	- Fixes to checkpassword
+	- Broken Content-Length header could have broken mbox opening
+	- Fixed potential hangs after APPEND command
+	- Fixed potential crashes in dovecot-auth and imap/pop3-login
+	- zlib plugin now links with -lz so it could actually work
+	- kqueue fixes by Vaclav Haisman
+
 v1.0.beta2 2006-01-22  Timo Sirainen <tss@iki.fi>
 
 	+ Added SQLite support. Patch by Jakob Hirsch.
