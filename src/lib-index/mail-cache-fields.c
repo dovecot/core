@@ -17,7 +17,7 @@ void mail_cache_register_fields(struct mail_cache *cache,
 {
 	void *orig_key, *orig_value;
 	unsigned int new_idx;
-	size_t i;
+	unsigned int i, j;
 
 	new_idx = cache->fields_count;
 	for (i = 0; i < fields_count; i++) {
@@ -28,7 +28,17 @@ void mail_cache_register_fields(struct mail_cache *cache,
 			continue;
 		}
 
-		fields[i].idx = new_idx++;
+		/* check if the same header is being registered in the
+		   same field array */
+		for (j = 0; j < i; j++) {
+			if (strcasecmp(fields[i].name, fields[j].name) == 0) {
+				fields[i].idx = fields[j].idx;
+				break;
+			}
+		}
+
+		if (j == i)
+			fields[i].idx = new_idx++;
 	}
 
 	if (new_idx == cache->fields_count)
