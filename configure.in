@@ -1628,10 +1628,10 @@ dnl **
 dnl ** storage classes
 dnl **
 
-maildir_libs='$(top_srcdir)/src/lib-storage/index/maildir/libstorage_maildir.a'
-mbox_libs='$(top_srcdir)/src/lib-storage/index/mbox/libstorage_mbox.a'
-dbox_libs='$(top_srcdir)/src/lib-storage/index/dbox/libstorage_dbox.a'
-index_libs='$(top_srcdir)/src/lib-storage/index/libstorage_index.a $(top_srcdir)/src/lib-index/libindex.a'
+maildir_libs='$(top_builddir)/src/lib-storage/index/maildir/libstorage_maildir.a'
+mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.a'
+dbox_libs='$(top_builddir)/src/lib-storage/index/dbox/libstorage_dbox.a'
+index_libs='$(top_builddir)/src/lib-storage/index/libstorage_index.a $(top_builddir)/src/lib-index/libindex.a'
 
 STORAGE_LIBS=
 for storage in $mail_storages; do

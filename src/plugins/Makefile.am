@@ -2,4 +2,4 @@ if BUILD_ZLIB
 ZLIB = zlib
 endif
 
-SUBDIRS = quota imap-quota trash $(ZLIB)
+SUBDIRS = convert quota imap-quota trash $(ZLIB)

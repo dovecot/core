@@ -24,14 +24,14 @@ convert_tool_SOURCES = \
 	convert-tool.c
 
 libs = \
-	$(top_srcdir)/src/lib-storage/register/libstorage-register.a \
+	$(top_builddir)/src/lib-storage/register/libstorage-register.a \
 	$(STORAGE_LIBS) \
-	$(top_srcdir)/src/lib-storage/libstorage.a \
-	$(top_srcdir)/src/lib-storage/subscription-file/libstorage_subscription_file.a \
-	$(top_srcdir)/src/lib-imap/libimap.a \
-	$(top_srcdir)/src/lib-mail/libmail.a \
-	$(top_srcdir)/src/lib-charset/libcharset.a \
-	$(top_srcdir)/src/lib/liblib.a
+	$(top_builddir)/src/lib-storage/libstorage.a \
+	$(top_builddir)/src/lib-storage/subscription-file/libstorage_subscription_file.a \
+	$(top_builddir)/src/lib-imap/libimap.a \
+	$(top_builddir)/src/lib-mail/libmail.a \
+	$(top_builddir)/src/lib-charset/libcharset.a \
+	$(top_builddir)/src/lib/liblib.a
 
 convert_tool_LDADD = \
 	$(libs) \
