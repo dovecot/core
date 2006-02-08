@@ -664,9 +664,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	}
 
 	if (ret == 0 && mail_cache_need_compress(index->cache)) {
-		if (mail_cache_compress(index->cache, ctx->view) < 0)
-			ret = -1;
-		else {
+		/* if cache compression fails, we don't really care */
+		if (mail_cache_compress(index->cache, ctx->view) == 0) {
 			/* cache_offsets have changed, sync them */
 			if (mail_index_sync_set_log_view(ctx->view,
 							 seq, offset) < 0)
