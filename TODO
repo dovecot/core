@@ -1,5 +1,9 @@
+ - lda: change "unsupported feature" error to something better
+ - imaptest: imap-login: Master sent reply with unknown tag 1
+     - client closed connection at the exact same time master was logging it
+       in? master_request_abort()
+ - delete >30min old dovecot.index.log.2 files when opening index?
  - dict-server should have some config file which lists the allowed dicts
- - file_dotlock_open()/create() should maybe take file creation mode..
  - inetd: pop3-login logs in with imap executable
  - with blocking passdb we're not caching lookups if the password was wrong
  - LIST replies 2049 bytes (more would come) -> dovecot gets stuck?
@@ -41,13 +45,7 @@ x OK Store completed.
  - namespaces: add new "auto_disable" flag so if the mailbox can't be opened
    (eg. file doesn't exist), just ignore the problem and disable the namespace
  - auth master refcounting when handling user/request?
-
- - buffer_create_data() behavior has changed from silent-truncating to
-   hard-crashing. See if it breaks anywhere (PAM!)
  - PAM / checkpassword should use passdb-blocking
- - if ssl isn't compiled in, it doesn't complain anything if it's tried to
-   be used .. and configure summary even says it's enabled
-    - SSL_read in -lssl -> no
 
  - deleting lots of messages for rarely opened box seems to cause trouble:
 IMAP(cras:17105): Cached message offset lost for seq 93 in mbox file /home/cras/mail/bugtraq
@@ -212,10 +210,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
       do. like: SEARCH X-PRINT-MATCHES TEXT "hello" -> * SEARCH 1 "He said:
       Hello world!" 2 "Hello, I'm ...". This would be especially useful with
       the above attachment scanning.
-
- - lib
-    - dotlocking: stale_timeout should probably take into account how old the
-      file is.. so uses more time with more recent locks..
 
  - lib-charset
      - utf8_toupper() is a must. and a bit difficult if we want to do it right.
