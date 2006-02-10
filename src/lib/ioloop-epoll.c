@@ -139,7 +139,7 @@ static bool iolist_del(struct io_list *list, struct io *io)
 			if (list->ios[i] == io)
 				list->ios[i] = NULL;
 			else
-				last = TRUE;
+				last = FALSE;
 		}
 	}
 	return last;
