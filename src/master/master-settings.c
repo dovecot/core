@@ -1170,8 +1170,8 @@ bool master_settings_read(const char *path, bool nochecks)
 
 	prev = NULL;
 	for (server = ctx.root; server != NULL; server = server->next) {
-		if (server->imap->protocols == NULL ||
-		    server->pop3->protocols == NULL) {
+		if ((server->imap->protocols == NULL ||
+		     server->pop3->protocols == NULL) && !nochecks) {
 			i_error("No protocols given in configuration file");
 			return FALSE;
 		}
