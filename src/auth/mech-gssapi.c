@@ -138,7 +138,7 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 		return major_status;
 	}
 
-	gss_release_name(&minor_status, gss_principal);
+	gss_release_name(&minor_status, &gss_principal);
 
 	return major_status;
 }
