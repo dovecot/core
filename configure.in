@@ -258,6 +258,9 @@ AM_CONDITIONAL(BUILD_DELIVER, test "$want_deliver" = "yes")
 
 AC_ARG_WITH(storages,
 [  --with-storages         Build with specified mail storage formats (maildir,mbox)], [
+	if test "$withval" = "yes" -o "$withval" = "no"; then
+		AC_MSG_ERROR([--with-storages needs storage list as parameter])
+	fi
 	mail_storages=`echo "$withval"|sed 's/,/ /g'` ],
 	mail_storages="maildir mbox dbox")
 AC_SUBST(mail_storages)
@@ -267,7 +270,7 @@ AC_ARG_WITH(sql-drivers,
 	sql_drivers=`echo "$withval"|sed 's/,/ /g'` ],
 	sql_drivers="all")
 
-if test "$sql_drivers" = "all"; then
+if test "$sql_drivers" = "all" -o "$sql_drivers" = "yes"; then
   all_sql_drivers=yes
   sql_drivers=
 elif test "$sql_drivers" = "no"; then
