@@ -113,6 +113,14 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			}
 		}
 
+		if (ctx->sync_rec.seq2 > ctx->messages_count) {
+			/* don't send change notifications of messages we
+			   haven't even announced to client yet */
+			if (ctx->sync_rec.seq1 > ctx->messages_count)
+				continue;
+			ctx->sync_rec.seq2 = ctx->messages_count;
+		}
+
 		switch (ctx->sync_rec.type) {
 		case MAILBOX_SYNC_TYPE_FLAGS:
 		case MAILBOX_SYNC_TYPE_KEYWORDS:
