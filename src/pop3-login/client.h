@@ -44,7 +44,4 @@ void client_input(void *context);
 void client_ref(struct pop3_client *client);
 bool client_unref(struct pop3_client *client);
 
-void clients_init(void);
-void clients_deinit(void);
-
 #endif
