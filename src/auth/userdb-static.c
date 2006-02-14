@@ -94,6 +94,8 @@ static_preinit(struct auth_userdb *auth_userdb, const char *args)
 					value);
 			}
 			value = dec2str(gid);
+		} else if (*key == '\0') {
+			i_fatal("Status userdb: Empty key (=%s)", value);
 		}
 		key = p_strdup(auth_userdb->auth->pool, key);
 		value = p_strdup(auth_userdb->auth->pool, value);

@@ -59,7 +59,7 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 				    name != NULL ? name : "?unknown?");
 		}
 
-		if (name != NULL && vals != NULL) {
+		if (name != NULL && vals != NULL && *name != '\0') {
 			for (i = 0; vals[i] != NULL; i++) {
 				if (debug != NULL) {
 					if (i != 0)

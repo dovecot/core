@@ -60,7 +60,8 @@ sql_query_get_result(struct sql_result *result,
 			value = dec2str(gid);
 		}
 
-		auth_stream_reply_add(reply, name, value);
+		if (*name != '\0')
+			auth_stream_reply_add(reply, name, value);
 	}
 
 	if (uid == (uid_t)-1) {

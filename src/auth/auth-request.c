@@ -515,6 +515,7 @@ void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
 {
+	i_assert(*name != '\0');
 	i_assert(value != NULL);
 
 	if (strcmp(name, "password") == 0) {

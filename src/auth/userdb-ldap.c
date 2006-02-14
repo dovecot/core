@@ -93,7 +93,7 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 						     name, vals)) 
 					return NULL;
 				seen_gid = TRUE;
-			} else {
+			} else if (*name != '\0') {
 				for (i = 0; vals[i] != NULL; i++) {
 					auth_stream_reply_add(reply, name,
 							      vals[i]);

@@ -25,6 +25,7 @@ void auth_stream_reply_add(struct auth_stream_reply *reply,
 	if (str_len(reply->str) > 0)
 		str_append_c(reply->str, '\t');
 	if (key != NULL) {
+		i_assert(*key != '\0');
 		i_assert(strchr(key, '\t') == NULL &&
 			 strchr(key, '\n') == NULL);
 

@@ -499,6 +499,11 @@ bool create_mail_process(struct login_group *group, int socket,
 	/* add extra args. uppercase key value. */
 	args = array_get(&extra_args, &count);
 	for (i = 0; i < count; i++) {
+		if (*args[i] == '=') {
+			/* Should be caught by dovecot-auth already */
+			i_fatal("Userdb returned data with empty key (%s)",
+				args[i]);
+		}
 		p = strchr(args[i], '=');
 		if (p == NULL) {
 			/* boolean */
