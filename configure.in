@@ -163,8 +163,19 @@ AC_ARG_WITH(prefetch-userdb,
 	fi,
 	want_prefetch_userdb=yes)
 
+dnl The --with-sql is useful only if Dovecot is being built with all the SQL
+dnl drivers as modules. If any SQL driver is built-in, this option is ignored.
+AC_ARG_WITH(sql,
+[  --with-sql              Build with generic SQL support],
+	if test x$withval = xno; then
+		want_sql=no
+	else
+		want_sql=yes
+	fi,
+	want_sql=no)
+
 AC_ARG_WITH(pgsql,
-[  --with-pgsql            Build with PostgreSQL support],
+[  --with-pgsql            Build with PostgreSQL driver support],
 	if test x$withval = xno; then
 		want_pgsql=no
 	else
@@ -173,7 +184,7 @@ AC_ARG_WITH(pgsql,
 	want_pgsql=no)
 
 AC_ARG_WITH(mysql,
-[  --with-mysql            Build with MySQL support],
+[  --with-mysql            Build with MySQL driver support],
 	if test x$withval = xno; then
 		want_mysql=no
 	else
@@ -182,7 +193,7 @@ AC_ARG_WITH(mysql,
 	want_mysql=no)
 
 AC_ARG_WITH(sqlite,
-[  --with-sqlite            Build with SQLite3 support],
+[  --with-sqlite            Build with SQLite3 driver support],
 	if test x$withval = xno; then
 		want_sqlite=no
 	else
@@ -1522,7 +1533,7 @@ if test $want_sqlite = yes; then
 	LIBS=$old_LIBS
 fi
 
-if test "$found_sql_drivers" != ""; then
+if test "$found_sql_drivers" != "" -o "$want_sql" = "yes"; then
 	if test "$all_sql_drivers" = "yes"; then
 	  sql_drivers="$found_sql_drivers"
 	fi
