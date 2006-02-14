@@ -181,7 +181,7 @@ int net_connect_unix(const char *path)
 	net_set_nonblock(fd, TRUE);
 
 	/* connect */
-	ret = connect(fd, (struct sockaddr *) &sa, sizeof(sa));
+	ret = connect(fd, (void *)&sa, sizeof(sa));
 	if (ret < 0 && errno != EINPROGRESS) {
                 close_keep_errno(fd);
 		return -1;
@@ -324,7 +324,7 @@ int net_listen_unix(const char *path, int backlog)
 	}
 
 	/* bind */
-	if (bind(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0) {
+	if (bind(fd, (void *)&sa, sizeof(sa)) < 0) {
 		if (errno != EADDRINUSE)
 			i_error("bind(%s) failed: %m", path);
 	} else {
@@ -498,7 +498,7 @@ int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 	i_assert(fd >= 0);
 
 	addrlen = sizeof(so);
-	if (getsockname(fd, (struct sockaddr *) &so, &addrlen) == -1)
+	if (getsockname(fd, &so.sa, &addrlen) == -1)
 		return -1;
 
         if (addr != NULL) sin_get_ip(&so, addr);
@@ -515,7 +515,7 @@ int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port)
 	i_assert(fd >= 0);
 
 	addrlen = sizeof(so);
-	if (getpeername(fd, (struct sockaddr *) &so, &addrlen) == -1)
+	if (getpeername(fd, &so.sa, &addrlen) == -1)
 		return -1;
 
         if (addr != NULL) sin_get_ip(&so, addr);

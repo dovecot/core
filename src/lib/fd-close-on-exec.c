@@ -37,8 +37,7 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 					struct sockaddr_un sa;
 					socklen_t socklen = sizeof(sa);
 
-					if (getsockname(first_fd,
-							(struct sockaddr *) &sa,
+					if (getsockname(first_fd, (void *)&sa,
 							&socklen) < 0)
 						sa.sun_path[0] = '\0';
 
