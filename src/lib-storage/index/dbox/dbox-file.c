@@ -33,8 +33,8 @@ int dbox_file_lookup_offset(struct dbox_mailbox *mbox,
 	}
 
 	/* success */
-	*file_seq_r = *((uint32_t *)data1);
-	*offset_r = *((uint64_t *)data2);
+	*file_seq_r = *((const uint32_t *)data1);
+	*offset_r = *((const uint64_t *)data2);
 	return 1;
 }
 

@@ -75,10 +75,10 @@ module_load(const char *path, const char *name, bool require_init_funcs)
 	module->handle = handle;
 
 	/* get our init func */
-	init = (void (*)())
+	init = (void (*)(void))
 		get_symbol(module, t_strconcat(name, "_init", NULL),
 			   !require_init_funcs);
-	module->deinit = init == NULL ? NULL : (void (*)())
+	module->deinit = init == NULL ? NULL : (void (*)(void))
 		get_symbol(module, t_strconcat(name, "_deinit", NULL),
 			   !require_init_funcs);
 

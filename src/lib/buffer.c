@@ -227,7 +227,7 @@ void buffer_copy(buffer_t *_dest, size_t dest_pos,
 		 const buffer_t *_src, size_t src_pos, size_t copy_size)
 {
 	struct real_buffer *dest = (struct real_buffer *)_dest;
-	struct real_buffer *src = (struct real_buffer *)_src;
+	const struct real_buffer *src = (const struct real_buffer *)_src;
 	size_t max_size;
 
 	i_assert(src_pos <= src->used);
@@ -267,7 +267,7 @@ void *buffer_append_space_unsafe(buffer_t *buf, size_t size)
 
 void *buffer_get_modifyable_data(const buffer_t *_buf, size_t *used_size_r)
 {
-	struct real_buffer *buf = (struct real_buffer *)_buf;
+	const struct real_buffer *buf = (const struct real_buffer *)_buf;
 
 	if (used_size_r != NULL)
 		*used_size_r = buf->used;
@@ -288,7 +288,7 @@ void buffer_set_used_size(buffer_t *_buf, size_t used_size)
 
 size_t buffer_get_size(const buffer_t *_buf)
 {
-	struct real_buffer *buf = (struct real_buffer *)_buf;
+	const struct real_buffer *buf = (const struct real_buffer *)_buf;
 
 	return buf->alloc;
 }

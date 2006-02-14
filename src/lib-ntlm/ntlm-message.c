@@ -25,7 +25,7 @@ const char * __ntlmssp_t_str(const void *message, struct ntlmssp_buffer *buffer,
 			     bool unicode)
 {
 	unsigned int len = read_le16(&buffer->length);
-	const char *p = ((char *) message) + read_le32(&buffer->offset);
+	const char *p = ((const char *) message) + read_le32(&buffer->offset);
 	string_t *str;
 
 	if (unicode)

@@ -16,17 +16,17 @@
 
 static inline uint16_t read_le16(const void *addr)
 {
-	return *((uint16_t *) addr);
+	return *((const uint16_t *) addr);
 }
 
 static inline uint32_t read_le32(const void *addr)
 {
-	return *((uint32_t *) addr);
+	return *((const uint32_t *) addr);
 }
 
 static inline uint64_t read_le64(const void *addr)
 {
-	return *((uint64_t *) addr);
+	return *((const uint64_t *) addr);
 }
 
 static inline void write_le16(void *addr, const uint16_t value)

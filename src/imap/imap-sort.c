@@ -498,7 +498,7 @@ static struct sort_context *qsort_context;
 
 static struct mail *get_mail(struct sort_context *ctx, const unsigned char *buf)
 {
-	unsigned int id = *((unsigned int *) buf);
+	unsigned int id = *((const unsigned int *)buf);
 	uint32_t seq;
 
 	if (!ctx->id_is_uid)
@@ -689,7 +689,8 @@ static int mail_sort_qsort_func(const void *p1, const void *p2)
 	t_pop();
 
 	return ret != 0 ? ret :
-		(*((unsigned int *) p1) < *((unsigned int *) p2) ? -1 : 1);
+		(*((const unsigned int *)p1) <
+		 *((const unsigned int *)p2) ? -1 : 1);
 }
 
 static void mail_sort_flush(struct sort_context *ctx)

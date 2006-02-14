@@ -749,7 +749,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 
 		memcpy(map->mmap_base, &map->hdr, base_size);
 		memcpy(PTR_OFFSET(map->mmap_base, base_size),
-		       PTR_OFFSET(map->hdr_base, base_size),
+		       CONST_PTR_OFFSET(map->hdr_base, base_size),
 		       map->hdr.header_size - base_size);
 		if (msync(map->mmap_base, map->mmap_used_size, MS_SYNC) < 0) {
 			mail_index_set_syscall_error(index, "msync()");

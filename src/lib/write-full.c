@@ -21,7 +21,7 @@ int write_full(int fd, const void *data, size_t size)
 			return -1;
 		}
 
-		data = PTR_OFFSET(data, ret);
+		data = CONST_PTR_OFFSET(data, ret);
 		size -= ret;
 	}
 
@@ -45,7 +45,7 @@ int pwrite_full(int fd, const void *data, size_t size, off_t offset)
 			return -1;
 		}
 
-		data = PTR_OFFSET(data, ret);
+		data = CONST_PTR_OFFSET(data, ret);
 		size -= ret;
 		offset += ret;
 	}

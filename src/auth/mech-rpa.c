@@ -180,7 +180,7 @@ rpa_check_message(const unsigned char *data, const unsigned char *end,
 static bool
 rpa_parse_token1(const void *data, size_t data_size, const char **error)
 {
-	const unsigned char *end = ((unsigned char *) data) + data_size;
+	const unsigned char *end = ((const unsigned char *) data) + data_size;
 	const unsigned char *p;
 	unsigned int version_lo, version_hi;
 
@@ -262,7 +262,7 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 		 size_t data_size, const char **error)
 {
 	struct auth_request *auth_request = &request->auth_request;
-	const unsigned char *end = ((unsigned char *)data) + data_size;
+	const unsigned char *end = ((const unsigned char *)data) + data_size;
 	const unsigned char *p;
 	unsigned int len;
 	const char *user, *realm;

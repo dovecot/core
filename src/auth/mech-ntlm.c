@@ -192,7 +192,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 
 	if (!request->challenge) {
 		const struct ntlmssp_request *ntlm_request =
-			(struct ntlmssp_request *)data;
+			(const struct ntlmssp_request *)data;
 		const struct ntlmssp_challenge *message;
 		size_t message_size;
 		uint32_t flags;
@@ -216,7 +216,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 				       message, message_size);
 	} else {
 		const struct ntlmssp_response *response =
-			(struct ntlmssp_response *)data;
+			(const struct ntlmssp_response *)data;
 		const char *username;
 
 		if (!ntlmssp_check_response(response, data_size, &error)) {

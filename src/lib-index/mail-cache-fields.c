@@ -16,6 +16,7 @@ void mail_cache_register_fields(struct mail_cache *cache,
 				unsigned int fields_count)
 {
 	void *orig_key, *orig_value;
+	char *name;
 	unsigned int new_idx;
 	unsigned int i, j;
 
@@ -60,9 +61,9 @@ void mail_cache_register_fields(struct mail_cache *cache,
 			continue;
 
 		/* new index - save it */
+		name = p_strdup(cache->field_pool, fields[i].name);
 		cache->fields[idx].field = fields[i];
-		cache->fields[idx].field.name =
-			p_strdup(cache->field_pool, fields[i].name);
+		cache->fields[idx].field.name = name;
 		cache->field_file_map[idx] = (uint32_t)-1;
 
 		switch (cache->fields[idx].field.type) {
@@ -76,9 +77,7 @@ void mail_cache_register_fields(struct mail_cache *cache,
 			break;
 		}
 
-		hash_insert(cache->field_name_hash,
-			    (char *)cache->fields[idx].field.name,
-			    POINTER_CAST(idx));
+		hash_insert(cache->field_name_hash, name, POINTER_CAST(idx));
 	}
 	cache->fields_count = new_idx;
 }
