@@ -26,7 +26,8 @@ static void notify_ok(struct mailbox *mailbox __attr_unused__,
 	t_push();
 	str = t_strconcat("* OK ", text, "\r\n", NULL);
 	o_stream_send_str(client->output, str);
-	t_pop();
+        o_stream_flush(client->output);
+        t_pop();
 }
 
 static void notify_no(struct mailbox *mailbox __attr_unused__,
@@ -41,6 +42,7 @@ static void notify_no(struct mailbox *mailbox __attr_unused__,
 	t_push();
 	str = t_strconcat("* NO ", text, "\r\n", NULL);
 	o_stream_send_str(client->output, str);
+        o_stream_flush(client->output);
 	t_pop();
 }
 
