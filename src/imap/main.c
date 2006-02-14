@@ -186,7 +186,8 @@ static void main_init(void)
         o_stream_cork(client->output);
 	if (IS_STANDALONE()) {
 		client_send_line(client, t_strconcat(
-			"* PREAUTH [CAPABILITY "CAPABILITY_STRING"] "
+			"* PREAUTH [CAPABILITY ",
+			str_c(capability_string), "] "
 			"Logged in as ", user, NULL));
 	} else if (getenv("IMAPLOGINTAG") != NULL) {
 		/* Support for mailfront */
