@@ -322,7 +322,7 @@ struct settings default_settings = {
 	MEMBER(mbox_read_locks) "fcntl",
 	MEMBER(mbox_write_locks) "dotlock fcntl",
 	MEMBER(mbox_lock_timeout) 300,
-	MEMBER(mbox_dotlock_change_timeout) 30,
+	MEMBER(mbox_dotlock_change_timeout) 120,
 	MEMBER(mbox_min_index_size) 0,
 	MEMBER(mbox_dirty_syncs) TRUE,
 	MEMBER(mbox_very_dirty_syncs) FALSE,
