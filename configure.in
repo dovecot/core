@@ -1530,7 +1530,7 @@ if test "$found_sql_drivers" != ""; then
 	AC_DEFINE(PASSDB_SQL,, Build with SQL support)
 	AC_DEFINE(USERDB_SQL,, Build with SQL support)
 	AUTH_LIBS="$AUTH_LIBS $SQL_LIBS"
-	passdb="$userdb sql"
+	passdb="$passdb sql"
 	userdb="$userdb sql"
 fi
 
