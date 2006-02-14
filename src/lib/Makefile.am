@@ -4,6 +4,7 @@ liblib_a_SOURCES = \
 	base64.c \
 	bsearch-insert-pos.c \
 	buffer.c \
+	close-keep-errno.c \
 	compat.c \
 	data-stack.c \
 	env-util.c \
@@ -85,6 +86,7 @@ noinst_HEADERS = \
 	base64.h \
 	bsearch-insert-pos.h \
 	buffer.h \
+	close-keep-errno.h \
 	compat.h \
 	data-stack.h \
 	env-util.h \

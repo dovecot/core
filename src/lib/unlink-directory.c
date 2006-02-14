@@ -33,19 +33,13 @@
 #define _GNU_SOURCE /* for O_NOFOLLOW with Linux */
 
 #include "lib.h"
+#include "close-keep-errno.h"
 #include "unlink-directory.h"
 
 #include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
-
-#define close_save_errno(fd) \
-	STMT_START { \
-		old_errno = errno; \
-		(void)close(fd); \
-		errno = old_errno; \
-	} STMT_END
 
 static int unlink_directory_r(const char *dir)
 {
@@ -74,7 +68,7 @@ static int unlink_directory_r(const char *dir)
 		return -1;
 
 	if (fstat(dir_fd, &st2) < 0) {
-		close_save_errno(dir_fd);
+		close_keep_errno(dir_fd);
 		return -1;
 	}
 
@@ -87,13 +81,13 @@ static int unlink_directory_r(const char *dir)
 	}
 #endif
 	if (fchdir(dir_fd) < 0) {
-                close_save_errno(dir_fd);
+                close_keep_errno(dir_fd);
 		return -1;
 	}
 
 	dirp = opendir(".");
 	if (dirp == NULL) {
-		close_save_errno(dir_fd);
+		close_keep_errno(dir_fd);
 		return -1;
 	}
 

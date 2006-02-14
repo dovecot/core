@@ -1,6 +1,7 @@
 /* Copyright (c) 1999-2005 Timo Sirainen */
 
 #include "lib.h"
+#include "close-keep-errno.h"
 #include "fd-set-nonblock.h"
 #include "network.h"
 
@@ -101,13 +102,6 @@ static inline unsigned int sin_get_port(union sockaddr_union *so)
 	return 0;
 }
 
-static inline void close_save_errno(int fd)
-{
-	int old_errno = errno;
-	(void)close(fd);
-	errno = old_errno;
-}
-
 /* Connect to socket with ip address */
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		   const struct ip_addr *my_ip)
@@ -141,7 +135,7 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		if (bind(fd, &so.sa, SIZEOF_SOCKADDR(so)) == -1) {
 			/* failed, set it back to INADDR_ANY */
 			i_error("bind(%s) failed: %m", net_ip2addr(my_ip));
-			close_save_errno(fd);
+			close_keep_errno(fd);
 			return -1;
 		}
 	}
@@ -157,7 +151,7 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 	if (ret < 0 && WSAGetLastError() != WSAEWOULDBLOCK)
 #endif
 	{
-                close_save_errno(fd);
+                close_keep_errno(fd);
 		return -1;
 	}
 
@@ -189,7 +183,7 @@ int net_connect_unix(const char *path)
 	/* connect */
 	ret = connect(fd, (struct sockaddr *) &sa, sizeof(sa));
 	if (ret < 0 && errno != EINPROGRESS) {
-                close_save_errno(fd);
+                close_keep_errno(fd);
 		return -1;
 	}
 
@@ -305,7 +299,7 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 	}
 
         /* error */
-	close_save_errno(fd);
+	close_keep_errno(fd);
 	return -1;
 }
 
@@ -342,7 +336,7 @@ int net_listen_unix(const char *path, int backlog)
 			i_error("listen() failed: %m");
 	}
 
-	close_save_errno(fd);
+	close_keep_errno(fd);
 	return -1;
 }
 
