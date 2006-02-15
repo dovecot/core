@@ -184,8 +184,7 @@ static bool maildir_is_valid_create_name(struct mail_storage *storage,
 
 	len = strlen(name);
 	if (len == 0 || len > MAILDIR_MAX_MAILBOX_NAME_LENGTH ||
-	    name[0] == MAILDIR_FS_SEP || name[len-1] == MAILDIR_FS_SEP ||
-	    strchr(name, '*') != NULL || strchr(name, '%') != NULL)
+	    name[0] == MAILDIR_FS_SEP || name[len-1] == MAILDIR_FS_SEP)
 		return FALSE;
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0)

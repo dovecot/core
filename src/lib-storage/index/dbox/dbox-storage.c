@@ -182,7 +182,6 @@ static bool dbox_is_valid_create_name(struct mail_storage *storage,
 
 	len = strlen(name);
 	if (name[0] == '\0' || name[len-1] == '/' ||
-	    strchr(name, '*') != NULL || strchr(name, '%') != NULL ||
 	    len > DBOX_MAX_MAILBOX_NAME_LENGTH)
 		return FALSE;
 
