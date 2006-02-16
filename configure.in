@@ -311,7 +311,8 @@ if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	# -Wcast-qual -Wcast-align -Wconversion # too many warnings
 	# -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
 	# -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
-	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast -Wstrict-aliasing=2"
+	# -Wstrict-aliasing=2 # requires new gcc
+	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 
 	# Use std=gnu99 if we have new enough gcc
 	old_cflags=$CFLAGS
