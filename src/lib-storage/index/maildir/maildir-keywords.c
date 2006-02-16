@@ -83,6 +83,10 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 	const char **strp;
 	int fd, idx;
 
+        /* Remember that we rely on uidlist file locking in here. That's why
+           we rely on stat()'s timestamp and don't bother handling ESTALE
+           errors. */
+
 	if (stat(mk->path, &st) < 0) {
 		if (errno == ENOENT) {
 			maildir_keywords_clear(mk);

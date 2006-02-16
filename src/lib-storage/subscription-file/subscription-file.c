@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "istream.h"
 #include "ostream.h"
+#include "safe-open.h"
 #include "file-dotlock.h"
 #include "mail-storage-private.h"
 #include "subscription-file.h"
@@ -12,6 +13,7 @@
 
 #define MAX_MAILBOX_LENGTH PATH_MAX
 
+#define SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT 10
 #define SUBSCRIPTION_FILE_LOCK_TIMEOUT 120
 #define SUBSCRIPTION_FILE_CHANGE_TIMEOUT 30
 
@@ -40,17 +42,23 @@ static void subsfile_set_syscall_error(struct mail_storage *storage,
 }
 
 static const char *next_line(struct mail_storage *storage, const char *path,
-			     struct istream *input, bool *failed)
+			     struct istream *input, bool *failed_r)
 {
 	const char *line;
 
-	*failed = FALSE;
+	*failed_r = FALSE;
 	if (input == NULL)
 		return NULL;
 
 	while ((line = i_stream_next_line(input)) == NULL) {
-		switch (i_stream_read(input)) {
+                switch (i_stream_read(input)) {
 		case -1:
+                        if (input->stream_errno != 0 &&
+                            input->stream_errno != ESTALE) {
+                                subsfile_set_syscall_error(storage,
+                                                           "read()", path);
+                                *failed_r = TRUE;
+                        }
 			return NULL;
 		case -2:
 			/* mailbox name too large */
@@ -58,7 +66,7 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 				"Subscription file %s contains lines longer "
 				"than %u characters", path,
 				MAX_MAILBOX_LENGTH);
-			*failed = TRUE;
+			*failed_r = TRUE;
 			return NULL;
 		}
 	}
@@ -85,7 +93,6 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	dotlock_set.timeout = SUBSCRIPTION_FILE_LOCK_TIMEOUT;
 	dotlock_set.stale_timeout = SUBSCRIPTION_FILE_CHANGE_TIMEOUT;
 
-	/* FIXME: set lock notification callback */
 	fd_out = file_dotlock_open(&dotlock_set, path, 0, &dotlock);
 	if (fd_out == -1) {
 		if (errno == EAGAIN) {
@@ -98,7 +105,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 		return -1;
 	}
 
-	fd_in = open(path, O_RDONLY);
+	fd_in = safe_open(path, O_RDONLY);
 	if (fd_in == -1 && errno != ENOENT) {
 		subsfile_set_syscall_error(storage, "open()", path);
 		(void)file_dotlock_delete(&dotlock);
@@ -165,7 +172,7 @@ subsfile_list_init(struct mail_storage *storage, const char *path)
 	pool_t pool;
 	int fd;
 
-	fd = open(path, O_RDONLY);
+	fd = safe_open(path, O_RDONLY);
 	if (fd == -1 && errno != ENOENT) {
 		subsfile_set_syscall_error(storage, "open()", path);
 		return NULL;
@@ -196,8 +203,42 @@ int subsfile_list_deinit(struct subsfile_list_context *ctx)
 
 const char *subsfile_list_next(struct subsfile_list_context *ctx)
 {
-	if (ctx->failed || ctx->input == NULL)
+        const char *line;
+        unsigned int i;
+        int fd;
+
+        if (ctx->failed || ctx->input == NULL)
 		return NULL;
 
-	return next_line(ctx->storage, ctx->path, ctx->input, &ctx->failed);
+        for (i = 0;; i++) {
+                line = next_line(ctx->storage, ctx->path, ctx->input,
+                                 &ctx->failed);
+                if (ctx->input->stream_errno != ESTALE ||
+                    i == SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT)
+                        break;
+
+                /* Reopen the subscription file and re-send everything.
+                   this isn't the optimal behavior, but it's allowed by
+                   IMAP and this way we don't have to read everything into
+                   memory or try to play any guessing games. */
+                i_stream_unref(&ctx->input);
+
+                fd = safe_open(ctx->path, O_RDONLY);
+                if (fd == -1) {
+                        /* In case of ENOENT all the subscriptions got lost.
+                           Just return end of subscriptions list in that
+                           case. */
+                        if (errno != ENOENT) {
+                                subsfile_set_syscall_error(ctx->storage,
+                                                           "open()",
+                                                           ctx->path);
+                                ctx->failed = TRUE;
+                        }
+                        return NULL;
+                }
+
+                ctx->input = i_stream_create_file(fd, ctx->pool,
+                                                  MAX_MAILBOX_LENGTH, TRUE);
+        }
+        return line;
 }

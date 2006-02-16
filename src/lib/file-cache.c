@@ -107,8 +107,9 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 		   more than needed */
 		struct stat st;
 
-		if (fstat(cache->fd, &st) < 0) {
-			i_error("fstat(file_cache) failed: %m");
+                if (fstat(cache->fd, &st) < 0) {
+                        if (errno != ESTALE)
+                                i_error("fstat(file_cache) failed: %m");
 			return -1;
 		}
 

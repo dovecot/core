@@ -180,8 +180,15 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 
 		ret = file_cache_read(cache->file_cache, offset, size);
 		if (ret < 0) {
-			// FIXME: ESTALE
-			mail_cache_set_syscall_error(cache, "read()");
+                        /* In case of ESTALE we'll simply fail without error
+                           messages. The caller will then just have to
+                           fallback to generating the value itself.
+
+                           We can't simply reopen the cache flie, because
+                           using it requires also having updated file
+                           offsets. */
+                        if (errno != ESTALE)
+                                mail_cache_set_syscall_error(cache, "read()");
 			return -1;
 		}
 

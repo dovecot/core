@@ -526,11 +526,10 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 				continue;
 
 			if (idx >= keyword_count) {
-				/* keyword header is updated, re-read
-				   it so we know what this one is
-				   called */
-				if (mail_index_map_read_keywords(view->index,
-								 map) < 0)
+				/* keyword header was updated, parse it again
+				   it so we know what this keyword is called */
+				if (mail_index_map_parse_keywords(view->index,
+                                                                  map) < 0)
 					return -1;
 
 				if (!array_is_created(&map->keyword_idx_map))

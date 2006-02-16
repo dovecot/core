@@ -246,8 +246,8 @@ int mail_index_map_get_ext_idx(struct mail_index_map *map,
 const struct mail_index_ext *
 mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id);
 
-int mail_index_map_read_keywords(struct mail_index *index,
-				 struct mail_index_map *map);
+int mail_index_map_parse_keywords(struct mail_index *index,
+                                  struct mail_index_map *map);
 
 int mail_index_fix_header(struct mail_index *index, struct mail_index_map *map,
 			  struct mail_index_header *hdr, const char **error_r);

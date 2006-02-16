@@ -7,6 +7,8 @@
 #include "istream.h"
 #include "str.h"
 #include "file-dotlock.h"
+#include "close-keep-errno.h"
+#include "safe-open.h"
 #include "write-full.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
@@ -15,6 +17,10 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <utime.h>
+
+/* NFS: How many times to retry reading dovecot-uidlist file if ESTALE
+   error occurs in the middle of reading it */
+#define UIDLIST_ESTALE_RETRY_COUNT 10
 
 /* how many seconds to wait before overriding uidlist.lock */
 #define UIDLIST_LOCK_STALE_TIMEOUT (60*2)
@@ -240,7 +246,8 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	return 1;
 }
 
-int maildir_uidlist_update(struct maildir_uidlist *uidlist)
+static int
+maildir_uidlist_update_read(struct maildir_uidlist *uidlist, bool *retry_r)
 {
 	struct mail_storage *storage = STORAGE(uidlist->mbox->storage);
 	const char *line;
@@ -249,35 +256,25 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 	struct stat st;
 	int fd, ret;
 
-	if (uidlist->last_mtime != 0) {
-		if (stat(uidlist->fname, &st) < 0) {
-			if (errno != ENOENT) {
-				mail_storage_set_critical(storage,
-					"stat(%s) failed: %m", uidlist->fname);
-				return -1;
-			}
-			return 0;
-		}
+        *retry_r = FALSE;
 
-		if (st.st_mtime == uidlist->last_mtime) {
-			/* unchanged */
-			return 1;
-		}
-	}
-
-	fd = open(uidlist->fname, O_RDONLY);
+	fd = safe_open(uidlist->fname, O_RDONLY);
 	if (fd == -1) {
 		if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
 				"open(%s) failed: %m", uidlist->fname);
 			return -1;
 		}
-		uidlist->initial_read = TRUE;
 		return 0;
 	}
 
 	if (fstat(fd, &st) < 0) {
-		mail_storage_set_critical(storage,
+                close_keep_errno(fd);
+                if (errno == ESTALE) {
+                        *retry_r = TRUE;
+                        return -1;
+                }
+                mail_storage_set_critical(storage,
 			"fstat(%s) failed: %m", uidlist->fname);
 		return -1;
 	}
@@ -295,10 +292,13 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 
 	/* get header */
 	line = i_stream_read_next_line(input);
-	if (line == NULL || sscanf(line, "%u %u %u", &uidlist->version,
-				   &uid_validity, &next_uid) != 3 ||
-	    uidlist->version < 1 || uidlist->version > 2) {
-		/* broken file */
+        if (line == NULL) {
+                /* I/O error / empty file */
+                ret = input->stream_errno == 0 ? 0 : -1;
+        } else if (sscanf(line, "%u %u %u", &uidlist->version,
+                          &uid_validity, &next_uid) != 3 ||
+                   uidlist->version < 1 || uidlist->version > 2) {
+                /* broken file */
                 mail_storage_set_critical(storage,
 			"Corrupted header in file %s (version = %u)",
 			uidlist->fname, uidlist->version);
@@ -320,19 +320,62 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 				ret = 0;
 				break;
 			}
+                }
+                if (input->stream_errno != 0)
+                        ret = -1;
+	}
+
+        if (ret == 0) {
+                /* file is broken */
+                (void)unlink(uidlist->fname);
+                uidlist->last_mtime = 0;
+        } else if (ret > 0) {
+                /* success */
+		uidlist->last_mtime = st.st_mtime;
+        } else {
+                /* I/O error */
+                if (input->stream_errno == ESTALE)
+                        *retry_r = TRUE;
+        }
+
+	i_stream_unref(&input);
+	return ret;
+}
+
+int maildir_uidlist_update(struct maildir_uidlist *uidlist)
+{
+	struct mail_storage *storage = STORAGE(uidlist->mbox->storage);
+        struct stat st;
+        unsigned int i;
+        bool retry;
+        int ret;
+
+	if (uidlist->last_mtime != 0) {
+		if (stat(uidlist->fname, &st) < 0) {
+			if (errno != ENOENT) {
+				mail_storage_set_critical(storage,
+					"stat(%s) failed: %m", uidlist->fname);
+				return -1;
+			}
+			return 0;
+		}
+
+		if (st.st_mtime == uidlist->last_mtime) {
+			/* unchanged */
+			return 1;
 		}
 	}
 
-	if (ret != 0)
-		uidlist->last_mtime = st.st_mtime;
-	else {
-		(void)unlink(uidlist->fname);
-                uidlist->last_mtime = 0;
-	}
-
-	i_stream_unref(&input);
-	uidlist->initial_read = TRUE;
-	return ret;
+        for (i = 0; ; i++) {
+                ret = maildir_uidlist_update_read(uidlist, &retry);
+                if (!retry || i == UIDLIST_ESTALE_RETRY_COUNT) {
+                        if (ret >= 0)
+                                uidlist->initial_read = TRUE;
+                        break;
+                }
+                /* ESTALE - try reopening and rereading */
+        }
+        return ret;
 }
 
 static const struct maildir_uidlist_rec *
