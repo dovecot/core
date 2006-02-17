@@ -153,10 +153,12 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	}
 
 	if (update_index && index->excl_lock_count == 0) {
+		/* we wish to have the latest available index file. */
 		i_assert(index->lock_type != F_WRLCK);
 		if ((ret2 = mail_index_reopen_if_needed(index)) < 0)
 			return -1;
 		if (ret > 0 && ret2 == 0) {
+			/* no new file and the old file is already locked */
 			i_assert(lock_type == F_RDLCK);
 			i_assert(index->lock_type == F_RDLCK);
 			return 1;
@@ -164,8 +166,10 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		ret = 0;
 	}
 
-	if (ret > 0)
+	if (ret > 0) {
+		/* file is already locked */
 		return 1;
+	}
 
 	if (index->lock_method == MAIL_INDEX_LOCK_DOTLOCK &&
 	    !MAIL_INDEX_IS_IN_MEMORY(index)) {
@@ -299,7 +303,6 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 
 	old_lock_type = index->lock_type;
 	index->lock_type = F_WRLCK;
-	index->excl_lock_count++;
 
 	if (mail_index_reopen(index, fd) < 0) {
 		i_assert(index->excl_lock_count == 1);
@@ -317,6 +320,7 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 		return -1;
 	}
 
+	index->excl_lock_count++;
 	return 0;
 }
 
@@ -419,10 +423,11 @@ static void mail_index_write_map(struct mail_index *index)
 
 		if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
 			fd = mail_index_copy(index);
-			if (fd == -1)
+			if (fd == -1 || mail_index_reopen(index, fd) < 0) {
+				if (fd != -1)
+					(void)close(fd);
 				mail_index_set_inconsistent(index);
-			else
-				(void)close(fd);
+			}
 		}
 	} else {
 		/* write the modified parts. header is small enough to be

@@ -1576,6 +1576,7 @@ int mail_index_reopen(struct mail_index *index, int fd)
 	int ret, old_fd, old_lock_type;
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
+	i_assert(index->copy_lock_path == NULL || index->excl_lock_count == 0);
 
 	old_map = index->map;
 	old_fd = index->fd;
@@ -1642,6 +1643,8 @@ int mail_index_reopen(struct mail_index *index, int fd)
 int mail_index_reopen_if_needed(struct mail_index *index)
 {
 	struct stat st1, st2;
+
+        i_assert(index->copy_lock_path == NULL);
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return 0;

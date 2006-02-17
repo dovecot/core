@@ -31,6 +31,8 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 		map->write_to_disk = TRUE;
 		map->write_atomic = TRUE;
 	}
+
+	i_assert(view->hdr.messages_count == map->hdr.messages_count);
 }
 
 static void
@@ -548,6 +550,8 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 
 	i_assert(ctx->view->map->records_count ==
 		 ctx->view->map->hdr.messages_count);
+	i_assert(ctx->view->hdr.messages_count ==
+		 ctx->view->map->hdr.messages_count);
 	return ret;
 }
 
@@ -628,6 +632,8 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	mail_index_unmap(index, &view->map);
 	view->map = map;
 	view->map->refcount++;
+
+	i_assert(view->hdr.messages_count == map->hdr.messages_count);
 
 	had_dirty = (map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0;
 	if (had_dirty)
