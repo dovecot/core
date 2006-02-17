@@ -26,6 +26,7 @@ struct cmd_append_context {
 	struct mail_save_context *save_ctx;
 };
 
+static void cmd_append_finish(struct cmd_append_context *ctx);
 static bool cmd_append_continue_message(struct client_command_context *cmd);
 
 static void client_input(void *context)
@@ -38,9 +39,11 @@ static void client_input(void *context)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
+		cmd_append_finish(cmd->context);
 		client_destroy(client);
 		return;
 	case -2:
+		cmd_append_finish(cmd->context);
 		if (client->command_pending) {
 			/* message data, this is handled internally by
 			   mailbox_save_continue() */
@@ -54,7 +57,7 @@ static void client_input(void *context)
 
 		client_send_command_error(cmd, "Too long argument.");
 		_client_reset_command(client);
-		break;
+		return;
 	}
 
 	if (cmd->func(cmd)) {
