@@ -22,12 +22,6 @@
    problems when they reach the limit. */
 #define DBOX_MAX_MAILBOX_NAME_LENGTH (PATH_MAX/2)
 
-struct rename_context {
-	bool found;
-	size_t oldnamelen;
-	const char *newname;
-};
-
 extern struct mail_storage dbox_storage;
 extern struct mailbox dbox_mailbox;
 
@@ -137,7 +131,7 @@ static bool dbox_autodetect(const char *data, enum mail_storage_flags flags)
 
 	data = t_strcut(data, ':');
 
-	path = t_strconcat(data, "/cur", NULL);
+	path = t_strconcat(data, "/inbox/Mails", NULL);
 	if (stat(path, &st) < 0) {
 		if (debug)
 			i_info("dbox autodetect: stat(%s) failed: %m", path);
