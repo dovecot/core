@@ -342,7 +342,7 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 
 	if (input != NULL) {
 		mail_storage_set_critical(_storage,
-			"Maildir doesn't support streamed mailboxes");
+			"dbox doesn't support streamed mailboxes");
 		return NULL;
 	}
 
