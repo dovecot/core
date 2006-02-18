@@ -651,13 +651,13 @@ static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 		if (!imap_write_list(list->args, str))
 			return FALSE;
 
-		str_append_c(str, ' ');
+		str_append(str, " (");
 
 		list = IMAP_ARG_LIST(&args[1]);
 		if (!imap_parse_bodystructure_args(list->args, str))
 			return FALSE;
 
-		str_append_c(str, ' ');
+		str_append(str, ") ");
 		str_append(str, IMAP_ARG_STR(&args[2]));
 	}
 
