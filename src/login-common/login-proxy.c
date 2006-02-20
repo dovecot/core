@@ -39,14 +39,11 @@ static void server_input(void *context)
 		/* client's output buffer is already quite full.
 		   don't send more until we're below threshold. */
 		io_remove(&proxy->server_io);
-		proxy->server_io = NULL;
 		return;
 	}
 
 	ret = net_receive(proxy->server_fd, buf, sizeof(buf));
-	if (ret > 0)
-		(void)o_stream_send(proxy->client_output, buf, ret);
-	else if (ret < 0)
+	if (ret > 0 || o_stream_send(proxy->client_output, buf, ret) != ret)
                 login_proxy_free(proxy);
 }
 
@@ -61,14 +58,11 @@ static void proxy_client_input(void *context)
 		/* proxy's output buffer is already quite full.
 		   don't send more until we're below threshold. */
 		io_remove(&proxy->client_io);
-		proxy->client_io = NULL;
 		return;
 	}
 
 	ret = net_receive(proxy->client_fd, buf, sizeof(buf));
-	if (ret > 0)
-		(void)o_stream_send(proxy->server_output, buf, ret);
-	else if (ret < 0)
+	if (ret > 0 || o_stream_send(proxy->server_output, buf, ret) != ret)
                 login_proxy_free(proxy);
 }
 
@@ -247,13 +241,12 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 
 	/* from now on, just do dummy proxying */
 	io_remove(&proxy->server_io);
-	proxy->server_io = io_add(proxy->server_fd, IO_READ, server_input, proxy);
-	proxy->client_io = io_add(proxy->client_fd, IO_READ,
-				  proxy_client_input, proxy);
+	proxy->server_io =
+		io_add(proxy->server_fd, IO_READ, server_input, proxy);
+	proxy->client_io =
+		io_add(proxy->client_fd, IO_READ, proxy_client_input, proxy);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
-
 	i_stream_unref(&proxy->server_input);
-        proxy->server_input = NULL;
 
 	if (login_proxies == NULL) {
 		login_proxies = hash_create(default_pool, default_pool,
