@@ -54,19 +54,23 @@ mech_plain_auth_continue(struct auth_request *request,
 		/* invalid input */
 		auth_request_log_info(request, "plain", "invalid input");
 		auth_request_fail(request);
-	} else {
-		if (!auth_request_set_username(request, authenid, &error)) {
-			/* invalid username */
-                        auth_request_log_info(request, "plain", "%s", error);
-			auth_request_fail(request);
-		} else {
-			auth_request_verify_plain(request, pass,
-						  verify_callback);
-		}
-
-		/* make sure it's cleared */
-		safe_memset(pass, 0, strlen(pass));
+	} else if (!auth_request_set_username(request, authenid, &error)) {
+                /* invalid username */
+                auth_request_log_info(request, "plain", "%s", error);
+                auth_request_fail(request);
+        } else if (*authid != '\0' &&
+                   !auth_request_set_login_username(request, authid, &error)) {
+                /* invalid login username */
+                auth_request_log_info(request, "plain",
+                                      "login user: %s", error);
+                auth_request_fail(request);
+        } else {
+                auth_request_verify_plain(request, pass,
+                                          verify_callback);
 	}
+
+        /* make sure it's cleared */
+        safe_memset(pass, 0, strlen(pass));
 }
 
 static void

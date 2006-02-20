@@ -122,20 +122,17 @@ void passdb_handle_credentials(enum passdb_result result,
 }
 
 struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
-				   const char *args)
+				   const char *args, unsigned int id)
 {
 	struct passdb_module_interface **p, *iface;
-        struct auth_passdb *auth_passdb, **dest;
+        struct auth_passdb *auth_passdb;
 
 	if (args == NULL) args = "";
 
 	auth_passdb = p_new(auth->pool, struct auth_passdb, 1);
 	auth_passdb->auth = auth;
-	auth_passdb->args = p_strdup(auth->pool, args);
-
-	for (dest = &auth->passdbs; *dest != NULL; dest = &(*dest)->next)
-		auth_passdb->num++;
-	*dest = auth_passdb;
+        auth_passdb->args = p_strdup(auth->pool, args);
+        auth_passdb->id = id;
 
 	iface = NULL;
 	for (p = passdb_interfaces; *p != NULL; p++) {

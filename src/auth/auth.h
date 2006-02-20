@@ -5,7 +5,8 @@ struct auth_passdb {
 	struct auth *auth;
 	struct auth_passdb *next;
 
-	unsigned int num;
+        /* id is used by blocking passdb to identify the passdb */
+	unsigned int id;
 	const char *args;
 	struct passdb_module *passdb;
 #ifdef HAVE_MODULES
@@ -13,6 +14,8 @@ struct auth_passdb {
 #endif
         /* if user is found from this passdb, deny authentication immediately */
 	unsigned int deny:1;
+	/* masterdb: no passdb lookup for user wanted */
+	unsigned int master_no_passdb:1;
 };
 
 struct auth_userdb {
@@ -33,6 +36,7 @@ struct auth {
 	struct mech_module_list *mech_modules;
 	buffer_t *mech_handshake;
 
+	struct auth_passdb *masterdbs;
 	struct auth_passdb *passdbs;
 	struct auth_userdb *userdbs;
 

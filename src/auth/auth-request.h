@@ -21,7 +21,13 @@ struct auth_request {
 
 	pool_t pool;
         enum auth_request_state state;
-	char *user;
+        /* user contains the user who is being authenticated.
+           When master user is logging in as someone else, it gets more
+           complicated. Initially user is set to master's username and the
+           requested_login_user is set to destination username. After masterdb
+           has validated user as a valid master user, master_user is set to
+           user and user is set to requested_login_user. */
+        char *user, *requested_login_user, *master_user;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
         struct auth_stream_reply *extra_fields;
@@ -58,6 +64,7 @@ struct auth_request {
 	unsigned int no_failure_delay:1;
 	unsigned int no_login:1;
 	unsigned int no_password:1;
+	unsigned int skip_password_check:1;
 	unsigned int proxy:1;
 	unsigned int cert_username:1;
 
@@ -96,6 +103,9 @@ void auth_request_lookup_user(struct auth_request *request,
 
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r);
+bool auth_request_set_login_username(struct auth_request *request,
+                                     const char *username,
+                                     const char **error_r);
 
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,

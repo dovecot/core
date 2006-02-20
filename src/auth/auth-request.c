@@ -110,6 +110,11 @@ void auth_request_export(struct auth_request *request, string_t *str)
 	str_append(str, "\tservice=");
 	str_append(str, request->service);
 
+        if (request->master_user != NULL) {
+                str_append(str, "master_user=");
+                str_append(str, request->master_user);
+        }
+
 	if (request->local_ip.family != 0) {
 		str_append(str, "\tlip=");
 		str_append(str, net_ip2addr(&request->local_ip));
@@ -125,6 +130,8 @@ bool auth_request_import(struct auth_request *request,
 {
 	if (strcmp(key, "user") == 0)
 		request->user = p_strdup(request->pool, value);
+	else if (strcmp(key, "master_user") == 0)
+		request->master_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "cert_username") == 0) {
 		if (request->auth->ssl_username_from_cert) {
 			/* get username from SSL certificate. it overrides
@@ -244,6 +251,30 @@ static void auth_request_save_cache(struct auth_request *request,
 	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str));
 }
 
+static bool auth_request_master_lookup_finish(struct auth_request *request)
+{
+	/* master login successful. update user and master_user variables. */
+	auth_request_log_info(request, "passdb", "Master user logging in as %s",
+			      request->requested_login_user);
+
+	request->master_user = request->user;
+	request->user = request->requested_login_user;
+	request->requested_login_user = NULL;
+
+	request->skip_password_check = TRUE;
+	request->passdb_password = NULL;
+
+	if (request->passdb->master_no_passdb) {
+		/* skip the passdb lookup, we're authenticated now. */
+		return TRUE;
+	}
+
+	/* the authentication continues with passdb lookup for the
+	   requested_login_user. */
+	request->passdb = request->auth->passdbs;
+	return FALSE;
+}
+
 static bool
 auth_request_handle_passdb_callback(enum passdb_result *result,
 				    struct auth_request *request)
@@ -262,11 +293,19 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 					      "User found from deny passdb");
 			*result = PASSDB_RESULT_USER_DISABLED;
 		}
-	} else if (*result != PASSDB_RESULT_OK &&
-		   *result != PASSDB_RESULT_USER_DISABLED &&
-		   request->passdb->next != NULL) {
+	} else if (*result == PASSDB_RESULT_OK) {
+		/* success */
+		if (request->requested_login_user != NULL) {
+			/* this was a master user lookup. */
+			if (!auth_request_master_lookup_finish(request))
+				return FALSE;
+		}
+	} else if (request->passdb->next != NULL &&
+		   *result != PASSDB_RESULT_USER_DISABLED) {
 		/* try next passdb. */
-		if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
+                request->passdb = request->passdb->next;
+
+                if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
 			/* remember that we have had an internal failure. at
 			   the end return internal failure if we couldn't
 			   successfully login. */
@@ -276,11 +315,10 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			auth_stream_reply_reset(request->extra_fields);
 
 		return FALSE;
-	} else if (request->passdb_internal_failure &&
-		   *result != PASSDB_RESULT_OK) {
-		/* one of the passdb lookups returned internal failure.
-		   it may have had the correct password, so return internal
-		   failure instead of plain failure. */
+	} else if (request->passdb_internal_failure) {
+		/* last passdb lookup returned internal failure. it may have
+		   had the correct password, so return internal failure
+		   instead of plain failure. */
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
@@ -312,7 +350,6 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
-		request->passdb = request->passdb->next;
 		auth_request_verify_plain(request, request->mech_password,
 			request->private_callback.verify_plain);
 	} else {
@@ -328,12 +365,20 @@ void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,
 			       verify_plain_callback_t *callback)
 {
-	struct passdb_module *passdb = request->passdb->passdb;
+	struct passdb_module *passdb;
 	enum passdb_result result;
 	const char *cache_key;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
+        if (request->passdb == NULL) {
+                /* no masterdbs, master logins not supported */
+                i_assert(request->requested_login_user != NULL);
+                callback(PASSDB_RESULT_USER_UNKNOWN, request);
+		return;
+        }
+
+        passdb = request->passdb->passdb;
 	if (request->mech_password == NULL)
 		request->mech_password = p_strdup(request->pool, password);
 	else
@@ -391,7 +436,6 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
-		request->passdb = request->passdb->next;
 		auth_request_lookup_credentials(request, request->credentials,
                 	request->private_callback.lookup_credentials);
 	} else {
@@ -474,11 +518,35 @@ void auth_request_lookup_user(struct auth_request *request,
 		userdb->iface->lookup(request, auth_request_userdb_callback);
 }
 
+static char *
+auth_request_fix_username(struct auth_request *request, const char *username,
+                          const char **error_r)
+{
+	unsigned char *p;
+        char *user;
+
+	if (strchr(username, '@') == NULL &&
+	    request->auth->default_realm != NULL) {
+		user = p_strconcat(request->pool, username, "@",
+                                   request->auth->default_realm, NULL);
+	} else {
+		user = p_strdup(request->pool, username);
+	}
+
+        for (p = (unsigned char *)user; *p != '\0'; p++) {
+		if (request->auth->username_translation[*p & 0xff] != 0)
+			*p = request->auth->username_translation[*p & 0xff];
+		if (request->auth->username_chars[*p & 0xff] == 0) {
+			*error_r = "Username contains disallowed characters";
+			return NULL;
+		}
+        }
+        return user;
+}
+
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r)
 {
-	unsigned char *p;
-
 	if (request->cert_username) {
 		/* cert_username overrides the username given by
 		   authentication mechanism. */
@@ -491,24 +559,22 @@ bool auth_request_set_username(struct auth_request *request,
 		return FALSE;
 	}
 
-	if (strchr(username, '@') == NULL &&
-	    request->auth->default_realm != NULL) {
-		request->user = p_strconcat(request->pool, username, "@",
-					    request->auth->default_realm, NULL);
-	} else {
-		request->user = p_strdup(request->pool, username);
-	}
+        request->user = auth_request_fix_username(request, username, error_r);
+        return request->user != NULL;
+}
 
-	for (p = (unsigned char *)request->user; *p != '\0'; p++) {
-		if (request->auth->username_translation[*p & 0xff] != 0)
-			*p = request->auth->username_translation[*p & 0xff];
-		if (request->auth->username_chars[*p & 0xff] == 0) {
-			*error_r = "Username contains disallowed characters";
-			return FALSE;
-		}
-	}
+bool auth_request_set_login_username(struct auth_request *request,
+                                     const char *username,
+                                     const char **error_r)
+{
+        i_assert(*username != '\0');
 
-	return TRUE;
+        /* lookup request->user from masterdb first */
+        request->passdb = request->auth->masterdbs;
+
+        request->requested_login_user =
+                auth_request_fix_username(request, username, error_r);
+        return request->requested_login_user != NULL;
 }
 
 void auth_request_set_field(struct auth_request *request,
@@ -584,6 +650,12 @@ int auth_request_password_verify(struct auth_request *request,
 				 const char *scheme, const char *subsystem)
 {
 	int ret;
+
+	if (request->skip_password_check) {
+		/* currently this can happen only with master logins */
+		i_assert(request->master_user != NULL);
+		return 1;
+	}
 
 	ret = password_verify(plain_password, crypted_password, scheme,
 			      request->user);
@@ -673,6 +745,8 @@ get_log_str(struct auth_request *auth_request, const char *subsystem,
 		str_append_c(str, ',');
 		str_append(str, ip);
 	}
+	if (auth_request->requested_login_user != NULL)
+		str_append(str, ",master");
 	str_append(str, "): ");
 	str_vprintfa(str, format, va);
 	return str_c(str);

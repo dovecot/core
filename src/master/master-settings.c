@@ -214,6 +214,8 @@ static struct setting_def auth_passdb_setting_defs[] = {
 	DEF(SET_STR, driver),
 	DEF(SET_STR, args),
 	DEF(SET_BOOL, deny),
+	DEF(SET_BOOL, master),
+	DEF(SET_BOOL, master_no_passdb),
 
 	{ 0, NULL, 0 }
 };

@@ -17,7 +17,7 @@
 struct auth *auth_preinit(void)
 {
 	struct auth *auth;
-	struct auth_passdb *auth_passdb;
+	struct auth_passdb *auth_passdb, **passdb_p, **masterdb_p;
 	const char *driver, *args;
 	pool_t pool;
 	unsigned int i;
@@ -32,17 +32,32 @@ struct auth *auth_preinit(void)
 		getenv("VERBOSE_DEBUG_PASSWORDS") != NULL;
 
 	t_push();
+	passdb_p = &auth->passdbs;
+	masterdb_p = &auth->masterdbs;
 	for (i = 1; ; i++) {
 		driver = getenv(t_strdup_printf("PASSDB_%u_DRIVER", i));
 		if (driver == NULL)
 			break;
 
                 args = getenv(t_strdup_printf("PASSDB_%u_ARGS", i));
-		auth_passdb = passdb_preinit(auth, driver, args);
+		auth_passdb = passdb_preinit(auth, driver, args, i);
 
-		if (getenv(t_strdup_printf("PASSDB_%u_DENY", i)) != NULL)
-			auth_passdb->deny = TRUE;
+                auth_passdb->deny =
+                        getenv(t_strdup_printf("PASSDB_%u_DENY", i)) != NULL;
+                auth_passdb->master_no_passdb =
+                        getenv(t_strdup_printf("PASSDB_%u_MASTER_NO_PASSDB",
+                                               i)) != NULL;
 
+		if (getenv(t_strdup_printf("PASSDB_%u_MASTER", i)) == NULL) {
+                        *passdb_p = auth_passdb;
+			passdb_p = &auth_passdb->next;
+                } else {
+			if (auth_passdb->deny)
+				i_fatal("Master passdb can't have deny=yes");
+
+			*masterdb_p = auth_passdb;
+			masterdb_p = &auth_passdb->next;
+		}
 	}
 	t_pop();
 
@@ -157,6 +172,8 @@ void auth_init(struct auth *auth)
 	const char *const *mechanisms;
 	const char *env;
 
+	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
+		passdb_init(passdb);
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
 		passdb_init(passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
@@ -239,6 +256,8 @@ void auth_deinit(struct auth **_auth)
 	*_auth = NULL;
 
 	passdb_cache_deinit();
+	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
+		passdb_deinit(passdb);
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
 		passdb_deinit(passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)

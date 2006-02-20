@@ -119,7 +119,7 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 	i_assert(request->extra_fields == NULL);
 
 	str = t_str_new(64);
-	str_printfa(str, "PASSV\t%u\t", request->passdb->num);
+	str_printfa(str, "PASSV\t%u\t", request->passdb->id);
 	str_append(str, request->mech_password);
 	str_append_c(str, '\t');
 	auth_request_export(request, str);
@@ -152,7 +152,7 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 
 	str = t_str_new(64);
 	str_printfa(str, "PASSL\t%u\t%d\t",
-		    request->passdb->num, request->credentials);
+		    request->passdb->id, request->credentials);
 	auth_request_export(request, str);
 
 	auth_worker_call(request, str_c(str), lookup_credentials_callback);
