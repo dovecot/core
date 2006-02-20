@@ -9,9 +9,8 @@ struct passwd_user {
 	gid_t gid;
 
 	char *home;
-	char *mail;
-
-	char *password;
+        char *password;
+        char **extra_fields;
 };
 
 struct passwd_file {

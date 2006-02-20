@@ -23,9 +23,9 @@ static struct db_passwd_file *passwd_files;
 static void passwd_file_add(struct passwd_file *pw, const char *username,
 			    const char *pass, const char *const *args)
 {
-	/* args = uid, gid, user info, home dir, shell, flags, mail */
+	/* args = uid, gid, user info, home dir, shell, extra_fields */
 	struct passwd_user *pu;
-	const char *p;
+	const char *p, *extra_fields = NULL;
 
 	if (hash_lookup(pw->users, username) != NULL) {
 		i_error("passwd-file %s: User %s exists more than once",
@@ -100,25 +100,25 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	if (*args != NULL)
 		args++;
 
-	/* flags */
-	if (*args != NULL) {
-		/* no flags currently */
+	if (*args != NULL && **args == '\0') {
+		/* old format, this field is empty and next field may
+		   contain MAIL */
 		args++;
-	}
-
-	/* rest is MAIL environment */
-	if (*args != NULL) {
-		string_t *str = t_str_new(100);
-		str_append(str, *args);
-		args++;
-
-		while (*args != NULL) {
-			str_append_c(str, ':');
-			str_append(str, *args);
-			args++;
+		if (*args != NULL && **args != '\0') {
+			extra_fields =
+                                t_strconcat("userdb_mail=",
+                                            t_strarray_join(args, ":"), NULL);
 		}
-		pu->mail = p_strdup_empty(pw->pool, str_c(str));
-	}
+	} else if (*args != NULL) {
+		/* new format, contains a space separated list of
+		   extra fields */
+                extra_fields = t_strarray_join(args, ":");
+        }
+
+        if (extra_fields != NULL) {
+                pu->extra_fields =
+                        p_strsplit_spaces(pw->pool, extra_fields, " ");
+        }
 
 	hash_insert(pw->users, pu->user_realm, pu);
 }

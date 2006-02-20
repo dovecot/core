@@ -4,6 +4,8 @@
 
 #ifdef PASSDB_PASSWD_FILE
 
+#include "str.h"
+#include "var-expand.h"
 #include "passdb.h"
 #include "password-scheme.h"
 #include "db-passwd-file.h"
@@ -26,8 +28,11 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 	struct passwd_file_passdb_module *module =
 		(struct passwd_file_passdb_module *)_module;
 	struct passwd_user *pu;
-	const char *scheme, *crypted_pass;
-	int ret;
+        const struct var_expand_table *table;
+	const char *scheme, *crypted_pass, *key, *value;
+	string_t *str;
+	char **p;
+        int ret;
 
 	pu = db_passwd_file_lookup(module->pwf, request);
 	if (pu == NULL) {
@@ -43,7 +48,26 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 	if (crypted_pass != NULL) {
 		auth_request_set_field(request, "password",
 				       crypted_pass, scheme);
+        }
+
+	t_push();
+	str = t_str_new(512);
+	table = auth_request_get_var_expand_table(request, NULL);
+
+	for (p = pu->extra_fields; *p != NULL; p++) {
+		value = strchr(*p, '=');
+		if (value != NULL) {
+			key = t_strdup_until(*p, value);
+			str_truncate(str, 0);
+			var_expand(str, value + 1, table);
+			value = str_c(str);
+		} else {
+			key = *p;
+			value = "";
+		}
+		auth_request_set_field(request, key, value, NULL);
 	}
+	t_pop();
 
 	ret = auth_request_password_verify(request, password, crypted_pass,
 					   scheme, "passwd-file");

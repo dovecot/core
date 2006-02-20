@@ -5,6 +5,7 @@
 #ifdef USERDB_PASSWD_FILE
 
 #include "str.h"
+#include "var-expand.h"
 #include "userdb.h"
 #include "db-passwd-file.h"
 
@@ -23,6 +24,10 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 		(struct passwd_file_userdb_module *)_module;
 	struct auth_stream_reply *reply;
 	struct passwd_user *pu;
+        const struct var_expand_table *table;
+	string_t *str;
+	const char *key, *value;
+	char **p;
 
 	pu = db_passwd_file_lookup(module->pwf, auth_request);
 	if (pu == NULL) {
@@ -37,8 +42,26 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 
 	if (pu->home != NULL)
 		auth_stream_reply_add(reply, "home", pu->home);
-	if (pu->mail != NULL)
-		auth_stream_reply_add(reply, "mail", pu->mail);
+
+	t_push();
+	str = t_str_new(512);
+	table = auth_request_get_var_expand_table(auth_request, NULL);
+
+	for (p = pu->extra_fields; *p != NULL; p++) {
+		if (strncmp(*p, "userdb_", 7) != 0)
+			continue;
+
+		key = *p + 7;
+		value = strchr(key, '=');
+		if (value != NULL) {
+			key = t_strdup_until(key, value);
+			str_truncate(str, 0);
+			var_expand(str, value + 1, table);
+			value = str_c(str);
+		}
+		auth_stream_reply_add(reply, key, value);
+	}
+	t_pop();
 
 	callback(reply, auth_request);
 }
