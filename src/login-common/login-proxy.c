@@ -43,7 +43,7 @@ static void server_input(void *context)
 	}
 
 	ret = net_receive(proxy->server_fd, buf, sizeof(buf));
-	if (ret > 0 || o_stream_send(proxy->client_output, buf, ret) != ret)
+	if (ret < 0 || o_stream_send(proxy->client_output, buf, ret) != ret)
                 login_proxy_free(proxy);
 }
 
@@ -62,7 +62,7 @@ static void proxy_client_input(void *context)
 	}
 
 	ret = net_receive(proxy->client_fd, buf, sizeof(buf));
-	if (ret > 0 || o_stream_send(proxy->server_output, buf, ret) != ret)
+	if (ret < 0 || o_stream_send(proxy->server_output, buf, ret) != ret)
                 login_proxy_free(proxy);
 }
 
