@@ -26,6 +26,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	/* args = uid, gid, user info, home dir, shell, extra_fields */
 	struct passwd_user *pu;
 	const char *p, *extra_fields = NULL;
+	char *user;
 
 	if (hash_lookup(pw->users, username) != NULL) {
 		i_error("passwd-file %s: User %s exists more than once",
@@ -34,11 +35,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	}
 
 	pu = p_new(pw->pool, struct passwd_user, 1);
-	pu->user_realm = p_strdup(pw->pool, username);
-
-	pu->realm = strchr(pu->user_realm, '@');
-	if (pu->realm != NULL)
-		pu->realm++;
+	user = p_strdup(pw->pool, username);
 
 	p = pass == NULL ? NULL : strchr(pass, '[');
 	if (p == NULL) {
@@ -84,6 +81,14 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 			return;
 		}
 		args++;
+	} else {
+		if (pw->db->userdb) {
+			i_error("passwd-file %s: User %s is missing "
+				"userdb info", pw->path, username);
+		}
+		if (pw->first_missing_userdb_info == NULL)
+			pw->first_missing_userdb_info = user;
+		pw->missing_userdb_info_count++;
 	}
 
 	/* user info */
@@ -120,7 +125,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
                         p_strsplit_spaces(pw->pool, extra_fields, " ");
         }
 
-	hash_insert(pw->users, pu->user_realm, pu);
+	hash_insert(pw->users, user, pu);
 }
 
 static struct passwd_file *
@@ -133,7 +138,8 @@ passwd_file_new(struct db_passwd_file *db, const char *expanded_path)
 	pw->path = i_strdup(expanded_path);
 	pw->fd = -1;
 
-	hash_insert(db->files, pw->path, pw);
+	if (db->files != NULL)
+		hash_insert(db->files, pw->path, pw);
 	return pw;
 }
 
@@ -160,6 +166,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 
 	pw->fd = fd;
 	pw->stamp = st.st_mtime;
+	pw->size = st.st_size;
 
 	pw->pool = pool_alloconly_create("passwd_file", 10240);;
 	pw->users = hash_create(default_pool, pw->pool, 100,
@@ -199,6 +206,9 @@ static void passwd_file_close(struct passwd_file *pw)
 		pw->fd = -1;
 	}
 
+	pw->first_missing_userdb_info = NULL;
+	pw->missing_userdb_info_count = 0;
+
 	if (pw->users != NULL) {
 		hash_destroy(pw->users);
 		pw->users = NULL;
@@ -211,7 +221,8 @@ static void passwd_file_close(struct passwd_file *pw)
 
 static void passwd_file_free(struct passwd_file *pw)
 {
-	hash_remove(pw->db->files, pw->path);
+	if (pw->db->files != NULL)
+		hash_remove(pw->db->files, pw->path);
 
 	passwd_file_close(pw);
 	i_free(pw->path);
@@ -232,7 +243,7 @@ static bool passwd_file_sync(struct passwd_file *pw)
 		return FALSE;
 	}
 
-	if (st.st_mtime != pw->stamp) {
+	if (st.st_mtime != pw->stamp || st.st_size != pw->size) {
 		passwd_file_close(pw);
 		return passwd_file_open(pw);
 	}
@@ -252,7 +263,7 @@ static struct db_passwd_file *db_passwd_file_find(const char *path)
 }
 
 struct db_passwd_file *
-db_passwd_file_parse(const char *path, bool userdb, bool debug)
+db_passwd_file_init(const char *path, bool userdb, bool debug)
 {
 	struct db_passwd_file *db;
 	const char *p;
@@ -261,13 +272,7 @@ db_passwd_file_parse(const char *path, bool userdb, bool debug)
 	db = db_passwd_file_find(path);
 	if (db != NULL) {
 		db->refcount++;
-		if (userdb && !db->userdb) {
-			db->userdb = TRUE;
-			if (db->default_file != NULL) {
-				/* resync */
-				db->default_file->stamp = 0;
-			}
-		}
+		db->userdb = TRUE;
 		return db;
 	}
 
@@ -275,8 +280,6 @@ db_passwd_file_parse(const char *path, bool userdb, bool debug)
 	db->refcount = 1;
 	db->userdb = userdb;
 	db->debug = debug;
-	db->files = hash_create(default_pool, default_pool, 100,
-				str_hash, (hash_cmp_callback_t *)strcmp);
 
 	for (p = path; *p != '\0'; p++) {
 		if (*p == '%' && p[1] != '\0') {
@@ -306,17 +309,26 @@ db_passwd_file_parse(const char *path, bool userdb, bool debug)
 	}
 
 	db->path = i_strdup(path);
-
-	if (!db->vars) {
-		/* no variables, open the file immediately */
+	if (db->vars) {
+		db->files = hash_create(default_pool, default_pool, 100,
+					str_hash,
+					(hash_cmp_callback_t *)strcmp);
+	} else {
 		db->default_file = passwd_file_new(db, path);
-		if (!passwd_file_open(db->default_file))
-			exit(FATAL_DEFAULT);
 	}
 
 	db->next = passwd_files;
 	passwd_files = db;
 	return db;
+}
+
+void db_passwd_file_parse(struct db_passwd_file *db)
+{
+	if (db->default_file != NULL && db->default_file->stamp == 0) {
+		/* no variables, open the file immediately */
+		if (!passwd_file_open(db->default_file))
+			exit(FATAL_DEFAULT);
+	}
 }
 
 void db_passwd_file_unref(struct db_passwd_file **_db)
@@ -338,12 +350,18 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
 		}
 	}
 
-	iter = hash_iterate_init(db->files);
-	while (hash_iterate(iter, &key, &value))
-		passwd_file_free(value);
-	hash_iterate_deinit(iter);
+	if (db->default_file != NULL)
+		passwd_file_free(db->default_file);
+	else {
+		iter = hash_iterate_init(db->files);
+		while (hash_iterate(iter, &key, &value)) {
+			struct passwd_file *file = value;
 
-	hash_destroy(db->files);
+			passwd_file_free(file);
+		}
+		hash_iterate_deinit(iter);
+		hash_destroy(db->files);
+	}
 	i_free(db->path);
 	i_free(db);
 }

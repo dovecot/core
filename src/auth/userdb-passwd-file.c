@@ -43,48 +43,51 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	if (pu->home != NULL)
 		auth_stream_reply_add(reply, "home", pu->home);
 
-	t_push();
-	str = t_str_new(512);
-	table = auth_request_get_var_expand_table(auth_request, NULL);
+	if (pu->extra_fields != NULL) {
+		t_push();
+		str = t_str_new(512);
+		table = auth_request_get_var_expand_table(auth_request, NULL);
 
-	for (p = pu->extra_fields; *p != NULL; p++) {
-		if (strncmp(*p, "userdb_", 7) != 0)
-			continue;
+		for (p = pu->extra_fields; *p != NULL; p++) {
+			if (strncmp(*p, "userdb_", 7) != 0)
+				continue;
 
-		key = *p + 7;
-		value = strchr(key, '=');
-		if (value != NULL) {
-			key = t_strdup_until(key, value);
-			str_truncate(str, 0);
-			var_expand(str, value + 1, table);
-			value = str_c(str);
+			key = *p + 7;
+			value = strchr(key, '=');
+			if (value != NULL) {
+				key = t_strdup_until(key, value);
+				str_truncate(str, 0);
+				var_expand(str, value + 1, table);
+				value = str_c(str);
+			}
+			auth_stream_reply_add(reply, key, value);
 		}
-		auth_stream_reply_add(reply, key, value);
+		t_pop();
 	}
-	t_pop();
 
 	callback(reply, auth_request);
 }
 
 static struct userdb_module *
-passwd_file_preinit(struct auth_userdb *auth_userdb,
-		    const char *args __attr_unused__)
+passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
 	struct passwd_file_userdb_module *module;
 
 	module = p_new(auth_userdb->auth->pool,
 		       struct passwd_file_userdb_module, 1);
 	module->auth = auth_userdb->auth;
+	module->pwf =
+		db_passwd_file_init(args, TRUE, module->auth->verbose_debug);
 	return &module->module;
 }
 
-static void passwd_file_init(struct userdb_module *_module, const char *args)
+static void passwd_file_init(struct userdb_module *_module,
+			     const char *args __attr_unused__)
 {
 	struct passwd_file_userdb_module *module =
 		(struct passwd_file_userdb_module *)_module;
 
-	module->pwf =
-		db_passwd_file_parse(args, TRUE, module->auth->verbose_debug);
+	db_passwd_file_parse(module->pwf);
 }
 
 static void passwd_file_deinit(struct userdb_module *_module)

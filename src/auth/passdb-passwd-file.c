@@ -50,24 +50,26 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 				       crypted_pass, scheme);
         }
 
-	t_push();
-	str = t_str_new(512);
-	table = auth_request_get_var_expand_table(request, NULL);
+	if (pu->extra_fields != NULL) {
+		t_push();
+		str = t_str_new(512);
+		table = auth_request_get_var_expand_table(request, NULL);
 
-	for (p = pu->extra_fields; *p != NULL; p++) {
-		value = strchr(*p, '=');
-		if (value != NULL) {
-			key = t_strdup_until(*p, value);
-			str_truncate(str, 0);
-			var_expand(str, value + 1, table);
-			value = str_c(str);
-		} else {
-			key = *p;
-			value = "";
+		for (p = pu->extra_fields; *p != NULL; p++) {
+			value = strchr(*p, '=');
+			if (value != NULL) {
+				key = t_strdup_until(*p, value);
+				str_truncate(str, 0);
+				var_expand(str, value + 1, table);
+				value = str_c(str);
+			} else {
+				key = *p;
+				value = "";
+			}
+			auth_request_set_field(request, key, value, NULL);
 		}
-		auth_request_set_field(request, key, value, NULL);
+		t_pop();
 	}
-	t_pop();
 
 	ret = auth_request_password_verify(request, password, crypted_pass,
 					   scheme, "passwd-file");
@@ -100,8 +102,7 @@ passwd_file_lookup_credentials(struct auth_request *request,
 }
 
 static struct passdb_module *
-passwd_file_preinit(struct auth_passdb *auth_passdb,
-		    const char *args __attr_unused__)
+passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
 	struct passwd_file_passdb_module *module;
 
@@ -110,16 +111,18 @@ passwd_file_preinit(struct auth_passdb *auth_passdb,
 	module->auth = auth_passdb->auth;
 	module->module.cache_key = PASSWD_FILE_CACHE_KEY;
 	module->module.default_pass_scheme = PASSWD_FILE_DEFAULT_SCHEME;
+	module->pwf =
+		db_passwd_file_init(args, FALSE, module->auth->verbose_debug);
 	return &module->module;
 }
 
-static void passwd_file_init(struct passdb_module *_module, const char *args)
+static void passwd_file_init(struct passdb_module *_module,
+			     const char *args __attr_unused__)
 {
 	struct passwd_file_passdb_module *module =
 		(struct passwd_file_passdb_module *)_module;
 
-	module->pwf =
-		db_passwd_file_parse(args, FALSE, module->auth->verbose_debug);
+	db_passwd_file_parse(module->pwf);
 }
 
 static void passwd_file_deinit(struct passdb_module *_module)
