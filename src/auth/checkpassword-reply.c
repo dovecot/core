@@ -10,6 +10,7 @@
 int main(void)
 {
 	string_t *str;
+	const char *extra_env, *value, *const *tmp;
 
 	lib_init();
 	str = t_str_new(1024);
@@ -29,6 +30,17 @@ int main(void)
 		    "userdb_gid=%s\t",
 		    getenv("USER"), getenv("HOME"),
 		    dec2str(getuid()), dec2str(getgid()));
+
+	extra_env = getenv("EXTRA");
+	if (extra_env != NULL) {
+		for (tmp = t_strsplit(extra_env, " "); *tmp != NULL; tmp++) {
+			value = getenv(*tmp);
+			if (value != NULL) {
+				str_printfa(str, "%s=%s\t",
+					    t_str_lcase(*tmp), value);
+			}
+		}
+	}
 
 	if (write_full(4, str_data(str), str_len(str)) < 0) {
 		i_error("write_full() failed: %m");
