@@ -154,12 +154,8 @@ int imap_sync_more(struct imap_sync_context *ctx)
 			}
 			break;
 		case MAILBOX_SYNC_TYPE_EXPUNGE:
-			if (ctx->seq == 0) {
+			if (ctx->seq == 0)
 				ctx->seq = ctx->sync_rec.seq2;
-				ctx->messages_count -=
-					ctx->sync_rec.seq2 -
-					ctx->sync_rec.seq1 + 1;
-			}
 			ret = 1;
 			for (; ctx->seq >= ctx->sync_rec.seq1; ctx->seq--) {
 				if (ret <= 0)
@@ -168,6 +164,14 @@ int imap_sync_more(struct imap_sync_context *ctx)
 				str_truncate(str, 0);
 				str_printfa(str, "* %u EXPUNGE", ctx->seq);
 				ret = client_send_line(ctx->client, str_c(str));
+			}
+			if (ctx->seq < ctx->sync_rec.seq1) {
+				/* update only after we're finished, so that
+				   the seq2 > messages_count check above
+				   doesn't break */
+				ctx->messages_count -=
+					ctx->sync_rec.seq2 -
+					ctx->sync_rec.seq1 + 1;
 			}
 			break;
 		}
