@@ -8,6 +8,7 @@
 #include "str.h"
 #include "ioloop.h"
 #include "hash.h"
+#include "env-util.h"
 #include "passdb.h"
 #include "safe-memset.h"
 
@@ -190,6 +191,25 @@ checkpassword_verify_plain_child(struct auth_request *request,
 		cmd = t_strconcat(module->checkpassword_path, " ",
 				  module->checkpassword_reply_path, NULL);
 		args = t_strsplit(cmd, " ");
+
+		/* Besides passing the standard username and password in a
+		   pipe, also pass some other possibly interesting information
+		   via environment. */
+		env_put(t_strconcat("SERVICE=", request->service, NULL));
+		if (request->local_ip.family != 0) {
+			env_put(t_strconcat("LOCAL_IP=",
+					    net_ip2addr(&request->local_ip),
+					    NULL));
+		}
+		if (request->remote_ip.family != 0) {
+			env_put(t_strconcat("REMOTE_IP=",
+					    net_ip2addr(&request->remote_ip),
+					    NULL));
+		}
+		if (request->master_user != NULL) {
+			env_put(t_strconcat("MASTER_USER=",
+					    request->master_user, NULL));
+		}
 
 		auth_request_log_debug(request, "checkpassword",
 				       "Executed: %s", cmd);
