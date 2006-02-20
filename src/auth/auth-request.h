@@ -30,6 +30,9 @@ struct auth_request {
         char *user, *requested_login_user, *master_user;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
+        /* extra_fields are returned in authentication reply. Fields prefixed
+           with "userdb_" are skipped. If prefetch userdb is used, it uses
+           the "userdb_" prefixed fields. */
         struct auth_stream_reply *extra_fields;
 
 	struct mech_module *mech;
