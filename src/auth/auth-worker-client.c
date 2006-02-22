@@ -186,9 +186,9 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	struct auth_request *auth_request;
 	const char *credentials_str;
         enum passdb_credentials credentials;
-	unsigned int num;
+	unsigned int passdb_id;
 
-	num = atoi(t_strcut(args, '\t'));
+	passdb_id = atoi(t_strcut(args, '\t'));
 	args = strchr(args, '\t');
 	if (args == NULL) {
 		i_error("BUG: Auth worker server sent us invalid PASSL");
@@ -211,10 +211,10 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 		return;
 	}
 
-	for (; num > 0; num--) {
+	while (auth_request->passdb->id != passdb_id) {
 		auth_request->passdb = auth_request->passdb->next;
 		if (auth_request->passdb == NULL) {
-			i_error("BUG: PASSL had invalid passdb num");
+			i_error("BUG: PASSL had invalid passdb ID");
 			auth_request_unref(&auth_request);
 			return;
 		}
