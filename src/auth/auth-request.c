@@ -586,7 +586,8 @@ void auth_request_set_field(struct auth_request *request,
 
 	if (strcmp(name, "password") == 0) {
 		if (request->passdb_password != NULL) {
-			auth_request_log_error(request, "auth",
+			auth_request_log_error(request,
+				request->passdb->passdb->iface.name,
 				"Multiple password values not supported");
 			return;
 		}
