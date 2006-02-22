@@ -19,9 +19,11 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 
 	from_envelope = mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE);
 
-	ctx = mailbox_save_init(t, flags, keywords,
-				mail_get_received_date(mail),
-				0, from_envelope, input, dest_mail != NULL);
+	if (mailbox_save_init(t, flags, keywords,
+			      mail_get_received_date(mail),
+			      0, from_envelope, input, dest_mail != NULL,
+			      &ctx) < 0)
+		return -1;
 
 	while (i_stream_read(input) != -1) {
 		if (mailbox_save_continue(ctx) < 0)

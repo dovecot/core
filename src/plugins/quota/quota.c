@@ -131,6 +131,12 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 	return ctx->quota->try_alloc(ctx, mail, too_large_r);
 }
 
+int quota_try_alloc_bytes(struct quota_transaction_context *ctx,
+			  uoff_t size, bool *too_large_r)
+{
+	return ctx->quota->try_alloc_bytes(ctx, size, too_large_r);
+}
+
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 {
 	ctx->quota->alloc(ctx, mail);

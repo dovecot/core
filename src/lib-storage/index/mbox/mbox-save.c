@@ -47,6 +47,7 @@ struct mbox_save_context {
 
 	unsigned int synced:1;
 	unsigned int failed:1;
+	unsigned int finished:1;
 };
 
 static char my_hostdomain[256] = "";
@@ -339,11 +340,11 @@ static void save_header_callback(struct message_header_line *hdr,
 	}
 }
 
-struct mail_save_context *
-mbox_save_init(struct mailbox_transaction_context *_t,
-	       enum mail_flags flags, struct mail_keywords *keywords,
-	       time_t received_date, int timezone_offset __attr_unused__,
-	       const char *from_envelope, struct istream *input, bool want_mail)
+int mbox_save_init(struct mailbox_transaction_context *_t,
+		   enum mail_flags flags, struct mail_keywords *keywords,
+		   time_t received_date, int timezone_offset __attr_unused__,
+		   const char *from_envelope, struct istream *input,
+		   bool want_mail, struct mail_save_context **ctx_r)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)_t;
@@ -373,7 +374,7 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 
 	if (mbox_save_init_file(ctx, t, want_mail) < 0) {
 		ctx->failed = TRUE;
-		return &ctx->ctx;
+		return -1;
 	}
 
 	save_flags = (flags & ~MAIL_RECENT) | MAIL_RECENT;
@@ -435,7 +436,8 @@ mbox_save_init(struct mailbox_transaction_context *_t,
 			ctx->mbox_md5_ctx = mbox_md5_init();
 	}
 
-	return &ctx->ctx;
+	*ctx_r = &ctx->ctx;
+	return ctx->failed ? -1 : 0;
 }
 
 int mbox_save_continue(struct mail_save_context *_ctx)
@@ -518,6 +520,7 @@ int mbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 
+	ctx->finished = TRUE;
 	if (!ctx->failed) {
 		if (mbox_write_content_length(ctx) < 0 ||
 		    mbox_append_lf(ctx) < 0)
@@ -573,6 +576,8 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 {
 	int ret = 0;
 
+	i_assert(ctx->finished);
+
 	if (ctx->synced) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
@@ -594,6 +599,9 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 void mbox_transaction_save_rollback(struct mbox_save_context *ctx)
 {
 	struct mbox_mailbox *mbox = ctx->mbox;
+
+	if (!ctx->finished)
+		mbox_save_cancel(&ctx->ctx);
 
 	if (ctx->append_offset != (uoff_t)-1 && mbox->mbox_fd != -1) {
 		i_assert(mbox->mbox_lock_type == F_WRLCK);

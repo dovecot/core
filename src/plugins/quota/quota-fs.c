@@ -257,6 +257,15 @@ fs_quota_try_alloc(struct quota_transaction_context *ctx __attr_unused__,
 	return 1;
 }
 
+static int
+fs_quota_try_alloc_bytes(struct quota_transaction_context *ctx __attr_unused__,
+			 uoff_t size __attr_unused__,
+			 bool *too_large_r __attr_unused__)
+{
+	/* no-op */
+	return 1;
+}
+
 static void
 fs_quota_alloc(struct quota_transaction_context *ctx __attr_unused__,
 		struct mail *mail __attr_unused__)
@@ -302,6 +311,7 @@ struct quota fs_quota = {
 	fs_quota_transaction_rollback,
 
 	fs_quota_try_alloc,
+	fs_quota_try_alloc_bytes,
 	fs_quota_alloc,
 	fs_quota_free,
 

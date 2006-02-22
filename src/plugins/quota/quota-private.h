@@ -39,6 +39,8 @@ struct quota {
 
 	int (*try_alloc)(struct quota_transaction_context *ctx,
 			 struct mail *mail, bool *too_large_r);
+	int (*try_alloc_bytes)(struct quota_transaction_context *ctx,
+			       uoff_t size, bool *too_large_r);
 	void (*alloc)(struct quota_transaction_context *ctx, struct mail *mail);
 	void (*free)(struct quota_transaction_context *ctx, struct mail *mail);
 

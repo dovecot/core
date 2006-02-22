@@ -110,8 +110,6 @@ static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 
 static void cmd_append_finish(struct cmd_append_context *ctx)
 {
-	ctx->client->input_skip_line = TRUE;
-
 	io_remove(&ctx->client->io);
 
         imap_parser_destroy(&ctx->save_parser);
@@ -203,6 +201,9 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		/* last message */
 		enum mailbox_sync_flags sync_flags;
 
+		/* eat away the trailing CRLF */
+		client->input_skip_line = TRUE;
+
 		if (ctx->box == NULL) {
 			/* we failed earlier, error message is sent */
 			cmd_append_finish(ctx);
@@ -263,25 +264,31 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (!nonsync) {
-		o_stream_send(client->output, "+ OK\r\n", 6);
-		o_stream_flush(client->output);
-		o_stream_uncork(client->output);
+	/* save the mail */
+	ctx->input = i_stream_create_limit(default_pool, client->input,
+					   client->input->v_offset,
+					   ctx->msg_size);
+	ret = mailbox_save_init(ctx->t, flags, keywords,
+				internal_date, timezone_offset, NULL,
+				ctx->input, FALSE, &ctx->save_ctx);
+
+	if (keywords != NULL)
+		mailbox_keywords_free(ctx->t, &keywords);
+
+	if (ret < 0) {
+		/* save initialization failed */
+		client_send_storage_error(cmd, ctx->storage);
+		return cmd_append_cancel(ctx, nonsync);
 	}
 
 	/* after literal comes CRLF, if we fail make sure we eat it away */
 	client->input_skip_line = TRUE;
 
-	/* save the mail */
-	ctx->input = i_stream_create_limit(default_pool, client->input,
-					   client->input->v_offset,
-					   ctx->msg_size);
-	ctx->save_ctx = mailbox_save_init(ctx->t, flags, keywords,
-					  internal_date, timezone_offset, NULL,
-					  ctx->input, FALSE);
-
-	if (keywords != NULL)
-		mailbox_keywords_free(ctx->t, &keywords);
+	if (!nonsync) {
+		o_stream_send(client->output, "+ OK\r\n", 6);
+		o_stream_flush(client->output);
+		o_stream_uncork(client->output);
+	}
 
 	client->command_pending = TRUE;
 	cmd->func = cmd_append_continue_message;

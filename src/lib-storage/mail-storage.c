@@ -495,16 +495,15 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 	t->box->v.transaction_rollback(t);
 }
 
-struct mail_save_context *
-mailbox_save_init(struct mailbox_transaction_context *t,
-		  enum mail_flags flags, struct mail_keywords *keywords,
-		  time_t received_date, int timezone_offset,
-		  const char *from_envelope, struct istream *input,
-		  bool want_mail)
+int mailbox_save_init(struct mailbox_transaction_context *t,
+		      enum mail_flags flags, struct mail_keywords *keywords,
+		      time_t received_date, int timezone_offset,
+		      const char *from_envelope, struct istream *input,
+		      bool want_mail, struct mail_save_context **ctx_r)
 {
 	return t->box->v.save_init(t, flags, keywords,
 				   received_date, timezone_offset,
-				   from_envelope, input, want_mail);
+				   from_envelope, input, want_mail, ctx_r);
 }
 
 int mailbox_save_continue(struct mail_save_context *ctx)

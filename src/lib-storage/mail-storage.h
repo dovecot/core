@@ -152,6 +152,7 @@ enum mailbox_sync_type {
 struct mail_storage;
 struct mail_search_arg;
 struct mail_keywords;
+struct mail_save_context;
 struct mailbox;
 struct mailbox_list_context;
 struct mailbox_transaction_context;
@@ -398,12 +399,11 @@ int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
    If want_mail is TRUE, mail_r will be set in mailbox_save_finish() and
    the saved message can be accessed using it. Note that setting it may
    require mailbox syncing, so don't set it unless you need it. */
-struct mail_save_context *
-mailbox_save_init(struct mailbox_transaction_context *t,
-		  enum mail_flags flags, struct mail_keywords *keywords,
-		  time_t received_date, int timezone_offset,
-		  const char *from_envelope, struct istream *input,
-		  bool want_mail);
+int mailbox_save_init(struct mailbox_transaction_context *t,
+		      enum mail_flags flags, struct mail_keywords *keywords,
+		      time_t received_date, int timezone_offset,
+		      const char *from_envelope, struct istream *input,
+		      bool want_mail, struct mail_save_context **ctx_r);
 int mailbox_save_continue(struct mail_save_context *ctx);
 int mailbox_save_finish(struct mail_save_context **ctx, struct mail *dest_mail);
 void mailbox_save_cancel(struct mail_save_context **ctx);

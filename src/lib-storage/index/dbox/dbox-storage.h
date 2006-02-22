@@ -145,12 +145,11 @@ int dbox_transaction_commit(struct mailbox_transaction_context *t,
 			    enum mailbox_sync_flags flags);
 void dbox_transaction_rollback(struct mailbox_transaction_context *t);
 
-struct mail_save_context *
-dbox_save_init(struct mailbox_transaction_context *_t,
-	       enum mail_flags flags, struct mail_keywords *keywords,
-	       time_t received_date, int timezone_offset,
-	       const char *from_envelope, struct istream *input,
-	       bool want_mail);
+int dbox_save_init(struct mailbox_transaction_context *_t,
+		   enum mail_flags flags, struct mail_keywords *keywords,
+		   time_t received_date, int timezone_offset,
+		   const char *from_envelope, struct istream *input,
+		   bool want_mail, struct mail_save_context **ctx_r);
 int dbox_save_continue(struct mail_save_context *ctx);
 int dbox_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void dbox_save_cancel(struct mail_save_context *ctx);

@@ -32,7 +32,8 @@ struct dbox_save_context {
 	uint64_t hdr_offset;
 	uint64_t mail_offset;
 
-	bool failed;
+	unsigned int failed:1;
+	unsigned int finished:1;
 };
 
 static int
@@ -93,12 +94,12 @@ dbox_save_add_keywords(struct dbox_save_context *ctx,
 	return ret;
 }
 
-struct mail_save_context *
-dbox_save_init(struct mailbox_transaction_context *_t,
-	       enum mail_flags flags, struct mail_keywords *keywords,
-	       time_t received_date, int timezone_offset __attr_unused__,
-	       const char *from_envelope __attr_unused__,
-	       struct istream *input, bool want_mail __attr_unused__)
+int dbox_save_init(struct mailbox_transaction_context *_t,
+		   enum mail_flags flags, struct mail_keywords *keywords,
+		   time_t received_date, int timezone_offset __attr_unused__,
+		   const char *from_envelope __attr_unused__,
+		   struct istream *input, bool want_mail __attr_unused__,
+		   struct mail_save_context **ctx_r)
 {
 	struct dbox_transaction_context *t =
 		(struct dbox_transaction_context *)_t;
@@ -125,12 +126,12 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 
 		if ((ret = dbox_sync_if_changed(mbox)) < 0) {
 			ctx->failed = TRUE;
-			return &ctx->ctx;
+			return -1;
 		}
 		if (ret > 0) {
 			if (dbox_sync(mbox, FALSE) < 0) {
 				ctx->failed = TRUE;
-				return &ctx->ctx;
+				return -1;
 			}
 		}
 	}
@@ -138,7 +139,7 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 
 	if (dbox_uidlist_append_locked(ctx->append_ctx, &ctx->file) < 0) {
 		ctx->failed = TRUE;
-		return &ctx->ctx;
+		return -1;
 	}
 	ctx->hdr_offset = ctx->file->output->offset;
 
@@ -150,7 +151,7 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 		if (dbox_save_add_keywords(ctx, keywords, file_keywords) < 0) {
 			ctx->failed = TRUE;
 			t_pop();
-			return &ctx->ctx;
+			return -1;
 		}
 		o_stream_seek(ctx->file->output, ctx->hdr_offset);
 	}
@@ -214,7 +215,9 @@ dbox_save_init(struct mailbox_transaction_context *_t,
 	if (ctx->first_append_seq == 0)
 		ctx->first_append_seq = ctx->seq;
 	t_pop();
-	return &ctx->ctx;
+
+	*ctx_r = &ctx->ctx;
+	return ctx->failed ? -1 : 0;
 }
 
 int dbox_save_continue(struct mail_save_context *_ctx)
@@ -244,6 +247,7 @@ int dbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct dbox_mail_header hdr;
 
+	ctx->finished = TRUE;
 	if (!ctx->failed) {
 		/* write mail size to header */
 		DEC2HEX(hdr.mail_size_hex,
@@ -294,6 +298,8 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	time_t old_mtime, new_mtime;
 	uoff_t offset;
 	int ret;
+
+	i_assert(ctx->finished);
 
 	/* we want the index file to be locked from here until the appends
 	   have been written to transaction log. this is so that the
@@ -367,6 +373,9 @@ void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 
 void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
 {
+	if (!ctx->finished)
+		dbox_save_cancel(&ctx->ctx);
+
 	if (ctx->index_sync_ctx != NULL)
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 

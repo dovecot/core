@@ -140,13 +140,12 @@ struct mailbox_vfuncs {
 	int (*search_deinit)(struct mail_search_context *ctx);
 	int (*search_next)(struct mail_search_context *ctx, struct mail *mail);
 
-	struct mail_save_context *
-		(*save_init)(struct mailbox_transaction_context *t,
-			     enum mail_flags flags,
-			     struct mail_keywords *keywords,
-			     time_t received_date, int timezone_offset,
-			     const char *from_envelope, struct istream *input,
-			     bool want_mail);
+	int (*save_init)(struct mailbox_transaction_context *t,
+			 enum mail_flags flags,
+			 struct mail_keywords *keywords,
+			 time_t received_date, int timezone_offset,
+			 const char *from_envelope, struct istream *input,
+			 bool want_mail, struct mail_save_context **ctx_r);
 	int (*save_continue)(struct mail_save_context *ctx);
 	int (*save_finish)(struct mail_save_context *ctx,
 			   struct mail *dest_mail);

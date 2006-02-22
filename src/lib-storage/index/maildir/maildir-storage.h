@@ -112,12 +112,11 @@ int maildir_transaction_commit(struct mailbox_transaction_context *t,
 			       enum mailbox_sync_flags flags);
 void maildir_transaction_rollback(struct mailbox_transaction_context *t);
 
-struct mail_save_context *
-maildir_save_init(struct mailbox_transaction_context *_t,
-		  enum mail_flags flags, struct mail_keywords *keywords,
-		  time_t received_date, int timezone_offset,
-		  const char *from_envelope, struct istream *input,
-		  bool want_mail);
+int maildir_save_init(struct mailbox_transaction_context *_t,
+		      enum mail_flags flags, struct mail_keywords *keywords,
+		      time_t received_date, int timezone_offset,
+		      const char *from_envelope, struct istream *input,
+		      bool want_mail, struct mail_save_context **ctx_r);
 int maildir_save_continue(struct mail_save_context *ctx);
 int maildir_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void maildir_save_cancel(struct mail_save_context *ctx);

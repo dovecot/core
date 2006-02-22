@@ -49,6 +49,7 @@ struct maildir_save_context {
 
 	unsigned int synced:1;
 	unsigned int failed:1;
+	unsigned int finished:1;
 };
 
 static int maildir_file_move(struct maildir_save_context *ctx,
@@ -115,12 +116,12 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	return ctx;
 }
 
-struct mail_save_context *
-maildir_save_init(struct mailbox_transaction_context *_t,
-		  enum mail_flags flags, struct mail_keywords *keywords,
-		  time_t received_date, int timezone_offset __attr_unused__,
-		  const char *from_envelope __attr_unused__,
-		  struct istream *input, bool want_mail)
+int maildir_save_init(struct mailbox_transaction_context *_t,
+		      enum mail_flags flags, struct mail_keywords *keywords,
+		      time_t received_date, int timezone_offset __attr_unused__,
+		      const char *from_envelope __attr_unused__,
+		      struct istream *input, bool want_mail,
+		      struct mail_save_context **ctx_r)
 {
 	struct maildir_transaction_context *t =
 		(struct maildir_transaction_context *)_t;
@@ -144,7 +145,7 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	if (ctx->fd == -1) {
 		ctx->failed = TRUE;
 		t_pop();
-		return &ctx->ctx;
+		return -1;
 	}
 
 	fname = strrchr(path, '/');
@@ -205,8 +206,8 @@ maildir_save_init(struct mailbox_transaction_context *_t,
 	}
 	t_pop();
 
-	ctx->failed = FALSE;
-	return &ctx->ctx;
+	*ctx_r = &ctx->ctx;
+	return ctx->failed ? -1 : 0;
 }
 
 int maildir_save_continue(struct mail_save_context *_ctx)
@@ -234,6 +235,7 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	const char *path;
 	int output_errno;
 
+	ctx->finished = TRUE;
 	if (ctx->failed && ctx->fd == -1) {
 		/* tmp file creation failed */
 		return -1;
@@ -358,6 +360,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	int ret;
 
 	i_assert(ctx->output == NULL);
+	i_assert(ctx->finished);
 
 	/* Start syncing so that keywords_sync_ctx gets set.. */
 	ctx->sync_ctx = maildir_sync_index_begin(ctx->mbox);
@@ -428,6 +431,9 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 	size_t dir_len;
 
 	i_assert(ctx->output == NULL);
+
+	if (!ctx->finished)
+		maildir_save_cancel(&ctx->ctx);
 
 	t_push();
 	str = t_str_new(1024);

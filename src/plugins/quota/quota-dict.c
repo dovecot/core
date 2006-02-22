@@ -225,6 +225,19 @@ dict_quota_transaction_rollback(struct quota_transaction_context *ctx)
 }
 
 static int
+dict_quota_try_alloc_bytes(struct quota_transaction_context *ctx,
+			   uoff_t size, bool *too_large_r)
+{
+	*too_large_r = size > ctx->storage_limit;
+
+	if (ctx->storage_current + ctx->bytes_diff + size > ctx->storage_limit)
+		return 0;
+
+	ctx->bytes_diff += size;
+	return 1;
+}
+
+static int
 dict_quota_try_alloc(struct quota_transaction_context *ctx,
 		     struct mail *mail, bool *too_large_r)
 {
@@ -234,13 +247,7 @@ dict_quota_try_alloc(struct quota_transaction_context *ctx,
 	if (size == (uoff_t)-1)
 		return -1;
 
-	*too_large_r = size > ctx->storage_limit;
-
-	if (ctx->storage_current + ctx->bytes_diff + size > ctx->storage_limit)
-		return 0;
-
-	ctx->bytes_diff += size;
-	return 1;
+	return dict_quota_try_alloc_bytes(ctx, size, too_large_r);
 }
 
 static void
@@ -294,6 +301,7 @@ struct quota dict_quota = {
 	dict_quota_transaction_rollback,
 
 	dict_quota_try_alloc,
+	dict_quota_try_alloc_bytes,
 	dict_quota_alloc,
 	dict_quota_free,
 

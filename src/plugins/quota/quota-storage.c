@@ -152,27 +152,48 @@ quota_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	return ret;
 }
 
-static struct mail_save_context *
+static int
 quota_save_init(struct mailbox_transaction_context *t,
 		enum mail_flags flags, struct mail_keywords *keywords,
 		time_t received_date, int timezone_offset,
 		const char *from_envelope, struct istream *input,
-		bool want_mail __attr_unused__)
+		bool want_mail __attr_unused__,
+		struct mail_save_context **ctx_r)
 {
+	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
 	const struct stat *st;
+	int ret;
 
 	st = i_stream_stat(input, TRUE);
 	if (st != NULL && st->st_size != -1) {
-		/* FIXME: input size is known, check for quota.
-		   the API needs changing however to do this, we'd need to
-		   return failure before "+ OK".. */
+		/* Input size is known, check for quota immediately. This
+		   check isn't perfect, especially because input stream's
+		   linefeeds may contain CR+LFs while physical message would
+		   only contain LFs. With mbox some headers might be skipped
+		   entirely.
+
+		   I think these don't really matter though compared to the
+		   benefit of giving "out of quota" error before sending the
+		   full mail. */
+		bool too_large;
+
+		ret = quota_try_alloc_bytes(qt, st->st_size, &too_large);
+		if (ret == 0) {
+			mail_storage_set_error(t->box->storage,
+					       "Quota exceeded");
+			return -1;
+		} else if (ret < 0) {
+			mail_storage_set_error(t->box->storage,  "%s",
+					       quota_last_error(quota));
+			return -1;
+		}
 	}
 
 	/* note that we set want_mail = TRUE in here. */
 	return qbox->super.save_init(t, flags, keywords, received_date,
 				     timezone_offset, from_envelope,
-				     input, TRUE);
+				     input, TRUE, ctx_r);
 }
 
 static int quota_save_finish(struct mail_save_context *ctx,
