@@ -33,13 +33,15 @@ enum mail_storage_lock_method {
 enum mailbox_open_flags {
 	/* Mailbox must not be modified even if asked */
 	MAILBOX_OPEN_READONLY		= 0x01,
+	/* Only saving/copying mails to mailbox works. */
+	MAILBOX_OPEN_SAVEONLY		= 0x02,
 	/* Any extra time consuming operations shouldn't be performed
 	   (eg. when opening mailbox just for STATUS). */
-	MAILBOX_OPEN_FAST		= 0x02,
+	MAILBOX_OPEN_FAST		= 0x04,
 	/* Don't reset MAIL_RECENT flags when syncing */
-	MAILBOX_OPEN_KEEP_RECENT	= 0x04,
+	MAILBOX_OPEN_KEEP_RECENT	= 0x08,
 	/* Don't create index files for the mailbox */
-	MAILBOX_OPEN_NO_INDEX_FILES	= 0x08
+	MAILBOX_OPEN_NO_INDEX_FILES	= 0x10
 };
 
 enum mailbox_list_flags {
@@ -292,6 +294,17 @@ int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					bool *syntax_error_r,
 					bool *temporary_error_r);
+
+/* Returns path to the given mailbox, or NULL if mailbox doesn't exist in
+   filesystem. is_file_r is set to TRUE if returned path points to a file,
+   and FALSE if it points to a directory. If name is "", the root storage
+   directory is returned. */
+const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
+					  const char *name, bool *is_file_r);
+/* Returns path to the control directory of the mailbox, or NULL if mailbox
+   doesn't exist in filesystem. */
+const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
+						 const char *name);
 
 /* Open a mailbox. If input stream is given, mailbox is opened read-only
    using it as a backend. If storage doesn't support stream backends and its

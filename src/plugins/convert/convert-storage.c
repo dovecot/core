@@ -229,17 +229,19 @@ int convert_storage(const char *user, const char *home_dir,
 
 	if (ret == 0) {
 		/* all finished. rename the source directory to mark the
-		   move as finished. FIXME: kind of kludgy way to get the
-		   directory.. */
-		struct index_storage *index_storage =
-			(struct index_storage *)source_storage;
-		const char *dest;
+		   move as finished. */
+		const char *src, *dest;
+		bool is_file;
 
-		dest = t_strconcat(index_storage->dir, "-converted", NULL);
-		if (rename(index_storage->dir, dest) < 0) {
-			i_error("Mailbox conversion: rename(%s, %s) failed: %m",
-				index_storage->dir, dest);
-			/* return success anyway */
+		src = mail_storage_get_mailbox_path(source_storage, "",
+						    &is_file);
+		if (src != NULL) {
+			dest = t_strconcat(src, "-converted", NULL);
+			if (rename(src, dest) < 0) {
+				i_error("Mailbox conversion: "
+					"rename(%s, %s) failed: %m", src, dest);
+				/* return success anyway */
+			}
 		}
 		ret = 1;
 	}

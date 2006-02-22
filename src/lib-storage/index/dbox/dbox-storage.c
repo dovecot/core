@@ -30,7 +30,7 @@ static bool dbox_handle_errors(struct index_storage *istorage)
 	struct mail_storage *storage = &istorage->storage;
 
 	if (ENOACCESS(errno))
-		mail_storage_set_error(storage, "Permission denied");
+		mail_storage_set_error(storage, MAIL_STORAGE_ERR_NO_PERMISSION);
 	else if (ENOSPACE(errno))
 		mail_storage_set_error(storage, "Not enough disk space");
 	else if (ENOTFOUND(errno))
@@ -158,11 +158,21 @@ bool dbox_is_valid_mask(struct mail_storage *storage, const char *mask)
 	if (*mask == '/' || *mask == '~')
 		return FALSE;
 
-	/* make sure there's no "../" stuff */
+	/* make sure the mailbox name doesn't contain any foolishness:
+	   "../" could give access outside the mailbox directory.
+	   "./" and "//" could fool ACL checks. */
 	newdir = TRUE;
 	for (p = mask; *p != '\0'; p++) {
-		if (newdir && p[0] == '.' && p[1] == '.' && p[2] == '/')
-			return FALSE;
+		if (newdir) {
+			if (p[0] == '/')
+				return FALSE; /* // */
+			if (p[0] == '.') {
+				if (p[1] == '/')
+					return FALSE; /* ./ */
+				if (p[1] == '.' && p[2] == '/')
+					return FALSE; /* ../ */
+			}
+		} 
 		newdir = p[0] == '/';
 	}
 
@@ -266,6 +276,28 @@ dbox_get_index_dir(struct index_storage *storage, const char *name)
 			   "/", name, "/"DBOX_MAILDIR_NAME, NULL);
 }
 
+static const char *
+dbox_get_mailbox_path(struct mail_storage *_storage,
+		      const char *name, bool *is_file_r)
+{
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	struct index_storage *istorage = INDEX_STORAGE(storage);
+
+	*is_file_r = FALSE;
+	if (*name == '\0')
+		return istorage->dir;
+	return dbox_get_path(istorage, name);
+}
+
+static const char *
+dbox_get_mailbox_control_dir(struct mail_storage *_storage, const char *name)
+{
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	struct index_storage *istorage = INDEX_STORAGE(storage);
+
+	return dbox_get_path(istorage, name);
+}
+
 static struct mailbox *
 dbox_open(struct dbox_storage *storage, const char *name,
 	  enum mailbox_open_flags flags)
@@ -358,8 +390,8 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 	if (stat(path, &st) == 0) {
 		return dbox_open(storage, name, flags);
 	} else if (errno == ENOENT) {
-		mail_storage_set_error(_storage, "Mailbox doesn't exist: %s",
-				       name);
+		mail_storage_set_error(_storage,
+			MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
 		return NULL;
 	} else {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
@@ -421,7 +453,7 @@ static int dbox_mailbox_delete(struct mail_storage *_storage,
 	if (stat(mail_path, &st) < 0 && ENOTFOUND(errno)) {
 		if (stat(path, &st) < 0) {
 			mail_storage_set_error(_storage,
-				"Mailbox doesn't exist: %s", name);
+				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
 			return -1;
 		}
 
@@ -517,7 +549,7 @@ static int dbox_mailbox_rename(struct mail_storage *_storage,
 	if (rename(oldpath, newpath) < 0) {
 		if (ENOTFOUND(errno)) {
 			mail_storage_set_error(_storage,
-				"Mailbox doesn't exist: %s", oldname);
+				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, oldname);
 		} else if (!dbox_handle_errors(storage)) {
 			mail_storage_set_critical(_storage,
 				"rename(%s, %s) failed: %m", oldpath, newpath);
@@ -614,6 +646,8 @@ struct mail_storage dbox_storage = {
 		dbox_free,
 		dbox_autodetect,
 		index_storage_set_callbacks,
+		dbox_get_mailbox_path,
+		dbox_get_mailbox_control_dir,
 		dbox_mailbox_open,
 		dbox_mailbox_create,
 		dbox_mailbox_delete,

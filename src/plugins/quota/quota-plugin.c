@@ -1,7 +1,6 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "lib.h"
-#include "str.h"
 #include "mail-storage.h"
 #include "quota.h"
 #include "quota-plugin.h"

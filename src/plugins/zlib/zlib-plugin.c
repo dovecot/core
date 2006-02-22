@@ -6,8 +6,9 @@
 #include "home-expand.h"
 #include "istream.h"
 #include "mail-storage-private.h"
-#include "index-storage.h"
 #include "zlib-plugin.h"
+
+#include <fcntl.h>
 
 struct zlib_mail_storage {
 	struct mail_storage_vfuncs super;
@@ -26,31 +27,30 @@ static void (*zlib_next_hook_mail_storage_created)
 static unsigned int zlib_storage_module_id = 0;
 static bool zlib_storage_module_id_set = FALSE;
 
-static const char *
-mbox_get_path(struct index_storage *storage, const char *name)
-{
-	if ((storage->storage.flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
-	    (*name == '/' || *name == '~'))
-		return home_expand(name);
-	return t_strconcat(storage->dir, "/", name, NULL);
-}
-
 static struct mailbox *
 zlib_mailbox_open(struct mail_storage *storage, const char *name,
 		  struct istream *input, enum mailbox_open_flags flags)
 {
-	struct index_storage *istorage = (struct index_storage *)storage;
 	struct zlib_mail_storage *qstorage = ZLIB_CONTEXT(storage);
 	struct mailbox *box;
 	struct istream *zlib_input = NULL;
 	size_t len = strlen(name);
 
-	if (input == NULL && strcmp(storage->name, "mbox") == 0 &&
-	    len > 3 && strcmp(name + len - 3, ".gz") == 0) {
-		int fd = open(mbox_get_path(istorage, name), O_RDONLY);
-		if (fd != -1) {
-			input = zlib_input =
-				i_stream_create_zlib(fd, default_pool);
+	if (input == NULL && len > 3 && strcmp(name + len - 3, ".gz") == 0) {
+		/* Looks like a .gz file */
+		const char *path;
+		bool is_file;
+
+		path = mail_storage_get_mailbox_path(storage, name, &is_file);
+		if (is_file && path != NULL) {
+			/* it's a single file mailbox. we can handle this. */
+			int fd;
+
+			fd = open(path, O_RDONLY);
+			if (fd != -1) {
+				input = zlib_input =
+					i_stream_create_zlib(fd, default_pool);
+			}
 		}
 	}
 

@@ -182,7 +182,13 @@ static bool maildir_is_valid_create_name(struct mail_storage *storage,
 {
 	size_t len;
 
-	len = strlen(name);
+	/* check that there are no adjacent hierarchy separators */
+	for (len = 0; name[len] != '\0'; len++) {
+		if (name[len] == MAILDIR_FS_SEP &&
+		    name[len+1] == MAILDIR_FS_SEP)
+			return FALSE;
+	}
+
 	if (len == 0 || len > MAILDIR_MAX_MAILBOX_NAME_LENGTH ||
 	    name[0] == MAILDIR_FS_SEP || name[len-1] == MAILDIR_FS_SEP)
 		return FALSE;
@@ -464,6 +470,27 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	return &mbox->ibox.box;
 }
 
+static const char *
+maildir_get_mailbox_path(struct mail_storage *_storage,
+			 const char *name, bool *is_file_r)
+{
+	struct maildir_storage *storage = (struct maildir_storage *)_storage;
+	struct index_storage *istorage = INDEX_STORAGE(storage);
+
+	*is_file_r = FALSE;
+	if (*name == '\0')
+		return istorage->dir;
+	return maildir_get_path(istorage, name);
+}
+
+static const char *
+maildir_get_mailbox_control_dir(struct mail_storage *_storage, const char *name)
+{
+	struct maildir_storage *storage = (struct maildir_storage *)_storage;
+
+	return maildir_get_control_path(storage, name);
+}
+
 static struct mailbox *
 maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		     struct istream *input, enum mailbox_open_flags flags)
@@ -506,8 +533,8 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 
 		return maildir_open(storage, name, flags);
 	} else if (errno == ENOENT) {
-		mail_storage_set_error(_storage, "Mailbox doesn't exist: %s",
-				       name);
+		mail_storage_set_error(_storage,
+			MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
 		return NULL;
 	} else {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
@@ -601,8 +628,8 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 	src = maildir_get_path(storage, name);
 	dest = maildir_get_unlink_path(storage, name);
 	if (stat(src, &st) != 0 && errno == ENOENT) {
-		mail_storage_set_error(_storage, "Mailbox doesn't exist: %s",
-				       name);
+		mail_storage_set_error(_storage,
+			MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
 		return -1;
 	}
 
@@ -765,7 +792,7 @@ static int maildir_mailbox_rename(struct mail_storage *_storage,
 			return -1;
 		if (!found && ret == 0) {
 			mail_storage_set_error(_storage,
-					       "Mailbox doesn't exist");
+				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, oldname);
 			return -1;
 		}
 
@@ -873,13 +900,15 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 
 struct mail_storage maildir_storage = {
 	MEMBER(name) "maildir",
-	MEMBER(hierarchy_sep) '.',
+	MEMBER(hierarchy_sep) MAILDIR_FS_SEP,
 
 	{
 		maildir_create,
 		maildir_free,
 		maildir_autodetect,
 		index_storage_set_callbacks,
+		maildir_get_mailbox_path,
+		maildir_get_mailbox_control_dir,
 		maildir_mailbox_open,
 		maildir_mailbox_create,
 		maildir_mailbox_delete,

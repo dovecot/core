@@ -327,6 +327,18 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 					 temporary_error_r);
 }
 
+const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
+					  const char *name, bool *is_file_r)
+{
+	return storage->v.get_mailbox_path(storage, name, is_file_r);
+}
+
+const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
+						 const char *name)
+{
+	return storage->v.get_mailbox_control_dir(storage, name);
+}
+
 struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags)

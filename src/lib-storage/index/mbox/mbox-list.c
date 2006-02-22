@@ -32,7 +32,7 @@ struct mbox_list_context {
 	struct imap_match_glob *glob;
 	struct subsfile_list_context *subsfile_ctx;
 
-	bool failed, inbox_found;
+	bool inbox_found;
 
 	struct mailbox_list *(*next)(struct mbox_list_context *ctx);
 
@@ -142,7 +142,7 @@ mbox_mailbox_list_init(struct mail_storage *storage,
 			subsfile_list_init(storage, path);
 		if (ctx->subsfile_ctx == NULL) {
 			ctx->next = mbox_list_next;
-			ctx->failed = TRUE;
+			ctx->mailbox_ctx.failed = TRUE;
 			return &ctx->mailbox_ctx;
 		}
 		ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
@@ -184,7 +184,7 @@ static void list_dir_context_free(struct list_dir_context *dir)
 int mbox_mailbox_list_deinit(struct mailbox_list_context *_ctx)
 {
 	struct mbox_list_context *ctx = (struct mbox_list_context *)_ctx;
-	int ret = ctx->failed ? -1 : 0;
+	int ret = ctx->mailbox_ctx.failed ? -1 : 0;
 
 	if (ctx->subsfile_ctx != NULL) {
 		if (subsfile_list_deinit(ctx->subsfile_ctx) < 0)
@@ -387,7 +387,7 @@ static struct mailbox_list *mbox_list_inbox(struct mbox_list_context *ctx)
 	else {
 		mail_storage_set_critical(ctx->mailbox_ctx.storage,
 			"stat(%s) failed: %m", ctx->istorage->inbox_path);
-		ctx->failed = TRUE;
+		ctx->mailbox_ctx.failed = TRUE;
 		return NULL;
 	}
 
@@ -412,7 +412,7 @@ static struct mailbox_list *mbox_list_next(struct mbox_list_context *ctx)
 			if (ret > 0)
 				return &ctx->list;
 			if (ret < 0) {
-				ctx->failed = TRUE;
+				ctx->mailbox_ctx.failed = TRUE;
 				return NULL;
 			}
 		}

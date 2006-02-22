@@ -59,7 +59,7 @@ static bool mbox_handle_errors(struct index_storage *istorage)
 	struct mail_storage *storage = &istorage->storage;
 
 	if (ENOACCESS(errno))
-		mail_storage_set_error(storage, "Permission denied");
+		mail_storage_set_error(storage, MAIL_STORAGE_ERR_NO_PERMISSION);
 	else if (ENOSPACE(errno))
 		mail_storage_set_error(storage, "Not enough disk space");
 	else if (ENOTFOUND(errno))
@@ -370,11 +370,21 @@ bool mbox_is_valid_mask(struct mail_storage *storage, const char *mask)
 	if (*mask == '/' || *mask == '~')
 		return FALSE;
 
-	/* make sure there's no "../" stuff */
+	/* make sure the mailbox name doesn't contain any foolishness:
+	   "../" could give access outside the mailbox directory.
+	   "./" and "//" could fool ACL checks. */
 	newdir = TRUE;
 	for (p = mask; *p != '\0'; p++) {
-		if (newdir && p[0] == '.' && p[1] == '.' && p[2] == '/')
-			return FALSE;
+		if (newdir) {
+			if (p[0] == '/')
+				return FALSE; /* // */
+			if (p[0] == '.') {
+				if (p[1] == '/')
+					return FALSE; /* ./ */
+				if (p[1] == '.' && p[2] == '/')
+					return FALSE; /* ../ */
+			}
+		} 
 		newdir = p[0] == '/';
 	}
 
@@ -633,6 +643,31 @@ mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 	return &mbox->ibox.box;
 }
 
+static const char *
+mbox_get_mailbox_path(struct mail_storage *_storage,
+		      const char *name, bool *is_file_r)
+{
+	struct mbox_storage *storage = (struct mbox_storage *)_storage;
+	struct index_storage *istorage = INDEX_STORAGE(storage);
+
+	if (*name == '\0') {
+		*is_file_r = FALSE;
+		return istorage->dir;
+	}
+
+	*is_file_r = TRUE;
+	return mbox_get_path(istorage, name);
+}
+
+static const char *
+mbox_get_mailbox_control_dir(struct mail_storage *_storage, const char *name)
+{
+	struct mbox_storage *storage = (struct mbox_storage *)_storage;
+	struct index_storage *istorage = INDEX_STORAGE(storage);
+
+	return mbox_get_index_dir(istorage, name);
+}
+
 static struct mailbox *
 mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 		  struct istream *input, enum mailbox_open_flags flags)
@@ -671,8 +706,8 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 	}
 
 	if (ENOTFOUND(errno)) {
-		mail_storage_set_error(_storage, "Mailbox doesn't exist: %s",
-				       name);
+		mail_storage_set_error(_storage,
+			MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
 	} else if (!mbox_handle_errors(istorage)) {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
 					  path);
@@ -783,7 +818,7 @@ static int mbox_mailbox_delete(struct mail_storage *_storage, const char *name)
 	if (lstat(path, &st) < 0) {
 		if (ENOTFOUND(errno)) {
 			mail_storage_set_error(_storage,
-				"Mailbox doesn't exist: %s", name);
+				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
 		} else if (!mbox_handle_errors(storage)) {
 			mail_storage_set_critical(_storage,
 				"lstat() failed for %s: %m", path);
@@ -811,7 +846,7 @@ static int mbox_mailbox_delete(struct mail_storage *_storage, const char *name)
 
 		if (ENOTFOUND(errno)) {
 			mail_storage_set_error(_storage,
-				"Mailbox doesn't exist: %s", name);
+				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
 		} else if (errno == ENOTEMPTY) {
 			mail_storage_set_error(_storage,
 				"Folder %s isn't empty, can't delete it.",
@@ -827,7 +862,7 @@ static int mbox_mailbox_delete(struct mail_storage *_storage, const char *name)
 	if (unlink(path) < 0) {
 		if (ENOTFOUND(errno)) {
 			mail_storage_set_error(_storage,
-				"Mailbox doesn't exist: %s", name);
+				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
 		} else if (!mbox_handle_errors(storage)) {
 			mail_storage_set_critical(_storage,
 				"unlink() failed for %s: %m", path);
@@ -914,7 +949,7 @@ static int mbox_mailbox_rename(struct mail_storage *_storage,
 	if (rename(oldpath, newpath) < 0) {
 		if (ENOTFOUND(errno)) {
 			mail_storage_set_error(_storage,
-				"Mailbox doesn't exist: %s", oldname);
+				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, oldname);
 		} else if (!mbox_handle_errors(storage)) {
 			mail_storage_set_critical(_storage,
 				"rename(%s, %s) failed: %m", oldpath, newpath);
@@ -1035,6 +1070,8 @@ struct mail_storage mbox_storage = {
 		mbox_free,
 		mbox_autodetect,
 		index_storage_set_callbacks,
+		mbox_get_mailbox_path,
+		mbox_get_mailbox_control_dir,
 		mbox_mailbox_open,
 		mbox_mailbox_create,
 		mbox_mailbox_delete,

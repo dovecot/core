@@ -3,6 +3,11 @@
 
 #include "mail-storage.h"
 
+/* Some error strings that should be used everywhere to avoid
+   permissions checks from revealing mailbox's existence */
+#define MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND "Mailbox doesn't exist: %s"
+#define MAIL_STORAGE_ERR_NO_PERMISSION "Permission denied"
+
 /* Modules should use do "my_id = mail_storage_module_id++" and
    use objects' module_contexts[id] for their own purposes. */
 extern unsigned int mail_storage_module_id;
@@ -19,6 +24,11 @@ struct mail_storage_vfuncs {
 	void (*set_callbacks)(struct mail_storage *storage,
 			      struct mail_storage_callbacks *callbacks,
 			      void *context);
+
+	const char *(*get_mailbox_path)(struct mail_storage *storage,
+					const char *name, bool *is_file_r);
+	const char *(*get_mailbox_control_dir)(struct mail_storage *storage,
+					       const char *name);
 
 	struct mailbox *(*mailbox_open)(struct mail_storage *storage,
 					const char *name,
@@ -204,6 +214,7 @@ struct mail_private {
 
 struct mailbox_list_context {
 	struct mail_storage *storage;
+	bool failed;
 };
 
 struct mailbox_transaction_context {
