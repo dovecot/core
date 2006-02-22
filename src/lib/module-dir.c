@@ -105,7 +105,7 @@ static int module_name_cmp(const void *p1, const void *p2)
 	if (strncmp(n2, "lib", 3) == 0)
 		n2 += 3;
 
-	return strcmp(n1, n2);
+	return strcmp(n2, n1);
 }
 
 struct module *module_dir_load(const char *dir, bool require_init_funcs)
