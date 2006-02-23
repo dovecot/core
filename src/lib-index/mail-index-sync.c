@@ -630,6 +630,7 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 
 	mail_index_view_close(&ctx->view);
 	mail_index_transaction_rollback(&ctx->trans);
+	array_free(&ctx->sync_list);
 	i_free(ctx);
 }
 

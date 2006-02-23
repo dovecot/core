@@ -530,8 +530,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	i_assert(view->syncing);
 
 	*_ctx = NULL;
-	if (ctx->sync_map_update)
-		mail_index_sync_map_deinit(&ctx->sync_map_ctx);
+	mail_index_sync_map_deinit(&ctx->sync_map_ctx);
 	mail_index_view_sync_clean_log_syncs(ctx);
 
 	if (!ctx->last_read && ctx->hdr != NULL &&

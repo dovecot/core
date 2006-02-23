@@ -507,6 +507,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 			input = mail_get_stream(ctx->mail, NULL, NULL);
 			if (input == NULL)
 				return FALSE;
+			i_stream_ref(input);
 		} else {
 			/* FIXME: do this once in init */
 			i_assert(*headers != NULL);
@@ -538,6 +539,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 		if (input == NULL)
 			return FALSE;
 
+		i_stream_ref(input);
 		i_stream_seek(input, hdr_size.physical_size);
 	}
 
@@ -551,6 +553,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 
 		mail_search_args_foreach(args, search_body, &body_ctx);
 	}
+	i_stream_unref(&input);
 	return TRUE;
 }
 
