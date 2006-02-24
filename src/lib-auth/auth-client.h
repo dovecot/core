@@ -9,7 +9,7 @@ struct auth_request;
 
 enum auth_request_flags {
 	AUTH_REQUEST_FLAG_SECURED		= 0x01,
-	AUTH_REQUEST_FLAG_VALID_CLIENT_CERT	= 0x02,
+	AUTH_REQUEST_FLAG_VALID_CLIENT_CERT	= 0x02
 };
 
 struct auth_mech_desc {

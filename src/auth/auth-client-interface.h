@@ -23,7 +23,7 @@ enum mech_security_flags {
 	/* Provides forward secrecy between sessions */
 	MECH_SEC_FORWARD_SECRECY	= 0x0020,
 	/* Provides mutual authentication */
-	MECH_SEC_MUTUAL_AUTH		= 0x0040,
+	MECH_SEC_MUTUAL_AUTH		= 0x0040
 };
 
 #endif
