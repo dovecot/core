@@ -12,6 +12,8 @@
 #  include <sys/fs/ufs_quota.h> /* Solaris */
 #elif defined(HAVE_UFS_UFS_QUOTA_H)
 #  include <ufs/ufs/quota.h> /* BSDs */
+#elif defined(HAVE_JFS_QUOTA_H)
+#  include <jfs/quota.h> /* AIX */
 #else
 #  undef HAVE_FS_QUOTA
 #endif
