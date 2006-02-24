@@ -1759,9 +1759,11 @@ int mail_index_move_to_memory(struct mail_index *index)
 	index->map = map;
 	index->hdr = &map->hdr;
 
-	/* move transaction log to memory */
-	if (mail_transaction_log_move_to_memory(index->log) < 0)
-		ret = -1;
+	if (index->log != NULL) {
+		/* move transaction log to memory */
+		if (mail_transaction_log_move_to_memory(index->log) < 0)
+			ret = -1;
+	}
 
 	/* close the index file. */
 	if (close(index->fd) < 0)
