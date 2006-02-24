@@ -6,7 +6,7 @@
 
 enum sql_db_flags {
 	/* Set if queries are not executed asynchronously */
-	SQL_DB_FLAG_BLOCKING		= 0x01,
+	SQL_DB_FLAG_BLOCKING		= 0x01
 };
 
 struct sql_db;

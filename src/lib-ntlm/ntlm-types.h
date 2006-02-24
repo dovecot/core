@@ -116,7 +116,7 @@ enum {
 	NTPLMSSP_V2_TARGET_SERVER,	/* NetBIOS server name */ 
 	NTPLMSSP_V2_TARGET_DOMAIN,	/* NT Domain NetBIOS name */
 	NTPLMSSP_V2_TARGET_FQDN,	/* Fully qualified host name */
-	NTPLMSSP_V2_TARGET_DNS,		/* DNS domain name */
+	NTPLMSSP_V2_TARGET_DNS		/* DNS domain name */
 };
 
 /*
