@@ -9,10 +9,13 @@
 #include "md5.h"
 #include "randgen.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "mech.h"
 #include "passdb.h"
 
 #include <stdlib.h>
+
+#define MAX_REALM_LEN 64
 
 /* Linear whitespace */
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')
@@ -86,9 +89,13 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 
 	str = t_str_new(256);
 
-	for (tmp = auth->auth_realms; *tmp != NULL; tmp++) {
-		str_printfa(str, "realm=\"%s\"", *tmp);
-		str_append_c(str, ',');
+	if (*auth->auth_realms == NULL) {
+		/* If no realms are given, at least Cyrus SASL client defaults
+		   to destination host name */
+		str_append(str, "realm=\"\",");
+	} else {
+		for (tmp = auth->auth_realms; *tmp != NULL; tmp++)
+			str_printfa(str, "realm=\"%s\",", *tmp);
 	}
 
 	str_printfa(str, "nonce=\"%s\",", request->nonce);
@@ -232,7 +239,7 @@ static bool verify_realm(struct digest_auth_request *request, const char *realm)
 
         tmp = request->auth_request.auth->auth_realms;
 	for (; *tmp != NULL; tmp++) {
-		if (strcasecmp(realm, *tmp) == 0)
+		if (strcmp(realm, *tmp) == 0)
 			return TRUE;
 	}
 
@@ -295,13 +302,14 @@ static bool parse_next(char **data, char **key, char **value)
 static bool auth_handle_response(struct digest_auth_request *request,
 				 char *key, char *value, const char **error)
 {
-	int i;
+	unsigned int i;
 
 	str_lcase(key);
 
 	if (strcmp(key, "realm") == 0) {
 		if (!verify_realm(request, value)) {
-			*error = "Invalid realm";
+			*error = t_strdup_printf("Invalid realm: %s",
+					str_sanitize(value, MAX_REALM_LEN));
 			return FALSE;
 		}
 		if (request->realm == NULL && *value != '\0')
@@ -472,8 +480,6 @@ static bool parse_digest_response(struct digest_auth_request *request,
 	   authzid="authzid-value"
 	*/
 
-	t_push();
-
 	*error = NULL;
 	failed = FALSE;
 
@@ -507,8 +513,6 @@ static bool parse_digest_response(struct digest_auth_request *request,
 		request->nonce_count = p_strdup(request->pool, "00000001");
 	if (request->qop_value == NULL)
 		request->qop_value = p_strdup(request->pool, "auth");
-
-	t_pop();
 
 	return !failed;
 }
