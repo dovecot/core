@@ -547,6 +547,11 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r)
 {
+	if (request->original_username == NULL) {
+		/* the username may change later, but we need to use this
+		   username when verifying at least DIGEST-MD5 password */
+		request->original_username = p_strdup(request->pool, username);
+	}
 	if (request->cert_username) {
 		/* cert_username overrides the username given by
 		   authentication mechanism. */
@@ -659,7 +664,7 @@ int auth_request_password_verify(struct auth_request *request,
 	}
 
 	ret = password_verify(plain_password, crypted_password, scheme,
-			      request->user);
+			      request->original_username);
 	if (ret < 0) {
 		auth_request_log_error(request, subsystem,
 				       "Unknown password scheme %s", scheme);

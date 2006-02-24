@@ -28,6 +28,10 @@ struct auth_request {
            has validated user as a valid master user, master_user is set to
            user and user is set to requested_login_user. */
         char *user, *requested_login_user, *master_user;
+	/* original_username contains the username exactly as given by the
+	   client. this is needed at least with DIGEST-MD5 for password
+	   verification */
+	const char *original_username;
 	char *mech_password; /* set if verify_plain() is called */
 	char *passdb_password; /* set after password lookup if successful */
         /* extra_fields are returned in authentication reply. Fields prefixed
