@@ -148,8 +148,10 @@ dbox_sync_write_mask(struct dbox_sync_context *ctx,
 
 	while (mbox->file->seeked_uid <= uid2) {
 		for (i = 0; i < flag_count; ) {
-			if (!mask[i])
+			if (!mask[i]) {
+				i++;
 				continue;
+			}
 
 			start = i;
 			while (i < flag_count) {

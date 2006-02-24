@@ -81,10 +81,12 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	struct dbox_file_header hdr;
         struct dbox_uidlist_entry dest_entry;
 	const struct dbox_sync_rec *sync_recs;
-	const char *path;
+	const char *path, *lock_path;
 	uint32_t file_seq, seq, uid1, uid2;
 	unsigned int sync_count;
 	int ret, fd;
+	uoff_t full_size;
+	off_t bytes;
 
 	/* skip mails until we find the first we don't want expunged */
 	ret = dbox_file_seek(mbox, orig_entry->file_seq, orig_offset);
@@ -114,13 +116,25 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 
 	file_seq = dbox_uidlist_get_new_file_seq(mbox->uidlist);
 
-	path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-			       DBOX_MAIL_FILE_FORMAT,
-			       mbox->path, file_seq);
-	fd = file_dotlock_open(&new_file_dotlock_set, path, 0, &dotlock);
-	if (fd < 0)
-		return -1;
+	for (;; file_seq++) {
+		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
+				       DBOX_MAIL_FILE_FORMAT,
+				       mbox->path, file_seq);
+		fd = file_dotlock_open(&new_file_dotlock_set, path,
+				       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
+		if (fd >= 0)
+			break;
+
+		if (errno != EAGAIN) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"file_dotlock_open(%s) failed: %m", path);
+			return -1;
+		}
+
+		/* try again with another file name */
+	}
 	output = o_stream_create_file(fd, default_pool, 0, FALSE);
+	lock_path = file_dotlock_get_lock_path(dotlock);
 
 	memset(&dest_entry, 0, sizeof(dest_entry));
 	ARRAY_CREATE(&dest_entry.uid_list, pool_datastack_create(),
@@ -131,7 +145,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	dbox_file_header_init(&hdr);
 	if (o_stream_send(output, &hdr, sizeof(hdr)) != sizeof(hdr)) {
 		mail_storage_set_critical(STORAGE(mbox->storage),
-			"o_stream_send(%s) failed: %m", path);
+			"o_stream_send(%s) failed: %m", lock_path);
 		ret = -1;
 	}
 
@@ -162,16 +176,27 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 				      &hdr_offset, NULL);
 
 		/* copy the mail */
+		full_size = mbox->file->mail_header_size +
+			mbox->file->seeked_mail_size;
 		input = i_stream_create_limit(default_pool, mbox->file->input,
 					      mbox->file->seeked_offset,
-					      mbox->file->mail_header_size +
-					      mbox->file->seeked_mail_size);
-		ret = o_stream_send_istream(output, input);
+					      full_size);
+		bytes = o_stream_send_istream(output, input);
 		i_stream_unref(&input);
 
-		if (ret < 0) {
+		if (bytes < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
-				"o_stream_send_istream(%s) failed: %m", path);
+				"o_stream_send_istream(%s) failed: %m",
+				lock_path);
+			ret = -1;
+			break;
+		}
+		if ((uoff_t)bytes != full_size) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"o_stream_send_istream(%s) wrote only %"
+				PRIuUOFF_T" of %"PRIuUOFF_T" bytes", lock_path,
+				(uoff_t)bytes, full_size);
+			ret = -1;
 			break;
 		}
 
@@ -249,9 +274,8 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 		uid = range[i].seq1;
 
 		if (!seen_expunges) {
-			if (uid != first_expunged_uid) {
+			if (uid < first_expunged_uid) {
 				/* range begins with non-expunged messages */
-				i_assert(uid < first_expunged_uid);
 				uid = first_expunged_uid;
 				skipped_expunges = TRUE;
 			}
@@ -353,8 +377,11 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 		ret = file_dotlock_create(&new_file_dotlock_set, path,
 					  DOTLOCK_CREATE_FLAG_NONBLOCK,
 					  &dotlock);
-		if (ret < 0)
+		if (ret < 0) {
+			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+				"file_dotlock_create(%s) failed: %m", path);
 			return -1;
+		}
 
 		if (ret > 0) {
 			/* locked - copy the non-expunged mails after the

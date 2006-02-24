@@ -94,7 +94,8 @@ dbox_file_read_mail_header(struct dbox_mailbox *mbox, struct dbox_file *file,
 	if (memcmp(hdr->magic, DBOX_MAIL_HEADER_MAGIC,
 		   sizeof(hdr->magic)) != 0) {
 		mail_storage_set_critical(STORAGE(mbox->storage),
-			"Corrupted mail header in dbox file %s", file->path);
+			"Corrupted mail header at %"PRIuUOFF_T
+			" in dbox file %s", offset, file->path);
 		return -1;
 	}
 	return 1;

@@ -193,6 +193,7 @@ int dbox_file_append_keywords(struct dbox_mailbox *mbox, struct dbox_file *file,
 
 	str_append_c(keyword_str, '\n');
 	i_assert(str_len(keyword_str) <= file->keyword_list_size_alloc);
+	i_assert(new_pos < str_len(keyword_str));
 
 	/* we can reuse the existing keyword list position */
 	if (pwrite_full(file->fd, str_data(keyword_str) + new_pos,
