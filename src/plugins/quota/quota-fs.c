@@ -20,6 +20,13 @@
 
 #define MTAB_PATH "/etc/mtab"
 
+#ifndef MNTTYPE_SWAP
+#  define MNTTYPE_SWAP "swap"
+#endif
+#ifndef MNTTYPE_IGNORE
+#  define MNTTYPE_IGNORE "ignore"
+#endif
+
 struct fs_quota {
 	struct quota quota;
 
