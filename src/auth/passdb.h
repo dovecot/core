@@ -25,7 +25,7 @@ enum passdb_result {
 	PASSDB_RESULT_SCHEME_NOT_AVAILABLE = -4,
 
 	PASSDB_RESULT_PASSWORD_MISMATCH = 0,
-	PASSDB_RESULT_OK = 1,
+	PASSDB_RESULT_OK = 1
 };
 
 typedef void verify_plain_callback_t(enum passdb_result result,
