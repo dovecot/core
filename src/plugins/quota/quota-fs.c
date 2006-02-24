@@ -20,6 +20,7 @@
 
 #define MTAB_PATH "/etc/mtab"
 
+/* AIX doesn't have these defined */
 #ifndef MNTTYPE_SWAP
 #  define MNTTYPE_SWAP "swap"
 #endif
