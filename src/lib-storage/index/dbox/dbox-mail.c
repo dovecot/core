@@ -119,7 +119,7 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 	}
 
 	mail_storage_set_critical(STORAGE(mbox->storage),
-				  "Cached message offset lost for seq %u in "
+				  "Cached message offset broken for seq %u in "
 				  "dbox file %s", seq, mbox->path);
 	return -1;
 }

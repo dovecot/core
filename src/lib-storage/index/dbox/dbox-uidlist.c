@@ -117,7 +117,7 @@ struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox)
 	uidlist->mtime = -1;
 	uidlist->lock_fd = -1;
 	uidlist->entry_pool =
-		pool_alloconly_create("uidlist entry pool", 10240);
+		pool_alloconly_create("uidlist entry pool", 1024*32);
 	uidlist->path =
 		i_strconcat(mbox->path, "/"DBOX_MAILDIR_NAME"/"
 			    DBOX_UIDLIST_FILENAME, NULL);
@@ -170,36 +170,33 @@ static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 {
 	struct dbox_uidlist_entry *dest_entry, **entries, **pos;
 	const struct seq_range *range;
-	unsigned int i, count;
+	unsigned int i, idx, count;
 
+	entries = array_get_modifyable(&uidlist->entries, &count);
 	if (src_entry->file_seq > uidlist->entry_last_file_seq) {
 		/* append new file sequence */
+		idx = count;
+	} else {
+		pos = bsearch_insert_pos(&src_entry->file_seq, entries, count,
+					 sizeof(*entries),
+					 dbox_uidlist_entry_cmp);
+		idx = pos - entries;
+	}
+
+	if (idx == count || entries[idx]->file_seq != src_entry->file_seq) {
+		/* new entry */
 		dest_entry = p_new(uidlist->entry_pool,
 				   struct dbox_uidlist_entry, 1);
 		*dest_entry = *src_entry;
-		array_append(&uidlist->entries, &dest_entry, 1);
+		array_insert(&uidlist->entries, idx, &dest_entry, 1);
 
 		uidlist->entry_last_file_seq = src_entry->file_seq;
 		if (src_entry->file_seq > uidlist->last_file_seq)
                         uidlist->last_file_seq = src_entry->file_seq;
 	} else {
-		/* merge to existing entry. they're written in order, so we
-		   don't try to handle non-merging inserting. */
-		entries = array_get_modifyable(&uidlist->entries, &count);
-		pos = bsearch(&src_entry->file_seq, entries, count,
-			      sizeof(*entries), dbox_uidlist_entry_cmp);
-		if (pos == NULL) {
-			mail_storage_set_critical(
-				STORAGE(uidlist->mbox->storage),
-				"%s: File sequences not ordered (%u < %u)",
-				uidlist->path, src_entry->file_seq,
-				uidlist->entry_last_file_seq);
-			return FALSE;
-		}
-
-		/* now, do the merging. UIDs must be growing since only new
-		   mails are appended */
-		dest_entry = *pos;
+		/* merge to existing entry. UIDs must be growing since only
+		   new mails are appended */
+		dest_entry = entries[idx];
 		if (src_entry->create_time > dest_entry->create_time)
 			dest_entry->create_time = src_entry->create_time;
 		if (src_entry->file_size > dest_entry->file_size)
@@ -233,13 +230,19 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 		     struct seq_range, 8);
 
 	/* get uid list */
-	range.seq1 = 0;
+	range.seq1 = range.seq2 = 0;
 	for (digit = 0; *line != '\0'; line++) {
 		if (*line >= '0' && *line <= '9')
 			digit = digit * 10 + *line-'0';
 		else {
-			if (range.seq1 == 0)
+			if (range.seq1 == 0) {
+				if (digit <= range.seq2) {
+					/* broken */
+					array_clear(&entry->uid_list);
+					break;
+				}
 				range.seq1 = digit;
+			}
 			if (*line == ',' || *line == ' ') {
 				if (range.seq1 > digit) {
 					/* broken */
@@ -248,6 +251,7 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 				}
 				range.seq2 = digit;
 				array_append(&entry->uid_list, &range, 1);
+				range.seq1 = 0;
 
 				if (digit > uidlist->last_uid) {
 					/* last_uid isn't up to date */
@@ -558,7 +562,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 	if (st2.st_mtime <= st.st_mtime) {
 		struct utimbuf ut;
 
-		st2.st_mtime = ++st.st_mtime;
+		st2.st_mtime = st.st_mtime + 1;
 		ut.actime = ioloop_time;
 		ut.modtime = st2.st_mtime;
 
@@ -647,6 +651,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 	int ret = 0;
 
 	i_assert(ctx->uidlist->fd != -1);
+	i_assert(ctx->uidlist->lock_fd != -1);
 
 	if (lseek(ctx->uidlist->fd, 0, SEEK_END) < 0) {
 		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
@@ -745,6 +750,7 @@ int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx,
 	if (dbox_uidlist_write_append_offsets(ctx) < 0)
 		ret = -1;
 	else {
+		ctx->uidlist->need_full_rewrite = TRUE; // FIXME
 		if (ctx->uidlist->need_full_rewrite) {
 			dbox_uidlist_update_changes(ctx);
 			ret = dbox_uidlist_full_rewrite(ctx->uidlist);
@@ -906,7 +912,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 		/* try locking the file. */
 		str_truncate(str, 0);
 		str_printfa(str, "%s/"DBOX_MAILDIR_NAME"/"
-			    DBOX_MAIL_FILE_PREFIX"%u", mbox->path, file_seq);
+			    DBOX_MAIL_FILE_FORMAT, mbox->path, file_seq);
 		ret = file_dotlock_create(&dbox_file_dotlock_set, str_c(str),
 					  DOTLOCK_CREATE_FLAG_NONBLOCK,
 					  &dotlock);
@@ -1123,6 +1129,8 @@ void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 	struct dbox_uidlist_entry *new_entry;
 	unsigned int count;
 
+	i_assert(array_count(&entry->uid_list) > 0);
+
 	new_entry = p_new(ctx->uidlist->entry_pool,
 			  struct dbox_uidlist_entry, 1);
 	*new_entry = *entry;
@@ -1154,7 +1162,7 @@ int dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
 	i_assert(entry != NULL);
 
 	path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-			       DBOX_MAIL_FILE_PREFIX"%u",
+			       DBOX_MAIL_FILE_FORMAT,
 			       ctx->uidlist->mbox->path, entry->file_seq);
 	if (unlink(path) < 0) {
 		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),

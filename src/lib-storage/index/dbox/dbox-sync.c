@@ -466,6 +466,8 @@ int dbox_sync(struct dbox_mailbox *mbox, bool force)
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 	if (hdr->next_uid != next_uid) {
+		i_assert(next_uid > hdr->next_uid ||
+			 hdr->uid_validity != uid_validity);
 		mail_index_update_header(ctx.trans,
 			offsetof(struct mail_index_header, next_uid),
 			&next_uid, sizeof(next_uid), FALSE);

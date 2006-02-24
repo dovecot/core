@@ -5,6 +5,7 @@
 #define DBOX_INDEX_PREFIX "dovecot.index"
 #define DBOX_MAILDIR_NAME "Mails"
 #define DBOX_MAIL_FILE_PREFIX "msg."
+#define DBOX_MAIL_FILE_FORMAT DBOX_MAIL_FILE_PREFIX"%u"
 
 #define DBOX_KEYWORD_COUNT 64
 #define DBOX_KEYWORD_NAMES_RESERVED_SPACE (2048-sizeof(struct dbox_file_header))

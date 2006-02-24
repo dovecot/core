@@ -86,17 +86,22 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	unsigned int sync_count;
 	int ret, fd;
 
+	/* skip mails until we find the first we don't want expunged */
 	ret = dbox_file_seek(mbox, orig_entry->file_seq, orig_offset);
 	while (ret > 0) {
 		ret = dbox_file_seek_next_nonexpunged(mbox);
-		if (ret <= 0)
-			break;
-
 		if (mbox->file->seeked_uid >= first_nonexpunged_uid)
 			break;
 	}
-	if (ret < 0)
-		return -1;
+
+	if (ret <= 0) {
+		if (ret == 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"%s: Expunging lost UID %u from file",
+				mbox->path, first_nonexpunged_uid);
+		}
+		return ret;
+	}
 
 	sync_recs = array_get(&sync_entry->sync_recs, &sync_count);
 	if (sync_idx == sync_count)
@@ -110,7 +115,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	file_seq = dbox_uidlist_get_new_file_seq(mbox->uidlist);
 
 	path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-			       DBOX_MAIL_FILE_PREFIX"%u",
+			       DBOX_MAIL_FILE_FORMAT,
 			       mbox->path, file_seq);
 	fd = file_dotlock_open(&new_file_dotlock_set, path, 0, &dotlock);
 	if (fd < 0)
@@ -124,7 +129,11 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 
 	/* write file header */
 	dbox_file_header_init(&hdr);
-	ret = o_stream_send(output, &hdr, sizeof(hdr));
+	if (o_stream_send(output, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+			"o_stream_send(%s) failed: %m", path);
+		ret = -1;
+	}
 
 	while (ret > 0) {
 		/* update mail's location in index */
@@ -339,7 +348,7 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 		/* we need to have the file locked in case another process is
 		   appending there already. */
 		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-				       DBOX_MAIL_FILE_PREFIX"%u",
+				       DBOX_MAIL_FILE_FORMAT,
 				       ctx->mbox->path, entry->file_seq);
 		ret = file_dotlock_create(&new_file_dotlock_set, path,
 					  DOTLOCK_CREATE_FLAG_NONBLOCK,
