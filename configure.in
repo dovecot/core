@@ -1122,7 +1122,7 @@ AC_MSG_CHECKING([if struct Q_QUOTACTL ioctl exists])
 AC_TRY_COMPILE([
   #include <sys/fs/ufs_quota.h>
 ], [
-  struct quotactl ctl;
+  struct quotctl ctl;
   ioctl(0, Q_QUOTACTL, &ctl);
 ], [
   AC_DEFINE(HAVE_Q_QUOTACTL,, Define if Q_QUOTACTL exists)
