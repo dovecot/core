@@ -278,7 +278,7 @@ fs_quota_get_resource(struct quota_root *root, const char *name,
 
 	ctl.op = Q_GETQUOTA;
 	ctl.uid = quota->uid;
-	ctl.addr = &dqblk;
+	ctl.addr = (caddr_t)&dqblk;
 	if (ioctl(quota->fd, Q_QUOTACTL, &ctl) < 0) {
 		i_error("ioctl(%s, Q_QUOTACTL) failed: %m", quota->path);
 		quota->error = "Internal quota error";
