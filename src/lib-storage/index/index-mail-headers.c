@@ -608,8 +608,13 @@ index_mail_get_header_stream(struct mail *_mail,
 	if (mail_cache_lookup_headers(mail->trans->cache_view, dest,
 				      mail->data.seq, headers->idx,
 				      headers->count) > 0) {
-		return i_stream_create_from_data(mail->data_pool,
-						 str_data(dest), str_len(dest));
+		if (mail->data.filter_stream != NULL)
+			i_stream_unref(&mail->data.filter_stream);
+		mail->data.filter_stream =
+			i_stream_create_from_data(default_pool,
+						  str_data(dest),
+						  str_len(dest));
+		return mail->data.filter_stream;
 	}
 	/* not in cache / error */
 	p_free(mail->data_pool, dest);
