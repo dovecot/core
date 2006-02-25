@@ -1120,6 +1120,7 @@ AC_TRY_COMPILE([
 dnl * Check if we have Q_QUOTACTL ioctl (Solaris)
 AC_MSG_CHECKING([if struct Q_QUOTACTL ioctl exists])
 AC_TRY_COMPILE([
+  #include <sys/types.h>
   #include <sys/fs/ufs_quota.h>
 ], [
   struct quotctl ctl;
