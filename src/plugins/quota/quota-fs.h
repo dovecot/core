@@ -31,4 +31,8 @@
 #  undef HAVE_FS_QUOTA
 #endif
 
+#if !defined(HAVE_QUOTACTL) && !defined(HAVE_Q_QUOTACTL)
+#  undef HAVE_FS_QUOTA
+#endif
+
 #endif

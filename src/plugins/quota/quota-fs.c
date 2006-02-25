@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -38,6 +39,11 @@ struct fs_quota {
 	unsigned int blk_size;
 	uid_t uid;
 
+#ifdef HAVE_Q_QUOTACTL
+	int fd;
+	const char *path;
+#endif
+
 	struct quota_root root;
 };
 
@@ -49,35 +55,59 @@ struct fs_quota_root_iter {
 
 extern struct quota fs_quota;
 
-static const char *path_to_device(const char *path, unsigned int *blk_size_r)
+static int path_to_device(const char *path, unsigned int *blk_size_r,
+			  const char **device_path_r, const char **mount_path_r)
 {
 #ifdef HAVE_STATFS_MNTFROMNAME
 	struct statfs buf;
 
 	if (statfs(path, &buf) < 0) {
 		i_error("statfs(%s) failed: %m", path);
-		return NULL;
+		return -1;
 	}
 
 	*blk_size_r = buf.f_bsize;
-	return t_strdup(buf.f_mntfromname);
+	*device_path_r = t_strdup(buf.f_mntfromname);
+	*mount_path_r = t_strdup(buf.f_mntonname);
+	return 0;
+#else
+#ifdef HAVE_SYS_MNTTAB_H
+	struct mnttab ent;
 #else
 	struct mntent *ent;
+#endif
 	struct stat st, st2;
-	const char *dev = NULL;
 	FILE *f;
+
+	*device_path_r = NULL;
+	*mount_path_r = NULL;
 
 	if (stat(path, &st) < 0) {
 		i_error("stat(%s) failed: %m", path);
-		return NULL;
+		return -1;
 	}
 	*blk_size_r = st.st_blksize;
 
 	f = fopen(MTAB_PATH, "r");
 	if (f == NULL) {
 		i_error("open(%s) failed: %m", MTAB_PATH);
-		return NULL;
+		return -1;
 	}
+#ifdef HAVE_SYS_MNTTAB_H
+	while ((getmntent(f, &ent)) == 0) {
+		if (strcmp(ent.mnt_fstype, MNTTYPE_SWAP) == 0 ||
+		    strcmp(ent.mnt_fstype, MNTTYPE_IGNORE) == 0)
+			continue;
+
+		if (stat(ent.mnt_special, &st2) == 0 &&
+		    CMP_DEV_T(st.st_dev, st2.st_dev)) {
+			*device_path_r = t_strdup(ent.mnt_special);
+			*mount_path_r = t_strdup(ent.mnt_mountp);
+			break;
+		}
+	}
+	fclose(f);
+#else
 	while ((ent = getmntent(f)) != NULL) {
 		if (strcmp(ent->mnt_type, MNTTYPE_SWAP) == 0 ||
 		    strcmp(ent->mnt_type, MNTTYPE_IGNORE) == 0)
@@ -85,28 +115,35 @@ static const char *path_to_device(const char *path, unsigned int *blk_size_r)
 
 		if (stat(ent->mnt_fsname, &st2) == 0 &&
 		    CMP_DEV_T(st.st_dev, st2.st_dev)) {
-			dev = t_strdup(ent->mnt_fsname);
+			*device_path_r = t_strdup(ent->mnt_fsname);
+			*mount_path_r = t_strdup(ent->mnt_dir);
 			break;
 		}
 	}
 	endmntent(f);
-	return dev;
+#endif
+	return 0;
 #endif
 }
 
 static struct quota *fs_quota_init(const char *data)
 {
 	struct fs_quota *quota;
-	const char *device;
+	const char *device, *mount_point;
 	pool_t pool;
 	unsigned int blk_size = 0;
 
-	device = path_to_device(data, &blk_size);
+	if (getenv("DEBUG") != NULL)
+		i_info("fs quota path = %s", data);
+
+	if (path_to_device(data, &blk_size, &device, &mount_point) < 0)
+		return NULL;
 
 	if (getenv("DEBUG") != NULL) {
-		i_info("fs quota path = %s", data);
 		i_info("fs quota block device = %s",
 		       device == NULL ? "(unknown)" : device);
+		i_info("fs quota mount point = %s",
+		       mount_point == NULL ? "(unknown)" : mount_point);
 	}
 
 	if (device == NULL)
@@ -120,6 +157,13 @@ static struct quota *fs_quota_init(const char *data)
 	quota->uid = geteuid();
 	quota->blk_size = blk_size;
 
+#ifdef HAVE_Q_QUOTACTL
+	quota->path = p_strconcat(pool, mount_point, "/quotas", NULL);
+	quota->fd = open(quota->path, O_RDONLY);
+	if (quota->fd == -1 && errno != ENOENT)
+		i_error("open(%s) failed: %m", quota->path);
+#endif
+
 	quota->root.quota = &quota->quota;
 	return &quota->quota;
 }
@@ -128,6 +172,12 @@ static void fs_quota_deinit(struct quota *_quota)
 {
 	struct fs_quota *quota = (struct fs_quota *)_quota;
 
+#ifdef HAVE_Q_QUOTACTL
+	if (quota->fd != -1) {
+		if (close(quota->fd) < 0)
+			i_error("close(%s) failed: %m", quota->path);
+	}
+#endif
 	pool_unref(quota->pool);
 }
 
@@ -204,6 +254,9 @@ fs_quota_get_resource(struct quota_root *root, const char *name,
 {
 	struct fs_quota *quota = (struct fs_quota *)root->quota;
 	struct dqblk dqblk;
+#ifdef HAVE_Q_QUOTACTL
+	struct quotctl ctl;
+#endif
 
 	*value_r = 0;
 	*limit_r = 0;
@@ -211,12 +264,27 @@ fs_quota_get_resource(struct quota_root *root, const char *name,
 	if (strcasecmp(name, QUOTA_NAME_STORAGE) != 0)
 		return 0;
 
+#ifdef HAVE_QUOTACTL
 	if (quotactl(QCMD(Q_GETQUOTA, USRQUOTA), quota->device,
 		     quota->uid, (void *)&dqblk) < 0) {
 		i_error("quotactl(Q_GETQUOTA, %s) failed: %m", quota->device);
 		quota->error = "Internal quota error";
 		return -1;
 	}
+#else
+	/* Solaris */
+	if (quota->fd == -1)
+		return 0;
+
+	ctl.op = Q_GETQUOTA;
+	ctl.uid = quota->uid;
+	ctl.addr = &dqblk;
+	if (ioctl(quota->fd, Q_QUOTACTL, &ctl) < 0) {
+		i_error("ioctl(%s, Q_QUOTACTL) failed: %m", quota->path);
+		quota->error = "Internal quota error";
+		return -1;
+	}
+#endif
 	*value_r =  dqblk.dqb_curblocks * quota->blk_size / 1024;
 	*limit_r = dqblk.dqb_bsoftlimit * quota->blk_size / 1024;
 	return 1;

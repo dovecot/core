@@ -1117,6 +1117,20 @@ AC_TRY_COMPILE([
   AC_MSG_RESULT(no)
 ])
 
+dnl * Check if we have Q_QUOTACTL ioctl (Solaris)
+AC_MSG_CHECKING([if struct Q_QUOTACTL ioctl exists])
+AC_TRY_COMPILE([
+  #include <sys/fs/ufs_quota.h>
+], [
+  struct quotactl ctl;
+  ioctl(0, Q_QUOTACTL, &ctl);
+], [
+  AC_DEFINE(HAVE_Q_QUOTACTL,, Define if Q_QUOTACTL exists)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+])
+
 dnl ***
 dnl *** va_copy checks (from GLIB)
 dnl ***
