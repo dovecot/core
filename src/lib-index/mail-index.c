@@ -1489,7 +1489,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 			/* corrupted, reopen files */
                         mail_index_close(index);
 		} else {
-			return 0;
+			return 1;
 		}
 	}
 
