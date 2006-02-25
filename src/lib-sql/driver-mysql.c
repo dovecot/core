@@ -128,11 +128,12 @@ static bool driver_mysql_connect(struct mysql_connection *conn)
 
 		i_error("mysql: Connect failed to %s (%s): %s - "
 			"waiting for %u seconds before retry",
-			host, db->dbname, mysql_error(conn->mysql),
-			conn->connect_delay);
+			host != NULL ? host : unix_socket, db->dbname,
+			mysql_error(conn->mysql), conn->connect_delay);
 		return FALSE;
 	} else {
-		i_info("mysql: Connected to %s%s (%s)", host,
+		i_info("mysql: Connected to %s%s (%s)",
+		       host != NULL ? host : unix_socket,
 		       conn->ssl_set ? " using SSL" : "", db->dbname);
 
 		conn->connect_failure_count = 0;
