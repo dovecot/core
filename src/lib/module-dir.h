@@ -10,8 +10,10 @@ struct module {
         struct module *next;
 };
 
-/* Load all modules in given directory. */
-struct module *module_dir_load(const char *dir, bool require_init_funcs);
+/* Load modules in given directory. module_names is a space separated list of
+   module names to load, or NULL to load everything. */
+struct module *module_dir_load(const char *dir, const char *module_names,
+			       bool require_init_funcs);
 /* Call deinit() in all modules and mark them NULL so module_dir_unload()
    won't do it again. */
 void module_dir_deinit(struct module *modules);

@@ -98,21 +98,44 @@ module_load(const char *path, const char *name, bool require_init_funcs)
 
 static int module_name_cmp(const void *p1, const void *p2)
 {
-	const char *n1 = p1, *n2 = p2;
+	const char *const *n1 = p1, *const *n2 = p2;
+	const char *s1 = *n1, *s2 = *n2;
 
-	if (strncmp(n1, "lib", 3) == 0)
-		n1 += 3;
-	if (strncmp(n2, "lib", 3) == 0)
-		n2 += 3;
+	if (strncmp(s1, "lib", 3) == 0)
+		s1 += 3;
+	if (strncmp(s2, "lib", 3) == 0)
+		s2 += 3;
 
-	return strcmp(n2, n1);
+	return strcmp(s1, s2);
 }
 
-struct module *module_dir_load(const char *dir, bool require_init_funcs)
+static bool module_want_load(const char **names, const char *name)
+{
+	size_t len;
+
+	if (names == NULL)
+		return TRUE;
+
+	len = strlen(name);
+	if (len > 7 && strcmp(name + len - 7, "_plugin") == 0)
+		name = t_strndup(name, len - 7);
+
+	for (; *names != NULL; names++) {
+		if (strcmp(*names, name) == 0) {
+			*names = "";
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+struct module *module_dir_load(const char *dir, const char *module_names,
+			       bool require_init_funcs)
 {
 	DIR *dirp;
 	struct dirent *d;
 	const char *name, *path, *p, *stripped_name, **names_p;
+	const char **module_names_arr;
 	struct module *modules, *module;
 	unsigned int i, count;
 	array_t ARRAY_DEFINE(names, const char *);
@@ -150,6 +173,9 @@ struct module *module_dir_load(const char *dir, bool require_init_funcs)
 	count = array_count(&names);
 	qsort(names_p, count, sizeof(const char *), module_name_cmp);
 
+	t_push();
+	module_names_arr = module_names == NULL ? NULL :
+		t_strsplit_spaces(module_names, ", ");
 	for (i = 0; i < count; i++) {
 		const char *name = names_p[i];
 
@@ -170,8 +196,15 @@ struct module *module_dir_load(const char *dir, bool require_init_funcs)
 
 		t_push();
 		stripped_name = t_strdup_until(stripped_name, p);
-		path = t_strconcat(dir, "/", name, NULL);
-		module = module_load(path, stripped_name, require_init_funcs);
+		if (!module_want_load(module_names_arr, stripped_name))
+			module = NULL;
+		else {
+			path = t_strconcat(dir, "/", name, NULL);
+			module = module_load(path, stripped_name,
+					     require_init_funcs);
+			if (module == NULL && module_names_arr != NULL)
+				exit(FATAL_DEFAULT);
+		}
 		t_pop();
 
 		if (module != NULL) {
@@ -179,6 +212,16 @@ struct module *module_dir_load(const char *dir, bool require_init_funcs)
 			modules = module;
 		}
 	}
+	if (module_names_arr != NULL) {
+		/* make sure all modules were found */
+		for (; *module_names_arr != NULL; module_names_arr++) {
+			if (**module_names_arr != '\0') {
+				i_fatal("Plugin %s not found from directory %s",
+					*module_names_arr, dir);
+			}
+		}
+	}
+	t_pop();
 	pool_unref(pool);
 
 	if (closedir(dirp) < 0)

@@ -258,10 +258,9 @@ mail_process_set_environment(struct settings *set, const char *mail,
 	env_put(t_strdup_printf("MBOX_MIN_INDEX_SIZE=%u",
 				set->mbox_min_index_size));
 
-	if (set->mail_use_modules &&
-	    set->mail_modules != NULL && *set->mail_modules != '\0') {
-		env_put(t_strconcat("MODULE_DIR=",
-				    set->mail_modules, NULL));
+	if (*set->mail_plugins != '\0') {
+		env_put(t_strconcat("MODULE_DIR=", set->mail_plugin_dir, NULL));
+		env_put(t_strconcat("MODULE_LIST=", set->mail_plugins, NULL));
 	}
 
 	/* user given environment - may be malicious. virtual_user comes from

@@ -62,7 +62,7 @@ static void main_init(void)
 	dict_sql_register();
 
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
-		module_dir_load(getenv("MODULE_DIR"), TRUE);
+		module_dir_load(getenv("MODULE_DIR"), NULL, TRUE);
 
 	path = getenv("DICT_LISTEN_FROM_FD");
 	fd = path == NULL ? -1 : DICT_MASTER_LISTENER_FD;

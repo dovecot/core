@@ -132,8 +132,8 @@ static struct setting_def setting_defs[] = {
 
 	DEF(SET_STR, mail_executable),
 	DEF(SET_INT, mail_process_size),
-	DEF(SET_BOOL, mail_use_modules),
-	DEF(SET_STR, mail_modules),
+	DEF(SET_STR, mail_plugins),
+	DEF(SET_STR, mail_plugin_dir),
 	DEF(SET_STR, mail_log_prefix),
 
 	/* imap */
@@ -337,8 +337,8 @@ struct settings default_settings = {
 
 	MEMBER(mail_executable) PKG_LIBEXECDIR"/imap",
 	MEMBER(mail_process_size) 256,
-	MEMBER(mail_use_modules) FALSE,
-	MEMBER(mail_modules) MODULEDIR"/imap",
+	MEMBER(mail_plugins) "",
+	MEMBER(mail_plugin_dir) MODULEDIR"/imap",
 	MEMBER(mail_log_prefix) "%Us(%u): ",
 
 	/* imap */
@@ -578,16 +578,17 @@ static bool settings_verify(struct settings *set)
 	}
 
 #ifdef HAVE_MODULES
-	if (set->mail_use_modules &&
-	    access(set->mail_modules, R_OK | X_OK) < 0) {
+	if (*set->mail_plugins != '\0' &&
+	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
 		i_error("Can't access mail module directory: %s: %m",
-			set->mail_modules);
+			set->mail_plugin_dir);
 		return FALSE;
 	}
 #else
-	if (set->mail_use_modules) {
-		i_warning("Module support wasn't built into Dovecot, "
-			  "ignoring mail_use_modules setting");
+	if (*set->mail_plugins != '\0') {
+		i_error("Module support wasn't built into Dovecot, "
+			"can't load modules: %s", set->mail_plugins);
+		return FALSE;
 	}
 #endif
 
@@ -985,13 +986,13 @@ create_new_server(const char *name,
 	server->imap->protocol = MAIL_PROTOCOL_IMAP;
 	server->imap->login_executable = PKG_LIBEXECDIR"/imap-login";
 	server->imap->mail_executable = PKG_LIBEXECDIR"/imap";
-	server->imap->mail_modules = MODULEDIR"/imap";
+	server->imap->mail_plugin_dir = MODULEDIR"/imap";
 
 	server->pop3->server = server;
 	server->pop3->protocol = MAIL_PROTOCOL_POP3;
 	server->pop3->login_executable = PKG_LIBEXECDIR"/pop3-login";
 	server->pop3->mail_executable = PKG_LIBEXECDIR"/pop3";
-	server->pop3->mail_modules = MODULEDIR"/pop3";
+	server->pop3->mail_plugin_dir = MODULEDIR"/pop3";
 
 	return server;
 }

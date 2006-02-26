@@ -474,7 +474,8 @@ void password_schemes_init(void)
 		buffer_append(schemes_buf, s, sizeof(*s));
 
 #ifdef HAVE_MODULES
-	scheme_modules = module_dir_load(AUTH_MODULE_DIR"/password", FALSE);
+	scheme_modules = module_dir_load(AUTH_MODULE_DIR"/password",
+					 NULL, FALSE);
 	for (mod = scheme_modules; mod != NULL; mod = mod->next) {
 		t_push();
 		symbol = t_strconcat(mod->name, "_scheme", NULL);

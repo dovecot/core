@@ -173,8 +173,14 @@ static int main_init(void)
 	mail_storage_register_all();
 	clients_init();
 
-	modules = getenv("MODULE_DIR") == NULL ? NULL :
-		module_dir_load(getenv("MODULE_DIR"), TRUE);
+	if (getenv("MODULE_LIST") == NULL)
+		modules = NULL;
+	else {
+		if (getenv("MODULE_DIR") == NULL)
+			i_fatal("MODULE_LIST given but MODULE_DIR was not");
+		modules = module_dir_load(getenv("MODULE_DIR"),
+					  getenv("MODULE_LIST"), TRUE);
+	}
 
 	mail = getenv("MAIL");
 	if (mail == NULL) {

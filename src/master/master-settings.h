@@ -95,8 +95,8 @@ struct settings {
 
 	const char *mail_executable;
 	unsigned int mail_process_size;
-	bool mail_use_modules;
-	const char *mail_modules;
+	const char *mail_plugins;
+	const char *mail_plugin_dir;
 	const char *mail_log_prefix;
 
 	/* imap */
