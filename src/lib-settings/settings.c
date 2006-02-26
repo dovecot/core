@@ -223,7 +223,7 @@ bool settings_read(const char *path, const char *section,
 		}
 	}
 
-	i_stream_unref(&input);
+	i_stream_destroy(&input);
 	t_pop();
 
 	return errormsg == NULL;

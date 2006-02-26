@@ -257,7 +257,7 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	}
 
 	output_errno = ctx->output->stream_errno;
-	o_stream_unref(&ctx->output);
+	o_stream_destroy(&ctx->output);
 
 	/* FIXME: when saving multiple messages, we could get better
 	   performance if we left the fd open and fsync()ed it later */

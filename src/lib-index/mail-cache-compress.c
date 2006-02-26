@@ -216,7 +216,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		errno = output->stream_errno;
 		mail_cache_set_syscall_error(cache, "o_stream_flush()");
 		(void)mail_index_transaction_rollback(&t);
-		o_stream_unref(&output);
+		o_stream_destroy(&output);
 		return -1;
 	}
 
@@ -225,7 +225,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 		(void)file_set_size(fd, MAIL_CACHE_INITIAL_SIZE);
 	}
 
-	o_stream_unref(&output);
+	o_stream_destroy(&output);
 
 	if (fdatasync(fd) < 0) {
 		mail_cache_set_syscall_error(cache, "fdatasync()");

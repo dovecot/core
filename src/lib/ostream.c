@@ -4,6 +4,12 @@
 #include "istream.h"
 #include "ostream-internal.h"
 
+void o_stream_destroy(struct ostream **stream)
+{
+	o_stream_close(*stream);
+	o_stream_unref(stream);
+}
+
 void o_stream_ref(struct ostream *stream)
 {
 	_io_stream_ref(&stream->real_stream->iostream);

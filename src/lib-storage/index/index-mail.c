@@ -748,9 +748,9 @@ index_mail_alloc(struct mailbox_transaction_context *_t,
 static void index_mail_close(struct index_mail *mail)
 {
 	if (mail->data.stream != NULL)
-		i_stream_unref(&mail->data.stream);
+		i_stream_destroy(&mail->data.stream);
 	if (mail->data.filter_stream != NULL)
-		i_stream_unref(&mail->data.filter_stream);
+		i_stream_destroy(&mail->data.filter_stream);
 }
 
 int index_mail_set_seq(struct mail *_mail, uint32_t seq)

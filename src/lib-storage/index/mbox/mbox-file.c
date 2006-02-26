@@ -127,15 +127,14 @@ void mbox_file_close_stream(struct mbox_mailbox *mbox)
 	mbox_file_fix_atime(mbox);
 
 	if (mbox->mbox_stream != NULL)
-		i_stream_unref(&mbox->mbox_stream);
+		i_stream_destroy(&mbox->mbox_stream);
 
 	if (mbox->mbox_file_stream != NULL) {
 		if (mbox->mbox_fd == -1) {
 			/* read-only mbox stream */
 			i_assert(mbox->mbox_readonly);
 		} else {
-			i_stream_close(mbox->mbox_file_stream);
-			i_stream_unref(&mbox->mbox_file_stream);
+			i_stream_destroy(&mbox->mbox_file_stream);
 		}
 	}
 }

@@ -369,8 +369,8 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 	}
 
 	io_remove(&conn->io);
-	i_stream_unref(&conn->input);
-	o_stream_unref(&conn->output);
+	i_stream_destroy(&conn->input);
+	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(dict client) failed: %m");
 

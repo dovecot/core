@@ -182,7 +182,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 					      mbox->file->seeked_offset,
 					      full_size);
 		bytes = o_stream_send_istream(output, input);
-		i_stream_unref(&input);
+		i_stream_destroy(&input);
 
 		if (bytes < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
@@ -223,7 +223,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 				break;
 		}
 	}
-	o_stream_unref(&output);
+	o_stream_destroy(&output);
 
 	if (ret < 0) {
 		file_dotlock_delete(&dotlock);

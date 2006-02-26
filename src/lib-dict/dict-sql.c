@@ -72,7 +72,7 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 
 		t_pop();
 	}
-	i_stream_unref(&input);
+	i_stream_destroy(&input);
 	(void)close(fd);
 
 	if (dict->connect_string == NULL) {

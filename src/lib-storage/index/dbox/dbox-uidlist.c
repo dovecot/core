@@ -413,7 +413,7 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 		uidlist->mtime = -1;
 	}
 
-	i_stream_unref(&input);
+	i_stream_destroy(&input);
 	return ret;
 }
 
@@ -537,7 +537,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 			"write(%s) failed: %m", uidlist->path);
 		ret = -1;
 	}
-	o_stream_unref(&output);
+	o_stream_destroy(&output);
 
 	if (ret < 0)
 		return -1;
@@ -681,7 +681,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 			"write(%s) failed: %m", ctx->uidlist->path);
 		ret = -1;
 	}
-	o_stream_unref(&output);
+	o_stream_destroy(&output);
 
 	if (ret < 0)
 		return -1;

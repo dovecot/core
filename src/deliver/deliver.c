@@ -130,8 +130,8 @@ static void auth_connection_destroy(struct auth_connection *conn)
 	io_loop_stop(ioloop);
 
 	io_remove(conn->io);
-	i_stream_unref(conn->input);
-	o_stream_unref(conn->output);
+	i_stream_destroy(conn->input);
+	o_stream_destroy(conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close() failed: %m");
 	i_free(conn);

@@ -189,7 +189,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 		}
 		t_pop();
 	}
-	i_stream_unref(&input);
+	i_stream_destroy(&input);
 
 	if (pw->db->debug) {
 		i_info("passwd-file %s: Read %u users",

@@ -217,7 +217,7 @@ static void log_io_free(struct log_io *log_io)
 		io_remove(&log_io->io);
 	else
 		throttle_count--;
-	i_stream_unref(&log_io->stream);
+	i_stream_destroy(&log_io->stream);
 	i_free(log_io->prefix);
 	i_free(log_io);
 }

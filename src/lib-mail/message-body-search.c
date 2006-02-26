@@ -346,7 +346,7 @@ static bool message_search_body(struct part_search_context *ctx,
 		pos -= data_size;
 	}
 
-	i_stream_unref(&input);
+	i_stream_destroy(&input);
 
 	if (ctx->translation != NULL)
 		charset_to_utf8_end(&ctx->translation);

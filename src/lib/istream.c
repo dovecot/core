@@ -5,6 +5,12 @@
 #include "str.h"
 #include "istream-internal.h"
 
+void i_stream_destroy(struct istream **stream)
+{
+	i_stream_close(*stream);
+	i_stream_unref(stream);
+}
+
 void i_stream_ref(struct istream *stream)
 {
 	_io_stream_ref(&stream->real_stream->iostream);

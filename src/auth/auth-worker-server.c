@@ -128,8 +128,8 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 
 	buffer_free(conn->requests);
 	io_remove(&conn->io);
-	i_stream_unref(&conn->input);
-	o_stream_unref(&conn->output);
+	i_stream_destroy(&conn->input);
+	o_stream_destroy(&conn->output);
 
 	if (close(conn->fd) < 0)
 		i_error("close(auth worker) failed: %m");

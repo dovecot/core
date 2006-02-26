@@ -201,7 +201,7 @@ void login_proxy_free(struct login_proxy *proxy)
 		if (proxy->client_io != NULL)
 			io_remove(&proxy->client_io);
 		if (proxy->client_output != NULL)
-			o_stream_unref(&proxy->client_output);
+			o_stream_destroy(&proxy->client_output);
 		net_disconnect(proxy->client_fd);
 	} else {
 		proxy->destroying = TRUE;
@@ -211,9 +211,9 @@ void login_proxy_free(struct login_proxy *proxy)
 	if (proxy->server_io != NULL)
 		io_remove(&proxy->server_io);
 	if (proxy->server_input != NULL)
-		i_stream_unref(&proxy->server_input);
+		i_stream_destroy(&proxy->server_input);
 	if (proxy->server_output != NULL)
-		o_stream_unref(&proxy->server_output);
+		o_stream_destroy(&proxy->server_output);
 	net_disconnect(proxy->server_fd);
 
 	i_free(proxy->host);

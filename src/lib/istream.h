@@ -24,6 +24,9 @@ struct istream *i_stream_create_from_data(pool_t pool, const void *data,
 struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
 				      uoff_t v_start_offset, uoff_t v_size);
 
+/* i_stream_close() + i_stream_unref() */
+void i_stream_destroy(struct istream **stream);
+
 /* Reference counting. References start from 1, so calling i_stream_unref()
    destroys the stream if i_stream_ref() is never used. */
 void i_stream_ref(struct istream *stream);

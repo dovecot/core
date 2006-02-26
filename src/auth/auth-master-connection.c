@@ -272,9 +272,9 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 	conn->destroyed = TRUE;
 
 	if (conn->input != NULL)
-		i_stream_unref(&conn->input);
+		i_stream_destroy(&conn->input);
 	if (conn->output != NULL)
-		o_stream_unref(&conn->output);
+		o_stream_destroy(&conn->output);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
 	if (conn->fd != -1) {

@@ -151,7 +151,7 @@ static void master_read_env(int fd)
 			env_put(line);
 	} while (line == NULL);
 
-	i_stream_unref(&input);
+	i_stream_destroy(&input);
 }
 
 int master_connect(const char *group_name)

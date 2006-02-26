@@ -46,7 +46,7 @@ void dbox_file_close(struct dbox_file *file)
 	}
 
 	if (file->input != NULL)
-		i_stream_unref(&file->input);
+		i_stream_destroy(&file->input);
 	if (file->fd != -1) {
 		if (close(file->fd) < 0)
 			i_error("close(dbox) failed: %m");

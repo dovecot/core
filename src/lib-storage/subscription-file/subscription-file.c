@@ -144,8 +144,8 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	}
 
 	if (input != NULL)
-		i_stream_unref(&input);
-	o_stream_unref(&output);
+		i_stream_destroy(&input);
+	o_stream_destroy(&output);
 
 	if (failed || (set && found) || (!set && !found)) {
 		if (file_dotlock_delete(&dotlock) < 0) {
@@ -195,7 +195,7 @@ int subsfile_list_deinit(struct subsfile_list_context *ctx)
 
 	failed = ctx->failed;
 	if (ctx->input != NULL)
-		i_stream_unref(&ctx->input);
+		i_stream_destroy(&ctx->input);
 	pool_unref(ctx->pool);
 
 	return failed ? -1 : 0;
@@ -221,7 +221,7 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
                    this isn't the optimal behavior, but it's allowed by
                    IMAP and this way we don't have to read everything into
                    memory or try to play any guessing games. */
-                i_stream_unref(&ctx->input);
+                i_stream_destroy(&ctx->input);
 
                 fd = safe_open(ctx->path, O_RDONLY);
                 if (fd == -1) {

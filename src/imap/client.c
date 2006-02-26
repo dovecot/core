@@ -86,8 +86,8 @@ void client_destroy(struct client *client)
 	if (client->io != NULL)
 		io_remove(&client->io);
 
-	i_stream_unref(&client->input);
-	o_stream_unref(&client->output);
+	i_stream_destroy(&client->input);
+	o_stream_destroy(&client->output);
 
 	if (close(client->fd_in) < 0)
 		i_error("close(client in) failed: %m");

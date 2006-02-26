@@ -209,9 +209,9 @@ static void client_dict_disconnect(struct client_dict *dict)
 	dict->handshaked = FALSE;
 
 	if (dict->input != NULL)
-		i_stream_unref(&dict->input);
+		i_stream_destroy(&dict->input);
 	if (dict->output != NULL)
-		o_stream_unref(&dict->output);
+		o_stream_destroy(&dict->output);
 
 	if (dict->fd != -1) {
 		if (close(dict->fd) < 0)

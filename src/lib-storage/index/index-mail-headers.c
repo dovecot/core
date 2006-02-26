@@ -609,7 +609,7 @@ index_mail_get_header_stream(struct mail *_mail,
 				      mail->data.seq, headers->idx,
 				      headers->count) > 0) {
 		if (mail->data.filter_stream != NULL)
-			i_stream_unref(&mail->data.filter_stream);
+			i_stream_destroy(&mail->data.filter_stream);
 		mail->data.filter_stream =
 			i_stream_create_from_data(default_pool,
 						  str_data(dest),
@@ -623,7 +623,7 @@ index_mail_get_header_stream(struct mail *_mail,
 		return NULL;
 
 	if (mail->data.filter_stream != NULL)
-		i_stream_unref(&mail->data.filter_stream);
+		i_stream_destroy(&mail->data.filter_stream);
 
 	index_mail_parse_header_init(mail, _headers);
 	mail->data.filter_stream =

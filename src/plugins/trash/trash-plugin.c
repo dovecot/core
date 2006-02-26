@@ -260,7 +260,7 @@ static int read_configuration(const char *path)
 		trash->name = p_strdup(config_pool, name+1);
 		trash->priority = atoi(t_strdup_until(line, name));
 	}
-	i_stream_unref(&input);
+	i_stream_destroy(&input);
 	(void)close(fd);
 
 	qsort(array_get_modifyable(&trash_boxes, NULL),

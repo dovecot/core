@@ -338,7 +338,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist, bool *retry_r)
                         *retry_r = TRUE;
         }
 
-	i_stream_unref(&input);
+	i_stream_destroy(&input);
 	return ret;
 }
 

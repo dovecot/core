@@ -52,9 +52,9 @@ static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 	if (proxy->server_io != NULL)
 		io_remove(&proxy->server_io);
 
-	i_stream_unref(&proxy->server_input);
-	o_stream_unref(&proxy->client_output);
-	o_stream_unref(&proxy->server_output);
+	i_stream_destroy(&proxy->server_input);
+	o_stream_destroy(&proxy->client_output);
+	o_stream_destroy(&proxy->server_output);
 
 	if (close(proxy->client_in_fd) < 0)
 		i_error("close(client_in_fd) failed: %m");

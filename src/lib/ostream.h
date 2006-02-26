@@ -27,6 +27,8 @@ struct ostream *
 o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 		     bool autoclose_fd);
 
+/* o_stream_close() + o_stream_unref() */
+void o_stream_destroy(struct ostream **stream);
 /* Reference counting. References start from 1, so calling o_stream_unref()
    destroys the stream if o_stream_ref() is never used. */
 void o_stream_ref(struct ostream *stream);

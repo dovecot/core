@@ -355,8 +355,8 @@ static void auth_process_destroy(struct auth_process *p)
 	hash_iterate_deinit(iter);
 	hash_destroy(p->requests);
 
-	i_stream_unref(&p->input);
-	o_stream_unref(&p->output);
+	i_stream_destroy(&p->input);
+	o_stream_destroy(&p->output);
 	io_remove(&p->io);
 	if (close(p->fd) < 0)
 		i_error("close(auth) failed: %m");

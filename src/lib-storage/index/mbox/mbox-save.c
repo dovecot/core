@@ -528,9 +528,9 @@ int mbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	}
 
 	if (ctx->input != NULL)
-		i_stream_unref(&ctx->input);
+		i_stream_destroy(&ctx->input);
 	if (ctx->body_output != NULL)
-		o_stream_unref(&ctx->body_output);
+		o_stream_destroy(&ctx->body_output);
 
 	if (ctx->failed && ctx->mail_offset != (uoff_t)-1) {
 		/* saving this mail failed - truncate back to beginning of it */
@@ -565,7 +565,7 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 	i_assert(ctx->body_output == NULL);
 
 	if (ctx->output != NULL)
-		o_stream_unref(&ctx->output);
+		o_stream_destroy(&ctx->output);
 	if (ctx->mail != NULL)
 		index_mail_free(ctx->mail);
 	str_free(&ctx->headers);

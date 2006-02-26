@@ -1039,7 +1039,7 @@ static int mbox_storage_close(struct mailbox *box)
 
         mbox_file_close(mbox);
 	if (mbox->mbox_file_stream != NULL)
-		i_stream_unref(&mbox->mbox_file_stream);
+		i_stream_destroy(&mbox->mbox_file_stream);
 
 	index_storage_mailbox_free(box);
 	return ret;
