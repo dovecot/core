@@ -1,15 +1,13 @@
 /* Copyright (c) 2006 Timo Sirainen */
 
 #include "lib.h"
-#include "safe-open.h"
+#include "nfs-workarounds.h"
 
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define NFS_OPEN_RETRY_COUNT 10
-
-int safe_open(const char *path, int flags)
+int nfs_safe_open(const char *path, int flags)
 {
         const char *dir = NULL;
         struct stat st;
@@ -21,7 +19,7 @@ int safe_open(const char *path, int flags)
         t_push();
         for (i = 1;; i++) {
                 fd = open(path, flags);
-                if (fd != -1 || errno != ESTALE || i == NFS_OPEN_RETRY_COUNT)
+                if (fd != -1 || errno != ESTALE || i == NFS_ESTALE_RETRY_COUNT)
                         break;
 
                 /* ESTALE: Some operating systems may fail with this if they

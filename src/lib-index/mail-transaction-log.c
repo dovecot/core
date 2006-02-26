@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "buffer.h"
 #include "file-dotlock.h"
-#include "safe-open.h"
+#include "nfs-workarounds.h"
 #include "close-keep-errno.h"
 #include "read-full.h"
 #include "write-full.h"
@@ -497,7 +497,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 	bool found;
 
 	/* log creation is locked now - see if someone already created it */
-	old_fd = safe_open(path, O_RDWR);
+	old_fd = nfs_safe_open(path, O_RDWR);
 	if (old_fd != -1) {
 		if ((ret = fstat(old_fd, &st)) < 0) {
                         mail_index_file_set_syscall_error(index, path,
@@ -773,7 +773,7 @@ mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 		return mail_transaction_log_file_alloc_in_memory(log);
 
         for (i = 0; ; i++) {
-                fd = safe_open(path, O_RDWR);
+                fd = nfs_safe_open(path, O_RDWR);
                 if (fd == -1) {
                         if (errno != ENOENT) {
                                 mail_index_file_set_syscall_error(log->index,
@@ -808,7 +808,7 @@ mail_transaction_log_file_open(struct mail_transaction_log *log,
         int fd, ret;
 
         for (i = 0;; i++) {
-                fd = safe_open(path, O_RDWR);
+                fd = nfs_safe_open(path, O_RDWR);
                 if (fd == -1) {
                         mail_index_file_set_syscall_error(log->index, path,
                                                           "open()");
@@ -978,7 +978,7 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 	/* see if we have it in log.2 file */
 	path = t_strconcat(log->index->filepath,
 			   MAIL_TRANSACTION_LOG_SUFFIX".2", NULL);
-	fd = safe_open(path, O_RDWR);
+	fd = nfs_safe_open(path, O_RDWR);
 	if (fd == -1) {
 		if (errno == ENOENT)
 			return 0;

@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "istream.h"
 #include "ostream.h"
-#include "safe-open.h"
+#include "nfs-workarounds.h"
 #include "file-dotlock.h"
 #include "mail-storage-private.h"
 #include "subscription-file.h"
@@ -13,7 +13,7 @@
 
 #define MAX_MAILBOX_LENGTH PATH_MAX
 
-#define SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT 10
+#define SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 #define SUBSCRIPTION_FILE_LOCK_TIMEOUT 120
 #define SUBSCRIPTION_FILE_CHANGE_TIMEOUT 30
 
@@ -105,7 +105,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 		return -1;
 	}
 
-	fd_in = safe_open(path, O_RDONLY);
+	fd_in = nfs_safe_open(path, O_RDONLY);
 	if (fd_in == -1 && errno != ENOENT) {
 		subsfile_set_syscall_error(storage, "open()", path);
 		(void)file_dotlock_delete(&dotlock);
@@ -172,7 +172,7 @@ subsfile_list_init(struct mail_storage *storage, const char *path)
 	pool_t pool;
 	int fd;
 
-	fd = safe_open(path, O_RDONLY);
+	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1 && errno != ENOENT) {
 		subsfile_set_syscall_error(storage, "open()", path);
 		return NULL;
@@ -223,7 +223,7 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
                    memory or try to play any guessing games. */
                 i_stream_destroy(&ctx->input);
 
-                fd = safe_open(ctx->path, O_RDONLY);
+                fd = nfs_safe_open(ctx->path, O_RDONLY);
                 if (fd == -1) {
                         /* In case of ENOENT all the subscriptions got lost.
                            Just return end of subscriptions list in that

@@ -5,7 +5,7 @@
 #include "buffer.h"
 #include "hash.h"
 #include "mmap-util.h"
-#include "safe-open.h"
+#include "nfs-workarounds.h"
 #include "read-full.h"
 #include "write-full.h"
 #include "mail-index-private.h"
@@ -1194,7 +1194,7 @@ static int mail_index_try_open_only(struct mail_index *index)
         /* Note that our caller must close index->fd by itself.
            mail_index_reopen() for example wants to revert back to old
            index file if opening the new one fails. */
-	index->fd = safe_open(index->filepath, O_RDWR);
+	index->fd = nfs_safe_open(index->filepath, O_RDWR);
 	index->readonly = FALSE;
 
 	if (index->fd == -1 && errno == EACCES) {

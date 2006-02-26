@@ -8,7 +8,7 @@
 #include "str.h"
 #include "file-dotlock.h"
 #include "close-keep-errno.h"
-#include "safe-open.h"
+#include "nfs-workarounds.h"
 #include "write-full.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
@@ -20,7 +20,7 @@
 
 /* NFS: How many times to retry reading dovecot-uidlist file if ESTALE
    error occurs in the middle of reading it */
-#define UIDLIST_ESTALE_RETRY_COUNT 10
+#define UIDLIST_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 
 /* how many seconds to wait before overriding uidlist.lock */
 #define UIDLIST_LOCK_STALE_TIMEOUT (60*2)
@@ -258,7 +258,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist, bool *retry_r)
 
         *retry_r = FALSE;
 
-	fd = safe_open(uidlist->fname, O_RDONLY);
+	fd = nfs_safe_open(uidlist->fname, O_RDONLY);
 	if (fd == -1) {
 		if (errno != ENOENT) {
 			mail_storage_set_critical(storage,

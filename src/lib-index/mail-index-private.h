@@ -18,7 +18,7 @@ struct mail_index_sync_map_ctx;
 /* How many times to retry opening index files if read/fstat returns ESTALE.
    This happens with NFS when the file has been deleted (ie. index file was
    rewritten by another computer than us). */
-#define MAIL_INDEX_ESTALE_RETRY_COUNT 10
+#define MAIL_INDEX_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 
 #define MAIL_INDEX_IS_IN_MEMORY(index) \
 	((index)->dir == NULL)

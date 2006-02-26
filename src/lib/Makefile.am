@@ -53,6 +53,7 @@ liblib_a_SOURCES = \
 	mmap-util.c \
 	module-dir.c \
 	network.c \
+	nfs-workarounds.c \
 	ostream.c \
 	ostream-file.c \
 	ostream-crlf.c \
@@ -65,7 +66,6 @@ liblib_a_SOURCES = \
 	restrict-process-size.c \
 	safe-memset.c \
 	safe-mkdir.c \
-	safe-open.c \
 	sendfile-util.c \
 	seq-range-array.c \
 	sha1.c \
@@ -122,6 +122,7 @@ noinst_HEADERS = \
 	mmap-util.h \
 	module-dir.h \
 	network.h \
+	nfs-workarounds.h \
 	ostream.h \
 	ostream-crlf.h \
 	ostream-internal.h \
@@ -134,7 +135,6 @@ noinst_HEADERS = \
 	restrict-process-size.h \
 	safe-memset.h \
 	safe-mkdir.h \
-	safe-open.h \
 	sendfile-util.h \
 	seq-range-array.h \
 	sha1.h \
