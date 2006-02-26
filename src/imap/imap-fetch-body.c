@@ -409,9 +409,15 @@ static int fetch_body_header_partial(struct imap_fetch_context *ctx,
 static int fetch_body_header_fields(struct imap_fetch_context *ctx,
 				    struct mail *mail, void *context)
 {
-	const struct imap_fetch_body_data *body = context;
+	struct imap_fetch_body_data *body = context;
 	struct message_size size;
 	uoff_t old_offset;
+
+	if (mail == NULL) {
+		/* deinit */
+		mailbox_header_lookup_deinit(&body->header_ctx);
+		return 0;
+	}
 
 	ctx->cur_input = mail_get_header_stream(mail, body->header_ctx);
 	if (ctx->cur_input == NULL)
@@ -590,7 +596,7 @@ static bool fetch_body_header_fields_init(struct imap_fetch_context *ctx,
 				MAIL_FETCH_STREAM_BODY)) != 0) {
 		/* we'll need to open the file anyway, don't try to get the
 		   headers from cache. */
-		imap_fetch_add_handler(ctx, FALSE,
+		imap_fetch_add_handler(ctx, FALSE, FALSE,
 				       fetch_body_header_partial, body);
 		return TRUE;
 	}
@@ -603,7 +609,8 @@ static bool fetch_body_header_fields_init(struct imap_fetch_context *ctx,
 	}
 
 	body->header_ctx = mailbox_header_lookup_init(ctx->box, body->fields);
-	imap_fetch_add_handler(ctx, FALSE, fetch_body_header_fields, body);
+	imap_fetch_add_handler(ctx, FALSE, TRUE,
+			       fetch_body_header_fields, body);
 	t_pop();
 	return TRUE;
 }
@@ -616,13 +623,13 @@ static bool fetch_body_section_name_init(struct imap_fetch_context *ctx,
 	if (*section == '\0') {
 		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |
 			MAIL_FETCH_STREAM_BODY;
-		imap_fetch_add_handler(ctx, FALSE, fetch_body, body);
+		imap_fetch_add_handler(ctx, FALSE, FALSE, fetch_body, body);
 		return TRUE;
 	}
 
 	if (strcmp(section, "TEXT") == 0) {
 		ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
-		imap_fetch_add_handler(ctx, FALSE, fetch_body, body);
+		imap_fetch_add_handler(ctx, FALSE, FALSE, fetch_body, body);
 		return TRUE;
 	}
 
@@ -630,7 +637,8 @@ static bool fetch_body_section_name_init(struct imap_fetch_context *ctx,
 		/* exact header matches could be cached */
 		if (section[6] == '\0') {
 			ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
-			imap_fetch_add_handler(ctx, FALSE, fetch_body, body);
+			imap_fetch_add_handler(ctx, FALSE, FALSE,
+					       fetch_body, body);
 			return TRUE;
 		}
 
@@ -640,7 +648,7 @@ static bool fetch_body_section_name_init(struct imap_fetch_context *ctx,
 
 		if (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0 &&
 		    fetch_body_header_fields_check(section+18)) {
-			imap_fetch_add_handler(ctx, FALSE,
+			imap_fetch_add_handler(ctx, FALSE, FALSE,
 					       fetch_body_header_partial, body);
 			return TRUE;
 		}
@@ -659,7 +667,7 @@ static bool fetch_body_section_name_init(struct imap_fetch_context *ctx,
 		     fetch_body_header_fields_check(section+14)) ||
 		    (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0 &&
 		     fetch_body_header_fields_check(section+18))) {
-			imap_fetch_add_handler(ctx, FALSE,
+			imap_fetch_add_handler(ctx, FALSE, FALSE,
 					       fetch_body_mime, body);
 			return TRUE;
 		}
@@ -923,24 +931,27 @@ bool fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
 		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |
 			MAIL_FETCH_STREAM_BODY;
 		ctx->flags_update_seen = TRUE;
-		imap_fetch_add_handler(ctx, FALSE, fetch_rfc822, NULL);
+		imap_fetch_add_handler(ctx, FALSE, FALSE, fetch_rfc822, NULL);
 		return TRUE;
 	}
 
 	if (strcmp(name+6, ".SIZE") == 0) {
 		ctx->fetch_data |= MAIL_FETCH_VIRTUAL_SIZE;
-		imap_fetch_add_handler(ctx, TRUE, fetch_rfc822_size, NULL);
+		imap_fetch_add_handler(ctx, TRUE, FALSE,
+				       fetch_rfc822_size, NULL);
 		return TRUE;
 	}
 	if (strcmp(name+6, ".HEADER") == 0) {
 		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER;
-		imap_fetch_add_handler(ctx, FALSE, fetch_rfc822_header, NULL);
+		imap_fetch_add_handler(ctx, FALSE, FALSE,
+				       fetch_rfc822_header, NULL);
 		return TRUE;
 	}
 	if (strcmp(name+6, ".TEXT") == 0) {
 		ctx->fetch_data |= MAIL_FETCH_STREAM_BODY;
 		ctx->flags_update_seen = TRUE;
-		imap_fetch_add_handler(ctx, FALSE, fetch_rfc822_text, NULL);
+		imap_fetch_add_handler(ctx, FALSE, FALSE,
+				       fetch_rfc822_text, NULL);
 		return TRUE;
 	}
 

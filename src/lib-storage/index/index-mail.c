@@ -387,7 +387,6 @@ static void index_mail_parse_body(struct index_mail *mail, bool need_parts)
 		message_parser_parse_body(data->parser_ctx, NULL, NULL, NULL);
 	}
 	data->parts = message_parser_deinit(&data->parser_ctx);
-        data->parser_ctx = NULL;
 
 	if (data->parsed_bodystructure &&
 	    imap_bodystructure_is_plain_7bit(data->parts)) {
@@ -747,6 +746,8 @@ index_mail_alloc(struct mailbox_transaction_context *_t,
 
 static void index_mail_close(struct index_mail *mail)
 {
+	if (mail->data.parser_ctx != NULL)
+		(void)message_parser_deinit(&mail->data.parser_ctx);
 	if (mail->data.stream != NULL)
 		i_stream_destroy(&mail->data.stream);
 	if (mail->data.filter_stream != NULL)

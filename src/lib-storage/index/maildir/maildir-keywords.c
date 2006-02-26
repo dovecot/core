@@ -64,6 +64,7 @@ void maildir_keywords_deinit(struct maildir_keywords *mk)
 {
 	hash_destroy(mk->hash);
 	array_free(&mk->list);
+	pool_unref(mk->pool);
 	i_free(mk->path);
 	i_free(mk);
 }
