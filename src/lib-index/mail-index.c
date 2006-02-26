@@ -686,8 +686,9 @@ static int mail_index_read_header(struct mail_index *index,
 	return ret;
 }
 
-static int mail_index_read_map(struct mail_index *index,
-			       struct mail_index_map *map, bool *retry_r)
+static int
+mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
+		    bool *retry_r, bool try_retry)
 {
 	const struct mail_index_header *hdr;
 	unsigned char buf[512];
@@ -753,7 +754,7 @@ static int mail_index_read_map(struct mail_index *index,
 	}
 
 	if (ret < 0) {
-		if (errno == ESTALE) {
+		if (errno == ESTALE && try_retry) {
 			/* a new index file was renamed over this one. */
 			*retry_r = TRUE;
 			return 0;
@@ -920,8 +921,9 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 		(*handlers[i])(index);
 
 	for (i = 0;; i++) {
-		ret = mail_index_read_map(index, *map, &retry);
-		if (ret != 0 || !retry || i == MAIL_INDEX_ESTALE_RETRY_COUNT)
+		ret = mail_index_read_map(index, *map, &retry,
+					  i < MAIL_INDEX_ESTALE_RETRY_COUNT);
+		if (ret != 0 || !retry)
 			return ret;
 
 		/* ESTALE - reopen index file */
@@ -1083,7 +1085,7 @@ int mail_index_get_latest_header(struct mail_index *index,
 	for (i = 0;; i++) {
 		ret = mail_index_read_header(index, hdr_r, sizeof(*hdr_r),
 					     &pos);
-		if (ret >= 0 || errno != ESTALE ||
+		if (ret <= 0 || errno != ESTALE ||
 		    i == MAIL_INDEX_ESTALE_RETRY_COUNT)
 			break;
 
@@ -1102,6 +1104,9 @@ int mail_index_get_latest_header(struct mail_index *index,
 			return -1;
 		}
 	}
+
+	if (ret < 0)
+		mail_index_set_syscall_error(index, "pread_full()");
 	return ret;
 }
 

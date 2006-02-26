@@ -42,7 +42,8 @@ static void subsfile_set_syscall_error(struct mail_storage *storage,
 }
 
 static const char *next_line(struct mail_storage *storage, const char *path,
-			     struct istream *input, bool *failed_r)
+			     struct istream *input, bool *failed_r,
+			     bool ignore_estale)
 {
 	const char *line;
 
@@ -54,7 +55,7 @@ static const char *next_line(struct mail_storage *storage, const char *path,
                 switch (i_stream_read(input)) {
 		case -1:
                         if (input->stream_errno != 0 &&
-                            input->stream_errno != ESTALE) {
+                            (input->stream_errno != ESTALE || !ignore_estale)) {
                                 subsfile_set_syscall_error(storage,
                                                            "read()", path);
                                 *failed_r = TRUE;
@@ -118,7 +119,8 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	output = o_stream_create_file(fd_out, default_pool,
 				      MAX_MAILBOX_LENGTH, FALSE);
 	found = FALSE;
-	while ((line = next_line(storage, path, input, &failed)) != NULL) {
+	while ((line = next_line(storage, path, input,
+				 &failed, FALSE)) != NULL) {
 		if (strcmp(line, name) == 0) {
 			found = TRUE;
 			if (!set)
@@ -212,7 +214,8 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
 
         for (i = 0;; i++) {
                 line = next_line(ctx->storage, ctx->path, ctx->input,
-                                 &ctx->failed);
+				 &ctx->failed,
+				 i < SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT);
                 if (ctx->input->stream_errno != ESTALE ||
                     i == SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT)
                         break;

@@ -247,7 +247,8 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 }
 
 static int
-maildir_uidlist_update_read(struct maildir_uidlist *uidlist, bool *retry_r)
+maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
+			    bool *retry_r, bool try_retry)
 {
 	struct mail_storage *storage = STORAGE(uidlist->mbox->storage);
 	const char *line;
@@ -270,7 +271,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist, bool *retry_r)
 
 	if (fstat(fd, &st) < 0) {
                 close_keep_errno(fd);
-                if (errno == ESTALE) {
+                if (errno == ESTALE && try_retry) {
                         *retry_r = TRUE;
                         return -1;
                 }
@@ -334,8 +335,13 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist, bool *retry_r)
 		uidlist->last_mtime = st.st_mtime;
         } else {
                 /* I/O error */
-                if (input->stream_errno == ESTALE)
-                        *retry_r = TRUE;
+                if (input->stream_errno == ESTALE && try_retry)
+			*retry_r = TRUE;
+		else {
+			errno = input->stream_errno;
+			mail_storage_set_critical(storage,
+				"read(%s) failed: %m", uidlist->fname);
+		}
         }
 
 	i_stream_destroy(&input);
@@ -367,8 +373,9 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 	}
 
         for (i = 0; ; i++) {
-                ret = maildir_uidlist_update_read(uidlist, &retry);
-                if (!retry || i == UIDLIST_ESTALE_RETRY_COUNT) {
+		ret = maildir_uidlist_update_read(uidlist, &retry,
+						i < UIDLIST_ESTALE_RETRY_COUNT);
+                if (!retry) {
                         if (ret >= 0)
                                 uidlist->initial_read = TRUE;
                         break;

@@ -354,7 +354,7 @@ int mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
 
 static int
 mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
-				   int head)
+				   int head, bool ignore_estale)
 {
         struct mail_transaction_log_file *f;
 	int ret;
@@ -363,7 +363,7 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 
 	ret = pread_full(file->fd, &file->hdr, sizeof(file->hdr), 0);
 	if (ret < 0) {
-                if (errno != ESTALE) {
+                if (errno != ESTALE || !ignore_estale) {
                         mail_index_file_set_syscall_error(file->log->index,
                                                           file->filepath,
                                                           "pread_full()");
@@ -642,7 +642,8 @@ mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 static int
 mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
                                   struct mail_transaction_log_file **file_r,
-				  const char *path, int fd, bool head)
+				  const char *path, int fd, bool head,
+				  bool ignore_estale)
 {
         struct mail_transaction_log_file *file;
 	struct stat st;
@@ -653,7 +654,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	*file_r = NULL;
 
 	if (fstat(fd, &st) < 0) {
-                if (errno != ESTALE) {
+                if (errno != ESTALE || !ignore_estale) {
                         mail_index_file_set_syscall_error(log->index, path,
                                                           "fstat()");
                 }
@@ -671,7 +672,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	file->last_mtime = st.st_mtime;
 	file->last_size = st.st_size;
 
-	ret = mail_transaction_log_file_read_hdr(file, head);
+	ret = mail_transaction_log_file_read_hdr(file, head, ignore_estale);
 	if (ret < 0) {
 		mail_transaction_log_file_free(file);
 		return -1;
@@ -685,7 +686,7 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 static struct mail_transaction_log_file *
 mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log *log,
                                             const char *path, int fd,
-                                            bool *retry_r)
+                                            bool *retry_r, bool try_retry)
 {
 	struct mail_transaction_log_file *file;
 	struct stat st;
@@ -693,9 +694,10 @@ mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log *log,
 
         *retry_r = FALSE;
 
-	ret = mail_transaction_log_file_fd_open(log, &file, path, fd, TRUE);
+	ret = mail_transaction_log_file_fd_open(log, &file, path, fd, TRUE,
+						!try_retry);
         if (ret < 0) {
-                *retry_r = errno == ESTALE;
+                *retry_r = errno == ESTALE && try_retry;
                 return NULL;
         }
 
@@ -724,11 +726,12 @@ mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log *log,
 			file->last_size = st.st_size;
 
 			memset(&file->hdr, 0, sizeof(file->hdr));
-			ret = mail_transaction_log_file_read_hdr(file, TRUE);
+			ret = mail_transaction_log_file_read_hdr(file, TRUE,
+								 !try_retry);
 		}
 	}
 	if (ret <= 0) {
-                *retry_r = errno == ESTALE;
+                *retry_r = errno == ESTALE && try_retry;
 		mail_transaction_log_file_free(file);
 		return NULL;
 	}
@@ -790,9 +793,8 @@ mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
                 }
 
                 file = mail_transaction_log_file_fd_open_or_create(log, path,
-                                                                   fd, &retry);
-                if (file != NULL || !retry ||
-                    i == MAIL_INDEX_ESTALE_RETRY_COUNT)
+                		fd, &retry, i == MAIL_INDEX_ESTALE_RETRY_COUNT);
+                if (file != NULL || !retry)
                         return file;
 
                 /* ESTALE - retry */
@@ -816,7 +818,7 @@ mail_transaction_log_file_open(struct mail_transaction_log *log,
                 }
 
                 ret = mail_transaction_log_file_fd_open(log, &file, path,
-                                                        fd, TRUE);
+                		fd, TRUE, i < MAIL_INDEX_ESTALE_RETRY_COUNT);
                 if (ret > 0)
                         break;
 
@@ -880,13 +882,9 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock)
 			return -1;
 
                 file = mail_transaction_log_file_fd_open_or_create(log, path,
-                                                                   fd, &retry);
+                					fd, &retry, FALSE);
                 if (file == NULL) {
-                        if (retry) {
-                                mail_index_set_error(log->index,
-                                	"%s: ESTALE unexpected while locked",
-                                        path);
-                        }
+			i_assert(!retry);
                         return -1;
                 }
 	}
@@ -1007,7 +1005,8 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 		}
 	}
 
-	ret = mail_transaction_log_file_fd_open(log, &file, path, fd, FALSE);
+	ret = mail_transaction_log_file_fd_open(log, &file, path, fd,
+						FALSE, TRUE);
 	if (ret <= 0) {
 		if (ret == 0) {
 			/* corrupted, delete it */
