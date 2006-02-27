@@ -21,7 +21,6 @@ struct maildir_list_context {
 	pool_t pool;
 
 	const char *dir, *prefix;
-        enum mailbox_list_flags flags;
 
         struct mailbox_tree_context *tree_ctx;
 
@@ -182,8 +181,9 @@ maildir_fill_readdir(struct maildir_list_context *ctx,
 		return FALSE;
 	}
 
-	if ((ctx->flags & (MAILBOX_LIST_SUBSCRIBED |
-			   MAILBOX_LIST_INBOX)) == MAILBOX_LIST_INBOX) {
+	if ((ctx->mailbox_ctx.flags &
+	     (MAILBOX_LIST_SUBSCRIBED |
+	      MAILBOX_LIST_INBOX)) == MAILBOX_LIST_INBOX) {
 		/* make sure INBOX is there */
 		node = mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
 		if (created)
@@ -192,7 +192,8 @@ maildir_fill_readdir(struct maildir_list_context *ctx,
 			node->flags &= ~MAILBOX_PLACEHOLDER;
 	}
 	maildir_nodes_fix(mailbox_tree_get(ctx->tree_ctx, NULL, NULL),
-			  (ctx->flags & MAILBOX_LIST_SUBSCRIBED) != 0);
+			  (ctx->mailbox_ctx.flags &
+			   MAILBOX_LIST_SUBSCRIBED) != 0);
 	return TRUE;
 }
 
@@ -218,7 +219,8 @@ static bool maildir_fill_subscribed(struct maildir_list_context *ctx,
 		case IMAP_MATCH_YES:
 			node = mailbox_tree_get(ctx->tree_ctx, name, NULL);
 			node->flags = MAILBOX_FLAG_MATCHED;
-			if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
+			if ((ctx->mailbox_ctx.flags &
+			     MAILBOX_LIST_FAST_FLAGS) == 0) {
 				node->flags |= MAILBOX_NONEXISTENT |
 					MAILBOX_NOCHILDREN;
 			}
@@ -262,8 +264,8 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 	pool = pool_alloconly_create("maildir_list", 1024);
 	ctx = p_new(pool, struct maildir_list_context, 1);
 	ctx->mailbox_ctx.storage = storage;
+	ctx->mailbox_ctx.flags = flags;
 	ctx->pool = pool;
-	ctx->flags = flags;
 	ctx->tree_ctx = mailbox_tree_init(MAILDIR_FS_SEP);
 
 	if (*ref != '\0') {
@@ -302,7 +304,7 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 	}
 
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) == 0 ||
-	    (ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
+	    (ctx->mailbox_ctx.flags & MAILBOX_LIST_FAST_FLAGS) == 0) {
 		bool update_only = (flags & MAILBOX_LIST_SUBSCRIBED) != 0;
 		if (!maildir_fill_readdir(ctx, glob, update_only)) {
 			ctx->mailbox_ctx.failed = TRUE;

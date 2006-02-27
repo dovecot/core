@@ -21,8 +21,6 @@ struct dbox_list_context {
 	struct mailbox_list_context mailbox_ctx;
 	struct index_storage *istorage;
 
-	enum mailbox_list_flags flags;
-
 	struct imap_match_glob *glob;
 	struct subsfile_list_context *subsfile_ctx;
 
@@ -126,8 +124,8 @@ dbox_mailbox_list_init(struct mail_storage *storage,
 
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) != 0) {
 		ctx->mailbox_ctx.storage = storage;
+		ctx->mailbox_ctx.flags = flags;
 		ctx->istorage = istorage;
-		ctx->flags = flags;
 		ctx->next = dbox_list_subs;
 
 		path = t_strconcat(istorage->dir,
@@ -152,7 +150,7 @@ dbox_mailbox_list_init(struct mail_storage *storage,
 		return &ctx->mailbox_ctx;
 	/* if user gave invalid directory, we just don't show any results. */
 
-	ctx->flags = flags;
+	ctx->mailbox_ctx.flags = flags;
 	ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
 
 	if (virtual_path != NULL && dirp != NULL)
@@ -273,7 +271,7 @@ static int list_file(struct dbox_list_context *ctx, const char *fname)
 
 	/* make sure we give only one correct INBOX */
 	if (strcasecmp(list_path, "INBOX") == 0 &&
-	    (ctx->flags & MAILBOX_LIST_INBOX) != 0) {
+	    (ctx->mailbox_ctx.flags & MAILBOX_LIST_INBOX) != 0) {
 		if (ctx->inbox_found)
 			return 0;
 
@@ -340,7 +338,7 @@ static struct mailbox_list *dbox_list_subs(struct dbox_list_context *ctx)
 		i_unreached();
 	}
 
-	if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) != 0)
+	if ((ctx->mailbox_ctx.flags & MAILBOX_LIST_FAST_FLAGS) != 0)
 		return &ctx->list;
 
 	t_push();
@@ -407,7 +405,8 @@ static struct mailbox_list *dbox_list_next(struct dbox_list_context *ctx)
 		list_dir_context_free(dir);
 	}
 
-	if (!ctx->inbox_found && (ctx->flags & MAILBOX_LIST_INBOX) != 0 &&
+	if (!ctx->inbox_found &&
+	    (ctx->mailbox_ctx.flags & MAILBOX_LIST_INBOX) != 0 &&
 	    ctx->glob != NULL && imap_match(ctx->glob, "INBOX")  > 0) {
 		/* show inbox */
 		ctx->inbox_found = TRUE;

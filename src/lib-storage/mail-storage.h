@@ -21,7 +21,9 @@ enum mail_storage_flags {
 	/* Use mmap() for reading mail files. */
 	MAIL_STORAGE_FLAG_MMAP_MAILS		= 0x20,
 	/* Use CRLF linefeeds when saving mails. */
-	MAIL_STORAGE_FLAG_SAVE_CRLF		= 0x40
+	MAIL_STORAGE_FLAG_SAVE_CRLF		= 0x40,
+	/* The storage points to shared namespaces */
+	MAIL_STORAGE_FLAG_SHARED_NAMESPACE	= 0x80
 };
 
 enum mail_storage_lock_method {
@@ -222,10 +224,7 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 
 /* Create a new instance of registered mail storage class with given
    storage-specific data. If data is NULL, it tries to use defaults.
-   May return NULL if anything fails.
-
-   If namespace is non-NULL, all mailbox names are expected to begin with it.
-   hierarchy_sep overrides the default separator if it's not '\0'. */
+   May return NULL if anything fails. */
 struct mail_storage *
 mail_storage_create(const char *name, const char *data, const char *user,
 		    enum mail_storage_flags flags,

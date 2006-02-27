@@ -213,6 +213,7 @@ struct mail_private {
 
 struct mailbox_list_context {
 	struct mail_storage *storage;
+	enum mailbox_list_flags flags;
 	bool failed;
 };
 
