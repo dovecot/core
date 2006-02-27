@@ -55,6 +55,8 @@ const char *t_str_ucase(const char *str);
 
 int null_strcmp(const char *s1, const char *s2);
 int memcasecmp(const void *p1, const void *p2, size_t size);
+int bsearch_strcmp(const void *p1, const void *p2);
+int strcmp_p(const void *p1, const void *p2);
 int bsearch_strcasecmp(const void *p1, const void *p2);
 int strcasecmp_p(const void *p1, const void *p2);
 
