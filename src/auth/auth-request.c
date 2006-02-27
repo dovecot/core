@@ -17,6 +17,8 @@
 #include "passdb-cache.h"
 #include "password-scheme.h"
 
+#include <stdlib.h>
+
 struct auth_request *
 auth_request_new(struct auth *auth, struct mech_module *mech,
 		 mech_callback_t *callback, void *context)
@@ -62,6 +64,12 @@ void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size)
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	if (request->passdb_failure) {
+		/* password was valid, but some other check failed. */
+		auth_request_fail(request);
+		return;
+	}
 
 	request->state = AUTH_REQUEST_STATE_FINISHED;
 	request->successful = TRUE;
@@ -582,6 +590,97 @@ bool auth_request_set_login_username(struct auth_request *request,
         return request->requested_login_user != NULL;
 }
 
+static int is_ip_in_network(const char *network, const struct ip_addr *ip)
+{
+	const uint32_t *ip1, *ip2;
+	struct ip_addr net_ip;
+	const char *p;
+	unsigned int max_bits, bits, pos, i;
+	uint32_t mask;
+
+	max_bits = IPADDR_IS_V4(ip) ? 32 : 128;
+	p = strchr(network, '/');
+	if (p == NULL) {
+		/* full IP address must match */
+		bits = max_bits;
+	} else {
+		/* get the network mask */
+		network = t_strdup_until(network, p);
+		bits = strtoul(p+1, NULL, 10);
+		if (bits > max_bits)
+			bits = max_bits;
+	}
+
+	if (net_addr2ip(network, &net_ip) < 0)
+		return -1;
+
+	if (IPADDR_IS_V4(ip) && !IPADDR_IS_V4(&net_ip)) {
+		/* one is IPv6 and one is IPv4 */
+		return 0;
+	}
+	i_assert(IPADDR_IS_V6(ip) == IPADDR_IS_V6(&net_ip));
+
+	ip1 = (const uint32_t *)&ip->ip;
+	ip2 = (const uint32_t *)&net_ip.ip;
+
+	/* check first the full 32bit ints */
+	for (pos = 0, i = 0; pos + 32 <= bits; pos += 32, i++) {
+		if (ip1[i] != ip2[i])
+			return 0;
+	}
+
+	/* check the last full bytes */
+	for (mask = 0xff; pos + 8 <= bits; pos += 8, mask <<= 8) {
+		if ((ip1[i] & mask) != (ip2[i] & mask))
+			return 0;
+	}
+
+	/* check the last bits, they're reversed in bytes */
+	bits -= pos;
+	for (mask = 0x80 << (pos % 32); bits > 0; bits--, mask >>= 1) {
+		if ((ip1[i] & mask) != (ip2[i] & mask))
+			return 0;
+	}
+	return 1;
+}
+
+static void auth_request_validate_networks(struct auth_request *request,
+					   const char *networks)
+{
+	const char *const *net;
+	bool found = FALSE;
+
+	if (request->remote_ip.family == 0) {
+		/* IP not known */
+		auth_request_log_info(request, "passdb",
+			"allow_nets check failed: Remote IP not known");
+		request->passdb_failure = TRUE;
+		return;
+	}
+
+	t_push();
+	for (net = t_strsplit_spaces(networks, ", "); *net != NULL; net++) {
+		switch (is_ip_in_network(*net, &request->remote_ip)) {
+		case 1:
+			found = TRUE;
+			break;
+		case -1:
+			auth_request_log_info(request, "passdb",
+				"allow_nets: Invalid network '%s'", *net);
+			break;
+		default:
+			break;
+		}
+	}
+	t_pop();
+
+	if (!found) {
+		auth_request_log_info(request, "passdb",
+			"allow_nets check failed: IP not in allowed networks");
+	}
+	request->passdb_failure = !found;
+}
+
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
@@ -630,6 +729,11 @@ void auth_request_set_field(struct auth_request *request,
 		/* NULL password - anything goes */
 		i_assert(request->passdb_password == NULL);
 		request->no_password = TRUE;
+		return;
+	}
+
+	if (strcmp(name, "allow_nets") == 0) {
+		auth_request_validate_networks(request, value);
 		return;
 	}
 
