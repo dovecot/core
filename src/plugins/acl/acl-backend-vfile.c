@@ -1,0 +1,395 @@
+/* Copyright (C) 2006 Timo Sirainen */
+
+#include "lib.h"
+#include "ioloop.h"
+#include "array.h"
+#include "istream.h"
+#include "nfs-workarounds.h"
+#include "mail-storage-private.h"
+#include "acl-cache.h"
+#include "acl-api-private.h"
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+#define ACL_FILENAME "dovecot-acl"
+
+#define ACL_SYNC_SECS 1
+#define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
+
+struct acl_vfile {
+	char *path;
+
+	time_t last_read_time;
+	time_t last_mtime;
+	off_t last_size;
+};
+
+struct acl_backend_vfile {
+	struct acl_backend backend;
+	const char *global_dir;
+};
+
+struct acl_object_vfile {
+	struct acl_object aclobj;
+
+	struct acl_vfile global_file, local_file;
+};
+
+struct acl_letter_map {
+	char letter;
+	const char *name;
+};
+
+static const struct acl_letter_map acl_letter_map[] = {
+	{ 'l', MAIL_ACL_LOOKUP },
+	{ 'r', MAIL_ACL_READ },
+	{ 'w', MAIL_ACL_WRITE },
+	{ 's', MAIL_ACL_WRITE_SEEN },
+	{ 'd', MAIL_ACL_WRITE_DELETED },
+	{ 'i', MAIL_ACL_INSERT },
+	{ 'e', MAIL_ACL_EXPUNGE },
+	{ 'c', MAIL_ACL_CREATE },
+	{ 'd', MAIL_ACL_DELETE },
+	{ 'a', MAIL_ACL_ADMIN },
+	{ '\0', NULL }
+};
+
+static struct acl_backend *acl_backend_vfile_init(const char *data)
+{
+	struct acl_backend_vfile *backend;
+	pool_t pool;
+
+	pool = pool_alloconly_create("ACL backend", nearest_power(512));
+	backend = p_new(pool, struct acl_backend_vfile, 1);
+	backend->global_dir = p_strdup(pool, data);
+	backend->backend.pool = pool;
+	return &backend->backend;
+}
+
+static void acl_backend_vfile_deinit(struct acl_backend *backend)
+{
+	pool_unref(backend->pool);
+}
+
+static struct acl_object *
+acl_backend_vfile_object_init(struct acl_backend *_backend,
+			      const char *name, const char *control_dir)
+{
+	struct acl_backend_vfile *backend =
+		(struct acl_backend_vfile *)_backend;
+	struct acl_object_vfile *aclobj;
+
+	aclobj = i_new(struct acl_object_vfile, 1);
+	aclobj->aclobj.backend = _backend;
+	aclobj->aclobj.name = i_strdup(name);
+	aclobj->global_file.path =
+		i_strconcat(backend->global_dir, "/", name, NULL);
+	aclobj->local_file.path =
+		i_strconcat(control_dir, "/"ACL_FILENAME, NULL);
+	return &aclobj->aclobj;
+}
+
+static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
+{
+	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
+
+	i_free(aclobj->local_file.path);
+	i_free(aclobj->global_file.path);
+	i_free(aclobj->aclobj.name);
+	i_free(aclobj);
+}
+
+static const char *const *
+acl_parse_rights(const char *acl, const char **error_r)
+{
+	array_t ARRAY_DEFINE(rights, const char *);
+	const char *const *names;
+	unsigned int i;
+
+	/* parse IMAP ACL list */
+	while (*acl == ' ' || *acl == '\t')
+		acl++;
+
+	ARRAY_CREATE(&rights, pool_datastack_create(), const char *, 64);
+	for (; *acl != '\0' && *acl != ':'; acl++) {
+		for (i = 0; acl_letter_map[i].letter != '\0'; i++) {
+			if (acl_letter_map[i].letter == *acl)
+				break;
+		}
+
+		if (acl_letter_map[i].letter == '\0') {
+			*error_r = t_strdup_printf("Unknown ACL '%c'", *acl);
+			return NULL;
+		}
+
+		array_append(&rights, &acl_letter_map[i].name, 1);
+	}
+
+	if (*acl == '\0')
+		return array_idx(&rights, 0);
+
+	/* parse our own extended ACLs */
+	i_assert(*acl == ':');
+
+	names = t_strsplit_spaces(acl, ", ");
+	if (array_count(&rights) == 0)
+		return names;
+	
+	for (; *names != NULL; names++)
+		array_append(&rights, names, 1);
+	return array_idx(&rights, 0);
+}
+
+static int
+acl_object_vfile_parse_line(struct acl_object *aclobj, struct acl_vfile *file,
+			    const char *line, unsigned int linenum)
+{
+	struct acl_rights rights;
+	const char *p, *const *right_names, *error = NULL;
+
+	if (*line == '\0' || *line == '#')
+		return 0;
+
+	/* <id> [<imap acls>] [:<named acls>] */
+	t_push();
+	p = strchr(line, ' ');
+	if (p == NULL)
+		p = "";
+	else {
+		line = t_strdup_until(line, p);
+		p++;
+	}
+
+	memset(&rights, 0, sizeof(rights));
+
+	right_names = acl_parse_rights(p, &error);
+	if (*line != '-') {
+		rights.modify_mode = ACL_MODIFY_MODE_REPLACE;
+		rights.rights = right_names;
+	} else {
+		line++;
+		rights.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
+		rights.neg_rights = right_names;
+	}
+
+	if (strncmp(line, "user=", 5) == 0) {
+		rights.id_type = ACL_ID_USER;
+		rights.identifier = line + 5;
+	} else if (strncmp(line, "group=", 6) == 0) {
+		rights.id_type = ACL_ID_GROUP;
+		rights.identifier = line + 6;
+	} else if (strncmp(line, "group-override=", 15) == 0) {
+		rights.id_type = ACL_ID_GROUP_OVERRIDE;
+		rights.identifier = line + 15;
+	} else if (strcmp(line, "owner") == 0) {
+		rights.id_type = ACL_ID_USER;
+		rights.identifier = aclobj->backend->owner_username;
+	} else if (strcmp(line, "authenticated") == 0) {
+		rights.id_type = ACL_ID_AUTHENTICATED;
+	} else if (strcmp(line, "anyone") == 0 ||
+		   strcmp(line, "anonymous") == 0) {
+		rights.id_type = ACL_ID_ANYONE;
+	} else {
+		error = t_strdup_printf("Unknown ID '%s'", line);
+	}
+
+	if (error != NULL) {
+		mail_storage_set_critical(aclobj->backend->storage,
+					  "ACL file %s line %u: %s",
+					  file->path, linenum, error);
+		t_pop();
+		return -1;
+	}
+
+	acl_cache_update(aclobj->backend->cache, aclobj->name, &rights);
+
+	t_pop();
+	return 0;
+}
+
+static int
+acl_backend_vfile_read(struct acl_object *aclobj, struct acl_vfile *file,
+		       bool try_retry)
+{
+	struct mail_storage *storage = aclobj->backend->storage;
+	struct istream *input;
+	struct stat st;
+	const char *line;
+	unsigned int linenum;
+	int fd, ret = 1;
+
+	fd = nfs_safe_open(file->path, O_RDONLY);
+	if (fd == -1) {
+		if (errno == ENOENT) {
+			file->last_read_time = ioloop_time;
+			return 1;
+		}
+		mail_storage_set_critical(storage,
+					  "open(%s) failed: %m", file->path);
+		return -1;
+	}
+	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
+
+	linenum = 1;
+	while ((line = i_stream_read_next_line(input)) != NULL) {
+		if (acl_object_vfile_parse_line(aclobj, file, line,
+						linenum++) < 0) {
+			ret = -1;
+			break;
+		}
+	}
+
+	if (input->stream_errno != 0) {
+		if (input->stream_errno == ESTALE && try_retry)
+			ret = 0;
+		else {
+			ret = -1;
+			mail_storage_set_critical(storage,
+				"read(%s) failed: %m", file->path);
+		}
+	}
+
+	if (ret > 0) {
+		if (fstat(fd, &st) < 0) {
+			if (errno == ESTALE && try_retry)
+				ret = 0;
+			else {
+				ret = -1;
+				mail_storage_set_critical(storage,
+					"read(%s) failed: %m", file->path);
+			}
+		} else {
+			file->last_read_time = ioloop_time;
+			file->last_mtime = st.st_mtime;
+			file->last_size = st.st_size;
+		}
+	}
+
+	i_stream_unref(&input);
+	if (close(fd) < 0) {
+		if (errno == ESTALE && try_retry)
+			return 0;
+
+		mail_storage_set_critical(storage, "close(%s) failed: %m",
+					  file->path);
+		return -1;
+	}
+	return ret;
+}
+
+static int
+acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
+				  struct acl_vfile *file)
+{
+	unsigned int i;
+	int ret;
+
+	for (i = 0;; i++) {
+		ret = acl_backend_vfile_read(aclobj, file,
+					     i < ACL_ESTALE_RETRY_COUNT);
+		if (ret != 0)
+			break;
+
+		/* ESTALE - try again */
+	}
+
+	return ret <= 0 ? -1 : 0;
+}
+
+static int
+acl_backend_vfile_refresh(struct acl_object *aclobj, struct acl_vfile *file)
+{
+	struct stat st;
+
+	if (file->last_read_time == 0)
+		return 1;
+
+	if (stat(file->path, &st) < 0) {
+		if (errno == ENOENT) {
+			/* No global ACL directory */
+			return 0;
+		}
+		mail_storage_set_critical(aclobj->backend->storage,
+					  "stat(%s) failed: %m", file->path);
+		return -1;
+	}
+
+	if (st.st_mtime == file->last_mtime &&
+	    st.st_size == file->last_size) {
+		/* same timestamp, but if it was modified within the
+		   same second we want to refresh it again later (but
+		   do it only after a couple of seconds so we don't
+		   keep re-reading it all the time within those
+		   seconds) */
+		if (st.st_mtime < file->last_read_time - ACL_SYNC_SECS ||
+		    ioloop_time - file->last_read_time <= ACL_SYNC_SECS)
+			return 0;
+	}
+
+	return 1;
+}
+
+static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
+{
+	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
+	int ret;
+
+	ret = acl_backend_vfile_refresh(_aclobj, &aclobj->global_file);
+	if (ret == 0)
+		ret = acl_backend_vfile_refresh(_aclobj, &aclobj->local_file);
+	if (ret <= 0)
+		return ret;
+
+	/* either global or local ACLs changed, need to re-read both */
+	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
+	if (acl_backend_vfile_read_with_retry(_aclobj,
+					      &aclobj->global_file) < 0)
+		return -1;
+	if (acl_backend_vfile_read_with_retry(_aclobj, &aclobj->local_file) < 0)
+		return -1;
+	return 0;
+}
+
+static int acl_backend_vfile_object_update(struct acl_object *aclobj,
+					   const struct acl_rights *rights)
+{
+	/* FIXME */
+	return -1;
+}
+
+static struct acl_object_list_iter *
+acl_backend_vfile_object_list_init(struct acl_object *aclobj)
+{
+	struct acl_object_list_iter *iter;
+
+	iter = i_new(struct acl_object_list_iter, 1);
+	iter->aclobj = aclobj;
+	return iter;
+}
+
+static int
+acl_backend_vfile_object_list_next(struct acl_object_list_iter *iter,
+				   struct acl_rights *rights_r)
+{
+	return -1;
+}
+
+static void
+acl_backend_vfile_object_list_deinit(struct acl_object_list_iter *iter)
+{
+	i_free(iter);
+}
+
+struct acl_backend_vfuncs acl_backend_vfile = {
+	acl_backend_vfile_init,
+	acl_backend_vfile_deinit,
+	acl_backend_vfile_object_init,
+	acl_backend_vfile_object_deinit,
+	acl_backend_vfile_object_refresh_cache,
+	acl_backend_vfile_object_update,
+	acl_backend_vfile_object_list_init,
+	acl_backend_vfile_object_list_next,
+	acl_backend_vfile_object_list_deinit
+};
