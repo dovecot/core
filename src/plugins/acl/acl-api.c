@@ -9,23 +9,10 @@
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
 					     const char *name)
 {
-	struct acl_object *aclobj;
-	const char *control_dir;
-
-	aclobj = hash_lookup(backend->aclobjs, name);
-	if (aclobj != NULL) {
-		i_assert(aclobj->refcount >= 0);
-		aclobj->refcount++;
-		return aclobj;
-	}
-
-	control_dir =
+	const char *control_dir =
 		mail_storage_get_mailbox_control_dir(backend->storage, name);
 
-	aclobj = backend->v.object_init(backend, name, control_dir);
-	aclobj->refcount++;
-	hash_insert(backend->aclobjs, aclobj->name, aclobj);
-	return aclobj;
+	return backend->v.object_init(backend, name, control_dir);
 }
 
 struct acl_object *acl_object_init_from_mailbox(struct acl_backend *backend,
@@ -40,14 +27,8 @@ void acl_object_deinit(struct acl_object **_aclobj)
 {
 	struct acl_object *aclobj = *_aclobj;
 
-	i_assert(aclobj->refcount > 0);
-
 	*_aclobj = NULL;
-	if (--aclobj->refcount > 0)
-		return;
-
-	/* currently ACL objects are really freed only at backend
-	   deinitialization. */
+	aclobj->backend->v.object_deinit(aclobj);
 }
 
 int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)

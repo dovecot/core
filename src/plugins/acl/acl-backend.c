@@ -46,9 +46,6 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 	backend->username = p_strdup(backend->pool, acl_username);
 	backend->owner_username = p_strdup(backend->pool, owner_username);
 	backend->group_count = group_count;
-	backend->cache = acl_cache_init(backend);
-	backend->aclobjs = hash_create(default_pool, backend->pool, 0,
-				       str_hash, (hash_cmp_callback_t *)strcmp);
 
 	storage_owner = owner_username != NULL &&
 		strcmp(acl_username, owner_username) == 0;
@@ -71,21 +68,10 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 void acl_backend_deinit(struct acl_backend **_backend)
 {
 	struct acl_backend *backend = *_backend;
-	struct hash_iterate_context *iter;
-	void *key, *value;
 
 	*_backend = NULL;
 
-	iter = hash_iterate_init(backend->aclobjs);
-	while (hash_iterate(iter, &key, &value)) {
-		struct acl_object *aclobj = value;
-
-		aclobj->backend->v.object_deinit(aclobj);
-	}
-	hash_iterate_deinit(iter);
-
 	acl_cache_deinit(&backend->cache);
-	hash_destroy(backend->aclobjs);
 	backend->v.deinit(backend);
 }
 

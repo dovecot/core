@@ -33,13 +33,10 @@ struct acl_backend {
 	struct acl_cache *cache;
 	struct acl_mask *default_rights;
 
-	struct hash_table *aclobjs;
 	struct acl_backend_vfuncs v;
 };
 
 struct acl_object {
-	int refcount;
-
 	struct acl_backend *backend;
 	char *name;
 };

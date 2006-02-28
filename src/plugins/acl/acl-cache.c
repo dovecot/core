@@ -24,6 +24,8 @@ struct acl_cache {
 	struct acl_backend *backend;
 	struct hash_table *objects; /* name => struct acl_object_cache* */
 
+	size_t validity_rec_size;
+
 	/* Right names mapping is used for faster rights checking. Note that
 	   acl_mask bitmask relies on the order to never change, so only new
 	   rights can be added to the mapping. */
@@ -34,12 +36,16 @@ struct acl_cache {
 	struct hash_table *right_name_idx_map;
 };
 
-struct acl_cache *acl_cache_init(struct acl_backend *backend)
+static struct acl_mask negative_cache_entry;
+
+struct acl_cache *acl_cache_init(struct acl_backend *backend,
+				 size_t validity_rec_size)
 {
 	struct acl_cache *cache;
 
 	cache = i_new(struct acl_cache, 1);
 	cache->backend = backend;
+	cache->validity_rec_size = validity_rec_size;
 	cache->right_names_pool =
 		pool_alloconly_create("ACL right names", 1024);
 	cache->objects = hash_create(default_pool, default_pool, 0,
@@ -120,16 +126,17 @@ unsigned int acl_cache_right_lookup(struct acl_cache *cache, const char *right)
 	unsigned int idx;
 	void *idx_p;
 	char *name;
+	const char *const_name;
 
 	/* use +1 for right_name_idx_map values because we can't add NULL
 	   values. */
 	idx_p = hash_lookup(cache->right_name_idx_map, right);
 	if (idx_p == NULL) {
 		/* new right name, add it */
-		name = p_strdup(cache->right_names_pool, right);
+		const_name = name = p_strdup(cache->right_names_pool, right);
 
 		idx = array_count(&cache->right_idx_name_map);
-		array_append(&cache->right_idx_name_map, &name, 1);
+		array_append(&cache->right_idx_name_map, &const_name, 1);
 		hash_insert(cache->right_name_idx_map, name,
 			    POINTER_CAST(idx + 1));
 	} else {
@@ -253,17 +260,33 @@ acl_cache_update_rights(struct acl_cache *cache,
 				     &obj_cache->my_neg_rights[id_type]);
 }
 
-void acl_cache_update(struct acl_cache *cache, const char *objname,
-		      const struct acl_rights *rights)
+static struct acl_object_cache *
+acl_cache_object_get(struct acl_cache *cache, const char *objname,
+		     bool *created_r)
 {
 	struct acl_object_cache *obj_cache;
 
 	obj_cache = hash_lookup(cache->objects, objname);
 	if (obj_cache == NULL) {
-		obj_cache = i_new(struct acl_object_cache, 1);
+		obj_cache = i_malloc(sizeof(struct acl_object_cache) +
+				     cache->validity_rec_size);
 		obj_cache->name = i_strdup(objname);
 		hash_insert(cache->objects, obj_cache->name, obj_cache);
+		*created_r = TRUE;
+	} else {
+		*created_r = FALSE;
 	}
+	return obj_cache;
+}
+
+void acl_cache_update(struct acl_cache *cache, const char *objname,
+		      const struct acl_rights *rights)
+{
+	struct acl_object_cache *obj_cache;
+	bool created;
+
+	obj_cache = acl_cache_object_get(cache, objname, &created);
+	i_assert(obj_cache->my_current_rights != &negative_cache_entry);
 
 	switch (rights->id_type) {
 	case ACL_ID_ANYONE:
@@ -287,6 +310,32 @@ void acl_cache_update(struct acl_cache *cache, const char *objname,
 	case ACL_ID_TYPE_COUNT:
 		i_unreached();
 	}
+}
+
+void acl_cache_set_validity(struct acl_cache *cache, const char *objname,
+			    const void *validity)
+{
+	struct acl_object_cache *obj_cache;
+	bool created;
+
+	obj_cache = acl_cache_object_get(cache, objname, &created);
+
+	/* @UNSAFE: validity is stored after the cache record */
+	memcpy(obj_cache + 1, validity, cache->validity_rec_size);
+
+	if (created) {
+		/* negative cache entry */
+		obj_cache->my_current_rights = &negative_cache_entry;
+	} 
+}
+
+const void *acl_cache_get_validity(struct acl_cache *cache,
+				   const char *objname)
+{
+	struct acl_object_cache *obj_cache;
+
+	obj_cache = hash_lookup(cache->objects, objname);
+	return obj_cache == NULL ? NULL : (obj_cache + 1);
 }
 
 const char *const *acl_cache_get_names(struct acl_cache *cache,
@@ -343,7 +392,8 @@ acl_cache_get_my_rights(struct acl_cache *cache, const char *objname)
 	struct acl_object_cache *obj_cache;
 
 	obj_cache = hash_lookup(cache->objects, objname);
-	if (obj_cache == NULL)
+	if (obj_cache == NULL ||
+	    obj_cache->my_current_rights == &negative_cache_entry)
 		return NULL;
 
 	if (obj_cache->my_current_rights == NULL)

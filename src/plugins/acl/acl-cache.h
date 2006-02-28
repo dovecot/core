@@ -17,7 +17,8 @@ struct acl_mask {
 	(sizeof(pool_t) + sizeof(unsigned int) + \
 	 (count + CHAR_BIT-1) / CHAR_BIT)
 
-struct acl_cache *acl_cache_init(struct acl_backend *backend);
+struct acl_cache *acl_cache_init(struct acl_backend *backend,
+				 size_t validity_rec_size);
 void acl_cache_deinit(struct acl_cache **cache);
 
 struct acl_mask *acl_cache_mask_init(struct acl_cache *cache, pool_t pool,
@@ -31,9 +32,15 @@ void acl_cache_flush(struct acl_cache *cache, const char *objname);
 /* Flush cache for all objects */
 void acl_cache_flush_all(struct acl_cache *cache);
 
-/* Update object ACLs */
+/* Update object ACLs. */
 void acl_cache_update(struct acl_cache *cache, const char *objname,
 		      const struct acl_rights *rights);
+/* Update ACL object validity. */
+void acl_cache_set_validity(struct acl_cache *cache, const char *objname,
+			    const void *validity);
+/* Return ACL object validity. */
+const void *acl_cache_get_validity(struct acl_cache *cache,
+				   const char *objname);
 
 /* Returns all the right names currently created. The returned pointer may
    change after calling acl_cache_update(). */

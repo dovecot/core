@@ -18,12 +18,14 @@
 #define ACL_SYNC_SECS 1
 #define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 
-struct acl_vfile {
-	char *path;
-
+struct acl_vfile_validity {
 	time_t last_read_time;
 	time_t last_mtime;
 	off_t last_size;
+};
+
+struct acl_backend_vfile_validity {
+	struct acl_vfile_validity global_validity, local_validity;
 };
 
 struct acl_backend_vfile {
@@ -34,7 +36,7 @@ struct acl_backend_vfile {
 struct acl_object_vfile {
 	struct acl_object aclobj;
 
-	struct acl_vfile global_file, local_file;
+	char *global_path, *local_path;
 };
 
 struct acl_letter_map {
@@ -65,6 +67,9 @@ static struct acl_backend *acl_backend_vfile_init(const char *data)
 	backend = p_new(pool, struct acl_backend_vfile, 1);
 	backend->global_dir = p_strdup(pool, data);
 	backend->backend.pool = pool;
+	backend->backend.cache =
+		acl_cache_init(&backend->backend,
+			       sizeof(struct acl_backend_vfile_validity));
 	return &backend->backend;
 }
 
@@ -84,9 +89,9 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 	aclobj = i_new(struct acl_object_vfile, 1);
 	aclobj->aclobj.backend = _backend;
 	aclobj->aclobj.name = i_strdup(name);
-	aclobj->global_file.path =
+	aclobj->global_path =
 		i_strconcat(backend->global_dir, "/", name, NULL);
-	aclobj->local_file.path =
+	aclobj->local_path =
 		i_strconcat(control_dir, "/"ACL_FILENAME, NULL);
 	return &aclobj->aclobj;
 }
@@ -95,8 +100,8 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 {
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
 
-	i_free(aclobj->local_file.path);
-	i_free(aclobj->global_file.path);
+	i_free(aclobj->local_path);
+	i_free(aclobj->global_path);
 	i_free(aclobj->aclobj.name);
 	i_free(aclobj);
 }
@@ -143,7 +148,7 @@ acl_parse_rights(const char *acl, const char **error_r)
 }
 
 static int
-acl_object_vfile_parse_line(struct acl_object *aclobj, struct acl_vfile *file,
+acl_object_vfile_parse_line(struct acl_object *aclobj, const char *path,
 			    const char *line, unsigned int linenum)
 {
 	struct acl_rights rights;
@@ -198,7 +203,7 @@ acl_object_vfile_parse_line(struct acl_object *aclobj, struct acl_vfile *file,
 	if (error != NULL) {
 		mail_storage_set_critical(aclobj->backend->storage,
 					  "ACL file %s line %u: %s",
-					  file->path, linenum, error);
+					  path, linenum, error);
 		t_pop();
 		return -1;
 	}
@@ -210,8 +215,8 @@ acl_object_vfile_parse_line(struct acl_object *aclobj, struct acl_vfile *file,
 }
 
 static int
-acl_backend_vfile_read(struct acl_object *aclobj, struct acl_vfile *file,
-		       bool try_retry)
+acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
+		       struct acl_vfile_validity *validity, bool try_retry)
 {
 	struct mail_storage *storage = aclobj->backend->storage;
 	struct istream *input;
@@ -220,21 +225,22 @@ acl_backend_vfile_read(struct acl_object *aclobj, struct acl_vfile *file,
 	unsigned int linenum;
 	int fd, ret = 1;
 
-	fd = nfs_safe_open(file->path, O_RDONLY);
+	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT) {
-			file->last_read_time = ioloop_time;
+			validity->last_size = 0;
+			validity->last_mtime = 0;
+			validity->last_read_time = ioloop_time;
 			return 1;
 		}
-		mail_storage_set_critical(storage,
-					  "open(%s) failed: %m", file->path);
+		mail_storage_set_critical(storage, "open(%s) failed: %m", path);
 		return -1;
 	}
 	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
 
 	linenum = 1;
 	while ((line = i_stream_read_next_line(input)) != NULL) {
-		if (acl_object_vfile_parse_line(aclobj, file, line,
+		if (acl_object_vfile_parse_line(aclobj, path, line,
 						linenum++) < 0) {
 			ret = -1;
 			break;
@@ -247,7 +253,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, struct acl_vfile *file,
 		else {
 			ret = -1;
 			mail_storage_set_critical(storage,
-				"read(%s) failed: %m", file->path);
+						  "read(%s) failed: %m", path);
 		}
 	}
 
@@ -258,12 +264,12 @@ acl_backend_vfile_read(struct acl_object *aclobj, struct acl_vfile *file,
 			else {
 				ret = -1;
 				mail_storage_set_critical(storage,
-					"read(%s) failed: %m", file->path);
+					"read(%s) failed: %m", path);
 			}
 		} else {
-			file->last_read_time = ioloop_time;
-			file->last_mtime = st.st_mtime;
-			file->last_size = st.st_size;
+			validity->last_read_time = ioloop_time;
+			validity->last_mtime = st.st_mtime;
+			validity->last_size = st.st_size;
 		}
 	}
 
@@ -273,21 +279,21 @@ acl_backend_vfile_read(struct acl_object *aclobj, struct acl_vfile *file,
 			return 0;
 
 		mail_storage_set_critical(storage, "close(%s) failed: %m",
-					  file->path);
+					  path);
 		return -1;
 	}
 	return ret;
 }
 
 static int
-acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
-				  struct acl_vfile *file)
+acl_backend_vfile_read_with_retry(struct acl_object *aclobj, const char *path,
+				  struct acl_vfile_validity *validity)
 {
 	unsigned int i;
 	int ret;
 
 	for (i = 0;; i++) {
-		ret = acl_backend_vfile_read(aclobj, file,
+		ret = acl_backend_vfile_read(aclobj, path, validity,
 					     i < ACL_ESTALE_RETRY_COUNT);
 		if (ret != 0)
 			break;
@@ -299,32 +305,33 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
 }
 
 static int
-acl_backend_vfile_refresh(struct acl_object *aclobj, struct acl_vfile *file)
+acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
+			  const struct acl_vfile_validity *validity)
 {
 	struct stat st;
 
-	if (file->last_read_time == 0)
+	if (validity == NULL)
 		return 1;
 
-	if (stat(file->path, &st) < 0) {
+	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
-			/* No global ACL directory */
-			return 0;
-		}
+			/* if the file used to exist, we have to re-read it */
+			return validity->last_mtime != 0;
+		} 
 		mail_storage_set_critical(aclobj->backend->storage,
-					  "stat(%s) failed: %m", file->path);
+					  "stat(%s) failed: %m", path);
 		return -1;
 	}
 
-	if (st.st_mtime == file->last_mtime &&
-	    st.st_size == file->last_size) {
+	if (st.st_mtime == validity->last_mtime &&
+	    st.st_size == validity->last_size) {
 		/* same timestamp, but if it was modified within the
 		   same second we want to refresh it again later (but
 		   do it only after a couple of seconds so we don't
 		   keep re-reading it all the time within those
 		   seconds) */
-		if (st.st_mtime < file->last_read_time - ACL_SYNC_SECS ||
-		    ioloop_time - file->last_read_time <= ACL_SYNC_SECS)
+		if (st.st_mtime < validity->last_read_time - ACL_SYNC_SECS ||
+		    ioloop_time - validity->last_read_time <= ACL_SYNC_SECS)
 			return 0;
 	}
 
@@ -334,21 +341,36 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, struct acl_vfile *file)
 static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 {
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
+	const struct acl_backend_vfile_validity *old_validity;
+	struct acl_backend_vfile_validity validity;
 	int ret;
 
-	ret = acl_backend_vfile_refresh(_aclobj, &aclobj->global_file);
-	if (ret == 0)
-		ret = acl_backend_vfile_refresh(_aclobj, &aclobj->local_file);
+	old_validity = acl_cache_get_validity(_aclobj->backend->cache,
+					      _aclobj->name);
+	ret = acl_backend_vfile_refresh(_aclobj, aclobj->global_path,
+					old_validity == NULL ? NULL :
+					&old_validity->global_validity);
+	if (ret == 0) {
+		ret = acl_backend_vfile_refresh(_aclobj, aclobj->local_path,
+						old_validity == NULL ? NULL :
+						&old_validity->local_validity);
+	}
 	if (ret <= 0)
 		return ret;
 
 	/* either global or local ACLs changed, need to re-read both */
 	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
-	if (acl_backend_vfile_read_with_retry(_aclobj,
-					      &aclobj->global_file) < 0)
+
+	memset(&validity, 0, sizeof(validity));
+	if (acl_backend_vfile_read_with_retry(_aclobj, aclobj->global_path,
+					      &validity.global_validity) < 0)
 		return -1;
-	if (acl_backend_vfile_read_with_retry(_aclobj, &aclobj->local_file) < 0)
+	if (acl_backend_vfile_read_with_retry(_aclobj, aclobj->local_path,
+					      &validity.local_validity) < 0)
 		return -1;
+
+	acl_cache_set_validity(_aclobj->backend->cache,
+			       _aclobj->name, &validity);
 	return 0;
 }
 

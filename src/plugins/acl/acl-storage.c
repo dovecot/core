@@ -65,6 +65,7 @@ static void acl_storage_destroy(struct mail_storage *storage)
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
 
 	acl_backend_deinit(&astorage->backend);
+	astorage->super.destroy(storage);
 }
 
 static struct mailbox *
