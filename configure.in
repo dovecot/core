@@ -1738,6 +1738,7 @@ src/pop3/Makefile
 src/pop3-login/Makefile
 src/util/Makefile
 src/plugins/Makefile
+src/plugins/acl/Makefile
 src/plugins/convert/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
