@@ -4,7 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "mail-storage-private.h"
-#include "quota.h"
+#include "quota-private.h"
 #include "quota-plugin.h"
 
 #include <sys/stat.h>
@@ -15,6 +15,10 @@
 
 struct quota_mail_storage {
 	struct mail_storage_vfuncs super;
+	struct quota *quota;
+
+	/* List of quota roots this storage belongs to. */
+	array_t ARRAY_DEFINE(roots, struct quota_root *);
 };
 
 struct quota_mailbox {
@@ -53,7 +57,7 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 	struct quota_transaction_context *qt;
 
 	t = qbox->super.transaction_begin(box, flags);
-	qt = quota_transaction_begin(quota);
+	qt = quota_transaction_begin(box);
 
 	array_idx_set(&t->module_contexts, quota_storage_module_id, &qt);
 	return t;
@@ -247,6 +251,29 @@ quota_mailbox_open(struct mail_storage *storage, const char *name,
 	return box;
 }
 
+static void quota_storage_destroy(struct mail_storage *storage)
+{
+	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
+	struct quota_root *const *roots;
+	struct mail_storage *const *storages;
+	unsigned int i, j, root_count, storage_count;
+
+	/* remove the storage from all roots' storages list */
+	roots = array_get(&qstorage->roots, &root_count);
+	for (i = 0; i < root_count; i++) {
+		storages = array_get(&roots[i]->storages, &storage_count);
+		for (j = 0; j < storage_count; j++) {
+			if (storages[j] == storage) {
+				array_delete(&roots[i]->storages, j, 1);
+				break;
+			}
+		}
+		i_assert(j != storage_count);
+	}
+
+	qstorage->super.destroy(storage);
+}
+
 void quota_mail_storage_created(struct mail_storage *storage)
 {
 	struct quota_mail_storage *qstorage;
@@ -256,7 +283,10 @@ void quota_mail_storage_created(struct mail_storage *storage)
 
 	qstorage = p_new(storage->pool, struct quota_mail_storage, 1);
 	qstorage->super = storage->v;
+	storage->v.destroy = quota_storage_destroy;
 	storage->v.mailbox_open = quota_mailbox_open;
+
+	ARRAY_CREATE(&qstorage->roots, storage->pool, struct quota_root *, 4);
 
 	if (!quota_storage_module_id_set) {
 		quota_storage_module_id = mail_storage_module_id++;
@@ -265,4 +295,80 @@ void quota_mail_storage_created(struct mail_storage *storage)
 
 	array_idx_set(&storage->module_contexts,
 		      quota_storage_module_id, &qstorage);
+
+	if ((storage->flags & MAIL_STORAGE_FLAG_SHARED_NAMESPACE) == 0) {
+		/* register to user's quota roots */
+		quota_add_user_storage(quota, storage);
+	}
+}
+
+bool quota_mail_storage_add_root(struct mail_storage *storage,
+				 struct quota_root *root)
+{
+	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
+
+	if (!root->v.add_storage(root, storage))
+		return FALSE;
+
+	array_append(&root->storages, &storage, 1);
+	array_append(&qstorage->roots, &root, 1);
+	return TRUE;
+}
+
+void quota_mail_storage_remove_root(struct mail_storage *storage,
+				    struct quota_root *root)
+{
+	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
+	struct mail_storage *const *storages;
+	struct quota_root *const *roots;
+	unsigned int i, count;
+
+	storages = array_get(&root->storages, &count);
+	for (i = 0; i < count; i++) {
+		if (storages[i] == storage) {
+			array_delete(&root->storages, i, 1);
+			break;
+		}
+	}
+	i_assert(i != count);
+
+	roots = array_get(&qstorage->roots, &count);
+	for (i = 0; i < count; i++) {
+		if (roots[i] == root) {
+			array_delete(&qstorage->roots, i, 1);
+			break;
+		}
+	}
+	i_assert(i != count);
+
+	root->v.remove_storage(root, storage);
+}
+
+struct quota_root_iter *quota_root_iter_init(struct mailbox *box)
+{
+	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(box->storage);
+	struct quota_root_iter *iter;
+
+	iter = i_new(struct quota_root_iter, 1);
+	iter->qstorage = qstorage;
+	return iter;
+}
+
+struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
+{
+	struct quota_root *const *roots;
+	unsigned int count;
+
+	roots = array_get(&iter->qstorage->roots, &count);
+	i_assert(iter->idx <= count);
+
+	if (iter->idx >= count)
+		return NULL;
+
+	return roots[iter->idx++];
+}
+
+void quota_root_iter_deinit(struct quota_root_iter *iter)
+{
+	i_free(iter);
 }

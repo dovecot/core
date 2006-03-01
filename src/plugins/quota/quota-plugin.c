@@ -11,16 +11,19 @@
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 
 void (*quota_next_hook_mail_storage_created)(struct mail_storage *storage);
-struct quota *quota = NULL;
+
+struct quota *quota;
 
 void quota_plugin_init(void)
 {
 	const char *env;
 
 	env = getenv("QUOTA");
-	quota = env == NULL ? NULL : quota_init(env);
+	if (env != NULL) {
+		quota = quota_init();
+		/* Currently we support only one quota setup */
+		(void)quota_setup_init(quota, env, TRUE);
 
-	if (quota != NULL) {
 		quota_next_hook_mail_storage_created =
 			hook_mail_storage_created;
 		hook_mail_storage_created = quota_mail_storage_created;

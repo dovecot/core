@@ -14,14 +14,27 @@ struct quota_root;
 struct quota_root_iter;
 struct quota_transaction_context;
 
-struct quota *quota_init(const char *data);
+extern void (*hook_quota_root_created)(struct quota_root *root);
+
+struct quota *quota_init(void);
 void quota_deinit(struct quota *quota);
 
+/* Create a new quota setup under which quota roots are created.
+   user_root is TRUE if this quota points to user's own mailboxes instead of
+   shared mailboxes. */
+struct quota_setup *
+quota_setup_init(struct quota *quota, const char *data, bool user_root);
+void quota_setup_deinit(struct quota_setup *setup);
+
+/* Create a new quota root. */
+struct quota_root *
+quota_root_init(struct quota_setup *setup, const char *name);
+void quota_root_deinit(struct quota_root *root);
+
 /* List all quota roots. Returned quota roots are freed by quota_deinit(). */
-struct quota_root_iter *
-quota_root_iter_init(struct quota *quota, struct mailbox *box);
+struct quota_root_iter *quota_root_iter_init(struct mailbox *box);
 struct quota_root *quota_root_iter_next(struct quota_root_iter *iter);
-int quota_root_iter_deinit(struct quota_root_iter *iter);
+void quota_root_iter_deinit(struct quota_root_iter *iter);
 
 /* Return quota root or NULL. */
 struct quota_root *quota_root_lookup(struct quota *quota, const char *name);
@@ -31,10 +44,6 @@ const char *quota_root_get_name(struct quota_root *root);
 /* Return a list of all resources set for the quota root. */
 const char *const *quota_root_get_resources(struct quota_root *root);
 
-/* Create a new quota root. Returns 0 if OK, -1 if error (eg. permission
-   denied). */
-int quota_root_create(struct quota *quota, const char *name,
-		      struct quota_root **root_r);
 /* Returns 1 if quota value was found, 0 if not, -1 if error. */
 int quota_get_resource(struct quota_root *root,
 		       const char *name, uint64_t *value_r, uint64_t *limit_r);
@@ -43,7 +52,7 @@ int quota_set_resource(struct quota_root *root,
 		       const char *name, uint64_t value);
 
 /* Start a new quota transaction. */
-struct quota_transaction_context *quota_transaction_begin(struct quota *quota);
+struct quota_transaction_context *quota_transaction_begin(struct mailbox *box);
 /* Commit quota transaction. Returns 0 if ok, -1 if failed. */
 int quota_transaction_commit(struct quota_transaction_context *ctx);
 /* Rollback quota transaction changes. */

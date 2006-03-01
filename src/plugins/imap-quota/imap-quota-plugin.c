@@ -81,27 +81,19 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	str_append(str, "* QUOTAROOT ");
 	imap_quote_append_string(str, mailbox, FALSE);
 
-	iter = quota_root_iter_init(quota, box);
+	iter = quota_root_iter_init(box);
 	while ((root = quota_root_iter_next(iter)) != NULL) {
 		str_append_c(str, ' ');
 		imap_quote_append_string(str, quota_root_get_name(root), FALSE);
 	}
-	if (quota_root_iter_deinit(iter) < 0) {
-		/* some failure, send as untagged error */
-		client_send_line(cmd->client, t_strconcat(
-			"* BAD ", quota_last_error(quota), NULL));
-	}
+	quota_root_iter_deinit(iter);
 	client_send_line(cmd->client, str_c(str));
 
 	/* send QUOTA reply for each quotaroot */
-	iter = quota_root_iter_init(quota, box);
+	iter = quota_root_iter_init(box);
 	while ((root = quota_root_iter_next(iter)) != NULL)
 		quota_send(cmd, root);
-	if (quota_root_iter_deinit(iter) < 0) {
-		/* some failure, send as untagged error */
-		client_send_line(cmd->client, t_strconcat(
-			"* BAD ", quota_last_error(quota), NULL));
-	}
+	quota_root_iter_deinit(iter);
 
 	mailbox_close(&box);
 
