@@ -89,7 +89,7 @@ acl_backend_vfile_object_init(struct acl_backend *_backend,
 	aclobj = i_new(struct acl_object_vfile, 1);
 	aclobj->aclobj.backend = _backend;
 	aclobj->aclobj.name = i_strdup(name);
-	aclobj->global_path =
+	aclobj->global_path = *backend->global_dir == '\0' ? NULL :
 		i_strconcat(backend->global_dir, "/", name, NULL);
 	aclobj->local_path =
 		i_strconcat(control_dir, "/"ACL_FILENAME, NULL);
@@ -292,6 +292,9 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj, const char *path,
 	unsigned int i;
 	int ret;
 
+	if (path == NULL)
+		return 0;
+
 	for (i = 0;; i++) {
 		ret = acl_backend_vfile_read(aclobj, path, validity,
 					     i < ACL_ESTALE_RETRY_COUNT);
@@ -312,6 +315,8 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 
 	if (validity == NULL)
 		return 1;
+	if (path == NULL)
+		return 0;
 
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
