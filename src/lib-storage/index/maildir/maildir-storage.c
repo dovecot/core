@@ -126,6 +126,8 @@ maildir_create(const char *data, const char *user,
 	pool = pool_alloconly_create("storage", 512);
 	storage = p_new(pool, struct maildir_storage, 1);
 	storage->control_dir = p_strdup(pool, home_expand(control_dir));
+	storage->copy_with_hardlinks =
+		getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
 
 	istorage = INDEX_STORAGE(storage);
 	istorage->storage = maildir_storage;

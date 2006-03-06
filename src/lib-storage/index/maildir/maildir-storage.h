@@ -31,6 +31,9 @@
    calculating file's virtual size (added missing CRs). */
 #define MAILDIR_EXTRA_VIRTUAL_SIZE "W"
 
+#define MAILDIR_SAVE_FLAG_HARDLINK 0x10000000
+#define MAILDIR_SAVE_FLAG_DELETED  0x20000000
+
 #include "index-storage.h"
 
 #define STORAGE(maildir_storage) \
@@ -47,6 +50,7 @@ struct maildir_storage {
 	struct index_storage storage;
 
 	const char *control_dir;
+	unsigned int copy_with_hardlinks:1;
 };
 
 struct maildir_mailbox {
@@ -70,7 +74,6 @@ struct maildir_mailbox {
 struct maildir_transaction_context {
 	struct index_transaction_context ictx;
 	struct maildir_save_context *save_ctx;
-	struct maildir_copy_context *copy_ctx;
 };
 
 extern struct mail_vfuncs maildir_mail_vfuncs;
@@ -120,6 +123,12 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 int maildir_save_continue(struct mail_save_context *ctx);
 int maildir_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
 void maildir_save_cancel(struct mail_save_context *ctx);
+
+struct maildir_save_context *
+maildir_save_transaction_init(struct maildir_transaction_context *t);
+uint32_t maildir_save_add(struct maildir_transaction_context *t,
+			  const char *base_fname, enum mail_flags flags,
+			  struct mail_keywords *keywords, bool want_mail);
 
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx);
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx);
