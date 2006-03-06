@@ -72,6 +72,7 @@ maildir_fill_readdir(struct maildir_list_context *ctx,
 
 	stat_dirs = getenv("MAILDIR_STAT_DIRS") != NULL;
 
+	t_push();
 	mailbox = t_str_new(PATH_MAX);
 	while ((d = readdir(dirp)) != NULL) {
 		const char *fname = d->d_name;
@@ -174,6 +175,7 @@ maildir_fill_readdir(struct maildir_list_context *ctx,
 			}
 		}
 	}
+	t_pop();
 
 	if (closedir(dirp) < 0) {
 		mail_storage_set_critical(ctx->mailbox_ctx.storage,
