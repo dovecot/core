@@ -93,8 +93,7 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 			return (time_t)-1;
 		}
 	} else {
-		if (maildir_file_do(mbox, mail->mail.mail.uid,
-				    do_stat, &st) <= 0)
+		if (maildir_file_do(mbox, _mail->uid, do_stat, &st) <= 0)
 			return (time_t)-1;
 	}
 
@@ -122,8 +121,7 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 			return data->virtual_size;
 	}
 
-	fname = maildir_uidlist_lookup(mbox->uidlist,
-				       mail->mail.mail.uid, &flags);
+	fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid, &flags);
 	if (fname == NULL)
 		return (uoff_t)-1;
 
@@ -159,7 +157,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 
 	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
 	    	fname = maildir_uidlist_lookup(mbox->uidlist,
-					       mail->mail.mail.uid, &flags);
+					       _mail->uid, &flags);
 		end = strchr(fname, MAILDIR_INFO_SEP);
 		return end == NULL ? fname : t_strdup_until(fname, end);
 	}
@@ -181,8 +179,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	if (size != (uoff_t)-1)
 		return size;
 
-	fname = maildir_uidlist_lookup(mbox->uidlist,
-				       mail->mail.mail.uid, &flags);
+	fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid, &flags);
 	if (fname == NULL)
 		return (uoff_t)-1;
 
@@ -202,8 +199,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	}
 
 	if (size == (uoff_t)-1) {
-		if (maildir_file_do(mbox, mail->mail.mail.uid,
-				    do_stat, &st) <= 0)
+		if (maildir_file_do(mbox, _mail->uid, do_stat, &st) <= 0)
 			return (uoff_t)-1;
 		size = st.st_size;
 	}
@@ -225,8 +221,7 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 	bool deleted;
 
 	if (data->stream == NULL) {
-		data->stream = maildir_open_mail(mbox,
-						 mail->mail.mail.uid, &deleted);
+		data->stream = maildir_open_mail(mbox, _mail->uid, &deleted);
 		if (data->stream == NULL) {
 			_mail->expunged = deleted;
 			return NULL;
