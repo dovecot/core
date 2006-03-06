@@ -457,6 +457,9 @@ static int maildirsize_update(struct maildir_quota_root *root,
 	const char *str;
 	int ret = 0;
 
+	if (count_diff == 0 && bytes_diff == 0)
+		return 0;
+
 	t_push();
 
 	/* We rely on O_APPEND working in here. That isn't NFS-safe, but it
@@ -464,7 +467,7 @@ static int maildirsize_update(struct maildir_quota_root *root,
 	   a while, and sooner if corruption cases calculations to go
 	   over quota. This is also how Maildir++ spec specifies it should be
 	   done.. */
-	str = t_strdup_printf("%d %lld\n", count_diff, (long long)bytes_diff);
+	str = t_strdup_printf("%lld %d\n", (long long)bytes_diff, count_diff);
 	if (write_full(root->fd, str, strlen(str)) < 0) {
 		ret = -1;
 		if (errno == ESTALE) {
