@@ -33,7 +33,7 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 			mailbox_keywords_create(t, keywords_list);
 		if (mailbox_copy(t, mail, mail_get_flags(mail),
 				 keywords, NULL) < 0)
-			ret = -1;
+			ret = mail->expunged ? 0 : -1;
 		mailbox_keywords_free(t, &keywords);
 	}
 	mail_free(&mail);
