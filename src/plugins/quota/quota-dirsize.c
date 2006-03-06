@@ -198,21 +198,21 @@ dirsize_quota_transaction_begin(struct quota_root *_root,
 	/* Get dir usage only once at the beginning of transaction.
 	   When copying/appending lots of mails we don't want to re-read the
 	   entire directory structure after each mail. */
-	if (get_quota_root_usage(root, &ctx->storage_current) < 0 ||
-	    ctx->storage_current == (uoff_t)-1) {
-                ctx->storage_current = (uoff_t)-1;
+	if (get_quota_root_usage(root, &ctx->bytes_current) < 0 ||
+	    ctx->bytes_current == (uint64_t)-1) {
+                ctx->bytes_current = (uint64_t)-1;
 		quota_set_error(_root->setup->quota,
 				"Internal quota calculation error");
 	}
 
-	ctx->storage_limit = root->storage_limit * 1024;
+	ctx->bytes_limit = root->storage_limit * 1024;
 	return ctx;
 }
 
 static int
 dirsize_quota_transaction_commit(struct quota_root_transaction_context *ctx)
 {
-	int ret = ctx->storage_current == (uoff_t)-1 ? -1 : 0;
+	int ret = ctx->bytes_current == (uint64_t)-1 ? -1 : 0;
 
 	i_free(ctx);
 	return ret;
@@ -228,12 +228,12 @@ static int
 dirsize_quota_try_alloc_bytes(struct quota_root_transaction_context *ctx,
 			      uoff_t size, bool *too_large_r)
 {
-	if (ctx->storage_current == (uoff_t)-1)
+	if (ctx->bytes_current == (uint64_t)-1)
 		return -1;
 
-	*too_large_r = size > ctx->storage_limit;
+	*too_large_r = size > ctx->bytes_limit;
 
-	if (ctx->storage_current + ctx->bytes_diff + size > ctx->storage_limit)
+	if (ctx->bytes_current + ctx->bytes_diff + size > ctx->bytes_limit)
 		return 0;
 
 	ctx->bytes_diff += size;
@@ -246,7 +246,7 @@ dirsize_quota_try_alloc(struct quota_root_transaction_context *ctx,
 {
 	uoff_t size;
 
-	if (ctx->storage_current == (uoff_t)-1)
+	if (ctx->bytes_current == (uint64_t)-1)
 		return -1;
 
 	size = mail_get_physical_size(mail);

@@ -14,6 +14,7 @@ lib01_quota_plugin_la_SOURCES = \
 	quota-fs.c \
 	quota-dict.c \
 	quota-dirsize.c \
+	quota-maildir.c \
         quota-plugin.c \
 	quota-storage.c
 

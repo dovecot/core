@@ -97,8 +97,8 @@ struct quota_root_transaction_context {
 	int count_diff;
 	int64_t bytes_diff;
 
-	uint64_t storage_limit;
-	uint64_t storage_current;
+	uint64_t bytes_limit, count_limit;
+	uint64_t bytes_current, count_current;
 };
 
 /* Register storage to all user's quota roots. */

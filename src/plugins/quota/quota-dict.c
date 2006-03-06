@@ -126,16 +126,16 @@ dict_quota_transaction_begin(struct quota_root *_root,
 		t_push();
 		(void)dict_lookup(root->dict, unsafe_data_stack_pool,
 				  DICT_QUOTA_LIMIT_PATH"storage", &value);
-		ctx->storage_limit = value == NULL ? 0 :
+		ctx->bytes_limit = value == NULL ? 0 :
 			strtoull(value, NULL, 10);
 
 		(void)dict_lookup(root->dict, unsafe_data_stack_pool,
 				  DICT_QUOTA_CURRENT_PATH"storage", &value);
-		ctx->storage_current = value == NULL ? 0 :
+		ctx->bytes_current = value == NULL ? 0 :
 			strtoull(value, NULL, 10);
 		t_pop();
 	} else {
-		ctx->storage_limit = (uint64_t)-1;
+		ctx->bytes_limit = (uint64_t)-1;
 	}
 
 	return ctx;
@@ -170,9 +170,9 @@ static int
 dict_quota_try_alloc_bytes(struct quota_root_transaction_context *ctx,
 			   uoff_t size, bool *too_large_r)
 {
-	*too_large_r = size > ctx->storage_limit;
+	*too_large_r = size > ctx->bytes_limit;
 
-	if (ctx->storage_current + ctx->bytes_diff + size > ctx->storage_limit)
+	if (ctx->bytes_current + ctx->bytes_diff + size > ctx->bytes_limit)
 		return 0;
 
 	ctx->bytes_diff += size;
