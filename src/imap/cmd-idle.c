@@ -105,7 +105,7 @@ static void idle_client_input(void *context)
 	}
 }
 
-static void idle_send_expunge(struct cmd_idle_context *ctx)
+static void idle_send_fake_exists(struct cmd_idle_context *ctx)
 {
 	struct client *client = ctx->client;
 
@@ -131,7 +131,7 @@ static void idle_timeout(void *context)
 		return;
 	}
 
-	idle_send_expunge(ctx);
+	idle_send_fake_exists(ctx);
 }
 
 static void keepalive_timeout(void *context)
@@ -191,7 +191,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 
 	if (ctx->idle_timeout) {
 		/* outlook workaround */
-		idle_send_expunge(ctx);
+		idle_send_fake_exists(ctx);
 	} else if (ctx->sync_pending) {
 		/* more changes occurred while we were sending changes to
 		   client */
