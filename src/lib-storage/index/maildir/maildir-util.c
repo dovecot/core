@@ -57,6 +57,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	}
 
 	if (i == 10) {
+		ret = -1;
 		mail_storage_set_critical(STORAGE(mbox->storage),
 			"maildir_file_do(%s) racing", mbox->path);
 	}
