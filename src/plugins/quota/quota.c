@@ -362,3 +362,79 @@ void quota_set_error(struct quota *quota, const char *errormsg)
 	i_free(quota->last_error);
 	quota->last_error = i_strdup(errormsg);
 }
+
+void
+quota_default_transaction_rollback(struct quota_root_transaction_context *ctx)
+{
+	i_free(ctx);
+}
+
+int quota_default_try_alloc_bytes(struct quota_root_transaction_context *ctx,
+				  uoff_t size, bool *too_large_r)
+{
+	if (ctx->disabled) {
+		*too_large_r = FALSE;
+		return 1;
+	}
+	if (ctx->bytes_current == (uint64_t)-1) {
+		/* failure in transaction initialization */
+		return -1;
+	}
+
+	*too_large_r = size > ctx->bytes_limit;
+
+	if (ctx->bytes_current + ctx->bytes_diff + size > ctx->bytes_limit)
+		return 0;
+	if (ctx->count_current + ctx->count_diff + 1 > ctx->count_limit)
+		return 0;
+
+	ctx->count_diff++;
+	ctx->bytes_diff += size;
+	return 1;
+}
+
+int quota_default_try_alloc(struct quota_root_transaction_context *ctx,
+			    struct mail *mail, bool *too_large_r)
+{
+	uoff_t size;
+
+	if (ctx->disabled)
+		return 1;
+
+	size = mail_get_physical_size(mail);
+	if (size == (uoff_t)-1) {
+		mail_storage_set_critical(mail->box->storage,
+			"Quota: Couldn't get new message's size");
+		return -1;
+	}
+
+	return quota_default_try_alloc_bytes(ctx, size, too_large_r);
+}
+
+void quota_default_alloc(struct quota_root_transaction_context *ctx,
+			 struct mail *mail)
+{
+	uoff_t size;
+
+	if (ctx->disabled)
+		return;
+
+	size = mail_get_physical_size(mail);
+	if (size != (uoff_t)-1)
+		ctx->bytes_diff += size;
+	ctx->count_diff++;
+}
+
+void quota_default_free(struct quota_root_transaction_context *ctx,
+			struct mail *mail)
+{
+	uoff_t size;
+
+	if (ctx->disabled)
+		return;
+
+	size = mail_get_physical_size(mail);
+	if (size != (uoff_t)-1)
+		ctx->bytes_diff -= size;
+	ctx->count_diff--;
+}

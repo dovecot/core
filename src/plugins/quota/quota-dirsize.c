@@ -206,6 +206,7 @@ dirsize_quota_transaction_begin(struct quota_root *_root,
 	}
 
 	ctx->bytes_limit = root->storage_limit * 1024;
+	ctx->count_limit = (uint64_t)-1;
 	return ctx;
 }
 
@@ -216,66 +217,6 @@ dirsize_quota_transaction_commit(struct quota_root_transaction_context *ctx)
 
 	i_free(ctx);
 	return ret;
-}
-
-static void
-dirsize_quota_transaction_rollback(struct quota_root_transaction_context *ctx)
-{
-	i_free(ctx);
-}
-
-static int
-dirsize_quota_try_alloc_bytes(struct quota_root_transaction_context *ctx,
-			      uoff_t size, bool *too_large_r)
-{
-	if (ctx->bytes_current == (uint64_t)-1)
-		return -1;
-
-	*too_large_r = size > ctx->bytes_limit;
-
-	if (ctx->bytes_current + ctx->bytes_diff + size > ctx->bytes_limit)
-		return 0;
-
-	ctx->bytes_diff += size;
-	return 1;
-}
-
-static int
-dirsize_quota_try_alloc(struct quota_root_transaction_context *ctx,
-			struct mail *mail, bool *too_large_r)
-{
-	uoff_t size;
-
-	if (ctx->bytes_current == (uint64_t)-1)
-		return -1;
-
-	size = mail_get_physical_size(mail);
-	if (size == (uoff_t)-1)
-		return -1;
-
-	return dirsize_quota_try_alloc_bytes(ctx, size, too_large_r);
-}
-
-static void
-dirsize_quota_alloc(struct quota_root_transaction_context *ctx,
-		    struct mail *mail)
-{
-	uoff_t size;
-
-	size = mail_get_physical_size(mail);
-	if (size != (uoff_t)-1)
-		ctx->bytes_diff += size;
-}
-
-static void
-dirsize_quota_free(struct quota_root_transaction_context *ctx,
-		   struct mail *mail)
-{
-	uoff_t size;
-
-	size = mail_get_physical_size(mail);
-	if (size != (uoff_t)-1)
-		ctx->bytes_diff -= size;
 }
 
 struct quota_backend quota_backend_dirsize = {
@@ -295,11 +236,11 @@ struct quota_backend quota_backend_dirsize = {
 
 		dirsize_quota_transaction_begin,
 		dirsize_quota_transaction_commit,
-		dirsize_quota_transaction_rollback,
+		quota_default_transaction_rollback,
 
-		dirsize_quota_try_alloc,
-		dirsize_quota_try_alloc_bytes,
-		dirsize_quota_alloc,
-		dirsize_quota_free
+		quota_default_try_alloc,
+		quota_default_try_alloc_bytes,
+		quota_default_alloc,
+		quota_default_free
 	}
 };

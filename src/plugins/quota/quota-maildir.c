@@ -582,7 +582,10 @@ maildir_quota_transaction_begin(struct quota_root *_root,
 	ctx->ctx = _ctx;
 
 	if (maildirquota_refresh(root,
-				 maildir_quota_root_get_storage(_root)) == 0) {
+				 maildir_quota_root_get_storage(_root)) < 0) {
+		/* failed calculating the current quota */
+		ctx->bytes_current = (uint64_t)-1;
+	} else {
 		ctx->bytes_limit = root->message_bytes_limit;
 		ctx->count_limit = root->message_count_limit;
 		ctx->bytes_current = root->total_bytes;
@@ -596,74 +599,16 @@ maildir_quota_transaction_commit(struct quota_root_transaction_context *ctx)
 {
 	struct maildir_quota_root *root =
 		(struct maildir_quota_root *)ctx->root;
+	int ret = ctx->bytes_current == (uint64_t)-1 ? -1 : 0;
 
-	if (root->fd != -1) {
+	if (root->fd != -1 && ret == 0) {
 		/* if writing fails, we don't care all that much */
 		(void)maildirsize_update(root,
 				maildir_quota_root_get_storage(ctx->root),
 				ctx->count_diff, ctx->bytes_diff);
 	}
 	i_free(ctx);
-	return 0;
-}
-
-static void
-maildir_quota_transaction_rollback(struct quota_root_transaction_context *ctx)
-{
-	i_free(ctx);
-}
-
-static int
-maildir_quota_try_alloc_bytes(struct quota_root_transaction_context *ctx,
-			      uoff_t size, bool *too_large_r)
-{
-	*too_large_r = size > ctx->bytes_limit;
-
-	if (ctx->bytes_current + ctx->bytes_diff + size > ctx->bytes_limit)
-		return 0;
-	if (ctx->count_current + ctx->count_diff + 1 > ctx->count_limit)
-		return 0;
-
-	ctx->count_diff++;
-	ctx->bytes_diff += size;
-	return 1;
-}
-
-static int
-maildir_quota_try_alloc(struct quota_root_transaction_context *ctx,
-			struct mail *mail, bool *too_large_r)
-{
-	uoff_t size;
-
-	size = mail_get_physical_size(mail);
-	if (size == (uoff_t)-1)
-		return -1;
-
-	return maildir_quota_try_alloc_bytes(ctx, size, too_large_r);
-}
-
-static void
-maildir_quota_alloc(struct quota_root_transaction_context *ctx,
-		    struct mail *mail)
-{
-	uoff_t size;
-
-	size = mail_get_physical_size(mail);
-	if (size != (uoff_t)-1)
-		ctx->bytes_diff += size;
-	ctx->count_diff++;
-}
-
-static void
-maildir_quota_free(struct quota_root_transaction_context *ctx,
-		   struct mail *mail)
-{
-	uoff_t size;
-
-	size = mail_get_physical_size(mail);
-	if (size != (uoff_t)-1)
-		ctx->bytes_diff -= size;
-	ctx->count_diff--;
+	return ret;
 }
 
 struct quota_backend quota_backend_maildir = {
@@ -683,11 +628,11 @@ struct quota_backend quota_backend_maildir = {
 
 		maildir_quota_transaction_begin,
 		maildir_quota_transaction_commit,
-		maildir_quota_transaction_rollback,
+		quota_default_transaction_rollback,
 
-		maildir_quota_try_alloc,
-		maildir_quota_try_alloc_bytes,
-		maildir_quota_alloc,
-		maildir_quota_free
+		quota_default_try_alloc,
+		quota_default_try_alloc_bytes,
+		quota_default_alloc,
+		quota_default_free
 	}
 };

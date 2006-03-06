@@ -99,6 +99,8 @@ struct quota_root_transaction_context {
 
 	uint64_t bytes_limit, count_limit;
 	uint64_t bytes_current, count_current;
+
+	unsigned int disabled:1;
 };
 
 /* Register storage to all user's quota roots. */
@@ -112,5 +114,17 @@ void quota_mail_storage_remove_root(struct mail_storage *storage,
 				    struct quota_root *root);
 
 void quota_set_error(struct quota *quota, const char *errormsg);
+
+/* default simple implementations for bytes/count updating */
+void
+quota_default_transaction_rollback(struct quota_root_transaction_context *ctx);
+int quota_default_try_alloc_bytes(struct quota_root_transaction_context *ctx,
+				  uoff_t size, bool *too_large_r);
+int quota_default_try_alloc(struct quota_root_transaction_context *ctx,
+			    struct mail *mail, bool *too_large_r);
+void quota_default_alloc(struct quota_root_transaction_context *ctx,
+			 struct mail *mail);
+void quota_default_free(struct quota_root_transaction_context *ctx,
+			struct mail *mail);
 
 #endif

@@ -307,6 +307,7 @@ fs_quota_transaction_begin(struct quota_root *root,
 	root_ctx = i_new(struct quota_root_transaction_context, 1);
 	root_ctx->root = root;
 	root_ctx->ctx = ctx;
+	root_ctx->disabled = TRUE;
 	return root_ctx;
 }
 
@@ -315,45 +316,6 @@ fs_quota_transaction_commit(struct quota_root_transaction_context *ctx)
 {
 	i_free(ctx);
 	return 0;
-}
-
-static void
-fs_quota_transaction_rollback(struct quota_root_transaction_context *ctx)
-{
-	i_free(ctx);
-}
-
-static int
-fs_quota_try_alloc(struct quota_root_transaction_context *ctx __attr_unused__,
-		   struct mail *mail __attr_unused__,
-		   bool *too_large_r __attr_unused__)
-{
-	/* no-op */
-	return 1;
-}
-
-static int
-fs_quota_try_alloc_bytes(struct quota_root_transaction_context *ctx
-			 	__attr_unused__,
-			 uoff_t size __attr_unused__,
-			 bool *too_large_r __attr_unused__)
-{
-	/* no-op */
-	return 1;
-}
-
-static void
-fs_quota_alloc(struct quota_root_transaction_context *ctx __attr_unused__,
-	       struct mail *mail __attr_unused__)
-{
-	/* no-op */
-}
-
-static void
-fs_quota_free(struct quota_root_transaction_context *ctx __attr_unused__,
-	      struct mail *mail __attr_unused__)
-{
-	/* no-op */
 }
 
 struct quota_backend quota_backend_fs = {
@@ -373,12 +335,12 @@ struct quota_backend quota_backend_fs = {
 
 		fs_quota_transaction_begin,
 		fs_quota_transaction_commit,
-		fs_quota_transaction_rollback,
+		quota_default_transaction_rollback,
 
-		fs_quota_try_alloc,
-		fs_quota_try_alloc_bytes,
-		fs_quota_alloc,
-		fs_quota_free
+		quota_default_try_alloc,
+		quota_default_try_alloc_bytes,
+		quota_default_alloc,
+		quota_default_free
 	}
 };
 
