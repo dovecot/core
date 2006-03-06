@@ -53,6 +53,9 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	else
 		i_fatal("Unknown namespace type: %s", type);
 
+	if (ns->type != NAMESPACE_PRIVATE)
+		flags |= MAIL_STORAGE_FLAG_SHARED_NAMESPACE;
+
 	if (prefix == NULL)
 		prefix = "";
 
