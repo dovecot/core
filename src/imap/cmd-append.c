@@ -40,7 +40,7 @@ static void client_input(void *context)
 	case -1:
 		/* disconnected */
 		cmd_append_finish(cmd->context);
-		client_destroy(client);
+		client_destroy(client, "Disconnected in APPEND");
 		return;
 	case -2:
 		cmd_append_finish(cmd->context);

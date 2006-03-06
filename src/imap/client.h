@@ -46,6 +46,7 @@ struct client {
 	struct imap_parser *parser;
 	struct client_command_context cmd;
 
+	unsigned int disconnected:1;
 	unsigned int destroyed:1;
 	unsigned int command_pending:1;
 	unsigned int input_pending:1;
@@ -59,10 +60,10 @@ struct client {
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out,
 			     struct namespace *namespaces);
-void client_destroy(struct client *client);
+void client_destroy(struct client *client, const char *reason);
 
 /* Disconnect client connection */
-void client_disconnect(struct client *client);
+void client_disconnect(struct client *client, const char *reason);
 void client_disconnect_with_error(struct client *client, const char *msg);
 
 /* Send a line of data to client. Returns 1 if ok, 0 if buffer is getting full,

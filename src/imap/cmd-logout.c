@@ -19,6 +19,6 @@ bool cmd_logout(struct client_command_context *cmd)
 	}
 
 	client_send_tagline(cmd, "OK Logout completed.");
-	client_disconnect(client);
+	client_disconnect(client, "Logged out");
 	return TRUE;
 }

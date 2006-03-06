@@ -158,7 +158,7 @@ struct client *client_create(int fd_in, int fd_out,
 			mail_storage_get_last_error(storage, &syntax_error,
 						    &temporary_error));
 		client_send_line(client, "-ERR No INBOX for user.");
-		client_destroy(client, "No INBOX for user.");
+		client_destroy(client, "No INBOX for user");
 		return NULL;
 	}
 
@@ -208,8 +208,11 @@ static const char *client_stats(struct client *client)
 
 void client_destroy(struct client *client, const char *reason)
 {
-	if (reason != NULL)
+	if (!client->disconnected) {
+		if (reason == NULL)
+			reason = "Disconnected";
 		i_info("%s %s", reason, client_stats(client));
+	}
 
 	if (client->cmd != NULL) {
 		/* deinitialize command */
@@ -249,8 +252,11 @@ void client_destroy(struct client *client, const char *reason)
 
 void client_disconnect(struct client *client, const char *reason)
 {
-	if (reason != NULL)
-		i_info("%s %s", reason, client_stats(client));
+	if (client->disconnected)
+		return;
+
+	client->disconnected = TRUE;
+	i_info("Disconnected: %s %s", reason, client_stats(client));
 
 	(void)o_stream_flush(client->output);
 
@@ -341,12 +347,12 @@ static void client_input(void *context)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
-		client_destroy(client, "Disconnected");
+		client_destroy(client, NULL);
 		return;
 	case -2:
 		/* line too long, kill it */
 		client_send_line(client, "-ERR Input line too long.");
-		client_destroy(client, "Input line too long.");
+		client_destroy(client, "Input line too long");
 		return;
 	}
 
@@ -420,14 +426,16 @@ static void idle_timeout(void *context __attr_unused__)
 
 	if (my_client->cmd != NULL) {
 		if (ioloop_time - my_client->last_output >=
-		    CLIENT_OUTPUT_TIMEOUT)
-			client_destroy(my_client, "Disconnected for inactivity.");
+		    CLIENT_OUTPUT_TIMEOUT) {
+			client_destroy(my_client, "Disconnected for inactivity "
+				       "in reading our output");
+		}
 	} else {
 		if (ioloop_time - my_client->last_input >=
 		    CLIENT_IDLE_TIMEOUT) {
 			client_send_line(my_client,
 					 "-ERR Disconnected for inactivity.");
-			client_destroy(my_client, "Disconnected for inactivity.");
+			client_destroy(my_client, "Disconnected for inactivity");
 		}
 	}
 }
@@ -442,7 +450,7 @@ void clients_deinit(void)
 {
 	if (my_client != NULL) {
 		client_send_line(my_client, "-ERR Server shutting down.");
-		client_destroy(my_client, "Server shutting down.");
+		client_destroy(my_client, "Server shutting down");
 	}
 
 	timeout_remove(&to_idle);

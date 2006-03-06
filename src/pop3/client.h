@@ -40,6 +40,7 @@ struct client {
 
 	unsigned char *deleted_bitmask;
 
+	unsigned int disconnected:1;
 	unsigned int deleted:1;
 	unsigned int waiting_input:1;
 };

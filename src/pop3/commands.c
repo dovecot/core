@@ -239,7 +239,7 @@ static int cmd_quit(struct client *client, const char *args __attr_unused__)
 	else
 		client_send_line(client, "+OK Logging out, messages deleted.");
 
-	client_disconnect(client, "Logout.");
+	client_disconnect(client, "Logged out");
 	return 1;
 }
 

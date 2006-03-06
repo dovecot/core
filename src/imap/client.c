@@ -60,12 +60,18 @@ struct client *client_create(int fd_in, int fd_out,
 	return client;
 }
 
-void client_destroy(struct client *client)
+void client_destroy(struct client *client, const char *reason)
 {
 	int ret;
 
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
+
+	if (!client->disconnected) {
+		if (reason == NULL)
+			reason = "Disconnected";
+		i_info("%s", reason);
+	}
 
 	if (client->command_pending) {
 		/* try to deinitialize the command */
@@ -105,8 +111,13 @@ void client_destroy(struct client *client)
 	io_loop_stop(ioloop);
 }
 
-void client_disconnect(struct client *client)
+void client_disconnect(struct client *client, const char *reason)
 {
+	if (client->disconnected)
+		return;
+
+	i_info("Disconnected: %s", reason);
+	client->disconnected = TRUE;
 	(void)o_stream_flush(client->output);
 
 	i_stream_close(client->input);
@@ -116,7 +127,7 @@ void client_disconnect(struct client *client)
 void client_disconnect_with_error(struct client *client, const char *msg)
 {
 	client_send_line(client, t_strconcat("* BYE ", msg, NULL));
-	client_disconnect(client);
+	client_disconnect(client, msg);
 }
 
 int client_send_line(struct client *client, const char *data)
@@ -396,7 +407,7 @@ void _client_input(void *context)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
-		client_destroy(client);
+		client_destroy(client, NULL);
 		return;
 	case -2:
 		/* parameter word is longer than max. input buffer size.
@@ -421,7 +432,7 @@ void _client_input(void *context)
 		client->input_pending = TRUE;
 
 	if (client->output->closed)
-		client_destroy(client);
+		client_destroy(client, NULL);
 }
 
 int _client_output(void *context)
@@ -434,7 +445,7 @@ int _client_output(void *context)
 	client->last_output = ioloop_time;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
-		client_destroy(client);
+		client_destroy(client, NULL);
 		return 1;
 	}
 
@@ -479,14 +490,15 @@ static void idle_timeout(void *context __attr_unused__)
 	    o_stream_get_buffer_used_size(my_client->output) > 0 &&
 	    idle_time >= CLIENT_OUTPUT_TIMEOUT) {
 		/* client isn't reading our output */
-		client_destroy(my_client);
+		client_destroy(my_client, "Disconnected for inactivity "
+			       "in reading our output");
 	} else if (idle_time >= CLIENT_IDLE_TIMEOUT) {
 		/* client isn't sending us anything */
 		if (!my_client->command_pending) {
 			client_send_line(my_client,
 					 "* BYE Disconnected for inactivity.");
 		}
-		client_destroy(my_client);
+		client_destroy(my_client, "Disconnected for inactivity");
 	}
 }
 
@@ -500,7 +512,7 @@ void clients_deinit(void)
 {
 	if (my_client != NULL) {
 		client_send_line(my_client, "* BYE Server shutting down.");
-		client_destroy(my_client);
+		client_destroy(my_client, "Server shutting down");
 	}
 
 	timeout_remove(&to_idle);
