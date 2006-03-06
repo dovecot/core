@@ -36,7 +36,7 @@ struct maildir_save_context {
 	struct maildir_index_sync_context *sync_ctx;
 
 	const char *tmpdir, *newdir, *curdir;
-	struct maildir_filename *files;
+	struct maildir_filename *files, **files_tail;
 
 	buffer_t *keywords_buffer;
 	array_t ARRAY_DEFINE(keywords_array, unsigned int);
@@ -45,10 +45,11 @@ struct maildir_save_context {
 	struct ostream *output;
 	int fd;
 	time_t received_date;
-	uint32_t seq;
+	uint32_t first_seq, seq;
 
 	unsigned int synced:1;
 	unsigned int failed:1;
+	unsigned int moving:1;
 	unsigned int finished:1;
 };
 
@@ -103,6 +104,7 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->pool = pool;
 	ctx->mbox = mbox;
 	ctx->trans = t->ictx.trans;
+	ctx->files_tail = &ctx->files;
 
 	ctx->tmpdir = p_strconcat(pool, mbox->path, "/tmp", NULL);
 	ctx->newdir = p_strconcat(pool, mbox->path, "/new", NULL);
@@ -125,6 +127,17 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	struct maildir_filename *mf;
 
+	if (!ctx->synced && want_mail) {
+		/* we could support adding the missing mails to index, but
+		   currently there's no need. */
+		i_assert(ctx->files == NULL);
+
+		if (maildir_storage_sync_force(mbox) < 0)
+			ctx->failed = TRUE;
+		else
+			ctx->synced = TRUE;
+	}
+
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
 	   into new/ or cur/. */
@@ -132,10 +145,13 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	mf = p_malloc(ctx->pool, sizeof(*mf) +
 		      sizeof(unsigned int) * (keywords == NULL ? 0 :
 					      keywords->count));
-	mf->next = ctx->files;
 	mf->basename = p_strdup(ctx->pool, base_fname);
 	mf->flags = flags;
-	ctx->files = mf;
+
+	if (*ctx->files_tail != NULL)
+		(*ctx->files_tail)->next = mf;
+	*ctx->files_tail = mf;
+	ctx->files_tail = &mf->next;
 
 	if (keywords != NULL) {
 		i_assert(sizeof(keywords->idx[0]) == sizeof(unsigned int));
@@ -144,13 +160,6 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 		mf->keywords_count = keywords->count;
 		memcpy(mf + 1, keywords->idx,
 		       sizeof(unsigned int) * keywords->count);
-	}
-
-	if (!ctx->synced && want_mail) {
-		if (maildir_storage_sync_force(mbox) < 0)
-			ctx->failed = TRUE;
-		else
-			ctx->synced = TRUE;
 	}
 
 	if (ctx->synced) {
@@ -162,11 +171,75 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 			mail_index_update_keywords(ctx->trans, ctx->seq,
 						   MODIFY_REPLACE, keywords);
 		}
+
+		if (ctx->first_seq == 0) {
+			ctx->first_seq = ctx->seq;
+			i_assert(ctx->files->next == NULL);
+		}
 	} else {
 		ctx->seq = 0;
 	}
 
 	return ctx->seq;
+}
+
+static const char *
+maildir_get_updated_filename(struct maildir_save_context *ctx,
+			     struct maildir_filename *mf)
+{
+	if (mf->keywords_count == 0) {
+		if ((mf->flags & MAIL_FLAGS_MASK) == MAIL_RECENT)
+			return NULL;
+		return maildir_filename_set_flags(NULL, mf->basename,
+						  mf->flags & MAIL_FLAGS_MASK,
+						  NULL);
+	}
+
+	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
+				 mf->keywords_count * sizeof(unsigned int));
+	return maildir_filename_set_flags(
+			maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx),
+			mf->basename, mf->flags & MAIL_FLAGS_MASK,
+			&ctx->keywords_array);
+}
+
+static const char *maildir_mf_get_path(struct maildir_save_context *ctx,
+				       struct maildir_filename *mf)
+{
+	const char *fname;
+
+	if (!ctx->moving && (mf->flags & MAILDIR_SAVE_FLAG_HARDLINK) == 0) {
+		/* file is still in tmp/ */
+		return t_strdup_printf("%s/%s", ctx->tmpdir, mf->basename);
+	}
+
+	/* already moved to new/ or cur/ */
+	fname = maildir_get_updated_filename(ctx, mf);
+	if (fname == NULL)
+		return t_strdup_printf("%s/%s", ctx->newdir, mf->basename);
+	else
+		return t_strdup_printf("%s/%s", ctx->curdir, fname);
+}
+
+const char *maildir_save_file_get_path(struct mailbox_transaction_context *_t,
+				       uint32_t seq)
+{
+	struct maildir_transaction_context *t =
+		(struct maildir_transaction_context *)_t;
+	struct maildir_save_context *ctx = t->save_ctx;
+	struct maildir_filename *mf;
+
+	i_assert(seq >= ctx->first_seq);
+
+	seq -= ctx->first_seq;
+	mf = ctx->files;
+	while (seq > 0) {
+		mf = mf->next;
+		i_assert(mf != NULL);
+		seq--;
+	}
+
+	return maildir_mf_get_path(ctx, mf);
 }
 
 int maildir_save_init(struct mailbox_transaction_context *_t,
@@ -328,32 +401,11 @@ void maildir_save_cancel(struct mail_save_context *_ctx)
 	(void)maildir_save_finish(_ctx, NULL);
 }
 
-static const char *
-maildir_get_updated_filename(struct maildir_save_context *ctx,
-			     struct maildir_filename *mf)
-{
-	if (mf->keywords_count == 0) {
-		if ((mf->flags & MAIL_FLAGS_MASK) == MAIL_RECENT)
-			return NULL;
-		return maildir_filename_set_flags(NULL, mf->basename,
-						  mf->flags & MAIL_FLAGS_MASK,
-						  NULL);
-	}
-
-	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
-				 mf->keywords_count * sizeof(unsigned int));
-	return maildir_filename_set_flags(
-			maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx),
-			mf->basename, mf->flags & MAIL_FLAGS_MASK,
-			&ctx->keywords_array);
-}
-
 static void
 maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
 					struct maildir_filename *pos)
 {
 	struct maildir_filename *mf;
-	const char *path, *dest;
 
 	/* try to unlink the mails already moved */
 	for (mf = ctx->files; mf != pos; mf = mf->next) {
@@ -361,14 +413,7 @@ maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
 			continue;
 
 		t_push();
-		dest = maildir_get_updated_filename(ctx, mf);
-		if (dest != NULL)
-			path = t_strdup_printf("%s/%s", ctx->curdir, dest);
-		else {
-			path = t_strdup_printf("%s/%s",
-					       ctx->newdir, mf->basename);
-		}
-		(void)unlink(path);
+		(void)unlink(maildir_mf_get_path(ctx, mf));
 		t_pop();
 	}
 	ctx->files = pos;
@@ -410,6 +455,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 	/* move them into new/ and/or cur/ */
 	ret = 0;
+	ctx->moving = TRUE;
 	for (mf = ctx->files; mf != NULL && ret == 0; mf = mf->next) {
 		t_push();
 		dest = maildir_get_updated_filename(ctx, mf);
