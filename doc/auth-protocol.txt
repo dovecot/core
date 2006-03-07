@@ -103,7 +103,7 @@ AUTH parameters are:
  - resp=<base64>     : Initial response for authentication mechanism
  - secured           : Remote user has secured transport to auth client
                        (eg. localhost, SSL, TLS)
- - ssl-valid-cert    : Remote user has presented a valid SSL certificate.
+ - valid-client-cert : Remote user has presented a valid SSL certificate.
 
 FAIL parameters may contain "reason=.." parameter which should be sent to
 remote user instead of a standard "Authentication failed" message. For
