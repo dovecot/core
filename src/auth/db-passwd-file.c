@@ -63,7 +63,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 		}
 	}
 
-	if (*args != NULL) {
+	if (*args != NULL && **args != '\0') {
 		pu->uid = userdb_parse_uid(NULL, *args);
 		if (pu->uid == 0 || pu->uid == (uid_t)-1) {
 			i_error("passwd-file %s: User %s has invalid UID %s",
@@ -71,9 +71,10 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 			return;
 		}
 		args++;
-	}
+	} else if (*args != NULL)
+		args++;
 
-	if (*args != NULL) {
+	if (*args != NULL && **args != '\0') {
 		pu->gid = userdb_parse_gid(NULL, *args);
 		if (pu->gid == 0 || pu->gid == (gid_t)-1) {
 			i_error("passwd-file %s: User %s has invalid GID %s",
@@ -86,9 +87,8 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 			i_error("passwd-file %s: User %s is missing "
 				"userdb info", pw->path, username);
 		}
-		if (pw->first_missing_userdb_info == NULL)
-			pw->first_missing_userdb_info = user;
-		pw->missing_userdb_info_count++;
+		if (*args != NULL)
+			args++;
 	}
 
 	/* user info */
@@ -205,9 +205,6 @@ static void passwd_file_close(struct passwd_file *pw)
 			i_error("passwd-file %s: close() failed: %m", pw->path);
 		pw->fd = -1;
 	}
-
-	pw->first_missing_userdb_info = NULL;
-	pw->missing_userdb_info_count = 0;
 
 	if (pw->users != NULL) {
 		hash_destroy(pw->users);

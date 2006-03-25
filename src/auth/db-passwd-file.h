@@ -20,9 +20,6 @@ struct passwd_file {
 	int fd;
 
 	struct hash_table *users;
-
-	const char *first_missing_userdb_info;
-	unsigned int missing_userdb_info_count;
 };
 
 struct db_passwd_file {
