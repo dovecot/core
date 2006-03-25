@@ -34,6 +34,7 @@ struct auth *auth_preinit(void)
 	t_push();
 	passdb_p = &auth->passdbs;
 	masterdb_p = &auth->masterdbs;
+	auth_passdb = NULL;
 	for (i = 1; ; i++) {
 		driver = getenv(t_strdup_printf("PASSDB_%u_DRIVER", i));
 		if (driver == NULL)
@@ -44,12 +45,11 @@ struct auth *auth_preinit(void)
 
                 auth_passdb->deny =
                         getenv(t_strdup_printf("PASSDB_%u_DENY", i)) != NULL;
-                auth_passdb->master_no_passdb =
-                        getenv(t_strdup_printf("PASSDB_%u_MASTER_NO_PASSDB",
-                                               i)) != NULL;
+		auth_passdb->pass =
+                        getenv(t_strdup_printf("PASSDB_%u_PASS", i)) != NULL;
 
 		if (getenv(t_strdup_printf("PASSDB_%u_MASTER", i)) == NULL) {
-                        *passdb_p = auth_passdb;
+			*passdb_p = auth_passdb;
 			passdb_p = &auth_passdb->next;
                 } else {
 			if (auth_passdb->deny)
@@ -59,6 +59,8 @@ struct auth *auth_preinit(void)
 			masterdb_p = &auth_passdb->next;
 		}
 	}
+	if (auth_passdb != NULL && auth_passdb->pass)
+		i_fatal("Last passdb can't have pass=yes");
 	t_pop();
 
 	t_push();

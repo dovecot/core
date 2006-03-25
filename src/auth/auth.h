@@ -14,8 +14,8 @@ struct auth_passdb {
 #endif
         /* if user is found from this passdb, deny authentication immediately */
 	unsigned int deny:1;
-	/* masterdb: no passdb lookup for user wanted */
-	unsigned int master_no_passdb:1;
+	/* after a successful lookup, continue to next passdb */
+	unsigned int pass:1;
 };
 
 struct auth_userdb {

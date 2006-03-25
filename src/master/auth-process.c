@@ -431,12 +431,10 @@ static void auth_set_environment(struct auth_settings *set)
 		}
 		if (ap->deny)
 			env_put(t_strdup_printf("PASSDB_%u_DENY=1", i));
+                if (ap->pass)
+                        env_put(t_strdup_printf("PASSDB_%u_PASS=1", i));
 		if (ap->master)
                         env_put(t_strdup_printf("PASSDB_%u_MASTER=1", i));
-                if (ap->master_no_passdb) {
-                        env_put(t_strdup_printf("PASSDB_%u_MASTER_NO_PASSDB=1",
-                                                i));
-                }
 	}
 	for (au = set->userdbs, i = 1; au != NULL; au = au->next, i++) {
 		env_put(t_strdup_printf("USERDB_%u_DRIVER=%s", i, au->driver));

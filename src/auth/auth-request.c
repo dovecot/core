@@ -272,7 +272,7 @@ static bool auth_request_master_lookup_finish(struct auth_request *request)
 	request->skip_password_check = TRUE;
 	request->passdb_password = NULL;
 
-	if (request->passdb->master_no_passdb) {
+	if (!request->passdb->pass) {
 		/* skip the passdb lookup, we're authenticated now. */
 		return TRUE;
 	}
@@ -307,6 +307,13 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			/* this was a master user lookup. */
 			if (!auth_request_master_lookup_finish(request))
 				return FALSE;
+		} else {
+			if (request->passdb->pass) {
+				/* this wasn't the final passdb lookup,
+				   continue to next passdb */
+				request->passdb = request->passdb->next;
+				return FALSE;
+			}
 		}
 	} else if (request->passdb->next != NULL &&
 		   *result != PASSDB_RESULT_USER_DISABLED) {
