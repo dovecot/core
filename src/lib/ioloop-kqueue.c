@@ -204,7 +204,13 @@ void io_loop_handler_run(struct ioloop *ioloop)
 					(void *)io->callback);
 			}
 		} else
-			i_panic("Unrecognized event");
+			i_panic("Unrecognized event: kevent {.ident =  %u,"
+                                " .filter = 0x%04x,"
+                                " .flags = 0x%04x,"
+                                " .fflags = 0x%08x,"
+                                " .data = 0x%08x}", ctx->evbuf[i].ident,
+                                ctx->evbuf[i].filter, ctx->evbuf[i].flags,
+                                ctx->evbuf[i].fflags, ctx->evbuf[i].data);
 	}
 }
 
