@@ -76,7 +76,7 @@ struct auth *auth_preinit(void)
 	t_pop();
 
 	if (auth->userdbs == NULL)
-		i_fatal("No user databases set");
+		i_fatal("You'll need to add at least one userdb");
 	return auth;
 }
 
