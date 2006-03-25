@@ -895,6 +895,10 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 		maildir_filename_get_flags(sync_ctx->keywords_sync_ctx,
 					   filename, &flags, &keywords);
 
+		/* the private flags are kept only in indexes. don't use them
+		   at all even for newly seen mails */
+		flags &= ~mbox->private_flags_mask;
+
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
 		    (uflags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0 &&
 		    (uflags & MAILDIR_UIDLIST_REC_FLAG_MOVED) == 0) {
@@ -1002,6 +1006,9 @@ int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
 			seq--;
 			continue;
 		}
+
+		/* the private flags are stored only in indexes, keep them */
+		flags |= rec->flags & mbox->private_flags_mask;
 
 		if ((rec->flags & MAIL_RECENT) != 0) {
 			index_mailbox_set_recent(&mbox->ibox, seq);
