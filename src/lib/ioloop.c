@@ -3,8 +3,7 @@
 #include "lib.h"
 #include "ioloop-internal.h"
 
-#undef timercmp
-#define timercmp(tvp, uvp) \
+#define timer_is_larger(tvp, uvp) \
 	((tvp)->tv_sec > (uvp)->tv_sec || \
 	 ((tvp)->tv_sec == (uvp)->tv_sec && \
 	  (tvp)->tv_usec > (uvp)->tv_usec))
@@ -101,7 +100,7 @@ static void timeout_list_insert(struct ioloop *ioloop, struct timeout *timeout)
 
         next_run = &timeout->next_run;
 	for (t = &ioloop->timeouts; *t != NULL; t = &(*t)->next) {
-		if (timercmp(&(*t)->next_run, next_run))
+		if (timer_is_larger(&(*t)->next_run, next_run))
                         break;
 	}
 
@@ -201,7 +200,7 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 
 void io_loop_handle_timeouts(struct ioloop *ioloop)
 {
-	struct timeout *t, **t_p;
+	struct timeout *called_timeouts;
 	struct timeval tv;
         unsigned int t_id;
 
@@ -212,13 +211,14 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 	if (ioloop->timeouts == NULL || !ioloop->timeouts->run_now)
 		return;
 
-	t_p = &ioloop->timeouts;
-	for (t = ioloop->timeouts; t != NULL; t = *t_p) {
+	called_timeouts = NULL;
+	while (ioloop->timeouts != NULL) {
+		struct timeout *t = ioloop->timeouts;
+
 		if (t->destroyed) {
-                        timeout_destroy(ioloop, t_p);
+                        timeout_destroy(ioloop, &ioloop->timeouts);
 			continue;
 		}
-		t_p = &t->next;
 
 		if (!t->run_now) {
 			io_loop_get_wait_time(t, &tv, &ioloop_timeval);
@@ -226,6 +226,11 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 			if (!t->run_now)
 				break;
 		}
+
+		/* move timeout to called_timeouts list */
+		ioloop->timeouts = t->next;
+		t->next = called_timeouts;
+		called_timeouts = t;
 
                 t->run_now = FALSE;
                 timeout_update_next(t, &ioloop_timeval);
@@ -237,6 +242,29 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 				(void *)t->callback);
 		}
 	}
+
+	/* move timeouts back to list so they get re-sorted again by next_run
+	   time, or destroy them if timeout_remove() was called for them. */
+	while (called_timeouts != NULL) {
+		struct timeout *t = called_timeouts;
+
+		if (t->destroyed)
+			timeout_destroy(ioloop, &called_timeouts);
+		else {
+			called_timeouts = t->next;
+			timeout_list_insert(current_ioloop, t);
+		}
+	}
+#ifdef DEBUG
+	if (ioloop->timeouts != NULL) {
+		struct timeout *t;
+
+		for (t = ioloop->timeouts; t->next != NULL; t = t->next) {
+			if (timer_is_larger(&t->next_run, &t->next->next_run))
+				i_panic("broken timeout list");
+		}
+	}
+#endif
 }
 
 void io_loop_run(struct ioloop *ioloop)
