@@ -470,6 +470,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		if (ret == 0) {
 			ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
 							fname, flags);
+			i_assert(ret != 0);
+			ret = ret < 0 ? -1 : 0;
 		}
 		t_pop();
 	}
