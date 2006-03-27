@@ -243,6 +243,10 @@ void auth_init(struct auth *auth)
 			auth->username_translation[(int)(uint8_t)*env] = env[1];
 	}
 
+	env = getenv("MASTER_USER_SEPARATOR");
+	if (env != NULL)
+		auth->master_user_separator = env[0];
+
 	auth->ssl_require_client_cert =
 		getenv("SSL_REQUIRE_CLIENT_CERT") != NULL;
 	auth->ssl_username_from_cert =

@@ -418,8 +418,10 @@ static void auth_set_environment(struct auth_settings *set)
 	env_put(t_strconcat("USERNAME_CHARS=", set->username_chars, NULL));
 	env_put(t_strconcat("USERNAME_TRANSLATION=",
 			    set->username_translation, NULL));
-	env_put(t_strconcat("ANONYMOUS_USERNAME=",
-			    set->anonymous_username, NULL));
+	env_put(t_strconcat("USERNAME_TRANSLATION=",
+			    set->username_translation, NULL));
+	env_put(t_strconcat("MASTER_USER_SEPARATOR=",
+			    set->master_user_separator, NULL));
 	env_put(t_strdup_printf("CACHE_SIZE=%u", set->cache_size));
 	env_put(t_strdup_printf("CACHE_TTL=%u", set->cache_ttl));
 

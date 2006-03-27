@@ -44,7 +44,8 @@ struct auth {
 	const char *default_realm;
 	const char *anonymous_username;
 	char username_chars[256];
-        char username_translation[256];
+	char username_translation[256];
+	char master_user_separator;
 	bool ssl_require_client_cert;
         bool ssl_username_from_cert;
 

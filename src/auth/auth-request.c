@@ -562,6 +562,8 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r)
 {
+	const char *p;
+
 	if (request->original_username == NULL) {
 		/* the username may change later, but we need to use this
 		   username when verifying at least DIGEST-MD5 password */
@@ -571,6 +573,18 @@ bool auth_request_set_username(struct auth_request *request,
 		/* cert_username overrides the username given by
 		   authentication mechanism. */
 		return TRUE;
+	}
+
+	if (request->auth->master_user_separator != '\0') {
+		/* check if the username contains a master user */
+		p = strchr(username, request->auth->master_user_separator);
+		if (p != NULL) {
+			/* it does, set it. */
+			if (!auth_request_set_login_username(request, p+1,
+							     error_r))
+				return FALSE;
+			username = t_strdup_until(username, p);
+		}
 	}
 
 	if (*username == '\0') {
