@@ -891,6 +891,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	   it's not completely trustworthy though. */
 	str = str_new(ctx->pool, 64);
 	entries = array_get(&ctx->uidlist->entries, &count);
+__again:
 	for (i = 0;; i++) {
                 file_seq = 0; 
 		for (; i < count; i++) {
@@ -930,11 +931,9 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 		/* lock already exists, try next file */
 	}
 
-	save_file = p_new(ctx->pool, struct dbox_save_file, 1);
-	save_file->file = file = p_new(ctx->pool, struct dbox_file, 1);
-        save_file->dotlock = dotlock;
+	file = i_new(struct dbox_file, 1);
 	file->file_seq = file_seq;
-	file->path = str_free_without_data(&str);
+	file->path = i_strdup(str_c(str));
 
 	file->fd = open(file->path, O_CREAT | O_RDWR, 0600);
 	if (file->fd == -1) {
@@ -963,6 +962,18 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 			dbox_file_close(file);
 			return -1;
 		}
+
+		if (i < count) {
+			entries[i]->create_time = file->create_time;
+			entries[i]->file_size = file->append_offset;
+		}
+
+		if (!DBOX_CAN_APPEND(mbox, file->create_time,
+				     file->append_offset,
+				     min_usable_timestamp)) {
+			dbox_file_close(file);
+			goto __again;
+		}
 	}
 
 	/* we'll always use CRLF linefeeds for mails (but not the header,
@@ -973,6 +984,9 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 
 	o_stream_seek(file->output, file->append_offset);
 
+	save_file = p_new(ctx->pool, struct dbox_save_file, 1);
+	save_file->file = file;
+        save_file->dotlock = dotlock;
 	save_file->dev = st.st_dev;
 	save_file->ino = st.st_ino;
 	ARRAY_CREATE(&save_file->seqs, ctx->pool, unsigned int, 8);

@@ -35,29 +35,27 @@ int dbox_sync_get_file_offset(struct dbox_sync_context *ctx, uint32_t seq,
 static int dbox_sync_add_seq(struct dbox_sync_context *ctx, uint32_t seq,
                              const struct dbox_sync_rec *sync_rec)
 {
-        struct dbox_sync_file_entry *entry;
+	struct dbox_sync_rec new_sync_rec;
+	struct dbox_sync_file_entry *entry;
+	const uint32_t *file_seqs;
+	unsigned int i, count;
 	uint32_t file_seq;
 	uoff_t offset;
 
 	if (dbox_sync_get_file_offset(ctx, seq, &file_seq, &offset) < 0)
 		return -1;
 
-	if (ctx->prev_file_seq == file_seq)
-		return 0; /* already added in last sequence */
-	ctx->prev_file_seq = file_seq;
+	file_seqs = array_get(&ctx->added_file_seqs, &count);
+	for (i = 0; i < count; i++) {
+		if (file_seqs[i] == file_seq) {
+			/* already added */
+			return 0;
+		}
+	}
+	array_append(&ctx->added_file_seqs, &file_seq, 1);
 
 	entry = hash_lookup(ctx->syncs, POINTER_CAST(file_seq));
-	if (entry != NULL) {
-		/* check if it's already added */
-		const struct dbox_sync_rec *sync_recs;
-		unsigned int count;
-
-		sync_recs = array_get(&entry->sync_recs, &count);
-		i_assert(count > 0);
-		if (memcmp(&sync_recs[count-1],
-			   sync_rec, sizeof(*sync_rec)) == 0)
-			return 0; /* already added */
-	} else {
+	if (entry == NULL) {
 		entry = p_new(ctx->pool, struct dbox_sync_file_entry, 1);
 		entry->file_seq = file_seq;
 		ARRAY_CREATE(&entry->sync_recs, ctx->pool,
@@ -65,6 +63,8 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx, uint32_t seq,
 		hash_insert(ctx->syncs, POINTER_CAST(file_seq), entry);
 	}
 
+	new_sync_rec = *sync_rec;
+	new_sync_rec.seq1 = seq;
 	array_append(&entry->sync_recs, sync_rec, 1);
 	return 0;
 }
@@ -114,7 +114,7 @@ static int dbox_sync_add(struct dbox_sync_context *ctx,
 	}
 
 	/* now, add the same sync_rec to each file_seq's entry */
-	ctx->prev_file_seq = 0;
+	array_clear(&ctx->added_file_seqs);
 	for (seq = seq1; seq <= seq2; seq++) {
 		if (dbox_sync_add_seq(ctx, seq, &dbox_sync_rec) < 0)
 			return -1;
@@ -381,6 +381,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	/* read all changes and sort them to file_seq order */
 	ctx->pool = pool_alloconly_create("dbox sync pool", 10240);
 	ctx->syncs = hash_create(default_pool, ctx->pool, 0, NULL, NULL);
+	ARRAY_CREATE(&ctx->added_file_seqs, default_pool, uint32_t, 64);
 	for (;;) {
 		ret = mail_index_sync_next(ctx->index_sync_ctx, &sync_rec);
 		if (ret <= 0) {
@@ -393,6 +394,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 			break;
 		}
 	}
+	array_free(&ctx->added_file_seqs);
 
 	iter = hash_iterate_init(ctx->syncs);
 	while (hash_iterate(iter, &key, &value)) {

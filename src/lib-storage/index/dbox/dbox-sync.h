@@ -38,7 +38,7 @@ struct dbox_sync_context {
 
 	pool_t pool;
 	struct hash_table *syncs; /* struct dbox_sync_file_entry */
-	uint32_t prev_file_seq;
+	array_t ARRAY_DEFINE(added_file_seqs, uint32_t);
 
 	uint32_t dotlock_failed_file_seq;
 

@@ -4,6 +4,8 @@
 #include "array.h"
 #include "istream.h"
 #include "ostream.h"
+#include "write-full.h"
+#include "hex-dec.h"
 #include "seq-range-array.h"
 #include "dbox-storage.h"
 #include "dbox-uidlist.h"
@@ -78,7 +80,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	struct dotlock *dotlock;
 	struct istream *input;
 	struct ostream *output;
-	struct dbox_file_header hdr;
+	struct dbox_file *file;
         struct dbox_uidlist_entry dest_entry;
 	const struct dbox_sync_rec *sync_recs;
 	const char *path, *lock_path;
@@ -142,12 +144,12 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	dest_entry.file_seq = file_seq;
 
 	/* write file header */
-	dbox_file_header_init(&hdr);
-	if (o_stream_send(output, &hdr, sizeof(hdr)) != sizeof(hdr)) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
-			"o_stream_send(%s) failed: %m", lock_path);
+	t_push();
+	file = t_new(struct dbox_file, 1);
+	file->output = output;
+	if (dbox_file_write_header(mbox, file) < 0) // FIXME: leaks
 		ret = -1;
-	}
+	t_pop();
 
 	while (ret > 0) {
 		/* update mail's location in index */
@@ -216,11 +218,34 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 				if (ret <= 0)
 					break;
 			}
-			if (ret <= 0)
+			if (ret <= 0) {
+				if (ret == 0) {
+					/* we want to keep copying */
+					ret = 1;
+				}
 				break;
+			}
 
 			if (mbox->file->seeked_uid < uid1 || uid1 == 0)
 				break;
+		}
+	}
+
+	if (ret == 0) {
+		struct dbox_file_header hdr;
+
+		/* update append_offset in header */
+		DEC2HEX(hdr.append_offset_hex, output->offset);
+
+		o_stream_flush(output);
+		if (pwrite_full(fd, hdr.append_offset_hex,
+				sizeof(hdr.append_offset_hex),
+				offsetof(struct dbox_file_header,
+					 append_offset_hex)) < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+						  "pwrite_full(%s) failed: %m",
+						  lock_path);
+			ret = -1;
 		}
 	}
 	o_stream_destroy(&output);
@@ -339,6 +364,15 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 
 		/* unexpected EOF -> already truncated */
 	} else {
+		/* file can no longer be appended to */
+		if (pwrite_full(mbox->file->fd, "00000000EFFFFFFF", 16,
+				offsetof(struct dbox_file_header,
+					 append_offset_hex)) < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"pwrite_full(%s) failed: %m", mbox->path);
+			return -1;
+		}
+
 		if (ftruncate(mbox->file->fd, offset) < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
 				"ftruncate(%s) failed: %m", mbox->path);
@@ -354,6 +388,9 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	array_delete(&entry->uid_list, i, count-i);
 	if (i > 0)
 		range[i-1].seq2 = first_expunged_uid-1;
+
+	/* file can no longer be written to */
+	entry->file_size = INT_MAX;
 
 	dbox_uidlist_sync_set_modified(ctx->uidlist_sync_ctx);
 	return 0;
