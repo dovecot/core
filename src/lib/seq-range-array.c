@@ -121,12 +121,18 @@ void seq_range_array_remove(array_t *array, uint32_t seq)
 	}
 	if (data[count-1].seq2 == seq) {
 		/* shrink last range */
-		data[count-1].seq2--;
+		if (data[count-1].seq1 != data[count-1].seq2)
+			data[count-1].seq2--;
+		else
+			array_delete(array, count-1, 1);
 		return;
 	}
 	if (data[0].seq1 == seq) {
 		/* shrink up first range */
-		data[0].seq1++;
+		if (data[0].seq1 != data[0].seq2)
+			data[0].seq1++;
+		else
+			array_delete(array, 0, 1);
 		return;
 	}
 
