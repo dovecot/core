@@ -198,10 +198,16 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	}
 	field_hdr = CONST_PTR_OFFSET(cache->data, offset);
 
-	cache->file_field_map =
-		i_realloc(cache->file_field_map,
-			  cache->file_fields_count * sizeof(unsigned int),
-			  field_hdr->fields_count * sizeof(unsigned int));
+	if (field_hdr->fields_count != 0) {
+		cache->file_field_map =
+			i_realloc(cache->file_field_map,
+				  cache->file_fields_count *
+				  sizeof(unsigned int),
+				  field_hdr->fields_count *
+				  sizeof(unsigned int));
+	} else {
+		i_free_and_null(cache->file_field_map);
+	}
 	cache->file_fields_count = field_hdr->fields_count;
 
 	last_used = CONST_PTR_OFFSET(field_hdr, MAIL_CACHE_FIELD_LAST_USED());
