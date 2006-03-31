@@ -73,7 +73,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 				  const struct dbox_sync_file_entry *sync_entry,
 				  unsigned int sync_idx,
 				  uint32_t first_nonexpunged_uid,
-                                  struct dbox_uidlist_entry *orig_entry,
+                                  const struct dbox_uidlist_entry *orig_entry,
 				  uoff_t orig_offset)
 {
 	struct dbox_mailbox *mbox = ctx->mbox;
@@ -90,8 +90,16 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	uoff_t full_size;
 	off_t bytes;
 
-	/* skip mails until we find the first we don't want expunged */
 	ret = dbox_file_seek(mbox, orig_entry->file_seq, orig_offset);
+
+	if (ret >= 0 && mbox->file->hdr.have_expunged_mails != '0') {
+		/* there are some expunged mails in the file, go through all
+		   of the mails. */
+		ret = dbox_file_seek(mbox, orig_entry->file_seq,
+				     mbox->file->header_size);
+	}
+
+	/* skip mails until we find the first we don't want expunged */
 	while (ret > 0) {
 		ret = dbox_file_seek_next_nonexpunged(mbox);
 		if (mbox->file->seeked_uid >= first_nonexpunged_uid)
@@ -271,6 +279,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	const struct dbox_sync_rec *sync_recs;
 	struct dbox_uidlist_entry *entry;
         struct seq_range *range;
+	const char *path;
 	unsigned int i, count, sync_count;
 	uint32_t file_seq, uid, uid1, uid2, first_expunged_uid;
 	uoff_t offset;
@@ -281,6 +290,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	if (dbox_sync_get_file_offset(ctx, sync_recs[sync_idx].seq1,
 				      &file_seq, &offset) < 0)
 		return -1;
+	i_assert(file_seq == sync_entry->file_seq);
 
 	entry = dbox_uidlist_entry_lookup(mbox->uidlist, sync_entry->file_seq);
 	if (entry == NULL) {
@@ -307,7 +317,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 		}
 
 		while (uid <= range[i].seq2) {
-			if (uid < uid1) {
+			if (uid < uid1 || uid1 == 0) {
 				/* non-expunged mails exist in this file */
 				break;
 			}
@@ -351,12 +361,21 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 
 	if (!skipped_expunges) {
 		/* all mails expunged from file, unlink it. */
-		return dbox_uidlist_sync_unlink(ctx->uidlist_sync_ctx,
-						entry->file_seq);
+		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
+				       DBOX_MAIL_FILE_FORMAT,
+				       mbox->path, entry->file_seq);
+		if (unlink(path) < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"unlink(%s) failed: %m", path);
+			return -1;
+		}
+
+		dbox_uidlist_sync_unlink(ctx->uidlist_sync_ctx,
+					 entry->file_seq);
+		return 0;
 	}
 
 	/* mails expunged from the end of file, ftruncate() it */
-
 	ret = dbox_file_seek(mbox, entry->file_seq, offset);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -378,6 +397,19 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 				"ftruncate(%s) failed: %m", mbox->path);
 			return -1;
 		}
+
+		if (mbox->file->hdr.have_expunged_mails != '0') {
+			/* all mails in the file are expunged now */
+			if (pwrite_full(mbox->file->fd, "0", 1,
+					offsetof(struct dbox_file_header,
+						 have_expunged_mails)) < 0) {
+				mail_storage_set_critical(
+					STORAGE(mbox->storage),
+					"pwrite_full(%s) failed: %m",
+					mbox->path);
+				return -1;
+			}
+		}
 	}
 
 	/* remove from uidlist entry */
@@ -386,7 +418,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 			break;
 	}
 	array_delete(&entry->uid_list, i, count-i);
-	if (i > 0)
+	if (i > 0 && range[i-1].seq2 >= first_expunged_uid)
 		range[i-1].seq2 = first_expunged_uid-1;
 
 	/* file can no longer be written to */
@@ -397,25 +429,27 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 }
 
 int dbox_sync_expunge(struct dbox_sync_context *ctx,
-		      const struct dbox_sync_file_entry *entry,
+		      const struct dbox_sync_file_entry *sync_entry,
 		      unsigned int sync_idx)
 {
+	struct dbox_mailbox *mbox = ctx->mbox;
 	const struct dbox_sync_rec *sync_rec;
+	struct dbox_uidlist_entry *entry;
 	struct dotlock *dotlock;
 	const char *path;
 	int ret;
 
-	if (ctx->dotlock_failed_file_seq != entry->file_seq) {
+	if (ctx->dotlock_failed_file_seq != sync_entry->file_seq && 0) {
 		/* we need to have the file locked in case another process is
 		   appending there already. */
 		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
 				       DBOX_MAIL_FILE_FORMAT,
-				       ctx->mbox->path, entry->file_seq);
+				       mbox->path, sync_entry->file_seq);
 		ret = file_dotlock_create(&new_file_dotlock_set, path,
 					  DOTLOCK_CREATE_FLAG_NONBLOCK,
 					  &dotlock);
 		if (ret < 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(STORAGE(mbox->storage),
 				"file_dotlock_create(%s) failed: %m", path);
 			return -1;
 		}
@@ -423,20 +457,50 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 		if (ret > 0) {
 			/* locked - copy the non-expunged mails after the
 			   expunged mail to new file */
-			ret = dbox_sync_expunge_file(ctx, entry, sync_idx);
+			ret = dbox_sync_expunge_file(ctx, sync_entry, sync_idx);
 			file_dotlock_delete(&dotlock);
 			return ret < 0 ? -1 : 1;
 		}
 
 		/* remember that we failed, so we don't waste time trying to
 		   lock the file multiple times within same sync. */
-		ctx->dotlock_failed_file_seq = entry->file_seq;
+		ctx->dotlock_failed_file_seq = sync_entry->file_seq;
 	}
 
 	/* couldn't lock it, someone's appending. we have no other
 	   choice but to just mark the mail expunged. otherwise we'd
 	   deadlock (appending process waits for uidlist lock which
 	   we have, we wait for file lock which append process has) */
-	sync_rec = array_idx(&entry->sync_recs, sync_idx);
-	return dbox_sync_update_flags(ctx, sync_rec);
+	sync_rec = array_idx(&sync_entry->sync_recs, sync_idx);
+	if (dbox_sync_update_flags(ctx, sync_rec) < 0)
+		return -1;
+
+	/* mark in the header that the file contains expunged messages */
+	if (pwrite_full(mbox->file->fd, "1", 1,
+			offsetof(struct dbox_file_header,
+				 have_expunged_mails)) < 0) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+			"pwrite(%s) failed: %m", mbox->file->path);
+		return -1;
+	}
+
+	/* remove UIDs from the uidlist entry */
+	entry = dbox_uidlist_entry_lookup(mbox->uidlist, sync_entry->file_seq);
+	if (entry != NULL) {
+		const struct dbox_sync_rec *recs;
+		unsigned int i, count, seq;
+
+		recs = array_get(&sync_entry->sync_recs, &count);
+		for (i = 0; i < count; i++) {
+			for (seq = recs[i].seq1; seq <= recs[i].seq2; seq++)
+				seq_range_array_remove(&entry->uid_list, seq);
+		}
+		if (array_count(&entry->uid_list) == 0) {
+			dbox_uidlist_sync_unlink(ctx->uidlist_sync_ctx,
+						 entry->file_seq);
+		}
+		dbox_uidlist_sync_set_modified(ctx->uidlist_sync_ctx);
+	}
+
+	return 0;
 }

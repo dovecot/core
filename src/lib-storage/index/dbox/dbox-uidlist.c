@@ -68,6 +68,7 @@ struct dbox_uidlist_append_ctx {
 	pool_t pool;
         struct dbox_uidlist *uidlist;
 
+	time_t min_usable_timestamp;
 	unsigned int mail_count;
 
 	array_t ARRAY_DEFINE(files, struct dbox_save_file *);
@@ -466,6 +467,26 @@ dbox_uidlist_entry_lookup(struct dbox_uidlist *uidlist, uint32_t file_seq)
 	return dbox_uidlist_entry_lookup_int(uidlist, file_seq, &idx);
 }
 
+static time_t get_min_timestamp(unsigned int days)
+{
+	struct tm tm;
+	time_t stamp;
+
+	if (days == 0)
+		return 0;
+
+	/* get beginning of today */
+	tm = *localtime(&ioloop_time);
+	tm.tm_hour = 0;
+	tm.tm_min = 0;
+	tm.tm_sec = 0;
+	stamp = mktime(&tm);
+	if (stamp == (time_t)-1)
+		i_panic("mktime(today) failed");
+
+	return stamp - (3600*24 * (days-1));
+}
+
 struct dbox_uidlist_append_ctx *
 dbox_uidlist_append_init(struct dbox_uidlist *uidlist)
 {
@@ -478,6 +499,8 @@ dbox_uidlist_append_init(struct dbox_uidlist *uidlist)
 	ctx = p_new(pool, struct dbox_uidlist_append_ctx, 1);
 	ctx->pool = pool;
 	ctx->uidlist = uidlist;
+	ctx->min_usable_timestamp =
+		get_min_timestamp(uidlist->mbox->rotate_days);
 	ARRAY_CREATE(&ctx->files, pool, struct dbox_save_file *, 16);
 	return ctx;
 }
@@ -829,125 +852,40 @@ static int dbox_uidlist_files_lookup(struct dbox_uidlist_append_ctx *ctx,
 	return FALSE;
 }
 
-static time_t get_min_timestamp(unsigned int days)
-{
-	struct tm tm;
-	time_t stamp;
+#define DBOX_CAN_APPEND(ctx, create_time, file_size) \
+	(((create_time) >= (ctx)->min_usable_timestamp && \
+	  (file_size) < (ctx)->uidlist->mbox->rotate_size) || \
+	 (file_size) < (ctx)->uidlist->mbox->rotate_min_size)
 
-	if (days == 0)
-		return 0;
-
-	/* get beginning of today */
-	tm = *localtime(&ioloop_time);
-	tm.tm_hour = 0;
-	tm.tm_min = 0;
-	tm.tm_sec = 0;
-	stamp = mktime(&tm);
-	if (stamp == (time_t)-1)
-		i_panic("mktime(today) failed");
-
-	return stamp - (3600*24 * (days-1));
-}
-
-#define DBOX_CAN_APPEND(mbox, create_time, file_size, min_usable_timestamp) \
-	(((create_time) >= (min_usable_timestamp) && \
-	  (file_size) < (mbox)->rotate_size) || \
-	 (file_size) < (mbox)->rotate_min_size)
-
-int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
-			       struct dbox_file **file_r)
+static int
+dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
+		 const char *path, struct dbox_uidlist_entry *entry,
+		 struct dbox_file **file_r)
 {
 	struct dbox_mailbox *mbox = ctx->uidlist->mbox;
-	struct dbox_save_file *const *files, *save_file;
-	struct dbox_uidlist_entry *const *entries;
 	struct dbox_file *file;
-	struct dotlock *dotlock;
-	struct ostream *output;
-	string_t *str;
-	unsigned int i, count;
 	struct stat st;
-	uint32_t file_seq;
-	time_t min_usable_timestamp;
-	int ret;
+	int fd;
 
-        min_usable_timestamp = get_min_timestamp(mbox->rotate_days);
+	*file_r = NULL;
 
-	/* check first from already opened files */
-	files = array_get(&ctx->files, &count);
-	for (i = 0; i < count; i++) {
-		if (DBOX_CAN_APPEND(mbox, files[i]->file->create_time,
-				    files[i]->append_offset,
-				    min_usable_timestamp)) {
-			if (dbox_reopen_file(ctx, files[i]) < 0)
-				return -1;
-
-			*file_r = file = files[i]->file;
-			o_stream_seek(file->output, file->append_offset);
-			return 0;
-		}
+	fd = open(path, O_CREAT | O_RDWR, 0600);
+	if (fd == -1) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+					  "open(%s) failed: %m", path);
+		return -1;
 	}
 
-	/* check from other existing files. use uidlist's file_size field.
-	   it's not completely trustworthy though. */
-	str = str_new(ctx->pool, 64);
-	entries = array_get(&ctx->uidlist->entries, &count);
-__again:
-	for (i = 0;; i++) {
-                file_seq = 0; 
-		for (; i < count; i++) {
-			if (DBOX_CAN_APPEND(mbox, entries[i]->create_time,
-					    entries[i]->file_size,
-					    min_usable_timestamp) &&
-			    !dbox_uidlist_files_lookup(ctx,
-						       entries[i]->file_seq)) {
-				file_seq = entries[i]->file_seq;
-				break;
-			}
-		}
-
-		if (file_seq == 0) {
-			/* create new file */
-			file_seq = dbox_uidlist_get_new_file_seq(ctx->uidlist);
-		}
-
-		/* try locking the file. */
-		str_truncate(str, 0);
-		str_printfa(str, "%s/"DBOX_MAILDIR_NAME"/"
-			    DBOX_MAIL_FILE_FORMAT, mbox->path, file_seq);
-		ret = file_dotlock_create(&dbox_file_dotlock_set, str_c(str),
-					  DOTLOCK_CREATE_FLAG_NONBLOCK,
-					  &dotlock);
-		if (ret > 0) {
-			/* success */
-			break;
-		}
-		if (ret < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
-				"file_dotlock_create(%s) failed: %m",
-				str_c(str));
-			return -1;
-		}
-
-		/* lock already exists, try next file */
+	if (fstat(fd, &st) < 0) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+					  "fstat(%s) failed: %m", path);
+		(void)close(fd);
+		return -1;
 	}
 
 	file = i_new(struct dbox_file, 1);
-	file->file_seq = file_seq;
-	file->path = i_strdup(str_c(str));
-
-	file->fd = open(file->path, O_CREAT | O_RDWR, 0600);
-	if (file->fd == -1) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
-					  "open(%s) failed: %m", file->path);
-		return -1;
-	}
-
-	if (fstat(file->fd, &st) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
-					  "fstat(%s) failed: %m", file->path);
-		(void)close(file->fd);
-		return -1;
-	}
+	file->path = i_strdup(path);
+	file->fd = fd;
 
 	file->input = i_stream_create_file(file->fd, default_pool,
 					   65536, FALSE);
@@ -963,18 +901,122 @@ __again:
 			return -1;
 		}
 
-		if (i < count) {
-			entries[i]->create_time = file->create_time;
-			entries[i]->file_size = file->append_offset;
+		if (entry != NULL) {
+			entry->create_time = file->create_time;
+			entry->file_size = file->append_offset;
 		}
 
-		if (!DBOX_CAN_APPEND(mbox, file->create_time,
-				     file->append_offset,
-				     min_usable_timestamp)) {
+		if (!DBOX_CAN_APPEND(ctx, file->create_time,
+				     file->append_offset)) {
 			dbox_file_close(file);
-			goto __again;
+			return 0;
 		}
 	}
+
+	*file_r = file;
+	return 1;
+}
+
+static int
+dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
+		      uint32_t *file_seq_r, struct dbox_uidlist_entry **entry_r,
+		      struct dotlock **dotlock_r)
+{
+	struct dbox_mailbox *mbox = ctx->uidlist->mbox;
+	struct dbox_uidlist_entry *const *entries;
+	unsigned int i, count;
+	uint32_t file_seq;
+	int ret;
+
+	entries = array_get(&ctx->uidlist->entries, &count);
+	for (i = 0;; i++) {
+		file_seq = 0;
+		for (; i < count; i++) {
+			if (DBOX_CAN_APPEND(ctx, entries[i]->create_time,
+					    entries[i]->file_size) &&
+			    !dbox_uidlist_files_lookup(ctx,
+						       entries[i]->file_seq)) {
+				file_seq = entries[i]->file_seq;
+				break;
+			}
+		}
+
+		if (file_seq == 0) {
+			/* create new file */
+			file_seq = dbox_uidlist_get_new_file_seq(ctx->uidlist);
+		}
+
+		/* try locking the file. */
+		str_truncate(path, 0);
+		str_printfa(path, "%s/"DBOX_MAILDIR_NAME"/"
+			    DBOX_MAIL_FILE_FORMAT, mbox->path, file_seq);
+		ret = file_dotlock_create(&dbox_file_dotlock_set, str_c(path),
+					  DOTLOCK_CREATE_FLAG_NONBLOCK,
+					  dotlock_r);
+		if (ret > 0) {
+			/* success */
+			break;
+		}
+		if (ret < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"file_dotlock_create(%s) failed: %m",
+				str_c(path));
+			return -1;
+		}
+
+		/* lock already exists, try next file */
+	}
+
+	*file_seq_r = file_seq;
+	*entry_r = i < count ? entries[i] : NULL;
+	return 0;
+}
+
+int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
+			       struct dbox_file **file_r)
+{
+	struct dbox_save_file *const *files, *save_file;
+	struct dbox_uidlist_entry *entry;
+	struct dbox_file *file = NULL;
+	struct dotlock *dotlock = NULL;
+	struct ostream *output;
+	string_t *path;
+	unsigned int i, count;
+	struct stat st;
+	uint32_t file_seq;
+	int ret;
+
+	/* check first from already opened files */
+	files = array_get(&ctx->files, &count);
+	for (i = 0; i < count; i++) {
+		if (DBOX_CAN_APPEND(ctx, files[i]->file->create_time,
+				    files[i]->append_offset)) {
+			if (dbox_reopen_file(ctx, files[i]) < 0)
+				return -1;
+
+			*file_r = file = files[i]->file;
+			o_stream_seek(file->output, file->append_offset);
+			return 0;
+		}
+	}
+
+	/* check from other existing files. use uidlist's file_size field.
+	   it's not completely trustworthy though. */
+	path = str_new(ctx->pool, 64);
+	do {
+		if (dotlock != NULL)
+			file_dotlock_delete(&dotlock);
+		if (dbox_file_append_lock(ctx, path, &file_seq,
+					  &entry, &dotlock) < 0)
+			return -1;
+	} while ((ret = dbox_file_append(ctx, str_c(path), entry, &file)) == 0);
+
+	if (ret < 0) {
+		file_dotlock_delete(&dotlock);
+		dbox_file_close(file);
+		return -1;
+	}
+	file->file_seq = file_seq;
 
 	/* we'll always use CRLF linefeeds for mails (but not the header,
 	   so don't do this before dbox_file_write_header()) */
@@ -1165,28 +1207,18 @@ void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 	}
 }
 
-int dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
-			     uint32_t file_seq)
+void dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
+			      uint32_t file_seq)
 {
 	struct dbox_uidlist_entry *entry;
-	const char *path;
 	unsigned int idx;
 
 	entry = dbox_uidlist_entry_lookup_int(ctx->uidlist, file_seq, &idx);
 	i_assert(entry != NULL);
 
-	path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-			       DBOX_MAIL_FILE_FORMAT,
-			       ctx->uidlist->mbox->path, entry->file_seq);
-	if (unlink(path) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
-					  "unlink(%s) failed: %m", path);
-		return -1;
-	}
 	array_delete(&ctx->uidlist->entries, idx, 1);
 
         dbox_uidlist_sync_set_modified(ctx);
-	return 0;
 }
 
 uint32_t dbox_uidlist_sync_get_uid_validity(struct dbox_uidlist_sync_ctx *ctx)

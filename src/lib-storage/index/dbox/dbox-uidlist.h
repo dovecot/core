@@ -55,8 +55,8 @@ void dbox_uidlist_sync_set_modified(struct dbox_uidlist_sync_ctx *ctx);
 
 void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 			      const struct dbox_uidlist_entry *entry);
-int dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
-			     uint32_t file_seq);
+void dbox_uidlist_sync_unlink(struct dbox_uidlist_sync_ctx *ctx,
+			      uint32_t file_seq);
 
 uint32_t dbox_uidlist_sync_get_uid_validity(struct dbox_uidlist_sync_ctx *ctx);
 uint32_t dbox_uidlist_sync_get_next_uid(struct dbox_uidlist_sync_ctx *ctx);

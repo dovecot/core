@@ -65,7 +65,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx, uint32_t seq,
 
 	new_sync_rec = *sync_rec;
 	new_sync_rec.seq1 = seq;
-	array_append(&entry->sync_recs, sync_rec, 1);
+	array_append(&entry->sync_recs, &new_sync_rec, 1);
 	return 0;
 }
 
@@ -139,7 +139,7 @@ dbox_sync_write_mask(struct dbox_sync_context *ctx,
 		return -1;
 
 	if (mail_index_lookup_uid(ctx->sync_view, sync_rec->seq2, &uid2) < 0) {
-		mail_storage_set_index_error(&ctx->mbox->ibox);
+		mail_storage_set_index_error(&mbox->ibox);
 		return -1;
 	}
 
@@ -159,7 +159,7 @@ dbox_sync_write_mask(struct dbox_sync_context *ctx,
 					break;
 				i++;
 			}
-			ret = pwrite_full(ctx->mbox->file->fd,
+			ret = pwrite_full(mbox->file->fd,
 					  array + start, i - start,
 					  offset + first_flag_offset + start);
 			if (ret < 0) {

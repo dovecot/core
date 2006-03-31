@@ -201,6 +201,8 @@ void dbox_file_header_init(struct dbox_file_header *hdr)
 int dbox_file_header_parse(struct dbox_mailbox *mbox, struct dbox_file *file,
 			   const struct dbox_file_header *hdr)
 {
+	file->hdr = *hdr;
+
 	file->base_header_size = hex2dec(hdr->base_header_size_hex,
 					 sizeof(hdr->base_header_size_hex));
 	file->header_size = hex2dec(hdr->header_size_hex,

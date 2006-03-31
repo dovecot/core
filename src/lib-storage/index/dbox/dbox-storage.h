@@ -46,6 +46,9 @@ struct dbox_file_header {
 	/* Offset for the keyword list inside the file header. */
 	unsigned char keyword_list_offset_hex[8];
 
+	/* Non-zero if some mails have been marked as expunged in the file. */
+	unsigned char have_expunged_mails;
+
 	/* space reserved for keyword list and possible other future
 	   extensions. */
 	/* unsigned char [header_size - header_base_size]; */
@@ -96,6 +99,7 @@ struct dbox_file {
 	uint64_t keyword_list_offset;
 	uint32_t keyword_list_size_alloc;
 	uint32_t keyword_list_size_used;
+	struct dbox_file_header hdr;
 
 	uoff_t seeked_offset;
 	uoff_t seeked_mail_size;
