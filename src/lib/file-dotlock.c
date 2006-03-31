@@ -480,12 +480,14 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 
 	*dotlock_r = NULL;
 
+	t_push();
 	dotlock = file_dotlock_alloc(set);
 	lock_path = t_strconcat(path, dotlock->settings.lock_suffix, NULL);
 
 	ret = dotlock_create(path, dotlock, flags, TRUE);
 	if (ret <= 0 || (flags & DOTLOCK_CREATE_FLAG_CHECKONLY) != 0) {
-		i_free(dotlock);
+		file_dotlock_free(dotlock);
+		t_pop();
 		return ret;
 	}
 
@@ -495,6 +497,7 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 	if (close(fd) < 0) {
 		i_error("close(%s) failed: %m", lock_path);
 		file_dotlock_free(dotlock);
+		t_pop();
 		return -1;
 	}
 
@@ -503,6 +506,7 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 	if (stat(lock_path, &st) < 0) {
 		i_error("stat(%s) failed: %m", lock_path);
                 file_dotlock_free(dotlock);
+		t_pop();
 		return -1;
 	}
 	/* extra sanity check won't hurt.. */
@@ -510,11 +514,13 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 		i_error("dotlock %s was immediately recreated under us",
 			lock_path);
                 file_dotlock_free(dotlock);
+		t_pop();
 		return -1;
 	}
 	dotlock->mtime = st.st_mtime;
 
 	*dotlock_r = dotlock;
+	t_pop();
 	return 1;
 }
 
@@ -587,7 +593,10 @@ int file_dotlock_open(const struct dotlock_settings *set, const char *path,
 
 	dotlock = file_dotlock_alloc(set);
 
+	t_push();
 	ret = dotlock_create(path, dotlock, flags, FALSE);
+	t_pop();
+
 	if (ret <= 0) {
 		file_dotlock_free(dotlock);
 		*dotlock_r = NULL;
