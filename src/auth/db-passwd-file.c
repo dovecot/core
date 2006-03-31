@@ -25,8 +25,9 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 {
 	/* args = uid, gid, user info, home dir, shell, extra_fields */
 	struct passwd_user *pu;
-	const char *p, *extra_fields = NULL;
+	const char *extra_fields = NULL;
 	char *user;
+	size_t len;
 
 	if (hash_lookup(pw->users, username) != NULL) {
 		i_error("passwd-file %s: User %s exists more than once",
@@ -37,18 +38,19 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	pu = p_new(pw->pool, struct passwd_user, 1);
 	user = p_strdup(pw->pool, username);
 
-	p = pass == NULL ? NULL : strchr(pass, '[');
-	if (p == NULL) {
-		pu->password = p_strdup(pw->pool, pass);
-	} else {
+	len = strlen(pass);
+	if (pass[0] != '{' && pass[0] != '$' &&
+	    len > 4 && pass[len-1] == ']' && pass[len-4] == '[') {
 		/* password[type] - we're being libpam-pwdfile compatible
 		   here. it uses 13 = DES and 34 = MD5. For backwards
 		   comaptibility with ourself, we have also 56 = Digest-MD5. */
-		pass = t_strdup_until(pass, p);
-		if (p[1] == '3' && p[2] == '4') {
+		int num = (pass[len-3] - '0') * 10 + (pass[len-2] - '0');
+
+		pass = t_strndup(pass, len-4);
+		if (num == 34) {
 			pu->password = p_strconcat(pw->pool, "{PLAIN-MD5}",
 						   pass, NULL);
-		} else if (p[1] == '5' && p[2] == '6') {
+		} else if (num == 56) {
 			pu->password = p_strconcat(pw->pool, "{DIGEST-MD5}",
 						   pass, NULL);
 			if (strlen(pu->password) != 32 + 12) {
@@ -61,6 +63,8 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 			pu->password = p_strconcat(pw->pool, "{CRYPT}",
 						   pass, NULL);
 		}
+	} else {
+		pu->password = p_strdup(pw->pool, pass);
 	}
 
 	if (*args != NULL && **args != '\0') {
