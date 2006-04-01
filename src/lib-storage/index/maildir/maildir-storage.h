@@ -7,6 +7,7 @@
 
 #define SUBSCRIPTION_FILE_NAME "subscriptions"
 #define MAILDIR_INDEX_PREFIX "dovecot.index"
+#define MAILDIR_UNLINK_DIRNAME MAILDIR_FS_SEP_S"DOVECOT-TRASHED"
 
 /* "base,S=123:2," means:
    <base> [<extra sep> <extra data> [..]] <info sep> 2 <flags sep> */

@@ -104,13 +104,12 @@ maildir_fill_readdir(struct maildir_list_context *ctx,
 				continue;
 		}
 
-		if (fname[1] == MAILDIR_FS_SEP) {
-			/* this mailbox is in the middle of being deleted,
+		if (fname[1] == MAILDIR_FS_SEP &&
+		    strcmp(fname+1, MAILDIR_UNLINK_DIRNAME) == 0) {
+			/* this directory is in the middle of being deleted,
 			   or the process trying to delete it had died.
-
 			   delete it ourself if it's been there longer than
-			   one hour. don't touch it if it's outside our
-			   mail root dir. */
+			   one hour. */
 			t_push();
 			path = t_strdup_printf("%s/%s", ctx->dir, fname);
 			if (stat(path, &st) == 0 &&

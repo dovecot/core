@@ -219,7 +219,7 @@ static bool maildir_is_valid_existing_name(struct mail_storage *storage,
 	return TRUE;
 }
 
-static const char *maildir_get_absolute_path(const char *name, bool unlink)
+static const char *maildir_get_absolute_path(const char *name)
 {
 	const char *p;
 
@@ -229,7 +229,6 @@ static const char *maildir_get_absolute_path(const char *name, bool unlink)
 	if (p == NULL)
 		return name;
 	return t_strconcat(t_strdup_until(name, p+1),
-			   unlink ? MAILDIR_FS_SEP_S MAILDIR_FS_SEP_S :
 			   MAILDIR_FS_SEP_S, p+1, NULL);
 }
 
@@ -237,7 +236,7 @@ const char *maildir_get_path(struct index_storage *storage, const char *name)
 {
 	if ((storage->storage.flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~'))
-		return maildir_get_absolute_path(name, FALSE);
+		return maildir_get_absolute_path(name);
 
 	if (strcmp(name, "INBOX") == 0) {
 		return storage->inbox_path != NULL ?
@@ -248,14 +247,13 @@ const char *maildir_get_path(struct index_storage *storage, const char *name)
 }
 
 static const char *
-maildir_get_unlink_path(struct index_storage *storage, const char *name)
+maildir_get_unlink_dest(struct index_storage *storage, const char *name)
 {
 	if ((storage->storage.flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~'))
-		return maildir_get_absolute_path(name, TRUE);
+		return NULL;
 
-	return maildir_get_path(storage,
-				t_strconcat(MAILDIR_FS_SEP_S, name, NULL));
+	return maildir_get_path(storage, MAILDIR_UNLINK_DIRNAME);
 }
 
 static const char *maildir_get_index_path(struct index_storage *storage,
@@ -270,7 +268,7 @@ static const char *maildir_get_index_path(struct index_storage *storage,
 
 	if ((storage->storage.flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~'))
-		return maildir_get_absolute_path(name, FALSE);
+		return maildir_get_absolute_path(name);
 
 	return t_strconcat(storage->index_dir, "/"MAILDIR_FS_SEP_S, name, NULL);
 }
@@ -283,7 +281,7 @@ static const char *maildir_get_control_path(struct maildir_storage *storage,
 
 	if ((STORAGE(storage)->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~'))
-		return maildir_get_absolute_path(name, FALSE);
+		return maildir_get_absolute_path(name);
 
 	return t_strconcat(storage->control_dir, "/"MAILDIR_FS_SEP_S,
 			   name, NULL);
@@ -624,11 +622,11 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 		return -1;
 	}
 
-	/* rename the .maildir into ..maildir which marks it as being
+	/* rename the .maildir into ..DOVECOT-TRASH which marks it as being
 	   deleted. delete indexes before the actual maildir. this way we
 	   never see partially deleted mailboxes. */
 	src = maildir_get_path(storage, name);
-	dest = maildir_get_unlink_path(storage, name);
+	dest = maildir_get_unlink_dest(storage, name);
 	if (stat(src, &st) != 0 && errno == ENOENT) {
 		mail_storage_set_error(_storage,
 			MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
@@ -651,21 +649,28 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 		}
 	}
 
-	count = 0;
-	while (rename(src, dest) < 0 && count < 2) {
-		if (errno != EEXIST && errno != ENOTEMPTY) {
-			mail_storage_set_critical(_storage,
-				"rename(%s, %s) failed: %m", src, dest);
-			return -1;
-		}
+	if (dest == NULL) {
+		/* absolute maildir path, delete the directory directly
+		   without any renaming */
+		dest = src;
+	} else {
+		count = 0;
+		while (rename(src, dest) < 0 && count < 2) {
+			if (errno != EEXIST && errno != ENOTEMPTY) {
+				mail_storage_set_critical(_storage,
+					"rename(%s, %s) failed: %m", src, dest);
+				return -1;
+			}
 
-		/* ..dir already existed? delete it and try again */
-		if (unlink_directory(dest, TRUE) < 0) {
-			mail_storage_set_critical(_storage,
-				"unlink_directory(%s) failed: %m", dest);
-			return -1;
+			/* already existed, delete it and try again */
+			if (unlink_directory(dest, TRUE) < 0) {
+				mail_storage_set_critical(_storage,
+					"unlink_directory(%s) failed: %m",
+					dest);
+				return -1;
+			}
+			count++;
 		}
-		count++;
 	}
 
 	if (unlink_directory(dest, TRUE) < 0 && errno != ENOTEMPTY) {
