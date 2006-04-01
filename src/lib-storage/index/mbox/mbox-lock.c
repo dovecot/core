@@ -262,6 +262,7 @@ static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
 	if (ret == 0) {
 		mail_storage_set_error(STORAGE(mbox->storage),
 				       "Timeout while waiting for lock");
+		STORAGE(mbox->storage)->temporary_error = TRUE;
 		return 0;
 	}
 	mbox->mbox_dotlocked = TRUE;
@@ -488,6 +489,7 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type)
 		if (ret == 0) {
 			mail_storage_set_error(STORAGE(mbox->storage),
 				"Timeout while waiting for lock");
+			STORAGE(mbox->storage)->temporary_error = TRUE;
 		}
 		return ret;
 	}
