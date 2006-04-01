@@ -223,9 +223,11 @@ static int list_file(struct mbox_list_context *ctx, const char *fname)
 	int ret;
 	bool noselect;
 
-	/* skip subscription file and .imap/ directory */
+	/* skip ., .., subscription file and .imap/ directory */
 	if (fname[0] == '.' &&
-	    (strcmp(fname, SUBSCRIPTION_FILE_NAME) == 0 ||
+	    (fname[1] == '\0' ||
+	     (fname[1] == '.' && fname[2] == '\0') ||
+	     strcmp(fname, SUBSCRIPTION_FILE_NAME) == 0 ||
 	     strcmp(fname, MBOX_INDEX_DIR_NAME) == 0))
 		return 0;
 
