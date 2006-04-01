@@ -150,7 +150,8 @@ static bool mbox_autodetect(const char *data, enum mail_storage_flags flags)
 	if (*path != '\0' && mbox_is_file(path, "INBOX file", debug))
 		return TRUE;
 
-	if (mbox_is_dir(t_strconcat(path, "/.imap", NULL), "has .imap/", debug))
+	if (mbox_is_dir(t_strconcat(path, "/"MBOX_INDEX_DIR_NAME, NULL),
+			"has "MBOX_INDEX_DIR_NAME"/", debug))
 		return TRUE;
 	if (mbox_is_file(t_strconcat(path, "/inbox", NULL), "has inbox", debug))
 		return TRUE;
@@ -429,16 +430,17 @@ static const char *mbox_get_index_dir(struct index_storage *storage,
 		name = home_expand(name);
 		p = strrchr(name, '/');
 		return t_strconcat(t_strdup_until(name, p),
-				   "/.imap/", p+1, NULL);
+				   "/"MBOX_INDEX_DIR_NAME"/", p+1, NULL);
 	}
 
 	p = strrchr(name, '/');
-	if (p == NULL)
-		return t_strconcat(storage->index_dir, "/.imap/", name, NULL);
-	else {
+	if (p == NULL) {
+		return t_strconcat(storage->index_dir,
+				   "/"MBOX_INDEX_DIR_NAME"/", name, NULL);
+	} else {
 		return t_strconcat(storage->index_dir, "/",
 				   t_strdup_until(name, p),
-				   "/.imap/", p+1, NULL);
+				   "/"MBOX_INDEX_DIR_NAME"/", p+1, NULL);
 	}
 }
 
@@ -830,7 +832,7 @@ static int mbox_mailbox_delete(struct mail_storage *_storage, const char *name)
 		/* deleting a folder, only allow it if it's empty.
 		   Delete .imap folder before to make sure it goes empty. */
 		index_dir = t_strconcat(storage->index_dir, "/", name,
-					"/.imap", NULL);
+					"/"MBOX_INDEX_DIR_NAME, NULL);
 
 		if (index_dir != NULL && rmdir(index_dir) < 0 &&
 		    !ENOTFOUND(errno) && errno != ENOTEMPTY) {

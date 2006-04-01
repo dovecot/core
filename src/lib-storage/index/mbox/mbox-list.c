@@ -223,8 +223,10 @@ static int list_file(struct mbox_list_context *ctx, const char *fname)
 	int ret;
 	bool noselect;
 
-	/* skip all hidden files */
-	if (fname[0] == '.')
+	/* skip subscription file and .imap/ directory */
+	if (fname[0] == '.' &&
+	    (strcmp(fname, SUBSCRIPTION_FILE_NAME) == 0 ||
+	     strcmp(fname, MBOX_INDEX_DIR_NAME) == 0))
 		return 0;
 
 	/* skip all .lock files */
