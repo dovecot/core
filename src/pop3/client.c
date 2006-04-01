@@ -178,9 +178,9 @@ struct client *client_create(int fd_in, int fd_out,
 static const char *client_stats(struct client *client)
 {
 	static struct var_expand_table static_tab[] = {
-		{ 'T', NULL },
+		{ 'p', NULL },
 		{ 't', NULL },
-		{ 'R', NULL },
+		{ 'b', NULL },
 		{ 'r', NULL },
 		{ 'd', NULL },
 		{ 'm', NULL },

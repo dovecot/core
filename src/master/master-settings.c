@@ -353,7 +353,7 @@ struct settings default_settings = {
 	MEMBER(pop3_reuse_xuidl) FALSE,
 	MEMBER(pop3_uidl_format) NULL,
 	MEMBER(pop3_client_workarounds) NULL,
-	MEMBER(pop3_logout_format) "top=%t/%T, retr=%r/%R, del=%d/%m, size=%s",
+	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
 
 	/* .. */
 	MEMBER(login_uid) 0,
