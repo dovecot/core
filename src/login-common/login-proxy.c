@@ -16,6 +16,7 @@ struct login_proxy {
 	struct io *client_io, *server_io;
 	struct istream *server_input;
 	struct ostream *client_output, *server_output;
+	struct ip_addr ip;
 
 	char *host, *user;
 	unsigned int port;
@@ -177,13 +178,14 @@ login_proxy_new(struct client *client, const char *host, unsigned int port,
 	proxy->callback = callback;
 	proxy->context = context;
 
+	proxy->ip = client->ip;
 	proxy->client_fd = -1;
 	return proxy;
 }
 
 void login_proxy_free(struct login_proxy *proxy)
 {
-	struct ip_addr ip;
+	const char *ipstr;
 
 	if (proxy->destroying)
 		return;
@@ -193,10 +195,9 @@ void login_proxy_free(struct login_proxy *proxy)
 		main_unref();
 		hash_remove(login_proxies, proxy);
 
-		if (net_getpeername(proxy->client_fd, &ip, NULL) < 0)
-			ip.family = 0;
+		ipstr = net_ip2addr(&proxy->ip);
 		i_info("proxy(%s): disconnecting %s",
-		       proxy->user, net_ip2addr(&ip));
+		       proxy->user, ipstr != NULL ? ipstr : "");
 
 		if (proxy->client_io != NULL)
 			io_remove(&proxy->client_io);
