@@ -69,10 +69,10 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 		*flags_r |= MAIL_STORAGE_FLAG_SAVE_CRLF;
 
 	str = getenv("LOCK_METHOD");
-	if (str == NULL || strcmp(str, "flock") == 0)
-		*lock_method_r = MAIL_STORAGE_LOCK_FLOCK;
-	else if (strcmp(str, "fcntl") == 0)
+	if (str == NULL || strcmp(str, "fcntl") == 0)
 		*lock_method_r = MAIL_STORAGE_LOCK_FCNTL;
+	else if (strcmp(str, "flock") == 0)
+		*lock_method_r = MAIL_STORAGE_LOCK_FLOCK;
 	else if (strcmp(str, "dotlock") == 0)
 		*lock_method_r = MAIL_STORAGE_LOCK_DOTLOCK;
 	else

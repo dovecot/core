@@ -319,7 +319,7 @@ struct settings default_settings = {
 #else
 	MEMBER(mmap_no_write) FALSE,
 #endif
-	MEMBER(lock_method) "flock",
+	MEMBER(lock_method) "fcntl",
 	MEMBER(maildir_stat_dirs) FALSE,
 	MEMBER(maildir_copy_with_hardlinks) FALSE,
 	MEMBER(mbox_read_locks) "fcntl",
