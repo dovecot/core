@@ -759,6 +759,7 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 			 const char *new_dir, const char *cur_dir,
 			 bool *new_changed_r, bool *cur_changed_r)
 {
+	struct index_mailbox *ibox = &mbox->ibox;
 	struct stat st;
 	time_t new_mtime, cur_mtime;
 
@@ -787,16 +788,20 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 	if ((mbox->dirty_cur_time == 0 && cur_mtime != mbox->last_cur_mtime) ||
 	    (new_mtime != mbox->last_new_mtime)) {
 		/* check if the index has been updated.. */
-		if (mail_index_refresh(mbox->ibox.index) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
+		if (mail_index_refresh(ibox->index) < 0) {
+			mail_storage_set_index_error(ibox);
 			return -1;
 		}
 
 		maildir_sync_update_from_header(mbox);
 	}
 
+	/* If we're removing recent flags, always sync new/ directory if
+	   it has mails. */
 	if (new_mtime != mbox->last_new_mtime ||
-	    new_mtime >= mbox->last_new_sync_time - MAILDIR_SYNC_SECS) {
+	    new_mtime >= mbox->last_new_sync_time - MAILDIR_SYNC_SECS ||
+	    (!ibox->keep_recent &&
+	     mail_index_get_header(ibox->view)->recent_messages_count > 0)) {
 		*new_changed_r = TRUE;
 		mbox->last_new_mtime = new_mtime;
 		mbox->last_new_sync_time = ioloop_time;
