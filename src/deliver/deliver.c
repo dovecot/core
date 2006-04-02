@@ -427,36 +427,13 @@ int main(int argc, char *argv[])
         table = get_var_expand_table(destination, getenv("HOME"));
 	mail = expand_mail_env(mail, table);
 
-	flags = 0;
-	if (getenv("FULL_FILESYSTEM_ACCESS") != NULL)
-		flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
-	if (getenv("DEBUG") != NULL)
-		flags |= MAIL_STORAGE_FLAG_DEBUG;
-	if (getenv("MMAP_DISABLE") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_DISABLE;
-	if (getenv("MMAP_NO_WRITE") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_NO_WRITE;
-	if (getenv("MAIL_READ_MMAPED") != NULL)
-		flags |= MAIL_STORAGE_FLAG_MMAP_MAILS;
-	if (getenv("MAIL_SAVE_CRLF") != NULL)
-		flags |= MAIL_STORAGE_FLAG_SAVE_CRLF;
-
 	str = getenv("POP3_UIDL_FORMAT");
 	if (str != NULL && (str = strchr(str, '%')) != NULL &&
 	    str != NULL && var_get_key(str + 1) == 'm')
 		flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
 
-	str = getenv("LOCK_METHOD");
-	if (str == NULL || strcmp(str, "flock") == 0)
-		lock_method = MAIL_STORAGE_LOCK_FLOCK;
-	else if (strcmp(str, "fcntl") == 0)
-		lock_method = MAIL_STORAGE_LOCK_FCNTL;
-	else if (strcmp(str, "dotlock") == 0)
-		lock_method = MAIL_STORAGE_LOCK_DOTLOCK;
-	else
-		i_fatal("Unknown lock_method: %s", str);
-
 	/* FIXME: how should we handle namespaces? */
+	mail_storage_parse_env(&flags, &lock_method);
 	storage = mail_storage_create_with_data(mail, destination,
 						flags, lock_method);
 	if (storage == NULL) {
