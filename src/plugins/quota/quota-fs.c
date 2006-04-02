@@ -139,7 +139,7 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 		    strcmp(ent.mnt_fstype, MNTTYPE_IGNORE) == 0)
 			continue;
 
-		if (stat(ent.mnt_special, &st2) == 0 &&
+		if (stat(ent.mnt_mountp, &st2) == 0 &&
 		    CMP_DEV_T(st.st_dev, st2.st_dev)) {
 			device_path = ent.mnt_special;
 			mount_path = ent.mnt_mountp;
@@ -158,7 +158,7 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 		    strcmp(ent->mnt_type, MNTTYPE_IGNORE) == 0)
 			continue;
 
-		if (stat(ent->mnt_fsname, &st2) == 0 &&
+		if (stat(ent->mnt_dir, &st2) == 0 &&
 		    CMP_DEV_T(st.st_dev, st2.st_dev)) {
 			device_path = ent->mnt_fsname;
 			mount_path = ent->mnt_dir;
