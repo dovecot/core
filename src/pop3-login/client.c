@@ -104,8 +104,10 @@ static int client_output_starttls(void *context)
 		return 1;
 	}
 
-	if (ret > 0)
+	if (ret > 0) {
+		o_stream_set_flush_callback(client->output, NULL, NULL);
 		client_start_tls(client);
+	}
 	return 1;
 }
 
