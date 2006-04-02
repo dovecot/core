@@ -363,7 +363,7 @@ static void stream_send_io(void *context)
 			/* all sent */
 			io_remove(&fstream->io);
 		}
-	} else {
+	} else if (!fstream->ostream.ostream.closed) {
 		/* Add the IO handler if it's not there already. Callback
 		   might have just returned 0 without there being any data
 		   to be sent. */
