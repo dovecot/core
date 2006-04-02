@@ -1,3 +1,48 @@
+v1.0.beta4 2006-04-02  Timo Sirainen <tss@iki.fi>
+
+	* Changed the default lock_method back to fcntl. Apparently flock
+	  gives problems with some systems.
+	* mbox: mailboxes beginning with '.' are now also listed
+
+	+ Added support for "master users" who can log in as other people.
+	  The master username can be given either in authorization ID
+	  string with SASL PLAIN mechanism or by setting
+	  auth_master_user_separator and giving it within the normal username
+	  string.
+	+ Added ACL plugin with ACL file backend. This however doesn't mean
+	  that there yet exists a proper shared folder support. If master user
+	  logged in as someone else, the ACLs are checked as the master user.
+	+ Added some Dovecot extensions to checkpassword passdb, see ChangeLog
+	+ Updated passwd-file format to allow specifying any key=value fields
+	+ Maildir++ quota support and several quota fixes
+	+ Replaced mail_use_modules and mail_modules settings with mail_plugins
+	  and mail_plugin_dir. Now instead of loading all plugins from the
+	  directory, you'll have to give a list of plugins to load. If the
+	  plugin couldn't be loaded, the process exits instead of just
+	  ignoring the problem (this is important with ACL plugin).
+	+ passdb supporting extra fields: Added "allow_nets" option which takes
+	  a comma separated list of IPs/networks where to allow user to log in.
+	+ NFS: Handle ESTALE errors the best way we can
+	+ IMAP now writes to log when client disconnects
+	+ In shared mailboxes (if dovecot-shared file exists) \Seen flags are
+	  now kept only in index files, so as long as each user has a separate
+	  index file they have separate \Seen flags.
+	- Fixes to DIGEST-MD5 realm handling so it works with more clients
+	- BODYSTRUCTURE -> BODY conversion from cache file was broken with
+	  mails containing message/rfc822 parts.
+	- Fixed several memory leaks
+	- We could have sent client FETCH notifications about messages before
+	  telling about them with EXISTS
+	- Compiling fixes for Solaris and some other OSes
+	- Fixed problem with internal timeout handling code, which caused eg.
+	  outlook-idle workaround to break.
+	- If /dev/urandom didn't exist, we didn't seed OpenSSL's random number
+	  generator properly. Patch by Vilmos Nebehaj.
+	- Maildir: Recent flags weren't always immediately removed from mails
+	  when mailbox was opened.
+	- Several changes to SSL proxying code, hopefully making it work
+	  better.
+
 v1.0.beta3 2006-02-08  Timo Sirainen <tss@iki.fi>
 
 	* Dotlock code changed to timeout faster in some situations when

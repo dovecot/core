@@ -1,3 +1,26 @@
+Warning: Our dotlock file /home/cras/.dovecot.convert.lock was modified (1143843911 vs 1143843915), assuming it wasn't overridden (kept it -4 secs)
+ - convert-tool copied mbox INBOX into ~/Maildir/.inbox/
+ - convert-tool doesn't read dovecot.conf
+ - when killing master process, the imap/pop3 processes should be killed too
+ - dbox: append_offset in header shouldn't be trusted
+ - dbox: show in index if there are expunge-flagged mails in the mailbox
+ - controldir for mboxes too?
+ - put subscriptions file to controldir?
+ - ability to specify default password scheme with passwd-file
+ - cache file can be broken quite easily with imaptest
+ - Cache file code doesn't notice 32bit -> 64bit CPU change and crashes
+   (shouldn't crash anyway!)
+ - add remote IP to pop3_logout_format, %R is broken
+ - add imap_logout_format
+ - outlook-idle workaround doesn't work?
+ - quota code should probably be always doing some quota_set_critical()
+   instead of using mail_storage_set_critical(), so that quota_last_error()
+   would work properly
+ - x search charset asdf all -> should fail
+ - passdb passwd + passdb shadow -> passdb_password isn't reset to NULL
+ - EXAMINE box, APPEND box -> fails
+ - when pipelining login command + post-login commands, login process should
+   pass the command to imap/pop3 process (at least one pop3 client does this)
  - lda: change "unsupported feature" error to something better
  - imaptest: imap-login: Master sent reply with unknown tag 1
      - client closed connection at the exact same time master was logging it
@@ -96,7 +119,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
  - maildir
     - if indexes exist but dovecot-uidlist doesn't, it's not tried to be
       recreated
-    - hardlink copying doesn't update indexes
     - rename foo foo.xyz -> infinite loop possible?
     - we probably shouldn't do duplicate detection/fixing?.. or at least stat()
       the old file before trying, because we might have just previously seen
@@ -123,6 +145,7 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - subscriptions file should contain namespace prefixes. at least optionally.
       there's the subscriptions = yes setting now for namespaces.. do it so that
       if prefix = "" has subscriptions, it contains prefixes. otherwise not.
+       - for shared/public namespaces default to "no"
     - should we allow following symlinks in mbox/maildirs? they are now.
        - if we implement shared mailboxes with shared indexes, never do that or
 	 others could symlink your personal mailboxes and see the indexes
