@@ -3,6 +3,11 @@ v1.0.beta4 2006-04-02  Timo Sirainen <tss@iki.fi>
 	* Changed the default lock_method back to fcntl. Apparently flock
 	  gives problems with some systems.
 	* mbox: mailboxes beginning with '.' are now also listed
+	* Replaced mail_use_modules and mail_modules settings with mail_plugins
+	  and mail_plugin_dir. Now instead of loading all plugins from the
+	  directory, you'll have to give a list of plugins to load. If the
+	  plugin couldn't be loaded, the process exits instead of just
+	  ignoring the problem (this is important with ACL plugin).
 
 	+ Added support for "master users" who can log in as other people.
 	  The master username can be given either in authorization ID
@@ -15,11 +20,6 @@ v1.0.beta4 2006-04-02  Timo Sirainen <tss@iki.fi>
 	+ Added some Dovecot extensions to checkpassword passdb, see ChangeLog
 	+ Updated passwd-file format to allow specifying any key=value fields
 	+ Maildir++ quota support and several quota fixes
-	+ Replaced mail_use_modules and mail_modules settings with mail_plugins
-	  and mail_plugin_dir. Now instead of loading all plugins from the
-	  directory, you'll have to give a list of plugins to load. If the
-	  plugin couldn't be loaded, the process exits instead of just
-	  ignoring the problem (this is important with ACL plugin).
 	+ passdb supporting extra fields: Added "allow_nets" option which takes
 	  a comma separated list of IPs/networks where to allow user to log in.
 	+ NFS: Handle ESTALE errors the best way we can
