@@ -1,3 +1,8 @@
+ - dovecot-master loops forever trying to create log pipes if it runs out
+   of fds.
+ - trying to select non-existing mailbox with LF in its name prints the
+   LF in error reply. also should we try to prevent CR/LFs from being used
+   in mailbox names completely?..
 Warning: Our dotlock file /home/cras/.dovecot.convert.lock was modified (1143843911 vs 1143843915), assuming it wasn't overridden (kept it -4 secs)
  - convert-tool copied mbox INBOX into ~/Maildir/.inbox/
  - convert-tool doesn't read dovecot.conf

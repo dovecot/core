@@ -1,3 +1,8 @@
+v1.0.beta5 2006-04-04  Timo Sirainen <tss@iki.fi>
+
+	- Beta4's SSL proxying rewrite worked worse than I thought.
+	  Reverted it back to original code.
+
 v1.0.beta4 2006-04-02  Timo Sirainen <tss@iki.fi>
 
 	* Changed the default lock_method back to fcntl. Apparently flock
