@@ -561,7 +561,7 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 		*limit_r = root->message_count_limit;
 		*value_r = root->total_count;
 	}
-	return 0;
+	return 1;
 }
 
 static int
