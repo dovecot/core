@@ -28,6 +28,8 @@ struct maildir_quota_root {
 	uint64_t total_count;
 
 	int fd;
+
+	unsigned int master_message_limits:1;
 };
 
 struct maildir_list_context {
@@ -224,13 +226,13 @@ static int maildirsize_write(struct maildir_quota_root *root,
 
 	str = t_str_new(128);
 	if (root->message_bytes_limit != (uint64_t)-1) {
-		str_printfa(str, "S=%llu",
+		str_printfa(str, "%lluS",
 			    (unsigned long long)root->message_bytes_limit);
 	}
 	if (root->message_count_limit != (uint64_t)-1) {
 		if (str_len(str) > 0)
 			str_append_c(str, ',');
-		str_printfa(str, "C=%llu",
+		str_printfa(str, "%lluC",
 			    (unsigned long long)root->message_count_limit);
 	}
 	str_printfa(str, "\n%llu %llu\n",
@@ -307,6 +309,7 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 			     int fd, const char *const *lines)
 {
 	unsigned long long bytes;
+	uint64_t message_bytes_limit, message_count_limit;
 	long long bytes_diff, total_bytes;
 	int count_diff, total_count;
 	unsigned int line_count = 0;
@@ -317,20 +320,31 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 		return -1;
 
 	/* first line contains the limits */
-	root->message_bytes_limit = (uint64_t)-1;
-	root->message_count_limit = (uint64_t)-1;
+	message_bytes_limit = (uint64_t)-1;
+	message_count_limit = (uint64_t)-1;
 	for (limit = t_strsplit(lines[0], ","); *limit != NULL; limit++) {
 		bytes = strtoull(*limit, &pos, 10);
 		if (pos[0] != '\0' && pos[1] == '\0') {
 			switch (pos[0]) {
 			case 'C':
-				root->message_count_limit = bytes;
+				message_count_limit = bytes;
 				break;
 			case 'S':
-				root->message_bytes_limit = bytes;
+				message_bytes_limit = bytes;
 				break;
 			}
 		}
+	}
+
+	if (!root->master_message_limits) {
+		/* we don't know the limits, use whatever the file says */
+		root->message_bytes_limit = message_bytes_limit;
+		root->message_count_limit = message_count_limit;
+	} else if (root->message_bytes_limit != message_bytes_limit ||
+		   root->message_count_limit != message_count_limit) {
+		/* we know the limits and they've changed.
+		   the file must be rewritten. */
+		return 0;
 	}
 
 	/* rest of the lines contains <bytes> <count> diffs */
@@ -445,8 +459,15 @@ static int maildirquota_refresh(struct maildir_quota_root *root,
 	int ret;
 
 	ret = maildirsize_read(root, storage);
-	if (ret == 0)
+	if (ret == 0) {
+		if (root->message_bytes_limit == (uint64_t)-1 &&
+		    root->message_count_limit == (uint64_t)-1) {
+			/* no quota */
+			return 0;
+		}
+
 		ret = maildirsize_recalculate(root, storage);
+	}
 	return ret < 0 ? -1 : 0;
 }
 
@@ -483,10 +504,10 @@ static int maildirsize_update(struct maildir_quota_root *root,
 }
 
 static struct quota_root *
-maildir_quota_init(struct quota_setup *setup __attr_unused__,
-		   const char *name __attr_unused__)
+maildir_quota_init(struct quota_setup *setup, const char *name __attr_unused__)
 {
 	struct maildir_quota_root *root;
+	const char *const *args;
 
 	root = i_new(struct maildir_quota_root, 1);
 	root->root.name = i_strdup(name);
@@ -494,6 +515,22 @@ maildir_quota_init(struct quota_setup *setup __attr_unused__,
 	root->fd = -1;
 	root->message_bytes_limit = (uint64_t)-1;
 	root->message_count_limit = (uint64_t)-1;
+
+	t_push();
+	args = t_strsplit(setup->data, ":");
+
+	for (; *args != '\0'; args++) {
+		if (strncmp(*args, "storage=", 8) == 0) {
+			root->message_bytes_limit =
+				strtoull(*args + 8, NULL, 10) * 1024;
+			root->master_message_limits = TRUE;
+		} else if (strncmp(*args, "messages=", 9) == 0) {
+			root->message_count_limit =
+				strtoull(*args + 9, NULL, 10);
+			root->master_message_limits = TRUE;
+		}
+	}
+	t_pop();
 
 	return &root->root;
 }
@@ -554,12 +591,18 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 				 maildir_quota_root_get_storage(_root)) < 0)
 		return -1;
 
+	if (root->message_bytes_limit == (uint64_t)-1 &&
+	    root->message_count_limit == (uint64_t)-1)
+		return 0;
+
 	if (strcmp(name, QUOTA_NAME_STORAGE) == 0) {
 		*limit_r = root->message_bytes_limit / 1024;
 		*value_r = root->total_bytes / 1024;
-	} else {
+	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
 		*limit_r = root->message_count_limit;
 		*value_r = root->total_count;
+	} else {
+		return 0;
 	}
 	return 1;
 }
