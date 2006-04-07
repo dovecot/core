@@ -26,10 +26,11 @@ struct auth *auth_preinit(void)
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
 
-	auth->verbose = getenv("VERBOSE") != NULL;
-	auth->verbose_debug = getenv("VERBOSE_DEBUG") != NULL;
 	auth->verbose_debug_passwords =
 		getenv("VERBOSE_DEBUG_PASSWORDS") != NULL;
+	auth->verbose_debug = getenv("VERBOSE_DEBUG") != NULL ||
+		auth->verbose_debug_passwords;
+	auth->verbose = getenv("VERBOSE") != NULL || auth->verbose_debug;
 
 	t_push();
 	passdb_p = &auth->passdbs;
