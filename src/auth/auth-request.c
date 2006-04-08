@@ -608,7 +608,12 @@ bool auth_request_set_login_username(struct auth_request *request,
 
         request->requested_login_user =
                 auth_request_fix_username(request, username, error_r);
-        return request->requested_login_user != NULL;
+	if (strcmp(request->requested_login_user, request->user) == 0) {
+		/* The usernames are the same, we don't really wish to log
+		   in as someone else */
+		request->requested_login_user = NULL;
+	}
+	return request->requested_login_user != NULL;
 }
 
 static int is_ip_in_network(const char *network, const struct ip_addr *ip)
