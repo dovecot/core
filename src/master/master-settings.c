@@ -1234,6 +1234,171 @@ bool master_settings_read(const char *path, bool nochecks)
 	return TRUE;
 }
 
+static void settings_dump(const struct setting_def *def, const void **sets,
+			  const char **set_names, unsigned int count,
+			  bool nondefaults, unsigned int indent)
+{
+	const char **str;
+	unsigned int i;
+
+	str = t_new(const char *, count);
+	for (; def->name != NULL; def++) {
+		bool same = TRUE;
+
+		t_push();
+		switch (def->type) {
+		case SET_STR: {
+			const char *const *strp;
+
+			for (i = 0; i < count; i++) {
+				strp = CONST_PTR_OFFSET(sets[i], def->offset);
+				str[i] = *strp != NULL ? *strp : "";
+			}
+			break;
+		}
+		case SET_INT: {
+			const unsigned int *n;
+
+			for (i = 0; i < count; i++) {
+				n = CONST_PTR_OFFSET(sets[i], def->offset);
+				str[i] = dec2str(*n);
+			}
+			break;
+		}
+		case SET_BOOL: {
+			const bool *b;
+
+			for (i = 0; i < count; i++) {
+				b = CONST_PTR_OFFSET(sets[i], def->offset);
+				str[i] = *b ? "yes" : "no";
+			}
+			break;
+		}
+		}
+
+		for (i = 2; i < count; i++) {
+			if (strcmp(str[i], str[i-1]) != 0)
+				same = FALSE;
+		}
+		if (same) {
+			if (!nondefaults || strcmp(str[0], str[1]) != 0) {
+				for (i = 0; i < indent; i++)
+					putc(' ', stdout);
+				printf("%s: %s\n", def->name, str[1]);
+			}
+		} else {
+			for (i = 0; i < indent; i++)
+				putc(' ', stdout);
+			for (i = 1; i < count; i++) {
+				printf("%s(%s): %s\n", def->name,
+				       set_names[i], str[i]);
+			}
+		}
+	}
+}
+
+static void
+namespace_settings_dump(struct namespace_settings *ns, bool nondefaults)
+{
+	const void *sets[2];
+
+	sets[0] = t_malloc0(sizeof(struct namespace_settings));
+	for (; ns != NULL; ns = ns->next) {
+		printf("namespace:\n");
+		sets[1] = ns;
+		settings_dump(namespace_setting_defs, sets, NULL, 2,
+			      nondefaults, 2);
+	}
+}
+
+static void auth_settings_dump(struct auth_settings *auth, bool nondefaults)
+{
+	const struct auth_passdb_settings *passdb;
+	const struct auth_userdb_settings *userdb;
+	const struct auth_socket_settings *socket;
+	const void *sets[2], *sets2[2];
+	const void *empty_defaults;
+
+	empty_defaults = t_malloc0(sizeof(struct auth_passdb_settings) +
+				   sizeof(struct auth_userdb_settings) +
+				   sizeof(struct auth_socket_settings));
+
+	sets[0] = &default_auth_settings;
+	sets2[0] = empty_defaults;
+
+	for (; auth != NULL; auth = auth->next) {
+		printf("auth %s:\n", auth->name);
+		sets[1] = auth;
+		settings_dump(auth_setting_defs, sets, NULL, 2, nondefaults, 2);
+
+		passdb = auth->passdbs;
+		for (; passdb != NULL; passdb = passdb->next) {
+			printf("  passdb:\n");
+			sets2[1] = passdb;
+			settings_dump(auth_passdb_setting_defs, sets2, NULL, 2,
+				      nondefaults, 4);
+		}
+
+		userdb = auth->userdbs;
+		for (; userdb != NULL; userdb = userdb->next) {
+			printf("  userdb:\n");
+			sets2[1] = userdb;
+			settings_dump(auth_userdb_setting_defs, sets2, NULL, 2,
+				      nondefaults, 4);
+		}
+
+		socket = auth->sockets;
+		for (; socket != NULL; socket = socket->next) {
+			printf("  socket:\n");
+			sets2[1] = socket;
+			settings_dump(auth_socket_setting_defs, sets2, NULL, 2,
+				      nondefaults, 4);
+
+			if (socket->client.path != NULL) {
+				printf("    client:\n");
+				sets2[1] = &socket->client;
+				settings_dump(socket_setting_defs, sets2, NULL,
+					      2, nondefaults, 6);
+			}
+
+			if (socket->master.path != NULL) {
+				printf("    master:\n");
+				sets2[1] = &socket->master;
+				settings_dump(socket_setting_defs, sets2, NULL,
+					      2, nondefaults, 6);
+			}
+		}
+	}
+}
+
+void master_settings_dump(struct server_settings *set, bool nondefaults)
+{
+	const void *sets[4];
+	const char *set_names[4];
+	unsigned int count;
+
+	sets[0] = &default_settings;
+	sets[1] = set->defaults;
+
+	set_names[0] = NULL;
+	set_names[1] = "default";
+
+	count = 2;
+	if (set->imap != NULL) {
+		sets[count] = set->imap;
+		set_names[count] = "imap";
+		count++;
+	}
+	if (set->pop3 != NULL) {
+		sets[count] = set->pop3;
+		set_names[count] = "pop3";
+		count++;
+	}
+	settings_dump(setting_defs, sets, set_names, count, nondefaults, 0);
+	namespace_settings_dump(set->namespaces, nondefaults);
+	auth_settings_dump(set->auths, nondefaults);
+}
+
 void master_settings_init(void)
 {
 	settings_pool = pool_alloconly_create("settings", 4096);

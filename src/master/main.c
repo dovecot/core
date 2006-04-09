@@ -706,6 +706,7 @@ int main(int argc, char *argv[])
 	/* parse arguments */
 	const char *exec_protocol = NULL, *exec_section = NULL, *user, *home;
 	bool foreground = FALSE, ask_key_pass = FALSE;
+	bool dump_config = FALSE, dump_config_nondefaults = FALSE;
 	int i;
 
 #ifdef DEBUG
@@ -719,11 +720,15 @@ int main(int argc, char *argv[])
 		if (strcmp(argv[i], "-F") == 0) {
 			/* foreground */
 			foreground = TRUE;
+		} else if (strcmp(argv[i], "-a") == 0) {
+			dump_config = TRUE;
 		} else if (strcmp(argv[i], "-c") == 0) {
 			/* config file */
 			i++;
 			if (i == argc) i_fatal("Missing config file argument");
 			configfile = argv[i];
+		} else if (strcmp(argv[i], "-n") == 0) {
+			dump_config_nondefaults = TRUE;
 		} else if (strcmp(argv[i], "-p") == 0) {
 			/* Ask SSL private key password */
 			ask_key_pass = TRUE;
@@ -762,6 +767,11 @@ int main(int argc, char *argv[])
 	if (!master_settings_read(configfile, exec_protocol != NULL))
 		exit(FATAL_DEFAULT);
 	t_pop();
+
+	if (dump_config || dump_config_nondefaults) {
+		master_settings_dump(settings_root, dump_config_nondefaults);
+		return 0;
+	}
 
 	if (ask_key_pass) {
 		const char *prompt;

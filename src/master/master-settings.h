@@ -223,6 +223,8 @@ extern struct server_settings *settings_root;
 
 bool master_settings_read(const char *path, bool nochecks);
 
+void master_settings_dump(struct server_settings *set, bool nondefaults);
+
 void master_settings_init(void);
 void master_settings_deinit(void);
 
