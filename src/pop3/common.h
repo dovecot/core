@@ -18,7 +18,7 @@ enum uidl_keys {
 
 extern struct ioloop *ioloop;
 extern enum client_workarounds client_workarounds;
-extern bool enable_last_command, no_flag_updates, reuse_xuidl;
+extern bool enable_last_command, no_flag_updates, reuse_xuidl, lock_session;
 extern const char *uidl_format, *logout_format;
 extern enum uidl_keys uidl_keymask;
 

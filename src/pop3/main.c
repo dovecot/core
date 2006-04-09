@@ -45,6 +45,7 @@ enum client_workarounds client_workarounds = 0;
 bool enable_last_command = FALSE;
 bool no_flag_updates = FALSE;
 bool reuse_xuidl = FALSE;
+bool lock_session = FALSE;
 const char *uidl_format, *logout_format;
 enum uidl_keys uidl_keymask;
 
@@ -207,6 +208,7 @@ static int main_init(void)
 	enable_last_command = getenv("POP3_ENABLE_LAST") != NULL;
 	no_flag_updates = getenv("POP3_NO_FLAG_UPDATES") != NULL;
 	reuse_xuidl = getenv("POP3_REUSE_XUIDL") != NULL;
+	lock_session = getenv("POP3_LOCK_SESSION") != NULL;
 
 	uidl_format = getenv("POP3_UIDL_FORMAT");
 	if (uidl_format == NULL || *uidl_format == '\0')

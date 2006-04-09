@@ -152,6 +152,8 @@ struct client *client_create(int fd_in, int fd_out,
 	flags = 0;
 	if (no_flag_updates)
 		flags |= MAILBOX_OPEN_KEEP_RECENT;
+	if (lock_session)
+		flags |= MAILBOX_OPEN_KEEP_LOCKED;
 	client->mailbox = mailbox_open(storage, "INBOX", NULL, flags);
 	if (client->mailbox == NULL) {
 		i_error("Couldn't open INBOX: %s",
