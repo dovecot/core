@@ -391,6 +391,11 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 
 	while (fcntl(ctx->mbox->mbox_fd, wait_type, &fl) < 0) {
 		if (errno != EINTR) {
+			if ((errno == EACCES || errno == EAGAIN) &&
+			    wait_type == F_SETLK) {
+				/* non-blocking lock trying failed */
+				return 0;
+			}
 			mbox_set_syscall_error(ctx->mbox, "fcntl()");
 			alarm(0);
 			return -1;
