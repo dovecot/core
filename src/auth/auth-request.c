@@ -582,10 +582,16 @@ bool auth_request_set_username(struct auth_request *request,
 		p = strchr(username, request->auth->master_user_separator);
 		if (p != NULL) {
 			/* it does, set it. */
-			if (!auth_request_set_login_username(request, p+1,
+			const char *login_username;
+
+			login_username = t_strdup_until(username, p);
+			if (!auth_request_set_login_username(request,
+							     login_username,
 							     error_r))
 				return FALSE;
-			username = t_strdup_until(username, p);
+
+			/* username is the master user */
+			username = p + 1;
 		}
 	}
 
@@ -610,7 +616,8 @@ bool auth_request_set_login_username(struct auth_request *request,
 
         request->requested_login_user =
                 auth_request_fix_username(request, username, error_r);
-	if (strcmp(request->requested_login_user, request->user) == 0) {
+	if (request->user != NULL &&
+	    strcmp(request->requested_login_user, request->user) == 0) {
 		/* The usernames are the same, we don't really wish to log
 		   in as someone else */
 		request->requested_login_user = NULL;
