@@ -350,6 +350,7 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 
 	ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
 	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
+	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;
 	ibox->index = index;
 
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;

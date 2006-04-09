@@ -74,6 +74,7 @@ struct index_mailbox {
 
 	unsigned int readonly:1;
 	unsigned int keep_recent:1;
+	unsigned int keep_locked:1;
 	unsigned int recent_flags_synced:1;
 	unsigned int sent_diskspace_warning:1;
 	unsigned int sent_readonly_flags_warning:1;

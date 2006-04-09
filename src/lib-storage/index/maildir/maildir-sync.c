@@ -1344,7 +1344,8 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		ret = maildir_sync_context(ctx, FALSE, FALSE);
 		maildir_sync_deinit(ctx);
 
-		i_assert(!maildir_uidlist_is_locked(mbox->uidlist));
+		i_assert(!maildir_uidlist_is_locked(mbox->uidlist) ||
+			 mbox->ibox.keep_locked);
 
 		if (ret == 0) {
 			/* lost some files from new/, see if thery're in cur/ */

@@ -466,6 +466,14 @@ maildir_open(struct maildir_storage *storage, const char *name,
 		mbox->private_flags_mask = MAIL_SEEN;
 	}
 
+	if (mbox->ibox.keep_locked) {
+		if (maildir_uidlist_lock(mbox->uidlist) <= 0) {
+			struct mailbox *box = &mbox->ibox.box;
+
+			mailbox_close(&box);
+			return NULL;
+		}
+	}
 
 	return &mbox->ibox.box;
 }
@@ -877,6 +885,9 @@ static int maildir_storage_close(struct mailbox *box)
 		mail_storage_set_index_error(ibox);
 		ret = -1;
 	}*/
+
+	if (mbox->ibox.keep_locked)
+		maildir_uidlist_unlock(mbox->uidlist);
 
 	maildir_keywords_deinit(mbox->keywords);
 	maildir_uidlist_deinit(mbox->uidlist);

@@ -606,6 +606,15 @@ mbox_open(struct mbox_storage *storage, const char *name,
 		}
 	}
 
+	if (mbox->ibox.keep_locked) {
+		if (mbox_lock(mbox, F_WRLCK, &mbox->mbox_global_lock_id) <= 0) {
+			struct mailbox *box = &mbox->ibox.box;
+
+			mailbox_close(&box);
+			return NULL;
+		}
+	}
+
 	return &mbox->ibox.box;
 }
 
@@ -1038,6 +1047,9 @@ static int mbox_storage_close(struct mailbox *box)
 		if (mbox_sync(mbox, MBOX_SYNC_REWRITE) < 0)
 			ret = -1;
 	}
+
+	if (mbox->mbox_global_lock_id != 0)
+		(void)mbox_unlock(mbox, mbox->mbox_global_lock_id);
 
         mbox_file_close(mbox);
 	if (mbox->mbox_file_stream != NULL)

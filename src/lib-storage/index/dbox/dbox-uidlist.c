@@ -860,11 +860,10 @@ static int dbox_uidlist_files_lookup(struct dbox_uidlist_append_ctx *ctx,
 static int
 dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 		 const char *path, struct dbox_uidlist_entry *entry,
-		 struct dbox_file **file_r)
+		 struct stat *st, struct dbox_file **file_r)
 {
 	struct dbox_mailbox *mbox = ctx->uidlist->mbox;
 	struct dbox_file *file;
-	struct stat st;
 	int fd;
 
 	*file_r = NULL;
@@ -876,7 +875,7 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 		return -1;
 	}
 
-	if (fstat(fd, &st) < 0) {
+	if (fstat(fd, st) < 0) {
 		mail_storage_set_critical(STORAGE(mbox->storage),
 					  "fstat(%s) failed: %m", path);
 		(void)close(fd);
@@ -890,7 +889,7 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 	file->input = i_stream_create_file(file->fd, default_pool,
 					   65536, FALSE);
 	file->output = o_stream_create_file(file->fd, default_pool, 0, FALSE);
-	if ((uoff_t)st.st_size < sizeof(struct dbox_file_header)) {
+	if ((uoff_t)st->st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {
 			dbox_file_close(file);
 			return -1;
@@ -1009,7 +1008,8 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 		if (dbox_file_append_lock(ctx, path, &file_seq,
 					  &entry, &dotlock) < 0)
 			return -1;
-	} while ((ret = dbox_file_append(ctx, str_c(path), entry, &file)) == 0);
+	} while ((ret = dbox_file_append(ctx, str_c(path), entry,
+					 &st, &file)) == 0);
 
 	if (ret < 0) {
 		file_dotlock_delete(&dotlock);

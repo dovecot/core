@@ -57,6 +57,7 @@ struct maildir_uidlist {
 	unsigned int initial_sync:1;
 
 	unsigned int need_rewrite:1;
+	unsigned int delayed_rewrite:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -98,8 +99,12 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 			       &uidlist->dotlock);
 	umask(old_mask);
 	if (fd == -1) {
-		if (errno == EAGAIN)
+		if (errno == EAGAIN) {
+			mail_storage_set_error(STORAGE(uidlist->mbox->storage),
+				"Timeout while waiting for lock");
+			STORAGE(uidlist->mbox->storage)->temporary_error = TRUE;
 			return 0;
+		}
 		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
 			"file_dotlock_open(%s) failed: %m", path);
 		return -1;
@@ -136,7 +141,20 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 	if (--uidlist->lock_count > 0)
 		return;
 
-	(void)file_dotlock_delete(&uidlist->dotlock);
+	if (!uidlist->delayed_rewrite) {
+		(void)file_dotlock_delete(&uidlist->dotlock);
+	} else {
+		if (file_dotlock_replace(&uidlist->dotlock, 0) <= 0) {
+			const char *db_path;
+
+			db_path = t_strconcat(uidlist->mbox->control_dir,
+					      "/" MAILDIR_UIDLIST_NAME, NULL);
+			mail_storage_set_critical(
+				STORAGE(uidlist->mbox->storage),
+				"file_dotlock_replace(%s) failed: %m", db_path);
+		}
+		uidlist->delayed_rewrite = FALSE;
+	}
 	uidlist->lock_fd = -1;
 }
 
@@ -514,6 +532,20 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
 	const char *filename;
 	int ret = 0;
 
+	if (uidlist->delayed_rewrite) {
+		/* already written, truncate */
+		if (lseek(uidlist->lock_fd, 0, SEEK_SET) < 0) {
+			mail_storage_set_critical(storage,
+				"lseek(%s) failed: %m", temp_path);
+			return -1;
+		}
+		if (ftruncate(uidlist->lock_fd, 0) < 0) {
+			mail_storage_set_critical(storage,
+				"ftruncate(%s) failed: %m", temp_path);
+			return -1;
+		}
+	}
+
 	uidlist->version = 1;
 
 	if (uidlist->uid_validity == 0) {
@@ -583,13 +615,14 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 	const char *temp_path, *db_path;
 	int ret;
 
-	i_assert(uidlist->lock_count == 1);
+	i_assert(uidlist->lock_count ==
+		 1 + (uidlist->mbox->ibox.keep_locked ? 1 : 0));
 
 	temp_path = t_strconcat(mbox->control_dir,
 				"/" MAILDIR_UIDLIST_NAME ".lock", NULL);
 	ret = maildir_uidlist_rewrite_fd(uidlist, temp_path);
 
-	if (ret == 0) {
+	if (ret == 0 && !uidlist->mbox->ibox.keep_locked) {
 		db_path = t_strconcat(mbox->control_dir,
 				      "/" MAILDIR_UIDLIST_NAME, NULL);
 
@@ -603,6 +636,8 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 		uidlist->lock_fd = -1;
 		uidlist->lock_count--;
 	} else {
+		if (uidlist->mbox->ibox.keep_locked)
+			uidlist->delayed_rewrite = TRUE;
                 maildir_uidlist_unlock(uidlist);
 	}
 
@@ -885,7 +920,12 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
 
 	if (ctx->uidlist->need_rewrite ||
 	    (ctx->new_files_count != 0 && !ctx->failed)) {
-		if (ctx->uidlist->lock_count > 1) {
+		unsigned int nonrecursive_lock_count = 1;
+
+		if (ctx->uidlist->mbox->ibox.keep_locked)
+			nonrecursive_lock_count++;
+
+		if (ctx->uidlist->lock_count > nonrecursive_lock_count) {
 			/* recursive sync. let the root syncing do
 			   the rewrite */
 			ctx->uidlist->need_rewrite = TRUE;
