@@ -46,6 +46,7 @@ struct login_auth_request {
 static unsigned int auth_id_counter, login_pid_counter;
 static struct timeout *to;
 static struct io *io_listen;
+static bool logins_stalled = FALSE;
 
 static struct hash_table *processes;
 static struct login_group *login_groups;
@@ -53,6 +54,7 @@ static struct login_group *login_groups;
 static void login_process_destroy(struct login_process *p);
 static void login_process_unref(struct login_process *p);
 static bool login_process_init_group(struct login_process *p);
+static void login_processes_start_missing(void *context);
 
 static void login_group_create(struct settings *set)
 {
@@ -588,15 +590,17 @@ void login_processes_destroy_all(void)
 	}
 }
 
-static void login_group_start_missings(struct login_group *group)
+static int login_group_start_missings(struct login_group *group)
 {
 	if (!group->set->login_process_per_connection) {
 		/* create max. one process every second, that way if it keeps
 		   dying all the time we don't eat all cpu with fork()ing. */
 		if (group->listening_processes <
-		    group->set->login_processes_count)
-			(void)create_login_process(group);
-		return;
+		    group->set->login_processes_count) {
+			if (create_login_process(group) < 0)
+				return -1;
+		}
+		return 0;
 	}
 
 	/* we want to respond fast when multiple clients are connecting
@@ -621,9 +625,26 @@ static void login_group_start_missings(struct login_group *group)
 			group->set->login_max_processes_count;
 	}
 
-	while (group->listening_processes < group->wanted_processes_count)
-		(void)create_login_process(group);
+	while (group->listening_processes < group->wanted_processes_count) {
+		if (create_login_process(group) < 0)
+			return -1;
+	}
+	return 0;
 }
+
+static void login_processes_stall(void)
+{
+	if (logins_stalled)
+		return;
+
+	i_error("Temporary failure in creating login processes, "
+		"slowing down for now");
+	logins_stalled = TRUE;
+
+	timeout_remove(&to);
+	to = timeout_add(60*1000, login_processes_start_missing, NULL);
+}
+
 
 static void
 login_processes_start_missing(void *context __attr_unused__)
@@ -633,8 +654,21 @@ login_processes_start_missing(void *context __attr_unused__)
 	if (login_groups == NULL)
 		login_process_groups_create();
 
-	for (group = login_groups; group != NULL; group = group->next)
-		login_group_start_missings(group);
+	for (group = login_groups; group != NULL; group = group->next) {
+		if (login_group_start_missings(group) < 0) {
+			login_processes_stall();
+			return;
+		}
+	}
+
+	if (logins_stalled) {
+		/* processes were created successfully */
+		i_info("Created login processes successfully, unstalling");
+
+		logins_stalled = FALSE;
+		timeout_remove(&to);
+		to = timeout_add(1000, login_processes_start_missing, NULL);
+	}
 }
 
 static int login_process_send_env(struct login_process *p)

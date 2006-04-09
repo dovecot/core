@@ -57,9 +57,11 @@ struct auth_process {
 static struct timeout *to;
 static unsigned int auth_tag;
 static struct auth_process_group *process_groups;
+static bool auth_stalled = FALSE;
 
 static void auth_process_destroy(struct auth_process *p);
 static int create_auth_worker(struct auth_process *process, int fd);
+static void auth_processes_start_missing(void *context);
 
 void auth_process_request(struct auth_process *process, unsigned int login_pid,
 			  unsigned int login_id, void *context)
@@ -720,6 +722,19 @@ static void auth_process_groups_create(struct server_settings *server)
 	}
 }
 
+static void auth_processes_stall(void)
+{
+	if (auth_stalled)
+		return;
+
+	i_error("Temporary failure in creating authentication processes, "
+		"slowing down for now");
+	auth_stalled = TRUE;
+
+	timeout_remove(&to);
+	to = timeout_add(60*1000, auth_processes_start_missing, NULL);
+}
+
 static void
 auth_processes_start_missing(void *context __attr_unused__)
 {
@@ -733,8 +748,22 @@ auth_processes_start_missing(void *context __attr_unused__)
 
 	for (group = process_groups; group != NULL; group = group->next) {
 		count = group->process_count;
-		for (; count < group->set->count; count++)
-			(void)create_auth_process(group);
+		for (; count < group->set->count; count++) {
+			if (create_auth_process(group) < 0) {
+				auth_processes_stall();
+				return;
+			}
+		}
+	}
+
+	if (auth_stalled) {
+		/* processes were created successfully */
+		i_info("Created authentication processes successfully, "
+		       "unstalling");
+
+		auth_stalled = FALSE;
+		timeout_remove(&to);
+		to = timeout_add(1000, auth_processes_start_missing, NULL);
 	}
 }
 
