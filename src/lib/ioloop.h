@@ -14,7 +14,7 @@ enum io_condition {
 	IO_ERROR	= 0x04,
 	
 	/* internal */
-	IO_NOTIFY	= 0x04
+	IO_NOTIFY	= 0x08
 };
 
 typedef void io_callback_t(void *context);
