@@ -41,6 +41,7 @@ struct ioloop *ioloop;
 unsigned int max_keyword_length;
 unsigned int imap_max_line_length;
 enum client_workarounds client_workarounds = 0;
+static struct io *log_io = NULL;
 
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
@@ -57,6 +58,11 @@ static void sig_die(int signo, void *context __attr_unused__)
 	   which is too common at least while testing :) */
 	if (signo != SIGINT)
 		i_warning("Killed with signal %d", signo);
+	io_loop_stop(ioloop);
+}
+
+static void log_error_callback(void *context __attr_unused__)
+{
 	io_loop_stop(ioloop);
 }
 
@@ -156,6 +162,12 @@ static void main_init(void)
 		       dec2str(geteuid()), dec2str(getegid()));
 	}
 
+	if (getenv("LOG_TO_MASTER") != NULL) {
+		/* If master dies, the log fd gets closed and we'll quit */
+		log_io = io_add(STDERR_FILENO, IO_ERROR,
+				log_error_callback, NULL);
+	}
+
 	capability_string = str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
 	str_append(capability_string, CAPABILITY_STRING);
 
@@ -205,6 +217,8 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
+	if (log_io != NULL)
+		io_remove(&log_io);
 	module_dir_unload(&modules);
 
 	commands_deinit();

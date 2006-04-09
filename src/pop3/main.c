@@ -39,6 +39,8 @@ void (*hook_client_created)(struct client **client) = NULL;
 
 static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
+static struct io *log_io = NULL;
+
 enum client_workarounds client_workarounds = 0;
 bool enable_last_command = FALSE;
 bool no_flag_updates = FALSE;
@@ -52,6 +54,11 @@ static void sig_die(int signo, void *context __attr_unused__)
 	   which is too common at least while testing :) */
 	if (signo != SIGINT)
 		i_warning("Killed with signal %d", signo);
+	io_loop_stop(ioloop);
+}
+
+static void log_error_callback(void *context __attr_unused__)
+{
 	io_loop_stop(ioloop);
 }
 
@@ -168,6 +175,12 @@ static int main_init(void)
 		       dec2str(geteuid()), dec2str(getegid()));
 	}
 
+	if (getenv("LOG_TO_MASTER") != NULL) {
+		/* If master dies, the log fd gets closed and we'll quit */
+		log_io = io_add(STDERR_FILENO, IO_ERROR,
+				log_error_callback, NULL);
+	}
+
 	dict_client_register();
         mail_storage_init();
 	mail_storage_register_all();
@@ -232,6 +245,8 @@ static int main_init(void)
 
 static void main_deinit(void)
 {
+	if (log_io != NULL)
+		io_remove(&log_io);
 	module_dir_unload(&modules);
 
 	clients_deinit();
