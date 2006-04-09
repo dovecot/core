@@ -37,12 +37,8 @@ Once everything is configured, there's two ways to start Dovecot:
 SSL/TLS
 -------
 
-Dovecot supports both GNUTLS and OpenSSL. Dovecot prefers GNUTLS if it's
-found, but fallbacks to OpenSSL. If you wish to force using OpenSSL, give
---with-ssl=openssl to configure.
-
-For GNUTLS support you need version 0.5.5 or later. You can get GNUTLS from
-http://www.gnutls.org/
+Dovecot used to support both GNUTLS and OpenSSL libraries, but nowadays
+only the OpenSSL code is working.
 
 
 Optional Configure Options
