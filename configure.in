@@ -1512,7 +1512,7 @@ if test $want_sqlite = yes; then
 			AC_DEFINE(HAVE_SQLITE,, Build with SQLite3 support)
 			found_sql_drivers="$found_sql_drivers sqlite"
 		])
-	fi
+	])
 fi
 
 if test "$found_sql_drivers" != "" -o "$want_sql" = "yes"; then
