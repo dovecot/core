@@ -29,6 +29,7 @@ static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
 {
 	struct ioloop_notify_handler_context *ctx =
 		current_ioloop->notify_handler_context;
+	int saved_errno = errno;
 	int ret;
 
 	ret = write(ctx->event_pipe[1], &si->si_fd, sizeof(int));
@@ -36,6 +37,8 @@ static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
 		i_fatal("write(event_pipe) failed: %m");
 
 	i_assert(ret <= 0 || ret == sizeof(int));
+
+	errno = saved_errno;
 }
 
 static void event_callback(void *context)
