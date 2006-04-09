@@ -107,7 +107,8 @@ get_var_expand_table(const char *protocol,
 	tab[2].value = user == NULL ? NULL : strchr(user, '@');
 	if (tab[2].value != NULL) tab[2].value++;
 	tab[3].value = t_str_ucase(protocol);
-	tab[4].value = home;
+	tab[4].value = home != NULL ? home :
+		"/HOME_DIRECTORY_USED_BUT_NOT_GIVEN_BY_USERDB";
 	tab[5].value = local_ip;
 	tab[6].value = remote_ip;
 	tab[7].value = dec2str(pid);
@@ -340,6 +341,7 @@ bool create_mail_process(struct login_group *group, int socket,
 	array_t ARRAY_DEFINE(extra_args, const char *);
 	unsigned int i, count;
 	int err, ret, log_fd, nice;
+	bool home_given;
 
 	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
@@ -350,10 +352,12 @@ bool create_mail_process(struct login_group *group, int socket,
 	ARRAY_CREATE(&extra_args, pool_datastack_create(), const char *, 16);
 	mail = home_dir = chroot_dir = system_user = "";
 	uid = gid = 0; nice = 0;
+	home_given = FALSE;
 	for (; *args != NULL; args++) {
-		if (strncmp(*args, "home=", 5) == 0)
+		if (strncmp(*args, "home=", 5) == 0) {
 			home_dir = *args + 5;
-		else if (strncmp(*args, "mail=", 5) == 0)
+			home_given = TRUE;
+		} else if (strncmp(*args, "mail=", 5) == 0)
 			mail = *args + 5;
 		else if (strncmp(*args, "chroot=", 7) == 0)
 			chroot_dir = *args + 7;
@@ -406,7 +410,7 @@ bool create_mail_process(struct login_group *group, int socket,
 
 	var_expand_table =
 		get_var_expand_table(process_names[group->process_type],
-				     user, home_dir,
+				     user, home_given ? home_dir : NULL,
 				     net_ip2addr(local_ip),
 				     net_ip2addr(remote_ip),
 				     pid != 0 ? pid : getpid(), uid);
