@@ -1503,16 +1503,15 @@ if test $want_mysql = yes; then
 fi
 
 if test $want_sqlite = yes; then
-	# stolen from the mysql code above 
 	for i in /usr /usr/local /usr/local; do
 		for j in include  ""; do
 			if test -r "$i/$j/sqlite3.h"; then
-				MYSQL_INCLUDE=$i/$j
+				SQLITE_INCLUDE=$i/$j
 			fi
 		done
 		for j in lib lib/sqlite3 ""; do
 			if test -f "$i/$j/libsqlite3.so" || test -f "$i/$j/libsqlite3.a"; then
-				MYSQL_LIBDIR=$i/$j
+				SQLITE_LIBDIR=$i/$j
 			fi
 		done
 	done
