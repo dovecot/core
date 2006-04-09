@@ -284,8 +284,10 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		return -1;
 	}
 #endif
-	*value_r = dqblk.dqb_curblocks * root->mount->blk_size / 1024;
-	*limit_r = dqblk.dqb_bsoftlimit * root->mount->blk_size / 1024;
+	*value_r = (uint64_t)dqblk.dqb_curblocks *
+		(uint64_t)root->mount->blk_size / 1024;
+	*limit_r = (uint64_t)dqblk.dqb_bsoftlimit *
+		(uint64_t)root->mount->blk_size / 1024;
 	return 1;
 }
 
