@@ -504,9 +504,6 @@ void auth_request_userdb_callback(struct auth_stream_reply *reply,
 {
 	if (reply == NULL && request->userdb->next != NULL) {
 		/* try next userdb. */
-		if (request->extra_fields != NULL)
-			auth_stream_reply_reset(request->extra_fields);
-
 		request->userdb = request->userdb->next;
 		auth_request_lookup_user(request,
 					 request->private_callback.userdb);

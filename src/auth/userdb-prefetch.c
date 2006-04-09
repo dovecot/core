@@ -20,8 +20,15 @@ static void prefetch_lookup(struct auth_request *auth_request,
 	bool uid_seen, gid_seen;
 
 	if (auth_request->extra_fields == NULL) {
-		auth_request_log_error(auth_request, "prefetch",
-				       "passdb didn't return userdb entries");
+		if (auth_request->auth->userdbs->next == NULL) {
+			/* no other userdbs */
+			auth_request_log_error(auth_request, "prefetch",
+				"passdb didn't return userdb entries");
+		} else {
+			/* more userdbs, they may know the user */
+			auth_request_log_info(auth_request, "prefetch",
+				"passdb didn't return userdb entries");
+		}
 		callback(NULL, auth_request);
 		return;
 	}
