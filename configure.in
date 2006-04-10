@@ -1459,7 +1459,7 @@ if test $want_mysql = yes; then
 	fi
 
 	mysql_lib=""
-	LIBS="$LIBS -lz"
+	LIBS="$LIBS -lz -lm"
 	AC_CHECK_LIB(mysqlclient, mysql_init, [
 		mysql_lib="-lmysqlclient -lz -lm"
 	])
