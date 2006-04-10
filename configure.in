@@ -1461,7 +1461,7 @@ if test $want_mysql = yes; then
 	mysql_lib=""
 	LIBS="$LIBS -lz"
 	AC_CHECK_LIB(mysqlclient, mysql_init, [
-		mysql_lib="-lmysqlclient -lz"
+		mysql_lib="-lmysqlclient -lz -lm"
 	])
 
 	if test "$mysql_lib" != ""; then
