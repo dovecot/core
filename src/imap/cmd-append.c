@@ -40,6 +40,9 @@ static void client_input(void *context)
 	case -1:
 		/* disconnected */
 		cmd_append_finish(cmd->context);
+		/* Reset command so that client_destroy() doesn't try to call
+		   cmd_append_continue_message() anymore. */
+		_client_reset_command(client);
 		client_destroy(client, "Disconnected in APPEND");
 		return;
 	case -2:
