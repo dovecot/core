@@ -1,23 +1,19 @@
- - dovecot-master loops forever trying to create log pipes if it runs out
-   of fds.
+ - per-user/ip limits..
  - trying to select non-existing mailbox with LF in its name prints the
    LF in error reply. also should we try to prevent CR/LFs from being used
    in mailbox names completely?..
 Warning: Our dotlock file /home/cras/.dovecot.convert.lock was modified (1143843911 vs 1143843915), assuming it wasn't overridden (kept it -4 secs)
  - convert-tool copied mbox INBOX into ~/Maildir/.inbox/
  - convert-tool doesn't read dovecot.conf
- - when killing master process, the imap/pop3 processes should be killed too
  - dbox: append_offset in header shouldn't be trusted
  - dbox: show in index if there are expunge-flagged mails in the mailbox
- - controldir for mboxes too?
- - put subscriptions file to controldir?
+ - dbox: pop3_lock_session doesn't work
+ - controldir for mboxes too and place subscriptions file there?
  - ability to specify default password scheme with passwd-file
  - cache file can be broken quite easily with imaptest
  - Cache file code doesn't notice 32bit -> 64bit CPU change and crashes
    (shouldn't crash anyway!)
- - add remote IP to pop3_logout_format, %R is broken
  - add imap_logout_format
- - outlook-idle workaround doesn't work?
  - quota code should probably be always doing some quota_set_critical()
    instead of using mail_storage_set_critical(), so that quota_last_error()
    would work properly
@@ -34,7 +30,6 @@ Warning: Our dotlock file /home/cras/.dovecot.convert.lock was modified (1143843
  - dict-server should have some config file which lists the allowed dicts
  - inetd: pop3-login logs in with imap executable
  - with blocking passdb we're not caching lookups if the password was wrong
- - LIST replies 2049 bytes (more would come) -> dovecot gets stuck?
  - LDA: empty mail gives an error.
  - LDA: "message <$MSGID> for $USER: $action" logging
  - if PAM child process doesn't finish within a minute, kill it

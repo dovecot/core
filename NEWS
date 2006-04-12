@@ -1,3 +1,26 @@
+v1.0.beta6 2006-04-12  Timo Sirainen <tss@iki.fi>
+
+	* The login and master usernames were reversed when using
+	  master_user_separator (now the order is UW-IMAP compatible).
+	* Killing dovecot master process now kills all IMAP and POP3
+	  processes also.
+
+	+ -a parameter to dovecot prints now all settings that Dovecot uses.
+	  -n prints all settings that are different from defaults.
+	+ Added pop3_lock_session setting
+	+ %M modifier returns string's MD5 sum. Patch by Ben Winslow
+	- PLAIN SASL authentication wasn't working properly, causing failed
+	  logins with some clients (broken in beta4)
+	- Fixes to Maildir++ quota, should actually work now
+	- Don't crash if passwd-file has entries without passwords
+	  (eg. deny=yes databases)
+	- Fixed prefetch userdb to work nicely with other userdbs
+	- If master process runs out of file descriptors, don't go to
+	  infinite loop (unlikely to have happened unless the OS's default
+	  fd limit was too low)
+	- Fixed non-plaintext password lookups from LDAP. Patch by Lior Okman
+	- %U modifier was actually lowercasing the string. Patch by Ben Winslow
+
 v1.0.beta5 2006-04-04  Timo Sirainen <tss@iki.fi>
 
 	- Beta4's SSL proxying rewrite worked worse than I thought.
