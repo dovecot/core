@@ -568,7 +568,7 @@ static int dbox_set_subscribed(struct mail_storage *_storage,
 	const char *path;
 
 	path = t_strconcat(INDEX_STORAGE(storage)->dir,
-			   "/" SUBSCRIPTION_FILE_NAME, NULL);
+			   "/"DBOX_SUBSCRIPTION_FILE_NAME, NULL);
 
 	return subsfile_set_subscribed(_storage, path,
 				       INDEX_STORAGE(storage)->temp_prefix,

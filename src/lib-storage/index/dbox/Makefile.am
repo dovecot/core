@@ -23,6 +23,7 @@ libstorage_dbox_a_SOURCES = \
 
 noinst_HEADERS = \
 	dbox-file.h \
+	dbox-format.h \
 	dbox-keywords.h \
 	dbox-storage.h \
 	dbox-sync.h \

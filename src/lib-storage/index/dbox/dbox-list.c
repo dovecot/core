@@ -129,7 +129,7 @@ dbox_mailbox_list_init(struct mail_storage *storage,
 		ctx->next = dbox_list_subs;
 
 		path = t_strconcat(istorage->dir,
-				   "/" SUBSCRIPTION_FILE_NAME, NULL);
+				   "/"DBOX_SUBSCRIPTION_FILE_NAME, NULL);
 		ctx->subsfile_ctx =
 			subsfile_list_init(storage, path);
 		if (ctx->subsfile_ctx == NULL) {
