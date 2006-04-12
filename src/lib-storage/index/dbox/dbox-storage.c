@@ -240,7 +240,8 @@ static int create_index_dir(struct index_storage *storage, const char *name)
 	if (strcmp(storage->index_dir, storage->dir) == 0)
 		return 0;
 
-	dir = t_strconcat(storage->index_dir, "/", name, NULL);
+	dir = t_strconcat(storage->index_dir, "/", name,
+			  "/"DBOX_MAILDIR_NAME, NULL);
 	if (mkdir_parents(dir, CREATE_MODE) < 0 && errno != EEXIST) {
 		mail_storage_set_critical(&storage->storage,
 					  "mkdir(%s) failed: %m", dir);
