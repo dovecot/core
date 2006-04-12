@@ -7,6 +7,7 @@
 #include "str.h"
 #include "safe-memset.h"
 #include "str-sanitize.h"
+#include "strescape.h"
 #include "var-expand.h"
 #include "auth-request.h"
 #include "auth-client-connection.h"
@@ -554,7 +555,29 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 			*error_r = "Username contains disallowed characters";
 			return NULL;
 		}
-        }
+	}
+
+	if (request->auth->username_format != NULL) {
+		/* username format given, put it through variable expansion.
+		   we'll have to temporarily replace request->user to get
+		   %u to be the wanted username */
+		const struct var_expand_table *table;
+		char *old_username;
+		string_t *dest;
+
+		old_username = request->user;
+		request->user = user;
+
+		t_push();
+		dest = t_str_new(256);
+		table = auth_request_get_var_expand_table(request, str_escape);
+		var_expand(dest, request->auth->username_format, table);
+		user = p_strdup(request->pool, str_c(dest));
+		t_pop();
+
+		request->user = old_username;
+	}
+
         return user;
 }
 

@@ -225,9 +225,9 @@ void auth_init(struct auth *auth)
 		env = "";
 	auth->auth_realms = t_strsplit_spaces(env, " ");
 
-	auth->default_realm = getenv("DEFAULT_REALM");
-	if (auth->default_realm != NULL && *auth->default_realm == '\0')
-		auth->default_realm = NULL;
+	env = getenv("DEFAULT_REALM");
+	if (env != NULL && *env != '\0')
+		auth->default_realm = env;
 
 	env = getenv("USERNAME_CHARS");
 	if (env == NULL || *env == '\0') {
@@ -243,6 +243,10 @@ void auth_init(struct auth *auth)
 		for (; *env != '\0' && env[1] != '\0'; env += 2)
 			auth->username_translation[(int)(uint8_t)*env] = env[1];
 	}
+
+	env = getenv("USERNAME_FORMAT");
+	if (env != NULL && *env != '\0')
+		auth->username_format = env;
 
 	env = getenv("MASTER_USER_SEPARATOR");
 	if (env != NULL)

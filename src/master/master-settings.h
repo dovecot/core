@@ -174,6 +174,7 @@ struct auth_settings {
 	const char *chroot;
 	const char *username_chars;
 	const char *username_translation;
+	const char *username_format;
 	const char *master_user_separator;
 	const char *anonymous_username;
 	const char *krb5_keytab;
