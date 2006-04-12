@@ -249,15 +249,17 @@ int dbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 
 	ctx->finished = TRUE;
 
-	/* Make sure the file ends here (we could have been overwriting some
-	   existing aborted mail). In case we failed, truncate the file to
-	   the size before writing. */
-	if (ftruncate(ctx->file->fd, ctx->failed ? ctx->hdr_offset :
-		      ctx->file->output->offset) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
-					  "ftruncate(%s) failed: %m",
-					  ctx->file->path);
-		ctx->failed = TRUE;
+	if (ctx->file != NULL) {
+		/* Make sure the file ends here (we could have been overwriting
+		   some existing aborted mail). In case we failed, truncate the
+		   file to the size before writing. */
+		if (ftruncate(ctx->file->fd, ctx->failed ? ctx->hdr_offset :
+			      ctx->file->output->offset) < 0) {
+			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+						  "ftruncate(%s) failed: %m",
+						  ctx->file->path);
+			ctx->failed = TRUE;
+		}
 	}
 
 	if (!ctx->failed) {
