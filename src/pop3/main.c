@@ -176,7 +176,7 @@ static int main_init(void)
 		       dec2str(geteuid()), dec2str(getegid()));
 	}
 
-	if (getenv("LOG_TO_MASTER") != NULL) {
+	if (getenv("STDERR_CLOSE_SHUTDOWN") != NULL) {
 		/* If master dies, the log fd gets closed and we'll quit */
 		log_io = io_add(STDERR_FILENO, IO_ERROR,
 				log_error_callback, NULL);

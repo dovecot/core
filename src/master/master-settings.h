@@ -36,6 +36,7 @@ struct settings {
 	bool ssl_verify_client_cert;
 	bool disable_plaintext_auth;
 	bool verbose_ssl;
+	bool shutdown_clients;
 
 	/* login */
 	const char *login_dir;

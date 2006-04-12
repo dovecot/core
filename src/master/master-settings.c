@@ -71,6 +71,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_BOOL, ssl_verify_client_cert),
 	DEF(SET_BOOL, disable_plaintext_auth),
 	DEF(SET_BOOL, verbose_ssl),
+	DEF(SET_BOOL, shutdown_clients),
 
 	/* login */
 	DEF(SET_STR, login_dir),
@@ -274,6 +275,7 @@ struct settings default_settings = {
 	MEMBER(ssl_verify_client_cert) FALSE,
 	MEMBER(disable_plaintext_auth) TRUE,
 	MEMBER(verbose_ssl) FALSE,
+	MEMBER(shutdown_clients) TRUE,
 
 	/* login */
 	MEMBER(login_dir) "login",

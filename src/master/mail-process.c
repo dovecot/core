@@ -247,6 +247,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MBOX_VERY_DIRTY_SYNCS=1");
 	if (set->mbox_lazy_writes)
 		env_put("MBOX_LAZY_WRITES=1");
+	if (set->shutdown_clients)
+		env_put("STDERR_CLOSE_SHUTDOWN=1");
 	(void)umask(set->umask);
 
 	env_put(t_strconcat("LOCK_METHOD=", set->lock_method, NULL));
