@@ -1,7 +1,9 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
+#include "md5.h"
 #include "hash.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
@@ -76,6 +78,15 @@ static const char *m_str_hash(const char *str, struct var_expand_context *ctx)
 	return str_c(hash);
 }
 
+static const char *m_str_md5(const char *str, struct var_expand_context *ctx __attr_unused__)
+{
+	unsigned char digest[16];
+
+	md5_get_digest(str, strlen(str), digest);
+
+	return binary_to_hex(digest, sizeof(digest));
+}
+
 #define MAX_MODIFIER_COUNT 10
 static const struct var_expand_modifier modifiers[] = {
 	{ 'L', m_str_lcase },
@@ -84,6 +95,7 @@ static const struct var_expand_modifier modifiers[] = {
 	{ 'X', m_str_hex },
 	{ 'R', m_str_reverse },
 	{ 'H', m_str_hash },
+	{ 'M', m_str_md5 },
 	{ '\0', NULL }
 };
 

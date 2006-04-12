@@ -30,6 +30,7 @@ You can apply a modifiers for each variable (eg. %Lp = pop3):
       example in dividing users automatically to multiple partitions. Note
       that if you're hashing usernames being in user@domain form, you probably
       want to reverse the string to get better hash value variety, eg. %3RHu.
+ %M - return the string's MD5 sum
 
 You can take a substring of the variable by giving optional offset followed
 by '.' and width after the '%' character. For example %2u gives first two
