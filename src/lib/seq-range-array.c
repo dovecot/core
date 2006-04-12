@@ -112,7 +112,8 @@ void seq_range_array_remove(array_t *array, uint32_t seq)
 		return;
 
 	data = array_get_modifyable(array, &count);
-	i_assert(count > 0);
+	if (count == 0)
+		return;
 
 	/* quick checks */
 	if (seq > data[count-1].seq2 || seq < data[0].seq1) {
