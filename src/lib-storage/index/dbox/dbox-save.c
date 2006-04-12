@@ -249,6 +249,17 @@ int dbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 
 	ctx->finished = TRUE;
 	if (!ctx->failed) {
+		/* make sure the file ends here (we could have been
+		   overwriting some existing aborted mail) */
+		if (ftruncate(ctx->file->fd, ctx->file->output->offset) < 0) {
+			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+						  "ftruncate(%s) failed: %m",
+						  ctx->file->path);
+			ctx->failed = TRUE;
+		}
+	}
+
+	if (!ctx->failed) {
 		/* write mail size to header */
 		DEC2HEX(hdr.mail_size_hex,
 			ctx->file->output->offset - ctx->mail_offset);
