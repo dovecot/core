@@ -1,3 +1,9 @@
+v1.0.beta7 2006-04-12  Timo Sirainen <tss@iki.fi>
+
+	+ Added shutdown_clients setting to control if existing imap/pop3 
+	  processes should be killed when master is.
+	- Master login fixes, PLAIN authentication was still broken..
+
 v1.0.beta6 2006-04-12  Timo Sirainen <tss@iki.fi>
 
 	* The login and master usernames were reversed when using
