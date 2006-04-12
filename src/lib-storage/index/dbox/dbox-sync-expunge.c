@@ -439,7 +439,7 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 	const char *path;
 	int ret;
 
-	if (ctx->dotlock_failed_file_seq != sync_entry->file_seq && 0) {
+	if (ctx->dotlock_failed_file_seq != sync_entry->file_seq) {
 		/* we need to have the file locked in case another process is
 		   appending there already. */
 		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
