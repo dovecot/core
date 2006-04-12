@@ -37,6 +37,28 @@ void *module_get_symbol(struct module *module, const char *symbol)
 	return ret;
 }
 
+const char *module_file_get_name(const char *fname)
+{
+	const char *p;
+
+	/* [lib][nn_]name(.so) */
+	if (strncmp(fname, "lib", 3) == 0)
+		fname += 3;
+
+	for (p = fname; *p != '\0'; p++) {
+		if (*p < '0' || *p > '9')
+			break;
+	}
+	if (*p == '_')
+		fname = p + 1;
+
+	p = strstr(fname, ".so");
+	if (p == NULL)
+		return fname;
+
+	return t_strdup_until(fname, p);
+}
+
 static void *get_symbol(struct module *module, const char *symbol, bool quiet)
 {
 	if (quiet)
@@ -174,28 +196,22 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 	qsort(names_p, count, sizeof(const char *), module_name_cmp);
 
 	t_push();
-	module_names_arr = module_names == NULL ? NULL :
-		t_strsplit_spaces(module_names, ", ");
+	if (module_names == NULL)
+		module_names_arr = NULL;
+	else {
+		module_names_arr = t_strsplit_spaces(module_names, ", ");
+		/* allow giving the module names also in non-base form.
+		   conver them in here. */
+		for (i = 0; module_names_arr[i] != NULL; i++) {
+			module_names_arr[i] =
+				module_file_get_name(module_names_arr[i]);
+		}
+	}
 	for (i = 0; i < count; i++) {
 		const char *name = names_p[i];
 
-		/* [lib][nn_]name(.so) */
-                stripped_name = name;
-		if (strncmp(stripped_name, "lib", 3) == 0)
-			stripped_name += 3;
-
-		for (p = stripped_name; *p != '\0'; p++) {
-			if (*p < '0' || *p > '9')
-				break;
-		}
-		if (*p == '_')
-			stripped_name = p + 1;
-
-		p = strstr(stripped_name, ".so");
-		i_assert(p != NULL);
-
 		t_push();
-		stripped_name = t_strdup_until(stripped_name, p);
+		stripped_name = module_file_get_name(name);
 		if (!module_want_load(module_names_arr, stripped_name))
 			module = NULL;
 		else {
