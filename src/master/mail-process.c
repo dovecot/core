@@ -261,6 +261,13 @@ mail_process_set_environment(struct settings *set, const char *mail,
 	env_put(t_strdup_printf("MBOX_MIN_INDEX_SIZE=%u",
 				set->mbox_min_index_size));
 
+	env_put(t_strdup_printf("DBOX_ROTATE_SIZE=%u",
+				set->dbox_rotate_size));
+	env_put(t_strdup_printf("DBOX_ROTATE_MIN_SIZE=%u",
+				set->dbox_rotate_min_size));
+	env_put(t_strdup_printf("DBOX_ROTATE_DAYS=%u",
+				set->dbox_rotate_days));
+
 	if (*set->mail_plugins != '\0') {
 		env_put(t_strconcat("MODULE_DIR=", set->mail_plugin_dir, NULL));
 		env_put(t_strconcat("MODULE_LIST=", set->mail_plugins, NULL));

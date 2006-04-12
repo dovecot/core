@@ -347,7 +347,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	if (value != NULL)
 		mbox->rotate_days = (unsigned int)strtoul(value, NULL, 10);
 	else
-		mbox->rotate_size = DBOX_DEFAULT_ROTATE_DAYS;
+		mbox->rotate_days = DBOX_DEFAULT_ROTATE_DAYS;
 
 	mbox->storage = storage;
 	mbox->path = p_strdup(pool, path);
