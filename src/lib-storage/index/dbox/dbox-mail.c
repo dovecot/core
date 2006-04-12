@@ -31,11 +31,8 @@ static int dbox_mail_parse_mail_header(struct index_mail *mail,
 		return -1;
 	}
 
-	if (hdr->expunged == '1') {
-		mail->mail.mail.expunged = TRUE;
-		return 0;
-	}
-
+	/* Note that the mail may already have an expunge flag, but we don't
+	   care since we can still read it */
 	mail->data.physical_size = mail->data.virtual_size =
 		hex2dec(hdr->mail_size_hex, sizeof(hdr->mail_size_hex));
 	mail->data.received_date =
@@ -119,8 +116,10 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 	}
 
 	mail_storage_set_critical(STORAGE(mbox->storage),
-				  "Cached message offset broken for seq %u in "
-				  "dbox file %s", seq, mbox->path);
+				  "Cached message offset (%u, %"PRIuUOFF_T") "
+				  "broken for uid %u in dbox file %s",
+				  file_seq, offset, mail->mail.mail.uid,
+				  mbox->path);
 	return -1;
 }
 

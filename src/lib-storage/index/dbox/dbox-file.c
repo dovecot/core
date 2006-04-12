@@ -137,6 +137,9 @@ int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset)
 
 		if (dbox_file_read_header(mbox, mbox->file) < 0)
 			return -1;
+	} else {
+		/* make sure we're not caching outdated data */
+		i_stream_sync(mbox->file->input);
 	}
 
 	if (offset == 0)

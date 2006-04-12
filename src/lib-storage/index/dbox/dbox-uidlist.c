@@ -546,8 +546,8 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 					    range[ui].seq1, range[ui].seq2);
 			}
 		}
-		str_printfa(str, " %u %s %"PRIuUOFF_T, entries[i]->file_seq,
-			    dec2str(entries[i]->create_time),
+		str_printfa(str, " %u %lu %"PRIuUOFF_T, entries[i]->file_seq,
+			    (unsigned long)entries[i]->create_time,
 			    entries[i]->file_size);
 		str_append_c(str, '\n');
 		if (o_stream_send(output, str_data(str), str_len(str)) < 0)
