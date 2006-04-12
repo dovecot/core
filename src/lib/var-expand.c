@@ -26,7 +26,7 @@ m_str_lcase(const char *str, struct var_expand_context *ctx __attr_unused__)
 static const char *
 m_str_ucase(const char *str, struct var_expand_context *ctx __attr_unused__)
 {
-	return t_str_lcase(str);
+	return t_str_ucase(str);
 }
 
 static const char *
