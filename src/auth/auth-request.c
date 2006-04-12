@@ -561,7 +561,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r)
 {
-	const char *p;
+	const char *p, *login_username = NULL;
 
 	if (request->original_username == NULL) {
 		/* the username may change later, but we need to use this
@@ -579,13 +579,7 @@ bool auth_request_set_username(struct auth_request *request,
 		p = strchr(username, request->auth->master_user_separator);
 		if (p != NULL) {
 			/* it does, set it. */
-			const char *login_username;
-
 			login_username = t_strdup_until(username, p);
-			if (!auth_request_set_login_username(request,
-							     login_username,
-							     error_r))
-				return FALSE;
 
 			/* username is the master user */
 			username = p + 1;
@@ -599,7 +593,16 @@ bool auth_request_set_username(struct auth_request *request,
 	}
 
         request->user = auth_request_fix_username(request, username, error_r);
-        return request->user != NULL;
+	if (request->user == NULL)
+		return FALSE;
+
+	if (login_username != NULL) {
+		if (!auth_request_set_login_username(request,
+						     login_username,
+						     error_r))
+			return FALSE;
+	}
+	return TRUE;
 }
 
 bool auth_request_set_login_username(struct auth_request *request,
@@ -608,17 +611,17 @@ bool auth_request_set_login_username(struct auth_request *request,
 {
         i_assert(*username != '\0');
 
+	if (strcmp(username, request->user) == 0) {
+		/* The usernames are the same, we don't really wish to log
+		   in as someone else */
+		return TRUE;
+	}
+
         /* lookup request->user from masterdb first */
         request->passdb = request->auth->masterdbs;
 
         request->requested_login_user =
                 auth_request_fix_username(request, username, error_r);
-	if (request->user != NULL &&
-	    strcmp(request->requested_login_user, request->user) == 0) {
-		/* The usernames are the same, we don't really wish to log
-		   in as someone else */
-		request->requested_login_user = NULL;
-	}
 	return request->requested_login_user != NULL;
 }
 
