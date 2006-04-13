@@ -501,7 +501,7 @@ static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 	struct stat st;
 	unsigned int min_size;
 
-	env = getenv("MBOX_MIN_INDEXED_SIZE");
+	env = getenv("MBOX_MIN_INDEX_SIZE");
 	if (env == NULL)
 		return FALSE;
 
