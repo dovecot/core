@@ -429,7 +429,7 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	if (conn->set.uris == NULL && conn->set.hosts == NULL)
 		i_fatal("LDAP: No uris or hosts set");
 #ifndef LDAP_HAVE_INITIALIZE
-	if (conn->set.uris == NULL) {
+	if (conn->set.uris != NULL) {
 		i_fatal("LDAP: Dovecot compiled without support for LDAP uris "
 			"(ldap_initialize not found)");
 	}
