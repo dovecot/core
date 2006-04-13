@@ -157,29 +157,73 @@ static int get_usage(struct dirsize_quota_root *root,
 	return 0;
 }
 
+struct quota_count_path {
+	const char *path;
+	bool is_file;
+};
+
+static void quota_count_path_add(array_t *paths, const char *path, bool is_file)
+{
+	ARRAY_SET_TYPE(paths, struct quota_count_path);
+	struct quota_count_path *count_path;
+	unsigned int i, count;
+
+	count_path = array_get_modifyable(paths, &count);
+	for (i = 0; i < count; i++) {
+		if (strncmp(count_path[i].path, path,
+			    strlen(count_path[i].path)) == 0) {
+			/* this path is already being counted */
+			return;
+		}
+		if (strncmp(count_path[i].path, path, strlen(path)) == 0) {
+			/* the new path contains the existing path */
+			i_assert(!is_file);
+			count_path += i;
+			break;
+		}
+	}
+
+	if (i == count)
+		count_path = array_append_space(paths);
+	count_path->path = t_strdup(path);
+	count_path->is_file = is_file;
+}
+
 static int
 get_quota_root_usage(struct dirsize_quota_root *root, uint64_t *value_r)
 {
 	struct mail_storage *const *storages;
+	array_t ARRAY_DEFINE(paths, struct quota_count_path);
+	const struct quota_count_path *count_paths;
 	unsigned int i, count;
-	const char *path, *inbox_path;
+	const char *path;
 	bool is_file;
 
+	t_push();
+	ARRAY_CREATE(&paths, pool_datastack_create(),
+		     struct quota_count_path, 8);
 	storages = array_get(&root->root.storages, &count);
 	for (i = 0; i < count; i++) {
 		path = mail_storage_get_mailbox_path(storages[i], "", &is_file);
-
-		if (get_usage(root, path, is_file, value_r) < 0)
-			return -1;
+		quota_count_path_add(&paths, path, is_file);
 
 		/* INBOX may be in different path. */
-		inbox_path = mail_storage_get_mailbox_path(storages[i],
-							   "INBOX", &is_file);
-		if (strncmp(inbox_path, path, strlen(path)) != 0) {
-			if (get_usage(root, inbox_path, is_file, value_r) < 0)
-				return -1;
+		path = mail_storage_get_mailbox_path(storages[i], "INBOX",
+						     &is_file);
+		quota_count_path_add(&paths, path, is_file);
+	}
+
+	/* now sum up the found paths */
+	count_paths = array_get(&paths, &count);
+	for (i = 0; i < count; i++) {
+		if (get_usage(root, count_paths[i].path, count_paths[i].is_file,
+			      value_r) < 0) {
+			t_pop();
+			return -1;
 		}
 	}
+
+	t_pop();
 
 	return 0;
 }
