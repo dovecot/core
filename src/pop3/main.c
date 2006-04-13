@@ -249,10 +249,10 @@ static void main_deinit(void)
 {
 	if (log_io != NULL)
 		io_remove(&log_io);
-	module_dir_unload(&modules);
-
 	clients_deinit();
-        mail_storage_deinit();
+
+	module_dir_unload(&modules);
+	mail_storage_deinit();
 	dict_client_unregister();
 	random_deinit();
 
