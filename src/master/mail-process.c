@@ -241,6 +241,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("POP3_REUSE_XUIDL=1");
 	if (set->pop3_enable_last)
 		env_put("POP3_ENABLE_LAST=1");
+	if (set->pop3_lock_session)
+		env_put("POP3_LOCK_SESSION=1");
 	if (set->mbox_dirty_syncs)
 		env_put("MBOX_DIRTY_SYNCS=1");
 	if (set->mbox_very_dirty_syncs)
