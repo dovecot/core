@@ -133,22 +133,51 @@ static int get_dir_usage(const char *dir, uint64_t *value)
 	return ret;
 }
 
+static int get_usage(struct dirsize_quota_root *root,
+		     const char *path, bool is_file, uint64_t *value_r)
+{
+	struct stat st;
+
+	if (is_file) {
+		if (lstat(path, &st) < 0) {
+			if (errno == ENOENT)
+				return 0;
+
+			i_error("lstat(%s) failed: %m", path);
+			return -1;
+		}
+		*value_r += st.st_size;
+	} else {
+		if (get_dir_usage(path, value_r) < 0) {
+			quota_set_error(root->root.setup->quota,
+					"Internal quota calculation error");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static int
 get_quota_root_usage(struct dirsize_quota_root *root, uint64_t *value_r)
 {
 	struct mail_storage *const *storages;
 	unsigned int i, count;
-	const char *path;
+	const char *path, *inbox_path;
 	bool is_file;
 
 	storages = array_get(&root->root.storages, &count);
 	for (i = 0; i < count; i++) {
 		path = mail_storage_get_mailbox_path(storages[i], "", &is_file);
 
-		if (get_dir_usage(path, value_r) < 0) {
-			quota_set_error(root->root.setup->quota,
-					"Internal quota calculation error");
+		if (get_usage(root, path, is_file, value_r) < 0)
 			return -1;
+
+		/* INBOX may be in different path. */
+		inbox_path = mail_storage_get_mailbox_path(storages[i],
+							   "INBOX", &is_file);
+		if (strncmp(inbox_path, path, strlen(path)) != 0) {
+			if (get_usage(root, inbox_path, is_file, value_r) < 0)
+				return -1;
 		}
 	}
 
