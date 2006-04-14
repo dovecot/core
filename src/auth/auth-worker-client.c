@@ -54,18 +54,20 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 	auth_request->context = client;
 	auth_request->id = id;
 
-	t_push();
-	for (tmp = t_strsplit(args, "\t"); *tmp != NULL; tmp++) {
-		value = strchr(*tmp, '=');
-		if (value == NULL)
-			continue;
+	if (args != NULL) {
+		t_push();
+		for (tmp = t_strsplit(args, "\t"); *tmp != NULL; tmp++) {
+			value = strchr(*tmp, '=');
+			if (value == NULL)
+				continue;
 
-		key = t_strdup_until(*tmp, value);
-		value++;
+			key = t_strdup_until(*tmp, value);
+			value++;
 
-		(void)auth_request_import(auth_request, key, value);
+			(void)auth_request_import(auth_request, key, value);
+		}
+		t_pop();
 	}
-	t_pop();
 
 	return auth_request;
 }
