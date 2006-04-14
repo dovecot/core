@@ -112,6 +112,7 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	if (device_path == NULL)
 		return 0;
 
+	memset(point_r, 0, sizeof(*point_r));
 	point_r->device_path = p_strdup(pool, device_path);
 	point_r->mount_path = p_strdup(pool, mount_path);
 	point_r->type = p_strdup(pool, type);
