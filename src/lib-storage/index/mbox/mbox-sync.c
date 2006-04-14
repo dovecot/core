@@ -1546,7 +1546,7 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	int ret, changed;
 	bool delay_writes;
 
-	delay_writes = mbox->ibox.readonly ||
+	delay_writes = mbox->mbox_readonly ||
 		((flags & MBOX_SYNC_REWRITE) == 0 &&
 		 getenv("MBOX_LAZY_WRITES") != NULL);
 

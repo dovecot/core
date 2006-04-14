@@ -269,7 +269,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	struct mbox_mailbox *mbox = ctx->mbox;
 	int ret;
 
-	if (ctx->mbox->mbox_readonly || ctx->mbox->ibox.readonly) {
+	if (ctx->mbox->mbox_readonly) {
 		mail_storage_set_error(STORAGE(ctx->mbox->storage),
 				       "Read-only mbox");
 		return -1;
