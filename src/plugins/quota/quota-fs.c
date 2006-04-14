@@ -183,7 +183,14 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		return 0;
 
 #ifdef HAVE_QUOTACTL
-	if (quotactl(QCMD(Q_GETQUOTA, USRQUOTA), root->mount->device_path,
+	if (quotactl(
+#ifdef HAVE_SYS_QUOTA_H
+		     /* Linux */
+		     QCMD(Q_GETQUOTA, USRQUOTA), root->mount->device_path,
+#else
+		     /* BSD, AIX */
+		     root->mount->device_path, QCMD(Q_GETQUOTA, USRQUOTA),
+#endif
 		     root->uid, (void *)&dqblk) < 0) {
 		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
 			root->mount->device_path);
