@@ -55,16 +55,13 @@ auth_master_listener_socket_free(struct auth_master_listener_socket *socket)
 	i_free(socket);
 }
 
-void auth_master_listener_destroy(struct auth_master_listener **_listener)
+void auth_master_listener_destroy(struct auth_master_listener *listener)
 {
-        struct auth_master_listener *listener = *_listener;
 	struct auth_master_listener *const *listeners;
 	struct auth_master_listener_socket **sockets;
 	struct auth_master_connection **masters;
 	struct auth_client_connection **clients;
 	unsigned int i, count;
-
-	*_listener = NULL;
 
 	listeners = array_get(&master_listeners, &count);
 	for (i = 0; i < count; i++) {
@@ -182,6 +179,6 @@ void auth_master_listeners_deinit(void)
 
 	listeners = array_get_modifyable(&master_listeners, &count);
 	for (i = count; i > 0; i--)
-		auth_master_listener_destroy(&listeners[i-1]);
+		auth_master_listener_destroy(listeners[i-1]);
 	array_free(&master_listeners);
 }
