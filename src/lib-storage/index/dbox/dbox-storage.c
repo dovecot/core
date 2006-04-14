@@ -688,6 +688,7 @@ struct mailbox dbox_mailbox = {
 		index_storage_search_init,
 		index_storage_search_deinit,
 		index_storage_search_next,
+		index_storage_search_next_update_seq,
 		dbox_save_init,
 		dbox_save_continue,
 		dbox_save_finish,

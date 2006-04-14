@@ -966,6 +966,7 @@ struct mailbox maildir_mailbox = {
 		index_storage_search_init,
 		index_storage_search_deinit,
 		index_storage_search_next,
+		index_storage_search_next_update_seq,
 		maildir_save_init,
 		maildir_save_continue,
 		maildir_save_finish,

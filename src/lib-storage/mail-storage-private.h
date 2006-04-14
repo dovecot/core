@@ -139,6 +139,8 @@ struct mailbox_vfuncs {
 		       const enum mail_sort_type *sort_program);
 	int (*search_deinit)(struct mail_search_context *ctx);
 	int (*search_next)(struct mail_search_context *ctx, struct mail *mail);
+	/* Internal search function which updates ctx->seq */
+	int (*search_next_update_seq)(struct mail_search_context *ctx);
 
 	int (*save_init)(struct mailbox_transaction_context *t,
 			 enum mail_flags flags,
@@ -224,6 +226,7 @@ struct mailbox_transaction_context {
 
 struct mail_search_context {
 	struct mailbox_transaction_context *transaction;
+	uint32_t seq;
 };
 
 struct mail_save_context {
