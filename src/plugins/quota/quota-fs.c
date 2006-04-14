@@ -5,6 +5,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "mountpoint.h"
 #include "quota-private.h"
 #include "quota-fs.h"
 
@@ -18,16 +19,6 @@
 
 #ifdef HAVE_STRUCT_DQBLK_CURSPACE
 #  define dqb_curblocks dqb_curspace
-#endif
-
-#define MTAB_PATH "/etc/mtab"
-
-/* AIX doesn't have these defined */
-#ifndef MNTTYPE_SWAP
-#  define MNTTYPE_SWAP "swap"
-#endif
-#ifndef MNTTYPE_IGNORE
-#  define MNTTYPE_IGNORE "ignore"
 #endif
 
 struct fs_quota_mountpoint {
@@ -98,90 +89,19 @@ static void fs_quota_deinit(struct quota_root *_root)
 static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 {
 	struct fs_quota_mountpoint *mount;
-#ifdef HAVE_STATFS_MNTFROMNAME
-	struct statfs buf;
+	struct mountpoint point;
+	int ret;
 
-	if (statfs(dir, &buf) < 0) {
-		i_error("statfs(%s) failed: %m", dir);
+	ret = mountpoint_get(dir, default_pool, &point);
+	if (ret <= 0)
 		return NULL;
-	}
 
 	mount = i_new(struct fs_quota_mountpoint, 1);
-	mount->blk_size = buf.f_bsize;
-	mount->device_path = i_strdup(buf.f_mntfromname);
-	mount->mount_path = i_strdup(buf.f_mntonname);
+	mount->blk_size = point.block_size;
+	mount->device_path = point.device_path;
+	mount->mount_path = point.mount_path;
+	i_free(point.type);
 	return mount;
-#else
-#ifdef HAVE_SYS_MNTTAB_H
-	struct mnttab ent;
-#else
-	struct mntent *ent;
-#endif
-	struct stat st, st2;
-	const char *device_path = NULL, *mount_path = NULL;
-	unsigned int blk_size;
-	FILE *f;
-
-	if (stat(dir, &st) < 0) {
-		i_error("stat(%s) failed: %m", dir);
-		return NULL;
-	}
-	blk_size = st.st_blksize;
-
-#ifdef HAVE_SYS_MNTTAB_H
-	f = fopen(MTAB_PATH, "r");
-	if (f == NULL) {
-		i_error("open(%s) failed: %m", MTAB_PATH);
-		return NULL;
-	}
-	while ((getmntent(f, &ent)) == 0) {
-		if (strcmp(ent.mnt_fstype, MNTTYPE_SWAP) == 0 ||
-		    strcmp(ent.mnt_fstype, MNTTYPE_IGNORE) == 0)
-			continue;
-
-		if (stat(ent.mnt_mountp, &st2) == 0 &&
-		    CMP_DEV_T(st.st_dev, st2.st_dev)) {
-			device_path = ent.mnt_special;
-			mount_path = ent.mnt_mountp;
-			break;
-		}
-	}
-	fclose(f);
-#else
-	f = setmntent(MTAB_PATH, "r");
-	if (f == NULL) {
-		i_error("setmntent(%s) failed: %m", MTAB_PATH);
-		return NULL;
-	}
-	while ((ent = getmntent(f)) != NULL) {
-		if (strcmp(ent->mnt_type, MNTTYPE_SWAP) == 0 ||
-		    strcmp(ent->mnt_type, MNTTYPE_IGNORE) == 0)
-			continue;
-
-		if (stat(ent->mnt_dir, &st2) == 0 &&
-		    CMP_DEV_T(st.st_dev, st2.st_dev)) {
-			device_path = ent->mnt_fsname;
-			mount_path = ent->mnt_dir;
-			break;
-		}
-	}
-	endmntent(f);
-#endif
-	if (device_path == NULL) {
-		if (getenv("DEBUG") != NULL) {
-			i_info("fs quota: mount path for %s not found from %s",
-			       dir, MTAB_PATH);
-		}
-		return NULL;
-	}
-
-	mount = i_new(struct fs_quota_mountpoint, 1);
-	mount->blk_size = blk_size;
-	mount->device_path = i_strdup(device_path);
-	mount->mount_path = i_strdup(mount_path);
-
-	return mount;
-#endif
 }
 
 static bool fs_quota_add_storage(struct quota_root *_root,

@@ -18,19 +18,6 @@
 #  undef HAVE_FS_QUOTA
 #endif
 
-#ifdef HAVE_STATFS_MNTFROMNAME
-#  include <sys/param.h> /* BSDs */
-#  include <sys/mount.h>
-#elif defined(HAVE_MNTENT_H)
-#  include <stdio.h>
-#  include <mntent.h> /* Linux */
-#elif defined(HAVE_SYS_MNTTAB_H)
-#  include <stdio.h>
-#  include <sys/mnttab.h> /* Solaris */
-#else
-#  undef HAVE_FS_QUOTA
-#endif
-
 #if !defined(HAVE_QUOTACTL) && !defined(HAVE_Q_QUOTACTL)
 #  undef HAVE_FS_QUOTA
 #endif
