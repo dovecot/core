@@ -18,7 +18,11 @@
 #  define MOUNTPOINT_UNKNOWN
 #endif
 
-#define MTAB_PATH "/etc/mtab"
+#ifdef HAVE_SYS_MNTTAB_H
+#  define MTAB_PATH "/etc/mnttab" /* Solaris */
+#else
+#  define MTAB_PATH "/etc/mtab" /* Linux */
+#endif
 
 /* AIX doesn't have these defined */
 #ifndef MNTTYPE_SWAP
