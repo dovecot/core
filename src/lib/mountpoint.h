@@ -1,0 +1,14 @@
+#ifndef __MOUNTPOINT_H
+#define __MOUNTPOINT_H
+
+struct mountpoint {
+	char *device_path;
+	char *mount_path;
+	char *type;
+	unsigned int block_size;
+};
+
+/* Returns 1 = found, 0 = not found, -1 = error */
+int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r);
+
+#endif

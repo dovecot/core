@@ -52,6 +52,7 @@ liblib_a_SOURCES = \
 	mmap-anon.c \
 	mmap-util.c \
 	module-dir.c \
+	mountpoint.c \
 	network.c \
 	nfs-workarounds.c \
 	ostream.c \
@@ -121,6 +122,7 @@ noinst_HEADERS = \
 	mkdir-parents.h \
 	mmap-util.h \
 	module-dir.h \
+	mountpoint.h \
 	network.h \
 	nfs-workarounds.h \
 	ostream.h \
