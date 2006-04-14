@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "str.h"
 #include "network.h"
+#include "mountpoint.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "var-expand.h"
@@ -334,6 +335,43 @@ void mail_process_exec(const char *protocol, const char *section)
 		       set->mail_executable);
 }
 
+static void nfs_warn_if_found(const char *mail, const char *home)
+{
+	struct mountpoint point;
+	const char *path;
+
+	if (mail == NULL)
+		path = home;
+	else {
+		path = strstr(mail, ":INDEX=");
+		if (path != NULL) {
+			/* indexes set separately */
+			path += 7;
+			if (strncmp(path, "MEMORY", 6) == 0)
+				return;
+		} else {
+			path = strchr(mail, ':');
+			if (path == NULL) {
+				/* autodetection for path */
+			} else {
+				/* format:path */
+				path++;
+			}
+		}
+		path = t_strcut(path, ':');
+	}
+
+	if (mountpoint_get(path, pool_datastack_create(), &point) <= 0)
+		return;
+
+	if (point.type == NULL || strcasecmp(point.type, "NFS") != 0)
+		return;
+
+	i_fatal("Mailbox indexes in %s are in NFS mount. "
+		"You must set mmap_disable=yes to avoid index corruptions. "
+		"If you're sure this check was wrong, set nfs_check=no.", path);
+}
+
 bool create_mail_process(struct login_group *group, int socket,
 			 const struct ip_addr *local_ip,
 			 const struct ip_addr *remote_ip,
@@ -528,6 +566,12 @@ bool create_mail_process(struct login_group *group, int socket,
 			env_put(t_strconcat(t_str_ucase(
 				t_strdup_until(args[i], p)), p, NULL));
 		}
+	}
+
+	if (set->nfs_check && !set->mmap_disable) {
+		/* do this only once */
+		nfs_warn_if_found(getenv("MAIL"), home_dir);
+		set->nfs_check = FALSE;
 	}
 
 	env_put("LOGGED_IN=1");

@@ -37,6 +37,7 @@ struct settings {
 	bool disable_plaintext_auth;
 	bool verbose_ssl;
 	bool shutdown_clients;
+	bool nfs_check;
 
 	/* login */
 	const char *login_dir;
