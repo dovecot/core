@@ -35,6 +35,7 @@
 int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 {
 #ifdef MOUNTPOINT_UNKNOWN
+	memset(point_r, 0, sizeof(*point_r));
 	errno = ENOSYS;
 	return -1;
 #elif defined (HAVE_STATFS_MNTFROMNAME)
@@ -64,6 +65,7 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	unsigned int block_size;
 	FILE *f;
 
+	memset(point_r, 0, sizeof(*point_r));
 	if (stat(path, &st) < 0) {
 		i_error("stat(%s) failed: %m", path);
 		return -1;
@@ -116,12 +118,10 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	if (device_path == NULL)
 		return 0;
 
-	memset(point_r, 0, sizeof(*point_r));
 	point_r->device_path = p_strdup(pool, device_path);
 	point_r->mount_path = p_strdup(pool, mount_path);
 	point_r->type = p_strdup(pool, type);
 	point_r->block_size = block_size;
-
 	return 1;
 #endif
 }
