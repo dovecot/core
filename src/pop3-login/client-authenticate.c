@@ -19,6 +19,8 @@
 
 #include <stdlib.h>
 
+const char *capability_string = POP3_CAPABILITY_REPLY;
+
 bool cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 {
 	const struct auth_mech_desc *mech;
@@ -26,7 +28,8 @@ bool cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 	string_t *str;
 
 	str = t_str_new(128);
-	str_append(str, "+OK\r\n" POP3_CAPABILITY_REPLY);
+	str_append(str, "+OK\r\n");
+	str_append(str, capability_string);
 
 	if (ssl_initialized && !client->common.tls)
 		str_append(str, "STLS\r\n");

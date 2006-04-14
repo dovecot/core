@@ -4,10 +4,12 @@
 #include "array.h"
 #include "str.h"
 #include "istream.h"
+#include "fd-close-on-exec.h"
 #include "safe-mkdir.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "syslog-util.h"
+#include "mail-process.h"
 #include "settings.h"
 
 #include <stdio.h>
@@ -16,6 +18,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <pwd.h>
 
 enum settings_type {
@@ -350,7 +353,7 @@ struct settings default_settings = {
 
 	/* imap */
 	MEMBER(imap_max_line_length) 65536,
-	MEMBER(imap_capability) NULL,
+	MEMBER(imap_capability) "",
 	MEMBER(imap_client_workarounds) "outlook-idle",
 
 	/* pop3 */
@@ -572,6 +575,90 @@ static void unlink_auth_sockets(const char *path)
 	(void)closedir(dirp);
 }
 
+#ifdef HAVE_MODULES
+static bool get_imap_capability(struct settings *set)
+{
+	/* FIXME: pretty ugly code just for getting the capability
+	   automatically */
+	static const char *generated_capability = NULL;
+	static const char *args[] = {
+		"uid=65534",
+		"gid=65534",
+		NULL
+	};
+	struct ip_addr ip;
+	char buf[4096];
+	int fd[2], status;
+	ssize_t ret;
+	unsigned int pos;
+
+	if (generated_capability != NULL) {
+		/* Reloading configuration. Don't try to execute the imap
+		   process again. Too risky and the wait() call below will
+		   break it anyway. Just use the previous capability list we
+		   already had generated. */
+		set->imap_generated_capability =
+			p_strdup(settings_pool, generated_capability);
+		return TRUE;
+	}
+
+	memset(&ip, 0, sizeof(ip));
+	if (pipe(fd) < 0) {
+		i_error("pipe() failed: %m");
+		return FALSE;
+	}
+	fd_close_on_exec(fd[0], TRUE);
+	fd_close_on_exec(fd[1], TRUE);
+	if (!create_mail_process(MAIL_PROTOCOL_IMAP, set, fd[1],
+				 &ip, &ip, "dump-capability", args, TRUE)) {
+		(void)close(fd[0]);
+		(void)close(fd[1]);
+		return FALSE;
+	}
+	(void)close(fd[1]);
+
+	alarm(5);
+	if (wait(&status) == -1)
+		i_fatal("imap dump-capability process got stuck");
+	alarm(0);
+
+	if (status != 0) {
+		(void)close(fd[0]);
+		if (WIFSIGNALED(status)) {
+			i_error("imap dump-capability process "
+				"killed with signal %d", WTERMSIG(status));
+		} else {
+			i_error("imap dump-capability process returned %d",
+				status);
+		}
+		return FALSE;
+	}
+
+	pos = 0;
+	while ((ret = read(fd[0], buf + pos, sizeof(buf) - pos)) > 0)
+		pos += ret;
+
+	if (ret < 0) {
+		i_error("read(imap dump-capability process) failed: %m");
+		(void)close(fd[0]);
+		return FALSE;
+	}
+	(void)close(fd[0]);
+
+	if (pos == 0 || buf[pos-1] != '\n') {
+		i_error("imap dump-capability: Couldn't read capability "
+			"(got %u bytes)", pos);
+		return FALSE;
+	}
+	buf[pos-1] = '\0';
+
+	generated_capability = i_strdup(buf);
+	set->imap_generated_capability =
+		p_strdup(settings_pool, generated_capability);
+	return TRUE;
+}
+#endif
+
 static bool settings_verify(struct settings *set)
 {
 	const char *dir;
@@ -593,6 +680,11 @@ static bool settings_verify(struct settings *set)
 		i_error("Can't access mail module directory: %s: %m",
 			set->mail_plugin_dir);
 		return FALSE;
+	}
+	if (*set->mail_plugins != '\0' && set->protocol == MAIL_PROTOCOL_IMAP &&
+	    *set->imap_capability == '\0') {
+		if (!get_imap_capability(set))
+			return FALSE;
 	}
 #else
 	if (*set->mail_plugins != '\0') {

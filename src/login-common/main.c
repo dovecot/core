@@ -207,6 +207,11 @@ static void main_init(void)
 	if (login_process_uid == 0)
 		i_fatal("BUG: PROCESS_UID environment is 0");
 
+	/* capability default is set in imap/pop3-login */
+	value = getenv("CAPABILITY_STRING");
+	if (value != NULL && *value != '\0')
+		capability_string = value;
+
         closing_down = FALSE;
 	main_refcount = 0;
 

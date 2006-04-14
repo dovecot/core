@@ -209,8 +209,10 @@ mail_process_set_environment(struct settings *set, const char *mail,
 				set->mail_max_keyword_length));
 	env_put(t_strdup_printf("IMAP_MAX_LINE_LENGTH=%u",
 				set->imap_max_line_length));
-	env_put(t_strconcat("IMAP_CAPABILITY=",
-			    set->imap_capability, NULL));
+	if (*set->imap_capability != '\0') {
+		env_put(t_strconcat("IMAP_CAPABILITY=",
+				    set->imap_capability, NULL));
+	}
 	env_put(t_strconcat("IMAP_CLIENT_WORKAROUNDS=",
 			    set->imap_client_workarounds, NULL));
 	env_put(t_strconcat("POP3_UIDL_FORMAT=",
@@ -372,12 +374,12 @@ static void nfs_warn_if_found(const char *mail, const char *home)
 		"If you're sure this check was wrong, set nfs_check=no.", path);
 }
 
-bool create_mail_process(struct login_group *group, int socket,
-			 const struct ip_addr *local_ip,
+bool create_mail_process(enum process_type process_type, struct settings *set,
+			 int socket, const struct ip_addr *local_ip,
 			 const struct ip_addr *remote_ip,
-			 const char *user, const char *const *args)
+			 const char *user, const char *const *args,
+			 bool dump_capability)
 {
-	struct settings *set = group->set;
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
 	const char *system_user;
@@ -448,7 +450,13 @@ bool create_mail_process(struct login_group *group, int socket,
 		return FALSE;
 	}
 
-	log_fd = log_create_pipe(&log, 10);
+	if (!dump_capability)
+		log_fd = log_create_pipe(&log, 10);
+	else {
+		log = NULL;
+		log_fd = dup(STDERR_FILENO);
+		fd_close_on_exec(log_fd, TRUE);
+	}
 
 	pid = fork();
 	if (pid < 0) {
@@ -458,7 +466,7 @@ bool create_mail_process(struct login_group *group, int socket,
 	}
 
 	var_expand_table =
-		get_var_expand_table(process_names[group->process_type],
+		get_var_expand_table(process_names[process_type],
 				     user, home_given ? home_dir : NULL,
 				     net_ip2addr(local_ip),
 				     net_ip2addr(remote_ip),
@@ -468,10 +476,12 @@ bool create_mail_process(struct login_group *group, int socket,
 	if (pid != 0) {
 		/* master */
 		var_expand(str, set->mail_log_prefix, var_expand_table);
-		log_set_prefix(log, str_c(str));
 
 		mail_process_count++;
-		PID_ADD_PROCESS_TYPE(pid, group->process_type);
+		if (!dump_capability) {
+			log_set_prefix(log, str_c(str));
+			PID_ADD_PROCESS_TYPE(pid, process_type);
+		}
 		(void)close(log_fd);
 		return TRUE;
 	}
@@ -483,14 +493,16 @@ bool create_mail_process(struct login_group *group, int socket,
 	}
 #endif
 
-	str_append(str, "master-");
-	var_expand(str, set->mail_log_prefix, var_expand_table);
-	log_set_prefix(log, str_c(str));
+	if (!dump_capability) {
+		str_append(str, "master-");
+		var_expand(str, set->mail_log_prefix, var_expand_table);
+		log_set_prefix(log, str_c(str));
+	}
 
 	child_process_init_env();
 
 	/* move the client socket into stdin and stdout fds, log to stderr */
-	if (dup2(socket, 0) < 0)
+	if (dup2(dump_capability ? null_fd : socket, 0) < 0)
 		i_fatal("dup2(stdin) failed: %m");
 	if (dup2(socket, 1) < 0)
 		i_fatal("dup2(stdout) failed: %m");
@@ -507,6 +519,9 @@ bool create_mail_process(struct login_group *group, int socket,
 				set->mail_extra_groups);
 
 	restrict_process_size(set->mail_process_size, (unsigned int)-1);
+
+	if (dump_capability)
+		env_put("DUMP_CAPABILITY=1");
 
 	if (*home_dir == '\0')
 		ret = -1;
@@ -568,7 +583,7 @@ bool create_mail_process(struct login_group *group, int socket,
 		}
 	}
 
-	if (set->nfs_check && !set->mmap_disable) {
+	if (set->nfs_check && !set->mmap_disable && !dump_capability) {
 		/* do this only once */
 		nfs_warn_if_found(getenv("MAIL"), home_dir);
 		set->nfs_check = FALSE;

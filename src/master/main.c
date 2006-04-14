@@ -77,7 +77,8 @@ void child_process_init_env(void)
 	if (env_tz != NULL)
 		env_put(t_strconcat("TZ=", env_tz, NULL));
 
-	if (!syslog_facility_find(settings_root->defaults->syslog_facility,
+	if (settings_root == NULL ||
+	    !syslog_facility_find(settings_root->defaults->syslog_facility,
 				  &facility))
 		facility = LOG_MAIL;
 	env_put(t_strdup_printf("SYSLOG_FACILITY=%d", facility));
@@ -545,6 +546,7 @@ static void main_init(void)
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGPIPE, FALSE, NULL, NULL);
+        lib_signals_set_handler(SIGALRM, FALSE, NULL, NULL);
         lib_signals_set_handler(SIGHUP, TRUE, sig_reload_settings, NULL);
         lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
 

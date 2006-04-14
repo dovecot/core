@@ -186,6 +186,18 @@ static void main_init(void)
 					  getenv("MODULE_LIST"), TRUE);
 	}
 
+	if (getenv("DUMP_CAPABILITY") != NULL) {
+		printf("%s\n", str_c(capability_string));
+		exit(0);
+	}
+
+	str = getenv("IMAP_CAPABILITY");
+	if (str != NULL && *str != '\0') {
+		/* Overrides all capabilities */
+		str_truncate(capability_string, 0);
+		str_append(capability_string, str);
+	}
+
 	str = getenv("IMAP_MAX_LINE_LENGTH");
 	imap_max_line_length = str != NULL ?
 		(unsigned int)strtoul(str, NULL, 10) :

@@ -88,9 +88,10 @@ void auth_master_callback(const char *user, const char *const *args,
 
 		t_push();
 		master_reply.success =
-			create_mail_process(group, request->fd,
-					    &request->local_ip,
-					    &request->remote_ip, user, args);
+			create_mail_process(group->process_type, group->set,
+					    request->fd, &request->local_ip,
+					    &request->remote_ip, user, args,
+					    FALSE);
 		t_pop();
 	}
 
@@ -455,6 +456,13 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	env_put(t_strconcat("LOG_FORMAT=", set->login_log_format, NULL));
 	if (set->login_greeting_capability)
 		env_put("GREETING_CAPABILITY=1");
+
+	if (group->process_type == PROCESS_TYPE_IMAP) {
+		env_put(t_strconcat("CAPABILITY_STRING=",
+				    *set->imap_capability != '\0' ?
+				    set->imap_capability :
+				    set->imap_generated_capability, NULL));
+	}
 }
 
 static pid_t create_login_process(struct login_group *group)

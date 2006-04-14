@@ -44,6 +44,7 @@
 #endif
 
 const char *login_protocol = "IMAP";
+const char *capability_string = CAPABILITY_STRING;
 
 static struct hash_table *clients;
 static struct timeout *to_idle;
@@ -97,7 +98,7 @@ static const char *get_capability(struct imap_client *client)
 	const char *auths;
 
 	auths = client_authenticate_get_capabilities(client->common.secured);
-	return t_strconcat(CAPABILITY_STRING,
+	return t_strconcat(capability_string,
 			   (ssl_initialized && !client->common.tls) ?
 			   " STARTTLS" : "",
 			   disable_plaintext_auth && !client->common.secured ?
