@@ -699,8 +699,9 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 				/* someone else moved it already */
 				moves++;
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED;
-			} else if (ENOSPACE(errno)) {
-				/* not enough disk space, leave here */
+			} else if (ENOSPACE(errno) || errno == EACCES) {
+				/* not enough disk space / read-only maildir,
+				   leave here */
 				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 					MAILDIR_UIDLIST_REC_FLAG_RECENT;
 				move_new = FALSE;
