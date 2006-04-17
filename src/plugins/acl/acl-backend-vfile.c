@@ -216,7 +216,8 @@ acl_object_vfile_parse_line(struct acl_object *aclobj, const char *path,
 
 static int
 acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
-		       struct acl_vfile_validity *validity, bool try_retry)
+		       struct acl_vfile_validity *validity, bool try_retry,
+		       bool *is_dir_r)
 {
 	struct mail_storage *storage = aclobj->backend->storage;
 	struct istream *input;
@@ -224,6 +225,8 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 	const char *line;
 	unsigned int linenum;
 	int fd, ret = 1;
+
+	*is_dir_r = FALSE;
 
 	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
@@ -236,6 +239,25 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		mail_storage_set_critical(storage, "open(%s) failed: %m", path);
 		return -1;
 	}
+
+	if (fstat(fd, &st) < 0) {
+		if (errno == ESTALE && try_retry) {
+			(void)close(fd);
+			return 0;
+		}
+
+		mail_storage_set_critical(storage,
+					  "fstat(%s) failed: %m", path);
+		(void)close(fd);
+		return -1;
+	}
+	if (S_ISDIR(st.st_mode)) {
+		/* we opened a directory. */
+		*is_dir_r = TRUE;
+		(void)close(fd);
+		return 0;
+	}
+
 	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
 
 	linenum = 1;
@@ -291,17 +313,24 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj, const char *path,
 {
 	unsigned int i;
 	int ret;
+	bool is_dir;
 
 	if (path == NULL)
 		return 0;
 
 	for (i = 0;; i++) {
 		ret = acl_backend_vfile_read(aclobj, path, validity,
-					     i < ACL_ESTALE_RETRY_COUNT);
+					     i < ACL_ESTALE_RETRY_COUNT,
+					     &is_dir);
 		if (ret != 0)
 			break;
 
-		/* ESTALE - try again */
+		if (is_dir) {
+			/* opened a directory. use dir/.DEFAULT instead */
+			path = t_strconcat(path, "/.DEFAULT", NULL);
+		} else {
+			/* ESTALE - try again */
+		}
 	}
 
 	return ret <= 0 ? -1 : 0;
