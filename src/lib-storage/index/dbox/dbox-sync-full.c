@@ -55,6 +55,7 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 	if (mbox->file->seeked_uid >= ctx->mail_index_next_uid) {
 		/* new mail. append it. */
 		mail_index_append(ctx->trans, mbox->file->seeked_uid, &seq);
+		*seq_r = 0;
 	} else {
 		if (mail_index_lookup_uid_range(ctx->sync_view,
 						mbox->file->seeked_uid,
@@ -72,6 +73,7 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 			mail_index_mark_corrupted(mbox->ibox.index);
 			return -1;
 		}
+		*seq_r = seq;
 	}
 
 	flags = 0;
@@ -104,7 +106,6 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 			      &mbox->file->file_seq, NULL);
 	mail_index_update_ext(ctx->trans, seq, mbox->dbox_offset_ext_idx,
 			      &hdr_offset, NULL);
-	*seq_r = seq;
 	return 0;
 }
 
@@ -142,12 +143,28 @@ static int dbox_sync_full_file(struct dbox_sync_context *ctx, uint32_t file_seq)
 		if (dbox_sync_full_mail(ctx, &seq) < 0)
 			return -1;
 
-		seq_range_array_add(&entry.uid_list, 0, seq);
-		seq_range_array_add(&ctx->exists, 0, seq);
+		/* add to this file's uid list */
+		seq_range_array_add(&entry.uid_list, 0,
+				    ctx->mbox->file->seeked_uid);
+		if (seq != 0) {
+			/* add to the whole mailbox's exist list so we can
+			   expunge the mails that weren't found. seq=0 is
+			   given for newly appended mails */
+			seq_range_array_add(&ctx->exists, 0, seq);
+		}
 
 		ret = dbox_file_seek_next_nonexpunged(mbox);
 	}
-	dbox_uidlist_sync_append(ctx->uidlist_sync_ctx, &entry);
+	if (ret == 0 && array_count(&entry.uid_list) == 0) {
+		/* all mails expunged in the file */
+		if (unlink(mbox->file->path) < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"unlink(%s) failed: %m", mbox->file->path);
+			return -1;
+		}
+	} else {
+		dbox_uidlist_sync_append(ctx->uidlist_sync_ctx, &entry);
+	}
 	return ret;
 }
 
