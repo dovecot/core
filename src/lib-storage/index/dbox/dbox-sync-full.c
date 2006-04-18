@@ -134,14 +134,19 @@ static int dbox_sync_full_file(struct dbox_sync_context *ctx, uint32_t file_seq)
 	ARRAY_CREATE(&entry.uid_list, pool_datastack_create(),
 		     struct seq_range, 64);
 
-	do {
+	if (mbox->file->seeked_mail_header.expunged != '0') {
+		/* first mail expunged */
+		ret = dbox_file_seek_next_nonexpunged(mbox);
+	}
+	while (ret > 0) {
 		if (dbox_sync_full_mail(ctx, &seq) < 0)
 			return -1;
 
 		seq_range_array_add(&entry.uid_list, 0, seq);
 		seq_range_array_add(&ctx->exists, 0, seq);
-	} while ((ret = dbox_file_seek_next_nonexpunged(mbox)) > 0);
 
+		ret = dbox_file_seek_next_nonexpunged(mbox);
+	}
 	dbox_uidlist_sync_append(ctx->uidlist_sync_ctx, &entry);
 	return ret;
 }
