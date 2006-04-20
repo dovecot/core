@@ -290,6 +290,7 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 				/* add directory */
 				str_append_n(tmp_path, lock_info->lock_path,
 					     p - lock_info->lock_path);
+				str_append_c(tmp_path, '/');
 			}
 			str_append(tmp_path, temp_prefix);
 		} else {
