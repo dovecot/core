@@ -105,12 +105,10 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 			break;
 		}
 
-		/* mail was moved. resync index file to find out the new offset
+		/* mail was moved. resync dbox to find out the new offset
 		   and try again. */
-		if (mail_index_refresh(mbox->ibox.index) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
+		if (dbox_sync(mbox, FALSE) < 0)
 			return -1;
-		}
 		prev_file_seq = file_seq;
 		prev_offset = offset;
 	}
