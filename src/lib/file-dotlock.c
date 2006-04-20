@@ -28,6 +28,7 @@ struct dotlock {
 	time_t mtime;
 
 	char *path;
+	char *lock_path;
 	int fd;
 
 	time_t lock_time, lock_update_mtime;
@@ -231,45 +232,39 @@ static int file_write_pid(int fd, const char *path)
 	return 0;
 }
 
-static int
-create_temp_file(const char *prefix, const char **path_r, bool write_pid)
+static int create_temp_file(string_t *path, bool write_pid)
 {
-	string_t *path;
 	size_t len;
 	struct stat st;
 	unsigned char randbuf[8];
 	int fd;
 
-	path = t_str_new(256);
-	str_append(path, prefix);
 	len = str_len(path);
-
 	for (;;) {
 		do {
 			random_fill_weak(randbuf, sizeof(randbuf));
 			str_truncate(path, len);
 			str_append(path,
 				   binary_to_hex(randbuf, sizeof(randbuf)));
-			*path_r = str_c(path);
-		} while (stat(*path_r, &st) == 0);
+		} while (stat(str_c(path), &st) == 0);
 
 		if (errno != ENOENT) {
-			i_error("stat(%s) failed: %m", *path_r);
+			i_error("stat(%s) failed: %m", str_c(path));
 			return -1;
 		}
 
-		fd = open(*path_r, O_RDWR | O_EXCL | O_CREAT, 0666);
+		fd = open(str_c(path), O_RDWR | O_EXCL | O_CREAT, 0666);
 		if (fd != -1)
 			break;
 
 		if (errno != EEXIST) {
-			i_error("open(%s) failed: %m", *path_r);
+			i_error("open(%s) failed: %m", str_c(path));
 			return -1;
 		}
 	}
 
 	if (write_pid) {
-		if (file_write_pid(fd, *path_r) < 0) {
+		if (file_write_pid(fd, str_c(path)) < 0) {
 			(void)close(fd);
 			return -1;
 		}
@@ -277,32 +272,42 @@ create_temp_file(const char *prefix, const char **path_r, bool write_pid)
 	return fd;
 }
 
-static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid)
+static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
+				    string_t *tmp_path)
 {
 	const char *temp_prefix = lock_info->set->temp_prefix;
-	const char *str, *p;
+	const char *p;
 
 	if (lock_info->temp_path == NULL) {
 		/* we'll need our temp file first. */
 		i_assert(lock_info->fd == -1);
 
-		if (temp_prefix == NULL) {
-			temp_prefix = t_strconcat(".temp.", my_hostname, ".",
-						  my_pid, ".", NULL);
+		p = strrchr(lock_info->lock_path, '/');
+
+		str_truncate(tmp_path, 0);
+		if (temp_prefix != NULL) {
+			if (*temp_prefix != '/' && p != NULL) {
+				/* add directory */
+				str_append_n(tmp_path, lock_info->lock_path,
+					     p - lock_info->lock_path);
+			}
+			str_append(tmp_path, temp_prefix);
+		} else {
+			if (p != NULL) {
+				/* add directory */
+				str_append_n(tmp_path, lock_info->lock_path,
+					     p - lock_info->lock_path);
+				str_append_c(tmp_path, '/');
+			}
+			str_printfa(tmp_path, ".temp.%s.%s.",
+				    my_hostname, my_pid);
 		}
 
-		p = *temp_prefix == '/' ? NULL :
-			strrchr(lock_info->lock_path, '/');
-		if (p != NULL) {
-			str = t_strdup_until(lock_info->lock_path, p+1);
-			temp_prefix = t_strconcat(str, temp_prefix, NULL);
-		}
-
-		lock_info->fd = create_temp_file(temp_prefix, &str, write_pid);
+		lock_info->fd = create_temp_file(tmp_path, write_pid);
 		if (lock_info->fd == -1)
 			return -1;
 
-                lock_info->temp_path = str;
+                lock_info->temp_path = str_c(tmp_path);
 	}
 
 	if (link(lock_info->temp_path, lock_info->lock_path) < 0) {
@@ -357,6 +362,7 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 	unsigned int stale_notify_threshold;
 	unsigned int change_secs, wait_left;
 	time_t now, max_wait_time, last_notify;
+	string_t *tmp_path;
 	int ret;
 	bool do_wait;
 
@@ -366,6 +372,7 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 	stale_notify_threshold = set->stale_timeout / 2;
 	max_wait_time = (flags & DOTLOCK_CREATE_FLAG_NONBLOCK) != 0 ? 0 :
 		now + set->timeout;
+	tmp_path = t_str_new(256);
 
 	memset(&lock_info, 0, sizeof(lock_info));
 	lock_info.path = path;
@@ -391,7 +398,8 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 
 			ret = set->use_excl_lock ?
 				try_create_lock_excl(&lock_info, write_pid) :
-				try_create_lock_hardlink(&lock_info, write_pid);
+				try_create_lock_hardlink(&lock_info, write_pid,
+							 tmp_path);
 			if (ret != 0)
 				break;
 		}
@@ -466,6 +474,7 @@ static void file_dotlock_free(struct dotlock *dotlock)
 	}
 
 	i_free(dotlock->path);
+	i_free(dotlock->lock_path);
 	i_free(dotlock);
 }
 
@@ -681,5 +690,10 @@ int file_dotlock_touch(struct dotlock *dotlock)
 
 const char *file_dotlock_get_lock_path(struct dotlock *dotlock)
 {
-	return t_strconcat(dotlock->path, dotlock->settings.lock_suffix, NULL);
+	if (dotlock->lock_path == NULL) {
+		dotlock->lock_path =
+			i_strconcat(dotlock->path,
+				    dotlock->settings.lock_suffix, NULL);
+	}
+	return dotlock->lock_path;
 }
