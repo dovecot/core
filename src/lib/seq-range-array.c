@@ -167,7 +167,7 @@ void seq_range_array_remove(array_t *array, uint32_t seq)
 				value.seq2 = data[idx].seq2;
 				data[idx].seq2 = seq - 1;
 
-				array_insert(array, idx, &value, 1);
+				array_insert(array, idx + 1, &value, 1);
 			}
 			break;
 		}
