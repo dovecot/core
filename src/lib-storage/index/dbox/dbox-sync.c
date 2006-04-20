@@ -328,7 +328,9 @@ static int dbox_sync_file(struct dbox_sync_context *ctx,
 	for (i = 0; i < count; i++) {
 		switch (sync_recs[i].type) {
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+			t_push();
 			ret = dbox_sync_expunge(ctx, entry, i);
+			t_pop();
 			if (ret > 0) {
 				/* handled expunging by copying the file.
 				   while at it, also wrote all the other sync

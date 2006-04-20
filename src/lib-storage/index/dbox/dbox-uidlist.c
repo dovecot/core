@@ -221,6 +221,7 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 {
 	struct dbox_uidlist_entry *entry;
 	struct seq_range range;
+	const char *error = NULL;
 	uint32_t digit;
 	int ret;
 
@@ -239,7 +240,9 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 			if (range.seq1 == 0) {
 				if (digit <= range.seq2) {
 					/* broken */
-					array_clear(&entry->uid_list);
+					error = t_strdup_printf("UID %u <= %u",
+								digit,
+								range.seq2);
 					break;
 				}
 				range.seq1 = digit;
@@ -247,7 +250,9 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 			if (*line == ',' || *line == ' ') {
 				if (range.seq1 > digit) {
 					/* broken */
-					array_clear(&entry->uid_list);
+					error = t_strdup_printf("UID %u > %u",
+								range.seq1,
+								digit);
 					break;
 				}
 				range.seq2 = digit;
@@ -266,9 +271,17 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 		}
 	}
 
-	if (*line != ' ' || array_count(&entry->uid_list) == 0) {
+	if (error == NULL) {
+		if (*line != ' ') {
+			error = *line == '\0' ? "File sequence missing" :
+				"Expecting space after UID list";
+		} else if (array_count(&entry->uid_list) == 0)
+			error = "UID list missing";
+	}
+
+	if (error != NULL) {
 		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
-					  "%s: Corrupted entry", uidlist->path);
+			"%s: Corrupted entry: %s", uidlist->path, error);
 		t_pop();
 		return FALSE;
 	}
@@ -285,7 +298,8 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 
 	if (*line != ' ') {
 		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
-					  "%s: Corrupted entry", uidlist->path);
+			"%s: Corrupted entry: Expecting space after timestamp",
+			uidlist->path);
 
 		t_pop();
 		return FALSE;
@@ -860,7 +874,7 @@ static int dbox_uidlist_files_lookup(struct dbox_uidlist_append_ctx *ctx,
 static int
 dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 		 const char *path, struct dbox_uidlist_entry *entry,
-		 struct stat *st, struct dbox_file **file_r)
+		 struct stat *st, struct dbox_file **file_r, bool existing)
 {
 	struct dbox_mailbox *mbox = ctx->uidlist->mbox;
 	struct dbox_file *file;
@@ -868,8 +882,14 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 
 	*file_r = NULL;
 
-	fd = open(path, O_CREAT | O_RDWR, 0600);
+	fd = open(path, O_RDWR | (existing ? 0 : O_CREAT), 0600);
 	if (fd == -1) {
+		if (errno == ENOENT && existing) {
+			/* the file was unlinked just now, update its size
+			   so that we don't get back here. */
+			entry->file_size = (uoff_t)-1;
+			return 0;
+		}
 		mail_storage_set_critical(STORAGE(mbox->storage),
 					  "open(%s) failed: %m", path);
 		return -1;
@@ -919,7 +939,7 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 static int
 dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 		      uint32_t *file_seq_r, struct dbox_uidlist_entry **entry_r,
-		      struct dotlock **dotlock_r)
+		      struct dotlock **dotlock_r, bool *existing_r)
 {
 	struct dbox_mailbox *mbox = ctx->uidlist->mbox;
 	struct dbox_uidlist_entry *const *entries;
@@ -930,11 +950,13 @@ dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 	entries = array_get(&ctx->uidlist->entries, &count);
 	for (i = 0;; i++) {
 		file_seq = 0;
+		*existing_r = FALSE;
 		for (; i < count; i++) {
 			if (DBOX_CAN_APPEND(ctx, entries[i]->create_time,
 					    entries[i]->file_size) &&
 			    !dbox_uidlist_files_lookup(ctx,
 						       entries[i]->file_seq)) {
+				*existing_r = TRUE;
 				file_seq = entries[i]->file_seq;
 				break;
 			}
@@ -983,6 +1005,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	unsigned int i, count;
 	struct stat st;
 	uint32_t file_seq;
+	bool existing;
 	int ret;
 
 	/* check first from already opened files */
@@ -1006,10 +1029,10 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 		if (dotlock != NULL)
 			file_dotlock_delete(&dotlock);
 		if (dbox_file_append_lock(ctx, path, &file_seq,
-					  &entry, &dotlock) < 0)
+					  &entry, &dotlock, &existing) < 0)
 			return -1;
 	} while ((ret = dbox_file_append(ctx, str_c(path), entry,
-					 &st, &file)) == 0);
+					 &st, &file, existing)) == 0);
 
 	if (ret < 0) {
 		file_dotlock_delete(&dotlock);

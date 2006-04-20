@@ -109,8 +109,9 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	if (ret <= 0) {
 		if (ret == 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
-				"%s: Expunging lost UID %u from file",
-				mbox->path, first_nonexpunged_uid);
+				"%s: Expunging lost UID %u from file %u",
+				mbox->path, first_nonexpunged_uid,
+				orig_entry->file_seq);
 		}
 		return ret;
 	}
@@ -428,13 +429,45 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	return 0;
 }
 
+static int
+uidlist_entry_remove_uids(struct dbox_sync_context *ctx,
+			  const struct dbox_sync_file_entry *sync_entry)
+{
+	struct dbox_uidlist_entry *entry;
+	const struct dbox_sync_rec *recs;
+	uint32_t uid;
+	unsigned int i, count, seq;
+
+	entry = dbox_uidlist_entry_lookup(ctx->mbox->uidlist,
+					  sync_entry->file_seq);
+	if (entry == NULL)
+		return 0;
+
+	recs = array_get(&sync_entry->sync_recs, &count);
+	for (i = 0; i < count; i++) {
+		for (seq = recs[i].seq1; seq <= recs[i].seq2; seq++) {
+			if (mail_index_lookup_uid(ctx->sync_view,
+						  seq, &uid) < 0) {
+				mail_storage_set_index_error(&ctx->mbox->ibox);
+				return -1;
+			}
+			seq_range_array_remove(&entry->uid_list, uid);
+		}
+	}
+	if (array_count(&entry->uid_list) == 0) {
+		dbox_uidlist_sync_unlink(ctx->uidlist_sync_ctx,
+					 entry->file_seq);
+	}
+	dbox_uidlist_sync_set_modified(ctx->uidlist_sync_ctx);
+	return 0;
+}
+
 int dbox_sync_expunge(struct dbox_sync_context *ctx,
 		      const struct dbox_sync_file_entry *sync_entry,
 		      unsigned int sync_idx)
 {
 	struct dbox_mailbox *mbox = ctx->mbox;
 	const struct dbox_sync_rec *sync_rec;
-	struct dbox_uidlist_entry *entry;
 	struct dotlock *dotlock;
 	const char *path;
 	int ret;
@@ -485,22 +518,5 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 	}
 
 	/* remove UIDs from the uidlist entry */
-	entry = dbox_uidlist_entry_lookup(mbox->uidlist, sync_entry->file_seq);
-	if (entry != NULL) {
-		const struct dbox_sync_rec *recs;
-		unsigned int i, count, seq;
-
-		recs = array_get(&sync_entry->sync_recs, &count);
-		for (i = 0; i < count; i++) {
-			for (seq = recs[i].seq1; seq <= recs[i].seq2; seq++)
-				seq_range_array_remove(&entry->uid_list, seq);
-		}
-		if (array_count(&entry->uid_list) == 0) {
-			dbox_uidlist_sync_unlink(ctx->uidlist_sync_ctx,
-						 entry->file_seq);
-		}
-		dbox_uidlist_sync_set_modified(ctx->uidlist_sync_ctx);
-	}
-
-	return 0;
+	return uidlist_entry_remove_uids(ctx, sync_entry);
 }
