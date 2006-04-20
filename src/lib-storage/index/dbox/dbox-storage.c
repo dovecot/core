@@ -9,6 +9,7 @@
 #include "index-mail.h"
 #include "dbox-uidlist.h"
 #include "dbox-sync.h"
+#include "dbox-file.h"
 #include "dbox-storage.h"
 
 #include <stdio.h>
@@ -615,6 +616,11 @@ static int dbox_get_mailbox_name_status(struct mail_storage *_storage,
 
 static int dbox_storage_close(struct mailbox *box)
 {
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
+
+	dbox_uidlist_deinit(mbox->uidlist);
+	if (mbox->file != NULL)
+		dbox_file_close(mbox->file);
         index_storage_mailbox_free(box);
 	return 0;
 }
