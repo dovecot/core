@@ -355,6 +355,7 @@ static void nfs_warn_if_found(const char *mail, const char *home)
 			path = strchr(mail, ':');
 			if (path == NULL) {
 				/* autodetection for path */
+				path = mail;
 			} else {
 				/* format:path */
 				path++;
