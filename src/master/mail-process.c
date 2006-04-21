@@ -393,7 +393,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	array_t ARRAY_DEFINE(extra_args, const char *);
 	unsigned int i, count;
 	int err, ret, log_fd, nice;
-	bool home_given;
+	bool home_given, nfs_check;
 
 	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
@@ -457,6 +457,15 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		log = NULL;
 		log_fd = dup(STDERR_FILENO);
 		fd_close_on_exec(log_fd, TRUE);
+	}
+
+	/* See if we need to do the initial NFS check. We want to do this only
+	   once, so the check code needs to be before fork(). */
+	if (set->nfs_check && !set->mmap_disable && !dump_capability) {
+		set->nfs_check = FALSE;
+		nfs_check = TRUE;
+	} else {
+		nfs_check = FALSE;
 	}
 
 	pid = fork();
@@ -564,7 +573,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 
         mail_process_set_environment(set, mail, var_expand_table);
 
-	/* add extra args. uppercase key value. */
+	extra args. uppercase key value. */
 	args = array_get(&extra_args, &count);
 	for (i = 0; i < count; i++) {
 		if (*args[i] == '=') {
@@ -584,11 +593,8 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		}
 	}
 
-	if (set->nfs_check && !set->mmap_disable && !dump_capability) {
-		/* do this only once */
+	if (nfs_check)
 		nfs_warn_if_found(getenv("MAIL"), home_dir);
-		set->nfs_check = FALSE;
-	}
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", home_dir, NULL));
