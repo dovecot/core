@@ -342,7 +342,7 @@ static void nfs_warn_if_found(const char *mail, const char *home)
 	struct mountpoint point;
 	const char *path;
 
-	if (mail == NULL)
+	if (mail == NULL || *mail == '\0')
 		path = home;
 	else {
 		path = strstr(mail, ":INDEX=");
