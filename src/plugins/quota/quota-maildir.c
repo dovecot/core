@@ -319,7 +319,7 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	if (*lines == NULL)
 		return -1;
 
-	/* first line contains the limits */
+	/* first line contains the limits. 0 value mean unlimited. */
 	message_bytes_limit = (uint64_t)-1;
 	message_count_limit = (uint64_t)-1;
 	for (limit = t_strsplit(lines[0], ","); *limit != NULL; limit++) {
@@ -327,10 +327,12 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 		if (pos[0] != '\0' && pos[1] == '\0') {
 			switch (pos[0]) {
 			case 'C':
-				message_count_limit = bytes;
+				if (bytes != 0)
+					message_count_limit = bytes;
 				break;
 			case 'S':
-				message_bytes_limit = bytes;
+				if (bytes != 0)
+					message_bytes_limit = bytes;
 				break;
 			}
 		}
