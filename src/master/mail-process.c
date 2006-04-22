@@ -573,7 +573,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 
         mail_process_set_environment(set, mail, var_expand_table);
 
-	extra args. uppercase key value. */
+	/* extra args. uppercase key value. */
 	args = array_get(&extra_args, &count);
 	for (i = 0; i < count; i++) {
 		if (*args[i] == '=') {
