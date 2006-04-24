@@ -591,6 +591,7 @@ static bool get_imap_capability(struct settings *set)
 	int fd[2], status;
 	ssize_t ret;
 	unsigned int pos;
+	uid_t uid;
 
 	if (generated_capability != NULL) {
 		/* Reloading configuration. Don't try to execute the imap
@@ -600,6 +601,13 @@ static bool get_imap_capability(struct settings *set)
 		set->imap_generated_capability =
 			p_strdup(settings_pool, generated_capability);
 		return TRUE;
+	}
+
+	uid = geteuid();
+	if (uid != 0) {
+		/* use the current user */
+		args[0] = t_strdup_printf("uid=%s", dec2str(uid));
+		args[1] = t_strdup_printf("gid=%s", dec2str(getegid()));
 	}
 
 	memset(&ip, 0, sizeof(ip));
