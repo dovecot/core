@@ -910,23 +910,18 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 
 		ARRAY_CREATE(&t->keyword_updates, default_pool,
 			     struct mail_index_transaction_keyword_update,
-			     max_idx);
+			     max_idx + 1);
 	}
 
 	/* Update add_seq and remove_seq arrays which describe the keyword
 	   changes. Don't bother updating remove_seq or keyword resets for
 	   newly added messages since they default to not having any
 	   keywords anyway. */
-	if (array_is_created(&t->keyword_updates))
-		ku = array_get_modifyable(&t->keyword_updates, &ku_count);
-	else {
-		ku = NULL;
-		ku_count = 0;
-	}
 	switch (modify_type) {
 	case MODIFY_ADD:
 		for (i = 0; i < keywords->count; i++) {
-			u = ku[keywords->idx[i]];
+			u = array_idx_modifyable(&t->keyword_updates,
+						 keywords->idx[i]);
 			seq_range_array_add(&u->add_seq, 16, seq);
 			if (seq < t->first_new_seq)
 				seq_range_array_remove(&u->remove_seq, seq);
@@ -934,7 +929,8 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		break;
 	case MODIFY_REMOVE:
 		for (i = 0; i < keywords->count; i++) {
-			u = ku[keywords->idx[i]];
+			u = array_idx_modifyable(&t->keyword_updates,
+						 keywords->idx[i]);
 			seq_range_array_remove(&u->add_seq, seq);
 			if (seq < t->first_new_seq)
 				seq_range_array_add(&u->remove_seq, 16, seq);
@@ -942,14 +938,21 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		break;
 	case MODIFY_REPLACE:
 		/* Remove sequence from all add/remove arrays */
-		for (i = 0; i < ku_count; i++) {
-			seq_range_array_remove(&ku[i]->add_seq, seq);
-			if (seq < t->first_new_seq)
-				seq_range_array_remove(&ku[i]->remove_seq, seq);
+		if (array_is_created(&t->keyword_updates)) {
+			ku = array_get_modifyable(&t->keyword_updates,
+						  &ku_count);
+			for (i = 0; i < ku_count; i++) {
+				seq_range_array_remove(&ku[i]->add_seq, seq);
+				if (seq < t->first_new_seq) {
+					seq_range_array_remove(
+						&ku[i]->remove_seq, seq);
+				}
+			}
 		}
 		/* Add the wanted keyword back */
 		for (i = 0; i < keywords->count; i++) {
-			u = ku[keywords->idx[i]];
+			u = array_idx_modifyable(&t->keyword_updates,
+						 keywords->idx[i]);
 			seq_range_array_add(&u->add_seq, 16, seq);
 		}
 
