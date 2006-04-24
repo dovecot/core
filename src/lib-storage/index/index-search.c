@@ -923,6 +923,7 @@ int index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 
 		/* doesn't, try next one */
 		_ctx->seq++;
+		mail_search_args_reset(ctx->args, FALSE);
 	}
 	return ret == 0 ? 0 : 1;
 }
