@@ -163,6 +163,29 @@ view_sync_get_expunges(struct mail_index_view *view, array_t *expunges_r)
 	return 0;
 }
 
+static void mail_index_view_hdr_update(struct mail_index_view *view,
+				       struct mail_index_map *map)
+{
+	/* Keep message count the same. */
+	map->hdr.next_uid = view->hdr.next_uid;
+	map->hdr.messages_count = view->hdr.messages_count;
+
+	/* Keep the old message flag counts also, although they may be
+	   somewhat stale already. We just don't want them to be more than
+	   our old messages_count. */
+	map->hdr.recent_messages_count = view->hdr.recent_messages_count;
+	map->hdr.seen_messages_count = view->hdr.seen_messages_count;
+	map->hdr.deleted_messages_count = view->hdr.deleted_messages_count;
+
+	/* Keep log position so we know where to continue syncing */
+	map->hdr.log_file_seq = view->hdr.log_file_seq;
+	map->hdr.log_file_int_offset = view->hdr.log_file_int_offset;
+	map->hdr.log_file_ext_offset = view->hdr.log_file_ext_offset;
+
+	view->hdr = map->hdr;
+	buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
+}
+
 #define MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK \
 	(MAIL_INDEX_SYNC_TYPE_FLAGS | \
 	 MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET | \
@@ -268,9 +291,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			   another view sharing the map with us had synced
 			   itself. */
 			i_assert(map->hdr_base == map->hdr_copy_buf->data);
-			buffer_write(map->hdr_copy_buf, 0,
-				     &view->hdr, sizeof(view->hdr));
-			map->hdr = view->hdr;
+			mail_index_view_hdr_update(view, map);
 		}
 
 		i_assert(map->records_count == map->hdr.messages_count);
