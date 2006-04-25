@@ -375,7 +375,7 @@ int maildir_uidlist_update(struct maildir_uidlist *uidlist)
         int ret;
 
 	if (uidlist->last_mtime != 0) {
-		if (stat(uidlist->fname, &st) < 0) {
+		if (nfs_safe_stat(uidlist->fname, &st) < 0) {
 			if (errno != ENOENT) {
 				mail_storage_set_critical(storage,
 					"stat(%s) failed: %m", uidlist->fname);

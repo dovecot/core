@@ -1664,7 +1664,7 @@ int mail_index_reopen_if_needed(struct mail_index *index)
 		}
 		return mail_index_set_syscall_error(index, "fstat()");
 	}
-	if (stat(index->filepath, &st2) < 0) {
+	if (nfs_safe_stat(index->filepath, &st2) < 0) {
 		mail_index_set_syscall_error(index, "stat()");
 		if (errno != ENOENT)
 			return -1;
