@@ -409,7 +409,7 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 		}
 		if (ret > 0 && uidlist->last_file_seq < old_last_file_seq) {
 			mail_storage_set_critical(storage,
-				"%s: last_uid was lowered (%u -> %u)",
+				"%s: last_file_seq was lowered (%u -> %u)",
 				uidlist->path, old_last_file_seq,
 				uidlist->last_file_seq);
 			ret = 0;

@@ -397,7 +397,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 
 		if (ftruncate(mbox->file->fd, offset) < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
-				"ftruncate(%s) failed: %m", mbox->path);
+				"ftruncate(%s) failed: %m", mbox->file->path);
 			return -1;
 		}
 
