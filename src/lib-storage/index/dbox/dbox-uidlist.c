@@ -58,7 +58,6 @@ struct dbox_uidlist {
 
 	pool_t entry_pool;
 	array_t ARRAY_DEFINE(entries, struct dbox_uidlist_entry *);
-	uint32_t entry_last_file_seq;
 
 	unsigned int appending:1;
 	unsigned int need_full_rewrite:1;
@@ -174,7 +173,7 @@ static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 	unsigned int i, idx, count;
 
 	entries = array_get_modifyable(&uidlist->entries, &count);
-	if (src_entry->file_seq > uidlist->entry_last_file_seq) {
+	if (count == 0 || src_entry->file_seq > entries[count-1]->file_seq) {
 		/* append new file sequence */
 		idx = count;
 	} else {
@@ -189,9 +188,12 @@ static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 		dest_entry = p_new(uidlist->entry_pool,
 				   struct dbox_uidlist_entry, 1);
 		*dest_entry = *src_entry;
+		i_assert(idx < count || idx == 0 ||
+			 src_entry->file_seq > entries[idx-1]->file_seq);
+		i_assert(idx == count ||
+			 src_entry->file_seq < entries[idx]->file_seq);
 		array_insert(&uidlist->entries, idx, &dest_entry, 1);
 
-		uidlist->entry_last_file_seq = src_entry->file_seq;
 		if (src_entry->file_seq > uidlist->last_file_seq)
                         uidlist->last_file_seq = src_entry->file_seq;
 	} else {
@@ -388,7 +390,6 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 		uidlist->uid_validity = uid_validity;
 		uidlist->last_uid = last_uid;
 		uidlist->last_file_seq = last_file_seq;
-		uidlist->entry_last_file_seq = 0;
 		p_clear(uidlist->entry_pool);
 		array_clear(&uidlist->entries);
 
@@ -546,6 +547,9 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 	entries = array_get(&uidlist->entries, &count);
 	for (i = 0; i < count; i++) {
 		str_truncate(str, 0);
+
+		i_assert(i == 0 ||
+			 entries[i]->file_seq > entries[i-1]->file_seq);
 
 		/* <uid list> <file seq> [<last write timestamp> <file size>] */
 		range = array_get(&entries[i]->uid_list, &range_count);
@@ -1222,11 +1226,18 @@ void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 	if (count == 0 || entries[count-1]->file_seq < new_entry->file_seq)
 		array_append(&ctx->uidlist->entries, &new_entry, 1);
 	else {
+		unsigned int idx;
+
 		pos = bsearch_insert_pos(&new_entry->file_seq, entries,
 					 count, sizeof(*entries),
 					 dbox_uidlist_entry_cmp);
-		array_insert(&ctx->uidlist->entries, pos - entries,
-			     &new_entry, 1);
+		idx = pos - entries;
+
+		i_assert(idx < count || idx == 0 ||
+			 new_entry->file_seq > entries[idx-1]->file_seq);
+		i_assert(idx == count ||
+			 new_entry->file_seq < entries[idx]->file_seq);
+		array_insert(&ctx->uidlist->entries, idx, &new_entry, 1);
 	}
 }
 
