@@ -438,8 +438,10 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		home_dir = p + 3;
 	}
 
-	if (!validate_uid_gid(set, uid, gid, user))
-		return FALSE;
+	if (!dump_capability) {
+		if (!validate_uid_gid(set, uid, gid, user))
+			return FALSE;
+	}
 
 	if (*chroot_dir == '\0' && set->mail_chroot != NULL)
 		chroot_dir = set->mail_chroot;
