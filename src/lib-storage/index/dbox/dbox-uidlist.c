@@ -538,7 +538,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 	t_push();
 	str = t_str_new(256);
 
-	/* header: <version> <uidvalidity> <next-uid>. */
+	/* header: <version> <uidvalidity> <next-uid> <last-file-seq>. */
 	str_printfa(str, "%u %u %u %u\n", DBOX_UIDLIST_VERSION,
 		    uidlist->uid_validity, uidlist->last_uid,
 		    uidlist->last_file_seq);
@@ -940,6 +940,25 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 	return 1;
 }
 
+static int dbox_file_seq_was_used(struct dbox_mailbox *mbox, const char *path,
+				  uint32_t file_seq)
+{
+	struct stat st;
+
+	if (stat(path, &st) == 0)
+		return 0;
+	if (errno != ENOENT) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+					  "stat(%s) failed: %m", path);
+		return -1;
+	}
+
+	/* doesn't exist, make sure that index's last file seq is lower */
+	if (dbox_uidlist_read(mbox->uidlist) < 0)
+		return -1;
+	return file_seq < mbox->uidlist->last_file_seq ? 1 : 0;
+}
+
 static int
 dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 		      uint32_t *file_seq_r, struct dbox_uidlist_entry **entry_r,
@@ -979,10 +998,22 @@ dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 					  DOTLOCK_CREATE_FLAG_NONBLOCK,
 					  dotlock_r);
 		if (ret > 0) {
-			/* success */
-			break;
-		}
-		if (ret < 0) {
+			/* success. but since we don't have uidlist locked
+			   here, it's possible that the file was just deleted
+			   by someone else. in that case we really don't want
+			   to create the file back and cause problems. */
+			ret = dbox_file_seq_was_used(mbox, str_c(path),
+						     file_seq);
+			if (ret == 0)
+				break;
+
+			/* error / it was used, continue with another
+			   file sequence */
+			file_dotlock_delete(dotlock_r);
+
+			if (ret < 0)
+				return -1;
+		} else if (ret < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
 				"file_dotlock_create(%s) failed: %m",
 				str_c(path));
