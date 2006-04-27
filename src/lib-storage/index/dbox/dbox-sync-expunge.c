@@ -282,7 +282,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
         struct seq_range *range;
 	const char *path;
 	unsigned int i, count, sync_count;
-	uint32_t file_seq, uid, uid1, uid2, first_expunged_uid;
+	uint32_t file_seq, uid, exp_uid1, exp_uid2, first_expunged_uid;
 	uoff_t offset;
 	int ret;
 	bool seen_expunges, skipped_expunges;
@@ -299,11 +299,12 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 		return 0;
 	}
 
-	if (dbox_sync_rec_get_uids(ctx, &sync_recs[sync_idx], &uid1, &uid2) < 0)
+	if (dbox_sync_rec_get_uids(ctx, &sync_recs[sync_idx],
+				   &exp_uid1, &exp_uid2) < 0)
 		return -1;
 
 	/* find the first non-expunged mail */
-	first_expunged_uid = uid1;
+	first_expunged_uid = exp_uid1;
 	seen_expunges = FALSE; skipped_expunges = FALSE; uid = 0;
 	range = array_get_modifyable(&entry->uid_list, &count);
 	for (i = 0; i < count; i++) {
@@ -318,13 +319,13 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 		}
 
 		while (uid <= range[i].seq2) {
-			if (uid < uid1 || uid1 == 0) {
+			if (uid < exp_uid1 || exp_uid1 == 0) {
 				/* non-expunged mails exist in this file */
 				break;
 			}
 			seen_expunges = TRUE;
 
-			if (range[i].seq2 < uid2) {
+			if (range[i].seq2 < exp_uid2) {
 				/* fully used up this uid range */
 				uid = range[i].seq2 + 1;
 				break;
@@ -332,11 +333,12 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 
 			/* this sync_rec was fully used. look up the next.
 			   range[] doesn't contain non-existing UIDs, so
-			   uid2+1 should exist in it. */
-			uid = uid2 + 1;
+			   exp_uid2+1 should exist in it. */
+			if (uid <= exp_uid2)
+				uid = exp_uid2 + 1;
 
 			ret = dbox_next_expunge(ctx, sync_entry, &sync_idx,
-						&uid1, &uid2);
+						&exp_uid1, &exp_uid2);
 			if (ret <= 0) {
 				if (ret < 0)
 					return -1;
@@ -445,6 +447,9 @@ uidlist_entry_remove_uids(struct dbox_sync_context *ctx,
 
 	recs = array_get(&sync_entry->sync_recs, &count);
 	for (i = 0; i < count; i++) {
+		if (recs[i].type != MAIL_INDEX_SYNC_TYPE_EXPUNGE)
+			continue;
+
 		for (seq = recs[i].seq1; seq <= recs[i].seq2; seq++) {
 			if (mail_index_lookup_uid(ctx->sync_view,
 						  seq, &uid) < 0) {
@@ -454,6 +459,7 @@ uidlist_entry_remove_uids(struct dbox_sync_context *ctx,
 			seq_range_array_remove(&entry->uid_list, uid);
 		}
 	}
+
 	if (array_count(&entry->uid_list) == 0) {
 		dbox_uidlist_sync_unlink(ctx->uidlist_sync_ctx,
 					 entry->file_seq);
