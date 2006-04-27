@@ -165,12 +165,25 @@ static int dbox_uidlist_entry_cmp(const void *key, const void *p)
 	return (int)*file_seq - (int)(*entry)->file_seq;
 }
 
+static void dbox_uidlist_update_last_uid(struct dbox_uidlist *uidlist,
+					 const struct dbox_uidlist_entry *entry)
+{
+	const struct seq_range *range;
+	unsigned int count;
+
+	range = array_get(&entry->uid_list, &count);
+	if (range[count-1].seq2 > uidlist->last_uid)
+		uidlist->last_uid = range[count-1].seq2;
+}
+
 static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 				   const struct dbox_uidlist_entry *src_entry)
 {
 	struct dbox_uidlist_entry *dest_entry, **entries, **pos;
 	const struct seq_range *range;
 	unsigned int i, idx, count;
+
+	dbox_uidlist_update_last_uid(uidlist, src_entry);
 
 	entries = array_get_modifyable(&uidlist->entries, &count);
 	if (count == 0 || src_entry->file_seq > entries[count-1]->file_seq) {
@@ -546,6 +559,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 
 	entries = array_get(&uidlist->entries, &count);
 	for (i = 0; i < count; i++) {
+		i_assert(entries[i]->file_seq <= uidlist->last_file_seq);
 		str_truncate(str, 0);
 
 		i_assert(i == 0 ||
@@ -555,6 +569,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 		range = array_get(&entries[i]->uid_list, &range_count);
 		i_assert(range_count != 0);
 		for (ui = 0; ui < range_count; ui++) {
+			i_assert(range[ui].seq2 <= uidlist->last_uid);
 			if (str_len(str) > 0)
 				str_append_c(str, ',');
 			if (range[ui].seq1 == range[ui].seq2)
@@ -1252,6 +1267,10 @@ void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 	ARRAY_CREATE(&new_entry->uid_list, ctx->uidlist->entry_pool,
 		     struct seq_range, array_count(&entry->uid_list) + 1);
 	array_append_array(&new_entry->uid_list, &entry->uid_list);
+
+	if (new_entry->file_seq > ctx->uidlist->last_file_seq)
+		ctx->uidlist->last_file_seq = new_entry->file_seq;
+	dbox_uidlist_update_last_uid(ctx->uidlist, new_entry);
 
 	entries = array_get(&ctx->uidlist->entries, &count);
 	if (count == 0 || entries[count-1]->file_seq < new_entry->file_seq)
