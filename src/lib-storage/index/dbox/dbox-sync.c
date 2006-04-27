@@ -45,6 +45,13 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx, uint32_t seq,
 	if (dbox_sync_get_file_offset(ctx, seq, &file_seq, &offset) < 0)
 		return -1;
 
+	if (file_seq == 0) {
+		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			"Cached message offset lost for seq %u in "
+			"dbox %s", seq, ctx->mbox->path);
+		return -1;
+	}
+
 	file_seqs = array_get(&ctx->added_file_seqs, &count);
 	for (i = 0; i < count; i++) {
 		if (file_seqs[i] == file_seq) {

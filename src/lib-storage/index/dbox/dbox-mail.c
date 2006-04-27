@@ -63,7 +63,7 @@ int dbox_mail_lookup_offset(struct index_transaction_context *trans,
 
 		mail_storage_set_critical(STORAGE(mbox->storage),
 			"Cached message offset lost for seq %u in "
-			"dbox file %s", seq, mbox->path);
+			"dbox %s", seq, mbox->path);
 
 		/* resync and try again */
 		if (dbox_sync(mbox, TRUE) < 0)
@@ -115,7 +115,7 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 
 	mail_storage_set_critical(STORAGE(mbox->storage),
 				  "Cached message offset (%u, %"PRIuUOFF_T") "
-				  "broken for uid %u in dbox file %s",
+				  "broken for uid %u in dbox %s",
 				  file_seq, offset, mail->mail.mail.uid,
 				  mbox->path);
 	return -1;
