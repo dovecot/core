@@ -781,6 +781,19 @@ mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
 	return 1;
 }
 
+bool mail_index_is_ext_synced(struct mail_transaction_log_view *log_view,
+			      struct mail_index_map *map)
+{
+	uint32_t prev_seq;
+	uoff_t prev_offset;
+
+	mail_transaction_log_view_get_prev_pos(log_view, &prev_seq,
+					       &prev_offset);
+	return prev_seq < map->hdr.log_file_seq ||
+		(prev_seq == map->hdr.log_file_seq &&
+		 prev_offset < map->hdr.log_file_ext_offset);
+}
+
 static int mail_index_sync_from_transactions(struct mail_index *index,
 					     struct mail_index_map **map,
 					     bool sync_to_index)
@@ -796,7 +809,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	uoff_t prev_offset, max_offset;
 	size_t pos;
 	int ret;
-	bool skipped;
+	bool skipped, check_ext_offsets;
 
 	if (sync_to_index) {
 		/* read the real log position where we are supposed to be
@@ -852,8 +865,16 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	mail_index_sync_map_init(&sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
+	check_ext_offsets = TRUE;
 	while ((ret = mail_transaction_log_view_next(log_view, &thdr, &tdata,
 						     &skipped)) > 0) {
+		if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) != 0 &&
+		    check_ext_offsets) {
+			if (mail_index_is_ext_synced(log_view, index->map))
+				continue;
+			check_ext_offsets = FALSE;
+		}
+
 		if (mail_index_sync_record(&sync_map_ctx, thdr, tdata) < 0) {
 			ret = -1;
 			break;

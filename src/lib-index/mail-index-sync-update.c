@@ -657,19 +657,8 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 				continue;
 			}
 		} else if (check_ext_offsets) {
-			uint32_t prev_seq;
-			uoff_t prev_offset;
-
-			mail_transaction_log_view_get_prev_pos(view->log_view,
-							       &prev_seq,
-							       &prev_offset);
-			if (prev_seq < view->map->hdr.log_file_seq ||
-			    (prev_seq == view->map->hdr.log_file_seq &&
-			     prev_offset <
-			     view->map->hdr.log_file_ext_offset)) {
-				/* we have already synced this change */
+			if (mail_index_is_ext_synced(view->log_view, view->map))
 				continue;
-			}
 			check_ext_offsets = FALSE;
 		}
 
