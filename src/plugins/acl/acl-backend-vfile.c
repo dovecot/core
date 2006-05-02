@@ -49,11 +49,11 @@ static const struct acl_letter_map acl_letter_map[] = {
 	{ 'r', MAIL_ACL_READ },
 	{ 'w', MAIL_ACL_WRITE },
 	{ 's', MAIL_ACL_WRITE_SEEN },
-	{ 'd', MAIL_ACL_WRITE_DELETED },
+	{ 't', MAIL_ACL_WRITE_DELETED },
 	{ 'i', MAIL_ACL_INSERT },
 	{ 'e', MAIL_ACL_EXPUNGE },
-	{ 'c', MAIL_ACL_CREATE },
-	{ 'd', MAIL_ACL_DELETE },
+	{ 'k', MAIL_ACL_CREATE },
+	{ 'x', MAIL_ACL_DELETE },
 	{ 'a', MAIL_ACL_ADMIN },
 	{ '\0', NULL }
 };
