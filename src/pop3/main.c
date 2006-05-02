@@ -215,7 +215,7 @@ static int main_init(void)
 		i_fatal("pop3_uidl_format setting is missing from config file");
 	logout_format = getenv("POP3_LOGOUT_FORMAT");
 	if (logout_format == NULL)
-		logout_format = "top=%t/%T, retr=%r/%R, del=%d/%m, size=%s";
+		logout_format = "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s";
 	uidl_keymask = parse_uidl_keymask(uidl_format);
 	if (uidl_keymask == 0)
 		i_fatal("pop3_uidl_format setting doesn't contain any "
