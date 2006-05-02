@@ -512,6 +512,7 @@ maildir_quota_init(struct quota_setup *setup, const char *name __attr_unused__)
 {
 	struct maildir_quota_root *root;
 	const char *const *args;
+	unsigned long long size;
 
 	root = i_new(struct maildir_quota_root, 1);
 	root->root.name = i_strdup(name);
@@ -525,12 +526,14 @@ maildir_quota_init(struct quota_setup *setup, const char *name __attr_unused__)
 
 	for (; *args != '\0'; args++) {
 		if (strncmp(*args, "storage=", 8) == 0) {
-			root->message_bytes_limit =
-				strtoull(*args + 8, NULL, 10) * 1024;
+			size = strtoull(*args + 8, NULL, 10) * 1024;
+			if (size != 0)
+				root->message_bytes_limit = size;
 			root->master_message_limits = TRUE;
 		} else if (strncmp(*args, "messages=", 9) == 0) {
-			root->message_count_limit =
-				strtoull(*args + 9, NULL, 10);
+			size = strtoull(*args + 9, NULL, 10);
+			if (size != 0)
+				root->message_count_limit = size;
 			root->master_message_limits = TRUE;
 		}
 	}
@@ -595,14 +598,16 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 				 maildir_quota_root_get_storage(_root)) < 0)
 		return -1;
 
-	if (root->message_bytes_limit == (uint64_t)-1 &&
-	    root->message_count_limit == (uint64_t)-1)
-		return 0;
-
 	if (strcmp(name, QUOTA_NAME_STORAGE) == 0) {
+		if (root->message_bytes_limit == (uint64_t)-1)
+			return 0;
+
 		*limit_r = root->message_bytes_limit / 1024;
 		*value_r = root->total_bytes / 1024;
 	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
+		if (root->message_count_limit == (uint64_t)-1)
+			return 0;
+
 		*limit_r = root->message_count_limit;
 		*value_r = root->total_count;
 	} else {
