@@ -82,6 +82,29 @@ mail_index_header_update_counts(struct mail_index *index,
 	}
 }
 
+void mail_index_view_recalc_counters(struct mail_index_view *view)
+{
+	struct mail_index_map *map = view->map;
+	const struct mail_index_record *rec;
+	unsigned int i;
+
+	map->hdr.recent_messages_count = 0;
+	map->hdr.seen_messages_count = 0;
+	map->hdr.deleted_messages_count = 0;
+
+	for (i = 0; i < view->hdr.messages_count; i++) {
+		rec = MAIL_INDEX_MAP_IDX(map, i);
+		mail_index_header_update_counts(view->index, &map->hdr,
+						0, rec->flags);
+	}
+
+	view->hdr.recent_messages_count = map->hdr.recent_messages_count;
+	view->hdr.seen_messages_count = map->hdr.seen_messages_count;
+	view->hdr.deleted_messages_count = map->hdr.deleted_messages_count;
+
+	view->broken_counters = FALSE;
+}
+
 static void
 mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 				   const struct mail_index_record *rec)
@@ -149,10 +172,14 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 		expunge_handlers_count = 0;
 	}
 
-	for (seq = seq1; seq <= seq2; seq++) {
-                rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-		mail_index_header_update_counts(view->index, &map->hdr,
-						rec->flags, 0);
+	if (ctx->unreliable_flags)
+		view->broken_counters = TRUE;
+	else {
+		for (seq = seq1; seq <= seq2; seq++) {
+			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
+			mail_index_header_update_counts(view->index, &map->hdr,
+							rec->flags, 0);
+		}
 	}
 
 	for (i = 0; i < expunge_handlers_count; i++) {
@@ -264,15 +291,27 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 
         flag_mask = ~u->remove_flags;
 
-	for (idx = seq1-1; idx < seq2; idx++) {
-                rec = MAIL_INDEX_MAP_IDX(view->map, idx);
+	if (ctx->unreliable_flags &&
+	    ((u->add_flags | u->remove_flags) &
+	     (MAIL_SEEN | MAIL_DELETED | MAIL_RECENT)) != 0) {
+		view->broken_counters = TRUE;
+		for (idx = seq1-1; idx < seq2; idx++) {
+			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
+			rec->flags = (rec->flags & flag_mask) | u->add_flags;
 
-		old_flags = rec->flags;
-		rec->flags = (rec->flags & flag_mask) | u->add_flags;
+			mail_index_header_update_lowwaters(hdr, rec);
+		}
+	} else {
+		for (idx = seq1-1; idx < seq2; idx++) {
+			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
 
-		mail_index_header_update_counts(view->index, hdr,
-						old_flags, rec->flags);
-                mail_index_header_update_lowwaters(hdr, rec);
+			old_flags = rec->flags;
+			rec->flags = (rec->flags & flag_mask) | u->add_flags;
+
+			mail_index_header_update_counts(view->index, hdr,
+							old_flags, rec->flags);
+			mail_index_header_update_lowwaters(hdr, rec);
+		}
 	}
 	return 1;
 }
