@@ -27,7 +27,7 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 
 	str_append(str, " (");
 	list = quota_root_get_resources(root);
-	for (i = 0; *list != NULL; list++, i++) {
+	for (i = 0; *list != NULL; list++) {
 		ret = quota_get_resource(root, *list, &value, &limit);
 		if (ret > 0) {
 			if (i > 0)
@@ -35,6 +35,7 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 			str_printfa(str, "%s %llu %llu", *list,
 				    (unsigned long long)value,
 				    (unsigned long long)limit);
+			i++;
 		} else if (ret < 0) {
 			client_send_line(cmd->client, t_strconcat(
 				"* BAD ", quota_last_error(quota), NULL));
