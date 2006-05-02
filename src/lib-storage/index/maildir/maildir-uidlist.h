@@ -50,7 +50,7 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags);
 void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx);
-int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx);
+int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **ctx);
 
 void maildir_uidlist_add_flags(struct maildir_uidlist *uidlist,
 			       const char *filename,

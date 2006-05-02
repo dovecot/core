@@ -907,10 +907,13 @@ void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 	ctx->uidlist->initial_sync = TRUE;
 }
 
-int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx *ctx)
+int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 {
+	struct maildir_uidlist_sync_ctx *ctx = *_ctx;
 	bool unlocked = FALSE;
 	int ret = ctx->failed ? -1 : 0;
+
+	*_ctx = NULL;
 
 	if (!ctx->finished)
 		maildir_uidlist_sync_finish(ctx);

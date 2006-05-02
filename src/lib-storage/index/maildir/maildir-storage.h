@@ -46,6 +46,7 @@ struct timeval;
 struct maildir_save_context;
 struct maildir_copy_context;
 struct maildir_keywords_sync_ctx;
+struct maildir_index_sync_context;
 
 struct maildir_storage {
 	struct index_storage storage;
@@ -103,11 +104,12 @@ struct mailbox_sync_context *
 maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
 int maildir_storage_sync_force(struct maildir_mailbox *mbox);
 
-struct maildir_index_sync_context *
-maildir_sync_index_begin(struct maildir_mailbox *mbox);
-void maildir_sync_index_abort(struct maildir_index_sync_context *sync_ctx);
-int maildir_sync_index_finish(struct maildir_index_sync_context *sync_ctx,
-			      bool partial);
+int maildir_sync_index_begin(struct maildir_mailbox *mbox,
+			     struct maildir_index_sync_context **ctx_r);
+int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
+		       bool partial);
+int maildir_sync_index_finish(struct maildir_index_sync_context **sync_ctx,
+			      bool failed);
 
 struct mailbox_transaction_context *
 maildir_transaction_begin(struct mailbox *box,
