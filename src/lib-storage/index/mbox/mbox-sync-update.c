@@ -53,7 +53,7 @@ void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 			i_assert(ctx->mail.offset + ctx->mail.space <=
 				 ctx->hdr_offset + pos ||
 				 ctx->mail.offset > ctx->hdr_offset + pos + have);
-			if (ctx->mail.offset > pos) {
+			if (ctx->mail.offset > ctx->hdr_offset + pos) {
 				/* free space offset moves */
 				ctx->mail.offset += diff;
 			}
