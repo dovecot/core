@@ -172,7 +172,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 		expunge_handlers_count = 0;
 	}
 
-	if (ctx->unreliable_flags)
+	if (ctx->unreliable_flags || view->broken_counters)
 		view->broken_counters = TRUE;
 	else {
 		for (seq = seq1; seq <= seq2; seq++) {
@@ -210,6 +210,16 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	return 1;
 }
 
+static void write_seq_update(struct mail_index_map *map,
+			     uint32_t seq1, uint32_t seq2)
+{
+	if (map->write_seq_first == 0 ||
+	    map->write_seq_first > seq1)
+		map->write_seq_first = seq1;
+	if (map->write_seq_last < seq2)
+		map->write_seq_last = seq2;
+}
+
 static int sync_append(const struct mail_index_record *rec,
 		       struct mail_index_sync_map_ctx *ctx)
 {
@@ -244,15 +254,16 @@ static int sync_append(const struct mail_index_record *rec,
 	map->records_count++;
 	view->hdr.messages_count++;
 
-	if (map->write_seq_first == 0)
-		map->write_seq_first = map->hdr.messages_count;
-	map->write_seq_last = map->hdr.messages_count;
+	write_seq_update(map, map->hdr.messages_count, map->hdr.messages_count);
 
 	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
-	mail_index_header_update_counts(view->index, &map->hdr, 0, rec->flags);
-	mail_index_header_update_lowwaters(&map->hdr, rec);
+	if (!view->broken_counters) {
+		mail_index_header_update_counts(view->index, &map->hdr,
+						0, rec->flags);
+		mail_index_header_update_lowwaters(&map->hdr, rec);
+	}
 	return 1;
 }
 
@@ -279,11 +290,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	if (seq1 == 0)
 		return 1;
 
-	if (view->map->write_seq_first == 0 ||
-	    view->map->write_seq_first > seq1)
-		view->map->write_seq_first = seq1;
-	if (view->map->write_seq_last < seq2)
-		view->map->write_seq_last = seq2;
+	write_seq_update(view->map, seq1, seq2);
 
 	hdr = &view->map->hdr;
 	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
@@ -291,9 +298,10 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 
         flag_mask = ~u->remove_flags;
 
-	if (ctx->unreliable_flags &&
-	    ((u->add_flags | u->remove_flags) &
-	     (MAIL_SEEN | MAIL_DELETED | MAIL_RECENT)) != 0) {
+	if (view->broken_counters ||
+	    (ctx->unreliable_flags &&
+	     ((u->add_flags | u->remove_flags) &
+	      (MAIL_SEEN | MAIL_DELETED | MAIL_RECENT)) != 0)) {
 		view->broken_counters = TRUE;
 		for (idx = seq1-1; idx < seq2; idx++) {
 			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
@@ -621,8 +629,11 @@ static void mail_index_sync_remove_recent(struct mail_index_sync_ctx *sync_ctx)
 
 	for (i = 0; i < map->records_count; i++) {
 		rec = MAIL_INDEX_MAP_IDX(map, i);
-		if ((rec->flags & MAIL_RECENT) != 0)
+		if ((rec->flags & MAIL_RECENT) != 0) {
 			rec->flags &= ~MAIL_RECENT;
+
+			write_seq_update(map, i + 1, i + 1);
+		}
 	}
 
 	map->hdr.recent_messages_count = 0;
