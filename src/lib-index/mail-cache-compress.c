@@ -3,6 +3,9 @@
 #include "lib.h"
 #include "buffer.h"
 #include "ostream.h"
+#include "nfs-workarounds.h"
+#include "read-full.h"
+#include "close-keep-errno.h"
 #include "file-dotlock.h"
 #include "file-cache.h"
 #include "file-set-size.h"
@@ -236,20 +239,51 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	return mail_index_transaction_commit(&t, &seq, &offset);
 }
 
+static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
+{
+	struct mail_cache_header hdr;
+	unsigned int i;
+	int fd, ret;
+
+	for (i = 0;; i++) {
+		fd = nfs_safe_open(cache->filepath, O_RDONLY);
+		if (fd == -1) {
+			if (errno == ENOENT)
+				return 0;
+
+			mail_cache_set_syscall_error(cache, "open()");
+			return -1;
+		}
+
+		ret = read_full(fd, &hdr, sizeof(hdr));
+		close_keep_errno(fd);
+
+		if (ret >= 0) {
+			if (ret == 0)
+				return 0;
+			if (cache->need_compress_file_seq == (uint32_t)-1) {
+				/* previously it didn't exist */
+				return 1;
+			}
+			return hdr.file_seq != cache->need_compress_file_seq;
+		} else if (errno != ESTALE || i >= NFS_ESTALE_RETRY_COUNT) {
+			mail_cache_set_syscall_error(cache, "read()");
+			return -1;
+		}
+	}
+	return -1;
+}
+
 static int mail_cache_compress_locked(struct mail_cache *cache,
 				      struct mail_index_view *view)
 {
 	struct dotlock *dotlock;
         mode_t old_mask;
-	int fd;
+	int fd, ret;
 
 	/* get the latest info on fields */
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
-
-#ifdef DEBUG
-	i_warning("Compressing cache file %s", cache->filepath);
-#endif
 
 	old_mask = umask(cache->index->mode ^ 0666);
 	fd = file_dotlock_open(&cache->dotlock_settings, cache->filepath,
@@ -261,14 +295,27 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return -1;
 	}
 
+	if ((ret = mail_cache_compress_has_file_changed(cache)) != 0) {
+		if (ret < 0)
+			return -1;
+
+		/* was just compressed, forget this */
+		cache->need_compress_file_seq = 0;
+		file_dotlock_delete(&dotlock);
+		return mail_cache_reopen(cache);
+	}
+
+#ifdef DEBUG
+	i_warning("Compressing cache file %s (%u)",
+		  cache->filepath, cache->need_compress_file_seq);
+#endif
+
 	if (cache->index->gid != (gid_t)-1 &&
 	    fchown(fd, (uid_t)-1, cache->index->gid) < 0) {
 		mail_cache_set_syscall_error(cache, "fchown()");
 		file_dotlock_delete(&dotlock);
 		return -1;
 	}
-
-	// FIXME: check that cache file wasn't just recreated
 
 	if (mail_cache_copy(cache, view, fd) < 0) {
 		(void)file_dotlock_delete(&dotlock);
@@ -294,7 +341,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
 
-	cache->need_compress = FALSE;
+	cache->need_compress_file_seq = 0;
 	return 0;
 }
 
@@ -329,5 +376,5 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 
 bool mail_cache_need_compress(struct mail_cache *cache)
 {
-	return cache->need_compress;
+	return cache->need_compress_file_seq != 0;
 }

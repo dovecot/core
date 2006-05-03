@@ -4,6 +4,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "hash.h"
+#include "nfs-workarounds.h"
 #include "file-cache.h"
 #include "mmap-util.h"
 #include "write-full.h"
@@ -71,17 +72,18 @@ int mail_cache_reopen(struct mail_cache *cache)
 	const struct mail_index_ext *ext;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache) &&
-	    (cache->need_compress || MAIL_INDEX_IS_IN_MEMORY(cache->index))) {
+	    (cache->need_compress_file_seq != 0 ||
+	     MAIL_INDEX_IS_IN_MEMORY(cache->index))) {
 		/* reopening does no good */
 		return 0;
 	}
 
 	mail_cache_file_close(cache);
 
-	cache->fd = open(cache->filepath, O_RDWR);
+	cache->fd = nfs_safe_open(cache->filepath, O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT)
-			cache->need_compress = TRUE;
+			cache->need_compress_file_seq = (uint32_t)-1;
 		else
 			mail_cache_set_syscall_error(cache, "open()");
 		return -1;
@@ -103,7 +105,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 		   file_seq really is corrupted. either way, this shouldn't
 		   happen often so we'll just mark cache to be compressed
 		   later which fixes this. */
-		cache->need_compress = TRUE;
+		cache->need_compress_file_seq = cache->hdr->file_seq;
 		mail_index_view_close(&view);
 		return 0;
 	}
@@ -197,7 +199,9 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 		cache->hdr = cache->data;
 
 		if (offset == 0 && !mail_cache_verify_header(cache)) {
-			cache->need_compress = TRUE;
+			cache->need_compress_file_seq =
+				cache->hdr->file_seq != 0 ?
+				cache->hdr->file_seq : (uint32_t)-1;
 			return -1;
 		}
 		return 0;
@@ -216,7 +220,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 		if (cache->fd == -1) {
 			/* unusable, waiting for compression or
 			   index is in memory */
-			i_assert(cache->need_compress ||
+			i_assert(cache->need_compress_file_seq != 0 ||
 				 MAIL_INDEX_IS_IN_MEMORY(cache->index));
 			return -1;
 		}
@@ -237,7 +241,9 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 	cache->hdr = cache->mmap_base;
 
 	if (!mail_cache_verify_header(cache)) {
-		cache->need_compress = TRUE;
+		cache->need_compress_file_seq =
+			cache->hdr->file_seq != 0 ?
+			cache->hdr->file_seq : (uint32_t)-1;
 		return -1;
 	}
 
@@ -249,10 +255,10 @@ static int mail_cache_open_and_verify(struct mail_cache *cache)
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
 		return 0;
 
-	cache->fd = open(cache->filepath, O_RDWR);
+	cache->fd = nfs_safe_open(cache->filepath, O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT) {
-			cache->need_compress = TRUE;
+			cache->need_compress_file_seq = (uint32_t)-1;
 			return 0;
 		}
 
@@ -327,7 +333,7 @@ struct mail_cache *mail_cache_create(struct mail_index *index)
 	struct mail_cache *cache;
 
 	cache = mail_cache_alloc(index);
-	cache->need_compress = TRUE;
+	cache->need_compress_file_seq = (uint32_t)-1;
 	return cache;
 }
 
@@ -449,14 +455,14 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 	if (cont_percentage >= COMPRESS_CONTINUED_PERCENTAGE &&
 	    hdr->used_file_size >= COMPRESS_MIN_SIZE) {
 		/* too many continued rows, compress */
-		cache->need_compress = TRUE;
+		cache->need_compress_file_seq = hdr->file_seq;
 	}
 
 	/* see if we've reached the max. deleted space in file */
 	max_del_space = hdr->used_file_size / 100 * COMPRESS_PERCENTAGE;
 	if (hdr->deleted_space >= max_del_space &&
 	    hdr->used_file_size >= COMPRESS_MIN_SIZE)
-		cache->need_compress = TRUE;
+		cache->need_compress_file_seq = hdr->file_seq;
 }
 
 int mail_cache_unlock(struct mail_cache *cache)
