@@ -51,6 +51,10 @@ static void sig_handler(int signo)
 	}
 }
 
+static void sig_ignore(int signo __attr_unused__)
+{
+}
+
 static void signal_read(void *context __attr_unused__)
 {
 	unsigned char signal_buf[512];
@@ -110,7 +114,7 @@ void lib_signals_set_handler(int signo, bool delayed,
 		if (sigemptyset(&act.sa_mask) < 0)
 			i_fatal("sigemptyset(): %m");
 		act.sa_flags = 0;
-		act.sa_handler = handler != NULL ? sig_handler : SIG_IGN;
+		act.sa_handler = handler != NULL ? sig_handler : sig_ignore;
 		if (sigaction(signo, &act, NULL) < 0)
 			i_fatal("sigaction(%d): %m", signo);
 
@@ -138,6 +142,26 @@ void lib_signals_set_handler(int signo, bool delayed,
 	/* atomically set to signal_handlers[] list */
 	h->next = signal_handlers[signo];
 	signal_handlers[signo] = h;
+}
+
+void lib_signals_ignore_signal(int signo)
+{
+	struct sigaction act;
+
+	if (signo < 0 || signo > MAX_SIGNAL_VALUE) {
+		i_panic("Trying to ignore signal %d, but max is %d",
+			signo, MAX_SIGNAL_VALUE);
+	}
+
+	i_assert(signal_handlers[signo] == NULL);
+
+	if (sigemptyset(&act.sa_mask) < 0)
+		i_fatal("sigemptyset(): %m");
+	act.sa_flags = SA_RESTART;
+	act.sa_handler = SIG_IGN;
+
+	if (sigaction(signo, &act, NULL) < 0)
+		i_fatal("sigaction(%d): %m", signo);
 }
 
 void lib_signals_unset_handler(int signo, signal_handler_t *handler,
