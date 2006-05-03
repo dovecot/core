@@ -655,7 +655,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	hdr = index->hdr;
 	if (ret == 0 && (hdr->log_file_seq != seq ||
 			 hdr->log_file_int_offset != offset ||
-			 hdr->log_file_ext_offset != offset)) {
+			 hdr->log_file_ext_offset != offset ||
+			 ctx->sync_recent)) {
 		/* write all pending changes to index. */
 		if (mail_index_sync_set_log_view(ctx->view,
 						 hdr->log_file_seq,
