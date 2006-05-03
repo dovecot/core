@@ -1153,6 +1153,7 @@ uint32_t dbox_uidlist_get_new_file_seq(struct dbox_uidlist *uidlist)
 {
 	/* Note that unless uidlist is locked, it's not guaranteed that this
 	   actually returns a new unused file sequence. */
+	i_assert(uidlist->file_seq_highwater >= uidlist->last_file_seq);
 	return ++uidlist->file_seq_highwater;
 }
 
@@ -1270,6 +1271,8 @@ void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 
 	if (new_entry->file_seq > ctx->uidlist->last_file_seq)
 		ctx->uidlist->last_file_seq = new_entry->file_seq;
+	if (new_entry->file_seq > ctx->uidlist->file_seq_highwater)
+		ctx->uidlist->file_seq_highwater = new_entry->file_seq;
 	dbox_uidlist_update_last_uid(ctx->uidlist, new_entry);
 
 	entries = array_get(&ctx->uidlist->entries, &count);
