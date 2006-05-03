@@ -48,7 +48,7 @@ struct dbox_sync_context {
 };
 
 int dbox_sync(struct dbox_mailbox *mbox, bool force);
-int dbox_sync_if_changed(struct dbox_mailbox *mbox);
+int dbox_sync_is_changed(struct dbox_mailbox *mbox);
 
 struct mailbox_sync_context *
 dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);

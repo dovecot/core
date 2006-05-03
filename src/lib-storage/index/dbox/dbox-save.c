@@ -124,7 +124,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		ctx->trans = t->ictx.trans;
 		ctx->append_ctx = dbox_uidlist_append_init(mbox->uidlist);
 
-		if ((ret = dbox_sync_if_changed(mbox)) < 0) {
+		if ((ret = dbox_sync_is_changed(mbox)) < 0) {
 			ctx->failed = TRUE;
 			return -1;
 		}

@@ -552,7 +552,7 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	return index_mailbox_sync_init(box, flags, ret < 0);
 }
 
-int dbox_sync_if_changed(struct dbox_mailbox *mbox)
+int dbox_sync_is_changed(struct dbox_mailbox *mbox)
 {
 	const struct mail_index_header *hdr;
 	time_t mtime;
