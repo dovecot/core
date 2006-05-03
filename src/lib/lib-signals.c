@@ -53,6 +53,8 @@ static void sig_handler(int signo)
 
 static void sig_ignore(int signo __attr_unused__)
 {
+	/* if we used SIG_IGN instead of this function,
+	   the system call might be restarted */
 }
 
 static void signal_read(void *context __attr_unused__)
@@ -144,7 +146,7 @@ void lib_signals_set_handler(int signo, bool delayed,
 	signal_handlers[signo] = h;
 }
 
-void lib_signals_ignore_signal(int signo)
+void lib_signals_ignore(int signo)
 {
 	struct sigaction act;
 

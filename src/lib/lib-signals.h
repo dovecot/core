@@ -12,7 +12,7 @@ void lib_signals_set_handler(int signo, bool delayed,
 			     signal_handler_t *handler, void *context);
 /* Ignore given signal. The difference to lib_signals_set_handler() with NULL
    handler is that this function tries to restart the system calls. */
-void lib_signals_ignore_signal(int signo);
+void lib_signals_ignore(int signo);
 void lib_signals_unset_handler(int signo,
 			       signal_handler_t *handler, void *context);
 
