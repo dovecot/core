@@ -247,7 +247,8 @@ static void auth_client_input(void *context)
 		t_pop();
 
 		if (!ret) {
-			auth_client_connection_destroy(&conn);
+			struct auth_client_connection *tmp_conn = conn;
+			auth_client_connection_destroy(&tmp_conn);
 			break;
 		}
 	}
