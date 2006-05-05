@@ -89,12 +89,13 @@ static void verify_plain_callback(enum passdb_result result,
 		str_append_c(str, '\t');
 		if (request->passdb_password != NULL)
 			str_append(str, request->passdb_password);
-		str_append_c(str, '\t');
 		if (request->no_password)
-			str_append(str, "nopassword\t");
+			str_append(str, "\tnopassword");
 		if (request->extra_fields != NULL) {
 			const char *field =
 				auth_stream_reply_export(request->extra_fields);
+
+			str_append_c(str, '\t');
 			str_append(str, field);
 		}
 	}
