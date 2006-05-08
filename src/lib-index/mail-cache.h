@@ -72,6 +72,15 @@ mail_cache_get_transaction(struct mail_cache_view *view,
    must be exactly the expected size. */
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		    unsigned int field, const void *data, size_t data_size);
+/* Returns TRUE if field is wanted to be added and it doesn't already exist.
+   If current caching decisions say not to cache this field, FALSE is returned.
+   If seq is 0, the existence isn't checked. */
+bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
+			       uint32_t seq, unsigned int field);
+/* Like mail_cache_field_want_add(), but in caching decisions FALSE is
+   returned only if the decision is a forced no. */
+bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
+			      uint32_t seq, unsigned int field);
 
 /* Retursn 1 if field exists, 0 if not, -1 if error. */
 int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,

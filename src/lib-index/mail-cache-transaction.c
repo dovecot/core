@@ -747,6 +747,30 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
                 buffer_append_zero(ctx->cache_data, 4 - (data_size & 3));
 }
 
+bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
+			       uint32_t seq, unsigned int field)
+{
+	enum mail_cache_decision_type decision;
+
+	decision = mail_cache_field_get_decision(ctx->view->cache, field);
+	if ((decision & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO)
+		return FALSE;
+
+	return mail_cache_field_exists(ctx->view, seq, field) == 0;
+}
+
+bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
+			      uint32_t seq, unsigned int field)
+{
+	enum mail_cache_decision_type decision;
+
+	decision = mail_cache_field_get_decision(ctx->view->cache, field);
+	if (decision == (MAIL_CACHE_DECISION_FORCED | MAIL_CACHE_DECISION_NO))
+		return FALSE;
+
+	return mail_cache_field_exists(ctx->view, seq, field) == 0;
+}
+
 static int mail_cache_link_unlocked(struct mail_cache *cache,
 				    uint32_t old_offset, uint32_t new_offset)
 {
