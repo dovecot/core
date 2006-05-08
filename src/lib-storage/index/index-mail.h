@@ -17,7 +17,7 @@ enum index_cache_field {
 	MAIL_CACHE_IMAP_BODY,
 	MAIL_CACHE_IMAP_BODYSTRUCTURE,
 	MAIL_CACHE_IMAP_ENVELOPE,
-	MAIL_CACHE_MESSAGEPART,
+	MAIL_CACHE_MESSAGE_PARTS,
 
 	MAIL_CACHE_FIELD_COUNT
 };
@@ -96,6 +96,7 @@ struct index_mail_data {
 	unsigned int save_envelope:1;
 	unsigned int save_bodystructure_header:1;
 	unsigned int save_bodystructure_body:1;
+	unsigned int save_message_parts:1;
 	unsigned int parsed_bodystructure:1;
 	unsigned int hdr_size_set:1;
 	unsigned int body_size_set:1;
@@ -165,8 +166,6 @@ int index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 			       struct mail_keywords *keywords);
 int index_mail_expunge(struct mail *mail);
 
-const char *index_mail_get_cached_string(struct index_mail *mail,
-					 enum index_cache_field field);
 uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 				    enum index_cache_field field);
 uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail);
