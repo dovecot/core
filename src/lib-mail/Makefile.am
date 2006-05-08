@@ -11,6 +11,7 @@ libmail_a_SOURCES = \
 	message-content-parser.c \
 	message-date.c \
 	message-header-decode.c \
+	message-header-parser.c \
 	message-header-search.c \
 	message-parser.c \
 	message-part-serialize.c \
@@ -27,6 +28,7 @@ noinst_HEADERS = \
 	message-content-parser.h \
 	message-date.h \
 	message-header-decode.h \
+	message-header-parser.h \
 	message-header-search.h \
 	message-parser.h \
 	message-part-serialize.h \

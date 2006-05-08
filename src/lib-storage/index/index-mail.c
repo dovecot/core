@@ -380,11 +380,11 @@ static void index_mail_parse_body(struct index_mail *mail, bool need_parts)
 		i_assert(!data->save_bodystructure_header);
 		message_parser_parse_body(data->parser_ctx,
 					  parse_bodystructure_part_header,
-					  NULL, mail->data_pool);
+					  mail->data_pool);
 		data->save_bodystructure_body = FALSE;
 		data->parsed_bodystructure = TRUE;
 	} else {
-		message_parser_parse_body(data->parser_ctx, NULL, NULL, NULL);
+		message_parser_parse_body(data->parser_ctx, NULL, NULL);
 	}
 	data->parts = message_parser_deinit(&data->parser_ctx);
 

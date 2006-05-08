@@ -430,8 +430,7 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 	}
 }
 
-static void search_header(struct message_part *part __attr_unused__,
-                          struct message_header_line *hdr, void *context)
+static void search_header(struct message_header_line *hdr, void *context)
 {
 	struct search_header_context *ctx = context;
 
@@ -546,8 +545,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 		hdr_ctx.parse_headers = headers == NULL;
 
 		index_mail_parse_header_init(ctx->imail, headers_ctx);
-		message_parse_header(NULL, input, NULL,
-				     search_header, &hdr_ctx);
+		message_parse_header(input, NULL, search_header, &hdr_ctx);
 		if (headers_ctx != NULL)
 			mailbox_header_lookup_deinit(&headers_ctx);
 	} else {

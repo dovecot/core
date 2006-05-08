@@ -335,12 +335,20 @@ void index_mail_parse_header(struct message_part *part,
 }
 
 static void
-index_mail_parse_header_cb(struct message_part *part,
-			   struct message_header_line *hdr, void *context)
+index_mail_parse_part_header_cb(struct message_part *part,
+				struct message_header_line *hdr, void *context)
 {
 	struct index_mail *mail = context;
 
 	index_mail_parse_header(part, hdr, mail);
+}
+
+static void
+index_mail_parse_header_cb(struct message_header_line *hdr, void *context)
+{
+	struct index_mail *mail = context;
+
+	index_mail_parse_header(mail->data.parts, hdr, mail);
 }
 
 int index_mail_parse_headers(struct index_mail *mail,
@@ -359,10 +367,11 @@ int index_mail_parse_headers(struct index_mail *mail,
 		data->parser_ctx =
 			message_parser_init(mail->data_pool, data->stream);
 		message_parser_parse_header(data->parser_ctx, &data->hdr_size,
-					    index_mail_parse_header_cb, mail);
+					    index_mail_parse_part_header_cb,
+					    mail);
 	} else {
 		/* just read the header */
-		message_parse_header(data->parts, data->stream, &data->hdr_size,
+		message_parse_header(data->stream, &data->hdr_size,
 				     index_mail_parse_header_cb, mail);
 	}
 	data->hdr_size_set = TRUE;
@@ -372,8 +381,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 }
 
 static void
-imap_envelope_parse_callback(struct message_part *part __attr_unused__,
-			     struct message_header_line *hdr, void *context)
+imap_envelope_parse_callback(struct message_header_line *hdr, void *context)
 {
 	struct index_mail *mail = context;
 
@@ -396,7 +404,7 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 	if (mail->data.envelope == NULL && stream != NULL) {
 		/* we got the headers from cache - parse them to get the
 		   envelope */
-		message_parse_header(NULL, stream, NULL,
+		message_parse_header(stream, NULL,
 				     imap_envelope_parse_callback, mail);
 		mail->data.save_envelope = FALSE;
 	}
