@@ -459,10 +459,13 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 		}
 	}
 
-	/* now convert the parsed bodystructure to string and save to cache */
+	/* If BODY is fetched first but BODYSTRUCTURE is also wanted, we don't
+	   normally want to first cache BODY and then BODYSTRUCTURE. So check
+	   the wanted_fields also in here. */
 	if (plain_bodystructure)
 		cache_bodystructure = FALSE;
-	else if (field == MAIL_CACHE_IMAP_BODYSTRUCTURE) {
+	else if (field == MAIL_CACHE_IMAP_BODYSTRUCTURE ||
+		 (mail->wanted_fields & MAIL_FETCH_IMAP_BODYSTRUCTURE) != 0) {
 		cache_bodystructure =
 			mail_cache_field_can_add(mail->trans->cache_trans,
 				data->seq, cache_field_bodystructure);
@@ -517,6 +520,19 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 	}
 }
 
+static void index_mail_parse_body_finish(struct index_mail *mail,
+					 enum index_cache_field field)
+{
+	mail->data.parts = message_parser_deinit(&mail->data.parser_ctx);
+
+	mail->data.body_size = mail->data.parts->body_size;
+	mail->data.body_size_set = TRUE;
+
+	index_mail_body_parsed_cache_flags(mail);
+	index_mail_body_parsed_cache_message_parts(mail);
+	index_mail_body_parsed_cache_bodystructure(mail, field);
+}
+
 static void index_mail_parse_body(struct index_mail *mail,
 				  enum index_cache_field field)
 {
@@ -539,14 +555,7 @@ static void index_mail_parse_body(struct index_mail *mail,
 	} else {
 		message_parser_parse_body(data->parser_ctx, NULL, NULL);
 	}
-	data->parts = message_parser_deinit(&data->parser_ctx);
-
-	data->body_size = data->parts->body_size;
-	data->body_size_set = TRUE;
-
-	index_mail_body_parsed_cache_flags(mail);
-	index_mail_body_parsed_cache_message_parts(mail);
-	index_mail_body_parsed_cache_bodystructure(mail, field);
+	index_mail_parse_body_finish(mail, field);
 }
 
 struct istream *index_mail_init_stream(struct index_mail *_mail,
