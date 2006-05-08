@@ -1,5 +1,5 @@
 AC_PREREQ([2.59])
-AC_INIT([dovecot],[1.0.beta7],[dovecot@dovecot.org])
+AC_INIT([dovecot],[1.1.UNSTABLE],[dovecot@dovecot.org])
 AC_CONFIG_SRCDIR([src])
 
 AM_INIT_AUTOMAKE
@@ -1727,3 +1727,8 @@ echo "Building with GSSAPI support ........ : $have_gssapi"
 echo "Building with user database modules . :$userdb"
 echo "Building with password lookup modules :$passdb"
 echo "Building with SQL drivers ............:$sql_drivers"
+
+echo
+echo "NOTE: This is the UNSTABLE development branch of Dovecot."
+echo "You may want to change into the stabilizing branch:"
+echo "  cvs up -r branch_1_0"
