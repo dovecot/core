@@ -81,7 +81,7 @@ const char *index_mail_get_cached_string(struct index_mail *mail,
 	if (mail_cache_lookup_field(mail->trans->cache_view, str,
 				    mail->data.seq,
 				    mail->ibox->cache_fields[field].idx) <= 0) {
-		p_free(mail->data_pool, str);
+		str_free(&str);
 		return NULL;
 	}
 
@@ -655,7 +655,7 @@ const char *index_mail_get_special(struct mail *_mail,
 				mail->mail.mail.uid);
 			data->bodystructure = NULL;
 		}
-		p_free(mail->data_pool, str);
+		str_free(&str);
 
 		index_mail_parse_bodystructure(mail, MAIL_CACHE_IMAP_BODY);
 		return data->body;
@@ -681,7 +681,7 @@ const char *index_mail_get_special(struct mail *_mail,
 			data->bodystructure = str_c(str);
 			return data->bodystructure;
 		}
-		p_free(mail->data_pool, str);
+		str_free(&str);
 
 		index_mail_parse_bodystructure(mail,
 					       MAIL_CACHE_IMAP_BODYSTRUCTURE);
