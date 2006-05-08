@@ -1,3 +1,9 @@
+ - dbox is leaking index fds
+ - Add S=size to maildir filenames
+ - dd if=/dev/zero of=dovecot.index bs=1024 count=1 -> NOOP -> crash!
+ - ACLs don't work properly with namespaces..
+ - deliver: delivering mail to box smaller than mbox_min_index_size give
+   close() errors
  - per-user/ip limits..
  - trying to select non-existing mailbox with LF in its name prints the
    LF in error reply. also should we try to prevent CR/LFs from being used
@@ -19,7 +25,6 @@ Warning: Our dotlock file /home/cras/.dovecot.convert.lock was modified (1143843
    would work properly
  - x search charset asdf all -> should fail
  - passdb passwd + passdb shadow -> passdb_password isn't reset to NULL
- - EXAMINE box, APPEND box -> fails
  - when pipelining login command + post-login commands, login process should
    pass the command to imap/pop3 process (at least one pop3 client does this)
  - lda: change "unsupported feature" error to something better
@@ -197,14 +202,11 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
       read-only login time with IP?
 
  - master
-    - pipe() failed: Too many open files - fine, but don't log it 1000 times
-      a second
     - configurable syslog prefix
     - SIGHUP rather shouldn't restart listening sockets if they didn't change..
     - if there are duplicate settings, complain about it
 
  - quota
-    - support Maildir++ quota
     - if dovecot-uidlist can't be written, assume the new mails have UIDs 
       beginning from uidlist.next_uid. Whenever mails are expunged, overwrite
       the next_uid field with the current highest next_uid. Whenever we have
