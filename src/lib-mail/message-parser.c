@@ -242,15 +242,8 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 	/* get back to parent MIME part, summing the child MIME part sizes
 	   into parent's body sizes */
 	while (boundary->part != ctx->part) {
-		ctx->part->parent->body_size.physical_size +=
-			ctx->part->header_size.physical_size +
-			ctx->part->body_size.physical_size;
-		ctx->part->parent->body_size.virtual_size +=
-			ctx->part->header_size.virtual_size +
-			ctx->part->body_size.virtual_size;
-		ctx->part->parent->body_size.lines +=
-			ctx->part->header_size.lines +
-			ctx->part->body_size.lines;
+		message_size_add(&ctx->part->parent->body_size,
+				 &ctx->part->body_size);
 		ctx->part = ctx->part->parent;
 	}
 
@@ -542,29 +535,27 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	int ret;
 	bool eof = FALSE;
 
+	block_r->part = ctx->part;
+
 	while ((ret = ctx->parse_next_block(ctx, block_r)) == 0) {
 		if ((ret = i_stream_read(ctx->input)) == 0)
 			break;
 		if (ret < 0) {
+			if (ret == -2)
+				ret = 0;
 			if (eof)
 				break;
 			eof = TRUE;
 		} else {
 			eof = FALSE;
 		}
+		block_r->part = ctx->part;
 	}
 
 	if (ret < 0) {
 		while (ctx->part->parent != NULL) {
-			ctx->part->parent->body_size.physical_size +=
-				ctx->part->header_size.physical_size +
-				ctx->part->body_size.physical_size;
-			ctx->part->parent->body_size.virtual_size +=
-				ctx->part->header_size.virtual_size +
-				ctx->part->body_size.virtual_size;
-			ctx->part->parent->body_size.lines +=
-				ctx->part->header_size.lines +
-				ctx->part->body_size.lines;
+			message_size_add(&ctx->part->parent->body_size,
+					 &ctx->part->body_size);
 			ctx->part = ctx->part->parent;
 		}
 	}
@@ -581,7 +572,7 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
 	int ret;
 
 	while ((ret = message_parser_parse_next_block(ctx, &block)) > 0) {
-		callback(ctx->part, block.hdr, context);
+		callback(block.part, block.hdr, context);
 
 		if (block.hdr == NULL)
 			break;
@@ -605,7 +596,7 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 
 	while ((ret = message_parser_parse_next_block(ctx, &block)) > 0) {
 		if (block.size == 0 && hdr_callback != NULL)
-			hdr_callback(ctx->part, block.hdr, context);
+			hdr_callback(block.part, block.hdr, context);
 	}
 	i_assert(ret != 0);
 }

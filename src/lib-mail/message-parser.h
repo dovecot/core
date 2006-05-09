@@ -38,6 +38,9 @@ struct message_part {
 struct message_parser_ctx;
 
 struct message_block {
+	/* Message part this block belongs to */
+	struct message_part *part;
+
 	/* non-NULL if a header line was read */
 	struct message_header_line *hdr;
 
