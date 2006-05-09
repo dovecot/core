@@ -147,10 +147,10 @@ struct mailbox_vfuncs {
 			 struct mail_keywords *keywords,
 			 time_t received_date, int timezone_offset,
 			 const char *from_envelope, struct istream *input,
-			 bool want_mail, struct mail_save_context **ctx_r);
+			 struct mail *dest_mail,
+			 struct mail_save_context **ctx_r);
 	int (*save_continue)(struct mail_save_context *ctx);
-	int (*save_finish)(struct mail_save_context *ctx,
-			   struct mail *dest_mail);
+	int (*save_finish)(struct mail_save_context *ctx);
 	void (*save_cancel)(struct mail_save_context *ctx);
 
 	int (*copy)(struct mailbox_transaction_context *t, struct mail *mail,
@@ -231,6 +231,7 @@ struct mail_search_context {
 
 struct mail_save_context {
 	struct mailbox_transaction_context *transaction;
+	struct mail *dest_mail;
 };
 
 struct mailbox_sync_context {

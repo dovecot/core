@@ -101,6 +101,7 @@ struct index_mail_data {
 	unsigned int hdr_size_set:1;
 	unsigned int body_size_set:1;
 	unsigned int messageparts_saved_to_cache:1;
+	unsigned int header_parsed:1;
 };
 
 struct index_mail {
@@ -173,5 +174,9 @@ time_t index_mail_get_cached_received_date(struct index_mail *mail);
 
 void index_mail_cache_add(struct index_mail *mail, unsigned int field,
 			  const void *data, size_t data_size);
+
+void index_mail_cache_parse_init(struct mail *mail, struct istream *input);
+void index_mail_cache_parse_continue(struct mail *mail);
+void index_mail_cache_parse_deinit(struct mail *mail);
 
 #endif

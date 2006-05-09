@@ -344,7 +344,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 		   enum mail_flags flags, struct mail_keywords *keywords,
 		   time_t received_date, int timezone_offset __attr_unused__,
 		   const char *from_envelope, struct istream *input,
-		   bool want_mail, struct mail_save_context **ctx_r)
+		   struct mail *dest_mail, struct mail_save_context **ctx_r)
 {
 	struct mbox_transaction_context *t =
 		(struct mbox_transaction_context *)_t;
@@ -372,7 +372,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	ctx->failed = FALSE;
 	ctx->seq = 0;
 
-	if (mbox_save_init_file(ctx, t, want_mail) < 0) {
+	if (mbox_save_init_file(ctx, t, dest_mail != NULL) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}
@@ -399,10 +399,14 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 		ctx->next_uid++;
 
 		/* parse and cache the mail headers as we read it */
-		if (ctx->mail == NULL)
-			ctx->mail = index_mail_alloc(_t, 0, NULL);
-		mail_set_seq(ctx->mail, ctx->seq);
-		index_mail_parse_header_init((struct index_mail *)ctx->mail,
+		if (dest_mail == NULL) {
+			if (ctx->mail == NULL)
+				ctx->mail = index_mail_alloc(_t, 0, NULL);
+			dest_mail = ctx->mail;
+		}
+		if (mail_set_seq(dest_mail, ctx->seq) < 0)
+			i_unreached();
+		index_mail_parse_header_init((struct index_mail *)dest_mail,
 					     NULL);
 	}
 	mbox_save_append_flag_headers(ctx->headers, save_flags);
@@ -516,7 +520,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	return ctx->input->eof && size == 0 ? 0 : mbox_save_continue(_ctx);
 }
 
-int mbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
+int mbox_save_finish(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 
@@ -539,17 +543,7 @@ int mbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 		ctx->mail_offset = (uoff_t)-1;
 	}
 
-	if (ctx->failed)
-		return -1;
-
-	if (dest_mail != NULL) {
-		i_assert(ctx->seq != 0);
-
-		if (mail_set_seq(dest_mail, ctx->seq) < 0)
-			return -1;
-	}
-
-	return 0;
+	return ctx->failed ? -1 : 0;
 }
 
 void mbox_save_cancel(struct mail_save_context *_ctx)
@@ -557,7 +551,7 @@ void mbox_save_cancel(struct mail_save_context *_ctx)
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 
 	ctx->failed = TRUE;
-	(void)mbox_save_finish(_ctx, NULL);
+	(void)mbox_save_finish(_ctx);
 }
 
 static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)

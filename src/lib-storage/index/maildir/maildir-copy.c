@@ -108,18 +108,11 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		/* hardlinked to destination, set hardlinked-flag */
 		seq = maildir_save_add(t, dest_fname,
 				       flags | MAILDIR_SAVE_FLAG_HARDLINK, NULL,
-				       dest_mail != NULL);
+				       dest_mail);
 	} else {
 		/* hardlinked to tmp/, treat as normal copied mail */
 		seq = maildir_save_add(t, dest_fname, flags, keywords,
-				       dest_mail != NULL);
-	}
-
-	if (dest_mail != NULL) {
-		i_assert(seq != 0);
-
-		if (mail_set_seq(dest_mail, seq) < 0)
-			return -1;
+				       dest_mail);
 	}
 	return 1;
 }

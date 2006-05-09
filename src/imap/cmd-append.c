@@ -273,7 +273,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 					   ctx->msg_size);
 	ret = mailbox_save_init(ctx->t, flags, keywords,
 				internal_date, timezone_offset, NULL,
-				ctx->input, FALSE, &ctx->save_ctx);
+				ctx->input, NULL, &ctx->save_ctx);
 
 	if (keywords != NULL)
 		mailbox_keywords_free(ctx->t, &keywords);
@@ -335,7 +335,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 			   whole message. */
 			failed = TRUE;
 			mailbox_save_cancel(&ctx->save_ctx);
-		} else if (mailbox_save_finish(&ctx->save_ctx, NULL) < 0) {
+		} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
 			failed = TRUE;
 			client_send_storage_error(cmd, ctx->storage);
 		} else {

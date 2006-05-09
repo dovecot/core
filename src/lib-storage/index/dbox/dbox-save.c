@@ -7,6 +7,7 @@
 #include "write-full.h"
 #include "ostream.h"
 #include "seq-range-array.h"
+#include "index-mail.h"
 #include "dbox-uidlist.h"
 #include "dbox-keywords.h"
 #include "dbox-sync.h"
@@ -28,7 +29,8 @@ struct dbox_save_context {
 	uint32_t seq;
 	struct istream *input;
 	struct ostream *output;
-        struct dbox_file *file;
+	struct dbox_file *file;
+	struct mail *mail;
 	uint64_t hdr_offset;
 	uint64_t mail_offset;
 
@@ -98,7 +100,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		   enum mail_flags flags, struct mail_keywords *keywords,
 		   time_t received_date, int timezone_offset __attr_unused__,
 		   const char *from_envelope __attr_unused__,
-		   struct istream *input, bool want_mail __attr_unused__,
+		   struct istream *input, struct mail *dest_mail,
 		   struct mail_save_context **ctx_r)
 {
 	struct dbox_transaction_context *t =
@@ -212,6 +214,14 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 			      mbox->dbox_offset_ext_idx, &ctx->hdr_offset,
 			      NULL);
 
+	if (dest_mail == NULL) {
+		if (ctx->mail == NULL)
+			ctx->mail = index_mail_alloc(_t, 0, NULL);
+		dest_mail = ctx->mail;
+	}
+	if (mail_set_seq(dest_mail, ctx->seq) < 0)
+		i_unreached();
+
 	if (ctx->first_append_seq == 0)
 		ctx->first_append_seq = ctx->seq;
 	t_pop();
@@ -242,7 +252,7 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 	return 0;
 }
 
-int dbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
+int dbox_save_finish(struct mail_save_context *_ctx)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 	struct dbox_mail_header hdr;
@@ -282,13 +292,6 @@ int dbox_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 		return -1;
 
 	dbox_uidlist_append_finish_mail(ctx->append_ctx, ctx->file);
-
-	if (dest_mail != NULL) {
-		i_assert(ctx->seq != 0);
-
-		if (mail_set_seq(dest_mail, ctx->seq) < 0)
-			return -1;
-	}
 	return 0;
 }
 
@@ -297,7 +300,7 @@ void dbox_save_cancel(struct mail_save_context *_ctx)
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
 
 	ctx->failed = TRUE;
-	(void)dbox_save_finish(_ctx, NULL);
+	(void)dbox_save_finish(_ctx);
 }
 
 int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
@@ -382,6 +385,8 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 {
 	mail_index_sync_rollback(&ctx->index_sync_ctx);
+	if (ctx->mail != NULL)
+		index_mail_free(ctx->mail);
 	i_free(ctx);
 }
 
@@ -394,5 +399,7 @@ void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 
         dbox_uidlist_append_rollback(ctx->append_ctx);
+	if (ctx->mail != NULL)
+		index_mail_free(ctx->mail);
 	i_free(ctx);
 }

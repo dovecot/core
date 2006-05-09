@@ -499,11 +499,15 @@ int mailbox_save_init(struct mailbox_transaction_context *t,
 		      enum mail_flags flags, struct mail_keywords *keywords,
 		      time_t received_date, int timezone_offset,
 		      const char *from_envelope, struct istream *input,
-		      bool want_mail, struct mail_save_context **ctx_r)
+		      struct mail *dest_mail, struct mail_save_context **ctx_r)
 {
-	return t->box->v.save_init(t, flags, keywords,
-				   received_date, timezone_offset,
-				   from_envelope, input, want_mail, ctx_r);
+	if (t->box->v.save_init(t, flags, keywords,
+				received_date, timezone_offset,
+				from_envelope, input, dest_mail, ctx_r) < 0)
+		return -1;
+
+	(*ctx_r)->dest_mail = dest_mail;
+	return 0;
 }
 
 int mailbox_save_continue(struct mail_save_context *ctx)
@@ -511,12 +515,12 @@ int mailbox_save_continue(struct mail_save_context *ctx)
 	return ctx->transaction->box->v.save_continue(ctx);
 }
 
-int mailbox_save_finish(struct mail_save_context **_ctx, struct mail *dest_mail)
+int mailbox_save_finish(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	return ctx->transaction->box->v.save_finish(ctx, dest_mail);
+	return ctx->transaction->box->v.save_finish(ctx);
 }
 
 void mailbox_save_cancel(struct mail_save_context **_ctx)

@@ -4,9 +4,12 @@
 #include "ioloop.h"
 #include "array.h"
 #include "buffer.h"
+#include "istream.h"
+#include "istream-tee.h"
 #include "ostream.h"
 #include "ostream-crlf.h"
 #include "str.h"
+#include "index-mail.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 
@@ -34,6 +37,7 @@ struct maildir_save_context {
 	struct mail_index_transaction *trans;
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
 	struct maildir_index_sync_context *sync_ctx;
+	struct mail *mail, *cur_dest_mail;
 
 	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files, **files_tail;
@@ -41,7 +45,7 @@ struct maildir_save_context {
 	buffer_t *keywords_buffer;
 	array_t ARRAY_DEFINE(keywords_array, unsigned int);
 
-	struct istream *input;
+	struct istream *input, *input2;
 	struct ostream *output;
 	int fd;
 	time_t received_date;
@@ -125,12 +129,14 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 
 uint32_t maildir_save_add(struct maildir_transaction_context *t,
 			  const char *base_fname, enum mail_flags flags,
-			  struct mail_keywords *keywords, bool want_mail)
+			  struct mail_keywords *keywords,
+			  struct mail *dest_mail)
 {
 	struct maildir_save_context *ctx = t->save_ctx;
 	struct maildir_filename *mf;
+	struct tee_istream *tee;
 
-	if (want_mail)
+	if (dest_mail != NULL)
 		ctx->want_mails = TRUE;
 
 	/* now, we want to be able to rollback the whole append session,
@@ -171,8 +177,28 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 			ctx->first_seq = ctx->seq;
 			i_assert(ctx->files->next == NULL);
 		}
+
+		if (dest_mail == NULL) {
+			if (ctx->mail == NULL) {
+				struct mailbox_transaction_context *_t =
+					&t->ictx.mailbox_ctx;
+
+				ctx->mail = index_mail_alloc(_t, 0, NULL);
+			}
+			dest_mail = ctx->mail;
+		}
+		if (mail_set_seq(dest_mail, ctx->seq) < 0)
+			i_unreached();
+
+		tee = tee_i_stream_create(ctx->input, default_pool);
+		ctx->input = tee_i_stream_create_child(tee, default_pool);
+		ctx->input2 = tee_i_stream_create_child(tee, default_pool);
+
+		index_mail_cache_parse_init(dest_mail, ctx->input2);
+		ctx->cur_dest_mail = dest_mail;
 	} else {
 		ctx->seq = 0;
+		ctx->cur_dest_mail = NULL;
 	}
 
 	return ctx->seq;
@@ -241,7 +267,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 		      enum mail_flags flags, struct mail_keywords *keywords,
 		      time_t received_date, int timezone_offset __attr_unused__,
 		      const char *from_envelope __attr_unused__,
-		      struct istream *input, bool want_mail,
+		      struct istream *input, struct mail *dest_mail,
 		      struct mail_save_context **ctx_r)
 {
 	struct maildir_transaction_context *t =
@@ -286,7 +312,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 	if (mbox->ibox.keep_recent)
 		flags |= MAIL_RECENT;
 
-	maildir_save_add(t, fname, flags, keywords, want_mail);
+	maildir_save_add(t, fname, flags, keywords, dest_mail);
 
 	t_pop();
 	*ctx_r = &ctx->ctx;
@@ -300,6 +326,9 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 	if (ctx->failed)
 		return -1;
 
+	if (ctx->cur_dest_mail != NULL)
+		index_mail_cache_parse_continue(ctx->cur_dest_mail);
+
 	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
 		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
 			"o_stream_send_istream(%s) failed: %m",
@@ -311,12 +340,18 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 	return 0;
 }
 
-int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
+int maildir_save_finish(struct mail_save_context *_ctx)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct utimbuf buf;
 	const char *path;
 	int output_errno;
+
+	if (ctx->cur_dest_mail != NULL) {
+		index_mail_cache_parse_deinit(ctx->cur_dest_mail);
+		i_stream_unref(&ctx->input);
+		i_stream_unref(&ctx->input2);
+	}
 
 	ctx->finished = TRUE;
 	if (ctx->failed && ctx->fd == -1) {
@@ -378,13 +413,6 @@ int maildir_save_finish(struct mail_save_context *_ctx, struct mail *dest_mail)
 	}
 	t_pop();
 
-	if (dest_mail != NULL) {
-		i_assert(ctx->seq != 0);
-
-		if (mail_set_seq(dest_mail, ctx->seq) < 0)
-			return -1;
-	}
-
 	return 0;
 }
 
@@ -393,7 +421,7 @@ void maildir_save_cancel(struct mail_save_context *_ctx)
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 
 	ctx->failed = TRUE;
-	(void)maildir_save_finish(_ctx, NULL);
+	(void)maildir_save_finish(_ctx);
 }
 
 static void
@@ -499,6 +527,9 @@ void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 	/* uidlist locks the syncing. don't release it until save's transaction
 	   has been written to disk. */
 	(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
+
+	if (ctx->mail != NULL)
+		index_mail_free(ctx->mail);
 	pool_unref(ctx->pool);
 }
 
@@ -543,5 +574,7 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 
 	t_pop();
 
+	if (ctx->mail != NULL)
+		index_mail_free(ctx->mail);
 	pool_unref(ctx->pool);
 }

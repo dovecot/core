@@ -88,6 +88,7 @@ struct quota_transaction_context {
 
 	array_t ARRAY_DEFINE(root_transactions,
 			     struct quota_root_transaction_context *);
+	struct mail *mail;
 };
 
 struct quota_root_transaction_context {

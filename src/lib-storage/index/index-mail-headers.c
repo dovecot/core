@@ -1,4 +1,4 @@
-/* Copyright (C) 2003 Timo Sirainen */
+/* Copyright (C) 2003-2006 Timo Sirainen */
 
 #include "lib.h"
 #include "istream.h"
@@ -247,7 +247,6 @@ void index_mail_parse_header(struct message_part *part,
 			     struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
-	enum mail_cache_decision_type decision;
 	const char *cache_field_name;
 	unsigned int field_idx, count;
 	uint8_t *match;
@@ -295,17 +294,9 @@ void index_mail_parse_header(struct message_part *part,
 	}
 
 	if (!hdr->continued) {
-		decision = mail_cache_field_get_decision(mail->ibox->cache,
-							 field_idx);
 		data->parse_line.cache =
-			(decision & ~MAIL_CACHE_DECISION_FORCED) !=
-			MAIL_CACHE_DECISION_NO;
-		if (data->parse_line.cache &&
-		    mail_cache_field_exists(mail->trans->cache_view,
-					    data->seq, field_idx) > 0) {
-			/* already cached */
-			data->parse_line.cache = FALSE;
-		}
+			mail_cache_field_want_add(mail->trans->cache_trans,
+						  data->seq, field_idx);
 	}
 
 	match = array_get_modifyable(&mail->header_match, &count);

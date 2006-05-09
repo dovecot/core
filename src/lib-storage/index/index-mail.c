@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Timo Sirainen */
+/* Copyright (C) 2002-2006 Timo Sirainen */
 
 #include "lib.h"
 #include "array.h"
@@ -501,11 +501,11 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 	else if (field == MAIL_CACHE_IMAP_BODY) {
 		cache_body =
 			mail_cache_field_can_add(mail->trans->cache_trans,
-				data->seq, cache_field_bodystructure);
+				data->seq, cache_field_body);
 	} else {
 		cache_body =
 			mail_cache_field_want_add(mail->trans->cache_trans,
-				data->seq, cache_field_bodystructure);
+				data->seq, cache_field_body);
 	}
 
 	if (field == MAIL_CACHE_IMAP_BODY || cache_body) {
@@ -520,17 +520,38 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 	}
 }
 
+static void
+index_mail_body_parsed_cache_virtual_size(struct index_mail *mail)
+{
+	unsigned int cache_field =
+		mail->ibox->cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx;
+
+	if (mail_cache_field_want_add(mail->trans->cache_trans,
+				      mail->data.seq, cache_field)) {
+		index_mail_cache_add(mail, cache_field,
+				     &mail->data.virtual_size,
+				     sizeof(mail->data.virtual_size));
+	}
+}
+
 static void index_mail_parse_body_finish(struct index_mail *mail,
-					 enum index_cache_field field)
+					 enum index_cache_field field,
+					 bool appended_mail)
 {
 	mail->data.parts = message_parser_deinit(&mail->data.parser_ctx);
 
-	mail->data.body_size = mail->data.parts->body_size;
-	mail->data.body_size_set = TRUE;
+	if (appended_mail) {
+		bool use_crlf = (mail->ibox->box.storage->flags &
+				 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0;
+		message_parser_set_crlfs(mail->data.parts, use_crlf);
+	}
+
+	(void)get_cached_msgpart_sizes(mail);
 
 	index_mail_body_parsed_cache_flags(mail);
 	index_mail_body_parsed_cache_message_parts(mail);
 	index_mail_body_parsed_cache_bodystructure(mail, field);
+	index_mail_body_parsed_cache_virtual_size(mail);
 }
 
 static void index_mail_parse_body(struct index_mail *mail,
@@ -555,7 +576,7 @@ static void index_mail_parse_body(struct index_mail *mail,
 	} else {
 		message_parser_parse_body(data->parser_ctx, NULL, NULL);
 	}
-	index_mail_parse_body_finish(mail, field);
+	index_mail_parse_body_finish(mail, field, FALSE);
 }
 
 struct istream *index_mail_init_stream(struct index_mail *_mail,
@@ -979,6 +1000,47 @@ void index_mail_free(struct mail *_mail)
 
 	pool_unref(mail->data_pool);
 	pool_unref(mail->mail.pool);
+}
+
+void index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+
+	i_assert(mail->data.parser_ctx == NULL);
+
+	index_mail_parse_header_init(mail, NULL);
+	mail->data.parser_ctx = message_parser_init(mail->data_pool, input);
+}
+
+void index_mail_cache_parse_continue(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct message_block block;
+	int ret;
+
+	while ((ret = message_parser_parse_next_block(mail->data.parser_ctx,
+						      &block)) > 0) {
+		if (block.size != 0)
+			continue;
+
+		if (!mail->data.header_parsed) {
+			index_mail_parse_header(block.part, block.hdr, mail);
+			if (block.hdr == NULL)
+				mail->data.header_parsed = TRUE;
+		} else {
+			imap_bodystructure_parse_header(mail->data_pool,
+							block.part, block.hdr);
+		}
+	}
+}
+
+void index_mail_cache_parse_deinit(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+
+	mail->data.save_bodystructure_body = FALSE;
+	mail->data.parsed_bodystructure = TRUE;
+	index_mail_parse_body_finish(mail, 0, TRUE);
 }
 
 int index_mail_update_flags(struct mail *mail, enum modify_type modify_type,

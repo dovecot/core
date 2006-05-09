@@ -122,16 +122,17 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 		      enum mail_flags flags, struct mail_keywords *keywords,
 		      time_t received_date, int timezone_offset,
 		      const char *from_envelope, struct istream *input,
-		      bool want_mail, struct mail_save_context **ctx_r);
+		      struct mail *dest_mail, struct mail_save_context **ctx_r);
 int maildir_save_continue(struct mail_save_context *ctx);
-int maildir_save_finish(struct mail_save_context *ctx, struct mail *dest_mail);
+int maildir_save_finish(struct mail_save_context *ctx);
 void maildir_save_cancel(struct mail_save_context *ctx);
 
 struct maildir_save_context *
 maildir_save_transaction_init(struct maildir_transaction_context *t);
 uint32_t maildir_save_add(struct maildir_transaction_context *t,
 			  const char *base_fname, enum mail_flags flags,
-			  struct mail_keywords *keywords, bool want_mail);
+			  struct mail_keywords *keywords,
+			  struct mail *dest_mail);
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq);
 

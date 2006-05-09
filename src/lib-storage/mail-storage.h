@@ -397,16 +397,22 @@ int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
    minutes in which received_date was originally given with. To use
    current time, set received_date to (time_t)-1.
 
-   If want_mail is TRUE, mail_r will be set in mailbox_save_finish() and
-   the saved message can be accessed using it. Note that setting it may
-   require mailbox syncing, so don't set it unless you need it. */
+   If dest_mail is set, the saved message can be accessed using it. Note that
+   setting it may require mailbox syncing, so don't set it unless you need
+   it. Also you shouldn't try to access it before mailbox_save_finish() is
+   called.
+
+   The given input stream is never read in these functions, only the data
+   inside it is used. So you should call i_stream_read() yourself and then
+   call mailbox_save_continue() whenever more data is read.
+*/
 int mailbox_save_init(struct mailbox_transaction_context *t,
 		      enum mail_flags flags, struct mail_keywords *keywords,
 		      time_t received_date, int timezone_offset,
 		      const char *from_envelope, struct istream *input,
-		      bool want_mail, struct mail_save_context **ctx_r);
+		      struct mail *dest_mail, struct mail_save_context **ctx_r);
 int mailbox_save_continue(struct mail_save_context *ctx);
-int mailbox_save_finish(struct mail_save_context **ctx, struct mail *dest_mail);
+int mailbox_save_finish(struct mail_save_context **ctx);
 void mailbox_save_cancel(struct mail_save_context **ctx);
 
 /* Copy given message. If dest_mail is non-NULL, the copied message can be

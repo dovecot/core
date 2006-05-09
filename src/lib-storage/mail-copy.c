@@ -21,8 +21,7 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 
 	if (mailbox_save_init(t, flags, keywords,
 			      mail_get_received_date(mail),
-			      0, from_envelope, input, dest_mail != NULL,
-			      &ctx) < 0)
+			      0, from_envelope, input, dest_mail, &ctx) < 0)
 		return -1;
 
 	while (i_stream_read(input) != -1) {
@@ -35,5 +34,5 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 		return -1;
 	}
 
-	return mailbox_save_finish(&ctx, dest_mail);
+	return mailbox_save_finish(&ctx);
 }
