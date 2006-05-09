@@ -244,17 +244,24 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 	return TRUE;
 }
 
+static bool check_plaintext_auth(struct pop3_client *client)
+{
+	if (client->common.secured || !disable_plaintext_auth)
+		return TRUE;
+
+	if (verbose_auth) {
+		client_syslog(&client->common, "Login failed: "
+			      "Plaintext authentication disabled");
+	}
+	client_send_line(client,
+			 "-ERR Plaintext authentication disabled.");
+	return FALSE;
+}
+
 bool cmd_user(struct pop3_client *client, const char *args)
 {
-	if (!client->common.secured && disable_plaintext_auth) {
-		if (verbose_auth) {
-			client_syslog(&client->common, "Login failed: "
-				      "Plaintext authentication disabled");
-		}
-		client_send_line(client,
-				 "-ERR Plaintext authentication disabled.");
+	if (!check_plaintext_auth(client))
 		return TRUE;
-	}
 
 	i_free(client->last_user);
 	client->last_user = i_strdup(args);
@@ -268,6 +275,11 @@ bool cmd_pass(struct pop3_client *client, const char *args)
 	string_t *plain_login, *base64;
 
 	if (client->last_user == NULL) {
+		/* client may ignore the USER reply and only display the error
+		   message from PASS */
+		if (!check_plaintext_auth(client))
+			return TRUE;
+
 		client_send_line(client, "-ERR No username given.");
 		return TRUE;
 	}
