@@ -249,8 +249,7 @@ static ssize_t _read(struct _istream *stream)
 	stream->pos -= stream->skip;
 	stream->skip = 0;
 
-	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
-		(ret == 0 ? 0 : -1);
+	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) : ret;
 	stream->pos = pos;
 	return ret;
 }
