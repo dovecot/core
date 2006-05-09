@@ -19,7 +19,7 @@
 #endif
 
 #ifdef HAVE_SYS_MNTTAB_H
-#  define MTAB_PATH "/etc/mnttab" /* Solaris */
+#  define MTAB_PATH MNTTAB /* Solaris */
 #else
 #  define MTAB_PATH "/etc/mtab" /* Linux */
 #endif
