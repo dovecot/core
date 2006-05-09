@@ -244,6 +244,8 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 	while (boundary->part != ctx->part) {
 		message_size_add(&ctx->part->parent->body_size,
 				 &ctx->part->body_size);
+		message_size_add(&ctx->part->parent->body_size,
+				 &ctx->part->header_size);
 		ctx->part = ctx->part->parent;
 	}
 
@@ -556,6 +558,8 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 		while (ctx->part->parent != NULL) {
 			message_size_add(&ctx->part->parent->body_size,
 					 &ctx->part->body_size);
+			message_size_add(&ctx->part->parent->body_size,
+					 &ctx->part->header_size);
 			ctx->part = ctx->part->parent;
 		}
 	}
@@ -638,4 +642,45 @@ void message_parse_from_parts(struct message_part *part, struct istream *input,
 			      void *context)
 {
 	part_parse_headers(part, input, callback, context);
+}
+
+static void
+message_parser_set_crlfs_diff(struct message_part *parts, bool use_crlf,
+			      off_t diff)
+{
+	while (parts != NULL) {
+		uoff_t old_size = parts->header_size.physical_size +
+			parts->body_size.physical_size;
+
+		if (use_crlf) {
+			parts->header_size.physical_size =
+				parts->header_size.virtual_size;
+			parts->body_size.physical_size =
+				parts->body_size.virtual_size;
+		} else {
+			parts->header_size.physical_size =
+				parts->header_size.virtual_size -
+				parts->header_size.lines;
+			parts->body_size.physical_size =
+				parts->body_size.virtual_size -
+				parts->body_size.lines;
+		}
+		parts->physical_pos += diff;
+
+		diff += (off_t)(parts->header_size.physical_size +
+				parts->body_size.physical_size) -
+			(off_t)old_size;
+
+		if (parts->children != NULL) {
+			message_parser_set_crlfs_diff(parts->children,
+						      use_crlf, diff);
+		}
+
+		parts = parts->next;
+	}
+}
+
+void message_parser_set_crlfs(struct message_part *parts, bool use_crlf)
+{
+	message_parser_set_crlfs_diff(parts, use_crlf, 0);
 }

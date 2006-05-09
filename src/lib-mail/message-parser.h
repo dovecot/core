@@ -83,4 +83,9 @@ void message_parse_from_parts(struct message_part *part, struct istream *input,
 			      message_part_header_callback_t *callback,
 			      void *context);
 
+/* Update the physical_size of all parts. If use_crlf is TRUE, they're set
+   to same as virtual_size. If use_crlf is FALSE, they're set to
+   virtual_size - lines. physical_pos fields are also updated. */
+void message_parser_set_crlfs(struct message_part *parts, bool use_crlf);
+
 #endif
