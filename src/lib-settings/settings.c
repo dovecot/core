@@ -42,8 +42,7 @@ parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
 
 			switch (def->type) {
 			case SET_STR:
-				*((char **) ptr) =
-					p_strdup_empty(pool, value);
+				*((char **)ptr) = p_strdup(pool, value);
 				return NULL;
 			case SET_INT:
 				/* use %i so we can handle eg. 0600
