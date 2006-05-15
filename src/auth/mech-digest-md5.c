@@ -588,11 +588,7 @@ mech_digest_md5_auth_initial(struct auth_request *auth_request,
 		(struct digest_auth_request *)auth_request;
 	string_t *challenge;
 
-	if (data_size > 0) {
-		/* FIXME: support subsequent authentication? */
-		mech_digest_md5_auth_continue(auth_request, data, data_size);
-		return;
-	}
+	/* FIXME: there's no support for subsequent authentication */
 
 	challenge = get_digest_challenge(request);
 	auth_request->callback(auth_request, AUTH_CLIENT_RESULT_CONTINUE,
