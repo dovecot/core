@@ -353,6 +353,11 @@ static void unlink_child(struct thread_context *ctx,
 		}
 	}
 
+	if (child->parent->parent == NULL) {
+		/* unlinking from root */
+		ctx->root_count--;
+	}
+
 	child->next = NULL;
 	if (!add_to_root)
 		child->parent = NULL;
@@ -414,8 +419,7 @@ static void link_node(struct thread_context *ctx, const char *parent_msgid,
 }
 
 static void link_message(struct thread_context *ctx,
-			 const char *parent_msgid, const char *child_msgid,
-			 bool replace)
+			 const char *parent_msgid, const char *child_msgid)
 {
 	struct node *child;
 
@@ -423,7 +427,7 @@ static void link_message(struct thread_context *ctx,
 	if (child == NULL)
 		child = create_node(ctx, child_msgid);
 
-	link_node(ctx, parent_msgid, child, replace);
+	link_node(ctx, parent_msgid, child, FALSE);
 }
 
 static bool link_references(struct thread_context *ctx,
@@ -436,7 +440,7 @@ static bool link_references(struct thread_context *ctx,
 		return FALSE;
 
 	while ((child_id = get_msgid(&references)) != NULL) {
-		link_message(ctx, parent_id, child_id, FALSE);
+		link_message(ctx, parent_id, child_id);
 		parent_id = child_id;
 	}
 
@@ -471,7 +475,7 @@ static void mail_thread_input(struct thread_context *ctx, struct mail *mail)
 			link_node(ctx, refid, node, TRUE);
 		else {
 			/* no references, make sure it's not linked */
-			if (node != NULL && NODE_HAS_PARENT(ctx, node))
+			if (NODE_HAS_PARENT(ctx, node))
 				unlink_child(ctx, node, TRUE);
 		}
 	}
