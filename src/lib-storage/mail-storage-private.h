@@ -175,6 +175,7 @@ struct mailbox {
 struct mail_vfuncs {
 	void (*free)(struct mail *mail);
 	int (*set_seq)(struct mail *mail, uint32_t seq);
+	int (*set_uid)(struct mail *mail, uint32_t uid);
 
 	enum mail_flags (*get_flags)(struct mail *mail);
 	const char *const *(*get_keywords)(struct mail *mail);

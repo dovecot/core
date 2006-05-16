@@ -269,6 +269,7 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_free,
 	index_mail_set_seq,
+	index_mail_set_uid,
 
 	index_mail_get_flags,
 	index_mail_get_keywords,

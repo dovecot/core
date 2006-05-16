@@ -26,6 +26,13 @@ int mail_set_seq(struct mail *mail, uint32_t seq)
 	return p->v.set_seq(mail, seq);
 }
 
+int mail_set_uid(struct mail *mail, uint32_t uid)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.set_uid(mail, uid);
+}
+
 enum mail_flags mail_get_flags(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;

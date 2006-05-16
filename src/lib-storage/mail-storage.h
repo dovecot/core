@@ -441,6 +441,7 @@ struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			struct mailbox_header_lookup_ctx *wanted_headers);
 void mail_free(struct mail **mail);
 int mail_set_seq(struct mail *mail, uint32_t seq);
+int mail_set_uid(struct mail *mail, uint32_t uid);
 
 /* Get the time message was received (IMAP INTERNALDATE).
    Returns (time_t)-1 if error occurred. */

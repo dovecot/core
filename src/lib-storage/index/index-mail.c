@@ -983,6 +983,18 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	return 0;
 }
 
+int index_mail_set_uid(struct mail *_mail, uint32_t uid)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	uint32_t seq;
+
+	if (mail_index_lookup_uid_range(mail->ibox->view,
+					uid, uid, &seq, &seq) < 0)
+		return -1;
+
+	return index_mail_set_seq(_mail, seq);
+}
+
 void index_mail_free(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
