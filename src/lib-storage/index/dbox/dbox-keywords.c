@@ -61,7 +61,7 @@ int dbox_file_read_keywords(struct dbox_mailbox *mbox, struct dbox_file *file)
 		/* look up the position where to insert it */
 		map = array_get_modifyable(&file->idx_file_keywords, &count);
 		pos = idx == 0 ? map :
-			bsearch_insert_pos(line, map, count, sizeof(*map),
+			bsearch_insert_pos(&kw, map, count, sizeof(*map),
 					   dbox_keyword_map_compare);
 		array_insert(&file->idx_file_keywords, pos - map, &kw, 1);
 		array_append(&file->file_idx_keywords, &kw.index_idx, 1);
