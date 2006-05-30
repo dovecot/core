@@ -863,7 +863,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 
 	view = mail_index_view_open(index);
 	mail_index_sync_map_init(&sync_map_ctx, view,
-				 MAIL_INDEX_SYNC_HANDLER_VIEW);
+				 MAIL_INDEX_SYNC_HANDLER_HEAD);
 
 	check_ext_offsets = TRUE; broken = FALSE;
 	while ((ret = mail_transaction_log_view_next(log_view, &thdr, &tdata,

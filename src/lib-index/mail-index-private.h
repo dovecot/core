@@ -76,8 +76,9 @@ struct mail_index_keyword_header_rec {
 };
 
 enum mail_index_sync_handler_type {
-	MAIL_INDEX_SYNC_HANDLER_INDEX	= 0x01,
-	MAIL_INDEX_SYNC_HANDLER_VIEW	= 0x02
+	MAIL_INDEX_SYNC_HANDLER_FILE	= 0x01,
+	MAIL_INDEX_SYNC_HANDLER_HEAD	= 0x02,
+	MAIL_INDEX_SYNC_HANDLER_VIEW	= 0x04
 };
 
 struct mail_index_sync_handler {

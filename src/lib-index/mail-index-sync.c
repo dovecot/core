@@ -745,7 +745,7 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 	va_start(va, fmt);
 	t_push();
 	error = t_strdup_vprintf(fmt, va);
-	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_INDEX) {
+	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE) {
 		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
 							"%s", error);
 	} else {

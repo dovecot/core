@@ -23,13 +23,17 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 	mail_index_unmap(view->index, &view->map);
 	view->map = map;
 	view->map->refcount++;
-	mail_index_unmap(view->index, &view->index->map);
-	view->index->map = map;
-	view->index->hdr = &map->hdr;
 
-	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_INDEX) {
-		map->write_to_disk = TRUE;
-		map->write_atomic = TRUE;
+	if ((ctx->type & (MAIL_INDEX_SYNC_HANDLER_FILE |
+			  MAIL_INDEX_SYNC_HANDLER_HEAD)) != 0) {
+		mail_index_unmap(view->index, &view->index->map);
+		view->index->map = map;
+		view->index->hdr = &map->hdr;
+
+		if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE) {
+			map->write_to_disk = TRUE;
+			map->write_atomic = TRUE;
+		}
 	}
 
 	i_assert(view->hdr.messages_count == map->hdr.messages_count);
@@ -158,12 +162,12 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	if (seq1 == 0)
 		return 1;
 
-	/* don't call expunge handlers if we're syncing view */
-	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW &&
+	/* call expunge handlers only when syncing index file */
+	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE &&
 	    !ctx->expunge_handlers_set)
 		mail_index_sync_init_expunge_handlers(ctx);
 
-	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW &&
+	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE &&
 	    array_is_created(&ctx->expunge_handlers)) {
 		expunge_handlers = array_get(&ctx->expunge_handlers,
 					     &expunge_handlers_count);
@@ -655,7 +659,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	bool had_dirty, skipped, check_ext_offsets;
 
 	mail_index_sync_map_init(&sync_map_ctx, view,
-				 MAIL_INDEX_SYNC_HANDLER_INDEX);
+				 MAIL_INDEX_SYNC_HANDLER_FILE);
 
 	/* we'll have to update view->lock_id to avoid mail_index_view_lock()
 	   trying to update the file later. */

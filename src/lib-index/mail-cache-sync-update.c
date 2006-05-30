@@ -124,7 +124,7 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	}
 
 	if (*old_cache_offset == 0 ||
-	    sync_ctx->type != MAIL_INDEX_SYNC_HANDLER_INDEX)
+	    sync_ctx->type != MAIL_INDEX_SYNC_HANDLER_FILE)
 		return 1;
 
 	/* we'll need to link the old and new cache records */
