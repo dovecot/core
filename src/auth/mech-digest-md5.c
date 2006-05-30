@@ -582,7 +582,8 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 
 static void
 mech_digest_md5_auth_initial(struct auth_request *auth_request,
-			     const unsigned char *data, size_t data_size)
+			     const unsigned char *data __attr_unused__,
+			     size_t data_size __attr_unused__)
 {
 	struct digest_auth_request *request =
 		(struct digest_auth_request *)auth_request;
