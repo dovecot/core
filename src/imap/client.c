@@ -113,6 +113,8 @@ void client_destroy(struct client *client, const char *reason)
 
 void client_disconnect(struct client *client, const char *reason)
 {
+	i_assert(reason != NULL);
+
 	if (client->disconnected)
 		return;
 
