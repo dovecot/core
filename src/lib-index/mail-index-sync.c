@@ -735,3 +735,24 @@ bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
 		return FALSE;
 	}
 }
+
+void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
+				   const char *fmt, ...)
+{
+	const char *error;
+	va_list va;
+
+	va_start(va, fmt);
+	t_push();
+	error = t_strdup_vprintf(fmt, va);
+	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_INDEX) {
+		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+							"%s", error);
+	} else {
+		mail_index_set_error(ctx->view->index,
+			"View synchronization from transaction log failed: %s",
+			error);
+	}
+	t_pop();
+	va_end(va);
+}

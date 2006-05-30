@@ -131,7 +131,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	unsigned int i, expunge_handlers_count;
 
 	if (e->uid1 > e->uid2 || e->uid1 == 0) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 				"Invalid UID range in expunge (%u .. %u)",
 				e->uid1, e->uid2);
 		return -1;
@@ -228,7 +228,7 @@ static int sync_append(const struct mail_index_record *rec,
 	void *dest;
 
 	if (rec->uid < map->hdr.next_uid) {
-		mail_transaction_log_view_set_corrupted(view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 			"Append with UID %u, but next_uid = %u",
 			rec->uid, map->hdr.next_uid);
 		return -1;
@@ -277,7 +277,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	uint32_t idx, seq1, seq2;
 
 	if (u->uid1 > u->uid2 || u->uid1 == 0) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 				"Invalid UID range in flag update (%u .. %u)",
 				u->uid1, u->uid2);
 		return -1;
@@ -331,7 +331,7 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 
 	if (u->offset >= map->hdr.base_header_size ||
 	    u->offset + u->size > map->hdr.base_header_size) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 			"Header update outside range: %u + %u > %u",
 			u->offset, u->size, map->hdr.base_header_size);
 		return -1;
@@ -551,8 +551,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		unsigned int record_size;
 
 		if (ctx->cur_ext_id == (uint32_t)-1) {
-			mail_transaction_log_view_set_corrupted(
-				ctx->view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 				"Extension record update update "
 				"without intro prefix");
 			ret = -1;

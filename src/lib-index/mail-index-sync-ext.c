@@ -352,13 +352,13 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	if (u->ext_id != (uint32_t)-1 &&
 	    (!array_is_created(&map->extensions) ||
 	     u->ext_id >= array_count(&map->extensions))) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 			"Extension introduction for unknown id %u", u->ext_id);
 		return -1;
 	}
 
 	if (u->ext_id == (uint32_t)-1 && u->name_size == 0) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 			"Extension introduction without id or name");
 		return -1;
 	}
@@ -454,7 +454,7 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	uint32_t i;
 
 	if (ctx->cur_ext_id == (uint32_t)-1) {
-		mail_transaction_log_view_set_corrupted(view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 			"Extension reset without intro prefix");
 		return -1;
 	}
@@ -490,7 +490,7 @@ mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
         const struct mail_index_ext *ext;
 
 	if (ctx->cur_ext_id == (uint32_t)-1) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+		mail_index_sync_set_corrupted(ctx,
 			"Extension header update without intro prefix");
 		return -1;
 	}
