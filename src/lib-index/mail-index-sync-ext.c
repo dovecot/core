@@ -461,6 +461,13 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	if (ctx->cur_ext_ignore)
 		return 1;
 
+	if (!map->write_to_disk || map->refcount != 1) {
+		/* a new index file will be created, so the old data won't be
+		   accidentally used by other processes. */
+		map = mail_index_map_clone(map, map->hdr.record_size);
+		mail_index_sync_replace_map(ctx, map);
+	}
+
 	ext = array_idx_modifyable(&map->extensions, ctx->cur_ext_id);
 	ext->reset_id = u->new_reset_id;
 
