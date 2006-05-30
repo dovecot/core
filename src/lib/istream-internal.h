@@ -1,8 +1,6 @@
 #ifndef __ISTREAM_INTERNAL_H
 #define __ISTREAM_INTERNAL_H
 
-#include <sys/stat.h>
-
 #include "istream.h"
 #include "iostream-internal.h"
 

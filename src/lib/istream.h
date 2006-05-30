@@ -1,6 +1,9 @@
 #ifndef __ISTREAM_H
 #define __ISTREAM_H
 
+/* Note that some systems (Solaris) may use a macro to redefine struct stat */
+#include <sys/stat.h>
+
 struct istream {
 	uoff_t v_offset;
 
