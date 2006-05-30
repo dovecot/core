@@ -251,10 +251,14 @@ int dbox_sync_update_flags(struct dbox_sync_context *ctx,
 
 static int
 dbox_sync_update_keyword(struct dbox_sync_context *ctx,
+			 const struct dbox_sync_file_entry *entry,
 			 const struct dbox_sync_rec *sync_rec, bool set)
 {
 	unsigned char keyword_array, keyword_mask = 1;
 	unsigned int file_idx, first_flag_offset;
+
+	if (dbox_file_seek(ctx->mbox, entry->file_seq, 0) <= 0)
+		return -1;
 
 	keyword_array = set ? '1' : '0';
 
@@ -276,11 +280,15 @@ dbox_sync_update_keyword(struct dbox_sync_context *ctx,
 
 static int
 dbox_sync_reset_keyword(struct dbox_sync_context *ctx,
-			 const struct dbox_sync_rec *sync_rec)
+			const struct dbox_sync_file_entry *entry,
+			const struct dbox_sync_rec *sync_rec)
 {
 	unsigned char *keyword_array, *keyword_mask;
 	unsigned int first_flag_offset;
 	int ret;
+
+	if (dbox_file_seek(ctx->mbox, entry->file_seq, 0) <= 0)
+		return -1;
 
 	if (ctx->mbox->file->keyword_count == 0)
 		return 0;
@@ -380,17 +388,18 @@ static int dbox_sync_file(struct dbox_sync_context *ctx,
 								i) < 0)
 					return -1;
 			}
-			if (dbox_sync_update_keyword(ctx, &sync_recs[i],
+			if (dbox_sync_update_keyword(ctx, entry, &sync_recs[i],
 						     TRUE) < 0)
 				return -1;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-			if (dbox_sync_update_keyword(ctx, &sync_recs[i],
+			if (dbox_sync_update_keyword(ctx, entry, &sync_recs[i],
 						     FALSE) < 0)
 				return -1;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			if (dbox_sync_reset_keyword(ctx, &sync_recs[i]) < 0)
+			if (dbox_sync_reset_keyword(ctx, entry,
+						    &sync_recs[i]) < 0)
 				return -1;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
