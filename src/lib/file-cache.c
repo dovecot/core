@@ -168,7 +168,12 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 			/* EOF. mark the last block as cached even if it
 			   isn't completely. read_highwater tells us how far
 			   we've actually made. */
-			bits[poffset / CHAR_BIT] |= 1 << (poffset % CHAR_BIT);
+			if (dest_offset == cache->read_highwater) {
+				i_assert(poffset ==
+					 cache->read_highwater / page_size);
+				bits[poffset / CHAR_BIT] |=
+					1 << (poffset % CHAR_BIT);
+			}
 			return dest_offset <= offset ? 0 :
 				dest_offset - offset < size ?
 				dest_offset - offset : size;
@@ -177,8 +182,17 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 		dest += ret;
 		dest_offset += ret;
 
-		if (cache->read_highwater < dest_offset)
+		if (cache->read_highwater < dest_offset) {
+			unsigned int high_poffset =
+				cache->read_highwater / page_size;
+
+			/* read_highwater needs to be updated. if we didn't
+			   just read that block, we can't trust anymore that
+			   we have it cached */
+			bits[high_poffset / CHAR_BIT] &=
+				~(1 << (high_poffset % CHAR_BIT));
 			cache->read_highwater = dest_offset;
+		}
 
 		if ((size_t)ret != dest_size) {
 			/* partial read - probably EOF but make sure. */
@@ -247,7 +261,7 @@ void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 	unsigned char *bits, mask;
 	unsigned int i;
 
-	if (offset >= cache->read_highwater)
+	if (offset >= cache->read_highwater || size == 0)
 		return;
 
 	if (size > cache->read_highwater - offset)
@@ -255,6 +269,7 @@ void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 
 	size = (offset + size + page_size-1) / page_size;
 	offset /= page_size;
+	i_assert(size > offset);
 	size -= offset;
 
 	if (size != 1) {
