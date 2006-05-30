@@ -17,18 +17,22 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 {
         struct mail_index_view *view = ctx->view;
 
+	i_assert(view->map != map);
+
 	/* if map still exists after this, it's only in views. */
 	view->map->write_to_disk = FALSE;
 
 	mail_index_unmap(view->index, &view->map);
 	view->map = map;
-	view->map->refcount++;
 
 	if ((ctx->type & (MAIL_INDEX_SYNC_HANDLER_FILE |
 			  MAIL_INDEX_SYNC_HANDLER_HEAD)) != 0) {
+		i_assert(view->index->map != map);
+
 		mail_index_unmap(view->index, &view->index->map);
 		view->index->map = map;
 		view->index->hdr = &map->hdr;
+		map->refcount++;
 
 		if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE) {
 			map->write_to_disk = TRUE;
@@ -769,6 +773,8 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 	}
 	map->hdr.log_file_seq = seq;
 	map->hdr.log_file_ext_offset = offset;
+
+	i_assert(map->hdr_copy_buf->used <= map->hdr.header_size);
 
 	if (first_append_uid != 0)
 		mail_index_update_day_headers(&map->hdr, first_append_uid);
