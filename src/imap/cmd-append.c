@@ -143,7 +143,8 @@ static bool cmd_append_continue_cancel(struct client_command_context *cmd)
 	(void)i_stream_get_data(ctx->input, &size);
 	i_stream_skip(ctx->input, size);
 
-	if (ctx->input->v_offset == ctx->msg_size || ctx->input->closed) {
+	if (ctx->input->v_offset == ctx->msg_size ||
+	    cmd->client->input->closed) {
 		cmd_append_finish(ctx);
 		return TRUE;
 	}
@@ -273,7 +274,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 					   ctx->msg_size);
 	ret = mailbox_save_init(ctx->t, flags, keywords,
 				internal_date, timezone_offset, NULL,
-				ctx->input, NULL, &ctx->save_ctx);
+				ctx->input, FALSE, &ctx->save_ctx);
 
 	if (keywords != NULL)
 		mailbox_keywords_free(ctx->t, &keywords);
@@ -335,7 +336,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 			   whole message. */
 			failed = TRUE;
 			mailbox_save_cancel(&ctx->save_ctx);
-		} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
+		} else if (mailbox_save_finish(&ctx->save_ctx, NULL) < 0) {
 			failed = TRUE;
 			client_send_storage_error(cmd, ctx->storage);
 		} else {
