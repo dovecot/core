@@ -336,7 +336,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 			   whole message. */
 			failed = TRUE;
 			mailbox_save_cancel(&ctx->save_ctx);
-		} else if (mailbox_save_finish(&ctx->save_ctx, NULL) < 0) {
+		} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
 			failed = TRUE;
 			client_send_storage_error(cmd, ctx->storage);
 		} else {
