@@ -226,7 +226,7 @@ static int list_file(struct dbox_list_context *ctx, const char *fname)
 	if (len > 5 && strcmp(fname+len-5, ".lock") == 0)
 		return 0;
 
-	/* skip Mails/ dir */
+	/* skip dbox-Mails/ dir */
 	if (strcmp(fname, DBOX_MAILDIR_NAME) == 0)
 		return 0;
 
@@ -241,7 +241,7 @@ static int list_file(struct dbox_list_context *ctx, const char *fname)
 	if ((match = imap_match(ctx->glob, list_path)) < 0)
 		return 0;
 
-	/* first as an optimization check if it contains Mails/ directory.
+	/* first as an optimization check if it contains dbox-Mails/ directory.
 	   that means it's a directory and it contains mails. */
 	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
 	mail_path = t_strconcat(real_path, "/"DBOX_MAILDIR_NAME, NULL);
