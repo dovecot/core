@@ -1,7 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen, Alex Howansky */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "str.h"
 #include "sql-api-private.h"
 
@@ -33,7 +33,7 @@ struct mysql_db {
 	const char *ssl_cert, *ssl_key, *ssl_ca, *ssl_ca_path, *ssl_cipher;
 	unsigned int port, client_flags;
 
-	buffer_t *connections; /* struct mysql_connection[] */
+	array_t ARRAY_DEFINE(connections, struct mysql_connection);
 	unsigned int next_query_connection;
 };
 
@@ -147,12 +147,11 @@ static int driver_mysql_connect_all(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
-	size_t i, size;
+	unsigned int i, count;
 	int ret = -1;
 
-	conn = buffer_get_modifyable_data(db->connections, &size);
-	size /= sizeof(*conn);
-	for (i = 0; i < size; i++) {
+	conn = array_get_modifyable(&db->connections, &count);
+	for (i = 0; i < count; i++) {
 		if (driver_mysql_connect(&conn[i]))
 			ret = 1;
 	}
@@ -163,7 +162,7 @@ static void driver_mysql_connection_add(struct mysql_db *db, const char *host)
 {
 	struct mysql_connection *conn;
 
-	conn = buffer_append_space_unsafe(db->connections, sizeof(*conn));
+	conn = array_append_space(&db->connections);
 	conn->db = db;
 	conn->host = p_strdup(db->pool, host);
 	conn->mysql = mysql_init(NULL);
@@ -229,7 +228,7 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 	}
 	t_pop();
 
-	if (db->connections->used == 0)
+	if (array_count(&db->connections) == 0)
 		i_fatal("mysql: No hosts given in connect string");
 }
 
@@ -243,9 +242,7 @@ static struct sql_db *_driver_mysql_init(const char *connect_string)
 	db = p_new(pool, struct mysql_db, 1);
 	db->pool = pool;
 	db->api = driver_mysql_db;
-	db->connections =
-		buffer_create_dynamic(pool,
-				      sizeof(struct mysql_connection) * 6);
+	ARRAY_CREATE(&db->connections, pool, struct mysql_connection, 6);
 
 	driver_mysql_parse_connect_string(db, connect_string);
 	return &db->api;
@@ -255,11 +252,10 @@ static void _driver_mysql_deinit(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
-	size_t i, size;
+	unsigned int i, count;
 
-	conn = buffer_get_modifyable_data(db->connections, &size);
-	size /= sizeof(*conn);
-	for (i = 0; i < size; i++)
+	conn = array_get_modifyable(&db->connections, &count);
+	for (i = 0; i < count; i++)
 		(void)driver_mysql_connection_free(&conn[i]);
 
 	pool_unref(db->pool);
@@ -303,17 +299,15 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 				 struct mysql_connection **conn_r)
 {
 	struct mysql_connection *conn;
-	size_t size;
-	unsigned int i, start;
+	unsigned int i, start, count;
 	bool reset;
 	int ret;
 
-	conn = buffer_get_modifyable_data(db->connections, &size);
-	size /= sizeof(*conn);
+	conn = array_get_modifyable(&db->connections, &count);
 
 	/* go through the connections in round robin. if the connection
 	   isn't available, try next one that is. */
-	start = db->next_query_connection % size;
+	start = db->next_query_connection % count;
 	db->next_query_connection++;
 
 	for (reset = FALSE;; reset = TRUE) {
@@ -327,7 +321,7 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 			}
 
 			/* not connected, try next one */
-			i = (i + 1) % size;
+			i = (i + 1) % count;
 		} while (i != start);
 
 		if (reset)
@@ -335,7 +329,7 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 
 		/* none are connected. connect_delays may have gotten too high,
 		   reset all of them to see if some are still alive. */
-		for (i = 0; i < size; i++)
+		for (i = 0; i < count; i++)
 			conn[i].connect_delay = CONNECT_RESET_DELAY;
 	}
 
