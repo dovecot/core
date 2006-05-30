@@ -809,7 +809,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	uoff_t prev_offset, max_offset;
 	size_t pos;
 	int ret;
-	bool skipped, check_ext_offsets;
+	bool skipped, check_ext_offsets, broken;
 
 	if (sync_to_index) {
 		/* read the real log position where we are supposed to be
@@ -865,7 +865,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	mail_index_sync_map_init(&sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	check_ext_offsets = TRUE;
+	check_ext_offsets = TRUE; broken = FALSE;
 	while ((ret = mail_transaction_log_view_next(log_view, &thdr, &tdata,
 						     &skipped)) > 0) {
 		if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) != 0 &&
@@ -876,10 +876,13 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 		}
 
 		if (mail_index_sync_record(&sync_map_ctx, thdr, tdata) < 0) {
-			ret = -1;
+			ret = 0;
+			broken = TRUE;
 			break;
 		}
 	}
+	if (ret == 0 && !broken)
+		ret = 1;
 
 	mail_transaction_log_view_get_prev_pos(log_view, &prev_seq,
 					       &prev_offset);
@@ -897,7 +900,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	*map = index->map;
 	index->map = NULL;
 
-	if (sync_to_index) {
+	if (sync_to_index && ret > 0) {
 		/* make sure we did everything right. note that although the
 		   message counts should be equal, the flag counters may not */
 		i_assert(hdr.messages_count == (*map)->hdr.messages_count);
@@ -906,7 +909,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 		i_assert(hdr.log_file_ext_offset == (*map)->hdr.log_file_ext_offset);
 	}
 
-	return ret < 0 ? -1 : 1;
+	return ret;
 }
 
 static int mail_index_read_map_with_retry(struct mail_index *index,
