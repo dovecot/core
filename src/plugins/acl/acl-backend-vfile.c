@@ -15,10 +15,17 @@
 
 #define ACL_FILENAME "dovecot-acl"
 
+/* Minimum time between stat()ing the ACL file to see if its timestamp has
+   changed. */
+#define ACL_VALIDITY_SECS 1
+/* Time difference to allow between this system's time and file server's time */
 #define ACL_SYNC_SECS 1
+
 #define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 
 struct acl_vfile_validity {
+	time_t last_check;
+
 	time_t last_read_time;
 	time_t last_mtime;
 	off_t last_size;
@@ -341,15 +348,17 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj, const char *path,
 
 static int
 acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
-			  const struct acl_vfile_validity *validity)
+			  struct acl_vfile_validity *validity)
 {
 	struct stat st;
 
 	if (validity == NULL)
 		return 1;
-	if (path == NULL)
+	if (path == NULL ||
+	    validity->last_check + ACL_VALIDITY_SECS > ioloop_time)
 		return 0;
 
+	validity->last_check = ioloop_time;
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
 			/* if the file used to exist, we have to re-read it */
@@ -378,7 +387,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 {
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
-	const struct acl_backend_vfile_validity *old_validity;
+	struct acl_backend_vfile_validity *old_validity;
 	struct acl_backend_vfile_validity validity;
 	int ret;
 

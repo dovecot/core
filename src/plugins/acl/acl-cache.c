@@ -329,8 +329,7 @@ void acl_cache_set_validity(struct acl_cache *cache, const char *objname,
 	} 
 }
 
-const void *acl_cache_get_validity(struct acl_cache *cache,
-				   const char *objname)
+void *acl_cache_get_validity(struct acl_cache *cache, const char *objname)
 {
 	struct acl_object_cache *obj_cache;
 

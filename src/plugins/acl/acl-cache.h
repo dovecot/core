@@ -35,12 +35,11 @@ void acl_cache_flush_all(struct acl_cache *cache);
 /* Update object ACLs. */
 void acl_cache_update(struct acl_cache *cache, const char *objname,
 		      const struct acl_rights *rights);
-/* Update ACL object validity. */
+/* Return ACL object validity, or NULL if object doesn't exit. */
+void *acl_cache_get_validity(struct acl_cache *cache, const char *objname);
+/* Update ACL object validity, creating the object if needed. */
 void acl_cache_set_validity(struct acl_cache *cache, const char *objname,
 			    const void *validity);
-/* Return ACL object validity. */
-const void *acl_cache_get_validity(struct acl_cache *cache,
-				   const char *objname);
 
 /* Returns all the right names currently created. The returned pointer may
    change after calling acl_cache_update(). */
