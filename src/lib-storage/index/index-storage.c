@@ -436,7 +436,11 @@ const char *index_storage_get_last_error(struct mail_storage *storage,
 {
 	*syntax_error_r = storage->syntax_error;
 	*temporary_error_r = storage->temporary_error;
-	return storage->error;
+
+	/* We get here only in error situations, so we have to return some
+	   error. If storage->error is NULL, it means we forgot to set it at
+	   some point.. */
+	return storage->error != NULL ? storage->error : "Unknown error";
 }
 
 void mail_storage_set_index_error(struct index_mailbox *ibox)
