@@ -132,8 +132,10 @@ acl_parse_rights(const char *acl, const char **error_r)
 		array_append(&rights, &acl_letter_map[i].name, 1);
 	}
 
-	if (*acl == '\0')
+	if (*acl == '\0') {
+		(void)array_append_space(&rights);
 		return array_idx(&rights, 0);
+	}
 
 	/* parse our own extended ACLs */
 	i_assert(*acl == ':');
@@ -144,6 +146,7 @@ acl_parse_rights(const char *acl, const char **error_r)
 	
 	for (; *names != NULL; names++)
 		array_append(&rights, names, 1);
+	(void)array_append_space(&rights);
 	return array_idx(&rights, 0);
 }
 
