@@ -524,7 +524,7 @@ static bool str_append_imap_arg(string_t *str, const struct imap_arg *arg)
 	case IMAP_ARG_LITERAL: {
 		const char *argstr = IMAP_ARG_STR(arg);
 
-		str_printfa(str, "{%"PRIuSIZE_T"}", strlen(argstr));
+		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", strlen(argstr));
 		str_append(str, argstr);
 		break;
 	}
