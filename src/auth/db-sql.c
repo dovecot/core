@@ -5,6 +5,7 @@
 #if defined(PASSDB_SQL) || defined(USERDB_SQL)
 
 #include "settings.h"
+#include "auth-request.h"
 #include "db-sql.h"
 
 #include <stddef.h>

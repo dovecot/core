@@ -164,7 +164,8 @@ const char *auth_cache_lookup(struct auth_cache *cache,
 
 	str = t_str_new(256);
 	var_expand(str, key,
-		   auth_request_get_var_expand_table(request, str_escape));
+		   auth_request_get_var_expand_table(request,
+						     auth_request_str_escape));
 
 	node = hash_lookup(cache->hash, str_c(str));
 	if (node == NULL) {
@@ -197,7 +198,8 @@ void auth_cache_insert(struct auth_cache *cache,
 
 	str = t_str_new(256);
 	var_expand(str, key,
-		   auth_request_get_var_expand_table(request, str_escape));
+		   auth_request_get_var_expand_table(request,
+						     auth_request_str_escape));
 
 	data_size = str_len(str) + 1 + value_len + 1;
 	alloc_size = sizeof(struct cache_node) - sizeof(node->data) + data_size;

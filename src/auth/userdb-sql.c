@@ -100,6 +100,16 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	i_free(sql_request);
 }
 
+static const char *
+userdb_sql_escape(const char *str, const struct auth_request *auth_request)
+{
+	struct userdb_module *_module = auth_request->userdb->userdb;
+	struct sql_userdb_module *module =
+		(struct sql_userdb_module *)_module;
+
+	return sql_escape_string(module->conn->db, str);
+}
+
 static void userdb_sql_lookup(struct auth_request *auth_request,
 			      userdb_callback_t *callback)
 {
@@ -112,7 +122,7 @@ static void userdb_sql_lookup(struct auth_request *auth_request,
 	query = t_str_new(512);
 	var_expand(query, module->conn->set.user_query,
 		   auth_request_get_var_expand_table(auth_request,
-						     str_escape));
+						     userdb_sql_escape));
 
 	auth_request_ref(auth_request);
 	sql_request = i_new(struct userdb_sql_request, 1);

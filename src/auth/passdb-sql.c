@@ -121,6 +121,15 @@ static void sql_query_callback(struct sql_result *result, void *context)
 	auth_request_unref(&auth_request);
 }
 
+static const char *
+passdb_sql_escape(const char *str, const struct auth_request *auth_request)
+{
+	struct passdb_module *_module = auth_request->passdb->passdb;
+	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
+
+	return sql_escape_string(module->conn->db, str);
+}
+
 static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 {
 	struct passdb_module *_module =
@@ -131,7 +140,7 @@ static void sql_lookup_pass(struct passdb_sql_request *sql_request)
 	query = t_str_new(512);
 	var_expand(query, module->conn->set.password_query,
 		   auth_request_get_var_expand_table(sql_request->auth_request,
-						     str_escape));
+						     passdb_sql_escape));
 
 	auth_request_log_debug(sql_request->auth_request, "sql",
 			       "query: %s", str_c(query));

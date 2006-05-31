@@ -16,6 +16,10 @@ enum auth_request_state {
 	AUTH_REQUEST_STATE_USERDB
 };
 
+typedef const char *
+auth_request_escape_func_t(const char *string,
+			   const struct auth_request *auth_request);
+
 struct auth_request {
 	int refcount;
 
@@ -126,7 +130,9 @@ int auth_request_password_verify(struct auth_request *request,
 
 const struct var_expand_table *
 auth_request_get_var_expand_table(const struct auth_request *auth_request,
-				  const char *(*escape_func)(const char *));
+				  auth_request_escape_func_t *escape_func);
+const char *auth_request_str_escape(const char *string,
+				    const struct auth_request *request);
 
 void auth_request_log_debug(struct auth_request *auth_request,
 			    const char *subsystem,

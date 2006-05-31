@@ -351,7 +351,8 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 #define IS_LDAP_ESCAPED_CHAR(c) \
 	((c) == '*' || (c) == '(' || (c) == ')' || (c) == '\\')
 
-const char *ldap_escape(const char *str)
+const char *ldap_escape(const char *str,
+			const struct auth_request *auth_request __attr_unused__)
 {
 	const char *p;
 	string_t *ret;

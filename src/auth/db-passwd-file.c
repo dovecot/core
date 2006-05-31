@@ -367,7 +367,9 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
 	i_free(db);
 }
 
-static const char *path_fix(const char *path)
+static const char *
+path_fix(const char *path,
+	 const struct auth_request *auth_request __attr_unused__)
 {
 	const char *p;
 
