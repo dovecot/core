@@ -488,6 +488,10 @@ static int dbox_mailbox_delete(struct mail_storage *_storage,
 		return -1;
 	}
 
+	/* make sure the indexes are closed before trying to delete the
+	   directory that contains them */
+	index_storage_destroy_unrefed();
+
 	if (unlink_directory(mail_path, TRUE) < 0) {
 		if (!dbox_handle_errors(istorage)) {
 			mail_storage_set_critical(_storage,
