@@ -337,6 +337,23 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 	return 0;
 }
 
+static char *
+driver_mysql_escape_string(struct sql_db *_db, const char *string)
+{
+	struct mysql_db *db = (struct mysql_db *)_db;
+	const struct mysql_connection *conn;
+	size_t len = strlen(string);
+	char *to;
+
+	/* All the connections should be identical, so just use the first one */
+	conn = array_idx(&db->connections, 0);
+
+	to = t_buffer_get(len * 2 + 1);
+	len = mysql_real_escape_string(conn->mysql, to, string, len);
+	t_buffer_alloc(len + 1);
+	return to;
+}
+
 static void driver_mysql_exec(struct sql_db *_db, const char *query)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
@@ -574,6 +591,7 @@ struct sql_db driver_mysql_db = {
 	_driver_mysql_deinit,
 	driver_mysql_get_flags,
         driver_mysql_connect_all,
+        driver_mysql_escape_string,
 	driver_mysql_exec,
 	driver_mysql_query,
 	driver_mysql_query_s,

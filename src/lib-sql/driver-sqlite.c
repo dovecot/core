@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "strescape.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_SQLITE
@@ -86,6 +87,12 @@ static enum sql_db_flags
 driver_sqlite_get_flags(struct sql_db *db __attr_unused__)
 {
 	return SQL_DB_FLAG_BLOCKING;
+}
+
+static char *driver_sqlite_escape_string(struct sql_db *_db __attr_unused__,
+					 const char *string)
+{
+	return t_strdup_noconst(str_escape(string));
 }
 
 static void driver_sqlite_exec(struct sql_db *_db, const char *query)
@@ -338,6 +345,7 @@ struct sql_db driver_sqlite_db = {
 	_driver_sqlite_deinit,
 	driver_sqlite_get_flags,
 	driver_sqlite_connect,
+	driver_sqlite_escape_string,
 	driver_sqlite_exec,
 	driver_sqlite_query,
 	driver_sqlite_query_s,

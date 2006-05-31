@@ -441,6 +441,22 @@ static void exec_callback(struct sql_result *result,
 	i_error("pgsql: sql_exec() failed: %s", last_error(db));
 }
 
+static char *driver_pgsql_escape_string(struct sql_db *_db, const char *string)
+{
+	struct pgsql_db *db = (struct pgsql_db *)_db;
+	size_t len = strlen(string);
+	char *to;
+
+	to = t_buffer_get(len * 2 + 1);
+#ifdef HAVE_PQESCAPE_STRING_CONN
+	len = PQescapeStringConn(db->pg, to, string, len, NULL);
+#else
+	len = PQescapeString(to, string, len);
+#endif
+	t_buffer_alloc(len + 1);
+	return to;
+}
+
 static void driver_pgsql_exec(struct sql_db *db, const char *query)
 {
 	struct pgsql_result *result;
@@ -758,6 +774,7 @@ struct sql_db driver_pgsql_db = {
 	_driver_pgsql_deinit,
         driver_pgsql_get_flags,
 	driver_pgsql_connect,
+	driver_pgsql_escape_string,
 	driver_pgsql_exec,
 	driver_pgsql_query,
 	driver_pgsql_query_s,
