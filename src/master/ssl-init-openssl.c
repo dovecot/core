@@ -6,6 +6,7 @@
 
 #ifdef HAVE_OPENSSL
 
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 
 /* 2 or 5. Haven't seen their difference explained anywhere, but 2 is the
@@ -24,7 +25,13 @@ static void generate_dh_parameters(int bitsize, int fd, const char *fname)
 
 	len = i2d_DHparams(dh, NULL);
 	if (len < 0)
-		i_fatal("i2d_DHparams() failed");
+		i_fatal("i2d_DHparams() failed: %lu", ERR_get_error());
+
+	if (len == 0) {
+		i_fatal("i2d_DHparams() returned 0 for data from "
+			"DH_generate_parameters(bits=%d, generator=%d)",
+			bitsize, DH_GENERATOR);
+	}
 
 	buf = p = i_malloc(len);
 	len = i2d_DHparams(dh, &p);
