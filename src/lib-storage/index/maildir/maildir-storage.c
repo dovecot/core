@@ -666,7 +666,9 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 	} else {
 		count = 0;
 		while (rename(src, dest) < 0 && count < 2) {
-			if (errno != EEXIST && errno != ENOTEMPTY) {
+			/* EBUSY is given by some NFS implementations */
+			if (errno != EEXIST && errno != ENOTEMPTY &&
+			    errno != EBUSY) {
 				mail_storage_set_critical(_storage,
 					"rename(%s, %s) failed: %m", src, dest);
 				return -1;
