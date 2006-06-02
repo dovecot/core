@@ -1414,6 +1414,9 @@ if test $want_pgsql = yes; then
 	fi
 
 	AC_CHECK_LIB(pq, PQconnectdb, [
+		AC_CHECK_LIB(pq, PQescapeStringConn, [
+			AC_DEFINE(HAVE_PQESCAPE_STRING_CONN,, Define if libpq has PQescapeStringConn function)
+		])
 		old_CPPFLAGS=$CPPFLAGS
 		if test "$PGSQL_INCLUDE" != ""; then
 			CPPFLAGS="$CPPFLAGS -I $PGSQL_INCLUDE"
