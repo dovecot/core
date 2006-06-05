@@ -119,15 +119,15 @@ void sasl_server_auth_begin(struct client *client,
 
 	mech = auth_client_find_mech(auth_client, mech_name);
 	if (mech == NULL) {
-		sasl_server_auth_cancel(client, 
+		sasl_server_auth_client_error(client,
 			"Unsupported authentication mechanism.");
 		return;
 	}
 
 	if (!client->secured && disable_plaintext_auth &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
-		sasl_server_auth_cancel(client,
-					"Plaintext authentication disabled.");
+		sasl_server_auth_client_error(client,
+			"Plaintext authentication disabled.");
 		return;
 	}
 
@@ -145,12 +145,13 @@ void sasl_server_auth_begin(struct client *client,
 		auth_client_request_new(auth_client, NULL, &info,
 					authenticate_callback, client, &error);
 	if (client->auth_request == NULL) {
-		sasl_server_auth_cancel(client,
+		sasl_server_auth_failed(client,
 			 t_strconcat("Authentication failed: ", error, NULL));
 	}
 }
 
-void sasl_server_auth_cancel(struct client *client, const char *reason)
+static void sasl_server_auth_cancel(struct client *client, const char *reason,
+				    enum sasl_server_reply reply)
 {
 	if (verbose_auth && reason != NULL) {
 		const char *auth_name =
@@ -167,6 +168,15 @@ void sasl_server_auth_cancel(struct client *client, const char *reason)
 		client->auth_request = NULL;
 	}
 
-	client->sasl_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
-			      reason, NULL);
+	client->sasl_callback(client, reply, reason, NULL);
+}
+
+void sasl_server_auth_failed(struct client *client, const char *reason)
+{
+	sasl_server_auth_cancel(client, reason, SASL_SERVER_REPLY_AUTH_FAILED);
+}
+
+void sasl_server_auth_client_error(struct client *client, const char *reason)
+{
+	sasl_server_auth_cancel(client, reason, SASL_SERVER_REPLY_CLIENT_ERROR);
 }

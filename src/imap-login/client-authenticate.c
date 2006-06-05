@@ -63,16 +63,17 @@ static void client_auth_input(void *context)
 		return;
 
 	if (strcmp(line, "*") == 0) {
-		sasl_server_auth_cancel(&client->common,
-					"Authentication aborted");
+		sasl_server_auth_client_error(&client->common,
+					      "Authentication aborted");
 		return;
 	}
 
 	if (client->common.auth_request == NULL) {
-		sasl_server_auth_cancel(&client->common,
-					"Don't send unrequested data");
+		sasl_server_auth_client_error(&client->common,
+					      "Don't send unrequested data");
 	} else {
 		auth_client_request_continue(client->common.auth_request, line);
+		client->common.auth_request = NULL;
 	}
 
 	/* clear sensitive data */
@@ -178,6 +179,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 {
 	struct imap_client *client = (struct imap_client *)_client;
 	struct const_iovec iov[3];
+	const char *msg;
 	size_t data_len;
 
 	switch (reply) {
@@ -191,12 +193,16 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		client_destroy(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
+	case SASL_SERVER_REPLY_CLIENT_ERROR:
 		if (args != NULL) {
 			if (client_handle_args(client, args, TRUE))
 				break;
 		}
 
-		client_send_tagline(client, "NO "AUTH_FAILED_MSG);
+		msg = reply == SASL_SERVER_REPLY_AUTH_FAILED ? "NO " : "BAD ";
+		msg = t_strconcat(msg, data != NULL ? data : AUTH_FAILED_MSG,
+				  NULL);
+		client_send_tagline(client, msg);
 
 		/* get back to normal client input. */
 		if (client->io != NULL)
