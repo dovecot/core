@@ -85,6 +85,11 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 		const char *error;
 		bool syntax, temporary_error;
 
+		if (ctx->client->output->closed) {
+			client_disconnect(cmd->client, "Disconnected");
+			return TRUE;
+		}
+
                 storage = mailbox_get_storage(cmd->client->mailbox);
 		error = mail_storage_get_last_error(storage, &syntax,
 						    &temporary_error);
