@@ -595,8 +595,11 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		}
 	}
 
-	if (nfs_check)
+	if (nfs_check) {
+		if (*chroot_dir != '\0')
+			home_dir = t_strconcat(chroot_dir, "/", home_dir, NULL);
 		nfs_warn_if_found(getenv("MAIL"), home_dir);
+	}
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", home_dir, NULL));
