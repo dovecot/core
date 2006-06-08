@@ -246,7 +246,7 @@ static void resolve_ip(const char *name, struct ip_addr *ip, unsigned int *port)
 	const char *p;
 	int ret, ips_count;
 
-	if (name == NULL) {
+	if (*name == '\0') {
                 /* defaults to "*" or "[::]" */
 		ip->family = 0;
 		return;

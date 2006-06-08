@@ -268,7 +268,7 @@ struct settings default_settings = {
 	/* general */
 	MEMBER(protocols) "imap imaps",
 	MEMBER(listen) "*",
-	MEMBER(ssl_listen) NULL,
+	MEMBER(ssl_listen) "",
 
 	MEMBER(ssl_disable) FALSE,
 	MEMBER(ssl_ca_file) NULL,
