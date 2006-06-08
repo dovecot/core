@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2006 Timo Sirainen */
 
 #include "lib.h"
 #include "istream.h"
@@ -11,6 +11,7 @@
 #include "imap-date.h"
 #include "index-storage.h"
 #include "index-mail.h"
+#include "index-sort.h"
 #include "mail-search.h"
 
 #include <stdlib.h>
@@ -25,6 +26,7 @@ struct index_search_context {
 	struct index_mailbox *ibox;
 	char *charset;
 	struct mail_search_arg *args;
+	struct mail_search_sort_program *sort_program;
 
 	uint32_t seq1, seq2;
 	struct mail *mail;
@@ -34,6 +36,7 @@ struct index_search_context {
 	const char *error;
 
 	unsigned int failed:1;
+	unsigned int sorted:1;
 	unsigned int have_seqsets:1;
 };
 
@@ -764,14 +767,6 @@ static int search_get_seqset(struct index_search_context *ctx,
 	return 0;
 }
 
-int index_storage_search_get_sorting(struct mailbox *box __attr_unused__,
-				     enum mail_sort_type *sort_program)
-{
-	/* currently we don't support sorting */
-	*sort_program = MAIL_SORT_END;
-	return 0;
-}
-
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *_t,
 			  const char *charset, struct mail_search_arg *args,
@@ -781,17 +776,13 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 		(struct index_transaction_context *)_t;
 	struct index_search_context *ctx;
 
-	if (sort_program != NULL && *sort_program != MAIL_SORT_END) {
-		i_fatal("BUG: index_storage_search_init(): "
-			 "invalid sort_program");
-	}
-
 	ctx = i_new(struct index_search_context, 1);
 	ctx->mail_ctx.transaction = _t;
 	ctx->ibox = t->ibox;
 	ctx->view = t->trans_view;
 	ctx->charset = i_strdup(charset);
 	ctx->args = args;
+	ctx->sort_program = index_sort_program_init(_t, sort_program);
 
 	mail_search_args_reset(ctx->args, TRUE);
 
@@ -823,6 +814,8 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	if (ctx->hdr_pool != NULL)
 		pool_unref(ctx->hdr_pool);
 
+	if (ctx->sort_program != NULL)
+		index_sort_program_deinit(&ctx->sort_program);
 	i_free(ctx->charset);
 	i_free(ctx);
 	return ret;
@@ -868,6 +861,9 @@ int index_storage_search_next(struct mail_search_context *_ctx,
 	struct mailbox *box = _ctx->transaction->box;
 	int ret;
 
+	if (ctx->sorted)
+		return index_sort_list_next(ctx->sort_program, mail);
+
 	ctx->mail = mail;
 	ctx->imail = (struct index_mail *)mail;
 
@@ -885,13 +881,27 @@ int index_storage_search_next(struct mail_search_context *_ctx,
 
 		if (ctx->error != NULL)
 			ret = -1;
-		if (ret != 0)
-			break;
+		if (ret != 0) {
+			if (ctx->sort_program == NULL)
+				break;
+
+			if (index_sort_list_add(ctx->sort_program, mail) < 0) {
+				ret = -1;
+				break;
+			}
+		}
 	}
 	if (ret < 0)
 		ctx->failed = TRUE;
 	ctx->mail = NULL;
 	ctx->imail = NULL;
+
+	if (ctx->sort_program != NULL && ret == 0) {
+		ctx->sorted = TRUE;
+		if (index_sort_list_finish(ctx->sort_program) < 0)
+			return -1;
+		return index_sort_list_next(ctx->sort_program, mail);
+	}
 
 	return ret;
 }

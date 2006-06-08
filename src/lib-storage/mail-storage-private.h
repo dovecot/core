@@ -131,8 +131,6 @@ struct mailbox_vfuncs {
 				      const char *const headers[]);
 	void (*header_lookup_deinit)(struct mailbox_header_lookup_ctx *ctx);
 
-	int (*search_get_sorting)(struct mailbox *box,
-				  enum mail_sort_type *sort_program);
 	struct mail_search_context *
 	(*search_init)(struct mailbox_transaction_context *t,
 		       const char *charset, struct mail_search_arg *args,

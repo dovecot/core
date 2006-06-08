@@ -20,28 +20,32 @@ static struct sort_name sort_names[] = {
 	{ MAIL_SORT_SUBJECT,	"subject" },
 	{ MAIL_SORT_TO,		"to" },
 
-	{ MAIL_SORT_REVERSE,	"reverse" },
 	{ MAIL_SORT_END,	NULL }
 };
 
-static enum mail_sort_type *
-get_sort_program(struct client_command_context *cmd, struct imap_arg *args)
+static int
+get_sort_program(struct client_command_context *cmd, struct imap_arg *args,
+		 enum mail_sort_type program[MAX_SORT_PROGRAM_SIZE])
 {
-	enum mail_sort_type type;
-	buffer_t *buf;
-	int i;
+	enum mail_sort_type mask = 0;
+	unsigned int i, pos;
+	bool reverse;
 
 	if (args->type == IMAP_ARG_EOL) {
 		/* empyty list */
 		client_send_command_error(cmd, "Empty sort program.");
-		return NULL;
+		return -1;
 	}
 
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    32 * sizeof(enum mail_sort_type));
-
-	while (args->type == IMAP_ARG_ATOM || args->type == IMAP_ARG_STRING) {
+	pos = 0; reverse = FALSE;
+	for (; args->type == IMAP_ARG_ATOM || args->type == IMAP_ARG_STRING;
+	     args++) {
 		const char *arg = IMAP_ARG_STR(args);
+
+		if (strcasecmp(arg, "reverse") == 0) {
+			reverse = !reverse;
+			continue;
+		}
 
 		for (i = 0; sort_names[i].type != MAIL_SORT_END; i++) {
 			if (strcasecmp(arg, sort_names[i].name) == 0)
@@ -51,31 +55,37 @@ get_sort_program(struct client_command_context *cmd, struct imap_arg *args)
 		if (sort_names[i].type == MAIL_SORT_END) {
 			client_send_command_error(cmd, t_strconcat(
 				"Unknown sort argument: ", arg, NULL));
-			return NULL;
+			return -1;
 		}
 
-		buffer_append(buf, &sort_names[i].type,
-			      sizeof(enum mail_sort_type));
-		args++;
+		if ((mask & sort_names[i].type) != 0)
+			continue;
+		mask |= sort_names[i].type;
+
+		/* @UNSAFE: mask check should prevent us from ever
+		   overflowing */
+		i_assert(pos < MAX_SORT_PROGRAM_SIZE-1);
+		program[pos++] = sort_names[i].type |
+			(reverse ? MAIL_SORT_FLAG_REVERSE : 0);
+		reverse = FALSE;
 	}
 
-	type = MAIL_SORT_END;
-	buffer_append(buf, &type, sizeof(type));
+	program[pos++] = MAIL_SORT_END;
 
 	if (args->type != IMAP_ARG_EOL) {
 		client_send_command_error(cmd,
 					  "Invalid sort list argument.");
-		return NULL;
+		return -1;
 	}
 
-	return buffer_free_without_data(buf);
+	return 0;
 }
 
 bool cmd_sort(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mail_search_arg *sargs;
-	enum mail_sort_type *sorting;
+	enum mail_sort_type sorting[MAX_SORT_PROGRAM_SIZE];
 	struct imap_arg *args;
 	int args_count;
 	pool_t pool;
@@ -100,8 +110,7 @@ bool cmd_sort(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	sorting = get_sort_program(cmd, IMAP_ARG_LIST(args)->args);
-	if (sorting == NULL)
+	if (get_sort_program(cmd, IMAP_ARG_LIST(args)->args, sorting) < 0)
 		return TRUE;
 	args++;
 

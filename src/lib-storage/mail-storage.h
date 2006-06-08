@@ -86,18 +86,19 @@ enum mailbox_name_status {
 };
 
 enum mail_sort_type {
-/* Maximum size for sort program, 2x for reverse + END */
-#define MAX_SORT_PROGRAM_SIZE (2*7 + 1)
+/* Maximum size for sort program (each one separately + END) */
+#define MAX_SORT_PROGRAM_SIZE (7 + 1)
 
-	MAIL_SORT_ARRIVAL	= 0x0010,
-	MAIL_SORT_CC		= 0x0020,
-	MAIL_SORT_DATE		= 0x0040,
-	MAIL_SORT_FROM		= 0x0080,
-	MAIL_SORT_SIZE		= 0x0100,
-	MAIL_SORT_SUBJECT	= 0x0200,
-	MAIL_SORT_TO		= 0x0400,
+	MAIL_SORT_ARRIVAL	= 0x0001,
+	MAIL_SORT_CC		= 0x0002,
+	MAIL_SORT_DATE		= 0x0004,
+	MAIL_SORT_FROM		= 0x0008,
+	MAIL_SORT_SIZE		= 0x0010,
+	MAIL_SORT_SUBJECT	= 0x0020,
+	MAIL_SORT_TO		= 0x0040,
 
-	MAIL_SORT_REVERSE	= 0x0001, /* reverse the next type */
+	MAIL_SORT_MASK		= 0x0fff,
+	MAIL_SORT_FLAG_REVERSE	= 0x1000, /* reverse this mask type */
 
 	MAIL_SORT_END		= 0x0000 /* ends sort program */
 };
@@ -373,17 +374,9 @@ struct mailbox_header_lookup_ctx *
 mailbox_header_lookup_init(struct mailbox *box, const char *const headers[]);
 void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx **ctx);
 
-/* Modify sort_program to specify a sort program acceptable for
-   search_init(). If mailbox supports no sorting, it's simply set to
-   {MAIL_SORT_END}. */
-int mailbox_search_get_sorting(struct mailbox *box,
-			       enum mail_sort_type *sort_program);
-/* Initialize new search request. Search arguments are given so that
-   the storage can optimize the searching as it wants.
-
-   If sort_program is non-NULL, it requests that the returned messages
-   are sorted by the given criteria. sort_program must have gone
-   through search_get_sorting(). */
+/* Initialize new search request. charset specifies the character set used in
+   the search argument strings. If sort_program is non-NULL, the messages are
+   returned in the requested order, otherwise from first to last. */
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
 		    const char *charset, struct mail_search_arg *args,

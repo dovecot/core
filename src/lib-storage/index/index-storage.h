@@ -168,8 +168,6 @@ struct mailbox_header_lookup_ctx *
 index_header_lookup_init(struct mailbox *box, const char *const headers[]);
 void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *ctx);
 
-int index_storage_search_get_sorting(struct mailbox *box,
-				     enum mail_sort_type *sort_program);
 struct mail_search_context *
 index_storage_search_init(struct mailbox_transaction_context *t,
 			  const char *charset, struct mail_search_arg *args,

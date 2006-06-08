@@ -1121,7 +1121,6 @@ struct mailbox mbox_mailbox = {
 		index_mail_alloc,
 		index_header_lookup_init,
 		index_header_lookup_deinit,
-		index_storage_search_get_sorting,
 		index_storage_search_init,
 		index_storage_search_deinit,
 		index_storage_search_next,

@@ -873,6 +873,9 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
         struct mail_cache_view *cache_view = mail->trans->cache_view;
 	const struct mail_index_record *rec;
 
+	if (data->seq == seq)
+		return 0;
+
 	if (mail_index_lookup(mail->trans->trans_view, seq, &rec) < 0) {
 		mail_storage_set_index_error(mail->ibox);
 		return -1;

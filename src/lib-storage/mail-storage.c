@@ -444,12 +444,6 @@ void mailbox_header_lookup_deinit(struct mailbox_header_lookup_ctx **_ctx)
 	ctx->box->v.header_lookup_deinit(ctx);
 }
 
-int mailbox_search_get_sorting(struct mailbox *box,
-			       enum mail_sort_type *sort_program)
-{
-	return box->v.search_get_sorting(box, sort_program);
-}
-
 struct mail_search_context *
 mailbox_search_init(struct mailbox_transaction_context *t,
 		    const char *charset, struct mail_search_arg *args,
