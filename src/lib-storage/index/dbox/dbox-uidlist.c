@@ -968,7 +968,7 @@ static int dbox_file_seq_was_used(struct dbox_mailbox *mbox, const char *path,
 	/* doesn't exist, make sure that index's last file seq is lower */
 	if (dbox_uidlist_read(mbox->uidlist) < 0)
 		return -1;
-	return file_seq < mbox->uidlist->last_file_seq ? 1 : 0;
+	return file_seq <= mbox->uidlist->last_file_seq ? 1 : 0;
 }
 
 static int
@@ -1016,8 +1016,21 @@ dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 			   to create the file back and cause problems. */
 			ret = dbox_file_seq_was_used(mbox, str_c(path),
 						     file_seq);
-			if (ret == 0)
+
+			if (i < count) {
+				/* dbox file was re-read, find the entry
+				   again */
+				entries = array_get(&ctx->uidlist->entries,
+						    &count);
+				for (i = 0; i < count; i++) {
+					if (entries[i]->file_seq == file_seq)
+						break;
+				}
+			}
+			if (ret == 0) {
+				i_assert(i < count || !*existing_r);
 				break;
+			}
 
 			/* error / it was used, continue with another
 			   file sequence */

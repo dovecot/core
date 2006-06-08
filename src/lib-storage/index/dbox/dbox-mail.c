@@ -72,52 +72,69 @@ int dbox_mail_lookup_offset(struct index_transaction_context *trans,
 	}
 }
 
-static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
+static bool dbox_mail_try_open(struct index_mail *mail,
+			       uint32_t *file_seq_r, uoff_t *offset_r,
+			       int *ret_r)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->ibox;
 	uint32_t seq = mail->mail.mail.seq;
+
+	*ret_r = dbox_mail_lookup_offset(mail->trans, seq,
+					 file_seq_r, offset_r);
+	if (*ret_r <= 0) {
+		if (*ret_r == 0)
+			mail->mail.mail.expunged = TRUE;
+		return TRUE;
+	}
+
+	if ((*ret_r = dbox_file_seek(mbox, *file_seq_r, *offset_r)) < 0)
+		return TRUE;
+	if (*ret_r > 0) {
+		/* ok */
+		*ret_r = dbox_mail_parse_mail_header(mail, mbox->file);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
+{
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->ibox;
 	uint32_t file_seq, prev_file_seq = 0;
-	uoff_t offset, prev_offset = 0;
+	uoff_t prev_offset = 0;
 	int i, ret;
 
 	if (mail->mail.mail.expunged)
 		return 0;
 
 	for (i = 0; i < 3; i++) {
-		ret = dbox_mail_lookup_offset(mail->trans, seq,
-					      &file_seq, &offset);
-		if (ret <= 0) {
-			if (ret == 0)
-				mail->mail.mail.expunged = TRUE;
+		if (dbox_mail_try_open(mail, &file_seq, offset_r, &ret))
 			return ret;
-		}
 
-		if ((ret = dbox_file_seek(mbox, file_seq, offset)) < 0)
-			return -1;
-		if (ret > 0) {
-			/* ok */
-			*offset_r = offset;
-			return dbox_mail_parse_mail_header(mail, mbox->file);
-		}
-
-		if (prev_file_seq == file_seq && prev_offset == offset) {
+		if (prev_file_seq == file_seq && prev_offset == *offset_r) {
 			/* broken offset */
 			break;
+		} else {
+			/* mail was moved. resync dbox to find out the new
+			   offset and try again. */
+			if (dbox_sync(mbox, FALSE) < 0)
+				return -1;
 		}
 
-		/* mail was moved. resync dbox to find out the new offset
-		   and try again. */
-		if (dbox_sync(mbox, FALSE) < 0)
-			return -1;
 		prev_file_seq = file_seq;
-		prev_offset = offset;
+		prev_offset = *offset_r;
 	}
 
 	mail_storage_set_critical(STORAGE(mbox->storage),
 				  "Cached message offset (%u, %"PRIuUOFF_T") "
 				  "broken for uid %u in dbox %s",
-				  file_seq, offset, mail->mail.mail.uid,
+				  file_seq, *offset_r, mail->mail.mail.uid,
 				  mbox->path);
+
+	if (dbox_sync(mbox, TRUE) < 0)
+		return -1;
+	if (dbox_mail_try_open(mail, &file_seq, offset_r, &ret))
+		return ret;
 	return -1;
 }
 

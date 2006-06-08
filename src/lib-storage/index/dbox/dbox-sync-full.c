@@ -186,7 +186,7 @@ static void dbox_sync_full_expunge_nonfound(struct dbox_sync_context *ctx)
 	}
 
 	hdr = mail_index_get_header(ctx->sync_view);
-	while (seq < hdr->messages_count) {
+	while (seq <= hdr->messages_count) {
 		mail_index_expunge(ctx->trans, seq);
 		seq++;
 	}
