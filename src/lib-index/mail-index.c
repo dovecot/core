@@ -1184,6 +1184,15 @@ mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 	mem_map->hdr = *hdr;
 	mem_map->hdr_base = hdr;
 
+	/* if we're syncing transaction log into memory and later use the
+	   mapping for updating the index, we need to remember what has
+	   changed */
+	mem_map->write_atomic = map->write_atomic;
+	if (map->write_to_disk) {
+		mem_map->write_seq_first = map->write_seq_first;
+		mem_map->write_seq_last = map->write_seq_last;
+	}
+
 	/* copy extensions */
 	if (array_is_created(&map->ext_id_map)) {
 		count = array_count(&map->ext_id_map);
