@@ -74,7 +74,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	const int fd = io->fd;
-	struct kevent ev = { fd, 0, EV_ADD | EV_EOF, 0, 0, NULL };
+	struct kevent ev = { fd, 0, EV_ADD, 0, 0, NULL };
 	enum io_condition condition = io->condition & MASK;
 	
 	i_assert(io->callback != NULL);
@@ -101,6 +101,8 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 	if (condition & (IO_READ | IO_ERROR)) {
 		ctx->fds[fd].mode |= condition;
 		ev.filter = EVFILT_READ;
+		if (!(condition & ~IO_ERROR))
+			ev.flags |= EV_CLEAR;
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
 			i_error("kevent(%d) in io_loop_handle_add() failed: %m",
 				fd);
@@ -109,6 +111,8 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 	if (condition & (IO_WRITE | IO_ERROR)) {
 		ctx->fds[fd].mode |= condition;
 		ev.filter = EVFILT_WRITE;
+		if (!(condition & ~IO_ERROR))
+			ev.flags |= EV_CLEAR;
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
 			i_error("kevent(%d) in io_loop_handle_add() failed: %m",
 				fd);
@@ -184,7 +188,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
 		i_assert(ctx->evbuf[i].ident < ctx->fds_size);
 		if ((ctx->fds[ctx->evbuf[i].ident].mode & IO_ERROR) &&
-		    (ctx->evbuf[i].flags & EV_EOF)) {
+		    (ctx->evbuf[i].flags & (EV_EOF | EV_ERROR))) {
 			struct io *errio = ctx->fds[ctx->evbuf[i].ident].errio;
 
 			t_id = t_push();
@@ -203,14 +207,22 @@ void io_loop_handler_run(struct ioloop *ioloop)
 					" in I/O handler %p",
 					(void *)io->callback);
 			}
+		} else if (ctx->fds[ctx->evbuf[i].ident].mode & IO_ERROR) {
+			/* 
+			   NO-OP. If the handle is registered only for 
+			   IO_ERROR, then we can get readable/writable event
+			   but no IO_READ | IO_WRITE set.
+			 */
 		} else
 			i_panic("Unrecognized event: kevent {.ident =  %u,"
                                 " .filter = 0x%04x,"
                                 " .flags = 0x%04x,"
                                 " .fflags = 0x%08x,"
-                                " .data = 0x%08x}", ctx->evbuf[i].ident,
+                                " .data = 0x%08x}\n"
+				"mode: 0x%x04x", ctx->evbuf[i].ident,
                                 ctx->evbuf[i].filter, ctx->evbuf[i].flags,
-                                ctx->evbuf[i].fflags, ctx->evbuf[i].data);
+                                ctx->evbuf[i].fflags, ctx->evbuf[i].data,
+				ctx->fds[ctx->evbuf[i].ident].mode);
 	}
 }
 
