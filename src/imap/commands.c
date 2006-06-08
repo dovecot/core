@@ -7,9 +7,7 @@
 #include <stdlib.h>
 
 const struct command imap4rev1_commands[] = {
-	{ "AUTHENTICATE",	cmd_authenticate },
 	{ "CAPABILITY",		cmd_capability },
-	{ "LOGIN",		cmd_login },
 	{ "LOGOUT",		cmd_logout },
 	{ "NOOP",		cmd_noop },
 

@@ -32,8 +32,6 @@ void commands_deinit(void);
 /* IMAP4rev1 commands: */
 
 /* Non-Authenticated State */
-bool cmd_authenticate(struct client_command_context *cmd);
-bool cmd_login(struct client_command_context *cmd);
 bool cmd_logout(struct client_command_context *cmd);
 
 bool cmd_capability(struct client_command_context *cmd);

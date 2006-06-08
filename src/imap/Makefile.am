@@ -36,7 +36,6 @@ imap_DEPENDENCIES = $(libs)
 
 cmds = \
 	cmd-append.c \
-	cmd-authenticate.c \
 	cmd-capability.c \
 	cmd-check.c \
 	cmd-close.c \
@@ -48,7 +47,6 @@ cmds = \
 	cmd-fetch.c \
 	cmd-idle.c \
 	cmd-list.c \
-	cmd-login.c \
 	cmd-logout.c \
 	cmd-lsub.c \
 	cmd-namespace.c \
