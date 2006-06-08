@@ -309,8 +309,15 @@ static void _sync(struct _istream *stream)
 static const struct stat *_stat(struct _istream *stream, bool exact)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
+	const struct stat *st;
 
-	return i_stream_stat(rstream->input, exact);
+	st = i_stream_stat(rstream->input, exact);
+	if (st == NULL)
+		return NULL;
+
+	stream->statbuf = *st;
+	stream->statbuf.st_size = -1;
+	return &stream->statbuf;
 }
 
 struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input)

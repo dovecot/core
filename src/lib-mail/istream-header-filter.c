@@ -235,21 +235,26 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
+static void parse_header(struct header_filter_istream *mstream)
+{
+	size_t pos;
+
+	while (!mstream->header_read) {
+		if (_read(&mstream->istream) == -1)
+			break;
+
+		(void)i_stream_get_data(&mstream->istream.istream, &pos);
+		i_stream_skip(&mstream->istream.istream, pos);
+	}
+}
+
 static void _seek(struct _istream *stream, uoff_t v_offset,
 		  bool mark __attr_unused__)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
-	size_t pos;
 
-	while (!mstream->header_read) {
-		if (_read(stream) == -1)
-			break;
-
-		(void)i_stream_get_data(&stream->istream, &pos);
-		i_stream_skip(&stream->istream, pos);
-	}
-
+	parse_header(mstream);
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 	stream->buffer = NULL;
@@ -280,9 +285,22 @@ static void _sync(struct _istream *stream __attr_unused__)
 }
 
 static const struct stat *
-_stat(struct _istream *stream, bool exact __attr_unused__)
+_stat(struct _istream *stream, bool exact)
 {
-	/* return size and others as unknown */
+	struct header_filter_istream *mstream =
+		(struct header_filter_istream *)stream;
+	const struct stat *st;
+
+	st = i_stream_stat(mstream->input, exact);
+	if (st == NULL || st->st_size == -1 || !exact)
+		return st;
+
+	parse_header(mstream);
+
+	stream->statbuf = *st;
+	stream->statbuf.st_size -=
+		(off_t)mstream->header_size.physical_size -
+		(off_t)mstream->header_size.virtual_size;
 	return &stream->statbuf;
 }
 
