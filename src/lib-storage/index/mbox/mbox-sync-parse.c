@@ -62,7 +62,7 @@ static void parse_trailing_whitespace(struct mbox_sync_mail_context *ctx,
 
 	if ((ssize_t)space > ctx->mail.space) {
 		i_assert(space != 0);
-		ctx->mail.offset = hdr->full_value_offset + i;
+		ctx->mail.offset = ctx->hdr_offset + str_len(ctx->header) + i;
 		ctx->mail.space = space;
 	}
 }
@@ -206,9 +206,11 @@ static bool parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 		uid_last = uid_last * 10 + (hdr->full_value[i] - '0');
 	}
 
-	if (j != 10) {
+	if (j != 10 ||
+	    hdr->full_value_offset != ctx->hdr_offset + str_len(ctx->header)) {
 		/* uid-last field must be exactly 10 characters to make
-		   rewriting it easier. */
+		   rewriting it easier. also don't try to do this if some
+		   headers have been removed */
 		ctx->imapbase_rewrite = TRUE;
 		ctx->need_rewrite = TRUE;
 	} else {
