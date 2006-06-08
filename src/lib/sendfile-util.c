@@ -51,6 +51,10 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 	ret = sendfile(out_fd, in_fd, &safe_offset, count);
 	*offset = (uoff_t)safe_offset;
 
+	if (ret == 0) {
+		errno = EPIPE;
+		ret = -1;
+	}
 	return ret;
 }
 
