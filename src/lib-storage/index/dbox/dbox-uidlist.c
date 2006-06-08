@@ -35,9 +35,6 @@ struct dbox_save_file {
 
 	struct dotlock *dotlock;
 	array_t ARRAY_DEFINE(seqs, unsigned int);
-
-	/* append offset for the first mail we've saved */
-	uoff_t append_offset;
 };
 
 struct dbox_uidlist {
@@ -671,7 +668,7 @@ static void dbox_uidlist_build_update_line(struct dbox_save_file *save_file,
 
 	/* add creation time and file size */
 	str_printfa(str, " %s %s", dec2str(save_file->file->create_time),
-		    dec2str(save_file->append_offset));
+		    dec2str(save_file->file->append_offset));
 	str_append_c(str, '\n');
 }
 
@@ -1062,7 +1059,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		if (DBOX_CAN_APPEND(ctx, files[i]->file->create_time,
-				    files[i]->append_offset)) {
+				    files[i]->file->append_offset)) {
 			if (dbox_reopen_file(ctx, files[i]) < 0)
 				return -1;
 
