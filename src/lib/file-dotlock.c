@@ -31,7 +31,7 @@ struct dotlock {
 	char *lock_path;
 	int fd;
 
-	time_t lock_time, lock_update_mtime;
+	time_t lock_time;
 };
 
 struct file_change_info {
@@ -444,7 +444,6 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 			dotlock->path = i_strdup(path);
 			dotlock->fd = lock_info.fd;
                         dotlock->lock_time = now;
-                        dotlock->lock_update_mtime = now;
 			lock_info.fd = -1;
 		}
 	}
@@ -673,10 +672,10 @@ int file_dotlock_touch(struct dotlock *dotlock)
 	const char *lock_path;
 	int ret = 0;
 
-	if (dotlock->lock_update_mtime == now)
+	if (dotlock->mtime == now)
 		return 0;
 
-	dotlock->lock_update_mtime = now;
+	dotlock->mtime = now;
 	buf.actime = buf.modtime = now;
 
 	t_push();
