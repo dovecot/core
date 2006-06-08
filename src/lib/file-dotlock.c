@@ -324,7 +324,7 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 		return -1;
 	}
 
-	if (unlink(lock_info->temp_path) < 0 && errno != ENOENT) {
+	if (unlink(lock_info->temp_path) < 0) {
 		i_error("unlink(%s) failed: %m", lock_info->temp_path);
 		/* non-fatal, continue */
 	}
@@ -458,6 +458,10 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 		if (close(lock_info.fd) < 0)
 			i_error("close(%s) failed: %m", lock_path);
 		errno = old_errno;
+	}
+	if (lock_info.temp_path != NULL) {
+		if (unlink(lock_info.temp_path) < 0)
+			i_error("unlink(%s) failed: %m", lock_info.temp_path);
 	}
 
 	if (ret == 0)
