@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "istream.h"
 #include "hex-dec.h"
 #include "write-full.h"
 #include "ostream.h"
@@ -108,6 +109,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)t->ictx.ibox;
 	struct dbox_save_context *ctx = t->save_ctx;
 	struct dbox_mail_header hdr;
+	const struct stat *st;
 	buffer_t *file_keywords = NULL;
 	enum mail_flags save_flags;
 	unsigned int i, pos, left;
@@ -139,7 +141,13 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	}
 	ctx->input = input;
 
-	if (dbox_uidlist_append_locked(ctx->append_ctx, &ctx->file) < 0) {
+	/* get the size of the mail to be saved, if possible */
+	st = i_stream_stat(input, TRUE);
+	if (st != NULL && st->st_size == -1)
+		st = NULL;
+
+	if (dbox_uidlist_append_locked(ctx->append_ctx, &ctx->file,
+				       st != NULL ? st->st_size : 0) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}

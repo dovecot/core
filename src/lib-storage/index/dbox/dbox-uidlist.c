@@ -973,7 +973,8 @@ static int dbox_file_seq_was_used(struct dbox_mailbox *mbox, const char *path,
 
 static int
 dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
-		      uint32_t *file_seq_r, struct dbox_uidlist_entry **entry_r,
+		      uoff_t mail_size, uint32_t *file_seq_r,
+		      struct dbox_uidlist_entry **entry_r,
 		      struct dotlock **dotlock_r, bool *existing_r)
 {
 	struct dbox_mailbox *mbox = ctx->uidlist->mbox;
@@ -988,7 +989,8 @@ dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 		*existing_r = FALSE;
 		for (; i < count; i++) {
 			if (DBOX_CAN_APPEND(ctx, entries[i]->create_time,
-					    entries[i]->file_size) &&
+					    entries[i]->file_size +
+					    mail_size) &&
 			    !dbox_uidlist_files_lookup(ctx,
 						       entries[i]->file_seq)) {
 				*existing_r = TRUE;
@@ -1054,7 +1056,7 @@ dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 }
 
 int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
-			       struct dbox_file **file_r)
+			       struct dbox_file **file_r, uoff_t mail_size)
 {
 	struct dbox_save_file *const *files, *save_file;
 	struct dbox_uidlist_entry *entry;
@@ -1072,7 +1074,8 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
 		if (DBOX_CAN_APPEND(ctx, files[i]->file->create_time,
-				    files[i]->file->append_offset)) {
+				    files[i]->file->append_offset +
+				    mail_size)) {
 			if (dbox_reopen_file(ctx, files[i]) < 0)
 				return -1;
 
@@ -1088,7 +1091,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 	do {
 		if (dotlock != NULL)
 			file_dotlock_delete(&dotlock);
-		if (dbox_file_append_lock(ctx, path, &file_seq,
+		if (dbox_file_append_lock(ctx, path, mail_size, &file_seq,
 					  &entry, &dotlock, &existing) < 0)
 			return -1;
 	} while ((ret = dbox_file_append(ctx, str_c(path), entry,

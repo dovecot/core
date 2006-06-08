@@ -31,7 +31,7 @@ void dbox_uidlist_append_rollback(struct dbox_uidlist_append_ctx *ctx);
    Returns -1 if failed, 0 if ok. If new file is created, the file's header is
    already appended. */
 int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
-			       struct dbox_file **file_r);
+			       struct dbox_file **file_r, uoff_t mail_size);
 void dbox_uidlist_append_finish_mail(struct dbox_uidlist_append_ctx *ctx,
 				     struct dbox_file *file);
 
