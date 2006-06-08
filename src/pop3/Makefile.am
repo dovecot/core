@@ -8,6 +8,11 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage
 
+# get some functions included which only plugins use. liblib should probably
+# be a shared library so this wouldn't be needed..
+unused_objects = \
+	../lib/mountpoint.o
+
 libs = \
 	../lib-storage/register/libstorage-register.a \
 	$(STORAGE_LIBS) \
@@ -17,7 +22,8 @@ libs = \
 	../lib-mail/libmail.a \
 	../lib-dict/libdict.a \
 	../lib-charset/libcharset.a \
-	../lib/liblib.a
+	../lib/liblib.a \
+	$(unused_objects)
 
 pop3_LDADD = \
 	$(libs) \
