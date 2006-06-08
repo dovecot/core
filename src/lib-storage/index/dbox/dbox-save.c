@@ -349,13 +349,13 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 		file = dbox_uidlist_append_lookup_file(ctx->append_ctx,
 						       file_seq);
-		if (pwrite_full(ctx->file->fd, hdr.uid_hex,
+		if (pwrite_full(file->fd, hdr.uid_hex,
 				sizeof(hdr.uid_hex), offset +
 				offsetof(struct dbox_mail_header,
 					 uid_hex)) < 0) {
 			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
 						  "pwrite_full(%s) failed: %m",
-						  ctx->file->path);
+						  file->path);
 			ctx->failed = TRUE;
                         dbox_transaction_save_rollback(ctx);
 			return -1;
