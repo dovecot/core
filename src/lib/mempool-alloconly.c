@@ -18,10 +18,10 @@ struct alloconly_pool {
 	struct pool pool;
 	int refcount;
 
-	size_t base_size;
 	struct pool_block *block;
 #ifdef DEBUG
 	const char *name;
+	size_t base_size;
 #endif
 };
 
@@ -38,6 +38,8 @@ struct pool_block {
 
 #define POOL_BLOCK_DATA(block) \
 	((char *) (block) + SIZEOF_POOLBLOCK)
+
+#define DEFAULT_BASE_SIZE MEM_ALIGN(sizeof(struct alloconly_pool))
 
 static const char *pool_alloconly_get_name(pool_t pool);
 static void pool_alloconly_ref(pool_t pool);
@@ -69,6 +71,21 @@ static struct pool static_alloconly_pool = {
 	FALSE
 };
 
+#ifdef DEBUG
+static void check_nuls(struct pool_block *block)
+{
+	const char *data = POOL_BLOCK_DATA(block);
+	size_t i;
+
+	for (i = block->size - block->left; i < block->size; i++) {
+		if (data[i] != '\0')
+			i_unreached();
+	}
+	if (block->prev != NULL)
+		check_nuls(block->prev);
+}
+#endif
+
 pool_t pool_alloconly_create(const char *name __attr_unused__, size_t size)
 {
 	struct alloconly_pool apool, *new_apool;
@@ -92,11 +109,11 @@ pool_t pool_alloconly_create(const char *name __attr_unused__, size_t size)
 	*new_apool = apool;
 #ifdef DEBUG
 	new_apool->name = p_strdup(&new_apool->pool, name);
-#endif
 
 	/* set base_size so p_clear() doesn't trash alloconly_pool structure. */
 	new_apool->base_size = new_apool->block->size - new_apool->block->left;
 	new_apool->block->last_alloc_size = 0;
+#endif
 
 	return &new_apool->pool;
 }
@@ -270,7 +287,11 @@ static void pool_alloconly_clear(pool_t pool)
 {
 	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
 	struct pool_block *block;
-	size_t avail_size;
+	size_t base_size, avail_size;
+
+#ifdef DEBUG
+	check_nuls(apool->block);
+#endif
 
 	/* destroy all blocks but the oldest, which contains the
 	   struct alloconly_pool allocation. */
@@ -287,8 +308,13 @@ static void pool_alloconly_clear(pool_t pool)
 	}
 
 	/* clear the first block */
-	avail_size = apool->block->size - apool->base_size;
-	memset(PTR_OFFSET(POOL_BLOCK_DATA(apool->block), apool->base_size), 0,
+#ifdef DEBUG
+	base_size = apool->base_size;
+#else
+	base_size = DEFAULT_BASE_SIZE;
+#endif
+	avail_size = apool->block->size - base_size;
+	memset(PTR_OFFSET(POOL_BLOCK_DATA(apool->block), base_size), 0,
 	       avail_size - apool->block->left);
 	apool->block->left = avail_size;
 	apool->block->last_alloc_size = 0;
