@@ -114,8 +114,12 @@ update_change_info(const struct stat *st, struct file_change_info *change,
 		time_t change_time = now;
 
 		if (change->ctime == 0) {
-			/* first check, set last_change to file's change time */
-			change_time = I_MAX(st->st_ctime, st->st_mtime);
+			/* First check, set last_change to file's change time.
+			   Use mtime instead if it's higher, but only if it's
+			   not higher than current time, because the mtime
+			   can also be used for keeping metadata. */
+			change_time = st->st_mtime > now ? st->st_ctime :
+				I_MAX(st->st_ctime, st->st_mtime);
 		}
 		if (*last_change_r < change_time)
 			*last_change_r = change_time;
