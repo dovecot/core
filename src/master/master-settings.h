@@ -116,13 +116,14 @@ struct settings {
 	const char *pop3_logout_format;
 
 	/* .. */
+	int listen_fd, ssl_listen_fd;
+
 	uid_t login_uid;
 
-	const char *imap_generated_capability;
-
-	int listen_fd, ssl_listen_fd;
 	struct ip_addr listen_ip, ssl_listen_ip;
 	unsigned int listen_port, ssl_listen_port;
+
+	const char *imap_generated_capability;
 
 	array_t ARRAY_DEFINE(plugin_envs, const char *);
 };
