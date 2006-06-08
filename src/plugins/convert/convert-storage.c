@@ -103,43 +103,43 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 				     struct mailbox_list *list,
 				     struct dotlock *dotlock)
 {
+	const char *name;
 	struct mailbox *srcbox, *destbox;
 	int ret = 0;
 
 	if ((list->flags & (MAILBOX_NONEXISTENT|MAILBOX_PLACEHOLDER)) != 0)
 		return 0;
 
+	name = strcasecmp(list->name, "INBOX") == 0 ? "INBOX" : list->name;
 	if ((list->flags & MAILBOX_NOSELECT) != 0) {
-		if (mail_storage_mailbox_create(dest_storage,
-						list->name, TRUE) < 0) {
+		if (mail_storage_mailbox_create(dest_storage, name, TRUE) < 0) {
 			i_error("Mailbox conversion: Couldn't create mailbox "
-				"directory %s", list->name);
+				"directory %s", name);
 			return -1;
 		}
 		return 0;
 	}
 
 	/* It's a real mailbox. First create the destination mailbox. */
-	if (mail_storage_mailbox_create(dest_storage, list->name, FALSE) < 0) {
-		i_error("Mailbox conversion: Couldn't create mailbox %s",
-			list->name);
+	if (mail_storage_mailbox_create(dest_storage, name, FALSE) < 0) {
+		i_error("Mailbox conversion: Couldn't create mailbox %s", name);
 		return -1;
 	}
 
 	/* Open both the mailboxes.. */
-	srcbox = mailbox_open(source_storage, list->name, NULL,
+	srcbox = mailbox_open(source_storage, name, NULL,
 			   MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
 	if (srcbox == NULL) {
 		i_error("Mailbox conversion: Couldn't open source mailbox %s",
-			list->name);
+			name);
 		return -1;
 	}
 
-	destbox = mailbox_open(dest_storage, list->name, NULL,
+	destbox = mailbox_open(dest_storage, name, NULL,
 			       MAILBOX_OPEN_KEEP_RECENT);
 	if (destbox == NULL) {
 		i_error("Mailbox conversion: Couldn't open dest mailbox %s",
-			list->name);
+			name);
 		mailbox_close(&srcbox);
 		return -1;
 	}
