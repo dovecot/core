@@ -201,6 +201,12 @@ static bool maildir_is_valid_create_name(struct mail_storage *storage,
 	if (*name == '~' || strchr(name, '/') != NULL)
 		return FALSE;
 
+	if (name[0] == '.' && (name[1] == '\0' ||
+			       (name[1] == '.' && name[2] == '\0'))) {
+		/* "." and ".." aren't allowed. */
+		return FALSE;
+	}
+
 	return TRUE;
 }
 
@@ -215,6 +221,12 @@ static bool maildir_is_valid_existing_name(struct mail_storage *storage,
 
 	if (*name == '~' || strchr(name, '/') != NULL)
 		return FALSE;
+
+	if (name[0] == '.' && (name[1] == '\0' ||
+			       (name[1] == '.' && name[2] == '\0'))) {
+		/* "." and ".." aren't allowed. */
+		return FALSE;
+	}
 
 	return TRUE;
 }

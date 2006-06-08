@@ -388,6 +388,11 @@ bool mbox_is_valid_mask(struct mail_storage *storage, const char *mask)
 		} 
 		newdir = p[0] == '/';
 	}
+	if (mask[0] == '.' && (mask[1] == '\0' ||
+			       (mask[1] == '.' && mask[2] == '\0'))) {
+		/* "." and ".." aren't allowed. */
+		return FALSE;
+	}
 
 	return TRUE;
 }
