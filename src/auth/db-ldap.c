@@ -35,6 +35,11 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, dnpass),
 	DEF(SET_BOOL, auth_bind),
 	DEF(SET_STR, auth_bind_userdn),
+	DEF(SET_BOOL, sasl_bind),
+	DEF(SET_STR, sasl_mech),
+	DEF(SET_STR, sasl_realm),
+	DEF(SET_STR, sasl_authz_id),
+	DEF(SET_STR, sasl_props),
 	DEF(SET_STR, deref),
 	DEF(SET_STR, scope),
 	DEF(SET_STR, base),
@@ -57,6 +62,11 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(dnpass) NULL,
 	MEMBER(auth_bind) FALSE,
 	MEMBER(auth_bind_userdn) NULL,
+	MEMBER(sasl_bind) FALSE,
+	MEMBER(sasl_mech) NULL,
+	MEMBER(sasl_realm) NULL,
+	MEMBER(sasl_authz_id) NULL,
+	MEMBER(sasl_props) NULL,
 	MEMBER(deref) "never",
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
@@ -214,9 +224,45 @@ static void ldap_input(void *context)
 	}
 }
 
+static int sasl_interact(LDAP *ld, unsigned flags, void *defaults,
+		   	 void *interact)
+{
+	sasl_interact_t *in;
+	struct sasl_bind_context *context;
+	const char *p;
+
+	context = (struct sasl_bind_context *) defaults;
+	for (in=interact; in->id != SASL_CB_LIST_END; in++)
+	{
+		p = NULL;
+		switch (in->id)
+		{
+		case SASL_CB_GETREALM:
+			p = context->realm;
+			break;
+		case SASL_CB_AUTHNAME:
+			p = context->authcid;
+			break;
+		case SASL_CB_USER:
+			p = context->authzid;
+			break;
+		case SASL_CB_PASS:
+			p = context->passwd;
+			break;
+		}
+		if (p) {
+			in->len = strlen(p);
+			in->result = p;
+		}
+		
+	}
+	return LDAP_SUCCESS;
+}
+
 bool db_ldap_connect(struct ldap_connection *conn)
 {
 	int ret, fd;
+	struct sasl_bind_context context;
 
 	if (conn->connected)
 		return TRUE;
@@ -253,16 +299,37 @@ bool db_ldap_connect(struct ldap_connection *conn)
 	}
 
 	/* FIXME: we shouldn't use blocking bind */
-	ret = ldap_simple_bind_s(conn->ld, conn->set.dn, conn->set.dnpass);
-	if (ret == LDAP_SERVER_DOWN) {
-		i_error("LDAP: Can't connect to server: %s", conn->set.hosts);
-		return FALSE;
-	}
-	if (ret != LDAP_SUCCESS) {
-		i_error("LDAP: ldap_simple_bind_s() failed (dn %s): %s",
-			conn->set.dn == NULL ? "(none)" : conn->set.dn,
-			ldap_get_error(conn));
-		return FALSE;
+	if (conn->set.sasl_bind) {
+
+		context.authcid = conn->set.dn;
+		context.passwd = conn->set.dnpass;
+		context.realm = conn->set.sasl_realm;
+		context.authzid = conn->set.sasl_authz_id;
+
+		ret = ldap_sasl_interactive_bind_s(conn->ld, NULL, conn->set.sasl_mech,
+						   NULL, NULL, LDAP_SASL_QUIET,
+						   sasl_interact, &context);
+		if (ret == LDAP_SERVER_DOWN) {
+			i_error("LDAP: Can't connect to server: %s", conn->set.hosts);
+			return FALSE;
+		}
+		if (ret != LDAP_SUCCESS) {
+			i_error("LDAP: ldap_sasl_interactive_bind_s() failed: %s",
+				ldap_get_error(conn));
+			return FALSE;
+		}
+	} else {
+		ret = ldap_simple_bind_s(conn->ld, conn->set.dn, conn->set.dnpass);
+		if (ret == LDAP_SERVER_DOWN) {
+			i_error("LDAP: Can't connect to server: %s", conn->set.hosts);
+			return FALSE;
+		}
+		if (ret != LDAP_SUCCESS) {
+			i_error("LDAP: ldap_simple_bind_s() failed (dn %s): %s",
+				conn->set.dn == NULL ? "(none)" : conn->set.dn,
+				ldap_get_error(conn));
+			return FALSE;
+		}
 	}
 
 	conn->connected = TRUE;
