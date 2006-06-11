@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "mail-search.h"
 #include "mail-storage-private.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
@@ -248,6 +249,49 @@ quota_mailbox_open(struct mail_storage *storage, const char *name,
 	return box;
 }
 
+static int quota_mailbox_delete(struct mail_storage *storage, const char *name)
+{
+	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
+	struct mailbox *box;
+	struct mail_search_context *ctx;
+        struct mailbox_transaction_context *t;
+	struct quota_transaction_context *qt;
+	struct mail *mail;
+	struct mail_search_arg search_arg;
+	int ret;
+
+	/* This is a bit annoying to handle. We'll have to open the mailbox
+	   and free the quota for all the messages existing in it. Open the
+	   mailbox locked so that other processes can't mess up the quota
+	   calculations by adding/removing mails while we're doing this. */
+	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
+			   MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_KEEP_LOCKED);
+	if (box == NULL)
+		return -1;
+
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_ALL;
+
+	t = mailbox_transaction_begin(box, 0);
+	qt = QUOTA_CONTEXT(t);
+	ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
+
+	mail = mail_alloc(t, 0, NULL);
+	while (mailbox_search_next(ctx, mail) > 0)
+		quota_free(qt, mail);
+	mail_free(&mail);
+
+	ret = mailbox_search_deinit(&ctx);
+	if (ret < 0)
+		mailbox_transaction_rollback(&t);
+	else
+		ret = mailbox_transaction_commit(&t, 0);
+	mailbox_close(&box);
+	/* FIXME: here's an unfortunate race condition */
+	return ret < 0 ? -1 :
+		qstorage->super.mailbox_delete(storage, name);
+}
+
 static void quota_storage_destroy(struct mail_storage *storage)
 {
 	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
@@ -282,6 +326,7 @@ void quota_mail_storage_created(struct mail_storage *storage)
 	qstorage->super = storage->v;
 	storage->v.destroy = quota_storage_destroy;
 	storage->v.mailbox_open = quota_mailbox_open;
+	storage->v.mailbox_delete = quota_mailbox_delete;
 
 	ARRAY_CREATE(&qstorage->roots, storage->pool, struct quota_root *, 4);
 
