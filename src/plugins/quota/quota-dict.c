@@ -7,12 +7,16 @@
 
 #include <stdlib.h>
 
-#define DICT_QUOTA_LIMIT_PATH DICT_PATH_PRIVATE"quota/limit/"
-#define DICT_QUOTA_CURRENT_PATH DICT_PATH_PRIVATE"quota/current/"
+#define DICT_QUOTA_CURRENT_PATH DICT_PATH_PRIVATE"quota/"
+#define DICT_QUOTA_CURRENT_BYTES_PATH DICT_QUOTA_CURRENT_PATH"storage"
+#define DICT_QUOTA_CURRENT_COUNT_PATH DICT_QUOTA_CURRENT_PATH"messages"
 
 struct dict_quota_root {
 	struct quota_root root;
 	struct dict *dict;
+
+	uint64_t message_bytes_limit;
+	uint64_t message_count_limit;
 };
 
 extern struct quota_backend quota_backend_dict;
@@ -22,11 +26,34 @@ dict_quota_init(struct quota_setup *setup, const char *name)
 {
 	struct dict_quota_root *root;
 	struct dict *dict;
+	const char *uri, *const *args;
+	unsigned long long message_bytes_limit = 0, message_count_limit = 0;
 
-	if (getenv("DEBUG") != NULL)
-		i_info("dict quota uri = %s", setup->data);
+	uri = strchr(setup->data, ' ');
+	if (uri == NULL) {
+		i_error("dict quota: URI missing from parameters: %s",
+			setup->data);
+		return NULL;
+	}
 
-	dict = dict_init(setup->data, getenv("USER"));
+	t_push();
+	args = t_strsplit(t_strdup_until(setup->data, uri++), ":");
+	for (; *args != '\0'; args++) {
+		if (strncmp(*args, "storage=", 8) == 0) {
+			message_bytes_limit =
+				strtoull(*args + 8, NULL, 10) * 1024;
+		} else if (strncmp(*args, "messages=", 9) == 0)
+			message_bytes_limit = strtoull(*args + 9, NULL, 10);
+	}
+	t_pop();
+
+	if (getenv("DEBUG") != NULL) {
+		i_info("dict quota: uri = %s", uri);
+		i_info("dict quota: byte limit = %llu", message_bytes_limit);
+		i_info("dict quota: count limit = %llu", message_count_limit);
+	}
+
+	dict = dict_init(uri, getenv("USER"));
 	if (dict == NULL)
 		return NULL;
 
@@ -35,6 +62,10 @@ dict_quota_init(struct quota_setup *setup, const char *name)
 	root->root.v = quota_backend_dict.v;
 	root->dict = dict;
 
+	root->message_bytes_limit =
+		message_bytes_limit == 0 ? (uint64_t)-1 : message_bytes_limit;
+	root->message_count_limit =
+		message_count_limit == 0 ? (uint64_t)-1 : message_count_limit;
 	return &root->root;
 }
 
@@ -75,28 +106,29 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 	const char *value;
 	int ret;
 
-	if (root->dict == NULL)
-		return 0;
+	if (strcmp(name, QUOTA_NAME_STORAGE) == 0) {
+		if (root->message_bytes_limit == (uint64_t)-1)
+			return 0;
 
-	t_push();
-	ret = dict_lookup(root->dict, unsafe_data_stack_pool,
-			  t_strconcat(DICT_QUOTA_LIMIT_PATH, name, NULL),
-			  &value);
-	*limit_r = value == NULL ? 0 : strtoull(value, NULL, 10);
-
-	if (value == NULL) {
-		/* resource doesn't exist */
-		*value_r = 0;
-	} else {
+		*limit_r = root->message_bytes_limit / 1024;
+		t_push();
 		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
-				  t_strconcat(DICT_QUOTA_CURRENT_PATH,
-					      name, NULL), &value);
-		*value_r = value == NULL ? 0 : strtoull(value, NULL, 10);
-	}
-	t_pop();
+				  DICT_QUOTA_CURRENT_BYTES_PATH, &value);
+		*value_r = value == NULL ? 0 : strtoull(value, NULL, 10) / 1024;
+		t_pop();
+	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
+		if (root->message_count_limit == (uint64_t)-1)
+			return 0;
 
-	*limit_r /= 1024;
-	*value_r /= 1024;
+		*limit_r = root->message_count_limit;
+		t_push();
+		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
+				  DICT_QUOTA_CURRENT_COUNT_PATH, &value);
+		*value_r = value == NULL ? 0 : strtoull(value, NULL, 10);
+		t_pop();
+	} else {
+		return 0;
+	}
 
 	return ret;
 }
@@ -122,22 +154,23 @@ dict_quota_transaction_begin(struct quota_root *_root,
 	ctx->root = _root;
 	ctx->ctx = _ctx;
 
-	if (root->dict != NULL) {
-		t_push();
-		(void)dict_lookup(root->dict, unsafe_data_stack_pool,
-				  DICT_QUOTA_LIMIT_PATH"storage", &value);
-		ctx->bytes_limit = value == NULL ? 0 :
-			strtoull(value, NULL, 10);
+	ctx->bytes_limit = root->message_bytes_limit;
+	ctx->count_limit = root->message_count_limit;
 
+	t_push();
+	if (ctx->bytes_limit != (uint64_t)-1) {
 		(void)dict_lookup(root->dict, unsafe_data_stack_pool,
-				  DICT_QUOTA_CURRENT_PATH"storage", &value);
+				  DICT_QUOTA_CURRENT_BYTES_PATH, &value);
 		ctx->bytes_current = value == NULL ? 0 :
 			strtoull(value, NULL, 10);
-		t_pop();
-	} else {
-		ctx->bytes_limit = (uint64_t)-1;
 	}
-
+	if (ctx->count_limit != (uint64_t)-1) {
+		(void)dict_lookup(root->dict, unsafe_data_stack_pool,
+				  DICT_QUOTA_CURRENT_COUNT_PATH, &value);
+		ctx->count_current = value == NULL ? 0 :
+			strtoull(value, NULL, 10);
+	}
+	t_pop();
 	return ctx;
 }
 
@@ -145,16 +178,19 @@ static int
 dict_quota_transaction_commit(struct quota_root_transaction_context *ctx)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)ctx->root;
+	struct dict_transaction_context *dt;
 
-	if (root->dict != NULL) {
-		struct dict_transaction_context *dt;
-
-		dt = dict_transaction_begin(root->dict);
-		dict_atomic_inc(dt, DICT_QUOTA_CURRENT_PATH"storage",
+	dt = dict_transaction_begin(root->dict);
+	if (ctx->bytes_limit != (uint64_t)-1) {
+		dict_atomic_inc(dt, DICT_QUOTA_CURRENT_BYTES_PATH,
 				ctx->bytes_diff);
-		if (dict_transaction_commit(dt) < 0)
-			i_error("dict_quota: Couldn't update quota");
 	}
+	if (ctx->count_limit != (uint64_t)-1) {
+		dict_atomic_inc(dt, DICT_QUOTA_CURRENT_COUNT_PATH,
+				ctx->count_diff);
+	}
+	if (dict_transaction_commit(dt) < 0)
+		i_error("dict_quota: Couldn't update quota");
 
 	i_free(ctx);
 	return 0;
@@ -164,52 +200,6 @@ static void
 dict_quota_transaction_rollback(struct quota_root_transaction_context *ctx)
 {
 	i_free(ctx);
-}
-
-static int
-dict_quota_try_alloc_bytes(struct quota_root_transaction_context *ctx,
-			   uoff_t size, bool *too_large_r)
-{
-	*too_large_r = size > ctx->bytes_limit;
-
-	if (ctx->bytes_current + ctx->bytes_diff + size > ctx->bytes_limit)
-		return 0;
-
-	ctx->bytes_diff += size;
-	return 1;
-}
-
-static int
-dict_quota_try_alloc(struct quota_root_transaction_context *ctx,
-		     struct mail *mail, bool *too_large_r)
-{
-	uoff_t size;
-
-	size = mail_get_physical_size(mail);
-	if (size == (uoff_t)-1)
-		return -1;
-
-	return dict_quota_try_alloc_bytes(ctx, size, too_large_r);
-}
-
-static void
-dict_quota_alloc(struct quota_root_transaction_context *ctx, struct mail *mail)
-{
-	uoff_t size;
-
-	size = mail_get_physical_size(mail);
-	if (size != (uoff_t)-1)
-		ctx->bytes_diff += size;
-}
-
-static void
-dict_quota_free(struct quota_root_transaction_context *ctx, struct mail *mail)
-{
-	uoff_t size;
-
-	size = mail_get_physical_size(mail);
-	if (size != (uoff_t)-1)
-		ctx->bytes_diff -= size;
 }
 
 struct quota_backend quota_backend_dict = {
@@ -231,9 +221,9 @@ struct quota_backend quota_backend_dict = {
 		dict_quota_transaction_commit,
 		dict_quota_transaction_rollback,
 
-		dict_quota_try_alloc,
-		dict_quota_try_alloc_bytes,
-		dict_quota_alloc,
-		dict_quota_free
+		quota_default_try_alloc,
+		quota_default_try_alloc_bytes,
+		quota_default_alloc,
+		quota_default_free
 	}
 };
