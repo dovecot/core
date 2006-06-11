@@ -186,7 +186,7 @@ quota_save_init(struct mailbox_transaction_context *t,
 		   full mail. */
 		bool too_large;
 
-		ret = quota_try_alloc_bytes(qt, st->st_size, &too_large);
+		ret = quota_test_alloc_bytes(qt, st->st_size, &too_large);
 		if (ret == 0) {
 			mail_storage_set_error(t->box->storage,
 					       "Quota exceeded");

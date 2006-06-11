@@ -65,6 +65,9 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 		    struct mail *mail, bool *too_large_r);
 int quota_try_alloc_bytes(struct quota_transaction_context *ctx,
 			  uoff_t size, bool *too_large_r);
+/* Like quota_try_alloc_bytes(), but don't actually update the quota. */
+int quota_test_alloc_bytes(struct quota_transaction_context *ctx,
+			   uoff_t size, bool *too_large_r);
 /* Update quota by allocating/freeing space used by mail. */
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail);
 void quota_free(struct quota_transaction_context *ctx, struct mail *mail);

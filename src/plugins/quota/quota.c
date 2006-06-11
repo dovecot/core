@@ -324,6 +324,25 @@ int quota_try_alloc_bytes(struct quota_transaction_context *ctx,
 	return ret;
 }
 
+int quota_test_alloc_bytes(struct quota_transaction_context *ctx,
+			   uoff_t size, bool *too_large_r)
+{
+	struct quota_root_transaction_context *const *root_transactions;
+	unsigned int i, count;
+	int ret = 1;
+
+	root_transactions = array_get(&ctx->root_transactions, &count);
+	for (i = 0; i < count; i++) {
+		struct quota_root_transaction_context *t =
+			root_transactions[i];
+
+		ret = t->root->v.test_alloc_bytes(t, size, too_large_r);
+		if (ret <= 0)
+			break;
+	}
+	return ret;
+}
+
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 {
 	struct quota_root_transaction_context *const *root_transactions;
@@ -372,6 +391,20 @@ quota_default_transaction_rollback(struct quota_root_transaction_context *ctx)
 int quota_default_try_alloc_bytes(struct quota_root_transaction_context *ctx,
 				  uoff_t size, bool *too_large_r)
 {
+	int ret;
+
+	ret = quota_default_test_alloc_bytes(ctx, size, too_large_r);
+	if (ret <= 0 || ctx->disabled)
+		return ret;
+
+	ctx->count_diff++;
+	ctx->bytes_diff += size;
+	return 1;
+}
+
+int quota_default_test_alloc_bytes(struct quota_root_transaction_context *ctx,
+				   uoff_t size, bool *too_large_r)
+{
 	if (ctx->disabled) {
 		*too_large_r = FALSE;
 		return 1;
@@ -387,9 +420,6 @@ int quota_default_try_alloc_bytes(struct quota_root_transaction_context *ctx,
 		return 0;
 	if (ctx->count_current + ctx->count_diff + 1 > ctx->count_limit)
 		return 0;
-
-	ctx->count_diff++;
-	ctx->bytes_diff += size;
 	return 1;
 }
 

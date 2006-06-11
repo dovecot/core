@@ -51,6 +51,8 @@ struct quota_backend_vfuncs {
 			 struct mail *mail, bool *too_large_r);
 	int (*try_alloc_bytes)(struct quota_root_transaction_context *ctx,
 			       uoff_t size, bool *too_large_r);
+	int (*test_alloc_bytes)(struct quota_root_transaction_context *ctx,
+				uoff_t size, bool *too_large_r);
 	void (*alloc)(struct quota_root_transaction_context *ctx,
 		      struct mail *mail);
 	void (*free)(struct quota_root_transaction_context *ctx,
@@ -119,10 +121,12 @@ void quota_set_error(struct quota *quota, const char *errormsg);
 /* default simple implementations for bytes/count updating */
 void
 quota_default_transaction_rollback(struct quota_root_transaction_context *ctx);
-int quota_default_try_alloc_bytes(struct quota_root_transaction_context *ctx,
-				  uoff_t size, bool *too_large_r);
 int quota_default_try_alloc(struct quota_root_transaction_context *ctx,
 			    struct mail *mail, bool *too_large_r);
+int quota_default_try_alloc_bytes(struct quota_root_transaction_context *ctx,
+				  uoff_t size, bool *too_large_r);
+int quota_default_test_alloc_bytes(struct quota_root_transaction_context *ctx,
+				   uoff_t size, bool *too_large_r);
 void quota_default_alloc(struct quota_root_transaction_context *ctx,
 			 struct mail *mail);
 void quota_default_free(struct quota_root_transaction_context *ctx,

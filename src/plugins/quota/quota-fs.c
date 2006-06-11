@@ -268,6 +268,7 @@ struct quota_backend quota_backend_fs = {
 
 		quota_default_try_alloc,
 		quota_default_try_alloc_bytes,
+		quota_default_test_alloc_bytes,
 		quota_default_alloc,
 		quota_default_free
 	}
