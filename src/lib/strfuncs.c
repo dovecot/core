@@ -591,6 +591,12 @@ char **p_strsplit_spaces(pool_t pool, const char *data,
 	return _strsplit(pool, data, separators, TRUE);
 }
 
+void p_strsplit_free(pool_t pool, char **arr)
+{
+	p_free(pool, arr[0]);
+	p_free(pool, arr);
+}
+
 unsigned int strarray_length(const char *const *arr)
 {
 	unsigned int count;

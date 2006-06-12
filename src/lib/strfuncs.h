@@ -65,9 +65,9 @@ char **p_strsplit(pool_t pool, const char *data, const char *separators);
 const char **t_strsplit(const char *data, const char *separators);
 /* like p_strsplit(), but treats multiple adjacent separators as a single
    separator. */
-char **p_strsplit_spaces(pool_t pool, const char *data,
-			 const char *separators);
+char **p_strsplit_spaces(pool_t pool, const char *data, const char *separators);
 const char **t_strsplit_spaces(const char *data, const char *separators);
+void p_strsplit_free(pool_t pool, char **arr);
 
 const char *dec2str(uintmax_t number);
 
