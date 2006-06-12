@@ -307,22 +307,32 @@ void mail_process_exec(const char *protocol, const char *section)
 	struct server_settings *server = settings_root;
 	const struct var_expand_table *var_expand_table;
 	struct settings *set;
+	const char *executable;
 
-	if (section != NULL) {
-		for (; server != NULL; server = server->next) {
-			if (strcmp(server->name, section) == 0)
-				break;
+	if (strcmp(protocol, "ext") == 0) {
+		/* external binary. section contains path for it. */
+		if (section == NULL)
+			i_fatal("External binary parameter not given");
+		set = server->defaults;
+		executable = section;
+	} else {
+		if (section != NULL) {
+			for (; server != NULL; server = server->next) {
+				if (strcmp(server->name, section) == 0)
+					break;
+			}
+			if (server == NULL)
+				i_fatal("Section not found: '%s'", section);
 		}
-		if (server == NULL)
-			i_fatal("Section not found: '%s'", section);
-	}
 
-	if (strcmp(protocol, "imap") == 0)
-		set = server->imap;
-	else if (strcmp(protocol, "pop3") == 0)
-		set = server->pop3;
-	else
-		i_fatal("Unknown protocol: '%s'", protocol);
+		if (strcmp(protocol, "imap") == 0)
+			set = server->imap;
+		else if (strcmp(protocol, "pop3") == 0)
+			set = server->pop3;
+		else
+			i_fatal("Unknown protocol: '%s'", protocol);
+		executable = set->mail_executable;
+	}
 
 	var_expand_table =
 		get_var_expand_table(protocol, getenv("USER"), getenv("HOME"),
@@ -331,10 +341,9 @@ void mail_process_exec(const char *protocol, const char *section)
 				     getpid(), geteuid());
 
 	mail_process_set_environment(set, getenv("MAIL"), var_expand_table);
-        client_process_exec(set->mail_executable, "");
+        client_process_exec(executable, "");
 
-	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
-		       set->mail_executable);
+	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 }
 
 static void nfs_warn_if_found(const char *mail, const char *home)
