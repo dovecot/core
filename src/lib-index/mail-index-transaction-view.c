@@ -1,8 +1,9 @@
-/* Copyright (C) 2004 Timo Sirainen */
+/* Copyright (C) 2004-2006 Timo Sirainen */
 
 #include "lib.h"
 #include "array.h"
 #include "buffer.h"
+#include "seq-range-array.h"
 #include "mail-index-private.h"
 #include "mail-index-view-private.h"
 #include "mail-index-transaction-private.h"
@@ -48,6 +49,7 @@ static int _tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 {
 	struct mail_index_view_transaction *tview =
                 (struct mail_index_view_transaction *)view;
+	int ret;
 
 	if (seq >= tview->t->first_new_seq) {
 		/* FIXME: is this right to return index map..?
@@ -55,9 +57,16 @@ static int _tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 		*map_r = view->index->map;
 		*rec_r = mail_index_transaction_lookup(tview->t, seq);
 		return 1;
-	} else {
-		return tview->parent->lookup_full(view, seq, map_r, rec_r);
 	}
+
+	ret = tview->parent->lookup_full(view, seq, map_r, rec_r);
+	if (ret <= 0)
+		return ret;
+
+	/* if we're expunged within this transaction, return 0 */
+	return array_is_created(&tview->t->expunges) &&
+		seq_range_exists(&tview->t->expunges, seq) ? 0 : 1;
+
 }
 
 static int _tview_lookup_uid(struct mail_index_view *view, uint32_t seq,
