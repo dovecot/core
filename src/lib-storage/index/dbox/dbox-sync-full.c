@@ -116,7 +116,7 @@ static int dbox_sync_full_file(struct dbox_sync_context *ctx, uint32_t file_seq)
 	uint32_t seq;
 	int ret;
 
-	if ((ret = dbox_file_seek(mbox, file_seq, 0)) < 0) {
+	if ((ret = dbox_file_seek(mbox, file_seq, 0, FALSE)) < 0) {
 		/* error / broken file */
 		return -1;
 	}

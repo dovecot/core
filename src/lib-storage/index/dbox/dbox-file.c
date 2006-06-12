@@ -101,7 +101,8 @@ dbox_file_read_mail_header(struct dbox_mailbox *mbox, struct dbox_file *file,
 	return 1;
 }
 
-int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset)
+int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset,
+		   bool ignore_zero_uid)
 {
 	int ret;
 
@@ -148,7 +149,8 @@ int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset)
 	if ((ret = dbox_file_read_mail_header(mbox, mbox->file, offset)) <= 0)
 		return ret;
 
-	if (mbox->file->seeked_mail_size == 0 || mbox->file->seeked_uid == 0) {
+	if (mbox->file->seeked_mail_size == 0 ||
+	    (mbox->file->seeked_uid == 0 && !ignore_zero_uid)) {
 		/* could be legitimately just not written yet. we're at EOF. */
 		return 0;
 	}
@@ -166,7 +168,7 @@ int dbox_file_seek_next_nonexpunged(struct dbox_mailbox *mbox)
 			mbox->file->mail_header_size +
 			mbox->file->seeked_mail_size;
 
-		ret = dbox_file_seek(mbox, mbox->file->file_seq, offset);
+		ret = dbox_file_seek(mbox, mbox->file->file_seq, offset, FALSE);
 		if (ret <= 0)
 			return ret;
 

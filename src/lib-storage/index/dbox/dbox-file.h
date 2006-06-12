@@ -13,8 +13,8 @@ int dbox_file_lookup_offset(struct dbox_mailbox *mbox,
 
 void dbox_file_close(struct dbox_file *file);
 /* Returns -1 = error, 0 = EOF (mail was just moved / file broken), 1 = ok */
-int dbox_file_seek(struct dbox_mailbox *mbox,
-		   uint32_t file_seq, uoff_t offset);
+int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset,
+		   bool ignore_zero_uid);
 int dbox_file_seek_next_nonexpunged(struct dbox_mailbox *mbox);
 
 void dbox_file_header_init(struct dbox_file_header *hdr);

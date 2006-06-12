@@ -23,7 +23,6 @@ struct dbox_save_context {
 	struct mail_index_transaction *trans;
 	struct dbox_uidlist_append_ctx *append_ctx;
 
-	uint32_t first_append_seq;
 	struct mail_index_sync_ctx *index_sync_ctx;
 
 	/* updated for each appended mail: */
@@ -230,8 +229,8 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	if (mail_set_seq(dest_mail, ctx->seq) < 0)
 		i_unreached();
 
-	if (ctx->first_append_seq == 0)
-		ctx->first_append_seq = ctx->seq;
+	if (t->first_saved_mail_seq == 0)
+		t->first_saved_mail_seq = ctx->seq;
 	t_pop();
 
 	*ctx_r = &ctx->ctx;
@@ -313,8 +312,8 @@ void dbox_save_cancel(struct mail_save_context *_ctx)
 
 int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 {
-	struct index_transaction_context *idx_trans =
-		(struct index_transaction_context *)ctx->ctx.transaction;
+	struct dbox_transaction_context *t =
+		(struct dbox_transaction_context *)ctx->ctx.transaction;
 	struct dbox_mail_header hdr;
 	struct dbox_file *file;
 	struct mail_index_view *view;
@@ -348,8 +347,8 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	mail_index_append_assign_uids(ctx->trans, uid, &last_uid);
 
 	/* update UIDs */
-	for (seq = ctx->first_append_seq; seq <= ctx->seq; seq++, uid++) {
-		ret = dbox_mail_lookup_offset(idx_trans, seq,
+	for (seq = t->first_saved_mail_seq; seq <= ctx->seq; seq++, uid++) {
+		ret = dbox_mail_lookup_offset(&t->ictx, seq,
 					      &file_seq, &offset);
 		i_assert(ret > 0); /* it's in memory, shouldn't fail! */
 

@@ -70,6 +70,7 @@ struct dbox_mailbox {
 struct dbox_transaction_context {
 	struct index_transaction_context ictx;
 
+	uint32_t first_saved_mail_seq;
 	struct dbox_save_context *save_ctx;
 };
 

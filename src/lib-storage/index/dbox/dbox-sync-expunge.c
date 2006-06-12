@@ -90,13 +90,13 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	uoff_t full_size;
 	off_t bytes;
 
-	ret = dbox_file_seek(mbox, orig_entry->file_seq, orig_offset);
+	ret = dbox_file_seek(mbox, orig_entry->file_seq, orig_offset, FALSE);
 
 	if (ret >= 0 && mbox->file->hdr.have_expunged_mails != '0') {
 		/* there are some expunged mails in the file, go through all
 		   of the mails. */
 		ret = dbox_file_seek(mbox, orig_entry->file_seq,
-				     mbox->file->header_size);
+				     mbox->file->header_size, FALSE);
 	}
 
 	/* skip mails until we find the first we don't want expunged */
@@ -379,7 +379,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	}
 
 	/* mails expunged from the end of file, ftruncate() it */
-	ret = dbox_file_seek(mbox, entry->file_seq, offset);
+	ret = dbox_file_seek(mbox, entry->file_seq, offset, FALSE);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;

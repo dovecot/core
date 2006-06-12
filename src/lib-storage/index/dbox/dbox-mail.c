@@ -77,6 +77,8 @@ static bool dbox_mail_try_open(struct index_mail *mail,
 			       int *ret_r)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->ibox;
+	struct dbox_transaction_context *t =
+		(struct dbox_transaction_context *)mail->trans;
 	uint32_t seq = mail->mail.mail.seq;
 
 	*ret_r = dbox_mail_lookup_offset(mail->trans, seq,
@@ -87,7 +89,8 @@ static bool dbox_mail_try_open(struct index_mail *mail,
 		return TRUE;
 	}
 
-	if ((*ret_r = dbox_file_seek(mbox, *file_seq_r, *offset_r)) < 0)
+	if ((*ret_r = dbox_file_seek(mbox, *file_seq_r, *offset_r,
+				     seq >= t->first_saved_mail_seq)) < 0)
 		return TRUE;
 	if (*ret_r > 0) {
 		/* ok */
