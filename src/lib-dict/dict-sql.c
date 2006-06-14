@@ -1,10 +1,9 @@
-/* Copyright (C) 2005 Timo Sirainen */
+/* Copyright (C) 2005-2006 Timo Sirainen */
 
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
 #include "str.h"
-#include "strescape.h"
 #include "sql-api-private.h"
 #include "dict-private.h"
 #include "dict-sql.h"
@@ -169,10 +168,11 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 	query = t_str_new(256);
 	str_printfa(query, "SELECT %s FROM %s WHERE %s = '%s'",
 		    dict->select_field, dict->table,
-		    dict->where_field, str_escape(key));
+		    dict->where_field, sql_escape_string(dict->db, key));
 	if (priv) {
 		str_printfa(query, " AND %s = '%s'",
-			    dict->username_field, str_escape(dict->username));
+			    dict->username_field,
+			    sql_escape_string(dict->db, dict->username));
 	}
 	result = sql_query_s(dict->db, str_c(query));
 	t_pop();
@@ -208,15 +208,18 @@ sql_dict_iterate_init(struct dict *_dict, const char *path, bool recurse)
 		str_printfa(query, "SELECT %s, %s FROM %s "
 			    "WHERE %s LIKE '%s/%%'",
 			    dict->where_field, dict->select_field,
-			    dict->table, dict->where_field, str_escape(path));
+			    dict->table, dict->where_field,
+			    sql_escape_string(dict->db, path));
 		if (priv) {
 			str_printfa(query, " AND %s = '%s'",
 				    dict->username_field,
-				    str_escape(dict->username));
+				    sql_escape_string(dict->db,
+						      dict->username));
 		}
 		if (!recurse) {
 			str_printfa(query, " AND %s NOT LIKE '%s/%%/%%'",
-				    dict->where_field, str_escape(path));
+				    dict->where_field,
+				    sql_escape_string(dict->db, path));
 		}
 		ctx->result = sql_query_s(dict->db, str_c(query));
 		t_pop();
@@ -307,16 +310,20 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 			"ON DUPLICATE KEY UPDATE %s = '%s'",
 			dict->table, dict->select_field, dict->where_field,
 			dict->username_field,
-                        str_escape(key), str_escape(value),
-			str_escape(dict->username),
-                        str_escape(key), str_escape(value));
+			sql_escape_string(dict->db, key),
+			sql_escape_string(dict->db, value),
+			sql_escape_string(dict->db, dict->username),
+			sql_escape_string(dict->db, key),
+			sql_escape_string(dict->db, value));
 	} else {
 		query = t_strdup_printf(
 			"INSERT INTO %s (%s, %s) VALUES (%s, %s) "
 			"ON DUPLICATE KEY UPDATE %s = '%s'",
 			dict->table, dict->select_field, dict->where_field,
-                        str_escape(key), str_escape(value),
-                        str_escape(key), str_escape(value));
+			sql_escape_string(dict->db, key),
+			sql_escape_string(dict->db, value),
+                        sql_escape_string(dict->db, key),
+			sql_escape_string(dict->db, value));
 	}
 	sql_update(ctx->sql_ctx, query);
 	t_pop();
@@ -341,15 +348,18 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 			"ON DUPLICATE KEY UPDATE %s = %s + %lld",
 			dict->table, dict->select_field, dict->where_field,
 			dict->username_field,
-                        str_escape(key), diff, str_escape(dict->username),
-                        str_escape(key), str_escape(key), diff);
+                        sql_escape_string(dict->db, key), diff,
+			sql_escape_string(dict->db, dict->username),
+                        sql_escape_string(dict->db, key),
+			sql_escape_string(dict->db, key), diff);
 	} else {
 		query = t_strdup_printf(
 			"INSERT INTO %s (%s, %s) VALUES (%s, %lld) "
 			"ON DUPLICATE KEY UPDATE %s = %s + %lld",
 			dict->table, dict->select_field, dict->where_field,
-                        str_escape(key), diff,
-                        str_escape(key), str_escape(key), diff);
+                        sql_escape_string(dict->db, key), diff,
+                        sql_escape_string(dict->db, key),
+			sql_escape_string(dict->db, key), diff);
 	}
 	sql_update(ctx->sql_ctx, query);
 	t_pop();
