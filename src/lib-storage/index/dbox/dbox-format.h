@@ -54,6 +54,7 @@ struct dbox_mail_header {
 	unsigned char uid_hex[8];
 	unsigned char mail_size_hex[16];
 	unsigned char received_time_hex[8];
+	unsigned char save_time_hex[8];
 	unsigned char answered;
 	unsigned char flagged;
 	unsigned char deleted;

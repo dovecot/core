@@ -169,6 +169,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	memset(&hdr, '0', sizeof(hdr));
 	memcpy(hdr.magic, DBOX_MAIL_HEADER_MAGIC, sizeof(hdr.magic));
 	DEC2HEX(hdr.received_time_hex, received_date);
+	DEC2HEX(hdr.save_time_hex, ioloop_time);
 	hdr.answered = (flags & MAIL_ANSWERED) != 0 ? '1' : '0';
 	hdr.flagged = (flags & MAIL_FLAGGED) != 0 ? '1' : '0';
 	hdr.deleted = (flags & MAIL_DELETED) != 0 ? '1' : '0';
