@@ -344,6 +344,26 @@ static const char *digest_md5_generate(const char *plaintext, const char *user)
 	return binary_to_hex(digest, sizeof(digest));
 }
 
+static bool plain_md4_verify(const char *plaintext, const char *password,
+			     const char *user __attr_unused__)
+{
+	unsigned char digest[16];
+	const char *str;
+
+	md4_get_digest(plaintext, strlen(plaintext), digest);
+	str = binary_to_hex(digest, sizeof(digest));
+	return strcasecmp(str, password) == 0;
+}
+
+static const char *plain_md4_generate(const char *plaintext,
+				      const char *user __attr_unused__)
+{
+	unsigned char digest[16];
+
+	md4_get_digest(plaintext, strlen(plaintext), digest);
+	return binary_to_hex(digest, sizeof(digest));
+}
+
 static bool plain_md5_verify(const char *plaintext, const char *password,
 			     const char *user __attr_unused__)
 {
@@ -452,6 +472,7 @@ static const struct password_scheme default_schemes[] = {
 	{ "CLEARTEXT", plain_verify, plain_generate },
 	{ "HMAC-MD5", hmac_md5_verify, hmac_md5_generate },
 	{ "DIGEST-MD5", digest_md5_verify, digest_md5_generate },
+	{ "PLAIN-MD4", plain_md4_verify, plain_md4_generate },
 	{ "PLAIN-MD5", plain_md5_verify, plain_md5_generate },
 	{ "LDAP-MD5", ldap_md5_verify, ldap_md5_generate },
 	{ "LANMAN", lm_verify, lm_generate },
