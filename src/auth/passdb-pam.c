@@ -256,8 +256,13 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 				      pam_strerror(pamh, status));
 	} else {
 		const char *host = net_ip2addr(&request->remote_ip);
+
+		/* Set some PAM items. They shouldn't fail, and we don't really
+		   care if they do. */
 		if (host != NULL)
-			pam_set_item(pamh, PAM_RHOST, host);
+			(void)pam_set_item(pamh, PAM_RHOST, host);
+		/* TTY is needed by eg. pam_access module */
+		(void)pam_set_item(pamh, PAM_TTY, "dovecot");
 
 		status = pam_auth(request, pamh, &str);
 		if ((status2 = pam_end(pamh, status)) == PAM_SUCCESS) {
