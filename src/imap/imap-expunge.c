@@ -31,7 +31,7 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 	mail_free(&mail);
 
 	if (mailbox_search_deinit(&ctx) < 0)
-		return FALSE;
+		failed = TRUE;
 
 	if (failed)
 		mailbox_transaction_rollback(&t);
