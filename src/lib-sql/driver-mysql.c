@@ -228,6 +228,12 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 	}
 	t_pop();
 
+#ifdef CLIENT_MULTI_STATEMENTS
+	/* Updates require this because everything is committed in one large
+	   SQL statement. */
+	db->client_flags |= CLIENT_MULTI_STATEMENTS;
+#endif
+
 	if (array_count(&db->connections) == 0)
 		i_fatal("mysql: No hosts given in connect string");
 }
@@ -393,7 +399,7 @@ driver_mysql_query_s(struct sql_db *_db, const char *query)
 	case 1:
 		/* query ok */
 		result->result = mysql_store_result(conn->mysql);
-		if (result->result != NULL)
+		if (result->result != NULL || mysql_errno(conn->mysql) == 0)
 			break;
 		/* fallback */
 	case -1:
@@ -422,11 +428,16 @@ static int driver_mysql_result_next_row(struct sql_result *_result)
 {
 	struct mysql_result *result = (struct mysql_result *)_result;
 
+	if (result->result == NULL) {
+		/* no results */
+		return 0;
+	}
+
 	result->row = mysql_fetch_row(result->result);
 	if (result->row != NULL)
 		return 1;
 
-	return mysql_errno(result->conn->mysql) ? -1 : 0;
+	return mysql_errno(result->conn->mysql) != 0 ? -1 : 0;
 }
 
 static void driver_mysql_result_fetch_fields(struct mysql_result *result)
