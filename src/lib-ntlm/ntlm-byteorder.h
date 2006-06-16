@@ -12,7 +12,7 @@
 #ifndef __NTLM_BYTEORDER_H__
 #define __NTLM_BYTEORDER_H__
 
-#if defined(__i386__) || defined(__vax__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
 
 static inline uint16_t read_le16(const void *addr)
 {
