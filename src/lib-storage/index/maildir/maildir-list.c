@@ -95,7 +95,9 @@ maildir_fill_readdir(struct maildir_list_context *ctx,
 			;
 		else
 #endif
-		if (stat_dirs) {
+		/* Check files beginning with .nfs always because they may be
+		   temporary files created by the kernel */
+		if (stat_dirs || strncmp(fname, ".nfs", 4) == 0) {
 			t_push();
 			path = t_strdup_printf("%s/%s", ctx->dir, fname);
 			hide = stat(path, &st) < 0 || !S_ISDIR(st.st_mode);
