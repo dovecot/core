@@ -244,7 +244,15 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			}
 			if (cache->fields[field.idx].field.type != types[i]) {
 				mail_cache_set_corrupted(cache,
-					"registered field type changed");
+					"registered field %s type changed",
+					names);
+				return -1;
+			}
+			if (cache->fields[field.idx].field.field_size !=
+			    sizes[i]) {
+				mail_cache_set_corrupted(cache,
+					"registered field %s size changed",
+					names);
 				return -1;
 			}
 		} else {
