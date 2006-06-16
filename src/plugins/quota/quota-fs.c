@@ -16,6 +16,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#ifdef HAVE_LINUX_DQBLK_XFS_H
+#  include <linux/dqblk_xfs.h>
+#endif
 
 #ifdef HAVE_STRUCT_DQBLK_CURSPACE
 #  define dqb_curblocks dqb_curspace
@@ -24,6 +27,7 @@
 struct fs_quota_mountpoint {
 	char *mount_path;
 	char *device_path;
+	char *type;
 
 	unsigned int blk_size;
 
@@ -73,6 +77,7 @@ static void fs_quota_mountpoint_free(struct fs_quota_mountpoint *mount)
 
 	i_free(mount->device_path);
 	i_free(mount->mount_path);
+	i_free(mount->type);
 	i_free(mount);
 }
 
@@ -100,7 +105,7 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 	mount->blk_size = point.block_size;
 	mount->device_path = point.device_path;
 	mount->mount_path = point.mount_path;
-	i_free(point.type);
+	mount->type = point.type;
 	return mount;
 }
 
@@ -182,15 +187,41 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	if (strcasecmp(name, QUOTA_NAME_STORAGE) != 0 || root->mount == NULL)
 		return 0;
 
-#ifdef HAVE_QUOTACTL
-	if (quotactl(
-#ifdef HAVE_SYS_QUOTA_H
-		     /* Linux */
-		     QCMD(Q_GETQUOTA, USRQUOTA), root->mount->device_path,
-#else
-		     /* BSD, AIX */
-		     root->mount->device_path, QCMD(Q_GETQUOTA, USRQUOTA),
+#if defined (HAVE_QUOTACTL) && defined(HAVE_SYS_QUOTA_H)
+	/* Linux */
+#ifdef HAVE_LINUX_DQBLK_XFS_H
+	if (strcmp(root->mount->type, "xfs") == 0) {
+		/* XFS */
+		struct fs_disk_quota xdqblk;
+
+		if (quotactl(QCMD(Q_XGETQUOTA, USRQUOTA),
+			     root->mount->device_path,
+			     root->uid, (void *)&xdqblk) < 0) {
+			i_error("quotactl(Q_XGETQUOTA, %s) failed: %m",
+				root->mount->device_path);
+			quota_set_error(_root->setup->quota,
+					"Internal quota error");
+			return -1;
+		}
+		dqblk.dqb_curblocks = xdqblk.d_bcount << 9;
+		dqblk.dqb_bsoftlimit = xdqblk.d_blk_softlimit >> 1;
+	} else
 #endif
+	{
+		/* ext2, ext3 */
+		if (quotactl(QCMD(Q_GETQUOTA, USRQUOTA),
+			     root->mount->device_path,
+			     root->uid, (void *)&dqblk) < 0) {
+			i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
+				root->mount->device_path);
+			quota_set_error(_root->setup->quota,
+					"Internal quota error");
+			return -1;
+		}
+	}
+#elif defined(HAVE_QUOTACTL)
+	/* BSD, AIX */
+	if (quotactl(root->mount->device_path, QCMD(Q_GETQUOTA, USRQUOTA),
 		     root->uid, (void *)&dqblk) < 0) {
 		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
 			root->mount->device_path);
