@@ -24,6 +24,7 @@ struct maildir_filename {
 	struct maildir_filename *next;
 	const char *basename;
 
+	uoff_t size;
 	enum mail_flags flags;
 	unsigned int keywords_count;
 	/* unsigned int keywords[]; */
@@ -58,7 +59,8 @@ struct maildir_save_context {
 };
 
 static int maildir_file_move(struct maildir_save_context *ctx,
-			     const char *basename, const char *dest)
+			     const char *tmpname, const char *destname,
+			     bool newdir)
 {
 	const char *tmp_path, *new_path;
 	int ret;
@@ -69,10 +71,10 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 	   new/ directory can't have flags. alternative would be to write it
 	   in new/ and set the flags dirty in index file, but in that case
 	   external MUAs would see wrong flags. */
-	tmp_path = t_strconcat(ctx->tmpdir, "/", basename, NULL);
-	new_path = dest == NULL ?
-		t_strconcat(ctx->newdir, "/", basename, NULL) :
-		t_strconcat(ctx->curdir, "/", dest, NULL);
+	tmp_path = t_strconcat(ctx->tmpdir, "/", tmpname, NULL);
+	new_path = newdir ?
+		t_strconcat(ctx->newdir, "/", destname, NULL) :
+		t_strconcat(ctx->curdir, "/", destname, NULL);
 
 	if (link(tmp_path, new_path) == 0)
 		ret = 0;
@@ -148,6 +150,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 					      keywords->count));
 	mf->basename = p_strdup(ctx->pool, base_fname);
 	mf->flags = flags;
+	mf->size = (uoff_t)-1;
 
 	if (*ctx->files_tail != NULL)
 		(*ctx->files_tail)->next = mf;
@@ -204,24 +207,37 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	return ctx->seq;
 }
 
-static const char *
+static bool
 maildir_get_updated_filename(struct maildir_save_context *ctx,
-			     struct maildir_filename *mf)
+			     struct maildir_filename *mf,
+			     const char **fname_r)
 {
+	const char *basename = mf->basename;
+
+	if (ctx->mbox->storage->save_size_in_filename &&
+	    mf->size != (uoff_t)-1) {
+		basename = t_strdup_printf("%s,S=%"PRIuUOFF_T,
+					   basename, mf->size);
+	}
+
 	if (mf->keywords_count == 0) {
-		if ((mf->flags & MAIL_FLAGS_MASK) == MAIL_RECENT)
-			return NULL;
-		return maildir_filename_set_flags(NULL, mf->basename,
-						  mf->flags & MAIL_FLAGS_MASK,
-						  NULL);
+		if ((mf->flags & MAIL_FLAGS_MASK) == MAIL_RECENT) {
+			*fname_r = basename;
+			return TRUE;
+		}
+
+		*fname_r = maildir_filename_set_flags(NULL, basename,
+					mf->flags & MAIL_FLAGS_MASK, NULL);
+		return FALSE;
 	}
 
 	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
 				 mf->keywords_count * sizeof(unsigned int));
-	return maildir_filename_set_flags(
+	*fname_r = maildir_filename_set_flags(
 			maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx),
-			mf->basename, mf->flags & MAIL_FLAGS_MASK,
+			basename, mf->flags & MAIL_FLAGS_MASK,
 			&ctx->keywords_array);
+	return FALSE;
 }
 
 static const char *maildir_mf_get_path(struct maildir_save_context *ctx,
@@ -235,8 +251,7 @@ static const char *maildir_mf_get_path(struct maildir_save_context *ctx,
 	}
 
 	/* already moved to new/ or cur/ */
-	fname = maildir_get_updated_filename(ctx, mf);
-	if (fname == NULL)
+	if (maildir_get_updated_filename(ctx, mf, &fname))
 		return t_strdup_printf("%s/%s", ctx->newdir, mf->basename);
 	else
 		return t_strdup_printf("%s/%s", ctx->curdir, fname);
@@ -359,6 +374,9 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 		return -1;
 	}
 
+	/* remember the size in case we want to add it to filename */
+	ctx->files->size = ctx->output->offset;
+
 	t_push();
 	path = t_strconcat(ctx->tmpdir, "/", ctx->files->basename, NULL);
 
@@ -447,7 +465,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	struct maildir_filename *mf;
 	uint32_t first_uid, last_uid;
 	enum maildir_uidlist_rec_flag flags;
-	const char *dest, *fname;
+	const char *dest;
+	bool newdir;
 	int ret;
 
 	i_assert(ctx->output == NULL);
@@ -488,18 +507,19 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	ctx->moving = TRUE;
 	for (mf = ctx->files; mf != NULL && ret == 0; mf = mf->next) {
 		t_push();
-		dest = maildir_get_updated_filename(ctx, mf);
-		fname = dest != NULL ? dest : mf->basename;
+		newdir = maildir_get_updated_filename(ctx, mf, &dest);
 
 		/* if hardlink-flag is set, the file is already in destination.
 		   if the hardlinked mail contained keywords, it was linked
 		   into tmp/ and it doesn't have the hardlink-flag set, so it's
 		   treated as any other saved mail. */
-		if ((mf->flags & MAILDIR_SAVE_FLAG_HARDLINK) == 0)
-			ret = maildir_file_move(ctx, mf->basename, dest);
+		if ((mf->flags & MAILDIR_SAVE_FLAG_HARDLINK) == 0) {
+			ret = maildir_file_move(ctx, mf->basename,
+						dest, newdir);
+		}
 		if (ret == 0) {
 			ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
-							fname, flags);
+							dest, flags);
 			i_assert(ret != 0);
 			ret = ret < 0 ? -1 : 0;
 		}

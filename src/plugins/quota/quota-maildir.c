@@ -8,6 +8,7 @@
 #include "read-full.h"
 #include "write-full.h"
 #include "str.h"
+#include "maildir-storage.h"
 #include "quota-private.h"
 
 #include <stdio.h>
@@ -552,8 +553,15 @@ static void maildir_quota_deinit(struct quota_root *_root)
 
 static bool
 maildir_quota_add_storage(struct quota_root *root __attr_unused__,
-			  struct mail_storage *storage __attr_unused__)
+			  struct mail_storage *_storage)
 {
+	if (strcmp(_storage->name, "maildir") == 0) {
+		struct maildir_storage *storage =
+			(struct maildir_storage *)_storage;
+
+		/* For newly generated filenames add ,S=size. */
+		storage->save_size_in_filename = TRUE;
+	}
 	return TRUE;
 }
 

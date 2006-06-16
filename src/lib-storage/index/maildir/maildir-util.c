@@ -134,6 +134,34 @@ int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	return fd;
 }
 
+bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r)
+{
+	uoff_t size = 0;
+
+	for (; *fname != '\0'; fname++) {
+		if (*fname == ',' && fname[1] == type && fname[2] == '=') {
+			fname += 3;
+			break;
+		}
+	}
+
+	if (*fname == '\0')
+		return FALSE;
+
+	while (*fname >= '0' && *fname <= '9') {
+		size = size * 10 + (*fname - '0');
+		fname++;
+	}
+
+	if (*fname != MAILDIR_INFO_SEP &&
+	    *fname != MAILDIR_EXTRA_SEP &&
+	    *fname != '\0')
+		return FALSE;
+
+	*size_r = size;
+	return TRUE;
+}
+
 /* a char* hash function from ASU -- from glib */
 unsigned int maildir_hash(const void *p)
 {

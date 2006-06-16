@@ -121,7 +121,7 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
-	const char *fname, *p;
+	const char *fname;
 	uoff_t virtual_size;
         enum maildir_uidlist_rec_flag flags;
 
@@ -145,22 +145,11 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 	}
 
 	/* size can be included in filename */
-	p = strstr(fname, MAILDIR_EXTRA_SEP_S MAILDIR_EXTRA_VIRTUAL_SIZE "=");
-	if (p != NULL) {
-		p += 3;
-		virtual_size = 0;
-		while (*p >= '0' && *p <= '9') {
-			virtual_size = virtual_size * 10 + (*p - '0');
-			p++;
-		}
-
-		if (*p == MAILDIR_INFO_SEP || *p == MAILDIR_EXTRA_SEP ||
-		    *p == '\0') {
-			index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
-					     &virtual_size,
-					     sizeof(virtual_size));
-			return virtual_size;
-		}
+	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
+				      &virtual_size)) {
+		index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
+				     &virtual_size, sizeof(virtual_size));
+		return virtual_size;
 	}
 
 	return index_mail_get_virtual_size(_mail);
@@ -195,7 +184,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
-	const char *fname, *p;
+	const char *fname;
 	uoff_t size;
 	enum maildir_uidlist_rec_flag flags;
 
@@ -214,26 +203,13 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	}
 
 	/* size can be included in filename */
-	p = strstr(fname, MAILDIR_EXTRA_SEP_S MAILDIR_EXTRA_FILE_SIZE "=");
-	if (p != NULL) {
-		p += 3;
-		size = 0;
-		while (*p >= '0' && *p <= '9') {
-			size = size * 10 + (*p - '0');
-			p++;
-		}
-
-		if (*p != MAILDIR_INFO_SEP &&
-		    *p != MAILDIR_EXTRA_SEP && *p != '\0')
-			size = (uoff_t)-1;
-	}
-
-	if (size == (uoff_t)-1) {
+	if (!maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE, &size)) {
 		if (_mail->uid != 0) {
 			if (maildir_file_do(mbox, _mail->uid,
 					    do_stat, &st) <= 0)
 				return (uoff_t)-1;
 		} else {
+			/* saved mail which hasn't been committed yet */
 			if (do_stat(mbox, fname, &st) <= 0)
 				return (uoff_t)-1;
 		}

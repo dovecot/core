@@ -27,10 +27,10 @@
 #define MAILDIR_MAX_KEYWORDS (MAILDIR_KEYWORD_LAST - MAILDIR_KEYWORD_FIRST + 1)
 
 /* Maildir++ extension: include file size in the filename to avoid stat() */
-#define MAILDIR_EXTRA_FILE_SIZE "S"
+#define MAILDIR_EXTRA_FILE_SIZE 'S'
 /* Something (can't remember what anymore) could use 'W' in filename to avoid
    calculating file's virtual size (added missing CRs). */
-#define MAILDIR_EXTRA_VIRTUAL_SIZE "W"
+#define MAILDIR_EXTRA_VIRTUAL_SIZE 'W'
 
 #define MAILDIR_SAVE_FLAG_HARDLINK 0x10000000
 #define MAILDIR_SAVE_FLAG_DELETED  0x20000000
@@ -53,6 +53,7 @@ struct maildir_storage {
 
 	const char *control_dir;
 	unsigned int copy_with_hardlinks:1;
+	unsigned int save_size_in_filename:1;
 };
 
 struct maildir_mailbox {
@@ -89,6 +90,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t seq,
 const char *maildir_generate_tmp_filename(const struct timeval *tv);
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r);
+bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r);
 
 struct mailbox_list_context *
 maildir_mailbox_list_init(struct mail_storage *storage,
