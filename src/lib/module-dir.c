@@ -24,14 +24,18 @@ void *module_get_symbol(struct module *module, const char *symbol)
 	const char *error;
 	void *ret;
 
+	/* clear out old errors */
+	(void)dlerror();
+
 	/* get our init func */
 	ret = dlsym(module->handle, symbol);
-
-	error = dlerror();
-	if (error != NULL) {
-		i_error("module %s: dlsym(%s) failed: %s",
-			module->path, symbol, error);
-		ret = NULL;
+	if (ret == NULL) {
+		error = dlerror();
+		if (error != NULL) {
+			i_error("module %s: dlsym(%s) failed: %s",
+				module->path, symbol, error);
+			ret = NULL;
+		}
 	}
 
 	return ret;
