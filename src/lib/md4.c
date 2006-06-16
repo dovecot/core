@@ -42,7 +42,7 @@
  * memory accesses is just an optimization.  Nothing will break if it
  * doesn't work.
  */
-#if defined(__i386__) || defined(__vax__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
 #define SET(n) \
 	(*(const uint_fast32_t *)&ptr[(n) * 4])
 #define GET(n) \
@@ -65,8 +65,8 @@
 static const void *body(struct md4_context *ctx, const void *data, size_t size)
 {
 	const unsigned char *ptr;
-	uint_fast32_t a, b, c, d;
-	uint_fast32_t saved_a, saved_b, saved_c, saved_d;
+	uint32_t a, b, c, d;
+	uint32_t saved_a, saved_b, saved_c, saved_d;
 
 	ptr = data;
 
