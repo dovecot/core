@@ -57,13 +57,16 @@ mech_login_auth_continue(struct auth_request *request,
 
 static void
 mech_login_auth_initial(struct auth_request *request,
-			const unsigned char *data __attr_unused__,
-			size_t data_size __attr_unused__)
+			const unsigned char *data, size_t data_size)
 {
 	static const char prompt1[] = "Username:";
 
-	request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
-			  prompt1, strlen(prompt1));
+	if (data_size == 0) {
+		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
+				  prompt1, strlen(prompt1));
+	} else {
+		mech_login_auth_continue(request, data, data_size);
+	}
 }
 
 static void mech_login_auth_free(struct auth_request *request)
