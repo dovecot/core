@@ -314,7 +314,7 @@ log_append_keyword_update(struct mail_transaction_log_file *file,
 		buffer_append_zero(hdr_buf, 4 - (hdr_buf->used % 4));
 
 	if (t->hide_transaction) {
-		mail_index_view_add_synced_transaction(t->view,
+		mail_index_view_add_hidden_transaction(t->view,
 			file->hdr.file_seq, file->sync_offset);
 	}
 
@@ -370,7 +370,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	struct mail_transaction_log_file *file;
 	struct mail_index_header idx_hdr;
 	uoff_t append_offset;
-	unsigned int old_log_syncs_pos;
+	unsigned int old_hidden_syncs_count;
 	unsigned int lock_id;
 	int ret;
 
@@ -434,8 +434,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	file->first_append_size = 0;
 	append_offset = file->sync_offset;
 
-	old_log_syncs_pos = !array_is_created(&view->log_syncs) ? 0 :
-		array_count(&view->log_syncs);
+	old_hidden_syncs_count = !array_is_created(&view->syncs_hidden) ? 0 :
+		array_count(&view->syncs_hidden);
 
 	ret = 0;
 
@@ -451,7 +451,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 	if (array_is_created(&t->appends) && ret == 0) {
 		if (t->hide_transaction) {
-			mail_index_view_add_synced_transaction(view,
+			mail_index_view_add_hidden_transaction(view,
 				file->hdr.file_seq, file->sync_offset);
 		}
 		ret = log_append_buffer(file, t->appends.buffer, NULL,
@@ -459,7 +459,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 	if (array_is_created(&t->updates) && ret == 0) {
 		if (t->hide_transaction) {
-			mail_index_view_add_synced_transaction(view,
+			mail_index_view_add_hidden_transaction(view,
 				file->hdr.file_seq, file->sync_offset);
 		}
 		ret = log_append_buffer(file, t->updates.buffer, NULL,
@@ -473,7 +473,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	/* keyword resets before updates */
 	if (array_is_created(&t->keyword_resets) && ret == 0) {
 		if (t->hide_transaction) {
-			mail_index_view_add_synced_transaction(view,
+			mail_index_view_add_hidden_transaction(view,
 				file->hdr.file_seq, file->sync_offset);
 		}
 		ret = log_append_buffer(file, t->keyword_resets.buffer, NULL,
@@ -515,11 +515,12 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	}
 
 	if (ret < 0) {
-		if (array_is_created(&view->log_syncs)) {
+		if (array_is_created(&view->syncs_hidden)) {
 			/* revert changes to log_syncs */
-			array_delete(&view->log_syncs, old_log_syncs_pos,
-				     array_count(&view->log_syncs) -
-				     old_log_syncs_pos);
+			array_delete(&view->syncs_hidden,
+				     old_hidden_syncs_count,
+				     array_count(&view->syncs_hidden) -
+				     old_hidden_syncs_count);
 		}
 		file->sync_offset = append_offset;
 	}

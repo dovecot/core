@@ -45,9 +45,10 @@ struct mail_index_view {
 
 	uint32_t log_file_seq;
 	uoff_t log_file_offset;
-	/* Contains a list of transaction log offsets which we don't want to
-	   return when syncing. */
-	array_t ARRAY_DEFINE(log_syncs, struct mail_index_view_log_sync_pos);
+	/* Transaction log offsets which we have already synced */
+	array_t ARRAY_DEFINE(syncs_done, struct mail_index_view_log_sync_pos);
+	/* Transaction log offsets which we don't want to return in view sync */
+	array_t ARRAY_DEFINE(syncs_hidden, struct mail_index_view_log_sync_pos);
 
 	int transactions;
 	unsigned int lock_id;
@@ -64,6 +65,9 @@ int mail_index_view_lock(struct mail_index_view *view);
 int mail_index_view_lock_head(struct mail_index_view *view, bool update_index);
 void mail_index_view_unref_maps(struct mail_index_view *view);
 void mail_index_view_add_synced_transaction(struct mail_index_view *view,
+					    uint32_t log_file_seq,
+					    uoff_t log_file_offset);
+void mail_index_view_add_hidden_transaction(struct mail_index_view *view,
 					    uint32_t log_file_seq,
 					    uoff_t log_file_offset);
 

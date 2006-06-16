@@ -37,8 +37,10 @@ static void _view_close(struct mail_index_view *view)
 	mail_index_view_unlock(view);
 	mail_transaction_log_view_close(&view->log_view);
 
-	if (array_is_created(&view->log_syncs))
-		array_free(&view->log_syncs);
+	if (array_is_created(&view->syncs_done))
+		array_free(&view->syncs_done);
+	if (array_is_created(&view->syncs_hidden))
+		array_free(&view->syncs_hidden);
 	mail_index_unmap(view->index, &view->map);
 	if (array_is_created(&view->map_refs)) {
 		mail_index_view_unref_maps(view);
