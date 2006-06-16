@@ -508,10 +508,13 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 	if (x509 == NULL)
 		return NULL; /* we should have had it.. */
 
-	X509_NAME_oneline(X509_get_subject_name(x509), buf, sizeof(buf));
-	name = t_strndup(buf, sizeof(buf));
+	if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
+				      NID_commonName, buf, sizeof(buf)) < 0)
+		name = "";
+	else
+		name = t_strndup(buf, sizeof(buf));
 	X509_free(x509);
-
+	
 	return *name == '\0' ? NULL : name;
 }
 
@@ -580,11 +583,25 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	ssl = X509_STORE_CTX_get_ex_data(ctx,
 					 SSL_get_ex_data_X509_STORE_CTX_idx());
 	proxy = SSL_get_ex_data(ssl, extdata_index);
-
 	proxy->cert_received = TRUE;
+
+	if (verbose_ssl || (verbose_auth && !preverify_ok)) {
+		char buf[1024];
+		X509_NAME *subject;
+
+		subject = X509_get_subject_name(ctx->current_cert);
+		(void)X509_NAME_oneline(subject, buf, sizeof(buf));
+		buf[sizeof(buf)-1] = '\0'; /* just in case.. */
+		if (!preverify_ok)
+			i_info("Invalid certificate: %s", buf);
+		else
+			i_info("Valid certificate: %s", buf);
+	}
 	if (!preverify_ok)
 		proxy->cert_broken = TRUE;
 
+	/* Return success anyway, because if ssl_require_client_cert=no we
+	   could still allow authentication. */
 	return 1;
 }
 
@@ -665,6 +682,13 @@ void ssl_proxy_init(void)
 	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
 
 	if (getenv("SSL_VERIFY_CLIENT_CERT") != NULL) {
+#if OPENSSL_VERSION_NUMBER >= 0x00907000L
+		X509_STORE *store;
+
+		store = SSL_CTX_get_cert_store(ssl_ctx);
+		X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK |
+				     X509_V_FLAG_CRL_CHECK_ALL);
+#endif
 		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER |
 				   SSL_VERIFY_CLIENT_ONCE,
 				   ssl_verify_client_cert);
