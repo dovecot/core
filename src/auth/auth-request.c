@@ -192,6 +192,7 @@ static void auth_request_save_cache(struct auth_request *request,
 		/* can be cached */
 		break;
 	case PASSDB_RESULT_USER_DISABLED:
+	case PASSDB_RESULT_PASS_EXPIRED:
 		/* FIXME: we can't cache this now, or cache lookup would
 		   return success. */
 		return;
@@ -316,6 +317,11 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 				return FALSE;
 			}
 		}
+	} else if (*result == PASSDB_RESULT_PASS_EXPIRED) {
+	        if (request->extra_fields == NULL)
+		        request->extra_fields = auth_stream_reply_init(request);
+	        auth_stream_reply_add(request->extra_fields, "reason",
+				      "Password expired");
 	} else if (request->passdb->next != NULL &&
 		   *result != PASSDB_RESULT_USER_DISABLED) {
 		/* try next passdb. */

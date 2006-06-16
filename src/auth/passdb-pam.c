@@ -266,10 +266,21 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 
 		status = pam_auth(request, pamh, &str);
 		if ((status2 = pam_end(pamh, status)) == PAM_SUCCESS) {
-			/* FIXME: check for PASSDB_RESULT_UNKNOWN_USER
-			   somehow? */
-			result = status == PAM_SUCCESS ? PASSDB_RESULT_OK :
-				PASSDB_RESULT_PASSWORD_MISMATCH;
+			switch (status) {
+			case PAM_SUCCESS:
+				result = PASSDB_RESULT_OK;
+				break;
+			case PAM_USER_UNKNOWN:
+				result = PASSDB_RESULT_USER_UNKNOWN;
+				break;
+			case PAM_NEW_AUTHTOK_REQD:
+			case PAM_ACCT_EXPIRED:
+				result = PASSDB_RESULT_PASS_EXPIRED;
+				break;
+			default:
+				result = PASSDB_RESULT_PASSWORD_MISMATCH;
+				break;
+			}
 		} else {
 			result = PASSDB_RESULT_INTERNAL_FAILURE;
 			str = t_strdup_printf("pam_end() failed: %s",
