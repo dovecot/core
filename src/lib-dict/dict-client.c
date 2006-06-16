@@ -129,6 +129,12 @@ const char *dict_client_unescape(const char *src)
 
 static int client_dict_send_query(struct client_dict *dict, const char *query)
 {
+	if (dict->output == NULL) {
+		/* not connected currently */
+		if (client_dict_connect(dict) < 0)
+			return -1;
+	}
+
 	if (o_stream_send_str(dict->output, query) < 0 ||
 	    o_stream_flush(dict->output) < 0) {
 		/* Send failed */
@@ -147,6 +153,23 @@ static int client_dict_send_query(struct client_dict *dict, const char *query)
 			i_error("write(%s) failed: %m", dict->path);
 			return -1;
 		}
+	}
+	return 0;
+}
+
+static int
+client_dict_send_transaction_query(struct client_dict_transaction_context *ctx,
+				   const char *query)
+{
+	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
+
+	if (o_stream_send_str(dict->output, query) < 0 ||
+	    o_stream_flush(dict->output) < 0) {
+		/* Send failed. Our transactions have died, so don't even try
+		   to re-send the command */
+		ctx->failed = TRUE;
+		client_dict_disconnect(dict);
+		return -1;
 	}
 	return 0;
 }
@@ -373,11 +396,20 @@ client_dict_transaction_init(struct dict *_dict)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
 	struct client_dict_transaction_context *ctx;
+	const char *query;
 
 	ctx = i_new(struct client_dict_transaction_context, 1);
 	ctx->ctx.dict = _dict;
 	ctx->id = ++dict->transaction_id_counter;
-	ctx->connect_counter = dict->connect_counter;
+
+	t_push();
+	query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_BEGIN, ctx->id);
+	if (client_dict_send_query(dict, query) < 0)
+		ctx->failed = TRUE;
+	else
+		ctx->connect_counter = dict->connect_counter;
+	t_pop();
+
 	return &ctx->ctx;
 }
 
@@ -397,7 +429,7 @@ static int client_dict_transaction_commit(struct dict_transaction_context *_ctx)
 					DICT_PROTOCOL_CMD_COMMIT :
 					DICT_PROTOCOL_CMD_ROLLBACK,
 					ctx->id);
-		if (client_dict_send_query(dict, query) < 0)
+		if (client_dict_send_transaction_query(ctx, query) < 0)
 			ret = -1;
 		else if (ret == 0) {
 			/* read reply */
@@ -425,7 +457,7 @@ client_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 		t_push();
 		query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_ROLLBACK,
 					ctx->id);
-		(void)client_dict_send_query(dict, query);
+		(void)client_dict_send_transaction_query(ctx, query);
 		t_pop();
 	}
 	i_free(ctx);
@@ -447,8 +479,7 @@ static void client_dict_set(struct dict_transaction_context *_ctx,
 				DICT_PROTOCOL_CMD_SET, ctx->id,
 				dict_client_escape(key),
 				dict_client_escape(value));
-	if (client_dict_send_query(dict, query) < 0)
-		ctx->failed = TRUE;
+	(void)client_dict_send_transaction_query(ctx, query);
 	t_pop();
 }
 
@@ -467,8 +498,7 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	query = t_strdup_printf("%c%u\t%s\t%lld\n",
 				DICT_PROTOCOL_CMD_ATOMIC_INC,
 				ctx->id, dict_client_escape(key), diff);
-	if (client_dict_send_query(dict, query) < 0)
-		ctx->failed = TRUE;
+	(void)client_dict_send_transaction_query(ctx, query);
 	t_pop();
 }
 
