@@ -61,7 +61,7 @@ typedef linux_const void *pam_item_t;
 struct pam_passdb_module {
 	struct passdb_module module;
 
-	bool pam_session;
+	bool pam_setcred, pam_session;
 	const char *service_name, *pam_cache_key;
 	struct timeout *to_wait;
 };
@@ -187,10 +187,13 @@ static int pam_auth(struct auth_request *request,
 	}
 
 #ifdef HAVE_PAM_SETCRED
-	if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) != PAM_SUCCESS) {
-		*error = t_strdup_printf("pam_setcred() failed: %s",
-					 pam_strerror(pamh, status));
-		return status;
+	if (module->pam_setcred) {
+		if ((status = pam_setcred(pamh, PAM_ESTABLISH_CRED)) !=
+		    PAM_SUCCESS) {
+			*error = t_strdup_printf("pam_setcred() failed: %s",
+						 pam_strerror(pamh, status));
+			return status;
+		}
 	}
 #endif
 
@@ -433,6 +436,8 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 		if (strcmp(t_args[i], "-session") == 0 ||
 		    strcmp(t_args[i], "session=yes") == 0)
 			module->pam_session = TRUE;
+		else if (strcmp(t_args[i], "setcred=yes") == 0)
+			module->pam_setcred = TRUE;
 		else if (strncmp(t_args[i], "cache_key=", 10) == 0) {
 			module->module.cache_key =
 				p_strdup(auth_passdb->auth->pool,
