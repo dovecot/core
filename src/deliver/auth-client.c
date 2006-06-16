@@ -26,6 +26,7 @@ struct auth_connection {
 
 	struct ioloop *ioloop;
 	uid_t euid;
+	const char *user;
 
 	unsigned int handshaked:1;
 };
@@ -45,16 +46,31 @@ static void auth_connection_destroy(struct auth_connection *conn)
 static void auth_parse_input(struct auth_connection *conn, const char *args)
 {
 	const char *const *tmp, *key, *value;
+	uid_t uid = 0;
+	gid_t gid = 0;
 	int home_found = FALSE;
 
 	for (tmp = t_strsplit(args, "\t"); *tmp != NULL; tmp++) {
 		if (strncmp(*tmp, "uid=", 4) == 0) {
-			if (conn->euid != strtoul(*tmp + 3, NULL, 10)) {
+			uid = strtoul(*tmp + 4, NULL, 10);
+
+			if (uid == 0) {
+				i_error("userdb(%s) returned 0 as uid",
+					conn->user);
+				return_value = EX_TEMPFAIL;
+			}
+			if (conn->euid != uid) {
 				env_put(t_strconcat("RESTRICT_SETUID=",
-						    *tmp + 4, NULL));
+						    dec2str(uid), NULL));
 			}
 		} else if (strncmp(*tmp, "gid=", 4) == 0) {
-			gid_t gid = strtoul(*tmp + 4, NULL, 10);
+			gid = strtoul(*tmp + 4, NULL, 10);
+
+			if (gid == 0) {
+				i_error("userdb(%s) returned 0 as gid",
+					conn->user);
+				return_value = EX_TEMPFAIL;
+			}
 
 			if (conn->euid == 0 || getegid() != gid) {
 				env_put(t_strconcat("RESTRICT_SETGID=",
@@ -76,7 +92,18 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 
 	if (!home_found) {
 		/* we must have a home directory */
-		i_error("userdb didn't return a home directory");
+		i_error("userdb(%s) didn't return a home directory",
+			conn->user);
+		return_value = EX_TEMPFAIL;
+		return;
+	}
+	if (uid == 0) {
+		i_error("userdb(%s) didn't return uid", conn->user);
+		return_value = EX_TEMPFAIL;
+		return;
+	}
+	if (gid == 0) {
+		i_error("userdb(%s) didn't return gid", conn->user);
 		return_value = EX_TEMPFAIL;
 		return;
 	}
@@ -168,6 +195,7 @@ int auth_client_put_user_env(struct ioloop *ioloop, const char *auth_socket,
 
 	conn->ioloop = ioloop;
 	conn->euid = euid;
+	conn->user = user;
 
 	o_stream_send_str(conn->output,
 			  t_strconcat("VERSION\t1\t0\n"
