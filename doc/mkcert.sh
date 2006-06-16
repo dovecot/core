@@ -7,15 +7,20 @@ OPENSSL=${OPENSSL-openssl}
 SSLDIR=${SSLDIR-/etc/ssl}
 OPENSSLCONFIG=${OPENSSLCONFIG-dovecot-openssl.cnf}
 
-CERTFILE=$SSLDIR/certs/dovecot.pem
-KEYFILE=$SSLDIR/private/dovecot.pem
+CERTDIR=$SSLDIR/certs
+KEYDIR=$SSLDIR/private
 
-if [ ! -d $SSLDIR/certs ]; then
+CERTFILE=$CERTDIR/dovecot.pem
+KEYFILE=$KEYDIR/dovecot.pem
+
+if [ ! -d $CERTDIR ]; then
   echo "$SSLDIR/certs directory doesn't exist"
+  exit 1
 fi
 
-if [ ! -d $SSLDIR/private ]; then
+if [ ! -d $KEYDIR ]; then
   echo "$SSLDIR/private directory doesn't exist"
+  exit 1
 fi
 
 if [ -f $CERTFILE ]; then
