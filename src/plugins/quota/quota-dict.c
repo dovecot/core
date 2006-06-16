@@ -130,7 +130,7 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 		return 0;
 	}
 
-	return ret;
+	return 1;
 }
 
 static int
