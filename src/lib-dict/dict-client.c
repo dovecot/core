@@ -195,6 +195,7 @@ static int client_dict_connect(struct client_dict *dict)
 				dict->username, dict->uri);
 	if (client_dict_send_query(dict, query) < 0) {
 		client_dict_disconnect(dict);
+		t_pop();
 		return -1;
 	}
 	t_pop();
@@ -401,10 +402,7 @@ static int client_dict_transaction_commit(struct dict_transaction_context *_ctx)
 		else if (ret == 0) {
 			/* read reply */
 			line = client_dict_read_line(dict);
-			if (line == NULL)
-				return -1;
-
-			if (*line != DICT_PROTOCOL_REPLY_OK)
+			if (line == NULL || *line != DICT_PROTOCOL_REPLY_OK)
 				ret = -1;
 		}
 
