@@ -140,8 +140,10 @@ static void settings_reload(void)
 	if (!master_settings_read(configfile, FALSE))
 		i_warning("Invalid configuration, keeping old one");
 	else {
-		listen_fds_close(old_set);
-		listen_fds_open(TRUE);
+		if (!IS_INETD()) {
+			listen_fds_close(old_set);
+			listen_fds_open(TRUE);
+		}
                 set_logfile(settings_root->defaults);
 	}
 }
