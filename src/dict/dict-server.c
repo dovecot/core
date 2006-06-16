@@ -178,7 +178,7 @@ dict_server_transaction_lookup_parse(struct dict_client_connection *conn,
 	id = (unsigned int)strtoul(line, NULL, 10);
 	*trans_r = dict_server_transaction_lookup(conn, id);
 	if (*trans_r == NULL) {
-		i_error("dict client: Transaction ID %u doesn't exists", id);
+		i_error("dict client: Transaction ID %u doesn't exist", id);
 		return -1;
 	}
 	return 0;
