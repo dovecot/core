@@ -364,29 +364,39 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 dnl * I/O loop function
 have_ioloop=no
 
-dnl we currently don't use epoll automatically because it fails at runtime
-dnl if we're not running 2.6 kernel
-if test "$ioloop" = "epoll"; then
-  AC_CHECK_FUNC(epoll_create, [
+if test "$ioloop" = "" || test "$ioloop" = "epoll"; then
+  AC_TRY_RUN([
+    #include <stdint.h>
+    #include <sys/epoll.h>
+    #include <errno.h>
+
+    #include <asm/unistd.h>
+    
+    _syscall1 (int, epoll_create, int, size)
+
+    int main()
+    {
+      return epoll_create(5) < 1;
+    }
+  ], [
     AC_DEFINE(IOLOOP_EPOLL,, Implement I/O loop with Linux 2.6 epoll())
     have_ioloop=yes
+    ioloop=epoll
   ], [
-    ioloop=""
+    if test "$ioloop" != "" ; then
+      AC_MSG_WARN([epoll ioloop requested but epoll_create() is not available])
+    fi
   ])
 fi
 
-if test "$ioloop" = "kqueue"; then
-  if test "$ac_cv_func_kqueue" != yes ; then
-    AC_MSG_WARN([kqueue ioloop requested but kqueue() is not available])
-    ioloop=""
-  elif test "$ac_cv_func_kevent" != yes ; then
-    AC_MSG_WARN([kqueue ioloop requested but kevent() is not available])
-    ioloop=""
-  else
-    AC_DEFINE(IOLOOP_KQUEUE,, [Implement I/O loop with BSD kqueue()])
-    ioloop=kqueue
-    have_ioloop=yes
-  fi
+if test "$ioloop" = "" || test "$ioloop" = "kqueue"; then
+    if test "$ac_cv_func_kqueue" = yes && test "$ac_cv_func_kevent" == yes ; then
+      AC_DEFINE(IOLOOP_KQUEUE,, [Implement I/O loop with BSD kqueue()])
+      ioloop=kqueue
+      have_ioloop=yes
+    elif test "$ioloop" = "kqueue"; then
+      AC_MSG_WARN([kqueue ioloop requested but kqueue() is not available])
+    fi
 fi
 
 if test "$ioloop" = "" || test "$ioloop" = "poll"; then
@@ -404,6 +414,64 @@ fi
 
 have_notify=none
 
+if test "$notify" = "" || test "$notify" = "inotify" ; then
+  dnl * inotify?
+  AC_TRY_RUN([
+    #define _GNU_SOURCE
+    #include <sys/ioctl.h>
+    #include <fcntl.h>
+    #include <sys/inotify.h>
+    #include <stdio.h>
+  
+    int main()
+    {
+      int wd, fd;
+      char * fn = "/tmp";
+    
+      fd = inotify_init ();
+      if (fd < 0)
+        {
+          perror ("inotify_init");
+          return (-1);
+        }
+
+      wd = inotify_add_watch (fd, fn, IN_ALL_EVENTS);
+
+      if (wd < 0)
+        {
+          perror ("inotify_add_watch");
+          return (-2);
+        }
+
+      inotify_rm_watch (fd, wd);
+
+      close (fd);
+    }
+  ], [
+    have_notify=inotify
+    notify=inotify
+    AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
+  ], [
+    if test "$notify" = "inotify"; then
+      AC_MSG_WARN([inotify requested but not available])
+    fi
+  ])
+fi
+
+if test "$notify" = "" || test "$notify" = "kqueue"; then
+  dnl * BSD kqueue() notify
+  if test "$ac_cv_func_kqueue" == yes && test "$ac_cv_func_kevent" == yes ; then
+    have_notify=kqueue
+    notify=kqueue
+    AC_DEFINE(IOLOOP_NOTIFY_KQUEUE,,
+      Use BSD kqueue directory changes notificaton)
+  else 
+    if test "$notfify" = "kqueue" ; then
+      AC_MSG_WARN([kqueue notify requested but kqueue() is not available])
+    fi
+  fi
+fi
+
 if test "$notify" = "" || test "$notify" = "dnotify"; then
   dnl * dnotify?
   AC_TRY_COMPILE([
@@ -417,56 +485,12 @@ if test "$notify" = "" || test "$notify" = "dnotify"; then
   ], [
     AC_DEFINE(IOLOOP_NOTIFY_DNOTIFY,, Use Linux dnotify)
     have_notify=dnotify
+    notify=dnotify
   ], [
     if test "$notify" = "dnotify"; then
-      AC_MSG_ERROR([dnotify requested but not available])
+      AC_MSG_WARN([dnotify requested but not available])
     fi
   ])
-elif test "$notify" = "inotify"; then
-  dnl * inotify?
-  AC_TRY_COMPILE([
-    #define _GNU_SOURCE
-    #include <sys/ioctl.h>
-    #include <fcntl.h>
-    #include <sys/inotify.h>
-    #include <stdio.h>
-  ], [
-    int wd, fd;
-    char * fn = "/tmp";
-    
-    fd = inotify_init ();
-    if (fd < 0)
-      perror ("inotify_init");
-
-    wd = inotify_add_watch (fd, fn, IN_ALL_EVENTS);
-
-    if (wd < 0)
-      perror ("inotify_add_watch");
-
-    inotify_rm_watch (fd, wd);
-
-    close (fd);
-  ], [
-    have_notify=inotify
-    AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
-  ], [
-    AC_MSG_ERROR([inotify requested but not available, check for existence of <sys/inotify.h>])
-  ])
-elif test "$notify" = "kqueue"; then
-  dnl * BSD kqueue() notify
-  if test "$ac_cv_func_kqueue" != yes ; then
-    AC_MSG_WARN([kqueue notify requested but kqueue() is not available])
-    notify=""
-  elif test "$ac_cv_func_kevent" != yes ; then
-    AC_MSG_WARN([kqueue notify requested but kevent() is not available])
-    notify=""
-  else
-    have_notify=kqueue
-    AC_DEFINE(IOLOOP_NOTIFY_KQUEUE,,
-      Use BSD kqueue directory changes notificaton)
-  fi
-else
-  AC_MSG_ERROR([Unknown notify method: $notify])
 fi
 
 if test "$have_notify" = "none"; then
