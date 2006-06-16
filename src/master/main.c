@@ -355,7 +355,9 @@ static void listen_protocols(struct settings *set, bool retry)
 	resolve_ip(set->listen, &set->listen_ip, &set->listen_port);
 	resolve_ip(set->ssl_listen, &set->ssl_listen_ip, &set->ssl_listen_port);
 
-	if (set->ssl_listen_ip.family == 0 && set->ssl_listen == NULL)
+	/* if ssl_listen wasn't explicitly set in the config file,
+	   use the non-ssl IP settings for the ssl listener, too. */
+	if (set->ssl_listen_ip.family == 0 && *set->ssl_listen == '\0')
 		set->ssl_listen_ip = set->listen_ip;
 
 	/* register wanted protocols */
