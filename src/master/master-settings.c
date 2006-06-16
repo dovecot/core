@@ -260,8 +260,8 @@ struct settings default_settings = {
 
 	/* common */
 	MEMBER(base_dir) PKG_RUNDIR,
-	MEMBER(log_path) NULL,
-	MEMBER(info_log_path) NULL,
+	MEMBER(log_path) "",
+	MEMBER(info_log_path) "",
 	MEMBER(log_timestamp) DEFAULT_FAILURE_STAMP_FORMAT,
 	MEMBER(syslog_facility) "mail",
 
@@ -271,12 +271,12 @@ struct settings default_settings = {
 	MEMBER(ssl_listen) "",
 
 	MEMBER(ssl_disable) FALSE,
-	MEMBER(ssl_ca_file) NULL,
+	MEMBER(ssl_ca_file) "",
 	MEMBER(ssl_cert_file) SSLDIR"/certs/dovecot.pem",
 	MEMBER(ssl_key_file) SSLDIR"/private/dovecot.pem",
-	MEMBER(ssl_key_password) NULL,
+	MEMBER(ssl_key_password) "",
 	MEMBER(ssl_parameters_regenerate) 168,
-	MEMBER(ssl_cipher_list) NULL,
+	MEMBER(ssl_cipher_list) "",
 	MEMBER(ssl_verify_client_cert) FALSE,
 	MEMBER(disable_plaintext_auth) TRUE,
 	MEMBER(verbose_ssl) FALSE,
@@ -301,8 +301,8 @@ struct settings default_settings = {
 	MEMBER(login_max_logging_users) 256,
 
 	/* mail */
-	MEMBER(valid_chroot_dirs) NULL,
-	MEMBER(mail_chroot) NULL,
+	MEMBER(valid_chroot_dirs) "",
+	MEMBER(mail_chroot) "",
 	MEMBER(max_mail_processes) 1024,
 	MEMBER(verbose_proctitle) FALSE,
 
@@ -310,9 +310,9 @@ struct settings default_settings = {
 	MEMBER(last_valid_uid) 0,
 	MEMBER(first_valid_gid) 1,
 	MEMBER(last_valid_gid) 0,
-	MEMBER(mail_extra_groups) NULL,
+	MEMBER(mail_extra_groups) "",
 
-	MEMBER(default_mail_env) NULL,
+	MEMBER(default_mail_env) "",
 	MEMBER(mail_cache_fields) "flags",
 	MEMBER(mail_never_cache_fields) "imap.envelope",
 	MEMBER(mail_cache_min_mail_count) 0,
@@ -361,8 +361,8 @@ struct settings default_settings = {
 	MEMBER(pop3_enable_last) FALSE,
 	MEMBER(pop3_reuse_xuidl) FALSE,
 	MEMBER(pop3_lock_session) FALSE,
-	MEMBER(pop3_uidl_format) NULL,
-	MEMBER(pop3_client_workarounds) NULL,
+	MEMBER(pop3_uidl_format) "",
+	MEMBER(pop3_client_workarounds) "",
 	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
 
 	/* .. */
@@ -376,19 +376,19 @@ struct auth_settings default_auth_settings = {
 
 	MEMBER(name) NULL,
 	MEMBER(mechanisms) "plain",
-	MEMBER(realms) NULL,
-	MEMBER(default_realm) NULL,
+	MEMBER(realms) "",
+	MEMBER(default_realm) "",
 	MEMBER(cache_size) 0,
 	MEMBER(cache_ttl) 3600,
 	MEMBER(executable) PKG_LIBEXECDIR"/dovecot-auth",
 	MEMBER(user) "root",
-	MEMBER(chroot) NULL,
+	MEMBER(chroot) "",
 	MEMBER(username_chars) "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-_@",
 	MEMBER(username_translation) "",
 	MEMBER(username_format) "",
-	MEMBER(master_user_separator) NULL,
+	MEMBER(master_user_separator) "",
 	MEMBER(anonymous_username) "anonymous",
-	MEMBER(krb5_keytab) NULL,
+	MEMBER(krb5_keytab) "",
 
 	MEMBER(verbose) FALSE,
 	MEMBER(debug) FALSE,
@@ -406,6 +406,26 @@ struct auth_settings default_auth_settings = {
 	MEMBER(passdbs) NULL,
 	MEMBER(userdbs) NULL,
 	MEMBER(sockets) NULL
+};
+
+struct socket_settings default_socket_settings = {
+	MEMBER(path) "",
+	MEMBER(mode) 0,
+	MEMBER(user) "",
+	MEMBER(group) ""
+};
+
+struct namespace_settings default_namespace_settings = {
+	MEMBER(parent) NULL,
+	MEMBER(next) NULL,
+	MEMBER(type) NULL,
+
+	MEMBER(separator) "",
+	MEMBER(prefix) "",
+	MEMBER(location) "",
+
+	MEMBER(inbox) FALSE,
+	MEMBER(hidden) FALSE
 };
 
 static pool_t settings_pool, settings2_pool;
@@ -466,7 +486,7 @@ static bool auth_settings_verify(struct auth_settings *auth)
 	}
 
 	fix_base_path(auth->parent->defaults, &auth->chroot);
-	if (auth->chroot != NULL && access(auth->chroot, X_OK) < 0) {
+	if (*auth->chroot != '\0' && access(auth->chroot, X_OK) < 0) {
 		i_error("Can't access auth chroot directory %s: %m",
 			auth->chroot);
 		return FALSE;
@@ -701,7 +721,7 @@ static bool settings_verify(struct settings *set)
 	}
 #endif
 
-	if (set->log_path != NULL && access(set->log_path, W_OK) < 0) {
+	if (*set->log_path != '\0' && access(set->log_path, W_OK) < 0) {
 		dir = get_directory(set->log_path);
 		if (access(dir, W_OK) < 0) {
 			i_error("Can't write to log directory %s: %m", dir);
@@ -709,7 +729,7 @@ static bool settings_verify(struct settings *set)
 		}
 	}
 
-	if (set->info_log_path != NULL &&
+	if (*set->info_log_path != '\0' &&
 	    access(set->info_log_path, W_OK) < 0) {
 		dir = get_directory(set->info_log_path);
 		if (access(dir, W_OK) < 0) {
@@ -726,7 +746,7 @@ static bool settings_verify(struct settings *set)
 
 #ifdef HAVE_SSL
 	if (!set->ssl_disable) {
-		if (set->ssl_ca_file != NULL &&
+		if (*set->ssl_ca_file != '\0' &&
 		    access(set->ssl_ca_file, R_OK) < 0) {
 			i_fatal("Can't use SSL CA file %s: %m",
 				set->ssl_ca_file);
@@ -912,6 +932,8 @@ auth_socket_settings_new(struct auth_settings *auth, const char *type)
 
 	as->parent = auth;
 	as->type = str_lcase(p_strdup(settings_pool, type));
+	as->master = default_socket_settings;
+	as->client = default_socket_settings;
 
 	as_p = &auth->sockets;
 	while (*as_p != NULL)
@@ -947,6 +969,7 @@ namespace_settings_new(struct server_settings *server, const char *type)
 	struct namespace_settings *ns, **ns_p;
 
 	ns = p_new(settings_pool, struct namespace_settings, 1);
+	*ns = default_namespace_settings;
 
 	ns->parent = server;
 	ns->type = str_lcase(p_strdup(settings_pool, type));
@@ -1282,8 +1305,8 @@ bool master_settings_read(const char *path, bool nochecks)
 
 	prev = NULL;
 	for (server = ctx.root; server != NULL; server = server->next) {
-		if ((server->imap->protocols == NULL ||
-		     server->pop3->protocols == NULL) && !nochecks) {
+		if ((*server->imap->protocols == '\0' ||
+		     *server->pop3->protocols == '\0') && !nochecks) {
 			i_error("No protocols given in configuration file");
 			return FALSE;
 		}

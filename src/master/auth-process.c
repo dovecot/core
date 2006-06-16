@@ -296,7 +296,8 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	group->process_count++;
 
 	path = t_strdup_printf("%s/auth-worker.%s",
-			       group->set->chroot != NULL ? group->set->chroot :
+			       *group->set->chroot != '\0' ?
+			       group->set->chroot :
 			       group->set->parent->defaults->base_dir,
 			       dec2str(pid));
 	p->worker_listen_fd =
@@ -341,7 +342,7 @@ static void auth_process_destroy(struct auth_process *p)
 	p->group->process_count--;
 
 	path = t_strdup_printf("%s/auth-worker.%s",
-			       p->group->set->chroot != NULL ?
+			       *p->group->set->chroot != '\0' ?
 			       p->group->set->chroot :
 			       p->group->set->parent->defaults->base_dir,
 			       dec2str(p->pid));
@@ -368,15 +369,15 @@ static void auth_process_destroy(struct auth_process *p)
 static void
 socket_settings_env_put(const char *env_base, struct socket_settings *set)
 {
-	if (set->path == NULL)
+	if (*set->path == '\0')
 		return;
 
 	env_put(t_strdup_printf("%s=%s", env_base, set->path));
 	if (set->mode != 0)
 		env_put(t_strdup_printf("%s_MODE=%o", env_base, set->mode));
-	if (set->user != NULL)
+	if (*set->user != '\0')
 		env_put(t_strdup_printf("%s_USER=%s", env_base, set->user));
-	if (set->group != NULL)
+	if (*set->group != '\0')
 		env_put(t_strdup_printf("%s_GROUP=%s", env_base, set->group));
 }
 
@@ -467,7 +468,7 @@ static void auth_set_environment(struct auth_settings *set)
 		env_put("SSL_REQUIRE_CLIENT_CERT=1");
 	if (set->ssl_username_from_cert)
 		env_put("SSL_USERNAME_FROM_CERT=1");
-	if (set->krb5_keytab != NULL) {
+	if (*set->krb5_keytab != '\0') {
 		/* Environment used by Kerberos 5 library directly */
 		env_put(t_strconcat("KRB5_KTNAME=", set->krb5_keytab, NULL));
 	}
@@ -554,7 +555,7 @@ static int create_auth_process(struct auth_process_group *group)
         auth_set_environment(group->set);
 
 	env_put(t_strdup_printf("AUTH_WORKER_PATH=%s/auth-worker.%s",
-				group->set->chroot != NULL ? "" :
+				*group->set->chroot != '\0' ? "" :
 				group->set->parent->defaults->base_dir,
 				dec2str(getpid())));
 	env_put(t_strdup_printf("AUTH_WORKER_MAX_COUNT=%u",

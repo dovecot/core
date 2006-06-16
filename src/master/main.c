@@ -111,7 +111,7 @@ static void set_logfile(struct settings *set)
 {
 	int facility;
 
-	if (set->log_path == NULL) {
+	if (*set->log_path == '\0') {
 		if (!syslog_facility_find(set->syslog_facility, &facility))
 			facility = LOG_MAIL;
 
@@ -121,7 +121,7 @@ static void set_logfile(struct settings *set)
 		i_set_failure_file(set->log_path, "dovecot");
 	}
 
-	if (set->info_log_path != NULL)
+	if (*set->info_log_path != '\0')
 		i_set_info_file(set->info_log_path);
 
 	i_set_failure_timestamp_format(set->log_timestamp);
@@ -466,11 +466,11 @@ static void listen_fds_close(struct server_settings *server)
 
 static bool have_stderr_set(struct settings *set)
 {
-	if (set->log_path != NULL &&
+	if (*set->log_path != '\0' &&
 	    strcmp(set->log_path, "/dev/stderr") == 0)
 		return TRUE;
 
-	if (set->info_log_path != NULL &&
+	if (*set->info_log_path != '\0' &&
 	    strcmp(set->info_log_path, "/dev/stderr") == 0)
 		return TRUE;
 
