@@ -1,5 +1,6 @@
-Everything in src/lib/ is under MIT license (see COPYING.MIT) unless
-otherwise mentioned at the beginning of the file.
+Everything in src/lib/, src/auth/, src/lib-sql/ and src/lib-ntlm/ is under
+MIT license (see COPYING.MIT) unless otherwise mentioned at the beginning
+of the file.
 
 Everything else is LGPLv2.1 (see COPYING.LGPL) unless otherwise mentioned
 at the beginning of the file.
@@ -9,6 +10,6 @@ Current exceptions are:
 src/lib/
   - md5.c : Public Domain
   - base64.c, utc-mktime.c : BSD-like (read it)
-  - primes.c, printf-upper-bound.c : LGPL v2
+  - printf-upper-bound.c : LGPL v2
 
 src/imap/imap-thread.c : merge sorting code is with MIT license.
