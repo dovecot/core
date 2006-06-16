@@ -373,7 +373,7 @@ void quota_free(struct quota_transaction_context *ctx, struct mail *mail)
 
 const char *quota_last_error(struct quota *quota)
 {
-	return quota->last_error;
+	return quota->last_error != NULL ? quota->last_error : "Unknown error";
 }
 
 void quota_set_error(struct quota *quota, const char *errormsg)
