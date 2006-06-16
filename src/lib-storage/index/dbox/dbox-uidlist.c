@@ -1098,8 +1098,8 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 					 &st, &file, existing)) == 0);
 
 	if (ret < 0) {
+		i_assert(file == NULL);
 		file_dotlock_delete(&dotlock);
-		dbox_file_close(file);
 		return -1;
 	}
 	file->file_seq = file_seq;
