@@ -23,13 +23,13 @@ bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		if (mailbox[strlen(mailbox)-1] ==
 		    mail_storage_get_hierarchy_sep(storage))
 			verify_name = t_strndup(mailbox, strlen(mailbox)-1);
+	} else {
+		storage = client_find_storage(cmd, &mailbox);
+		if (storage == NULL)
+			return TRUE;
 	}
 
 	if (!client_verify_mailbox_name(cmd, verify_name, subscribe, FALSE))
-		return TRUE;
-
-	storage = client_find_storage(cmd, &mailbox);
-	if (storage == NULL)
 		return TRUE;
 
 	if (mail_storage_set_subscribed(storage, mailbox, subscribe) < 0)
