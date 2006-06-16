@@ -4,9 +4,19 @@ pkglibexec_PROGRAMS = deliver
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage \
-	-DSYSCONFDIR=\""$(sysconfdir)"\"
+	-I$(top_srcdir)/src/lib-storage/index/mbox \
+	-DSYSCONFDIR=\""$(sysconfdir)"\" \
+	-DPKG_RUNDIR=\""$(rundir)"\" \
+	-DMODULEDIR=\""$(moduledir)"\"
+
+# get some functions included which only plugins use. liblib should probably
+# be a shared library so this wouldn't be needed..
+unused_objects = \
+ 	../lib/mountpoint.o \
+	../lib/str-sanitize.o
 
 libs = \
 	../lib-storage/register/libstorage-register.a \
@@ -15,8 +25,10 @@ libs = \
 	../lib-storage/subscription-file/libstorage_subscription_file.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
+	../lib-dict/libdict.a \
 	../lib-charset/libcharset.a \
-	../lib/liblib.a
+	../lib/liblib.a \
+	$(unused_objects)
 
 deliver_LDADD = \
 	$(libs) \
@@ -27,4 +39,15 @@ deliver_LDADD = \
 deliver_DEPENDENCIES = $(libs)
 
 deliver_SOURCES = \
-	deliver.c
+	auth-client.c \
+	deliver.c \
+	duplicate.c \
+	mail-send.c \
+	smtp-client.c
+
+noinst_HEADERS = \
+	auth-client.h \
+	deliver.h \
+	duplicate.h \
+	mail-send.h \
+	smtp-client.h
