@@ -180,6 +180,28 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 	return ret;
 }
 
+static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
+					   struct mail_storage *dest_storage)
+{
+	struct mailbox_list_context *iter;
+	struct mailbox_list *list;
+	int ret = 0;
+
+	iter = mail_storage_mailbox_list_init(source_storage, "", "*",
+					      MAILBOX_LIST_SUBSCRIBED |
+					      MAILBOX_LIST_FAST_FLAGS);
+	while ((list = mail_storage_mailbox_list_next(iter)) != NULL) {
+		if (mail_storage_set_subscribed(dest_storage, list->name,
+						TRUE) < 0) {
+			ret = -1;
+			break;
+		}
+	}
+	if (mail_storage_mailbox_list_deinit(&iter) < 0)
+		ret = -1;
+	return ret;
+}
+
 int convert_storage(const char *user, const char *home_dir,
 		    const char *source_data, const char *dest_data)
 {
@@ -225,6 +247,10 @@ int convert_storage(const char *user, const char *home_dir,
 		ret = -1;
 	} else {
 		ret = mailbox_list_copy(source_storage, dest_storage, dotlock);
+		if (ret == 0) {
+			ret = mailbox_list_copy_subscriptions(source_storage,
+							      dest_storage);
+		}
 	}
 
 	if (ret == 0) {
