@@ -207,7 +207,7 @@ static bool login_process_read_group(struct login_process *p)
 		if (strcmp(proto, "imap") == 0)
 			protocol = MAIL_PROTOCOL_IMAP;
 		else if (strcmp(proto, "pop3") == 0)
-			protocol = MAIL_PROTOCOL_IMAP;
+			protocol = MAIL_PROTOCOL_POP3;
 		else {
 			i_error("login: Unknown protocol '%s'", proto);
 			return FALSE;
