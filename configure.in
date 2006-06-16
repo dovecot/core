@@ -1713,7 +1713,7 @@ src/plugins/imap-quota/Makefile
 src/plugins/trash/Makefile
 src/plugins/zlib/Makefile
 stamp.h
-dovecot-config])
+dovecot-config.in])
 
 AC_OUTPUT
 
