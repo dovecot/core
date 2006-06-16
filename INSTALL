@@ -15,6 +15,8 @@ environment variables. For example:
 
   CPPFLAGS=-I/opt/openssl/include LDFLAGS=-L/opt/openssl/lib ./configure
 
+See ./configure --help for a list of all available configure options.
+See http://wiki.dovecot.org/CompilingSource for more information.
 
 Running
 -------
@@ -23,8 +25,7 @@ Rename configuration file:
 
   mv /usr/local/etc/dovecot-example.conf /usr/local/etc/dovecot.conf
 
-Read through, and make needed modifications. doc/configuration.txt tells
-you more about configuring Dovecot.
+Read through, and make needed modifications.
 
 Once everything is configured, there's two ways to start Dovecot:
 
@@ -33,116 +34,11 @@ Once everything is configured, there's two ways to start Dovecot:
  2) Start it via inetd or similiar by executing "imap-login" or "pop3-login"
     binaries. If you're listening in SSL port, add --ssl parameter.
 
+See Wiki for more information about configuration. If you're in a hurry, go
+at least through http://wiki.dovecot.org/QuickConfiguration
 
 SSL/TLS
 -------
 
 Dovecot used to support both GNUTLS and OpenSSL libraries, but nowadays
 only the OpenSSL code is working.
-
-
-Optional Configure Options
---------------------------
-
-You can get a full list with:
-
-  ./configure --help
-
-The options are listed like --with-thing or --enable-thing, usually they're
-also enabled by default. You can disable them with --without-thing or
---disable-thing.
-
-Besides the standard options, Dovecot has added these:
-
-  --enable-ipv6           Enable IPv6 support (default)
-
-Enable IPv6 support. By default it's enabled if system is detected to
-support it.
-
-  --with-file-offset-size=BITS
-
-Specifies if we use 32bit or 64bit file offsets. 64bit is default if system
-supports it (Linux and Solaris does). You most likely won't have mails
-larger than 2GB, so you may want to drop this to 32bit for a bit smaller
-disk and memory usage.
-
-  --with-mem-align=BYTES
-
-Specifies memory alignment, needed with many non-x86 systems and should
-speed up x86 systems too. Default is 8 with everyone to make sure 64bit
-memory accessing work. Currently it should also be safe to set to 4 when
-using 32bit file offets. With x86 it could be 1 as well if you want to save
-a bit of disk space (in .imap.index.data file) and memory.
-
-  --enable-debug          Enable some extra checks for debugging
-
-This is mostly useful for developers. It does quite a lot of unnecessary
-work but should catch some programming mistakes more quickly.
-
-  --with-ssl=gnutls|openssl Build with GNUTLS (default) or OpenSSL
-  --with-ssldir=DIR       SSL base directory for certificates (/etc/ssl)
-
-SSL options.
-
-  --with-pop3d            Build POP3 server (default)
-
-Build pop3d binary. It still has to be separately enabled from configuration
-file.
-
-  --with-passwd           Build with /etc/passwd support (default)
-  --with-passwd-file      Build with passwd-like file support (default)
-  --with-shadow           Build with shadow password support (default)
-  --with-pam              Build with PAM support (default)
-  --with-ldap             Build with LDAP support
-  --with-vpopmail         Build with vpopmail support (default)
-  --with-static-userdb    Build with static userdb support (default)
-  --with-pgsql            Build with PostgreSQL support
-
-Specify which authentication modules to use. Disabling them give you a few
-bytes smaller binary, but not much else.
-
-
-Dynamic Authentication Modules
-------------------------------
-
-Dovecot can also dynamically load authentication modules from
-$prefix/lib/dovecot/auth/ directory. Binary packages builders should use
-them for auth modules which require external libraries (eg. LDAP and
-vpopmail). There's no standard way to build them as modules currently, but
-something like this should work:
-
-cd src/auth
-
-gcc -shared -fPIC -DHAVE_CONFIG_H -DUSERDB_LDAP -DPASSDB_LDAP \
--I../.. -I../lib -I../lib-settings \
-db-ldap.c userdb-ldap.c passdb-ldap.c -o ldap.so -lldap
-
-gcc -shared -fPIC -DHAVE_CONFIG_H -DUSERDB_VPOPMAIL -DPASSDB_VPOPMAIL \
--I../.. -I../lib userdb-vpopmail.c passdb-vpopmail.c -o vpopmail.so \
--lvpopmail
-
-
-Dynamic IMAP and POP3 Modules
------------------------------
-
-If imap_use_modules or pop3_use_modules is set to yes, Dovecot will load all
-*.so modules from directory pointed by imap_modules or pop3_modules. These
-modules can do anything, they're only expected to contain <module name>_init
-and <module name>_deinit functions which are called.
-
-
-Dynamic SQL drivers
--------------------
-
-Currently SQL drivers are only used by dovecot-auth, so you could place
-them into same directory with auth plugins.
-
-cd src/lib-sql
-
-gcc -shared -fPIC -DHAVE_CONFIG_H -DBUILD_PGSQL \
--I../.. -I../lib -I../lib-settings -I/usr/include/postgresql \
-driver-pgsql.c -o driver_pgsql.so -L/usr/lib/postgresql -lpq
-
-gcc -shared -fPIC -DHAVE_CONFIG_H -DBUILD_MYSQL \
--I../.. -I../lib -I../lib-settings -I/usr/include/mysql \
-driver-mysql.c -o driver_mysql.so -lmysqlclient
