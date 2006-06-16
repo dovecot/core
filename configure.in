@@ -1697,6 +1697,7 @@ src/lib-storage/index/dbox/Makefile
 src/lib-storage/subscription-file/Makefile
 src/lib-storage/register/Makefile
 src/auth/Makefile
+src/deliver/Makefile
 src/dict/Makefile
 src/imap/Makefile
 src/imap-login/Makefile

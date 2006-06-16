@@ -3,8 +3,7 @@ POP3D = pop3-login pop3
 endif
 
 if BUILD_DELIVER
-#DELIVER = deliver
-DELIVER =
+DELIVER = deliver
 endif
 
 SUBDIRS = \
