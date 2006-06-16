@@ -1,5 +1,8 @@
+ - dbox: keyword list header locking isn't correct now. saving uses file's
+   dotlock, sync uses sync lock. and what about reading?...
+ - mbox: CRLFs in headers break the mbox
+ - mbox: dirty mode should be stored to index
  - dbox is leaking index fds
- - Add S=size to maildir filenames
  - dd if=/dev/zero of=dovecot.index bs=1024 count=1 -> NOOP -> crash!
  - ACLs don't work properly with namespaces..
  - deliver: delivering mail to box smaller than mbox_min_index_size give
@@ -8,17 +11,12 @@
  - trying to select non-existing mailbox with LF in its name prints the
    LF in error reply. also should we try to prevent CR/LFs from being used
    in mailbox names completely?..
-Warning: Our dotlock file /home/cras/.dovecot.convert.lock was modified (1143843911 vs 1143843915), assuming it wasn't overridden (kept it -4 secs)
- - convert-tool copied mbox INBOX into ~/Maildir/.inbox/
  - convert-tool doesn't read dovecot.conf
  - dbox: append_offset in header shouldn't be trusted
  - dbox: show in index if there are expunge-flagged mails in the mailbox
  - dbox: pop3_lock_session doesn't work
  - controldir for mboxes too and place subscriptions file there?
  - ability to specify default password scheme with passwd-file
- - cache file can be broken quite easily with imaptest
- - Cache file code doesn't notice 32bit -> 64bit CPU change and crashes
-   (shouldn't crash anyway!)
  - add imap_logout_format
  - quota code should probably be always doing some quota_set_critical()
    instead of using mail_storage_set_critical(), so that quota_last_error()
@@ -27,16 +25,13 @@ Warning: Our dotlock file /home/cras/.dovecot.convert.lock was modified (1143843
  - passdb passwd + passdb shadow -> passdb_password isn't reset to NULL
  - when pipelining login command + post-login commands, login process should
    pass the command to imap/pop3 process (at least one pop3 client does this)
- - lda: change "unsupported feature" error to something better
  - imaptest: imap-login: Master sent reply with unknown tag 1
      - client closed connection at the exact same time master was logging it
        in? master_request_abort()
  - delete >30min old dovecot.index.log.2 files when opening index?
  - dict-server should have some config file which lists the allowed dicts
- - inetd: pop3-login logs in with imap executable
  - with blocking passdb we're not caching lookups if the password was wrong
  - LDA: empty mail gives an error.
- - LDA: "message <$MSGID> for $USER: $action" logging
  - if PAM child process doesn't finish within a minute, kill it
  - Support listening in multiple sockets?..
  - Thunderbird+pop3 DELE error..?
@@ -55,16 +50,6 @@ Warning: Our dotlock file /home/cras/.dovecot.convert.lock was modified (1143843
  -> mail-index.c: line 841 (mail_index_sync_from_transactions): assertion failed: (hdr.messages_count == (*map)->hdr.messages_count)
 
  - subscribe #maildir -> LSUB "" * -> probably not listed?
-* 1807 EXISTS
-* 0 RECENT
-* OK [UNSEEN 1] First unseen.
-* OK [UIDVALIDITY 1106090975] UIDs valid
-* OK [UIDNEXT 38157] Predicted next UID
-x OK [READ-WRITE] Select completed.
-x store 500:* +flags.silent \deleted
-* 31 RECENT
-x OK Store completed.
-
  - dovecot-auth workers: create a separate dovecot-pam worker which shares
    pretty much all code with dovecot-auth worker but isn't linked against
    any libraries. or..? this might be difficult to do, especially because the
@@ -74,16 +59,7 @@ x OK Store completed.
    (eg. file doesn't exist), just ignore the problem and disable the namespace
  - auth master refcounting when handling user/request?
  - PAM / checkpassword should use passdb-blocking
-
- - deleting lots of messages for rarely opened box seems to cause trouble:
-IMAP(cras:17105): Cached message offset lost for seq 93 in mbox file /home/cras/mail/bugtraq
-IMAP(cras:21802): mbox sync: UID inserted in the middle of mailbox /home/cras/mail/bugtraq (816584 > 816580)
-IMAP(cras:21802): mbox sync: UID inserted in the middle of mailbox /home/cras/mail/bugtraq (816598 > 816580)
-
  - solaris sendfile is broken?
-
-mail-index-transaction.c: line 467 (mail_index_transaction_add_last): 
-assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
 
  - keywords:
     - add some limits to how many there can be
@@ -96,8 +72,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
       actually be cached without all the headers..
     - compression should drop fields with last_used <
       (latest_mail_index_date - month)
-    - when parsing mbox or saving message, parse the mail through index-mail
-      so things gets saved into cache immediately
     - we could try compressing same field values into a single
       location in cache file.
     - support caching all message headers. this could be useful when
@@ -141,8 +115,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - read-only support for mailboxes where we don't have write-access
     - when mailbox is deleted/renamed and someone else had it open, we get
       stat() error messages in log file.
-    - sort: we could create alternative indexes for different sort conditions.
-      sort code itself already supports this optimization.
 
  - lib-storage
     - index_removal_timeout gets leaked in some conditions. how?
@@ -190,7 +162,7 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - remove system_user and allow returning multiple gids instead.
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
-    - post-login-sql-command (userdb command doesn't do because of dovecot-lda)
+    - post-login-sql-command (userdb command doesn't do because of deliver)
     - does dovecot-auth really break when it runs out of fds?
     - dovecot-auth should limit how fast authentication requests are allowed from
       login processes. especially if there's one login/connection the speed
@@ -251,7 +223,6 @@ assertion failed:(idx == size || data[idx].uid1 <= update.uid1)
     - create indexer binary
     - ~/.dovecotrc to override system wide settings. namespace settings should
       override all the previous namespace settings instead of adding new.
-    - ESTALE handling for NFS safety
     - option to disable SORT, SEARCH and other memory/cpu-intensive features.
       defaults and per-user by dovecot-auth.
     - dotlock overriding is racy, but it's pretty difficult to fix it. Also
