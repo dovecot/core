@@ -352,9 +352,12 @@ int index_mail_parse_headers(struct index_mail *mail,
 
 	index_mail_parse_header_init(mail, headers);
 
-	if (data->parts == NULL && data->parser_ctx == NULL) {
+	if (data->parser_ctx == NULL && (data->parts == NULL ||
+					 data->save_bodystructure_header)) {
 		/* initialize bodystructure parsing in case we read the whole
 		   message. */
+		if (data->parser_ctx != NULL)
+			(void)message_parser_deinit(&mail->data.parser_ctx);
 		data->parser_ctx =
 			message_parser_init(mail->data_pool, data->stream);
 		message_parser_parse_header(data->parser_ctx, &data->hdr_size,
