@@ -596,11 +596,6 @@ mech_digest_md5_auth_initial(struct auth_request *auth_request,
 			       str_data(challenge), str_len(challenge));
 }
 
-static void mech_digest_md5_auth_free(struct auth_request *request)
-{
-	pool_unref(request->pool);
-}
-
 static struct auth_request *mech_digest_md5_auth_new(void)
 {
 	struct digest_auth_request *request;
@@ -627,5 +622,5 @@ struct mech_module mech_digest_md5 = {
 	mech_digest_md5_auth_new,
 	mech_digest_md5_auth_initial,
 	mech_digest_md5_auth_continue,
-        mech_digest_md5_auth_free
+	mech_generic_auth_free
 };

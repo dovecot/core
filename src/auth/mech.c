@@ -46,6 +46,22 @@ struct mech_module *mech_module_find(const char *name)
 	return NULL;
 }
 
+void mech_generic_auth_initial(struct auth_request *request,
+			       const unsigned char *data, size_t data_size)
+{
+	if (data_size == 0) {
+		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
+				  NULL, 0);
+	} else {
+		request->mech->auth_continue(request, data, data_size);
+	}
+}
+
+void mech_generic_auth_free(struct auth_request *request)
+{
+	pool_unref(request->pool);
+}
+
 extern struct mech_module mech_plain;
 extern struct mech_module mech_login;
 extern struct mech_module mech_apop;

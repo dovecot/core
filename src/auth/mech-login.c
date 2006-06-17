@@ -66,11 +66,6 @@ mech_login_auth_initial(struct auth_request *request,
 	}
 }
 
-static void mech_login_auth_free(struct auth_request *request)
-{
-	pool_unref(request->pool);
-}
-
 static struct auth_request *mech_login_auth_new(void)
 {
 	struct auth_request *request;
@@ -93,5 +88,5 @@ const struct mech_module mech_login = {
 	mech_login_auth_new,
 	mech_login_auth_initial,
 	mech_login_auth_continue,
-        mech_login_auth_free
+	mech_generic_auth_free
 };

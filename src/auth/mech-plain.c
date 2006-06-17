@@ -73,24 +73,6 @@ mech_plain_auth_continue(struct auth_request *request,
         safe_memset(pass, 0, strlen(pass));
 }
 
-static void
-mech_plain_auth_initial(struct auth_request *request,
-			const unsigned char *data, size_t data_size)
-{
-	if (data_size == 0) {
-		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
-				  NULL, 0);
-	} else {
-		mech_plain_auth_continue(request, data, data_size);
-	}
-}
-
-static void
-mech_plain_auth_free(struct auth_request *request)
-{
-	pool_unref(request->pool);
-}
-
 static struct auth_request *mech_plain_auth_new(void)
 {
         struct auth_request *request;
@@ -111,7 +93,7 @@ struct mech_module mech_plain = {
 	MEMBER(passdb_need_credentials) FALSE,
 
 	mech_plain_auth_new,
-	mech_plain_auth_initial,
+	mech_generic_auth_initial,
 	mech_plain_auth_continue,
-        mech_plain_auth_free
+	mech_generic_auth_free
 };

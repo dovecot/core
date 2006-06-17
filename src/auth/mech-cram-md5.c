@@ -168,11 +168,6 @@ mech_cram_md5_auth_initial(struct auth_request *auth_request,
 			       request->challenge, strlen(request->challenge));
 }
 
-static void mech_cram_md5_auth_free(struct auth_request *request)
-{
-	pool_unref(request->pool);
-}
-
 static struct auth_request *mech_cram_md5_auth_new(void)
 {
 	struct cram_auth_request *request;
@@ -197,5 +192,5 @@ struct mech_module mech_cram_md5 = {
 	mech_cram_md5_auth_new,
 	mech_cram_md5_auth_initial,
 	mech_cram_md5_auth_continue,
-        mech_cram_md5_auth_free
+        mech_generic_auth_free
 };

@@ -23,24 +23,6 @@ mech_anonymous_auth_continue(struct auth_request *request,
 	auth_request_success(request, NULL, 0);
 }
 
-static void
-mech_anonymous_auth_initial(struct auth_request *request,
-			    const unsigned char *data, size_t data_size)
-{
-	if (data_size == 0) {
-		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
-				  NULL, 0);
-	} else {
-		mech_anonymous_auth_continue(request, data, data_size);
-	}
-}
-
-static void
-mech_anonymous_auth_free(struct auth_request *request)
-{
-	pool_unref(request->pool);
-}
-
 static struct auth_request *mech_anonymous_auth_new(void)
 {
         struct auth_request *request;
@@ -61,7 +43,7 @@ struct mech_module mech_anonymous = {
 	MEMBER(passdb_need_credentials) FALSE,
 
 	mech_anonymous_auth_new,
-	mech_anonymous_auth_initial,
+	mech_generic_auth_initial,
 	mech_anonymous_auth_continue,
-        mech_anonymous_auth_free
+	mech_generic_auth_free
 };

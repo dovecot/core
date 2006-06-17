@@ -136,11 +136,6 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 					apop_credentials_callback);
 }
 
-static void mech_apop_auth_free(struct auth_request *request)
-{
-	pool_unref(request->pool);
-}
-
 static struct auth_request *mech_apop_auth_new(void)
 {
 	struct apop_auth_request *request;
@@ -165,5 +160,5 @@ const struct mech_module mech_apop = {
 	mech_apop_auth_new,
 	mech_apop_auth_initial,
 	NULL,
-        mech_apop_auth_free
+        mech_generic_auth_free
 };

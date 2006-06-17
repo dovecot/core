@@ -242,24 +242,6 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 	}
 }
 
-static void
-mech_ntlm_auth_initial(struct auth_request *request,
-		       const unsigned char *data, size_t data_size)
-{
-	if (data_size == 0) {
-		request->callback(request, AUTH_CLIENT_RESULT_CONTINUE,
-				  NULL, 0);
-	} else {
-		mech_ntlm_auth_continue(request, data, data_size);
-	}
-}
-
-static void
-mech_ntlm_auth_free(struct auth_request *request)
-{
-	pool_unref(request->pool);
-}
-
 static struct auth_request *mech_ntlm_auth_new(void)
 {
 	struct ntlm_auth_request *request;
@@ -282,7 +264,7 @@ const struct mech_module mech_ntlm = {
 	MEMBER(passdb_need_credentials) TRUE,
 
 	mech_ntlm_auth_new,
-	mech_ntlm_auth_initial,
+	mech_generic_auth_initial,
 	mech_ntlm_auth_continue,
-	mech_ntlm_auth_free
+	mech_generic_auth_free
 };
