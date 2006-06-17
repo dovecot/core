@@ -727,6 +727,8 @@ static void auth_request_validate_networks(struct auth_request *request,
 
 	t_push();
 	for (net = t_strsplit_spaces(networks, ", "); *net != NULL; net++) {
+		auth_request_log_debug(request, "auth",
+			"allow_nets: Matching for network %s", *net);
 		switch (is_ip_in_network(*net, &request->remote_ip)) {
 		case 1:
 			found = TRUE;
