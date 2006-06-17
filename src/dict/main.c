@@ -13,12 +13,14 @@
 #include "module-dir.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <syslog.h>
 
 #define DICT_MASTER_LISTENER_FD 3
 
 struct ioloop *ioloop;
 
+static struct io *log_io;
 static struct module *modules;
 static struct dict_server *dict_server;
 
@@ -28,6 +30,11 @@ static void sig_die(int signo, void *context __attr_unused__)
 	   which is too common at least while testing :) */
 	if (signo != SIGINT)
 		i_warning("Killed with signal %d", signo);
+	io_loop_stop(ioloop);
+}
+
+static void log_error_callback(void *context __attr_unused__)
+{
 	io_loop_stop(ioloop);
 }
 
@@ -58,6 +65,9 @@ static void main_init(void)
         lib_signals_ignore(SIGPIPE);
         lib_signals_set_handler(SIGALRM, FALSE, NULL, NULL);
 
+	/* If master dies, the log fd gets closed and we'll quit */
+	log_io = io_add(STDERR_FILENO, IO_ERROR, log_error_callback, NULL);
+
 	dict_client_register();
 	dict_sql_register();
 
@@ -74,6 +84,7 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
+	io_remove(&log_io);
 	dict_server_deinit(dict_server);
 
 	module_dir_unload(&modules);
