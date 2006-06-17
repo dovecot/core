@@ -1,6 +1,7 @@
-/* Copyright (C) 2002-2003 Timo Sirainen */
+/* Copyright (C) 2002-2006 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "hostpid.h"
 #include "home-expand.h"
 #include "mkdir-parents.h"
@@ -741,23 +742,46 @@ static int rename_subfolders(struct index_storage *storage,
 {
 	struct mailbox_list_context *ctx;
         struct mailbox_list *list;
-	const char *oldpath, *newpath, *new_listname;
+	array_t ARRAY_DEFINE(names_arr, const char *);
+	const char *oldpath, *newpath, *old_listname, *new_listname;
+	const char *const *names;
+	unsigned int i, count;
 	size_t oldnamelen;
+	pool_t pool;
 	int ret;
 
 	ret = 0;
 	oldnamelen = strlen(oldname);
 
+	/* first get a list of the subfolders and save them to memory, because
+	   we can't rely on readdir() not skipping files while the directory
+	   is being modified. this doesn't protect against modifications by
+	   other processes though. */
+	pool = pool_alloconly_create("Maildir subfolders list", 1024);
+	ARRAY_CREATE(&names_arr, default_pool, const char *, 64);
 	ctx = maildir_mailbox_list_init(&storage->storage, oldname, "*",
 					MAILBOX_LIST_FAST_FLAGS);
 	while ((list = maildir_mailbox_list_next(ctx)) != NULL) {
-		t_push();
+		const char *name;
 
 		i_assert(oldnamelen <= strlen(list->name));
 
-		new_listname = t_strconcat(newname,
-					   list->name + oldnamelen, NULL);
-		oldpath = maildir_get_path(storage, list->name);
+		name = p_strdup(pool, list->name + oldnamelen);
+		array_append(&names_arr, &name, 1);
+	}
+	if (maildir_mailbox_list_deinit(ctx) < 0) {
+		ret = -1;
+		count = 0;
+	} else {
+		names = array_get(&names_arr, &count);
+	}
+
+	for (i = 0; i < count; i++) {
+		t_push();
+
+		old_listname = t_strconcat(oldname, names[i], NULL);
+		new_listname = t_strconcat(newname, names[i], NULL);
+		oldpath = maildir_get_path(storage, old_listname);
 		newpath = maildir_get_path(storage, new_listname);
 
 		/* FIXME: it's possible to merge two folders if either one of
@@ -780,12 +804,12 @@ static int rename_subfolders(struct index_storage *storage,
 			break;
 		}
 
-		(void)rename_indexes(storage, list->name, new_listname);
+		(void)rename_indexes(storage, old_listname, new_listname);
 		t_pop();
 	}
+	array_free(&names_arr);
+	pool_unref(pool);
 
-	if (maildir_mailbox_list_deinit(ctx) < 0)
-		return -1;
 	return ret;
 }
 
