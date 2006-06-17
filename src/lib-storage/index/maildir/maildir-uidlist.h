@@ -49,6 +49,9 @@ int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
 int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			      const char *filename,
 			      enum maildir_uidlist_rec_flag flags);
+const char *
+maildir_uidlist_sync_get_full_filename(struct maildir_uidlist_sync_ctx *ctx,
+				       const char *filename);
 void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx);
 int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **ctx);
 

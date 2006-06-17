@@ -611,15 +611,41 @@ static void maildir_sync_deinit(struct maildir_sync_context *ctx)
 		(void)maildir_sync_index_finish(&ctx->index_sync_ctx, TRUE);
 }
 
-static int maildir_fix_duplicate(struct maildir_mailbox *mbox, const char *dir,
-				 const char *old_fname)
+static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
+				 const char *dir, const char *old_fname)
 {
+	struct maildir_mailbox *mbox = ctx->mbox;
+	const char *existing_fname, *existing_path;
 	const char *new_fname, *old_path, *new_path;
+	struct stat st, st2;
 	int ret = 0;
+
+	existing_fname =
+		maildir_uidlist_sync_get_full_filename(ctx->uidlist_sync_ctx,
+						       old_fname);
+	i_assert(existing_fname != NULL);
 
 	t_push();
 
+	existing_path = t_strconcat(dir, "/", existing_fname, NULL);
 	old_path = t_strconcat(dir, "/", old_fname, NULL);
+
+	if (stat(existing_path, &st) < 0 ||
+	    stat(old_path, &st2) < 0) {
+		/* most likely the files just don't exist anymore.
+		   don't really care about other errors much. */
+		t_pop();
+		return 0;
+	}
+	if (st.st_ino == st2.st_ino && CMP_DEV_T(st.st_dev, st2.st_dev)) {
+		/* files are the same. this means either a race condition
+		   between stat() calls, or someone has started link()ing the
+		   files. either way there's no data loss if we just leave it
+		   there. */
+		t_pop();
+		return 0;
+	}
+
 	new_fname = maildir_generate_tmp_filename(&ioloop_timeval);
 	new_path = t_strconcat(mbox->path, "/new/", new_fname, NULL);
 
@@ -724,8 +750,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 				break;
 
 			/* possibly duplicate - try fixing it */
-			if (maildir_fix_duplicate(ctx->mbox,
-						  dir, dp->d_name) < 0) {
+			if (maildir_fix_duplicate(ctx, dir, dp->d_name) < 0) {
 				ret = -1;
 				break;
 			}

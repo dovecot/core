@@ -804,6 +804,16 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 	return 1;
 }
 
+const char *
+maildir_uidlist_sync_get_full_filename(struct maildir_uidlist_sync_ctx *ctx,
+				       const char *filename)
+{
+	struct maildir_uidlist_rec *rec;
+
+	rec = hash_lookup(ctx->files, filename);
+	return rec == NULL ? NULL : rec->filename;
+}
+
 static int maildir_time_cmp(const void *p1, const void *p2)
 {
 	const struct maildir_uidlist_rec *const *rec1 = p1, *const *rec2 = p2;
