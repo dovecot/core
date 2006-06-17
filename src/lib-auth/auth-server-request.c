@@ -31,8 +31,9 @@ struct auth_request {
 	unsigned int retrying:1;
 };
 
-static bool auth_server_send_new_request(struct auth_server_connection *conn,
-					 struct auth_request *request);
+static int auth_server_send_new_request(struct auth_server_connection *conn,
+					struct auth_request *request,
+					const char **error_r);
 static void auth_client_request_free(struct auth_request *request);
 
 static struct auth_server_connection *
@@ -50,6 +51,8 @@ get_next_plain_server(struct auth_server_connection *conn)
 static void
 auth_server_request_check_retry(struct auth_request *request, const char *data)
 {
+	const char *error;
+
 	if (strcmp(request->mech, "PLAIN") == 0 && data != NULL &&
 	    request->plaintext_data == NULL && request->conn != NULL) {
 		request->next_conn = get_next_plain_server(request->conn);
@@ -60,9 +63,9 @@ auth_server_request_check_retry(struct auth_request *request, const char *data)
 
 			hash_insert(request->next_conn->requests,
 				    POINTER_CAST(request->id), request);
-			auth_server_send_new_request(request->next_conn,
-						     request);
-			request->retrying = TRUE;
+			if (auth_server_send_new_request(request->next_conn,
+							 request, &error) == 0)
+				request->retrying = TRUE;
 		}
 	}
 }
@@ -80,8 +83,9 @@ static bool is_valid_string(const char *str)
 	return TRUE;
 }
 
-static bool auth_server_send_new_request(struct auth_server_connection *conn,
-					 struct auth_request *request)
+static int auth_server_send_new_request(struct auth_server_connection *conn,
+					struct auth_request *request,
+					const char **error_r)
 {
 	string_t *str;
 	ssize_t ret;
@@ -99,7 +103,8 @@ static bool auth_server_send_new_request(struct auth_server_connection *conn,
 	if (request->cert_username != NULL) {
 		if (!is_valid_string(request->cert_username)) {
 			t_pop();
-			return FALSE;
+			*error_r = "Invalid username in SSL certificate";
+			return -1;
 		}
 		str_printfa(str, "\tcert_username=%s", request->cert_username);
 	}
@@ -107,8 +112,14 @@ static bool auth_server_send_new_request(struct auth_server_connection *conn,
 		str_printfa(str, "\tlip=%s", net_ip2addr(&request->local_ip));
 	if (request->remote_ip.family != 0)
 		str_printfa(str, "\trip=%s", net_ip2addr(&request->remote_ip));
-	if (request->initial_resp_base64 != NULL)
+	if (request->initial_resp_base64 != NULL) {
+		/*if (!is_valid_string(request->initial_resp_base64)) {
+			t_pop();
+			*error_r = "Invalid base64 data in initial response";
+			return -1;
+		}*/
 		str_printfa(str, "\tresp=%s", request->initial_resp_base64);
+	}
 	str_append_c(str, '\n');
 
 	ret = o_stream_send(conn->output, str_data(str), str_len(str));
@@ -118,11 +129,11 @@ static bool auth_server_send_new_request(struct auth_server_connection *conn,
 		errno = conn->output->stream_errno;
 		i_warning("Error sending request to auth server: %m");
 		auth_server_connection_destroy(&conn, TRUE);
-		return FALSE;
+		return -1;
 	}
 
 	auth_server_request_check_retry(request, request->initial_resp_base64);
-	return TRUE;
+	return 0;
 }
 
 static void auth_server_send_continue(struct auth_server_connection *conn,
@@ -222,7 +233,7 @@ bool auth_client_input_fail(struct auth_server_connection *conn,
 {
 	struct auth_request *request;
         struct auth_server_connection *next;
-	const char *const *list;
+	const char *const *list, *error;
 	unsigned int id;
 
 	list = t_strsplit(args, "\t");
@@ -259,7 +270,8 @@ bool auth_client_input_fail(struct auth_server_connection *conn,
 				    request);
 			request->next_conn = next;
 
-			auth_server_send_new_request(next, request);
+			(void)auth_server_send_new_request(next, request,
+							   &error);
 			return TRUE;
 		}
 	}
@@ -349,7 +361,7 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 
 	hash_insert(conn->requests, POINTER_CAST(request->id), request);
 
-	if (!auth_server_send_new_request(conn, request))
+	if (auth_server_send_new_request(conn, request, error_r) < 0)
 		request = NULL;
 	return request;
 }
