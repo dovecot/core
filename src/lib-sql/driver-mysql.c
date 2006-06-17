@@ -347,15 +347,40 @@ static char *
 driver_mysql_escape_string(struct sql_db *_db, const char *string)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
-	const struct mysql_connection *conn;
+	struct mysql_connection *conn;
+	unsigned int i, count;
 	size_t len = strlen(string);
 	char *to;
 
-	/* All the connections should be identical, so just use the first one */
-	conn = array_idx(&db->connections, 0);
+	/* All the connections should be identical, so just use the first
+	   connected one */
+	conn = array_get_modifyable(&db->connections, &count);
+	for (i = 0; i < count; i++) {
+		if (conn[i].connected)
+			break;
+	}
+	if (i == count) {
+		/* so, try connecting.. */
+		for (i = 0; i < count; i++) {
+			if (driver_mysql_connect(&conn[i]))
+				break;
+		}
+		if (i == count) {
+			/* FIXME: we don't have a valid connection, so fallback
+			   to using default escaping. the next query will most
+			   likely fail anyway so it shouldn't matter that much
+			   what we return here.. Anyway, this API needs
+			   changing so that the escaping function could already
+			   fail the query reliably. */
+			to = t_buffer_get(len * 2 + 1);
+			len = mysql_escape_string(to, string, len);
+			t_buffer_alloc(len + 1);
+			return to;
+		}
+	}
 
 	to = t_buffer_get(len * 2 + 1);
-	len = mysql_real_escape_string(conn->mysql, to, string, len);
+	len = mysql_real_escape_string(conn[i].mysql, to, string, len);
 	t_buffer_alloc(len + 1);
 	return to;
 }
