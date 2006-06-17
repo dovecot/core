@@ -799,6 +799,12 @@ static bool settings_verify(struct settings *set)
 			i_error("chmod(%s) failed: %m", set->base_dir);
 	}
 
+	/* Make sure our permanent state directory exists */
+	if (mkdir_parents(PKG_STATEDIR, 0777) < 0 && errno != EEXIST) {
+		i_error("mkdir(%s) failed: %m", PKG_STATEDIR);
+		return FALSE;
+	}
+
 	if (!settings_have_connect_sockets(set)) {
 		/* we are not using external authentication, so make sure the
 		   login directory exists with correct permissions and it's

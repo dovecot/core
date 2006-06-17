@@ -1,8 +1,9 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2006 Timo Sirainen */
 
 #include "common.h"
 #include "ioloop.h"
 #include "env-util.h"
+#include "file-copy.h"
 #include "log.h"
 #include "ssl-init.h"
 
@@ -15,7 +16,9 @@
 #include <sys/stat.h>
 
 static struct timeout *to;
-static bool generating;
+static char *generating_path = NULL;
+
+#define SSL_PARAMETERS_PERM_PATH PKG_STATEDIR"/"SSL_PARAMETERS_FILENAME
 
 static void start_generate_process(const char *fname)
 {
@@ -40,7 +43,8 @@ static void start_generate_process(const char *fname)
 	log_set_prefix(log, "ssl-build-param: ");
 	if (pid != 0) {
 		/* parent */
-		generating = TRUE;
+		i_assert(generating_path == NULL);
+		generating_path = i_strdup(fname);
 		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_SSL_PARAM);
 		return;
 	}
@@ -50,13 +54,18 @@ static void start_generate_process(const char *fname)
 		i_fatal("dup2(stderr) failed: %m");
 
 	child_process_init_env();
-	client_process_exec(t_strconcat(binpath, " ", fname, NULL), "");
+	client_process_exec(t_strconcat(binpath, " "SSL_PARAMETERS_PERM_PATH,
+					NULL), "");
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", binpath);
 }
 
 void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
 {
-	generating = FALSE;
+	if (file_copy(SSL_PARAMETERS_PERM_PATH, generating_path, TRUE) <= 0) {
+		i_error("file_copy(%s, %s) failed: %m",
+			SSL_PARAMETERS_PERM_PATH, generating_path);
+	}
+	i_free_and_null(generating_path);
 }
 
 static bool check_parameters_file_set(struct settings *set)
@@ -76,7 +85,15 @@ static bool check_parameters_file_set(struct settings *set)
 			return TRUE;
 		}
 
-		st.st_mtime = 0;
+		/* try to copy the permanent parameters file here if possible */
+		if (file_copy(SSL_PARAMETERS_PERM_PATH, path, TRUE) > 0) {
+			if (stat(path, &st) < 0) {
+				i_error("stat(%s) failed: %m", path);
+				st.st_mtime = 0;
+			}
+		} else {
+			st.st_mtime = 0;
+		}
 	} else if (st.st_size == 0) {
 		/* broken, delete it (mostly for backwards compatibility) */
 		st.st_mtime = 0;
@@ -105,7 +122,7 @@ void ssl_check_parameters_file(void)
 {
 	struct server_settings *server;
 
-	if (generating)
+	if (generating_path != NULL)
 		return;
 
 	for (server = settings_root; server != NULL; server = server->next) {
@@ -122,7 +139,7 @@ static void check_parameters_file_timeout(void *context __attr_unused__)
 
 void ssl_init(void)
 {
-	generating = FALSE;
+	generating_path = NULL;
 
 	/* check every 10 mins */
 	to = timeout_add(600 * 1000, check_parameters_file_timeout, NULL);

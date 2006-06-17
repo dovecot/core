@@ -234,6 +234,13 @@ AC_ARG_WITH(rundir,
 )
 AC_SUBST(rundir)
 
+AC_ARG_WITH(statedir,
+[  --with-statedir=DIR     Permanent data directory (LOCALSTATEDIR/lib/dovecot)],
+	statedir="$withval",
+	statedir=$localstatedir/lib/$PACKAGE_NAME
+)
+AC_SUBST(statedir)
+
 AC_ARG_WITH(gc,
 [  --with-gc               Use Boehm garbage collector (currently broken)],
 	if test x$withval = xyes; then

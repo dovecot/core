@@ -8,6 +8,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
+	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\""
