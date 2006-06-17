@@ -4,6 +4,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "mail-storage.h"
 #include "commands-util.h"
 #include "imap-parser.h"
@@ -45,14 +46,14 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 
 	/* make sure it even looks valid */
 	sep = mail_storage_get_hierarchy_sep(storage);
-	if (*mailbox == '\0' || strspn(mailbox, "\r\n*%?") != 0) {
-		client_send_tagline(cmd, "NO Invalid mailbox name.");
+	if (*mailbox == '\0') {
+		client_send_tagline(cmd, "NO Empty mailbox name.");
 		return FALSE;
 	}
 
 	/* make sure two hierarchy separators aren't next to each others */
 	for (p = mailbox+1; *p != '\0'; p++) {
-		if (p[0] == sep && p[1] == sep) {
+		if (p[0] == sep && p[-1] == sep) {
 			client_send_tagline(cmd, "NO Invalid mailbox name.");
 			return FALSE;
 		}
@@ -84,12 +85,13 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 
 		client_send_tagline(cmd, t_strconcat(
 			"NO [TRYCREATE] Mailbox doesn't exist: ",
-			mailbox, NULL));
+			str_sanitize(mailbox, MAILBOX_MAX_NAME_LEN), NULL));
 		break;
 
 	case MAILBOX_NAME_INVALID:
 		client_send_tagline(cmd, t_strconcat(
-			"NO Invalid mailbox name: ", mailbox, NULL));
+			"NO Invalid mailbox name: ",
+			str_sanitize(mailbox, MAILBOX_MAX_NAME_LEN), NULL));
 		break;
 
 	case MAILBOX_NAME_NOINFERIORS:
