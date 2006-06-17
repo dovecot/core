@@ -114,7 +114,7 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 		t_push();
 		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
 				  DICT_QUOTA_CURRENT_BYTES_PATH, &value);
-		*value_r = value == NULL ? 0 : strtoull(value, NULL, 10) / 1024;
+		*value_r = ret <= 0 ? 0 : strtoull(value, NULL, 10) / 1024;
 		t_pop();
 	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
 		if (root->message_count_limit == (uint64_t)-1)
@@ -124,7 +124,7 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 		t_push();
 		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
 				  DICT_QUOTA_CURRENT_COUNT_PATH, &value);
-		*value_r = value == NULL ? 0 : strtoull(value, NULL, 10);
+		*value_r = ret <= 0 ? 0 : strtoull(value, NULL, 10);
 		t_pop();
 	} else {
 		return 0;
