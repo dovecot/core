@@ -101,7 +101,8 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 
 	/* home */
 	if (*args != NULL) {
-		pu->home = p_strdup_empty(pw->pool, *args);
+		if (pw->db->userdb)
+			pu->home = p_strdup_empty(pw->pool, *args);
 		args++;
 	}
 
@@ -113,7 +114,7 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 		/* old format, this field is empty and next field may
 		   contain MAIL */
 		args++;
-		if (*args != NULL && **args != '\0') {
+		if (*args != NULL && **args != '\0' && pw->db->userdb) {
 			extra_fields =
                                 t_strconcat("userdb_mail=",
                                             t_strarray_join(args, ":"), NULL);
@@ -185,8 +186,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 		args = t_strsplit(line, ":");
 		if (args[1] != NULL) {
 			/* at least username+password */
-			passwd_file_add(pw, args[0], args[1],
-					pw->db->userdb ? args+2 : &no_args);
+			passwd_file_add(pw, args[0], args[1], args+2);
 		} else {
 			/* only username */
 			passwd_file_add(pw, args[0], NULL, &no_args);
