@@ -74,6 +74,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 	last_no_newline = line->no_newline;
 	line->no_newline = FALSE;
+	line->crlf_newline = FALSE;
 
 	if (line->continues) {
 		if (line->use_full_value && !line->continued) {
@@ -133,9 +134,10 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				size = 0;
 				if (ctx->hdr_size != NULL)
 					ctx->hdr_size->lines++;
-				if (msg[0] == '\r')
+				if (msg[0] == '\r') {
 					ctx->skip = 2;
-				else {
+					line->crlf_newline = TRUE;
+				} else {
 					ctx->skip = 1;
 					if (ctx->hdr_size != NULL)
 						ctx->hdr_size->virtual_size++;
@@ -218,10 +220,14 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				if (ctx->hdr_size != NULL) {
 					ctx->hdr_size->physical_size += i;
 					ctx->hdr_size->virtual_size += i;
-					if (i == 0 || msg[i-1] != '\r') {
-						/* missing CR */
+				}
+
+				if (i == 0 || msg[i-1] != '\r') {
+					/* missing CR */
+					if (ctx->hdr_size != NULL)
 						ctx->hdr_size->virtual_size++;
-					}
+				} else {
+					line->crlf_newline = TRUE;
 				}
 				i_stream_skip(ctx->input, i);
 				startpos = 0;
@@ -239,6 +245,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				size = i;
 			} else {
 				size = i-1;
+				line->crlf_newline = TRUE;
 			}
 
 			ctx->skip = i+1;
