@@ -13,6 +13,7 @@ liblib_a_SOURCES = \
 	fd-set-nonblock.c \
 	fdpass.c \
 	file-cache.c \
+	file-copy.c \
 	file-dotlock.c \
 	file-lock.c \
 	file-set-size.c \
@@ -98,6 +99,7 @@ noinst_HEADERS = \
 	fd-set-nonblock.h \
 	fdpass.h \
 	file-cache.h \
+	file-copy.h \
 	file-dotlock.h \
 	file-lock.h \
 	file-set-size.h \
