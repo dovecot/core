@@ -16,8 +16,8 @@ noinst_HEADERS = \
 	trash-plugin.h
 
 install-exec-local:
-	$(mkdir_p) $(DESTDIR)$(moduledir)/imap $(DESTDIR)$(moduledir)/lda
 	for d in imap lda; do \
+	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
 	  rm -f $(DESTDIR)$(moduledir)/$$d/lib02_trash_plugin.so; \
 	  $(LN_S) ../lib02_trash_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done

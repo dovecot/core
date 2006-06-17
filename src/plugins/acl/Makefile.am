@@ -24,8 +24,8 @@ noinst_HEADERS = \
 	acl-plugin.h
 
 install-exec-local:
-	$(mkdir_p) $(DESTDIR)$(moduledir)/imap $(DESTDIR)$(moduledir)/lda
 	for d in imap lda; do \
+	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
 	  rm -f $(DESTDIR)$(moduledir)/$$d/lib01_acl_plugin.so; \
 	  $(LN_S) ../lib01_acl_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done

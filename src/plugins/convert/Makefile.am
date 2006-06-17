@@ -41,8 +41,8 @@ convert_tool_LDADD = \
 convert_tool_DEPENDENCIES = $(libs)
 
 install-exec-local:
-	$(mkdir_p) $(DESTDIR)$(moduledir)/imap $(DESTDIR)$(moduledir)/pop3 $(DESTDIR)$(moduledir)/lda
 	for d in imap pop3 lda; do \
+	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
 	  rm -f $(DESTDIR)$(moduledir)/$$d/lib01_convert_plugin.so; \
 	  $(LN_S) ../lib01_convert_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done
