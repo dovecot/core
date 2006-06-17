@@ -1412,6 +1412,9 @@ if test $want_ldap = yes; then
 			AC_CHECK_LIB(ldap, ldap_initialize, [
 				AC_DEFINE(LDAP_HAVE_INITIALIZE,, Define if you have ldap_initialize)
 			])
+			AC_CHECK_LIB(ldap, ldap_start_tls_s, [
+				AC_DEFINE(LDAP_HAVE_START_TLS_S,, Define if you have ldap_start_tls_s)
+			])
 			AUTH_LIBS="$AUTH_LIBS -lldap"
 
         		AC_DEFINE(USERDB_LDAP,, Build with LDAP support)

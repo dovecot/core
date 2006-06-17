@@ -20,6 +20,7 @@ struct ldap_settings {
 	bool auth_bind;
 	const char *auth_bind_userdn;
 
+	bool tls;
 	bool sasl_bind;
 	const char *sasl_mech;
 	const char *sasl_realm;

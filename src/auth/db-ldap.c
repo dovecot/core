@@ -35,6 +35,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, dnpass),
 	DEF(SET_BOOL, auth_bind),
 	DEF(SET_STR, auth_bind_userdn),
+	DEF(SET_BOOL, tls),
 	DEF(SET_BOOL, sasl_bind),
 	DEF(SET_STR, sasl_mech),
 	DEF(SET_STR, sasl_realm),
@@ -62,6 +63,7 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(dnpass) NULL,
 	MEMBER(auth_bind) FALSE,
 	MEMBER(auth_bind_userdn) NULL,
+	MEMBER(tls) FALSE,
 	MEMBER(sasl_bind) FALSE,
 	MEMBER(sasl_mech) NULL,
 	MEMBER(sasl_realm) NULL,
@@ -296,6 +298,20 @@ bool db_ldap_connect(struct ldap_connection *conn)
 			i_fatal("LDAP: Can't set protocol version %u: %s",
 				conn->set.ldap_version, ldap_err2string(ret));
 		}
+	}
+
+	if (conn->set.tls) {
+#ifdef LDAP_HAVE_START_TLS_S
+		ret = ldap_start_tls_s(conn->ld, NULL, NULL);
+		if (ret != LDAP_SUCCESS) {
+			i_error("LDAP: ldap_start_tls_s() failed: %s",
+				ldap_err2string(ret));
+			return FALSE;
+		}
+#else
+		i_error("LDAP: Your LDAP library doesn't support TLS");
+		return FALSE;
+#endif
 	}
 
 	/* FIXME: we shouldn't use blocking bind */
