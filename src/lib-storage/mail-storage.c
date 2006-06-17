@@ -14,6 +14,14 @@
 	"Internal error occurred. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
+/* 20 * (200+1) < 4096 which is the standard PATH_MAX. Having these settings
+   prevents malicious user from creating eg. "a/a/a/.../a" mailbox name and
+   then start renaming them to larger names from end to beginning, which
+   eventually would start causing the failures when trying to use too
+   long mailbox names. */
+#define MAILBOX_MAX_HIERARCHY_LEVELS 20
+#define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 200
+
 unsigned int mail_storage_module_id = 0;
 
 static array_t ARRAY_DEFINE(storages, struct mail_storage *);
@@ -535,4 +543,26 @@ int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
 bool mailbox_is_inconsistent(struct mailbox *box)
 {
 	return box->v.is_inconsistent(box);
+}
+
+bool mailbox_name_is_too_large(const char *name, char sep)
+{
+	unsigned int levels = 1, level_len = 0;
+
+	for (; *name != '\0'; name++) {
+		if (*name == sep) {
+			if (level_len > MAILBOX_MAX_HIERARCHY_NAME_LENGTH)
+				return TRUE;
+			levels++;
+			level_len = 0;
+		} else {
+			level_len++;
+		}
+	}
+
+	if (level_len > MAILBOX_MAX_HIERARCHY_NAME_LENGTH)
+		return TRUE;
+	if (levels > MAILBOX_MAX_HIERARCHY_LEVELS)
+		return TRUE;
+	return FALSE;
 }

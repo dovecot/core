@@ -254,5 +254,6 @@ void mail_storage_set_internal_error(struct mail_storage *storage);
 
 const char *mail_storage_class_get_last_error(struct mail_storage *storage,
 					      bool *syntax_error_r);
+bool mailbox_name_is_too_large(const char *name, char sep);
 
 #endif

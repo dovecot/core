@@ -207,6 +207,9 @@ static bool maildir_is_valid_create_name(struct mail_storage *storage,
 		return FALSE;
 	}
 
+	if (mailbox_name_is_too_large(name, '.'))
+		return FALSE;
+
 	return TRUE;
 }
 

@@ -407,6 +407,11 @@ static bool mbox_is_valid_create_name(struct mail_storage *storage,
 	    len > MBOX_MAX_MAILBOX_NAME_LENGTH)
 		return FALSE;
 
+	if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) == 0) {
+		if (mailbox_name_is_too_large(name, '/'))
+		    return FALSE;
+	}
+
 	return mbox_is_valid_mask(storage, name);
 }
 
