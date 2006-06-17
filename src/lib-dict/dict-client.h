@@ -9,7 +9,7 @@
 #define DICT_CLIENT_MAX_LINE_LENGTH (64*1024)
 
 enum {
-        /* <major-version> <minor-version> <user> <dict uri> */
+        /* <major-version> <minor-version> <user> <dict name> */
 	DICT_PROTOCOL_CMD_HELLO = 'H',
 
 	DICT_PROTOCOL_CMD_LOOKUP = 'L', /* <key> */

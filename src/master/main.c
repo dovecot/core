@@ -136,6 +136,7 @@ static void settings_reload(void)
 	/* restart auth and login processes */
         login_processes_destroy_all();
         auth_processes_destroy_all();
+        dict_process_kill();
 
 	if (!master_settings_read(configfile, FALSE))
 		i_warning("Invalid configuration, keeping old one");

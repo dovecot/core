@@ -30,6 +30,7 @@ enum settings_type {
 	SETTINGS_TYPE_AUTH_USERDB,
         SETTINGS_TYPE_NAMESPACE,
 	SETTINGS_TYPE_SOCKET,
+	SETTINGS_TYPE_DICT,
 	SETTINGS_TYPE_PLUGIN
 };
 
@@ -1071,6 +1072,13 @@ static const char *parse_setting(const char *key, const char *value,
 		return parse_setting_from_defs(settings_pool,
 					       socket_setting_defs,
 					       ctx->socket, key, value);
+	case SETTINGS_TYPE_DICT:
+		key = p_strdup(settings_pool, key);
+		value = p_strdup(settings_pool, value);
+
+		array_append(&ctx->server->dicts, &key, 1);
+		array_append(&ctx->server->dicts, &value, 1);
+		return NULL;
 	case SETTINGS_TYPE_PLUGIN:
 		key = p_strdup(settings_pool, key);
 		value = p_strdup(settings_pool, value);
@@ -1109,6 +1117,7 @@ create_new_server(const char *name,
 	*server->imap = *imap_defaults;
 	*server->pop3 = *pop3_defaults;
 
+	ARRAY_CREATE(&server->dicts, settings_pool, const char *, 4);
 	ARRAY_CREATE(&server->imap->plugin_envs, settings_pool,
 		     const char *, 8);
 	ARRAY_CREATE(&server->pop3->plugin_envs, settings_pool,
@@ -1255,6 +1264,17 @@ static bool parse_section(const char *type, const char *name, void *context,
 		ctx->namespace = parse_new_namespace(ctx->server, name,
 						     errormsg);
 		return ctx->namespace != NULL;
+	}
+
+	if (strcmp(type, "dict") == 0) {
+		if (ctx->type != SETTINGS_TYPE_ROOT &&
+		    ctx->type != SETTINGS_TYPE_SERVER) {
+			*errormsg = "Plugin section not allowed here";
+			return FALSE;
+		}
+
+		ctx->type = SETTINGS_TYPE_DICT;
+		return TRUE;
 	}
 
 	if (strcmp(type, "plugin") == 0) {

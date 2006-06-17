@@ -10,6 +10,8 @@
 
 struct log_io {
 	struct log_io *prev, *next;
+	int refcount;
+
 	struct io *io;
 	struct istream *stream;
 
@@ -29,7 +31,6 @@ static unsigned int throttle_count;
 
 static int log_it(struct log_io *log_io, const char *line, bool continues);
 static void log_read(void *context);
-static void log_io_free(struct log_io *log_io);
 static void log_throttle_timeout(void *context);
 
 static bool log_write_pending(struct log_io *log_io)
@@ -132,7 +133,7 @@ static void log_read(void *context)
 	if (ret < 0) {
 		if (ret == -1) {
 			/* closed */
-			log_io_free(log_io);
+			log_unref(log_io);
 			return;
 		}
 
@@ -166,6 +167,7 @@ int log_create_pipe(struct log_io **log_r, unsigned int max_lines_per_sec)
 	fd_close_on_exec(fd[1], TRUE);
 
 	log_io = i_new(struct log_io, 1);
+	log_io->refcount = 1;
 	log_io->stream = i_stream_create_file(fd[0], default_pool, 1024, TRUE);
 	log_io->max_lines_per_sec =
 		max_lines_per_sec != 0 ? max_lines_per_sec : (unsigned int)-1;
@@ -189,10 +191,18 @@ void log_set_prefix(struct log_io *log, const char *prefix)
 	log->prefix = i_strdup(prefix);
 }
 
-static void log_io_free(struct log_io *log_io)
+void log_ref(struct log_io *log_io)
+{
+	log_io->refcount++;
+}
+
+static void log_close(struct log_io *log_io)
 {
 	const unsigned char *data;
 	size_t size;
+
+	if (log_io->destroying)
+		return;
 
 	/* if there was something in buffer, write it */
 	log_io->destroying = TRUE;
@@ -218,6 +228,17 @@ static void log_io_free(struct log_io *log_io)
 	else
 		throttle_count--;
 	i_stream_destroy(&log_io->stream);
+}
+
+void log_unref(struct log_io *log_io)
+{
+	i_assert(log_io->refcount > 0);
+
+	log_close(log_io);
+
+	if (--log_io->refcount > 0)
+		return;
+
 	i_free(log_io->prefix);
 	i_free(log_io);
 }
@@ -255,7 +276,7 @@ void log_deinit(void)
 
 	while (log_ios != NULL) {
 		next = log_ios->next;
-		log_io_free(log_ios);
+		log_unref(log_ios);
 		log_ios = next;
 	}
 

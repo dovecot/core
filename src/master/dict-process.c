@@ -1,6 +1,7 @@
 /* Copyright (C) 2006 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "ioloop.h"
 #include "network.h"
 #include "fd-close-on-exec.h"
@@ -17,6 +18,8 @@
 struct dict_process {
 	char *path;
 	int fd;
+
+	struct log_io *log;
 	struct io *io;
 };
 
@@ -27,8 +30,9 @@ static void dict_process_unlisten(struct dict_process *process);
 static int dict_process_start(struct dict_process *process)
 {
 	struct log_io *log;
-	const char *executable;
-	int i, log_fd;
+	const char *executable, *const *dicts;
+	unsigned int i, count;
+	int log_fd;
 	pid_t pid;
 
 	log_fd = log_create_pipe(&log, 0);
@@ -51,6 +55,8 @@ static int dict_process_start(struct dict_process *process)
 		log_set_prefix(log, "dict: ");
 		(void)close(log_fd);
 
+		process->log = log;
+		log_ref(process->log);
                 dict_process_unlisten(process);
 		return 0;
 	}
@@ -75,6 +81,11 @@ static int dict_process_start(struct dict_process *process)
 	child_process_init_env();
 	env_put(t_strconcat("DICT_LISTEN_FROM_FD=", process->path, NULL));
 
+	dicts = array_get(&settings_root->dicts, &count);
+	i_assert((count % 2) == 0);
+	for (i = 0; i < count; i += 2)
+		env_put(t_strdup_printf("DICT_%s=%s", dicts[i], dicts[i+1]));
+
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
 	closelog();
@@ -89,6 +100,7 @@ static void dict_process_listen_input(void *context)
 {
 	struct dict_process *process = context;
 
+	i_assert(process->log == NULL);
 	dict_process_start(process);
 }
 
@@ -157,6 +169,8 @@ void dict_process_init(void)
 void dict_process_deinit(void)
 {
 	dict_process_unlisten(process);
+	if (process->log != NULL)
+		log_unref(process->log);
 	i_free(process->path);
 	i_free(process);
 }
@@ -165,4 +179,12 @@ void dict_process_restart(void)
 {
 	dict_process_deinit();
 	dict_process_init();
+}
+
+void dict_process_kill(void)
+{
+	if (process->log != NULL) {
+		log_unref(process->log);
+		process->log = NULL;
+	}
 }

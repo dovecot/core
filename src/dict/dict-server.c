@@ -23,7 +23,7 @@ struct dict_client_connection {
 	struct dict_server *server;
 
 	char *username;
-	char *uri;
+	char *name, *uri;
 	struct dict *dict;
 
 	int fd;
@@ -271,7 +271,7 @@ static struct dict_client_cmd cmds[] = {
 static int dict_client_parse_handshake(struct dict_client_connection *conn,
 				       const char *line)
 {
-	const char *username;
+	const char *username, *name;
 
 	if (*line++ != DICT_PROTOCOL_CMD_HELLO)
 		return -1;
@@ -296,13 +296,37 @@ static int dict_client_parse_handshake(struct dict_client_connection *conn,
 
 	conn->username = i_strdup_until(username, line - 1);
 
-	/* the rest is dict URI */
-	conn->uri = i_strdup(line);
-	conn->dict = dict_cache_get(conn->server->cache, conn->uri,
-				    conn->username);
-	if (conn->dict == NULL)
+	/* the rest is dict name. since we're looking it with getenv(),
+	   disallow all funny characters that might confuse it, just in case. */
+	name = line;
+	while (*line > ' ' && *line != '=') line++;
+
+	if (*line != '\0')
 		return -1;
 
+	conn->name = i_strdup(name);
+	return 0;
+}
+
+static int dict_client_dict_init(struct dict_client_connection *conn)
+{
+	const char *uri;
+
+	uri = getenv(t_strconcat("DICT_", conn->name, NULL));
+	if (uri == NULL) {
+		i_error("dict client: Unconfigured dictionary name '%s'",
+			conn->name);
+		return -1;
+	}
+
+	conn->uri = i_strdup(uri);
+	conn->dict = dict_cache_get(conn->server->cache, conn->uri,
+				    conn->username);
+	if (conn->dict == NULL) {
+		/* dictionary initialization failed */
+		i_error("Failed to initialize dictionary '%s'", conn->name);
+		return -1;
+	}
 	return 0;
 }
 
@@ -322,7 +346,7 @@ static void dict_client_connection_input(void *context)
 		return;
 	case -2:
 		/* buffer full */
-		i_error("BUG: Dict client sent us more than %d bytes",
+		i_error("dict client: Sent us more than %d bytes",
 			(int)DICT_CLIENT_MAX_LINE_LENGTH);
 		dict_client_connection_deinit(conn);
 		return;
@@ -334,6 +358,11 @@ static void dict_client_connection_input(void *context)
 			return;
 
 		if (dict_client_parse_handshake(conn, line) < 0) {
+			i_error("dict client: Broken handshake");
+			dict_client_connection_deinit(conn);
+			return;
+		}
+		if (dict_client_dict_init(conn)) {
 			dict_client_connection_deinit(conn);
 			return;
 		}
@@ -376,6 +405,7 @@ static void dict_client_connection_deinit(struct dict_client_connection *conn)
 
 	if (conn->dict != NULL)
 		dict_cache_unref(conn->server->cache, conn->uri);
+	i_free(conn->name);
 	i_free(conn->uri);
 	i_free(conn->username);
 	i_free(conn);

@@ -223,6 +223,8 @@ struct server_settings {
 	struct auth_settings auth_defaults;
         struct namespace_settings *namespaces;
 
+	array_t ARRAY_DEFINE(dicts, const char *);
+
 	gid_t login_gid;
 };
 
