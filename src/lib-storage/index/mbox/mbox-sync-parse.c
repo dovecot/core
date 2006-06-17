@@ -510,8 +510,11 @@ void mbox_sync_parse_next_mail(struct istream *input,
 			buffer_append(ctx->header, hdr->value,
 				      hdr->value_len);
 		}
-		if (!hdr->no_newline)
+		if (!hdr->no_newline) {
+			if (hdr->crlf_newline)
+				str_append_c(ctx->header, '\r');
 			str_append_c(ctx->header, '\n');
+		}
 	}
 	i_assert(ret != 0);
 	message_parse_header_deinit(&hdr_ctx);
