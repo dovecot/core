@@ -196,4 +196,7 @@ unsigned long long int my_strtoull(const char *nptr, char **endptr, int base);
 #define ENOTFOUND(errno) \
 	((errno) == ENOENT || (errno) == ENOTDIR || (errno) == ELOOP)
 
+#define ECANTLINK(errno) \
+	((errno) == EXDEV || (errno) == EMLINK || (errno) == EPERM)
+
 #endif

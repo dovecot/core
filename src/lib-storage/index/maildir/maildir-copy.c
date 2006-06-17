@@ -73,7 +73,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 					       "Not enough disk space");
 			return -1;
 		}
-		if (errno == EACCES || errno == EXDEV)
+		if (errno == EACCES || ECANTLINK(errno))
 			return 1;
 
 		mail_storage_set_critical(STORAGE(mbox->storage),
