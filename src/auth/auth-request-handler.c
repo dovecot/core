@@ -433,6 +433,7 @@ void auth_request_handler_master_request(struct auth_request_handler *handler,
 			"%u.%u", handler->client_pid, client_id);
 		str_printfa(reply, "NOTFOUND\t%u", id);
 		handler->master_callback(str_c(reply), master);
+		auth_request_unref(&request);
 	} else {
 		/* the request isn't being referenced anywhere anymore,
 		   so we can do a bit of kludging.. replace the request's
