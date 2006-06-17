@@ -800,7 +800,7 @@ static bool settings_verify(struct settings *set)
 	}
 
 	/* Make sure our permanent state directory exists */
-	if (mkdir_parents(PKG_STATEDIR, 0777) < 0 && errno != EEXIST) {
+	if (mkdir_parents(PKG_STATEDIR, 0750) < 0 && errno != EEXIST) {
 		i_error("mkdir(%s) failed: %m", PKG_STATEDIR);
 		return FALSE;
 	}
