@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "base64.h"
 #include "hex-binary.h"
+#include "md4.h"
 #include "md5.h"
 #include "module-dir.h"
 #include "mycrypt.h"
