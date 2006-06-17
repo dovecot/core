@@ -13,9 +13,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define LOCAL_CONFIG_FILE "~/.dovecot.trash.conf"
-#define GLOBAL_CONFIG_FILE "/etc/dovecot-trash.conf"
-
 #define MAX_RETRY_COUNT 3
 
 #define TRASH_CONTEXT(obj) \
@@ -233,8 +230,7 @@ static int read_configuration(const char *path)
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path);
+		i_error("open(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -263,19 +259,30 @@ static int read_configuration(const char *path)
 
 void trash_plugin_init(void)
 {
+	const char *env;
+
 	trash_next_hook_quota_root_created = hook_quota_root_created;
 
-	config_pool = pool_alloconly_create("trash config", 1024);
-	if (read_configuration(home_expand(LOCAL_CONFIG_FILE)) < 0) {
-		if (read_configuration(GLOBAL_CONFIG_FILE) < 0)
-			return;
+	env = getenv("TRASH");
+	if (env == NULL)
+		return;
+
+	if (quota == NULL) {
+		i_error("trash plugin: quota plugin not initialized");
+		return;
 	}
+
+	config_pool = pool_alloconly_create("trash config", 1024);
+	if (read_configuration(env) < 0)
+		return;
 
 	hook_quota_root_created = trash_quota_root_created;
 }
 
 void trash_plugin_deinit(void)
 {
-	pool_unref(config_pool);
+	if (config_pool != NULL)
+		pool_unref(config_pool);
+
 	hook_quota_root_created = trash_next_hook_quota_root_created;
 }
