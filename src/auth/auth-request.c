@@ -314,6 +314,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 				/* this wasn't the final passdb lookup,
 				   continue to next passdb */
 				request->passdb = request->passdb->next;
+				request->passdb_password = NULL;
 				return FALSE;
 			}
 		}
@@ -326,6 +327,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		   *result != PASSDB_RESULT_USER_DISABLED) {
 		/* try next passdb. */
                 request->passdb = request->passdb->next;
+		request->passdb_password = NULL;
 
                 if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
 			/* remember that we have had an internal failure. at
