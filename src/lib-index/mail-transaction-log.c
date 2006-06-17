@@ -561,10 +561,24 @@ mail_transaction_log_file_create(struct mail_transaction_log *log,
 				 dev_t dev, ino_t ino, uoff_t file_size)
 {
 	struct dotlock *dotlock;
-        mode_t old_mask;
+	struct stat st;
+	mode_t old_mask;
 	int fd;
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(log->index));
+
+	if (stat(log->index->dir, &st) < 0) {
+		if (ENOTFOUND(errno)) {
+			/* the whole index directory was deleted, which means
+			   the mailbox was deleted by another process.
+			   fail silently. */
+			mail_index_mark_corrupted(log->index);
+			return -1;
+		}
+		mail_index_file_set_syscall_error(log->index, log->index->dir,
+						  "stat()");
+		return -1;
+	}
 
 	/* With dotlocking we might already have path.lock created, so this
 	   filename has to be different. */
@@ -921,15 +935,19 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log,
 	path = t_strconcat(log->index->filepath,
 			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 	if (nfs_safe_stat(path, &st) < 0) {
-		mail_index_file_set_syscall_error(log->index, path, "stat()");
-		return -1;
-	}
-
-	if (log->head != NULL &&
-	    log->head->st_ino == st.st_ino &&
-	    CMP_DEV_T(log->head->st_dev, st.st_dev)) {
-		/* same file */
-		return 0;
+		if (errno != ENOENT) {
+			mail_index_file_set_syscall_error(log->index, path,
+							  "stat()");
+			return -1;
+		}
+		/* log was deleted. just reopen/recreate it. */
+	} else {
+		if (log->head != NULL &&
+		    log->head->st_ino == st.st_ino &&
+		    CMP_DEV_T(log->head->st_dev, st.st_dev)) {
+			/* same file */
+			return 0;
+		}
 	}
 
 	file = create_if_needed ?

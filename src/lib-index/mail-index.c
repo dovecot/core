@@ -1702,8 +1702,8 @@ int mail_index_reopen_if_needed(struct mail_index *index)
 		if (errno != ENOENT)
 			return -1;
 
-		/* lost it? recreate */
-		(void)mail_index_mark_corrupted(index);
+		/* lost it? recreate later */
+		mail_index_mark_corrupted(index);
 		return -1;
 	}
 
