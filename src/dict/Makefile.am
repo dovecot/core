@@ -8,6 +8,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-sql \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
+dict_LDFLAGS = -export-dynamic
+
 libs = \
 	../lib-dict/libdict.a \
 	../lib-sql/libsql.a \

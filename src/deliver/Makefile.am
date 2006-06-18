@@ -12,6 +12,8 @@ AM_CPPFLAGS = \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\"
 
+deliver_LDFLAGS = -export-dynamic
+
 # get some functions included which only plugins use. liblib should probably
 # be a shared library so this wouldn't be needed..
 unused_objects = \

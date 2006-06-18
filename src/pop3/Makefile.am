@@ -8,6 +8,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-storage
 
+pop3_LDFLAGS = -export-dynamic
+
 # get some functions included which only plugins use. liblib should probably
 # be a shared library so this wouldn't be needed..
 unused_objects = \

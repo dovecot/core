@@ -13,6 +13,8 @@ AM_CPPFLAGS = \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	$(AUTH_CFLAGS)
 
+dovecot_auth_LDFLAGS = -export-dynamic
+
 libpassword_a_SOURCES = \
 	mycrypt.c \
 	password-scheme.c \
