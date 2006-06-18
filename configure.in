@@ -377,7 +377,7 @@ if test "$ioloop" = "" || test "$ioloop" = "epoll"; then
     #include <sys/epoll.h>
     #include <errno.h>
 
-    #include <asm/unistd.h>
+    #include <linux/unistd.h>
     
     _syscall1 (int, epoll_create, int, size)
 
@@ -1666,12 +1666,20 @@ mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.a'
 dbox_libs='$(top_builddir)/src/lib-storage/index/dbox/libstorage_dbox.a'
 index_libs='$(top_builddir)/src/lib-storage/index/libstorage_index.a $(top_builddir)/src/lib-index/libindex.a'
 
+deliver_storage="mbox"
 STORAGE_LIBS=
 for storage in $mail_storages; do
+  if test "$storage" = "$deliver_storage"; then
+    deliver_storage=""
+  fi
   STORAGE_LIBS="$STORAGE_LIBS `eval \"echo \\$${storage}_libs\"`"
 done
 STORAGE_LIBS="$STORAGE_LIBS $index_libs"
 AC_SUBST(STORAGE_LIBS)
+
+if test -n "$deliver_storage" && test "$want_deliver" = yes; then
+  AC_ERROR([If you remove mbox from storages, you need to build --without-deliver])
+fi
 
 dnl **
 dnl ** SQL drivers
@@ -1760,7 +1768,7 @@ echo "File change notification method ..... : $have_notify"
 echo "Building with SSL support ........... : $have_ssl"
 echo "Building with IPv6 support .......... : $want_ipv6"
 echo "Building with pop3 server ........... : $want_pop3d"
-#echo "Building with mail delivery agent  .. : $want_deliver"
+echo "Building with mail delivery agent  .. : $want_deliver"
 echo "Building with GSSAPI support ........ : $have_gssapi"
 echo "Building with user database modules . :$userdb"
 echo "Building with password lookup modules :$passdb"
