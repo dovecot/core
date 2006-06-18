@@ -6,8 +6,7 @@
  * This software is released under the MIT license.
  */
 
-#include <stdint.h>
-
+#include "lib.h"
 #include "ntlm-des.h"
 
 /*
