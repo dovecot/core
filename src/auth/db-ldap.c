@@ -1,4 +1,4 @@
-/* Copyright (C) 2003 Timo Sirainen */
+/* Copyright (C) 2003-2006 Timo Sirainen */
 
 #include "common.h"
 
@@ -14,6 +14,15 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+
+#define HAVE_LDAP_SASL
+#ifdef HAVE_SASL_H
+#  include <sasl.h>
+#elif defined (HAVE_SASL_SASL_H)
+#  include <sasl/sasl.h>
+#else
+#  undef HAVE_LDAP_SASL
+#endif
 
 /* Older versions may require calling ldap_result() twice */
 #if LDAP_VENDOR_VERSION <= 20112
@@ -226,11 +235,12 @@ static void ldap_input(void *context)
 	}
 }
 
+#ifdef HAVE_LDAP_SASL
 static int
 sasl_interact(LDAP *ld __attr_unused__, unsigned flags __attr_unused__,
 	      void *defaults, void *interact)
 {
-	struct sasl_bind_context *context = defaults;
+	struct ldap_sasl_bind_context *context = defaults;
 	sasl_interact_t *in;
 	const char *str;
 
@@ -260,11 +270,11 @@ sasl_interact(LDAP *ld __attr_unused__, unsigned flags __attr_unused__,
 	}
 	return LDAP_SUCCESS;
 }
+#endif
 
 bool db_ldap_connect(struct ldap_connection *conn)
 {
 	int ret, fd;
-	struct sasl_bind_context context;
 
 	if (conn->connected)
 		return TRUE;
@@ -316,6 +326,10 @@ bool db_ldap_connect(struct ldap_connection *conn)
 
 	/* FIXME: we shouldn't use blocking bind */
 	if (conn->set.sasl_bind) {
+#ifdef HAVE_LDAP_SASL
+		struct ldap_sasl_bind_context context;
+
+		memset(&context, 0, sizeof(context));
 		context.authcid = conn->set.dn;
 		context.passwd = conn->set.dnpass;
 		context.realm = conn->set.sasl_realm;
@@ -325,6 +339,9 @@ bool db_ldap_connect(struct ldap_connection *conn)
 						   conn->set.sasl_mech,
 						   NULL, NULL, LDAP_SASL_QUIET,
 						   sasl_interact, &context);
+#else
+		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
+#endif
 	} else {
 		ret = ldap_simple_bind_s(conn->ld, conn->set.dn,
 					 conn->set.dnpass);

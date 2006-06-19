@@ -2,7 +2,6 @@
 #define __DB_LDAP_H
 
 #include <ldap.h>
-#include <sasl/sasl.h>
 
 struct auth_request;
 struct ldap_connection;
@@ -75,7 +74,7 @@ struct ldap_request {
 	char **attributes; /* points to pass_attr_names / user_attr_names */
 };
 
-struct sasl_bind_context {
+struct ldap_sasl_bind_context {
 	const char *authcid;
 	const char *passwd;
 	const char *realm;
