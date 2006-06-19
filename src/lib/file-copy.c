@@ -9,9 +9,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
+static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
+			    bool try_hardlink)
 {
-	const char *tmppath;
 	struct istream *input;
 	struct ostream *output;
 	int fd_in, fd_out;
@@ -19,12 +19,20 @@ int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
 
 	if (try_hardlink) {
 		/* see if hardlinking works */
-		if (link(srcpath, destpath) == 0 || errno == EEXIST)
+		if (link(srcpath, tmppath) == 0)
 			return 1;
+		if (errno == EEXIST) {
+			if (unlink(tmppath) < 0 && errno != ENOENT) {
+				i_error("unlink(%s) failed: %m", tmppath);
+				return -1;
+			}
+			if (link(srcpath, tmppath) == 0)
+				return 1;
+		}
 		if (errno == ENOENT)
 			return 0;
 		if (!ECANTLINK(errno)) {
-			i_error("link(%s, %s) failed: %m", srcpath, destpath);
+			i_error("link(%s, %s) failed: %m", srcpath, tmppath);
 			return -1;
 		}
 
@@ -39,13 +47,10 @@ int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
 		return -1;
 	}
 
-	t_push();
-	tmppath = t_strconcat(destpath, ".tmp", NULL);
 	fd_out = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd_out == -1) {
 		i_error("open(%s, O_CREAT) failed: %m", tmppath);
 		(void)close(fd_in);
-		t_pop();
 		return -1;
 	}
 	input = i_stream_create_file(fd_in, default_pool, 0, FALSE);
@@ -64,7 +69,19 @@ int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
 		i_error("close(%s) failed: %m", tmppath);
 		ret = -1;
 	}
-	if (ret == 0) {
+	return ret < 0 ? -1 : 1;
+}
+
+int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
+{
+	const char *tmppath;
+	int ret;
+
+	t_push();
+	tmppath = t_strconcat(destpath, ".tmp", NULL);
+
+	ret = file_copy_to_tmp(srcpath, tmppath, try_hardlink);
+	if (ret > 0) {
 		if (rename(tmppath, destpath) < 0) {
 			i_error("rename(%s, %s) failed: %m", tmppath, destpath);
 			ret = -1;
@@ -72,6 +89,7 @@ int file_copy(const char *srcpath, const char *destpath, bool try_hardlink)
 	}
 	if (ret < 0)
 		(void)unlink(tmppath);
+
 	t_pop();
-	return ret < 0 ? -1 : 1;
+	return ret;
 }
