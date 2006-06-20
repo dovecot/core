@@ -837,6 +837,11 @@ static int search_get_seqset(struct index_search_context *ctx,
 		ctx->seq1 = 1;
 		ctx->seq2 = hdr->messages_count;
 	}
+	if (ctx->seq1 == (uint32_t)-1) {
+		/* no matches */
+		i_assert(ctx->seq2 == 0);
+		return 0;
+	}
 
 	i_assert(ctx->seq1 <= ctx->seq2);
 
