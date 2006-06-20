@@ -57,6 +57,12 @@ struct search_body_context {
 	const struct message_part *part;
 };
 
+static int search_parse_msgset_args(struct index_mailbox *ibox,
+				    const struct mail_index_header *hdr,
+				    struct mail_search_arg *args,
+				    uint32_t *seq1_r, uint32_t *seq2_r,
+				    bool not);
+
 static int seqset_contains(struct mail_search_seqset *set, uint32_t seq)
 {
 	while (set != NULL) {
@@ -574,17 +580,51 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 	return TRUE;
 }
 
+static void update_seqs(const struct mail_search_seqset *set,
+			const struct mail_index_header *hdr,
+			uint32_t *seq1_r, uint32_t *seq2_r, bool not)
+{
+	if (!not) {
+		/* seq1..seq2 */
+		if (*seq1_r < set->seq1 || *seq1_r == 0)
+			*seq1_r = set->seq1;
+		if (*seq2_r > set->seq2)
+			*seq2_r = set->seq2;
+	} else {
+		if (set->seq1 == 1) {
+			/* seq2+1..count */
+			if (set->seq2 == hdr->messages_count) {
+				/* completely outside our range */
+				*seq1_r = (uint32_t)-1;
+				*seq2_r = 0;
+			} else {
+				if (*seq1_r < set->seq2 + 1)
+					*seq1_r = set->seq2 + 1;
+			}
+		} else if (set->seq2 == hdr->messages_count) {
+			/* 1..seq1-1 */
+			if (*seq2_r > set->seq1 - 1)
+				*seq2_r = set->seq1 - 1;
+		}
+	}
+}
+
 static int search_msgset_fix(struct index_mailbox *ibox,
                              const struct mail_index_header *hdr,
 			     struct mail_search_seqset *set,
-			     uint32_t *seq1_r, uint32_t *seq2_r)
+			     uint32_t *seq1_r, uint32_t *seq2_r, bool not)
 {
 	for (; set != NULL; set = set->next) {
 		if (set->seq1 > hdr->messages_count) {
 			if (set->seq1 != (uint32_t)-1 &&
 			    set->seq2 != (uint32_t)-1) {
-				/* completely outside our range */
 				set->seq1 = set->seq2 = 0;
+				if (not)
+					continue;
+
+				/* completely outside our range */
+				*seq1_r = (uint32_t)-1;
+				*seq2_r = 0;
 				return 0;
 			}
 			/* either seq1 or seq2 is '*', so the last message is
@@ -600,50 +640,92 @@ static int search_msgset_fix(struct index_mailbox *ibox,
 			return -1;
 		}
 
-		if (*seq1_r > set->seq1 || *seq1_r == 0)
-			*seq1_r = set->seq1;
-		if (*seq2_r < set->seq2)
-			*seq2_r = set->seq2;
+		update_seqs(set, hdr, seq1_r, seq2_r, not);
 	}
+	return 0;
+}
+
+static int search_or_parse_msgset_args(struct index_mailbox *ibox,
+				       const struct mail_index_header *hdr,
+				       struct mail_search_arg *args,
+				       uint32_t *seq1_r, uint32_t *seq2_r,
+				       bool not)
+{
+	uint32_t seq1, seq2, min_seq1 = 0, max_seq2 = 0;
+
+	for (; args != NULL; args = args->next) {
+		bool cur_not = args->not;
+
+		if (not)
+			cur_not = !cur_not;
+		seq1 = 1; seq2 = hdr->messages_count;
+
+		if (args->type == SEARCH_SUB) {
+			if (search_parse_msgset_args(ibox, hdr,
+						     args->value.subargs,
+						     &seq1, &seq2, cur_not) < 0)
+				return -1;
+		} else if (args->type == SEARCH_OR) {
+			if (search_or_parse_msgset_args(ibox, hdr,
+							args->value.subargs,
+							&seq1, &seq2,
+							cur_not) < 0)
+				return -1;
+		} else if (args->type == SEARCH_SEQSET) {
+			if (search_msgset_fix(ibox, hdr, args->value.seqset,
+					      &seq1, &seq2, cur_not) < 0)
+				return -1;
+		}
+
+		if (min_seq1 == 0) {
+			min_seq1 = seq1;
+			max_seq2 = seq2;
+		} else {
+			if (seq1 < min_seq1)
+				min_seq1 = seq1;
+			if (seq2 > max_seq2)
+				max_seq2 = seq2;
+		}
+	}
+	i_assert(min_seq1 != 0);
+
+	if (min_seq1 > *seq1_r)
+		*seq1_r = min_seq1;
+	if (max_seq2 < *seq2_r)
+		*seq2_r = max_seq2;
 	return 0;
 }
 
 static int search_parse_msgset_args(struct index_mailbox *ibox,
 				    const struct mail_index_header *hdr,
 				    struct mail_search_arg *args,
-				    uint32_t *seq1_r, uint32_t *seq2_r)
+				    uint32_t *seq1_r, uint32_t *seq2_r,
+				    bool not)
 {
-	*seq1_r = *seq2_r = 0;
-
 	for (; args != NULL; args = args->next) {
+		bool cur_not = args->not;
+
+		if (not)
+			cur_not = !cur_not;
+
 		if (args->type == SEARCH_SUB) {
 			if (search_parse_msgset_args(ibox, hdr,
 						     args->value.subargs,
-						     seq1_r, seq2_r) < 0)
+						     seq1_r, seq2_r,
+						     cur_not) < 0)
 				return -1;
 		} else if (args->type == SEARCH_OR) {
-			/* FIXME: in cases like "SEEN OR 5 7" we shouldn't
-			   limit the range, but in cases like "1 OR 5 7" we
-			   should expand the range. A bit tricky, we'll
-			   just go through everything now to make it work
-			   right. */
-			*seq1_r = 1;
-			*seq2_r = hdr->messages_count;
-
-                        /* We still have to fix potential seqsets though */
-			if (search_parse_msgset_args(ibox, hdr,
-						     args->value.subargs,
-						     seq1_r, seq2_r) < 0)
+			/* go through our children and use the widest seqset
+			   range */
+			if (search_or_parse_msgset_args(ibox, hdr,
+							args->value.subargs,
+							seq1_r, seq2_r,
+							cur_not) < 0)
 				return -1;
 		} else if (args->type == SEARCH_SEQSET) {
 			if (search_msgset_fix(ibox, hdr, args->value.seqset,
-					      seq1_r, seq2_r) < 0)
+					      seq1_r, seq2_r, cur_not) < 0)
 				return -1;
-		} else if (args->type == SEARCH_ALL) {
-			/* go through everything. don't stop, have to fix
-			   seqsets. */
-			*seq1_r = 1;
-			*seq2_r = hdr->messages_count;
 		}
 	}
 	return 0;
@@ -744,8 +826,11 @@ static int search_get_seqset(struct index_search_context *ctx,
 		return 0;
 	}
 
+	ctx->seq1 = 1;
+	ctx->seq2 = hdr->messages_count;
+
 	if (search_parse_msgset_args(ctx->ibox, hdr, args,
-				     &ctx->seq1, &ctx->seq2) < 0)
+				     &ctx->seq1, &ctx->seq2, FALSE) < 0)
 		return -1;
 
 	if (ctx->seq1 == 0) {

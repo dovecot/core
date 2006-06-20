@@ -46,7 +46,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 
 			if (subarg->result == -1)
 				arg->result = -1;
-			else if (subarg->result == arg->not) {
+			else if (subarg->result == 0) {
 				/* didn't match */
 				arg->result = 0;
 				break;
@@ -54,6 +54,8 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 
 			subarg = subarg->next;
 		}
+		if (arg->not && arg->result != -1)
+			arg->result = !arg->result;
 	} else if (arg->type == SEARCH_OR) {
 		/* OR-list of conditions */
 		i_assert(arg->value.subargs != NULL);
@@ -64,18 +66,18 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 			if (subarg->result == -1)
 				search_arg_foreach(subarg, callback, context);
 
-			if (subarg->result != -1) {
-				if (subarg->result == !arg->not) {
-					/* matched */
-					arg->result = 1;
-					break;
-				}
-			} else {
+			if (subarg->result == -1)
 				arg->result = -1;
+			else if (subarg->result > 0) {
+				/* matched */
+				arg->result = 1;
+				break;
 			}
 
 			subarg = subarg->next;
 		}
+		if (arg->not && arg->result != -1)
+			arg->result = !arg->result;
 	} else {
 		/* just a single condition */
 		callback(arg, context);
