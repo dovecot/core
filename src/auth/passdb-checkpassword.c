@@ -100,18 +100,18 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 		return;
 
 	switch (request->exit_status) {
+	case 1:
+		auth_request_log_info(request->request, "checkpassword",
+				      "Password not accepted");
+		checkpassword_request_finish(request,
+					     PASSDB_RESULT_PASSWORD_MISMATCH);
+		break;
 	case 0:
 		if (request->input_buf != NULL) {
 			checkpassword_request_finish(request, PASSDB_RESULT_OK);
 			break;
 		}
 		/* missing input - fall through */
-	case 1:
-		auth_request_log_info(request->request, "checkpassword",
-				      "Unknown user");
-		checkpassword_request_finish(request,
-					     PASSDB_RESULT_USER_UNKNOWN);
-		break;
 	case 2:
 		/* checkpassword is called with wrong
 		   parameters? unlikely */
