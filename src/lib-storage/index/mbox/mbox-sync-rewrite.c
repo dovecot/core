@@ -111,7 +111,7 @@ void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 			if (pos+1 == data_size || !IS_LWSP(data[pos+1]))
 				break;
 			start_pos = pos+1;
-		} else if (!IS_LWSP(data[pos])) {
+		} else if (!IS_LWSP(data[pos]) && data[pos] != '\r') {
 			start_pos = pos+1;
 		}
 	}
@@ -152,7 +152,7 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 				break;
 			}
                         last_line_pos = pos+1;
-		} else if (!IS_LWSP(data[pos])) {
+		} else if (!IS_LWSP(data[pos]) && data[pos] != '\r') {
 			start_pos = last_line_pos = pos+1;
 		}
 	}

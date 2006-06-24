@@ -107,12 +107,15 @@ static void handle_end_of_mail(struct raw_mbox_istream *rstream, size_t pos)
 	if (rstream->hdr_offset + rstream->mail_size < rstream->body_offset) {
 		/* a) Header didn't have ending \n
 		   b) "headers\n\nFrom ..", the second \n belongs to next
-		   message which we didn't know at the time yet. */
-		i_assert(rstream->body_offset == (uoff_t)-1 ||
-			 rstream->body_offset ==
-			 rstream->hdr_offset + rstream->mail_size + 1);
-		rstream->body_offset =
+		   message which we didn't know at the time yet.
+
+		   The +2 check is for CR+LF linefeeds */
+		uoff_t new_body_offset =
 			rstream->hdr_offset + rstream->mail_size;
+		i_assert(rstream->body_offset == (uoff_t)-1 ||
+			 rstream->body_offset == new_body_offset + 1 ||
+			 rstream->body_offset == new_body_offset + 2);
+		rstream->body_offset = new_body_offset;
 	}
 }
 
@@ -190,6 +193,13 @@ static ssize_t _read(struct _istream *stream)
 
 	if (stream->istream.v_offset == rstream->from_offset) {
 		/* beginning of message, we haven't yet read our From-line */
+		if (pos == 2) {
+			/* we're at the end of file with CR+LF linefeeds?
+			   need more data to verify it. */
+			rstream->input_peak_offset =
+				stream->istream.v_offset + pos;
+			return _read(stream);
+		}
 		if (mbox_read_from_line(rstream) < 0) {
 			stream->pos = 0;
 			rstream->eof = TRUE;

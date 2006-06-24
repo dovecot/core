@@ -90,7 +90,7 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 	/* how many bytes do we have now? */
 	data = buffer_get_modifyable_data(ctx->header, &size);
 	for (have = 0; pos < size; pos++) {
-		if (data[pos] == '\n')
+		if (data[pos] == '\n' || data[pos] == '\r')
 			break;
 
 		/* see if this is unknown flag for us */
