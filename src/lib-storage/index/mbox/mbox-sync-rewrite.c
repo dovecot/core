@@ -395,9 +395,11 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 			return -1;
 	}
 
-	need_space = str_len(mail_ctx->header) - mail_ctx->mail.space -
-		(mail_ctx->body_offset - mail_ctx->hdr_offset);
-	i_assert(need_space == (uoff_t)-mails[idx].space);
+	if (mail_ctx->mail.space <= 0) {
+		need_space = str_len(mail_ctx->header) - mail_ctx->mail.space -
+			(mail_ctx->body_offset - mail_ctx->hdr_offset);
+		i_assert(need_space == (uoff_t)-mails[idx].space);
+	}
 
 	if (mails[idx].space == 0) {
 		/* don't touch spacing */
