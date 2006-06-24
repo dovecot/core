@@ -20,34 +20,25 @@ struct passwd_file_passdb_module {
 	struct db_passwd_file *pwf;
 };
 
-static void
-passwd_file_verify_plain(struct auth_request *request, const char *password,
-			 verify_plain_callback_t *callback)
+static void passwd_file_save_results(struct auth_request *request,
+				     const struct passwd_user *pu,
+				     const char **crypted_pass_r,
+				     const char **scheme_r)
 {
-	struct passdb_module *_module = request->passdb->passdb;
-	struct passwd_file_passdb_module *module =
-		(struct passwd_file_passdb_module *)_module;
-	struct passwd_user *pu;
         const struct var_expand_table *table;
-	const char *scheme, *crypted_pass, *key, *value;
+	const char *key, *value;
 	string_t *str;
 	char **p;
-        int ret;
 
-	pu = db_passwd_file_lookup(module->pwf, request);
-	if (pu == NULL) {
-		callback(PASSDB_RESULT_USER_UNKNOWN, request);
-		return;
-	}
-
-	crypted_pass = pu->password;
-	scheme = password_get_scheme(&crypted_pass);
-	if (scheme == NULL) scheme = _module->default_pass_scheme;
+	*crypted_pass_r = pu->password;
+	*scheme_r = password_get_scheme(crypted_pass_r);
+	if (*scheme_r == NULL)
+		*scheme_r = request->passdb->passdb->default_pass_scheme;
 
 	/* save the password so cache can use it */
-	if (crypted_pass != NULL) {
+	if (*crypted_pass_r != NULL) {
 		auth_request_set_field(request, "password",
-				       crypted_pass, scheme);
+				       *crypted_pass_r, *scheme_r);
         }
 
 	if (pu->extra_fields != NULL) {
@@ -70,6 +61,26 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 		}
 		t_pop();
 	}
+}
+
+static void
+passwd_file_verify_plain(struct auth_request *request, const char *password,
+			 verify_plain_callback_t *callback)
+{
+	struct passdb_module *_module = request->passdb->passdb;
+	struct passwd_file_passdb_module *module =
+		(struct passwd_file_passdb_module *)_module;
+	struct passwd_user *pu;
+	const char *scheme, *crypted_pass;
+        int ret;
+
+	pu = db_passwd_file_lookup(module->pwf, request);
+	if (pu == NULL) {
+		callback(PASSDB_RESULT_USER_UNKNOWN, request);
+		return;
+	}
+
+	passwd_file_save_results(request, pu, &crypted_pass, &scheme);
 
 	ret = auth_request_password_verify(request, password, crypted_pass,
 					   scheme, "passwd-file");
@@ -94,8 +105,7 @@ passwd_file_lookup_credentials(struct auth_request *request,
 		return;
 	}
 
-	crypted_pass = pu->password;
-	scheme = password_get_scheme(&crypted_pass);
+	passwd_file_save_results(request, pu, &crypted_pass, &scheme);
 
 	passdb_handle_credentials(PASSDB_RESULT_OK, crypted_pass, scheme,
 				  callback, request);
