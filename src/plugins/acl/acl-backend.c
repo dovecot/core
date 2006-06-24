@@ -44,7 +44,8 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 	backend->v = acl_backend_vfile;
 	backend->storage = storage;
 	backend->username = p_strdup(backend->pool, acl_username);
-	backend->owner_username = p_strdup(backend->pool, owner_username);
+	backend->owner_username = owner_username == NULL ? "" :
+		p_strdup(backend->pool, owner_username);
 	backend->group_count = group_count;
 
 	storage_owner = owner_username != NULL &&
