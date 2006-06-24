@@ -398,7 +398,7 @@ if test "$ioloop" = "" || test "$ioloop" = "epoll"; then
 fi
 
 if test "$ioloop" = "" || test "$ioloop" = "kqueue"; then
-    if test "$ac_cv_func_kqueue" = yes && test "$ac_cv_func_kevent" == yes ; then
+    if test "$ac_cv_func_kqueue" = yes && test "$ac_cv_func_kevent" = yes; then
       AC_DEFINE(IOLOOP_KQUEUE,, [Implement I/O loop with BSD kqueue()])
       ioloop=kqueue
       have_ioloop=yes
