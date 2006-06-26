@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define CREATE_MODE 0770 /* umask() should limit it more */
+#define CREATE_MODE 0777 /* umask() should limit it more */
 
 /* Don't allow creating too long mailbox names. They could start causing
    problems when they reach the limit. */
@@ -567,23 +567,44 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	}
 }
 
-static int maildir_create_shared(struct mail_storage *storage,
-				 const char *path, mode_t mode, gid_t gid)
+static int maildir_create_shared(struct index_storage *storage,
+				 const char *dir, mode_t mode, gid_t gid)
 {
-	mode_t old_mask = umask(0);
+	const char *path;
+	mode_t old_mask;
 	int fd;
 
-	fd = open(path, O_WRONLY | O_CREAT, mode);
+	/* add the execute bit if either read or write bit is set */
+	if ((mode & 0600) != 0) mode |= 0100;
+	if ((mode & 0060) != 0) mode |= 0010;
+	if ((mode & 0006) != 0) mode |= 0001;
+
+	old_mask = umask(0777 ^ mode);
+	if (create_maildir(storage, dir, FALSE) < 0) {
+		if (errno == EEXIST) {
+			mail_storage_set_error(&storage->storage,
+					       "Mailbox already exists");
+		}
+		umask(old_mask);
+		return -1;
+	}
+	if (chown(dir, (uid_t)-1, gid) < 0) {
+		mail_storage_set_critical(&storage->storage,
+					  "chown(%s) failed: %m", dir);
+	}
+
+	path = t_strconcat(dir, "/dovecot-shared", NULL);
+	fd = open(path, O_WRONLY | O_CREAT, mode & 0666);
 	umask(old_mask);
 
 	if (fd == -1) {
-		mail_storage_set_critical(storage,
+		mail_storage_set_critical(&storage->storage,
 					  "open(%s) failed: %m", path);
 		return -1;
 	}
 
 	if (fchown(fd, (uid_t)-1, gid) < 0) {
-		mail_storage_set_critical(storage,
+		mail_storage_set_critical(&storage->storage,
 					  "fchown(%s) failed: %m", path);
 	}
 	(void)close(fd);
@@ -606,6 +627,15 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 	}
 
 	path = maildir_get_path(storage, name);
+
+	/* if dovecot-shared exists in the root dir, create the mailbox using
+	   its permissions and gid, and copy the dovecot-shared inside it. */
+	shared_path = t_strconcat(storage->dir, "/dovecot-shared", NULL);
+	if (stat(shared_path, &st) == 0) {
+		return maildir_create_shared(storage, path,
+					     st.st_mode & 0666, st.st_gid);
+	}
+
 	if (create_maildir(storage, path, FALSE) < 0) {
 		if (errno == EEXIST) {
 			mail_storage_set_error(_storage,
@@ -613,16 +643,6 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 		}
 		return -1;
 	}
-
-	/* if dovecot-shared exists in the root dir, copy it to the
-	   created mailbox */
-	shared_path = t_strconcat(storage->dir, "/dovecot-shared", NULL);
-	if (stat(shared_path, &st) == 0) {
-		path = t_strconcat(path, "/dovecot-shared", NULL);
-		(void)maildir_create_shared(_storage, path,
-					    st.st_mode & 0666, st.st_gid);
-	}
-
 	return 0;
 }
 
