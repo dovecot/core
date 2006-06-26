@@ -473,7 +473,7 @@ fi
 if test "$notify" = "" || test "$notify" = "kqueue"; then
   AC_MSG_CHECKING([if we can use BSD kqueue() notify])
   dnl * BSD kqueue() notify
-  if test "$ac_cv_func_kqueue" == yes && test "$ac_cv_func_kevent" == yes ; then
+  if test "$ac_cv_func_kqueue" = yes && test "$ac_cv_func_kevent" = yes ; then
     have_notify=kqueue
     notify=kqueue
     AC_MSG_RESULT("yes")
