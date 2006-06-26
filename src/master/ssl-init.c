@@ -46,6 +46,7 @@ static void start_generate_process(const char *fname)
 		i_assert(generating_path == NULL);
 		generating_path = i_strdup(fname);
 		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_SSL_PARAM);
+		(void)close(log_fd);
 		return;
 	}
 
