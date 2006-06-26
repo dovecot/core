@@ -614,6 +614,9 @@ static int search_msgset_fix(struct index_mailbox *ibox,
 			     struct mail_search_seqset *set,
 			     uint32_t *seq1_r, uint32_t *seq2_r, bool not)
 {
+	struct mail_search_seqset full_set;
+	uint32_t min_seq = (uint32_t)-1, max_seq = 0;
+
 	for (; set != NULL; set = set->next) {
 		if (set->seq1 > hdr->messages_count) {
 			if (set->seq1 != (uint32_t)-1 &&
@@ -640,8 +643,16 @@ static int search_msgset_fix(struct index_mailbox *ibox,
 			return -1;
 		}
 
-		update_seqs(set, hdr, seq1_r, seq2_r, not);
+		if (set->seq1 < min_seq)
+			min_seq = set->seq1;
+		if (set->seq2 > max_seq)
+			max_seq = set->seq2;
 	}
+
+	full_set.seq1 = min_seq;
+	full_set.seq2 = max_seq;
+	full_set.next = NULL;
+	update_seqs(&full_set, hdr, seq1_r, seq2_r, not);
 	return 0;
 }
 
