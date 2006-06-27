@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "str.h"
-#include "strescape.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_SQLITE
@@ -92,7 +91,30 @@ driver_sqlite_get_flags(struct sql_db *db __attr_unused__)
 static char *driver_sqlite_escape_string(struct sql_db *_db __attr_unused__,
 					 const char *string)
 {
-	return t_strdup_noconst(str_escape(string));
+	const char *p;
+	char *dest, *destbegin;
+
+	/* find the first ' */
+	for (p = string; *p != '\''; p++) {
+		if (*p == '\0')
+			return t_strdup_noconst(string);
+	}
+
+	/* @UNSAFE: escape ' with '' */
+	dest = destbegin = t_buffer_get((p - string) + strlen(string) * 2 + 1);
+
+	memcpy(dest, string, p - string);
+	dest += p - string;
+
+	for (; *p != '\0'; p++) {
+		*dest++ = *p;
+		if (*p == '\'')
+			*dest++ = *p;
+	}
+	*dest++ = '\0';
+	t_buffer_alloc(dest - destbegin);
+
+	return destbegin;
 }
 
 static void driver_sqlite_exec(struct sql_db *_db, const char *query)
