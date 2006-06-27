@@ -121,7 +121,7 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
-	const char *fname;
+	const char *path, *fname;
 	uoff_t virtual_size;
         enum maildir_uidlist_rec_flag flags;
 
@@ -142,8 +142,10 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 			return (uoff_t)-1;
 		}
 	} else {
-		fname = maildir_save_file_get_path(_mail->transaction,
-						   _mail->seq);
+		path = maildir_save_file_get_path(_mail->transaction,
+						  _mail->seq);
+		fname = strrchr(path, '/');
+		fname = fname != NULL ? fname + 1 : path;
 	}
 
 	/* size can be included in filename */
@@ -163,7 +165,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	enum maildir_uidlist_rec_flag flags;
-	const char *fname, *end;
+	const char *path, *fname, *end;
 
 	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
 		if (_mail->uid != 0) {
@@ -174,8 +176,10 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 				return NULL;
 			}
 		} else {
-			fname = maildir_save_file_get_path(_mail->transaction,
-							   _mail->seq);
+			path = maildir_save_file_get_path(_mail->transaction,
+							  _mail->seq);
+			fname = strrchr(path, '/');
+			fname = fname != NULL ? fname + 1 : path;
 		}
 		end = strchr(fname, MAILDIR_INFO_SEP);
 		return end == NULL ? fname : t_strdup_until(fname, end);
@@ -190,7 +194,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
-	const char *fname;
+	const char *path, *fname;
 	uoff_t size;
 	enum maildir_uidlist_rec_flag flags;
 
@@ -206,8 +210,10 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 			return (uoff_t)-1;
 		}
 	} else {
-		fname = maildir_save_file_get_path(_mail->transaction,
-						   _mail->seq);
+		path = maildir_save_file_get_path(_mail->transaction,
+						  _mail->seq);
+		fname = strrchr(path, '/');
+		fname = fname != NULL ? fname + 1 : path;
 	}
 
 	/* size can be included in filename */

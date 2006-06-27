@@ -400,7 +400,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 {
         struct maildir_index_sync_context *ctx = context;
 	const struct mail_index_sync_rec *recs;
-	const char *newpath;
+	const char *dir, *fname, *newfname, *newpath;
 	enum mail_flags flags;
 	array_t ARRAY_DEFINE(keywords, unsigned int);
 	unsigned int i, count;
@@ -408,9 +408,14 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 
 	ctx->dirty_state = 0;
 
+	fname = strrchr(path, '/');
+	i_assert(fname != NULL);
+	fname++;
+	dir = t_strdup_until(path, fname);
+
 	ARRAY_CREATE(&keywords, pool_datastack_create(), unsigned int, 16);
 	(void)maildir_filename_get_flags(ctx->keywords_sync_ctx,
-					 path, &flags, &keywords);
+					 fname, &flags, &keywords);
 	flags8 = flags;
 
 	recs = array_get_modifyable(&ctx->sync_recs, &count);
@@ -434,8 +439,10 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		}
 	}
 
-	newpath = maildir_filename_set_flags(ctx->keywords_sync_ctx,
-					     path, flags8, &keywords);
+
+	newfname = maildir_filename_set_flags(ctx->keywords_sync_ctx,
+					      fname, flags8, &keywords);
+	newpath = t_strconcat(dir, newfname, NULL);
 	if (rename(path, newpath) == 0) {
 		if ((flags8 & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 			ctx->dirty_state = -1;

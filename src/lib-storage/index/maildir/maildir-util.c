@@ -139,6 +139,7 @@ bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r)
 	uoff_t size = 0;
 
 	for (; *fname != '\0'; fname++) {
+		i_assert(*fname != '/');
 		if (*fname == ',' && fname[1] == type && fname[2] == '=') {
 			fname += 3;
 			break;
@@ -169,6 +170,7 @@ unsigned int maildir_hash(const void *p)
 	unsigned int g, h = 0;
 
 	while (*s != MAILDIR_INFO_SEP && *s != '\0') {
+		i_assert(*s != '/');
 		h = (h << 4) + *s;
 		if ((g = h & 0xf0000000UL)) {
 			h = h ^ (g >> 24);
@@ -186,6 +188,7 @@ int maildir_cmp(const void *p1, const void *p2)
 	const char *s1 = p1, *s2 = p2;
 
 	while (*s1 == *s2 && *s1 != MAILDIR_INFO_SEP && *s1 != '\0') {
+		i_assert(*s1 != '/');
 		s1++; s2++;
 	}
 	if ((*s1 == '\0' || *s1 == MAILDIR_INFO_SEP) &&
