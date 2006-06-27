@@ -274,8 +274,9 @@ mail_process_set_environment(struct settings *set, const char *mail,
 				set->dbox_rotate_days));
 
 	if (*set->mail_plugins != '\0') {
-		env_put(t_strconcat("MODULE_DIR=", set->mail_plugin_dir, NULL));
-		env_put(t_strconcat("MODULE_LIST=", set->mail_plugins, NULL));
+		env_put(t_strconcat("MAIL_PLUGIN_DIR=",
+				    set->mail_plugin_dir, NULL));
+		env_put(t_strconcat("MAIL_PLUGINS=", set->mail_plugins, NULL));
 	}
 
 	/* user given environment - may be malicious. virtual_user comes from

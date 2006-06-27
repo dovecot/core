@@ -187,13 +187,15 @@ static int main_init(void)
 	mail_storage_register_all();
 	clients_init();
 
-	if (getenv("MODULE_LIST") == NULL)
+	if (getenv("MAIL_PLUGINS") == NULL)
 		modules = NULL;
 	else {
-		if (getenv("MODULE_DIR") == NULL)
-			i_fatal("MODULE_LIST given but MODULE_DIR was not");
-		modules = module_dir_load(getenv("MODULE_DIR"),
-					  getenv("MODULE_LIST"), TRUE);
+		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
+
+		if (plugin_dir == NULL)
+			plugin_dir = MODULEDIR"/imap";
+		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
+					  TRUE);
 	}
 
 	mail = getenv("MAIL");
