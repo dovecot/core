@@ -345,7 +345,7 @@ int main(int argc, char *argv[])
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *mailbox = "INBOX";
 	const char *auth_socket, *env_tz;
-	const char *home, *destination, *user, *mail_env, *str;
+	const char *home, *destination, *user, *mail_env;
         const struct var_expand_table *table;
         enum mail_storage_flags flags;
         enum mail_storage_lock_method lock_method;
@@ -479,11 +479,6 @@ int main(int argc, char *argv[])
 		table = get_var_expand_table(destination, getenv("HOME"));
 		mail_env = expand_mail_env(mail_env, table);
 	}
-
-	str = getenv("POP3_UIDL_FORMAT");
-	if (str != NULL && (str = strchr(str, '%')) != NULL &&
-	    str != NULL && var_get_key(str + 1) == 'm')
-		flags |= MAIL_STORAGE_FLAG_KEEP_HEADER_MD5;
 
 	if (getenv("MAIL_PLUGINS") == NULL)
 		modules = NULL;
