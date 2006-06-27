@@ -193,6 +193,15 @@ maildir_fill_readdir(struct maildir_list_context *ctx,
 			node->flags = MAILBOX_NOCHILDREN;
 		else
 			node->flags &= ~MAILBOX_PLACEHOLDER;
+
+		switch (imap_match(glob, "INBOX")) {
+		case IMAP_MATCH_YES:
+		case IMAP_MATCH_PARENT:
+			node->flags |= MAILBOX_FLAG_MATCHED;
+			break;
+		default:
+			break;
+		}
 	}
 	maildir_nodes_fix(mailbox_tree_get(ctx->tree_ctx, NULL, NULL),
 			  (ctx->mailbox_ctx.flags &
