@@ -374,13 +374,7 @@ have_ioloop=no
 
 if test "$ioloop" = "" || test "$ioloop" = "epoll"; then
   AC_TRY_RUN([
-    #include <stdint.h>
     #include <sys/epoll.h>
-    #include <errno.h>
-
-    #include <linux/unistd.h>
-    
-    _syscall1 (int, epoll_create, int, size)
 
     int main()
     {
