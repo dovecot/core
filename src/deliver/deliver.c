@@ -317,20 +317,22 @@ static struct istream *create_mbox_stream(int fd)
 
 static void open_logfile(const char *username)
 {
-	const char *prefix;
+	const char *prefix, *log_path;
 
 	prefix = t_strdup_printf("deliver(%s)", username);
-	if (getenv("LOG_PATH") == NULL) {
+	log_path = getenv("LOG_PATH");
+	if (log_path == NULL || *log_path == '\0') {
 		const char *env = getenv("SYSLOG_FACILITY");
 		i_set_failure_syslog(prefix, LOG_NDELAY,
 				     env == NULL ? LOG_MAIL : atoi(env));
 	} else {
 		/* log to file or stderr */
-		i_set_failure_file(getenv("LOG_PATH"), prefix);
+		i_set_failure_file(log_path, prefix);
 	}
 
-	if (getenv("INFO_LOG_PATH") != NULL)
-		i_set_info_file(getenv("INFO_LOG_PATH"));
+	log_path = getenv("INFO_LOG_PATH");
+	if (log_path != NULL && *log_path != '\0')
+		i_set_info_file(log_path);
 
 	i_set_failure_timestamp_format(getenv("LOG_TIMESTAMP"));
 }
