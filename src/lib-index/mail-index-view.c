@@ -162,7 +162,7 @@ void mail_index_view_unref_maps(struct mail_index_view *view)
 	if (!array_is_created(&view->map_refs))
 		return;
 
-	maps = array_get_modifyable(&view->map_refs, &count);
+	maps = array_get_modifiable(&view->map_refs, &count);
 	for (i = 0; i < count; i++)
 		mail_index_unmap(view->index, &maps[i]);
 
@@ -482,9 +482,8 @@ int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 }
 
 int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
-			       array_t *keyword_idx)
+			       ARRAY_TYPE(keyword_indexes) *keyword_idx)
 {
-	ARRAY_SET_TYPE(keyword_idx, unsigned int);
 	struct mail_index_map *map;
 	const void *data;
 	const unsigned char *keyword_data;

@@ -12,10 +12,6 @@
 
 #include <stdlib.h>
 
-struct uid_range {
-	uint32_t uid1, uid2;
-};
-
 static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_transaction_expunge *e = ctx->data;
@@ -224,18 +220,18 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 
 	if (array_is_created(&ctx->trans->expunges)) {
 		synclist = array_append_space(&ctx->sync_list);
-		synclist->array = &ctx->trans->expunges;
+		synclist->array = (void *)&ctx->trans->expunges;
 	}
 
 	if (array_is_created(&ctx->trans->updates)) {
 		synclist = array_append_space(&ctx->sync_list);
-		synclist->array = &ctx->trans->updates;
+		synclist->array = (void *)&ctx->trans->updates;
 	}
 
 	/* we must return resets before keyword additions or they get lost */
 	if (array_is_created(&ctx->trans->keyword_resets)) {
 		synclist = array_append_space(&ctx->sync_list);
-		synclist->array = &ctx->trans->keyword_resets;
+		synclist->array = (void *)&ctx->trans->keyword_resets;
 	}
 
 	keyword_updates = keyword_count == 0 ? NULL :
@@ -243,12 +239,13 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 	for (i = 0; i < keyword_count; i++) {
 		if (array_is_created(&keyword_updates[i].add_seq)) {
 			synclist = array_append_space(&ctx->sync_list);
-			synclist->array = &keyword_updates[i].add_seq;
+			synclist->array = (void *)&keyword_updates[i].add_seq;
 			synclist->keyword_idx = i;
 		}
 		if (array_is_created(&keyword_updates[i].remove_seq)) {
 			synclist = array_append_space(&ctx->sync_list);
-			synclist->array = &keyword_updates[i].remove_seq;
+			synclist->array =
+				(void *)&keyword_updates[i].remove_seq;
 			synclist->keyword_idx = i;
 			synclist->keyword_remove = TRUE;
 		}
@@ -536,7 +533,7 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	/* FIXME: replace with a priority queue so we don't have to go
 	   through the whole list constantly. and remember to make sure that
 	   keyword resets are sent before adds! */
-	sync_list = array_get_modifyable(&ctx->sync_list, &count);
+	sync_list = array_get_modifiable(&ctx->sync_list, &count);
 	for (i = 0; i < count; i++) {
 		if (!array_is_created(sync_list[i].array) ||
 		    sync_list[i].idx == array_count(sync_list[i].array))
@@ -570,13 +567,13 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 		uid_range = array_idx(sync_list[i].array, sync_list[i].idx);
 	}
 
-	if (sync_list[i].array == &ctx->trans->expunges) {
+	if (sync_list[i].array == (void *)&ctx->trans->expunges) {
 		mail_index_sync_get_expunge(sync_rec,
 			(const struct mail_transaction_expunge *)uid_range);
-	} else if (sync_list[i].array == &ctx->trans->updates) {
+	} else if (sync_list[i].array == (void *)&ctx->trans->updates) {
 		mail_index_sync_get_update(sync_rec,
 			(const struct mail_transaction_flag_update *)uid_range);
-	} else if (sync_list[i].array == &ctx->trans->keyword_resets) {
+	} else if (sync_list[i].array == (void *)&ctx->trans->keyword_resets) {
 		mail_index_sync_get_keyword_reset(sync_rec, uid_range);
 	} else {
 		mail_index_sync_get_keyword_update(sync_rec, uid_range,
@@ -613,7 +610,7 @@ void mail_index_sync_reset(struct mail_index_sync_ctx *ctx)
 
 	ctx->next_uid = 0;
 
-	sync_list = array_get_modifyable(&ctx->sync_list, &count);
+	sync_list = array_get_modifiable(&ctx->sync_list, &count);
 	for (i = 0; i < count; i++)
 		sync_list[i].idx = 0;
 }
@@ -699,9 +696,8 @@ void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 }
 
 bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
-				    array_t *keywords)
+				    ARRAY_TYPE(keyword_indexes) *keywords)
 {
-	ARRAY_SET_TYPE(keywords, unsigned int);
 	const unsigned int *keyword_indexes;
 	unsigned int idx = sync_rec->keyword_idx;
 	unsigned int i, count;

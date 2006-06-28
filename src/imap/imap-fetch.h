@@ -37,7 +37,7 @@ struct imap_fetch_context {
 	buffer_t *all_headers_buf;
         struct mailbox_header_lookup_ctx *all_headers_ctx;
 
-	array_t ARRAY_DEFINE(handlers, struct imap_fetch_context_handler);
+	ARRAY_DEFINE(handlers, struct imap_fetch_context_handler);
 	unsigned int buffered_handlers_count;
 
 	struct mail *cur_mail;

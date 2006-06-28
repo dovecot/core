@@ -33,7 +33,7 @@ struct dict_client_connection {
 
 	/* There are only a few transactions per client, so keeping them in
 	   array is fast enough */
-	array_t ARRAY_DEFINE(transactions, struct dict_server_transaction);
+	ARRAY_DEFINE(transactions, struct dict_server_transaction);
 };
 
 struct dict_server {
@@ -111,7 +111,7 @@ dict_server_transaction_lookup(struct dict_client_connection *conn,
 	if (!array_is_created(&conn->transactions))
 		return NULL;
 
-	transactions = array_get_modifyable(&conn->transactions, &count);
+	transactions = array_get_modifiable(&conn->transactions, &count);
 	for (i = 0; i < count; i++) {
 		if (transactions[i].id == id)
 			return &transactions[i];

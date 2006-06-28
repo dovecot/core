@@ -125,7 +125,7 @@ struct settings {
 
 	const char *imap_generated_capability;
 
-	array_t ARRAY_DEFINE(plugin_envs, const char *);
+	ARRAY_DEFINE(plugin_envs, const char *);
 };
 
 struct socket_settings {
@@ -223,7 +223,7 @@ struct server_settings {
 	struct auth_settings auth_defaults;
         struct namespace_settings *namespaces;
 
-	array_t ARRAY_DEFINE(dicts, const char *);
+	ARRAY_DEFINE(dicts, const char *);
 
 	gid_t login_gid;
 };

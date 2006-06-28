@@ -44,12 +44,12 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 
 /* Send FLAGS + PERMANENTFLAGS to client. */
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const array_t *keywords);
+			       const ARRAY_TYPE(keywords) *keywords);
 
 /* Copy keywords into dest. dest must have been initialized. Returns TRUE if
    keywords changed. */
 bool client_save_keywords(struct mailbox_keywords *dest,
-			  const array_t *keywords);
+			  const ARRAY_TYPE(keywords) *keywords);
 
 bool mailbox_equals(struct mailbox *box1, struct mail_storage *storage2,
 		    const char *name2);

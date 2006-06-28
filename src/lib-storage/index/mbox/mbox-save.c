@@ -239,8 +239,7 @@ mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 {
 	unsigned char space[MBOX_HEADER_PADDING+1 +
 			    sizeof("Content-Length: \n")-1 + MAX_INT_STRLEN];
-	const array_t *keyword_names_list;
-	ARRAY_SET_TYPE(keyword_names_list, const char *);
+	const ARRAY_TYPE(keywords) *keyword_names_list;
 	const char *const *keyword_names;
 	unsigned int i, count, keyword_names_count;
 

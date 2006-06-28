@@ -170,7 +170,7 @@ static bool message_search_decoded_block(struct part_search_context *ctx,
 	key = (const unsigned char *) ctx->body_ctx->key;
 	key_len = ctx->body_ctx->key_len;
 
-	matches = buffer_get_modifyable_data(ctx->match_buf, &match_count);
+	matches = buffer_get_modifiable_data(ctx->match_buf, &match_count);
 	match_count /= sizeof(size_t);
 
 	p = buffer_get_data(block, &block_size);

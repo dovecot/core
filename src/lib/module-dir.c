@@ -164,7 +164,7 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 	const char **module_names_arr;
 	struct module *modules, *module;
 	unsigned int i, count;
-	array_t ARRAY_DEFINE(names, const char *);
+	ARRAY_DEFINE(names, const char *);
 	pool_t pool;
 
 	if (getenv("DEBUG") != NULL)
@@ -195,7 +195,7 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 		array_append(&names, &name, 1);
 	}
 
-	names_p = array_get_modifyable(&names, NULL);
+	names_p = array_get_modifiable(&names, NULL);
 	count = array_count(&names);
 	qsort(names_p, count, sizeof(const char *), module_name_cmp);
 

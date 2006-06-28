@@ -34,7 +34,7 @@ struct dbox_save_file {
 	ino_t ino;
 
 	struct dotlock *dotlock;
-	array_t ARRAY_DEFINE(seqs, unsigned int);
+	ARRAY_DEFINE(seqs, unsigned int);
 };
 
 struct dbox_uidlist {
@@ -54,7 +54,7 @@ struct dbox_uidlist {
 	uint32_t file_seq_highwater;
 
 	pool_t entry_pool;
-	array_t ARRAY_DEFINE(entries, struct dbox_uidlist_entry *);
+	ARRAY_DEFINE(entries, struct dbox_uidlist_entry *);
 
 	unsigned int appending:1;
 	unsigned int need_full_rewrite:1;
@@ -67,7 +67,7 @@ struct dbox_uidlist_append_ctx {
 	time_t min_usable_timestamp;
 	unsigned int mail_count;
 
-	array_t ARRAY_DEFINE(files, struct dbox_save_file *);
+	ARRAY_DEFINE(files, struct dbox_save_file *);
 	unsigned int open_fds;
 
 	unsigned int locked:1;
@@ -133,13 +133,12 @@ void dbox_uidlist_deinit(struct dbox_uidlist *uidlist)
 	i_free(uidlist);
 }
 
-static int uidlist_merge(array_t *uid_list, const struct seq_range *seqs)
+static int uidlist_merge(ARRAY_TYPE(seq_range) *uid_list, const struct seq_range *seqs)
 {
-	ARRAY_SET_TYPE(uid_list, struct seq_range);
 	struct seq_range *range;
 	unsigned int count;
 
-	range = array_get_modifyable(uid_list, &count);
+	range = array_get_modifiable(uid_list, &count);
 	i_assert(count > 0);
 
 	if (seqs->seq1 <= range[count-1].seq2)
@@ -182,7 +181,7 @@ static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 
 	dbox_uidlist_update_last_uid(uidlist, src_entry);
 
-	entries = array_get_modifyable(&uidlist->entries, &count);
+	entries = array_get_modifiable(&uidlist->entries, &count);
 	if (count == 0 || src_entry->file_seq > entries[count-1]->file_seq) {
 		/* append new file sequence */
 		idx = count;

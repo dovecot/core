@@ -75,13 +75,13 @@ int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
 	return 0;
 }
 
-static void mbox_sync_array_delete_to(array_t *syncs_arr, uint32_t last_uid)
+static void mbox_sync_array_delete_to(ARRAY_TYPE(sync_recs) *syncs_arr,
+				      uint32_t last_uid)
 {
-	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
 	struct mail_index_sync_rec *syncs;
 	unsigned int src, dest, count;
 
-	syncs = array_get_modifyable(syncs_arr, &count);
+	syncs = array_get_modifiable(syncs_arr, &count);
 
 	for (src = dest = 0; src < count; src++) {
 		i_assert(last_uid >= syncs[src].uid1);
@@ -134,9 +134,8 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
-static bool mbox_sync_buf_have_expunges(array_t *syncs_arr)
+static bool mbox_sync_buf_have_expunges(ARRAY_TYPE(sync_recs) *syncs_arr)
 {
-	ARRAY_SET_TYPE(syncs_arr, struct mail_index_sync_rec);
 	const struct mail_index_sync_rec *syncs;
 	unsigned int i, count;
 

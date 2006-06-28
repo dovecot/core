@@ -306,7 +306,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	/* find the first non-expunged mail */
 	first_expunged_uid = exp_uid1;
 	seen_expunges = FALSE; skipped_expunges = FALSE; uid = 0;
-	range = array_get_modifyable(&entry->uid_list, &count);
+	range = array_get_modifiable(&entry->uid_list, &count);
 	for (i = 0; i < count; i++) {
 		uid = range[i].seq1;
 

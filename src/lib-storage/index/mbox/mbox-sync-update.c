@@ -88,7 +88,7 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 	}
 
 	/* how many bytes do we have now? */
-	data = buffer_get_modifyable_data(ctx->header, &size);
+	data = buffer_get_modifiable_data(ctx->header, &size);
 	for (have = 0; pos < size; pos++) {
 		if (data[pos] == '\n' || data[pos] == '\r')
 			break;
@@ -119,10 +119,10 @@ static void status_flags_replace(struct mbox_sync_mail_context *ctx, size_t pos,
 	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 }
 
-static void keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
-			    const array_t *keyword_indexes_arr)
+static void
+keywords_append(struct mbox_sync_context *sync_ctx, string_t *dest,
+		const ARRAY_TYPE(keyword_indexes) *keyword_indexes_arr)
 {
-	ARRAY_SET_TYPE(keyword_indexes_arr, unsigned int);
 	const char *const *keyword_names;
 	const unsigned int *keyword_indexes;
 	unsigned int i, idx_count, keywords_count;
@@ -444,8 +444,7 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 		array_append_array(&ctx->mail.keywords,
 				   &mail->keywords);
 		mbox_sync_update_xkeywords(ctx);
-	} else if (!buffer_cmp(ctx->mail.keywords.buffer,
-			       mail->keywords.buffer)) {
+	} else if (!array_cmp(&ctx->mail.keywords, &mail->keywords)) {
 		/* keywords changed. */
 		array_clear(&ctx->mail.keywords);
 		array_append_array(&ctx->mail.keywords,

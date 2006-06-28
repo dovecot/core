@@ -213,7 +213,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	if (map->buffer != NULL) {
 		buffer_set_used_size(map->buffer, map->records_count *
 				     map->hdr.record_size);
-		map->records = buffer_get_modifyable_data(map->buffer, NULL);
+		map->records = buffer_get_modifiable_data(map->buffer, NULL);
 	}
 	return 1;
 }
@@ -247,7 +247,7 @@ static int sync_append(const struct mail_index_record *rec,
 			 buffer_get_used_size(map->buffer));
 		dest = buffer_append_space_unsafe(map->buffer,
 						  map->hdr.record_size);
-		map->records = buffer_get_modifyable_data(map->buffer, NULL);
+		map->records = buffer_get_modifiable_data(map->buffer, NULL);
 	} else {
 		i_assert((map->records_count+1) * map->hdr.record_size <=
 			 map->mmap_size);

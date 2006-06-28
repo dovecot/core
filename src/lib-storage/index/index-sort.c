@@ -44,6 +44,7 @@ struct mail_sort_node {
 	uint32_t seq;
 	uint32_t sort_id;
 };
+ARRAY_DEFINE_TYPE(mail_sort_node, struct mail_sort_node);
 
 struct mail_search_sort_program {
 	struct mailbox_transaction_context *t;
@@ -51,11 +52,11 @@ struct mail_search_sort_program {
 	const char *primary_sort_header;
 	struct mail *temp_mail;
 
-	array_t ARRAY_DEFINE(nodes, struct mail_sort_node);
+	ARRAY_TYPE(mail_sort_node) nodes;
 	const struct mail_sort_node *nodes_ptr;
 	unsigned int nodes_count, iter_idx;
 
-	array_t ARRAY_DEFINE(all_nodes, struct mail_sort_node);
+	ARRAY_TYPE(mail_sort_node) all_nodes;
 
 	uint32_t ext_id;
 	uint32_t prev_seq, last_sorted_seq;
@@ -333,7 +334,7 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 	int ret = 1;
 
 	t_push();
-	nodes = array_get_modifyable(&program->all_nodes, &count);
+	nodes = array_get_modifiable(&program->all_nodes, &count);
 	if (nodes[idx2].sort_id != 0) {
 		i_assert(idx1 != idx2);
 		last_id = nodes[idx2].sort_id;
@@ -395,7 +396,7 @@ index_sort_renumber_ids(struct mail_search_sort_program *program,
 	unsigned int i, count;
 	uint32_t sort_id, prev_sort_id, skip;
 
-	nodes = array_get_modifyable(&program->all_nodes, &count);
+	nodes = array_get_modifiable(&program->all_nodes, &count);
 	prev_sort_id = (uint32_t)-1;
 	sort_id = nodes[idx].sort_id;
 	i_assert(sort_id == nodes[idx + 1].sort_id);
@@ -522,7 +523,7 @@ static void index_sort_preset_sort_ids(struct mail_search_sort_program *program,
 	static_node_cmp_context.program = program;
 	static_node_cmp_context.mail = mail;
 
-	qsort(array_idx_modifyable(&program->all_nodes, 0), last_seq,
+	qsort(array_idx_modifiable(&program->all_nodes, 0), last_seq,
 	      sizeof(struct mail_sort_node), sort_node_cmp);
 }
 
@@ -565,7 +566,7 @@ static void index_sort_headers(struct mail_search_sort_program *program,
 	static_node_cmp_context.mail = program->temp_mail;
 
 	/* @UNSAFE */
-	nodes = array_get_modifyable(&program->all_nodes, &count);
+	nodes = array_get_modifiable(&program->all_nodes, &count);
 	if (program->last_sorted_seq != count) {
 		qsort(nodes, count, sizeof(struct mail_sort_node),
 		      sort_node_cmp);
@@ -576,7 +577,7 @@ static void index_sort_headers(struct mail_search_sort_program *program,
 		index_sort_cache_seq(&static_node_cmp_context,
 				     program->sort_program[0], node.seq);
 
-		cnodes = array_get_modifyable(&program->nodes, &count);
+		cnodes = array_get_modifiable(&program->nodes, &count);
 		pos = bsearch_insert_pos(&node, cnodes, count, sizeof(*cnodes),
 					 sort_node_cmp_no_sort_id);
 		array_insert(&program->nodes, pos - cnodes, &node, 1);

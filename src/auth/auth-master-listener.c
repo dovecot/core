@@ -21,7 +21,7 @@ struct auth_master_listener_socket {
 	struct io *io;
 };
 
-static array_t ARRAY_DEFINE(master_listeners, struct auth_master_listener *);
+static ARRAY_DEFINE(master_listeners, struct auth_master_listener *);
 
 struct auth_master_listener *auth_master_listener_create(struct auth *auth)
 {
@@ -71,15 +71,15 @@ void auth_master_listener_destroy(struct auth_master_listener *listener)
 		}
 	}
 
-	sockets = array_get_modifyable(&listener->sockets, &count);
+	sockets = array_get_modifiable(&listener->sockets, &count);
 	for (i = count; i > 0; i--)
 		auth_master_listener_socket_free(sockets[i-1]);
 
-	masters = array_get_modifyable(&listener->masters, &count);
+	masters = array_get_modifiable(&listener->masters, &count);
 	for (i = count; i > 0; i--)
 		auth_master_connection_destroy(&masters[i-1]);
 
-	clients = array_get_modifyable(&listener->clients, &count);
+	clients = array_get_modifiable(&listener->clients, &count);
 	for (i = count; i > 0; i--)
 		auth_client_connection_destroy(&clients[i-1]);
 
@@ -177,7 +177,7 @@ void auth_master_listeners_deinit(void)
         struct auth_master_listener **listeners;
 	unsigned int i, count;
 
-	listeners = array_get_modifyable(&master_listeners, &count);
+	listeners = array_get_modifiable(&master_listeners, &count);
 	for (i = count; i > 0; i--)
 		auth_master_listener_destroy(listeners[i-1]);
 	array_free(&master_listeners);

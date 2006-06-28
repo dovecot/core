@@ -762,7 +762,7 @@ static int rename_subfolders(struct index_storage *storage,
 {
 	struct mailbox_list_context *ctx;
         struct mailbox_list *list;
-	array_t ARRAY_DEFINE(names_arr, const char *);
+	ARRAY_DEFINE(names_arr, const char *);
 	const char *oldpath, *newpath, *old_listname, *new_listname;
 	const char *const *names;
 	unsigned int i, count;

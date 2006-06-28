@@ -312,7 +312,7 @@ dbox_sync_file_add_keywords(struct dbox_sync_context *ctx,
 			    const struct dbox_sync_file_entry *entry,
 			    unsigned int i)
 {
-	array_t ARRAY_DEFINE(keywords, struct seq_range);
+	ARRAY_TYPE(seq_range) keywords;
 	const struct dbox_sync_rec *sync_recs;
 	const struct seq_range *range;
 	unsigned int count, file_idx, keyword_idx;

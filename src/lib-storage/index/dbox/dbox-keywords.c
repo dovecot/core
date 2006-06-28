@@ -59,7 +59,7 @@ int dbox_file_read_keywords(struct dbox_mailbox *mbox, struct dbox_file *file)
 		kw.file_idx = idx;
 
 		/* look up the position where to insert it */
-		map = array_get_modifyable(&file->idx_file_keywords, &count);
+		map = array_get_modifiable(&file->idx_file_keywords, &count);
 		pos = idx == 0 ? map :
 			bsearch_insert_pos(&kw, map, count, sizeof(*map),
 					   dbox_keyword_map_compare);
@@ -118,8 +118,7 @@ int dbox_file_append_keywords(struct dbox_mailbox *mbox, struct dbox_file *file,
 			      const struct seq_range *idx_range,
 			      unsigned int count)
 {
-	const array_t *idx_keywords;
-	ARRAY_SET_TYPE(idx_keywords, const char *);
+	const ARRAY_TYPE(keywords) *idx_keywords;
 	string_t *keyword_str;
 	const char *const *idx_keyword_names;
 	unsigned int i, idx_keyword_count, new_pos;

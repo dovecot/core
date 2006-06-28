@@ -1,12 +1,14 @@
 #ifndef __DBOX_UIDLIST_H
 #define __DBOX_UIDLIST_H
 
+#include "seq-range-array.h"
+
 struct dbox_file;
 struct dbox_mailbox;
 struct dbox_uidlist_sync_ctx;
 
 struct dbox_uidlist_entry {
-	array_t ARRAY_DEFINE(uid_list, struct seq_range);
+	ARRAY_TYPE(seq_range) uid_list;
 
 	uint32_t file_seq;
 	/* file creation timestamp. used for rotation checks. */

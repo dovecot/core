@@ -154,12 +154,12 @@ int maildir_sync_last_commit(struct maildir_mailbox *mbox);
 
 int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
 			       const char *fname, enum mail_flags *flags_r,
-			       array_t *keywords);
+			       ARRAY_TYPE(keyword_indexes) *keywords);
 struct maildir_keywords_sync_ctx *
 maildir_sync_get_keywords_sync_ctx(struct maildir_index_sync_context *ctx);
 const char *maildir_filename_set_flags(struct maildir_keywords_sync_ctx *ctx,
 				       const char *fname, enum mail_flags flags,
-				       array_t *keywords);
+				       ARRAY_TYPE(keyword_indexes) *keywords);
 
 unsigned int maildir_hash(const void *p);
 int maildir_cmp(const void *p1, const void *p2);

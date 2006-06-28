@@ -87,7 +87,7 @@ struct index_mail_data {
 	struct message_size hdr_size, body_size;
 	struct message_parser_ctx *parser_ctx;
 	int parsing_count;
-	array_t ARRAY_DEFINE(keywords, const char *);
+	ARRAY_TYPE(keywords) keywords;
 
 	const struct mail_cache_field *all_cache_fields;
 	unsigned int all_cache_fields_count;
@@ -119,9 +119,9 @@ struct index_mail {
 	/* per-mail variables, here for performance reasons: */
 	uint32_t header_seq;
 	string_t *header_data;
-	array_t ARRAY_DEFINE(header_lines, struct index_mail_line);
-	array_t ARRAY_DEFINE(header_match, uint8_t);
-	array_t ARRAY_DEFINE(header_match_lines, unsigned int);
+	ARRAY_DEFINE(header_lines, struct index_mail_line);
+	ARRAY_DEFINE(header_match, uint8_t);
+	ARRAY_DEFINE(header_match_lines, unsigned int);
 	uint8_t header_match_value;
 };
 

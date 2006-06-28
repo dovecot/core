@@ -31,7 +31,7 @@ struct acl_cache {
 	   rights can be added to the mapping. */
 	pool_t right_names_pool;
 	/* idx => right name. */
-	array_t ARRAY_DEFINE(right_idx_name_map, const char *);
+	ARRAY_DEFINE(right_idx_name_map, const char *);
 	/* name => idx */
 	struct hash_table *right_name_idx_map;
 };

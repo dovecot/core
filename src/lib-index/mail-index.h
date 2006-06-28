@@ -142,6 +142,8 @@ struct mail_index_view_sync_rec {
 	enum mail_index_sync_type type;
 };
 
+ARRAY_DEFINE_TYPE(keyword_indexes, unsigned int);
+
 struct mail_index;
 struct mail_index_map;
 struct mail_index_view;
@@ -282,7 +284,7 @@ int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 			   const struct mail_index_record **rec_r);
 /* Note that returned keyword indexes aren't sorted. */
 int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
-			       array_t *keyword_idx);
+			       ARRAY_TYPE(keyword_indexes) *keyword_idx);
 /* Returns the UID for given message. May be slightly faster than
    mail_index_lookup()->uid. */
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -325,7 +327,7 @@ bool mail_index_keyword_lookup(struct mail_index *index,
 /* Return a pointer to array of NULL-terminated list of keywords. Note that
    the array contents (and thus pointers inside it) may change after calling
    mail_index_keywords_create() or mail_index_sync_begin(). */
-const array_t *mail_index_get_keywords(struct mail_index *index);
+const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index);
 
 /* Create a keyword list structure. It's freed automatically at the end of
    the transaction. */
@@ -334,7 +336,8 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 			   const char *const keywords[]);
 struct mail_keywords *
 mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
-					const array_t *keyword_indexes);
+					const ARRAY_TYPE(keyword_indexes)
+						*keyword_indexes);
 /* Free the keywords. */
 void mail_index_keywords_free(struct mail_keywords **keywords);
 /* Update keywords for given message. */
@@ -363,7 +366,7 @@ void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 /* Apply changes in MAIL_INDEX_SYNC_TYPE_KEYWORD_* typed sync records to given
    keywords array. Returns TRUE If something was changed. */
 bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
-				    array_t *keywords);
+				    ARRAY_TYPE(keyword_indexes) *keywords);
 
 /* register index extension. name is a unique identifier for the extension.
    returns unique identifier for the name. */

@@ -11,7 +11,7 @@ struct imap_arg;
 struct mailbox_keywords {
 	pool_t pool; /* will be p_clear()ed when changed */
 
-	array_t ARRAY_DEFINE(keywords, const char *);
+	ARRAY_DEFINE(keywords, const char *);
 };
 
 struct client_command_context {

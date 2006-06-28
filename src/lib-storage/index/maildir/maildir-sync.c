@@ -214,7 +214,7 @@ struct maildir_index_sync_context {
         struct maildir_keywords_sync_ctx *keywords_sync_ctx;
 	struct mail_index_transaction *trans;
 
-	array_t ARRAY_DEFINE(sync_recs, struct mail_index_sync_rec);
+	ARRAY_DEFINE(sync_recs, struct mail_index_sync_rec);
 	uint32_t seq;
 	int dirty_state;
 };
@@ -227,9 +227,8 @@ maildir_sync_get_keywords_sync_ctx(struct maildir_index_sync_context *ctx)
 
 int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
 			       const char *fname, enum mail_flags *flags_r,
-                               array_t *keywords_r)
+                               ARRAY_TYPE(keyword_indexes) *keywords_r)
 {
-	ARRAY_SET_TYPE(keywords_r, unsigned int);
 	const char *info;
 
 	array_clear(keywords_r);
@@ -282,9 +281,9 @@ int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
 
 static void
 maildir_filename_append_keywords(struct maildir_keywords_sync_ctx *ctx,
-				 array_t *keywords, string_t *str)
+				 ARRAY_TYPE(keyword_indexes) *keywords,
+				 string_t *str)
 {
-	ARRAY_SET_TYPE(keywords, unsigned int);
 	const unsigned int *indexes;
 	unsigned int i, count;
 	char chr;
@@ -299,7 +298,7 @@ maildir_filename_append_keywords(struct maildir_keywords_sync_ctx *ctx,
 
 const char *maildir_filename_set_flags(struct maildir_keywords_sync_ctx *ctx,
 				       const char *fname, enum mail_flags flags,
-				       array_t *keywords)
+				       ARRAY_TYPE(keyword_indexes) *keywords)
 {
 	string_t *flags_str;
 	enum mail_flags flags_left;
@@ -402,7 +401,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	const struct mail_index_sync_rec *recs;
 	const char *dir, *fname, *newfname, *newpath;
 	enum mail_flags flags;
-	array_t ARRAY_DEFINE(keywords, unsigned int);
+	ARRAY_TYPE(keyword_indexes) keywords;
 	unsigned int i, count;
 	uint8_t flags8;
 
@@ -418,7 +417,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 					 fname, &flags, &keywords);
 	flags8 = flags;
 
-	recs = array_get_modifyable(&ctx->sync_recs, &count);
+	recs = array_get_modifiable(&ctx->sync_recs, &count);
 	for (i = 0; i < count; i++) {
 		if (recs[i].uid1 != ctx->seq)
 			break;
@@ -473,7 +472,7 @@ maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
 	uint32_t seq, uid;
 	bool expunged, flag_changed;
 
-	recs = array_get_modifyable(&ctx->sync_recs, &count);
+	recs = array_get_modifiable(&ctx->sync_recs, &count);
 	for (seq = recs[0].uid1; seq <= last_seq; seq++) {
 		expunged = flag_changed = FALSE;
 		for (i = 0; i < count; i++) {
@@ -514,7 +513,7 @@ maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
 		for (i = count; i > 0; i--) {
 			if (++recs[i-1].uid1 > recs[i-1].uid2) {
 				array_delete(&ctx->sync_recs, i-1, 1);
-				recs = array_get_modifyable(&ctx->sync_recs,
+				recs = array_get_modifiable(&ctx->sync_recs,
 							    &count);
 				if (count == 0) {
 					/* all sync_recs committed */
@@ -937,8 +936,8 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
 	enum mail_flags flags;
-	array_t ARRAY_DEFINE(keywords, unsigned int);
-	array_t ARRAY_DEFINE(idx_keywords, unsigned int);
+	ARRAY_TYPE(keyword_indexes) keywords;
+	ARRAY_TYPE(keyword_indexes) idx_keywords;
 	uint32_t uid_validity, next_uid;
 	uint64_t value;
 	time_t old_new_sync_time;

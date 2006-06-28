@@ -33,7 +33,7 @@ struct mysql_db {
 	const char *ssl_cert, *ssl_key, *ssl_ca, *ssl_ca_path, *ssl_cipher;
 	unsigned int port, client_flags;
 
-	array_t ARRAY_DEFINE(connections, struct mysql_connection);
+	ARRAY_DEFINE(connections, struct mysql_connection);
 	unsigned int next_query_connection;
 };
 
@@ -150,7 +150,7 @@ static int driver_mysql_connect_all(struct sql_db *_db)
 	unsigned int i, count;
 	int ret = -1;
 
-	conn = array_get_modifyable(&db->connections, &count);
+	conn = array_get_modifiable(&db->connections, &count);
 	for (i = 0; i < count; i++) {
 		if (driver_mysql_connect(&conn[i]))
 			ret = 1;
@@ -260,7 +260,7 @@ static void _driver_mysql_deinit(struct sql_db *_db)
 	struct mysql_connection *conn;
 	unsigned int i, count;
 
-	conn = array_get_modifyable(&db->connections, &count);
+	conn = array_get_modifiable(&db->connections, &count);
 	for (i = 0; i < count; i++)
 		(void)driver_mysql_connection_free(&conn[i]);
 
@@ -309,7 +309,7 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 	bool reset;
 	int ret;
 
-	conn = array_get_modifyable(&db->connections, &count);
+	conn = array_get_modifiable(&db->connections, &count);
 
 	/* go through the connections in round robin. if the connection
 	   isn't available, try next one that is. */
@@ -354,7 +354,7 @@ driver_mysql_escape_string(struct sql_db *_db, const char *string)
 
 	/* All the connections should be identical, so just use the first
 	   connected one */
-	conn = array_get_modifyable(&db->connections, &count);
+	conn = array_get_modifiable(&db->connections, &count);
 	for (i = 0; i < count; i++) {
 		if (conn[i].connected)
 			break;

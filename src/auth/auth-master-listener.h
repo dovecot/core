@@ -10,9 +10,9 @@ struct auth_master_listener {
 	struct auth *auth;
 	unsigned int pid;
 
-	array_t ARRAY_DEFINE(sockets, struct auth_master_listener_socket *);
-	array_t ARRAY_DEFINE(masters, struct auth_master_connection *);
-	array_t ARRAY_DEFINE(clients, struct auth_client_connection *);
+	ARRAY_DEFINE(sockets, struct auth_master_listener_socket *);
+	ARRAY_DEFINE(masters, struct auth_master_connection *);
+	ARRAY_DEFINE(clients, struct auth_client_connection *);
 
 	struct timeout *to_clients;
 };

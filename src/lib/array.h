@@ -1,18 +1,15 @@
 #ifndef __ARRAY_H
 #define __ARRAY_H
 
-/* Array is a buffer accessible using fixed size elements. If DEBUG is
-   enabled, it also provides compile time type safety:
-
-   If DEBUG is enabled, an extra variable is defined along with the array
-   itself. This is used to cast array_idx() return value correctly, so
-   compiler gives a warning if it's assigned into variable with a different
-   type.
+/* Array is a buffer accessible using fixed size elements. As long as the
+   compiler provides typeof() function, the array provides type safety. If
+   a wrong type is tried to be added to the array, or if the array's contents
+   are tried to be used using a wrong type, the compiler will give a warning.
 
    Example usage:
 
    struct foo {
-	array_t ARRAY_DEFINE(bars, struct bar);
+	ARRAY_DEFINE(bars, struct bar);
 	...
    };
 
@@ -22,164 +19,160 @@
    struct bar *bar = array_idx(&foo->bars, 5);
    struct baz *baz = array_idx(&foo->bars, 5); // compiler warning
 
-   When passing array_t as a parameter to function, or when it's otherwise
-   accessed in a way that the extra variable cannot be accessed, the code
-   won't compile. For situations like those, there's a ARRAY_SET_TYPE() macro.
+   If you want to pass an array as a parameter to a function, you'll need to
+   create a type for the array using ARRAY_DEFINE_TYPE() and use the type in
+   the parameter using ARRAY_TYPE().
 
    Example:
 
-   void do_foo(array_t *bars) {
-	ARRAY_SET_TYPE(bars, struct foo);
+   ARRAY_DEFINE_TYPE(foo, struct foo);
+   void do_foo(ARRAY_TYPE(foo) *bars) {
 	struct foo *foo = array_idx(bars, 0);
    }
 */
 #include "array-decl.h"
 #include "buffer.h"
 
-#ifdef ARRAY_TYPE_CHECKS
-#  define ARRAY_CREATE(array, pool, array_type, init_count) STMT_START { \
-	array_type **_array_tmp = array ## __ ## type; _array_tmp = NULL; \
+#define ARRAY_CREATE(array, pool, array_type, init_count) STMT_START { \
+	array_type const *_array_tmp = (array)->v; _array_tmp = NULL; \
 	array_create(array, pool, sizeof(array_type), init_count); \
 	} STMT_END
-#  define ARRAY_SET_TYPE(array, array_type) \
-	array_type **array ## __ ## type = NULL
-#else
-#  define ARRAY_CREATE(array, pool, array_type, init_count) \
-	array_create(array, pool, sizeof(array_type), init_count)
-/* The reason we do this for non-ARRAY_TYPE_CHECKS as well is because if we
-   left this empty, some compilers wouldn't like an extra ";" character at
-   the beginning of the function (eg. gcc 2.95).
 
-   However just declaring the variable gives "unused variable" warning.
-   I couldn't think of anything better, so we just use gcc-specific
-   unused-attribute to get rid of that with gcc. */
-#  define ARRAY_SET_TYPE(array, array_type) \
-	array_type **array ## __ ## type __attr_unused__ = NULL
+#ifdef __GNUC__
+#  define ARRAY_TYPE_CAST_CONST(array) \
+	(typeof((array)->v))
+#  define ARRAY_TYPE_CAST_MODIFIABLE(array) \
+	(typeof((array)->v_modifiable))
+#  define ARRAY_TYPE_CHECK(array, data) \
+	typeof((array)->v_modifiable) __tmp_array_data2 __attr_unused__ = \
+		(typeof(const typeof(typeof(*(data)) *)))NULL;
+#else
+#  define ARRAY_TYPE_CAST_CONST(array)
+#  define ARRAY_TYPE_CAST_MODIFIABLE(array)
+#  define ARRAY_TYPE_CHECK(array, data)
 #endif
 
 static inline void
-array_create_from_buffer(array_t *array, buffer_t *buffer, size_t element_size)
+_array_create_from_buffer(struct array *array, buffer_t *buffer,
+			  size_t element_size)
 {
 	array->buffer = buffer;
 	array->element_size = element_size;
 }
+#define array_create_from_buffer(array, buffer, element_size) \
+	_array_create_from_buffer(&(array)->arr, buffer, element_size)
 
 static inline void
-array_create(array_t *array, pool_t pool,
-	     size_t element_size, unsigned int init_count)
+_array_create(struct array *array, pool_t pool,
+	      size_t element_size, unsigned int init_count)
 {
 	buffer_t *buffer;
 
         buffer = buffer_create_dynamic(pool, init_count * element_size);
-	array_create_from_buffer(array, buffer, element_size);
+	_array_create_from_buffer(array, buffer, element_size);
 }
+#define array_create(array, pool, element_size, init_count) \
+	_array_create(&(array)->arr, pool, element_size, init_count)
 
 static inline void
-array_free(array_t *array)
+_array_free(struct array *array)
 {
 	buffer_free(array->buffer);
 	array->buffer = NULL;
 }
+#define array_free(array) \
+	_array_free(&(array)->arr)
 
 static inline bool
-array_is_created(const array_t *array)
+_array_is_created(const struct array *array)
 {
 	return array->buffer != NULL;
 }
+#define array_is_created(array) \
+	_array_is_created(&(array)->arr)
 
 static inline void
-array_clear(array_t *array)
+_array_clear(struct array *array)
 {
 	buffer_set_used_size(array->buffer, 0);
 }
+#define array_clear(array) \
+	_array_clear(&(array)->arr)
 
 static inline void
-_array_append(array_t *array, const void *data, unsigned int count)
+_array_append(struct array *array, const void *data, unsigned int count)
 {
 	buffer_append(array->buffer, data, count * array->element_size);
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_append _array_append
-#else
-#  define array_append(array, data, count) STMT_START { \
-	typeof(const typeof(**(array ## __ ## type)) *) _array_tmp = data; \
-	_array_append(array, _array_tmp, count); \
-	} STMT_END
-#endif
+
+#define array_append(array, data, count) STMT_START { \
+	ARRAY_TYPE_CHECK(array, data) \
+	_array_append(&(array)->arr, data, count); \
+} STMT_END
 
 static inline void
-array_append_array(array_t *dest_array, const array_t *src_array)
+_array_append_array(struct array *dest_array, const struct array *src_array)
 {
 	i_assert(dest_array->element_size == src_array->element_size);
 	buffer_append_buf(dest_array->buffer, src_array->buffer, 0, (size_t)-1);
 }
+#define array_append_array(dest_array, src_array) \
+	_array_append_array(&(dest_array)->arr, &(src_array)->arr)
 
 static inline void
-_array_insert(array_t *array, unsigned int idx,
+_array_insert(struct array *array, unsigned int idx,
 	      const void *data, unsigned int count)
 {
 	buffer_insert(array->buffer, idx * array->element_size,
 		      data, count * array->element_size);
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_insert _array_insert
-#else
-#  define array_insert(array, idx, data, count) STMT_START { \
-	typeof(const typeof(**(array ## __ ## type)) *) _array_tmp = data; \
-	_array_insert(array, idx, _array_tmp, count); \
+
+#define array_insert(array, idx, data, count) STMT_START { \
+	ARRAY_TYPE_CHECK(array, data) \
+	_array_insert(&(array)->arr, idx, data, count); \
 	} STMT_END
-#endif
 
 static inline void
-array_delete(array_t *array, unsigned int idx, unsigned int count)
+_array_delete(struct array *array, unsigned int idx, unsigned int count)
 {
 	buffer_delete(array->buffer, idx * array->element_size,
 		      count * array->element_size);
 }
+#define array_delete(array, idx, count) \
+	_array_delete(&(array)->arr, idx, count)
 
 static inline const void *
-_array_get(const array_t *array, unsigned int *count_r)
+_array_get(const struct array *array, unsigned int *count_r)
 {
 	if (count_r != NULL)
 		*count_r = array->buffer->used / array->element_size;
 	return array->buffer->data;
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_get _array_get
-#else
-#  define array_get(array, count) \
-	(typeof(typeof(**array ## __ ## type) const *))_array_get(array, count)
-#endif
+#define array_get(array, count) \
+	ARRAY_TYPE_CAST_CONST(array)_array_get(&(array)->arr, count)
 
 static inline const void *
-_array_idx(const array_t *array, unsigned int idx)
+_array_idx(const struct array *array, unsigned int idx)
 {
 	i_assert(idx * array->element_size < array->buffer->used);
 	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_idx _array_idx
-#else
-#  define array_idx(array, idx) \
-	(typeof(typeof(**array ## __ ## type) const *))_array_idx(array, idx)
-#endif
+#define array_idx(array, idx) \
+	ARRAY_TYPE_CAST_CONST(array)_array_idx(&(array)->arr, idx)
 
 static inline void *
-_array_get_modifyable(array_t *array, unsigned int *count_r)
+_array_get_modifiable(struct array *array, unsigned int *count_r)
 {
 	if (count_r != NULL)
 		*count_r = array->buffer->used / array->element_size;
-	return buffer_get_modifyable_data(array->buffer, NULL);
+	return buffer_get_modifiable_data(array->buffer, NULL);
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_get_modifyable _array_get_modifyable
-#else
-#  define array_get_modifyable(array, count) \
-	(typeof(*array ## __ ## type))_array_get_modifyable(array, count)
-#endif
+#define array_get_modifiable(array, count) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+		_array_get_modifiable(&(array)->arr, count)
 
 static inline void *
-_array_idx_modifyable(array_t *array, unsigned int idx)
+_array_idx_modifiable(struct array *array, unsigned int idx)
 {
 	size_t pos;
 
@@ -191,15 +184,12 @@ _array_idx_modifyable(array_t *array, unsigned int idx)
 	}
 	return buffer_get_space_unsafe(array->buffer, pos, array->element_size);
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_idx_modifyable _array_idx_modifyable
-#else
-#  define array_idx_modifyable(array, count) \
-	(typeof(*array ## __ ## type))_array_idx_modifyable(array, count)
-#endif
+#define array_idx_modifiable(array, count) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+		_array_idx_modifiable(&(array)->arr, count)
 
 static inline void
-_array_idx_set(array_t *array, unsigned int idx, const void *data)
+_array_idx_set(struct array *array, unsigned int idx, const void *data)
 {
 	size_t pos;
 
@@ -210,17 +200,13 @@ _array_idx_set(array_t *array, unsigned int idx, const void *data)
 	}
 	buffer_write(array->buffer, pos, data, array->element_size);
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_idx_set _array_idx_set
-#else
-#  define array_idx_set(array, idx, data) STMT_START { \
-	typeof(const typeof(**(array ## __ ## type)) *) _array_tmp = data; \
-	_array_idx_set(array, idx, _array_tmp); \
+#define array_idx_set(array, idx, data) STMT_START { \
+	ARRAY_TYPE_CHECK(array, data) \
+	_array_idx_set(&(array)->arr, idx, data); \
 	} STMT_END
-#endif
 
 static inline void *
-_array_append_space(array_t *array)
+_array_append_space(struct array *array)
 {
 	void *data;
 
@@ -228,15 +214,11 @@ _array_append_space(array_t *array)
 	memset(data, 0, array->element_size);
 	return data;
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_append_space _array_append_space
-#else
-#  define array_append_space(array) \
-	(typeof(*array ## __ ## type))_array_append_space(array)
-#endif
+#define array_append_space(array) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array)_array_append_space(&(array)->arr)
 
 static inline void *
-_array_insert_space(array_t *array, unsigned int idx)
+_array_insert_space(struct array *array, unsigned int idx)
 {
 	void *data;
 	size_t pos;
@@ -249,29 +231,30 @@ _array_insert_space(array_t *array, unsigned int idx)
 	memset(data, 0, array->element_size);
 	return data;
 }
-#ifndef ARRAY_TYPE_CHECKS
-#  define array_insert_space _array_insert_space
-#else
-#  define array_insert_space(array, idx) \
-	(typeof(*array ## __ ## type))_array_insert_space(array, idx)
-#endif
+#define array_insert_space(array, idx) \
+	ARRAY_TYPE_CAST_MODIFIABLE(array) \
+		_array_insert_space(&(array)->arr, idx)
 
 static inline unsigned int
-array_count(const array_t *array)
+_array_count(const struct array *array)
 {
 	return array->buffer->used / array->element_size;
 }
+#define array_count(array) \
+	_array_count(&(array)->arr)
 
 static inline bool
-array_cmp(const array_t *array1, const array_t *array2)
+_array_cmp(const struct array *array1, const struct array *array2)
 {
-	if (!array_is_created(array1) || array1->buffer->used == 0)
-		return !array_is_created(array2) || array2->buffer->used == 0;
+	if (!_array_is_created(array1) || array1->buffer->used == 0)
+		return !_array_is_created(array2) || array2->buffer->used == 0;
 
-	if (!array_is_created(array2))
+	if (!_array_is_created(array2))
 		return FALSE;
 
 	return buffer_cmp(array1->buffer, array2->buffer);
 }
+#define array_cmp(array1, array2) \
+	_array_cmp(&(array1)->arr, &(array2)->arr)
 
 #endif

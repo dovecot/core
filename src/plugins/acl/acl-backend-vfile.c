@@ -116,7 +116,7 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 static const char *const *
 acl_parse_rights(const char *acl, const char **error_r)
 {
-	array_t ARRAY_DEFINE(rights, const char *);
+	ARRAY_DEFINE(rights, const char *);
 	const char *const *names;
 	unsigned int i;
 

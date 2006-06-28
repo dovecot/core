@@ -454,7 +454,7 @@ void auth_request_handler_flush_failures(void)
 	struct auth_request **auth_request;
 	size_t i, size;
 
-	auth_request = buffer_get_modifyable_data(auth_failures_buf, &size);
+	auth_request = buffer_get_modifiable_data(auth_failures_buf, &size);
 	size /= sizeof(*auth_request);
 
 	for (i = 0; i < size; i++) {

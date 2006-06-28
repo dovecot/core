@@ -25,7 +25,7 @@ struct maildir_keywords {
 	char *path;
 
 	pool_t pool;
-	array_t ARRAY_DEFINE(list, const char *);
+	ARRAY_TYPE(keywords) list;
 	struct hash_table *hash; /* name -> idx+1 */
 
         struct dotlock_settings dotlock_settings;
@@ -39,8 +39,8 @@ struct maildir_keywords_sync_ctx {
 	struct maildir_keywords *mk;
 	struct mail_index *index;
 
-	const array_t *ARRAY_DEFINE_PTR(keywords, const char *);
-	array_t ARRAY_DEFINE(idx_to_chr, char);
+	const ARRAY_TYPE(keywords) *keywords;
+	ARRAY_DEFINE(idx_to_chr, char);
 	unsigned int chridx_to_idx[MAILDIR_MAX_KEYWORDS];
 };
 
@@ -139,7 +139,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 		new_name = p_strdup(mk->pool, p);
 		hash_insert(mk->hash, new_name, POINTER_CAST(idx + 1));
 
-		strp = array_idx_modifyable(&mk->list, idx);
+		strp = array_idx_modifiable(&mk->list, idx);
 		*strp = new_name;
 	}
 	i_stream_destroy(&input);
@@ -189,7 +189,7 @@ maildir_keywords_create(struct maildir_keywords *mk, const char *name,
 	new_name = p_strdup(mk->pool, name);
 	hash_insert(mk->hash, new_name, POINTER_CAST(chridx + 1));
 
-	strp = array_idx_modifyable(&mk->list, chridx);
+	strp = array_idx_modifiable(&mk->list, chridx);
 	*strp = new_name;
 
 	mk->changed = TRUE;
@@ -370,7 +370,7 @@ char maildir_keywords_idx_char(struct maildir_keywords_sync_ctx *ctx,
 	char *chr_p;
 	int chridx;
 
-	chr_p = array_idx_modifyable(&ctx->idx_to_chr, idx);
+	chr_p = array_idx_modifiable(&ctx->idx_to_chr, idx);
 	if (*chr_p != '\0')
 		return *chr_p;
 

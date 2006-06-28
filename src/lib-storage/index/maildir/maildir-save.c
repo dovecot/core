@@ -44,7 +44,7 @@ struct maildir_save_context {
 	struct maildir_filename *files, **files_tail;
 
 	buffer_t *keywords_buffer;
-	array_t ARRAY_DEFINE(keywords_array, unsigned int);
+	ARRAY_TYPE(keyword_indexes) keywords_array;
 
 	struct istream *input, *input2;
 	struct ostream *output;

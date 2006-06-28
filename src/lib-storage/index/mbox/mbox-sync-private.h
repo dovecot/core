@@ -4,6 +4,8 @@
 #include "md5.h"
 #include "mail-index.h"
 
+ARRAY_DEFINE_TYPE(sync_recs, struct mail_index_sync_rec);
+
 enum mbox_sync_flags {
 	MBOX_SYNC_LAST_COMMIT	= 0x01,
 	MBOX_SYNC_HEADER	= 0x02,
@@ -43,7 +45,7 @@ struct mbox_sync_mail {
 	uint32_t uid;
 	uint32_t idx_seq;
 
-	array_t ARRAY_DEFINE(keywords, unsigned int);
+	ARRAY_TYPE(keyword_indexes) keywords;
 	uint8_t flags;
 
 	unsigned int uid_broken:1;
@@ -111,8 +113,8 @@ struct mbox_sync_context {
 	uoff_t base_uid_last_offset;
 
 	/* mail state: */
-	array_t ARRAY_DEFINE(mails, struct mbox_sync_mail);
-	array_t ARRAY_DEFINE(syncs, struct mail_index_sync_rec);
+	ARRAY_DEFINE(mails, struct mbox_sync_mail);
+	ARRAY_TYPE(sync_recs) syncs;
 	struct mail_index_sync_rec sync_rec;
 
 	pool_t mail_keyword_pool;

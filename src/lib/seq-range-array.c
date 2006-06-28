@@ -4,13 +4,13 @@
 #include "array.h"
 #include "seq-range-array.h"
 
-static bool seq_range_lookup(array_t *array, uint32_t seq, unsigned int *idx_r)
+static bool seq_range_lookup(ARRAY_TYPE(seq_range) *array,
+			     uint32_t seq, unsigned int *idx_r)
 {
-        ARRAY_SET_TYPE(array, struct seq_range);
 	struct seq_range *data;
 	unsigned int idx, left_idx, right_idx, count;
 
-	data = array_get_modifyable(array, &count);
+	data = array_get_modifiable(array, &count);
 
 	idx = 0; left_idx = 0; right_idx = count;
 	while (left_idx < right_idx) {
@@ -31,20 +31,18 @@ static bool seq_range_lookup(array_t *array, uint32_t seq, unsigned int *idx_r)
 	return FALSE;
 }
 
-void seq_range_array_add(array_t *array, unsigned int init_count, uint32_t seq)
+void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
+			 unsigned int init_count, uint32_t seq)
 {
-        ARRAY_SET_TYPE(array, struct seq_range);
 	struct seq_range *data, value;
 	unsigned int idx, count;
 
 	value.seq1 = value.seq2 = seq;
 
-	if (!array_is_created(array)) {
-		array_create(array, default_pool,
-			     sizeof(struct seq_range), init_count);
-	}
+	if (!array_is_created(array))
+		ARRAY_CREATE(array, default_pool, struct seq_range, init_count);
 
-	data = array_get_modifyable(array, &count);
+	data = array_get_modifiable(array, &count);
 	if (count == 0) {
 		array_append(array, &value, 1);
 		return;
@@ -102,16 +100,15 @@ void seq_range_array_add(array_t *array, unsigned int init_count, uint32_t seq)
 	}
 }
 
-void seq_range_array_remove(array_t *array, uint32_t seq)
+void seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
-        ARRAY_SET_TYPE(array, struct seq_range);
 	struct seq_range *data, value;
 	unsigned int idx, left_idx, right_idx, count;
 
 	if (!array_is_created(array))
 		return;
 
-	data = array_get_modifyable(array, &count);
+	data = array_get_modifiable(array, &count);
 	if (count == 0)
 		return;
 
@@ -174,7 +171,7 @@ void seq_range_array_remove(array_t *array, uint32_t seq)
 	}
 }
 
-bool seq_range_exists(array_t *array, uint32_t seq)
+bool seq_range_exists(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	unsigned int idx;
 

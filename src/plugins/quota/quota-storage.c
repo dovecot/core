@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 
 #define QUOTA_CONTEXT(obj) \
-	*((void **)array_idx_modifyable(&(obj)->module_contexts, \
+	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
 					quota_storage_module_id))
 
 struct quota_mail_storage {
@@ -19,7 +19,7 @@ struct quota_mail_storage {
 	struct quota *quota;
 
 	/* List of quota roots this storage belongs to. */
-	array_t ARRAY_DEFINE(roots, struct quota_root *);
+	ARRAY_DEFINE(roots, struct quota_root *);
 };
 
 struct quota_mailbox {

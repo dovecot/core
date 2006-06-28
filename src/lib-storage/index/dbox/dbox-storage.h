@@ -47,9 +47,9 @@ struct dbox_file {
 	unsigned char *seeked_keywords;
 
 	/* Keywords list, sorted by index_idx. */
-	array_t ARRAY_DEFINE(idx_file_keywords, struct keyword_map);
+	ARRAY_DEFINE(idx_file_keywords, struct keyword_map);
 	/* idx -> index_idx array */
-	array_t ARRAY_DEFINE(file_idx_keywords, unsigned int);
+	ARRAY_DEFINE(file_idx_keywords, unsigned int);
 };
 
 struct dbox_mailbox {

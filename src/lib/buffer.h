@@ -17,9 +17,9 @@ struct buffer {
 
 /* Create a static sized buffer. Writes past this size will kill the program. */
 buffer_t *buffer_create_static_hard(pool_t pool, size_t size);
-/* Create a modifyable buffer from given data. */
+/* Create a modifiable buffer from given data. */
 buffer_t *buffer_create_data(pool_t pool, void *data, size_t size);
-/* Create a non-modifyable buffer from given data. */
+/* Create a non-modifiable buffer from given data. */
 buffer_t *buffer_create_const_data(pool_t pool, const void *data, size_t size);
 void buffer_update_const_data(buffer_t *buffer, const void *data, size_t size);
 /* Creates a dynamically growing buffer. Whenever write would exceed the
@@ -75,9 +75,9 @@ void *buffer_get_space_unsafe(buffer_t *buf, size_t pos, size_t size);
 void *buffer_append_space_unsafe(buffer_t *buf, size_t size);
 
 /* Like buffer_get_data(), but don't return it as const. Returns NULL if the
-   buffer is non-modifyable. WARNING: The returned address may become invalid
+   buffer is non-modifiable. WARNING: The returned address may become invalid
    if you add more data to buffer. */
-void *buffer_get_modifyable_data(const buffer_t *buf, size_t *used_size_r);
+void *buffer_get_modifiable_data(const buffer_t *buf, size_t *used_size_r);
 
 /* Set the "used size" of buffer, ie. 0 would set the buffer empty.
    Must not be used to grow buffer. */

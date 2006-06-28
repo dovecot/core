@@ -15,7 +15,7 @@ struct zlib_mail_storage {
 };
 
 #define ZLIB_CONTEXT(obj) \
-	*((void **)array_idx_modifyable(&(obj)->module_contexts, \
+	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
 					zlib_storage_module_id))
 
 /* defined by imap, pop3, lda */

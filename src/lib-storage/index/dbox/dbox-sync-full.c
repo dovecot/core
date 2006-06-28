@@ -16,12 +16,10 @@
 
 static int
 dbox_mail_get_keywords(struct dbox_mailbox *mbox, struct dbox_file *file,
-		       array_t *keywords)
+		       ARRAY_TYPE(keyword_indexes) *keywords)
 {
 	const unsigned int *map;
 	unsigned int i, count;
-
-	ARRAY_SET_TYPE(keywords, unsigned int);
 
 	if (!array_is_created(&file->file_idx_keywords)) {
 		if (dbox_file_read_keywords(mbox, file) < 0)
@@ -43,7 +41,7 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 	const struct dbox_mail_header *hdr = &mbox->file->seeked_mail_header;
 	enum mail_flags flags;
         struct mail_keywords *keywords;
-	array_t ARRAY_DEFINE(keywords_arr, unsigned int);
+	ARRAY_TYPE(keyword_indexes) keywords_arr;
 	uint32_t seq;
 	uint64_t hdr_offset = mbox->file->seeked_offset;
 

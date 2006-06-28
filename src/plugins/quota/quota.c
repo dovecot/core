@@ -131,7 +131,7 @@ quota_root_init(struct quota_setup *setup, const char *name)
 void quota_root_deinit(struct quota_root *root)
 {
 	/* make a copy, since root is freed */
-	array_t module_contexts = root->quota_module_contexts;
+	struct array module_contexts = root->quota_module_contexts.arr;
 	struct mail_storage *const *storage_p;
 	struct quota_root *const *roots;
 	unsigned int i, count;
@@ -154,7 +154,7 @@ void quota_root_deinit(struct quota_root *root)
 
 	array_free(&root->storages);
 	root->v.deinit(root);
-	array_free(&module_contexts);
+	_array_free(&module_contexts);
 }
 
 void quota_add_user_storage(struct quota *quota, struct mail_storage *storage)

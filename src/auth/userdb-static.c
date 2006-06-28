@@ -14,7 +14,7 @@
 struct static_userdb_module {
 	struct userdb_module module;
 
-	array_t ARRAY_DEFINE(template, const char *);
+	ARRAY_DEFINE(template, const char *);
 };
 
 static void static_lookup(struct auth_request *auth_request,

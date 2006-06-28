@@ -155,7 +155,7 @@ static char *i_stream_next_line_finish(struct _istream *stream, size_t i)
 		str_truncate(stream->line_str, 0);
 		str_append_n(stream->line_str, stream->buffer + stream->skip,
 			     end - stream->skip);
-		ret = str_c_modifyable(stream->line_str);
+		ret = str_c_modifiable(stream->line_str);
 	}
 
 	i++;
@@ -178,7 +178,7 @@ char *i_stream_next_line(struct istream *stream)
 	}
 
 	if (_stream->w_buffer == NULL) {
-		i_error("i_stream_next_line() called for unmodifyable stream");
+		i_error("i_stream_next_line() called for unmodifiable stream");
 		return NULL;
 	}
 
@@ -221,7 +221,7 @@ const unsigned char *i_stream_get_data(struct istream *stream, size_t *size)
         return _stream->buffer + _stream->skip;
 }
 
-unsigned char *i_stream_get_modifyable_data(struct istream *stream,
+unsigned char *i_stream_get_modifiable_data(struct istream *stream,
 					    size_t *size)
 {
 	struct _istream *_stream = stream->real_stream;

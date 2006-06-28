@@ -55,7 +55,9 @@ struct sql_transaction_context {
 	struct sql_db *db;
 };
 
-extern array_t ARRAY_DEFINE(sql_drivers, const struct sql_db *);
+ARRAY_DEFINE_TYPE(sql_drivers, const struct sql_db *);
+
+extern ARRAY_TYPE(sql_drivers) sql_drivers;
 extern struct sql_result sql_not_connected_result;
 
 #endif

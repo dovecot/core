@@ -3,6 +3,12 @@
 
 #include "mail-index-private.h"
 
+struct mail_index_view_log_sync_pos {
+	uint32_t log_file_seq;
+	uoff_t log_file_offset;
+};
+ARRAY_DEFINE_TYPE(view_log_sync_pos, struct mail_index_view_log_sync_pos);
+
 struct mail_index_view_methods {
 	void (*close)(struct mail_index_view *view);
 	uint32_t (*get_messages_count)(struct mail_index_view *view);
@@ -39,16 +45,16 @@ struct mail_index_view {
 	struct mail_index_map *sync_new_map;
 	/* All mappings where we have returned records. They need to be kept
 	   valid until view is synchronized. */
-	array_t ARRAY_DEFINE(map_refs, struct mail_index_map *);
+	ARRAY_DEFINE(map_refs, struct mail_index_map *);
 
 	struct mail_index_header hdr;
 
 	uint32_t log_file_seq;
 	uoff_t log_file_offset;
 	/* Transaction log offsets which we have already synced */
-	array_t ARRAY_DEFINE(syncs_done, struct mail_index_view_log_sync_pos);
+	ARRAY_TYPE(view_log_sync_pos) syncs_done;
 	/* Transaction log offsets which we don't want to return in view sync */
-	array_t ARRAY_DEFINE(syncs_hidden, struct mail_index_view_log_sync_pos);
+	ARRAY_TYPE(view_log_sync_pos) syncs_hidden;
 
 	int transactions;
 	unsigned int lock_id;

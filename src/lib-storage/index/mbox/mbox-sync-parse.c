@@ -256,7 +256,7 @@ static bool parse_x_imap(struct mbox_sync_mail_context *ctx,
 static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
 			     struct message_header_line *hdr)
 {
-	array_t ARRAY_DEFINE(keyword_list, unsigned int);
+	ARRAY_TYPE(keyword_indexes) keyword_list;
 	const unsigned int *list;
 	string_t *keyword;
 	size_t keyword_start;

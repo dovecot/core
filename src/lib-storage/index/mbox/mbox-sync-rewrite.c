@@ -456,7 +456,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	i_assert(extra_space < OFF_T_MAX);
 	i_assert(sync_ctx->mbox->mbox_lock_type == F_WRLCK);
 
-	mails = array_get_modifyable(&sync_ctx->mails, &count);
+	mails = array_get_modifiable(&sync_ctx->mails, &count);
 	i_assert(count == last_seq - first_seq + 1);
 
 	/* if there's expunges in mails[], we would get more correct balancing

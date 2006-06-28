@@ -1,6 +1,7 @@
 #ifndef __DBOX_SYNC_H
 #define __DBOX_SYNC_H
 
+#include "seq-range-array.h"
 #include "mail-index.h"
 #include "mail-storage.h"
 
@@ -26,7 +27,7 @@ struct dbox_sync_rec {
 struct dbox_sync_file_entry {
 	uint32_t file_seq;
 
-	array_t ARRAY_DEFINE(sync_recs, struct dbox_sync_rec);
+	ARRAY_DEFINE(sync_recs, struct dbox_sync_rec);
 };
 
 struct dbox_sync_context {
@@ -38,13 +39,13 @@ struct dbox_sync_context {
 
 	pool_t pool;
 	struct hash_table *syncs; /* struct dbox_sync_file_entry */
-	array_t ARRAY_DEFINE(added_file_seqs, uint32_t);
+	ARRAY_DEFINE(added_file_seqs, uint32_t);
 
 	uint32_t dotlock_failed_file_seq;
 
 	/* full sync: */
 	uint32_t mail_index_next_uid;
-	array_t ARRAY_DEFINE(exists, struct seq_range);
+	ARRAY_TYPE(seq_range) exists;
 };
 
 int dbox_sync(struct dbox_mailbox *mbox, bool force);

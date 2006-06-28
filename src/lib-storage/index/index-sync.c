@@ -30,7 +30,7 @@ void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq)
 		dest_idx = ibox->recent_flags_start_seq - seq;
 		buffer_copy(ibox->recent_flags, dest_idx,
 			    ibox->recent_flags, 0, (size_t)-1);
-		memset(buffer_get_modifyable_data(ibox->recent_flags, NULL),
+		memset(buffer_get_modifiable_data(ibox->recent_flags, NULL),
 		       0, dest_idx);
 		ibox->recent_flags_start_seq = seq;
 	}
@@ -271,10 +271,9 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	return ret;
 }
 
-bool index_keyword_array_cmp(const array_t *k1, const array_t *k2)
+bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
+			     const ARRAY_TYPE(keyword_indexes) *k2)
 {
-	ARRAY_SET_TYPE(k1, unsigned int);
-	ARRAY_SET_TYPE(k2, unsigned int);
 	const unsigned int *idx1, *idx2;
 	unsigned int i, j, count1, count2;
 

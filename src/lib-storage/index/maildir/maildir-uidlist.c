@@ -650,7 +650,7 @@ static void maildir_uidlist_mark_all(struct maildir_uidlist *uidlist,
 	struct maildir_uidlist_rec **rec_p;
 	size_t i, size;
 
-	rec_p = buffer_get_modifyable_data(uidlist->record_buf, &size);
+	rec_p = buffer_get_modifiable_data(uidlist->record_buf, &size);
 	size /= sizeof(*rec_p);
 
 	if (nonsynced) {
@@ -844,7 +844,7 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist *uidlist,
 
 	i_assert(UIDLIST_IS_LOCKED(uidlist));
 
-	rec_p = buffer_get_modifyable_data(uidlist->record_buf, &size);
+	rec_p = buffer_get_modifiable_data(uidlist->record_buf, &size);
 	size /= sizeof(*rec_p);
 
 	/* sort new files and assign UIDs for them */
@@ -878,7 +878,7 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	size_t size;
 
 	/* buffer is unsorted, sort it by UID */
-	rec_p = buffer_get_modifyable_data(ctx->record_buf, &size);
+	rec_p = buffer_get_modifiable_data(ctx->record_buf, &size);
 	size /= sizeof(*rec_p);
 	qsort(rec_p, size, sizeof(*rec_p), maildir_uid_cmp);
 

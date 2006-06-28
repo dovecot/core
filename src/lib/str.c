@@ -50,10 +50,10 @@ const unsigned char *str_data(const string_t *str)
 	return buffer_get_data(str, NULL);
 }
 
-char *str_c_modifyable(string_t *str)
+char *str_c_modifiable(string_t *str)
 {
 	str_add_nul(str);
-	return buffer_get_modifyable_data(str, NULL);
+	return buffer_get_modifiable_data(str, NULL);
 }
 
 size_t str_len(const string_t *str)

@@ -43,7 +43,7 @@ void auth_client_free(struct auth_client **_client)
 
 	*_client = NULL;
 
-	mech = buffer_get_modifyable_data(client->available_auth_mechs, &size);
+	mech = buffer_get_modifiable_data(client->available_auth_mechs, &size);
 	size /= sizeof(*mech);
 	for (i = 0; i < size; i++)
 		i_free(mech[i].name);

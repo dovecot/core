@@ -62,7 +62,7 @@ struct index_mailbox {
 	uint32_t commit_log_file_seq;
 	uoff_t commit_log_file_offset;
 
-	const array_t *ARRAY_DEFINE_PTR(keyword_names, const char *);
+	const ARRAY_TYPE(keywords) *keyword_names;
 	struct mail_cache_field *cache_fields;
 	unsigned int mail_cache_min_mail_count;
 
@@ -183,6 +183,7 @@ void index_transaction_init(struct index_transaction_context *t,
 int index_transaction_commit(struct mailbox_transaction_context *t);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
 
-bool index_keyword_array_cmp(const array_t *k1, const array_t *k2);
+bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
+			     const ARRAY_TYPE(keyword_indexes) *k2);
 
 #endif

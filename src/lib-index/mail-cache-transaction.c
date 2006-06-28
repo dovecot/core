@@ -28,16 +28,18 @@ struct mail_cache_transaction_ctx {
 	uint32_t cache_file_seq;
 
 	buffer_t *cache_data;
-	array_t ARRAY_DEFINE(cache_data_seq, uint32_t);
+	ARRAY_DEFINE(cache_data_seq, uint32_t);
 	uint32_t prev_seq;
 	size_t prev_pos;
 
-        array_t ARRAY_DEFINE(reservations, struct mail_cache_reservation);
+        ARRAY_DEFINE(reservations, struct mail_cache_reservation);
 	uint32_t reserved_space_offset, reserved_space;
 	uint32_t last_grow_size;
 
 	unsigned int changes:1;
 };
+
+ARRAY_DEFINE_TYPE(uint32_t, uint32_t);
 
 static int mail_cache_link_unlocked(struct mail_cache *cache,
 				    uint32_t old_offset, uint32_t new_offset);
@@ -255,7 +257,7 @@ mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 		/* grow reservation. it's probably the last one in the buffer,
 		   but it's not guarateed because we might have used holes
 		   as well */
-		reservations = array_get_modifyable(&ctx->reservations, &count);
+		reservations = array_get_modifiable(&ctx->reservations, &count);
 
 		do {
 			i_assert(count > 0);
@@ -537,7 +539,7 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 
 	if (ctx->prev_seq != 0) {
 		/* fix record size */
-		data = buffer_get_modifyable_data(ctx->cache_data, &size);
+		data = buffer_get_modifiable_data(ctx->cache_data, &size);
 		rec = PTR_OFFSET(data, ctx->prev_pos);
 		rec->size = size - ctx->prev_pos;
 		i_assert(rec->size != 0);
@@ -803,9 +805,8 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 	return 0;
 }
 
-static bool find_offset(array_t *array, uint32_t offset)
+static bool find_offset(ARRAY_TYPE(uint32_t) *array, uint32_t offset)
 {
-	ARRAY_SET_TYPE(array, uint32_t);
 	const uint32_t *offsets;
 	unsigned int i, count;
 
@@ -820,7 +821,7 @@ static bool find_offset(array_t *array, uint32_t offset)
 int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 {
 	const struct mail_cache_record *cache_rec;
-	array_t ARRAY_DEFINE(tmp_offsets, uint32_t);
+	ARRAY_TYPE(uint32_t) tmp_offsets;
 
 	i_assert(cache->locked);
 

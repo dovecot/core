@@ -32,7 +32,7 @@ static bool header_decode(const unsigned char *data, size_t size,
 	if (size > 0) {
 		/* @UNSAFE: uppercase it. Current draft specifies that we
 		   should touch only ASCII. */
-		buf_data = buffer_get_modifyable_data(buf, &used_size);
+		buf_data = buffer_get_modifiable_data(buf, &used_size);
 		for (; pos < used_size; pos++) {
 			if (buf_data[pos] >= 'a' && buf_data[pos] <= 'z')
 				buf_data[pos] = buf_data[pos] - 'a' + 'A';
@@ -47,7 +47,7 @@ static void pack_whitespace(buffer_t *buf)
 	char *data, *dest;
 	bool last_lwsp;
 
-	data = buffer_get_modifyable_data(buf, NULL);
+	data = buffer_get_modifiable_data(buf, NULL);
 
 	/* check if we need to do anything */
 	while (*data != '\0') {
@@ -77,7 +77,7 @@ static void pack_whitespace(buffer_t *buf)
 	}
 	*dest = '\0';
 
-	data = buffer_get_modifyable_data(buf, NULL);
+	data = buffer_get_modifiable_data(buf, NULL);
 	buffer_set_used_size(buf, (size_t) (dest - data)+1);
 }
 

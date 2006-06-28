@@ -4,7 +4,7 @@
 #include "mail-storage-private.h"
 
 #define ACL_CONTEXT(obj) \
-	*((void **)array_idx_modifyable(&(obj)->module_contexts, \
+	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
 					acl_storage_module_id))
 
 enum acl_storage_rights {

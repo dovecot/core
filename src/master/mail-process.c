@@ -400,7 +400,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	pid_t pid;
 	uid_t uid;
 	gid_t gid;
-	array_t ARRAY_DEFINE(extra_args, const char *);
+	ARRAY_DEFINE(extra_args, const char *);
 	unsigned int i, count;
 	int err, ret, log_fd, nice;
 	bool home_given, nfs_check;

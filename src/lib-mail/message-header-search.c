@@ -126,7 +126,7 @@ static void search_loop(const unsigned char *data, size_t size,
 	unsigned char chr;
 	bool last_newline;
 
-	matches = buffer_get_modifyable_data(ctx->match_buf, &match_count);
+	matches = buffer_get_modifiable_data(ctx->match_buf, &match_count);
 	match_count /= sizeof(size_t);
 
 	last_newline = ctx->last_newline;

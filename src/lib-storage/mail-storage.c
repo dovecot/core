@@ -25,7 +25,7 @@
 
 unsigned int mail_storage_module_id = 0;
 
-static array_t ARRAY_DEFINE(storages, struct mail_storage *);
+static ARRAY_DEFINE(storages, struct mail_storage *);
 
 void mail_storage_init(void)
 {

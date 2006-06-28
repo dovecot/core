@@ -106,7 +106,7 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 		"Obtaining credentials for %s", str_c(principal_name));
 
 	inbuf.length = str_len(principal_name);
-	inbuf.value = str_c_modifyable(principal_name);
+	inbuf.value = str_c_modifiable(principal_name);
 
 	major_status = gss_import_name(&minor_status, &inbuf, 
 				       GSS_C_NT_HOSTBASED_SERVICE,

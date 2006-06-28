@@ -46,7 +46,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 
 	t_push();
 
-	lines = array_get_modifyable(&mail->header_lines, &count);
+	lines = array_get_modifiable(&mail->header_lines, &count);
 
 	/* sort it first so fields are grouped together and ordered by
 	   line number */
@@ -299,7 +299,7 @@ void index_mail_parse_header(struct message_part *part,
 						  data->seq, field_idx);
 	}
 
-	match = array_get_modifyable(&mail->header_match, &count);
+	match = array_get_modifiable(&mail->header_match, &count);
 	if (field_idx < count && match[field_idx] == mail->header_match_value) {
 		/* first header */
 		match[field_idx]++;
@@ -464,7 +464,7 @@ static bool skip_header(const unsigned char **data, size_t len)
 static const char *const *
 index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 {
-	array_t ARRAY_DEFINE(header_values, const char *);
+	ARRAY_DEFINE(header_values, const char *);
         const struct index_mail_line *lines;
 	const unsigned char *header, *value_start, *value_end;
 	const unsigned int *line_idx;
@@ -510,7 +510,7 @@ const char *const *index_mail_get_headers(struct mail *_mail, const char *field)
 	string_t *dest;
 	size_t i, len;
 	int ret;
-	array_t ARRAY_DEFINE(header_values, const char *);
+	ARRAY_DEFINE(header_values, const char *);
 
 	i_assert(field != NULL);
 
@@ -544,7 +544,7 @@ const char *const *index_mail_get_headers(struct mail *_mail, const char *field)
 		return ret == 0 ? NULL :
 			index_mail_get_parsed_header(mail, field_idx);
 	}
-	data = buffer_get_modifyable_data(dest, &len);
+	data = buffer_get_modifiable_data(dest, &len);
 
 	if (len == 0) {
 		/* cached as non-existing. */

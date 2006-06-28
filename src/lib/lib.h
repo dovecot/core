@@ -29,7 +29,6 @@
 #include "imem.h"
 
 typedef struct buffer buffer_t;
-typedef struct array array_t;
 typedef struct buffer string_t;
 
 struct istream;

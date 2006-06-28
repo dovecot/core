@@ -146,7 +146,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	static const char *const no_keywords[] = { NULL };
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	array_t ARRAY_DEFINE(keyword_indexes_arr, unsigned int);
+	ARRAY_TYPE(keyword_indexes) keyword_indexes_arr;
 	const char *const *names;
 	const unsigned int *keyword_indexes;
 	unsigned int i, count, names_count;

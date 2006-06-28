@@ -112,7 +112,7 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 {
 	struct mail_index_registered_ext *rext;
 
-	rext = array_idx_modifyable(&index->extensions, ext_id);
+	rext = array_idx_modifiable(&index->extensions, ext_id);
 	i_assert(rext->expunge_handler == NULL);
 
 	rext->expunge_handler = cb;
@@ -123,7 +123,7 @@ void mail_index_unregister_expunge_handler(struct mail_index *index,
 {
 	struct mail_index_registered_ext *rext;
 
-	rext = array_idx_modifyable(&index->extensions, ext_id);
+	rext = array_idx_modifiable(&index->extensions, ext_id);
 	i_assert(rext->expunge_handler != NULL);
 
 	rext->expunge_handler = NULL;
@@ -135,7 +135,7 @@ void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,
 {
 	struct mail_index_registered_ext *rext;
 
-	rext = array_idx_modifyable(&index->extensions, ext_id);
+	rext = array_idx_modifiable(&index->extensions, ext_id);
 	i_assert(rext->sync_handler.callback == NULL);
 
 	rext->sync_handler.callback = cb;
@@ -147,7 +147,7 @@ void mail_index_unregister_sync_handler(struct mail_index *index,
 {
 	struct mail_index_registered_ext *rext;
 
-	rext = array_idx_modifyable(&index->extensions, ext_id);
+	rext = array_idx_modifiable(&index->extensions, ext_id);
 	i_assert(rext->sync_handler.callback != NULL);
 
 	rext->sync_handler.callback = NULL;
@@ -182,7 +182,7 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 	size_t size;
 
 	if (map->extension_pool == NULL) {
-		size = (sizeof(array_t) + BUFFER_APPROX_SIZE) * 2 +
+		size = (sizeof(map->extensions) + BUFFER_APPROX_SIZE) * 2 +
 			initial_count * (EXTENSION_NAME_APPROX_LEN +
 					 sizeof(struct mail_index_ext) +
 					 sizeof(uint32_t));
@@ -484,7 +484,7 @@ int mail_index_map_parse_keywords(struct mail_index *index,
 	return 0;
 }
 
-const array_t *mail_index_get_keywords(struct mail_index *index)
+const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index)
 {
 	/* Make sure all the keywords are in index->keywords. It's quick to do
 	   if nothing has changed. */
@@ -1163,7 +1163,7 @@ mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 		}
 	}
 
-	mem_map->records = buffer_get_modifyable_data(mem_map->buffer, NULL);
+	mem_map->records = buffer_get_modifiable_data(mem_map->buffer, NULL);
 	mem_map->records_count = map->records_count;
 
 	mem_map->hdr_copy_buf =
@@ -1177,7 +1177,7 @@ mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 				       map->hdr.base_header_size),
 		      map->hdr.header_size - map->hdr.base_header_size);
 
-	hdr = buffer_get_modifyable_data(mem_map->hdr_copy_buf, NULL);
+	hdr = buffer_get_modifiable_data(mem_map->hdr_copy_buf, NULL);
 	if (hdr->base_header_size < sizeof(*hdr))
 		hdr->base_header_size = sizeof(*hdr);
 	hdr->record_size = new_record_size;
@@ -1202,7 +1202,7 @@ mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 		array_append_array(&mem_map->ext_id_map, &map->ext_id_map);
 
 		/* fix the name pointers to use our own pool */
-		extensions = array_get_modifyable(&mem_map->extensions, &count);
+		extensions = array_get_modifiable(&mem_map->extensions, &count);
 		for (i = 0; i < count; i++) {
 			extensions[i].name = p_strdup(mem_map->extension_pool,
 						      extensions[i].name);

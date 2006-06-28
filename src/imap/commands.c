@@ -118,7 +118,7 @@ command_func_t *command_find(const char *name)
 	void *base;
 	size_t size;
 
-	base = buffer_get_modifyable_data(cmdbuf, &size);
+	base = buffer_get_modifiable_data(cmdbuf, &size);
 	size /= sizeof(struct command);
 
 	if (cmdbuf_unsorted) {

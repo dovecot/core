@@ -43,7 +43,7 @@ dbox_save_add_keywords(struct dbox_save_context *ctx,
 		       const struct mail_keywords *keywords,
 		       buffer_t *file_keywords)
 {
-	array_t ARRAY_DEFINE(new_keywords, struct seq_range);
+	ARRAY_TYPE(seq_range) new_keywords;
 	const struct seq_range *range;
 	unsigned int i, count, file_idx;
 	int ret = 0;
@@ -184,7 +184,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		size_t size;
 
 		keyword_string =
-			buffer_get_modifyable_data(file_keywords, &size);
+			buffer_get_modifiable_data(file_keywords, &size);
 
 		/* string should be filled with NULs and '1' now.
 		   Change NULs to '0'. */

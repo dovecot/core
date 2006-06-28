@@ -4,7 +4,7 @@
 #include "array.h"
 #include "sql-api-private.h"
 
-array_t ARRAY_DEFINE(sql_drivers, const struct sql_db *);
+ARRAY_TYPE(sql_drivers) sql_drivers;
 
 void sql_drivers_init(void)
 {

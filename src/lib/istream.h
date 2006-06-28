@@ -88,7 +88,7 @@ char *i_stream_read_next_line(struct istream *stream);
 const unsigned char *i_stream_get_data(struct istream *stream, size_t *size);
 /* Like i_stream_get_data(), but returns non-const data. This only works with
    buffered streams (currently only file), others return NULL. */
-unsigned char *i_stream_get_modifyable_data(struct istream *stream,
+unsigned char *i_stream_get_modifiable_data(struct istream *stream,
 					    size_t *size);
 /* Like i_stream_get_data(), but read more when needed. Returns 1 if more
    than threshold bytes are available, 0 if less, -1 if error or EOF with no

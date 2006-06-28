@@ -3,6 +3,11 @@
 
 #include "mail-transaction-log.h"
 
+struct uid_range {
+	uint32_t uid1, uid2;
+};
+ARRAY_DEFINE_TYPE(uid_range, struct uid_range);
+
 struct mail_index_sync_ctx {
 	struct mail_index *index;
 	struct mail_index_view *view;
@@ -11,7 +16,7 @@ struct mail_index_sync_ctx {
 	const struct mail_transaction_header *hdr;
 	const void *data;
 
-	array_t ARRAY_DEFINE(sync_list, struct mail_index_sync_list);
+	ARRAY_DEFINE(sync_list, struct mail_index_sync_list);
 	uint32_t next_uid;
 
 	uint32_t append_uid_first, append_uid_last;
@@ -24,7 +29,7 @@ struct mail_index_sync_ctx {
 };
 
 struct mail_index_sync_list {
-	const array_t *ARRAY_DEFINE_PTR(array, struct uid_range);
+	const ARRAY_TYPE(uid_range) *array;
 	unsigned int idx;
 	unsigned int keyword_idx:31;
 	unsigned int keyword_remove:1;
@@ -40,10 +45,8 @@ struct mail_index_sync_map_ctx {
 	struct mail_index_view *view;
 	uint32_t cur_ext_id;
 
-	array_t ARRAY_DEFINE(expunge_handlers,
-			     struct mail_index_expunge_handler);
-
-	array_t ARRAY_DEFINE(extra_contexts, void *);
+	ARRAY_DEFINE(expunge_handlers, struct mail_index_expunge_handler);
+	ARRAY_DEFINE(extra_contexts, void *);
 
         enum mail_index_sync_handler_type type;
 

@@ -161,14 +161,15 @@ struct quota_count_path {
 	const char *path;
 	bool is_file;
 };
+ARRAY_DEFINE_TYPE(quota_count_path, struct quota_count_path);
 
-static void quota_count_path_add(array_t *paths, const char *path, bool is_file)
+static void quota_count_path_add(ARRAY_TYPE(quota_count_path) *paths,
+				 const char *path, bool is_file)
 {
-	ARRAY_SET_TYPE(paths, struct quota_count_path);
 	struct quota_count_path *count_path;
 	unsigned int i, count;
 
-	count_path = array_get_modifyable(paths, &count);
+	count_path = array_get_modifiable(paths, &count);
 	for (i = 0; i < count; i++) {
 		if (strncmp(count_path[i].path, path,
 			    strlen(count_path[i].path)) == 0) {
@@ -193,7 +194,7 @@ static int
 get_quota_root_usage(struct dirsize_quota_root *root, uint64_t *value_r)
 {
 	struct mail_storage *const *storages;
-	array_t ARRAY_DEFINE(paths, struct quota_count_path);
+	ARRAY_TYPE(quota_count_path) paths;
 	const struct quota_count_path *count_paths;
 	unsigned int i, count;
 	const char *path;

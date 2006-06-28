@@ -8,7 +8,7 @@ char *str_free_without_data(string_t **str);
 
 const char *str_c(string_t *str);
 const unsigned char *str_data(const string_t *str);
-char *str_c_modifyable(string_t *str);
+char *str_c_modifiable(string_t *str);
 size_t str_len(const string_t *str);
 
 /* Append string/character */

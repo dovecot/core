@@ -1,23 +1,13 @@
 #ifndef __ARRAY_DECL_H
 #define __ARRAY_DECL_H
 
-#if defined (DEBUG) && defined (__GNUC__)
-#  define ARRAY_TYPE_CHECKS
-#endif
+#define ARRAY_DEFINE(name, array_type) union { struct array arr; array_type const *v; array_type *v_modifiable; } name
+#define ARRAY_INIT { { 0, 0 } }
 
-#ifdef ARRAY_TYPE_CHECKS
-#  define ARRAY_DEFINE(name, array_type) name; array_type *name ## __ ## type
-#  define ARRAY_DEFINE_EXTERN(name, array_type) \
-	name; extern array_type *name ## __ ## type
-#  define ARRAY_DEFINE_PTR(name, array_type) \
-	name; array_type **name ## __ ## type
-#  define ARRAY_INIT { 0, 0 }, 0
-#else
-#  define ARRAY_DEFINE(name, array_type) name
-#  define ARRAY_DEFINE_EXTERN(name, array_type) name
-#  define ARRAY_DEFINE_PTR(name, array_type) name
-#  define ARRAY_INIT { 0, 0 }
-#endif
+#define ARRAY_DEFINE_TYPE(name, array_type) \
+	union array ## __ ## name { struct array arr; array_type const *v; array_type *v_modifiable; }
+#define ARRAY_TYPE(name) \
+	union array ## __ ## name
 
 struct array {
 	buffer_t *buffer;

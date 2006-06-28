@@ -39,6 +39,8 @@ typedef int mail_index_sync_handler_t(struct mail_index_sync_map_ctx *ctx,
 				      const void *new_data, void **context);
 typedef void mail_index_sync_lost_handler_t(struct mail_index *index);
 
+ARRAY_DEFINE_TYPE(seq_array, uint32_t);
+
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
 	(((size) + 7) & ~7)
 
@@ -106,8 +108,8 @@ struct mail_index_map {
 	unsigned int records_count;
 
 	pool_t extension_pool;
-	array_t ARRAY_DEFINE(extensions, struct mail_index_ext);
-	array_t ARRAY_DEFINE(ext_id_map, uint32_t); /* index -> file */
+	ARRAY_DEFINE(extensions, struct mail_index_ext);
+	ARRAY_DEFINE(ext_id_map, uint32_t); /* index -> file */
 
 	void *mmap_base;
 	size_t mmap_size, mmap_used_size;
@@ -115,7 +117,7 @@ struct mail_index_map {
 	buffer_t *buffer;
 	buffer_t *hdr_copy_buf;
 
-	array_t ARRAY_DEFINE(keyword_idx_map, unsigned int); /* file -> index */
+	ARRAY_DEFINE(keyword_idx_map, unsigned int); /* file -> index */
 
 	/* If write_to_disk=TRUE and write_atomic=FALSE, these sequences
 	   specify the range that needs to be written. Header should always
@@ -136,10 +138,9 @@ struct mail_index {
 	gid_t gid;
 
 	pool_t extension_pool;
-	array_t ARRAY_DEFINE(extensions, struct mail_index_registered_ext);
+	ARRAY_DEFINE(extensions, struct mail_index_registered_ext);
 
-	array_t ARRAY_DEFINE(sync_lost_handlers,
-			     mail_index_sync_lost_handler_t *);
+	ARRAY_DEFINE(sync_lost_handlers, mail_index_sync_lost_handler_t *);
 
 	char *filepath;
 	int fd;
@@ -160,11 +161,14 @@ struct mail_index {
 	uoff_t sync_log_file_offset;
 
 	pool_t keywords_pool;
-	array_t ARRAY_DEFINE(keywords, const char *);
+	ARRAY_TYPE(keywords) keywords;
 	struct hash_table *keywords_hash; /* name -> idx */
 
 	uint32_t keywords_ext_id;
 	unsigned int last_grow_count;
+
+	/* Module-specific contexts. See mail_index_module_id. */
+	ARRAY_DEFINE(module_contexts, void);
 
 	char *error;
 	unsigned int nodiskspace:1;

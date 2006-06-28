@@ -34,7 +34,7 @@ struct ioloop_handler_context {
 	struct epoll_event *events;
 
 	unsigned int idx_size;
-	array_t ARRAY_DEFINE(fd_index, struct io_list *);
+	ARRAY_DEFINE(fd_index, struct io_list *);
 };
 
 struct io_list {
@@ -150,7 +150,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 	int ret, op, fd = io->fd;
 	bool first;
 
-	list = array_idx_modifyable(&ctx->fd_index, fd);
+	list = array_idx_modifiable(&ctx->fd_index, fd);
 	if (*list == NULL)
 		*list = p_new(ioloop->pool, struct io_list, 1);
 
@@ -184,7 +184,7 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	int ret, op;
 	bool last;
 
-	list = array_idx_modifyable(&ctx->fd_index, io->fd);
+	list = array_idx_modifiable(&ctx->fd_index, io->fd);
 	last = iolist_del(*list, io);
 
 	event.data.ptr = *list;

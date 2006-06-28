@@ -99,7 +99,7 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 	size_t i, size;
 	const char *reply;
 
-	connp = buffer_get_modifyable_data(connections, &size);
+	connp = buffer_get_modifiable_data(connections, &size);
 	size /= sizeof(*connp);
 
 	for (i = 0; i < size; i++) {
@@ -114,7 +114,7 @@ static void auth_worker_destroy(struct auth_worker_connection *conn)
 		idle_count--;
 
 	/* abort all pending requests */
-	request = buffer_get_modifyable_data(conn->requests, &size);
+	request = buffer_get_modifiable_data(conn->requests, &size);
 	size /= sizeof(*request);
 
 	reply = t_strdup_printf("FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE);
@@ -143,7 +143,7 @@ auth_worker_request_lookup(struct auth_worker_connection *conn,
 	struct auth_worker_request *request;
 	size_t i, size;
 
-	request = buffer_get_modifyable_data(conn->requests, &size);
+	request = buffer_get_modifiable_data(conn->requests, &size);
 	size /= sizeof(*request);
 
 	for (i = 0; i < size; i++) {
@@ -159,7 +159,7 @@ static struct auth_worker_connection *auth_worker_find_free(void)
 	struct auth_worker_connection **conn, *best;
 	size_t i, size, outbuf_size, best_size;
 
-	conn = buffer_get_modifyable_data(connections, &size);
+	conn = buffer_get_modifiable_data(connections, &size);
 	size /= sizeof(*conn);
 
 	if (idle_count > 0) {
@@ -245,7 +245,7 @@ auth_worker_request_get(struct auth_worker_connection *conn)
         struct auth_worker_request *request;
 	size_t i, size;
 
-	request = buffer_get_modifyable_data(conn->requests, &size);
+	request = buffer_get_modifiable_data(conn->requests, &size);
 	size /= sizeof(*request);
 
 	for (i = 0; i < size; i++) {
@@ -320,7 +320,7 @@ static void auth_worker_timeout(void *context __attr_unused__)
 	struct auth_worker_connection **conn;
 	size_t i, size;
 
-	conn = buffer_get_modifyable_data(connections, &size);
+	conn = buffer_get_modifiable_data(connections, &size);
 	size /= sizeof(*conn);
 
 	if (idle_count <= 1)
@@ -373,7 +373,7 @@ void auth_worker_server_deinit(void)
 		return;
 
 	while (connections->used > 0) {
-		connp = buffer_get_modifyable_data(connections, NULL);
+		connp = buffer_get_modifiable_data(connections, NULL);
 		auth_worker_destroy(*connp);
 	}
 	buffer_free(connections);

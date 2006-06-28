@@ -75,7 +75,7 @@ struct mail_storage {
         enum mail_storage_lock_method lock_method;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
-	array_t ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, void);
 
 	/* IMAP: Give a BAD reply instead of NO */
 	unsigned int syntax_error:1;
@@ -167,7 +167,7 @@ struct mailbox {
 	pool_t pool;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
-	array_t ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, void);
 };
 
 struct mail_vfuncs {
@@ -209,7 +209,7 @@ struct mail_private {
 	struct mail_vfuncs v;
 
 	pool_t pool;
-	array_t ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, void);
 };
 
 struct mailbox_list_context {
@@ -220,7 +220,7 @@ struct mailbox_list_context {
 
 struct mailbox_transaction_context {
 	struct mailbox *box;
-	array_t ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, void);
 };
 
 struct mail_search_context {

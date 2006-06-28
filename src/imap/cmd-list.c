@@ -127,7 +127,7 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 		str_append(name_str, list->name);
 
 		if (ctx->ns->sep != ctx->ns->real_sep) {
-                        char *p = str_c_modifyable(name_str);
+                        char *p = str_c_modifiable(name_str);
 			for (; *p != '\0'; p++) {
 				if (*p == ctx->ns->real_sep)
 					*p = ctx->ns->sep;

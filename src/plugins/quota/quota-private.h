@@ -9,7 +9,7 @@
 extern unsigned int quota_module_id;
 
 struct quota {
-	array_t ARRAY_DEFINE(setups, struct quota_setup *);
+	ARRAY_DEFINE(setups, struct quota_setup *);
 	char *last_error;
 };
 
@@ -20,7 +20,7 @@ struct quota_setup {
 	char *data;
 
 	/* List of quota roots. It's array because there shouldn't be many. */
-	array_t ARRAY_DEFINE(roots, struct quota_root *);
+	ARRAY_DEFINE(roots, struct quota_root *);
 
 	unsigned int user_root:1;
 };
@@ -73,9 +73,9 @@ struct quota_root {
 	struct quota_backend_vfuncs v;
 
 	/* Mail storages using this quota root. */
-	array_t ARRAY_DEFINE(storages, struct mail_storage *);
+	ARRAY_DEFINE(storages, struct mail_storage *);
 	/* Module-specific contexts. See quota_module_id. */
-	array_t ARRAY_DEFINE(quota_module_contexts, void);
+	ARRAY_DEFINE(quota_module_contexts, void);
 
 	unsigned int user_root:1;
 };
@@ -88,8 +88,8 @@ struct quota_root_iter {
 struct quota_transaction_context {
 	struct quota *quota;
 
-	array_t ARRAY_DEFINE(root_transactions,
-			     struct quota_root_transaction_context *);
+	ARRAY_DEFINE(root_transactions,
+		     struct quota_root_transaction_context *);
 	struct mail *mail;
 };
 

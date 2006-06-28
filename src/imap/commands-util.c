@@ -246,9 +246,8 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 	return TRUE;
 }
 
-static const char *get_keywords_string(const array_t *keywords)
+static const char *get_keywords_string(const ARRAY_TYPE(keywords) *keywords)
 {
-	ARRAY_SET_TYPE(keywords, const char *);
 	string_t *str;
 	const char *const *names;
 	unsigned int i, count;
@@ -268,7 +267,7 @@ static const char *get_keywords_string(const array_t *keywords)
 #define SYSTEM_FLAGS "\\Answered \\Flagged \\Deleted \\Seen \\Draft"
 
 void client_send_mailbox_flags(struct client *client, struct mailbox *box,
-			       const array_t *keywords)
+			       const ARRAY_TYPE(keywords) *keywords)
 {
 	const char *str;
 
@@ -288,9 +287,8 @@ void client_send_mailbox_flags(struct client *client, struct mailbox *box,
 }
 
 bool client_save_keywords(struct mailbox_keywords *dest,
-			  const array_t *keywords)
+			  const ARRAY_TYPE(keywords) *keywords)
 {
-	ARRAY_SET_TYPE(keywords, const char *);
 	const char *const *names, *const *old_names;
 	unsigned int i, count, old_count;
 	bool changed;

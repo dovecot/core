@@ -18,4 +18,6 @@ enum modify_type {
 	MODIFY_REPLACE
 };
 
+ARRAY_DEFINE_TYPE(keywords, const char *);
+
 #endif

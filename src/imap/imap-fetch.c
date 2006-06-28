@@ -35,7 +35,7 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 		fetch_handlers = buffer_create_dynamic(default_pool, 128);
 	buffer_append(fetch_handlers, handlers, sizeof(*handlers) * count);
 
-	data = buffer_get_modifyable_data(fetch_handlers, &size);
+	data = buffer_get_modifiable_data(fetch_handlers, &size);
 	qsort(data, size / sizeof(*handlers), sizeof(*handlers),
 	      imap_fetch_handler_cmp);
 }

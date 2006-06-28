@@ -248,7 +248,7 @@ static int mail_cache_seq(struct mail_cache_view *view, uint32_t seq)
 
 	if (++view->cached_exists_value == 0) {
 		/* wrapped, we'll have to clear the buffer */
-		memset(buffer_get_modifyable_data(view->cached_exists_buf,
+		memset(buffer_get_modifiable_data(view->cached_exists_buf,
 						  NULL), 0,
 		       buffer_get_size(view->cached_exists_buf));
 		view->cached_exists_value++;
@@ -466,7 +466,7 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 		buffer_write(buf, fields[i], &one, 1);
                 ctx.fields[i] = fields[i];
 	}
-	ctx.fields_found = buffer_get_modifyable_data(buf, NULL);
+	ctx.fields_found = buffer_get_modifiable_data(buf, NULL);
 
 	ctx.data = buffer_create_dynamic(pool_datastack_create(), 256);
 
@@ -486,7 +486,7 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 		}
 	}
 
-	data = buffer_get_modifyable_data(ctx.data, &size);
+	data = buffer_get_modifiable_data(ctx.data, &size);
 	size /= sizeof(*data);
 	qsort(data, size, sizeof(*data), header_lookup_data_cmp);
 

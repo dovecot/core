@@ -16,7 +16,7 @@
 #define MAX_RETRY_COUNT 3
 
 #define TRASH_CONTEXT(obj) \
-	*((void **)array_idx_modifyable(&(obj)->quota_module_contexts, \
+	*((void **)array_idx_modifiable(&(obj)->quota_module_contexts, \
 					trash_quota_module_id))
 
 struct trash_quota_root {
@@ -46,7 +46,7 @@ static unsigned int trash_quota_module_id;
 
 static pool_t config_pool;
 /* trash_boxes ordered by priority, highest first */
-static array_t ARRAY_DEFINE(trash_boxes, struct trash_mailbox);
+static ARRAY_DEFINE(trash_boxes, struct trash_mailbox);
 
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
@@ -96,7 +96,7 @@ static int trash_try_clean_mails(uint64_t size_needed)
 	uint64_t size;
 	int ret = 0;
 
-	trashes = array_get_modifyable(&trash_boxes, &count);
+	trashes = array_get_modifiable(&trash_boxes, &count);
 	for (i = 0; i < count; ) {
 		/* expunge oldest mails first in all trash boxes with
 		   same priority */
@@ -251,7 +251,7 @@ static int read_configuration(const char *path)
 	i_stream_destroy(&input);
 	(void)close(fd);
 
-	qsort(array_get_modifyable(&trash_boxes, NULL),
+	qsort(array_get_modifiable(&trash_boxes, NULL),
 	      array_count(&trash_boxes), sizeof(struct trash_mailbox),
 	      trash_mailbox_priority_cmp);
 	return 0;

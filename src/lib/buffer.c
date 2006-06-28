@@ -265,7 +265,7 @@ void *buffer_append_space_unsafe(buffer_t *buf, size_t size)
 	return buffer_get_space_unsafe(buf, buf->used, size);
 }
 
-void *buffer_get_modifyable_data(const buffer_t *_buf, size_t *used_size_r)
+void *buffer_get_modifiable_data(const buffer_t *_buf, size_t *used_size_r)
 {
 	const struct real_buffer *buf = (const struct real_buffer *)_buf;
 

@@ -5,7 +5,7 @@
 #include "dict-sql.h"
 #include "dict-private.h"
 
-static array_t ARRAY_DEFINE(dict_classes, struct dict *);
+static ARRAY_DEFINE(dict_classes, struct dict *);
 
 static struct dict *dict_class_lookup(const char *name)
 {

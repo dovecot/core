@@ -152,7 +152,7 @@ static int log_append_ext_intro(struct mail_transaction_log_file *file,
 		intro = NULL;
 		count = 0;
 	} else {
-		intro = array_get_modifyable(&t->ext_resizes, &count);
+		intro = array_get_modifiable(&t->ext_resizes, &count);
 	}
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
@@ -203,7 +203,7 @@ mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
 	unsigned int update_count, resize_count, reset_count, ext_count;
 	uint32_t ext_id;
 	const uint32_t *reset;
-	const array_t *update;
+	const ARRAY_TYPE(seq_array) *update;
 	buffer_t *buf;
 
 	if (!array_is_created(&t->ext_rec_updates)) {
@@ -259,7 +259,7 @@ mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
 static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
 				      struct mail_index_transaction *t)
 {
-	array_t *updates;
+	ARRAY_TYPE(seq_array) *updates;
 	const uint32_t *reset;
 	unsigned int ext_id, count, reset_count;
 	uint32_t reset_id;
@@ -268,14 +268,14 @@ static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
 		updates = NULL;
 		count = 0;
 	} else {
-		updates = array_get_modifyable(&t->ext_rec_updates, &count);
+		updates = array_get_modifiable(&t->ext_rec_updates, &count);
 	}
 
 	if (!array_is_created(&t->ext_resets)) {
 		reset = NULL;
 		reset_count = 0;
 	} else {
-		reset = array_get_modifyable(&t->ext_resets, &reset_count);
+		reset = array_get_modifiable(&t->ext_resets, &reset_count);
 	}
 
 	for (ext_id = 0; ext_id < count; ext_id++) {
@@ -287,7 +287,7 @@ static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
 		if (log_append_ext_intro(file, t, ext_id, reset_id) < 0)
 			return -1;
 
-		if (log_append_buffer(file, updates[ext_id].buffer, NULL,
+		if (log_append_buffer(file, updates[ext_id].arr.buffer, NULL,
 				      MAIL_TRANSACTION_EXT_REC_UPDATE,
 				      t->external) < 0)
 			return -1;
@@ -332,22 +332,22 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 
 	hdr_buf = buffer_create_dynamic(pool_datastack_create(), 64);
 
-	keywords = array_get_modifyable(&t->view->index->keywords,
+	keywords = array_get_modifiable(&t->view->index->keywords,
 					&keywords_count);
-	updates = array_get_modifyable(&t->keyword_updates, &count);
+	updates = array_get_modifiable(&t->keyword_updates, &count);
 	i_assert(count <= keywords_count);
 
 	for (i = 0; i < count; i++) {
 		if (array_is_created(&updates[i].add_seq)) {
 			if (log_append_keyword_update(file, t, hdr_buf,
 					MODIFY_ADD, keywords[i],
-					updates[i].add_seq.buffer) < 0)
+					updates[i].add_seq.arr.buffer) < 0)
 				return -1;
 		}
 		if (array_is_created(&updates[i].remove_seq)) {
 			if (log_append_keyword_update(file, t, hdr_buf,
 					MODIFY_REMOVE, keywords[i],
-					updates[i].remove_seq.buffer) < 0)
+					updates[i].remove_seq.arr.buffer) < 0)
 				return -1;
 		}
 	}
@@ -454,7 +454,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 			mail_index_view_add_hidden_transaction(view,
 				file->hdr.file_seq, file->sync_offset);
 		}
-		ret = log_append_buffer(file, t->appends.buffer, NULL,
+		ret = log_append_buffer(file, t->appends.arr.buffer, NULL,
 					MAIL_TRANSACTION_APPEND, t->external);
 	}
 	if (array_is_created(&t->updates) && ret == 0) {
@@ -462,7 +462,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 			mail_index_view_add_hidden_transaction(view,
 				file->hdr.file_seq, file->sync_offset);
 		}
-		ret = log_append_buffer(file, t->updates.buffer, NULL,
+		ret = log_append_buffer(file, t->updates.arr.buffer, NULL,
 					MAIL_TRANSACTION_FLAG_UPDATE,
 					t->external);
 	}
@@ -476,8 +476,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 			mail_index_view_add_hidden_transaction(view,
 				file->hdr.file_seq, file->sync_offset);
 		}
-		ret = log_append_buffer(file, t->keyword_resets.buffer, NULL,
-					MAIL_TRANSACTION_KEYWORD_RESET,
+		ret = log_append_buffer(file, t->keyword_resets.arr.buffer,
+					NULL, MAIL_TRANSACTION_KEYWORD_RESET,
 					t->external);
 	}
 	if (array_is_created(&t->keyword_updates) && ret == 0)
@@ -485,7 +485,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	if (array_is_created(&t->expunges) && ret == 0) {
 		/* Expunges cannot be hidden */
-		ret = log_append_buffer(file, t->expunges.buffer, NULL,
+		ret = log_append_buffer(file, t->expunges.arr.buffer, NULL,
 					MAIL_TRANSACTION_EXPUNGE, t->external);
 	}
 
