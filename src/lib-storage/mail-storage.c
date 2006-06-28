@@ -1,9 +1,10 @@
-/* Copyright (C) 2002-2003 Timo Sirainen */
+/* Copyright (C) 2002-2006 Timo Sirainen */
 
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
 #include "var-expand.h"
+#include "mail-index-private.h"
 #include "mail-storage-private.h"
 
 #include <stdlib.h>
@@ -24,12 +25,15 @@
 #define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 200
 
 unsigned int mail_storage_module_id = 0;
+unsigned int mail_storage_mail_index_module_id = 0;
 
 static ARRAY_DEFINE(storages, struct mail_storage *);
 
 void mail_storage_init(void)
 {
 	ARRAY_CREATE(&storages, default_pool, struct mail_storage *, 8);
+
+	mail_storage_mail_index_module_id = mail_index_module_id++;
 }
 
 void mail_storage_deinit(void)
@@ -40,6 +44,9 @@ void mail_storage_deinit(void)
 
 void mail_storage_class_register(struct mail_storage *storage_class)
 {
+	if (storage_class->v.class_init != NULL)
+		storage_class->v.class_init();
+
 	/* append it after the list, so the autodetection order is correct */
 	array_append(&storages, &storage_class, 1);
 }
@@ -56,6 +63,8 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 			break;
 		}
 	}
+
+	storage_class->v.class_deinit();
 }
 
 void mail_storage_parse_env(enum mail_storage_flags *flags_r,

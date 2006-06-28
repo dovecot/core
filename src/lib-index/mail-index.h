@@ -142,6 +142,8 @@ struct mail_index_view_sync_rec {
 	enum mail_index_sync_type type;
 };
 
+extern unsigned int mail_index_module_id;
+
 ARRAY_DEFINE_TYPE(keyword_indexes, unsigned int);
 
 struct mail_index;

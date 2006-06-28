@@ -11,13 +11,14 @@ void mail_index_view_clone(struct mail_index_view *dest,
 {
 	memset(dest, 0, sizeof(dest));
 	dest->refcount = 1;
-	dest->methods = src->methods;
+	dest->v = src->v;
 	dest->index = src->index;
 	dest->log_view = mail_transaction_log_view_open(src->index->log);
 
 	dest->indexid = src->indexid;
 	dest->map = src->map;
-	dest->map->refcount++;
+	if (dest->map != NULL)
+		dest->map->refcount++;
 	dest->hdr = src->hdr;
 	dest->broken_counters = src->broken_counters;
 
@@ -452,18 +453,18 @@ void mail_index_view_close(struct mail_index_view **_view)
 	if (--view->refcount > 0)
 		return;
 
-	view->methods.close(view);
+	view->v.close(view);
 }
 
 uint32_t mail_index_view_get_messages_count(struct mail_index_view *view)
 {
-	return view->methods.get_messages_count(view);
+	return view->v.get_messages_count(view);
 }
 
 const struct mail_index_header *
 mail_index_get_header(struct mail_index_view *view)
 {
-	return view->methods.get_header(view);
+	return view->v.get_header(view);
 }
 
 int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
@@ -478,7 +479,7 @@ int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
 			   struct mail_index_map **map_r,
 			   const struct mail_index_record **rec_r)
 {
-	return view->methods.lookup_full(view, seq, map_r, rec_r);
+	return view->v.lookup_full(view, seq, map_r, rec_r);
 }
 
 int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
@@ -561,21 +562,21 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
 			  uint32_t *uid_r)
 {
-	return view->methods.lookup_uid(view, seq, uid_r);
+	return view->v.lookup_uid(view, seq, uid_r);
 }
 
 int mail_index_lookup_uid_range(struct mail_index_view *view,
 				uint32_t first_uid, uint32_t last_uid,
 				uint32_t *first_seq_r, uint32_t *last_seq_r)
 {
-	return view->methods.lookup_uid_range(view, first_uid, last_uid,
-					      first_seq_r, last_seq_r);
+	return view->v.lookup_uid_range(view, first_uid, last_uid,
+					first_seq_r, last_seq_r);
 }
 
 int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
 			    uint8_t flags_mask, uint32_t *seq_r)
 {
-	return view->methods.lookup_first(view, flags, flags_mask, seq_r);
+	return view->v.lookup_first(view, flags, flags_mask, seq_r);
 }
 
 int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
@@ -583,29 +584,27 @@ int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
 {
 	struct mail_index_map *map;
 
-	return view->methods.lookup_ext_full(view, seq, ext_id, &map, data_r);
+	return view->v.lookup_ext_full(view, seq, ext_id, &map, data_r);
 }
 
 int mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 			       uint32_t ext_id, struct mail_index_map **map_r,
 			       const void **data_r)
 {
-	return view->methods.lookup_ext_full(view, seq, ext_id, map_r, data_r);
+	return view->v.lookup_ext_full(view, seq, ext_id, map_r, data_r);
 }
 
 int mail_index_get_header_ext(struct mail_index_view *view, uint32_t ext_id,
 			      const void **data_r, size_t *data_size_r)
 {
-	return view->methods.get_header_ext(view, NULL, ext_id,
-					    data_r, data_size_r);
+	return view->v.get_header_ext(view, NULL, ext_id, data_r, data_size_r);
 }
 
 int mail_index_map_get_header_ext(struct mail_index_view *view,
 				  struct mail_index_map *map, uint32_t ext_id,
 				  const void **data_r, size_t *data_size_r)
 {
-	return view->methods.get_header_ext(view, map, ext_id,
-					    data_r, data_size_r);
+	return view->v.get_header_ext(view, map, ext_id, data_r, data_size_r);
 }
 
 int mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,
@@ -639,7 +638,7 @@ int mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,
 	return 0;
 }
 
-static struct mail_index_view_methods view_methods = {
+static struct mail_index_view_vfuncs view_vfuncs = {
 	_view_close,
 	_view_get_messages_count,
 	_view_get_header,
@@ -659,7 +658,7 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 
 	view = i_new(struct mail_index_view, 1);
 	view->refcount = 1;
-	view->methods = view_methods;
+	view->v = view_vfuncs;
 	view->index = index;
 	view->log_view = mail_transaction_log_view_open(index->log);
 

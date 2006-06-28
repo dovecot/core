@@ -3,7 +3,7 @@
 
 #include "file-dotlock.h"
 #include "mail-storage-private.h"
-#include "mail-index.h"
+#include "mail-index-private.h"
 
 /* Max. mmap()ed size for a message */
 #define MAIL_MMAP_BLOCK_SIZE (1024*256)
@@ -84,8 +84,11 @@ struct index_mailbox {
 
 struct index_transaction_context {
 	struct mailbox_transaction_context mailbox_ctx;
+	struct mail_index_transaction_vfuncs super;
+
 	struct index_mailbox *ibox;
-        enum mailbox_transaction_flags flags;
+	enum mailbox_transaction_flags flags;
+	enum mailbox_sync_flags commit_flags;
 
 	struct mail_index_transaction *trans;
 	struct mail_index_view *trans_view;
@@ -178,9 +181,17 @@ int index_storage_search_next(struct mail_search_context *ctx,
 int index_storage_search_next_update_seq(struct mail_search_context *ctx);
 
 void index_transaction_init(struct index_transaction_context *t,
-			    struct index_mailbox *ibox,
-			    enum mailbox_transaction_flags flags);
-int index_transaction_commit(struct mailbox_transaction_context *t);
+			    struct index_mailbox *ibox);
+int index_transaction_finish_commit(struct index_transaction_context *t,
+				    uint32_t *log_file_seq_r,
+				    uoff_t *log_file_offset_r);
+void index_transaction_finish_rollback(struct index_transaction_context *t);
+
+struct mailbox_transaction_context *
+index_transaction_begin(struct mailbox *box,
+			enum mailbox_transaction_flags flags);
+int index_transaction_commit(struct mailbox_transaction_context *t,
+			     enum mailbox_sync_flags flags);
 void index_transaction_rollback(struct mailbox_transaction_context *t);
 
 bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,

@@ -1,43 +1,40 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
 #include "mbox-sync-private.h"
 
-struct mailbox_transaction_context *
-mbox_transaction_begin(struct mailbox *box,
-		       enum mailbox_transaction_flags flags)
-{
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
-	struct mbox_transaction_context *t;
+static void (*next_hook_mail_index_transaction_created)
+	(struct mail_index_transaction *t) = NULL;
 
-	t = i_new(struct mbox_transaction_context, 1);
-	index_transaction_init(&t->ictx, &mbox->ibox, flags);
-	return &t->ictx.mailbox_ctx;
-}
-
-int mbox_transaction_commit(struct mailbox_transaction_context *_t,
-			    enum mailbox_sync_flags flags)
+static int mbox_transaction_commit(struct mail_index_transaction *t,
+				   uint32_t *log_file_seq_r,
+				   uoff_t *log_file_offset_r)
 {
-	struct mbox_transaction_context *t =
-		(struct mbox_transaction_context *)_t;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->ictx.ibox;
-	unsigned int lock_id = t->mbox_lock_id;
+	struct mbox_transaction_context *mt = MAIL_STORAGE_TRANSACTION(t);
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mt->ictx.ibox;
+	unsigned int lock_id = mt->mbox_lock_id;
+	enum mailbox_sync_flags flags = mt->ictx.commit_flags;
 	bool mbox_modified;
+	bool external = t->external;
 	int ret = 0;
 
-	if (t->save_ctx != NULL)
-		ret = mbox_transaction_save_commit(t->save_ctx);
-	mbox_modified = t->mbox_modified;
+	if (mt->save_ctx != NULL)
+		ret = mbox_transaction_save_commit(mt->save_ctx);
+	mbox_modified = mt->mbox_modified;
 
-	if (ret == 0) {
-		if (index_transaction_commit(_t) < 0)
+	if (ret < 0)
+		index_transaction_finish_rollback(&mt->ictx);
+	else {
+		if (index_transaction_finish_commit(&mt->ictx, log_file_seq_r,
+						    log_file_offset_r) < 0)
 			ret = -1;
-	} else {
-		index_transaction_rollback(_t);
 	}
-	t = NULL;
+
+	/* transaction is destroyed now. */
+	mt = NULL;
 
 	if (lock_id != 0 && mbox->mbox_lock_type != F_WRLCK) {
 		/* unlock before writing any changes */
@@ -45,7 +42,7 @@ int mbox_transaction_commit(struct mailbox_transaction_context *_t,
 		lock_id = 0;
 	}
 
-	if (ret == 0) {
+	if (ret == 0 && !external) {
 		enum mbox_sync_flags mbox_sync_flags = MBOX_SYNC_LAST_COMMIT;
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
 		    !mbox->mbox_very_dirty_syncs)
@@ -65,16 +62,55 @@ int mbox_transaction_commit(struct mailbox_transaction_context *_t,
 	return ret;
 }
 
-void mbox_transaction_rollback(struct mailbox_transaction_context *_t)
+static void mbox_transaction_rollback(struct mail_index_transaction *t)
 {
-	struct mbox_transaction_context *t =
-		(struct mbox_transaction_context *)_t;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->ictx.ibox;
+	struct mbox_transaction_context *mt = MAIL_STORAGE_TRANSACTION(t);
+	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mt->ictx.ibox;
 
-	if (t->save_ctx != NULL)
-		mbox_transaction_save_rollback(t->save_ctx);
+	if (mt->save_ctx != NULL)
+		mbox_transaction_save_rollback(mt->save_ctx);
 
-	if (t->mbox_lock_id != 0)
-		(void)mbox_unlock(mbox, t->mbox_lock_id);
-	index_transaction_rollback(_t);
+	if (mt->mbox_lock_id != 0)
+		(void)mbox_unlock(mbox, mt->mbox_lock_id);
+	index_transaction_finish_rollback(&mt->ictx);
+}
+
+void mbox_transaction_created(struct mail_index_transaction *t)
+{
+	struct mailbox *box = MAIL_STORAGE_INDEX(t->view->index);
+
+	if (strcmp(box->storage->name, MBOX_STORAGE_NAME) == 0) {
+		struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+		struct mbox_transaction_context *mt;
+
+		mt = i_new(struct mbox_transaction_context, 1);
+		mt->ictx.trans = t;
+		mt->ictx.super = t->v;
+
+		t->v.commit = mbox_transaction_commit;
+		t->v.rollback = mbox_transaction_rollback;
+
+		array_idx_set(&t->mail_index_transaction_module_contexts,
+			      mail_storage_mail_index_module_id, &mt);
+
+		index_transaction_init(&mt->ictx, &mbox->ibox);
+	}
+
+	if (next_hook_mail_index_transaction_created != NULL)
+		next_hook_mail_index_transaction_created(t);
+}
+
+void mbox_transaction_class_init(void)
+{
+	next_hook_mail_index_transaction_created =
+		hook_mail_index_transaction_created;
+	hook_mail_index_transaction_created = mbox_transaction_created;
+}
+
+void mbox_transaction_class_deinit(void)
+{
+	i_assert(hook_mail_index_transaction_created ==
+		 mbox_transaction_created);
+	hook_mail_index_transaction_created =
+		next_hook_mail_index_transaction_created;
 }

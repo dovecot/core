@@ -5,6 +5,7 @@
 #define MAILDIR_FS_SEP '.'
 #define MAILDIR_FS_SEP_S "."
 
+#define MAILDIR_STORAGE_NAME "maildir"
 #define SUBSCRIPTION_FILE_NAME "subscriptions"
 #define MAILDIR_INDEX_PREFIX "dovecot.index"
 #define MAILDIR_UNLINK_DIRNAME MAILDIR_FS_SEP_S"DOVECOT-TRASHED"
@@ -113,12 +114,9 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 int maildir_sync_index_finish(struct maildir_index_sync_context **sync_ctx,
 			      bool failed);
 
-struct mailbox_transaction_context *
-maildir_transaction_begin(struct mailbox *box,
-			  enum mailbox_transaction_flags flags);
-int maildir_transaction_commit(struct mailbox_transaction_context *t,
-			       enum mailbox_sync_flags flags);
-void maildir_transaction_rollback(struct mailbox_transaction_context *t);
+void maildir_transaction_created(struct mail_index_transaction *t);
+void maildir_transaction_class_init(void);
+void maildir_transaction_class_deinit(void);
 
 int maildir_save_init(struct mailbox_transaction_context *_t,
 		      enum mail_flags flags, struct mail_keywords *keywords,

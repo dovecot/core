@@ -9,8 +9,16 @@ struct mail_index_transaction_keyword_update {
 	ARRAY_TYPE(seq_range) remove_seq;
 };
 
+struct mail_index_transaction_vfuncs {
+	int (*commit)(struct mail_index_transaction *t,
+		      uint32_t *log_file_seq_r, uoff_t *log_file_offset_r);
+	void (*rollback)(struct mail_index_transaction *t);
+};
+
 struct mail_index_transaction {
 	int refcount;
+
+	struct mail_index_transaction_vfuncs v;
 	struct mail_index_view *view;
 
         ARRAY_DEFINE(appends, struct mail_index_record);
@@ -35,6 +43,9 @@ struct mail_index_transaction {
 
         struct mail_cache_transaction_ctx *cache_trans_ctx;
 
+	/* Module-specific contexts. See mail_index_module_id. */
+	ARRAY_DEFINE(mail_index_transaction_module_contexts, void);
+
 	unsigned int hide_transaction:1;
 	unsigned int no_appends:1;
 	unsigned int appends_nonsorted:1;
@@ -43,6 +54,9 @@ struct mail_index_transaction {
 	unsigned int post_hdr_changed:1;
 	unsigned int log_updates:1;
 };
+
+extern void (*hook_mail_index_transaction_created)
+		(struct mail_index_transaction *t);
 
 struct mail_index_record *
 mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq);

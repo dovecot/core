@@ -6,6 +6,7 @@
 /* Don't write Content-Length header unless it's value is larger than this. */
 #define MBOX_MIN_CONTENT_LENGTH_SIZE 1024
 
+#define MBOX_STORAGE_NAME "mbox"
 #define SUBSCRIPTION_FILE_NAME ".subscriptions"
 #define MBOX_INDEX_PREFIX "dovecot.index"
 #define MBOX_INDEX_DIR_NAME ".imap"
@@ -70,12 +71,9 @@ mbox_mailbox_list_init(struct mail_storage *storage,
 int mbox_mailbox_list_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *mbox_mailbox_list_next(struct mailbox_list_context *ctx);
 
-struct mailbox_transaction_context *
-mbox_transaction_begin(struct mailbox *box,
-		       enum mailbox_transaction_flags flags);
-int mbox_transaction_commit(struct mailbox_transaction_context *t,
-			    enum mailbox_sync_flags flags);
-void mbox_transaction_rollback(struct mailbox_transaction_context *t);
+void mbox_transaction_created(struct mail_index_transaction *t);
+void mbox_transaction_class_init(void);
+void mbox_transaction_class_deinit(void);
 
 struct mailbox_sync_context *
 mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);

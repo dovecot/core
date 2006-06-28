@@ -4,6 +4,7 @@
 #include "index-storage.h"
 #include "dbox-format.h"
 
+#define DBOX_STORAGE_NAME "dbox"
 #define STORAGE(mbox_storage) \
 	(&(mbox_storage)->storage.storage)
 #define INDEX_STORAGE(mbox_storage) \
@@ -83,12 +84,9 @@ dbox_mailbox_list_init(struct mail_storage *storage,
 int dbox_mailbox_list_deinit(struct mailbox_list_context *ctx);
 struct mailbox_list *dbox_mailbox_list_next(struct mailbox_list_context *ctx);
 
-struct mailbox_transaction_context *
-dbox_transaction_begin(struct mailbox *box,
-		       enum mailbox_transaction_flags flags);
-int dbox_transaction_commit(struct mailbox_transaction_context *t,
-			    enum mailbox_sync_flags flags);
-void dbox_transaction_rollback(struct mailbox_transaction_context *t);
+void dbox_transaction_created(struct mail_index_transaction *t);
+void dbox_transaction_class_init(void);
+void dbox_transaction_class_deinit(void);
 
 int dbox_save_init(struct mailbox_transaction_context *_t,
 		   enum mail_flags flags, struct mail_keywords *keywords,

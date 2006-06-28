@@ -379,6 +379,9 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 	index_cache_register_defaults(ibox);
 	ibox->view = mail_index_view_open(index);
 	ibox->keyword_names = mail_index_get_keywords(index);
+
+	array_idx_set(&index->mail_index_module_contexts,
+		      mail_storage_mail_index_module_id, &ibox);
 	return 0;
 }
 
@@ -395,6 +398,9 @@ void index_storage_mailbox_free(struct mailbox *box)
 	if (ibox->recent_flags != NULL)
 		buffer_free(ibox->recent_flags);
 	i_free(ibox->cache_fields);
+
+	array_idx_clear(&ibox->index->mail_index_module_contexts,
+			mail_storage_mail_index_module_id);
 	pool_unref(box->pool);
 }
 

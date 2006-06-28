@@ -9,7 +9,7 @@ struct mail_index_view_log_sync_pos {
 };
 ARRAY_DEFINE_TYPE(view_log_sync_pos, struct mail_index_view_log_sync_pos);
 
-struct mail_index_view_methods {
+struct mail_index_view_vfuncs {
 	void (*close)(struct mail_index_view *view);
 	uint32_t (*get_messages_count)(struct mail_index_view *view);
 	const struct mail_index_header *
@@ -35,7 +35,7 @@ struct mail_index_view_methods {
 struct mail_index_view {
 	int refcount;
 
-	struct mail_index_view_methods methods;
+	struct mail_index_view_vfuncs v;
 	struct mail_index *index;
         struct mail_transaction_log_view *log_view;
 
@@ -55,6 +55,9 @@ struct mail_index_view {
 	ARRAY_TYPE(view_log_sync_pos) syncs_done;
 	/* Transaction log offsets which we don't want to return in view sync */
 	ARRAY_TYPE(view_log_sync_pos) syncs_hidden;
+
+	/* Module-specific contexts. See mail_index_module_id. */
+	ARRAY_DEFINE(mail_index_view_module_contexts, void);
 
 	int transactions;
 	unsigned int lock_id;

@@ -17,7 +17,7 @@ _dummy_view_get_message_count(struct mail_index_view *view __attr_unused__)
 	return (uint32_t)-3;
 }
 
-static struct mail_index_view_methods dummy_view_methods = {
+static struct mail_index_view_vfuncs dummy_view_vfuncs = {
 	_dummy_view_close,
 	_dummy_view_get_message_count,
 	NULL,
@@ -35,7 +35,7 @@ struct mail_index_view *mail_index_dummy_view_open(struct mail_index *index)
 
 	view = i_new(struct mail_index_view, 1);
 	view->refcount = 1;
-	view->methods = dummy_view_methods;
+	view->v = dummy_view_vfuncs;
 	view->index = index;
 	return view;
 }

@@ -979,11 +979,23 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 		t_strconcat(mbox->path, "/cur", NULL));
 }
 
+static void maildir_class_init(void)
+{
+	maildir_transaction_class_init();
+}
+
+static void maildir_class_deinit(void)
+{
+	maildir_transaction_class_deinit();
+}
+
 struct mail_storage maildir_storage = {
-	MEMBER(name) "maildir",
+	MEMBER(name) MAILDIR_STORAGE_NAME,
 	MEMBER(hierarchy_sep) MAILDIR_FS_SEP,
 
 	{
+		maildir_class_init,
+		maildir_class_deinit,
 		maildir_create,
 		maildir_free,
 		maildir_autodetect,
@@ -1016,9 +1028,9 @@ struct mailbox maildir_mailbox = {
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,
 		maildir_notify_changes,
-		maildir_transaction_begin,
-		maildir_transaction_commit,
-		maildir_transaction_rollback,
+		index_transaction_begin,
+		index_transaction_commit,
+		index_transaction_rollback,
 		index_keywords_create,
 		index_keywords_free,
 		index_storage_get_uids,

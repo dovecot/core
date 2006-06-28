@@ -6,19 +6,14 @@
 #include "index-mail.h"
 
 void index_transaction_init(struct index_transaction_context *t,
-			    struct index_mailbox *ibox,
-			    enum mailbox_transaction_flags flags)
+			    struct index_mailbox *ibox)
 {
 	t->mailbox_ctx.box = &ibox->box;
 	t->ibox = ibox;
-	t->flags = flags;
 
 	array_create(&t->mailbox_ctx.module_contexts, default_pool,
 		     sizeof(void *), 5);
 
-	t->trans = mail_index_transaction_begin(ibox->view,
-		(flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0,
-		(flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 	t->trans_view = mail_index_transaction_open_updated_view(t->trans);
 	t->cache_view = mail_cache_view_open(ibox->cache, t->trans_view);
 	t->cache_trans = mail_cache_get_transaction(t->cache_view, t->trans);
@@ -33,21 +28,19 @@ static void index_transaction_free(struct index_transaction_context *t)
 	i_free(t);
 }
 
-int index_transaction_commit(struct mailbox_transaction_context *_t)
+int index_transaction_finish_commit(struct index_transaction_context *t,
+				    uint32_t *log_file_seq_r,
+				    uoff_t *log_file_offset_r)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)_t;
-	uint32_t seq;
-	uoff_t offset;
 	int ret;
 
-	ret = mail_index_transaction_commit(&t->trans, &seq, &offset);
+	ret = t->super.commit(t->trans, log_file_seq_r, log_file_offset_r);
 	if (ret < 0)
 		mail_storage_set_index_error(t->ibox);
 	else {
-		if (seq != 0) {
-			t->ibox->commit_log_file_seq = seq;
-			t->ibox->commit_log_file_offset = offset;
+		if (*log_file_seq_r != 0) {
+			t->ibox->commit_log_file_seq = *log_file_seq_r;
+			t->ibox->commit_log_file_offset = *log_file_offset_r;
 		}
 	}
 
@@ -55,11 +48,46 @@ int index_transaction_commit(struct mailbox_transaction_context *_t)
 	return ret;
 }
 
+void index_transaction_finish_rollback(struct index_transaction_context *t)
+{
+	t->super.rollback(t->trans);
+	index_transaction_free(t);
+}
+
+struct mailbox_transaction_context *
+index_transaction_begin(struct mailbox *box,
+			enum mailbox_transaction_flags flags)
+{
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
+	struct mail_index_transaction *t;
+	struct index_transaction_context *it;
+
+	t = mail_index_transaction_begin(ibox->view,
+		(flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0,
+		(flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+
+	it = MAIL_STORAGE_TRANSACTION(t);
+	it->flags = flags;
+	return &it->mailbox_ctx;
+}
+int index_transaction_commit(struct mailbox_transaction_context *_t,
+			     enum mailbox_sync_flags flags)
+{
+	struct index_transaction_context *t =
+		(struct index_transaction_context *)_t;
+	struct mail_index_transaction *itrans = t->trans;
+	uint32_t seq;
+	uoff_t offset;
+
+	t->commit_flags = flags;
+	return mail_index_transaction_commit(&itrans, &seq, &offset);
+}
+
 void index_transaction_rollback(struct mailbox_transaction_context *_t)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
+	struct mail_index_transaction *itrans = t->trans;
 
-	mail_index_transaction_rollback(&t->trans);
-	index_transaction_free(t);
+	mail_index_transaction_rollback(&itrans);
 }

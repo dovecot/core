@@ -1085,11 +1085,23 @@ mbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 		index_mailbox_check_add(&mbox->ibox, mbox->path);
 }
 
+static void mbox_class_init(void)
+{
+	mbox_transaction_class_init();
+}
+
+static void mbox_class_deinit(void)
+{
+	mbox_transaction_class_deinit();
+}
+
 struct mail_storage mbox_storage = {
-	MEMBER(name) "mbox",
+	MEMBER(name) MBOX_STORAGE_NAME,
 	MEMBER(hierarchy_sep) '/',
 
 	{
+		mbox_class_init,
+		mbox_class_deinit,
 		mbox_create,
 		mbox_free,
 		mbox_autodetect,
@@ -1122,9 +1134,9 @@ struct mailbox mbox_mailbox = {
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,
 		mbox_notify_changes,
-		mbox_transaction_begin,
-		mbox_transaction_commit,
-		mbox_transaction_rollback,
+		index_transaction_begin,
+		index_transaction_commit,
+		index_transaction_rollback,
 		index_keywords_create,
 		index_keywords_free,
 		index_storage_get_uids,

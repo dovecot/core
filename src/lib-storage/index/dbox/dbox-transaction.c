@@ -1,47 +1,42 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "dbox-sync.h"
 #include "dbox-storage.h"
 
-struct mailbox_transaction_context *
-dbox_transaction_begin(struct mailbox *box,
-		       enum mailbox_transaction_flags flags)
-{
-	struct dbox_mailbox *dbox = (struct dbox_mailbox *)box;
-	struct dbox_transaction_context *t;
+static void (*next_hook_mail_index_transaction_created)
+	(struct mail_index_transaction *t) = NULL;
 
-	t = i_new(struct dbox_transaction_context, 1);
-	index_transaction_init(&t->ictx, &dbox->ibox, flags);
-	return &t->ictx.mailbox_ctx;
-}
-
-int dbox_transaction_commit(struct mailbox_transaction_context *_t,
-			    enum mailbox_sync_flags flags __attr_unused__)
+static int dbox_transaction_commit(struct mail_index_transaction *t,
+				   uint32_t *log_file_seq_r,
+				   uoff_t *log_file_offset_r)
 {
-	struct dbox_transaction_context *t =
-		(struct dbox_transaction_context *)_t;
-	struct dbox_mailbox *dbox = (struct dbox_mailbox *)t->ictx.ibox;
+	struct dbox_transaction_context *dt = MAIL_STORAGE_TRANSACTION(t);
+	struct dbox_mailbox *dbox = (struct dbox_mailbox *)dt->ictx.ibox;
 	struct dbox_save_context *save_ctx;
+	bool external = t->external;
 	int ret = 0;
 
-	if (t->save_ctx != NULL) {
-		if (dbox_transaction_save_commit_pre(t->save_ctx) < 0) {
-			t->save_ctx = NULL;
+	if (dt->save_ctx != NULL) {
+		if (dbox_transaction_save_commit_pre(dt->save_ctx) < 0) {
+			dt->save_ctx = NULL;
 			ret = -1;
 		}
 	}
 
-	save_ctx = t->save_ctx;
+	save_ctx = dt->save_ctx;
 
-	if (ret == 0) {
-		if (index_transaction_commit(_t) < 0)
+	if (ret < 0)
+		index_transaction_finish_rollback(&dt->ictx);
+	else {
+		if (index_transaction_finish_commit(&dt->ictx, log_file_seq_r,
+						    log_file_offset_r) < 0)
 			ret = -1;
-	} else {
-		index_transaction_rollback(_t);
 	}
-	/* transaction is destroyed. */
-	t = NULL; _t = NULL;
+
+	/* transaction is destroyed now. */
+	dt = NULL;
 
 	if (save_ctx != NULL) {
 		/* unlock uidlist file after writing to transaction log,
@@ -49,7 +44,7 @@ int dbox_transaction_commit(struct mailbox_transaction_context *_t,
 		dbox_transaction_save_commit_post(save_ctx);
 	}
 
-	if (ret == 0) {
+	if (ret == 0 && !external) {
 		if (dbox_sync(dbox, FALSE) < 0)
 			ret = -1;
 	}
@@ -57,13 +52,52 @@ int dbox_transaction_commit(struct mailbox_transaction_context *_t,
 	return ret;
 }
 
-void dbox_transaction_rollback(struct mailbox_transaction_context *_t)
+static void dbox_transaction_rollback(struct mail_index_transaction *t)
 {
-	struct dbox_transaction_context *t =
-		(struct dbox_transaction_context *)_t;
+	struct dbox_transaction_context *dt = MAIL_STORAGE_TRANSACTION(t);
 
-	if (t->save_ctx != NULL)
-		dbox_transaction_save_rollback(t->save_ctx);
+	if (dt->save_ctx != NULL)
+		dbox_transaction_save_rollback(dt->save_ctx);
 
-	index_transaction_rollback(_t);
+	index_transaction_finish_rollback(&dt->ictx);
+}
+
+void dbox_transaction_created(struct mail_index_transaction *t)
+{
+	struct mailbox *box = MAIL_STORAGE_INDEX(t->view->index);
+
+	if (strcmp(box->storage->name, DBOX_STORAGE_NAME) == 0) {
+		struct dbox_mailbox *dbox = (struct dbox_mailbox *)box;
+		struct dbox_transaction_context *mt;
+
+		mt = i_new(struct dbox_transaction_context, 1);
+		mt->ictx.trans = t;
+		mt->ictx.super = t->v;
+
+		t->v.commit = dbox_transaction_commit;
+		t->v.rollback = dbox_transaction_rollback;
+
+		array_idx_set(&t->mail_index_transaction_module_contexts,
+			      mail_storage_mail_index_module_id, &mt);
+
+		index_transaction_init(&mt->ictx, &dbox->ibox);
+	}
+
+	if (next_hook_mail_index_transaction_created != NULL)
+		next_hook_mail_index_transaction_created(t);
+}
+
+void dbox_transaction_class_init(void)
+{
+	next_hook_mail_index_transaction_created =
+		hook_mail_index_transaction_created;
+	hook_mail_index_transaction_created = dbox_transaction_created;
+}
+
+void dbox_transaction_class_deinit(void)
+{
+	i_assert(hook_mail_index_transaction_created ==
+		 dbox_transaction_created);
+	hook_mail_index_transaction_created =
+		next_hook_mail_index_transaction_created;
 }

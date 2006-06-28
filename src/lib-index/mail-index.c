@@ -18,6 +18,8 @@
 #include <time.h>
 #include <sys/stat.h>
 
+unsigned int mail_index_module_id = 0;
+
 static int mail_index_try_open_only(struct mail_index *index);
 static void mail_index_create_in_memory(struct mail_index *index,
 					const struct mail_index_header *hdr);
@@ -37,6 +39,9 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 
 	ARRAY_CREATE(&index->sync_lost_handlers, default_pool,
 		     mail_index_sync_lost_handler_t *, 4);
+
+	ARRAY_CREATE(&index->mail_index_module_contexts, default_pool,
+		     void *, I_MIN(5, mail_index_module_id));
 
 	index->mode = 0600;
 	index->gid = (gid_t)-1;

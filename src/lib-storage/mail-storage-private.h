@@ -8,11 +8,10 @@
 #define MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND "Mailbox doesn't exist: %s"
 #define MAIL_STORAGE_ERR_NO_PERMISSION "Permission denied"
 
-/* Modules should use do "my_id = mail_storage_module_id++" and
-   use objects' module_contexts[id] for their own purposes. */
-extern unsigned int mail_storage_module_id;
-
 struct mail_storage_vfuncs {
+	void (*class_init)(void);
+	void (*class_deinit)(void);
+
 	struct mail_storage *
 		(*create)(const char *data, const char *user,
 			  enum mail_storage_flags flags,
@@ -240,6 +239,28 @@ struct mailbox_sync_context {
 struct mailbox_header_lookup_ctx {
 	struct mailbox *box;
 };
+
+/* Modules should use do "my_id = mail_storage_module_id++" and
+   use objects' module_contexts[id] for their own purposes. */
+extern unsigned int mail_storage_module_id;
+
+/* Storage's module_id for mail_index. */
+extern unsigned int mail_storage_mail_index_module_id;
+
+#define MAIL_STORAGE_INDEX(index) \
+	*((void **)array_idx_modifiable( \
+		&(index)->mail_index_module_contexts, \
+		mail_storage_mail_index_module_id))
+
+#define MAIL_STORAGE_VIEW(view) \
+	*((void **)array_idx_modifiable( \
+		&(view)->mail_index_view_module_contexts, \
+		mail_storage_mail_index_module_id))
+
+#define MAIL_STORAGE_TRANSACTION(trans) \
+	*((void **)array_idx_modifiable( \
+		&(trans)->mail_index_transaction_module_contexts, \
+		mail_storage_mail_index_module_id))
 
 /* Set error message in storage. Critical errors are logged with i_error(),
    but user sees only "internal error" message. */

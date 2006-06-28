@@ -6,6 +6,8 @@
 #include <fcntl.h>
 
 #include "mail-index.h"
+#include "mail-index-view-private.h"
+#include "mail-index-transaction-private.h"
 
 struct mail_transaction_header;
 struct mail_transaction_log_view;
@@ -168,7 +170,7 @@ struct mail_index {
 	unsigned int last_grow_count;
 
 	/* Module-specific contexts. See mail_index_module_id. */
-	ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(mail_index_module_contexts, void);
 
 	char *error;
 	unsigned int nodiskspace:1;

@@ -15,31 +15,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-struct mail_index_transaction *
-mail_index_transaction_begin(struct mail_index_view *view,
-			     bool hide, bool external)
-{
-	struct mail_index_transaction *t;
-
-	/* don't allow syncing view while there's ongoing transactions */
-	mail_index_view_transaction_ref(view);
- 	mail_index_view_ref(view);
-
-	t = i_new(struct mail_index_transaction, 1);
-	t->refcount = 1;
-	t->view = view;
-	t->hide_transaction = hide;
-	t->external = external;
-	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
-
-	if (view->syncing) {
-		/* transaction view cannot work if new records are being added
-		   in two places. make sure it doesn't happen. */
-		t->no_appends = TRUE;
-	}
-
-	return t;
-}
+void (*hook_mail_index_transaction_created)
+		(struct mail_index_transaction *t) = NULL;
 
 static void mail_index_transaction_free(struct mail_index_transaction *t)
 {
@@ -340,17 +317,11 @@ mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 	i_free(old_to_new_map);
 }
 
-int mail_index_transaction_commit(struct mail_index_transaction **_t,
-				  uint32_t *log_file_seq_r,
-				  uoff_t *log_file_offset_r)
+static int _mail_index_transaction_commit(struct mail_index_transaction *t,
+					  uint32_t *log_file_seq_r,
+					  uoff_t *log_file_offset_r)
 {
-	struct mail_index_transaction *t = *_t;
 	int ret;
-
-	if (mail_index_view_is_inconsistent(t->view)) {
-		mail_index_transaction_rollback(_t);
-		return -1;
-	}
 
 	if (t->cache_trans_ctx != NULL) {
 		mail_cache_transaction_commit(t->cache_trans_ctx);
@@ -367,19 +338,40 @@ int mail_index_transaction_commit(struct mail_index_transaction **_t,
 						  log_file_offset_r);
 	}
 
-	mail_index_transaction_unref(_t);
+	mail_index_transaction_unref(&t);
 	return ret;
+}
+
+static void _mail_index_transaction_rollback(struct mail_index_transaction *t)
+{
+	if (t->cache_trans_ctx != NULL) {
+		mail_cache_transaction_rollback(t->cache_trans_ctx);
+                t->cache_trans_ctx = NULL;
+	}
+        mail_index_transaction_unref(&t);
+}
+
+int mail_index_transaction_commit(struct mail_index_transaction **_t,
+				  uint32_t *log_file_seq_r,
+				  uoff_t *log_file_offset_r)
+{
+	struct mail_index_transaction *t = *_t;
+
+	if (mail_index_view_is_inconsistent(t->view)) {
+		mail_index_transaction_rollback(_t);
+		return -1;
+	}
+
+	*_t = NULL;
+	return t->v.commit(t, log_file_seq_r, log_file_offset_r);
 }
 
 void mail_index_transaction_rollback(struct mail_index_transaction **_t)
 {
 	struct mail_index_transaction *t = *_t;
 
-	if (t->cache_trans_ctx != NULL) {
-		mail_cache_transaction_rollback(t->cache_trans_ctx);
-                t->cache_trans_ctx = NULL;
-	}
-        mail_index_transaction_unref(_t);
+	*_t = NULL;
+	t->v.rollback(t);
 }
 
 struct mail_index_record *
@@ -950,4 +942,41 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	}
 
 	t->log_updates = TRUE;
+}
+
+struct mail_index_transaction_vfuncs trans_vfuncs = {
+	_mail_index_transaction_commit,
+	_mail_index_transaction_rollback
+};
+
+struct mail_index_transaction *
+mail_index_transaction_begin(struct mail_index_view *view,
+			     bool hide, bool external)
+{
+	struct mail_index_transaction *t;
+
+	/* don't allow syncing view while there's ongoing transactions */
+	mail_index_view_transaction_ref(view);
+ 	mail_index_view_ref(view);
+
+	t = i_new(struct mail_index_transaction, 1);
+	t->refcount = 1;
+	t->v = trans_vfuncs;
+	t->view = view;
+	t->hide_transaction = hide;
+	t->external = external;
+	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
+
+	if (view->syncing) {
+		/* transaction view cannot work if new records are being added
+		   in two places. make sure it doesn't happen. */
+		t->no_appends = TRUE;
+	}
+
+	ARRAY_CREATE(&t->mail_index_transaction_module_contexts, default_pool,
+		     void *, I_MIN(5, mail_index_module_id));
+
+	if (hook_mail_index_transaction_created != NULL)
+		hook_mail_index_transaction_created(t);
+	return t;
 }

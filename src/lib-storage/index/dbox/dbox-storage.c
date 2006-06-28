@@ -667,11 +667,23 @@ dbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 		t_strconcat(mbox->path, "/"DBOX_MAILDIR_NAME, NULL));
 }
 
+static void dbox_class_init(void)
+{
+	dbox_transaction_class_init();
+}
+
+static void dbox_class_deinit(void)
+{
+	dbox_transaction_class_deinit();
+}
+
 struct mail_storage dbox_storage = {
-	MEMBER(name) "dbox",
+	MEMBER(name) DBOX_STORAGE_NAME,
 	MEMBER(hierarchy_sep) '/',
 
 	{
+		dbox_class_init,
+		dbox_class_deinit,
 		dbox_create,
 		dbox_free,
 		dbox_autodetect,
@@ -704,9 +716,9 @@ struct mailbox dbox_mailbox = {
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,
 		dbox_notify_changes,
-		dbox_transaction_begin,
-		dbox_transaction_commit,
-		dbox_transaction_rollback,
+		index_transaction_begin,
+		index_transaction_commit,
+		index_transaction_rollback,
 		index_keywords_create,
 		index_keywords_free,
 		index_storage_get_uids,
