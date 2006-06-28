@@ -205,6 +205,22 @@ _array_idx_set(struct array *array, unsigned int idx, const void *data)
 	_array_idx_set(&(array)->arr, idx, data); \
 	} STMT_END
 
+static inline void
+_array_idx_clear(struct array *array, unsigned int idx)
+{
+	size_t pos;
+
+	pos = idx * array->element_size;
+	if (pos > array->buffer->used) {
+		/* index doesn't exist yet, initialize with zero */
+		buffer_append_zero(array->buffer, pos - array->buffer->used);
+	} else {
+		buffer_write_zero(array->buffer, pos, array->element_size);
+	}
+}
+#define array_idx_clear(array, idx) \
+	_array_idx_clear(&(array)->arr, idx)
+
 static inline void *
 _array_append_space(struct array *array)
 {
