@@ -10,6 +10,7 @@ enum index_cache_field {
 	MAIL_CACHE_FLAGS = 0,
 	MAIL_CACHE_SENT_DATE,
 	MAIL_CACHE_RECEIVED_DATE,
+	MAIL_CACHE_SAVE_DATE,
 	MAIL_CACHE_VIRTUAL_FULL_SIZE,
 	MAIL_CACHE_PHYSICAL_FULL_SIZE,
 
@@ -67,7 +68,7 @@ struct message_header_line;
 
 struct index_mail_data {
 	enum mail_flags flags;
-	time_t date, received_date;
+	time_t date, received_date, save_date;
 	uoff_t virtual_size, physical_size;
 
 	struct mail_sent_date sent_date;
@@ -153,6 +154,7 @@ enum mail_flags index_mail_get_flags(struct mail *_mail);
 const char *const *index_mail_get_keywords(struct mail *_mail);
 const struct message_part *index_mail_get_parts(struct mail *_mail);
 time_t index_mail_get_received_date(struct mail *_mail);
+time_t index_mail_get_save_date(struct mail *_mail);
 time_t index_mail_get_date(struct mail *_mail, int *timezone);
 uoff_t index_mail_get_virtual_size(struct mail *mail);
 uoff_t index_mail_get_physical_size(struct mail *mail);
@@ -171,7 +173,6 @@ int index_mail_expunge(struct mail *mail);
 uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 				    enum index_cache_field field);
 uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail);
-time_t index_mail_get_cached_received_date(struct index_mail *mail);
 
 void index_mail_cache_add(struct index_mail *mail, unsigned int field,
 			  const void *data, size_t data_size);

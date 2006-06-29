@@ -1,6 +1,7 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "hex-dec.h"
 #include "read-full.h"
 #include "istream.h"
@@ -164,6 +165,29 @@ static time_t dbox_mail_get_received_date(struct mail *_mail)
 	return data->received_date;
 }
 
+static time_t dbox_mail_get_save_date(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+	uoff_t offset;
+
+	(void)index_mail_get_save_date(_mail);
+	if (data->save_date != (time_t)-1)
+		return data->save_date;
+
+	if (dbox_mail_open(mail, &offset) <= 0)
+		return (time_t)-1;
+	if (data->save_date == (time_t)-1) {
+		/* it's broken and conflicts with our "not found"
+		   return value. change it. */
+		data->save_date = ioloop_time;
+	}
+
+	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE,
+			     &data->save_date, sizeof(data->save_date));
+	return data->save_date;
+}
+
 static uoff_t dbox_mail_get_physical_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -214,8 +238,9 @@ struct mail_vfuncs dbox_mail_vfuncs = {
 	index_mail_get_flags,
 	index_mail_get_keywords,
 	index_mail_get_parts,
-	dbox_mail_get_received_date,
 	index_mail_get_date,
+	dbox_mail_get_received_date,
+	dbox_mail_get_save_date,
 	dbox_mail_get_physical_size, /* physical = virtual in our case */
 	dbox_mail_get_physical_size,
 	index_mail_get_first_header,

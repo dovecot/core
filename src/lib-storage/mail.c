@@ -61,6 +61,13 @@ time_t mail_get_received_date(struct mail *mail)
 	return p->v.get_received_date(mail);
 }
 
+time_t mail_get_save_date(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_save_date(mail);
+}
+
 time_t mail_get_date(struct mail *mail, int *timezone)
 {
 	struct mail_private *p = (struct mail_private *)mail;

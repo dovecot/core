@@ -107,13 +107,14 @@ enum mail_fetch_field {
 	MAIL_FETCH_FLAGS		= 0x00000001,
 	MAIL_FETCH_MESSAGE_PARTS	= 0x00000002,
 
-	MAIL_FETCH_RECEIVED_DATE	= 0x00000004,
-	MAIL_FETCH_DATE			= 0x00000008,
-	MAIL_FETCH_VIRTUAL_SIZE		= 0x00000010,
-	MAIL_FETCH_PHYSICAL_SIZE	= 0x00000020,
+	MAIL_FETCH_STREAM_HEADER	= 0x00000004,
+	MAIL_FETCH_STREAM_BODY		= 0x00000008,
 
-	MAIL_FETCH_STREAM_HEADER	= 0x00000040,
-	MAIL_FETCH_STREAM_BODY		= 0x00000080,
+	MAIL_FETCH_DATE			= 0x00000010,
+	MAIL_FETCH_RECEIVED_DATE	= 0x00000020,
+	MAIL_FETCH_SAVE_DATE		= 0x00000040,
+	MAIL_FETCH_PHYSICAL_SIZE	= 0x00000080,
+	MAIL_FETCH_VIRTUAL_SIZE		= 0x00000100,
 
 	/* specials: */
 	MAIL_FETCH_IMAP_BODY		= 0x00001000,
@@ -436,18 +437,21 @@ void mail_free(struct mail **mail);
 int mail_set_seq(struct mail *mail, uint32_t seq);
 int mail_set_uid(struct mail *mail, uint32_t uid);
 
-/* Get the time message was received (IMAP INTERNALDATE).
-   Returns (time_t)-1 if error occurred. */
-time_t mail_get_received_date(struct mail *mail);
-/* Get the Date-header in mail. Timezone is in minutes.
+/* Get the Date-header of the mail. Timezone is in minutes.
    Returns (time_t)-1 if error occurred, 0 if field wasn't found or
    couldn't be parsed. */
 time_t mail_get_date(struct mail *mail, int *timezone);
+/* Get the time when the mail was received (IMAP INTERNALDATE).
+   Returns (time_t)-1 if error occurred. */
+time_t mail_get_received_date(struct mail *mail);
+/* Get the time when the mail was saved into this mailbox. This time may not
+   always be entirely reliable. Returns (time_t)-1 if error occurred. */
+time_t mail_get_save_date(struct mail *mail);
 
-/* Get the full virtual size of mail (IMAP RFC822.SIZE).
-   Returns (uoff_t)-1 if error occurred */
+/* Get the space used by the mail as seen by the reader. Linefeeds are always
+   counted as being CR+LF. Returns (uoff_t)-1 if error occurred */
 uoff_t mail_get_virtual_size(struct mail *mail);
-/* Get the full physical size of mail.
+/* Get the space used by the mail in disk.
    Returns (uoff_t)-1 if error occurred */
 uoff_t mail_get_physical_size(struct mail *mail);
 

@@ -1,6 +1,7 @@
-/* Copyright (C) 2003 Timo Sirainen */
+/* Copyright (C) 2003-2006 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "index-mail.h"
 #include "mbox-storage.h"
@@ -111,6 +112,24 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 	return data->received_date;
 }
 
+static time_t mbox_mail_get_save_date(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+
+	(void)index_mail_get_save_date(_mail);
+	if (data->save_date != (time_t)-1)
+		return data->save_date;
+
+	/* no way to know this. save the current time into cache and use
+	   that from now on. this works only as long as the index files
+	   are permanent */
+	data->save_date = ioloop_time;
+	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE,
+			     &data->save_date, sizeof(data->save_date));
+	return data->save_date;
+}
+
 static const char *
 mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 {
@@ -207,8 +226,9 @@ struct mail_vfuncs mbox_mail_vfuncs = {
 	index_mail_get_flags,
 	index_mail_get_keywords,
 	index_mail_get_parts,
-	mbox_mail_get_received_date,
 	index_mail_get_date,
+	mbox_mail_get_received_date,
+	mbox_mail_get_save_date,
 	index_mail_get_virtual_size,
 	mbox_mail_get_physical_size,
 	index_mail_get_first_header,

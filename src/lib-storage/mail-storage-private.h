@@ -178,8 +178,9 @@ struct mail_vfuncs {
 	const char *const *(*get_keywords)(struct mail *mail);
 	const struct message_part *(*get_parts)(struct mail *mail);
 
-	time_t (*get_received_date)(struct mail *mail);
 	time_t (*get_date)(struct mail *mail, int *timezone);
+	time_t (*get_received_date)(struct mail *mail);
+	time_t (*get_save_date)(struct mail *mail);
 	uoff_t (*get_virtual_size)(struct mail *mail);
 	uoff_t (*get_physical_size)(struct mail *mail);
 

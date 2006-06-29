@@ -119,16 +119,6 @@ static uoff_t index_mail_get_cached_physical_size(struct index_mail *mail)
 					    MAIL_CACHE_PHYSICAL_FULL_SIZE);
 }
 
-time_t index_mail_get_cached_received_date(struct index_mail *mail)
-{
-	time_t t;
-
-	if (!index_mail_get_fixed_field(mail, MAIL_CACHE_RECEIVED_DATE,
-					&t, sizeof(t)))
-		t = (time_t)-1;
-	return t;
-}
-
 enum mail_flags index_mail_get_flags(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
@@ -215,12 +205,28 @@ time_t index_mail_get_received_date(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 
 	if (data->received_date == (time_t)-1) {
-		data->received_date = index_mail_get_cached_received_date(mail);
-		if (data->received_date != (time_t)-1)
-			return data->received_date;
+		if (!index_mail_get_fixed_field(mail, MAIL_CACHE_RECEIVED_DATE,
+						&data->received_date,
+						sizeof(data->received_date)))
+			return (time_t)-1;
 	}
 
 	return data->received_date;
+}
+
+time_t index_mail_get_save_date(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *) _mail;
+	struct index_mail_data *data = &mail->data;
+
+	if (data->save_date == (time_t)-1) {
+		if (!index_mail_get_fixed_field(mail, MAIL_CACHE_SAVE_DATE,
+						&data->save_date,
+						sizeof(data->save_date)))
+			return (time_t)-1;
+	}
+
+	return data->save_date;
 }
 
 time_t index_mail_get_date(struct mail *_mail, int *timezone)

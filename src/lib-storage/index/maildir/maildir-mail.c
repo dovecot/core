@@ -73,47 +73,74 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 	}
 }
 
-static time_t maildir_mail_get_received_date(struct mail *_mail)
+static int maildir_mail_stat(struct mail *mail, struct stat *st)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
-	struct index_mail_data *data = &mail->data;
-	struct stat st;
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
+	struct index_mail_data *data = &((struct index_mail *)mail)->data;
 	const char *path;
 	int fd;
 
-	(void)index_mail_get_received_date(_mail);
-	if (data->received_date != (time_t)-1)
-		return data->received_date;
-
 	if (data->access_part != 0 && data->stream == NULL) {
 		/* we're going to open the mail anyway */
-		(void)mail_get_stream(_mail, NULL, NULL);
+		(void)mail_get_stream(mail, NULL, NULL);
 	}
 
 	if (data->stream != NULL) {
 		fd = i_stream_get_fd(data->stream);
 		i_assert(fd != -1);
 
-		if (fstat(fd, &st) < 0) {
+		if (fstat(fd, st) < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
 						  "fstat(maildir) failed: %m");
-			return (time_t)-1;
+			return -1;
 		}
-	} else if (_mail->uid != 0) {
-		if (maildir_file_do(mbox, _mail->uid, do_stat, &st) <= 0)
-			return (time_t)-1;
+	} else if (mail->uid != 0) {
+		if (maildir_file_do(mbox, mail->uid, do_stat, st) <= 0)
+			return -1;
 	} else {
-		path = maildir_save_file_get_path(_mail->transaction,
-						  _mail->seq);
-		if (do_stat(mbox, path, &st) <= 0)
-			return (time_t)-1;
+		path = maildir_save_file_get_path(mail->transaction, mail->seq);
+		if (do_stat(mbox, path, st) <= 0)
+			return -1;
 	}
+	return 0;
+}
+
+static time_t maildir_mail_get_received_date(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+	struct stat st;
+
+	(void)index_mail_get_received_date(_mail);
+	if (data->received_date != (time_t)-1)
+		return data->received_date;
+
+	if (maildir_mail_stat(_mail, &st) < 0)
+		return (time_t)-1;
 
 	data->received_date = st.st_mtime;
 	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE,
 			     &data->received_date, sizeof(data->received_date));
 	return data->received_date;
+}
+
+static time_t maildir_mail_get_save_date(struct mail *_mail)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail_data *data = &mail->data;
+	struct stat st;
+
+	(void)index_mail_get_save_date(_mail);
+	if (data->save_date != (time_t)-1)
+		return data->save_date;
+
+	if (maildir_mail_stat(_mail, &st) < 0)
+		return (time_t)-1;
+
+	data->save_date = st.st_ctime;
+	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE,
+			     &data->save_date, sizeof(data->save_date));
+	return data->save_date;
 }
 
 static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
@@ -264,8 +291,9 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	index_mail_get_flags,
 	index_mail_get_keywords,
 	index_mail_get_parts,
-	maildir_mail_get_received_date,
 	index_mail_get_date,
+	maildir_mail_get_received_date,
+	maildir_mail_get_save_date,
 	maildir_mail_get_virtual_size,
 	maildir_mail_get_physical_size,
 	index_mail_get_first_header,
