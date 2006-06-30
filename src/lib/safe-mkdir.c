@@ -10,17 +10,19 @@
 int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct stat st;
-	int fd, ret = 1;
+	int fd, ret = 2, changed_ret = 0;
 
 	if (lstat(dir, &st) < 0) {
 		if (errno != ENOENT)
 			i_fatal("lstat() failed for %s: %m", dir);
 
-		if (mkdir(dir, mode) < 0)
-			i_fatal("Can't create directory %s: %m", dir);
-	} else {
-		/* already exists. */
-		ret = 2;
+		if (mkdir(dir, mode) < 0) {
+			if (errno != EEXIST)
+				i_fatal("Can't create directory %s: %m", dir);
+		} else {
+			/* created it */
+			ret = changed_ret = 1;
+		}
 	}
 
 	/* use fchown() and fchmod() just to make sure we aren't following
@@ -40,13 +42,13 @@ int safe_mkdir(const char *dir, mode_t mode, uid_t uid, gid_t gid)
 	if (st.st_uid != uid || st.st_gid != gid) {
 		if (fchown(fd, uid, gid) < 0)
 			i_fatal("fchown() failed for %s: %m", dir);
-		ret = 0;
+		ret = changed_ret;
 	}
 
 	if ((st.st_mode & 07777) != mode) {
 		if (fchmod(fd, mode) < 0)
 			i_fatal("chmod() failed for %s: %m", dir);
-		ret = 0;
+		ret = changed_ret;
 	}
 
 	if (close(fd) < 0)
