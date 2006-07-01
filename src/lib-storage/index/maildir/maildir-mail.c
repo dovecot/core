@@ -236,6 +236,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 			_mail->expunged = TRUE;
 			return (uoff_t)-1;
 		}
+		path = NULL;
 	} else {
 		path = maildir_save_file_get_path(_mail->transaction,
 						  _mail->seq);
@@ -251,7 +252,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 				return (uoff_t)-1;
 		} else {
 			/* saved mail which hasn't been committed yet */
-			if (do_stat(mbox, fname, &st) <= 0)
+			if (do_stat(mbox, path, &st) <= 0)
 				return (uoff_t)-1;
 		}
 		size = st.st_size;
