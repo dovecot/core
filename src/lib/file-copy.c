@@ -8,12 +8,15 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 			    bool try_hardlink)
 {
 	struct istream *input;
 	struct ostream *output;
+	struct stat st;
+	mode_t old_umask;
 	int fd_in, fd_out;
 	off_t ret;
 
@@ -47,12 +50,24 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 		return -1;
 	}
 
-	fd_out = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (fstat(fd_in, &st) < 0) {
+		i_error("fstat(%s) failed: %m", srcpath);
+		(void)close(fd_in);
+		return -1;
+	}
+
+	old_umask = umask(0);
+	fd_out = open(tmppath, O_WRONLY | O_CREAT | O_TRUNC, st.st_mode);
+	umask(old_umask);
 	if (fd_out == -1) {
 		i_error("open(%s, O_CREAT) failed: %m", tmppath);
 		(void)close(fd_in);
 		return -1;
 	}
+
+	/* try to change the group, don't really care if it fails */
+	(void)fchown(fd_out, (uid_t)-1, st.st_gid);
+
 	input = i_stream_create_file(fd_in, default_pool, 0, FALSE);
 	output = o_stream_create_file(fd_out, default_pool, 0, FALSE);
 
