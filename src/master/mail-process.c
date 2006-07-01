@@ -161,7 +161,7 @@ env_put_namespace(struct namespace_settings *ns, const char *default_location,
 	for (i = 1; ns != NULL; i++, ns = ns->next) {
 		t_push();
 
-		location = ns->location != NULL ? ns->location :
+		location = *ns->location != '\0' ? ns->location :
 			default_location;
 		location = expand_mail_env(location, table);
 		env_put(t_strdup_printf("NAMESPACE_%u=%s", i, location));
