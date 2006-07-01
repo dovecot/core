@@ -776,6 +776,7 @@ int main(int argc, char *argv[])
 	t_pop();
 
 	if (dump_config || dump_config_nondefaults) {
+		printf("# %s\n", configfile);
 		master_settings_dump(settings_root, dump_config_nondefaults);
 		return 0;
 	}
