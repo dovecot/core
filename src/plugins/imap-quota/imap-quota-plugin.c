@@ -73,6 +73,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	}
 
 	if (quota == NULL) {
+		mailbox_close(&box);
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
 	}
