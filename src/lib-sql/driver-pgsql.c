@@ -441,7 +441,8 @@ static void exec_callback(struct sql_result *result,
 	i_error("pgsql: sql_exec() failed: %s", last_error(db));
 }
 
-static char *driver_pgsql_escape_string(struct sql_db *_db, const char *string)
+static const char *
+driver_pgsql_escape_string(struct sql_db *_db, const char *string)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 	size_t len = strlen(string);

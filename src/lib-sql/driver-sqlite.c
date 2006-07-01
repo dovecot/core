@@ -88,8 +88,9 @@ driver_sqlite_get_flags(struct sql_db *db __attr_unused__)
 	return SQL_DB_FLAG_BLOCKING;
 }
 
-static char *driver_sqlite_escape_string(struct sql_db *_db __attr_unused__,
-					 const char *string)
+static const char *
+driver_sqlite_escape_string(struct sql_db *_db __attr_unused__,
+			    const char *string)
 {
 	const char *p;
 	char *dest, *destbegin;

@@ -343,7 +343,7 @@ static int driver_mysql_do_query(struct mysql_db *db, const char *query,
 	return 0;
 }
 
-static char *
+static const char *
 driver_mysql_escape_string(struct sql_db *_db, const char *string)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;

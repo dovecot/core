@@ -66,7 +66,7 @@ int sql_connect(struct sql_db *db)
 	return db->connect(db);
 }
 
-char *sql_escape_string(struct sql_db *db, const char *string)
+const char *sql_escape_string(struct sql_db *db, const char *string)
 {
 	return db->escape_string(db, string);
 }

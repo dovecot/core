@@ -38,7 +38,7 @@ enum sql_db_flags sql_get_flags(struct sql_db *db);
 int sql_connect(struct sql_db *db);
 
 /* Escape the given string if needed and return it. */
-char *sql_escape_string(struct sql_db *db, const char *string);
+const char *sql_escape_string(struct sql_db *db, const char *string);
 
 /* Execute SQL query without waiting for results. */
 void sql_exec(struct sql_db *db, const char *query);
