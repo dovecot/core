@@ -68,8 +68,9 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 	}
 
 	if (*args != NULL && **args != '\0') {
-		pu->uid = userdb_parse_uid(NULL, *args);
-		if (pu->uid == 0 || pu->uid == (uid_t)-1) {
+		pu->uid = !pw->db->userdb ? (uid_t)-1 :
+			userdb_parse_uid(NULL, *args);
+		if ((pu->uid == 0 || pu->uid == (uid_t)-1) && pw->db->userdb) {
 			i_error("passwd-file %s: User %s has invalid UID %s",
 				pw->path, username, *args);
 			return;
@@ -79,8 +80,9 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 		args++;
 
 	if (*args != NULL && **args != '\0') {
-		pu->gid = userdb_parse_gid(NULL, *args);
-		if (pu->gid == 0 || pu->gid == (gid_t)-1) {
+		pu->gid = !pw->db->userdb ? (gid_t)-1 :
+			userdb_parse_gid(NULL, *args);
+		if ((pu->gid == 0 || pu->gid == (gid_t)-1) && pw->db->userdb) {
 			i_error("passwd-file %s: User %s has invalid GID %s",
 				pw->path, username, *args);
 			return;
