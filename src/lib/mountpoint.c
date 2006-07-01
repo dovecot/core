@@ -50,7 +50,7 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 
 	point_r->device_path = p_strdup(pool, buf.f_mntfromname);
 	point_r->mount_path = p_strdup(pool, buf.f_mntonname);
-	point_r->mount_path = p_strdup(pool, buf.f_fstypename);
+	point_r->type = p_strdup(pool, buf.f_fstypename);
 	point_r->block_size = buf.f_bsize;
 	return 1;
 #else
