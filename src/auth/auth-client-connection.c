@@ -33,7 +33,8 @@ static const char *reply_line_hide_pass(const char *line)
 	p += 6;
 
 	p2 = strchr(p, '\t');
-	return t_strconcat(t_strdup_until(line, p), "<hidden>", p2, NULL);
+	return t_strconcat(t_strdup_until(line, p), PASSWORD_HIDDEN_STR,
+			   p2, NULL);
 }
 
 static void auth_client_send(struct auth_client_connection *conn,
@@ -147,7 +148,8 @@ static const char *auth_line_hide_pass(const char *line)
 	p += 6;
 
 	p2 = strchr(p, '\t');
-	return t_strconcat(t_strdup_until(line, p), "<hidden>", p2, NULL);
+	return t_strconcat(t_strdup_until(line, p), PASSWORD_HIDDEN_STR,
+			   p2, NULL);
 }
 
 static const char *cont_line_hide_pass(const char *line)
@@ -158,7 +160,7 @@ static const char *cont_line_hide_pass(const char *line)
 	if (p == NULL)
 		return line;
 
-	return t_strconcat(t_strdup_until(line, p), "<hidden>", NULL);
+	return t_strconcat(t_strdup_until(line, p), PASSWORD_HIDDEN_STR, NULL);
 }
 
 static bool

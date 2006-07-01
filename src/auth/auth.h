@@ -1,6 +1,8 @@
 #ifndef __AUTH_H
 #define __AUTH_H
 
+#define PASSWORD_HIDDEN_STR "<hidden>"
+
 struct auth_passdb {
 	struct auth *auth;
 	struct auth_passdb *next;

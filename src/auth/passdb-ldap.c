@@ -38,6 +38,7 @@ static void
 ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 		       struct auth_request *auth_request)
 {
+	struct auth *auth = auth_request->auth;
 	BerElement *ber;
 	const char *name;
 	char *attr, **vals;
@@ -49,7 +50,7 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 		name = hash_lookup(conn->pass_attr_map, attr);
 		vals = ldap_get_values(conn->ld, entry, attr);
 
-		if (auth_request->auth->verbose_debug) {
+		if (auth->verbose_debug) {
 			if (debug == NULL)
 				debug = t_str_new(256);
 			else
@@ -64,7 +65,13 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 				if (debug != NULL) {
 					if (i != 0)
 						str_append_c(debug, '/');
-					str_append(debug, vals[i]);
+					if (auth->verbose_debug_passwords ||
+					    strcmp(name, "password") != 0)
+						str_append(debug, vals[i]);
+					else {
+						str_append(debug,
+							   PASSWORD_HIDDEN_STR);
+					}
 				}
 				auth_request_set_field(auth_request,
 						name, vals[i],
