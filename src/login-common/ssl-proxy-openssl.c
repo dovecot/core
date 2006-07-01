@@ -575,6 +575,24 @@ static DH *ssl_tmp_dh_callback(SSL *ssl __attr_unused__,
 	return ssl_params.dh_1024;
 }
 
+static void ssl_info_callback(const SSL *ssl, int where, int ret)
+{
+	struct ssl_proxy *proxy;
+
+	proxy = SSL_get_ex_data(ssl, extdata_index);
+
+	if ((where & SSL_CB_ALERT) != 0) {
+		i_warning("SSL alert: where=0x%x, ret=%d: %s %s [%s]",
+			  where, ret, SSL_alert_type_string_long(ret),
+			  SSL_alert_desc_string_long(ret),
+			  net_ip2addr(&proxy->ip));
+	} else {
+		i_warning("SSL BIO failed: where=0x%x, ret=%d: %s [%s]",
+			  where, ret, SSL_state_string_long(ssl),
+			  net_ip2addr(&proxy->ip));
+	}
+}
+
 static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 {
 	SSL *ssl;
@@ -680,6 +698,9 @@ void ssl_proxy_init(void)
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
+
+	if (verbose_ssl)
+		SSL_CTX_set_info_callback(ssl_ctx, ssl_info_callback);
 
 	if (getenv("SSL_VERIFY_CLIENT_CERT") != NULL) {
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
