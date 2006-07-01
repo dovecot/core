@@ -411,7 +411,6 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip)
 {
 	struct imap_client *client;
-	const char *addr;
 
 	if (max_logging_users > CLIENT_DESTROY_OLDEST_COUNT &&
 	    hash_size(clients) >= max_logging_users) {
@@ -427,12 +426,7 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	client->created = ioloop_time;
 	client->refcount = 1;
 	client->common.tls = ssl;
-
-        addr = net_ip2addr(ip);
-	client->common.secured = ssl ||
-		(IPADDR_IS_V4(ip) && strncmp(addr, "127.", 4) == 0) ||
-		(IPADDR_IS_V6(ip) && (strcmp(addr, "::1") == 0 ||
-				      strncmp(addr, "::ffff:127.", 11) == 0));
+	client->common.secured = ssl || net_ip_compare(ip, local_ip);
 
 	client->common.local_ip = *local_ip;
 	client->common.ip = *ip;
