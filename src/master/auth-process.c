@@ -419,6 +419,8 @@ static void auth_set_environment(struct auth_settings *set)
 	env_put(t_strconcat("REALMS=", set->realms, NULL));
 	env_put(t_strconcat("DEFAULT_REALM=", set->default_realm, NULL));
 	env_put(t_strconcat("USERNAME_CHARS=", set->username_chars, NULL));
+	env_put(t_strconcat("ANONYMOUS_USERNAME=",
+			    set->anonymous_username, NULL));
 	env_put(t_strconcat("USERNAME_TRANSLATION=",
 			    set->username_translation, NULL));
 	env_put(t_strconcat("USERNAME_FORMAT=", set->username_format, NULL));
