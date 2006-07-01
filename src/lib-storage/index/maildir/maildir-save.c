@@ -41,7 +41,7 @@ struct maildir_save_context {
 	struct mail *mail, *cur_dest_mail;
 
 	const char *tmpdir, *newdir, *curdir;
-	struct maildir_filename *files, **files_tail;
+	struct maildir_filename *files, **files_tail, *file_last;
 
 	buffer_t *keywords_buffer;
 	ARRAY_TYPE(keyword_indexes) keywords_array;
@@ -152,8 +152,8 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	mf->flags = flags;
 	mf->size = (uoff_t)-1;
 
-	if (*ctx->files_tail != NULL)
-		(*ctx->files_tail)->next = mf;
+	ctx->file_last = mf;
+	i_assert(*ctx->files_tail == NULL);
 	*ctx->files_tail = mf;
 	ctx->files_tail = &mf->next;
 
@@ -348,7 +348,7 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
 			"o_stream_send_istream(%s) failed: %m",
 			t_strconcat(ctx->tmpdir, "/",
-				    ctx->files->basename, NULL));
+				    ctx->file_last->basename, NULL));
 		ctx->failed = TRUE;
 		return -1;
 	}
@@ -375,10 +375,10 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 	}
 
 	/* remember the size in case we want to add it to filename */
-	ctx->files->size = ctx->output->offset;
+	ctx->file_last->size = ctx->output->offset;
 
 	t_push();
-	path = t_strconcat(ctx->tmpdir, "/", ctx->files->basename, NULL);
+	path = t_strconcat(ctx->tmpdir, "/", ctx->file_last->basename, NULL);
 
 	if (ctx->received_date != (time_t)-1) {
 		/* set the received_date by modifying mtime */
@@ -410,6 +410,8 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 	ctx->fd = -1;
 
 	if (ctx->failed) {
+		struct maildir_filename **fm;
+
 		/* delete the tmp file */
 		if (unlink(path) < 0 && errno != ENOENT) {
 			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
@@ -425,12 +427,19 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 				"write(%s) failed: %m", ctx->mbox->path);
 		}
 
-		ctx->files = ctx->files->next;
+		/* remove from the linked list */
+		for (fm = &ctx->files; (*fm)->next != NULL; fm = &(*fm)->next) ;
+		i_assert(*fm == ctx->file_last);
+		*fm = NULL;
+		ctx->files_tail = fm;
+		ctx->file_last = NULL;
+
 		t_pop();
 		return -1;
 	}
 	t_pop();
 
+	ctx->file_last = NULL;
 	return 0;
 }
 
