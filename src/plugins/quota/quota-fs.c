@@ -227,10 +227,10 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	}
 #elif defined(HAVE_QUOTACTL)
 	/* BSD, AIX */
-	if (quotactl(root->mount->device_path, QCMD(Q_GETQUOTA, USRQUOTA),
+	if (quotactl(root->mount->mount_path, QCMD(Q_GETQUOTA, USRQUOTA),
 		     root->uid, (void *)&dqblk) < 0) {
 		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
-			root->mount->device_path);
+			root->mount->mount_path);
 		quota_set_error(_root->setup->quota, "Internal quota error");
 		return -1;
 	}
