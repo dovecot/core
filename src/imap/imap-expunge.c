@@ -14,6 +14,11 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
         enum mailbox_sync_flags flags;
 	bool failed = FALSE;
 
+	if (mailbox_is_readonly(box)) {
+		/* silently ignore */
+		return TRUE;
+	}
+
 	memset(&search_arg, 0, sizeof(search_arg));
 	search_arg.type = SEARCH_DELETED;
 	search_arg.next = next_search_arg;

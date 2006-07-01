@@ -194,6 +194,11 @@ static bool expunge_mails(struct client *client)
 	if (client->deleted_bitmask == NULL)
 		return TRUE;
 
+	if (mailbox_is_readonly(client->mailbox)) {
+		/* silently ignore */
+		return TRUE;
+	}
+
 	memset(&seqset, 0, sizeof(seqset));
 	memset(&search_arg, 0, sizeof(search_arg));
 	seqset.seq1 = 1;
