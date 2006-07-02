@@ -612,7 +612,7 @@ static void daemonize(struct settings *set)
 static void print_help(void)
 {
 	printf(
-"Usage: dovecot [-F] [-c <config file>] [-p]\n"
+"Usage: dovecot [-F] [-c <config file>] [-p] [-n] [-a]\n"
 "       [--exec-mail <protocol>] [--version] [--build-options]\n");
 }
 
@@ -622,6 +622,9 @@ static void print_build_options(void)
 #ifdef IOLOOP_EPOLL
 		" ioloop=epoll"
 #endif
+#ifdef IOLOOP_KQUEUE
+		" ioloop=kqueue"
+#endif
 #ifdef IOLOOP_POLL
 		" ioloop=poll"
 #endif
@@ -629,10 +632,13 @@ static void print_build_options(void)
 		" ioloop=select"
 #endif
 #ifdef IOLOOP_NOTIFY_DNOTIFY
-		" dnotify"
+		" notify=dnotify"
 #endif
 #ifdef IOLOOP_NOTIFY_INOTIFY
-		" inotify"
+		" notify=inotify"
+#endif
+#ifdef IOLOOP_NOTIFY_KQUEUE
+		" notify=kqueue"
 #endif
 #ifdef HAVE_IPV6
 		" ipv6"
@@ -643,67 +649,68 @@ static void print_build_options(void)
 #ifdef HAVE_OPENSSL
 		" openssl"
 #endif
-#ifdef HAVE_MYSQL
+	"\nSQL drivers:"
+#ifdef BUILD_MYSQL
 		" mysql"
 #endif
-#ifdef HAVE_PGSQL
+#ifdef BUILD_PGSQL
 		" postgresql"
 #endif
-#ifdef HAVE_SQLITE
+#ifdef BUILD_SQLITE
 		" sqlite"
 #endif
-	"\nPassdb: "
+	"\nPassdb:"
 #ifdef PASSDB_BSDAUTH
-		"bsdauth "
+		" bsdauth"
 #endif
 #ifdef PASSDB_CHECKPASSWORD
-		"checkpassword "
+		" checkpassword"
 #endif
 #ifdef PASSDB_LDAP
-		"ldap "
+		" ldap"
 #endif
 #ifdef PASSDB_PAM
-		"pam "
+		" pam"
 #endif
 #ifdef PASSDB_PASSWD
-		"passwd "
+		" passwd"
 #endif
 #ifdef PASSDB_PASSWD_FILE
-		"passwd-file "
+		" passwd-file"
 #endif
 #ifdef PASSDB_SHADOW 
-		"shadow "
+		" shadow"
 #endif
 #ifdef PASSDB_SQL 
-		"sql "
+		" sql"
 #endif
 #ifdef PASSDB_VPOPMAIL
-		"vpopmail "
+		" vpopmail"
 #endif
-	"\nUserdb: "
+	"\nUserdb:"
 #ifdef USERDB_CHECKPASSWORD
-		"checkpassword "
+		" checkpassword"
 #endif
 #ifdef USERDB_LDAP
-		"ldap "
-#endif
-#ifdef USERDB_PASSDB 
-		"passdb "
+		" ldap"
 #endif
 #ifdef USERDB_PASSWD
-		"passwd "
+		" passwd"
+#endif
+#ifdef USERDB_PREFETCH
+		" prefetch"
 #endif
 #ifdef USERDB_PASSWD_FILE
-		"passwd-file "
+		" passwd-file"
 #endif
 #ifdef USERDB_SQL 
-		"sql "
+		" sql"
 #endif
 #ifdef USERDB_STATIC 
-		"static "
+		" static"
 #endif
 #ifdef USERDB_VPOPMAIL
-		"vpopmail "
+		" vpopmail"
 #endif
 	"\n");
 }
