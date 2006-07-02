@@ -1450,6 +1450,7 @@ static void settings_dump(const struct setting_def *def, const void **sets,
 				       set_names[i], str[i]);
 			}
 		}
+		t_pop();
 	}
 }
 
