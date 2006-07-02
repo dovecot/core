@@ -93,8 +93,12 @@ static int default_handler(const char *prefix, FILE *f,
 		fputs(format, f);
 	} else {
 		write_prefix(f);
-
 		fputs(prefix, f);
+
+		/* write may have failed, restore errno so %m works. although
+		   it probably can't write the error then anyway. */
+		errno = old_errno;
+
 		/* make sure there's no %n in there and fix %m */
                 (void)printf_string_upper_bound(&format, args);
 		vfprintf(f, format, args2);
