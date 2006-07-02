@@ -509,17 +509,11 @@ static void open_fds(void)
 	if (!IS_INETD())
 		listen_fds_open(FALSE);
 
-	/* close stdin and stdout. close stderr unless we're logging
-	   into /dev/stderr. */
+	/* close stdin and stdout. */
 	if (dup2(null_fd, 0) < 0)
 		i_fatal("dup2(0) failed: %m");
 	if (dup2(null_fd, 1) < 0)
 		i_fatal("dup2(1) failed: %m");
-
-	if (!have_stderr(settings_root)) {
-		if (dup2(null_fd, 2) < 0)
-			i_fatal("dup2(2) failed: %m");
-	}
 }
 
 static void create_pid_file(const char *path)
@@ -541,6 +535,14 @@ static void main_init(void)
 {
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
+
+	/* close stderr unless we're logging into /dev/stderr. keep as little
+	   distance between closing it and opening the actual log file so that
+	   we don't lose anything. */
+	if (!have_stderr(settings_root)) {
+		if (dup2(null_fd, 2) < 0)
+			i_fatal("dup2(2) failed: %m");
+	}
 
 	set_logfile(settings_root->defaults);
 	i_info("Dovecot v"VERSION" starting up");
