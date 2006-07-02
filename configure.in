@@ -54,9 +54,9 @@ AC_ARG_WITH(mem-align,
 
 AC_ARG_WITH(ioloop,
 [  --with-ioloop=IOLOOP    Specify the I/O loop method to use
-                          (epoll, kqueue, poll; default is poll)],
+                          (epoll, kqueue, poll; auto for best; default is poll)],
 	ioloop=$withval,
-	ioloop=)
+	ioloop=poll)
 
 AC_ARG_WITH(notify,
 [  --with-notify=IOLOOP    Specify the file system notification method to use
@@ -372,7 +372,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 dnl * I/O loop function
 have_ioloop=no
 
-if test "$ioloop" = "" || test "$ioloop" = "epoll"; then
+if test "$ioloop" = "auto" || test "$ioloop" = "epoll"; then
   AC_TRY_RUN([
     #include <sys/epoll.h>
 
@@ -385,23 +385,23 @@ if test "$ioloop" = "" || test "$ioloop" = "epoll"; then
     have_ioloop=yes
     ioloop=epoll
   ], [
-    if test "$ioloop" != "" ; then
-      AC_MSG_WARN([epoll ioloop requested but epoll_create() is not available])
+    if test "$ioloop" = "epoll" ; then
+      AC_MSG_ERROR([epoll ioloop requested but epoll_create() is not available])
     fi
   ])
 fi
 
-if test "$ioloop" = "" || test "$ioloop" = "kqueue"; then
+if test "$ioloop" = "auto" || test "$ioloop" = "kqueue"; then
     if test "$ac_cv_func_kqueue" = yes && test "$ac_cv_func_kevent" = yes; then
       AC_DEFINE(IOLOOP_KQUEUE,, [Implement I/O loop with BSD kqueue()])
       ioloop=kqueue
       have_ioloop=yes
     elif test "$ioloop" = "kqueue"; then
-      AC_MSG_WARN([kqueue ioloop requested but kqueue() is not available])
+      AC_MSG_ERROR([kqueue ioloop requested but kqueue() is not available])
     fi
 fi
 
-if test "$ioloop" = "" || test "$ioloop" = "poll"; then
+if test "$ioloop" = "auto" || test "$ioloop" = "poll"; then
   AC_CHECK_FUNC(poll, [
     AC_DEFINE(IOLOOP_POLL,, Implement I/O loop with poll())
     ioloop=poll
@@ -458,7 +458,7 @@ if test "$notify" = "" || test "$notify" = "inotify" ; then
   ], [
     AC_MSG_RESULT("no")
     if test "$notify" = "inotify"; then
-      AC_MSG_WARN([inotify requested but not available])
+      AC_MSG_ERROR([inotify requested but not available])
       notify=""
     fi
   ])
@@ -476,7 +476,7 @@ if test "$notify" = "" || test "$notify" = "kqueue"; then
   else 
     AC_MSG_RESULT("no")
     if test "$notfify" = "kqueue" ; then
-      AC_MSG_WARN([kqueue notify requested but kqueue() is not available])
+      AC_MSG_ERROR([kqueue notify requested but kqueue() is not available])
       notify=""
     fi
   fi
@@ -501,7 +501,7 @@ if test "$notify" = "" || test "$notify" = "dnotify"; then
   ], [
     AC_MSG_RESULT("no")
     if test "$notify" = "dnotify"; then
-      AC_MSG_WARN([dnotify requested but not available])
+      AC_MSG_ERROR([dnotify requested but not available])
     fi
   ])
 fi
