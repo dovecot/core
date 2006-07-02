@@ -110,7 +110,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, default_mail_env),
 	DEF(SET_STR, mail_cache_fields),
 	DEF(SET_STR, mail_never_cache_fields),
-	DEF(SET_STR, mail_cache_min_mail_count),
+	DEF(SET_INT, mail_cache_min_mail_count),
 	DEF(SET_INT, mailbox_idle_check_interval),
 	DEF(SET_BOOL, mail_debug),
 	DEF(SET_BOOL, mail_full_filesystem_access),
