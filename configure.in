@@ -54,7 +54,8 @@ AC_ARG_WITH(mem-align,
 
 AC_ARG_WITH(ioloop,
 [  --with-ioloop=IOLOOP    Specify the I/O loop method to use
-                          (epoll, kqueue, poll; auto for best; default is poll)],
+                          (epoll, kqueue, poll; best for the fastest available;
+			   default is poll)],
 	ioloop=$withval,
 	ioloop=poll)
 
@@ -372,7 +373,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 dnl * I/O loop function
 have_ioloop=no
 
-if test "$ioloop" = "auto" || test "$ioloop" = "epoll"; then
+if test "$ioloop" = "best" || test "$ioloop" = "epoll"; then
   AC_TRY_RUN([
     #include <sys/epoll.h>
 
@@ -391,7 +392,7 @@ if test "$ioloop" = "auto" || test "$ioloop" = "epoll"; then
   ])
 fi
 
-if test "$ioloop" = "auto" || test "$ioloop" = "kqueue"; then
+if test "$ioloop" = "best" || test "$ioloop" = "kqueue"; then
     if test "$ac_cv_func_kqueue" = yes && test "$ac_cv_func_kevent" = yes; then
       AC_DEFINE(IOLOOP_KQUEUE,, [Implement I/O loop with BSD kqueue()])
       ioloop=kqueue
@@ -401,7 +402,7 @@ if test "$ioloop" = "auto" || test "$ioloop" = "kqueue"; then
     fi
 fi
 
-if test "$ioloop" = "auto" || test "$ioloop" = "poll"; then
+if test "$ioloop" = "best" || test "$ioloop" = "poll"; then
   AC_CHECK_FUNC(poll, [
     AC_DEFINE(IOLOOP_POLL,, Implement I/O loop with poll())
     ioloop=poll
