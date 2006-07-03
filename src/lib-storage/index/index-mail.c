@@ -21,6 +21,8 @@ struct mail_cache_field global_cache_fields[MAIL_CACHE_FIELD_COUNT] = {
 	  sizeof(struct mail_sent_date), 0 },
 	{ "date.received", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
 	  sizeof(time_t), 0 },
+	{ "date.save", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
+	  sizeof(time_t), 0 },
 	{ "size.virtual", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
 	  sizeof(uoff_t), 0 },
 	{ "size.physical", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
