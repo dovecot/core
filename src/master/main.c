@@ -777,6 +777,12 @@ int main(int argc, char *argv[])
 		foreground = TRUE;
 	}
 
+	if (dump_config || dump_config_nondefaults) {
+		/* print the config file path before parsing it, so in case
+		   of errors it's still shown */
+		printf("# %s\n", configfile);
+	}
+
 	/* read and verify settings before forking */
 	t_push();
 	master_settings_init();
@@ -785,7 +791,6 @@ int main(int argc, char *argv[])
 	t_pop();
 
 	if (dump_config || dump_config_nondefaults) {
-		printf("# %s\n", configfile);
 		master_settings_dump(settings_root, dump_config_nondefaults);
 		return 0;
 	}
