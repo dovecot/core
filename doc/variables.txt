@@ -18,7 +18,7 @@ The variables are:
  %w - plaintext password from plaintext authentication mechanism
  %i - System UID of the user
 
-You can apply a modifiers for each variable (eg. %Lp = pop3):
+You can apply a modifiers for each variable (eg. %Ls = pop3):
 
  %L - lowercase
  %U - uppercase
