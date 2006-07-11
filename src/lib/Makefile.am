@@ -6,6 +6,7 @@ liblib_a_SOURCES = \
 	buffer.c \
 	close-keep-errno.c \
 	compat.c \
+	crc32.c \
 	data-stack.c \
 	env-util.c \
 	failures.c \
@@ -92,6 +93,7 @@ noinst_HEADERS = \
 	buffer.h \
 	close-keep-errno.h \
 	compat.h \
+	crc32.h \
 	data-stack.h \
 	env-util.h \
 	failures.h \
