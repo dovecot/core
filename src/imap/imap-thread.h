@@ -10,4 +10,7 @@ enum mail_thread_type {
 int imap_thread(struct client_command_context *cmd, const char *charset,
 		struct mail_search_arg *args, enum mail_thread_type type);
 
+void imap_thread_init(void);
+void imap_thread_deinit(void);
+
 #endif

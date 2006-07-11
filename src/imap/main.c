@@ -15,6 +15,7 @@
 #include "mail-storage.h"
 #include "commands.h"
 #include "namespace.h"
+#include "imap-thread.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -176,6 +177,7 @@ static void main_init(void)
 	mail_storage_register_all();
 	clients_init();
 	commands_init();
+	imap_thread_init();
 
 	if (getenv("MAIL_PLUGINS") == NULL)
 		modules = NULL;
@@ -236,6 +238,7 @@ static void main_deinit(void)
 	clients_deinit();
 
 	module_dir_unload(&modules);
+	imap_thread_deinit();
 	commands_deinit();
         mail_storage_deinit();
 	dict_client_unregister();
