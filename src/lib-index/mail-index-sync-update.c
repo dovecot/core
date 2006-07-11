@@ -195,9 +195,10 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 
 		for (seq = seq1; seq <= seq2; seq++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-			eh->handler(ctx, seq,
-				    PTR_OFFSET(rec, eh->record_offset),
-				    eh->context);
+			if (eh->handler(ctx, seq,
+					PTR_OFFSET(rec, eh->record_offset),
+					eh->sync_context, eh->context) < 0)
+				return -1;
 		}
 	}
 

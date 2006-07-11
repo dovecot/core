@@ -41,13 +41,15 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	for (idx_ext_id = 0; idx_ext_id < id_map_count; idx_ext_id++) {
 		map_ext_id = id_map[idx_ext_id];
 		if (rext[idx_ext_id].expunge_handler == NULL ||
-		    map_ext_id == (uint32_t)-1)
+		    (map_ext_id == (uint32_t)-1 &&
+		     !rext[idx_ext_id].expunge_handler_call_always))
 			continue;
 
-		i_assert(map_ext_id < context_count);
 		eh.handler = rext[idx_ext_id].expunge_handler;
-		eh.context = &contexts[map_ext_id];
-		eh.record_offset = ext[map_ext_id].record_offset;
+		eh.context = rext[idx_ext_id].expunge_context;
+		eh.sync_context = &contexts[idx_ext_id];
+		eh.record_offset = map_ext_id == (uint32_t)-1 ? 0 :
+			ext[map_ext_id].record_offset;
 		array_append(&ctx->expunge_handlers, &eh, 1);
 	}
 	ctx->expunge_handlers_set = TRUE;
@@ -65,8 +67,10 @@ mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 
 	eh = array_get(&ctx->expunge_handlers, &count);
 	for (i = 0; i < count; i++) {
-		if (eh->context != NULL)
-			eh[i].handler(ctx, 0, NULL, eh->context);
+		if (eh->sync_context != NULL) {
+			eh[i].handler(ctx, 0, NULL, eh->sync_context,
+				      eh[i].context);
+		}
 	}
 
 	array_free(&ctx->expunge_handlers);
@@ -97,32 +101,22 @@ void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 
 void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx)
 {
-	const struct mail_index_ext *ext;
 	const struct mail_index_registered_ext *rext;
 	void **extra_contexts;
-	unsigned int i, count, rext_count, context_count;
+	unsigned int i, rext_count, context_count;
 
 	if (!array_is_created(&ctx->extra_contexts))
 		return;
 
-	if (!array_is_created(&ctx->view->map->extensions)) {
-		ext = NULL;
-		count = 0;
-	} else {
-		ext = array_get(&ctx->view->map->extensions, &count);
-	}
 	rext = array_get(&ctx->view->index->extensions, &rext_count);
-
-	/* extra_contexts[] is ordered by map->extensions. */
 	extra_contexts =
 		array_get_modifiable(&ctx->extra_contexts, &context_count);
-	i_assert(count <= context_count);
+	i_assert(context_count <= rext_count);
 
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < context_count; i++) {
 		if (extra_contexts[i] != NULL) {
-			rext[ext[i].index_idx].sync_handler.
-				callback(ctx, 0, NULL, NULL,
-					 &extra_contexts[i]);
+			rext[i].sync_handler.callback(ctx, 0, NULL, NULL,
+						      &extra_contexts[i]);
 		}
 	}
 
@@ -544,7 +538,7 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	if ((rext->sync_handler.type & ctx->type) != 0) {
 		void **extra_context =
 			array_idx_modifiable(&ctx->extra_contexts,
-					     ctx->cur_ext_id);
+					     ext->index_idx);
 		ret = rext->sync_handler.callback(ctx, seq, old_data, u + 1,
 						  extra_context);
 		if (ret <= 0)

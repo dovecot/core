@@ -216,7 +216,8 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 			     unsigned int field);
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
-			       uint32_t seq, const void *data, void **context);
+			       uint32_t seq, const void *data,
+			       void **sync_context, void *context);
 int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			    uint32_t seq, void *old_data, const void *new_data,
 			    void **context);

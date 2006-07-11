@@ -35,7 +35,7 @@ struct mail_index_sync_map_ctx;
 
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 uint32_t seq, const void *data,
-					 void **context);
+					 void **sync_context, void *context);
 typedef int mail_index_sync_handler_t(struct mail_index_sync_map_ctx *ctx,
 				      uint32_t seq, void *old_data,
 				      const void *new_data, void **context);
@@ -98,7 +98,10 @@ struct mail_index_registered_ext {
 	uint16_t record_align;
 
 	struct mail_index_sync_handler sync_handler;
-        mail_index_expunge_handler_t *expunge_handler;
+	mail_index_expunge_handler_t *expunge_handler;
+
+	void *expunge_context;
+	unsigned int expunge_handler_call_always:1;
 };
 
 struct mail_index_map {
@@ -189,7 +192,8 @@ struct mail_index {
 /* Add/replace sync handler for specified extra record. */
 void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
-					 mail_index_expunge_handler_t *cb);
+					 mail_index_expunge_handler_t *cb,
+					 void *context, bool call_always);
 void mail_index_unregister_expunge_handler(struct mail_index *index,
 					   uint32_t ext_id);
 void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,

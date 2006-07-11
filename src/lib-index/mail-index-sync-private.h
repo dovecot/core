@@ -37,7 +37,8 @@ struct mail_index_sync_list {
 
 struct mail_index_expunge_handler {
 	mail_index_expunge_handler_t *handler;
-	void **context;
+	void *context;
+	void **sync_context;
 	uint32_t record_offset;
 };
 

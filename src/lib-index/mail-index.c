@@ -113,7 +113,8 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 
 void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
-					 mail_index_expunge_handler_t *cb)
+					 mail_index_expunge_handler_t *cb,
+					 void *context, bool call_always)
 {
 	struct mail_index_registered_ext *rext;
 
@@ -121,6 +122,8 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 	i_assert(rext->expunge_handler == NULL);
 
 	rext->expunge_handler = cb;
+	rext->expunge_context = context;
+	rext->expunge_handler_call_always = call_always;
 }
 
 void mail_index_unregister_expunge_handler(struct mail_index *index,

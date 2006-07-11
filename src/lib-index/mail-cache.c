@@ -302,7 +302,8 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 		mail_index_ext_register(index, "cache", 0,
 					sizeof(uint32_t), sizeof(uint32_t));
 	mail_index_register_expunge_handler(index, cache->ext_id,
-					    mail_cache_expunge_handler);
+					    mail_cache_expunge_handler,
+					    cache, FALSE);
 	mail_index_register_sync_handler(index, cache->ext_id,
 					 mail_cache_sync_handler,
                                          MAIL_INDEX_SYNC_HANDLER_FILE |

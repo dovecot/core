@@ -60,40 +60,39 @@ static int get_cache_file_seq(struct mail_index_view *view,
 }
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
-			       uint32_t seq __attr_unused__,
-			       const void *data, void **context)
+			       uint32_t seq __attr_unused__, const void *data,
+			       void **sync_context, void *context)
 {
-	struct mail_index_view *view = sync_ctx->view;
-	struct mail_cache_sync_context *ctx = *context;
-	struct mail_cache *cache = view->index->cache;
+	struct mail_cache *cache = context;
+	struct mail_cache_sync_context *ctx = *sync_context;
 	const uint32_t *cache_offset = data;
 	uint32_t cache_file_seq;
 	int ret;
 
 	if (data == NULL) {
 		mail_cache_handler_deinit(sync_ctx, ctx);
-		*context = NULL;
-		return 1;
+		*sync_context = NULL;
+		return 0;
 	}
 
 	if (*cache_offset == 0)
-		return 1;
+		return 0;
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache))
-		return 1;
+		return 0;
 
 	ret = mail_cache_handler_init(&ctx, cache);
-	*context = ctx;
+	*sync_context = ctx;
 	if (ret <= 0)
-		return ret < 0 ? -1 : 1;
+		return ret;
 
-	if (!get_cache_file_seq(view, &cache_file_seq))
-		return 1;
+	if (!get_cache_file_seq(sync_ctx->view, &cache_file_seq))
+		return 0;
 
 	if (!MAIL_CACHE_IS_UNUSABLE(cache) &&
 	    cache_file_seq == cache->hdr->file_seq)
 		(void)mail_cache_delete(cache, *cache_offset);
-	return 1;
+	return 0;
 }
 
 int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
