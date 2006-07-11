@@ -27,6 +27,8 @@
 unsigned int mail_storage_module_id = 0;
 unsigned int mail_storage_mail_index_module_id = 0;
 
+void (*hook_mailbox_opened)(struct mailbox *box) = NULL;
+
 static ARRAY_DEFINE(storages, struct mail_storage *);
 
 void mail_storage_init(void)
@@ -366,7 +368,12 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags)
 {
-	return storage->v.mailbox_open(storage, name, input, flags);
+	struct mailbox *box;
+
+	box = storage->v.mailbox_open(storage, name, input, flags);
+	if (hook_mailbox_opened != NULL && box != NULL)
+		hook_mailbox_opened(box);
+	return box;
 }
 
 int mailbox_close(struct mailbox **_box)

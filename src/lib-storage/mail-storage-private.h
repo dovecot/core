@@ -8,6 +8,9 @@
 #define MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND "Mailbox doesn't exist: %s"
 #define MAIL_STORAGE_ERR_NO_PERMISSION "Permission denied"
 
+/* Called after mailbox has been opened */
+extern void (*hook_mailbox_opened)(struct mailbox *box);
+
 struct mail_storage_vfuncs {
 	void (*class_init)(void);
 	void (*class_deinit)(void);
