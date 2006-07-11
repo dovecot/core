@@ -13,6 +13,7 @@ libmail_a_SOURCES = \
 	message-header-decode.c \
 	message-header-parser.c \
 	message-header-search.c \
+	message-id.c \
 	message-parser.c \
 	message-part-serialize.c \
 	message-send.c \
@@ -30,6 +31,7 @@ noinst_HEADERS = \
 	message-header-decode.h \
 	message-header-parser.h \
 	message-header-search.h \
+	message-id.h \
 	message-parser.h \
 	message-part-serialize.h \
 	message-send.h \
