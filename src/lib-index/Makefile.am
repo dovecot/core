@@ -12,6 +12,7 @@ libindex_a_SOURCES = \
 	mail-cache-lookup.c \
 	mail-cache-transaction.c \
 	mail-cache-sync-update.c \
+        mail-hash.c \
         mail-index.c \
         mail-index-dummy-view.c \
         mail-index-fsck.c \
@@ -32,6 +33,7 @@ libindex_a_SOURCES = \
 noinst_HEADERS = \
 	mail-cache.h \
 	mail-cache-private.h \
+        mail-hash.h \
 	mail-index.h \
 	mail-index-private.h \
 	mail-index-sync-private.h \
