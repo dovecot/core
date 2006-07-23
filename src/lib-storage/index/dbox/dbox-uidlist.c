@@ -105,6 +105,8 @@ const struct dotlock_settings dbox_file_dotlock_set = {
 	MEMBER(use_excl_lock) FALSE
 };
 
+static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist);
+
 struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox)
 {
 	struct dbox_uidlist *uidlist;
@@ -334,6 +336,11 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 	struct stat st;
 	int ret;
 
+	if (uidlist->lock_count > 0 && uidlist->need_full_rewrite) {
+		i_assert(uidlist->mbox->ibox.keep_locked);
+		return 1;
+	}
+
 	if (uidlist->fd != -1) {
 		if (stat(uidlist->path, &st) < 0) {
 			if (errno != ENOENT) {
@@ -475,6 +482,14 @@ void dbox_uidlist_unlock(struct dbox_uidlist *uidlist)
 		return;
 	}
 
+	if (uidlist->need_full_rewrite) {
+		i_assert(uidlist->mbox->ibox.keep_locked);
+
+		(void)dbox_uidlist_full_rewrite(uidlist);
+		if (uidlist->lock_fd == -1)
+			return;
+	} 
+
 	(void)file_dotlock_delete(&uidlist->dotlock);
 	uidlist->lock_fd = -1;
 }
@@ -554,6 +569,12 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 	int ret = 0;
 
 	i_assert(uidlist->lock_fd != -1);
+
+	if (uidlist->lock_count > 1) {
+		i_assert(uidlist->mbox->ibox.keep_locked);
+		uidlist->need_full_rewrite = TRUE;
+		return 0;
+	}
 
 	output = o_stream_create_file(uidlist->lock_fd, default_pool, 0, FALSE);
 
@@ -645,6 +666,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 	/* now, finish the uidlist update by renaming the lock file to
 	   uidlist */
 	uidlist->lock_fd = -1;
+	uidlist->lock_count--;
 	if (file_dotlock_replace(&uidlist->dotlock, 0) < 0)
 		return -1;
 

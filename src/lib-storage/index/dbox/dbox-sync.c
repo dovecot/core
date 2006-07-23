@@ -451,100 +451,137 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	return ret;
 }
 
-int dbox_sync(struct dbox_mailbox *mbox, bool force)
+static int dbox_sync_init(struct dbox_mailbox *mbox,
+			  struct dbox_sync_context *ctx, bool *force)
 {
-	struct dbox_sync_context ctx;
+	const struct mail_index_header *hdr;
+	time_t mtime;
+	int ret;
+
+	memset(ctx, 0, sizeof(*ctx));
+	ctx->mbox = mbox;
+
+	/* uidlist locking is done before index locking. */
+	if (dbox_uidlist_sync_init(mbox->uidlist, &ctx->uidlist_sync_ctx,
+				   &mtime) < 0)
+		return -1;
+
+	ret = mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
+				    &ctx->sync_view, (uint32_t)-1, (uoff_t)-1,
+				    !mbox->ibox.keep_recent, TRUE);
+	if (ret <= 0) {
+		if (ret < 0)
+			mail_storage_set_index_error(&mbox->ibox);
+		dbox_uidlist_sync_rollback(ctx->uidlist_sync_ctx);
+		return ret;
+	}
+
+	ctx->trans = mail_index_transaction_begin(ctx->sync_view, FALSE, TRUE);
+
+	hdr = mail_index_get_header(ctx->sync_view);
+	if ((uint32_t)mtime != hdr->sync_stamp) {
+		/* indexes aren't synced. we'll do a full sync. */
+		*force = TRUE;
+	}
+	return 1;
+}
+
+static int dbox_sync_finish(struct dbox_sync_context *ctx, bool force)
+{
 	const struct mail_index_header *hdr;
 	uint32_t seq, uid_validity, next_uid;
 	uoff_t offset;
 	time_t mtime;
 	int ret;
 
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.mbox = mbox;
-
-	/* always start index syncing before uidlist, so we don't get
-	   deadlocks */
-	ret = mail_index_sync_begin(mbox->ibox.index, &ctx.index_sync_ctx,
-				    &ctx.sync_view, (uint32_t)-1, (uoff_t)-1,
-				    !mbox->ibox.keep_recent, TRUE);
-	if (ret <= 0) {
-		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox);
-		return ret;
-	}
-	if (dbox_uidlist_sync_init(mbox->uidlist, &ctx.uidlist_sync_ctx,
-				   &mtime) < 0) {
-		mail_index_sync_rollback(&ctx.index_sync_ctx);
-		return -1;
-	}
-
-	ctx.trans = mail_index_transaction_begin(ctx.sync_view, FALSE, TRUE);
-
-	hdr = mail_index_get_header(ctx.sync_view);
-	if ((uint32_t)mtime != hdr->sync_stamp) {
-		/* indexes aren't synced. we'll do a full sync. */
-		force = TRUE;
-	}
-
 	if (force)
-		ret = dbox_sync_full(&ctx);
+		ret = dbox_sync_full(ctx);
 	else
-		ret = dbox_sync_index(&ctx);
+		ret = dbox_sync_index(ctx);
 
 	if (ret < 0) {
-		mail_index_sync_rollback(&ctx.index_sync_ctx);
-		dbox_uidlist_sync_rollback(ctx.uidlist_sync_ctx);
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
+		dbox_uidlist_sync_rollback(ctx->uidlist_sync_ctx);
 		return -1;
 	}
 
-	uid_validity = dbox_uidlist_sync_get_uid_validity(ctx.uidlist_sync_ctx);
-	next_uid = dbox_uidlist_sync_get_next_uid(ctx.uidlist_sync_ctx);
+	uid_validity = dbox_uidlist_sync_get_uid_validity(ctx->uidlist_sync_ctx);
+	next_uid = dbox_uidlist_sync_get_next_uid(ctx->uidlist_sync_ctx);
 
-	hdr = mail_index_get_header(ctx.sync_view);
+	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity != uid_validity) {
-		mail_index_update_header(ctx.trans,
+		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 	if (hdr->next_uid != next_uid) {
 		i_assert(next_uid > hdr->next_uid ||
 			 hdr->uid_validity != uid_validity);
-		mail_index_update_header(ctx.trans,
+		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
 			&next_uid, sizeof(next_uid), FALSE);
 	}
 
-	if (dbox_uidlist_sync_commit(ctx.uidlist_sync_ctx, &mtime) < 0) {
-		mail_index_sync_rollback(&ctx.index_sync_ctx);
+	if (dbox_uidlist_sync_commit(ctx->uidlist_sync_ctx, &mtime) < 0) {
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
 		return -1;
 	}
 
 	if ((uint32_t)mtime != hdr->sync_stamp) {
 		uint32_t sync_stamp = mtime;
 
-		mail_index_update_header(ctx.trans,
+		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, sync_stamp),
 			&sync_stamp, sizeof(sync_stamp), TRUE);
 	}
 
-	if (mail_index_transaction_commit(&ctx.trans, &seq, &offset) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		mail_index_sync_rollback(&ctx.index_sync_ctx);
+	if (mail_index_transaction_commit(&ctx->trans, &seq, &offset) < 0) {
+		mail_storage_set_index_error(&ctx->mbox->ibox);
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
 		return -1;
 	}
 
 	if (force) {
-		mail_index_sync_rollback(&ctx.index_sync_ctx);
-		/* now that indexes are ok, sync changes from the index */
-		return dbox_sync(mbox, FALSE);
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	} else {
-		if (mail_index_sync_commit(&ctx.index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
+		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
+			mail_storage_set_index_error(&ctx->mbox->ibox);
 			return -1;
 		}
 	}
 	return 0;
+}
+
+int dbox_sync(struct dbox_mailbox *mbox, bool force)
+{
+	struct dbox_sync_context ctx;
+	int ret;
+
+	if ((ret = dbox_sync_init(mbox, &ctx, &force)) <= 0)
+		return ret;
+
+	if ((ret = dbox_sync_finish(&ctx, force)) < 0)
+		return ret;
+
+	if (force) {
+		/* now that indexes are ok, sync changes from the index */
+		force = FALSE;
+		if ((ret = dbox_sync_init(mbox, &ctx, &force)) <= 0)
+			return ret;
+
+		if (force) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"dbox_sync_full(%s) didn't work",
+				mbox->path);
+
+			mail_index_sync_rollback(&ctx.index_sync_ctx);
+			dbox_uidlist_sync_rollback(ctx.uidlist_sync_ctx);
+			return -1;
+		}
+		return dbox_sync_finish(&ctx, FALSE);
+	} else {
+		return 0;
+	}
 }
 
 struct mailbox_sync_context *
