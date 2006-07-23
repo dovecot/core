@@ -154,6 +154,18 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 
 	t_push();
 	if (keywords != NULL && keywords->count > 0) {
+		uint32_t uid;
+		time_t mtime;
+
+		/* uidlist must be locked while we're reading or modifying
+		   file's header */
+		if (dbox_uidlist_append_get_first_uid(ctx->append_ctx,
+						      &uid, &mtime) < 0) {
+			ctx->failed = TRUE;
+			t_pop();
+			return -1;
+		}
+
 		/* write keywords to the file */
 		file_keywords = buffer_create_dynamic(pool_datastack_create(),
 						      DBOX_KEYWORD_COUNT);
