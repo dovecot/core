@@ -22,6 +22,7 @@
 #include <utime.h>
 #include <sys/stat.h>
 
+#define DBOX_SYNC_SECS 1
 #define DBOX_APPEND_MAX_OPEN_FDS 64
 
 #define DBOX_UIDLIST_VERSION 1
@@ -735,10 +736,21 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 	unsigned int i, count;
 	uint32_t uid_start;
 	string_t *str;
-	int ret = 0;
+	int ret = 1;
 
 	i_assert(ctx->uidlist->fd != -1);
 	i_assert(ctx->uidlist->lock_fd != -1);
+
+	if (fstat(ctx->uidlist->fd, &st) < 0) {
+		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+			"fstat(%s) failed: %m", ctx->uidlist->path);
+		return -1;
+	}
+	if (st.st_mtime >= ioloop_time-DBOX_SYNC_SECS) {
+		/* we can't update this file without temporarily moving mtime
+		   backwards */
+		return 0;
+	}
 
 	if (lseek(ctx->uidlist->fd, 0, SEEK_END) < 0) {
 		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
@@ -790,7 +802,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 
 	ctx->uidlist->ino = st.st_ino;
 	ctx->uidlist->mtime = ut.modtime;
-	return 0;
+	return 1;
 }
 
 static int
@@ -837,14 +849,19 @@ int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx,
 	if (dbox_uidlist_write_append_offsets(ctx) < 0)
 		ret = -1;
 	else {
-		ctx->uidlist->need_full_rewrite = TRUE; // FIXME
+		if (!ctx->uidlist->need_full_rewrite) {
+			ret = dbox_uidlist_append_changes(ctx);
+			if (ret < 0)
+				return -1;
+			if (ret == 0)
+				ctx->uidlist->need_full_rewrite = TRUE;
+		}
+
 		if (ctx->uidlist->need_full_rewrite) {
 			dbox_uidlist_update_changes(ctx);
 			ret = dbox_uidlist_full_rewrite(ctx->uidlist);
 			if (ctx->uidlist->dotlock == NULL)
 				ctx->locked = FALSE;
-		} else {
-			ret = dbox_uidlist_append_changes(ctx);
 		}
 	}
 
