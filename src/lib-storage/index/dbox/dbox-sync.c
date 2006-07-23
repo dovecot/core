@@ -217,8 +217,7 @@ int dbox_sync_update_flags(struct dbox_sync_context *ctx,
 		MAIL_FLAGGED,
 		MAIL_DELETED,
 		MAIL_SEEN,
-		MAIL_DRAFT,
-		0 /* expunged */
+		MAIL_DRAFT
 	};
 #define DBOX_FLAG_COUNT (sizeof(dbox_flag_list)/sizeof(dbox_flag_list[0]))
 	unsigned char dbox_flag_array[DBOX_FLAG_COUNT];
@@ -227,26 +226,31 @@ int dbox_sync_update_flags(struct dbox_sync_context *ctx,
 
 	/* first build flag array and mask */
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
-		memset(dbox_flag_array, '0', sizeof(dbox_flag_array));
-		memset(dbox_flag_mask, 0, sizeof(dbox_flag_mask));
-		dbox_flag_mask[5] = 1;
-		dbox_flag_array[5] = '1';
+		dbox_flag_array[0] = '1';
+		dbox_flag_mask[0] = 1;
+
+		first_flag_offset = offsetof(struct dbox_mail_header, expunged);
+		return dbox_sync_write_mask(ctx, sync_rec,
+					    first_flag_offset, 1,
+					    dbox_flag_array, dbox_flag_mask);
 	} else {
 		i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 		for (i = 0; i < DBOX_FLAG_COUNT; i++) {
 			dbox_flag_array[i] =
 				(sync_rec->value.flags.add &
 				 dbox_flag_list[i]) != 0 ? '1' : '0';
-			dbox_flag_mask[i] = dbox_flag_array[i] ||
-				(sync_rec->value.flags.remove &
+			dbox_flag_mask[i] =
+				((sync_rec->value.flags.remove |
+				  sync_rec->value.flags.add) &
 				 dbox_flag_list[i]) != 0;
 		}
-	}
-	first_flag_offset = offsetof(struct dbox_mail_header, answered);
 
-	return dbox_sync_write_mask(ctx, sync_rec,
-				    first_flag_offset, DBOX_FLAG_COUNT,
-				    dbox_flag_array, dbox_flag_mask);
+		first_flag_offset = offsetof(struct dbox_mail_header, answered);
+		return dbox_sync_write_mask(ctx, sync_rec,
+					    first_flag_offset,
+					    DBOX_FLAG_COUNT,
+					    dbox_flag_array, dbox_flag_mask);
+	}
 }
 
 static int
