@@ -47,6 +47,7 @@ int dbox_mail_lookup_offset(struct index_transaction_context *trans,
 {
 	struct dbox_mailbox *mbox =
 		(struct dbox_mailbox *)trans->ibox;
+	uint32_t uid;
 	bool synced = FALSE;
 	int ret;
 
@@ -62,9 +63,14 @@ int dbox_mail_lookup_offset(struct index_transaction_context *trans,
 		if (synced)
 			return -1;
 
+		if (mail_index_lookup_uid(trans->trans_view, seq, &uid) < 0) {
+			mail_storage_set_index_error(&mbox->ibox);
+			return -1;
+		}
+
 		mail_storage_set_critical(STORAGE(mbox->storage),
-			"Cached message offset lost for seq %u in "
-			"dbox %s", seq, mbox->path);
+			"Cached message offset lost for uid %u in "
+			"dbox %s", uid, mbox->path);
 
 		/* resync and try again */
 		if (dbox_sync(mbox, TRUE) < 0)
