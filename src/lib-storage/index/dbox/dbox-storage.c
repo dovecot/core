@@ -379,6 +379,14 @@ dbox_open(struct dbox_storage *storage, const char *name,
 					sizeof(uint64_t), sizeof(uint64_t));
 
 	mbox->uidlist = dbox_uidlist_init(mbox);
+	if (mbox->ibox.keep_locked) {
+		if (dbox_uidlist_lock(mbox->uidlist) < 0) {
+			struct mailbox *box = &mbox->ibox.box;
+
+			mailbox_close(&box);
+			return NULL;
+		}
+	}
 	return &mbox->ibox.box;
 }
 
@@ -641,6 +649,8 @@ static int dbox_storage_close(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 
+	if (mbox->ibox.keep_locked)
+		dbox_uidlist_unlock(mbox->uidlist);
 	dbox_uidlist_deinit(mbox->uidlist);
 	if (mbox->file != NULL)
 		dbox_file_close(mbox->file);

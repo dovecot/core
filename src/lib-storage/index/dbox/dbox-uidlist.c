@@ -44,6 +44,7 @@ struct dbox_uidlist {
 
 	struct dotlock *dotlock;
 	int lock_fd;
+	unsigned int lock_count;
 
 	unsigned int version;
 	uint32_t uid_validity, last_uid, last_file_seq;
@@ -442,9 +443,15 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 	return ret;
 }
 
-static int dbox_uidlist_lock(struct dbox_uidlist *uidlist)
+int dbox_uidlist_lock(struct dbox_uidlist *uidlist)
 {
-	i_assert(uidlist->lock_fd == -1);
+	if (uidlist->lock_count == 0)
+		i_assert(uidlist->lock_fd == -1);
+	else {
+		i_assert(uidlist->mbox->ibox.keep_locked);
+		uidlist->lock_count++;
+		return 0;
+	}
 
 	uidlist->lock_fd = file_dotlock_open(&uidlist_dotlock_settings,
 					     uidlist->path, 0,
@@ -455,12 +462,18 @@ static int dbox_uidlist_lock(struct dbox_uidlist *uidlist)
 		return -1;
 	}
 
+	uidlist->lock_count++;
 	return 0;
 }
 
-static void dbox_uidlist_unlock(struct dbox_uidlist *uidlist)
+void dbox_uidlist_unlock(struct dbox_uidlist *uidlist)
 {
 	i_assert(uidlist->lock_fd != -1);
+
+	if (--uidlist->lock_count > 0) {
+		i_assert(uidlist->mbox->ibox.keep_locked);
+		return;
+	}
 
 	(void)file_dotlock_delete(&uidlist->dotlock);
 	uidlist->lock_fd = -1;
