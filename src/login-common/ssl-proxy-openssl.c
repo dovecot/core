@@ -371,7 +371,7 @@ static void ssl_input(struct ssl_proxy *proxy)
 		proxy->ssl_want_size = 0;
 	}
 
-	for (;;) {
+	do {
 		ret = SSL_read(proxy->ssl, buf, size);
 		if (ret <= 0) {
 			ssl_handle_error(proxy, ret, "SSL_read()",
@@ -385,7 +385,7 @@ static void ssl_input(struct ssl_proxy *proxy)
 
 		if (proxy->sslout_size > 0)
 			ssl_output(proxy);
-	}
+	} while (SSL_pending(proxy->ssl) > 0);
 }
 
 static void ssl_output(struct ssl_proxy *proxy)
