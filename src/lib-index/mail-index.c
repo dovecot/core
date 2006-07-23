@@ -187,18 +187,29 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 					unsigned int initial_count)
 {
 #define EXTENSION_NAME_APPROX_LEN 20
+#define EXT_GLOBAL_ALLOC_SIZE \
+	((sizeof(map->extensions) + BUFFER_APPROX_SIZE) * 2)
+#define EXT_PER_ALLOC_SIZE \
+	(EXTENSION_NAME_APPROX_LEN + \
+	 sizeof(struct mail_index_ext) + sizeof(uint32_t))
 	size_t size;
 
 	if (map->extension_pool == NULL) {
-		size = (sizeof(map->extensions) + BUFFER_APPROX_SIZE) * 2 +
-			initial_count * (EXTENSION_NAME_APPROX_LEN +
-					 sizeof(struct mail_index_ext) +
-					 sizeof(uint32_t));
+		size = EXT_GLOBAL_ALLOC_SIZE +
+			initial_count * EXT_PER_ALLOC_SIZE;
 		map->extension_pool =
 			pool_alloconly_create("extensions",
 					      nearest_power(size));
 	} else {
 		p_clear(map->extension_pool);
+
+		/* try to use the existing pool's size for initial_count so
+		   we don't grow it unneededly */
+		size = p_get_max_easy_alloc_size(map->extension_pool);
+		if (size > EXT_GLOBAL_ALLOC_SIZE + EXT_PER_ALLOC_SIZE) {
+			initial_count = (size - EXT_GLOBAL_ALLOC_SIZE) /
+				EXT_PER_ALLOC_SIZE;
+		}
 	}
 
 	ARRAY_CREATE(&map->extensions, map->extension_pool,
