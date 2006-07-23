@@ -43,57 +43,77 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 	i_assert(view->hdr.messages_count == map->hdr.messages_count);
 }
 
-static void
-mail_index_header_update_counts(struct mail_index *index,
-				struct mail_index_header *hdr,
-				uint8_t old_flags, uint8_t new_flags)
+static int
+mail_index_header_update_counts(struct mail_index_header *hdr,
+				uint8_t old_flags, uint8_t new_flags,
+				const char **error_r)
 {
 	if (((old_flags ^ new_flags) & MAIL_RECENT) != 0) {
 		/* different recent-flag */
-		if ((old_flags & MAIL_RECENT) == 0)
+		if ((old_flags & MAIL_RECENT) == 0) {
 			hdr->recent_messages_count++;
-		else if (hdr->recent_messages_count == 0 ||
-			 hdr->recent_messages_count > hdr->messages_count) {
-                        hdr->flags |= MAIL_INDEX_HDR_FLAG_FSCK;
-			mail_index_set_error(index,
-				"Recent counter wrong in index file %s",
-				index->filepath);
-		} else if (--hdr->recent_messages_count == 0)
-			hdr->first_recent_uid_lowwater = hdr->next_uid;
+			if (hdr->recent_messages_count > hdr->messages_count) {
+				*error_r = "Recent counter wrong";
+				return -1;
+			}
+		} else {
+			if (hdr->recent_messages_count == 0 ||
+			    hdr->recent_messages_count > hdr->messages_count) {
+				*error_r = "Recent counter wrong";
+				return -1;
+			}
+
+			if (--hdr->recent_messages_count == 0)
+				hdr->first_recent_uid_lowwater = hdr->next_uid;
+		}
 	}
 
 	if (((old_flags ^ new_flags) & MAIL_SEEN) != 0) {
 		/* different seen-flag */
-		if ((old_flags & MAIL_SEEN) != 0)
+		if ((old_flags & MAIL_SEEN) != 0) {
+			if (hdr->seen_messages_count == 0) {
+				*error_r = "Seen counter wrong";
+				return -1;
+			}
 			hdr->seen_messages_count--;
-		else if (hdr->seen_messages_count >= hdr->messages_count) {
-                        hdr->flags |= MAIL_INDEX_HDR_FLAG_FSCK;
-			mail_index_set_error(index,
-				"Seen counter wrong in index file %s",
-				index->filepath);
-		} else if (++hdr->seen_messages_count == hdr->messages_count)
-			hdr->first_unseen_uid_lowwater = hdr->next_uid;
+		} else {
+			if (hdr->seen_messages_count >= hdr->messages_count) {
+				*error_r = "Seen counter wrong";
+				return -1;
+			}
+
+			if (++hdr->seen_messages_count == hdr->messages_count)
+				hdr->first_unseen_uid_lowwater = hdr->next_uid;
+		}
 	}
 
 	if (((old_flags ^ new_flags) & MAIL_DELETED) != 0) {
 		/* different deleted-flag */
-		if ((old_flags & MAIL_DELETED) == 0)
+		if ((old_flags & MAIL_DELETED) == 0) {
 			hdr->deleted_messages_count++;
-		else if (hdr->deleted_messages_count == 0 ||
-			 hdr->deleted_messages_count > hdr->messages_count) {
-                        hdr->flags |= MAIL_INDEX_HDR_FLAG_FSCK;
-			mail_index_set_error(index,
-				"Deleted counter wrong in index file %s",
-				index->filepath);
-		} else if (--hdr->deleted_messages_count == 0)
-			hdr->first_deleted_uid_lowwater = hdr->next_uid;
+			if (hdr->deleted_messages_count > hdr->messages_count) {
+				*error_r = "Deleted counter wrong";
+				return -1;
+			}
+		} else {
+			if (hdr->deleted_messages_count == 0 ||
+			    hdr->deleted_messages_count > hdr->messages_count) {
+				*error_r = "Deleted counter wrong";
+				return -1;
+			}
+
+			if (--hdr->deleted_messages_count == 0)
+				hdr->first_deleted_uid_lowwater = hdr->next_uid;
+		}
 	}
+	return 0;
 }
 
 void mail_index_view_recalc_counters(struct mail_index_view *view)
 {
 	struct mail_index_map *map = view->map;
 	const struct mail_index_record *rec;
+	const char *error;
 	unsigned int i;
 
 	map->hdr.recent_messages_count = 0;
@@ -102,8 +122,9 @@ void mail_index_view_recalc_counters(struct mail_index_view *view)
 
 	for (i = 0; i < view->hdr.messages_count; i++) {
 		rec = MAIL_INDEX_MAP_IDX(map, i);
-		mail_index_header_update_counts(view->index, &map->hdr,
-						0, rec->flags);
+		if (mail_index_header_update_counts(&map->hdr, 0, rec->flags,
+						    &error) < 0)
+			i_panic("mail_index_view_recalc_counters(): %s", error);
 	}
 
 	view->hdr.recent_messages_count = map->hdr.recent_messages_count;
@@ -134,6 +155,7 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
 	struct mail_index_record *rec;
+	const char *error;
 	uint32_t count, seq, seq1, seq2;
         const struct mail_index_expunge_handler *expunge_handlers, *eh;
 	unsigned int i, expunge_handlers_count;
@@ -185,8 +207,12 @@ static int sync_expunge(const struct mail_transaction_expunge *e,
 	else {
 		for (seq = seq1; seq <= seq2; seq++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-			mail_index_header_update_counts(view->index, &map->hdr,
-							rec->flags, 0);
+			if (mail_index_header_update_counts(&map->hdr,
+							    rec->flags, 0,
+							    &error) < 0) {
+				mail_index_sync_set_corrupted(ctx, "%s", error);
+				return -1;
+			}
 		}
 	}
 
@@ -234,6 +260,7 @@ static int sync_append(const struct mail_index_record *rec,
 {
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
+	const char *error;
 	void *dest;
 
 	if (rec->uid < map->hdr.next_uid) {
@@ -269,8 +296,11 @@ static int sync_append(const struct mail_index_record *rec,
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
 	if (!view->broken_counters) {
-		mail_index_header_update_counts(view->index, &map->hdr,
-						0, rec->flags);
+		if (mail_index_header_update_counts(&map->hdr, 0, rec->flags,
+						    &error) < 0) {
+			mail_index_sync_set_corrupted(ctx, "%s", error);
+			return -1;
+		}
 		mail_index_header_update_lowwaters(&map->hdr, rec);
 	}
 	return 1;
@@ -282,6 +312,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_header *hdr;
 	struct mail_index_record *rec;
+	const char *error;
 	uint8_t flag_mask, old_flags;
 	uint32_t idx, seq1, seq2;
 
@@ -325,8 +356,12 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 			old_flags = rec->flags;
 			rec->flags = (rec->flags & flag_mask) | u->add_flags;
 
-			mail_index_header_update_counts(view->index, hdr,
-							old_flags, rec->flags);
+			if (mail_index_header_update_counts(hdr, old_flags,
+							    rec->flags,
+							    &error) < 0) {
+				mail_index_sync_set_corrupted(ctx, "%s", error);
+				return -1;
+			}
 			mail_index_header_update_lowwaters(hdr, rec);
 		}
 	}
