@@ -21,6 +21,8 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 
 	/* if map still exists after this, it's only in views. */
 	view->map->write_to_disk = FALSE;
+	/* keywords aren't parsed for the new map yet */
+	ctx->keywords_read = FALSE;
 
 	mail_index_unmap(view->index, &view->map);
 	view->map = map;
