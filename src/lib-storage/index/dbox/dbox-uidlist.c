@@ -877,8 +877,10 @@ void dbox_uidlist_append_rollback(struct dbox_uidlist_append_ctx *ctx)
 
 	/* unlock files */
 	files = array_get(&ctx->files, &count);
-	for (i = 0; i < count; i++)
+	for (i = 0; i < count; i++) {
 		file_dotlock_delete(&files[i]->dotlock);
+		dbox_file_close(files[i]->file);
+	}
 
 	if (ctx->locked)
 		dbox_uidlist_unlock(ctx->uidlist);

@@ -153,12 +153,12 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	dest_entry.file_seq = file_seq;
 
 	/* write file header */
-	t_push();
-	file = t_new(struct dbox_file, 1);
+	file = i_new(struct dbox_file, 1);
+	file->fd = -1;
 	file->output = output;
-	if (dbox_file_write_header(mbox, file) < 0) // FIXME: leaks
+	if (dbox_file_write_header(mbox, file) < 0)
 		ret = -1;
-	t_pop();
+	dbox_file_close(file);
 
 	while (ret > 0) {
 		/* update mail's location in index */
