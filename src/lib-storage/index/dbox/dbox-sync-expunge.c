@@ -176,6 +176,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 			mail_storage_set_critical(STORAGE(mbox->storage),
 				"Expunged UID %u reappeared in file %s",
 				uid, path);
+			mail_index_mark_corrupted(mbox->ibox.index);
 			ret = -1;
 			break;
 		}
