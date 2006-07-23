@@ -1298,6 +1298,7 @@ void dbox_uidlist_sync_rollback(struct dbox_uidlist_sync_ctx *ctx)
 	array_clear(&ctx->uidlist->entries);
 	ctx->uidlist->ino = 0;
 	ctx->uidlist->mtime = 0;
+	ctx->uidlist->need_full_rewrite = FALSE;
 
 	dbox_uidlist_unlock(ctx->uidlist);
 	i_free(ctx);
