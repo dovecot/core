@@ -59,7 +59,7 @@ struct ssl_proxy {
 
 struct ssl_parameters {
 	const char *fname;
-	time_t last_mtime;
+	time_t last_mtime, last_check;
 	int fd;
 
 	DH *dh_512, *dh_1024;
@@ -135,6 +135,7 @@ static void ssl_free_parameters(struct ssl_parameters *params)
 
 static void ssl_read_parameters(struct ssl_parameters *params)
 {
+	struct stat st;
 	bool warned = FALSE;
 
 	/* we'll wait until parameter file exists */
@@ -156,6 +157,11 @@ static void ssl_read_parameters(struct ssl_parameters *params)
 		sleep(1);
 	}
 
+	if (fstat(params->fd, &st) < 0)
+		i_error("fstat(%s) failed: %m", params->fname);
+	else
+		params->last_mtime = st.st_mtime;
+
 	ssl_free_parameters(params);
 	while (read_dh_parameters_next(params)) ;
 
@@ -168,8 +174,9 @@ static void ssl_refresh_parameters(struct ssl_parameters *params)
 {
 	struct stat st;
 
-	if (params->last_mtime > ioloop_time - SSL_PARAMFILE_CHECK_INTERVAL)
+	if (params->last_check > ioloop_time - SSL_PARAMFILE_CHECK_INTERVAL)
 		return;
+	params->last_check = ioloop_time;
 
 	if (params->last_mtime == 0)
 		ssl_read_parameters(params);
@@ -364,18 +371,21 @@ static void ssl_input(struct ssl_proxy *proxy)
 		proxy->ssl_want_size = 0;
 	}
 
-	ret = SSL_read(proxy->ssl, buf, size);
-	if (ret <= 0) {
-		ssl_handle_error(proxy, ret, "SSL_read()", ssl_input, size);
-		return;
-	}
-	o_stream_cork(proxy->plain_output);
-	ret2 = o_stream_send(proxy->plain_output, buf, ret);
-	i_assert(ret2 < 0 || ret2 == ret);
-	o_stream_uncork(proxy->plain_output);
+	for (;;) {
+		ret = SSL_read(proxy->ssl, buf, size);
+		if (ret <= 0) {
+			ssl_handle_error(proxy, ret, "SSL_read()",
+					 ssl_input, size);
+			return;
+		}
+		o_stream_cork(proxy->plain_output);
+		ret2 = o_stream_send(proxy->plain_output, buf, ret);
+		i_assert(ret2 < 0 || ret2 == ret);
+		o_stream_uncork(proxy->plain_output);
 
-	if (proxy->sslout_size > 0)
-		ssl_output(proxy);
+		if (proxy->sslout_size > 0)
+			ssl_output(proxy);
+	}
 }
 
 static void ssl_output(struct ssl_proxy *proxy)
