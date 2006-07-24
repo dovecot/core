@@ -82,6 +82,10 @@ static int maildir_sum_dir(struct mail_storage *storage, const char *dir,
 
 	len = str_len(path);
 	while ((dp = readdir(dirp)) != NULL) {
+		if (dp->d_name[0] == '.' &&
+		    (dp->d_name[1] == '\0' || dp->d_name[1] == '.'))
+			continue;
+
 		p = strstr(dp->d_name, ",S=");
 		num = (uoff_t)-1;
 		if (p != NULL) {
@@ -212,6 +216,8 @@ static int maildirsize_write(struct maildir_quota_root *root,
 	string_t *str;
 	int fd;
 
+	i_assert(root->fd == -1);
+
 	fd = file_dotlock_open(&dotlock_settings, path,
 			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
 	if (fd == -1) {
@@ -246,11 +252,14 @@ static int maildirsize_write(struct maildir_quota_root *root,
 		return -1;
 	}
 
-	if (file_dotlock_replace(&dotlock, 0) < 0) {
+	/* keep the fd open since we might want to update it later */
+	if (file_dotlock_replace(&dotlock,
+				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
 		mail_storage_set_critical(storage,
 			"file_dotlock_replace(%s) failed: %m", path);
 		return -1;
 	}
+	root->fd = fd;
 	return 0;
 }
 
