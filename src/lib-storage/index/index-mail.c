@@ -297,6 +297,7 @@ uoff_t index_mail_get_virtual_size(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct message_size hdr_size, body_size;
+	uoff_t old_offset;
 
 	if (data->virtual_size != (uoff_t)-1)
 		return data->virtual_size;
@@ -306,8 +307,11 @@ uoff_t index_mail_get_virtual_size(struct mail *_mail)
 		return data->virtual_size;
 
 	if (!get_cached_msgpart_sizes(mail)) {
+		old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
+
 		if (mail_get_stream(_mail, &hdr_size, &body_size) == NULL)
 			return (uoff_t)-1;
+		i_stream_seek(data->stream, old_offset);
 	}
 
 	i_assert(data->virtual_size != (uoff_t)-1);
@@ -566,10 +570,12 @@ static void index_mail_parse_body(struct index_mail *mail,
 				  enum index_cache_field field)
 {
 	struct index_mail_data *data = &mail->data;
+	uoff_t old_offset;
 
 	i_assert(data->parts == NULL);
 	i_assert(data->parser_ctx != NULL);
 
+	old_offset = data->stream->v_offset;
 	i_stream_seek(data->stream, data->hdr_size.physical_size);
 
 	if (data->save_bodystructure_body) {
@@ -585,6 +591,8 @@ static void index_mail_parse_body(struct index_mail *mail,
 		message_parser_parse_body(data->parser_ctx, NULL, NULL);
 	}
 	index_mail_parse_body_finish(mail, field, FALSE);
+
+	i_stream_seek(data->stream, old_offset);
 }
 
 struct istream *index_mail_init_stream(struct index_mail *_mail,
@@ -665,7 +673,11 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 	else {
 		/* body structure is known already, so use it to parse only
 		   the MIME headers */
+		uoff_t old_offset;
+
 		i_assert(data->parts->next == NULL);
+
+		old_offset = data->stream->v_offset;
 		i_stream_seek(data->stream,
 			      data->hdr_size.physical_size);
 
@@ -674,6 +686,7 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 					 parse_bodystructure_part_header,
 					 mail->data_pool);
 		data->parsed_bodystructure = TRUE;
+		i_stream_seek(data->stream, old_offset);
 	}
 }
 

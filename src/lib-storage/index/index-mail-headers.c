@@ -346,6 +346,9 @@ int index_mail_parse_headers(struct index_mail *mail,
 			     struct mailbox_header_lookup_ctx *headers)
 {
 	struct index_mail_data *data = &mail->data;
+	uoff_t old_offset;
+
+	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
 
 	if (mail_get_stream(&mail->mail.mail, NULL, NULL) == NULL)
 		return -1;
@@ -371,6 +374,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 	data->hdr_size_set = TRUE;
 	data->access_part &= ~PARSE_HDR;
 
+	i_stream_seek(data->stream, old_offset);
 	return 0;
 }
 
@@ -390,6 +394,10 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 {
 	struct mailbox_header_lookup_ctx *header_ctx;
 	struct istream *stream;
+	uoff_t old_offset;
+
+	old_offset = mail->data.stream == NULL ? 0 :
+		mail->data.stream->v_offset;
 
 	mail->data.save_envelope = TRUE;
 	header_ctx = mailbox_header_lookup_init(&mail->ibox->box,
@@ -403,6 +411,9 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 		mail->data.save_envelope = FALSE;
 	}
 	mailbox_header_lookup_deinit(&header_ctx);
+
+	if (mail->data.stream != NULL)
+		i_stream_seek(mail->data.stream, old_offset);
 }
 
 static size_t get_header_size(buffer_t *buffer, size_t pos)
