@@ -215,7 +215,10 @@ static char *client_dict_read_line(struct client_dict *dict)
 	char *line;
 	int ret;
 
-	line = NULL;
+	line = i_stream_next_line(dict->input);
+	if (line != NULL)
+		return line;
+
 	while ((ret = i_stream_read(dict->input)) > 0) {
 		line = i_stream_next_line(dict->input);
 		if (line != NULL)

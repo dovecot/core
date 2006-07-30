@@ -98,6 +98,8 @@ static int cmd_iterate(struct dict_client_connection *conn, const char *line)
 		t_pop();
 	}
 	dict_iterate_deinit(ctx);
+
+	o_stream_send_str(conn->output, "\n");
 	o_stream_uncork(conn->output);
 	return 0;
 }
