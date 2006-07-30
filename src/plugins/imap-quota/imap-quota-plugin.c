@@ -28,7 +28,7 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 	str_append(str, " (");
 	list = quota_root_get_resources(root);
 	for (i = 0; *list != NULL; list++) {
-		ret = quota_get_resource(root, *list, &value, &limit);
+		ret = quota_get_resource(root, "", *list, &value, &limit);
 		if (ret > 0) {
 			if (i > 0)
 				str_append_c(str, ' ');
@@ -37,8 +37,8 @@ quota_send(struct client_command_context *cmd, struct quota_root *root)
 				    (unsigned long long)limit);
 			i++;
 		} else if (ret < 0) {
-			client_send_line(cmd->client, t_strconcat(
-				"* BAD ", quota_last_error(quota), NULL));
+			client_send_line(cmd->client, 
+				"* BAD Internal quota calculation error");
 		}
 	}
 	str_append_c(str, ')');
@@ -83,7 +83,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	str_append(str, "* QUOTAROOT ");
 	imap_quote_append_string(str, mailbox, FALSE);
 
-	iter = quota_root_iter_init(box);
+	iter = quota_root_iter_init(quota, box);
 	while ((root = quota_root_iter_next(iter)) != NULL) {
 		str_append_c(str, ' ');
 		imap_quote_append_string(str, quota_root_get_name(root), FALSE);
@@ -92,7 +92,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	client_send_line(cmd->client, str_c(str));
 
 	/* send QUOTA reply for each quotaroot */
-	iter = quota_root_iter_init(box);
+	iter = quota_root_iter_init(quota, box);
 	while ((root = quota_root_iter_next(iter)) != NULL)
 		quota_send(cmd, root);
 	quota_root_iter_deinit(iter);
@@ -132,7 +132,7 @@ static bool cmd_setquota(struct client_command_context *cmd)
 {
 	struct quota_root *root;
         struct imap_arg *args, *arg;
-	const char *root_name, *name;
+	const char *root_name, *name, *error;
 	uint64_t value;
 
 	/* <quota root> <resource limits> */
@@ -166,9 +166,8 @@ static bool cmd_setquota(struct client_command_context *cmd)
 		}
 
                 value = strtoull(IMAP_ARG_STR_NONULL(&arg[1]), NULL, 10);
-		if (quota_set_resource(root, name, value) < 0) {
-			client_send_command_error(cmd,
-						  quota_last_error(quota));
+		if (quota_set_resource(root, name, value, &error) < 0) {
+			client_send_command_error(cmd, error);
 			return TRUE;
 		}
 	}
