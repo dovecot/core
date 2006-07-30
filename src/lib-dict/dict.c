@@ -5,14 +5,14 @@
 #include "dict-sql.h"
 #include "dict-private.h"
 
-static ARRAY_DEFINE(dict_classes, struct dict *);
+static ARRAY_DEFINE(dict_drivers, struct dict *);
 
-static struct dict *dict_class_lookup(const char *name)
+static struct dict *dict_driver_lookup(const char *name)
 {
 	struct dict *const *dicts;
 	unsigned int i, count;
 
-	dicts = array_get(&dict_classes, &count);
+	dicts = array_get(&dict_drivers, &count);
 	for (i = 0; i < count; i++) {
 		if (strcmp(dicts[i]->name, name) == 0)
 			return dicts[i];
@@ -20,35 +20,35 @@ static struct dict *dict_class_lookup(const char *name)
 	return NULL;
 }
 
-void dict_class_register(struct dict *dict_class)
+void dict_driver_register(struct dict *driver)
 {
-	if (!array_is_created(&dict_classes))
-		ARRAY_CREATE(&dict_classes, default_pool, struct dict *, 8);
+	if (!array_is_created(&dict_drivers))
+		ARRAY_CREATE(&dict_drivers, default_pool, struct dict *, 8);
 
-	if (dict_class_lookup(dict_class->name) != NULL) {
-		i_fatal("dict_class_register(%s): Already registered",
-			dict_class->name);
+	if (dict_driver_lookup(driver->name) != NULL) {
+		i_fatal("dict_driver_register(%s): Already registered",
+			driver->name);
 	}
-	array_append(&dict_classes, &dict_class, 1);
+	array_append(&dict_drivers, &driver, 1);
 }
 
-void dict_class_unregister(struct dict *dict_class)
+void dict_driver_unregister(struct dict *driver)
 {
 	struct dict *const *dicts;
 	unsigned int i, count;
 
-	dicts = array_get(&dict_classes, &count);
+	dicts = array_get(&dict_drivers, &count);
 	for (i = 0; i < count; i++) {
-		if (dicts[i] == dict_class) {
-			array_delete(&dict_classes, i, 1);
+		if (dicts[i] == driver) {
+			array_delete(&dict_drivers, i, 1);
 			break;
 		}
 	}
 
 	i_assert(i < count);
 
-	if (array_count(&dict_classes) == 0)
-		array_free(&dict_classes);
+	if (array_count(&dict_drivers) == 0)
+		array_free(&dict_drivers);
 }
 
 struct dict *dict_init(const char *uri, enum dict_data_type value_type,
@@ -65,7 +65,7 @@ struct dict *dict_init(const char *uri, enum dict_data_type value_type,
 
 	t_push();
 	name = t_strdup_until(uri, p);
-	dict = dict_class_lookup(name);
+	dict = dict_driver_lookup(name);
 	if (dict == NULL) {
 		i_error("Unknown dict module: %s", name);
 		t_pop();

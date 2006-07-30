@@ -468,7 +468,7 @@ int main(int argc, char *argv[])
 	if (deliver_set->sendmail_path == NULL)
 		deliver_set->sendmail_path = DEFAULT_SENDMAIL_PATH;
 
-	dict_client_register();
+	dict_driver_register(&dict_driver_client);
         duplicate_init();
         mail_storage_init();
 	mail_storage_register_all();
@@ -557,7 +557,7 @@ int main(int argc, char *argv[])
 	mail_storage_deinit();
 
 	duplicate_deinit();
-	dict_client_unregister();
+	dict_driver_unregister(&dict_driver_client);
 	lib_signals_deinit();
 
 	io_loop_destroy(&ioloop);

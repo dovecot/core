@@ -282,7 +282,7 @@ static void client_dict_disconnect(struct client_dict *dict)
 }
 
 static struct dict *
-client_dict_init(struct dict *dict_class, const char *uri,
+client_dict_init(struct dict *driver, const char *uri,
 		 enum dict_data_type value_type, const char *username)
 {
 	struct client_dict *dict;
@@ -299,7 +299,7 @@ client_dict_init(struct dict *dict_class, const char *uri,
 	pool = pool_alloconly_create("client dict", 1024);
 	dict = p_new(pool, struct client_dict, 1);
 	dict->pool = pool;
-	dict->dict = *dict_class;
+	dict->dict = *driver;
 	dict->value_type = value_type;
 	dict->username = p_strdup(pool, username);
 
@@ -536,7 +536,7 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	t_pop();
 }
 
-static struct dict client_dict = {
+struct dict dict_driver_client = {
 	MEMBER(name) "proxy",
 
 	{
@@ -554,13 +554,3 @@ static struct dict client_dict = {
 		client_dict_atomic_inc
 	}
 };
-
-void dict_client_register(void)
-{
-	dict_class_register(&client_dict);
-}
-
-void dict_client_unregister(void)
-{
-	dict_class_unregister(&client_dict);
-}

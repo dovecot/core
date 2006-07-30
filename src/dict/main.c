@@ -7,7 +7,7 @@
 #include "restrict-access.h"
 #include "randgen.h"
 #include "sql-api.h"
-#include "dict-sql.h"
+#include "dict.h"
 #include "dict-client.h"
 #include "dict-server.h"
 #include "module-dir.h"
@@ -68,8 +68,7 @@ static void main_init(void)
 	/* If master dies, the log fd gets closed and we'll quit */
 	log_io = io_add(STDERR_FILENO, IO_ERROR, log_error_callback, NULL);
 
-	dict_client_register();
-	dict_sql_register();
+	dict_drivers_register_all();
 
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
 		module_dir_load(getenv("MODULE_DIR"), NULL, TRUE);
@@ -89,8 +88,7 @@ static void main_deinit(void)
 
 	module_dir_unload(&modules);
 
-	dict_sql_unregister();
-	dict_client_unregister();
+	dict_drivers_unregister_all();
 
 	sql_drivers_deinit();
 	random_deinit();

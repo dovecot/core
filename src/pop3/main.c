@@ -182,7 +182,7 @@ static int main_init(void)
 				log_error_callback, NULL);
 	}
 
-	dict_client_register();
+	dict_driver_register(&dict_driver_client);
         mail_storage_init();
 	mail_storage_register_all();
 	clients_init();
@@ -255,7 +255,7 @@ static void main_deinit(void)
 
 	module_dir_unload(&modules);
 	mail_storage_deinit();
-	dict_client_unregister();
+	dict_driver_unregister(&dict_driver_client);
 	random_deinit();
 
 	lib_signals_deinit();

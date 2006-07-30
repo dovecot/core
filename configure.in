@@ -165,6 +165,15 @@ AC_ARG_WITH(prefetch-userdb,
 	fi,
 	want_prefetch_userdb=yes)
 
+AC_ARG_WITH(db,
+[  --with-db               Build with Berkeley DB support],
+	if test x$withval = xno; then
+		want_db=no
+	else
+		want_db=yes
+	fi,
+	want_db=no)
+
 dnl The --with-sql is useful only if Dovecot is being built with all the SQL
 dnl drivers as modules. If any SQL driver is built-in, this option is ignored.
 AC_ARG_WITH(sql,
@@ -1432,6 +1441,29 @@ if test $want_ldap = yes; then
 	])
 fi
 
+dict_drivers=client
+
+if test $want_db = yes; then
+	AC_MSG_CHECKING([db_env_create in -ldb])
+	old_LIBS=$LIBS
+	LIBS="$LIBS -ldb"
+	AC_TRY_LINK([
+		#include <db.h>
+	], [
+		db_env_create(0, 0);
+	], [
+		AC_MSG_RESULT(yes)
+		AC_CHECK_HEADER(db.h, [
+        		DICT_LIBS="$DICT_LIBS -ldb"
+			dict_drivers="$dict_drivers db"
+			AC_DEFINE(BUILD_DB,, Build with Berkeley DB support)
+		])
+	], [
+		AC_MSG_RESULT(no)
+	])
+	LIBS=$old_LIBS
+fi
+
 if test $want_pgsql = yes; then
 	# based on code from PHP
 	for i in /usr /usr/local /usr/local/pgsql; do
@@ -1625,6 +1657,9 @@ AC_SUBST(AUTH_CFLAGS)
 AC_SUBST(AUTH_LIBS)
 AC_SUBST(SQL_CFLAGS)
 AC_SUBST(SQL_LIBS)
+
+AC_SUBST(DICT_LIBS)
+AC_SUBST(dict_drivers)
 
 dnl **
 dnl ** Index file compatibility flags

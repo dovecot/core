@@ -17,8 +17,11 @@ enum dict_data_type {
 	DICT_DATA_TYPE_UINT32
 };
 
-void dict_class_register(struct dict *dict_class);
-void dict_class_unregister(struct dict *dict_class);
+void dict_driver_register(struct dict *driver);
+void dict_driver_unregister(struct dict *driver);
+
+void dict_drivers_register_all(void);
+void dict_drivers_unregister_all(void);
 
 /* Open dictionary with given URI (type:data).
    If URI is invalid, returns NULL. */

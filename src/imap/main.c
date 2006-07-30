@@ -172,7 +172,7 @@ static void main_init(void)
 	capability_string = str_new(default_pool, sizeof(CAPABILITY_STRING)+32);
 	str_append(capability_string, CAPABILITY_STRING);
 
-	dict_client_register();
+	dict_driver_register(&dict_driver_client);
         mail_storage_init();
 	mail_storage_register_all();
 	clients_init();
@@ -241,7 +241,7 @@ static void main_deinit(void)
 	imap_thread_deinit();
 	commands_deinit();
         mail_storage_deinit();
-	dict_client_unregister();
+	dict_driver_unregister(&dict_driver_client);
 	random_deinit();
 	pool_unref(namespace_pool);
 

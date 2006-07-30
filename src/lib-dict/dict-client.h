@@ -1,6 +1,8 @@
 #ifndef __DICT_CLIENT_H
 #define __DICT_CLIENT_H
 
+#include "dict.h"
+
 #define DEFAULT_DICT_SERVER_SOCKET_PATH PKG_RUNDIR"/dict-server"
 
 #define DICT_CLIENT_PROTOCOL_MAJOR_VERSION 2
@@ -31,10 +33,9 @@ enum {
 	DICT_PROTOCOL_REPLY_FAIL = 'F'
 };
 
+extern struct dict dict_driver_client;
+
 const char *dict_client_escape(const char *src);
 const char *dict_client_unescape(const char *src);
-
-void dict_client_register(void);
-void dict_client_unregister(void);
 
 #endif

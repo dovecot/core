@@ -102,7 +102,7 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 }
 
 static struct dict *
-sql_dict_init(struct dict *dict_class, const char *uri,
+sql_dict_init(struct dict *driver, const char *uri,
 	      enum dict_data_type value_type __attr_unused__,
 	      const char *username)
 {
@@ -112,7 +112,7 @@ sql_dict_init(struct dict *dict_class, const char *uri,
 	pool = pool_alloconly_create("sql dict", 1024);
 	dict = p_new(pool, struct sql_dict, 1);
 	dict->pool = pool;
-	dict->dict = *dict_class;
+	dict->dict = *driver;
 	dict->username = p_strdup(pool, username);
 
 	if (sql_dict_read_config(dict, uri) < 0) {
@@ -121,7 +121,7 @@ sql_dict_init(struct dict *dict_class, const char *uri,
 	}
 
 	t_push();
-	dict->db = sql_init(dict_class->name, dict->connect_string);
+	dict->db = sql_init(driver->name, dict->connect_string);
 	t_pop();
 	return &dict->dict;
 }
@@ -440,7 +440,7 @@ static struct dict sql_dict = {
 	}
 };
 
-static struct dict *dict_sql_classes;
+static struct dict *dict_sql_drivers;
 
 void dict_sql_register(void)
 {
@@ -449,13 +449,13 @@ void dict_sql_register(void)
 
 	/* @UNSAFE */
 	drivers = array_get(&sql_drivers, &count);
-	dict_sql_classes = i_new(struct dict, count + 1);
+	dict_sql_drivers = i_new(struct dict, count + 1);
 
 	for (i = 0; i < count; i++) {
-		dict_sql_classes[i] = sql_dict;
-		dict_sql_classes[i].name = drivers[i]->name;
+		dict_sql_drivers[i] = sql_dict;
+		dict_sql_drivers[i].name = drivers[i]->name;
 
-		dict_class_register(&dict_sql_classes[i]);
+		dict_driver_register(&dict_sql_drivers[i]);
 	}
 }
 
@@ -463,7 +463,7 @@ void dict_sql_unregister(void)
 {
 	int i;
 
-	for (i = 0; dict_sql_classes[i].name != NULL; i++)
-		dict_class_unregister(&dict_sql_classes[i]);
-	i_free(dict_sql_classes);
+	for (i = 0; dict_sql_drivers[i].name != NULL; i++)
+		dict_driver_unregister(&dict_sql_drivers[i]);
+	i_free(dict_sql_drivers);
 }

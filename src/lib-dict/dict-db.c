@@ -2,8 +2,8 @@
 
 #include "lib.h"
 #include "dict-private.h"
-#include "dict-db.h"
 
+#ifdef BUILD_DB
 #include <stdlib.h>
 #include <db.h>
 
@@ -59,7 +59,7 @@ static int uint32_t_compare(DB *db __attr_unused__,
 		(*ua < *ub ? -1 : 0);
 }
 
-static struct dict *db_dict_init(struct dict *dict_class, const char *uri,
+static struct dict *db_dict_init(struct dict *driver, const char *uri,
 				 enum dict_data_type value_type,
 				 const char *username __attr_unused__)
 {
@@ -72,7 +72,7 @@ static struct dict *db_dict_init(struct dict *dict_class, const char *uri,
 	pool = pool_alloconly_create("db dict", 1024);
 	dict = p_new(pool, struct db_dict, 1);
 	dict->pool = pool;
-	dict->dict = *dict_class;
+	dict->dict = *driver;
 
 	/* prepare the environment */
 	ret = db_env_create(&dict->db_env, 0);
@@ -407,7 +407,7 @@ static void db_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	/* FIXME */
 }
 
-static struct dict dict_db_class = {
+struct dict dict_driver_db = {
 	MEMBER(name) "db",
 	{
 		db_dict_init,
@@ -424,13 +424,4 @@ static struct dict dict_db_class = {
 		db_dict_atomic_inc
 	}
 };
-
-void dict_db_register(void)
-{
-	dict_class_register(&dict_db_class);
-}
-
-void dict_db_unregister(void)
-{
-	dict_class_unregister(&dict_db_class);
-}
+#endif
