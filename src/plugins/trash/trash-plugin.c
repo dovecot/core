@@ -15,14 +15,6 @@
 
 #define MAX_RETRY_COUNT 3
 
-#define TRASH_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->quota_module_contexts, \
-					trash_quota_module_id))
-
-struct trash_quota_root {
-	struct quota_backend_vfuncs super;
-};
-
 struct trash_mailbox {
 	const char *name;
 	int priority; /* lower number = higher priority */
@@ -38,11 +30,8 @@ struct trash_mailbox {
 	unsigned int mail_set:1;
 };
 
-/* defined by imap, pop3, lda */
-extern void (*hook_quota_root_created)(struct quota_root *root);
-
-static void (*trash_next_hook_quota_root_created)(struct quota_root *root);
-static unsigned int trash_quota_module_id;
+static int (*trash_next_quota_test_alloc)(struct quota_transaction_context *,
+					  uoff_t, bool *);
 
 static pool_t config_pool;
 /* trash_boxes ordered by priority, highest first */
@@ -158,14 +147,13 @@ __err:
 }
 
 static int
-trash_quota_root_try_alloc(struct quota_root_transaction_context *ctx,
-			   struct mail *mail, bool *too_large_r)
+trash_quota_test_alloc(struct quota_transaction_context *ctx,
+		       uoff_t size, bool *too_large_r)
 {
-	struct trash_quota_root *troot = TRASH_CONTEXT(ctx->root);
 	int ret, i;
 
 	for (i = 0; ; i++) {
-		ret = troot->super.try_alloc(ctx, mail, too_large_r);
+		ret = trash_next_quota_test_alloc(ctx, size, too_large_r);
 		if (ret != 0 || *too_large_r)
 			return ret;
 
@@ -178,40 +166,12 @@ trash_quota_root_try_alloc(struct quota_root_transaction_context *ctx,
 		}
 
 		/* not enough space. try deleting some from mailbox. */
-		ret = trash_try_clean_mails(mail_get_physical_size(mail));
+		ret = trash_try_clean_mails(size);
 		if (ret <= 0)
 			return 0;
 	}
 
 	return 0;
-}
-
-static void trash_quota_root_deinit(struct quota_root *root)
-{
-	struct trash_quota_root *troot = TRASH_CONTEXT(root);
-	void *null = NULL;
-
-	array_idx_set(&root->quota_module_contexts,
-		      trash_quota_module_id, &null);
-	troot->super.deinit(root);
-	i_free(troot);
-}
-
-static void trash_quota_root_created(struct quota_root *root)
-{
-	struct trash_quota_root *troot;
-
-	if (trash_next_hook_quota_root_created != NULL)
-		trash_next_hook_quota_root_created(root);
-
-	troot = i_new(struct trash_quota_root, 1);
-	troot->super = root->v;
-	root->v.deinit = trash_quota_root_deinit;
-	root->v.try_alloc = trash_quota_root_try_alloc;
-
-	trash_quota_module_id = quota_module_id++;
-	array_idx_set(&root->quota_module_contexts,
-		      trash_quota_module_id, &troot);
 }
 
 static int trash_mailbox_priority_cmp(const void *p1, const void *p2)
@@ -261,8 +221,6 @@ void trash_plugin_init(void)
 {
 	const char *env;
 
-	trash_next_hook_quota_root_created = hook_quota_root_created;
-
 	env = getenv("TRASH");
 	if (env == NULL)
 		return;
@@ -276,13 +234,14 @@ void trash_plugin_init(void)
 	if (read_configuration(env) < 0)
 		return;
 
-	hook_quota_root_created = trash_quota_root_created;
+	trash_next_quota_test_alloc = quota->test_alloc;
+	quota->test_alloc = trash_quota_test_alloc;
 }
 
 void trash_plugin_deinit(void)
 {
+	quota->test_alloc = trash_next_quota_test_alloc;
+
 	if (config_pool != NULL)
 		pool_unref(config_pool);
-
-	hook_quota_root_created = trash_next_hook_quota_root_created;
 }

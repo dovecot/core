@@ -23,7 +23,7 @@ extern struct quota_backend quota_backend_dirsize;
 extern struct quota_backend quota_backend_fs;
 extern struct quota_backend quota_backend_maildir;
 
-static struct quota_backend *quota_backends[] = {
+static const struct quota_backend *quota_backends[] = {
 #ifdef HAVE_FS_QUOTA
 	&quota_backend_fs,
 #endif
@@ -33,13 +33,15 @@ static struct quota_backend *quota_backends[] = {
 };
 #define QUOTA_CLASS_COUNT (sizeof(quota_backends)/sizeof(quota_backends[0]))
 
-void (*hook_quota_root_created)(struct quota_root *root);
+static int quota_default_test_alloc(struct quota_transaction_context *ctx,
+				    uoff_t size, bool *too_large_r);
 
 struct quota *quota_init(void)
 {
 	struct quota *quota;
 
 	quota = i_new(struct quota, 1);
+	quota->test_alloc = quota_default_test_alloc;
 	ARRAY_CREATE(&quota->roots, default_pool, struct quota_root *, 4);
 	ARRAY_CREATE(&quota->storages, default_pool, struct mail_storage *, 8);
 
@@ -60,7 +62,7 @@ void quota_deinit(struct quota *quota)
 	i_free(quota);
 }
 
-static struct quota_backend *quota_backend_find(const char *name)
+static const struct quota_backend *quota_backend_find(const char *name)
 {
 	unsigned int i;
 
@@ -75,7 +77,7 @@ static struct quota_backend *quota_backend_find(const char *name)
 struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 {
 	struct quota_root *root;
-	struct quota_backend *backend;
+	const struct quota_backend *backend;
 	const char *p, *args, *backend_name;
 
 	t_push();
@@ -98,7 +100,7 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 
 	root = backend->v.alloc();
 	root->quota = quota;
-	root->backend = backend;
+	root->backend = *backend;
 	root->pool = pool_alloconly_create("quota root", 512);
 
 	if (args != NULL) {
@@ -126,9 +128,6 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 			return NULL;
 		}
 	}
-
-	if (hook_quota_root_created != NULL)
-		hook_quota_root_created(root);
 	return root;
 }
 
@@ -147,7 +146,7 @@ void quota_root_deinit(struct quota_root *root)
 	array_free(&root->rules);
 	array_free(&root->quota_module_contexts);
 
-	root->backend->v.deinit(root);
+	root->backend.v.deinit(root);
 	pool_unref(pool);
 }
 
@@ -248,11 +247,11 @@ void quota_add_user_storage(struct quota *quota, struct mail_storage *storage)
 	backends = t_new(struct quota_backend *, count + 1);
 	for (i = 0; i < count; i++) {
 		for (j = 0; backends[j] != NULL; j++) {
-			if (backends[j] == roots[i]->backend)
+			if (backends[j]->name == roots[i]->backend.name)
 				break;
 		}
 		if (backends[j] == NULL)
-			backends[j] = roots[i]->backend;
+			backends[j] = &roots[i]->backend;
 	}
 
 	for (i = 0; backends[i] != NULL; i++) {
@@ -341,7 +340,7 @@ const char *quota_root_get_name(struct quota_root *root)
 
 const char *const *quota_root_get_resources(struct quota_root *root)
 {
-	return root->backend->v.get_resources(root);
+	return root->backend.v.get_resources(root);
 }
 
 int quota_get_resource(struct quota_root *root, const char *mailbox_name,
@@ -359,7 +358,7 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	else
 		*limit_r = 0;
 
-	ret = root->backend->v.get_resource(root, name, value_r, limit_r);
+	ret = root->backend.v.get_resource(root, name, value_r, limit_r);
 	return ret <= 0 ? ret :
 		(*limit_r == 0 ? 0 : 1);
 }
@@ -432,7 +431,7 @@ int quota_transaction_commit(struct quota_transaction_context *ctx)
 	else {
 		roots = array_get(&ctx->quota->roots, &count);
 		for (i = 0; i < count; i++) {
-			if (roots[i]->backend->v.update(roots[i], ctx) < 0)
+			if (roots[i]->backend.v.update(roots[i], ctx) < 0)
 				ret = -1;
 		}
 	}
@@ -461,6 +460,12 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 
 int quota_test_alloc(struct quota_transaction_context *ctx,
 		     uoff_t size, bool *too_large_r)
+{
+	return ctx->quota->test_alloc(ctx, size, too_large_r);
+}
+
+static int quota_default_test_alloc(struct quota_transaction_context *ctx,
+				    uoff_t size, bool *too_large_r)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;

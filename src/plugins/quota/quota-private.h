@@ -11,6 +11,9 @@ extern unsigned int quota_module_id;
 struct quota {
 	ARRAY_DEFINE(roots, struct quota_root *);
 	ARRAY_DEFINE(storages, struct mail_storage *);
+
+	int (*test_alloc)(struct quota_transaction_context *ctx,
+			  uoff_t size, bool *too_large_r);
 };
 
 struct quota_backend_vfuncs {
@@ -33,6 +36,7 @@ struct quota_backend_vfuncs {
 };
 
 struct quota_backend {
+	/* quota backends equal if backend1.name == backend2.name */
 	const char *name;
 	struct quota_backend_vfuncs v;
 };
@@ -52,7 +56,7 @@ struct quota_root {
 	/* pointer to the quota that owns this root */
 	struct quota *quota;
 
-	struct quota_backend *backend;
+	struct quota_backend backend;
 	struct quota_rule default_rule;
 	ARRAY_DEFINE(rules, struct quota_rule);
 

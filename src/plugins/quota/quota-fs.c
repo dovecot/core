@@ -110,7 +110,7 @@ fs_quota_root_find_mountpoint(struct quota *quota,
 
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (roots[i]->backend == &quota_backend_fs) {
+		if (roots[i]->backend.name == quota_backend_fs.name) {
 			struct fs_quota_root *root =
 				(struct fs_quota_root *)roots[i];
 

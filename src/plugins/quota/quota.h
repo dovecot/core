@@ -14,8 +14,6 @@ struct quota_root;
 struct quota_root_iter;
 struct quota_transaction_context;
 
-extern void (*hook_quota_root_created)(struct quota_root *root);
-
 struct quota *quota_init(void);
 void quota_deinit(struct quota *quota);
 

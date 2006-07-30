@@ -577,7 +577,7 @@ maildir_quota_storage_added(struct quota *quota,
 
 	roots = array_get_modifiable(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (roots[i]->backend == &quota_backend_maildir)
+		if (roots[i]->backend.name == quota_backend_maildir.name)
 			maildir_quota_root_storage_added(roots[i], _storage);
 	}
 
