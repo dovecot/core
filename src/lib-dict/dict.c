@@ -130,5 +130,6 @@ void dict_set(struct dict_transaction_context *ctx,
 void dict_atomic_inc(struct dict_transaction_context *ctx,
 		     const char *key, long long diff)
 {
-	ctx->dict->v.atomic_inc(ctx, key, diff);
+	if (diff != 0)
+		ctx->dict->v.atomic_inc(ctx, key, diff);
 }
