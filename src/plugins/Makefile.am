@@ -2,4 +2,4 @@ if BUILD_ZLIB
 ZLIB = zlib
 endif
 
-SUBDIRS = acl convert quota imap-quota trash $(ZLIB)
+SUBDIRS = acl convert expire quota imap-quota trash $(ZLIB)
