@@ -101,8 +101,10 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 	return 0;
 }
 
-static struct dict *sql_dict_init(struct dict *dict_class, const char *uri,
-				  const char *username)
+static struct dict *
+sql_dict_init(struct dict *dict_class, const char *uri,
+	      enum dict_data_type value_type __attr_unused__,
+	      const char *username)
 {
 	struct sql_dict *dict;
 	pool_t pool;
@@ -193,7 +195,8 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 }
 
 static struct dict_iterate_context *
-sql_dict_iterate_init(struct dict *_dict, const char *path, bool recurse)
+sql_dict_iterate_init(struct dict *_dict, const char *path, 
+		      enum dict_iterate_flags flags)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
         struct sql_dict_iterate_context *ctx;
@@ -219,11 +222,15 @@ sql_dict_iterate_init(struct dict *_dict, const char *path, bool recurse)
 				    sql_escape_string(dict->db,
 						      dict->username));
 		}
-		if (!recurse) {
+		if ((flags & DICT_ITERATE_FLAG_RECURSE) == 0) {
 			str_printfa(query, " AND %s NOT LIKE '%s/%%/%%'",
 				    dict->where_field,
 				    sql_escape_string(dict->db, path));
 		}
+		if ((flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0)
+			str_printfa(query, " ORDER BY %s", dict->where_field);
+		else if ((flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0)
+			str_printfa(query, " ORDER BY %s", dict->select_field);
 		ctx->result = sql_query_s(dict->db, str_c(query));
 		t_pop();
 	}
@@ -344,6 +351,39 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	t_pop();
 }
 
+static void sql_dict_unset(struct dict_transaction_context *_ctx,
+			   const char *key)
+{
+	struct sql_dict_transaction_context *ctx =
+		(struct sql_dict_transaction_context *)_ctx;
+	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
+	const char *query;
+	bool priv;
+
+	if (sql_path_fix(&key, &priv) < 0) {
+		i_error("sql dict: Invalid key: %s", key);
+		ctx->failed = TRUE;
+		return;
+	}
+
+	t_push();
+	if (priv) {
+		query = t_strdup_printf(
+			"DELETE FROM %s WHERE %s = '%s' AND %s = '%s'",
+			dict->table, dict->where_field,
+			sql_escape_string(dict->db, key),
+			dict->username_field,
+			sql_escape_string(dict->db, dict->username));
+	} else {
+		query = t_strdup_printf(
+			"DELETE FROM %s WHERE %s = '%s'",
+			dict->table, dict->where_field,
+			sql_escape_string(dict->db, key));
+	}
+	sql_update(ctx->sql_ctx, query);
+	t_pop();
+}
+
 static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 				const char *key, long long diff)
 {
@@ -395,6 +435,7 @@ static struct dict sql_dict = {
 		sql_dict_transaction_commit,
 		sql_dict_transaction_rollback,
 		sql_dict_set,
+		sql_dict_unset,
 		sql_dict_atomic_inc
 	}
 };

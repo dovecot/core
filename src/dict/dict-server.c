@@ -25,6 +25,7 @@ struct dict_client_connection {
 	char *username;
 	char *name, *uri;
 	struct dict *dict;
+	enum dict_data_type value_type;
 
 	int fd;
 	struct io *io;
@@ -85,7 +86,7 @@ static int cmd_iterate(struct dict_client_connection *conn, const char *line)
 		return -1;
 	}
 
-	/* <recurse 1/0> <path> */
+	/* <flags> <path> */
 	o_stream_cork(conn->output);
 	ctx = dict_iterate_init(conn->dict, args[1], atoi(args[0]));
 	while ((ret = dict_iterate(ctx, &key, &value)) > 0) {
@@ -232,6 +233,25 @@ static int cmd_set(struct dict_client_connection *conn, const char *line)
 	return 0;
 }
 
+static int cmd_unset(struct dict_client_connection *conn, const char *line)
+{
+	struct dict_server_transaction *trans;
+	const char *const *args;
+
+	/* <id> <key> */
+	args = t_strsplit(line, "\t");
+	if (strarray_length(args) != 2) {
+		i_error("dict client: UNSET: broken input");
+		return -1;
+	}
+
+	if (dict_server_transaction_lookup_parse(conn, args[0], &trans) < 0)
+		return -1;
+
+        dict_unset(trans->ctx, args[1]);
+	return 0;
+}
+
 static int cmd_atomic_inc(struct dict_client_connection *conn, const char *line)
 {
 	struct dict_server_transaction *trans;
@@ -263,6 +283,7 @@ static struct dict_client_cmd cmds[] = {
 	{ DICT_PROTOCOL_CMD_COMMIT, cmd_commit },
 	{ DICT_PROTOCOL_CMD_ROLLBACK, cmd_rollback },
 	{ DICT_PROTOCOL_CMD_SET, cmd_set },
+	{ DICT_PROTOCOL_CMD_UNSET, cmd_unset },
 	{ DICT_PROTOCOL_CMD_ATOMIC_INC, cmd_atomic_inc },
 
 	{ 0, NULL }
@@ -271,7 +292,7 @@ static struct dict_client_cmd cmds[] = {
 static int dict_client_parse_handshake(struct dict_client_connection *conn,
 				       const char *line)
 {
-	const char *username, *name;
+	const char *username, *name, *value_type;
 
 	if (*line++ != DICT_PROTOCOL_CMD_HELLO)
 		return -1;
@@ -287,13 +308,20 @@ static int dict_client_parse_handshake(struct dict_client_connection *conn,
 	if (*line++ != '\t')
 		return -1;
 
+	/* get value type */
+	value_type = line;
+	while (*line != '\t' && *line != '\0') line++;
+
+	if (*line++ != '\t')
+		return -1;
+	conn->value_type = atoi(t_strdup_until(value_type, line - 1));
+
 	/* get username */
 	username = line;
 	while (*line != '\t' && *line != '\0') line++;
 
 	if (*line++ != '\t')
 		return -1;
-
 	conn->username = i_strdup_until(username, line - 1);
 
 	/* the rest is dict name. since we're looking it with getenv(),
@@ -321,7 +349,7 @@ static int dict_client_dict_init(struct dict_client_connection *conn)
 
 	conn->uri = i_strdup(uri);
 	conn->dict = dict_cache_get(conn->server->cache, conn->uri,
-				    conn->username);
+				    conn->value_type, conn->username);
 	if (conn->dict == NULL) {
 		/* dictionary initialization failed */
 		i_error("Failed to initialize dictionary '%s'", conn->name);

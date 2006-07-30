@@ -32,6 +32,7 @@ void dict_cache_deinit(struct dict_cache *cache)
 }
 
 struct dict *dict_cache_get(struct dict_cache *cache, const char *uri,
+			    enum dict_data_type value_type,
 			    const char *username)
 {
 	struct dict_entry *entry;
@@ -39,7 +40,7 @@ struct dict *dict_cache_get(struct dict_cache *cache, const char *uri,
 	entry = hash_lookup(cache->dicts, uri);
 	if (entry == NULL) {
 		entry = i_new(struct dict_entry, 1);
-		entry->dict = dict_init(uri, username);
+		entry->dict = dict_init(uri, value_type, username);
 		entry->uri = i_strdup(uri);
 		hash_insert(cache->dicts, entry->uri, entry);
 	}

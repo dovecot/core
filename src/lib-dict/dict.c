@@ -51,7 +51,8 @@ void dict_class_unregister(struct dict *dict_class)
 		array_free(&dict_classes);
 }
 
-struct dict *dict_init(const char *uri, const char *username)
+struct dict *dict_init(const char *uri, enum dict_data_type value_type,
+		       const char *username)
 {
 	struct dict *dict;
 	const char *p, *name;
@@ -72,7 +73,7 @@ struct dict *dict_init(const char *uri, const char *username)
 	}
 	t_pop();
 
-	return dict->v.init(dict, p+1, username);
+	return dict->v.init(dict, p+1, value_type, username);
 }
 
 void dict_deinit(struct dict **_dict)
@@ -90,9 +91,10 @@ int dict_lookup(struct dict *dict, pool_t pool, const char *key,
 }
 
 struct dict_iterate_context *
-dict_iterate_init(struct dict *dict, const char *path, bool recurse)
+dict_iterate_init(struct dict *dict, const char *path, 
+		  enum dict_iterate_flags flags)
 {
-	return dict->v.iterate_init(dict, path, recurse);
+	return dict->v.iterate_init(dict, path, flags);
 }
 
 int dict_iterate(struct dict_iterate_context *ctx,
@@ -125,6 +127,13 @@ void dict_set(struct dict_transaction_context *ctx,
 	      const char *key, const char *value)
 {
 	ctx->dict->v.set(ctx, key, value);
+	ctx->changed = TRUE;
+}
+
+void dict_unset(struct dict_transaction_context *ctx,
+		const char *key)
+{
+	ctx->dict->v.unset(ctx, key);
 	ctx->changed = TRUE;
 }
 

@@ -46,7 +46,9 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 	if (getenv("DEBUG") != NULL)
 		i_info("dict quota: user = %s, uri = %s", username, args);
 
-	root->dict = dict_init(args, username);
+	/* FIXME: we should use 64bit integer as datatype instead but before
+	   it can actually be used don't bother */
+	root->dict = dict_init(args, DICT_DATA_TYPE_STRING, username);
 	return root->dict != NULL ? 0 : -1;
 }
 

@@ -5,6 +5,7 @@
 
 struct dict_vfuncs {
 	struct dict *(*init)(struct dict *dict_class, const char *uri,
+			     enum dict_data_type value_type,
 			     const char *username);
 	void (*deinit)(struct dict *dict);
 
@@ -13,7 +14,7 @@ struct dict_vfuncs {
 
 	struct dict_iterate_context *
 		(*iterate_init)(struct dict *dict, const char *path,
-				bool recurse);
+				enum dict_iterate_flags flags);
 	int (*iterate)(struct dict_iterate_context *ctx,
 		       const char **key_r, const char **value_r);
 	void (*iterate_deinit)(struct dict_iterate_context *ctx);
@@ -24,6 +25,8 @@ struct dict_vfuncs {
 
 	void (*set)(struct dict_transaction_context *ctx,
 		    const char *key, const char *value);
+	void (*unset)(struct dict_transaction_context *ctx,
+		      const char *key);
 	void (*atomic_inc)(struct dict_transaction_context *ctx,
 			   const char *key, long long diff);
 };

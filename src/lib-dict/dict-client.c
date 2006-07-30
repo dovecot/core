@@ -19,6 +19,7 @@ struct client_dict {
 	const char *uri;
 	const char *username;
 	const char *path;
+	enum dict_data_type value_type;
 
 	struct istream *input;
 	struct ostream *output;
@@ -247,10 +248,11 @@ static int client_dict_connect(struct client_dict *dict)
 	dict->transaction_id_counter = 0;
 
 	t_push();
-	query = t_strdup_printf("%c%u\t%u\t%s\t%s\n", DICT_PROTOCOL_CMD_HELLO,
+	query = t_strdup_printf("%c%u\t%u\t%d\t%s\t%s\n",
+				DICT_PROTOCOL_CMD_HELLO,
 				DICT_CLIENT_PROTOCOL_MAJOR_VERSION,
 				DICT_CLIENT_PROTOCOL_MINOR_VERSION,
-				dict->username, dict->uri);
+				dict->value_type, dict->username, dict->uri);
 	if (client_dict_send_query(dict, query) < 0) {
 		client_dict_disconnect(dict);
 		t_pop();
@@ -279,8 +281,9 @@ static void client_dict_disconnect(struct client_dict *dict)
 	}
 }
 
-static struct dict *client_dict_init(struct dict *dict_class, const char *uri,
-				     const char *username)
+static struct dict *
+client_dict_init(struct dict *dict_class, const char *uri,
+		 enum dict_data_type value_type, const char *username)
 {
 	struct client_dict *dict;
 	const char *dest_uri;
@@ -297,6 +300,7 @@ static struct dict *client_dict_init(struct dict *dict_class, const char *uri,
 	dict = p_new(pool, struct client_dict, 1);
 	dict->pool = pool;
 	dict->dict = *dict_class;
+	dict->value_type = value_type;
 	dict->username = p_strdup(pool, username);
 
 	dict->fd = -1;
@@ -354,7 +358,8 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool,
 }
 
 static struct dict_iterate_context *
-client_dict_iterate_init(struct dict *_dict, const char *path, bool recurse)
+client_dict_iterate_init(struct dict *_dict, const char *path, 
+			 enum dict_iterate_flags flags)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
         struct client_dict_iterate_context *ctx;
@@ -370,7 +375,7 @@ client_dict_iterate_init(struct dict *_dict, const char *path, bool recurse)
 
 	t_push();
 	query = t_strdup_printf("%c%d\t%s\n", DICT_PROTOCOL_CMD_ITERATE,
-				recurse, dict_client_escape(path));
+				flags, dict_client_escape(path));
 	if (client_dict_send_query(dict, query) < 0)
 		ctx->failed = TRUE;
 	t_pop();
@@ -501,6 +506,21 @@ static void client_dict_set(struct dict_transaction_context *_ctx,
 	t_pop();
 }
 
+static void client_dict_unset(struct dict_transaction_context *_ctx,
+			      const char *key)
+{
+	struct client_dict_transaction_context *ctx =
+		(struct client_dict_transaction_context *)_ctx;
+	const char *query;
+
+	t_push();
+	query = t_strdup_printf("%c%u\t%s\n",
+				DICT_PROTOCOL_CMD_UNSET, ctx->id,
+				dict_client_escape(key));
+	(void)client_dict_send_transaction_query(ctx, query);
+	t_pop();
+}
+
 static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 				   const char *key, long long diff)
 {
@@ -530,6 +550,7 @@ static struct dict client_dict = {
 		client_dict_transaction_commit,
 		client_dict_transaction_rollback,
 		client_dict_set,
+		client_dict_unset,
 		client_dict_atomic_inc
 	}
 };

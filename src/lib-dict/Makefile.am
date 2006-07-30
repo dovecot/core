@@ -9,10 +9,12 @@ AM_CPPFLAGS = \
 libdict_a_SOURCES = \
 	dict.c \
 	dict-client.c \
+	dict-db.c \
 	dict-sql.c
 
 noinst_HEADERS = \
 	dict.h \
 	dict-client.h \
 	dict-private.h \
+	dict-db.h \
 	dict-sql.h
