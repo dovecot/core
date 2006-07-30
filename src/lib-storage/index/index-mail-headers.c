@@ -72,7 +72,8 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 						    mail->data.seq,
 						    match_idx) == 0) {
 				/* this header doesn't exist. remember that. */
-				index_mail_cache_add(mail, match_idx, NULL, 0);
+				index_mail_cache_add_idx(mail, match_idx,
+							 NULL, 0);
 			}
 			match_idx++;
 		}
@@ -121,7 +122,8 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 		}
 
 		data = buffer_get_data(buf, &data_size);
-		index_mail_cache_add(mail, lines[i].field_idx, data, data_size);
+		index_mail_cache_add_idx(mail, lines[i].field_idx,
+					 data, data_size);
 	}
 
 	for (; match_idx < match_count; match_idx++) {
@@ -129,7 +131,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 		    mail_cache_field_exists(mail->trans->cache_view,
 					    mail->data.seq, match_idx) == 0) {
 			/* this header doesn't exist. remember that. */
-			index_mail_cache_add(mail, match_idx, NULL, 0);
+			index_mail_cache_add_idx(mail, match_idx, NULL, 0);
 		}
 	}
 
@@ -149,7 +151,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 		/* check that it hadn't been added in some older session */
 		if (mail_cache_field_exists(mail->trans->cache_view,
 					    mail->data.seq, cache_field) == 0)
-			index_mail_cache_add(mail, cache_field, NULL, 0);
+			index_mail_cache_add_idx(mail, cache_field, NULL, 0);
 	}
 	t_pop();
 }

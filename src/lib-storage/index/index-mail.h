@@ -174,8 +174,10 @@ uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 				    enum index_cache_field field);
 uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail);
 
-void index_mail_cache_add(struct index_mail *mail, unsigned int field,
+void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
 			  const void *data, size_t data_size);
+void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
+			      const void *data, size_t data_size);
 
 void index_mail_cache_parse_init(struct mail *mail, struct istream *input);
 void index_mail_cache_parse_continue(struct mail *mail);

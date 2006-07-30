@@ -235,7 +235,6 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	const char *str;
 	int tz;
 
@@ -260,8 +259,7 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 			tz = 0;
 		}
 		data->sent_date.timezone = tz;
-		index_mail_cache_add(mail,
-				     cache_fields[MAIL_CACHE_SENT_DATE].idx,
+		index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
 				     &data->sent_date, sizeof(data->sent_date));
 	}
 
@@ -295,7 +293,6 @@ uoff_t index_mail_get_virtual_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct message_size hdr_size, body_size;
 	uoff_t old_offset;
 
@@ -315,8 +312,7 @@ uoff_t index_mail_get_virtual_size(struct mail *_mail)
 	}
 
 	i_assert(data->virtual_size != (uoff_t)-1);
-	index_mail_cache_add(mail,
-			     cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx,
+	index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
 			     &data->virtual_size, sizeof(data->virtual_size));
 	return data->virtual_size;
 }
@@ -339,8 +335,15 @@ uoff_t index_mail_get_physical_size(struct mail *_mail)
 	return (uoff_t)-1;
 }
 
-void index_mail_cache_add(struct index_mail *mail, unsigned int field,
+void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
 			  const void *data, size_t data_size)
+{
+	index_mail_cache_add_idx(mail, mail->ibox->cache_fields[field].idx,
+				 data, data_size);
+}
+
+void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
+			      const void *data, size_t data_size)
 {
 	const struct mail_index_header *hdr;
 
@@ -351,7 +354,7 @@ void index_mail_cache_add(struct index_mail *mail, unsigned int field,
 		return;
 
 	mail_cache_add(mail->trans->cache_trans, mail->data.seq,
-		       field, data, data_size);
+		       field_idx, data, data_size);
 }
 
 static void parse_bodystructure_part_header(struct message_part *part,
@@ -398,11 +401,8 @@ static void index_mail_body_parsed_cache_flags(struct index_mail *mail)
 		cache_flags |= MAIL_CACHE_FLAG_BINARY_BODY;
 
 	if (cache_flags != data->cache_flags) {
-		unsigned int cache_field =
-			mail->ibox->cache_fields[MAIL_CACHE_FLAGS].idx;
-
 		data->cache_flags = cache_flags;
-		index_mail_cache_add(mail, cache_field,
+		index_mail_cache_add(mail, MAIL_CACHE_FLAGS,
 				     &cache_flags, sizeof(cache_flags));
 	}
 }
@@ -439,7 +439,8 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 	t_push();
 	buffer = buffer_create_dynamic(pool_datastack_create(), 1024);
 	message_part_serialize(mail->data.parts, buffer);
-	index_mail_cache_add(mail, cache_field, buffer->data, buffer->used);
+	index_mail_cache_add(mail, MAIL_CACHE_MESSAGE_PARTS,
+			     buffer->data, buffer->used);
 	t_pop();
 
 	data->messageparts_saved_to_cache = TRUE;
@@ -492,7 +493,8 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 		data->bodystructure = str_c(str);
 
 		if (cache_bodystructure) {
-			index_mail_cache_add(mail, cache_field_bodystructure,
+			index_mail_cache_add(mail,
+					     MAIL_CACHE_IMAP_BODYSTRUCTURE,
 					     str_c(str), str_len(str)+1);
 			bodystructure_cached = TRUE;
 		}
@@ -526,7 +528,7 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 		data->body = str_c(str);
 
 		if (cache_body) {
-			index_mail_cache_add(mail, cache_field_body,
+			index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODY,
 					     str_c(str), str_len(str)+1);
 		}
 	}
@@ -540,7 +542,7 @@ index_mail_body_parsed_cache_virtual_size(struct index_mail *mail)
 
 	if (mail_cache_field_want_add(mail->trans->cache_trans,
 				      mail->data.seq, cache_field)) {
-		index_mail_cache_add(mail, cache_field,
+		index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
 				     &mail->data.virtual_size,
 				     sizeof(mail->data.virtual_size));
 	}
@@ -911,7 +913,9 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	data->seq = seq;
 	data->virtual_size = (uoff_t)-1;
 	data->physical_size = (uoff_t)-1;
-	data->received_date = data->sent_date.time = (time_t)-1;
+	data->save_date = (time_t)-1;
+	data->received_date = (time_t)-1;
+	data->sent_date.time = (time_t)-1;
 
 	if (!index_mail_get_fixed_field(mail, MAIL_CACHE_FLAGS,
 					&data->cache_flags,
