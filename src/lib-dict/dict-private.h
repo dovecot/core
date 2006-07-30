@@ -40,6 +40,8 @@ struct dict_iterate_context {
 
 struct dict_transaction_context {
 	struct dict *dict;
+
+	unsigned int changed:1;
 };
 
 #endif

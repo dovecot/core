@@ -125,11 +125,14 @@ void dict_set(struct dict_transaction_context *ctx,
 	      const char *key, const char *value)
 {
 	ctx->dict->v.set(ctx, key, value);
+	ctx->changed = TRUE;
 }
 
 void dict_atomic_inc(struct dict_transaction_context *ctx,
 		     const char *key, long long diff)
 {
-	if (diff != 0)
+	if (diff != 0) {
 		ctx->dict->v.atomic_inc(ctx, key, diff);
+		ctx->changed = TRUE;
+	}
 }

@@ -31,6 +31,9 @@ struct sql_dict_transaction_context {
 	struct dict_transaction_context ctx;
 
 	struct sql_transaction_context *sql_ctx;
+
+	unsigned int failed:1;
+	unsigned int changed:1;
 };
 
 static int sql_dict_read_config(struct sql_dict *dict, const char *path)
@@ -275,9 +278,17 @@ static int sql_dict_transaction_commit(struct dict_transaction_context *_ctx)
 	const char *error;
 	int ret;
 
-	ret = sql_transaction_commit_s(&ctx->sql_ctx, &error);
-	if (ret < 0)
-		i_error("sql dict: commit failed: %s", error);
+	if (ctx->failed) {
+		sql_transaction_rollback(&ctx->sql_ctx);
+		ret = -1;
+	} else if (_ctx->changed) {
+		ret = sql_transaction_commit_s(&ctx->sql_ctx, &error);
+		if (ret < 0)
+			i_error("sql dict: commit failed: %s", error);
+	} else {
+		/* nothing to be done */
+		ret = 0;
+	}
 	i_free(ctx);
 	return ret;
 }
@@ -287,7 +298,8 @@ static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
 
-	sql_transaction_rollback(&ctx->sql_ctx);
+	if (_ctx->changed)
+		sql_transaction_rollback(&ctx->sql_ctx);
 	i_free(ctx);
 }
 
@@ -300,8 +312,11 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	const char *query;
 	bool priv;
 
-	if (sql_path_fix(&key, &priv) < 0)
+	if (sql_path_fix(&key, &priv) < 0) {
+		i_error("sql dict: Invalid key: %s", key);
+		ctx->failed = TRUE;
 		return;
+	}
 
 	t_push();
 	if (priv) {
@@ -338,8 +353,11 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	const char *query;
 	bool priv;
 
-	if (sql_path_fix(&key, &priv) < 0)
+	if (sql_path_fix(&key, &priv) < 0) {
+		i_error("sql dict: Invalid key: %s", key);
+		ctx->failed = TRUE;
 		return;
+	}
 
 	t_push();
 	if (priv) {
