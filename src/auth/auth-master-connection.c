@@ -86,16 +86,16 @@ user_callback(struct auth_stream_reply *reply,
 
 	str = t_str_new(128);
 	if (reply == NULL)
-		str_printfa(str, "NOTFOUND\t%u\n", auth_request->id);
+		str_printfa(str, "NOTFOUND\t%u", auth_request->id);
 	else {
 		str_printfa(str, "USER\t%u\t", auth_request->id);
 		str_append(str, auth_stream_reply_export(reply));
-		str_append_c(str, '\n');
 	}
 
 	if (conn->listener->auth->verbose_debug)
 		i_info("master out: %s", str_c(str));
 
+	str_append_c(str, '\n');
 	(void)o_stream_send(conn->output, str_data(str), str_len(str));
 	auth_request_unref(&auth_request);
 }
