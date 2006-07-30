@@ -23,6 +23,7 @@ struct db_dict_iterate_context {
 
 	DBC *cursor;
 	char *path;
+	unsigned int path_len;
 
 	DBT pkey, pdata;
 
@@ -243,16 +244,19 @@ static int db_dict_iterate_next(struct db_dict_iterate_context *ctx,
 						  &ctx->pkey, &ctx->pdata,
 						  DB_NEXT)) == 0) {
 			/* make sure the path matches */
-			if (ctx->path == NULL ||
+			if (ctx->path == NULL)
+				break;
+			if (ctx->path_len <= ctx->pkey.size &&
 			    strncmp(ctx->path, ctx->pkey.data,
-				    ctx->pkey.size) == 0)
+				    ctx->path_len) == 0)
 				break;
 		}
 	} else {
 		ret = ctx->cursor->c_get(ctx->cursor, &ctx->pkey, &ctx->pdata,
 					 DB_NEXT);
 		if (ctx->path != NULL && ret == 0 &&
-		    strncmp(ctx->path, ctx->pkey.data, ctx->pkey.size) != 0) {
+		    (ctx->path_len > ctx->pkey.size ||
+		     strncmp(ctx->path, ctx->pkey.data, ctx->path_len) != 0)) {
 			/* there are no more matches */
 			return 0;
 		}
@@ -301,6 +305,7 @@ db_dict_iterate_init(struct dict *_dict, const char *path,
 	ctx->ctx.dict = _dict;
 	ctx->flags = flags;
 	ctx->path = i_strdup_empty(path);
+	ctx->path_len = ctx->path == NULL ? 0 : strlen(ctx->path);
 	
 	ctx->iterate_next = db_dict_iterate_first;
 	return &ctx->ctx;
