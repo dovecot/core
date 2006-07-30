@@ -44,7 +44,7 @@ static int dict_quota_init(struct quota_root *_root, const char *args)
 		username = getenv("USER");
 
 	if (getenv("DEBUG") != NULL)
-		i_info("dict quota: uri = %s", args);
+		i_info("dict quota: user = %s, uri = %s", username, args);
 
 	root->dict = dict_init(args, username);
 	return root->dict != NULL ? 0 : -1;
