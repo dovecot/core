@@ -16,10 +16,6 @@
 
 struct quota_mail_storage {
 	struct mail_storage_vfuncs super;
-	struct quota *quota;
-
-	/* List of quota roots this storage belongs to. */
-	ARRAY_DEFINE(roots, struct quota_root *);
 };
 
 struct quota_mailbox {
@@ -58,7 +54,7 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 	struct quota_transaction_context *qt;
 
 	t = qbox->super.transaction_begin(box, flags);
-	qt = quota_transaction_begin(box);
+	qt = quota_transaction_begin(quota, box);
 
 	array_idx_set(&t->module_contexts, quota_storage_module_id, &qt);
 	return t;
@@ -76,8 +72,8 @@ quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
 		return -1;
 	} else {
 		(void)quota_transaction_commit(qt);
-		if (qt->mail != NULL)
-			mail_free(&qt->mail);
+		if (qt->tmp_mail != NULL)
+			mail_free(&qt->tmp_mail);
 		return 0;
 	}
 }
@@ -90,8 +86,8 @@ quota_mailbox_transaction_rollback(struct mailbox_transaction_context *ctx)
 
 	qbox->super.transaction_rollback(ctx);
 
-	if (qt->mail != NULL)
-		mail_free(&qt->mail);
+	if (qt->tmp_mail != NULL)
+		mail_free(&qt->tmp_mail);
 	quota_transaction_rollback(qt);
 }
 
@@ -129,8 +125,8 @@ static int quota_check(struct mailbox_transaction_context *t, struct mail *mail)
 		mail_storage_set_error(t->box->storage, "Quota exceeded");
 		return -1;
 	} else {
-		mail_storage_set_error(t->box->storage,  "%s",
-				       quota_last_error(quota));
+		mail_storage_set_error(t->box->storage,
+				       "Internal quota calculation error");
 		return -1;
 	}
 }
@@ -145,11 +141,11 @@ quota_copy(struct mailbox_transaction_context *t, struct mail *mail,
 
 	if (dest_mail == NULL) {
 		/* we always want to know the mail size */
-		if (qt->mail == NULL) {
-			qt->mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
-					      NULL);
+		if (qt->tmp_mail == NULL) {
+			qt->tmp_mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
+						  NULL);
 		}
-		dest_mail = qt->mail;
+		dest_mail = qt->tmp_mail;
 	}
 
 	qbox->save_hack = FALSE;
@@ -186,25 +182,25 @@ quota_save_init(struct mailbox_transaction_context *t,
 		   full mail. */
 		bool too_large;
 
-		ret = quota_test_alloc_bytes(qt, st->st_size, &too_large);
+		ret = quota_test_alloc(qt, st->st_size, &too_large);
 		if (ret == 0) {
 			mail_storage_set_error(t->box->storage,
 					       "Quota exceeded");
 			return -1;
 		} else if (ret < 0) {
-			mail_storage_set_error(t->box->storage,  "%s",
-					       quota_last_error(quota));
+			mail_storage_set_error(t->box->storage,
+				"Internal quota calculation error");
 			return -1;
 		}
 	}
 
 	if (dest_mail == NULL) {
 		/* we always want to know the mail size */
-		if (qt->mail == NULL) {
-			qt->mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
-					      NULL);
+		if (qt->tmp_mail == NULL) {
+			qt->tmp_mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
+						  NULL);
 		}
-		dest_mail = qt->mail;
+		dest_mail = qt->tmp_mail;
 	}
 
 	return qbox->super.save_init(t, flags, keywords, received_date,
@@ -214,13 +210,15 @@ quota_save_init(struct mailbox_transaction_context *t,
 
 static int quota_save_finish(struct mail_save_context *ctx)
 {
+	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx->transaction);
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->transaction->box);
 
 	if (qbox->super.save_finish(ctx) < 0)
 		return -1;
 
 	qbox->save_hack = TRUE;
-	return quota_check(ctx->transaction, ctx->dest_mail);
+	return quota_check(ctx->transaction, ctx->dest_mail != NULL ?
+			   ctx->dest_mail : qt->tmp_mail);
 }
 
 static struct mailbox *
@@ -295,22 +293,8 @@ static int quota_mailbox_delete(struct mail_storage *storage, const char *name)
 static void quota_storage_destroy(struct mail_storage *storage)
 {
 	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
-	struct quota_root *const *roots;
-	struct mail_storage *const *storages;
-	unsigned int i, j, root_count, storage_count;
 
-	/* remove the storage from all roots' storages list */
-	roots = array_get(&qstorage->roots, &root_count);
-	for (i = 0; i < root_count; i++) {
-		storages = array_get(&roots[i]->storages, &storage_count);
-		for (j = 0; j < storage_count; j++) {
-			if (storages[j] == storage) {
-				array_delete(&roots[i]->storages, j, 1);
-				break;
-			}
-		}
-		i_assert(j != storage_count);
-	}
+	quota_remove_user_storage(quota, storage);
 
 	qstorage->super.destroy(storage);
 }
@@ -328,8 +312,6 @@ void quota_mail_storage_created(struct mail_storage *storage)
 	storage->v.mailbox_open = quota_mailbox_open;
 	storage->v.mailbox_delete = quota_mailbox_delete;
 
-	ARRAY_CREATE(&qstorage->roots, storage->pool, struct quota_root *, 4);
-
 	if (!quota_storage_module_id_set) {
 		quota_storage_module_id = mail_storage_module_id++;
 		quota_storage_module_id_set = TRUE;
@@ -342,75 +324,4 @@ void quota_mail_storage_created(struct mail_storage *storage)
 		/* register to user's quota roots */
 		quota_add_user_storage(quota, storage);
 	}
-}
-
-bool quota_mail_storage_add_root(struct mail_storage *storage,
-				 struct quota_root *root)
-{
-	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
-
-	if (!root->v.add_storage(root, storage))
-		return FALSE;
-
-	array_append(&root->storages, &storage, 1);
-	array_append(&qstorage->roots, &root, 1);
-	return TRUE;
-}
-
-void quota_mail_storage_remove_root(struct mail_storage *storage,
-				    struct quota_root *root)
-{
-	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
-	struct mail_storage *const *storages;
-	struct quota_root *const *roots;
-	unsigned int i, count;
-
-	storages = array_get(&root->storages, &count);
-	for (i = 0; i < count; i++) {
-		if (storages[i] == storage) {
-			array_delete(&root->storages, i, 1);
-			break;
-		}
-	}
-	i_assert(i != count);
-
-	roots = array_get(&qstorage->roots, &count);
-	for (i = 0; i < count; i++) {
-		if (roots[i] == root) {
-			array_delete(&qstorage->roots, i, 1);
-			break;
-		}
-	}
-	i_assert(i != count);
-
-	root->v.remove_storage(root, storage);
-}
-
-struct quota_root_iter *quota_root_iter_init(struct mailbox *box)
-{
-	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(box->storage);
-	struct quota_root_iter *iter;
-
-	iter = i_new(struct quota_root_iter, 1);
-	iter->qstorage = qstorage;
-	return iter;
-}
-
-struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
-{
-	struct quota_root *const *roots;
-	unsigned int count;
-
-	roots = array_get(&iter->qstorage->roots, &count);
-	i_assert(iter->idx <= count);
-
-	if (iter->idx >= count)
-		return NULL;
-
-	return roots[iter->idx++];
-}
-
-void quota_root_iter_deinit(struct quota_root_iter *iter)
-{
-	i_free(iter);
 }

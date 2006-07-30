@@ -46,22 +46,13 @@ struct fs_quota_root {
 	struct fs_quota_mountpoint *mount;
 };
 
-struct fs_quota_root_iter {
-	struct quota_root_iter iter;
-
-	bool sent;
-};
-
 extern struct quota_backend quota_backend_fs;
 
-static struct quota_root *
-fs_quota_init(struct quota_setup *setup __attr_unused__, const char *name)
+static struct quota_root *fs_quota_alloc(void)
 {
 	struct fs_quota_root *root;
 
 	root = i_new(struct fs_quota_root, 1);
-	root->root.name = i_strdup(name);
-	root->root.v = quota_backend_fs.v;
 	root->uid = geteuid();
 
 	return &root->root;
@@ -89,7 +80,6 @@ static void fs_quota_deinit(struct quota_root *_root)
 
 	if (root->mount != NULL)
 		fs_quota_mountpoint_free(root->mount);
-	i_free(root->root.name);
 	i_free(root);
 }
 
@@ -110,42 +100,66 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 	return mount;
 }
 
-static bool fs_quota_add_storage(struct quota_root *_root,
-				 struct mail_storage *storage)
+static struct fs_quota_root *
+fs_quota_root_find_mountpoint(struct quota *quota,
+			      const struct fs_quota_mountpoint *mount)
 {
-	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+	struct quota_root *const *roots;
+	struct fs_quota_root *empty = NULL;
+	unsigned int i, count;
+
+	roots = array_get(&quota->roots, &count);
+	for (i = 0; i < count; i++) {
+		if (roots[i]->backend == &quota_backend_fs) {
+			struct fs_quota_root *root =
+				(struct fs_quota_root *)roots[i];
+
+			if (root->mount == NULL)
+				empty = root;
+			else if (strcmp(root->mount->mount_path,
+					mount->mount_path) == 0)
+				return root;
+		}
+	}
+	return empty;
+}
+
+static void fs_quota_storage_added(struct quota *quota,
+				   struct mail_storage *storage)
+{
 	struct fs_quota_mountpoint *mount;
+	struct quota_root *_root;
+	struct fs_quota_root *root;
 	const char *dir;
 	bool is_file;
 
 	dir = mail_storage_get_mailbox_path(storage, "", &is_file);
-
-	if (getenv("DEBUG") != NULL)
-		i_info("fs quota add storage dir = %s", dir);
-
 	mount = fs_quota_mountpoint_get(dir);
-	if (root->mount == NULL) {
-		if (mount == NULL) {
-			/* Not found */
-			return TRUE;
-		}
-		root->mount = mount;
-	} else {
-		bool match = strcmp(root->mount->mount_path,
-				    mount->mount_path) == 0;
-
-		fs_quota_mountpoint_free(mount);
-		if (!match) {
-			/* different mountpoints, can't use this */
-			return FALSE;
-		}
-		mount = root->mount;
-	}
-
 	if (getenv("DEBUG") != NULL) {
+		i_info("fs quota add storage dir = %s", dir);
 		i_info("fs quota block device = %s", mount->device_path);
 		i_info("fs quota mount point = %s", mount->mount_path);
 	}
+
+	root = fs_quota_root_find_mountpoint(quota, mount);
+	if (root != NULL && root->mount != NULL) {
+		/* already exists */
+		fs_quota_mountpoint_free(mount);
+		return;
+	}
+
+	if (root == NULL) {
+		/* create a new root for this mountpoint */
+		_root = quota_root_init(quota, quota_backend_fs.name);
+		root = (struct fs_quota_root *)_root;
+		root->root.name =
+			p_strdup_printf(root->root.pool, "%s%d",
+					quota_backend_fs.name,
+					array_count(&quota->roots));
+	} else {
+		/* this is the default root. */
+	}
+	root->mount = mount;
 
 #ifdef HAVE_Q_QUOTACTL
 	if (mount->path == NULL) {
@@ -155,13 +169,6 @@ static bool fs_quota_add_storage(struct quota_root *_root,
 			i_error("open(%s) failed: %m", mount->path);
 	}
 #endif
-	return TRUE;
-}
-
-static void
-fs_quota_remove_storage(struct quota_root *root __attr_unused__,
-			struct mail_storage *storage __attr_unused__)
-{
 }
 
 static const char *const *
@@ -200,8 +207,6 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			     root->uid, (caddr_t)&xdqblk) < 0) {
 			i_error("quotactl(Q_XGETQUOTA, %s) failed: %m",
 				root->mount->device_path);
-			quota_set_error(_root->setup->quota,
-					"Internal quota error");
 			return -1;
 		}
 
@@ -217,8 +222,6 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			     root->uid, (caddr_t)&dqblk) < 0) {
 			i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
 				root->mount->device_path);
-			quota_set_error(_root->setup->quota,
-					"Internal quota error");
 			return -1;
 		}
 
@@ -255,32 +258,10 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	return 1;
 }
 
-static int
-fs_quota_set_resource(struct quota_root *root,
-		      const char *name __attr_unused__,
-		      uint64_t value __attr_unused__)
+static int 
+fs_quota_update(struct quota_root *root __attr_unused__,
+		struct quota_transaction_context *ctx __attr_unused__)
 {
-	quota_set_error(root->setup->quota, MAIL_STORAGE_ERR_NO_PERMISSION);
-	return -1;
-}
-
-static struct quota_root_transaction_context *
-fs_quota_transaction_begin(struct quota_root *root,
-			   struct quota_transaction_context *ctx)
-{
-	struct quota_root_transaction_context *root_ctx;
-
-	root_ctx = i_new(struct quota_root_transaction_context, 1);
-	root_ctx->root = root;
-	root_ctx->ctx = ctx;
-	root_ctx->disabled = TRUE;
-	return root_ctx;
-}
-
-static int
-fs_quota_transaction_commit(struct quota_root_transaction_context *ctx)
-{
-	i_free(ctx);
 	return 0;
 }
 
@@ -288,26 +269,15 @@ struct quota_backend quota_backend_fs = {
 	"fs",
 
 	{
-		fs_quota_init,
+		fs_quota_alloc,
+		NULL,
 		fs_quota_deinit,
 
-		fs_quota_add_storage,
-		fs_quota_remove_storage,
+		fs_quota_storage_added,
 
 		fs_quota_root_get_resources,
-
 		fs_quota_get_resource,
-		fs_quota_set_resource,
-
-		fs_quota_transaction_begin,
-		fs_quota_transaction_commit,
-		quota_default_transaction_rollback,
-
-		quota_default_try_alloc,
-		quota_default_try_alloc_bytes,
-		quota_default_test_alloc_bytes,
-		quota_default_alloc,
-		quota_default_free
+		fs_quota_update
 	}
 };
 

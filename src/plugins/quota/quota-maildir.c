@@ -22,6 +22,7 @@
 struct maildir_quota_root {
 	struct quota_root root;
 
+	const char *maildirsize_path;
 	uint64_t message_bytes_limit;
 	uint64_t message_count_limit;
 
@@ -29,6 +30,7 @@ struct maildir_quota_root {
 	uint64_t total_count;
 
 	int fd;
+	time_t recalc_last_stamp;
 
 	unsigned int master_message_limits:1;
 };
@@ -56,8 +58,8 @@ const struct dotlock_settings dotlock_settings = {
 	MEMBER(use_excl_lock) FALSE
 };
 
-static int maildir_sum_dir(struct mail_storage *storage, const char *dir,
-			   uint64_t *total_bytes, uint64_t *total_count)
+static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,
+			   uint64_t *total_count)
 {
 	DIR *dirp;
 	struct dirent *dp;
@@ -71,8 +73,7 @@ static int maildir_sum_dir(struct mail_storage *storage, const char *dir,
 	if (dirp == NULL) {
 		if (errno == ENOENT || errno == ESTALE)
 			return 0;
-		mail_storage_set_critical(storage, "opendir(%s) failed: %m",
-					  dir);
+		i_error("opendir(%s) failed: %m", dir);
 		return -1;
 	}
 
@@ -111,16 +112,14 @@ static int maildir_sum_dir(struct mail_storage *storage, const char *dir,
 				*total_bytes += st.st_size;
 				*total_count += 1;
 			} else if (errno != ENOENT && errno != ESTALE) {
-				mail_storage_set_critical(storage,
-					"stat(%s) failed: %m", str_c(path));
+				i_error("stat(%s) failed: %m", str_c(path));
 				ret = -1;
 			}
 		}
 	}
 
 	if (closedir(dirp) < 0) {
-		mail_storage_set_critical(storage, "closedir(%s) failed: %m",
-					  dir);
+		i_error("closedir(%s) failed: %m", dir);
 		return -1;
 	}
 	return ret;
@@ -170,8 +169,7 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 		/* ignore if the directory got lost, stale or if it was
 		   actually a file and not a directory */
 		if (errno != ENOENT && errno != ESTALE && errno != ENOTDIR) {
-			mail_storage_set_critical(ctx->ctx->storage,
-				"stat(%s) failed: %m", str_c(ctx->path));
+			i_error("stat(%s) failed: %m", str_c(ctx->path));
 			ctx->state = 0;
 		}
 	}
@@ -209,8 +207,7 @@ maildirs_check_have_changed(struct mail_storage *storage, time_t latest_mtime)
 	return ret;
 }
 
-static int maildirsize_write(struct maildir_quota_root *root,
-			     struct mail_storage *storage, const char *path)
+static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 {
 	struct dotlock *dotlock;
 	string_t *str;
@@ -226,8 +223,7 @@ static int maildirsize_write(struct maildir_quota_root *root,
 			return -1;
 		}
 
-		mail_storage_set_critical(storage,
-			"file_dotlock_open(%s) failed: %m", path);
+		i_error("file_dotlock_open(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -246,8 +242,7 @@ static int maildirsize_write(struct maildir_quota_root *root,
 		    (unsigned long long)root->total_bytes,
 		    (unsigned long long)root->total_count);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		mail_storage_set_critical(storage,
-			"write_full(%s) failed: %m", path);
+		i_error("write_full(%s) failed: %m", path);
 		file_dotlock_delete(&dotlock);
 		return -1;
 	}
@@ -255,38 +250,34 @@ static int maildirsize_write(struct maildir_quota_root *root,
 	/* keep the fd open since we might want to update it later */
 	if (file_dotlock_replace(&dotlock,
 				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
-		mail_storage_set_critical(storage,
-			"file_dotlock_replace(%s) failed: %m", path);
+		i_error("file_dotlock_replace(%s) failed: %m", path);
 		return -1;
 	}
 	root->fd = fd;
 	return 0;
 }
 
-static const char *maildirsize_get_path(struct mail_storage *storage)
+static void maildirsize_recalculate_init(struct maildir_quota_root *root)
 {
-	return t_strconcat(mail_storage_get_mailbox_control_dir(storage, ""),
-			   "/"MAILDIRSIZE_FILENAME, NULL);
+	root->total_bytes = root->total_count = 0;
+	root->recalc_last_stamp = 0;
 }
 
-static int maildirsize_recalculate(struct maildir_quota_root *root,
-				   struct mail_storage *storage)
+static int maildirsize_recalculate_storage(struct maildir_quota_root *root,
+					   struct mail_storage *storage)
 {
 	struct maildir_list_context *ctx;
-	const char *dir, *path;
-	time_t mtime, last_stamp = 0;
+	const char *dir;
+	time_t mtime;
 	int ret = 0;
-
-	root->total_bytes = root->total_count = 0;
 
 	ctx = maildir_list_init(storage);
 	while ((dir = maildir_list_next(ctx, &mtime)) != NULL) {
-		if (mtime > last_stamp)
-			last_stamp = mtime;
+		if (mtime > root->recalc_last_stamp)
+			root->recalc_last_stamp = mtime;
 
 		t_push();
-		if (maildir_sum_dir(storage, dir,
-				    &root->total_bytes,
+		if (maildir_sum_dir(dir, &root->total_bytes,
 				    &root->total_count) < 0)
 			ret = -1;
 		t_pop();
@@ -294,25 +285,56 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 	if (maildir_list_deinit(ctx) < 0)
 		ret = -1;
 
-	if (ret == 0)
-		ret = maildirs_check_have_changed(storage, last_stamp);
+	return ret;
+}
 
-	t_push();
-	path = maildirsize_get_path(storage);
+static int maildirsize_recalculate_finish(struct maildir_quota_root *root,
+					  int ret)
+{
 	if (ret == 0) {
 		/* maildir didn't change, we can write the maildirsize file */
-		ret = maildirsize_write(root, storage, path);
+		ret = maildirsize_write(root, root->maildirsize_path);
 	}
 	if (ret != 0) {
 		/* make sure it gets rebuilt later */
-		if (unlink(path) < 0 && errno != ENOENT && errno != ESTALE) {
-			mail_storage_set_critical(storage,
-				"unlink(%s) failed: %m", path);
+		if (unlink(root->maildirsize_path) < 0 &&
+		    errno != ENOENT && errno != ESTALE) {
+			i_error("unlink(%s) failed: %m",
+				root->maildirsize_path);
 		}
 	}
-	t_pop();
 
 	return ret;
+}
+
+static int maildirsize_recalculate(struct maildir_quota_root *root)
+{
+	struct mail_storage *const *storages;
+	unsigned int i, count;
+	int ret = 0;
+
+	maildirsize_recalculate_init(root);
+
+	/* count mails from all storages */
+	storages = array_get(&root->root.quota->storages, &count);
+	for (i = 0; i < count; i++) {
+		if (maildirsize_recalculate_storage(root, storages[i]) < 0) {
+			ret = -1;
+			break;
+		}
+	}
+
+	if (ret == 0) {
+		/* check if any of the directories have changed */
+		for (i = 0; i < count; i++) {
+			ret = maildirs_check_have_changed(storages[i],
+						root->recalc_last_stamp);
+			if (ret != 0)
+				break;
+		}
+	}
+
+	return maildirsize_recalculate_finish(root, ret);
 }
 
 static int maildirsize_parse(struct maildir_quota_root *root,
@@ -397,32 +419,26 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 	return 1;
 }
 
-static int maildirsize_read(struct maildir_quota_root *root,
-			    struct mail_storage *storage)
+static int maildirsize_read(struct maildir_quota_root *root)
 {
-	const char *path;
 	char buf[5120+1];
 	unsigned int size;
 	int fd, ret;
 
 	t_push();
-	path = maildirsize_get_path(storage);
 	if (root->fd != -1) {
-		if (close(root->fd) < 0) {
-			mail_storage_set_critical(storage,
-				"close(%s) failed: %m", path);
-		}
+		if (close(root->fd) < 0)
+			i_error("close(%s) failed: %m", root->maildirsize_path);
 		root->fd = -1;
 	}
 
-	fd = nfs_safe_open(path, O_RDWR | O_APPEND);
+	fd = nfs_safe_open(root->maildirsize_path, O_RDWR | O_APPEND);
 	if (fd == -1) {
 		if (errno == ENOENT)
 			ret = 0;
 		else {
 			ret = -1;
-			mail_storage_set_critical(storage,
-				"open(%s) failed: %m", path);
+			i_error("open(%s) failed: %m", root->maildirsize_path);
 		}
 		t_pop();
 		return ret;
@@ -435,8 +451,7 @@ static int maildirsize_read(struct maildir_quota_root *root,
 		if (ret < 0) {
 			if (errno == ESTALE)
 				break;
-			mail_storage_set_critical(storage, "read(%s) failed: %m",
-						  path);
+			i_error("read(%s) failed: %m", root->maildirsize_path);
 		}
 		size += ret;
 	}
@@ -467,12 +482,11 @@ static int maildirsize_read(struct maildir_quota_root *root,
 	return ret;
 }
 
-static int maildirquota_refresh(struct maildir_quota_root *root,
-				struct mail_storage *storage)
+static int maildirquota_refresh(struct maildir_quota_root *root)
 {
 	int ret;
 
-	ret = maildirsize_read(root, storage);
+	ret = maildirsize_read(root);
 	if (ret == 0) {
 		if (root->message_bytes_limit == (uint64_t)-1 &&
 		    root->message_count_limit == (uint64_t)-1) {
@@ -480,13 +494,12 @@ static int maildirquota_refresh(struct maildir_quota_root *root,
 			return 0;
 		}
 
-		ret = maildirsize_recalculate(root, storage);
+		ret = maildirsize_recalculate(root);
 	}
 	return ret < 0 ? -1 : 0;
 }
 
 static int maildirsize_update(struct maildir_quota_root *root,
-			      struct mail_storage *storage,
 			      int count_diff, int64_t bytes_diff)
 {
 	const char *str;
@@ -508,47 +521,22 @@ static int maildirsize_update(struct maildir_quota_root *root,
 		if (errno == ESTALE) {
 			/* deleted/replaced already, ignore */
 		} else {
-			mail_storage_set_critical(storage,
-				"write_full(%s) failed: %m",
-				maildirsize_get_path(storage));
+			i_error("write_full(%s) failed: %m",
+				root->maildirsize_path);
 		}
 	}
 	t_pop();
 	return ret;
 }
 
-static struct quota_root *
-maildir_quota_init(struct quota_setup *setup, const char *name __attr_unused__)
+static struct quota_root *maildir_quota_alloc(void)
 {
 	struct maildir_quota_root *root;
-	const char *const *args;
-	unsigned long long size;
 
 	root = i_new(struct maildir_quota_root, 1);
-	root->root.name = i_strdup(name);
-	root->root.v = quota_backend_maildir.v;
 	root->fd = -1;
 	root->message_bytes_limit = (uint64_t)-1;
 	root->message_count_limit = (uint64_t)-1;
-
-	t_push();
-	args = t_strsplit(setup->data, ":");
-
-	for (; *args != '\0'; args++) {
-		if (strncmp(*args, "storage=", 8) == 0) {
-			size = strtoull(*args + 8, NULL, 10) * 1024;
-			if (size != 0)
-				root->message_bytes_limit = size;
-			root->master_message_limits = TRUE;
-		} else if (strncmp(*args, "messages=", 9) == 0) {
-			size = strtoull(*args + 9, NULL, 10);
-			if (size != 0)
-				root->message_count_limit = size;
-			root->master_message_limits = TRUE;
-		}
-	}
-	t_pop();
-
 	return &root->root;
 }
 
@@ -556,28 +544,45 @@ static void maildir_quota_deinit(struct quota_root *_root)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 
-	i_free(root->root.name);
 	i_free(root);
 }
 
-static bool
-maildir_quota_add_storage(struct quota_root *root __attr_unused__,
-			  struct mail_storage *_storage)
+static void
+maildir_quota_root_storage_added(struct quota_root *_root,
+				 struct mail_storage *storage)
 {
-	if (strcmp(_storage->name, "maildir") == 0) {
-		struct maildir_storage *storage =
-			(struct maildir_storage *)_storage;
+	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
+	const char *control_dir;
 
-		/* For newly generated filenames add ,S=size. */
-		storage->save_size_in_filename = TRUE;
-	}
-	return TRUE;
+	if (root->maildirsize_path != NULL)
+		return;
+
+	control_dir = mail_storage_get_mailbox_control_dir(storage, "");
+	root->maildirsize_path =
+		p_strconcat(_root->pool, control_dir,
+			    "/"MAILDIRSIZE_FILENAME, NULL);
 }
 
 static void
-maildir_quota_remove_storage(struct quota_root *root __attr_unused__,
-			     struct mail_storage *storage __attr_unused__)
+maildir_quota_storage_added(struct quota *quota,
+			    struct mail_storage *_storage)
 {
+	struct maildir_storage *storage =
+		(struct maildir_storage *)_storage;
+	struct quota_root **roots;
+	unsigned int i, count;
+
+	if (strcmp(_storage->name, "maildir") != 0)
+		return;
+
+	roots = array_get_modifiable(&quota->roots, &count);
+	for (i = 0; i < count; i++) {
+		if (roots[i]->backend == &quota_backend_maildir)
+			maildir_quota_root_storage_added(roots[i], _storage);
+	}
+
+	/* For newly generated filenames add ,S=size. */
+	storage->save_size_in_filename = TRUE;
 }
 
 static const char *const *
@@ -592,120 +597,49 @@ maildir_quota_root_get_resources(struct quota_root *root __attr_unused__)
 	return resources_both;
 }
 
-static struct mail_storage *
-maildir_quota_root_get_storage(struct quota_root *root)
-{
-	/* FIXME: figure out how to support multiple storages */
-	struct mail_storage *const *storages;
-	unsigned int count;
-
-	storages = array_get(&root->storages, &count);
-	i_assert(count > 0);
-
-	return storages[0];
-}
-
 static int
 maildir_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r, uint64_t *limit_r)
+			   uint64_t *value_r, uint64_t *limit  __attr_unused__)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 
-	if (maildirquota_refresh(root,
-				 maildir_quota_root_get_storage(_root)) < 0)
+	if (maildirquota_refresh(root) < 0)
 		return -1;
 
-	if (strcmp(name, QUOTA_NAME_STORAGE) == 0) {
-		if (root->message_bytes_limit == (uint64_t)-1)
-			return 0;
-
-		*limit_r = root->message_bytes_limit / 1024;
+	if (strcmp(name, QUOTA_NAME_STORAGE) == 0)
 		*value_r = root->total_bytes / 1024;
-	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
-		if (root->message_count_limit == (uint64_t)-1)
-			return 0;
-
-		*limit_r = root->message_count_limit;
+	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		*value_r = root->total_count;
-	} else {
+	else
 		return 0;
-	}
 	return 1;
 }
 
 static int
-maildir_quota_set_resource(struct quota_root *root,
-			   const char *name __attr_unused__,
-			   uint64_t value __attr_unused__)
-{
-	quota_set_error(root->setup->quota, MAIL_STORAGE_ERR_NO_PERMISSION);
-	return -1;
-}
-
-static struct quota_root_transaction_context *
-maildir_quota_transaction_begin(struct quota_root *_root,
-				struct quota_transaction_context *_ctx)
-{
-	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
-	struct quota_root_transaction_context *ctx;
-
-	ctx = i_new(struct quota_root_transaction_context, 1);
-	ctx->root = _root;
-	ctx->ctx = _ctx;
-
-	if (maildirquota_refresh(root,
-				 maildir_quota_root_get_storage(_root)) < 0) {
-		/* failed calculating the current quota */
-		ctx->bytes_current = (uint64_t)-1;
-	} else {
-		ctx->bytes_limit = root->message_bytes_limit;
-		ctx->count_limit = root->message_count_limit;
-		ctx->bytes_current = root->total_bytes;
-		ctx->count_current = root->total_count;
-	}
-	return ctx;
-}
-
-static int
-maildir_quota_transaction_commit(struct quota_root_transaction_context *ctx)
+maildir_quota_update(struct quota_root *_root,
+		     struct quota_transaction_context *ctx)
 {
 	struct maildir_quota_root *root =
-		(struct maildir_quota_root *)ctx->root;
-	int ret = ctx->bytes_current == (uint64_t)-1 ? -1 : 0;
+		(struct maildir_quota_root *) _root;
 
-	if (root->fd != -1 && ret == 0) {
+	if (root->fd != -1) {
 		/* if writing fails, we don't care all that much */
-		(void)maildirsize_update(root,
-				maildir_quota_root_get_storage(ctx->root),
-				ctx->count_diff, ctx->bytes_diff);
+		(void)maildirsize_update(root, ctx->count_used,
+					 ctx->bytes_used);
 	}
-	i_free(ctx);
-	return ret;
+	return 0;
 }
 
 struct quota_backend quota_backend_maildir = {
 	"maildir",
 
 	{
-		maildir_quota_init,
+		maildir_quota_alloc,
+		NULL,
 		maildir_quota_deinit,
-
-		maildir_quota_add_storage,
-		maildir_quota_remove_storage,
-
+		maildir_quota_storage_added,
 		maildir_quota_root_get_resources,
-
 		maildir_quota_get_resource,
-		maildir_quota_set_resource,
-
-		maildir_quota_transaction_begin,
-		maildir_quota_transaction_commit,
-		quota_default_transaction_rollback,
-
-		quota_default_try_alloc,
-		quota_default_try_alloc_bytes,
-		quota_default_test_alloc_bytes,
-		quota_default_alloc,
-		quota_default_free
+		maildir_quota_update
 	}
 };
