@@ -505,10 +505,11 @@ static void mail_hash_create_in_memory(struct mail_hash *hash)
 }
 
 struct mail_hash *
-mail_hash_open_or_create(struct mail_index *index, const char *suffix,
-			 unsigned int record_size, hash_callback_t *hash_cb,
-			 hash_ctx_cmp_callback_t *key_compare_cb,
-			 void *context, bool in_memory)
+mail_hash_open(struct mail_index *index, const char *suffix,
+	       enum mail_hash_open_flags flags,
+	       unsigned int record_size, hash_callback_t *hash_cb,
+	       hash_ctx_cmp_callback_t *key_compare_cb,
+	       void *context)
 {
 	struct mail_hash *hash;
 	int ret;
@@ -517,7 +518,8 @@ mail_hash_open_or_create(struct mail_index *index, const char *suffix,
 
 	hash = i_new(struct mail_hash, 1);
 	hash->index = index;
-	hash->filepath = in_memory ? "(in-memory hash" :
+	hash->filepath = (flags & MAIL_HASH_OPEN_FLAG_IN_MEMORY) != 0 ?
+		i_strdup("(in-memory hash)") :
 		i_strconcat(index->filepath, suffix, NULL);
 	hash->record_size = record_size;
 	hash->fd = -1;
@@ -526,8 +528,15 @@ mail_hash_open_or_create(struct mail_index *index, const char *suffix,
 	hash->key_compare_cb = key_compare_cb;
 	hash->cb_context = context;
 
-	ret = MAIL_INDEX_IS_IN_MEMORY(hash->index) || in_memory ? -1 :
+	ret = MAIL_INDEX_IS_IN_MEMORY(hash->index) ||
+		(flags & MAIL_HASH_OPEN_FLAG_IN_MEMORY) != 0 ? -1 :
 		mail_hash_file_open(hash);
+
+	if (ret <= 0 && (flags & MAIL_HASH_OPEN_FLAG_CREATE) == 0) {
+		/* we don't want to create the hash */
+		mail_hash_free(&hash);
+		return NULL;
+	}
 	if (ret == 0) {
 		/* not found or broken, recreate it */
 		ret = mail_hash_reset(hash);
@@ -547,6 +556,7 @@ void mail_hash_free(struct mail_hash **_hash)
 	*_hash = NULL;
 
 	mail_hash_file_close(hash);
+	i_free(hash->filepath);
 	i_free(hash);
 }
 
@@ -857,11 +867,11 @@ int mail_hash_remove_idx(struct mail_hash *hash, uint32_t idx, const void *key)
 				"Tried to remove non-existing key");
 			return -1;
 		}
-	}
 
-	if (mail_hash_mark_update(hash, idx_p, sizeof(*idx_p)) < 0)
-		return -1;
-	*idx_p = rec->next_idx;
+		if (mail_hash_mark_update(hash, idx_p, sizeof(*idx_p)) < 0)
+			return -1;
+		*idx_p = rec->next_idx;
+	}
 
 	if (rec->uid != 0) {
 		if (hash->hdr->message_count == 0) {

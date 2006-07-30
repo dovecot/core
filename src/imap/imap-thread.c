@@ -177,6 +177,8 @@ struct imap_thread_mailbox {
 static void (*next_hook_mailbox_opened)(struct mailbox *box);
 static unsigned int imap_thread_storage_module_id;
 
+static void imap_thread_hash_init(struct mailbox *box, bool create);
+
 static int mail_thread_input(struct thread_context *ctx, struct mail *mail);
 static int mail_thread_finish(struct thread_context *ctx);
 
@@ -412,11 +414,13 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 			(struct index_mailbox *)client->mailbox;
 
 		ctx->msgid_hash =
-			mail_hash_open_or_create(ibox->index, ".thread",
-						 sizeof(struct mail_thread_rec),
-						 mail_thread_rec_hash,
-						 mail_thread_rec_msgid_cmp,
-						 tbox, TRUE);
+			mail_hash_open(ibox->index, ".thread",
+				       MAIL_HASH_OPEN_FLAG_CREATE |
+				       MAIL_HASH_OPEN_FLAG_IN_MEMORY,
+				       sizeof(struct mail_thread_rec),
+				       mail_thread_rec_hash,
+				       mail_thread_rec_msgid_cmp,
+				       tbox);
 	}
 
 	/* initialize searching */
@@ -456,6 +460,9 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 
 	if (type != MAIL_THREAD_REFERENCES)
 		i_fatal("Only REFERENCES threading supported");
+
+	if (tbox->msgid_hash == NULL)
+		imap_thread_hash_init(cmd->client->mailbox, TRUE);
 
 	headers_ctx = mailbox_header_lookup_init(cmd->client->mailbox,
 						 wanted_headers);
@@ -1978,29 +1985,41 @@ static int imap_thread_mailbox_close(struct mailbox *box)
 	return tbox->super.close(box);
 }
 
-static void imap_thread_mailbox_opened(struct mailbox *box)
+static void imap_thread_hash_init(struct mailbox *box, bool create)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
-	struct imap_thread_mailbox *tbox;
+	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(box);
 	uint32_t ext_id;
 
-	tbox = i_new(struct imap_thread_mailbox, 1);
-	tbox->super = box->v;
+	i_assert(tbox->msgid_hash == NULL);
 
 	tbox->msgid_hash =
-		mail_hash_open_or_create(ibox->index, ".thread",
-					 sizeof(struct mail_thread_rec),
-					 mail_thread_rec_hash,
-					 mail_thread_rec_msgid_cmp, tbox,
-					 FALSE);
+		mail_hash_open(ibox->index, ".thread", create ?
+			       MAIL_HASH_OPEN_FLAG_CREATE : 0,
+			       sizeof(struct mail_thread_rec),
+			       mail_thread_rec_hash,
+			       mail_thread_rec_msgid_cmp, tbox);
+	if (tbox->msgid_hash == NULL)
+		return;
 
 	ext_id = mail_index_ext_register(ibox->index, "thread", 0, 0, 0);
 	mail_index_register_expunge_handler(ibox->index, ext_id,
 					    imap_thread_expunge_handler,
 					    tbox, TRUE);
 	box->v.close = imap_thread_mailbox_close;
+}
+
+static void imap_thread_mailbox_opened(struct mailbox *box)
+{
+	struct imap_thread_mailbox *tbox;
+
+	tbox = i_new(struct imap_thread_mailbox, 1);
+	tbox->super = box->v;
+
 	array_idx_set(&box->module_contexts,
 		      imap_thread_storage_module_id, &tbox);
+
+	imap_thread_hash_init(box, FALSE);
 }
 
 void imap_thread_init(void)

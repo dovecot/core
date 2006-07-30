@@ -52,6 +52,11 @@ struct mail_hash_record {
 	/* user_data[] */
 };
 
+enum mail_hash_open_flags {
+	MAIL_HASH_OPEN_FLAG_CREATE	= 0x01,
+	MAIL_HASH_OPEN_FLAG_IN_MEMORY	= 0x02
+};
+
 /* Returns hash code. */
 typedef unsigned int hash_ctx_callback_t(const void *p, void *context);
 /* Returns 0 if the pointers are equal. */
@@ -59,10 +64,11 @@ typedef bool hash_ctx_cmp_callback_t(const void *key, const void *data,
 				     void *context);
 
 struct mail_hash *
-mail_hash_open_or_create(struct mail_index *index, const char *suffix,
-			 unsigned int record_size, hash_callback_t *hash_cb,
-			 hash_ctx_cmp_callback_t *key_compare_cb,
-			 void *context, bool in_memory);
+mail_hash_open(struct mail_index *index, const char *suffix,
+	       enum mail_hash_open_flags flags,
+	       unsigned int record_size, hash_callback_t *hash_cb,
+	       hash_ctx_cmp_callback_t *key_compare_cb,
+	       void *context);
 void mail_hash_free(struct mail_hash **hash);
 
 int mail_hash_reset(struct mail_hash *hash);
