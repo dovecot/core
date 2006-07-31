@@ -174,7 +174,7 @@ static void expire_run(void)
 		if (expire_box == NULL) {
 			/* we're no longer expunging old messages from here */
 			dict_unset(trans, key);
-		} else if (now < strtoul(value, NULL, 10)) {
+		} else if (time(NULL) < (time_t)strtoul(value, NULL, 10)) {
 			/* this and the rest of the timestamps are in future,
 			   so stop processing */
 			t_pop();
