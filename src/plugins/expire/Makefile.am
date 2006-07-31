@@ -1,3 +1,5 @@
+pkglibexecdir = $(libexecdir)/dovecot
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-dict \
@@ -21,7 +23,7 @@ noinst_HEADERS = \
 	expire-env.h \
 	expire-plugin.h
 
-noinst_PROGRAMS = expire-tool
+pkglibexec_PROGRAMS = expire-tool
 
 expire_tool_SOURCES = \
 	auth-client.c \

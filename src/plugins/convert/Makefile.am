@@ -1,3 +1,5 @@
+pkglibexecdir = $(libexecdir)/dovecot
+
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail \
@@ -18,7 +20,7 @@ noinst_HEADERS = \
 	convert-storage.h \
 	convert-plugin.h
 
-noinst_PROGRAMS = convert-tool
+pkglibexec_PROGRAMS = convert-tool
 
 convert_tool_SOURCES = \
 	convert-tool.c
