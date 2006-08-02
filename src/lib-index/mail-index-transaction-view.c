@@ -55,10 +55,10 @@ _tview_get_header(struct mail_index_view *view)
 			i_assert(recs[count-1].uid >= hdr->next_uid);
 			tview->hdr = *hdr;
 			tview->hdr.next_uid = recs[count-1].uid + 1;
-			hdr = &view->hdr;
+			hdr = &tview->hdr;
 		}
 	}
-	return &tview->hdr;
+	return hdr;
 }
 
 static int _tview_lookup_full(struct mail_index_view *view, uint32_t seq,
