@@ -460,8 +460,9 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 				return 0;
 
 			data = i_stream_get_data(ctx->input, &size);
-			if (o_stream_send(ctx->output, data, size) < 0) {
-				write_error(ctx, ctx->output->stream_errno);
+			if (o_stream_send(ctx->body_output, data, size) < 0) {
+				write_error(ctx,
+					    ctx->body_output->stream_errno);
 				return -1;
 			}
 			ctx->last_char = data[size-1];
@@ -473,8 +474,9 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 			   otherwise some mbox parsers don't like the result.
 			   this makes it impossible to save a mail that doesn't
 			   end with LF though. */
-			if (o_stream_send(ctx->output, "\n", 1) < 0) {
-				write_error(ctx, ctx->output->stream_errno);
+			if (o_stream_send(ctx->body_output, "\n", 1) < 0) {
+				write_error(ctx,
+					    ctx->body_output->stream_errno);
 				return -1;
 			}
 		}
