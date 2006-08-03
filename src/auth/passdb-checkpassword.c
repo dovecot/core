@@ -42,16 +42,16 @@ struct chkpw_auth_request {
 
 static void checkpassword_request_close(struct chkpw_auth_request *request)
 {
+	if (request->io_in != NULL)
+		io_remove(&request->io_in);
+	if (request->io_out != NULL)
+		io_remove(&request->io_out);
+
 	if (request->fd_in != -1) {
 		if (close(request->fd_in) < 0)
 			i_error("checkpassword: close() failed: %m");
 		request->fd_in = -1;
 	}
-	if (request->io_in != NULL)
-		io_remove(&request->io_in);
-
-	if (request->io_out != NULL)
-		io_remove(&request->io_out);
 	if (request->fd_out != -1) {
 		if (close(request->fd_out) < 0)
 			i_error("checkpassword: close() failed: %m");
