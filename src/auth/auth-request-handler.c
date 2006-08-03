@@ -396,6 +396,10 @@ static void userdb_callback(struct auth_stream_reply *reply,
 	if (reply == NULL)
 		str_printfa(str, "NOTFOUND\t%u", request->id);
 	else {
+		if (request->master_user != NULL) {
+			auth_stream_reply_add(reply, "master_user",
+					      request->master_user);
+		}
 		str_printfa(str, "USER\t%u\t", request->id);
 		str_append(str, auth_stream_reply_export(reply));
 	}
