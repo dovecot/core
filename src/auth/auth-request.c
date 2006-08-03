@@ -263,6 +263,9 @@ static void auth_request_save_cache(struct auth_request *request,
 
 static bool auth_request_master_lookup_finish(struct auth_request *request)
 {
+	if (request->passdb_failure)
+		return TRUE;
+
 	/* master login successful. update user and master_user variables. */
 	auth_request_log_info(request, "passdb", "Master user logging in as %s",
 			      request->requested_login_user);
