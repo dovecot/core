@@ -31,7 +31,9 @@ struct acl_backend {
 
 	struct mail_storage *storage;
 	struct acl_cache *cache;
-	struct acl_mask *default_rights;
+
+	struct acl_object *default_aclobj;
+	struct acl_mask *default_aclmask;
 
 	struct acl_backend_vfuncs v;
 };

@@ -50,7 +50,7 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 
 	storage_owner = owner_username != NULL &&
 		strcmp(acl_username, owner_username) == 0;
-	backend->default_rights =
+	backend->default_aclmask =
 		acl_cache_mask_init(backend->cache, backend->pool,
 				    storage_owner ? owner_mailbox_rights :
 				    non_owner_mailbox_rights);
@@ -63,6 +63,8 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 		qsort(backend->groups, group_count, sizeof(const char *),
 		      strcmp_p);
 	}
+
+	backend->default_aclobj = acl_object_init_from_name(backend, "");
 	return backend;
 }
 
@@ -72,6 +74,7 @@ void acl_backend_deinit(struct acl_backend **_backend)
 
 	*_backend = NULL;
 
+	acl_object_deinit(&backend->default_aclobj);
 	acl_cache_deinit(&backend->cache);
 	backend->v.deinit(backend);
 }

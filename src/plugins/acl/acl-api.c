@@ -31,22 +31,39 @@ void acl_object_deinit(struct acl_object **_aclobj)
 	aclobj->backend->v.object_deinit(aclobj);
 }
 
+static int acl_backend_get_default_rights(struct acl_backend *backend,
+					  const struct acl_mask **mask_r)
+{
+	if (backend->v.object_refresh_cache(backend->default_aclobj) < 0)
+		return -1;
+
+	*mask_r = acl_cache_get_my_rights(backend->cache, "");
+	if (*mask_r == NULL)
+		*mask_r = backend->default_aclmask;
+	return 0;
+}
+
 int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 {
+	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *have_mask;
 	unsigned int mask_idx;
 
 	if (*aclobj->name == '\0') {
 		/* we want to look up default rights */
-		have_mask = aclobj->backend->default_rights;
+		if (acl_backend_get_default_rights(backend, &have_mask) < 0)
+			return -1;
 	} else {
-		if (aclobj->backend->v.object_refresh_cache(aclobj) < 0)
+		if (backend->v.object_refresh_cache(aclobj) < 0)
 			return -1;
 
-		have_mask = acl_cache_get_my_rights(aclobj->backend->cache,
+		have_mask = acl_cache_get_my_rights(backend->cache,
 						    aclobj->name);
-		if (have_mask == NULL)
-			have_mask = aclobj->backend->default_rights;
+		if (have_mask == NULL) {
+			if (acl_backend_get_default_rights(backend,
+							   &have_mask) < 0)
+				return -1;
+		}
 	}
 
 	mask_idx = right_idx / CHAR_BIT;
@@ -58,6 +75,7 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
                              const char *const **rights_r)
 {
+	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *mask;
 	const char *const *names;
 	const char **buf, **rights;
@@ -65,21 +83,24 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 
 	if (*aclobj->name == '\0') {
 		/* we want to look up default rights */
-		mask = aclobj->backend->default_rights;
+		if (acl_backend_get_default_rights(backend, &mask) < 0)
+			return -1;
 	} else {
-		if (aclobj->backend->v.object_refresh_cache(aclobj) < 0)
+		if (backend->v.object_refresh_cache(aclobj) < 0)
 			return -1;
 
-		mask = acl_cache_get_my_rights(aclobj->backend->cache,
+		mask = acl_cache_get_my_rights(backend->cache,
 					       aclobj->name);
-		if (mask == NULL)
-			mask = aclobj->backend->default_rights;
+		if (mask == NULL) {
+			if (acl_backend_get_default_rights(backend, &mask) < 0)
+				return -1;
+		}
 	}
 
 	if (!pool->datastack_pool)
 		t_push();
 
-	names = acl_cache_get_names(aclobj->backend->cache, &names_count);
+	names = acl_cache_get_names(backend->cache, &names_count);
 	buf = t_new(const char *, (mask->size * CHAR_BIT) + 1);
 	count = 0;
 	for (i = 0, name_idx = 0; i < mask->size; i++) {
