@@ -80,7 +80,8 @@ static void acl_cache_free_object_cache(struct acl_object_cache *obj_cache)
 		if (obj_cache->my_neg_rights[i] != NULL)
 			acl_cache_mask_deinit(&obj_cache->my_neg_rights[i]);
 	}
-	if (obj_cache->my_current_rights != NULL)
+	if (obj_cache->my_current_rights != NULL &&
+	    obj_cache->my_current_rights != &negative_cache_entry)
 		acl_cache_mask_deinit(&obj_cache->my_current_rights);
 	i_free(obj_cache->name);
 	i_free(obj_cache);
@@ -241,7 +242,10 @@ acl_cache_update_rights_mask(struct acl_cache *cache,
 
 	if (changed && obj_cache->my_current_rights != NULL) {
 		/* current rights need to be recalculated */
-		acl_cache_mask_deinit(&obj_cache->my_current_rights);
+		if (obj_cache->my_current_rights == &negative_cache_entry)
+			obj_cache->my_current_rights = NULL;
+		else
+			acl_cache_mask_deinit(&obj_cache->my_current_rights);
 	}
 }
 
