@@ -8,6 +8,7 @@
 #include "str.h"
 #include "message-send.h"
 #include "message-size.h"
+#include "message-parser.h"
 #include "imap-date.h"
 #include "commands.h"
 #include "imap-fetch.h"
@@ -15,7 +16,7 @@
 
 #include <stdlib.h>
 
-const struct imap_fetch_handler default_handlers[7];
+const struct imap_fetch_handler default_handlers[8];
 static buffer_t *fetch_handlers = NULL;
 
 static int imap_fetch_handler_cmp(const void *p1, const void *p2)
@@ -516,12 +517,51 @@ static bool fetch_uid_init(struct imap_fetch_context *ctx __attr_unused__,
 	return TRUE;
 }
 
-const struct imap_fetch_handler default_handlers[7] = {
+static uoff_t textsize_count(const struct message_part *part)
+{
+	uoff_t size = 0;
+
+	for (; part != NULL; part = part->next) {
+		if (part->flags & (MESSAGE_PART_FLAG_TEXT |
+				   MESSAGE_PART_FLAG_MESSAGE_RFC822)) {
+			size += part->header_size.physical_size +
+				part->body_size.physical_size;
+		}
+		if (part->children != NULL)
+			size += textsize_count(part->children);
+	}
+	return size;
+}
+
+static int fetch_textsize(struct imap_fetch_context *ctx, struct mail *mail,
+			  void *context __attr_unused__)
+{
+	const struct message_part *part;
+
+	part = mail_get_parts(mail);
+	if (part == NULL)
+		return -1;
+
+	str_printfa(ctx->cur_str, "TEXTSIZE %"PRIuUOFF_T" ",
+		    textsize_count(part));
+	return 1;
+}
+
+static bool fetch_textsize_init(struct imap_fetch_context *ctx __attr_unused__,
+				const char *name __attr_unused__,
+				struct imap_arg **args __attr_unused__)
+{
+	imap_fetch_add_handler(ctx, TRUE, FALSE, fetch_textsize, NULL);
+	return TRUE;
+}
+
+const struct imap_fetch_handler default_handlers[8] = {
 	{ "BODY", fetch_body_init },
 	{ "BODYSTRUCTURE", fetch_bodystructure_init },
 	{ "ENVELOPE", fetch_envelope_init },
 	{ "FLAGS", fetch_flags_init },
 	{ "INTERNALDATE", fetch_internaldate_init },
 	{ "RFC822", fetch_rfc822_init },
+	{ "TEXTSIZE", fetch_textsize_init },
 	{ "UID", fetch_uid_init }
 };
