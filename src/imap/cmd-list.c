@@ -261,11 +261,11 @@ list_namespace_init(struct client_command_context *cmd,
 		}
 	}
 
-	/* INBOX check is done only in the beginning of mask.
-	   Reference parameter doesn't affect it. */
+	/* INBOX check is done only in the beginning of mask. */
 	ctx->glob = imap_match_init(cmd->pool, ctx->mask,
                                     cur_mask == ctx->mask, ns->sep);
-	ctx->match_inbox = imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES;
+	ctx->match_inbox = *cur_ref != '\0' ? FALSE :
+		imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES;
 
 	if (*cur_ns_prefix != '\0') {
 		/* namespace prefix still wasn't completely skipped over.
