@@ -123,7 +123,10 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 	name_str = t_str_new(256);
 	while ((list = mail_storage_mailbox_list_next(ctx->list_ctx)) != NULL) {
 		str_truncate(name_str, 0);
-		str_append(name_str, ctx->ns->prefix);
+		/* when listing INBOX from inbox=yes namespace, don't insert
+		   the namespace prefix */
+		if (strcasecmp(list->name, "INBOX") != 0 || !ctx->ns->inbox)
+			str_append(name_str, ctx->ns->prefix);
 		str_append(name_str, list->name);
 
 		if (ctx->ns->sep != ctx->ns->real_sep) {
