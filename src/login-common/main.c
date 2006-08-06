@@ -240,7 +240,7 @@ static void main_init(void)
         verbose_auth = getenv("VERBOSE_AUTH") != NULL;
 
 	value = getenv("MAX_CONNECTIONS");
-	max_connections = value == NULL ? 0 : strtoul(value, NULL, 10);
+	max_connections = value == NULL ? 1 : strtoul(value, NULL, 10);
 
 	greeting = getenv("GREETING");
 	if (greeting == NULL)
