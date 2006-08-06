@@ -116,10 +116,7 @@ dbox_mailbox_list_init(struct mail_storage *storage,
 		/* mask overrides reference */
 	} else if (*ref != '\0') {
 		/* merge reference and mask */
-		if (ref[strlen(ref)-1] == '/')
-			mask = t_strconcat(ref, mask, NULL);
-		else
-			mask = t_strconcat(ref, "/", mask, NULL);
+		mask = t_strconcat(ref, mask, NULL);
 	}
 
 	if ((flags & MAILBOX_LIST_SUBSCRIBED) != 0) {

@@ -282,17 +282,7 @@ maildir_mailbox_list_init(struct mail_storage *storage,
 
 	if (*ref != '\0') {
 		/* join reference + mask */
-		if (*mask == MAILDIR_FS_SEP &&
-		    ref[strlen(ref)-1] == MAILDIR_FS_SEP) {
-			/* A. .B -> A.B */
-			mask++;
-		} else if (*mask != MAILDIR_FS_SEP &&
-			   ref[strlen(ref)-1] != MAILDIR_FS_SEP) {
-			/* A B -> A.B */
-			mask = t_strconcat(ref, MAILDIR_FS_SEP_S, mask, NULL);
-		} else {
-			mask = t_strconcat(ref, mask, NULL);
-		}
+		mask = t_strconcat(ref, mask, NULL);
 	}
 
 	glob = imap_match_init(pool, mask, TRUE, MAILDIR_FS_SEP);
