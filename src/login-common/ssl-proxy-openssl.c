@@ -68,7 +68,6 @@ static struct hash_table *ssl_proxies;
 static struct ssl_parameters ssl_params;
 
 static void plain_read(void *context);
-static void plain_write(void *context);
 static void ssl_read(struct ssl_proxy *proxy);
 static void ssl_write(struct ssl_proxy *proxy);
 static void ssl_step(void *context);
