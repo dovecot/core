@@ -24,10 +24,10 @@
 #  define DEV_BSIZE 512
 #endif
 
-/* This most likely should have been defined by above headers already, but
-   in case some OS has less than perfect emulation lets try to handle it. */
+/* Older sys/quota.h doesn't define _LINUX_QUOTA_VERSION at all, which means
+   it supports only v1 quota */
 #ifndef _LINUX_QUOTA_VERSION
-#  define _LINUX_QUOTA_VERSION 2
+#  define _LINUX_QUOTA_VERSION 1
 #endif
 
 struct fs_quota_mountpoint {
