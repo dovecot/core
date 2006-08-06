@@ -347,7 +347,8 @@ void mail_process_exec(const char *protocol, const char *section)
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 }
 
-static void nfs_warn_if_found(const char *mail, const char *home)
+static void nfs_warn_if_found(const char *mail, const char *chroot,
+			      const char *home)
 {
 	struct mountpoint point;
 	const char *path;
@@ -372,6 +373,8 @@ static void nfs_warn_if_found(const char *mail, const char *home)
 			}
 		}
 		path = t_strcut(path, ':');
+		if (*chroot != '\0')
+			path = t_strconcat(chroot, "/", path, NULL);
 	}
 
 	if (mountpoint_get(path, pool_datastack_create(), &point) <= 0)
@@ -456,11 +459,19 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	if (*chroot_dir == '\0' && *set->mail_chroot != '\0')
 		chroot_dir = set->mail_chroot;
 
-	if (*chroot_dir != '\0' && !validate_chroot(set, chroot_dir)) {
-		i_error("Invalid chroot directory '%s' (user %s) "
-			"(see valid_chroot_dirs in config file)",
-			chroot_dir, user);
-		return FALSE;
+	if (*chroot_dir != '\0') {
+		if (!validate_chroot(set, chroot_dir)) {
+			i_error("Invalid chroot directory '%s' (user %s) "
+				"(see valid_chroot_dirs in config file)",
+				chroot_dir, user);
+			return FALSE;
+		}
+		if (set->mail_drop_priv_before_exec) {
+			i_error("Can't chroot to directory '%s' (user %s) "
+				"with mail_drop_priv_before_exec=yes",
+				chroot_dir, user);
+			return FALSE;
+		}
 	}
 
 	if (!dump_capability)
@@ -608,7 +619,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	if (nfs_check) {
 		if (*chroot_dir != '\0')
 			home_dir = t_strconcat(chroot_dir, "/", home_dir, NULL);
-		nfs_warn_if_found(getenv("MAIL"), home_dir);
+		nfs_warn_if_found(getenv("MAIL"), chroot_dir, home_dir);
 	}
 
 	env_put("LOGGED_IN=1");

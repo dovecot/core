@@ -657,6 +657,7 @@ static bool get_imap_capability(struct settings *set)
 				"killed with signal %d", WTERMSIG(status));
 		} else {
 			i_error("imap dump-capability process returned %d",
+				WIFEXITED(status) ? WEXITSTATUS(status) :
 				status);
 		}
 		return FALSE;
@@ -701,26 +702,6 @@ static bool settings_verify(struct settings *set)
 			t_strcut(set->mail_executable, ' '));
 		return FALSE;
 	}
-
-#ifdef HAVE_MODULES
-	if (*set->mail_plugins != '\0' &&
-	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
-		i_error("Can't access mail module directory: %s: %m",
-			set->mail_plugin_dir);
-		return FALSE;
-	}
-	if (*set->mail_plugins != '\0' && set->protocol == MAIL_PROTOCOL_IMAP &&
-	    *set->imap_capability == '\0') {
-		if (!get_imap_capability(set))
-			return FALSE;
-	}
-#else
-	if (*set->mail_plugins != '\0') {
-		i_error("Module support wasn't built into Dovecot, "
-			"can't load modules: %s", set->mail_plugins);
-		return FALSE;
-	}
-#endif
 
 	if (*set->log_path != '\0' && access(set->log_path, W_OK) < 0) {
 		dir = get_directory(set->log_path);
@@ -835,6 +816,11 @@ static bool settings_verify(struct settings *set)
 		i_error("first_valid_gid can't be larger than last_valid_gid");
 		return FALSE;
 	}
+	if (set->mail_drop_priv_before_exec && *set->mail_chroot != '\0') {
+		i_error("mail_drop_priv_before_exec=yes and mail_chroot "
+			"don't work together");
+		return FALSE;
+	}
 
 	if (access(t_strcut(set->login_executable, ' '), X_OK) < 0) {
 		i_error("Can't use login executable %s: %m",
@@ -851,6 +837,25 @@ static bool settings_verify(struct settings *set)
 		return FALSE;
 	}
 
+#ifdef HAVE_MODULES
+	if (*set->mail_plugins != '\0' &&
+	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
+		i_error("Can't access mail module directory: %s: %m",
+			set->mail_plugin_dir);
+		return FALSE;
+	}
+	if (*set->mail_plugins != '\0' && set->protocol == MAIL_PROTOCOL_IMAP &&
+	    *set->imap_capability == '\0') {
+		if (!get_imap_capability(set))
+			return FALSE;
+	}
+#else
+	if (*set->mail_plugins != '\0') {
+		i_error("Module support wasn't built into Dovecot, "
+			"can't load modules: %s", set->mail_plugins);
+		return FALSE;
+	}
+#endif
 	return TRUE;
 }
 
