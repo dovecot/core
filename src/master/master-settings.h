@@ -54,7 +54,7 @@ struct settings {
 	unsigned int login_process_size;
 	unsigned int login_processes_count;
 	unsigned int login_max_processes_count;
-	unsigned int login_max_logging_users;
+	unsigned int login_max_connections;
 
 	/* mail */
 	const char *valid_chroot_dirs;

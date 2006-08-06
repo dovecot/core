@@ -9,10 +9,23 @@
 
 /* Increase the version number every time master_login_request
    (or something else) is changed. */
-#define MASTER_LOGIN_PROTOCOL_VERSION 1
+#define MASTER_LOGIN_PROTOCOL_VERSION 2
+
+enum master_login_state {
+	/* process is accepting new connections */
+	LOGIN_STATE_LISTENING = 0,
+	/* process isn't accepting new connections, but it'd be able to kill
+	   some connections which haven't logged in yet */
+	LOGIN_STATE_FULL_PRELOGINS,
+	/* process is handling only logged in users */
+	LOGIN_STATE_FULL_LOGINS,
+
+	LOGIN_STATE_COUNT
+};
 
 struct master_login_request {
 	uint32_t version;
+	/* if fd == -1, tag is used as master_login_state */
 	uint32_t tag;
 
 	uint32_t auth_pid;

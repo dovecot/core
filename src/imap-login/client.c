@@ -121,7 +121,8 @@ static void client_start_tls(struct imap_client *client)
 			       &client->common.proxy);
 	if (fd_ssl == -1) {
 		client_send_line(client, "* BYE TLS initialization failed.");
-		client_destroy(client, "TLS initialization failed.");
+		client_destroy(client,
+			       "Disconnected: TLS initialization failed.");
 		return;
 	}
 
@@ -358,16 +359,18 @@ static void client_destroy_oldest(void)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 	struct imap_client *destroy_buf[CLIENT_DESTROY_OLDEST_COUNT];
-	int i;
+	unsigned int i, destroy_count;
 
 	/* find the oldest clients and put them to destroy-buffer */
 	memset(destroy_buf, 0, sizeof(destroy_buf));
 
+	destroy_count = max_connections > CLIENT_DESTROY_OLDEST_COUNT*2 ?
+		CLIENT_DESTROY_OLDEST_COUNT : I_MIN(max_connections/2, 1);
 	iter = hash_iterate_init(clients);
 	while (hash_iterate(iter, &key, &value)) {
 		struct imap_client *client = key;
 
-		for (i = 0; i < CLIENT_DESTROY_OLDEST_COUNT; i++) {
+		for (i = 0; i < destroy_count; i++) {
 			if (destroy_buf[i] == NULL ||
 			    destroy_buf[i]->created > client->created) {
 				/* @UNSAFE */
@@ -382,7 +385,7 @@ static void client_destroy_oldest(void)
 	hash_iterate_deinit(iter);
 
 	/* then kill them */
-	for (i = 0; i < CLIENT_DESTROY_OLDEST_COUNT; i++) {
+	for (i = 0; i < destroy_count; i++) {
 		if (destroy_buf[i] == NULL)
 			break;
 
@@ -411,12 +414,22 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip)
 {
 	struct imap_client *client;
+	unsigned int current_count;
 
-	if (max_logging_users > CLIENT_DESTROY_OLDEST_COUNT &&
-	    hash_size(clients) >= max_logging_users) {
-		/* reached max. users count, kill few of the
-		   oldest connections */
-		client_destroy_oldest();
+	if (!process_per_connection) {
+		current_count = hash_size(clients) +
+			ssl_proxy_get_count() + login_proxy_get_count();
+		if (current_count >= max_connections) {
+			/* already reached max. users count, kill few of the
+			   oldest connections. this happens when we've maxed
+			   out the login process count also. */
+			client_destroy_oldest();
+		}
+		if (current_count + 1 >= max_connections) {
+			/* after this client we've reached max users count,
+			   so stop listening for more */
+			main_listen_stop();
+		}
 	}
 
 	/* always use nonblocking I/O */
@@ -444,7 +457,6 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
                 client_send_greeting(client);
 	client_set_title(client);
 
-	client->created = TRUE;
 	return &client->common;
 }
 
@@ -500,6 +512,8 @@ void client_destroy(struct imap_client *client, const char *reason)
 		client->common.proxy = NULL;
 	}
 	client_unref(client);
+
+	main_listen_start();
 }
 
 void client_destroy_internal_failure(struct imap_client *client)
@@ -617,7 +631,7 @@ void clients_destroy_all(void)
 	while (hash_iterate(iter, &key, &value)) {
 		struct imap_client *client = key;
 
-		client_destroy(client, NULL);
+		client_destroy(client, "Disconnected: Shutting down");
 	}
 	hash_iterate_deinit(iter);
 }

@@ -26,6 +26,13 @@ static void request_handle(struct master_login_reply *reply)
 	struct client *client;
 	master_callback_t *master_callback;
 
+	if (reply->tag == 0 && !process_per_connection) {
+		/* this means we have to start listening again.
+		   we've reached maximum number of login processes. */
+		main_listen_start();
+		return;
+	}
+
 	client = hash_lookup(master_requests, POINTER_CAST(reply->tag));
 	if (client == NULL)
 		i_fatal("Master sent reply with unknown tag %u", reply->tag);
@@ -73,7 +80,7 @@ void master_request_abort(struct client *client)
 	client->master_callback = NULL;
 }
 
-void master_notify_finished(void)
+void master_notify_state_change(enum master_login_state state)
 {
 	struct master_login_request req;
 
@@ -82,6 +89,7 @@ void master_notify_finished(void)
 
 	memset(&req, 0, sizeof(req));
 	req.version = MASTER_LOGIN_PROTOCOL_VERSION;
+	req.tag = state;
 
 	/* sending -1 as fd does the notification */
 	if (fd_send(master_fd, -1, &req, sizeof(req)) != sizeof(req))
@@ -98,7 +106,8 @@ void master_close(void)
 		i_fatal("close(master) failed: %m");
 	master_fd = -1;
 
-        main_close_listen();
+	closing_down = TRUE;
+        main_listen_stop();
 	main_unref();
 
         /* may call this function again through main_unref() */
@@ -223,7 +232,7 @@ static void master_input(void *context __attr_unused__)
 	master_pos = 0;
 }
 
-void master_init(int fd, bool notify)
+void master_init(int fd)
 {
 	main_ref();
 
@@ -233,12 +242,6 @@ void master_init(int fd, bool notify)
 
         master_pos = 0;
 	io_master = io_add(master_fd, IO_READ, master_input, NULL);
-
-	if (notify) {
-		/* just a note to master that we're ok. if we die before,
-		   master should shutdown itself. */
-		master_notify_finished();
-	}
 }
 
 void master_deinit(void)

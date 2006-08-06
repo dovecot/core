@@ -22,15 +22,16 @@ bool disable_plaintext_auth, process_per_connection, greeting_capability;
 bool verbose_proctitle, verbose_ssl, verbose_auth;
 const char *greeting, *log_format;
 const char *const *log_format_elements;
-unsigned int max_logging_users;
+unsigned int max_connections;
 unsigned int login_process_uid;
 struct auth_client *auth_client;
+bool closing_down;
 
 static const char *process_name;
 static struct ioloop *ioloop;
 static struct io *io_listen, *io_ssl_listen;
 static int main_refcount;
-static bool is_inetd, closing_down;
+static bool is_inetd, listening;
 
 void main_ref(void)
 {
@@ -47,27 +48,6 @@ void main_unref(void)
 		   to master process */
 		master_close();
 	}
-}
-
-void main_close_listen(void)
-{
-	if (closing_down)
-		return;
-
-	if (io_listen != NULL) {
-		io_remove(&io_listen);
-		if (close(LOGIN_LISTEN_FD) < 0)
-			i_fatal("close(listen) failed: %m");
-	}
-
-	if (io_ssl_listen != NULL) {
-		io_remove(&io_ssl_listen);
-		if (close(LOGIN_SSL_LISTEN_FD) < 0)
-			i_fatal("close(ssl_listen) failed: %m");
-	}
-
-	closing_down = TRUE;
-	master_notify_finished();
 }
 
 static void sig_die(int signo, void *context __attr_unused__)
@@ -91,13 +71,15 @@ static void login_accept(void *context __attr_unused__)
 		return;
 	}
 
-	if (process_per_connection)
-		main_close_listen();
-
 	if (net_getsockname(fd, &local_ip, NULL) < 0)
 		memset(&local_ip, 0, sizeof(local_ip));
 
 	(void)client_create(fd, FALSE, &local_ip, &ip);
+
+	if (process_per_connection) {
+		closing_down = TRUE;
+		main_listen_stop();
+	}
 }
 
 static void login_accept_ssl(void *context __attr_unused__)
@@ -114,8 +96,6 @@ static void login_accept_ssl(void *context __attr_unused__)
 		return;
 	}
 
-	if (process_per_connection)
-		main_close_listen();
 	if (net_getsockname(fd, &local_ip, NULL) < 0)
 		memset(&local_ip, 0, sizeof(local_ip));
 
@@ -126,6 +106,82 @@ static void login_accept_ssl(void *context __attr_unused__)
 		client = client_create(fd_ssl, TRUE, &local_ip, &ip);
 		client->proxy = proxy;
 	}
+
+	if (process_per_connection) {
+		closing_down = TRUE;
+		main_listen_stop();
+	}
+}
+
+void main_listen_start(void)
+{
+	unsigned int current_count;
+
+	if (listening)
+		return;
+	if (closing_down) {
+		/* typically happens only with
+		   login_process_per_connection=yes after client logs in */
+		master_notify_state_change(LOGIN_STATE_FULL_LOGINS);
+		return;
+	}
+
+	current_count = ssl_proxy_get_count() + login_proxy_get_count();
+	if (current_count >= max_connections) {
+		/* can't accept any more connections until existing proxies
+		   get destroyed */
+		return;
+	}
+
+	if (net_getsockname(LOGIN_LISTEN_FD, NULL, NULL) == 0) {
+		io_listen = io_add(LOGIN_LISTEN_FD, IO_READ,
+				   login_accept, NULL);
+	}
+
+	if (net_getsockname(LOGIN_SSL_LISTEN_FD, NULL, NULL) == 0) {
+		if (!ssl_initialized) {
+			/* this shouldn't happen, master should have
+			   disabled the ssl socket.. */
+			i_fatal("BUG: SSL initialization parameters not given "
+				"while they should have been");
+		}
+
+		io_ssl_listen = io_add(LOGIN_SSL_LISTEN_FD, IO_READ,
+				       login_accept_ssl, NULL);
+	}
+	listening = TRUE;
+
+	/* the initial notification tells master that we're ok. if we die
+	   before sending it, the master should shutdown itself. */
+	master_notify_state_change(LOGIN_STATE_LISTENING);
+}
+
+void main_listen_stop(void)
+{
+	if (!listening)
+		return;
+
+	listening = FALSE;
+	if (io_listen != NULL) {
+		io_remove(&io_listen);
+		if (closing_down) {
+			if (close(LOGIN_LISTEN_FD) < 0)
+				i_fatal("close(listen) failed: %m");
+		}
+	}
+
+	if (io_ssl_listen != NULL) {
+		io_remove(&io_ssl_listen);
+		if (closing_down) {
+			if (close(LOGIN_SSL_LISTEN_FD) < 0)
+				i_fatal("close(ssl_listen) failed: %m");
+		}
+	}
+
+	listening = FALSE;
+	master_notify_state_change(clients_get_count() == 0 ?
+				   LOGIN_STATE_FULL_LOGINS :
+				   LOGIN_STATE_FULL_PRELOGINS);
 }
 
 static void auth_connect_notify(struct auth_client *client __attr_unused__,
@@ -183,8 +239,8 @@ static void main_init(void)
         verbose_ssl = getenv("VERBOSE_SSL") != NULL;
         verbose_auth = getenv("VERBOSE_AUTH") != NULL;
 
-	value = getenv("MAX_LOGGING_USERS");
-	max_logging_users = value == NULL ? 0 : strtoul(value, NULL, 10);
+	value = getenv("MAX_CONNECTIONS");
+	max_connections = value == NULL ? 0 : strtoul(value, NULL, 10);
 
 	greeting = getenv("GREETING");
 	if (greeting == NULL)
@@ -222,27 +278,8 @@ static void main_init(void)
 	io_listen = io_ssl_listen = NULL;
 
 	if (!is_inetd) {
-		if (net_getsockname(LOGIN_LISTEN_FD, NULL, NULL) == 0) {
-			io_listen = io_add(LOGIN_LISTEN_FD, IO_READ,
-					   login_accept, NULL);
-		}
-
-		if (net_getsockname(LOGIN_SSL_LISTEN_FD, NULL, NULL) == 0) {
-			if (!ssl_initialized) {
-				/* this shouldn't happen, master should have
-				   disabled the ssl socket.. */
-				i_fatal("BUG: SSL initialization parameters "
-					"not given while they should have "
-					"been");
-			}
-
-			io_ssl_listen = io_add(LOGIN_SSL_LISTEN_FD, IO_READ,
-					       login_accept_ssl, NULL);
-		}
-
-		/* initialize master last - it sends the "we're ok"
-		   notification */
-		master_init(LOGIN_MASTER_SOCKET_FD, TRUE);
+		master_init(LOGIN_MASTER_SOCKET_FD);
+		main_listen_start();
 	}
 }
 
@@ -332,7 +369,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 				return 1;
 		}
 
-		master_init(master_fd, FALSE);
+		master_init(master_fd);
 		closing_down = TRUE;
 
 		if (fd != -1) {

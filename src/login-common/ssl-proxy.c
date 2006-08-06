@@ -28,6 +28,11 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy __attr_unused__)
 
 void ssl_proxy_free(struct ssl_proxy *proxy __attr_unused__) {}
 
+unsigned int ssl_proxy_get_count(void)
+{
+	return 0;
+}
+
 void ssl_proxy_init(void) {}
 void ssl_proxy_deinit(void) {}
 

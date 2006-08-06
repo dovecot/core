@@ -37,7 +37,6 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 };
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
-static struct timeout *to;
 static const char *env_tz;
 
 struct ioloop *ioloop;
@@ -134,7 +133,7 @@ static void settings_reload(void)
 	i_warning("SIGHUP received - reloading configuration");
 
 	/* restart auth and login processes */
-        login_processes_destroy_all();
+        login_processes_destroy_all(FALSE);
         auth_processes_destroy_all();
         dict_process_kill();
 
@@ -191,18 +190,45 @@ static const char *get_exit_status_message(enum fatal_exit_status status)
 	return NULL;
 }
 
-static void timeout_handler(void *context __attr_unused__)
+static void sigchld_handler(int signo __attr_unused__,
+			    void *context __attr_unused__)
 {
 	const char *process_type_name, *msg;
 	pid_t pid;
 	int status, process_type;
+	bool abnormal_exit;
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		/* get the type and remove from hash */
 		process_type = PID_GET_PROCESS_TYPE(pid);
 		PID_REMOVE_PROCESS_TYPE(pid);
 
+		abnormal_exit = TRUE;
+
+		/* write errors to syslog */
+		process_type_name = process_names[process_type];
+		if (WIFEXITED(status)) {
+			status = WEXITSTATUS(status);
+			if (status == 0)
+				abnormal_exit = FALSE;
+			else {
+				msg = get_exit_status_message(status);
+				msg = msg == NULL ? "" :
+					t_strconcat(" (", msg, ")", NULL);
+				i_error("child %s (%s) returned error %d%s",
+					dec2str(pid), process_type_name,
+					status, msg);
+			}
+		} else if (WIFSIGNALED(status)) {
+			i_error("child %s (%s) killed with signal %d",
+				dec2str(pid), process_type_name,
+				WTERMSIG(status));
+		}
+
 		switch (process_type) {
+		case PROCESS_TYPE_LOGIN:
+			login_process_destroyed(pid, abnormal_exit);
+			break;
 		case PROCESS_TYPE_IMAP:
 		case PROCESS_TYPE_POP3:
 			mail_process_destroyed(pid);
@@ -213,29 +239,6 @@ static void timeout_handler(void *context __attr_unused__)
 		case PROCESS_TYPE_DICT:
 			dict_process_restart();
 			break;
-		}
-
-		/* write errors to syslog */
-		process_type_name = process_names[process_type];
-		if (WIFEXITED(status)) {
-			status = WEXITSTATUS(status);
-			if (status != 0) {
-				if (process_type == PROCESS_TYPE_LOGIN)
-					login_process_abormal_exit(pid);
-
-				msg = get_exit_status_message(status);
-				msg = msg == NULL ? "" :
-					t_strconcat(" (", msg, ")", NULL);
-				i_error("child %s (%s) returned error %d%s",
-					dec2str(pid), process_type_name,
-					status, msg);
-			}
-		} else if (WIFSIGNALED(status)) {
-			if (process_type == PROCESS_TYPE_LOGIN)
-				login_process_abormal_exit(pid);
-			i_error("child %s (%s) killed with signal %d",
-				dec2str(pid), process_type_name,
-				WTERMSIG(status));
 		}
 	}
 
@@ -558,7 +561,7 @@ static void main_init(void)
         lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
 
 	pids = hash_create(default_pool, default_pool, 128, NULL, NULL);
-	to = timeout_add(100, timeout_handler, NULL);
+	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
 
 	ssl_init();
 	dict_process_init();
@@ -575,14 +578,14 @@ static void main_deinit(void)
 				 "/master.pid", NULL));
 
 	/* make sure we log if child processes died unexpectedly */
-	timeout_handler(NULL);
+	sigchld_handler(SIGCHLD, NULL);
 
 	login_processes_deinit();
 	auth_processes_deinit();
 	dict_process_deinit();
 	ssl_deinit();
 
-	timeout_remove(&to);
+	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
 
 	if (close(null_fd) < 0)
 		i_error("close(null_fd) failed: %m");

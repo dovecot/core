@@ -21,16 +21,18 @@
 
 struct login_process {
 	struct login_group *group;
-	struct login_process *prev_nonlisten, *next_nonlisten;
+	struct login_process *prev_prelogin, *next_prelogin;
 	int refcount;
 
 	pid_t pid;
 	int fd;
 	struct io *io;
 	struct ostream *output;
+	enum master_login_state state;
+
 	unsigned int initialized:1;
-	unsigned int listening:1;
 	unsigned int destroyed:1;
+	unsigned int inetd_child:1;
 };
 
 struct login_auth_request {
@@ -114,28 +116,77 @@ void auth_master_callback(const char *user, const char *const *args,
 	i_free(request);
 }
 
-static void login_process_mark_nonlistening(struct login_process *p)
+static void process_remove_from_prelogin_lists(struct login_process *p)
 {
-	if (!p->listening) {
-		i_error("login: received another \"not listening\" "
-			"notification (if you can't login at all, "
-			"see src/lib/fdpass.c)");
+	if (p->state != LOGIN_STATE_FULL_PRELOGINS)
+		return;
+
+	if (p->prev_prelogin == NULL)
+		p->group->oldest_prelogin_process = p->next_prelogin;
+	else
+		p->prev_prelogin->next_prelogin = p->next_prelogin;
+
+	if (p->next_prelogin == NULL)
+		p->group->newest_prelogin_process = p->prev_prelogin;
+	else
+		p->next_prelogin->prev_prelogin = p->prev_prelogin;
+
+	p->prev_prelogin = p->next_prelogin = NULL;
+}
+
+static void process_mark_nonlistening(struct login_process *p,
+				      enum master_login_state new_state)
+{
+	if (p->group == NULL)
+		return;
+
+	if (p->state == LOGIN_STATE_LISTENING)
+		p->group->listening_processes--;
+
+	if (new_state == LOGIN_STATE_FULL_PRELOGINS) {
+		/* add to prelogin list */
+		i_assert(p->state != new_state);
+
+		p->prev_prelogin = p->group->newest_prelogin_process;
+		if (p->group->newest_prelogin_process == NULL)
+			p->group->oldest_prelogin_process = p;
+		else
+			p->group->newest_prelogin_process->next_prelogin = p;
+		p->group->newest_prelogin_process = p;
+	} else {
+		process_remove_from_prelogin_lists(p);
+	}
+}
+
+static void process_mark_listening(struct login_process *p)
+{
+	if (p->group == NULL)
+		return;
+
+	if (p->state != LOGIN_STATE_LISTENING)
+		p->group->listening_processes++;
+
+	process_remove_from_prelogin_lists(p);
+}
+
+static void
+login_process_set_state(struct login_process *p, enum master_login_state state)
+{
+	if (state == p->state || state > LOGIN_STATE_COUNT ||
+	    (state < p->state && p->group->set->login_process_per_connection)) {
+		i_error("login: tried to change state %d -> %d "
+			"(if you can't login at all, see src/lib/fdpass.c)",
+			p->state, state);
 		return;
 	}
 
-	p->listening = FALSE;
-
-	if (p->group != NULL) {
-		p->group->listening_processes--;
-		p->prev_nonlisten = p->group->newest_nonlisten_process;
-
-		if (p->group->newest_nonlisten_process != NULL)
-			p->group->newest_nonlisten_process->next_nonlisten = p;
-		p->group->newest_nonlisten_process = p;
-
-		if (p->group->oldest_nonlisten_process == NULL)
-			p->group->oldest_nonlisten_process = p;
+	if (state == LOGIN_STATE_LISTENING) {
+		process_mark_listening(p);
+	} else {
+		process_mark_nonlistening(p, state);
 	}
+
+	p->state = state;
 }
 
 static void login_process_groups_create(void)
@@ -271,12 +322,14 @@ static void login_process_input(void *context)
 
 	if (client_fd == -1) {
 		/* just a notification that the login process */
+		enum master_login_state state = req.tag;
+
 		if (!p->initialized) {
 			/* initialization notify */
 			p->initialized = TRUE;;
 		} else {
-			/* not listening for new connections anymore */
-			login_process_mark_nonlistening(p);
+			/* change "listening for new connections" status */
+			login_process_set_state(p, state);
 		}
 		return;
 	}
@@ -316,7 +369,6 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	p->refcount = 1;
 	p->pid = pid;
 	p->fd = fd;
-	p->listening = TRUE;
 	p->io = io_add(fd, IO_READ, login_process_input, p);
 	p->output = o_stream_create_file(fd, default_pool,
 					 sizeof(struct master_login_reply)*10,
@@ -325,6 +377,8 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_LOGIN);
 	hash_insert(processes, POINTER_CAST(pid), p);
 
+	p->state = LOGIN_STATE_LISTENING;
+
 	if (p->group != NULL) {
 		p->group->processes++;
 		p->group->listening_processes++;
@@ -332,22 +386,13 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	return p;
 }
 
-static void login_process_remove_from_lists(struct login_process *p)
+static void login_process_exited(struct login_process *p)
 {
-	if (p->group == NULL)
-		return;
+	if (p->group != NULL)
+		p->group->processes--;
 
-	if (p == p->group->oldest_nonlisten_process)
-		p->group->oldest_nonlisten_process = p->next_nonlisten;
-	else
-		p->prev_nonlisten->next_nonlisten = p->next_nonlisten;
-
-	if (p == p->group->newest_nonlisten_process)
-		p->group->newest_nonlisten_process = p->prev_nonlisten;
-	else
-		p->next_nonlisten->prev_nonlisten = p->prev_nonlisten;
-
-	p->next_nonlisten = p->prev_nonlisten = NULL;
+	hash_remove(processes, POINTER_CAST(p->pid));
+	login_process_unref(p);
 }
 
 static void login_process_destroy(struct login_process *p)
@@ -361,24 +406,15 @@ static void login_process_destroy(struct login_process *p)
 		io_loop_stop(ioloop);
 	}
 
-	if (p->listening && p->group != NULL)
-		p->group->listening_processes--;
-
 	o_stream_close(p->output);
 	io_remove(&p->io);
 	if (close(p->fd) < 0)
 		i_error("close(login) failed: %m");
 
-	if (!p->listening)
-		login_process_remove_from_lists(p);
+	process_mark_nonlistening(p, LOGIN_STATE_FULL_LOGINS);
 
-	if (p->group != NULL)
-		p->group->processes--;
-
-	if (p->pid != 0)
-		hash_remove(processes, POINTER_CAST(p->pid));
-
-	login_process_unref(p);
+	if (p->inetd_child)
+		login_process_exited(p);
 }
 
 static void login_process_unref(struct login_process *p)
@@ -445,8 +481,8 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 		env_put("PROCESS_PER_CONNECTION=1");
 		env_put("MAX_LOGGING_USERS=1");
 	} else {
-		env_put(t_strdup_printf("MAX_LOGGING_USERS=%u",
-					set->login_max_logging_users));
+		env_put(t_strdup_printf("MAX_CONNECTIONS=%u",
+					set->login_max_connections));
 	}
 
 	env_put(t_strconcat("PROCESS_UID=", dec2str(pid), NULL));
@@ -472,13 +508,6 @@ static pid_t create_login_process(struct login_group *group)
 	const char *prefix;
 	pid_t pid;
 	int fd[2], log_fd;
-
-	if (group->set->login_process_per_connection &&
-	    group->processes - group->listening_processes >=
-	    group->set->login_max_logging_users) {
-		if (group->oldest_nonlisten_process != NULL)
-			login_process_destroy(group->oldest_nonlisten_process);
-	}
 
 	if (group->set->login_uid == 0)
 		i_fatal("Login process must not run as root");
@@ -569,25 +598,36 @@ static pid_t create_login_process(struct login_group *group)
 	return -1;
 }
 
-void login_process_abormal_exit(pid_t pid)
+void login_process_destroyed(pid_t pid, bool abnormal_exit)
 {
 	struct login_process *p;
 
-	/* don't start raising the process count if they're dying all
-	   the time */
 	p = hash_lookup(processes, POINTER_CAST(pid));
-	if (p != NULL && p->group != NULL)
-		p->group->wanted_processes_count = 0;
+	if (p == NULL)
+		i_panic("Lost login process PID %s", dec2str(pid));
+	i_assert(!p->inetd_child);
+
+	if (abnormal_exit) {
+		/* don't start raising the process count if they're dying all
+		   the time */
+		if (p->group != NULL)
+			p->group->wanted_processes_count = 0;
+	}
+
+	login_process_destroy(p);
+	login_process_exited(p);
 }
 
-void login_processes_destroy_all(void)
+void login_processes_destroy_all(bool unref)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
 	iter = hash_iterate_init(processes);
-	while (hash_iterate(iter, &key, &value))
+	while (hash_iterate(iter, &key, &value)) {
 		login_process_destroy(value);
+		if (unref) login_process_unref(value);
+	}
 	hash_iterate_deinit(iter);
 
 	while (login_groups != NULL) {
@@ -598,17 +638,34 @@ void login_processes_destroy_all(void)
 	}
 }
 
+static void login_processes_notify_group(struct login_group *group)
+{
+	struct hash_iterate_context *iter;
+	struct master_login_reply reply;
+	void *key, *value;
+
+	memset(&reply, 0, sizeof(reply));
+
+	iter = hash_iterate_init(processes);
+	while (hash_iterate(iter, &key, &value)) {
+		struct login_process *p = value;
+
+		if (p->group == group)
+			(void)o_stream_send(p->output, &reply, sizeof(reply));
+	}
+	hash_iterate_deinit(iter);
+}
+
 static int login_group_start_missings(struct login_group *group)
 {
-	if (!group->set->login_process_per_connection) {
-		/* create max. one process every second, that way if it keeps
-		   dying all the time we don't eat all cpu with fork()ing. */
-		if (group->listening_processes <
-		    group->set->login_processes_count) {
-			if (create_login_process(group) < 0)
-				return -1;
-		}
-		return 0;
+	if (group->set->login_process_per_connection &&
+	    group->processes >= group->set->login_max_processes_count &&
+	    group->listening_processes == 0) {
+		/* destroy the oldest listening process. non-listening
+		   processes are logged in users who we don't want to kick out
+		   because someone's started flooding */
+		if (group->oldest_prelogin_process != NULL)
+			login_process_destroy(group->oldest_prelogin_process);
 	}
 
 	/* we want to respond fast when multiple clients are connecting
@@ -627,15 +684,18 @@ static int login_group_start_missings(struct login_group *group)
 		 group->set->login_processes_count)
 		group->wanted_processes_count--;
 
-	if (group->wanted_processes_count >
-	    group->set->login_max_processes_count) {
-		group->wanted_processes_count =
-			group->set->login_max_processes_count;
-	}
-
-	while (group->listening_processes < group->wanted_processes_count) {
+	while (group->listening_processes < group->wanted_processes_count &&
+	       group->processes < group->set->login_max_processes_count) {
 		if (create_login_process(group) < 0)
 			return -1;
+	}
+
+	if (group->listening_processes == 0 &&
+	    !group->set->login_process_per_connection) {
+		/* we've reached our limit. notify the processes to start
+		   listening again which makes them kill some of their
+		   oldest clients when accepting the next connection */
+		login_processes_notify_group(group);
 	}
 	return 0;
 }
@@ -744,6 +804,7 @@ static void inetd_login_accept(void *context __attr_unused__)
 
 		p = login_process_new(NULL, ++login_pid_counter, fd);
 		p->initialized = TRUE;
+		p->inetd_child = TRUE;
 	}
 }
 
@@ -771,6 +832,6 @@ void login_processes_deinit(void)
 	if (io_listen != NULL)
 		io_remove(&io_listen);
 
-        login_processes_destroy_all();
+        login_processes_destroy_all(TRUE);
 	hash_destroy(processes);
 }

@@ -220,6 +220,13 @@ void login_proxy_free(struct login_proxy *proxy)
 	i_free(proxy->host);
 	i_free(proxy->user);
 	i_free(proxy);
+
+	main_listen_start();
+}
+
+unsigned int login_proxy_get_count(void)
+{
+	return login_proxies == NULL ? 0 : hash_size(login_proxies);
 }
 
 void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,

@@ -11,8 +11,8 @@ void master_request_login(struct client *client, master_callback_t *callback,
 			  unsigned int auth_pid, unsigned int auth_id);
 void master_request_abort(struct client *client);
 
-/* Notify master that we're not listening for new connections anymore. */
-void master_notify_finished(void);
+/* Notify master of a change in our state */
+void master_notify_state_change(enum master_login_state state);
 
 /* Close connection to master process */
 void master_close(void);
@@ -20,7 +20,7 @@ void master_close(void);
 /* inetd: Connect to existing master process, or create new one. */
 int master_connect(const char *group_name);
 
-void master_init(int fd, bool notify);
+void master_init(int fd);
 void master_deinit(void);
 
 #endif

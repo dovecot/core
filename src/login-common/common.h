@@ -16,13 +16,15 @@ extern bool verbose_proctitle, verbose_ssl, verbose_auth;
 extern const char *greeting, *log_format;
 extern const char *const *log_format_elements;
 extern const char *capability_string;
-extern unsigned int max_logging_users;
+extern unsigned int max_connections;
 extern unsigned int login_process_uid;
 extern struct auth_client *auth_client;
+extern bool closing_down;
 
 void main_ref(void);
 void main_unref(void);
 
-void main_close_listen(void);
+void main_listen_start(void);
+void main_listen_stop(void);
 
 #endif

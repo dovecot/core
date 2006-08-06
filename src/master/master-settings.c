@@ -93,7 +93,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_INT, login_process_size),
 	DEF(SET_INT, login_processes_count),
 	DEF(SET_INT, login_max_processes_count),
-	DEF(SET_INT, login_max_logging_users),
+	DEF(SET_INT, login_max_connections),
 
 	/* mail */
 	DEF(SET_STR, valid_chroot_dirs),
@@ -299,7 +299,7 @@ struct settings default_settings = {
 	MEMBER(login_process_size) 32,
 	MEMBER(login_processes_count) 3,
 	MEMBER(login_max_processes_count) 128,
-	MEMBER(login_max_logging_users) 256,
+	MEMBER(login_max_connections) 256,
 
 	/* mail */
 	MEMBER(valid_chroot_dirs) "",
@@ -846,8 +846,8 @@ static bool settings_verify(struct settings *set)
 		i_error("login_processes_count must be at least 1");
 		return FALSE;
 	}
-	if (set->login_max_logging_users < 1) {
-		i_error("login_max_logging_users must be at least 1");
+	if (set->login_max_connections < 1) {
+		i_error("login_max_connections must be at least 1");
 		return FALSE;
 	}
 
