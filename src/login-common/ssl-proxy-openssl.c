@@ -654,7 +654,7 @@ pem_password_callback(char *buf, int size, int rwflag __attr_unused__,
 
 unsigned int ssl_proxy_get_count(void)
 {
-	return hash_size(ssl_proxies);
+	return ssl_proxies == NULL ? 0 : hash_size(ssl_proxies);
 }
 
 void ssl_proxy_init(void)
