@@ -3,7 +3,8 @@
 
 /* Create a mbox stream for parsing mbox. Reading stops before From-line,
    you'll have to call istream_raw_mbox_next() to get to next message. */
-struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input);
+struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input,
+					 bool kludge_one_mail_only);
 
 /* Return offset to beginning of the "\nFrom"-line. */
 uoff_t istream_raw_mbox_get_start_offset(struct istream *stream);

@@ -348,6 +348,7 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 		break;
 	}
 
+	ibox->open_flags = flags;
 	ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
 	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
 	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;

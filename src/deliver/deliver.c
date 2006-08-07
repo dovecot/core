@@ -510,7 +510,8 @@ int main(int argc, char *argv[])
 					   MAIL_STORAGE_LOCK_FCNTL);
 	input = create_mbox_stream(0);
 	box = mailbox_open(mbox_storage, "Dovecot Delivery Mail", input,
-			   MAILBOX_OPEN_NO_INDEX_FILES);
+			   MAILBOX_OPEN_NO_INDEX_FILES |
+			   MAILBOX_OPEN_MBOX_ONE_MSG_ONLY);
 	if (box == NULL)
 		i_fatal("Can't open delivery mail as mbox");
         if (sync_quick(box) < 0)

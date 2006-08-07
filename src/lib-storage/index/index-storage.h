@@ -38,6 +38,7 @@ struct index_storage {
 struct index_mailbox {
 	struct mailbox box;
 	struct index_storage *storage;
+	enum mailbox_open_flags open_flags;
 
 	struct mail_index *index;
 	struct mail_index_view *view;
