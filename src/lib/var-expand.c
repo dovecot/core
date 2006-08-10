@@ -11,7 +11,8 @@
 #include <stdlib.h>
 
 struct var_expand_context {
-	unsigned int offset, width;
+	int offset;
+	unsigned int width;
 };
 
 struct var_expand_modifier {
@@ -71,7 +72,7 @@ static const char *m_str_hash(const char *str, struct var_expand_context *ctx)
 	}
 
 	str_printfa(hash, "%x", value);
-	while (str_len(hash) < ctx->offset)
+	while ((int)str_len(hash) < ctx->offset)
 		str_insert(hash, 0, "0");
         ctx->offset = 0;
 
@@ -109,6 +110,7 @@ void var_expand(string_t *dest, const char *str,
 	const char *(*modifier[MAX_MODIFIER_COUNT])
 		(const char *, struct var_expand_context *);
 	unsigned int i, modifier_count;
+	int sign = 1;
 	bool zero_padding = FALSE;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -120,6 +122,10 @@ void var_expand(string_t *dest, const char *str,
 
 			/* [<offset>.]<width>[<modifiers>]<variable> */
 			ctx.width = 0;
+			if (*str == '-') {
+				sign = -1;
+				str++;
+			}
 			if (*str == '0') {
 				zero_padding = TRUE;
 				str++;
@@ -132,7 +138,7 @@ void var_expand(string_t *dest, const char *str,
 			if (*str != '.')
 				ctx.offset = 0;
 			else {
-				ctx.offset = ctx.width;
+				ctx.offset = sign * (int)ctx.width;
 				ctx.width = 0;
 				str++;
 				while (*str >= '0' && *str <= '9') {
@@ -178,9 +184,19 @@ void var_expand(string_t *dest, const char *str,
 			if (var != NULL) {
 				for (i = 0; i < modifier_count; i++)
 					var = modifier[i](var, &ctx);
-				while (*var != '\0' && ctx.offset > 0) {
-					ctx.offset--;
-					var++;
+
+				if (ctx.offset < 0) {
+					/* if offset is < 0 then we want to
+					   start at the end */
+					size_t len = strlen(var);
+
+					if (len > (size_t)-ctx.offset)
+						var += len + ctx.offset;
+				} else {
+					while (*var != '\0' && ctx.offset > 0) {
+						ctx.offset--;
+						var++;
+					}
 				}
 				if (ctx.width == 0)
 					str_append(dest, var);
@@ -205,7 +221,7 @@ char var_get_key(const char *str)
 	const struct var_expand_modifier *m;
 
 	/* [<offset>.]<width>[<modifiers>]<variable> */
-	while (*str >= '0' && *str <= '9')
+	while ((*str >= '0' && *str <= '9') || *str == '-')
 		str++;
 
 	if (*str == '.') {

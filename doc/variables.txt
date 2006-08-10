@@ -35,7 +35,10 @@ You can apply a modifiers for each variable (eg. %Ls = pop3):
 You can take a substring of the variable by giving optional offset followed
 by '.' and width after the '%' character. For example %2u gives first two
 characters of the username. %2.1u gives third character of the username. If
-offset points outside the value, empty string is returned.
+the offset is negative, it counts from the end, for example %-2.02i gives
+the UID mod 100 (last two characters of the UID printed in a string). If a
+positive offset points outside the value, empty string is returned, if a
+negative offset does then the string is taken from the start.
 
 For login_log_format_elements there are also these variables:
 
