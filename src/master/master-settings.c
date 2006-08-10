@@ -539,6 +539,11 @@ static const char *get_directory(const char *path)
 
 static bool settings_is_active(struct settings *set)
 {
+	if (*set->protocols == '\0') {
+		/* we're probably using this with --exec-mail */
+		return TRUE;
+	}
+
 	if (set->protocol == MAIL_PROTOCOL_IMAP) {
 		if (strstr(set->protocols, "imap") == NULL)
 			return FALSE;
@@ -1388,6 +1393,8 @@ bool master_settings_read(const char *path, bool nochecks)
 			prev = server;
 		}
 	}
+
+	i_assert(ctx.root != NULL);
 
 	/* settings ok, swap them */
 	temp = settings_pool;
