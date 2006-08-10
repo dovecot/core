@@ -44,6 +44,8 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 	char *attr, **vals;
 	unsigned int i;
 	string_t *debug = NULL;
+	bool userdb_fields = FALSE;
+	bool add_userdb_uid = FALSE, add_userdb_gid = FALSE;
 
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
@@ -58,6 +60,19 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 			str_append(debug, attr);
 			str_printfa(debug, "(%s)=",
 				    name != NULL ? name : "?unknown?");
+		}
+
+		if (strncmp(name, "userdb_", 7) == 0) {
+			/* in case we're trying to use prefetch userdb,
+			   see if we need to add global uid/gid */
+			if (!userdb_fields) {
+				add_userdb_uid = add_userdb_gid = TRUE;
+				userdb_fields = TRUE;
+			}
+			if (strcmp(name, "userdb_uid") == 0)
+				add_userdb_uid = FALSE;
+			else if (strcmp(name, "userdb_gid") == 0)
+				add_userdb_gid = FALSE;
 		}
 
 		if (name != NULL && vals != NULL && *name != '\0') {
@@ -83,6 +98,15 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 		ldap_memfree(attr);
 
 		attr = ldap_next_attribute(conn->ld, entry, ber);
+	}
+
+	if (add_userdb_uid && conn->set.uid != (uid_t)-1) {
+		auth_request_set_field(auth_request, "userdb_uid",
+				       dec2str(conn->set.uid), NULL);
+	}
+	if (add_userdb_gid && conn->set.gid != (gid_t)-1) {
+		auth_request_set_field(auth_request, "userdb_gid",
+				       dec2str(conn->set.gid), NULL);
 	}
 
 	if (debug != NULL) {
