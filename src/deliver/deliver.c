@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *mailbox = "INBOX";
 	const char *auth_socket, *env_tz;
-	const char *home, *destination, *user, *mail_env;
+	const char *home, *destination, *user, *mail_env, *value;
         const struct var_expand_table *table;
         enum mail_storage_flags flags;
         enum mail_storage_lock_method lock_method;
@@ -454,6 +454,11 @@ int main(int argc, char *argv[])
 	} else {
 		destination = user;
 	}
+
+	value = getenv("UMASK");
+	if (value == NULL || sscanf(value, "%i", &i) != 1 || i < 0)
+		i = 0077;
+	(void)umask(i);
 
 	deliver_set = i_new(struct deliver_settings, 1);
 	deliver_set->hostname = getenv("HOSTNAME");
