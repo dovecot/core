@@ -206,6 +206,14 @@ static void drop_privileges(void)
 static void main_init(bool nodaemon)
 {
 	struct auth_master_listener *listener;
+	const char *value;
+
+	value = getenv("DOVECOT_VERSION");
+	if (value != NULL && strcmp(value, PACKAGE_VERSION) != 0) {
+		i_fatal("Dovecot version mismatch: "
+			"Master is v%s, dovecot-auth is v"PACKAGE_VERSION" "
+			"(if you don't care, set version_ignore=yes)", value);
+	}
 
         process_start_time = ioloop_time;
 

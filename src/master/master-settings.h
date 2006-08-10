@@ -38,6 +38,7 @@ struct settings {
 	bool verbose_ssl;
 	bool shutdown_clients;
 	bool nfs_check;
+	bool version_ignore;
 
 	/* login */
 	const char *login_dir;

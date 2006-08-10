@@ -82,6 +82,8 @@ void child_process_init_env(void)
 		facility = LOG_MAIL;
 	env_put(t_strdup_printf("SYSLOG_FACILITY=%d", facility));
 
+	if (settings_root != NULL && !settings_root->defaults->version_ignore)
+		env_put("DOVECOT_VERSION="PACKAGE_VERSION);
 #ifdef DEBUG
 	if (gdb) env_put("GDB=1");
 #endif

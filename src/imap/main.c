@@ -144,6 +144,13 @@ static void main_init(void)
 	struct client *client;
 	const char *user, *str;
 
+	str = getenv("DOVECOT_VERSION");
+	if (str != NULL && strcmp(str, PACKAGE_VERSION) != 0) {
+		i_fatal("Dovecot version mismatch: "
+			"Master is v%s, imap is v"PACKAGE_VERSION" "
+			"(if you don't care, set version_ignore=yes)", str);
+	}
+
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);

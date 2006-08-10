@@ -160,7 +160,14 @@ static int main_init(void)
         enum mail_storage_flags flags;
         enum mail_storage_lock_method lock_method;
 	struct mail_storage *storage;
-	const char *mail;
+	const char *mail, *value;
+
+	value = getenv("DOVECOT_VERSION");
+	if (value != NULL && strcmp(value, PACKAGE_VERSION) != 0) {
+		i_fatal("Dovecot version mismatch: "
+			"Master is v%s, pop3 is v"PACKAGE_VERSION" "
+			"(if you don't care, set version_ignore=yes)", value);
+	}
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);

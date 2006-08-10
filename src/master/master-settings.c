@@ -77,6 +77,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_BOOL, verbose_ssl),
 	DEF(SET_BOOL, shutdown_clients),
 	DEF(SET_BOOL, nfs_check),
+	DEF(SET_BOOL, version_ignore),
 
 	/* login */
 	DEF(SET_STR, login_dir),
@@ -283,6 +284,7 @@ struct settings default_settings = {
 	MEMBER(verbose_ssl) FALSE,
 	MEMBER(shutdown_clients) TRUE,
 	MEMBER(nfs_check) TRUE,
+	MEMBER(version_ignore) FALSE,
 
 	/* login */
 	MEMBER(login_dir) "login",

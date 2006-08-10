@@ -56,8 +56,15 @@ static void drop_privileges(void)
 
 static void main_init(void)
 {
-	const char *path;
+	const char *value, *path;
 	int fd;
+
+	value = getenv("DOVECOT_VERSION");
+	if (value != NULL && strcmp(value, PACKAGE_VERSION) != 0) {
+		i_fatal("Dovecot version mismatch: "
+			"Master is v%s, dict is v"PACKAGE_VERSION" "
+			"(if you don't care, set version_ignore=yes)", value);
+	}
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
