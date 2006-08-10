@@ -11,6 +11,7 @@
 
 #ifdef PASSDB_PAM
 
+#include "lib-signals.h"
 #include "buffer.h"
 #include "ioloop.h"
 #include "network.h"
@@ -63,7 +64,6 @@ struct pam_passdb_module {
 
 	bool pam_setcred, pam_session;
 	const char *service_name, *pam_cache_key;
-	struct timeout *to_wait;
 };
 
 struct pam_auth_request {
@@ -360,18 +360,16 @@ static void pam_child_input(void *context)
 	i_free(request);
 }
 
-static void wait_timeout(void *context)
+static void sigchld_handler(int signo __attr_unused__,
+			    void *context __attr_unused__)
 {
-        struct pam_passdb_module *module = context;
 	int status;
 	pid_t pid;
 
 	/* FIXME: if we ever do some other kind of forking, this needs fixing */
 	while ((pid = waitpid(-1, &status, WNOHANG)) != 0) {
 		if (pid == -1) {
-			if (errno == ECHILD)
-				timeout_remove(&module->to_wait);
-			else if (errno != EINTR)
+			if (errno != ECHILD && errno != EINTR)
 				i_error("waitpid() failed: %m");
 			return;
 		}
@@ -430,9 +428,6 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 	pam_auth_request->io =
 		io_add(fd[0], IO_READ, pam_child_input, pam_auth_request);
-
-	if (module->to_wait == NULL)
-		module->to_wait = timeout_add(1000, wait_timeout, module);
 }
 
 static struct passdb_module *
@@ -472,15 +467,13 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 	}
 	t_pop();
 
+	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
 	return &module->module;
 }
 
-static void pam_deinit(struct passdb_module *_module)
+static void pam_deinit(struct passdb_module *_module __attr_unused__)
 {
-        struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
-
-	if (module->to_wait != NULL)
-		timeout_remove(&module->to_wait);
+	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
 }
 
 struct passdb_module_interface passdb_pam = {

@@ -4,6 +4,7 @@
 
 #ifdef PASSDB_CHECKPASSWORD
 
+#include "lib-signals.h"
 #include "buffer.h"
 #include "str.h"
 #include "ioloop.h"
@@ -21,7 +22,6 @@ struct checkpassword_passdb_module {
 
 	const char *checkpassword_path, *checkpassword_reply_path;
 	struct hash_table *clients;
-	struct timeout *to_wait;
 };
 
 struct chkpw_auth_request {
@@ -129,7 +129,7 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 	}
 }
 
-static void wait_timeout(void *context)
+static void sigchld_handler(int signo __attr_unused__, void *context)
 {
 	struct checkpassword_passdb_module *module = context;
 	struct chkpw_auth_request *request;
@@ -139,9 +139,7 @@ static void wait_timeout(void *context)
 	/* FIXME: if we ever do some other kind of forking, this needs fixing */
 	while ((pid = waitpid(-1, &status, WNOHANG)) != 0) {
 		if (pid == -1) {
-			if (errno == ECHILD)
-				timeout_remove(&module->to_wait);
-			else if (errno != EINTR)
+			if (errno != ECHILD && errno != EINTR)
 				i_error("waitpid() failed: %m");
 			return;
 		}
@@ -375,11 +373,6 @@ checkpassword_verify_plain(struct auth_request *request, const char *password,
 		       chkpw_auth_request);
 
 	hash_insert(module->clients, POINTER_CAST(pid), chkpw_auth_request);
-
-	if (module->to_wait == NULL) {
-		/* FIXME: we could use SIGCHLD */
-		module->to_wait = timeout_add(100, wait_timeout, module);
-	}
 }
 
 static struct passdb_module *
@@ -395,6 +388,8 @@ checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
 
 	module->clients =
 		hash_create(default_pool, default_pool, 0, NULL, NULL);
+
+	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, module);
 	return &module->module;
 }
 
@@ -405,6 +400,8 @@ static void checkpassword_deinit(struct passdb_module *_module)
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
+	lib_signals_unset_handler(SIGCHLD, sigchld_handler, module);
+
 	iter = hash_iterate_init(module->clients);
 	while (hash_iterate(iter, &key, &value)) {
 		checkpassword_request_finish(value,
@@ -412,9 +409,6 @@ static void checkpassword_deinit(struct passdb_module *_module)
 	}
 	hash_iterate_deinit(iter);
 	hash_destroy(module->clients);
-
-	if (module->to_wait != NULL)
-		timeout_remove(&module->to_wait);
 }
 
 struct passdb_module_interface passdb_checkpassword = {
