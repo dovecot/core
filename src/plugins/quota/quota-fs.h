@@ -1,7 +1,10 @@
 #ifndef __QUOTA_FS_H
 #define __QUOTA_FS_H
 
-#define HAVE_FS_QUOTA
+#if defined (HAVE_STRUCT_DQBLK_CURBLOCKS) || \
+	defined (HAVE_STRUCT_DQBLK_CURSPACE)
+#  define HAVE_FS_QUOTA
+#endif
 
 #ifdef HAVE_SYS_QUOTA_H
 #  include <sys/quota.h> /* Linux */

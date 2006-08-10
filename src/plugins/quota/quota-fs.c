@@ -24,6 +24,10 @@
 #  define DEV_BSIZE 512
 #endif
 
+#ifdef HAVE_STRUCT_DQBLK_CURSPACE
+#  define dqb_curblocks dqb_curspace
+#endif
+
 /* Older sys/quota.h doesn't define _LINUX_QUOTA_VERSION at all, which means
    it supports only v1 quota */
 #ifndef _LINUX_QUOTA_VERSION
@@ -233,11 +237,7 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			return -1;
 		}
 
-#if _LINUX_QUOTA_VERSION < 2
 		*value_r = dqblk.dqb_curblocks / 1024;
-#else
-		*value_r = dqblk.dqb_curspace / 1024;
-#endif
 		*limit_r = dqblk.dqb_bsoftlimit;
 	}
 #elif defined(HAVE_QUOTACTL)
