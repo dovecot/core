@@ -143,6 +143,9 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 		return -1;
 	}
 
+	i_assert(client->refcount > 1);
+	connection_queue_add(1);
+
 	client->proxy = login_proxy_new(&client->common, host, port,
 					proxy_input, client);
 	if (client->proxy == NULL)

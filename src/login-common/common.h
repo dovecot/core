@@ -27,4 +27,6 @@ void main_unref(void);
 void main_listen_start(void);
 void main_listen_stop(void);
 
+void connection_queue_add(unsigned int connection_count);
+
 #endif

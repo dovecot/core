@@ -73,6 +73,11 @@ static void client_start_tls(struct pop3_client *client)
 {
 	int fd_ssl;
 
+	client_ref(client);
+	connection_queue_add(1);
+	if (!client_unref(client))
+		return;
+
 	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
 			       &client->common.proxy);
 	if (fd_ssl == -1) {
@@ -227,7 +232,7 @@ void client_input(void *context)
 		o_stream_uncork(client->output);
 }
 
-static void client_destroy_oldest(void)
+void client_destroy_oldest(void)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;
@@ -307,23 +312,8 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 			     const struct ip_addr *ip)
 {
 	struct pop3_client *client;
-	unsigned int current_count;
 
-	if (!process_per_connection) {
-		current_count = hash_size(clients) +
-			ssl_proxy_get_count() + login_proxy_get_count();
-		if (current_count >= max_connections) {
-			/* already reached max. users count, kill few of the
-			   oldest connections. this happens when we've maxed
-			   out the login process count also. */
-			client_destroy_oldest();
-		}
-		if (current_count + 1 >= max_connections) {
-			/* after this client we've reached max users count,
-			   so stop listening for more */
-			main_listen_stop();
-		}
-	}
+	connection_queue_add(1);
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd, TRUE);

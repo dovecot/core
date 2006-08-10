@@ -33,6 +33,7 @@ void client_syslog(struct client *client, const char *msg);
 
 unsigned int clients_get_count(void);
 void clients_notify_auth_connected(void);
+void client_destroy_oldest(void);
 void clients_destroy_all(void);
 
 void clients_init(void);
