@@ -651,7 +651,7 @@ AC_DEFUN([AC_TYPEOF], [
 
       for type in $order; do
         actype="ac_cv_sizeof_`echo $type|sed 's/-/_/g'`"
-        if test "$size" = "`eval \"echo \\$$actype\"`"; then
+        if test "$size" = "`eval echo \\$$actype`"; then
 	  result="`echo $type|sed 's/-/ /g'`"
 	  visible="`expr $size \* 8`bit (using $result)"
 	  break
@@ -1720,7 +1720,7 @@ for storage in $mail_storages; do
   if test "$storage" = "$deliver_storage"; then
     deliver_storage=""
   fi
-  STORAGE_LIBS="$STORAGE_LIBS `eval \"echo \\$${storage}_libs\"`"
+  STORAGE_LIBS="$STORAGE_LIBS `eval echo \\$${storage}_libs`"
 done
 STORAGE_LIBS="$STORAGE_LIBS $index_libs"
 AC_SUBST(STORAGE_LIBS)
