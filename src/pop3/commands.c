@@ -216,6 +216,7 @@ static bool expunge_mails(struct client *client)
 				ret = FALSE;
 				break;
 			}
+			client->expunged_count++;
 		}
 	}
 	mail_free(&mail);
