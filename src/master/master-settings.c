@@ -764,8 +764,9 @@ static bool settings_verify(struct settings *set)
 		i_error("mkdir(%s) failed: %m", set->base_dir);
 		return FALSE;
 	}
-	if (lstat(set->base_dir, &st) < 0) {
-		i_error("lstat(%s) failed: %m", set->base_dir);
+	/* allow base_dir to be a symlink, so don't use lstat() */
+	if (stat(set->base_dir, &st) < 0) {
+		i_error("stat(%s) failed: %m", set->base_dir);
 		return FALSE;
 	}
 	if ((st.st_mode & 0750) != 0750 || (st.st_mode & 0777) == 0777) {
