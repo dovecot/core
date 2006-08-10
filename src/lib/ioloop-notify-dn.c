@@ -161,8 +161,15 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 		sigemptyset(&act.sa_mask);
 		act.sa_flags = SA_SIGINFO | SA_RESTART | SA_NODEFER;
 
-		if (sigaction(SIGRTMIN, &act, NULL) < 0)
-			i_fatal("sigaction(SIGRTMIN) failed: %m");
+		if (sigaction(SIGRTMIN, &act, NULL) < 0) {
+			if (errno == EINVAL) {
+				/* kernel is too old to understand even RT
+				   signals, so there's no way dnotify works */
+				ctx->disabled = TRUE;
+			} else {
+				i_fatal("sigaction(SIGRTMIN) failed: %m");
+			}
+		}
 	}
 }
 
