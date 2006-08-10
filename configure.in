@@ -60,9 +60,9 @@ AC_ARG_WITH(ioloop,
 	ioloop=poll)
 
 AC_ARG_WITH(notify,
-[  --with-notify=IOLOOP    Specify the file system notification method to use
-                          (dnotify, inotify, kqueue, none;
-                           default dnotify if compilable, otherwise none)],
+[  --with-notify=NOTIFY    Specify the file system notification method to use
+                          (inotify, kqueue, dnotify, none;
+                           default is detected in the above order)],
 	notify=$withval,
 	notify=)
 
