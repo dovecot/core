@@ -23,6 +23,8 @@
    problems when they reach the limit. */
 #define MAILDIR_MAX_MAILBOX_NAME_LENGTH (PATH_MAX/2)
 
+#define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
+
 struct rename_context {
 	bool found;
 	size_t oldnamelen;
@@ -515,6 +517,15 @@ maildir_get_mailbox_control_dir(struct mail_storage *_storage, const char *name)
 	return maildir_get_control_path(storage, name);
 }
 
+static const char *
+maildir_get_mailbox_index_dir(struct mail_storage *_storage, const char *name)
+{
+	struct maildir_storage *storage = (struct maildir_storage *)_storage;
+	struct index_storage *istorage = INDEX_STORAGE(storage);
+
+	return maildir_get_index_path(istorage, name);
+}
+
 static struct mailbox *
 maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		     struct istream *input, enum mailbox_open_flags flags)
@@ -618,6 +629,7 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 	struct index_storage *storage = (struct index_storage *)_storage;
 	struct stat st;
 	const char *path, *shared_path;
+	int fd;
 
 	mail_storage_clear_error(_storage);
 
@@ -643,6 +655,15 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 		}
 		return -1;
 	}
+
+	/* Maildir++ spec want that maildirfolder named file is created for
+	   all subfolders. */
+	path = t_strconcat(path, "/" MAILDIR_SUBFOLDER_FILENAME, NULL);
+	fd = open(path, O_CREAT | O_WRONLY, CREATE_MODE & 0666);
+	if (fd == -1)
+		i_error("open(%s, O_CREAT) failed: %m", path);
+	else
+		(void)close(fd);
 	return 0;
 }
 
@@ -1002,6 +1023,7 @@ struct mail_storage maildir_storage = {
 		index_storage_set_callbacks,
 		maildir_get_mailbox_path,
 		maildir_get_mailbox_control_dir,
+		maildir_get_mailbox_index_dir,
 		maildir_mailbox_open,
 		maildir_mailbox_create,
 		maildir_mailbox_delete,
