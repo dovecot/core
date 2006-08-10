@@ -588,6 +588,7 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 
 int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 {
+	struct stat st;
 	int ret = 0;
 
 	i_assert(ctx->finished);
@@ -596,6 +597,21 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
 			&ctx->next_uid, sizeof(ctx->next_uid), FALSE);
+
+		if (fstat(ctx->mbox->mbox_fd, &st) < 0) {
+			mbox_set_syscall_error(ctx->mbox, "fstat()");
+			ret = -1;
+		} else {
+			uint32_t sync_stamp = st.st_mtime;
+			uint64_t sync_size = st.st_size;
+
+			mail_index_update_header(ctx->trans,
+				offsetof(struct mail_index_header, sync_stamp),
+				&sync_stamp, sizeof(sync_stamp), TRUE);
+			mail_index_update_header(ctx->trans,
+				offsetof(struct mail_index_header, sync_size),
+				&sync_size, sizeof(sync_size), TRUE);
+		}
 	}
 
 	if (!ctx->synced && ctx->mbox->mbox_fd != -1 &&
