@@ -18,6 +18,10 @@
 #include <sys/stat.h>
 #ifdef HAVE_LINUX_DQBLK_XFS_H
 #  include <linux/dqblk_xfs.h>
+#  define HAVE_XFS_QUOTA
+#elif defined (HAVE_XFS_XQM_H)
+#  include <xfs/xqm.h> /* CentOS 4.x at least uses this */
+#  define HAVE_XFS_QUOTA
 #endif
 
 #ifndef DEV_BSIZE
@@ -203,7 +207,7 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 
 #if defined (HAVE_QUOTACTL) && defined(HAVE_SYS_QUOTA_H)
 	/* Linux */
-#ifdef HAVE_LINUX_DQBLK_XFS_H
+#ifdef HAVE_XFS_QUOTA
 	if (strcmp(root->mount->type, "xfs") == 0) {
 		/* XFS */
 		struct fs_disk_quota xdqblk;
