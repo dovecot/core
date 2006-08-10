@@ -194,7 +194,7 @@ static ssize_t _read(struct _istream *stream)
 
 	if (stream->istream.v_offset == rstream->from_offset) {
 		/* beginning of message, we haven't yet read our From-line */
-		if (pos == 2) {
+		if (pos == 2 && ret > 0) {
 			/* we're at the end of file with CR+LF linefeeds?
 			   need more data to verify it. */
 			rstream->input_peak_offset =
