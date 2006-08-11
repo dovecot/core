@@ -471,6 +471,12 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 	return &module->module;
 }
 
+static void pam_init(struct passdb_module *_module __attr_unused__,
+		     const char *args __attr_unused__)
+{
+	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+}
+
 static void pam_deinit(struct passdb_module *_module __attr_unused__)
 {
 	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
@@ -480,7 +486,7 @@ struct passdb_module_interface passdb_pam = {
 	"pam",
 
 	pam_preinit,
-	NULL,
+	pam_init,
 	pam_deinit,
 
 	pam_verify_plain,

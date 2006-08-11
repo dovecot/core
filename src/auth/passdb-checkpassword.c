@@ -393,6 +393,12 @@ checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
 	return &module->module;
 }
 
+static void checkpassword_init(struct passdb_module *_module __attr_unused__,
+			       const char *args __attr_unused__)
+{
+	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+}
+
 static void checkpassword_deinit(struct passdb_module *_module)
 {
 	struct checkpassword_passdb_module *module =
@@ -415,7 +421,7 @@ struct passdb_module_interface passdb_checkpassword = {
 	"checkpassword",
 
 	checkpassword_preinit,
-	NULL,
+	checkpassword_init,
 	checkpassword_deinit,
 
 	checkpassword_verify_plain,
