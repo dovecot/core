@@ -474,11 +474,17 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		}
 	}
 
-	if (!dump_capability)
+	if (!dump_capability) {
 		log_fd = log_create_pipe(&log, 10);
-	else {
+		if (log_fd == -1)
+			return FALSE;
+	} else {
 		log = NULL;
 		log_fd = dup(STDERR_FILENO);
+		if (log_fd == -1) {
+			i_error("dup() failed: %m");
+			return FALSE;
+		}
 		fd_close_on_exec(log_fd, TRUE);
 	}
 
