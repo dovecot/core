@@ -480,7 +480,7 @@ if test "$notify" = "" || test "$notify" = "inotify" ; then
   ])
 fi
 
-if test "$notify" = "" || test "$notify" = "kqueue"; then
+if (test "$notify" = "" && test "$ioloop" = kqueue) || test "$notify" = "kqueue"; then
   AC_MSG_CHECKING([if we can use BSD kqueue() notify])
   dnl * BSD kqueue() notify
   if test "$ac_cv_func_kqueue" = yes && test "$ac_cv_func_kevent" = yes ; then
