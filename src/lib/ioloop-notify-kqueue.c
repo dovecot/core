@@ -34,6 +34,7 @@ static void event_callback(void *context)
 	struct io *io;
 	struct kevent ev;
 	struct timespec ts;
+	int ret;
 
 	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
 		i_fatal("gettimeofday() failed: %m");
@@ -110,7 +111,7 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	io->callback = callback;
 	io->context = context;
 
-	EV_SET(ev, fd, EVFILT_VNODE, EV_ADD,
+	EV_SET(&ev, fd, EVFILT_VNODE, EV_ADD,
 	       NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND | NOTE_REVOKE, 0, io);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
 		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
@@ -135,7 +136,7 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 
 	i_assert((io->condition & IO_NOTIFY) != 0);
 
-	EV_SET(ev, io->fd, EVFILT_VNODE, EV_DELETE, 0, 0, NULL);
+	EV_SET(&ev, io->fd, EVFILT_VNODE, EV_DELETE, 0, 0, NULL);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, 0) < 0)
 		i_error("kevent(%d) for notify remove failed: %m", io->fd);
 	if (close(io->fd) < 0)

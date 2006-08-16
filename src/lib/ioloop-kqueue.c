@@ -104,7 +104,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 
 	first = ioloop_iolist_add(*list, io);
 
-	EV_SET(ev, io->fd, io_filter(io), EV_ADD, 0, 0, *list);
+	EV_SET(&ev, io->fd, io_filter(io), EV_ADD, 0, 0, *list);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 		i_fatal("kevent(EV_ADD, %d) failed: %m", io->fd);
 
@@ -130,7 +130,7 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	last = ioloop_iolist_del(*list, io);
 
 	filter = io_filter(io) & ~io_list_filter(*list);
-	EV_SET(ev, io->fd, filter, EV_DELETE, 0, 0, *list);
+	EV_SET(&ev, io->fd, filter, EV_DELETE, 0, 0, *list);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 		i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
 
