@@ -468,6 +468,11 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 		auth_request_lookup_credentials(request, request->credentials,
                 	request->private_callback.lookup_credentials);
 	} else {
+		if (request->auth->verbose_debug_passwords &&
+		    result == PASSDB_RESULT_OK) {
+			auth_request_log_debug(request, "password",
+				"Credentials: %s", password);
+		}
 		request->private_callback.
 			lookup_credentials(result, password, request);
 	}
