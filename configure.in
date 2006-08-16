@@ -30,7 +30,7 @@ AC_ARG_ENABLE(ipv6,
 	want_ipv6=yes)
 
 AC_ARG_ENABLE(debug,
-[  --enable-debug          Enable some extra checks for debugging],
+[  --enable-debug          Enable some extra expensive checks for developers],
 	if test x$enableval = xyes; then
 		AC_DEFINE(DEBUG,, Build with extra debugging checks)
 	fi)
