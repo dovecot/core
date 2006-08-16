@@ -145,12 +145,13 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 void io_loop_handler_run(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	struct kevent *event;
+	struct kevent *events;
+	const struct kevent *event;
 	struct timeval tv;
 	struct timespec ts;
 	struct io_list *list;
 	unsigned int events_count, t_id;
-	int msecs, ret, i;
+	int msecs, ret, i, j;
 	bool call, called;
 
 	/* get the time left for next timeout task */
@@ -159,26 +160,26 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	ts.tv_nsec = tv.tv_usec * 1000;
 
 	/* wait for events */
-	event = array_get_modifyable(&ctx->events, &events_count);
-	ret = kevent (ctx->kq, NULL, 0, event, events_count, &ts);
+	events = array_get_modifyable(&ctx->events, &events_count);
+	ret = kevent (ctx->kq, NULL, 0, events, events_count, &ts);
 	if (ret < 0 && errno != EINTR)
 		i_fatal("kevent(): %m");
 
 	/* execute timeout handlers */
 	io_loop_handle_timeouts(ioloop);
 
-	if (ret <= 0 || !ioloop->running) {
-		/* no I/O events */
+	if (!ioloop->running)
 		return;
-	}
 
-	/* loop through all received events */
-	while (ret-- > 0) {
+	for (i = 0; i < ret; i++) {
+		/* io_loop_handle_add() may cause events array reallocation,
+		   so we have use array_idx() */
+		event = array_idx(&ctx->events, i);
 		list = (void *)event->udata;
 
 		called = FALSE;
-		for (i = 0; i < IOLOOP_IOLIST_IOS_PER_FD; i++) {
-			struct io *io = list->ios[i];
+		for (j = 0; j < IOLOOP_IOLIST_IOS_PER_FD; j++) {
+			struct io *io = list->ios[j];
 			if (io == NULL)
 				continue;
 
@@ -217,7 +218,6 @@ void io_loop_handler_run(struct ioloop *ioloop)
 				event->fflags, (unsigned long long)event->data,
 				io_list_filter(list));
 		}
-		event++;
 	}
 }
 

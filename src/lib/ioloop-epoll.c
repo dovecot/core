@@ -21,8 +21,8 @@ struct ioloop_handler_context {
 	int epfd;
 
 	unsigned int deleted_count;
-	array_t ARRAY_DEFINE(fd_index, struct io_list *);
-	array_t ARRAY_DEFINE(events, struct epoll_event);
+	ARRAY_DEFINE(fd_index, struct io_list *);
+	ARRAY_DEFINE(events, struct epoll_event);
 };
 
 void io_loop_handler_init(struct ioloop *ioloop)
@@ -146,35 +146,37 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 void io_loop_handler_run(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	struct epoll_event *event;
+	struct epoll_event *events;
+	const struct epoll_event *event;
 	struct io_list *list;
 	struct io *io;
 	struct timeval tv;
 	unsigned int events_count, t_id;
-	int msecs, ret, i;
+	int msecs, ret, i, j;
 	bool call;
 
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
 
-	event = array_get_modifiable(&ctx->events, &events_count);
-	ret = epoll_wait(ctx->epfd, event, events_count, msecs);
+	events = array_get_modifiable(&ctx->events, &events_count);
+	ret = epoll_wait(ctx->epfd, events, events_count, msecs);
 	if (ret < 0 && errno != EINTR)
 		i_fatal("epoll_wait(): %m");
 
 	/* execute timeout handlers */
         io_loop_handle_timeouts(ioloop);
 
-	if (ret <= 0 || !ioloop->running) {
-		/* No events */
+	if (!ioloop->running)
 		return;
-	}
 
-	while (ret-- > 0) {
+	for (i = 0; i < ret; i++) {
+		/* io_loop_handle_add() may cause events array reallocation,
+		   so we have use array_idx() */
+		event = array_idx(&ctx->events, i);
 		list = event->data.ptr;
 
-		for (i = 0; i < IOLOOP_IOLIST_IOS_PER_FD; i++) {
-			io = list->ios[i];
+		for (j = 0; j < IOLOOP_IOLIST_IOS_PER_FD; j++) {
+			io = list->ios[j];
 			if (io == NULL)
 				continue;
 
@@ -198,7 +200,6 @@ void io_loop_handler_run(struct ioloop *ioloop)
 				}
 			}
 		}
-		event++;
 	}
 }
 
