@@ -5,6 +5,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "var-expand.h"
+#include "ssl-proxy.h"
 #include "client-common.h"
 
 #include <stdlib.h>
@@ -43,8 +44,13 @@ get_var_expand_table(struct client *client)
 	tab[7].value = my_pid;
 	tab[8].value = client->auth_mech_name == NULL ? NULL :
 		str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
-	tab[9].value = client->tls ? "TLS" :
-		client->secured ? "secured" : NULL;
+	if (!client->tls) {
+		tab[9].value = client->secured ? "secured" : NULL;
+	} else {
+		tab[9].value = client->proxy != NULL &&
+			ssl_proxy_is_handshaked(client->proxy) ? "TLS" :
+			"TLS handshaking";
+	}
 
 	return tab;
 }

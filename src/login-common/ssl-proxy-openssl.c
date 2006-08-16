@@ -530,6 +530,11 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 	return *name == '\0' ? NULL : name;
 }
 
+bool ssl_proxy_is_handshaked(struct ssl_proxy *proxy)
+{
+	return proxy->handshaked;
+}
+
 void ssl_proxy_free(struct ssl_proxy *proxy)
 {
 	ssl_proxy_unref(proxy);

@@ -26,6 +26,11 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy __attr_unused__)
 	return NULL;
 }
 
+bool ssl_proxy_is_handshaked(struct ssl_proxy *proxy __attr_unused__)
+{
+	return FALSE;
+}
+
 void ssl_proxy_free(struct ssl_proxy *proxy __attr_unused__) {}
 
 unsigned int ssl_proxy_get_count(void)
