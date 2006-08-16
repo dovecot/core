@@ -34,6 +34,7 @@ liblib_a_SOURCES = \
 	istream-seekable.c \
 	istream-tee.c \
 	ioloop.c \
+	ioloop-iolist.c \
 	ioloop-notify-none.c \
 	ioloop-notify-dn.c \
 	ioloop-notify-inotify.c \
@@ -118,6 +119,7 @@ noinst_HEADERS = \
 	istream-seekable.h \
 	istream-tee.h \
 	ioloop.h \
+	ioloop-iolist.h \
 	ioloop-internal.h \
 	lib.h \
 	lib-signals.h \

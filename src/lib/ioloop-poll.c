@@ -10,10 +10,6 @@
 #include <fcntl.h>
 #include <sys/poll.h>
 
-#ifndef INITIAL_POLL_FDS
-#  define INITIAL_POLL_FDS 128
-#endif
-
 struct ioloop_handler_context {
 	unsigned int fds_count, fds_pos;
 	struct pollfd *fds;
@@ -28,10 +24,10 @@ void io_loop_handler_init(struct ioloop *ioloop)
 
 	ioloop->handler_context = ctx =
 		p_new(ioloop->pool, struct ioloop_handler_context, 1);
-	ctx->fds_count = INITIAL_POLL_FDS;
+	ctx->fds_count = IOLOOP_INITIAL_FD_COUNT;
 	ctx->fds = p_new(ioloop->pool, struct pollfd, ctx->fds_count);
 
-	ctx->idx_count = INITIAL_POLL_FDS;
+	ctx->idx_count = IOLOOP_INITIAL_FD_COUNT;
 	ctx->fd_index = p_new(ioloop->pool, int, ctx->idx_count);
         memset(ctx->fd_index, 0xff, sizeof(int) * ctx->idx_count);
 }

@@ -33,13 +33,22 @@ static void event_callback(void *context)
 	struct ioloop_notify_handler_context *ctx = context;
 	struct io *io;
 	struct kevent ev;
+	struct timespec ts;
 
 	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
 		i_fatal("gettimeofday() failed: %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 
-	if (kevent(ctx->kq, NULL, 0, &ev, 1, 0) < 0)
-		i_fatal("kevent() failed: %m");
+	ts.tv_sec = 0;
+	ts.tv_nsec = 0;
+
+	ret = kevent(ctx->kq, NULL, 0, &ev, 1, &ts);
+	if (ret <= 0) {
+		if (ret == 0 || errno == EINTR)
+			return;
+
+		i_fatal("kevent(notify) failed: %m");
+	}
 	io = ev.udata;
 	io->callback(io->context);
 }
@@ -52,7 +61,7 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 		p_new(ioloop->pool, struct ioloop_notify_handler_context, 1);
 	ctx->kq = kqueue();
 	if (ctx->kq < 0)
-		i_fatal("kqueue() in io_loop_notify_handler_init() failed: %m");
+		i_fatal("kqueue(notify) failed: %m");
 	fd_close_on_exec(ctx->kq, TRUE);
 }
 
@@ -73,18 +82,15 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
-	struct kevent ev = { -1, EVFILT_VNODE, EV_ADD,
-			     NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND
-			     | NOTE_REVOKE, 0, NULL };
+	struct kevent ev;
 	struct io *io;
 	int fd;
 	struct stat sb;
 
-	i_assert(callback != NULL);
-
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		i_error("open(%s) for kq notify failed: %m", path);
+		if (errno != ENOENT)
+			i_error("open(%s) for kq notify failed: %m", path);
 		return NULL;
 	}
 
@@ -103,10 +109,12 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	io->fd = fd;
 	io->callback = callback;
 	io->context = context;
-	ev.ident = fd;
-	ev.udata = io;
+
+	EV_SET(ev, fd, EVFILT_VNODE, EV_ADD,
+	       NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND | NOTE_REVOKE, 0, io);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
 		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
+		(void)close(fd);
 		p_free(ioloop->pool, io);
 		return NULL;
 	}
@@ -123,14 +131,15 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
-	struct kevent ev = { io->fd, EVFILT_VNODE, EV_DELETE, 0, 0, NULL };
+	struct kevent ev;
 
 	i_assert((io->condition & IO_NOTIFY) != 0);
 
+	EV_SET(ev, io->fd, EVFILT_VNODE, EV_DELETE, 0, 0, NULL);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, 0) < 0)
 		i_error("kevent(%d) for notify remove failed: %m", io->fd);
 	if (close(io->fd) < 0)
-		i_error("close(%d) failed: %m", io->fd);
+		i_error("close(%d) for notify remove failed: %m", io->fd);
 }
 
 #endif

@@ -3,6 +3,10 @@
 
 #include "ioloop.h"
 
+#ifndef IOLOOP_INITIAL_FD_COUNT
+#  define IOLOOP_INITIAL_FD_COUNT 128
+#endif
+
 struct ioloop {
         struct ioloop *prev;
 

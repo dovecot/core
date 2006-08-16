@@ -6,39 +6,23 @@
  * This software is released under the MIT license.
  */
 
-/* @UNSAFE: whole file */
-
 #include "lib.h"
 #include "array.h"
 #include "fd-close-on-exec.h"
 #include "ioloop-internal.h"
+#include "ioloop-iolist.h"
 
 #ifdef IOLOOP_EPOLL
 
 #include <sys/epoll.h>
 #include <unistd.h>
 
-#define INITIAL_EPOLL_EVENTS	128
-
-enum {
-	EPOLL_LIST_INPUT,
-	EPOLL_LIST_OUTPUT,
-	EPOLL_LIST_ERROR,
-
-	EPOLL_IOS_PER_FD
-};
-
 struct ioloop_handler_context {
 	int epfd;
-	int events_size, events_pos;
-	struct epoll_event *events;
 
-	unsigned int idx_size;
-	ARRAY_DEFINE(fd_index, struct io_list *);
-};
-
-struct io_list {
-	struct io *ios[EPOLL_IOS_PER_FD];
+	unsigned int deleted_count;
+	array_t ARRAY_DEFINE(fd_index, struct io_list *);
+	array_t ARRAY_DEFINE(events, struct epoll_event);
 };
 
 void io_loop_handler_init(struct ioloop *ioloop)
@@ -48,16 +32,12 @@ void io_loop_handler_init(struct ioloop *ioloop)
 	ioloop->handler_context = ctx =
 		p_new(ioloop->pool, struct ioloop_handler_context, 1);
 
-	ctx->events_pos = 0;
-	ctx->events_size = INITIAL_EPOLL_EVENTS;
-	ctx->events = p_new(ioloop->pool, struct epoll_event,
-			    ctx->events_size);
-
-	ctx->idx_size = INITIAL_EPOLL_EVENTS;
+	ARRAY_CREATE(&ctx->events, ioloop->pool, struct epoll_event,
+		     IOLOOP_INITIAL_FD_COUNT);
 	ARRAY_CREATE(&ctx->fd_index, ioloop->pool,
-		     struct io_list *, ctx->idx_size);
+		     struct io_list *, IOLOOP_INITIAL_FD_COUNT);
 
-	ctx->epfd = epoll_create(INITIAL_EPOLL_EVENTS);
+	ctx->epfd = epoll_create(IOLOOP_INITIAL_FD_COUNT);
 	if (ctx->epfd < 0)
 		i_fatal("epoll_create(): %m");
 	fd_close_on_exec(ctx->epfd, TRUE);
@@ -70,7 +50,7 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 	if (close(ctx->epfd) < 0)
 		i_error("close(epoll) failed: %m");
 	array_free(&ioloop->handler_context->fd_index);
-	p_free(ioloop->pool, ioloop->handler_context->events);
+	array_free(&ioloop->handler_context->events);
 	p_free(ioloop->pool, ioloop->handler_context);
 }
 
@@ -83,7 +63,7 @@ static int epoll_event_mask(struct io_list *list)
 	int events = 0, i;
 	struct io *io;
 
-	for (i = 0; i < EPOLL_IOS_PER_FD; i++) {
+	for (i = 0; i < IOLOOP_IOLIST_IOS_PER_FD; i++) {
 		io = list->ios[i];
 
 		if (io == NULL)
@@ -100,80 +80,38 @@ static int epoll_event_mask(struct io_list *list)
 	return events;
 }
 
-static bool iolist_add(struct io_list *list, struct io *io)
-{
-	int i, idx;
-
-	if ((io->condition & IO_READ) != 0)
-		idx = EPOLL_LIST_INPUT;
-	else if ((io->condition & IO_WRITE) != 0)
-		idx = EPOLL_LIST_OUTPUT;
-	else if ((io->condition & IO_ERROR) != 0)
-		idx = EPOLL_LIST_ERROR;
-	else {
-		i_unreached();
-	}
-
-	i_assert(list->ios[idx] == NULL);
-	list->ios[idx] = io;
-
-	/* check if this was the first one */
-	for (i = 0; i < EPOLL_IOS_PER_FD; i++) {
-		if (i != idx && list->ios[i] != NULL)
-			return FALSE;
-	}
-
-	return TRUE;
-}
-
-static bool iolist_del(struct io_list *list, struct io *io)
-{
-	bool last = TRUE;
-	int i;
-
-	for (i = 0; i < EPOLL_IOS_PER_FD; i++) {
-		if (list->ios[i] != NULL) {
-			if (list->ios[i] == io)
-				list->ios[i] = NULL;
-			else
-				last = FALSE;
-		}
-	}
-	return last;
-}
-
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list **list;
 	struct epoll_event event;
-	int ret, op, fd = io->fd;
+	int op;
 	bool first;
 
-	list = array_idx_modifiable(&ctx->fd_index, fd);
+	list = array_idx_modifiable(&ctx->fd_index, io->fd);
 	if (*list == NULL)
 		*list = p_new(ioloop->pool, struct io_list, 1);
 
-	first = iolist_add(*list, io);
+	first = ioloop_iolist_add(*list, io);
 
 	event.data.ptr = *list;
 	event.events = epoll_event_mask(*list);
 
 	op = first ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
 
-	ret = epoll_ctl(ctx->epfd, op, fd, &event);
-	if (ret < 0)
-		i_fatal("io_loop_handle_add: epoll_ctl(%d, %d): %m", op, fd);
-
-	if (ctx->events_pos >= ctx->events_size) {
-		ctx->events_size = nearest_power(ctx->events_size + 1);
-
-		p_free(ioloop->pool, ctx->events);
-		ctx->events = p_new(ioloop->pool, struct epoll_event,
-				    ctx->events_size);
+	if (epoll_ctl(ctx->epfd, op, io->fd, &event) < 0) {
+		i_fatal("io_loop_handle_add: epoll_ctl(%d, %d): %m",
+			op, io->fd);
 	}
 
-	ctx->events_pos++;
+	if (first) {
+		/* allow epoll_wait() to return the maximum number of events
+		   by keeping space allocated for each file descriptor */
+		if (ctx->deleted_count > 0)
+			ctx->deleted_count--;
+		else
+			(void)array_append_space(&ctx->events);
+	}
 }
 
 void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
@@ -181,24 +119,28 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list **list;
 	struct epoll_event event;
-	int ret, op;
+	int op;
 	bool last;
 
 	list = array_idx_modifiable(&ctx->fd_index, io->fd);
-	last = iolist_del(*list, io);
+	last = ioloop_iolist_del(*list, io);
 
 	event.data.ptr = *list;
 	event.events = epoll_event_mask(*list);
 
 	op = last ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
 
-	ret = epoll_ctl(ctx->epfd, op, io->fd, &event);
-	if (ret < 0 && errno != EBADF) {
-		i_fatal("io_loop_handle_remove: epoll_ctl(%d, %d): %m",
+	if (epoll_ctl(ctx->epfd, op, io->fd, &event) < 0) {
+		i_error("io_loop_handle_remove: epoll_ctl(%d, %d): %m",
 			op, io->fd);
 	}
 
-	ctx->events_pos--;
+	if (last) {
+		/* since we're not freeing memory in any case, just increase
+		   deleted counter so next handle_add() can just decrease it
+		   insteading of appending to the events array */
+		ctx->deleted_count++;
+	}
 }
 
 void io_loop_handler_run(struct ioloop *ioloop)
@@ -208,14 +150,15 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct io_list *list;
 	struct io *io;
 	struct timeval tv;
-	unsigned int t_id;
+	unsigned int events_count, t_id;
 	int msecs, ret, i;
 	bool call;
 
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
 
-	ret = epoll_wait(ctx->epfd, ctx->events, ctx->events_size, msecs);
+	event = array_get_modifiable(&ctx->events, &events_count);
+	ret = epoll_wait(ctx->epfd, event, events_count, msecs);
 	if (ret < 0 && errno != EINTR)
 		i_fatal("epoll_wait(): %m");
 
@@ -227,11 +170,10 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		return;
 	}
 
-	event = ctx->events;
 	while (ret-- > 0) {
 		list = event->data.ptr;
 
-		for (i = 0; i < EPOLL_IOS_PER_FD; i++) {
+		for (i = 0; i < IOLOOP_IOLIST_IOS_PER_FD; i++) {
 			io = list->ios[i];
 			if (io == NULL)
 				continue;
