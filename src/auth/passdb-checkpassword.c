@@ -389,14 +389,13 @@ checkpassword_preinit(struct auth_passdb *auth_passdb, const char *args)
 	module->clients =
 		hash_create(default_pool, default_pool, 0, NULL, NULL);
 
-	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, module);
 	return &module->module;
 }
 
-static void checkpassword_init(struct passdb_module *_module __attr_unused__,
+static void checkpassword_init(struct passdb_module *module,
 			       const char *args __attr_unused__)
 {
-	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, module);
 }
 
 static void checkpassword_deinit(struct passdb_module *_module)
