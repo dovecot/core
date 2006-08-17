@@ -27,6 +27,8 @@ struct io {
 	/* use a doubly linked list so that io_remove() is quick */
 	struct io *prev, *next;
 
+	int refcount;
+
 	int fd;
 	enum io_condition condition;
 

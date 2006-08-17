@@ -11,6 +11,8 @@ struct ioloop;
 enum io_condition {
 	IO_READ		= 0x01,
 	IO_WRITE	= 0x02,
+	/* IO_ERROR can be used to check when writable pipe's reader side
+	   closes the pipe. For other uses IO_READ should work just as well. */
 	IO_ERROR	= 0x04,
 	
 	/* internal */
@@ -28,11 +30,11 @@ extern struct timezone ioloop_timezone;
 
 extern struct ioloop *current_ioloop;
 
-/* I/O listeners - you can create different handlers for IO_READ and IO_WRITE,
-   but make sure you don't create multiple handlers of same type, it's not
-   checked and removing one will stop the other from working as well.
+/* You can create different handlers for IO_READ and IO_WRITE. IO_READ and
+   IO_ERROR can't use different handlers (and there's no point anyway).
 
- */
+   Don't try to add multiple handlers for the same type. It's not checked and
+   the behavior will be undefined. */
 struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context);
 struct io *io_add_notify(const char *path, io_callback_t *callback,

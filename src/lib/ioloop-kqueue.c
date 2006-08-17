@@ -16,7 +16,6 @@
 #include "array.h"
 #include "fd-close-on-exec.h"
 #include "ioloop-internal.h"
-#include "ioloop-iolist.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -28,7 +27,6 @@ struct ioloop_handler_context {
 	int kq;
 
 	unsigned int deleted_count;
-	array_t ARRAY_DEFINE(fd_index, struct io_list *);
 	array_t ARRAY_DEFINE(events, struct kevent);
 };
 
@@ -46,74 +44,60 @@ void io_loop_handler_init(struct ioloop *ioloop)
 
 	ARRAY_CREATE(&ctx->events, ioloop->pool, struct kevent,
 		     IOLOOP_INITIAL_FD_COUNT);
-	ARRAY_CREATE(&ctx->fd_index, ioloop->pool,
-		     struct io_list *, IOLOOP_INITIAL_FD_COUNT);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
 	if (close(ioloop->handler_context->kq) < 0)
 		i_error("close(kqueue) in io_loop_handler_deinit() failed: %m");
-	array_free(&ioloop->handler_context->fd_index);
 	array_free(&ioloop->handler_context->events);
 	p_free(ioloop->pool, ioloop->handler_context);
-}
-
-static int io_filter(struct io *io)
-{
-	if ((io->condition & IO_WRITE) != 0)
-		return EVFILT_WRITE;
-	if ((io->condition & (IO_READ | IO_ERROR)) != 0)
-		return EVFILT_READ;
-	return 0;
 }
 
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	struct io_list **list;
 	struct kevent ev;
-	bool first;
 
-	list = array_idx_modifyable(&ctx->fd_index, io->fd);
-	if (*list == NULL)
-		*list = p_new(ioloop->pool, struct io_list, 1);
-	first = ioloop_iolist_add(*list, io);
-
-	EV_SET(&ev, io->fd, io_filter(io), EV_ADD, 0, 0, *list);
-	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
-		i_fatal("kevent(EV_ADD, %d) failed: %m", io->fd);
-
-	if (first) {
-		/* allow kevent() to return the maximum number of events
-		   by keeping space allocated for each file descriptor */
-		if (ctx->deleted_count > 0)
-			ctx->deleted_count--;
-		else
-			(void)array_append_space(&ctx->events);
+	if ((io->condition & (IO_READ | IO_ERROR)) != 0) {
+		EV_SET(&ev, io->fd, EVFILT_READ, EV_ADD, 0, 0, io);
+		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
+			i_fatal("kevent(EV_ADD, %d) failed: %m", io->fd);
 	}
+	if ((io->condition & IO_WRITE) != 0) {
+		EV_SET(&ev, io->fd, EVFILT_WRITE, EV_ADD, 0, 0, io);
+		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
+			i_fatal("kevent(EV_ADD, %d) failed: %m", io->fd);
+	}
+
+	/* allow kevent() to return the maximum number of events
+	   by keeping space allocated for each handle */
+	if (ctx->deleted_count > 0)
+		ctx->deleted_count--;
+	else
+		(void)array_append_space(&ctx->events);
 }
 
 void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	struct io_list **list;
 	struct kevent ev;
-	bool last;
-	
-	list = array_idx_modifyable(&ctx->fd_index, io->fd);
-	last = ioloop_iolist_del(*list, io);
 
-	EV_SET(&ev, io->fd, io_filter(io), EV_DELETE, 0, 0, *list);
-	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
-		i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
-
-	if (last) {
-		/* since we're not freeing memory in any case, just increase
-		   deleted counter so next handle_add() can just decrease it
-		   insteading of appending to the events array */
-		ctx->deleted_count++;
+	if ((io->condition & (IO_READ | IO_ERROR)) != 0) {
+		EV_SET(&ev, io->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
+			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
 	}
+	if ((io->condition & IO_WRITE) != 0) {
+		EV_SET(&ev, io->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
+			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
+	}
+
+	/* since we're not freeing memory in any case, just increase
+	   deleted counter so next handle_add() can just decrease it
+	   insteading of appending to the events array */
+	ctx->deleted_count++;
 }
 
 void io_loop_handler_run(struct ioloop *ioloop)
@@ -123,10 +107,9 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	const struct kevent *event;
 	struct timeval tv;
 	struct timespec ts;
-	struct io_list *list;
+	struct io *io;
 	unsigned int events_count, t_id;
-	int msecs, ret, i, j;
-	bool call;
+	int msecs, ret, i;
 
 	/* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
@@ -145,40 +128,32 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	if (!ioloop->running)
 		return;
 
+	/* reference all IOs */
+	for (i = 0; i < ret; i++) {
+		io = events[i].udata;
+		io->refcount++;
+	}
+
 	for (i = 0; i < ret; i++) {
 		/* io_loop_handle_add() may cause events array reallocation,
 		   so we have use array_idx() */
 		event = array_idx(&ctx->events, i);
-		list = (void *)event->udata;
+		io = (void *)event->udata;
 
-		for (j = 0; j < IOLOOP_IOLIST_IOS_PER_FD; j++) {
-			struct io *io = list->ios[j];
-
-			if (io == NULL)
-				continue;
-
-			call = FALSE;
-			if ((event->flags & EV_ERROR) != 0) {
-				errno = event->data;
-				i_error("kevent(): invalid fd %d callback "
-					"%p: %m", io->fd, (void *)io->callback);
-			} else if ((event->flags & EV_EOF) != 0)
-				call = TRUE;
-			else if ((io->condition & IO_READ) != 0)
-				call = event->filter == EVFILT_READ;
-			else if ((io->condition & IO_WRITE) != 0)
-				call = event->filter == EVFILT_WRITE;
-
-			if (call) {
-				t_id = t_push();
-				io->callback(io->context);
-				if (t_pop() != t_id) {
-					i_panic("Leaked a t_pop() call in "
-						"I/O handler %p",
-						(void *)io->callback);
-				}
+		/* callback is NULL if io_remove() was already called */
+		if (io->callback != NULL) {
+			t_id = t_push();
+			io->callback(io->context);
+			if (t_pop() != t_id) {
+				i_panic("Leaked a t_pop() call in "
+					"I/O handler %p",
+					(void *)io->callback);
 			}
 		}
+
+		i_assert(io->refcount > 0);
+		if (--io->refcount == 0)
+			p_free(current_ioloop->pool, io);
 	}
 }
 
