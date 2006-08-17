@@ -61,34 +61,11 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 
 static int io_filter(struct io *io)
 {
-	int filter = 0;
-
+	if ((io->condition & IO_WRITE) != 0)
+		return EVFILT_WRITE;
 	if ((io->condition & (IO_READ | IO_ERROR)) != 0)
-		filter |= EVFILT_READ;
-	if ((io->condition & (IO_WRITE | IO_ERROR)) != 0)
-		filter |= EVFILT_WRITE;
-
-	return filter;
-}
-
-static int io_list_filter(struct io_list *list)
-{
-	int filter = 0, i;
-	struct io *io;
-
-	for (i = 0; i < IOLOOP_IOLIST_IOS_PER_FD; i++) {
-		io = list->ios[i];
-
-		if (io == NULL)
-			continue;
-
-		if ((io->condition & (IO_READ | IO_ERROR)) != 0)
-			filter |= EVFILT_READ;
-		if ((io->condition & (IO_WRITE | IO_ERROR)) != 0)
-			filter |= EVFILT_WRITE;
-	}
-
-	return filter;
+		return EVFILT_READ;
+	return 0;
 }
 
 void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
@@ -101,7 +78,6 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 	list = array_idx_modifyable(&ctx->fd_index, io->fd);
 	if (*list == NULL)
 		*list = p_new(ioloop->pool, struct io_list, 1);
-
 	first = ioloop_iolist_add(*list, io);
 
 	EV_SET(&ev, io->fd, io_filter(io), EV_ADD, 0, 0, *list);
@@ -123,14 +99,12 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list **list;
 	struct kevent ev;
-	int filter;
 	bool last;
 	
 	list = array_idx_modifyable(&ctx->fd_index, io->fd);
 	last = ioloop_iolist_del(*list, io);
 
-	filter = io_filter(io) & ~io_list_filter(*list);
-	EV_SET(&ev, io->fd, filter, EV_DELETE, 0, 0, *list);
+	EV_SET(&ev, io->fd, io_filter(io), EV_DELETE, 0, 0, *list);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 		i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
 
@@ -152,7 +126,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct io_list *list;
 	unsigned int events_count, t_id;
 	int msecs, ret, i, j;
-	bool call, called;
+	bool call;
 
 	/* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop->timeouts, &tv, NULL);
@@ -177,9 +151,9 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		event = array_idx(&ctx->events, i);
 		list = (void *)event->udata;
 
-		called = FALSE;
 		for (j = 0; j < IOLOOP_IOLIST_IOS_PER_FD; j++) {
 			struct io *io = list->ios[j];
+
 			if (io == NULL)
 				continue;
 
@@ -191,12 +165,11 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			} else if ((event->flags & EV_EOF) != 0)
 				call = TRUE;
 			else if ((io->condition & IO_READ) != 0)
-				call = (event->filter & EVFILT_READ) != 0;
+				call = event->filter == EVFILT_READ;
 			else if ((io->condition & IO_WRITE) != 0)
-				call = (event->filter & EVFILT_WRITE) != 0;
+				call = event->filter == EVFILT_WRITE;
 
 			if (call) {
-				called = TRUE;
 				t_id = t_push();
 				io->callback(io->context);
 				if (t_pop() != t_id) {
@@ -205,18 +178,6 @@ void io_loop_handler_run(struct ioloop *ioloop)
 						(void *)io->callback);
 				}
 			}
-		}
-		if (!called) {
-			i_panic("Unrecognized event: kevent "
-				"{.ident = %d,"
-				" .filter = 0x%04x,"
-				" .flags = 0x%04x,"
-				" .fflags = 0x%08x,"
-				" .data = 0x%08llx}, io filter = %x",
-				event->ident,
-				event->filter, event->flags,
-				event->fflags, (unsigned long long)event->data,
-				io_list_filter(list));
 		}
 	}
 }
