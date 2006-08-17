@@ -122,17 +122,14 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	if (ret < 0 && errno != EINTR)
 		i_fatal("kevent(): %m");
 
-	/* execute timeout handlers */
-	io_loop_handle_timeouts(ioloop);
-
-	if (!ioloop->running)
-		return;
-
 	/* reference all IOs */
 	for (i = 0; i < ret; i++) {
 		io = events[i].udata;
 		io->refcount++;
 	}
+
+	/* execute timeout handlers */
+	io_loop_handle_timeouts(ioloop);
 
 	for (i = 0; i < ret; i++) {
 		/* io_loop_handle_add() may cause events array reallocation,
