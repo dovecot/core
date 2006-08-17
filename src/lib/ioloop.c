@@ -53,6 +53,7 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 	if (io == NULL)
 		return NULL;
 
+	io->refcount = 1;
 	io->condition |= IO_NOTIFY;
 	io->next = current_ioloop->notifys;
 	current_ioloop->notifys = io;
