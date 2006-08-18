@@ -127,7 +127,7 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	io->io.callback = callback;
 	io->io.context = context;
 	io->wd = watchdescriptor;
-	return io;
+	return &io->io;
 }
 
 void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
