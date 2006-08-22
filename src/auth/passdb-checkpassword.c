@@ -182,6 +182,21 @@ static void sigchld_handler(int signo __attr_unused__, void *context)
 	}
 }
 
+static void env_put_extra_fields(const char *extra_fields)
+{
+	const char *const *tmp;
+	const char *key, *p;
+
+	for (tmp = t_strsplit(extra_fields, "\t"); *tmp != NULL; tmp++) {
+		key = t_str_ucase(t_strcut(*tmp, '='));
+		p = strchr(*tmp, '=');
+		if (p == NULL)
+			env_put(t_strconcat(key, "=1", NULL));
+		else
+			env_put(t_strconcat(key, p, NULL));
+	}
+}
+
 static void
 checkpassword_verify_plain_child(struct auth_request *request,
 				 struct checkpassword_passdb_module *module,
@@ -215,6 +230,13 @@ checkpassword_verify_plain_child(struct auth_request *request,
 		if (request->master_user != NULL) {
 			env_put(t_strconcat("MASTER_USER=",
 					    request->master_user, NULL));
+		}
+		if (request->extra_fields != NULL) {
+			const char *fields =
+				auth_stream_reply_export(request->extra_fields);
+
+			/* extra fields could come from master db */
+			env_put_extra_fields(fields);
 		}
 
 		auth_request_log_debug(request, "checkpassword",
