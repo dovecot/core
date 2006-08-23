@@ -800,7 +800,8 @@ static int rename_subfolders(struct index_storage *storage,
 	   other processes though. */
 	pool = pool_alloconly_create("Maildir subfolders list", 1024);
 	ARRAY_CREATE(&names_arr, default_pool, const char *, 64);
-	ctx = maildir_mailbox_list_init(&storage->storage, oldname, "*",
+	ctx = maildir_mailbox_list_init(&storage->storage, oldname,
+					/*MAILDIR_FS_SEP_S*/"*",
 					MAILBOX_LIST_FAST_FLAGS);
 	while ((list = maildir_mailbox_list_next(ctx)) != NULL) {
 		const char *name;
