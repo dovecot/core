@@ -127,6 +127,7 @@ static int duplicate_read(struct duplicate_file *file)
 			d->id_size = id_size;
 			d->user = p_strndup(file->pool,
 					    data + id_size, user_size);
+			d->time = stamp;
 			hash_insert(file->hash, d, d);
 		} else {
                         change_count++;
