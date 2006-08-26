@@ -55,8 +55,6 @@ hash_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
 {
 	struct hash_table *table;
 
-	initial_size = 0;
-
 	table = p_new(table_pool, struct hash_table, 1);
         table->table_pool = table_pool;
 	table->node_pool = node_pool;
