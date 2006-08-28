@@ -65,7 +65,17 @@ struct mysql_result {
 struct mysql_transaction_context {
 	struct sql_transaction_context ctx;
 
-	string_t *queries;
+	pool_t query_pool;
+	struct mysql_query_list *head, *tail;
+
+	const char *error;
+
+	unsigned int failed:1;
+};
+
+struct mysql_query_list {
+	struct mysql_query_list *next;
+	const char *query;
 };
 
 extern struct sql_db driver_mysql_db;
@@ -227,12 +237,6 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 			*field = p_strdup(db->pool, value);
 	}
 	t_pop();
-
-#ifdef CLIENT_MULTI_STATEMENTS
-	/* Updates require this because everything is committed in one large
-	   SQL statement. */
-	db->client_flags |= CLIENT_MULTI_STATEMENTS;
-#endif
 
 	if (array_count(&db->connections) == 0)
 		i_fatal("mysql: No hosts given in connect string");
@@ -550,7 +554,7 @@ driver_mysql_transaction_begin(struct sql_db *db)
 
 	ctx = i_new(struct mysql_transaction_context, 1);
 	ctx->ctx.db = db;
-	ctx->queries = str_new(default_pool, 1024);
+	ctx->query_pool = pool_alloconly_create("mysql transaction", 1024);
 	return &ctx->ctx;
 }
 
@@ -566,26 +570,46 @@ driver_mysql_transaction_commit(struct sql_transaction_context *ctx,
 		callback(NULL, context);
 }
 
+static int transaction_send_query(struct mysql_transaction_context *ctx,
+				  const char *query)
+{
+	struct sql_result *result;
+	int ret = 0;
+
+	if (ctx->failed)
+		return -1;
+
+	result = sql_query_s(ctx->ctx.db, query);
+	if (sql_result_next_row(result) < 0) {
+		ctx->error = sql_result_get_error(result);
+		ctx->failed = TRUE;
+		ret = -1;
+	}
+	sql_result_free(result);
+	return ret;
+}
+
 static int
 driver_mysql_transaction_commit_s(struct sql_transaction_context *_ctx,
 				  const char **error_r)
 {
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
-	struct sql_result *result;
 	int ret = 0;
 
 	*error_r = NULL;
 
-	if (str_len(ctx->queries) > 0) {
-		str_append(ctx->queries, "COMMIT;");
-
-		result = sql_query_s(_ctx->db, str_c(ctx->queries));
-		if (sql_result_next_row(result) < 0) {
-			*error_r = sql_result_get_error(result);
-			ret = -1;
+	if (ctx->head != NULL) {
+		/* try to use a transaction in any case,
+		   even if it doesn't work. */
+		(void)transaction_send_query(ctx, "BEGIN");
+		while (ctx->head != NULL) {
+			if (transaction_send_query(ctx, ctx->head->query) < 0)
+				break;
+			ctx->head = ctx->head->next;
 		}
-		sql_result_free(result);
+		ret = transaction_send_query(ctx, "COMMIT");
+		*error_r = ctx->error;
 	}
 	sql_transaction_rollback(&_ctx);
 	return ret;
@@ -597,7 +621,7 @@ driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
 
-	str_free(&ctx->queries);
+	pool_unref(ctx->query_pool);
 	i_free(ctx);
 }
 
@@ -606,18 +630,20 @@ driver_mysql_update(struct sql_transaction_context *_ctx, const char *query)
 {
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
+	struct mysql_query_list *list;
 
 	/* FIXME: with mysql we're just appending everything into one big
-	   string which gets committed in sql_transaction_commit(). we could
-	   avoid this if we knew for sure that transactions actually worked,
-	   but I don't know how to do that.. */
-	if (str_len(ctx->queries) == 0) {
-		/* try to use a transaction in any case,
-		   even if it doesn't work. */
-		str_append(ctx->queries, "BEGIN;");
-	}
-	str_append(ctx->queries, query);
-	str_append_c(ctx->queries, ';');
+	   linked list which gets committed in sql_transaction_commit().
+	   we could avoid this if we knew for sure that transactions actually
+	   worked, but I don't know how to do that.. */
+	list = p_new(ctx->query_pool, struct mysql_query_list, 1);
+	list->query = p_strdup(ctx->query_pool, query);
+
+	if (ctx->head == NULL)
+		ctx->head = list;
+	else
+		ctx->tail->next = list;
+	ctx->tail = list;
 }
 
 struct sql_db driver_mysql_db = {
