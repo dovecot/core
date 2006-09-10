@@ -317,8 +317,7 @@ bool client_save_keywords(struct mailbox_keywords *dest,
 		return FALSE;
 
 	p_clear(dest->pool);
-	ARRAY_CREATE(&dest->keywords, dest->pool,
-		     const char *, array_count(keywords));
+	ARRAY_CREATE(&dest->keywords, dest->pool, array_count(keywords));
 
 	for (i = 0; i < count; i++) {
 		const char *name = p_strdup(dest->pool, names[i]);

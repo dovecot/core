@@ -252,7 +252,7 @@ static struct sql_db *_driver_mysql_init(const char *connect_string)
 	db = p_new(pool, struct mysql_db, 1);
 	db->pool = pool;
 	db->api = driver_mysql_db;
-	ARRAY_CREATE(&db->connections, pool, struct mysql_connection, 6);
+	ARRAY_CREATE(&db->connections, pool, 6);
 
 	driver_mysql_parse_connect_string(db, connect_string);
 	return &db->api;

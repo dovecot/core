@@ -437,7 +437,7 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 	count += APPROX_MSG_EXTRA_COUNT;
 	ctx->msgid_pool =
 		pool_alloconly_create("msgids", count * APPROX_MSGID_SIZE);
-	ARRAY_CREATE(&ctx->msgid_map, default_pool, const char *,
+	ARRAY_CREATE(&ctx->msgid_map, default_pool,
 		     I_MAX(hdr->record_count, client->messages_count));
 
 	ctx->tmp_mail = mail_alloc(ctx->t, 0, NULL);
@@ -1516,8 +1516,7 @@ static int merge_subject_threads(struct thread_context *ctx)
 	struct mail_thread_root_rec **roots;
 	unsigned int i, count;
 
-	ARRAY_CREATE(&ctx->moved_recs, default_pool,
-		     struct mail_thread_moved_rec, 128);
+	ARRAY_CREATE(&ctx->moved_recs, default_pool, 128);
 	(void)array_append_space(&ctx->moved_recs);
 
 	roots = array_get_modifiable(&ctx->roots, &count);
@@ -1754,8 +1753,7 @@ static int mail_thread_finish(struct thread_context *ctx)
 		return 0;
 
 	/* (2) save root nodes */
-	ARRAY_CREATE(&ctx->roots, default_pool, struct mail_thread_root_rec *,
-		     I_MIN(128, hdr->record_count));
+	ARRAY_CREATE(&ctx->roots, default_pool, I_MIN(128, hdr->record_count));
 	for (idx = 1; idx <= hdr->record_count; idx++) {
 		if (mail_thread_rec_idx(ctx, idx, &rec) < 0)
 			return -1;
@@ -1927,7 +1925,7 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		ctx->msgid_hash = tbox->msgid_hash;
 		ctx->msgid_pool =
 			pool_alloconly_create("msgids", 20 * APPROX_MSGID_SIZE);
-		ARRAY_CREATE(&ctx->msgid_map, default_pool, const char *, 20);
+		ARRAY_CREATE(&ctx->msgid_map, default_pool, 20);
 		ctx->tmp_mail = mail_alloc(mt, 0, NULL);
 	} else if (data == NULL) {
 		/* deinit */

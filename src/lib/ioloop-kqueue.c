@@ -42,8 +42,7 @@ void io_loop_handler_init(struct ioloop *ioloop)
 		i_fatal("kqueue() in io_loop_handler_init() failed: %m");
 	fd_close_on_exec(ctx->kq, TRUE);
 
-	ARRAY_CREATE(&ctx->events, ioloop->pool, struct kevent,
-		     IOLOOP_INITIAL_FD_COUNT);
+	ARRAY_CREATE(&ctx->events, ioloop->pool, IOLOOP_INITIAL_FD_COUNT);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)

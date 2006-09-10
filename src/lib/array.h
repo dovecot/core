@@ -13,8 +13,7 @@
 	...
    };
 
-   ARRAY_CREATE(&foo->bars, default_pool, struct bar, 10);
-   ARRAY_CREATE(&foo->bars, default_pool, struct baz, 10); // compiler warning
+   ARRAY_CREATE(&foo->bars, default_pool, 10);
 
    struct bar *bar = array_idx(&foo->bars, 5);
    struct baz *baz = array_idx(&foo->bars, 5); // compiler warning
@@ -33,10 +32,8 @@
 #include "array-decl.h"
 #include "buffer.h"
 
-#define ARRAY_CREATE(array, pool, array_type, init_count) STMT_START { \
-	array_type const *_array_tmp = (array)->v; _array_tmp = NULL; \
-	array_create(array, pool, sizeof(array_type), init_count); \
-	} STMT_END
+#define ARRAY_CREATE(array, pool, init_count) \
+	array_create(array, pool, sizeof(*(array)->v), init_count);
 
 #ifdef __GNUC__
 #  define ARRAY_TYPE_CAST_CONST(array) \
@@ -44,8 +41,9 @@
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array) \
 	(typeof((array)->v_modifiable))
 #  define ARRAY_TYPE_CHECK(array, data) \
-	typeof((array)->v_modifiable) __tmp_array_data2 __attr_unused__ = \
-		(typeof(const typeof(typeof(*(data)) *)))NULL;
+	typeof(const typeof(*(array)->v_modifiable) *) \
+		__tmp_array_data2 __attr_unused__ = \
+			(typeof(const typeof(typeof(*(data)) *)))NULL;
 #else
 #  define ARRAY_TYPE_CAST_CONST(array)
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array)

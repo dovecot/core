@@ -26,10 +26,8 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	memset(&eh, 0, sizeof(eh));
 	if (array_is_created(&ctx->expunge_handlers))
 		array_clear(&ctx->expunge_handlers);
-	else {
-		ARRAY_CREATE(&ctx->expunge_handlers, default_pool,
-			     struct mail_index_expunge_handler, 64);
-	}
+	else
+		ARRAY_CREATE(&ctx->expunge_handlers, default_pool, 64);
 
 	rext = array_get(&ctx->view->index->extensions, &rext_count);
 	ext = array_get(&ctx->view->map->extensions, &ext_count);
@@ -90,8 +88,7 @@ void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 	if (array_is_created(&ctx->extra_contexts))
 		array_clear(&ctx->extra_contexts);
 	else {
-		ARRAY_CREATE(&ctx->extra_contexts, default_pool,
-			     void *, count);
+		ARRAY_CREATE(&ctx->extra_contexts, default_pool, count);
 	}
 
 	/* fill the context array with NULLs */

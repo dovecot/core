@@ -54,7 +54,7 @@ struct acl_cache *acl_cache_init(struct acl_backend *backend,
 		hash_create(default_pool, cache->right_names_pool, 0,
 			    str_hash, (hash_cmp_callback_t *)strcmp);
 	ARRAY_CREATE(&cache->right_idx_name_map, default_pool,
-		     const char *, DEFAULT_ACL_RIGHTS_COUNT);
+		     DEFAULT_ACL_RIGHTS_COUNT);
 	return cache;
 }
 

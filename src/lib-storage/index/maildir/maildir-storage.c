@@ -799,7 +799,7 @@ static int rename_subfolders(struct index_storage *storage,
 	   is being modified. this doesn't protect against modifications by
 	   other processes though. */
 	pool = pool_alloconly_create("Maildir subfolders list", 1024);
-	ARRAY_CREATE(&names_arr, default_pool, const char *, 64);
+	ARRAY_CREATE(&names_arr, default_pool, 64);
 	ctx = maildir_mailbox_list_init(&storage->storage, oldname,
 					MAILDIR_FS_SEP_S"*",
 					MAILBOX_LIST_FAST_FLAGS);

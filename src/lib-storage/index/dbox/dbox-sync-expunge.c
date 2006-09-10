@@ -149,7 +149,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 
 	memset(&dest_entry, 0, sizeof(dest_entry));
 	ARRAY_CREATE(&dest_entry.uid_list, pool_datastack_create(),
-		     struct seq_range, array_count(&orig_entry->uid_list));
+		     array_count(&orig_entry->uid_list));
 	dest_entry.file_seq = file_seq;
 
 	/* write file header */

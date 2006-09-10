@@ -89,7 +89,7 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 
 	t_push();
 	ARRAY_CREATE(&keywords_arr, pool_datastack_create(),
-		     unsigned int, mbox->file->keyword_count);
+		     mbox->file->keyword_count);
 	if (dbox_mail_get_keywords(mbox, mbox->file, &keywords_arr) < 0) {
 		t_pop();
 		return -1;
@@ -130,8 +130,7 @@ static int dbox_sync_full_file(struct dbox_sync_context *ctx, uint32_t file_seq)
 
 	memset(&entry, 0, sizeof(entry));
 	entry.file_seq = file_seq;
-	ARRAY_CREATE(&entry.uid_list, pool_datastack_create(),
-		     struct seq_range, 64);
+	ARRAY_CREATE(&entry.uid_list, pool_datastack_create(), 64);
 
 	if (mbox->file->seeked_mail_header.expunged != '0') {
 		/* first mail expunged */
@@ -215,7 +214,7 @@ int dbox_sync_full(struct dbox_sync_context *ctx)
 	ctx->mail_index_next_uid = hdr->next_uid;
 
 	dbox_uidlist_sync_from_scratch(ctx->uidlist_sync_ctx);
-	ARRAY_CREATE(&ctx->exists, default_pool, struct seq_range, 128);
+	ARRAY_CREATE(&ctx->exists, default_pool, 128);
 
 	while ((dp = readdir(dirp)) != NULL) {
 		if (strncmp(dp->d_name, DBOX_MAIL_FILE_PREFIX,

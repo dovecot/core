@@ -1136,11 +1136,9 @@ create_new_server(const char *name,
 	*server->imap = *imap_defaults;
 	*server->pop3 = *pop3_defaults;
 
-	ARRAY_CREATE(&server->dicts, settings_pool, const char *, 4);
-	ARRAY_CREATE(&server->imap->plugin_envs, settings_pool,
-		     const char *, 8);
-	ARRAY_CREATE(&server->pop3->plugin_envs, settings_pool,
-		     const char *, 8);
+	ARRAY_CREATE(&server->dicts, settings_pool, 4);
+	ARRAY_CREATE(&server->imap->plugin_envs, settings_pool, 8);
+	ARRAY_CREATE(&server->pop3->plugin_envs, settings_pool, 8);
 
 	server->imap->server = server;
 	server->imap->protocol = MAIL_PROTOCOL_IMAP;

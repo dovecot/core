@@ -42,8 +42,8 @@ struct quota *quota_init(void)
 
 	quota = i_new(struct quota, 1);
 	quota->test_alloc = quota_default_test_alloc;
-	ARRAY_CREATE(&quota->roots, default_pool, struct quota_root *, 4);
-	ARRAY_CREATE(&quota->storages, default_pool, struct mail_storage *, 8);
+	ARRAY_CREATE(&quota->roots, default_pool, 4);
+	ARRAY_CREATE(&quota->storages, default_pool, 8);
 
 	return quota;
 }
@@ -117,8 +117,9 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 		root->name = "";
 	}
 
-	ARRAY_CREATE(&root->rules, default_pool, struct quota_rule, 4);
-	ARRAY_CREATE(&root->quota_module_contexts, default_pool, void *, 5);
+	ARRAY_CREATE(&root->rules, default_pool, 4);
+	array_create(&root->quota_module_contexts, default_pool,
+		     sizeof(void *), 5);
 
 	array_append(&quota->roots, &root, 1);
 

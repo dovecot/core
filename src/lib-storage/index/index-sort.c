@@ -97,7 +97,7 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 	program->temp_mail = mail_alloc(t, 0, NULL);
 	program->reverse =
 		(program->sort_program[0] & MAIL_SORT_FLAG_REVERSE) != 0;
-	ARRAY_CREATE(&program->nodes, default_pool, struct mail_sort_node, 64);
+	ARRAY_CREATE(&program->nodes, default_pool, 64);
 
 	for (i = 0; i < MAX_SORT_PROGRAM_SIZE; i++) {
 		program->sort_program[i] = sort_program[i];
@@ -696,8 +696,7 @@ int index_sort_list_add(struct mail_search_sort_program *program,
 	/* we're not returning all the mails. have to create a temporary array
 	   for all the nodes so we can set all the missing sort_ids. */
 	hdr = mail_index_get_header(t->ibox->view);
-	ARRAY_CREATE(&program->all_nodes, default_pool,
-		     struct mail_sort_node, hdr->messages_count);
+	ARRAY_CREATE(&program->all_nodes, default_pool, hdr->messages_count);
 	ret = index_sort_build(program, hdr->messages_count);
 	array_free(&program->all_nodes);
 	if (ret < 0)

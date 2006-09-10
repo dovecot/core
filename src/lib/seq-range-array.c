@@ -40,7 +40,7 @@ void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 	value.seq1 = value.seq2 = seq;
 
 	if (!array_is_created(array))
-		ARRAY_CREATE(array, default_pool, struct seq_range, init_count);
+		ARRAY_CREATE(array, default_pool, init_count);
 
 	data = array_get_modifiable(array, &count);
 	if (count == 0) {

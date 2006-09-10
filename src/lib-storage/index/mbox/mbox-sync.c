@@ -255,7 +255,6 @@ void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
 				/* adding, create the array */
 				ARRAY_CREATE(&mail->keywords,
 					     sync_ctx->mail_keyword_pool,
-					     unsigned int,
 					     I_MIN(10, count - i));
 			}
 			if (mail_index_sync_keywords_apply(&syncs[i],
@@ -463,8 +462,7 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 
 		/* get old keywords */
 		t_push();
-		ARRAY_CREATE(&idx_mail.keywords, pool_datastack_create(),
-			     unsigned int, 32);
+		ARRAY_CREATE(&idx_mail.keywords, pool_datastack_create(), 32);
 		if (mail_index_lookup_keywords(sync_ctx->sync_view,
 					       sync_ctx->idx_seq,
 					       &idx_mail.keywords) < 0) {
@@ -1644,10 +1642,8 @@ __again:
 	/* make sure we've read the latest keywords in index */
 	(void)mail_index_get_keywords(mbox->ibox.index);
 
-	ARRAY_CREATE(&sync_ctx.mails, default_pool,
-		     struct mbox_sync_mail, 64);
-	ARRAY_CREATE(&sync_ctx.syncs, default_pool,
-		     struct mail_index_sync_rec, 32);
+	ARRAY_CREATE(&sync_ctx.mails, default_pool, 64);
+	ARRAY_CREATE(&sync_ctx.syncs, default_pool, 32);
 
 	sync_ctx.flags = flags;
 	sync_ctx.delay_writes = delay_writes || sync_ctx.mbox->mbox_readonly;

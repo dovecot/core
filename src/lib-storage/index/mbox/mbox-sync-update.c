@@ -439,7 +439,6 @@ void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,
 		/* adding first keywords */
 		ARRAY_CREATE(&ctx->mail.keywords,
 			     ctx->sync_ctx->mail_keyword_pool,
-			     unsigned int,
 			     array_count(&mail->keywords));
 		array_append_array(&ctx->mail.keywords,
 				   &mail->keywords);

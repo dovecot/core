@@ -33,7 +33,7 @@ static ARRAY_DEFINE(storages, struct mail_storage *);
 
 void mail_storage_init(void)
 {
-	ARRAY_CREATE(&storages, default_pool, struct mail_storage *, 8);
+	ARRAY_CREATE(&storages, default_pool, 8);
 
 	mail_storage_mail_index_module_id = mail_index_module_id++;
 }

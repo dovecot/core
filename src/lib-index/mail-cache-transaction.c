@@ -57,8 +57,7 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	ctx->cache = view->cache;
 	ctx->view = view;
 	ctx->trans = t;
-	ARRAY_CREATE(&ctx->reservations, default_pool,
-		     struct mail_cache_reservation, 32);
+	ARRAY_CREATE(&ctx->reservations, default_pool, 32);
 
 	if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
 		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
@@ -550,7 +549,7 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 		ctx->cache_data =
 			buffer_create_dynamic(default_pool,
 					      MAIL_CACHE_WRITE_BUFFER);
-		ARRAY_CREATE(&ctx->cache_data_seq, default_pool, uint32_t, 64);
+		ARRAY_CREATE(&ctx->cache_data_seq, default_pool, 64);
 	}
 
 	memset(&new_rec, 0, sizeof(new_rec));
@@ -836,7 +835,7 @@ int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 	   able to ask cached data from messages that have already been
 	   expunged. */
 	t_push();
-	ARRAY_CREATE(&tmp_offsets, pool_datastack_create(), uint32_t, 8);
+	ARRAY_CREATE(&tmp_offsets, pool_datastack_create(), 8);
 	array_append(&tmp_offsets, &offset, 1);
 	for (;;) {
 		cache->hdr_copy.deleted_space += cache_rec->size;

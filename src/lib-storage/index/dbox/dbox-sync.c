@@ -64,8 +64,7 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx, uint32_t seq,
 	if (entry == NULL) {
 		entry = p_new(ctx->pool, struct dbox_sync_file_entry, 1);
 		entry->file_seq = file_seq;
-		ARRAY_CREATE(&entry->sync_recs, ctx->pool,
-			     struct dbox_sync_rec, 3);
+		ARRAY_CREATE(&entry->sync_recs, ctx->pool, 3);
 		hash_insert(ctx->syncs, POINTER_CAST(file_seq), entry);
 	}
 
@@ -328,7 +327,7 @@ dbox_sync_file_add_keywords(struct dbox_sync_context *ctx,
 	/* Get a list of all new keywords. Using seq_range is the easiest
 	   way to do this and should be pretty fast too. */
 	t_push();
-	ARRAY_CREATE(&keywords, pool_datastack_create(), struct seq_range, 16);
+	ARRAY_CREATE(&keywords, pool_datastack_create(), 16);
 	sync_recs = array_get(&entry->sync_recs, &count);
 	for (; i < count; i++) {
 		if (sync_recs[i].type != MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD)
@@ -423,7 +422,7 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	/* read all changes and sort them to file_seq order */
 	ctx->pool = pool_alloconly_create("dbox sync pool", 10240);
 	ctx->syncs = hash_create(default_pool, ctx->pool, 0, NULL, NULL);
-	ARRAY_CREATE(&ctx->added_file_seqs, default_pool, uint32_t, 64);
+	ARRAY_CREATE(&ctx->added_file_seqs, default_pool, 64);
 	for (;;) {
 		ret = mail_index_sync_next(ctx->index_sync_ctx, &sync_rec);
 		if (ret <= 0) {

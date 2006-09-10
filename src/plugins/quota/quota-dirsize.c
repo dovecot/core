@@ -153,8 +153,7 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 	bool is_file;
 
 	t_push();
-	ARRAY_CREATE(&paths, pool_datastack_create(),
-		     struct quota_count_path, 8);
+	ARRAY_CREATE(&paths, pool_datastack_create(), 8);
 	storages = array_get(&root->quota->storages, &count);
 	for (i = 0; i < count; i++) {
 		path = mail_storage_get_mailbox_path(storages[i], "", &is_file);

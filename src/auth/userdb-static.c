@@ -68,7 +68,7 @@ static_preinit(struct auth_userdb *auth_userdb, const char *args)
 
 	tmp = t_strsplit_spaces(args, " ");
 	ARRAY_CREATE(&module->template, auth_userdb->auth->pool,
-		     const char *, strarray_length(tmp));
+		     strarray_length(tmp));
 
 	t_push();
 	for (; *tmp != NULL; tmp++) {

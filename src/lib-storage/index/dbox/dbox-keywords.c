@@ -33,9 +33,9 @@ int dbox_file_read_keywords(struct dbox_mailbox *mbox, struct dbox_file *file)
 		array_clear(&file->file_idx_keywords);
 	} else {
 		ARRAY_CREATE(&file->idx_file_keywords, default_pool,
-			     struct keyword_map, file->keyword_count);
+			     file->keyword_count);
 		ARRAY_CREATE(&file->file_idx_keywords, default_pool,
-			     unsigned int, file->keyword_count);
+			     file->keyword_count);
 	}
 
 	/* currently we assume that all extra space at the end of header

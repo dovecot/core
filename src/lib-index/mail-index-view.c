@@ -145,8 +145,7 @@ static void mail_index_view_ref_map(struct mail_index_view *view,
 				return;
 		}
 	} else {
-		ARRAY_CREATE(&view->map_refs, default_pool,
-			     struct mail_index_map *, 4);
+		ARRAY_CREATE(&view->map_refs, default_pool, 4);
 	}
 
 	/* reference the given mapping. the reference is dropped when the view

@@ -414,7 +414,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		return FALSE;
 	}
 
-	ARRAY_CREATE(&extra_args, pool_datastack_create(), const char *, 16);
+	ARRAY_CREATE(&extra_args, pool_datastack_create(), 16);
 	mail = home_dir = chroot_dir = system_user = "";
 	uid = gid = 0; nice = 0;
 	home_given = FALSE;

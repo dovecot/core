@@ -122,8 +122,7 @@ struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox)
 	uidlist->path =
 		i_strconcat(mbox->path, "/"DBOX_MAILDIR_NAME"/"
 			    DBOX_UIDLIST_FILENAME, NULL);
-	ARRAY_CREATE(&uidlist->entries, default_pool,
-		     struct dbox_uidlist_entry *, 64);
+	ARRAY_CREATE(&uidlist->entries, default_pool, 64);
 	return uidlist;
 }
 
@@ -243,8 +242,7 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 	/* <uid list> <file seq> [<last write timestamp> <file size>] */
 	t_push();
 	entry = t_new(struct dbox_uidlist_entry, 1);
-	ARRAY_CREATE(&entry->uid_list, uidlist->entry_pool,
-		     struct seq_range, 8);
+	ARRAY_CREATE(&entry->uid_list, uidlist->entry_pool, 8);
 
 	/* get uid list */
 	range.seq1 = range.seq2 = 0;
@@ -554,7 +552,7 @@ dbox_uidlist_append_init(struct dbox_uidlist *uidlist)
 	ctx->uidlist = uidlist;
 	ctx->min_usable_timestamp =
 		get_min_timestamp(uidlist->mbox->rotate_days);
-	ARRAY_CREATE(&ctx->files, pool, struct dbox_save_file *, 16);
+	ARRAY_CREATE(&ctx->files, pool, 16);
 	return ctx;
 }
 
@@ -1170,7 +1168,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
         save_file->dotlock = dotlock;
 	save_file->dev = st.st_dev;
 	save_file->ino = st.st_ino;
-	ARRAY_CREATE(&save_file->seqs, ctx->pool, unsigned int, 8);
+	ARRAY_CREATE(&save_file->seqs, ctx->pool, 8);
 
 	array_append(&ctx->files, &save_file, 1);
         *file_r = file;
@@ -1333,7 +1331,7 @@ void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 	*new_entry = *entry;
 
 	ARRAY_CREATE(&new_entry->uid_list, ctx->uidlist->entry_pool,
-		     struct seq_range, array_count(&entry->uid_list) + 1);
+		     array_count(&entry->uid_list) + 1);
 	array_append_array(&new_entry->uid_list, &entry->uid_list);
 
 	if (new_entry->file_seq > ctx->uidlist->last_file_seq)

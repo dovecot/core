@@ -178,7 +178,7 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 	}
 
 	pool = pool_alloconly_create("module loader", 1024);
-	ARRAY_CREATE(&names, pool, const char *, 32);
+	ARRAY_CREATE(&names, pool, 32);
 
 	modules = NULL;
 	while ((d = readdir(dirp)) != NULL) {
