@@ -411,7 +411,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
                         dict->select_field, dict->select_field, diff);
 	} else {
 		query = t_strdup_printf(
-			"INSERT INTO %s (%s, %s) VALUES (%s, %lld) "
+			"INSERT INTO %s (%s, %s) VALUES (%lld, '%s') "
 			"ON DUPLICATE KEY UPDATE %s = %s + %lld",
 			dict->table, dict->select_field, dict->where_field,
                         diff, sql_escape_string(dict->db, key),
