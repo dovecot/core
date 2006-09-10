@@ -259,7 +259,7 @@ AC_ARG_WITH(statedir,
 AC_SUBST(statedir)
 
 AC_ARG_WITH(gc,
-[  --with-gc               Use Boehm garbage collector (currently broken)],
+[  --with-gc               Use Boehm garbage collector],
 	if test x$withval = xyes; then
 		want_gc=yes
 	else
