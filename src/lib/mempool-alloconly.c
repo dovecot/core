@@ -188,7 +188,6 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 	block = calloc(size, 1);
 #else
 	block = GC_malloc(size);
-	memset(block, 0, size);
 #endif
 	if (block == NULL)
 		i_fatal_status(FATAL_OUTOFMEM, "block_alloc(): Out of memory");

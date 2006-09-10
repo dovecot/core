@@ -67,7 +67,6 @@ static void *pool_system_malloc(pool_t pool __attr_unused__, size_t size)
 	mem = calloc(size, 1);
 #else
 	mem = GC_malloc(size);
-	memset(mem, 0, size);
 #endif
 	if (mem == NULL) {
 		i_fatal_status(FATAL_OUTOFMEM,
