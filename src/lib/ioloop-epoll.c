@@ -32,8 +32,8 @@ void io_loop_handler_init(struct ioloop *ioloop)
 	ioloop->handler_context = ctx =
 		p_new(ioloop->pool, struct ioloop_handler_context, 1);
 
-	ARRAY_CREATE(&ctx->events, ioloop->pool, IOLOOP_INITIAL_FD_COUNT);
-	ARRAY_CREATE(&ctx->fd_index, ioloop->pool, IOLOOP_INITIAL_FD_COUNT);
+	p_array_init(&ctx->events, ioloop->pool, IOLOOP_INITIAL_FD_COUNT);
+	p_array_init(&ctx->fd_index, ioloop->pool, IOLOOP_INITIAL_FD_COUNT);
 
 	ctx->epfd = epoll_create(IOLOOP_INITIAL_FD_COUNT);
 	if (ctx->epfd < 0)

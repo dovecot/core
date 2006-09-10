@@ -13,7 +13,7 @@
 	...
    };
 
-   ARRAY_CREATE(&foo->bars, default_pool, 10);
+   i_array_init(&foo->bars, 10);
 
    struct bar *bar = array_idx(&foo->bars, 5);
    struct baz *baz = array_idx(&foo->bars, 5); // compiler warning
@@ -32,8 +32,12 @@
 #include "array-decl.h"
 #include "buffer.h"
 
-#define ARRAY_CREATE(array, pool, init_count) \
+#define p_array_init(array, pool, init_count) \
 	array_create(array, pool, sizeof(*(array)->v), init_count);
+#define i_array_init(array, init_count) \
+	p_array_init(array, default_pool, init_count)
+#define t_array_init(array, init_count) \
+	p_array_init(array, pool_datastack_create(), init_count)
 
 #ifdef __GNUC__
 #  define ARRAY_TYPE_CAST_CONST(array) \

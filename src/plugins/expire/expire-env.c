@@ -26,7 +26,7 @@ struct expire_env *expire_env_init(const char *str)
 	names = p_strsplit(pool, str, " ");
 	len = strarray_length((const char *const *)names);
 
-	ARRAY_CREATE(&env->expire_boxes, pool, len / 2);
+	p_array_init(&env->expire_boxes, pool, len / 2);
 	for (; *names != NULL; names += 2) {
 		if (names[1] == NULL) {
 			i_fatal("expire: Missing expire days for mailbox '%s'",

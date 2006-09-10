@@ -155,7 +155,7 @@ static int cmd_begin(struct dict_client_connection *conn, const char *line)
 	}
 
 	if (!array_is_created(&conn->transactions))
-		ARRAY_CREATE(&conn->transactions, default_pool, 4);
+		i_array_init(&conn->transactions, 4);
 
 	/* <id> */
 	trans = array_append_space(&conn->transactions);

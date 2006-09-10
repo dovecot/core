@@ -123,7 +123,7 @@ view_sync_get_expunges(struct mail_index_view *view,
 	if (view_sync_set_log_view_range(view, MAIL_TRANSACTION_EXPUNGE) < 0)
 		return -1;
 
-	ARRAY_CREATE(expunges_r, default_pool, 64);
+	i_array_init(expunges_r, 64);
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data, NULL)) > 0) {
 		i_assert((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0);
@@ -596,7 +596,7 @@ static void log_sync_pos_add(ARRAY_TYPE(view_log_sync_pos) *sync_arr,
 	struct mail_index_view_log_sync_pos *pos;
 
 	if (!array_is_created(sync_arr))
-		ARRAY_CREATE(sync_arr, default_pool, 32);
+		i_array_init(sync_arr, 32);
 
 	pos = array_append_space(sync_arr);
 	pos->log_file_seq = log_file_seq;

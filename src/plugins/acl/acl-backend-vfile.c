@@ -124,7 +124,7 @@ acl_parse_rights(const char *acl, const char **error_r)
 	while (*acl == ' ' || *acl == '\t')
 		acl++;
 
-	ARRAY_CREATE(&rights, pool_datastack_create(), 64);
+	t_array_init(&rights, 64);
 	for (; *acl != '\0' && *acl != ':'; acl++) {
 		for (i = 0; acl_letter_map[i].letter != '\0'; i++) {
 			if (acl_letter_map[i].letter == *acl)

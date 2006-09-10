@@ -148,8 +148,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	lock_path = file_dotlock_get_lock_path(dotlock);
 
 	memset(&dest_entry, 0, sizeof(dest_entry));
-	ARRAY_CREATE(&dest_entry.uid_list, pool_datastack_create(),
-		     array_count(&orig_entry->uid_list));
+	t_array_init(&dest_entry.uid_list, array_count(&orig_entry->uid_list));
 	dest_entry.file_seq = file_seq;
 
 	/* write file header */

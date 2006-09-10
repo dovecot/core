@@ -53,7 +53,7 @@ struct maildir_keywords *maildir_keywords_init(struct maildir_mailbox *mbox)
 	mk->path = i_strconcat(mbox->control_dir,
 			       "/" MAILDIR_KEYWORDS_NAME, NULL);
 	mk->pool = pool_alloconly_create("maildir keywords", 256);
-	ARRAY_CREATE(&mk->list, default_pool, MAILDIR_MAX_KEYWORDS);
+	i_array_init(&mk->list, MAILDIR_MAX_KEYWORDS);
 	mk->hash = hash_create(default_pool, mk->pool, 0,
 			       strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 	return mk;
@@ -317,7 +317,7 @@ maildir_keywords_sync_init(struct maildir_keywords *mk,
 	ctx->mk = mk;
 	ctx->index = index;
 	ctx->keywords = mail_index_get_keywords(index);
-	ARRAY_CREATE(&ctx->idx_to_chr, default_pool, MAILDIR_MAX_KEYWORDS);
+	i_array_init(&ctx->idx_to_chr, MAILDIR_MAX_KEYWORDS);
 	return ctx;
 }
 

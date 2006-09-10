@@ -147,7 +147,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 		return array_get(&data->keywords, NULL);
 
 	t_push();
-	ARRAY_CREATE(&keyword_indexes_arr, pool_datastack_create(), 128);
+	t_array_init(&keyword_indexes_arr, 128);
 	if (mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
 				       &keyword_indexes_arr) < 0) {
 		mail_storage_set_index_error(mail->ibox);
@@ -162,7 +162,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	}
 
 	names = array_get(mail->ibox->keyword_names, &names_count);
-	ARRAY_CREATE(&data->keywords, mail->data_pool, count);
+	p_array_init(&data->keywords, mail->data_pool, count);
 	for (i = 0; i < count; i++) {
 		const char *name;
 		i_assert(keyword_indexes[i] < names_count);

@@ -27,7 +27,7 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	if (array_is_created(&ctx->expunge_handlers))
 		array_clear(&ctx->expunge_handlers);
 	else
-		ARRAY_CREATE(&ctx->expunge_handlers, default_pool, 64);
+		i_array_init(&ctx->expunge_handlers, 64);
 
 	rext = array_get(&ctx->view->index->extensions, &rext_count);
 	ext = array_get(&ctx->view->map->extensions, &ext_count);
@@ -87,9 +87,8 @@ void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 
 	if (array_is_created(&ctx->extra_contexts))
 		array_clear(&ctx->extra_contexts);
-	else {
-		ARRAY_CREATE(&ctx->extra_contexts, default_pool, count);
-	}
+	else
+		i_array_init(&ctx->extra_contexts, count);
 
 	/* fill the context array with NULLs */
 	(void)array_idx_modifiable(&ctx->extra_contexts, count - 1);

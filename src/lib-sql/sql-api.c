@@ -8,7 +8,7 @@ ARRAY_TYPE(sql_drivers) sql_drivers;
 
 void sql_drivers_init(void)
 {
-	ARRAY_CREATE(&sql_drivers, default_pool, 8);
+	i_array_init(&sql_drivers, 8);
 }
 
 void sql_drivers_deinit(void)

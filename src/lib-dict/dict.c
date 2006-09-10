@@ -23,7 +23,7 @@ static struct dict *dict_driver_lookup(const char *name)
 void dict_driver_register(struct dict *driver)
 {
 	if (!array_is_created(&dict_drivers))
-		ARRAY_CREATE(&dict_drivers, default_pool, 8);
+		i_array_init(&dict_drivers, 8);
 
 	if (dict_driver_lookup(driver->name) != NULL) {
 		i_fatal("dict_driver_register(%s): Already registered",

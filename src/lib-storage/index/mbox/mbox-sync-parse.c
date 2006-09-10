@@ -269,7 +269,7 @@ static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
 	/* read keyword indexes to temporary array first */
 	t_push();
 	keyword = t_str_new(128);
-	ARRAY_CREATE(&keyword_list, pool_datastack_create(), 16);
+	t_array_init(&keyword_list, 16);
 
 	for (pos = 0; pos < hdr->full_value_len; ) {
 		if (IS_LWSP_LF(hdr->full_value[pos])) {
@@ -310,7 +310,7 @@ static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
 	/* once we know how many keywords there are, we can allocate the array
 	   from mail_keyword_pool without wasting memory. */
 	if (array_count(&keyword_list) > 0) {
-		ARRAY_CREATE(&ctx->mail.keywords,
+		p_array_init(&ctx->mail.keywords,
 			     ctx->sync_ctx->mail_keyword_pool,
 			     array_count(&keyword_list));
 		array_append_array(&ctx->mail.keywords, &keyword_list);

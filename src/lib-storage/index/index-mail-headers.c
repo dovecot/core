@@ -181,9 +181,9 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	mail->header_seq = mail->data.seq;
 	if (mail->header_data == NULL) {
 		mail->header_data = buffer_create_dynamic(default_pool, 4096);
-		ARRAY_CREATE(&mail->header_lines, default_pool, 32);
-		ARRAY_CREATE(&mail->header_match, default_pool, 32);
-		ARRAY_CREATE(&mail->header_match_lines, default_pool, 32);
+		i_array_init(&mail->header_lines, 32);
+		i_array_init(&mail->header_match, 32);
+		i_array_init(&mail->header_match_lines, 32);
 	} else {
 		buffer_set_used_size(mail->header_data, 0);
 		array_clear(&mail->header_lines);
@@ -486,7 +486,7 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 	i_assert(*line_idx != 0);
 	first_line_idx = *line_idx - 1;
 
-	ARRAY_CREATE(&header_values, mail->data_pool, 4);
+	p_array_init(&header_values, mail->data_pool, 4);
 	header = buffer_get_data(mail->header_data, NULL);
 
 	lines = array_get(&mail->header_lines, &lines_count);
@@ -562,7 +562,7 @@ const char *const *index_mail_get_headers(struct mail *_mail, const char *field)
 		return p_new(mail->data_pool, const char *, 1);
 	}
 
-	ARRAY_CREATE(&header_values, mail->data_pool, 4);
+	p_array_init(&header_values, mail->data_pool, 4);
 
 	/* cached. skip "header name: " parts in dest. */
 	for (i = 0; i < len; i++) {

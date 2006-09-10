@@ -391,9 +391,8 @@ void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
 
 	t->log_updates = TRUE;
 
-	if (!array_is_created(&t->appends)) {
-		ARRAY_CREATE(&t->appends, default_pool, 32);
-	}
+	if (!array_is_created(&t->appends))
+		i_array_init(&t->appends, 32);
 
 	/* sequence number is visible only inside given view,
 	   so let it generate it */
@@ -614,7 +613,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	}
 
 	if (!array_is_created(&t->updates)) {
-		ARRAY_CREATE(&t->updates, default_pool, 256);
+		i_array_init(&t->updates, 256);
 		array_append(&t->updates, &u, 1);
 		return;
 	}
@@ -720,7 +719,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 	t->log_updates = TRUE;
 
 	if (!array_is_created(&t->ext_resizes))
-		ARRAY_CREATE(&t->ext_resizes, default_pool, ext_id + 2);
+		i_array_init(&t->ext_resizes, ext_id + 2);
 
 	intro.hdr_size = hdr_size;
 	intro.record_size = record_size;
@@ -747,7 +746,7 @@ void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
 	}
 
 	if (!array_is_created(&t->ext_resets))
-		ARRAY_CREATE(&t->ext_resets, default_pool, ext_id + 2);
+		i_array_init(&t->ext_resets, ext_id + 2);
 	array_idx_set(&t->ext_resets, ext_id, &reset_id);
 }
 
@@ -790,7 +789,7 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 	}
 
 	if (!array_is_created(&t->ext_rec_updates))
-		ARRAY_CREATE(&t->ext_rec_updates, default_pool, ext_id + 2);
+		i_array_init(&t->ext_rec_updates, ext_id + 2);
 	array = array_idx_modifiable(&t->ext_rec_updates, ext_id);
 
 	/* @UNSAFE */
@@ -880,7 +879,7 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	if (!array_is_created(&t->keyword_updates) && keywords->count > 0) {
 		uint32_t max_idx = keywords->idx[keywords->count-1];
 
-		ARRAY_CREATE(&t->keyword_updates, default_pool, max_idx + 1);
+		i_array_init(&t->keyword_updates, max_idx + 1);
 	}
 
 	/* Update add_seq and remove_seq arrays which describe the keyword

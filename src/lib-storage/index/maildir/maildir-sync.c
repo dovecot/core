@@ -412,7 +412,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	fname++;
 	dir = t_strdup_until(path, fname);
 
-	ARRAY_CREATE(&keywords, pool_datastack_create(), 16);
+	t_array_init(&keywords, 16);
 	(void)maildir_filename_get_flags(ctx->keywords_sync_ctx,
 					 fname, &flags, &keywords);
 	flags8 = flags;
@@ -583,7 +583,7 @@ static int maildir_sync_index_records(struct maildir_index_sync_context *ctx)
 	if (ret <= 0)
 		return ret;
 
-	ARRAY_CREATE(&ctx->sync_recs, pool_datastack_create(), 32);
+	t_array_init(&ctx->sync_recs, 32);
 	do {
 		if (maildir_sync_record(ctx, &sync_rec) < 0)
 			return -1;
@@ -963,9 +963,8 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		mail_index_transaction_begin(sync_ctx->view, FALSE, TRUE);
 
 	seq = 0;
-	ARRAY_CREATE(&keywords, pool_datastack_create(), MAILDIR_MAX_KEYWORDS);
-	ARRAY_CREATE(&idx_keywords, pool_datastack_create(),
-		     MAILDIR_MAX_KEYWORDS);
+	t_array_init(&keywords, MAILDIR_MAX_KEYWORDS);
+	t_array_init(&idx_keywords, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
 		maildir_filename_get_flags(sync_ctx->keywords_sync_ctx,

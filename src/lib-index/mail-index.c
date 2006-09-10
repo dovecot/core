@@ -34,8 +34,8 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->fd = -1;
 
 	index->extension_pool = pool_alloconly_create("extension", 512);
-	ARRAY_CREATE(&index->extensions, index->extension_pool, 5);
-	ARRAY_CREATE(&index->sync_lost_handlers, default_pool, 4);
+	p_array_init(&index->extensions, index->extension_pool, 5);
+	i_array_init(&index->sync_lost_handlers, 4);
 	array_create(&index->mail_index_module_contexts, default_pool,
 		     sizeof(void *), I_MIN(5, mail_index_module_id));
 
@@ -45,7 +45,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->keywords_ext_id =
 		mail_index_ext_register(index, "keywords", 128, 2, 1);
 	index->keywords_pool = pool_alloconly_create("keywords", 512);
-	ARRAY_CREATE(&index->keywords, default_pool, 16);
+	i_array_init(&index->keywords, 16);
 	index->keywords_hash =
 		hash_create(default_pool, index->keywords_pool, 0,
 			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
@@ -208,8 +208,8 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 		}
 	}
 
-	ARRAY_CREATE(&map->extensions, map->extension_pool, initial_count);
-	ARRAY_CREATE(&map->ext_id_map, map->extension_pool, initial_count);
+	p_array_init(&map->extensions, map->extension_pool, initial_count);
+	p_array_init(&map->ext_id_map, map->extension_pool, initial_count);
 }
 
 uint32_t mail_index_map_lookup_ext(struct mail_index_map *map, const char *name)
@@ -462,10 +462,8 @@ int mail_index_map_parse_keywords(struct mail_index *index,
 	}
 
 	/* create file -> index mapping */
-	if (!array_is_created(&map->keyword_idx_map)) {
-		ARRAY_CREATE(&map->keyword_idx_map, default_pool,
-			     kw_hdr->keywords_count);
-	}
+	if (!array_is_created(&map->keyword_idx_map)) 
+		i_array_init(&map->keyword_idx_map, kw_hdr->keywords_count);
 
 #ifdef DEBUG
 	/* Check that existing headers are still the same. It's behind DEBUG

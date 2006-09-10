@@ -95,7 +95,7 @@ struct imap_fetch_context *imap_fetch_init(struct client_command_context *cmd)
 
 	ctx->cur_str = str_new(default_pool, 8192);
 	ctx->all_headers_buf = buffer_create_dynamic(cmd->pool, 128);
-	ARRAY_CREATE(&ctx->handlers, cmd->pool, 16);
+	p_array_init(&ctx->handlers, cmd->pool, 16);
 	ctx->line_finished = TRUE;
 	return ctx;
 }

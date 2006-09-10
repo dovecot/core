@@ -51,7 +51,7 @@ dbox_save_add_keywords(struct dbox_save_context *ctx,
 	/* Get a list of all new keywords. Using seq_range is the easiest
 	   way to do this and should be pretty fast too. */
 	t_push();
-	ARRAY_CREATE(&new_keywords, pool_datastack_create(), 16);
+	t_array_init(&new_keywords, 16);
 	for (i = 0; i < keywords->count; i++) {
 		/* check if it's already in the file */
 		if (dbox_file_lookup_keyword(ctx->mbox, ctx->file,

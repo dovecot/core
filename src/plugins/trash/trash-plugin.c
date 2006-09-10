@@ -195,7 +195,7 @@ static int read_configuration(const char *path)
 	}
 
 	p_clear(config_pool);
-	ARRAY_CREATE(&trash_boxes, config_pool, 8);
+	p_array_init(&trash_boxes, config_pool, 8);
 
 	input = i_stream_create_file(fd, default_pool, (size_t)-1, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {

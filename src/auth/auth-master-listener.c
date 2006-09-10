@@ -30,9 +30,9 @@ struct auth_master_listener *auth_master_listener_create(struct auth *auth)
 	listener = i_new(struct auth_master_listener, 1);
 	listener->auth = auth;
 	listener->pid = (unsigned int)getpid();
-	ARRAY_CREATE(&listener->sockets, default_pool, 16);
-	ARRAY_CREATE(&listener->masters, default_pool, 16);
-	ARRAY_CREATE(&listener->clients, default_pool, 16);
+	i_array_init(&listener->sockets, 16);
+	i_array_init(&listener->masters, 16);
+	i_array_init(&listener->clients, 16);
 	auth_client_connections_init(listener);
 
 	array_append(&master_listeners, &listener, 1);
@@ -165,7 +165,7 @@ bool auth_master_listeners_masters_left(void)
 
 void auth_master_listeners_init(void)
 {
-	ARRAY_CREATE(&master_listeners, default_pool, 2);
+	i_array_init(&master_listeners, 2);
 }
 
 void auth_master_listeners_deinit(void)

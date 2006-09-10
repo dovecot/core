@@ -215,7 +215,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 	   arrays so we can easily go through all of the changes. */
 	keyword_count = !array_is_created(&ctx->trans->keyword_updates) ? 0 :
 		array_count(&ctx->trans->keyword_updates);
-	ARRAY_CREATE(&ctx->sync_list, default_pool, keyword_count + 2);
+	i_array_init(&ctx->sync_list, keyword_count + 2);
 
 	if (array_is_created(&ctx->trans->expunges)) {
 		synclist = array_append_space(&ctx->sync_list);
