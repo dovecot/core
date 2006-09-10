@@ -91,7 +91,6 @@ unsigned int t_push(void)
 			frame_block = calloc(sizeof(*frame_block), 1);
 #else
 			frame_block = GC_malloc(sizeof(*frame_block));
-                        memset(frame_block, 0, sizeof(*frame_block));
 #endif
 			if (frame_block == NULL) {
 				i_fatal_status(FATAL_OUTOFMEM,
