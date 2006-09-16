@@ -90,7 +90,7 @@ static void mail_hash_set_syscall_error(struct mail_hash *hash,
 	}
 
 	mail_index_set_error(hash->index,
-			     "%s failed with index cache file %s: %m",
+			     "%s failed with index hash file %s: %m",
 			     function, hash->filepath);
 }
 
