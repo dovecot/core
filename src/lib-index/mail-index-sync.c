@@ -234,7 +234,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 	}
 
 	keyword_updates = keyword_count == 0 ? NULL :
-		array_get(&ctx->trans->keyword_updates, NULL);
+		array_idx(&ctx->trans->keyword_updates, 0);
 	for (i = 0; i < keyword_count; i++) {
 		if (array_is_created(&keyword_updates[i].add_seq)) {
 			synclist = array_append_space(&ctx->sync_list);

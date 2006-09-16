@@ -144,7 +144,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	unsigned int i, count, names_count;
 
 	if (array_is_created(&data->keywords))
-		return array_get(&data->keywords, NULL);
+		return array_idx(&data->keywords, 0);
 
 	t_push();
 	t_array_init(&keyword_indexes_arr, 128);
@@ -175,7 +175,7 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 	(void)array_append_space(&data->keywords);
 
 	t_pop();
-	return array_get(&data->keywords, NULL);
+	return array_idx(&data->keywords, 0);
 }
 
 const struct message_part *index_mail_get_parts(struct mail *_mail)

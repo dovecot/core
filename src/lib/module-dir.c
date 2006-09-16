@@ -195,8 +195,7 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 		array_append(&names, &name, 1);
 	}
 
-	names_p = array_get_modifiable(&names, NULL);
-	count = array_count(&names);
+	names_p = array_get_modifiable(&names, &count);
 	qsort(names_p, count, sizeof(const char *), module_name_cmp);
 
 	t_push();

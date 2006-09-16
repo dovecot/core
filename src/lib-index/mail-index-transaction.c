@@ -852,7 +852,7 @@ mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
 	k->index = t->view->index;
 	k->count = count;
 
-	memcpy(k->idx, array_get(keyword_indexes, NULL),
+	memcpy(k->idx, array_idx(keyword_indexes, 0),
 	       count * sizeof(k->idx[0]));
 	return k;
 }

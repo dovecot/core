@@ -186,6 +186,7 @@ static int read_configuration(const char *path)
 	struct istream *input;
 	const char *line, *name;
 	struct trash_mailbox *trash;
+	unsigned int count;
 	int fd;
 
 	fd = open(path, O_RDONLY);
@@ -211,9 +212,8 @@ static int read_configuration(const char *path)
 	i_stream_destroy(&input);
 	(void)close(fd);
 
-	qsort(array_get_modifiable(&trash_boxes, NULL),
-	      array_count(&trash_boxes), sizeof(struct trash_mailbox),
-	      trash_mailbox_priority_cmp);
+	trash = array_get_modifiable(&trash_boxes, &count);
+	qsort(trash, count, sizeof(*trash), trash_mailbox_priority_cmp);
 	return 0;
 }
 

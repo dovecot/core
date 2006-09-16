@@ -146,8 +146,7 @@ _array_delete(struct array *array, unsigned int idx, unsigned int count)
 static inline const void *
 _array_get(const struct array *array, unsigned int *count_r)
 {
-	if (count_r != NULL)
-		*count_r = array->buffer->used / array->element_size;
+	*count_r = array->buffer->used / array->element_size;
 	return array->buffer->data;
 }
 #define array_get(array, count) \
@@ -170,8 +169,7 @@ _array_idx(const struct array *array, unsigned int idx)
 static inline void *
 _array_get_modifiable(struct array *array, unsigned int *count_r)
 {
-	if (count_r != NULL)
-		*count_r = array->buffer->used / array->element_size;
+	*count_r = array->buffer->used / array->element_size;
 	return buffer_get_modifiable_data(array->buffer, NULL);
 }
 #define array_get_modifiable(array, count) \
