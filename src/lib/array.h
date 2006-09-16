@@ -33,7 +33,7 @@
 #include "buffer.h"
 
 #define p_array_init(array, pool, init_count) \
-	array_create(array, pool, sizeof(*(array)->v), init_count);
+	array_create(array, pool, sizeof(**(array)->v), init_count);
 #define i_array_init(array, init_count) \
 	p_array_init(array, default_pool, init_count)
 #define t_array_init(array, init_count) \
@@ -41,11 +41,11 @@
 
 #ifdef __GNUC__
 #  define ARRAY_TYPE_CAST_CONST(array) \
-	(typeof((array)->v))
+	(typeof(*(array)->v))
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array) \
-	(typeof((array)->v_modifiable))
+	(typeof(*(array)->v_modifiable))
 #  define ARRAY_TYPE_CHECK(array, data) \
-	typeof(const typeof(*(array)->v_modifiable) *) \
+	typeof(const typeof(**(array)->v_modifiable) *) \
 		__tmp_array_data2 __attr_unused__ = \
 			(typeof(const typeof(typeof(*(data)) *)))NULL;
 #else
@@ -159,8 +159,13 @@ _array_idx(const struct array *array, unsigned int idx)
 	i_assert(idx * array->element_size < array->buffer->used);
 	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
-#define array_idx(array, idx) \
+#ifdef DISABLE_ASSERTS
+#  define array_idx(array, idx) \
+	&((*(array)->v)[idx])
+#else
+#  define array_idx(array, idx) \
 	ARRAY_TYPE_CAST_CONST(array)_array_idx(&(array)->arr, idx)
+#endif
 
 static inline void *
 _array_get_modifiable(struct array *array, unsigned int *count_r)
@@ -186,9 +191,9 @@ _array_idx_modifiable(struct array *array, unsigned int idx)
 	}
 	return buffer_get_space_unsafe(array->buffer, pos, array->element_size);
 }
-#define array_idx_modifiable(array, count) \
+#define array_idx_modifiable(array, idx) \
 	ARRAY_TYPE_CAST_MODIFIABLE(array) \
-		_array_idx_modifiable(&(array)->arr, count)
+		_array_idx_modifiable(&(array)->arr, idx)
 
 static inline void
 _array_idx_set(struct array *array, unsigned int idx, const void *data)
