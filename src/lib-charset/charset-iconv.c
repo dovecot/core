@@ -113,6 +113,32 @@ charset_to_ucase_utf8(struct charset_translation *t,
 	return ret;
 }
 
+enum charset_result
+charset_to_ucase_utf8_full(struct charset_translation *t,
+			   const unsigned char *src, size_t *src_size,
+			   buffer_t *dest)
+{
+	enum charset_result ret;
+	size_t pos, used, size;
+
+	for (pos = 0;;) {
+		size = *src_size - pos;
+		ret = charset_to_ucase_utf8(t, src + pos, &size, dest);
+		pos += size;
+
+		if (ret != CHARSET_RET_OUTPUT_FULL) {
+			*src_size = pos;
+			return ret;
+		}
+
+		/* force buffer to grow */
+		used = dest->used;
+		size = buffer_get_size(dest) - used + 1;
+		(void)buffer_append_space_unsafe(dest, size);
+		buffer_set_used_size(dest, used);
+	}
+}
+
 static const char *
 charset_to_utf8_string_int(const char *charset, bool *unknown_charset,
 			   const unsigned char *data, size_t size,
@@ -123,10 +149,7 @@ charset_to_utf8_string_int(const char *charset, bool *unknown_charset,
 	char *outbuf, *outpos;
 	size_t inleft, outleft, outsize, pos;
 
-	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
-	    strcasecmp(charset, "ascii") == 0 ||
-	    strcasecmp(charset, "UTF-8") == 0 ||
-	    strcasecmp(charset, "UTF8") == 0) {
+	if (charset == NULL || charset_is_utf8(charset)) {
 		if (unknown_charset != NULL)
 			*unknown_charset = FALSE;
 

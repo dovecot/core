@@ -6,6 +6,14 @@
 
 #include <ctype.h>
 
+bool charset_is_utf8(const char *charset)
+{
+	return strcasecmp(charset, "us-ascii") == 0 ||
+		strcasecmp(charset, "ascii") == 0 ||
+		strcasecmp(charset, "UTF-8") == 0 ||
+		strcasecmp(charset, "UTF8") == 0;
+}
+
 void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
 			 buffer_t *dest, size_t destpos)
 {
@@ -112,10 +120,7 @@ charset_to_ucase_utf8_string(const char *charset, bool *unknown_charset,
 			     const unsigned char *data, size_t size,
 			     size_t *utf8_size_r)
 {
-	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
-	    strcasecmp(charset, "ascii") == 0 ||
-	    strcasecmp(charset, "UTF-8") == 0 ||
-	    strcasecmp(charset, "UTF8") == 0) {
+	if (charset == NULL || charset_is_utf8(charset)) {
 		if (unknown_charset != NULL)
 			*unknown_charset = FALSE;
 		return _charset_utf8_ucase_strdup(data, size, utf8_size_r);
