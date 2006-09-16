@@ -4,6 +4,8 @@
 #include "message-header-parser.h"
 #include "message-size.h"
 
+/* Note that these flags are used directly by message-parser-serialize, so
+   existing flags can't be changed without breaking backwards compatibility */
 enum message_part_flags {
 	MESSAGE_PART_FLAG_MULTIPART		= 0x01,
 	MESSAGE_PART_FLAG_MULTIPART_DIGEST	= 0x02,
@@ -12,8 +14,7 @@ enum message_part_flags {
 	/* content-type: text/... */
 	MESSAGE_PART_FLAG_TEXT			= 0x08,
 
-	/* content-transfer-encoding: binary */
-	MESSAGE_PART_FLAG_BINARY		= 0x10,
+	MESSAGE_PART_FLAG_UNUSED		= 0x10,
 
 	/* message part header or body contains NULs */
 	MESSAGE_PART_FLAG_HAS_NULS		= 0x20,
