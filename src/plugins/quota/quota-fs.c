@@ -250,7 +250,6 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		     root->uid, (void *)&dqblk) < 0) {
 		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
 			root->mount->mount_path);
-		quota_set_error(_root->setup->quota, "Internal quota error");
 		return -1;
 	}
 	*value_r = (uint64_t)dqblk.dqb_curblocks * 1024 / DEV_BSIZE;
@@ -265,7 +264,6 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	ctl.addr = (caddr_t)&dqblk;
 	if (ioctl(root->mount->fd, Q_QUOTACTL, &ctl) < 0) {
 		i_error("ioctl(%s, Q_QUOTACTL) failed: %m", root->mount->path);
-		quota_set_error(_root->setup->quota, "Internal quota error");
 		return -1;
 	}
 	*value_r = (uint64_t)dqblk.dqb_curblocks * 1024 / DEV_BSIZE;
