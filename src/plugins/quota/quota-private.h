@@ -81,6 +81,4 @@ void quota_add_user_storage(struct quota *quota, struct mail_storage *storage);
 void quota_remove_user_storage(struct quota *quota, 
 			       struct mail_storage *storage);
 
-void quota_set_error(struct quota *quota, const char *errormsg);
-
 #endif
