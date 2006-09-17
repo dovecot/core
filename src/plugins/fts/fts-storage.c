@@ -330,7 +330,12 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 			range[fctx->result_pos].seq1 = ctx->seq+1;
 		else {
 			ctx->seq = range[fctx->result_pos].seq1 - 1;
-			range[fctx->result_pos].seq1++;
+
+			if (fctx->result_pos < count &&
+			    ctx->seq + 1 == range[fctx->result_pos].seq2)
+				fctx->result_pos++;
+			else
+				range[fctx->result_pos].seq1++;
 		}
 
 		wanted_seq = ctx->seq + 1;
