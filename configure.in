@@ -1800,6 +1800,7 @@ src/plugins/Makefile
 src/plugins/acl/Makefile
 src/plugins/convert/Makefile
 src/plugins/expire/Makefile
+src/plugins/fts/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/trash/Makefile
