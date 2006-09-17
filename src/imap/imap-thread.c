@@ -1350,11 +1350,11 @@ mail_thread_root_rec_time_cmp(struct mail_thread_root_rec *r1,
 }
 
 static int mrec_add_sorted(struct thread_context *ctx,
-			   struct mail_thread_moved_rec *parent_mrec,
+			   unsigned int parent_mrec_idx,
 			   struct mail_thread_moved_rec *child_mrec,
 			   uint32_t child_mrec_idx)
 {
-	struct mail_thread_moved_rec *mrec;
+	struct mail_thread_moved_rec *mrec, *parent_mrec;
 	const struct mail_thread_rec *rec, *cmp_rec, *rec_nondummy;
 	uint32_t idx, prev_idx = 0;
 	bool children_moved;
@@ -1362,6 +1362,7 @@ static int mrec_add_sorted(struct thread_context *ctx,
 	if (mail_thread_rec_get_nondummy(ctx, &child_mrec->rec, &cmp_rec) < 0)
 		return -1;
 
+	parent_mrec = array_idx_modifiable(&ctx->moved_recs, parent_mrec_idx);
 	for (idx = parent_mrec->rec.first_child_idx; idx != 0; ) {
 		children_moved = TRUE;
 		if (mail_thread_rec_idx_moved(ctx, idx, &children_moved,
@@ -1390,7 +1391,7 @@ static int mrec_add_sorted(struct thread_context *ctx,
 }
 
 static int mrec_add_root(struct thread_context *ctx,
-			 struct mail_thread_moved_rec *parent_mrec,
+			 unsigned int parent_mrec_idx,
 			 const struct mail_thread_root_rec *parent_rrec)
 {
 	const struct mail_thread_rec *rec;
@@ -1407,11 +1408,11 @@ static int mrec_add_root(struct thread_context *ctx,
 	mrec->rec = *rec;
 	mrec->moved_children = children_moved;
 
-	return mrec_add_sorted(ctx, parent_mrec, mrec, mrec_idx);
+	return mrec_add_sorted(ctx, parent_mrec_idx, mrec, mrec_idx);
 }
 
 static int mrec_add_children(struct thread_context *ctx,
-			     struct mail_thread_moved_rec *parent_mrec,
+			     unsigned int parent_mrec_idx,
 			     const struct mail_thread_rec *parent_rec)
 {
 	const struct mail_thread_rec *rec;
@@ -1426,7 +1427,7 @@ static int mrec_add_children(struct thread_context *ctx,
 		mrec = array_append_space(&ctx->moved_recs);
 		mrec->rec = *rec;
 
-		if (mrec_add_sorted(ctx, parent_mrec, mrec, mrec_idx) < 0)
+		if (mrec_add_sorted(ctx, parent_mrec_idx, mrec, mrec_idx) < 0)
 			return -1;
 	}
 	return 0;
@@ -1459,11 +1460,11 @@ static int mail_thread_root_thread_merge(struct thread_context *ctx,
 			rrec->moved = TRUE;
 			rrec->idx = mrec_idx;
 
-			if (mrec_add_children(ctx, mrec, rec) < 0)
+			if (mrec_add_children(ctx, mrec_idx, rec) < 0)
 				return -1;
 
 			while (next != NULL && next->reply) {
-				mrec_add_root(ctx, mrec, next);
+				mrec_add_root(ctx, mrec_idx, next);
 				next = next->next;
 			}
 		}
@@ -1473,14 +1474,14 @@ static int mail_thread_root_thread_merge(struct thread_context *ctx,
 			/* create dummy */
 			mrec_idx = array_count(&ctx->moved_recs);
 			mrec = array_append_space(&ctx->moved_recs);
-			mrec_add_root(ctx, mrec, rrec);
+			mrec_add_root(ctx, mrec_idx, rrec);
 
 			mrec->moved_children = TRUE;
 			rrec->moved = TRUE;
 			rrec->idx = mrec_idx;
 
 			while (next != NULL) {
-				mrec_add_root(ctx, mrec, next);
+				mrec_add_root(ctx, mrec_idx, next);
 				next = next->next;
 			}
 		}
@@ -1497,13 +1498,13 @@ static int mail_thread_root_thread_merge(struct thread_context *ctx,
 
 		for (next = rrec->next; next != NULL; next = next->next) {
 			if (!ROOT_REC_IS_DUMMY(next))
-				mrec_add_root(ctx, mrec, next);
+				mrec_add_root(ctx, mrec_idx, next);
 			else {
 				if (mail_thread_rec_idx(ctx, next->idx,
 							&rec) < 0)
 					return -1;
 
-				if (mrec_add_children(ctx, mrec, rec) < 0)
+				if (mrec_add_children(ctx, mrec_idx, rec) < 0)
 					return -1;
 			}
 		}
