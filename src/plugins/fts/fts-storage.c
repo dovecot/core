@@ -74,6 +74,32 @@ struct fts_storage_build_context {
 	bool save_part;
 };
 
+static int fts_build_mail_flush(struct fts_storage_build_context *ctx)
+{
+	if (str_len(ctx->headers) == 0)
+		return 1;
+
+	if (fts_backend_build_more(ctx->build, ctx->uid, str_data(ctx->headers),
+				   str_len(ctx->headers)) < 0)
+		return -1;
+
+	str_truncate(ctx->headers, 0);
+	return 1;
+}
+
+static bool fts_build_update_save_part(struct fts_storage_build_context *ctx,
+				       const struct message_block *block)
+{
+	/* we'll index only text/xxx and message/rfc822 parts for now */
+	if ((block->part->flags &
+	     (MESSAGE_PART_FLAG_TEXT |
+	      MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0)
+		return FALSE;
+
+	ctx->save_part = TRUE;
+	return TRUE;
+}
+
 static int fts_build_mail_header(struct fts_storage_build_context *ctx,
 				 const struct message_block *block)
 {
@@ -89,22 +115,13 @@ static int fts_build_mail_header(struct fts_storage_build_context *ctx,
 
 	if (!ctx->save_part) {
 		if (strcasecmp(hdr->name, "Content-Type") == 0) {
-			/* we'll index only text/xxx and message/rfc822 parts
-			   for now */
-			if ((block->part->flags &
-			     (MESSAGE_PART_FLAG_TEXT |
-			      MESSAGE_PART_FLAG_MESSAGE_RFC822)) == 0)
+			if (!fts_build_update_save_part(ctx, block))
 				return 0;
-			ctx->save_part = TRUE;
 		}
 		return 1;
 	}
 
-	if (fts_backend_build_more(ctx->build, ctx->uid, str_data(ctx->headers),
-				   str_len(ctx->headers)) < 0)
-		return -1;
-	str_truncate(ctx->headers, 0);
-	return 1;
+	return fts_build_mail_flush(ctx);
 }
 
 static int
@@ -134,16 +151,19 @@ fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 				ret = 0;
 			break;
 		}
-		if (raw_block.part != prev_part) {
-			str_truncate(ctx->headers, 0);
-			ctx->save_part = FALSE;
-			skip_part = NULL;
-		} else if (raw_block.part == skip_part)
+		if (raw_block.part == skip_part)
 			continue;
 
 		if (!message_decoder_decode_next_block(decoder, &raw_block,
 						       &block))
 			continue;
+
+		if (block.part != prev_part &&
+		    (block.hdr != NULL || block.size != 0)) {
+			str_truncate(ctx->headers, 0);
+			ctx->save_part = FALSE;
+			skip_part = NULL;
+		}
 
 		if (block.hdr != NULL) {
 			ret = fts_build_mail_header(ctx, &block);
@@ -151,7 +171,14 @@ fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 				break;
 			if (ret == 0)
 				skip_part = raw_block.part;
-		} else if (block.size != 0) {
+		} else if (block.size == 0) {
+			/* end of headers */
+			if (fts_build_update_save_part(ctx, &block)) {
+				ret = fts_build_mail_flush(ctx);
+				if (ret < 0)
+					break;
+			}
+		} else {
 			if (fts_backend_build_more(ctx->build, mail->uid,
 						   block.data,
 						   block.size) < 0) {
