@@ -904,12 +904,18 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_sync_ctx,
 	if (ret < 0)
 		mail_index_sync_rollback(&sync_ctx->sync_ctx);
 	else {
+		/* Set syncing_commit=TRUE so that if any sync callbacks try
+		   to access mails which got lost (eg. expunge callback trying
+		   to open the file which was just unlinked) we don't try to
+		   start a second index sync and crash. */
+		mbox->syncing_commit = TRUE;
 		if (mail_index_sync_commit(&sync_ctx->sync_ctx) < 0)
 			ret = -1;
 		else {
 			mbox->ibox.commit_log_file_seq = 0;
 			mbox->ibox.commit_log_file_offset = 0;
 		}
+		mbox->syncing_commit = FALSE;
 	}
 
 	if (ret < 0)
