@@ -230,7 +230,13 @@ struct mailbox_transaction_context {
 
 struct mail_search_context {
 	struct mailbox_transaction_context *transaction;
+
+	char *charset;
+	struct mail_search_arg *args;
+	struct mail_search_sort_program *sort_program;
+
 	uint32_t seq;
+	ARRAY_DEFINE(module_contexts, void);
 };
 
 struct mail_save_context {
