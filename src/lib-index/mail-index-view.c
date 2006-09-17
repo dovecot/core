@@ -13,7 +13,10 @@ void mail_index_view_clone(struct mail_index_view *dest,
 	dest->refcount = 1;
 	dest->v = src->v;
 	dest->index = src->index;
-	dest->log_view = mail_transaction_log_view_open(src->index->log);
+	if (src->log_view != NULL) {
+		dest->log_view =
+			mail_transaction_log_view_open(src->index->log);
+	}
 
 	dest->indexid = src->indexid;
 	dest->map = src->map;

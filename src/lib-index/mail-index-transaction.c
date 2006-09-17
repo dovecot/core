@@ -60,6 +60,7 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	if (array_is_created(&t->ext_resets))
 		array_free(&t->ext_resets);
 
+	array_free(&t->mail_index_transaction_module_contexts);
 	mail_index_view_transaction_unref(t->view);
 	mail_index_view_close(&t->view);
 	i_free(t);

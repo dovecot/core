@@ -65,6 +65,7 @@ void mail_index_free(struct mail_index **_index)
 
 	array_free(&index->sync_lost_handlers);
 	array_free(&index->keywords);
+	array_free(&index->mail_index_module_contexts);
 
 	i_free(index->error);
 	i_free(index->dir);
@@ -115,7 +116,7 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 	struct mail_index_registered_ext *rext;
 
 	rext = array_idx_modifiable(&index->extensions, ext_id);
-	i_assert(rext->expunge_handler == NULL);
+	i_assert(rext->expunge_handler == NULL || rext->expunge_handler == cb);
 
 	rext->expunge_handler = cb;
 	rext->expunge_context = context;

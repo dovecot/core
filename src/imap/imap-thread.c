@@ -1982,11 +1982,14 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 static int imap_thread_mailbox_close(struct mailbox *box)
 {
 	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(box);
+	int ret;
 
 	if (tbox->msgid_hash != NULL)
 		mail_hash_free(&tbox->msgid_hash);
 
-	return tbox->super.close(box);
+	ret = tbox->super.close(box);
+	i_free(tbox);
+	return ret;
 }
 
 static void imap_thread_hash_init(struct mailbox *box, bool create)
@@ -1996,6 +1999,8 @@ static void imap_thread_hash_init(struct mailbox *box, bool create)
 	uint32_t ext_id;
 
 	i_assert(tbox->msgid_hash == NULL);
+
+	box->v.close = imap_thread_mailbox_close;
 
 	tbox->msgid_hash =
 		mail_hash_open(ibox->index, ".thread", create ?
@@ -2010,7 +2015,6 @@ static void imap_thread_hash_init(struct mailbox *box, bool create)
 	mail_index_register_expunge_handler(ibox->index, ext_id,
 					    imap_thread_expunge_handler,
 					    tbox, TRUE);
-	box->v.close = imap_thread_mailbox_close;
 }
 
 static void imap_thread_mailbox_opened(struct mailbox *box)
