@@ -59,7 +59,7 @@ fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r)
 }
 
 int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
-			   const void *data, size_t size)
+			   const unsigned char *data, size_t size)
 {
 	return ctx->backend->v.build_more(ctx, uid, data, size);
 }

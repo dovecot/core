@@ -11,7 +11,7 @@ struct fts_backend_vfuncs {
 		(*build_init)(struct fts_backend *backend,
 			      uint32_t *last_uid_r);
 	int (*build_more)(struct fts_backend_build_context *ctx, uint32_t uid,
-			  const void *data, size_t size);
+			  const unsigned char *data, size_t size);
 	int (*build_deinit)(struct fts_backend_build_context *ctx);
 
 	int (*lookup)(struct fts_backend *backend, const char *key,
@@ -22,11 +22,18 @@ struct fts_backend_vfuncs {
 
 struct fts_backend {
 	const char *name;
+	/* If TRUE, lookup() and filter() are trusted to return only
+	   actual matches. Otherwise the returned mails are opened and
+	   searched. */
+	bool definite_lookups;
+
 	struct fts_backend_vfuncs v;
 };
 
 struct fts_backend_build_context {
 	struct fts_backend *backend;
+
+	unsigned int failed:1;
 };
 
 void fts_backend_register(const struct fts_backend *backend);

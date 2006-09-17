@@ -35,11 +35,13 @@ static bool fts_storage_module_id_set = FALSE;
 static int fts_mailbox_close(struct mailbox *box)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+	int ret;
 
 	fts_backend_deinit(fbox->backend);
-	i_free(fbox);
 
-	return fbox->super.close(box);
+	ret = fbox->super.close(box);
+	i_free(fbox);
+	return ret;
 }
 
 static int uid_range_to_seq(struct mailbox *box,
@@ -149,7 +151,7 @@ fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 				break;
 			if (ret == 0)
 				skip_part = raw_block.part;
-		} else {
+		} else if (block.size != 0) {
 			if (fts_backend_build_more(ctx->build, mail->uid,
 						   block.data,
 						   block.size) < 0) {
@@ -244,10 +246,18 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 			array_free(&uid_result);
 		}
 
+		if (fbox->backend->definite_lookups) {
+			args->match_always = TRUE;
+			args->result = 1;
+		}
 		args = args->next;
 		while (args != NULL) {
 			if (args->type == SEARCH_BODY ||
 			    args->type == SEARCH_TEXT) {
+				if (fbox->backend->definite_lookups) {
+					args->match_always = TRUE;
+					args->result = 1;
+				}
 				if (fts_backend_filter(fbox->backend,
 						       args->value.str,
 						       &uid_result) < 0) {
@@ -274,8 +284,13 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 	struct seq_range *range;
 	unsigned int count;
+	uint32_t wanted_seq;
+	int ret;
 
-	if (array_is_created(&fctx->result)) {
+	if (!array_is_created(&fctx->result))
+		return fbox->super.search_next_update_seq(ctx);
+
+	do {
 		range = array_get_modifiable(&fctx->result, &count);
 		while (fctx->result_pos < count &&
 		       ctx->seq > range[fctx->result_pos].seq2)
@@ -290,8 +305,12 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 			ctx->seq = range[fctx->result_pos].seq1 - 1;
 			range[fctx->result_pos].seq1++;
 		}
-	}
-	return fbox->super.search_next_update_seq(ctx);
+
+		wanted_seq = ctx->seq + 1;
+		ret = fbox->super.search_next_update_seq(ctx);
+	} while (ret > 0 && wanted_seq != ctx->seq);
+
+	return ret;
 }
 
 static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
