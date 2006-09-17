@@ -311,6 +311,10 @@ const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
    doesn't exist in filesystem. */
 const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
 						 const char *name);
+/* Returns path to the index directory of the mailbox, or NULL if using
+   in-memory indexes or mailbox doesn't exist. */
+const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
+					       const char *name);
 
 /* Open a mailbox. If input stream is given, mailbox is opened read-only
    using it as a backend. If storage doesn't support stream backends and its

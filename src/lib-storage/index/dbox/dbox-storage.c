@@ -319,6 +319,15 @@ dbox_get_mailbox_control_dir(struct mail_storage *_storage, const char *name)
 	return dbox_get_path(istorage, name);
 }
 
+static const char *
+dbox_get_mailbox_index_dir(struct mail_storage *_storage, const char *name)
+{
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	struct index_storage *istorage = INDEX_STORAGE(storage);
+
+	return dbox_get_index_dir(istorage, name);
+}
+
 static struct mailbox *
 dbox_open(struct dbox_storage *storage, const char *name,
 	  enum mailbox_open_flags flags)
@@ -700,6 +709,7 @@ struct mail_storage dbox_storage = {
 		index_storage_set_callbacks,
 		dbox_get_mailbox_path,
 		dbox_get_mailbox_control_dir,
+		dbox_get_mailbox_index_dir,
 		dbox_mailbox_open,
 		dbox_mailbox_create,
 		dbox_mailbox_delete,

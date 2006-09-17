@@ -681,7 +681,7 @@ mbox_get_mailbox_path(struct mail_storage *_storage,
 }
 
 static const char *
-mbox_get_mailbox_control_dir(struct mail_storage *_storage, const char *name)
+mbox_get_mailbox_index_dir(struct mail_storage *_storage, const char *name)
 {
 	struct mbox_storage *storage = (struct mbox_storage *)_storage;
 	struct index_storage *istorage = INDEX_STORAGE(storage);
@@ -1107,7 +1107,8 @@ struct mail_storage mbox_storage = {
 		mbox_autodetect,
 		index_storage_set_callbacks,
 		mbox_get_mailbox_path,
-		mbox_get_mailbox_control_dir,
+		mbox_get_mailbox_index_dir,
+		mbox_get_mailbox_index_dir,
 		mbox_mailbox_open,
 		mbox_mailbox_create,
 		mbox_mailbox_delete,

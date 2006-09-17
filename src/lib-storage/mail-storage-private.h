@@ -31,6 +31,8 @@ struct mail_storage_vfuncs {
 					const char *name, bool *is_file_r);
 	const char *(*get_mailbox_control_dir)(struct mail_storage *storage,
 					       const char *name);
+	const char *(*get_mailbox_index_dir)(struct mail_storage *storage,
+					     const char *name);
 
 	struct mailbox *(*mailbox_open)(struct mail_storage *storage,
 					const char *name,
