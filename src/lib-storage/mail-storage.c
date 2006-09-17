@@ -364,6 +364,12 @@ const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
 	return storage->v.get_mailbox_control_dir(storage, name);
 }
 
+const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
+					       const char *name)
+{
+	return storage->v.get_mailbox_index_dir(storage, name);
+}
+
 struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 			     struct istream *input,
 			     enum mailbox_open_flags flags)
