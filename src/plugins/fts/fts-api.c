@@ -8,10 +8,8 @@ static ARRAY_DEFINE(backends, const struct fts_backend *);
 
 void fts_backend_register(const struct fts_backend *backend)
 {
-	if (!array_is_created(&backends)) {
-		ARRAY_CREATE(&backends, default_pool,
-			     const struct fts_backend *, 4);
-	}
+	if (!array_is_created(&backends))
+		i_array_init(&backends, 4);
 	array_append(&backends, &backend, 1);
 }
 

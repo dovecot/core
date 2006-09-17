@@ -51,7 +51,7 @@ static int uid_range_to_seq(struct mailbox *box,
 	unsigned int i, count;
 
 	range = array_get(uid_range, &count);
-	ARRAY_CREATE(seq_range, default_pool, struct seq_range, count);
+	i_array_init(seq_range, count);
 	for (i = 0; i < count; i++) {
 		if (mailbox_get_uids(box, range[i].seq1, range[i].seq2,
 				     &new_range.seq1, &new_range.seq2) < 0) {
@@ -237,7 +237,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 		if (fts_build_new(t) < 0)
 			return ctx;
 
-		ARRAY_CREATE(&uid_result, default_pool, struct seq_range, 64);
+		i_array_init(&uid_result, 64);
 		if (fts_backend_lookup(fbox->backend, args->value.str,
 				       &uid_result) < 0) {
 			/* failed, fallback to reading everything */
