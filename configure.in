@@ -218,6 +218,16 @@ AC_ARG_WITH(sqlite,
 	fi,
 	want_sqlite=no)
 
+AC_ARG_WITH(lucene,
+[  --with-lucene           Build with CLucene full text search support],
+	if test x$withval = xno; then
+		want_lucene=no
+	else
+		want_lucene=yes
+	fi,
+	want_lucene=no)
+AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
+
 AC_ARG_WITH(ssl,
 [  --with-ssl=[gnutls|openssl] Build with GNUTLS or OpenSSL (default)],
 	if test x$withval = xno; then
@@ -1801,6 +1811,7 @@ src/plugins/acl/Makefile
 src/plugins/convert/Makefile
 src/plugins/expire/Makefile
 src/plugins/fts/Makefile
+src/plugins/fts-lucene/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/trash/Makefile
