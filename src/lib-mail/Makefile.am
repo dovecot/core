@@ -10,6 +10,7 @@ libmail_a_SOURCES = \
 	message-body-search.c \
 	message-content-parser.c \
 	message-date.c \
+	message-decoder.c \
 	message-header-decode.c \
 	message-header-parser.c \
 	message-header-search.c \
@@ -28,6 +29,7 @@ noinst_HEADERS = \
 	message-body-search.h \
 	message-content-parser.h \
 	message-date.h \
+	message-decoder.h \
 	message-header-decode.h \
 	message-header-parser.h \
 	message-header-search.h \
