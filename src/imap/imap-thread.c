@@ -229,9 +229,14 @@ mail_thread_find_child_msgid(struct thread_context *ctx, uint32_t parent_uid,
 			     uint32_t msgid_crc32, const char **msgid_r)
 {
 	const char *msgids, *msgid, *found_msgid = NULL;
+	int ret;
 
-	if (mail_set_uid(ctx->tmp_mail, parent_uid) < 0)
+	if ((ret = mail_set_uid(ctx->tmp_mail, parent_uid)) < 0)
 		return -1;
+	if (ret == 0) {
+		*msgid_r = NULL;
+		return 0;
+	}
 
 	msgids = mail_get_first_header(ctx->tmp_mail, HDR_IN_REPLY_TO);
 	msgid = msgids == NULL ? NULL : message_id_get_next(&msgids);
@@ -299,7 +304,7 @@ mail_thread_rec_get_msgid(struct thread_context *ctx,
 
 	if (rec->rec.uid != 0) {
 		/* we can get the Message-ID directly */
-		if (mail_set_uid(ctx->tmp_mail, rec->rec.uid) < 0)
+		if (mail_set_uid(ctx->tmp_mail, rec->rec.uid) <= 0)
 			return NULL;
 
 		msgids = mail_get_first_header(ctx->tmp_mail, HDR_MESSAGE_ID);
@@ -1325,7 +1330,7 @@ static int gather_base_subjects(struct thread_context *ctx)
 			uid = rec->rec.uid;
 		}
 
-		if (mail_set_uid(ctx->tmp_mail, roots[i]->uid) == 0) {
+		if (mail_set_uid(ctx->tmp_mail, roots[i]->uid) > 0) {
 			t_push();
 			subject = mail_get_first_header(ctx->tmp_mail,
 							HDR_SUBJECT);

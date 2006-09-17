@@ -826,7 +826,7 @@ index_mail_alloc(struct mailbox_transaction_context *_t,
 	const struct mail_index_header *hdr;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mail", 512);
+	pool = pool_alloconly_create("mail", 1024);
 	mail = p_new(pool, struct index_mail, 1);
 	mail->mail.pool = pool;
 	array_create(&mail->mail.module_contexts, pool, sizeof(void *), 5);
@@ -855,6 +855,22 @@ static void index_mail_close(struct index_mail *mail)
 		i_stream_destroy(&mail->data.stream);
 	if (mail->data.filter_stream != NULL)
 		i_stream_destroy(&mail->data.filter_stream);
+}
+
+static void index_mail_reset(struct index_mail *mail)
+{
+	struct index_mail_data *data = &mail->data;
+
+	index_mail_close(mail);
+
+	memset(data, 0, sizeof(*data));
+	p_clear(mail->data_pool);
+
+	data->virtual_size = (uoff_t)-1;
+	data->physical_size = (uoff_t)-1;
+	data->save_date = (time_t)-1;
+	data->received_date = (time_t)-1;
+	data->sent_date.time = (time_t)-1;
 }
 
 static void check_envelope(struct index_mail *mail)
@@ -903,18 +919,10 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		return -1;
 	}
 
-	index_mail_close(mail);
-
-	memset(data, 0, sizeof(*data));
-	p_clear(mail->data_pool);
+	index_mail_reset(mail);
 
 	data->rec = rec;
 	data->seq = seq;
-	data->virtual_size = (uoff_t)-1;
-	data->physical_size = (uoff_t)-1;
-	data->save_date = (time_t)-1;
-	data->received_date = (time_t)-1;
-	data->sent_date.time = (time_t)-1;
 
 	if (!index_mail_get_fixed_field(mail, MAIL_CACHE_FLAGS,
 					&data->cache_flags,
@@ -1019,7 +1027,16 @@ int index_mail_set_uid(struct mail *_mail, uint32_t uid)
 					uid, uid, &seq, &seq) < 0)
 		return -1;
 
-	return index_mail_set_seq(_mail, seq);
+	if (seq == 0) {
+		index_mail_reset(mail);
+		mail->mail.mail.uid = uid;
+		mail->mail.mail.expunged = TRUE;
+		return 0;
+	}
+
+	if (index_mail_set_seq(_mail, seq) < 0)
+		return -1;
+	return 1;
 }
 
 void index_mail_free(struct mail *_mail)

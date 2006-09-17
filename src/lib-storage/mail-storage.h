@@ -441,6 +441,7 @@ struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			struct mailbox_header_lookup_ctx *wanted_headers);
 void mail_free(struct mail **mail);
 int mail_set_seq(struct mail *mail, uint32_t seq);
+/* Returns -1 if error, 0 if UID has already been expunged, 1 if ok */
 int mail_set_uid(struct mail *mail, uint32_t uid);
 
 /* Get the Date-header of the mail. Timezone is in minutes.
