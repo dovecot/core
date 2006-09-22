@@ -96,9 +96,18 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 	string_t *principal_name;
 	gss_buffer_desc inbuf;
 	gss_name_t gss_principal;
+	const char *service_name;
+
+	if (strcasecmp(request->service, "POP3") == 0) {
+		/* The standard POP3 service name with GSSAPI is called
+		   just "pop". */
+		service_name = "pop";
+	} else {
+		service_name = t_str_lcase(request->service);
+	}
 
 	principal_name = t_str_new(128);
-	str_append(principal_name, t_str_lcase(request->service));
+	str_append(principal_name, service_name);
 	str_append_c(principal_name, '@');
 	str_append(principal_name, my_hostname); 
 
