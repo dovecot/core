@@ -242,6 +242,7 @@ get_var_expand_table(const char *user, const char *home)
 		{ 'l', NULL },
 		{ 'r', NULL },
 		{ 'p', NULL },
+		{ 'i', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -258,6 +259,7 @@ get_var_expand_table(const char *user, const char *home)
 	tab[5].value = NULL;
 	tab[6].value = NULL;
 	tab[7].value = my_pid;
+	tab[8].value = dec2str(geteuid());
 
 	return tab;
 }
