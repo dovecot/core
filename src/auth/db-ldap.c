@@ -351,7 +351,8 @@ bool db_ldap_connect(struct ldap_connection *conn)
 	}
 	if (ret == LDAP_SERVER_DOWN) {
 		i_error("LDAP: Can't connect to server: %s",
-			conn->set.hosts);
+			conn->set.uris != NULL ?
+			conn->set.uris : conn->set.hosts);
 		return FALSE;
 	}
 	if (ret != LDAP_SUCCESS) {
