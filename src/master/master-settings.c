@@ -1347,9 +1347,14 @@ bool master_settings_read(const char *path, bool nochecks)
 			i_error("No protocols given in configuration file");
 			return FALSE;
 		}
-		if (!settings_is_active(server->imap))
+		if (!settings_is_active(server->imap)) {
+			if (strcmp(server->imap->protocols, "none") == 0) {
+				if (!nochecks && !settings_verify(server->imap))
+					return FALSE;
+				server->defaults = server->imap;
+			}
 			server->imap = NULL;
-		else {
+		} else {
 			if (!nochecks && !settings_verify(server->imap))
 				return FALSE;
 			server->defaults = server->imap;
@@ -1392,7 +1397,12 @@ bool master_settings_read(const char *path, bool nochecks)
 		}
 	}
 
-	i_assert(ctx.root != NULL);
+	if (ctx.root == NULL) {
+		/* We aren't actually checking them separately, but if it
+		   contains only invalid protocols we'll get here.. */
+		i_error("Invalid protocols given in configuration file");
+		return FALSE;
+	}
 
 	/* settings ok, swap them */
 	temp = settings_pool;
