@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "buffer.h"
 #include "commands.h"
 
@@ -52,8 +53,8 @@ const struct command imap_ext_commands[] = {
 #define IMAP_EXT_COMMANDS_COUNT \
 	(sizeof(imap_ext_commands) / sizeof(imap_ext_commands[0]))
 
-static buffer_t *cmdbuf;
-static bool cmdbuf_unsorted;
+static ARRAY_DEFINE(commands, struct command);
+static bool commands_unsorted;
 
 void command_register(const char *name, command_func_t *func)
 {
@@ -61,22 +62,20 @@ void command_register(const char *name, command_func_t *func)
 
 	cmd.name = name;
 	cmd.func = func;
-	buffer_append(cmdbuf, &cmd, sizeof(cmd));
+	array_append(&commands, &cmd, 1);
 
-	cmdbuf_unsorted = TRUE;
+	commands_unsorted = TRUE;
 }
 
 void command_unregister(const char *name)
 {
 	const struct command *cmd;
-	size_t i, size, count;
+	unsigned int i, count;
 
-	cmd = buffer_get_data(cmdbuf, &size);
-	count = size / sizeof(*cmd);
-
+	cmd = array_get(&commands, &count);
 	for (i = 0; i < count; i++) {
 		if (strcasecmp(cmd[i].name, name) == 0) {
-			buffer_delete(cmdbuf, i * sizeof(*cmd), sizeof(*cmd));
+			array_delete(&commands, i, 1);
 			return;
 		}
 	}
@@ -84,17 +83,17 @@ void command_unregister(const char *name)
 	i_error("Trying to unregister unknown command '%s'", name);
 }
 
-void command_register_array(const struct command *commands, size_t count)
+void command_register_array(const struct command *cmdarr, unsigned int count)
 {
-	cmdbuf_unsorted = TRUE;
-	buffer_append(cmdbuf, commands, sizeof(*commands) * count);
+	commands_unsorted = TRUE;
+	array_append(&commands, cmdarr, count);
 }
 
-void command_unregister_array(const struct command *commands, size_t count)
+void command_unregister_array(const struct command *cmdarr, unsigned int count)
 {
 	while (count > 0) {
-		command_unregister(commands->name);
-		count--; commands++;
+		command_unregister(cmdarr->name);
+		count--; cmdarr++;
 	}
 }
 
@@ -116,26 +115,23 @@ command_func_t *command_find(const char *name)
 {
 	const struct command *cmd;
 	void *base;
-	size_t size;
+	unsigned int count;
 
-	base = buffer_get_modifiable_data(cmdbuf, &size);
-	size /= sizeof(struct command);
-
-	if (cmdbuf_unsorted) {
-		qsort(base, size, sizeof(struct command), command_cmp);
-                cmdbuf_unsorted = FALSE;
+	base = array_get_modifiable(&commands, &count);
+	if (commands_unsorted) {
+		qsort(base, count, sizeof(struct command), command_cmp);
+                commands_unsorted = FALSE;
 	}
 
-	cmd = bsearch(name, base, size, sizeof(struct command),
+	cmd = bsearch(name, base, count, sizeof(struct command),
 		      command_bsearch);
 	return cmd == NULL ? NULL : cmd->func;
 }
 
 void commands_init(void)
 {
-	cmdbuf = buffer_create_dynamic(system_pool,
-				       sizeof(struct command) * 64);
-	cmdbuf_unsorted = FALSE;
+	i_array_init(&commands, 64);
+	commands_unsorted = FALSE;
 
         command_register_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
         command_register_array(imap_ext_commands, IMAP_EXT_COMMANDS_COUNT);
@@ -145,5 +141,5 @@ void commands_deinit(void)
 {
         command_unregister_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
         command_unregister_array(imap_ext_commands, IMAP_EXT_COMMANDS_COUNT);
-	buffer_free(cmdbuf);
+	array_free(&commands);
 }

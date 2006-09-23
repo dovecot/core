@@ -21,8 +21,8 @@ void command_register(const char *name, command_func_t *func);
 void command_unregister(const char *name);
 
 /* Register array of commands. */
-void command_register_array(const struct command *commands, size_t count);
-void command_unregister_array(const struct command *commands, size_t count);
+void command_register_array(const struct command *cmdarr, unsigned int count);
+void command_unregister_array(const struct command *cmdarr, unsigned int count);
 
 command_func_t *command_find(const char *name);
 
