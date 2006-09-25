@@ -3,6 +3,7 @@
 
 struct login_group {
 	struct login_group *next;
+	int refcount;
 
 	enum process_type process_type;
 	struct settings *set;

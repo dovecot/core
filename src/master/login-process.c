@@ -63,6 +63,7 @@ static void login_group_create(struct settings *set)
 	struct login_group *group;
 
 	group = i_new(struct login_group, 1);
+	group->refcount = 1;
 	group->set = set;
 	group->process_type = set->protocol == MAIL_PROTOCOL_IMAP ?
 		PROCESS_TYPE_IMAP : PROCESS_TYPE_POP3;
@@ -71,8 +72,13 @@ static void login_group_create(struct settings *set)
 	login_groups = group;
 }
 
-static void login_group_destroy(struct login_group *group)
+static void login_group_unref(struct login_group *group)
 {
+	i_assert(group->refcount > 0);
+
+	if (--group->refcount > 0)
+		return;
+
 	i_free(group);
 }
 
@@ -300,6 +306,12 @@ static void login_process_input(void *context)
 		login_process_destroy(p);
 		return;
 	}
+	{
+		static int i = 0;
+		if (i++ > 1) {
+			ret = -1; errno = EINVAL;
+		}
+	}
 
 	if (ret != sizeof(req)) {
 		if (ret == 0) {
@@ -383,6 +395,7 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	p->state = LOGIN_STATE_LISTENING;
 
 	if (p->group != NULL) {
+		p->group->refcount++;
 		p->group->processes++;
 		p->group->listening_processes++;
 	}
@@ -424,6 +437,9 @@ static void login_process_unref(struct login_process *p)
 {
 	if (--p->refcount > 0)
 		return;
+
+	if (p->group != NULL)
+		login_group_unref(p->group);
 
 	o_stream_unref(&p->output);
 	i_free(p);
@@ -637,7 +653,7 @@ void login_processes_destroy_all(bool unref)
 		struct login_group *group = login_groups;
 
 		login_groups = group->next;
-		login_group_destroy(group);
+		login_group_unref(group);
 	}
 }
 
