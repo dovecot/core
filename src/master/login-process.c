@@ -306,12 +306,6 @@ static void login_process_input(void *context)
 		login_process_destroy(p);
 		return;
 	}
-	{
-		static int i = 0;
-		if (i++ > 1) {
-			ret = -1; errno = EINVAL;
-		}
-	}
 
 	if (ret != sizeof(req)) {
 		if (ret == 0) {
