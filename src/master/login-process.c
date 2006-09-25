@@ -308,6 +308,9 @@ static void login_process_input(void *context)
 			/* req wasn't fully read */
 			i_error("login: fd_read() couldn't read all req");
 		} else {
+			if (errno == EAGAIN)
+				return;
+
 			i_error("login: fd_read() failed: %m");
 		}
 
