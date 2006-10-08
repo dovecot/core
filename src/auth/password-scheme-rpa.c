@@ -26,7 +26,7 @@ void *ucs2be_str(pool_t pool, const char *str, size_t *size)
 
 const char *password_generate_rpa(const char *pw)
 {
-	unsigned char hash[16];
+	unsigned char hash[MD5_RESULTLEN];
 	unsigned char *ucs2be_pw;
 	size_t size;
 

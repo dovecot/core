@@ -49,7 +49,7 @@ to64(string_t *str, unsigned long v, int n)
 const char *password_generate_md5_crypt(const char *pw, const char *salt)
 {
 	const char *sp,*ep;
-	unsigned char	final[16];
+	unsigned char	final[MD5_RESULTLEN];
 	int sl,pl,i,j;
 	struct md5_context ctx,ctx1;
 	unsigned long l;
@@ -87,8 +87,8 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt)
 	md5_update(&ctx1,sp,sl);
 	md5_update(&ctx1,pw,pw_len);
 	md5_final(&ctx1,final);
-	for(pl = pw_len; pl > 0; pl -= 16)
-		md5_update(&ctx,final,pl>16 ? 16 : pl);
+	for(pl = pw_len; pl > 0; pl -= MD5_RESULTLEN)
+		md5_update(&ctx,final,pl>MD5_RESULTLEN ? MD5_RESULTLEN : pl);
 
 	/* Don't leave anything around in vm they could use. */
 	safe_memset(final, 0, sizeof(final));
@@ -118,7 +118,7 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt)
 		if(i & 1)
 			md5_update(&ctx1,pw,pw_len);
 		else
-			md5_update(&ctx1,final,16);
+			md5_update(&ctx1,final,MD5_RESULTLEN);
 
 		if(i % 3)
 			md5_update(&ctx1,sp,sl);
@@ -127,7 +127,7 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt)
 			md5_update(&ctx1,pw,pw_len);
 
 		if(i & 1)
-			md5_update(&ctx1,final,16);
+			md5_update(&ctx1,final,MD5_RESULTLEN);
 		else
 			md5_update(&ctx1,pw,pw_len);
 		md5_final(&ctx1,final);
