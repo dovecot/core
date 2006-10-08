@@ -66,11 +66,19 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 #define p_malloc(pool, size) (pool)->malloc(pool, size)
 #define p_realloc(pool, mem, old_size, new_size) \
 	(pool)->realloc(pool, mem, old_size, new_size)
+
+/* Free the memory. Currently it also sets memory to NULL, but that shouldn't
+   be relied on as it's only an extra safety check. It might as well be later
+   changed to some invalid pointer causing a segfault, or removed completely
+   in some "optimization".. */
 #define p_free(pool, mem) \
 	STMT_START { \
           (pool)->free(pool, mem); \
           (mem) = NULL; \
 	} STMT_END
+
+/* A macro that's guaranteed to set mem = NULL. */
+#define p_free_and_null(pool, mem) p_free(pool, mem)
 
 #define p_clear(pool) (pool)->clear(pool)
 

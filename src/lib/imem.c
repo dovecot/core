@@ -78,7 +78,3 @@ void imem_init(void)
 {
 	default_pool = system_pool;
 }
-
-void imem_deinit(void)
-{
-}

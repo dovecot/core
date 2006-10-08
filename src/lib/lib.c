@@ -28,7 +28,6 @@ void lib_init(void)
 
 void lib_deinit(void)
 {
-        imem_deinit();
 	data_stack_deinit();
         failures_deinit();
 }

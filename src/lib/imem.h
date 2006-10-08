@@ -1,27 +1,17 @@
 #ifndef __IMEM_H
 #define __IMEM_H
 
+/* For easy allocation of memory from default memory pool. */
+
 extern pool_t default_pool;
 
-/* For easy allocation of memory from default memory pool. */
-#define i_new(type, count) \
-        ((type *) i_malloc(sizeof(type) * (count)))
+#define i_new(type, count) p_new(default_pool, type, count)
 
 void *i_malloc(size_t size);
 void *i_realloc(void *mem, size_t old_size, size_t new_size);
 
-/* Free the memory. Currently it also sets memory to NULL, but that shouldn't
-   be relied on as it's only extra safety check. It might as well be later
-   changed to some invalid pointer causing segfault, or removed completely
-   in some "optimization".. */
-#define i_free(mem) \
-	STMT_START { \
-          p_free(default_pool, mem); \
-          (mem) = NULL; \
-	} STMT_END
-
-/* A macro that's guaranteed to set mem = NULL. */
-#define i_free_and_null(mem) i_free(mem)
+#define i_free(mem) p_free(default_pool, mem)
+#define i_free_and_null(mem) p_free_and_null(default_pool, mem)
 
 /* string functions */
 char *i_strdup(const char *str);
@@ -34,6 +24,5 @@ char *i_strdup_vprintf(const char *format, va_list args);
 char *i_strconcat(const char *str1, ...); /* NULL terminated */
 
 void imem_init(void);
-void imem_deinit(void);
 
 #endif
