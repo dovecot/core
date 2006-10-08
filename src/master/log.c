@@ -58,12 +58,16 @@ static void log_throttle(struct log_io *log_io)
 		       FALSE);
 	}
 
-	if (log_io->io != NULL)
-		io_remove(&log_io->io);
+	if (log_io->io == NULL) {
+		i_assert(to != NULL);
+		return;
+	}
+
+	io_remove(&log_io->io);
+        throttle_count++;
 
 	if (to == NULL)
 		to = timeout_add(1000, log_throttle_timeout, NULL);
-        throttle_count++;
 }
 
 static void log_unthrottle(struct log_io *log_io)
