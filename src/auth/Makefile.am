@@ -69,6 +69,7 @@ dovecot_auth_SOURCES = \
 	passdb-pam.c \
 	passdb-checkpassword.c \
 	passdb-shadow.c \
+	passdb-sia.c \
 	passdb-vpopmail.c \
 	passdb-sql.c \
 	userdb.c \

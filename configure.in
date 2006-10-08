@@ -135,6 +135,15 @@ AC_ARG_WITH(gssapi,
 	fi,
 	want_gssapi=no)
 
+AC_ARG_WITH(sia,
+[  --with-sia              Build with Tru64 SIA support],
+      if test x$withval = xno; then
+              want_sia=no
+      else
+              want_sia=yes
+      fi,
+      want_sia=no)
+
 AC_ARG_WITH(ldap,
 [  --with-ldap             Build with LDAP support],
 	if test x$withval = xno; then
@@ -1436,6 +1445,14 @@ if test $want_gssapi = yes; then
 			CFLAGS=$old_CFLAGS
 		fi
 	fi
+fi
+
+if test $want_sia = yes; then
+	AC_CHECK_FUNC(sia_validate_user, [
+		AC_DEFINE(PASSDB_SIA,, Build with Tru64 SIA support)
+		passdb="$passdb sia"
+		AUTH_LIBS="$AUTH_LIBS -depth_ring_search"
+	])
 fi
 
 if test $want_ldap = yes; then

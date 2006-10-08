@@ -17,6 +17,7 @@ extern struct passdb_module_interface passdb_checkpassword;
 extern struct passdb_module_interface passdb_vpopmail;
 extern struct passdb_module_interface passdb_ldap;
 extern struct passdb_module_interface passdb_sql;
+extern struct passdb_module_interface passdb_sia;
 
 struct passdb_module_interface *passdb_interfaces[] = {
 #ifdef PASSDB_PASSWD
@@ -45,6 +46,9 @@ struct passdb_module_interface *passdb_interfaces[] = {
 #endif
 #ifdef PASSDB_SQL
 	&passdb_sql,
+#endif
+#ifdef PASSDB_SIA
+	&passdb_sia,
 #endif
 	NULL
 };
