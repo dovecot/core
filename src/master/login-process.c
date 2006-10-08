@@ -183,6 +183,7 @@ login_process_set_state(struct login_process *p, enum master_login_state state)
 		i_error("login: tried to change state %d -> %d "
 			"(if you can't login at all, see src/lib/fdpass.c)",
 			p->state, state);
+		login_process_destroy(p);
 		return;
 	}
 
