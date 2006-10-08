@@ -30,6 +30,7 @@
 #define DEFAULT_CONFIG_FILE SYSCONFDIR"/dovecot.conf"
 #define DEFAULT_AUTH_SOCKET_PATH PKG_RUNDIR"/auth-master"
 #define DEFAULT_SENDMAIL_PATH "/usr/lib/sendmail"
+#define DEFAULT_ENVELOPE_SENDER "dovecot.deliver"
 
 /* After buffer grows larger than this, create a temporary file to /tmp
    where to read the mail. */
@@ -135,7 +136,7 @@ const char *deliver_get_return_address(struct mail *mail)
 	addr = str == NULL ? NULL :
 		message_address_parse(pool_datastack_create(),
 				      (const unsigned char *)str,
-				      strlen(str), 1);
+				      strlen(str), 1, FALSE);
 	return addr == NULL || addr->mailbox == NULL || addr->domain == NULL ?
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
 }
@@ -293,14 +294,35 @@ expand_mail_env(const char *env, const struct var_expand_table *table)
 	return str_c(str);
 }
 
-static struct istream *create_mbox_stream(int fd)
+static const char *address_sanitize(const char *address)
+{
+	struct message_address *addr;
+	const char *ret;
+	pool_t pool;
+
+	pool = pool_alloconly_create("address sanitizer", 128);
+	addr = message_address_parse(pool, (const unsigned char *)address,
+				     strlen(address), 1, FALSE);
+	if (addr->mailbox == NULL || addr->domain == NULL ||
+	    *addr->mailbox == '\0')
+		ret = DEFAULT_ENVELOPE_SENDER;
+	else if (*addr->domain == '\0')
+		ret = t_strdup(addr->mailbox);
+	else
+		ret = t_strdup_printf("%s@%s", addr->mailbox, addr->domain);
+	pool_unref(pool);
+	return ret;
+}
+
+static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
 {
 	const char *mbox_hdr;
 	struct istream *input_list[4], *input;
 
 	fd_set_nonblock(fd, FALSE);
 
-	mbox_hdr = mbox_from_create("dovecot.deliver", ioloop_time);
+	envelope_sender = address_sanitize(envelope_sender);
+	mbox_hdr = mbox_from_create(envelope_sender, ioloop_time);
 
 	input_list[0] = i_stream_create_from_data(default_pool, mbox_hdr,
 						  strlen(mbox_hdr));
@@ -347,6 +369,7 @@ static void print_help(void)
 int main(int argc, char *argv[])
 {
 	const char *config_path = DEFAULT_CONFIG_FILE;
+	const char *envelope_sender = DEFAULT_ENVELOPE_SENDER;
 	const char *mailbox = "INBOX";
 	const char *auth_socket, *env_tz;
 	const char *home, *destination, *user, *mail_env, *value;
@@ -408,6 +431,14 @@ int main(int argc, char *argv[])
 					       "Missing mailbox argument");
 			}
 			mailbox = argv[i];
+		} else if (strcmp(argv[i], "-f") == 0) {
+			/* envelope sender address */
+			i++;
+			if (i == argc) {
+				i_fatal_status(EX_USAGE,
+					       "Missing envleope argument");
+			}
+			envelope_sender = argv[i];
 		} else {
 			print_help();
 			i_fatal_status(EX_USAGE,
@@ -515,7 +546,7 @@ int main(int argc, char *argv[])
 
 	mbox_storage = mail_storage_create("mbox", "/tmp", destination, 0,
 					   MAIL_STORAGE_LOCK_FCNTL);
-	input = create_mbox_stream(0);
+	input = create_mbox_stream(0, envelope_sender);
 	box = mailbox_open(mbox_storage, "Dovecot Delivery Mail", input,
 			   MAILBOX_OPEN_NO_INDEX_FILES |
 			   MAILBOX_OPEN_MBOX_ONE_MSG_ONLY);
