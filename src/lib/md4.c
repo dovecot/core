@@ -204,7 +204,7 @@ void md4_update(struct md4_context *ctx, const void *data, size_t size)
 	memcpy(ctx->buffer, data, size);
 }
 
-void md4_final(struct md4_context *ctx, unsigned char result[16])
+void md4_final(struct md4_context *ctx, unsigned char result[MD4_RESULTLEN])
 {
 	/* @UNSAFE */
 	unsigned long used, free;
@@ -256,7 +256,8 @@ void md4_final(struct md4_context *ctx, unsigned char result[16])
 	safe_memset(ctx, 0, sizeof(*ctx));
 }
 
-void md4_get_digest(const void *data, size_t size, unsigned char result[16])
+void md4_get_digest(const void *data, size_t size,
+		    unsigned char result[MD4_RESULTLEN])
 {
 	struct md4_context ctx;
 
