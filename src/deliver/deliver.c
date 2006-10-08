@@ -11,6 +11,7 @@
 #include "istream-seekable.h"
 #include "module-dir.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "var-expand.h"
 #include "message-address.h"
 #include "dict-client.h"
@@ -104,6 +105,7 @@ int deliver_save(struct mail_storage *storage, const char *mailbox,
 	struct mailbox *box;
 	struct mailbox_transaction_context *t;
 	struct mail_keywords *kw;
+	const char *msgid;
 	int ret = 0;
 
 	box = mailbox_open_or_create_synced(storage, mailbox);
@@ -122,6 +124,12 @@ int deliver_save(struct mail_storage *storage, const char *mailbox,
 		mailbox_transaction_rollback(&t);
 	else
 		ret = mailbox_transaction_commit(&t, 0);
+
+	msgid = mail_get_first_header(mail, "Message-ID");
+	i_info(ret < 0 ? "msgid=%s: save failed to %s" :
+	       "msgid=%s: saved mail to %s",
+	       msgid == NULL ? "" : str_sanitize(msgid, 80),
+	       str_sanitize(mailbox_get_name(box), 80));
 
 	mailbox_close(&box);
 	return ret;

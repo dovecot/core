@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "hostpid.h"
 #include "istream.h"
+#include "str-sanitize.h"
 #include "message-date.h"
 #include "message-size.h"
 #include "duplicate.h"
@@ -31,13 +32,16 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     struct message_size hdr_size;
     const char *return_addr, *str;
     const unsigned char *data;
-    const char *msgid, *boundary;
+    const char *msgid, *orig_msgid, *boundary;
     size_t size;
     int ret;
 
+    orig_msgid = mail_get_first_header(mail, "Message-ID");
     return_addr = deliver_get_return_address(mail);
     if (return_addr == NULL) {
-	    i_info("Return-Path missing, rejection reason: %s", reason);
+	    i_info("msgid=%s: Return-Path missing, rejection reason: %s",
+		   orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
+		   str_sanitize(reason, 512));
 	    return -1;
     }
 
@@ -80,9 +84,8 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 	fprintf(f, "Original-Recipient: rfc822; %s\r\n", str);
     fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
 
-    str = mail_get_first_header(mail, "Message-ID");
-    if (str != NULL)
-	fprintf(f, "Original-Message-ID: %s\r\n", str);
+    if (orig_msgid != NULL)
+	fprintf(f, "Original-Message-ID: %s\r\n", orig_msgid);
     fprintf(f, "Disposition: "
 	    "automatic-action/MDN-sent-automatically; deleted\r\n");
     fprintf(f, "\r\n");
