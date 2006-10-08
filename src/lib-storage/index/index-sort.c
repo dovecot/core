@@ -163,7 +163,7 @@ static const char *get_first_mailbox(struct mail *mail, const char *header)
 
 	addr = message_address_parse(pool_datastack_create(),
 				     (const unsigned char *)str,
-				     strlen(str), 1);
+				     strlen(str), 1, TRUE);
 	return addr != NULL ? addr->mailbox : "";
 }
 

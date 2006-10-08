@@ -395,7 +395,7 @@ static void search_header_arg(struct mail_search_arg *arg, void *context)
 			addr = message_address_parse(pool_datastack_create(),
 						     ctx->hdr->full_value,
 						     ctx->hdr->full_value_len,
-						     (unsigned int)-1);
+						     (unsigned int)-1, TRUE);
 			str = t_str_new(ctx->hdr->value_len);
 			message_address_write(str, addr);
 			ret = message_header_search(str_data(str), str_len(str),
