@@ -144,7 +144,8 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 			if (ctx->glob != NULL &&
 			    imap_match(ctx->glob, name) != IMAP_MATCH_YES)
 				continue;
-		} else if (strcasecmp(name, "INBOX") == 0) {
+		}
+		if (strcasecmp(name, "INBOX") == 0) {
 			if (!ctx->ns->inbox)
 				continue;
 
@@ -303,22 +304,16 @@ list_namespace_init(struct client_command_context *cmd,
 		if (match < 0)
 			return;
 
+		len = strlen(ns->prefix);
 		if (match == IMAP_MATCH_YES &&
-		    (ctx->list_flags & MAILBOX_LIST_SUBSCRIBED) == 0) {
+		    (ctx->list_flags & MAILBOX_LIST_SUBSCRIBED) == 0 &&
+		    (!ctx->ns->inbox ||
+		     strncmp(ns->prefix, "INBOX", len-1) != 0)) {
 			/* The prefix itself matches */
                         enum mailbox_flags flags;
 			string_t *str = t_str_new(128);
 
-			len = strlen(ns->prefix);
-			if (strncmp(ns->prefix, "INBOX", len-1) == 0) {
-				/* FIXME: INBOX prefix - we should get real
-				   mailbox flags.. */
-				flags = MAILBOX_CHILDREN;
-				ctx->inbox_found = TRUE;
-			} else {
-				flags = MAILBOX_PLACEHOLDER;
-			}
-
+			flags = MAILBOX_PLACEHOLDER;
 			str_printfa(str, "* LIST (%s) \"%s\" ",
 				    mailbox_flags2str(flags, ctx->list_flags),
 				    ns->sep_str);
