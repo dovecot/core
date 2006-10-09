@@ -308,7 +308,7 @@ static const char *address_sanitize(const char *address)
 	const char *ret;
 	pool_t pool;
 
-	pool = pool_alloconly_create("address sanitizer", 128);
+	pool = pool_alloconly_create("address sanitizer", 256);
 	addr = message_address_parse(pool, (const unsigned char *)address,
 				     strlen(address), 1, FALSE);
 	if (addr->mailbox == NULL || addr->domain == NULL ||
