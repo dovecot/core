@@ -267,6 +267,11 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 
 	autodetect = data == NULL || *data == '\0';
 	if (autodetect) {
+		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0) {
+			i_error("mbox: root directory not given");
+			return NULL;
+		}
+
 		/* we'll need to figure out the mail location ourself.
 		   it's root dir if we've already chroot()ed, otherwise
 		   either $HOME/mail or $HOME/Mail */
@@ -279,7 +284,8 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 		p = strchr(data, ':');
 		if (p == NULL) {
 			/* if the data points to a file, treat it as an INBOX */
-			if (stat(data, &st) < 0 || S_ISDIR(st.st_mode))
+			if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0 ||
+			    stat(data, &st) < 0 || S_ISDIR(st.st_mode))
 				root_dir = data;
 			else {
 				root_dir = get_root_dir(flags);

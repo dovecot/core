@@ -23,7 +23,10 @@ enum mail_storage_flags {
 	/* Use CRLF linefeeds when saving mails. */
 	MAIL_STORAGE_FLAG_SAVE_CRLF		= 0x40,
 	/* The storage points to shared namespaces */
-	MAIL_STORAGE_FLAG_SHARED_NAMESPACE	= 0x80
+	MAIL_STORAGE_FLAG_SHARED_NAMESPACE	= 0x80,
+	/* Don't try to autodetect anything, require that the given data 
+	   contains all the necessary information. */
+	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x100
 };
 
 enum mail_storage_lock_method {

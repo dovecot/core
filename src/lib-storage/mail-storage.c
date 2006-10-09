@@ -181,6 +181,9 @@ mail_storage_create_with_data(const char *data, const char *user,
 	while (i_isalnum(*p)) p++;
 
 	if (*p == ':') {
+		/* no autodetection if the storage format is given. */
+		flags |= MAIL_STORAGE_FLAG_NO_AUTODETECTION;
+
 		name = t_strdup_until(data, p);
 		storage = mail_storage_create(name, p+1, user, flags,
 					      lock_method);

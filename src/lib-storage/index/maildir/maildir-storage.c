@@ -54,6 +54,11 @@ maildir_create(const char *data, const char *user,
 	inbox_dir = root_dir = index_dir = control_dir = NULL;
 
 	if (data == NULL || *data == '\0') {
+		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0) {
+			i_error("maildir: root directory not given");
+			return NULL;
+		}
+
 		/* we'll need to figure out the maildir location ourself.
 		   It's $HOME/Maildir unless we are chrooted. */
 		if ((home = getenv("HOME")) != NULL) {
