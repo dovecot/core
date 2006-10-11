@@ -3,6 +3,7 @@
 #include "common.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "fd-set-nonblock.h"
 #include "fd-close-on-exec.h"
 #include "log.h"
 
@@ -167,6 +168,7 @@ int log_create_pipe(struct log_io **log_r, unsigned int max_lines_per_sec)
 		return -1;
 	}
 
+	fd_set_nonblock(fd[0], TRUE);
 	fd_close_on_exec(fd[0], TRUE);
 	fd_close_on_exec(fd[1], TRUE);
 
@@ -280,6 +282,9 @@ void log_deinit(void)
 
 	while (log_ios != NULL) {
 		next = log_ios->next;
+		/* do one final log read in case there's still something
+		   waiting */
+		log_read(log_ios);
 		log_unref(log_ios);
 		log_ios = next;
 	}
