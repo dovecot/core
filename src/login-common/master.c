@@ -50,6 +50,7 @@ void master_request_login(struct client *client, master_callback_t *callback,
 			  unsigned int auth_pid, unsigned int auth_id)
 {
 	struct master_login_request req;
+	struct stat st;
 
 	i_assert(auth_pid != 0);
 
@@ -62,6 +63,10 @@ void master_request_login(struct client *client, master_callback_t *callback,
 	req.auth_id = auth_id;
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
+
+	if (fstat(client->fd, &st) < 0)
+		i_fatal("fstat(client) failed: %m");
+	req.ino = st.st_ino;
 
 	if (fd_send(master_fd, client->fd, &req, sizeof(req)) != sizeof(req))
 		i_fatal("fd_send(%d) failed: %m", client->fd);
@@ -90,6 +95,7 @@ void master_notify_state_change(enum master_login_state state)
 	memset(&req, 0, sizeof(req));
 	req.version = MASTER_LOGIN_PROTOCOL_VERSION;
 	req.tag = state;
+	req.ino = (ino_t)-1;
 
 	/* sending -1 as fd does the notification */
 	if (fd_send(master_fd, -1, &req, sizeof(req)) != sizeof(req))

@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
 struct login_process {
 	struct login_group *group;
@@ -283,6 +284,65 @@ static bool login_process_read_group(struct login_process *p)
 	return FALSE;
 }
 
+static int
+login_read_request(struct login_process *p, struct master_login_request *req,
+		   int *client_fd_r)
+{
+	struct stat st;
+	ssize_t ret;
+
+	*client_fd_r = -1;
+
+	ret = fd_read(p->fd, req, sizeof(*req), client_fd_r);
+	if (ret >= (ssize_t)sizeof(req->version) &&
+	    req->version != MASTER_LOGIN_PROTOCOL_VERSION) {
+		i_error("login: Protocol version mismatch "
+			"(mixed old and new binaries?)");
+		return -1;
+	}
+
+	if (ret != sizeof(*req)) {
+		if (ret == 0) {
+			/* disconnected, ie. the login process died */
+		} else if (ret > 0) {
+			/* request wasn't fully read */
+			i_error("login: fd_read() returned partial %d", ret);
+		} else {
+			if (errno == EAGAIN)
+				return 0;
+
+			i_error("login: fd_read() failed: %m");
+		}
+		return -1;
+	}
+
+	if (req->ino == (ino_t)-1) {
+		if (*client_fd_r != -1) {
+			i_error("login: Notification request sent "
+				"a file descriptor");
+			return -1;
+		}
+		return 1;
+	}
+
+	if (*client_fd_r == -1) {
+		i_error("login: Login request missing a file descriptor");
+		return -1;
+	}
+
+	if (fstat(*client_fd_r, &st) < 0) {
+		i_error("login: fstat(mail client) failed: %m");
+		return -1;
+	}
+
+	if (st.st_ino != req->ino) {
+		i_error("login: Login request inode mismatch: %s != %s",
+			dec2str(st.st_ino), dec2str(req->ino));
+		return -1;
+	}
+	return 1;
+}
+
 static void login_process_input(void *context)
 {
 	struct login_process *p = context;
@@ -299,39 +359,20 @@ static void login_process_input(void *context)
 		return;
 	}
 
-	ret = fd_read(p->fd, &req, sizeof(req), &client_fd);
-	if (ret >= (ssize_t)sizeof(req.version) &&
-	    req.version != MASTER_LOGIN_PROTOCOL_VERSION) {
-		i_error("login: Protocol version mismatch "
-			"(mixed old and new binaries?)");
-		login_process_destroy(p);
+	ret = login_read_request(p, &req, &client_fd);
+	if (ret == 0)
 		return;
-	}
-
-	if (ret != sizeof(req)) {
-		if (ret == 0) {
-			/* disconnected, ie. the login process died */
-		} else if (ret > 0) {
-			/* req wasn't fully read */
-			i_error("login: fd_read() couldn't read all req");
-		} else {
-			if (errno == EAGAIN)
-				return;
-
-			i_error("login: fd_read() failed: %m");
-		}
-
+	if (ret < 0) {
 		if (client_fd != -1) {
 			if (close(client_fd) < 0)
-				i_error("close(mail client) failed: %m");
+				i_error("login: close(mail client) failed: %m");
 		}
-
 		login_process_destroy(p);
 		return;
 	}
 
-	if (client_fd == -1) {
-		/* just a notification that the login process */
+	if (req.ino == (ino_t)-1) {
+		/* state notification */
 		enum master_login_state state = req.tag;
 
 		if (!p->initialized) {

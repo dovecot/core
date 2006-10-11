@@ -9,7 +9,7 @@
 
 /* Increase the version number every time master_login_request
    (or something else) is changed. */
-#define MASTER_LOGIN_PROTOCOL_VERSION 2
+#define MASTER_LOGIN_PROTOCOL_VERSION 3
 
 enum master_login_state {
 	/* process is accepting new connections */
@@ -30,6 +30,8 @@ struct master_login_request {
 
 	uint32_t auth_pid;
 	uint32_t auth_id;
+
+	ino_t ino;
 
 	struct ip_addr local_ip, remote_ip;
 };
