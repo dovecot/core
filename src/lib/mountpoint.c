@@ -44,6 +44,9 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 
 	memset(point_r, 0, sizeof(*point_r));
 	if (statfs(path, &buf) < 0) {
+		if (errno == ENOENT)
+			return 0;
+
 		i_error("statfs(%s) failed: %m", path);
 		return -1;
 	}
@@ -67,6 +70,9 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 
 	memset(point_r, 0, sizeof(*point_r));
 	if (stat(path, &st) < 0) {
+		if (errno == ENOENT)
+			return 0;
+
 		i_error("stat(%s) failed: %m", path);
 		return -1;
 	}
