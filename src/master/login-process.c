@@ -54,6 +54,7 @@ static bool logins_stalled = FALSE;
 static struct hash_table *processes;
 static struct login_group *login_groups;
 
+static void login_processes_stall(void);
 static void login_process_destroy(struct login_process *p);
 static void login_process_unref(struct login_process *p);
 static bool login_process_init_group(struct login_process *p);
@@ -174,6 +175,20 @@ static void process_mark_listening(struct login_process *p)
 		p->group->listening_processes++;
 
 	process_remove_from_prelogin_lists(p);
+}
+
+static void login_process_set_initialized(struct login_process *p)
+{
+	p->initialized = TRUE;
+
+	if (logins_stalled) {
+		/* processes were created successfully */
+		i_info("Created login processes successfully, unstalling");
+
+		logins_stalled = FALSE;
+		timeout_remove(&to);
+		to = timeout_add(1000, login_processes_start_missing, NULL);
+	}
 }
 
 static void
@@ -377,7 +392,7 @@ static void login_process_input(void *context)
 
 		if (!p->initialized) {
 			/* initialization notify */
-			p->initialized = TRUE;;
+			login_process_set_initialized(p);
 		} else {
 			/* change "listening for new connections" status */
 			login_process_set_state(p, state);
@@ -453,10 +468,8 @@ static void login_process_destroy(struct login_process *p)
 		return;
 	p->destroyed = TRUE;
 
-	if (!p->initialized && io_loop_is_running(ioloop)) {
-		i_error("Login process died too early - shutting down");
-		io_loop_stop(ioloop);
-	}
+	if (!p->initialized)
+		login_processes_stall();
 
 	o_stream_close(p->output);
 	io_remove(&p->io);
@@ -768,7 +781,6 @@ static void login_processes_stall(void)
 	to = timeout_add(60*1000, login_processes_start_missing, NULL);
 }
 
-
 static void
 login_processes_start_missing(void *context __attr_unused__)
 {
@@ -782,15 +794,6 @@ login_processes_start_missing(void *context __attr_unused__)
 			login_processes_stall();
 			return;
 		}
-	}
-
-	if (logins_stalled) {
-		/* processes were created successfully */
-		i_info("Created login processes successfully, unstalling");
-
-		logins_stalled = FALSE;
-		timeout_remove(&to);
-		to = timeout_add(1000, login_processes_start_missing, NULL);
 	}
 }
 
