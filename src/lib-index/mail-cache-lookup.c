@@ -185,6 +185,9 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 	uint32_t offset;
 	int ret;
 
+	if (!view->cache->opened)
+		(void)mail_cache_open_and_verify(view->cache);
+
         if (MAIL_CACHE_IS_UNUSABLE(view->cache))
 		return 0;
 
@@ -268,6 +271,9 @@ int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 
 	i_assert(seq > 0);
 	i_assert(field < view->cache->fields_count);
+
+	if (!view->cache->opened)
+		(void)mail_cache_open_and_verify(view->cache);
 
 	file_field = view->cache->field_file_map[field];
 	if (file_field == (uint32_t)-1)

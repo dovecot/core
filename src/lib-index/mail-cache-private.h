@@ -147,6 +147,7 @@ struct mail_cache {
 	unsigned int *file_field_map;
 	unsigned int file_fields_count;
 
+	unsigned int opened:1;
 	unsigned int locked:1;
 	unsigned int hdr_modified:1;
 	unsigned int field_header_write_pending:1;
@@ -175,6 +176,8 @@ typedef int mail_cache_foreach_callback_t(struct mail_cache_view *view,
 					  uint32_t field,
 					  const void *data, size_t data_size,
 					  void *context);
+
+int mail_cache_open_and_verify(struct mail_cache *cache);
 
 /* Explicitly lock the cache file. Returns -1 if error, 1 if ok, 0 if we
    couldn't lock */
