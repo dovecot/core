@@ -264,7 +264,8 @@ get_var_expand_table(const char *user, const char *home)
 	tab[2].value = strchr(user, '@');
 	if (tab[2].value != NULL) tab[2].value++;
 	tab[3].value = "DELIVER";
-	tab[4].value = home;
+	tab[4].value = home != NULL ? home :
+		"/HOME_DIRECTORY_USED_BUT_NOT_GIVEN_BY_USERDB";
 	tab[5].value = NULL;
 	tab[6].value = NULL;
 	tab[7].value = my_pid;
