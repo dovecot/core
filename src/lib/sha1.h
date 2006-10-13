@@ -38,6 +38,12 @@
 #ifndef __SHA1_H
 #define __SHA1_H
 
+/* libmysqlclient really should try to keep its internal stuff internal so
+   they won't conflict with the actual programs that are trying to use it.
+   This particular instance has been fixed in 4.1.18 and 5.0.19, but there
+   are others. */
+#define sha1_result(a, b) sha1_result_libmysqlclient_craps_all_over(a, b)
+
 struct sha1_ctxt {
 	union {
 		uint8_t	b8[20];
