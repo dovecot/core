@@ -92,6 +92,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 
 	first = ioloop_iolist_add(*list, io);
 
+	memset(&event, 0, sizeof(event));
 	event.data.ptr = *list;
 	event.events = epoll_event_mask(*list);
 
@@ -123,6 +124,7 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	list = array_idx_modifiable(&ctx->fd_index, io->fd);
 	last = ioloop_iolist_del(*list, io);
 
+	memset(&event, 0, sizeof(event));
 	event.data.ptr = *list;
 	event.events = epoll_event_mask(*list);
 
