@@ -554,7 +554,7 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 
 	if (set->login_process_per_connection) {
 		env_put("PROCESS_PER_CONNECTION=1");
-		env_put("MAX_LOGGING_USERS=1");
+		env_put("MAX_CONNECTIONS=1");
 	} else {
 		env_put(t_strdup_printf("MAX_CONNECTIONS=%u",
 					set->login_max_connections));
