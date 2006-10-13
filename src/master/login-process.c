@@ -393,6 +393,7 @@ static void login_process_input(void *context)
 		if (!p->initialized) {
 			/* initialization notify */
 			login_process_set_initialized(p);
+			login_process_set_initialized(p);
 		} else {
 			/* change "listening for new connections" status */
 			login_process_set_state(p, state);
@@ -777,7 +778,7 @@ static int login_group_start_missings(struct login_group *group)
 
 static void login_processes_stall(void)
 {
-	if (logins_stalled)
+	if (logins_stalled || IS_INETD())
 		return;
 
 	i_error("Temporary failure in creating login processes, "
@@ -892,11 +893,11 @@ void login_processes_init(void)
 
 void login_processes_deinit(void)
 {
+        login_processes_destroy_all(TRUE);
+	hash_destroy(processes);
+
 	if (to != NULL)
 		timeout_remove(&to);
 	if (io_listen != NULL)
 		io_remove(&io_listen);
-
-        login_processes_destroy_all(TRUE);
-	hash_destroy(processes);
 }
