@@ -118,9 +118,8 @@ void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 
 	/* pos points to end of header now, and start_pos to beginning
 	   of whitespace. */
+	mbox_sync_move_buffer(ctx, pos, size, 0);
 
-	buffer_copy(ctx->header, pos + size,
-		    ctx->header, pos, (size_t)-1);
 	p = buffer_get_space_unsafe(ctx->header, pos, size);
 	memset(p, ' ', size);
 
