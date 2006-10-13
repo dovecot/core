@@ -20,9 +20,9 @@ struct mail_cache_field global_cache_fields[MAIL_CACHE_FIELD_COUNT] = {
 	{ "date.sent", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
 	  sizeof(struct mail_sent_date), 0 },
 	{ "date.received", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
-	  sizeof(time_t), 0 },
+	  sizeof(uint32_t), 0 },
 	{ "date.save", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
-	  sizeof(time_t), 0 },
+	  sizeof(uint32_t), 0 },
 	{ "size.virtual", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
 	  sizeof(uoff_t), 0 },
 	{ "size.physical", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
@@ -206,10 +206,13 @@ time_t index_mail_get_received_date(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 
 	if (data->received_date == (time_t)-1) {
+		uint32_t t;
+
 		if (!index_mail_get_fixed_field(mail, MAIL_CACHE_RECEIVED_DATE,
-						&data->received_date,
-						sizeof(data->received_date)))
+						&t, sizeof(t)))
 			return (time_t)-1;
+
+		data->received_date = t;
 	}
 
 	return data->received_date;
@@ -221,10 +224,13 @@ time_t index_mail_get_save_date(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 
 	if (data->save_date == (time_t)-1) {
+		uint32_t t;
+
 		if (!index_mail_get_fixed_field(mail, MAIL_CACHE_SAVE_DATE,
-						&data->save_date,
-						sizeof(data->save_date)))
+						&t, sizeof(t)))
 			return (time_t)-1;
+
+		data->save_date = t;
 	}
 
 	return data->save_date;
@@ -235,9 +241,8 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
 	const char *str;
-	int tz;
 
-	if (data->sent_date.time != (time_t)-1) {
+	if (data->sent_date.time != (uint32_t)-1) {
 		if (timezone != NULL)
 			*timezone = data->sent_date.timezone;
 		return data->sent_date.time;
@@ -247,16 +252,19 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 					 &data->sent_date,
 					 sizeof(data->sent_date));
 
-	if (data->sent_date.time == (time_t)-1) {
+	if (data->sent_date.time == (uint32_t)-1) {
+		time_t t;
+		int tz;
+
 		str = mail_get_first_header(_mail, "Date");
 		if (str == NULL ||
 		    !message_date_parse((const unsigned char *)str,
-					strlen(str),
-					&data->sent_date.time, &tz)) {
+					strlen(str), &t, &tz)) {
 			/* 0 = not found / invalid */
-			data->sent_date.time = 0;
+			t = 0;
 			tz = 0;
 		}
+		data->sent_date.time = t;
 		data->sent_date.timezone = tz;
 		index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
 				     &data->sent_date, sizeof(data->sent_date));
@@ -870,7 +878,7 @@ static void index_mail_reset(struct index_mail *mail)
 	data->physical_size = (uoff_t)-1;
 	data->save_date = (time_t)-1;
 	data->received_date = (time_t)-1;
-	data->sent_date.time = (time_t)-1;
+	data->sent_date.time = (uint32_t)-1;
 }
 
 static void check_envelope(struct index_mail *mail)

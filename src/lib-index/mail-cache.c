@@ -128,18 +128,9 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 		/* version changed - upgrade silently */
 		return FALSE;
 	}
-	if (hdr->compat_sizeof_uoff_t != sizeof(uoff_t) ||
-	    hdr->compat_sizeof_time_t != sizeof(time_t)) {
-		if (hdr->compat_sizeof_uoff_t == 0 &&
-		    hdr->compat_sizeof_time_t == 0) {
-			/* FIXME: keep backwards compatibility for a while.
-			   set hdr_modified=TRUE so header gets fixed the next
-			   time cache is locked. */
-			cache->hdr_modified = TRUE;
-		} else {
-			/* architecture change - handle silently(?) */
-			return FALSE;
-		}
+	if (hdr->compat_sizeof_uoff_t != sizeof(uoff_t)) {
+		/* architecture change - handle silently(?) */
+		return FALSE;
 	}
 
 	if (cache->hdr->indexid != cache->index->indexid) {
@@ -502,10 +493,6 @@ int mail_cache_unlock(struct mail_cache *cache)
 	}
 
 	if (cache->hdr_modified) {
-		/* FIXME: for backwards compatibility - keep them for a while */
-		cache->hdr_copy.compat_sizeof_uoff_t = sizeof(uoff_t);
-		cache->hdr_copy.compat_sizeof_time_t = sizeof(time_t);
-
 		cache->hdr_modified = FALSE;
 		if (mail_cache_write(cache, &cache->hdr_copy,
 				     sizeof(cache->hdr_copy), 0) < 0)

@@ -53,7 +53,7 @@ enum index_mail_access_part {
 };
 
 struct mail_sent_date {
-	time_t time;
+	uint32_t time;
 	int32_t timezone;
 };
 

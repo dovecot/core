@@ -268,7 +268,7 @@ void index_mail_parse_header(struct message_part *part,
 
 	if (hdr == NULL) {
 		/* end of headers */
-		if (data->sent_date.time != (time_t)-1) {
+		if (data->sent_date.time != (uint32_t)-1) {
 			index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
 					     &data->sent_date,
 					     sizeof(data->sent_date));
