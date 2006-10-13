@@ -105,6 +105,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	if (istream_raw_mbox_is_eof(sync_ctx->input))
 		return 0;
 
+	p_clear(sync_ctx->mail_keyword_pool);
 	memset(mail_ctx, 0, sizeof(*mail_ctx));
 	mail_ctx->sync_ctx = sync_ctx;
 	mail_ctx->seq = ++sync_ctx->seq;
@@ -1637,7 +1638,8 @@ __again:
 	sync_ctx.index_sync_ctx = index_sync_ctx;
 	sync_ctx.sync_view = sync_view;
 	sync_ctx.t = mail_index_transaction_begin(sync_view, FALSE, TRUE);
-	sync_ctx.mail_keyword_pool = pool_alloconly_create("keywords", 4096);
+	sync_ctx.mail_keyword_pool =
+		pool_alloconly_create("mbox keywords", 256);
 
 	/* make sure we've read the latest keywords in index */
 	(void)mail_index_get_keywords(mbox->ibox.index);
