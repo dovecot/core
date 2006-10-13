@@ -11,6 +11,40 @@
 
 #define CACHE_HDR_PREFETCH 1024
 
+static bool field_has_fixed_size(enum mail_cache_field_type type)
+{
+	switch (type) {
+	case MAIL_CACHE_FIELD_FIXED_SIZE:
+	case MAIL_CACHE_FIELD_BITMASK:
+		return TRUE;
+	case MAIL_CACHE_FIELD_VARIABLE_SIZE:
+	case MAIL_CACHE_FIELD_STRING:
+	case MAIL_CACHE_FIELD_HEADER:
+		return FALSE;
+	}
+
+	i_unreached();
+	return FALSE;
+}
+
+static int field_type_verify(struct mail_cache *cache, unsigned int idx,
+			     enum mail_cache_field_type type, unsigned int size)
+{
+	const struct mail_cache_field *field = &cache->fields[idx].field;
+
+	if (field->type != type) {
+		mail_cache_set_corrupted(cache,
+			"registered field %s type changed", field->name);
+		return -1;
+	}
+	if (field->field_size != size && field_has_fixed_size(type)) {
+		mail_cache_set_corrupted(cache,
+			"registered field %s size changed", field->name);
+		return -1;
+	}
+	return 0;
+}
+
 void mail_cache_register_fields(struct mail_cache *cache,
 				struct mail_cache_field *fields,
 				unsigned int fields_count)
@@ -26,6 +60,9 @@ void mail_cache_register_fields(struct mail_cache *cache,
 				     &orig_key, &orig_value)) {
 			fields[i].idx =
 				POINTER_CAST_TO(orig_value, unsigned int);
+			(void)field_type_verify(cache, fields[i].idx,
+						fields[i].type,
+						fields[i].field_size);
 			continue;
 		}
 
@@ -66,16 +103,8 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		cache->fields[idx].field.name = name;
 		cache->field_file_map[idx] = (uint32_t)-1;
 
-		switch (cache->fields[idx].field.type) {
-		case MAIL_CACHE_FIELD_FIXED_SIZE:
-		case MAIL_CACHE_FIELD_BITMASK:
-			break;
-		case MAIL_CACHE_FIELD_VARIABLE_SIZE:
-		case MAIL_CACHE_FIELD_STRING:
-		case MAIL_CACHE_FIELD_HEADER:
+		if (!field_has_fixed_size(cache->fields[idx].field.type))
 			cache->fields[idx].field.field_size = (unsigned int)-1;
-			break;
-		}
 
 		hash_insert(cache->field_name_hash, name, POINTER_CAST(idx));
 	}
@@ -242,19 +271,9 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 				cache->fields[field.idx].field.decision =
 					decisions[i];
 			}
-			if (cache->fields[field.idx].field.type != types[i]) {
-				mail_cache_set_corrupted(cache,
-					"registered field %s type changed",
-					names);
+			if (field_type_verify(cache, field.idx,
+					      types[i], sizes[i]) < 0)
 				return -1;
-			}
-			if (cache->fields[field.idx].field.field_size !=
-			    sizes[i]) {
-				mail_cache_set_corrupted(cache,
-					"registered field %s size changed",
-					names);
-				return -1;
-			}
 		} else {
 			field.name = names;
 			field.type = types[i];
