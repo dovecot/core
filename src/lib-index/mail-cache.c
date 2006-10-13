@@ -138,7 +138,7 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 			cache->hdr_modified = TRUE;
 		} else {
 			/* architecture change - handle silently(?) */
-			return -1;
+			return FALSE;
 		}
 	}
 
