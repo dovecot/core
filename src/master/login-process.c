@@ -400,6 +400,12 @@ static void login_process_input(void *context)
 		return;
 	}
 
+	if (!p->initialized) {
+		i_error("login: trying to log in before initialization");
+		login_process_destroy(p);
+		return;
+	}
+
 	fd_close_on_exec(client_fd, TRUE);
 
 	/* ask the cookie from the auth process */
@@ -732,7 +738,8 @@ static int login_group_start_missings(struct login_group *group)
 		/* destroy the oldest listening process. non-listening
 		   processes are logged in users who we don't want to kick out
 		   because someone's started flooding */
-		if (group->oldest_prelogin_process != NULL)
+		if (group->oldest_prelogin_process != NULL &&
+		    group->oldest_prelogin_process->initialized)
 			login_process_destroy(group->oldest_prelogin_process);
 	}
 
