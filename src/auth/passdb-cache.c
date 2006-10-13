@@ -37,6 +37,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 			       enum passdb_result *result_r, int use_expired)
 {
 	const char *value, *cached_pw, *scheme, *const *list;
+	struct auth_cache_node *node;
 	int ret;
 	bool expired;
 
@@ -44,7 +45,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		return FALSE;
 
 	/* value = password \t ... */
-	value = auth_cache_lookup(passdb_cache, request, key, &expired);
+	value = auth_cache_lookup(passdb_cache, request, key, &node, &expired);
 	if (value == NULL || (expired && !use_expired))
 		return FALSE;
 
@@ -72,6 +73,14 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	ret = auth_request_password_verify(request, password, cached_pw,
 					   scheme, "cache");
 
+	if (ret == 0 && node->last_success) {
+		/* the last authentication was successful. assume that the
+		   password was changed and cache is expired. */
+		node->last_success = FALSE;
+		return FALSE;
+	}
+	node->last_success = ret > 0;
+
 	*result_r = ret > 0 ? PASSDB_RESULT_OK :
 		PASSDB_RESULT_PASSWORD_MISMATCH;
 	return TRUE;
@@ -84,12 +93,13 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 				     bool use_expired)
 {
 	const char *value, *const *list;
+	struct auth_cache_node *node;
 	bool expired;
 
 	if (passdb_cache == NULL)
 		return FALSE;
 
-	value = auth_cache_lookup(passdb_cache, request, key, &expired);
+	value = auth_cache_lookup(passdb_cache, request, key, &node, &expired);
 	if (value == NULL || (expired && !use_expired))
 		return FALSE;
 

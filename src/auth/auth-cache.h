@@ -1,6 +1,18 @@
 #ifndef __AUTH_CACHE_H
 #define __AUTH_CACHE_H
 
+struct auth_cache_node {
+	struct auth_cache_node *prev, *next;
+
+	time_t created;
+	/* Total number of bytes used by this node */
+	uint32_t alloc_size:31;
+	/* TRUE if the user gave the correct password the last time. */
+	uint32_t last_success:1;
+
+	char data[4]; /* key \0 value \0 */
+};
+
 struct auth_cache;
 struct auth_request;
 
@@ -18,13 +30,15 @@ void auth_cache_free(struct auth_cache **cache);
 void auth_cache_clear(struct auth_cache *cache);
 
 /* Look key from cache. key should be the same string as returned by
-   auth_cache_parse_key(). */
-const char *auth_cache_lookup(struct auth_cache *cache,
-			      const struct auth_request *request,
-			      const char *key, bool *expired_r);
+   auth_cache_parse_key(). Returned node can't be used after any other
+   auth_cache_*() calls. */
+const char *
+auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
+		  const char *key, struct auth_cache_node **node_r,
+		  bool *expired_r);
 /* Insert key => value into cache. */
 void auth_cache_insert(struct auth_cache *cache,
 		       const struct auth_request *request,
-		       const char *key, const char *value);
+		       const char *key, const char *value, bool last_success);
 
 #endif

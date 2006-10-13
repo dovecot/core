@@ -11,16 +11,9 @@
 
 #include <time.h>
 
-struct cache_node {
-	struct cache_node *prev, *next;
-	time_t created;
-	uint32_t alloc_size;
-	char data[4]; /* key \0 value \0 */
-};
-
 struct auth_cache {
 	struct hash_table *hash;
-	struct cache_node *head, *tail;
+	struct auth_cache_node *head, *tail;
 
 	size_t size_left;
 	unsigned int ttl_secs;
@@ -56,7 +49,7 @@ char *auth_cache_parse_key(pool_t pool, const char *query)
 }
 
 static void
-auth_cache_node_unlink(struct auth_cache *cache, struct cache_node *node)
+auth_cache_node_unlink(struct auth_cache *cache, struct auth_cache_node *node)
 {
 	if (node->prev != NULL)
 		node->prev->next = node->next;
@@ -74,7 +67,8 @@ auth_cache_node_unlink(struct auth_cache *cache, struct cache_node *node)
 }
 
 static void
-auth_cache_node_link_head(struct auth_cache *cache, struct cache_node *node)
+auth_cache_node_link_head(struct auth_cache *cache,
+			  struct auth_cache_node *node)
 {
 	node->prev = cache->head;
 	node->next = NULL;
@@ -87,7 +81,7 @@ auth_cache_node_link_head(struct auth_cache *cache, struct cache_node *node)
 }
 
 static void
-auth_cache_node_destroy(struct auth_cache *cache, struct cache_node *node)
+auth_cache_node_destroy(struct auth_cache *cache, struct auth_cache_node *node)
 {
 	auth_cache_node_unlink(cache, node);
 
@@ -153,12 +147,13 @@ void auth_cache_clear(struct auth_cache *cache)
 	hash_clear(cache->hash, FALSE);
 }
 
-const char *auth_cache_lookup(struct auth_cache *cache,
-			      const struct auth_request *request,
-			      const char *key, bool *expired_r)
+const char *
+auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
+		  const char *key, struct auth_cache_node **node_r,
+		  bool *expired_r)
 {
 	string_t *str;
-	struct cache_node *node;
+	struct auth_cache_node *node;
 
 	*expired_r = FALSE;
 
@@ -185,15 +180,18 @@ const char *auth_cache_lookup(struct auth_cache *cache,
 		}
 	}
 
+	if (node_r != NULL)
+		*node_r = node;
+
 	return node->data + strlen(node->data) + 1;
 }
 
 void auth_cache_insert(struct auth_cache *cache,
 		       const struct auth_request *request,
-		       const char *key, const char *value)
+		       const char *key, const char *value, bool last_success)
 {
 	string_t *str;
-        struct cache_node *node;
+        struct auth_cache_node *node;
 	size_t data_size, alloc_size, value_len = strlen(value);
 
 	str = t_str_new(256);
@@ -202,7 +200,8 @@ void auth_cache_insert(struct auth_cache *cache,
 						     auth_request_str_escape));
 
 	data_size = str_len(str) + 1 + value_len + 1;
-	alloc_size = sizeof(struct cache_node) - sizeof(node->data) + data_size;
+	alloc_size = sizeof(struct auth_cache_node) -
+		sizeof(node->data) + data_size;
 
 	/* make sure we have enough space */
 	while (cache->size_left < alloc_size)
@@ -218,6 +217,7 @@ void auth_cache_insert(struct auth_cache *cache,
 	node = i_malloc(alloc_size);
 	node->created = time(NULL);
 	node->alloc_size = alloc_size;
+	node->last_success = last_success;
 	memcpy(node->data, str_data(str), str_len(str));
 	memcpy(node->data + str_len(str) + 1, value, value_len);
 

@@ -216,7 +216,7 @@ static void auth_request_save_cache(struct auth_request *request,
 		/* lookup failed. */
 		if (result == PASSDB_RESULT_USER_UNKNOWN) {
 			auth_cache_insert(passdb_cache, request,
-					  passdb->cache_key, "");
+					  passdb->cache_key, "", FALSE);
 		}
 		return;
 	}
@@ -258,7 +258,8 @@ static void auth_request_save_cache(struct auth_request *request,
 		str_append_c(str, '\t');
 		str_append(str, "nodelay");
 	}
-	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str));
+	auth_cache_insert(passdb_cache, request, passdb->cache_key, str_c(str),
+			  result == PASSDB_RESULT_OK);
 }
 
 static bool auth_request_master_lookup_finish(struct auth_request *request)
