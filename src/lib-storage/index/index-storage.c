@@ -327,8 +327,6 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 		     ibox->box.pool, sizeof(void *), 5);
 
 	index_flags = move_to_memory ? 0 : MAIL_INDEX_OPEN_FLAG_CREATE;
-	if ((flags & MAILBOX_OPEN_FAST) != 0)
-		index_flags |= MAIL_INDEX_OPEN_FLAG_FAST;
 	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 #ifndef MMAP_CONFLICTS_WRITE

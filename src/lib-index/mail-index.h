@@ -11,9 +11,6 @@
 enum mail_index_open_flags {
 	/* Create index if it doesn't exist */
 	MAIL_INDEX_OPEN_FLAG_CREATE		= 0x01,
-	/* Open the index as fast as possible - do only minimal checks and
-	   delay opening cache/log files unless they're needed. */
-	MAIL_INDEX_OPEN_FLAG_FAST		= 0x02,
 	/* Don't try to mmap() index files */
 	MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE	= 0x04,
 	/* Don't try to write() to mmap()ed index files. Required for the few
