@@ -398,6 +398,7 @@ void client_destroy(struct pop3_client *client, const char *reason)
 	client_unref(client);
 
 	main_listen_start();
+	main_unref();
 }
 
 void client_destroy_internal_failure(struct pop3_client *client)
@@ -431,7 +432,6 @@ bool client_unref(struct pop3_client *client)
 	i_free(client->common.auth_mech_name);
 	i_free(client);
 
-	main_unref();
 	return FALSE;
 }
 
