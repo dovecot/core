@@ -27,7 +27,7 @@ struct mail_index_sync_map_ctx;
 	((index)->dir == NULL)
 
 #define MAIL_INDEX_MAP_IS_IN_MEMORY(map) \
-	((map) != NULL && (map)->buffer != NULL)
+	((map)->buffer != NULL)
 
 #define MAIL_INDEX_MAP_IDX(map, idx) \
 	((struct mail_index_record *) \
