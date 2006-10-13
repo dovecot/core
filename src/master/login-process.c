@@ -439,7 +439,7 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 
 	p = i_new(struct login_process, 1);
 	p->group = group;
-	p->refcount = 1;
+	p->refcount = 2; /* once for fd close, another for process exit */
 	p->pid = pid;
 	p->fd = fd;
 	p->io = io_add(fd, IO_READ, login_process_input, p);
@@ -487,10 +487,12 @@ static void login_process_destroy(struct login_process *p)
 
 	if (p->inetd_child)
 		login_process_exited(p);
+	login_process_unref(p);
 }
 
 static void login_process_unref(struct login_process *p)
 {
+	i_assert(p->refcount > 0);
 	if (--p->refcount > 0)
 		return;
 
@@ -689,20 +691,17 @@ void login_process_destroyed(pid_t pid, bool abnormal_exit)
 			p->group->wanted_processes_count = 0;
 	}
 
-	login_process_destroy(p);
 	login_process_exited(p);
 }
 
-void login_processes_destroy_all(bool unref)
+void login_processes_destroy_all(void)
 {
 	struct hash_iterate_context *iter;
 	void *key, *value;
 
 	iter = hash_iterate_init(processes);
-	while (hash_iterate(iter, &key, &value)) {
+	while (hash_iterate(iter, &key, &value))
 		login_process_destroy(value);
-		if (unref) login_process_unref(value);
-	}
 	hash_iterate_deinit(iter);
 
 	while (login_groups != NULL) {
@@ -893,7 +892,7 @@ void login_processes_init(void)
 
 void login_processes_deinit(void)
 {
-        login_processes_destroy_all(TRUE);
+        login_processes_destroy_all();
 	hash_destroy(processes);
 
 	if (to != NULL)

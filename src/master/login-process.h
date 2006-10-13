@@ -20,7 +20,7 @@ struct login_group {
 
 void login_process_destroyed(pid_t pid, bool abnormal_exit);
 
-void login_processes_destroy_all(bool unref);
+void login_processes_destroy_all(void);
 
 void login_processes_init(void);
 void login_processes_deinit(void);

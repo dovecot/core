@@ -135,7 +135,7 @@ static void settings_reload(void)
 	i_warning("SIGHUP received - reloading configuration");
 
 	/* restart auth and login processes */
-        login_processes_destroy_all(FALSE);
+        login_processes_destroy_all();
         auth_processes_destroy_all();
         dict_process_kill();
 
