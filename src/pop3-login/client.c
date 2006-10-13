@@ -313,6 +313,8 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 {
 	struct pop3_client *client;
 
+	i_assert(fd != -1);
+
 	connection_queue_add(1);
 
 	/* always use nonblocking I/O */

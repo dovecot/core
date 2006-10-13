@@ -454,6 +454,8 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 	SSL *ssl;
 	int sfd[2];
 
+	i_assert(fd != -1);
+
 	*proxy_r = NULL;
 
 	if (!ssl_initialized) {
@@ -475,7 +477,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 		return -1;
 	}
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) == -1) {
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) < 0) {
 		i_error("socketpair() failed: %m");
 		SSL_free(ssl);
 		return -1;
