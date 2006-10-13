@@ -189,6 +189,7 @@ void login_proxy_free(struct login_proxy *proxy)
 
 	if (proxy->destroying)
 		return;
+	proxy->destroying = TRUE;
 
 	if (proxy->client_fd != -1) {
 		/* detached proxy */
@@ -205,7 +206,9 @@ void login_proxy_free(struct login_proxy *proxy)
 			o_stream_destroy(&proxy->client_output);
 		net_disconnect(proxy->client_fd);
 	} else {
-		proxy->destroying = TRUE;
+		i_assert(proxy->client_io == NULL);
+		i_assert(proxy->client_output == NULL);
+
 		proxy->callback(NULL, NULL, proxy->context);
 	}
 
@@ -235,6 +238,9 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 	const unsigned char *data;
 	size_t size;
 
+	i_assert(proxy->client_fd == -1);
+	i_assert(proxy->server_output != NULL);
+
 	proxy->client_fd = i_stream_get_fd(client_input);
 	proxy->client_output = client_output;
 
@@ -254,7 +260,10 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 	proxy->client_io =
 		io_add(proxy->client_fd, IO_READ, proxy_client_input, proxy);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
-	i_stream_unref(&proxy->server_input);
+	i_stream_destroy(&proxy->server_input);
+
+	proxy->callback = NULL;
+	proxy->context = NULL;
 
 	if (login_proxies == NULL) {
 		login_proxies = hash_create(default_pool, default_pool,

@@ -73,6 +73,7 @@ static int proxy_input_line(struct imap_client *client,
 
 		i_free(client->proxy_user);
 		client->proxy_user = NULL;
+		client_unref(client);
 		return -1;
 	} else {
 		/* probably some untagged reply */
@@ -132,6 +133,7 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 	i_assert(client->refcount > 1);
 	connection_queue_add(1);
 
+	client_ref(client);
 	client->proxy = login_proxy_new(&client->common, host, port,
 					proxy_input, client);
 	if (client->proxy == NULL)

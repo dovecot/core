@@ -497,6 +497,9 @@ void client_destroy(struct imap_client *client, const char *reason)
 	if (client->proxy != NULL) {
 		login_proxy_free(client->proxy);
 		client->proxy = NULL;
+
+		i_assert(client->refcount > 1);
+		client_unref(client);
 	}
 
 	if (client->common.proxy != NULL) {
