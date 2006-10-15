@@ -48,10 +48,11 @@ void message_content_parse_header(const unsigned char *data, size_t size,
 			break;
 
 		/* <token> "=" <token> | <quoted-string> */
-		if (str_len(str) == 0 || *parser.data != '=' ||
-		    rfc822_skip_lwsp(&parser) <= 0)
+		if (str_len(str) == 0 || *parser.data != '=')
 			break;
 		parser.data++;
+		if (rfc822_skip_lwsp(&parser) <= 0)
+			break;
 
 		quoted_string = parser.data != parser.end &&
 			*parser.data == '"';
