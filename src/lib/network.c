@@ -574,15 +574,16 @@ int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 				 struct ip_addr *dest)
 {
 #ifdef HAVE_IPV6
+	static uint8_t v4_prefix[] =
+		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
+
 	if (!IPADDR_IS_V6(src))
 		return -1;
-	if (src->ip.in6_u.u6_addr32[0] != 0 ||
-	    src->ip.in6_u.u6_addr32[1] != 0 ||
-	    src->ip.in6_u.u6_addr32[2] != 0xffff0000)
+	if (memcmp(src->ip.s6_addr, v4_prefix, sizeof(v4_prefix)) != 0)
 		return -1;
 
 	dest->family = AF_INET;
-	memcpy(&dest->ip, &src->ip.in6_u.u6_addr32[3], 4);
+	memcpy(&dest->ip, &src->ip.s6_addr[3*4], 4);
 	return 0;
 #else
 	return -1;
