@@ -78,7 +78,6 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
 	struct index_mail_data *data = &((struct index_mail *)mail)->data;
 	const char *path;
-	uint32_t t;
 	int fd;
 
 	if (data->access_part != 0 && data->stream == NULL) {
@@ -111,6 +110,7 @@ static time_t maildir_mail_get_received_date(struct mail *_mail)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
+	uint32_t t;
 
 	(void)index_mail_get_received_date(_mail);
 	if (data->received_date != (time_t)-1)
