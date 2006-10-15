@@ -288,17 +288,27 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 		if (auth_request_import(request, name, arg))
 			;
-		else if (strcmp(name, "resp") == 0)
-			initial_resp = arg;
 		else if (strcmp(name, "valid-client-cert") == 0)
 			valid_client_cert = TRUE;
+		else if (strcmp(name, "resp") == 0) {
+			initial_resp = arg;
+			/* this must be the last parameter */
+			list++;
+			break;
+		}
+	}
+
+	if (*list != NULL) {
+		i_error("BUG: Authentication client %u "
+			"sent AUTH parameters after 'resp'",
+			handler->client_pid);
+		return FALSE;
 	}
 
 	if (request->service == NULL) {
 		i_error("BUG: Authentication client %u "
 			"didn't specify service in request",
 			handler->client_pid);
-		auth_request_unref(&request);
 		return FALSE;
 	}
 
