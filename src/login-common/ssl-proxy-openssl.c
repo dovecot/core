@@ -22,7 +22,7 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
-#define DOVECOT_SSL_DEFAULT_CIPHER_LIST "ALL:!LOW"
+#define DOVECOT_SSL_DEFAULT_CIPHER_LIST "ALL:!LOW:!SSLv2"
 /* Check every 30 minutes if parameters file has been updated */
 #define SSL_PARAMFILE_CHECK_INTERVAL (60*30)
 
