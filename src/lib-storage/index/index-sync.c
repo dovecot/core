@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "lib.h"
+#include "seq-range-array.h"
 #include "array.h"
 #include "buffer.h"
 #include "index-storage.h"
@@ -11,9 +12,11 @@ struct index_mailbox_sync_context {
 	struct mail_index_view_sync_ctx *sync_ctx;
 	uint32_t messages_count;
 
-	const uint32_t *expunges;
-	unsigned int expunges_count;
-	int failed;
+	const ARRAY_TYPE(seq_range) *expunges;
+	unsigned int expunge_pos;
+	uint32_t last_seq1, last_seq2;
+
+	bool failed;
 };
 
 void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq)
@@ -163,11 +166,60 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	}
 
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) == 0) {
-		ctx->expunges =
-			mail_index_view_sync_get_expunges(ctx->sync_ctx,
-							  &ctx->expunges_count);
+		mail_index_view_sync_get_expunges(ctx->sync_ctx,
+						  &ctx->expunges);
+		ctx->expunge_pos = array_count(ctx->expunges);
 	}
 	return &ctx->ctx;
+}
+
+static bool sync_rec_check_skips(struct index_mailbox_sync_context *ctx,
+				 struct mailbox_sync_rec *sync_rec)
+{
+	uint32_t seq, new_seq1, new_seq2;
+
+	if (sync_rec->seq1 >= ctx->last_seq1 &&
+	    sync_rec->seq1 <= ctx->last_seq2)
+		new_seq1 = ctx->last_seq2 + 1;
+	else
+		new_seq1 = sync_rec->seq1;
+	if (sync_rec->seq2 >= ctx->last_seq1 &&
+	    sync_rec->seq2 <= ctx->last_seq2)
+		new_seq2 = ctx->last_seq1 - 1;
+	else
+		new_seq2 = sync_rec->seq2;
+
+	if (new_seq1 > new_seq2)
+		return FALSE;
+
+	ctx->last_seq1 = sync_rec->seq1;
+	ctx->last_seq2 = sync_rec->seq2;
+
+	sync_rec->seq1 = new_seq1;
+	sync_rec->seq2 = new_seq2;
+
+	/* FIXME: we're only skipping messages from the beginning and from
+	   the end. we should skip also the middle ones. This takes care of
+	   the most common repeats though. */
+	if (ctx->expunges != NULL) {
+		/* skip expunged messages from the beginning and the end */
+		for (seq = sync_rec->seq1; seq <= sync_rec->seq2; seq++) {
+			if (!seq_range_exists(ctx->expunges, seq))
+				break;
+		}
+		if (seq > sync_rec->seq2) {
+			/* everything skipped */
+			return FALSE;
+		}
+		sync_rec->seq1 = seq;
+
+		for (seq = sync_rec->seq2; seq >= sync_rec->seq1; seq--) {
+			if (!seq_range_exists(ctx->expunges, seq))
+				break;
+		}
+		sync_rec->seq2 = seq;
+	}
+	return TRUE;
 }
 
 int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
@@ -205,6 +257,9 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 			if (sync_rec_r->seq1 == 0)
 				break;
 
+			if (!sync_rec_check_skips(ctx, sync_rec_r))
+				break;
+
 			sync_rec_r->type =
 				sync.type == MAIL_INDEX_SYNC_TYPE_FLAGS ?
 				MAILBOX_SYNC_TYPE_FLAGS :
@@ -213,19 +268,22 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 		}
 	}
 
-	if (ret == 0 && ctx->expunges_count > 0) {
-		/* expunges[] is a sorted array of sequences. it's easiest for
+	if (ret == 0 && ctx->expunge_pos > 0) {
+		/* expunges is a sorted array of sequences. it's easiest for
 		   us to print them from end to beginning. */
-		sync_rec_r->seq1 = ctx->expunges[ctx->expunges_count*2-2];
-		sync_rec_r->seq2 = ctx->expunges[ctx->expunges_count*2-1];
+		const struct seq_range *range;
+
+		ctx->expunge_pos--;
+		range = array_idx(ctx->expunges, ctx->expunge_pos);
+
+		sync_rec_r->seq1 = range->seq1;
+		sync_rec_r->seq2 = range->seq2;
 		index_mailbox_expunge_recent(ctx->ibox, sync_rec_r->seq1,
 					     sync_rec_r->seq2);
 
 		if (sync_rec_r->seq2 > ctx->messages_count)
 			sync_rec_r->seq2 = ctx->messages_count;
-
 		ctx->messages_count -= sync_rec_r->seq2 - sync_rec_r->seq1 + 1;
-		ctx->expunges_count--;
 
 		sync_rec_r->type = MAILBOX_SYNC_TYPE_EXPUNGE;
 		return 1;

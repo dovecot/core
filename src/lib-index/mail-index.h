@@ -2,6 +2,7 @@
 #define __MAIL_INDEX_H
 
 #include "mail-types.h"
+#include "seq-range-array.h"
 
 #define MAIL_INDEX_MAJOR_VERSION 7
 #define MAIL_INDEX_MINOR_VERSION 0
@@ -266,9 +267,9 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 			      struct mail_index_view_sync_rec *sync_rec);
-const uint32_t *
+void
 mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
-				 unsigned int *count_r);
+				  const ARRAY_TYPE(seq_range) **expunges_r);
 void mail_index_view_sync_end(struct mail_index_view_sync_ctx **ctx);
 
 /* Returns the index header. */

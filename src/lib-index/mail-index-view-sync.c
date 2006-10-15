@@ -12,7 +12,7 @@ struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
 	enum mail_transaction_type visible_sync_mask;
 	struct mail_index_sync_map_ctx sync_map_ctx;
-	ARRAY_TYPE(uid_range) expunges;
+	ARRAY_TYPE(seq_range) expunges;
 
 	const struct mail_transaction_header *hdr;
 	const void *data;
@@ -24,11 +24,12 @@ struct mail_index_view_sync_ctx {
 };
 
 static void
-mail_transaction_log_sort_expunges(ARRAY_TYPE(uid_range) *expunges,
-				   const struct uid_range *src, size_t src_size)
+mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
+				   const struct seq_range *src, size_t src_size)
 {
-	const struct uid_range *src_end;
-	struct uid_range *dest, new_exp;
+	/* Note that all the sequences are actually still UIDs at this point */
+	const struct seq_range *src_end;
+	struct seq_range *dest, new_exp;
 	unsigned int first, i, dest_count;
 
 	i_assert(src_size % sizeof(*src) == 0);
@@ -43,28 +44,28 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(uid_range) *expunges,
 	src_end = CONST_PTR_OFFSET(src, src_size);
 	for (i = 0; src != src_end; src++) {
 		/* src[] must be sorted. */
-		i_assert(src+1 == src_end || src->uid2 < src[1].uid1);
-		i_assert(src->uid1 <= src->uid2);
+		i_assert(src+1 == src_end || src->seq2 < src[1].seq1);
+		i_assert(src->seq1 <= src->seq2);
 
 		for (; i < dest_count; i++) {
-			if (src->uid1 < dest[i].uid1)
+			if (src->seq1 < dest[i].seq1)
 				break;
 		}
 
 		new_exp = *src;
 
 		first = i;
-		while (i < dest_count && src->uid2 >= dest[i].uid1-1) {
+		while (i < dest_count && src->seq2 >= dest[i].seq1-1) {
 			/* we can/must merge with next record */
-			if (new_exp.uid2 < dest[i].uid2)
-				new_exp.uid2 = dest[i].uid2;
+			if (new_exp.seq2 < dest[i].seq2)
+				new_exp.seq2 = dest[i].seq2;
 			i++;
 		}
 
-		if (first > 0 && new_exp.uid1 <= dest[first-1].uid2+1) {
+		if (first > 0 && new_exp.seq1 <= dest[first-1].seq2+1) {
 			/* continue previous record */
-			if (dest[first-1].uid2 < new_exp.uid2)
-				dest[first-1].uid2 = new_exp.uid2;
+			if (dest[first-1].seq2 < new_exp.seq2)
+				dest[first-1].seq2 = new_exp.seq2;
 		} else if (i == first) {
 			array_insert(expunges, i, &new_exp, 1);
 			i++; first++;
@@ -112,10 +113,10 @@ static int view_sync_set_log_view_range(struct mail_index_view *view,
 
 static int
 view_sync_get_expunges(struct mail_index_view *view,
-		       ARRAY_TYPE(uid_range) *expunges_r)
+		       ARRAY_TYPE(seq_range) *expunges_r)
 {
 	const struct mail_transaction_header *hdr;
-	struct uid_range *src, *src_end, *dest;
+	struct seq_range *src, *src_end, *dest;
 	const void *data;
 	unsigned int count;
 	int ret;
@@ -135,17 +136,17 @@ view_sync_get_expunges(struct mail_index_view *view,
 		return -1;
 	}
 
-	/* convert to sequences */
+	/* convert UIDs to sequences */
 	src = dest = array_get_modifiable(expunges_r, &count);
 	src_end = src + count;
 	for (; src != src_end; src++) {
-		ret = mail_index_lookup_uid_range(view, src->uid1,
-						  src->uid2,
-						  &dest->uid1,
-						  &dest->uid2);
+		ret = mail_index_lookup_uid_range(view, src->seq1,
+						  src->seq2,
+						  &dest->seq1,
+						  &dest->seq2);
 		i_assert(ret == 0);
 
-		if (dest->uid1 == 0)
+		if (dest->seq1 == 0)
 			count--;
 		else
 			dest++;
@@ -195,7 +196,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
 	enum mail_transaction_type log_get_mask, visible_mask;
-	ARRAY_TYPE(uid_range) expunges = ARRAY_INIT;
+	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
 
 	/* We must sync flags as long as view is mmap()ed, as the flags may
 	   have already changed under us. */
@@ -511,14 +512,10 @@ int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
 	return 1;
 }
 
-const uint32_t *
-mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
-				  unsigned int *count_r)
+void mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
+				       const ARRAY_TYPE(seq_range) **expunges_r)
 {
-	const struct uid_range *data;
-
-	data = array_get(&ctx->expunges, count_r);
-	return (const uint32_t *)data;
+	*expunges_r = &ctx->expunges;
 }
 
 static void
