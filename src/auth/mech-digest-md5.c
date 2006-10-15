@@ -380,7 +380,8 @@ static bool auth_handle_response(struct digest_auth_request *request,
 		}
 
 		if (i == QOP_COUNT) {
-			*error = "Unknown QoP value";
+			*error = t_strdup_printf("Unknown QoP value: %s",
+					str_sanitize(value, 32));
 			return FALSE;
 		}
 
