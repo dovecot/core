@@ -51,18 +51,24 @@ static int get_pass_reply(struct auth_request *request, const char *reply,
 
 	/* user \t {scheme}password [\t extra] */
 	p = strchr(reply, '\t');
-	p2 = p == NULL ? NULL : strchr(p + 1, '\t');
-	if (p2 == NULL) {
+
+	/* username may have changed, update it */
+	auth_request_set_field(request, "user", p == NULL ? reply :
+			       t_strdup_until(reply, p), NULL);
+	if (p == NULL) {
+		/* we didn't get a password. */
 		*password_r = NULL;
 		*scheme_r = NULL;
 		return 0;
 	}
-
-	/* username may have changed, update it */
-        auth_request_set_field(request, "user", t_strdup_until(reply, p), NULL);
-
-	*password_r = t_strdup_until(p + 1, p2);
-	reply = p2 + 1;
+	p2 = strchr(++p, '\t');
+	if (p2 == NULL) {
+		*password_r = p;
+		reply = "";
+	} else {
+		*password_r = t_strdup_until(p, p2);
+		reply = p2 + 1;
+	}
 
 	if (**password_r == '\0') {
 		*password_r = NULL;
