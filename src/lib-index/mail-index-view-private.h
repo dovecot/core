@@ -63,6 +63,9 @@ struct mail_index_view {
 	unsigned int lock_id;
 
 	unsigned int inconsistent:1;
+	/* this view was created by mail_index_sync_begin() */
+	unsigned int index_sync_view:1;
+	/* this view is being synced */
 	unsigned int syncing:1;
 	unsigned int broken_counters:1;
 };

@@ -449,6 +449,7 @@ int mail_index_sync_begin(struct mail_index *index,
 		return -1;
 	}
 
+	ctx->view->index_sync_view = TRUE;
 	*ctx_r = ctx;
 	*view_r = ctx->view;
 	return 1;

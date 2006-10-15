@@ -14,7 +14,7 @@ static int maildir_transaction_commit(struct mail_index_transaction *t,
 	struct maildir_transaction_context *mt = MAIL_STORAGE_TRANSACTION(t);
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mt->ictx.ibox;
 	struct maildir_save_context *save_ctx;
-	bool external = t->external;
+	bool syncing = t->sync_transaction;
 	int ret = 0;
 
 	if (mt->save_ctx != NULL) {
@@ -36,7 +36,7 @@ static int maildir_transaction_commit(struct mail_index_transaction *t,
 	if (save_ctx != NULL)
 		maildir_transaction_save_commit_post(save_ctx);
 
-	if (ret == 0 && !external)
+	if (ret == 0 && !syncing)
 		ret = maildir_sync_last_commit(mbox);
 	return ret;
 }

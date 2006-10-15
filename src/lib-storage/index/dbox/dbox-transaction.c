@@ -15,7 +15,7 @@ static int dbox_transaction_commit(struct mail_index_transaction *t,
 	struct dbox_transaction_context *dt = MAIL_STORAGE_TRANSACTION(t);
 	struct dbox_mailbox *dbox = (struct dbox_mailbox *)dt->ictx.ibox;
 	struct dbox_save_context *save_ctx;
-	bool external = t->external;
+	bool syncing = t->sync_transaction;
 	int ret = 0;
 
 	if (dt->save_ctx != NULL) {
@@ -44,7 +44,7 @@ static int dbox_transaction_commit(struct mail_index_transaction *t,
 		dbox_transaction_save_commit_post(save_ctx);
 	}
 
-	if (ret == 0 && !external) {
+	if (ret == 0 && !syncing) {
 		if (dbox_sync(dbox, FALSE) < 0)
 			ret = -1;
 	}

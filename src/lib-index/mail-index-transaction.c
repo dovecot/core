@@ -956,6 +956,7 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	t->hide_transaction = hide;
 	t->external = external;
 	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
+	t->sync_transaction = view->index_sync_view;
 
 	if (view->syncing) {
 		/* transaction view cannot work if new records are being added

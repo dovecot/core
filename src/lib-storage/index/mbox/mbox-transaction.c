@@ -18,7 +18,7 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 	unsigned int lock_id = mt->mbox_lock_id;
 	enum mailbox_sync_flags flags = mt->ictx.commit_flags;
 	bool mbox_modified;
-	bool external = t->external;
+	bool syncing = t->sync_transaction;
 	int ret = 0;
 
 	if (mt->save_ctx != NULL)
@@ -42,7 +42,7 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 		lock_id = 0;
 	}
 
-	if (ret == 0 && !external) {
+	if (ret == 0 && !syncing) {
 		enum mbox_sync_flags mbox_sync_flags = MBOX_SYNC_LAST_COMMIT;
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
 		    !mbox->mbox_very_dirty_syncs)
