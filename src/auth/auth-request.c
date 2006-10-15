@@ -669,10 +669,13 @@ bool auth_request_set_login_username(struct auth_request *request,
 static int is_ip_in_network(const char *network, const struct ip_addr *ip)
 {
 	const uint32_t *ip1, *ip2;
-	struct ip_addr net_ip;
+	struct ip_addr src_ip, net_ip;
 	const char *p;
 	unsigned int max_bits, bits, pos, i;
 	uint32_t mask;
+
+	if (net_ipv6_mapped_ipv4_convert(ip, &src_ip) == 0)
+		ip = &src_ip;
 
 	max_bits = IPADDR_IS_V4(ip) ? 32 : 128;
 	p = strchr(network, '/');
