@@ -26,13 +26,6 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
-	if (!IS_VALID_PASSWD(pw->pw_passwd)) {
-		auth_request_log_info(request, "bsdauth",
-				      "invalid password field");
-		callback(PASSDB_RESULT_USER_DISABLED, request);
-		return;
-	}
-
 	/* check if the password is valid */
 	result = auth_userokay(request->user, NULL, NULL,
 			       t_strdup_noconst(password));
