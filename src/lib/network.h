@@ -93,6 +93,10 @@ int net_getpeername(int fd, struct ip_addr *addr, unsigned int *port);
 const char *net_ip2addr(const struct ip_addr *ip);
 /* char* -> struct ip_addr translation. */
 int net_addr2ip(const char *addr, struct ip_addr *ip);
+/* Convert IPv6 mapped IPv4 address to an actual IPv4 address. Returns 0 if
+   successful, -1 if the source address isn't IPv6 mapped IPv4 address. */
+int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
+				 struct ip_addr *dest);
 
 /* Get socket error */
 int net_geterror(int fd);

@@ -570,6 +570,25 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 	return 0;
 }
 
+int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
+				 struct ip_addr *dest)
+{
+#ifdef HAVE_IPV6
+	if (!IPADDR_IS_V6(src))
+		return -1;
+	if (src->ip.in6_u.u6_addr32[0] != 0 ||
+	    src->ip.in6_u.u6_addr32[1] != 0 ||
+	    src->ip.in6_u.u6_addr32[2] != 0xffff0000)
+		return -1;
+
+	dest->family = AF_INET;
+	memcpy(&dest->ip, &src->ip.in6_u.u6_addr32[3], 4);
+	return 0;
+#else
+	return -1;
+#endif
+}
+
 /* Get socket error */
 int net_geterror(int fd)
 {
