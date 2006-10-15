@@ -153,6 +153,7 @@ static time_t dbox_mail_get_received_date(struct mail *_mail)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	uoff_t offset;
+	uint32_t t;
 
 	(void)index_mail_get_received_date(_mail);
 	if (data->received_date != (time_t)-1)
@@ -166,8 +167,8 @@ static time_t dbox_mail_get_received_date(struct mail *_mail)
 		data->received_date = 0;
 	}
 
-	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE,
-			     &data->received_date, sizeof(data->received_date));
+	t = data->received_date;
+	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE, &t, sizeof(t));
 	return data->received_date;
 }
 
