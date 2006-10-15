@@ -124,6 +124,7 @@ struct mbox_sync_context {
 	off_t expunged_space, space_diff;
 
 	unsigned int dest_first_mail:1;
+	unsigned int first_mail_crlf_expunged:1;
 
 	/* global flags: */
 	unsigned int delay_writes:1;

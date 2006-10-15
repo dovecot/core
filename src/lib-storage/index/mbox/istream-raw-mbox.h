@@ -24,6 +24,8 @@ time_t istream_raw_mbox_get_received_time(struct istream *stream);
 
 /* Return sender of current message. */
 const char *istream_raw_mbox_get_sender(struct istream *stream);
+/* Return TRUE if the empty line between this and the next mail contains CR. */
+bool istream_raw_mbox_has_crlf_ending(struct istream *stream);
 
 /* Jump to next message. If body_size isn't (uoff_t)-1, we'll use it as
    potentially valid body size. */

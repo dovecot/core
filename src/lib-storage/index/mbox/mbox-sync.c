@@ -664,6 +664,8 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 
 static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 {
+	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
+
 	mail_ctx->mail.flags = MBOX_EXPUNGED;
 	mail_ctx->mail.offset = mail_ctx->mail.from_offset;
 	mail_ctx->mail.space =
@@ -671,21 +673,26 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 		mail_ctx->mail.body_size;
 	mail_ctx->mail.body_size = 0;
 
-	if (mail_ctx->sync_ctx->seq == 1) {
+	if (sync_ctx->seq == 1) {
 		/* expunging first message, fix space to contain next
 		   message's \n header too since it will be removed. */
 		mail_ctx->mail.space++;
+		if (istream_raw_mbox_has_crlf_ending(sync_ctx->input)) {
+			mail_ctx->mail.space++;
+			sync_ctx->first_mail_crlf_expunged = TRUE;
+		}
 
 		/* uid-last offset is invalid now */
-                mail_ctx->sync_ctx->base_uid_last_offset = 0;
+                sync_ctx->base_uid_last_offset = 0;
 	}
 
-	mail_ctx->sync_ctx->expunged_space += mail_ctx->mail.space;
+	sync_ctx->expunged_space += mail_ctx->mail.space;
 }
 
 static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
+	uoff_t orig_from_offset;
 	off_t move_diff;
 	int ret;
 
@@ -693,11 +700,14 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		/* move the header backwards to fill expunged space */
 		move_diff = -sync_ctx->expunged_space;
 
+		orig_from_offset = mail_ctx->mail.from_offset;
 		if (sync_ctx->dest_first_mail) {
 			/* we're moving this mail to beginning of file.
 			   skip the initial \n (it's already counted in
 			   expunged_space) */
 			mail_ctx->mail.from_offset++;
+			if (sync_ctx->first_mail_crlf_expunged)
+				mail_ctx->mail.from_offset++;
 		}
 
 		/* read the From-line before rewriting overwrites it */
@@ -712,6 +722,9 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		if (ret > 0) {
 			/* rewrite successful, write From-line to
 			   new location */
+			i_assert(move_diff > 0 ||
+				 (off_t)mail_ctx->mail.from_offset >=
+				 -move_diff);
 			mail_ctx->mail.from_offset += move_diff;
 			mail_ctx->mail.offset += move_diff;
 			if (mbox_write_from_line(mail_ctx) < 0)
@@ -720,7 +733,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			if (sync_ctx->dest_first_mail) {
 				/* didn't have enough space, move the offset
 				   back so seeking into it doesn't fail */
-				mail_ctx->mail.from_offset--;
+				mail_ctx->mail.from_offset = orig_from_offset;
 			}
 		}
 	} else if (mail_ctx->need_rewrite ||

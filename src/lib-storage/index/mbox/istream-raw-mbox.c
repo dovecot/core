@@ -17,6 +17,7 @@ struct raw_mbox_istream {
 	uoff_t input_peak_offset;
 
 	unsigned int one_mail_only:1;
+	unsigned int crlf_ending:1;
 	unsigned int corrupted:1;
 	unsigned int eof:1;
 };
@@ -131,6 +132,7 @@ static ssize_t _read(struct _istream *stream)
 	size_t i, pos, new_pos, from_start_pos, from_after_pos;
 	ssize_t ret = 0;
 	int eoh_char;
+	bool crlf_ending = FALSE;
 
 	i_assert(stream->istream.v_offset >= rstream->from_offset);
 
@@ -170,8 +172,10 @@ static ssize_t _read(struct _istream *stream)
 			   the \n trailer */
 			if (pos > 0 && buf[pos-1] == '\n') {
 				pos--;
-				if (pos > 0 && buf[pos-1] == '\r')
+				if (pos > 0 && buf[pos-1] == '\r') {
+					crlf_ending = TRUE;
 					pos--;
+				}
 			}
 
 			i_assert(pos >= stream->pos);
@@ -187,6 +191,7 @@ static ssize_t _read(struct _istream *stream)
 				rstream->eof = TRUE;
 			}
 			stream->istream.eof = TRUE;
+			rstream->crlf_ending = crlf_ending;
 			handle_end_of_mail(rstream, pos);
 			return ret < 0 ? _read(stream) : ret;
 		}
@@ -240,7 +245,10 @@ static ssize_t _read(struct _istream *stream)
 					if (from_start_pos > 0 &&
 					    buf[from_start_pos-1] == '\r') {
 						/* CR also belongs to it. */
+						crlf_ending = TRUE;
 						from_start_pos--;
+					} else {
+						crlf_ending = FALSE;
 					}
 				}
 				fromp = mbox_from;
@@ -258,6 +266,7 @@ static ssize_t _read(struct _istream *stream)
 					rstream->next_sender = sender;
 					stream->istream.eof = TRUE;
 
+					rstream->crlf_ending = crlf_ending;
 					handle_end_of_mail(rstream,
 							   from_start_pos);
 					break;
@@ -510,6 +519,14 @@ const char *istream_raw_mbox_get_sender(struct istream *stream)
 	if (rstream->sender == NULL)
 		(void)_read(&rstream->istream);
 	return rstream->sender == NULL ? "" : rstream->sender;
+}
+
+bool istream_raw_mbox_has_crlf_ending(struct istream *stream)
+{
+	struct raw_mbox_istream *rstream =
+		(struct raw_mbox_istream *)stream->real_stream;
+
+	return rstream->crlf_ending;
 }
 
 void istream_raw_mbox_next(struct istream *stream, uoff_t body_size)
