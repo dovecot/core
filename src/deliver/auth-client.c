@@ -49,6 +49,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 	uid_t uid = 0;
 	gid_t gid = 0;
 	int home_found = FALSE;
+	const char *chroot = getenv("MAIL_CHROOT");
 	bool debug = getenv("DEBUG") != NULL;
 
 	for (tmp = t_strsplit(args, "\t"); *tmp != NULL; tmp++) {
@@ -81,8 +82,7 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 						    *tmp + 4, NULL));
 			}
 		} else if (strncmp(*tmp, "chroot=", 7) == 0) {
-			env_put(t_strconcat("RESTRICT_CHROOT=",
-					    *tmp + 7, NULL));
+			chroot = *tmp + 7;
 		} else if (strncmp(*tmp, "home=", 5) == 0) {
 			home_found = TRUE;
 			env_put(t_strconcat("HOME=", *tmp + 5, NULL));
@@ -104,6 +104,9 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 		return_value = EX_TEMPFAIL;
 		return;
 	}
+
+	if (chroot != NULL)
+		env_put(t_strconcat("RESTRICT_CHROOT=", chroot, NULL));
 
 	restrict_access_by_env(TRUE);
 	return_value = EX_OK;
