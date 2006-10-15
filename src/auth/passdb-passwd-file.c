@@ -5,6 +5,7 @@
 #ifdef PASSDB_PASSWD_FILE
 
 #include "str.h"
+#include "auth-cache.h"
 #include "var-expand.h"
 #include "passdb.h"
 #include "password-scheme.h"
@@ -119,10 +120,20 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 	module = p_new(auth_passdb->auth->pool,
 		       struct passwd_file_passdb_module, 1);
 	module->auth = auth_passdb->auth;
-	module->module.cache_key = PASSWD_FILE_CACHE_KEY;
-	module->module.default_pass_scheme = PASSWD_FILE_DEFAULT_SCHEME;
 	module->pwf =
 		db_passwd_file_init(args, FALSE, module->auth->verbose_debug);
+
+	if (!module->pwf->vars)
+		module->module.cache_key = PASSWD_FILE_CACHE_KEY;
+	else {
+		module->module.cache_key =
+			auth_cache_parse_key(auth_passdb->auth->pool,
+					     t_strconcat(PASSWD_FILE_CACHE_KEY,
+							 module->pwf->path,
+							 NULL));
+	}
+
+	module->module.default_pass_scheme = PASSWD_FILE_DEFAULT_SCHEME;
 	return &module->module;
 }
 
