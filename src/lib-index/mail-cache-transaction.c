@@ -59,9 +59,6 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 	ctx->trans = t;
 	i_array_init(&ctx->reservations, 32);
 
-	if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
-		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
-
 	i_assert(view->transaction == NULL);
 	view->transaction = ctx;
 	view->trans_view = mail_index_transaction_open_updated_view(t);
@@ -105,6 +102,13 @@ static void mail_cache_transaction_free(struct mail_cache_transaction_ctx *ctx)
 static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 {
 	int ret;
+
+	if (ctx->cache_file_seq == 0) {
+		if (!ctx->cache->opened)
+			(void)mail_cache_open_and_verify(ctx->cache);
+		if (!MAIL_CACHE_IS_UNUSABLE(ctx->cache))
+			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+	}
 
 	if ((ret = mail_cache_lock(ctx->cache)) <= 0)
 		return ret;
