@@ -29,7 +29,6 @@ libindex_a_SOURCES = \
         mail-transaction-log-append.c \
         mail-transaction-log-view.c \
         mail-transaction-util.c \
-        mailbox-list-index.c \
         mailbox-list-index-sync.c
 
 noinst_HEADERS = \
@@ -44,5 +43,4 @@ noinst_HEADERS = \
         mail-transaction-log.h \
 	mail-transaction-log-private.h \
         mail-transaction-util.h \
-        mailbox-list-index.h \
         mailbox-list-index-private.h
