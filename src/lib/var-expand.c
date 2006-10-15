@@ -88,6 +88,21 @@ static const char *m_str_md5(const char *str, struct var_expand_context *ctx __a
 	return binary_to_hex(digest, sizeof(digest));
 }
 
+static const char *m_str_ldap_dn(const char *str, struct var_expand_context *ctx __attr_unused__)
+{
+	string_t *ret = t_str_new(256);
+
+	while (*str) {
+		if (*str == '.')
+			str_append(ret, ",dc=");
+		else
+			str_append_c(ret, *str);
+		str++;
+	}
+
+	return str_free_without_data(&ret);
+}
+
 #define MAX_MODIFIER_COUNT 10
 static const struct var_expand_modifier modifiers[] = {
 	{ 'L', m_str_lcase },
@@ -97,6 +112,7 @@ static const struct var_expand_modifier modifiers[] = {
 	{ 'R', m_str_reverse },
 	{ 'H', m_str_hash },
 	{ 'M', m_str_md5 },
+	{ 'D', m_str_ldap_dn },
 	{ '\0', NULL }
 };
 
