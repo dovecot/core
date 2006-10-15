@@ -537,8 +537,6 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	int ret;
 	bool eof = FALSE;
 
-	block_r->part = ctx->part;
-
 	while ((ret = ctx->parse_next_block(ctx, block_r)) == 0) {
 		if ((ret = i_stream_read(ctx->input)) == 0)
 			break;
@@ -551,8 +549,8 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 		} else {
 			eof = FALSE;
 		}
-		block_r->part = ctx->part;
 	}
+	block_r->part = ctx->part;
 
 	if (ret < 0) {
 		while (ctx->part->parent != NULL) {
