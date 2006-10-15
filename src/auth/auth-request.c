@@ -867,6 +867,11 @@ int auth_request_password_verify(struct auth_request *request,
 		return 1;
 	}
 
+	if (request->passdb->deny) {
+		/* this is a deny database, we don't care about the password */
+		return 0;
+	}
+
 	ret = password_verify(plain_password, crypted_password, scheme,
 			      request->original_username);
 	if (ret < 0) {
