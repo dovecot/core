@@ -16,48 +16,87 @@
 
 #define VPOPMAIL_DEFAULT_PASS_SCHEME "CRYPT"
 
-static void
-vpopmail_verify_plain(struct auth_request *request, const char *password,
-		      verify_plain_callback_t *callback)
+static char *
+vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
+			 enum passdb_result *result_r)
 {
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
-	const char *crypted_pass;
-	const char *scheme;
-	int ret;
+	char *password;
 
-	vpw = vpopmail_lookup_vqp(request, vpop_user, vpop_domain);
+	vpw = vpopmail_lookup_vqp(auth_request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		callback(PASSDB_RESULT_USER_UNKNOWN, request);
-		return;
+		*result_r = PASSDB_RESULT_USER_UNKNOWN;
+		return NULL;
 	}
 
 	if (((vpw->pw_gid & NO_IMAP) != 0 &&
-	     strcmp(request->service, "IMAP") == 0) ||
+	     strcmp(auth_request->service, "IMAP") == 0) ||
 	    ((vpw->pw_gid & NO_POP) != 0 &&
-	     strcmp(request->service, "POP3") == 0)) {
-		auth_request_log_info(request, "vpopmail",
-				      "%s disabled", request->service);
-		callback(PASSDB_RESULT_USER_DISABLED, request);
-		return;
+	     strcmp(auth_request->service, "POP3") == 0)) {
+		auth_request_log_info(auth_request, "vpopmail",
+				      "%s disabled", auth_request->service);
+		password = NULL;
+		*result_r = PASSDB_RESULT_USER_DISABLED;
+	} else {
+		password = t_strdup_noconst(cleartext ? vpw->pw_clear_passwd :
+					   vpw->pw_passwd);
+		*result_r = password != NULL ? PASSDB_RESULT_OK :
+			PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	}
-
-	auth_request_log_debug(request, "vpopmail",
-			       "crypted password=%s", vpw->pw_passwd);
-
-	crypted_pass = vpw->pw_passwd;
-	scheme = password_get_scheme(&crypted_pass);
-	if (scheme == NULL)
-		scheme = request->passdb->passdb->default_pass_scheme;
-
-	ret = auth_request_password_verify(request, password, crypted_pass,
-					   scheme, "vpopmail");
 
 	safe_memset(vpw->pw_passwd, 0, strlen(vpw->pw_passwd));
 	if (vpw->pw_clear_passwd != NULL) {
 		safe_memset(vpw->pw_clear_passwd, 0,
 			    strlen(vpw->pw_clear_passwd));
 	}
+
+	return password;
+}
+
+static void vpopmail_lookup_credentials(struct auth_request *request,
+					lookup_credentials_callback_t *callback)
+{
+	enum passdb_result result;
+	char *password;
+
+	password = vpopmail_password_lookup(request, TRUE, &result);
+	if (password == NULL) {
+		callback(result, "", request);
+		return;
+	}
+	
+	passdb_handle_credentials(PASSDB_RESULT_OK, password, "CLEARTEXT",
+				  callback, request);
+	safe_memset(password, 0, strlen(password));
+}
+
+static void
+vpopmail_verify_plain(struct auth_request *request, const char *password,
+		      verify_plain_callback_t *callback)
+{
+	enum passdb_result result;
+	const char *scheme, *tmp_pass;
+	char *crypted_pass;
+	int ret;
+
+	crypted_pass = vpopmail_password_lookup(request, FALSE, &result);
+	if (crypted_pass == NULL) {
+		callback(result, request);
+		return;
+	}
+
+	auth_request_log_debug(request, "vpopmail",
+			       "crypted password=%s", password);
+
+	tmp_pass = crypted_pass;
+	scheme = password_get_scheme(&tmp_pass);
+	if (scheme == NULL)
+		scheme = request->passdb->passdb->default_pass_scheme;
+
+	ret = auth_request_password_verify(request, password,
+					   tmp_pass, scheme, "vpopmail");
+	safe_memset(crypted_pass, 0, strlen(crypted_pass));
 
 	if (ret <= 0) {
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
@@ -114,7 +153,7 @@ struct passdb_module_interface passdb_vpopmail = {
 	vpopmail_deinit,
 
 	vpopmail_verify_plain,
-	NULL
+	vpopmail_lookup_credentials
 };
 
 #endif
