@@ -632,7 +632,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		(void)X509_NAME_oneline(subject, buf, sizeof(buf));
 		buf[sizeof(buf)-1] = '\0'; /* just in case.. */
 		if (!preverify_ok)
-			i_info("Invalid certificate: %s", buf);
+			i_info("Invalid certificate: %s: %s", X509_verify_cert_error_string(ctx->error),buf);
 		else
 			i_info("Valid certificate: %s", buf);
 	}
