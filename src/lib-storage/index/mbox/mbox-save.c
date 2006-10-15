@@ -326,8 +326,18 @@ static void save_header_callback(struct message_header_line *hdr,
 {
 	struct mbox_save_context *ctx = context;
 
-	if (!*matched && ctx->mbox_md5_ctx && hdr != NULL)
-		mbox_md5_continue(ctx->mbox_md5_ctx, hdr);
+	if (hdr != NULL) {
+		if (strncmp(hdr->name, "From ", 5) == 0) {
+			/* we can't allow From_-lines in headers. there's no
+			   legitimate reason for allowing them in any case,
+			   so just drop them. */
+			*matched = TRUE;
+			return;
+		}
+
+		if (!*matched && ctx->mbox_md5_ctx != NULL)
+			mbox_md5_continue(ctx->mbox_md5_ctx, hdr);
+	}
 
 	if ((hdr == NULL && ctx->eoh_input_offset == (uoff_t)-1) ||
 	    (hdr != NULL && hdr->eoh))
