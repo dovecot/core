@@ -87,7 +87,20 @@ bool settings_read(const char *path, const char *section,
 
 	linenum = 0; sections = 0; root_section = 0; errormsg = NULL;
 	input = i_stream_create_file(fd, default_pool, 2048, TRUE);
-	while ((line = i_stream_read_next_line(input)) != NULL) {
+	for (;;) {
+		line = i_stream_read_next_line(input);
+		if (line == NULL) {
+			/* EOF. Also handle the last line even if it doesn't
+			   contain LF. */
+			const unsigned char *data;
+			size_t size;
+
+			data = i_stream_get_data(input, &size);
+			if (size == 0)
+				break;
+			line = t_strdup_noconst(t_strndup(data, size));
+			i_stream_skip(input, size);
+		}
 		linenum++;
 
 		/* @UNSAFE: line is modified */
