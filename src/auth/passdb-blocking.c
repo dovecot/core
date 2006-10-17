@@ -110,7 +110,7 @@ verify_plain_callback(struct auth_request *request, const char *reply)
 	const char *password, *scheme;
 
 	result = check_failure(request, &reply);
-	if (result >= 0) {
+	if (result > 0) {
 		if (get_pass_reply(request, reply, &password, &scheme) < 0)
 			result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
@@ -137,10 +137,10 @@ static void
 lookup_credentials_callback(struct auth_request *request, const char *reply)
 {
 	enum passdb_result result;
-	const char *password, *scheme;
+	const char *password = NULL, *scheme = NULL;
 
 	result = check_failure(request, &reply);
-	if (result >= 0) {
+	if (result > 0) {
 		if (get_pass_reply(request, reply, &password, &scheme) < 0)
 			result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
