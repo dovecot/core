@@ -283,8 +283,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 	/* user given environment - may be malicious. virtual_user comes from
 	   auth process, but don't trust that too much either. Some auth
 	   mechanism might allow leaving extra data there. */
-	if ((mail == NULL || *mail == '\0') && *set->default_mail_env != '\0')
-		mail = expand_mail_env(set->default_mail_env, var_expand_table);
+	if ((mail == NULL || *mail == '\0') && *set->mail_location != '\0')
+		mail = expand_mail_env(set->mail_location, var_expand_table);
 	env_put(t_strconcat("MAIL=", mail, NULL));
 
 	if (set->server->namespaces != NULL) {

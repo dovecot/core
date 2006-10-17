@@ -68,6 +68,7 @@ struct settings {
 	const char *mail_extra_groups;
 
 	const char *default_mail_env;
+	const char *mail_location;
 	const char *mail_cache_fields;
 	const char *mail_never_cache_fields;
 	unsigned int mail_cache_min_mail_count;

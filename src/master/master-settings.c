@@ -109,6 +109,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, mail_extra_groups),
 
 	DEF(SET_STR, default_mail_env),
+	DEF(SET_STR, mail_location),
 	DEF(SET_STR, mail_cache_fields),
 	DEF(SET_STR, mail_never_cache_fields),
 	DEF(SET_INT, mail_cache_min_mail_count),
@@ -316,6 +317,7 @@ struct settings default_settings = {
 	MEMBER(mail_extra_groups) "",
 
 	MEMBER(default_mail_env) "",
+	MEMBER(mail_location) "",
 	MEMBER(mail_cache_fields) "flags",
 	MEMBER(mail_never_cache_fields) "imap.envelope",
 	MEMBER(mail_cache_min_mail_count) 0,
@@ -864,6 +866,10 @@ static bool settings_verify(struct settings *set)
 		return FALSE;
 	}
 #endif
+	if (*set->mail_location == '\0') {
+		/* keep this for backwards compatibility */
+		set->mail_location = set->default_mail_env;
+	}
 	return TRUE;
 }
 

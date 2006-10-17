@@ -520,10 +520,14 @@ int main(int argc, char *argv[])
         mail_storage_init();
 	mail_storage_register_all();
 
-	/* MAIL comes from userdb, DEFAULT_MAIL_ENV from dovecot.conf */
+	/* MAIL comes from userdb, MAIL_LOCATION from dovecot.conf */
 	mail_env = getenv("MAIL");
 	if (mail_env == NULL) 
+		mail_env = getenv("MAIL_LOCATION");
+	if (mail_env == NULL)  {
+		/* Keep this for backwards compatibility */
 		mail_env = getenv("DEFAULT_MAIL_ENV");
+	}
 	if (mail_env != NULL) {
 		table = get_var_expand_table(destination, getenv("HOME"));
 		mail_env = expand_mail_env(mail_env, table);
