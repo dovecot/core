@@ -1,5 +1,5 @@
 You can use special variables in several places:
- - default_mail_env setting
+ - mail_location setting
  - namespace locations
  - static userdb template string
  - LDAP and SQL userdb query strings
