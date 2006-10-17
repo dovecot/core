@@ -193,7 +193,7 @@ static const char *get_root_dir(enum mail_storage_flags flags)
 		return "/";
 
 	if (debug)
-		i_info("mbox: root directory not found");
+		i_info("mbox: root mail directory not found");
 
 	return NULL;
 }
@@ -235,14 +235,14 @@ static const char *create_root_dir(bool debug)
 
 	home = getenv("HOME");
 	if (home == NULL) {
-		i_error("mbox: We need root IMAP folder, "
+		i_error("mbox: We need root mail directory, "
 			"but can't find it or HOME environment");
 		return NULL;
 	}
 
 	path = t_strconcat(home, "/mail", NULL);
 	if (mkdir_parents(path, CREATE_MODE) < 0) {
-		i_error("mbox: Can't create root IMAP folder %s: %m", path);
+		i_error("mbox: Can't create root mail directory %s: %m", path);
 		return NULL;
 	}
 
@@ -268,7 +268,7 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 	autodetect = data == NULL || *data == '\0';
 	if (autodetect) {
 		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0) {
-			i_error("mbox: root directory not given");
+			i_error("mbox: root mail directory not given");
 			return NULL;
 		}
 
@@ -277,7 +277,7 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 		   either $HOME/mail or $HOME/Mail */
 		root_dir = get_root_dir(flags);
 	} else {
-		/* <root folder> | <INBOX path>
+		/* <root mail directory> | <INBOX path>
 		   [:INBOX=<path>] [:INDEX=<dir>] */
 		if (debug)
 			i_info("mbox: data=%s", data);
