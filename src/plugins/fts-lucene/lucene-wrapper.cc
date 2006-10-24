@@ -7,6 +7,9 @@ extern "C" {
 };
 #include <CLucene.h>
 
+/* Lucene's default is 10000. Use it here also.. */
+#define MAX_TERMS_PER_DOCUMENT 10000
+
 using namespace lucene::document;
 using namespace lucene::index;
 using namespace lucene::search;
@@ -163,7 +166,7 @@ int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r)
 		return -1;
 	}
 
-	index->writer->setMaxFieldLength(MAX_INT_STRLEN);
+	index->writer->setMaxFieldLength(MAX_TERMS_PER_DOCUMENT);
 	return 0;
 }
 
@@ -276,7 +279,9 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 		return -1;
 
 	t_push();
-	quoted_key = t_strdup_printf("\"%s\"", key);
+	quoted_key = strchr(key, ' ') == NULL ?
+		t_strdup_printf("%s*", key) :
+		t_strdup_printf("\"%s\"", key);
 	unsigned int len = utf8_strlen_n(quoted_key, (size_t)-1);
 	wchar_t tkey[len + 1];
 	lucene_utf8towcs(tkey, quoted_key, len + 1);
@@ -287,8 +292,10 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 		query = QueryParser::parse(tkey, _T("contents"),
 					   index->analyzer);
 	} catch (CLuceneError &err) {
-		i_error("lucene: QueryParser::parse(%s) failed: %s",
-			str_sanitize(key, 40), err.what());
+		if (getenv("DEBUG") != NULL) {
+			i_info("lucene: QueryParser::parse(%s) failed: %s",
+			       str_sanitize(key, 40), err.what());
+		}
 		lucene_index_close(index);
 		return -1;
 	}
