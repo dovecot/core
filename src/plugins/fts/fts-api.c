@@ -33,16 +33,19 @@ void fts_backend_unregister(const char *name)
 }
 
 struct fts_backend *
-fts_backend_init(const char *backend_name, const char *path)
+fts_backend_init(const char *backend_name, struct mailbox *box)
 {
 	const struct fts_backend *const *be;
 	unsigned int i, count;
 
-	be = array_get(&backends, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(be[i]->name, backend_name) == 0)
-			return be[i]->v.init(path);
+	if (array_is_created(&backends)) {
+		be = array_get(&backends, &count);
+		for (i = 0; i < count; i++) {
+			if (strcmp(be[i]->name, backend_name) == 0)
+				return be[i]->v.init(box);
+		}
 	}
+
 	i_error("Unknown FTS backend: %s", backend_name);
 	return NULL;
 }

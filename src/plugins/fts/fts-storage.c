@@ -13,8 +13,6 @@
 
 #include <stdlib.h>
 
-#define FTS_INDEX_NAME "dovecot.index.fts"
-
 #define FTS_CONTEXT(obj) \
 	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
 					fts_storage_module_id))
@@ -162,6 +160,7 @@ fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 		    (block.hdr != NULL || block.size != 0)) {
 			str_truncate(ctx->headers, 0);
 			ctx->save_part = FALSE;
+			prev_part = block.part;
 			skip_part = NULL;
 		}
 
@@ -360,7 +359,7 @@ void fts_mailbox_opened(struct mailbox *box)
 {
 	struct fts_mailbox *fbox;
 	struct fts_backend *backend;
-	const char *env, *path;
+	const char *env;
 
 	if (fts_next_hook_mailbox_opened != NULL)
 		fts_next_hook_mailbox_opened(box);
@@ -369,12 +368,7 @@ void fts_mailbox_opened(struct mailbox *box)
 	if (env == NULL)
 		return;
 
-	path = mail_storage_get_mailbox_index_dir(box->storage, box->name);
-	if (path == NULL)
-		return;
-
-	path = t_strconcat(path, "/" FTS_INDEX_NAME, NULL);
-	backend = fts_backend_init(env, path);
+	backend = fts_backend_init(env, box);
 	if (backend == NULL)
 		return;
 

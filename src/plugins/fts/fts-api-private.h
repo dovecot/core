@@ -4,7 +4,7 @@
 #include "fts-api.h"
 
 struct fts_backend_vfuncs {
-	struct fts_backend *(*init)(const char *path);
+	struct fts_backend *(*init)(struct mailbox *box);
 	void (*deinit)(struct fts_backend *backend);
 
 	struct fts_backend_build_context *

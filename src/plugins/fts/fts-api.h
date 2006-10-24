@@ -1,10 +1,12 @@
 #ifndef __FTS_API_H
 #define __FTS_API_H
 
+struct mailbox;
+
 #include "seq-range-array.h"
 
 struct fts_backend *
-fts_backend_init(const char *backend_name, const char *path);
+fts_backend_init(const char *backend_name, struct mailbox *box);
 void fts_backend_deinit(struct fts_backend *backend);
 
 /* Initialize adding new data to the index. last_uid_r is set to the last UID
