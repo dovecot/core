@@ -1,10 +1,14 @@
 /* Copyright (C) 2006 Timo Sirainen */
 
 #include "lib.h"
+#include "mail-storage-private.h"
 #include "fts-lucene-plugin.h"
+
+unsigned int fts_lucene_storage_module_id;
 
 void fts_lucene_plugin_init(void)
 {
+	fts_lucene_storage_module_id = mail_storage_module_id++;
 	fts_backend_register(&fts_backend_lucene);
 }
 
