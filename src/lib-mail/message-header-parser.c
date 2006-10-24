@@ -264,8 +264,6 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 	} else if (line->continued) {
 		line->value = msg;
 		line->value_len = size;
-		line->middle = NULL;
-		line->middle_len = 0;
 	} else if (colon_pos == UINT_MAX) {
 		/* missing ':', assume the whole line is name */
 		line->value = NULL;
@@ -314,13 +312,19 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		while (colon_pos > 0 && IS_LWSP(msg[colon_pos-1]))
 			colon_pos--;
 
-		line->middle = msg + colon_pos;
-		line->middle_len = (size_t)(line->value - line->middle);
-
 		str_truncate(ctx->name, 0);
 		str_append_n(ctx->name, msg, colon_pos);
+		str_append_c(ctx->name, '\0');
+
+		/* keep middle stored also in ctx->name so it's available
+		   with use_full_value */
+		line->middle = msg + colon_pos;
+		line->middle_len = (size_t)(line->value - line->middle);
+		str_append_n(ctx->name, line->middle, line->middle_len);
+
 		line->name = str_c(ctx->name);
-		line->name_len = str_len(ctx->name);
+		line->name_len = colon_pos;
+		line->middle = str_data(ctx->name) + line->name_len + 1;
 	}
 
 	if (!line->continued) {
