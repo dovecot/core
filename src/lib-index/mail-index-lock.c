@@ -111,16 +111,6 @@ int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 			   b) timeouted */
 			return 0;
 		}
-		if (errno == ENOLCK) {
-			/* Give a bit more helpful error message since this
-			   is the default locking method and it doesn't work
-			   with NFS. */
-			mail_index_set_error(index,
-				"flock() failed with file %s: %m "
-				"(see lock_method setting in config file)",
-				path);
-			return -1;
-		}
 		mail_index_file_set_syscall_error(index, path, "flock()");
 		return -1;
 #endif
