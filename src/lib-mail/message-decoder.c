@@ -277,7 +277,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		       ctx->encoding_size);
 	}
 
-	if (ctx->charset_utf8) {
+	if (ctx->charset_utf8 || ctx->charset_trans == NULL) {
 		output->data = data;
 		output->size = size;
 	} else {
