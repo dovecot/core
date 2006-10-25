@@ -28,7 +28,6 @@ struct lucene_index {
 
 	Document *doc;
 	uint32_t prev_uid, last_uid;
-	int32_t last_uid_doc_id;
 };
 
 static const uint8_t utf8_skip_table[256] = {
@@ -68,8 +67,12 @@ class DovecotAnalyzer : public standard::StandardAnalyzer {
 public:
 	TokenStream *tokenStream(const TCHAR *fieldName,
 				 CL_NS(util)::Reader *reader) {
+		/* Everything except contents should go as-is without any
+		   modifications. Isn't there any easier way to do this than
+		   to implement a whole new RawTokenStream?.. */
 		if (fieldName != 0 && wcscmp(fieldName, L"contents") != 0)
 			return _CLNEW RawTokenStream(reader);
+
 		return standard::StandardAnalyzer::
 			tokenStream(fieldName, reader);
 	}
@@ -81,6 +84,7 @@ struct lucene_index *lucene_index_init(const char *path)
 
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
+	index->analyzer = _CLNEW DovecotAnalyzer();
 	return index;
 }
 
@@ -89,12 +93,12 @@ static void lucene_index_close(struct lucene_index *index)
 	_CLDELETE(index->reader);
 	_CLDELETE(index->writer);
 	_CLDELETE(index->searcher);
-	_CLDELETE(index->analyzer);
 }
 
 void lucene_index_deinit(struct lucene_index *index)
 {
 	lucene_index_close(index);
+	_CLDELETE(index->analyzer);
 	i_free(index->mailbox_name);
 	i_free(index->tmailbox_name);
 	i_free(index);
@@ -141,17 +145,15 @@ static int lucene_index_open_search(struct lucene_index *index)
 	if ((ret = lucene_index_open(index)) <= 0)
 		return ret;
 
-	if (index->analyzer == NULL)
-		index->analyzer = _CLNEW DovecotAnalyzer();
-
 	index->searcher = _CLNEW IndexSearcher(index->reader);
 	return 1;
 }
 
-static int lucene_doc_get_uid(struct lucene_index *index,
-			      Document *doc, uint32_t *uid_r)
+static int
+lucene_doc_get_uid(struct lucene_index *index, Document *doc,
+		   const TCHAR *field_name, uint32_t *uid_r)
 {
-	Field *field = doc->getField(_T("uid"));
+	Field *field = doc->getField(field_name);
 	TCHAR *uid = field == NULL ? NULL : field->stringValue();
 	if (uid == NULL) {
 		i_error("lucene: Corrupted FTS index %s: No UID for document",
@@ -169,52 +171,55 @@ static int lucene_doc_get_uid(struct lucene_index *index,
 }
 
 static int
-lucene_index_get_last_uid(struct lucene_index *index)
+lucene_index_get_last_uid_int(struct lucene_index *index, bool delete_old)
 {
 	int ret = 0;
+	bool deleted = false;
 
 	index->last_uid = 0;
-	index->last_uid_doc_id = -1;
 
-	if (lucene_index_open_search(index) <= 0)
-		return -1;
+	if ((ret = lucene_index_open_search(index)) <= 0)
+		return ret;
 
+	/* find all the existing last_uids for selected mailbox.
+	   if there are more than one, delete the smaller ones. this is normal
+	   behavior because we can't update/delete documents in writer, so
+	   we'll do it only in here.. */
 	Term mailbox_term(_T("box"), index->tmailbox_name);
-	Term last_uid_term(_T("last_uid"), _T("1"));
+	Term last_uid_term(_T("last_uid"), _T("*"));
 	TermQuery mailbox_query(&mailbox_term);
-	TermQuery last_uid_query(&last_uid_term);
+	WildcardQuery last_uid_query(&last_uid_term);
 
 	BooleanQuery query;
 	query.add(&mailbox_query, true, false);
 	query.add(&last_uid_query, true, false);
 
+	int32_t last_doc_id = -1;
 	try {
 		Hits *hits = index->searcher->search(&query);
 
-		if (hits->length() > 1) {
-			i_error("lucene: last_uid search for mailbox %s "
-				"returned multiple hits", index->mailbox_name);
-		}
 		for (int32_t i = 0; i < hits->length(); i++) {
 			uint32_t uid;
 
 			if (lucene_doc_get_uid(index, &hits->doc(i),
-					       &uid) < 0) {
+					       _T("last_uid"), &uid) < 0) {
 				ret = -1;
 				break;
 			}
 
 			int32_t del_id = -1;
 			if (uid > index->last_uid) {
-				if (index->last_uid_doc_id >= 0)
-					del_id = index->last_uid_doc_id;
+				if (last_doc_id >= 0)
+					del_id = last_doc_id;
 				index->last_uid = uid;
-				index->last_uid_doc_id = hits->id(i);
+				last_doc_id = hits->id(i);
 			} else {
 				del_id = hits->id(i);
 			}
-			/*if (del_id >= 0)
-				index->reader->deleteDocument(del_id);*/
+			if (del_id >= 0 && delete_old) {
+				index->reader->deleteDocument(del_id);
+				deleted = true;
+			}
 		}
 		_CLDELETE(hits);
 	} catch (CLuceneError &err) {
@@ -222,7 +227,23 @@ lucene_index_get_last_uid(struct lucene_index *index)
 		ret = -1;
 	}
 
+	if (deleted) {
+		/* the index was modified. we'll need to release the locks
+		   before opening a writer */
+		lucene_index_close(index);
+	}
 	return ret;
+}
+
+int lucene_index_get_last_uid(struct lucene_index *index, uint32_t *last_uid_r)
+{
+	/* delete the old last_uids in here, since we've not write-locked
+	   the index yet */
+	if (lucene_index_get_last_uid_int(index, true) < 0)
+		return -1;
+
+	*last_uid_r = index->last_uid;
+	return 0;
 }
 
 int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r)
@@ -232,23 +253,8 @@ int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r)
 	i_assert(index->mailbox_name != NULL);
 
 	lucene_index_close(index);
-	if (lucene_index_open(index) < 0)
-		return -1;
-
-	if (index->reader == NULL) {
-		index->last_uid = 0;
-		index->last_uid_doc_id = -1;
-	} else {
-		if (lucene_index_get_last_uid(index) < 0)
-			return -1;
-	}
-	*last_uid_r = index->last_uid;
-
-	if (index->writer != NULL)
-		return 0;
 
 	bool exists = IndexReader::indexExists(index->path);
-	index->analyzer = _CLNEW DovecotAnalyzer();
 	try {
 		index->writer = _CLNEW IndexWriter(index->path,
 						   index->analyzer, !exists);
@@ -257,8 +263,11 @@ int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r)
 			index->path, err.what());
 		return -1;
 	}
-
 	index->writer->setMaxFieldLength(MAX_TERMS_PER_DOCUMENT);
+
+	if (lucene_index_get_last_uid_int(index, false) < 0)
+		return -1;
+	*last_uid_r = index->last_uid;
 	return 0;
 }
 
@@ -339,20 +348,8 @@ static int lucene_index_update_last_uid(struct lucene_index *index)
 	i_snprintf(id, sizeof(id), "%u", index->last_uid);
 	STRCPY_AtoT(tid, id, MAX_INT_STRLEN);
 
-	doc.add(*Field::Text(_T("last_uid"), _T("1")));
-	doc.add(*Field::Text(_T("uid"), tid));
+	doc.add(*Field::Text(_T("last_uid"), tid));
 	doc.add(*Field::Text(_T("box"), index->tmailbox_name));
-
-	try {
-		if (index->last_uid_doc_id >= 0) {
-			//index->reader->deleteDocument(index->last_uid_doc_id);
-			index->last_uid_doc_id = -1;
-		}
-	} catch (CLuceneError &err) {
-		i_error("lucene: IndexWriter::deleteDocument(%s) failed: %s",
-			index->path, err.what());
-		return -1;
-	}
 
 	try {
 		index->writer->addDocument(&doc);
@@ -450,7 +447,7 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 			uint32_t uid;
 
 			if (lucene_doc_get_uid(index, &hits->doc(i),
-					       &uid) < 0) {
+					       _T("uid"), &uid) < 0) {
 				ret = -1;
 				break;
 			}

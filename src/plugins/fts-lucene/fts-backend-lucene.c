@@ -76,6 +76,17 @@ static void fts_backend_lucene_deinit(struct fts_backend *_backend)
 	i_free(backend);
 }
 
+static int
+fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
+				uint32_t *last_uid_r)
+{
+	struct lucene_fts_backend *backend =
+		(struct lucene_fts_backend *)_backend;
+
+	fts_backend_select(backend);
+	return lucene_index_get_last_uid(backend->lstorage->index, last_uid_r);
+}
+
 static struct fts_backend_build_context *
 fts_backend_lucene_build_init(struct fts_backend *_backend, uint32_t *last_uid_r)
 {
@@ -156,6 +167,7 @@ struct fts_backend fts_backend_lucene = {
 	{
 		fts_backend_lucene_init,
 		fts_backend_lucene_deinit,
+		fts_backend_lucene_get_last_uid,
 		fts_backend_lucene_build_init,
 		fts_backend_lucene_build_more,
 		fts_backend_lucene_build_deinit,

@@ -8,6 +8,7 @@ void lucene_index_deinit(struct lucene_index *index);
 
 int lucene_index_select_mailbox(struct lucene_index *index,
 				const char *mailbox_name);
+int lucene_index_get_last_uid(struct lucene_index *index, uint32_t *last_uid_r);
 
 int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r);
 int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
