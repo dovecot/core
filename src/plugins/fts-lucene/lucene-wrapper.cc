@@ -173,6 +173,9 @@ lucene_index_get_last_uid(struct lucene_index *index)
 {
 	int ret = 0;
 
+	index->last_uid = 0;
+	index->last_uid_doc_id = -1;
+
 	if (lucene_index_open_search(index) <= 0)
 		return -1;
 
@@ -185,8 +188,6 @@ lucene_index_get_last_uid(struct lucene_index *index)
 	query.add(&mailbox_query, true, false);
 	query.add(&last_uid_query, true, false);
 
-	index->last_uid = 0;
-	index->last_uid_doc_id = -1;
 	try {
 		Hits *hits = index->searcher->search(&query);
 
@@ -212,14 +213,15 @@ lucene_index_get_last_uid(struct lucene_index *index)
 			} else {
 				del_id = hits->id(i);
 			}
-			if (del_id >= 0)
-				index->reader->deleteDocument(del_id);
+			/*if (del_id >= 0)
+				index->reader->deleteDocument(del_id);*/
 		}
 		_CLDELETE(hits);
 	} catch (CLuceneError &err) {
 		i_error("lucene: last_uid search failed: %s", err.what());
 		ret = -1;
 	}
+
 	return ret;
 }
 
@@ -229,12 +231,14 @@ int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r)
 
 	i_assert(index->mailbox_name != NULL);
 
+	lucene_index_close(index);
 	if (lucene_index_open(index) < 0)
 		return -1;
 
-	if (index->reader == NULL)
+	if (index->reader == NULL) {
 		index->last_uid = 0;
-	else {
+		index->last_uid_doc_id = -1;
+	} else {
 		if (lucene_index_get_last_uid(index) < 0)
 			return -1;
 	}
@@ -341,9 +345,16 @@ static int lucene_index_update_last_uid(struct lucene_index *index)
 
 	try {
 		if (index->last_uid_doc_id >= 0) {
-			index->reader->deleteDocument(index->last_uid_doc_id);
+			//index->reader->deleteDocument(index->last_uid_doc_id);
 			index->last_uid_doc_id = -1;
 		}
+	} catch (CLuceneError &err) {
+		i_error("lucene: IndexWriter::deleteDocument(%s) failed: %s",
+			index->path, err.what());
+		return -1;
+	}
+
+	try {
 		index->writer->addDocument(&doc);
 		return 0;
 	} catch (CLuceneError &err) {
@@ -356,6 +367,11 @@ static int lucene_index_update_last_uid(struct lucene_index *index)
 int lucene_index_build_deinit(struct lucene_index *index)
 {
 	int ret = 0;
+
+	if (index->prev_uid == 0) {
+		/* no changes. */
+		return 0;
+	}
 
 	if (index->prev_uid > index->last_uid)
 		index->last_uid = index->prev_uid;
@@ -449,7 +465,6 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 	}
 
 	_CLDELETE(content_query);
-	lucene_index_close(index);
 	return ret;
 }
 
