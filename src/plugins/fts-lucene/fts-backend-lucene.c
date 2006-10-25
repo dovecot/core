@@ -138,6 +138,16 @@ fts_backend_lucene_build_deinit(struct fts_backend_build_context *ctx)
 	return ret;
 }
 
+static void
+fts_backend_lucene_expunge(struct fts_backend *_backend, struct mail *mail)
+{
+	struct lucene_fts_backend *backend =
+		(struct lucene_fts_backend *)_backend;
+
+	fts_backend_select(backend);
+	(void)lucene_index_expunge(backend->lstorage->index, mail->uid);
+}
+
 static int
 fts_backend_lucene_lookup(struct fts_backend *_backend, const char *key,
 			 ARRAY_TYPE(seq_range) *result)
@@ -171,6 +181,7 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_build_init,
 		fts_backend_lucene_build_more,
 		fts_backend_lucene_build_deinit,
+		fts_backend_lucene_expunge,
 		fts_backend_lucene_lookup,
 		fts_backend_lucene_filter
 	}

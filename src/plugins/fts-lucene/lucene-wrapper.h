@@ -15,6 +15,8 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 			    const unsigned char *data, size_t size);
 int lucene_index_build_deinit(struct lucene_index *index);
 
+int lucene_index_expunge(struct lucene_index *index, uint32_t uid);
+
 int lucene_index_lookup(struct lucene_index *index, const char *key,
 			ARRAY_TYPE(seq_range) *result);
 int lucene_index_filter(struct lucene_index *index, const char *key,

@@ -334,6 +334,8 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		index->doc->add(*Field::Text(_T("box"), index->tmailbox_name));
 	}
 
+	/* note that each addDocument() call adds a new document with a new
+	   internal ID to the database. */
 	index->doc->add(*Field::Text(_T("contents"), dest));
 	index->writer->addDocument(index->doc);
 	return 0;
@@ -401,6 +403,40 @@ int lucene_index_build_deinit(struct lucene_index *index)
 
 	lucene_index_close(index);
 	return ret;
+}
+
+int lucene_index_expunge(struct lucene_index *index, uint32_t uid)
+{
+	char id[MAX_INT_STRLEN];
+	TCHAR tid[MAX_INT_STRLEN];
+	int ret;
+
+	if ((ret = lucene_index_open_search(index)) <= 0)
+		return ret;
+
+	i_snprintf(id, sizeof(id), "%u", uid);
+	STRCPY_AtoT(tid, id, MAX_INT_STRLEN);
+
+	Term mailbox_term(_T("box"), index->tmailbox_name);
+	Term uid_term(_T("uid"), tid);
+	TermQuery mailbox_query(&mailbox_term);
+	TermQuery uid_query(&uid_term);
+
+	BooleanQuery query;
+	query.add(&mailbox_query, true, false);
+	query.add(&uid_query, true, false);
+
+	try {
+		Hits *hits = index->searcher->search(&query);
+
+		for (int32_t i = 0; i < hits->length(); i++)
+			index->reader->deleteDocument(hits->id(i));
+		_CLDELETE(hits);
+		return 0;
+	} catch (CLuceneError &err) {
+		i_error("lucene: expunge search failed: %s", err.what());
+		return -1;
+	}
 }
 
 int lucene_index_lookup(struct lucene_index *index, const char *key,
