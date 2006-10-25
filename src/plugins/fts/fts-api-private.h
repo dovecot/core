@@ -16,6 +16,8 @@ struct fts_backend_vfuncs {
 			  const unsigned char *data, size_t size);
 	int (*build_deinit)(struct fts_backend_build_context *ctx);
 
+	void (*expunge)(struct fts_backend *backend, struct mail *mail);
+
 	int (*lookup)(struct fts_backend *backend, const char *key,
 		      ARRAY_TYPE(seq_range) *result);
 	int (*filter)(struct fts_backend *backend, const char *key,

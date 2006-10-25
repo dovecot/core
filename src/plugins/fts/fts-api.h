@@ -1,6 +1,7 @@
 #ifndef __FTS_API_H
 #define __FTS_API_H
 
+struct mail;
 struct mailbox;
 
 #include "seq-range-array.h"
@@ -23,6 +24,9 @@ int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
 			   const unsigned char *data, size_t size);
 /* Finish adding new data to the index. */
 int fts_backend_build_deinit(struct fts_backend_build_context *ctx);
+
+/* Expunge given mail from the backend. */
+void fts_backend_expunge(struct fts_backend *backend, struct mail *mail);
 
 /* Lookup key from the index and return the found UIDs in result. */
 int fts_backend_lookup(struct fts_backend *backend, const char *key,

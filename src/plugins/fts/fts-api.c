@@ -77,6 +77,11 @@ int fts_backend_build_deinit(struct fts_backend_build_context *ctx)
 	return ctx->backend->v.build_deinit(ctx);
 }
 
+void fts_backend_expunge(struct fts_backend *backend, struct mail *mail)
+{
+	backend->v.expunge(backend, mail);
+}
+
 int fts_backend_lookup(struct fts_backend *backend, const char *key,
 		       ARRAY_TYPE(seq_range) *result)
 {

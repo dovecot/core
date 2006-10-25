@@ -27,6 +27,10 @@ struct fts_search_context {
 	unsigned int result_pos;
 };
 
+struct fts_mail {
+	struct mail_vfuncs super;
+};
+
 static unsigned int fts_storage_module_id = 0;
 static bool fts_storage_module_id_set = FALSE;
 
@@ -371,6 +375,40 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 	return fbox->super.search_deinit(ctx);
 }
 
+static int fts_mail_expunge(struct mail *_mail)
+{
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct fts_mail *fmail = FTS_CONTEXT(mail);
+	struct fts_mailbox *fbox = FTS_CONTEXT(_mail->box);
+
+	if (fmail->super.expunge(_mail) < 0)
+		return -1;
+
+	fts_backend_expunge(fbox->backend, _mail);
+	return 0;
+}
+
+static struct mail *
+fts_mail_alloc(struct mailbox_transaction_context *t,
+	       enum mail_fetch_field wanted_fields,
+	       struct mailbox_header_lookup_ctx *wanted_headers)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
+	struct fts_mail *fmail;
+	struct mail *_mail;
+	struct mail_private *mail;
+
+	_mail = fbox->super.mail_alloc(t, wanted_fields, wanted_headers);
+	mail = (struct mail_private *)_mail;
+
+	fmail = p_new(mail->pool, struct fts_mail, 1);
+	fmail->super = mail->v;
+
+	mail->v.expunge = fts_mail_expunge;
+	array_idx_set(&mail->module_contexts, fts_storage_module_id, &fmail);
+	return _mail;
+}
+
 void fts_mailbox_opened(struct mailbox *box)
 {
 	struct fts_mailbox *fbox;
@@ -395,6 +433,7 @@ void fts_mailbox_opened(struct mailbox *box)
 	box->v.search_init = fts_mailbox_search_init;
 	box->v.search_next_update_seq = fts_mailbox_search_next_update_seq;
 	box->v.search_deinit = fts_mailbox_search_deinit;
+	box->v.mail_alloc = fts_mail_alloc;
 
 	if (!fts_storage_module_id_set) {
 		fts_storage_module_id = mail_storage_module_id++;
