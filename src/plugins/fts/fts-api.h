@@ -9,6 +9,9 @@ struct fts_backend *
 fts_backend_init(const char *backend_name, struct mailbox *box);
 void fts_backend_deinit(struct fts_backend *backend);
 
+/* Get the last_uid. */
+int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r);
+
 /* Initialize adding new data to the index. last_uid_r is set to the last UID
    that exists in the index. */
 struct fts_backend_build_context *

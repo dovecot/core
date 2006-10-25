@@ -199,22 +199,38 @@ static int fts_build_new(struct mailbox_transaction_context *t)
 	struct mail_search_seqset seqset;
 	struct mail_search_arg search_arg;
 	struct mail *mail;
-	uint32_t last_uid;
+	uint32_t last_uid, last_uid_locked;
 	int ret = 0;
 
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.build = fts_backend_build_init(fbox->backend, &last_uid);
+	if (fts_backend_get_last_uid(fbox->backend, &last_uid) < 0)
+		return -1;
 
 	memset(&seqset, 0, sizeof(seqset));
 	if (mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
-			     &seqset.seq1, &seqset.seq2) < 0) {
-		(void)fts_backend_build_deinit(ctx.build);
+			     &seqset.seq1, &seqset.seq2) < 0)
 		return -1;
-	}
 	if (seqset.seq1 == 0) {
 		/* no new messages */
-		(void)fts_backend_build_deinit(ctx.build);
 		return 0;
+	}
+
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.build = fts_backend_build_init(fbox->backend, &last_uid_locked);
+	if (last_uid != last_uid_locked) {
+		/* changed, need to get again the sequences */
+		i_assert(last_uid < last_uid_locked);
+
+		last_uid = last_uid_locked;
+		if (mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
+				     &seqset.seq1, &seqset.seq2) < 0) {
+			(void)fts_backend_build_deinit(ctx.build);
+			return -1;
+		}
+		if (seqset.seq1 == 0) {
+			/* no new messages */
+			(void)fts_backend_build_deinit(ctx.build);
+			return 0;
+		}
 	}
 
 	memset(&search_arg, 0, sizeof(search_arg));

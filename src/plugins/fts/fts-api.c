@@ -55,6 +55,11 @@ void fts_backend_deinit(struct fts_backend *backend)
 	return backend->v.deinit(backend);
 }
 
+int fts_backend_get_last_uid(struct fts_backend *backend, uint32_t *last_uid_r)
+{
+	return backend->v.get_last_uid(backend, last_uid_r);
+}
+
 struct fts_backend_build_context *
 fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r)
 {

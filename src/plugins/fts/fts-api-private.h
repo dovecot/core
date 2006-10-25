@@ -7,6 +7,8 @@ struct fts_backend_vfuncs {
 	struct fts_backend *(*init)(struct mailbox *box);
 	void (*deinit)(struct fts_backend *backend);
 
+	int (*get_last_uid)(struct fts_backend *backend, uint32_t *last_uid_r);
+
 	struct fts_backend_build_context *
 		(*build_init)(struct fts_backend *backend,
 			      uint32_t *last_uid_r);
