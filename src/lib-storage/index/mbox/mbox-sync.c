@@ -786,9 +786,17 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	uoff_t end_offset, move_diff, extra_space, needed_space;
 	uint32_t last_seq;
+	array_t ARRAY_DEFINE(keywords_copy, unsigned int);
 
 	i_assert(mail_ctx->mail.uid == 0 || mail_ctx->mail.space > 0 ||
 		 mail_ctx->mail.offset == mail_ctx->hdr_offset);
+
+	/* mail's keywords are allocated from a pool that's cleared for each
+	   mail. we'll need to copy it to something more permanent. */
+	ARRAY_CREATE(&keywords_copy, sync_ctx->saved_keywords_pool,
+		     unsigned int, array_count(&mail_ctx->mail.keywords));
+	array_append_array(&keywords_copy, &mail_ctx->mail.keywords);
+	mail_ctx->mail.keywords = keywords_copy;
 	array_append(&sync_ctx->mails, &mail_ctx->mail, 1);
 
 	sync_ctx->space_diff += mail_ctx->mail.space;
@@ -851,6 +859,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 	sync_ctx->need_space_seq = 0;
 	sync_ctx->space_diff = 0;
 	array_clear(&sync_ctx->mails);
+	p_clear(sync_ctx->saved_keywords_pool);
 	return 0;
 }
 
@@ -1289,6 +1298,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 		sync_ctx->need_space_seq = 0;
 		array_clear(&sync_ctx->mails);
+		p_clear(sync_ctx->saved_keywords_pool);
 	}
 
 	if (sync_ctx->expunged_space > 0) {
@@ -1403,6 +1413,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 
 	array_clear(&sync_ctx->mails);
 	array_clear(&sync_ctx->syncs);
+	p_clear(sync_ctx->saved_keywords_pool);
 
 	memset(&sync_ctx->sync_rec, 0, sizeof(sync_ctx->sync_rec));
         mail_index_sync_reset(sync_ctx->index_sync_ctx);
@@ -1538,6 +1549,7 @@ static void mbox_sync_context_free(struct mbox_sync_context *sync_ctx)
 	if (sync_ctx->index_sync_ctx != NULL)
 		mail_index_sync_rollback(&sync_ctx->index_sync_ctx);
 	pool_unref(sync_ctx->mail_keyword_pool);
+	pool_unref(sync_ctx->saved_keywords_pool);
 	str_free(&sync_ctx->header);
 	str_free(&sync_ctx->from_line);
 	array_free(&sync_ctx->mails);
@@ -1653,6 +1665,8 @@ __again:
 	sync_ctx.t = mail_index_transaction_begin(sync_view, FALSE, TRUE);
 	sync_ctx.mail_keyword_pool =
 		pool_alloconly_create("mbox keywords", 256);
+	sync_ctx.saved_keywords_pool =
+		pool_alloconly_create("mbox saved keywords", 4096);
 
 	/* make sure we've read the latest keywords in index */
 	(void)mail_index_get_keywords(mbox->ibox.index);
