@@ -791,13 +791,17 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 	i_assert(mail_ctx->mail.uid == 0 || mail_ctx->mail.space > 0 ||
 		 mail_ctx->mail.offset == mail_ctx->hdr_offset);
 
-	/* mail's keywords are allocated from a pool that's cleared for each
-	   mail. we'll need to copy it to something more permanent. */
-	ARRAY_CREATE(&keywords_copy, sync_ctx->saved_keywords_pool,
-		     unsigned int, array_count(&mail_ctx->mail.keywords));
-	array_append_array(&keywords_copy, &mail_ctx->mail.keywords);
-	mail_ctx->mail.keywords = keywords_copy;
-	array_append(&sync_ctx->mails, &mail_ctx->mail, 1);
+	if (array_is_created(&mail_ctx->mail.keywords)) {
+		/* mail's keywords are allocated from a pool that's cleared
+		   for each mail. we'll need to copy it to something more
+		   permanent. */
+		ARRAY_CREATE(&keywords_copy, sync_ctx->saved_keywords_pool,
+			     unsigned int,
+			     array_count(&mail_ctx->mail.keywords));
+		array_append_array(&keywords_copy, &mail_ctx->mail.keywords);
+		mail_ctx->mail.keywords = keywords_copy;
+		array_append(&sync_ctx->mails, &mail_ctx->mail, 1);
+	}
 
 	sync_ctx->space_diff += mail_ctx->mail.space;
 	if (sync_ctx->space_diff < 0) {
