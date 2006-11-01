@@ -786,7 +786,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	uoff_t end_offset, move_diff, extra_space, needed_space;
 	uint32_t last_seq;
-	array_t ARRAY_DEFINE(keywords_copy, unsigned int);
+	ARRAY_TYPE(keyword_indexes) keywords_copy;
 
 	i_assert(mail_ctx->mail.uid == 0 || mail_ctx->mail.space > 0 ||
 		 mail_ctx->mail.offset == mail_ctx->hdr_offset);
@@ -795,8 +795,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		/* mail's keywords are allocated from a pool that's cleared
 		   for each mail. we'll need to copy it to something more
 		   permanent. */
-		ARRAY_CREATE(&keywords_copy, sync_ctx->saved_keywords_pool,
-			     unsigned int,
+		p_array_init(&keywords_copy, sync_ctx->saved_keywords_pool,
 			     array_count(&mail_ctx->mail.keywords));
 		array_append_array(&keywords_copy, &mail_ctx->mail.keywords);
 		mail_ctx->mail.keywords = keywords_copy;
