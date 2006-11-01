@@ -18,8 +18,9 @@ char *p_strdup_until(pool_t pool, const void *start, const void *end); /* *end i
 char *p_strndup(pool_t pool, const void *str, size_t max_chars);
 char *p_strdup_printf(pool_t pool, const char *format, ...)
 	__attr_format__(2, 3);
-char *p_strdup_vprintf(pool_t pool, const char *format, va_list args);
-char *p_strconcat(pool_t pool, const char *str1, ...); /* NULL terminated */
+char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
+	__attr_format__(2, 0);
+char *p_strconcat(pool_t pool, const char *str1, ...) __attr_sentinel__;
 
 /* same with temporary memory allocations: */
 const char *t_strdup(const char *str);
@@ -28,8 +29,9 @@ const char *t_strdup_empty(const char *str); /* return NULL if str = "" */
 const char *t_strdup_until(const void *start, const void *end); /* *end isn't included */
 const char *t_strndup(const void *str, size_t max_chars);
 const char *t_strdup_printf(const char *format, ...) __attr_format__(1, 2);
-const char *t_strdup_vprintf(const char *format, va_list args);
-const char *t_strconcat(const char *str1, ...); /* NULL terminated */
+const char *t_strdup_vprintf(const char *format, va_list args)
+	__attr_format__(1, 0);
+const char *t_strconcat(const char *str1, ...) __attr_sentinel__;
 
 /* Like t_strdup(), but stop at cutchar. */
 const char *t_strcut(const char *str, char cutchar);

@@ -102,6 +102,12 @@
 #  define __attr_unused__ __attribute__((unused))
 #  define __attr_noreturn__ __attribute__((noreturn))
 #  define __attr_const__ __attribute__((const))
+#  if __GNUC__ > 3
+/* GCC 4.0 and later */
+#    define __attr_sentinel__ __attribute__((sentinel))
+#  else
+#    define __attr_sentinel__
+#  endif
 #else
 #  define __attr_format__(format_idx, arg_idx)
 #  define __attr_format_arg__(arg_idx)
@@ -109,6 +115,7 @@
 #  define __attr_noreturn__
 #  define __attr_const__
 #  define __attr_unused__
+#  define __attr_sentinel__
 #endif
 
 /* C99-style struct member definitions */

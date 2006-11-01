@@ -12,13 +12,16 @@
 #include <time.h>
 
 static void default_panic_handler(const char *format, va_list args)
-	__attr_noreturn__;
+	__attr_noreturn__ __attr_format__(1, 0);
 static void default_fatal_handler(int status, const char *format, va_list args)
-	__attr_noreturn__;
+	__attr_noreturn__ __attr_format__(2, 0);
 
-static void default_error_handler(const char *format, va_list args);
-static void default_warning_handler(const char *format, va_list args);
-static void default_info_handler(const char *format, va_list args);
+static void default_error_handler(const char *format, va_list args)
+	__attr_format__(1, 0);
+static void default_warning_handler(const char *format, va_list args)
+	__attr_format__(1, 0);
+static void default_info_handler(const char *format, va_list args)
+	__attr_format__(1, 0);
 
 /* Initialize working defaults */
 static failure_callback_t *panic_handler __attr_noreturn__ =

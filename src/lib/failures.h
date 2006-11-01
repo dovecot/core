@@ -34,12 +34,16 @@ void i_set_warning_handler(failure_callback_t *callback);
 void i_set_info_handler(failure_callback_t *callback);
 
 /* Send failures to syslog() */
-void i_syslog_panic_handler(const char *fmt, va_list args) __attr_noreturn__;
+void i_syslog_panic_handler(const char *fmt, va_list args)
+	__attr_noreturn__ __attr_format__(1, 0);
 void i_syslog_fatal_handler(int status, const char *fmt, va_list args)
-	__attr_noreturn__;
-void i_syslog_error_handler(const char *fmt, va_list args);
-void i_syslog_warning_handler(const char *fmt, va_list args);
-void i_syslog_info_handler(const char *fmt, va_list args);
+	__attr_noreturn__ __attr_format__(2, 0);
+void i_syslog_error_handler(const char *fmt, va_list args)
+	__attr_format__(1, 0);
+void i_syslog_warning_handler(const char *fmt, va_list args)
+	__attr_format__(1, 0);
+void i_syslog_info_handler(const char *fmt, va_list args)
+	__attr_format__(1, 0);
 
 /* Open syslog and set failure/info handlers to use it. */
 void i_set_failure_syslog(const char *ident, int options, int facility);

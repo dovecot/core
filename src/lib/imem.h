@@ -19,9 +19,9 @@ char *i_strdup_empty(const char *str); /* like i_strdup(), but if str == "", ret
 char *i_strdup_until(const void *str, const void *end); /* *end isn't included */
 char *i_strndup(const void *str, size_t max_chars);
 char *i_strdup_printf(const char *format, ...) __attr_format__(1, 2);
-char *i_strdup_vprintf(const char *format, va_list args);
+char *i_strdup_vprintf(const char *format, va_list args) __attr_format__(1, 0);
 
-char *i_strconcat(const char *str1, ...); /* NULL terminated */
+char *i_strconcat(const char *str1, ...)  __attr_sentinel__;
 
 void imem_init(void);
 
