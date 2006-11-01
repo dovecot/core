@@ -20,7 +20,8 @@ struct pool {
 
 	/* memory in old_size..new_size will be zeroed */
 	void *(*realloc)(pool_t pool, void *mem,
-			 size_t old_size, size_t new_size);
+			 size_t old_size, size_t new_size)
+		__attr_warn_unused_result__;
 
 	/* Frees all the memory in pool. NOTE: system_pool doesn't support
 	   this and crashes if it's used */
