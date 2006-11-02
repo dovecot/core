@@ -85,7 +85,9 @@ static void sql_query_callback(struct sql_result *result, void *context)
 			auth_request_log_error(auth_request, "sql",
 				"Password query returned multiple matches");
 		} else {
-			password = auth_request->passdb_password;
+			/* passdb_password may change on the way,
+			   so we'll need to strdup. */
+			password = t_strdup(auth_request->passdb_password);
 			if (password == NULL)
 				auth_request->no_password = TRUE;
 			passdb_result = PASSDB_RESULT_OK;

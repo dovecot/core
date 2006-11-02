@@ -180,7 +180,9 @@ static void handle_request(struct ldap_connection *conn,
 		auth_request_log_error(auth_request, "ldap",
 				       "Multiple password replies");
 	} else {
-		password = p_strdup(auth_request->pool, auth_request->passdb_password);
+		/* passdb_password may change on the way,
+		   so we'll need to strdup. */
+		password = t_strdup(auth_request->passdb_password);
 		if (password == NULL)
 			auth_request->no_password = TRUE;
 		passdb_result = PASSDB_RESULT_OK;
