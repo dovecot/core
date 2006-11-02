@@ -21,10 +21,25 @@ static bool field_has_fixed_size(enum mail_cache_field_type type)
 	case MAIL_CACHE_FIELD_STRING:
 	case MAIL_CACHE_FIELD_HEADER:
 		return FALSE;
+
+	case MAIL_CACHE_FIELD_COUNT:
+		break;
 	}
 
 	i_unreached();
 	return FALSE;
+}
+
+static bool field_decision_is_valid(enum mail_cache_decision_type type)
+{
+	switch (type & ~MAIL_CACHE_DECISION_FORCED) {
+	case MAIL_CACHE_DECISION_NO:
+	case MAIL_CACHE_DECISION_TEMP:
+	case MAIL_CACHE_DECISION_YES:
+		return TRUE;
+	default:
+		return FALSE;
+	}
 }
 
 static int field_type_verify(struct mail_cache *cache, unsigned int idx,
@@ -58,6 +73,8 @@ void mail_cache_register_fields(struct mail_cache *cache,
 	for (i = 0; i < fields_count; i++) {
 		if (hash_lookup_full(cache->field_name_hash, fields[i].name,
 				     &orig_key, &orig_value)) {
+			i_assert(fields[i].type < MAIL_CACHE_FIELD_COUNT);
+
 			fields[i].idx =
 				POINTER_CAST_TO(orig_value, unsigned int);
 			(void)field_type_verify(cache, fields[i].idx,
@@ -260,6 +277,16 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		if (p == end || *names == '\0') {
 			mail_cache_set_corrupted(cache,
 				"field header names corrupted");
+			return -1;
+		}
+
+		if (types[i] > MAIL_CACHE_FIELD_COUNT) {
+			mail_cache_set_corrupted(cache, "field type corrupted");
+			return -1;
+		}
+		if (!field_decision_is_valid(decisions[i])) {
+			mail_cache_set_corrupted(cache,
+				"field decision type corrupted");
 			return -1;
 		}
 
