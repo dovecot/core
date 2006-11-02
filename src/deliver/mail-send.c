@@ -95,8 +95,20 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 
     input = mail_get_stream(mail, &hdr_size, NULL);
     if (input != NULL) {
-	    input = i_stream_create_limit(default_pool, input,
-					  0, hdr_size.physical_size);
+	    /* Note: If you add more headers, they need to be sorted.
+	       We'll drop Content-Type because we're not including the message
+	       body, and having a multipart Content-Type may confuse some
+	       MIME parsers when they don't see the message boundaries. */
+	    static const char *const exclude_headers[] = {
+		    "Content-Type"
+	    };
+
+	    input = i_stream_create_header_filter(input,
+	    		HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR |
+			HEADER_FILTER_HIDE_BODY, exclude_headers,
+			sizeof(exclude_headers) / sizeof(exclude_headers[0]),
+			NULL, NULL);
+
 	    while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
 		    fwrite(data, size, 1, f);
 		    i_stream_skip(input, size);
