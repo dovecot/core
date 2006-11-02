@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <sysexits.h>
 
+#define AUTH_REQUEST_TIMEOUT 60
 #define MAX_INBUF_SIZE 8192
 #define MAX_OUTBUF_SIZE 512
 
@@ -20,6 +21,7 @@ static int return_value;
 
 struct auth_connection {
 	int fd;
+	struct timeout *to;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -35,6 +37,8 @@ static void auth_connection_destroy(struct auth_connection *conn)
 {
 	io_loop_stop(conn->ioloop);
 
+	if (conn->to != NULL)
+		timeout_remove(&conn->to);
 	io_remove(&conn->io);
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
@@ -184,6 +188,17 @@ static struct auth_connection *auth_connection_new(const char *auth_socket)
 	return conn;
 }
 
+static void auth_client_timeout(void *context)
+{
+	struct auth_connection *conn = context;
+
+	if (!conn->handshaked)
+		i_error("Connecting to dovecot-auth timed out");
+	else
+		i_error("User request from dovecot-auth timed out");
+	auth_connection_destroy(conn);
+}
+
 int auth_client_put_user_env(struct ioloop *ioloop, const char *auth_socket,
 			     const char *user, uid_t euid)
 {
@@ -196,6 +211,8 @@ int auth_client_put_user_env(struct ioloop *ioloop, const char *auth_socket,
 	conn->ioloop = ioloop;
 	conn->euid = euid;
 	conn->user = user;
+	conn->to = timeout_add(1000*AUTH_REQUEST_TIMEOUT,
+			       auth_client_timeout, conn);
 
 	o_stream_send_str(conn->output,
 			  t_strconcat("VERSION\t1\t0\n"
