@@ -31,7 +31,7 @@
 #define DEFAULT_CONFIG_FILE SYSCONFDIR"/dovecot.conf"
 #define DEFAULT_AUTH_SOCKET_PATH PKG_RUNDIR"/auth-master"
 #define DEFAULT_SENDMAIL_PATH "/usr/lib/sendmail"
-#define DEFAULT_ENVELOPE_SENDER "dovecot.deliver"
+#define DEFAULT_ENVELOPE_SENDER "MAILER-DAEMON"
 
 /* After buffer grows larger than this, create a temporary file to /tmp
    where to read the mail. */
@@ -312,7 +312,8 @@ static const char *address_sanitize(const char *address)
 	pool = pool_alloconly_create("address sanitizer", 256);
 	addr = message_address_parse(pool, (const unsigned char *)address,
 				     strlen(address), 1, FALSE);
-	if (addr->mailbox == NULL || addr->domain == NULL ||
+
+	if (addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
 	    *addr->mailbox == '\0')
 		ret = DEFAULT_ENVELOPE_SENDER;
 	else if (*addr->domain == '\0')
@@ -445,7 +446,7 @@ int main(int argc, char *argv[])
 			i++;
 			if (i == argc) {
 				i_fatal_status(EX_USAGE,
-					       "Missing envleope argument");
+					       "Missing envelope argument");
 			}
 			envelope_sender = argv[i];
 		} else {
