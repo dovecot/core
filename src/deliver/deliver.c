@@ -373,7 +373,9 @@ static void open_logfile(const char *username)
 
 static void print_help(void)
 {
-	printf("Usage: deliver [-c <config file>] [-d <destination user>] [-m <mailbox>]\n");
+	printf(
+"Usage: deliver [-c <config file>] [-d <destination user>] [-m <mailbox>]\n"
+"               [-f <envelope sender>]\n");
 }
 
 int main(int argc, char *argv[])
