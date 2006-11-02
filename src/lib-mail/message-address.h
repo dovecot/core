@@ -12,7 +12,10 @@ struct message_address {
 
 /* Parse message addresses from given data. If fill_missing is TRUE, missing
    mailbox and domain are set to MISSING_MAILBOX and MISSING_DOMAIN strings.
-   Otherwise they're set to "". */
+   Otherwise they're set to "".
+
+   Note that giving an empty string will return NULL since there are no
+   addresses. */
 struct message_address *
 message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 		      unsigned int max_addresses, bool fill_missing);
