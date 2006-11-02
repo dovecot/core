@@ -215,14 +215,26 @@ checkpassword_verify_plain_child(struct auth_request *request,
 
 		/* Besides passing the standard username and password in a
 		   pipe, also pass some other possibly interesting information
-		   via environment. */
+		   via environment. Use UCSPI names for local/remote IPs. */
+		/*  */
+		env_put("PROTO=TCP"); /* UCSPI */
 		env_put(t_strconcat("SERVICE=", request->service, NULL));
 		if (request->local_ip.family != 0) {
+			env_put(t_strconcat("TCPLOCALIP=",
+					    net_ip2addr(&request->local_ip),
+					    NULL));
+			/* FIXME: for backwards compatibility only,
+			   remove some day */
 			env_put(t_strconcat("LOCAL_IP=",
 					    net_ip2addr(&request->local_ip),
 					    NULL));
 		}
 		if (request->remote_ip.family != 0) {
+			env_put(t_strconcat("TCPREMOTEIP=",
+					    net_ip2addr(&request->remote_ip),
+					    NULL));
+			/* FIXME: for backwards compatibility only,
+			   remove some day */
 			env_put(t_strconcat("REMOTE_IP=",
 					    net_ip2addr(&request->remote_ip),
 					    NULL));
