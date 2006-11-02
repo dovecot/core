@@ -480,6 +480,9 @@ int main(int argc, char *argv[])
 	config_file_init(config_path);
 	open_logfile(user);
 
+	if (getenv("MAIL_DEBUG") != NULL)
+		env_put("DEBUG=1");
+
 	if (destination != NULL) {
 		auth_socket = getenv("AUTH_SOCKET_PATH");
 		if (auth_socket == NULL)
