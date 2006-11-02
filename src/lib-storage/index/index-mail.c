@@ -15,7 +15,7 @@
 #include "index-storage.h"
 #include "index-mail.h"
 
-struct mail_cache_field global_cache_fields[MAIL_CACHE_FIELD_COUNT] = {
+struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ "flags", 0, MAIL_CACHE_FIELD_BITMASK, sizeof(uint32_t), 0 },
 	{ "date.sent", 0, MAIL_CACHE_FIELD_FIXED_SIZE,
 	  sizeof(struct mail_sent_date), 0 },

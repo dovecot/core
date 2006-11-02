@@ -20,9 +20,10 @@ enum index_cache_field {
 	MAIL_CACHE_IMAP_ENVELOPE,
 	MAIL_CACHE_MESSAGE_PARTS,
 
-	MAIL_CACHE_FIELD_COUNT
+	MAIL_INDEX_CACHE_FIELD_COUNT
 };
-extern struct mail_cache_field global_cache_fields[MAIL_CACHE_FIELD_COUNT];
+extern struct mail_cache_field
+	global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT];
 
 #define IMAP_BODY_PLAIN_7BIT_ASCII \
 	"\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\""
