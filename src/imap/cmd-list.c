@@ -361,6 +361,12 @@ list_namespace_init(struct client_command_context *cmd,
 			}
 			cur_mask++;
 		}
+
+		if (*cur_mask == '\0' && ctx->match_inbox) {
+			/* oh what a horrible hack. ns_prefix="INBOX/" and
+			   we wanted to list "%". INBOX should match. */
+			cur_mask = "INBOX";
+		}
 	}
 
 	if (*cur_mask != '*' || strcmp(ctx->mask, "*") == 0) {
