@@ -321,7 +321,8 @@ login_read_request(struct login_process *p, struct master_login_request *req,
 			/* disconnected, ie. the login process died */
 		} else if (ret > 0) {
 			/* request wasn't fully read */
-			i_error("login: fd_read() returned partial %d", ret);
+			i_error("login: fd_read() returned partial %d",
+				(int)ret);
 		} else {
 			if (errno == EAGAIN)
 				return 0;
