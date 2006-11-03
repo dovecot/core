@@ -44,7 +44,7 @@ static unsigned int append_string(buffer_t *buf, const char *str,
 	unsigned int length = 0;
 
 	for ( ; *str; str++) {
-		buffer_append_c(buf, ucase ? toupper(*str) : *str);
+		buffer_append_c(buf, ucase ? i_toupper(*str) : *str);
 		if (unicode) {
 			buffer_append_c(buf, 0);
 			length++; 
