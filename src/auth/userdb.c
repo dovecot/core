@@ -56,7 +56,7 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 	if (pw == NULL) {
 		if (request != NULL) {
 			auth_request_log_error(request, "userdb",
-					       "Invalid UID field '%s'", str);
+					       "Invalid UID value '%s'", str);
 		}
 		return (uid_t)-1;
 	}
@@ -77,7 +77,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	if (gr == NULL) {
 		if (request != NULL) {
 			auth_request_log_error(request, "userdb",
-					       "Invalid GID field '%s'", str);
+					       "Invalid GID value '%s'", str);
 		}
 		return (gid_t)-1;
 	}
