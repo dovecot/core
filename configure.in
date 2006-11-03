@@ -1144,6 +1144,40 @@ AC_TRY_COMPILE([
   AC_MSG_RESULT(no)
 ])
 
+dnl * Check if statvfs() can be used to find out block device for files
+AC_MSG_CHECKING([if statvfs.f_mntfromname exists])
+AC_TRY_COMPILE([
+  #include <sys/types.h>
+  #include <sys/statvfs.h>
+], [
+  struct statvfs buf;
+  char *p = buf.f_mntfromname;
+
+  statvfs(".", &buf);
+], [
+  AC_DEFINE(HAVE_STATVFS_MNTFROMNAME,, Define if you have statvfs.f_mntfromname)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+])
+
+dnl * Check if statvfs() can be used to find out block device for files
+AC_MSG_CHECKING([if statvfs.f_mntfromname exists])
+AC_TRY_COMPILE([
+  #include <sys/types.h>
+  #include <sys/statvfs.h>
+], [
+  struct statvfs buf;
+  char *p = buf.f_mntfromname;
+
+  statvfs(".", &buf);
+], [
+  AC_DEFINE(HAVE_STATVFS_MNTFROMNAME,, Define if you have statvfs.f_mntfromname)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+])
+
 dnl * Check if statfs() can be used to find out block device for files
 AC_MSG_CHECKING([if statfs.f_mntfromname exists])
 AC_TRY_COMPILE([

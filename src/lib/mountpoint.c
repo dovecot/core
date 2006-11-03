@@ -5,9 +5,14 @@
 
 #include <sys/stat.h>
 
-#ifdef HAVE_STATFS_MNTFROMNAME
-#  include <sys/param.h> /* BSDs */
+#ifdef HAVE_STATVFS_MNTFROMNAME
+#  include <sys/statvfs.h> /* NetBSD 3.0+, FreeBSD 5.0+ */
+#  define STATVFS_STR "statvfs"
+#elif HAVE_STATFS_MNTFROMNAME
+#  include <sys/param.h> /* Older BSDs */
 #  include <sys/mount.h>
+#  define statvfs statfs
+#  define STATVFS_STR "statfs"
 #elif defined(HAVE_MNTENT_H)
 #  include <stdio.h>
 #  include <mntent.h> /* Linux */
@@ -38,16 +43,16 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	memset(point_r, 0, sizeof(*point_r));
 	errno = ENOSYS;
 	return -1;
-#elif defined (HAVE_STATFS_MNTFROMNAME)
+#elif defined (HAVE_STATFS_MNTFROMNAME) || defined(HAVE_STATVFS_MNTFROMNAME)
 	/* BSDs */
-	struct statfs buf;
+	struct statvfs buf;
 
 	memset(point_r, 0, sizeof(*point_r));
-	if (statfs(path, &buf) < 0) {
+	if (statvfs(path, &buf) < 0) {
 		if (errno == ENOENT)
 			return 0;
 
-		i_error("statfs(%s) failed: %m", path);
+		i_error(STATVFS_STR"(%s) failed: %m", path);
 		return -1;
 	}
 
