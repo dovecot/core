@@ -207,14 +207,14 @@ static void set_cache_decisions(const char *set, const char *fields,
 		return;
 
 	for (arr = t_strsplit_spaces(fields, " ,"); *arr != NULL; arr++) {
-		for (i = 0; i < MAIL_CACHE_FIELD_COUNT; i++) {
+		for (i = 0; i < MAIL_INDEX_CACHE_FIELD_COUNT; i++) {
 			if (strcasecmp(global_cache_fields[i].name,
 				       *arr) == 0) {
 				global_cache_fields[i].decision = dec;
 				break;
 			}
 		}
-		if (i == MAIL_CACHE_FIELD_COUNT) {
+		if (i == MAIL_INDEX_CACHE_FIELD_COUNT) {
 			i_error("%s: Invalid cache field name '%s', ignoring ",
 				set, *arr);
 		}
@@ -252,7 +252,7 @@ static void index_cache_register_defaults(struct index_mailbox *ibox)
 	memcpy(ibox->cache_fields, global_cache_fields,
 	       sizeof(global_cache_fields));
 	mail_cache_register_fields(cache, ibox->cache_fields,
-				   MAIL_CACHE_FIELD_COUNT);
+				   MAIL_INDEX_CACHE_FIELD_COUNT);
 }
 
 void index_storage_lock_notify(struct index_mailbox *ibox,
