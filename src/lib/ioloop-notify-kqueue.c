@@ -23,6 +23,16 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
+/* kevent.udata's type just has to be different in NetBSD than in
+   FreeBSD and OpenBSD.. */
+#ifdef __NetBSD__
+#  define MY_EV_SET(a, b, c, d, e, f, g) \
+	EV_SET(a, b, c, d, e, f, (intptr_t)g)
+#else
+#  define MY_EV_SET(a, b, c, d, e, f, g) \
+	EV_SET(a, b, c, d, e, f, g)
+#endif
+
 struct ioloop_notify_handler_context {
 	int kq;
 	struct io *event_io;
@@ -50,7 +60,7 @@ static void event_callback(void *context)
 
 		i_fatal("kevent(notify) failed: %m");
 	}
-	io = ev.udata;
+	io = (void *)ev.udata;
 	io->callback(io->context);
 }
 
@@ -114,8 +124,8 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	/* EV_CLEAR flag is needed because the EVFILT_VNODE filter reports
 	   event state transitions and not the current state.  With this flag,
 	   the same event is only returned once. */
-	EV_SET(&ev, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR,
-	       NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND | NOTE_REVOKE, 0, io);
+	MY_EV_SET(&ev, fd, EVFILT_VNODE, EV_ADD | EV_CLEAR,
+		  NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND | NOTE_REVOKE, 0, io);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
 		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
 		(void)close(fd);
@@ -139,7 +149,7 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 
 	i_assert((io->condition & IO_NOTIFY) != 0);
 
-	EV_SET(&ev, io->fd, EVFILT_VNODE, EV_DELETE, 0, 0, NULL);
+	MY_EV_SET(&ev, io->fd, EVFILT_VNODE, EV_DELETE, 0, 0, NULL);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, 0) < 0)
 		i_error("kevent(%d) for notify remove failed: %m", io->fd);
 	if (close(io->fd) < 0)

@@ -23,6 +23,16 @@
 #include <sys/event.h>
 #include <sys/time.h>
 
+/* kevent.udata's type just has to be different in NetBSD than in
+   FreeBSD and OpenBSD.. */
+#ifdef __NetBSD__
+#  define MY_EV_SET(a, b, c, d, e, f, g) \
+	EV_SET(a, b, c, d, e, f, (intptr_t)g)
+#else
+#  define MY_EV_SET(a, b, c, d, e, f, g) \
+	EV_SET(a, b, c, d, e, f, g)
+#endif
+
 struct ioloop_handler_context {
 	int kq;
 
@@ -59,12 +69,12 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 	struct kevent ev;
 
 	if ((io->condition & (IO_READ | IO_ERROR)) != 0) {
-		EV_SET(&ev, io->fd, EVFILT_READ, EV_ADD, 0, 0, io);
+		MY_EV_SET(&ev, io->fd, EVFILT_READ, EV_ADD, 0, 0, io);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_fatal("kevent(EV_ADD, %d) failed: %m", io->fd);
 	}
 	if ((io->condition & IO_WRITE) != 0) {
-		EV_SET(&ev, io->fd, EVFILT_WRITE, EV_ADD, 0, 0, io);
+		MY_EV_SET(&ev, io->fd, EVFILT_WRITE, EV_ADD, 0, 0, io);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_fatal("kevent(EV_ADD, %d) failed: %m", io->fd);
 	}
@@ -83,12 +93,12 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	struct kevent ev;
 
 	if ((io->condition & (IO_READ | IO_ERROR)) != 0) {
-		EV_SET(&ev, io->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+		MY_EV_SET(&ev, io->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
 	}
 	if ((io->condition & IO_WRITE) != 0) {
-		EV_SET(&ev, io->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+		MY_EV_SET(&ev, io->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
 	}
@@ -123,7 +133,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
 	/* reference all IOs */
 	for (i = 0; i < ret; i++) {
-		io = events[i].udata;
+		io = (void *)events[i].udata;
 		io->refcount++;
 	}
 
