@@ -24,6 +24,7 @@ struct trash_mailbox {
 	/* temporarily set while cleaning: */
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
+        struct mail_search_arg search_arg;
 	struct mail_search_context *search_ctx;
 	struct mail *mail;
 
@@ -37,19 +38,29 @@ static pool_t config_pool;
 /* trash_boxes ordered by priority, highest first */
 static ARRAY_DEFINE(trash_boxes, struct trash_mailbox);
 
+static int sync_mailbox(struct mailbox *box)
+{
+	struct mailbox_sync_context *ctx;
+        struct mailbox_sync_rec sync_rec;
+        struct mailbox_status status;
+
+	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
+	while (mailbox_sync_next(ctx, &sync_rec) > 0)
+		;
+	return mailbox_sync_deinit(&ctx, &status);
+}
+
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
-        struct mail_search_arg search_arg;
-
 	trash->box = mailbox_open(trash->storage, trash->name, NULL,
 				  MAILBOX_OPEN_KEEP_RECENT);
+	if (sync_mailbox(trash->box) < 0)
+		return -1;
+
 	trash->trans = mailbox_transaction_begin(trash->box, 0);
 
-	memset(&search_arg, 0, sizeof(search_arg));
-	search_arg.type = SEARCH_ALL;
-
-	trash->search_ctx =
-		mailbox_search_init(trash->trans, NULL, &search_arg, NULL);
+	trash->search_ctx = mailbox_search_init(trash->trans, NULL,
+						&trash->search_arg, NULL);
 	trash->mail = mail_alloc(trash->trans, MAIL_FETCH_PHYSICAL_SIZE |
 				 MAIL_FETCH_RECEIVED_DATE, NULL);
 
@@ -87,6 +98,14 @@ static int trash_try_clean_mails(uint64_t size_needed)
 
 	trashes = array_get_modifiable(&trash_boxes, &count);
 	for (i = 0; i < count; ) {
+		if (trashes[i].storage == NULL) {
+			/* FIXME: this is really ugly. it'll do however until
+			   we get proper namespace support for lib-storage. */
+			struct mail_storage *const *storage;
+
+			storage = array_idx(&quota->storages, 0);
+			trashes[i].storage = *storage;
+		}
 		/* expunge oldest mails first in all trash boxes with
 		   same priority */
 		oldest_idx = count;
@@ -130,6 +149,7 @@ __err:
 	for (i = 0; i < count; i++) {
 		struct trash_mailbox *trash = &trashes[i];
 
+		trash->mail_set = FALSE;
 		mail_free(&trash->mail);
 		(void)mailbox_search_deinit(&trash->search_ctx);
 
@@ -208,6 +228,7 @@ static int read_configuration(const char *path)
 		trash = array_append_space(&trash_boxes);
 		trash->name = p_strdup(config_pool, name+1);
 		trash->priority = atoi(t_strdup_until(line, name));
+		trash->search_arg.type = SEARCH_ALL;
 	}
 	i_stream_destroy(&input);
 	(void)close(fd);
