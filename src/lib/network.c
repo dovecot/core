@@ -102,7 +102,6 @@ static inline unsigned int sin_get_port(union sockaddr_union *so)
 	return 0;
 }
 
-/* Connect to socket with ip address */
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 		   const struct ip_addr *my_ip)
 {
@@ -190,14 +189,12 @@ int net_connect_unix(const char *path)
 	return fd;
 }
 
-/* Disconnect socket */
 void net_disconnect(int fd)
 {
 	if (close(fd) < 0)
 		i_error("net_disconnect() failed: %m");
 }
 
-/* Set socket blocking/nonblocking */
 void net_set_nonblock(int fd, bool nonblock)
 {
 	if (fd_set_nonblock(fd, nonblock) < 0)
@@ -234,8 +231,6 @@ void net_get_ip_any6(struct ip_addr *ip)
 #endif
 }
 
-/* Listen for connections on a socket. if `my_ip' is NULL, listen in any
-   address. */
 int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 {
 	union sockaddr_union so;
@@ -340,7 +335,6 @@ int net_listen_unix(const char *path, int backlog)
 	return -1;
 }
 
-/* Accept a connection on a socket */
 int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 {
 	union sockaddr_union so;
@@ -366,7 +360,6 @@ int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 	return ret;
 }
 
-/* Read data from socket, return number of bytes read, -1 = error */
 ssize_t net_receive(int fd, void *buf, size_t len)
 {
 	ssize_t ret;
@@ -395,7 +388,6 @@ ssize_t net_receive(int fd, void *buf, size_t len)
 	return ret;
 }
 
-/* Transmit data, return number of bytes sent, -1 = error */
 ssize_t net_transmit(int fd, const void *data, size_t len)
 {
         ssize_t ret;
@@ -414,9 +406,8 @@ ssize_t net_transmit(int fd, const void *data, size_t len)
         return ret;
 }
 
-/* Get IP addresses for host. ips contains ips_count of IPs, they don't need
-   to be free'd. Returns 0 = ok, others = error code for net_gethosterror() */
-int net_gethostbyname(const char *addr, struct ip_addr **ips, int *ips_count)
+int net_gethostbyname(const char *addr, struct ip_addr **ips,
+		      unsigned int *ips_count)
 {
 	/* @UNSAFE */
 #ifdef HAVE_IPV6
@@ -489,7 +480,6 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips, int *ips_count)
 	return 0;
 }
 
-/* Get socket address/port */
 int net_getsockname(int fd, struct ip_addr *addr, unsigned int *port)
 {
 	union sockaddr_union so;
@@ -590,7 +580,6 @@ int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 #endif
 }
 
-/* Get socket error */
 int net_geterror(int fd)
 {
 	int data;
@@ -602,7 +591,6 @@ int net_geterror(int fd)
 	return data;
 }
 
-/* get error of net_gethostname() */
 const char *net_gethosterror(int error)
 {
 #ifdef HAVE_IPV6
@@ -631,8 +619,6 @@ const char *net_gethosterror(int error)
 #endif
 }
 
-/* return TRUE if host lookup failed because it didn't exist (ie. not
-   some error with name server) */
 int net_hosterror_notfound(int error)
 {
 #ifdef HAVE_IPV6
@@ -646,7 +632,6 @@ int net_hosterror_notfound(int error)
 #endif
 }
 
-/* Get name of TCP service */
 const char *net_getservbyport(unsigned short port)
 {
 	struct servent *entry;

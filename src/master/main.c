@@ -252,7 +252,8 @@ static void resolve_ip(const char *name, struct ip_addr *ip, unsigned int *port)
 {
 	struct ip_addr *ip_list;
 	const char *p;
-	int ret, ips_count;
+	unsigned int ips_count;
+	int ret;
 
 	if (*name == '\0') {
                 /* defaults to "*" or "[::]" */

@@ -77,7 +77,8 @@ ssize_t net_transmit(int fd, const void *data, size_t len);
 
 /* Get IP addresses for host. ips contains ips_count of IPs, they don't need
    to be free'd. Returns 0 = ok, others = error code for net_gethosterror() */
-int net_gethostbyname(const char *addr, struct ip_addr **ips, int *ips_count);
+int net_gethostbyname(const char *addr, struct ip_addr **ips,
+		      unsigned int *ips_count);
 /* get error of net_gethostname() */
 const char *net_gethosterror(int error);
 /* return TRUE if host lookup failed because it didn't exist (ie. not
