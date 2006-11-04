@@ -104,8 +104,8 @@ static int mail_hash_file_set_corrupted(struct mail_hash *hash, bool set)
 
 	hash->hdr->corrupted = set ? 1 : 0;
 	if (!hash->mmap_anon) {
-		if (msync(hash->hdr, offset + sizeof(hash->hdr->corrupted),
-			  MS_SYNC) < 0) {
+		if (msync(hash->mmap_base,
+			  offset + sizeof(hash->hdr->corrupted), MS_SYNC) < 0) {
 			mail_hash_set_syscall_error(hash, "msync()");
 			return -1;
 		}
