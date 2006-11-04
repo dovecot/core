@@ -139,7 +139,7 @@ static const char *get_client_extra_fields(struct auth_request *request)
 			str_append(str, fields[src]);
 		}
 	}
-	return str_c(str);
+	return str_len(str) == 0 ? NULL : str_c(str);
 }
 
 static void auth_callback(struct auth_request *request,
