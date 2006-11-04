@@ -265,6 +265,10 @@ void module_dir_unload(struct module **modules)
 {
 	struct module *module, *next;
 
+	/* Call all modules' deinit() first, so that they may still call each
+	   others' functions. */
+	module_dir_deinit(*modules);
+
 	for (module = *modules; module != NULL; module = next) {
 		next = module->next;
 		module_free(module);
