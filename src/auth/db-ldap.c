@@ -147,22 +147,24 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 		return;
 	}
 
-	if (conn->last_auth_bind) {
-		/* switch back to the default dn before doing the search
-		   request. */
-		if (db_ldap_bind(conn) < 0) {
+	if (conn->connected) {
+		if (conn->last_auth_bind) {
+			/* switch back to the default dn before doing the
+			   search request. */
+			if (db_ldap_bind(conn) < 0) {
+				request->callback(conn, request, NULL);
+				return;
+			}
+		}
+
+		msgid = ldap_search(conn->ld, request->base, scope,
+				    request->filter, request->attributes, 0);
+		if (msgid == -1) {
+			i_error("LDAP: ldap_search() failed (filter %s): %s",
+				request->filter, ldap_get_error(conn));
 			request->callback(conn, request, NULL);
 			return;
 		}
-	}
-
-	msgid = ldap_search(conn->ld, request->base, scope,
-			    request->filter, request->attributes, 0);
-	if (msgid == -1) {
-		i_error("LDAP: ldap_search() failed (filter %s): %s",
-			request->filter, ldap_get_error(conn));
-		request->callback(conn, request, NULL);
-		return;
 	}
 
 	hash_insert(conn->requests, POINTER_CAST(msgid), request);
@@ -320,10 +322,12 @@ static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 		return -1;
 	}
 
-	conn->connected = TRUE;
+	if (!conn->connected) {
+		conn->connected = TRUE;
 
-	/* in case there are requests waiting, retry them */
-	ldap_conn_retry_requests(conn);
+		/* in case there are requests waiting, retry them */
+		ldap_conn_retry_requests(conn);
+	}
 	return 0;
 }
 
@@ -342,15 +346,16 @@ static void db_ldap_bind_callback(struct ldap_connection *conn,
 	}
 
 	ret = ldap_result2error(conn->ld, res, FALSE);
-	(void)db_ldap_connect_finish(conn, ret);
+	if (db_ldap_connect_finish(conn, ret) < 0) {
+		/* lost connection, close it */
+		ldap_conn_close(conn, TRUE);
+	}
 }
 
 static int db_ldap_bind(struct ldap_connection *conn)
 {
 	struct ldap_request *ldap_request;
 	int msgid;
-
-	conn->connecting = TRUE;
 
 	ldap_request = i_new(struct ldap_request, 1);
 	ldap_request->callback = db_ldap_bind_callback;
@@ -364,6 +369,8 @@ static int db_ldap_bind(struct ldap_connection *conn)
 		i_free(ldap_request);
 		return -1;
 	}
+
+	conn->connecting = TRUE;
 	hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
 
 	/* we're binding back to the original DN, not doing an
