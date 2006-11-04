@@ -7,6 +7,7 @@
 #endif
 
 /* default system includes - keep these at minimum.. */
+#include <stddef.h> /* Solaris defines NULL wrong unless this is used */
 #include <string.h> /* strcmp() etc. */
 #ifdef HAVE_STRINGS_H
 #  include <strings.h> /* strcasecmp() etc. */
