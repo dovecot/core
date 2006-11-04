@@ -135,7 +135,7 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 	if (ctx.debug != NULL) {
 		auth_request_log_debug(auth_request, "ldap",
-				       "%s", str_c(ctx.debug));
+				       "result: %s", str_c(ctx.debug));
 	}
 }
 
@@ -155,7 +155,8 @@ handle_request_get_entry(struct ldap_connection *conn,
 		ret = ldap_result2error(conn->ld, res, 0);
 		if (ret != LDAP_SUCCESS) {
 			auth_request_log_error(auth_request, "ldap",
-					       "ldap_search() failed: %s",
+					       "ldap_search(%s) failed: %s",
+					       request->request.filter,
 					       ldap_err2string(ret));
 		} else {
 			/* get the reply */
@@ -265,6 +266,9 @@ static void authbind_start(struct ldap_connection *conn,
 		return;
 	}
 
+	auth_request_log_debug(auth_request, "ldap", "bind: dn=%s",
+			       ldap_request->base);
+
 	/* Bind started */
 	auth_request_ref(auth_request);
 	hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
@@ -286,9 +290,11 @@ handle_request_authbind(struct ldap_connection *conn,
 		ret = ldap_result2error(conn->ld, res, 0);
 		if (ret == LDAP_SUCCESS)
 			passdb_result = PASSDB_RESULT_OK;
-		else if (ret == LDAP_INVALID_CREDENTIALS)
+		else if (ret == LDAP_INVALID_CREDENTIALS) {
+			auth_request_log_info(auth_request, "ldap",
+					      "invalid credentials");
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-		else {
+		} else {
 			auth_request_log_error(auth_request, "ldap",
 					       "ldap_bind() failed: %s",
 					       ldap_err2string(ret));
@@ -358,7 +364,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 	ldap_request->context = auth_request;
 	ldap_request->attributes = conn->pass_attr_names;
 
-	auth_request_log_debug(auth_request, "ldap",
+	auth_request_log_debug(auth_request, "ldap", "pass search: "
 			       "base=%s scope=%s filter=%s fields=%s",
 			       ldap_request->base, conn->set.scope,
 			       ldap_request->filter,

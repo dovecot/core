@@ -197,7 +197,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 
 	request->request.attributes = conn->user_attr_names;
 
-	auth_request_log_debug(auth_request, "ldap",
+	auth_request_log_debug(auth_request, "ldap", "user search: "
 			       "base=%s scope=%s filter=%s fields=%s",
 			       request->request.base, conn->set.scope,
 			       request->request.filter,
