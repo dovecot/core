@@ -251,23 +251,27 @@ static void authbind_start(struct ldap_connection *conn,
 	struct auth_request *auth_request = ldap_request->context;
 	int msgid;
 
-	/* switch back to the default dn before doing the next search request */
-	conn->last_auth_bind = TRUE;
+	if (!conn->connecting) {
+		/* switch back to the default dn before doing the next search
+		   request */
+		conn->last_auth_bind = TRUE;
 
-	/* the DN is kept in base variable, a bit ugly.. */
-	msgid = ldap_bind(conn->ld, ldap_request->base,
-			  auth_request->mech_password, LDAP_AUTH_SIMPLE);
-	if (msgid == -1) {
-		i_error("ldap_bind(%s) failed: %s",
-			ldap_request->base, ldap_get_error(conn));
-		passdb_ldap_request->callback.
-			verify_plain(PASSDB_RESULT_INTERNAL_FAILURE,
-				     auth_request);
-		return;
+		/* the DN is kept in base variable, a bit ugly.. */
+		msgid = ldap_bind(conn->ld, ldap_request->base,
+				  auth_request->mech_password,
+				  LDAP_AUTH_SIMPLE);
+		if (msgid == -1) {
+			i_error("ldap_bind(%s) failed: %s",
+				ldap_request->base, ldap_get_error(conn));
+			passdb_ldap_request->callback.
+				verify_plain(PASSDB_RESULT_INTERNAL_FAILURE,
+					     auth_request);
+			return;
+		}
+
+		auth_request_log_debug(auth_request, "ldap", "bind: dn=%s",
+				       ldap_request->base);
 	}
-
-	auth_request_log_debug(auth_request, "ldap", "bind: dn=%s",
-			       ldap_request->base);
 
 	/* Bind started */
 	auth_request_ref(auth_request);
