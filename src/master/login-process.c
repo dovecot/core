@@ -91,6 +91,7 @@ void auth_master_callback(const char *user, const char *const *args,
 	struct master_login_reply master_reply;
 	ssize_t ret;
 
+	memset(&master_reply, 0, sizeof(master_reply));
 	if (user == NULL)
 		master_reply.success = FALSE;
 	else {
@@ -844,6 +845,7 @@ static int login_process_send_env(struct login_process *p)
 
 static bool login_process_init_group(struct login_process *p)
 {
+	p->group->refcount++;
 	p->group->processes++;
 	p->group->listening_processes++;
 
