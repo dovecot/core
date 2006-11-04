@@ -56,6 +56,7 @@ struct ldap_connection {
         struct ldap_settings set;
 
 	LDAP *ld;
+	int fd; /* only set when ld is not NULL */
 	struct io *io;
 	struct hash_table *requests;
 
@@ -63,12 +64,16 @@ struct ldap_connection {
 	struct hash_table *pass_attr_map, *user_attr_map;
 
 	unsigned int connected:1;
+	unsigned int connecting:1;
+	unsigned int retrying:1; /* just reconnected, resending requests */
+	unsigned int last_auth_bind:1;
 };
 
 struct ldap_request {
 	db_search_callback_t *callback;
 	void *context;
 
+	/* for bind requests, base contains the DN and filter=NULL */
 	const char *base;
 	const char *filter;
 	char **attributes; /* points to pass_attr_names / user_attr_names */
@@ -86,12 +91,13 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,
-		       const char *const default_attr_map[]);
+		       const char *const default_attr_map[],
+		       const char *skip_attr);
 
 struct ldap_connection *db_ldap_init(const char *config_path);
 void db_ldap_unref(struct ldap_connection **conn);
 
-bool db_ldap_connect(struct ldap_connection *conn);
+int db_ldap_connect(struct ldap_connection *conn);
 
 const char *ldap_escape(const char *str,
 			const struct auth_request *auth_request);

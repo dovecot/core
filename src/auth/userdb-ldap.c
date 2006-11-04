@@ -219,7 +219,7 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 			    (hash_cmp_callback_t *)strcmp);
 
 	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
-			  conn->user_attr_map, default_attr_map);
+			  conn->user_attr_map, default_attr_map, NULL);
 	return &module->module;
 }
 

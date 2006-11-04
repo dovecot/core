@@ -52,7 +52,6 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, sasl_mech),
 	DEF(SET_STR, sasl_realm),
 	DEF(SET_STR, sasl_authz_id),
-	DEF(SET_STR, sasl_props),
 	DEF(SET_STR, deref),
 	DEF(SET_STR, scope),
 	DEF(SET_STR, base),
@@ -80,7 +79,6 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(sasl_mech) NULL,
 	MEMBER(sasl_realm) NULL,
 	MEMBER(sasl_authz_id) NULL,
-	MEMBER(sasl_props) NULL,
 	MEMBER(deref) "never",
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
@@ -96,6 +94,7 @@ struct ldap_settings default_ldap_settings = {
 
 static struct ldap_connection *ldap_connections = NULL;
 
+static int db_ldap_bind(struct ldap_connection *conn);
 static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests);
 
 static int deref2str(const char *str)
@@ -143,8 +142,17 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 {
 	int msgid;
 
-	if (!conn->connected) {
-		if (!db_ldap_connect(conn)) {
+	if (!conn->connected && !conn->connecting) {
+		if (db_ldap_connect(conn) < 0) {
+			request->callback(conn, request, NULL);
+			return;
+		}
+	}
+
+	if (conn->last_auth_bind) {
+		/* switch back to the default dn before doing the search
+		   request. */
+		if (db_ldap_bind(conn) < 0) {
 			request->callback(conn, request, NULL);
 			return;
 		}
@@ -167,6 +175,7 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 	struct hash_table *old_requests;
         struct hash_iterate_context *iter;
 	void *key, *value;
+	bool have_binds = FALSE;
 
 	i_assert(conn->connected);
 
@@ -176,22 +185,45 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 	old_requests = conn->requests;
 	conn->requests = hash_create(default_pool, conn->pool, 0, NULL, NULL);
 
+	conn->retrying = TRUE;
+	/* first retry all the search requests */
 	iter = hash_iterate_init(old_requests);
 	while (hash_iterate(iter, &key, &value)) {
 		struct ldap_request *request = value;
 
-		i_assert(conn->connected);
-		db_ldap_search(conn, request, conn->set.ldap_scope);
+		if (request->filter == NULL) {
+			/* bind request */
+			have_binds = TRUE;
+		} else {
+			i_assert(conn->connected);
+			db_ldap_search(conn, request, conn->set.ldap_scope);
+		}
 	}
 	hash_iterate_deinit(iter);
+
+	if (have_binds && conn->set.auth_bind) {
+		/* next retry all the bind requests. without auth binds the
+		   only bind request can be the initial connection binding,
+		   which we don't care to retry. */
+		iter = hash_iterate_init(old_requests);
+		while (hash_iterate(iter, &key, &value)) {
+			struct ldap_request *request = value;
+
+			if (request->filter == NULL)
+				request->callback(conn, request, NULL);
+		}
+		hash_iterate_deinit(iter);
+	}
 	hash_destroy(old_requests);
+
+	conn->retrying = FALSE;
 }
 
 static void ldap_conn_reconnect(struct ldap_connection *conn)
 {
 	ldap_conn_close(conn, FALSE);
 
-	if (!db_ldap_connect(conn)) {
+	if (db_ldap_connect(conn) < 0) {
 		/* failed to reconnect. fail all requests. */
 		ldap_conn_close(conn, TRUE);
 	}
@@ -275,12 +307,87 @@ sasl_interact(LDAP *ld __attr_unused__, unsigned flags __attr_unused__,
 }
 #endif
 
-bool db_ldap_connect(struct ldap_connection *conn)
+static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 {
-	int ret, fd;
+	if (ret == LDAP_SERVER_DOWN) {
+		i_error("LDAP: Can't connect to server: %s",
+			conn->set.uris != NULL ?
+			conn->set.uris : conn->set.hosts);
+		return -1;
+	}
+	if (ret != LDAP_SUCCESS) {
+		i_error("LDAP: binding failed (dn %s): %s",
+			conn->set.dn == NULL ? "(none)" : conn->set.dn,
+			ldap_get_error(conn));
+		return -1;
+	}
 
+	conn->connected = TRUE;
+
+	/* in case there are requests waiting, retry them */
+	ldap_conn_retry_requests(conn);
+	return 0;
+}
+
+static void db_ldap_bind_callback(struct ldap_connection *conn,
+				  struct ldap_request *ldap_request,
+				  LDAPMessage *res)
+{
+	int ret;
+
+	conn->connecting = FALSE;
+	i_free(ldap_request);
+
+	if (res == NULL) {
+		/* aborted */
+		return;
+	}
+
+	ret = ldap_parse_sasl_bind_result(conn->ld, res, NULL, FALSE);
+	if (ret != LDAP_SUCCESS) {
+		i_error("LDAP: ldap_parse_sasl_bind_result() failed: %s",
+			ldap_err2string(ret));
+		return;
+	}
+
+	ret = ldap_result2error(conn->ld, res, FALSE);
+	(void)db_ldap_connect_finish(conn, ret);
+}
+
+static int db_ldap_bind(struct ldap_connection *conn)
+{
+	struct ldap_request *ldap_request;
+	int msgid;
+
+	conn->connecting = TRUE;
+
+	ldap_request = i_new(struct ldap_request, 1);
+	ldap_request->callback = db_ldap_bind_callback;
+	ldap_request->context = conn;
+
+	msgid = ldap_bind(conn->ld, conn->set.dn, conn->set.
+			  dnpass, LDAP_AUTH_SIMPLE);
+	if (msgid == -1) {
+		i_error("ldap_bind(%s) failed: %s",
+			conn->set.dn, ldap_get_error(conn));
+		return -1;
+	}
+	hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
+
+	/* we're binding back to the original DN, not doing an
+	   authentication bind */
+	conn->last_auth_bind = FALSE;
+	return 0;
+}
+
+int db_ldap_connect(struct ldap_connection *conn)
+{
+	unsigned int ldap_version;
+	int ret;
+
+	i_assert(!conn->connecting);
 	if (conn->connected)
-		return TRUE;
+		return 0;
 
 	if (conn->ld == NULL) {
 		if (conn->set.uris != NULL) {
@@ -299,19 +406,34 @@ bool db_ldap_connect(struct ldap_connection *conn)
 				conn->set.hosts);
 
 		ret = ldap_set_option(conn->ld, LDAP_OPT_DEREF,
-				      (void *) &conn->set.ldap_deref);
+				      (void *)&conn->set.ldap_deref);
 		if (ret != LDAP_SUCCESS) {
 			i_fatal("LDAP: Can't set deref option: %s",
 				ldap_err2string(ret));
 		}
 
+		/* If SASL binds are used, the protocol version needs to be
+		   at least 3 */
+		ldap_version = conn->set.sasl_bind &&
+			conn->set.ldap_version < 3 ? 3 :
+			conn->set.ldap_version;
 		ret = ldap_set_option(conn->ld, LDAP_OPT_PROTOCOL_VERSION,
-				      (void *) &conn->set.ldap_version);
+				      (void *)&ldap_version);
 		if (ret != LDAP_OPT_SUCCESS) {
 			i_fatal("LDAP: Can't set protocol version %u: %s",
-				conn->set.ldap_version, ldap_err2string(ret));
+				ldap_version, ldap_err2string(ret));
 		}
+
+		/* get the connection's fd */
+		ret = ldap_get_option(conn->ld, LDAP_OPT_DESC,
+				      (void *)&conn->fd);
+		if (ret != LDAP_SUCCESS) {
+			i_fatal("LDAP: Can't get connection fd: %s",
+				ldap_err2string(ret));
+		}
+		net_set_nonblock(conn->fd, TRUE);
 	}
+	i_assert(conn->fd != -1);
 
 	if (conn->set.tls) {
 #ifdef LDAP_HAVE_START_TLS_S
@@ -319,11 +441,11 @@ bool db_ldap_connect(struct ldap_connection *conn)
 		if (ret != LDAP_SUCCESS) {
 			i_error("LDAP: ldap_start_tls_s() failed: %s",
 				ldap_err2string(ret));
-			return FALSE;
+			return -1;
 		}
 #else
 		i_error("LDAP: Your LDAP library doesn't support TLS");
-		return FALSE;
+		return -1;
 #endif
 	}
 
@@ -345,38 +467,15 @@ bool db_ldap_connect(struct ldap_connection *conn)
 #else
 		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
 #endif
+		if (db_ldap_connect_finish(conn, ret) < 0)
+			return -1;
 	} else {
-		ret = ldap_simple_bind_s(conn->ld, conn->set.dn,
-					 conn->set.dnpass);
-	}
-	if (ret == LDAP_SERVER_DOWN) {
-		i_error("LDAP: Can't connect to server: %s",
-			conn->set.uris != NULL ?
-			conn->set.uris : conn->set.hosts);
-		return FALSE;
-	}
-	if (ret != LDAP_SUCCESS) {
-		i_error("LDAP: binding failed (dn %s): %s",
-			conn->set.dn == NULL ? "(none)" : conn->set.dn,
-			ldap_get_error(conn));
-		return FALSE;
+		if (db_ldap_bind(conn) < 0)
+			return -1;
 	}
 
-	conn->connected = TRUE;
-
-	/* register LDAP input to ioloop */
-	ret = ldap_get_option(conn->ld, LDAP_OPT_DESC, (void *) &fd);
-	if (ret != LDAP_SUCCESS) {
-		i_fatal("LDAP: Can't get connection fd: %s",
-			ldap_err2string(ret));
-	}
-
-	net_set_nonblock(fd, TRUE);
-	conn->io = io_add(fd, IO_READ, ldap_input, conn);
-
-	/* in case there are requests waiting, retry them */
-        ldap_conn_retry_requests(conn);
-	return TRUE;
+	conn->io = io_add(conn->fd, IO_READ, ldap_input, conn);
+	return 0;
 }
 
 static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
@@ -404,15 +503,17 @@ static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
 		ldap_unbind(conn->ld);
 		conn->ld = NULL;
 	}
+	conn->fd = -1;
 }
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,
-		       const char *const default_attr_map[])
+		       const char *const default_attr_map[],
+		       const char *skip_attr)
 {
 	const char *const *attr;
 	char *name, *value, *p;
-	unsigned int i, size;
+	unsigned int i, j, size;
 
 	if (*attrlist == '\0')
 		return;
@@ -424,7 +525,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	for (size = 0; attr[size] != NULL; size++) ;
 	*attr_names_r = p_new(conn->pool, char *, size + 1);
 
-	for (i = 0; i < size; i++) {
+	for (i = j = 0; i < size; i++) {
 		p = strchr(attr[i], '=');
 		if (p == NULL) {
 			name = p_strdup(conn->pool, attr[i]);
@@ -435,9 +536,13 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			value = p_strdup(conn->pool, p + 1);
 		}
 
-		(*attr_names_r)[i] = name;
-		if (*name != '\0')
+		if (skip_attr != NULL && strcmp(skip_attr, value) == 0)
+			name = "";
+
+		if (*name != '\0') {
 			hash_insert(attr_map, name, value);
+			(*attr_names_r)[j++] = name;
+		}
 
 		if (*default_attr_map != NULL)
 			default_attr_map++;
@@ -516,6 +621,7 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	conn->refcount = 1;
 	conn->requests = hash_create(default_pool, pool, 0, NULL, NULL);
 
+	conn->fd = -1;
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
 	if (!settings_read(config_path, NULL, parse_setting, NULL, conn))
