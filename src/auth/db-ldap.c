@@ -341,13 +341,6 @@ static void db_ldap_bind_callback(struct ldap_connection *conn,
 		return;
 	}
 
-	ret = ldap_parse_sasl_bind_result(conn->ld, res, NULL, FALSE);
-	if (ret != LDAP_SUCCESS) {
-		i_error("LDAP: ldap_parse_sasl_bind_result() failed: %s",
-			ldap_err2string(ret));
-		return;
-	}
-
 	ret = ldap_result2error(conn->ld, res, FALSE);
 	(void)db_ldap_connect_finish(conn, ret);
 }
