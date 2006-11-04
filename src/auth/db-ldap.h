@@ -56,7 +56,7 @@ struct ldap_connection {
         struct ldap_settings set;
 
 	LDAP *ld;
-	int fd; /* only set when ld is not NULL */
+	int fd; /* only set when connected/connecting */
 	struct io *io;
 	struct hash_table *requests;
 

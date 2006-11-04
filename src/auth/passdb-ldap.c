@@ -439,11 +439,9 @@ ldap_verify_plain(struct auth_request *request,
 
 	/* reconnect if needed. this is also done by db_ldap_search(), but
 	   with auth binds we'll have to do it ourself */
-	if (!conn->connected && !conn->connecting) {
-		if (db_ldap_connect(conn)< 0) {
-			callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
-			return;
-		}
+	if (db_ldap_connect(conn)< 0) {
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		return;
 	}
 
 	ldap_request = p_new(request->pool, struct passdb_ldap_request, 1);

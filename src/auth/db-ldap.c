@@ -142,11 +142,9 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 {
 	int msgid;
 
-	if (!conn->connected && !conn->connecting) {
-		if (db_ldap_connect(conn) < 0) {
-			request->callback(conn, request, NULL);
-			return;
-		}
+	if (db_ldap_connect(conn) < 0) {
+		request->callback(conn, request, NULL);
+		return;
 	}
 
 	if (conn->last_auth_bind) {
@@ -370,6 +368,7 @@ static int db_ldap_bind(struct ldap_connection *conn)
 	if (msgid == -1) {
 		i_error("ldap_bind(%s) failed: %s",
 			conn->set.dn, ldap_get_error(conn));
+		i_free(ldap_request);
 		return -1;
 	}
 	hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
@@ -380,13 +379,26 @@ static int db_ldap_bind(struct ldap_connection *conn)
 	return 0;
 }
 
+static void db_ldap_get_fd(struct ldap_connection *conn)
+{
+	int ret;
+
+	/* get the connection's fd */
+	ret = ldap_get_option(conn->ld, LDAP_OPT_DESC, (void *)&conn->fd);
+	if (ret != LDAP_SUCCESS) {
+		i_fatal("LDAP: Can't get connection fd: %s",
+			ldap_err2string(ret));
+	}
+	i_assert(conn->fd != -1);
+	net_set_nonblock(conn->fd, TRUE);
+}
+
 int db_ldap_connect(struct ldap_connection *conn)
 {
 	unsigned int ldap_version;
 	int ret;
 
-	i_assert(!conn->connecting);
-	if (conn->connected)
+	if (conn->connected || conn->connecting)
 		return 0;
 
 	if (conn->ld == NULL) {
@@ -423,17 +435,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 			i_fatal("LDAP: Can't set protocol version %u: %s",
 				ldap_version, ldap_err2string(ret));
 		}
-
-		/* get the connection's fd */
-		ret = ldap_get_option(conn->ld, LDAP_OPT_DESC,
-				      (void *)&conn->fd);
-		if (ret != LDAP_SUCCESS) {
-			i_fatal("LDAP: Can't get connection fd: %s",
-				ldap_err2string(ret));
-		}
-		net_set_nonblock(conn->fd, TRUE);
 	}
-	i_assert(conn->fd != -1);
 
 	if (conn->set.tls) {
 #ifdef LDAP_HAVE_START_TLS_S
@@ -469,9 +471,11 @@ int db_ldap_connect(struct ldap_connection *conn)
 #endif
 		if (db_ldap_connect_finish(conn, ret) < 0)
 			return -1;
+		db_ldap_get_fd(conn);
 	} else {
 		if (db_ldap_bind(conn) < 0)
 			return -1;
+		db_ldap_get_fd(conn);
 	}
 
 	conn->io = io_add(conn->fd, IO_READ, ldap_input, conn);
