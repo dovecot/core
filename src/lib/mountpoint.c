@@ -8,7 +8,7 @@
 #ifdef HAVE_STATVFS_MNTFROMNAME
 #  include <sys/statvfs.h> /* NetBSD 3.0+, FreeBSD 5.0+ */
 #  define STATVFS_STR "statvfs"
-#elif HAVE_STATFS_MNTFROMNAME
+#elif defined(HAVE_STATFS_MNTFROMNAME)
 #  include <sys/param.h> /* Older BSDs */
 #  include <sys/mount.h>
 #  define statvfs statfs
