@@ -451,7 +451,6 @@ int db_ldap_connect(struct ldap_connection *conn)
 #endif
 	}
 
-	/* FIXME: we shouldn't use blocking bind */
 	if (conn->set.sasl_bind) {
 #ifdef HAVE_LDAP_SASL
 		struct ldap_sasl_bind_context context;
@@ -462,16 +461,18 @@ int db_ldap_connect(struct ldap_connection *conn)
 		context.realm = conn->set.sasl_realm;
 		context.authzid = conn->set.sasl_authz_id;
 
+		/* There doesn't seem to be a way to do SASL binding
+		   asynchronously.. */
 		ret = ldap_sasl_interactive_bind_s(conn->ld, NULL,
 						   conn->set.sasl_mech,
 						   NULL, NULL, LDAP_SASL_QUIET,
 						   sasl_interact, &context);
-#else
-		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
-#endif
 		if (db_ldap_connect_finish(conn, ret) < 0)
 			return -1;
 		db_ldap_get_fd(conn);
+#else
+		i_fatal("LDAP: sasl_bind=yes but no SASL support compiled in");
+#endif
 	} else {
 		if (db_ldap_bind(conn) < 0)
 			return -1;
