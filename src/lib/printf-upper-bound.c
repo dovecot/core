@@ -54,7 +54,7 @@ typedef struct
 {
   unsigned int min_width;
   unsigned int precision;
-  int alternate_format, zero_padding, adjust_left, locale_grouping;
+  int alternate_format, locale_grouping;
   int add_space, add_sign, possible_sign, seen_precision;
   int mod_long, mod_extra_long;
 } PrintfArgSpec;
@@ -122,10 +122,7 @@ size_t printf_string_upper_bound(const char **format_p, va_list args)
                   spec.alternate_format = TRUE;
                   break;
                 case '0':
-                  spec.zero_padding = TRUE;
-                  break;
                 case '-':
-                  spec.adjust_left = TRUE;
                   break;
                 case ' ':
                   spec.add_space = TRUE;
@@ -175,10 +172,7 @@ size_t printf_string_upper_bound(const char **format_p, va_list args)
                   else
                     {
                       if (v_int < 0)
-                        {
                           v_int = - v_int;
-                          spec.adjust_left = TRUE;
-                        }
                       spec.min_width = I_MAX ((int)spec.min_width, v_int);
                     }
                   break;
