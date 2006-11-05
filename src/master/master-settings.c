@@ -874,6 +874,10 @@ static bool settings_fix(struct settings *set, bool nochecks)
 	if (*set->mail_location == '\0') {
 		/* keep this for backwards compatibility */
 		set->mail_location = set->default_mail_env;
+	} else if (*set->default_mail_env != '\0') {
+		i_error("Both mail_location and default_mail_env set. "
+			"Use only one of them.");
+		return FALSE;
 	}
 	return nochecks ? TRUE : settings_verify(set);
 }
