@@ -762,9 +762,6 @@ static bool settings_verify(struct settings *set)
 	}
 #endif
 
-	/* fix relative paths */
-	fix_base_path(set, &set->login_dir);
-
 	/* since base dir is under /var/run by default, it may have been
 	   deleted. */
 	if (mkdir_parents(set->base_dir, 0777) < 0 && errno != EEXIST) {
@@ -866,11 +863,19 @@ static bool settings_verify(struct settings *set)
 		return FALSE;
 	}
 #endif
+	return TRUE;
+}
+
+static bool settings_fix(struct settings *set, bool nochecks)
+{
+	/* fix relative paths */
+	fix_base_path(set, &set->login_dir);
+
 	if (*set->mail_location == '\0') {
 		/* keep this for backwards compatibility */
 		set->mail_location = set->default_mail_env;
 	}
-	return TRUE;
+	return nochecks ? TRUE : settings_verify(set);
 }
 
 static struct auth_settings *
@@ -1355,13 +1360,13 @@ bool master_settings_read(const char *path, bool nochecks)
 		}
 		if (!settings_is_active(server->imap)) {
 			if (strcmp(server->imap->protocols, "none") == 0) {
-				if (!nochecks && !settings_verify(server->imap))
+				if (!settings_fix(server->imap, nochecks))
 					return FALSE;
 				server->defaults = server->imap;
 			}
 			server->imap = NULL;
 		} else {
-			if (!nochecks && !settings_verify(server->imap))
+			if (!settings_fix(server->imap, nochecks))
 				return FALSE;
 			server->defaults = server->imap;
 		}
@@ -1369,7 +1374,7 @@ bool master_settings_read(const char *path, bool nochecks)
 		if (!settings_is_active(server->pop3))
 			server->pop3 = NULL;
 		else {
-			if (!nochecks && !settings_verify(server->pop3))
+			if (!settings_fix(server->pop3, nochecks))
 				return FALSE;
 			if (server->defaults == NULL)
 				server->defaults = server->pop3;
