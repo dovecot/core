@@ -462,13 +462,15 @@ int main(int argc, char *argv[])
 	if (destination != NULL)
 		user = destination;
 	else if (process_euid != 0) {
-		/* we're non-root. get our username. */
+		/* we're non-root. get our username and possibly our home. */
 		struct passwd *pw;
 
 		pw = getpwuid(process_euid);
-		if (pw != NULL)
+		if (pw != NULL) {
 			user = t_strdup(pw->pw_name);
-		else {
+			if (getenv("HOME") == NULL)
+				env_put(t_strconcat("HOME=", pw->pw_dir, NULL));
+		} else {
 			i_fatal("Couldn't lookup our username (uid=%s)",
 				dec2str(process_euid));
 		}
