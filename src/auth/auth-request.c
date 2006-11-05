@@ -846,6 +846,7 @@ void auth_request_set_field(struct auth_request *request,
 		/* we're proxying authentication for this user. send
 		   password back if using plaintext authentication. */
 		request->proxy = TRUE;
+		request->no_login = TRUE;
 		value = NULL;
 	}
 
