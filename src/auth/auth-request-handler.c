@@ -111,6 +111,7 @@ static const char *get_client_extra_fields(struct auth_request *request)
 	string_t *str;
 	const char **fields, *extra_fields;
 	unsigned int src, dest;
+	bool seen_pass = FALSE;
 
 	extra_fields = request->extra_fields == NULL ? NULL :
 		auth_stream_reply_export(request->extra_fields);
@@ -125,20 +126,23 @@ static const char *get_client_extra_fields(struct auth_request *request)
 	}
 
 	str = t_str_new(128);
-	if (request->proxy) {
-		/* we're proxying - send back the password that was
-		   sent by user (not the password in passdb). */
-		str_printfa(str, "pass=%s", request->mech_password);
-	}
-
 	fields = t_strsplit(extra_fields, "\t");
 	for (src = dest = 0; fields[src] != NULL; src++) {
 		if (strncmp(fields[src], "userdb_", 7) != 0) {
 			if (str_len(str) > 0)
 				str_append_c(str, '\t');
+			if (!seen_pass && strncmp(fields[src], "pass=", 5) == 0)
+				seen_pass = TRUE;
 			str_append(str, fields[src]);
 		}
 	}
+
+	if (request->proxy && !seen_pass && request->mech_password != NULL) {
+		/* we're proxying - send back the password that was
+		   sent by user (not the password in passdb). */
+		str_printfa(str, "pass=%s", request->mech_password);
+	}
+
 	return str_len(str) == 0 ? NULL : str_c(str);
 }
 
