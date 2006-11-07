@@ -164,6 +164,7 @@ static void auth_client_input(void *context)
 
 	conn->refcount++;
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
+		t_push();
 		if (strncmp(line, "OK\t", 3) == 0)
 			ret = auth_client_input_ok(conn, line + 3);
 		else if (strncmp(line, "CONT\t", 5) == 0)
@@ -182,6 +183,7 @@ static void auth_client_input(void *context)
 			/* ignore unknown command */
 			ret = TRUE;
 		}
+		t_pop();
 
 		if (!ret) {
 			auth_server_connection_destroy(&conn, FALSE);
