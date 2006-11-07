@@ -15,6 +15,15 @@ static int proxy_input_line(struct imap_client *client,
 {
 	string_t *str;
 
+	if (client->destroyed) {
+		/* client already disconnected. */
+		login_proxy_free(client->proxy);
+		client->proxy = NULL;
+
+		client_unref(client);
+		return -1;
+	}
+
 	if (!client->proxy_login_sent) {
 		/* this is a banner */
 		if (strncmp(line, "* OK ", 5) != 0) {
