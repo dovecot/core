@@ -24,7 +24,6 @@ struct ldap_settings {
 	const char *sasl_mech;
 	const char *sasl_realm;
 	const char *sasl_authz_id;
-	const char *sasl_props;
 
 	const char *deref;
 	const char *scope;
