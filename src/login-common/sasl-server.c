@@ -37,6 +37,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 	unsigned int i;
 	bool nologin;
 
+	i_assert(client->auth_request == request);
 	if (!client->authenticating) {
 		/* client aborted */
 		i_assert(status < 0);
@@ -46,14 +47,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 	switch (status) {
 	case 0:
 		/* continue */
-		if (client->auth_request != NULL) {
-			i_assert(client->auth_request == request);
-		} else {
-			i_assert(client->auth_request == NULL);
-
-			client->auth_request = request;
-		}
-
+		client->waiting_auth_reply = FALSE;
 		client->sasl_callback(client, SASL_SERVER_REPLY_CONTINUE,
 				      data_base64, NULL);
 		break;

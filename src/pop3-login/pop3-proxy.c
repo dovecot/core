@@ -17,6 +17,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	string_t *str;
 	const char *line;
 
+	i_assert(!client->destroyed);
+
 	if (input == NULL) {
 		if (client->io != NULL) {
 			/* remote authentication failed, we're just
@@ -138,6 +140,7 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 		   unsigned int port, const char *user, const char *password)
 {
 	i_assert(user != NULL);
+	i_assert(!client->destroyed);
 
 	if (password == NULL) {
 		i_error("proxy(%s): password not given",
@@ -147,6 +150,12 @@ int pop3_proxy_new(struct pop3_client *client, const char *host,
 
 	i_assert(client->refcount > 1);
 	connection_queue_add(1);
+
+	if (client->destroyed) {
+		/* connection_queue_add() decided that we were the oldest
+		   connection and killed us. */
+		return -1;
+	}
 
 	client_ref(client);
 	client->proxy = login_proxy_new(&client->common, host, port,

@@ -68,12 +68,12 @@ static void client_auth_input(void *context)
 		return;
 	}
 
-	if (client->common.auth_request == NULL) {
+	if (client->common.waiting_auth_reply) {
 		sasl_server_auth_client_error(&client->common,
 					      "Don't send unrequested data");
 	} else {
 		auth_client_request_continue(client->common.auth_request, line);
-		client->common.auth_request = NULL;
+		client->common.waiting_auth_reply = TRUE;
 	}
 
 	/* clear sensitive data */
@@ -181,6 +181,8 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	struct const_iovec iov[3];
 	const char *msg;
 	size_t data_len;
+
+	i_assert(!client->destroyed || reply == SASL_SERVER_REPLY_CLIENT_ERROR);
 
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
