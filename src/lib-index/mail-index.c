@@ -560,6 +560,15 @@ static int mail_index_check_header(struct mail_index *index,
 	    hdr->first_deleted_uid_lowwater > hdr->next_uid)
 		return 0;
 
+	if (map->records_count > 0) {
+		/* last message's UID must be smaller than next_uid */
+		const struct mail_index_record *rec;
+
+		rec = MAIL_INDEX_MAP_IDX(map, map->records_count-1);
+		if (rec->uid >= hdr->next_uid)
+			return 0;
+	}
+
 	return mail_index_parse_extensions(index, map);
 }
 
