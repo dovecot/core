@@ -140,7 +140,7 @@ static const char *get_client_extra_fields(struct auth_request *request)
 	if (request->proxy && !seen_pass && request->mech_password != NULL) {
 		/* we're proxying - send back the password that was
 		   sent by user (not the password in passdb). */
-		str_printfa(str, "pass=%s", request->mech_password);
+		str_printfa(str, "\tpass=%s", request->mech_password);
 	}
 
 	return str_len(str) == 0 ? NULL : str_c(str);
