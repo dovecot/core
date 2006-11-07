@@ -44,6 +44,12 @@ void io_loop_handler_init(struct ioloop *ioloop)
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
+	struct io_list **list;
+	unsigned int i, count;
+
+	list = array_get_modifyable(&ctx->fd_index, &count);
+	for (i = 0; i < count; i++)
+		p_free(ioloop->pool, list[i]);
 
 	if (close(ctx->epfd) < 0)
 		i_error("close(epoll) failed: %m");
