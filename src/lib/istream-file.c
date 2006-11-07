@@ -33,8 +33,8 @@ static void _close(struct _iostream *stream)
 	if (fstream->autoclose_fd && _stream->fd != -1) {
 		if (close(_stream->fd) < 0)
 			i_error("file_istream.close() failed: %m");
-		_stream->fd = -1;
 	}
+	_stream->fd = -1;
 }
 
 static void _destroy(struct _iostream *stream)

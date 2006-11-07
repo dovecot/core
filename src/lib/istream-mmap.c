@@ -30,8 +30,8 @@ static void _close(struct _iostream *stream)
 	if (mstream->autoclose_fd && mstream->istream.fd != -1) {
 		if (close(mstream->istream.fd) < 0)
 			i_error("mmap_istream.close() failed: %m");
-		mstream->istream.fd = -1;
 	}
+	mstream->istream.fd = -1;
 }
 
 static void i_stream_munmap(struct mmap_istream *mstream)
