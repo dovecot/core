@@ -142,7 +142,6 @@ int imap_proxy_new(struct imap_client *client, const char *host,
 		return -1;
 	}
 
-	client_ref(client);
 	client->proxy = login_proxy_new(&client->common, host, port,
 					proxy_input, client);
 	if (client->proxy == NULL)
