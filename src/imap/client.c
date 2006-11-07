@@ -276,7 +276,7 @@ void _client_reset_command(struct client *client)
 	client->last_input = ioloop_time;
 
 	client->command_pending = FALSE;
-	if (client->io == NULL) {
+	if (client->io == NULL && !client->disconnected) {
 		client->io = io_add(i_stream_get_fd(client->input),
 				    IO_READ, _client_input, client);
 	}
