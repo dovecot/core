@@ -268,14 +268,16 @@ static void authbind_start(struct ldap_connection *conn,
 					     auth_request);
 			return;
 		}
+		hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
 
 		auth_request_log_debug(auth_request, "ldap", "bind: dn=%s",
 				       ldap_request->base);
+	} else {
+		db_ldap_add_delayed_request(conn, ldap_request);
 	}
 
 	/* Bind started */
 	auth_request_ref(auth_request);
-	hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
 }
 
 static void

@@ -57,7 +57,9 @@ struct ldap_connection {
 	LDAP *ld;
 	int fd; /* only set when connected/connecting */
 	struct io *io;
+
 	struct hash_table *requests;
+	struct ldap_request *delayed_requests_head, *delayed_requests_tail;
 
 	char **pass_attr_names, **user_attr_names;
 	struct hash_table *pass_attr_map, *user_attr_map;
@@ -69,6 +71,8 @@ struct ldap_connection {
 };
 
 struct ldap_request {
+	struct ldap_request *next; /* in conn->delayed_requests */
+
 	db_search_callback_t *callback;
 	void *context;
 
@@ -85,6 +89,8 @@ struct ldap_sasl_bind_context {
 	const char *authzid;
 };
 
+void db_ldap_add_delayed_request(struct ldap_connection *conn,
+				 struct ldap_request *request);
 void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 		    int scope);
 

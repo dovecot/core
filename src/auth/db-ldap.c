@@ -137,6 +137,20 @@ const char *ldap_get_error(struct ldap_connection *conn)
 	return ldap_err2string(err);
 }
 
+void db_ldap_add_delayed_request(struct ldap_connection *conn,
+				 struct ldap_request *request)
+{
+	i_assert(!conn->connected);
+
+	request->next = NULL;
+
+	if (conn->delayed_requests_head == NULL)
+		conn->delayed_requests_head = request;
+	else
+		conn->delayed_requests_tail->next = request;
+	conn->delayed_requests_tail = request;
+}
+
 void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 		    int scope)
 {
@@ -165,21 +179,24 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 			request->callback(conn, request, NULL);
 			return;
 		}
+		hash_insert(conn->requests, POINTER_CAST(msgid), request);
+	} else {
+		db_ldap_add_delayed_request(conn, request);
 	}
-
-	hash_insert(conn->requests, POINTER_CAST(msgid), request);
 }
 
 static void ldap_conn_retry_requests(struct ldap_connection *conn)
 {
 	struct hash_table *old_requests;
         struct hash_iterate_context *iter;
+	struct ldap_request *request, **p, *next;
 	void *key, *value;
-	bool have_binds = FALSE;
+	bool have_hash_binds = FALSE;
 
 	i_assert(conn->connected);
 
-	if (hash_size(conn->requests) == 0)
+	if (hash_size(conn->requests) == 0 &&
+	    conn->delayed_requests_head == NULL)
 		return;
 
 	old_requests = conn->requests;
@@ -189,11 +206,11 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 	/* first retry all the search requests */
 	iter = hash_iterate_init(old_requests);
 	while (hash_iterate(iter, &key, &value)) {
-		struct ldap_request *request = value;
+		request = value;
 
 		if (request->filter == NULL) {
 			/* bind request */
-			have_binds = TRUE;
+			have_hash_binds = TRUE;
 		} else {
 			i_assert(conn->connected);
 			db_ldap_search(conn, request, conn->set.ldap_scope);
@@ -201,21 +218,47 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 	}
 	hash_iterate_deinit(iter);
 
-	if (have_binds && conn->set.auth_bind) {
+	/* then delayed search requests */
+	p = &conn->delayed_requests_head;
+	while (*p != NULL) {
+		request = *p;
+
+		if (request->filter != NULL) {
+			*p = request->next;
+
+			i_assert(conn->connected);
+			db_ldap_search(conn, request, conn->set.ldap_scope);
+		} else {
+			p = &(*p)->next;
+		}
+	}
+
+	if (have_hash_binds && conn->set.auth_bind) {
 		/* next retry all the bind requests. without auth binds the
 		   only bind request can be the initial connection binding,
 		   which we don't care to retry. */
 		iter = hash_iterate_init(old_requests);
 		while (hash_iterate(iter, &key, &value)) {
-			struct ldap_request *request = value;
+			request = value;
 
 			if (request->filter == NULL)
 				request->callback(conn, request, NULL);
 		}
 		hash_iterate_deinit(iter);
 	}
+	if (conn->delayed_requests_head != NULL && conn->set.auth_bind) {
+		request = conn->delayed_requests_head;
+		for (; request != NULL; request = next) {
+			next = request->next;
+
+			i_assert(request->filter == NULL);
+			request->callback(conn, request, NULL);
+		}
+	}
 	hash_destroy(old_requests);
 
+	i_assert(conn->delayed_requests_head == NULL);
+	conn->delayed_requests_tail = NULL;
 	conn->retrying = FALSE;
 }
 
@@ -486,17 +529,27 @@ int db_ldap_connect(struct ldap_connection *conn)
 static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
 {
 	struct hash_iterate_context *iter;
+	struct ldap_request *request, *next;
 	void *key, *value;
 
 	if (flush_requests) {
 		iter = hash_iterate_init(conn->requests);
 		while (hash_iterate(iter, &key, &value)) {
-			struct ldap_request *request = value;
+			request = value;
 
 			request->callback(conn, request, NULL);
 		}
 		hash_iterate_deinit(iter);
 		hash_clear(conn->requests, FALSE);
+
+		request = conn->delayed_requests_head;
+		for (; request != NULL; request = next) {
+			next = request->next;
+
+			request->callback(conn, request, NULL);
+		}
+		conn->delayed_requests_head = NULL;
+		conn->delayed_requests_tail = NULL;
 	}
 
 	conn->connected = FALSE;
