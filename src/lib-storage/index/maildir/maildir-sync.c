@@ -612,8 +612,10 @@ static void maildir_sync_deinit(struct maildir_sync_context *ctx)
 {
 	if (ctx->uidlist_sync_ctx != NULL)
 		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
-	if (ctx->index_sync_ctx != NULL)
-		(void)maildir_sync_index_finish(&ctx->index_sync_ctx, TRUE);
+	if (ctx->index_sync_ctx != NULL) {
+		(void)maildir_sync_index_finish(&ctx->index_sync_ctx,
+						TRUE, FALSE);
+	}
 }
 
 static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
@@ -878,7 +880,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 }
 
 int maildir_sync_index_finish(struct maildir_index_sync_context **_sync_ctx,
-			      bool failed)
+			      bool failed, bool cancel)
 {
 	struct maildir_index_sync_context *sync_ctx = *_sync_ctx;
 	struct maildir_mailbox *mbox = sync_ctx->mbox;
@@ -889,7 +891,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_sync_ctx,
 	*_sync_ctx = NULL;
 
 	if (sync_ctx->trans != NULL) {
-		if (ret < 0)
+		if (ret < 0 || cancel)
 			mail_index_transaction_rollback(&sync_ctx->trans);
 		else {
 			if (mail_index_transaction_commit(&sync_ctx->trans,
@@ -901,7 +903,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_sync_ctx,
 			}
 		}
 	}
-	if (ret < 0)
+	if (ret < 0 || cancel)
 		mail_index_sync_rollback(&sync_ctx->sync_ctx);
 	else {
 		/* Set syncing_commit=TRUE so that if any sync callbacks try
@@ -1335,7 +1337,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		   maildir_uidlist_sync_deinit() */
 		ret = maildir_sync_index(ctx->index_sync_ctx, ctx->partial);
 		if (maildir_sync_index_finish(&ctx->index_sync_ctx,
-					      ret < 0) < 0)
+					      ret < 0, FALSE) < 0)
 			return -1;
 
 		if (ret < 0)

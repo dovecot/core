@@ -475,7 +475,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	uint32_t first_uid, last_uid;
 	enum maildir_uidlist_rec_flag flags;
 	const char *dest;
-	bool newdir;
+	bool newdir, sync_commit = FALSE;
 	int ret;
 
 	i_assert(ctx->output == NULL);
@@ -503,6 +503,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			maildir_transaction_save_rollback(ctx);
 			return -1;
 		}
+		sync_commit = TRUE;
 
 		first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 		mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
@@ -535,7 +536,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		t_pop();
 	}
 
-	if (maildir_sync_index_finish(&ctx->sync_ctx, ret < 0) < 0)
+	/* if we didn't call maildir_sync_index() we could skip over
+	   transactions by committing the changes */
+	if (maildir_sync_index_finish(&ctx->sync_ctx, ret < 0,
+				      !sync_commit) < 0)
 		ret = -1;
 
 	if (ret < 0) {
@@ -599,7 +603,7 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 	if (ctx->uidlist_sync_ctx != NULL)
 		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
 	if (ctx->sync_ctx != NULL)
-		(void)maildir_sync_index_finish(&ctx->sync_ctx, TRUE);
+		(void)maildir_sync_index_finish(&ctx->sync_ctx, TRUE, FALSE);
 
 	t_pop();
 
