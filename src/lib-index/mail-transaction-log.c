@@ -267,10 +267,10 @@ void mail_transaction_log_close(struct mail_transaction_log **_log)
 
 	mail_transaction_log_views_close(log);
 
-	if (log->head != NULL) {
+	if (log->head != NULL)
 		log->head->refcount--;
-		mail_transaction_logs_clean(log);
-	}
+	mail_transaction_logs_clean(log);
+	i_assert(log->tail == NULL);
 
 	*_log = NULL;
 	log->index->log = NULL;
@@ -1004,9 +1004,9 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 	}
 
 	if (fstat(fd, &st) < 0) {
+		close_keep_errno(fd);
                 if (errno == ESTALE) {
                         /* treat as "doesn't exist" */
-                        (void)close(fd);
                         return 0;
                 }
                 mail_index_file_set_syscall_error(log->index, path, "fstat()");
@@ -1026,6 +1026,8 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 	ret = mail_transaction_log_file_fd_open(log, &file, path, fd,
 						FALSE, TRUE);
 	if (ret <= 0) {
+		bool stale = errno == ESTALE;
+
 		if (ret == 0) {
 			/* corrupted, delete it */
 			if (unlink(file->filepath) < 0 && errno != ENOENT) {
@@ -1035,7 +1037,9 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 			mail_transaction_log_file_free(file);
 			return 0;
                 }
-                if (errno == ESTALE) {
+		mail_transaction_log_file_free(file);
+
+		if (stale) {
                         /* treat as "doesn't exist" */
                         return 0;
                 }
