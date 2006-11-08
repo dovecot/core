@@ -2,6 +2,7 @@
 
 /* @UNSAFE: whole file */
 #include "lib.h"
+#include "safe-memset.h"
 #include "mempool.h"
 
 #include <stdlib.h>
@@ -23,6 +24,7 @@ struct alloconly_pool {
 	const char *name;
 	size_t base_size;
 #endif
+	bool clean_frees;
 };
 
 struct pool_block {
@@ -118,6 +120,17 @@ pool_t pool_alloconly_create(const char *name __attr_unused__, size_t size)
 	return &new_apool->pool;
 }
 
+pool_t pool_alloconly_create_clean(const char *name, size_t size)
+{
+	struct alloconly_pool *apool;
+	pool_t pool;
+
+	pool = pool_alloconly_create(name, size);
+	apool = (struct alloconly_pool *)pool;
+	apool->clean_frees = TRUE;
+	return pool;
+}
+
 static void pool_alloconly_destroy(struct alloconly_pool *apool)
 {
 	void *block;
@@ -128,7 +141,10 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 	/* destroy the last block */
 	block = apool->block;
 #ifdef DEBUG
-	memset(block, 0xde, SIZEOF_POOLBLOCK + apool->block->size);
+	safe_memset(block, 0xde, SIZEOF_POOLBLOCK + apool->block->size);
+#else
+	if (apool->clean_frees)
+		safe_memset(block, 0, SIZEOF_POOLBLOCK + apool->block->size);
 #endif
 
 #ifndef USE_GC
@@ -139,7 +155,7 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 static const char *pool_alloconly_get_name(pool_t pool __attr_unused__)
 {
 #ifdef DEBUG
-	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 
 	return apool->name;
 #else
@@ -149,7 +165,7 @@ static const char *pool_alloconly_get_name(pool_t pool __attr_unused__)
 
 static void pool_alloconly_ref(pool_t pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 
 	apool->refcount++;
 }
@@ -200,7 +216,7 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 
 static void *pool_alloconly_malloc(pool_t pool, size_t size)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 	void *mem;
 
 	if (size == 0 || size > SSIZE_T_MAX)
@@ -223,7 +239,7 @@ static void *pool_alloconly_malloc(pool_t pool, size_t size)
 
 static void pool_alloconly_free(pool_t pool, void *mem)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 
 	/* we can free only the last allocation */
 	if (POOL_BLOCK_DATA(apool->block) +
@@ -257,7 +273,7 @@ static bool pool_try_grow(struct alloconly_pool *apool, void *mem, size_t size)
 static void *pool_alloconly_realloc(pool_t pool, void *mem,
 				    size_t old_size, size_t new_size)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 	unsigned char *new_mem;
 
 	if (new_size == 0 || new_size > SSIZE_T_MAX)
@@ -284,7 +300,7 @@ static void *pool_alloconly_realloc(pool_t pool, void *mem,
 
 static void pool_alloconly_clear(pool_t pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 	struct pool_block *block;
 	size_t base_size, avail_size;
 
@@ -299,7 +315,10 @@ static void pool_alloconly_clear(pool_t pool)
 		apool->block = block->prev;
 
 #ifdef DEBUG
-		memset(block, 0xde, SIZEOF_POOLBLOCK + block->size);
+		safe_memset(block, 0xde, SIZEOF_POOLBLOCK + block->size);
+#else
+		if (apool->clean_frees)
+			safe_memset(block, 0, SIZEOF_POOLBLOCK + block->size);
 #endif
 #ifndef USE_GC
 		free(block);
@@ -313,15 +332,15 @@ static void pool_alloconly_clear(pool_t pool)
 	base_size = DEFAULT_BASE_SIZE;
 #endif
 	avail_size = apool->block->size - base_size;
-	memset(PTR_OFFSET(POOL_BLOCK_DATA(apool->block), base_size), 0,
-	       avail_size - apool->block->left);
+	safe_memset(PTR_OFFSET(POOL_BLOCK_DATA(apool->block), base_size), 0,
+		    avail_size - apool->block->left);
 	apool->block->left = avail_size;
 	apool->block->last_alloc_size = 0;
 }
 
 static size_t pool_alloconly_get_max_easy_alloc_size(pool_t pool)
 {
-	struct alloconly_pool *apool = (struct alloconly_pool *) pool;
+	struct alloconly_pool *apool = (struct alloconly_pool *)pool;
 
 	return apool->block->left;
 }
