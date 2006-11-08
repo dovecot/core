@@ -336,15 +336,18 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 		if (verbose_ssl) {
 			if (ERR_peek_error() != 0)
 				errstr = ssl_last_error();
+			else if (ret != 0)
+				errstr = strerror(errno);
 			else {
-				if (ret == 0)
-					errstr = "EOF";
-				else
-					errstr = strerror(errno);
+				/* EOF. don't bother logging this. */
+				errstr = NULL;
 			}
 
-			i_warning("%s syscall failed: %s [%s]",
-				  func_name, errstr, net_ip2addr(&proxy->ip));
+			if (errstr != NULL) {
+				i_warning("%s syscall failed: %s [%s]",
+					  func_name, errstr,
+					  net_ip2addr(&proxy->ip));
+			}
 		}
 		ssl_proxy_destroy(proxy);
 		break;
