@@ -228,3 +228,22 @@ void auth_cache_insert(struct auth_cache *cache,
 	cache->size_left -= alloc_size;
 	hash_insert(cache->hash, node->data, node);
 }
+
+void auth_cache_remove(struct auth_cache *cache,
+		       const struct auth_request *request,
+		       const char *key)
+{
+	string_t *str;
+	struct auth_cache_node *node;
+
+	str = t_str_new(256);
+	var_expand(str, key,
+		   auth_request_get_var_expand_table(request,
+		   				     auth_request_str_escape));
+
+	node = hash_lookup(cache->hash, str_c(str));
+	if (node == NULL)
+		return;
+
+	auth_cache_node_destroy(cache, node);
+}

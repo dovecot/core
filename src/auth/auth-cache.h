@@ -41,4 +41,9 @@ void auth_cache_insert(struct auth_cache *cache,
 		       const struct auth_request *request,
 		       const char *key, const char *value, bool last_success);
 
+/* Remove key from cache */
+void auth_cache_remove(struct auth_cache *cache,
+		       const struct auth_request *request,
+		       const char *key);
+
 #endif
