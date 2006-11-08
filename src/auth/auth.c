@@ -143,6 +143,17 @@ static bool auth_passdb_list_have_credentials(struct auth *auth)
 	return FALSE;
 }
 
+static int auth_passdb_list_have_set_credentials(struct auth *auth)
+{
+	struct auth_passdb *passdb;
+
+	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next) {
+		if (passdb->passdb->iface.set_credentials != NULL)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void auth_mech_list_verify_passdb(struct auth *auth)
 {
 	struct mech_module_list *list;
@@ -154,6 +165,9 @@ static void auth_mech_list_verify_passdb(struct auth *auth)
 		if (list->module.passdb_need_credentials &&
                     !auth_passdb_list_have_credentials(auth))
 			break;
+ 		if (list->module.passdb_need_set_credentials &&
+ 		    !auth_passdb_list_have_set_credentials(auth))
+ 			break;
 	}
 
 	if (list != NULL) {

@@ -35,6 +35,8 @@ typedef void verify_plain_callback_t(enum passdb_result result,
 typedef void lookup_credentials_callback_t(enum passdb_result result,
 					   const char *password,
 					   struct auth_request *request);
+typedef void set_credentials_callback_t(enum passdb_result result,
+					struct auth_request *request);
 
 struct passdb_module_interface {
 	const char *name;
@@ -52,6 +54,11 @@ struct passdb_module_interface {
 	   auth_request->credentials. */
 	void (*lookup_credentials)(struct auth_request *request, 
 				   lookup_credentials_callback_t *callback);
+
+	/* Update credentials */
+	int (*set_credentials)(struct auth_request *request,
+			       const char *new_credentials,
+			       set_credentials_callback_t *callback);
 };
 
 struct passdb_module {

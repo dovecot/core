@@ -72,6 +72,7 @@ struct passdb_module_interface passdb_bsdauth = {
 	bsdauth_deinit,
 
 	bsdauth_verify_plain,
+	NULL,
 	NULL
 };
 

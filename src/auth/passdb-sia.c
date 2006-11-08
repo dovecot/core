@@ -54,7 +54,8 @@ struct passdb_module_interface passdb_sia = {
         NULL,
 
         local_sia_verify_plain,
-        NULL
+	NULL,
+	NULL
 };
 
 #endif

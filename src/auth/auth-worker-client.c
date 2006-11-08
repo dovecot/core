@@ -234,6 +234,70 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 }
 
 static void
+set_credentials_callback(enum passdb_result result,
+			  struct auth_request *request)
+{
+	struct auth_worker_client *client = request->context;
+
+	string_t *str;
+
+	str = t_str_new(64);
+	str_printfa(str, "%u\t", request->id);
+
+	if (result != PASSDB_RESULT_OK)
+		str_printfa(str, "FAIL\t%d\t", result);
+	else
+		str_printfa(str, "OK\t%s\t", request->user);
+	str_append_c(str, '\n');
+	o_stream_send(client->output, str_data(str), str_len(str));
+
+	auth_request_unref(&request);
+	auth_worker_client_check_throttle(client);
+	auth_worker_client_unref(&client);
+}
+
+static void
+auth_worker_handle_setcred(struct auth_worker_client *client,
+			   unsigned int id, const char *args)
+{
+	struct auth_request *auth_request;
+	unsigned int passdb_id;
+	const char *data;
+
+	passdb_id = atoi(t_strcut(args, '\t'));
+	args = strchr(args, '\t');
+	if (args == NULL) {
+		i_error("BUG: Auth worker server sent us invalid SETCRED");
+		return;
+	}
+	args++;
+
+	data = t_strcut(args, '\t');
+	args = strchr(args, '\t');
+	if (args != NULL) args++;
+
+	auth_request = worker_auth_request_new(client, id, args);
+
+	if (auth_request->user == NULL || auth_request->service == NULL) {
+		i_error("BUG: SETCRED had missing parameters");
+		auth_request_unref(&auth_request);
+		return;
+	}
+
+	while (auth_request->passdb->id != passdb_id) {
+		auth_request->passdb = auth_request->passdb->next;
+		if (auth_request->passdb == NULL) {
+			i_error("BUG: SETCRED had invalid passdb ID");
+			auth_request_unref(&auth_request);
+			return;
+		}
+	}
+
+	auth_request->passdb->passdb->iface.
+		set_credentials(auth_request, data, set_credentials_callback);
+}
+
+static void
 lookup_user_callback(struct auth_stream_reply *reply,
 		     struct auth_request *auth_request)
 {
@@ -303,6 +367,8 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 		auth_worker_handle_passv(client, id, line + 6);
 	else if (strncmp(line, "PASSL\t", 6) == 0)
 		auth_worker_handle_passl(client, id, line + 6);
+	else if (strncmp(line, "SETCRED\t", 8) == 0)
+		auth_worker_handle_setcred(client, id, line + 8);
 	else if (strncmp(line, "USER\t", 5) == 0)
 		auth_worker_handle_user(client, id, line + 5);
 

@@ -402,6 +402,7 @@ const struct mech_module mech_gssapi = {
 
 	MEMBER(passdb_need_plain) FALSE, 
 	MEMBER(passdb_need_credentials) FALSE, 
+	MEMBER(passdb_need_set_credentials) FALSE,
 
 	mech_gssapi_auth_new,
 	mech_gssapi_auth_initial,

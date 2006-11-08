@@ -7,6 +7,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "safe-memset.h"
 #include "password-scheme.h"
 #include "auth-cache.h"
 #include "db-sql.h"
@@ -26,6 +27,7 @@ struct passdb_sql_request {
 	union {
 		verify_plain_callback_t *verify_plain;
                 lookup_credentials_callback_t *lookup_credentials;
+		set_credentials_callback_t *set_credentials;
 	} callback;
 };
 
@@ -177,6 +179,56 @@ static void sql_lookup_credentials(struct auth_request *request,
         sql_lookup_pass(sql_request);
 }
 
+static void sql_set_credentials_callback(const char *error, void *context)
+{
+	struct passdb_sql_request *sql_request = context;
+	enum passdb_result result;
+
+	if (error == NULL)
+		result = PASSDB_RESULT_OK;
+	else {
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+		auth_request_log_error(sql_request->auth_request, "sql",
+				       "Set credentials query failed: %s",
+				       error);
+	}
+	sql_request->callback.set_credentials(result,
+					      sql_request->auth_request);
+	i_free(sql_request);
+}
+
+static int sql_set_credentials(struct auth_request *request,
+			       const char *new_credentials,
+			       set_credentials_callback_t *callback)
+{
+	struct sql_passdb_module *module =
+		(struct sql_passdb_module *) request->passdb->passdb;
+	struct sql_transaction_context *transaction;
+	struct passdb_sql_request *sql_request;
+	string_t *query;
+
+	t_push();
+
+	request->mech_password = p_strdup(request->pool, new_credentials);
+
+	query = t_str_new(512);
+	var_expand(query, module->conn->set.update_query, 
+		   auth_request_get_var_expand_table(request,
+						     passdb_sql_escape));
+
+	sql_request = i_new(struct passdb_sql_request, 1);
+	sql_request->auth_request = request;
+	sql_request->callback.set_credentials = callback;
+
+	transaction = sql_transaction_begin(module->conn->db);
+	sql_update(transaction, str_c(query));
+	sql_transaction_commit(&transaction,
+			       sql_set_credentials_callback, sql_request);
+
+	t_pop();
+	return 0;
+}
+
 static struct passdb_module *
 passdb_sql_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
@@ -223,7 +275,8 @@ struct passdb_module_interface passdb_sql = {
 	passdb_sql_deinit,
        
 	sql_verify_plain,
-	sql_lookup_credentials
+	sql_lookup_credentials,
+	sql_set_credentials
 };
 
 #endif

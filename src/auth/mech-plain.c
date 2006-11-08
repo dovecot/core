@@ -91,6 +91,7 @@ struct mech_module mech_plain = {
 
 	MEMBER(passdb_need_plain) TRUE,
 	MEMBER(passdb_need_credentials) FALSE,
+	MEMBER(passdb_need_set_credentials) FALSE,
 
 	mech_plain_auth_new,
 	mech_generic_auth_initial,

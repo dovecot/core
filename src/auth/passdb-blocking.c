@@ -163,3 +163,24 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 
 	auth_worker_call(request, str_c(str), lookup_credentials_callback);
 }
+
+static void
+set_credentials_callback(struct auth_request *request, const char *reply)
+{
+	enum passdb_result result = check_failure(request, &reply);
+
+	request->private_callback.set_credentials(result, request);
+}
+
+void passdb_blocking_set_credentials(struct auth_request *request,
+				     const char *new_credentials)
+{
+	string_t *str;
+
+	str = t_str_new(64);
+	str_printfa(str, "SETCRED\t%u\t%s\t",
+		    request->passdb->id, new_credentials);
+	auth_request_export(request, str);
+
+	auth_worker_call(request, str_c(str), set_credentials_callback);
+}

@@ -601,6 +601,7 @@ const struct mech_module mech_rpa = {
 
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
+	MEMBER(passdb_need_set_credentials) FALSE,
 
 	mech_rpa_auth_new,
 	mech_generic_auth_initial,

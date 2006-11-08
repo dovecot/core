@@ -153,7 +153,8 @@ struct passdb_module_interface passdb_vpopmail = {
 	vpopmail_deinit,
 
 	vpopmail_verify_plain,
-	vpopmail_lookup_credentials
+	vpopmail_lookup_credentials,
+	NULL
 };
 
 #endif

@@ -59,6 +59,7 @@ struct auth_request {
 	union {
 		verify_plain_callback_t *verify_plain;
 		lookup_credentials_callback_t *lookup_credentials;
+		set_credentials_callback_t *set_credentials;
                 userdb_callback_t *userdb;
 	} private_callback;
         enum passdb_credentials credentials;
@@ -149,6 +150,10 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const char *credentials,
 					      struct auth_request *request);
+void auth_request_set_credentials(struct auth_request *request,
+				  enum passdb_credentials credentials,
+				  const char *data,
+				  set_credentials_callback_t *callback);
 void auth_request_userdb_callback(struct auth_stream_reply *reply,
 				  struct auth_request *request);
 

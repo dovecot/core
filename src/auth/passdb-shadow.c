@@ -76,6 +76,7 @@ struct passdb_module_interface passdb_shadow = {
 	shadow_deinit,
 
 	shadow_verify_plain,
+	NULL,
 	NULL
 };
 

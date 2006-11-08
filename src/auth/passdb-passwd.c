@@ -76,6 +76,7 @@ struct passdb_module_interface passdb_passwd = {
 	passwd_deinit,
 
 	passwd_verify_plain,
+	NULL,
 	NULL
 };
 

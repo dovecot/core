@@ -156,6 +156,7 @@ const struct mech_module mech_apop = {
 
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
+	MEMBER(passdb_need_set_credentials) FALSE,
 
 	mech_apop_auth_new,
 	mech_apop_auth_initial,

@@ -532,7 +532,8 @@ struct passdb_module_interface passdb_ldap = {
 	passdb_ldap_deinit,
 
 	ldap_verify_plain,
-	ldap_lookup_credentials
+	ldap_lookup_credentials,
+	NULL
 };
 
 #endif

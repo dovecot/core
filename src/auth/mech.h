@@ -26,6 +26,7 @@ struct mech_module {
         enum mech_security_flags flags;
 	unsigned int passdb_need_plain:1;
 	unsigned int passdb_need_credentials:1;
+	unsigned int passdb_need_set_credentials:1;
 
 	struct auth_request *(*auth_new)(void);
 	void (*auth_initial)(struct auth_request *request,

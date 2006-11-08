@@ -458,6 +458,7 @@ struct passdb_module_interface passdb_checkpassword = {
 	checkpassword_deinit,
 
 	checkpassword_verify_plain,
+	NULL,
 	NULL
 };
 

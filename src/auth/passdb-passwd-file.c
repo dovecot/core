@@ -162,7 +162,8 @@ struct passdb_module_interface passdb_passwd_file = {
 	passwd_file_deinit,
 
 	passwd_file_verify_plain,
-	passwd_file_lookup_credentials
+	passwd_file_lookup_credentials,
+	NULL
 };
 
 #endif

@@ -490,6 +490,7 @@ struct passdb_module_interface passdb_pam = {
 	pam_deinit,
 
 	pam_verify_plain,
+	NULL,
 	NULL
 };
 

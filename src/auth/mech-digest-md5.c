@@ -619,6 +619,7 @@ struct mech_module mech_digest_md5 = {
 
 	MEMBER(passdb_need_plain) FALSE,
 	MEMBER(passdb_need_credentials) TRUE,
+	MEMBER(passdb_need_set_credentials) FALSE,
 
 	mech_digest_md5_auth_new,
 	mech_digest_md5_auth_initial,
