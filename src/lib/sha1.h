@@ -42,7 +42,7 @@
    they won't conflict with the actual programs that are trying to use it.
    This particular instance has been fixed in 4.1.18 and 5.0.19, but there
    are others. */
-#define sha1_result(a, b) sha1_result_libmysqlclient_craps_all_over(a, b)
+#define sha1_result sha1_result_libmysqlclient_craps_all_over
 
 struct sha1_ctxt {
 	union {
