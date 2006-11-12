@@ -987,10 +987,6 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 			return -1;
 		}
 	}
-
-	/* Too many ESTALE retries */
-	mail_index_set_syscall_error(index, "read_map()");
-	return -1;
 }
 
 static int mail_index_map_try_existing(struct mail_index_map *map)

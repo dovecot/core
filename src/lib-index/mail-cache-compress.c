@@ -270,7 +270,6 @@ static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
 			return -1;
 		}
 	}
-	return -1;
 }
 
 static int mail_cache_compress_locked(struct mail_cache *cache,
