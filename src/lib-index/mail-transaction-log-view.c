@@ -188,12 +188,12 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		/* unref old files */
 		for (file = view->tail; file != first; file = file->next)
 			file->refcount--;
-		view->tail = first;
 	} else {
 		/* going backwards, reference them */
 		for (file = first; file != view->tail; file = file->next)
 			file->refcount++;
 	}
+	view->tail = first;
 
 	/* reference all new files */
 	for (file = view->head->next; file != NULL; file = file->next)
