@@ -8,3 +8,4 @@ Makefile.in
 so_locations
 rawlog
 dovecotpw
+gdbhelper
