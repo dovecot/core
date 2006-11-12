@@ -221,25 +221,18 @@ static void handle_request(struct ldap_connection *conn,
 		passdb_handle_credentials(passdb_result, password, scheme,
 			ldap_request->callback.lookup_credentials,
 			auth_request);
-		auth_request_unref(&auth_request);
-		return;
-	}
+	} else {
+		if (password != NULL) {
+			ret = auth_request_password_verify(auth_request,
+					auth_request->mech_password,
+					password, scheme, "ldap");
+			passdb_result = ret > 0 ? PASSDB_RESULT_OK :
+				PASSDB_RESULT_PASSWORD_MISMATCH;
+		}
 
-	/* verify plain */
-	if (password == NULL) {
 		ldap_request->callback.verify_plain(passdb_result,
 						    auth_request);
-		auth_request_unref(&auth_request);
-		return;
 	}
-
-	ret = auth_request_password_verify(auth_request,
-					   auth_request->mech_password,
-					   password, scheme, "ldap");
-
-	ldap_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
-					    PASSDB_RESULT_PASSWORD_MISMATCH,
-					    auth_request);
 	auth_request_unref(&auth_request);
 }
 
@@ -251,6 +244,8 @@ static void authbind_start(struct ldap_connection *conn,
 	struct auth_request *auth_request = ldap_request->context;
 	int msgid;
 
+	i_assert(ldap_request->base != NULL);
+
 	if (conn->connected) {
 		/* switch back to the default dn before doing the next search
 		   request */
@@ -261,7 +256,8 @@ static void authbind_start(struct ldap_connection *conn,
 				  auth_request->mech_password,
 				  LDAP_AUTH_SIMPLE);
 		if (msgid == -1) {
-			i_error("ldap_bind(%s) failed: %s",
+			auth_request_log_error(auth_request, "ldap",
+				"ldap_bind(%s) failed: %s",
 				ldap_request->base, ldap_get_error(conn));
 			passdb_ldap_request->callback.
 				verify_plain(PASSDB_RESULT_INTERNAL_FAILURE,
