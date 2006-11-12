@@ -1840,6 +1840,7 @@ src/lib-imap/Makefile
 src/lib-index/Makefile
 src/lib-mail/Makefile
 src/lib-ntlm/Makefile
+src/lib-otp/Makefile
 src/lib-settings/Makefile
 src/lib-storage/Makefile
 src/lib-storage/index/Makefile

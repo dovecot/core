@@ -71,6 +71,10 @@ passdb_credentials_to_str(enum passdb_credentials credentials)
 		return "LANMAN";
 	case PASSDB_CREDENTIALS_NTLM:
 		return "NTLM";
+	case PASSDB_CREDENTIALS_OTP:
+		return "OTP";
+	case PASSDB_CREDENTIALS_SKEY:
+		return "SKEY";
 	case PASSDB_CREDENTIALS_RPA:
 		return "RPA";
 	}

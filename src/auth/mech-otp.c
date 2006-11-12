@@ -1,0 +1,267 @@
+/*
+ * One-Time-Password (RFC 2444) authentication mechanism.
+ *
+ * Copyright (c) 2006 Andrey Panin <pazke@donpac.ru>
+ *
+ * This software is released under the MIT license.
+ */
+
+#include "common.h"
+#include "safe-memset.h"
+#include "hash.h"
+#include "mech.h"
+#include "passdb.h"
+#include "hex-binary.h"
+#include "otp.h"
+#include "otp-skey-common.h"
+
+static void 
+otp_send_challenge(struct auth_request *auth_request,
+		   const char *credentials)
+{
+	struct otp_auth_request *request =
+		(struct otp_auth_request *)auth_request;
+	const char *answer;
+
+	if (otp_parse_dbentry(credentials, &request->state) != 0) {
+		auth_request_log_error(&request->auth_request, "otp",
+				       "invalid OTP data in passdb");
+		auth_request_fail(auth_request);
+		return;
+	}
+
+	if (--request->state.seq < 1) {
+		auth_request_log_error(&request->auth_request, "otp",
+				       "sequence number < 1");
+		auth_request_fail(auth_request);
+		return;
+	}
+
+	request->lock = otp_try_lock(auth_request);
+	if (!request->lock) {
+		auth_request_log_error(&request->auth_request, "otp",
+				       "user is locked, race attack?");
+		auth_request_fail(auth_request);
+		return;
+	}
+
+	answer = p_strdup_printf(request->pool, "otp-%s %u %s ext",
+				 digest_name(request->state.algo),
+				 request->state.seq, request->state.seed);
+
+	auth_request->callback(auth_request,
+			       AUTH_CLIENT_RESULT_CONTINUE,
+			       answer, strlen(answer));
+}
+
+static void
+skey_credentials_callback(enum passdb_result result,
+			  const char *credentials,
+			  struct auth_request *auth_request)
+{
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		otp_send_challenge(auth_request, credentials);
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		auth_request_internal_failure(auth_request);
+		break;
+	default:
+		auth_request_fail(auth_request);
+		break;
+	}
+}
+
+static void
+otp_credentials_callback(enum passdb_result result,
+			 const char *credentials,
+			 struct auth_request *auth_request)
+{
+	switch (result) {
+	case PASSDB_RESULT_OK:
+		otp_send_challenge(auth_request, credentials);
+		break;
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		auth_request_internal_failure(auth_request);
+		break;
+	default:
+		/* OTP credentials not found, try S/KEY */
+		auth_request_lookup_credentials(auth_request,
+						PASSDB_CREDENTIALS_OTP,
+						skey_credentials_callback);
+		break;
+	}
+}
+
+static void
+mech_otp_auth_phase1(struct auth_request *auth_request,
+		     const unsigned char *data, size_t data_size)
+{
+	struct otp_auth_request *request =
+		(struct otp_auth_request *)auth_request;
+	const char *authzid, *authenid, *error;
+	size_t i, count;
+
+	/* authorization ID \0 authentication ID
+	   FIXME: we'll ignore authorization ID for now. */
+	authzid = (const char *) data;
+	authenid = NULL;
+
+	count = 0;
+	for (i = 0; i < data_size; i++) {
+		if (data[i] == '\0') {
+			if (++count == 1)
+				authenid = (const char *) data + i + 1;
+		}
+	}
+
+	if ((count < 1) || (count > 2)) {
+		auth_request_log_error(&request->auth_request, "otp",
+                                       "invalid input");
+		auth_request_fail(auth_request);
+		return;
+	}
+
+	if (!auth_request_set_username(auth_request, authenid, &error)) {
+		auth_request_log_info(auth_request, "otp", "%s", error);
+		auth_request_fail(auth_request);
+		return;
+	}
+
+	auth_request_lookup_credentials(auth_request, PASSDB_CREDENTIALS_OTP,
+					otp_credentials_callback);
+}
+
+static void mech_otp_verify(struct auth_request *auth_request,
+			    const char *data, bool hex)
+{
+	struct otp_auth_request *request =
+		(struct otp_auth_request *)auth_request;
+	struct otp_state *state = &request->state;
+	unsigned char hash[OTP_HASH_SIZE], cur_hash[OTP_HASH_SIZE];
+	int ret;
+
+	ret = otp_parse_response(data, hash, hex);
+	if (ret < 0) {
+		auth_request_log_error(&request->auth_request, "otp",
+				       "invalid response");
+		auth_request_fail(auth_request);
+		otp_unlock(auth_request);
+		return;
+	}
+
+	otp_next_hash(state->algo, hash, cur_hash);
+
+	ret = memcmp(cur_hash, state->hash, OTP_HASH_SIZE);
+	if (ret != 0) {
+		auth_request_fail(auth_request);
+		otp_unlock(auth_request);
+		return;
+	}
+
+	memcpy(state->hash, hash, sizeof(state->hash));
+
+	auth_request_set_credentials(auth_request,
+				     PASSDB_CREDENTIALS_OTP,
+				     otp_print_dbentry(state),
+				     otp_set_credentials_callback);
+}
+
+static void mech_otp_verify_init(struct auth_request *auth_request,
+				 const char *data, bool hex)
+{
+	struct otp_auth_request *request =
+		(struct otp_auth_request *)auth_request;
+	struct otp_state new_state;
+	unsigned char hash[OTP_HASH_SIZE], cur_hash[OTP_HASH_SIZE];
+	const char *error;
+	int ret;
+
+	ret = otp_parse_init_response(data, &new_state, cur_hash, hex, &error);
+	if (ret < 0) {
+		auth_request_log_error(&request->auth_request, "otp",
+                                       "invalid init response, %s", error);
+		auth_request_fail(auth_request);
+		otp_unlock(auth_request);
+		return;
+	}
+
+	otp_next_hash(request->state.algo, cur_hash, hash);
+
+	ret = memcmp(hash, request->state.hash, OTP_HASH_SIZE);
+	if (ret != 0) {
+		auth_request_fail(auth_request);
+		otp_unlock(auth_request);
+		return;
+	}
+
+	auth_request_set_credentials(auth_request,
+				     PASSDB_CREDENTIALS_OTP,
+				     otp_print_dbentry(&new_state),
+				     otp_set_credentials_callback);
+}
+
+static void
+mech_otp_auth_phase2(struct auth_request *auth_request,
+		     const unsigned char *data, size_t data_size)
+{
+	const char *str = t_strndup(data, data_size);
+
+	if (strncmp(str, "hex:", 4) == 0) {
+		mech_otp_verify(auth_request, str + 4, TRUE);
+	} else if (strncmp(str, "word:", 5) == 0) {
+		mech_otp_verify(auth_request, str + 5, FALSE);
+	} else if (strncmp(str, "init-hex:", 9) == 0) {
+		mech_otp_verify_init(auth_request, str + 9, TRUE);
+	} else if (strncmp(str, "init-word:", 10) == 0) {
+		mech_otp_verify_init(auth_request, str + 10, FALSE);
+	} else {
+		auth_request_log_error(auth_request, "otp",
+				       "unsupported response type");
+		auth_request_fail(auth_request);
+		otp_unlock(auth_request);
+	}
+}
+
+static void
+mech_otp_auth_continue(struct auth_request *auth_request,
+		       const unsigned char *data, size_t data_size)
+{
+	if (auth_request->user == NULL) {
+		mech_otp_auth_phase1(auth_request, data, data_size);
+	} else {
+		mech_otp_auth_phase2(auth_request, data, data_size);
+	}
+}
+
+static struct auth_request *mech_otp_auth_new(void)
+{
+	struct otp_auth_request *request;
+	pool_t pool;
+
+	otp_lock_init();
+
+	pool = pool_alloconly_create("otp_auth_request", 256);
+	request = p_new(pool, struct otp_auth_request, 1);
+	request->pool = pool;
+	request->lock = FALSE;
+
+	request->auth_request.refcount = 1;
+	request->auth_request.pool = pool;
+	return &request->auth_request;
+}
+
+const struct mech_module mech_otp = {
+	"OTP",
+
+	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE,
+
+	MEMBER(passdb_need_plain) FALSE,
+	MEMBER(passdb_need_credentials) TRUE,
+	MEMBER(passdb_need_set_credentials) TRUE,
+
+	mech_otp_auth_new,
+	mech_generic_auth_initial,
+	mech_otp_auth_continue,
+	mech_otp_skey_auth_free
+};

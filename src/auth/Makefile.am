@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ntlm \
+	-I$(top_srcdir)/src/lib-otp \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	$(AUTH_CFLAGS)
@@ -21,12 +22,14 @@ libpassword_a_SOURCES = \
 	password-scheme-md5crypt.c \
 	password-scheme-cram-md5.c \
 	password-scheme-ntlm.c \
+	password-scheme-otp.c \
 	password-scheme-rpa.c
 
 dovecot_auth_LDADD = \
 	libpassword.a \
 	../lib-settings/libsettings.a \
 	../lib-ntlm/libntlm.a \
+	../lib-otp/libotp.a \
 	../lib-sql/libsql.a \
 	../lib/liblib.a \
 	$(AUTH_LIBS) \
@@ -56,9 +59,12 @@ dovecot_auth_SOURCES = \
 	mech-cram-md5.c \
 	mech-digest-md5.c \
 	mech-ntlm.c \
+	mech-otp.c \
+	mech-skey.c \
 	mech-gssapi.c \
 	mech-rpa.c \
 	mech-apop.c \
+	otp-skey-common.c \
 	passdb.c \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
@@ -102,6 +108,7 @@ noinst_HEADERS = \
 	common.h \
 	mech.h \
 	mycrypt.h \
+	otp-skey-common.h \
 	passdb.h \
 	passdb-blocking.h \
 	passdb-cache.h \

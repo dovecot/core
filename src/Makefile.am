@@ -11,6 +11,7 @@ SUBDIRS = \
 	lib-dict \
 	lib-sql \
 	lib-ntlm \
+	lib-otp \
 	lib-settings \
 	lib-charset \
 	lib-mail \

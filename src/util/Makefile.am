@@ -22,6 +22,7 @@ gdbhelper_SOURCES = \
 dovecotpw_LDADD = \
 	../auth/libpassword.a \
 	../lib-ntlm/libntlm.a \
+	../lib-otp/libotp.a \
 	../lib/liblib.a \
 	$(AUTH_LIBS) \
 	$(RAND_LIBS) \

@@ -10,6 +10,7 @@
 #include "mycrypt.h"
 #include "randgen.h"
 #include "sha1.h"
+#include "otp.h"
 #include "str.h"
 #include "password-scheme.h"
 
@@ -448,6 +449,25 @@ static const char *ntlm_generate(const char *plaintext,
 	return password_generate_ntlm(plaintext);
 }
 
+static bool otp_verify(const char *plaintext, const char *password,
+		       const char *user __attr_unused__)
+{
+	return strcasecmp(password,
+		password_generate_otp(plaintext, password, -1)) == 0;
+}
+
+static const char *otp_generate(const char *plaintext,
+				const char *user __attr_unused__)
+{
+	return password_generate_otp(plaintext, NULL, OTP_HASH_SHA1);
+}
+
+static const char *skey_generate(const char *plaintext,
+				 const char *user __attr_unused__)
+{
+	return password_generate_otp(plaintext, NULL, OTP_HASH_MD4);
+}
+
 static bool rpa_verify(const char *plaintext, const char *password,
 		       const char *user __attr_unused__)
 {
@@ -476,6 +496,8 @@ static const struct password_scheme default_schemes[] = {
 	{ "LDAP-MD5", plain_md5_verify, ldap_md5_generate },
 	{ "LANMAN", lm_verify, lm_generate },
 	{ "NTLM", ntlm_verify, ntlm_generate },
+	{ "OTP", otp_verify, otp_generate },
+	{ "SKEY", otp_verify, skey_generate },
 	{ "RPA", rpa_verify, rpa_generate },
 	{ NULL, NULL, NULL }
 };
