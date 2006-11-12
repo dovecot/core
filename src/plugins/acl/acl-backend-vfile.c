@@ -420,8 +420,9 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 	return 0;
 }
 
-static int acl_backend_vfile_object_update(struct acl_object *aclobj,
-					   const struct acl_rights *rights)
+static int
+acl_backend_vfile_object_update(struct acl_object *aclobj __attr_unused__,
+				const struct acl_rights *rights __attr_unused__)
 {
 	/* FIXME */
 	return -1;
@@ -438,8 +439,9 @@ acl_backend_vfile_object_list_init(struct acl_object *aclobj)
 }
 
 static int
-acl_backend_vfile_object_list_next(struct acl_object_list_iter *iter,
-				   struct acl_rights *rights_r)
+acl_backend_vfile_object_list_next(struct acl_object_list_iter *iter
+				   	__attr_unused__,
+				   struct acl_rights *rights_r __attr_unused__)
 {
 	return -1;
 }

@@ -818,7 +818,7 @@ static int rename_subfolders(struct index_storage *storage,
 	}
 	if (maildir_mailbox_list_deinit(ctx) < 0) {
 		ret = -1;
-		count = 0;
+		names = NULL; count = 0;
 	} else {
 		names = array_get(&names_arr, &count);
 	}

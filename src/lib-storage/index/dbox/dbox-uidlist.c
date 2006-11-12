@@ -833,7 +833,7 @@ dbox_uidlist_write_append_offsets(struct dbox_uidlist_append_ctx *ctx)
 int dbox_uidlist_append_commit(struct dbox_uidlist_append_ctx *ctx,
 			       time_t *mtime_r)
 {
-	int ret;
+	int ret = 0;
 
 	if (ctx->mail_count == 0) {
 		/* nothing actually appended */

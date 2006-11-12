@@ -423,7 +423,7 @@ static int maildirsize_read(struct maildir_quota_root *root)
 {
 	char buf[5120+1];
 	unsigned int size;
-	int fd, ret;
+	int fd, ret = 0;
 
 	t_push();
 	if (root->fd != -1) {
