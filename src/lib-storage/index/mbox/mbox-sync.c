@@ -1225,7 +1225,8 @@ static int mbox_write_pseudo(struct mbox_sync_context *sync_ctx)
 		}
 
 		/* out of disk space, truncate to empty */
-		(void)ftruncate(sync_ctx->write_fd, 0);
+		if (ftruncate(sync_ctx->write_fd, 0) < 0)
+			mbox_set_syscall_error(sync_ctx->mbox, "ftruncate()");
 	}
 
 	sync_ctx->base_uid_last_offset = 0; /* don't bother calculating */
@@ -1286,7 +1287,10 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 				  file_size + -sync_ctx->space_diff) < 0) {
 			mbox_set_syscall_error(sync_ctx->mbox,
 					       "file_set_size()");
-			(void)ftruncate(sync_ctx->write_fd, file_size);
+			if (ftruncate(sync_ctx->write_fd, file_size) < 0) {
+				mbox_set_syscall_error(sync_ctx->mbox,
+						       "ftruncate()");
+			}
 			return -1;
 		}
 		i_stream_sync(sync_ctx->input);
