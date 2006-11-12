@@ -20,11 +20,22 @@ static unsigned int master_tag_counter;
 
 static unsigned int master_pos;
 static char master_buf[sizeof(struct master_login_reply)];
+static struct client destroyed_client;
+
+static void client_call_master_callback(struct client *client, bool success)
+{
+	master_callback_t *master_callback;
+
+	master_callback = client->master_callback;
+	client->master_tag = 0;
+	client->master_callback = NULL;
+
+	master_callback(client, success);
+}
 
 static void request_handle(struct master_login_reply *reply)
 {
 	struct client *client;
-	master_callback_t *master_callback;
 
 	if (reply->tag == 0 && !process_per_connection) {
 		/* this means we have to start listening again.
@@ -37,13 +48,11 @@ static void request_handle(struct master_login_reply *reply)
 	if (client == NULL)
 		i_fatal("Master sent reply with unknown tag %u", reply->tag);
 
-	master_callback = client->master_callback;
-	client->master_tag = 0;
-	client->master_callback = NULL;
-
-	master_callback(client, reply->success);
 	hash_remove(master_requests, POINTER_CAST(reply->tag));
-	/* NOTE: client may be destroyed now */
+	if (client != &destroyed_client) {
+		client_call_master_callback(client, reply->success);
+		/* NOTE: client may be destroyed now */
+	}
 }
 
 void master_request_login(struct client *client, master_callback_t *callback,
@@ -79,10 +88,12 @@ void master_request_login(struct client *client, master_callback_t *callback,
 
 void master_request_abort(struct client *client)
 {
-	hash_remove(master_requests, POINTER_CAST(client->master_tag));
+	/* we're still going to get the reply from the master, so just
+	   remember that we want to ignore it */
+	hash_update(master_requests, POINTER_CAST(client->master_tag),
+		    &destroyed_client);
 
-	client->master_tag = 0;
-	client->master_callback = NULL;
+	client_call_master_callback(client, FALSE);
 }
 
 void master_notify_state_change(enum master_login_state state)

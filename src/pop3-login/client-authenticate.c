@@ -156,7 +156,9 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	const char *msg;
 	size_t data_len;
 
-	i_assert(!client->destroyed || reply == SASL_SERVER_REPLY_CLIENT_ERROR);
+	i_assert(!client->destroyed ||
+		 reply == SASL_SERVER_REPLY_CLIENT_ERROR ||
+		 reply == SASL_SERVER_REPLY_MASTER_FAILED);
 
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
