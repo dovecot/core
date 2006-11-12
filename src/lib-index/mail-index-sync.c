@@ -622,7 +622,8 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 	*_ctx = NULL;
 	mail_index_unlock(ctx->index, ctx->lock_id);
 
-	i_assert(!ctx->index->map->write_to_disk);
+	i_assert(ctx->index->map == NULL ||
+		 !ctx->index->map->write_to_disk);
 	mail_transaction_log_sync_unlock(ctx->index->log);
 
 	mail_index_view_close(&ctx->view);
@@ -675,8 +676,11 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		}
 	}
 
-	index->sync_log_file_seq = index->map->hdr.log_file_seq;
-	index->sync_log_file_offset = index->map->hdr.log_file_int_offset;
+	if (ret == 0) {
+		index->sync_log_file_seq = index->map->hdr.log_file_seq;
+		index->sync_log_file_offset =
+			index->map->hdr.log_file_int_offset;
+	}
 
 	mail_index_sync_end(_ctx);
 	return ret;
