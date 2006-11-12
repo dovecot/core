@@ -104,10 +104,10 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		}
 	} 
 
-	if (min_file_seq == view->log->tail->hdr.prev_file_seq &&
-	    min_file_offset == view->log->tail->hdr.prev_file_offset) {
+	if (min_file_seq == view->log->files->hdr.prev_file_seq &&
+	    min_file_offset == view->log->files->hdr.prev_file_offset) {
 		/* we can skip this */
-		min_file_seq = view->log->tail->hdr.file_seq;
+		min_file_seq = view->log->files->hdr.file_seq;
 		min_file_offset = 0;
 
 		if (min_file_seq > max_file_seq) {

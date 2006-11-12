@@ -270,7 +270,7 @@ void mail_transaction_log_close(struct mail_transaction_log **_log)
 	if (log->head != NULL)
 		log->head->refcount--;
 	mail_transaction_logs_clean(log);
-	i_assert(log->tail == NULL);
+	i_assert(log->files == NULL);
 
 	*_log = NULL;
 	log->index->log = NULL;
@@ -280,14 +280,20 @@ void mail_transaction_log_close(struct mail_transaction_log **_log)
 static void
 mail_transaction_log_file_free(struct mail_transaction_log_file *file)
 {
-        int old_errno = errno;
+	struct mail_transaction_log_file **p;
+	int old_errno = errno;
 
 	mail_transaction_log_file_unlock(file);
 
+	for (p = &file->log->files; *p != NULL; p = &(*p)->next) {
+		if (*p == file) {
+			*p = file->next;
+			break;
+		}
+	}
+
 	if (file == file->log->head)
 		file->log->head = NULL;
-	if (file == file->log->tail)
-		file->log->tail = file->next;
 
 	if (file->buffer != NULL) 
 		buffer_free(file->buffer);
@@ -422,7 +428,7 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 	   If we're opening head log file, make sure the sequence is larger
 	   than any existing one. */
 	if (head) {
-		for (f = file->log->tail; f != NULL; f = f->next) {
+		for (f = file->log->files; f != NULL; f = f->next) {
 			if (f->hdr.file_seq >= file->hdr.file_seq) {
 				mail_transaction_log_file_set_corrupted(file,
 					"invalid new transaction log sequence "
@@ -432,7 +438,7 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 			}
 		}
 	} else {
-		for (f = file->log->tail; f != NULL; f = f->next) {
+		for (f = file->log->files; f != NULL; f = f->next) {
 			if (f->hdr.file_seq == file->hdr.file_seq) {
 				mail_transaction_log_file_set_corrupted(file,
 					"old transaction log already opened "
@@ -629,7 +635,7 @@ mail_transaction_log_file_add_to_head(struct mail_transaction_log_file *file)
 	}
 
 	/* append to end of list. */
-	for (p = &log->tail; *p != NULL; p = &(*p)->next)
+	for (p = &log->files; *p != NULL; p = &(*p)->next)
 		i_assert((*p)->hdr.file_seq < file->hdr.file_seq);
 	*p = file;
 }
@@ -643,7 +649,7 @@ mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 	file->sync_offset = file->hdr.hdr_size;
 
 	/* insert it to correct position */
-	for (p = &log->tail; *p != NULL; p = &(*p)->next) {
+	for (p = &log->files; *p != NULL; p = &(*p)->next) {
 		i_assert((*p)->hdr.file_seq != file->hdr.file_seq);
 		if ((*p)->hdr.file_seq > file->hdr.file_seq)
 			break;
@@ -855,16 +861,13 @@ mail_transaction_log_file_open(struct mail_transaction_log *log,
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log)
 {
-	struct mail_transaction_log_file **p, *next;
+	struct mail_transaction_log_file *file, *next;
 
-	for (p = &log->tail; *p != NULL; ) {
-		if ((*p)->refcount != 0)
-                        p = &(*p)->next;
-		else {
-			next = (*p)->next;
-			mail_transaction_log_file_free(*p);
-			*p = next;
-		}
+	for (file = log->files; file != NULL; file = next) {
+		next = file->next;
+
+		if (file->refcount == 0)
+			mail_transaction_log_file_free(file);
 	}
 }
 
@@ -984,7 +987,7 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 			return -1;
 	}
 
-	for (file = log->tail; file != NULL; file = file->next) {
+	for (file = log->files; file != NULL; file = file->next) {
 		if (file->hdr.file_seq == file_seq) {
 			*file_r = file;
 			return 1;
@@ -1014,7 +1017,7 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 	}
 
 	/* see if we have it already opened */
-	for (file = log->tail; file != NULL; file = file->next) {
+	for (file = log->files; file != NULL; file = file->next) {
 		if (file->st_ino == st.st_ino &&
 		    CMP_DEV_T(file->st_dev, st.st_dev)) {
 			if (close(fd) < 0)

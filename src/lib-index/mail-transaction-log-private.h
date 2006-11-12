@@ -38,9 +38,10 @@ struct mail_transaction_log_file {
 struct mail_transaction_log {
 	struct mail_index *index;
         struct mail_transaction_log_view *views;
-	/* head is the latest log file. tail is a linked list of older
-	   files. head isn't part of that linked list at all (ugh) */
-	struct mail_transaction_log_file *head, *tail;
+	/* files is a linked list of all the opened log files. the list is
+	   sorted by the log file sequence, so that transaction views can use
+	   them easily. head contains a pointer to the newest log file. */
+	struct mail_transaction_log_file *files, *head;
 
 	unsigned int dotlock_count;
         struct dotlock_settings dotlock_settings, new_dotlock_settings;
