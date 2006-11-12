@@ -110,7 +110,8 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 			NULL, NULL);
 
 	    while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
-		    fwrite(data, size, 1, f);
+		    if (fwrite(data, size, 1, f) == 0)
+			    break;
 		    i_stream_skip(input, size);
 	    }
 	    i_stream_unref(&input);
@@ -148,7 +149,8 @@ int mail_send_forward(struct mail *mail, const char *forwardto)
                                           sizeof(hide_headers[0]), NULL, NULL);
 
     while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
-	    fwrite(data, size, 1, f);
+	    if (fwrite(data, size, 1, f) == 0)
+		    break;
 	    i_stream_skip(input, size);
     }
 
