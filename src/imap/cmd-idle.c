@@ -196,6 +196,9 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		/* more changes occurred while we were sending changes to
 		   client */
 		idle_sync_now(client->mailbox, ctx);
+		/* NOTE: this recurses back to this function,
+		   so we return here instead of doing everything twice. */
+		return FALSE;
 	}
         client->output_pending = FALSE;
 
