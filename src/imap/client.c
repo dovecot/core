@@ -68,6 +68,7 @@ void client_destroy(struct client *client, const char *reason)
 	client->destroyed = TRUE;
 
 	if (!client->disconnected) {
+		client->disconnected = TRUE;
 		if (reason == NULL)
 			reason = "Disconnected";
 		i_info("%s", reason);
