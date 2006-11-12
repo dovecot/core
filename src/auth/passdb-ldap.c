@@ -246,6 +246,18 @@ static void authbind_start(struct ldap_connection *conn,
 
 	i_assert(ldap_request->base != NULL);
 
+	if (*auth_request->mech_password == '\0') {
+		/* Assume that empty password fails. This is especially
+		   important with Windows 2003 AD, which always returns success
+		   with empty passwords. */
+		auth_request_log_info(auth_request, "ldap",
+				      "Login attempt with empty password");
+		passdb_ldap_request->callback.
+			verify_plain(PASSDB_RESULT_PASSWORD_MISMATCH,
+				     auth_request);
+		return;
+	}
+
 	if (conn->connected) {
 		/* switch back to the default dn before doing the next search
 		   request */
