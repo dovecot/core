@@ -13,6 +13,7 @@
 struct var_expand_context {
 	int offset;
 	unsigned int width;
+	bool zero_padding;
 };
 
 struct var_expand_modifier {
@@ -126,24 +127,24 @@ void var_expand(string_t *dest, const char *str,
 	const char *(*modifier[MAX_MODIFIER_COUNT])
 		(const char *, struct var_expand_context *);
 	unsigned int i, modifier_count;
-	int sign = 1;
-	bool zero_padding = FALSE;
 
 	memset(&ctx, 0, sizeof(ctx));
 	for (; *str != '\0'; str++) {
 		if (*str != '%')
 			str_append_c(dest, *str);
 		else {
+			int sign = 1;
+
 			str++;
+			memset(&ctx, 0, sizeof(ctx));
 
 			/* [<offset>.]<width>[<modifiers>]<variable> */
-			ctx.width = 0;
 			if (*str == '-') {
 				sign = -1;
 				str++;
 			}
 			if (*str == '0') {
-				zero_padding = TRUE;
+				ctx.zero_padding = TRUE;
 				str++;
 			}
 			while (*str >= '0' && *str <= '9') {
@@ -151,12 +152,20 @@ void var_expand(string_t *dest, const char *str,
 				str++;
 			}
 
-			if (*str != '.')
-				ctx.offset = 0;
-			else {
+			if (*str == '.') {
 				ctx.offset = sign * (int)ctx.width;
 				ctx.width = 0;
 				str++;
+
+				/* if offset was prefixed with zero (or it was
+				   plain zero), just ignore that. zero padding
+				   is done with the width. */
+				ctx.zero_padding = FALSE;
+				if (*str == '0') {
+					ctx.zero_padding = TRUE;
+					str++;
+				}
+
 				while (*str >= '0' && *str <= '9') {
 					ctx.width = ctx.width*10 + (*str - '0');
 					str++;
@@ -216,10 +225,10 @@ void var_expand(string_t *dest, const char *str,
 				}
 				if (ctx.width == 0)
 					str_append(dest, var);
-				else if (!zero_padding)
+				else if (!ctx.zero_padding)
 					str_append_n(dest, var, ctx.width);
 				else {
-					/* %05d -like padding */
+					/* %05d -like padding. no truncation. */
 					size_t len = strlen(var);
 					while (len < ctx.width) {
 						str_append_c(dest, '0');
