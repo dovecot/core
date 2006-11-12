@@ -103,7 +103,7 @@ static int trash_try_clean_mails(uint64_t size_needed)
 			   we get proper namespace support for lib-storage. */
 			struct mail_storage *const *storage;
 
-			storage = array_idx(&quota->storages, 0);
+			storage = array_idx(&quota_set->storages, 0);
 			trashes[i].storage = *storage;
 		}
 		/* expunge oldest mails first in all trash boxes with
@@ -246,7 +246,7 @@ void trash_plugin_init(void)
 	if (env == NULL)
 		return;
 
-	if (quota == NULL) {
+	if (quota_set == NULL) {
 		i_error("trash plugin: quota plugin not initialized");
 		return;
 	}
@@ -255,13 +255,13 @@ void trash_plugin_init(void)
 	if (read_configuration(env) < 0)
 		return;
 
-	trash_next_quota_test_alloc = quota->test_alloc;
-	quota->test_alloc = trash_quota_test_alloc;
+	trash_next_quota_test_alloc = quota_set->test_alloc;
+	quota_set->test_alloc = trash_quota_test_alloc;
 }
 
 void trash_plugin_deinit(void)
 {
-	quota->test_alloc = trash_next_quota_test_alloc;
+	quota_set->test_alloc = trash_next_quota_test_alloc;
 
 	if (config_pool != NULL)
 		pool_unref(config_pool);

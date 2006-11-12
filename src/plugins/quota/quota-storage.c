@@ -54,7 +54,7 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 	struct quota_transaction_context *qt;
 
 	t = qbox->super.transaction_begin(box, flags);
-	qt = quota_transaction_begin(quota, box);
+	qt = quota_transaction_begin(quota_set, box);
 
 	array_idx_set(&t->module_contexts, quota_storage_module_id, &qt);
 	return t;
@@ -294,7 +294,7 @@ static void quota_storage_destroy(struct mail_storage *storage)
 {
 	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
 
-	quota_remove_user_storage(quota, storage);
+	quota_remove_user_storage(quota_set, storage);
 
 	qstorage->super.destroy(storage);
 }
@@ -322,6 +322,6 @@ void quota_mail_storage_created(struct mail_storage *storage)
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_SHARED_NAMESPACE) == 0) {
 		/* register to user's quota roots */
-		quota_add_user_storage(quota, storage);
+		quota_add_user_storage(quota_set, storage);
 	}
 }

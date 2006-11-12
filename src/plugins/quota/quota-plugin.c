@@ -12,7 +12,7 @@ extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 
 void (*quota_next_hook_mail_storage_created)(struct mail_storage *storage);
 
-struct quota *quota;
+struct quota *quota_set;
 
 static void quota_root_add_rules(const char *root_name, 
 				 struct quota_root *root)
@@ -49,9 +49,9 @@ void quota_plugin_init(void)
 	if (env == NULL)
 		return;
 
-	quota = quota_init();
+	quota_set = quota_init();
 
-	root = quota_root_init(quota, env);
+	root = quota_root_init(quota_set, env);
 	if (root == NULL)
 		i_fatal("Couldn't create quota root: %s", env);
 	quota_root_add_rules("QUOTA", root);
@@ -66,7 +66,7 @@ void quota_plugin_init(void)
 		if (env == NULL)
 			break;
 
-		root = quota_root_init(quota, env);
+		root = quota_root_init(quota_set, env);
 		if (root == NULL)
 			i_fatal("Couldn't create quota root: %s", env);
 		quota_root_add_rules(root_name, root);
@@ -80,9 +80,9 @@ void quota_plugin_init(void)
 
 void quota_plugin_deinit(void)
 {
-	if (quota != NULL) {
+	if (quota_set != NULL) {
 		hook_mail_storage_created =
 			quota_next_hook_mail_storage_created;
-		quota_deinit(quota);
+		quota_deinit(quota_set);
 	}
 }

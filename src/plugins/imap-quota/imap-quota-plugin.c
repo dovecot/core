@@ -72,7 +72,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (quota == NULL) {
+	if (quota_set == NULL) {
 		mailbox_close(&box);
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
@@ -83,7 +83,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	str_append(str, "* QUOTAROOT ");
 	imap_quote_append_string(str, mailbox, FALSE);
 
-	iter = quota_root_iter_init(quota, box);
+	iter = quota_root_iter_init(quota_set, box);
 	while ((root = quota_root_iter_next(iter)) != NULL) {
 		str_append_c(str, ' ');
 		imap_quote_append_string(str, quota_root_get_name(root), FALSE);
@@ -92,7 +92,7 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 	client_send_line(cmd->client, str_c(str));
 
 	/* send QUOTA reply for each quotaroot */
-	iter = quota_root_iter_init(quota, box);
+	iter = quota_root_iter_init(quota_set, box);
 	while ((root = quota_root_iter_next(iter)) != NULL)
 		quota_send(cmd, root);
 	quota_root_iter_deinit(iter);
@@ -112,12 +112,12 @@ static bool cmd_getquota(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &root_name))
 		return FALSE;
 
-	if (quota == NULL) {
+	if (quota_set == NULL) {
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
 	}
 
-	root = quota_root_lookup(quota, root_name);
+	root = quota_root_lookup(quota_set, root_name);
 	if (root == NULL) {
 		client_send_tagline(cmd, "NO Quota root doesn't exist.");
 		return TRUE;
@@ -145,12 +145,12 @@ static bool cmd_setquota(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (quota == NULL) {
+	if (quota_set == NULL) {
 		client_send_tagline(cmd, "OK No quota.");
 		return TRUE;
 	}
 
-	root = quota_root_lookup(quota, root_name);
+	root = quota_root_lookup(quota_set, root_name);
 	if (root == NULL) {
 		client_send_tagline(cmd, "NO Quota root doesn't exist.");
 		return TRUE;
