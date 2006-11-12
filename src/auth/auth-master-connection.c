@@ -141,12 +141,6 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
-static bool
-master_input_die(struct auth_master_connection *conn)
-{
-	return TRUE;
-}
-
 static void master_input(void *context)
 {
 	struct auth_master_connection *conn = context;
@@ -194,8 +188,6 @@ static void master_input(void *context)
 			ret = master_input_request(conn, line + 8);
 		else if (strncmp(line, "USER\t", 5) == 0)
 			ret = master_input_user(conn, line + 5);
-		else if (strcmp(line, "DIE") == 0)
-			ret = master_input_die(conn);
 		else {
 			/* ignore unknown command */
 			ret = TRUE;

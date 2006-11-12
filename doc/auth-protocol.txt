@@ -150,7 +150,6 @@ Master Requests
 
  M: "REQUEST" TAB <id> TAB <client-pid> TAB <client-id>
  M: "USER" TAB <id> TAB <userid> TAB service=<service> [TAB <parameters>]
- M: "DIE"
 
  S: "NOTFOUND" TAB <id>
  S: "FAIL" TAB <id> TAB <error message>
@@ -164,9 +163,6 @@ request.
 
 ID is a connection-specific unique request identifier. It must be a 32bit
 number, so typically you'd just increment it by one.
-
-DIE makes the server stop accepting new requests, and as soon as the
-existing requests are finished, it kills itself.
 
 NOTFOUND reply means that the request or user wasn't found. Master
 shouldn't even try to send REQUEST commands for nonexisting requests, so if
