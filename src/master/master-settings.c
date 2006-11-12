@@ -646,7 +646,7 @@ static bool get_imap_capability(struct settings *set)
 	}
 	fd_close_on_exec(fd[0], TRUE);
 	fd_close_on_exec(fd[1], TRUE);
-	if (!create_mail_process(MAIL_PROTOCOL_IMAP, set, fd[1],
+	if (!create_mail_process(PROCESS_TYPE_IMAP, set, fd[1],
 				 &ip, &ip, "dump-capability", args, TRUE)) {
 		(void)close(fd[0]);
 		(void)close(fd[1]);
