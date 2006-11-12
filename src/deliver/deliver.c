@@ -495,11 +495,12 @@ int main(int argc, char *argv[])
 		if (ret != 0)
 			return ret;
 
+		/* If possible chdir to home directory, so that core file
+		   could be written in case we crash. */
 		home = getenv("HOME");
 		if (home != NULL) {
-			/* If possible chdir to home directory so core file
-			   could be written. If it fails, don't worry. */
-			(void)chdir(home);
+			if (chdir(home) < 0)
+				i_error("chdir(%s) failed: %m", home);
 		}
 	} else {
 		destination = user;
