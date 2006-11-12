@@ -27,6 +27,10 @@
 #  undef HAVE_LDAP_SASL
 #endif
 
+#ifndef LDAP_SASL_QUIET
+#  define LDAP_SASL_QUIET 0 /* Doesn't exist in Solaris LDAP */
+#endif
+
 /* Older versions may require calling ldap_result() twice */
 #if LDAP_VENDOR_VERSION <= 20112
 #  define OPENLDAP_ASYNC_WORKAROUND
