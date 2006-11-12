@@ -251,7 +251,7 @@ static void authbind_start(struct ldap_connection *conn,
 	struct auth_request *auth_request = ldap_request->context;
 	int msgid;
 
-	if (!conn->connecting) {
+	if (conn->connected) {
 		/* switch back to the default dn before doing the next search
 		   request */
 		conn->last_auth_bind = TRUE;
