@@ -33,7 +33,7 @@
 #include "buffer.h"
 
 #define p_array_init(array, pool, init_count) \
-	array_create(array, pool, sizeof(**(array)->v), init_count);
+	array_create(array, pool, sizeof(**(array)->v), init_count)
 #define i_array_init(array, init_count) \
 	p_array_init(array, default_pool, init_count)
 #define t_array_init(array, init_count) \
