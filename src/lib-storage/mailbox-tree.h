@@ -1,14 +1,14 @@
 #ifndef __MAILBOX_TREE_H
 #define __MAILBOX_TREE_H
 
-#include "mail-storage.h"
+#include "mailbox-list.h"
 
 struct mailbox_node {
 	struct mailbox_node *next;
 	struct mailbox_node *children;
 
 	char *name;
-	enum mailbox_flags flags;
+	enum mailbox_info_flags flags;
 };
 
 struct mailbox_tree_context *mailbox_tree_init(char separator);

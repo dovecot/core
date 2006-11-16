@@ -24,11 +24,6 @@ enum mailbox_lock_notify_type {
 struct index_storage {
 	struct mail_storage storage;
 
-	const char *dir; /* root directory */
-	const char *index_dir;
-	const char *inbox_path; /* INBOX location */
-        const char *temp_prefix; /* prefix for temporary files */
-
 	const char *user; /* name of user accessing the storage */
 
 	struct mail_storage_callbacks *callbacks;
@@ -113,6 +108,7 @@ void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 
 void index_storage_init(struct index_storage *storage,
+			struct mailbox_list *list,
 			enum mail_storage_flags flags,
 			enum mail_storage_lock_method lock_method);
 void index_storage_deinit(struct index_storage *storage);

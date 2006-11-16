@@ -1,4 +1,4 @@
-SUBDIRS = index subscription-file register
+SUBDIRS = list index register
 
 noinst_LIBRARIES = libstorage.a
 
@@ -13,6 +13,7 @@ libstorage_a_SOURCES = \
 	mail-copy.c \
 	mail-search.c \
 	mail-storage.c \
+	mailbox-list.c \
 	mailbox-tree.c
 
 noinst_HEADERS = \
@@ -20,4 +21,6 @@ noinst_HEADERS = \
 	mail-search.h \
 	mail-storage.h \
 	mail-storage-private.h \
+	mailbox-list.h \
+	mailbox-list-private.h \
 	mailbox-tree.h

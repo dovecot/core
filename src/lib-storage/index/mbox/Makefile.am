@@ -12,7 +12,6 @@ libstorage_mbox_a_SOURCES = \
 	istream-raw-mbox.c \
 	mbox-file.c \
 	mbox-from.c \
-	mbox-list.c \
 	mbox-lock.c \
 	mbox-mail.c \
 	mbox-md5.c \

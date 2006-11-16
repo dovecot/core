@@ -25,9 +25,8 @@ static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 	MAIL_ACL_ADMIN
 };
 
-static int
-acl_storage_have_right(struct mail_storage *storage, const char *name,
-		       unsigned int acl_storage_right_idx, bool *can_see_r)
+int acl_storage_have_right(struct mail_storage *storage, const char *name,
+			   unsigned int acl_storage_right_idx, bool *can_see_r)
 {
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
 	const unsigned int *idx_arr = astorage->acl_storage_right_idx;
@@ -49,8 +48,9 @@ acl_storage_have_right(struct mail_storage *storage, const char *name,
 	return ret;
 }
 
-static const char *
-get_parent_mailbox_name(struct mail_storage *storage, const char *name)
+const char *
+acl_storage_get_parent_mailbox_name(struct mail_storage *storage,
+				    const char *name)
 {
 	const char *p;
 	char sep;
@@ -115,8 +115,8 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 
 	t_push();
 	ret = acl_storage_have_right(storage,
-				     get_parent_mailbox_name(storage, name),
-				     ACL_STORAGE_RIGHT_CREATE, NULL);
+			acl_storage_get_parent_mailbox_name(storage, name),
+			ACL_STORAGE_RIGHT_CREATE, NULL);
 	t_pop();
 
 	if (ret <= 0) {
@@ -183,8 +183,8 @@ static int acl_mailbox_rename(struct mail_storage *storage, const char *oldname,
 	/* and create the new one under the parent mailbox */
 	t_push();
 	ret = acl_storage_have_right(storage,
-				     get_parent_mailbox_name(storage, newname),
-				     ACL_STORAGE_RIGHT_CREATE, NULL);
+			acl_storage_get_parent_mailbox_name(storage, newname),
+			ACL_STORAGE_RIGHT_CREATE, NULL);
 	t_pop();
 
 	if (ret <= 0) {
@@ -199,83 +199,6 @@ static int acl_mailbox_rename(struct mail_storage *storage, const char *oldname,
 	}
 
 	return astorage->super.mailbox_rename(storage, oldname, newname);
-}
-
-static struct mailbox_list *
-acl_mailbox_list_next(struct mailbox_list_context *ctx)
-{
-	struct acl_mail_storage *astorage = ACL_CONTEXT(ctx->storage);
-	struct mailbox_list *list;
-	int ret;
-
-	for (;;) {
-		list = astorage->super.mailbox_list_next(ctx);
-		if (list == NULL)
-			return NULL;
-
-		ret = acl_storage_have_right(ctx->storage, list->name,
-					     ACL_STORAGE_RIGHT_LOOKUP, NULL);
-		if (ret > 0)
-			return list;
-		if (ret < 0) {
-			ctx->failed = TRUE;
-			return NULL;
-		}
-
-		/* no permission to see this mailbox */
-		if ((ctx->flags & MAILBOX_LIST_SUBSCRIBED) != 0) {
-			/* it's subscribed, show it as non-existent */
-			if ((ctx->flags & MAILBOX_LIST_FAST_FLAGS) == 0)
-				list->flags = MAILBOX_NONEXISTENT;
-			return list;
-		}
-
-		/* skip to next one */
-	}
-}
-
-static int acl_get_mailbox_name_status(struct mail_storage *storage,
-				       const char *name,
-				       enum mailbox_name_status *status)
-{
-	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
-	int ret;
-
-	ret = acl_storage_have_right(storage, name,
-				     ACL_STORAGE_RIGHT_LOOKUP, NULL);
-	if (ret < 0)
-		return -1;
-
-	if (astorage->super.get_mailbox_name_status(storage, name, status) < 0)
-		return -1;
-	if (ret > 0)
-		return 0;
-
-	/* we shouldn't reveal this mailbox's existance */
-	switch (*status) {
-	case MAILBOX_NAME_EXISTS:
-		*status = MAILBOX_NAME_VALID;
-		break;
-	case MAILBOX_NAME_VALID:
-	case MAILBOX_NAME_INVALID:
-		break;
-	case MAILBOX_NAME_NOINFERIORS:
-		/* have to check if we are allowed to see the parent */
-		t_push();
-		ret = acl_storage_have_right(storage,
-				get_parent_mailbox_name(storage, name),
-				ACL_STORAGE_RIGHT_LOOKUP, NULL);
-		t_pop();
-
-		if (ret < 0)
-			return -1;
-		if (ret == 0) {
-			/* no permission to see the parent */
-			*status = MAILBOX_NAME_VALID;
-		}
-		break;
-	}
-	return 0;
 }
 
 void acl_mail_storage_created(struct mail_storage *storage)
@@ -301,7 +224,7 @@ void acl_mail_storage_created(struct mail_storage *storage)
 		(storage->flags & MAIL_STORAGE_FLAG_SHARED_NAMESPACE) == 0 ?
 		getenv("USER") : NULL;
 	backend = acl_backend_init(acl_env, storage, user_env, NULL,
-				  owner_username);
+				   owner_username);
 	if (backend == NULL)
 		i_fatal("ACL backend initialization failed");
 
@@ -319,8 +242,8 @@ void acl_mail_storage_created(struct mail_storage *storage)
 	storage->v.mailbox_create = acl_mailbox_create;
 	storage->v.mailbox_delete = acl_mailbox_delete;
 	storage->v.mailbox_rename = acl_mailbox_rename;
-	storage->v.mailbox_list_next = acl_mailbox_list_next;
-	storage->v.get_mailbox_name_status = acl_get_mailbox_name_status;
+
+	acl_mailbox_list_set_storage(storage);
 
 	/* build ACL right lookup table */
 	for (i = 0; i < ACL_STORAGE_RIGHT_COUNT; i++) {
@@ -337,3 +260,4 @@ void acl_mail_storage_created(struct mail_storage *storage)
 	array_idx_set(&storage->module_contexts,
 		      acl_storage_module_id, &astorage);
 }
+

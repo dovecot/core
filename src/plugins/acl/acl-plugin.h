@@ -30,11 +30,20 @@ struct acl_mail_storage {
 
 extern void (*acl_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
+extern void (*acl_next_hook_mailbox_list_created)(struct mailbox_list *list);
 extern unsigned int acl_storage_module_id;
 
 void acl_mail_storage_created(struct mail_storage *storage);
+void acl_mailbox_list_created(struct mailbox_list *list);
 
 struct mailbox *acl_mailbox_open_box(struct mailbox *box);
+
+const char *
+acl_storage_get_parent_mailbox_name(struct mail_storage *storage,
+				    const char *name);
+int acl_storage_have_right(struct mail_storage *storage, const char *name,
+			   unsigned int acl_storage_right_idx, bool *can_see_r);
+void acl_mailbox_list_set_storage(struct mail_storage *storage);
 
 void acl_plugin_init(void);
 void acl_plugin_deinit(void);

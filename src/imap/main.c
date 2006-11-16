@@ -182,6 +182,7 @@ static void main_init(void)
 	dict_driver_register(&dict_driver_client);
         mail_storage_init();
 	mail_storage_register_all();
+	mailbox_list_register_all();
 	clients_init();
 	commands_init();
 	imap_thread_init();

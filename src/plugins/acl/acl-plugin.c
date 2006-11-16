@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mail-storage.h"
+#include "mailbox-list-private.h"
 #include "acl-api.h"
 #include "acl-plugin.h"
 
@@ -11,6 +12,7 @@
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 
 void (*acl_next_hook_mail_storage_created)(struct mail_storage *storage);
+void (*acl_next_hook_mailbox_list_created)(struct mailbox_list *list);
 
 void acl_plugin_init(void)
 {
@@ -18,6 +20,9 @@ void acl_plugin_init(void)
 		acl_next_hook_mail_storage_created =
 			hook_mail_storage_created;
 		hook_mail_storage_created = acl_mail_storage_created;
+
+		acl_next_hook_mailbox_list_created = hook_mailbox_list_created;
+		hook_mailbox_list_created = acl_mailbox_list_created;
 	}
 }
 
@@ -26,5 +31,7 @@ void acl_plugin_deinit(void)
 	if (acl_next_hook_mail_storage_created != NULL) {
 		hook_mail_storage_created =
 			acl_next_hook_mail_storage_created;
+		hook_mailbox_list_created =
+			acl_next_hook_mailbox_list_created;
 	}
 }

@@ -5,13 +5,11 @@
 #include "ostream.h"
 #include "nfs-workarounds.h"
 #include "file-dotlock.h"
-#include "mail-storage-private.h"
+#include "mailbox-list-private.h"
 #include "subscription-file.h"
 
 #include <unistd.h>
 #include <fcntl.h>
-
-#define MAX_MAILBOX_LENGTH PATH_MAX
 
 #define SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 #define SUBSCRIPTION_FILE_LOCK_TIMEOUT 120
@@ -20,28 +18,28 @@
 struct subsfile_list_context {
 	pool_t pool;
 
-	struct mail_storage *storage;
+	struct mailbox_list *list;
 	struct istream *input;
 	const char *path;
 
 	bool failed;
 };
 
-static void subsfile_set_syscall_error(struct mail_storage *storage,
+static void subsfile_set_syscall_error(struct mailbox_list *list,
 				       const char *function, const char *path)
 {
 	i_assert(function != NULL);
 
 	if (errno == EACCES)
-		mail_storage_set_error(storage, "Permission denied");
+		mailbox_list_set_error(list, "Permission denied");
 	else {
-		mail_storage_set_critical(storage,
+		mailbox_list_set_critical(list,
 			"%s failed with subscription file %s: %m",
 			function, path);
 	}
 }
 
-static const char *next_line(struct mail_storage *storage, const char *path,
+static const char *next_line(struct mailbox_list *list, const char *path,
 			     struct istream *input, bool *failed_r,
 			     bool ignore_estale)
 {
@@ -56,17 +54,17 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 		case -1:
                         if (input->stream_errno != 0 &&
                             (input->stream_errno != ESTALE || !ignore_estale)) {
-                                subsfile_set_syscall_error(storage,
+                                subsfile_set_syscall_error(list,
                                                            "read()", path);
                                 *failed_r = TRUE;
                         }
 			return NULL;
 		case -2:
 			/* mailbox name too large */
-			mail_storage_set_critical(storage,
+			mailbox_list_set_critical(list,
 				"Subscription file %s contains lines longer "
 				"than %u characters", path,
-				MAX_MAILBOX_LENGTH);
+				list->mailbox_name_max_length);
 			*failed_r = TRUE;
 			return NULL;
 		}
@@ -75,7 +73,7 @@ static const char *next_line(struct mail_storage *storage, const char *path,
 	return line;
 }
 
-int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
+int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			    const char *temp_prefix, const char *name, bool set)
 {
 	struct dotlock_settings dotlock_set;
@@ -97,10 +95,10 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 	fd_out = file_dotlock_open(&dotlock_set, path, 0, &dotlock);
 	if (fd_out == -1) {
 		if (errno == EAGAIN) {
-			mail_storage_set_error(storage,
+			mailbox_list_set_error(list,
 				"Timeout waiting for subscription file lock");
 		} else {
-			subsfile_set_syscall_error(storage,
+			subsfile_set_syscall_error(list,
 						   "file_dotlock_open()", path);
 		}
 		return -1;
@@ -108,18 +106,18 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 
 	fd_in = nfs_safe_open(path, O_RDONLY);
 	if (fd_in == -1 && errno != ENOENT) {
-		subsfile_set_syscall_error(storage, "open()", path);
+		subsfile_set_syscall_error(list, "open()", path);
 		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
 	input = fd_in == -1 ? NULL :
 		i_stream_create_file(fd_in, default_pool,
-				     MAX_MAILBOX_LENGTH, TRUE);
+				     list->mailbox_name_max_length+1, TRUE);
 	output = o_stream_create_file(fd_out, default_pool,
-				      MAX_MAILBOX_LENGTH, FALSE);
+				      list->mailbox_name_max_length+1, FALSE);
 	found = FALSE;
-	while ((line = next_line(storage, path, input,
+	while ((line = next_line(list, path, input,
 				 &failed, FALSE)) != NULL) {
 		if (strcmp(line, name) == 0) {
 			found = TRUE;
@@ -129,8 +127,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 
 		if (o_stream_send_str(output, line) < 0 ||
 		    o_stream_send(output, "\n", 1) < 0) {
-			subsfile_set_syscall_error(storage, "write()",
-						   path);
+			subsfile_set_syscall_error(list, "write()", path);
 			failed = TRUE;
 			break;
 		}
@@ -140,7 +137,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 		/* append subscription */
 		line = t_strconcat(name, "\n", NULL);
 		if (o_stream_send_str(output, line) < 0) {
-			subsfile_set_syscall_error(storage, "write()", path);
+			subsfile_set_syscall_error(list, "write()", path);
 			failed = TRUE;
 		}
 	}
@@ -151,7 +148,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 
 	if (failed || (set && found) || (!set && !found)) {
 		if (file_dotlock_delete(&dotlock) < 0) {
-			subsfile_set_syscall_error(storage,
+			subsfile_set_syscall_error(list,
 				"file_dotlock_delete()", path);
 			failed = TRUE;
 		}
@@ -159,7 +156,7 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 		enum dotlock_replace_flags flags =
 			DOTLOCK_REPLACE_FLAG_VERIFY_OWNER;
 		if (file_dotlock_replace(&dotlock, flags) < 0) {
-			subsfile_set_syscall_error(storage,
+			subsfile_set_syscall_error(list,
 				"file_dotlock_replace()", path);
 			failed = TRUE;
 		}
@@ -168,39 +165,43 @@ int subsfile_set_subscribed(struct mail_storage *storage, const char *path,
 }
 
 struct subsfile_list_context *
-subsfile_list_init(struct mail_storage *storage, const char *path)
+subsfile_list_init(struct mailbox_list *list, const char *path)
 {
 	struct subsfile_list_context *ctx;
 	pool_t pool;
 	int fd;
 
-	fd = nfs_safe_open(path, O_RDONLY);
-	if (fd == -1 && errno != ENOENT) {
-		subsfile_set_syscall_error(storage, "open()", path);
-		return NULL;
-	}
-
-	pool = pool_alloconly_create("subsfile_list", MAX_MAILBOX_LENGTH+1024);
+	pool = pool_alloconly_create("subsfile_list",
+				     list->mailbox_name_max_length + 1024);
 
 	ctx = p_new(pool, struct subsfile_list_context, 1);
 	ctx->pool = pool;
-	ctx->storage = storage;
-	ctx->input = fd == -1 ? NULL :
-		i_stream_create_file(fd, pool, MAX_MAILBOX_LENGTH, TRUE);
+	ctx->list = list;
+
+	fd = nfs_safe_open(path, O_RDONLY);
+	if (fd == -1) {
+		if (errno != ENOENT) {
+			subsfile_set_syscall_error(list, "open()", path);
+			ctx->failed = TRUE;
+		}
+	} else {
+		ctx->input =
+			i_stream_create_file(fd, pool,
+					     list->mailbox_name_max_length+1,
+					     TRUE);
+	}
 	ctx->path = p_strdup(pool, path);
 	return ctx;
 }
 
 int subsfile_list_deinit(struct subsfile_list_context *ctx)
 {
-	bool failed;
+	int ret = ctx->failed ? -1 : 0;
 
-	failed = ctx->failed;
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
 	pool_unref(ctx->pool);
-
-	return failed ? -1 : 0;
+	return ret;
 }
 
 const char *subsfile_list_next(struct subsfile_list_context *ctx)
@@ -213,8 +214,7 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
 		return NULL;
 
         for (i = 0;; i++) {
-                line = next_line(ctx->storage, ctx->path, ctx->input,
-				 &ctx->failed,
+                line = next_line(ctx->list, ctx->path, ctx->input, &ctx->failed,
 				 i < SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT);
                 if (ctx->input->stream_errno != ESTALE ||
                     i == SUBSCRIPTION_FILE_ESTALE_RETRY_COUNT)
@@ -232,16 +232,16 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
                            Just return end of subscriptions list in that
                            case. */
                         if (errno != ENOENT) {
-                                subsfile_set_syscall_error(ctx->storage,
-                                                           "open()",
+                                subsfile_set_syscall_error(ctx->list, "open()",
                                                            ctx->path);
                                 ctx->failed = TRUE;
                         }
                         return NULL;
                 }
 
-                ctx->input = i_stream_create_file(fd, ctx->pool,
-                                                  MAX_MAILBOX_LENGTH, TRUE);
+		ctx->input = i_stream_create_file(fd, ctx->pool,
+					ctx->list->mailbox_name_max_length+1,
+					TRUE);
         }
         return line;
 }

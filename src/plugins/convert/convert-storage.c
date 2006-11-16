@@ -100,18 +100,18 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 
 static int mailbox_convert_list_item(struct mail_storage *source_storage,
 				     struct mail_storage *dest_storage,
-				     struct mailbox_list *list,
+				     struct mailbox_info *info,
 				     struct dotlock *dotlock)
 {
 	const char *name;
 	struct mailbox *srcbox, *destbox;
 	int ret = 0;
 
-	if ((list->flags & (MAILBOX_NONEXISTENT|MAILBOX_PLACEHOLDER)) != 0)
+	if ((info->flags & (MAILBOX_NONEXISTENT|MAILBOX_PLACEHOLDER)) != 0)
 		return 0;
 
-	name = strcasecmp(list->name, "INBOX") == 0 ? "INBOX" : list->name;
-	if ((list->flags & MAILBOX_NOSELECT) != 0) {
+	name = strcasecmp(info->name, "INBOX") == 0 ? "INBOX" : info->name;
+	if ((info->flags & MAILBOX_NOSELECT) != 0) {
 		if (mail_storage_mailbox_create(dest_storage, name, TRUE) < 0) {
 			i_error("Mailbox conversion: Couldn't create mailbox "
 				"directory %s", name);
@@ -158,15 +158,15 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 			     struct mail_storage *dest_storage,
 			     struct dotlock *dotlock)
 {
-	struct mailbox_list_context *iter;
-	struct mailbox_list *list;
+	struct mailbox_list_iterate_context *iter;
+	struct mailbox_info *info;
 	int ret = 0;
 
-	iter = mail_storage_mailbox_list_init(source_storage, "", "*",
-                                              MAILBOX_LIST_FAST_FLAGS);
-	while ((list = mail_storage_mailbox_list_next(iter)) != NULL) {
+	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
+				      "", "*", MAILBOX_LIST_ITER_FAST_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (mailbox_convert_list_item(source_storage, dest_storage,
-					      list, dotlock) < 0) {
+					      info, dotlock) < 0) {
 			ret = -1;
 			break;
 		}
@@ -175,7 +175,7 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 		   is done only after 100 mails. */
 		(void)file_dotlock_touch(dotlock);
 	}
-	if (mail_storage_mailbox_list_deinit(&iter) < 0)
+	if (mailbox_list_iter_deinit(&iter) < 0)
 		ret = -1;
 	return ret;
 }
@@ -183,21 +183,23 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 					   struct mail_storage *dest_storage)
 {
-	struct mailbox_list_context *iter;
-	struct mailbox_list *list;
+	struct mailbox_list_iterate_context *iter;
+	struct mailbox_info *info;
+	struct mailbox_list *dest_list;
 	int ret = 0;
 
-	iter = mail_storage_mailbox_list_init(source_storage, "", "*",
-					      MAILBOX_LIST_SUBSCRIBED |
-					      MAILBOX_LIST_FAST_FLAGS);
-	while ((list = mail_storage_mailbox_list_next(iter)) != NULL) {
-		if (mail_storage_set_subscribed(dest_storage, list->name,
+	dest_list = mail_storage_get_list(dest_storage);
+	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
+				      "", "*", MAILBOX_LIST_ITER_SUBSCRIBED |
+				      MAILBOX_LIST_ITER_FAST_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		if (mailbox_list_set_subscribed(dest_list, info->name,
 						TRUE) < 0) {
 			ret = -1;
 			break;
 		}
 	}
-	if (mail_storage_mailbox_list_deinit(&iter) < 0)
+	if (mailbox_list_iter_deinit(&iter) < 0)
 		ret = -1;
 	return ret;
 }

@@ -11,7 +11,6 @@ AM_CPPFLAGS = \
 libstorage_dbox_a_SOURCES = \
 	dbox-file.c \
 	dbox-keywords.c \
-	dbox-list.c \
 	dbox-mail.c \
 	dbox-save.c \
 	dbox-sync.c \

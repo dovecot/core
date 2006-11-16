@@ -36,8 +36,9 @@ struct maildir_quota_root {
 };
 
 struct maildir_list_context {
-	struct mailbox_list_context *ctx;
-	struct mailbox_list *list;
+	struct mail_storage *storage;
+	struct mailbox_list_iterate_context *iter;
+	struct mailbox_info *info;
 
 	string_t *path;
 	int state;
@@ -131,10 +132,11 @@ maildir_list_init(struct mail_storage *storage)
 	struct maildir_list_context *ctx;
 
 	ctx = i_new(struct maildir_list_context, 1);
+	ctx->storage = storage;
 	ctx->path = str_new(default_pool, 512);
-	ctx->ctx = mail_storage_mailbox_list_init(storage, "", "*",
-						  MAILBOX_LIST_FAST_FLAGS |
-						  MAILBOX_LIST_INBOX);
+	ctx->iter = mailbox_list_iter_init(mail_storage_get_list(storage),
+					   "", "*",
+					   MAILBOX_LIST_ITER_FAST_FLAGS);
 	return ctx;
 }
 
@@ -147,14 +149,14 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 
 	for (;;) {
 		if (ctx->state == 0) {
-			ctx->list = mail_storage_mailbox_list_next(ctx->ctx);
-			if (ctx->list == NULL)
+			ctx->info = mailbox_list_iter_next(ctx->iter);
+			if (ctx->info == NULL)
 				return NULL;
 		}
 
 		t_push();
-		path = mail_storage_get_mailbox_path(ctx->ctx->storage,
-						     ctx->list->name,
+		path = mail_storage_get_mailbox_path(ctx->storage,
+						     ctx->info->name,
 						     &is_file);
 		str_truncate(ctx->path, 0);
 		str_append(ctx->path, path);
@@ -180,7 +182,7 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 
 static int maildir_list_deinit(struct maildir_list_context *ctx)
 {
-	int ret = mail_storage_mailbox_list_deinit(&ctx->ctx);
+	int ret = mailbox_list_iter_deinit(&ctx->iter);
 
 	str_free(&ctx->path);
 	i_free(ctx);

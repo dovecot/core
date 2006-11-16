@@ -6,5 +6,3 @@
 Makefile
 Makefile.in
 so_locations
-mail-storage-register.c
-mailbox-list-register.c

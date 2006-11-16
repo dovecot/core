@@ -6,6 +6,7 @@
 bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
         struct mail_storage *storage;
+	struct mailbox_list *list;
 	const char *mailbox, *verify_name;
 
 	/* <mailbox> */
@@ -32,7 +33,8 @@ bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 	if (!client_verify_mailbox_name(cmd, verify_name, subscribe, FALSE))
 		return TRUE;
 
-	if (mail_storage_set_subscribed(storage, mailbox, subscribe) < 0)
+	list = mail_storage_get_list(storage);
+	if (mailbox_list_set_subscribed(list, mailbox, subscribe) < 0)
 		client_send_storage_error(cmd, storage);
 	else {
 		client_send_tagline(cmd, subscribe ?

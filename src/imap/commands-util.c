@@ -36,6 +36,7 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 				bool should_exist, bool should_not_exist)
 {
 	struct mail_storage *storage;
+	struct mailbox_list *list;
 	enum mailbox_name_status mailbox_status;
 	const char *p;
 	char sep;
@@ -65,7 +66,8 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 	}
 
 	/* check what our storage thinks of it */
-	if (mail_storage_get_mailbox_name_status(storage, mailbox,
+	list = mail_storage_get_list(storage);
+	if (mailbox_list_get_mailbox_name_status(list, mailbox,
 						 &mailbox_status) < 0) {
 		client_send_storage_error(cmd, storage);
 		return FALSE;

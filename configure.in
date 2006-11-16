@@ -1843,11 +1843,11 @@ src/lib-ntlm/Makefile
 src/lib-otp/Makefile
 src/lib-settings/Makefile
 src/lib-storage/Makefile
+src/lib-storage/list/Makefile
 src/lib-storage/index/Makefile
 src/lib-storage/index/maildir/Makefile
 src/lib-storage/index/mbox/Makefile
 src/lib-storage/index/dbox/Makefile
-src/lib-storage/subscription-file/Makefile
 src/lib-storage/register/Makefile
 src/auth/Makefile
 src/deliver/Makefile

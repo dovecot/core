@@ -20,7 +20,7 @@ libs = \
 	../lib-storage/register/libstorage-register.a \
 	$(STORAGE_LIBS) \
 	../lib-storage/libstorage.a \
-	../lib-storage/subscription-file/libstorage_subscription_file.a \
+	../lib-storage/list/libstorage_list.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \
 	../lib-dict/libdict.a \

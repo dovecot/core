@@ -174,8 +174,7 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 
 	uidlist->dotlock_settings.timeout = UIDLIST_LOCK_STALE_TIMEOUT + 2;
 	uidlist->dotlock_settings.stale_timeout = UIDLIST_LOCK_STALE_TIMEOUT;
-	uidlist->dotlock_settings.temp_prefix =
-		INDEX_STORAGE(mbox->storage)->temp_prefix;
+	uidlist->dotlock_settings.temp_prefix = mbox->storage->temp_prefix;
 
 	return uidlist;
 }

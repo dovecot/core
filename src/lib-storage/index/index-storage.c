@@ -41,9 +41,11 @@ static struct timeout *to_index = NULL;
 static int index_storage_refcount = 0;
 
 void index_storage_init(struct index_storage *storage,
+			struct mailbox_list *list,
 			enum mail_storage_flags flags,
 			enum mail_storage_lock_method lock_method)
 {
+	storage->storage.list = list;
 	storage->storage.flags = flags;
 	storage->storage.lock_method = lock_method;
 
@@ -95,8 +97,11 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 	struct stat st, st2;
 	int destroy_count;
 
-	if (index_dir == NULL || stat(index_dir, &st) < 0)
+	if (*index_dir == '\0' || stat(index_dir, &st) < 0) {
+		if (*index_dir == '\0')
+			index_dir = NULL;
 		memset(&st, 0, sizeof(st));
+	}
 
 	/* compare index_dir inodes so we don't break even with symlinks.
 	   for in-memory indexes compare just mailbox paths */

@@ -77,13 +77,6 @@ struct dbox_transaction_context {
 
 extern struct mail_vfuncs dbox_mail_vfuncs;
 
-struct mailbox_list_context *
-dbox_mailbox_list_init(struct mail_storage *storage,
-		       const char *ref, const char *mask,
-		       enum mailbox_list_flags flags);
-int dbox_mailbox_list_deinit(struct mailbox_list_context *ctx);
-struct mailbox_list *dbox_mailbox_list_next(struct mailbox_list_context *ctx);
-
 void dbox_transaction_created(struct mail_index_transaction *t);
 void dbox_transaction_class_init(void);
 void dbox_transaction_class_deinit(void);
@@ -100,8 +93,6 @@ void dbox_save_cancel(struct mail_save_context *ctx);
 int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx);
 void dbox_transaction_save_commit_post(struct dbox_save_context *ctx);
 void dbox_transaction_save_rollback(struct dbox_save_context *ctx);
-
-bool dbox_is_valid_mask(struct mail_storage *storage, const char *mask);
 
 int dbox_mail_lookup_offset(struct index_transaction_context *trans,
 			    uint32_t seq, uint32_t *file_seq_r,

@@ -14,6 +14,7 @@ lib01_acl_plugin_la_SOURCES = \
 	acl-backend-vfile.c \
 	acl-cache.c \
 	acl-mailbox.c \
+	acl-mailbox-list.c \
 	acl-plugin.c \
 	acl-storage.c
 

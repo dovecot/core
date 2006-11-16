@@ -29,7 +29,7 @@ libs = \
 	$(top_builddir)/src/lib-storage/register/libstorage-register.a \
 	$(STORAGE_LIBS) \
 	$(top_builddir)/src/lib-storage/libstorage.a \
-	$(top_builddir)/src/lib-storage/subscription-file/libstorage_subscription_file.a \
+	$(top_builddir)/src/lib-storage/list/libstorage_list.a \
 	$(top_builddir)/src/lib-imap/libimap.a \
 	$(top_builddir)/src/lib-mail/libmail.a \
 	$(top_builddir)/src/lib-charset/libcharset.a \

@@ -16,14 +16,6 @@
 	"Internal error occurred. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
-/* 20 * (200+1) < 4096 which is the standard PATH_MAX. Having these settings
-   prevents malicious user from creating eg. "a/a/a/.../a" mailbox name and
-   then start renaming them to larger names from end to beginning, which
-   eventually would start causing the failures when trying to use too
-   long mailbox names. */
-#define MAILBOX_MAX_HIERARCHY_LEVELS 20
-#define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 200
-
 unsigned int mail_storage_module_id = 0;
 unsigned int mail_storage_mail_index_module_id = 0;
 
@@ -120,20 +112,20 @@ static struct mail_storage *mail_storage_find(const char *name)
 }
 
 struct mail_storage *
-mail_storage_create(const char *name, const char *data, const char *user,
+mail_storage_create(const char *driver, const char *data, const char *user,
 		    enum mail_storage_flags flags,
 		    enum mail_storage_lock_method lock_method)
 {
 	struct mail_storage *storage;
 
-	storage = mail_storage_find(name);
+	storage = mail_storage_find(driver);
 	if (storage != NULL)
 		return storage->v.create(data, user, flags, lock_method);
 	else
 		return NULL;
 }
 
-struct mail_storage *
+static struct mail_storage *
 mail_storage_create_default(const char *user, enum mail_storage_flags flags,
 			    enum mail_storage_lock_method lock_method)
 {
@@ -265,6 +257,18 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	storage->temporary_error = TRUE;
 }
 
+void mail_storage_set_list_error(struct mail_storage *storage)
+{
+	bool temp;
+
+	i_free(storage->error);
+	storage->error =
+		i_strdup(mailbox_list_get_last_error(storage->list, &temp));
+
+	storage->syntax_error = FALSE;
+	storage->temporary_error = temp;
+}
+
 void mail_storage_set_critical(struct mail_storage *storage,
 			       const char *fmt, ...)
 {
@@ -285,7 +289,12 @@ void mail_storage_set_critical(struct mail_storage *storage,
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage)
 {
-	return storage->hierarchy_sep;
+	return mailbox_list_get_hierarchy_sep(storage->list);
+}
+
+struct mailbox_list *mail_storage_get_list(struct mail_storage *storage)
+{
+	return storage->list;
 }
 
 void mail_storage_set_callbacks(struct mail_storage *storage,
@@ -312,41 +321,6 @@ int mail_storage_mailbox_rename(struct mail_storage *storage,
 	return storage->v.mailbox_rename(storage, oldname, newname);
 }
 
-struct mailbox_list_context *
-mail_storage_mailbox_list_init(struct mail_storage *storage,
-			       const char *ref, const char *mask,
-			       enum mailbox_list_flags flags)
-{
-	return storage->v.mailbox_list_init(storage, ref, mask, flags);
-}
-
-struct mailbox_list *
-mail_storage_mailbox_list_next(struct mailbox_list_context *ctx)
-{
-	return ctx->storage->v.mailbox_list_next(ctx);
-}
-
-int mail_storage_mailbox_list_deinit(struct mailbox_list_context **_ctx)
-{
-	struct mailbox_list_context *ctx = *_ctx;
-
-	*_ctx = NULL;
-	return ctx->storage->v.mailbox_list_deinit(ctx);
-}
-
-int mail_storage_set_subscribed(struct mail_storage *storage,
-				const char *name, bool set)
-{
-	return storage->v.set_subscribed(storage, name, set);
-}
-
-int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
-					 const char *name,
-					 enum mailbox_name_status *status)
-{
-	return storage->v.get_mailbox_name_status(storage, name, status);
-}
-
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					bool *syntax_error_r,
 					bool *temporary_error_r)
@@ -358,19 +332,61 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
 					  const char *name, bool *is_file_r)
 {
-	return storage->v.get_mailbox_path(storage, name, is_file_r);
+	*is_file_r = storage->mailbox_is_file;
+
+	return mailbox_list_get_path(storage->list, name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 }
 
 const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
 						 const char *name)
 {
-	return storage->v.get_mailbox_control_dir(storage, name);
+	return mailbox_list_get_path(storage->list, name,
+				     MAILBOX_LIST_PATH_TYPE_CONTROL);
 }
 
 const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
 					       const char *name)
 {
-	return storage->v.get_mailbox_index_dir(storage, name);
+	return mailbox_list_get_path(storage->list, name,
+				     MAILBOX_LIST_PATH_TYPE_INDEX);
+}
+
+enum mailbox_list_flags
+mail_storage_get_list_flags(enum mail_storage_flags storage_flags)
+{
+	enum mailbox_list_flags list_flags = 0;
+
+	if ((storage_flags & MAIL_STORAGE_FLAG_DEBUG) != 0)
+		list_flags |= MAILBOX_LIST_FLAG_DEBUG;
+	if ((storage_flags & MAIL_STORAGE_FLAG_HAS_INBOX) != 0)
+		list_flags |= MAILBOX_LIST_FLAG_INBOX;
+	if ((storage_flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0)
+		list_flags |= MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
+	return list_flags;
+}
+
+int mailbox_storage_list_is_mailbox(const char *dir, const char *fname,
+				    enum mailbox_list_file_type type,
+				    enum mailbox_list_iter_flags iter_flags,
+				    enum mailbox_info_flags *flags,
+				    void *context)
+{
+	struct mail_storage *storage = context;
+
+	return mail_storage_is_mailbox(storage, dir, fname, iter_flags,
+				       flags, type);
+}
+
+
+int mail_storage_is_mailbox(struct mail_storage *storage,
+			    const char *dir, const char *fname,
+			    enum mailbox_list_iter_flags iter_flags,
+			    enum mailbox_info_flags *flags,
+			    enum mailbox_list_file_type type)
+{
+	return storage->v.is_mailbox(storage, dir, fname, iter_flags,
+				     flags, type);
 }
 
 struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
@@ -574,26 +590,4 @@ int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
 bool mailbox_is_inconsistent(struct mailbox *box)
 {
 	return box->v.is_inconsistent(box);
-}
-
-bool mailbox_name_is_too_large(const char *name, char sep)
-{
-	unsigned int levels = 1, level_len = 0;
-
-	for (; *name != '\0'; name++) {
-		if (*name == sep) {
-			if (level_len > MAILBOX_MAX_HIERARCHY_NAME_LENGTH)
-				return TRUE;
-			levels++;
-			level_len = 0;
-		} else {
-			level_len++;
-		}
-	}
-
-	if (level_len > MAILBOX_MAX_HIERARCHY_NAME_LENGTH)
-		return TRUE;
-	if (levels > MAILBOX_MAX_HIERARCHY_LEVELS)
-		return TRUE;
-	return FALSE;
 }

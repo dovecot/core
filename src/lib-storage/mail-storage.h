@@ -4,6 +4,7 @@
 struct message_size;
 
 #include "mail-types.h"
+#include "mailbox-list.h"
 
 enum mail_storage_flags {
 	/* Print debugging information while initializing the storage */
@@ -26,7 +27,9 @@ enum mail_storage_flags {
 	MAIL_STORAGE_FLAG_SHARED_NAMESPACE	= 0x80,
 	/* Don't try to autodetect anything, require that the given data 
 	   contains all the necessary information. */
-	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x100
+	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x100,
+	/* Ths storage contains INBOX */
+	MAIL_STORAGE_FLAG_HAS_INBOX		= 0x200
 };
 
 enum mail_storage_lock_method {
@@ -53,26 +56,6 @@ enum mailbox_open_flags {
 	MAILBOX_OPEN_MBOX_ONE_MSG_ONLY	= 0x40
 };
 
-enum mailbox_list_flags {
-	MAILBOX_LIST_SUBSCRIBED	= 0x01,
-	MAILBOX_LIST_FAST_FLAGS	= 0x02,
-	MAILBOX_LIST_CHILDREN	= 0x04,
-	MAILBOX_LIST_INBOX	= 0x08
-};
-
-enum mailbox_flags {
-	MAILBOX_NOSELECT	= 0x001,
-	MAILBOX_NONEXISTENT	= 0x002,
-	MAILBOX_PLACEHOLDER	= 0x004,
-	MAILBOX_CHILDREN	= 0x008,
-	MAILBOX_NOCHILDREN	= 0x010,
-	MAILBOX_NOINFERIORS	= 0x020,
-	MAILBOX_MARKED		= 0x040,
-	MAILBOX_UNMARKED	= 0x080,
-
-	MAILBOX_READONLY	= 0x100
-};
-
 enum mailbox_status_items {
 	STATUS_MESSAGES		= 0x01,
 	STATUS_RECENT		= 0x02,
@@ -81,13 +64,6 @@ enum mailbox_status_items {
 	STATUS_UNSEEN		= 0x10,
 	STATUS_FIRST_UNSEEN_SEQ	= 0x20,
 	STATUS_KEYWORDS		= 0x40
-};
-
-enum mailbox_name_status {
-	MAILBOX_NAME_EXISTS,
-	MAILBOX_NAME_VALID,
-	MAILBOX_NAME_INVALID,
-	MAILBOX_NAME_NOINFERIORS
 };
 
 enum mail_sort_type {
@@ -165,13 +141,7 @@ struct mail_search_arg;
 struct mail_keywords;
 struct mail_save_context;
 struct mailbox;
-struct mailbox_list_context;
 struct mailbox_transaction_context;
-
-struct mailbox_list {
-	const char *name;
-        enum mailbox_flags flags;
-};
 
 struct mailbox_status {
 	uint32_t messages;
@@ -232,23 +202,21 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 			    enum mail_storage_lock_method *lock_method_r);
 
 /* Create a new instance of registered mail storage class with given
-   storage-specific data. If data is NULL, it tries to use defaults.
+   storage-specific data. If data is NULL, it tries to autodetect defaults.
    May return NULL if anything fails. */
 struct mail_storage *
-mail_storage_create(const char *name, const char *data, const char *user,
+mail_storage_create(const char *driver, const char *data, const char *user,
 		    enum mail_storage_flags flags,
 		    enum mail_storage_lock_method lock_method);
-void mail_storage_destroy(struct mail_storage **storage);
-
-struct mail_storage *
-mail_storage_create_default(const char *user, enum mail_storage_flags flags,
-			    enum mail_storage_lock_method lock_method);
 struct mail_storage *
 mail_storage_create_with_data(const char *data, const char *user,
 			      enum mail_storage_flags flags,
 			      enum mail_storage_lock_method lock_method);
+void mail_storage_destroy(struct mail_storage **storage);
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
+struct mailbox_list *mail_storage_get_list(struct mail_storage *storage);
+void mail_storage_set_list_error(struct mail_storage *storage);
 
 /* Set storage callback functions to use. */
 void mail_storage_set_callbacks(struct mail_storage *storage,
@@ -274,31 +242,6 @@ int mail_storage_mailbox_delete(struct mail_storage *storage, const char *name);
 int mail_storage_mailbox_rename(struct mail_storage *storage,
 				const char *oldname, const char *newname);
 
-/* Initialize new mailbox list request. mask may contain '%' and '*'
-   wildcards as defined in RFC3501. Matching against "INBOX" is
-   case-insensitive, but anything else is not. */
-struct mailbox_list_context *
-mail_storage_mailbox_list_init(struct mail_storage *storage,
-			       const char *ref, const char *mask,
-			       enum mailbox_list_flags flags);
-/* Get next mailbox. Returns the mailbox name */
-struct mailbox_list *
-mail_storage_mailbox_list_next(struct mailbox_list_context *ctx);
-/* Deinitialize mailbox list request. Returns FALSE if some error
-   occurred while listing. */
-int mail_storage_mailbox_list_deinit(struct mailbox_list_context **ctx);
-
-/* Subscribe/unsubscribe mailbox. There should be no error when
-   subscribing to already subscribed mailbox. Subscribing to
-   unexisting mailboxes is optional. */
-int mail_storage_set_subscribed(struct mail_storage *storage,
-				const char *name, bool set);
-
-/* Returns mailbox name status */
-int mail_storage_get_mailbox_name_status(struct mail_storage *storage,
-					 const char *name,
-					 enum mailbox_name_status *status);
-
 /* Returns the error message of last occurred error. */
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					bool *syntax_error_r,
@@ -318,6 +261,12 @@ const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
    in-memory indexes or mailbox doesn't exist. */
 const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
 					       const char *name);
+
+int mail_storage_is_mailbox(struct mail_storage *storage,
+			    const char *dir, const char *fname,
+			    enum mailbox_list_iter_flags iter_flags,
+			    enum mailbox_info_flags *flags,
+			    enum mailbox_list_file_type type);
 
 /* Open a mailbox. If input stream is given, mailbox is opened read-only
    using it as a backend. If storage doesn't support stream backends and its

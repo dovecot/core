@@ -7,7 +7,7 @@
 #define MBOX_MIN_CONTENT_LENGTH_SIZE 1024
 
 #define MBOX_STORAGE_NAME "mbox"
-#define SUBSCRIPTION_FILE_NAME ".subscriptions"
+#define MBOX_SUBSCRIPTION_FILE_NAME ".subscriptions"
 #define MBOX_INDEX_PREFIX "dovecot.index"
 #define MBOX_INDEX_DIR_NAME ".imap"
 
@@ -64,13 +64,6 @@ extern unsigned int mbox_hide_headers_count;
 
 int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function);
 
-struct mailbox_list_context *
-mbox_mailbox_list_init(struct mail_storage *storage,
-		       const char *ref, const char *mask,
-		       enum mailbox_list_flags flags);
-int mbox_mailbox_list_deinit(struct mailbox_list_context *ctx);
-struct mailbox_list *mbox_mailbox_list_next(struct mailbox_list_context *ctx);
-
 void mbox_transaction_created(struct mail_index_transaction *t);
 void mbox_transaction_class_init(void);
 void mbox_transaction_class_deinit(void);
@@ -89,7 +82,5 @@ void mbox_save_cancel(struct mail_save_context *ctx);
 
 int mbox_transaction_save_commit(struct mbox_save_context *ctx);
 void mbox_transaction_save_rollback(struct mbox_save_context *ctx);
-
-bool mbox_is_valid_mask(struct mail_storage *storage, const char *mask);
 
 #endif

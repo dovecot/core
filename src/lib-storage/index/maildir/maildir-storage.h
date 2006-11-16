@@ -1,14 +1,10 @@
 #ifndef __MAILDIR_STORAGE_H
 #define __MAILDIR_STORAGE_H
 
-/* Hierarchy separator in Maildir++ filenames - shouldn't be changed */
-#define MAILDIR_FS_SEP '.'
-#define MAILDIR_FS_SEP_S "."
-
 #define MAILDIR_STORAGE_NAME "maildir"
-#define SUBSCRIPTION_FILE_NAME "subscriptions"
+#define MAILDIR_SUBSCRIPTION_FILE_NAME "subscriptions"
 #define MAILDIR_INDEX_PREFIX "dovecot.index"
-#define MAILDIR_UNLINK_DIRNAME MAILDIR_FS_SEP_S"DOVECOT-TRASHED"
+#define MAILDIR_UNLINK_DIRNAME "DOVECOT-TRASHED"
 
 /* "base,S=123:2," means:
    <base> [<extra sep> <extra data> [..]] <info sep> 2 <flags sep> */
@@ -52,9 +48,11 @@ struct maildir_index_sync_context;
 struct maildir_storage {
 	struct index_storage storage;
 
-	const char *control_dir;
+	const char *temp_prefix;
+
 	unsigned int copy_with_hardlinks:1;
 	unsigned int save_size_in_filename:1;
+	unsigned int stat_dirs:1;
 };
 
 struct maildir_mailbox {
@@ -92,14 +90,6 @@ const char *maildir_generate_tmp_filename(const struct timeval *tv);
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r);
 bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r);
-
-struct mailbox_list_context *
-maildir_mailbox_list_init(struct mail_storage *storage,
-			  const char *ref, const char *mask,
-			  enum mailbox_list_flags flags);
-int maildir_mailbox_list_deinit(struct mailbox_list_context *ctx);
-struct mailbox_list *
-maildir_mailbox_list_next(struct mailbox_list_context *ctx);
 
 int maildir_sync_is_synced(struct maildir_mailbox *mbox);
 
@@ -145,8 +135,6 @@ int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail,
 		 struct mail *dest_mail);
 int maildir_transaction_copy_commit(struct maildir_copy_context *ctx);
 void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx);
-
-const char *maildir_get_path(struct index_storage *storage, const char *name);
 
 int maildir_sync_last_commit(struct maildir_mailbox *mbox);
 

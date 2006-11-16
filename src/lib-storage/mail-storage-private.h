@@ -27,8 +27,6 @@ struct mail_storage_vfuncs {
 			      struct mail_storage_callbacks *callbacks,
 			      void *context);
 
-	const char *(*get_mailbox_path)(struct mail_storage *storage,
-					const char *name, bool *is_file_r);
 	const char *(*get_mailbox_control_dir)(struct mail_storage *storage,
 					       const char *name);
 	const char *(*get_mailbox_index_dir)(struct mail_storage *storage,
@@ -45,20 +43,11 @@ struct mail_storage_vfuncs {
 	int (*mailbox_rename)(struct mail_storage *storage, const char *oldname,
 			      const char *newname);
 
-	struct mailbox_list_context *
-		(*mailbox_list_init)(struct mail_storage *storage,
-				     const char *ref, const char *mask,
-				     enum mailbox_list_flags flags);
-	struct mailbox_list *
-		(*mailbox_list_next)(struct mailbox_list_context *ctx);
-	int (*mailbox_list_deinit)(struct mailbox_list_context *ctx);
-
-	int (*set_subscribed)(struct mail_storage *storage,
-			      const char *name, bool set);
-
-	int (*get_mailbox_name_status)(struct mail_storage *storage,
-				       const char *name,
-				       enum mailbox_name_status *status);
+	int (*is_mailbox)(struct mail_storage *storage,
+			  const char *dir, const char *fname,
+			  enum mailbox_list_iter_flags iter_flags,
+			  enum mailbox_info_flags *flags,
+			  enum mailbox_list_file_type type);
 
 	const char *(*get_last_error)(struct mail_storage *storage,
 				      bool *syntax_error_r,
@@ -67,7 +56,7 @@ struct mail_storage_vfuncs {
 
 struct mail_storage {
 	char *name;
-	char hierarchy_sep;
+	bool mailbox_is_file;
 
         struct mail_storage_vfuncs v;
 
@@ -75,6 +64,7 @@ struct mail_storage {
 	pool_t pool;
 
 	char *error;
+	struct mailbox_list *list;
 	enum mail_storage_flags flags;
         enum mail_storage_lock_method lock_method;
 
@@ -287,6 +277,13 @@ void mail_storage_set_internal_error(struct mail_storage *storage);
 
 const char *mail_storage_class_get_last_error(struct mail_storage *storage,
 					      bool *syntax_error_r);
-bool mailbox_name_is_too_large(const char *name, char sep);
+
+enum mailbox_list_flags
+mail_storage_get_list_flags(enum mail_storage_flags storage_flags);
+int mailbox_storage_list_is_mailbox(const char *dir, const char *fname,
+				    enum mailbox_list_file_type type,
+				    enum mailbox_list_iter_flags iter_flags,
+				    enum mailbox_info_flags *flags,
+				    void *context);
 
 #endif
