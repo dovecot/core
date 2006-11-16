@@ -55,6 +55,8 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 
 	if (ns->type != NAMESPACE_PRIVATE)
 		flags |= MAIL_STORAGE_FLAG_SHARED_NAMESPACE;
+	if (ns->inbox)
+		flags |= MAIL_STORAGE_FLAG_HAS_INBOX;
 
 	if (prefix == NULL)
 		prefix = "";
@@ -126,6 +128,12 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 	}
 
 	ns = p_new(pool, struct namespace, 1);
+	ns->type = NAMESPACE_PRIVATE;
+	ns->inbox = TRUE;
+	ns->subscriptions = TRUE;
+	ns->prefix = "";
+
+	flags |= MAIL_STORAGE_FLAG_HAS_INBOX;
 	ns->storage = mail_storage_create_with_data(mail, user, flags,
 						    lock_method);
 	if (ns->storage == NULL) {
@@ -142,10 +150,6 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 		}
 	}
 
-	ns->type = NAMESPACE_PRIVATE;
-	ns->inbox = TRUE;
-	ns->subscriptions = TRUE;
-	ns->prefix = "";
 	namespace_init_storage(ns);
 	return ns;
 }
