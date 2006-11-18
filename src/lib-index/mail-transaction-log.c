@@ -247,6 +247,7 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 		log->head = mail_transaction_log_file_open_or_create(log, path);
 		i_assert(log->head != NULL);
 	}
+	log->head->refcount++;
 
 	if (index->fd != -1 &&
 	    INDEX_HAS_MISSING_LOGS(index, log->head)) {
@@ -683,7 +684,6 @@ mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
 	}
 
 	file = i_new(struct mail_transaction_log_file, 1);
-	file->refcount = 1;
 	file->log = log;
 	file->filepath = i_strdup(path);
 	file->fd = fd;
@@ -766,7 +766,6 @@ mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log)
 	struct mail_transaction_log_file *file;
 
 	file = i_new(struct mail_transaction_log_file, 1);
-	file->refcount = 1;
 	file->log = log;
 	file->filepath = i_strdup("(in-memory transaction log file)");
 	file->fd = -1;
@@ -866,6 +865,7 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 	for (file = log->files; file != NULL; file = next) {
 		next = file->next;
 
+		i_assert(file->refcount >= 0);
 		if (file->refcount == 0)
 			mail_transaction_log_file_free(file);
 	}
@@ -908,7 +908,6 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock)
 
 	if (lock) {
 		if (mail_transaction_log_file_lock(file) < 0) {
-			file->refcount--;
 			mail_transaction_logs_clean(log);
 			return -1;
 		}
@@ -922,6 +921,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock)
 
 	i_assert(log->head != file);
 	log->head = file;
+	log->head->refcount++;
 	return 0;
 }
 
@@ -967,6 +967,7 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log,
 	}
 
 	log->head = file;
+	log->head->refcount++;
 	return 0;
 }
 

@@ -1,7 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
 #include "mail-transaction-util.h"
@@ -16,6 +16,10 @@ struct mail_transaction_log_view {
 	enum mail_transaction_type type_mask;
 	struct mail_transaction_header tmp_hdr;
 
+	/* a list of log files we've referenced. we have to keep this list
+	   explicitly because more files may be added into the linked list
+	   at any time. */
+	array_t ARRAY_DEFINE(file_refs, struct mail_transaction_log_file *);
         struct mail_transaction_log_file *cur, *head, *tail;
 	uoff_t cur_offset;
 
@@ -36,17 +40,32 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 
 	view->head = view->tail = view->log->head;
 	view->head->refcount++;
+	ARRAY_CREATE(&view->file_refs, default_pool,
+		     struct mail_transaction_log_file *, 8);
+	array_append(&view->file_refs, &view->head, 1);
 
 	view->next = log->views;
 	log->views = view;
 	return view;
 }
 
+static void
+mail_transaction_log_view_unref_all(struct mail_transaction_log_view *view)
+{
+	struct mail_transaction_log_file *const *files;
+	unsigned int i, count;
+
+	files = array_get(&view->file_refs, &count);
+	for (i = 0; i < count; i++)
+		files[i]->refcount--;
+
+	array_clear(&view->file_refs);
+}
+
 void mail_transaction_log_view_close(struct mail_transaction_log_view **_view)
 {
         struct mail_transaction_log_view *view = *_view;
 	struct mail_transaction_log_view **p;
-	struct mail_transaction_log_file *file;
 
 	*_view = NULL;
 
@@ -57,11 +76,10 @@ void mail_transaction_log_view_close(struct mail_transaction_log_view **_view)
 		}
 	}
 
-	for (file = view->tail; file != view->head; file = file->next)
-		file->refcount--;
-	view->head->refcount--;
-
+	mail_transaction_log_view_unref_all(view);
 	mail_transaction_logs_clean(view->log);
+
+	array_free(&view->file_refs);
 	i_free(view);
 }
 
@@ -184,21 +202,16 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		 max_file_offset <= file->sync_offset);
 
 	/* we have all of them. update refcounts. */
-	if (view->tail->hdr.file_seq < first->hdr.file_seq) {
-		/* unref old files */
-		for (file = view->tail; file != first; file = file->next)
-			file->refcount--;
-	} else {
-		/* going backwards, reference them */
-		for (file = first; file != view->tail; file = file->next)
-			file->refcount++;
-	}
-	view->tail = first;
+	mail_transaction_log_view_unref_all(view);
 
-	/* reference all new files */
-	for (file = view->head->next; file != NULL; file = file->next)
-		file->refcount++;
+	view->tail = first;
 	view->head = view->log->head;
+
+	/* reference all used files */
+	for (file = view->tail; file != NULL; file = file->next) {
+		array_append(&view->file_refs, &file, 1);
+		file->refcount++;
+	}
 
 	view->prev_file_seq = 0;
 	view->prev_file_offset = 0;

@@ -13,6 +13,8 @@ struct mail_transaction_log_file {
 	struct mail_transaction_log *log;
         struct mail_transaction_log_file *next;
 
+	/* refcount=0 is a valid state. files start that way, and they're
+	   freed only when mail_transaction_logs_clean() is called. */
 	int refcount;
 
 	char *filepath;
