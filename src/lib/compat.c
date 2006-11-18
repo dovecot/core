@@ -34,9 +34,9 @@ int my_strcasecmp(const char *s1, const char *s2)
 
 int my_strncasecmp(const char *s1, const char *s2, size_t max_chars)
 {
-	while (max_chars > 0 && *s1 != '\0' &&
+	while (max_chars > 1 && *s1 != '\0' &&
 	       i_toupper(*s1) == i_toupper(*s2)) {
-		s1++; s2++;
+		s1++; s2++; max_chars--;
 	}
 
         return i_toupper(*s1) - i_toupper(*s2);
