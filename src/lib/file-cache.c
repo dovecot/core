@@ -128,8 +128,8 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 	i_assert(psize > 0);
 
 	bits = buffer_get_space_unsafe(cache->page_bitmask, 0,
-				       (poffset + psize + CHAR_BIT - 1) /
-				       CHAR_BIT);
+				       poffset / CHAR_BIT +
+				       (psize + CHAR_BIT - 1) / CHAR_BIT);
 
 	dest_offset = poffset * page_size;
 	dest = PTR_OFFSET(cache->mmap_base, dest_offset);
@@ -282,7 +282,7 @@ void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 	}
 
 	bits = buffer_get_space_unsafe(cache->page_bitmask, offset / CHAR_BIT,
-				       (size + CHAR_BIT - 1) / CHAR_BIT);
+				       1 + (size + CHAR_BIT - 1) / CHAR_BIT);
 
 	/* set the first byte */
 	for (i = offset % CHAR_BIT, mask = 0; i < CHAR_BIT && size > 0; i++) {
