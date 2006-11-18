@@ -125,7 +125,7 @@ void lib_signals_set_handler(int signo, bool delayed,
 			return;
 		}
 	}
-	i_assert(sig_handler != NULL);
+	i_assert(handler != NULL);
 
 	if (delayed && sig_pipe_fd[0] == -1) {
 		/* first delayed handler */
