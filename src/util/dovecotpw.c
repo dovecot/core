@@ -34,8 +34,6 @@ usage(const char *s)
 
 int main(int argc, char *argv[] __attr_unused__)
 {
-	extern char *optarg;
-	extern int optind;
 	const char *hash = NULL;
 	const char *user = NULL;
 	char *scheme = NULL;
