@@ -170,11 +170,6 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_idle_context *ctx = cmd->context;
 
-	if (client->output->closed) {
-		idle_finish(ctx, FALSE);
-		return TRUE;
-	}
-
 	if (ctx->sync_ctx != NULL) {
 		if (imap_sync_more(ctx->sync_ctx) == 0) {
 			/* unfinished */
@@ -202,6 +197,10 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 	}
         client->output_pending = FALSE;
 
+	if (client->output->closed) {
+		idle_finish(ctx, FALSE);
+		return TRUE;
+	}
 	if (client->io == NULL) {
 		/* input is pending */
 		client->io = io_add(i_stream_get_fd(client->input),
