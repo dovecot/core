@@ -980,7 +980,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	return tab;
 }
 
-static const char *
+static const char * __attr_format__(3, 0)
 get_log_str(struct auth_request *auth_request, const char *subsystem,
 	    const char *format, va_list va)
 {
