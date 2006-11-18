@@ -93,6 +93,7 @@
 
 /* Provide macros to feature the GCC function attribute. */
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
+#  define __attrs_used__
 #  define __attr_format__(format_idx, arg_idx) \
 	__attribute__((format (printf, format_idx, arg_idx)))
 #  define __attr_format_arg__(arg_idx) \
