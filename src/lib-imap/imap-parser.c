@@ -654,17 +654,23 @@ const char *imap_arg_string(struct imap_arg *arg)
 char *_imap_arg_str_error(const struct imap_arg *arg)
 {
 	i_panic("Tried to access imap_arg type %d as string", arg->type);
+#ifndef __attrs_used__
 	return NULL;
+#endif
 }
 
 uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg)
 {
 	i_panic("Tried to access imap_arg type %d as literal size", arg->type);
+#ifndef __attrs_used__
 	return 0;
+#endif
 }
 
 struct imap_arg_list *_imap_arg_list_error(const struct imap_arg *arg)
 {
 	i_panic("Tried to access imap_arg type %d as list", arg->type);
+#ifndef __attrs_used__
 	return NULL;
+#endif
 }

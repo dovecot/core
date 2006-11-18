@@ -197,7 +197,7 @@ static void env_put_extra_fields(const char *extra_fields)
 	}
 }
 
-static void
+static void __attr_noreturn__
 checkpassword_verify_plain_child(struct auth_request *request,
 				 struct checkpassword_passdb_module *module,
 				 int fd_in, int fd_out)

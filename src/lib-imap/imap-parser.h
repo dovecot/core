@@ -121,8 +121,10 @@ const char *imap_parser_read_word(struct imap_parser *parser);
 const char *imap_arg_string(struct imap_arg *arg);
 
 /* Error functions */
-char *_imap_arg_str_error(const struct imap_arg *arg);
-uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg);
-struct imap_arg_list *_imap_arg_list_error(const struct imap_arg *arg);
+char *_imap_arg_str_error(const struct imap_arg *arg) __attr_noreturn__;
+uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg)
+	__attr_noreturn__;
+struct imap_arg_list *_imap_arg_list_error(const struct imap_arg *arg)
+	__attr_noreturn__;
 
 #endif

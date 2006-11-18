@@ -4,7 +4,8 @@
 struct login_group;
 struct auth_master_reply;
 
-void mail_process_exec(const char *protocol, const char *section);
+void mail_process_exec(const char *protocol, const char *section)
+	__attr_noreturn__;
 
 bool create_mail_process(enum process_type process_type, struct settings *set,
 			 int socket, const struct ip_addr *local_ip,

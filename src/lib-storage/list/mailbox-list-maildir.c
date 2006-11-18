@@ -85,12 +85,14 @@ static bool maildir_list_is_valid_common_nonfs(const char *name)
 	return TRUE;
 }
 
-static bool
+static bool __attr_noreturn__
 maildir_is_valid_mask(struct mailbox_list *list __attr_unused__,
 		      const char *mask __attr_unused__)
 {
 	i_unreached();
+#ifndef __attrs_used__
 	return FALSE;
+#endif
 }
 
 static bool

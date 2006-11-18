@@ -124,9 +124,9 @@ static ssize_t _read(struct _istream *stream)
 	return ret;
 }
 
-static void _seek(struct _istream *stream __attr_unused__,
-		  uoff_t v_offset __attr_unused__,
-		  bool mark __attr_unused__)
+static void __attr_noreturn__
+_seek(struct _istream *stream __attr_unused__,
+      uoff_t v_offset __attr_unused__, bool mark __attr_unused__)
 {
 	i_panic("tee-istream: seeking unsupported currently");
 }

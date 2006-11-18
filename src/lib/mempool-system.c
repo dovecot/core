@@ -108,7 +108,8 @@ static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
         return mem;
 }
 
-static void pool_system_clear(pool_t pool __attr_unused__)
+static void __attr_noreturn__
+pool_system_clear(pool_t pool __attr_unused__)
 {
 	i_panic("pool_system_clear() must not be called");
 }

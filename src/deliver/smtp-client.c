@@ -24,8 +24,9 @@ static struct smtp_client *smtp_client_devnull(FILE **file_r)
 	return client;
 }
 
-static void smtp_client_run_sendmail(const char *destination,
-				     const char *return_path, int fd)
+static void __attr_noreturn__
+smtp_client_run_sendmail(const char *destination,
+			 const char *return_path, int fd)
 {
 	const char *argv[7];
 
