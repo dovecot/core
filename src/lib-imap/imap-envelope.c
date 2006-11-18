@@ -12,11 +12,11 @@
 struct message_part_envelope_data {
 	pool_t pool;
 
-	char *date, *subject;
+	const char *date, *subject;
 	struct message_address *from, *sender, *reply_to;
 	struct message_address *to, *cc, *bcc;
 
-	char *in_reply_to, *message_id;
+	const char *in_reply_to, *message_id;
 };
 
 const char *imap_envelope_headers[] = {
@@ -89,7 +89,7 @@ void imap_envelope_parse_header(pool_t pool,
 	struct message_part_envelope_data *d;
 	enum imap_envelope_field field;
 	struct message_address **addr_p;
-	char **str_p;
+	const char **str_p;
 
 	if (*data == NULL) {
 		*data = p_new(pool, struct message_part_envelope_data, 1);
