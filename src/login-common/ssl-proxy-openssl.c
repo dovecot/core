@@ -500,7 +500,7 @@ int ssl_proxy_new(int fd, struct ip_addr *ip, struct ssl_proxy **proxy_r)
 
 	hash_insert(ssl_proxies, proxy, proxy);
 
-	ssl_handshake(proxy);
+	ssl_step(proxy);
 	main_ref();
 
 	*proxy_r = proxy;
