@@ -214,12 +214,11 @@ void client_input(void *context)
 	while (!client->output->closed &&
 	       (line = i_stream_next_line(client->input)) != NULL) {
 		args = strchr(line, ' ');
-		if (args == NULL)
-			args = "";
-		else
+		if (args != NULL)
 			*args++ = '\0';
 
-		if (client_command_execute(client, line, args))
+		if (client_command_execute(client, line,
+					   args != NULL ? args : ""))
 			client->bad_counter = 0;
 		else if (++client->bad_counter > CLIENT_MAX_BAD_COMMANDS) {
 			client_send_line(client, "-ERR Too many bad commands.");
