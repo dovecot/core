@@ -278,6 +278,7 @@ void _client_reset_command(struct client *client)
 
 	client->command_pending = FALSE;
 	if (client->io == NULL && !client->disconnected) {
+		i_assert(i_stream_get_fd(client->input) >= 0);
 		client->io = io_add(i_stream_get_fd(client->input),
 				    IO_READ, _client_input, client);
 	}
@@ -374,6 +375,8 @@ static bool client_handle_input(struct client_command_context *cmd)
 		client->input_skip_line = TRUE;
 		_client_reset_command(client);
 	} else {
+		i_assert(!client->disconnected);
+
 		client->input_skip_line = TRUE;
 		if (cmd->func(cmd) || cmd->param_error) {
 			/* command execution was finished. */
