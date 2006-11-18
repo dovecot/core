@@ -362,7 +362,7 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 	pool = pool_alloconly_create("storage", 512);
 	storage = p_new(pool, struct mbox_storage, 1);
 
-	if (mailbox_list_init("maildir++", &list_set,
+	if (mailbox_list_init("fs", &list_set,
 			      mail_storage_get_list_flags(flags),
 			      mailbox_storage_list_is_mailbox, storage,
 			      &list, &error) < 0) {
