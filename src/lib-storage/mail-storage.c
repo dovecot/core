@@ -334,6 +334,9 @@ const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
 {
 	*is_file_r = storage->mailbox_is_file;
 
+	if (*name == '\0')
+		name = NULL;
+
 	return mailbox_list_get_path(storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 }
@@ -341,6 +344,9 @@ const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
 const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
 						 const char *name)
 {
+	if (*name == '\0')
+		name = NULL;
+
 	return mailbox_list_get_path(storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_CONTROL);
 }
@@ -348,6 +354,9 @@ const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
 const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
 					       const char *name)
 {
+	if (*name == '\0')
+		name = NULL;
+
 	return mailbox_list_get_path(storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_INDEX);
 }
