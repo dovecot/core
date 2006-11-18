@@ -55,7 +55,7 @@ struct mail_storage_vfuncs {
 };
 
 struct mail_storage {
-	char *name;
+	const char *name;
 	bool mailbox_is_file;
 
         struct mail_storage_vfuncs v;
