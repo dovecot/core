@@ -101,9 +101,23 @@ checkpassword_request_half_finish(struct chkpw_auth_request *request)
 		return;
 
 	switch (request->exit_status) {
+	/* vpopmail exit codes: */
+	case 3:		/* password fail / vpopmail user not found */
+	case 12: 	/* null user name given */
+	case 13:	/* null password given */
+	case 15:	/* user has no password */
+	case 20:	/* invalid user/domain characters */
+	case 21:	/* system user not found */
+	case 22:	/* system user shadow entry not found */
+	case 23:	/* system password fail */
+
+	/* standard checkpassword exit codes: */
 	case 1:
+		/* (1 is additionally defined in vpopmail for
+		   "pop/smtp/webmal/ imap/access denied") */
 		auth_request_log_info(request->request, "checkpassword",
-				      "Password not accepted");
+				      "Login failed (status=%d)",
+				      request->exit_status);
 		checkpassword_request_finish(request,
 					     PASSDB_RESULT_PASSWORD_MISMATCH);
 		break;
