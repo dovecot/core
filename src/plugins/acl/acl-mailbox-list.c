@@ -6,6 +6,10 @@
 #include "acl-api-private.h"
 #include "acl-plugin.h"
 
+#define ACL_LIST_CONTEXT(obj) \
+	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
+					acl_mailbox_list_module_id))
+
 struct acl_mailbox_list {
 	struct mailbox_list_vfuncs super;
 
@@ -22,7 +26,7 @@ static bool acl_mailbox_list_module_id_set = FALSE;
 static struct mailbox_info *
 acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
-	struct acl_mailbox_list *alist = ACL_CONTEXT(ctx->list);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->list);
 	struct mailbox_info *info;
 	int ret;
 
@@ -56,7 +60,7 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 				       const char *name,
 				       enum mailbox_name_status *status)
 {
-	struct acl_mailbox_list *alist = ACL_CONTEXT(list);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
 	const char *parent;
 	int ret;
 
@@ -121,7 +125,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 
 void acl_mailbox_list_set_storage(struct mail_storage *storage)
 {
-	struct acl_mailbox_list *alist = ACL_CONTEXT(storage->list);
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(storage->list);
 
 	i_assert(alist->storage == NULL);
 
