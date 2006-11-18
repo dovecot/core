@@ -22,6 +22,7 @@ struct cmd_idle_context {
 	struct timeout *idle_to, *keepalive_to;
 	uint32_t dummy_seq;
 
+	unsigned int manual_cork:1;
 	unsigned int idle_timeout:1;
 	unsigned int sync_pending:1;
 };
@@ -161,8 +162,10 @@ static void idle_callback(struct mailbox *box, void *context)
 
 	if (ctx->sync_ctx != NULL)
 		ctx->sync_pending = TRUE;
-	else
-                idle_sync_now(box, ctx);
+	else {
+		ctx->manual_cork = TRUE;
+		idle_sync_now(box, ctx);
+	}
 }
 
 static bool cmd_idle_continue(struct client_command_context *cmd)
@@ -170,9 +173,19 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_idle_context *ctx = cmd->context;
 
+	if (ctx->manual_cork)  {
+		/* we're coming from idle_callback instead of a normal
+		   I/O handler, so we'll have to do corking manually */
+		o_stream_cork(client->output);
+	}
+
 	if (ctx->sync_ctx != NULL) {
 		if (imap_sync_more(ctx->sync_ctx) == 0) {
 			/* unfinished */
+			if (ctx->manual_cork) {
+				ctx->manual_cork = FALSE;
+				o_stream_uncork(client->output);
+			}
 			return FALSE;
 		}
 
@@ -196,6 +209,11 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		return FALSE;
 	}
         client->output_pending = FALSE;
+
+	if (ctx->manual_cork) {
+		ctx->manual_cork = FALSE;
+		o_stream_uncork(client->output);
+	}
 
 	if (client->output->closed) {
 		idle_finish(ctx, FALSE);
