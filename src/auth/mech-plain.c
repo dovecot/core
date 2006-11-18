@@ -33,7 +33,7 @@ mech_plain_auth_continue(struct auth_request *request,
 	/* authorization ID \0 authentication ID \0 pass.
 	   we'll ignore authorization ID for now. */
 	authid = (const char *) data;
-	authenid = NULL; pass = "";
+	authenid = NULL; pass = NULL;
 
 	count = 0;
 	for (i = 0; i < data_size; i++) {
@@ -70,7 +70,8 @@ mech_plain_auth_continue(struct auth_request *request,
 	}
 
         /* make sure it's cleared */
-        safe_memset(pass, 0, strlen(pass));
+	if (pass != NULL)
+		safe_memset(pass, 0, strlen(pass));
 }
 
 static struct auth_request *mech_plain_auth_new(void)

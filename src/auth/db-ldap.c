@@ -598,10 +598,8 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			value = p_strdup(conn->pool, p + 1);
 		}
 
-		if (skip_attr != NULL && strcmp(skip_attr, value) == 0)
-			name = "";
-
-		if (*name != '\0') {
+		if (*name != '\0' &&
+		    (skip_attr == NULL || strcmp(skip_attr, value) != 0)) {
 			hash_insert(attr_map, name, value);
 			(*attr_names_r)[j++] = name;
 		}

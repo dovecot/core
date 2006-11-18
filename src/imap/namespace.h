@@ -13,7 +13,7 @@ struct namespace {
         enum namespace_type type;
 	char sep, real_sep, sep_str[3];
 
-	char *prefix;
+	const char *prefix;
 	size_t prefix_len;
 
 	int inbox, hidden, subscriptions;

@@ -86,7 +86,8 @@ void imap_quote_append(string_t *str, const unsigned char *value,
 		str_append_c(str, '"');
 }
 
-char *imap_quote(pool_t pool, const unsigned char *value, size_t value_len)
+const char *imap_quote(pool_t pool, const unsigned char *value,
+		       size_t value_len)
 {
 	string_t *str;
 	char *ret;

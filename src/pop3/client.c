@@ -362,13 +362,12 @@ static void client_input(void *context)
 	while (!client->output->closed &&
 	       (line = i_stream_next_line(client->input)) != NULL) {
 		args = strchr(line, ' ');
-		if (args == NULL)
-			args = "";
-		else
+		if (args != NULL)
 			*args++ = '\0';
 
 		t_push();
-		ret = client_command_execute(client, line, args);
+		ret = client_command_execute(client, line,
+					     args != NULL ? args : "");
 		t_pop();
 		if (ret >= 0) {
 			client->bad_counter = 0;

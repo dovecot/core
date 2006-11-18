@@ -64,8 +64,8 @@ bool settings_read(const char *path, const char *section,
 		   settings_section_callback_t *sect_callback, void *context)
 {
 	struct istream *input;
-	const char *errormsg, *next_section;
-	char *line, *key, *name, *p, quote;
+	const char *errormsg, *next_section, *name;
+	char *line, *key, *p, quote;
 	size_t len;
 	int fd, linenum, skip, sections, root_section;
 

@@ -21,15 +21,15 @@
 struct message_part_body_data {
 	pool_t pool;
 	string_t *str; /* temporary */
-	char *content_type, *content_subtype;
-	char *content_type_params;
-	char *content_transfer_encoding;
-	char *content_id;
-	char *content_description;
-	char *content_disposition;
-	char *content_disposition_params;
-	char *content_md5;
-	char *content_language;
+	const char *content_type, *content_subtype;
+	const char *content_type_params;
+	const char *content_transfer_encoding;
+	const char *content_id;
+	const char *content_description;
+	const char *content_disposition;
+	const char *content_disposition_params;
+	const char *content_md5;
+	const char *content_language;
 
 	struct message_part_envelope_data *envelope;
 

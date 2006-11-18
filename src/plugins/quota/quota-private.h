@@ -51,7 +51,7 @@ struct quota_root {
 	pool_t pool;
 
 	/* Unique quota root name. */
-	char *name;
+	const char *name;
 
 	/* pointer to the quota that owns this root */
 	struct quota *quota;
