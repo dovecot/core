@@ -616,7 +616,9 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		if (request->auth->username_translation[*p & 0xff] != 0)
 			*p = request->auth->username_translation[*p & 0xff];
 		if (request->auth->username_chars[*p & 0xff] == 0) {
-			*error_r = "Username contains disallowed characters";
+			*error_r = t_strdup_printf(
+				"Username contains disallowed character: "
+				"0x%02x", *p);
 			return NULL;
 		}
 	}
@@ -681,8 +683,11 @@ bool auth_request_set_username(struct auth_request *request,
 	}
 
         request->user = auth_request_fix_username(request, username, error_r);
-	if (request->user == NULL)
+	if (request->user == NULL) {
+		auth_request_log_debug(request, "auth",
+			"Invalid username: %s", str_sanitize(username, 128));
 		return FALSE;
+	}
 
 	if (login_username != NULL) {
 		if (!auth_request_set_login_username(request,
