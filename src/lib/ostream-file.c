@@ -216,9 +216,11 @@ static void _cork(struct _ostream *stream, bool set)
 		if (set && fstream->io != NULL)
 			io_remove(&fstream->io);
 		else if (!set) {
+			/* buffer flushing might close the stream */
 			ret = buffer_flush(fstream);
 			if (fstream->io == NULL &&
-			    (ret == 0 || fstream->flush_pending)) {
+			    (ret == 0 || fstream->flush_pending) &&
+			    !stream->ostream.closed) {
 				fstream->io = io_add(fstream->fd, IO_WRITE,
 						     stream_send_io, fstream);
 			}

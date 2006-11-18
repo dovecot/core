@@ -77,7 +77,8 @@ void o_stream_set_flush_pending(struct ostream *stream, bool set)
 {
 	struct _ostream *_stream = stream->real_stream;
 
-	_stream->flush_pending(_stream, set);
+	if (!stream->closed)
+		_stream->flush_pending(_stream, set);
 }
 
 size_t o_stream_get_buffer_used_size(struct ostream *stream)
