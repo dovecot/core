@@ -63,8 +63,8 @@ static void write_prefix(FILE *f)
 	}
 }
 
-static int default_handler(const char *prefix, FILE *f,
-			   const char *format, va_list args)
+static int __attr_format__(3, 0)
+default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 {
 	static int recursed = 0;
 	va_list args2;
@@ -117,13 +117,15 @@ static int default_handler(const char *prefix, FILE *f,
 	return 0;
 }
 
-static void default_panic_handler(const char *format, va_list args)
+static void __attr_format__(1, 0)
+default_panic_handler(const char *format, va_list args)
 {
 	(void)default_handler("Panic: ", log_fd, format, args);
 	abort();
 }
 
-static void default_fatal_handler(int status, const char *format, va_list args)
+static void __attr_format__(2, 0)
+default_fatal_handler(int status, const char *format, va_list args)
 {
 	if (default_handler("Fatal: ", log_fd, format, args) < 0 &&
 	    status == FATAL_DEFAULT)
@@ -135,7 +137,8 @@ static void default_fatal_handler(int status, const char *format, va_list args)
 	exit(status);
 }
 
-static void default_error_handler(const char *format, va_list args)
+static void __attr_format__(1, 0)
+default_error_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
@@ -148,7 +151,8 @@ static void default_error_handler(const char *format, va_list args)
 	errno = old_errno;
 }
 
-static void default_warning_handler(const char *format, va_list args)
+static void __attr_format__(1, 0)
+default_warning_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
@@ -160,7 +164,8 @@ static void default_warning_handler(const char *format, va_list args)
 	errno = old_errno;
 }
 
-static void default_info_handler(const char *format, va_list args)
+static void __attr_format__(1, 0)
+default_info_handler(const char *format, va_list args)
 {
 	int old_errno = errno;
 
@@ -261,7 +266,8 @@ void i_set_info_handler(failure_callback_t *callback)
         info_handler = callback;
 }
 
-static int syslog_handler(int level, const char *format, va_list args)
+static int __attr_format__(2, 0)
+syslog_handler(int level, const char *format, va_list args)
 {
 	va_list args2;
 
@@ -357,7 +363,8 @@ void i_set_failure_file(const char *path, const char *prefix)
 	i_set_warning_handler(NULL);
 }
 
-static int internal_handler(char log_type, const char *format, va_list args)
+static int __attr_format__(2, 0)
+internal_handler(char log_type, const char *format, va_list args)
 {
 	string_t *str;
 	int ret;
@@ -374,35 +381,36 @@ static int internal_handler(char log_type, const char *format, va_list args)
 	return ret;
 }
 
-static void i_internal_panic_handler(const char *fmt, va_list args)
-	__attr_noreturn__;
-static void i_internal_panic_handler(const char *fmt, va_list args)
+static void __attr_noreturn__ __attr_format__(1, 0)
+i_internal_panic_handler(const char *fmt, va_list args)
 {
 	(void)internal_handler('F', fmt, args);
         abort();
 }
 
-static void i_internal_fatal_handler(int status, const char *fmt, va_list args)
-	__attr_noreturn__;
-static void i_internal_fatal_handler(int status, const char *fmt, va_list args)
+static void __attr_noreturn__ __attr_format__(2, 0)
+i_internal_fatal_handler(int status, const char *fmt, va_list args)
 {
 	if (internal_handler('F', fmt, args) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 	exit(status);
 }
 
-static void i_internal_error_handler(const char *fmt, va_list args)
+static void __attr_format__(1, 0)
+i_internal_error_handler(const char *fmt, va_list args)
 {
 	if (internal_handler('E', fmt, args) < 0)
 		exit(FATAL_LOGERROR);
 }
 
-static void i_internal_warning_handler(const char *fmt, va_list args)
+static void __attr_format__(1, 0)
+i_internal_warning_handler(const char *fmt, va_list args)
 {
 	(void)internal_handler('W', fmt, args);
 }
 
-static void i_internal_info_handler(const char *fmt, va_list args)
+static void __attr_format__(1, 0)
+i_internal_info_handler(const char *fmt, va_list args)
 {
 	(void)internal_handler('I', fmt, args);
 }
