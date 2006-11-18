@@ -204,7 +204,10 @@ maildir_keywords_lookup_or_create(struct maildir_keywords *mk, const char *name)
 	idx = maildir_keywords_lookup(mk, name);
 	if (idx >= 0)
 		return idx;
-	i_assert(mk->synced);
+	if (!mk->synced) {
+		/* we couldn't open the dovecot-keywords file. */
+		return -1;
+	}
 
 	/* see if we are full */
 	keywords = array_get(&mk->list, &count);
