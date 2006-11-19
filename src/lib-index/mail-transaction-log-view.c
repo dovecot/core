@@ -19,7 +19,7 @@ struct mail_transaction_log_view {
 	/* a list of log files we've referenced. we have to keep this list
 	   explicitly because more files may be added into the linked list
 	   at any time. */
-	array_t ARRAY_DEFINE(file_refs, struct mail_transaction_log_file *);
+	ARRAY_DEFINE(file_refs, struct mail_transaction_log_file *);
         struct mail_transaction_log_file *cur, *head, *tail;
 	uoff_t cur_offset;
 
@@ -40,8 +40,7 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 
 	view->head = view->tail = view->log->head;
 	view->head->refcount++;
-	ARRAY_CREATE(&view->file_refs, default_pool,
-		     struct mail_transaction_log_file *, 8);
+	i_array_init(&view->file_refs, 8);
 	array_append(&view->file_refs, &view->head, 1);
 
 	view->next = log->views;
