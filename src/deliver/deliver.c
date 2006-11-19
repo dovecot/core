@@ -499,8 +499,12 @@ int main(int argc, char *argv[])
 		   could be written in case we crash. */
 		home = getenv("HOME");
 		if (home != NULL) {
-			if (chdir(home) < 0)
-				i_error("chdir(%s) failed: %m", home);
+			if (chdir(home) < 0) {
+				if (errno != ENOENT)
+					i_error("chdir(%s) failed: %m", home);
+				else if (getenv("DEBUG") != NULL)
+					i_info("Home dir not found: %s", home);
+			}
 		}
 	} else {
 		destination = user;
