@@ -19,7 +19,7 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
   sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
-  xfs/xqm.h sasl.h sasl/sasl.h)
+  xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h)
 
 AC_ARG_ENABLE(ipv6,
 [  --enable-ipv6           Enable IPv6 support (default)],
@@ -411,7 +411,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
 	       strtoull strtouq setpriority quotactl getmntent kqueue kevent \
-           getrusage)
+	       getrusage backtrace_symbols walkcontext)
 
 dnl * I/O loop function
 have_ioloop=no

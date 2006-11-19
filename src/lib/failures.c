@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "backtrace-string.h"
 #include "write-full.h"
 #include "fd-close-on-exec.h"
 #include "printf-upper-bound.h"
@@ -120,7 +121,11 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 static void __attr_format__(1, 0)
 default_panic_handler(const char *format, va_list args)
 {
+	const char *backtrace;
+
 	(void)default_handler("Panic: ", log_fd, format, args);
+	if (backtrace_get(&backtrace) == 0)
+		i_error("Backtrace: %s", backtrace);
 	abort();
 }
 
@@ -290,8 +295,12 @@ syslog_handler(int level, const char *format, va_list args)
 
 void i_syslog_panic_handler(const char *fmt, va_list args)
 {
+	const char *backtrace;
+
 	(void)syslog_handler(LOG_CRIT, fmt, args);
-        abort();
+	if (backtrace_get(&backtrace) == 0)
+		i_error("Backtrace: %s", backtrace);
+	abort();
 }
 
 void i_syslog_fatal_handler(int status, const char *fmt, va_list args)
@@ -384,7 +393,11 @@ internal_handler(char log_type, const char *format, va_list args)
 static void __attr_noreturn__ __attr_format__(1, 0)
 i_internal_panic_handler(const char *fmt, va_list args)
 {
+	const char *backtrace;
+
 	(void)internal_handler('F', fmt, args);
+	if (backtrace_get(&backtrace) == 0)
+		i_error("Backtrace: %s", backtrace);
         abort();
 }
 

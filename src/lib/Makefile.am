@@ -1,6 +1,7 @@
 noinst_LIBRARIES = liblib.a
 
 liblib_a_SOURCES = \
+	backtrace-string.c \
 	base64.c \
 	bsearch-insert-pos.c \
 	buffer.c \
@@ -89,6 +90,7 @@ liblib_a_SOURCES = \
 noinst_HEADERS = \
 	array.h \
 	array-decl.h \
+	backtrace-string.h \
 	base64.h \
 	bsearch-insert-pos.h \
 	buffer.h \
