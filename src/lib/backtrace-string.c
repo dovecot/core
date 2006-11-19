@@ -26,7 +26,13 @@ int backtrace_append(string_t *str)
 	for (i = STACK_SKIP_COUNT; i < ret; i++) {
 		if (i > STACK_SKIP_COUNT)
 			str_append(str, " -> ");
-		str_append(str, strings[i]);
+
+		if (strings != NULL)
+			str_append(str, strings[i]);
+		else {
+			/* out of memory case */
+			str_printfa(str, "0x%p", stack[i]);
+		}
 	}
 	free(strings);
 	return 0;
