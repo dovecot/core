@@ -65,7 +65,7 @@ static const char *const *
 dict_quota_root_get_resources(struct quota_root *root __attr_unused__)
 {
 	static const char *resources[] = {
-		QUOTA_NAME_STORAGE, QUOTA_NAME_MESSAGES, NULL
+		QUOTA_NAME_STORAGE_KILOBYTES, QUOTA_NAME_MESSAGES, NULL
 	};
 
 	return resources;
@@ -79,11 +79,11 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 	const char *value;
 	int ret;
 
-	if (strcmp(name, QUOTA_NAME_STORAGE) == 0) {
+	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0) {
 		t_push();
 		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
 				  DICT_QUOTA_CURRENT_BYTES_PATH, &value);
-		*value_r = ret <= 0 ? 0 : strtoull(value, NULL, 10) / 1024;
+		*value_r = ret <= 0 ? 0 : strtoull(value, NULL, 10);
 		t_pop();
 	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
 		t_push();

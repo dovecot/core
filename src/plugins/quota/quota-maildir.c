@@ -134,8 +134,7 @@ maildir_list_init(struct mail_storage *storage)
 	ctx = i_new(struct maildir_list_context, 1);
 	ctx->storage = storage;
 	ctx->path = str_new(default_pool, 512);
-	ctx->iter = mailbox_list_iter_init(mail_storage_get_list(storage),
-					   "", "*",
+	ctx->iter = mailbox_list_iter_init(mail_storage_get_list(storage), "*",
 					   MAILBOX_LIST_ITER_FAST_FLAGS);
 	return ctx;
 }
@@ -591,7 +590,7 @@ static const char *const *
 maildir_quota_root_get_resources(struct quota_root *root __attr_unused__)
 {
 	static const char *resources_both[] = {
-		QUOTA_NAME_STORAGE,
+		QUOTA_NAME_STORAGE_KILOBYTES,
 		QUOTA_NAME_MESSAGES,
 		NULL
 	};
@@ -608,8 +607,8 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 	if (maildirquota_refresh(root) < 0)
 		return -1;
 
-	if (strcmp(name, QUOTA_NAME_STORAGE) == 0)
-		*value_r = root->total_bytes / 1024;
+	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
+		*value_r = root->total_bytes;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		*value_r = root->total_count;
 	else

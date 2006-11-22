@@ -184,7 +184,7 @@ static void fs_quota_storage_added(struct quota *quota,
 static const char *const *
 fs_quota_root_get_resources(struct quota_root *root __attr_unused__)
 {
-	static const char *resources[] = { QUOTA_NAME_STORAGE, NULL };
+	static const char *resources[] = { QUOTA_NAME_STORAGE_KILOBYTES, NULL };
 
 	return resources;
 }
@@ -202,7 +202,8 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	*value_r = 0;
 	*limit_r = 0;
 
-	if (strcasecmp(name, QUOTA_NAME_STORAGE) != 0 || root->mount == NULL)
+	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0 ||
+	    root->mount == NULL)
 		return 0;
 
 #if defined (HAVE_QUOTACTL) && defined(HAVE_SYS_QUOTA_H)
@@ -221,8 +222,8 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		}
 
 		/* values always returned in 512 byte blocks */
-		*value_r = xdqblk.d_bcount >> 1;
-		*limit_r = xdqblk.d_blk_softlimit >> 1;
+		*value_r = xdqblk.d_bcount * 512;
+		*limit_r = xdqblk.d_blk_softlimit * 512;
 	} else
 #endif
 	{
@@ -241,8 +242,8 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			return -1;
 		}
 
-		*value_r = dqblk.dqb_curblocks / 1024;
-		*limit_r = dqblk.dqb_bsoftlimit;
+		*value_r = dqblk.dqb_curblocks;
+		*limit_r = dqblk.dqb_bsoftlimit * 1024;
 	}
 #elif defined(HAVE_QUOTACTL)
 	/* BSD, AIX */
@@ -252,8 +253,8 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			root->mount->mount_path);
 		return -1;
 	}
-	*value_r = (uint64_t)dqblk.dqb_curblocks * 1024 / DEV_BSIZE;
-	*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * 1024 / DEV_BSIZE;
+	*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
+	*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
 #else
 	/* Solaris */
 	if (root->mount->fd == -1)
@@ -266,8 +267,8 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		i_error("ioctl(%s, Q_QUOTACTL) failed: %m", root->mount->path);
 		return -1;
 	}
-	*value_r = (uint64_t)dqblk.dqb_curblocks * 1024 / DEV_BSIZE;
-	*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * 1024 / DEV_BSIZE;
+	*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
+	*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
 #endif
 	return 1;
 }

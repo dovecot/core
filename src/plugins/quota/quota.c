@@ -300,7 +300,8 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 
 	for (; iter->i < count; iter->i++) {
 		ret = quota_get_resource(roots[iter->i], "",
-					 QUOTA_NAME_STORAGE, &value, &limit);
+					 QUOTA_NAME_STORAGE_KILOBYTES,
+					 &value, &limit);
 		if (ret == 0) {
 			ret = quota_get_resource(roots[iter->i], "",
 						 QUOTA_NAME_MESSAGES,
@@ -348,11 +349,17 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		       const char *name, uint64_t *value_r, uint64_t *limit_r)
 {
 	uint64_t bytes_limit, count_limit;
+	bool kilobytes = FALSE;
 	int ret;
+
+	if (strcmp(name, QUOTA_NAME_STORAGE_KILOBYTES) == 0) {
+		name = QUOTA_NAME_STORAGE_BYTES;
+		kilobytes = TRUE;
+	}
 
 	(void)quota_root_get_rule_limits(root, mailbox_name,
 					 &bytes_limit, &count_limit);
-	if (strcmp(name, QUOTA_NAME_STORAGE) == 0)
+	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*limit_r = bytes_limit;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		*limit_r = count_limit;
@@ -360,6 +367,10 @@ int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		*limit_r = 0;
 
 	ret = root->backend.v.get_resource(root, name, value_r, limit_r);
+	if (kilobytes && ret > 0) {
+		*value_r /= 1024;
+		*limit_r /= 1024;
+	}
 	return ret <= 0 ? ret :
 		(*limit_r == 0 ? 0 : 1);
 }
@@ -397,7 +408,8 @@ struct quota_transaction_context *quota_transaction_begin(struct quota *quota,
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		ret = quota_get_resource(roots[i], mailbox_name,
-					 QUOTA_NAME_STORAGE, &current, &limit);
+					 QUOTA_NAME_STORAGE_BYTES,
+					 &current, &limit);
 		if (ret > 0) {
 			left = limit < current ? 0 : limit - current;
 			if (ctx->bytes_left > left)

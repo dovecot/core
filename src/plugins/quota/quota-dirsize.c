@@ -34,7 +34,7 @@ static void dirsize_quota_deinit(struct quota_root *_root)
 static const char *const *
 dirsize_quota_root_get_resources(struct quota_root *root __attr_unused__)
 {
-	static const char *resources[] = { QUOTA_NAME_STORAGE, NULL };
+	static const char *resources[] = { QUOTA_NAME_STORAGE_KILOBYTES, NULL };
 
 	return resources;
 }
@@ -166,6 +166,7 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 	}
 
 	/* now sum up the found paths */
+	*value_r = 0;
 	count_paths = array_get(&paths, &count);
 	for (i = 0; i < count; i++) {
 		if (get_usage(count_paths[i].path, count_paths[i].is_file,
@@ -183,13 +184,12 @@ static int
 dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 			   uint64_t *value_r, uint64_t *limit __attr_unused__)
 {
-	if (strcasecmp(name, QUOTA_NAME_STORAGE) != 0)
+	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0)
 		return 0;
 
 	if (get_quota_root_usage(_root, value_r) < 0)
 		return -1;
 
-	*value_r /= 1024;
 	return 1;
 }
 

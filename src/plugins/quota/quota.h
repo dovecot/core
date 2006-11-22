@@ -5,7 +5,9 @@ struct mail;
 struct mailbox;
 
 /* Message storage size kilobytes. */
-#define QUOTA_NAME_STORAGE "STORAGE"
+#define QUOTA_NAME_STORAGE_KILOBYTES "STORAGE"
+/* Message storage size bytes. This is used only internally. */
+#define QUOTA_NAME_STORAGE_BYTES "STORAGE_BYTES"
 /* Number of messages. */
 #define QUOTA_NAME_MESSAGES "MESSAGES"
 
