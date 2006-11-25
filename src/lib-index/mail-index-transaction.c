@@ -124,6 +124,9 @@ static bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 	void *p;
 	unsigned int idx;
 
+	/* records need to be 32bit aligned */
+	record_size = (record_size + 3) & ~3;
+
 	if (!array_is_created(array)) {
 		array_create(array, default_pool, sizeof(seq) + record_size,
 			     1024 / (sizeof(seq) + record_size));
