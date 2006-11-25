@@ -21,8 +21,8 @@ unused_objects = \
 
 libs = \
 	../lib-storage/register/libstorage-register.a \
-	$(STORAGE_LIBS) \
 	../lib-storage/list/libstorage_list.a \
+	$(STORAGE_LIBS) \
 	../lib-storage/libstorage.a \
 	../lib-imap/libimap.a \
 	../lib-mail/libmail.a \

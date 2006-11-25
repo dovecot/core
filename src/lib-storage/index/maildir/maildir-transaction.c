@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "maildir-storage.h"
+#include "maildir-sync.h"
 
 static void (*next_hook_mail_index_transaction_created)
 	(struct mail_index_transaction *t) = NULL;
@@ -54,7 +55,9 @@ void maildir_transaction_created(struct mail_index_transaction *t)
 {
 	struct mailbox *box = MAIL_STORAGE_INDEX(t->view->index);
 
-	if (strcmp(box->storage->name, MAILDIR_STORAGE_NAME) == 0) {
+	/* index can be for mailbox list index, in which case box=NULL */
+	if (box != NULL &&
+	    strcmp(box->storage->name, MAILDIR_STORAGE_NAME) == 0) {
 		struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 		struct maildir_transaction_context *mt;
 

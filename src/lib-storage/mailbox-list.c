@@ -111,6 +111,9 @@ int mailbox_list_init(const char *driver,
 		p_strdup(list->pool, set->subscription_fname);
 	list->set.maildir_name = p_strdup(list->pool, set->maildir_name);
 
+	list->set.mail_storage_flags = set->mail_storage_flags;
+	list->set.mail_storage_lock_method = set->mail_storage_lock_method;
+
 	if ((flags & MAILBOX_LIST_FLAG_DEBUG) != 0) {
 		i_info("%s: root=%s, index=%s, control=%s, inbox=%s",
 		       driver, list->set.root_dir,
@@ -125,6 +128,9 @@ int mailbox_list_init(const char *driver,
 
 	if (hook_mailbox_list_created != NULL)
 		hook_mailbox_list_created(list);
+
+	list->set.mail_storage_flags = NULL;
+	list->set.mail_storage_lock_method = NULL;
 
 	*list_r = list;
 	return 0;
@@ -175,6 +181,12 @@ const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)
 	return list->v.get_temp_prefix(list);
 }
 
+const char *mailbox_list_join_refmask(struct mailbox_list *list,
+				      const char *ref, const char *mask)
+{
+	return list->v.join_refmask(list, ref, mask);
+}
+
 int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 					 const char *name,
 					 enum mailbox_name_status *status)
@@ -183,11 +195,10 @@ int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 }
 
 struct mailbox_list_iterate_context *
-mailbox_list_iter_init(struct mailbox_list *list,
-		       const char *ref, const char *mask,
+mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 		       enum mailbox_list_iter_flags flags)
 {
-	return list->v.iter_init(list, ref, mask, flags);
+	return list->v.iter_init(list, mask, flags);
 }
 
 struct mailbox_info *
@@ -284,7 +295,7 @@ void mailbox_list_set_error(struct mailbox_list *list, const char *error)
 	list->temporary_error = FALSE;
 }
 
-static void mailbox_list_set_internal_error(struct mailbox_list *list)
+void mailbox_list_set_internal_error(struct mailbox_list *list)
 {
 	struct tm *tm;
 	char str[256];

@@ -75,9 +75,10 @@ mailbox_tree_traverse(struct mailbox_tree_context *ctx, const char *path,
 			*node = p_new(ctx->pool, struct mailbox_node, 1);
 			(*node)->name = p_strdup(ctx->pool, name);
 
-			if (*path != '\0')
-				(*node)->flags = MAILBOX_PLACEHOLDER;
-			else {
+			if (*path != '\0') {
+				(*node)->flags = MAILBOX_NONEXISTENT |
+					MAILBOX_CHILDREN;
+			} else {
 				if (created != NULL)
 					*created = TRUE;
 			}

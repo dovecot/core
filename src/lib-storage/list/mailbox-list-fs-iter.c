@@ -76,8 +76,7 @@ static int list_opendir(struct mailbox_list *list,
 }
 
 struct mailbox_list_iterate_context *
-fs_list_iter_init(struct mailbox_list *_list,
-		  const char *ref, const char *mask,
+fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 		  enum mailbox_list_iter_flags flags)
 {
 	struct fs_mailbox_list *list =
@@ -95,18 +94,10 @@ fs_list_iter_init(struct mailbox_list *_list,
         ctx->next = fs_list_next;
 
 	/* check that we're not trying to do any "../../" lists */
-	if (!mailbox_list_is_valid_mask(_list, ref) ||
-	    !mailbox_list_is_valid_mask(_list, mask)) {
+	if (!mailbox_list_is_valid_mask(_list, mask)) {
 		mailbox_list_set_error(_list, "Invalid mask");
 		ctx->ctx.failed = TRUE;
 		return &ctx->ctx;
-	}
-
-	if (*mask == '/' || *mask == '~') {
-		/* mask overrides reference */
-	} else if (*ref != '\0') {
-		/* merge reference and mask */
-		mask = t_strconcat(ref, mask, NULL);
 	}
 
 	if ((flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0) {
@@ -313,7 +304,7 @@ static struct mailbox_info *fs_list_subs(struct fs_list_iterate_context *ctx)
 
 	if (match == IMAP_MATCH_PARENT) {
 		/* placeholder */
-		ctx->info.flags = MAILBOX_PLACEHOLDER;
+		ctx->info.flags = MAILBOX_NONEXISTENT | MAILBOX_CHILDREN;
 		while ((p = strrchr(name, '/')) != NULL) {
 			name = t_strdup_until(name, p);
 			if (imap_match(ctx->glob, name) > 0) {

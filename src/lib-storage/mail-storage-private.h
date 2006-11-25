@@ -8,6 +8,8 @@
 #define MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND "Mailbox doesn't exist: %s"
 #define MAIL_STORAGE_ERR_NO_PERMISSION "Permission denied"
 
+/* Called after mail storage has been created */
+extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 /* Called after mailbox has been opened */
 extern void (*hook_mailbox_opened)(struct mailbox *box);
 
@@ -93,6 +95,7 @@ struct mailbox_vfuncs {
 	int (*sync_next)(struct mailbox_sync_context *ctx,
 			 struct mailbox_sync_rec *sync_rec_r);
 	int (*sync_deinit)(struct mailbox_sync_context *ctx,
+			   enum mailbox_status_items status_items,
 			   struct mailbox_status *status_r);
 
 	void (*notify_changes)(struct mailbox *box, unsigned int min_interval,
@@ -162,6 +165,10 @@ struct mailbox {
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, void);
+
+	/* When FAST open flag is used, the mailbox isn't actually opened until
+	   it's synced for the first time. */
+	unsigned int opened:1;
 };
 
 struct mail_vfuncs {

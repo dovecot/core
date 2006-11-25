@@ -40,8 +40,6 @@
 struct deliver_settings *deliver_set;
 deliver_mail_func_t *deliver_mail = NULL;
 
-void (*hook_mail_storage_created)(struct mail_storage *storage) = NULL;
-
 static struct module *modules;
 static struct ioloop *ioloop;
 
@@ -58,12 +56,11 @@ static int sync_quick(struct mailbox *box)
 {
 	struct mailbox_sync_context *ctx;
         struct mailbox_sync_rec sync_rec;
-	struct mailbox_status status;
 
 	ctx = mailbox_sync_init(box, 0);
 	while (mailbox_sync_next(ctx, &sync_rec) > 0)
 		;
-	return mailbox_sync_deinit(&ctx, &status);
+	return mailbox_sync_deinit(&ctx, 0, NULL);
 }
 
 static struct mailbox *
@@ -566,9 +563,6 @@ int main(int argc, char *argv[])
 			"Failed to create storage for '%s' with mail '%s'",
 			destination, mail_env == NULL ? "(null)" : mail_env);
 	}
-
-	if (hook_mail_storage_created != NULL)
-		hook_mail_storage_created(storage);
 
 	mbox_storage = mail_storage_create("mbox", "/tmp", destination, 0,
 					   MAIL_STORAGE_LOCK_FCNTL);

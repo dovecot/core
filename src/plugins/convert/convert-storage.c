@@ -27,12 +27,11 @@ static int sync_mailbox(struct mailbox *box)
 {
 	struct mailbox_sync_context *ctx;
         struct mailbox_sync_rec sync_rec;
-	struct mailbox_status status;
 
 	ctx = mailbox_sync_init(box, MAILBOX_SYNC_FLAG_FULL_READ);
 	while (mailbox_sync_next(ctx, &sync_rec) > 0)
 		;
-	return mailbox_sync_deinit(&ctx, &status);
+	return mailbox_sync_deinit(&ctx, 0, NULL);
 }
 
 static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
@@ -107,7 +106,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 	struct mailbox *srcbox, *destbox;
 	int ret = 0;
 
-	if ((info->flags & (MAILBOX_NONEXISTENT|MAILBOX_PLACEHOLDER)) != 0)
+	if ((info->flags & MAILBOX_NONEXISTENT) != 0)
 		return 0;
 
 	name = strcasecmp(info->name, "INBOX") == 0 ? "INBOX" : info->name;
@@ -163,7 +162,7 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 	int ret = 0;
 
 	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
-				      "", "*", MAILBOX_LIST_ITER_FAST_FLAGS);
+				      "*", MAILBOX_LIST_ITER_FAST_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (mailbox_convert_list_item(source_storage, dest_storage,
 					      info, dotlock) < 0) {
@@ -190,7 +189,7 @@ static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 
 	dest_list = mail_storage_get_list(dest_storage);
 	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
-				      "", "*", MAILBOX_LIST_ITER_SUBSCRIBED |
+				      "*", MAILBOX_LIST_ITER_SUBSCRIBED |
 				      MAILBOX_LIST_ITER_FAST_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (mailbox_list_set_subscribed(dest_list, info->name,

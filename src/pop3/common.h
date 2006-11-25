@@ -22,7 +22,6 @@ extern bool enable_last_command, no_flag_updates, reuse_xuidl, lock_session;
 extern const char *uidl_format, *logout_format;
 extern enum uidl_keys uidl_keymask;
 
-extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 extern void (*hook_client_created)(struct client **client);
 
 #endif

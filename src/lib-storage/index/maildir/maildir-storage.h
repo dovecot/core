@@ -42,8 +42,6 @@
 struct timeval;
 struct maildir_save_context;
 struct maildir_copy_context;
-struct maildir_keywords_sync_ctx;
-struct maildir_index_sync_context;
 
 struct maildir_storage {
 	struct index_storage storage;
@@ -55,6 +53,11 @@ struct maildir_storage {
 	unsigned int stat_dirs:1;
 };
 
+enum maildir_dirty_flags {
+	MAILDIR_DIRTY_NEW = 0x01,
+	MAILDIR_DIRTY_CUR = 0x02
+};
+
 struct maildir_mailbox {
 	struct index_mailbox ibox;
 	struct maildir_storage *storage;
@@ -64,8 +67,9 @@ struct maildir_mailbox {
 	/* maildir sync: */
 	struct maildir_uidlist *uidlist;
 	struct maildir_keywords *keywords;
-	time_t last_new_mtime, last_cur_mtime, last_new_sync_time;
+	time_t last_new_mtime, last_cur_mtime;
 	time_t dirty_cur_time;
+	enum maildir_dirty_flags last_dirty_flags;
 
         mode_t mail_create_mode;
 	unsigned int private_flags_mask;
@@ -90,19 +94,6 @@ const char *maildir_generate_tmp_filename(const struct timeval *tv);
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r);
 bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r);
-
-int maildir_sync_is_synced(struct maildir_mailbox *mbox);
-
-struct mailbox_sync_context *
-maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
-int maildir_storage_sync_force(struct maildir_mailbox *mbox);
-
-int maildir_sync_index_begin(struct maildir_mailbox *mbox,
-			     struct maildir_index_sync_context **ctx_r);
-int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
-		       bool partial);
-int maildir_sync_index_finish(struct maildir_index_sync_context **sync_ctx,
-			      bool failed, bool cancel);
 
 void maildir_transaction_created(struct mail_index_transaction *t);
 void maildir_transaction_class_init(void);
@@ -135,17 +126,6 @@ int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail,
 		 struct mail *dest_mail);
 int maildir_transaction_copy_commit(struct maildir_copy_context *ctx);
 void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx);
-
-int maildir_sync_last_commit(struct maildir_mailbox *mbox);
-
-int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
-			       const char *fname, enum mail_flags *flags_r,
-			       ARRAY_TYPE(keyword_indexes) *keywords);
-struct maildir_keywords_sync_ctx *
-maildir_sync_get_keywords_sync_ctx(struct maildir_index_sync_context *ctx);
-const char *maildir_filename_set_flags(struct maildir_keywords_sync_ctx *ctx,
-				       const char *fname, enum mail_flags flags,
-				       ARRAY_TYPE(keyword_indexes) *keywords);
 
 unsigned int maildir_hash(const void *p);
 int maildir_cmp(const void *p1, const void *p2);

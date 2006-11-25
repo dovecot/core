@@ -314,24 +314,16 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
-int index_storage_mailbox_init(struct index_mailbox *ibox,
-			       struct mail_index *index, const char *name,
-			       enum mailbox_open_flags flags,
-			       bool move_to_memory)
+int index_storage_mailbox_open(struct index_mailbox *ibox)
 {
 	struct mail_storage *storage = &ibox->storage->storage;
 	enum mail_index_open_flags index_flags;
 	enum mail_index_lock_method lock_method = 0;
 	int ret;
 
-	i_assert(name != NULL);
+	i_assert(!ibox->box.opened);
 
-	ibox->box.storage = storage;
-	ibox->box.name = p_strdup(ibox->box.pool, name);
-	array_create(&ibox->box.module_contexts,
-		     ibox->box.pool, sizeof(void *), 5);
-
-	index_flags = move_to_memory ? 0 : MAIL_INDEX_OPEN_FLAG_CREATE;
+	index_flags = ibox->move_to_memory ? 0 : MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 #ifndef MMAP_CONFLICTS_WRITE
@@ -351,23 +343,13 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 		break;
 	}
 
-	ibox->open_flags = flags;
-	ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
-	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
-	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;
-	ibox->index = index;
-
-	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
-	ibox->commit_log_file_seq = 0;
-	ibox->mail_read_mmaped = (storage->flags &
-				  MAIL_STORAGE_FLAG_MMAP_MAILS) != 0;
-
-	ret = mail_index_open(index, index_flags, lock_method);
-	if (ret <= 0 || move_to_memory) {
-		if (mail_index_move_to_memory(index) < 0) {
+	ret = mail_index_open(ibox->index, index_flags, lock_method);
+	if (ret <= 0 || ibox->move_to_memory) {
+		if (mail_index_move_to_memory(ibox->index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
-			ret = mail_index_open(index, index_flags, lock_method);
+			ret = mail_index_open(ibox->index, index_flags,
+					      lock_method);
 			if (ret <= 0) {
 				mail_storage_set_index_error(ibox);
 				index_storage_mailbox_free(&ibox->box);
@@ -376,17 +358,49 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 		}
 	}
 
+	ibox->cache = mail_index_get_cache(ibox->index);
+	index_cache_register_defaults(ibox);
+	ibox->view = mail_index_view_open(ibox->index);
+	ibox->keyword_names = mail_index_get_keywords(ibox->index);
+
+	ibox->box.opened = TRUE;
+	return 0;
+}
+
+int index_storage_mailbox_init(struct index_mailbox *ibox,
+			       struct mail_index *index, const char *name,
+			       enum mailbox_open_flags flags,
+			       bool move_to_memory)
+{
+	struct mail_storage *storage = &ibox->storage->storage;
+
+	i_assert(name != NULL);
+
+	ibox->box.storage = storage;
+	ibox->box.name = p_strdup(ibox->box.pool, name);
+	array_create(&ibox->box.module_contexts,
+		     ibox->box.pool, sizeof(void *), 5);
+
+	ibox->open_flags = flags;
+	ibox->readonly = (flags & MAILBOX_OPEN_READONLY) != 0;
+	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
+	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;
+	ibox->move_to_memory = move_to_memory;
+	ibox->index = index;
+
+	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
+	ibox->commit_log_file_seq = 0;
+	ibox->mail_read_mmaped =
+		(storage->flags & MAIL_STORAGE_FLAG_MMAP_MAILS) != 0;
+
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(index, "header-md5", 0, 16, 1);
 
-	ibox->cache = mail_index_get_cache(index);
-	index_cache_register_defaults(ibox);
-	ibox->view = mail_index_view_open(index);
-	ibox->keyword_names = mail_index_get_keywords(index);
-
 	array_idx_set(&index->mail_index_module_contexts,
 		      mail_storage_mail_index_module_id, &ibox);
-	return 0;
+
+	return (flags & MAILBOX_OPEN_FAST) != 0 ? 0 :
+		index_storage_mailbox_open(ibox);
 }
 
 void index_storage_mailbox_free(struct mailbox *box)

@@ -48,7 +48,6 @@ static struct module *modules;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 static pool_t namespace_pool;
 
-void (*hook_mail_storage_created)(struct mail_storage *storage) = NULL;
 void (*hook_client_created)(struct client **client) = NULL;
 
 string_t *capability_string;

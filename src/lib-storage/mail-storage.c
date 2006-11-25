@@ -19,6 +19,7 @@
 unsigned int mail_storage_module_id = 0;
 unsigned int mail_storage_mail_index_module_id = 0;
 
+void (*hook_mail_storage_created)(struct mail_storage *storage);
 void (*hook_mailbox_opened)(struct mailbox *box) = NULL;
 
 static ARRAY_DEFINE(storages, struct mail_storage *);
@@ -119,10 +120,13 @@ mail_storage_create(const char *driver, const char *data, const char *user,
 	struct mail_storage *storage;
 
 	storage = mail_storage_find(driver);
-	if (storage != NULL)
-		return storage->v.create(data, user, flags, lock_method);
-	else
+	if (storage == NULL)
 		return NULL;
+
+	storage = storage->v.create(data, user, flags, lock_method);
+	if (hook_mail_storage_created != NULL && storage != NULL)
+		hook_mail_storage_created(storage);
+	return storage;
 }
 
 static struct mail_storage *
@@ -136,8 +140,11 @@ mail_storage_create_default(const char *user, enum mail_storage_flags flags,
 	classes = array_get(&storages, &count);
 	for (i = 0; i < count; i++) {
 		storage = classes[i]->v.create(NULL, user, flags, lock_method);
-		if (storage != NULL)
+		if (storage != NULL) {
+			if (hook_mail_storage_created != NULL)
+				hook_mail_storage_created(storage);
 			return storage;
+		}
 	}
 	return NULL;
 }
@@ -192,6 +199,8 @@ mail_storage_create_with_data(const char *data, const char *user,
 		}
 	}
 
+	if (hook_mail_storage_created != NULL && storage != NULL)
+		hook_mail_storage_created(storage);
 	return storage;
 }
 
@@ -458,12 +467,13 @@ int mailbox_sync_next(struct mailbox_sync_context *ctx,
 }
 
 int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
+			enum mailbox_status_items status_items,
 			struct mailbox_status *status_r)
 {
 	struct mailbox_sync_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	return ctx->box->v.sync_deinit(ctx, status_r);
+	return ctx->box->v.sync_deinit(ctx, status_items, status_r);
 }
 
 void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,

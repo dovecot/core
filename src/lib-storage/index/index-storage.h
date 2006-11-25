@@ -76,6 +76,7 @@ struct index_mailbox {
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int notify_pending:1;
 	unsigned int mail_read_mmaped:1;
+	unsigned int move_to_memory:1;
 };
 
 struct index_transaction_context {
@@ -117,6 +118,7 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 			       struct mail_index *index, const char *name,
 			       enum mailbox_open_flags flags,
 			       bool move_to_memory);
+int index_storage_mailbox_open(struct index_mailbox *ibox);
 void index_storage_mailbox_free(struct mailbox *box);
 
 bool index_storage_is_readonly(struct mailbox *box);
@@ -144,6 +146,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 int index_mailbox_sync_next(struct mailbox_sync_context *ctx,
 			    struct mailbox_sync_rec *sync_rec_r);
 int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+			      enum mailbox_status_items status_items,
 			      struct mailbox_status *status_r);
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);

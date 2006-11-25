@@ -16,14 +16,11 @@ enum mailbox_list_flags {
 enum mailbox_info_flags {
 	MAILBOX_NOSELECT	= 0x001,
 	MAILBOX_NONEXISTENT	= 0x002,
-	MAILBOX_PLACEHOLDER	= 0x004,
-	MAILBOX_CHILDREN	= 0x008,
-	MAILBOX_NOCHILDREN	= 0x010,
-	MAILBOX_NOINFERIORS	= 0x020,
-	MAILBOX_MARKED		= 0x040,
-	MAILBOX_UNMARKED	= 0x080,
-
-	MAILBOX_READONLY	= 0x100
+	MAILBOX_CHILDREN	= 0x004,
+	MAILBOX_NOCHILDREN	= 0x008,
+	MAILBOX_NOINFERIORS	= 0x010,
+	MAILBOX_MARKED		= 0x020,
+	MAILBOX_UNMARKED	= 0x040
 };
 
 enum mailbox_name_status {
@@ -81,6 +78,11 @@ struct mailbox_list_settings {
 	   If mailbox_name is "Maildir", you have a non-selectable mailbox
 	   "mail" and a selectable mailbox "mail/foo". */
 	const char *maildir_name;
+
+	/* If mailbox index is used, use these settings for it
+	   (pointers, so they're set to NULL after init is finished): */
+	const enum mail_storage_flags *mail_storage_flags;
+	const enum mail_storage_lock_method *mail_storage_lock_method;
 };
 
 struct mailbox_info {
@@ -135,11 +137,14 @@ int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
    with the namespace. */
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list);
 
+/* Returns a single mask from given reference and mask. */
+const char *mailbox_list_join_refmask(struct mailbox_list *list,
+				      const char *ref, const char *mask);
+
 /* Initialize new mailbox list request. mask may contain '%' and '*'
    wildcards as defined by RFC-3501. */
 struct mailbox_list_iterate_context *
-mailbox_list_iter_init(struct mailbox_list *list,
-		       const char *ref, const char *mask,
+mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 		       enum mailbox_list_iter_flags flags);
 /* Get next mailbox. Returns the mailbox name */
 struct mailbox_info *

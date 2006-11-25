@@ -33,11 +33,12 @@ static void maildir_nodes_fix(struct mailbox_node *node, bool is_subs)
 			node->flags |= MAILBOX_CHILDREN;
 			node->flags &= ~MAILBOX_NOCHILDREN;
 			maildir_nodes_fix(node->children, is_subs);
-		} else if ((node->flags & MAILBOX_PLACEHOLDER) != 0) {
+		} else if ((node->flags & MAILBOX_NONEXISTENT) != 0) {
 			if (!is_subs) {
-				node->flags &= ~MAILBOX_PLACEHOLDER;
+				node->flags &= ~MAILBOX_NONEXISTENT;
 				node->flags |= MAILBOX_NOSELECT;
 			}
+			node->flags |= MAILBOX_CHILDREN;
 		}
 		node = node->next;
 	}
@@ -126,7 +127,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 						 mailbox_c, &created);
 			if (node != NULL) {
 				if (created)
-					node->flags = MAILBOX_PLACEHOLDER;
+					node->flags = MAILBOX_NONEXISTENT;
 
 				node->flags |= MAILBOX_CHILDREN |
 					MAILBOX_FLAG_MATCHED;
@@ -144,8 +145,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 			if (node != NULL) {
 				if (created)
 					node->flags = MAILBOX_NOCHILDREN;
-				node->flags &= ~(MAILBOX_PLACEHOLDER |
-						 MAILBOX_NONEXISTENT);
+				node->flags &= ~MAILBOX_NONEXISTENT;
 				node->flags |= MAILBOX_FLAG_MATCHED;
 			}
 		}
@@ -165,7 +165,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		if (created)
 			node->flags = MAILBOX_NOCHILDREN;
 		else
-			node->flags &= ~MAILBOX_PLACEHOLDER;
+			node->flags &= ~MAILBOX_NONEXISTENT;
 
 		switch (imap_match(glob, "INBOX")) {
 		case IMAP_MATCH_YES:
@@ -218,7 +218,7 @@ static int maildir_fill_subscribed(struct maildir_list_iterate_context *ctx,
 			i_assert(p != NULL);
 
 			node = mailbox_tree_get(ctx->tree_ctx, name, &created);
-			if (created) node->flags = MAILBOX_PLACEHOLDER;
+			if (created) node->flags = MAILBOX_NONEXISTENT;
 			node->flags |= MAILBOX_FLAG_MATCHED | MAILBOX_CHILDREN;
 			node->flags &= ~MAILBOX_NOCHILDREN;
 			break;
@@ -231,8 +231,7 @@ static int maildir_fill_subscribed(struct maildir_list_iterate_context *ctx,
 }
 
 struct mailbox_list_iterate_context *
-maildir_list_iter_init(struct mailbox_list *_list,
-		       const char *ref, const char *mask,
+maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 		       enum mailbox_list_iter_flags flags)
 {
 	struct maildir_mailbox_list *list =
@@ -250,11 +249,6 @@ maildir_list_iter_init(struct mailbox_list *_list,
 	ctx->ctx.flags = flags;
 	ctx->pool = pool;
 	ctx->tree_ctx = mailbox_tree_init(_list->hierarchy_sep);
-
-	if (*ref != '\0') {
-		/* join reference + mask */
-		mask = t_strconcat(ref, mask, NULL);
-	}
 
 	glob = imap_match_init(pool, mask, TRUE, _list->hierarchy_sep);
 

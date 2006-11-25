@@ -14,8 +14,7 @@ struct maildir_mailbox_list {
 };
 
 struct mailbox_list_iterate_context *
-maildir_list_iter_init(struct mailbox_list *_list,
-		       const char *ref, const char *mask,
+maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 		       enum mailbox_list_iter_flags flags);
 int maildir_list_iter_deinit(struct mailbox_list_iterate_context *ctx);
 struct mailbox_info *

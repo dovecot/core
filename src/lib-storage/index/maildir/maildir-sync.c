@@ -179,14 +179,13 @@
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
+#include "maildir-sync.h"
 
 #include <stdio.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
-
-#define MAILDIR_SYNC_SECS 1
 
 #define MAILDIR_FILENAME_FLAG_FOUND 128
 
@@ -774,17 +773,29 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 }
 
 static void
-maildir_sync_update_from_header(struct maildir_mailbox *mbox)
+maildir_sync_update_from_header(struct maildir_mailbox *mbox,
+				struct mail_index_header *hdr_r)
 {
-	uint64_t value;
+	struct mail_index_view *view;
+	const struct mail_index_header *hdr;
+
+	/* open a new view so we get the latest header */
+	view = mail_index_view_open(mbox->ibox.index);
+	hdr = mail_index_get_header(view);
 
 	/* FIXME: ugly, replace with extension header */
-	value = mail_index_get_header(mbox->ibox.view)->sync_size;
-	mbox->last_new_mtime = value & 0xffffffff;
-	mbox->last_new_sync_time = value >> 32;
+	mbox->last_new_mtime = hdr->sync_size & 0xffffffff;
+	mbox->last_dirty_flags = (hdr->sync_size >> 32) &
+		(MAILDIR_DIRTY_NEW | MAILDIR_DIRTY_CUR);
 
-	mbox->last_cur_mtime =
-		mail_index_get_header(mbox->ibox.view)->sync_stamp;
+	mbox->last_cur_mtime = hdr->sync_stamp;
+
+	if ((mbox->last_dirty_flags & MAILDIR_DIRTY_CUR) != 0 &&
+	    mbox->dirty_cur_time < mbox->last_cur_mtime)
+		mbox->dirty_cur_time = mbox->last_cur_mtime;
+
+	*hdr_r = *hdr;
+	mail_index_view_close(&view);
 }
 
 static int
@@ -793,6 +804,7 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 			 bool *new_changed_r, bool *cur_changed_r)
 {
 	struct index_mailbox *ibox = &mbox->ibox;
+	struct mail_index_header hdr;
 	struct stat st;
 	time_t new_mtime, cur_mtime;
 
@@ -817,7 +829,7 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 
 	   FIXME: For now we're using sync_size field as the new/ dir's stamp.
 	   Pretty ugly.. */
-        maildir_sync_update_from_header(mbox);
+        maildir_sync_update_from_header(mbox, &hdr);
 	if ((mbox->dirty_cur_time == 0 && cur_mtime != mbox->last_cur_mtime) ||
 	    (new_mtime != mbox->last_new_mtime)) {
 		/* check if the index has been updated.. */
@@ -826,18 +838,22 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 			return -1;
 		}
 
-		maildir_sync_update_from_header(mbox);
+		maildir_sync_update_from_header(mbox, &hdr);
 	}
 
 	/* If we're removing recent flags, always sync new/ directory if
 	   it has mails. */
 	if (new_mtime != mbox->last_new_mtime ||
-	    new_mtime >= mbox->last_new_sync_time - MAILDIR_SYNC_SECS ||
-	    (!ibox->keep_recent &&
-	     mail_index_get_header(ibox->view)->recent_messages_count > 0)) {
+	    ((mbox->last_dirty_flags & MAILDIR_DIRTY_NEW) != 0 &&
+	     new_mtime < ioloop_time - MAILDIR_SYNC_SECS) ||
+	    (!ibox->keep_recent && hdr.recent_messages_count > 0)) {
 		*new_changed_r = TRUE;
 		mbox->last_new_mtime = new_mtime;
-		mbox->last_new_sync_time = ioloop_time;
+
+		if (new_mtime < ioloop_time - MAILDIR_SYNC_SECS)
+			mbox->last_dirty_flags &= ~MAILDIR_DIRTY_NEW;
+		else
+			mbox->last_dirty_flags |= MAILDIR_DIRTY_NEW;
 	}
 
 	if (cur_mtime != mbox->last_cur_mtime ||
@@ -847,9 +863,13 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 		*cur_changed_r = TRUE;
 		mbox->last_cur_mtime = cur_mtime;
 
-		mbox->dirty_cur_time =
-			cur_mtime >= ioloop_time - MAILDIR_SYNC_SECS ?
-			cur_mtime : 0;
+		if (cur_mtime < ioloop_time - MAILDIR_SYNC_SECS) {
+			mbox->last_dirty_flags &= ~MAILDIR_DIRTY_CUR;
+			mbox->dirty_cur_time = 0;
+		} else {
+			mbox->last_dirty_flags |= MAILDIR_DIRTY_CUR;
+			mbox->dirty_cur_time = cur_mtime;
+		}
 	}
 
 	return 0;
@@ -947,7 +967,6 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	ARRAY_TYPE(keyword_indexes) idx_keywords;
 	uint32_t uid_validity, next_uid;
 	uint64_t value;
-	time_t old_new_sync_time;
 	int ret = 0;
 	bool full_rescan = FALSE;
 
@@ -1179,8 +1198,10 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		mbox->syncing_commit = FALSE;
 	}
 
-	if (mbox->dirty_cur_time == 0 &&
-	    mbox->last_cur_mtime != (time_t)hdr->sync_stamp) {
+	if (mbox->dirty_cur_time != 0)
+		mbox->last_dirty_flags |= MAILDIR_DIRTY_CUR;
+
+	if (mbox->last_cur_mtime != (time_t)hdr->sync_stamp) {
 		uint32_t sync_stamp = mbox->last_cur_mtime;
 
 		mail_index_update_header(trans,
@@ -1189,20 +1210,12 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	}
 
 	/* FIXME: use a header extension instead of sync_size.. */
-	value = mbox->last_new_mtime;
-	old_new_sync_time = hdr->sync_size >> 32;
-	if (mbox->last_new_mtime >= old_new_sync_time - MAILDIR_SYNC_SECS) {
-		value |= (uint64_t)mbox->last_new_sync_time << 32;
-	} else {
-		value |= (uint64_t)old_new_sync_time << 32;
-	}
+	value = mbox->last_new_mtime |
+		((uint64_t)mbox->last_dirty_flags << 32);
 	if (value != hdr->sync_size) {
-		uint64_t sync_stamp = mbox->last_new_mtime |
-			((uint64_t)mbox->last_new_sync_time << 32);
-
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, sync_size),
-			&sync_stamp, sizeof(sync_stamp), TRUE);
+			&value, sizeof(value), TRUE);
 	}
 
 	if (hdr->uid_validity == 0) {
@@ -1383,6 +1396,11 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	struct maildir_sync_context *ctx;
 	int ret = 0;
+
+	if (!box->opened) {
+		if (index_storage_mailbox_open(&mbox->ibox) < 0)
+			return index_mailbox_sync_init(box, 0, TRUE);
+	}
 
 	if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 ||
 	    mbox->ibox.sync_last_check + MAILBOX_FULL_SYNC_INTERVAL <=

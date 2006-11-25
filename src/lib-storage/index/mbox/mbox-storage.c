@@ -358,6 +358,8 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 
 	if (mbox_get_list_settings(&list_set, data, flags) < 0)
 		return NULL;
+	list_set.mail_storage_flags = &flags;
+	list_set.mail_storage_lock_method = &lock_method;
 
 	pool = pool_alloconly_create("storage", 512);
 	storage = p_new(pool, struct mbox_storage, 1);

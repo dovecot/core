@@ -12,6 +12,7 @@
 #include "index-mail.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "maildir-sync.h"
 
 #include <stdio.h>
 #include <stdlib.h>

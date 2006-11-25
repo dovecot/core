@@ -10,6 +10,7 @@
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
+#include "maildir-sync.h"
 #include "index-mail.h"
 
 #include <stdio.h>
@@ -147,6 +148,8 @@ maildir_create(const char *data, const char *user,
 
 	if (maildir_get_list_settings(&list_set, data, flags) < 0)
 		return NULL;
+	list_set.mail_storage_flags = &flags;
+	list_set.mail_storage_lock_method = &lock_method;
 
 	pool = pool_alloconly_create("storage", 512);
 	storage = p_new(pool, struct maildir_storage, 1);
@@ -727,7 +730,7 @@ static int rename_subfolders(struct mail_storage *storage,
 
 	mask = t_strdup_printf("%s%c*", oldname,
 			       mailbox_list_get_hierarchy_sep(storage->list));
-	iter = mailbox_list_iter_init(storage->list, "", mask,
+	iter = mailbox_list_iter_init(storage->list, mask,
 				      MAILBOX_LIST_ITER_FAST_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		const char *name;

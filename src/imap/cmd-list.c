@@ -33,13 +33,6 @@ mailbox_flags2str(enum mailbox_info_flags flags,
 {
 	const char *str;
 
-	if (flags & MAILBOX_PLACEHOLDER) {
-		i_assert((flags & ~MAILBOX_CHILDREN) == MAILBOX_PLACEHOLDER);
-
-		if ((list_flags & _MAILBOX_LIST_ITER_LISTEXT) == 0)
-			flags = MAILBOX_NOSELECT;
-		flags |= MAILBOX_CHILDREN;
-	}
 	if ((flags & MAILBOX_NONEXISTENT) != 0 &&
 	    (list_flags & _MAILBOX_LIST_ITER_LISTEXT) == 0) {
 		flags |= MAILBOX_NOSELECT;
@@ -52,7 +45,6 @@ mailbox_flags2str(enum mailbox_info_flags flags,
 	str = t_strconcat(
 		(flags & MAILBOX_NOSELECT) ? " \\Noselect" : "",
 		(flags & MAILBOX_NONEXISTENT) ? " \\NonExistent" : "",
-		(flags & MAILBOX_PLACEHOLDER) ? " \\PlaceHolder" : "",
 		(flags & MAILBOX_CHILDREN) ? " \\HasChildren" : "",
 		(flags & MAILBOX_NOCHILDREN) ? " \\HasNoChildren" : "",
 		(flags & MAILBOX_NOINFERIORS) ? " \\NoInferiors" : "",
@@ -318,7 +310,7 @@ list_namespace_init(struct client_command_context *cmd,
                         enum mailbox_info_flags flags;
 			string_t *str = t_str_new(128);
 
-			flags = MAILBOX_PLACEHOLDER;
+			flags = MAILBOX_NONEXISTENT | MAILBOX_CHILDREN;
 			str_printfa(str, "* LIST (%s) \"%s\" ",
 				    mailbox_flags2str(flags, ctx->list_flags),
 				    ns->sep_str);
@@ -386,7 +378,8 @@ list_namespace_init(struct client_command_context *cmd,
 	cur_mask = namespace_fix_sep(ns, cur_mask);
 
 	list = mail_storage_get_list(ns->storage);
-	ctx->list_iter = mailbox_list_iter_init(list, cur_ref, cur_mask,
+	cur_mask = mailbox_list_join_refmask(list, cur_ref, cur_mask);
+	ctx->list_iter = mailbox_list_iter_init(list, cur_mask,
 						ctx->list_flags);
 }
 

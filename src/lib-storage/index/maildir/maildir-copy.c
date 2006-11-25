@@ -7,6 +7,7 @@
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
+#include "maildir-sync.h"
 #include "index-mail.h"
 #include "mail-copy.h"
 

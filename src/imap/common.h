@@ -37,7 +37,6 @@ extern enum client_workarounds client_workarounds;
 
 extern string_t *capability_string;
 
-extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 extern void (*hook_client_created)(struct client **client);
 
 #endif

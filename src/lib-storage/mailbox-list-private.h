@@ -22,10 +22,11 @@ struct mailbox_list_vfuncs {
 				       enum mailbox_name_status *status);
 
 	const char *(*get_temp_prefix)(struct mailbox_list *list);
+	const char *(*join_refmask)(struct mailbox_list *list,
+				    const char *ref, const char *mask);
 
 	struct mailbox_list_iterate_context *
-		(*iter_init)(struct mailbox_list *list,
-			     const char *ref, const char *mask,
+		(*iter_init)(struct mailbox_list *list, const char *mask,
 			     enum mailbox_list_iter_flags flags);
 	struct mailbox_info *
 		(*iter_next)(struct mailbox_list_iterate_context *ctx);
@@ -75,5 +76,6 @@ void mailbox_list_clear_error(struct mailbox_list *list);
 void mailbox_list_set_error(struct mailbox_list *list, const char *error);
 void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 	__attr_format__(2, 3);
+void mailbox_list_set_internal_error(struct mailbox_list *list);
 
 #endif

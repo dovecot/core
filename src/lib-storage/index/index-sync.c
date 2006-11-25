@@ -294,11 +294,8 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 	return ret;
 }
 
-#define SYNC_STATUS_FLAGS \
-	(STATUS_MESSAGES | STATUS_RECENT | STATUS_UIDNEXT | \
-	 STATUS_UIDVALIDITY | STATUS_UNSEEN | STATUS_KEYWORDS)
-
 int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
+			      enum mailbox_status_items status_items,
 			      struct mailbox_status *status_r)
 {
 	struct index_mailbox_sync_context *ctx =
@@ -319,9 +316,9 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		}
 		ibox->synced_recent_count = ibox->recent_flags_count;
 
-		ret = index_storage_get_status_locked(ctx->ibox,
-						      SYNC_STATUS_FLAGS,
-						      status_r);
+		ret = status_items == 0 ? 0 :
+			index_storage_get_status_locked(ctx->ibox, status_items,
+							status_r);
 	}
 
 	mail_index_view_unlock(ctx->ibox->view);

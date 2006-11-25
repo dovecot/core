@@ -2017,9 +2017,27 @@ static void imap_thread_hash_init(struct mailbox *box, bool create)
 					    tbox, TRUE);
 }
 
+static struct mailbox_sync_context *
+imap_thread_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
+{
+	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(box);
+	struct mailbox_sync_context *ctx;
+
+	ctx = tbox->super.sync_init(box, flags);
+	if (box->opened) {
+		imap_thread_hash_init(box, FALSE);
+		/* we don't want to get back here */
+		box->v.sync_init = tbox->super.sync_init;
+	}
+	return ctx;
+}
+
 static void imap_thread_mailbox_opened(struct mailbox *box)
 {
 	struct imap_thread_mailbox *tbox;
+
+	if (next_hook_mailbox_opened != NULL)
+		next_hook_mailbox_opened(box);
 
 	tbox = i_new(struct imap_thread_mailbox, 1);
 	tbox->super = box->v;
@@ -2027,7 +2045,14 @@ static void imap_thread_mailbox_opened(struct mailbox *box)
 	array_idx_set(&box->module_contexts,
 		      imap_thread_storage_module_id, &tbox);
 
-	imap_thread_hash_init(box, FALSE);
+	if (box->opened)
+		imap_thread_hash_init(box, FALSE);
+	else {
+		/* delayed opening used. we want to try to open the hash
+		   anyway, because if syncing expunges anything and we didn't
+		   notice it, we would have to rebuild the hash */
+		box->v.sync_init = imap_thread_sync_init;
+	}
 }
 
 void imap_thread_init(void)

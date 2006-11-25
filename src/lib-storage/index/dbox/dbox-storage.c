@@ -93,6 +93,8 @@ dbox_create(const char *data, const char *user,
 
 	if (dbox_get_list_settings(&list_set, data, flags) < 0)
 		return NULL;
+	list_set.mail_storage_flags = &flags;
+	list_set.mail_storage_lock_method = &lock_method;
 
 	if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
 	    errno != EEXIST) {

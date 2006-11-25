@@ -247,6 +247,19 @@ fs_list_get_temp_prefix(struct mailbox_list *_list)
 	return list->temp_prefix;
 }
 
+static const char *
+fs_list_join_refmask(struct mailbox_list *_list __attr_unused__,
+		     const char *ref, const char *mask)
+{
+	if (*mask == '/' || *mask == '~') {
+		/* mask overrides reference */
+	} else if (*ref != '\0') {
+		/* merge reference and mask */
+		mask = t_strconcat(ref, mask, NULL);
+	}
+	return mask;
+}
+
 static int fs_list_set_subscribed(struct mailbox_list *_list,
 				  const char *name, bool set)
 {
@@ -277,6 +290,7 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_get_path,
 		fs_list_get_mailbox_name_status,
 		fs_list_get_temp_prefix,
+		fs_list_join_refmask,
 		fs_list_iter_init,
 		fs_list_iter_next,
 		fs_list_iter_deinit,

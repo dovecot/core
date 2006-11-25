@@ -66,7 +66,8 @@ void dbox_transaction_created(struct mail_index_transaction *t)
 {
 	struct mailbox *box = MAIL_STORAGE_INDEX(t->view->index);
 
-	if (strcmp(box->storage->name, DBOX_STORAGE_NAME) == 0) {
+	/* index can be for mailbox list index, in which case box=NULL */
+	if (box != NULL && strcmp(box->storage->name, DBOX_STORAGE_NAME) == 0) {
 		struct dbox_mailbox *dbox = (struct dbox_mailbox *)box;
 		struct dbox_transaction_context *mt;
 
