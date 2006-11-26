@@ -1,8 +1,5 @@
 /* Copyright (C) 2006 Timo Sirainen */
 
-/* FIXME: we need to be able to rebuild the hash table when it gets
-   too small or large */
-
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
@@ -16,6 +13,7 @@
 #include "mail-index-private.h"
 #include "mail-hash.h"
 
+#include <stdio.h>
 #include <stddef.h>
 #include <utime.h>
 #include <sys/stat.h>
@@ -24,17 +22,21 @@
 #define FILE_SIZE_INIT_PERCENTAGE 120
 /* How much larger to grow the file when it needs to be done */
 #define MAIL_HASH_GROW_PERCENTAGE 20
+/* Minimum hash size to use */
+#define MAIL_HASH_MIN_SIZE 109
 
 #define MAIL_HASH_TIMEOUT_SECS 3
 
 struct mail_hash {
 	struct mail_index *index;
 
-	hash_callback_t *hash_cb;
+	hash_callback_t *key_hash_cb;
 	hash_ctx_cmp_callback_t *key_compare_cb;
+	hash_callback_t *rec_hash_cb;
 	void *cb_context;
 
 	char *filepath;
+	char *suffix;
 	int fd;
 
 	dev_t dev;
@@ -99,7 +101,7 @@ static int mail_hash_file_set_corrupted(struct mail_hash *hash, bool set)
 	size_t offset = offsetof(struct mail_hash_header, corrupted);
 	struct stat st;
 
-	if (MAIL_HASH_IS_IN_MEMORY(hash))
+	if (hash->fd == -1)
 		return 0;
 
 	hash->hdr->corrupted = set ? 1 : 0;
@@ -212,6 +214,8 @@ static void mail_hash_file_close(struct mail_hash *hash)
 	hash->hdr = NULL;
 	hash->hash_base = NULL;
 	hash->records_base = NULL;
+
+	hash->locked = FALSE;
 }
 
 static int mail_hash_file_map_finish(struct mail_hash *hash)
@@ -410,7 +414,7 @@ static int mail_hash_file_lock(struct mail_hash *hash, int lock_type)
 	}
 }
 
-static int mail_hash_file_open(struct mail_hash *hash)
+static int mail_hash_file_open(struct mail_hash *hash, bool lock)
 {
 	int ret;
 
@@ -422,21 +426,27 @@ static int mail_hash_file_open(struct mail_hash *hash)
 		return -1;
 	}
 
-	if (mail_hash_file_lock(hash, F_RDLCK) <= 0)
-		return -1;
+	if (!lock) {
+		if (mail_hash_file_lock(hash, F_RDLCK) <= 0)
+			return -1;
 
-	ret = mail_hash_file_map(hash, FALSE);
-	if (hash->fd != -1)
-		(void)mail_hash_file_lock(hash, F_UNLCK);
+		ret = mail_hash_file_map(hash, FALSE);
+		if (hash->fd != -1)
+			(void)mail_hash_file_lock(hash, F_UNLCK);
+	} else {
+		if (mail_hash_file_lock(hash, F_WRLCK) <= 0)
+			return -1;
+
+		hash->locked = TRUE;
+		ret = mail_hash_file_map(hash, TRUE);
+	}
 	return ret;
 }
 
 static void
-mail_hash_header_init(struct mail_hash *hash, struct mail_hash_header *hdr,
-		      uoff_t *file_size_r)
+mail_hash_header_init(struct mail_hash *hash, unsigned int initial_count,
+		      struct mail_hash_header *hdr, uoff_t *file_size_r)
 {
-	unsigned int message_count;
-
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->version = MAIL_HASH_VERSION;
 	hdr->base_header_size = sizeof(*hdr);
@@ -446,16 +456,19 @@ mail_hash_header_init(struct mail_hash *hash, struct mail_hash_header *hdr,
 	   uid_validity may be 0 */
 	hdr->uid_validity = hash->index->hdr->uid_validity;
 
-	message_count = I_MAX(hash->index->hdr->messages_count, 25);
-	hdr->hash_size = primes_closest(I_MAX(message_count * 2, 109));
+	if (initial_count == 0)
+		initial_count = I_MAX(hash->index->hdr->messages_count, 25);
+	hdr->hash_size = I_MAX(primes_closest(initial_count * 2),
+			       MAIL_HASH_MIN_SIZE);
 
 	*file_size_r = hdr->header_size +
 		hdr->hash_size * sizeof(uint32_t) +
-		hash->record_size * (message_count *
+		hash->record_size * (initial_count *
 				     FILE_SIZE_INIT_PERCENTAGE / 100);
 }
 
-static int mail_hash_file_create(struct mail_hash *hash)
+static int
+mail_hash_file_create(struct mail_hash *hash, unsigned int initial_count)
 {
 	struct dotlock *dotlock;
 	struct mail_hash_header hdr;
@@ -468,7 +481,7 @@ static int mail_hash_file_create(struct mail_hash *hash)
 		return -1;
 	}
 
-	mail_hash_header_init(hash, &hdr, &file_size);
+	mail_hash_header_init(hash, initial_count, &hdr, &file_size);
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0 ||
 	    file_set_size(fd, file_size) < 0) {
 		mail_hash_set_syscall_error(hash, "write()");
@@ -483,12 +496,13 @@ static int mail_hash_file_create(struct mail_hash *hash)
 	return 0;
 }
 
-static void mail_hash_create_in_memory(struct mail_hash *hash)
+static void mail_hash_create_in_memory(struct mail_hash *hash,
+				       unsigned int initial_count)
 {
 	struct mail_hash_header hdr;
 	uoff_t file_size;
 
-	mail_hash_header_init(hash, &hdr, &file_size);
+	mail_hash_header_init(hash, initial_count, &hdr, &file_size);
 
 	hash->mmap_size = file_size;
 	hash->mmap_base = mmap_anon(hash->mmap_size);
@@ -506,8 +520,10 @@ static void mail_hash_create_in_memory(struct mail_hash *hash)
 
 struct mail_hash *
 mail_hash_open(struct mail_index *index, const char *suffix,
-	       enum mail_hash_open_flags flags,
-	       unsigned int record_size, hash_callback_t *hash_cb,
+	       enum mail_hash_open_flags flags, unsigned int record_size,
+	       unsigned int initial_count,
+	       hash_callback_t *key_hash_cb,
+	       hash_callback_t *rec_hash_cb,
 	       hash_ctx_cmp_callback_t *key_compare_cb,
 	       void *context)
 {
@@ -521,16 +537,18 @@ mail_hash_open(struct mail_index *index, const char *suffix,
 	hash->filepath = (flags & MAIL_HASH_OPEN_FLAG_IN_MEMORY) != 0 ?
 		i_strdup("(in-memory hash)") :
 		i_strconcat(index->filepath, suffix, NULL);
+	hash->suffix = i_strdup(suffix);
 	hash->record_size = record_size;
 	hash->fd = -1;
 
-	hash->hash_cb = hash_cb;
+	hash->key_hash_cb = key_hash_cb;
+	hash->rec_hash_cb = rec_hash_cb;
 	hash->key_compare_cb = key_compare_cb;
 	hash->cb_context = context;
 
 	ret = MAIL_INDEX_IS_IN_MEMORY(hash->index) ||
 		(flags & MAIL_HASH_OPEN_FLAG_IN_MEMORY) != 0 ? -1 :
-		mail_hash_file_open(hash);
+		mail_hash_file_open(hash, FALSE);
 
 	if (ret <= 0 && (flags & MAIL_HASH_OPEN_FLAG_CREATE) == 0) {
 		/* we don't want to create the hash */
@@ -539,12 +557,12 @@ mail_hash_open(struct mail_index *index, const char *suffix,
 	}
 	if (ret == 0) {
 		/* not found or broken, recreate it */
-		ret = mail_hash_reset(hash);
+		ret = mail_hash_reset(hash, initial_count);
 	}
 	if (ret < 0) {
 		/* fallback to in-memory hash */
 		mail_hash_file_close(hash);
-		mail_hash_create_in_memory(hash);
+		mail_hash_create_in_memory(hash, initial_count);
 	}
 	return hash;
 }
@@ -557,27 +575,25 @@ void mail_hash_free(struct mail_hash **_hash)
 
 	mail_hash_file_close(hash);
 	i_free(hash->filepath);
+	i_free(hash->suffix);
 	i_free(hash);
 }
 
-int mail_hash_reset(struct mail_hash *hash)
+int mail_hash_reset(struct mail_hash *hash, unsigned int initial_count)
 {
+	bool locked = hash->locked;
 	int ret;
 
 	mail_hash_file_close(hash);
 
-	ret = mail_hash_file_create(hash);
+	ret = mail_hash_file_create(hash, initial_count);
 	if (ret == 0) {
 		/* should work now, try opening again */
-		ret = mail_hash_file_open(hash);
+		ret = mail_hash_file_open(hash, locked);
 		if (ret == 0) {
 			mail_hash_set_corrupted(hash,
 				"Newly created hash file broken");
 			return -1;
-		}
-		if (ret > 0 && hash->locked) {
-			if (mail_hash_file_lock(hash, F_WRLCK) <= 0)
-				return -1;
 		}
 	}
 	return ret < 0 ? -1 : 0;
@@ -589,13 +605,13 @@ static int mail_hash_reopen(struct mail_hash *hash)
 
 	mail_hash_file_close(hash);
 
-	if ((ret = mail_hash_file_open(hash)) < 0)
+	if ((ret = mail_hash_file_open(hash, FALSE)) < 0)
 		return -1;
 	if (ret > 0)
 		return 0;
 
 	/* not found or broken, recreate it */
-	return mail_hash_reset(hash);
+	return mail_hash_reset(hash, 0);
 }
 
 static int mail_hash_reopen_if_needed(struct mail_hash *hash)
@@ -671,7 +687,7 @@ int mail_hash_lookup(struct mail_hash *hash, const void *key,
 	unsigned int hash_idx;
 	uint32_t idx;
 
-	hash_idx = hash->hash_cb(key) % hash->hdr->hash_size;
+	hash_idx = hash->key_hash_cb(key) % hash->hdr->hash_size;
 	for (idx = hash->hash_base[hash_idx]; idx != 0; ) {
 		if (idx > hash->hdr->record_count) {
 			mail_hash_set_corrupted(hash,
@@ -773,8 +789,8 @@ static int mail_hash_grow_file(struct mail_hash *hash)
 	return 0;
 }
 
-int mail_hash_insert(struct mail_hash *hash, const void *key,
-		     const void *value, uint32_t *idx_r)
+static int mail_hash_insert_with_hash(struct mail_hash *hash, const void *value,
+				      uint32_t hash_key, uint32_t *idx_r)
 {
 	struct mail_hash_record *rec;
 	uint32_t idx, *idx_p;
@@ -807,13 +823,11 @@ int mail_hash_insert(struct mail_hash *hash, const void *key,
 	}
 
 	memcpy(rec, value, hash->record_size);
-
 	if (mail_hash_update_header(hash, rec, FALSE) < 0)
 		return -1;
 
-	if (key != NULL) {
-		idx_p = &hash->hash_base[hash->hash_cb(key) %
-					 hash->hdr->hash_size];
+	if (hash_key != 0) {
+		idx_p = &hash->hash_base[hash_key % hash->hdr->hash_size];
 		while (*idx_p != 0) {
 			rec = HASH_RECORD_IDX(hash, *idx_p);
 			idx_p = &rec->next_idx;
@@ -822,9 +836,24 @@ int mail_hash_insert(struct mail_hash *hash, const void *key,
 		if (mail_hash_mark_update(hash, idx_p, sizeof(*idx_p)) < 0)
 			return -1;
 		*idx_p = idx;
+
+		hash->hdr->hashed_count++;
 	}
+
 	*idx_r = idx;
 	return 0;
+}
+
+int mail_hash_insert(struct mail_hash *hash, const void *key,
+		     const void *value, uint32_t *idx_r)
+{
+	uint32_t hash_key = key == NULL ? 0 : hash->key_hash_cb(key);
+
+	i_assert((key == NULL && hash->rec_hash_cb(value) == 0) ||
+		 (key != NULL && hash_key != 0 &&
+		  hash->rec_hash_cb(value) != 0));
+
+	return mail_hash_insert_with_hash(hash, value, hash_key, idx_r);
 }
 
 int mail_hash_remove(struct mail_hash *hash, const void *key)
@@ -836,12 +865,12 @@ int mail_hash_remove_idx(struct mail_hash *hash, uint32_t idx, const void *key)
 {
 	struct mail_hash_record *rec = NULL;
 	unsigned int hash_idx;
-	uint32_t *idx_p;
+	uint32_t hash_key, *idx_p;
 
 	i_assert(idx != 0 || key != NULL);
 
 	if (key != NULL) {
-		hash_idx = hash->hash_cb(key) % hash->hdr->hash_size;
+		hash_idx = hash->key_hash_cb(key) % hash->hdr->hash_size;
 		for (idx_p = &hash->hash_base[hash_idx]; *idx_p != 0; ) {
 			if (*idx_p > hash->hdr->record_count) {
 				mail_hash_set_corrupted(hash,
@@ -879,6 +908,15 @@ int mail_hash_remove_idx(struct mail_hash *hash, uint32_t idx, const void *key)
 			return -1;
 		}
 		hash->hdr->message_count--;
+	}
+
+	hash_key = hash->rec_hash_cb(rec);
+	if (hash_key != 0) {
+		if (hash->hdr->hashed_count == 0) {
+			mail_hash_set_corrupted(hash, "Too low hashed_count");
+			return -1;
+		}
+		hash->hdr->hashed_count--;
 	}
 
 	if (idx == hash->hdr->record_count) {
@@ -945,4 +983,78 @@ int mail_hash_update_idx(struct mail_hash *hash, uint32_t idx,
 	memcpy(rec, value, hash->record_size);
 
 	return mail_hash_update_header(hash, rec, had_uid);
+}
+
+int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count)
+{
+	struct mail_hash *tmp_hash;
+	const struct mail_hash_record *rec;
+	const char *tmp_filename;
+	uint32_t hash_key, idx, new_idx;
+	float nodes_per_list;
+	int ret = 0;
+
+	if (MAIL_HASH_IS_IN_MEMORY(hash))
+		return 0;
+
+	i_assert(hash->locked);
+
+	nodes_per_list = (float)(hash->hdr->hashed_count + grow_count) /
+		(float)hash->hdr->hash_size;
+	if ((nodes_per_list > 0.3 && nodes_per_list < 2.0) ||
+	    hash->hdr->hash_size <= MAIL_HASH_MIN_SIZE)
+		return 0;
+
+	/* create a temporary hash */
+	tmp_hash = mail_hash_open(hash->index,
+				  t_strconcat(hash->suffix, ".tmp", NULL),
+				  MAIL_HASH_OPEN_FLAG_CREATE,
+				  hash->record_size,
+				  hash->hdr->hashed_count + grow_count,
+				  hash->key_hash_cb,
+				  hash->rec_hash_cb,
+				  hash->key_compare_cb,
+				  hash->cb_context);
+	if (tmp_hash == NULL)
+		return -1;
+
+	/* populate */
+	for (idx = 1; idx <= hash->hdr->record_count; idx++) {
+		rec = HASH_RECORD_IDX(hash, idx);
+		hash_key = hash->rec_hash_cb(rec);
+
+		if (mail_hash_insert_with_hash(tmp_hash, rec, hash_key,
+					       &new_idx) < 0) {
+			ret = -1;
+			break;
+		}
+		i_assert(idx == new_idx);
+	}
+	(void)mail_hash_file_write_changes(tmp_hash);
+
+	tmp_filename = t_strdup(tmp_hash->filepath);
+	mail_hash_free(&tmp_hash);
+	if (ret < 0) {
+		(void)unlink(tmp_filename);
+		return -1;
+	}
+
+	/* replace the old */
+	if (rename(tmp_filename, hash->filepath) < 0) {
+		mail_hash_set_syscall_error(hash, "rename()");
+		(void)unlink(tmp_filename);
+		return -1;
+	}
+
+	/* reopen the hash */
+	mail_hash_file_close(hash);
+	if ((ret = mail_hash_file_open(hash, TRUE)) < 0)
+		return -1;
+	if (ret == 0) {
+		mail_hash_set_corrupted(hash,
+			"Newly created hash file broken");
+		return -1;
+	}
+
+	return 0;
 }

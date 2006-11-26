@@ -202,6 +202,12 @@ static void mail_thread_deinit(struct imap_thread_mailbox *tbox,
 	pool_unref(ctx->msgid_pool);
 }
 
+static uint32_t crc32_str_nonzero(const char *str)
+{
+	uint32_t value = crc32_str(str);
+	return value == 0 ? 1 : value;
+}
+
 static int
 mail_thread_rec_idx(struct thread_context *ctx, uint32_t idx,
 		    const struct mail_thread_rec **rec_r)
@@ -217,7 +223,7 @@ mail_thread_rec_idx(struct thread_context *ctx, uint32_t idx,
 	return 0;
 }
 
-static unsigned int mail_thread_rec_hash(const void *key)
+static unsigned int mail_thread_hash_key(const void *key)
 {
 	const struct msgid_rec *key_rec = key;
 
@@ -241,7 +247,7 @@ mail_thread_find_child_msgid(struct thread_context *ctx, uint32_t parent_uid,
 	msgids = mail_get_first_header(ctx->tmp_mail, HDR_IN_REPLY_TO);
 	msgid = msgids == NULL ? NULL : message_id_get_next(&msgids);
 	if (msgid != NULL) {
-		if (crc32_str(msgid) == msgid_crc32)
+		if (crc32_str_nonzero(msgid) == msgid_crc32)
 			found_msgid = msgid;
 	}
 
@@ -252,7 +258,7 @@ mail_thread_find_child_msgid(struct thread_context *ctx, uint32_t parent_uid,
 	}
 
 	while ((msgid = message_id_get_next(&msgids)) != NULL) {
-		if (crc32_str(msgid) == msgid_crc32) {
+		if (crc32_str_nonzero(msgid) == msgid_crc32) {
 			if (found_msgid != NULL) {
 				/* hash collisions, we can't figure this out */
 				return -1;
@@ -284,6 +290,12 @@ mail_thread_children_get_parent_msgid(struct thread_context *ctx,
 		/* each non-dummy child must have a valid In-Reply-To or
 		   References header pointing to the parent, otherwise it
 		   wouldn't be our child */
+		if (parent_rec->msgid_crc32 == 0) {
+			mail_hash_set_corrupted(ctx->msgid_hash,
+				"msgid_crc32=0 node has children");
+			return NULL;
+		}
+
 		if (mail_thread_find_child_msgid(ctx, child_rec->rec.uid,
 						 parent_rec->msgid_crc32,
 						 &msgid) == 0)
@@ -324,8 +336,8 @@ mail_thread_rec_get_msgid(struct thread_context *ctx,
 	return *p;
 }
 
-static bool mail_thread_rec_msgid_cmp(const void *key, const void *data,
-				      void *context)
+static bool mail_thread_hash_cmp(const void *key, const void *data,
+				 void *context)
 {
 	struct imap_thread_mailbox *tbox = context;
 	struct thread_context *ctx = tbox->ctx;
@@ -350,6 +362,13 @@ static bool mail_thread_rec_msgid_cmp(const void *key, const void *data,
 	return strcmp(msgid, key_rec->msgid) == 0;
 }
 
+static unsigned int mail_thread_hash_rec(const void *p)
+{
+	const struct mail_thread_rec *rec = p;
+
+	return rec->msgid_crc32;
+}
+
 static int
 imap_thread_context_init(struct imap_thread_mailbox *tbox,
 			 struct client *client, const char *charset,
@@ -363,6 +382,15 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 	if (mailbox_get_status(client->mailbox,
 			       STATUS_MESSAGES | STATUS_UIDNEXT, &status) < 0)
 		return -1;
+
+	if (search_args->type != SEARCH_ALL ||
+	    search_args->next != NULL) {
+		/* each search condition requires their own separate thread
+		   index. for now we don't bother to support anything else than
+		   "search all" threading, since that's what pretty much all
+		   the clients do anyway. */
+		ctx->msgid_hash = NULL;
+	}
 
 	if (ctx->msgid_hash != NULL) {
 		if (mail_hash_lock(ctx->msgid_hash) <= 0)
@@ -380,36 +408,34 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 			ctx->msgid_hash = NULL;
 		} else {
 			/* rebuild */
-			if (mail_hash_reset(ctx->msgid_hash) < 0) {
-				mail_hash_unlock(ctx->msgid_hash);
+			if (mail_hash_reset(ctx->msgid_hash, 0) < 0)
 				ctx->msgid_hash = NULL;
-			}
 		}
-	} else if (search_args->next == NULL &&
-		   search_args->type == SEARCH_ALL) {
-		/* threading everything. this is the only case we're trying
-		   to optimize. */
-		if (hdr->last_uid != 0) {
-			/* messages already exist in the hash. add only the
-			   new messages in there. */
-			if (mailbox_get_uids(client->mailbox, 1, hdr->last_uid,
-					     &ctx->seqset.seq1,
-					     &ctx->seqset.seq2) < 0)
-				return -1;
+	} else if (hdr->last_uid != 0) {
+		/* non-empty hash. add only the new messages in there. */
+		if (mailbox_get_uids(client->mailbox, 1, hdr->last_uid,
+				     &ctx->seqset.seq1,
+				     &ctx->seqset.seq2) < 0) {
+			mail_hash_unlock(ctx->msgid_hash);
+			return -1;
+		}
 
-			if (ctx->seqset.seq2 != hdr->message_count) {
-				/* some messages have been expunged.
-				   have to rebuild. */
-				if (mail_hash_reset(ctx->msgid_hash) < 0) {
-					mail_hash_unlock(ctx->msgid_hash);
-					ctx->msgid_hash = NULL;
-				}
-			} else {
-				ctx->tmp_search_arg.type = SEARCH_SEQSET;
-				ctx->tmp_search_arg.value.seqset = &ctx->seqset;
-				ctx->tmp_search_arg.not = TRUE;
-				search_args = &ctx->tmp_search_arg;
-			}
+		if (ctx->seqset.seq2 != hdr->message_count) {
+			/* some messages have been expunged. have to rebuild. */
+			if (mail_hash_reset(ctx->msgid_hash, 0) < 0)
+				ctx->msgid_hash = NULL;
+		} else {
+			/* after all these checks, this is the only case we
+			   can actually optimize. */
+			ctx->tmp_search_arg.type = SEARCH_SEQSET;
+			ctx->tmp_search_arg.value.seqset = &ctx->seqset;
+			ctx->tmp_search_arg.not = TRUE;
+			search_args = &ctx->tmp_search_arg;
+
+			if (mail_hash_resize_if_needed(ctx->msgid_hash,
+						       status.messages -
+						       hdr->message_count) < 0)
+				ctx->msgid_hash = NULL;
 		}
 	}
 
@@ -422,9 +448,10 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 			mail_hash_open(ibox->index, ".thread",
 				       MAIL_HASH_OPEN_FLAG_CREATE |
 				       MAIL_HASH_OPEN_FLAG_IN_MEMORY,
-				       sizeof(struct mail_thread_rec),
-				       mail_thread_rec_hash,
-				       mail_thread_rec_msgid_cmp,
+				       sizeof(struct mail_thread_rec), 0,
+				       mail_thread_hash_key,
+				       mail_thread_hash_rec,
+				       mail_thread_hash_cmp,
 				       tbox);
 	}
 
@@ -436,6 +463,8 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 	ctx->box = client->mailbox;
 	ctx->output = client->output;
 
+	/* at this point the hash is either locked or we're using in-memory
+	   hash where it doesn't matter */
 	hdr = mail_hash_get_header(ctx->msgid_hash);
 	count = client->messages_count < hdr->record_count ? 0 :
 		client->messages_count - hdr->record_count;
@@ -571,7 +600,7 @@ mail_thread_rec_unref_idx(struct thread_context *ctx, uint32_t idx,
 			mail_thread_rec_get_msgid(ctx, rec, idx);
 		if (key.msgid == NULL)
 			return -1;
-		key.msgid_crc32 = crc32_str(key.msgid);
+		key.msgid_crc32 = crc32_str_nonzero(key.msgid);
 
 		if (mail_hash_remove_idx(ctx->msgid_hash, idx, &key) < 0) {
 			ctx->failed = TRUE;
@@ -782,7 +811,7 @@ static int create_or_update_msg(struct thread_context *ctx, const char *msgid,
 
 	memset(&rec, 0, sizeof(rec));
 	rec.rec.uid = uid;
-	rec.msgid_crc32 = msgid == NULL ? 0 : crc32_str(msgid);
+	rec.msgid_crc32 = msgid == NULL ? 0 : crc32_str_nonzero(msgid);
 	rec.refcount = 1;
 	rec.sent_date = sent_date;
 
@@ -842,6 +871,7 @@ static int create_or_update_msg(struct thread_context *ctx, const char *msgid,
 		uint32_t orig_idx = idx;
 
 		orig_rec = *recp;
+		rec.msgid_crc32 = 0;
 		if (mail_hash_insert(ctx->msgid_hash, NULL, &rec, &idx) < 0) {
 			ctx->failed = TRUE;
 			return -1;
@@ -975,7 +1005,7 @@ msgid_ref_or_create(struct thread_context *ctx, const char *msgid,
 	int ret;
 
 	key.msgid = msgid;
-	key.msgid_crc32 = crc32_str(msgid);
+	key.msgid_crc32 = crc32_str_nonzero(msgid);
 
 	ret = mail_hash_lookup(ctx->msgid_hash, &key, &value, idx_r);
 	if (ret < 0 || ctx->failed) {
@@ -1816,7 +1846,7 @@ mail_thread_rec_from_seq(struct thread_context *ctx, uint32_t seq,
 	key_r->msgid = message_id_get_next(&message_id);
 	if (key_r->msgid == NULL)
 		return 0;
-	key_r->msgid_crc32 = crc32_str(key_r->msgid);
+	key_r->msgid_crc32 = crc32_str_nonzero(key_r->msgid);
 
 	if (mail_hash_lookup(ctx->msgid_hash, key_r, &value, idx_r) <= 0)
 		return -1;
@@ -1851,7 +1881,7 @@ static int mail_thread_unref_references(struct thread_context *ctx)
 	references = t_strdup(references);
 	do {
 		key.msgid = msgid;
-		key.msgid_crc32 = crc32_str(msgid);
+		key.msgid_crc32 = crc32_str_nonzero(msgid);
 
 		ctx->cmp_match_count = 0;
 		ctx->cmp_last_idx = 0;
@@ -2005,9 +2035,11 @@ static void imap_thread_hash_init(struct mailbox *box, bool create)
 	tbox->msgid_hash =
 		mail_hash_open(ibox->index, ".thread", create ?
 			       MAIL_HASH_OPEN_FLAG_CREATE : 0,
-			       sizeof(struct mail_thread_rec),
-			       mail_thread_rec_hash,
-			       mail_thread_rec_msgid_cmp, tbox);
+			       sizeof(struct mail_thread_rec), 0,
+			       mail_thread_hash_key,
+			       mail_thread_hash_rec,
+			       mail_thread_hash_cmp,
+			       tbox);
 	if (tbox->msgid_hash == NULL)
 		return;
 

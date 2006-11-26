@@ -30,6 +30,8 @@ struct mail_hash_header {
 	uint32_t record_count;
 	/* Number of message records (records with non-zero UID) */
 	uint32_t message_count;
+	/* Number of messages with non-zero hash */
+	uint32_t hashed_count;
 
 	/* UID validity. */
 	uint32_t uid_validity;
@@ -57,21 +59,24 @@ enum mail_hash_open_flags {
 	MAIL_HASH_OPEN_FLAG_IN_MEMORY	= 0x02
 };
 
-/* Returns hash code. */
-typedef unsigned int hash_ctx_callback_t(const void *p, void *context);
 /* Returns 0 if the pointers are equal. */
 typedef bool hash_ctx_cmp_callback_t(const void *key, const void *data,
 				     void *context);
 
 struct mail_hash *
 mail_hash_open(struct mail_index *index, const char *suffix,
-	       enum mail_hash_open_flags flags,
-	       unsigned int record_size, hash_callback_t *hash_cb,
+	       enum mail_hash_open_flags flags, unsigned int record_size,
+	       unsigned int initial_count,
+	       hash_callback_t *key_hash_cb,
+	       hash_callback_t *rec_hash_cb,
 	       hash_ctx_cmp_callback_t *key_compare_cb,
 	       void *context);
 void mail_hash_free(struct mail_hash **hash);
 
-int mail_hash_reset(struct mail_hash *hash);
+/* If reset or resize fails, the hash file is closed and the hash is in
+   unusable state until mail_hash_lock() succeeds. */
+int mail_hash_reset(struct mail_hash *hash, unsigned int initial_count);
+int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count);
 
 /* Lock hash file. Returns 1 if we locked the file, 0 if timeouted or hash
    is in memory, -1 if error. */
@@ -83,7 +88,8 @@ const struct mail_hash_header *mail_hash_get_header(struct mail_hash *hash);
 int mail_hash_lookup(struct mail_hash *hash, const void *key,
 		     const void **value_r, uint32_t *idx_r);
 /* Remember that inserting may cause existing returned values to be
-   invalidated */
+   invalidated. If key=NULL, it's not inserted into hash table. Note that
+   hash=0 equals to key=NULL insert, so a valid hash value must never be 0. */
 int mail_hash_insert(struct mail_hash *hash, const void *key,
 		     const void *value, uint32_t *idx_r);
 int mail_hash_remove(struct mail_hash *hash, const void *key);
