@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
 			i_fatal("pipe() failed: %m");
 		cmd = "handle SIGPIPE nostop\n"
 			"handle SIGALRM nostop\n"
+			"handle SIG32 nostop\n"
 			"cont\n"
 			"bt full\n"
 			"quit\n";
