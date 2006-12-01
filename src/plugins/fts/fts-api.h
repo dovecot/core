@@ -25,8 +25,12 @@ int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
 /* Finish adding new data to the index. */
 int fts_backend_build_deinit(struct fts_backend_build_context *ctx);
 
-/* Expunge given mail from the backend. */
+/* Expunge given mail from the backend. Note that the transaction may still
+   fail later. */
 void fts_backend_expunge(struct fts_backend *backend, struct mail *mail);
+/* Called after transaction has been committed or rollbacked. */
+void fts_backend_expunge_finish(struct fts_backend *backend,
+				struct mailbox *box, bool committed);
 
 /* Lookup key from the index and return the found UIDs in result. */
 int fts_backend_lookup(struct fts_backend *backend, const char *key,

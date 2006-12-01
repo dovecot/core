@@ -27,6 +27,10 @@ struct fts_search_context {
 	unsigned int result_pos;
 };
 
+struct fts_transaction_context {
+	bool expunges;
+};
+
 struct fts_mail {
 	struct mail_vfuncs super;
 };
@@ -394,6 +398,7 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 	       struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
+	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	struct fts_mail *fmail;
 	struct mail *_mail;
 	struct mail_private *mail;
@@ -401,12 +406,56 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 	_mail = fbox->super.mail_alloc(t, wanted_fields, wanted_headers);
 	mail = (struct mail_private *)_mail;
 
+	ft->expunges = TRUE;
+
 	fmail = p_new(mail->pool, struct fts_mail, 1);
 	fmail->super = mail->v;
 
 	mail->v.expunge = fts_mail_expunge;
 	array_idx_set(&mail->module_contexts, fts_storage_module_id, &fmail);
 	return _mail;
+}
+
+static struct mailbox_transaction_context *
+fts_transaction_begin(struct mailbox *box,
+		      enum mailbox_transaction_flags flags)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+	struct mailbox_transaction_context *t;
+	struct fts_transaction_context *ft;
+
+	ft = i_new(struct fts_transaction_context, 1);
+
+	t = fbox->super.transaction_begin(box, flags);
+	array_idx_set(&t->module_contexts, fts_storage_module_id, &ft);
+	return t;
+}
+
+static void fts_transaction_rollback(struct mailbox_transaction_context *t)
+{
+	struct mailbox *box = t->box;
+	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+	struct fts_transaction_context *ft = FTS_CONTEXT(t);
+
+	fbox->super.transaction_rollback(t);
+	if (ft->expunges)
+		fts_backend_expunge_finish(fbox->backend, box, FALSE);
+	i_free(ft);
+}
+
+static int fts_transaction_commit(struct mailbox_transaction_context *t,
+				  enum mailbox_sync_flags flags)
+{
+	struct mailbox *box = t->box;
+	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+	struct fts_transaction_context *ft = FTS_CONTEXT(t);
+	int ret;
+
+	ret = fbox->super.transaction_commit(t, flags);
+	if (ft->expunges)
+		fts_backend_expunge_finish(fbox->backend, box, ret == 0);
+	i_free(ft);
+	return ret;
 }
 
 void fts_mailbox_opened(struct mailbox *box)
@@ -434,6 +483,9 @@ void fts_mailbox_opened(struct mailbox *box)
 	box->v.search_next_update_seq = fts_mailbox_search_next_update_seq;
 	box->v.search_deinit = fts_mailbox_search_deinit;
 	box->v.mail_alloc = fts_mail_alloc;
+	box->v.transaction_begin = fts_transaction_begin;
+	box->v.transaction_rollback = fts_transaction_rollback;
+	box->v.transaction_commit = fts_transaction_commit;
 
 	if (!fts_storage_module_id_set) {
 		fts_storage_module_id = mail_storage_module_id++;

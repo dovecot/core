@@ -17,6 +17,8 @@ struct fts_backend_vfuncs {
 	int (*build_deinit)(struct fts_backend_build_context *ctx);
 
 	void (*expunge)(struct fts_backend *backend, struct mail *mail);
+	void (*expunge_finish)(struct fts_backend *backend,
+			       struct mailbox *box, bool committed);
 
 	int (*lookup)(struct fts_backend *backend, const char *key,
 		      ARRAY_TYPE(seq_range) *result);

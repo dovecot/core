@@ -82,6 +82,12 @@ void fts_backend_expunge(struct fts_backend *backend, struct mail *mail)
 	backend->v.expunge(backend, mail);
 }
 
+void fts_backend_expunge_finish(struct fts_backend *backend,
+				struct mailbox *box, bool committed)
+{
+	backend->v.expunge_finish(backend, box, committed);
+}
+
 int fts_backend_lookup(struct fts_backend *backend, const char *key,
 		       ARRAY_TYPE(seq_range) *result)
 {

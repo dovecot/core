@@ -148,6 +148,13 @@ fts_backend_lucene_expunge(struct fts_backend *_backend, struct mail *mail)
 	(void)lucene_index_expunge(backend->lstorage->index, mail->uid);
 }
 
+static void
+fts_backend_lucene_expunge_finish(struct fts_backend *_backend __attr_unused__,
+				  struct mailbox *box __attr_unused__,
+				  bool committed __attr_unused__)
+{
+}
+
 static int
 fts_backend_lucene_lookup(struct fts_backend *_backend, const char *key,
 			 ARRAY_TYPE(seq_range) *result)
@@ -182,6 +189,7 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_build_more,
 		fts_backend_lucene_build_deinit,
 		fts_backend_lucene_expunge,
+		fts_backend_lucene_expunge_finish,
 		fts_backend_lucene_lookup,
 		fts_backend_lucene_filter
 	}
