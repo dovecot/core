@@ -12,6 +12,7 @@
 #define MBOX_INDEX_DIR_NAME ".imap"
 
 #include "index-storage.h"
+#include "mailbox-list-private.h"
 
 #define STORAGE(mbox_storage) \
 	(&(mbox_storage)->storage.storage)
@@ -20,6 +21,8 @@
 
 struct mbox_storage {
 	struct index_storage storage;
+
+	struct mailbox_list_vfuncs list_super;
 };
 
 struct mbox_mailbox {

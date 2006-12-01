@@ -438,20 +438,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	return &mbox->ibox.box;
 }
 
-static const char *
-maildir_get_mailbox_control_dir(struct mail_storage *storage, const char *name)
-{
-	return mailbox_list_get_path(storage->list, name,
-				     MAILBOX_LIST_PATH_TYPE_CONTROL);
-}
-
-static const char *
-maildir_get_mailbox_index_dir(struct mail_storage *storage, const char *name)
-{
-	return mailbox_list_get_path(storage->list, name,
-				     MAILBOX_LIST_PATH_TYPE_INDEX);
-}
-
 static struct mailbox *
 maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		     struct istream *input, enum mailbox_open_flags flags)
@@ -971,8 +957,6 @@ struct mail_storage maildir_storage = {
 		maildir_free,
 		maildir_autodetect,
 		index_storage_set_callbacks,
-		maildir_get_mailbox_control_dir,
-		maildir_get_mailbox_index_dir,
 		maildir_mailbox_open,
 		maildir_mailbox_create,
 		maildir_mailbox_delete,

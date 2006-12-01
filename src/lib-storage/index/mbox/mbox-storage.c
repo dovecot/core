@@ -1,7 +1,7 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "istream.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
@@ -44,6 +44,9 @@ unsigned int mbox_hide_headers_count =
 
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
+
+static bool mbox_mailbox_list_module_id_set = FALSE;
+static unsigned int mbox_mailbox_list_module_id;
 
 int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 {
@@ -345,6 +348,28 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 	return 0;
 }
 
+static const char *
+mbox_list_get_path(struct mailbox_list *list, const char *name,
+		   enum mailbox_list_path_type type)
+{
+	struct mbox_storage *storage =
+		*((void **)array_idx_modifiable(&list->module_contexts,
+						mbox_mailbox_list_module_id));
+	const char *path, *p;
+
+	path = storage->list_super.get_path(list, name, type);
+	if (type == MAILBOX_LIST_PATH_TYPE_CONTROL ||
+	    type == MAILBOX_LIST_PATH_TYPE_INDEX) {
+		p = strrchr(path, '/');
+		if (p == NULL)
+			return "";
+
+		return t_strconcat(t_strdup_until(path, p),
+				   "/"MBOX_INDEX_DIR_NAME"/", p+1, NULL);
+	}
+	return path;
+}
+
 static struct mail_storage *
 mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 	    enum mail_storage_lock_method lock_method)
@@ -373,6 +398,16 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 		return NULL;
 	}
 
+	storage->list_super = list->v;
+	list->v.get_path = mbox_list_get_path;
+
+	if (!mbox_mailbox_list_module_id_set) {
+		mbox_mailbox_list_module_id_set = TRUE;
+		mbox_mailbox_list_module_id = mailbox_list_module_id++;
+	}
+	array_idx_set(&list->module_contexts,
+		      mbox_mailbox_list_module_id, &storage);
+
 	istorage = INDEX_STORAGE(storage);
 	istorage->storage = mbox_storage;
 	istorage->storage.pool = pool;
@@ -391,31 +426,14 @@ static void mbox_free(struct mail_storage *_storage)
 	pool_unref(storage->storage.pool);
 }
 
-static const char *
-mbox_get_index_dir(struct mail_storage *storage, const char *name)
-{
-	const char *dir, *p;
-
-	dir = mailbox_list_get_path(storage->list, name,
-				    MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*dir == '\0')
-		return NULL;
-
-	p = strrchr(dir, '/');
-	if (p == NULL)
-		return NULL;
-
-	return t_strconcat(t_strdup_until(dir, p),
-			   "/"MBOX_INDEX_DIR_NAME"/", p+1, NULL);
-}
-
 static int create_mbox_index_dirs(struct mail_storage *storage,
 				  const char *name)
 {
 	const char *index_dir;
 
-	index_dir = mbox_get_index_dir(storage, name);
-	if (index_dir == NULL)
+	index_dir = mailbox_list_get_path(storage->list, name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*index_dir == '\0')
 		return 0;
 
 	if (mkdir_parents(index_dir, CREATE_MODE) < 0) {
@@ -527,7 +545,8 @@ mbox_open(struct mbox_storage *storage, const char *name,
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mbox_get_index_dir(_storage, name);
+	index_dir = mailbox_list_get_path(_storage->list, name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
 
 	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
 		index_dir = "";
@@ -580,9 +599,10 @@ mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
-		index_dir = NULL;
+		index_dir = "";
 	else {
-		index_dir = mbox_get_index_dir(_storage, name);
+		index_dir = mailbox_list_get_path(_storage->list, name,
+						  MAILBOX_LIST_PATH_TYPE_INDEX);
 
 		/* make sure the required directories are also there */
 		if (create_mbox_index_dirs(_storage, name) < 0)
@@ -799,8 +819,9 @@ static int mbox_mailbox_delete(struct mail_storage *_storage, const char *name)
 
 	/* delete the index directory first, so that if we crash we don't
 	   leave indexes for deleted mailboxes lying around */
-	index_dir = mbox_get_index_dir(_storage, name);
-	if (index_dir != NULL) {
+	index_dir = mailbox_list_get_path(_storage->list, name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*index_dir != '\0') {
 		index_storage_destroy_unrefed();
 
 		if (unlink_directory(index_dir, TRUE) < 0 && errno != ENOENT) {
@@ -897,9 +918,11 @@ static int mbox_mailbox_rename(struct mail_storage *_storage,
 	}
 
 	/* we need to rename the index directory as well */
-	old_indexdir = mbox_get_index_dir(_storage, oldname);
-	new_indexdir = mbox_get_index_dir(_storage, newname);
-	if (old_indexdir != NULL) {
+	old_indexdir = mailbox_list_get_path(_storage->list, oldname,
+					     MAILBOX_LIST_PATH_TYPE_INDEX);
+	new_indexdir = mailbox_list_get_path(_storage->list, newname,
+					     MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*old_indexdir != '\0') {
 		if (rename(old_indexdir, new_indexdir) < 0 &&
 		    errno != ENOENT) {
 			mail_storage_set_critical(_storage,
@@ -1038,8 +1061,6 @@ struct mail_storage mbox_storage = {
 		mbox_free,
 		mbox_autodetect,
 		index_storage_set_callbacks,
-		mbox_get_index_dir,
-		mbox_get_index_dir,
 		mbox_mailbox_open,
 		mbox_mailbox_create,
 		mbox_mailbox_delete,

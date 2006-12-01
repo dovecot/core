@@ -29,11 +29,6 @@ struct mail_storage_vfuncs {
 			      struct mail_storage_callbacks *callbacks,
 			      void *context);
 
-	const char *(*get_mailbox_control_dir)(struct mail_storage *storage,
-					       const char *name);
-	const char *(*get_mailbox_index_dir)(struct mail_storage *storage,
-					     const char *name);
-
 	struct mailbox *(*mailbox_open)(struct mail_storage *storage,
 					const char *name,
 					struct istream *input,

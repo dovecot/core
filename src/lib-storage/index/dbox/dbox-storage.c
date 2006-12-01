@@ -195,20 +195,6 @@ static bool dbox_is_recent(struct index_mailbox *ibox __attr_unused__,
 	return FALSE;
 }
 
-static const char *
-dbox_get_mailbox_control_dir(struct mail_storage *_storage, const char *name)
-{
-	return mailbox_list_get_path(_storage->list, name,
-				     MAILBOX_LIST_PATH_TYPE_CONTROL);
-}
-
-static const char *
-dbox_get_mailbox_index_dir(struct mail_storage *_storage, const char *name)
-{
-	return mailbox_list_get_path(_storage->list, name,
-				     MAILBOX_LIST_PATH_TYPE_INDEX);
-}
-
 static struct mailbox *
 dbox_open(struct dbox_storage *storage, const char *name,
 	  enum mailbox_open_flags flags)
@@ -602,8 +588,6 @@ struct mail_storage dbox_storage = {
 		dbox_free,
 		dbox_autodetect,
 		index_storage_set_callbacks,
-		dbox_get_mailbox_control_dir,
-		dbox_get_mailbox_index_dir,
 		dbox_mailbox_open,
 		dbox_mailbox_create,
 		dbox_mailbox_delete,
