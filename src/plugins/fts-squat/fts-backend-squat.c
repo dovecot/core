@@ -1,0 +1,191 @@
+/* Copyright (C) 2006 Timo Sirainen */
+
+#include "lib.h"
+#include "array.h"
+#include "mail-storage.h"
+#include "mail-search.h"
+#include "squat-trie.h"
+#include "fts-squat-plugin.h"
+
+#define SQUAT_FILE_PREFIX "dovecot.index.search"
+
+struct squat_fts_backend {
+	struct fts_backend backend;
+	struct squat_trie *trie;
+
+	uint32_t last_uid;
+};
+
+static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
+{
+	struct squat_fts_backend *backend;
+	struct mail_storage *storage;
+	const char *path;
+
+	storage = mailbox_get_storage(box);
+	path = mail_storage_get_mailbox_index_dir(storage,
+						  mailbox_get_name(box));
+	if (*path == '\0') {
+		/* in-memory indexes */
+		return NULL;
+	}
+
+	backend = i_new(struct squat_fts_backend, 1);
+	backend->backend = fts_backend_squat;
+	backend->trie =
+		squat_trie_open(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL));
+	return &backend->backend;
+}
+
+static void fts_backend_squat_deinit(struct fts_backend *_backend)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+
+	squat_trie_close(backend->trie);
+	i_free(backend);
+}
+
+static int fts_backend_squat_get_last_uid(struct fts_backend *_backend,
+					  uint32_t *last_uid_r)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+
+	*last_uid_r = backend->last_uid;
+	return 0;
+}
+
+static struct fts_backend_build_context *
+fts_backend_squat_build_init(struct fts_backend *_backend, uint32_t *last_uid_r)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+	struct fts_backend_build_context *ctx;
+
+	*last_uid_r = backend->last_uid;
+
+	ctx = i_new(struct fts_backend_build_context, 1);
+	ctx->backend = _backend;
+	return ctx;
+}
+
+static int
+fts_backend_squat_build_more(struct fts_backend_build_context *ctx,
+			     uint32_t uid, const unsigned char *data,
+			     size_t size)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)ctx->backend;
+
+	i_assert(uid >= backend->last_uid);
+	backend->last_uid = uid;
+
+	return squat_trie_add(backend->trie, uid, data, size);
+}
+
+static int
+fts_backend_squat_build_deinit(struct fts_backend_build_context *ctx)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)ctx->backend;
+
+	squat_trie_flush(backend->trie);
+	i_free(ctx);
+	return 0;
+}
+
+static void
+fts_backend_squat_expunge(struct fts_backend *_backend __attr_unused__,
+			  struct mail *mail __attr_unused__)
+{
+}
+
+static int get_uids(struct mailbox *box, ARRAY_TYPE(seq_range) *uids,
+		    unsigned int *message_count_r)
+{
+	struct mail_search_arg search_arg;
+        struct mailbox_transaction_context *t;
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	unsigned int count = 0;
+	int ret;
+
+	memset(&search_arg, 0, sizeof(search_arg));
+	search_arg.type = SEARCH_ALL;
+
+	t = mailbox_transaction_begin(box, 0);
+	ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
+
+	mail = mail_alloc(t, 0, NULL);
+	while (mailbox_search_next(ctx, mail) > 0) {
+		seq_range_array_add(uids, 0, mail->uid);
+		count++;
+	}
+	mail_free(&mail);
+
+	ret = mailbox_search_deinit(&ctx);
+	mailbox_transaction_rollback(&t);
+
+	*message_count_r = count;
+	return ret;
+}
+
+static void
+fts_backend_squat_expunge_finish(struct fts_backend *_backend,
+				 struct mailbox *box, bool committed)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
+	unsigned int count;
+
+	if (!committed)
+		return;
+
+	t_push();
+	t_array_init(&uids, 128);
+	if (get_uids(box, &uids, &count) == 0) {
+		(void)squat_trie_mark_having_expunges(backend->trie, &uids,
+						      count);
+	}
+	t_pop();
+}
+
+static int
+fts_backend_squat_lookup(struct fts_backend *_backend, const char *key,
+			 ARRAY_TYPE(seq_range) *result)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+
+	return squat_trie_lookup(backend->trie, result, key);
+}
+
+static int
+fts_backend_squat_filter(struct fts_backend *_backend, const char *key,
+			 ARRAY_TYPE(seq_range) *result)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+
+	return squat_trie_filter(backend->trie, result, key);
+}
+
+struct fts_backend fts_backend_squat = {
+	MEMBER(name) "squat",
+	MEMBER(definite_lookups) FALSE,
+
+	{
+		fts_backend_squat_init,
+		fts_backend_squat_deinit,
+		fts_backend_squat_get_last_uid,
+		fts_backend_squat_build_init,
+		fts_backend_squat_build_more,
+		fts_backend_squat_build_deinit,
+		fts_backend_squat_expunge,
+		fts_backend_squat_expunge_finish,
+		fts_backend_squat_lookup,
+		fts_backend_squat_filter
+	}
+};
