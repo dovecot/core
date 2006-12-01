@@ -25,6 +25,9 @@ pkglibexec_PROGRAMS = convert-tool
 convert_tool_SOURCES = \
 	convert-tool.c
 
+common_objects = \
+	convert-storage.lo
+
 libs = \
 	$(top_builddir)/src/lib-storage/register/libstorage-register.a \
 	$(STORAGE_LIBS) \
@@ -36,6 +39,7 @@ libs = \
 	$(top_builddir)/src/lib/liblib.a
 
 convert_tool_LDADD = \
+	$(common_objects) \
 	$(libs) \
 	$(LIBICONV) \
 	$(RAND_LIBS)

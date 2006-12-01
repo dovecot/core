@@ -4,11 +4,8 @@
 #include "ioloop.h"
 #include "randgen.h"
 #include "lib-signals.h"
+#include "mail-storage.h"
 #include "convert-storage.h"
-
-/* ugly, but automake doesn't like having it built as both static and
-   dynamic object.. */
-#include "convert-storage.c"
 
 int main(int argc, const char *argv[])
 {
