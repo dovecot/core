@@ -44,7 +44,7 @@ convert_tool_LDADD = \
 	$(LIBICONV) \
 	$(RAND_LIBS)
 
-convert_tool_DEPENDENCIES = $(libs)
+convert_tool_DEPENDENCIES = $(libs) $(common_objects)
 
 install-exec-local:
 	for d in imap pop3 lda; do \
