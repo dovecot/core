@@ -19,6 +19,8 @@
 
 #include <stdlib.h>
 
+#define POP3_SERVICE_NAME "pop3"
+
 const char *capability_string = POP3_CAPABILITY_REPLY;
 
 bool cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
@@ -240,7 +242,7 @@ bool cmd_auth(struct pop3_client *client, const char *args)
 	}
 
 	client_ref(client);
-	sasl_server_auth_begin(&client->common, "POP3", mech_name,
+	sasl_server_auth_begin(&client->common, POP3_SERVICE_NAME, mech_name,
 			       args, sasl_callback);
 	if (!client->common.authenticating)
 		return TRUE;
@@ -308,7 +310,7 @@ bool cmd_pass(struct pop3_client *client, const char *args)
 	base64_encode(plain_login->data, plain_login->used, base64);
 
 	client_ref(client);
-	sasl_server_auth_begin(&client->common, "POP3", "PLAIN",
+	sasl_server_auth_begin(&client->common, POP3_SERVICE_NAME, "PLAIN",
 			       str_c(base64), sasl_callback);
 	if (!client->common.authenticating)
 		return TRUE;
@@ -366,7 +368,7 @@ bool cmd_apop(struct pop3_client *client, const char *args)
 	base64_encode(apop_data->data, apop_data->used, base64);
 
 	client_ref(client);
-	sasl_server_auth_begin(&client->common, "POP3", "APOP",
+	sasl_server_auth_begin(&client->common, POP3_SERVICE_NAME, "APOP",
 			       str_c(base64), sasl_callback);
 	if (!client->common.authenticating)
 		return TRUE;

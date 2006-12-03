@@ -17,6 +17,8 @@
 
 #include <stdlib.h>
 
+#define IMAP_SERVICE_NAME "imap"
+
 const char *client_authenticate_get_capabilities(bool secured)
 {
 	const struct auth_mech_desc *mech;
@@ -255,7 +257,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 		return 0;
 
 	client_ref(client);
-	sasl_server_auth_begin(&client->common, "IMAP", mech_name,
+	sasl_server_auth_begin(&client->common, IMAP_SERVICE_NAME, mech_name,
 			       init_resp, sasl_callback);
 	if (!client->common.authenticating)
 		return 1;
@@ -310,7 +312,7 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 	base64_encode(plain_login->data, plain_login->used, base64);
 
 	client_ref(client);
-	sasl_server_auth_begin(&client->common, "IMAP", "PLAIN",
+	sasl_server_auth_begin(&client->common, IMAP_SERVICE_NAME, "PLAIN",
 			       str_c(base64), sasl_callback);
 	if (!client->common.authenticating)
 		return 1;
