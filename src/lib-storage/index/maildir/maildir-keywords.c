@@ -251,6 +251,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	unsigned int i, count;
 	struct utimbuf ut;
 	string_t *str;
+	mode_t old_mask;
 	int fd;
 
 	mk->synced = FALSE;
@@ -264,8 +265,10 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	t_push();
 	lock_path = t_strconcat(mk->path, ".lock", NULL);
 	(void)unlink(lock_path);
+        old_mask = umask(0777 & ~mk->mbox->mail_create_mode);
 	fd = file_dotlock_open(&mk->dotlock_settings, mk->path,
 			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
+	umask(old_mask);
 	if (fd == -1) {
 		mail_storage_set_critical(STORAGE(mk->mbox->storage),
 			"file_dotlock_open(%s) failed: %m", mk->path);
