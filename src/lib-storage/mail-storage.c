@@ -184,19 +184,18 @@ mail_storage_create_with_data(const char *data, const char *user,
 		flags |= MAIL_STORAGE_FLAG_NO_AUTODETECTION;
 
 		name = t_strdup_until(data, p);
-		storage = mail_storage_create(name, p+1, user, flags,
-					      lock_method);
+		return mail_storage_create(name, p+1, user, flags, lock_method);
+	}
+
+	storage = mail_storage_autodetect(data, flags);
+	if (storage == NULL) {
+		i_error("Ambiguous mail location setting, "
+			"don't know what to do with it: %s "
+			"(try prefixing it with mbox: or maildir:)",
+			data);
 	} else {
-		storage = mail_storage_autodetect(data, flags);
-		if (storage == NULL) {
-			i_error("Ambiguous mail location setting, "
-				"don't know what to do with it: %s "
-				"(try prefixing it with mbox: or maildir:)",
-				data);
-		} else {
-			storage = storage->v.create(data, user, flags,
-						    lock_method);
-		}
+		storage = storage->v.create(data, user, flags,
+					    lock_method);
 	}
 
 	if (hook_mail_storage_created != NULL && storage != NULL)
