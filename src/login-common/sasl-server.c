@@ -108,7 +108,7 @@ void sasl_server_auth_begin(struct client *client,
 
 	client->authenticating = TRUE;
 	i_free(client->auth_mech_name);
-	client->auth_mech_name = i_strdup(mech_name);
+	client->auth_mech_name = str_ucase(i_strdup(mech_name));
 	client->sasl_callback = callback;
 
 	mech = auth_client_find_mech(auth_client, mech_name);
