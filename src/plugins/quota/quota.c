@@ -402,7 +402,12 @@ struct quota_transaction_context *quota_transaction_begin(struct quota *quota,
 	ctx->quota = quota;
 	ctx->box = box;
 	ctx->bytes_left = (uint64_t)-1;
-	ctx->count_left = (uint64_t) -1;
+	ctx->count_left = (uint64_t)-1;
+
+	if (quota->counting) {
+		/* we got here through quota_count_storage() */
+		return ctx;
+	}
 
 	/* find the lowest quota limits from all roots and use them */
 	roots = array_get(&quota->roots, &count);

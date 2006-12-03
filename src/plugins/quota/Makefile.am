@@ -14,6 +14,7 @@ module_LTLIBRARIES = \
 
 lib01_quota_plugin_la_SOURCES = \
 	quota.c \
+	quota-count.c \
 	quota-fs.c \
 	quota-dict.c \
 	quota-dirsize.c \

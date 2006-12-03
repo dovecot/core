@@ -72,29 +72,56 @@ dict_quota_root_get_resources(struct quota_root *root __attr_unused__)
 }
 
 static int
+dict_quota_count(struct dict_quota_root *root,
+		 bool want_bytes, uint64_t *value_r)
+{
+	struct dict_transaction_context *dt;
+	uint64_t bytes, count;
+
+	if (quota_count(root->root.quota, &bytes, &count) < 0)
+		return -1;
+
+	t_push();
+	dt = dict_transaction_begin(root->dict);
+	dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
+	dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
+	t_pop();
+
+	if (dict_transaction_commit(dt) < 0)
+		i_error("dict_quota: Couldn't update quota");
+
+	*value_r = want_bytes ? bytes : count;
+	return 1;
+}
+
+static int
 dict_quota_get_resource(struct quota_root *_root, const char *name,
 			uint64_t *value_r, uint64_t *limit __attr_unused__)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 	const char *value;
+	bool want_bytes;
 	int ret;
 
-	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0) {
-		t_push();
-		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
-				  DICT_QUOTA_CURRENT_BYTES_PATH, &value);
-		*value_r = ret <= 0 ? 0 : strtoull(value, NULL, 10);
-		t_pop();
-	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
-		t_push();
-		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
-				  DICT_QUOTA_CURRENT_COUNT_PATH, &value);
-		*value_r = ret <= 0 ? 0 : strtoull(value, NULL, 10);
-		t_pop();
-	} else {
+	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
+		want_bytes = TRUE;
+	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
+		want_bytes = FALSE;
+	else
 		return 0;
-	}
 
+	t_push();
+	ret = dict_lookup(root->dict, unsafe_data_stack_pool,
+			  want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
+			  DICT_QUOTA_CURRENT_COUNT_PATH, &value);
+	if (ret < 0)
+		*value_r = 0;
+	else if (ret == 0)
+		ret = dict_quota_count(root, want_bytes, value_r);
+	else
+		*value_r = strtoull(value, NULL, 10);
+
+	t_pop();
 	return ret;
 }
 
@@ -106,10 +133,14 @@ dict_quota_update(struct quota_root *_root,
 	struct dict_transaction_context *dt;
 
 	dt = dict_transaction_begin(root->dict);
-	dict_atomic_inc(dt, DICT_QUOTA_CURRENT_BYTES_PATH,
-			ctx->bytes_used);
-	dict_atomic_inc(dt, DICT_QUOTA_CURRENT_COUNT_PATH,
-			ctx->count_used);
+	if (ctx->bytes_used != 0) {
+		dict_atomic_inc(dt, DICT_QUOTA_CURRENT_BYTES_PATH,
+				ctx->bytes_used);
+	}
+	if (ctx->count_used != 0) {
+		dict_atomic_inc(dt, DICT_QUOTA_CURRENT_COUNT_PATH,
+				ctx->count_used);
+	}
 	
 	if (dict_transaction_commit(dt) < 0)
 		return -1;

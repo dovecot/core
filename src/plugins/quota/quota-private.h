@@ -14,6 +14,8 @@ struct quota {
 
 	int (*test_alloc)(struct quota_transaction_context *ctx,
 			  uoff_t size, bool *too_large_r);
+
+	unsigned int counting:1;
 };
 
 struct quota_backend_vfuncs {
@@ -80,5 +82,7 @@ struct quota_transaction_context {
 void quota_add_user_storage(struct quota *quota, struct mail_storage *storage);
 void quota_remove_user_storage(struct quota *quota, 
 			       struct mail_storage *storage);
+
+int quota_count(struct quota *quota, uint64_t *bytes_r, uint64_t *count_r);
 
 #endif
