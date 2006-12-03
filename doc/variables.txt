@@ -50,4 +50,6 @@ return "0001", "1000" and "12345". %1.04i for the same string would return
 For login_log_format_elements there are also these variables:
 
  %m - authentication method (eg. PLAIN)
+ %a - Local port
+ %b - Remote port
  %c - SSL, TLS or empty

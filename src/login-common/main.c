@@ -61,20 +61,26 @@ static void sig_die(int signo, void *context __attr_unused__)
 
 static void login_accept(void *context __attr_unused__)
 {
-	struct ip_addr ip, local_ip;
+	struct ip_addr remote_ip, local_ip;
+	unsigned int remote_port, local_port;
+	struct client *client;
 	int fd;
 
-	fd = net_accept(LOGIN_LISTEN_FD, &ip, NULL);
+	fd = net_accept(LOGIN_LISTEN_FD, &remote_ip, &remote_port);
 	if (fd < 0) {
 		if (fd < -1)
 			i_fatal("accept() failed: %m");
 		return;
 	}
 
-	if (net_getsockname(fd, &local_ip, NULL) < 0)
+	if (net_getsockname(fd, &local_ip, &local_port) < 0) {
 		memset(&local_ip, 0, sizeof(local_ip));
+		local_port = 0;
+	}
 
-	(void)client_create(fd, FALSE, &local_ip, &ip);
+	client = client_create(fd, FALSE, &local_ip, &remote_ip);
+	client->remote_port = remote_port;
+	client->local_port = local_port;
 
 	if (process_per_connection) {
 		closing_down = TRUE;
@@ -84,27 +90,32 @@ static void login_accept(void *context __attr_unused__)
 
 static void login_accept_ssl(void *context __attr_unused__)
 {
-	struct ip_addr ip, local_ip;
+	struct ip_addr remote_ip, local_ip;
+	unsigned int remote_port, local_port;
 	struct client *client;
 	struct ssl_proxy *proxy;
 	int fd, fd_ssl;
 
-	fd = net_accept(LOGIN_SSL_LISTEN_FD, &ip, NULL);
+	fd = net_accept(LOGIN_SSL_LISTEN_FD, &remote_ip, &remote_port);
 	if (fd < 0) {
 		if (fd < -1)
 			i_fatal("accept() failed: %m");
 		return;
 	}
 
-	if (net_getsockname(fd, &local_ip, NULL) < 0)
+	if (net_getsockname(fd, &local_ip, &local_port) < 0) {
 		memset(&local_ip, 0, sizeof(local_ip));
+		local_port = 0;
+	}
 
-	fd_ssl = ssl_proxy_new(fd, &ip, &proxy);
+	fd_ssl = ssl_proxy_new(fd, &remote_ip, &proxy);
 	if (fd_ssl == -1)
 		net_disconnect(fd);
 	else {
-		client = client_create(fd_ssl, TRUE, &local_ip, &ip);
+		client = client_create(fd_ssl, TRUE, &local_ip, &remote_ip);
 		client->proxy = proxy;
+		client->remote_port = remote_port;
+		client->local_port = local_port;
 	}
 
 	if (process_per_connection) {
@@ -336,8 +347,8 @@ static void main_deinit(void)
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
 	const char *name, *group_name;
-	struct ip_addr ip, local_ip;
-	unsigned int local_port;
+	struct ip_addr remote_ip, local_ip;
+	unsigned int remote_port, local_port;
 	struct ssl_proxy *proxy = NULL;
 	struct client *client;
 	int i, fd = -1, master_fd = -1;
@@ -378,7 +389,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	main_init();
 
 	if (is_inetd) {
-		if (net_getpeername(1, &ip, NULL) < 0) {
+		if (net_getpeername(1, &remote_ip, &remote_port) < 0) {
 			i_fatal("%s can be started only through dovecot "
 				"master process, inetd or equilevant", argv[0]);
 		}
@@ -398,7 +409,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 		/* hardcoded imaps and pop3s ports to be SSL by default */
 		if (local_port == 993 || local_port == 995 || ssl) {
 			ssl = TRUE;
-			fd = ssl_proxy_new(fd, &ip, &proxy);
+			fd = ssl_proxy_new(fd, &remote_ip, &proxy);
 			if (fd == -1)
 				return 1;
 		}
@@ -407,8 +418,10 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 		closing_down = TRUE;
 
 		if (fd != -1) {
-			client = client_create(fd, ssl, &local_ip, &ip);
+			client = client_create(fd, ssl, &local_ip, &remote_ip);
 			client->proxy = proxy;
+			client->remote_port = remote_port;
+			client->local_port = local_port;
 		}
 	}
 

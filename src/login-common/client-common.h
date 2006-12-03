@@ -8,6 +8,7 @@
 struct client {
 	struct ip_addr local_ip;
 	struct ip_addr ip;
+	unsigned int local_port, remote_port;
 	struct ssl_proxy *proxy;
 
 	int fd;

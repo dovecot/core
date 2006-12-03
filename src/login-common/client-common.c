@@ -23,6 +23,8 @@ get_var_expand_table(struct client *client)
 		{ 'r', NULL },
 		{ 'p', NULL },
 		{ 'm', NULL },
+		{ 'a', NULL },
+		{ 'b', NULL },
 		{ 'c', NULL },
 		{ '\0', NULL }
 	};
@@ -44,10 +46,12 @@ get_var_expand_table(struct client *client)
 	tab[7].value = my_pid;
 	tab[8].value = client->auth_mech_name == NULL ? NULL :
 		str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
+	tab[9].value = dec2str(client->local_port);
+	tab[10].value = dec2str(client->remote_port);
 	if (!client->tls) {
-		tab[9].value = client->secured ? "secured" : NULL;
+		tab[11].value = client->secured ? "secured" : NULL;
 	} else {
-		tab[9].value = client->proxy != NULL &&
+		tab[11].value = client->proxy != NULL &&
 			ssl_proxy_is_handshaked(client->proxy) ? "TLS" :
 			"TLS handshaking";
 	}
