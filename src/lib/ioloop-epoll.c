@@ -47,7 +47,7 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 	struct io_list **list;
 	unsigned int i, count;
 
-	list = array_get_modifyable(&ctx->fd_index, &count);
+	list = array_get_modifiable(&ctx->fd_index, &count);
 	for (i = 0; i < count; i++)
 		p_free(ioloop->pool, list[i]);
 

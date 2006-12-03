@@ -126,7 +126,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	ts.tv_nsec = tv.tv_usec * 1000;
 
 	/* wait for events */
-	events = array_get_modifyable(&ctx->events, &events_count);
+	events = array_get_modifiable(&ctx->events, &events_count);
 	ret = kevent (ctx->kq, NULL, 0, events, events_count, &ts);
 	if (ret < 0 && errno != EINTR)
 		i_fatal("kevent(): %m");
