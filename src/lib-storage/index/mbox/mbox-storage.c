@@ -310,6 +310,9 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 	}
 
 	if (list_set->root_dir == NULL) {
+		if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0)
+			return -1;
+
 		list_set->root_dir = create_root_dir(debug);
 		if (list_set->root_dir == NULL)
 			return -1;
@@ -328,6 +331,8 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 			/* yep, go ahead */
 		} else if (errno != ENOENT && errno != ENOTDIR) {
 			i_error("lstat(%s) failed: %m", list_set->root_dir);
+			return -1;
+		} else if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
 			return -1;
 		} else if (mkdir_parents(list_set->root_dir, CREATE_MODE) < 0 &&
 			   errno != EEXIST) {

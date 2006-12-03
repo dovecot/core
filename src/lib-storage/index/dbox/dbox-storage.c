@@ -89,12 +89,23 @@ dbox_create(const char *data, const char *user,
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	const char *error;
+	struct stat st;
 	pool_t pool;
 
 	if (dbox_get_list_settings(&list_set, data, flags) < 0)
 		return NULL;
 	list_set.mail_storage_flags = &flags;
 	list_set.mail_storage_lock_method = &lock_method;
+
+	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
+		if (stat(list_set.root_dir, &st) < 0) {
+			if (errno != ENOENT) {
+				i_error("stat(%s) failed: %m",
+					list_set.root_dir);
+			}
+			return NULL;
+		}
+	}
 
 	if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
 	    errno != EEXIST) {

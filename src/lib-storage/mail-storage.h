@@ -28,8 +28,11 @@ enum mail_storage_flags {
 	/* Don't try to autodetect anything, require that the given data 
 	   contains all the necessary information. */
 	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x100,
+	/* Don't autocreate any directories. If they don't exist,
+	   fail to create the storage. */
+	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x200,
 	/* Ths storage contains INBOX */
-	MAIL_STORAGE_FLAG_HAS_INBOX		= 0x200
+	MAIL_STORAGE_FLAG_HAS_INBOX		= 0x400
 };
 
 enum mail_storage_lock_method {
