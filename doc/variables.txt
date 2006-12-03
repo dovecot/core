@@ -11,14 +11,14 @@ The variables are:
  %n - user part in user@domain, same as %u if there's no domain
  %d - domain part in user@domain, empty if user there's no domain
  %h - home directory
- %s - service (IMAP or POP3)
+ %s - service (imap, pop3, smtp, deliver)
  %p - PID of the current process (login or imap/pop3 process)
  %l - local IP address
  %r - remote IP address
  %w - plaintext password from plaintext authentication mechanism
  %i - System UID of the user
 
-You can apply a modifiers for each variable (eg. %Ls = pop3):
+You can apply a modifiers for each variable (eg. %Us = POP3):
 
  %L - lowercase
  %U - uppercase
