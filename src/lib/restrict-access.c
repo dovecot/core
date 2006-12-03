@@ -53,7 +53,7 @@ static gid_t *get_groups_list(int *gid_count_r)
 	return gid_list;
 }
 
-static void drop_restricted_groups(void)
+static void drop_restricted_groups(bool *have_root_group)
 {
 	/* @UNSAFE */
 	const char *env;
@@ -73,13 +73,16 @@ static void drop_restricted_groups(void)
 
 	for (i = 0, used = 0; i < gid_count; i++) {
 		if (gid_list[i] >= first_valid_gid &&
-		    (last_valid_gid == 0 || gid_list[i] <= last_valid_gid))
+		    (last_valid_gid == 0 || gid_list[i] <= last_valid_gid)) {
+			if (gid_list[i] == 0)
+				*have_root_group = TRUE;
 			gid_list[used++] = gid_list[i];
+		}
 	}
 
 	if (used != gid_count) {
 		/* it did contain restricted groups, remove it */
-		if (setgroups(gid_count, gid_list) < 0)
+		if (setgroups(used, gid_list) < 0)
 			i_fatal("setgroups() failed: %m");
 	}
 	t_pop();
@@ -127,12 +130,14 @@ void restrict_access_by_env(bool disallow_root)
 	const char *env;
 	gid_t gid;
 	uid_t uid;
+	bool have_root_group;
 
 	/* groups - the getgid() checks are just so we don't fail if we're
 	   not running as root and try to just use our own GID. Do this
 	   before chrooting so initgroups() actually works. */
 	env = getenv("RESTRICT_SETGID");
 	gid = env == NULL ? 0 : (gid_t)strtoul(env, NULL, 10);
+	have_root_group = gid == 0;
 	if (gid != 0 && (gid != getgid() || gid != getegid())) {
 		if (setgid(gid) != 0)
 			i_fatal("setgid(%s) failed: %m", dec2str(gid));
@@ -150,7 +155,7 @@ void restrict_access_by_env(bool disallow_root)
 					env, dec2str(gid));
 			}
 
-                        drop_restricted_groups();
+                        drop_restricted_groups(&have_root_group);
 		}
 	}
 
@@ -192,7 +197,7 @@ void restrict_access_by_env(bool disallow_root)
 	}
 
 	env = getenv("RESTRICT_GID_FIRST");
-	if ((gid != 0 || (env != NULL && atoi(env) != 0)) && uid != 0) {
+	if ((!have_root_group || (env != NULL && atoi(env) != 0)) && uid != 0) {
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0) {
 			if (gid == 0)
 				i_fatal("GID 0 isn't permitted");
