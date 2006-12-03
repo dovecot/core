@@ -75,7 +75,6 @@ static int proxy_input_line(struct imap_client *client,
 
 		i_free(client->proxy_user);
 		client->proxy_user = NULL;
-		client_unref(client);
 		return -1;
 	} else {
 		/* probably some untagged reply */

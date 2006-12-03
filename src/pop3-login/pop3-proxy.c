@@ -132,8 +132,6 @@ static void proxy_input(struct istream *input, struct ostream *output,
 
 	i_free(client->proxy_user);
 	client->proxy_user = NULL;
-
-	client_unref(client);
 }
 
 int pop3_proxy_new(struct pop3_client *client, const char *host,
