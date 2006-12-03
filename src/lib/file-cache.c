@@ -50,6 +50,7 @@ static int file_cache_set_size(struct file_cache *cache, uoff_t size)
 {
 	size_t page_size = mmap_get_page_size();
 	uoff_t diff = size % page_size;
+	void *new_base;
 
 	if (diff != 0)
 		size += page_size - diff;
@@ -73,14 +74,14 @@ static int file_cache_set_size(struct file_cache *cache, uoff_t size)
 			return -1;
 		}
 	} else {
-		cache->mmap_base = mremap_anon(cache->mmap_base,
-					       cache->mmap_length,
-					       size, MREMAP_MAYMOVE);
-		if (cache->mmap_base == MAP_FAILED) {
+		new_base = mremap_anon(cache->mmap_base, cache->mmap_length,
+				       size, MREMAP_MAYMOVE);
+		if (new_base == MAP_FAILED) {
 			i_error("mremap_anon(%"PRIuUOFF_T") failed: %m", size);
-			cache->mmap_length = 0;
 			return -1;
 		}
+
+		cache->mmap_base = new_base;
 	}
 	cache->mmap_length = size;
 	return 0;
