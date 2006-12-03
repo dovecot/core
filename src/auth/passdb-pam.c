@@ -219,6 +219,8 @@ static int pam_auth(struct auth_request *request,
 	        }
 	}
 
+	/* FIXME: this doesn't actually work since we're in the child
+	   process.. */
 	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
 	if (status != PAM_SUCCESS) {
 		*error = t_strdup_printf("pam_get_item() failed: %s",
@@ -475,6 +477,9 @@ static void pam_init(struct passdb_module *_module __attr_unused__,
 		     const char *args __attr_unused__)
 {
 	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+	/* we're caching the password by using directly the plaintext password
+	   given by the auth mechanism */
+	_module->default_pass_scheme = "PLAIN";
 }
 
 static void pam_deinit(struct passdb_module *_module __attr_unused__)
