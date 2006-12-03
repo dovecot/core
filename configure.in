@@ -1482,9 +1482,16 @@ if test $want_gssapi = yes; then
 			old_CFLAGS=$CFLAGS
 			CFLAGS="$CFLAGS `krb5-config --cflags gssapi`"
 			AC_CHECK_HEADER([gssapi/gssapi.h], [
-				AC_DEFINE(HAVE_GSSAPI,, Build with GSSAPI support)
+				AC_DEFINE(HAVE_GSSAPI_GSSAPI_H,, GSSAPI headers in gssapi/gssapi.h)
 				have_gssapi=yes
 			])
+			AC_CHECK_HEADER([gssapi.h], [
+				AC_DEFINE(HAVE_GSSAPI_H,, GSSAPI headers in gssapi.h)
+				have_gssapi=yes
+			])
+			if test $have_gssapi = yes; then
+				AC_DEFINE(HAVE_GSSAPI,, Build with GSSAPI support)
+			fi
 			CFLAGS=$old_CFLAGS
 		fi
 	fi

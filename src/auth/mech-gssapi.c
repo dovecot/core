@@ -24,7 +24,11 @@
 
 #ifdef HAVE_GSSAPI
 
-#include <gssapi/gssapi.h>
+#ifdef HAVE_GSSAPI_GSSAPI_H
+#  include <gssapi/gssapi.h>
+#elif defined (HAVE_GSSAPI_H)
+#  include <gssapi.h>
+#endif
 
 /* Non-zero flags defined in RFC 2222 */
 enum sasl_gssapi_qop {
