@@ -181,7 +181,7 @@ password_decode(const char *password, unsigned int result_len)
 }
 
 static bool sha1_verify(const char *plaintext, const char *password,
-			const char *user __attr_unused__)
+			const char *user)
 {
 	unsigned char sha1_digest[SHA1_RESULTLEN];
 	const char *data;
@@ -362,7 +362,7 @@ static const char *digest_md5_generate(const char *plaintext, const char *user)
 }
 
 static bool plain_md4_verify(const char *plaintext, const char *password,
-			     const char *user __attr_unused__)
+			     const char *user)
 {
 	unsigned char digest[MD4_RESULTLEN];
 	const void *data;
@@ -388,7 +388,7 @@ static const char *plain_md4_generate(const char *plaintext,
 }
 
 static bool plain_md5_verify(const char *plaintext, const char *password,
-			     const char *user __attr_unused__)
+			     const char *user)
 {
 	unsigned char digest[MD5_RESULTLEN];
 	const void *data;

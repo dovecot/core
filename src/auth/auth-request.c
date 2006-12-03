@@ -906,8 +906,12 @@ int auth_request_password_verify(struct auth_request *request,
 		return 0;
 	}
 
+	/* If original_username is set, use it. It may be important for some
+	   password schemes (eg. digest-md5). Otherwise the username is used
+	   only for logging purposes. */
 	ret = password_verify(plain_password, crypted_password, scheme,
-			      request->original_username);
+			      request->original_username != NULL ?
+			      request->original_username : request->user);
 	if (ret < 0) {
 		auth_request_log_error(request, subsystem,
 				       "Unknown password scheme %s", scheme);
