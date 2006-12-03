@@ -99,6 +99,8 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 		   doesn't have to deal with any extra checks. */
 		size = SSIZE_T_MAX;
 	}
+	if (offset >= (uoff_t)-1 - size)
+		size = (uoff_t)-1 - offset;
 
 	if (offset + size > cache->mmap_length &&
 	    offset + size - cache->mmap_length > 1024*1024) {
@@ -220,6 +222,8 @@ void file_cache_write(struct file_cache *cache, const void *data, size_t size,
 	size_t page_size = mmap_get_page_size();
 	unsigned char *bits;
 	unsigned int first_page, last_page;
+
+	i_assert(size < (uoff_t)-1 && offset < (uoff_t)-1 - size);
 
 	if (file_cache_set_size(cache, offset + size) < 0) {
 		/* couldn't grow mapping. just make sure the written memory
