@@ -60,7 +60,8 @@ static void authenticate_callback(struct auth_request *request, int status,
 				i_free(client->virtual_user);
 				client->virtual_user = i_strdup(args[i] + 5);
 			}
-			if (strcmp(args[i], "nologin") == 0) {
+			if (strcmp(args[i], "nologin") == 0 ||
+			    strcmp(args[i], "proxy") == 0) {
 				/* user can't login */
 				nologin = TRUE;
 			}
