@@ -48,8 +48,8 @@ int main(int argc __attr_unused__, char *argv[])
 	lib_init();
 	(void)unlink("/tmp/squat-test-index.search");
 	(void)unlink("/tmp/squat-test-index.search.uids");
-	trie = squat_trie_open("/tmp/squat-test-index.search",
-			       FILE_LOCK_METHOD_FCNTL);
+	trie = squat_trie_open("/tmp/squat-test-index.search", time(NULL),
+			       FILE_LOCK_METHOD_FCNTL, FALSE);
 
 	clock_start = clock();
 	gettimeofday(&tv_start, NULL);

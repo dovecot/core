@@ -21,8 +21,7 @@
 #define UID_LIST_IDX_FLAG_SINGLE 0x80000000
 
 struct squat_uidlist_header {
-	uint32_t uidvalidity; // FIXME
-	uint32_t header_size;
+	uint32_t uidvalidity; 
 	uint32_t used_file_size;
 	uint32_t deleted_space;
 
@@ -48,6 +47,7 @@ struct squat_uidlist_get_context {
 
 struct squat_uidlist {
 	struct squat_trie *trie;
+	uint32_t uidvalidity; 
 
 	char *filepath;
 	int fd;
@@ -92,6 +92,23 @@ squat_uidlist_set_syscall_error(struct squat_uidlist *uidlist,
 		function, uidlist->filepath);
 }
 
+static int squat_uidlist_check_header(struct squat_uidlist *uidlist,
+				      const struct squat_uidlist_header *hdr)
+{
+	if (hdr->uidvalidity != uidlist->uidvalidity) {
+		squat_trie_set_corrupted(uidlist->trie,
+					 "uidlist: uidvalidity changed");
+		return -1;
+	}
+	if (hdr->used_file_size > uidlist->mmap_size) {
+		squat_trie_set_corrupted(uidlist->trie,
+					 "uidlist: used_file_size too large");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int squat_uidlist_map(struct squat_uidlist *uidlist)
 {
 	struct stat st;
@@ -103,7 +120,6 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 
 	if (st.st_size <= sizeof(uidlist->hdr)) {
 		memset(&uidlist->hdr, 0, sizeof(uidlist->hdr));
-		uidlist->hdr.header_size = sizeof(uidlist->hdr);
 		uidlist->hdr.used_file_size = sizeof(uidlist->hdr);
 		return 0;
 	}
@@ -125,7 +141,8 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 	}
 
 	memcpy(&uidlist->hdr, uidlist->mmap_base, sizeof(uidlist->hdr));
-	// FIXME: verify header
+	if (squat_uidlist_check_header(uidlist, &uidlist->hdr) < 0)
+		return -1;
 
 	if (uidlist->hdr.uids_expunged)
 		uidlist->check_expunges = TRUE;
@@ -164,13 +181,15 @@ static void squat_uidlist_close(struct squat_uidlist *uidlist)
 }
 
 struct squat_uidlist *
-squat_uidlist_init(struct squat_trie *trie, const char *path)
+squat_uidlist_init(struct squat_trie *trie, const char *path,
+		   uint32_t uidvalidity)
 {
 	struct squat_uidlist *uidlist;
 
 	uidlist = i_new(struct squat_uidlist, 1);
 	uidlist->trie = trie;
 	uidlist->filepath = i_strdup(path);
+	uidlist->uidvalidity = uidvalidity;
 	uidlist->fd = -1;
 	uidlist->first_new_list_idx = 1;
 	i_array_init(&uidlist->lists, 65536);
@@ -755,8 +774,7 @@ int squat_uidlist_compress_commit(struct squat_uidlist_compress_ctx **_ctx)
 	}
 
 	/* write the header */
-	ctx->hdr.uidvalidity = ctx->uidlist->hdr.uidvalidity;
-	ctx->hdr.header_size = sizeof(ctx->hdr);
+	ctx->hdr.uidvalidity = ctx->uidlist->uidvalidity;
 	ctx->hdr.used_file_size = ctx->output->offset;
 
 	if (ctx->existing_uids == NULL) {

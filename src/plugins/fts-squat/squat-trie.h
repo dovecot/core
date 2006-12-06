@@ -6,7 +6,8 @@ enum file_lock_method;
 #include "seq-range-array.h"
 
 struct squat_trie *
-squat_trie_open(const char *path, enum file_lock_method lock_method);
+squat_trie_open(const char *path, uint32_t uidvalidity,
+		enum file_lock_method lock_method, bool mmap_disable);
 void squat_trie_close(struct squat_trie *trie);
 
 int squat_trie_get_last_uid(struct squat_trie *trie, uint32_t *last_uid_r);

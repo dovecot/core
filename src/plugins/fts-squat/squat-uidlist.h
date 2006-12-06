@@ -7,7 +7,8 @@ struct squat_trie;
 struct squat_uidlist;
 
 struct squat_uidlist *
-squat_uidlist_init(struct squat_trie *trie, const char *path);
+squat_uidlist_init(struct squat_trie *trie, const char *path,
+		   uint32_t uidvalidity);
 void squat_uidlist_deinit(struct squat_uidlist *uidlist);
 
 int squat_uidlist_get_last_uid(struct squat_uidlist *uidlist, uint32_t *uid_r);

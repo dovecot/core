@@ -23,7 +23,9 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 {
 	struct squat_fts_backend *backend;
 	struct mail_storage *storage;
+	struct mailbox_status status;
 	const char *path;
+	bool mmap_disable;
 
 	storage = mailbox_get_storage(box);
 	path = mail_storage_get_mailbox_index_dir(storage,
@@ -33,11 +35,17 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 		return NULL;
 	}
 
+	if (mailbox_get_status(box, STATUS_UIDVALIDITY, &status) < 0)
+		return NULL;
+
+	mmap_disable = (storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0;
+
 	backend = i_new(struct squat_fts_backend, 1);
 	backend->backend = fts_backend_squat;
 	backend->trie =
 		squat_trie_open(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL),
-				storage->lock_method);
+				status.uidvalidity, storage->lock_method,
+				mmap_disable);
 	return &backend->backend;
 }
 
