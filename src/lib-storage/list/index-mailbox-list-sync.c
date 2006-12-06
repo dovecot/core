@@ -422,6 +422,14 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 			index_list_get_status(box, status_items, status_r);
 	}
 
+	list = mail_storage_get_list(box->storage);
+	ilist = INDEX_LIST_CONTEXT(list);
+
+	if (ilist == NULL) {
+		/* indexing disabled */
+		return ibox->super.sync_deinit(ctx, status_items, status_r);
+	}
+
 	/* if status_items == 0, the status_r may be NULL. we really want to
 	   know the status anyway, so save it elsewhere then */
 	status = status_items == 0 ? &tmp_status : status_r;
@@ -432,9 +440,6 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	ctx = NULL;
 
 	/* sync mailbox list index */
-	list = mail_storage_get_list(box->storage);
-	ilist = INDEX_LIST_CONTEXT(list);
-
 	if (index_list_lookup_or_create(ilist, box, &uid) < 0) {
 		/* just ignore the error */
 		return 0;
