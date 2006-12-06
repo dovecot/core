@@ -129,6 +129,7 @@ struct mail_cache {
 
 	struct dotlock_settings dotlock_settings;
 	struct dotlock *dotlock;
+	struct file_lock *file_lock;
 
 	const struct mail_cache_header *hdr;
 	struct mail_cache_header hdr_copy;

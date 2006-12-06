@@ -43,7 +43,7 @@ static int index_storage_refcount = 0;
 void index_storage_init(struct index_storage *storage,
 			struct mailbox_list *list,
 			enum mail_storage_flags flags,
-			enum mail_storage_lock_method lock_method)
+			enum file_lock_method lock_method)
 {
 	storage->storage.list = list;
 	storage->storage.flags = flags;
@@ -318,7 +318,6 @@ int index_storage_mailbox_open(struct index_mailbox *ibox)
 {
 	struct mail_storage *storage = &ibox->storage->storage;
 	enum mail_index_open_flags index_flags;
-	enum mail_index_lock_method lock_method = 0;
 	int ret;
 
 	i_assert(!ibox->box.opened);
@@ -331,25 +330,13 @@ int index_storage_mailbox_open(struct index_mailbox *ibox)
 #endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
 
-	switch (storage->lock_method) {
-	case MAIL_STORAGE_LOCK_FCNTL:
-		lock_method = MAIL_INDEX_LOCK_FCNTL;
-		break;
-	case MAIL_STORAGE_LOCK_FLOCK:
-		lock_method = MAIL_INDEX_LOCK_FLOCK;
-		break;
-	case MAIL_STORAGE_LOCK_DOTLOCK:
-		lock_method = MAIL_INDEX_LOCK_DOTLOCK;
-		break;
-	}
-
-	ret = mail_index_open(ibox->index, index_flags, lock_method);
+	ret = mail_index_open(ibox->index, index_flags, storage->lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {
 		if (mail_index_move_to_memory(ibox->index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
 			ret = mail_index_open(ibox->index, index_flags,
-					      lock_method);
+					      storage->lock_method);
 			if (ret <= 0) {
 				mail_storage_set_index_error(ibox);
 				index_storage_mailbox_free(&ibox->box);

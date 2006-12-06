@@ -219,7 +219,7 @@ int convert_storage(const char *user, const char *home_dir,
 	struct mail_storage *source_storage, *dest_storage;
 	struct dotlock *dotlock;
         enum mail_storage_flags flags;
-        enum mail_storage_lock_method lock_method;
+        enum file_lock_method lock_method;
 	const char *path;
 	int ret;
 

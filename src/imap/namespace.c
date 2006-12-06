@@ -1,6 +1,7 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "common.h"
+#include "file-lock.h"
 #include "commands.h"
 #include "namespace.h"
 
@@ -25,7 +26,7 @@ static void namespace_init_storage(struct namespace *ns)
 static struct namespace *
 namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		  const char *user, enum mail_storage_flags flags,
-		  enum mail_storage_lock_method lock_method)
+		  enum file_lock_method lock_method)
 {
         struct namespace *ns;
         const char *sep, *type, *prefix;
@@ -88,7 +89,7 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 {
 	struct namespace *namespaces, *ns, **ns_p;
 	enum mail_storage_flags flags;
-        enum mail_storage_lock_method lock_method;
+        enum file_lock_method lock_method;
 	const char *mail, *data;
 	unsigned int i;
 

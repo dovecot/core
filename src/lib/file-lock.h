@@ -6,19 +6,31 @@
 
 #define DEFAULT_LOCK_TIMEOUT 120
 
-/* Lock whole file descriptor. Returns 1 if successful, 0 if lock failed,
-   or -1 if error. lock_type is F_WRLCK, F_RDLCK or F_UNLCK. */
-int file_try_lock(int fd, int lock_type);
+struct file_lock;
 
-/* Lock whole file descriptor. Returns 1 if successful, 0 if timeout or
-   -1 if error. When returning 0, errno is also set to EAGAIN. Timeouts after
-   DEFAULT_LOCK_TIMEOUT. */
-int file_wait_lock(int fd, int lock_type);
+enum file_lock_method {
+	FILE_LOCK_METHOD_FCNTL,
+	FILE_LOCK_METHOD_FLOCK,
+	FILE_LOCK_METHOD_DOTLOCK
+};
 
-/* Like file_wait_lock(), but you can specify the timout and a callback which
-   is called once in a while if waiting takes longer. */
-int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
-			void (*callback)(unsigned int secs_left, void *context),
-			void *context);
+/* Lock the file. Returns 1 if successful, 0 if file is already locked,
+   or -1 if error. lock_type is F_WRLCK or F_RDLCK. */
+int file_try_lock(int fd, const char *path, int lock_type,
+		  enum file_lock_method lock_method,
+		  struct file_lock **lock_r);
+/* Like lock_try_lock(), but return 0 only after having tried to lock for
+   timeout_secs. */
+int file_wait_lock(int fd, const char *path, int lock_type,
+		   enum file_lock_method lock_method,
+		   unsigned int timeout_secs,
+		   struct file_lock **lock_r);
+/* Change the lock type. */
+int file_lock_try_update(struct file_lock *lock, int lock_type);
+
+/* Unlock and free the lock. */
+void file_unlock(struct file_lock **lock);
+/* Free the lock without unlocking it (because you're closing the fd anyway). */
+void file_lock_free(struct file_lock **lock);
 
 #endif

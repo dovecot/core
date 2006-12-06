@@ -112,7 +112,7 @@ int mailbox_list_init(const char *driver,
 	list->set.maildir_name = p_strdup(list->pool, set->maildir_name);
 
 	list->set.mail_storage_flags = set->mail_storage_flags;
-	list->set.mail_storage_lock_method = set->mail_storage_lock_method;
+	list->set.lock_method = set->lock_method;
 
 	if ((flags & MAILBOX_LIST_FLAG_DEBUG) != 0) {
 		i_info("%s: root=%s, index=%s, control=%s, inbox=%s",
@@ -130,7 +130,7 @@ int mailbox_list_init(const char *driver,
 		hook_mailbox_list_created(list);
 
 	list->set.mail_storage_flags = NULL;
-	list->set.mail_storage_lock_method = NULL;
+	list->set.lock_method = NULL;
 
 	*list_r = list;
 	return 0;

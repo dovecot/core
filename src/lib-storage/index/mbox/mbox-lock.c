@@ -23,7 +23,7 @@
 #define DEFAULT_READ_LOCK_METHODS "fcntl"
 #define DEFAULT_WRITE_LOCK_METHODS "dotlock fcntl"
 /* lock timeout */
-#define DEFAULT_LOCK_TIMEOUT (5*60)
+#define MBOX_DEFAULT_LOCK_TIMEOUT (5*60)
 /* assume stale dotlock if mbox file hasn't changed for n seconds */
 #define DEFAULT_DOTLOCK_CHANGE_TIMEOUT (120)
 
@@ -147,7 +147,7 @@ static void mbox_init_lock_settings(void)
 	}
 
 	str = getenv("MBOX_LOCK_TIMEOUT");
-	lock_timeout = str == NULL ? DEFAULT_LOCK_TIMEOUT : atoi(str);
+	lock_timeout = str == NULL ? MBOX_DEFAULT_LOCK_TIMEOUT : atoi(str);
 
 	str = getenv("MBOX_DOTLOCK_CHANGE_TIMEOUT");
 	dotlock_change_timeout = str == NULL ?

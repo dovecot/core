@@ -3,67 +3,161 @@
 #include "lib.h"
 #include "file-lock.h"
 
-#include <time.h>
-#include <signal.h>
+#ifdef HAVE_FLOCK
+#  include <sys/file.h>
+#endif
 
-int file_try_lock(int fd, int lock_type)
+struct file_lock {
+	int fd;
+	char *path;
+
+	int lock_type;
+	enum file_lock_method lock_method;
+};
+
+int file_try_lock(int fd, const char *path, int lock_type,
+		  enum file_lock_method lock_method,
+		  struct file_lock **lock_r)
 {
-	return file_wait_lock_full(fd, lock_type, 0, NULL, NULL);
+	return file_wait_lock(fd, path, lock_type, lock_method, 0, lock_r);
 }
 
-int file_wait_lock(int fd, int lock_type)
+static int file_lock_do(int fd, const char *path, int lock_type,
+			enum file_lock_method lock_method,
+			unsigned int timeout_secs)
 {
-	return file_wait_lock_full(fd, lock_type, DEFAULT_LOCK_TIMEOUT,
-				   NULL, NULL);
-}
+	int ret;
 
-int file_wait_lock_full(int fd, int lock_type, unsigned int timeout,
-			void (*callback)(unsigned int secs_left, void *context),
-			void *context)
-{
-	struct flock fl;
-	time_t timeout_time, now;
-	unsigned int next_alarm;
+	i_assert(fd != -1);
 
-	if (timeout == 0)
-		timeout_time = 0;
-	else {
-		timeout_time = time(NULL) + timeout;
-		alarm(I_MIN(timeout, 5));
-	}
+	if (timeout_secs != 0)
+		alarm(timeout_secs);
 
-	fl.l_type = lock_type;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
+	switch (lock_method) {
+	case FILE_LOCK_METHOD_FCNTL: {
+#ifndef HAVE_FCNTL
+		i_fatal("fcntl() locks not supported");
+#else
+		struct flock fl;
 
-	while (fcntl(fd, timeout != 0 ? F_SETLKW : F_SETLK, &fl) < 0) {
-		if (timeout == 0 && (errno == EACCES || errno == EAGAIN)) {
-			alarm(0);
+		fl.l_type = lock_type;
+		fl.l_whence = SEEK_SET;
+		fl.l_start = 0;
+		fl.l_len = 0;
+
+		ret = fcntl(fd, timeout_secs ? F_SETLKW : F_SETLK, &fl);
+		if (timeout_secs != 0) alarm(0);
+
+		if (ret == 0)
+			break;
+
+		if (timeout_secs == 0 &&
+		    (errno == EACCES || errno == EAGAIN)) {
+			/* locked by another process */
 			return 0;
 		}
 
-		if (errno != EINTR) {
-			alarm(0);
-			return -1;
-		}
-
-		now = time(NULL);
-		if (timeout != 0 && now >= timeout_time) {
+		if (errno == EINTR) {
+			/* most likely alarm hit, meaning we timeouted.
+			   even if not, we probably want to be killed
+			   so stop blocking. */
 			errno = EAGAIN;
-			alarm(0);
 			return 0;
 		}
+		i_error("fcntl() locking failed for file %s: %m", path);
+		abort();
+		return -1;
+#endif
+	}
+	case FILE_LOCK_METHOD_FLOCK: {
+#ifndef HAVE_FLOCK
+		i_fatal("flock() locks not supported");
+#else
+		int operation = timeout_secs != 0 ? 0 : LOCK_NB;
 
-		next_alarm = (timeout_time - now) % 5;
-		if (next_alarm == 0)
-			next_alarm = 5;
-		alarm(next_alarm);
+		switch (lock_type) {
+		case F_RDLCK:
+			operation |= LOCK_SH;
+			break;
+		case F_WRLCK:
+			operation |= LOCK_EX;
+			break;
+		case F_UNLCK:
+			operation |= LOCK_UN;
+			break;
+		}
 
-		if (callback != NULL)
-			callback(timeout_time - now, context);
+		ret = flock(fd, operation);
+		if (timeout_secs != 0) alarm(0);
+
+		if (ret == 0)
+			break;
+
+		if (errno == EWOULDBLOCK || errno == EINTR) {
+			/* a) locked by another process,
+			   b) timeouted */
+			return 0;
+		}
+		i_error("flock() locking failed for file %s: %m", path);
+		return -1;
+#endif
+	}
+	case FILE_LOCK_METHOD_DOTLOCK:
+		/* we shouldn't get here */
+		i_unreached();
 	}
 
-	alarm(0);
 	return 1;
+}
+
+int file_wait_lock(int fd, const char *path, int lock_type,
+		   enum file_lock_method lock_method,
+		   unsigned int timeout_secs,
+		   struct file_lock **lock_r)
+{
+	struct file_lock *lock;
+	int ret;
+
+	ret = file_lock_do(fd, path, lock_type, lock_method, timeout_secs);
+	if (ret <= 0)
+		return ret;
+
+	lock = i_new(struct file_lock, 1);
+	lock->fd = fd;
+	lock->path = i_strdup(path);
+	lock->lock_type = lock_type;
+	lock->lock_method = lock_method;
+	*lock_r = lock;
+	return 1;
+}
+
+int file_lock_try_update(struct file_lock *lock, int lock_type)
+{
+	return file_lock_do(lock->fd, lock->path, lock_type,
+			    lock->lock_method, 0);
+}
+
+void file_unlock(struct file_lock **_lock)
+{
+	struct file_lock *lock = *_lock;
+
+	*_lock = NULL;
+
+	if (file_lock_do(lock->fd, lock->path, F_UNLCK,
+			 lock->lock_method, 0) == 0) {
+		/* this shouldn't happen */
+		i_error("file_unlock(%s) failed: %m", lock->path);
+	}
+
+	file_lock_free(&lock);
+}
+
+void file_lock_free(struct file_lock **_lock)
+{
+	struct file_lock *lock = *_lock;
+
+	*_lock = NULL;
+
+	i_free(lock->path);
+	i_free(lock);
 }

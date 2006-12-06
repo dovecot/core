@@ -51,6 +51,7 @@ struct mail_hash {
 	size_t change_offset_start, change_offset_end;
 
 	int lock_type;
+	struct file_lock *file_lock;
 	struct dotlock *dotlock;
 
 	struct mail_hash_header *hdr;
@@ -401,17 +402,26 @@ static int mail_hash_file_lock(struct mail_hash *hash, int lock_type)
 {
 	i_assert(hash->fd != -1);
 
-	if (hash->index->lock_method != MAIL_INDEX_LOCK_DOTLOCK) {
+	if (hash->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
+		i_assert(hash->file_lock == NULL);
 		return mail_index_lock_fd(hash->index, hash->filepath, hash->fd,
-					  lock_type, MAIL_HASH_TIMEOUT_SECS);
-	}
-
-	if (lock_type != F_UNLCK) {
+					  lock_type, MAIL_HASH_TIMEOUT_SECS,
+					  &hash->file_lock);
+	} else {
+		i_assert(hash->dotlock == NULL);
 		return file_dotlock_create(&dotlock_settings, hash->filepath,
 					   0, &hash->dotlock);
-	} else {
-		return file_dotlock_delete(&hash->dotlock);
 	}
+}
+
+static void mail_hash_file_unlock(struct mail_hash *hash)
+{
+	i_assert(hash->fd != -1);
+
+	if (hash->index->lock_method != FILE_LOCK_METHOD_DOTLOCK)
+		file_unlock(&hash->file_lock);
+	else
+		(void)file_dotlock_delete(&hash->dotlock);
 }
 
 static int mail_hash_file_open(struct mail_hash *hash, bool lock)
@@ -432,7 +442,7 @@ static int mail_hash_file_open(struct mail_hash *hash, bool lock)
 
 		ret = mail_hash_file_map(hash, FALSE);
 		if (hash->fd != -1)
-			(void)mail_hash_file_lock(hash, F_UNLCK);
+			mail_hash_file_unlock(hash);
 	} else {
 		if (mail_hash_file_lock(hash, F_WRLCK) <= 0)
 			return -1;
@@ -649,7 +659,7 @@ int mail_hash_lock(struct mail_hash *hash)
 			return ret;
 
 		if (mail_hash_file_map(hash, TRUE) <= 0) {
-			(void)mail_hash_file_lock(hash, F_UNLCK);
+			mail_hash_file_unlock(hash);
 			return -1;
 		}
 	}
@@ -671,7 +681,7 @@ void mail_hash_unlock(struct mail_hash *hash)
 
 	if (hash->fd != -1) {
 		(void)mail_hash_file_write_changes(hash);
-		(void)mail_hash_file_lock(hash, F_UNLCK);
+		mail_hash_file_unlock(hash);
 	}
 }
 

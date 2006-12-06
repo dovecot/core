@@ -63,7 +63,7 @@ void mail_storage_class_unregister(struct mail_storage *storage_class)
 }
 
 void mail_storage_parse_env(enum mail_storage_flags *flags_r,
-			    enum mail_storage_lock_method *lock_method_r)
+			    enum file_lock_method *lock_method_r)
 {
 	const char *str;
 
@@ -88,11 +88,11 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 
 	str = getenv("LOCK_METHOD");
 	if (str == NULL || strcmp(str, "fcntl") == 0)
-		*lock_method_r = MAIL_STORAGE_LOCK_FCNTL;
+		*lock_method_r = FILE_LOCK_METHOD_FCNTL;
 	else if (strcmp(str, "flock") == 0)
-		*lock_method_r = MAIL_STORAGE_LOCK_FLOCK;
+		*lock_method_r = FILE_LOCK_METHOD_FLOCK;
 	else if (strcmp(str, "dotlock") == 0)
-		*lock_method_r = MAIL_STORAGE_LOCK_DOTLOCK;
+		*lock_method_r = FILE_LOCK_METHOD_DOTLOCK;
 	else
 		i_fatal("Unknown lock_method: %s", str);
 }
@@ -115,7 +115,7 @@ static struct mail_storage *mail_storage_find(const char *name)
 struct mail_storage *
 mail_storage_create(const char *driver, const char *data, const char *user,
 		    enum mail_storage_flags flags,
-		    enum mail_storage_lock_method lock_method)
+		    enum file_lock_method lock_method)
 {
 	struct mail_storage *storage;
 
@@ -131,7 +131,7 @@ mail_storage_create(const char *driver, const char *data, const char *user,
 
 static struct mail_storage *
 mail_storage_create_default(const char *user, enum mail_storage_flags flags,
-			    enum mail_storage_lock_method lock_method)
+			    enum file_lock_method lock_method)
 {
 	struct mail_storage *const *classes;
 	struct mail_storage *storage;
@@ -166,7 +166,7 @@ mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
 struct mail_storage *
 mail_storage_create_with_data(const char *data, const char *user,
 			      enum mail_storage_flags flags,
-			      enum mail_storage_lock_method lock_method)
+			      enum file_lock_method lock_method)
 {
 	struct mail_storage *storage;
 	const char *p, *name;

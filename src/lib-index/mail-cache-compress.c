@@ -273,7 +273,8 @@ static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
 }
 
 static int mail_cache_compress_locked(struct mail_cache *cache,
-				      struct mail_index_view *view)
+				      struct mail_index_view *view,
+				      bool *unlock)
 {
 	struct dotlock *dotlock;
         mode_t old_mask;
@@ -300,6 +301,12 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		/* was just compressed, forget this */
 		cache->need_compress_file_seq = 0;
 		file_dotlock_delete(&dotlock);
+
+		if (*unlock) {
+			(void)mail_cache_unlock(cache);
+			*unlock = FALSE;
+		}
+
 		return mail_cache_reopen(cache);
 	}
 
@@ -328,6 +335,11 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return -1;
 	}
 
+	if (*unlock) {
+		(void)mail_cache_unlock(cache);
+		*unlock = FALSE;
+	}
+
 	mail_cache_file_close(cache);
 	cache->fd = fd;
 
@@ -345,15 +357,16 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 
 int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 {
+	bool unlock = FALSE;
 	int ret;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
 		return 0;
 
-	if (cache->index->lock_method == MAIL_INDEX_LOCK_DOTLOCK) {
+	if (cache->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		/* we're using dotlocking, cache file creation itself creates
 		   the dotlock file we need. */
-		return mail_cache_compress_locked(cache, view);
+		return mail_cache_compress_locked(cache, view, &unlock);
 	}
 
 	switch (mail_cache_lock(cache)) {
@@ -362,12 +375,15 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 	case 0:
 		/* couldn't lock, either it's broken or doesn't exist.
 		   just start creating it. */
-		return mail_cache_compress_locked(cache, view);
+		return mail_cache_compress_locked(cache, view, &unlock);
 	default:
 		/* locking succeeded. */
-		ret = mail_cache_compress_locked(cache, view);
-		if (mail_cache_unlock(cache) < 0)
-			ret = -1;
+		unlock = TRUE;
+		ret = mail_cache_compress_locked(cache, view, &unlock);
+		if (unlock) {
+			if (mail_cache_unlock(cache) < 0)
+				ret = -1;
+		}
 		return ret;
 	}
 }

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "lib-signals.h"
+#include "file-lock.h"
 #include "ioloop.h"
 #include "hostpid.h"
 #include "home-expand.h"
@@ -384,7 +385,7 @@ int main(int argc, char *argv[])
 	const char *home, *destination, *user, *mail_env, *value;
         const struct var_expand_table *table;
         enum mail_storage_flags flags;
-        enum mail_storage_lock_method lock_method;
+        enum file_lock_method lock_method;
 	struct mail_storage *storage, *mbox_storage;
 	struct mailbox *box;
 	struct istream *input;
@@ -565,7 +566,7 @@ int main(int argc, char *argv[])
 	}
 
 	mbox_storage = mail_storage_create("mbox", "/tmp", destination, 0,
-					   MAIL_STORAGE_LOCK_FCNTL);
+					   FILE_LOCK_METHOD_FCNTL);
 	input = create_mbox_stream(0, envelope_sender);
 	box = mailbox_open(mbox_storage, "Dovecot Delivery Mail", input,
 			   MAILBOX_OPEN_NO_INDEX_FILES |

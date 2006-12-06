@@ -9,6 +9,8 @@
 
 #define MAIL_INDEX_HEADER_MIN_SIZE 120
 
+enum file_lock_method;
+
 enum mail_index_open_flags {
 	/* Create index if it doesn't exist */
 	MAIL_INDEX_OPEN_FLAG_CREATE		= 0x01,
@@ -18,12 +20,6 @@ enum mail_index_open_flags {
 	   OSes that don't have unified buffer cache
 	   (currently OpenBSD <= 3.5) */
 	MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE	= 0x08
-};
-
-enum mail_index_lock_method {
-	MAIL_INDEX_LOCK_FCNTL,
-	MAIL_INDEX_LOCK_FLOCK,
-	MAIL_INDEX_LOCK_DOTLOCK
 };
 
 enum mail_index_header_compat_flags {
@@ -158,7 +154,7 @@ void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid);
 
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
-		    enum mail_index_lock_method lock_method);
+		    enum file_lock_method lock_method);
 void mail_index_close(struct mail_index *index);
 
 /* Move the index into memory. Returns 0 if ok, -1 if error occurred. */

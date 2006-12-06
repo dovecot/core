@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "file-lock.h"
 #include "imap-match.h"
 #include "mail-index.h"
 #include "mail-storage.h"
@@ -316,7 +317,6 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	struct mail_index *mail_index;
 	struct mailbox_list_index *list_index;
 	enum mail_index_open_flags index_flags;
-	enum mail_index_lock_method lock_method;
 	enum mail_storage_flags storage_flags;
 	const char *dir, *path;
 	int ret;
@@ -337,28 +337,17 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 #endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
 
-	switch (*list->set.mail_storage_lock_method) {
-	case MAIL_STORAGE_LOCK_FCNTL:
-		lock_method = MAIL_INDEX_LOCK_FCNTL;
-		break;
-	case MAIL_STORAGE_LOCK_FLOCK:
-		lock_method = MAIL_INDEX_LOCK_FLOCK;
-		break;
-	case MAIL_STORAGE_LOCK_DOTLOCK:
-		lock_method = MAIL_INDEX_LOCK_DOTLOCK;
-		break;
-	}
-
 	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
 	path = t_strconcat(dir, "/"MAILBOX_LIST_INDEX_NAME, NULL);
 
 	mail_index = mail_index_alloc(dir, MAIL_INDEX_PREFIX);
-	if (mail_index_open(mail_index, index_flags, lock_method) < 0) {
+	if (mail_index_open(mail_index, index_flags,
+			    *list->set.lock_method) < 0) {
 		if (mail_index_move_to_memory(mail_index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
 			ret = mail_index_open(mail_index, index_flags,
-					      lock_method);
+					      *list->set.lock_method);
 			if (ret <= 0) {
 				/* everything failed. there's a bug in the
 				   code, but just work around it by disabling

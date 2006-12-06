@@ -137,7 +137,7 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 static struct mail_storage *
 maildir_create(const char *data, const char *user,
 	       enum mail_storage_flags flags,
-	       enum mail_storage_lock_method lock_method)
+	       enum file_lock_method lock_method)
 {
 	struct maildir_storage *storage;
 	struct index_storage *istorage;
@@ -150,7 +150,7 @@ maildir_create(const char *data, const char *user,
 	if (maildir_get_list_settings(&list_set, data, flags) < 0)
 		return NULL;
 	list_set.mail_storage_flags = &flags;
-	list_set.mail_storage_lock_method = &lock_method;
+	list_set.lock_method = &lock_method;
 
 	/* normally the maildir is created in verify_inbox() */
 	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {

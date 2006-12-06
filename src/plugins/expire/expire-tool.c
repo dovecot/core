@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "file-lock.h"
 #include "randgen.h"
 #include "lib-signals.h"
 #include "dict-client.h"
@@ -28,7 +29,7 @@ struct expire_context {
 static int user_init(struct expire_context *ctx, const char *user)
 {
 	enum mail_storage_flags flags;
-	enum mail_storage_lock_method lock_method;
+	enum file_lock_method lock_method;
 	const char *mail_env;
 	int ret;
 

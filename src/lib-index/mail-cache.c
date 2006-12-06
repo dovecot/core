@@ -59,6 +59,10 @@ void mail_cache_file_close(struct mail_cache *cache)
 	cache->hdr = NULL;
 	cache->mmap_length = 0;
 
+	if (cache->file_lock != NULL)
+		file_lock_free(&cache->file_lock);
+	cache->locked = FALSE;
+
 	if (cache->fd != -1) {
 		if (close(cache->fd) < 0)
 			mail_cache_set_syscall_error(cache, "close()");
@@ -70,6 +74,8 @@ int mail_cache_reopen(struct mail_cache *cache)
 {
 	struct mail_index_view *view;
 	const struct mail_index_ext *ext;
+
+	i_assert(!cache->locked);
 
 	if (MAIL_CACHE_IS_UNUSABLE(cache) &&
 	    (cache->need_compress_file_seq != 0 ||
@@ -372,17 +378,25 @@ void mail_cache_free(struct mail_cache **_cache)
 
 static int mail_cache_lock_file(struct mail_cache *cache, int lock_type)
 {
-	if (cache->index->lock_method != MAIL_INDEX_LOCK_DOTLOCK) {
+	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
+		i_assert(cache->file_lock == NULL);
 		return mail_index_lock_fd(cache->index, cache->filepath,
 					  cache->fd, lock_type,
-					  MAIL_INDEX_LOCK_SECS);
-	}
-
-	if (lock_type != F_UNLCK) {
+					  MAIL_INDEX_LOCK_SECS,
+					  &cache->file_lock);
+	} else {
+		i_assert(cache->dotlock == NULL);
 		return file_dotlock_create(&cache->dotlock_settings,
 					   cache->filepath, 0, &cache->dotlock);
-	} else
-		return file_dotlock_delete(&cache->dotlock);
+	}
+}
+
+static void mail_cache_unlock_file(struct mail_cache *cache)
+{
+	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK)
+		file_unlock(&cache->file_lock);
+	else
+		(void)file_dotlock_delete(&cache->dotlock);
 }
 
 int mail_cache_lock(struct mail_cache *cache)
@@ -500,7 +514,7 @@ int mail_cache_unlock(struct mail_cache *cache)
 		mail_cache_update_need_compress(cache);
 	}
 
-	(void)mail_cache_lock_file(cache, F_UNLCK);
+	mail_cache_unlock_file(cache);
 	return ret;
 }
 

@@ -1275,6 +1275,7 @@ mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r)
 	int ret;
 
         i_assert(index->fd == -1);
+	i_assert(index->lock_type == F_UNLCK);
 
 	if (lock_id_r != NULL)
 		*lock_id_r = 0;
@@ -1298,6 +1299,7 @@ mail_index_try_open(struct mail_index *index, unsigned int *lock_id_r)
 		if (lock_id_r != NULL)
 			*lock_id_r = 0;
 
+		i_assert(index->file_lock == NULL);
 		(void)close(index->fd);
 		index->fd = -1;
 	} else {
@@ -1535,7 +1537,7 @@ static int mail_index_open_files(struct mail_index *index,
 }
 
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
-		    enum mail_index_lock_method lock_method)
+		    enum file_lock_method lock_method)
 {
 	int i = 0, ret;
 
@@ -1571,7 +1573,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 
 		/* don't even bother to handle dotlocking without mmap being
 		   disabled. that combination simply doesn't make any sense */
-		if (lock_method == MAIL_INDEX_LOCK_DOTLOCK &&
+		if (lock_method == FILE_LOCK_METHOD_DOTLOCK &&
 		    !index->mmap_disable) {
 			i_fatal("lock_method=dotlock and mmap_disable=no "
 				"combination isn't supported. "
@@ -1611,6 +1613,8 @@ void mail_index_close(struct mail_index *index)
 		mail_index_unmap(index, &index->map);
 	if (index->cache != NULL)
 		mail_cache_free(&index->cache);
+	if (index->file_lock != NULL)
+		file_lock_free(&index->file_lock);
 
 	if (index->fd != -1) {
 		if (close(index->fd) < 0)
@@ -1628,11 +1632,12 @@ void mail_index_close(struct mail_index *index)
 int mail_index_reopen(struct mail_index *index, int fd)
 {
 	struct mail_index_map *old_map;
+	struct file_lock *old_file_lock;
 	unsigned int old_shared_locks, old_lock_id, lock_id = 0;
 	int ret, old_fd, old_lock_type;
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
-	i_assert(index->copy_lock_path == NULL || index->excl_lock_count == 0);
+	i_assert(index->excl_lock_count == 0);
 
 	old_map = index->map;
 	old_fd = index->fd;
@@ -1643,11 +1648,13 @@ int mail_index_reopen(struct mail_index *index, int fd)
 	old_lock_type = index->lock_type;
 	old_lock_id = index->lock_id;
 	old_shared_locks = index->shared_lock_count;
- 
+	old_file_lock = index->file_lock;
+
 	if (index->lock_type == F_RDLCK)
 		index->lock_type = F_UNLCK;
 	index->lock_id += 2;
 	index->shared_lock_count = 0;
+	index->file_lock = NULL;
 
 	if (fd != -1) {
 		index->fd = fd;
@@ -1676,11 +1683,14 @@ int mail_index_reopen(struct mail_index *index, int fd)
 
 	if (ret == 0) {
 		mail_index_unmap(index, &old_map);
+		if (old_file_lock != NULL)
+			file_lock_free(&old_file_lock);
 		if (close(old_fd) < 0)
 			mail_index_set_syscall_error(index, "close()");
 	} else {
 		if (index->map != NULL)
 			mail_index_unmap(index, &index->map);
+
 		if (index->fd != -1) {
 			if (close(index->fd) < 0)
 				mail_index_set_syscall_error(index, "close()");
@@ -1689,6 +1699,7 @@ int mail_index_reopen(struct mail_index *index, int fd)
 		index->map = old_map;
 		index->hdr = &index->map->hdr;
 		index->fd = old_fd;
+		index->file_lock = old_file_lock;
 		index->lock_type = old_lock_type;
 		index->lock_id = old_lock_id;
 		index->shared_lock_count = old_shared_locks;
@@ -1823,6 +1834,9 @@ int mail_index_move_to_memory(struct mail_index *index)
 		if (mail_transaction_log_move_to_memory(index->log) < 0)
 			ret = -1;
 	}
+
+	if (index->file_lock != NULL)
+		file_lock_free(&index->file_lock);
 
 	/* close the index file. */
 	if (close(index->fd) < 0)

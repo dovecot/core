@@ -82,7 +82,7 @@ struct mailbox_list_settings {
 	/* If mailbox index is used, use these settings for it
 	   (pointers, so they're set to NULL after init is finished): */
 	const enum mail_storage_flags *mail_storage_flags;
-	const enum mail_storage_lock_method *mail_storage_lock_method;
+	const enum file_lock_method *lock_method;
 };
 
 struct mailbox_info {

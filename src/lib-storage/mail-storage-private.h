@@ -1,6 +1,7 @@
 #ifndef __MAIL_STORAGE_PRIVATE_H
 #define __MAIL_STORAGE_PRIVATE_H
 
+#include "file-lock.h"
 #include "mail-storage.h"
 
 /* Some error strings that should be used everywhere to avoid
@@ -20,7 +21,7 @@ struct mail_storage_vfuncs {
 	struct mail_storage *
 		(*create)(const char *data, const char *user,
 			  enum mail_storage_flags flags,
-			  enum mail_storage_lock_method lock_method);
+			  enum file_lock_method lock_method);
 	void (*destroy)(struct mail_storage *storage);
 
 	bool (*autodetect)(const char *data, enum mail_storage_flags flags);
@@ -63,7 +64,7 @@ struct mail_storage {
 	char *error;
 	struct mailbox_list *list;
 	enum mail_storage_flags flags;
-        enum mail_storage_lock_method lock_method;
+        enum file_lock_method lock_method;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, void);

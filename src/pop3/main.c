@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "file-lock.h"
 #include "network.h"
 #include "lib-signals.h"
 #include "restrict-access.h"
@@ -157,7 +158,7 @@ static void drop_privileges(void)
 static int main_init(void)
 {
         enum mail_storage_flags flags;
-        enum mail_storage_lock_method lock_method;
+        enum file_lock_method lock_method;
 	struct mail_storage *storage;
 	const char *mail, *value;
 

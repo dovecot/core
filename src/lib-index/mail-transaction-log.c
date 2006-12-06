@@ -134,11 +134,13 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		return 0;
 	}
 
-	if (file->log->index->lock_method == MAIL_INDEX_LOCK_DOTLOCK)
+	if (file->log->index->lock_method == FILE_LOCK_METHOD_DOTLOCK)
 		return mail_transaction_log_file_dotlock(file);
 
+	i_assert(file->file_lock == NULL);
 	ret = mail_index_lock_fd(file->log->index, file->filepath, file->fd,
-				 F_WRLCK, MAIL_INDEX_LOCK_SECS);
+				 F_WRLCK, MAIL_INDEX_LOCK_SECS,
+				 &file->file_lock);
 	if (ret > 0) {
 		file->locked = TRUE;
 		return 0;
@@ -159,8 +161,6 @@ mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 
 void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 {
-	int ret;
-
 	if (!file->locked)
 		return;
 
@@ -169,18 +169,12 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file)
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
 		return;
 
-	if (file->log->index->lock_method == MAIL_INDEX_LOCK_DOTLOCK) {
+	if (file->log->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		mail_transaction_log_file_undotlock(file);
 		return;
 	}
 
-	ret = mail_index_lock_fd(file->log->index, file->filepath, file->fd,
-				 F_UNLCK, 0);
-	if (ret <= 0) {
-		mail_index_file_set_syscall_error(file->log->index,
-						  file->filepath,
-						  "mail_index_wait_lock_fd()");
-	}
+	file_unlock(&file->file_lock);
 }
 
 #define INDEX_HAS_MISSING_LOGS(index, file) \

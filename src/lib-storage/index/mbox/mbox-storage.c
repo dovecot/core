@@ -377,7 +377,7 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 
 static struct mail_storage *
 mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
-	    enum mail_storage_lock_method lock_method)
+	    enum file_lock_method lock_method)
 {
 	struct mbox_storage *storage;
 	struct index_storage *istorage;
@@ -389,7 +389,7 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 	if (mbox_get_list_settings(&list_set, data, flags) < 0)
 		return NULL;
 	list_set.mail_storage_flags = &flags;
-	list_set.mail_storage_lock_method = &lock_method;
+	list_set.lock_method = &lock_method;
 
 	pool = pool_alloconly_create("storage", 512);
 	storage = p_new(pool, struct mbox_storage, 1);

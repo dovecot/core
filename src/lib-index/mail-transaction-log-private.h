@@ -34,6 +34,8 @@ struct mail_transaction_log_file {
 	uoff_t sync_offset;
 	uint32_t first_append_size;
 
+	struct file_lock *file_lock;
+
 	unsigned int locked:1;
 };
 

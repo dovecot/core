@@ -1,10 +1,7 @@
 #ifndef __MAIL_INDEX_PRIVATE_H
 #define __MAIL_INDEX_PRIVATE_H
 
-/* Make sure F_RDLCK, F_WRLCK and F_UNLCK get defined */
-#include <unistd.h>
-#include <fcntl.h>
-
+#include "file-lock.h"
 #include "mail-index.h"
 #include "mail-index-view-private.h"
 #include "mail-index-transaction-private.h"
@@ -157,8 +154,10 @@ struct mail_index {
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id;
 	char *copy_lock_path;
+	enum file_lock_method lock_method;
+
+	struct file_lock *file_lock;
 	struct dotlock *dotlock;
-	enum mail_index_lock_method lock_method;
 
 	/* These are typically same as map->hdr->log_file_*, but with
 	   mmap_disable we may have synced more than index */
@@ -225,7 +224,8 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id);
 bool mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
 
 int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
-		       int lock_type, unsigned int timeout_secs);
+		       int lock_type, unsigned int timeout_secs,
+		       struct file_lock **lock_r);
 
 /* Reopen index file if it has changed. */
 int mail_index_reopen_if_needed(struct mail_index *index);
