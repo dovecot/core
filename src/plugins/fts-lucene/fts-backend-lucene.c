@@ -156,6 +156,17 @@ fts_backend_lucene_expunge_finish(struct fts_backend *_backend __attr_unused__,
 }
 
 static int
+fts_backend_lucene_lock(struct fts_backend *_backend __attr_unused__)
+{
+	return 1;
+}
+
+static void
+fts_backend_lucene_unlock(struct fts_backend *_backend __attr_unused__)
+{
+}
+
+static int
 fts_backend_lucene_lookup(struct fts_backend *_backend, const char *key,
 			 ARRAY_TYPE(seq_range) *result)
 {
@@ -190,6 +201,8 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_build_deinit,
 		fts_backend_lucene_expunge,
 		fts_backend_lucene_expunge_finish,
+		fts_backend_lucene_lock,
+		fts_backend_lucene_unlock,
 		fts_backend_lucene_lookup,
 		fts_backend_lucene_filter
 	}

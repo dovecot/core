@@ -25,6 +25,8 @@ struct fts_mailbox {
 struct fts_search_context {
 	ARRAY_TYPE(seq_range) result;
 	unsigned int result_pos;
+
+	unsigned int locked:1;
 };
 
 struct fts_transaction_context {
@@ -289,6 +291,10 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 		if (fts_build_new(t) < 0)
 			return ctx;
 
+		if (fts_backend_lock(fbox->backend) <= 0)
+			return ctx;
+		fctx->locked = TRUE;
+
 		i_array_init(&uid_result, 64);
 		if (fts_backend_lookup(fbox->backend, args->value.str,
 				       &uid_result) < 0) {
@@ -372,6 +378,9 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
+
+	if (fctx->locked)
+		fts_backend_unlock(fbox->backend);
 
 	if (array_is_created(&fctx->result))
 		array_free(&fctx->result);

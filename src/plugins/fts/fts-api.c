@@ -88,6 +88,16 @@ void fts_backend_expunge_finish(struct fts_backend *backend,
 	backend->v.expunge_finish(backend, box, committed);
 }
 
+int fts_backend_lock(struct fts_backend *backend)
+{
+	return backend->v.lock(backend);
+}
+
+void fts_backend_unlock(struct fts_backend *backend)
+{
+	backend->v.unlock(backend);
+}
+
 int fts_backend_lookup(struct fts_backend *backend, const char *key,
 		       ARRAY_TYPE(seq_range) *result)
 {

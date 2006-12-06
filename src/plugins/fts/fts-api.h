@@ -32,6 +32,14 @@ void fts_backend_expunge(struct fts_backend *backend, struct mail *mail);
 void fts_backend_expunge_finish(struct fts_backend *backend,
 				struct mailbox *box, bool committed);
 
+/* Lock/unlock the backend for multiple lookups. Returns 1 if locked, 0 if
+   locking timeouted, -1 if error.
+
+   It's not required to call these functions manually, but if you're doing
+   multiple lookup/filter operations this avoids multiple lock/unlock calls. */
+int fts_backend_lock(struct fts_backend *backend);
+void fts_backend_unlock(struct fts_backend *backend);
+
 /* Lookup key from the index and return the found UIDs in result. */
 int fts_backend_lookup(struct fts_backend *backend, const char *key,
 		       ARRAY_TYPE(seq_range) *result);

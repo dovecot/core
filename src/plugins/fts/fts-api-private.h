@@ -20,6 +20,9 @@ struct fts_backend_vfuncs {
 	void (*expunge_finish)(struct fts_backend *backend,
 			       struct mailbox *box, bool committed);
 
+	int (*lock)(struct fts_backend *backend);
+	void (*unlock)(struct fts_backend *backend);
+
 	int (*lookup)(struct fts_backend *backend, const char *key,
 		      ARRAY_TYPE(seq_range) *result);
 	int (*filter)(struct fts_backend *backend, const char *key,
