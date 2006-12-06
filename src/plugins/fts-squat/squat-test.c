@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "file-lock.h"
 #include "istream.h"
 #include "squat-trie.h"
 #include "squat-uidlist.h"
@@ -31,12 +32,14 @@ static void result_print(ARRAY_TYPE(seq_range) *result)
 int main(int argc __attr_unused__, char *argv[])
 {
 	struct squat_trie *trie;
+	struct squat_trie_build_context *build_ctx;
 	struct istream *input;
 	ARRAY_TYPE(seq_range) result;
 	char *line, *str, buf[4096];
 	int fd;
 	ssize_t ret;
 	unsigned int last = 0, seq = 0, leaves, uid_lists_mem, uid_lists_count;
+	uint32_t last_uid;
 	size_t mem;
 	clock_t clock_start, clock_end;
 	struct timeval tv_start, tv_end;
@@ -45,7 +48,8 @@ int main(int argc __attr_unused__, char *argv[])
 	lib_init();
 	(void)unlink("/tmp/squat-test-index.search");
 	(void)unlink("/tmp/squat-test-index.search.uids");
-	trie = squat_trie_open("/tmp/squat-test-index.search");
+	trie = squat_trie_open("/tmp/squat-test-index.search",
+			       FILE_LOCK_METHOD_FCNTL);
 
 	clock_start = clock();
 	gettimeofday(&tv_start, NULL);
@@ -54,6 +58,7 @@ int main(int argc __attr_unused__, char *argv[])
 	if (fd == -1)
 		return 1;
 
+	build_ctx = squat_trie_build_init(trie, &last_uid);
 	input = i_stream_create_file(fd, default_pool, 0, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (last != input->v_offset/(1024*100)) {
@@ -66,10 +71,11 @@ int main(int argc __attr_unused__, char *argv[])
 			continue;
 		}
 
-		if (squat_trie_add(trie, seq, line, strlen(line)) < 0)
+		if (squat_trie_build_more(build_ctx, seq,
+					  line, strlen(line)) < 0)
 			break;
 	}
-	squat_trie_flush(trie);
+	squat_trie_build_deinit(build_ctx);
 
 	clock_end = clock();
 	gettimeofday(&tv_end, NULL);

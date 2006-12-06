@@ -10,6 +10,8 @@ struct squat_uidlist *
 squat_uidlist_init(struct squat_trie *trie, const char *path);
 void squat_uidlist_deinit(struct squat_uidlist *uidlist);
 
+int squat_uidlist_get_last_uid(struct squat_uidlist *uidlist, uint32_t *uid_r);
+
 /* Add new UID to given UID list. The uid_list_idx is updated to contain the
    new list index. It must be put through _finish_list() before it's actually
    written to disk. */

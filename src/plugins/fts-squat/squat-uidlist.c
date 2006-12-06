@@ -28,7 +28,8 @@ struct squat_uidlist_header {
 
 	uint32_t uid_max;
 	uint32_t uid_count;
-	uint32_t uids_expunged;
+	uint8_t uids_expunged; /* updated without locking */
+	uint8_t unused[3];
 	uint32_t node_count;
 };
 
@@ -190,6 +191,12 @@ void squat_uidlist_deinit(struct squat_uidlist *uidlist)
 	buffer_free(uidlist->tmp_buf);
 	buffer_free(uidlist->list_buf);
 	i_free(uidlist);
+}
+
+int squat_uidlist_get_last_uid(struct squat_uidlist *uidlist, uint32_t *uid_r)
+{
+	*uid_r = uidlist->hdr.uid_max;
+	return 0;
 }
 
 int squat_uidlist_add(struct squat_uidlist *uidlist, uint32_t *_uid_list_idx,
@@ -518,14 +525,15 @@ bool squat_uidlist_need_compress(struct squat_uidlist *uidlist,
 int squat_uidlist_mark_having_expunges(struct squat_uidlist *uidlist,
 				       bool update_disk)
 {
+	uint8_t flag = 1;
+	size_t offset;
+
 	uidlist->check_expunges = TRUE;
 
 	if (update_disk) {
-		uidlist->hdr.uids_expunged = TRUE;
-
-		// FIXME: make sure uidlist.hdr is in updated state
-		if (pwrite_full(uidlist->fd, &uidlist->hdr,
-				sizeof(uidlist->hdr), 0) < 0) {
+		/* NOTE: we're writing this flag without locking */
+		offset = offsetof(struct squat_uidlist_header, uids_expunged);
+		if (pwrite_full(uidlist->fd, &flag, sizeof(flag), offset) < 0) {
 			squat_uidlist_set_syscall_error(uidlist,
 							"pwrite_full()");
 			return -1;

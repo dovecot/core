@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-search.h"
 #include "squat-trie.h"
 #include "fts-squat-plugin.h"
@@ -12,8 +12,11 @@
 struct squat_fts_backend {
 	struct fts_backend backend;
 	struct squat_trie *trie;
+};
 
-	uint32_t last_uid;
+struct squat_fts_backend_build_context {
+	struct fts_backend_build_context ctx;
+	struct squat_trie_build_context *trie_ctx;
 };
 
 static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
@@ -33,7 +36,8 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	backend = i_new(struct squat_fts_backend, 1);
 	backend->backend = fts_backend_squat;
 	backend->trie =
-		squat_trie_open(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL));
+		squat_trie_open(t_strconcat(path, "/"SQUAT_FILE_PREFIX, NULL),
+				storage->lock_method);
 	return &backend->backend;
 }
 
@@ -52,8 +56,7 @@ static int fts_backend_squat_get_last_uid(struct fts_backend *_backend,
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
 
-	*last_uid_r = backend->last_uid;
-	return 0;
+	return squat_trie_get_last_uid(backend->trie, last_uid_r);
 }
 
 static struct fts_backend_build_context *
@@ -61,38 +64,35 @@ fts_backend_squat_build_init(struct fts_backend *_backend, uint32_t *last_uid_r)
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
-	struct fts_backend_build_context *ctx;
+	struct squat_fts_backend_build_context *ctx;
 
-	*last_uid_r = backend->last_uid;
-
-	ctx = i_new(struct fts_backend_build_context, 1);
-	ctx->backend = _backend;
-	return ctx;
+	ctx = i_new(struct squat_fts_backend_build_context, 1);
+	ctx->ctx.backend = _backend;
+	ctx->trie_ctx = squat_trie_build_init(backend->trie, last_uid_r);
+	return &ctx->ctx;
 }
 
 static int
-fts_backend_squat_build_more(struct fts_backend_build_context *ctx,
+fts_backend_squat_build_more(struct fts_backend_build_context *_ctx,
 			     uint32_t uid, const unsigned char *data,
 			     size_t size)
 {
-	struct squat_fts_backend *backend =
-		(struct squat_fts_backend *)ctx->backend;
+	struct squat_fts_backend_build_context *ctx =
+		(struct squat_fts_backend_build_context *)_ctx;
 
-	i_assert(uid >= backend->last_uid);
-	backend->last_uid = uid;
-
-	return squat_trie_add(backend->trie, uid, data, size);
+	return squat_trie_build_more(ctx->trie_ctx, uid, data, size);
 }
 
 static int
-fts_backend_squat_build_deinit(struct fts_backend_build_context *ctx)
+fts_backend_squat_build_deinit(struct fts_backend_build_context *_ctx)
 {
-	struct squat_fts_backend *backend =
-		(struct squat_fts_backend *)ctx->backend;
+	struct squat_fts_backend_build_context *ctx =
+		(struct squat_fts_backend_build_context *)_ctx;
+	int ret;
 
-	squat_trie_flush(backend->trie);
+	ret = squat_trie_build_deinit(ctx->trie_ctx);
 	i_free(ctx);
-	return 0;
+	return ret;
 }
 
 static void
@@ -152,6 +152,22 @@ fts_backend_squat_expunge_finish(struct fts_backend *_backend,
 	t_pop();
 }
 
+static int fts_backend_squat_lock(struct fts_backend *_backend)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+
+	return squat_trie_lock(backend->trie, F_RDLCK);
+}
+
+static void fts_backend_squat_unlock(struct fts_backend *_backend)
+{
+	struct squat_fts_backend *backend =
+		(struct squat_fts_backend *)_backend;
+
+	squat_trie_unlock(backend->trie);
+}
+
 static int
 fts_backend_squat_lookup(struct fts_backend *_backend, const char *key,
 			 ARRAY_TYPE(seq_range) *result)
@@ -185,6 +201,8 @@ struct fts_backend fts_backend_squat = {
 		fts_backend_squat_build_deinit,
 		fts_backend_squat_expunge,
 		fts_backend_squat_expunge_finish,
+		fts_backend_squat_lock,
+		fts_backend_squat_unlock,
 		fts_backend_squat_lookup,
 		fts_backend_squat_filter
 	}
