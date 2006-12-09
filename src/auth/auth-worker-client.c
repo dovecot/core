@@ -298,16 +298,27 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 }
 
 static void
-lookup_user_callback(struct auth_stream_reply *reply,
+lookup_user_callback(enum userdb_result result,
+		     struct auth_stream_reply *reply,
 		     struct auth_request *auth_request)
 {
 	struct auth_worker_client *client = auth_request->context;
 	string_t *str;
 
-	str = t_str_new(64);
+	str = t_str_new(128);
 	str_printfa(str, "%u\t", auth_request->id);
-	if (reply != NULL)
+	switch (result) {
+	case USERDB_RESULT_INTERNAL_FAILURE:
+		str_append(str, "FAIL\t");
+		break;
+	case USERDB_RESULT_USER_UNKNOWN:
+		str_append(str, "NOTFOUND\t");
+		break;
+	case USERDB_RESULT_OK:
+		str_append(str, "OK\t");
 		str_append(str, auth_stream_reply_export(reply));
+		break;
+	}
 	str_append_c(str, '\n');
 
 	o_stream_send(client->output, str_data(str), str_len(str));

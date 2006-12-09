@@ -17,7 +17,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 	pw = getpwnam(auth_request->user);
 	if (pw == NULL) {
 		auth_request_log_info(auth_request, "passwd", "unknown user");
-		callback(NULL, auth_request);
+		callback(USERDB_RESULT_USER_UNKNOWN, NULL, auth_request);
 		return;
 	}
 
@@ -36,7 +36,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 	auth_stream_reply_add(reply, "gid", dec2str(pw->pw_gid));
 	auth_stream_reply_add(reply, "home", pw->pw_dir);
 
-	callback(reply, auth_request);
+	callback(USERDB_RESULT_OK, reply, auth_request);
 }
 
 struct userdb_module_interface userdb_passwd = {

@@ -78,18 +78,25 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 }
 
 static void
-user_callback(struct auth_stream_reply *reply,
+user_callback(enum userdb_result result,
+	      struct auth_stream_reply *reply,
 	      struct auth_request *auth_request)
 {
 	struct auth_master_connection *conn = auth_request->context;
 	string_t *str;
 
 	str = t_str_new(128);
-	if (reply == NULL)
+	switch (result) {
+	case USERDB_RESULT_INTERNAL_FAILURE:
+		str_printfa(str, "FAIL\t%u", auth_request->id);
+		break;
+	case USERDB_RESULT_USER_UNKNOWN:
 		str_printfa(str, "NOTFOUND\t%u", auth_request->id);
-	else {
+		break;
+	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", auth_request->id);
 		str_append(str, auth_stream_reply_export(reply));
+		break;
 	}
 
 	if (conn->listener->auth->verbose_debug)

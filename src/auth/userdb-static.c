@@ -49,7 +49,7 @@ static void static_lookup(struct auth_request *auth_request,
 		auth_stream_reply_add(reply, args[i], value);
 	}
 
-	callback(reply, auth_request);
+	callback(USERDB_RESULT_OK, reply, auth_request);
 	t_pop();
 }
 

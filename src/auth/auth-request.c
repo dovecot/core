@@ -564,24 +564,34 @@ void auth_request_set_credentials(struct auth_request *request,
 	}
 }
 
-void auth_request_userdb_callback(struct auth_stream_reply *reply,
+void auth_request_userdb_callback(enum userdb_result result,
+				  struct auth_stream_reply *reply,
 				  struct auth_request *request)
 {
-	if (reply == NULL && request->userdb->next != NULL) {
+	if (result != USERDB_RESULT_OK && request->userdb->next != NULL) {
 		/* try next userdb. */
+		if (result == USERDB_RESULT_INTERNAL_FAILURE)
+			request->userdb_internal_failure = TRUE;
+
 		request->userdb = request->userdb->next;
 		auth_request_lookup_user(request,
 					 request->private_callback.userdb);
 		return;
 	}
 
-	if (reply == NULL && request->client_pid != 0) {
-		/* this was actual login attempt */
+	if (request->userdb_internal_failure && result != USERDB_RESULT_OK) {
+		/* one of the userdb lookups failed. the user might have been
+		   in there, so this is an internal failure */
+		result = USERDB_RESULT_INTERNAL_FAILURE;
+	} else if (result == USERDB_RESULT_USER_UNKNOWN &&
+		   request->client_pid != 0) {
+		/* this was an actual login attempt, the user should
+		   have been found. */
 		auth_request_log_error(request, "userdb",
 				       "user not found from userdb");
 	}
 
-        request->private_callback.userdb(reply, request);
+        request->private_callback.userdb(result, reply, request);
 }
 
 void auth_request_lookup_user(struct auth_request *request,

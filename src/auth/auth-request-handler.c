@@ -396,7 +396,8 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	return TRUE;
 }
 
-static void userdb_callback(struct auth_stream_reply *reply,
+static void userdb_callback(enum userdb_result result,
+			    struct auth_stream_reply *reply,
 			    struct auth_request *request)
 {
         struct auth_request_handler *handler = request->context;
@@ -407,15 +408,21 @@ static void userdb_callback(struct auth_stream_reply *reply,
 	request->state = AUTH_REQUEST_STATE_FINISHED;
 
 	str = t_str_new(256);
-	if (reply == NULL)
+	switch (result) {
+	case USERDB_RESULT_INTERNAL_FAILURE:
+		str_printfa(str, "FAIL\t%u", request->id);
+		break;
+	case USERDB_RESULT_USER_UNKNOWN:
 		str_printfa(str, "NOTFOUND\t%u", request->id);
-	else {
+		break;
+	case USERDB_RESULT_OK:
 		if (request->master_user != NULL) {
 			auth_stream_reply_add(reply, "master_user",
 					      request->master_user);
 		}
 		str_printfa(str, "USER\t%u\t", request->id);
 		str_append(str, auth_stream_reply_export(reply));
+		break;
 	}
 	handler->master_callback(str_c(str), request->master);
 

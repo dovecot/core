@@ -31,7 +31,7 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 
 	pu = db_passwd_file_lookup(module->pwf, auth_request);
 	if (pu == NULL) {
-		callback(NULL, auth_request);
+		callback(USERDB_RESULT_USER_UNKNOWN, NULL, auth_request);
 		return;
 	}
 
@@ -65,7 +65,7 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 		t_pop();
 	}
 
-	callback(reply, auth_request);
+	callback(USERDB_RESULT_OK, reply, auth_request);
 }
 
 static struct userdb_module *

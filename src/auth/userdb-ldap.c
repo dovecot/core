@@ -138,32 +138,36 @@ static void handle_request(struct ldap_connection *conn,
 	struct auth_request *auth_request = urequest->auth_request;
 	LDAPMessage *entry;
 	struct auth_stream_reply *reply = NULL;
+	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 	int ret;
 
 	ret = ldap_result2error(conn->ld, res, 0);
 	if (ret != LDAP_SUCCESS) {
 		auth_request_log_error(auth_request, "ldap",
 			"ldap_search() failed: %s", ldap_err2string(ret));
-		urequest->userdb_callback(NULL, auth_request);
+		urequest->userdb_callback(result, NULL, auth_request);
 		return;
 	}
 
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);
 	if (entry == NULL) {
 		if (res != NULL) {
+			result = USERDB_RESULT_USER_UNKNOWN;
 			auth_request_log_error(auth_request, "ldap",
 					       "Authenticated user not found");
 		}
 	} else {
 		reply = ldap_query_get_result(conn, entry, auth_request);
-		if (ldap_next_entry(conn->ld, entry) != NULL) {
+		if (ldap_next_entry(conn->ld, entry) == NULL)
+			result = USERDB_RESULT_OK;
+		else {
 			auth_request_log_error(auth_request, "ldap",
 				"Multiple replies found for user");
 			reply = NULL;
 		}
 	}
 
-	urequest->userdb_callback(reply, auth_request);
+	urequest->userdb_callback(result, reply, auth_request);
 	auth_request_unref(&auth_request);
 }
 

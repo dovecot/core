@@ -29,7 +29,7 @@ static void prefetch_lookup(struct auth_request *auth_request,
 			auth_request_log_info(auth_request, "prefetch",
 				"passdb didn't return userdb entries");
 		}
-		callback(NULL, auth_request);
+		callback(USERDB_RESULT_USER_UNKNOWN, NULL, auth_request);
 		return;
 	}
 
@@ -84,7 +84,7 @@ static void prefetch_lookup(struct auth_request *auth_request,
 	}
 
 	if (uid == (uid_t)-1 || gid == (gid_t)-1)
-		callback(NULL, auth_request);
+		callback(USERDB_RESULT_USER_UNKNOWN, NULL, auth_request);
 	else {
 		struct auth_stream_reply *reply;
 
@@ -92,7 +92,7 @@ static void prefetch_lookup(struct auth_request *auth_request,
 		   exported they are already in escaped form in the string. */
 		reply = auth_stream_reply_init(auth_request);
 		auth_stream_reply_import(reply, str_c(str));
-		callback(reply, auth_request);
+		callback(USERDB_RESULT_OK, reply, auth_request);
 	}
 	t_pop();
 }

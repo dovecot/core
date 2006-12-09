@@ -5,7 +5,15 @@
 
 struct auth_request;
 
-typedef void userdb_callback_t(struct auth_stream_reply *reply,
+enum userdb_result {
+	USERDB_RESULT_INTERNAL_FAILURE = -1,
+	USERDB_RESULT_USER_UNKNOWN = -2,
+
+	USERDB_RESULT_OK = 1
+};
+
+typedef void userdb_callback_t(enum userdb_result result,
+			       struct auth_stream_reply *reply,
 			       struct auth_request *request);
 
 struct userdb_module {

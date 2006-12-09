@@ -72,6 +72,7 @@ struct auth_request {
 	unsigned int passdb_failure:1;
 	unsigned int internal_failure:1;
 	unsigned int passdb_internal_failure:1;
+	unsigned int userdb_internal_failure:1;
 	unsigned int delayed_failure:1;
 	unsigned int accept_input:1;
 	unsigned int no_failure_delay:1;
@@ -154,7 +155,8 @@ void auth_request_set_credentials(struct auth_request *request,
 				  enum passdb_credentials credentials,
 				  const char *data,
 				  set_credentials_callback_t *callback);
-void auth_request_userdb_callback(struct auth_stream_reply *reply,
+void auth_request_userdb_callback(enum userdb_result result,
+				  struct auth_stream_reply *reply,
 				  struct auth_request *request);
 
 #endif

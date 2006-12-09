@@ -50,7 +50,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 
 	vpw = vpopmail_lookup_vqp(auth_request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		callback(NULL, auth_request);
+		callback(USERDB_RESULT_USER_UNKNOWN, NULL, auth_request);
 		return;
 	}
 
@@ -59,7 +59,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	if (vget_assign(vpop_domain, NULL, 0, &uid, &gid) == NULL) {
 		auth_request_log_info(auth_request, "vpopmail",
 				      "vget_assign(%s) failed", vpop_domain);
-		callback(NULL, auth_request);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, NULL, auth_request);
 		return;
 	}
 
@@ -72,14 +72,16 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 			auth_request_log_error(auth_request, "vpopmail",
 					       "make_user_dir(%s, %s) failed",
 					       vpop_user, vpop_domain);
-			callback(NULL, auth_request);
+			callback(USERDB_RESULT_INTERNAL_FAILURE,
+				 NULL, auth_request);
 			return;
 		}
 
 		/* get the user again so pw_dir is visible */
 		vpw = vauth_getpw(vpop_user, vpop_domain);
 		if (vpw == NULL) {
-			callback(NULL, auth_request);
+			callback(USERDB_RESULT_INTERNAL_FAILURE,
+				 NULL, auth_request);
 			return;
 		}
 	}
@@ -90,7 +92,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	auth_stream_reply_add(reply, "gid", dec2str(gid));
 	auth_stream_reply_add(reply, "home", vpw->pw_dir);
 
-	callback(reply, auth_request);
+	callback(USERDB_RESULT_OK, reply, auth_request);
 }
 
 struct userdb_module_interface userdb_vpopmail = {
