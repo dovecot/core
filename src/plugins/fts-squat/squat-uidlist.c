@@ -291,6 +291,7 @@ void squat_uidlist_deinit(struct squat_uidlist *uidlist)
 	array_free(&uidlist->lists);
 	buffer_free(uidlist->tmp_buf);
 	buffer_free(uidlist->list_buf);
+	i_free(uidlist->filepath);
 	i_free(uidlist);
 }
 

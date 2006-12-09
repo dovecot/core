@@ -58,8 +58,6 @@ struct squat_trie {
 
 	char *uidlist_filepath;
 	struct squat_uidlist *uidlist;
-
-	pool_t node_pool;
 	struct trie_node *root;
 	buffer_t *buf;
 
@@ -156,6 +154,7 @@ struct trie_node {
 		((char *)NODE_CHARS16(node) + \
 		 ALIGN(sizeof(uint16_t) * ((node)->chars_16bit_count)))
 
+static void free_node(struct trie_node *node, unsigned int level);
 static int
 squat_trie_compress_node(struct squat_trie_compress_context *ctx,
 			 struct trie_node *node, unsigned int level);
@@ -377,8 +376,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 			chars16_count * sizeof(struct trie_node *);
 	}
 
-	node = p_malloc(trie->node_pool,
-			sizeof(*node) + chars8_memsize + chars16_memsize);
+	node = i_malloc(sizeof(*node) + chars8_memsize + chars16_memsize);
 	node->chars_8bit_count = chars8_count;
 	node->chars_16bit_count = chars16_count;
 	node->file_offset = offset;
@@ -419,6 +417,31 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	return 0;
 }
 
+static void free_children(unsigned int level, struct trie_node **children,
+			  unsigned int count)
+{
+	unsigned int i;
+	uint32_t child_idx;
+
+	for (i = 0; i < count; i++) {
+		child_idx = POINTER_CAST_TO(children[i], size_t);
+		if ((child_idx & 1) == 0)
+			free_node(children[i], level);
+	}
+}
+
+static void free_node(struct trie_node *node, unsigned int level)
+{
+	if (level < BLOCK_SIZE) {
+		struct trie_node **children8 = NODE_CHILDREN8(node);
+		struct trie_node **children16 = NODE_CHILDREN16(node);
+
+		free_children(level + 1, children8, node->chars_8bit_count);
+		free_children(level + 1, children16, node->chars_16bit_count);
+	}
+	i_free(node);
+}
+
 static void squat_trie_unmap(struct squat_trie *trie)
 {
 	if (trie->file_cache != NULL)
@@ -434,8 +457,10 @@ static void squat_trie_unmap(struct squat_trie *trie)
 	trie->hdr = NULL;
 	trie->const_mmap_base = NULL;
 
-	p_clear(trie->node_pool);
-	trie->root = NULL;
+	if (trie->root != NULL) {
+		free_node(trie->root, 1);
+		trie->root = NULL;
+	}
 }
 
 static void trie_file_close(struct squat_trie *trie)
@@ -641,7 +666,6 @@ squat_trie_open(const char *path, uint32_t uidvalidity,
 	trie->lock_method = lock_method;
 	trie->mmap_disable = mmap_disable;
 	trie->buf = buffer_create_dynamic(default_pool, 1024);
-	trie->node_pool = pool_alloconly_create("trie node pool", 1024*64);
 
 	trie->uidlist_filepath = i_strconcat(path, ".uids", NULL);
 	trie->uidlist =
@@ -652,9 +676,9 @@ squat_trie_open(const char *path, uint32_t uidvalidity,
 
 void squat_trie_close(struct squat_trie *trie)
 {
+	squat_trie_unmap(trie);
 	buffer_free(trie->buf);
 	squat_uidlist_deinit(trie->uidlist);
-	pool_unref(trie->node_pool);
 	i_free(trie->uidlist_filepath);
 	i_free(trie->filepath);
 	i_free(trie);
@@ -798,7 +822,7 @@ void squat_trie_unlock(struct squat_trie *trie)
 }
 
 static struct trie_node *
-node_alloc(struct squat_trie *trie, uint16_t chr, unsigned int level)
+node_alloc(uint16_t chr, unsigned int level)
 {
 	struct trie_node *node;
 	unsigned int idx_size, idx_offset = sizeof(*node);
@@ -810,7 +834,7 @@ node_alloc(struct squat_trie *trie, uint16_t chr, unsigned int level)
 		uint8_t *chrp;
 
 		idx_offset += ALIGN(sizeof(*chrp));
-		node = p_malloc(trie->node_pool, idx_offset + idx_size);
+		node = i_malloc(idx_offset + idx_size);
 		node->chars_8bit_count = 1;
 
 		chrp = PTR_OFFSET(node, sizeof(*node));
@@ -819,7 +843,7 @@ node_alloc(struct squat_trie *trie, uint16_t chr, unsigned int level)
 		uint16_t *chrp;
 
 		idx_offset += ALIGN(sizeof(*chrp));
-		node = p_malloc(trie->node_pool, idx_offset + idx_size);
+		node = i_malloc(idx_offset + idx_size);
 		node->chars_16bit_count = 1;
 
 		chrp = PTR_OFFSET(node, sizeof(*node));
@@ -832,8 +856,8 @@ node_alloc(struct squat_trie *trie, uint16_t chr, unsigned int level)
 }
 
 static struct trie_node *
-node_realloc(struct squat_trie *trie, struct trie_node *node,
-	     uint32_t char_idx, uint16_t chr, unsigned int level)
+node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
+	     unsigned int level)
 {
 	struct trie_node *new_node;
 	unsigned int old_size_8bit, old_size_16bit, old_idx_offset;
@@ -861,7 +885,7 @@ node_realloc(struct squat_trie *trie, struct trie_node *node,
 			(node->chars_16bit_count + 1) * idx_size;
 	}
 
-	new_node = p_malloc(trie->node_pool, new_size);
+	new_node = i_malloc(new_size);
 	if (chr < 256) {
 		hole1_pos = sizeof(*node) + char_idx;
 		old_idx_offset = sizeof(*node) + ALIGN(node->chars_8bit_count);
@@ -902,6 +926,7 @@ node_realloc(struct squat_trie *trie, struct trie_node *node,
 	       old_size - hole2_pos);
 
 	new_node->resized = TRUE;
+	i_free(node);
 	return new_node;
 }
 
@@ -921,7 +946,7 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 
 		if (node == NULL) {
 			ctx->node_count++;
-			node = *parent = node_alloc(trie, *data, level);
+			node = *parent = node_alloc(*data, level);
 			char_idx = 0;
 			count = 1;
 			modified = TRUE;
@@ -935,7 +960,7 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 						 chr_8bit_cmp);
 			char_idx = pos - chars;
 			if (char_idx == count || *pos != *data) {
-				node = node_realloc(trie, node, char_idx,
+				node = node_realloc(node, char_idx,
 						    *data, level);
 				*parent = node;
 				modified = TRUE;
@@ -949,7 +974,7 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 
 		if (node == NULL) {
 			ctx->node_count++;
-			node = *parent = node_alloc(trie, *data, level);
+			node = *parent = node_alloc(*data, level);
 			char_idx = 0;
 			count = 1;
 			modified = TRUE;
@@ -969,7 +994,7 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 						 chr_16bit_cmp);
 			char_idx = pos - chars;
 			if (char_idx == count || *pos != *data) {
-				node = node_realloc(trie, node, char_idx,
+				node = node_realloc(node, char_idx,
 						    *data, level);
 				*parent = node;
 				modified = TRUE;
@@ -1423,7 +1448,7 @@ squat_trie_build_flush(struct squat_trie_build_context *ctx, bool finish)
 	if (squat_trie_map(trie) <= 0)
 		return -1;
 
-	/*if (squat_trie_need_compress(trie, (unsigned int)-1))*/ {
+	if (squat_trie_need_compress(trie, (unsigned int)-1)) {
 		if (ctx->locked && finish) {
 			squat_trie_unlock(ctx->trie);
 			ctx->locked = FALSE;
@@ -1505,6 +1530,7 @@ squat_trie_compress_children(struct squat_trie_compress_context *ctx,
 			children[i] = NULL;
 			need_char_compress = TRUE;
 		}
+		i_free(child_node);
 
 		if (ret < 0)
 			return -1;
