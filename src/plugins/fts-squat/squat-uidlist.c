@@ -18,6 +18,7 @@
 #define UIDLIST_COMPRESS_PERCENTAGE 30
 #define UIDLIST_UID_COMPRESS_PERCENTAGE 20
 #define UIDLIST_COMPRESS_MIN_SIZE (1024*8)
+#define SQUAT_UIDLIST_FLUSH_THRESHOLD (1024*1024*31)
 
 #define UID_NODE_PREV_FLAG_OLD 0x00000001
 #define UID_LIST_IDX_FLAG_SINGLE 0x80000000
@@ -67,8 +68,10 @@ struct squat_uidlist {
 
 	ARRAY_DEFINE(lists, struct uid_node);
 	uint32_t first_new_list_idx;
+	uint32_t current_uid;
 
 	pool_t node_pool;
+	size_t node_pool_used;
 	buffer_t *tmp_buf, *list_buf;
 
 	unsigned int check_expunges:1;
@@ -331,7 +334,7 @@ int squat_uidlist_add(struct squat_uidlist *uidlist, uint32_t *_uid_list_idx,
 	uint32_t uid_list_idx = *_uid_list_idx;
 	struct uid_node *node, *old_node;
 
-	i_assert(uid >= uidlist->hdr.uid_max);
+	i_assert(uid > uidlist->hdr.uid_max || uid == uidlist->current_uid);
 
 	if (uid_list_idx == 0) {
 		*_uid_list_idx = uid | UID_LIST_IDX_FLAG_SINGLE;
@@ -339,6 +342,7 @@ int squat_uidlist_add(struct squat_uidlist *uidlist, uint32_t *_uid_list_idx,
 	}
 
 	if (uid > uidlist->hdr.uid_max) {
+		uidlist->current_uid = uid;
 		uidlist->hdr.uid_max = uid;
 		uidlist->hdr.uid_count++;
 	}
@@ -361,6 +365,7 @@ int squat_uidlist_add(struct squat_uidlist *uidlist, uint32_t *_uid_list_idx,
 		}
 
 		/* convert single UID to a list */
+		uidlist->node_pool_used += sizeof(struct uid_node);
 		old_node = p_new(uidlist->node_pool, struct uid_node, 1);
 		old_node->uid = old_uid;
 
@@ -385,6 +390,7 @@ int squat_uidlist_add(struct squat_uidlist *uidlist, uint32_t *_uid_list_idx,
 			return 0;
 		}
 
+		uidlist->node_pool_used += sizeof(struct uid_node);
 		old_node = p_new(uidlist->node_pool, struct uid_node, 1);
 		*old_node = *node;
 	}
@@ -667,8 +673,12 @@ int squat_uidlist_flush(struct squat_uidlist *uidlist, uint32_t uid_validity)
 
 	array_clear(&uidlist->lists);
 	p_clear(uidlist->node_pool);
-
+	uidlist->node_pool_used = 0;
 	uidlist->write_failed = FALSE;
+	uidlist->current_uid = 0;
+
+	if (squat_uidlist_map(uidlist) <= 0)
+		ret = -1;
 	return ret;
 }
 
@@ -1049,6 +1059,11 @@ int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 		for (; ctx.filter_pos <= range[count-1].seq2; ctx.filter_pos++)
 			seq_range_array_remove(result, ctx.filter_pos);
 	}
+}
+
+bool squat_uidlist_want_flush(struct squat_uidlist *uidlist)
+{
+	return uidlist->node_pool_used >= SQUAT_UIDLIST_FLUSH_THRESHOLD;
 }
 
 size_t squat_uidlist_mem_used(struct squat_uidlist *uidlist,

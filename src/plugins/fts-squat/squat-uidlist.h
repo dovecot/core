@@ -54,6 +54,10 @@ int squat_uidlist_get(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 			 ARRAY_TYPE(seq_range) *result);
 
+/* Returns TRUE when uidlist has used so much memory that it'd prefer to
+   get flushed. */
+bool squat_uidlist_want_flush(struct squat_uidlist *uidlist);
+
 size_t squat_uidlist_mem_used(struct squat_uidlist *uidlist,
 			      unsigned int *count_r);
 
