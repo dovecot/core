@@ -18,8 +18,8 @@ enum content_type {
 	CONTENT_TYPE_BASE64
 };
 
-/* Both base64 and q-p takes max 3 bytes per character */
-#define MAX_ENCODING_BUF_SIZE 2
+/* base64 takes max 4 bytes per character, q-p takes max 3. */
+#define MAX_ENCODING_BUF_SIZE 3
 
 /* UTF-8 takes max 5 bytes per character. Not sure about others, but I'd think
    10 is more than enough for everyone.. */
@@ -236,10 +236,10 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 						ctx->encoding_size + skip,
 						&pos, ctx->buf);
 			i_assert(pos > ctx->encoding_size);
-			skip = (ctx->encoding_size + skip) - pos;
+			skip = pos - ctx->encoding_size;
 		}
 
-		quoted_printable_decode(input->data, input->size,
+		quoted_printable_decode(input->data + skip, input->size - skip,
 					&pos, ctx->buf);
 		pos += skip;
 		data = ctx->buf->data;
@@ -255,13 +255,18 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				return FALSE;
 			}
 			i_assert(pos > ctx->encoding_size);
-			skip = (ctx->encoding_size + skip) - pos;
+			skip = pos - ctx->encoding_size;
 		}
 		if (base64_decode(input->data + skip, input->size - skip,
 				  &pos, ctx->buf) < 0) {
 			/* corrupted base64 data, don't bother with
 			   the rest of it */
 			return FALSE;
+		}
+		if (pos < input->size - skip && pos > 0 &&
+		    input->data[pos + skip - 1] == '=') {
+			/* end of base64 input */
+			pos = input->size - skip;
 		}
 		pos += skip;
 		data = ctx->buf->data;
@@ -271,6 +276,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 
 	if (pos != input->size) {
 		/* @UNSAFE */
+		i_assert(pos < input->size);
 		ctx->encoding_size = input->size - pos;
 		i_assert(ctx->encoding_size <= sizeof(ctx->encoding_buf));
 		memcpy(ctx->encoding_buf, input->data + pos,
@@ -312,6 +318,7 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 		i_free_and_null(ctx->content_charset);
 		ctx->content_type = CONTENT_TYPE_BINARY;
 		ctx->charset_utf8 = TRUE;
+		ctx->encoding_size = 0;
 	}
 
 	output->part = input->part;
