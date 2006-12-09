@@ -20,6 +20,9 @@
 struct fts_mailbox {
 	struct mailbox_vfuncs super;
 	struct fts_backend *backend;
+
+	const char *env;
+	unsigned int backend_failed:1;
 };
 
 struct fts_search_context {
@@ -45,7 +48,8 @@ static int fts_mailbox_close(struct mailbox *box)
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 	int ret;
 
-	fts_backend_deinit(fbox->backend);
+	if (fbox->backend != NULL)
+		fts_backend_deinit(fbox->backend);
 
 	ret = fbox->super.close(box);
 	i_free(fbox);
@@ -281,6 +285,9 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	fctx = i_new(struct fts_search_context, 1);
 	array_idx_set(&ctx->module_contexts, fts_storage_module_id, &fctx);
 
+	if (fbox->backend == NULL)
+		return ctx;
+
 	/* FIXME: handle AND/OR. Maybe also header lookups? */
 	while (args != NULL &&
 	       args->type != SEARCH_BODY &&
@@ -393,10 +400,12 @@ static int fts_mail_expunge(struct mail *_mail)
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct fts_mail *fmail = FTS_CONTEXT(mail);
 	struct fts_mailbox *fbox = FTS_CONTEXT(_mail->box);
+	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
 
 	if (fmail->super.expunge(_mail) < 0)
 		return -1;
 
+	ft->expunges = TRUE;
 	fts_backend_expunge(fbox->backend, _mail);
 	return 0;
 }
@@ -407,21 +416,21 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 	       struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
-	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	struct fts_mail *fmail;
 	struct mail *_mail;
 	struct mail_private *mail;
 
 	_mail = fbox->super.mail_alloc(t, wanted_fields, wanted_headers);
-	mail = (struct mail_private *)_mail;
+	if (fbox->backend != NULL) {
+		mail = (struct mail_private *)_mail;
 
-	ft->expunges = TRUE;
+		fmail = p_new(mail->pool, struct fts_mail, 1);
+		fmail->super = mail->v;
 
-	fmail = p_new(mail->pool, struct fts_mail, 1);
-	fmail->super = mail->v;
-
-	mail->v.expunge = fts_mail_expunge;
-	array_idx_set(&mail->module_contexts, fts_storage_module_id, &fmail);
+		mail->v.expunge = fts_mail_expunge;
+		array_idx_set(&mail->module_contexts,
+			      fts_storage_module_id, &fmail);
+	}
 	return _mail;
 }
 
@@ -434,6 +443,14 @@ fts_transaction_begin(struct mailbox *box,
 	struct fts_transaction_context *ft;
 
 	ft = i_new(struct fts_transaction_context, 1);
+
+	/* the backend creation is delayed until the first transaction is
+	   started. at that point the mailbox has been synced at least once. */
+	if (fbox->backend == NULL && !fbox->backend_failed) {
+		fbox->backend = fts_backend_init(fbox->env, box);
+		if (fbox->backend == NULL)
+			fbox->backend_failed = TRUE;
+	}
 
 	t = fbox->super.transaction_begin(box, flags);
 	array_idx_set(&t->module_contexts, fts_storage_module_id, &ft);
@@ -470,7 +487,6 @@ static int fts_transaction_commit(struct mailbox_transaction_context *t,
 void fts_mailbox_opened(struct mailbox *box)
 {
 	struct fts_mailbox *fbox;
-	struct fts_backend *backend;
 	const char *env;
 
 	if (fts_next_hook_mailbox_opened != NULL)
@@ -480,13 +496,9 @@ void fts_mailbox_opened(struct mailbox *box)
 	if (env == NULL)
 		return;
 
-	backend = fts_backend_init(env, box);
-	if (backend == NULL)
-		return;
-
 	fbox = i_new(struct fts_mailbox, 1);
+	fbox->env = env;
 	fbox->super = box->v;
-	fbox->backend = backend;
 	box->v.close = fts_mailbox_close;
 	box->v.search_init = fts_mailbox_search_init;
 	box->v.search_next_update_seq = fts_mailbox_search_next_update_seq;
