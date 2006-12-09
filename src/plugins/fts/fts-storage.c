@@ -255,10 +255,12 @@ static int fts_build_new(struct mailbox_transaction_context *t)
 	mail = mail_alloc(t, 0, NULL);
 	search_ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
 	while (mailbox_search_next(search_ctx, mail) > 0) {
-		if (fts_build_mail(&ctx, mail) < 0) {
-			ret = -1;
+		t_push();
+		ret = fts_build_mail(&ctx, mail);
+		t_pop();
+
+		if (ret < 0)
 			break;
-		}
 	}
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
