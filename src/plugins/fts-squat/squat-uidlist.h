@@ -8,9 +8,13 @@ struct squat_uidlist;
 
 struct squat_uidlist *
 squat_uidlist_init(struct squat_trie *trie, const char *path,
-		   uint32_t uidvalidity);
+		   uint32_t uidvalidity, bool mmap_disable);
 void squat_uidlist_deinit(struct squat_uidlist *uidlist);
 
+/* Make sure that we've the latest uidlist file fully mapped. */
+int squat_uidlist_refresh(struct squat_uidlist *uidlist);
+
+/* Get the last UID added to the file. */
 int squat_uidlist_get_last_uid(struct squat_uidlist *uidlist, uint32_t *uid_r);
 
 /* Add new UID to given UID list. The uid_list_idx is updated to contain the

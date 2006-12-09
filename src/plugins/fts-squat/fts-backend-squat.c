@@ -38,7 +38,9 @@ static struct fts_backend *fts_backend_squat_init(struct mailbox *box)
 	if (mailbox_get_status(box, STATUS_UIDVALIDITY, &status) < 0)
 		return NULL;
 
-	mmap_disable = (storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0;
+	mmap_disable = (storage->flags &
+			(MAIL_STORAGE_FLAG_MMAP_DISABLE |
+			 MAIL_STORAGE_FLAG_MMAP_NO_WRITE)) != 0;
 
 	backend = i_new(struct squat_fts_backend, 1);
 	backend->backend = fts_backend_squat;
