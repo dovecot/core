@@ -65,7 +65,6 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 			return 0;
 		}
 		i_error("fcntl() locking failed for file %s: %m", path);
-		abort();
 		return -1;
 #endif
 	}
