@@ -56,6 +56,7 @@ void index_storage_init(struct index_storage *storage,
 
 void index_storage_deinit(struct index_storage *storage)
 {
+	mailbox_list_deinit(storage->storage.list);
 	i_free(storage->storage.error);
 
 	if (--index_storage_refcount > 0)
