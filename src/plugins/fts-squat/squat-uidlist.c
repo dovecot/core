@@ -678,8 +678,10 @@ int squat_uidlist_flush(struct squat_uidlist *uidlist, uint32_t uid_validity)
 	uidlist->write_failed = FALSE;
 	uidlist->current_uid = 0;
 
-	if (squat_uidlist_map(uidlist) <= 0)
-		ret = -1;
+	if (uidlist->fd != -1) {
+		if (squat_uidlist_map(uidlist) <= 0)
+			ret = -1;
+	}
 	return ret;
 }
 
