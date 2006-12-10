@@ -199,6 +199,12 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 
 	/* look up the record */
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
+	if (rec->uid == 0) {
+		mail_index_set_error(view->index, "Corrupted Index file %s: "
+			"Record [%u].uid=0", view->index->filepath, seq);
+		mail_index_mark_corrupted(view->index);
+		return -1;
+	}
 	if (view->map == view->index->map) {
 		/* view's mapping is latest. we can use it directly. */
 		*map_r = view->map;
