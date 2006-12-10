@@ -530,6 +530,7 @@ int main(int argc, char *argv[])
         duplicate_init();
         mail_storage_init();
 	mail_storage_register_all();
+	mailbox_list_register_all();
 
 	/* MAIL comes from userdb, MAIL_LOCATION from dovecot.conf */
 	mail_env = getenv("MAIL");

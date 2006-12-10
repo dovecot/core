@@ -30,9 +30,9 @@ common_objects = \
 
 libs = \
 	$(top_builddir)/src/lib-storage/register/libstorage-register.a \
+	$(top_builddir)/src/lib-storage/list/libstorage_list.a \
 	$(STORAGE_LIBS) \
 	$(top_builddir)/src/lib-storage/libstorage.a \
-	$(top_builddir)/src/lib-storage/list/libstorage_list.a \
 	$(top_builddir)/src/lib-imap/libimap.a \
 	$(top_builddir)/src/lib-mail/libmail.a \
 	$(top_builddir)/src/lib-charset/libcharset.a \

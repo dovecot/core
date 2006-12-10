@@ -19,6 +19,7 @@ int main(int argc, const char *argv[])
 	random_init();
 	mail_storage_init();
 	mail_storage_register_all();
+	mailbox_list_register_all();
 
 	if (argc <= 4) {
 		i_fatal("Usage: <username> <home dir> "
