@@ -5,6 +5,7 @@
 #include "crc32.h"
 #include "ioloop.h"
 #include "str.h"
+#include "file-cache.h"
 #include "file-dotlock.h"
 #include "mmap-util.h"
 #include "write-full.h"
@@ -56,12 +57,16 @@ int mailbox_list_index_set_syscall_error(struct mailbox_list_index *index,
 
 static void mailbox_list_index_unmap(struct mailbox_list_index *index)
 {
+	if (index->file_cache != NULL)
+		file_cache_invalidate(index->file_cache, 0, (uoff_t)-1);
+
 	if (index->mmap_base != NULL) {
 		if (munmap(index->mmap_base, index->mmap_size) < 0)
 			mailbox_list_index_set_syscall_error(index, "munmap()");
 		index->mmap_base = NULL;
-		index->mmap_size = 0;
 	}
+	index->const_mmap_base = NULL;
+	index->mmap_size = 0;
 
 	index->hdr = NULL;
 }
@@ -70,6 +75,8 @@ static void mailbox_list_index_file_close(struct mailbox_list_index *index)
 {
 	mailbox_list_index_unmap(index);
 
+	if (index->file_cache != NULL)
+		file_cache_free(&index->file_cache);
 	if (index->fd != -1) {
 		if (close(index->fd) < 0)
 			mailbox_list_index_set_syscall_error(index, "close()");
@@ -123,24 +130,44 @@ mailbox_list_index_check_header(struct mailbox_list_index *index,
 int mailbox_list_index_map(struct mailbox_list_index *index)
 {
 	const struct mailbox_list_index_header *hdr;
+	ssize_t ret;
 
 	mailbox_list_index_unmap(index);
 
-	// FIXME: handle non-mmaps
-	index->mmap_base = mmap_rw_file(index->fd, &index->mmap_size);
-	if (index->mmap_base == MAP_FAILED) {
-		index->mmap_base = NULL;
-		return mailbox_list_index_set_syscall_error(index, "mmap()");
+	if (!index->mmap_disable) {
+		index->mmap_base = mmap_rw_file(index->fd, &index->mmap_size);
+		if (index->mmap_base == MAP_FAILED) {
+			index->mmap_base = NULL;
+			mailbox_list_index_set_syscall_error(index, "mmap()");
+			return -1;
+		}
+
+		index->const_mmap_base = index->mmap_base;
+	} else {
+		if (index->file_cache == NULL)
+			index->file_cache = file_cache_new(index->fd);
+
+		ret = file_cache_read(index->file_cache, 0, SSIZE_T_MAX);
+		if (ret < 0) {
+			mailbox_list_index_set_syscall_error(index,
+				"file_cache_read()");
+			return -1;
+		}
+		index->const_mmap_base = file_cache_get_map(index->file_cache,
+							    &index->mmap_size);
 	}
 
 	if (index->mmap_size < sizeof(*hdr)) {
 		mailbox_list_index_set_corrupted(index, "File too small");
+		index->const_mmap_base = NULL;
 		return 0;
 	}
 
-	hdr = index->mmap_base;
-	if (mailbox_list_index_check_header(index, hdr) < 0)
+	hdr = index->const_mmap_base;
+	if (mailbox_list_index_check_header(index, hdr) < 0) {
+		index->const_mmap_base = NULL;
 		return 0;
+	}
 
 	index->hdr = hdr;
 	return 1;
@@ -278,6 +305,7 @@ mailbox_list_index_alloc(const char *path, char separator,
 	index->separator = separator;
 	index->mail_index = mail_index;
 	index->fd = -1;
+	index->mmap_disable = mail_index->mmap_disable;
 	return index;
 }
 
@@ -287,6 +315,7 @@ void mailbox_list_index_free(struct mailbox_list_index **_index)
 
 	*_index = NULL;
 
+	mailbox_list_index_file_close(index);
 	i_free(index->filepath);
 	i_free(index);
 }
@@ -314,7 +343,7 @@ mailbox_list_get_name(struct mailbox_list_index *index, pool_t pool,
 		return -1;
 	}
 	max_len = index->mmap_size - rec->name_offset;
-	name = CONST_PTR_OFFSET(index->mmap_base, rec->name_offset);
+	name = CONST_PTR_OFFSET(index->const_mmap_base, rec->name_offset);
 	/* get name length. don't bother checking if it's not NUL-terminated,
 	   because practically it always is even if the file is corrupted.
 	   just make sure we don't crash if it happens. */
@@ -365,7 +394,7 @@ int mailbox_list_index_get_dir(struct mailbox_list_index *index,
 				"dir_offset not 32bit aligned");
 		}
 
-		dir = CONST_PTR_OFFSET(index->mmap_base, cur_offset);
+		dir = CONST_PTR_OFFSET(index->const_mmap_base, cur_offset);
 		next_offset = mail_index_offset_to_uint32(dir->next_offset);
 		if (next_offset != 0 && next_offset <= cur_offset) {
 			return mailbox_list_index_set_corrupted(index,
@@ -374,7 +403,7 @@ int mailbox_list_index_get_dir(struct mailbox_list_index *index,
 		cur_offset = next_offset;
 	} while (cur_offset != 0);
 
-	cur_offset = (const char *)dir - (const char *)index->mmap_base;
+	cur_offset = (const char *)dir - (const char *)index->const_mmap_base;
 	if (dir->count > INT_MAX/sizeof(struct mailbox_list_record) ||
 	    dir->count * sizeof(struct mailbox_list_record) >
 	    index->mmap_size - cur_offset) {

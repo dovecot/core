@@ -328,10 +328,8 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	/* FIXME: a bit ugly way to get the flags, but this will do for now.. */
 	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
 	storage_flags = *list->set.mail_storage_flags;
-	if ((storage_flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0) {
+	if ((storage_flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
-		return; /* FIXME: we currently don't support mmap_disable */
-	}
 #ifndef MMAP_CONFLICTS_WRITE
 	if ((storage_flags & MAIL_STORAGE_FLAG_MMAP_NO_WRITE) != 0)
 #endif

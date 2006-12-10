@@ -51,15 +51,21 @@ struct mailbox_list_index {
 	char *filepath;
 	char separator;
 	struct mail_index *mail_index;
+	struct file_cache *file_cache;
 
 	int fd;
 
 	void *mmap_base;
+	const void *const_mmap_base;
 	size_t mmap_size;
 	const struct mailbox_list_index_header *hdr;
+
+	unsigned int mmap_disable:1;
 };
 
 #define MAILBOX_LIST_RECORDS(dir) \
+	((const struct mailbox_list_record *)(dir + 1))
+#define MAILBOX_LIST_RECORDS_MODIFIABLE(dir) \
 	((struct mailbox_list_record *)(dir + 1))
 #define MAILBOX_LIST_RECORD_IDX(dir, rec) \
 	((rec) - MAILBOX_LIST_RECORDS(dir))

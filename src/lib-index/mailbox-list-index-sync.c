@@ -4,8 +4,10 @@
 #include "array.h"
 #include "bsearch-insert-pos.h"
 #include "crc32.h"
+#include "file-cache.h"
 #include "file-set-size.h"
 #include "mmap-util.h"
+#include "ostream.h"
 #include "mail-index-private.h"
 #include "mailbox-list-index-private.h"
 
@@ -53,6 +55,9 @@ struct mailbox_list_index_sync_ctx {
 	struct mailbox_list_index_header hdr;
 	struct mailbox_list_sync_dir *root, *sync_root;
 
+	struct ostream *output;
+	buffer_t *output_buf;
+
 	unsigned int failed:1;
 	unsigned int partial:1;
 	unsigned int seen_sync_root:1;
@@ -97,6 +102,9 @@ mailbox_list_copy_sync_dir(struct mailbox_list_index_sync_ctx *ctx,
 
 	recs = MAILBOX_LIST_RECORDS(dir);
 	for (i = 0; i < dir->count; i++) {
+		if (recs[i].deleted)
+			continue;
+
 		sync_rec = array_append_space(&sync_dir->records);
 		sync_rec->name_hash = recs[i].name_hash;
 		sync_rec->uid = recs[i].uid;
@@ -104,7 +112,7 @@ mailbox_list_copy_sync_dir(struct mailbox_list_index_sync_ctx *ctx,
 			mail_index_offset_to_uint32(recs[i].dir_offset);
 
 		max_len = ctx->index->mmap_size - recs[i].name_offset;
-		name = CONST_PTR_OFFSET(ctx->index->mmap_base,
+		name = CONST_PTR_OFFSET(ctx->index->const_mmap_base,
 					recs[i].name_offset);
 
 		sync_rec->name = p_strndup(ctx->pool, name, max_len);
@@ -430,15 +438,30 @@ mailbox_list_index_sync_alloc_space(struct mailbox_list_index_sync_ctx *ctx,
 	/* all allocations must be 32bit aligned */
 	pos = (pos + 3) & ~3;
 
-	if (pos + size > ctx->index->mmap_size) {
-		if (mailbox_list_index_sync_grow(ctx, size + 3) < 0)
-			return -1;
+	if (ctx->index->mmap_disable) {
+		/* write the data into temporary buffer first */
+		buffer_set_used_size(ctx->output_buf, 0);
 
-		i_assert(pos + size < ctx->index->mmap_size);
+		if (ctx->output->offset != pos) {
+			i_assert(pos > ctx->output->offset &&
+				 pos - ctx->output->offset <= 3);
+
+			buffer_append_zero(ctx->output_buf,
+					   pos - ctx->output->offset);
+		}
+
+		*base_r = buffer_append_space_unsafe(ctx->output_buf, size);
+	} else {
+		if (pos + size > ctx->index->mmap_size) {
+			if (mailbox_list_index_sync_grow(ctx, size + 3) < 0)
+				return -1;
+
+			i_assert(pos + size < ctx->index->mmap_size);
+		}
+		*base_r = PTR_OFFSET(ctx->index->mmap_base, pos);
 	}
 
 	*base_offset_r = pos;
-	*base_r = PTR_OFFSET(ctx->index->mmap_base, *base_offset_r);
 	ctx->hdr.used_space = pos + size;
 	return 0;
 }
@@ -448,8 +471,11 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 				     struct mailbox_list_sync_dir *sync_dir,
 				     uint32_t offset_pos, bool partial)
 {
-	struct mailbox_list_dir_record *dir, *new_dir;
-	struct mailbox_list_record *recs, *new_recs;
+	struct mailbox_list_index *index = ctx->index;
+	const struct mailbox_list_dir_record *dir;
+	const struct mailbox_list_record *recs;
+	struct mailbox_list_dir_record *new_dir;
+	struct mailbox_list_record *new_recs;
 	struct mailbox_list_sync_record *sync_recs;
 	unsigned int src, dest, orig, count, nondeleted_count;
 	unsigned int name_space_needed, deleted_space;
@@ -457,7 +483,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	void *base;
 
 	i_assert((offset_pos % sizeof(uint32_t)) == 0);
-	i_assert(offset_pos < ctx->index->mmap_size);
+	i_assert(offset_pos < index->mmap_size);
 
 	/* count how much space we need and how much we wasted for deleted
 	   records */
@@ -492,15 +518,16 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	} else {
 		/* the offset should have been verified already to be valid */
 		i_assert(sync_dir->offset == offset_pos);
-		i_assert(sync_dir->offset < ctx->index->mmap_size);
-		dir = PTR_OFFSET(ctx->index->mmap_base, sync_dir->offset);
+		i_assert(sync_dir->offset < index->mmap_size);
+		dir = CONST_PTR_OFFSET(index->const_mmap_base,
+				       sync_dir->offset);
 		recs = MAILBOX_LIST_RECORDS(dir);
 	}
 
 	new_dir = base;
 	new_dir->count = nondeleted_count;
 
-	new_recs = MAILBOX_LIST_RECORDS(new_dir);
+	new_recs = MAILBOX_LIST_RECORDS_MODIFIABLE(new_dir);
 	name_pos = (const char *)(new_recs + nondeleted_count) -
 		(const char *)base;
 	for (src = dest = 0; src < count; src++) {
@@ -547,16 +574,42 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	i_assert(dest == nondeleted_count);
 	i_assert(name_pos == name_space_needed);
 
+	if (index->mmap_disable) {
+		file_cache_write(index->file_cache, ctx->output_buf->data,
+				 ctx->output_buf->used, ctx->output->offset);
+		o_stream_send(ctx->output, ctx->output_buf->data,
+			      ctx->output_buf->used);
+	}
+
 	if (offset_pos == 0) {
 		/* we're writing the root directory */
-		i_assert(base_offset == sizeof(*ctx->index->hdr));
+		i_assert(base_offset == sizeof(*index->hdr));
 	} else {
 		/* add a link to this newly created directory. */
-		uint32_t *pos;
+		uint32_t data = mail_index_uint32_to_offset(base_offset);
 
-		pos = PTR_OFFSET(ctx->index->mmap_base, offset_pos);
-		i_assert(mail_index_offset_to_uint32(*pos) == 0);
-		*pos = mail_index_uint32_to_offset(base_offset);
+		if (!index->mmap_disable)  {
+			uint32_t *pos;
+
+			pos = PTR_OFFSET(index->mmap_base, offset_pos);
+			i_assert(mail_index_offset_to_uint32(*pos) == 0);
+			*pos = data;
+		} else {
+			uoff_t old_offset = ctx->output->offset;
+
+			file_cache_write(index->file_cache,
+					 &data, sizeof(data), offset_pos);
+
+			o_stream_seek(ctx->output, offset_pos);
+			o_stream_send(ctx->output, &data, sizeof(data));
+			o_stream_seek(ctx->output, old_offset);
+		}
+	}
+
+	if (index->mmap_disable) {
+		/* file_cache_write() calls may have moved mmaping */
+		index->const_mmap_base = file_cache_get_map(index->file_cache,
+							    &index->mmap_size);
 	}
 
 	sync_dir->offset = base_offset;
@@ -581,10 +634,33 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 	i_assert(dir->count == count);
 	i_assert(sync_dir->seen_records_count < count);
 
-	recs = MAILBOX_LIST_RECORDS(dir);
+	if (!ctx->index->mmap_disable)
+		recs = MAILBOX_LIST_RECORDS_MODIFIABLE(dir);
+	else {
+		/* @UNSAFE: copy the records into a temporary buffer that
+		   we modify and then write back to disk */
+		t_push();
+		recs = t_new(struct mailbox_list_record, dir->count);
+		memcpy(recs, MAILBOX_LIST_RECORDS(dir),
+		       sizeof(struct mailbox_list_record) * dir->count);
+	}
 	for (i = 0; i < dir->count; i++) {
 		if (!sync_recs[i].seen)
 			recs[i].deleted = TRUE;
+	}
+	if (ctx->index->mmap_disable) {
+		uoff_t offset, old_offset;
+		size_t size = sizeof(struct mailbox_list_record) * dir->count;
+
+		offset = sync_dir->offset +
+			sizeof(struct mailbox_list_dir_record);
+		file_cache_write(ctx->index->file_cache, recs, size, offset);
+
+		old_offset = ctx->output->offset;
+		o_stream_seek(ctx->output, offset);
+		o_stream_send(ctx->output, recs, size);
+		o_stream_seek(ctx->output, old_offset);
+		t_pop();
 	}
 	return 0;
 }
@@ -643,7 +719,8 @@ mailbox_list_index_sync_write_dir(struct mailbox_list_index_sync_ctx *ctx,
 			continue;
 
 		/* these may change after each sync_write_dir() call */
-		dir = CONST_PTR_OFFSET(ctx->index->mmap_base, sync_dir->offset);
+		dir = CONST_PTR_OFFSET(ctx->index->const_mmap_base,
+				       sync_dir->offset);
 		recs = MAILBOX_LIST_RECORDS(dir);
 
 		/* child_offset_pos needs to point to record's dir_offset */
@@ -654,7 +731,7 @@ mailbox_list_index_sync_write_dir(struct mailbox_list_index_sync_ctx *ctx,
 		i_assert(j < dir->count);
 
 		child_offset_pos = (const char *)&recs[j].dir_offset -
-			(const char *)ctx->index->mmap_base;
+			(const char *)ctx->index->const_mmap_base;
 		if (mailbox_list_index_sync_write_dir(ctx, sync_recs[i].dir,
 						      child_offset_pos,
 						      partial) < 0)
@@ -669,6 +746,13 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 	struct mailbox_list_index_header *hdr;
 	bool partial;
 
+	if (ctx->index->mmap_disable) {
+		ctx->output = o_stream_create_file(ctx->index->fd, default_pool,
+						   0, FALSE);
+		ctx->output_buf = buffer_create_dynamic(default_pool, 4096);
+		o_stream_seek(ctx->output, ctx->hdr.used_space);
+	}
+
 	if (ctx->sync_root == ctx->root) {
 		ctx->seen_sync_root = TRUE;
 		partial = (ctx->flags & MAILBOX_LIST_SYNC_FLAG_PARTIAL) != 0;
@@ -681,15 +765,25 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 	if (mailbox_list_index_sync_write_dir(ctx, ctx->root, 0, partial) < 0)
 		return -1;
 
-	/* update header */
-	hdr = ctx->index->mmap_base;
-	hdr->next_uid = ctx->hdr.next_uid;
-	hdr->used_space = ctx->hdr.used_space;
-	hdr->deleted_space = ctx->hdr.deleted_space;
+	if (!ctx->index->mmap_disable) {
+		/* update header */
+		hdr = ctx->index->mmap_base;
+		hdr->next_uid = ctx->hdr.next_uid;
+		hdr->used_space = ctx->hdr.used_space;
+		hdr->deleted_space = ctx->hdr.deleted_space;
 
-	if (msync(ctx->index->mmap_base, hdr->used_space, MS_SYNC) < 0) {
-		mailbox_list_index_set_syscall_error(ctx->index, "msync()");
-		return -1;
+		if (msync(ctx->index->mmap_base,
+			  hdr->used_space, MS_SYNC) < 0) {
+			mailbox_list_index_set_syscall_error(ctx->index,
+							     "msync()");
+			return -1;
+		}
+	} else {
+		o_stream_seek(ctx->output, 0);
+		o_stream_send(ctx->output, &ctx->hdr, sizeof(ctx->hdr));
+
+		o_stream_destroy(&ctx->output);
+		buffer_free(ctx->output_buf);
 	}
 	return 0;
 }
