@@ -40,10 +40,8 @@ int index_storage_get_status(struct mailbox *box,
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	int ret;
 
-	if (!box->opened) {
-		if (index_storage_mailbox_open(ibox) < 0)
-			return -1;
-	}
+	if (!box->opened)
+		index_storage_mailbox_open(ibox);
 
 	ret = index_storage_get_status_locked(ibox, items, status);
 	mail_index_view_unlock(ibox->view);

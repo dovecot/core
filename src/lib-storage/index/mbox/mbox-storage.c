@@ -517,11 +517,8 @@ mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
 	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
 	mbox->ibox.is_recent = mbox_mail_is_recent;
 
-	if (index_storage_mailbox_init(&mbox->ibox, index, name, flags,
-				want_memory_indexes(storage, path)) < 0) {
-		/* the memory is already freed here, no need to deinit */
-		return NULL;
-	}
+	index_storage_mailbox_init(&mbox->ibox, index, name, flags,
+				   want_memory_indexes(storage, path));
 
 	mbox->storage = storage;
 	mbox->mbox_fd = -1;
@@ -564,9 +561,6 @@ mbox_open(struct mbox_storage *storage, const char *name,
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
 	mbox = mbox_alloc(storage, index, name, path, flags);
-	if (mbox == NULL)
-		return NULL;
-
 	mbox->path = p_strdup(mbox->ibox.box.pool, path);
 
 	if (access(path, R_OK|W_OK) < 0) {

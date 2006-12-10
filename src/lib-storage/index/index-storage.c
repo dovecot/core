@@ -315,7 +315,7 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 	ibox->last_notify_type = MAILBOX_LOCK_NOTIFY_NONE;
 }
 
-int index_storage_mailbox_open(struct index_mailbox *ibox)
+void index_storage_mailbox_open(struct index_mailbox *ibox)
 {
 	struct mail_storage *storage = &ibox->storage->storage;
 	enum mail_index_open_flags index_flags;
@@ -338,11 +338,8 @@ int index_storage_mailbox_open(struct index_mailbox *ibox)
 			   directly into memory now. */
 			ret = mail_index_open(ibox->index, index_flags,
 					      storage->lock_method);
-			if (ret <= 0) {
-				mail_storage_set_index_error(ibox);
-				index_storage_mailbox_free(&ibox->box);
-				return -1;
-			}
+			if (ret <= 0)
+				i_panic("in-memory index creation failed");
 		}
 	}
 
@@ -352,13 +349,12 @@ int index_storage_mailbox_open(struct index_mailbox *ibox)
 	ibox->keyword_names = mail_index_get_keywords(ibox->index);
 
 	ibox->box.opened = TRUE;
-	return 0;
 }
 
-int index_storage_mailbox_init(struct index_mailbox *ibox,
-			       struct mail_index *index, const char *name,
-			       enum mailbox_open_flags flags,
-			       bool move_to_memory)
+void index_storage_mailbox_init(struct index_mailbox *ibox,
+				struct mail_index *index, const char *name,
+				enum mailbox_open_flags flags,
+				bool move_to_memory)
 {
 	struct mail_storage *storage = &ibox->storage->storage;
 
@@ -387,7 +383,7 @@ int index_storage_mailbox_init(struct index_mailbox *ibox,
 	array_idx_set(&index->mail_index_module_contexts,
 		      mail_storage_mail_index_module_id, &ibox);
 
-	return (flags & MAILBOX_OPEN_FAST) != 0 ? 0 :
+	if ((flags & MAILBOX_OPEN_FAST) == 0)
 		index_storage_mailbox_open(ibox);
 }
 

@@ -62,6 +62,9 @@ index_transaction_begin(struct mailbox *box,
 	struct mail_index_transaction *t;
 	struct index_transaction_context *it;
 
+	if (!box->opened)
+		index_storage_mailbox_open(ibox);
+
 	t = mail_index_transaction_begin(ibox->view,
 		(flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0,
 		(flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);

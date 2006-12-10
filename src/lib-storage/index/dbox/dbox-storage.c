@@ -237,11 +237,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
 	mbox->ibox.is_recent = dbox_is_recent;
 
-	if (index_storage_mailbox_init(&mbox->ibox, index, name, flags,
-				       FALSE) < 0) {
-		/* the memory was already freed */
-		return NULL;
-	}
+	index_storage_mailbox_init(&mbox->ibox, index, name, flags, FALSE);
 
 	value = getenv("DBOX_ROTATE_SIZE");
 	if (value != NULL)
