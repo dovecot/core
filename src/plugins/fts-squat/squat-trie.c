@@ -146,12 +146,14 @@ struct trie_node {
 	(struct trie_node **) \
 		((char *)((node) + 1) + \
 		 ALIGN(sizeof(uint8_t) * ((node)->chars_8bit_count)))
-#define NODE_CHARS16(node) \
+#define NODE_CHARS16(node, level) \
 	(uint16_t *)((char *)NODE_CHILDREN8(node) + \
-		     sizeof(struct trie_node *) * ((node)->chars_8bit_count))
-#define NODE_CHILDREN16(node) \
+		((node)->chars_8bit_count) * \
+		((level) == BLOCK_SIZE ? \
+		 sizeof(uint32_t) : sizeof(struct trie_node *)))
+#define NODE_CHILDREN16(node, level) \
 	(struct trie_node **) \
-		((char *)NODE_CHARS16(node) + \
+		((char *)NODE_CHARS16(node, level) + \
 		 ALIGN(sizeof(uint16_t) * ((node)->chars_16bit_count)))
 
 static void free_node(struct trie_node *node, unsigned int level);
@@ -165,7 +167,8 @@ squat_trie_build_flush(struct squat_trie_build_context *ctx, bool finish);
 
 static int chr_8bit_cmp(const void *_key, const void *_chr)
 {
-	const uint8_t *key = _key, *chr = _chr;
+	const uint16_t *key = _key;
+	const uint8_t *chr = _chr;
 
 	return *key - *chr;
 }
@@ -256,29 +259,57 @@ void squat_trie_set_corrupted(struct squat_trie *trie, const char *reason)
 }
 
 static void
+trie_map_node_save_leaf(const uint32_t *src_idx, unsigned int count,
+			uint32_t *children)
+{
+	unsigned int i;
+
+#ifndef ALLOW_UNALIGNED_ACCESS
+	if ((POINTER_CAST_TO(src_idx, size_t) & (sizeof(uint32_t)-1)) == 0) {
+#endif
+		for (i = 0; i < count; i++)
+			children[i] = src_idx[i];
+#ifndef ALLOW_UNALIGNED_ACCESS
+	} else {
+		/* unaligned access */
+		const uint8_t *src_idx8 = (const uint8_t *)src_idx;
+
+		for (i = 0; i < count; i++) {
+			memcpy(&children[i], src_idx8 + i * sizeof(uint32_t),
+			       sizeof(children[i]));
+		}
+	}
+#endif
+}
+
+static void
 trie_map_node_save_children(unsigned int level, const uint32_t *src_idx,
 			    unsigned int count, struct trie_node **children)
 {
-	unsigned int i, file_bit;
+	unsigned int i;
 
-	file_bit = level == BLOCK_SIZE ? 0 : 1;
+	if (level == BLOCK_SIZE) {
+		trie_map_node_save_leaf(src_idx, count, (uint32_t *)children);
+		return;
+	}
 
 #ifndef ALLOW_UNALIGNED_ACCESS
 	if ((POINTER_CAST_TO(src_idx, size_t) & (sizeof(uint32_t)-1)) == 0) {
 #endif
 		for (i = 0; i < count; i++) {
 			children[i] = src_idx[i] == 0 ? NULL :
-				POINTER_CAST(src_idx[i] | file_bit);
+				POINTER_CAST(src_idx[i] | 1);
 		}
 #ifndef ALLOW_UNALIGNED_ACCESS
 	} else {
 		/* unaligned access */
+		const uint8_t *src_idx8 = (const uint8_t *)src_idx;
 		uint32_t idx;
 
 		for (i = 0; i < count; i++) {
-			memcpy(&idx, &src_idx[i], sizeof(idx));
-			children[i] = idx == 0 ? NULL :
-				POINTER_CAST(idx | file_bit);
+			memcpy(&idx, src_idx8 + i * sizeof(uint32_t),
+			       sizeof(idx));
+			children[i] = idx == 0 ? NULL : POINTER_CAST(idx | 1);
 		}
 	}
 #endif
@@ -311,6 +342,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	uint32_t num, chars8_count, chars16_count;
 	unsigned int chars8_offset, chars8_size, chars8_memsize;
 	unsigned int chars16_offset, chars16_size, chars16_memsize;
+	unsigned int idx_size;
 
 	i_assert(trie->fd != -1);
 
@@ -338,8 +370,11 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 		return -1;
 	}
 
+	idx_size = level == BLOCK_SIZE ?
+		sizeof(uint32_t) : sizeof(struct trie_node *);
+
 	chars8_memsize = ALIGN(chars8_count * sizeof(uint8_t)) +
-		chars8_count * sizeof(struct trie_node *);
+		chars8_count * idx_size;
 
 	if (trie_map_area(trie, chars8_offset, chars8_size + 8) < 0)
 		return -1;
@@ -373,7 +408,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 		}
 
 		chars16_memsize = ALIGN(chars16_count * sizeof(uint16_t)) +
-			chars16_count * sizeof(struct trie_node *);
+			chars16_count * idx_size;
 	}
 
 	node = i_malloc(sizeof(*node) + chars8_memsize + chars16_memsize);
@@ -383,9 +418,9 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 
 	{
 		uint8_t *chars8 = NODE_CHARS8(node);
-		uint16_t *chars16 = NODE_CHARS16(node);
+		uint16_t *chars16 = NODE_CHARS16(node, level);
 		struct trie_node **children8 = NODE_CHILDREN8(node);
-		struct trie_node **children16 = NODE_CHILDREN16(node);
+		struct trie_node **children16 = NODE_CHILDREN16(node, level);
 		const uint32_t *src_idx;
 		const void *end_offset;
 
@@ -434,7 +469,7 @@ static void free_node(struct trie_node *node, unsigned int level)
 {
 	if (level < BLOCK_SIZE) {
 		struct trie_node **children8 = NODE_CHILDREN8(node);
-		struct trie_node **children16 = NODE_CHILDREN16(node);
+		struct trie_node **children16 = NODE_CHILDREN16(node, level);
 
 		free_children(level + 1, children8, node->chars_8bit_count);
 		free_children(level + 1, children16, node->chars_16bit_count);
@@ -937,7 +972,8 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 {
 	struct squat_trie *trie = ctx->trie;
 	struct trie_node *node = *parent;
-	uint32_t char_idx, idx_base_offset;
+	struct trie_node **children;
+	uint32_t char_idx;
 	bool modified = FALSE;
 	int ret;
 
@@ -948,10 +984,9 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 			ctx->node_count++;
 			node = *parent = node_alloc(*data, level);
 			char_idx = 0;
-			count = 1;
 			modified = TRUE;
 		} else {
-			uint8_t *chars = PTR_OFFSET(node, sizeof(*node));
+			uint8_t *chars = NODE_CHARS8(node);
 			uint8_t *pos;
 
 			count = node->chars_8bit_count;
@@ -964,10 +999,9 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 						    *data, level);
 				*parent = node;
 				modified = TRUE;
-				count++;
 			}
 		}
-		idx_base_offset = sizeof(*node) + ALIGN(count);
+		children = NODE_CHILDREN8(node);
 	} else {
 		unsigned int offset = sizeof(*node);
 		unsigned int count;
@@ -976,7 +1010,6 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 			ctx->node_count++;
 			node = *parent = node_alloc(*data, level);
 			char_idx = 0;
-			count = 1;
 			modified = TRUE;
 		} else {
 			unsigned int idx_size;
@@ -998,15 +1031,13 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 						    *data, level);
 				*parent = node;
 				modified = TRUE;
-				count++;
 			}
 		}
 
-		idx_base_offset = offset + ALIGN(sizeof(uint16_t) * count);
+		children = NODE_CHILDREN16(node, level);
 	}
 
 	if (level < BLOCK_SIZE) {
-		struct trie_node **children = PTR_OFFSET(node, idx_base_offset);
 		size_t child_idx = POINTER_CAST_TO(children[char_idx], size_t);
 
 		if ((child_idx & 1) != 0) {
@@ -1021,7 +1052,7 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 		if (ret > 0)
 			node->modified = TRUE;
 	} else {
-		uint32_t *uid_lists = PTR_OFFSET(node, idx_base_offset);
+		uint32_t *uid_lists = (uint32_t *)children;
 		if (squat_uidlist_add(trie->uidlist, &uid_lists[char_idx],
 				      uid) < 0)
 			return -1;
@@ -1035,49 +1066,40 @@ static uint32_t
 trie_lookup_node(struct squat_trie *trie, struct trie_node *node,
 		 const uint16_t *data, unsigned int level)
 {
-	uint32_t char_idx, idx_base_offset;
+	struct trie_node **children;
+	uint32_t char_idx;
 
 	if (*data < 256) {
 		const uint8_t *chars, *pos;
-		unsigned int count;
 
 		if (node == NULL)
 			return 0;
 
-		chars = CONST_PTR_OFFSET(node, sizeof(*node));
-		count = node->chars_8bit_count;
-		pos = bsearch(data, chars, count, sizeof(chars[0]),
-			      chr_8bit_cmp);
+		chars = NODE_CHARS8(node);
+		pos = bsearch(data, chars, node->chars_8bit_count,
+			      sizeof(chars[0]), chr_8bit_cmp);
 		if (pos == NULL || *pos != *data)
 			return 0;
 
 		char_idx = pos - chars;
-		idx_base_offset = sizeof(*node) + ALIGN(count);
+		children = NODE_CHILDREN8(node);
 	} else {
 		const uint16_t *chars, *pos;
-		unsigned int count, idx_size, offset;
 
 		if (node == NULL)
 			return 0;
 
-		idx_size = level < BLOCK_SIZE ?
-			sizeof(struct trie_node *) : sizeof(uint32_t);
-		offset = sizeof(*node) + ALIGN(node->chars_8bit_count) +
-			idx_size * node->chars_8bit_count;
-		chars = PTR_OFFSET(node, offset);
-
-		count = node->chars_16bit_count;
-		pos = bsearch(data, chars, count, sizeof(chars[0]),
-			      chr_16bit_cmp);
+		chars = NODE_CHARS16(node, level);
+		pos = bsearch(data, chars, node->chars_16bit_count,
+			      sizeof(chars[0]), chr_16bit_cmp);
 		if (pos == NULL || *pos != *data)
 			return 0;
 
 		char_idx = pos - chars;
-		idx_base_offset = offset + ALIGN(sizeof(uint16_t) * count);
+		children = NODE_CHILDREN16(node, level);
 	}
 
 	if (level < BLOCK_SIZE) {
-		struct trie_node **children = PTR_OFFSET(node, idx_base_offset);
 		size_t child_idx = POINTER_CAST_TO(children[char_idx], size_t);
 
 		if ((child_idx & 1) != 0) {
@@ -1090,8 +1112,7 @@ trie_lookup_node(struct squat_trie *trie, struct trie_node *node,
 		return trie_lookup_node(trie, children[char_idx],
 					data + 1, level + 1);
 	} else {
-		const uint32_t *uid_lists =
-			CONST_PTR_OFFSET(node, idx_base_offset);
+		const uint32_t *uid_lists = (const uint32_t *)children;
 
 		return uid_lists[char_idx];
 	}
@@ -1234,9 +1255,9 @@ static void node_pack_children(buffer_t *buf, struct trie_node **children,
 static void node_pack(buffer_t *buf, struct trie_node *node)
 {
 	uint8_t *chars8 = NODE_CHARS8(node);
-	uint16_t *chars16 = NODE_CHARS16(node);
+	uint16_t *chars16 = NODE_CHARS16(node, 0);
 	struct trie_node **children8 = NODE_CHILDREN8(node);
-	struct trie_node **children16 = NODE_CHILDREN16(node);
+	struct trie_node **children16 = NODE_CHILDREN16(node, 0);
 
 	buffer_set_used_size(buf, 0);
 	_squat_trie_pack_num(buf, (node->chars_8bit_count << 1) |
@@ -1255,7 +1276,7 @@ static void node_pack(buffer_t *buf, struct trie_node *node)
 static int node_leaf_finish(struct squat_trie *trie, struct trie_node *node)
 {
 	uint32_t *idx8 = (uint32_t *)NODE_CHILDREN8(node);
-	uint32_t *idx16 = (uint32_t *)NODE_CHILDREN16(node);
+	uint32_t *idx16 = (uint32_t *)NODE_CHILDREN16(node, BLOCK_SIZE);
 	unsigned int i;
 
 	for (i = 0; i < node->chars_8bit_count; i++) {
@@ -1272,9 +1293,9 @@ static int node_leaf_finish(struct squat_trie *trie, struct trie_node *node)
 static void node_pack_leaf(buffer_t *buf, struct trie_node *node)
 {
 	uint8_t *chars8 = NODE_CHARS8(node);
-	uint16_t *chars16 = NODE_CHARS16(node);
+	uint16_t *chars16 = NODE_CHARS16(node, BLOCK_SIZE);
 	uint32_t *idx8 = (uint32_t *)NODE_CHILDREN8(node);
-	uint32_t *idx16 = (uint32_t *)NODE_CHILDREN16(node);
+	uint32_t *idx16 = (uint32_t *)NODE_CHILDREN16(node, BLOCK_SIZE);
 
 	buffer_set_used_size(buf, 0);
 	_squat_trie_pack_num(buf, (node->chars_8bit_count << 1) |
@@ -1317,7 +1338,7 @@ static int trie_write_node(struct squat_trie_build_context *ctx,
 
 	if (level < BLOCK_SIZE) {
 		struct trie_node **children8 = NODE_CHILDREN8(node);
-		struct trie_node **children16 = NODE_CHILDREN16(node);
+		struct trie_node **children16 = NODE_CHILDREN16(node, level);
 
 		if (trie_write_node_children(ctx, level + 1,
 					     children8,
@@ -1484,8 +1505,8 @@ static void squat_trie_compress_chars8(struct trie_node *node)
 
 static void squat_trie_compress_chars16(struct trie_node *node)
 {
-	uint16_t *chars = NODE_CHARS16(node);
-	struct trie_node **child_src = NODE_CHILDREN16(node);
+	uint16_t *chars = NODE_CHARS16(node, 0);
+	struct trie_node **child_src = NODE_CHILDREN16(node, 0);
 	struct trie_node **child_dest;
 	unsigned int i, j, old_count;
 
@@ -1496,10 +1517,54 @@ static void squat_trie_compress_chars16(struct trie_node *node)
 	}
 
 	node->chars_16bit_count = j;
-	child_dest = NODE_CHILDREN16(node);
+	child_dest = NODE_CHILDREN16(node, 0);
 
 	for (i = j = 0; i < old_count; i++) {
 		if (child_src[i] != NULL)
+			child_dest[j++] = child_src[i];
+	}
+}
+
+static void squat_trie_compress_leaf_chars8(struct trie_node *node)
+{
+	uint8_t *chars = NODE_CHARS8(node);
+	uint32_t *child_src = (uint32_t *)NODE_CHILDREN8(node);
+	uint32_t *child_dest;
+	unsigned int i, j, old_count;
+
+	old_count = node->chars_8bit_count;
+	for (i = j = 0; i < old_count; i++) {
+		if (child_src[i] != 0)
+			chars[j++] = chars[i];
+	}
+
+	node->chars_8bit_count = j;
+	child_dest = (uint32_t *)NODE_CHILDREN8(node);
+
+	for (i = j = 0; i < old_count; i++) {
+		if (child_src[i] != 0)
+			child_dest[j++] = child_src[i];
+	}
+}
+
+static void squat_trie_compress_leaf_chars16(struct trie_node *node)
+{
+	uint16_t *chars = NODE_CHARS16(node, BLOCK_SIZE);
+	uint32_t *child_src = (uint32_t *)NODE_CHILDREN16(node, BLOCK_SIZE);
+	uint32_t *child_dest;
+	unsigned int i, j, old_count;
+
+	old_count = node->chars_16bit_count;
+	for (i = j = 0; i < old_count; i++) {
+		if (child_src[i] != 0)
+			chars[j++] = chars[i];
+	}
+
+	node->chars_16bit_count = j;
+	child_dest = (uint32_t *)NODE_CHILDREN16(node, BLOCK_SIZE);
+
+	for (i = j = 0; i < old_count; i++) {
+		if (child_src[i] != 0)
 			child_dest[j++] = child_src[i];
 	}
 }
@@ -1543,7 +1608,7 @@ squat_trie_compress_leaf_uidlist(struct squat_trie_compress_context *ctx,
 				 struct trie_node *node)
 {
 	uint32_t *idx8 = (uint32_t *)NODE_CHILDREN8(node);
-	uint32_t *idx16 = (uint32_t *)NODE_CHILDREN16(node);
+	uint32_t *idx16 = (uint32_t *)NODE_CHILDREN16(node, BLOCK_SIZE);
 	unsigned int i;
 	int ret;
 	bool compress_chars = FALSE;
@@ -1558,7 +1623,7 @@ squat_trie_compress_leaf_uidlist(struct squat_trie_compress_context *ctx,
 		}
 	}
 	if (compress_chars) {
-		squat_trie_compress_chars8(node);
+		squat_trie_compress_leaf_chars8(node);
 		compress_chars = FALSE;
 	}
 	for (i = 0; i < node->chars_16bit_count; i++) {
@@ -1571,7 +1636,7 @@ squat_trie_compress_leaf_uidlist(struct squat_trie_compress_context *ctx,
 		}
 	}
 	if (compress_chars) {
-		squat_trie_compress_chars16(node);
+		squat_trie_compress_leaf_chars16(node);
 		node->chars_16bit_count = i;
 	}
 	return 0;
@@ -1598,7 +1663,7 @@ squat_trie_compress_node(struct squat_trie_compress_context *ctx,
 		node_pack_leaf(trie->buf, node);
 	} else {
 		struct trie_node **children8 = NODE_CHILDREN8(node);
-		struct trie_node **children16 = NODE_CHILDREN16(node);
+		struct trie_node **children16 = NODE_CHILDREN16(node, 0);
 
 		if ((ret = squat_trie_compress_children(ctx, children8,
 							node->chars_8bit_count,
