@@ -371,7 +371,8 @@ static bool mail_index_excl_unlock_finish(struct mail_index *index)
 		i_assert(index->lock_type == F_WRLCK);
 		index->lock_type = F_RDLCK;
 
-		(void)file_lock_try_update(index->file_lock, F_RDLCK);
+		if (!MAIL_INDEX_IS_IN_MEMORY(index))
+			(void)file_lock_try_update(index->file_lock, F_RDLCK);
 	}
 
 	if (index->copy_lock_path != NULL) {
@@ -414,7 +415,7 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 		index->lock_id += 2;
 		index->lock_type = F_UNLCK;
 		if (index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
-			if (unlock)
+			if (unlock && !MAIL_INDEX_IS_IN_MEMORY(index))
 				file_unlock(&index->file_lock);
 		}
 		i_assert(index->file_lock == NULL);
