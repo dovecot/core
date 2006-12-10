@@ -169,6 +169,11 @@ index_list_mailbox_open_unchanged_view(struct mailbox *box,
 	list = mail_storage_get_list(box->storage);
 	ilist = INDEX_LIST_CONTEXT(list);
 
+	if (ilist == NULL) {
+		/* indexing disabled */
+		return 0;
+	}
+
 	ret = mailbox_list_index_lookup(ilist->list_index, box->name, &uid);
 	if (ret <= 0)
 		return ret;
