@@ -19,6 +19,11 @@
 #include <fcntl.h>
 #include <ctype.h>
 
+/* normalization changes 0..32 -> 0 */
+#define MAX_8BIT_CHAR_COUNT (256 - 32)
+
+#define FAST_8BIT_LEVEL 2
+
 #define TRIE_COMPRESS_PERCENTAGE 30
 #define TRIE_COMPRESS_MIN_SIZE (1024*50)
 
@@ -157,6 +162,7 @@ struct trie_node {
 		 ALIGN(sizeof(uint16_t) * ((node)->chars_16bit_count)))
 
 static void free_node(struct trie_node *node, unsigned int level);
+static void squat_trie_compress_chars8(struct trie_node *node);
 static int
 squat_trie_compress_node(struct squat_trie_compress_context *ctx,
 			 struct trie_node *node, unsigned int level);
@@ -333,6 +339,25 @@ static int trie_map_area(struct squat_trie *trie, uoff_t offset, size_t len)
 	return 0;
 }
 
+static void
+trie_map_fix_fast_node(struct trie_node *node, unsigned int chars8_count)
+{
+	uint8_t *chars = NODE_CHARS8(node);
+	struct trie_node **children = NODE_CHILDREN8(node);
+	int i, j;
+
+	i_assert(node->chars_8bit_count == MAX_8BIT_CHAR_COUNT);
+
+	j = chars8_count - 1;
+	for (i = node->chars_8bit_count - 1; i >= 0; i--) {
+		if (j >= 0 && i == chars[j])
+			children[i] = children[j--];
+		else
+			children[i] = NULL;
+		chars[i] = i;
+	}
+}
+
 static int
 trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	      struct trie_node **node_r)
@@ -342,7 +367,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	uint32_t num, chars8_count, chars16_count;
 	unsigned int chars8_offset, chars8_size, chars8_memsize;
 	unsigned int chars16_offset, chars16_size, chars16_memsize;
-	unsigned int idx_size;
+	unsigned int idx_size, alloced_chars8_count;
 
 	i_assert(trie->fd != -1);
 
@@ -373,8 +398,10 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	idx_size = level == BLOCK_SIZE ?
 		sizeof(uint32_t) : sizeof(struct trie_node *);
 
-	chars8_memsize = ALIGN(chars8_count * sizeof(uint8_t)) +
-		chars8_count * idx_size;
+	alloced_chars8_count = level <= FAST_8BIT_LEVEL ?
+		MAX_8BIT_CHAR_COUNT : chars8_count;
+	chars8_memsize = ALIGN(alloced_chars8_count * sizeof(uint8_t)) +
+		alloced_chars8_count * idx_size;
 
 	if (trie_map_area(trie, chars8_offset, chars8_size + 8) < 0)
 		return -1;
@@ -412,7 +439,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	}
 
 	node = i_malloc(sizeof(*node) + chars8_memsize + chars16_memsize);
-	node->chars_8bit_count = chars8_count;
+	node->chars_8bit_count = alloced_chars8_count;
 	node->chars_16bit_count = chars16_count;
 	node->file_offset = offset;
 
@@ -433,8 +460,11 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 		src_idx = CONST_PTR_OFFSET(chars8_src, chars8_count);
 		trie_map_node_save_children(level, src_idx, chars8_count,
 					    children8);
+
+		if (alloced_chars8_count != chars8_count)
+			trie_map_fix_fast_node(node, chars8_count);
 		if (chars16_count == 0)
-			end_offset = &src_idx[chars8_count];
+			end_offset = &src_idx[alloced_chars8_count];
 		else {
 			src_idx = CONST_PTR_OFFSET(chars16_src,
 						   chars16_count *
@@ -460,7 +490,7 @@ static void free_children(unsigned int level, struct trie_node **children,
 
 	for (i = 0; i < count; i++) {
 		child_idx = POINTER_CAST_TO(children[i], size_t);
-		if ((child_idx & 1) == 0)
+		if ((child_idx & 1) == 0 && children[i] != NULL)
 			free_node(children[i], level);
 	}
 }
@@ -620,8 +650,11 @@ static int squat_trie_map(struct squat_trie *trie)
 	trie->hdr = hdr;
 	trie->file_cache_modify_counter = trie->hdr->modify_counter;
 
-	if (trie_map_node(trie, trie->hdr->root_offset, 1, &trie->root) < 0)
-		return 0;
+	if (trie->hdr->root_offset != 0) {
+		if (trie_map_node(trie, trie->hdr->root_offset,
+				  1, &trie->root) < 0)
+			return 0;
+	}
 	return 1;
 }
 
@@ -860,12 +893,34 @@ static struct trie_node *
 node_alloc(uint16_t chr, unsigned int level)
 {
 	struct trie_node *node;
-	unsigned int idx_size, idx_offset = sizeof(*node);
+	unsigned int i, idx_size, idx_offset = sizeof(*node);
 
 	idx_size = level < BLOCK_SIZE ?
 		sizeof(struct trie_node *) : sizeof(uint32_t);
 
-	if (chr < 256) {
+	if (level <= FAST_8BIT_LEVEL) {
+		uint8_t *chars;
+		unsigned int chars16_count = chr >= 256 ? 1 : 0;
+
+		node = i_malloc(sizeof(*node) +
+				ALIGN(MAX_8BIT_CHAR_COUNT) +
+				ALIGN(sizeof(uint16_t) * chars16_count) +
+				(MAX_8BIT_CHAR_COUNT + chars16_count) *
+				idx_size);
+		node->chars_8bit_count = MAX_8BIT_CHAR_COUNT;
+
+		chars = NODE_CHARS8(node);
+		for (i = 0; i < MAX_8BIT_CHAR_COUNT; i++)
+			chars[i] = i;
+
+		if (chars16_count > 0) {
+			uint16_t *chrp;
+
+			node->chars_16bit_count = chars16_count;
+			chrp = (uint16_t *)&chars[i];
+			*chrp = chr;
+		}
+	} else if (chr < 256) {
 		uint8_t *chrp;
 
 		idx_offset += ALIGN(sizeof(*chrp));
@@ -982,11 +1037,14 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 	if (*data < 256) {
 		unsigned int count;
 
+		i_assert(*data < MAX_8BIT_CHAR_COUNT);
 		if (node == NULL) {
 			ctx->node_count++;
 			node = *parent = node_alloc(*data, level);
-			char_idx = 0;
+			char_idx = level <= FAST_8BIT_LEVEL ? *data : 0;
 			modified = TRUE;
+		} else if (level <= FAST_8BIT_LEVEL) {
+			char_idx = *data;
 		} else {
 			uint8_t *chars = NODE_CHARS8(node);
 			uint8_t *pos;
@@ -1071,25 +1129,25 @@ trie_lookup_node(struct squat_trie *trie, struct trie_node *node,
 	struct trie_node **children;
 	uint32_t char_idx;
 
+	if (node == NULL)
+		return 0;
+
 	if (*data < 256) {
-		const uint8_t *chars, *pos;
+		if (level <= FAST_8BIT_LEVEL)
+			char_idx = *data;
+		else {
+			const uint8_t *chars, *pos;
+			chars = NODE_CHARS8(node);
+			pos = bsearch(data, chars, node->chars_8bit_count,
+				      sizeof(chars[0]), chr_8bit_cmp);
+			if (pos == NULL || *pos != *data)
+				return 0;
 
-		if (node == NULL)
-			return 0;
-
-		chars = NODE_CHARS8(node);
-		pos = bsearch(data, chars, node->chars_8bit_count,
-			      sizeof(chars[0]), chr_8bit_cmp);
-		if (pos == NULL || *pos != *data)
-			return 0;
-
-		char_idx = pos - chars;
+			char_idx = pos - chars;
+		}
 		children = NODE_CHILDREN8(node);
 	} else {
 		const uint16_t *chars, *pos;
-
-		if (node == NULL)
-			return 0;
 
 		chars = NODE_CHARS16(node, level);
 		pos = bsearch(data, chars, node->chars_16bit_count,
@@ -1245,6 +1303,9 @@ static void node_pack_children(buffer_t *buf, struct trie_node **children,
 	uint32_t idx;
 
 	for (i = 0; i < count; i++) {
+		if (children[i] == NULL)
+			continue;
+
 		child_idx = POINTER_CAST_TO(children[i], size_t);
 		if ((child_idx & 1) != 0)
 			idx = child_idx & ~1;
@@ -1324,7 +1385,7 @@ trie_write_node_children(struct squat_trie_build_context *ctx,
 
 	for (i = 0; i < count; i++) {
 		child_idx = POINTER_CAST_TO(children[i], size_t);
-		if ((child_idx & 1) == 0) {
+		if ((child_idx & 1) == 0 && children[i] != NULL) {
 			if (trie_write_node(ctx, level, children[i]) < 0)
 				return -1;
 		}
@@ -1355,9 +1416,11 @@ static int trie_write_node(struct squat_trie_build_context *ctx,
 	if (!node->modified)
 		return 0;
 
-	if (level < BLOCK_SIZE)
+	if (level < BLOCK_SIZE) {
+		if (level <= FAST_8BIT_LEVEL)
+			squat_trie_compress_chars8(node);
 		node_pack(trie->buf, node);
-	else {
+	} else {
 		if (node_leaf_finish(trie, node) < 0)
 			return -1;
 
@@ -1687,6 +1750,7 @@ squat_trie_compress_node(struct squat_trie_compress_context *ctx,
 			node->file_offset = 0;
 			return 0;
 		}
+
 		node_pack(trie->buf, node);
 	}
 
