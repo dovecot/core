@@ -920,7 +920,7 @@ node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
 			(node->chars_16bit_count + 1) * idx_size;
 	}
 
-	new_node = i_malloc(new_size);
+	new_node = t_buffer_get(new_size);
 	if (chr < 256) {
 		hole1_pos = sizeof(*node) + char_idx;
 		old_idx_offset = sizeof(*node) + ALIGN(node->chars_8bit_count);
@@ -961,8 +961,10 @@ node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
 	       old_size - hole2_pos);
 
 	new_node->resized = TRUE;
-	i_free(node);
-	return new_node;
+
+	node = i_realloc(node, 0, new_size);
+	memcpy(node, new_node, new_size);
+	return node;
 }
 
 static int
