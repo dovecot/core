@@ -2,6 +2,7 @@
 
 extern "C" {
 #include "lib.h"
+#include "unichar.h"
 #include "str-sanitize.h"
 #include "lucene-wrapper.h"
 };
@@ -28,17 +29,6 @@ struct lucene_index {
 
 	Document *doc;
 	uint32_t prev_uid, last_uid;
-};
-
-static const uint8_t utf8_skip_table[256] = {
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-	3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,6,6,1,1
 };
 
 class RawTokenStream : public TokenStream {
@@ -271,21 +261,6 @@ int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r)
 	return 0;
 }
 
-static unsigned int utf8_strlen_n(const void *datap, size_t size)
-{
-	const unsigned char *data = (const unsigned char *)datap;
-	const unsigned char *end = data + size;
-	unsigned int skip, len = 0;
-	size_t i;
-
-	for (i = 0; i < size && data[i] != '\0'; ) {
-		i += utf8_skip_table[data[i] & 0xff];
-		i_assert(i <= size);
-		len++;
-	}
-	return len;
-}
-
 static int lucene_index_build_flush(struct lucene_index *index)
 {
 	int ret = 0;
@@ -315,7 +290,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 	i_assert(uid > index->last_uid);
 	i_assert(size > 0);
 
-	len = utf8_strlen_n(data, size);
+	len = uni_utf8_strlen_n(data, size);
 	wchar_t dest[len+1];
 	lucene_utf8towcs(dest, (const char *)data, len + 1);
 
@@ -452,7 +427,7 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 	quoted_key = strchr(key, ' ') == NULL ?
 		t_strdup_printf("%s*", key) :
 		t_strdup_printf("\"%s\"", key);
-	unsigned int len = utf8_strlen_n(quoted_key, (size_t)-1);
+	unsigned int len = uni_utf8_strlen_n(quoted_key, (size_t)-1);
 	wchar_t tkey[len + 1];
 	lucene_utf8towcs(tkey, quoted_key, len + 1);
 	t_pop();
