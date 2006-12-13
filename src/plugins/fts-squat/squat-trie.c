@@ -10,6 +10,7 @@
 #include "read-full.h"
 #include "write-full.h"
 #include "mmap-util.h"
+#include "unichar.h"
 #include "squat-uidlist.h"
 #include "squat-trie.h"
 
@@ -19,8 +20,8 @@
 #include <fcntl.h>
 #include <ctype.h>
 
-/* normalization changes 0..32 -> 0 */
-#define MAX_8BIT_CHAR_COUNT (256 - 32)
+/* 8bit character counter holds only 255, so we can't use 256. */
+#define MAX_8BIT_CHAR_COUNT 255
 
 #define FAST_8BIT_LEVEL 2
 
@@ -228,9 +229,10 @@ uint32_t _squat_trie_unpack_num(const uint8_t **p, const uint8_t *end)
 	return value;
 }
 
-static const void *data_normalize(const void *data, size_t size, buffer_t *dest)
+static const uint16_t *
+data_normalize(const void *data, size_t size, buffer_t *dest)
 {
-	const uint8_t *src = data;
+	const unsigned char *src = data;
 	size_t i;
 
 	buffer_set_used_size(dest, 0);
@@ -239,12 +241,24 @@ static const void *data_normalize(const void *data, size_t size, buffer_t *dest)
 
 		if (src[i] <= 32)
 			chr = 0;
-		else if (src[i] > 'z')
-			chr = src[i] - 32 - 26;
-		else
+		else if (src[i] <= 'z')
 			chr = i_toupper(src[i]) - 32;
+		else if (src[i] < 128)
+			chr = src[i] - 32 - 26;
+		else {
+			/* UTF-8 input */
+			unichar_t uchr;
+
+			/* FIXME: can we do anything better than just
+			   truncate with >16bit values? */
+			uchr = uni_utf8_get_char_len(src+i, size-i);
+			uchr -= 32 - 26;
+			chr = uchr < (uint16_t)-1 ? uchr : 0;
+			i += uni_utf8_skip[src[i] & 0xff] - 1;
+		}
 		buffer_append(dest, &chr, sizeof(chr));
 	}
+
 	return dest->data;
 }
 
@@ -389,7 +403,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	chars8_offset = p - trie->const_mmap_base;
 	chars8_size = chars8_count * (sizeof(uint8_t) + sizeof(uint32_t));
 
-	if (chars8_count > 256 ||
+	if (chars8_count > MAX_8BIT_CHAR_COUNT ||
 	    chars8_offset + chars8_size > trie->mmap_size) {
 		squat_trie_set_corrupted(trie, "trie offset broken");
 		return -1;
@@ -900,7 +914,7 @@ node_alloc(uint16_t chr, unsigned int level)
 
 	if (level <= FAST_8BIT_LEVEL) {
 		uint8_t *chars;
-		unsigned int chars16_count = chr >= 256 ? 1 : 0;
+		unsigned int chars16_count = chr >= MAX_8BIT_CHAR_COUNT ? 1 : 0;
 
 		node = i_malloc(sizeof(*node) +
 				ALIGN(MAX_8BIT_CHAR_COUNT) +
@@ -920,7 +934,7 @@ node_alloc(uint16_t chr, unsigned int level)
 			chrp = (uint16_t *)&chars[i];
 			*chrp = chr;
 		}
-	} else if (chr < 256) {
+	} else if (chr < MAX_8BIT_CHAR_COUNT) {
 		uint8_t *chrp;
 
 		idx_offset += ALIGN(sizeof(*chrp));
@@ -963,7 +977,7 @@ node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
 		node->chars_16bit_count * idx_size;
 	old_size = sizeof(*node) + old_size_8bit + old_size_16bit;
 
-	if (chr < 256) {
+	if (chr < MAX_8BIT_CHAR_COUNT) {
 		new_idx_offset = sizeof(*node) +
 			ALIGN(node->chars_8bit_count + sizeof(uint8_t));
 		new_size = new_idx_offset + old_size_16bit +
@@ -976,7 +990,7 @@ node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
 	}
 
 	new_node = t_buffer_get(new_size);
-	if (chr < 256) {
+	if (chr < MAX_8BIT_CHAR_COUNT) {
 		hole1_pos = sizeof(*node) + char_idx;
 		old_idx_offset = sizeof(*node) + ALIGN(node->chars_8bit_count);
 	} else {
@@ -988,7 +1002,7 @@ node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
 	hole2_pos = old_idx_offset + idx_size * char_idx;
 
 	memcpy(new_node, node, hole1_pos);
-	if (chr < 256) {
+	if (chr < MAX_8BIT_CHAR_COUNT) {
 		uint8_t *chrp = PTR_OFFSET(new_node, hole1_pos);
 		*chrp = chr;
 		new_node->chars_8bit_count++;
@@ -1034,10 +1048,9 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 	bool modified = FALSE;
 	int ret;
 
-	if (*data < 256) {
+	if (*data < MAX_8BIT_CHAR_COUNT) {
 		unsigned int count;
 
-		i_assert(*data < MAX_8BIT_CHAR_COUNT);
 		if (node == NULL) {
 			ctx->node_count++;
 			node = *parent = node_alloc(*data, level);
@@ -1132,7 +1145,7 @@ trie_lookup_node(struct squat_trie *trie, struct trie_node *node,
 	if (node == NULL)
 		return 0;
 
-	if (*data < 256) {
+	if (*data < MAX_8BIT_CHAR_COUNT) {
 		if (level <= FAST_8BIT_LEVEL)
 			char_idx = *data;
 		else {
@@ -1229,7 +1242,7 @@ int squat_trie_build_deinit(struct squat_trie_build_context *ctx)
 }
 
 int squat_trie_build_more(struct squat_trie_build_context *ctx, uint32_t uid,
-			  const void *data, size_t size)
+			  const unsigned char *data, size_t size)
 {
 	const uint16_t *str;
 	uint16_t buf[(BLOCK_SIZE-1)*2];
@@ -1287,10 +1300,10 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx, uint32_t uid,
 			}
 		}
 	}
-
 	ctx->prev_added_size = I_MIN(size, BLOCK_SIZE-1);
 	memcpy(ctx->prev_added, str + i,
 	       sizeof(ctx->prev_added[0]) * ctx->prev_added_size);
+
 	t_pop();
 	return 0;
 }
@@ -1549,6 +1562,7 @@ squat_trie_build_flush(struct squat_trie_build_context *ctx, bool finish)
 static void squat_trie_compress_chars8(struct trie_node *node)
 {
 	uint8_t *chars = NODE_CHARS8(node);
+	uint16_t *chars16, *old_chars16 = NODE_CHARS16(node, 0);
 	struct trie_node **child_src = NODE_CHILDREN8(node);
 	struct trie_node **child_dest;
 	unsigned int i, j, old_count;
@@ -1565,6 +1579,13 @@ static void squat_trie_compress_chars8(struct trie_node *node)
 	for (i = j = 0; i < old_count; i++) {
 		if (child_src[i] != NULL)
 			child_dest[j++] = child_src[i];
+	}
+
+	if (node->chars_16bit_count > 0) {
+		chars16 = NODE_CHARS16(node, 0);
+		memmove(chars16, old_chars16,
+			ALIGN(sizeof(*chars16) * node->chars_16bit_count) +
+			sizeof(*child_src) * node->chars_16bit_count);
 	}
 }
 
@@ -1646,6 +1667,11 @@ squat_trie_compress_children(struct squat_trie_compress_context *ctx,
 	bool need_char_compress = FALSE;
 
 	for (i = 0; i < count; i++) {
+		if (children[i] == NULL) {
+			need_char_compress = TRUE;
+			continue;
+		}
+
 		child_idx = POINTER_CAST_TO(children[i], size_t);
 		i_assert((child_idx & 1) != 0);
 		child_idx &= ~1;

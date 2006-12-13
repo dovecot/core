@@ -18,7 +18,7 @@ void squat_trie_unlock(struct squat_trie *trie);
 struct squat_trie_build_context *
 squat_trie_build_init(struct squat_trie *trie, uint32_t *last_uid_r);
 int squat_trie_build_more(struct squat_trie_build_context *ctx, uint32_t uid,
-			  const void *data, size_t size);
+			  const unsigned char *data, size_t size);
 int squat_trie_build_deinit(struct squat_trie_build_context *ctx);
 
 int squat_trie_compress(struct squat_trie *trie,
