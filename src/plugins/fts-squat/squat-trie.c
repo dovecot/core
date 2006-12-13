@@ -252,8 +252,12 @@ data_normalize(const void *data, size_t size, buffer_t *dest)
 			/* FIXME: can we do anything better than just
 			   truncate with >16bit values? */
 			uchr = uni_utf8_get_char_len(src+i, size-i);
-			uchr -= 32 - 26;
-			chr = uchr < (uint16_t)-1 ? uchr : 0;
+			if (uchr == (unichar_t)-1)
+				chr = 0;
+			else {
+				uchr -= 32 - 26;
+				chr = uchr < (uint16_t)-1 ? uchr : 0;
+			}
 			i += uni_utf8_skip[src[i] & 0xff] - 1;
 		}
 		buffer_append(dest, &chr, sizeof(chr));
