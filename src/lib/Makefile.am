@@ -82,6 +82,7 @@ liblib_a_SOURCES = \
 	unix-socket-create.c \
 	unlink-directory.c \
 	unlink-lockfiles.c \
+	unichar.c \
 	utc-offset.c \
 	utc-mktime.c \
 	var-expand.c \
@@ -157,6 +158,7 @@ noinst_HEADERS = \
 	unix-socket-create.h \
 	unlink-directory.h \
 	unlink-lockfiles.h \
+	unichar.h \
 	utc-offset.h \
 	utc-mktime.h \
 	var-expand.h \
