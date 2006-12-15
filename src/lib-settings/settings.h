@@ -32,10 +32,15 @@ bool settings_read(const char *path, const char *section,
 		   settings_section_callback_t *sect_callback, void *context);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define settings_read(path, section, callback, sect_callback, context) \
-	({(void)(1 ? 0 : callback(0, 0, context)); \
-	  (void)(1 ? 0 : sect_callback(0, 0, context, 0)); \
+	({(void)(1 ? 0 : callback((const char *)0, (const char *)0, context)); \
+	  (void)(1 ? 0 : sect_callback((const char *)0, (const char *)0, \
+				       context, (const char **)0)); \
 	  settings_read(path, section, (settings_callback_t *)callback, \
 		(settings_section_callback_t *)sect_callback, context); })
+#else
+#  define settings_read(path, section, callback, sect_callback, context) \
+	  settings_read(path, section, (settings_callback_t *)callback, \
+		(settings_section_callback_t *)sect_callback, context)
 #endif
 
 #endif

@@ -100,7 +100,6 @@ bool auth_client_is_connected(struct auth_client *client)
 		client->connections != NULL;
 }
 
-#undef auth_client_set_connect_notify
 void auth_client_set_connect_notify(struct auth_client *client,
 				    auth_connect_notify_callback_t *callback,
 				    void *context)

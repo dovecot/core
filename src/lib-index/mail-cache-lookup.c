@@ -179,7 +179,6 @@ static bool find_offset(struct mail_cache_view *view, uint32_t offset)
 	return FALSE;
 }
 
-#undef mail_cache_foreach
 int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
                        mail_cache_foreach_callback_t *callback, void *context)
 {

@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 
 static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
-			       maildir_file_do_func *func, void *context)
+			       maildir_file_do_func *callback, void *context)
 {
 	const char *fname, *path;
         enum maildir_uidlist_rec_flag flags;
@@ -28,7 +28,7 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
 		/* probably in new/ dir */
 		path = t_strconcat(mbox->path, "/new/", fname, NULL);
-		ret = func(mbox, path, context);
+		ret = callback(mbox, path, context);
 		if (ret != 0) {
 			t_pop();
 			return ret;
@@ -36,18 +36,18 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 	}
 
 	path = t_strconcat(mbox->path, "/cur/", fname, NULL);
-	ret = func(mbox, path, context);
+	ret = callback(mbox, path, context);
 	t_pop();
 	return ret;
 }
 
 #undef maildir_file_do
 int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
-		    maildir_file_do_func *func, void *context)
+		    maildir_file_do_func *callback, void *context)
 {
 	int i, ret;
 
-	ret = maildir_file_do_try(mbox, uid, func, context);
+	ret = maildir_file_do_try(mbox, uid, callback, context);
 	for (i = 0; i < 10 && ret == 0; i++) {
 		/* file is either renamed or deleted. sync the maildir and
 		   see which one. if file appears to be renamed constantly,
@@ -55,7 +55,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		if (maildir_storage_sync_force(mbox) < 0)
 			return -1;
 
-		ret = maildir_file_do_try(mbox, uid, func, context);
+		ret = maildir_file_do_try(mbox, uid, callback, context);
 	}
 
 	if (i == 10) {

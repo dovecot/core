@@ -27,10 +27,18 @@ i_stream_create_header_filter(struct istream *input,
 			      const char *const *headers,
 			      unsigned int headers_count,
 			      header_filter_callback *callback, void *context);
-#define i_stream_create_header_filter(input, flags, headers, headers_count, \
-				      callback, context) \
-	CONTEXT_CALLBACK3(i_stream_create_header_filter, \
-			  header_filter_callback, callback, context, \
-			  input, flags, headers, headers_count)
+#ifdef CONTEXT_TYPE_SAFETY
+#  define i_stream_create_header_filter(input, flags, headers, headers_count, \
+				        callback, context) \
+	({(void)(1 ? 0 : callback((struct message_header_line *)0, \
+				  (bool *)0, context)); \
+	  i_stream_create_header_filter(input, flags, headers, headers_count, \
+			(header_filter_callback *)callback, context); })
+#else
+#  define i_stream_create_header_filter(input, flags, headers, headers_count, \
+				        callback, context) \
+	  i_stream_create_header_filter(input, flags, headers, headers_count, \
+			(header_filter_callback *)callback, context)
+#endif
 
 #endif

@@ -89,10 +89,17 @@ typedef int maildir_file_do_func(struct maildir_mailbox *mbox,
 				 const char *path, void *context);
 
 int maildir_file_do(struct maildir_mailbox *mbox, uint32_t seq,
-		    maildir_file_do_func *func, void *context);
-#define maildir_file_do(mbox, seq, func, context) \
-	CONTEXT_CALLBACK3(maildir_file_do, maildir_file_do_func, \
-			  func, context, mbox, seq)
+		    maildir_file_do_func *callback, void *context);
+#ifdef CONTEXT_TYPE_SAFETY
+#  define maildir_file_do(mbox, seq, callback, context) \
+	({(void)(1 ? 0 : callback((struct maildir_mailbox *)NULL, \
+				  (const char *)NULL, context)); \
+	  maildir_file_do(mbox, seq, \
+		(maildir_file_do_func *)callback, context); })
+#else
+#  define maildir_file_do(mbox, seq, callback, context) \
+	maildir_file_do(mbox, seq, (maildir_file_do_func *)callback, context)
+#endif
 
 const char *maildir_generate_tmp_filename(const struct timeval *tv);
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,

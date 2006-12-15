@@ -99,7 +99,6 @@ static void signal_read(void *context __attr_unused__)
 	}
 }
 
-#undef lib_signals_set_handler
 void lib_signals_set_handler(int signo, bool delayed,
 			     signal_handler_t *handler, void *context)
 {
@@ -163,7 +162,6 @@ void lib_signals_ignore(int signo, bool restart_syscalls)
 		i_fatal("sigaction(%d): %m", signo);
 }
 
-#undef lib_signals_unset_handler
 void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 			       void *context)
 {

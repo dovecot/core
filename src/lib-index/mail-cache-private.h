@@ -199,10 +199,6 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 
 int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 		       mail_cache_foreach_callback_t *callback, void *context);
-#define mail_cache_foreach(view, seq, callback, context) \
-	CONTEXT_CALLBACK5(mail_cache_foreach, \
-			  mail_cache_foreach_callback_t, \
-			  callback, context, view, seq)
 
 int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
 void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);

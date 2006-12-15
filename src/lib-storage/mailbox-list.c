@@ -72,7 +72,6 @@ void mailbox_list_unregister(const struct mailbox_list *list)
 		array_free(&mailbox_list_drivers);
 }
 
-#undef mailbox_list_init
 int mailbox_list_init(const char *driver,
 		      const struct mailbox_list_settings *set,
 		      enum mailbox_list_flags flags,
