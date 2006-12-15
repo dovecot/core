@@ -116,24 +116,6 @@ static void reconnect_timeout(void *context)
 	auth_client_connect_missing_servers(client);
 }
 
-static void auth_client_connect_missing_servers_list(struct auth_client *client,
-						     const char *list)
-{
-	const char *const *path;
-
-	client->reconnect = FALSE;
-
-	t_push();
-	path = t_strsplit(list, ":");
-	for (; *path != NULL; path++) {
-		if (auth_server_connection_find_path(client, *path) == NULL) {
-			if (auth_server_connection_new(client, *path) == NULL)
-				client->reconnect = TRUE;
-		}
-	}
-	t_pop();
-}
-
 void auth_client_connect_missing_servers(struct auth_client *client)
 {
 	DIR *dirp;
