@@ -7,12 +7,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index
 
-lib01_convert_plugin_la_LDFLAGS = -module -avoid-version
+lib20_convert_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
-	lib01_convert_plugin.la
+	lib20_convert_plugin.la
 
-lib01_convert_plugin_la_SOURCES = \
+lib20_convert_plugin_la_SOURCES = \
 	convert-storage.c \
 	convert-plugin.c
 
@@ -49,6 +49,6 @@ convert_tool_DEPENDENCIES = $(libs) $(common_objects)
 install-exec-local:
 	for d in imap pop3 lda; do \
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib01_convert_plugin.so; \
-	  $(LN_S) ../lib01_convert_plugin.so $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_convert_plugin.so; \
+	  $(LN_S) ../lib20_convert_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done

@@ -4,12 +4,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/plugins/fts
 
-lib02_fts_squat_plugin_la_LDFLAGS = -module -avoid-version
+lib21_fts_squat_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
-	lib02_fts_squat_plugin.la
+	lib21_fts_squat_plugin.la
 
-lib02_fts_squat_plugin_la_SOURCES = \
+lib21_fts_squat_plugin_la_SOURCES = \
 	fts-squat-plugin.c \
 	fts-backend-squat.c \
 	squat-trie.c \
@@ -50,6 +50,6 @@ squat_test_DEPENDENCIES = $(libs) $(common_objects)
 install-exec-local:
 	for d in imap lda; do \
 	  $(mkdir_p) $(DESTDIR)$(moduledir)/$$d; \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib02_fts_squat_plugin.so; \
-	  $(LN_S) ../lib02_fts_squat_plugin.so $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib21_fts_squat_plugin.so; \
+	  $(LN_S) ../lib21_fts_squat_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done

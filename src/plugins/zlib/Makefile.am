@@ -7,15 +7,15 @@ AM_CPPFLAGS = \
 
 imap_moduledir = $(moduledir)/imap
 
-lib01_zlib_plugin_la_LDFLAGS = -module -avoid-version
+lib20_zlib_plugin_la_LDFLAGS = -module -avoid-version
 
 imap_module_LTLIBRARIES = \
-	lib01_zlib_plugin.la
+	lib20_zlib_plugin.la
 
-lib01_zlib_plugin_la_LIBADD = \
+lib20_zlib_plugin_la_LIBADD = \
 	-lz
 
-lib01_zlib_plugin_la_SOURCES = \
+lib20_zlib_plugin_la_SOURCES = \
 	istream-zlib.c \
 	zlib-plugin.c
 

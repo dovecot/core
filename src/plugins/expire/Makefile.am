@@ -9,12 +9,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-DPKG_RUNDIR=\""$(rundir)"\"
 
-lib01_expire_plugin_la_LDFLAGS = -module -avoid-version
+lib20_expire_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
-	lib01_expire_plugin.la
+	lib20_expire_plugin.la
 
-lib01_expire_plugin_la_SOURCES = \
+lib20_expire_plugin_la_SOURCES = \
 	expire-env.c \
 	expire-plugin.c
 
@@ -52,6 +52,6 @@ install-exec-local:
 	  $(DESTDIR)$(moduledir)/pop3 \
 	  $(DESTDIR)$(moduledir)/lda
 	for d in imap pop3 lda; do \
-	  rm -f $(DESTDIR)$(moduledir)/$$d/lib01_expire_plugin.so; \
-	  $(LN_S) ../lib01_expire_plugin.so $(DESTDIR)$(moduledir)/$$d; \
+	  rm -f $(DESTDIR)$(moduledir)/$$d/lib20_expire_plugin.so; \
+	  $(LN_S) ../lib20_expire_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done
