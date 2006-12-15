@@ -661,9 +661,7 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 		   mailbox listing sees it. */
 		count = 0;
 		while (rename(src, dest) < 0 && count < 2) {
-			/* EBUSY is given by some NFS implementations */
-			if (errno != EEXIST && errno != ENOTEMPTY &&
-			    errno != EBUSY) {
+			if (!EDESTDIREXISTS(errno)) {
 				mail_storage_set_critical(_storage,
 					"rename(%s, %s) failed: %m", src, dest);
 				return -1;
@@ -771,8 +769,7 @@ static int rename_subfolders(struct mail_storage *storage,
 		   Anyway, the bug with merging is that if both folders have
 		   identically named subfolder they conflict. Just ignore those
 		   and leave them under the old folder. */
-		if (rename(oldpath, newpath) == 0 ||
-		    errno == EEXIST || errno == ENOTEMPTY)
+		if (rename(oldpath, newpath) == 0 || EDESTDIREXISTS(errno))
 			ret = 1;
 		else {
 			mail_storage_set_critical(storage,
@@ -842,7 +839,7 @@ static int maildir_mailbox_rename(struct mail_storage *_storage,
 		return 0;
 	}
 
-	if (errno == EEXIST) {
+	if (EDESTDIREXISTS(errno)) {
 		mail_storage_set_error(_storage,
 				       "Target mailbox already exists");
 		return -1;

@@ -199,4 +199,8 @@ unsigned long long int my_strtoull(const char *nptr, char **endptr, int base);
 #define ECANTLINK(errno) \
 	((errno) == EXDEV || (errno) == EMLINK || (errno) == EPERM)
 
+/* EBUSY is given by some NFS implementations */
+#define EDESTDIREXISTS(errno) \
+	((errno) == EEXIST || (errno) == ENOTEMPTY || (errno) == EBUSY)
+
 #endif
