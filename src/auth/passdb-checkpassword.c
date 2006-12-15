@@ -275,9 +275,8 @@ checkpassword_verify_plain_child(struct auth_request *request,
 	exit(2);
 }
 
-static void checkpassword_child_input(void *context)
+static void checkpassword_child_input(struct chkpw_auth_request *request)
 {
-	struct chkpw_auth_request *request = context;
 	unsigned char buf[1024];
 	ssize_t ret;
 
@@ -302,13 +301,12 @@ static void checkpassword_child_input(void *context)
 	}
 }
 
-static void checkpassword_child_output(void *context)
+static void checkpassword_child_output(struct chkpw_auth_request *request)
 {
 	/* Send: username \0 password \0 timestamp \0.
 	   Must be 512 bytes or less. The "timestamp" parameter is actually
 	   useful only for APOP authentication. We don't support it, so
 	   keep it empty */
-	struct chkpw_auth_request *request = context;
 	struct auth_request *auth_request = request->request;
 	buffer_t *buf;
 	const unsigned char *data;

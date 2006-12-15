@@ -96,10 +96,8 @@ static int dict_process_start(struct dict_process *process)
 	return -1;
 }
 
-static void dict_process_listen_input(void *context)
+static void dict_process_listen_input(struct dict_process *process)
 {
-	struct dict_process *process = context;
-
 	i_assert(process->log == NULL);
 	dict_process_start(process);
 }

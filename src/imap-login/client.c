@@ -147,9 +147,8 @@ static void client_start_tls(struct imap_client *client)
 	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 }
 
-static int client_output_starttls(void *context)
+static int client_output_starttls(struct imap_client *client)
 {
-	struct imap_client *client = context;
 	int ret;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
@@ -333,10 +332,8 @@ bool client_read(struct imap_client *client)
 	}
 }
 
-void client_input(void *context)
+void client_input(struct imap_client *client)
 {
-	struct imap_client *client = context;
-
 	client->last_input = ioloop_time;
 
 	if (!client_read(client))

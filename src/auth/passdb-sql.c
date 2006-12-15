@@ -52,9 +52,9 @@ static void sql_query_save_results(struct sql_result *result,
 	}
 }
 
-static void sql_query_callback(struct sql_result *result, void *context)
+static void sql_query_callback(struct sql_result *result,
+			       struct passdb_sql_request *sql_request)
 {
-	struct passdb_sql_request *sql_request = context;
 	struct auth_request *auth_request = sql_request->auth_request;
 	enum passdb_result passdb_result;
 	const char *user, *password, *scheme;
@@ -179,9 +179,9 @@ static void sql_lookup_credentials(struct auth_request *request,
         sql_lookup_pass(sql_request);
 }
 
-static void sql_set_credentials_callback(const char *error, void *context)
+static void sql_set_credentials_callback(const char *error,
+					 struct passdb_sql_request *sql_request)
 {
-	struct passdb_sql_request *sql_request = context;
 	enum passdb_result result;
 
 	if (error == NULL)

@@ -55,9 +55,8 @@ static int do_save_mail_size(struct maildir_mailbox *mbox, const char *path,
 }
 
 static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
-		       void *context)
+		       struct hardlink_ctx *ctx)
 {
-	struct hardlink_ctx *ctx = context;
 	int ret;
 
 	if (mbox->storage->save_size_in_filename && !ctx->size_set) {

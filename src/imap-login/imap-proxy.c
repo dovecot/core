@@ -83,9 +83,8 @@ static int proxy_input_line(struct imap_client *client,
 }
 
 static void proxy_input(struct istream *input, struct ostream *output,
-			void *context)
+			struct imap_client *client)
 {
-	struct imap_client *client = context;
 	const char *line;
 
 	if (input == NULL) {

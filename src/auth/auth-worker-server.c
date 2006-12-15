@@ -43,7 +43,7 @@ static unsigned int auth_workers_max;
 static char *worker_socket_path;
 static struct timeout *to;
 
-static void worker_input(void *context);
+static void worker_input(struct auth_worker_connection *conn);
 
 static struct auth_worker_connection *auth_worker_create(void)
 {
@@ -201,9 +201,8 @@ static void auth_worker_handle_request(struct auth_worker_connection *conn,
 		idle_count++;
 }
 
-static void worker_input(void *context)
+static void worker_input(struct auth_worker_connection *conn)
 {
-	struct auth_worker_connection *conn = context;
 	struct auth_worker_request *request;
 	const char *line, *id_str;
 	unsigned int id;

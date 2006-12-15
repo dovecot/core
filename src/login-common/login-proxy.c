@@ -29,9 +29,8 @@ struct login_proxy {
 
 static struct hash_table *login_proxies;
 
-static void server_input(void *context)
+static void server_input(struct login_proxy *proxy)
 {
-	struct login_proxy *proxy = context;
 	unsigned char buf[OUTBUF_THRESHOLD];
 	ssize_t ret;
 
@@ -48,9 +47,8 @@ static void server_input(void *context)
                 login_proxy_free(proxy);
 }
 
-static void proxy_client_input(void *context)
+static void proxy_client_input(struct login_proxy *proxy)
 {
-	struct login_proxy *proxy = context;
 	unsigned char buf[OUTBUF_THRESHOLD];
 	ssize_t ret;
 
@@ -67,10 +65,8 @@ static void proxy_client_input(void *context)
                 login_proxy_free(proxy);
 }
 
-static int server_output(void *context)
+static int server_output(struct login_proxy *proxy)
 {
-	struct login_proxy *proxy = context;
-
 	if (o_stream_flush(proxy->server_output) < 0) {
                 login_proxy_free(proxy);
 		return 1;
@@ -87,10 +83,8 @@ static int server_output(void *context)
 	return 1;
 }
 
-static int proxy_client_output(void *context)
+static int proxy_client_output(struct login_proxy *proxy)
 {
-	struct login_proxy *proxy = context;
-
 	if (o_stream_flush(proxy->client_output) < 0) {
                 login_proxy_free(proxy);
 		return 1;
@@ -107,17 +101,14 @@ static int proxy_client_output(void *context)
 	return 1;
 }
 
-static void proxy_prelogin_input(void *context)
+static void proxy_prelogin_input(struct login_proxy *proxy)
 {
-	struct login_proxy *proxy = context;
-
 	proxy->callback(proxy->server_input, proxy->server_output,
 			proxy->context);
 }
 
-static void proxy_wait_connect(void *context)
+static void proxy_wait_connect(struct login_proxy *proxy)
 {
-	struct login_proxy *proxy = context;
 	int err;
 
 	err = net_geterror(proxy->server_fd);

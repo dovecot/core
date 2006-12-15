@@ -100,9 +100,8 @@ static void client_start_tls(struct pop3_client *client)
 	client->io = io_add(client->common.fd, IO_READ, client_input, client);
 }
 
-static int client_output_starttls(void *context)
+static int client_output_starttls(struct pop3_client *client)
 {
-	struct pop3_client *client = context;
 	int ret;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
@@ -198,9 +197,8 @@ bool client_read(struct pop3_client *client)
 	}
 }
 
-void client_input(void *context)
+void client_input(struct pop3_client *client)
 {
-	struct pop3_client *client = context;
 	char *line, *args;
 
 	client->last_input = ioloop_time;

@@ -93,10 +93,11 @@ void sql_transaction_commit(struct sql_transaction_context **ctx,
 #  define sql_transaction_commit(ctx, callback, context) \
 	({(void)(1 ? 0 : callback((const char *)NULL, context)); \
 	  sql_transaction_commit(ctx, \
-		(sql_query_callback_t *)callback, context); })
+		(sql_commit_callback_t *)callback, context); })
 #else
 #  define sql_transaction_commit(ctx, callback, context) \
-	  sql_transaction_commit(ctx, (sql_query_callback_t *)callback, context)
+	  sql_transaction_commit(ctx, \
+		(sql_commit_callback_t *)callback, context)
 #endif
 /* Synchronous commit. Returns 0 if ok, -1 if error. */
 int sql_transaction_commit_s(struct sql_transaction_context **ctx,

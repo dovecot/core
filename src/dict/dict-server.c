@@ -358,9 +358,8 @@ static int dict_client_dict_init(struct dict_client_connection *conn)
 	return 0;
 }
 
-static void dict_client_connection_input(void *context)
+static void dict_client_connection_input(struct dict_client_connection *conn)
 {
-	struct dict_client_connection *conn = context;
 	const char *line;
 	unsigned int i;
 	int ret;
@@ -454,9 +453,8 @@ dict_client_connection_init(struct dict_server *server, int fd)
 	return conn;
 }
 
-static void dict_server_listener_accept(void *context)
+static void dict_server_listener_accept(struct dict_server *server)
 {
-	struct dict_server *server = context;
 	int fd;
 
 	fd = net_accept(server->fd, NULL, NULL);

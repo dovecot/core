@@ -309,9 +309,8 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 	}
 }
 
-static void pam_child_input(void *context)
+static void pam_child_input(struct pam_auth_request *request)
 {
-	struct pam_auth_request *request = context;
 	struct auth_request *auth_request = request->request;
 	enum passdb_result result;
 	char buf[PIPE_BUF + 1];

@@ -88,10 +88,8 @@ static bool event_read_next(struct ioloop *ioloop)
 	return TRUE;
 }
 
-static void event_callback(void *context)
+static void event_callback(struct ioloop *ioloop)
 {
-	struct ioloop *ioloop = context;
-
 	while (event_read_next(ioloop)) ;
 }
 

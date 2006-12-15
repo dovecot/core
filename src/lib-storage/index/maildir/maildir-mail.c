@@ -11,10 +11,8 @@
 #include <sys/stat.h>
 
 static int
-do_open(struct maildir_mailbox *mbox, const char *path, void *context)
+do_open(struct maildir_mailbox *mbox, const char *path, int *fd)
 {
-	int *fd = context;
-
 	*fd = open(path, O_RDONLY);
 	if (*fd != -1)
 		return 1;
@@ -27,10 +25,8 @@ do_open(struct maildir_mailbox *mbox, const char *path, void *context)
 }
 
 static int
-do_stat(struct maildir_mailbox *mbox, const char *path, void *context)
+do_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st)
 {
-	struct stat *st = context;
-
 	if (stat(path, st) == 0)
 		return 1;
 	if (errno == ENOENT)

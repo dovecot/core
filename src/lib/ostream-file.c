@@ -47,7 +47,7 @@ struct file_ostream {
 	unsigned int autoclose_fd:1;
 };
 
-static void stream_send_io(void *context);
+static void stream_send_io(struct file_ostream *fstream);
 
 static void stream_closed(struct file_ostream *fstream)
 {
@@ -339,9 +339,8 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 	fstream->buffer_size = size;
 }
 
-static void stream_send_io(void *context)
+static void stream_send_io(struct file_ostream *fstream)
 {
-	struct file_ostream *fstream = context;
 	struct ostream *ostream = &fstream->ostream.ostream;
 	int ret;
 

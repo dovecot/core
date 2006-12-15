@@ -297,9 +297,8 @@ static int fetch_data(struct imap_fetch_context *ctx,
 }
 
 static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
-		      void *context)
+		      const struct imap_fetch_body_data *body)
 {
-	const struct imap_fetch_body_data *body = context;
 	const struct message_size *fetch_size;
 	struct message_size hdr_size, body_size;
 
@@ -335,10 +334,9 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 static void header_filter_eoh(struct message_header_line *hdr,
-			      bool *matched __attr_unused__, void *context)
+			      bool *matched __attr_unused__,
+			      struct imap_fetch_context *ctx)
 {
-	struct imap_fetch_context *ctx = context;
-
 	if (hdr != NULL && hdr->eoh)
 		ctx->cur_have_eoh = TRUE;
 }
@@ -391,11 +389,10 @@ static int fetch_header_partial_from(struct imap_fetch_context *ctx,
 	return fetch_data(ctx, body, &msg_size);
 }
 
-static int fetch_body_header_partial(struct imap_fetch_context *ctx,
-				     struct mail *mail, void *context)
+static int
+fetch_body_header_partial(struct imap_fetch_context *ctx, struct mail *mail,
+			  const struct imap_fetch_body_data *body)
 {
-	const struct imap_fetch_body_data *body = context;
-
 	ctx->cur_input = mail_get_stream(mail, NULL, NULL);
 	if (ctx->cur_input == NULL)
 		return -1;
@@ -406,10 +403,10 @@ static int fetch_body_header_partial(struct imap_fetch_context *ctx,
 	return fetch_header_partial_from(ctx, body, body->section);
 }
 
-static int fetch_body_header_fields(struct imap_fetch_context *ctx,
-				    struct mail *mail, void *context)
+static int
+fetch_body_header_fields(struct imap_fetch_context *ctx, struct mail *mail,
+			 struct imap_fetch_body_data *body)
 {
-	struct imap_fetch_body_data *body = context;
 	struct message_size size;
 	uoff_t old_offset;
 
@@ -490,9 +487,8 @@ static int part_find(struct mail *mail, const struct imap_fetch_body_data *body,
 }
 
 static int fetch_body_mime(struct imap_fetch_context *ctx, struct mail *mail,
-			   void *context)
+			   const struct imap_fetch_body_data *body)
 {
-	const struct imap_fetch_body_data *body = context;
 	const struct message_part *part;
 	const char *section;
 

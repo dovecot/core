@@ -327,18 +327,16 @@ void index_mail_parse_header(struct message_part *part,
 
 static void
 index_mail_parse_part_header_cb(struct message_part *part,
-				struct message_header_line *hdr, void *context)
+				struct message_header_line *hdr,
+				struct index_mail *mail)
 {
-	struct index_mail *mail = context;
-
 	index_mail_parse_header(part, hdr, mail);
 }
 
 static void
-index_mail_parse_header_cb(struct message_header_line *hdr, void *context)
+index_mail_parse_header_cb(struct message_header_line *hdr,
+			   struct index_mail *mail)
 {
-	struct index_mail *mail = context;
-
 	index_mail_parse_header(mail->data.parts, hdr, mail);
 }
 
@@ -379,10 +377,9 @@ int index_mail_parse_headers(struct index_mail *mail,
 }
 
 static void
-imap_envelope_parse_callback(struct message_header_line *hdr, void *context)
+imap_envelope_parse_callback(struct message_header_line *hdr,
+			     struct index_mail *mail)
 {
-	struct index_mail *mail = context;
-
 	imap_envelope_parse_header(mail->data_pool,
 				   &mail->data.envelope_data, hdr);
 
@@ -592,10 +589,8 @@ const char *index_mail_get_first_header(struct mail *mail, const char *field)
 }
 
 static void header_cache_callback(struct message_header_line *hdr,
-				  bool *matched, void *context)
+				  bool *matched, struct index_mail *mail)
 {
-	struct index_mail *mail = context;
-
 	if (hdr != NULL && hdr->eoh)
 		*matched = FALSE;
 

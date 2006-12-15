@@ -21,9 +21,8 @@ struct index_notify_io {
 	struct io *io;
 };
 
-static void check_timeout(void *context)
+static void check_timeout(struct index_mailbox *ibox)
 {
-	struct index_mailbox *ibox = context;
 	struct index_notify_file *file;
 	struct stat st;
 	time_t last_check;
@@ -53,10 +52,8 @@ static void check_timeout(void *context)
 	}
 }
 
-static void notify_callback(void *context)
+static void notify_callback(struct index_mailbox *ibox)
 {
-	struct index_mailbox *ibox = context;
-
 	ibox->notify_last_check = ioloop_time;
 	if ((unsigned int)(ioloop_time - ibox->notify_last_sent) >=
 	    ibox->min_notify_interval) {

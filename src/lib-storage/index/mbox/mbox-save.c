@@ -322,10 +322,8 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 }
 
 static void save_header_callback(struct message_header_line *hdr,
-				 bool *matched, void *context)
+				 bool *matched, struct mbox_save_context *ctx)
 {
-	struct mbox_save_context *ctx = context;
-
 	if (hdr != NULL) {
 		if (strncmp(hdr->name, "From ", 5) == 0) {
 			/* we can't allow From_-lines in headers. there's no

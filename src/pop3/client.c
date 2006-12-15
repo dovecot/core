@@ -36,8 +36,8 @@ extern struct mail_storage_callbacks mail_storage_callbacks;
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
-static void client_input(void *context);
-static int client_output(void *context);
+static void client_input(struct client *client);
+static int client_output(struct client *client);
 
 static int sync_mailbox(struct mailbox *box, struct mailbox_status *status)
 {
@@ -329,9 +329,8 @@ void client_send_storage_error(struct client *client)
 			 "BUG: Unknown error");
 }
 
-static void client_input(void *context)
+static void client_input(struct client *client)
 {
-	struct client *client = context;
 	char *line, *args;
 	int ret;
 
@@ -388,9 +387,8 @@ static void client_input(void *context)
 		client_destroy(client, NULL);
 }
 
-static int client_output(void *context)
+static int client_output(struct client *client)
 {
-	struct client *client = context;
 	int ret;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {

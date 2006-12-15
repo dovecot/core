@@ -87,9 +87,8 @@ void auth_master_listener_destroy(struct auth_master_listener *listener)
 	i_free(listener);
 }
 
-static void auth_master_listener_accept(void *context)
+static void auth_master_listener_accept(struct auth_master_listener_socket *s)
 {
-	struct auth_master_listener_socket *s = context;
 	struct auth_master_connection *master;
 	int fd;
 

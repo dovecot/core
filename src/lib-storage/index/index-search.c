@@ -126,10 +126,9 @@ static int search_arg_match_index(struct index_mail *imail,
 	}
 }
 
-static void search_init_seqset_arg(struct mail_search_arg *arg, void *context)
+static void search_init_seqset_arg(struct mail_search_arg *arg,
+				   struct index_search_context *ctx)
 {
-	struct index_search_context *ctx = context;
-
 	switch (arg->type) {
 	case SEARCH_SEQSET:
 		ctx->have_seqsets = TRUE;
@@ -143,10 +142,9 @@ static void search_init_seqset_arg(struct mail_search_arg *arg, void *context)
 	}
 }
 
-static void search_seqset_arg(struct mail_search_arg *arg, void *context)
+static void search_seqset_arg(struct mail_search_arg *arg,
+			      struct index_search_context *ctx)
 {
-	struct index_search_context *ctx = context;
-
 	if (arg->type == SEARCH_SEQSET) {
 		if (seqset_contains(arg->value.seqset, ctx->mail_ctx.seq))
 			ARG_SET_RESULT(arg, 1);
@@ -155,10 +153,9 @@ static void search_seqset_arg(struct mail_search_arg *arg, void *context)
 	}
 }
 
-static void search_index_arg(struct mail_search_arg *arg, void *context)
+static void search_index_arg(struct mail_search_arg *arg,
+			     struct index_search_context *ctx)
 {
-	struct index_search_context *ctx = context;
-
 	if (ctx->imail->data.rec == NULL) {
 		/* expunged message */
 		ARG_SET_RESULT(arg, 0);
@@ -258,10 +255,9 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	}
 }
 
-static void search_cached_arg(struct mail_search_arg *arg, void *context)
+static void search_cached_arg(struct mail_search_arg *arg,
+			      struct index_search_context *ctx)
 {
-	struct index_search_context *ctx = context;
-
 	switch (search_arg_match_cached(ctx, arg->type,
 					arg->value.str)) {
 	case -1:
@@ -335,9 +331,9 @@ search_header_context(struct index_search_context *ctx,
 	return arg->context;
 }
 
-static void search_header_arg(struct mail_search_arg *arg, void *context)
+static void search_header_arg(struct mail_search_arg *arg,
+			      struct search_header_context *ctx)
 {
-	struct search_header_context *ctx = context;
         struct header_search_context *hdr_search_ctx;
 	int ret;
 
@@ -437,10 +433,9 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 	}
 }
 
-static void search_header(struct message_header_line *hdr, void *context)
+static void search_header(struct message_header_line *hdr,
+			  struct search_header_context *ctx)
 {
-	struct search_header_context *ctx = context;
-
 	if (hdr == NULL) {
 		/* end of headers, mark all unknown SEARCH_HEADERs unmatched */
 		mail_search_args_foreach(ctx->args, search_header_unmatch, ctx);
@@ -461,9 +456,9 @@ static void search_header(struct message_header_line *hdr, void *context)
 	}
 }
 
-static void search_body(struct mail_search_arg *arg, void *context)
+static void search_body(struct mail_search_arg *arg,
+			struct search_body_context *ctx)
 {
-	struct search_body_context *ctx = context;
         enum message_body_search_error error;
 	int ret;
 	bool retry = FALSE;

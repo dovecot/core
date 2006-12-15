@@ -78,9 +78,9 @@ sql_query_get_result(struct sql_result *result,
 	return reply;
 }
 
-static void sql_query_callback(struct sql_result *sql_result, void *context)
+static void sql_query_callback(struct sql_result *sql_result,
+			       struct userdb_sql_request *sql_request)
 {
-	struct userdb_sql_request *sql_request = context;
 	struct auth_request *auth_request = sql_request->auth_request;
 	struct auth_stream_reply *reply = NULL;
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;

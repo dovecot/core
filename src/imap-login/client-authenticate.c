@@ -44,9 +44,8 @@ const char *client_authenticate_get_capabilities(bool secured)
 	return str_c(str);
 }
 
-static void client_auth_input(void *context)
+static void client_auth_input(struct imap_client *client)
 {
-	struct imap_client *client = context;
 	char *line;
 
 	if (!client_read(client))

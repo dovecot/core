@@ -111,9 +111,8 @@ static void proxy_write_out(struct rawlog_proxy *proxy,
 	proxy->last_out_lf = ((const unsigned char *)buf)[size-1] == '\n';
 }
 
-static void server_input(void *context)
+static void server_input(struct rawlog_proxy *proxy)
 {
-	struct rawlog_proxy *proxy = context;
 	unsigned char buf[OUTBUF_THRESHOLD];
 	ssize_t ret;
 
@@ -133,9 +132,8 @@ static void server_input(void *context)
                 rawlog_proxy_destroy(proxy);
 }
 
-static void client_input(void *context)
+static void client_input(struct rawlog_proxy *proxy)
 {
-	struct rawlog_proxy *proxy = context;
 	unsigned char buf[OUTBUF_THRESHOLD];
 	ssize_t ret;
 
@@ -155,10 +153,8 @@ static void client_input(void *context)
                 rawlog_proxy_destroy(proxy);
 }
 
-static int server_output(void *context)
+static int server_output(struct rawlog_proxy *proxy)
 {
-	struct rawlog_proxy *proxy = context;
-
 	if (o_stream_flush(proxy->server_output) < 0) {
                 rawlog_proxy_destroy(proxy);
 		return 1;
@@ -175,10 +171,8 @@ static int server_output(void *context)
 	return 1;
 }
 
-static int client_output(void *context)
+static int client_output(struct rawlog_proxy *proxy)
 {
-	struct rawlog_proxy *proxy = context;
-
 	if (o_stream_flush(proxy->client_output) < 0) {
                 rawlog_proxy_destroy(proxy);
 		return 1;

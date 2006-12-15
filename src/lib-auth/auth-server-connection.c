@@ -124,9 +124,8 @@ static bool auth_client_input_done(struct auth_server_connection *conn)
 	return TRUE;
 }
 
-static void auth_client_input(void *context)
+static void auth_client_input(struct auth_server_connection *conn)
 {
-	struct auth_server_connection *conn = context;
 	const char *line;
 	int ret;
 

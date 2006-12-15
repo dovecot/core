@@ -71,10 +71,8 @@ static void log_throttle(struct log_io *log_io)
 		to = timeout_add(1000, log_throttle_timeout, NULL);
 }
 
-static void log_read_callback(void *context)
+static void log_read_callback(struct log_io *log_io)
 {
-	struct log_io *log_io = context;
-
 	(void)log_read(log_io);
 }
 

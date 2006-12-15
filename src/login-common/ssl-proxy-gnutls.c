@@ -52,8 +52,8 @@ static gnutls_certificate_credentials x509_cred;
 static gnutls_dh_params dh_params;
 static gnutls_rsa_params rsa_params;
 
-static void ssl_input(void *context);
-static void plain_input(void *context);
+static void ssl_input(struct ssl_proxy *proxy);
+static void plain_input(struct ssl_proxy *proxy);
 static bool ssl_proxy_destroy(struct ssl_proxy *proxy);
 
 static const char *get_alert_text(struct ssl_proxy *proxy)
@@ -158,9 +158,8 @@ static int ssl_proxy_destroy(struct ssl_proxy *proxy)
 	return FALSE;
 }
 
-static void ssl_output(void *context)
+static void ssl_output(struct ssl_proxy *proxy)
 {
-        struct ssl_proxy *proxy = context;
 	int sent;
 
 	sent = net_transmit(proxy->fd_plain,
@@ -183,9 +182,8 @@ static void ssl_output(void *context)
 	proxy->io_ssl = io_add(proxy->fd_ssl, IO_READ, ssl_input, proxy);
 }
 
-static void ssl_input(void *context)
+static void ssl_input(struct ssl_proxy *proxy)
 {
-        struct ssl_proxy *proxy = context;
 	int rcvd, sent;
 
 	rcvd = proxy_recv_ssl(proxy, proxy->outbuf_plain,
@@ -212,9 +210,8 @@ static void ssl_input(void *context)
 	proxy->io_ssl = io_add(proxy->fd_ssl, IO_WRITE, ssl_output, proxy);
 }
 
-static void plain_output(void *context)
+static void plain_output(struct ssl_proxy *proxy)
 {
-	struct ssl_proxy *proxy = context;
 	int sent;
 
 	sent = proxy_send_ssl(proxy, NULL, proxy->send_left_ssl);
@@ -230,9 +227,8 @@ static void plain_output(void *context)
 	proxy->io_plain = io_add(proxy->fd_plain, IO_READ, plain_input, proxy);
 }
 
-static void plain_input(void *context)
+static void plain_input(struct ssl_proxy *proxy)
 {
-	struct ssl_proxy *proxy = context;
 	char buf[1024];
 	ssize_t rcvd, sent;
 
@@ -256,9 +252,8 @@ static void plain_input(void *context)
 	proxy->io_plain = io_add(proxy->fd_ssl, IO_WRITE, plain_output, proxy);
 }
 
-static void ssl_handshake(void *context)
+static void ssl_handshake(struct ssl_proxy *proxy)
 {
-	struct ssl_proxy *proxy = context;
 	int ret, dir;
 
         ret = gnutls_handshake(proxy->session);

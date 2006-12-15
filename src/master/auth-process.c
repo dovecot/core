@@ -64,7 +64,8 @@ static int create_auth_worker(struct auth_process *process, int fd);
 static void auth_processes_start_missing(void *context);
 
 void auth_process_request(struct auth_process *process, unsigned int login_pid,
-			  unsigned int login_id, void *context)
+			  unsigned int login_id,
+			  struct login_auth_request *request)
 {
 	string_t *str;
 	ssize_t ret;
@@ -88,7 +89,7 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 		}
 		auth_process_destroy(process);
 	} else {
-		hash_insert(process->requests, POINTER_CAST(auth_tag), context);
+		hash_insert(process->requests, POINTER_CAST(auth_tag), request);
 	}
 	t_pop();
 }
@@ -96,7 +97,7 @@ void auth_process_request(struct auth_process *process, unsigned int login_pid,
 static bool
 auth_process_input_user(struct auth_process *process, const char *args)
 {
-	void *context;
+	struct login_auth_request *request;
 	const char *const *list;
 	unsigned int id;
 
@@ -110,14 +111,14 @@ auth_process_input_user(struct auth_process *process, const char *args)
 	}
 	id = (unsigned int)strtoul(list[0], NULL, 10);
 
-	context = hash_lookup(process->requests, POINTER_CAST(id));
-	if (context == NULL) {
+	request = hash_lookup(process->requests, POINTER_CAST(id));
+	if (request == NULL) {
 		i_error("BUG: Auth process %s sent unrequested reply with ID "
 			"%u", dec2str(process->pid), id);
 		return FALSE;
 	}
 
-	auth_master_callback(list[1], list + 2, context);
+	auth_master_callback(list[1], list + 2, request);
 	hash_remove(process->requests, POINTER_CAST(id));
 	return TRUE;
 }
@@ -125,19 +126,19 @@ auth_process_input_user(struct auth_process *process, const char *args)
 static bool
 auth_process_input_notfound(struct auth_process *process, const char *args)
 {
-	void *context;
+	struct login_auth_request *request;
 	unsigned int id;
 
 	id = (unsigned int)strtoul(args, NULL, 10);
 
-	context = hash_lookup(process->requests, POINTER_CAST(id));
-	if (context == NULL) {
+	request = hash_lookup(process->requests, POINTER_CAST(id));
+	if (request == NULL) {
 		i_error("BUG: Auth process %s sent unrequested reply with ID "
 			"%u", dec2str(process->pid), id);
 		return FALSE;
 	}
 
-	auth_master_callback(NULL, NULL, context);
+	auth_master_callback(NULL, NULL, request);
 	hash_remove(process->requests, POINTER_CAST(id));
 	return TRUE;
 }
@@ -172,7 +173,7 @@ auth_process_input_spid(struct auth_process *process, const char *args)
 static bool
 auth_process_input_fail(struct auth_process *process, const char *args)
 {
-	void *context;
+	struct login_auth_request *request;
  	const char *error;
 	unsigned int id;
 
@@ -182,21 +183,20 @@ auth_process_input_fail(struct auth_process *process, const char *args)
 
 	id = (unsigned int)strtoul(args, NULL, 10);
 
-	context = hash_lookup(process->requests, POINTER_CAST(id));
-	if (context == NULL) {
+	request = hash_lookup(process->requests, POINTER_CAST(id));
+	if (request == NULL) {
 		i_error("BUG: Auth process %s sent unrequested reply with ID "
 			"%u", dec2str(process->pid), id);
 		return FALSE;
 	}
 
-	auth_master_callback(NULL, NULL, context);
+	auth_master_callback(NULL, NULL, request);
 	hash_remove(process->requests, POINTER_CAST(id));
 	return TRUE;
 }
 
-static void auth_process_input(void *context)
+static void auth_process_input(struct auth_process *process)
 {
-	struct auth_process *process = context;
 	const char *line;
 	bool ret;
 
@@ -255,9 +255,8 @@ static void auth_process_input(void *context)
 	}
 }
 
-static void auth_worker_input(void *context)
+static void auth_worker_input(struct auth_process *p)
 {
-	struct auth_process *p = context;
 	int fd;
 
 	fd = net_accept(p->worker_listen_fd, NULL, NULL);

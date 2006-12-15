@@ -85,9 +85,8 @@ static void login_group_unref(struct login_group *group)
 }
 
 void auth_master_callback(const char *user, const char *const *args,
-			  void *context)
+			  struct login_auth_request *request)
 {
-	struct login_auth_request *request = context;
 	struct master_login_reply master_reply;
 	ssize_t ret;
 
@@ -360,9 +359,8 @@ login_read_request(struct login_process *p, struct master_login_request *req,
 	return 1;
 }
 
-static void login_process_input(void *context)
+static void login_process_input(struct login_process *p)
 {
-	struct login_process *p = context;
 	struct auth_process *auth_process;
 	struct login_auth_request *authreq;
 	struct master_login_request req;

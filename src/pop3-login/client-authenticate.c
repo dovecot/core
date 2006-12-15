@@ -58,9 +58,8 @@ bool cmd_capa(struct pop3_client *client, const char *args __attr_unused__)
 	return TRUE;
 }
 
-static void client_auth_input(void *context)
+static void client_auth_input(struct pop3_client *client)
 {
-	struct pop3_client *client = context;
 	char *line;
 
 	if (!client_read(client))

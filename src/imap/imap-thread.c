@@ -337,9 +337,8 @@ mail_thread_rec_get_msgid(struct thread_context *ctx,
 }
 
 static bool mail_thread_hash_cmp(const void *key, const void *data,
-				 void *context)
+				 struct imap_thread_mailbox *tbox)
 {
-	struct imap_thread_mailbox *tbox = context;
 	struct thread_context *ctx = tbox->ctx;
 	const struct msgid_rec *key_rec = key;
 	const struct mail_thread_rec *rec = data;
@@ -1936,9 +1935,9 @@ static int mail_thread_rec_turn_to_dummy(struct thread_context *ctx,
 static int
 imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			    uint32_t seq, const void *data __attr_unused__,
-			    void **sync_context __attr_unused__, void *context)
+			    void **sync_context __attr_unused__,
+			    struct imap_thread_mailbox *tbox)
 {
-	struct imap_thread_mailbox *tbox = context;
 	struct thread_context *ctx = tbox->ctx;
 	struct msgid_rec key;
 	const struct mail_thread_rec *rec;

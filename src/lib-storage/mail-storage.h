@@ -303,10 +303,20 @@ int mailbox_sync_deinit(struct mailbox_sync_context **ctx,
 			enum mailbox_status_items status_items,
 			struct mailbox_status *status_r);
 
-/* Call given callback function when something changes in the mailbox.
-   It's done until this function is called with callback = NULL. */
+/* Call given callback function when something changes in the mailbox. */
 void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 			    mailbox_notify_callback_t *callback, void *context);
+#ifdef CONTEXT_TYPE_SAFETY
+#  define mailbox_notify_changes(box, min_interval, callback, context) \
+	({(void)(1 ? 0 : callback((struct mailbox *)NULL, context)); \
+	  mailbox_notify_changes(box, min_interval, \
+		(mailbox_notify_callback_t *)callback, context); })
+#else
+#  define mailbox_notify_changes(box, min_interval, callback, context) \
+	  mailbox_notify_changes(box, min_interval, \
+		(mailbox_notify_callback_t *)callback, context)
+#endif
+void mailbox_notify_changes_stop(struct mailbox *box);
 
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,

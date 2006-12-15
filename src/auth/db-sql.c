@@ -48,10 +48,8 @@ static struct sql_connection *sql_conn_find(const char *config_path)
 }
 
 static const char *parse_setting(const char *key, const char *value,
-				 void *context)
+				 struct sql_connection *conn)
 {
-	struct sql_connection *conn = context;
-
 	return parse_setting_from_defs(conn->pool, setting_defs,
 				       &conn->set, key, value);
 }

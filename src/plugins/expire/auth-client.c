@@ -30,7 +30,7 @@ struct auth_connection {
 	unsigned int handshaked:1;
 };
 
-static void auth_input(void *context);
+static void auth_input(struct auth_connection *conn);
 
 static int auth_connection_connect(struct auth_connection *conn)
 {
@@ -149,9 +149,8 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 	conn->return_value = 1;
 }
 
-static void auth_input(void *context)
+static void auth_input(struct auth_connection *conn)
 {
-	struct auth_connection *conn = context;
 	const char *line;
 
 	switch (i_stream_read(conn->input)) {

@@ -395,9 +395,8 @@ static bool client_handle_input(struct client_command_context *cmd)
 	return TRUE;
 }
 
-void _client_input(void *context)
+void _client_input(struct client *client)
 {
-	struct client *client = context;
 	struct client_command_context *cmd = &client->cmd;
 	int ret;
 
@@ -441,9 +440,8 @@ void _client_input(void *context)
 		client_destroy(client, NULL);
 }
 
-int _client_output(void *context)
+int _client_output(struct client *client)
 {
-	struct client *client = context;
 	struct client_command_context *cmd = &client->cmd;
 	int ret;
 	bool finished;

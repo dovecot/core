@@ -28,8 +28,6 @@ struct master_userdb_request {
 	struct auth_request *auth_request;
 };
 
-static int master_output(void *context);
-
 void auth_master_request_callback(const char *reply, void *context)
 {
 	struct auth_master_connection *conn = context;
@@ -148,9 +146,8 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
-static void master_input(void *context)
+static void master_input(struct auth_master_connection *conn)
 {
-	struct auth_master_connection *conn = context;
  	char *line;
 	bool ret;
 
@@ -208,9 +205,8 @@ static void master_input(void *context)
 	}
 }
 
-static int master_output(void *context)
+static int master_output(struct auth_master_connection *conn)
 {
-	struct auth_master_connection *conn = context;
 	int ret;
 
 	if ((ret = o_stream_flush(conn->output)) < 0) {

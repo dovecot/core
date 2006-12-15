@@ -20,7 +20,7 @@
 
 static void auth_client_connection_unref(struct auth_client_connection **_conn);
 
-static void auth_client_input(void *context);
+static void auth_client_input(struct auth_client_connection *conn);
 
 static const char *reply_line_hide_pass(const char *line)
 {
@@ -64,10 +64,9 @@ static void auth_client_send(struct auth_client_connection *conn,
 	t_pop();
 }
 
-static void auth_callback(const char *reply, void *context)
+static void auth_callback(const char *reply,
+			  struct auth_client_connection *conn)
 {
-	struct auth_client_connection *conn = context;
-
 	if (reply == NULL) {
 		/* handler destroyed */
 		auth_client_connection_unref(&conn);
@@ -121,10 +120,8 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	return TRUE;
 }
 
-static int auth_client_output(void *context)
+static int auth_client_output(struct auth_client_connection *conn)
 {
-	struct auth_client_connection *conn = context;
-
 	if (o_stream_flush(conn->output) < 0) {
 		auth_client_connection_destroy(&conn);
 		return 1;
@@ -191,9 +188,8 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 	return TRUE;
 }
 
-static void auth_client_input(void *context)
+static void auth_client_input(struct auth_client_connection *conn)
 {
-	struct auth_client_connection *conn = context;
 	char *line;
 	bool ret;
 
@@ -361,9 +357,8 @@ auth_client_connection_lookup(struct auth_master_listener *listener,
 	return NULL;
 }
 
-static void request_timeout(void *context)
+static void request_timeout(struct auth_master_listener *listener)
 {
-        struct auth_master_listener *listener = context;
 	struct auth_client_connection *const *clients;
 	unsigned int i, count;
 

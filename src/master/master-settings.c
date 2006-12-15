@@ -1032,9 +1032,8 @@ parse_new_namespace(struct server_settings *server, const char *name,
 }
 
 static const char *parse_setting(const char *key, const char *value,
-				 void *context)
+				 struct settings_parse_ctx *ctx)
 {
-	struct settings_parse_ctx *ctx = context;
 	const char *error;
 
 	/* backwards compatibility */
@@ -1170,10 +1169,9 @@ create_new_server(const char *name,
 	return server;
 }
 
-static bool parse_section(const char *type, const char *name, void *context,
-			  const char **errormsg)
+static bool parse_section(const char *type, const char *name,
+			  struct settings_parse_ctx *ctx, const char **errormsg)
 {
-	struct settings_parse_ctx *ctx = context;
 	struct server_settings *server;
 
 	if (type == NULL) {

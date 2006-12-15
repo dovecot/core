@@ -54,7 +54,7 @@ static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
 	io_remove(&client->io);
 
 	if (client->mailbox != NULL)
-		mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
+		mailbox_notify_changes_stop(client->mailbox);
 
 	if (done_ok)
 		client_send_tagline(ctx->cmd, "OK Idle completed.");
@@ -70,9 +70,8 @@ static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
 		_client_input(client);
 }
 
-static void idle_client_input(void *context)
+static void idle_client_input(struct cmd_idle_context *ctx)
 {
-        struct cmd_idle_context *ctx = context;
 	struct client *client = ctx->client;
 	char *line;
 
@@ -113,13 +112,11 @@ static void idle_send_fake_exists(struct cmd_idle_context *ctx)
 	ctx->dummy_seq = client->messages_count+1;
 	client_send_line(client,
 			 t_strdup_printf("* %u EXISTS", ctx->dummy_seq));
-	mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
+	mailbox_notify_changes_stop(client->mailbox);
 }
 
-static void idle_timeout(void *context)
+static void idle_timeout(struct cmd_idle_context *ctx)
 {
-	struct cmd_idle_context *ctx = context;
-
 	/* outlook workaround - it hasn't sent anything for a long time and
 	   we're about to disconnect unless it does something. send a fake
 	   EXISTS to see if it responds. it's expunged later. */
@@ -135,10 +132,8 @@ static void idle_timeout(void *context)
 	idle_send_fake_exists(ctx);
 }
 
-static void keepalive_timeout(void *context)
+static void keepalive_timeout(struct cmd_idle_context *ctx)
 {
-	struct cmd_idle_context *ctx = context;
-
 	if (ctx->client->output_pending) {
 		/* it's busy sending output */
 		return;
@@ -156,10 +151,8 @@ static void idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
 	cmd_idle_continue(ctx->cmd);
 }
 
-static void idle_callback(struct mailbox *box, void *context)
+static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)
 {
-        struct cmd_idle_context *ctx = context;
-
 	if (ctx->sync_ctx != NULL)
 		ctx->sync_pending = TRUE;
 	else {
@@ -192,7 +185,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		if (imap_sync_deinit(ctx->sync_ctx) < 0) {
 			client_send_untagged_storage_error(client,
 				mailbox_get_storage(client->mailbox));
-			mailbox_notify_changes(client->mailbox, 0, NULL, NULL);
+			mailbox_notify_changes_stop(client->mailbox);
 		}
 		ctx->sync_ctx = NULL;
 	}

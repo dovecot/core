@@ -38,9 +38,8 @@ struct ioloop_notify_handler_context {
 	struct io *event_io;
 };
 
-static void event_callback(void *context)
+static void event_callback(struct ioloop_notify_handler_context *ctx)
 {
-	struct ioloop_notify_handler_context *ctx = context;
 	struct io *io;
 	struct kevent ev;
 	struct timespec ts;

@@ -366,10 +366,8 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 
 static void parse_bodystructure_part_header(struct message_part *part,
 					    struct message_header_line *hdr,
-					    void *context)
+					    pool_t pool)
 {
-	pool_t pool = context;
-
 	imap_bodystructure_parse_header(pool, part, hdr);
 }
 

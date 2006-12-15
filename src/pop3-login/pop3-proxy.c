@@ -11,9 +11,8 @@
 #include "pop3-proxy.h"
 
 static void proxy_input(struct istream *input, struct ostream *output,
-			void *context)
+			struct pop3_client *client)
 {
-	struct pop3_client *client = context;
 	string_t *str;
 	const char *line;
 

@@ -108,10 +108,8 @@ void auth_client_set_connect_notify(struct auth_client *client,
 	client->connect_notify_context = context;
 }
 
-static void reconnect_timeout(void *context)
+static void reconnect_timeout(struct auth_client *client)
 {
-	struct auth_client *client = context;
-
 	auth_client_connect_missing_servers(client);
 }
 

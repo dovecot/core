@@ -116,9 +116,8 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 	return_value = EX_OK;
 }
 
-static void auth_input(void *context)
+static void auth_input(struct auth_connection *conn)
 {
-	struct auth_connection *conn = context;
 	const char *line;
 
 	switch (i_stream_read(conn->input)) {
@@ -188,10 +187,8 @@ static struct auth_connection *auth_connection_new(const char *auth_socket)
 	return conn;
 }
 
-static void auth_client_timeout(void *context)
+static void auth_client_timeout(struct auth_connection *conn)
 {
-	struct auth_connection *conn = context;
-
 	if (!conn->handshaked)
 		i_error("Connecting to dovecot-auth timed out");
 	else

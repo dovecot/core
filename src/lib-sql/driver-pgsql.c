@@ -101,9 +101,8 @@ static const char *last_error(struct pgsql_db *db)
 		t_strndup(msg, len-1);
 }
 
-static void connect_callback(void *context)
+static void connect_callback(struct pgsql_db *db)
 {
-	struct pgsql_db *db = context;
 	enum io_condition io_dir = 0;
 	int ret;
 
@@ -211,10 +210,8 @@ driver_pgsql_get_flags(struct sql_db *db __attr_unused__)
 	return 0;
 }
 
-static void consume_results(void *context)
+static void consume_results(struct pgsql_db *db)
 {
-	struct pgsql_db *db = context;
-
 	do {
 		if (!PQconsumeInput(db->pg))
 			break;
@@ -279,9 +276,8 @@ static void result_finish(struct pgsql_result *result)
 	}
 }
 
-static void get_result(void *context)
+static void get_result(struct pgsql_result *result)
 {
-        struct pgsql_result *result = context;
         struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 
 	if (!PQconsumeInput(db->pg)) {
@@ -306,9 +302,8 @@ static void get_result(void *context)
 	result_finish(result);
 }
 
-static void flush_callback(void *context)
+static void flush_callback(struct pgsql_result *result)
 {
-	struct pgsql_result *result = context;
         struct pgsql_db *db = (struct pgsql_db *)result->api.db;
 	int ret;
 
@@ -373,10 +368,8 @@ static void queue_send_next(struct pgsql_db *db)
 	i_free(queue);
 }
 
-static void queue_timeout(void *context)
+static void queue_timeout(struct pgsql_db *db)
 {
-	struct pgsql_db *db = context;
-
 	if (db->querying)
 		return;
 
@@ -742,11 +735,9 @@ driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 }
 
 static void
-transaction_update_callback(struct sql_result *result, void *context)
+transaction_update_callback(struct sql_result *result,
+			    struct pgsql_transaction_context *ctx)
 {
-	struct pgsql_transaction_context *ctx =
-		(struct pgsql_transaction_context *)context;
-
 	if (sql_result_next_row(result) < 0) {
 		ctx->failed = TRUE;
 		ctx->error = sql_result_get_error(result);

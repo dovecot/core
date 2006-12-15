@@ -276,9 +276,8 @@ static void ldap_conn_reconnect(struct ldap_connection *conn)
 	}
 }
 
-static void ldap_input(void *context)
+static void ldap_input(struct ldap_connection *conn)
 {
-	struct ldap_connection *conn = context;
         struct ldap_request *request;
 	struct timeval timeout;
 	LDAPMessage *res;
@@ -639,10 +638,8 @@ const char *ldap_escape(const char *str,
 }
 
 static const char *parse_setting(const char *key, const char *value,
-				 void *context)
+				 struct ldap_connection *conn)
 {
-	struct ldap_connection *conn = context;
-
 	return parse_setting_from_defs(conn->pool, setting_defs,
 				       &conn->set, key, value);
 }

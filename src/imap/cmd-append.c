@@ -29,9 +29,8 @@ struct cmd_append_context {
 static void cmd_append_finish(struct cmd_append_context *ctx);
 static bool cmd_append_continue_message(struct client_command_context *cmd);
 
-static void client_input(void *context)
+static void client_input(struct client *client)
 {
-	struct client *client = context;
 	struct client_command_context *cmd = &client->cmd;
 
 	client->last_input = ioloop_time;

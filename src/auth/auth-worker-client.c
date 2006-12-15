@@ -386,9 +386,8 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
         return TRUE;
 }
 
-static void auth_worker_input(void *context)
+static void auth_worker_input(struct auth_worker_client *client)
 {
-	struct auth_worker_client *client = context;
 	char *line;
 	bool ret;
 
@@ -423,10 +422,8 @@ static void auth_worker_input(void *context)
 	auth_worker_client_unref(&client);
 }
 
-static int auth_worker_output(void *context)
+static int auth_worker_output(struct auth_worker_client *client)
 {
-	struct auth_worker_client *client = context;
-
 	if (o_stream_flush(client->output) < 0) {
 		auth_worker_client_destroy(&client);
 		return 1;
@@ -441,10 +438,8 @@ static int auth_worker_output(void *context)
 	return 1;
 }
 
-static void auth_worker_client_timeout(void *context)
+static void auth_worker_client_timeout(struct auth_worker_client *client)
 {
-	struct auth_worker_client *client = context;
-
 	if (client->last_request + AUTH_WORKER_MAX_IDLE <= ioloop_time)
                 auth_worker_client_destroy(&client);
 }

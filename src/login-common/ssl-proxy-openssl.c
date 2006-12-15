@@ -67,10 +67,10 @@ static SSL_CTX *ssl_ctx;
 static struct hash_table *ssl_proxies;
 static struct ssl_parameters ssl_params;
 
-static void plain_read(void *context);
+static void plain_read(struct ssl_proxy *proxy);
 static void ssl_read(struct ssl_proxy *proxy);
 static void ssl_write(struct ssl_proxy *proxy);
-static void ssl_step(void *context);
+static void ssl_step(struct ssl_proxy *proxy);
 static void ssl_proxy_destroy(struct ssl_proxy *proxy);
 static void ssl_proxy_unref(struct ssl_proxy *proxy);
 
@@ -225,9 +225,8 @@ static void plain_block_input(struct ssl_proxy *proxy, bool block)
 	}
 }
 
-static void plain_read(void *context)
+static void plain_read(struct ssl_proxy *proxy)
 {
-	struct ssl_proxy *proxy = context;
 	ssize_t ret;
 	bool corked = FALSE;
 
@@ -265,9 +264,8 @@ static void plain_read(void *context)
 	ssl_proxy_unref(proxy);
 }
 
-static void plain_write(void *context)
+static void plain_write(struct ssl_proxy *proxy)
 {
-	struct ssl_proxy *proxy = context;
 	ssize_t ret;
 
 	proxy->refcount++;
@@ -424,10 +422,8 @@ static void ssl_write(struct ssl_proxy *proxy)
 	}
 }
 
-static void ssl_step(void *context)
+static void ssl_step(struct ssl_proxy *proxy)
 {
-	struct ssl_proxy *proxy = context;
-
 	proxy->refcount++;
 
 	if (!proxy->handshaked)

@@ -394,9 +394,8 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 }
 
 static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
-			      void *context)
+			      struct maildir_index_sync_context *ctx)
 {
-        struct maildir_index_sync_context *ctx = context;
 	const struct mail_index_sync_rec *recs;
 	const char *dir, *fname, *newfname, *newpath;
 	enum mail_flags flags;
