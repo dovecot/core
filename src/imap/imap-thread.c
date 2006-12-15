@@ -1936,8 +1936,9 @@ static int
 imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			    uint32_t seq, const void *data __attr_unused__,
 			    void **sync_context __attr_unused__,
-			    struct imap_thread_mailbox *tbox)
+			    void *context)
 {
+	struct imap_thread_mailbox *tbox = context;
 	struct thread_context *ctx = tbox->ctx;
 	struct msgid_rec key;
 	const struct mail_thread_rec *rec;
