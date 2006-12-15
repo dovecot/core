@@ -95,16 +95,6 @@ unsigned int auth_client_request_get_id(struct auth_request *request);
 /* Return the PID of the server that handled this request. */
 unsigned int auth_client_request_get_server_pid(struct auth_request *request);
 
-/* -- Using lib-auth with external I/O loop -- */
-
-typedef void *input_func_add_t(int fd, void (*cb)(void *), void *context);
-typedef void *input_func_remove_t(void *io);
-
-struct auth_client *auth_client_new_external(unsigned int client_pid,
-					     const char *socket_paths,
-					     input_func_add_t *add_func,
-					     input_func_remove_t *remove_func);
-/* Call every few seconds. */
 void auth_client_connect_missing_servers(struct auth_client *client);
 
 #endif

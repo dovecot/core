@@ -226,12 +226,7 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	conn->client = client;
 	conn->path = p_strdup(pool, path);
 	conn->fd = fd;
-	if (client->ext_input_add == NULL)
-		conn->io = io_add(fd, IO_READ, auth_client_input, conn);
-	else {
-		conn->ext_input_io =
-			client->ext_input_add(fd, auth_client_input, conn);
-	}
+	conn->io = io_add(fd, IO_READ, auth_client_input, conn);
 	conn->input = i_stream_create_file(fd, default_pool,
 					   AUTH_CLIENT_MAX_LINE_LENGTH, FALSE);
 	conn->output = o_stream_create_file(fd, default_pool, (size_t)-1,
@@ -280,10 +275,6 @@ void auth_server_connection_destroy(struct auth_server_connection **_conn,
 	if (!conn->handshake_received)
 		client->conn_waiting_handshake_count--;
 
-	if (conn->ext_input_io != NULL) {
-		client->ext_input_remove(conn->ext_input_io);
-		conn->ext_input_io = NULL;
-	}
 	if (conn->io != NULL)
 		io_remove(&conn->io);
 

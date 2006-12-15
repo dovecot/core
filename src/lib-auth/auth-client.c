@@ -12,23 +12,11 @@
 
 struct auth_client *auth_client_new(unsigned int client_pid)
 {
-	return auth_client_new_external(client_pid, NULL, NULL, NULL);
-}
-
-struct auth_client *auth_client_new_external(unsigned int client_pid,
-					     const char *socket_paths,
-					     input_func_add_t *add_func,
-					     input_func_remove_t *remove_func)
-{
 	struct auth_client *client;
 
 	client = i_new(struct auth_client, 1);
 	client->pid = client_pid;
-	client->socket_paths = i_strdup(socket_paths);
 	client->available_auth_mechs = buffer_create_dynamic(default_pool, 128);
-
-	client->ext_input_add = add_func;
-	client->ext_input_remove = remove_func;
 
 	auth_client_connect_missing_servers(client);
 	return client;
@@ -57,7 +45,6 @@ void auth_client_free(struct auth_client **_client)
 
 	if (client->to_reconnect != NULL)
 		timeout_remove(&client->to_reconnect);
-	i_free(client->socket_paths);
 	i_free(client);
 }
 
@@ -153,47 +140,39 @@ void auth_client_connect_missing_servers(struct auth_client *client)
 	struct dirent *dp;
 	struct stat st;
 
-	if (client->socket_paths != NULL) {
-		auth_client_connect_missing_servers_list(client,
-							 client->socket_paths);
-	} else {
-		/* we're chrooted */
-		dirp = opendir(".");
-		if (dirp == NULL) {
-			i_fatal("opendir(.) failed when trying to get list of "
-				"authentication servers: %m");
-		}
-
-		client->reconnect = FALSE;
-		while ((dp = readdir(dirp)) != NULL) {
-			const char *name = dp->d_name;
-
-			if (name[0] == '.')
-				continue;
-
-			if (auth_server_connection_find_path(client,
-							     name) != NULL) {
-				/* already connected */
-				continue;
-			}
-
-			/* Normally they're sockets, but in UnixWare they're
-			   created as fifos. */
-			if (stat(name, &st) == 0 &&
-			    (S_ISSOCK(st.st_mode) || S_ISFIFO(st.st_mode))) {
-				if (auth_server_connection_new(client,
-							       name) == NULL)
-					client->reconnect = TRUE;
-			}
-		}
-
-		if (closedir(dirp) < 0)
-			i_error("closedir() failed: %m");
+	/* we're chrooted */
+	dirp = opendir(".");
+	if (dirp == NULL) {
+		i_fatal("opendir(.) failed when trying to get list of "
+			"authentication servers: %m");
 	}
 
+	client->reconnect = FALSE;
+	while ((dp = readdir(dirp)) != NULL) {
+		const char *name = dp->d_name;
+
+		if (name[0] == '.')
+			continue;
+
+		if (auth_server_connection_find_path(client, name) != NULL) {
+			/* already connected */
+			continue;
+		}
+
+		/* Normally they're sockets, but in UnixWare they're
+		   created as fifos. */
+		if (stat(name, &st) == 0 &&
+		    (S_ISSOCK(st.st_mode) || S_ISFIFO(st.st_mode))) {
+			if (auth_server_connection_new(client, name) == NULL)
+				client->reconnect = TRUE;
+		}
+	}
+
+	if (closedir(dirp) < 0)
+		i_error("closedir() failed: %m");
+
 	if (client->reconnect || client->connections == NULL) {
-		if (client->to_reconnect == NULL &&
-		    client->ext_input_add == NULL) {
+		if (client->to_reconnect == NULL) {
 			client->to_reconnect =
 				timeout_add(5000, reconnect_timeout, client);
 		}
