@@ -591,7 +591,7 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 				  const char *name)
 {
 	struct stat st;
-	const char *src, *dest, *index_dir;
+	const char *src, *dest, *index_dir, *control_dir;
 	int count;
 
 	mail_storage_clear_error(_storage);
@@ -632,6 +632,19 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 		    errno != ENOTEMPTY) {
 			mail_storage_set_critical(_storage,
 				"unlink_directory(%s) failed: %m", index_dir);
+			return -1;
+		}
+	}
+	control_dir = mailbox_list_get_path(_storage->list, name,
+					    MAILBOX_LIST_PATH_TYPE_CONTROL);
+	if (strcmp(control_dir, src) != 0 &&
+	    strcmp(control_dir, index_dir) != 0) {
+		i_assert(*name != '/' && *name != '~');
+
+		if (unlink_directory(control_dir, TRUE) < 0 &&
+		    errno != ENOTEMPTY) {
+			mail_storage_set_critical(_storage,
+				"unlink_directory(%s) failed: %m", control_dir);
 			return -1;
 		}
 	}
@@ -678,15 +691,14 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 	return 0;
 }
 
-static int rename_indexes(struct mail_storage *storage,
-			  const char *oldname, const char *newname)
+static int rename_dir(struct mail_storage *storage,
+		      enum mailbox_list_path_type type,
+		      const char *oldname, const char *newname)
 {
 	const char *oldpath, *newpath;
 
-	oldpath = mailbox_list_get_path(storage->list, oldname,
-					MAILBOX_LIST_PATH_TYPE_INDEX);
-	newpath = mailbox_list_get_path(storage->list, newname,
-					MAILBOX_LIST_PATH_TYPE_INDEX);
+	oldpath = mailbox_list_get_path(storage->list, oldname, type);
+	newpath = mailbox_list_get_path(storage->list, newname, type);
 	if (strcmp(oldpath, newpath) == 0)
 		return 0;
 
@@ -770,7 +782,10 @@ static int rename_subfolders(struct mail_storage *storage,
 			break;
 		}
 
-		(void)rename_indexes(storage, old_listname, new_listname);
+		(void)rename_dir(storage, MAILBOX_LIST_PATH_TYPE_CONTROL,
+				 old_listname, new_listname);
+		(void)rename_dir(storage, MAILBOX_LIST_PATH_TYPE_INDEX,
+				 old_listname, new_listname);
 		t_pop();
 	}
 	array_free(&names_arr);
@@ -809,7 +824,10 @@ static int maildir_mailbox_rename(struct mail_storage *_storage,
 
 	ret = rename(oldpath, newpath);
 	if (ret == 0 || errno == ENOENT) {
-		(void)rename_indexes(_storage, oldname, newname);
+		(void)rename_dir(_storage, MAILBOX_LIST_PATH_TYPE_CONTROL,
+				 oldname, newname);
+		(void)rename_dir(_storage, MAILBOX_LIST_PATH_TYPE_INDEX,
+				 oldname, newname);
 
 		found = ret == 0;
 		ret = rename_subfolders(_storage, oldname, newname);
