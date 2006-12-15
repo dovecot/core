@@ -16,7 +16,7 @@ struct namespace {
 	const char *prefix;
 	size_t prefix_len;
 
-	int inbox, hidden, subscriptions;
+	bool inbox, hidden, subscriptions;
 	struct mail_storage *storage;
 };
 
@@ -29,5 +29,7 @@ struct namespace *
 namespace_find(struct namespace *namespaces, const char **mailbox);
 struct namespace *
 namespace_find_visible(struct namespace *namespaces, const char **mailbox);
+struct namespace *
+namespace_find_prefix(struct namespace *namespaces, const char *prefix);
 
 #endif

@@ -235,3 +235,16 @@ namespace_find_visible(struct namespace *namespaces, const char **mailbox)
 {
 	return namespace_find_int(namespaces, mailbox, FALSE);
 }
+
+struct namespace *
+namespace_find_prefix(struct namespace *namespaces, const char *prefix)
+{
+        struct namespace *ns;
+	unsigned int len = strlen(prefix);
+
+	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (ns->prefix_len == len && strcmp(ns->prefix, prefix) == 0)
+			return ns;
+	}
+	return NULL;
+}
