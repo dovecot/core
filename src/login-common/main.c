@@ -276,7 +276,7 @@ static void main_init(void)
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
-        lib_signals_ignore(SIGPIPE);
+        lib_signals_ignore(SIGPIPE, TRUE);
 
 	disable_plaintext_auth = getenv("DISABLE_PLAINTEXT_AUTH") != NULL;
 	process_per_connection = getenv("PROCESS_PER_CONNECTION") != NULL;

@@ -2044,9 +2044,8 @@ static void imap_thread_hash_init(struct mailbox *box, bool create)
 		return;
 
 	ext_id = mail_index_ext_register(ibox->index, "thread", 0, 0, 0);
-	mail_index_register_expunge_handler(ibox->index, ext_id,
-					    imap_thread_expunge_handler,
-					    tbox, TRUE);
+	mail_index_register_expunge_handler(ibox->index, ext_id, TRUE,
+					    imap_thread_expunge_handler, tbox);
 }
 
 static struct mailbox_sync_context *

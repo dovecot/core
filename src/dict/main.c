@@ -69,8 +69,8 @@ static void main_init(void)
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
         lib_signals_set_handler(SIGTERM, TRUE, sig_die, NULL);
-        lib_signals_ignore(SIGPIPE);
-        lib_signals_set_handler(SIGALRM, FALSE, NULL, NULL);
+        lib_signals_ignore(SIGPIPE, TRUE);
+        lib_signals_ignore(SIGALRM, FALSE);
 
 	/* If master dies, the log fd gets closed and we'll quit */
 	log_io = io_add(STDERR_FILENO, IO_ERROR, log_error_callback, NULL);

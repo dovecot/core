@@ -68,8 +68,8 @@ struct mail_search_arg {
 			(res) == -1 ? -1 : !(res); \
 	} STMT_END
 
-typedef void (*mail_search_foreach_callback_t)(struct mail_search_arg *arg,
-					       void *context);
+typedef void mail_search_foreach_callback_t(struct mail_search_arg *arg,
+					    void *context);
 
 /* Reset the results in search arguments. match_always is reset only if
    full_reset is TRUE. */
@@ -78,8 +78,12 @@ void mail_search_args_reset(struct mail_search_arg *args, bool full_reset);
 /* goes through arguments in list that don't have a result yet.
    Returns 1 = search matched, 0 = search unmatched, -1 = don't know yet */
 int mail_search_args_foreach(struct mail_search_arg *args,
-			     mail_search_foreach_callback_t callback,
+			     mail_search_foreach_callback_t *callback,
 			     void *context);
+#define mail_search_args_foreach(args, callback, context) \
+	CONTEXT_CALLBACK2(mail_search_args_foreach, \
+			  mail_search_foreach_callback_t, \
+			  callback, context, args)
 
 /* Fills have_headers and have_body based on if such search argument exists
    that needs to be checked. Returns the headers that we're searching for, or

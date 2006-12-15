@@ -48,6 +48,10 @@ bool auth_client_is_connected(struct auth_client *client);
 void auth_client_set_connect_notify(struct auth_client *client,
 				    auth_connect_notify_callback_t *callback,
 				    void *context);
+#define auth_client_set_connect_notify(client, callback, context) \
+	CONTEXT_CALLBACK3(auth_client_set_connect_notify, \
+			  auth_connect_notify_callback_t, \
+			  callback, context, client)
 const struct auth_mech_desc *
 auth_client_get_available_mechs(struct auth_client *client,
 				unsigned int *mech_count);
@@ -69,6 +73,13 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 			const struct auth_request_info *request_info,
 			auth_request_callback_t *callback, void *context,
 			const char **error_r);
+#ifdef CONTEXT_TYPE_SAFETY
+#  define auth_client_request_new(client, id, request_info, \
+				  callback, context, error_r) \
+	({(void)(1 ? 0 : callback(0, 0, 0, 0, context)); \
+	  auth_client_request_new(client, id, request_info, \
+		(auth_request_callback_t *)callback, context, error_r); })
+#endif
 
 /* Continue authentication. Call when
    reply->result == AUTH_CLIENT_REQUEST_CONTINUE */

@@ -107,7 +107,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 	    		HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR |
 			HEADER_FILTER_HIDE_BODY, exclude_headers,
 			sizeof(exclude_headers) / sizeof(exclude_headers[0]),
-			NULL, NULL);
+			null_header_filter_callback, NULL);
 
 	    while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
 		    if (fwrite(data, size, 1, f) == 0)
@@ -146,7 +146,8 @@ int mail_send_forward(struct mail *mail, const char *forwardto)
     input = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
                                           HEADER_FILTER_NO_CR, hide_headers,
                                           sizeof(hide_headers) /
-                                          sizeof(hide_headers[0]), NULL, NULL);
+					  sizeof(hide_headers[0]),
+					  null_header_filter_callback, NULL);
 
     while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
 	    if (fwrite(data, size, 1, f) == 0)

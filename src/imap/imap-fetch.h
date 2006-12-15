@@ -68,6 +68,9 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 void imap_fetch_add_handler(struct imap_fetch_context *ctx,
 			    bool buffered, bool want_deinit,
 			    imap_fetch_handler_t *handler, void *context);
+#define imap_fetch_add_handler(ctx, buffered, want_deinit, handler, context) \
+	CONTEXT_CALLBACK3(imap_fetch_add_handler, imap_fetch_handler_t, \
+			  handler, context, ctx, buffered, want_deinit)
 
 struct imap_fetch_context *imap_fetch_init(struct client_command_context *cmd);
 int imap_fetch_deinit(struct imap_fetch_context *ctx);

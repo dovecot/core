@@ -190,9 +190,14 @@ struct mail_index {
 
 /* Add/replace sync handler for specified extra record. */
 void mail_index_register_expunge_handler(struct mail_index *index,
-					 uint32_t ext_id,
-					 mail_index_expunge_handler_t *cb,
-					 void *context, bool call_always);
+					 uint32_t ext_id, bool call_always,
+					 mail_index_expunge_handler_t *callback,
+					 void *context);
+#define mail_index_register_expunge_handler(index, ext_id, call_always, \
+					    callback, context) \
+	CONTEXT_CALLBACK5(mail_index_register_expunge_handler, \
+			  mail_index_expunge_handler_t, \
+			  callback, context, index, ext_id, call_always)
 void mail_index_unregister_expunge_handler(struct mail_index *index,
 					   uint32_t ext_id);
 void mail_index_register_sync_handler(struct mail_index *index, uint32_t ext_id,

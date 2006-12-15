@@ -41,6 +41,7 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 	return ret;
 }
 
+#undef maildir_file_do
 int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		    maildir_file_do_func *func, void *context)
 {

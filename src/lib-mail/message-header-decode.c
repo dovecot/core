@@ -84,6 +84,7 @@ message_header_decode_encoded(const unsigned char *data, size_t *size,
 	return ret;
 }
 
+#undef message_header_decode
 void message_header_decode(const unsigned char *data, size_t size,
 			   message_header_decode_callback_t *callback,
 			   void *context)

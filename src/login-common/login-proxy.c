@@ -141,6 +141,7 @@ static void proxy_wait_connect(void *context)
 		io_add(proxy->server_fd, IO_READ, proxy_prelogin_input, proxy);
 }
 
+#undef login_proxy_new
 struct login_proxy *
 login_proxy_new(struct client *client, const char *host, unsigned int port,
 		proxy_callback_t *callback, void *context)

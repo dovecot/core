@@ -26,7 +26,7 @@ void mail_search_args_reset(struct mail_search_arg *args, bool full_reset)
 }
 
 static void search_arg_foreach(struct mail_search_arg *arg,
-			       mail_search_foreach_callback_t callback,
+			       mail_search_foreach_callback_t *callback,
 			       void *context)
 {
 	struct mail_search_arg *subarg;
@@ -84,8 +84,9 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 	}
 }
 
+#undef mail_search_args_foreach
 int mail_search_args_foreach(struct mail_search_arg *args,
-			     mail_search_foreach_callback_t callback,
+			     mail_search_foreach_callback_t *callback,
 			     void *context)
 {
 	int result;

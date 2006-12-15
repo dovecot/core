@@ -183,7 +183,7 @@ static void parse_content_header(struct message_part_body_data *d,
 		    d->content_transfer_encoding == NULL) {
 			message_content_parse_header(value, value_len,
 				parse_content_transfer_encoding,
-				NULL, d);
+				null_parse_content_param_callback, d);
 		}
 		break;
 

@@ -108,10 +108,11 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	return ext_count;
 }
 
+#undef mail_index_register_expunge_handler
 void mail_index_register_expunge_handler(struct mail_index *index,
-					 uint32_t ext_id,
+					 uint32_t ext_id, bool call_always,
 					 mail_index_expunge_handler_t *cb,
-					 void *context, bool call_always)
+					 void *context)
 {
 	struct mail_index_registered_ext *rext;
 

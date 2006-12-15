@@ -45,6 +45,9 @@ void sql_exec(struct sql_db *db, const char *query);
 /* Execute SQL query and return result in callback. */
 void sql_query(struct sql_db *db, const char *query,
 	       sql_query_callback_t *callback, void *context);
+#define sql_query(db, query, callback, context) \
+	CONTEXT_CALLBACK2(sql_query, sql_query_callback_t, \
+			  callback, context, db, query)
 /* Execute blocking SQL query and return result. */
 struct sql_result *sql_query_s(struct sql_db *db, const char *query);
 
@@ -80,6 +83,9 @@ struct sql_transaction_context *sql_transaction_begin(struct sql_db *db);
 /* Commit transaction. */
 void sql_transaction_commit(struct sql_transaction_context **ctx,
 			    sql_commit_callback_t *callback, void *context);
+#define sql_transaction_commit(ctx, callback, context) \
+	CONTEXT_CALLBACK2(sql_transaction_commit, sql_commit_callback_t, \
+			  callback, context, ctx)
 /* Synchronous commit. Returns 0 if ok, -1 if error. */
 int sql_transaction_commit_s(struct sql_transaction_context **ctx,
 			     const char **error_r);

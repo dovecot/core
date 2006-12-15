@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 
+settings_section_callback_t *null_settings_section_callback = NULL;
+
 static const char *get_bool(const char *value, bool *result)
 {
 	if (strcasecmp(value, "yes") == 0)
@@ -59,6 +61,7 @@ parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
+#undef settings_read
 bool settings_read(const char *path, const char *section,
 		   settings_callback_t *callback,
 		   settings_section_callback_t *sect_callback, void *context)

@@ -76,6 +76,7 @@ void sql_exec(struct sql_db *db, const char *query)
 	db->exec(db, query);
 }
 
+#undef sql_query
 void sql_query(struct sql_db *db, const char *query,
 	       sql_query_callback_t *callback, void *context)
 {
@@ -157,6 +158,7 @@ struct sql_transaction_context *sql_transaction_begin(struct sql_db *db)
 	return db->transaction_begin(db);
 }
 
+#undef sql_transaction_commit
 void sql_transaction_commit(struct sql_transaction_context **_ctx,
 			    sql_commit_callback_t *callback, void *context)
 {

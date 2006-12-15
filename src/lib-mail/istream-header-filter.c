@@ -35,6 +35,8 @@ struct header_filter_istream {
 	unsigned int hide_body:1;
 };
 
+header_filter_callback *null_header_filter_callback = NULL;
+
 static void _close(struct _iostream *stream __attr_unused__)
 {
 }
@@ -305,6 +307,7 @@ _stat(struct _istream *stream, bool exact)
 	return &stream->statbuf;
 }
 
+#undef i_stream_create_header_filter
 struct istream *
 i_stream_create_header_filter(struct istream *input,
                               enum header_filter_flags flags,

@@ -40,6 +40,8 @@ struct message_parser_ctx {
 	unsigned int part_seen_content_type:1;
 };
 
+message_part_header_callback_t *null_message_part_header_callback = NULL;
+
 static int parse_next_header_init(struct message_parser_ctx *ctx,
 				  struct message_block *block_r);
 static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
@@ -565,6 +567,7 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	return ret;
 }
 
+#undef message_parser_parse_header
 void message_parser_parse_header(struct message_parser_ctx *ctx,
 				 struct message_size *hdr_size,
 				 message_part_header_callback_t *callback,
@@ -589,6 +592,7 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
         *hdr_size = ctx->part->header_size;
 }
 
+#undef message_parser_parse_body
 void message_parser_parse_body(struct message_parser_ctx *ctx,
 			       message_part_header_callback_t *hdr_callback,
 			       void *context)
@@ -635,6 +639,7 @@ static void part_parse_headers(struct message_part *part, struct istream *input,
 	}
 }
 
+#undef message_parse_from_parts
 void message_parse_from_parts(struct message_part *part, struct istream *input,
 			      message_part_header_callback_t *callback,
 			      void *context)

@@ -422,7 +422,7 @@ bool cmd_append(struct client_command_context *cmd)
 	/* append is special because we're only waiting on client input, not
 	   client output, so disable the standard output handler until we're
 	   finished */
-	o_stream_set_flush_callback(client->output, NULL, NULL);
+	o_stream_unset_flush_callback(client->output);
 
 	ctx->save_parser = imap_parser_create(client->input, client->output,
 					      imap_max_line_length);

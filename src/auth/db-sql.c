@@ -78,7 +78,8 @@ struct sql_connection *db_sql_init(const char *config_path)
 
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_sql_settings;
-	if (!settings_read(config_path, NULL, parse_setting, NULL, conn))
+	if (!settings_read(config_path, NULL, parse_setting,
+			   null_settings_section_callback, conn))
 		exit(FATAL_DEFAULT);
 
 	if (conn->set.driver == NULL) {

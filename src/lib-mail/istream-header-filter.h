@@ -18,6 +18,8 @@ struct message_header_line;
 typedef void header_filter_callback(struct message_header_line *hdr,
 				    bool *matched, void *context);
 
+extern header_filter_callback *null_header_filter_callback;
+
 /* NOTE: headers list must be sorted. */
 struct istream *
 i_stream_create_header_filter(struct istream *input,
@@ -25,5 +27,10 @@ i_stream_create_header_filter(struct istream *input,
 			      const char *const *headers,
 			      unsigned int headers_count,
 			      header_filter_callback *callback, void *context);
+#define i_stream_create_header_filter(input, flags, headers, headers_count, \
+				      callback, context) \
+	CONTEXT_CALLBACK3(i_stream_create_header_filter, \
+			  header_filter_callback, callback, context, \
+			  input, flags, headers, headers_count)
 
 #endif

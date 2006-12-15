@@ -71,6 +71,12 @@ mail_hash_open(struct mail_index *index, const char *suffix,
 	       hash_callback_t *rec_hash_cb,
 	       hash_ctx_cmp_callback_t *key_compare_cb,
 	       void *context);
+#define mail_hash_open(index, suffix, flags, record_size, initial_count, \
+		       key_hash_cb, rec_hash_cb, key_compare_cb, context) \
+	CONTEXT_CALLBACK3(mail_hash_open, \
+			  hash_ctx_cmp_callback_t, \
+			  key_compare_cb, context, index, suffix, flags, \
+			  record_size, initial_count, key_hash_cb, rec_hash_cb)
 void mail_hash_free(struct mail_hash **hash);
 
 /* If reset or resize fails, the hash file is closed and the hash is in

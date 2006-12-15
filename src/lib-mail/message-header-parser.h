@@ -55,5 +55,8 @@ bool message_parse_header_has_nuls(struct message_header_parser_ctx *ctx);
 /* Read and parse the header from the given stream. */
 void message_parse_header(struct istream *input, struct message_size *hdr_size,
 			  message_header_callback_t *callback, void *context);
+#define message_parse_header(input, hdr_size, callback, context) \
+	CONTEXT_CALLBACK2(message_parse_header, message_header_callback_t, \
+			  callback, context, input, hdr_size)
 
 #endif

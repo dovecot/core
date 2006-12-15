@@ -110,6 +110,14 @@ int mailbox_list_init(const char *driver,
 		      enum mailbox_list_flags flags,
 		      mailbox_list_is_mailbox_t *callback, void *context,
 		      struct mailbox_list **list_r, const char **error_r);
+#ifdef CONTEXT_TYPE_SAFETY
+#  define mailbox_list_init(driver, set, flags, callback, context, \
+			    list_r, error_r) \
+	({(void)(1 ? 0 : callback(0, 0, 0, 0, 0, context)); \
+	  mailbox_list_init(driver, set, flags, \
+		(mailbox_list_is_mailbox_t *)callback, context, \
+		list_r, error_r); })
+#endif
 void mailbox_list_deinit(struct mailbox_list *list);
 
 const char *mailbox_list_get_driver_name(struct mailbox_list *list);

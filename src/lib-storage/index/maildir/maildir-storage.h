@@ -90,6 +90,10 @@ typedef int maildir_file_do_func(struct maildir_mailbox *mbox,
 
 int maildir_file_do(struct maildir_mailbox *mbox, uint32_t seq,
 		    maildir_file_do_func *func, void *context);
+#define maildir_file_do(mbox, seq, func, context) \
+	CONTEXT_CALLBACK3(maildir_file_do, maildir_file_do_func, \
+			  func, context, mbox, seq)
+
 const char *maildir_generate_tmp_filename(const struct timeval *tv);
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r);

@@ -41,9 +41,8 @@ static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
 	errno = saved_errno;
 }
 
-static void event_callback(void *context)
+static void event_callback(struct ioloop *ioloop)
 {
-	struct ioloop *ioloop = context;
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
 	struct io *io;

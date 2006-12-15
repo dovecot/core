@@ -311,6 +311,7 @@ void auth_server_requests_remove_all(struct auth_server_connection *conn)
 	hash_iterate_deinit(iter);
 }
 
+#undef auth_client_request_new
 struct auth_request *
 auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 			const struct auth_request_info *request_info,

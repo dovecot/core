@@ -27,6 +27,7 @@ void o_stream_close(struct ostream *stream)
 	stream->closed = TRUE;
 }
 
+#undef o_stream_set_flush_callback
 void o_stream_set_flush_callback(struct ostream *stream,
 				 stream_flush_callback_t *callback,
 				 void *context)
@@ -35,6 +36,14 @@ void o_stream_set_flush_callback(struct ostream *stream,
 
 	_stream->callback = callback;
 	_stream->context = context;
+}
+
+void o_stream_unset_flush_callback(struct ostream *stream)
+{
+	struct _ostream *_stream = stream->real_stream;
+
+	_stream->callback = NULL;
+	_stream->context = NULL;
 }
 
 void o_stream_set_max_buffer_size(struct ostream *stream, size_t max_size)

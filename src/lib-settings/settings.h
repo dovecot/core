@@ -21,6 +21,8 @@ typedef const char *settings_callback_t(const char *key, const char *value,
 typedef bool settings_section_callback_t(const char *type, const char *name,
 					 void *context, const char **errormsg);
 
+extern settings_section_callback_t *null_settings_section_callback;
+
 const char *
 parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
 			const char *key, const char *value);
@@ -28,5 +30,12 @@ parse_setting_from_defs(pool_t pool, struct setting_def *defs, void *base,
 bool settings_read(const char *path, const char *section,
 		   settings_callback_t *callback,
 		   settings_section_callback_t *sect_callback, void *context);
+#ifdef CONTEXT_TYPE_SAFETY
+#  define settings_read(path, section, callback, sect_callback, context) \
+	({(void)(1 ? 0 : callback(0, 0, context)); \
+	  (void)(1 ? 0 : sect_callback(0, 0, context, 0)); \
+	  settings_read(path, section, (settings_callback_t *)callback, \
+		(settings_section_callback_t *)sect_callback, context); })
+#endif
 
 #endif

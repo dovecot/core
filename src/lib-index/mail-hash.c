@@ -528,6 +528,7 @@ static void mail_hash_create_in_memory(struct mail_hash *hash,
 		i_unreached();
 }
 
+#undef mail_hash_open
 struct mail_hash *
 mail_hash_open(struct mail_index *index, const char *suffix,
 	       enum mail_hash_open_flags flags, unsigned int record_size,

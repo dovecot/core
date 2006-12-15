@@ -37,14 +37,22 @@ extern struct ioloop *current_ioloop;
    the behavior will be undefined. */
 struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context);
+#define io_add(fd, condition, callback, context) \
+	CONTEXT_CALLBACK(io_add, io_callback_t, \
+			 callback, context, fd, condition)
 struct io *io_add_notify(const char *path, io_callback_t *callback,
 			 void *context);
+#define io_add_notify(path, callback, context) \
+	CONTEXT_CALLBACK(io_add_notify, io_callback_t, callback, context, path)
 /* Remove I/O handler, and set io pointer to NULL. */
 void io_remove(struct io **io);
 
 /* Timeout handlers */
 struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 			    void *context);
+#define timeout_add(msecs, callback, context) \
+	CONTEXT_CALLBACK(timeout_add, timeout_callback_t, \
+			 callback, context, msecs)
 /* Remove timeout handler, and set timeout pointer to NULL. */
 void timeout_remove(struct timeout **timeout);
 

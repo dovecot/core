@@ -55,6 +55,8 @@ typedef void message_part_header_callback_t(struct message_part *part,
 					    struct message_header_line *hdr,
 					    void *context);
 
+extern message_part_header_callback_t *null_message_part_header_callback;
+
 /* Initialize message parser. part_spool specifies where struct message_parts
    are allocated from. */
 struct message_parser_ctx *
@@ -72,17 +74,29 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
 				 struct message_size *hdr_size,
 				 message_part_header_callback_t *callback,
 				 void *context);
+#define message_parser_parse_header(ctx, hdr_size, callback, context) \
+	CONTEXT_CALLBACK3(message_parser_parse_header, \
+			  message_part_header_callback_t, \
+			  callback, context, ctx, hdr_size)
 /* Read and parse body. If message is a MIME multipart or message/rfc822
    message, hdr_callback is called for all headers. body_callback is called
    for the body content. */
 void message_parser_parse_body(struct message_parser_ctx *ctx,
 			       message_part_header_callback_t *hdr_callback,
 			       void *context);
+#define message_parser_parse_body(ctx, callback, context) \
+	CONTEXT_CALLBACK3(message_parser_parse_body, \
+			  message_part_header_callback_t, \
+			  callback, context, ctx)
 
 /* callback is called for each field in message header. */
 void message_parse_from_parts(struct message_part *part, struct istream *input,
 			      message_part_header_callback_t *callback,
 			      void *context);
+#define message_parse_from_parts(part, input, callback, context) \
+	CONTEXT_CALLBACK3(message_parse_from_parts, \
+			  message_part_header_callback_t, \
+			  callback, context, part, input)
 
 /* Update the physical_size of all parts. If use_crlf is TRUE, they're set
    to same as virtual_size. If use_crlf is FALSE, they're set to

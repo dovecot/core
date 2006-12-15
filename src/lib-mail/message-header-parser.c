@@ -361,6 +361,7 @@ bool message_parse_header_has_nuls(struct message_header_parser_ctx *ctx)
 	return ctx->has_nuls;
 }
 
+#undef message_parse_header
 void message_parse_header(struct istream *input, struct message_size *hdr_size,
 			  message_header_callback_t *callback, void *context)
 {

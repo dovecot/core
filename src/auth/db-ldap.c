@@ -684,7 +684,8 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 	conn->fd = -1;
 	conn->config_path = p_strdup(pool, config_path);
 	conn->set = default_ldap_settings;
-	if (!settings_read(config_path, NULL, parse_setting, NULL, conn))
+	if (!settings_read(config_path, NULL, parse_setting,
+			   null_settings_section_callback, conn))
 		exit(FATAL_DEFAULT);
 
 	if (conn->set.base == NULL)

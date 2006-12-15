@@ -12,5 +12,9 @@ typedef bool message_header_decode_callback_t(const unsigned char *data,
 void message_header_decode(const unsigned char *data, size_t size,
 			   message_header_decode_callback_t *callback,
 			   void *context);
+#define message_header_decode(data, size, callback, context) \
+	CONTEXT_CALLBACK4(message_header_decode, \
+			  message_header_decode_callback_t, \
+			  callback, context, data, size)
 
 #endif

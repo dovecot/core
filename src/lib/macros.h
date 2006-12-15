@@ -128,6 +128,35 @@
 #  define MEMBER(name)
 #endif
 
+/* Macros to provide type safety for callback functions' context parameters */
+#ifdef __GNUC__
+#  define CONTEXT_TYPE_SAFETY
+#endif
+#ifdef CONTEXT_TYPE_SAFETY
+#  define CONTEXT_CALLBACK(name, callback_type, callback, context, ...) \
+	({(void)(1 ? 0 : callback(context)); \
+	name(__VA_ARGS__, (callback_type *)callback, context); })
+#  define CONTEXT_CALLBACK2(name, callback_type, callback, context, ...) \
+	({(void)(1 ? 0 : callback(0, context)); \
+	name(__VA_ARGS__, (callback_type *)callback, context); })
+#  define CONTEXT_CALLBACK3(name, callback_type, callback, context, ...) \
+	({(void)(1 ? 0 : callback(0, 0, context)); \
+	name(__VA_ARGS__, (callback_type *)callback, context); })
+#  define CONTEXT_CALLBACK4(name, callback_type, callback, context, ...) \
+	({(void)(1 ? 0 : callback(0, 0, 0, context)); \
+	name(__VA_ARGS__, (callback_type *)callback, context); })
+#  define CONTEXT_CALLBACK5(name, callback_type, callback, context, ...) \
+	({(void)(1 ? 0 : callback(0, 0, 0, 0, context)); \
+	name(__VA_ARGS__, (callback_type *)callback, context); })
+#else
+#  define CONTEXT_CALLBACK(name, callback_type, callback, context, ...) \
+	name(__VA_ARGS__, (callback_type *)callback, context)
+#  define CONTEXT_CALLBACK2 CONTEXT_CALLBACK
+#  define CONTEXT_CALLBACK3 CONTEXT_CALLBACK
+#  define CONTEXT_CALLBACK4 CONTEXT_CALLBACK
+#  define CONTEXT_CALLBACK5 CONTEXT_CALLBACK
+#endif
+
 /* Wrap the gcc __PRETTY_FUNCTION__ and __FUNCTION__ variables with
    macros, so we can refer to them as strings unconditionally. */
 #ifdef __GNUC__

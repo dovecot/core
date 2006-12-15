@@ -14,6 +14,7 @@ struct timezone ioloop_timezone;
 
 struct ioloop *current_ioloop = NULL;
 
+#undef io_add
 struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context)
 {
@@ -41,6 +42,7 @@ struct io *io_add(int fd, enum io_condition condition,
 	return io;
 }
 
+#undef io_add_notify
 struct io *io_add_notify(const char *path, io_callback_t *callback,
 			 void *context)
 {
@@ -138,6 +140,7 @@ static void timeout_update_next(struct timeout *timeout, struct timeval *tv_now)
 	}
 }
 
+#undef timeout_add
 struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 			    void *context)
 {

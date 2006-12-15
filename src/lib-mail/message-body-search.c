@@ -149,9 +149,9 @@ static bool message_search_header(struct part_search_context *ctx,
 				continue;
 			}
 			message_content_parse_header(hdr->full_value,
-						     hdr->full_value_len,
-						     parse_content_encoding,
-						     NULL, ctx);
+				hdr->full_value_len,
+				parse_content_encoding,
+				null_parse_content_param_callback, ctx);
 		}
 	}
 	i_assert(ret != 0);

@@ -5,6 +5,10 @@
 #include "rfc822-parser.h"
 #include "message-content-parser.h"
 
+parse_content_callback_t *null_parse_content_callback = NULL;
+parse_content_param_callback_t *null_parse_content_param_callback = NULL;
+
+#undef message_content_parse_header
 void message_content_parse_header(const unsigned char *data, size_t size,
 				  parse_content_callback_t *callback,
 				  parse_content_param_callback_t *param_cb,

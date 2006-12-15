@@ -29,6 +29,7 @@ struct auth_request_handler {
 static buffer_t *auth_failures_buf;
 static struct timeout *to_auth_failures;
 
+#undef auth_request_handler_create
 struct auth_request_handler *
 auth_request_handler_create(struct auth *auth,
 			    auth_request_callback_t *callback, void *context,

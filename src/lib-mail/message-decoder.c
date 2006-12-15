@@ -148,7 +148,7 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 	    strcasecmp(hdr->name, "Content-Type") == 0) {
 		message_content_parse_header(hdr->full_value,
 					     hdr->full_value_len,
-					     NULL,
+					     null_parse_content_callback,
 					     parse_content_type_param, ctx);
 	}
 	if (hdr->name_len == 25 &&
@@ -156,7 +156,8 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 		message_content_parse_header(hdr->full_value,
 					     hdr->full_value_len,
 					     parse_content_encoding,
-					     NULL, ctx);
+					     null_parse_content_param_callback,
+					     ctx);
 	}
 
 	buffer_set_used_size(ctx->buf, 0);

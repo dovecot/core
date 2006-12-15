@@ -597,7 +597,8 @@ static void index_mail_parse_body(struct index_mail *mail,
 		data->save_bodystructure_body = FALSE;
 		data->parsed_bodystructure = TRUE;
 	} else {
-		message_parser_parse_body(data->parser_ctx, NULL, NULL);
+		message_parser_parse_body(data->parser_ctx,
+			null_message_part_header_callback, NULL);
 	}
 	index_mail_parse_body_finish(mail, field, FALSE);
 
