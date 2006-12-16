@@ -54,17 +54,22 @@ struct passdb_module_interface *passdb_interfaces[] = {
 };
 
 const char *
-passdb_credentials_to_str(enum passdb_credentials credentials)
+passdb_credentials_to_str(enum passdb_credentials credentials,
+			  const char *wanted_scheme)
 {
 	switch (credentials) {
 	case _PASSDB_CREDENTIALS_INTERNAL:
 		break;
 	case PASSDB_CREDENTIALS_PLAINTEXT:
+		if (strcasecmp(wanted_scheme, "CLEARTEXT") == 0)
+			return wanted_scheme;
 		return "PLAIN";
 	case PASSDB_CREDENTIALS_CRYPT:
 		return "CRYPT";
 	case PASSDB_CREDENTIALS_CRAM_MD5:
-		return "HMAC-MD5";
+		if (strcasecmp(wanted_scheme, "HMAC-MD5") == 0)
+			return wanted_scheme;
+		return "CRAM-MD5";
 	case PASSDB_CREDENTIALS_DIGEST_MD5:
 		return "DIGEST-MD5";
 	case PASSDB_CREDENTIALS_LANMAN:
@@ -93,7 +98,8 @@ passdb_get_credentials(struct auth_request *auth_request,
 		return t_strdup_printf("{%s}%s", scheme, password);
 	}
 
-	wanted_scheme = passdb_credentials_to_str(auth_request->credentials);
+	wanted_scheme = passdb_credentials_to_str(auth_request->credentials,
+						  wanted_scheme);
 	if (strcasecmp(scheme, wanted_scheme) != 0) {
 		if (strcasecmp(scheme, "PLAIN") != 0 &&
 		    strcasecmp(scheme, "CLEARTEXT") != 0) {

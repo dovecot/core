@@ -551,7 +551,7 @@ void auth_request_set_credentials(struct auth_request *request,
 	request->private_callback.set_credentials = callback;
 
 	new_credentials = t_strconcat("{",
-		passdb_credentials_to_str(credentials), "}", data, NULL);
+		passdb_credentials_to_str(credentials, ""), "}", data, NULL);
 
 	if (passdb->blocking)
 		passdb_blocking_set_credentials(request, new_credentials);

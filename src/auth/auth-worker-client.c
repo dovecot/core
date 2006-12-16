@@ -171,7 +171,7 @@ lookup_credentials_callback(enum passdb_result result, const char *credentials,
 		str_printfa(str, "FAIL\t%d", result);
 	else {
 		str_printfa(str, "OK\t%s\t{%s}%s\t", request->user,
-			    passdb_credentials_to_str(request->credentials),
+			    passdb_credentials_to_str(request->credentials, ""),
 			    credentials);
 		if (request->extra_fields != NULL) {
 			const char *field =
