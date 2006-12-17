@@ -545,6 +545,8 @@ static void maildir_quota_deinit(struct quota_root *_root)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 
+	if (root->fd != -1)
+		(void)close(root->fd);
 	i_free(root);
 }
 
