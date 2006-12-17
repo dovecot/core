@@ -396,12 +396,12 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 	output_errno = ctx->output->stream_errno;
 	o_stream_destroy(&ctx->output);
 
-	/* FIXME: when saving multiple messages, we could get better
-	   performance if we left the fd open and fsync()ed it later */
-	if (fsync(ctx->fd) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
-					  "fsync(%s) failed: %m", path);
-		ctx->failed = TRUE;
+	if (!ctx->mbox->ibox.fsync_disable) {
+		if (fsync(ctx->fd) < 0) {
+			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+						  "fsync(%s) failed: %m", path);
+			ctx->failed = TRUE;
+		}
 	}
 	if (close(ctx->fd) < 0) {
 		mail_storage_set_critical(STORAGE(ctx->mbox->storage),

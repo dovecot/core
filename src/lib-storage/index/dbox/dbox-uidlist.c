@@ -806,6 +806,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 static int
 dbox_uidlist_write_append_offsets(struct dbox_uidlist_append_ctx *ctx)
 {
+	struct mail_storage *storage = STORAGE(ctx->uidlist->mbox->storage);
 	struct dbox_save_file *const *files;
         struct dbox_file_header hdr;
 	unsigned int i, count;
@@ -813,6 +814,16 @@ dbox_uidlist_write_append_offsets(struct dbox_uidlist_append_ctx *ctx)
 
 	files = array_get(&ctx->files, &count);
 	for (i = 0; i < count; i++) {
+		if (!ctx->uidlist->mbox->ibox.fsync_disable) {
+			if (fsync(files[i]->file->fd) < 0) {
+				mail_storage_set_critical(storage,
+							"fsync(%s) failed: %m",
+							files[i]->file->path);
+				ret = -1;
+				continue;
+			}
+		}
+
 		DEC2HEX(hdr.append_offset_hex,
 			files[i]->file->output->offset);
 
@@ -820,10 +831,9 @@ dbox_uidlist_write_append_offsets(struct dbox_uidlist_append_ctx *ctx)
 				sizeof(hdr.append_offset_hex),
 				offsetof(struct dbox_file_header,
 					 append_offset_hex)) < 0) {
-			mail_storage_set_critical(
-				STORAGE(ctx->uidlist->mbox->storage),
-				"pwrite_full(%s) failed: %m",
-				files[i]->file->path);
+			mail_storage_set_critical(storage,
+						  "pwrite_full(%s) failed: %m",
+						  files[i]->file->path);
 			ret = -1;
 		}
 	}

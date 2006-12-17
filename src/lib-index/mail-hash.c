@@ -310,9 +310,11 @@ static int mail_hash_file_write_changes(struct mail_hash *hash)
 		}
 	}
 
-	if (fdatasync(hash->fd) < 0) {
-		mail_hash_set_syscall_error(hash, "fdatasync()");
-		return -1;
+	if (!hash->index->fsync_disable) {
+		if (fdatasync(hash->fd) < 0) {
+			mail_hash_set_syscall_error(hash, "fdatasync()");
+			return -1;
+		}
 	}
 
 	/* now that the file is guaranteed to be updated, reset the

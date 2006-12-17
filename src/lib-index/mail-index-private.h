@@ -181,6 +181,7 @@ struct mail_index {
 	unsigned int opened:1;
 	unsigned int log_locked:1;
 	unsigned int mmap_disable:1;
+	unsigned int fsync_disable:1;
 	unsigned int mmap_no_write:1;
 	unsigned int readonly:1;
 	unsigned int fsck:1;

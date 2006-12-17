@@ -318,12 +318,18 @@ void index_storage_lock_notify_reset(struct index_mailbox *ibox)
 void index_storage_mailbox_open(struct index_mailbox *ibox)
 {
 	struct mail_storage *storage = &ibox->storage->storage;
-	enum mail_index_open_flags index_flags;
+	enum mail_index_open_flags index_flags = 0;
 	int ret;
 
 	i_assert(!ibox->box.opened);
 
-	index_flags = ibox->move_to_memory ? 0 : MAIL_INDEX_OPEN_FLAG_CREATE;
+	if (getenv("FSYNC_DISABLE") != NULL) {
+		ibox->fsync_disable = TRUE;
+		index_flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
+	}
+
+	if (ibox->move_to_memory)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
 #ifndef MMAP_CONFLICTS_WRITE

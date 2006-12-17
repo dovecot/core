@@ -272,10 +272,13 @@ int mail_index_lock_exclusive(struct mail_index *index,
 
 static int mail_index_copy_lock_finish(struct mail_index *index)
 {
-	if (fsync(index->fd) < 0) {
-		mail_index_file_set_syscall_error(index, index->copy_lock_path,
-						  "fsync()");
-		return -1;
+	if (!index->fsync_disable) {
+		if (fsync(index->fd) < 0) {
+			mail_index_file_set_syscall_error(index,
+							  index->copy_lock_path,
+							  "fsync()");
+			return -1;
+		}
 	}
 
 	if (rename(index->copy_lock_path, index->filepath) < 0) {

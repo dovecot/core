@@ -19,7 +19,9 @@ enum mail_index_open_flags {
 	/* Don't try to write() to mmap()ed index files. Required for the few
 	   OSes that don't have unified buffer cache
 	   (currently OpenBSD <= 3.5) */
-	MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE	= 0x08
+	MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE	= 0x08,
+	/* Don't fsync() or fdatasync() */
+	MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE	= 0x10
 };
 
 enum mail_index_header_compat_flags {

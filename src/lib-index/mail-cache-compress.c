@@ -229,10 +229,12 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 
 	o_stream_destroy(&output);
 
-	if (fdatasync(fd) < 0) {
-		mail_cache_set_syscall_error(cache, "fdatasync()");
-		(void)mail_index_transaction_rollback(&t);
-		return -1;
+	if (!cache->index->fsync_disable) {
+		if (fdatasync(fd) < 0) {
+			mail_cache_set_syscall_error(cache, "fdatasync()");
+			(void)mail_index_transaction_rollback(&t);
+			return -1;
+		}
 	}
 
 	return mail_index_transaction_commit(&t, &seq, &offset);

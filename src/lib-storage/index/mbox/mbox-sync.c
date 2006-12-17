@@ -1758,7 +1758,7 @@ __again:
 	}
 
 	if (ret == 0 && mbox->mbox_lock_type == F_WRLCK &&
-	    !mbox->mbox_writeonly) {
+	    !mbox->mbox_writeonly && !mbox->ibox.fsync_disable) {
 		if (fsync(mbox->mbox_fd) < 0) {
 			mbox_set_syscall_error(mbox, "fsync()");
 			ret = -1;

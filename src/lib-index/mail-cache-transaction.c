@@ -659,7 +659,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		ret = -1;
 	else if (mail_cache_write(cache, data, size, offset) < 0)
 		ret = -1;
-	else if (fdatasync(cache->fd) < 0) {
+	else if (!cache->index->fsync_disable && fdatasync(cache->fd) < 0) {
 		mail_cache_set_syscall_error(cache, "fdatasync()");
 		ret = -1;
 	} else if (mail_cache_header_fields_get_next_offset(cache,
