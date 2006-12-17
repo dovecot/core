@@ -30,6 +30,7 @@ enum lazy_namespace {
 
 struct lazy_expunge_mail_storage {
 	struct mail_storage_vfuncs super;
+	bool internal_namespace;
 };
 
 struct lazy_expunge_mailbox {
@@ -61,7 +62,8 @@ mailbox_open_or_create(struct mail_storage *storage, const char *name)
 	bool syntax, temp;
 
 	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
-			   MAILBOX_OPEN_KEEP_RECENT);
+			   MAILBOX_OPEN_KEEP_RECENT |
+			   MAILBOX_OPEN_NO_INDEX_FILES);
 	if (box != NULL)
 		return box;
 
@@ -96,7 +98,7 @@ static int lazy_expunge_mail_expunge(struct mail *_mail)
 		}
 	}
 
-	seq_range_array_add(&lt->expunge_seqs, 32, _mail->seq);
+	seq_range_array_add(&lt->expunge_seqs, 32, _mail->uid);
 	return 0;
 }
 
@@ -145,7 +147,7 @@ static int lazy_expunge_move_expunges(struct mailbox *srcbox,
 	const struct seq_range *range;
 	unsigned int i, count;
 	const char *dir;
-	uint32_t seq;
+	uint32_t seq, uid, seq1, seq2;
 	bool is_file;
 	int ret = 0;
 
@@ -163,14 +165,21 @@ static int lazy_expunge_move_expunges(struct mailbox *srcbox,
 
 	range = array_get(&lt->expunge_seqs, &count);
 	for (i = 0; i < count && ret == 0; i++) {
-		for (seq = range[i].seq1; seq <= range[i].seq2; seq++) {
-			ret = maildir_file_do(msrcbox, seq, lazy_expunge_move,
-					      &ctx);
-			if (ret < 0)
-				break;
-
-			mail_index_expunge(itrans->trans, seq);
+		if (mailbox_get_uids(srcbox, range[i].seq1, range[i].seq2,
+				     &seq1, &seq2) < 0) {
+			ret = -1;
+			break;
 		}
+
+		for (uid = range[i].seq1; uid <= range[i].seq2; uid++) {
+			if (maildir_file_do(msrcbox, uid, lazy_expunge_move,
+					    &ctx) < 0) {
+				ret = -1;
+				break;
+			}
+		}
+		for (seq = seq1; seq <= seq2; seq++)
+			mail_index_expunge(itrans->trans, seq);
 	}
 
 	if (mailbox_transaction_commit(&trans, 0) < 0)
@@ -249,8 +258,8 @@ lazy_expunge_mailbox_open(struct mail_storage *storage, const char *name,
 	struct lazy_expunge_mailbox *qbox;
 
 	box = lstorage->super.mailbox_open(storage, name, input, flags);
-	if (box == NULL)
-		return NULL;
+	if (box == NULL || lstorage->internal_namespace)
+		return box;
 
 	qbox = p_new(box->pool, struct lazy_expunge_mailbox, 1);
 	qbox->super = box->v;
@@ -377,12 +386,17 @@ mailbox_move(struct mail_storage *src_storage, const char *src_name,
 static int
 lazy_expunge_mailbox_delete(struct mail_storage *storage, const char *name)
 {
+	struct lazy_expunge_mail_storage *lstorage =
+		LAZY_EXPUNGE_CONTEXT(storage);
 	struct mail_storage *dest_storage;
 	enum mailbox_name_status status;
 	const char *destname;
 	struct tm *tm;
 	char timestamp[256];
 	int ret;
+
+	if (lstorage->internal_namespace)
+		return lstorage->super.mailbox_delete(storage, name);
 
 	mail_storage_clear_error(storage);
 
@@ -426,6 +440,9 @@ lazy_expunge_mailbox_delete(struct mail_storage *storage, const char *name)
 static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 {
 	struct lazy_expunge_mail_storage *lstorage;
+
+	if (lazy_expunge_next_hook_mail_storage_created != NULL)
+		lazy_expunge_next_hook_mail_storage_created(storage);
 
 	/* only maildir supported for now */
 	if (strcmp(storage->name, "maildir") != 0)
@@ -475,7 +492,7 @@ static void lazy_expunge_hook_client_created(struct client **client)
 		/* we don't want to override these namespaces' expunge/delete
 		   operations. */
 		lstorage = LAZY_EXPUNGE_CONTEXT(lazy_namespaces[i]->storage);
-		lazy_namespaces[i]->storage->v = lstorage->super;
+		lstorage->internal_namespace = TRUE;
 	}
 	t_pop();
 }
