@@ -88,7 +88,7 @@ extern struct mail_vfuncs maildir_mail_vfuncs;
 typedef int maildir_file_do_func(struct maildir_mailbox *mbox,
 				 const char *path, void *context);
 
-int maildir_file_do(struct maildir_mailbox *mbox, uint32_t seq,
+int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		    maildir_file_do_func *callback, void *context);
 #ifdef CONTEXT_TYPE_SAFETY
 #  define maildir_file_do(mbox, seq, callback, context) \
