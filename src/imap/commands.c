@@ -48,7 +48,8 @@ const struct command imap_ext_commands[] = {
 	{ "UID EXPUNGE",	cmd_uid_expunge },
 	{ "UID SORT",		cmd_sort },
 	{ "UID THREAD",		cmd_thread },
-	{ "UNSELECT",		cmd_unselect }
+	{ "UNSELECT",		cmd_unselect },
+	{ "X-CANCEL",		cmd_x_cancel }
 };
 #define IMAP_EXT_COMMANDS_COUNT \
 	(sizeof(imap_ext_commands) / sizeof(imap_ext_commands[0]))

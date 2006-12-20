@@ -62,12 +62,7 @@ static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
 		client_send_tagline(ctx->cmd, "BAD Expected DONE.");
 
 	o_stream_uncork(client->output);
-
-	client->bad_counter = 0;
-	_client_reset_command(client);
-
-	if (client->input_pending)
-		_client_input(client);
+	client_command_free(ctx->cmd);
 }
 
 static void idle_client_input(struct cmd_idle_context *ctx)
@@ -134,7 +129,7 @@ static void idle_timeout(struct cmd_idle_context *ctx)
 
 static void keepalive_timeout(struct cmd_idle_context *ctx)
 {
-	if (ctx->client->output_pending) {
+	if (ctx->client->output_lock != NULL) {
 		/* it's busy sending output */
 		return;
 	}
@@ -166,6 +161,11 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_idle_context *ctx = cmd->context;
 
+	if (cmd->cancel) {
+		idle_finish(ctx, FALSE);
+		return TRUE;
+	}
+
 	if (ctx->manual_cork)  {
 		/* we're coming from idle_callback instead of a normal
 		   I/O handler, so we'll have to do corking manually */
@@ -179,6 +179,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 				ctx->manual_cork = FALSE;
 				o_stream_uncork(client->output);
 			}
+			cmd->output_pending = TRUE;
 			return FALSE;
 		}
 
@@ -201,7 +202,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		   so we return here instead of doing everything twice. */
 		return FALSE;
 	}
-        client->output_pending = FALSE;
+        cmd->output_pending = FALSE;
 
 	if (ctx->manual_cork) {
 		ctx->manual_cork = FALSE;
@@ -255,7 +256,6 @@ bool cmd_idle(struct client_command_context *cmd)
 	client->io = io_add(i_stream_get_fd(client->input),
 			    IO_READ, idle_client_input, ctx);
 
-	client->command_pending = TRUE;
 	cmd->func = cmd_idle_continue;
 	cmd->context = ctx;
 

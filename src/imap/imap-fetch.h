@@ -57,6 +57,7 @@ struct imap_fetch_context {
 	unsigned int cur_have_eoh:1;
 	unsigned int cur_append_eoh:1;
 	unsigned int first:1;
+	unsigned int line_partial:1;
 	unsigned int line_finished:1;
 	unsigned int partial_fetch:1;
 	unsigned int failed:1;

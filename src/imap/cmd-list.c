@@ -389,6 +389,13 @@ static bool cmd_list_continue(struct client_command_context *cmd)
         struct cmd_list_context *ctx = cmd->context;
 	int ret;
 
+	if (cmd->cancel) {
+		if (ctx->list_iter != NULL) {
+			if (mailbox_list_iter_deinit(&ctx->list_iter) < 0)
+				mail_storage_set_list_error(ctx->ns->storage);
+		}
+		return TRUE;
+	}
 	for (; ctx->ns != NULL; ctx->ns = ctx->ns->next) {
 		if (ctx->list_iter == NULL)
 			list_namespace_init(cmd, ctx);
@@ -497,7 +504,7 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 		cmd->context = ctx;
 		if (!cmd_list_continue(cmd)) {
 			/* unfinished */
-			client->command_pending = TRUE;
+			cmd->output_pending = TRUE;
 			cmd->func = cmd_list_continue;
 			return FALSE;
 		}

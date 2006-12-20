@@ -91,9 +91,10 @@ bool cmd_sort(struct client_command_context *cmd)
 	pool_t pool;
 	const char *error, *charset;
 
-	args_count = imap_parser_read_args(client->parser, 0, 0, &args);
+	args_count = imap_parser_read_args(cmd->parser, 0, 0, &args);
 	if (args_count == -2)
 		return FALSE;
+	client->input_lock = NULL;
 
 	if (args_count < 3) {
 		client_send_command_error(cmd, args_count < 0 ? NULL :

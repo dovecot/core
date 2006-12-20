@@ -205,6 +205,7 @@ static int imap_fetch_flush_buffer(struct imap_fetch_context *ctx)
 
 int imap_fetch(struct imap_fetch_context *ctx)
 {
+	struct client *client = ctx->client;
 	const struct imap_fetch_context_handler *handlers;
 	unsigned int size;
 	int ret;
@@ -229,16 +230,29 @@ int imap_fetch(struct imap_fetch_context *ctx)
                 ctx->cur_handler++;
 	}
 
+	/* assume initially that we're locking it */
+	i_assert(client->output_lock == NULL ||
+		 client->output_lock == ctx->cmd);
+	client->output_lock = ctx->cmd;
+
 	handlers = array_get(&ctx->handlers, &size);
 	for (;;) {
-		if (o_stream_get_buffer_used_size(ctx->client->output) >=
+		if (o_stream_get_buffer_used_size(client->output) >=
 		    CLIENT_OUTPUT_OPTIMAL_SIZE) {
-			ret = o_stream_flush(ctx->client->output);
-			if (ret <= 0)
+			ret = o_stream_flush(client->output);
+			if (ret <= 0) {
+				if (!ctx->line_partial) {
+					/* last line was fully sent */
+					client->output_lock = NULL;
+				}
 				return ret;
+			}
 		}
 
 		if (ctx->cur_mail == NULL) {
+			if (ctx->cmd->cancel)
+				return 1;
+
 			if (ctx->cur_input != NULL)
 				i_stream_unref(&ctx->cur_input);
 
@@ -258,6 +272,7 @@ int imap_fetch(struct imap_fetch_context *ctx)
 			    !handlers[ctx->cur_handler].buffered) {
 				/* first non-buffered handler.
 				   flush the buffer. */
+				ctx->line_partial = TRUE;
 				if (imap_fetch_flush_buffer(ctx) < 0)
 					return -1;
 			}
@@ -268,8 +283,13 @@ int imap_fetch(struct imap_fetch_context *ctx)
 					handlers[ctx->cur_handler].context);
 			t_pop();
 
-			if (ret == 0)
+			if (ret == 0) {
+				if (!ctx->line_partial) {
+					/* last line was fully sent */
+					client->output_lock = NULL;
+				}
 				return 0;
+			}
 
 			if (ret < 0) {
 				if (ctx->cur_mail->expunged) {
@@ -293,7 +313,8 @@ int imap_fetch(struct imap_fetch_context *ctx)
 		}
 
 		ctx->line_finished = TRUE;
-		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
+		ctx->line_partial = FALSE;
+		if (o_stream_send(client->output, ")\r\n", 3) < 0)
 			return -1;
 
 		ctx->cur_mail = NULL;

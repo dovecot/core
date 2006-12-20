@@ -118,13 +118,9 @@ static bool cmd_fetch_continue(struct client_command_context *cmd)
         struct imap_fetch_context *ctx = cmd->context;
 	int ret;
 
-	if (cmd->client->output->closed)
-		ret = -1;
-	else {
-		if ((ret = imap_fetch(ctx)) == 0) {
-			/* unfinished */
-			return FALSE;
-		}
+	if ((ret = imap_fetch(ctx)) == 0) {
+		/* unfinished */
+		return FALSE;
 	}
 	if (ret < 0)
 		ctx->failed = TRUE;
@@ -134,7 +130,6 @@ static bool cmd_fetch_continue(struct client_command_context *cmd)
 
 bool cmd_fetch(struct client_command_context *cmd)
 {
-	struct client *client = cmd->client;
 	struct imap_fetch_context *ctx;
 	struct imap_arg *args;
 	struct mail_search_arg *search_arg;
@@ -170,7 +165,8 @@ bool cmd_fetch(struct client_command_context *cmd)
 	imap_fetch_begin(ctx, search_arg);
 	if ((ret = imap_fetch(ctx)) == 0) {
 		/* unfinished */
-		client->command_pending = TRUE;
+		cmd->output_pending = TRUE;
+
 		cmd->func = cmd_fetch_continue;
 		cmd->context = ctx;
 		return FALSE;

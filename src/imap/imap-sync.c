@@ -204,8 +204,12 @@ static bool cmd_sync_continue(struct client_command_context *cmd)
 	struct cmd_sync_context *ctx = cmd->context;
 	int ret;
 
-	if ((ret = imap_sync_more(ctx->sync_ctx)) == 0)
-		return FALSE;
+	if (cmd->cancel)
+		ret = 0;
+	else {
+		if ((ret = imap_sync_more(ctx->sync_ctx)) == 0)
+			return FALSE;
+	}
 
 	if (ret < 0)
 		ctx->sync_ctx->failed = TRUE;
@@ -215,16 +219,21 @@ static bool cmd_sync_continue(struct client_command_context *cmd)
 			mailbox_get_storage(cmd->client->mailbox));
 	}
 
-	client_send_tagline(cmd, ctx->tagline);
+	if (!cmd->cancel)
+		client_send_tagline(cmd, ctx->tagline);
 	return TRUE;
 }
 
 bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	      enum imap_sync_flags imap_flags, const char *tagline)
 {
-        struct cmd_sync_context *ctx;
+	struct client *client = cmd->client;
+	struct cmd_sync_context *ctx;
 
-	if (cmd->client->mailbox == NULL) {
+	i_assert(client->output_lock == cmd || client->output_lock == NULL);
+
+	if (client->mailbox == NULL ||
+	    mailbox_transaction_get_count(client->mailbox) > 0) {
 		client_send_tagline(cmd, tagline);
 		return TRUE;
 	}
@@ -241,11 +250,14 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 
 	ctx = p_new(cmd->pool, struct cmd_sync_context, 1);
 	ctx->tagline = p_strdup(cmd->pool, tagline);
-	ctx->sync_ctx = imap_sync_init(cmd->client, cmd->client->mailbox,
+	ctx->sync_ctx = imap_sync_init(client, client->mailbox,
 				       imap_flags, flags);
 
 	cmd->func = cmd_sync_continue;
 	cmd->context = ctx;
-	cmd->client->command_pending = TRUE;
+	cmd->output_pending = TRUE;
+	if (client->input_lock == cmd)
+		client->input_lock = NULL;
+	client->output_lock = NULL;
 	return cmd_sync_continue(cmd);
 }

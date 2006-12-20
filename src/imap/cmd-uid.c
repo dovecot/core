@@ -8,7 +8,7 @@ bool cmd_uid(struct client_command_context *cmd)
 	const char *cmd_name;
 
 	/* UID <command> <args> */
-	cmd_name = imap_parser_read_word(cmd->client->parser);
+	cmd_name = imap_parser_read_word(cmd->parser);
 	if (cmd_name == NULL)
 		return FALSE;
 

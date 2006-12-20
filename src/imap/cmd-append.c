@@ -24,14 +24,17 @@ struct cmd_append_context {
 
 	struct imap_parser *save_parser;
 	struct mail_save_context *save_ctx;
+
+	unsigned int message_input:1;
 };
 
 static void cmd_append_finish(struct cmd_append_context *ctx);
 static bool cmd_append_continue_message(struct client_command_context *cmd);
 
-static void client_input(struct client *client)
+static void client_input(struct client_command_context *cmd)
 {
-	struct client_command_context *cmd = &client->cmd;
+	struct cmd_append_context *ctx = cmd->context;
+	struct client *client = cmd->client;
 
 	client->last_input = ioloop_time;
 
@@ -41,12 +44,12 @@ static void client_input(struct client *client)
 		cmd_append_finish(cmd->context);
 		/* Reset command so that client_destroy() doesn't try to call
 		   cmd_append_continue_message() anymore. */
-		_client_reset_command(client);
+		client_command_free(cmd);
 		client_destroy(client, "Disconnected in APPEND");
 		return;
 	case -2:
 		cmd_append_finish(cmd->context);
-		if (client->command_pending) {
+		if (ctx->message_input) {
 			/* message data, this is handled internally by
 			   mailbox_save_continue() */
 			break;
@@ -58,22 +61,13 @@ static void client_input(struct client *client)
 		client->input_skip_line = TRUE;
 
 		client_send_command_error(cmd, "Too long argument.");
-		_client_reset_command(client);
+		cmd->param_error = TRUE;
+		client_command_free(cmd);
 		return;
 	}
 
-	if (cmd->func(cmd)) {
-		/* command execution was finished. Note that if cmd_sync()
-		   didn't finish, we didn't get here but the input handler
-		   has already been moved. So don't do anything important
-		   here..
-
-		   reset command once again to reset cmd_sync()'s changes. */
-		_client_reset_command(client);
-
-		if (client->input_pending)
-			_client_input(client);
-	}
+	if (cmd->func(cmd))
+		client_command_free(cmd);
 }
 
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
@@ -112,31 +106,29 @@ static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 
 static void cmd_append_finish(struct cmd_append_context *ctx)
 {
-	io_remove(&ctx->client->io);
-
         imap_parser_destroy(&ctx->save_parser);
+
+	i_assert(ctx->client->input_lock == ctx->cmd);
 
 	if (ctx->input != NULL)
 		i_stream_unref(&ctx->input);
-
 	if (ctx->save_ctx != NULL)
 		mailbox_save_cancel(&ctx->save_ctx);
-
 	if (ctx->t != NULL)
 		mailbox_transaction_rollback(&ctx->t);
-
 	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL)
 		mailbox_close(&ctx->box);
-
-	ctx->client->bad_counter = 0;
-	o_stream_set_flush_callback(ctx->client->output,
-				    _client_output, ctx->client);
 }
 
 static bool cmd_append_continue_cancel(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
+
+	if (cmd->cancel) {
+		cmd_append_finish(ctx);
+		return TRUE;
+	}
 
 	(void)i_stream_read(ctx->input);
 	(void)i_stream_get_data(ctx->input, &size);
@@ -163,7 +155,7 @@ static bool cmd_append_cancel(struct cmd_append_context *ctx, bool nonsync)
 					   ctx->client->input->v_offset,
 					   ctx->msg_size);
 
-	ctx->client->command_pending = TRUE;
+	ctx->message_input = TRUE;
 	ctx->cmd->func = cmd_append_continue_cancel;
 	ctx->cmd->context = ctx;
 	return cmd_append_continue_cancel(ctx->cmd);
@@ -182,6 +174,11 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	time_t internal_date;
 	int ret, timezone_offset;
 	bool nonsync;
+
+	if (cmd->cancel) {
+		cmd_append_finish(ctx);
+		return TRUE;
+	}
 
 	/* if error occurs, the CRLF is already read. */
 	client->input_skip_line = FALSE;
@@ -293,7 +290,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		o_stream_uncork(client->output);
 	}
 
-	client->command_pending = TRUE;
+	ctx->message_input = TRUE;
 	cmd->func = cmd_append_continue_message;
 	return cmd_append_continue_message(cmd);
 }
@@ -304,6 +301,11 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
 	bool failed;
+
+	if (cmd->cancel) {
+		cmd_append_finish(ctx);
+		return TRUE;
+	}
 
 	if (ctx->save_ctx != NULL) {
 		if (mailbox_save_continue(ctx->save_ctx) < 0) {
@@ -349,7 +351,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 		}
 
 		/* prepare for next message */
-		client->command_pending = FALSE;
+		ctx->message_input = FALSE;
 		imap_parser_reset(ctx->save_parser);
 		cmd->func = cmd_append_continue_parsing;
 		return cmd_append_continue_parsing(cmd);
@@ -395,6 +397,9 @@ bool cmd_append(struct client_command_context *cmd)
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
 
+	/* we keep the input locked all the time */
+	client->input_lock = cmd;
+
 	ctx = p_new(cmd->pool, struct cmd_append_context, 1);
 	ctx->cmd = cmd;
 	ctx->client = client;
@@ -417,7 +422,7 @@ bool cmd_append(struct client_command_context *cmd)
 
 	io_remove(&client->io);
 	client->io = io_add(i_stream_get_fd(client->input), IO_READ,
-			    client_input, client);
+			    client_input, cmd);
 	/* append is special because we're only waiting on client input, not
 	   client output, so disable the standard output handler until we're
 	   finished */

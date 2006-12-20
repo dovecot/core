@@ -129,7 +129,8 @@ struct mailbox_vfuncs {
 		       const char *charset, struct mail_search_arg *args,
 		       const enum mail_sort_type *sort_program);
 	int (*search_deinit)(struct mail_search_context *ctx);
-	int (*search_next)(struct mail_search_context *ctx, struct mail *mail);
+	int (*search_next_nonblock)(struct mail_search_context *ctx,
+				    struct mail *mail, bool *tryagain_r);
 	/* Internal search function which updates ctx->seq */
 	int (*search_next_update_seq)(struct mail_search_context *ctx);
 
@@ -158,6 +159,8 @@ struct mailbox {
         struct mailbox_vfuncs v;
 /* private: */
 	pool_t pool;
+
+	unsigned int transaction_count;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, void);

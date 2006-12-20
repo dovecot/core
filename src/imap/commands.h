@@ -71,6 +71,7 @@ bool cmd_sort(struct client_command_context *cmd);
 bool cmd_thread(struct client_command_context *cmd);
 bool cmd_uid_expunge(struct client_command_context *cmd);
 bool cmd_unselect(struct client_command_context *cmd);
+bool cmd_x_cancel(struct client_command_context *cmd);
 
 /* private: */
 bool _cmd_list_full(struct client_command_context *cmd, bool lsub);

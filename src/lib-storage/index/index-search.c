@@ -21,6 +21,8 @@
 #define TXT_UNKNOWN_CHARSET "[BADCHARSET] Unknown charset"
 #define TXT_INVALID_SEARCH_KEY "Invalid search key"
 
+#define SEARCH_NONBLOCK_COUNT 20
+
 struct index_search_context {
         struct mail_search_context mail_ctx;
 	struct mail_index_view *view;
@@ -952,15 +954,21 @@ static bool search_match_next(struct index_search_context *ctx)
 	return TRUE;
 }
 
-int index_storage_search_next(struct mail_search_context *_ctx,
-			      struct mail *mail)
+int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
+				       struct mail *mail, bool *tryagain_r)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
 	struct mailbox *box = _ctx->transaction->box;
+	unsigned int count = 0;
 	int ret;
 
-	if (ctx->sorted)
+	*tryagain_r = FALSE;
+
+	if (ctx->sorted) {
+		/* everything searched at this point already. just returning
+		   matches from sort list */
 		return index_sort_list_next(ctx->mail_ctx.sort_program, mail);
+	}
 
 	ctx->mail = mail;
 	ctx->imail = (struct index_mail *)mail;
@@ -989,6 +997,11 @@ int index_storage_search_next(struct mail_search_context *_ctx,
 				break;
 			}
 		}
+
+		if (++count == SEARCH_NONBLOCK_COUNT) {
+			*tryagain_r = TRUE;
+			return 0;
+		}
 	}
 	if (ret < 0)
 		ctx->failed = TRUE;
@@ -996,10 +1009,13 @@ int index_storage_search_next(struct mail_search_context *_ctx,
 	ctx->imail = NULL;
 
 	if (ctx->mail_ctx.sort_program != NULL && ret == 0) {
+		/* finished searching the messages. now sort them and start
+		   returning the messages. */
 		ctx->sorted = TRUE;
 		if (index_sort_list_finish(ctx->mail_ctx.sort_program) < 0)
 			return -1;
-		return index_sort_list_next(ctx->mail_ctx.sort_program, mail);
+		return index_storage_search_next_nonblock(_ctx, mail,
+							  tryagain_r);
 	}
 
 	return ret;

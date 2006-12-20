@@ -3,6 +3,8 @@
 
 #include "commands.h"
 
+#define CLIENT_COMMAND_QUEUE_MAX_SIZE 4
+
 struct client;
 struct mail_storage;
 struct imap_parser;
@@ -15,6 +17,7 @@ struct mailbox_keywords {
 };
 
 struct client_command_context {
+	struct client_command_context *prev, *next;
 	struct client *client;
 
 	pool_t pool;
@@ -24,8 +27,12 @@ struct client_command_context {
 	command_func_t *func;
 	void *context;
 
+	struct imap_parser *parser;
+
 	unsigned int uid:1; /* used UID command */
+	unsigned int cancel:1; /* command is wanted to be cancelled */
 	unsigned int param_error:1;
+	unsigned int output_pending:1;
 };
 
 struct client {
@@ -43,14 +50,20 @@ struct client {
 	time_t last_input, last_output;
 	unsigned int bad_counter;
 
-	struct imap_parser *parser;
-	struct client_command_context cmd;
+	/* one parser is kept here to be used for new commands */
+	struct imap_parser *free_parser;
+	/* command_pool is cleared when the command queue gets empty */
+	pool_t command_pool;
+	struct client_command_context *command_queue;
+	unsigned int command_queue_size;
+
+	/* client input/output is locked by this command */
+	struct client_command_context *input_lock;
+	struct client_command_context *output_lock;
 
 	unsigned int disconnected:1;
 	unsigned int destroyed:1;
-	unsigned int command_pending:1;
-	unsigned int input_pending:1;
-	unsigned int output_pending:1;
+	unsigned int handling_input:1;
 	unsigned int rawlog:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
@@ -88,7 +101,9 @@ bool client_read_string_args(struct client_command_context *cmd,
 void clients_init(void);
 void clients_deinit(void);
 
-void _client_reset_command(struct client *client);
+void client_command_cancel(struct client_command_context *cmd);
+void client_command_free(struct client_command_context *cmd);
+
 void _client_input(struct client *client);
 int _client_output(struct client *client);
 

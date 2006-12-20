@@ -1093,7 +1093,7 @@ struct mailbox mbox_mailbox = {
 		index_header_lookup_deinit,
 		index_storage_search_init,
 		index_storage_search_deinit,
-		index_storage_search_next,
+		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
 		mbox_save_init,
 		mbox_save_continue,

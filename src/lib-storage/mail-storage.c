@@ -541,13 +541,30 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 
 int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail)
 {
-	return ctx->transaction->box->v.search_next(ctx, mail);
+	bool tryagain;
+	int ret;
+
+	while ((ret = mailbox_search_next_nonblock(ctx, mail,
+						   &tryagain)) == 0) {
+		if (!tryagain)
+			break;
+	}
+
+	return ret;
+}
+
+int mailbox_search_next_nonblock(struct mail_search_context *ctx,
+				 struct mail *mail, bool *tryagain_r)
+{
+	return ctx->transaction->box->v.
+		search_next_nonblock(ctx, mail, tryagain_r);
 }
 
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags)
 {
+	box->transaction_count++;
 	return box->v.transaction_begin(box, flags);
 }
 
@@ -555,6 +572,8 @@ int mailbox_transaction_commit(struct mailbox_transaction_context **_t,
 			       enum mailbox_sync_flags flags)
 {
 	struct mailbox_transaction_context *t = *_t;
+
+	t->box->transaction_count--;
 
 	*_t = NULL;
 	return t->box->v.transaction_commit(t, flags);
@@ -564,8 +583,15 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 {
 	struct mailbox_transaction_context *t = *_t;
 
+	t->box->transaction_count--;
+
 	*_t = NULL;
 	t->box->v.transaction_rollback(t);
+}
+
+unsigned int mailbox_transaction_get_count(struct mailbox *box)
+{
+	return box->transaction_count;
 }
 
 int mailbox_save_init(struct mailbox_transaction_context *t,

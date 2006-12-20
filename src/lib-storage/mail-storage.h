@@ -324,6 +324,8 @@ mailbox_transaction_begin(struct mailbox *box,
 int mailbox_transaction_commit(struct mailbox_transaction_context **t,
 			       enum mailbox_sync_flags flags);
 void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
+/* Return the number of active transactions for the mailbox. */
+unsigned int mailbox_transaction_get_count(struct mailbox *box);
 
 /* Build mail_keywords from NULL-terminated keywords list. */
 struct mail_keywords *
@@ -352,6 +354,11 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 int mailbox_search_deinit(struct mail_search_context **ctx);
 /* Search the next message. Returns 1 if found, 0 if not, -1 if failure. */
 int mailbox_search_next(struct mail_search_context *ctx, struct mail *mail);
+/* Like mailbox_search_next(), but don't spend too much time searching.
+   Returns 1 if found, -1 if failure or 0 with tryagain_r=FALSE if
+   finished, and TRUE if more results will by calling the function again. */
+int mailbox_search_next_nonblock(struct mail_search_context *ctx,
+				 struct mail *mail, bool *tryagain_r);
 
 /* Save a mail into mailbox. timezone_offset specifies the timezone in
    minutes in which received_date was originally given with. To use

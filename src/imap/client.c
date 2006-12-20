@@ -36,13 +36,9 @@ struct client *client_create(int fd_in, int fd_out,
 	o_stream_set_flush_callback(client->output, _client_output, client);
 
 	client->io = io_add(fd_in, IO_READ, _client_input, client);
-	client->parser = imap_parser_create(client->input, client->output,
-					    imap_max_line_length);
         client->last_input = ioloop_time;
 
-	client->cmd.pool = pool_alloconly_create("command pool", 8192);
-	client->cmd.client = client;
-
+	client->command_pool = pool_alloconly_create("client command", 8192);
 	client->keywords.pool = pool_alloconly_create("mailbox_keywords", 512);
 	client->namespaces = namespaces;
 
@@ -60,10 +56,22 @@ struct client *client_create(int fd_in, int fd_out,
 	return client;
 }
 
+void client_command_cancel(struct client_command_context *cmd)
+{
+	bool cmd_ret;
+
+	cmd->cancel = TRUE;
+	cmd_ret = cmd->func(cmd);
+	if (!cmd_ret) {
+		if (cmd->client->output->closed)
+			i_panic("command didn't cancel itself: %s", cmd->name);
+	} else {
+		client_command_free(cmd);
+	}
+}
+
 void client_destroy(struct client *client, const char *reason)
 {
-	int ret;
-
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
 
@@ -74,22 +82,23 @@ void client_destroy(struct client *client, const char *reason)
 		i_info("%s", reason);
 	}
 
-	if (client->command_pending) {
-		/* try to deinitialize the command */
-		i_assert(client->cmd.func != NULL);
-		i_stream_close(client->input);
-		o_stream_close(client->output);
-		client->input_pending = FALSE;
+	i_stream_close(client->input);
+	o_stream_close(client->output);
 
-		ret = client->cmd.func(&client->cmd);
-		i_assert(ret);
-	}
+	/* finish off all the queued commands. */
+	if (client->output_lock != NULL)
+		client_command_cancel(client->output_lock);
+	if (client->input_lock != NULL)
+		client_command_cancel(client->input_lock);
+	while (client->command_queue != NULL)
+		client_command_cancel(client->command_queue);
 
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
 	namespace_deinit(client->namespaces);
 
-	imap_parser_destroy(&client->parser);
+	if (client->free_parser != NULL)
+		imap_parser_destroy(&client->free_parser);
 	if (client->io != NULL)
 		io_remove(&client->io);
 
@@ -104,7 +113,7 @@ void client_destroy(struct client *client, const char *reason)
 	}
 
 	pool_unref(client->keywords.pool);
-	pool_unref(client->cmd.pool);
+	pool_unref(client->command_pool);
 	i_free(client);
 
 	/* quit the program */
@@ -161,7 +170,7 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 	struct client *client = cmd->client;
 	const char *tag = cmd->tag;
 
-	if (client->output->closed)
+	if (client->output->closed || cmd->cancel)
 		return;
 
 	if (tag == NULL || *tag == '\0')
@@ -181,7 +190,7 @@ void client_send_command_error(struct client_command_context *cmd,
 	bool fatal;
 
 	if (msg == NULL) {
-		msg = imap_parser_get_error(client->parser, &fatal);
+		msg = imap_parser_get_error(cmd->parser, &fatal);
 		if (fatal) {
 			client_disconnect_with_error(client, msg);
 			return;
@@ -218,9 +227,12 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 
 	i_assert(count <= INT_MAX);
 
-	ret = imap_parser_read_args(cmd->client->parser, count, flags, args);
+	ret = imap_parser_read_args(cmd->parser, count, flags, args);
 	if (ret >= (int)count) {
 		/* all parameters read successfully */
+		i_assert(cmd->client->input_lock == NULL ||
+			 cmd->client->input_lock == cmd);
+		cmd->client->input_lock = NULL;
 		return TRUE;
 	} else if (ret == -2) {
 		/* need more data */
@@ -267,38 +279,97 @@ bool client_read_string_args(struct client_command_context *cmd,
 	return i == count;
 }
 
-void _client_reset_command(struct client *client)
+static struct client_command_context *
+client_command_new(struct client *client)
 {
-	pool_t pool;
+	struct client_command_context *cmd;
+
+	cmd = p_new(client->command_pool, struct client_command_context, 1);
+	cmd->client = client;
+	cmd->pool = client->command_pool;
+
+	if (client->free_parser != NULL) {
+		cmd->parser = client->free_parser;
+		client->free_parser = NULL;
+	} else {
+		cmd->parser = imap_parser_create(client->input, client->output,
+						 imap_max_line_length);
+	}
+
+	/* add to beginning of the queue */
+	if (client->command_queue != NULL) {
+		client->command_queue->prev = cmd;
+		cmd->next = client->command_queue;
+	}
+	client->command_queue = cmd;
+	client->command_queue_size++;
+
+	return cmd;
+}
+
+void client_command_free(struct client_command_context *cmd)
+{
+	struct client *client = cmd->client;
 	size_t size;
 
 	/* reset input idle time because command output might have taken a
 	   long time and we don't want to disconnect client immediately then */
 	client->last_input = ioloop_time;
 
-	client->command_pending = FALSE;
-	if (client->io == NULL && !client->disconnected) {
-		i_assert(i_stream_get_fd(client->input) >= 0);
-		client->io = io_add(i_stream_get_fd(client->input),
-				    IO_READ, _client_input, client);
+	if (cmd->cancel) {
+		cmd->cancel = FALSE;
+		client_send_tagline(cmd, "NO Command cancelled.");
 	}
-	o_stream_set_flush_callback(client->output, _client_output, client);
 
-	pool = client->cmd.pool;
-	memset(&client->cmd, 0, sizeof(client->cmd));
+	if (!cmd->param_error)
+		client->bad_counter = 0;
 
-	p_clear(pool);
-	client->cmd.pool = pool;
-	client->cmd.client = client;
+	if (client->input_lock == cmd) {
+		/* reset the input handler in case it was changed */
+		client->input_lock = NULL;
+	}
+	if (client->output_lock == cmd) {
+		/* reset the output handler in case it was changed */
+		o_stream_set_flush_callback(client->output,
+					    _client_output, client);
+		client->output_lock = NULL;
+	}
 
-	imap_parser_reset(client->parser);
+	if (client->free_parser != NULL)
+		imap_parser_destroy(&cmd->parser);
+	else {
+		imap_parser_reset(cmd->parser);
+		client->free_parser = cmd->parser;
+	}
 
-	/* if there's unread data in buffer, remember that there's input
-	   pending and we should get around to calling client_input() soon.
-	   This is mostly for APPEND/IDLE. */
-	(void)i_stream_get_data(client->input, &size);
-	if (size > 0 && !client->destroyed)
-		client->input_pending = TRUE;
+	client->command_queue_size--;
+	if (cmd->prev != NULL)
+		cmd->prev->next = cmd->next;
+	else
+		client->command_queue = cmd->next;
+	if (cmd->next != NULL)
+		cmd->next->prev = cmd->prev;
+	cmd = NULL;
+
+	if (client->command_queue == NULL) {
+		/* no commands left in the queue, we can clear the pool */
+		p_clear(client->command_pool);
+	}
+
+	if (client->input_lock == NULL && !client->disconnected) {
+		if (client->io == NULL) {
+			i_assert(i_stream_get_fd(client->input) >= 0);
+			client->io = io_add(i_stream_get_fd(client->input),
+					    IO_READ, _client_input, client);
+		}
+
+		/* if there's unread data in buffer, handle it. */
+		if (!client->handling_input) {
+			(void)i_stream_get_data(client->input, &size);
+			if (size > 0 && !client->destroyed)
+				_client_input(client);
+		}
+	}
 }
 
 /* Skip incoming data until newline is found,
@@ -322,7 +393,7 @@ static bool client_skip_line(struct client *client)
 	return !client->input_skip_line;
 }
 
-static bool client_handle_input(struct client_command_context *cmd)
+static bool client_command_input(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 
@@ -330,33 +401,25 @@ static bool client_handle_input(struct client_command_context *cmd)
 		/* command is being executed - continue it */
 		if (cmd->func(cmd) || cmd->param_error) {
 			/* command execution was finished */
-                        client->bad_counter = 0;
-			_client_reset_command(client);
+			client_command_free(cmd);
 			return TRUE;
 		}
+
+		/* unfinished */
+		if (cmd->output_pending)
+			o_stream_set_flush_pending(client->output, TRUE);
 		return FALSE;
 	}
 
-	if (client->input_skip_line) {
-		/* we're just waiting for new line.. */
-		if (!client_skip_line(client))
-			return FALSE;
-
-		/* got the newline */
-		_client_reset_command(client);
-
-		/* pass through to parse next command */
-	}
-
 	if (cmd->tag == NULL) {
-                cmd->tag = imap_parser_read_word(client->parser);
+                cmd->tag = imap_parser_read_word(cmd->parser);
 		if (cmd->tag == NULL)
 			return FALSE; /* need more data */
 		cmd->tag = p_strdup(cmd->pool, cmd->tag);
 	}
 
 	if (cmd->name == NULL) {
-		cmd->name = imap_parser_read_word(client->parser);
+		cmd->name = imap_parser_read_word(cmd->parser);
 		if (cmd->name == NULL)
 			return FALSE; /* need more data */
 		cmd->name = p_strdup(cmd->pool, cmd->name);
@@ -369,44 +432,57 @@ static bool client_handle_input(struct client_command_context *cmd)
 		cmd->func = command_find(cmd->name);
 	}
 
+	client->input_skip_line = TRUE;
 	if (cmd->func == NULL) {
 		/* unknown command */
 		client_send_command_error(cmd, "Unknown command.");
-		client->input_skip_line = TRUE;
-		_client_reset_command(client);
+		cmd->param_error = TRUE;
+		client_command_free(cmd);
+		return TRUE;
 	} else {
 		i_assert(!client->disconnected);
 
-		client->input_skip_line = TRUE;
-		if (cmd->func(cmd) || cmd->param_error) {
-			/* command execution was finished. */
-                        client->bad_counter = 0;
-			_client_reset_command(client);
-		} else {
-			/* unfinished */
-			if (client->command_pending) {
-				o_stream_set_flush_pending(client->output,
-							   TRUE);
-			}
+		return client_command_input(cmd);
+	}
+}
+
+static bool client_handle_next_command(struct client *client)
+{
+	size_t size;
+
+	if (client->input_lock != NULL)
+		return client_command_input(client->input_lock);
+
+	if (client->input_skip_line) {
+		/* first eat the previous command line */
+		if (!client_skip_line(client))
 			return FALSE;
-		}
+		client->input_skip_line = FALSE;
 	}
 
-	return TRUE;
+	/* don't bother creating a new client command before there's at least
+	   some input */
+	(void)i_stream_get_data(client->input, &size);
+	if (size == 0)
+		return FALSE;
+
+	/* beginning a new command */
+	if (client->command_queue_size >= CLIENT_COMMAND_QUEUE_MAX_SIZE ||
+	    client->output_lock != NULL) {
+		/* wait for some of the commands to finish */
+		io_remove(&client->io);
+		return FALSE;
+	}
+
+	client->input_lock = client_command_new(client);
+	return client_command_input(client->input_lock);
 }
 
 void _client_input(struct client *client)
 {
-	struct client_command_context *cmd = &client->cmd;
+	struct client_command_context *cmd;
 	int ret;
 
-	if (client->command_pending) {
-		/* already processing one command. wait. */
-		io_remove(&client->io);
-		return;
-	}
-
-	client->input_pending = FALSE;
 	client->last_input = ioloop_time;
 
 	switch (i_stream_read(client->input)) {
@@ -420,31 +496,49 @@ void _client_input(struct client *client)
 		   until newline is found. */
 		client->input_skip_line = TRUE;
 
+		cmd = client->input_lock != NULL ? client->input_lock :
+			client_command_new(client);
+		cmd->param_error = TRUE;
 		client_send_command_error(cmd, "Too long argument.");
-		_client_reset_command(client);
-		break;
+		client_command_free(cmd);
+		return;
 	}
 
 	o_stream_cork(client->output);
+	client->handling_input = TRUE;
 	do {
 		t_push();
-		ret = client_handle_input(cmd);
+		ret = client_handle_next_command(client);
 		t_pop();
 	} while (ret);
+	client->handling_input = FALSE;
 	o_stream_uncork(client->output);
-
-	if (client->command_pending)
-		client->input_pending = TRUE;
 
 	if (client->output->closed)
 		client_destroy(client, NULL);
 }
 
+static void client_output_cmd(struct client_command_context *cmd)
+{
+	struct client *client = cmd->client;
+	bool finished;
+
+	/* continue processing command */
+	finished = cmd->func(cmd) || cmd->param_error;
+
+	if (!finished) {
+		if (cmd->output_pending)
+			o_stream_set_flush_pending(client->output, TRUE);
+	} else {
+		/* command execution was finished */
+		client_command_free(cmd);
+	}
+}
+
 int _client_output(struct client *client)
 {
-	struct client_command_context *cmd = &client->cmd;
+	struct client_command_context *cmd;
 	int ret;
-	bool finished;
 
 	client->last_output = ioloop_time;
 
@@ -453,30 +547,18 @@ int _client_output(struct client *client)
 		return 1;
 	}
 
-	if (!client->command_pending)
-		return 1;
-
-	/* continue processing command */
 	o_stream_cork(client->output);
-	client->output_pending = TRUE;
-	finished = cmd->func(cmd) || cmd->param_error;
-
-	/* a bit kludgy check. normally we would want to get back to this
-	   output handler, but IDLE is a special case which has command
-	   pending but without necessarily anything to write. */
-	if (!finished && client->output_pending)
-		o_stream_set_flush_pending(client->output, TRUE);
-
-	o_stream_uncork(client->output);
-
-	if (finished) {
-		/* command execution was finished */
-		client->bad_counter = 0;
-		_client_reset_command(client);
-
-		if (client->input_pending)
-			_client_input(client);
+	if (client->output_lock != NULL)
+		client_output_cmd(client->output_lock);
+	if (client->output_lock == NULL) {
+		cmd = client->command_queue;
+		for (; cmd != NULL; cmd = cmd->next) {
+			client_output_cmd(cmd);
+			if (client->output_lock != NULL)
+				break;
+		}
 	}
+	o_stream_uncork(client->output);
 	return ret;
 }
 
@@ -490,15 +572,14 @@ static void idle_timeout(void *context __attr_unused__)
 	idle_time = ioloop_time -
 		I_MAX(my_client->last_input, my_client->last_output);
 
-	if (my_client->command_pending &&
-	    o_stream_get_buffer_used_size(my_client->output) > 0 &&
+	if (o_stream_get_buffer_used_size(my_client->output) > 0 &&
 	    idle_time >= CLIENT_OUTPUT_TIMEOUT) {
 		/* client isn't reading our output */
 		client_destroy(my_client, "Disconnected for inactivity "
 			       "in reading our output");
 	} else if (idle_time >= CLIENT_IDLE_TIMEOUT) {
 		/* client isn't sending us anything */
-		if (!my_client->command_pending) {
+		if (my_client->output_lock == NULL) {
 			client_send_line(my_client,
 					 "* BYE Disconnected for inactivity.");
 		}

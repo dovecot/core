@@ -17,6 +17,7 @@ imap_LDFLAGS = -export-dynamic
 # be a shared library so this wouldn't be needed..
 unused_objects = \
 	../lib/mountpoint.o \
+	../lib/unichar.o \
 	../lib-mail/message-decoder.o
 
 libs = \
@@ -66,7 +67,8 @@ cmds = \
 	cmd-thread.c \
 	cmd-uid.c \
 	cmd-unselect.c \
-	cmd-unsubscribe.c
+	cmd-unsubscribe.c \
+	cmd-x-cancel.c
 
 imap_SOURCES = \
 	$(cmds) \

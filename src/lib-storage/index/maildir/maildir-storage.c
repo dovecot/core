@@ -1013,7 +1013,7 @@ struct mailbox maildir_mailbox = {
 		index_header_lookup_deinit,
 		index_storage_search_init,
 		index_storage_search_deinit,
-		index_storage_search_next,
+		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
 		maildir_save_init,
 		maildir_save_continue,
