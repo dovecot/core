@@ -1047,13 +1047,23 @@ int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 			 ARRAY_TYPE(seq_range) *result)
 {
 	struct squat_uidlist_get_context ctx;
+	const struct seq_range *range;
+	unsigned int count;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.uidlist = uidlist;
 	ctx.result = result;
 	ctx.filter_pos = 1;
 
-	return squat_uidlist_get_ctx(&ctx, uid_list_idx);
+	if (squat_uidlist_get_ctx(&ctx, uid_list_idx) < 0)
+		return -1;
+
+	range = array_get(ctx.result, &count);
+	if (count > 0) {
+		for (; ctx.filter_pos <= range[count-1].seq2; ctx.filter_pos++)
+			seq_range_array_remove(result, ctx.filter_pos);
+	}
+	return 0;
 }
 
 bool squat_uidlist_want_flush(struct squat_uidlist *uidlist)
