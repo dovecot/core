@@ -19,16 +19,18 @@
 
 struct fts_mailbox {
 	struct mailbox_vfuncs super;
-	struct fts_backend *backend;
+	struct fts_backend *backend_exact;
+	struct fts_backend *backend_fast;
 
 	const char *env;
-	unsigned int backend_failed:1;
+	unsigned int backend_set:1;
 };
 
 struct fts_search_context {
 	ARRAY_TYPE(seq_range) result;
 	unsigned int result_pos;
 
+	struct fts_backend *backend;
 	unsigned int locked:1;
 };
 
@@ -48,8 +50,10 @@ static int fts_mailbox_close(struct mailbox *box)
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 	int ret;
 
-	if (fbox->backend != NULL)
-		fts_backend_deinit(fbox->backend);
+	if (fbox->backend_exact != NULL)
+		fts_backend_deinit(fbox->backend_exact);
+	if (fbox->backend_fast != NULL)
+		fts_backend_deinit(fbox->backend_fast);
 
 	ret = fbox->super.close(box);
 	i_free(fbox);
@@ -205,9 +209,9 @@ fts_build_mail(struct fts_storage_build_context *ctx, struct mail *mail)
 	return ret;
 }
 
-static int fts_build_new(struct mailbox_transaction_context *t)
+static int fts_build_new(struct fts_backend *backend,
+			 struct mailbox_transaction_context *t)
 {
-	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
 	struct fts_storage_build_context ctx;
 	struct mail_search_context *search_ctx;
 	struct mail_search_seqset seqset;
@@ -216,7 +220,7 @@ static int fts_build_new(struct mailbox_transaction_context *t)
 	uint32_t last_uid, last_uid_locked;
 	int ret = 0;
 
-	if (fts_backend_get_last_uid(fbox->backend, &last_uid) < 0)
+	if (fts_backend_get_last_uid(backend, &last_uid) < 0)
 		return -1;
 
 	memset(&seqset, 0, sizeof(seqset));
@@ -229,7 +233,7 @@ static int fts_build_new(struct mailbox_transaction_context *t)
 	}
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.build = fts_backend_build_init(fbox->backend, &last_uid_locked);
+	ctx.build = fts_backend_build_init(backend, &last_uid_locked);
 	if (last_uid != last_uid_locked) {
 		/* changed, need to get again the sequences */
 		i_assert(last_uid < last_uid_locked);
@@ -272,6 +276,13 @@ static int fts_build_new(struct mailbox_transaction_context *t)
 	return ret;
 }
 
+#define SEARCH_ARG_IS_OPTIMIZABLE(backend, arg) \
+	((arg)->type == SEARCH_BODY_FAST || (arg)->type == SEARCH_TEXT_FAST || \
+	 ((backend) != NULL && \
+	  ((backend)->flags & FTS_BACKEND_FLAG_EXACT_LOOKUPS) != 0 && \
+	  ((arg)->type == SEARCH_BODY || (arg)->type == SEARCH_TEXT)))
+
+
 static struct mail_search_context *
 fts_mailbox_search_init(struct mailbox_transaction_context *t,
 			const char *charset, struct mail_search_arg *args,
@@ -280,6 +291,8 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
 	struct mail_search_context *ctx;
 	struct fts_search_context *fctx;
+	struct fts_backend *backend = NULL;
+	struct mail_search_arg *tmp;
 	ARRAY_TYPE(seq_range) uid_result;
 
 	ctx = fbox->super.search_init(t, charset, args, sort_program);
@@ -287,58 +300,75 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	fctx = i_new(struct fts_search_context, 1);
 	array_idx_set(&ctx->module_contexts, fts_storage_module_id, &fctx);
 
-	if (fbox->backend == NULL)
+	if (fbox->backend_exact == NULL && fbox->backend_fast == NULL)
 		return ctx;
 
 	/* FIXME: handle AND/OR. Maybe also header lookups? */
-	while (args != NULL &&
-	       args->type != SEARCH_BODY &&
-	       args->type != SEARCH_TEXT)
-		args = args->next;
 
-	if (args != NULL) {
-		if (fts_build_new(t) < 0)
-			return ctx;
-
-		if (fts_backend_lock(fbox->backend) <= 0)
-			return ctx;
-		fctx->locked = TRUE;
-
-		i_array_init(&uid_result, 64);
-		if (fts_backend_lookup(fbox->backend, args->value.str,
-				       &uid_result) < 0) {
-			/* failed, fallback to reading everything */
-			array_free(&uid_result);
-		}
-
-		if (fbox->backend->definite_lookups) {
-			args->match_always = TRUE;
-			args->result = 1;
-		}
-		args = args->next;
-		while (args != NULL) {
+	/* first check if we can use backend_fast */
+	for (tmp = args; tmp != NULL; tmp = tmp->next) {
+		if (args->type == SEARCH_BODY_FAST ||
+		    args->type == SEARCH_TEXT_FAST)
+			break;
+	}
+	if (tmp != NULL) {
+		/* yes */
+		backend = fbox->backend_fast;
+	} else if (fbox->backend_exact != NULL) {
+		/* nope. what about backend_exact? */
+		for (tmp = args; tmp != NULL; tmp = tmp->next) {
 			if (args->type == SEARCH_BODY ||
 			    args->type == SEARCH_TEXT) {
-				if (fbox->backend->definite_lookups) {
-					args->match_always = TRUE;
-					args->result = 1;
-				}
-				if (fts_backend_filter(fbox->backend,
-						       args->value.str,
-						       &uid_result) < 0) {
-					/* failed, but we already have limited
-					   the search, so just ignore this */
-					break;
-				}
+				backend = fbox->backend_exact;
+				break;
 			}
-			args = args->next;
 		}
+	}
+	args = tmp;
 
-		if (array_is_created(&uid_result)) {
-			(void)uid_range_to_seq(t->box, &uid_result,
-					       &fctx->result);
-			array_free(&uid_result);
+	if (backend == NULL)
+		return ctx;
+
+	/* update the backend */
+	if (fts_build_new(backend, t) < 0)
+		return ctx;
+
+	if (fts_backend_lock(backend) <= 0)
+		return ctx;
+	fctx->backend = backend;
+	fctx->locked = TRUE;
+
+	i_array_init(&uid_result, 64);
+	if (fts_backend_lookup(backend, args->value.str, &uid_result) < 0) {
+		/* failed, fallback to reading everything */
+		array_free(&uid_result);
+	}
+
+	if ((backend->flags & FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) != 0) {
+		args->match_always = TRUE;
+		args->result = 1;
+	}
+	args = args->next;
+	while (args != NULL) {
+		if (SEARCH_ARG_IS_OPTIMIZABLE(backend, args)) {
+			if ((backend->flags &
+			     FTS_BACKEND_FLAG_DEFINITE_LOOKUPS) != 0) {
+				args->match_always = TRUE;
+				args->result = 1;
+			}
+			if (fts_backend_filter(backend, args->value.str,
+					       &uid_result) < 0) {
+				/* failed, but we already have limited
+				   the search, so just ignore this */
+				break;
+			}
 		}
+		args = args->next;
+	}
+
+	if (array_is_created(&uid_result)) {
+		(void)uid_range_to_seq(t->box, &uid_result, &fctx->result);
+		array_free(&uid_result);
 	}
 	return ctx;
 }
@@ -389,7 +419,7 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 
 	if (fctx->locked)
-		fts_backend_unlock(fbox->backend);
+		fts_backend_unlock(fctx->backend);
 
 	if (array_is_created(&fctx->result))
 		array_free(&fctx->result);
@@ -408,7 +438,10 @@ static int fts_mail_expunge(struct mail *_mail)
 		return -1;
 
 	ft->expunges = TRUE;
-	fts_backend_expunge(fbox->backend, _mail);
+	if (fbox->backend_exact != NULL)
+		fts_backend_expunge(fbox->backend_exact, _mail);
+	if (fbox->backend_fast != NULL)
+		fts_backend_expunge(fbox->backend_fast, _mail);
 	return 0;
 }
 
@@ -423,7 +456,7 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 	struct mail_private *mail;
 
 	_mail = fbox->super.mail_alloc(t, wanted_fields, wanted_headers);
-	if (fbox->backend != NULL) {
+	if (fbox->backend_exact != NULL || fbox->backend_fast != NULL) {
 		mail = (struct mail_private *)_mail;
 
 		fmail = p_new(mail->pool, struct fts_mail, 1);
@@ -434,6 +467,34 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 			      fts_storage_module_id, &fmail);
 	}
 	return _mail;
+}
+
+static void fts_box_backends_init(struct mailbox *box)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+	struct fts_backend *backend;
+	const char *const *tmp;
+
+	for (tmp = t_strsplit(fbox->env, ", "); *tmp != NULL; tmp++) {
+		backend = fts_backend_init(*tmp, box);
+		if (backend == NULL)
+			continue;
+
+		if ((backend->flags &
+		     FTS_BACKEND_FLAG_EXACT_LOOKUPS) != 0) {
+			if (fbox->backend_exact != NULL) {
+				i_fatal("fts: duplicate exact backend: %s",
+					*tmp);
+			}
+			fbox->backend_exact = backend;
+		} else {
+			if (fbox->backend_fast != NULL) {
+				i_fatal("fts: duplicate fast backend: %s",
+					*tmp);
+			}
+			fbox->backend_fast = backend;
+		}
+	}
 }
 
 static struct mailbox_transaction_context *
@@ -448,15 +509,29 @@ fts_transaction_begin(struct mailbox *box,
 
 	/* the backend creation is delayed until the first transaction is
 	   started. at that point the mailbox has been synced at least once. */
-	if (fbox->backend == NULL && !fbox->backend_failed) {
-		fbox->backend = fts_backend_init(fbox->env, box);
-		if (fbox->backend == NULL)
-			fbox->backend_failed = TRUE;
+	if (!fbox->backend_set) {
+		fts_box_backends_init(box);
+		fbox->backend_set = TRUE;
 	}
 
 	t = fbox->super.transaction_begin(box, flags);
 	array_idx_set(&t->module_contexts, fts_storage_module_id, &ft);
 	return t;
+}
+
+static void
+fts_transaction_finish(struct mailbox *box, struct fts_transaction_context *ft,
+		       bool committed)
+{
+	struct fts_mailbox *fbox = FTS_CONTEXT(box);
+
+	if (ft->expunges) {
+		if (fbox->backend_fast != NULL) {
+			fts_backend_expunge_finish(fbox->backend_fast,
+						   box, committed);
+		}
+	}
+	i_free(ft);
 }
 
 static void fts_transaction_rollback(struct mailbox_transaction_context *t)
@@ -466,9 +541,7 @@ static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 
 	fbox->super.transaction_rollback(t);
-	if (ft->expunges)
-		fts_backend_expunge_finish(fbox->backend, box, FALSE);
-	i_free(ft);
+	fts_transaction_finish(box, ft, FALSE);
 }
 
 static int fts_transaction_commit(struct mailbox_transaction_context *t,
@@ -480,9 +553,7 @@ static int fts_transaction_commit(struct mailbox_transaction_context *t,
 	int ret;
 
 	ret = fbox->super.transaction_commit(t, flags);
-	if (ft->expunges)
-		fts_backend_expunge_finish(fbox->backend, box, ret == 0);
-	i_free(ft);
+	fts_transaction_finish(box, ft, ret == 0);
 	return ret;
 }
 

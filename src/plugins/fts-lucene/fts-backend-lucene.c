@@ -178,8 +178,8 @@ fts_backend_lucene_lookup(struct fts_backend *_backend, const char *key,
 }
 
 struct fts_backend fts_backend_lucene = {
-	"lucene",
-	TRUE,
+	MEMBER(name) "lucene",
+	MEMBER(flags) FTS_BACKEND_FLAG_DEFINITE_LOOKUPS,
 
 	{
 		fts_backend_lucene_init,

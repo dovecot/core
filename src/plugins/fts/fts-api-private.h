@@ -29,12 +29,20 @@ struct fts_backend_vfuncs {
 		      ARRAY_TYPE(seq_range) *result);
 };
 
-struct fts_backend {
-	const char *name;
-	/* If TRUE, lookup() and filter() are trusted to return only
+enum fts_backend_flags {
+	/* If set, lookup() and filter() are trusted to return only
 	   actual matches. Otherwise the returned mails are opened and
 	   searched. */
-	bool definite_lookups;
+	FTS_BACKEND_FLAG_DEFINITE_LOOKUPS	= 0x01,
+	/* If set, the backend is used also for TEXT and BODY search
+	   optimizations. Otherwise only TEXT_FAST and BODY_FAST are
+	   optimized. */
+	FTS_BACKEND_FLAG_EXACT_LOOKUPS		= 0x02
+};
+
+struct fts_backend {
+	const char *name;
+	enum fts_backend_flags flags;
 
 	struct fts_backend_vfuncs v;
 };

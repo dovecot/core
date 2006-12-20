@@ -468,8 +468,15 @@ static void search_body(struct mail_search_arg *arg,
 	if (ctx->index_ctx->error != NULL)
 		return;
 
-	if (arg->type != SEARCH_TEXT && arg->type != SEARCH_BODY)
+	switch (arg->type) {
+	case SEARCH_BODY:
+	case SEARCH_BODY_FAST:
+	case SEARCH_TEXT:
+	case SEARCH_TEXT_FAST:
+		break;
+	default:
 		return;
+	}
 
 __retry:
 	i_stream_seek(ctx->input, 0);

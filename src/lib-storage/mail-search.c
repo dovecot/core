@@ -141,9 +141,11 @@ search_arg_analyze(struct mail_search_arg *arg, buffer_t *headers,
 			      sizeof(const char *));
 		break;
 	case SEARCH_BODY:
+	case SEARCH_BODY_FAST:
 		*have_body = TRUE;
 		break;
 	case SEARCH_TEXT:
+	case SEARCH_TEXT_FAST:
 		*have_text = TRUE;
 		*have_body = TRUE;
 		break;

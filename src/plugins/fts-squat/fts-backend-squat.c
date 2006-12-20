@@ -200,7 +200,7 @@ fts_backend_squat_filter(struct fts_backend *_backend, const char *key,
 
 struct fts_backend fts_backend_squat = {
 	MEMBER(name) "squat",
-	MEMBER(definite_lookups) FALSE,
+	MEMBER(flags) FTS_BACKEND_FLAG_EXACT_LOOKUPS,
 
 	{
 		fts_backend_squat_init,

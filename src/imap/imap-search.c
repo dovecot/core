@@ -367,6 +367,15 @@ static bool search_arg_build(struct search_build_data *data,
 			return TRUE;
 		}
 		break;
+	case 'X':
+		if (strcmp(str, "X-BODY-FAST") == 0) {
+			/* <string> */
+			return ARG_NEW(SEARCH_BODY_FAST);
+		} else if (strcmp(str, "X-TEXT-FAST") == 0) {
+			/* <string> */
+			return ARG_NEW(SEARCH_TEXT_FAST);
+		}
+		break;
 	default:
 		if (*str == '*' || (*str >= '0' && *str <= '9')) {
 			/* <message-set> */
