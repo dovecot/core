@@ -69,6 +69,9 @@ struct mailbox_list_sync_lookup_key {
 	bool *match;
 };
 
+static bool mailbox_list_index_need_compress(struct mailbox_list_index *index);
+static int mailbox_list_index_compress(struct mailbox_list_index_sync_ctx *ctx);
+
 static struct mailbox_list_sync_dir *
 mailbox_list_alloc_sync_dir(struct mailbox_list_index_sync_ctx *ctx,
 			    unsigned int initial_count)
@@ -104,6 +107,11 @@ mailbox_list_copy_sync_dir(struct mailbox_list_index_sync_ctx *ctx,
 	for (i = 0; i < dir->count; i++) {
 		if (recs[i].deleted)
 			continue;
+
+		if (recs[i].uid == 0) {
+			return mailbox_list_index_set_corrupted(ctx->index,
+							"Record with UID=0");
+		}
 
 		sync_rec = array_append_space(&sync_dir->records);
 		sync_rec->name_hash = recs[i].name_hash;
@@ -317,10 +325,9 @@ static int mailbox_list_index_get_root(struct mailbox_list_index_sync_ctx *ctx)
 					   &ctx->sync_root, &seq);
 }
 
-static int sync_init_mail_sync(struct mailbox_list_index_sync_ctx *ctx)
+static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 {
 	struct mail_index_sync_rec sync_rec;
-	const struct mail_index_header *hdr;
 
 	if (mail_index_sync_begin(ctx->index->mail_index, &ctx->mail_sync_ctx,
 				  &ctx->view, (uint32_t)-1, 0,
@@ -331,6 +338,14 @@ static int sync_init_mail_sync(struct mailbox_list_index_sync_ctx *ctx)
 	   don't need to do anything but write them to the index */
 	while (mail_index_sync_next(ctx->mail_sync_ctx, &sync_rec) > 0)
 		;
+	return 0;
+}
+
+static int sync_mail_sync_init2(struct mailbox_list_index_sync_ctx *ctx)
+{
+	const struct mail_index_header *hdr;
+
+	ctx->hdr = *ctx->index->hdr;
 
 	hdr = mail_index_get_header(ctx->view);
 	if (hdr->uid_validity != 0) {
@@ -348,7 +363,7 @@ static int sync_init_mail_sync(struct mailbox_list_index_sync_ctx *ctx)
 			TRUE);
 	}
 
-	return mailbox_list_index_get_root(ctx);
+	return 0;
 }
 
 int mailbox_list_index_sync_init(struct mailbox_list_index *index,
@@ -372,11 +387,13 @@ int mailbox_list_index_sync_init(struct mailbox_list_index *index,
 	ctx->index = index;
 	ctx->sync_path = p_strdup(pool, path);
 	ctx->flags = flags;
-	ctx->hdr = *index->hdr;
 
 	/* mail index syncing acts as the only locking for us */
-	if (sync_init_mail_sync(ctx) < 0) {
-		mailbox_list_index_sync_commit(&ctx);
+	if (sync_mail_sync_init(ctx) < 0 ||
+	    mailbox_list_index_refresh(index) < 0 ||
+	    sync_mail_sync_init2(ctx) < 0 ||
+	    mailbox_list_index_get_root(ctx) < 0) {
+		mailbox_list_index_sync_rollback(&ctx);
 		return -1;
 	}
 
@@ -745,6 +762,7 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 {
 	struct mailbox_list_index_header *hdr;
 	bool partial;
+	int ret = 0;
 
 	if (ctx->index->mmap_disable) {
 		ctx->output = o_stream_create_file(ctx->index->fd, default_pool,
@@ -763,29 +781,30 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 	}
 
 	if (mailbox_list_index_sync_write_dir(ctx, ctx->root, 0, partial) < 0)
-		return -1;
+		ret = -1;
 
 	if (!ctx->index->mmap_disable) {
 		/* update header */
 		hdr = ctx->index->mmap_base;
-		hdr->next_uid = ctx->hdr.next_uid;
-		hdr->used_space = ctx->hdr.used_space;
-		hdr->deleted_space = ctx->hdr.deleted_space;
+		if (ret == 0)
+			memcpy(hdr, &ctx->hdr, sizeof(*hdr));
 
 		if (msync(ctx->index->mmap_base,
 			  hdr->used_space, MS_SYNC) < 0) {
 			mailbox_list_index_set_syscall_error(ctx->index,
 							     "msync()");
-			return -1;
+			ret = -1;
 		}
 	} else {
-		o_stream_seek(ctx->output, 0);
-		o_stream_send(ctx->output, &ctx->hdr, sizeof(ctx->hdr));
+		if (ret == 0) {
+			o_stream_seek(ctx->output, 0);
+			o_stream_send(ctx->output, &ctx->hdr, sizeof(ctx->hdr));
+		}
 
 		o_stream_destroy(&ctx->output);
 		buffer_free(ctx->output_buf);
 	}
-	return 0;
+	return ret;
 }
 
 int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
@@ -798,6 +817,8 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 	if (!ctx->failed) {
 		/* write all the changes to the index */
 		ret = mailbox_list_index_sync_write(ctx);
+		if (ret == 0 && mailbox_list_index_need_compress(ctx->index))
+			ret = mailbox_list_index_compress(ctx);
 	}
 
 	if (ctx->mail_sync_ctx != NULL) {
@@ -828,4 +849,68 @@ void mailbox_list_index_sync_rollback(struct mailbox_list_index_sync_ctx **ctx)
 {
 	(*ctx)->failed = TRUE;
 	(void)mailbox_list_index_sync_commit(ctx);
+}
+
+static bool mailbox_list_index_need_compress(struct mailbox_list_index *index)
+{
+	uoff_t max_del_space;
+
+	max_del_space = index->hdr->used_space / 100 *
+		MAILBOX_LIST_COMPRESS_PERCENTAGE;
+	if (index->hdr->deleted_space >= max_del_space &&
+	    index->hdr->used_space >= MAILBOX_LIST_COMPRESS_MIN_SIZE)
+		return TRUE;
+
+	return FALSE;
+}
+
+static int mailbox_list_copy_to_mem_all(struct mailbox_list_index_sync_ctx *ctx,
+					struct mailbox_list_sync_dir *dir)
+{
+	struct mailbox_list_sync_record *recs;
+	unsigned int i, count;
+
+	/* mark the directories as new */
+	dir->offset = 0;
+	dir->new_records_count = 1;
+
+	recs = array_get_modifiable(&dir->records, &count);
+	for (i = 0; i < count; i++) {
+		recs[i].created = TRUE;
+		recs[i].seen = TRUE;
+
+		if (recs[i].dir == NULL) {
+			if (recs[i].dir_offset == 0)
+				continue;
+
+			if (mailbox_list_copy_sync_dir(ctx, recs[i].dir_offset,
+						       &recs[i].dir) < 0)
+				return -1;
+		}
+		recs[i].dir_offset = 0;
+
+		if (mailbox_list_copy_to_mem_all(ctx, recs[i].dir) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int mailbox_list_index_compress(struct mailbox_list_index_sync_ctx *ctx)
+{
+	/* first read everything to memory */
+	if (mailbox_list_copy_to_mem_all(ctx, ctx->root) < 0)
+		return -1;
+
+	/* truncate the index file */
+	mailbox_list_index_file_close(ctx->index);
+	if (mailbox_list_index_file_create(ctx->index,
+					   ctx->hdr.uid_validity) < 0)
+		return -1;
+
+	/* reset header */
+	ctx->hdr.used_space = sizeof(ctx->hdr);
+	ctx->hdr.deleted_space = 0;
+
+	/* and write everything back */
+	return mailbox_list_index_sync_write(ctx);
 }

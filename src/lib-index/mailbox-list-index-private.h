@@ -6,6 +6,9 @@
 #define MAILBOX_LIST_INDEX_MAJOR_VERSION 1
 #define MAILBOX_LIST_INDEX_MINOR_VERSION 0
 
+#define MAILBOX_LIST_COMPRESS_PERCENTAGE 10
+#define MAILBOX_LIST_COMPRESS_MIN_SIZE 1024
+
 struct mailbox_list_index_header {
 	uint8_t major_version;
 	uint8_t minor_version;
@@ -81,5 +84,11 @@ int mailbox_list_index_get_dir(struct mailbox_list_index *index,
 			       uint32_t *offset,
 			       const struct mailbox_list_dir_record **dir_r);
 int mailbox_list_index_map(struct mailbox_list_index *index);
+
+int mailbox_list_index_file_create(struct mailbox_list_index *index,
+				   uint32_t uid_validity);
+void mailbox_list_index_file_close(struct mailbox_list_index *index);
+
+int mailbox_list_index_refresh(struct mailbox_list_index *index);
 
 #endif

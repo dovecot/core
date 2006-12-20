@@ -22,11 +22,33 @@ static bool index_mailbox_list_module_id_set = FALSE;
 static void (*index_next_hook_mailbox_list_created)(struct mailbox_list *list);
 
 static int
+index_mailbox_view_sync(struct index_mailbox_list_iterate_context *ctx)
+{
+	struct mail_index_view_sync_ctx *sync_ctx;
+	struct mail_index_view_sync_rec sync_rec;
+	int ret;
+
+	if (mail_index_view_sync_begin(ctx->view, MAIL_INDEX_SYNC_MASK_ALL,
+				       &sync_ctx) < 0) {
+		mailbox_list_set_internal_error(ctx->ctx.list);
+		return -1;
+	}
+
+	while ((ret = mail_index_view_sync_next(sync_ctx, &sync_rec)) > 0) ;
+
+	mail_index_view_sync_end(&sync_ctx);
+	return ret;
+}
+
+static int
 index_mailbox_list_is_synced(struct index_mailbox_list_iterate_context *ctx)
 {
 	const struct mail_index_header *hdr;
 	struct stat st;
 	const char *path = ctx->ctx.list->set.root_dir;
+
+	if (index_mailbox_view_sync(ctx) < 0)
+		return -1;
 
 	/* FIXME: single sync_stamp works only with maildir++ */
 	if (stat(path, &st) < 0) {
@@ -117,14 +139,14 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 	} else {
 		/* FIXME: this works nicely with maildir++, but not others */
 		sync_flags = MAILBOX_LIST_SYNC_FLAG_RECURSIVE;
-		mask = "*";
-		prefix = "";
 
-		if (mailbox_list_index_sync_init(ilist->list_index, prefix,
+		if (mailbox_list_index_sync_init(ilist->list_index, "",
 						 sync_flags,
 						 &ctx->sync_ctx) == 0) {
-			ctx->trans =
-				mailbox_list_index_sync_get_transaction(ctx->sync_ctx);
+			mask = "*";
+			prefix = "";
+			ctx->trans = mailbox_list_index_sync_get_transaction(
+								ctx->sync_ctx);
 		}
 
 		ctx->backend_ctx = ilist->super.iter_init(list, mask, flags);
@@ -253,11 +275,12 @@ index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		/* if the sync fails, just ignore it. we don't require synced
 		   indexes to return valid output. */
 		if (mailbox_list_index_sync_more(ctx->sync_ctx, info->name,
-						 &seq) < 0)
-			return info;
-
-		flags = index_mailbox_list_info_flags_translate(info->flags);
-		mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE, flags);
+						 &seq) == 0) {
+			flags = index_mailbox_list_info_flags_translate(
+								info->flags);
+			mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE,
+						flags);
+		}
 	} while (imap_match(ctx->glob, info->name) != IMAP_MATCH_YES ||
 		 !info_flags_match(ctx, info));
 
@@ -280,7 +303,7 @@ index_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	if (ctx->view != NULL)
 		mail_index_view_close(&ctx->view);
 
-	if (ctx->backend_ctx != NULL) {
+	if (ctx->sync_ctx != NULL) {
 		/* FIXME: single sync_stamp works only with maildir++ */
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, sync_stamp),
@@ -293,6 +316,8 @@ index_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 			   fails, we've still returned full output. */
 			(void)mailbox_list_index_sync_commit(&ctx->sync_ctx);
 		}
+	} else if (ctx->backend_ctx != NULL) {
+		ret = ilist->super.iter_deinit(ctx->backend_ctx);
 	}
 
 	imap_match_deinit(&ctx->glob);

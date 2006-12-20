@@ -71,7 +71,7 @@ static void mailbox_list_index_unmap(struct mailbox_list_index *index)
 	index->hdr = NULL;
 }
 
-static void mailbox_list_index_file_close(struct mailbox_list_index *index)
+void mailbox_list_index_file_close(struct mailbox_list_index *index)
 {
 	mailbox_list_index_unmap(index);
 
@@ -80,6 +80,7 @@ static void mailbox_list_index_file_close(struct mailbox_list_index *index)
 	if (index->fd != -1) {
 		if (close(index->fd) < 0)
 			mailbox_list_index_set_syscall_error(index, "close()");
+		index->fd = -1;
 	}
 }
 
@@ -87,7 +88,7 @@ int mailbox_list_index_set_corrupted(struct mailbox_list_index *index,
 				     const char *str)
 {
 	(void)unlink(index->filepath);
-	// FIXME: reopen or something
+	mailbox_list_index_file_close(index);
 
 	i_error("Corrupted mailbox list index file %s: %s",
 		index->filepath, str);
@@ -174,7 +175,8 @@ int mailbox_list_index_map(struct mailbox_list_index *index)
 }
 
 static void
-mailbox_list_index_init_header(struct mailbox_list_index_header *hdr)
+mailbox_list_index_init_header(struct mailbox_list_index_header *hdr,
+			       uint32_t uid_validity)
 {
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->major_version = MAILBOX_LIST_INDEX_MAJOR_VERSION;
@@ -183,7 +185,7 @@ mailbox_list_index_init_header(struct mailbox_list_index_header *hdr)
 	hdr->header_size = sizeof(*hdr);
 	hdr->used_space = hdr->header_size;
 
-	hdr->uid_validity = ioloop_time;
+	hdr->uid_validity = uid_validity;
 	hdr->next_uid = 1;
 }
 
@@ -191,7 +193,13 @@ static int mailbox_list_index_is_recreated(struct mailbox_list_index *index)
 {
 	struct stat st1, st2;
 
+	if (index->fd == -1)
+		return 1;
+
 	if (stat(index->filepath, &st1) < 0) {
+		if (errno == ENOENT)
+			return 1;
+
 		mailbox_list_index_set_syscall_error(index, "stat()");
 		return -1;
 	}
@@ -204,8 +212,8 @@ static int mailbox_list_index_is_recreated(struct mailbox_list_index *index)
 		!CMP_DEV_T(st1.st_dev, st2.st_dev);
 }
 
-static int
-mailbox_list_index_file_create(struct mailbox_list_index *index)
+int mailbox_list_index_file_create(struct mailbox_list_index *index,
+				   uint32_t uid_validity)
 {
 	struct mailbox_list_index_header hdr;
 	struct dotlock *dotlock;
@@ -228,7 +236,7 @@ mailbox_list_index_file_create(struct mailbox_list_index *index)
 		}
 	}
 
-	mailbox_list_index_init_header(&hdr);
+	mailbox_list_index_init_header(&hdr, uid_validity);
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		mailbox_list_index_set_syscall_error(index, "write_full()");
 		(void)file_dotlock_delete(&dotlock);
@@ -278,7 +286,7 @@ mailbox_list_index_file_try_open_or_create(struct mailbox_list_index *index)
 		}
 	}
 
-	ret = mailbox_list_index_file_create(index);
+	ret = mailbox_list_index_file_create(index, ioloop_time);
 	if (ret <= 0)
 		mailbox_list_index_file_close(index);
 	return ret;
@@ -483,12 +491,18 @@ mailbox_list_index_lookup_rec(struct mailbox_list_index *index,
 	return mailbox_list_index_lookup_rec(index, dir_offset, p + 1, rec_r);
 }
 
-static int mailbox_list_index_refresh(struct mailbox_list_index *index)
+int mailbox_list_index_refresh(struct mailbox_list_index *index)
 {
 	int ret;
 
-	if ((ret = mailbox_list_index_is_recreated(index)) <= 0)
+	if ((ret = mailbox_list_index_is_recreated(index)) <= 0) {
+		if (ret < 0)
+			return -1;
+
+		if (mailbox_list_index_map(index) < 0)
+			ret = -1;
 		return ret;
+	}
 
 	mailbox_list_index_file_close(index);
 	return mailbox_list_index_open_or_create(index);
@@ -529,7 +543,9 @@ mailbox_list_index_iterate_init(struct mailbox_list_index *index,
 		(unsigned int)recurse_level;
 	ctx->name_path = str_new(default_pool, 512);
 
-	if (*path != '\0') {
+	if (mailbox_list_index_refresh(index) < 0)
+		ctx->failed = TRUE;
+	if (!ctx->failed && *path != '\0') {
 		ret = mailbox_list_index_lookup_rec(index, offset, path, &rec);
 		if (ret < 0)
 			ctx->failed = TRUE;
