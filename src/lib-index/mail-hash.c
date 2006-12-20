@@ -189,6 +189,9 @@ static int mail_hash_check_header(struct mail_hash *hash,
 
 static void mail_hash_file_close(struct mail_hash *hash)
 {
+	if (hash->file_lock != NULL)
+		file_lock_free(&hash->file_lock);
+
 	if (hash->mmap_base != NULL) {
 		if (hash->mmap_anon) {
 			if (munmap_anon(hash->mmap_base, hash->mmap_size) < 0) {
@@ -451,6 +454,9 @@ static int mail_hash_file_open(struct mail_hash *hash, bool lock)
 
 		hash->locked = TRUE;
 		ret = mail_hash_file_map(hash, TRUE);
+
+		if (ret <= 0)
+			mail_hash_file_unlock(hash);
 	}
 	return ret;
 }

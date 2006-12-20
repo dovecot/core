@@ -142,6 +142,7 @@ struct thread_context {
 	struct mailbox_transaction_context *t;
 	struct mailbox *box;
 	struct ostream *output;
+	enum mail_thread_type thread_type;
 
 	struct mail *tmp_mail;
 	struct mail_thread_rec tmp_rec;
@@ -158,6 +159,7 @@ struct thread_context {
 	struct hash_table *subject_hash;
 	ARRAY_DEFINE(roots, struct mail_thread_root_rec *);
 	ARRAY_DEFINE(moved_recs, struct mail_thread_moved_rec);
+	uint32_t *alt_dates;
 
 	unsigned int cmp_match_count;
 	uint32_t cmp_last_idx;
@@ -188,6 +190,8 @@ static int unlink_child(struct thread_context *ctx, uint32_t child_idx,
 static void mail_thread_deinit(struct imap_thread_mailbox *tbox,
 			       struct thread_context *ctx)
 {
+	i_free(ctx->alt_dates);
+
 	if (ctx->msgid_hash != tbox->msgid_hash)
 		mail_hash_free(&ctx->msgid_hash);
 	else
@@ -491,8 +495,8 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 	struct mail *mail;
 	int ret, try;
 
-	if (type != MAIL_THREAD_REFERENCES)
-		i_fatal("Only REFERENCES threading supported");
+	i_assert(type == MAIL_THREAD_REFERENCES ||
+		 type == MAIL_THREAD_REFERENCES2);
 
 	if (tbox->msgid_hash == NULL)
 		imap_thread_hash_init(cmd->client->mailbox, TRUE);
@@ -503,6 +507,7 @@ int imap_thread(struct client_command_context *cmd, const char *charset,
 	ctx = t_new(struct thread_context, 1);
 	tbox->ctx = ctx;
 	ctx->msgid_hash = tbox->msgid_hash;
+	ctx->thread_type = type;
 
 	for (try = 0; try < 2; try++) {
 		ret = 0;
@@ -1591,6 +1596,16 @@ static void sort_root_nodes(struct thread_context *ctx)
 	qsort(roots, count, sizeof(*roots), mail_thread_root_rec_sort_cmp);
 }
 
+static void update_root_dates(struct thread_context *ctx)
+{
+	struct mail_thread_root_rec **roots;
+	unsigned int i, count;
+
+	roots = array_get_modifiable(&ctx->roots, &count);
+	for (i = 0; i < count; i++)
+		roots[i]->sent_date = ctx->alt_dates[roots[i]->idx];
+}
+
 static int str_add_id(struct thread_context *ctx, string_t *str, uint32_t uid)
 {
 	if (!ctx->id_is_uid) {
@@ -1773,6 +1788,35 @@ static int send_roots(struct thread_context *ctx)
 	return 0;
 }
 
+static int update_altdates(struct thread_context *ctx, uint32_t idx,
+			   const struct mail_thread_rec *rec)
+{
+	const struct mail_hash_header *hdr;
+	uint32_t timestamp = rec->sent_date;
+
+	hdr = mail_hash_get_header(ctx->msgid_hash);
+	for (;;) {
+		if (ctx->alt_dates[idx] < timestamp) {
+			/* @UNSAFE */
+			ctx->alt_dates[idx] = timestamp;
+		}
+
+		idx = rec->parent_idx;
+		if (idx == 0)
+			break;
+
+		if (idx > hdr->record_count) {
+			mail_hash_set_corrupted(ctx->msgid_hash,
+						"parent_idx too large");
+			return -1;
+		}
+
+		if (mail_thread_rec_idx(ctx, idx, &rec) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 static int mail_thread_finish(struct thread_context *ctx)
 {
 	const struct mail_hash_header *hdr;
@@ -1789,10 +1833,16 @@ static int mail_thread_finish(struct thread_context *ctx)
 
 	/* (2) save root nodes */
 	i_array_init(&ctx->roots, I_MIN(128, hdr->record_count));
+	if (ctx->thread_type == MAIL_THREAD_REFERENCES2)
+		ctx->alt_dates = i_new(uint32_t, hdr->record_count + 1);
 	for (idx = 1; idx <= hdr->record_count; idx++) {
 		if (mail_thread_rec_idx(ctx, idx, &rec) < 0)
 			return -1;
-		if (rec->parent_idx == 0 && rec->rec.uid != (uint32_t)-1) {
+
+		if (MAIL_HASH_RECORD_IS_DELETED(&rec->rec))
+			continue;
+
+		if (rec->parent_idx == 0) {
 			/* use the first non-dummy message's uid/sent_date
 			   so that the roots can be directly sorted */
 			if (mail_thread_rec_get_nondummy(ctx, rec, &rec) < 0)
@@ -1805,19 +1855,27 @@ static int mail_thread_finish(struct thread_context *ctx)
 			root_rec->sent_date = rec->sent_date;
 			array_append(&ctx->roots, &root_rec, 1);
 		}
+
+		if (ctx->thread_type == MAIL_THREAD_REFERENCES2)
+			update_altdates(ctx, idx, rec);
 	}
 
-	/* (4) */
-	sort_root_nodes(ctx);
+	if (ctx->thread_type == MAIL_THREAD_REFERENCES2) {
+		update_root_dates(ctx);
+		i_free_and_null(ctx->alt_dates);
+	} else {
+		/* (4) */
+		sort_root_nodes(ctx);
 
-	/* (5) Gather together messages under the root that have the same
-	   base subject text. */
-	if (gather_base_subjects(ctx) < 0)
-		return -1;
+		/* (5) Gather together messages under the root that have
+		   the same base subject text. */
+		if (gather_base_subjects(ctx) < 0)
+			return -1;
 
-	/* (5.C) Merge threads with the same thread subject. */
-	if (merge_subject_threads(ctx) < 0)
-		return -1;
+		/* (5.C) Merge threads with the same thread subject. */
+		if (merge_subject_threads(ctx) < 0)
+			return -1;
+	}
 
 	/* (6) Sort again and send replies */
 	t_push();

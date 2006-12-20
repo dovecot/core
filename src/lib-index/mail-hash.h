@@ -53,6 +53,8 @@ struct mail_hash_record {
 	uint32_t uid;
 	/* user_data[] */
 };
+#define MAIL_HASH_RECORD_IS_DELETED(rec) \
+	((rec)->uid == (uint32_t)-1)
 
 enum mail_hash_open_flags {
 	MAIL_HASH_OPEN_FLAG_CREATE	= 0x01,
