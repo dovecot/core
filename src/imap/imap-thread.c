@@ -380,6 +380,43 @@ static unsigned int mail_thread_hash_rec(const void *p)
 }
 
 static int
+resize_callback(struct mail_hash *tmp_hash, uint32_t first_changed_idx,
+		const uint32_t *map, unsigned int map_size, void *context)
+{
+	struct thread_context *ctx = context;
+	const struct mail_hash_header *hdr;
+	const struct mail_thread_rec *rec;
+	struct mail_thread_rec tmp_rec;
+	const void *value;
+	uint32_t idx;
+
+	hdr = mail_hash_get_header(tmp_hash);
+	for (idx = first_changed_idx; idx <= hdr->record_count; idx++) {
+		if (mail_hash_lookup_idx(tmp_hash, idx, &value) < 0)
+			return -1;
+		rec = value;
+
+		i_assert(!MAIL_HASH_RECORD_IS_DELETED(&rec->rec));
+
+		if (rec->parent_idx >= map_size ||
+		    rec->first_child_idx >= map_size ||
+		    rec->next_idx >= map_size) {
+			mail_hash_set_corrupted(ctx->msgid_hash,
+						"invalid indexes");
+			return -1;
+		}
+
+		tmp_rec = *rec;
+		tmp_rec.parent_idx = map[rec->parent_idx];
+		tmp_rec.first_child_idx = map[rec->first_child_idx];
+		tmp_rec.next_idx = map[rec->next_idx];
+		if (mail_hash_update_idx(tmp_hash, idx, &tmp_rec) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int
 imap_thread_context_init(struct imap_thread_mailbox *tbox,
 			 struct client *client, const char *charset,
 			 struct mail_search_arg *search_args)
@@ -453,20 +490,22 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 			/* after all these checks, this is the only case we
 			   can actually optimize. */
 			ctx->tmp_search_arg.type = SEARCH_SEQSET;
-			ctx->tmp_search_arg.value.seqset = &ctx->seqset;
 			if (ctx->seqset.seq2 == last_seq) {
 				/* search nothing */
-				ctx->tmp_search_arg.not = TRUE;
+				ctx->tmp_search_arg.value.seqset = NULL;
 			} else {
 				/* search next+1..n */
 				ctx->seqset.seq1 = ctx->seqset.seq2 + 1;
 				ctx->seqset.seq2 = last_seq;
+				ctx->tmp_search_arg.value.seqset = &ctx->seqset;
 			}
 			search_args = &ctx->tmp_search_arg;
 
 			if (mail_hash_resize_if_needed(ctx->msgid_hash,
 						       last_seq -
-						       hdr->message_count) < 0)
+						       hdr->message_count,
+						       resize_callback,
+						       ctx) < 0)
 				ctx->msgid_hash = NULL;
 		}
 	}

@@ -720,6 +720,11 @@ int mail_hash_lookup(struct mail_hash *hash, const void *key,
 			*value_r = rec;
 			return 1;
 		}
+
+		if (idx == rec->next_idx) {
+			mail_hash_set_corrupted(hash, "next_idx loops");
+			return -1;
+		}
 		idx = rec->next_idx;
 	}
 	return 0;
@@ -842,6 +847,8 @@ static int mail_hash_insert_with_hash(struct mail_hash *hash, const void *value,
 	}
 
 	memcpy(rec, value, hash->record_size);
+	rec->next_idx = 0;
+
 	if (mail_hash_update_header(hash, rec, FALSE) < 0)
 		return -1;
 
@@ -849,6 +856,10 @@ static int mail_hash_insert_with_hash(struct mail_hash *hash, const void *value,
 		idx_p = &hash->hash_base[hash_key % hash->hdr->hash_size];
 		while (*idx_p != 0) {
 			rec = HASH_RECORD_IDX(hash, *idx_p);
+			if (*idx_p == rec->next_idx) {
+				mail_hash_set_corrupted(hash, "next_idx loops");
+				return -1;
+			}
 			idx_p = &rec->next_idx;
 		}
 
@@ -1004,13 +1015,16 @@ int mail_hash_update_idx(struct mail_hash *hash, uint32_t idx,
 	return mail_hash_update_header(hash, rec, had_uid);
 }
 
-int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count)
+int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count,
+			       mail_hash_resize_callback_t *callback,
+			       void *context)
 {
 	struct mail_hash *tmp_hash;
 	const struct mail_hash_record *rec;
 	const char *tmp_filename;
-	uint32_t hash_key, idx, new_idx;
+	uint32_t hash_key, idx, new_idx, first_changed_idx, *map;
 	float nodes_per_list;
+	unsigned int map_size;
 	int ret = 0;
 
 	if (MAIL_HASH_IS_IN_MEMORY(hash))
@@ -1018,12 +1032,13 @@ int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count)
 
 	i_assert(hash->locked);
 
+#if 0
 	nodes_per_list = (float)(hash->hdr->hashed_count + grow_count) /
 		(float)hash->hdr->hash_size;
 	if ((nodes_per_list > 0.3 && nodes_per_list < 2.0) ||
 	    hash->hdr->hash_size <= MAIL_HASH_MIN_SIZE)
 		return 0;
-
+#endif
 	/* create a temporary hash */
 	tmp_hash = mail_hash_open(hash->index,
 				  t_strconcat(hash->suffix, ".tmp", NULL),
@@ -1038,17 +1053,34 @@ int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count)
 		return -1;
 
 	/* populate */
+	first_changed_idx = 0;
+	map_size = hash->hdr->record_count + 1;
+	map = i_new(uint32_t, map_size);
 	for (idx = 1; idx <= hash->hdr->record_count; idx++) {
 		rec = HASH_RECORD_IDX(hash, idx);
 		hash_key = hash->rec_hash_cb(rec);
+
+		if (MAIL_HASH_RECORD_IS_DELETED(rec))
+			continue;
 
 		if (mail_hash_insert_with_hash(tmp_hash, rec, hash_key,
 					       &new_idx) < 0) {
 			ret = -1;
 			break;
 		}
-		i_assert(idx == new_idx);
+
+		if (first_changed_idx == 0 && idx != new_idx)
+			first_changed_idx = idx;
+
+		/* @UNSAFE: keep old -> new idx mapping */
+		map[idx] = new_idx;
 	}
+	if (ret == 0 && first_changed_idx != 0) {
+		if (callback(tmp_hash, first_changed_idx,
+			     map, map_size, context) < 0)
+			ret = -1;
+	}
+	i_free(map);
 	(void)mail_hash_file_write_changes(tmp_hash);
 
 	tmp_filename = t_strdup(tmp_hash->filepath);

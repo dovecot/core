@@ -5,6 +5,8 @@
 
 #define MAIL_HASH_VERSION 1
 
+struct mail_hash;
+
 /* File format:
 
    [header]
@@ -64,6 +66,11 @@ enum mail_hash_open_flags {
 /* Returns 0 if the pointers are equal. */
 typedef bool hash_ctx_cmp_callback_t(const void *key, const void *data,
 				     void *context);
+/* map[] contains old -> new index mapping. */
+typedef int mail_hash_resize_callback_t(struct mail_hash *tmp_hash,
+					uint32_t first_changed_idx,
+					const uint32_t *map,
+					unsigned int map_size, void *context);
 
 struct mail_hash *
 mail_hash_open(struct mail_index *index, const char *suffix,
@@ -93,7 +100,9 @@ void mail_hash_free(struct mail_hash **hash);
 /* If reset or resize fails, the hash file is closed and the hash is in
    unusable state until mail_hash_lock() succeeds. */
 int mail_hash_reset(struct mail_hash *hash, unsigned int initial_count);
-int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count);
+int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count,
+			       mail_hash_resize_callback_t *callback,
+			       void *context);
 
 /* Lock hash file. Returns 1 if we locked the file, 0 if timeouted or hash
    is in memory, -1 if error. */
