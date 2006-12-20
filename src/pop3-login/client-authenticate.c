@@ -263,8 +263,7 @@ static bool check_plaintext_auth(struct pop3_client *client)
 		client_syslog(&client->common, "Login failed: "
 			      "Plaintext authentication disabled");
 	}
-	client_send_line(client,
-			 "-ERR Plaintext authentication disabled.");
+	client_send_line(client, "-ERR "AUTH_PLAINTEXT_DISABLED_MSG);
 	return FALSE;
 }
 

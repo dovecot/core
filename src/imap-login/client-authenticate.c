@@ -294,8 +294,7 @@ int cmd_login(struct imap_client *client, struct imap_arg *args)
 			"* BAD [ALERT] Plaintext authentication is disabled, "
 			"but your client sent password in plaintext anyway. "
 			"If anyone was listening, the password was exposed.");
-		client_send_tagline(client,
-				    "NO Plaintext authentication disabled.");
+		client_send_tagline(client, "NO "AUTH_PLAINTEXT_DISABLED_MSG);
 		return 1;
 	}
 

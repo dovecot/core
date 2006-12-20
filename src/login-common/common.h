@@ -8,6 +8,8 @@
 
 #define AUTH_FAILED_MSG "Authentication failed."
 #define AUTH_TEMP_FAILED_MSG "Temporary authentication failure."
+#define AUTH_PLAINTEXT_DISABLED_MSG \
+	"Plaintext authentication disallowed on non-secure connections."
 
 extern const char *login_protocol;
 
