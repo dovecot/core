@@ -23,6 +23,7 @@ struct client_command_context {
 	pool_t pool;
 	const char *tag;
 	const char *name;
+	enum command_flags cmd_flags;
 
 	command_func_t *func;
 	void *context;
@@ -33,6 +34,7 @@ struct client_command_context {
 	unsigned int cancel:1; /* command is wanted to be cancelled */
 	unsigned int param_error:1;
 	unsigned int output_pending:1;
+	unsigned int waiting_unambiguity:1;
 };
 
 struct client {

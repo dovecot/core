@@ -5,6 +5,7 @@
 
 bool cmd_uid(struct client_command_context *cmd)
 {
+	struct command *command;
 	const char *cmd_name;
 
 	/* UID <command> <args> */
@@ -12,7 +13,9 @@ bool cmd_uid(struct client_command_context *cmd)
 	if (cmd_name == NULL)
 		return FALSE;
 
-	cmd->func = command_find(t_strconcat("UID ", cmd_name, NULL));
+	command = command_find(t_strconcat("UID ", cmd_name, NULL));
+	cmd->cmd_flags = command->flags;
+	cmd->func = command->func;
 
 	if (cmd->func != NULL) {
 		cmd->uid = TRUE;

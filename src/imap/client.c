@@ -280,6 +280,47 @@ bool client_read_string_args(struct client_command_context *cmd,
 }
 
 static struct client_command_context *
+client_command_find_with_flags(struct client_command_context *new_cmd,
+			       enum command_flags flags)
+{
+	struct client_command_context *cmd;
+
+	cmd = new_cmd->client->command_queue;
+	for (; cmd != NULL; cmd = cmd->next) {
+		if (cmd != new_cmd && (cmd->cmd_flags & flags) != 0)
+			return cmd;
+	}
+	return NULL;
+}
+
+static bool client_command_check_ambiguity(struct client_command_context *cmd)
+{
+	enum command_flags flags;
+	bool broken_client = FALSE;
+
+	if ((cmd->cmd_flags & COMMAND_FLAG_USES_SEQS) != 0) {
+		/* no existing command must be breaking sequences */
+		flags = COMMAND_FLAG_BREAKS_SEQS;
+		broken_client = TRUE;
+	} else if ((cmd->cmd_flags & COMMAND_FLAG_BREAKS_SEQS) != 0) {
+		/* if existing command uses sequences, we'll have to block */
+		flags = COMMAND_FLAG_USES_SEQS;
+	} else {
+		return FALSE;
+	}
+
+	if (client_command_find_with_flags(cmd, flags) == NULL)
+		return FALSE;
+
+	if (broken_client) {
+		client_send_line(cmd->client,
+			"* BAD Command pipelining results in ambiguity.");
+	}
+
+	return TRUE;
+}
+
+static struct client_command_context *
 client_command_new(struct client *client)
 {
 	struct client_command_context *cmd;
@@ -356,7 +397,10 @@ void client_command_free(struct client_command_context *cmd)
 		p_clear(client->command_pool);
 	}
 
-	if (client->input_lock == NULL && !client->disconnected) {
+	if (!client->disconnected &&
+	    (client->input_lock == NULL ||
+	     (client->input_lock->waiting_unambiguity &&
+	      !client_command_check_ambiguity(client->input_lock)))) {
 		if (client->io == NULL) {
 			i_assert(i_stream_get_fd(client->input) >= 0);
 			client->io = io_add(i_stream_get_fd(client->input),
@@ -425,14 +469,27 @@ static bool client_command_input(struct client_command_context *cmd)
 		cmd->name = p_strdup(cmd->pool, cmd->name);
 	}
 
+	client->input_skip_line = TRUE;
+
 	if (cmd->name == '\0') {
 		/* command not given - cmd_func is already NULL. */
 	} else {
 		/* find the command function */
-		cmd->func = command_find(cmd->name);
+		struct command *command = command_find(cmd->name);
+
+		if (command != NULL) {
+			cmd->func = command->func;
+			cmd->cmd_flags = command->flags;
+			if (client_command_check_ambiguity(cmd)) {
+				/* do nothing until existing commands are
+				   finished */
+				cmd->waiting_unambiguity = TRUE;
+				io_remove(&client->io);
+				return FALSE;
+			}
+		}
 	}
 
-	client->input_skip_line = TRUE;
 	if (cmd->func == NULL) {
 		/* unknown command */
 		client_send_command_error(cmd, "Unknown command.");

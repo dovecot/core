@@ -8,48 +8,49 @@
 #include <stdlib.h>
 
 const struct command imap4rev1_commands[] = {
-	{ "CAPABILITY",		cmd_capability },
-	{ "LOGOUT",		cmd_logout },
-	{ "NOOP",		cmd_noop },
+	{ "CAPABILITY",		cmd_capability,  0 },
+	{ "LOGOUT",		cmd_logout,      0 },
+	{ "NOOP",		cmd_noop,        COMMAND_FLAG_BREAKS_SEQS },
 
-	{ "APPEND",		cmd_append },
-	{ "EXAMINE",		cmd_examine },
-	{ "CREATE",		cmd_create },
-	{ "DELETE",		cmd_delete },
-	{ "RENAME",		cmd_rename },
-	{ "LIST",		cmd_list },
-	{ "LSUB",		cmd_lsub },
-	{ "SELECT",		cmd_select },
-	{ "STATUS",		cmd_status },
-	{ "SUBSCRIBE",		cmd_subscribe },
-	{ "UNSUBSCRIBE",	cmd_unsubscribe },
+	{ "APPEND",		cmd_append,      COMMAND_FLAG_BREAKS_SEQS },
+	{ "EXAMINE",		cmd_examine,     COMMAND_FLAG_BREAKS_MAILBOX },
+	{ "CREATE",		cmd_create,      0 },
+	{ "DELETE",		cmd_delete,      0 },
+	{ "RENAME",		cmd_rename,      0 },
+	{ "LIST",		cmd_list,        0 },
+	{ "LSUB",		cmd_lsub,        0 },
+	{ "SELECT",		cmd_select,      COMMAND_FLAG_BREAKS_MAILBOX },
+	{ "STATUS",		cmd_status,      0 },
+	{ "SUBSCRIBE",		cmd_subscribe,   0 },
+	{ "UNSUBSCRIBE",	cmd_unsubscribe, 0 },
 
-	{ "CHECK",		cmd_check },
-	{ "CLOSE",		cmd_close },
-	{ "COPY",		cmd_copy },
-	{ "EXPUNGE",		cmd_expunge },
-	{ "FETCH",		cmd_fetch },
-	{ "SEARCH",		cmd_search },
-	{ "STORE",		cmd_store },
-	{ "UID",		cmd_uid },
-	{ "UID COPY",		cmd_copy },
-	{ "UID FETCH",		cmd_fetch },
-	{ "UID SEARCH",		cmd_search },
-	{ "UID STORE",		cmd_store }
+	{ "CHECK",		cmd_check,       COMMAND_FLAG_BREAKS_SEQS },
+	{ "CLOSE",		cmd_close,       COMMAND_FLAG_BREAKS_MAILBOX },
+	{ "COPY",		cmd_copy,        COMMAND_FLAG_USES_SEQS |
+						 COMMAND_FLAG_BREAKS_SEQS },
+	{ "EXPUNGE",		cmd_expunge,     COMMAND_FLAG_BREAKS_SEQS },
+	{ "FETCH",		cmd_fetch,       COMMAND_FLAG_USES_SEQS },
+	{ "SEARCH",		cmd_search,      COMMAND_FLAG_USES_SEQS },
+	{ "STORE",		cmd_store,       COMMAND_FLAG_USES_SEQS },
+	{ "UID",		cmd_uid,         0 },
+	{ "UID COPY",		cmd_copy,        COMMAND_FLAG_BREAKS_SEQS },
+	{ "UID FETCH",		cmd_fetch,       COMMAND_FLAG_BREAKS_SEQS },
+	{ "UID SEARCH",		cmd_search,      COMMAND_FLAG_BREAKS_SEQS },
+	{ "UID STORE",		cmd_store,       COMMAND_FLAG_BREAKS_SEQS }
 };
 #define IMAP4REV1_COMMANDS_COUNT \
 	(sizeof(imap4rev1_commands) / sizeof(imap4rev1_commands[0]))
 
 const struct command imap_ext_commands[] = {
-	{ "IDLE",		cmd_idle },
-	{ "NAMESPACE",		cmd_namespace },
-	{ "SORT",		cmd_sort },
-	{ "THREAD",		cmd_thread },
-	{ "UID EXPUNGE",	cmd_uid_expunge },
-	{ "UID SORT",		cmd_sort },
-	{ "UID THREAD",		cmd_thread },
-	{ "UNSELECT",		cmd_unselect },
-	{ "X-CANCEL",		cmd_x_cancel }
+	{ "IDLE",		cmd_idle,        COMMAND_FLAG_BREAKS_SEQS },
+	{ "NAMESPACE",		cmd_namespace,   0 },
+	{ "SORT",		cmd_sort,        COMMAND_FLAG_USES_SEQS },
+	{ "THREAD",		cmd_thread,      COMMAND_FLAG_USES_SEQS },
+	{ "UID EXPUNGE",	cmd_uid_expunge, COMMAND_FLAG_BREAKS_SEQS },
+	{ "UID SORT",		cmd_sort,        COMMAND_FLAG_BREAKS_SEQS },
+	{ "UID THREAD",		cmd_thread,      COMMAND_FLAG_BREAKS_SEQS },
+	{ "UNSELECT",		cmd_unselect,    COMMAND_FLAG_BREAKS_MAILBOX },
+	{ "X-CANCEL",		cmd_x_cancel,    0 }
 };
 #define IMAP_EXT_COMMANDS_COUNT \
 	(sizeof(imap_ext_commands) / sizeof(imap_ext_commands[0]))
@@ -112,9 +113,8 @@ static int command_bsearch(const void *name, const void *cmd_p)
 	return strcasecmp(name, cmd->name);
 }
 
-command_func_t *command_find(const char *name)
+struct command *command_find(const char *name)
 {
-	const struct command *cmd;
 	void *base;
 	unsigned int count;
 
@@ -124,9 +124,8 @@ command_func_t *command_find(const char *name)
                 commands_unsorted = FALSE;
 	}
 
-	cmd = bsearch(name, base, count, sizeof(struct command),
-		      command_bsearch);
-	return cmd == NULL ? NULL : cmd->func;
+	return bsearch(name, base, count, sizeof(struct command),
+		       command_bsearch);
 }
 
 void commands_init(void)

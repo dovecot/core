@@ -10,9 +10,20 @@ struct client_command_context;
 
 typedef bool command_func_t(struct client_command_context *cmd);
 
+enum command_flags {
+	/* Command uses sequences as its input parameters */
+	COMMAND_FLAG_USES_SEQS		= 0x01,
+	/* Command may reply with EXPUNGE, causing sequences to break */
+	COMMAND_FLAG_BREAKS_SEQS	= 0x02,
+	/* Command changes the mailbox */
+	COMMAND_FLAG_BREAKS_MAILBOX	= 0x04 | COMMAND_FLAG_BREAKS_SEQS
+};
+
 struct command {
 	const char *name;
 	command_func_t *func;
+
+	enum command_flags flags;
 };
 
 /* Register command. Given name parameter must be permanently stored until
@@ -24,7 +35,7 @@ void command_unregister(const char *name);
 void command_register_array(const struct command *cmdarr, unsigned int count);
 void command_unregister_array(const struct command *cmdarr, unsigned int count);
 
-command_func_t *command_find(const char *name);
+struct command *command_find(const char *name);
 
 void commands_init(void);
 void commands_deinit(void);
