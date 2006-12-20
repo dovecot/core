@@ -199,7 +199,7 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 	const char *str1, *str2;
 	time_t time1, time2;
 	uoff_t size1, size2;
-	int ret;
+	int ret = 0;
 
 	sort_type = *sort_program & MAIL_SORT_MASK;
 	switch (sort_type) {
