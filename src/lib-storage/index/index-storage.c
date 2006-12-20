@@ -328,7 +328,7 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
 	}
 
-	if (ibox->move_to_memory)
+	if (!ibox->move_to_memory)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
 	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_DISABLE) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE;
