@@ -42,6 +42,7 @@ struct file_ostream {
 	unsigned int file:1;
 	unsigned int corked:1;
 	unsigned int flush_pending:1;
+	unsigned int socket_cork_set:1;
 	unsigned int no_socket_cork:1;
 	unsigned int no_sendfile:1;
 	unsigned int autoclose_fd:1;
@@ -120,6 +121,18 @@ static void update_buffer(struct file_ostream *fstream, size_t size)
 		fstream->head = 0;
 }
 
+static void o_stream_socket_cork(struct file_ostream *fstream)
+{
+	if (fstream->corked && !fstream->socket_cork_set) {
+		if (!fstream->no_socket_cork) {
+			if (net_set_cork(fstream->fd, TRUE) < 0)
+				fstream->no_socket_cork = TRUE;
+			else
+				fstream->socket_cork_set = TRUE;
+		}
+	}
+}
+
 static ssize_t o_stream_writev(struct file_ostream *fstream,
 			       const struct const_iovec *iov, int iov_size)
 {
@@ -127,6 +140,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 	size_t size, sent;
 	int i;
 
+	o_stream_socket_cork(fstream);
 	if (iov_size == 1)
 		ret = write(fstream->fd, iov->iov_base, iov->iov_len);
 	else {
@@ -226,9 +240,11 @@ static void _cork(struct _ostream *stream, bool set)
 			}
 		}
 
-		if (!fstream->no_socket_cork) {
-			if (net_set_cork(fstream->fd, set) < 0)
+		if (fstream->socket_cork_set) {
+			i_assert(!set);
+			if (net_set_cork(fstream->fd, FALSE) < 0)
 				fstream->no_socket_cork = TRUE;
+			fstream->socket_cork_set = FALSE;
 		}
 		fstream->corked = set;
 	}
@@ -486,6 +502,8 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 	uoff_t start_offset;
 	uoff_t offset, send_size, v_offset;
 	ssize_t ret;
+
+	o_stream_socket_cork(foutstream);
 
 	/* flush out any data in buffer */
 	if ((ret = buffer_flush(foutstream)) <= 0)
