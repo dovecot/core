@@ -75,7 +75,7 @@ int quota_count(struct quota *quota, uint64_t *bytes_r, uint64_t *count_r)
 {
 	struct mail_storage *const *storages;
 	unsigned int i, count;
-	int ret;
+	int ret = 0;
 
 	i_assert(!quota->counting);
 
