@@ -263,7 +263,8 @@ mail_thread_find_child_msgid(struct thread_context *ctx, uint32_t parent_uid,
 
 	while ((msgid = message_id_get_next(&msgids)) != NULL) {
 		if (crc32_str_nonzero(msgid) == msgid_crc32) {
-			if (found_msgid != NULL) {
+			if (found_msgid != NULL &&
+			    strcmp(found_msgid, msgid) != 0) {
 				/* hash collisions, we can't figure this out */
 				return -1;
 			}
@@ -288,8 +289,14 @@ mail_thread_children_get_parent_msgid(struct thread_context *ctx,
 			return NULL;
 		idx = child_rec->next_idx;
 
-		if (child_rec->rec.uid == 0)
-			continue;
+		if (child_rec->rec.uid == 0) {
+			if (idx != 0)
+				continue;
+
+			/* only dummies in this level. go deeper. */
+			return mail_thread_children_get_parent_msgid(ctx,
+								     child_rec);
+		}
 
 		/* each non-dummy child must have a valid In-Reply-To or
 		   References header pointing to the parent, otherwise it
@@ -381,17 +388,32 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 	struct mailbox_status status;
 	const struct mail_hash_header *hdr;
 	unsigned int count;
+	uint32_t last_seq = 0, last_uid = 0;
 
 	if (mailbox_get_status(client->mailbox,
 			       STATUS_MESSAGES | STATUS_UIDNEXT, &status) < 0)
 		return -1;
 
-	if (search_args->type != SEARCH_ALL ||
-	    search_args->next != NULL) {
-		/* each search condition requires their own separate thread
-		   index. for now we don't bother to support anything else than
-		   "search all" threading, since that's what pretty much all
-		   the clients do anyway. */
+	last_seq = status.messages;
+	last_uid = status.uidnext - 1;
+
+	/* Each search condition requires their own separate thread index.
+	   Pretty much all the clients use only "search all" threading, so
+	   we don't need to worry about anything else. */
+	if (search_args->next != NULL) {
+		/* too difficult to figure out if we could optimize this.
+		   we most likely couldn't. */
+		ctx->msgid_hash = NULL;
+	} else if (search_args->type == SEARCH_ALL) {
+		/* optimize */
+	} else if (search_args->type == SEARCH_SEQSET &&
+		   search_args->value.seqset->seq1 == 1) {
+		/* If we're searching 1..n, we might be able to optimize
+		   this. This is at least useful for testing incremental
+		   index updates if nothing else. :) */
+		last_seq = search_args->value.seqset->seq2;
+		last_uid = 0;
+	} else {
 		ctx->msgid_hash = NULL;
 	}
 
@@ -404,8 +426,8 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 		mail_hash_get_header(ctx->msgid_hash);
 	if (hdr == NULL) {
 		/* we want to build it in memory */
-	} else if (hdr->message_count > status.messages) {
-		if (hdr->last_uid > status.uidnext-1) {
+	} else if (hdr->message_count > last_seq) {
+		if (hdr->last_uid > last_uid) {
 			/* view is a bit out of date, can't optimize */
 			mail_hash_unlock(ctx->msgid_hash);
 			ctx->msgid_hash = NULL;
@@ -432,11 +454,18 @@ imap_thread_context_init(struct imap_thread_mailbox *tbox,
 			   can actually optimize. */
 			ctx->tmp_search_arg.type = SEARCH_SEQSET;
 			ctx->tmp_search_arg.value.seqset = &ctx->seqset;
-			ctx->tmp_search_arg.not = TRUE;
+			if (ctx->seqset.seq2 == last_seq) {
+				/* search nothing */
+				ctx->tmp_search_arg.not = TRUE;
+			} else {
+				/* search next+1..n */
+				ctx->seqset.seq1 = ctx->seqset.seq2 + 1;
+				ctx->seqset.seq2 = last_seq;
+			}
 			search_args = &ctx->tmp_search_arg;
 
 			if (mail_hash_resize_if_needed(ctx->msgid_hash,
-						       status.messages -
+						       last_seq -
 						       hdr->message_count) < 0)
 				ctx->msgid_hash = NULL;
 		}
