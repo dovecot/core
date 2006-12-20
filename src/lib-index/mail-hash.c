@@ -1032,13 +1032,12 @@ int mail_hash_resize_if_needed(struct mail_hash *hash, unsigned int grow_count,
 
 	i_assert(hash->locked);
 
-#if 0
 	nodes_per_list = (float)(hash->hdr->hashed_count + grow_count) /
 		(float)hash->hdr->hash_size;
 	if ((nodes_per_list > 0.3 && nodes_per_list < 2.0) ||
 	    hash->hdr->hash_size <= MAIL_HASH_MIN_SIZE)
 		return 0;
-#endif
+
 	/* create a temporary hash */
 	tmp_hash = mail_hash_open(hash->index,
 				  t_strconcat(hash->suffix, ".tmp", NULL),
