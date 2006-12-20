@@ -45,7 +45,7 @@ struct squat_uidlist_get_context {
 
 	ARRAY_TYPE(seq_range) *result;
 
-	uint32_t filter_pos;
+	uint32_t filter_uid_pos;
 };
 
 struct squat_uidlist {
@@ -976,14 +976,16 @@ int squat_uidlist_compress_commit(struct squat_uidlist_compress_ctx **_ctx)
 static void
 squat_uidlist_get_add_uid(struct squat_uidlist_get_context *ctx, uint32_t uid)
 {
-	if (ctx->filter_pos == 0) {
+	if (ctx->filter_uid_pos == 0) {
 		seq_range_array_add(ctx->result, 0, uid);
 		return;
 	}
 
-	for (; ctx->filter_pos < uid; ctx->filter_pos++)
-		seq_range_array_remove(ctx->result, ctx->filter_pos);
-	ctx->filter_pos++;
+	if (ctx->filter_uid_pos < uid) {
+		seq_range_array_remove_range(ctx->result,
+					     ctx->filter_uid_pos, uid-1);
+	}
+	ctx->filter_uid_pos = uid+1;
 }
 
 static int
@@ -1053,15 +1055,15 @@ int squat_uidlist_filter(struct squat_uidlist *uidlist, uint32_t uid_list_idx,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.uidlist = uidlist;
 	ctx.result = result;
-	ctx.filter_pos = 1;
+	ctx.filter_uid_pos = 1;
 
 	if (squat_uidlist_get_ctx(&ctx, uid_list_idx) < 0)
 		return -1;
 
 	range = array_get(ctx.result, &count);
 	if (count > 0) {
-		for (; ctx.filter_pos <= range[count-1].seq2; ctx.filter_pos++)
-			seq_range_array_remove(result, ctx.filter_pos);
+		seq_range_array_remove_range(result, ctx.filter_uid_pos,
+					     range[count-1].seq2);
 	}
 	return 0;
 }
