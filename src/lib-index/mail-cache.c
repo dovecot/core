@@ -475,16 +475,17 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
         cont_percentage = hdr->continued_record_count * 100 /
 		(cache->index->map->records_count == 0 ? 1 :
 		 cache->index->map->records_count);
-	if (cont_percentage >= COMPRESS_CONTINUED_PERCENTAGE &&
-	    hdr->used_file_size >= COMPRESS_MIN_SIZE) {
+	if (cont_percentage >= MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE &&
+	    hdr->used_file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE) {
 		/* too many continued rows, compress */
 		cache->need_compress_file_seq = hdr->file_seq;
 	}
 
 	/* see if we've reached the max. deleted space in file */
-	max_del_space = hdr->used_file_size / 100 * COMPRESS_PERCENTAGE;
+	max_del_space = hdr->used_file_size / 100 *
+		MAIL_CACHE_COMPRESS_PERCENTAGE;
 	if (hdr->deleted_space >= max_del_space &&
-	    hdr->used_file_size >= COMPRESS_MIN_SIZE)
+	    hdr->used_file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE)
 		cache->need_compress_file_seq = hdr->file_seq;
 }
 

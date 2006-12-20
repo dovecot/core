@@ -8,17 +8,17 @@
 #define MAIL_CACHE_VERSION 1
 
 /* Never compress the file if it's smaller than this */
-#define COMPRESS_MIN_SIZE (1024*50)
+#define MAIL_CACHE_COMPRESS_MIN_SIZE (1024*50)
 
 /* Don't bother remembering holes smaller than this */
 #define MAIL_CACHE_MIN_HOLE_SIZE 1024
 
 /* Compress the file when deleted space reaches n% of total size */
-#define COMPRESS_PERCENTAGE 20
+#define MAIL_CACHE_COMPRESS_PERCENTAGE 20
 
 /* Compress the file when n% of rows contain continued rows.
    200% means that there's 2 continued rows per record. */
-#define COMPRESS_CONTINUED_PERCENTAGE 200
+#define MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE 200
 
 /* Initial size for the file */
 #define MAIL_CACHE_INITIAL_SIZE (sizeof(struct mail_cache_header) + 10240)
