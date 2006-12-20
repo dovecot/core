@@ -50,7 +50,7 @@ get_mailbox_status(struct client *client, struct mail_storage *storage,
 		   struct mailbox_status *status)
 {
 	struct mailbox *box;
-	bool failed;
+	bool failed = FALSE;
 
 	if (client->mailbox != NULL &&
 	    mailbox_equals(client->mailbox, storage, mailbox)) {
@@ -63,11 +63,12 @@ get_mailbox_status(struct client *client, struct mail_storage *storage,
 				   MAILBOX_OPEN_KEEP_RECENT);
 		if (box == NULL)
 			return FALSE;
+
+		if (imap_sync_nonselected(box, 0) < 0)
+			failed = TRUE;
 	}
 
-	if (imap_sync_nonselected(box, 0) < 0)
-		failed = TRUE;
-	else
+	if (!failed)
 		failed = mailbox_get_status(box, items, status) < 0;
 
 	if (box != client->mailbox)
