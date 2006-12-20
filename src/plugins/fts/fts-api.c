@@ -107,5 +107,35 @@ int fts_backend_lookup(struct fts_backend *backend, const char *key,
 int fts_backend_filter(struct fts_backend *backend, const char *key,
 		       ARRAY_TYPE(seq_range) *result)
 {
-	return backend->v.filter(backend, key, result);
+	ARRAY_TYPE(seq_range) tmp_result;
+	int ret;
+
+	if (backend->v.filter != NULL)
+		return backend->v.filter(backend, key, result);
+
+	/* do this ourself */
+	i_array_init(&tmp_result, 64);
+	ret = fts_backend_lookup(backend, key, &tmp_result);
+	if (ret == 0) {
+		const struct seq_range *range;
+		unsigned int i, count;
+		uint32_t next_seq = 1;
+
+		range = array_get(&tmp_result, &count);
+		for (i = 0; i < count; i++) {
+			if (next_seq != range[i].seq1) {
+				seq_range_array_remove_range(result, next_seq,
+							     range[i].seq1 - 1);
+			}
+			next_seq = range[i].seq2 + 1;
+		}
+
+		range = array_get(result, &count);
+		if (count > 0) {
+			seq_range_array_remove_range(result, next_seq,
+						     range[count-1].seq2);
+		}
+	}
+	array_free(&tmp_result);
+	return ret;
 }

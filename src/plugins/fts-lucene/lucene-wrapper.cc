@@ -475,10 +475,3 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 	_CLDELETE(content_query);
 	return ret;
 }
-
-int lucene_index_filter(struct lucene_index *index, const char *key,
-			ARRAY_TYPE(seq_range) *result)
-{
-	/* FIXME: implement */
-	return -1;
-}

@@ -177,17 +177,6 @@ fts_backend_lucene_lookup(struct fts_backend *_backend, const char *key,
 	return lucene_index_lookup(backend->lstorage->index, key, result);
 }
 
-static int
-fts_backend_lucene_filter(struct fts_backend *_backend, const char *key,
-			 ARRAY_TYPE(seq_range) *result)
-{
-	struct lucene_fts_backend *backend =
-		(struct lucene_fts_backend *)_backend;
-
-	fts_backend_select(backend);
-	return lucene_index_filter(backend->lstorage->index, key, result);
-}
-
 struct fts_backend fts_backend_lucene = {
 	"lucene",
 	TRUE,
@@ -204,6 +193,6 @@ struct fts_backend fts_backend_lucene = {
 		fts_backend_lucene_lock,
 		fts_backend_lucene_unlock,
 		fts_backend_lucene_lookup,
-		fts_backend_lucene_filter
+		NULL
 	}
 };
