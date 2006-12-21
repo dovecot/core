@@ -99,7 +99,7 @@ passdb_get_credentials(struct auth_request *auth_request,
 	}
 
 	wanted_scheme = passdb_credentials_to_str(auth_request->credentials,
-						  wanted_scheme);
+						  scheme);
 	if (strcasecmp(scheme, wanted_scheme) != 0) {
 		if (strcasecmp(scheme, "PLAIN") != 0 &&
 		    strcasecmp(scheme, "CLEARTEXT") != 0) {
