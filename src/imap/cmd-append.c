@@ -110,6 +110,8 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 
 	i_assert(ctx->client->input_lock == ctx->cmd);
 
+	io_remove(&ctx->client->io);
+
 	if (ctx->input != NULL)
 		i_stream_unref(&ctx->input);
 	if (ctx->save_ctx != NULL)
