@@ -66,12 +66,12 @@ sql_query_get_result(struct sql_result *result,
 
 	if (uid == (uid_t)-1) {
 		auth_request_log_error(auth_request, "sql",
-			"Password query didn't return uid, or it was NULL");
+			"User query didn't return uid, or it was NULL");
 		return NULL;
 	}
 	if (gid == (gid_t)-1) {
 		auth_request_log_error(auth_request, "sql",
-			"Password query didn't return gid, or it was NULL");
+			"User query didn't return gid, or it was NULL");
 		return NULL;
 	}
 
