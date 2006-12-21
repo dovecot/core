@@ -190,8 +190,16 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 		i_info("Loading modules from directory: %s", dir);
 
 	dirp = opendir(dir);
-	if (dirp == NULL)
-		i_fatal("opendir(%s) failed: %m", dir);
+	if (dirp == NULL) {
+		if (module_names != NULL) {
+			/* we were given a list of modules to load.
+			   we can't fail. */
+			i_fatal("opendir(%s) failed: %m", dir);
+		}
+		if (errno != ENOENT)
+			i_error("opendir(%s) failed: %m", dir);
+		return NULL;
+	}
 
 	pool = pool_alloconly_create("module loader", 1024);
 	p_array_init(&names, pool, 32);
