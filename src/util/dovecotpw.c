@@ -32,7 +32,7 @@ usage(const char *s)
 	exit(1);
 }
 
-int main(int argc, char *argv[] __attr_unused__)
+int main(int argc, char *argv[])
 {
 	const char *hash = NULL;
 	const char *user = NULL;
