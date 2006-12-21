@@ -81,6 +81,7 @@ struct auth_request {
 	unsigned int skip_password_check:1;
 	unsigned int proxy:1;
 	unsigned int cert_username:1;
+	unsigned int userdb_lookup:1;
 
 	/* ... mechanism specific data ... */
 };

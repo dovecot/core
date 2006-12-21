@@ -159,7 +159,8 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 
 	/* %! is prepended automatically. it contains the passdb ID number. */
 	str = t_str_new(256);
-	var_expand(str, t_strconcat("%!/", key, NULL),
+	var_expand(str, t_strconcat(request->userdb_lookup ? "U" : "P",
+				    "%!/", key, NULL),
 		   auth_request_get_var_expand_table(request,
 						     auth_request_str_escape));
 
@@ -195,9 +196,10 @@ void auth_cache_insert(struct auth_cache *cache,
         struct auth_cache_node *node;
 	size_t data_size, alloc_size, value_len = strlen(value);
 
-	/* %! is prepended automatically. it contains the passdb ID number. */
+	/* %! is prepended automatically. it contains the db ID number. */
 	str = t_str_new(256);
-	var_expand(str, t_strconcat("%!/", key, NULL),
+	var_expand(str, t_strconcat(request->userdb_lookup ? "U" : "P",
+				    "%!/", key, NULL),
 		   auth_request_get_var_expand_table(request,
 						     auth_request_str_escape));
 

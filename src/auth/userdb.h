@@ -17,6 +17,9 @@ typedef void userdb_callback_t(enum userdb_result result,
 			       struct auth_request *request);
 
 struct userdb_module {
+	/* The caching key for this module, or NULL if caching isn't wanted. */
+	const char *cache_key;
+
 	/* If blocking is set to TRUE, use child processes to access
 	   this userdb. */
 	bool blocking;

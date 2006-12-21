@@ -5,7 +5,6 @@
 #include "common.h"
 
 #if defined(PASSDB_VPOPMAIL) || defined(USERDB_VPOPMAIL)
-
 #include "userdb.h"
 #include "userdb-vpopmail.h"
 
@@ -38,7 +37,6 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 }
 
 #ifdef USERDB_VPOPMAIL
-
 static void vpopmail_lookup(struct auth_request *auth_request,
 			    userdb_callback_t *callback)
 {
@@ -95,10 +93,27 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	callback(USERDB_RESULT_OK, reply, auth_request);
 }
 
+static struct userdb_module *
+vpopmail_preinit(struct auth_userdb *auth_userdb, const char *args)
+{
+	struct userdb_module *module;
+
+	module = p_new(auth_userdb->auth->pool, struct userdb_module, 1);
+
+	if (strncmp(args, "cache_key=", 10) == 0) {
+		module->cache_key = p_strconcat(auth_userdb->auth->pool,
+						args + 10, NULL);
+	}
+	return module;
+}
+
 struct userdb_module_interface userdb_vpopmail = {
 	"vpopmail",
 
-	NULL, NULL, NULL,
+	vpopmail_preinit,
+	NULL,
+	NULL,
+
 	vpopmail_lookup
 };
 

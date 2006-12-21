@@ -7,6 +7,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "auth-cache.h"
 #include "db-sql.h"
 #include "userdb.h"
 
@@ -147,6 +148,10 @@ userdb_sql_preinit(struct auth_userdb *auth_userdb, const char *args)
 
 	module = p_new(auth_userdb->auth->pool, struct sql_userdb_module, 1);
 	module->conn = db_sql_init(args);
+
+	module->module.cache_key =
+		auth_cache_parse_key(auth_userdb->auth->pool,
+				     module->conn->set.user_query);
 	return &module->module;
 }
 

@@ -8,6 +8,8 @@
 
 #include <pwd.h>
 
+#define USER_CACHE_KEY "%u"
+
 static void passwd_lookup(struct auth_request *auth_request,
 			  userdb_callback_t *callback)
 {
@@ -39,10 +41,19 @@ static void passwd_lookup(struct auth_request *auth_request,
 	callback(USERDB_RESULT_OK, reply, auth_request);
 }
 
+static void passwd_passwd_init(struct userdb_module *module,
+			       const char *args __attr_unused__)
+{
+	module->cache_key = USER_CACHE_KEY;
+}
+
 struct userdb_module_interface userdb_passwd = {
 	"passwd",
 
-	NULL, NULL, NULL,
+	NULL,
+	passwd_passwd_init,
+	NULL,
+
 	passwd_lookup
 };
 

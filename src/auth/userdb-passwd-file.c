@@ -5,9 +5,12 @@
 #ifdef USERDB_PASSWD_FILE
 
 #include "str.h"
+#include "auth-cache.h"
 #include "var-expand.h"
 #include "userdb.h"
 #include "db-passwd-file.h"
+
+#define PASSWD_FILE_CACHE_KEY "%u"
 
 struct passwd_file_userdb_module {
         struct userdb_module module;
@@ -78,6 +81,16 @@ passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 	module->auth = auth_userdb->auth;
 	module->pwf =
 		db_passwd_file_init(args, TRUE, module->auth->verbose_debug);
+
+	if (!module->pwf->vars)
+		module->module.cache_key = PASSWD_FILE_CACHE_KEY;
+	else {
+		module->module.cache_key =
+			auth_cache_parse_key(auth_userdb->auth->pool,
+					     t_strconcat(PASSWD_FILE_CACHE_KEY,
+						         module->pwf->path,
+							 NULL));
+	}
 	return &module->module;
 }
 

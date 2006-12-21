@@ -9,6 +9,7 @@
 #include "str-sanitize.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "auth-cache.h"
 #include "auth-request.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
@@ -564,10 +565,52 @@ void auth_request_set_credentials(struct auth_request *request,
 	}
 }
 
+static void auth_request_userdb_save_cache(struct auth_request *request,
+					   struct auth_stream_reply *reply,
+					   enum userdb_result result)
+{
+	struct userdb_module *userdb = request->userdb->userdb;
+	const char *str;
+
+	str = auth_stream_reply_export(reply);
+	auth_cache_insert(passdb_cache, request, userdb->cache_key, str,
+			  result == PASSDB_RESULT_OK);
+}
+
+static bool auth_request_lookup_user_cache(struct auth_request *request,
+					   const char *key,
+					   struct auth_stream_reply **reply_r,
+					   enum userdb_result *result_r,
+					   bool use_expired)
+{
+	const char *value;
+	struct auth_cache_node *node;
+	bool expired;
+
+	value = auth_cache_lookup(passdb_cache, request, key, &node,
+				  &expired);
+	if (value == NULL || (expired && !use_expired))
+		return FALSE;
+
+	if (*value == '\0') {
+		/* negative cache entry */
+		*result_r = PASSDB_RESULT_USER_UNKNOWN;
+		*reply_r = auth_stream_reply_init(request);
+		return TRUE;
+	}
+
+	*result_r = PASSDB_RESULT_OK;
+	*reply_r = auth_stream_reply_init(request);
+	auth_stream_reply_import(*reply_r, value);
+	return TRUE;
+}
+
 void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_stream_reply *reply,
 				  struct auth_request *request)
 {
+	struct userdb_module *userdb = request->userdb->userdb;
+
 	if (result != USERDB_RESULT_OK && request->userdb->next != NULL) {
 		/* try next userdb. */
 		if (result == USERDB_RESULT_INTERNAL_FAILURE)
@@ -591,6 +634,20 @@ void auth_request_userdb_callback(enum userdb_result result,
 				       "user not found from userdb");
 	}
 
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
+		auth_request_userdb_save_cache(request, reply, result);
+	else {
+		/* lookup failed. if we're looking here only because the
+		   request was expired in cache, fallback to using cached
+		   expired record. */
+		const char *cache_key = userdb->cache_key;
+
+		if (auth_request_lookup_user_cache(request, cache_key, &reply,
+						   &result, TRUE))
+			auth_request_log_info(request, "userdb",
+				"Fallbacking to expired data from cache");
+	}
+
         request->private_callback.userdb(result, reply, request);
 }
 
@@ -598,8 +655,24 @@ void auth_request_lookup_user(struct auth_request *request,
 			      userdb_callback_t *callback)
 {
 	struct userdb_module *userdb = request->userdb->userdb;
+	const char *cache_key;
 
 	request->private_callback.userdb = callback;
+	request->userdb_lookup = TRUE;
+
+	/* (for now) auth_cache is shared between passdb and userdb */
+	cache_key = passdb_cache == NULL ? NULL : userdb->cache_key;
+	if (cache_key != NULL) {
+		struct auth_stream_reply *reply;
+		enum userdb_result result;
+
+		if (auth_request_lookup_user_cache(request, cache_key, &reply,
+						   &result, FALSE)) {
+			request->private_callback.userdb(result, reply,
+							 request);
+			return;
+		}
+	}
 
 	if (userdb->blocking)
 		userdb_blocking_lookup(request);
@@ -994,8 +1067,13 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		tab[8].value = escape_func(auth_request->mech_password,
 					   auth_request);
 	}
-	tab[9].value = auth_request->passdb == NULL ? "" :
-		dec2str(auth_request->passdb->id);
+	if (auth_request->userdb_lookup) {
+		tab[9].value = auth_request->userdb == NULL ? "" :
+			dec2str(auth_request->userdb->num);
+	} else {
+		tab[9].value = auth_request->passdb == NULL ? "" :
+			dec2str(auth_request->passdb->id);
+	}
 	return tab;
 }
 

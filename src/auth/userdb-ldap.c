@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "str.h"
 #include "var-expand.h"
+#include "auth-cache.h"
 #include "db-ldap.h"
 #include "userdb.h"
 
@@ -224,6 +225,9 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 
 	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
 			  conn->user_attr_map, default_attr_map, NULL);
+	module->module.cache_key =
+		auth_cache_parse_key(auth_userdb->auth->pool,
+				     conn->set.user_filter);
 	return &module->module;
 }
 
