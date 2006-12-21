@@ -130,7 +130,6 @@ dbox_create(const char *data, const char *user,
 	istorage->storage.pool = pool;
 
 	istorage->user = p_strdup(pool, user);
-	istorage->callbacks = p_new(pool, struct mail_storage_callbacks, 1);
 	index_storage_init(istorage, list, flags, lock_method);
 
 	return STORAGE(storage);

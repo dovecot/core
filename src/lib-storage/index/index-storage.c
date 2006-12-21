@@ -49,6 +49,9 @@ void index_storage_init(struct index_storage *storage,
 	storage->storage.flags = flags;
 	storage->storage.lock_method = lock_method;
 
+	storage->storage.callbacks =
+		p_new(storage->storage.pool, struct mail_storage_callbacks, 1);
+
 	array_create(&storage->storage.module_contexts,
 		     storage->storage.pool, sizeof(void *), 5);
 	index_storage_refcount++;
@@ -265,7 +268,7 @@ void index_storage_lock_notify(struct index_mailbox *ibox,
 			       enum mailbox_lock_notify_type notify_type,
 			       unsigned int secs_left)
 {
-	struct index_storage *storage = ibox->storage;
+	struct mail_storage *storage = ibox->box.storage;
 	const char *str;
 	time_t now;
 
@@ -440,8 +443,8 @@ void index_storage_set_callbacks(struct mail_storage *_storage,
 {
 	struct index_storage *storage = (struct index_storage *) _storage;
 
-	*storage->callbacks = *callbacks;
-	storage->callback_context = context;
+	*storage->storage.callbacks = *callbacks;
+	storage->storage.callback_context = context;
 }
 
 const char *index_storage_get_last_error(struct mail_storage *storage,

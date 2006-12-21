@@ -25,9 +25,6 @@ struct index_storage {
 	struct mail_storage storage;
 
 	const char *user; /* name of user accessing the storage */
-
-	struct mail_storage_callbacks *callbacks;
-	void *callback_context;
 };
 
 struct index_mailbox {

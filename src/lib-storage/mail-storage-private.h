@@ -66,6 +66,9 @@ struct mail_storage {
 	enum mail_storage_flags flags;
         enum file_lock_method lock_method;
 
+	struct mail_storage_callbacks *callbacks;
+	void *callback_context;
+
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, void);
 

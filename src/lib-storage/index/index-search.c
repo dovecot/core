@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2006 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "array.h"
 #include "istream.h"
 #include "str.h"
@@ -22,6 +23,7 @@
 #define TXT_INVALID_SEARCH_KEY "Invalid search key"
 
 #define SEARCH_NONBLOCK_COUNT 20
+#define SEARCH_NOTIFY_INTERVAL_SECS 10
 
 struct index_search_context {
         struct mail_search_context mail_ctx;
@@ -34,6 +36,8 @@ struct index_search_context {
 
 	pool_t hdr_pool;
 	const char *error;
+
+	struct timeval search_start_time, last_notify;
 
 	unsigned int failed:1;
 	unsigned int sorted:1;
@@ -961,6 +965,39 @@ static bool search_match_next(struct index_search_context *ctx)
 	return TRUE;
 }
 
+static void index_storage_search_notify(struct mailbox *box,
+					struct index_search_context *ctx)
+{
+	const struct mail_index_header *hdr;
+	const char *text;
+	float percentage;
+	unsigned int msecs, secs;
+
+	if (ctx->last_notify.tv_sec == 0) {
+		/* set the search time in here, in case a plugin
+		   already spent some time indexing the mailbox */
+		ctx->search_start_time = ioloop_timeval;
+	} else if (box->storage->callbacks->notify_ok != NULL) {
+		hdr = mail_index_get_header(ctx->ibox->view);
+
+		percentage = ctx->mail->seq * 100.0 / hdr->messages_count;
+		msecs = (ioloop_timeval.tv_sec -
+			 ctx->search_start_time.tv_sec) * 1000 +
+			(ioloop_timeval.tv_usec -
+			 ctx->search_start_time.tv_usec) / 1000;
+		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
+
+		t_push();
+		text = t_strdup_printf("Searched %d%% of the mailbox, "
+				       "ETA %d:%02d", (int)percentage,
+				       secs/60, secs%60);
+		box->storage->callbacks->
+			notify_ok(box, text, box->storage->callback_context);
+		t_pop();
+	}
+	ctx->last_notify = ioloop_timeval;
+}
+
 int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 				       struct mail *mail, bool *tryagain_r)
 {
@@ -979,6 +1016,10 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 
 	ctx->mail = mail;
 	ctx->imail = (struct index_mail *)mail;
+
+	if (ioloop_time - ctx->last_notify.tv_sec >=
+	    SEARCH_NOTIFY_INTERVAL_SECS)
+		index_storage_search_notify(box, ctx);
 
 	while ((ret = box->v.search_next_update_seq(_ctx)) > 0) {
 		if (mail_set_seq(mail, _ctx->seq) < 0) {
