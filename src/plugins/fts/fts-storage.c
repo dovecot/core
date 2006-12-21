@@ -230,6 +230,12 @@ static int fts_build_init(struct fts_search_context *fctx,
 	if (fts_backend_get_last_uid(backend, &last_uid) < 0)
 		return -1;
 
+	if (last_uid == 0 && fctx->best_arg->type == SEARCH_HEADER) {
+		/* index doesn't exist. we're not creating it just for
+		   header lookups. */
+		return -1;
+	}
+
 	memset(&seqset, 0, sizeof(seqset));
 	if (mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
 			     &seqset.seq1, &seqset.seq2) < 0)
@@ -256,7 +262,6 @@ static int fts_build_init(struct fts_search_context *fctx,
 			return 0;
 		}
 	}
-
 
 	ctx = i_new(struct fts_storage_build_context, 1);
 	ctx->build = build;
