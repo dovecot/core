@@ -72,7 +72,7 @@ int main(int argc __attr_unused__, char *argv[])
 		}
 
 		if (squat_trie_build_more(build_ctx, seq,
-					  line, strlen(line)) < 0)
+					  (const void *)line, strlen(line)) < 0)
 			break;
 	}
 	squat_trie_build_deinit(build_ctx);

@@ -932,11 +932,10 @@ node_alloc(uint16_t chr, unsigned int level)
 			chars[i] = i;
 
 		if (chars16_count > 0) {
-			uint16_t *chrp;
+			uint16_t *chars16 = NODE_CHARS16(node, 0);
 
 			node->chars_16bit_count = chars16_count;
-			chrp = (uint16_t *)&chars[i];
-			*chrp = chr;
+			chars16[0] = chr;
 		}
 	} else if (chr < MAX_8BIT_CHAR_COUNT) {
 		uint8_t *chrp;
@@ -983,7 +982,7 @@ node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
 
 	if (chr < MAX_8BIT_CHAR_COUNT) {
 		new_idx_offset = sizeof(*node) +
-			ALIGN(node->chars_8bit_count + sizeof(uint8_t));
+			ALIGN(node->chars_8bit_count + 1);
 		new_size = new_idx_offset + old_size_16bit +
 			(node->chars_8bit_count + 1) * idx_size;
 	} else {
@@ -1005,12 +1004,14 @@ node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
 	}
 	hole2_pos = old_idx_offset + idx_size * char_idx;
 
+	/* 0..character position */
 	memcpy(new_node, node, hole1_pos);
 	if (chr < MAX_8BIT_CHAR_COUNT) {
 		uint8_t *chrp = PTR_OFFSET(new_node, hole1_pos);
 		*chrp = chr;
 		new_node->chars_8bit_count++;
 
+		/* rest of the characters */
 		memcpy(PTR_OFFSET(new_node, hole1_pos + sizeof(uint8_t)),
 		       PTR_OFFSET(node, hole1_pos), old_idx_offset - hole1_pos);
 	} else {
@@ -1018,18 +1019,23 @@ node_realloc(struct trie_node *node, uint32_t char_idx, uint16_t chr,
 		*chrp = chr;
 		new_node->chars_16bit_count++;
 
+		/* rest of the characters */
 		memcpy(PTR_OFFSET(new_node, hole1_pos + sizeof(uint16_t)),
 		       PTR_OFFSET(node, hole1_pos), old_idx_offset - hole1_pos);
 	}
 
+	/* indexes from 0 to character position */
 	memcpy(PTR_OFFSET(new_node, new_idx_offset),
 	       PTR_OFFSET(node, old_idx_offset),
 	       hole2_pos - old_idx_offset);
 
-	skip = new_idx_offset - old_idx_offset;
-	memset(PTR_OFFSET(new_node, hole2_pos + skip), 0, idx_size);
-	skip += sizeof(uint32_t);
-	memcpy(PTR_OFFSET(new_node, hole2_pos + skip),
+	/* zero the inserted character index */
+	skip = char_idx * idx_size;
+	memset(PTR_OFFSET(new_node, new_idx_offset + skip), 0, idx_size);
+
+	/* rest of the indexes */
+	skip += idx_size;
+	memcpy(PTR_OFFSET(new_node, new_idx_offset + skip),
 	       PTR_OFFSET(node, hole2_pos),
 	       old_size - hole2_pos);
 
