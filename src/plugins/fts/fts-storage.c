@@ -1,6 +1,7 @@
 /* Copyright (C) 2006 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "array.h"
 #include "str.h"
 #include "istream.h"
@@ -18,6 +19,7 @@
 					fts_storage_module_id))
 
 #define FTS_SEARCH_NONBLOCK_COUNT 10
+#define FTS_BUILD_NOTIFY_INTERVAL_SECS 10
 
 struct fts_mailbox {
 	struct mailbox_vfuncs super;
@@ -45,6 +47,8 @@ struct fts_storage_build_context {
 	struct mail_search_arg search_arg;
 	struct mail *mail;
 	struct fts_backend_build_context *build;
+
+	struct timeval search_start_time, last_notify;
 
 	uint32_t uid;
 	string_t *headers;
@@ -279,6 +283,7 @@ static int fts_build_init(struct fts_search_context *fctx,
 
 static int fts_build_deinit(struct fts_storage_build_context *ctx)
 {
+	struct mailbox *box = ctx->mail->transaction->box;
 	int ret = 0;
 
 	if (mailbox_search_deinit(&ctx->search_ctx) < 0)
@@ -287,15 +292,59 @@ static int fts_build_deinit(struct fts_storage_build_context *ctx)
 
 	if (fts_backend_build_deinit(ctx->build) < 0)
 		ret = -1;
+
+	if (ioloop_time - ctx->search_start_time.tv_sec >=
+	    FTS_BUILD_NOTIFY_INTERVAL_SECS) {
+		/* we notified at least once */
+		box->storage->callbacks->
+			notify_ok(box, "Mailbox indexing finished",
+				  box->storage->callback_context);
+	}
+
 	str_free(&ctx->headers);
 	i_free(ctx);
 	return ret;
+}
+
+static void fts_build_notify(struct fts_storage_build_context *ctx)
+{
+	struct mailbox *box = ctx->mail->transaction->box;
+	const char *text;
+	float percentage;
+	unsigned int msecs, secs;
+
+	if (ctx->last_notify.tv_sec == 0) {
+		/* set the search time in here, in case a plugin
+		   already spent some time indexing the mailbox */
+		ctx->search_start_time = ioloop_timeval;
+	} else if (box->storage->callbacks->notify_ok != NULL) {
+		percentage = (ctx->mail->seq - ctx->seqset.seq1) * 100.0 /
+			(ctx->seqset.seq2 - ctx->seqset.seq1);
+		msecs = (ioloop_timeval.tv_sec -
+			 ctx->search_start_time.tv_sec) * 1000 +
+			(ioloop_timeval.tv_usec -
+			 ctx->search_start_time.tv_usec) / 1000;
+		secs = (msecs / (percentage / 100.0) - msecs) / 1000;
+
+		t_push();
+		text = t_strdup_printf("Indexed %d%% of the mailbox, "
+				       "ETA %d:%02d", (int)percentage,
+				       secs/60, secs%60);
+		box->storage->callbacks->
+			notify_ok(box, text, box->storage->callback_context);
+		t_pop();
+	}
+	ctx->last_notify = ioloop_timeval;
 }
 
 static int fts_build_more(struct fts_storage_build_context *ctx)
 {
 	unsigned int count = 0;
 	int ret;
+
+	if (ioloop_time - ctx->last_notify.tv_sec >=
+	    FTS_BUILD_NOTIFY_INTERVAL_SECS)
+		fts_build_notify(ctx);
 
 	while (mailbox_search_next(ctx->search_ctx, ctx->mail) > 0) {
 		t_push();
@@ -308,6 +357,7 @@ static int fts_build_more(struct fts_storage_build_context *ctx)
 		if (++count == FTS_SEARCH_NONBLOCK_COUNT)
 			return 0;
 	}
+
 	return 1;
 }
 
@@ -531,7 +581,7 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		fts_build_deinit(fctx->build_ctx);
 		fctx->build_ctx = NULL;
 
-		if (ret == 0)
+		if (ret > 0)
 			fts_search_init(ctx->transaction->box, fctx);
 	}
 	return fbox->super.search_next_nonblock(ctx, mail, tryagain_r);
