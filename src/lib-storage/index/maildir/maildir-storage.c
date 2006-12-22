@@ -177,6 +177,8 @@ maildir_create(const char *data, const char *user,
 
 	storage->copy_with_hardlinks =
 		getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
+	storage->copy_preserve_filename =
+		getenv("MAILDIR_COPY_PRESERVE_FILENAME") != NULL;
 	storage->stat_dirs = getenv("MAILDIR_STAT_DIRS") != NULL;
 
 	storage->temp_prefix = mailbox_list_get_temp_prefix(list);

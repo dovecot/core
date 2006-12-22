@@ -49,6 +49,7 @@ struct maildir_storage {
 	const char *temp_prefix;
 
 	unsigned int copy_with_hardlinks:1;
+	unsigned int copy_preserve_filename:1;
 	unsigned int save_size_in_filename:1;
 	unsigned int stat_dirs:1;
 };

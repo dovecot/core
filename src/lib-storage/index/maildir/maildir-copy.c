@@ -22,6 +22,7 @@ struct hardlink_ctx {
 
 	unsigned int size_set:1;
 	unsigned int success:1;
+	unsigned int preserve_filename:1;
 };
 
 static int do_save_mail_size(struct maildir_mailbox *mbox, const char *path,
@@ -59,7 +60,8 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 {
 	int ret;
 
-	if (mbox->storage->save_size_in_filename && !ctx->size_set) {
+	if (!ctx->preserve_filename && mbox->storage->save_size_in_filename &&
+	    !ctx->size_set) {
 		if ((ret = do_save_mail_size(mbox, path, ctx)) <= 0)
 			return ret;
 	}
@@ -73,7 +75,11 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 					       "Not enough disk space");
 			return -1;
 		}
-		if (errno == EACCES || ECANTLINK(errno))
+
+		/* we could handle the EEXIST condition by changing the
+		   filename, but it practically never happens so just fallback
+		   to standard copying for the rare cases when it does. */
+		if (errno == EACCES || ECANTLINK(errno) || errno == EEXIST)
 			return 1;
 
 		mail_storage_set_critical(STORAGE(mbox->storage),
@@ -97,6 +103,7 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		(struct maildir_mailbox *)mail->box;
 	struct maildir_save_context *ctx;
 	struct hardlink_ctx do_ctx;
+	const char *filename = NULL;
 	uint32_t seq;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -113,9 +120,31 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 	memset(&do_ctx, 0, sizeof(do_ctx));
 	do_ctx.dest_path = str_new(default_pool, 512);
 
-	/* the generated filename is _always_ unique, so we don't bother
-	   trying to check if it already exists */
-	do_ctx.dest_fname = maildir_generate_tmp_filename(&ioloop_timeval);
+	if (dest_mbox->storage->copy_preserve_filename) {
+		enum maildir_uidlist_rec_flag src_flags;
+		const char *src_fname;
+
+		/* see if the filename exists in destination maildir's
+		   uidlist. if it doesn't, we can use it. otherwise generate
+		   a new filename */
+		src_fname = maildir_uidlist_lookup(src_mbox->uidlist,
+						   mail->uid, &src_flags);
+		if (src_fname != NULL &&
+		    maildir_uidlist_update(dest_mbox->uidlist) >= 0 &&
+		    maildir_uidlist_get_full_filename(dest_mbox->uidlist,
+						      src_fname) == NULL)
+			filename = t_strcut(src_fname, ':');
+	}
+	if (filename == NULL) {
+		/* the generated filename is _always_ unique, so we don't
+		   bother trying to check if it already exists */
+		do_ctx.dest_fname =
+			maildir_generate_tmp_filename(&ioloop_timeval);
+	} else {
+		do_ctx.dest_fname = filename;
+		do_ctx.preserve_filename = TRUE;
+	}
+
 	if (keywords == NULL || keywords->count == 0) {
 		/* no keywords, hardlink directly to destination */
 		if (flags == MAIL_RECENT) {
