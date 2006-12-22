@@ -125,7 +125,7 @@ default_panic_handler(const char *format, va_list args)
 
 	(void)default_handler("Panic: ", log_fd, format, args);
 	if (backtrace_get(&backtrace) == 0)
-		i_error("Backtrace: %s", backtrace);
+		i_error("Raw backtrace: %s", backtrace);
 	abort();
 }
 
@@ -299,7 +299,7 @@ void i_syslog_panic_handler(const char *fmt, va_list args)
 
 	(void)syslog_handler(LOG_CRIT, fmt, args);
 	if (backtrace_get(&backtrace) == 0)
-		i_error("Backtrace: %s", backtrace);
+		i_error("Raw backtrace: %s", backtrace);
 	abort();
 }
 
@@ -397,7 +397,7 @@ i_internal_panic_handler(const char *fmt, va_list args)
 
 	(void)internal_handler('F', fmt, args);
 	if (backtrace_get(&backtrace) == 0)
-		i_error("Backtrace: %s", backtrace);
+		i_error("Raw backtrace: %s", backtrace);
         abort();
 }
 
