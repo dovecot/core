@@ -249,6 +249,8 @@ static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
         ctx->dotlock_last_stale = -1;
 
 	memset(&set, 0, sizeof(set));
+	set.use_excl_lock = (STORAGE(mbox->storage)->flags &
+			     MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
 	set.timeout = lock_timeout;
 	set.stale_timeout = dotlock_change_timeout;
 	set.callback = dotlock_callback;

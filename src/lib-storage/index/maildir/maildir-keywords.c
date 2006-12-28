@@ -20,6 +20,9 @@
 #include <sys/stat.h>
 #include <utime.h>
 
+/* how many seconds to wait before overriding dovecot-keywords.lock */
+#define KEYWORDS_LOCK_STALE_TIMEOUT (60*2)
+
 struct maildir_keywords {
 	struct maildir_mailbox *mbox;
 	char *path;
@@ -56,6 +59,13 @@ struct maildir_keywords *maildir_keywords_init(struct maildir_mailbox *mbox)
 	i_array_init(&mk->list, MAILDIR_MAX_KEYWORDS);
 	mk->hash = hash_create(default_pool, mk->pool, 0,
 			       strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+
+	mk->dotlock_settings.use_excl_lock =
+		(STORAGE(mbox->storage)->flags &
+		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+	mk->dotlock_settings.timeout = KEYWORDS_LOCK_STALE_TIMEOUT + 2;
+	mk->dotlock_settings.stale_timeout = KEYWORDS_LOCK_STALE_TIMEOUT;
+	mk->dotlock_settings.temp_prefix = mbox->storage->temp_prefix;
 	return mk;
 }
 

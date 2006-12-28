@@ -17,6 +17,45 @@
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
+const struct dotlock_settings default_uidlist_dotlock_set = {
+	MEMBER(temp_prefix) NULL,
+	MEMBER(lock_suffix) NULL,
+
+	MEMBER(timeout) 120,
+	MEMBER(stale_timeout) 60,
+
+	MEMBER(callback) NULL,
+	MEMBER(context) NULL,
+
+	MEMBER(use_excl_lock) FALSE
+};
+
+const struct dotlock_settings default_file_dotlock_set = {
+	MEMBER(temp_prefix) NULL,
+	MEMBER(lock_suffix) NULL,
+
+	MEMBER(timeout) 120,
+	MEMBER(stale_timeout) 60,
+
+	MEMBER(callback) NULL,
+	MEMBER(context) NULL,
+
+	MEMBER(use_excl_lock) FALSE
+};
+
+static const struct dotlock_settings default_new_file_dotlock_set = {
+	MEMBER(temp_prefix) NULL,
+	MEMBER(lock_suffix) NULL,
+
+	MEMBER(timeout) 60,
+	MEMBER(stale_timeout) 30,
+
+	MEMBER(callback) NULL,
+	MEMBER(context) NULL,
+
+	MEMBER(use_excl_lock) FALSE
+};
+
 extern struct mail_storage dbox_storage;
 extern struct mailbox dbox_mailbox;
 
@@ -123,6 +162,15 @@ dbox_create(const char *data, const char *user,
 		i_error("dbox fs: %s", error);
 		pool_unref(pool);
 		return NULL;
+	}
+
+	storage->uidlist_dotlock_set = default_uidlist_dotlock_set;
+	storage->file_dotlock_set = default_file_dotlock_set;
+	storage->new_file_dotlock_set = default_new_file_dotlock_set;
+	if ((flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0) {
+		storage->uidlist_dotlock_set.use_excl_lock = TRUE;
+		storage->file_dotlock_set.use_excl_lock = TRUE;
+		storage->new_file_dotlock_set.use_excl_lock = TRUE;
 	}
 
 	istorage = INDEX_STORAGE(storage);

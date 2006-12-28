@@ -14,19 +14,6 @@
 
 #include <stddef.h>
 
-static const struct dotlock_settings new_file_dotlock_set = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 60,
-	MEMBER(stale_timeout) 30,
-
-	MEMBER(callback) NULL,
-	MEMBER(context) NULL,
-
-	MEMBER(use_excl_lock) FALSE
-};
-
 static int
 dbox_sync_rec_get_uids(struct dbox_sync_context *ctx,
 		       const struct dbox_sync_rec *sync_rec,
@@ -77,6 +64,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 				  uoff_t orig_offset)
 {
 	struct dbox_mailbox *mbox = ctx->mbox;
+	struct mail_storage *storage = STORAGE(mbox->storage);
 	struct dotlock *dotlock;
 	struct istream *input;
 	struct ostream *output;
@@ -108,7 +96,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 
 	if (ret <= 0) {
 		if (ret == 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(storage,
 				"%s: Expunging lost UID %u from file %u",
 				mbox->path, first_nonexpunged_uid,
 				orig_entry->file_seq);
@@ -131,13 +119,14 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
 				       DBOX_MAIL_FILE_FORMAT,
 				       mbox->path, file_seq);
-		fd = file_dotlock_open(&new_file_dotlock_set, path,
-				       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
+		fd = file_dotlock_open(&mbox->storage->new_file_dotlock_set,
+				       path, DOTLOCK_CREATE_FLAG_NONBLOCK,
+				       &dotlock);
 		if (fd >= 0)
 			break;
 
 		if (errno != EAGAIN) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(storage,
 				"file_dotlock_open(%s) failed: %m", path);
 			return -1;
 		}
@@ -172,7 +161,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 		}
 
 		if (seq == 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(storage,
 				"Expunged UID %u reappeared in file %s",
 				uid, path);
 			mail_index_mark_corrupted(mbox->ibox.index);
@@ -196,14 +185,14 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 		i_stream_destroy(&input);
 
 		if (bytes < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(storage,
 				"o_stream_send_istream(%s) failed: %m",
 				lock_path);
 			ret = -1;
 			break;
 		}
 		if ((uoff_t)bytes != full_size) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(storage,
 				"o_stream_send_istream(%s) wrote only %"
 				PRIuUOFF_T" of %"PRIuUOFF_T" bytes", lock_path,
 				(uoff_t)bytes, full_size);
@@ -251,9 +240,8 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 				sizeof(hdr.append_offset_hex),
 				offsetof(struct dbox_file_header,
 					 append_offset_hex)) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
-						  "pwrite_full(%s) failed: %m",
-						  lock_path);
+			mail_storage_set_critical(storage,
+				"pwrite_full(%s) failed: %m", lock_path);
 			ret = -1;
 		}
 	}
@@ -484,8 +472,8 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
 				       DBOX_MAIL_FILE_FORMAT,
 				       mbox->path, sync_entry->file_seq);
-		ret = file_dotlock_create(&new_file_dotlock_set, path,
-					  DOTLOCK_CREATE_FLAG_NONBLOCK,
+		ret = file_dotlock_create(&mbox->storage->new_file_dotlock_set,
+					  path, DOTLOCK_CREATE_FLAG_NONBLOCK,
 					  &dotlock);
 		if (ret < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),

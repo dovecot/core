@@ -80,32 +80,6 @@ struct dbox_uidlist_sync_ctx {
 	unsigned int modified:1;
 };
 
-const struct dotlock_settings uidlist_dotlock_settings = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 120,
-	MEMBER(stale_timeout) 60,
-
-	MEMBER(callback) NULL,
-	MEMBER(context) NULL,
-
-	MEMBER(use_excl_lock) FALSE
-};
-
-const struct dotlock_settings dbox_file_dotlock_set = {
-	MEMBER(temp_prefix) NULL,
-	MEMBER(lock_suffix) NULL,
-
-	MEMBER(timeout) 120,
-	MEMBER(stale_timeout) 60,
-
-	MEMBER(callback) NULL,
-	MEMBER(context) NULL,
-
-	MEMBER(use_excl_lock) FALSE
-};
-
 static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist);
 
 struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox)
@@ -451,19 +425,21 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 
 int dbox_uidlist_lock(struct dbox_uidlist *uidlist)
 {
+	struct dbox_mailbox *mbox = uidlist->mbox;
+
 	if (uidlist->lock_count == 0)
 		i_assert(uidlist->lock_fd == -1);
 	else {
-		i_assert(uidlist->mbox->ibox.keep_locked);
+		i_assert(mbox->ibox.keep_locked);
 		uidlist->lock_count++;
 		return 0;
 	}
 
-	uidlist->lock_fd = file_dotlock_open(&uidlist_dotlock_settings,
-					     uidlist->path, 0,
-					     &uidlist->dotlock);
+	uidlist->lock_fd =
+		file_dotlock_open(&mbox->storage->uidlist_dotlock_set,
+				  uidlist->path, 0, &uidlist->dotlock);
 	if (uidlist->lock_fd == -1) {
-		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+		mail_storage_set_critical(STORAGE(mbox->storage),
 			"file_dotlock_open(%s) failed: %m", uidlist->path);
 		return -1;
 	}
@@ -1069,7 +1045,8 @@ dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 		str_truncate(path, 0);
 		str_printfa(path, "%s/"DBOX_MAILDIR_NAME"/"
 			    DBOX_MAIL_FILE_FORMAT, mbox->path, file_seq);
-		ret = file_dotlock_create(&dbox_file_dotlock_set, str_c(path),
+		ret = file_dotlock_create(&mbox->storage->file_dotlock_set,
+					  str_c(path),
 					  DOTLOCK_CREATE_FLAG_NONBLOCK,
 					  dotlock_r);
 		if (ret > 0) {

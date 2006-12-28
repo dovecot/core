@@ -14,6 +14,10 @@ struct dbox_uidlist;
 
 struct dbox_storage {
 	struct index_storage storage;
+
+	struct dotlock_settings uidlist_dotlock_set;
+	struct dotlock_settings file_dotlock_set;
+	struct dotlock_settings new_file_dotlock_set;
 };
 
 struct keyword_map {
