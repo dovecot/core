@@ -157,7 +157,22 @@ const char *deliver_get_new_message_id(void)
 			       count++, deliver_set->hostname);
 }
 
+#include "settings.h"
+#include "../master/master-settings.h"
+#include "../master/master-settings-defs.c"
+
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
+
+static bool setting_is_bool(const char *name)
+{
+	const struct setting_def *def;
+
+	for (def = setting_defs; def->name != NULL; def++) {
+		if (strcmp(def->name, name) == 0)
+			return def->type == SET_BOOL;
+	}
+	return FALSE;
+}
 
 static void config_file_init(const char *path)
 {
@@ -230,6 +245,9 @@ static void config_file_init(const char *path)
 		do {
 			value++;
 		} while (*value == ' ');
+
+		if (setting_is_bool(key) && strcasecmp(value, "yes") != 0)
+			continue;
 
 		env_put(t_strconcat(t_str_ucase(key), "=", value, NULL));
 	}
