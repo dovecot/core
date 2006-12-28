@@ -139,7 +139,7 @@ static void settings_reload(void)
         auth_processes_destroy_all();
         dict_process_kill();
 
-	if (!master_settings_read(configfile, FALSE))
+	if (!master_settings_read(configfile, FALSE, FALSE))
 		i_warning("Invalid configuration, keeping old one");
 	else {
 		if (!IS_INETD()) {
@@ -752,7 +752,7 @@ int main(int argc, char *argv[])
 			if (i == argc) i_fatal("Missing config file argument");
 			configfile = argv[i];
 		} else if (strcmp(argv[i], "-n") == 0) {
-			dump_config_nondefaults = TRUE;
+			dump_config_nondefaults = dump_config = TRUE;
 		} else if (strcmp(argv[i], "-p") == 0) {
 			/* Ask SSL private key password */
 			ask_key_pass = TRUE;
@@ -785,7 +785,7 @@ int main(int argc, char *argv[])
 		foreground = TRUE;
 	}
 
-	if (dump_config || dump_config_nondefaults) {
+	if (dump_config) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
 		printf("# %s\n", configfile);
@@ -794,11 +794,12 @@ int main(int argc, char *argv[])
 	/* read and verify settings before forking */
 	t_push();
 	master_settings_init();
-	if (!master_settings_read(configfile, exec_protocol != NULL))
+	if (!master_settings_read(configfile, exec_protocol != NULL,
+				  dump_config))
 		exit(FATAL_DEFAULT);
 	t_pop();
 
-	if (dump_config || dump_config_nondefaults) {
+	if (dump_config) {
 		master_settings_dump(settings_root, dump_config_nondefaults);
 		return 0;
 	}

@@ -234,7 +234,7 @@ struct server_settings {
 
 extern struct server_settings *settings_root;
 
-bool master_settings_read(const char *path, bool nochecks);
+bool master_settings_read(const char *path, bool nochecks, bool nofixes);
 
 void master_settings_dump(struct server_settings *set, bool nondefaults);
 

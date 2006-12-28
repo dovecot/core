@@ -592,7 +592,6 @@ static bool get_imap_capability(struct settings *set)
 static bool settings_verify(struct settings *set)
 {
 	const char *dir;
-	struct stat st;
 	int facility;
 
 	if (!get_login_uid(set))
@@ -654,6 +653,63 @@ static bool settings_verify(struct settings *set)
 	}
 #endif
 
+	if (set->max_mail_processes < 1) {
+		i_error("max_mail_processes must be at least 1");
+		return FALSE;
+	}
+
+	if (set->last_valid_uid != 0 &&
+	    set->first_valid_uid > set->last_valid_uid) {
+		i_error("first_valid_uid can't be larger than last_valid_uid");
+		return FALSE;
+	}
+	if (set->last_valid_gid != 0 &&
+	    set->first_valid_gid > set->last_valid_gid) {
+		i_error("first_valid_gid can't be larger than last_valid_gid");
+		return FALSE;
+	}
+	if (set->mail_drop_priv_before_exec && *set->mail_chroot != '\0') {
+		i_error("mail_drop_priv_before_exec=yes and mail_chroot "
+			"don't work together");
+		return FALSE;
+	}
+
+	if (access(t_strcut(set->login_executable, ' '), X_OK) < 0) {
+		i_error("Can't use login executable %s: %m",
+			t_strcut(set->login_executable, ' '));
+		return FALSE;
+	}
+
+	if (set->login_processes_count < 1) {
+		i_error("login_processes_count must be at least 1");
+		return FALSE;
+	}
+	if (set->login_max_connections < 1) {
+		i_error("login_max_connections must be at least 1");
+		return FALSE;
+	}
+
+#ifdef HAVE_MODULES
+	if (*set->mail_plugins != '\0' &&
+	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
+		i_error("Can't access mail module directory: %s: %m",
+			set->mail_plugin_dir);
+		return FALSE;
+	}
+#else
+	if (*set->mail_plugins != '\0') {
+		i_error("Module support wasn't built into Dovecot, "
+			"can't load modules: %s", set->mail_plugins);
+		return FALSE;
+	}
+#endif
+	return TRUE;
+}
+
+static bool settings_do_fixes(struct settings *set)
+{
+	struct stat st;
+
 	/* since base dir is under /var/run by default, it may have been
 	   deleted. */
 	if (mkdir_parents(set->base_dir, 0777) < 0 && errno != EEXIST) {
@@ -700,65 +756,17 @@ static bool settings_verify(struct settings *set)
 		unlink_auth_sockets(set->login_dir);
 	}
 
-	if (set->max_mail_processes < 1) {
-		i_error("max_mail_processes must be at least 1");
-		return FALSE;
-	}
-
-	if (set->last_valid_uid != 0 &&
-	    set->first_valid_uid > set->last_valid_uid) {
-		i_error("first_valid_uid can't be larger than last_valid_uid");
-		return FALSE;
-	}
-	if (set->last_valid_gid != 0 &&
-	    set->first_valid_gid > set->last_valid_gid) {
-		i_error("first_valid_gid can't be larger than last_valid_gid");
-		return FALSE;
-	}
-	if (set->mail_drop_priv_before_exec && *set->mail_chroot != '\0') {
-		i_error("mail_drop_priv_before_exec=yes and mail_chroot "
-			"don't work together");
-		return FALSE;
-	}
-
-	if (access(t_strcut(set->login_executable, ' '), X_OK) < 0) {
-		i_error("Can't use login executable %s: %m",
-			t_strcut(set->login_executable, ' '));
-		return FALSE;
-	}
-
-	if (set->login_processes_count < 1) {
-		i_error("login_processes_count must be at least 1");
-		return FALSE;
-	}
-	if (set->login_max_connections < 1) {
-		i_error("login_max_connections must be at least 1");
-		return FALSE;
-	}
-
 #ifdef HAVE_MODULES
-	if (*set->mail_plugins != '\0' &&
-	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
-		i_error("Can't access mail module directory: %s: %m",
-			set->mail_plugin_dir);
-		return FALSE;
-	}
 	if (*set->mail_plugins != '\0' && set->protocol == MAIL_PROTOCOL_IMAP &&
 	    *set->imap_capability == '\0') {
 		if (!get_imap_capability(set))
 			return FALSE;
 	}
-#else
-	if (*set->mail_plugins != '\0') {
-		i_error("Module support wasn't built into Dovecot, "
-			"can't load modules: %s", set->mail_plugins);
-		return FALSE;
-	}
 #endif
 	return TRUE;
 }
 
-static bool settings_fix(struct settings *set, bool nochecks)
+static bool settings_fix(struct settings *set, bool nochecks, bool nofixes)
 {
 	/* fix relative paths */
 	fix_base_path(set, &set->login_dir);
@@ -771,7 +779,11 @@ static bool settings_fix(struct settings *set, bool nochecks)
 			"Use only one of them.");
 		return FALSE;
 	}
-	return nochecks ? TRUE : settings_verify(set);
+	if (nochecks)
+		return TRUE;
+	if (!settings_verify(set))
+		return FALSE;
+	return nofixes ? TRUE : settings_do_fixes(set);
 }
 
 static struct auth_settings *
@@ -1214,7 +1226,7 @@ static bool parse_section(const char *type, const char *name,
 	return FALSE;
 }
 
-bool master_settings_read(const char *path, bool nochecks)
+bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 {
 	struct settings_parse_ctx ctx;
 	struct server_settings *server, *prev;
@@ -1254,13 +1266,14 @@ bool master_settings_read(const char *path, bool nochecks)
 		}
 		if (!settings_is_active(server->imap)) {
 			if (strcmp(server->imap->protocols, "none") == 0) {
-				if (!settings_fix(server->imap, nochecks))
+				if (!settings_fix(server->imap, nochecks,
+						  nofixes))
 					return FALSE;
 				server->defaults = server->imap;
 			}
 			server->imap = NULL;
 		} else {
-			if (!settings_fix(server->imap, nochecks))
+			if (!settings_fix(server->imap, nochecks, nofixes))
 				return FALSE;
 			server->defaults = server->imap;
 		}
@@ -1268,7 +1281,7 @@ bool master_settings_read(const char *path, bool nochecks)
 		if (!settings_is_active(server->pop3))
 			server->pop3 = NULL;
 		else {
-			if (!settings_fix(server->pop3, nochecks))
+			if (!settings_fix(server->pop3, nochecks, nofixes))
 				return FALSE;
 			if (server->defaults == NULL)
 				server->defaults = server->pop3;
