@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+#define AUTH_CLIENT_SOCKET_MAX_WAIT_TIME 10
+
 struct auth_client *auth_client_new(unsigned int client_pid)
 {
 	struct auth_client *client;
@@ -147,13 +149,21 @@ void auth_client_connect_missing_servers(struct auth_client *client)
 		}
 	}
 
+	if (client->connections == NULL && !client->reconnect) {
+		if (client->missing_sockets_start_time == 0)
+			client->missing_sockets_start_time = ioloop_time;
+		else if (ioloop_time - client->missing_sockets_start_time >
+			 AUTH_CLIENT_SOCKET_MAX_WAIT_TIME)
+			i_fatal("No authentication sockets found");
+	}
+
 	if (closedir(dirp) < 0)
 		i_error("closedir() failed: %m");
 
 	if (client->reconnect || client->connections == NULL) {
 		if (client->to_reconnect == NULL) {
 			client->to_reconnect =
-				timeout_add(5000, reconnect_timeout, client);
+				timeout_add(1000, reconnect_timeout, client);
 		}
 	} else if (client->to_reconnect != NULL)
 		timeout_remove(&client->to_reconnect);

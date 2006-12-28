@@ -7,6 +7,7 @@ struct auth_client {
 	struct auth_server_connection *connections;
 	struct timeout *to_reconnect;
 
+	time_t missing_sockets_start_time;
 	unsigned int conn_waiting_handshake_count;
 
 	buffer_t *available_auth_mechs;
