@@ -63,6 +63,7 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 			     const char *tmpname, const char *destname,
 			     bool newdir)
 {
+	struct mail_storage *storage = STORAGE(ctx->mbox->storage);
 	const char *tmp_path, *new_path;
 	int ret;
 
@@ -77,22 +78,28 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 		t_strconcat(ctx->newdir, "/", destname, NULL) :
 		t_strconcat(ctx->curdir, "/", destname, NULL);
 
-	if (link(tmp_path, new_path) == 0)
+	/* maildir spec says we should use link() + unlink() here. however
+	   since our filename is guaranteed to be unique, rename() works just
+	   as well, except faster. even if the filename wasn't unique, the
+	   problem could still happen if the file was already moved from
+	   new/ to cur/, so link() doesn't really provide any safety anyway.
+
+	   Besides the small temporary performance benefits, this rename() is
+	   almost required with OSX's HFS+ filesystem, since it implements
+	   hard links in a pretty ugly way, which makes the performance crawl
+	   when a lot of hard links are used. */
+	if (rename(tmp_path, new_path) == 0)
 		ret = 0;
 	else {
 		ret = -1;
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(STORAGE(ctx->mbox->storage),
+			mail_storage_set_error(storage,
 					       "Not enough disk space");
 		} else {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
-				"link(%s, %s) failed: %m", tmp_path, new_path);
+			mail_storage_set_critical(storage,
+				"rename(%s, %s) failed: %m",
+				tmp_path, new_path);
 		}
-	}
-
-	if (unlink(tmp_path) < 0 && errno != ENOENT) {
-		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
-			"unlink(%s) failed: %m", tmp_path);
 	}
 	t_pop();
 	return ret;
