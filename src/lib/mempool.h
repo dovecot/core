@@ -3,6 +3,13 @@
 
 #include "macros.h"
 
+/* When DEBUG is enabled, Dovecot warns whenever a memory pool is grown.
+   This is done so that the initial pool size could be set large enough so that
+   it wouldn't grow in normal use. For some memory pools it's too difficult
+   to calculate a good initial size, so this prefix should be used with those
+   pools to disable the warning. */
+#define MEMPOOL_GROWING "GROWING-"
+
 /* Memory allocated and reallocated (the new data in it) in pools is always
    zeroed, it will cost only a few CPU cycles and may well save some debug
    time. */

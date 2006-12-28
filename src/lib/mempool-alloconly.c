@@ -23,6 +23,7 @@ struct alloconly_pool {
 #ifdef DEBUG
 	const char *name;
 	size_t base_size;
+	bool disable_warning;
 #endif
 	bool clean_frees;
 };
@@ -110,6 +111,10 @@ pool_t pool_alloconly_create(const char *name __attr_unused__, size_t size)
 	new_apool = p_new(&apool.pool, struct alloconly_pool, 1);
 	*new_apool = apool;
 #ifdef DEBUG
+	if (strncmp(name, MEMPOOL_GROWING, strlen(MEMPOOL_GROWING)) == 0) {
+		name += strlen(MEMPOOL_GROWING);
+		new_apool->disable_warning = TRUE;
+	}
 	new_apool->name = p_strdup(&new_apool->pool, name);
 
 	/* set base_size so p_clear() doesn't trash alloconly_pool structure. */
@@ -195,8 +200,10 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 
 		size = nearest_power(size);
 #ifdef DEBUG
-		i_warning("Growing pool '%s' with: %"PRIuSIZE_T,
-			  apool->name, size);
+		if (!apool->disable_warning) {
+			i_warning("Growing pool '%s' with: %"PRIuSIZE_T,
+				  apool->name, size);
+		}
 #endif
 	}
 

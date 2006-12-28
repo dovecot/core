@@ -302,7 +302,8 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 
 	if (uidlist->record_pool == NULL) {
 		uidlist->record_pool =
-			pool_alloconly_create("uidlist record_pool",
+			pool_alloconly_create(MEMPOOL_GROWING
+					      "uidlist record_pool",
 					      nearest_power(st.st_size -
 							    st.st_size/8));
 	}
@@ -684,8 +685,8 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, bool partial,
 		return 1;
 	}
 
-	ctx->record_pool =
-		pool_alloconly_create("maildir_uidlist_sync", 16384);
+	ctx->record_pool = pool_alloconly_create(MEMPOOL_GROWING
+						 "maildir_uidlist_sync", 16384);
 	ctx->files = hash_create(default_pool, ctx->record_pool, 4096,
 				 maildir_hash, maildir_cmp);
 
@@ -716,7 +717,8 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 
 		if (uidlist->record_pool == NULL) {
 			uidlist->record_pool =
-				pool_alloconly_create("uidlist record_pool",
+				pool_alloconly_create(MEMPOOL_GROWING
+						      "uidlist record_pool",
 						      1024);
 		}
 
