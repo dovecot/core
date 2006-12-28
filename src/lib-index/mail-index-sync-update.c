@@ -291,6 +291,7 @@ static int sync_append(const struct mail_index_record *rec,
 	map->hdr.next_uid = rec->uid+1;
 	map->records_count++;
 	view->hdr.messages_count++;
+	view->hdr.next_uid = rec->uid+1;
 
 	write_seq_update(map, map->hdr.messages_count, map->hdr.messages_count);
 

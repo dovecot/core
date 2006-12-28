@@ -53,10 +53,26 @@ static void _view_close(struct mail_index_view *view)
 	i_free(view);
 }
 
+#ifdef DEBUG
+static void mail_index_view_check_nextuid(struct mail_index_view *view)
+{
+	struct mail_index_record *rec;
+
+	if (view->hdr.messages_count == 0)
+		return;
+
+	rec = MAIL_INDEX_MAP_IDX(view->map, view->hdr.messages_count-1);
+	i_assert(rec->uid < view->hdr.next_uid);
+}
+#endif
+
 int mail_index_view_lock_head(struct mail_index_view *view, bool update_index)
 {
 	unsigned int lock_id;
 
+#ifdef DEBUG
+	mail_index_view_check_nextuid(view);
+#endif
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(view->index->map))
 		return 0;
 
@@ -95,6 +111,9 @@ int mail_index_view_lock(struct mail_index_view *view)
 
 	if (view->map != view->index->map) {
 		/* not head mapping, no need to lock */
+#ifdef DEBUG
+		mail_index_view_check_nextuid(view);
+#endif
 		return 0;
 	}
 
@@ -103,7 +122,11 @@ int mail_index_view_lock(struct mail_index_view *view)
 
 void mail_index_view_unlock(struct mail_index_view *view)
 {
-	if (view->lock_id != 0) {
+#ifdef DEBUG
+	mail_index_view_check_nextuid(view);
+#endif
+
+	if (view->lock_id != 0 && view->transactions == 0) {
 		mail_index_unlock(view->index, view->lock_id);
 		view->lock_id = 0;
 	}
@@ -461,6 +484,9 @@ void mail_index_view_close(struct mail_index_view **_view)
 	if (--view->refcount > 0)
 		return;
 
+	i_assert(view->transactions == 0);
+
+	mail_index_view_unlock(view);
 	view->v.close(view);
 }
 
