@@ -171,7 +171,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			if (pollfd->revents & POLLNVAL) {
 				i_error("invalid I/O fd %d, callback %p",
 					io->fd, (void *) io->callback);
-				pollfd->events &= ~POLLNVAL;
+				pollfd->events = 0;
 				pollfd->revents = 0;
 				call = TRUE;
 			} else if ((io->condition &
