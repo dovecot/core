@@ -223,6 +223,7 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 	log = i_new(struct mail_transaction_log, 1);
 	log->index = index;
 
+	log->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
 	log->dotlock_settings.timeout = LOG_DOTLOCK_TIMEOUT;
 	log->dotlock_settings.stale_timeout = LOG_DOTLOCK_STALE_TIMEOUT;
 

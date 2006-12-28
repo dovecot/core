@@ -20,8 +20,10 @@ enum mail_index_open_flags {
 	   OSes that don't have unified buffer cache
 	   (currently OpenBSD <= 3.5) */
 	MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE	= 0x08,
+	/* Rely on O_EXCL when creating dotlocks */
+	MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL	= 0x10,
 	/* Don't fsync() or fdatasync() */
-	MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE	= 0x10
+	MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE	= 0x20
 };
 
 enum mail_index_header_compat_flags {

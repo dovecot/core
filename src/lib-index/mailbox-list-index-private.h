@@ -1,6 +1,7 @@
 #ifndef __MAILBOX_LIST_INDEX_PRIVATE_H
 #define __MAILBOX_LIST_INDEX_PRIVATE_H
 
+#include "file-dotlock.h"
 #include "mailbox-list-index.h"
 
 #define MAILBOX_LIST_INDEX_MAJOR_VERSION 1
@@ -55,6 +56,7 @@ struct mailbox_list_index {
 	char separator;
 	struct mail_index *mail_index;
 	struct file_cache *file_cache;
+	struct dotlock_settings dotlock_set;
 
 	int fd;
 

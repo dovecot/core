@@ -35,7 +35,7 @@ struct mailbox_list_iter_ctx {
 	unsigned int failed:1;
 };
 
-const struct dotlock_settings dotlock_set = {
+const struct dotlock_settings default_dotlock_set = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 
@@ -219,7 +219,8 @@ int mailbox_list_index_file_create(struct mailbox_list_index *index,
 	struct dotlock *dotlock;
 	int fd, ret;
 
-	fd = file_dotlock_open(&dotlock_set, index->filepath, 0, &dotlock);
+	fd = file_dotlock_open(&index->dotlock_set, index->filepath,
+			       0, &dotlock);
 	if (fd == -1) {
 		mailbox_list_index_set_syscall_error(index,
 						     "file_dotlock_open()");
@@ -314,6 +315,8 @@ mailbox_list_index_alloc(const char *path, char separator,
 	index->mail_index = mail_index;
 	index->fd = -1;
 	index->mmap_disable = mail_index->mmap_disable;
+	index->dotlock_set = default_dotlock_set;
+	index->dotlock_set.use_excl_lock = mail_index->use_excl_dotlocks;
 	return index;
 }
 

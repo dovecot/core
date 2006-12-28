@@ -339,6 +339,8 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 	if ((storage->flags & MAIL_STORAGE_FLAG_MMAP_NO_WRITE) != 0)
 #endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
+	if ((storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL;
 
 	ret = mail_index_open(ibox->index, index_flags, storage->lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {

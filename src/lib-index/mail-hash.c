@@ -53,6 +53,7 @@ struct mail_hash {
 	int lock_type;
 	struct file_lock *file_lock;
 	struct dotlock *dotlock;
+	struct dotlock_settings dotlock_settings;
 
 	struct mail_hash_header *hdr;
 
@@ -71,7 +72,7 @@ struct mail_hash {
 #define HASH_RECORD_IDX(hash, idx) \
 	PTR_OFFSET((hash)->records_base, ((idx) - 1) * (hash)->record_size)
 
-const struct dotlock_settings dotlock_settings = {
+const struct dotlock_settings default_dotlock_settings = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 
@@ -414,8 +415,8 @@ static int mail_hash_file_lock(struct mail_hash *hash, int lock_type)
 					  &hash->file_lock);
 	} else {
 		i_assert(hash->dotlock == NULL);
-		return file_dotlock_create(&dotlock_settings, hash->filepath,
-					   0, &hash->dotlock);
+		return file_dotlock_create(&hash->dotlock_settings,
+					   hash->filepath, 0, &hash->dotlock);
 	}
 }
 
@@ -493,7 +494,8 @@ mail_hash_file_create(struct mail_hash *hash, unsigned int initial_count)
 	uoff_t file_size;
 	int fd;
 
-	fd = file_dotlock_open(&dotlock_settings, hash->filepath, 0, &dotlock);
+	fd = file_dotlock_open(&hash->dotlock_settings,
+			       hash->filepath, 0, &dotlock);
 	if (fd == -1) {
 		mail_hash_set_syscall_error(hash, "file_dotlock_open()");
 		return -1;
@@ -559,6 +561,8 @@ mail_hash_open(struct mail_index *index, const char *suffix,
 	hash->suffix = i_strdup(suffix);
 	hash->record_size = record_size;
 	hash->fd = -1;
+	hash->dotlock_settings = default_dotlock_settings;
+	hash->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
 
 	hash->key_hash_cb = key_hash_cb;
 	hash->rec_hash_cb = rec_hash_cb;

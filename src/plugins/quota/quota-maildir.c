@@ -46,7 +46,7 @@ struct maildir_list_context {
 
 extern struct quota_backend quota_backend_maildir;
 
-const struct dotlock_settings dotlock_settings = {
+struct dotlock_settings dotlock_settings = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 
@@ -216,6 +216,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 
 	i_assert(root->fd == -1);
 
+	dotlock_settings.use_excl_lock = getenv("DOTLOCK_USE_EXCL") != NULL;
 	fd = file_dotlock_open(&dotlock_settings, path,
 			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
 	if (fd == -1) {

@@ -31,8 +31,10 @@ enum mail_storage_flags {
 	/* Don't autocreate any directories. If they don't exist,
 	   fail to create the storage. */
 	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x200,
+	/* Rely on O_EXCL when creating dotlocks */
+	MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL	= 0x400,
 	/* Ths storage contains INBOX */
-	MAIL_STORAGE_FLAG_HAS_INBOX		= 0x400
+	MAIL_STORAGE_FLAG_HAS_INBOX		= 0x800
 };
 
 enum mailbox_open_flags {

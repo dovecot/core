@@ -9,6 +9,7 @@
 #include "hash.h"
 #include "duplicate.h"
 
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -240,6 +241,8 @@ void duplicate_flush(void)
 
 void duplicate_init(void)
 {
+	duplicate_dotlock_set.use_excl_lock =
+		getenv("DOTLOCK_USE_EXCL") != NULL;
 }
 
 void duplicate_deinit(void)

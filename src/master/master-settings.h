@@ -80,6 +80,7 @@ struct settings {
 	bool mail_read_mmaped;
 	bool mmap_disable;
 	bool mmap_no_write;
+	bool dotlock_use_excl;
 	bool fsync_disable;
 	const char *lock_method;
 	bool maildir_stat_dirs;

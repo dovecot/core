@@ -10,7 +10,7 @@
 
 #define CONVERT_LOCK_FILENAME ".dovecot.convert"
 
-const struct dotlock_settings dotlock_settings = {
+struct dotlock_settings dotlock_settings = {
 	MEMBER(temp_prefix) NULL,
 	MEMBER(lock_suffix) NULL,
 
@@ -233,6 +233,9 @@ int convert_storage(const char *user, const char *home_dir,
 	}
 
         path = t_strconcat(home_dir, "/"CONVERT_LOCK_FILENAME, NULL);
+	dotlock_settings.use_excl_lock =
+		(source_storage->flags &
+		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
 	ret = file_dotlock_create(&dotlock_settings, path, 0, &dotlock);
 	if (ret <= 0) {
 		if (ret == 0)
