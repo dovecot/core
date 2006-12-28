@@ -20,6 +20,9 @@ struct imap_fetch_context_handler {
 	imap_fetch_handler_t *handler;
 	void *context;
 
+	const char *name;
+	const char *nil_reply;
+
 	unsigned int buffered:1;
 	unsigned int want_deinit:1;
 };
@@ -68,16 +71,19 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 
 void imap_fetch_add_handler(struct imap_fetch_context *ctx,
 			    bool buffered, bool want_deinit,
+			    const char *name, const char *nil_reply,
 			    imap_fetch_handler_t *handler, void *context);
 #ifdef CONTEXT_TYPE_SAFETY
-#  define imap_fetch_add_handler(ctx, buffered, want_deinit, handler, context) \
+#  define imap_fetch_add_handler(ctx, buffered, want_deinit, name, nil_reply, \
+				 handler, context) \
 	({(void)(1 ? 0 : handler((struct imap_fetch_context *)NULL, \
 				 (struct mail *)NULL, context)); \
-	  imap_fetch_add_handler(ctx, buffered, want_deinit, \
+	  imap_fetch_add_handler(ctx, buffered, want_deinit, name, nil_reply, \
 		(imap_fetch_handler_t *)handler, context); })
 #else
-#  define imap_fetch_add_handler(ctx, buffered, want_deinit, handler, context) \
-	  imap_fetch_add_handler(ctx, buffered, want_deinit, \
+#  define imap_fetch_add_handler(ctx, buffered, want_deinit, name, nil_reply, \
+				 handler, context) \
+	  imap_fetch_add_handler(ctx, buffered, want_deinit, name, nil_reply, \
 		(imap_fetch_handler_t *)handler, context)
 #endif
 

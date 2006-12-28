@@ -72,15 +72,11 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 {
 	struct client_command_context *cmd = ctx->cmd;
 	static const char *ok_message = "OK Fetch completed.";
-	bool failed, partial;
-
-	partial = ctx->partial_fetch;
-	failed = ctx->failed;
 
 	if (imap_fetch_deinit(ctx) < 0)
-		failed = TRUE;
+		ctx->failed = TRUE;
 
-	if (failed || (partial && !cmd->uid)) {
+	if (ctx->failed) {
 		struct mail_storage *storage;
 		const char *error;
 		bool syntax, temporary_error;
@@ -96,10 +92,6 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 		if (!syntax) {
 			/* We never want to reply NO to FETCH requests,
 			   BYE is preferrable (see imap-ml for reasons). */
-			if (partial) {
-				error = "Out of sync: "
-					"Trying to fetch expunged message";
-			}
 			client_disconnect_with_error(cmd->client, error);
 		} else {
 			/* user error, we'll reply with BAD */
