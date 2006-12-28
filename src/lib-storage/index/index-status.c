@@ -44,6 +44,7 @@ int index_storage_get_status(struct mailbox *box,
 		index_storage_mailbox_open(ibox);
 
 	ret = index_storage_get_status_locked(ibox, items, status);
-	mail_index_view_unlock(ibox->view);
+	if (box->transaction_count == 0)
+		mail_index_view_unlock(ibox->view);
 	return ret;
 }
