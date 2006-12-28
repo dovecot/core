@@ -65,19 +65,31 @@ static const struct acl_letter_map acl_letter_map[] = {
 	{ '\0', NULL }
 };
 
-static struct acl_backend *acl_backend_vfile_init(const char *data)
+static struct acl_backend *acl_backend_vfile_alloc(void)
 {
 	struct acl_backend_vfile *backend;
 	pool_t pool;
 
-	pool = pool_alloconly_create("ACL backend", nearest_power(512));
+	pool = pool_alloconly_create("ACL backend", 512);
 	backend = p_new(pool, struct acl_backend_vfile, 1);
-	backend->global_dir = p_strdup(pool, data);
 	backend->backend.pool = pool;
-	backend->backend.cache =
-		acl_cache_init(&backend->backend,
-			       sizeof(struct acl_backend_vfile_validity));
 	return &backend->backend;
+}
+
+static int
+acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
+{
+	struct acl_backend_vfile *backend =
+		(struct acl_backend_vfile *)_backend;
+
+	if (_backend->debug)
+		i_info("acl vfile: Global ACL directory: %s", data);
+
+	backend->global_dir = p_strdup(_backend->pool, data);
+	_backend->cache =
+		acl_cache_init(_backend,
+			       sizeof(struct acl_backend_vfile_validity));
+	return 0;
 }
 
 static void acl_backend_vfile_deinit(struct acl_backend *backend)
@@ -86,12 +98,15 @@ static void acl_backend_vfile_deinit(struct acl_backend *backend)
 }
 
 static struct acl_object *
-acl_backend_vfile_object_init(struct acl_backend *_backend,
-			      const char *name, const char *control_dir)
+acl_backend_vfile_object_init(struct acl_backend *_backend, const char *name)
 {
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
 	struct acl_object_vfile *aclobj;
+	const char *control_dir;
+
+	control_dir =
+		mail_storage_get_mailbox_control_dir(_backend->storage, name);
 
 	aclobj = i_new(struct acl_object_vfile, 1);
 	aclobj->aclobj.backend = _backend;
@@ -241,6 +256,9 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT) {
+			if (aclobj->backend->debug)
+				i_info("acl vfile: file %s not found", path);
+
 			validity->last_size = 0;
 			validity->last_mtime = 0;
 			validity->last_read_time = ioloop_time;
@@ -267,6 +285,9 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		(void)close(fd);
 		return 0;
 	}
+
+	if (aclobj->backend->debug)
+		i_info("acl vfile: reading file %s", path);
 
 	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
 
@@ -453,6 +474,7 @@ acl_backend_vfile_object_list_deinit(struct acl_object_list_iter *iter)
 }
 
 struct acl_backend_vfuncs acl_backend_vfile = {
+	acl_backend_vfile_alloc,
 	acl_backend_vfile_init,
 	acl_backend_vfile_deinit,
 	acl_backend_vfile_object_init,

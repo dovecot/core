@@ -4,12 +4,12 @@
 #include "acl-api.h"
 
 struct acl_backend_vfuncs {
-	struct acl_backend *(*init)(const char *data);
+	struct acl_backend *(*alloc)(void);
+	int (*init)(struct acl_backend *backend, const char *data);
 	void (*deinit)(struct acl_backend *backend);
 
 	struct acl_object *(*object_init)(struct acl_backend *backend,
-					  const char *name,
-					  const char *control_dir);
+					  const char *name);
 	void (*object_deinit)(struct acl_object *aclobj);
 
 	int (*object_refresh_cache)(struct acl_object *aclobj);
@@ -36,6 +36,8 @@ struct acl_backend {
 	struct acl_mask *default_aclmask;
 
 	struct acl_backend_vfuncs v;
+
+	unsigned int debug:1;
 };
 
 struct acl_object {

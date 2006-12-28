@@ -32,30 +32,35 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 {
 	struct acl_backend *backend;
 	unsigned int i, group_count;
-	bool storage_owner;
+	bool storage_owner, debug;
+
+	debug = getenv("DEBUG") != NULL;
+	if (debug) {
+		i_info("acl: initializing backend with data: %s", data);
+		i_info("acl: acl username = %s", acl_username);
+		i_info("acl: owner username = %s",
+		       owner_username != NULL ? owner_username : "");
+	}
 
 	group_count = strarray_length(groups);
 
-	if (strncmp(data, "vfile:", 6) != 0)
+	if (strncmp(data, "vfile:", 6) == 0)
+		data += 6;
+	else if (strcmp(data, "vfile") == 0)
+		data = "";
+	else
 		i_fatal("Unknown ACL backend: %s", t_strcut(data, ':'));
-	data += 6;
 
-	backend = acl_backend_vfile.init(data);
+	backend = acl_backend_vfile.alloc();
+	backend->debug = debug;
 	backend->v = acl_backend_vfile;
 	backend->storage = storage;
 	backend->username = p_strdup(backend->pool, acl_username);
 	backend->owner_username = owner_username == NULL ? "" :
 		p_strdup(backend->pool, owner_username);
-	backend->group_count = group_count;
-
-	storage_owner = owner_username != NULL &&
-		strcmp(acl_username, owner_username) == 0;
-	backend->default_aclmask =
-		acl_cache_mask_init(backend->cache, backend->pool,
-				    storage_owner ? owner_mailbox_rights :
-				    non_owner_mailbox_rights);
 
 	if (group_count > 0) {
+		backend->group_count = group_count;
 		backend->groups =
 			p_new(backend->pool, const char *, group_count);
 		for (i = 0; i < group_count; i++)
@@ -63,6 +68,16 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 		qsort(backend->groups, group_count, sizeof(const char *),
 		      strcmp_p);
 	}
+
+	if (acl_backend_vfile.init(backend, data) < 0)
+		i_fatal("acl: backend vfile init failed with data: %s", data);
+
+	storage_owner = owner_username != NULL &&
+		strcmp(acl_username, owner_username) == 0;
+	backend->default_aclmask =
+		acl_cache_mask_init(backend->cache, backend->pool,
+				    storage_owner ? owner_mailbox_rights :
+				    non_owner_mailbox_rights);
 
 	backend->default_aclobj = acl_object_init_from_name(backend, "");
 	return backend;

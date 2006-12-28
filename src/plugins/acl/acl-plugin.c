@@ -23,6 +23,9 @@ void acl_plugin_init(void)
 
 		acl_next_hook_mailbox_list_created = hook_mailbox_list_created;
 		hook_mailbox_list_created = acl_mailbox_list_created;
+	} else {
+		if (getenv("DEBUG") != NULL)
+			i_info("acl: ACL environment not set");
 	}
 }
 

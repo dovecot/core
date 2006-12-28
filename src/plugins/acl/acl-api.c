@@ -9,10 +9,7 @@
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
 					     const char *name)
 {
-	const char *control_dir =
-		mail_storage_get_mailbox_control_dir(backend->storage, name);
-
-	return backend->v.object_init(backend, name, control_dir);
+	return backend->v.object_init(backend, name);
 }
 
 struct acl_object *acl_object_init_from_mailbox(struct acl_backend *backend,
