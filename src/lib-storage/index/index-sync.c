@@ -321,8 +321,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 							status_r);
 	}
 
-	if (ibox->box.transaction_count == 0)
-		mail_index_view_unlock(ibox->view);
+	mail_index_view_unlock(ibox->view);
 	i_free(ctx);
 	return ret;
 }

@@ -474,8 +474,7 @@ void mail_storage_set_index_error(struct index_mailbox *ibox)
 		break;
 	}
 
-	if (ibox->view != NULL)
-		mail_index_view_unlock(ibox->view);
+	mail_index_view_unlock(ibox->view);
 	mail_index_reset_error(ibox->index);
 }
 
