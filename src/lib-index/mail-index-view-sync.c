@@ -369,6 +369,15 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		if (view_sync_pos_find(&view->syncs_done, seq, offset))
 			continue;
 
+		if (ctx->skipped_some) {
+			/* We've been skipping some transactions, which means
+			   we'll go through these same transactions again
+			   later. Since we're syncing this one, we don't want
+			   to do it again. */
+			mail_index_view_add_synced_transaction(view, seq,
+							       offset);
+		}
+
 		/* Apply transaction to view's mapping if needed (meaning we
 		   didn't just re-map the view to head mapping). */
 		if (ctx->sync_map_update) {
@@ -391,13 +400,6 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		if (view_sync_pos_find(&view->syncs_hidden, seq, offset))
 			continue;
 		break;
-	}
-
-	if (ctx->skipped_some) {
-		/* We've been skipping some transactions, which means we'll
-		   go through these same transaction again later. Since we're
-		   syncing this one, we don't want to do it again. */
-		mail_index_view_add_synced_transaction(view, seq, offset);
 	}
 	return 1;
 }
