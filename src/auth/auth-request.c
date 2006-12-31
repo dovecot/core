@@ -572,6 +572,9 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 	struct userdb_module *userdb = request->userdb->userdb;
 	const char *str;
 
+	if (passdb_cache == NULL || userdb->cache_key == NULL)
+		return;
+
 	str = auth_stream_reply_export(reply);
 	auth_cache_insert(passdb_cache, request, userdb->cache_key, str,
 			  result == PASSDB_RESULT_OK);
