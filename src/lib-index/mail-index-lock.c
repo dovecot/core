@@ -224,7 +224,6 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 	index->lock_type = F_WRLCK;
 
 	if (mail_index_reopen(index, fd) < 0) {
-		i_assert(index->excl_lock_count == 1);
 		(void)close(fd);
 		if (unlink(index->copy_lock_path) < 0) {
 			mail_index_file_set_syscall_error(index,
@@ -235,7 +234,6 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 		index->copy_lock_path = NULL;
 
 		index->lock_type = old_lock_type;
-		index->excl_lock_count = 0;
 		return -1;
 	}
 

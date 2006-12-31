@@ -1664,7 +1664,6 @@ int mail_index_reopen(struct mail_index *index, int fd)
 		index->fd = fd;
 		ret = 0;
 	} else {
-		i_assert(index->excl_lock_count == 0);
 		ret = mail_index_try_open_only(index);
 		if (ret > 0)
 			ret = mail_index_lock_shared(index, FALSE, &lock_id);
