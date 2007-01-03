@@ -47,6 +47,9 @@ void main_unref(void)
 		/* last login finished, close all communications
 		   to master process */
 		master_close();
+		/* we might still be proxying. close the connection to
+		   dovecot-auth, since it's not needed anymore. */
+		auth_client_free(&auth_client);
 	}
 }
 
@@ -336,7 +339,8 @@ static void main_deinit(void)
 	ssl_proxy_deinit();
 	login_proxy_deinit();
 
-	auth_client_free(&auth_client);
+	if (auth_client != NULL)
+		auth_client_free(&auth_client);
 	clients_deinit();
 	master_deinit();
 
