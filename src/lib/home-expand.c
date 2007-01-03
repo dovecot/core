@@ -6,14 +6,14 @@
 #include <stdlib.h>
 #include <pwd.h>
 
-/* expand ~/ or ~user/ in beginning of path */
-const char *home_expand(const char *path)
+int home_try_expand(const char **_path)
 {
+	const char *path = *_path;
 	const char *home, *p, *orig_path;
 	struct passwd *pw;
 
 	if (path == NULL || *path != '~')
-		return path;
+		return 0;
 
 	orig_path = path++;
 	if (*path == '/' || *path == '\0') {
@@ -33,9 +33,17 @@ const char *home_expand(const char *path)
 	}
 
 	if (home == NULL)
-		return orig_path;
-	else if (*path == '\0')
-		return t_strdup(home);
+		return -1;
+
+	if (*path == '\0')
+		*_path = t_strdup(home);
 	else
-		return t_strconcat(home, "/", path, NULL);
+		*_path = t_strconcat(home, "/", path, NULL);
+	return 0;
+}
+
+const char *home_expand(const char *path)
+{
+	(void)home_try_expand(&path);
+	return path;
 }
