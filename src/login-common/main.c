@@ -49,7 +49,8 @@ void main_unref(void)
 		master_close();
 		/* we might still be proxying. close the connection to
 		   dovecot-auth, since it's not needed anymore. */
-		auth_client_free(&auth_client);
+		if (auth_client != NULL)
+			auth_client_free(&auth_client);
 	}
 }
 
