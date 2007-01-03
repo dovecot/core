@@ -39,7 +39,10 @@ maildir_list_get_absolute_path(struct mailbox_list *list, const char *name)
 {
 	const char *p;
 
-	name = home_expand(name);
+	if (home_try_expand(&name) < 0) {
+		/* fallback to using as ~name */
+		return name;
+	}
 
 	p = strrchr(name, '/');
 	if (p == NULL)

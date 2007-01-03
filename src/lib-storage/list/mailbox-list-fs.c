@@ -160,8 +160,11 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	i_assert(mailbox_list_is_valid_existing_name(_list, name));
 
 	if ((list->list.flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
-	    (*name == '/' || *name == '~'))
-		return name;
+	    (*name == '/' || *name == '~')) {
+		if (home_try_expand(&name) == 0)
+			return name;
+		/* fallback to using ~dir */
+	}
 
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_DIR:
