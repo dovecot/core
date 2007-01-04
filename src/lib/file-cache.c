@@ -224,7 +224,7 @@ void file_cache_write(struct file_cache *cache, const void *data, size_t size,
 	unsigned char *bits;
 	unsigned int first_page, last_page;
 
-	i_assert(size < (uoff_t)-1 && offset < (uoff_t)-1 - size);
+	i_assert((uoff_t)-1 - offset > size);
 
 	if (file_cache_set_size(cache, offset + size) < 0) {
 		/* couldn't grow mapping. just make sure the written memory
