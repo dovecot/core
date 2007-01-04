@@ -8,6 +8,7 @@ config.h
 config.log
 config.status
 config.sub
+config.rpath
 configure
 configure.scan
 libtool
