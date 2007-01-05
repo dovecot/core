@@ -303,10 +303,17 @@ static int dir_move_or_merge(struct mail_storage *storage,
 
 	str_append(src_path, srcdir);
 	str_append(dest_path, destdir);
+	str_append_c(src_path, '/');
+	str_append_c(dest_path, '/');
 	src_dirlen = str_len(src_path);
 	dest_dirlen = str_len(dest_path);
 
 	while ((dp = readdir(dir)) != NULL) {
+		if (dp->d_name[0] == '.' &&
+		    (dp->d_name[1] == '\0' ||
+		     (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
+			continue;
+
 		str_truncate(src_path, src_dirlen);
 		str_append(src_path, dp->d_name);
 		str_truncate(dest_path, dest_dirlen);
@@ -369,13 +376,13 @@ mailbox_move(struct mail_storage *src_storage, const char *src_name,
 	if (strcmp(src2dir, srcdir) != 0) {
 		destdir = mail_storage_get_mailbox_control_dir(dest_storage,
 							       dest_name);
-		(void)dir_move_or_merge(src_storage, srcdir, destdir);
+		(void)dir_move_or_merge(src_storage, src2dir, destdir);
 	}
 	src3dir = mail_storage_get_mailbox_index_dir(src_storage, src_name);
 	if (strcmp(src3dir, srcdir) != 0 && strcmp(src3dir, src2dir) != 0) {
 		destdir = mail_storage_get_mailbox_index_dir(dest_storage,
 							     dest_name);
-		(void)dir_move_or_merge(src_storage, srcdir, destdir);
+		(void)dir_move_or_merge(src_storage, src3dir, destdir);
 	}
 	t_pop();
 
