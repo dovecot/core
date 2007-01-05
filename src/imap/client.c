@@ -567,7 +567,7 @@ void _client_input(struct client *client)
 		t_push();
 		ret = client_handle_next_command(client);
 		t_pop();
-	} while (ret);
+	} while (ret && !client->disconnected);
 	client->handling_input = FALSE;
 	o_stream_uncork(client->output);
 
