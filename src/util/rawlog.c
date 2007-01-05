@@ -24,27 +24,33 @@
 
 static struct ioloop *ioloop;
 
+enum rawlog_flags {
+	RAWLOG_FLAG_LOG_INPUT		= 0x01,
+	RAWLOG_FLAG_LOG_OUTPUT		= 0x02,
+	RAWLOG_FLAG_LOG_TIMESTAMPS	= 0x04
+};
+
 struct rawlog_proxy {
 	int client_in_fd, client_out_fd, server_fd;
 	struct io *client_io, *server_io;
 	struct istream *server_input;
 	struct ostream *client_output, *server_output;
 
-	int log_in, log_out;
+	int fd_in, fd_out;
+	enum rawlog_flags flags;
 
 	time_t last_write;
 	unsigned int last_out_lf:1;
-	unsigned int write_timestamps:1;
 };
 
 static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 {
-	if (proxy->log_in != -1) {
-		if (close(proxy->log_in) < 0)
+	if (proxy->fd_in != -1) {
+		if (close(proxy->fd_in) < 0)
 			i_error("close(in) failed: %m");
 	}
-	if (proxy->log_out != -1) {
-		if (close(proxy->log_out) < 0)
+	if (proxy->fd_out != -1) {
+		if (close(proxy->fd_out) < 0)
 			i_error("close(out) failed: %m");
 	}
 	if (proxy->client_io != NULL)
@@ -70,14 +76,14 @@ static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 static void proxy_write_in(struct rawlog_proxy *proxy,
 			   const void *data, size_t size)
 {
-	if (proxy->log_out == -1 || size == 0)
+	if (proxy->fd_in == -1 || size == 0)
 		return;
 
-	if (write_full(proxy->log_in, data, size) < 0) {
+	if (write_full(proxy->fd_in, data, size) < 0) {
 		/* failed, disable logging */
 		i_error("write(in) failed: %m");
-		(void)close(proxy->log_in);
-		proxy->log_in = -1;
+		(void)close(proxy->fd_in);
+		proxy->fd_in = -1;
 	}
 }
 
@@ -87,24 +93,25 @@ static void proxy_write_out(struct rawlog_proxy *proxy,
 	struct tm *tm;
 	char buf[256];
 
-	if (proxy->log_out == -1 || size == 0)
+	if (proxy->fd_out == -1 || size == 0)
 		return;
 
-	if (proxy->last_out_lf && proxy->write_timestamps &&
+	if (proxy->last_out_lf &&
+	    (proxy->flags & RAWLOG_FLAG_LOG_TIMESTAMPS) != 0 &&
 	    ioloop_time - proxy->last_write >= TIMESTAMP_WAIT_TIME) {
 		tm = localtime(&ioloop_time);
 
 		if (strftime(buf, sizeof(buf), TIMESTAMP_FORMAT, tm) <= 0)
 			i_fatal("strftime() failed");
-		if (write_full(proxy->log_out, buf, strlen(buf)) < 0)
+		if (write_full(proxy->fd_out, buf, strlen(buf)) < 0)
 			i_fatal("Can't write to log file: %m");
 	}
 
-	if (write_full(proxy->log_out, data, size) < 0) {
+	if (write_full(proxy->fd_out, data, size) < 0) {
 		/* failed, disable logging */
 		i_error("write(out) failed: %m");
-		(void)close(proxy->log_out);
-		proxy->log_out = -1;
+		(void)close(proxy->fd_out);
+		proxy->fd_out = -1;
 	}
 
 	proxy->last_write = ioloop_time;
@@ -201,28 +208,32 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 	if (strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", tm) <= 0)
 		i_fatal("strftime() failed");
 
-	fname = t_strdup_printf("%s/%s-%s.in", path, timestamp,
-				dec2str(getpid()));
-	proxy->log_in = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
-	if (proxy->log_in == -1) {
-		i_error("rawlog_open: open() failed for %s: %m", fname);
-		return;
+	if ((proxy->flags & RAWLOG_FLAG_LOG_INPUT) != 0) {
+		fname = t_strdup_printf("%s/%s-%s.in", path, timestamp,
+					dec2str(getpid()));
+		proxy->fd_in = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
+		if (proxy->fd_in == -1) {
+			i_error("rawlog_open: open() failed for %s: %m", fname);
+			return;
+		}
 	}
 
-	fname = t_strdup_printf("%s/%s-%s.out", path, timestamp,
-				dec2str(getpid()));
-	proxy->log_out = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
-	if (proxy->log_out == -1) {
-		i_error("rawlog_open: open() failed for %s: %m", fname);
-		close(proxy->log_in);
-		proxy->log_in = -1;
-		return;
+	if ((proxy->flags & RAWLOG_FLAG_LOG_OUTPUT) != 0) {
+		fname = t_strdup_printf("%s/%s-%s.out", path, timestamp,
+					dec2str(getpid()));
+		proxy->fd_out = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
+		if (proxy->fd_out == -1) {
+			i_error("rawlog_open: open() failed for %s: %m", fname);
+			close(proxy->fd_in);
+			proxy->fd_in = -1;
+			return;
+		}
 	}
 }
 
 static struct rawlog_proxy *
 rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
-		    const char *path, bool write_timestamps)
+		    const char *path, enum rawlog_flags flags)
 {
 	struct rawlog_proxy *proxy;
 
@@ -247,13 +258,14 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	o_stream_set_flush_callback(proxy->client_output, client_output, proxy);
 
 	proxy->last_out_lf = TRUE;
-	proxy->write_timestamps = write_timestamps;
+	proxy->flags = flags;
 
+	proxy->fd_in = proxy->fd_out = -1;
 	proxy_open_logs(proxy, path);
 	return proxy;
 }
 
-static void rawlog_open(bool write_timestamps)
+static void rawlog_open(enum rawlog_flags flags)
 {
 	const char *home, *path;
 	struct stat st;
@@ -299,7 +311,7 @@ static void rawlog_open(bool write_timestamps)
 					  dec2str(getppid())));
 
 	ioloop = io_loop_create(system_pool);
-	rawlog_proxy_create(0, 1, sfd[0], path, write_timestamps);
+	rawlog_proxy_create(0, 1, sfd[0], path, flags);
 	io_loop_run(ioloop);
 	io_loop_destroy(&ioloop);
 
@@ -310,19 +322,38 @@ static void rawlog_open(bool write_timestamps)
 int main(int argc, char *argv[], char *envp[])
 {
 	char *executable, *p;
+	enum rawlog_flags flags;
+
+	flags = RAWLOG_FLAG_LOG_INPUT | RAWLOG_FLAG_LOG_OUTPUT;
 
 	lib_init();
 	process_title_init(argv, envp);
 
-	if (argc < 2)
-		i_fatal("Usage: rawlog <binary> <arguments>");
-
+	argc--;
 	argv++;
+	while (argc > 0 && *argv[0] == '-') {
+		if (strcmp(argv[0], "-i") == 0)
+			flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
+		else if (strcmp(argv[0], "-o") == 0)
+			flags &= ~RAWLOG_FLAG_LOG_INPUT;
+		else {
+			argc = 0;
+			break;
+		}
+		argc--;
+		argv++;
+	}
+
+	if (argc < 1)
+		i_fatal("Usage: rawlog [-i | -o] <binary> <arguments>");
+
 	executable = argv[0];
+	if (strstr(executable, "/imap") != NULL)
+		flags |= RAWLOG_FLAG_LOG_TIMESTAMPS;
 
-	rawlog_open(strstr(executable, "/imap") != NULL);
+	rawlog_open(flags);
 
-	/* hide path, it's ugly */
+	/* hide the executable path, it's ugly */
 	p = strrchr(argv[0], '/');
 	if (p != NULL) argv[0] = p+1;
 	execv(executable, argv);
