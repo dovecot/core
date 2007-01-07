@@ -20,7 +20,7 @@ static void user_callback(struct auth_request *request, const char *reply)
 	else if (strncmp(reply, "OK\t", 3) == 0) {
 		result = USERDB_RESULT_OK;
 		stream_reply = auth_stream_reply_init(request);
-		auth_stream_reply_import(stream_reply, reply);
+		auth_stream_reply_import(stream_reply, reply + 3);
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 		i_error("BUG: auth-worker sent invalid user reply");
