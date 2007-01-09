@@ -100,7 +100,8 @@ static void parse_content_encoding(const unsigned char *value, size_t value_len,
 }
 
 static bool message_search_header(struct part_search_context *ctx,
-				  struct istream *input)
+				  struct istream *input,
+				  const struct message_part *part)
 {
 	struct header_search_context *hdr_search_ctx;
 	struct message_header_parser_ctx *hdr_ctx;
@@ -116,6 +117,10 @@ static bool message_search_header(struct part_search_context *ctx,
 
 	/* we default to text content-type */
 	ctx->content_type_text = TRUE;
+
+	input = i_stream_create_limit(default_pool, input, part->physical_pos,
+				      part->header_size.physical_size);
+	i_stream_seek(input, 0);
 
 	hdr_ctx = message_parse_header_init(input, NULL, TRUE);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
@@ -156,6 +161,7 @@ static bool message_search_header(struct part_search_context *ctx,
 	}
 	i_assert(ret != 0);
 	message_parse_header_deinit(&hdr_ctx);
+	i_stream_destroy(&input);
 
 	return found;
 }
@@ -401,7 +407,7 @@ static int message_body_search_ctx(struct body_search_context *ctx,
 
 		t_push();
 
-		if (message_search_header(&part_ctx, input)) {
+		if (message_search_header(&part_ctx, input, part)) {
 			/* found / invalid search key */
 			ret = 1;
 		} else if (part->children != NULL) {
