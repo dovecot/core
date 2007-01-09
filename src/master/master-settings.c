@@ -466,12 +466,13 @@ static bool settings_have_connect_sockets(struct settings *set)
 	return FALSE;
 }
 
-static void unlink_auth_sockets(const char *path)
+static void unlink_auth_sockets(const char *path, const char *prefix)
 {
 	DIR *dirp;
 	struct dirent *dp;
 	struct stat st;
 	string_t *str;
+	unsigned int prefix_len;
 
 	dirp = opendir(path);
 	if (dirp == NULL) {
@@ -479,9 +480,13 @@ static void unlink_auth_sockets(const char *path)
 		return;
 	}
 
+	prefix_len = strlen(prefix);
 	str = t_str_new(256);
 	while ((dp = readdir(dirp)) != NULL) {
 		if (dp->d_name[0] == '.')
+			continue;
+
+		if (strncmp(dp->d_name, prefix, prefix_len) != 0)
 			continue;
 
 		str_truncate(str, 0);
@@ -736,6 +741,9 @@ static bool settings_do_fixes(struct settings *set)
 			i_error("chmod(%s) failed: %m", set->base_dir);
 	}
 
+	/* remove auth worker sockets left by unclean exits */
+	unlink_auth_sockets(set->base_dir, "auth-worker.");
+
 	/* Make sure our permanent state directory exists */
 	if (mkdir_parents(PKG_STATEDIR, 0750) < 0 && errno != EEXIST) {
 		i_error("mkdir(%s) failed: %m", PKG_STATEDIR);
@@ -754,7 +762,7 @@ static bool settings_do_fixes(struct settings *set)
 				  "%s", set->login_dir);
 		}
 
-		unlink_auth_sockets(set->login_dir);
+		unlink_auth_sockets(set->login_dir, "");
 	}
 
 #ifdef HAVE_MODULES
