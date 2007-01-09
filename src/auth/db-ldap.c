@@ -407,11 +407,10 @@ static int db_ldap_bind(struct ldap_connection *conn)
 	ldap_request->callback = db_ldap_bind_callback;
 	ldap_request->context = conn;
 
-	msgid = ldap_bind(conn->ld, conn->set.dn, conn->set.
-			  dnpass, LDAP_AUTH_SIMPLE);
+	msgid = ldap_bind(conn->ld, conn->set.dn, conn->set.dnpass,
+			  LDAP_AUTH_SIMPLE);
 	if (msgid == -1) {
-		i_error("ldap_bind(%s) failed: %s",
-			conn->set.dn, ldap_get_error(conn));
+		db_ldap_connect_finish(conn, ldap_get_error(conn));
 		i_free(ldap_request);
 		return -1;
 	}
