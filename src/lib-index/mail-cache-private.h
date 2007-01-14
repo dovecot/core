@@ -169,7 +169,6 @@ struct mail_cache_view {
 	buffer_t *cached_exists_buf;
 	uint8_t cached_exists_value;
 	uint32_t cached_exists_seq;
-	uint32_t cached_offset, cached_offset_seq;
 };
 
 typedef int mail_cache_foreach_callback_t(struct mail_cache_view *view,

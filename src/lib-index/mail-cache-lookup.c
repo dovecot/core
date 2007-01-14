@@ -191,16 +191,9 @@ int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
         if (MAIL_CACHE_IS_UNUSABLE(view->cache))
 		return 0;
 
-	if (view->cached_offset_seq == seq)
-		offset = view->cached_offset;
-	else {
-		if ((ret = mail_cache_lookup_offset(view->cache, view->view,
-						    seq, &offset)) <= 0)
-			return ret;
-
-		view->cached_offset_seq = seq;
-		view->cached_offset = offset;
-	}
+	if ((ret = mail_cache_lookup_offset(view->cache, view->view,
+					    seq, &offset)) <= 0)
+		return ret;
 
 	ret = 1;
 	array_clear(&view->tmp_offsets);
