@@ -342,6 +342,14 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		/* Get the next transaction from log. */
 		ret = mail_transaction_log_view_next(log_view, &ctx->hdr,
 						     &ctx->data, &skipped);
+
+		if (skipped) {
+			/* We skipped some (visible) transactions that were
+			   outside our sync mask. Note that we may get here
+			   even when ret=0. */
+			ctx->skipped_some = TRUE;
+		}
+
 		if (ret <= 0) {
 			if (ret < 0)
 				return -1;
@@ -353,11 +361,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 
 		mail_transaction_log_view_get_prev_pos(log_view, &seq, &offset);
 
-		if (skipped) {
-			/* We skipped some (visible) transactions that were
-			   outside our sync mask. */
-			ctx->skipped_some = TRUE;
-		} else if (!ctx->skipped_some) {
+		if (!ctx->skipped_some) {
 			/* We haven't skipped anything while syncing this view.
 			   Update this view's synced log offset. */
 			view->log_file_seq = seq;
