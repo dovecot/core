@@ -9,8 +9,6 @@ if test "$ACLOCAL_DIR" != ""; then
   export ACLOCAL
 fi
 
-autoreconf -i -f
-
 for dir in $GETTEXT_DIR /usr/share/gettext; do
   if test -f $dir/config.rpath; then
     /bin/cp -f $dir/config.rpath .
@@ -18,3 +16,4 @@ for dir in $GETTEXT_DIR /usr/share/gettext; do
   fi
 done
 
+autoreconf -i -f
