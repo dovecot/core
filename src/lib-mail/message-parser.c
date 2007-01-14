@@ -652,8 +652,7 @@ message_parser_set_crlfs_diff(struct message_part *parts, bool use_crlf,
 			      off_t diff)
 {
 	while (parts != NULL) {
-		uoff_t old_size = parts->header_size.physical_size +
-			parts->body_size.physical_size;
+		parts->physical_pos += diff;
 
 		if (use_crlf) {
 			parts->header_size.physical_size =
@@ -667,17 +666,17 @@ message_parser_set_crlfs_diff(struct message_part *parts, bool use_crlf,
 			parts->body_size.physical_size =
 				parts->body_size.virtual_size -
 				parts->body_size.lines;
-		}
-		parts->physical_pos += diff;
 
-		diff += (off_t)(parts->header_size.physical_size +
-				parts->body_size.physical_size) -
-			(off_t)old_size;
+			diff -= parts->header_size.lines;
+		}
 
 		if (parts->children != NULL) {
 			message_parser_set_crlfs_diff(parts->children,
 						      use_crlf, diff);
 		}
+
+		if (!use_crlf)
+			diff -= parts->body_size.lines;
 
 		parts = parts->next;
 	}
