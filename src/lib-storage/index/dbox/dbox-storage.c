@@ -152,7 +152,7 @@ dbox_create(const char *data, const char *user,
 		return NULL;
 	}
 
-	pool = pool_alloconly_create("storage", 512);
+	pool = pool_alloconly_create("storage", 512+256);
 	storage = p_new(pool, struct dbox_storage, 1);
 
 	if (mailbox_list_init("fs", &list_set,

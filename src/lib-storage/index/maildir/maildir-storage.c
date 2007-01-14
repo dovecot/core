@@ -163,7 +163,7 @@ maildir_create(const char *data, const char *user,
 		}
 	}
 
-	pool = pool_alloconly_create("storage", 512);
+	pool = pool_alloconly_create("storage", 512+256);
 	storage = p_new(pool, struct maildir_storage, 1);
 
 	if (mailbox_list_init("maildir++", &list_set,
