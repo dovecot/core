@@ -192,7 +192,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_sync_type sync_mask,
 			       struct mail_index_view_sync_ctx **ctx_r)
 {
-	const struct mail_index_header *hdr;
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
 	enum mail_transaction_type log_get_mask, visible_mask;
@@ -212,7 +211,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	if (mail_index_view_lock_head(view, TRUE) < 0)
 		return -1;
 
-	hdr = view->index->hdr;
 	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0) {
 		/* get list of all expunges first */
 		if (view_sync_get_expunges(view, &expunges) < 0)
@@ -370,6 +368,13 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		}
 
 		/* skip everything we've already synced */
+		if (offset < view->hdr.log_file_ext_offset &&
+		    seq == view->hdr.log_file_seq &&
+		    (ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
+			/* view->log_file_offset contains the minimum of
+			   int/ext offsets. */
+			continue;
+		}
 		if (view_sync_pos_find(&view->syncs_done, seq, offset))
 			continue;
 
