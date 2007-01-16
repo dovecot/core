@@ -245,7 +245,8 @@ int mail_index_get_latest_header(struct mail_index *index,
 /* Unreference given mapping and unmap it if it's dropped to zero. */
 void mail_index_unmap(struct mail_index *index, struct mail_index_map **map);
 struct mail_index_map *
-mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size);
+mail_index_map_clone(const struct mail_index_map *map,
+		     uint32_t new_record_size);
 
 uint32_t mail_index_map_lookup_ext(struct mail_index_map *map,
 				   const char *name);

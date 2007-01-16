@@ -561,11 +561,12 @@ static int mail_index_check_header(struct mail_index *index,
 		return 0;
 
 	if (map->records_count > 0) {
-		/* last message's UID must be smaller than next_uid */
+		/* last message's UID must be smaller than next_uid.
+		   also make sure it's not zero. */
 		const struct mail_index_record *rec;
 
 		rec = MAIL_INDEX_MAP_IDX(map, map->records_count-1);
-		if (rec->uid >= hdr->next_uid)
+		if (rec->uid == 0 || rec->uid >= hdr->next_uid)
 			return 0;
 	}
 
@@ -989,10 +990,12 @@ static int mail_index_read_map_with_retry(struct mail_index *index,
 	}
 }
 
-static int mail_index_map_try_existing(struct mail_index_map *map)
+static int mail_index_map_try_existing(struct mail_index *index)
 {
+	struct mail_index_map *map = index->map;
 	const struct mail_index_header *hdr;
 	size_t used_size;
+	int ret;
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
 		return 0;
@@ -1007,7 +1010,14 @@ static int mail_index_map_try_existing(struct mail_index_map *map)
 	if (map->mmap_size >= used_size && map->hdr_base == hdr) {
 		map->records_count = hdr->messages_count;
 		mail_index_map_copy_hdr(map, hdr);
-		return 1;
+
+		/* make sure the header is still valid. it also re-parses
+		   extensions although they shouldn't change without the whole
+		   index being recreated */
+		ret = mail_index_check_header(index, map);
+		if (ret > 0)
+			return 1;
+		/* broken. fallback to re-mmaping which will catch it */
 	}
 	return 0;
 }
@@ -1031,7 +1041,7 @@ int mail_index_map(struct mail_index *index, bool force)
 
 	if (!force && index->map != NULL) {
 		i_assert(index->hdr != NULL);
-		ret = mail_index_map_try_existing(index->map);
+		ret = mail_index_map_try_existing(index);
 		if (ret != 0) {
 			index->mapping = FALSE;
 			return ret;
@@ -1153,7 +1163,7 @@ int mail_index_get_latest_header(struct mail_index *index,
 }
 
 struct mail_index_map *
-mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
+mail_index_map_clone(const struct mail_index_map *map, uint32_t new_record_size)
 {
 	struct mail_index_map *mem_map;
 	struct mail_index_header *hdr;
@@ -1221,6 +1231,8 @@ mail_index_map_clone(struct mail_index_map *map, uint32_t new_record_size)
 		/* fix the name pointers to use our own pool */
 		extensions = array_get_modifiable(&mem_map->extensions, &count);
 		for (i = 0; i < count; i++) {
+			i_assert(extensions[i].record_offset +
+				 extensions[i].record_size <= hdr->record_size);
 			extensions[i].name = p_strdup(mem_map->extension_pool,
 						      extensions[i].name);
 		}
