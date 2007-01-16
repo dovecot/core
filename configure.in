@@ -411,7 +411,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
 	       strtoull strtouq setpriority quotactl getmntent kqueue kevent \
-	       getrusage backtrace_symbols walkcontext)
+	       getrusage backtrace_symbols walkcontext dirfd)
 
 dnl * I/O loop function
 have_ioloop=no

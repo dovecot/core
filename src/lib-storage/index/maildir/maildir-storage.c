@@ -32,8 +32,6 @@ struct rename_context {
 extern struct mail_storage maildir_storage;
 extern struct mailbox maildir_mailbox;
 
-static const char *maildirs[] = { "cur", "new", "tmp", NULL  };
-
 static int verify_inbox(struct mail_storage *storage);
 
 static const char *strip_tail_slash(const char *path)
@@ -257,25 +255,26 @@ static int mkdir_verify(struct mail_storage *storage,
 	struct stat st;
 
 	if (verify) {
-		if (lstat(dir, &st) == 0)
+		if (stat(dir, &st) == 0)
 			return 0;
 
 		if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
-						  "lstat(%s) failed: %m", dir);
+						  "stat(%s) failed: %m", dir);
 			return -1;
 		}
 	}
 
-	if (mkdir_parents(dir, CREATE_MODE) < 0 &&
-	    (errno != EEXIST || !verify)) {
-		if (errno != EEXIST && (!verify || errno != ENOENT)) {
+	if (mkdir_parents(dir, CREATE_MODE) < 0) {
+		if (errno == EEXIST) {
+			if (!verify)
+				return -1;
+		} else {
 			mail_storage_set_critical(storage,
 						  "mkdir(%s) failed: %m", dir);
+			return -1;
 		}
-		return -1;
 	}
-
 	return 0;
 }
 
@@ -283,26 +282,31 @@ static int mkdir_verify(struct mail_storage *storage,
 static int create_maildir(struct mail_storage *storage,
 			  const char *dir, bool verify)
 {
-	const char **tmp, *path;
+	const char *path;
+	struct stat st;
 
-	if (!verify && mkdir_verify(storage, dir, verify) < 0)
+	if (mkdir_verify(storage, t_strconcat(dir, "/cur", NULL), verify) < 0)
+		return -1;
+	if (mkdir_verify(storage, t_strconcat(dir, "/new", NULL), verify) < 0)
 		return -1;
 
-	for (tmp = maildirs; *tmp != NULL; tmp++) {
-		path = t_strconcat(dir, "/", *tmp, NULL);
-
-		if (mkdir_verify(storage, path, verify) < 0) {
-			if (!verify || errno != ENOENT)
-				return -1;
-
-			/* small optimization. if we're verifying, we don't
-			   check that the root dir actually exists unless we
-			   fail here. */
-			if (mkdir_verify(storage, dir, verify) < 0)
-				return -1;
-			if (mkdir_verify(storage, path, verify) < 0)
-				return -1;
+	/* if tmp/ directory exists, we need to clean it up once in a while */
+	path = t_strconcat(dir, "/tmp", NULL);
+	if (stat(path, &st) == 0) {
+		if (st.st_atime >
+		    st.st_ctime + MAILDIR_TMP_DELETE_SECS) {
+			/* the directory should be empty. we won't do anything
+			   until ctime changes. */
+		} else if (st.st_atime < ioloop_time - MAILDIR_TMP_SCAN_SECS) {
+			/* time to scan */
+			(void)maildir_tmp_cleanup(storage, path);
 		}
+	} else if (errno == ENOENT) {
+		if (mkdir_verify(storage, path, verify) < 0)
+			return -1;
+	} else {
+		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
+		return -1;
 	}
 
 	return 0;

@@ -10,7 +10,9 @@
 #include "maildir-sync.h"
 
 #include <unistd.h>
+#include <dirent.h>
 #include <fcntl.h>
+#include <utime.h>
 #include <sys/stat.h>
 
 static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
@@ -134,6 +136,83 @@ int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 
 	pool_unref(pool);
 	return fd;
+}
+
+void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
+{
+	DIR *dirp;
+	struct dirent *d;
+	struct stat st;
+	string_t *path;
+	unsigned int dir_len;
+
+	dirp = opendir(dir);
+	if (dirp == NULL) {
+		if (errno != ENOENT) {
+			mail_storage_set_critical(storage,
+				"opendir(%s) failed: %m", dir);
+		}
+		return;
+	}
+
+	t_push();
+	path = t_str_new(256);
+	str_printfa(path, "%s/", dir);
+	dir_len = str_len(path);
+
+	while ((d = readdir(dirp)) != NULL) {
+		if (d->d_name[0] == '.' &&
+		    (d->d_name[1] == '\0' ||
+		     (d->d_name[1] == '.' && d->d_name[2] == '\0'))) {
+			/* skip . and .. */
+			continue;
+		}
+
+		str_truncate(path, dir_len);
+		str_append(path, d->d_name);
+		if (stat(str_c(path), &st) < 0) {
+			if (errno != ENOENT) {
+				mail_storage_set_critical(storage,
+					"stat(%s) failed: %m", str_c(path));
+			}
+		} else if (st.st_ctime <=
+			   ioloop_time - MAILDIR_TMP_DELETE_SECS) {
+			if (unlink(str_c(path)) < 0 && errno != ENOENT) {
+				mail_storage_set_critical(storage,
+					"unlink(%s) failed: %m", str_c(path));
+			}
+		}
+	}
+	t_pop();
+
+#ifdef HAVE_DIRFD
+	if (fstat(dirfd(dirp), &st) < 0) {
+		mail_storage_set_critical(storage,
+			"fstat(%s) failed: %m", dir);
+	}
+#else
+	if (stat(dir, &st) < 0) {
+		mail_storage_set_critical(storage,
+			"stat(%s) failed: %m", dir);
+	}
+#endif
+	else if (st.st_atime < ioloop_time) {
+		/* mounted with noatime. update it ourself. */
+		struct utimbuf ut;
+
+		ut.actime = ioloop_time;
+		ut.modtime = st.st_mtime;
+
+		if (utime(dir, &ut) < 0 && errno != ENOENT) {
+			mail_storage_set_critical(storage,
+				"utime(%s) failed: %m", dir);
+		}
+	}
+
+	if (closedir(dirp) < 0) {
+		mail_storage_set_critical(storage,
+			"closedir(%s) failed: %m", dir);
+	}
 }
 
 bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r)

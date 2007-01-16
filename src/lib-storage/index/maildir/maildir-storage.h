@@ -29,6 +29,11 @@
    calculating file's virtual size (added missing CRs). */
 #define MAILDIR_EXTRA_VIRTUAL_SIZE 'W'
 
+/* How often to scan tmp/ directory for old files (based on dir's atime) */
+#define MAILDIR_TMP_SCAN_SECS (8*60*60)
+/* Delete files having ctime older than this from tmp/. 36h is standard. */
+#define MAILDIR_TMP_DELETE_SECS (36*60*60)
+
 #define MAILDIR_SAVE_FLAG_HARDLINK 0x10000000
 #define MAILDIR_SAVE_FLAG_DELETED  0x20000000
 
@@ -105,6 +110,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 const char *maildir_generate_tmp_filename(const struct timeval *tv);
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r);
+void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir);
 bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r);
 
 void maildir_transaction_created(struct mail_index_transaction *t);
