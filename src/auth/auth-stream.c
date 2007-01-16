@@ -73,3 +73,8 @@ const char *auth_stream_reply_export(struct auth_stream_reply *reply)
 {
 	return str_c(reply->str);
 }
+
+bool auth_stream_is_empty(struct auth_stream_reply *reply)
+{
+	return reply == NULL || str_len(reply->str) == 0;
+}

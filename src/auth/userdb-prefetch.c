@@ -19,7 +19,7 @@ static void prefetch_lookup(struct auth_request *auth_request,
 	gid_t gid;
 	bool uid_seen, gid_seen;
 
-	if (auth_request->extra_fields == NULL) {
+	if (auth_stream_is_empty(auth_request->extra_fields)) {
 		if (auth_request->auth->userdbs->next == NULL) {
 			/* no other userdbs */
 			auth_request_log_error(auth_request, "prefetch",
