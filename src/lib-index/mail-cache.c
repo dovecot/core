@@ -144,6 +144,10 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 		mail_cache_set_corrupted(cache, "indexid changed");
 		return FALSE;
 	}
+	if (cache->hdr->file_seq == 0) {
+		mail_cache_set_corrupted(cache, "file_seq is 0");
+		return FALSE;
+	}
 
 	/* only check the header if we're locked */
 	if (!cache->locked)
