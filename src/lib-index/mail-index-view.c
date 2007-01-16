@@ -299,6 +299,13 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 
 	i_assert(view->hdr.messages_count <= view->map->records_count);
 
+	if (uid == 1) {
+		/* optimization: the message can be only the first one */
+		if (view->hdr.messages_count == 0)
+			return 0;
+		*left_idx_p = 1;
+		return 1;
+	}
 	rec_base = view->map->records;
 	record_size = view->map->hdr.record_size;
 
@@ -350,23 +357,26 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
-	if (last_uid >= view->map->hdr.next_uid) {
-		last_uid = view->map->hdr.next_uid-1;
-		if (first_uid > last_uid) {
-			*first_seq_r = 0;
-			*last_seq_r = 0;
-			return 0;
-		}
-	}
-
 	left_idx = 0;
 	*first_seq_r = mail_index_bsearch_uid(view, first_uid, &left_idx, 1);
 	if (*first_seq_r == 0 ||
 	    MAIL_INDEX_MAP_IDX(view->map, *first_seq_r-1)->uid > last_uid) {
-		*first_seq_r = 0;
-		*last_seq_r = 0;
+		*first_seq_r = *last_seq_r = 0;
 		return 0;
 	}
+
+	if (last_uid >= view->map->hdr.next_uid-1) {
+		/* we want the last message */
+		last_uid = view->map->hdr.next_uid-1;
+		if (first_uid > last_uid) {
+			*first_seq_r = *last_seq_r = 0;
+			return 0;
+		}
+
+		*last_seq_r = view->hdr.messages_count;
+		return 0;
+	}
+
 	if (first_uid == last_uid) {
 		*last_seq_r = *first_seq_r;
 		return 0;
