@@ -545,7 +545,10 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	}
 
 	if (lock) {
-		if (mail_transaction_log_file_lock(file) < 0)
+		file->fd = new_fd;
+		ret = mail_transaction_log_file_lock(file);
+		file->fd = -1;
+		if (ret < 0)
 			return -1;
 	}
 
