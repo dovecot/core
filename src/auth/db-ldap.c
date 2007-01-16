@@ -127,7 +127,7 @@ static int scope2str(const char *str)
 	i_fatal("LDAP: Unknown scope option '%s'", str);
 }
 
-const char *ldap_get_error(struct ldap_connection *conn)
+static int ldap_get_errno(struct ldap_connection *conn)
 {
 	int ret, err;
 
@@ -135,10 +135,15 @@ const char *ldap_get_error(struct ldap_connection *conn)
 	if (ret != LDAP_SUCCESS) {
 		i_error("LDAP: Can't get error number: %s",
 			ldap_err2string(ret));
-		return "??";
+		return -1;
 	}
 
-	return ldap_err2string(err);
+	return err;
+}
+
+const char *ldap_get_error(struct ldap_connection *conn)
+{
+	return ldap_err2string(ldap_get_errno(conn));
 }
 
 void db_ldap_add_delayed_request(struct ldap_connection *conn,
@@ -410,7 +415,7 @@ static int db_ldap_bind(struct ldap_connection *conn)
 	msgid = ldap_bind(conn->ld, conn->set.dn, conn->set.dnpass,
 			  LDAP_AUTH_SIMPLE);
 	if (msgid == -1) {
-		db_ldap_connect_finish(conn, ldap_get_error(conn));
+		db_ldap_connect_finish(conn, ldap_get_errno(conn));
 		i_free(ldap_request);
 		return -1;
 	}
