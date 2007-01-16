@@ -724,7 +724,7 @@ static int trie_file_create_finish(struct squat_trie *trie)
 		return -1;
 	}
 
-	if (st.st_size <= sizeof(hdr)) {
+	if (st.st_size <= (off_t)sizeof(hdr)) {
 		memset(&hdr, 0, sizeof(hdr));
 		hdr.version = SQUAT_TRIE_VERSION;
 		hdr.uidvalidity = trie->uidvalidity;

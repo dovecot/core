@@ -64,7 +64,7 @@ static const char *next_line(struct mailbox_list *list, const char *path,
 			mailbox_list_set_critical(list,
 				"Subscription file %s contains lines longer "
 				"than %u characters", path,
-				list->mailbox_name_max_length);
+				(unsigned int)list->mailbox_name_max_length);
 			*failed_r = TRUE;
 			return NULL;
 		}

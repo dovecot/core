@@ -161,7 +161,7 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 	uidlist->dev = st.st_dev;
 	uidlist->ino = st.st_ino;
 
-	if (st.st_size <= sizeof(uidlist->hdr))
+	if (st.st_size <= (off_t)sizeof(uidlist->hdr))
 		return 0;
 
 	if (uidlist->mmap_base != NULL) {
