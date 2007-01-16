@@ -599,7 +599,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 
 		if (ctx->cur_ext_id == (uint32_t)-1) {
 			mail_index_sync_set_corrupted(ctx,
-				"Extension record update update "
+				"Extension record updated "
 				"without intro prefix");
 			ret = -1;
 			break;
