@@ -486,31 +486,37 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 }
 
 static int
-mail_transaction_log_file_create2(struct mail_transaction_log *log,
-				  const char *path, int new_fd,
+mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
+				  bool lock, int new_fd,
 				  struct dotlock **dotlock,
 				  dev_t dev, ino_t ino, uoff_t file_size)
 {
-	struct mail_index *index = log->index;
+	struct mail_index *index = file->log->index;
 	struct mail_transaction_log_header hdr;
 	struct stat st;
 	const char *path2;
 	int old_fd, ret;
-	bool found;
+	bool rename_existing;
+
+	i_assert(!lock || file->log->head->locked);
 
 	/* log creation is locked now - see if someone already created it */
-	old_fd = nfs_safe_open(path, O_RDWR);
-	if (old_fd != -1) {
+	if (lock) {
+		/* don't even bother checking the existing file, but rename it
+		   if it exists */
+		rename_existing = TRUE;
+	} else if ((old_fd = nfs_safe_open(file->filepath, O_RDWR)) != -1) {
 		if ((ret = fstat(old_fd, &st)) < 0) {
-                        mail_index_file_set_syscall_error(index, path,
+                        mail_index_file_set_syscall_error(index, file->filepath,
                                                           "fstat()");
 		} else if (st.st_ino == ino && CMP_DEV_T(st.st_dev, dev) &&
 			   (uoff_t)st.st_size == file_size) {
 			/* same file, still broken */
 		} else {
                         /* file changed, use the new file */
-                        (void)file_dotlock_delete(dotlock);
-			return old_fd;
+			(void)file_dotlock_delete(dotlock);
+			file->fd = old_fd;
+			return 0;
 		}
 
 		(void)close(old_fd);
@@ -520,29 +526,35 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
                         /* fstat() failure, return after closing fd.. */
                         return -1;
                 }
-		found = TRUE;
+		rename_existing = TRUE;
 	} else if (errno != ENOENT) {
-		mail_index_file_set_syscall_error(index, path, "open()");
+		mail_index_file_set_syscall_error(index, file->filepath,
+						  "open()");
 		return -1;
 	} else {
-		found = FALSE;
+		rename_existing = FALSE;
 	}
 
-	if (mail_transaction_log_init_hdr(log, &hdr) < 0)
+	if (mail_transaction_log_init_hdr(file->log, &hdr) < 0)
 		return -1;
 
 	if (write_full(new_fd, &hdr, sizeof(hdr)) < 0) {
-		mail_index_file_set_syscall_error(index, path,
+		mail_index_file_set_syscall_error(index, file->filepath,
 						  "write_full()");
 		return -1;
 	}
 
+	if (lock) {
+		if (mail_transaction_log_file_lock(file) < 0)
+			return -1;
+	}
+
 	/* keep two log files */
-	if (found) {
-		path2 = t_strconcat(path, ".2", NULL);
-		if (rename(path, path2) < 0) {
-                        mail_index_set_error(index,
-                        	"rename(%s, %s) failed: %m", path, path2);
+	if (rename_existing) {
+		path2 = t_strconcat(file->filepath, ".2", NULL);
+		if (rename(file->filepath, path2) < 0 && errno != ENOENT) {
+                        mail_index_set_error(index, "rename(%s, %s) failed: %m",
+					     file->filepath, path2);
 			/* ignore the error. we don't care that much about the
 			   second log file and we're going to overwrite this
 			   first one. */
@@ -554,63 +566,65 @@ mail_transaction_log_file_create2(struct mail_transaction_log *log,
 		return -1;
 
 	/* success */
-	return new_fd;
+	file->fd = new_fd;
+	return 0;
 }
 
 static int
-mail_transaction_log_file_create(struct mail_transaction_log *log,
-				 const char *path,
-				 dev_t dev, ino_t ino, uoff_t file_size)
+mail_transaction_log_file_create(struct mail_transaction_log_file *file,
+				 bool lock, dev_t dev, ino_t ino,
+				 uoff_t file_size)
 {
+	struct mail_index *index = file->log->index;
 	struct dotlock *dotlock;
 	struct stat st;
 	mode_t old_mask;
 	int fd;
 
-	i_assert(!MAIL_INDEX_IS_IN_MEMORY(log->index));
+	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
 
-	if (stat(log->index->dir, &st) < 0) {
+	if (stat(index->dir, &st) < 0) {
 		if (ENOTFOUND(errno)) {
 			/* the whole index directory was deleted, which means
 			   the mailbox was deleted by another process.
 			   fail silently. */
-			mail_index_mark_corrupted(log->index);
+			mail_index_mark_corrupted(index);
 			return -1;
 		}
-		mail_index_file_set_syscall_error(log->index, log->index->dir,
-						  "stat()");
+		mail_index_file_set_syscall_error(index, index->dir, "stat()");
 		return -1;
 	}
 
 	/* With dotlocking we might already have path.lock created, so this
 	   filename has to be different. */
-	old_mask = umask(log->index->mode ^ 0666);
-	fd = file_dotlock_open(&log->new_dotlock_settings, path, 0, &dotlock);
+	old_mask = umask(index->mode ^ 0666);
+	fd = file_dotlock_open(&file->log->new_dotlock_settings,
+			       file->filepath, 0, &dotlock);
 	umask(old_mask);
 
 	if (fd == -1) {
-		mail_index_file_set_syscall_error(log->index, path,
+		mail_index_file_set_syscall_error(index, file->filepath,
 						  "file_dotlock_open()");
 		return -1;
 	}
 
-	if (log->index->gid != (gid_t)-1 &&
-	    fchown(fd, (uid_t)-1, log->index->gid) < 0) {
-		mail_index_file_set_syscall_error(log->index, path, "fchown()");
+	if (index->gid != (gid_t)-1 &&
+	    fchown(fd, (uid_t)-1, index->gid) < 0) {
+		mail_index_file_set_syscall_error(index, file->filepath,
+						  "fchown()");
 		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
         /* either fd gets used or the dotlock gets deleted and returned fd
            is for the existing file */
-        fd = mail_transaction_log_file_create2(log, path, fd, &dotlock,
-                                               dev, ino, file_size);
-	if (fd < 0) {
+        if (mail_transaction_log_file_create2(file, lock, fd, &dotlock,
+					      dev, ino, file_size) < 0) {
 		if (dotlock != NULL)
 			(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}
-	return fd;
+	return 0;
 }
 
 static void
@@ -655,104 +669,72 @@ mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 	*p = file;
 }
 
-static int
-mail_transaction_log_file_fd_open(struct mail_transaction_log *log,
-                                  struct mail_transaction_log_file **file_r,
-				  const char *path, int fd, bool head,
-				  bool ignore_estale)
+static struct mail_transaction_log_file *
+mail_transaction_log_file_alloc(struct mail_transaction_log *log,
+				const char *path)
 {
-        struct mail_transaction_log_file *file;
-	struct stat st;
-	int ret;
-
-	i_assert(!MAIL_INDEX_IS_IN_MEMORY(log->index));
-
-	*file_r = NULL;
-
-	if (fstat(fd, &st) < 0) {
-                if (errno != ESTALE || !ignore_estale) {
-                        mail_index_file_set_syscall_error(log->index, path,
-                                                          "fstat()");
-                }
-		close_keep_errno(fd);
-		return -1;
-	}
+	struct mail_transaction_log_file *file;
 
 	file = i_new(struct mail_transaction_log_file, 1);
 	file->log = log;
 	file->filepath = i_strdup(path);
-	file->fd = fd;
+	file->fd = -1;
+	return file;
+}
+
+static int
+mail_transaction_log_file_fd_open(struct mail_transaction_log_file *file,
+				  bool head, bool ignore_estale)
+{
+	struct stat st;
+
+	i_assert(!MAIL_INDEX_IS_IN_MEMORY(file->log->index));
+
+	if (fstat(file->fd, &st) < 0) {
+                if (errno != ESTALE || !ignore_estale) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "fstat()");
+                }
+		return -1;
+	}
+
 	file->st_dev = st.st_dev;
 	file->st_ino = st.st_ino;
 	file->last_mtime = st.st_mtime;
 	file->last_size = st.st_size;
 
-	ret = mail_transaction_log_file_read_hdr(file, head, ignore_estale);
-	if (ret < 0) {
-		mail_transaction_log_file_free(file);
-		return -1;
-	}
-
-	*file_r = file;
-	return ret;
+	return mail_transaction_log_file_read_hdr(file, head, ignore_estale);
 }
 
-
-static struct mail_transaction_log_file *
-mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log *log,
-                                            const char *path, int fd,
-                                            bool *retry_r, bool try_retry)
+static int
+mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log_file
+					    	*file, bool try_retry)
 {
-	struct mail_transaction_log_file *file;
-	struct stat st;
 	int ret;
 
-        *retry_r = FALSE;
-
-	ret = mail_transaction_log_file_fd_open(log, &file, path, fd, TRUE,
-						!try_retry);
-        if (ret < 0) {
-                *retry_r = errno == ESTALE && try_retry;
-                return NULL;
-        }
-
+	ret = mail_transaction_log_file_fd_open(file, TRUE, !try_retry);
 	if (ret == 0) {
-		/* corrupted header */
-		fd = mail_transaction_log_file_create(log, path, file->st_dev,
-						      file->st_ino,
-						      file->last_size);
-		if (fd == -1)
+		/* corrupted header, recreate the file */
+		if (mail_transaction_log_file_create(file, FALSE,
+						     file->st_dev,
+						     file->st_ino,
+						     file->last_size) < 0)
 			ret = -1;
-		else if (fstat(fd, &st) < 0) {
-                        mail_index_file_set_syscall_error(log->index, path,
-							  "fstat()");
-			(void)close(fd);
-			fd = -1;
-			ret = -1;
-		}
-
-		if (fd != -1) {
-			(void)close(file->fd);
-			file->fd = fd;
-
-			file->st_dev = st.st_dev;
-			file->st_ino = st.st_ino;
-			file->last_mtime = st.st_mtime;
-			file->last_size = st.st_size;
-
-			memset(&file->hdr, 0, sizeof(file->hdr));
-			ret = mail_transaction_log_file_read_hdr(file, TRUE,
-								 !try_retry);
+		else {
+			ret = mail_transaction_log_file_fd_open(file, TRUE,
+								FALSE);
+			if (ret == 0) {
+				/* newly created transaction log corrupted */
+				return -1;
+			}
 		}
 	}
-	if (ret <= 0) {
-                *retry_r = errno == ESTALE && try_retry;
-		mail_transaction_log_file_free(file);
-		return NULL;
-	}
+	if (ret < 0)
+		return errno == ENOENT && try_retry ? 0 : -1;
 
         mail_transaction_log_file_add_to_head(file);
-	return file;
+	return 1;
 }
 
 static struct mail_transaction_log_file *
@@ -783,36 +765,41 @@ mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 {
         struct mail_transaction_log_file *file;
         unsigned int i;
-        bool retry;
-        int fd;
+	int ret;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(log->index))
 		return mail_transaction_log_file_alloc_in_memory(log);
 
+	file = mail_transaction_log_file_alloc(log, path);
+
         for (i = 0; ; i++) {
-                fd = nfs_safe_open(path, O_RDWR);
-                if (fd == -1) {
+                file->fd = nfs_safe_open(path, O_RDWR);
+                if (file->fd == -1) {
                         if (errno != ENOENT) {
-                                mail_index_file_set_syscall_error(log->index,
+				mail_index_file_set_syscall_error(log->index,
                                                                   path,
                                                                   "open()");
-                                return NULL;
+				break;
                         }
 
                         /* doesn't exist, try creating it */
-                        fd = mail_transaction_log_file_create(log, path,
-                                                              0, 0, 0);
-                        if (fd == -1)
-                                return NULL;
+			if (mail_transaction_log_file_create(file, FALSE,
+							     0, 0, 0) < 0)
+				break;
                 }
 
-                file = mail_transaction_log_file_fd_open_or_create(log, path,
-                		fd, &retry, i == MAIL_INDEX_ESTALE_RETRY_COUNT);
-                if (file != NULL || !retry)
-                        return file;
+		ret = mail_transaction_log_file_fd_open_or_create(file,
+                		i == MAIL_INDEX_ESTALE_RETRY_COUNT);
+		if (ret > 0)
+			return file;
+		if (ret < 0)
+			break;
 
                 /* ESTALE - retry */
-        }
+	}
+
+	mail_transaction_log_file_free(file);
+	return NULL;
 }
 
 static struct mail_transaction_log_file *
@@ -821,36 +808,40 @@ mail_transaction_log_file_open(struct mail_transaction_log *log,
 {
 	struct mail_transaction_log_file *file;
         unsigned int i;
-        int fd, ret;
+        int ret;
 
+	file = mail_transaction_log_file_alloc(log, path);
         for (i = 0;; i++) {
-                fd = nfs_safe_open(path, O_RDWR);
-                if (fd == -1) {
+                file->fd = nfs_safe_open(path, O_RDWR);
+                if (file->fd == -1) {
                         mail_index_file_set_syscall_error(log->index, path,
                                                           "open()");
-                        return NULL;
+			break;
                 }
 
-                ret = mail_transaction_log_file_fd_open(log, &file, path,
-                		fd, TRUE, i < MAIL_INDEX_ESTALE_RETRY_COUNT);
-                if (ret > 0)
-                        break;
+		ret = mail_transaction_log_file_fd_open(file,
+                		TRUE, i < MAIL_INDEX_ESTALE_RETRY_COUNT);
+		if (ret > 0) {
+			/* success */
+			mail_transaction_log_file_add_to_head(file);
+			return file;
+		}
 
-                /* error / corrupted */
-                if (ret == 0)
-                        mail_transaction_log_file_free(file);
-                else {
-                        if (errno == ESTALE &&
-                            i < MAIL_INDEX_ESTALE_RETRY_COUNT) {
-                                /* try again */
-                                continue;
-                        }
-                }
-                return NULL;
+		if (ret == 0) {
+			/* corrupted */
+			break;
+		}
+		if (errno != ESTALE ||
+		    i == MAIL_INDEX_ESTALE_RETRY_COUNT) {
+			/* syscall error */
+			break;
+		}
+
+		/* ESTALE - try again */
         }
 
-	mail_transaction_log_file_add_to_head(file);
-	return file;
+	mail_transaction_log_file_free(file);
+	return NULL;
 }
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log)
@@ -871,8 +862,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock)
 	struct mail_transaction_log_file *file;
 	const char *path = log->head->filepath;
         struct stat st;
-        bool retry;
-	int fd;
+	int ret;
 
 	i_assert(log->head->locked);
 
@@ -887,26 +877,22 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock)
 			return -1;
 		}
 
-		fd = mail_transaction_log_file_create(log, path,
-						      st.st_dev, st.st_ino,
-						      st.st_size);
-		if (fd == -1)
+		file = mail_transaction_log_file_alloc(log, path);
+		if (mail_transaction_log_file_create(file, lock, st.st_dev,
+						     st.st_ino,
+						     st.st_size) < 0) {
+			mail_transaction_log_file_free(file);
 			return -1;
+		}
 
-                file = mail_transaction_log_file_fd_open_or_create(log, path,
-                					fd, &retry, FALSE);
-                if (file == NULL) {
-			i_assert(!retry);
-                        return -1;
-                }
-	}
-
-	if (lock) {
-		if (mail_transaction_log_file_lock(file) < 0) {
-			mail_transaction_logs_clean(log);
+                ret = mail_transaction_log_file_fd_open_or_create(file, FALSE);
+		if (ret <= 0) {
+			i_assert(ret != 0);
+			mail_transaction_log_file_free(file);
 			return -1;
 		}
 	}
+
 	i_assert(file->locked == lock);
 
 	if (--log->head->refcount == 0)
@@ -1022,8 +1008,11 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 		}
 	}
 
-	ret = mail_transaction_log_file_fd_open(log, &file, path, fd,
-						FALSE, TRUE);
+
+	file = mail_transaction_log_file_alloc(log, path);
+	file->fd = fd;
+
+	ret = mail_transaction_log_file_fd_open(file, FALSE, TRUE);
 	if (ret <= 0) {
 		bool stale = errno == ESTALE;
 

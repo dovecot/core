@@ -360,9 +360,10 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 	 (log)->head->sync_offset == (idx_hdr)->log_file_int_offset && \
 	 (log)->head->sync_offset == (idx_hdr)->log_file_ext_offset)
 
-int mail_transaction_log_append(struct mail_index_transaction *t,
-				uint32_t *log_file_seq_r,
-				uoff_t *log_file_offset_r)
+static int
+mail_transaction_log_append_locked(struct mail_index_transaction *t,
+				   uint32_t *log_file_seq_r,
+				   uoff_t *log_file_offset_r)
 {
 	struct mail_index_view *view = t->view;
 	struct mail_index *index;
@@ -377,26 +378,12 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	index = mail_index_view_get_index(view);
 	log = index->log;
 
-	if (!t->log_updates) {
-		/* nothing to append */
-		*log_file_seq_r = 0;
-		*log_file_offset_r = 0;
-		return 0;
-	}
-
-	if (log->index->log_locked) {
-		i_assert(t->external);
-	} else {
-		if (mail_transaction_log_lock_head(log) < 0)
-			return -1;
-
+	if (!index->log_locked) {
 		/* update sync_offset */
 		if (mail_transaction_log_file_map(log->head,
 						  log->head->sync_offset,
-						  (uoff_t)-1) < 0) {
-			mail_transaction_log_file_unlock(log->head);
+						  (uoff_t)-1) < 0)
 			return -1;
-		}
 	}
 
 	if (log->head->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
@@ -405,28 +392,21 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	    ARE_ALL_TRANSACTIONS_IN_INDEX(log, index->hdr)) {
 		/* we might want to rotate, but check first that everything is
 		   synced in index. */
-		if (mail_index_lock_shared(log->index, TRUE, &lock_id) < 0) {
-			if (!log->index->log_locked)
-				mail_transaction_log_file_unlock(log->head);
+		if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
 			return -1;
-		}
 
 		/* we need the latest log_file_*_offsets. It's important to
 		   use this function instead of mail_index_map() as it may
 		   have generated them by reading log files. */
 		if (mail_index_get_latest_header(index, &idx_hdr) <= 0) {
 			mail_index_unlock(index, lock_id);
-			if (!log->index->log_locked)
-				mail_transaction_log_file_unlock(log->head);
 			return -1;
 		}
-		mail_index_unlock(log->index, lock_id);
+		mail_index_unlock(index, lock_id);
 
 		if (ARE_ALL_TRANSACTIONS_IN_INDEX(log, &idx_hdr)) {
-			if (mail_transaction_log_rotate(log, TRUE) < 0) {
-				/* that didn't work. well, try to continue
-				   anyway */
-			}
+			if (mail_transaction_log_rotate(log, TRUE) < 0)
+				return -1;
 		}
 	}
 
@@ -502,7 +482,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 			ret = pwrite_full(file->fd, &file->first_append_size,
 					  sizeof(uint32_t), append_offset);
 			if (ret < 0) {
-				mail_index_file_set_syscall_error(log->index,
+				mail_index_file_set_syscall_error(index,
 					file->filepath, "pwrite()");
 			}
 		} else {
@@ -527,9 +507,36 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	*log_file_seq_r = file->hdr.file_seq;
 	*log_file_offset_r = file->sync_offset;
-
-	if (!log->index->log_locked)
-		mail_transaction_log_file_unlock(file);
 	return ret;
 }
 
+int mail_transaction_log_append(struct mail_index_transaction *t,
+				uint32_t *log_file_seq_r,
+				uoff_t *log_file_offset_r)
+{
+	struct mail_index *index;
+	int ret;
+
+	if (!t->log_updates) {
+		/* nothing to append */
+		*log_file_seq_r = 0;
+		*log_file_offset_r = 0;
+		return 0;
+	}
+
+	index = mail_index_view_get_index(t->view);
+
+	if (index->log_locked) {
+		i_assert(t->external);
+	} else {
+		if (mail_transaction_log_lock_head(index->log) < 0)
+			return -1;
+	}
+
+	ret = mail_transaction_log_append_locked(t, log_file_seq_r,
+						 log_file_offset_r);
+
+	if (!index->log_locked)
+		mail_transaction_log_file_unlock(index->log->head);
+	return ret;
+}
