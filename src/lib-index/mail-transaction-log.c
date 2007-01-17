@@ -554,9 +554,19 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 
 	/* keep two log files */
 	if (rename_existing) {
+		/* rename() would be nice and easy way to do this, except then
+		   there's a race condition between the rename and
+		   file_dotlock_replace(). during that time the log file
+		   doesn't exist, which could cause problems. */
 		path2 = t_strconcat(file->filepath, ".2", NULL);
-		if (rename(file->filepath, path2) < 0 && errno != ENOENT) {
-                        mail_index_set_error(index, "rename(%s, %s) failed: %m",
+		if (unlink(path2) < 0 && errno != ENOENT) {
+                        mail_index_set_error(index, "unlink(%s) failed: %m",
+					     path2);
+			/* try to link() anyway */
+		}
+		if (link(file->filepath, path2) < 0 &&
+		    errno != ENOENT && errno != EEXIST) {
+                        mail_index_set_error(index, "link(%s, %s) failed: %m",
 					     file->filepath, path2);
 			/* ignore the error. we don't care that much about the
 			   second log file and we're going to overwrite this
