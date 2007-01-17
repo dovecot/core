@@ -126,6 +126,7 @@ struct mail_index_map {
 	   be rewritten. */
 	uint32_t write_seq_first, write_seq_last;
 
+	unsigned int keywords_read:1;
 	unsigned int write_to_disk:1;
 	unsigned int write_atomic:1; /* copy to new file and rename() */
 };

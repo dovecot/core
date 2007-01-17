@@ -15,10 +15,9 @@ keyword_lookup(struct mail_index_sync_map_ctx *ctx,
 	const unsigned int *idx_map;
 	unsigned int i, count, keyword_idx;
 
-	if (!ctx->keywords_read) {
+	if (!map->keywords_read) {
 		if (mail_index_map_parse_keywords(ctx->view->index, map) < 0)
 			return -1;
-		ctx->keywords_read = TRUE;
 	}
 	if (array_is_created(&map->keyword_idx_map) &&
 	    mail_index_keyword_lookup(ctx->view->index, keyword_name,
@@ -87,6 +86,7 @@ static int keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 		buffer_create_static_hard(pool_datastack_create(),
 					  sizeof(*u) + sizeof("keywords")-1);
 
+	i_assert(keywords_count <= 6);
 	u = buffer_append_space_unsafe(ext_intro_buf, sizeof(*u));
 	u->ext_id = ext_id;
 	u->reset_id = reset_id;
@@ -186,7 +186,7 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	map->hdr_base = map->hdr_copy_buf->data;
 
 	*keyword_idx_r = keywords_count - 1;
-        ctx->keywords_read = FALSE;
+        map->keywords_read = FALSE;
 	return 1;
 }
 
@@ -299,11 +299,10 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 	}
 
-	if (!ctx->keywords_read) {
+	if (!ctx->view->map->keywords_read) {
 		if (mail_index_map_parse_keywords(ctx->view->index,
                                                   ctx->view->map) < 0)
 			return -1;
-		ctx->keywords_read = TRUE;
 	}
 
 	while (uid+2 <= end) {

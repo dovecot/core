@@ -22,7 +22,7 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 	/* if map still exists after this, it's only in views. */
 	view->map->write_to_disk = FALSE;
 	/* keywords aren't parsed for the new map yet */
-	ctx->keywords_read = FALSE;
+	view->map->keywords_read = FALSE;
 
 	mail_index_unmap(view->index, &view->map);
 	view->map = map;
@@ -657,6 +657,9 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 	sync_map_ctx->view = view;
 	sync_map_ctx->cur_ext_id = (uint32_t)-1;
 	sync_map_ctx->type = type;
+
+	/* make sure we re-read it in case it has changed */
+	sync_map_ctx->view->map->keywords_read = FALSE;
 
 	mail_index_sync_init_handlers(sync_map_ctx);
 }

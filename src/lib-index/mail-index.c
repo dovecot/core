@@ -412,6 +412,8 @@ int mail_index_map_parse_keywords(struct mail_index *index,
 	unsigned int i, name_area_end_offset, old_count;
 	uint32_t ext_id;
 
+	map->keywords_read = TRUE;
+
 	ext_id = mail_index_map_lookup_ext(map, "keywords");
 	if (ext_id == (uint32_t)-1) {
 		if (array_is_created(&map->keyword_idx_map))
