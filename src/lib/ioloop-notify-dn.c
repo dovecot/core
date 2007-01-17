@@ -84,7 +84,7 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 
 	if (fcntl(fd, F_SETSIG, SIGRTMIN) < 0) {
 		if (errno == EINVAL) {
-			/* dnotify not in kernel. disable it. */
+			/* not supported, disable dnotify */
 			ctx->disabled = TRUE;
 		} else {
 			i_error("fcntl(F_SETSIG) failed: %m");
@@ -94,10 +94,15 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	}
 	if (fcntl(fd, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME |
 		  DN_MULTISHOT) < 0) {
-		/* we fail here if we're trying to add dnotify to
-		   non-directory fd. fail silently in that case. */
-		if (errno != ENOTDIR)
+		if (errno == ENOTDIR) {
+			/* we're trying to add dnotify to a non-directory fd.
+			   fail silently. */
+		} else if (errno == EINVAL) {
+			/* dnotify not in kernel. disable it. */
+			ctx->disabled = TRUE;
+		} else {
 			i_error("fcntl(F_NOTIFY) failed: %m");
+		}
 		(void)fcntl(fd, F_SETSIG, 0);
 		(void)close(fd);
 		return NULL;
