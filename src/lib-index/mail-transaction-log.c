@@ -979,6 +979,9 @@ int mail_transaction_log_file_find(struct mail_transaction_log *log,
 		}
 	}
 
+	if (MAIL_INDEX_IS_IN_MEMORY(log->index))
+		return 0;
+
 	/* see if we have it in log.2 file */
 	path = t_strconcat(log->index->filepath,
 			   MAIL_TRANSACTION_LOG_SUFFIX".2", NULL);
@@ -1186,15 +1189,15 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		return 0;
 	}
 
-	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
-		return 1;
-
 	if (start_offset < file->hdr.hdr_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"offset (%"PRIuUOFF_T") < header size (%u)",
 			start_offset, file->hdr.hdr_size);
 		return -1;
 	}
+
+	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
+		return 1;
 
 	/* with mmap_no_write we could alternatively just write to log with
 	   msync() rather than pwrite(). but since there aren't many such OSes
@@ -1285,6 +1288,12 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 			return -1;
 	}
 
+	if (start_offset > file->sync_offset) {
+		mail_transaction_log_file_set_corrupted(file,
+			"start_offset (%"PRIuUOFF_T") > current sync_offset "
+			"(%"PRIuUOFF_T")", start_offset, file->sync_offset);
+		return -1;
+	}
 	if (end_offset != (uoff_t)-1 && end_offset > file->sync_offset) {
 		mail_transaction_log_file_set_corrupted(file,
 			"end_offset (%"PRIuUOFF_T") > current sync_offset "

@@ -1518,21 +1518,25 @@ static int mail_index_open_files(struct mail_index *index,
 	index->indexid = hdr.indexid;
 
 	index->log = mail_transaction_log_open_or_create(index);
-	if (index->log == NULL)
+	if (index->log == NULL) {
+		if (ret == 0)
+			index->hdr = NULL;
 		return -1;
+	}
 
 	if (index->fd == -1) {
-		if (index->indexid != hdr.indexid) {
-			/* looks like someone else created the transaction log
-			   before we had the chance. use its indexid so we
-			   don't try to create conflicting ones. */
-			hdr.indexid = index->indexid;
-		}
+		mail_index_header_init(&hdr);
+		index->hdr = &hdr;
+
+		/* index->indexid may be updated by transaction log opening,
+		   in case someone else had already created a new log file */
+		hdr.indexid = index->indexid;
 
 		if (lock_id != 0) {
 			mail_index_unlock(index, lock_id);
 			lock_id = 0;
 		}
+
 		if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
 			if (mail_index_create(index, &hdr) < 0) {
 				/* fallback to in-memory index */
@@ -1544,6 +1548,7 @@ static int mail_index_open_files(struct mail_index *index,
 		}
 		created = TRUE;
 	}
+	i_assert(index->hdr != &hdr);
 
 	if (lock_id == 0) {
 		if (mail_index_lock_shared(index, FALSE, &lock_id) < 0)

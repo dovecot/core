@@ -73,6 +73,8 @@ int mail_index_view_lock_head(struct mail_index_view *view, bool update_index)
 #ifdef DEBUG
 	mail_index_view_check_nextuid(view);
 #endif
+	if (mail_index_view_is_inconsistent(view))
+		return -1;
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(view->index->map))
 		return 0;
 
@@ -106,11 +108,11 @@ int mail_index_view_lock_head(struct mail_index_view *view, bool update_index)
 
 int mail_index_view_lock(struct mail_index_view *view)
 {
-	if (mail_index_view_is_inconsistent(view))
-		return -1;
-
 	if (view->map != view->index->map) {
 		/* not head mapping, no need to lock */
+		if (mail_index_view_is_inconsistent(view))
+			return -1;
+
 #ifdef DEBUG
 		mail_index_view_check_nextuid(view);
 #endif

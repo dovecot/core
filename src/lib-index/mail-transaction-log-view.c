@@ -147,14 +147,16 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		if (max_file_offset == 0 && min_file_seq == max_file_seq)
 			max_file_offset = min_file_offset;
 	}
-
-	/* check these later than others as index file may have corrupted
-	   log_file_offset. we should have recreated the log file and
-	   skipped min_file_seq file above.. max_file_offset can be broken
-	   only if min_file_seq = max_file_seq. */
 	i_assert(min_file_offset >= file->hdr.hdr_size);
-	i_assert(min_file_seq != max_file_seq ||
-		 min_file_offset <= max_file_offset);
+
+	if (min_file_seq == max_file_seq && min_file_offset > max_file_offset) {
+		/* log file offset is probably corrupted in the index file. */
+		mail_transaction_log_view_set_corrupted(view,
+			"file_seq=%u, min_file_offset (%"PRIuUOFF_T
+			") > max_file_offset (%"PRIuUOFF_T")",
+			min_file_seq, min_file_offset, max_file_offset);
+		return -1;
+	}
 
 	end_offset = min_file_seq == max_file_seq ?
 		max_file_offset : (uoff_t)-1;

@@ -270,24 +270,29 @@ int mail_index_lock_exclusive(struct mail_index *index,
 
 static int mail_index_copy_lock_finish(struct mail_index *index)
 {
+	int ret = 0;
+
 	if (!index->fsync_disable) {
 		if (fsync(index->fd) < 0) {
 			mail_index_file_set_syscall_error(index,
 							  index->copy_lock_path,
 							  "fsync()");
-			return -1;
+			ret = -1;
 		}
 	}
 
-	if (rename(index->copy_lock_path, index->filepath) < 0) {
-		mail_index_set_error(index, "rename(%s, %s) failed: %m",
-				     index->copy_lock_path, index->filepath);
-		return -1;
+	if (ret == 0) {
+		if (rename(index->copy_lock_path, index->filepath) < 0) {
+			mail_index_set_error(index, "rename(%s, %s) failed: %m",
+					     index->copy_lock_path,
+					     index->filepath);
+			ret = -1;
+		}
 	}
 
 	i_free(index->copy_lock_path);
 	index->copy_lock_path = NULL;
-	return 0;
+	return ret;
 }
 
 static int mail_index_write_map_over(struct mail_index *index)
