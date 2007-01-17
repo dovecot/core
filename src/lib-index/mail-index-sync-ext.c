@@ -381,6 +381,18 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 	}
 
+	if (map->refcount != 1) {
+		/* below we'll first add the extension to the mapping, and then
+		   call sync_ext_reorder() which clones the map. that however
+		   leaves this mapping with the new extension, but without
+		   a resized record_size. if the mapping is still used
+		   elsewhere, it will create problems. so here we'll just make
+		   sure that the partially updated mapping will get destroyed
+		   once the resize is complete. */
+		map = mail_index_map_clone(map, map->hdr.record_size);
+		mail_index_sync_replace_map(ctx, map);
+	}
+
 	hdr_buf = map->hdr_copy_buf;
 	if (MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) != hdr_buf->used) {
 		/* we need to add padding between base header and extensions */
