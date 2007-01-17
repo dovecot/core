@@ -260,16 +260,22 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		uint32_t old_records_count = view->map->records_count;
 
 		if (view->map != view->index->map) {
+			const struct mail_index_header *hdr;
+
 			/* Using non-head mapping. We have to apply
 			   transactions to it to get latest changes into it. */
 			ctx->sync_map_update = TRUE;
+
 			/* Unless map was synced at the exact same position as
 			   view, the message flags can't be reliably used to
-			   update flag counters. */
+			   update flag counters. note that map->hdr may contain
+			   old information if another process updated the
+			   index file since. */
+			hdr = view->map->mmap_base != NULL ?
+				view->map->mmap_base : &view->map->hdr;
 			ctx->sync_map_ctx.unreliable_flags =
-				!(view->map->hdr.log_file_seq ==
-				  view->log_file_seq &&
-				  view->map->hdr.log_file_int_offset ==
+				!(hdr->log_file_seq == view->log_file_seq &&
+				  hdr->log_file_int_offset ==
 				  view->log_file_offset);
 
 			/* Copy only the mails that we see currently, since
