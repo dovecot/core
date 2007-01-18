@@ -15,7 +15,7 @@ static struct mailbox_list *maildir_list_alloc(void)
 	struct maildir_mailbox_list *list;
 	pool_t pool;
 
-	pool = pool_alloconly_create("maildir++ list", 512);
+	pool = pool_alloconly_create("maildir++ list", 1024);
 
 	list = p_new(pool, struct maildir_mailbox_list, 1);
 	list->list = maildir_mailbox_list;

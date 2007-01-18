@@ -73,7 +73,7 @@ imap_parser_create(struct istream *input, struct ostream *output,
 	struct imap_parser *parser;
 
 	parser = i_new(struct imap_parser, 1);
-        parser->pool = pool_alloconly_create("IMAP parser", 8192);
+        parser->pool = pool_alloconly_create("IMAP parser", 1024*10);
 	parser->input = input;
 	parser->output = output;
 	parser->max_line_size = max_line_size;

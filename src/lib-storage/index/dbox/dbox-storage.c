@@ -276,7 +276,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 
 	index = index_storage_alloc(index_dir, path, DBOX_INDEX_PREFIX);
 
-	pool = pool_alloconly_create("mailbox", 1024);
+	pool = pool_alloconly_create("dbox mailbox", 1024+512);
 	mbox = p_new(pool, struct dbox_mailbox, 1);
 	mbox->ibox.box = dbox_mailbox;
 	mbox->ibox.box.pool = pool;

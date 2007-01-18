@@ -415,7 +415,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	if (shared)
 		mail_index_set_permissions(index, st.st_mode & 0666, st.st_gid);
 
-	pool = pool_alloconly_create("mailbox", 1024);
+	pool = pool_alloconly_create("maildir mailbox", 1024+512);
 	mbox = p_new(pool, struct maildir_mailbox, 1);
 	mbox->ibox.box = maildir_mailbox;
 	mbox->ibox.box.pool = pool;

@@ -508,7 +508,7 @@ mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
 	struct mbox_mailbox *mbox;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mailbox", 1024);
+	pool = pool_alloconly_create("mbox mailbox", 1024+512);
 	mbox = p_new(pool, struct mbox_mailbox, 1);
 	mbox->ibox.box = mbox_mailbox;
 	mbox->ibox.box.pool = pool;
