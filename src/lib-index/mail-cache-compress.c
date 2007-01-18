@@ -312,11 +312,6 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return mail_cache_reopen(cache);
 	}
 
-#ifdef DEBUG
-	i_warning("Compressing cache file %s (%u)",
-		  cache->filepath, cache->need_compress_file_seq);
-#endif
-
 	if (cache->index->gid != (gid_t)-1 &&
 	    fchown(fd, (uid_t)-1, cache->index->gid) < 0) {
 		mail_cache_set_syscall_error(cache, "fchown()");
