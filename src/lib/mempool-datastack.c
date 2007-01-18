@@ -15,7 +15,7 @@ static void *pool_data_stack_realloc(pool_t pool, void *mem,
 static void pool_data_stack_clear(pool_t pool);
 static size_t pool_data_stack_get_max_easy_alloc_size(pool_t pool);
 
-static struct pool static_data_stack_pool = {
+static struct pool_vfuncs static_data_stack_pool_vfuncs = {
 	pool_data_stack_get_name,
 
 	pool_data_stack_ref,
@@ -27,10 +27,14 @@ static struct pool static_data_stack_pool = {
 	pool_data_stack_realloc,
 
 	pool_data_stack_clear,
-	pool_data_stack_get_max_easy_alloc_size,
+	pool_data_stack_get_max_easy_alloc_size
+};
 
-	TRUE,
-	TRUE
+static const struct pool static_data_stack_pool = {
+	MEMBER(v) &static_data_stack_pool_vfuncs,
+
+	MEMBER(alloconly_pool) TRUE,
+	MEMBER(datastack_pool) TRUE
 };
 
 struct datastack_pool {

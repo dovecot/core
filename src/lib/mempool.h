@@ -16,7 +16,7 @@
 
 typedef struct pool *pool_t;
 
-struct pool {
+struct pool_vfuncs {
 	const char *(*get_name)(pool_t pool);
 
 	void (*ref)(pool_t pool);
@@ -37,6 +37,10 @@ struct pool {
 	/* Returns the maximum amount of bytes that can be allocated with
 	   minimal trouble. If there's no such concept, always returns 0. */
 	size_t (*get_max_easy_alloc_size)(pool_t pool);
+};
+
+struct pool {
+	const struct pool_vfuncs *v;
 
 	unsigned int alloconly_pool:1;
 	unsigned int datastack_pool:1;
@@ -69,16 +73,16 @@ pool_t pool_datastack_create(void);
 size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 
 /* Pools should be used through these macros: */
-#define pool_get_name(pool) (pool)->get_name(pool)
-#define pool_ref(pool) (pool)->ref(pool)
-#define pool_unref(pool) (pool)->unref(&(pool))
+#define pool_get_name(pool) (pool)->v->get_name(pool)
+#define pool_ref(pool) (pool)->v->ref(pool)
+#define pool_unref(pool) (pool)->v->unref(&(pool))
 
 #define p_new(pool, type, count) \
 	((type *) p_malloc(pool, sizeof(type) * (count)))
 
-#define p_malloc(pool, size) (pool)->malloc(pool, size)
+#define p_malloc(pool, size) (pool)->v->malloc(pool, size)
 #define p_realloc(pool, mem, old_size, new_size) \
-	(pool)->realloc(pool, mem, old_size, new_size)
+	(pool)->v->realloc(pool, mem, old_size, new_size)
 
 /* Free the memory. Currently it also sets memory to NULL, but that shouldn't
    be relied on as it's only an extra safety check. It might as well be later
@@ -86,15 +90,16 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
    in some "optimization".. */
 #define p_free(pool, mem) \
 	STMT_START { \
-          (pool)->free(pool, mem); \
+          (pool)->v->free(pool, mem); \
           (mem) = NULL; \
 	} STMT_END
 
 /* A macro that's guaranteed to set mem = NULL. */
 #define p_free_and_null(pool, mem) p_free(pool, mem)
 
-#define p_clear(pool) (pool)->clear(pool)
+#define p_clear(pool) (pool)->v->clear(pool)
 
-#define p_get_max_easy_alloc_size(pool) (pool)->get_max_easy_alloc_size(pool)
+#define p_get_max_easy_alloc_size(pool) \
+	(pool)->v->get_max_easy_alloc_size(pool)
 
 #endif

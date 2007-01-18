@@ -56,7 +56,7 @@ static size_t pool_alloconly_get_max_easy_alloc_size(pool_t pool);
 
 static void block_alloc(struct alloconly_pool *pool, size_t size);
 
-static struct pool static_alloconly_pool = {
+static const struct pool_vfuncs static_alloconly_pool_vfuncs = {
 	pool_alloconly_get_name,
 
 	pool_alloconly_ref,
@@ -68,10 +68,14 @@ static struct pool static_alloconly_pool = {
 	pool_alloconly_realloc,
 
 	pool_alloconly_clear,
-	pool_alloconly_get_max_easy_alloc_size,
+	pool_alloconly_get_max_easy_alloc_size
+};
 
-	TRUE,
-	FALSE
+static const struct pool static_alloconly_pool = {
+	MEMBER(v) &static_alloconly_pool_vfuncs,
+
+	MEMBER(alloconly_pool) TRUE,
+	MEMBER(datastack_pool) FALSE
 };
 
 #ifdef DEBUG

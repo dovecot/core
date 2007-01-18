@@ -23,7 +23,7 @@ static void *pool_system_realloc(pool_t pool, void *mem,
 static void pool_system_clear(pool_t pool);
 static size_t pool_system_get_max_easy_alloc_size(pool_t pool);
 
-static struct pool static_system_pool = {
+static struct pool_vfuncs static_system_pool_vfuncs = {
 	pool_system_get_name,
 
 	pool_system_ref,
@@ -35,11 +35,16 @@ static struct pool static_system_pool = {
 	pool_system_realloc,
 
 	pool_system_clear,
-	pool_system_get_max_easy_alloc_size,
-
-	FALSE,
-	FALSE
+	pool_system_get_max_easy_alloc_size
 };
+
+static struct pool static_system_pool = {
+	MEMBER(v) &static_system_pool_vfuncs,
+
+	MEMBER(alloconly_pool) FALSE,
+	MEMBER(datastack_pool) FALSE
+};
+
 
 pool_t system_pool = &static_system_pool;
 

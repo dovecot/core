@@ -15,7 +15,7 @@ static void *pool_unsafe_data_stack_realloc(pool_t pool, void *mem,
 static void pool_unsafe_data_stack_clear(pool_t pool);
 static size_t pool_unsafe_data_stack_get_max_easy_alloc_size(pool_t pool);
 
-static struct pool static_unsafe_data_stack_pool = {
+static struct pool_vfuncs static_unsafe_data_stack_pool_vfuncs = {
 	pool_unsafe_data_stack_get_name,
 
 	pool_unsafe_data_stack_ref,
@@ -27,10 +27,14 @@ static struct pool static_unsafe_data_stack_pool = {
 	pool_unsafe_data_stack_realloc,
 
 	pool_unsafe_data_stack_clear,
-	pool_unsafe_data_stack_get_max_easy_alloc_size,
+	pool_unsafe_data_stack_get_max_easy_alloc_size
+};
 
-	TRUE,
-	TRUE
+static struct pool static_unsafe_data_stack_pool = {
+	MEMBER(v) &static_unsafe_data_stack_pool_vfuncs,
+
+	MEMBER(alloconly_pool) TRUE,
+	MEMBER(datastack_pool) TRUE
 };
 
 pool_t unsafe_data_stack_pool = &static_unsafe_data_stack_pool;
