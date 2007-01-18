@@ -364,7 +364,7 @@ static int mail_hash_file_map(struct mail_hash *hash, bool full)
 	hash->dev = st.st_dev;
 	hash->ino = st.st_ino;
 
-	if (st.st_size < sizeof(*hash->hdr)) {
+	if (st.st_size < (off_t)sizeof(*hash->hdr)) {
 		mail_hash_set_corrupted(hash, "File too small");
 		return 0;
 	}
@@ -389,7 +389,7 @@ static int mail_hash_file_map(struct mail_hash *hash, bool full)
 		/* first read only the header. if the update counter hasn't
 		   changed we don't need to read the whole file */
 		if (st.st_mtime != hash->mapped_mtime) {
-			size = full ? st.st_size : sizeof(*hash->hdr);
+			size = full ? st.st_size : (off_t)sizeof(*hash->hdr);
 			if (mail_hash_file_read(hash, st.st_size, size) < 0)
 				return -1;
 
