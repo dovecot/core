@@ -77,7 +77,8 @@ struct maildir_mailbox {
 	time_t dirty_cur_time;
 	enum maildir_dirty_flags last_dirty_flags;
 
-        mode_t mail_create_mode;
+	mode_t mail_create_mode;
+	gid_t mail_create_gid;
 	unsigned int private_flags_mask;
 
 	unsigned int syncing_commit:1;

@@ -82,6 +82,7 @@ struct maildir_uidlist_iter_ctx {
 static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 					bool nonblock)
 {
+	struct maildir_mailbox *mbox = uidlist->mbox;
 	const char *path;
 	mode_t old_mask;
 	int fd;
@@ -91,25 +92,31 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 		return 1;
 	}
 
-	path = t_strconcat(uidlist->mbox->control_dir,
-			   "/" MAILDIR_UIDLIST_NAME, NULL);
-        old_mask = umask(0777 & ~uidlist->mbox->mail_create_mode);
+	path = t_strconcat(mbox->control_dir, "/" MAILDIR_UIDLIST_NAME, NULL);
+        old_mask = umask(0777 & ~mbox->mail_create_mode);
 	fd = file_dotlock_open(&uidlist->dotlock_settings, path,
 			       nonblock ? DOTLOCK_CREATE_FLAG_NONBLOCK : 0,
 			       &uidlist->dotlock);
 	umask(old_mask);
 	if (fd == -1) {
 		if (errno == EAGAIN) {
-			mail_storage_set_error(STORAGE(uidlist->mbox->storage),
+			mail_storage_set_error(STORAGE(mbox->storage),
 				"Timeout while waiting for lock");
-			STORAGE(uidlist->mbox->storage)->temporary_error = TRUE;
+			STORAGE(mbox->storage)->temporary_error = TRUE;
 			return 0;
 		}
-		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+		mail_storage_set_critical(STORAGE(mbox->storage),
 			"file_dotlock_open(%s) failed: %m", path);
 		return -1;
 	}
 	uidlist->lock_fd = fd;
+
+	if (mbox->mail_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"fchown(%s) failed: %m", path);
+		}
+	}
 
 	/* our view of uidlist must be up-to-date if we plan on changing it */
 	if (maildir_uidlist_update(uidlist) < 0)

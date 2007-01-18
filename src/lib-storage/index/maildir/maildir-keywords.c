@@ -254,13 +254,62 @@ maildir_keywords_idx(struct maildir_keywords *mk, unsigned int idx)
 	return idx >= count ? NULL : keywords[idx];
 }
 
+static int maildir_keywords_write_fd(struct maildir_keywords *mk,
+				     const char *path, int fd)
+{
+	struct maildir_mailbox *mbox = mk->mbox;
+	const char *const *keywords;
+	unsigned int i, count;
+	string_t *str;
+	struct stat st;
+
+	str = t_str_new(256);
+	keywords = array_get(&mk->list, &count);
+	for (i = 0; i < count; i++) {
+		if (keywords[i] != NULL)
+			str_printfa(str, "%u %s\n", i, keywords[i]);
+	}
+	if (write_full(fd, str_data(str), str_len(str)) < 0) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+					  "write_full(%s) failed: %m", path);
+		return -1;
+	}
+
+	if (fstat(fd, &st) < 0) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+					  "fstat(%s) failed: %m", path);
+		return -1;
+	}
+
+	if (st.st_gid != mbox->mail_create_gid &&
+	    mbox->mail_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"fchown(%s) failed: %m", path);
+		}
+	}
+
+	/* mtime must grow every time */
+	if (st.st_mtime <= mk->synced_mtime) {
+		struct utimbuf ut;
+
+		mk->synced_mtime = ioloop_time <= mk->synced_mtime ?
+			mk->synced_mtime + 1 : ioloop_time;
+		ut.actime = ioloop_time;
+		ut.modtime = mk->synced_mtime;
+		if (utime(path, &ut) < 0) {
+			mail_storage_set_critical(STORAGE(mbox->storage),
+				"utime(%s) failed: %m", path);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static int maildir_keywords_commit(struct maildir_keywords *mk)
 {
 	struct dotlock *dotlock;
-	const char *lock_path, *const *keywords;
-	unsigned int i, count;
-	struct utimbuf ut;
-	string_t *str;
+	const char *lock_path;
 	mode_t old_mask;
 	int fd;
 
@@ -272,7 +321,6 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	/* we could just create the temp file directly, but doing it this
 	   ways avoids potential problems with overwriting contents in
 	   malicious symlinks */
-	t_push();
 	lock_path = t_strconcat(mk->path, ".lock", NULL);
 	(void)unlink(lock_path);
         old_mask = umask(0777 & ~mk->mbox->mail_create_mode);
@@ -282,44 +330,21 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	if (fd == -1) {
 		mail_storage_set_critical(STORAGE(mk->mbox->storage),
 			"file_dotlock_open(%s) failed: %m", mk->path);
-		t_pop();
 		return -1;
 	}
 
-	str = t_str_new(256);
-	keywords = array_get(&mk->list, &count);
-	for (i = 0; i < count; i++) {
-		if (keywords[i] != NULL)
-			str_printfa(str, "%u %s\n", i, keywords[i]);
-	}
-	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		mail_storage_set_critical(STORAGE(mk->mbox->storage),
-			"write_full(%s) failed: %m", mk->path);
-		(void)file_dotlock_delete(&dotlock);
-		t_pop();
-		return -1;
-	}
-
-	/* mtime must grow every time */
-        mk->synced_mtime = ioloop_time <= mk->synced_mtime ?
-		mk->synced_mtime + 1 : ioloop_time;
-	ut.actime = ioloop_time;
-	ut.modtime = mk->synced_mtime;
-	if (utime(lock_path, &ut) < 0) {
-		mail_storage_set_critical(STORAGE(mk->mbox->storage),
-			"utime(%s) failed: %m", lock_path);
+	if (maildir_keywords_write_fd(mk, lock_path, fd) < 0) {
+		file_dotlock_delete(&dotlock);
 		return -1;
 	}
 
 	if (file_dotlock_replace(&dotlock, 0) < 0) {
 		mail_storage_set_critical(STORAGE(mk->mbox->storage),
 			"file_dotlock_replace(%s) failed: %m", mk->path);
-		t_pop();
 		return -1;
 	}
 
 	mk->changed = FALSE;
-	t_pop();
 	return 0;
 }
 
@@ -339,7 +364,10 @@ maildir_keywords_sync_init(struct maildir_keywords *mk,
 
 void maildir_keywords_sync_deinit(struct maildir_keywords_sync_ctx *ctx)
 {
-	maildir_keywords_commit(ctx->mk);
+	t_push();
+	(void)maildir_keywords_commit(ctx->mk);
+	t_pop();
+
 	array_free(&ctx->idx_to_chr);
 	i_free(ctx);
 }

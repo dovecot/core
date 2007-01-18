@@ -432,10 +432,12 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox->uidlist = maildir_uidlist_init(mbox);
 	mbox->keywords = maildir_keywords_init(mbox);
 
-	if (!shared)
+	if (!shared) {
 		mbox->mail_create_mode = 0600;
-	else {
+		mbox->mail_create_gid = (gid_t)-1;
+	} else {
 		mbox->mail_create_mode = st.st_mode & 0666;
+		mbox->mail_create_gid = st.st_gid;
 		mbox->private_flags_mask = MAIL_SEEN;
 	}
 
