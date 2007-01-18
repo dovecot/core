@@ -160,8 +160,15 @@ AC_ARG_WITH(vpopmail,
 		want_vpopmail=no
 	else
 		want_vpopmail=yes
-	fi,
-	want_vpopmail=yes)
+		if test x$withval = xyes; then
+			vpopmail_home="`echo ~vpopmail`"
+		else
+			vpopmail_home="$withval"
+		fi
+	fi, [
+		want_vpopmail=yes
+		vpopmail_home="`echo ~vpopmail`"
+	])
 
 AC_ARG_WITH(static-userdb,
 [  --with-static-userdb    Build with static userdb support (default)],
@@ -1687,7 +1694,6 @@ if test "$found_sql_drivers" != "" -o "$want_sql" = "yes"; then
 fi
 
 if test $want_vpopmail = yes; then
-	vpopmail_home="`echo ~vpopmail`"
 	vpop_libdeps="$vpopmail_home/etc/lib_deps"
 
 	AC_MSG_CHECKING([for vpopmail configuration at $vpop_libdeps])
