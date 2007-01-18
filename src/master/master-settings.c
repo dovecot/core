@@ -216,7 +216,6 @@ struct settings default_settings = {
 	MEMBER(mail_full_filesystem_access) FALSE,
 	MEMBER(mail_max_keyword_length) 50,
 	MEMBER(mail_save_crlf) FALSE,
-	MEMBER(mail_read_mmaped) FALSE,
 	MEMBER(mmap_disable) FALSE,
 #ifdef MMAP_CONFLICTS_WRITE
 	MEMBER(mmap_no_write) TRUE,

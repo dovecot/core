@@ -69,7 +69,6 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_BOOL, mail_full_filesystem_access),
 	DEF(SET_INT, mail_max_keyword_length),
 	DEF(SET_BOOL, mail_save_crlf),
-	DEF(SET_BOOL, mail_read_mmaped),
 	DEF(SET_BOOL, mmap_disable),
 	DEF(SET_BOOL, mmap_no_write),
 	DEF(SET_BOOL, dotlock_use_excl),

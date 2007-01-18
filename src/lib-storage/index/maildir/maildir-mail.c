@@ -60,13 +60,8 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 		return NULL;
 	}
 
-	if (mbox->ibox.mail_read_mmaped) {
-		return i_stream_create_mmap(fd, default_pool,
-					    MAIL_MMAP_BLOCK_SIZE, 0, 0, TRUE);
-	} else {
-		return i_stream_create_file(fd, default_pool,
-					    MAIL_READ_BLOCK_SIZE, TRUE);
-	}
+	return i_stream_create_file(fd, default_pool,
+				    MAIL_READ_BLOCK_SIZE, TRUE);
 }
 
 static int maildir_mail_stat(struct mail *mail, struct stat *st)

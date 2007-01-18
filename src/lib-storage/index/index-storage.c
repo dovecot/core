@@ -385,8 +385,6 @@ void index_storage_mailbox_init(struct index_mailbox *ibox,
 
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->commit_log_file_seq = 0;
-	ibox->mail_read_mmaped =
-		(storage->flags & MAIL_STORAGE_FLAG_MMAP_MAILS) != 0;
 
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(index, "header-md5", 0, 16, 1);

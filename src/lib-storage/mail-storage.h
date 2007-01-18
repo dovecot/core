@@ -19,8 +19,6 @@ enum mail_storage_flags {
 	MAIL_STORAGE_FLAG_MMAP_NO_WRITE		= 0x08,
 	/* Remember message headers' MD5 sum */
 	MAIL_STORAGE_FLAG_KEEP_HEADER_MD5	= 0x10,
-	/* Use mmap() for reading mail files. */
-	MAIL_STORAGE_FLAG_MMAP_MAILS		= 0x20,
 	/* Use CRLF linefeeds when saving mails. */
 	MAIL_STORAGE_FLAG_SAVE_CRLF		= 0x40,
 	/* The storage points to shared namespaces */

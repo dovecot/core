@@ -225,8 +225,6 @@ mail_process_set_environment(struct settings *set, const char *mail,
 
 	if (set->mail_save_crlf)
 		env_put("MAIL_SAVE_CRLF=1");
-	if (set->mail_read_mmaped)
-		env_put("MAIL_READ_MMAPED=1");
 	if (set->mmap_disable)
 		env_put("MMAP_DISABLE=1");
 	if (set->mmap_no_write)

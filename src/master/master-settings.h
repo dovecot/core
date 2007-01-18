@@ -77,7 +77,6 @@ struct settings {
 	bool mail_full_filesystem_access;
 	unsigned int mail_max_keyword_length;
 	bool mail_save_crlf;
-	bool mail_read_mmaped;
 	bool mmap_disable;
 	bool mmap_no_write;
 	bool dotlock_use_excl;

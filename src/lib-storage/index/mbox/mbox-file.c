@@ -87,11 +87,6 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 	if (mbox->mbox_writeonly) {
 		mbox->mbox_file_stream =
 			i_stream_create_from_data(default_pool, NULL, 0);
-	} else if (mbox->ibox.mail_read_mmaped) {
-		mbox->mbox_file_stream =
-			i_stream_create_mmap(mbox->mbox_fd, default_pool,
-					     MAIL_MMAP_BLOCK_SIZE,
-					     0, 0, FALSE);
 	} else {
 		mbox->mbox_file_stream =
 			i_stream_create_file(mbox->mbox_fd, default_pool,
