@@ -336,19 +336,14 @@ static void index_mailbox_list_deinit(struct mailbox_list *list)
 	ilist->super.deinit(list);
 }
 
-static void index_mailbox_list_created(struct mailbox_list *list)
+static int index_mailbox_list_open_indexes(struct mailbox_list *list,
+					   const char *dir)
 {
-	struct index_mailbox_list *ilist;
-	struct mail_index *mail_index;
-	struct mailbox_list_index *list_index;
+	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
+	const char *path;
 	enum mail_index_open_flags index_flags;
 	enum mail_storage_flags storage_flags;
-	const char *dir, *path;
 	int ret;
-
-	/* FIXME: for now we only work with maildir++ */
-	if (strcmp(list->name, "maildir++") != 0)
-		return;
 
 	/* FIXME: a bit ugly way to get the flags, but this will do for now.. */
 	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE;
@@ -360,40 +355,44 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 #endif
 		index_flags |= MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE;
 
-	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
-	path = t_strconcat(dir, "/"MAILBOX_LIST_INDEX_NAME, NULL);
-
-	mail_index = mail_index_alloc(dir, MAIL_INDEX_PREFIX);
-	if (mail_index_open(mail_index, index_flags,
+	if (mail_index_open(ilist->mail_index, index_flags,
 			    *list->set.lock_method) < 0) {
-		if (mail_index_move_to_memory(mail_index) < 0) {
+		if (mail_index_move_to_memory(ilist->mail_index) < 0) {
 			/* try opening once more. it should be created
 			   directly into memory now. */
-			ret = mail_index_open(mail_index, index_flags,
+			ret = mail_index_open(ilist->mail_index, index_flags,
 					      *list->set.lock_method);
 			if (ret <= 0) {
 				/* everything failed. there's a bug in the
 				   code, but just work around it by disabling
 				   the index completely */
-				mail_index_free(&mail_index);
-				return;
+				return -1;
 			}
 		}
 	}
 
-	list_index = mailbox_list_index_alloc(path, list->hierarchy_sep,
-					      mail_index);
-	if (mailbox_list_index_open_or_create(list_index) < 0) {
+	path = t_strconcat(dir, "/"MAILBOX_LIST_INDEX_NAME, NULL);
+	ilist->list_index = mailbox_list_index_alloc(path, list->hierarchy_sep,
+						     ilist->mail_index);
+	if (mailbox_list_index_open_or_create(ilist->list_index) < 0) {
 		/* skip indexing */
-		mailbox_list_index_free(&list_index);
-		mail_index_free(&mail_index);
-		return;
+		mailbox_list_index_free(&ilist->list_index);
+		return -1;
 	}
+	return 0;
+}
+
+static void index_mailbox_list_created(struct mailbox_list *list)
+{
+	struct index_mailbox_list *ilist;
+	const char *dir;
+
+	/* FIXME: for now we only work with maildir++ */
+	if (strcmp(list->name, "maildir++") != 0)
+		return;
 
 	ilist = p_new(list->pool, struct index_mailbox_list, 1);
 	ilist->super = list->v;
-	ilist->mail_index = mail_index;
-	ilist->list_index = list_index;
 
 	list->v.deinit = index_mailbox_list_deinit;
 	list->v.iter_init = index_mailbox_list_iter_init;
@@ -408,7 +407,19 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	array_idx_set(&list->module_contexts,
 		      index_mailbox_list_module_id, &ilist);
 
+	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
+	ilist->mail_index = mail_index_alloc(dir, MAIL_INDEX_PREFIX);
+
+	/* sync_init allocates the extensions. do it here before opening the
+	   index files, so that our initial memory pool size guesses are a
+	   bit more optimal */
 	index_mailbox_list_sync_init_list(list);
+
+	if (index_mailbox_list_open_indexes(list, dir) < 0) {
+		mail_index_free(&ilist->mail_index);
+		array_idx_clear(&list->module_contexts,
+				index_mailbox_list_module_id);
+	}
 }
 
 void index_mailbox_list_init(void); /* called in mailbox-list-register.c */
