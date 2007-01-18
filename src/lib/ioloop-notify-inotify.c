@@ -110,7 +110,10 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	
 	if (watchdescriptor < 0) {
 		ctx->disabled = TRUE;
-		i_error("inotify_add_watch(%s) failed: %m", path);
+		/* ESTALE could happen with NFS. Don't bother giving an error
+		   message then. */
+		if (errno != ESTALE)
+			i_error("inotify_add_watch(%s) failed: %m", path);
 		return NULL;
 	}
 
