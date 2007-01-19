@@ -103,18 +103,35 @@ acl_backend_vfile_object_init(struct acl_backend *_backend, const char *name)
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
 	struct acl_object_vfile *aclobj;
-	const char *control_dir;
-
-	control_dir =
-		mail_storage_get_mailbox_control_dir(_backend->storage, name);
+	const char *control_dir, *dir;
+	bool is_file;
 
 	aclobj = i_new(struct acl_object_vfile, 1);
 	aclobj->aclobj.backend = _backend;
 	aclobj->aclobj.name = i_strdup(name);
 	aclobj->global_path = *backend->global_dir == '\0' ? NULL :
 		i_strconcat(backend->global_dir, "/", name, NULL);
-	aclobj->local_path =
-		i_strconcat(control_dir, "/"ACL_FILENAME, NULL);
+
+	control_dir =
+		mail_storage_get_mailbox_control_dir(_backend->storage, name);
+	dir = mail_storage_get_mailbox_path(_backend->storage, name, &is_file);
+	if (is_file) {
+		/* use control directory with mboxes */
+		dir = control_dir;
+	} else {
+		/* FIXME: this is only for making sure people won't upgrade
+		   improperly. remove this check some day. */
+		const char *path;
+		struct stat st;
+
+		path = t_strconcat(control_dir, "/"ACL_FILENAME, NULL);
+		if (stat(path, &st) == 0) {
+			i_fatal("%s is no longer kept in control directory, "
+				"move it to the actual maildir (%s)",
+				path, dir);
+		}
+	}
+	aclobj->local_path = i_strconcat(dir, "/"ACL_FILENAME, NULL);
 	return &aclobj->aclobj;
 }
 
