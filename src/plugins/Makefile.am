@@ -7,6 +7,6 @@ FTS_LUCENE = fts-lucene
 endif
 
 SUBDIRS = \
-	acl convert expire fts fts-squat lazy-expunge \
+	acl convert expire fts fts-squat lazy-expunge mail-log \
 	quota imap-quota trash \
 	$(ZLIB) $(FTS_LUCENE)
