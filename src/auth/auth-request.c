@@ -232,7 +232,8 @@ static void auth_request_save_cache(struct auth_request *request,
 		   strdup() it so that mech_password doesn't get
 		   cleared too early. */
 		request->passdb_password =
-			p_strdup(request->pool, request->mech_password);
+			p_strconcat(request->pool, "{plain}",
+				    request->mech_password, NULL);
 	}
 
 	/* save all except the currently given password in cache */
