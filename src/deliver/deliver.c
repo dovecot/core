@@ -467,10 +467,10 @@ int main(int argc, char *argv[])
 					       "Missing envelope argument");
 			}
 			envelope_sender = argv[i];
-		} else {
+		} else if (argv[i][0] != '\0') {
 			print_help();
 			i_fatal_status(EX_USAGE,
-				       "Unknown argument: %s", argv[1]);
+				       "Unknown argument: %s", argv[i]);
 		}
 	}
 
