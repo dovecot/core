@@ -639,7 +639,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_userdb_save_cache(request, reply, result);
-	else {
+	else if (passdb_cache != NULL && userdb->cache_key != NULL) {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
 		   expired record. */
