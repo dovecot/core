@@ -347,8 +347,9 @@ static void open_log_file(FILE **file, const char *path)
 	else {
 		*file = fopen(path, "a");
 		if (*file == NULL) {
-			i_fatal_status(FATAL_LOGOPEN,
-				       "Can't open log file %s: %m", path);
+			fprintf(stderr, "Can't open log file %s: %s",
+				path, strerror(errno));
+			exit(FATAL_LOGOPEN);
 		}
 		fd_close_on_exec(fileno(*file), TRUE);
 	}
