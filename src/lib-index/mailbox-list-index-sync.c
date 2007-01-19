@@ -640,7 +640,7 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 	const struct mailbox_list_dir_record *dir;
 	struct mailbox_list_record *recs;
 	const struct mailbox_list_sync_record *sync_recs;
-	unsigned int i, count;
+	unsigned int i, j, count;
 
 	i_assert(sync_dir->offset != 0);
 
@@ -648,7 +648,7 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 		return -1;
 
 	sync_recs = array_get(&sync_dir->records, &count);
-	i_assert(dir->count == count);
+	i_assert(count <= dir->count);
 	i_assert(sync_dir->seen_records_count < count);
 
 	if (!ctx->index->mmap_disable)
@@ -661,9 +661,17 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 		memcpy(recs, MAILBOX_LIST_RECORDS(dir),
 		       sizeof(struct mailbox_list_record) * dir->count);
 	}
-	for (i = 0; i < dir->count; i++) {
+
+	/* records marked with deleted have been removed from sync_recs, so
+	   we need to skip those */
+	for (i = j = 0; i < count; i++) {
+		while (recs[j].uid != sync_recs[i].uid) {
+			j++;
+			i_assert(j < dir->count);
+		}
+
 		if (!sync_recs[i].seen)
-			recs[i].deleted = TRUE;
+			recs[j].deleted = TRUE;
 	}
 	if (ctx->index->mmap_disable) {
 		uoff_t offset, old_offset;
