@@ -106,7 +106,7 @@ bool cmd_status(struct client_command_context *cmd)
 
 	storage = client_find_storage(cmd, &real_mailbox);
 	if (storage == NULL)
-		return FALSE;
+		return TRUE;
 
 	/* get status */
 	if (!get_mailbox_status(client, storage, real_mailbox,
