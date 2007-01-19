@@ -258,10 +258,11 @@ static void authbind_start(struct ldap_connection *conn,
 		return;
 	}
 
-	if (conn->connected) {
+	if (conn->connected && hash_size(conn->requests) == 0) {
 		/* switch back to the default dn before doing the next search
 		   request */
 		conn->last_auth_bind = TRUE;
+		i_assert(!conn->binding);
 
 		/* the DN is kept in base variable, a bit ugly.. */
 		msgid = ldap_bind(conn->ld, ldap_request->base,
@@ -276,6 +277,8 @@ static void authbind_start(struct ldap_connection *conn,
 					     auth_request);
 			return;
 		}
+
+		conn->binding = TRUE;
 		hash_insert(conn->requests, POINTER_CAST(msgid), ldap_request);
 
 		auth_request_log_debug(auth_request, "ldap", "bind: dn=%s",
@@ -298,6 +301,7 @@ handle_request_authbind(struct ldap_connection *conn,
 	enum passdb_result passdb_result;
 	int ret;
 
+	conn->binding = FALSE;
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 
 	if (res != NULL) {
