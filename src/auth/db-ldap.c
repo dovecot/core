@@ -328,7 +328,6 @@ static void ldap_input(struct ldap_connection *conn)
 			i_error("LDAP: Reply with unknown msgid %d",
 				msgid);
 		} else {
-			i_info("remove: %u", msgid);
 			hash_remove(conn->requests, POINTER_CAST(msgid));
 			request->callback(conn, request, res);
 		}
