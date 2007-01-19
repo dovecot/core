@@ -14,6 +14,7 @@ static int proxy_input_line(struct imap_client *client,
 			    struct ostream *output, const char *line)
 {
 	string_t *str;
+	const char *msg;
 
 	i_assert(!client->destroyed);
 
@@ -48,6 +49,11 @@ static int proxy_input_line(struct imap_client *client,
 		(void)o_stream_send_str(client->output, line + 1);
 		(void)o_stream_send(client->output, "\r\n", 2);
 
+		msg = t_strdup_printf("proxy(%s): started proxying to %s:%u",
+				      client->common.virtual_user,
+				      login_proxy_get_host(client->proxy),
+				      login_proxy_get_port(client->proxy));
+
 		(void)client_skip_line(client);
 		login_proxy_detach(client->proxy, client->input,
 				   client->output);
@@ -56,8 +62,7 @@ static int proxy_input_line(struct imap_client *client,
 		client->input = NULL;
 		client->output = NULL;
 		client->common.fd = -1;
-		client_destroy(client, t_strdup_printf("proxy(%s): started",
-						client->common.virtual_user));
+		client_destroy(client, msg);
 		return -1;
 	} else if (strncmp(line, "P ", 2) == 0) {
 		/* Login failed. Send our own failure reply so client can't
