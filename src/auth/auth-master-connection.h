@@ -3,6 +3,7 @@
 
 struct auth_master_connection {
 	struct auth_master_listener *listener;
+	int refcount;
 
 	int fd;
 	struct istream *input;
@@ -16,6 +17,9 @@ struct auth_master_connection {
 struct auth_master_connection *
 auth_master_connection_create(struct auth_master_listener *listener, int fd);
 void auth_master_connection_destroy(struct auth_master_connection **conn);
+
+void auth_master_connection_ref(struct auth_master_connection *conn);
+void auth_master_connection_unref(struct auth_master_connection **conn);
 
 void auth_master_connection_send_handshake(struct auth_master_connection *conn);
 void auth_master_connections_send_handshake(void);

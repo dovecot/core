@@ -280,13 +280,15 @@ void auth_deinit(struct auth **_auth)
 
 	*_auth = NULL;
 
-	passdb_cache_deinit();
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		passdb_deinit(passdb);
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
 		passdb_deinit(passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_deinit(userdb);
+
+	auth_request_handler_deinit();
+	passdb_cache_deinit();
 
 	pool_unref(auth->pool);
 }

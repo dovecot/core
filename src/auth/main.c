@@ -283,7 +283,6 @@ static void main_deinit(void)
 
         auth_worker_server_deinit();
 	auth_master_listeners_deinit();
-	auth_request_handler_deinit();
 	auth_deinit(&auth);
 	mech_deinit();
 

@@ -142,12 +142,14 @@ static void handle_request(struct ldap_connection *conn,
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 	int ret;
 
-	ret = ldap_result2error(conn->ld, res, 0);
-	if (ret != LDAP_SUCCESS) {
-		auth_request_log_error(auth_request, "ldap",
-			"ldap_search() failed: %s", ldap_err2string(ret));
-		urequest->userdb_callback(result, NULL, auth_request);
-		return;
+	if (res != NULL) {
+		ret = ldap_result2error(conn->ld, res, 0);
+		if (ret != LDAP_SUCCESS) {
+			auth_request_log_error(auth_request, "ldap",
+					       "ldap_search() failed: %s", ldap_err2string(ret));
+			urequest->userdb_callback(result, NULL, auth_request);
+			return;
+		}
 	}
 
 	entry = res == NULL ? NULL : ldap_first_entry(conn->ld, res);

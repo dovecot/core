@@ -229,6 +229,7 @@ auth_master_connection_create(struct auth_master_listener *listener, int fd)
 
 	conn = i_new(struct auth_master_connection, 1);
 	conn->listener = listener;
+	conn->refcount = 1;
 	conn->fd = fd;
 	conn->input = i_stream_create_file(fd, default_pool,
 					   MAX_INBUF_SIZE, FALSE);
@@ -267,14 +268,15 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 	conn->destroyed = TRUE;
 
 	if (conn->input != NULL)
-		i_stream_destroy(&conn->input);
+		i_stream_close(conn->input);
 	if (conn->output != NULL)
-		o_stream_destroy(&conn->output);
+		o_stream_close(conn->output);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
 			i_error("close(): %m");
+		conn->fd = -1;
 	}
 
 	conns = array_get(&conn->listener->masters, &count);
@@ -286,6 +288,31 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 	}
 	if (!standalone && auth_master_listeners_masters_left() == 0)
 		io_loop_stop(ioloop);
-       
+
+	auth_master_connection_unref(&conn);
+}
+
+void auth_master_connection_ref(struct auth_master_connection *conn)
+{
+	i_assert(conn->refcount > 0);
+
+	conn->refcount++;
+}
+
+void auth_master_connection_unref(struct auth_master_connection **_conn)
+{
+	struct auth_master_connection *conn = *_conn;
+
+	*_conn = NULL;
+	i_assert(conn->refcount > 0);
+
+	if (--conn->refcount > 0)
+		return;
+
+	if (conn->input != NULL)
+		i_stream_unref(&conn->input);
+	if (conn->output != NULL)
+		o_stream_unref(&conn->output);
+
 	i_free(conn);
 }

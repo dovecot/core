@@ -66,6 +66,7 @@ struct ldap_connection {
 
 	unsigned int connected:1;
 	unsigned int connecting:1;
+	unsigned int binding:1;
 	unsigned int retrying:1; /* just reconnected, resending requests */
 	unsigned int last_auth_bind:1;
 };
