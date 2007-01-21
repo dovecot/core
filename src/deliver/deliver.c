@@ -367,7 +367,7 @@ static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
 
 static void open_logfile(const char *username)
 {
-	const char *prefix, *log_path;
+	const char *prefix, *log_path, *stamp;
 
 	prefix = t_strdup_printf("deliver(%s)", username);
 	log_path = getenv("LOG_PATH");
@@ -384,7 +384,10 @@ static void open_logfile(const char *username)
 	if (log_path != NULL && *log_path != '\0')
 		i_set_info_file(log_path);
 
-	i_set_failure_timestamp_format(getenv("LOG_TIMESTAMP"));
+	stamp = getenv("LOG_TIMESTAMP");
+	if (stamp == NULL)
+		stamp = DEFAULT_FAILURE_STAMP_FORMAT;
+	i_set_failure_timestamp_format(stamp);
 }
 
 static void print_help(void)
