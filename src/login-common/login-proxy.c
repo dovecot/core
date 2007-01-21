@@ -219,6 +219,16 @@ void login_proxy_free(struct login_proxy *proxy)
 	main_listen_start();
 }
 
+const char *login_proxy_get_host(struct login_proxy *proxy)
+{
+	return proxy->host;
+}
+
+unsigned int login_proxy_get_port(struct login_proxy *proxy)
+{
+	return proxy->port;
+}
+
 unsigned int login_proxy_get_count(void)
 {
 	return login_proxies == NULL ? 0 : hash_size(login_proxies);
