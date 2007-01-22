@@ -145,6 +145,11 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		do_ctx.preserve_filename = TRUE;
 	}
 
+	/* FIXME: We could hardlink the files directly to destination, but
+	   that would require checking if someone else had already assigned
+	   UIDs for them after we have the uidlist locked. Index would also
+	   need to be properly not-updated somehow.. */
+#if 0
 	if (keywords == NULL || keywords->count == 0) {
 		/* no keywords, hardlink directly to destination */
 		if (flags == MAIL_RECENT) {
@@ -161,7 +166,9 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 							      do_ctx.dest_fname,
 							      flags, NULL));
 		}
-	} else {
+	} else
+#endif
+{
 		/* keywords, hardlink to tmp/ with basename and later when we
 		   have uidlist locked, move it to new/cur. */
 		str_printfa(do_ctx.dest_path, "%s/tmp/%s",
@@ -176,12 +183,15 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		return 0;
 	}
 
+#if 0
 	if (keywords == NULL || keywords->count == 0) {
 		/* hardlinked to destination, set hardlinked-flag */
 		seq = maildir_save_add(t, do_ctx.dest_fname,
 				       flags | MAILDIR_SAVE_FLAG_HARDLINK, NULL,
 				       dest_mail);
-	} else {
+	} else
+#endif
+{
 		/* hardlinked to tmp/, treat as normal copied mail */
 		seq = maildir_save_add(t, do_ctx.dest_fname, flags, keywords,
 				       dest_mail);
