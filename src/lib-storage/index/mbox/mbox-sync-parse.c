@@ -383,6 +383,9 @@ static bool parse_x_uid(struct mbox_sync_mail_context *ctx,
 
 	ctx->sync_ctx->prev_msg_uid = value;
 	ctx->mail.uid = value;
+	/* if we had multiple X-UID headers, we could have
+	   uid_broken=TRUE here. */
+	ctx->mail.uid_broken = FALSE;
 
 	if (ctx->sync_ctx->dest_first_mail && ctx->seq != 1) {
 		/* if we're expunging the first mail, delete this header since
