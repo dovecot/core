@@ -425,6 +425,8 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 	struct mail_index_record *recs;
 	unsigned int i, count;
 
+	i_assert(first_uid != 0);
+
 	if (!array_is_created(&t->appends))
 		return;
 

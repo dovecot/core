@@ -514,6 +514,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		sync_commit = TRUE;
 
 		first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
+		i_assert(first_uid != 0);
 		mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
 	}
 
