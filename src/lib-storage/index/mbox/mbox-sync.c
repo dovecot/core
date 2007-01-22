@@ -1018,7 +1018,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	uint32_t uid, messages_count;
 	uoff_t offset;
 	int ret;
-	bool expunged, skipped_mails;
+	bool expunged, skipped_mails, uids_broken;
 
 	messages_count =
 		mail_index_view_get_messages_count(sync_ctx->sync_view);
@@ -1029,7 +1029,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	if (ret <= 0)
 		return ret;
 
-	skipped_mails = FALSE;
+	skipped_mails = uids_broken = FALSE;
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
 		uid = mail_ctx->mail.uid;
 
@@ -1063,6 +1063,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			sync_ctx->mbox->mbox_sync_dirty = TRUE;
 			return 0;
 		}
+		if (mail_ctx->mail.uid_broken)
+			uids_broken = TRUE;
 
 		if (mail_ctx->pseudo)
 			uid = 0;
@@ -1187,6 +1189,13 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 	if (!skipped_mails)
 		sync_ctx->mbox->mbox_sync_dirty = FALSE;
+
+	if (uids_broken && sync_ctx->delay_writes) {
+		/* once we get around to writing the changes, we'll need to do
+		   a full sync to avoid the "UIDs broken in partial sync"
+		   error */
+		sync_ctx->mbox->mbox_sync_dirty = TRUE;
+	}
 	return 1;
 }
 
