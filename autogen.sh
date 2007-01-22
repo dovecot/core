@@ -16,4 +16,4 @@ for dir in $GETTEXT_DIR /usr/share/gettext; do
   fi
 done
 
-autoreconf -i -f
+autoreconf -i
