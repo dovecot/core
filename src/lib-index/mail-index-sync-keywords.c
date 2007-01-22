@@ -86,7 +86,6 @@ static int keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 		buffer_create_static_hard(pool_datastack_create(),
 					  sizeof(*u) + sizeof("keywords")-1);
 
-	i_assert(keywords_count <= 6);
 	u = buffer_append_space_unsafe(ext_intro_buf, sizeof(*u));
 	u->ext_id = ext_id;
 	u->reset_id = reset_id;
