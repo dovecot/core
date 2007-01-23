@@ -610,10 +610,12 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
 		return -1;
 	}
 
-	if (fsync(uidlist->lock_fd) < 0) {
-		mail_storage_set_critical(storage,
-			"fsync(%s) failed: %m", temp_path);
-		return -1;
+	if (!uidlist->mbox->ibox.fsync_disable) {
+		if (fsync(uidlist->lock_fd) < 0) {
+			mail_storage_set_critical(storage,
+				"fsync(%s) failed: %m", temp_path);
+			return -1;
+		}
 	}
 
 	return 0;
