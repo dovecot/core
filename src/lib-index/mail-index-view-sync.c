@@ -188,6 +188,42 @@ static void mail_index_view_hdr_update(struct mail_index_view *view,
 	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE | \
 	 MAIL_TRANSACTION_KEYWORD_RESET)
 
+#ifdef DEBUG
+static void mail_index_view_check(struct mail_index_view *view)
+{
+	unsigned int i, del = 0, recent = 0, seen = 0;
+
+	i_assert(view->hdr.deleted_messages_count ==
+		 view->map->hdr.deleted_messages_count);
+	i_assert(view->hdr.recent_messages_count ==
+		 view->map->hdr.recent_messages_count);
+	i_assert(view->hdr.seen_messages_count ==
+		 view->map->hdr.seen_messages_count);
+
+	for (i = 0; i < view->map->records_count; i++) {
+		const struct mail_index_record *rec;
+
+		rec = MAIL_INDEX_MAP_IDX(view->map, i);
+
+		if (rec->flags & MAIL_DELETED) {
+			i_assert(rec->uid >= view->hdr.first_deleted_uid_lowwater);
+			del++;
+		}
+		if (rec->flags & MAIL_RECENT) {
+			i_assert(rec->uid >= view->hdr.first_recent_uid_lowwater);
+			recent++;
+		}
+		if (rec->flags & MAIL_SEEN)
+			seen++;
+		else
+			i_assert(rec->uid >= view->hdr.first_unseen_uid_lowwater);
+	}
+	i_assert(del == view->hdr.deleted_messages_count);
+	i_assert(recent == view->hdr.recent_messages_count);
+	i_assert(seen == view->hdr.seen_messages_count);
+}
+#endif
+
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_sync_type sync_mask,
 			       struct mail_index_view_sync_ctx **ctx_r)
@@ -271,8 +307,12 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			   update flag counters. note that map->hdr may contain
 			   old information if another process updated the
 			   index file since. */
-			hdr = view->map->mmap_base != NULL ?
-				view->map->mmap_base : &view->map->hdr;
+			if (view->map->mmap_base == NULL)
+				hdr = &view->map->hdr;
+			else {
+				hdr = view->map->mmap_base;
+				view->map->hdr = *hdr;
+			}
 			ctx->sync_map_ctx.unreliable_flags =
 				!(hdr->log_file_seq == view->log_file_seq &&
 				  hdr->log_file_int_offset ==
@@ -284,6 +324,11 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			i_assert(view->map->records_count >=
 				 view->hdr.messages_count);
 			view->map->records_count = view->hdr.messages_count;
+
+#ifdef DEBUG
+			if (!ctx->sync_map_ctx.unreliable_flags)
+				mail_index_view_check(view);
+#endif
 		}
 
 		map = mail_index_map_clone(view->map,
@@ -340,7 +385,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	uint32_t seq;
 	uoff_t offset;
 	int ret;
-	bool skipped;
+	bool skipped, synced_to_map;
 
 	for (;;) {
 		/* Get the next transaction from log. */
@@ -374,13 +419,6 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		}
 
 		/* skip everything we've already synced */
-		if (offset < view->hdr.log_file_ext_offset &&
-		    seq == view->hdr.log_file_seq &&
-		    (ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
-			/* view->log_file_offset contains the minimum of
-			   int/ext offsets. */
-			continue;
-		}
 		if (view_sync_pos_find(&view->syncs_done, seq, offset))
 			continue;
 
@@ -393,9 +431,15 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 							       offset);
 		}
 
+		/* view->log_file_offset contains the minimum of
+		   int/ext offsets. */
+		synced_to_map = offset < view->hdr.log_file_ext_offset &&
+			seq == view->hdr.log_file_seq &&
+			(ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0;
+
 		/* Apply transaction to view's mapping if needed (meaning we
 		   didn't just re-map the view to head mapping). */
-		if (ctx->sync_map_update) {
+		if (ctx->sync_map_update && !synced_to_map) {
 			i_assert((ctx->hdr->type &
 				  MAIL_TRANSACTION_EXPUNGE) == 0);
 
@@ -588,6 +632,11 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 		view->sync_new_map = NULL;
 	}
 	view->hdr = view->map->hdr;
+
+#ifdef DEBUG
+	if (!view->broken_counters)
+		mail_index_view_check(view);
+#endif
 
 	/* set log view to empty range so unneeded memory gets freed */
 	(void)mail_transaction_log_view_set(view->log_view,
