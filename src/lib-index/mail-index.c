@@ -791,7 +791,8 @@ mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
 		records_size = (size_t)hdr->messages_count * hdr->record_size;
 
 		if ((uoff_t)st.st_size - hdr->header_size < records_size ||
-		    records_size / hdr->messages_count != hdr->record_size) {
+		    (hdr->record_size != 0 &&
+		     records_size / hdr->record_size != hdr->messages_count)) {
 			records_count = (st.st_size - hdr->header_size) /
 				hdr->record_size;
 			mail_index_set_error(index, "Corrupted index file %s: "
