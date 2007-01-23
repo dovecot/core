@@ -731,8 +731,8 @@ mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
 	unsigned char buf[512];
 	void *data = NULL;
 	ssize_t ret;
-	size_t pos;
-	unsigned int records_size, records_count;
+	size_t pos, records_size;
+	unsigned int records_count;
 
 	i_assert(map->mmap_base == NULL);
 
@@ -761,7 +761,7 @@ mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
 				hdr->header_size);
 			return 0;
 		}
-		if (hdr->header_size > st.st_size) {
+		if (hdr->header_size > (uoff_t)st.st_size) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"Corrupted header size (%u > %"PRIuUOFF_T")",
 				index->filepath, hdr->header_size,
@@ -788,9 +788,9 @@ mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
 
 	if (ret > 0) {
 		/* header read, read the records now. */
-		records_size = hdr->messages_count * hdr->record_size;
+		records_size = (size_t)hdr->messages_count * hdr->record_size;
 
-		if (st.st_size - hdr->header_size < records_size ||
+		if ((uoff_t)st.st_size - hdr->header_size < records_size ||
 		    records_size / hdr->messages_count != hdr->record_size) {
 			records_count = (st.st_size - hdr->header_size) /
 				hdr->record_size;
