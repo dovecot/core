@@ -159,6 +159,7 @@ int mail_index_fsck(struct mail_index *index)
 		return 1;
 	}
 
+	i_warning("fscking index file %s", index->filepath);
         lock_log = !index->log_locked;
 	if (lock_log) {
 		if (mail_transaction_log_sync_lock(index->log, &file_seq,
