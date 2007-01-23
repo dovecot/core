@@ -298,13 +298,13 @@ static int sync_append(const struct mail_index_record *rec,
 	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
+	mail_index_header_update_lowwaters(&map->hdr, rec);
 	if (!view->broken_counters) {
 		if (mail_index_header_update_counts(&map->hdr, 0, rec->flags,
 						    &error) < 0) {
 			mail_index_sync_set_corrupted(ctx, "%s", error);
 			return -1;
 		}
-		mail_index_header_update_lowwaters(&map->hdr, rec);
 	}
 	return 1;
 }
@@ -341,10 +341,10 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 
         flag_mask = ~u->remove_flags;
 
-	if (view->broken_counters ||
-	    (ctx->unreliable_flags &&
-	     ((u->add_flags | u->remove_flags) &
-	      (MAIL_SEEN | MAIL_DELETED | MAIL_RECENT)) != 0)) {
+	if (((u->add_flags | u->remove_flags) &
+	     (MAIL_SEEN | MAIL_DELETED | MAIL_RECENT)) == 0) {
+		/* we're not modifying any counted/lowwatered flags */
+	} else if (view->broken_counters || ctx->unreliable_flags) {
 		view->broken_counters = TRUE;
 		for (idx = seq1-1; idx < seq2; idx++) {
 			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
@@ -359,13 +359,13 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 			old_flags = rec->flags;
 			rec->flags = (rec->flags & flag_mask) | u->add_flags;
 
+			mail_index_header_update_lowwaters(hdr, rec);
 			if (mail_index_header_update_counts(hdr, old_flags,
 							    rec->flags,
 							    &error) < 0) {
 				mail_index_sync_set_corrupted(ctx, "%s", error);
 				return -1;
 			}
-			mail_index_header_update_lowwaters(hdr, rec);
 		}
 	}
 	return 1;
