@@ -751,7 +751,8 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 							"%s", error);
 	} else {
 		mail_index_set_error(ctx->view->index,
-			"View synchronization from transaction log failed: %s",
+			"View synchronization from transaction log "
+			"for index %s failed: %s", ctx->view->index->filepath,
 			error);
 	}
 	t_pop();
