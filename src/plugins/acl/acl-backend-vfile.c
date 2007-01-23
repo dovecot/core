@@ -118,7 +118,7 @@ acl_backend_vfile_object_init(struct acl_backend *_backend, const char *name)
 	if (is_file) {
 		/* use control directory with mboxes */
 		dir = control_dir;
-	} else {
+	} else if (strcmp(control_dir, dir) != 0) {
 		/* FIXME: this is only for making sure people won't upgrade
 		   improperly. remove this check some day. */
 		const char *path;
