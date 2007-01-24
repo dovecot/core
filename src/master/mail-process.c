@@ -408,7 +408,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	gid_t gid;
 	ARRAY_DEFINE(extra_args, const char *);
 	unsigned int i, count;
-	int err, ret, log_fd, nice;
+	int ret, log_fd, nice;
 	bool home_given, nfs_check;
 
 	// FIXME: per-group
@@ -655,12 +655,6 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		restrict_access_by_env(TRUE);
 
 	client_process_exec(set->mail_executable, title);
-	err = errno;
-
-	for (i = 0; i < 3; i++)
-		(void)close(i);
-
-	errno = err;
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",
 		       set->mail_executable);
 
