@@ -62,14 +62,16 @@ static int index_list_update_mail_index(struct index_mailbox_list *ilist,
 	struct mail_index_sync_ctx *mail_sync_ctx;
 	struct mail_index_view *view;
 	struct mail_index_sync_rec sync_rec;
+	int ret;
 
 	if (ibox->log_seq == 0)
 		return 0;
 
-	if (mail_index_sync_begin(ilist->mail_index, &mail_sync_ctx,
-				  &view, ibox->log_seq, ibox->log_offset,
-				  FALSE, FALSE) < 0)
-		return -1;
+	ret = mail_index_sync_begin(ilist->mail_index, &mail_sync_ctx,
+				    &view, ibox->log_seq, ibox->log_offset,
+				    FALSE, FALSE);
+	if (ret <= 0)
+		return ret;
 
 	/* we should have only external transactions in here, for which we
 	   don't need to do anything but write them to the index */
