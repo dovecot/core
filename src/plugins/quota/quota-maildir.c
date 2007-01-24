@@ -476,7 +476,7 @@ static int maildirsize_read(struct maildir_quota_root *root)
 		ret = 1;
 	} else {
 		/* broken file / need recalculation */
-		(void)close(root->fd);
+		(void)close(fd);
 		root->fd = -1;
 		ret = 0;
 	}
