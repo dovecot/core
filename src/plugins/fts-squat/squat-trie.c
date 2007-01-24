@@ -13,6 +13,7 @@
 #include "unichar.h"
 #include "squat-uidlist.h"
 #include "squat-trie.h"
+#include "squat-trie-private.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,32 +100,6 @@ struct squat_trie_compress_context {
 
 	unsigned int node_count;
 };
-
-struct squat_trie_header {
-	uint8_t version;
-	uint8_t unused[3];
-
-	uint32_t uidvalidity;
-	uint32_t used_file_size;
-	uint32_t deleted_space;
-	uint32_t node_count;
-	uint32_t modify_counter;
-
-	uint32_t root_offset;
-};
-
-/*
-packed_node {
-	packed ((8bit_chars_count << 1) | have_16bit_chars);
-	uint8_t 8bit_chars[8bit_chars_count];
-	uint32_t idx[8bit_chars_count];
-	if (have_16bit_chars) {
-		packed 16bit_chars_count;
-		uint16_t 16bit_chars[16bit_chars_count];
-		uint32_t idx[16bit_chars_count];
-	}
-}
-*/
 
 struct trie_node {
 	/* new characters have been added to this node */
@@ -407,6 +382,9 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 	chars8_offset = p - trie->const_mmap_base;
 	chars8_size = chars8_count * (sizeof(uint8_t) + sizeof(uint32_t));
 
+	if (trie_map_area(trie, chars8_offset, chars8_size + 8) < 0)
+		return -1;
+
 	if (chars8_count > MAX_8BIT_CHAR_COUNT ||
 	    chars8_offset + chars8_size > trie->mmap_size) {
 		squat_trie_set_corrupted(trie, "trie offset broken");
@@ -420,9 +398,6 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 		MAX_8BIT_CHAR_COUNT : chars8_count;
 	chars8_memsize = ALIGN(alloced_chars8_count * sizeof(uint8_t)) +
 		alloced_chars8_count * idx_size;
-
-	if (trie_map_area(trie, chars8_offset, chars8_size + 8) < 0)
-		return -1;
 
 	if ((num & 1) == 0) {
 		/* no 16bit chars */
@@ -482,7 +457,7 @@ trie_map_node(struct squat_trie *trie, uint32_t offset, unsigned int level,
 		if (alloced_chars8_count != chars8_count)
 			trie_map_fix_fast_node(node, chars8_count);
 		if (chars16_count == 0)
-			end_offset = &src_idx[alloced_chars8_count];
+			end_offset = &src_idx[chars8_count];
 		else {
 			src_idx = CONST_PTR_OFFSET(chars16_src,
 						   chars16_count *
@@ -1128,6 +1103,10 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 					  &children[char_idx]) < 0)
 				return -1;
 		}
+
+		if (children[char_idx] == NULL)
+			node->resized = TRUE;
+
 		ret = trie_insert_node(ctx, &children[char_idx],
 				       data + 1, uid, level + 1);
 		if (ret < 0)
@@ -1136,6 +1115,10 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 			node->modified = TRUE;
 	} else {
 		uint32_t *uid_lists = (uint32_t *)children;
+
+		if (uid_lists[char_idx] == 0)
+			node->resized = TRUE;
+
 		if (squat_uidlist_add(trie->uidlist, &uid_lists[char_idx],
 				      uid) < 0)
 			return -1;
@@ -1456,7 +1439,7 @@ static int trie_write_node(struct squat_trie_build_context *ctx,
 		offset++;
 	}
 
-	if (node->resized && node->orig_size != trie->buf->used) {
+	if (node->resized && node->orig_size < trie->buf->used) {
 		/* append to end of file. the parent node is written later. */
 		node->file_offset = offset;
 		o_stream_send(ctx->output, trie->buf->data, trie->buf->used);
