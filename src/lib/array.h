@@ -158,13 +158,8 @@ _array_idx(const struct array *array, unsigned int idx)
 	i_assert(idx * array->element_size < array->buffer->used);
 	return CONST_PTR_OFFSET(array->buffer->data, idx * array->element_size);
 }
-#ifdef DISABLE_ASSERTS
-#  define array_idx(array, idx) \
-	&((*(array)->v)[idx])
-#else
-#  define array_idx(array, idx) \
+#define array_idx(array, idx) \
 	ARRAY_TYPE_CAST_CONST(array)_array_idx(&(array)->arr, idx)
-#endif
 
 static inline void *
 _array_get_modifiable(struct array *array, unsigned int *count_r)
