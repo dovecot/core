@@ -303,8 +303,6 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 
 	if (uid == 1) {
 		/* optimization: the message can be only the first one */
-		if (view->hdr.messages_count == 0)
-			return 0;
 		return 1;
 	}
 	rec_base = view->map->records;
@@ -324,12 +322,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 		else
 			break;
 	}
-	if (idx == view->hdr.messages_count) {
-		/* left_idx was initially messages_count */
-		if (idx == 0)
-			return 0;
-		idx--;
-	}
+	i_assert(idx < view->hdr.messages_count);
 
 	rec = CONST_PTR_OFFSET(rec_base, idx * record_size);
 	if (rec->uid != uid) {
@@ -356,6 +349,11 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 	if (mail_index_view_lock(view) < 0)
 		return -1;
 
+	if (view->hdr.messages_count == 0) {
+		*first_seq_r = *last_seq_r = 0;
+		return 0;
+	}
+
 	*first_seq_r = mail_index_bsearch_uid(view, first_uid, 0, 1);
 	if (*first_seq_r == 0 ||
 	    MAIL_INDEX_MAP_IDX(view->map, *first_seq_r-1)->uid > last_uid) {
@@ -375,14 +373,13 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 		return 0;
 	}
 
-	if (first_uid == last_uid) {
+	if (first_uid == last_uid)
 		*last_seq_r = *first_seq_r;
-		return 0;
+	else {
+		/* optimization - binary lookup only from right side: */
+		*last_seq_r = mail_index_bsearch_uid(view, last_uid,
+						     *first_seq_r, -1);
 	}
-
-	/* optimization - binary lookup only from right side: */
-	*last_seq_r = mail_index_bsearch_uid(view, last_uid,
-					     *first_seq_r + 1, -1);
 	i_assert(*last_seq_r >= *first_seq_r);
 	return 0;
 }
