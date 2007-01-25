@@ -494,8 +494,10 @@ maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
 			}
 		}
 
-		if (mail_index_lookup_uid(ctx->view, seq, &uid) < 0)
+		if (mail_index_lookup_uid(ctx->view, seq, &uid) < 0) {
+			mail_storage_set_index_error(&ctx->mbox->ibox);
 			return -1;
+		}
 
 		ctx->seq = seq;
 		if (expunged) {
@@ -548,8 +550,10 @@ static int maildir_sync_record(struct maildir_index_sync_context *ctx,
 	if (mail_index_lookup_uid_range(view, sync_rec->uid1,
 					sync_rec->uid2,
 					&sync_copy.uid1,
-					&sync_copy.uid2) < 0)
+					&sync_copy.uid2) < 0) {
+		mail_storage_set_index_error(&ctx->mbox->ibox);
 		return -1;
+	}
 
 	if (sync_copy.uid1 == 0) {
 		/* UIDs were expunged */
@@ -578,8 +582,11 @@ static int maildir_sync_index_records(struct maildir_index_sync_context *ctx)
 	int ret;
 
 	ret = mail_index_sync_next(ctx->sync_ctx, &sync_rec);
-	if (ret <= 0)
+	if (ret <= 0) {
+		if (ret < 0)
+			mail_storage_set_index_error(&ctx->mbox->ibox);
 		return ret;
+	}
 
 	t_array_init(&ctx->sync_recs, 32);
 	do {
@@ -588,6 +595,9 @@ static int maildir_sync_index_records(struct maildir_index_sync_context *ctx)
 
 		ret = mail_index_sync_next(ctx->sync_ctx, &sync_rec);
 	} while (ret > 0);
+
+	if (ret < 0)
+		mail_storage_set_index_error(&ctx->mbox->ibox);
 
 	if (maildir_sync_record(ctx, NULL) < 0)
 		return -1;
@@ -914,9 +924,10 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_sync_ctx,
 			mail_index_transaction_rollback(&sync_ctx->trans);
 		else {
 			if (mail_index_transaction_commit(&sync_ctx->trans,
-							  &seq, &offset) < 0)
+							  &seq, &offset) < 0) {
+				mail_storage_set_index_error(&mbox->ibox);
 				ret = -1;
-			else if (seq != 0) {
+			} else if (seq != 0) {
 				mbox->ibox.commit_log_file_seq = seq;
 				mbox->ibox.commit_log_file_offset = offset;
 			}
@@ -930,17 +941,15 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_sync_ctx,
 		   to open the file which was just unlinked) we don't try to
 		   start a second index sync and crash. */
 		mbox->syncing_commit = TRUE;
-		if (mail_index_sync_commit(&sync_ctx->sync_ctx) < 0)
+		if (mail_index_sync_commit(&sync_ctx->sync_ctx) < 0) {
+			mail_storage_set_index_error(&mbox->ibox);
 			ret = -1;
-		else {
+		} else {
 			mbox->ibox.commit_log_file_seq = 0;
 			mbox->ibox.commit_log_file_offset = 0;
 		}
 		mbox->syncing_commit = FALSE;
 	}
-
-	if (ret < 0)
-		mail_storage_set_index_error(&mbox->ibox);
 
 	maildir_keywords_sync_deinit(sync_ctx->keywords_sync_ctx);
         sync_ctx->keywords_sync_ctx = NULL;
@@ -1066,6 +1075,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		}
 
 		if (mail_index_lookup(view, seq, &rec) < 0) {
+			mail_storage_set_index_error(&mbox->ibox);
 			ret = -1;
 			break;
 		}
@@ -1155,6 +1165,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 
 		/* update keywords if they have changed */
 		if (mail_index_lookup_keywords(view, seq, &idx_keywords) < 0) {
+			mail_storage_set_index_error(&mbox->ibox);
 			ret = -1;
 			break;
 		}
