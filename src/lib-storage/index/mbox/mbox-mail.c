@@ -36,54 +36,60 @@ static int mbox_mail_seek(struct index_mail *mail)
 		(struct mbox_transaction_context *)mail->trans;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 	enum mbox_sync_flags sync_flags = 0;
-	int ret;
+	int ret, try;
 	bool deleted;
 
 	if (mail->mail.mail.expunged)
 		return 0;
 
-__again:
-	if (mbox->mbox_lock_type == F_UNLCK) {
-		sync_flags |= MBOX_SYNC_LOCK_READING;
-		if (mbox_sync(mbox, sync_flags) < 0)
+	for (try = 0; try < 2; try++) {
+		if (mbox->mbox_lock_type == F_UNLCK) {
+			sync_flags |= MBOX_SYNC_LOCK_READING;
+			if (mbox_sync(mbox, sync_flags) < 0)
+				return -1;
+
+			/* refresh index file after mbox has been locked to
+			   make sure we get only up-to-date mbox offsets. */
+			if (mail_index_refresh(mbox->ibox.index) < 0) {
+				mail_storage_set_index_error(&mbox->ibox);
+				return -1;
+			}
+
+			i_assert(mbox->mbox_lock_type != F_UNLCK);
+			t->mbox_lock_id = mbox->mbox_lock_id;
+		} else if ((sync_flags & MBOX_SYNC_FORCE_SYNC) != 0) {
+			/* dirty offsets are broken and mbox is write-locked.
+			   sync it to update offsets. */
+			if (mbox_sync(mbox, sync_flags) < 0)
+				return -1;
+		}
+
+		if (mbox_file_open_stream(mbox) < 0)
 			return -1;
 
-		/* refresh index file after mbox has been locked to make
-		   sure we get only up-to-date mbox offsets. */
-		if (mail_index_refresh(mbox->ibox.index) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
+		ret = mbox_file_seek(mbox, mail->trans->trans_view,
+				     mail->mail.mail.seq, &deleted);
+		if (ret > 0) {
+			/* success */
+			break;
+		}
+		if (ret < 0) {
+			if (deleted) {
+				mail->mail.mail.expunged = TRUE;
+				return 0;
+			}
 			return -1;
 		}
 
-		i_assert(mbox->mbox_lock_type != F_UNLCK);
-		t->mbox_lock_id = mbox->mbox_lock_id;
-	} else if ((sync_flags & MBOX_SYNC_FORCE_SYNC) != 0) {
-		/* dirty offsets are broken and mbox is write-locked.
-		   sync it to update offsets. */
-		if (mbox_sync(mbox, sync_flags) < 0)
-			return -1;
-	}
-
-	if (mbox_file_open_stream(mbox) < 0)
-		return -1;
-
-	ret = mbox_file_seek(mbox, mail->trans->trans_view,
-			     mail->mail.mail.seq, &deleted);
-	if (ret < 0) {
-		if (deleted) {
-			mail->mail.mail.expunged = TRUE;
-			return 0;
-		}
-		return -1;
-	}
-
-	if (ret == 0) {
 		/* we'll need to re-sync it completely */
-                mbox_prepare_resync(mail);
+		mbox_prepare_resync(mail);
 		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
-		goto __again;
 	}
-
+	if (ret == 0) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+			"Losing sync for mail uid=%u in mbox file %s",
+			mail->mail.mail.uid, mbox->path);
+	}
 	return 1;
 }
 
