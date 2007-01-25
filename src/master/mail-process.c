@@ -231,6 +231,8 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MMAP_NO_WRITE=1");
 	if (set->dotlock_use_excl)
 		env_put("DOTLOCK_USE_EXCL=1");
+	if (set->fsync_disable)
+		env_put("FSYNC_DISABLE=1");
 	if (set->maildir_stat_dirs)
 		env_put("MAILDIR_STAT_DIRS=1");
 	if (set->maildir_copy_with_hardlinks)
