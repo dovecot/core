@@ -27,9 +27,13 @@ static int maildir_transaction_commit(struct mail_index_transaction *t,
 
 	save_ctx = mt->save_ctx;
 
-	if (index_transaction_finish_commit(&mt->ictx, log_file_seq_r,
-					    log_file_offset_r) < 0)
-		ret = -1;
+	if (ret == 0) {
+		if (index_transaction_finish_commit(&mt->ictx, log_file_seq_r,
+						    log_file_offset_r) < 0)
+			ret = -1;
+	} else {
+		index_transaction_finish_rollback(&mt->ictx);
+	}
 
 	/* transaction is destroyed now. */
 	mt = NULL;
