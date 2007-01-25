@@ -82,6 +82,7 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 
 	memset(list_set, 0, sizeof(*list_set));
 	list_set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
+	list_set->maildir_name = "";
 
 	if (data == NULL || *data == '\0') {
 		/* we won't do any guessing for this format. */
