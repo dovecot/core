@@ -553,8 +553,15 @@ int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 	int ret;
 
 	/* we only wish to be sure that this mail actually is what we expect
-	   it to be. If there's X-UID header, it's used. Otherwise use
-	   the MD5 sum. */
+	   it to be. If there's X-UID header and it matches our UID, we use it.
+	   Otherwise it could mean that the X-UID header is invalid and it's
+	   just not yet been rewritten. In that case use MD5 sum, if it
+	   exists. */
+
+	if (mail_index_lookup_uid(view, seq, &uid) < 0) {
+		mail_storage_set_index_error(&mbox->ibox);
+		return -1;
+	}
 
 	memset(&ctx, 0, sizeof(ctx));
         mbox_md5_ctx = mbox_md5_init();
@@ -575,7 +582,7 @@ int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 				}
 				(void)parse_x_uid(&ctx, hdr);
 
-				if (ctx.mail.uid != 0)
+				if (ctx.mail.uid == uid)
 					break;
 			}
 		} else {
@@ -587,14 +594,8 @@ int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 
 	mbox_md5_finish(mbox_md5_ctx, ctx.hdr_md5_sum);
 
-	if (ctx.mail.uid != 0) {
-		/* match by X-UID header */
-		if (mail_index_lookup_uid(view, seq, &uid) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
-			return -1;
-		}
-		return ctx.mail.uid == uid;
-	}
+	if (ctx.mail.uid == uid)
+		return TRUE;
 
 	/* match by MD5 sum */
 	mbox->mbox_save_md5 = TRUE;
