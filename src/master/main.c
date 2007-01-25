@@ -203,7 +203,8 @@ static void sigchld_handler(int signo __attr_unused__,
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		/* get the type and remove from hash */
 		process_type = PID_GET_PROCESS_TYPE(pid);
-		PID_REMOVE_PROCESS_TYPE(pid);
+		if (process_type != PROCESS_TYPE_UNKNOWN)
+			PID_REMOVE_PROCESS_TYPE(pid);
 
 		abnormal_exit = TRUE;
 
@@ -211,9 +212,13 @@ static void sigchld_handler(int signo __attr_unused__,
 		process_type_name = process_names[process_type];
 		if (WIFEXITED(status)) {
 			status = WEXITSTATUS(status);
-			if (status == 0)
+			if (status == 0) {
 				abnormal_exit = FALSE;
-			else {
+				if (process_type == PROCESS_TYPE_UNKNOWN) {
+					i_error("unknown child %s exited "
+						"successfully", dec2str(pid));
+				}
+			} else {
 				msg = get_exit_status_message(status);
 				msg = msg == NULL ? "" :
 					t_strconcat(" (", msg, ")", NULL);
@@ -421,8 +426,18 @@ static void listen_protocols(struct settings *set, bool retry)
 		else {
 			for (i = 0; i < 10; i++) {
 				*fd = net_listen(ip, &port, 8);
-				if (*fd != -1 || errno != EADDRINUSE)
+				if (*fd != -1)
 					break;
+				if (errno == EADDRINUSE) {
+					/* retry */
+				} else if (errno == EINTR &&
+					   io_loop_is_running(ioloop)) {
+					/* SIGHUPing sometimes gets us here.
+					   we don't want to die. */
+				} else {
+					/* error */
+					break;
+				}
 
 				check_conflicts(ip, port, *proto);
 				if (!retry)
