@@ -2156,8 +2156,6 @@ static void imap_thread_hash_init(struct mailbox *box, bool create)
 
 	i_assert(tbox->msgid_hash == NULL);
 
-	box->v.close = imap_thread_mailbox_close;
-
 	tbox->msgid_hash =
 		mail_hash_open(ibox->index, ".thread", create ?
 			       MAIL_HASH_OPEN_FLAG_CREATE : 0,
@@ -2198,6 +2196,7 @@ static void imap_thread_mailbox_opened(struct mailbox *box)
 
 	tbox = i_new(struct imap_thread_mailbox, 1);
 	tbox->super = box->v;
+	box->v.close = imap_thread_mailbox_close;
 
 	array_idx_set(&box->module_contexts,
 		      imap_thread_storage_module_id, &tbox);
