@@ -42,6 +42,7 @@ struct quota *quota_init(void)
 
 	quota = i_new(struct quota, 1);
 	quota->test_alloc = quota_default_test_alloc;
+	quota->debug = getenv("DEBUG") != NULL;
 	i_array_init(&quota->roots, 4);
 	i_array_init(&quota->storages, 8);
 
@@ -203,6 +204,15 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 			break;
 		}
 	}
+
+	if (root->quota->debug) {
+		i_info("Quota rule: root=%s mailbox=%s "
+		       "storage=%lldkB messages=%lld", root->name,
+		       rule->mailbox_name != NULL ? rule->mailbox_name : "",
+		       (long long)rule->bytes_limit / 1024,
+		       (long long)rule->count_limit);
+	}
+
 	t_pop();
 	return ret;
 }

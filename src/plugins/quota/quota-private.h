@@ -15,6 +15,7 @@ struct quota {
 	int (*test_alloc)(struct quota_transaction_context *ctx,
 			  uoff_t size, bool *too_large_r);
 
+	unsigned int debug:1;
 	unsigned int counting:1;
 };
 
