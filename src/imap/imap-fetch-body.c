@@ -115,7 +115,8 @@ static string_t *get_prefix(struct imap_fetch_context *ctx,
 	return str;
 }
 
-static off_t imap_fetch_send(struct ostream *output, struct istream *input,
+static off_t imap_fetch_send(struct imap_fetch_context *ctx,
+			     struct ostream *output, struct istream *input,
 			     bool cr_skipped, uoff_t virtual_size,
 			     bool add_missing_eoh, bool *last_cr)
 {
@@ -195,6 +196,10 @@ static off_t imap_fetch_send(struct ostream *output, struct istream *input,
 		   and if it was just a temporary error the message would be
 		   permanently left corrupted in client's local cache. So, we
 		   disconnect the client and hope that next try works. */
+		i_error("FETCH for mailbox %s UID %u got too little data: "
+			"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
+			mailbox_get_name(ctx->mail->box), ctx->mail->uid,
+			(uoff_t)sent, virtual_size);
 		o_stream_close(output);
 		return -1;
 	}
@@ -208,7 +213,7 @@ static int fetch_stream_send(struct imap_fetch_context *ctx)
 	off_t ret;
 
 	o_stream_set_max_buffer_size(ctx->client->output, 4096);
-	ret = imap_fetch_send(ctx->client->output, ctx->cur_input,
+	ret = imap_fetch_send(ctx, ctx->client->output, ctx->cur_input,
 			      ctx->skip_cr, ctx->cur_size - ctx->cur_offset,
 			      ctx->cur_append_eoh, &ctx->skip_cr);
 	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
@@ -251,6 +256,10 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 	if (ctx->cur_offset != ctx->cur_size &&
 	    !i_stream_have_bytes_left(ctx->cur_input)) {
 		/* Input stream gave less data than expected */
+		i_error("FETCH for mailbox %s UID %u got too little data: "
+			"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
+			mailbox_get_name(ctx->mail->box), ctx->mail->uid,
+			ctx->cur_offset, ctx->cur_size);
 		o_stream_close(ctx->client->output);
 		return -1;
 	}
