@@ -115,13 +115,12 @@ static const char *get_client_extra_fields(struct auth_request *request)
 	unsigned int src, dest;
 	bool seen_pass = FALSE;
 
-	extra_fields = request->extra_fields == NULL ? NULL :
-		auth_stream_reply_export(request->extra_fields);
+	if (auth_stream_is_empty(request->extra_fields))
+		return NULL;
+
+	extra_fields = auth_stream_reply_export(request->extra_fields);
 
 	if (!request->proxy) {
-		if (auth_stream_is_empty(request->extra_fields))
-			return NULL;
-
 		/* we only wish to remove all fields prefixed with "userdb_" */
 		if (strstr(extra_fields, "userdb_") == NULL)
 			return extra_fields;
