@@ -62,7 +62,7 @@ static void signal_read(void *context __attr_unused__)
 	unsigned char signal_buf[512];
 	unsigned char signal_mask[MAX_SIGNAL_VALUE+1];
 	ssize_t i, ret;
-	int signo;
+	unsigned int signo;
 
 	ret = read(sig_pipe_fd[0], signal_buf, sizeof(signal_buf));
 	if (ret > 0) {

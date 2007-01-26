@@ -67,18 +67,18 @@ static void checkpassword_request_finish(struct chkpw_auth_request *request,
 
 	hash_remove(module->clients, POINTER_CAST(request->pid));
 
-	if (request->input_buf != NULL &&
-	    strchr(str_c(request->input_buf), '\n') != NULL) {
-		auth_request_log_error(request->request, "checkpassword",
-				       "LF characters in checkpassword reply");
-		result = PASSDB_RESULT_INTERNAL_FAILURE;
-	}
-
 	if (result == PASSDB_RESULT_OK) {
-		request->request->extra_fields =
-			auth_stream_reply_init(request->request);
-		auth_stream_reply_import(request->request->extra_fields,
-					 str_c(request->input_buf));
+		if (strchr(str_c(request->input_buf), '\n') != NULL) {
+			auth_request_log_error(request->request,
+				"checkpassword",
+				"LF characters in checkpassword reply");
+			result = PASSDB_RESULT_INTERNAL_FAILURE;
+		} else {
+			request->request->extra_fields =
+				auth_stream_reply_init(request->request);
+			auth_stream_reply_import(request->request->extra_fields,
+						 str_c(request->input_buf));
+		}
 	}
 
 	request->callback(result, request->request);

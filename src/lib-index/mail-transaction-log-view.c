@@ -183,6 +183,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		if (file == NULL || file->hdr.file_seq != seq) {
 			if (file == NULL && max_file_seq == (uint32_t)-1) {
 				/* we just wanted to sync everything */
+				i_assert(max_file_offset == (uoff_t)-1);
 				max_file_seq = seq-1;
 				break;
 			}

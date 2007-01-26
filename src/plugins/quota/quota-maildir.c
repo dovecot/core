@@ -192,12 +192,11 @@ static int
 maildirs_check_have_changed(struct mail_storage *storage, time_t latest_mtime)
 {
 	struct maildir_list_context *ctx;
-	const char *dir;
 	time_t mtime;
 	int ret = 0;
 
 	ctx = maildir_list_init(storage);
-	while ((dir = maildir_list_next(ctx, &mtime)) != NULL) {
+	while (maildir_list_next(ctx, &mtime) != NULL) {
 		if (mtime > latest_mtime) {
 			ret = 1;
 			break;

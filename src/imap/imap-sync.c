@@ -60,6 +60,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 int imap_sync_deinit(struct imap_sync_context *ctx)
 {
 	struct mailbox_status status;
+	int ret;
 
 	mail_free(&ctx->mail);
 
@@ -71,7 +72,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 		return -1;
 	}
 
-	mailbox_transaction_commit(&ctx->t, 0);
+	ret = mailbox_transaction_commit(&ctx->t, 0);
 
 	t_push();
 
@@ -88,7 +89,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 
 	t_pop();
 	i_free(ctx);
-	return 0;
+	return ret;
 }
 
 int imap_sync_more(struct imap_sync_context *ctx)

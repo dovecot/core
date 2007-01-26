@@ -626,7 +626,8 @@ struct istream *index_mail_init_stream(struct index_mail *_mail,
 			}
 		}
 
-		*hdr_size = data->hdr_size;
+		if (hdr_size != NULL)
+			*hdr_size = data->hdr_size;
 	}
 
 	if (body_size != NULL) {

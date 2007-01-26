@@ -245,7 +245,7 @@ static bool login_process_read_group(struct login_process *p)
 {
 	struct login_group *group;
 	const char *name, *proto;
-	char buf[256];
+	unsigned char buf[256];
 	enum mail_protocol protocol;
 	unsigned int len;
 	ssize_t ret;

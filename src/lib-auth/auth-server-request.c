@@ -206,10 +206,11 @@ bool auth_client_input_cont(struct auth_server_connection *conn,
 	unsigned int id;
 
 	data = strchr(args, '\t');
-	if (data++ == NULL) {
+	if (data == NULL) {
 		i_error("BUG: Authentication server sent broken CONT line");
 		return FALSE;
 	}
+	data++;
 
 	id = (unsigned int)strtoul(args, NULL, 10);
 

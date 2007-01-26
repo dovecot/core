@@ -224,7 +224,7 @@ static void proxy_open_logs(struct rawlog_proxy *proxy, const char *path)
 		proxy->fd_out = open(fname, O_CREAT|O_EXCL|O_WRONLY, 0600);
 		if (proxy->fd_out == -1) {
 			i_error("rawlog_open: open() failed for %s: %m", fname);
-			close(proxy->fd_in);
+			(void)close(proxy->fd_in);
 			proxy->fd_in = -1;
 			return;
 		}
@@ -299,11 +299,11 @@ static void rawlog_open(enum rawlog_flags flags)
 			i_fatal("dup2(sfd, 0)");
 		if (dup2(sfd[1], 1) < 0)
 			i_fatal("dup2(sfd, 1)");
-		close(sfd[0]);
-		close(sfd[1]);
+		(void)close(sfd[0]);
+		(void)close(sfd[1]);
 		return;
 	}
-	close(sfd[1]);
+	(void)close(sfd[1]);
 
 	restrict_access_by_env(TRUE);
 

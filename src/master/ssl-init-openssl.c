@@ -66,7 +66,8 @@ void _ssl_generate_parameters(int fd, const char *fname)
 	for (i = 0; i < DH_PARAM_BITSIZE_COUNT; i++)
 		generate_dh_parameters(dh_param_bitsizes[i], fd, fname);
 	bits = 0;
-	write_full(fd, &bits, sizeof(bits));
+	if (write_full(fd, &bits, sizeof(bits)) < 0)
+		i_fatal("write_full() failed for file %s: %m", fname);
 }
 
 #endif

@@ -926,6 +926,8 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log,
 	struct stat st;
 	const char *path;
 
+	i_assert(log->head != NULL);
+
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(log->head))
 		return 0;
 
@@ -939,8 +941,7 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log,
 		}
 		/* log was deleted. just reopen/recreate it. */
 	} else {
-		if (log->head != NULL &&
-		    log->head->st_ino == st.st_ino &&
+		if (log->head->st_ino == st.st_ino &&
 		    CMP_DEV_T(log->head->st_dev, st.st_dev)) {
 			/* same file */
 			return 0;
@@ -955,10 +956,8 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log,
 
 	i_assert(!file->locked);
 
-	if (log->head != NULL) {
-		if (--log->head->refcount == 0)
-			mail_transaction_logs_clean(log);
-	}
+	if (--log->head->refcount == 0)
+		mail_transaction_logs_clean(log);
 
 	log->head = file;
 	log->head->refcount++;

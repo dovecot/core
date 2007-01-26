@@ -358,10 +358,11 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	unsigned int id;
 
 	data = strchr(args, '\t');
-	if (data++ == NULL) {
+	if (data == NULL) {
 		i_error("BUG: Authentication client sent broken CONT request");
 		return FALSE;
 	}
+	data++;
 
 	id = (unsigned int)strtoul(args, NULL, 10);
 

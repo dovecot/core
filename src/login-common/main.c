@@ -351,7 +351,7 @@ static void main_deinit(void)
 
 int main(int argc __attr_unused__, char *argv[], char *envp[])
 {
-	const char *name, *group_name;
+	const char *group_name;
 	struct ip_addr remote_ip, local_ip;
 	unsigned int remote_port, local_port;
 	struct ssl_proxy *proxy = NULL;
@@ -386,7 +386,6 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 		master_fd = master_connect(group_name);
 	}
 
-	name = strrchr(argv[0], '/');
 	drop_privileges();
 
 	process_title_init(argv, envp);

@@ -442,8 +442,12 @@ static bool verify_credentials(struct rpa_auth_request *request,
 	unsigned char response[16];
 	buffer_t *hash_buffer;
 
+	if (strlen(credentials) != 32)
+		return FALSE;
+
 	hash_buffer = buffer_create_data(request->pool, request->pwd_md5, 16);
-	hex_to_binary(credentials, hash_buffer);
+	if (hex_to_binary(credentials, hash_buffer) < 0)
+		return FALSE;
 
 	rpa_user_response(request, response);
 	return memcmp(response, request->user_response, 16) == 0;
