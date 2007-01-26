@@ -269,6 +269,8 @@ static const struct stat *_stat(struct _istream *stream, bool exact)
 	ssize_t ret;
 
 	if (sstream->buffer != NULL) {
+		/* we want to know the full size of the file, so read until
+		   we're finished */
 		old_offset = stream->istream.v_offset;
 		do {
 			i_stream_skip(&stream->istream, stream->skip);
@@ -281,11 +283,16 @@ static const struct stat *_stat(struct _istream *stream, bool exact)
 		i_stream_seek(&stream->istream, old_offset);
 	}
 
-	if (sstream->fd_input != NULL)
+	if (sstream->fd_input != NULL) {
+		/* using a file backed buffer, we can use real fstat() */
 		return i_stream_stat(sstream->fd_input, exact);
+	} else {
+		/* buffer is completely in memory */
+		i_assert(sstream->buffer != NULL);
 
-	stream->statbuf.st_size = sstream->buffer->used;
-	return &stream->statbuf;
+		stream->statbuf.st_size = sstream->buffer->used;
+		return &stream->statbuf;
+	}
 }
 
 struct istream *
