@@ -88,8 +88,24 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	tmp = data;
 	end = data + data_size;
 
+	/* skip the challenge */
 	while (tmp != end && *tmp != '\0')
 		tmp++;
+
+	if (tmp != end) {
+		/* get the username */
+		username = ++tmp;
+		while (tmp != end && *tmp != '\0')
+			tmp++;
+	}
+
+	if (tmp + 1 + 16 != end) {
+		/* Should never happen */
+		auth_request_log_info(auth_request, "apop", "malformed data");
+		auth_request_fail(auth_request);
+		return;
+	}
+	tmp++;
 
 	/* the challenge must begin with trusted unique ID. we trust only
 	   ourself, so make sure it matches our connection specific UID
@@ -107,20 +123,6 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		return;
 	}
 	request->challenge = p_strdup(request->pool, (const char *)data);
-
-	if (tmp != end) {
-		username = ++tmp;
-		while (tmp != end && *tmp != '\0')
-			tmp++;
-	}
-
-	if (tmp + 1 + 16 != end) {
-		/* Should never happen */
-		auth_request_log_info(auth_request, "apop", "malformed data");
-		auth_request_fail(auth_request);
-		return;
-	}
-	tmp++;
 
 	if (!auth_request_set_username(auth_request, (const char *)username,
 				       &error)) {
