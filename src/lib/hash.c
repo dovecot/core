@@ -269,12 +269,12 @@ void hash_update(struct hash_table *table, void *key, void *value)
 	(void)hash_insert_node(table, key, value, TRUE);
 }
 
-static void hash_compress(struct hash_table *table, struct hash_node *node)
+static void hash_compress(struct hash_table *table, struct hash_node *root)
 {
-	struct hash_node *next;
+	struct hash_node *node, *next;
 
 	/* remove deleted nodes from the list */
-	while (node->next != NULL) {
+	for (node = root; node->next != NULL; ) {
 		next = node->next;
 
 		if (next->key == NULL) {
@@ -286,9 +286,9 @@ static void hash_compress(struct hash_table *table, struct hash_node *node)
 	}
 
 	/* update root */
-	if (node->key == NULL && node->next != NULL) {
-		next = node->next;
-		memcpy(node, next, sizeof(*node));
+	if (root->key == NULL && root->next != NULL) {
+		next = root->next;
+		*root = *next;
 		free_node(table, next);
 	}
 }
