@@ -563,7 +563,7 @@ static void create_pid_file(const char *path)
 	(void)close(fd);
 }
 
-static void main_init(void)
+static void main_init(bool log_error)
 {
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
@@ -580,6 +580,9 @@ static void main_init(void)
 	i_info("Dovecot v"VERSION" starting up");
 
 	log_init();
+
+	if (log_error)
+		i_fatal("This is Dovecot's error log");
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
@@ -753,7 +756,7 @@ int main(int argc, char *argv[])
 {
 	/* parse arguments */
 	const char *exec_protocol = NULL, *exec_section = NULL, *user, *home;
-	bool foreground = FALSE, ask_key_pass = FALSE;
+	bool foreground = FALSE, ask_key_pass = FALSE, log_error = FALSE;
 	bool dump_config = FALSE, dump_config_nondefaults = FALSE;
 	int i;
 
@@ -794,6 +797,9 @@ int main(int argc, char *argv[])
 		} else if (strcmp(argv[i], "--build-options") == 0) {
 			print_build_options();
 			return 0;
+		} else if (strcmp(argv[i], "--log-error") == 0) {
+			log_error = TRUE;
+			foreground = TRUE;
 		} else {
 			print_help();
 			i_fatal("Unknown argument: %s", argv[1]);
@@ -867,7 +873,7 @@ int main(int argc, char *argv[])
 
 	ioloop = io_loop_create(system_pool);
 
-	main_init();
+	main_init(log_error);
         io_loop_run(ioloop);
 	main_deinit();
 
