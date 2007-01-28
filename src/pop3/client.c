@@ -165,6 +165,9 @@ struct client *client_create(int fd_in, int fd_out,
 	}
 
 	if (!init_mailbox(client)) {
+		i_error("Couldn't init INBOX: %s",
+			mail_storage_get_last_error(storage, &syntax_error,
+						    &temporary_error));
 		client_destroy(client, "Mailbox init failed");
 		return NULL;
 	}
