@@ -23,6 +23,8 @@ You can apply a modifiers for each variable (eg. %Us = POP3):
  %L - lowercase
  %U - uppercase
  %E - escape '"', "'" and '\' characters by inserting '\' before them.
+      Note that variables in SQL queries are automatically escaped, you
+      don't need to use this modifier for them.
  %R - reverse the string
  %H - take a 32bit hash of the variable and return it as hex. You can also
       limit the hash value. For example %256Hu gives values 0..ff. You might
