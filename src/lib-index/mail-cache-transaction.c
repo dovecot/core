@@ -469,6 +469,11 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 		buffer_set_used_size(ctx->cache_data, ctx->prev_pos);
 	}
 
+	if (ctx->cache_file_seq == 0) {
+		if ((ret = mail_cache_transaction_lock(ctx)) <= 0)
+			return ret;
+	}
+
 	if (ctx->cache_file_seq != ctx->cache->hdr->file_seq) {
 		/* cache file reopened - need to abort */
 		mail_cache_transaction_reset(ctx);
@@ -488,7 +493,7 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 						       max_size, &write_offset,
 						       &max_size, commit);
 		if (ret <= 0) {
-			/* nothing to write / error / cache file reopened */
+			/* error / couldn't lock / cache file reopened */
 			return ret;
 		}
 
@@ -545,7 +550,7 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 		data = buffer_get_modifiable_data(ctx->cache_data, &size);
 		rec = PTR_OFFSET(data, ctx->prev_pos);
 		rec->size = size - ctx->prev_pos;
-		i_assert(rec->size != 0);
+		i_assert(rec->size > sizeof(*rec));
 
 		array_append(&ctx->cache_data_seq, &ctx->prev_seq, 1);
 		ctx->prev_pos = size;
@@ -737,8 +742,13 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		   cache file had been compressed and was reopened, return
 		   without adding the cached data since cache_data buffer
 		   doesn't contain the cache_rec anymore. */
-		if (mail_cache_transaction_flush(ctx) <= 0)
+		if (mail_cache_transaction_flush(ctx) <= 0) {
+			/* make sure the transaction is reset, so we don't
+			   constantly try to flush for each call to this
+			   function */
+			mail_cache_transaction_reset(ctx);
 			return;
+		}
 	}
 
 	buffer_append(ctx->cache_data, &file_field, sizeof(file_field));
