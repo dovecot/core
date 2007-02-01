@@ -402,6 +402,10 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	if (((u->add_flags | u->remove_flags) &
 	     (MAIL_SEEN | MAIL_DELETED | MAIL_RECENT)) == 0) {
 		/* we're not modifying any counted/lowwatered flags */
+		for (idx = seq1-1; idx < seq2; idx++) {
+			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
+			rec->flags = (rec->flags & flag_mask) | u->add_flags;
+		}
 	} else if (view->broken_counters || ctx->unreliable_flags) {
 		view->broken_counters = TRUE;
 		for (idx = seq1-1; idx < seq2; idx++) {
