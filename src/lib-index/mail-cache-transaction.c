@@ -470,8 +470,12 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	}
 
 	if (ctx->cache_file_seq == 0) {
-		if ((ret = mail_cache_transaction_lock(ctx)) <= 0)
-			return ret;
+		if (!ctx->cache->opened)
+			(void)mail_cache_open_and_verify(ctx->cache);
+		if (MAIL_CACHE_IS_UNUSABLE(ctx->cache))
+			return -1;
+
+		ctx->cache_file_seq = ctx->cache->hdr->file_seq;
 	}
 
 	if (ctx->cache_file_seq != ctx->cache->hdr->file_seq) {
