@@ -247,6 +247,7 @@ struct settings default_settings = {
 	MEMBER(mail_plugins) "",
 	MEMBER(mail_plugin_dir) MODULEDIR"/imap",
 	MEMBER(mail_log_prefix) "%Us(%u): ",
+	MEMBER(mail_log_max_lines_per_sec) 10,
 
 	/* imap */
 	MEMBER(imap_max_line_length) 65536,

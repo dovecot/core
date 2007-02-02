@@ -480,7 +480,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	if (!dump_capability) {
-		log_fd = log_create_pipe(&log, 10);
+		log_fd = log_create_pipe(&log, set->mail_log_max_lines_per_sec);
 		if (log_fd == -1)
 			return FALSE;
 	} else {

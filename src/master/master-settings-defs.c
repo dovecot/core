@@ -96,6 +96,7 @@ static struct setting_def setting_defs[] = {
 	DEF(SET_STR, mail_plugins),
 	DEF(SET_STR, mail_plugin_dir),
 	DEF(SET_STR, mail_log_prefix),
+	DEF(SET_STR, mail_log_max_lines_per_sec),
 
 	/* imap */
 	DEF(SET_INT, imap_max_line_length),
