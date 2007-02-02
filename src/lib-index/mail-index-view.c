@@ -378,7 +378,7 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 	else {
 		/* optimization - binary lookup only from right side: */
 		*last_seq_r = mail_index_bsearch_uid(view, last_uid,
-						     *first_seq_r, -1);
+						     *first_seq_r - 1, -1);
 	}
 	i_assert(*last_seq_r >= *first_seq_r);
 	return 0;
