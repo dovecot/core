@@ -226,8 +226,12 @@ void client_destroy(struct client *client, const char *reason)
 		client->cmd(client);
 		i_assert(client->cmd == NULL);
 	}
-	if (client->trans != NULL)
-		mailbox_transaction_rollback(&client->trans);
+	if (client->trans != NULL) {
+		/* client didn't QUIT, but we still want to save any changes
+		   done in this transaction. especially the cached virtual
+		   message sizes. */
+		(void)mailbox_transaction_commit(&client->trans, 0);
+	}
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
 	mail_storage_destroy(&client->storage);
