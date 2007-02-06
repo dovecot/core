@@ -37,13 +37,13 @@ static void authenticate_callback(struct auth_request *request, int status,
 	unsigned int i;
 	bool nologin;
 
-	i_assert(client->auth_request == request);
 	if (!client->authenticating) {
 		/* client aborted */
 		i_assert(status < 0);
 		return;
 	}
 
+	i_assert(client->auth_request == request);
 	switch (status) {
 	case 0:
 		/* continue */

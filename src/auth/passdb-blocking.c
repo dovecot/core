@@ -87,7 +87,8 @@ static int get_pass_reply(struct auth_request *request, const char *reply,
 	}
 
 	if (*reply != '\0') {
-		i_assert(auth_stream_is_empty(request->extra_fields));
+		i_assert(auth_stream_is_empty(request->extra_fields) ||
+			 request->master_user != NULL);
 
 		for (tmp = t_strsplit(reply, "\t"); *tmp != NULL; tmp++) {
 			p = strchr(*tmp, '=');
@@ -122,7 +123,8 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 {
 	string_t *str;
 
-	i_assert(auth_stream_is_empty(request->extra_fields));
+	i_assert(auth_stream_is_empty(request->extra_fields) ||
+		 request->master_user != NULL);
 
 	str = t_str_new(64);
 	str_printfa(str, "PASSV\t%u\t", request->passdb->id);
@@ -154,7 +156,8 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 {
 	string_t *str;
 
-	i_assert(auth_stream_is_empty(request->extra_fields));
+	i_assert(auth_stream_is_empty(request->extra_fields) ||
+		 request->master_user != NULL);
 
 	str = t_str_new(64);
 	str_printfa(str, "PASSL\t%u\t%d\t",
