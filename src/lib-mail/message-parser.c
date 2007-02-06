@@ -101,17 +101,23 @@ static void parse_body_add_block(struct message_parser_ctx *ctx,
 static int message_parser_read_more(struct message_parser_ctx *ctx,
 				    struct message_block *block_r)
 {
+	int ret;
+
 	if (ctx->skip > 0) {
 		i_stream_skip(ctx->input, ctx->skip);
 		ctx->skip = 0;
 	}
 
-	if (i_stream_read_data(ctx->input, &block_r->data,
-			       &block_r->size, ctx->want_count) == -1)
+	ret = i_stream_read_data(ctx->input, &block_r->data,
+				 &block_r->size, ctx->want_count);
+	if (ret == -1)
 		return -1;
-	if (block_r->size == 0) {
-		i_assert(!ctx->input->blocking);
-		return 0;
+
+	if (ret == 0) {
+		if (!ctx->input->eof) {
+			i_assert(!ctx->input->blocking);
+			return 0;
+		}
 	}
 
 	ctx->want_count = 1;
@@ -328,6 +334,8 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 					 &boundary);
 		if (ret >= 0) {
 			/* found / need more data */
+			if (ret == 0 && boundary_start == 0)
+				ctx->want_count += i + 1;
 			break;
 		}
 	}
