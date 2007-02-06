@@ -768,6 +768,7 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 
 	mail_index_sync_map_init(&sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_FILE);
+	sync_map_ctx.sync_only_external = sync_only_external;
 
 	/* we'll have to update view->lock_id to avoid mail_index_view_lock()
 	   trying to update the file later. */
