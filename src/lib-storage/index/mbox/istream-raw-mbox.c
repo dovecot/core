@@ -367,6 +367,8 @@ struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input,
 	rstream->istream.sync = _sync;
 	rstream->istream.stat = _stat;
 
+	rstream->istream.istream.blocking = input->blocking;
+	rstream->istream.istream.seekable = input->seekable;
 	return _i_stream_create(&rstream->istream, pool, -1,
 				input->real_stream->abs_start_offset);
 }

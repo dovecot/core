@@ -208,42 +208,42 @@ char *i_stream_read_next_line(struct istream *stream)
 	return line;
 }
 
-const unsigned char *i_stream_get_data(struct istream *stream, size_t *size)
+const unsigned char *i_stream_get_data(struct istream *stream, size_t *size_r)
 {
 	struct _istream *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos) {
-		*size = 0;
+		*size_r = 0;
 		return NULL;
 	}
 
-        *size = _stream->pos - _stream->skip;
+        *size_r = _stream->pos - _stream->skip;
         return _stream->buffer + _stream->skip;
 }
 
 unsigned char *i_stream_get_modifiable_data(struct istream *stream,
-					    size_t *size)
+					    size_t *size_r)
 {
 	struct _istream *_stream = stream->real_stream;
 
 	if (_stream->skip >= _stream->pos || _stream->w_buffer == NULL) {
-		*size = 0;
+		*size_r = 0;
 		return NULL;
 	}
 
-        *size = _stream->pos - _stream->skip;
+        *size_r = _stream->pos - _stream->skip;
         return _stream->w_buffer + _stream->skip;
 }
 
-int i_stream_read_data(struct istream *stream, const unsigned char **data,
-		       size_t *size, size_t threshold)
+int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
+		       size_t *size_r, size_t threshold)
 {
 	ssize_t ret = 0;
 	bool read_more = FALSE;
 
 	do {
-		*data = i_stream_get_data(stream, size);
-		if (*size > threshold)
+		*data_r = i_stream_get_data(stream, size_r);
+		if (*size_r > threshold)
 			return 1;
 
 		/* we need more data */
@@ -252,9 +252,15 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data,
 			read_more = TRUE;
 	} while (ret > 0);
 
-	*data = i_stream_get_data(stream, size);
-	return ret == -2 ? -2 :
-		(read_more || ret == 0 ? 0 : -1);
+	*data_r = i_stream_get_data(stream, size_r);
+	if (ret == -2)
+		return -2;
+
+	if (read_more || ret == 0) {
+		i_assert(!stream->blocking || stream->eof);
+		return 0;
+	}
+	return -1;
 }
 
 struct istream *_i_stream_create(struct _istream *_stream, pool_t pool, int fd,

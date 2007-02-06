@@ -351,6 +351,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->istream.sync = _sync;
 	mstream->istream.stat = _stat;
 
+	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
 	return _i_stream_create(&mstream->istream, pool, -1, 0);
 }

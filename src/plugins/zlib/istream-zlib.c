@@ -124,7 +124,11 @@ static ssize_t _read(struct _istream *stream)
 
 	i_assert(zstream->seek_offset == stream->istream.v_offset +
 		 (stream->pos - stream->skip));
-	ret = gzread(zstream->file, stream->w_buffer + stream->pos, size);
+	do {
+	       ret = gzread(zstream->file, stream->w_buffer + stream->pos,
+			    size);
+	} while (ret < 0 && errno == EINTR && stream->istream.blocking);
+
 	if (ret == 0) {
 		/* EOF */
 		stream->istream.eof = TRUE;
@@ -132,9 +136,10 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	if (ret < 0) {
-		if (errno == EINTR || errno == EAGAIN)
+		if (errno == EAGAIN) {
+			i_assert(!stream->istream.blocking);
 			ret = 0;
-		else {
+		} else {
 			stream->istream.eof = TRUE;
 			stream->istream.stream_errno = errno;
 			return -1;
@@ -236,6 +241,7 @@ static void _sync(struct _istream *stream)
 struct istream *i_stream_create_zlib(int fd, pool_t pool)
 {
 	struct zlib_istream *zstream;
+	struct stat st;
 
 	zstream = p_new(pool, struct zlib_istream, 1);
 	zstream->fd = fd;
@@ -252,6 +258,11 @@ struct istream *i_stream_create_zlib(int fd, pool_t pool)
 	zstream->istream.stat = _stat;
 	zstream->istream.sync = _sync;
 
-	zstream->istream.istream.seekable = TRUE;
+	/* if it's a file, set the flags properly */
+	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
+		zstream->istream.istream.blocking = TRUE;
+		zstream->istream.istream.seekable = TRUE;
+	}
+
 	return _i_stream_create(&zstream->istream, pool, fd, 0);
 }

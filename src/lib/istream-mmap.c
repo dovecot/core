@@ -234,6 +234,7 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 
 	istream = _i_stream_create(&mstream->istream, pool, fd, start_offset);
 	istream->mmaped = TRUE;
+	istream->blocking = TRUE;
 	istream->seekable = TRUE;
 	return istream;
 }

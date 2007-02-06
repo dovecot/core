@@ -114,15 +114,17 @@ static ssize_t _read(struct _istream *stream)
 
 	ret = -1;
 
-	if (fstream->file) {
-		do {
+	do {
+		if (fstream->file) {
 			ret = pread(stream->fd, stream->w_buffer + stream->pos,
 				    size, stream->istream.v_offset +
 				    (stream->pos - stream->skip));
-		} while (ret < 0 && errno == EINTR);
-	} else {
-		ret = read(stream->fd, stream->w_buffer + stream->pos, size);
-	}
+		} else {
+			ret = read(stream->fd, stream->w_buffer + stream->pos,
+				   size);
+		}
+	} while (ret < 0 && errno == EINTR && stream->istream.blocking);
+
 	if (ret == 0) {
 		/* EOF */
 		stream->istream.eof = TRUE;
@@ -130,9 +132,10 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	if (ret < 0) {
-		if (errno == EINTR || errno == EAGAIN)
+		if (errno == EINTR || errno == EAGAIN) {
+			i_assert(!stream->istream.blocking);
 			ret = 0;
-		else {
+		} else {
 			stream->istream.eof = TRUE;
 			stream->istream.stream_errno = errno;
 			return -1;
@@ -238,9 +241,10 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 	fstream->istream.sync = _sync;
 	fstream->istream.stat = _stat;
 
-	/* get size of fd if it's a file */
+	/* if it's a file, set the flags properly */
 	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
 		fstream->file = TRUE;
+		fstream->istream.istream.blocking = TRUE;
 		fstream->istream.istream.seekable = TRUE;
 	}
 
