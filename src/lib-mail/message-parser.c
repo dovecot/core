@@ -75,6 +75,8 @@ static void parse_body_add_block(struct message_parser_ctx *ctx,
 	const unsigned char *data = block->data;
 	size_t i;
 
+	i_assert(ctx->skip == 0);
+
 	block->hdr = NULL;
 
 	for (i = 0; i < block->size; i++) {
@@ -107,8 +109,10 @@ static int message_parser_read_more(struct message_parser_ctx *ctx,
 	if (i_stream_read_data(ctx->input, &block_r->data,
 			       &block_r->size, ctx->want_count) == -1)
 		return -1;
-	if (block_r->size == 0) 
+	if (block_r->size == 0) {
+		i_assert(!ctx->input->blocking);
 		return 0;
+	}
 
 	ctx->want_count = 1;
 	return 1;
@@ -158,7 +162,7 @@ static void parse_next_body_message_rfc822_init(struct message_parser_ctx *ctx)
 
 static int
 boundary_line_find(struct message_parser_ctx *ctx,
-		   const unsigned char *data, size_t size, bool eof,
+		   const unsigned char *data, size_t size, bool full,
 		   struct message_boundary **boundary_r)
 {
 	size_t i;
@@ -166,7 +170,9 @@ boundary_line_find(struct message_parser_ctx *ctx,
 	*boundary_r = NULL;
 
 	if (size < 2) {
-		if (eof)
+		i_assert(!full);
+
+		if (ctx->input->eof)
 			return -1;
 		ctx->want_count = 2;
 		return 0;
@@ -182,7 +188,8 @@ boundary_line_find(struct message_parser_ctx *ctx,
 		if (data[i] == '\n')
 			break;
 	}
-	if (i == size && i < BOUNDARY_END_MAX_LEN && !eof) {
+	if (i == size && i < BOUNDARY_END_MAX_LEN &&
+	    !ctx->input->eof && !full) {
 		/* no LF found */
 		ctx->want_count = BOUNDARY_END_MAX_LEN;
 		return 0;
@@ -282,19 +289,20 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	const unsigned char *data;
 	size_t i, boundary_start;
 	int ret;
-	bool eof;
+	bool eof, full;
 
 	if ((ret = message_parser_read_more(ctx, block_r)) == 0 ||
 	    block_r->size == 0)
 		return ret;
 	eof = ret == -1;
+	full = ret == -2;
 
 	data = block_r->data;
 	if (ctx->last_chr == '\n') {
 		/* handle boundary in first line of message. alternatively
 		   it's an empty line. */
 		ret = boundary_line_find(ctx, block_r->data,
-					 block_r->size, eof, &boundary);
+					 block_r->size, full, &boundary);
 		if (ret >= 0) {
 			if (ret == 0)
 				return 0;
@@ -303,7 +311,7 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 		}
 	}
 
-	for (i = boundary_start = 0;; i++) {
+	for (i = boundary_start = 0; i < block_r->size; i++) {
 		for (; i < block_r->size; i++) {
 			if (data[i] == '\n') {
 				boundary_start = i;
@@ -312,32 +320,35 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 				break;
 			}
 		}
+		if (boundary_start != 0)
+			full = FALSE;
 
 		ret = boundary_line_find(ctx, block_r->data + i + 1,
-					 block_r->size - (i + 1), eof,
+					 block_r->size - (i + 1), full,
 					 &boundary);
-		if (ret >= 0 || eof)
-			break;
-		if (i == block_r->size) {
-			ret = 0;
+		if (ret >= 0) {
+			/* found / need more data */
 			break;
 		}
 	}
 
-	if (!eof || ret > 0) {
+	if (i == block_r->size) {
+		/* the boundary wasn't found from this data block,
+		   we'll need more data. */
+		ret = eof ? -1 : 0;
+	}
+	i_assert(!(ret == 0 && full));
+
+	if (ret >= 0) {
 		/* leave CR+LF + last line to buffer */
 		block_r->size = boundary_start;
 	}
-	if (block_r->size != 0) {
-		parse_body_add_block(ctx, block_r);
-		return 1;
+	if (ret <= 0) {
+		if (block_r->size != 0)
+			parse_body_add_block(ctx, block_r);
+		return ret;
 	}
-	if (ret == 0)
-		return 0;
-	if (eof && ret <= 0)
-		return -1;
 
-	i_assert(ret > 0);
 	return parse_part_finish(ctx, boundary, block_r);
 }
 
@@ -540,18 +551,21 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	bool eof = FALSE;
 
 	while ((ret = ctx->parse_next_block(ctx, block_r)) == 0) {
-		if ((ret = i_stream_read(ctx->input)) == 0)
-			break;
-		if (ret < 0) {
-			if (ret == -2)
-				ret = 0;
-			if (eof)
-				break;
-			eof = TRUE;
-		} else {
-			eof = FALSE;
+		ret = message_parser_read_more(ctx, block_r);
+		if (ret <= 0) {
+			i_assert(ret != -2);
+
+			if (ret == 0) {
+				i_assert(!ctx->input->blocking);
+				return 0;
+			}
+			if (ret < 0) {
+				i_assert(!eof);
+				eof = TRUE;
+			}
 		}
 	}
+
 	block_r->part = ctx->part;
 
 	if (ret < 0) {
