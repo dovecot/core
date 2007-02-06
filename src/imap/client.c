@@ -397,6 +397,15 @@ void client_command_free(struct client_command_context *cmd)
 	}
 }
 
+static void client_add_missing_io(struct client *client)
+{
+	if (client->io == NULL) {
+		i_assert(i_stream_get_fd(client->input) >= 0);
+		client->io = io_add(i_stream_get_fd(client->input),
+				    IO_READ, _client_input, client);
+	}
+}
+
 void client_continue_pending_input(struct client *client)
 {
 	size_t size;
@@ -417,11 +426,7 @@ void client_continue_pending_input(struct client *client)
 			return;
 	}
 
-	if (client->io == NULL) {
-		i_assert(i_stream_get_fd(client->input) >= 0);
-		client->io = io_add(i_stream_get_fd(client->input),
-				    IO_READ, _client_input, client);
-	}
+	client_add_missing_io(client);
 
 	/* if there's unread data in buffer, handle it. */
 	(void)i_stream_get_data(client->input, &size);
@@ -459,6 +464,7 @@ static bool client_command_input(struct client_command_context *cmd)
 		if (cmd->func(cmd) || cmd->param_error) {
 			/* command execution was finished */
 			client_command_free(cmd);
+			client_add_missing_io(client);
 			return TRUE;
 		}
 
@@ -552,6 +558,8 @@ void _client_input(struct client *client)
 {
 	struct client_command_context *cmd;
 	int ret;
+
+	i_assert(client->io != NULL);
 
 	client->last_input = ioloop_time;
 
