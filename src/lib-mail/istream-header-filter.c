@@ -216,6 +216,9 @@ static ssize_t _read(struct _istream *stream)
 		      mstream->header_size.virtual_size +
 		      mstream->header_size.physical_size);
 
+	stream->pos -= stream->skip;
+	stream->skip = 0;
+
 	stream->buffer = i_stream_get_data(mstream->input, &pos);
 	if (pos <= stream->pos) {
 		if ((ret = i_stream_read(mstream->input)) == -2) {
@@ -227,9 +230,6 @@ static ssize_t _read(struct _istream *stream)
 	} else {
 		ret = 0;
 	}
-
-	stream->pos -= stream->skip;
-	stream->skip = 0;
 
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
 		(ret == 0 ? 0 : -1);
