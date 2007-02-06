@@ -351,7 +351,6 @@ client_command_new(struct client *client)
 void client_command_free(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	size_t size;
 
 	/* reset input idle time because command output might have taken a
 	   long time and we don't want to disconnect client immediately then */
@@ -396,24 +395,38 @@ void client_command_free(struct client_command_context *cmd)
 		/* no commands left in the queue, we can clear the pool */
 		p_clear(client->command_pool);
 	}
+}
 
-	if (!client->disconnected &&
-	    (client->input_lock == NULL ||
-	     (client->input_lock->waiting_unambiguity &&
-	      !client_command_check_ambiguity(client->input_lock)))) {
-		if (client->io == NULL) {
-			i_assert(i_stream_get_fd(client->input) >= 0);
-			client->io = io_add(i_stream_get_fd(client->input),
-					    IO_READ, _client_input, client);
-		}
+void client_continue_pending_input(struct client *client)
+{
+	size_t size;
 
-		/* if there's unread data in buffer, handle it. */
-		if (!client->handling_input) {
-			(void)i_stream_get_data(client->input, &size);
-			if (size > 0 && !client->destroyed)
-				_client_input(client);
-		}
+	i_assert(!client->handling_input);
+
+	if (client->disconnected)
+		return;
+
+	if (client->input_lock != NULL) {
+		/* there's a command that has locked the input */
+		if (!client->input_lock->waiting_unambiguity)
+			return;
+
+		/* the command is waiting for existing ambiguity causing
+		   commands to finish. */
+		if (client_command_check_ambiguity(client->input_lock))
+			return;
 	}
+
+	if (client->io == NULL) {
+		i_assert(i_stream_get_fd(client->input) >= 0);
+		client->io = io_add(i_stream_get_fd(client->input),
+				    IO_READ, _client_input, client);
+	}
+
+	/* if there's unread data in buffer, handle it. */
+	(void)i_stream_get_data(client->input, &size);
+	if (size > 0)
+		_client_input(client);
 }
 
 /* Skip incoming data until newline is found,
@@ -573,6 +586,8 @@ void _client_input(struct client *client)
 
 	if (client->output->closed)
 		client_destroy(client, NULL);
+	else
+		client_continue_pending_input(client);
 }
 
 static void client_output_cmd(struct client_command_context *cmd)
@@ -597,6 +612,8 @@ int _client_output(struct client *client)
 	struct client_command_context *cmd;
 	int ret;
 
+	i_assert(!client->destroyed);
+
 	client->last_output = ioloop_time;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
@@ -616,6 +633,13 @@ int _client_output(struct client *client)
 		}
 	}
 	o_stream_uncork(client->output);
+
+	if (client->output->closed) {
+		client_destroy(client, NULL);
+		return 1;
+	} else {
+		client_continue_pending_input(client);
+	}
 	return ret;
 }
 

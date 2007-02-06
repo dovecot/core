@@ -63,6 +63,7 @@ static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
 
 	o_stream_uncork(client->output);
 	client_command_free(ctx->cmd);
+	client_continue_pending_input(client);
 }
 
 static void idle_client_input(struct cmd_idle_context *ctx)

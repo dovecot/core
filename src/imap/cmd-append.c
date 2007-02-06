@@ -36,6 +36,8 @@ static void client_input(struct client_command_context *cmd)
 	struct cmd_append_context *ctx = cmd->context;
 	struct client *client = cmd->client;
 
+	i_assert(!client->destroyed);
+
 	client->last_input = ioloop_time;
 
 	switch (i_stream_read(client->input)) {
@@ -66,8 +68,10 @@ static void client_input(struct client_command_context *cmd)
 		return;
 	}
 
-	if (cmd->func(cmd))
+	if (cmd->func(cmd)) {
 		client_command_free(cmd);
+		client_continue_pending_input(client);
+	}
 }
 
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
@@ -106,7 +110,7 @@ static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
 
 static void cmd_append_finish(struct cmd_append_context *ctx)
 {
-        imap_parser_destroy(&ctx->save_parser);
+	imap_parser_destroy(&ctx->save_parser);
 
 	i_assert(ctx->client->input_lock == ctx->cmd);
 
@@ -303,6 +307,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	struct cmd_append_context *ctx = cmd->context;
 	size_t size;
 	bool failed;
+	int ret;
 
 	if (cmd->cancel) {
 		cmd_append_finish(ctx);
@@ -310,10 +315,15 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	}
 
 	if (ctx->save_ctx != NULL) {
-		if (mailbox_save_continue(ctx->save_ctx) < 0) {
-			/* we still have to finish reading the message
-			   from client */
-			mailbox_save_cancel(&ctx->save_ctx);
+		while (ctx->input->v_offset != ctx->msg_size) {
+			ret = i_stream_read(ctx->input);
+			if (mailbox_save_continue(ctx->save_ctx) < 0) {
+				/* we still have to finish reading the message
+				   from client */
+				mailbox_save_cancel(&ctx->save_ctx);
+			}
+			if (ret == -1)
+				break;
 		}
 	}
 
@@ -324,9 +334,9 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 	}
 
 	if (ctx->input->eof || client->input->closed) {
-		/* finished */
 		bool all_written = ctx->input->v_offset == ctx->msg_size;
 
+		/* finished */
 		i_stream_unref(&ctx->input);
 		ctx->input = NULL;
 

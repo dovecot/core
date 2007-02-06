@@ -104,11 +104,14 @@ static bool cmd_search_more(struct client_command_context *cmd)
 
 static void cmd_search_more_callback(struct client_command_context *cmd)
 {
-	if (cmd_search_more(cmd))
+	struct client *client = cmd->client;
+
+	if (cmd_search_more(cmd)) {
 		client_command_free(cmd);
-	else {
+		client_continue_pending_input(client);
+	} else {
 		if (cmd->output_pending)
-			o_stream_set_flush_pending(cmd->client->output, TRUE);
+			o_stream_set_flush_pending(client->output, TRUE);
 	}
 }
 
