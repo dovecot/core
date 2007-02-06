@@ -61,7 +61,7 @@ void client_command_cancel(struct client_command_context *cmd)
 	bool cmd_ret;
 
 	cmd->cancel = TRUE;
-	cmd_ret = cmd->func(cmd);
+	cmd_ret = cmd->func == NULL ? TRUE : cmd->func(cmd);
 	if (!cmd_ret) {
 		if (cmd->client->output->closed)
 			i_panic("command didn't cancel itself: %s", cmd->name);
