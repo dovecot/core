@@ -243,6 +243,8 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 			     struct message_boundary *boundary,
 			     struct message_block *block_r)
 {
+	struct message_part *part;
+
 	if (boundary == NULL) {
 		/* message ended unexpectedly */
 		return -1;
@@ -250,13 +252,11 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 
 	/* get back to parent MIME part, summing the child MIME part sizes
 	   into parent's body sizes */
-	while (boundary->part != ctx->part) {
-		message_size_add(&ctx->part->parent->body_size,
-				 &ctx->part->body_size);
-		message_size_add(&ctx->part->parent->body_size,
-				 &ctx->part->header_size);
-		ctx->part = ctx->part->parent;
+	for (part = ctx->part; part != boundary->part; part = part->parent) {
+		message_size_add(&part->parent->body_size, &part->body_size);
+		message_size_add(&part->parent->body_size, &part->header_size);
 	}
+	ctx->part = part;
 
 	if (boundary->epilogue_found) {
 		/* this boundary isn't needed anymore */
@@ -332,10 +332,15 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 		}
 	}
 
-	if (i == block_r->size) {
+	if (i >= block_r->size) {
 		/* the boundary wasn't found from this data block,
 		   we'll need more data. */
-		ret = eof ? -1 : 0;
+		if (eof)
+			ret = -1;
+		else {
+			ret = 0;
+			ctx->want_count = i + 1;
+		}
 	}
 	i_assert(!(ret == 0 && full));
 
@@ -569,6 +574,7 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	block_r->part = ctx->part;
 
 	if (ret < 0) {
+		i_assert(ctx->input->eof);
 		while (ctx->part->parent != NULL) {
 			message_size_add(&ctx->part->parent->body_size,
 					 &ctx->part->body_size);
