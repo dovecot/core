@@ -1771,14 +1771,6 @@ __again:
                 ret = mbox_rewrite_base_uid_last(&sync_ctx);
 	}
 
-	if (ret == 0 && mbox->mbox_lock_type == F_WRLCK &&
-	    !mbox->mbox_writeonly && !mbox->ibox.fsync_disable) {
-		if (fsync(mbox->mbox_fd) < 0) {
-			mbox_set_syscall_error(mbox, "fsync()");
-			ret = -1;
-		}
-	}
-
 	if (lock_id != 0 && mbox->mbox_lock_type != F_RDLCK) {
 		/* drop to read lock */
 		unsigned int read_lock_id = 0;
