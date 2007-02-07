@@ -40,7 +40,7 @@ static void mail_log_action(struct mail *mail, const char *action)
 
 	msgid = mail_get_first_header(mail, "Message-ID");
 	i_info("%s: uid=%u, msgid=%s", action, mail->uid,
-	       str_sanitize(msgid, MSGID_LOG_LEN));
+	       msgid == NULL ? "(null)" : str_sanitize(msgid, MSGID_LOG_LEN));
 }
 
 static int mail_log_mail_expunge(struct mail *_mail)
