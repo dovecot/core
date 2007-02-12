@@ -1,8 +1,6 @@
-Some of these documentation files are out of date and generally not that
-useful. See wiki instead:
+All the useful documentation is currently only in Dovecot's wiki:
 
 http://wiki.dovecot.org/
 
-Some of these contents in these files aren't yet in Wiki, so they haven't
-yet been deleted. At some point the Wiki files will be included in this
-directory as plaintext.
+Perhaps some day they'll also be included in this directory as .txt files.
+You can speed that up by creating a script which does that.
