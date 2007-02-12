@@ -192,7 +192,8 @@ env_put_namespace(struct namespace_settings *ns, const char *default_location,
 
 static void
 mail_process_set_environment(struct settings *set, const char *mail,
-			     const struct var_expand_table *var_expand_table)
+			     const struct var_expand_table *var_expand_table,
+			     bool dump_capability)
 {
 	const char *const *envs;
 	string_t *str;
@@ -257,7 +258,9 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MBOX_VERY_DIRTY_SYNCS=1");
 	if (set->mbox_lazy_writes)
 		env_put("MBOX_LAZY_WRITES=1");
-	if (set->shutdown_clients)
+	/* when running dump-capability log still points to stderr,
+	   and io_add()ing it might break (epoll_ctl() gives EPERM) */
+	if (set->shutdown_clients && !dump_capability)
 		env_put("STDERR_CLOSE_SHUTDOWN=1");
 	(void)umask(set->umask);
 
@@ -346,7 +349,8 @@ void mail_process_exec(const char *protocol, const char *section)
 				     getenv("TCPREMOTEIP"),
 				     getpid(), geteuid());
 
-	mail_process_set_environment(set, getenv("MAIL"), var_expand_table);
+	mail_process_set_environment(set, getenv("MAIL"), var_expand_table,
+				     FALSE);
         client_process_exec(executable, "");
 
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
@@ -605,7 +609,8 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 			i_fatal("chdir(/tmp) failed: %m");
 	}
 
-        mail_process_set_environment(set, mail, var_expand_table);
+	mail_process_set_environment(set, mail, var_expand_table,
+				     dump_capability);
 
 	/* extra args. uppercase key value. */
 	args = array_get(&extra_args, &count);
