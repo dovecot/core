@@ -42,8 +42,10 @@ static void passwd_lookup(struct auth_request *auth_request,
 }
 
 static void passwd_passwd_init(struct userdb_module *module,
-			       const char *args __attr_unused__)
+			       const char *args)
 {
+	if (strcmp(args, "blocking=yes") == 0)
+		module->blocking = TRUE;
 	module->cache_key = USER_CACHE_KEY;
 }
 
