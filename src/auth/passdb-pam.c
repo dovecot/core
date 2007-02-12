@@ -14,6 +14,7 @@
 #include "lib-signals.h"
 #include "buffer.h"
 #include "ioloop.h"
+#include "hash.h"
 #include "network.h"
 #include "passdb.h"
 #include "mycrypt.h"
@@ -23,6 +24,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/wait.h>
+
+#define PAM_CHILD_TIMEOUT (60*2)
+#define PAM_CHILD_CHECK_TIMEOUT 10
 
 #ifdef HAVE_SECURITY_PAM_APPL_H
 #  include <security/pam_appl.h>
@@ -67,8 +71,12 @@ struct pam_passdb_module {
 };
 
 struct pam_auth_request {
+	int refcount;
 	int fd;
 	struct io *io;
+
+	time_t start_time;
+	pid_t pid;
 
 	struct auth_request *request;
         verify_plain_callback_t *callback;
@@ -78,6 +86,9 @@ struct pam_userpass {
 	const char *user;
 	const char *pass;
 };
+
+static struct hash_table *pam_requests;
+static struct timeout *to;
 
 static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	struct pam_response **resp, void *appdata_ptr)
@@ -358,12 +369,14 @@ static void pam_child_input(struct pam_auth_request *request)
 	request->callback(result, auth_request);
 	auth_request_unref(&auth_request);
 
-	i_free(request);
+	if (--request->refcount == 0)
+		i_free(request);
 }
 
 static void sigchld_handler(int signo __attr_unused__,
 			    void *context __attr_unused__)
 {
+	struct pam_auth_request *request;
 	int status;
 	pid_t pid;
 
@@ -375,10 +388,25 @@ static void sigchld_handler(int signo __attr_unused__,
 			return;
 		}
 
+		request = hash_lookup(pam_requests, POINTER_CAST(pid));
+		if (request == NULL) {
+			i_error("PAM: Unknown child %s exited with status %d",
+				dec2str(pid), status);
+			continue;
+		}
+
 		if (WIFSIGNALED(status)) {
 			i_error("PAM: Child %s died with signal %d",
 				dec2str(pid), WTERMSIG(status));
+		} else if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+			i_error("PAM: Child %s exited unexpectedly with "
+				"exit code %d", dec2str(pid),
+				WEXITSTATUS(status));
 		}
+
+		hash_remove(pam_requests, POINTER_CAST(request->pid));
+		if (--request->refcount == 0)
+			i_free(request);
 	}
 }
 
@@ -423,12 +451,16 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 	auth_request_ref(request);
 	pam_auth_request = i_new(struct pam_auth_request, 1);
+	pam_auth_request->refcount = 2;
 	pam_auth_request->fd = fd[0];
 	pam_auth_request->request = request;
 	pam_auth_request->callback = callback;
+	pam_auth_request->pid = pid;
+	pam_auth_request->start_time = ioloop_time;
 
 	pam_auth_request->io =
 		io_add(fd[0], IO_READ, pam_child_input, pam_auth_request);
+	hash_insert(pam_requests, POINTER_CAST(pid), pam_auth_request);
 }
 
 static struct passdb_module *
@@ -472,9 +504,39 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 	return &module->module;
 }
 
+static void pam_child_timeout(void *context __attr_unused__)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
+	time_t timeout = ioloop_time - PAM_CHILD_TIMEOUT;
+
+	iter = hash_iterate_init(pam_requests);
+	while (hash_iterate(iter, &key, &value)) {
+		struct pam_auth_request *request = value;
+
+		if (request->start_time > timeout)
+			continue;
+
+		auth_request_log_error(request->request, "pam",
+			"PAM child process %s timed out, killing it",
+			dec2str(request->pid));
+		if (kill(request->pid, SIGKILL) < 0) {
+			i_error("PAM: kill(%s) failed: %m",
+				dec2str(request->pid));
+		}
+	}
+	hash_iterate_deinit(iter);
+}
+
 static void pam_init(struct passdb_module *_module __attr_unused__,
 		     const char *args __attr_unused__)
 {
+	if (pam_requests != NULL)
+		i_fatal("Can't support more than one PAM passdb");
+
+	pam_requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
+	to = timeout_add(PAM_CHILD_CHECK_TIMEOUT, pam_child_timeout, NULL);
+
 	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
 	/* we're caching the password by using directly the plaintext password
 	   given by the auth mechanism */
@@ -484,6 +546,8 @@ static void pam_init(struct passdb_module *_module __attr_unused__,
 static void pam_deinit(struct passdb_module *_module __attr_unused__)
 {
 	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
+	hash_destroy(pam_requests);
+	timeout_remove(&to);
 }
 
 struct passdb_module_interface passdb_pam = {
