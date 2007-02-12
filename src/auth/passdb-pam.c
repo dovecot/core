@@ -243,7 +243,7 @@ static int pam_auth(struct auth_request *request,
 	return PAM_SUCCESS;
 }
 
-static void
+static enum passdb_result 
 pam_verify_plain_child(struct auth_request *request, const char *service,
 		       const char *password, int fd)
 {
@@ -301,6 +301,11 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 		}
 	}
 
+	if (worker) {
+		/* blocking=yes code path in auth worker */
+		return result;
+	}
+
 	buf = buffer_create_dynamic(pool_datastack_create(), 512);
 	buffer_append(buf, &result, sizeof(result));
 
@@ -318,6 +323,7 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 				ret, buf->used);
 		}
 	}
+	return result;
 }
 
 static void pam_child_input(struct pam_auth_request *request)
@@ -417,12 +423,21 @@ pam_verify_plain(struct auth_request *request, const char *password,
         struct passdb_module *_module = request->passdb->passdb;
         struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
         struct pam_auth_request *pam_auth_request;
+	enum passdb_result result;
 	const char *service;
 	int fd[2];
 	pid_t pid;
 
 	service = module->service_name != NULL ?
 		module->service_name : request->service;
+
+	if (worker) {
+		/* blocking=yes code path in auth worker */
+		result = pam_verify_plain_child(request, service, password, -1);
+		callback(result, request);
+		return;
+	}
+
 	if (pipe(fd) < 0) {
 		auth_request_log_error(request, "pam", "pipe() failed: %m");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
@@ -486,6 +501,8 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 			module->module.cache_key =
 				p_strdup(auth_passdb->auth->pool,
 					 t_args[i] + 10);
+		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
+			module->module.blocking = TRUE;
 		} else if (strcmp(t_args[i], "*") == 0) {
 			module->service_name = NULL;
 		} else if (t_args[i+1] == NULL) {
@@ -534,20 +551,27 @@ static void pam_init(struct passdb_module *_module __attr_unused__,
 	if (pam_requests != NULL)
 		i_fatal("Can't support more than one PAM passdb");
 
-	pam_requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
-	to = timeout_add(PAM_CHILD_CHECK_TIMEOUT, pam_child_timeout, NULL);
-
-	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
 	/* we're caching the password by using directly the plaintext password
 	   given by the auth mechanism */
 	_module->default_pass_scheme = "PLAIN";
+
+	if (!_module->blocking) {
+		pam_requests = hash_create(default_pool, default_pool, 0,
+					   NULL, NULL);
+		to = timeout_add(PAM_CHILD_CHECK_TIMEOUT,
+				 pam_child_timeout, NULL);
+
+		lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+	}
 }
 
 static void pam_deinit(struct passdb_module *_module __attr_unused__)
 {
-	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
-	hash_destroy(pam_requests);
-	timeout_remove(&to);
+	if (!_module->blocking) {
+		lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
+		hash_destroy(pam_requests);
+		timeout_remove(&to);
+	}
 }
 
 struct passdb_module_interface passdb_pam = {
