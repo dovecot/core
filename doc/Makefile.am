@@ -3,7 +3,6 @@ docdir = $(datadir)/doc/dovecot
 doc_DATA = \
 	USE-WIKI-INSTEAD \
 	auth-protocol.txt \
-	configuration.txt \
 	securecoding.txt \
 	variables.txt
 
