@@ -36,7 +36,7 @@ struct mbox_save_context {
 
 	string_t *headers;
 	size_t space_end_idx;
-	uint32_t seq, next_uid;
+	uint32_t seq, next_uid, uid_validity;
 
 	struct istream *input;
 	struct ostream *output, *body_output;
@@ -199,6 +199,7 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 	hdr = mail_index_get_header(view);
 
 	ctx->next_uid = hdr->next_uid;
+	ctx->uid_validity = hdr->uid_validity;
 	ctx->synced = TRUE;
         t->mbox_modified = TRUE;
 
@@ -387,6 +388,11 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	save_flags = (flags & ~MAIL_RECENT) | MAIL_RECENT;
 	str_truncate(ctx->headers, 0);
 	if (ctx->synced) {
+		if (ctx->output->offset == 0) {
+			/* writing the first mail. Insert X-IMAPbase as well. */
+			str_printfa(ctx->headers, "X-IMAPbase: %u %010u\n",
+				    ctx->uid_validity, ctx->next_uid);
+		}
 		str_printfa(ctx->headers, "X-UID: %u\n", ctx->next_uid);
 		if (!mbox->ibox.keep_recent)
 			save_flags &= ~MAIL_RECENT;
