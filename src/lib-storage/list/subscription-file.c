@@ -144,6 +144,11 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 		}
 	}
 
+	if (!failed && fsync(fd_out) < 0) {
+		subsfile_set_syscall_error(list, "fsync()", path);
+		failed = TRUE;
+	}
+
 	if (input != NULL)
 		i_stream_destroy(&input);
 	o_stream_destroy(&output);

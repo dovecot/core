@@ -303,6 +303,12 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 			return -1;
 		}
 	}
+
+	if (fsync(fd) < 0) {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+			"fsync(%s) failed: %m", path);
+		return -1;
+	}
 	return 0;
 }
 
