@@ -118,8 +118,13 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 		*value_r = 0;
 	else if (ret == 0)
 		ret = dict_quota_count(root, want_bytes, value_r);
-	else
-		*value_r = strtoull(value, NULL, 10);
+	else {
+		long long tmp;
+
+		/* don't break in case the quota value is negative. */
+		tmp = strtoll(value, NULL, 10);
+		*value_r = tmp < 0 ? 0 : tmp;
+	}
 
 	t_pop();
 	return ret;
