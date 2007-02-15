@@ -793,6 +793,12 @@ login_processes_start_missing(void *context __attr_unused__)
 {
 	struct login_group *group;
 
+	if (!have_initialized_auth_processes) {
+		/* don't create login processes before at least one auth
+		   process has finished initializing */
+		return;
+	}
+
 	if (login_groups == NULL)
 		login_process_groups_create();
 

@@ -54,6 +54,8 @@ struct auth_process {
 	unsigned int in_auth_reply:1;
 };
 
+bool have_initialized_auth_processes = FALSE;
+
 static struct timeout *to;
 static unsigned int auth_tag;
 static struct auth_process_group *process_groups;
@@ -167,6 +169,8 @@ auth_process_input_spid(struct auth_process *process, const char *args)
 
 	process->pid = pid;
         process->initialized = TRUE;
+
+	have_initialized_auth_processes = TRUE;
 	return TRUE;
 }
 
@@ -772,6 +776,8 @@ void auth_processes_init(void)
 {
 	process_groups = NULL;
 	to = timeout_add(1000, auth_processes_start_missing, NULL);
+
+	auth_processes_start_missing(NULL);
 }
 
 void auth_processes_deinit(void)

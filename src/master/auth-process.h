@@ -3,6 +3,8 @@
 
 struct login_auth_request;
 
+extern bool have_initialized_auth_processes;
+
 void auth_master_callback(const char *user, const char *const *args,
 			  struct login_auth_request *request);
 
