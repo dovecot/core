@@ -712,6 +712,8 @@ void auth_processes_destroy_all(void)
 		auth_process_group_destroy(process_groups);
 		process_groups = next;
 	}
+
+	have_initialized_auth_processes = FALSE;
 }
 
 static void auth_process_groups_create(struct server_settings *server)
