@@ -37,8 +37,7 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 		  const char *key, struct auth_cache_node **node_r,
 		  bool *expired_r);
 /* Insert key => value into cache. */
-void auth_cache_insert(struct auth_cache *cache,
-		       const struct auth_request *request,
+void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 		       const char *key, const char *value, bool last_success);
 
 /* Remove key from cache */

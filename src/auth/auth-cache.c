@@ -188,13 +188,20 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 	return node->data + strlen(node->data) + 1;
 }
 
-void auth_cache_insert(struct auth_cache *cache,
-		       const struct auth_request *request,
+void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 		       const char *key, const char *value, bool last_success)
 {
 	string_t *str;
         struct auth_cache_node *node;
 	size_t data_size, alloc_size, value_len = strlen(value);
+	char *current_username;
+
+	/* store into cache using the original username, except if we're doing
+	   a master user login */
+	current_username = request->user;
+	if (request->original_username != NULL &&
+	    request->requested_login_user == NULL)
+		request->user = t_strdup_noconst(request->original_username);
 
 	/* %! is prepended automatically. it contains the db ID number. */
 	str = t_str_new(256);
@@ -202,6 +209,8 @@ void auth_cache_insert(struct auth_cache *cache,
 				    "%!/", key, NULL),
 		   auth_request_get_var_expand_table(request,
 						     auth_request_str_escape));
+
+	request->user = current_username;
 
 	data_size = str_len(str) + 1 + value_len + 1;
 	alloc_size = sizeof(struct auth_cache_node) -

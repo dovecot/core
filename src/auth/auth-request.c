@@ -933,6 +933,12 @@ void auth_request_set_field(struct auth_request *request,
 	if (strcmp(name, "user") == 0) {
 		/* update username to be exactly as it's in database */
 		if (strcmp(request->user, value) != 0) {
+			/* remember the original username for cache */
+			if (request->original_username == NULL) {
+				request->original_username =
+					p_strdup(request->pool, request->user);
+			}
+
 			auth_request_log_debug(request, "auth",
 				"username changed %s -> %s",
 				request->user, value);
