@@ -50,7 +50,10 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 
 	i_assert(path != NULL);
 	i_assert(callback != NULL);
-	
+
+	if (current_ioloop->notify_handler_context == NULL)
+		io_loop_notify_handler_init(current_ioloop);
+
 	io = io_loop_notify_add(current_ioloop, path, callback, context);
 	if (io == NULL)
 		return NULL;
@@ -313,7 +316,6 @@ struct ioloop *io_loop_create(pool_t pool)
 	ioloop->pool = pool;
 
 	io_loop_handler_init(ioloop);
-	io_loop_notify_handler_init(ioloop);
 
 	ioloop->prev = current_ioloop;
         current_ioloop = ioloop;
@@ -328,7 +330,8 @@ void io_loop_destroy(struct ioloop **_ioloop)
 
 	*_ioloop = NULL;
 
-	io_loop_notify_handler_deinit(ioloop);
+	if (ioloop->notify_handler_context != NULL)
+		io_loop_notify_handler_deinit(ioloop);
 
 	while (ioloop->ios != NULL) {
 		struct io *io = ioloop->ios;
