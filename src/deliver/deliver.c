@@ -44,6 +44,10 @@
 struct deliver_settings *deliver_set;
 deliver_mail_func_t *deliver_mail = NULL;
 
+/* FIXME: these two should be in some context struct instead of as globals.. */
+static const char *default_mailbox_name = NULL;
+static bool tried_default_save = FALSE;
+
 static struct module *modules;
 static struct ioloop *ioloop;
 
@@ -108,6 +112,9 @@ int deliver_save(struct mail_storage *storage, const char *mailbox,
 	struct mail_keywords *kw;
 	const char *msgid;
 	int ret = 0;
+
+	if (strcmp(mailbox, default_mailbox_name) == 0)
+		tried_default_save = TRUE;
 
 	box = mailbox_open_or_create_synced(storage, mailbox);
 	if (box == NULL)
@@ -633,28 +640,31 @@ int main(int argc, char *argv[])
 	if (mail_set_seq(mail, 1) < 0)
 		i_fatal("mail_set_seq() failed");
 
+	default_mailbox_name = mailbox;
 	ret = deliver_mail == NULL ? 0 :
 		deliver_mail(storage, mail, destination, mailbox);
 
-	if (ret <= 0) {
-		/* plugins didn't handle this. save into INBOX. */
+	if (ret == 0 || (ret < 0 && !tried_default_save)) {
+		/* plugins didn't handle this. save into the default mailbox. */
 		i_stream_seek(input, 0);
-		if (deliver_save(storage, mailbox, mail, 0, NULL) < 0) {
-			const char *error;
-			bool syntax, temporary_error;
-			int ret;
+		ret = deliver_save(storage, mailbox, mail, 0, NULL);
+	}
 
-			error = mail_storage_get_last_error(storage, &syntax,
-							    &temporary_error);
-			if (temporary_error)
-				return EX_TEMPFAIL;
+	if (ret < 0) {
+		const char *error;
+		bool syntax, temporary_error;
+		int ret;
 
-			/* we'll have to reply with permanent failure */
-			ret = mail_send_rejection(mail, destination, error);
-			if (ret != 0)
-				return ret < 0 ? EX_TEMPFAIL : ret;
-			/* ok, rejection sent */
-		}
+		error = mail_storage_get_last_error(storage, &syntax,
+						    &temporary_error);
+		if (temporary_error)
+			return EX_TEMPFAIL;
+
+		/* we'll have to reply with permanent failure */
+		ret = mail_send_rejection(mail, destination, error);
+		if (ret != 0)
+			return ret < 0 ? EX_TEMPFAIL : ret;
+		/* ok, rejection sent */
 	}
 	i_stream_unref(&input);
 
