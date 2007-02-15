@@ -13,9 +13,6 @@ static void list_save(struct auth_request *request, const char *const *list)
 {
 	const char *name, *value;
 
-	if (*list == NULL)
-		return;
-
 	for (; *list != NULL; list++) {
 		t_push();
 		value = strchr(*list, '=');
@@ -57,29 +54,31 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 	}
 
 	list = t_strsplit(value, "\t");
-        list_save(request, list + 1);
 
 	cached_pw = list[0];
 	if (*cached_pw == '\0') {
 		/* NULL password */
 		auth_request_log_info(request, "cache", "NULL password access");
-		*result_r = PASSDB_RESULT_OK;
-		return TRUE;
-	}
+		ret = 1;
+	} else {
+		scheme = password_get_scheme(&cached_pw);
+		i_assert(scheme != NULL);
 
-	scheme = password_get_scheme(&cached_pw);
-	i_assert(scheme != NULL);
+		ret = auth_request_password_verify(request, password, cached_pw,
+						   scheme, "cache");
 
-	ret = auth_request_password_verify(request, password, cached_pw,
-					   scheme, "cache");
-
-	if (ret == 0 && node->last_success) {
-		/* the last authentication was successful. assume that the
-		   password was changed and cache is expired. */
-		node->last_success = FALSE;
-		return FALSE;
+		if (ret == 0 && node->last_success) {
+			/* the last authentication was successful. assume that
+			   the password was changed and cache is expired. */
+			node->last_success = FALSE;
+			return FALSE;
+		}
 	}
 	node->last_success = ret > 0;
+
+	/* save the extra_fields only after we know we're using the
+	   cached data */
+	list_save(request, list + 1);
 
 	*result_r = ret > 0 ? PASSDB_RESULT_OK :
 		PASSDB_RESULT_PASSWORD_MISMATCH;
