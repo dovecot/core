@@ -375,6 +375,21 @@ static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
 	return input;
 }
 
+static void failure_exit_callback(int *status)
+{
+	/* we want all our exit codes to be sysexits.h compatible */
+	switch (*status) {
+	case FATAL_LOGOPEN:
+	case FATAL_LOGWRITE:
+	case FATAL_LOGERROR:
+	case FATAL_OUTOFMEM:
+	case FATAL_EXEC:
+	case FATAL_DEFAULT:
+		*status = EX_TEMPFAIL;
+		break;
+	}
+}
+
 static void open_logfile(const char *username)
 {
 	const char *prefix, *log_path, *stamp;
@@ -396,6 +411,8 @@ static void open_logfile(const char *username)
 	log_path = getenv("INFO_LOG_PATH");
 	if (log_path != NULL && *log_path != '\0')
 		i_set_info_file(log_path);
+
+	i_set_failure_exit_callback(failure_exit_callback);
 
 	stamp = getenv("LOG_TIMESTAMP");
 	if (stamp == NULL)
