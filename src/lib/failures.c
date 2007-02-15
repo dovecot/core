@@ -12,6 +12,8 @@
 #include <syslog.h>
 #include <time.h>
 
+static void failure_exit(int status) __attr_noreturn__;
+
 static void default_panic_handler(const char *format, va_list args)
 	__attr_noreturn__ __attr_format__(1, 0);
 static void default_fatal_handler(int status, const char *format, va_list args)
@@ -32,6 +34,7 @@ static fatal_failure_callback_t *fatal_handler __attr_noreturn__ =
 static failure_callback_t *error_handler = default_error_handler;
 static failure_callback_t *warning_handler = default_warning_handler;
 static failure_callback_t *info_handler = default_info_handler;
+static void (*failure_exit_callback)(int *) = NULL;
 
 static FILE *log_fd = NULL, *log_info_fd = NULL;
 static char *log_prefix = NULL, *log_stamp_format = NULL;
@@ -43,6 +46,13 @@ static const char *get_log_stamp_format(const char *unused)
 static const char *get_log_stamp_format(const char *unused __attr_unused__)
 {
 	return log_stamp_format;
+}
+
+static void failure_exit(int status)
+{
+	if (failure_exit_callback != NULL)
+		failure_exit_callback(&status);
+	exit(status);
 }
 
 static void write_prefix(FILE *f)
@@ -139,7 +149,7 @@ default_fatal_handler(int status, const char *format, va_list args)
 	if (fflush(log_fd) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
 
-	exit(status);
+	failure_exit(status);
 }
 
 static void __attr_format__(1, 0)
@@ -148,10 +158,10 @@ default_error_handler(const char *format, va_list args)
 	int old_errno = errno;
 
 	if (default_handler("Error: ", log_fd, format, args) < 0)
-		exit(FATAL_LOGERROR);
+		failure_exit(FATAL_LOGERROR);
 
 	if (fflush(log_fd) < 0)
-		exit(FATAL_LOGWRITE);
+		failure_exit(FATAL_LOGWRITE);
 
 	errno = old_errno;
 }
@@ -164,7 +174,7 @@ default_warning_handler(const char *format, va_list args)
 	(void)default_handler("Warning: ", log_fd, format, args);
 
 	if (fflush(log_fd) < 0)
-		exit(FATAL_LOGWRITE);
+		failure_exit(FATAL_LOGWRITE);
 
 	errno = old_errno;
 }
@@ -177,7 +187,7 @@ default_info_handler(const char *format, va_list args)
 	(void)default_handler("Info: ", log_info_fd, format, args);
 
 	if (fflush(log_info_fd) < 0)
-		exit(FATAL_LOGWRITE);
+		failure_exit(FATAL_LOGWRITE);
 
 	errno = old_errno;
 }
@@ -307,13 +317,13 @@ void i_syslog_fatal_handler(int status, const char *fmt, va_list args)
 {
 	if (syslog_handler(LOG_CRIT, fmt, args) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
-	exit(status);
+	failure_exit(status);
 }
 
 void i_syslog_error_handler(const char *fmt, va_list args)
 {
 	if (syslog_handler(LOG_ERR, fmt, args) < 0)
-		exit(FATAL_LOGERROR);
+		failure_exit(FATAL_LOGERROR);
 }
 
 void i_syslog_warning_handler(const char *fmt, va_list args)
@@ -349,7 +359,7 @@ static void open_log_file(FILE **file, const char *path)
 		if (*file == NULL) {
 			fprintf(stderr, "Can't open log file %s: %s",
 				path, strerror(errno));
-			exit(FATAL_LOGOPEN);
+			failure_exit(FATAL_LOGOPEN);
 		}
 		fd_close_on_exec(fileno(*file), TRUE);
 	}
@@ -407,14 +417,14 @@ i_internal_fatal_handler(int status, const char *fmt, va_list args)
 {
 	if (internal_handler('F', fmt, args) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
-	exit(status);
+	failure_exit(status);
 }
 
 static void __attr_format__(1, 0)
 i_internal_error_handler(const char *fmt, va_list args)
 {
 	if (internal_handler('E', fmt, args) < 0)
-		exit(FATAL_LOGERROR);
+		failure_exit(FATAL_LOGERROR);
 }
 
 static void __attr_format__(1, 0)
@@ -451,6 +461,11 @@ void i_set_failure_timestamp_format(const char *fmt)
 {
 	i_free(log_stamp_format);
         log_stamp_format = i_strdup(fmt);
+}
+
+void i_set_failure_exit_callback(void (*callback)(int *status))
+{
+	failure_exit_callback = callback;
 }
 
 void failures_deinit(void)

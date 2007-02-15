@@ -61,6 +61,9 @@ void i_set_info_file(const char *path);
 /* Prefix failures with a timestamp. fmt is in strftime() format. */
 void i_set_failure_timestamp_format(const char *fmt);
 
+/* Call the callback before exit()ing. The callback may update the status. */
+void i_set_failure_exit_callback(void (*callback)(int *status));
+
 void failures_deinit(void);
 
 #endif
