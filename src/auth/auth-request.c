@@ -489,8 +489,6 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 			password = result != PASSDB_RESULT_OK ? NULL :
 				passdb_get_credentials(request, password,
 						       scheme);
-			if (password == NULL && result == PASSDB_RESULT_OK)
-				result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 		}
 	}
 

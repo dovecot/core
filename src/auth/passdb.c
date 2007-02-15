@@ -127,9 +127,9 @@ void passdb_handle_credentials(enum passdb_result result,
 		callback(result, NULL, auth_request);
 		return;
 	}
-	i_assert(password != NULL);
 
-	password = passdb_get_credentials(auth_request, password, scheme);
+	password = password == NULL ? NULL :
+		passdb_get_credentials(auth_request, password, scheme);
 	if (password == NULL)
 		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	callback(result, password, auth_request);
