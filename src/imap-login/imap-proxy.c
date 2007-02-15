@@ -99,11 +99,18 @@ static void proxy_input(struct istream *input, struct ostream *output,
 			return;
 		}
 
+		if (client->destroyed) {
+			/* we came here from client_destroy() */
+			return;
+		}
+
 		/* failed for some reason, probably server disconnected */
 		client_send_line(client, "* BYE Temporary login failure.");
 		client_destroy(client, NULL);
 		return;
 	}
+
+	i_assert(!client->destroyed);
 
 	switch (i_stream_read(input)) {
 	case -2:

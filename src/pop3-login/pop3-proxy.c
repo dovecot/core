@@ -16,12 +16,15 @@ static void proxy_input(struct istream *input, struct ostream *output,
 	string_t *str;
 	const char *line, *msg;
 
-	i_assert(!client->destroyed);
-
 	if (input == NULL) {
 		if (client->io != NULL) {
 			/* remote authentication failed, we're just
 			   freeing the proxy */
+			return;
+		}
+
+		if (client->destroyed) {
+			/* we came here from client_destroy() */
 			return;
 		}
 
@@ -31,6 +34,8 @@ static void proxy_input(struct istream *input, struct ostream *output,
 		client_destroy(client, NULL);
 		return;
 	}
+
+	i_assert(!client->destroyed);
 
 	switch (i_stream_read(input)) {
 	case -2:
