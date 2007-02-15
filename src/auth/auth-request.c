@@ -203,9 +203,6 @@ static void auth_request_save_cache(struct auth_request *request,
 
 	extra_fields = request->extra_fields == NULL ? NULL :
 		auth_stream_reply_export(request->extra_fields);
-	i_assert(extra_fields == NULL ||
-		 (strstr(extra_fields, "\tpass=") == NULL &&
-		  strncmp(extra_fields, "pass=", 5) != 0));
 
 	if (passdb_cache == NULL)
 		return;
