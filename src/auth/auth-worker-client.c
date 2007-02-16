@@ -116,6 +116,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 {
 	/* verify plaintext password */
 	struct auth_request *auth_request;
+        struct auth_passdb *passdb;
 	const char *password;
 	unsigned int passdb_id;
 
@@ -141,16 +142,25 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 		return;
 	}
 
-	while (auth_request->passdb->id != passdb_id) {
-		auth_request->passdb = auth_request->passdb->next;
-		if (auth_request->passdb == NULL) {
+	passdb = auth_request->passdb;
+	while (passdb != NULL && passdb->id != passdb_id)
+		passdb = passdb->next;
+
+	if (passdb == NULL) {
+		/* could be a masterdb */
+		passdb = auth_request->auth->masterdbs;
+		while (passdb != NULL && passdb->id != passdb_id)
+			passdb = passdb->next;
+
+		if (passdb == NULL) {
 			i_error("BUG: PASSV had invalid passdb ID");
 			auth_request_unref(&auth_request);
 			return;
 		}
 	}
 
-	auth_request->passdb->passdb->iface.
+	auth_request->passdb = passdb;
+	passdb->passdb->iface.
 		verify_plain(auth_request, password, verify_plain_callback);
 }
 
