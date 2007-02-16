@@ -32,6 +32,7 @@ struct maildir_quota_root {
 	int fd;
 	time_t recalc_last_stamp;
 
+	unsigned int limits_initialized:1;
 	unsigned int master_message_limits:1;
 };
 
@@ -483,9 +484,24 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	return ret;
 }
 
+static void maildirquota_init_limits(struct maildir_quota_root *root)
+{
+	root->limits_initialized = TRUE;
+
+	if (root->root.default_rule.bytes_limit != 0 ||
+	    root->root.default_rule.count_limit != 0) {
+		root->master_message_limits = TRUE;
+		root->message_bytes_limit = root->root.default_rule.bytes_limit;
+		root->message_count_limit = root->root.default_rule.count_limit;
+	}
+}
+
 static int maildirquota_refresh(struct maildir_quota_root *root)
 {
 	int ret;
+
+	if (!root->limits_initialized)
+		maildirquota_init_limits(root);
 
 	ret = maildirsize_read(root);
 	if (ret == 0) {
