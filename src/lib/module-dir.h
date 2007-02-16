@@ -5,6 +5,7 @@ struct module {
 	char *path, *name;
 
 	void *handle;
+	void (*init)(void);
 	void (*deinit)(void);
 
         struct module *next;
@@ -14,6 +15,8 @@ struct module {
    module names to load, or NULL to load everything. */
 struct module *module_dir_load(const char *dir, const char *module_names,
 			       bool require_init_funcs);
+/* Call init() in all modules */
+void module_dir_init(struct module *modules);
 /* Call deinit() in all modules and mark them NULL so module_dir_unload()
    won't do it again. */
 void module_dir_deinit(struct module *modules);

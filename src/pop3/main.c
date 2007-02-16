@@ -37,7 +37,7 @@ struct ioloop *ioloop;
 
 void (*hook_client_created)(struct client **client) = NULL;
 
-static struct module *modules;
+static struct module *modules = NULL;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 static struct io *log_io = NULL;
 
@@ -152,6 +152,16 @@ static void drop_privileges(void)
 	   chrooting. */
 	random_init();
 
+	/* Load the plugins before chrooting. Their init() is called later. */
+	if (getenv("MAIL_PLUGINS") != NULL) {
+		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
+
+		if (plugin_dir == NULL)
+			plugin_dir = MODULEDIR"/imap";
+		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
+					  TRUE);
+	}
+
 	restrict_access_by_env(!IS_STANDALONE());
 }
 
@@ -195,16 +205,7 @@ static int main_init(void)
 	mailbox_list_register_all();
 	clients_init();
 
-	if (getenv("MAIL_PLUGINS") == NULL)
-		modules = NULL;
-	else {
-		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
-
-		if (plugin_dir == NULL)
-			plugin_dir = MODULEDIR"/imap";
-		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
-					  TRUE);
-	}
+	module_dir_init(modules);
 
 	mail = getenv("MAIL");
 	if (mail == NULL) {

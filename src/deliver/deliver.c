@@ -612,6 +612,7 @@ int main(int argc, char *argv[])
 			plugin_dir = MODULEDIR"/lda";
 		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
 					  TRUE);
+		module_dir_init(modules);
 	}
 
 	/* FIXME: how should we handle namespaces? */

@@ -86,7 +86,6 @@ static struct module *
 module_load(const char *path, const char *name, bool require_init_funcs)
 {
 	void *handle;
-	void (*init)(void);
 	struct module *module;
 
 	handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
@@ -101,14 +100,17 @@ module_load(const char *path, const char *name, bool require_init_funcs)
 	module->handle = handle;
 
 	/* get our init func */
-	init = (void (*)(void))
+	module->init = (void (*)(void))
 		get_symbol(module, t_strconcat(name, "_init", NULL),
 			   !require_init_funcs);
-	module->deinit = init == NULL ? NULL : (void (*)(void))
+	module->deinit = module->init == NULL ? NULL : (void (*)(void))
 		get_symbol(module, t_strconcat(name, "_deinit", NULL),
 			   !require_init_funcs);
 
-	if ((init == NULL || module->deinit == NULL) && require_init_funcs) {
+	if ((module->init == NULL || module->deinit == NULL) &&
+	    require_init_funcs) {
+		i_error("Module doesn't have %s function: %s",
+			module->init == NULL ? "init" : "deinit", path);
 		module->deinit = NULL;
 		module_free(module);
 		return NULL;
@@ -116,9 +118,6 @@ module_load(const char *path, const char *name, bool require_init_funcs)
 
 	if (getenv("DEBUG") != NULL)
 		i_info("Module loaded: %s", path);
-
-	if (init != NULL)
-		init();
 	return module;
 }
 
@@ -273,6 +272,16 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 		i_error("closedir(%s) failed: %m", dir);
 
 	return modules;
+}
+
+void module_dir_init(struct module *modules)
+{
+	struct module *module;
+
+	for (module = modules; module != NULL; module = module->next) {
+		if (module->init != NULL)
+			module->init();
+	}
 }
 
 void module_dir_deinit(struct module *modules)

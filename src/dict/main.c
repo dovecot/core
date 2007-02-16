@@ -79,6 +79,7 @@ static void main_init(void)
 
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
 		module_dir_load(getenv("MODULE_DIR"), NULL, TRUE);
+	module_dir_init(modules);
 
 	path = getenv("DICT_LISTEN_FROM_FD");
 	fd = path == NULL ? -1 : DICT_MASTER_LISTENER_FD;
