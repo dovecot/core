@@ -90,12 +90,13 @@ static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
 	return 1;
 }
 
-static int trash_try_clean_mails(uint64_t size_needed)
+static int trash_try_clean_mails(struct quota_transaction_context *ctx,
+				 uint64_t size_needed)
 {
 	struct trash_mailbox *trashes;
 	unsigned int i, j, count, oldest_idx;
 	time_t oldest, received;
-	uint64_t size;
+	uint64_t size, size_expunged = 0, expunged_count = 0;
 	int ret = 0;
 
 	trashes = array_get_modifiable(&trash_boxes, &count);
@@ -130,17 +131,21 @@ static int trash_try_clean_mails(uint64_t size_needed)
 		}
 
 		if (oldest_idx < count) {
+			size = mail_get_physical_size(trashes[oldest_idx].mail);
+			if (size == (uoff_t)-1) {
+				/* maybe expunged already? */
+				trashes[oldest_idx].mail_set = FALSE;
+				continue;
+			}
+
 			if (mail_expunge(trashes[oldest_idx].mail) < 0)
 				break;
 
-			size = mail_get_physical_size(trashes[oldest_idx].mail);
-			if (size >= size_needed) {
-				size_needed = 0;
+			expunged_count++;
+			size_expunged += size;
+			if (size_expunged >= size_needed)
 				break;
-			}
 			trashes[oldest_idx].mail_set = FALSE;
-
-			size_needed -= size;
 		} else {
 			/* find more mails from next priority's mailbox */
 			i = j;
@@ -158,7 +163,7 @@ __err:
 		mail_free(&trash->mail);
 		(void)mailbox_search_deinit(&trash->search_ctx);
 
-		if (size_needed == 0) {
+		if (size_expunged >= size_needed) {
 			(void)mailbox_transaction_commit(&trash->trans,
 				MAILBOX_SYNC_FLAG_FULL_WRITE);
 		} else {
@@ -168,7 +173,15 @@ __err:
 
 		mailbox_close(&trash->box);
 	}
-	return size_needed == 0;
+
+	if (size_expunged < size_needed)
+		return FALSE;
+
+	ctx->bytes_used = ctx->bytes_used > (int64_t)size_expunged ?
+		ctx->bytes_used - size_expunged : 0;
+	ctx->count_used = ctx->count_used > (int64_t)expunged_count ?
+		ctx->count_used - expunged_count : 0;
+	return TRUE;
 }
 
 static int
@@ -191,7 +204,7 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 		}
 
 		/* not enough space. try deleting some from mailbox. */
-		ret = trash_try_clean_mails(size);
+		ret = trash_try_clean_mails(ctx, size);
 		if (ret <= 0)
 			return 0;
 	}
