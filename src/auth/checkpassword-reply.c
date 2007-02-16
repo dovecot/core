@@ -17,17 +17,13 @@ int main(void)
 	str = t_str_new(1024);
 
 	user = getenv("USER");
-	if (user == NULL)
-		i_fatal("checkpassword: USER environment missing");
-	if (strchr(user, '\t') != NULL) {
-		i_error("checkpassword: USER contains TAB");
-		return 1;
+	if (user != NULL) {
+		if (strchr(user, '\t') != NULL) {
+			i_error("checkpassword: USER contains TAB");
+			return 1;
+		}
+		str_printfa(str, "user=%s\t", user);
 	}
-
-	str_printfa(str, "userdb_user=%s\t"
-		    "userdb_uid=%s\t"
-		    "userdb_gid=%s\t",
-		    user, dec2str(getuid()), dec2str(getgid()));
 
 	home = getenv("HOME");
 	if (home != NULL) {
@@ -37,6 +33,9 @@ int main(void)
 		}
 		str_printfa(str, "userdb_home=%s\t", home);
 	}
+
+	str_printfa(str, "userdb_uid=%s\tuserdb_gid=%s\t",
+		    dec2str(getuid()), dec2str(getgid()));
 
 	extra_env = getenv("EXTRA");
 	if (extra_env != NULL) {
