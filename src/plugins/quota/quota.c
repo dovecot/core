@@ -248,8 +248,26 @@ static bool quota_root_get_rule_limits(struct quota_root *root,
 void quota_add_user_storage(struct quota *quota, struct mail_storage *storage)
 {
 	struct quota_root *const *roots;
+	struct mail_storage *const *storages;
 	struct quota_backend **backends;
+	const char *path, *path2;
 	unsigned int i, j, count;
+	bool is_file;
+
+	/* first check if there already exists a storage with the exact same
+	   path. we don't want to count them twice. */
+	path = mail_storage_get_mailbox_path(storage, "", &is_file);
+	if (path != NULL) {
+		storages = array_get(&quota->storages, &count);
+		for (i = 0; i < count; i++) {
+			path2 = mail_storage_get_mailbox_path(storages[i], "",
+							      &is_file);
+			if (path2 != NULL && strcmp(path, path2) == 0) {
+				/* duplicate */
+				return;
+			}
+		}
+	}
 
 	array_append(&quota->storages, &storage, 1);
 
