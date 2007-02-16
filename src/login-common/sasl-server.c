@@ -27,6 +27,7 @@ static void master_callback(struct client *client, bool success)
 	client->authenticating = FALSE;
 	client->sasl_callback(client, success ? SASL_SERVER_REPLY_SUCCESS :
 			      SASL_SERVER_REPLY_MASTER_FAILED, NULL, NULL);
+	client->sasl_callback = NULL;
 }
 
 static void authenticate_callback(struct auth_request *request, int status,
@@ -71,6 +72,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 			client->authenticating = FALSE;
 			client->sasl_callback(client, SASL_SERVER_REPLY_SUCCESS,
 					      NULL, args);
+			client->sasl_callback = NULL;
 		} else {
 			master_request_login(client, master_callback,
 				auth_client_request_get_server_pid(request),
@@ -94,6 +96,7 @@ static void authenticate_callback(struct auth_request *request, int status,
 		client->authenticating = FALSE;
 		client->sasl_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
 				      NULL, args);
+		client->sasl_callback = NULL;
 		break;
 	}
 }
@@ -148,6 +151,8 @@ void sasl_server_auth_begin(struct client *client,
 static void sasl_server_auth_cancel(struct client *client, const char *reason,
 				    enum sasl_server_reply reply)
 {
+	i_assert(client->authenticating);
+
 	if (verbose_auth && reason != NULL) {
 		const char *auth_name =
 			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
@@ -164,6 +169,7 @@ static void sasl_server_auth_cancel(struct client *client, const char *reason,
 	}
 
 	client->sasl_callback(client, reply, reason, NULL);
+	client->sasl_callback = NULL;
 }
 
 void sasl_server_auth_failed(struct client *client, const char *reason)
