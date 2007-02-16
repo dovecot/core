@@ -46,7 +46,7 @@ void file_cache_set_fd(struct file_cache *cache, int fd)
 	file_cache_invalidate(cache, 0, cache->mmap_length);
 }
 
-static int file_cache_set_size(struct file_cache *cache, uoff_t size)
+int file_cache_set_size(struct file_cache *cache, uoff_t size)
 {
 	size_t page_size = mmap_get_page_size();
 	uoff_t diff = size % page_size;
