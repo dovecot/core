@@ -294,6 +294,9 @@ void module_dir_deinit(struct module *modules)
 	for (module = modules; module != NULL; module = module->next)
 		count++;
 
+	if (count == 0)
+		return;
+
 	/* @UNSAFE: deinitialize in reverse order */
 	t_push();
 	rev = t_new(struct module *, count);
