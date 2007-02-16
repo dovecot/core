@@ -201,10 +201,11 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_printfa(ctx->header, "%u ",
 			    ctx->sync_ctx->base_uid_validity);
 
+		ctx->last_uid_updated_value = ctx->sync_ctx->next_uid-1;
 		ctx->last_uid_value_start_pos = str_len(ctx->header) -
 			ctx->hdr_pos[MBOX_HDR_X_IMAPBASE];
 		ctx->imapbase_updated = TRUE;
-		str_printfa(ctx->header, "%010u", ctx->sync_ctx->next_uid-1);
+		str_printfa(ctx->header, "%010u", ctx->last_uid_updated_value);
 
 		keywords_append_all(ctx, ctx->header);
 		str_append_c(ctx->header, '\n');
@@ -351,9 +352,10 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	str = t_str_new(200);
 	str_printfa(str, "%u ", sync_ctx->base_uid_validity);
 
+	ctx->last_uid_updated_value = sync_ctx->next_uid-1;
 	ctx->last_uid_value_start_pos = str_len(str);
 	ctx->imapbase_updated = TRUE;
-	str_printfa(str, "%010u", sync_ctx->next_uid - 1);
+	str_printfa(str, "%010u", ctx->last_uid_updated_value);
 
 	keywords_append_all(ctx, str);
 	str_append_c(str, '\n');

@@ -231,7 +231,7 @@ static void mbox_sync_first_mail_written(struct mbox_sync_mail_context *ctx,
 	if (ctx->imapbase_updated) {
 		/* update so a) we don't try to update it later unneededly,
 		   b) if we do actually update it, we see the correct value */
-		ctx->sync_ctx->base_uid_last = ctx->sync_ctx->next_uid - 1;
+		ctx->sync_ctx->base_uid_last = ctx->last_uid_updated_value;
 	}
 }
 

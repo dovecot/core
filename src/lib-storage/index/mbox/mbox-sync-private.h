@@ -81,7 +81,7 @@ struct mbox_sync_mail_context {
 	uoff_t content_length;
 
 	size_t hdr_pos[MBOX_HDR_COUNT];
-	uint32_t parsed_uid;
+	uint32_t parsed_uid, last_uid_updated_value;
 	unsigned int last_uid_value_start_pos;
 
 	unsigned int have_eoh:1;
