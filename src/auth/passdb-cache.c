@@ -9,26 +9,6 @@
 
 struct auth_cache *passdb_cache = NULL;
 
-static void list_save(struct auth_request *request, const char *const *list)
-{
-	const char *name, *value;
-
-	for (; *list != NULL; list++) {
-		t_push();
-		value = strchr(*list, '=');
-		if (value == NULL) {
-			name = *list;
-			value = "";
-		} else {
-			name = t_strcut(*list, '=');
-			value++;
-		}
-
-		auth_request_set_field(request, name, value, NULL);
-		t_pop();
-	}
-}
-
 bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 			       const char *password,
 			       enum passdb_result *result_r, int use_expired)
@@ -78,7 +58,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 
 	/* save the extra_fields only after we know we're using the
 	   cached data */
-	list_save(request, list + 1);
+	auth_request_set_fields(request, list + 1, NULL);
 
 	*result_r = ret > 0 ? PASSDB_RESULT_OK :
 		PASSDB_RESULT_PASSWORD_MISMATCH;
@@ -111,7 +91,7 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 	}
 
 	list = t_strsplit(value, "\t");
-        list_save(request, list + 1);
+	auth_request_set_fields(request, list + 1, NULL);
 
 	*result_r = PASSDB_RESULT_OK;
 	*password_r = list[0];

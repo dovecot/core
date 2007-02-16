@@ -980,6 +980,27 @@ void auth_request_set_field(struct auth_request *request,
 	}
 }
 
+void auth_request_set_fields(struct auth_request *request,
+			     const char *const *fields,
+			     const char *default_scheme)
+{
+	const char *key, *value;
+
+	t_push();
+	for (; *fields != NULL; fields++) {
+		value = strchr(*fields, '=');
+		if (value == NULL) {
+			key = *fields;
+			value = "";
+		} else {
+			key = t_strdup_until(*fields, value);
+			value++;
+		}
+		auth_request_set_field(request, key, value, default_scheme);
+	}
+	t_pop();
+}
+
 int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,
