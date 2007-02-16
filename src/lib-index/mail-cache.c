@@ -70,6 +70,21 @@ void mail_cache_file_close(struct mail_cache *cache)
 	}
 }
 
+static void mail_cache_init_file_cache(struct mail_cache *cache)
+{
+	struct stat st;
+
+	if (cache->file_cache == NULL)
+		return;
+
+	file_cache_set_fd(cache->file_cache, cache->fd);
+
+	if (fstat(cache->fd, &st) < 0)
+		mail_cache_set_syscall_error(cache, "fstat()");
+	else
+		file_cache_set_size(cache->file_cache, st.st_size);
+}
+
 int mail_cache_reopen(struct mail_cache *cache)
 {
 	struct mail_index_view *view;
@@ -95,8 +110,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 		return -1;
 	}
 
-	if (cache->file_cache != NULL)
-		file_cache_set_fd(cache->file_cache, cache->fd);
+	mail_cache_init_file_cache(cache);
 
 	if (mail_cache_map(cache, 0, 0) < 0)
 		return -1;
@@ -270,8 +284,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 		return -1;
 	}
 
-	if (cache->file_cache != NULL)
-		file_cache_set_fd(cache->file_cache, cache->fd);
+	mail_cache_init_file_cache(cache);
 
 	if (mail_cache_map(cache, 0, sizeof(struct mail_cache_header)) < 0)
 		return -1;
