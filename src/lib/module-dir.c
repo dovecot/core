@@ -180,7 +180,7 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 	struct dirent *d;
 	const char *name, *path, *p, *stripped_name, **names_p;
 	const char **module_names_arr;
-	struct module *modules, *module;
+	struct module *modules, *module, **module_pos;
 	unsigned int i, count;
 	ARRAY_TYPE(const_string) names;
 	pool_t pool;
@@ -235,6 +235,8 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 				module_file_get_name(module_names_arr[i]);
 		}
 	}
+
+	module_pos = &modules;
 	for (i = 0; i < count; i++) {
 		const char *name = names_p[i];
 
@@ -252,8 +254,8 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 		t_pop();
 
 		if (module != NULL) {
-			module->next = modules;
-			modules = module;
+			*module_pos = module;
+			module_pos = &module->next;
 		}
 	}
 	if (module_names_arr != NULL) {
@@ -286,14 +288,27 @@ void module_dir_init(struct module *modules)
 
 void module_dir_deinit(struct module *modules)
 {
-	struct module *module;
+	struct module *module, **rev;
+	unsigned int i, count = 0;
 
-	for (module = modules; module != NULL; module = module->next) {
+	for (module = modules; module != NULL; module = module->next)
+		count++;
+
+	/* @UNSAFE: deinitialize in reverse order */
+	t_push();
+	rev = t_new(struct module *, count);
+	for (i = 0, module = modules; i < count; i++, module = module->next)
+		rev[count-i-1] = module;
+
+	for (i = 0; i < count; i++) {
+		module = rev[i];
+
 		if (module->deinit != NULL) {
 			module->deinit();
 			module->deinit = NULL;
 		}
 	}
+	t_pop();
 }
 
 void module_dir_unload(struct module **modules)
