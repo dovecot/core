@@ -53,6 +53,9 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
 	trash->box = mailbox_open(trash->storage, trash->name, NULL,
 				  MAILBOX_OPEN_KEEP_RECENT);
+	if (trash->box == NULL)
+		return -1;
+
 	if (sync_mailbox(trash->box) < 0)
 		return -1;
 
