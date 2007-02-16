@@ -327,7 +327,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 				   from client */
 				mailbox_save_cancel(&ctx->save_ctx);
 			}
-			if (ret == -1)
+			if (ret == -1 || ret == 0)
 				break;
 		}
 	}
