@@ -151,6 +151,9 @@ __err:
 	for (i = 0; i < count; i++) {
 		struct trash_mailbox *trash = &trashes[i];
 
+		if (trash->box == NULL)
+			continue;
+
 		trash->mail_set = FALSE;
 		mail_free(&trash->mail);
 		(void)mailbox_search_deinit(&trash->search_ctx);
