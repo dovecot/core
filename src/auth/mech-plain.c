@@ -50,6 +50,11 @@ mech_plain_auth_continue(struct auth_request *request,
 		}
 	}
 
+	if (strcmp(authid, authenid) == 0) {
+		/* the login username isn't different */
+		authid = "";
+	}
+
 	if (count != 2) {
 		/* invalid input */
 		auth_request_log_info(request, "plain", "invalid input");
