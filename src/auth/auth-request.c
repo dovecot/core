@@ -988,6 +988,9 @@ void auth_request_set_fields(struct auth_request *request,
 
 	t_push();
 	for (; *fields != NULL; fields++) {
+		if (**fields == '\0')
+			continue;
+
 		value = strchr(*fields, '=');
 		if (value == NULL) {
 			key = *fields;
