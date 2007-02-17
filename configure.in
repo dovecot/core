@@ -424,22 +424,29 @@ dnl * I/O loop function
 have_ioloop=no
 
 if test "$ioloop" = "best" || test "$ioloop" = "epoll"; then
-  AC_TRY_RUN([
-    #include <sys/epoll.h>
-
-    int main()
-    {
-      return epoll_create(5) < 1;
-    }
-  ], [
+  AC_CACHE_CHECK([whether we can use epoll],epoll_works,[
+    AC_TRY_RUN([
+      #include <sys/epoll.h>
+  
+      int main()
+      {
+	return epoll_create(5) < 1;
+      }
+    ], [
+      epoll_works=yes
+    ], [
+      epoll_works=no
+    ])
+  ])
+  if test $epoll_works = yes; then
     AC_DEFINE(IOLOOP_EPOLL,, Implement I/O loop with Linux 2.6 epoll())
     have_ioloop=yes
     ioloop=epoll
-  ], [
+  else
     if test "$ioloop" = "epoll" ; then
       AC_MSG_ERROR([epoll ioloop requested but epoll_create() is not available])
     fi
-  ])
+  fi
 fi
 
 if test "$ioloop" = "best" || test "$ioloop" = "kqueue"; then
@@ -468,51 +475,56 @@ fi
 have_notify=none
 
 if test "$notify" = "" || test "$notify" = "inotify" ; then
-  AC_MSG_CHECKING([if we can use inotify])
   dnl * inotify?
-  AC_TRY_RUN([
-    #define _GNU_SOURCE
-    #include <sys/ioctl.h>
-    #include <fcntl.h>
-    #include <sys/inotify.h>
-    #include <stdio.h>
-  
-    int main()
-    {
-      int wd, fd;
-      char * fn = "/tmp";
+  AC_CACHE_CHECK([whether we can use inotify],inotify_works,[
+    AC_TRY_RUN([
+      #define _GNU_SOURCE
+      #include <sys/ioctl.h>
+      #include <fcntl.h>
+      #include <sys/inotify.h>
+      #include <stdio.h>
     
-      fd = inotify_init ();
-      if (fd < 0)
-        {
-          perror ("inotify_init");
-          return (-1);
-        }
-
-      wd = inotify_add_watch (fd, fn, IN_ALL_EVENTS);
-
-      if (wd < 0)
-        {
-          perror ("inotify_add_watch");
-          return (-2);
-        }
-
-      inotify_rm_watch (fd, wd);
-
-      close (fd);
-    }
-  ], [
+      int main()
+      {
+	int wd, fd;
+	char * fn = "/tmp";
+      
+	fd = inotify_init ();
+	if (fd < 0)
+	  {
+	    perror ("inotify_init");
+	    return 1;
+	  }
+  
+	wd = inotify_add_watch (fd, fn, IN_ALL_EVENTS);
+  
+	if (wd < 0)
+	  {
+	    perror ("inotify_add_watch");
+	    return 2;
+	  }
+  
+	inotify_rm_watch (fd, wd);
+  
+	close (fd);
+	return 0;
+      }
+    ], [
+      inotify_works=yes
+    ], [
+      inotify_works=no
+    ])
+  ])
+  if test $inotify_works = yes; then
     have_notify=inotify
     notify=inotify
     AC_DEFINE(IOLOOP_NOTIFY_INOTIFY,, Use Linux inotify)
-    AC_MSG_RESULT("yes")
-  ], [
-    AC_MSG_RESULT("no")
+  else
     if test "$notify" = "inotify"; then
       AC_MSG_ERROR([inotify requested but not available])
       notify=""
     fi
-  ])
+  fi
 fi
 
 if (test "$notify" = "" && test "$ioloop" = kqueue) || test "$notify" = "kqueue"; then
@@ -534,7 +546,7 @@ if (test "$notify" = "" && test "$ioloop" = kqueue) || test "$notify" = "kqueue"
 fi
 
 if test "$notify" = "" || test "$notify" = "dnotify"; then
-  AC_MSG_CHECKING([if we can use dnotify])
+  AC_MSG_CHECKING([whether we can use dnotify])
   dnl * dnotify?
   AC_TRY_COMPILE([
     #define _GNU_SOURCE
@@ -545,12 +557,12 @@ if test "$notify" = "" || test "$notify" = "dnotify"; then
     fcntl(0, F_SETSIG, SIGRTMIN);
     fcntl(0, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME | DN_MULTISHOT);
   ], [
-    AC_MSG_RESULT("yes")
+    AC_MSG_RESULT(yes)
     AC_DEFINE(IOLOOP_NOTIFY_DNOTIFY,, Use Linux dnotify)
     have_notify=dnotify
     notify=dnotify
   ], [
-    AC_MSG_RESULT("no")
+    AC_MSG_RESULT(no)
     if test "$notify" = "dnotify"; then
       AC_MSG_ERROR([dnotify requested but not available])
     fi
@@ -774,30 +786,30 @@ AC_DEFINE_UNQUOTED(PRIuUOFF_T, "$uofft_fmt", printf() format for uoff_t)
 dnl * make sure size_t isn't signed. we'd probably work fine with it, but
 dnl * it's more likely vulnerable to buffer overflows. Anyway, C99 specifies
 dnl * that it's unsigned and only some old systems define it as signed.
-AC_MSG_CHECKING([whether size_t is signed])
-AC_RUN_IFELSE([AC_LANG_SOURCE([[
-  #include <sys/types.h>
-  int main() {
-    /* return 0 if we're signed */
-    exit((size_t)(int)-1 <= 0 ? 0 : 1);
-  }
-]])],[
-  AC_MSG_RESULT(yes)
+AC_CACHE_CHECK([whether size_t is signed],signed_size_t,[
+  AC_RUN_IFELSE([AC_LANG_SOURCE([[
+    #include <sys/types.h>
+    int main() {
+      /* return 0 if we're signed */
+      exit((size_t)(int)-1 <= 0 ? 0 : 1);
+    }
+  ]])],[
+    signed_size_t=yes
 
-  echo
-  echo "Your system's size_t is a signed integer, Dovecot isn't designed to"
-  echo "support it. It probably works just fine, but it's less resistant to"
-  echo "buffer overflows. If you're not worried about this and still want to"
-  echo "compile Dovecot, set ignore_signed_size=1 environment."
-
-  if test "$ignore_signed_size" = ""; then
-    AC_MSG_ERROR([aborting])
-  fi
-  echo "..ignoring as requested.."
-],[
-  AC_MSG_RESULT(no)
-],[])
-
+    echo
+    echo "Your system's size_t is a signed integer, Dovecot isn't designed to"
+    echo "support it. It probably works just fine, but it's less resistant to"
+    echo "buffer overflows. If you're not worried about this and still want to"
+    echo "compile Dovecot, set ignore_signed_size=1 environment."
+  
+    if test "$ignore_signed_size" = ""; then
+      AC_MSG_ERROR([aborting])
+    fi
+    echo "..ignoring as requested.."
+  ],[
+    signed_size_t=no
+  ],[])
+])
 dnl Note: we check size_t rather than ssize_t here, because on OSX 10.2
 dnl ssize_t = int and size_t = unsigned long. We're mostly concerned about
 dnl printf format here, so check the size_t one.
@@ -889,45 +901,45 @@ fi
 AC_MSG_RESULT($i_cv_field_tm_gmtoff)
 
 dnl * how large time_t values does gmtime() accept?
-AC_MSG_CHECKING([how large time_t values gmtime() accepts])
-AC_RUN_IFELSE([AC_LANG_SOURCE([[
-  #include <stdio.h>
-  #include <time.h>
-  int main() {
-    FILE *f;
-    int bits;
-    time_t t;
-
-    for (bits = 1, t = 1; t > 0; ++bits, t <<= 1) {
-      if (gmtime(&t) == NULL) {
-        bits--;
-	break;
+AC_CACHE_CHECK([how large time_t values gmtime() accepts],gmtime_max_time_t,[
+  AC_RUN_IFELSE([AC_LANG_SOURCE([[
+    #include <stdio.h>
+    #include <time.h>
+    int main() {
+      FILE *f;
+      int bits;
+      time_t t;
+  
+      for (bits = 1, t = 1; t > 0; ++bits, t <<= 1) {
+	if (gmtime(&t) == NULL) {
+	  bits--;
+	  break;
+	}
       }
+      if (bits > 40) {
+	/* Solaris 9 breaks after 55 bits. Perhaps other systems break earlier.
+	   Let's just do the same as Cyrus folks and limit it to 40 bits. */
+	bits = 40;
+      }
+  
+      f = fopen("conftest.temp", "w");
+      if (f == NULL) {
+	perror("fopen()");
+	return 1;
+      }
+      fprintf(f, "%d", bits);
+      fclose(f);
+      return 0;
     }
-    if (bits > 40) {
-      /* Solaris 9 breaks after 55 bits. Perhaps other systems break earlier.
-         Let's just do the same as Cyrus folks and limit it to 40 bits. */
-      bits = 40;
-    }
-
-    f = fopen("conftest.temp", "w");
-    if (f == NULL) {
-      perror("fopen()");
-      return 1;
-    }
-    fprintf(f, "%d", bits);
-    fclose(f);
-    return 0;
-  }
-]])],[
-  max_bits=`cat conftest.temp`
-  rm -f conftest.temp
-  AC_MSG_RESULT($max_bits)
-], [
-  AC_MSG_RESULT([check failed, assuming 31])
-  max_bits=31
-],[])
-AC_DEFINE_UNQUOTED(TIME_T_MAX_BITS, $max_bits, max. time_t bits gmtime() can handle)
+  ]])],[
+    gmtime_max_time_t=`cat conftest.temp`
+    rm -f conftest.temp
+  ], [
+    printf "check failed, assuming "
+    gmtime_max_time_t=31
+  ],[])
+])
+AC_DEFINE_UNQUOTED(TIME_T_MAX_BITS, $gmtime_max_time_t, max. time_t bits gmtime() can handle)
 
 dnl * do we have struct iovec
 AC_MSG_CHECKING([for struct iovec])
@@ -999,107 +1011,114 @@ AC_TRY_LINK([
 ])
 
 dnl * If mmap() plays nicely with write()
-AC_MSG_CHECKING([whether shared mmaps get updated by write()s])
-AC_TRY_RUN([
-  #include <stdio.h>
-  #include <sys/types.h>
-  #include <sys/stat.h>
-  #include <unistd.h>
-  #include <fcntl.h>
-  #include <sys/mman.h>
-  int main() {
-    /* return 0 if we're signed */
-    int f = open("conftest.mmap", O_RDWR|O_CREAT|O_TRUNC);
-    void *mem;
-    if (f == -1) {
-      perror("open()");
-      return 1;
-    }
-    unlink("conftest.mmap");
-
-    write(f, "1", 2);
-    mem = mmap(NULL, 2, PROT_READ|PROT_WRITE, MAP_SHARED, f, 0);
-    if (mem == MAP_FAILED) {
-      perror("mmap()");
-      return 1;
-    }
-    strcpy(mem, "2");
-    msync(mem, 2, MS_SYNC);
-    lseek(f, 0, SEEK_SET);
-    write(f, "3", 2);
-  
-    return strcmp(mem, "3") == 0 ? 0 : 1;
-  }
-], [
-  AC_MSG_RESULT(yes)
-], [
-  AC_MSG_RESULT(no)
-  AC_DEFINE(MMAP_CONFLICTS_WRITE,, [Define if shared mmaps don't get updated by write()s])
-])
-
-dnl * see if fd passing works
-AC_MSG_CHECKING([whether fd passing works])
-for i in 1 2; do
-  old_cflags="$CFLAGS"
-  CFLAGS="$CFLAGS -I$srcdir/src/lib $srcdir/src/lib/fdpass.c"
-  if test $i = 2; then
-    CFLAGS="$CFLAGS -DBUGGY_CMSG_MACROS"
-  fi
-
+AC_CACHE_CHECK([whether shared mmaps get updated by write()s],mmap_plays_with_write,[
   AC_TRY_RUN([
+    #include <stdio.h>
     #include <sys/types.h>
-    #include <sys/socket.h>
-    #include <sys/wait.h>
     #include <sys/stat.h>
     #include <unistd.h>
     #include <fcntl.h>
-    #include "fdpass.h"
+    #include <sys/mman.h>
+    int main() {
+      /* return 0 if we're signed */
+      int f = open("conftest.mmap", O_RDWR|O_CREAT|O_TRUNC);
+      void *mem;
+      if (f == -1) {
+	perror("open()");
+	return 1;
+      }
+      unlink("conftest.mmap");
+  
+      write(f, "1", 2);
+      mem = mmap(NULL, 2, PROT_READ|PROT_WRITE, MAP_SHARED, f, 0);
+      if (mem == MAP_FAILED) {
+	perror("mmap()");
+	return 1;
+      }
+      strcpy(mem, "2");
+      msync(mem, 2, MS_SYNC);
+      lseek(f, 0, SEEK_SET);
+      write(f, "3", 2);
     
-    int main(void)
-    {
-	    int fd[2], send_fd, recv_fd, status;
-	    struct stat st, st2;
-	    char data;
-    
-	    send_fd = open("conftest.fdpass", O_CREAT|O_WRONLY);
-	    if (send_fd == -1) return 2;
-	    unlink("conftest.fdpass");
-	    if (fstat(send_fd, &st) < 0) return 2;
-	    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) return 2;
-    
-	    switch (fork()) {
-	    case -1:
-		    return 2;
-	    case 0:
-		    alarm(1);
-		    if (fd_send(fd[0], send_fd, &data, 1) != 1) return 2;
-		    return 0;
-	    default:
-		    alarm(2);
-		    if (wait(&status) == -1)
-		      return 2;
-		    if (status != 0)
-		      return status;
-		    if (fd_read(fd[1], &data, 1, &recv_fd) != 1) return 1;
-		    if (fstat(recv_fd, &st2) < 0) return 2;
-		    return st.st_ino == st2.st_ino ? 0 : 1;
-	    }
+      return strcmp(mem, "3") == 0 ? 0 : 1;
     }
   ], [
-    CFLAGS=$old_cflags
-    if test $i = 2; then
-      AC_DEFINE(BUGGY_CMSG_MACROS,, Define if you have buggy CMSG macros)
-    fi
-    AC_MSG_RESULT(yes)
-    break
+    mmap_plays_with_write=yes
   ], [
-    dnl no, try with BUGGY_CMSG_MACROS
-    CFLAGS=$old_cflags
-    if test $i = 2; then
-      AC_MSG_RESULT(no)
-    fi
+    mmap_plays_with_write=no
   ])
-done
+])
+if test $mmap_plays_with_write = no; then
+  AC_DEFINE(MMAP_CONFLICTS_WRITE,, [Define if shared mmaps don't get updated by write()s])
+fi
+
+dnl * see if fd passing works
+AC_CACHE_CHECK([whether fd passing works],fd_passing,[
+  for i in 1 2; do
+    old_cflags="$CFLAGS"
+    CFLAGS="$CFLAGS -I$srcdir/src/lib $srcdir/src/lib/fdpass.c"
+    if test $i = 2; then
+      CFLAGS="$CFLAGS -DBUGGY_CMSG_MACROS"
+    fi
+  
+    AC_TRY_RUN([
+      #include <sys/types.h>
+      #include <sys/socket.h>
+      #include <sys/wait.h>
+      #include <sys/stat.h>
+      #include <unistd.h>
+      #include <fcntl.h>
+      #include "fdpass.h"
+      
+      int main(void)
+      {
+	      int fd[2], send_fd, recv_fd, status;
+	      struct stat st, st2;
+	      char data;
+      
+	      send_fd = open("conftest.fdpass", O_CREAT|O_WRONLY);
+	      if (send_fd == -1) return 2;
+	      unlink("conftest.fdpass");
+	      if (fstat(send_fd, &st) < 0) return 2;
+	      if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) return 2;
+      
+	      switch (fork()) {
+	      case -1:
+		      return 2;
+	      case 0:
+		      alarm(1);
+		      if (fd_send(fd[0], send_fd, &data, 1) != 1) return 2;
+		      return 0;
+	      default:
+		      alarm(2);
+		      if (wait(&status) == -1)
+			return 2;
+		      if (status != 0)
+			return status;
+		      if (fd_read(fd[1], &data, 1, &recv_fd) != 1) return 1;
+		      if (fstat(recv_fd, &st2) < 0) return 2;
+		      return st.st_ino == st2.st_ino ? 0 : 1;
+	      }
+      }
+    ], [
+      CFLAGS=$old_cflags
+      if test $i = 2; then
+	fd_passing=buggy_cmsg_macros
+      else
+        fd_passing=yes
+      fi
+      break
+    ], [
+      dnl no, try with BUGGY_CMSG_MACROS
+      CFLAGS=$old_cflags
+      fd_passing=no
+    ])
+  done
+]);
+
+if test $fd_passing = buggy_cmsg_macros; then
+  AC_DEFINE(BUGGY_CMSG_MACROS,, Define if you have buggy CMSG macros)
+fi
 
 dnl * Solaris compatible sendfile()
 AC_CHECK_LIB(sendfile, sendfile, [
