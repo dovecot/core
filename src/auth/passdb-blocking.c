@@ -47,7 +47,7 @@ check_failure(struct auth_request *request, const char **reply)
 static int get_pass_reply(struct auth_request *request, const char *reply,
 			  const char **password_r, const char **scheme_r)
 {
-	const char *p, *p2, **tmp;
+	const char *p, *p2;
 
 	/* user \t {scheme}password [\t extra] */
 	p = strchr(reply, '\t');
