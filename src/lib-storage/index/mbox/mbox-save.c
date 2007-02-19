@@ -471,14 +471,12 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	if (write_from_line(ctx, received_date, from_envelope) < 0)
 		ctx->failed = TRUE;
 	else {
-		ctx->input =
-			i_stream_create_header_filter(input,
-						      HEADER_FILTER_EXCLUDE |
-                                                      HEADER_FILTER_NO_CR,
-						      mbox_hide_headers,
-						      mbox_hide_headers_count,
-						      save_header_callback,
-						      ctx);
+		ctx->input = i_stream_create_header_filter(input,
+						HEADER_FILTER_EXCLUDE |
+						HEADER_FILTER_NO_CR,
+						mbox_save_drop_headers,
+						mbox_save_drop_headers_count,
+						save_header_callback, ctx);
 		ctx->body_output =
 			(STORAGE(mbox->storage)->flags &
 			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
