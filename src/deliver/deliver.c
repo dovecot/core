@@ -189,7 +189,7 @@ static void config_file_init(const char *path)
 	struct istream *input;
 	const char *key, *value;
 	char *line, *p, quote;
-	int fd, sections = 0, lda_section = FALSE;
+	int fd, sections = 0, lda_section = FALSE, pop3_section = FALSE;
 	size_t len;
 
 	fd = open(path, O_RDONLY);
@@ -237,20 +237,26 @@ static void config_file_init(const char *path)
 				if (strcmp(line, "protocol lda {") == 0 ||
 				    strcmp(line, "plugin {") == 0)
 					lda_section = TRUE;
+				if (strcmp(line, "protocol pop3 {") == 0)
+					pop3_section = TRUE;
 				sections++;
 			}
 			if (*line == '}') {
 				sections--;
 				lda_section = FALSE;
+				pop3_section = FALSE;
 			}
 			continue;
 		}
 
-		if (sections > 0 && !lda_section)
-			continue;
-
 		while (p > line && p[-1] == ' ') p--;
 		key = t_strdup_until(line, p);
+
+		if (sections > 0 && !lda_section) {
+			if (!pop3_section ||
+			    strcmp(key, "pop3_uidl_format") != 0)
+				continue;
+		}
 
 		do {
 			value++;
