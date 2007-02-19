@@ -951,18 +951,20 @@ void auth_request_set_field(struct auth_request *request,
 		request->no_password = TRUE;
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, value);
-	} else if (strcmp(name, "nologin") == 0) {
-		/* user can't actually login - don't keep this
-		   reply for master */
-		request->no_login = TRUE;
-		value = NULL;
-	} else if (strcmp(name, "proxy") == 0) {
-		/* we're proxying authentication for this user. send
-		   password back if using plaintext authentication. */
-		request->proxy = TRUE;
-		request->no_login = TRUE;
-		value = NULL;
 	} else {
+		if (strcmp(name, "nologin") == 0) {
+			/* user can't actually login - don't keep this
+			   reply for master */
+			request->no_login = TRUE;
+			value = NULL;
+		} else if (strcmp(name, "proxy") == 0) {
+			/* we're proxying authentication for this user. send
+			   password back if using plaintext authentication. */
+			request->proxy = TRUE;
+			request->no_login = TRUE;
+			value = NULL;
+		}
+
 		if (request->extra_fields == NULL)
 			request->extra_fields = auth_stream_reply_init(request);
 		auth_stream_reply_add(request->extra_fields, name, value);
