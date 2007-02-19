@@ -1,9 +1,11 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2007 Timo Sirainen */
 
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "base64.h"
 #include "hostpid.h"
+#include "randgen.h"
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
@@ -25,6 +27,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <netdb.h>
+
+#define MBOX_DELIVERY_ID_RAND_BYTES (64/8)
 
 struct mbox_save_context {
 	struct mail_save_context ctx;
@@ -348,6 +352,29 @@ static void save_header_callback(struct message_header_line *hdr,
 	}
 }
 
+static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
+{
+	unsigned char md5_result[MD5_RESULTLEN];
+	buffer_t *buf;
+	void *randbuf;
+
+	t_push();
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buffer_append(buf, &ioloop_time, sizeof(ioloop_time));
+	buffer_append(buf, &ioloop_timeval.tv_usec,
+		      sizeof(ioloop_timeval.tv_usec));
+
+	randbuf = buffer_append_space_unsafe(buf, MBOX_DELIVERY_ID_RAND_BYTES);
+	random_fill_weak(randbuf, MBOX_DELIVERY_ID_RAND_BYTES);
+
+	md5_get_digest(buf->data, buf->used, md5_result);
+
+	str_append(ctx->headers, "X-Delivery-ID: ");
+	base64_encode(md5_result, sizeof(md5_result), ctx->headers);
+	str_append_c(ctx->headers, '\n');
+	t_pop();
+}
+
 int mbox_save_init(struct mailbox_transaction_context *_t,
 		   enum mail_flags flags, struct mail_keywords *keywords,
 		   time_t received_date, int timezone_offset __attr_unused__,
@@ -392,6 +419,14 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 			/* writing the first mail. Insert X-IMAPbase as well. */
 			str_printfa(ctx->headers, "X-IMAPbase: %u %010u\n",
 				    ctx->uid_validity, ctx->next_uid);
+		}
+		if ((STORAGE(mbox->storage)->flags &
+		     MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0) {
+			/* we're using MD5 sums to generate POP3 UIDLs.
+			   clients don't like it much if there are duplicates,
+			   so make sure that there can't be any by appending
+			   our own X-Delivery-ID header. */
+			mbox_save_x_delivery_id(ctx);
 		}
 		str_printfa(ctx->headers, "X-UID: %u\n", ctx->next_uid);
 		if (!mbox->ibox.keep_recent)
