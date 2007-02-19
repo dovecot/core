@@ -333,6 +333,10 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 	/* mbox_sync_parse_next_mail() checks that UIDs are growing,
 	   so we have to fool it. */
 	sync_ctx->prev_msg_uid = mails[idx].uid == 0 ? 0 : mails[idx].uid-1;
+	/* If we originally thought that the UID was broken, force the
+	   brokeness now also. Otherwise try to make the UID what we wanted
+	   it originally. */
+	sync_ctx->next_uid = mails[idx].uid_broken ? 0 : mail_ctx->mail.uid - 1;
 
 	first_mail_expunge_extra = 1 +
 		sync_ctx->first_mail_crlf_expunged ? 1 : 0;
@@ -359,9 +363,6 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->have_eoh)
 			str_append_c(mail_ctx->header, '\n');
 	}
-
-	if (mail_ctx->mail.uid >= sync_ctx->next_uid)
-		sync_ctx->next_uid = mail_ctx->mail.uid + 1;
 }
 
 static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
@@ -483,10 +484,8 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	}
 	i_assert(mails[first_nonexpunged_idx].space < 0);
 
-	/* broken UIDs are generated from next_uid */
 	orig_prev_msg_uid = sync_ctx->prev_msg_uid;
 	orig_next_uid = sync_ctx->next_uid;
-	sync_ctx->next_uid = sync_ctx->need_space_next_uid;
 
 	/* start moving backwards. */
 	while (idx > first_nonexpunged_idx) {
@@ -565,7 +564,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 
 	i_stream_sync(sync_ctx->input);
 	sync_ctx->next_uid = orig_next_uid;
-	sync_ctx->need_space_next_uid = 0;
 	sync_ctx->prev_msg_uid = orig_prev_msg_uid;
 	return ret;
 }
