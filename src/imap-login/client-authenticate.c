@@ -82,12 +82,12 @@ static void client_auth_input(struct imap_client *client)
 }
 
 static bool client_handle_args(struct imap_client *client,
-			       const char *const *args, bool nologin)
+			       const char *const *args, bool success)
 {
 	const char *reason = NULL, *host = NULL, *destuser = NULL, *pass = NULL;
 	string_t *reply;
 	unsigned int port = 143;
-	bool proxy = FALSE, temp = FALSE;
+	bool proxy = FALSE, temp = FALSE, nologin = !success;
 
 	for (; *args != NULL; args++) {
 		if (strcmp(*args, "nologin") == 0)
@@ -113,8 +113,12 @@ static bool client_handle_args(struct imap_client *client,
 
 	if (proxy) {
 		/* we want to proxy the connection to another server.
+		   don't do this unless authentication succeeded. with
+		   master user proxying we can get FAIL with proxy still set.
 
 		   proxy host=.. [port=..] [destuser=..] pass=.. */
+		if (!success)
+			return FALSE;
 		if (imap_proxy_new(client, host, port, destuser, pass) < 0)
 			client_destroy_internal_failure(client);
 		return TRUE;
@@ -193,7 +197,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	switch (reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
 		if (args != NULL) {
-			if (client_handle_args(client, args, FALSE))
+			if (client_handle_args(client, args, TRUE))
 				break;
 		}
 
@@ -203,7 +207,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 	case SASL_SERVER_REPLY_CLIENT_ERROR:
 		if (args != NULL) {
-			if (client_handle_args(client, args, TRUE))
+			if (client_handle_args(client, args, FALSE))
 				break;
 		}
 
