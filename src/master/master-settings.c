@@ -1478,6 +1478,38 @@ static void auth_settings_dump(struct auth_settings *auth, bool nondefaults)
 	}
 }
 
+static void plugin_settings_dump(const struct settings *set)
+{
+	const char *const *envs;
+	unsigned int i, count;
+
+	envs = array_get(&set->plugin_envs, &count);
+	i_assert((count % 2) == 0);
+
+	if (count == 0)
+		return;
+
+	printf("plugin:\n");
+	for (i = 0; i < count; i += 2)
+		printf("  %s: %s\n", envs[i], envs[i+1]);
+}
+
+static void dict_settings_dump(const struct server_settings *set)
+{
+	const char *const *dicts;
+	unsigned int i, count;
+
+	dicts = array_get(&set->dicts, &count);
+	i_assert((count % 2) == 0);
+
+	if (count == 0)
+		return;
+
+	printf("dict:\n");
+	for (i = 0; i < count; i += 2)
+		printf("  %s: %s\n", dicts[i], dicts[i+1]);
+}
+
 void master_settings_dump(struct server_settings *set, bool nondefaults)
 {
 	const void *sets[4];
@@ -1504,6 +1536,8 @@ void master_settings_dump(struct server_settings *set, bool nondefaults)
 	settings_dump(setting_defs, sets, set_names, count, nondefaults, 0);
 	namespace_settings_dump(set->namespaces, nondefaults);
 	auth_settings_dump(set->auths, nondefaults);
+	plugin_settings_dump(set->defaults);
+	dict_settings_dump(set);
 }
 
 void master_settings_init(void)
