@@ -242,7 +242,11 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			return -1;
 		}
 
+#if _LINUX_QUOTA_VERSION == 1
+		*value_r = dqblk.dqb_curblocks * 1024;
+#else
 		*value_r = dqblk.dqb_curblocks;
+#endif
 		*limit_r = dqblk.dqb_bsoftlimit * 1024;
 	}
 #elif defined(HAVE_QUOTACTL)
