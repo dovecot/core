@@ -545,10 +545,10 @@ static int dbox_storage_close(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 
-	if (mbox->ibox.keep_locked)
+	if (mbox->keep_lock_to != NULL) {
 		dbox_uidlist_unlock(mbox->uidlist);
-	if (mbox->keep_lock_to != NULL)
 		timeout_remove(&mbox->keep_lock_to);
+	}
 
 	dbox_uidlist_deinit(mbox->uidlist);
 	if (mbox->file != NULL)

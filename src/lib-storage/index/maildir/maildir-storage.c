@@ -880,10 +880,10 @@ static int maildir_storage_close(struct mailbox *box)
 		ret = -1;
 	}*/
 
-	if (mbox->ibox.keep_locked)
+	if (mbox->keep_lock_to != NULL) {
 		maildir_uidlist_unlock(mbox->uidlist);
-	if (mbox->keep_lock_to != NULL)
 		timeout_remove(&mbox->keep_lock_to);
+	}
 
 	maildir_keywords_deinit(mbox->keywords);
 	maildir_uidlist_deinit(mbox->uidlist);
