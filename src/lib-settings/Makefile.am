@@ -6,5 +6,12 @@ AM_CPPFLAGS = \
 libsettings_a_SOURCES = \
 	settings.c
 
-noinst_HEADERS = \
+headers = \
 	settings.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-settings
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

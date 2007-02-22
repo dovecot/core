@@ -16,9 +16,16 @@ libsql_a_SOURCES = \
 	$(dist_sources) \
 	sql-drivers-register.c
 
-noinst_HEADERS = \
+headers = \
 	sql-api.h \
 	sql-api-private.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-sql
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif
 
 sql-drivers-register.c: Makefile
 	rm -f $@

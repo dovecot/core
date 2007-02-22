@@ -20,10 +20,17 @@ libstorage_dbox_a_SOURCES = \
 	dbox-transaction.c \
 	dbox-uidlist.c
 
-noinst_HEADERS = \
+headers = \
 	dbox-file.h \
 	dbox-format.h \
 	dbox-keywords.h \
 	dbox-storage.h \
 	dbox-sync.h \
 	dbox-uidlist.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-storage/index/dbox
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

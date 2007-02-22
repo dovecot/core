@@ -6,4 +6,5 @@ LIBICONV="@LIBICONV@"
 RAND_LIBS="@RAND_LIBS@"
 MODULE_LIBS="@MODULE_LIBS@"
 
+dovecot_incdir=
 moduledir=

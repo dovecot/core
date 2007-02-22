@@ -15,7 +15,7 @@ libimap_a_SOURCES = \
 	imap-parser.c \
 	imap-util.c
 
-noinst_HEADERS = \
+headers = \
 	imap-base-subject.h \
 	imap-bodystructure.h \
 	imap-date.h \
@@ -24,3 +24,10 @@ noinst_HEADERS = \
 	imap-quote.h \
 	imap-parser.h \
 	imap-util.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-imap
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

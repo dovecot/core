@@ -88,7 +88,7 @@ dovecot_auth_SOURCES = \
 	userdb-vpopmail.c \
 	userdb-sql.c
 
-noinst_HEADERS = \
+headers = \
 	auth.h \
 	auth-cache.h \
 	auth-client-connection.h \
@@ -116,6 +116,13 @@ noinst_HEADERS = \
 	userdb.h \
 	userdb-blocking.h \
 	userdb-vpopmail.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/auth
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif
 
 checkpassword_reply_LDADD = \
 	../lib/liblib.a

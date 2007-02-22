@@ -43,8 +43,15 @@ pop3_SOURCES = \
 	mail-storage-callbacks.c \
 	main.c
 
-noinst_HEADERS = \
+headers = \
 	capability.h \
 	client.h \
 	commands.h \
 	common.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/pop3
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

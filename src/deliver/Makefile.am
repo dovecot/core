@@ -47,9 +47,16 @@ deliver_SOURCES = \
 	mail-send.c \
 	smtp-client.c
 
-noinst_HEADERS = \
+headers = \
 	auth-client.h \
 	deliver.h \
 	duplicate.h \
 	mail-send.h \
 	smtp-client.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/deliver
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

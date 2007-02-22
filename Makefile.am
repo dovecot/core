@@ -14,10 +14,18 @@ EXTRA_DIST = \
 	COPYING.MIT \
 	$(conf_DATA)
 
-noinst_DATA = dovecot-config
+if INSTALL_HEADERS
+  pkginclude_HEADERS = config.h
+  pkglib_DATA = dovecot-config
+else
+  noinst_HEADERS = $(headers)
+  noinst_DATA = dovecot-config
+endif
 
-dovecot-config: dovecot-config.in
-	cat dovecot-config.in|sed "s|moduledir=|moduledir=$(moduledir)|" > dovecot-config
+dovecot-config: dovecot-config.in Makefile
+	cat dovecot-config.in | sed \
+	-e "s|^moduledir=|moduledir=$(moduledir)|" \
+	-e "s|^dovecot_incdir=|dovecot_incdir=$(pkgincludedir)|" > dovecot-config
 
 CLEANFILES = $(noinst_DATA)
 

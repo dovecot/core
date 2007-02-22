@@ -22,7 +22,7 @@ libmail_a_SOURCES = \
 	quoted-printable.c \
 	rfc822-parser.c
 
-noinst_HEADERS = \
+headers = \
 	istream-header-filter.h \
 	mail-types.h \
 	message-address.h \
@@ -40,3 +40,10 @@ noinst_HEADERS = \
 	message-size.h \
 	quoted-printable.h \
 	rfc822-parser.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-mail
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

@@ -88,7 +88,7 @@ imap_SOURCES = \
 	namespace.c
 
 
-noinst_HEADERS = \
+headers = \
 	client.h \
 	commands.h \
 	commands-util.h \
@@ -101,3 +101,10 @@ noinst_HEADERS = \
 	imap-sync.h \
 	imap-thread.h \
 	namespace.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/imap
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

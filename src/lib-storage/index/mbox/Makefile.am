@@ -23,7 +23,7 @@ libstorage_mbox_a_SOURCES = \
 	mbox-storage.c \
 	mbox-transaction.c
 
-noinst_HEADERS = \
+headers = \
 	istream-raw-mbox.h \
 	mbox-file.h \
 	mbox-from.h \
@@ -31,3 +31,10 @@ noinst_HEADERS = \
 	mbox-md5.h \
 	mbox-storage.h \
 	mbox-sync-private.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-storage/index/mbox
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

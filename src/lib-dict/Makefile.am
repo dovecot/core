@@ -18,11 +18,18 @@ libdict_a_SOURCES = \
 	$(dist_sources) \
 	dict-drivers-register.c
 
-noinst_HEADERS = \
+headers = \
 	dict.h \
 	dict-client.h \
 	dict-private.h \
 	dict-sql.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-dict
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif
 
 dict-drivers-register.c: Makefile
 	rm -f $@

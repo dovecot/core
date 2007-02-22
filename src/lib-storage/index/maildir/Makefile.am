@@ -19,8 +19,15 @@ libstorage_maildir_a_SOURCES = \
 	maildir-uidlist.c \
 	maildir-util.c
 
-noinst_HEADERS = \
+headers = \
 	maildir-keywords.h \
 	maildir-storage.h \
 	maildir-sync.h \
 	maildir-uidlist.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-storage/index/maildir
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

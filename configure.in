@@ -357,6 +357,16 @@ AC_ARG_WITH(docs,
 	want_docs=yes)
 AM_CONDITIONAL(BUILD_DOCS, test "$want_docs" = "yes")
 
+AC_ARG_WITH(headers,
+[  --with-headers          Install development headers],
+	if test x$withval = xno; then
+		want_headers=no
+	else
+		want_headers=yes
+	fi,
+	want_headers=no)
+AM_CONDITIONAL(INSTALL_HEADERS, test "$want_headers" = "yes")
+
 dnl * gcc specific options
 if test "x$ac_cv_c_compiler_gnu" = "xyes"; then
 	# -Wcast-qual -Wcast-align -Wconversion -Wunreachable-code # too many warnings

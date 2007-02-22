@@ -17,8 +17,15 @@ libstorage_list_a_SOURCES = \
 	mailbox-list-maildir-iter.c \
 	subscription-file.c
 
-noinst_HEADERS = \
+headers = \
 	index-mailbox-list.h \
 	mailbox-list-fs.h \
 	mailbox-list-maildir.h \
 	subscription-file.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-storage/list
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

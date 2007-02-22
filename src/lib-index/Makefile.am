@@ -32,7 +32,7 @@ libindex_a_SOURCES = \
         mailbox-list-index.c \
         mailbox-list-index-sync.c
 
-noinst_HEADERS = \
+headers = \
 	mail-cache.h \
 	mail-cache-private.h \
         mail-hash.h \
@@ -46,3 +46,10 @@ noinst_HEADERS = \
         mail-transaction-util.h \
         mailbox-list-index.h \
         mailbox-list-index-private.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-index
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

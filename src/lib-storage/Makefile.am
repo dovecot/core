@@ -16,7 +16,7 @@ libstorage_a_SOURCES = \
 	mailbox-list.c \
 	mailbox-tree.c
 
-noinst_HEADERS = \
+headers = \
 	mail-copy.h \
 	mail-search.h \
 	mail-storage.h \
@@ -24,3 +24,10 @@ noinst_HEADERS = \
 	mailbox-list.h \
 	mailbox-list-private.h \
 	mailbox-tree.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib-storage
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif

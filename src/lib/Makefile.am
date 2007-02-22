@@ -88,7 +88,7 @@ liblib_a_SOURCES = \
 	var-expand.c \
 	write-full.c
 
-noinst_HEADERS = \
+headers = \
 	array.h \
 	array-decl.h \
 	backtrace-string.h \
@@ -163,3 +163,10 @@ noinst_HEADERS = \
 	utc-mktime.h \
 	var-expand.h \
 	write-full.h
+
+if INSTALL_HEADERS
+  pkginc_libdir=$(pkgincludedir)/src/lib
+  pkginc_lib_HEADERS = $(headers)
+else
+  noinst_HEADERS = $(headers)
+endif
