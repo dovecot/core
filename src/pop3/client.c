@@ -128,6 +128,7 @@ struct client *client_create(int fd_in, int fd_out,
 {
 	struct client *client;
         enum mailbox_open_flags flags;
+	const char *errmsg;
 	bool syntax_error, temporary_error;
 
 	/* always use nonblocking I/O */
@@ -156,11 +157,13 @@ struct client *client_create(int fd_in, int fd_out,
 		flags |= MAILBOX_OPEN_KEEP_LOCKED;
 	client->mailbox = mailbox_open(storage, "INBOX", NULL, flags);
 	if (client->mailbox == NULL) {
-		i_error("Couldn't open INBOX: %s",
-			mail_storage_get_last_error(storage, &syntax_error,
-						    &temporary_error));
-		client_send_line(client, "-ERR No INBOX for user.");
-		client_destroy(client, "No INBOX for user");
+		errmsg = t_strdup_printf("Couldn't open INBOX: %s",
+				mail_storage_get_last_error(storage,
+							    &syntax_error,
+							    &temporary_error));
+		i_error("%s", errmsg);
+		client_send_line(client, "-ERR [IN-USE] %s", errmsg);
+		client_destroy(client, "Couldn't open INBOX");
 		return NULL;
 	}
 
