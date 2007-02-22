@@ -87,6 +87,7 @@ module_load(const char *path, const char *name, bool require_init_funcs)
 {
 	void *handle;
 	struct module *module;
+	const char *const *version;
 
 	handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
 	if (handle == NULL) {
@@ -98,6 +99,14 @@ module_load(const char *path, const char *name, bool require_init_funcs)
 	module->path = i_strdup(path);
 	module->name = i_strdup(name);
 	module->handle = handle;
+
+	version = get_symbol(module, t_strconcat(name, "_version", NULL), TRUE);
+	if (version != NULL && strcmp(*version, PACKAGE_VERSION) != 0) {
+		i_error("Module is for different version %s: %s",
+			*version, path);
+		module_free(module);
+		return NULL;
+	}
 
 	/* get our init func */
 	module->init = (void (*)(void))
