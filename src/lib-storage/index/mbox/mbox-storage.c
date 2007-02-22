@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "array.h"
 #include "istream.h"
 #include "mkdir-parents.h"
@@ -19,6 +20,9 @@
 #include <sys/stat.h>
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
+
+/* How often to touch the dotlock file when using KEEP_LOCKED flag */
+#define MBOX_LOCK_TOUCH_MSECS (10*1000)
 
 /* Assume that if atime < mtime, there are new mails. If it's good enough for
    UW-IMAP, it's good enough for us. */
@@ -516,6 +520,11 @@ static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 	return st.st_size / 1024 < min_size;
 }
 
+static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
+{
+	(void)file_dotlock_touch(mbox->mbox_dotlock);
+}
+
 static struct mbox_mailbox *
 mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
 	   const char *name, const char *path, enum mailbox_open_flags flags)
@@ -553,6 +562,12 @@ mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
 
 			mailbox_close(&box);
 			return NULL;
+		}
+
+		if (mbox->mbox_dotlock != NULL) {
+			mbox->keep_lock_to =
+				timeout_add(MBOX_LOCK_TOUCH_MSECS,
+					    mbox_lock_touch_timeout, mbox);
 		}
 	}
 
@@ -967,6 +982,8 @@ static int mbox_storage_close(struct mailbox *box)
 
 	if (mbox->mbox_global_lock_id != 0)
 		(void)mbox_unlock(mbox, mbox->mbox_global_lock_id);
+	if (mbox->keep_lock_to != NULL)
+		timeout_remove(&mbox->keep_lock_to);
 
         mbox_file_close(mbox);
 	if (mbox->mbox_file_stream != NULL)
