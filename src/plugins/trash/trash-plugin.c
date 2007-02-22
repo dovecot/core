@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#define INIT_TRASH_MAILBOX_COUNT 4
 #define MAX_RETRY_COUNT 3
 
 struct trash_mailbox {
@@ -236,7 +237,7 @@ static int read_configuration(const char *path)
 	}
 
 	p_clear(config_pool);
-	p_array_init(&trash_boxes, config_pool, 8);
+	p_array_init(&trash_boxes, config_pool, INIT_TRASH_MAILBOX_COUNT);
 
 	input = i_stream_create_file(fd, default_pool, (size_t)-1, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
@@ -271,7 +272,11 @@ void trash_plugin_init(void)
 		return;
 	}
 
-	config_pool = pool_alloconly_create("trash config", 1024);
+	config_pool = pool_alloconly_create("trash config",
+					sizeof(trash_boxes) +
+					BUFFER_APPROX_SIZE +
+					INIT_TRASH_MAILBOX_COUNT *
+					(sizeof(struct trash_mailbox) + 32));
 	if (read_configuration(env) < 0)
 		return;
 
