@@ -399,9 +399,8 @@ void client_command_free(struct client_command_context *cmd)
 
 static void client_add_missing_io(struct client *client)
 {
-	if (client->io == NULL) {
-		i_assert(i_stream_get_fd(client->input) >= 0);
-		client->io = io_add(i_stream_get_fd(client->input),
+	if (client->io == NULL && !client->disconnected) {
+		client->io = io_add(client->fd_in,
 				    IO_READ, _client_input, client);
 	}
 }
