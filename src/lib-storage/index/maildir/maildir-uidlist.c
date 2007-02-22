@@ -136,6 +136,13 @@ int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist)
 	return maildir_uidlist_lock_timeout(uidlist, TRUE);
 }
 
+int maildir_uidlist_lock_touch(struct maildir_uidlist *uidlist)
+{
+	i_assert(UIDLIST_IS_LOCKED(uidlist));
+
+	return file_dotlock_touch(uidlist->dotlock);
+}
+
 bool maildir_uidlist_is_locked(struct maildir_uidlist *uidlist)
 {
 	return UIDLIST_IS_LOCKED(uidlist);

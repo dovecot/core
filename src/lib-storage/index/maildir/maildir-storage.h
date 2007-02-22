@@ -69,6 +69,7 @@ struct maildir_mailbox {
 	struct maildir_storage *storage;
 
 	const char *path, *control_dir;
+	struct timeout *keep_lock_to;
 
 	/* maildir sync: */
 	struct maildir_uidlist *uidlist;

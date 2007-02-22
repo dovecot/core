@@ -448,6 +448,11 @@ int dbox_uidlist_lock(struct dbox_uidlist *uidlist)
 	return 0;
 }
 
+int dbox_uidlist_lock_touch(struct dbox_uidlist *uidlist)
+{
+	return file_dotlock_touch(uidlist->dotlock);
+}
+
 void dbox_uidlist_unlock(struct dbox_uidlist *uidlist)
 {
 	i_assert(uidlist->lock_fd != -1);

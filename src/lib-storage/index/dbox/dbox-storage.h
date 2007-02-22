@@ -63,6 +63,7 @@ struct dbox_mailbox {
 	struct dbox_uidlist *uidlist;
 
 	const char *path;
+	struct timeout *keep_lock_to;
 
         struct dbox_file *file;
 	uint32_t dbox_file_ext_idx;

@@ -21,6 +21,7 @@ struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox);
 void dbox_uidlist_deinit(struct dbox_uidlist *uidlist);
 
 int dbox_uidlist_lock(struct dbox_uidlist *uidlist);
+int dbox_uidlist_lock_touch(struct dbox_uidlist *uidlist);
 void dbox_uidlist_unlock(struct dbox_uidlist *uidlist);
 
 struct dbox_uidlist_entry *

@@ -20,6 +20,9 @@
 
 #define CREATE_MODE 0777 /* umask() should limit it more */
 
+/* How often to touch the uidlist lock file when using KEEP_LOCKED flag */
+#define MAILDIR_LOCK_TOUCH_MSECS (10*1000)
+
 #define MAILDIR_PLUSPLUS_DRIVER_NAME "maildir++"
 #define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
 
@@ -384,6 +387,13 @@ static bool maildir_is_recent(struct index_mailbox *ibox, uint32_t uid)
 	return maildir_uidlist_is_recent(mbox->uidlist, uid);
 }
 
+static void maildir_lock_touch_timeout(void *context)
+{
+	struct maildir_mailbox *mbox = context;
+
+	(void)maildir_uidlist_lock_touch(mbox->uidlist);
+}
+
 static struct mailbox *
 maildir_open(struct maildir_storage *storage, const char *name,
 	     enum mailbox_open_flags flags)
@@ -448,6 +458,9 @@ maildir_open(struct maildir_storage *storage, const char *name,
 			mailbox_close(&box);
 			return NULL;
 		}
+		mbox->keep_lock_to = timeout_add(MAILDIR_LOCK_TOUCH_MSECS,
+						 maildir_lock_touch_timeout,
+						 mbox);
 	}
 
 	return &mbox->ibox.box;
@@ -869,6 +882,8 @@ static int maildir_storage_close(struct mailbox *box)
 
 	if (mbox->ibox.keep_locked)
 		maildir_uidlist_unlock(mbox->uidlist);
+	if (mbox->keep_lock_to != NULL)
+		timeout_remove(&mbox->keep_lock_to);
 
 	maildir_keywords_deinit(mbox->keywords);
 	maildir_uidlist_deinit(mbox->uidlist);

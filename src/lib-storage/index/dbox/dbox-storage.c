@@ -1,6 +1,7 @@
-/* Copyright (C) 2005 Timo Sirainen */
+/* Copyright (C) 2005-2007 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
 #include "index-mail.h"
@@ -16,6 +17,9 @@
 #include <sys/stat.h>
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
+
+/* How often to touch the uidlist lock file when using KEEP_LOCKED flag */
+#define DBOX_LOCK_TOUCH_MSECS (10*1000)
 
 const struct dotlock_settings default_uidlist_dotlock_set = {
 	MEMBER(temp_prefix) NULL,
@@ -254,6 +258,13 @@ static bool dbox_is_recent(struct index_mailbox *ibox __attr_unused__,
 	return FALSE;
 }
 
+static void dbox_lock_touch_timeout(void *context)
+{
+	struct dbox_mailbox *mbox = context;
+
+	(void)dbox_uidlist_lock_touch(mbox->uidlist);
+}
+
 static struct mailbox *
 dbox_open(struct dbox_storage *storage, const char *name,
 	  enum mailbox_open_flags flags)
@@ -320,6 +331,9 @@ dbox_open(struct dbox_storage *storage, const char *name,
 			mailbox_close(&box);
 			return NULL;
 		}
+		mbox->keep_lock_to = timeout_add(DBOX_LOCK_TOUCH_MSECS,
+						 dbox_lock_touch_timeout,
+						 mbox);
 	}
 	return &mbox->ibox.box;
 }
@@ -533,6 +547,9 @@ static int dbox_storage_close(struct mailbox *box)
 
 	if (mbox->ibox.keep_locked)
 		dbox_uidlist_unlock(mbox->uidlist);
+	if (mbox->keep_lock_to != NULL)
+		timeout_remove(&mbox->keep_lock_to);
+
 	dbox_uidlist_deinit(mbox->uidlist);
 	if (mbox->file != NULL)
 		dbox_file_close(mbox->file);
