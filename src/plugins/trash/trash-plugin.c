@@ -31,6 +31,8 @@ struct trash_mailbox {
 	unsigned int mail_set:1;
 };
 
+const char *trash_plugin_version = PACKAGE_VERSION;
+
 static int (*trash_next_quota_test_alloc)(struct quota_transaction_context *,
 					  uoff_t, bool *);
 

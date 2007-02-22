@@ -10,6 +10,8 @@
 
 #include <stdlib.h>
 
+const char *imap_quota_plugin_version = PACKAGE_VERSION;
+
 static void
 quota_send(struct client_command_context *cmd, struct quota_root *root)
 {

@@ -21,6 +21,8 @@ struct zlib_mail_storage {
 /* defined by imap, pop3, lda */
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 
+const char *zlib_plugin_version = PACKAGE_VERSION;
+
 static void (*zlib_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 

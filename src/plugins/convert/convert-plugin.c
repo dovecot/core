@@ -6,6 +6,8 @@
 
 #include <stdlib.h>
 
+const char *convert_plugin_version = PACKAGE_VERSION;
+
 void convert_plugin_init(void)
 {
 	const char *convert_mail, *mail, *home, *user;

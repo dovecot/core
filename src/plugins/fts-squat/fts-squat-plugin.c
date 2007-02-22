@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "fts-squat-plugin.h"
 
+const char *fts_squat_plugin_version = PACKAGE_VERSION;
+
 void fts_squat_plugin_init(void)
 {
 	fts_backend_register(&fts_backend_squat);

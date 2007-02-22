@@ -4,6 +4,8 @@
 #include "mail-storage-private.h"
 #include "fts-plugin.h"
 
+const char *fts_plugin_version = PACKAGE_VERSION;
+
 void (*fts_next_hook_mailbox_opened)(struct mailbox *box);
 
 void fts_plugin_init(void)

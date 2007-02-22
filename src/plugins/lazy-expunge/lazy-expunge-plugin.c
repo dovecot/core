@@ -46,6 +46,8 @@ struct lazy_expunge_mail {
 	struct mail_vfuncs super;
 };
 
+const char *lazy_expunge_plugin_version = PACKAGE_VERSION;
+
 static void (*lazy_expunge_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 static void (*lazy_expunge_next_hook_client_created)(struct client **client);

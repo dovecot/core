@@ -12,6 +12,7 @@ extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 
 void (*quota_next_hook_mail_storage_created)(struct mail_storage *storage);
 
+const char *quota_plugin_version = PACKAGE_VERSION;
 struct quota *quota_set;
 
 static void quota_root_add_rules(const char *root_name, 

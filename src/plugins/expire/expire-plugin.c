@@ -49,6 +49,8 @@ struct expire_transaction_context {
 /* defined by imap, pop3, lda */
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 
+const char *expire_plugin_version = PACKAGE_VERSION;
+
 static struct expire expire;
 
 static struct mailbox_transaction_context *

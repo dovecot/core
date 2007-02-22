@@ -4,6 +4,8 @@
 #include "mail-storage-private.h"
 #include "fts-lucene-plugin.h"
 
+const char *fts_lucene_plugin_version = PACKAGE_VERSION;
+
 unsigned int fts_lucene_storage_module_id;
 
 void fts_lucene_plugin_init(void)
