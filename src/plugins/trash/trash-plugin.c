@@ -110,7 +110,7 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 		oldest_idx = count;
 		oldest = (time_t)-1;
 		for (j = i; j < count; j++) {
-			if (trashes[j].priority != trashes[j].priority)
+			if (trashes[j].priority != trashes[i].priority)
 				break;
 
 			if (trashes[j].storage == NULL) {
