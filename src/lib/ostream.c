@@ -146,11 +146,15 @@ off_t o_stream_send_istream(struct ostream *outstream,
 			    struct istream *instream)
 {
 	struct _ostream *_outstream = outstream->real_stream;
+	off_t ret;
 
 	if (outstream->closed || instream->closed)
 		return -1;
 
-	return _outstream->send_istream(_outstream, instream);
+	ret = _outstream->send_istream(_outstream, instream);
+	if (ret < 0)
+		errno = outstream->stream_errno;
+	return ret;
 }
 
 struct ostream *_o_stream_create(struct _ostream *_stream, pool_t pool)
