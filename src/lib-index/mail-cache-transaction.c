@@ -69,7 +69,8 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 
 static void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
 {
-	ctx->cache_file_seq = ctx->cache->hdr->file_seq;
+	ctx->cache_file_seq = MAIL_CACHE_IS_UNUSABLE(ctx->cache) ? 0 :
+		ctx->cache->hdr->file_seq;
 
 	if (ctx->cache_data)
 		buffer_set_used_size(ctx->cache_data, 0);
