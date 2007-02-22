@@ -26,7 +26,7 @@
 #include <sys/wait.h>
 
 #define PAM_CHILD_TIMEOUT (60*2)
-#define PAM_CHILD_CHECK_TIMEOUT 10
+#define PAM_CHILD_CHECK_TIMEOUT (10*1000)
 
 #ifdef HAVE_SECURITY_PAM_APPL_H
 #  include <security/pam_appl.h>
