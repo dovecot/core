@@ -439,6 +439,12 @@ int dbox_uidlist_lock(struct dbox_uidlist *uidlist)
 		file_dotlock_open(&mbox->storage->uidlist_dotlock_set,
 				  uidlist->path, 0, &uidlist->dotlock);
 	if (uidlist->lock_fd == -1) {
+		if (errno == EAGAIN) {
+			mail_storage_set_error(STORAGE(mbox->storage),
+				"Timeout while waiting for lock");
+			STORAGE(mbox->storage)->temporary_error = TRUE;
+			return 0;
+		}
 		mail_storage_set_critical(STORAGE(mbox->storage),
 			"file_dotlock_open(%s) failed: %m", uidlist->path);
 		return -1;
