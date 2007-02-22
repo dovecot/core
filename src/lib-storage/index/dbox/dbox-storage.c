@@ -258,10 +258,8 @@ static bool dbox_is_recent(struct index_mailbox *ibox __attr_unused__,
 	return FALSE;
 }
 
-static void dbox_lock_touch_timeout(void *context)
+static void dbox_lock_touch_timeout(struct dbox_mailbox *mbox)
 {
-	struct dbox_mailbox *mbox = context;
-
 	(void)dbox_uidlist_lock_touch(mbox->uidlist);
 }
 

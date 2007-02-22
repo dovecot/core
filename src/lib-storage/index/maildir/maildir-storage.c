@@ -387,10 +387,8 @@ static bool maildir_is_recent(struct index_mailbox *ibox, uint32_t uid)
 	return maildir_uidlist_is_recent(mbox->uidlist, uid);
 }
 
-static void maildir_lock_touch_timeout(void *context)
+static void maildir_lock_touch_timeout(struct maildir_mailbox *mbox)
 {
-	struct maildir_mailbox *mbox = context;
-
 	(void)maildir_uidlist_lock_touch(mbox->uidlist);
 }
 
