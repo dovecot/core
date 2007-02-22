@@ -18,6 +18,7 @@ lib21_fts_squat_plugin_la_SOURCES = \
 noinst_HEADERS = \
 	fts-squat-plugin.h \
 	squat-trie.h \
+	squat-trie-private.h \
 	squat-uidlist.h
 
 noinst_PROGRAMS = squat-test
