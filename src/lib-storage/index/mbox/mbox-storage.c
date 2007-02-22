@@ -530,11 +530,10 @@ mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
 	mbox->ibox.storage = INDEX_STORAGE(storage);
 	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
 	mbox->ibox.is_recent = mbox_mail_is_recent;
-
-	index_storage_mailbox_init(&mbox->ibox, index, name, flags,
-				   want_memory_indexes(storage, path));
+	mbox->ibox.index = index;
 
 	mbox->storage = storage;
+	mbox->path = p_strdup(mbox->ibox.box.pool, path);
 	mbox->mbox_fd = -1;
 	mbox->mbox_lock_type = F_UNLCK;
 	mbox->mbox_ext_idx =
@@ -547,6 +546,18 @@ mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
 
 	if ((STORAGE(storage)->flags & MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0)
 		mbox->mbox_save_md5 = TRUE;
+
+	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
+		if (mbox_lock(mbox, F_WRLCK, &mbox->mbox_global_lock_id) <= 0) {
+			struct mailbox *box = &mbox->ibox.box;
+
+			mailbox_close(&box);
+			return NULL;
+		}
+	}
+
+	index_storage_mailbox_init(&mbox->ibox, name, flags,
+				   want_memory_indexes(storage, path));
 	return mbox;
 }
 
@@ -575,7 +586,6 @@ mbox_open(struct mbox_storage *storage, const char *name,
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
 	mbox = mbox_alloc(storage, index, name, path, flags);
-	mbox->path = p_strdup(mbox->ibox.box.pool, path);
 
 	if (access(path, R_OK|W_OK) < 0) {
 		if (errno < EACCES)
@@ -583,15 +593,6 @@ mbox_open(struct mbox_storage *storage, const char *name,
 		else {
 			mbox->ibox.readonly = TRUE;
 			mbox->mbox_readonly = TRUE;
-		}
-	}
-
-	if (mbox->ibox.keep_locked) {
-		if (mbox_lock(mbox, F_WRLCK, &mbox->mbox_global_lock_id) <= 0) {
-			struct mailbox *box = &mbox->ibox.box;
-
-			mailbox_close(&box);
-			return NULL;
 		}
 	}
 
@@ -953,13 +954,15 @@ static int mbox_storage_close(struct mailbox *box)
 	const struct mail_index_header *hdr;
 	int ret = 0;
 
-	hdr = mail_index_get_header(mbox->ibox.view);
-	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
-	    !mbox->mbox_readonly) {
-		/* we've done changes to mbox which haven't been written yet.
-		   do it now. */
-		if (mbox_sync(mbox, MBOX_SYNC_REWRITE) < 0)
-			ret = -1;
+	if (mbox->ibox.view != NULL) {
+		hdr = mail_index_get_header(mbox->ibox.view);
+		if ((hdr->flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 &&
+		    !mbox->mbox_readonly) {
+			/* we've done changes to mbox which haven't been
+			   written yet. do it now. */
+			if (mbox_sync(mbox, MBOX_SYNC_REWRITE) < 0)
+				ret = -1;
+		}
 	}
 
 	if (mbox->mbox_global_lock_id != 0)

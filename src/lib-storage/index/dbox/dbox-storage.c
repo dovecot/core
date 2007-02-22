@@ -295,8 +295,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->ibox.storage = istorage;
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
 	mbox->ibox.is_recent = dbox_is_recent;
-
-	index_storage_mailbox_init(&mbox->ibox, index, name, flags, FALSE);
+	mbox->ibox.index = index;
 
 	value = getenv("DBOX_ROTATE_SIZE");
 	if (value != NULL)
@@ -324,7 +323,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 					sizeof(uint64_t), sizeof(uint64_t));
 
 	mbox->uidlist = dbox_uidlist_init(mbox);
-	if (mbox->ibox.keep_locked) {
+	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
 		if (dbox_uidlist_lock(mbox->uidlist) < 0) {
 			struct mailbox *box = &mbox->ibox.box;
 
@@ -335,6 +334,8 @@ dbox_open(struct dbox_storage *storage, const char *name,
 						 dbox_lock_touch_timeout,
 						 mbox);
 	}
+
+	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	return &mbox->ibox.box;
 }
 

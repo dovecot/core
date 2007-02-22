@@ -362,8 +362,7 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 	ibox->box.opened = TRUE;
 }
 
-void index_storage_mailbox_init(struct index_mailbox *ibox,
-				struct mail_index *index, const char *name,
+void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				enum mailbox_open_flags flags,
 				bool move_to_memory)
 {
@@ -381,15 +380,14 @@ void index_storage_mailbox_init(struct index_mailbox *ibox,
 	ibox->keep_recent = (flags & MAILBOX_OPEN_KEEP_RECENT) != 0;
 	ibox->keep_locked = (flags & MAILBOX_OPEN_KEEP_LOCKED) != 0;
 	ibox->move_to_memory = move_to_memory;
-	ibox->index = index;
 
 	ibox->next_lock_notify = time(NULL) + LOCK_NOTIFY_INTERVAL;
 	ibox->commit_log_file_seq = 0;
 
 	ibox->md5hdr_ext_idx =
-		mail_index_ext_register(index, "header-md5", 0, 16, 1);
+		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
 
-	array_idx_set(&index->mail_index_module_contexts,
+	array_idx_set(&ibox->index->mail_index_module_contexts,
 		      mail_storage_mail_index_module_id, &ibox);
 
 	if ((flags & MAILBOX_OPEN_FAST) == 0)

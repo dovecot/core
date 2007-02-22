@@ -111,8 +111,7 @@ void index_storage_init(struct index_storage *storage,
 			enum file_lock_method lock_method);
 void index_storage_deinit(struct index_storage *storage);
 
-void index_storage_mailbox_init(struct index_mailbox *ibox,
-				struct mail_index *index, const char *name,
+void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				enum mailbox_open_flags flags,
 				bool move_to_memory);
 void index_storage_mailbox_open(struct index_mailbox *ibox);

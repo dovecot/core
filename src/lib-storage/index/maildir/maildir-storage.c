@@ -432,8 +432,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox->ibox.storage = istorage;
 	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
 	mbox->ibox.is_recent = maildir_is_recent;
-
-	index_storage_mailbox_init(&mbox->ibox, index, name, flags, FALSE);
+	mbox->ibox.index = index;
 
 	mbox->storage = storage;
 	mbox->path = p_strdup(pool, path);
@@ -451,7 +450,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 		mbox->private_flags_mask = MAIL_SEEN;
 	}
 
-	if (mbox->ibox.keep_locked) {
+	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {
 		if (maildir_uidlist_lock(mbox->uidlist) <= 0) {
 			struct mailbox *box = &mbox->ibox.box;
 
@@ -463,6 +462,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 						 mbox);
 	}
 
+	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
 	return &mbox->ibox.box;
 }
 
