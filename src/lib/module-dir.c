@@ -83,11 +83,12 @@ static void module_free(struct module *module)
 }
 
 static struct module *
-module_load(const char *path, const char *name, bool require_init_funcs)
+module_load(const char *path, const char *name, bool require_init_funcs,
+	    const char *version)
 {
 	void *handle;
 	struct module *module;
-	const char *const *version;
+	const char *const *module_version;
 
 	handle = dlopen(path, RTLD_GLOBAL | RTLD_NOW);
 	if (handle == NULL) {
@@ -100,10 +101,12 @@ module_load(const char *path, const char *name, bool require_init_funcs)
 	module->name = i_strdup(name);
 	module->handle = handle;
 
-	version = get_symbol(module, t_strconcat(name, "_version", NULL), TRUE);
-	if (version != NULL && strcmp(*version, PACKAGE_VERSION) != 0) {
+	module_version = version == NULL ? NULL :
+		get_symbol(module, t_strconcat(name, "_version", NULL), TRUE);
+	if (module_version != NULL &&
+	    strcmp(*module_version, version) != 0) {
 		i_error("Module is for different version %s: %s",
-			*version, path);
+			*module_version, path);
 		module_free(module);
 		return NULL;
 	}
@@ -183,7 +186,7 @@ static void check_duplicates(ARRAY_TYPE(const_string) *names,
 }
 
 struct module *module_dir_load(const char *dir, const char *module_names,
-			       bool require_init_funcs)
+			       bool require_init_funcs, const char *version)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -256,7 +259,7 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 		else {
 			path = t_strconcat(dir, "/", name, NULL);
 			module = module_load(path, stripped_name,
-					     require_init_funcs);
+					     require_init_funcs, version);
 			if (module == NULL && module_names_arr != NULL)
 				exit(FATAL_DEFAULT);
 		}

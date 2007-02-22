@@ -12,9 +12,10 @@ struct module {
 };
 
 /* Load modules in given directory. module_names is a space separated list of
-   module names to load, or NULL to load everything. */
+   module names to load, or NULL to load everything. If version is non-NULL and
+   the module contains a version symbol, fail the load if they're different. */
 struct module *module_dir_load(const char *dir, const char *module_names,
-			       bool require_init_funcs);
+			       bool require_init_funcs, const char *version);
 /* Call init() in all modules */
 void module_dir_init(struct module *modules);
 /* Call deinit() in all modules and mark them NULL so module_dir_unload()

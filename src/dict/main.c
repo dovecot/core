@@ -56,14 +56,14 @@ static void drop_privileges(void)
 
 static void main_init(void)
 {
-	const char *value, *path;
+	const char *version, *path;
 	int fd;
 
-	value = getenv("DOVECOT_VERSION");
-	if (value != NULL && strcmp(value, PACKAGE_VERSION) != 0) {
+	version = getenv("DOVECOT_VERSION");
+	if (version != NULL && strcmp(version, PACKAGE_VERSION) != 0) {
 		i_fatal("Dovecot version mismatch: "
 			"Master is v%s, dict is v"PACKAGE_VERSION" "
-			"(if you don't care, set version_ignore=yes)", value);
+			"(if you don't care, set version_ignore=yes)", version);
 	}
 
 	lib_signals_init();
@@ -78,7 +78,7 @@ static void main_init(void)
 	dict_drivers_register_all();
 
 	modules = getenv("MODULE_DIR") == NULL ? NULL :
-		module_dir_load(getenv("MODULE_DIR"), NULL, TRUE);
+		module_dir_load(getenv("MODULE_DIR"), NULL, TRUE, version);
 	module_dir_init(modules);
 
 	path = getenv("DICT_LISTEN_FROM_FD");

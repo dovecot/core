@@ -128,6 +128,15 @@ static void open_logfile(void)
 
 static void drop_privileges(void)
 {
+	const char *version;
+
+	version = getenv("DOVECOT_VERSION");
+	if (version != NULL && strcmp(version, PACKAGE_VERSION) != 0) {
+		i_fatal("Dovecot version mismatch: "
+			"Master is v%s, imap is v"PACKAGE_VERSION" "
+			"(if you don't care, set version_ignore=yes)", version);
+	}
+
 	/* Log file or syslog opening probably requires roots */
 	open_logfile();
 
@@ -142,7 +151,7 @@ static void drop_privileges(void)
 		if (plugin_dir == NULL)
 			plugin_dir = MODULEDIR"/imap";
 		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
-					  TRUE);
+					  TRUE, version);
 	}
 
 	restrict_access_by_env(!IS_STANDALONE());
@@ -152,13 +161,6 @@ static void main_init(void)
 {
 	struct client *client;
 	const char *user, *str;
-
-	str = getenv("DOVECOT_VERSION");
-	if (str != NULL && strcmp(str, PACKAGE_VERSION) != 0) {
-		i_fatal("Dovecot version mismatch: "
-			"Master is v%s, imap is v"PACKAGE_VERSION" "
-			"(if you don't care, set version_ignore=yes)", str);
-	}
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);

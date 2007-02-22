@@ -519,7 +519,7 @@ void password_schemes_init(void)
 
 #ifdef HAVE_MODULES
 	scheme_modules = module_dir_load(AUTH_MODULE_DIR"/password",
-					 NULL, FALSE);
+					 NULL, FALSE, PACKAGE_VERSION);
 	module_dir_init(scheme_modules);
 	for (mod = scheme_modules; mod != NULL; mod = mod->next) {
 		t_push();

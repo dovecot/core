@@ -613,11 +613,15 @@ int main(int argc, char *argv[])
 		modules = NULL;
 	else {
 		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
+		const char *version;
 
 		if (plugin_dir == NULL)
 			plugin_dir = MODULEDIR"/lda";
+
+		version = getenv("VERSION_IGNORE") != NULL ?
+			NULL : PACKAGE_VERSION;
 		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
-					  TRUE);
+					  TRUE, version);
 		module_dir_init(modules);
 	}
 
