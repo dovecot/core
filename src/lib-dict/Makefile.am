@@ -8,11 +8,14 @@ AM_CPPFLAGS = \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	$(SQL_CFLAGS)
 
-libdict_a_SOURCES = \
+dist_sources = \
 	dict.c \
 	dict-client.c \
 	dict-db.c \
-	dict-sql.c \
+	dict-sql.c
+
+libdict_a_SOURCES = \
+	$(dist_sources) \
 	dict-drivers-register.c
 
 noinst_HEADERS = \

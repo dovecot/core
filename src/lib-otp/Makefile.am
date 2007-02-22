@@ -10,6 +10,7 @@ libotp_a_SOURCES = \
 	otp-parse.c
 
 noinst_HEADERS = \
+	otp.h \
 	otp-dictionary.h \
 	otp-hash.h \
 	otp-parity.h \
