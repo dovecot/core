@@ -57,7 +57,7 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 	trash->box = mailbox_open(trash->storage, trash->name, NULL,
 				  MAILBOX_OPEN_KEEP_RECENT);
 	if (trash->box == NULL)
-		return -1;
+		return 0;
 
 	if (sync_mailbox(trash->box) < 0)
 		return -1;
@@ -83,9 +83,10 @@ static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
 		else
 			ret = mailbox_search_next(trash->search_ctx,
 						  trash->mail);
-		if (ret <= 0)
+		if (ret <= 0) {
+			*received_time_r = 0;
 			return ret;
-
+		}
 		trash->mail_set = TRUE;
 	}
 
@@ -104,14 +105,6 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 
 	trashes = array_get_modifiable(&trash_boxes, &count);
 	for (i = 0; i < count; ) {
-		if (trashes[i].storage == NULL) {
-			/* FIXME: this is really ugly. it'll do however until
-			   we get proper namespace support for lib-storage. */
-			struct mail_storage *const *storage;
-
-			storage = array_idx(&quota_set->storages, 0);
-			trashes[i].storage = *storage;
-		}
 		/* expunge oldest mails first in all trash boxes with
 		   same priority */
 		oldest_idx = count;
@@ -120,13 +113,22 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 			if (trashes[j].priority != trashes[j].priority)
 				break;
 
-			ret = trash_clean_mailbox_get_next(&trashes[i],
+			if (trashes[j].storage == NULL) {
+				/* FIXME: this is really ugly. it'll do however
+				   until we get proper namespace support for
+				   lib-storage. */
+				struct mail_storage *const *storage;
+
+				storage = array_idx(&quota_set->storages, 0);
+				trashes[j].storage = *storage;
+			}
+
+			ret = trash_clean_mailbox_get_next(&trashes[j],
 							   &received);
 			if (ret < 0)
 				goto __err;
 			if (ret > 0) {
-				if (oldest == (time_t)-1 ||
-				    received < oldest) {
+				if (oldest == (time_t)-1 || received < oldest) {
 					oldest = received;
 					oldest_idx = j;
 				}
