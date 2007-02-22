@@ -22,4 +22,5 @@ libstorage_maildir_a_SOURCES = \
 noinst_HEADERS = \
 	maildir-keywords.h \
 	maildir-storage.h \
+	maildir-sync.h \
 	maildir-uidlist.h

@@ -42,6 +42,9 @@ noinst_HEADERS = \
 	syslog-util.h \
 	ssl-init.h
 
+EXTRA_DIST = \
+	master-settings-defs.c
+
 ssl_build_param_SOURCES = \
 	ssl-init-main.c \
 	ssl-init-openssl.c \
