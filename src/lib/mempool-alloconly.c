@@ -183,12 +183,14 @@ static void pool_alloconly_unref(pool_t *pool)
 {
 	struct alloconly_pool *apool = (struct alloconly_pool *)*pool;
 
+	if (--apool->refcount > 0)
+		return;
+
 	/* erase the pointer before freeing anything, as the pointer may
 	   exist inside the pool's memory area */
 	*pool = NULL;
 
-	if (--apool->refcount == 0)
-		pool_alloconly_destroy(apool);
+	pool_alloconly_destroy(apool);
 }
 
 static void block_alloc(struct alloconly_pool *apool, size_t size)
