@@ -14,6 +14,7 @@ AM_CPPFLAGS = \
 	-DSSLDIR=\""$(ssldir)\""
 
 dovecot_LDADD = \
+	$(LIBCAP) \
 	../lib-settings/libsettings.a \
 	../lib/liblib.a
 

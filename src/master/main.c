@@ -24,6 +24,9 @@
 #include <syslog.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#ifdef HAVE_LIBCAP
+#include <sys/capability.h>
+#endif
 
 const char *process_names[PROCESS_TYPE_MAX] = {
 	"unknown",
@@ -35,6 +38,18 @@ const char *process_names[PROCESS_TYPE_MAX] = {
 	"ssl-build-param",
 	"dict"
 };
+
+/* the capabilities that we *need* in order to operate */
+#ifdef HAVE_LIBCAP
+cap_t caps;
+cap_value_t suidcaps[] = {
+	CAP_CHOWN,
+	CAP_SYS_CHROOT,
+	CAP_SETUID,
+	CAP_SETGID,
+	CAP_NET_BIND_SERVICE
+};
+#endif
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
 static const char *env_tz;
@@ -583,6 +598,18 @@ static void main_init(bool log_error)
 
 	if (log_error)
 		i_fatal("This is Dovecot's error log");
+
+#ifdef HAVE_LIBCAP
+	/* drop capabilities that we don't need, be very restrictive. */
+	caps = cap_init();
+	cap_clear(caps);
+	cap_set_flag(caps, CAP_PERMITTED,
+		     sizeof(suidcaps) / sizeof(cap_value_t), suidcaps, CAP_SET);
+	cap_set_flag(caps, CAP_EFFECTIVE,
+		     sizeof(suidcaps) / sizeof(cap_value_t), suidcaps, CAP_SET);
+	cap_set_proc(caps);
+	cap_free(caps);
+#endif
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);

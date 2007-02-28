@@ -410,6 +410,14 @@ AC_CHECK_FUNC(inet_addr, [], [
 	])
 ])
 
+AC_CHECK_FUNC(cap_init, [], [
+	AC_CHECK_LIB(cap, cap_init, [
+		AC_DEFINE(HAVE_LIBCAP,, libcap is installed for cap_init())
+		LIBCAP="-lcap"
+	])
+])
+AC_SUBST(LIBCAP)
+
 AC_CHECK_FUNC(fdatasync, [
 	have_fdatasync=yes
 ], [
