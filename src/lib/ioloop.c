@@ -219,6 +219,14 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 
 	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
 		i_fatal("gettimeofday(): %m");
+
+	if (ioloop_time > ioloop_timeval.tv_sec) {
+		i_fatal("Time just moved backwards (%s -> %s)! "
+			"This might cause a lot of problems, "
+			"so I'll just kill myself now.",
+			dec2str(ioloop_time), dec2str(ioloop_timeval.tv_sec));
+	}
+
 	ioloop_time = ioloop_timeval.tv_sec;
 
 	if (ioloop->timeouts == NULL || !ioloop->timeouts->run_now)
