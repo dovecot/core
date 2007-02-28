@@ -63,14 +63,29 @@ mail_log_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct mail_log_mail *lmail = MAIL_LOG_CONTEXT(mail);
+	enum mail_flags old_flags, new_flags;
 
+	old_flags = mail_get_flags(_mail);
 	if (lmail->super.update_flags(_mail, modify_type, flags) < 0)
 		return -1;
 
-	if ((flags & MAIL_DELETED) == 0 && modify_type != MODIFY_REMOVE)
+	new_flags = old_flags;
+	switch (modify_type) {
+	case MODIFY_ADD:
+		new_flags |= flags;
+		break;
+	case MODIFY_REMOVE:
+		new_flags &= ~flags;
+		break;
+	case MODIFY_REPLACE:
+		new_flags = flags;
+		break;
+	}
+	if (((old_flags ^ new_flags) & MAIL_DELETED) == 0)
 		return 0;
 
-	mail_log_action(_mail, "deleted");
+	mail_log_action(_mail, (new_flags & MAIL_DELETED) != 0 ?
+			"deleted" : "undeleted");
 	return 0;
 }
 
