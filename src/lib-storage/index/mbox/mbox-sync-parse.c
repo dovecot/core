@@ -171,7 +171,8 @@ static bool parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 	size_t i, j, uid_last_pos;
 	uint32_t uid_validity, uid_last;
 
-	if (ctx->seq != 1 || ctx->seen_imapbase) {
+	if (ctx->seq != 1 || ctx->seen_imapbase ||
+	    ctx->sync_ctx->renumber_uids) {
 		/* Valid only in first message */
 		return FALSE;
 	}
@@ -531,7 +532,8 @@ void mbox_sync_parse_next_mail(struct istream *input,
 		if (sync_ctx->base_uid_validity == 0) {
 			/* figure out a new UIDVALIDITY for us. */
 			sync_ctx->base_uid_validity =
-				sync_ctx->hdr->uid_validity != 0 ?
+				sync_ctx->hdr->uid_validity != 0 &&
+				!sync_ctx->renumber_uids ?
 				sync_ctx->hdr->uid_validity :
 				I_MAX((uint32_t)ioloop_time, 1);
 		}

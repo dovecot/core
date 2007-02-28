@@ -131,6 +131,7 @@ struct mbox_sync_context {
 
 	/* global flags: */
 	unsigned int delay_writes:1;
+	unsigned int renumber_uids:1;
 };
 
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags);

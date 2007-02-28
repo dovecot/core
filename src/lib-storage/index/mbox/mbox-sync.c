@@ -1029,6 +1029,14 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	if (ret <= 0)
 		return ret;
 
+	if (sync_ctx->renumber_uids) {
+		/* expunge everything */
+		while (sync_ctx->idx_seq <= messages_count) {
+			mail_index_expunge(sync_ctx->t,
+					   sync_ctx->idx_seq++);
+		}
+	}
+
 	skipped_mails = uids_broken = FALSE;
 	while ((ret = mbox_sync_read_next_mail(sync_ctx, mail_ctx)) > 0) {
 		uid = mail_ctx->mail.uid;
@@ -1123,6 +1131,19 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				mail_index_expunge(sync_ctx->t,
 						   sync_ctx->idx_seq++);
 			}
+
+			if (sync_ctx->next_uid == (uint32_t)-1) {
+				/* oh no, we're out of UIDs. this shouldn't
+				   happen normally, so just try to get it fixed
+				   without crashing. */
+				mail_storage_set_critical(
+					STORAGE(sync_ctx->mbox->storage),
+					"Out of UIDs, renumbering them in mbox "
+					"file %s", sync_ctx->mbox->path);
+				sync_ctx->renumber_uids = TRUE;
+				return 0;
+			}
+
 			mail_ctx->need_rewrite = TRUE;
 			mail_ctx->mail.uid = sync_ctx->next_uid++;
 			sync_ctx->prev_msg_uid = mail_ctx->mail.uid;
@@ -1451,6 +1472,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 {
 	struct mbox_sync_mail_context mail_ctx;
 	const struct stat *st;
+	unsigned int i;
 	int ret, partial;
 
 	st = i_stream_stat(sync_ctx->file_input, FALSE);
@@ -1486,24 +1508,22 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	}
 
 	mbox_sync_restart(sync_ctx);
-	ret = mbox_sync_loop(sync_ctx, &mail_ctx, partial);
-	if (ret <= 0) {
+	for (i = 0; i < 3; i++) {
+		ret = mbox_sync_loop(sync_ctx, &mail_ctx, partial);
+		if (ret > 0)
+			break;
 		if (ret < 0)
 			return -1;
 
-		/* partial syncing didn't work, do it again */
+		/* partial syncing didn't work, do it again. we get here
+		   also if we ran out of UIDs. */
 		i_assert(sync_ctx->mbox->mbox_sync_dirty);
 		mbox_sync_restart(sync_ctx);
 
 		mail_index_transaction_rollback(&sync_ctx->t);
 		sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view,
 							   FALSE, TRUE);
-
-		ret = mbox_sync_loop(sync_ctx, &mail_ctx, FALSE);
-		if (ret <= 0) {
-			i_assert(ret != 0);
-			return -1;
-		}
+		partial = FALSE;
 	}
 
 	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
