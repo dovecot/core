@@ -159,6 +159,7 @@ static ssize_t _read(struct _istream *stream)
 		}
 		ret = i_stream_read(rstream->input);
 	} while (ret > 0);
+	stream->istream.stream_errno = rstream->input->stream_errno;
 
 	if (ret < 0) {
 		if (ret == -2) {
