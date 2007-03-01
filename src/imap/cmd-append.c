@@ -326,6 +326,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 				/* we still have to finish reading the message
 				   from client */
 				mailbox_save_cancel(&ctx->save_ctx);
+				break;
 			}
 			if (ret == -1 || ret == 0)
 				break;
