@@ -64,9 +64,10 @@ fs_list_is_valid_common_nonfs(struct mailbox_list *list, const char *name)
 			if (p[0] == '/')
 				return FALSE; /* // */
 			if (p[0] == '.') {
-				if (p[1] == '/')
+				if (p[1] == '/' || p[1] == '\0')
 					return FALSE; /* ./ */
-				if (p[1] == '.' && p[2] == '/')
+				if (p[1] == '.' &&
+				    (p[2] == '/' || p[2] == '\0'))
 					return FALSE; /* ../ */
 			}
 			if (maildir_len > 0 &&
