@@ -1895,7 +1895,7 @@ int mail_index_move_to_memory(struct mail_index *index)
 	i_free_and_null(index->dir);
 
 	if (index->map == NULL) {
-		/* mbox file was never even opened. just mark it as being in
+		/* index was never even opened. just mark it as being in
 		   memory and let the caller re-open the index. */
 		i_assert(index->fd == -1);
 		return -1;
