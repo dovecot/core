@@ -1,7 +1,12 @@
-/* Copyright (c) 2002-2003 Timo Sirainen */
+/* Copyright (c) 2002-2007 Timo Sirainen */
 
 #include "lib.h"
 #include "ioloop-internal.h"
+
+#include <unistd.h>
+
+/* If time moves backwards more than this, kill ourself instead of sleeping. */
+#define IOLOOP_MAX_TIME_BACKWARDS_SLEEP 5
 
 #define timer_is_larger(tvp, uvp) \
 	((tvp)->tv_sec > (uvp)->tv_sec || \
@@ -220,11 +225,25 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
 		i_fatal("gettimeofday(): %m");
 
+	/* Don't bother comparing usecs. */
 	if (ioloop_time > ioloop_timeval.tv_sec) {
-		i_fatal("Time just moved backwards (%s -> %s)! "
-			"This might cause a lot of problems, "
-			"so I'll just kill myself now.",
-			dec2str(ioloop_time), dec2str(ioloop_timeval.tv_sec));
+		time_t diff = ioloop_time - ioloop_timeval.tv_sec;
+
+		if (diff > IOLOOP_MAX_TIME_BACKWARDS_SLEEP) {
+			i_fatal("Time just moved backwards by %ld seconds. "
+				"This might cause a lot of problems, "
+				"so I'll just kill myself now.", (long)diff);
+		} else {
+			i_error("Time just moved backwards by %ld seconds. "
+				"I'll sleep now until we're back in present.",
+				(long)diff);
+			/* Sleep extra second to make sure usecs also grows. */
+			if (sleep(diff + 1) != 0)
+				i_fatal("Sleep interrupted, byebye.");
+
+			/* Try again. */
+			io_loop_handle_timeouts(ioloop);
+		}
 	}
 
 	ioloop_time = ioloop_timeval.tv_sec;
