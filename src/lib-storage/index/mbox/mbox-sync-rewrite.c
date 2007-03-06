@@ -331,14 +331,14 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 	mail_ctx->mail.body_size = mails[idx].body_size;
 
 	if (mails[idx].uid_broken || mails[idx].uid == 0) {
+		sync_ctx->next_uid = 1;
+		sync_ctx->prev_msg_uid = 0;
+	} else {
 		/* If we originally thought that the UID was broken, force the
 		   brokeness now also. Otherwise try to make the UID what we
 		   wanted it originally. */
 		sync_ctx->next_uid = mails[idx].uid;
 		sync_ctx->prev_msg_uid = sync_ctx->next_uid - 1;
-	} else {
-		sync_ctx->next_uid = 1;
-		sync_ctx->prev_msg_uid = 0;
 	}
 
 	first_mail_expunge_extra = 1 +
