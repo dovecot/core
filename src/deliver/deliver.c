@@ -16,6 +16,8 @@
 #include "strescape.h"
 #include "var-expand.h"
 #include "message-address.h"
+#include "istream-header-filter.h"
+#include "mbox-storage.h"
 #include "dict-client.h"
 #include "mbox-from.h"
 #include "auth-client.h"
@@ -366,16 +368,27 @@ static const char *address_sanitize(const char *address)
 static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
 {
 	const char *mbox_hdr;
-	struct istream *input_list[4], *input;
+	struct istream *input_list[4], *input, *input_filter;
 
 	fd_set_nonblock(fd, FALSE);
 
 	envelope_sender = address_sanitize(envelope_sender);
 	mbox_hdr = mbox_from_create(envelope_sender, ioloop_time);
 
+	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
+	input_filter =
+		i_stream_create_header_filter(input,
+					      HEADER_FILTER_EXCLUDE |
+					      HEADER_FILTER_NO_CR,
+					      mbox_hide_headers,
+					      mbox_hide_headers_count,
+					      null_header_filter_callback,
+					      NULL);
+	i_stream_unref(&input);
+
 	input_list[0] = i_stream_create_from_data(default_pool, mbox_hdr,
 						  strlen(mbox_hdr));
-	input_list[1] = i_stream_create_file(fd, default_pool, 4096, FALSE);
+	input_list[1] = input_filter;
 	input_list[2] = i_stream_create_from_data(default_pool, "\n", 1);
 	input_list[3] = NULL;
 
