@@ -97,13 +97,37 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 	return ret;
 }
 
+static const char *storage_error(struct mail_storage *storage)
+{
+	bool syntax, temp;
+
+	return mail_storage_get_last_error(storage, &syntax, &temp);
+}
+
+static const char *
+mailbox_name_convert(struct mail_storage *dest_storage,
+		     struct mail_storage *source_storage, const char *name)
+{
+	char *dest_name, *p, src_sep, dest_sep;
+
+	src_sep = mail_storage_get_hierarchy_sep(source_storage);
+	dest_sep = mail_storage_get_hierarchy_sep(dest_storage);
+
+	dest_name = t_strdup_noconst(name);
+	for (p = dest_name; *p != '\0'; p++) {
+		if (*p == src_sep)
+			*p = dest_sep;
+	}
+	return dest_name;
+}
+
 static int mailbox_convert_list_item(struct mail_storage *source_storage,
 				     struct mail_storage *dest_storage,
 				     struct mailbox_info *info,
 				     struct dotlock *dotlock,
 				     bool skip_broken_mailboxes)
 {
-	const char *name;
+	const char *name, *dest_name;
 	struct mailbox *srcbox, *destbox;
 	int ret = 0;
 
@@ -129,30 +153,33 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 		if (skip_broken_mailboxes)
 			return 0;
 
-		i_error("Mailbox conversion: Couldn't open source mailbox %s",
-			name);
+		i_error("Mailbox conversion: "
+			"Couldn't open source mailbox %s: %s",
+			name, storage_error(source_storage));
 		return -1;
 	}
 
 	/* Create and open the destination mailbox. */
-	if (mail_storage_mailbox_create(dest_storage, name, FALSE) < 0) {
-		i_error("Mailbox conversion: Couldn't create mailbox %s", name);
+	dest_name = mailbox_name_convert(dest_storage, source_storage, name);
+	if (mail_storage_mailbox_create(dest_storage, dest_name, FALSE) < 0) {
+		i_error("Mailbox conversion: Couldn't create mailbox %s: %s",
+			dest_name, storage_error(dest_storage));
 		mailbox_close(&srcbox);
 		return -1;
 	}
 
-	destbox = mailbox_open(dest_storage, name, NULL,
+	destbox = mailbox_open(dest_storage, dest_name, NULL,
 			       MAILBOX_OPEN_KEEP_RECENT);
 	if (destbox == NULL) {
-		i_error("Mailbox conversion: Couldn't open dest mailbox %s",
-			name);
+		i_error("Mailbox conversion: Couldn't open dest mailbox %s: %s",
+			dest_name, storage_error(dest_storage));
 		mailbox_close(&srcbox);
 		return -1;
 	}
 
 	if (mailbox_copy_mails(srcbox, destbox, dotlock) < 0) {
-		i_error("Mailbox conversion: Couldn't copy mailbox %s",
-			mailbox_get_name(srcbox));
+		i_error("Mailbox conversion: Couldn't copy mailbox %s: %s",
+			mailbox_get_name(srcbox), storage_error(dest_storage));
 	}
 
 	mailbox_close(&srcbox);
