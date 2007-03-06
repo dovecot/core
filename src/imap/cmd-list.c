@@ -116,11 +116,21 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 	name_str = t_str_new(256);
 	while ((info = mailbox_list_iter_next(ctx->list_iter)) != NULL) {
 		str_truncate(name_str, 0);
-		/* when listing INBOX from inbox=yes namespace, don't insert
-		   the namespace prefix (note however that LIST prefix.% may
-		   return INBOX if it has children) */
-		if (!ctx->match_inbox || strcasecmp(info->name, "INBOX") != 0)
+		if (ctx->ns->inbox && strcasecmp(info->name, "INBOX") == 0) {
+			/* Listing INBOX from inbox=yes namespace.
+			   Don't insert the namespace prefix. */
+			if (!ctx->match_inbox) {
+				/* The mask doesn't match INBOX (eg. prefix.%).
+				   We still want to list prefix.INBOX if it has
+				   children. Otherwise we don't want to list
+				   this INBOX at all. */
+				if ((info->flags & MAILBOX_CHILDREN) == 0)
+					continue;
+				str_append(name_str, ctx->ns->prefix);
+			}
+		} else {
 			str_append(name_str, ctx->ns->prefix);
+		}
 		str_append(name_str, info->name);
 
 		if (ctx->ns->sep != ctx->ns->real_sep) {
