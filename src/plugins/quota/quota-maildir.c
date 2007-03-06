@@ -385,7 +385,7 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 
 	/* rest of the lines contains <bytes> <count> diffs */
 	total_bytes = 0; total_count = 0;
-	for (lines++; **lines != '\0'; lines++, line_count++) {
+	for (lines++; *lines != NULL; lines++, line_count++) {
 		if (sscanf(*lines, "%lld %d", &bytes_diff, &count_diff) != 2)
 			return -1;
 
@@ -424,7 +424,7 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 static int maildirsize_read(struct maildir_quota_root *root)
 {
 	char buf[5120+1];
-	unsigned int size;
+	unsigned int i, size;
 	int fd, ret = 0;
 
 	t_push();
@@ -467,11 +467,20 @@ static int maildirsize_read(struct maildir_quota_root *root)
 	/* file is smaller than 5120 bytes, which means we can use it */
 	root->total_bytes = root->total_count = 0;
 
-	/* skip the last line if there's no LF at the end */
+	/* skip the last line if there's no LF at the end. Remove the last LF
+	   so we don't get one empty line in the strsplit. */
 	while (size > 0 && buf[size-1] != '\n') size--;
+	if (size > 0) size--;
 	buf[size] = '\0';
 
-	if (maildirsize_parse(root, fd, t_strsplit(buf, "\n")) > 0) {
+	/* If there are any NUL bytes, the file is broken. */
+	for (i = 0; i < size; i++) {
+		if (buf[i] == '\0')
+			break;
+	}
+
+	if (i == size &&
+	    maildirsize_parse(root, fd, t_strsplit(buf, "\n")) > 0) {
 		root->fd = fd;
 		ret = 1;
 	} else {
