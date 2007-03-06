@@ -453,12 +453,32 @@ static void print_help(void)
 "               [-f <envelope sender>]\n");
 }
 
+void deliver_env_clean(void)
+{
+	const char *tz, *home;
+
+	tz = getenv("TZ");
+	if (tz != NULL)
+		tz = t_strconcat("TZ=", tz, NULL);
+	home = getenv("HOME");
+	if (home != NULL)
+		home = t_strconcat("HOME=", home, NULL);
+
+	/* Note that if the original environment was set with env_put(), the
+	   environment strings will be invalid after env_clean(). That's why
+	   we t_strconcat() them above. */
+	env_clean();
+
+	if (tz != NULL) env_put(tz);
+	if (home != NULL) env_put(home);
+}
+
 int main(int argc, char *argv[])
 {
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *envelope_sender = DEFAULT_ENVELOPE_SENDER;
 	const char *mailbox = "INBOX";
-	const char *auth_socket, *env_tz;
+	const char *auth_socket;
 	const char *home, *destination, *user, *mail_env, *value;
         const struct var_expand_table *table;
         enum mail_storage_flags flags;
@@ -483,14 +503,7 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 
-	/* Clean up environment. */
-	env_tz = getenv("TZ");
-	home = getenv("HOME");
-	env_clean();
-	if (env_tz != NULL)
-		env_put(t_strconcat("TZ=", env_tz, NULL));
-	if (home != NULL)
-		env_put(t_strconcat("HOME=", home, NULL));
+	deliver_env_clean();
 
 	destination = NULL;
 	for (i = 1; i < argc; i++) {

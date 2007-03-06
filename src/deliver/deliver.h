@@ -19,6 +19,8 @@ typedef int deliver_mail_func_t(struct mail_storage *storage, struct mail *mail,
 
 extern deliver_mail_func_t *deliver_mail;
 
+void deliver_env_clean(void);
+
 /* Save a mail into given mailbox with given flags and keywords. */
 int deliver_save(struct mail_storage *storage, const char *mailbox,
 		 struct mail *mail, enum mail_flags flags,
