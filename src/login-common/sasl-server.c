@@ -22,12 +22,26 @@ client_get_auth_flags(struct client *client)
 	return auth_flags;
 }
 
+static void
+call_client_callback(struct client *client, enum sasl_server_reply reply,
+		     const char *data, const char *const *args)
+{
+	sasl_server_callback_t *sasl_callback;
+
+	i_assert(reply != SASL_SERVER_REPLY_CONTINUE);
+
+	sasl_callback = client->sasl_callback;
+	client->sasl_callback = NULL;
+
+	sasl_callback(client, reply, data, args);
+	/* NOTE: client may be destroyed now */
+}
+
 static void master_callback(struct client *client, bool success)
 {
 	client->authenticating = FALSE;
-	client->sasl_callback(client, success ? SASL_SERVER_REPLY_SUCCESS :
-			      SASL_SERVER_REPLY_MASTER_FAILED, NULL, NULL);
-	client->sasl_callback = NULL;
+	call_client_callback(client, success ? SASL_SERVER_REPLY_SUCCESS :
+			     SASL_SERVER_REPLY_MASTER_FAILED, NULL, NULL);
 }
 
 static void authenticate_callback(struct auth_request *request, int status,
@@ -70,9 +84,8 @@ static void authenticate_callback(struct auth_request *request, int status,
 
 		if (nologin) {
 			client->authenticating = FALSE;
-			client->sasl_callback(client, SASL_SERVER_REPLY_SUCCESS,
-					      NULL, args);
-			client->sasl_callback = NULL;
+			call_client_callback(client, SASL_SERVER_REPLY_SUCCESS,
+					     NULL, args);
 		} else {
 			master_request_login(client, master_callback,
 				auth_client_request_get_server_pid(request),
@@ -94,9 +107,8 @@ static void authenticate_callback(struct auth_request *request, int status,
 		}
 
 		client->authenticating = FALSE;
-		client->sasl_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
-				      NULL, args);
-		client->sasl_callback = NULL;
+		call_client_callback(client, SASL_SERVER_REPLY_AUTH_FAILED,
+				     NULL, args);
 		break;
 	}
 }
@@ -168,8 +180,7 @@ static void sasl_server_auth_cancel(struct client *client, const char *reason,
 		client->auth_request = NULL;
 	}
 
-	client->sasl_callback(client, reply, reason, NULL);
-	client->sasl_callback = NULL;
+	call_client_callback(client, reply, reason, NULL);
 }
 
 void sasl_server_auth_failed(struct client *client, const char *reason)
