@@ -50,6 +50,8 @@ _tview_get_header(struct mail_index_view *view)
 
 	if (array_is_created(&tview->t->appends)) {
 		/* update next_uid from appends, if UIDs have been given yet */
+		mail_index_transaction_sort_appends(tview->t);
+
 		recs = array_get(&tview->t->appends, &count);
 		if (count > 0 && recs[count-1].uid != 0) {
 			i_assert(recs[count-1].uid >= hdr->next_uid);
