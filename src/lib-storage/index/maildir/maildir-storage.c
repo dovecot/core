@@ -20,9 +20,6 @@
 
 #define CREATE_MODE 0777 /* umask() should limit it more */
 
-/* How often to touch the uidlist lock file when using KEEP_LOCKED flag */
-#define MAILDIR_LOCK_TOUCH_MSECS (10*1000)
-
 #define MAILDIR_PLUSPLUS_DRIVER_NAME "maildir++"
 #define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
 
@@ -455,7 +452,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 			mailbox_close(&box);
 			return NULL;
 		}
-		mbox->keep_lock_to = timeout_add(MAILDIR_LOCK_TOUCH_MSECS,
+		mbox->keep_lock_to = timeout_add(MAILDIR_LOCK_TOUCH_SECS * 1000,
 						 maildir_lock_touch_timeout,
 						 mbox);
 	}

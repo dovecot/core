@@ -34,6 +34,11 @@
 /* Delete files having ctime older than this from tmp/. 36h is standard. */
 #define MAILDIR_TMP_DELETE_SECS (36*60*60)
 
+/* How often to touch the uidlist lock file when it's locked.
+   This is done both when using KEEP_LOCKED flag and when syncing a large
+   maildir. */
+#define MAILDIR_LOCK_TOUCH_SECS 10
+
 #define MAILDIR_SAVE_FLAG_HARDLINK 0x10000000
 #define MAILDIR_SAVE_FLAG_DELETED  0x20000000
 

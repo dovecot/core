@@ -197,6 +197,13 @@
    bet here, but I guess 5 will do just fine too. */
 #define MAILDIR_RENAME_RESCAN_COUNT 5
 
+/* After moving 100 mails from new/ to cur/, check if we need to touch the
+   uidlist lock. */
+#define MAILDIR_SLOW_MOVE_COUNT 100
+/* readdir() should be pretty fast to do, but check anyway every 10000 mails
+   to see if we need to touch the uidlist lock. */
+#define MAILDIR_SLOW_CHECK_COUNT 10000
+
 struct maildir_sync_context {
         struct maildir_mailbox *mbox;
 	const char *new_dir, *cur_dir;
@@ -685,9 +692,12 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	string_t *src, *dest;
 	struct dirent *dp;
 	enum maildir_uidlist_rec_flag flags;
-	unsigned int moves = 0;
+	time_t last_touch;
+	unsigned int moves = 0, count = 0;
 	int ret = 1;
-	bool move_new;
+	bool move_new, check_touch;
+
+	last_touch = ioloop_time;
 
 	dir = new_dir ? ctx->new_dir : ctx->cur_dir;
 	dirp = opendir(dir);
@@ -721,6 +731,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 		if (ret < 0)
 			break;
 
+		check_touch = FALSE;
 		flags = 0;
 		if (move_new) {
 			str_truncate(src, 0);
@@ -753,9 +764,22 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 					"rename(%s, %s) failed: %m",
 					str_c(src), str_c(dest));
 			}
+			if ((moves % MAILDIR_SLOW_MOVE_COUNT) == 0)
+				check_touch = TRUE;
 		} else if (new_dir) {
 			flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 				MAILDIR_UIDLIST_REC_FLAG_RECENT;
+		}
+
+		count++;
+		if (check_touch || (count % MAILDIR_SLOW_CHECK_COUNT) == 0) {
+			time_t now = time(NULL);
+
+			if (now - last_touch > MAILDIR_LOCK_TOUCH_SECS) {
+				(void)maildir_uidlist_lock_touch(
+							ctx->mbox->uidlist);
+				last_touch = now;
+			}
 		}
 
 		ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
