@@ -362,6 +362,9 @@ static void queue_send_next(struct pgsql_db *db)
 	queue = db->queue;
 	db->queue = queue->next;
 
+	if (db->queue == NULL)
+		db->queue_tail = &db->queue;
+
 	send_query(queue->result, queue->query);
 
 	i_free(queue->query);
@@ -397,6 +400,7 @@ driver_pgsql_queue_query(struct pgsql_result *result, const char *query)
 	queue->result = result;
 
 	*db->queue_tail = queue;
+	db->queue_tail = &queue->next;
 
 	if (db->queue_to == NULL)
 		db->queue_to = timeout_add(5000, queue_timeout, db);
