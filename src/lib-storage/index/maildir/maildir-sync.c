@@ -991,7 +991,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
 	const struct mail_index_record *rec;
-	uint32_t seq, uid;
+	uint32_t seq, uid, prev_uid;
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
 	enum mail_flags flags;
@@ -1021,13 +1021,16 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	sync_ctx->trans = trans =
 		mail_index_transaction_begin(sync_ctx->view, FALSE, TRUE);
 
-	seq = 0;
+	seq = prev_uid = 0;
 	t_array_init(&keywords, MAILDIR_MAX_KEYWORDS);
 	t_array_init(&idx_keywords, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
 		maildir_filename_get_flags(sync_ctx->keywords_sync_ctx,
 					   filename, &flags, &keywords);
+
+		i_assert(uid > prev_uid);
+		prev_uid = uid;
 
 		/* the private flags are kept only in indexes. don't use them
 		   at all even for newly seen mails */
