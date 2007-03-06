@@ -91,13 +91,11 @@ void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 		}
 	}
 
-	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(old_map)) {
-		/* other processes may still have the same file mapped,
-		   and since we could have already updated the records, make
-		   sure we leave the header in a valid state as well */
-		mail_index_sync_update_log_offset(ctx, old_map);
-		(void)mail_index_map_msync(view->index, old_map);
-	}
+	/* some views may still use the same mapping, and since we could have
+	   already updated the records, make sure we leave the header in a
+	   valid state as well */
+	mail_index_sync_update_log_offset(ctx, old_map);
+	(void)mail_index_map_msync(view->index, old_map);
 	mail_index_unmap(view->index, &old_map);
 
 	i_assert(view->hdr.messages_count == map->hdr.messages_count);
