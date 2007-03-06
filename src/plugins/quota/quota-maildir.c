@@ -538,7 +538,7 @@ static int maildirsize_update(struct maildir_quota_root *root,
 
 	/* We rely on O_APPEND working in here. That isn't NFS-safe, but it
 	   isn't necessarily that bad because the file is recreated once in
-	   a while, and sooner if corruption cases calculations to go
+	   a while, and sooner if corruption causes calculations to go
 	   over quota. This is also how Maildir++ spec specifies it should be
 	   done.. */
 	str = t_strdup_printf("%lld %d\n", (long long)bytes_diff, count_diff);
