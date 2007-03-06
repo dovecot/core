@@ -386,6 +386,7 @@ static void ldap_lookup_pass(struct auth_request *auth_request,
 			       "base=%s scope=%s filter=%s fields=%s",
 			       ldap_request->base, conn->set.scope,
 			       ldap_request->filter,
+			       attr_names == NULL ? "(all)" :
 			       t_strarray_join(attr_names, ","));
 
 	db_ldap_search(conn, ldap_request, conn->set.ldap_scope);

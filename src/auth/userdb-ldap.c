@@ -208,6 +208,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 			       "base=%s scope=%s filter=%s fields=%s",
 			       request->request.base, conn->set.scope,
 			       request->request.filter,
+			       attr_names == NULL ? "(all)" :
 			       t_strarray_join(attr_names, ","));
 
 	db_ldap_search(conn, &request->request, conn->set.ldap_scope);
