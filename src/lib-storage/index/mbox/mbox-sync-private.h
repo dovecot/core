@@ -101,6 +101,9 @@ struct mbox_sync_context {
 	struct istream *input, *file_input;
 	int write_fd;
 
+	time_t orig_mtime;
+	uoff_t orig_size;
+
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *t;
@@ -132,6 +135,7 @@ struct mbox_sync_context {
 	/* global flags: */
 	unsigned int delay_writes:1;
 	unsigned int renumber_uids:1;
+	unsigned int moved_offsets:1;
 };
 
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags);

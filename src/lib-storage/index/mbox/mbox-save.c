@@ -300,13 +300,15 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 				return -1;
 		}
 
-		if (!want_mail) {
-			/* assign UIDs only if mbox doesn't require syncing */
-			ret = mbox_sync_has_changed(mbox, TRUE);
-			if (ret < 0)
-				return -1;
-			if (ret == 0)
-				mbox_save_init_sync(t);
+		/* update mbox_sync_dirty state */
+		ret = mbox_sync_has_changed(mbox, TRUE);
+		if (ret < 0)
+			return -1;
+		if (!want_mail && ret == 0) {
+			/* we're not required to assign UIDs for the appended
+			   mails immediately. do it only if it doesn't require
+			   syncing. */
+			mbox_save_init_sync(t);
 		}
 
 		if (mbox_seek_to_end(ctx, &ctx->append_offset) < 0)
@@ -648,7 +650,7 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 		if (fstat(ctx->mbox->mbox_fd, &st) < 0) {
 			mbox_set_syscall_error(ctx->mbox, "fstat()");
 			ret = -1;
-		} else {
+		} else if (!ctx->mbox->mbox_sync_dirty) {
 			uint32_t sync_stamp = st.st_mtime;
 			uint64_t sync_size = st.st_size;
 

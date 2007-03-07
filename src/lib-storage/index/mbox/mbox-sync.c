@@ -51,9 +51,8 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <utime.h>
 #include <sys/stat.h>
-
-#define MBOX_SYNC_SECS 1
 
 /* The text below was taken exactly as c-client wrote it to my mailbox,
    so it's probably copyrighted by University of Washington. */
@@ -656,6 +655,7 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 		    (mails[i].flags & MBOX_EXPUNGED) != 0)
 			continue;
 
+		sync_ctx->moved_offsets = TRUE;
 		offset = mails[i].from_offset;
 		mail_index_update_ext(sync_ctx->t, mails[i].idx_seq,
 				      ext_idx, &offset, NULL);
@@ -1391,6 +1391,38 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 		return -1;
 	}
 
+	if (sync_ctx->moved_offsets &&
+	    ((uint64_t)st->st_size == sync_ctx->hdr->sync_size ||
+	     (uint64_t)st->st_size == sync_ctx->orig_size)) {
+		/* We moved messages inside the mbox file without changing
+		   the file's size. If mtime doesn't change, another process
+		   not using the same index file as us can't know that the file
+		   was changed. So make sure the mtime changes. This should
+		   happen rarely enough that the sleeping doesn't become a
+		   performance problem.
+
+		   Note that to do this perfectly safe we should do this wait
+		   whenever mails are moved or expunged, regardless of whether
+		   the file's size changed. That however could become a
+		   performance problem and the consequences of being wrong are
+		   quite minimal (an extra logged error message). */
+		while (sync_ctx->orig_mtime == st->st_mtime) {
+			usleep(500000);
+			if (utime(sync_ctx->mbox->path, NULL) < 0) {
+				mbox_set_syscall_error(sync_ctx->mbox,
+						       "utime()");
+				return -1;
+			}
+
+			st = i_stream_stat(sync_ctx->file_input, FALSE);
+			if (st == NULL) {
+				mbox_set_syscall_error(sync_ctx->mbox,
+						       "i_stream_stat()");
+				return -1;
+			}
+		}
+	}
+
 	/* only reason not to have UID validity at this point is if the file
 	   is entirely empty. In that case just make up a new one if needed. */
 	i_assert(sync_ctx->base_uid_validity != 0 || st->st_size == 0);
@@ -1480,6 +1512,8 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
 	}
+	sync_ctx->orig_size = st->st_size;
+	sync_ctx->orig_mtime = st->st_mtime;
 
 	if ((flags & MBOX_SYNC_FORCE_SYNC) != 0) {
 		/* forcing a full sync. assume file has changed. */
@@ -1570,8 +1604,10 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 		return 0;
 	}
 
-	if (!mbox->mbox_sync_dirty || !leave_dirty)
+	if (!mbox->mbox_sync_dirty || !leave_dirty) {
+		mbox->mbox_sync_dirty = TRUE;
 		return 1;
+	}
 
 	return st->st_mtime != mbox->mbox_dirty_stamp ||
 		st->st_size != mbox->mbox_dirty_size;
