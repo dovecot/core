@@ -881,7 +881,8 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock)
 
 	if (MAIL_INDEX_IS_IN_MEMORY(log->index)) {
 		file = mail_transaction_log_file_alloc_in_memory(log);
-		file->locked = TRUE;
+		if (lock)
+			file->locked = TRUE;
 	} else {
                 /* we're locked, we shouldn't need to worry about ESTALE
                    problems in here. */
