@@ -941,7 +941,7 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
 	if (seq1 == 0) {
 		/* doesn't exist anymore, seek to end of file */
-		st = i_stream_stat(sync_ctx->mbox->mbox_file_stream, TRUE);
+		st = i_stream_stat(sync_ctx->file_input, TRUE);
 		if (st == NULL) {
 			mbox_set_syscall_error(sync_ctx->mbox,
 					       "i_stream_stat()");
@@ -1477,8 +1477,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 
 	st = i_stream_stat(sync_ctx->file_input, FALSE);
 	if (st == NULL) {
-		mbox_set_syscall_error(sync_ctx->mbox,
-				       "i_stream_stat()");
+		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
 	}
 
@@ -1786,7 +1785,9 @@ __again:
                 ret = mbox_rewrite_base_uid_last(&sync_ctx);
 	}
 
-	if (lock_id != 0 && mbox->mbox_lock_type != F_RDLCK) {
+	i_assert(lock_id != 0);
+
+	if (mbox->mbox_lock_type != F_RDLCK) {
 		/* drop to read lock */
 		unsigned int read_lock_id = 0;
 
@@ -1799,11 +1800,7 @@ __again:
 		}
 	}
 
-	if (lock_id != 0 && (flags & MBOX_SYNC_LOCK_READING) == 0) {
-		/* FIXME: keep the lock MBOX_SYNC_SECS+1 to make sure we
-		   notice changes made by others .. and this has to be done
-		   even if lock_reading is set.. except if
-		   mbox_sync_dirty = TRUE */
+	if ((flags & MBOX_SYNC_LOCK_READING) == 0) {
 		if (mbox_unlock(mbox, lock_id) < 0)
 			ret = -1;
 	}
