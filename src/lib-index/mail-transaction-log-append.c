@@ -75,12 +75,11 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 		} while (0);
 
 		/* write failure. */
-		if (!ENOSPACE(errno)) {
-			mail_index_file_set_syscall_error(file->log->index,
-							  file->filepath,
-							  "pwrite_full()");
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath,
+						  "pwrite_full()");
+		if (!ENOSPACE(errno))
 			return -1;
-		}
 
 		/* not enough space. fallback to in-memory indexes. */
 		if (mail_index_move_to_memory(file->log->index) < 0)
