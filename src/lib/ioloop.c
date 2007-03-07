@@ -238,8 +238,14 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 				"I'll sleep now until we're back in present.",
 				(long)diff);
 			/* Sleep extra second to make sure usecs also grows. */
-			if (sleep(diff + 1) != 0)
-				i_fatal("Sleep interrupted, byebye.");
+			diff++;
+
+			while (diff > 0 && sleep(diff) != 0) {
+				/* don't use sleep()'s return value, because
+				   it could get us to a long loop in case
+				   interrupts just keep coming */
+				diff = ioloop_time - time(NULL) + 1;
+			}
 
 			/* Try again. */
 			io_loop_handle_timeouts(ioloop);
