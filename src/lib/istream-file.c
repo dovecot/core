@@ -16,8 +16,6 @@
 struct file_istream {
 	struct _istream istream;
 
-        struct timeval fstat_cache_stamp;
-
 	size_t max_buffer_size;
 	uoff_t skip_left;
 
@@ -182,10 +180,6 @@ static void _seek(struct _istream *stream, uoff_t v_offset,
 
 static void _sync(struct _istream *stream)
 {
-	struct file_istream *fstream = (struct file_istream *) stream;
-
-	fstream->fstat_cache_stamp.tv_sec = 0;
-
 	if (!stream->istream.seekable) {
 		/* can't do anything or data would be lost */
 		return;
@@ -194,29 +188,16 @@ static void _sync(struct _istream *stream)
 	stream->skip = stream->pos = 0;
 }
 
-static int fstat_cached(struct file_istream *fstream)
-{
-	if (fstream->fstat_cache_stamp.tv_sec == ioloop_timeval.tv_sec &&
-	    fstream->fstat_cache_stamp.tv_usec == ioloop_timeval.tv_usec)
-		return 0;
-
-	if (fstat(fstream->istream.fd, &fstream->istream.statbuf) < 0) {
-		i_error("file_istream.fstat() failed: %m");
-		return -1;
-	}
-
-	fstream->fstat_cache_stamp = ioloop_timeval;
-	return 0;
-}
-
 static const struct stat *
 _stat(struct _istream *stream, bool exact __attr_unused__)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
 	if (fstream->file) {
-		if (fstat_cached(fstream) < 0)
+		if (fstat(fstream->istream.fd, &fstream->istream.statbuf) < 0) {
+			i_error("file_istream.fstat() failed: %m");
 			return NULL;
+		}
 	}
 
 	return &stream->statbuf;
