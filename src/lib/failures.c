@@ -155,41 +155,29 @@ default_fatal_handler(int status, const char *format, va_list args)
 static void __attr_format__(1, 0)
 default_error_handler(const char *format, va_list args)
 {
-	int old_errno = errno;
-
 	if (default_handler("Error: ", log_fd, format, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 
 	if (fflush(log_fd) < 0)
 		failure_exit(FATAL_LOGWRITE);
-
-	errno = old_errno;
 }
 
 static void __attr_format__(1, 0)
 default_warning_handler(const char *format, va_list args)
 {
-	int old_errno = errno;
-
 	(void)default_handler("Warning: ", log_fd, format, args);
 
 	if (fflush(log_fd) < 0)
 		failure_exit(FATAL_LOGWRITE);
-
-	errno = old_errno;
 }
 
 static void __attr_format__(1, 0)
 default_info_handler(const char *format, va_list args)
 {
-	int old_errno = errno;
-
 	(void)default_handler("Info: ", log_info_fd, format, args);
 
 	if (fflush(log_info_fd) < 0)
 		failure_exit(FATAL_LOGWRITE);
-
-	errno = old_errno;
 }
 
 void i_panic(const char *format, ...)
@@ -221,29 +209,38 @@ void i_fatal_status(int status, const char *format, ...)
 
 void i_error(const char *format, ...)
 {
+	int old_errno = errno;
 	va_list args;
 
 	va_start(args, format);
 	error_handler(format, args);
 	va_end(args);
+
+	errno = old_errno;
 }
 
 void i_warning(const char *format, ...)
 {
+	int old_errno = errno;
 	va_list args;
 
 	va_start(args, format);
 	warning_handler(format, args);
 	va_end(args);
+
+	errno = old_errno;
 }
 
 void i_info(const char *format, ...)
 {
+	int old_errno = errno;
 	va_list args;
 
 	va_start(args, format);
 	info_handler(format, args);
 	va_end(args);
+
+	errno = old_errno;
 }
 
 void i_set_panic_handler(failure_callback_t *callback __attr_noreturn__)
