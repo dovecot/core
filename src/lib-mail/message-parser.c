@@ -75,8 +75,6 @@ static void parse_body_add_block(struct message_parser_ctx *ctx,
 	const unsigned char *data = block->data;
 	size_t i;
 
-	i_assert(ctx->skip == 0);
-
 	block->hdr = NULL;
 
 	for (i = 0; i < block->size; i++) {
@@ -95,7 +93,7 @@ static void parse_body_add_block(struct message_parser_ctx *ctx,
 	ctx->part->body_size.virtual_size += block->size + missing_cr_count;
 
 	ctx->last_chr = data[i-1];
-	ctx->skip = block->size;
+	ctx->skip += block->size;
 }
 
 static int message_parser_read_more(struct message_parser_ctx *ctx,
@@ -356,13 +354,10 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 		/* leave CR+LF + last line to buffer */
 		block_r->size = boundary_start;
 	}
-	if (ret <= 0) {
-		if (block_r->size != 0)
-			parse_body_add_block(ctx, block_r);
-		return ret;
-	}
-
-	return parse_part_finish(ctx, boundary, block_r);
+	if (block_r->size != 0)
+		parse_body_add_block(ctx, block_r);
+	return ret <= 0 ? ret :
+		parse_part_finish(ctx, boundary, block_r);
 }
 
 static int parse_next_body_to_eof(struct message_parser_ctx *ctx,
@@ -498,6 +493,7 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 
 	i_assert((part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
 
+	ctx->last_chr = '\n';
 	if (ctx->last_boundary != NULL) {
 		parse_next_body_multipart_init(ctx);
 		ctx->parse_next_block = parse_next_body_to_boundary;
