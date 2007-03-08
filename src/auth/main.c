@@ -305,7 +305,7 @@ int main(int argc __attr_unused__, char *argv[])
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();
-	ioloop = io_loop_create(system_pool);
+	ioloop = io_loop_create();
 
 	while (argv[1] != NULL) {
 		if (strcmp(argv[1], "-F") == 0)

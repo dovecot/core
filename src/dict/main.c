@@ -116,7 +116,7 @@ int main(void)
 	lib_init();
 	drop_privileges();
 
-	ioloop = io_loop_create(system_pool);
+	ioloop = io_loop_create();
 
 	main_init();
         io_loop_run(ioloop);

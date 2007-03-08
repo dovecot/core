@@ -27,7 +27,7 @@ int main(int argc, const char *argv[])
 			"[<1=skip broken mailboxes>]");
 	}
 
-	ioloop = io_loop_create(system_pool);
+	ioloop = io_loop_create();
 
 	ret = convert_storage(argv[1], argv[2], argv[3], argv[4],
 			      argv[5] != NULL && atoi(argv[5]) == 1);

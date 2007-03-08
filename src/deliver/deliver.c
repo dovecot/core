@@ -492,7 +492,7 @@ int main(int argc, char *argv[])
 	int i, ret;
 
 	lib_init();
-	ioloop = io_loop_create(default_pool);
+	ioloop = io_loop_create();
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);

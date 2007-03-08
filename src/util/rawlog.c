@@ -310,7 +310,7 @@ static void rawlog_open(enum rawlog_flags flags)
 	process_title_set(t_strdup_printf("[%s:%s rawlog]", getenv("USER"),
 					  dec2str(getppid())));
 
-	ioloop = io_loop_create(system_pool);
+	ioloop = io_loop_create();
 	rawlog_proxy_create(0, 1, sfd[0], path, flags);
 	io_loop_run(ioloop);
 	io_loop_destroy(&ioloop);

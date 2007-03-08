@@ -898,7 +898,7 @@ int main(int argc, char *argv[])
 	if (!foreground)
 		daemonize(settings_root->defaults);
 
-	ioloop = io_loop_create(system_pool);
+	ioloop = io_loop_create();
 
 	main_init(log_error);
         io_loop_run(ioloop);

@@ -222,7 +222,7 @@ int main(void)
 	lib_signals_init();
 	random_init();
 
-	ioloop = io_loop_create(system_pool);
+	ioloop = io_loop_create();
 	expire_run();
 	io_loop_destroy(&ioloop);
 

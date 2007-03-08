@@ -289,7 +289,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	drop_privileges();
 
         process_title_init(argv, envp);
-	ioloop = io_loop_create(system_pool);
+	ioloop = io_loop_create();
 
 	if (main_init())
 		io_loop_run(ioloop);
