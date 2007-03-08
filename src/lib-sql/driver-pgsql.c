@@ -500,15 +500,15 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 	struct io old_io;
 
 	if (db->io == NULL)
-		db->ioloop = io_loop_create(default_pool);
+		db->ioloop = io_loop_create();
 	else {
 		/* have to move our existing I/O handler to new I/O loop */
 		old_io = *db->io;
 		io_remove(&db->io);
 
-		db->ioloop = io_loop_create(default_pool);
+		db->ioloop = io_loop_create();
 
-		db->io = io_add(old_io.fd, old_io.condition,
+		db->io = io_add(PQsocket(db->pg), old_io.condition,
 				old_io.callback, old_io.context);
 	}
 
