@@ -107,6 +107,8 @@ struct mail_transaction_ext_rec_update {
 
 struct mail_transaction_log *
 mail_transaction_log_open_or_create(struct mail_index *index);
+struct mail_transaction_log *
+mail_transaction_log_create(struct mail_index *index);
 void mail_transaction_log_close(struct mail_transaction_log **log);
 
 int mail_transaction_log_move_to_memory(struct mail_transaction_log *log);

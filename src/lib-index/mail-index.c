@@ -1548,7 +1548,7 @@ static int mail_index_open_files(struct mail_index *index,
 	struct mail_index_header hdr;
 	unsigned int lock_id = 0;
 	int ret;
-	bool created = FALSE;
+	bool create = FALSE, created = FALSE;
 
 	ret = mail_index_try_open(index, &lock_id);
 	if (ret > 0)
@@ -1560,12 +1560,15 @@ static int mail_index_open_files(struct mail_index *index,
 			return 0;
 		mail_index_header_init(&hdr);
 		index->hdr = &hdr;
+		create = TRUE;
 	} else if (ret < 0)
 		return -1;
 
 	index->indexid = hdr.indexid;
 
-	index->log = mail_transaction_log_open_or_create(index);
+	index->log = create ?
+		mail_transaction_log_create(index) :
+		mail_transaction_log_open_or_create(index);
 	if (index->log == NULL) {
 		if (ret == 0)
 			index->hdr = NULL;

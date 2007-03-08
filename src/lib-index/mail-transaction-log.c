@@ -31,6 +31,12 @@
 static struct mail_transaction_log_file *
 mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
 					 const char *path);
+static struct mail_transaction_log_file *
+mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log);
+static int
+mail_transaction_log_file_create(struct mail_transaction_log_file *file,
+				 bool lock, dev_t dev, ino_t ino,
+				 uoff_t file_size);
 static int
 mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 			       uoff_t offset);
@@ -63,6 +69,62 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 		   make sure it's ok. */
 		(void)mail_index_fsck(file->log->index);
 	}
+}
+
+static struct mail_transaction_log_file *
+mail_transaction_log_file_alloc(struct mail_transaction_log *log,
+				const char *path)
+{
+	struct mail_transaction_log_file *file;
+
+	file = i_new(struct mail_transaction_log_file, 1);
+	file->log = log;
+	file->filepath = i_strdup(path);
+	file->fd = -1;
+	return file;
+}
+
+static void
+mail_transaction_log_file_free(struct mail_transaction_log_file *file)
+{
+	struct mail_transaction_log_file **p;
+	int old_errno = errno;
+
+	mail_transaction_log_file_unlock(file);
+
+	for (p = &file->log->files; *p != NULL; p = &(*p)->next) {
+		if (*p == file) {
+			*p = file->next;
+			break;
+		}
+	}
+
+	if (file == file->log->head)
+		file->log->head = NULL;
+
+	if (file->buffer != NULL) 
+		buffer_free(file->buffer);
+
+	if (file->mmap_base != NULL) {
+		if (munmap(file->mmap_base, file->mmap_size) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "munmap()");
+		}
+	}
+
+	if (file->fd != -1) {
+		if (close(file->fd) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "close()");
+		}
+	}
+
+	i_free(file->filepath);
+        i_free(file);
+
+        errno = old_errno;
 }
 
 static int
@@ -214,10 +276,11 @@ static int mail_transaction_log_check_file_seq(struct mail_transaction_log *log)
 	return ret;
 }
 
-struct mail_transaction_log *
-mail_transaction_log_open_or_create(struct mail_index *index)
+static struct mail_transaction_log *
+mail_transaction_log_open_int(struct mail_index *index, bool create)
 {
 	struct mail_transaction_log *log;
+	struct mail_transaction_log_file *file;
 	const char *path;
 
 	log = i_new(struct mail_transaction_log, 1);
@@ -230,19 +293,37 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 	log->new_dotlock_settings = log->dotlock_settings;
 	log->new_dotlock_settings.lock_suffix = LOG_NEW_DOTLOCK_SUFFIX;
 
-	path = t_strconcat(log->index->filepath,
+	path = t_strconcat(index->filepath,
 			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
-	log->head = mail_transaction_log_file_open_or_create(log, path);
-	if (log->head == NULL) {
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		file = mail_transaction_log_file_alloc_in_memory(log);
+	else if (create) {
+		struct stat st;
+
+		file = mail_transaction_log_file_alloc(log, path);
+		if (stat(path, &st) < 0)
+			memset(&st, 0, sizeof(st));
+		if (mail_transaction_log_file_create(file, FALSE,
+						     st.st_dev, st.st_ino,
+						     st.st_size) < 0) {
+			mail_transaction_log_file_free(file);
+			file = NULL;
+		}
+	} else {
+		file = mail_transaction_log_file_open_or_create(log, path);
+	}
+
+	if (file == NULL) {
 		/* fallback to in-memory indexes */
 		if (mail_index_move_to_memory(index) < 0) {
 			mail_transaction_log_close(&log);
 			return NULL;
 		}
-		log->head = mail_transaction_log_file_open_or_create(log, path);
-		i_assert(log->head != NULL);
+		file = mail_transaction_log_file_open_or_create(log, path);
+		i_assert(file != NULL);
 	}
-	log->head->refcount++;
+	file->refcount++;
+	log->head = file;
 
 	if (index->fd != -1 &&
 	    INDEX_HAS_MISSING_LOGS(index, log->head)) {
@@ -255,6 +336,18 @@ mail_transaction_log_open_or_create(struct mail_index *index)
 		}
 	}
 	return log;
+}
+
+struct mail_transaction_log *
+mail_transaction_log_open_or_create(struct mail_index *index)
+{
+	return mail_transaction_log_open_int(index, FALSE);
+}
+
+struct mail_transaction_log *
+mail_transaction_log_create(struct mail_index *index)
+{
+	return mail_transaction_log_open_int(index, TRUE);
 }
 
 void mail_transaction_log_close(struct mail_transaction_log **_log)
@@ -271,49 +364,6 @@ void mail_transaction_log_close(struct mail_transaction_log **_log)
 	*_log = NULL;
 	log->index->log = NULL;
 	i_free(log);
-}
-
-static void
-mail_transaction_log_file_free(struct mail_transaction_log_file *file)
-{
-	struct mail_transaction_log_file **p;
-	int old_errno = errno;
-
-	mail_transaction_log_file_unlock(file);
-
-	for (p = &file->log->files; *p != NULL; p = &(*p)->next) {
-		if (*p == file) {
-			*p = file->next;
-			break;
-		}
-	}
-
-	if (file == file->log->head)
-		file->log->head = NULL;
-
-	if (file->buffer != NULL) 
-		buffer_free(file->buffer);
-
-	if (file->mmap_base != NULL) {
-		if (munmap(file->mmap_base, file->mmap_size) < 0) {
-			mail_index_file_set_syscall_error(file->log->index,
-							  file->filepath,
-							  "munmap()");
-		}
-	}
-
-	if (file->fd != -1) {
-		if (close(file->fd) < 0) {
-			mail_index_file_set_syscall_error(file->log->index,
-							  file->filepath,
-							  "close()");
-		}
-	}
-
-	i_free(file->filepath);
-        i_free(file);
-
-        errno = old_errno;
 }
 
 int mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
@@ -680,19 +730,6 @@ mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 
 	file->next = *p;
 	*p = file;
-}
-
-static struct mail_transaction_log_file *
-mail_transaction_log_file_alloc(struct mail_transaction_log *log,
-				const char *path)
-{
-	struct mail_transaction_log_file *file;
-
-	file = i_new(struct mail_transaction_log_file, 1);
-	file->log = log;
-	file->filepath = i_strdup(path);
-	file->fd = -1;
-	return file;
 }
 
 static int
