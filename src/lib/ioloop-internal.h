@@ -10,11 +10,8 @@
 struct ioloop {
         struct ioloop *prev;
 
-	pool_t pool;
-
-	struct io *ios;
-	struct io *notifys;
-	struct io *next_io;
+	struct io_file *io_files;
+	struct io_file *next_io_file;
 	struct timeout *timeouts; /* sorted by next_run */
 
         struct ioloop_handler_context *handler_context;
@@ -24,16 +21,20 @@ struct ioloop {
 };
 
 struct io {
-	/* use a doubly linked list so that io_remove() is quick */
-	struct io *prev, *next;
-
-	int refcount;
-
-	int fd;
 	enum io_condition condition;
 
 	io_callback_t *callback;
         void *context;
+};
+
+struct io_file {
+	struct io io;
+
+	/* use a doubly linked list so that io_remove() is quick */
+	struct io_file *prev, *next;
+
+	int refcount;
+	int fd;
 };
 
 struct timeout {
@@ -53,21 +54,14 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 			  struct timeval *tv_now);
 void io_loop_handle_timeouts(struct ioloop *ioloop);
 
-/* call only when timeout->destroyed is TRUE */
-void timeout_destroy(struct ioloop *ioloop, struct timeout **timeout_p);
-
 /* I/O handler calls */
-void io_loop_handle_add(struct ioloop *ioloop, struct io *io);
-void io_loop_handle_remove(struct ioloop *ioloop, struct io *io);
+void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io);
+void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io);
 
 void io_loop_handler_init(struct ioloop *ioloop);
 void io_loop_handler_deinit(struct ioloop *ioloop);
 
-void io_loop_notify_handler_init(struct ioloop *ioloop);
-void io_loop_notify_handler_deinit(struct ioloop *ioloop);
-
-struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
-			      io_callback_t *callback, void *context);
 void io_loop_notify_remove(struct ioloop *ioloop, struct io *io);
+void io_loop_notify_handler_deinit(struct ioloop *ioloop);
 
 #endif

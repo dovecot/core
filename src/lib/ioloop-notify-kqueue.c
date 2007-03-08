@@ -33,6 +33,12 @@
 	EV_SET(a, b, c, d, e, f, g)
 #endif
 
+struct io_notify {
+	struct io io;
+	int refcount;
+	int fd;
+};
+
 struct ioloop_notify_handler_context {
 	int kq;
 	struct io *event_io;
@@ -40,39 +46,55 @@ struct ioloop_notify_handler_context {
 
 static void event_callback(struct ioloop_notify_handler_context *ctx)
 {
-	struct io *io;
-	struct kevent ev;
+	struct io_notify *io;
+	struct kevent events[64];
 	struct timespec ts;
-	int ret;
-
-	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
-		i_fatal("gettimeofday() failed: %m");
-	ioloop_time = ioloop_timeval.tv_sec;
+	int i, ret;
 
 	ts.tv_sec = 0;
 	ts.tv_nsec = 0;
 
-	ret = kevent(ctx->kq, NULL, 0, &ev, 1, &ts);
+	ret = kevent(ctx->kq, NULL, 0, events,
+		     sizeof(events)/sizeof(events[0]), &ts);
 	if (ret <= 0) {
 		if (ret == 0 || errno == EINTR)
 			return;
 
 		i_fatal("kevent(notify) failed: %m");
 	}
-	io = (void *)ev.udata;
-	io->callback(io->context);
+
+	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
+		i_fatal("gettimeofday() failed: %m");
+	ioloop_time = ioloop_timeval.tv_sec;
+
+	for (i = 0; i < ret; i++) {
+		io = (void *)events[i].udata;
+		i_assert(io->refcount == 1);
+		io->refcount++;
+	}
+	for (i = 0; i < ret; i++) {
+		io = (void *)events[i].udata;
+		/* there can be multiple events for a single io.
+		   call the callback only once if that happens. */
+		if (io->refcount == 2 && io->io.callback != NULL)
+			io->io.callback(io->io.context);
+
+		if (--io->refcount == 0)
+			i_free(io);
+	}
 }
 
-void io_loop_notify_handler_init(struct ioloop *ioloop)
+static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 {
 	struct ioloop_notify_handler_context *ctx;
 
-	ctx = ioloop->notify_handler_context =
-		p_new(ioloop->pool, struct ioloop_notify_handler_context, 1);
+	ctx = current_ioloop->notify_handler_context =
+		i_new(struct ioloop_notify_handler_context, 1);
 	ctx->kq = kqueue();
 	if (ctx->kq < 0)
 		i_fatal("kqueue(notify) failed: %m");
 	fd_close_on_exec(ctx->kq, TRUE);
+	return ctx;
 }
 
 void io_loop_notify_handler_deinit(struct ioloop *ioloop)
@@ -84,18 +106,22 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 		io_remove(&ctx->event_io);
 	if (close(ctx->kq) < 0)
 		i_error("close(kqueue notify) failed: %m");
-	p_free(ioloop->pool, ctx);
+	i_free(ctx);
 }
 
-struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
-			      io_callback_t *callback, void *context)
+#undef io_add_notify
+struct io *io_add_notify(const char *path, io_callback_t *callback,
+			 void *context)
 {
 	struct ioloop_notify_handler_context *ctx =
-		ioloop->notify_handler_context;
+		current_ioloop->notify_handler_context;
 	struct kevent ev;
-	struct io *io;
+	struct io_notify *io;
 	int fd;
 	struct stat sb;
+
+	if (ctx == NULL)
+		ctx = io_loop_notify_handler_init();
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
@@ -115,10 +141,11 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	}
 	fd_close_on_exec(fd, TRUE);
 
-	io = p_new(ioloop->pool, struct io, 1);
+	io = i_new(struct io_notify, 1);
+	io->io.callback = callback;
+	io->io.context = context;
+	io->refcount = 1;
 	io->fd = fd;
-	io->callback = callback;
-	io->context = context;
 
 	/* EV_CLEAR flag is needed because the EVFILT_VNODE filter reports
 	   event state transitions and not the current state.  With this flag,
@@ -128,31 +155,33 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0) {
 		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
 		(void)close(fd);
-		p_free(ioloop->pool, io);
+		i_free(io);
 		return NULL;
 	}
 
 	if (ctx->event_io == NULL) {
-		ctx->event_io =
-			io_add(ctx->kq, IO_READ, event_callback,
-			       ioloop->notify_handler_context);
+		ctx->event_io = io_add(ctx->kq, IO_READ, event_callback,
+				       current_ioloop->notify_handler_context);
 	}
-	return io;
+	return &io->io;
 }
 
-void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
+void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
+	struct io_notify *io = (struct io_notify *)_io;
 	struct kevent ev;
-
-	i_assert((io->condition & IO_NOTIFY) != 0);
 
 	MY_EV_SET(&ev, io->fd, EVFILT_VNODE, EV_DELETE, 0, 0, NULL);
 	if (kevent(ctx->kq, &ev, 1, NULL, 0, 0) < 0)
 		i_error("kevent(%d) for notify remove failed: %m", io->fd);
 	if (close(io->fd) < 0)
 		i_error("close(%d) for notify remove failed: %m", io->fd);
+	io->fd = -1;
+
+	if (--io->refcount == 0)
+		i_free(io);
 }
 
 #endif

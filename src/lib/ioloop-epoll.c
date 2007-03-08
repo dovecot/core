@@ -29,11 +29,10 @@ void io_loop_handler_init(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx;
 
-	ioloop->handler_context = ctx =
-		p_new(ioloop->pool, struct ioloop_handler_context, 1);
+	ioloop->handler_context = ctx = i_new(struct ioloop_handler_context, 1);
 
-	p_array_init(&ctx->events, ioloop->pool, IOLOOP_INITIAL_FD_COUNT);
-	p_array_init(&ctx->fd_index, ioloop->pool, IOLOOP_INITIAL_FD_COUNT);
+	i_array_init(&ctx->events, IOLOOP_INITIAL_FD_COUNT);
+	i_array_init(&ctx->fd_index, IOLOOP_INITIAL_FD_COUNT);
 
 	ctx->epfd = epoll_create(IOLOOP_INITIAL_FD_COUNT);
 	if (ctx->epfd < 0)
@@ -49,13 +48,13 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 
 	list = array_get_modifiable(&ctx->fd_index, &count);
 	for (i = 0; i < count; i++)
-		p_free(ioloop->pool, list[i]);
+		i_free(list[i]);
 
 	if (close(ctx->epfd) < 0)
 		i_error("close(epoll) failed: %m");
 	array_free(&ioloop->handler_context->fd_index);
 	array_free(&ioloop->handler_context->events);
-	p_free(ioloop->pool, ioloop->handler_context);
+	i_free(ioloop->handler_context);
 }
 
 #define IO_EPOLL_ERROR (EPOLLERR | EPOLLHUP)
@@ -65,7 +64,7 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 static int epoll_event_mask(struct io_list *list)
 {
 	int events = 0, i;
-	struct io *io;
+	struct io_file *io;
 
 	for (i = 0; i < IOLOOP_IOLIST_IOS_PER_FD; i++) {
 		io = list->ios[i];
@@ -73,18 +72,18 @@ static int epoll_event_mask(struct io_list *list)
 		if (io == NULL)
 			continue;
 
-		if (io->condition & IO_READ)
+		if (io->io.condition & IO_READ)
 			events |= IO_EPOLL_INPUT;
-		if (io->condition & IO_WRITE)
+		if (io->io.condition & IO_WRITE)
 			events |= IO_EPOLL_OUTPUT;
-		if (io->condition & IO_ERROR)
+		if (io->io.condition & IO_ERROR)
 			events |= IO_EPOLL_ERROR;
 	}
 
 	return events;
 }
 
-void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
+void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list **list;
@@ -94,7 +93,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 
 	list = array_idx_modifiable(&ctx->fd_index, io->fd);
 	if (*list == NULL)
-		*list = p_new(ioloop->pool, struct io_list, 1);
+		*list = i_new(struct io_list, 1);
 
 	first = ioloop_iolist_add(*list, io);
 
@@ -119,7 +118,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 	}
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
+void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct io_list **list;
@@ -147,6 +146,7 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 		   insteading of appending to the events array */
 		ctx->deleted_count++;
 	}
+	i_free(io);
 }
 
 void io_loop_handler_run(struct ioloop *ioloop)
@@ -155,7 +155,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct epoll_event *events;
 	const struct epoll_event *event;
 	struct io_list *list;
-	struct io *io;
+	struct io_file *io;
 	struct timeval tv;
 	unsigned int events_count, t_id;
 	int msecs, ret, i, j;
@@ -189,20 +189,20 @@ void io_loop_handler_run(struct ioloop *ioloop)
 			call = FALSE;
 			if ((event->events & (EPOLLHUP | EPOLLERR)) != 0)
 				call = TRUE;
-			else if ((io->condition & IO_READ) != 0)
+			else if ((io->io.condition & IO_READ) != 0)
 				call = (event->events & EPOLLIN) != 0;
-			else if ((io->condition & IO_WRITE) != 0)
+			else if ((io->io.condition & IO_WRITE) != 0)
 				call = (event->events & EPOLLOUT) != 0;
-			else if ((io->condition & IO_ERROR) != 0)
+			else if ((io->io.condition & IO_ERROR) != 0)
 				call = (event->events & IO_EPOLL_ERROR) != 0;
 
 			if (call) {
 				t_id = t_push();
-				io->callback(io->context);
+				io->io.callback(io->io.context);
 				if (t_pop() != t_id) {
 					i_panic("Leaked a t_pop() call in "
 						"I/O handler %p",
-						(void *)io->callback);
+						(void *)io->io.callback);
 				}
 			}
 		}

@@ -20,13 +20,13 @@ struct ioloop_handler_context {
 static void update_highest_fd(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-        struct io *io;
+        struct io_file *io;
 	int max_highest_fd;
 
         max_highest_fd = ctx->highest_fd-1;
 	ctx->highest_fd = -1;
 
-	for (io = ioloop->ios; io != NULL; io = io->next) {
+	for (io = ioloop->io_files; io != NULL; io = io->next) {
 		if (io->fd <= ctx->highest_fd)
 			continue;
 
@@ -41,8 +41,7 @@ void io_loop_handler_init(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx;
 
-	ioloop->handler_context = ctx =
-		p_new(ioloop->pool, struct ioloop_handler_context, 1);
+	ioloop->handler_context = ctx = i_new(struct ioloop_handler_context, 1);
 	ctx->highest_fd = -1;
         FD_ZERO(&ctx->read_fds);
 	FD_ZERO(&ctx->write_fds);
@@ -51,13 +50,13 @@ void io_loop_handler_init(struct ioloop *ioloop)
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
-        p_free(ioloop->pool, ioloop->handler_context);
+        i_free(ioloop->handler_context);
 }
 
-void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
+void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	enum io_condition condition = io->condition;
+	enum io_condition condition = io->io.condition;
 	int fd = io->fd;
 
 	i_assert(fd >= 0);
@@ -75,10 +74,10 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 		ctx->highest_fd = io->fd;
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
+void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	enum io_condition condition = io->condition;
+	enum io_condition condition = io->io.condition;
 	int fd = io->fd;
 
 	i_assert(fd >= 0 && fd < FD_SETSIZE);
@@ -95,6 +94,7 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 		if (io->fd == ctx->highest_fd)
 			update_highest_fd(ioloop);
 	}
+	i_free(io);
 }
 
 #define io_check_condition(ctx, fd, cond) \
@@ -106,7 +106,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct timeval tv;
-	struct io *io;
+	struct io_file *io;
 	unsigned int t_id;
 	int ret;
 
@@ -130,17 +130,19 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		return;
 	}
 
-	for (io = ioloop->ios; io != NULL && ret > 0; io = ioloop->next_io) {
-                ioloop->next_io = io->next;
+	io = ioloop->io_files;
+	for (; io != NULL && ret > 0; io = ioloop->next_io_file) {
+                ioloop->next_io_file = io->next;
 
-		if (io_check_condition(ctx, io->fd, io->condition)) {
+		if (io_check_condition(ctx, io->fd, io->io.condition)) {
 			ret--;
 
 			t_id = t_push();
-			io->callback(io->context);
+			io->io.callback(io->io.context);
 			if (t_pop() != t_id) {
 				i_panic("Leaked a t_pop() call in "
-					"I/O handler %p", (void *)io->callback);
+					"I/O handler %p",
+					(void *)io->io.callback);
 			}
 		}
 	}

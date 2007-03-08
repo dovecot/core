@@ -8,15 +8,15 @@
 #include "ioloop-internal.h"
 #include "ioloop-iolist.h"
 
-bool ioloop_iolist_add(struct io_list *list, struct io *io)
+bool ioloop_iolist_add(struct io_list *list, struct io_file *io)
 {
 	int i, idx;
 
-	if ((io->condition & IO_READ) != 0)
+	if ((io->io.condition & IO_READ) != 0)
 		idx = IOLOOP_IOLIST_INPUT;
-	else if ((io->condition & IO_WRITE) != 0)
+	else if ((io->io.condition & IO_WRITE) != 0)
 		idx = IOLOOP_IOLIST_OUTPUT;
-	else if ((io->condition & IO_ERROR) != 0)
+	else if ((io->io.condition & IO_ERROR) != 0)
 		idx = IOLOOP_IOLIST_ERROR;
 	else {
 		i_unreached();
@@ -34,7 +34,7 @@ bool ioloop_iolist_add(struct io_list *list, struct io *io)
 	return TRUE;
 }
 
-bool ioloop_iolist_del(struct io_list *list, struct io *io)
+bool ioloop_iolist_del(struct io_list *list, struct io_file *io)
 {
 	bool last = TRUE;
 	int i;

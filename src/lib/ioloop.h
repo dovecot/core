@@ -65,7 +65,7 @@ bool io_loop_is_running(struct ioloop *ioloop);
 void io_loop_set_running(struct ioloop *ioloop);
 void io_loop_handler_run(struct ioloop *ioloop);
 
-struct ioloop *io_loop_create(pool_t pool);
+struct ioloop *io_loop_create(void);
 /* Destroy I/O loop and set ioloop pointer to NULL. */
 void io_loop_destroy(struct ioloop **ioloop);
 

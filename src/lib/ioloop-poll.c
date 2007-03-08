@@ -22,31 +22,30 @@ void io_loop_handler_init(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx;
 
-	ioloop->handler_context = ctx =
-		p_new(ioloop->pool, struct ioloop_handler_context, 1);
+	ioloop->handler_context = ctx = i_new(struct ioloop_handler_context, 1);
 	ctx->fds_count = IOLOOP_INITIAL_FD_COUNT;
-	ctx->fds = p_new(ioloop->pool, struct pollfd, ctx->fds_count);
+	ctx->fds = i_new(struct pollfd, ctx->fds_count);
 
 	ctx->idx_count = IOLOOP_INITIAL_FD_COUNT;
-	ctx->fd_index = p_new(ioloop->pool, int, ctx->idx_count);
+	ctx->fd_index = i_new(int, ctx->idx_count);
         memset(ctx->fd_index, 0xff, sizeof(int) * ctx->idx_count);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
 {
-        p_free(ioloop->pool, ioloop->handler_context->fds);
-        p_free(ioloop->pool, ioloop->handler_context->fd_index);
-        p_free(ioloop->pool, ioloop->handler_context);
+        i_free(ioloop->handler_context->fds);
+        i_free(ioloop->handler_context->fd_index);
+        i_free(ioloop->handler_context);
 }
 
 #define IO_POLL_ERROR (POLLERR | POLLHUP | POLLNVAL)
 #define IO_POLL_INPUT (POLLIN | POLLPRI | IO_POLL_ERROR)
 #define IO_POLL_OUTPUT (POLLOUT | IO_POLL_ERROR)
 
-void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
+void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	enum io_condition condition = io->condition;
+	enum io_condition condition = io->io.condition;
 	unsigned int old_count;
 	int index, fd = io->fd;
 
@@ -56,7 +55,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 
 		ctx->idx_count = nearest_power((unsigned int) fd+1);
 
-		ctx->fd_index = p_realloc(ioloop->pool, ctx->fd_index,
+		ctx->fd_index = i_realloc(ctx->fd_index,
 					  sizeof(int) * old_count,
 					  sizeof(int) * ctx->idx_count);
 		memset(ctx->fd_index + old_count, 0xff,
@@ -69,7 +68,7 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 
 		ctx->fds_count = nearest_power(ctx->fds_count+1);
 
-		ctx->fds = p_realloc(ioloop->pool, ctx->fds,
+		ctx->fds = i_realloc(ctx->fds,
 				     sizeof(struct pollfd) * old_count,
 				     sizeof(struct pollfd) * ctx->fds_count);
 	}
@@ -95,10 +94,10 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 		ctx->fds[index].events |= IO_POLL_ERROR;
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop,  struct io *io)
+void io_loop_handle_remove(struct ioloop *ioloop,  struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
-	enum io_condition condition = io->condition;
+	enum io_condition condition = io->io.condition;
 	int index, fd = io->fd;
 
 	index = ctx->fd_index[fd];
@@ -116,6 +115,7 @@ void io_loop_handle_remove(struct ioloop *ioloop,  struct io *io)
 			i_error("fcntl(%d, F_GETFD) failed: %m", io->fd);
 	}
 #endif
+	i_free(io);
 
 	if (condition & IO_READ) {
 		ctx->fds[index].events &= ~(POLLIN|POLLPRI);
@@ -143,7 +143,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
         struct pollfd *pollfd;
         struct timeval tv;
-	struct io *io;
+	struct io_file *io;
 	unsigned int t_id;
 	int msecs, ret;
 	bool call;
@@ -163,28 +163,29 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		return;
 	}
 
-	for (io = ioloop->ios; io != NULL && ret > 0; io = ioloop->next_io) {
-		ioloop->next_io = io->next;
+	io = ioloop->io_files;
+	for (; io != NULL && ret > 0; io = ioloop->next_io_file) {
+		ioloop->next_io_file = io->next;
 
 		pollfd = &ctx->fds[ctx->fd_index[io->fd]];
 		if (pollfd->revents != 0) {
 			if (pollfd->revents & POLLNVAL) {
 				i_error("invalid I/O fd %d, callback %p",
-					io->fd, (void *) io->callback);
+					io->fd, (void *) io->io.callback);
 				pollfd->events = 0;
 				pollfd->revents = 0;
 				call = TRUE;
-			} else if ((io->condition &
+			} else if ((io->io.condition &
 				    (IO_READ|IO_WRITE)) == (IO_READ|IO_WRITE)) {
 				call = TRUE;
 				pollfd->revents = 0;
-			} else if (io->condition & IO_READ) {
+			} else if (io->io.condition & IO_READ) {
 				call = (pollfd->revents & IO_POLL_INPUT) != 0;
 				pollfd->revents &= ~IO_POLL_INPUT;
-			} else if (io->condition & IO_WRITE) {
+			} else if (io->io.condition & IO_WRITE) {
 				call = (pollfd->revents & IO_POLL_OUTPUT) != 0;
 				pollfd->revents &= ~IO_POLL_OUTPUT;
-			} else if (io->condition & IO_ERROR) {
+			} else if (io->io.condition & IO_ERROR) {
 				call = (pollfd->revents & IO_POLL_ERROR) != 0;
 				pollfd->revents &= ~IO_POLL_ERROR;
 			} else {
@@ -196,11 +197,11 @@ void io_loop_handler_run(struct ioloop *ioloop)
 
 			if (call) {
 				t_id = t_push();
-				io->callback(io->context);
+				io->io.callback(io->io.context);
 				if (t_pop() != t_id) {
 					i_panic("Leaked a t_pop() call in "
 						"I/O handler %p",
-						(void *)io->callback);
+						(void *)io->io.callback);
 				}
 			}
 		}

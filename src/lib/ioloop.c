@@ -23,54 +23,43 @@ struct ioloop *current_ioloop = NULL;
 struct io *io_add(int fd, enum io_condition condition,
 		  io_callback_t *callback, void *context)
 {
-	struct io *io;
+	struct io_file *io;
 
 	i_assert(fd >= 0);
 	i_assert(callback != NULL);
 	i_assert((condition & IO_NOTIFY) == 0);
 
-	io = p_new(current_ioloop->pool, struct io, 1);
+	io = i_new(struct io_file, 1);
+        io->io.condition = condition;
+	io->io.callback = callback;
+        io->io.context = context;
 	io->refcount = 1;
 	io->fd = fd;
-        io->condition = condition;
-
-	io->callback = callback;
-        io->context = context;
 
 	io_loop_handle_add(current_ioloop, io);
 
-	io->next = current_ioloop->ios;
-	current_ioloop->ios = io;
-
-	if (io->next != NULL)
-		io->next->prev = io;
-	return io;
+	if (current_ioloop->io_files != NULL) {
+		current_ioloop->io_files->prev = io;
+		io->next = current_ioloop->io_files;
+	}
+	current_ioloop->io_files = io;
+	return &io->io;
 }
 
-#undef io_add_notify
-struct io *io_add_notify(const char *path, io_callback_t *callback,
-			 void *context)
+static void io_file_unlink(struct io_file *io)
 {
-	struct io *io;
-
-	i_assert(path != NULL);
-	i_assert(callback != NULL);
-
-	if (current_ioloop->notify_handler_context == NULL)
-		io_loop_notify_handler_init(current_ioloop);
-
-	io = io_loop_notify_add(current_ioloop, path, callback, context);
-	if (io == NULL)
-		return NULL;
-
-	io->refcount = 1;
-	io->condition |= IO_NOTIFY;
-	io->next = current_ioloop->notifys;
-	current_ioloop->notifys = io;
+	if (io->prev != NULL)
+		io->prev->next = io->next;
+	else
+		current_ioloop->io_files = io->next;
 
 	if (io->next != NULL)
-		io->next->prev = io;
-	return io;
+		io->next->prev = io->prev;
+
+	/* if we got here from an I/O handler callback, make sure we
+	   don't try to handle this one next. */
+	if (current_ioloop->next_io_file == io)
+		current_ioloop->next_io_file = io->next;
 }
 
 void io_remove(struct io **_io)
@@ -79,35 +68,18 @@ void io_remove(struct io **_io)
 
 	*_io = NULL;
 
-	i_assert(io->refcount > 0);
-
-	/* unlink from linked list */
-	if (io->prev != NULL)
-		io->prev->next = io->next;
-	else {
-		if ((io->condition & IO_NOTIFY) == 0)
-			current_ioloop->ios = io->next;
-		else
-			current_ioloop->notifys = io->next;
-	}
-	if (io->next != NULL)
-		io->next->prev = io->prev;
-
-	if ((io->condition & IO_NOTIFY) == 0) {
-		/* if we got here from an I/O handler callback, make sure we
-		   don't try to handle this one next. */
-		if (current_ioloop->next_io == io)
-			current_ioloop->next_io = io->next;
-
-		io_loop_handle_remove(current_ioloop, io);
-	} else {
-		io_loop_notify_remove(current_ioloop, io);
-	}
-
+	/* make sure the callback doesn't get called anymore.
+	   kqueue code relies on this. */
 	io->callback = NULL;
 
-	if (--io->refcount == 0)
-		p_free(current_ioloop->pool, io);
+	if ((io->condition & IO_NOTIFY) != 0)
+		io_loop_notify_remove(current_ioloop, io);
+	else {
+		struct io_file *io_file = (struct io_file *)io;
+
+		io_file_unlink(io_file);
+		io_loop_handle_remove(current_ioloop, io_file);
+	}
 }
 
 static void timeout_list_insert(struct ioloop *ioloop, struct timeout *timeout)
@@ -154,7 +126,7 @@ struct timeout *timeout_add(unsigned int msecs, timeout_callback_t *callback,
 {
 	struct timeout *timeout;
 
-	timeout = p_new(current_ioloop->pool, struct timeout, 1);
+	timeout = i_new(struct timeout, 1);
         timeout->msecs = msecs;
 
 	timeout->callback = callback;
@@ -172,14 +144,6 @@ void timeout_remove(struct timeout **timeout)
 
 	(*timeout)->destroyed = TRUE;
 	*timeout = NULL;
-}
-
-void timeout_destroy(struct ioloop *ioloop, struct timeout **timeout_p)
-{
-        struct timeout *timeout = *timeout_p;
-
-	*timeout_p = timeout->next;
-        p_free(ioloop->pool, timeout);
 }
 
 int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
@@ -268,7 +232,8 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 		struct timeout *t = ioloop->timeouts;
 
 		if (t->destroyed) {
-                        timeout_destroy(ioloop, &ioloop->timeouts);
+			ioloop->timeouts = t->next;
+			i_free(t);
 			continue;
 		}
 
@@ -300,9 +265,10 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 	while (called_timeouts != NULL) {
 		struct timeout *t = called_timeouts;
 
-		if (t->destroyed)
-			timeout_destroy(ioloop, &called_timeouts);
-		else {
+		if (t->destroyed) {
+			called_timeouts = t->next;
+			i_free(t);
+		} else {
 			called_timeouts = t->next;
 			timeout_list_insert(current_ioloop, t);
 		}
@@ -341,7 +307,7 @@ bool io_loop_is_running(struct ioloop *ioloop)
         return ioloop->running;
 }
 
-struct ioloop *io_loop_create(pool_t pool)
+struct ioloop *io_loop_create(void)
 {
 	struct ioloop *ioloop;
 
@@ -350,10 +316,7 @@ struct ioloop *io_loop_create(pool_t pool)
 		i_fatal("gettimeofday(): %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 
-        ioloop = p_new(pool, struct ioloop, 1);
-	pool_ref(pool);
-	ioloop->pool = pool;
-
+        ioloop = i_new(struct ioloop, 1);
 	io_loop_handler_init(ioloop);
 
 	ioloop->prev = current_ioloop;
@@ -365,18 +328,18 @@ struct ioloop *io_loop_create(pool_t pool)
 void io_loop_destroy(struct ioloop **_ioloop)
 {
         struct ioloop *ioloop = *_ioloop;
-	pool_t pool;
 
 	*_ioloop = NULL;
 
 	if (ioloop->notify_handler_context != NULL)
 		io_loop_notify_handler_deinit(ioloop);
 
-	while (ioloop->ios != NULL) {
-		struct io *io = ioloop->ios;
+	while (ioloop->io_files != NULL) {
+		struct io_file *io = ioloop->io_files;
+		struct io *_io = &io->io;
 
-		i_warning("I/O leak: %p (%d)", (void *)io->callback, io->fd);
-		io_remove(&io);
+		i_warning("I/O leak: %p (%d)", (void *)io->io.callback, io->fd);
+		io_remove(&_io);
 	}
 
 	while (ioloop->timeouts != NULL) {
@@ -386,7 +349,8 @@ void io_loop_destroy(struct ioloop **_ioloop)
 			i_warning("Timeout leak: %p", (void *)to->callback);
 			timeout_remove(&to);
 		}
-                timeout_destroy(ioloop, &ioloop->timeouts);
+		ioloop->timeouts = to->next;
+		i_free(to);
 	}
 	
         io_loop_handler_deinit(ioloop);
@@ -395,7 +359,5 @@ void io_loop_destroy(struct ioloop **_ioloop)
         i_assert(ioloop == current_ioloop);
 	current_ioloop = current_ioloop->prev;
 
-	pool = ioloop->pool;
-	p_free(pool, ioloop);
-	pool_unref(pool);
+	i_free(ioloop);
 }

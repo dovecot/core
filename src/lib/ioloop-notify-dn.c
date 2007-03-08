@@ -8,6 +8,7 @@
 #ifdef IOLOOP_NOTIFY_DNOTIFY
 
 #include "ioloop-internal.h"
+#include "ioloop-notify-fd.h"
 #include "fd-set-nonblock.h"
 #include "fd-close-on-exec.h"
 
@@ -16,13 +17,17 @@
 #include <fcntl.h>
 
 struct ioloop_notify_handler_context {
-	struct io *event_io;
-	bool disabled;
+	struct ioloop_notify_fd_context fd_ctx;
 
+	struct io *event_io;
 	int event_pipe[2];
+
+	bool disabled;
 };
 
 static int sigrt_refcount = 0;
+
+static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void);
 
 static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
 			  void *data __attr_unused__)
@@ -41,40 +46,43 @@ static void sigrt_handler(int signo __attr_unused__, siginfo_t *si,
 	errno = saved_errno;
 }
 
-static void event_callback(struct ioloop *ioloop)
+static void dnotify_input(struct ioloop *ioloop)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
-	struct io *io;
-	int fd, ret;
+	struct io_notify *io;
+	int fd_buf[256], i, ret;
 
-	ret = read(ctx->event_pipe[0], &fd, sizeof(fd));
+	ret = read(ctx->event_pipe[0], fd_buf, sizeof(fd_buf));
 	if (ret < 0)
 		i_fatal("read(event_pipe) failed: %m");
-	if (ret != sizeof(fd)) {
-		i_fatal("read(event_pipe) returned %d != %"PRIuSIZE_T,
-			ret, sizeof(fd));
-	}
+	if ((ret % sizeof(fd_buf[0])) != 0)
+		i_fatal("read(event_pipe) returned %d", ret);
+	ret /= sizeof(fd_buf[0]);
 
 	if (gettimeofday(&ioloop_timeval, &ioloop_timezone) < 0)
 		i_fatal("gettimeofday(): %m");
 	ioloop_time = ioloop_timeval.tv_sec;
 
-	for (io = ioloop->notifys; io != NULL; io = io->next) {
-		if (io->fd == fd) {
-			io->callback(io->context);
-			break;
-		}
+	for (i = 0; i < ret; i++) {
+		io = io_notify_fd_find(&ctx->fd_ctx, fd_buf[i]);
+		if (io != NULL)
+			io->io.callback(io->io.context);
 	}
 }
 
-struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
-			      io_callback_t *callback, void *context)
+#undef io_add_notify
+struct io *io_add_notify(const char *path, io_callback_t *callback,
+			 void *context)
 {
 	struct ioloop_notify_handler_context *ctx =
-		ioloop->notify_handler_context;
-	struct io *io;
+		current_ioloop->notify_handler_context;
 	int fd;
+
+	if (ctx == NULL)
+		ctx = io_loop_notify_handler_init();
+	if (ctx->disabled)
+		return NULL;
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
@@ -109,23 +117,18 @@ struct io *io_loop_notify_add(struct ioloop *ioloop, const char *path,
 	}
 
 	if (ctx->event_io == NULL) {
-		ctx->event_io =
-			io_add(ctx->event_pipe[0], IO_READ,
-			       event_callback, ioloop);
+		ctx->event_io = io_add(ctx->event_pipe[0], IO_READ,
+				       dnotify_input, current_ioloop);
 	}
 
-	io = p_new(ioloop->pool, struct io, 1);
-	io->fd = fd;
-
-	io->callback = callback;
-        io->context = context;
-	return io;
+	return io_notify_fd_add(&ctx->fd_ctx, fd, callback, context);
 }
 
-void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
+void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;
+	struct io_notify *io = (struct io_notify *)_io;
 
 	if (fcntl(io->fd, F_NOTIFY, 0) < 0)
 		i_error("fcntl(F_NOTIFY, 0) failed: %m");
@@ -134,21 +137,24 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *io)
 	if (close(io->fd))
 		i_error("close(dnotify) failed: %m");
 
-	if (ioloop->notifys == NULL)
+	io_notify_fd_free(&ctx->fd_ctx, io);
+
+	if (ctx->fd_ctx.notifies == NULL)
 		io_remove(&ctx->event_io);
 }
 
-void io_loop_notify_handler_init(struct ioloop *ioloop)
+static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 {
 	struct ioloop_notify_handler_context *ctx;
 	struct sigaction act;
 
-	ctx = ioloop->notify_handler_context =
+	ctx = current_ioloop->notify_handler_context =
 		i_new(struct ioloop_notify_handler_context, 1);
 
 	if (pipe(ctx->event_pipe) < 0) {
-		i_fatal("pipe() failed: %m");
-		return;
+		ctx->disabled = TRUE;
+		i_error("dnotify: pipe() failed: %m");
+		return ctx;
 	}
 
 	fd_set_nonblock(ctx->event_pipe[0], TRUE);
@@ -175,9 +181,10 @@ void io_loop_notify_handler_init(struct ioloop *ioloop)
 			}
 		}
 	}
+	return ctx;
 }
 
-void io_loop_notify_handler_deinit(struct ioloop *ioloop __attr_unused__)
+void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 {
 	struct ioloop_notify_handler_context *ctx =
 		ioloop->notify_handler_context;

@@ -37,6 +37,7 @@ liblib_a_SOURCES = \
 	ioloop.c \
 	ioloop-iolist.c \
 	ioloop-notify-none.c \
+	ioloop-notify-fd.c \
 	ioloop-notify-dn.c \
 	ioloop-notify-inotify.c \
 	ioloop-notify-kqueue.c \
@@ -124,6 +125,7 @@ headers = \
 	ioloop.h \
 	ioloop-iolist.h \
 	ioloop-internal.h \
+	ioloop-notify-fd.h \
 	lib.h \
 	lib-signals.h \
 	macros.h \

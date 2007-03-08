@@ -37,22 +37,20 @@ struct ioloop_handler_context {
 	int kq;
 
 	unsigned int deleted_count;
-	array_t ARRAY_DEFINE(events, struct kevent);
+	ARRAY_DEFINE(events, struct kevent);
 };
 
 void io_loop_handler_init(struct ioloop *ioloop)
 {
 	struct ioloop_handler_context *ctx;
 
-	ioloop->handler_context = ctx =
-		p_new(ioloop->pool, struct ioloop_handler_context, 1);
-
+	ioloop->handler_context = ctx = i_new(struct ioloop_handler_context, 1);
 	ctx->kq = kqueue();
 	if (ctx->kq < 0)
 		i_fatal("kqueue() in io_loop_handler_init() failed: %m");
 	fd_close_on_exec(ctx->kq, TRUE);
 
-	p_array_init(&ctx->events, ioloop->pool, IOLOOP_INITIAL_FD_COUNT);
+	i_array_init(&ctx->events, IOLOOP_INITIAL_FD_COUNT);
 }
 
 void io_loop_handler_deinit(struct ioloop *ioloop)
@@ -60,20 +58,20 @@ void io_loop_handler_deinit(struct ioloop *ioloop)
 	if (close(ioloop->handler_context->kq) < 0)
 		i_error("close(kqueue) in io_loop_handler_deinit() failed: %m");
 	array_free(&ioloop->handler_context->events);
-	p_free(ioloop->pool, ioloop->handler_context);
+	i_free(ioloop->handler_context);
 }
 
-void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
+void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct kevent ev;
 
-	if ((io->condition & (IO_READ | IO_ERROR)) != 0) {
+	if ((io->io.condition & (IO_READ | IO_ERROR)) != 0) {
 		MY_EV_SET(&ev, io->fd, EVFILT_READ, EV_ADD, 0, 0, io);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_fatal("kevent(EV_ADD, %d) failed: %m", io->fd);
 	}
-	if ((io->condition & IO_WRITE) != 0) {
+	if ((io->io.condition & IO_WRITE) != 0) {
 		MY_EV_SET(&ev, io->fd, EVFILT_WRITE, EV_ADD, 0, 0, io);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_fatal("kevent(EV_ADD, %d) failed: %m", io->fd);
@@ -87,17 +85,17 @@ void io_loop_handle_add(struct ioloop *ioloop, struct io *io)
 		(void)array_append_space(&ctx->events);
 }
 
-void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
+void io_loop_handle_remove(struct ioloop *ioloop, struct io_file *io)
 {
 	struct ioloop_handler_context *ctx = ioloop->handler_context;
 	struct kevent ev;
 
-	if ((io->condition & (IO_READ | IO_ERROR)) != 0) {
+	if ((io->io.condition & (IO_READ | IO_ERROR)) != 0) {
 		MY_EV_SET(&ev, io->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
 	}
-	if ((io->condition & IO_WRITE) != 0) {
+	if ((io->io.condition & IO_WRITE) != 0) {
 		MY_EV_SET(&ev, io->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
 		if (kevent(ctx->kq, &ev, 1, NULL, 0, NULL) < 0)
 			i_error("kevent(EV_DELETE, %d) failed: %m", io->fd);
@@ -107,6 +105,10 @@ void io_loop_handle_remove(struct ioloop *ioloop, struct io *io)
 	   deleted counter so next handle_add() can just decrease it
 	   insteading of appending to the events array */
 	ctx->deleted_count++;
+
+	i_assert(io->refcount > 0);
+	if (--io->refcount == 0)
+		i_free(io);
 }
 
 void io_loop_handler_run(struct ioloop *ioloop)
@@ -116,7 +118,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	const struct kevent *event;
 	struct timeval tv;
 	struct timespec ts;
-	struct io *io;
+	struct io_file *io;
 	unsigned int events_count, t_id;
 	int msecs, ret, i;
 
@@ -147,19 +149,19 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		io = (void *)event->udata;
 
 		/* callback is NULL if io_remove() was already called */
-		if (io->callback != NULL) {
+		if (io->io.callback != NULL) {
 			t_id = t_push();
-			io->callback(io->context);
+			io->io.callback(io->io.context);
 			if (t_pop() != t_id) {
 				i_panic("Leaked a t_pop() call in "
 					"I/O handler %p",
-					(void *)io->callback);
+					(void *)io->io.callback);
 			}
 		}
 
 		i_assert(io->refcount > 0);
 		if (--io->refcount == 0)
-			p_free(current_ioloop->pool, io);
+			i_free(io);
 	}
 }
 
