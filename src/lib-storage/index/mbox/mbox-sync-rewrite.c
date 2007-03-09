@@ -330,16 +330,13 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 		istream_raw_mbox_get_header_offset(sync_ctx->input);
 	mail_ctx->mail.body_size = mails[idx].body_size;
 
-	if (mails[idx].uid_broken || mails[idx].uid == 0) {
-		sync_ctx->next_uid = 1;
-		sync_ctx->prev_msg_uid = 0;
-	} else {
-		/* If we originally thought that the UID was broken, force the
-		   brokeness now also. Otherwise try to make the UID what we
-		   wanted it originally. */
-		sync_ctx->next_uid = mails[idx].uid;
-		sync_ctx->prev_msg_uid = sync_ctx->next_uid - 1;
-	}
+	/* only expunged mails have uid=0 */
+	i_assert(mails[idx].uid != 0);
+
+	/* This will force the UID to be the one that we originally assigned
+	   to it, regardless of whether it's broken or not in the file. */
+	sync_ctx->next_uid = mails[idx].uid;
+	sync_ctx->prev_msg_uid = mails[idx].uid - 1;
 
 	first_mail_expunge_extra = 1 +
 		sync_ctx->first_mail_crlf_expunged ? 1 : 0;
