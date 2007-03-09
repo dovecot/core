@@ -12,7 +12,7 @@
 
 static int log_append_buffer(struct mail_transaction_log_file *file,
 			     const buffer_t *buf, const buffer_t *hdr_buf,
-			     enum mail_transaction_type type, int external)
+			     enum mail_transaction_type type, bool external)
 {
 	struct mail_transaction_header hdr;
 	const void *data, *hdr_data;

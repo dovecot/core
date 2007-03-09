@@ -274,6 +274,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	const struct mail_transaction_type_map *type_rec;
 	const void *data;
 	unsigned int record_size;
+	enum mail_transaction_type hdr_type;
 	uint32_t hdr_size;
 	size_t file_size;
 
@@ -320,6 +321,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	hdr = CONST_PTR_OFFSET(data, view->cur_offset - file->buffer_offset);
 	data = CONST_PTR_OFFSET(hdr, sizeof(*hdr));
 
+	hdr_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
 	hdr_size = mail_index_offset_to_uint32(hdr->size);
 	if (hdr_size < sizeof(*hdr)) {
 		type_rec = NULL;
@@ -330,8 +332,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 			record_size = type_rec->record_size;
 		else {
 			mail_transaction_log_file_set_corrupted(file,
-				"unknown record type 0x%x",
-				hdr->type & MAIL_TRANSACTION_TYPE_MASK);
+				"unknown record type 0x%x", hdr_type);
 			return -1;
 		}
 	}
@@ -340,17 +341,16 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too small (type=0x%x, "
 			"offset=%"PRIuUOFF_T", size=%u)",
-			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
-			view->cur_offset, hdr_size);
+			hdr_type, view->cur_offset, hdr_size);
 		return -1;
 	}
 
-	if ((hdr_size - sizeof(*hdr)) % record_size != 0) {
+	if (record_size != 0 &&
+	    (hdr_size - sizeof(*hdr)) % record_size != 0) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size wrong (type 0x%x, "
 			"offset=%"PRIuUOFF_T", size=%"PRIuSIZE_T" %% %u != 0)",
-			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
-                        view->cur_offset, (hdr_size - sizeof(*hdr)),
+			hdr_type, view->cur_offset, (hdr_size - sizeof(*hdr)),
 			record_size);
 		return -1;
 	}
@@ -359,24 +359,22 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too large (type=0x%x, "
 			"offset=%"PRIuUOFF_T", size=%u, end=%"PRIuSIZE_T")",
-			hdr->type & MAIL_TRANSACTION_TYPE_MASK,
-			view->cur_offset, hdr_size, file_size);
+			hdr_type, view->cur_offset, hdr_size, file_size);
 		return -1;
 	}
 
 	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
-		if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) !=
-		    (MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT)) {
+		if (hdr_type != (MAIL_TRANSACTION_EXPUNGE |
+				 MAIL_TRANSACTION_EXPUNGE_PROT)) {
 			mail_transaction_log_file_set_corrupted(file,
 				"found expunge without protection mask");
 			return -1;
 		}
-	} else if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) != type_rec->type) {
+	} else if (hdr_type != type_rec->type) {
 		mail_transaction_log_file_set_corrupted(file,
-			"extra bits in header type: 0x%x",
-			hdr->type & MAIL_TRANSACTION_TYPE_MASK);
+			"extra bits in header type: 0x%x", hdr_type);
 		return -1;
-	} else if (hdr->type == MAIL_TRANSACTION_EXT_INTRO) {
+	} else if (hdr_type == MAIL_TRANSACTION_EXT_INTRO) {
 		const struct mail_transaction_ext_intro *intro;
 		uint32_t i;
 
