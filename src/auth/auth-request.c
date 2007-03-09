@@ -1075,6 +1075,7 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		{ 'p', NULL },
 		{ 'w', NULL },
 		{ '!', NULL },
+		{ 'm', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -1109,6 +1110,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		tab[9].value = auth_request->passdb == NULL ? "" :
 			dec2str(auth_request->passdb->id);
 	}
+	tab[10].value = auth_request->mech == NULL ? "" :
+		auth_request->mech->mech_name;
 	return tab;
 }
 
