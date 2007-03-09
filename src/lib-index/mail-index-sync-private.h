@@ -46,6 +46,10 @@ struct mail_index_sync_map_ctx {
 	struct mail_index_view *view;
 	uint32_t cur_ext_id;
 
+	uint32_t ext_intro_seq;
+	uoff_t ext_intro_offset;
+	uint32_t ext_intro_size;
+
 	ARRAY_DEFINE(expunge_handlers, struct mail_index_expunge_handler);
 	ARRAY_DEFINE(extra_contexts, void *);
 
