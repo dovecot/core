@@ -1182,6 +1182,11 @@ int mail_index_get_latest_header(struct mail_index *index,
 	unsigned int i;
 	int ret;
 
+	if (MAIL_INDEX_IS_IN_MEMORY(index)) {
+		*hdr_r = *index->hdr;
+		return TRUE;
+	}
+
 	if (!index->mmap_disable) {
 		ret = mail_index_map(index, FALSE);
 		if (ret > 0)
