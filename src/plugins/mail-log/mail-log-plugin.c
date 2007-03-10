@@ -38,11 +38,22 @@ static bool mail_log_storage_module_id_set = FALSE;
 
 static void mail_log_action(struct mail *mail, const char *action)
 {
-	const char *msgid;
+	const char *msgid, *mailbox_str;
+
+	mailbox_str = mailbox_get_name(mail->box);
+	if (strcmp(mailbox_str, "INBOX") == 0) {
+		/* most operations are for INBOX, and POP3 has only INBOX,
+		   so don't add it. */
+		mailbox_str = "";
+	} else {
+		mailbox_str = str_sanitize(mailbox_str, 80);
+		mailbox_str = t_strconcat(", box=", mailbox_str, NULL);
+	}
 
 	msgid = mail_get_first_header(mail, "Message-ID");
-	i_info("%s: uid=%u, msgid=%s", action, mail->uid,
-	       msgid == NULL ? "(null)" : str_sanitize(msgid, MSGID_LOG_LEN));
+	i_info("%s: uid=%u, msgid=%s%s", action, mail->uid,
+	       msgid == NULL ? "(null)" : str_sanitize(msgid, MSGID_LOG_LEN),
+	       mailbox_str);
 }
 
 static int mail_log_mail_expunge(struct mail *_mail)
