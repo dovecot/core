@@ -49,8 +49,10 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_WRITE) != 0)
 			mbox_sync_flags |= MBOX_SYNC_REWRITE;
-		if (mbox_modified)
-			mbox_sync_flags |= MBOX_SYNC_HEADER;
+		if (mbox_modified) {
+			/* after saving mails we want to update the last-uid */
+			mbox_sync_flags |= MBOX_SYNC_HEADER | MBOX_SYNC_REWRITE;
+		}
 		if (mbox_sync(mbox, mbox_sync_flags) < 0)
 			ret = -1;
 	}
