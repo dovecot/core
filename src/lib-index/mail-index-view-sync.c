@@ -92,6 +92,7 @@ static int view_sync_set_log_view_range(struct mail_index_view *view,
 	const struct mail_index_header *hdr = view->index->hdr;
 	int ret;
 
+	/* the view begins from the first non-synced transaction */
 	ret = mail_transaction_log_view_set(view->log_view,
 					    view->log_file_seq,
 					    view->log_file_offset,
@@ -124,6 +125,9 @@ view_sync_get_expunges(struct mail_index_view *view,
 	if (view_sync_set_log_view_range(view, MAIL_TRANSACTION_EXPUNGE) < 0)
 		return -1;
 
+	/* get a list of expunge transactions. there may be some that we have
+	   already synced, but it doesn't matter because they'll get dropped
+	   out when converting to sequences */
 	i_array_init(expunges_r, 64);
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data, NULL)) > 0) {
@@ -303,8 +307,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		uint32_t old_records_count = view->map->records_count;
 
 		if (view->map != view->index->map) {
-			const struct mail_index_header *hdr;
-
 			/* Using non-head mapping. We have to apply
 			   transactions to it to get latest changes into it. */
 			ctx->sync_map_update = TRUE;
@@ -314,14 +316,14 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			   update flag counters. note that map->hdr may contain
 			   old information if another process updated the
 			   index file since. */
-			if (view->map->mmap_base == NULL)
-				hdr = &view->map->hdr;
-			else {
+			if (view->map->mmap_base != NULL) {
+				const struct mail_index_header *hdr;
+
 				hdr = view->map->mmap_base;
 				view->map->hdr = *hdr;
 			}
 			ctx->sync_map_ctx.unreliable_flags =
-				!VIEW_IS_SYNCED_TO_SAME(view, hdr);
+				!VIEW_IS_SYNCED_TO_SAME(view, &view->map->hdr);
 
 			/* Copy only the mails that we see currently, since
 			   we're going to append the new ones when we see
