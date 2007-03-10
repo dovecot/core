@@ -331,13 +331,15 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 		istream_raw_mbox_get_header_offset(sync_ctx->input);
 	mail_ctx->mail.body_size = mails[idx].body_size;
 
-	/* This will force the UID to be the one that we originally assigned
-	   to it, regardless of whether it's broken or not in the file. */
 	orig_next_uid = sync_ctx->next_uid;
 	if (mails[idx].uid != 0) {
+		/* This will force the UID to be the one that we originally
+		   assigned to it, regardless of whether it's broken or not in
+		   the file. */
 		sync_ctx->next_uid = mails[idx].uid;
 		sync_ctx->prev_msg_uid = mails[idx].uid - 1;
 	} else {
+		/* Pseudo mail shouldn't have X-UID header at all */
 		i_assert(mails[idx].pseudo);
 		sync_ctx->prev_msg_uid = 0;
 	}
