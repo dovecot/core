@@ -230,6 +230,9 @@ static bool parse_x_imap_base(struct mbox_sync_mail_context *ctx,
 			/* new messages have been added since our last sync.
 			   just update our internal next_uid. */
 			ctx->sync_ctx->next_uid = uid_last+1;
+		} else {
+			/* we need to rewrite the next-uid */
+			ctx->need_rewrite = TRUE;
 		}
 		i_assert(ctx->sync_ctx->next_uid > ctx->sync_ctx->prev_msg_uid);
 	}
