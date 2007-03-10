@@ -75,6 +75,10 @@ ssize_t o_stream_send_str(struct ostream *stream, const char *str);
    Note that this function may block if either instream or outstream is
    blocking.
 
+   Also note that this function may not add anything to the output buffer, so
+   if you want the flush callback to be called when more data can be written,
+   you'll need to call o_stream_set_flush_pending() manually.
+
    It's also possible to use this function to copy data within same file
    descriptor. If the file must be grown, you have to do it manually before
    calling this function. */
