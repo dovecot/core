@@ -49,6 +49,12 @@ padded with '0' character if the string is shorter. For example %04i may
 return "0001", "1000" and "12345". %1.04i for the same string would return
 "001", "000" and "2345".
 
+For dovecot-auth there are also these variables:
+
+ %m - authentication method (eg. PLAIN)
+ %c - "secured" string with SSL, TLS and localhost connections.
+      Otherwise empty.
+
 For login_log_format_elements there are also these variables:
 
  %m - authentication method (eg. PLAIN)
