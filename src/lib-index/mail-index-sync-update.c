@@ -37,7 +37,7 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 
 	if (!ctx->sync_only_external)
 		map->hdr.log_file_int_offset = prev_offset;
-	else if (map->hdr.log_file_seq != prev_seq && map == ctx->view->map) {
+	else if (map->hdr.log_file_seq != prev_seq) {
 		/* log sequence changed. update internal offset to
 		   beginning of the new file. */
 		i_assert(map->hdr.log_file_int_offset ==
