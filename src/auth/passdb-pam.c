@@ -15,6 +15,8 @@
 #include "buffer.h"
 #include "ioloop.h"
 #include "hash.h"
+#include "str.h"
+#include "var-expand.h"
 #include "network.h"
 #include "passdb.h"
 #include "mycrypt.h"
@@ -424,12 +426,16 @@ pam_verify_plain(struct auth_request *request, const char *password,
         struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
         struct pam_auth_request *pam_auth_request;
 	enum passdb_result result;
+	string_t *expanded_service;
 	const char *service;
 	int fd[2];
 	pid_t pid;
 
-	service = module->service_name != NULL ?
-		module->service_name : request->service;
+	expanded_service = t_str_new(64);
+	var_expand(expanded_service, module->service_name,
+		   auth_request_get_var_expand_table(request, NULL));
+	service = str_c(expanded_service);
+
 	auth_request_log_debug(request, "pam", "lookup service=%s", service);
 
 	if (worker) {
@@ -505,7 +511,8 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
 			module->module.blocking = TRUE;
 		} else if (strcmp(t_args[i], "*") == 0) {
-			module->service_name = NULL;
+			/* for backwards compatibility */
+			module->service_name = "%s";
 		} else if (t_args[i+1] == NULL) {
 			if (*t_args[i] != '\0') {
 				module->service_name =
