@@ -9,6 +9,7 @@
 #include "read-full.h"
 #include "write-full.h"
 #include "mail-index-private.h"
+#include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
 #include "mail-cache.h"
@@ -880,7 +881,6 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 {
 	const struct mail_index_header *map_hdr = &(*map)->hdr;
 	struct mail_index_view *view;
-	struct mail_transaction_log_view *log_view;
 	struct mail_index_sync_map_ctx sync_map_ctx;
 	struct mail_index_header hdr;
 	const struct mail_transaction_header *thdr;
@@ -928,29 +928,29 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 		max_offset = (uoff_t)-1;
 	}
 
-	log_view = mail_transaction_log_view_open(index->log);
-	if (mail_transaction_log_view_set(log_view,
+	index->map = *map;
+
+	view = mail_index_view_open(index);
+	if (mail_transaction_log_view_set(view->log_view,
 					  map_hdr->log_file_seq,
 					  map_hdr->log_file_int_offset,
 					  max_seq, max_offset,
 					  MAIL_TRANSACTION_TYPE_MASK) <= 0) {
 		/* can't use it. sync by re-reading index. */
-		mail_transaction_log_view_close(&log_view);
+		mail_index_view_close(&view);
 		return 0;
 	}
 
-	index->map = *map;
-
-	view = mail_index_view_open(index);
 	mail_index_sync_map_init(&sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_HEAD);
 
 	check_ext_offsets = TRUE; broken = FALSE;
-	while ((ret = mail_transaction_log_view_next(log_view, &thdr, &tdata,
-						     &skipped)) > 0) {
+	while ((ret = mail_transaction_log_view_next(view->log_view, &thdr,
+						     &tdata, &skipped)) > 0) {
 		if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) != 0 &&
 		    check_ext_offsets) {
-			if (mail_index_is_ext_synced(log_view, index->map))
+			if (mail_index_is_ext_synced(view->log_view,
+						     index->map))
 				continue;
 			check_ext_offsets = FALSE;
 		}
@@ -964,7 +964,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 	if (ret == 0 && !broken)
 		ret = 1;
 
-	mail_transaction_log_view_get_prev_pos(log_view, &prev_seq,
+	mail_transaction_log_view_get_prev_pos(view->log_view, &prev_seq,
 					       &prev_offset);
 	i_assert(prev_seq <= max_seq &&
 		 (prev_seq != max_seq || prev_offset <= max_offset));
@@ -975,7 +975,6 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 
 	mail_index_sync_map_deinit(&sync_map_ctx);
 	mail_index_view_close(&view);
-	mail_transaction_log_view_close(&log_view);
 
 	*map = index->map;
 	index->map = NULL;
