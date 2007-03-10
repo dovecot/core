@@ -224,6 +224,13 @@ static void mail_index_view_check(struct mail_index_view *view)
 }
 #endif
 
+#define VIEW_IS_SYNCED_TO_SAME(view, hdr) \
+	((hdr)->log_file_seq == (view)->log_file_seq && \
+	 (hdr)->log_file_int_offset == (view)->log_file_offset && \
+	 (hdr)->log_file_ext_offset == (view)->log_file_offset && \
+	 (!array_is_created(&view->syncs_done) || \
+	  array_count(&view->syncs_done) == 0))
+
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_sync_type sync_mask,
 			       struct mail_index_view_sync_ctx **ctx_r)
@@ -314,9 +321,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 				view->map->hdr = *hdr;
 			}
 			ctx->sync_map_ctx.unreliable_flags =
-				!(hdr->log_file_seq == view->log_file_seq &&
-				  hdr->log_file_int_offset ==
-				  view->log_file_offset);
+				!VIEW_IS_SYNCED_TO_SAME(view, hdr);
 
 			/* Copy only the mails that we see currently, since
 			   we're going to append the new ones when we see
@@ -326,8 +331,11 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			view->map->records_count = view->hdr.messages_count;
 
 #ifdef DEBUG
-			if (!ctx->sync_map_ctx.unreliable_flags)
+			if (!ctx->sync_map_ctx.unreliable_flags) {
+				i_assert(view->map->hdr.messages_count ==
+					 view->hdr.messages_count);
 				mail_index_view_check(view);
+			}
 #endif
 		}
 
@@ -385,7 +393,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	uint32_t seq;
 	uoff_t offset;
 	int ret;
-	bool skipped, synced_to_map;
+	bool skipped;
 
 	for (;;) {
 		/* Get the next transaction from log. */
@@ -431,15 +439,9 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 							       offset);
 		}
 
-		/* view->log_file_offset contains the minimum of
-		   int/ext offsets. */
-		synced_to_map = offset < view->hdr.log_file_ext_offset &&
-			seq == view->hdr.log_file_seq &&
-			(ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0;
-
 		/* Apply transaction to view's mapping if needed (meaning we
 		   didn't just re-map the view to head mapping). */
-		if (ctx->sync_map_update && !synced_to_map) {
+		if (ctx->sync_map_update) {
 			i_assert((ctx->hdr->type &
 				  MAIL_TRANSACTION_EXPUNGE) == 0);
 
