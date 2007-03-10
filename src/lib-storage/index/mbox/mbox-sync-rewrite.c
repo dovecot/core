@@ -320,6 +320,7 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 				uoff_t expunged_space)
 {
 	unsigned int first_mail_expunge_extra;
+	uint32_t orig_next_uid;
 
 	memset(mail_ctx, 0, sizeof(*mail_ctx));
 	mail_ctx->sync_ctx = sync_ctx;
@@ -335,6 +336,7 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 
 	/* This will force the UID to be the one that we originally assigned
 	   to it, regardless of whether it's broken or not in the file. */
+	orig_next_uid = sync_ctx->next_uid;
 	sync_ctx->next_uid = mails[idx].uid;
 	sync_ctx->prev_msg_uid = mails[idx].uid - 1;
 
@@ -351,6 +353,12 @@ static void mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 	}
 
 	mbox_sync_parse_next_mail(sync_ctx->input, mail_ctx);
+
+	/* set next_uid back before updating the headers. this is important
+	   if we're updating the first message to make X-IMAP[base] header
+	   have the correct value. */
+	sync_ctx->next_uid = orig_next_uid;
+
 	if (mails[idx].space != 0) {
 		if (mails[idx].space < 0) {
 			/* remove all possible spacing before updating */
@@ -454,7 +462,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	uoff_t offset, dest_offset, next_end_offset, next_move_diff;
 	uoff_t start_offset, expunged_space;
 	uint32_t idx, first_nonexpunged_idx, padding_per_mail;
-	uint32_t orig_prev_msg_uid, orig_next_uid;
+	uint32_t orig_prev_msg_uid;
 	unsigned int count;
 	int ret = 0;
 
@@ -485,7 +493,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	i_assert(mails[first_nonexpunged_idx].space < 0);
 
 	orig_prev_msg_uid = sync_ctx->prev_msg_uid;
-	orig_next_uid = sync_ctx->next_uid;
 
 	/* start moving backwards. */
 	while (idx > first_nonexpunged_idx) {
@@ -563,7 +570,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	i_assert(move_diff + (off_t)expunged_space >= 0);
 
 	i_stream_sync(sync_ctx->input);
-	sync_ctx->next_uid = orig_next_uid;
 	sync_ctx->prev_msg_uid = orig_prev_msg_uid;
 	return ret;
 }
