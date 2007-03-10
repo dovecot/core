@@ -253,18 +253,23 @@ static int fetch_stream_send_direct(struct imap_fetch_context *ctx)
 		ctx->cur_append_eoh = FALSE;
 	}
 
-	if (ctx->cur_offset != ctx->cur_size &&
-	    !i_stream_have_bytes_left(ctx->cur_input)) {
-		/* Input stream gave less data than expected */
-		i_error("FETCH for mailbox %s UID %u got too little data: "
-			"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
-			mailbox_get_name(ctx->mail->box), ctx->mail->uid,
-			ctx->cur_offset, ctx->cur_size);
-		o_stream_close(ctx->client->output);
-		return -1;
-	}
+	if (ctx->cur_offset != ctx->cur_size) {
+		/* unfinished */
+		if (!i_stream_have_bytes_left(ctx->cur_input)) {
+			/* Input stream gave less data than expected */
+			i_error("FETCH for mailbox %s UID %u "
+				"got too little data: "
+				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
+				mailbox_get_name(ctx->mail->box),
+				ctx->mail->uid, ctx->cur_offset, ctx->cur_size);
+			o_stream_close(ctx->client->output);
+			return -1;
+		}
 
-	return ctx->cur_offset == ctx->cur_size;
+		o_stream_set_flush_pending(ctx->client->output, TRUE);
+		return 0;
+	}
+	return 1;
 }
 
 static int fetch_stream(struct imap_fetch_context *ctx,
