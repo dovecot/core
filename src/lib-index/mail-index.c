@@ -1901,6 +1901,9 @@ int mail_index_move_to_memory(struct mail_index *index)
 	/* set the index as being into memory */
 	i_free_and_null(index->dir);
 
+	i_free(index->filepath);
+	index->filepath = i_strdup("(in-memory index)");
+
 	if (index->map == NULL) {
 		/* index was never even opened. just mark it as being in
 		   memory and let the caller re-open the index. */
