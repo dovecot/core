@@ -88,6 +88,8 @@ static void prefetch_lookup(struct auth_request *auth_request,
 	else {
 		struct auth_stream_reply *reply;
 
+		auth_request_log_debug(auth_request, "prefetch", "success");
+
 		/* import the string into request. since the values were
 		   exported they are already in escaped form in the string. */
 		reply = auth_stream_reply_init(auth_request);

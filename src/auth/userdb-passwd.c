@@ -16,6 +16,8 @@ static void passwd_lookup(struct auth_request *auth_request,
 	struct passwd *pw;
 	struct auth_stream_reply *reply;
 
+	auth_request_log_debug(auth_request, "passwd", "lookup");
+
 	pw = getpwnam(auth_request->user);
 	if (pw == NULL) {
 		auth_request_log_info(auth_request, "passwd", "unknown user");

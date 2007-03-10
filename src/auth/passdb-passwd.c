@@ -20,6 +20,8 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 	struct passwd *pw;
 	bool result;
 
+	auth_request_log_debug(request, "passwd", "lookup");
+
 	pw = getpwnam(request->user);
 	if (pw == NULL) {
 		auth_request_log_info(request, "passwd", "unknown user");

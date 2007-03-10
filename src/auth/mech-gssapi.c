@@ -391,11 +391,14 @@ mech_gssapi_auth_free(struct auth_request *request)
 
 	major_status = gss_release_cred(&minor_status,
 					&gssapi_request->service_cred);
-	major_status = gss_release_name(&minor_status,
-					&gssapi_request->authn_name);
-	major_status = gss_release_name(&minor_status,
-					&gssapi_request->authz_name);
-
+	if (gssapi_request->authn_name != GSS_C_NO_NAME) {
+		major_status = gss_release_name(&minor_status,
+						&gssapi_request->authn_name);
+	}
+	if (gssapi_request->authz_name != GSS_C_NO_NAME) {
+		major_status = gss_release_name(&minor_status,
+						&gssapi_request->authz_name);
+	}
 	pool_unref(request->pool);
 }
 

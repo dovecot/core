@@ -24,6 +24,10 @@ vpopmail_password_lookup(struct auth_request *auth_request, bool cleartext,
 	struct vqpasswd *vpw;
 	char *password;
 
+	auth_request_log_debug(auth_request, "vpopmail",
+			       "lookup user=%s domain=%s",
+			       vpop_user, vpop_domain);
+
 	vpw = vpopmail_lookup_vqp(auth_request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
 		*result_r = PASSDB_RESULT_USER_UNKNOWN;
@@ -85,9 +89,6 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 		callback(result, request);
 		return;
 	}
-
-	auth_request_log_debug(request, "vpopmail",
-			       "crypted password=%s", password);
 
 	tmp_pass = crypted_pass;
 	scheme = password_get_scheme(&tmp_pass);

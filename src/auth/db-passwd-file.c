@@ -389,6 +389,7 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 {
 	struct passwd_file *pw;
 	struct passwd_user *pu;
+	const char *username;
 
 	if (!db->vars)
 		pw = db->default_file;
@@ -413,13 +414,18 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 
 	if (!passwd_file_sync(pw)) {
 		auth_request_log_info(request, "passwd-file",
-				      "no passwd file");
+				      "no passwd file: %s", pw->path);
 		return NULL;
 	}
 
 	t_push();
-	pu = hash_lookup(pw->users, !db->domain_var ? request->user :
-			 t_strcut(request->user, '@'));
+	username = !db->domain_var ? request->user :
+		t_strcut(request->user, '@');
+
+	auth_request_log_debug(request, "passwd-file",
+			       "lookup: user=%s file=%s", username, pw->path);
+
+	pu = hash_lookup(pw->users, username);
 	if (pu == NULL)
                 auth_request_log_info(request, "passwd-file", "unknown user");
 	t_pop();

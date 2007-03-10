@@ -221,15 +221,9 @@ checkpassword_verify_plain_child(struct auth_request *request,
 		auth_request_log_error(request, "checkpassword",
 				       "dup2() failed: %m");
 	} else {
-		/* very simple argument splitting. */
-		cmd = t_strconcat(module->checkpassword_path, " ",
-				  module->checkpassword_reply_path, NULL);
-		args = t_strsplit(cmd, " ");
-
 		/* Besides passing the standard username and password in a
 		   pipe, also pass some other possibly interesting information
 		   via environment. Use UCSPI names for local/remote IPs. */
-		/*  */
 		env_put("PROTO=TCP"); /* UCSPI */
 		env_put(t_strconcat("SERVICE=", request->service, NULL));
 		if (request->local_ip.family != 0) {
@@ -264,9 +258,13 @@ checkpassword_verify_plain_child(struct auth_request *request,
 			env_put_extra_fields(fields);
 		}
 
+		/* very simple argument splitting. */
+		cmd = t_strconcat(module->checkpassword_path, " ",
+				  module->checkpassword_reply_path, NULL);
 		auth_request_log_debug(request, "checkpassword",
-				       "Executed: %s", cmd);
+				       "execute: %s", cmd);
 
+		args = t_strsplit(cmd, " ");
 		execv(args[0], (char **)args);
 		auth_request_log_error(request, "checkpassword",
 				       "execv(%s) failed: %m", args[0]);

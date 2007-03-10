@@ -430,6 +430,7 @@ pam_verify_plain(struct auth_request *request, const char *password,
 
 	service = module->service_name != NULL ?
 		module->service_name : request->service;
+	auth_request_log_debug(request, "pam", "lookup service=%s", service);
 
 	if (worker) {
 		/* blocking=yes code path in auth worker */

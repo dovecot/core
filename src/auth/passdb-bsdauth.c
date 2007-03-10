@@ -19,6 +19,8 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	struct passwd *pw;
 	int result;
 
+	auth_request_log_debug(request, "bsdauth", "lookup");
+
 	pw = getpwnam(request->user);
 	if (pw == NULL) {
 		auth_request_log_info(request, "bsdauth", "unknown user");

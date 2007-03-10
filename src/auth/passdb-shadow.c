@@ -20,6 +20,8 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 	struct spwd *spw;
 	bool result;
 
+	auth_request_log_debug(request, "shadow", "lookup");
+
 	spw = getspnam(request->user);
 	if (spw == NULL) {
 		auth_request_log_info(request, "shadow", "unknown user");
