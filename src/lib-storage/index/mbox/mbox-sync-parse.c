@@ -253,7 +253,7 @@ static bool parse_x_imap(struct mbox_sync_mail_context *ctx,
 
 	/* this is the c-client style "FOLDER INTERNAL DATA" message.
 	   skip it. */
-	ctx->pseudo = TRUE;
+	ctx->mail.pseudo = TRUE;
 	return TRUE;
 }
 

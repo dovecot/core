@@ -211,7 +211,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1 && !ctx->pseudo) {
+	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1 && !ctx->mail.pseudo) {
 		str_append(ctx->header, "X-UID: ");
 		ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
 		str_printfa(ctx->header, "%u\n", ctx->mail.uid);
@@ -384,7 +384,7 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
 	uint8_t old_flags;
 	bool keywords_changed;
 
-	i_assert(ctx->mail.uid != 0 || ctx->pseudo);
+	i_assert(ctx->mail.uid != 0 || ctx->mail.pseudo);
 
 	old_flags = ctx->mail.flags;
 

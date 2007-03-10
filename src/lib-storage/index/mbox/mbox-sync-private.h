@@ -34,7 +34,6 @@ enum header_position {
    header, because 'O' flag means non-recent but internally we want to use
    recent flag. */
 #define MBOX_NONRECENT_KLUDGE MAIL_RECENT
-#define MBOX_EXPUNGED 0x40
 
 #define STATUS_FLAGS_MASK (MAIL_SEEN|MBOX_NONRECENT_KLUDGE)
 #define XSTATUS_FLAGS_MASK (MAIL_ANSWERED|MAIL_FLAGGED|MAIL_DRAFT|MAIL_DELETED)
@@ -42,13 +41,17 @@ extern struct mbox_flag_type mbox_status_flags[];
 extern struct mbox_flag_type mbox_xstatus_flags[];
 
 struct mbox_sync_mail {
+	/* uid=0 can mean that this mail describes an expunged area or that
+	   this is a pseudo message */
 	uint32_t uid;
 	uint32_t idx_seq;
 
 	ARRAY_TYPE(keyword_indexes) keywords;
 	uint8_t flags;
 
-	unsigned int uid_broken:1;
+	uint8_t uid_broken:1;
+	uint8_t expunged:1;
+	uint8_t pseudo:1;
 
 	uoff_t from_offset;
 	uoff_t body_size;
@@ -87,7 +90,6 @@ struct mbox_sync_mail_context {
 	unsigned int have_eoh:1;
 	unsigned int need_rewrite:1;
 	unsigned int seen_imapbase:1;
-	unsigned int pseudo:1;
 	unsigned int updated:1;
 	unsigned int recent:1;
 	unsigned int dirty:1;

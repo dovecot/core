@@ -124,7 +124,8 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 					       mail_ctx->content_length);
 	i_assert(mail_ctx->mail.body_size < OFF_T_MAX);
 
-	if ((mail_ctx->mail.flags & MAIL_RECENT) != 0 && !mail_ctx->pseudo) {
+	if ((mail_ctx->mail.flags & MAIL_RECENT) != 0 &&
+	    !mail_ctx->mail.pseudo) {
 		if (!sync_ctx->mbox->ibox.keep_recent) {
 			/* need to add 'O' flag to Status-header */
 			mail_ctx->need_rewrite = TRUE;
@@ -651,8 +652,7 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 
 	mails = array_get(&sync_ctx->mails, &count);
 	for (i = 0; i < count; i++) {
-		if (mails[i].idx_seq == 0 ||
-		    (mails[i].flags & MBOX_EXPUNGED) != 0)
+		if (mails[i].idx_seq == 0 || mails[i].expunged)
 			continue;
 
 		sync_ctx->moved_offsets = TRUE;
@@ -666,7 +666,7 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 
-	mail_ctx->mail.flags = MBOX_EXPUNGED;
+	mail_ctx->mail.expunged = TRUE;
 	mail_ctx->mail.offset = mail_ctx->mail.from_offset;
 	mail_ctx->mail.space =
 		mail_ctx->body_offset - mail_ctx->mail.from_offset +
@@ -762,7 +762,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			struct mbox_sync_mail mail;
 
 			memset(&mail, 0, sizeof(mail));
-			mail.flags = MBOX_EXPUNGED;
+			mail.expunged = TRUE;
 			mail.offset = mail.from_offset =
 				(sync_ctx->dest_first_mail ? 1 : 0) +
 				mail_ctx->mail.from_offset -
@@ -1074,7 +1074,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->mail.uid_broken)
 			uids_broken = TRUE;
 
-		if (mail_ctx->pseudo)
+		if (mail_ctx->mail.pseudo)
 			uid = 0;
 
 		rec = NULL; ret = 1;
@@ -1088,7 +1088,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			/* UID found but it's broken */
 			uid = 0;
 		} else if (uid == 0 &&
-			   !mail_ctx->pseudo &&
+			   !mail_ctx->mail.pseudo &&
 			   (sync_ctx->delay_writes ||
 			    sync_ctx->idx_seq <= messages_count)) {
 			/* If we can't use/store X-UID header, use MD5 sum.
@@ -1109,11 +1109,11 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		   message just get the first sync record so we can jump to
 		   it with partial seeking. */
 		if (mbox_sync_read_index_syncs(sync_ctx,
-					       mail_ctx->pseudo ? 1 : uid,
+					       mail_ctx->mail.pseudo ? 1 : uid,
 					       &expunged) < 0)
 			return -1;
 
-		if (mail_ctx->pseudo) {
+		if (mail_ctx->mail.pseudo) {
 			/* if it was set, it was for the next message */
 			expunged = FALSE;
 		} else {
@@ -1124,7 +1124,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			}
 		}
 
-		if (uid == 0 && !mail_ctx->pseudo) {
+		if (uid == 0 && !mail_ctx->mail.pseudo) {
 			/* missing/broken X-UID. all the rest of the mails
 			   need new UIDs. */
 			while (sync_ctx->idx_seq <= messages_count) {
@@ -1149,7 +1149,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			sync_ctx->prev_msg_uid = mail_ctx->mail.uid;
 		}
 
-		if (!mail_ctx->pseudo)
+		if (!mail_ctx->mail.pseudo)
 			mail_ctx->mail.idx_seq = sync_ctx->idx_seq;
 
 		if (!expunged) {
@@ -1161,7 +1161,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			mbox_sync_handle_expunge(mail_ctx);
 		}
 
-		if (!mail_ctx->pseudo) {
+		if (!mail_ctx->mail.pseudo) {
 			if (!expunged) {
 				if (mbox_sync_update_index(mail_ctx, rec) < 0)
 					return -1;
