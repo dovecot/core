@@ -35,9 +35,11 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 		prev_offset = ctx->ext_intro_offset;
 	}
 
-	if (!ctx->sync_only_external)
+	if (!ctx->sync_only_external) {
+		i_assert(prev_offset >= map->hdr.log_file_int_offset ||
+			 prev_seq > map->hdr.log_file_seq);
 		map->hdr.log_file_int_offset = prev_offset;
-	else if (map->hdr.log_file_seq != prev_seq) {
+	} else if (map->hdr.log_file_seq != prev_seq) {
 		/* log sequence changed. update internal offset to
 		   beginning of the new file. */
 		i_assert(map->hdr.log_file_int_offset ==
@@ -45,8 +47,17 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 		map->hdr.log_file_int_offset =
 			ctx->view->index->log->head->hdr.hdr_size;
 	}
-	map->hdr.log_file_seq = prev_seq;
-	map->hdr.log_file_ext_offset = prev_offset;
+
+	/* we might be in the middle of syncing internal transactions, with
+	   some of the following external transactions already synced. */
+	i_assert(prev_seq > map->hdr.log_file_seq ||
+		 prev_offset >= map->hdr.log_file_ext_offset ||
+		 (!eol && !ctx->sync_only_external));
+	if (map->hdr.log_file_seq != prev_seq ||
+	    prev_offset > map->hdr.log_file_ext_offset) {
+		map->hdr.log_file_seq = prev_seq;
+		map->hdr.log_file_ext_offset = prev_offset;
+	}
 }
 
 static int

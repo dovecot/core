@@ -395,7 +395,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	uint32_t seq;
 	uoff_t offset;
 	int ret;
-	bool skipped;
+	bool skipped, synced_to_map;
 
 	for (;;) {
 		/* Get the next transaction from log. */
@@ -440,6 +440,15 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 			mail_index_view_add_synced_transaction(view, seq,
 							       offset);
 		}
+
+		/* if we started from a map that we didn't create ourself,
+		   some of the external transactions may already be synced.
+		   at the end of view sync we'll update the ext_offset in the
+		   header so that this check always becomes FALSE for
+		   subsequent syncs. */
+		synced_to_map = offset < view->hdr.log_file_ext_offset &&
+			seq == view->hdr.log_file_seq &&
+			(ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0;
 
 		/* Apply transaction to view's mapping if needed (meaning we
 		   didn't just re-map the view to head mapping). */
@@ -634,6 +643,13 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 		mail_index_unmap(view->index, &view->map);
 		view->map = view->sync_new_map;
 		view->sync_new_map = NULL;
+	}
+
+	if (ctx->sync_map_update) {
+		view->map->hdr.log_file_seq = view->log_file_seq;
+		view->map->hdr.log_file_int_offset =
+			view->map->hdr.log_file_ext_offset =
+			view->log_file_offset;
 	}
 	view->hdr = view->map->hdr;
 
