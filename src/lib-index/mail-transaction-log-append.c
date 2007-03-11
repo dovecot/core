@@ -363,6 +363,12 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 	return 0;
 }
 
+#define LOG_WANT_ROTATE(file) \
+	(((file)->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE && \
+	  (time_t)(file)->hdr.create_stamp < \
+	   ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_TIME) || \
+	 ((file)->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_MAX_SIZE))
+
 #define ARE_ALL_TRANSACTIONS_IN_INDEX(log, idx_hdr) \
 	((log)->head->hdr.file_seq == (idx_hdr)->log_file_seq && \
 	 (log)->head->sync_offset == (idx_hdr)->log_file_int_offset && \
@@ -394,9 +400,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 			return -1;
 	}
 
-	if (log->head->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_SIZE &&
-	    (time_t)log->head->hdr.create_stamp <
-	    ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_TIME &&
+	if (LOG_WANT_ROTATE(log->head) &&
 	    ARE_ALL_TRANSACTIONS_IN_INDEX(log, index->hdr)) {
 		/* we might want to rotate, but check first that everything is
 		   synced in index. */

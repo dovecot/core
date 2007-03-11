@@ -4,7 +4,10 @@
 #include "file-dotlock.h"
 #include "mail-transaction-log.h"
 
-#define MAIL_TRANSACTION_LOG_ROTATE_SIZE (1024*128)
+/* Rotate when log is older than ROTATE_TIME and larger than MIN_SIZE */
+#define MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE (1024*128)
+/* If log is larger than MAX_SIZE, rotate regardless of the time */
+#define MAIL_TRANSACTION_LOG_ROTATE_MAX_SIZE (1024*1024)
 #define MAIL_TRANSACTION_LOG_ROTATE_TIME (60*5)
 
 #define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
