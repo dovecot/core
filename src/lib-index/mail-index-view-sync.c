@@ -654,7 +654,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	view->hdr = view->map->hdr;
 
 #ifdef DEBUG
-	if (!view->broken_counters)
+	if (!view->broken_counters && !ctx->sync_map_ctx.unreliable_flags)
 		mail_index_view_check(view);
 #endif
 
