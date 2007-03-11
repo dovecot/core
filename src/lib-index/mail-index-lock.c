@@ -288,7 +288,13 @@ static int mail_index_copy_lock_finish(struct mail_index *index)
 		}
 	}
 
-	if (ret == 0) {
+	if (ret < 0 || MAIL_INDEX_IS_IN_MEMORY(index)) {
+		/* fsync() failed / we've since moved to in-memory indexes */
+		if (unlink(index->copy_lock_path) < 0) {
+			mail_index_set_error(index, "unlink(%s) failed: %m",
+					     index->copy_lock_path);
+		}
+	} else {
 		if (rename(index->copy_lock_path, index->filepath) < 0) {
 			mail_index_set_error(index, "rename(%s, %s) failed: %m",
 					     index->copy_lock_path,
