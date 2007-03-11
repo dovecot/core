@@ -71,8 +71,14 @@ int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 {
 	i_assert(function != NULL);
 
-	mail_storage_set_critical(STORAGE(mbox->storage),
-		"%s failed with mbox file %s: %m", function, mbox->path);
+	if (ENOSPACE(errno)) {
+		mail_storage_set_error(STORAGE(mbox->storage),
+				       "Not enough disk space");
+	} else {
+		mail_storage_set_critical(STORAGE(mbox->storage),
+					  "%s failed with mbox file %s: %m",
+					  function, mbox->path);
+	}
 	return -1;
 }
 
