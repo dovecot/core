@@ -242,7 +242,8 @@ static bool passwd_file_sync(struct passwd_file *pw)
 		if (errno != ENOENT)
 			i_error("passwd-file %s: stat() failed: %m", pw->path);
 
-		passwd_file_free(pw);
+		if (pw->db->default_file != pw)
+			passwd_file_free(pw);
 		return FALSE;
 	}
 
@@ -389,7 +390,7 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 {
 	struct passwd_file *pw;
 	struct passwd_user *pu;
-	const char *username;
+	const char *username, *path;
 
 	if (!db->vars)
 		pw = db->default_file;
@@ -412,13 +413,16 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 		t_pop();
 	}
 
+	t_push();
+	path = t_strdup(pw->path);
 	if (!passwd_file_sync(pw)) {
+		/* pw may be freed now */
 		auth_request_log_info(request, "passwd-file",
-				      "no passwd file: %s", pw->path);
+				      "no passwd file: %s", path);
+		t_pop();
 		return NULL;
 	}
 
-	t_push();
 	username = !db->domain_var ? request->user :
 		t_strcut(request->user, '@');
 
