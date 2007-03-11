@@ -435,7 +435,7 @@ static int get_keywords(struct cmd_append_context *ctx)
 
 		memset(&client->keywords, 0, sizeof(client->keywords));
 		client->keywords.pool =
-			pool_alloconly_create("append keywords pool", 128);
+			pool_alloconly_create("append keywords pool", 256);
 	}
 	client_save_keywords(&client->keywords, status.keywords);
 	return 0;
