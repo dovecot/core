@@ -420,6 +420,8 @@ static void open_logfile(const char *username)
 {
 	const char *prefix, *log_path, *stamp;
 
+	i_set_failure_exit_callback(failure_exit_callback);
+
 	prefix = t_strdup_printf("deliver(%s)", username);
 	log_path = getenv("LOG_PATH");
 	if (log_path == NULL || *log_path == '\0') {
@@ -437,8 +439,6 @@ static void open_logfile(const char *username)
 	log_path = getenv("INFO_LOG_PATH");
 	if (log_path != NULL && *log_path != '\0')
 		i_set_info_file(log_path);
-
-	i_set_failure_exit_callback(failure_exit_callback);
 
 	stamp = getenv("LOG_TIMESTAMP");
 	if (stamp == NULL)
