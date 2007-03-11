@@ -353,9 +353,14 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 		index_mail_cache_parse_continue(ctx->cur_dest_mail);
 
 	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
-			"o_stream_send_istream(%s/%s) failed: %m",
-			ctx->tmpdir, ctx->file_last->basename);
+		if (ENOSPACE(errno)) {
+			mail_storage_set_error(STORAGE(ctx->mbox->storage),
+					       "Not enough disk space");
+		} else {
+			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+				"o_stream_send_istream(%s/%s) failed: %m",
+				ctx->tmpdir, ctx->file_last->basename);
+		}
 		ctx->failed = TRUE;
 		return -1;
 	}
