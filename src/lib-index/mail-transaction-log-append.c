@@ -426,6 +426,9 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	file->first_append_size = 0;
 	append_offset = file->sync_offset;
 
+	if (file->sync_offset < file->buffer_offset)
+		file->sync_offset = file->buffer_offset;
+
 	old_hidden_syncs_count = !array_is_created(&view->syncs_hidden) ? 0 :
 		array_count(&view->syncs_hidden);
 
@@ -486,6 +489,20 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 					log_get_hdr_update_buffer(t, FALSE),
 					NULL, MAIL_TRANSACTION_HEADER_UPDATE,
 					t->external);
+	}
+
+	if (ret == 0 && file->sync_offset < file->last_size) {
+		/* there is some garbage at the end of the transaction log
+		   (eg. previous write failed). remove it so reader doesn't
+		   break because of it. */
+		buffer_set_used_size(file->buffer,
+				     file->sync_offset - file->buffer_offset);
+		if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
+			if (ftruncate(file->fd, file->sync_offset) < 0) {
+				mail_index_file_set_syscall_error(index,
+					file->filepath, "ftruncate()");
+			}
+		}
 	}
 
 	if (ret == 0 && file->first_append_size != 0) {

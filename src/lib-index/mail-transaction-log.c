@@ -1137,8 +1137,13 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		   memory, it may be just that the memory was updated
 		   after we checked the file size. */
 		if (file->locked || file->mmap_base == NULL) {
-			mail_transaction_log_file_set_corrupted(file,
-				"hdr.size too large (%u)", hdr_size);
+			if (hdr_size != 0) {
+				mail_transaction_log_file_set_corrupted(file,
+					"hdr.size too large (%u)", hdr_size);
+			} else {
+				mail_transaction_log_file_set_corrupted(file,
+					"Unexpected garbage at EOF");
+			}
 			return -1;
 		}
 	}
@@ -1200,6 +1205,8 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 		size = read_offset - file->buffer_offset;
 		buffer_set_used_size(file->buffer, size);
 	} while (ret > 0 || (ret < 0 && errno == EINTR));
+
+	file->last_size = read_offset;
 
 	if (mail_transaction_log_file_sync(file) < 0)
 		return -1;
@@ -1265,6 +1272,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 							  "fstat()");
 			return -1;
 		}
+		file->last_size = st.st_size;
+
 		if (start_offset > (uoff_t)st.st_size) {
 			mail_transaction_log_file_set_corrupted(file,
 				"start_offset (%"PRIuUOFF_T") > file size "
