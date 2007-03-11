@@ -169,6 +169,8 @@ static bool cmd_append_continue_cancel(struct client_command_context *cmd)
 
 static bool cmd_append_cancel(struct cmd_append_context *ctx, bool nonsync)
 {
+	ctx->failed = TRUE;
+
 	if (!nonsync) {
 		cmd_append_finish(ctx);
 		return TRUE;
