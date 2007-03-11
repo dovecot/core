@@ -56,17 +56,17 @@ struct mbox_save_context {
 
 static char my_hostdomain[256] = "";
 
-static void write_error(struct mbox_save_context *ctx, int error)
+static int write_error(struct mbox_save_context *ctx)
 {
-	if (ENOSPACE(error)) {
+	if (ENOSPACE(errno)) {
 		mail_storage_set_error(STORAGE(ctx->mbox->storage),
 				       "Not enough disk space");
 	} else {
-		errno = error;
 		mbox_set_syscall_error(ctx->mbox, "write()");
 	}
 
 	ctx->failed = TRUE;
+	return -1;
 }
 
 static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
@@ -95,10 +95,8 @@ static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 		return mbox_set_syscall_error(ctx->mbox, "read()");
 
 	if (ch != '\n') {
-		if (write_full(fd, "\n", 1) < 0) {
-			write_error(ctx, errno);
-			return -1;
-		}
+		if (write_full(fd, "\n", 1) < 0)
+			return write_error(ctx);
 		*offset += 1;
 	}
 
@@ -107,10 +105,8 @@ static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 
 static int mbox_append_lf(struct mbox_save_context *ctx)
 {
-	if (o_stream_send(ctx->output, "\n", 1) < 0) {
-		write_error(ctx, ctx->output->stream_errno);
-		return -1;
-	}
+	if (o_stream_send(ctx->output, "\n", 1) < 0)
+		return write_error(ctx);
 
 	return 0;
 }
@@ -146,7 +142,7 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 	line = mbox_from_create(from_envelope, received_date);
 
 	if ((ret = o_stream_send_str(ctx->output, line)) < 0)
-		write_error(ctx, ctx->output->stream_errno);
+		write_error(ctx);
 	t_pop();
 
 	return ret;
@@ -157,7 +153,6 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 	uoff_t end_offset;
 	const char *str;
 	size_t len;
-	int ret = 0;
 
 	if (ctx->mbox->mbox_writeonly) {
 		/* we can't seek, don't set Content-Length */
@@ -167,27 +162,25 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 	end_offset = ctx->output->offset;
 
 	/* write Content-Length headers */
-	t_push();
 	str = t_strdup_printf("\nContent-Length: %s",
 			      dec2str(end_offset - ctx->eoh_offset));
 	len = strlen(str);
 
+	/* flush manually here so that we don't confuse seek() errors with
+	   buffer flushing errors */
+	if (o_stream_flush(ctx->output) < 0)
+		return write_error(ctx);
 	if (o_stream_seek(ctx->output, ctx->extra_hdr_offset +
-			  ctx->space_end_idx - len) < 0) {
-		mbox_set_syscall_error(ctx->mbox, "o_stream_seek()");
-		ret = -1;
-	} else if (o_stream_send(ctx->output, str, len) < 0) {
-		write_error(ctx, ctx->output->stream_errno);
-		ret = -1;
-	} else {
-		if (o_stream_seek(ctx->output, end_offset) < 0) {
-			mbox_set_syscall_error(ctx->mbox, "o_stream_seek()");
-			ret = -1;
-		}
-	}
+			  ctx->space_end_idx - len) < 0)
+		return mbox_set_syscall_error(ctx->mbox, "o_stream_seek()");
 
-	t_pop();
-	return ret;
+	if (o_stream_send(ctx->output, str, len) < 0 ||
+	    o_stream_flush(ctx->output) < 0)
+		return write_error(ctx);
+
+	if (o_stream_seek(ctx->output, end_offset) < 0)
+		return mbox_set_syscall_error(ctx->mbox, "o_stream_seek()");
+	return 0;
 }
 
 static void mbox_save_init_sync(struct mbox_transaction_context *t)
@@ -509,11 +502,8 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 				return 0;
 
 			data = i_stream_get_data(ctx->input, &size);
-			if (o_stream_send(ctx->body_output, data, size) < 0) {
-				write_error(ctx,
-					    ctx->body_output->stream_errno);
-				return -1;
-			}
+			if (o_stream_send(ctx->body_output, data, size) < 0)
+				return write_error(ctx);
 			ctx->last_char = data[size-1];
 			i_stream_skip(ctx->input, size);
 		}
@@ -523,11 +513,8 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 			   otherwise some mbox parsers don't like the result.
 			   this makes it impossible to save a mail that doesn't
 			   end with LF though. */
-			if (o_stream_send(ctx->body_output, "\n", 1) < 0) {
-				write_error(ctx,
-					    ctx->body_output->stream_errno);
-				return -1;
-			}
+			if (o_stream_send(ctx->body_output, "\n", 1) < 0)
+				return write_error(ctx);
 		}
 		return 0;
 	}
@@ -541,29 +528,23 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		    ctx->input->v_offset + size >= ctx->eoh_input_offset) {
 			/* found end of headers. write the rest of them. */
 			size = ctx->eoh_input_offset - ctx->input->v_offset;
-			if (o_stream_send(ctx->output, data, size) < 0) {
-				write_error(ctx, ctx->output->stream_errno);
-				return -1;
-			}
+			if (o_stream_send(ctx->output, data, size) < 0)
+				return write_error(ctx);
 			if (size > 0)
 				ctx->last_char = data[size-1];
 			i_stream_skip(ctx->input, size + 1);
 			break;
 		}
 
-		if (o_stream_send(ctx->output, data, size) < 0) {
-			write_error(ctx, ctx->output->stream_errno);
-			return -1;
-		}
+		if (o_stream_send(ctx->output, data, size) < 0)
+			return write_error(ctx);
 		ctx->last_char = data[size-1];
 		i_stream_skip(ctx->input, size);
 	}
 
 	if (ctx->last_char != '\n') {
-		if (o_stream_send(ctx->output, "\n", 1) < 0) {
-			write_error(ctx, ctx->output->stream_errno);
-			return -1;
-		}
+		if (o_stream_send(ctx->output, "\n", 1) < 0)
+			return write_error(ctx);
 	}
 
 	if (ctx->mbox_md5_ctx) {
@@ -578,10 +559,8 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	/* append our own headers and ending empty line */
 	ctx->extra_hdr_offset = ctx->output->offset;
 	if (o_stream_send(ctx->output, str_data(ctx->headers),
-			  str_len(ctx->headers)) < 0) {
-		write_error(ctx, ctx->output->stream_errno);
-		return -1;
-	}
+			  str_len(ctx->headers)) < 0)
+		return write_error(ctx);
 	ctx->eoh_offset = ctx->output->offset;
 
 	/* write body */
@@ -595,9 +574,11 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	ctx->finished = TRUE;
 	if (!ctx->failed) {
+		t_push();
 		if (mbox_write_content_length(ctx) < 0 ||
 		    mbox_append_lf(ctx) < 0)
 			ctx->failed = TRUE;
+		t_pop();
 	}
 
 	if (ctx->input != NULL)
