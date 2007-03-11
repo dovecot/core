@@ -29,7 +29,12 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	output = o_stream_create_file(sync_ctx->write_fd, default_pool,
 				      4096, FALSE);
 	i_stream_seek(sync_ctx->file_input, source);
-	o_stream_seek(output, dest);
+	if (o_stream_seek(output, dest) < 0) {
+		mbox_set_syscall_error(sync_ctx->mbox,
+				       "o_stream_seek()");
+		o_stream_unref(&output);
+		return -1;
+	}
 
 	input = i_stream_create_limit(default_pool, sync_ctx->file_input,
 				      source, size);
