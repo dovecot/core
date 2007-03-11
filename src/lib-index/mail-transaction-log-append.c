@@ -417,7 +417,11 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		mail_index_unlock(index, lock_id);
 
 		if (ARE_ALL_TRANSACTIONS_IN_INDEX(log, &idx_hdr)) {
-			if (mail_transaction_log_rotate(log, TRUE) < 0)
+			/* if rotation fails because there's not enough disk
+			   space, just continue. we'll probably move to
+			   in-memory indexes then. */
+			if (mail_transaction_log_rotate(log, TRUE) < 0 &&
+			    !index->nodiskspace)
 				return -1;
 		}
 	}
