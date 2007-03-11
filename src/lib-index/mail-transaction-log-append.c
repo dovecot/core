@@ -81,7 +81,16 @@ static int log_append_buffer(struct mail_transaction_log_file *file,
 		if (!ENOSPACE(errno))
 			return -1;
 
-		/* not enough space. fallback to in-memory indexes. */
+		/* not enough space. fallback to in-memory indexes. first
+		   we need to truncate this latest write so that log syncing
+		   doesn't break */
+		if (ftruncate(file->fd, file->sync_offset) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "ftruncate()");
+			return -1;
+		}
+
 		if (mail_index_move_to_memory(file->log->index) < 0)
 			return -1;
 		i_assert(MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));

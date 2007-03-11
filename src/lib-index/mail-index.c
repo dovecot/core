@@ -1579,7 +1579,7 @@ static int mail_index_open_files(struct mail_index *index,
 		return -1;
 	}
 
-	if (index->fd == -1) {
+	if (index->map == NULL) {
 		mail_index_header_init(&hdr);
 		index->hdr = &hdr;
 
@@ -1912,10 +1912,13 @@ int mail_index_move_to_memory(struct mail_index *index)
 	}
 
 	/* move index map to memory */
-	map = mail_index_map_clone(index->map, index->map->hdr.record_size);
-	mail_index_unmap(index, &index->map);
-	index->map = map;
-	index->hdr = &map->hdr;
+	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
+		map = mail_index_map_clone(index->map,
+					   index->map->hdr.record_size);
+		mail_index_unmap(index, &index->map);
+		index->map = map;
+		index->hdr = &map->hdr;
+	}
 
 	if (index->log != NULL) {
 		/* move transaction log to memory */

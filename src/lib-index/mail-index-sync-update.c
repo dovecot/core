@@ -489,7 +489,7 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 	size_t size, hdr_copy_size;
 
 	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
-		return 0;
+		return 1;
 
 	i_assert(map == index->map);
 	i_assert(!index->mapping); /* mail_index_sync_from_transactions() */
@@ -497,7 +497,7 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 	size = map->hdr.header_size +
 		(map->records_count + count) * map->hdr.record_size;
 	if (size <= map->mmap_size)
-		return 0;
+		return 1;
 
 	/* when we grow fast, do it exponentially */
 	if (count < index->last_grow_count)
@@ -508,8 +508,11 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 
 	size = map->hdr.header_size +
 		(map->records_count + count) * map->hdr.record_size;
-	if (file_set_size(index->fd, (off_t)size) < 0)
-		return mail_index_set_syscall_error(index, "file_set_size()");
+	if (file_set_size(index->fd, (off_t)size) < 0) {
+		mail_index_set_syscall_error(index, "file_set_size()");
+		return !ENOSPACE(errno) ? -1 :
+			mail_index_move_to_memory(index);
+	}
 
 	/* we only wish to grow the file, but mail_index_map() updates the
 	   headers as well and may break our modified hdr_copy. so, take
@@ -535,8 +538,9 @@ static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
 	map->records_count = map->hdr.messages_count;
 
 	i_assert(map->mmap_size >= size);
+
 	t_pop();
-	return 0;
+	return 1;
 }
 
 static void
@@ -782,6 +786,16 @@ static void mail_index_sync_remove_recent(struct mail_index_sync_ctx *sync_ctx)
 	map->hdr.first_recent_uid_lowwater = map->hdr.next_uid;
 }
 
+static void log_view_seek_back(struct mail_transaction_log_view *log_view)
+{
+	uint32_t prev_seq;
+	uoff_t prev_offset;
+
+	mail_transaction_log_view_get_prev_pos(log_view, &prev_seq,
+					       &prev_offset);
+	mail_transaction_log_view_seek(log_view, prev_seq, prev_offset);
+}
+
 int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 				 bool sync_only_external)
 {
@@ -862,14 +876,20 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 
 			map = view->map;
 			count = thdr->size / sizeof(*rec);
-			if (mail_index_grow(index, map, count) < 0) {
-				ret = -1;
+			if ((ret = mail_index_grow(index, map, count)) < 0)
 				break;
-			}
+
 			if (map != index->map) {
 				index->map->refcount++;
 				mail_index_sync_replace_map(&sync_map_ctx,
 							    index->map);
+			}
+
+			if (ret == 0) {
+				/* moved to memory. data pointer is invalid,
+				   seek back and do this append again. */
+				log_view_seek_back(view->log_view);
+				continue;
 			}
 		}
 
@@ -877,10 +897,6 @@ int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
 			ret = -1;
 			break;
 		}
-
-		/* mail_index_sync_record() might have changed map to anything.
-		   make sure we don't accidentally try to use it. */
-		map = NULL;
 	}
 
 	if (ret == 0) {

@@ -129,6 +129,9 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 				   const struct mail_transaction_header **hdr_r,
 				   const void **data_r, bool *skipped_r);
+/* Seek to given position within view. Must be inside the view's range. */
+void mail_transaction_log_view_seek(struct mail_transaction_log_view *view,
+				    uint32_t seq, uoff_t offset);
 
 /* Returns the position of the record returned previously with
    mail_transaction_log_view_next() */

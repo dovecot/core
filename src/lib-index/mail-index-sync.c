@@ -389,7 +389,9 @@ int mail_index_sync_begin(struct mail_index *index,
 	     				index->hdr->log_file_seq,
 					index->hdr->log_file_ext_offset))) {
 		/* broken sync positions. fix them. */
-		mail_index_set_error(index, "broken sync positions");
+		mail_index_set_error(index,
+			"broken sync positions in index file %s",
+			index->filepath);
 		if (mail_index_fsck(index) <= 0) {
 			mail_index_unlock(index, lock_id);
 			mail_transaction_log_sync_unlock(index->log);

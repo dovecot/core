@@ -453,3 +453,25 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	*data_r = data;
 	return 1;
 }
+
+void mail_transaction_log_view_seek(struct mail_transaction_log_view *view,
+				    uint32_t seq, uoff_t offset)
+{
+	struct mail_transaction_log_file *file;
+
+	i_assert(seq >= view->min_file_seq && seq <= view->max_file_seq);
+	i_assert(seq != view->min_file_seq || offset >= view->min_file_offset);
+	i_assert(seq != view->max_file_seq || offset < view->max_file_offset);
+
+	if (view->cur == NULL || seq != view->cur->hdr.file_seq) {
+		for (file = view->tail; file != NULL; file = file->next) {
+			if (file->hdr.file_seq == seq)
+				break;
+		}
+		i_assert(file != NULL);
+
+		view->cur = file;
+	}
+
+	view->cur_offset = offset;
+}

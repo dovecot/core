@@ -217,8 +217,16 @@ static int mail_index_lock_exclusive_copy(struct mail_index *index)
 
 	/* copy the index to index.tmp and use it */
 	fd = mail_index_copy(index);
-	if (fd == -1)
-		return -1;
+	if (fd == -1) {
+		if (!index->nodiskspace)
+			return -1;
+
+		if (mail_index_move_to_memory(index) < 0)
+			return -1;
+		index->lock_type = F_WRLCK;
+		index->excl_lock_count++;
+		return 0;
+	}
 
 	old_lock_type = index->lock_type;
 	index->lock_type = F_WRLCK;
@@ -261,7 +269,6 @@ int mail_index_lock_exclusive(struct mail_index *index,
 		if (ret < 0)
 			return -1;
 	}
-
 	if (mail_index_lock_exclusive_copy(index) < 0)
 		return -1;
 	*lock_id_r = index->lock_id + 1;
@@ -329,10 +336,27 @@ static int mail_index_write_map_over(struct mail_index *index)
 	return 0;
 }
 
+static int mail_index_copy_and_reopen(struct mail_index *index)
+{
+	int fd;
+
+	fd = mail_index_copy(index);
+	if (fd == -1) {
+		if (!index->nodiskspace)
+			return -1;
+		return mail_index_move_to_memory(index);
+	}
+
+	if (mail_index_reopen(index, fd) < 0) {
+		(void)close(fd);
+		return -1;
+	}
+	return 0;
+}
+
 static void mail_index_write_map(struct mail_index *index)
 {
 	struct mail_index_map *map = index->map;
-	int fd;
 
 	if (map->write_atomic || index->copy_lock_path != NULL ||
 	    index->fd == -1) {
@@ -347,13 +371,10 @@ static void mail_index_write_map(struct mail_index *index)
 		}
 
 		if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
-			fd = mail_index_copy(index);
-			if (fd == -1 || mail_index_reopen(index, fd) < 0) {
-				if (fd != -1)
-					(void)close(fd);
+			if (mail_index_copy_and_reopen(index) < 0)
 				mail_index_set_inconsistent(index);
-			}
 		}
+
 	} else {
 		/* write the modified parts. header is small enough to be
 		   always written, write_seq_* specifies the record range. */
