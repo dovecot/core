@@ -383,6 +383,11 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 		return 0;
 	}
 
+	if (*lines == NULL) {
+		/* no quota lines. rebuild it. */
+		return 0;
+	}
+
 	/* rest of the lines contains <bytes> <count> diffs */
 	total_bytes = 0; total_count = 0;
 	for (lines++; *lines != NULL; lines++, line_count++) {
