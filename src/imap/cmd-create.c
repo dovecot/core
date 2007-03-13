@@ -1,11 +1,12 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "namespace.h"
 #include "commands.h"
 
 bool cmd_create(struct client_command_context *cmd)
 {
-	struct mail_storage *storage;
+	struct namespace *ns;
 	const char *mailbox, *full_mailbox;
 	bool directory;
 	size_t len;
@@ -15,13 +16,12 @@ bool cmd_create(struct client_command_context *cmd)
 		return FALSE;
 	full_mailbox = mailbox;
 
-	storage = client_find_storage(cmd, &mailbox);
-	if (storage == NULL)
+	ns = client_find_namespace(cmd, &mailbox);
+	if (ns == NULL)
 		return TRUE;
 
-	len = strlen(mailbox);
-	if (len == 0 ||
-	    mailbox[len-1] != mail_storage_get_hierarchy_sep(storage))
+	len = strlen(full_mailbox);
+	if (len == 0 || full_mailbox[len-1] != ns->sep)
 		directory = FALSE;
 	else {
 		/* name ends with hierarchy separator - client is just
@@ -35,8 +35,8 @@ bool cmd_create(struct client_command_context *cmd)
 	if (!client_verify_mailbox_name(cmd, full_mailbox, FALSE, TRUE))
 		return TRUE;
 
-	if (mail_storage_mailbox_create(storage, mailbox, directory) < 0)
-		client_send_storage_error(cmd, storage);
+	if (mail_storage_mailbox_create(ns->storage, mailbox, directory) < 0)
+		client_send_storage_error(cmd, ns->storage);
 	else
 		client_send_tagline(cmd, "OK Create completed.");
 	return TRUE;
