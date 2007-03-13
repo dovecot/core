@@ -18,43 +18,66 @@
    to them, mbox/maildir currently allow paths only up to PATH_MAX. */
 #define MAILBOX_MAX_NAME_LEN 512
 
-struct mail_storage *
-client_find_storage(struct client_command_context *cmd, const char **mailbox)
+struct namespace *
+client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 {
 	struct namespace *ns;
 
 	ns = namespace_find(cmd->client->namespaces, mailbox);
 	if (ns != NULL)
-		return ns->storage;
+		return ns;
 
 	client_send_tagline(cmd, "NO Unknown namespace.");
 	return NULL;
+}
+
+struct mail_storage *
+client_find_storage(struct client_command_context *cmd, const char **mailbox)
+{
+	struct namespace *ns;
+
+	ns = client_find_namespace(cmd, mailbox);
+	return ns == NULL ? NULL : ns->storage;
 }
 
 bool client_verify_mailbox_name(struct client_command_context *cmd,
 				const char *mailbox,
 				bool should_exist, bool should_not_exist)
 {
-	struct mail_storage *storage;
+	struct namespace *ns;
 	struct mailbox_list *list;
 	enum mailbox_name_status mailbox_status;
-	const char *p;
-	char sep;
+	const char *orig_mailbox, *p;
 
-	storage = client_find_storage(cmd, &mailbox);
-	if (storage == NULL)
+	orig_mailbox = mailbox;
+	ns = client_find_namespace(cmd, &mailbox);
+	if (ns == NULL)
 		return FALSE;
 
 	/* make sure it even looks valid */
-	sep = mail_storage_get_hierarchy_sep(storage);
 	if (*mailbox == '\0') {
 		client_send_tagline(cmd, "NO Empty mailbox name.");
 		return FALSE;
 	}
 
+	if (ns->real_sep != ns->sep && ns->prefix_len < strlen(orig_mailbox)) {
+		/* make sure there are no real separators used in the mailbox
+		   name. */
+		orig_mailbox += ns->prefix_len;
+		for (p = orig_mailbox; *p != '\0'; p++) {
+			if (*p == ns->real_sep) {
+				client_send_tagline(cmd, t_strdup_printf(
+					"NO Character not allowed "
+					"in mailbox name: '%c'",
+					ns->real_sep));
+				return FALSE;
+			}
+		}
+	}
+
 	/* make sure two hierarchy separators aren't next to each others */
 	for (p = mailbox+1; *p != '\0'; p++) {
-		if (p[0] == sep && p[-1] == sep) {
+		if (p[0] == ns->real_sep && p[-1] == ns->real_sep) {
 			client_send_tagline(cmd, "NO Invalid mailbox name.");
 			return FALSE;
 		}
@@ -66,10 +89,10 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 	}
 
 	/* check what our storage thinks of it */
-	list = mail_storage_get_list(storage);
+	list = mail_storage_get_list(ns->storage);
 	if (mailbox_list_get_mailbox_name_status(list, mailbox,
 						 &mailbox_status) < 0) {
-		client_send_storage_error(cmd, storage);
+		client_send_storage_error(cmd, ns->storage);
 		return FALSE;
 	}
 
@@ -87,13 +110,15 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 
 		client_send_tagline(cmd, t_strconcat(
 			"NO [TRYCREATE] Mailbox doesn't exist: ",
-			str_sanitize(mailbox, MAILBOX_MAX_NAME_LEN), NULL));
+			str_sanitize(orig_mailbox, MAILBOX_MAX_NAME_LEN),
+			NULL));
 		break;
 
 	case MAILBOX_NAME_INVALID:
 		client_send_tagline(cmd, t_strconcat(
 			"NO Invalid mailbox name: ",
-			str_sanitize(mailbox, MAILBOX_MAX_NAME_LEN), NULL));
+			str_sanitize(orig_mailbox, MAILBOX_MAX_NAME_LEN),
+			NULL));
 		break;
 
 	case MAILBOX_NAME_NOINFERIORS:
