@@ -99,7 +99,7 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 {
 	struct trash_mailbox *trashes;
 	unsigned int i, j, count, oldest_idx;
-	time_t oldest, received;
+	time_t oldest, received = 0;
 	uint64_t size, size_expunged = 0, expunged_count = 0;
 	int ret = 0;
 
