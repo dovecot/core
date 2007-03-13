@@ -48,8 +48,6 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     smtp_client = smtp_client_open(return_addr, NULL, &f);
 
     msgid = deliver_get_new_message_id();
-    duplicate_mark(msgid, strlen(msgid), recipient,
-		   ioloop_time + DUPLICATE_DEFAULT_KEEP);
     boundary = t_strdup_printf("%s/%s", my_pid, deliver_set->hostname);
 
     fprintf(f, "Message-ID: %s\r\n", msgid);
