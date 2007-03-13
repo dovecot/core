@@ -5,20 +5,16 @@
 
 #ifdef IOLOOP_NOTIFY_NONE
 
-struct io *io_loop_notify_add(struct ioloop *ioloop __attr_unused__,
-			      const char *path __attr_unused__,
-			      io_callback_t *callback __attr_unused__,
-			      void *context __attr_unused__)
+#undef io_add_notify
+struct io *io_add_notify(const char *path __attr_unused__,
+			 io_callback_t *callback __attr_unused__,
+			 void *context __attr_unused__)
 {
 	return NULL;
 }
 
 void io_loop_notify_remove(struct ioloop *ioloop __attr_unused__,
 			   struct io *io __attr_unused__)
-{
-}
-
-void io_loop_notify_handler_init(struct ioloop *ioloop __attr_unused__)
 {
 }
 
