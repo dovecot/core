@@ -452,7 +452,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 
 		/* Apply transaction to view's mapping if needed (meaning we
 		   didn't just re-map the view to head mapping). */
-		if (ctx->sync_map_update) {
+		if (ctx->sync_map_update && !synced_to_map) {
 			i_assert((ctx->hdr->type &
 				  MAIL_TRANSACTION_EXPUNGE) == 0);
 
@@ -646,10 +646,22 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	}
 
 	if (ctx->sync_map_update) {
-		view->map->hdr.log_file_seq = view->log_file_seq;
-		view->map->hdr.log_file_int_offset =
+		if (view->log_file_seq != view->map->hdr.log_file_seq) {
+			i_assert(view->log_file_seq >
+				 view->map->hdr.log_file_seq);
+			view->map->hdr.log_file_seq = view->log_file_seq;
 			view->map->hdr.log_file_ext_offset =
-			view->log_file_offset;
+				view->log_file_offset;
+		} else {
+			i_assert(view->log_file_offset >=
+				 view->map->hdr.log_file_int_offset);
+			if (view->log_file_offset >
+			    view->map->hdr.log_file_ext_offset) {
+				view->map->hdr.log_file_ext_offset =
+					view->log_file_offset;
+			}
+		}
+		view->map->hdr.log_file_int_offset = view->log_file_offset;
 	}
 	view->hdr = view->map->hdr;
 
