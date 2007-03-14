@@ -938,6 +938,7 @@ static int mail_index_sync_from_transactions(struct mail_index *index,
 					  MAIL_TRANSACTION_TYPE_MASK) <= 0) {
 		/* can't use it. sync by re-reading index. */
 		mail_index_view_close(&view);
+		index->map = NULL;
 		return 0;
 	}
 
