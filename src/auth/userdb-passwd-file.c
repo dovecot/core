@@ -27,8 +27,6 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 		(struct passwd_file_userdb_module *)_module;
 	struct auth_stream_reply *reply;
 	struct passwd_user *pu;
-        const struct var_expand_table *table;
-	string_t *str;
 	const char *key, *value;
 	char **p;
 
@@ -48,21 +46,14 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 
 	if (pu->extra_fields != NULL) {
 		t_push();
-		str = t_str_new(512);
-		table = auth_request_get_var_expand_table(auth_request, NULL);
-
 		for (p = pu->extra_fields; *p != NULL; p++) {
 			if (strncmp(*p, "userdb_", 7) != 0)
 				continue;
 
 			key = *p + 7;
 			value = strchr(key, '=');
-			if (value != NULL) {
-				key = t_strdup_until(key, value);
-				str_truncate(str, 0);
-				var_expand(str, value + 1, table);
-				value = str_c(str);
-			}
+			if (value != NULL)
+				key = t_strdup_until(key, value++);
 			auth_stream_reply_add(reply, key, value);
 		}
 		t_pop();
