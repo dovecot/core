@@ -27,7 +27,7 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 		return NULL;
 	}
 
-	auth_request_log_debug(auth_request, "vpopmail",
+	auth_request_log_debug(request, "vpopmail",
 			       "lookup user=%s domain=%s",
 			       vpop_user, vpop_domain);
 
