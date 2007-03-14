@@ -416,6 +416,7 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	index_mailbox_list_sync_init_list(list);
 
 	if (index_mailbox_list_open_indexes(list, dir) < 0) {
+		list->v = ilist->super;
 		mail_index_free(&ilist->mail_index);
 		array_idx_clear(&list->module_contexts,
 				index_mailbox_list_module_id);
