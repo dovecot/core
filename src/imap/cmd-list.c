@@ -452,7 +452,8 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 		/* LIST - allow children flags, but don't require them */
 		list_flags = 0;
 	} else {
-		list_flags = _MAILBOX_LIST_ITER_LISTEXT;
+		list_flags =
+			(enum mailbox_list_flags)_MAILBOX_LIST_ITER_LISTEXT;
 		if (!parse_list_flags(cmd, IMAP_ARG_LIST(&args[0])->args,
 				      &list_flags))
 			return TRUE;

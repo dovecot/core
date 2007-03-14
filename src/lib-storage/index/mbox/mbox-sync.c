@@ -206,18 +206,17 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 				if (mail_index_lookup_uid_range(
 						sync_ctx->sync_view,
 						sync_rec->uid1, sync_rec->uid2,
-						&seq1, &seq2) < 0) {
+						&seq1, &seq2) < 0)
 					return -1;
-				}
-
-				if (seq1 > 0) {
-					mail_index_update_flags_range(
-						sync_ctx->t,
-						seq1, seq2, MODIFY_ADD,
-						MAIL_INDEX_MAIL_FLAG_DIRTY);
-				}
-
 				memset(sync_rec, 0, sizeof(*sync_rec));
+
+				if (seq1 == 0)
+					break;
+
+				mail_index_update_flags_range(sync_ctx->t,
+					seq1, seq2, MODIFY_ADD,
+					(enum mail_flags)
+						MAIL_INDEX_MAIL_FLAG_DIRTY);
 			}
 			break;
 		}
@@ -510,7 +509,8 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 				mail_index_update_flags(sync_ctx->t,
 					sync_ctx->idx_seq,
 					dirty ? MODIFY_ADD : MODIFY_REMOVE,
-					MAIL_INDEX_MAIL_FLAG_DIRTY);
+					(enum mail_flags)
+						MAIL_INDEX_MAIL_FLAG_DIRTY);
 			}
 		}
 

@@ -458,7 +458,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 
 	if (ENOSPACE(errno) || errno == EACCES) {
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_ADD,
-					MAIL_INDEX_MAIL_FLAG_DIRTY);
+			(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
 		ctx->dirty_state = 1;
 		return 1;
 	}
