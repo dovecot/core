@@ -49,9 +49,9 @@ struct mbox_sync_mail {
 	ARRAY_TYPE(keyword_indexes) keywords;
 	uint8_t flags;
 
-	uint8_t uid_broken:1;
-	uint8_t expunged:1;
-	uint8_t pseudo:1;
+	unsigned int uid_broken:1;
+	unsigned int expunged:1;
+	unsigned int pseudo:1;
 
 	uoff_t from_offset;
 	uoff_t body_size;
