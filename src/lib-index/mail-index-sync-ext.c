@@ -85,13 +85,13 @@ void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx)
 	count = array_count(&ctx->view->index->extensions);
 	i_assert(count > 0);
 
-	if (array_is_created(&ctx->extra_contexts))
-		array_clear(&ctx->extra_contexts);
-	else
+	if (!array_is_created(&ctx->extra_contexts))
 		i_array_init(&ctx->extra_contexts, count);
 
-	/* fill the context array with NULLs */
+	/* make sure the extra_contexts contains everything */
 	(void)array_idx_modifiable(&ctx->extra_contexts, count - 1);
+	/* we need to update the expunge handler list in case they had
+	   already been called */
 	ctx->expunge_handlers_set = FALSE;
 }
 
