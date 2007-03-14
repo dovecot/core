@@ -600,12 +600,12 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 
 	if (*value == '\0') {
 		/* negative cache entry */
-		*result_r = PASSDB_RESULT_USER_UNKNOWN;
+		*result_r = USERDB_RESULT_USER_UNKNOWN;
 		*reply_r = auth_stream_reply_init(request);
 		return TRUE;
 	}
 
-	*result_r = PASSDB_RESULT_OK;
+	*result_r = USERDB_RESULT_OK;
 	*reply_r = auth_stream_reply_init(request);
 	auth_stream_reply_import(*reply_r, value);
 	return TRUE;
@@ -640,7 +640,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 				       "user not found from userdb");
 	}
 
-	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
+	if (result != USERDB_RESULT_INTERNAL_FAILURE)
 		auth_request_userdb_save_cache(request, reply, result);
 	else if (passdb_cache != NULL && userdb->cache_key != NULL) {
 		/* lookup failed. if we're looking here only because the
