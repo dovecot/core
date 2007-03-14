@@ -245,7 +245,7 @@ static int parse_next_body_skip_boundary_line(struct message_parser_ctx *ctx,
 
 static int parse_part_finish(struct message_parser_ctx *ctx,
 			     struct message_boundary *boundary,
-			     struct message_block *block_r)
+			     struct message_block *block_r, bool first_line)
 {
 	struct message_part *part;
 
@@ -278,8 +278,11 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 
 	/* the boundary itself should already be in buffer. add that. */
 	block_r->data = i_stream_get_data(ctx->input, &block_r->size);
-	i_assert(block_r->size >= 2 + boundary->len);
-	block_r->size = 2 + boundary->len;
+	i_assert(block_r->size >= ctx->skip + 2 + boundary->len +
+		 (first_line ? 0 : 1));
+	block_r->data += ctx->skip;
+	/* [\n]--<boundary> */
+	block_r->size = (first_line ? 0 : 1) + 2 + boundary->len;
 	parse_body_add_block(ctx, block_r);
 
 	ctx->parse_next_block = parse_next_body_skip_boundary_line;
@@ -311,7 +314,7 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 			if (ret == 0)
 				return 0;
 
-			return parse_part_finish(ctx, boundary, block_r);
+			return parse_part_finish(ctx, boundary, block_r, TRUE);
 		}
 	}
 
@@ -357,7 +360,7 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	if (block_r->size != 0)
 		parse_body_add_block(ctx, block_r);
 	return ret <= 0 ? ret :
-		parse_part_finish(ctx, boundary, block_r);
+		parse_part_finish(ctx, boundary, block_r, FALSE);
 }
 
 static int parse_next_body_to_eof(struct message_parser_ctx *ctx,
