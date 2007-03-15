@@ -197,8 +197,10 @@ void index_storage_unref(struct mail_index *index)
 
 	list->refcount--;
 	list->destroy_time = ioloop_time + INDEX_CACHE_TIMEOUT;
-	if (to_index == NULL)
-		to_index = timeout_add(1000, index_removal_timeout, NULL);
+	if (to_index == NULL) {
+		to_index = timeout_add(INDEX_CACHE_TIMEOUT*1000/2,
+				       index_removal_timeout, NULL);
+	}
 }
 
 void index_storage_destroy_unrefed(void)
