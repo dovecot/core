@@ -349,6 +349,15 @@ void mail_process_exec(const char *protocol, const char *section)
 				     getenv("TCPREMOTEIP"),
 				     getpid(), geteuid());
 
+	/* set up logging */
+	env_put(t_strconcat("LOG_TIMESTAMP=", set->log_timestamp, NULL));
+	if (*set->log_path == '\0')
+		env_put("USE_SYSLOG=1");
+	else
+		env_put(t_strconcat("LOGFILE=", set->log_path, NULL));
+	if (*set->info_log_path != '\0')
+		env_put(t_strconcat("INFOLOGFILE=", set->info_log_path, NULL));
+
 	mail_process_set_environment(set, getenv("MAIL"), var_expand_table,
 				     FALSE);
         client_process_exec(executable, "");
