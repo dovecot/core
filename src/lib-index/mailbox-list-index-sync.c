@@ -44,12 +44,13 @@ struct mailbox_list_sync_dir {
 
 struct mailbox_list_index_sync_ctx {
 	struct mailbox_list_index *index;
+	struct mailbox_list_index_view *view;
 	pool_t pool;
 
 	enum mailbox_list_sync_flags flags;
 	const char *sync_path;
 	struct mail_index_sync_ctx *mail_sync_ctx;
-	struct mail_index_view *view;
+	struct mail_index_view *mail_view;
 	struct mail_index_transaction *trans;
 
 	struct mailbox_list_index_header hdr;
@@ -96,7 +97,7 @@ mailbox_list_copy_sync_dir(struct mailbox_list_index_sync_ctx *ctx,
 	size_t max_len;
 	unsigned int i;
 
-	if (mailbox_list_index_get_dir(ctx->index, &offset, &dir) < 0)
+	if (mailbox_list_index_get_dir(ctx->view, &offset, &dir) < 0)
 		return -1;
 
 	sync_dir = mailbox_list_alloc_sync_dir(ctx, dir->count +
@@ -198,7 +199,7 @@ mailbox_list_index_sync_get_seq(struct mailbox_list_index_sync_ctx *ctx,
 		return mailbox_list_index_set_corrupted(ctx->index,
 							"Record with UID=0");
 	}
-	if (mail_index_lookup_uid_range(ctx->view, rec->uid, rec->uid,
+	if (mail_index_lookup_uid_range(ctx->mail_view, rec->uid, rec->uid,
 					&rec->seq, &rec->seq) < 0)
 		return -1;
 
@@ -330,7 +331,7 @@ static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 	struct mail_index_sync_rec sync_rec;
 
 	if (mail_index_sync_begin(ctx->index->mail_index, &ctx->mail_sync_ctx,
-				  &ctx->view, (uint32_t)-1, 0,
+				  &ctx->mail_view, (uint32_t)-1, 0,
 				  FALSE, FALSE) < 0)
 		return -1;
 
@@ -347,7 +348,7 @@ static int sync_mail_sync_init2(struct mailbox_list_index_sync_ctx *ctx)
 
 	ctx->hdr = *ctx->index->hdr;
 
-	hdr = mail_index_get_header(ctx->view);
+	hdr = mail_index_get_header(ctx->mail_view);
 	if (hdr->uid_validity != 0) {
 		if (hdr->uid_validity != ctx->hdr.uid_validity) {
 			return mailbox_list_index_set_corrupted(ctx->index,
@@ -355,7 +356,7 @@ static int sync_mail_sync_init2(struct mailbox_list_index_sync_ctx *ctx)
 		}
 	}
 
-	ctx->trans = mail_index_transaction_begin(ctx->view, FALSE, TRUE);
+	ctx->trans = mail_index_transaction_begin(ctx->mail_view, FALSE, TRUE);
 	if (hdr->uid_validity == 0) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, uid_validity),
@@ -386,6 +387,7 @@ int mailbox_list_index_sync_init(struct mailbox_list_index *index,
 	ctx = p_new(pool, struct mailbox_list_index_sync_ctx, 1);
 	ctx->pool = pool;
 	ctx->index = index;
+	ctx->view = mailbox_list_index_view_init(index, NULL);
 	ctx->sync_path = p_strdup(pool, path);
 	ctx->flags = flags;
 
@@ -405,7 +407,7 @@ int mailbox_list_index_sync_init(struct mailbox_list_index *index,
 struct mail_index_view *
 mailbox_list_index_sync_get_view(struct mailbox_list_index_sync_ctx *ctx)
 {
-	return ctx->view;
+	return ctx->mail_view;
 }
 
 struct mail_index_transaction *
@@ -553,7 +555,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 			/* expunge from mail index */
 			uint32_t seq;
 
-			if (mail_index_lookup_uid_range(ctx->view,
+			if (mail_index_lookup_uid_range(ctx->mail_view,
 							sync_recs[src].uid,
 							sync_recs[src].uid,
 							&seq, &seq) < 0)
@@ -646,7 +648,7 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 
 	i_assert(sync_dir->offset != 0);
 
-	if (mailbox_list_index_get_dir(ctx->index, &sync_dir->offset, &dir) < 0)
+	if (mailbox_list_index_get_dir(ctx->view, &sync_dir->offset, &dir) < 0)
 		return -1;
 
 	sync_recs = array_get(&sync_dir->records, &count);
@@ -831,6 +833,16 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 			ret = mailbox_list_index_compress(ctx);
 	}
 
+	if (ret == 0) {
+		uint64_t used_space = ctx->hdr.used_space;
+
+		/* FIXME: we should use some extension header instead of
+		   reusing sync_size */
+		mail_index_update_header(ctx->trans,
+			offsetof(struct mail_index_header, sync_size),
+			&used_space, sizeof(used_space), FALSE);
+	}
+
 	if (ctx->trans != NULL) {
 		if (ret < 0)
 			mail_index_transaction_rollback(&ctx->trans);
@@ -852,6 +864,7 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 		}
 	}
 
+	mailbox_list_index_view_deinit(&ctx->view);
 	pool_unref(ctx->pool);
 	return ret;
 }

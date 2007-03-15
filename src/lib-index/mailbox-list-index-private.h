@@ -82,7 +82,7 @@ int mailbox_list_index_dir_lookup_rec(struct mailbox_list_index *index,
 				      const struct mailbox_list_dir_record *dir,
 				      const char *name,
 				      const struct mailbox_list_record **rec_r);
-int mailbox_list_index_get_dir(struct mailbox_list_index *index,
+int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
 			       uint32_t *offset,
 			       const struct mailbox_list_dir_record **dir_r);
 int mailbox_list_index_map(struct mailbox_list_index *index);

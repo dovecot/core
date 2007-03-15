@@ -15,6 +15,7 @@ struct index_mailbox_list {
 
 	struct mail_index *mail_index;
 	struct mailbox_list_index *list_index;
+	struct mailbox_list_index_view *list_sync_view;
 
 	uint32_t eid_messages, eid_unseen, eid_recent;
 	uint32_t eid_uid_validity, eid_uidnext;
@@ -29,7 +30,8 @@ struct index_mailbox_list_iterate_context {
 	struct mailbox_list_index_sync_ctx *sync_ctx;
 	struct mailbox_list_iterate_context *backend_ctx;
 
-	struct mail_index_view *view;
+	struct mailbox_list_index_view *view;
+	struct mail_index_view *mail_view;
 	struct mail_index_transaction *trans;
 
 	char *prefix;

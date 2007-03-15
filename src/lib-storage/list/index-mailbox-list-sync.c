@@ -176,7 +176,7 @@ index_list_mailbox_open_unchanged_view(struct mailbox *box,
 		return 0;
 	}
 
-	ret = mailbox_list_index_lookup(ilist->list_index, box->name, &uid);
+	ret = mailbox_list_index_lookup(ilist->list_sync_view, box->name, &uid);
 	if (ret <= 0)
 		return ret;
 
@@ -260,7 +260,8 @@ static int index_list_lookup_or_create(struct index_mailbox_list *ilist,
 	struct mailbox_list_index_sync_ctx *sync_ctx;
 	int ret;
 
-	ret = mailbox_list_index_lookup(ilist->list_index, box->name, uid_r);
+	ret = mailbox_list_index_lookup(ilist->list_sync_view,
+					box->name, uid_r);
 	if (ret > 0) {
 		/* we'll need the mailbox synced since we're updating its
 		   contents based on what it already contains */
@@ -279,7 +280,8 @@ static int index_list_lookup_or_create(struct index_mailbox_list *ilist,
 	if (mailbox_list_index_sync_commit(&sync_ctx) < 0)
 		return -1;
 
-	ret = mailbox_list_index_lookup(ilist->list_index, box->name, uid_r);
+	ret = mailbox_list_index_lookup(ilist->list_sync_view,
+					box->name, uid_r);
 	if (ret != 0)
 		return ret < 0 ? -1 : 0;
 

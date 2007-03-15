@@ -59,9 +59,17 @@ int mailbox_list_index_sync_more(struct mailbox_list_index_sync_ctx *ctx,
 int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **ctx);
 void mailbox_list_index_sync_rollback(struct mailbox_list_index_sync_ctx **ctx);
 
+/* Mailbox list index and mail index must be kept in sync, so lookups and
+   iterations must know the mail index view. The mail_view can be set to NULL
+   to use the latest changes. */
+struct mailbox_list_index_view *
+mailbox_list_index_view_init(struct mailbox_list_index *index,
+			     struct mail_index_view *mail_view);
+void mailbox_list_index_view_deinit(struct mailbox_list_index_view **view);
+
 /* Get mailbox UID for a given name. Returns 1 if found, 0 if not,
    -1 if error */
-int mailbox_list_index_lookup(struct mailbox_list_index *index,
+int mailbox_list_index_lookup(struct mailbox_list_index_view *view,
 			      const char *name, uint32_t *uid_r);
 
 /* Iterate through all the mailboxes. If recurse_level is -1, all the child
@@ -69,7 +77,7 @@ int mailbox_list_index_lookup(struct mailbox_list_index *index,
    (0 = only the mailboxes directly under the path). Returned mailbox names
    are allocated from name_pool. */
 struct mailbox_list_iter_ctx *
-mailbox_list_index_iterate_init(struct mailbox_list_index *index,
+mailbox_list_index_iterate_init(struct mailbox_list_index_view *view,
 				const char *path, int recurse_level);
 /* Returns 1 if mailbox was returned, 0 at the end of iteration, -1 if error */
 int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
