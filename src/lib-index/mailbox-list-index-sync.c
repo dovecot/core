@@ -831,7 +831,7 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 			ret = mailbox_list_index_compress(ctx);
 	}
 
-	if (ctx->mail_sync_ctx != NULL) {
+	if (ctx->trans != NULL) {
 		if (ret < 0)
 			mail_index_transaction_rollback(&ctx->trans);
 		else {
@@ -842,7 +842,8 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 							  &seq, &offset) < 0)
 				ret = -1;
 		}
-
+	}
+	if (ctx->mail_sync_ctx != NULL) {
 		if (ret < 0)
 			mail_index_sync_rollback(&ctx->mail_sync_ctx);
 		else {

@@ -126,7 +126,9 @@ mailbox_list_index_check_header(struct mailbox_list_index *index,
 	if (hdr->uid_validity != index->mail_index->hdr->uid_validity &&
 	    index->mail_index->hdr->uid_validity != 0) {
 		mail_index_set_error(index->mail_index,
-			"uid_validity changed in file %s", index->filepath);
+			"uid_validity changed in file %s: %u -> %u",
+			index->filepath, index->mail_index->hdr->uid_validity,
+			hdr->uid_validity);
 		mail_index_mark_corrupted(index->mail_index);
 		return -1;
 	}

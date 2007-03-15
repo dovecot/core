@@ -1727,8 +1727,9 @@ int mail_index_reopen(struct mail_index *index, int fd)
 	i_assert(index->excl_lock_count == 0);
 
 	old_map = index->map;
+	if (old_map != NULL)
+		old_map->refcount++;
 	old_fd = index->fd;
-	old_map->refcount++;
 
 	/* new file, new locks. the old fd can keep its locks, they don't
 	   matter anymore as no-one's going to modify the file. */
@@ -1768,7 +1769,8 @@ int mail_index_reopen(struct mail_index *index, int fd)
 		mail_index_unlock(index, lock_id);
 
 	if (ret == 0) {
-		mail_index_unmap(index, &old_map);
+		if (old_map != NULL)
+			mail_index_unmap(index, &old_map);
 		if (old_file_lock != NULL)
 			file_lock_free(&old_file_lock);
 		if (close(old_fd) < 0)
