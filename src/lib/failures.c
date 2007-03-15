@@ -365,7 +365,7 @@ static void open_log_file(FILE **file, const char *path)
 void i_set_failure_file(const char *path, const char *prefix)
 {
 	i_free(log_prefix);
-	log_prefix = i_strconcat(prefix, ": ", NULL);
+	log_prefix = i_strdup(prefix);
 
 	if (log_info_fd != NULL && log_info_fd != log_fd &&
 	    log_info_fd != stderr)
