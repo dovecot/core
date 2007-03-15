@@ -241,6 +241,7 @@ static int iter_next_nonsync(struct index_mailbox_list_iterate_context *ctx,
 	    iinfo.has_children) {
 		mailbox_list_index_set_corrupted(ilist->list_index,
 			"Desynced: Children flags wrong in mail index");
+		return -1;
 	}
 
 	if (!info_flags_match(ctx, &ctx->info))
