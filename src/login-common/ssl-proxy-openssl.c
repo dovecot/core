@@ -665,6 +665,7 @@ unsigned int ssl_proxy_get_count(void)
 
 void ssl_proxy_init(void)
 {
+	static char dovecot[] = "dovecot";
 	const char *cafile, *certfile, *keyfile, *cipher_list;
 	char *password;
 	unsigned char buf;
@@ -685,7 +686,7 @@ void ssl_proxy_init(void)
 	SSL_library_init();
 	SSL_load_error_strings();
 
-	extdata_index = SSL_get_ex_new_index(0, "dovecot", NULL, NULL, NULL);
+	extdata_index = SSL_get_ex_new_index(0, dovecot, NULL, NULL, NULL);
 
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL)
 		i_fatal("SSL_CTX_new() failed");

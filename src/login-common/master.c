@@ -133,7 +133,8 @@ void master_close(void)
 
 static void master_exec(int fd)
 {
-	char *argv[] = { "dovecot", NULL };
+	static char dovecot[] = "dovecot";
+	char *argv[] = { dovecot, NULL };
 
 	switch (fork()) {
 	case -1:
