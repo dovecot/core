@@ -627,6 +627,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 		/* file_cache_write() calls may have moved mmaping */
 		index->const_mmap_base = file_cache_get_map(index->file_cache,
 							    &index->mmap_size);
+		index->hdr = index->const_mmap_base;
 	}
 
 	sync_dir->offset = base_offset;
