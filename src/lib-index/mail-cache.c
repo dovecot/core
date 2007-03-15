@@ -215,6 +215,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 
 		if (offset == 0 && !mail_cache_verify_header(cache)) {
 			cache->need_compress_file_seq =
+				!MAIL_CACHE_IS_UNUSABLE(cache) &&
 				cache->hdr->file_seq != 0 ?
 				cache->hdr->file_seq : (uint32_t)-1;
 			return -1;
