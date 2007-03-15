@@ -309,10 +309,7 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		index->doc->add(*Field::Text(_T("box"), index->tmailbox_name));
 	}
 
-	/* note that each addDocument() call adds a new document with a new
-	   internal ID to the database. */
 	index->doc->add(*Field::Text(_T("contents"), dest));
-	index->writer->addDocument(index->doc);
 	return 0;
 }
 
