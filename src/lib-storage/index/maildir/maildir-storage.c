@@ -676,6 +676,14 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 		   mailbox listing sees it. */
 		count = 0;
 		while (rename(src, dest) < 0 && count < 2) {
+			if (errno == ENOENT) {
+				/* it was just deleted under us by
+				   another process */
+				mail_storage_set_error(_storage,
+					MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND,
+					name);
+				return -1;
+			}
 			if (!EDESTDIREXISTS(errno)) {
 				mail_storage_set_critical(_storage,
 					"rename(%s, %s) failed: %m", src, dest);
