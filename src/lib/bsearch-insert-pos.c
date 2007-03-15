@@ -28,11 +28,8 @@ bool bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
 		}
 	}
 
-	if (idx < nmemb) {
-		p = CONST_PTR_OFFSET(base, idx * size);
-		if (cmp(key, p) > 0)
-			++idx;
-	}
+	if (left_idx > idx)
+		idx++;
 
 	*idx_r = idx;
 	return FALSE;
