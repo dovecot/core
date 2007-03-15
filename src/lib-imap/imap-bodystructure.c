@@ -263,7 +263,7 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 	t_pop();
 }
 
-static void part_write_body_multipart(struct message_part *part,
+static void part_write_body_multipart(const struct message_part *part,
 				      string_t *str, bool extended)
 {
 	struct message_part_body_data *data = part->context;
@@ -329,7 +329,7 @@ static void part_write_body_multipart(struct message_part *part,
 	}
 }
 
-static void part_write_body(struct message_part *part,
+static void part_write_body(const struct message_part *part,
 			    string_t *str, bool extended)
 {
 	struct message_part_body_data *data = part->context;
@@ -486,7 +486,7 @@ bool imap_bodystructure_is_plain_7bit(struct message_part *part)
 	return TRUE;
 }
 
-void imap_bodystructure_write(struct message_part *part,
+void imap_bodystructure_write(const struct message_part *part,
 			      string_t *dest, bool extended)
 {
 	i_assert(part->parent != NULL || part->next == NULL);

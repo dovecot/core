@@ -12,7 +12,7 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
    ("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" n n NIL NIL NIL) */
 bool imap_bodystructure_is_plain_7bit(struct message_part *part);
 
-void imap_bodystructure_write(struct message_part *part,
+void imap_bodystructure_write(const struct message_part *part,
 			      string_t *dest, bool extended);
 
 /* Return BODY part from BODYSTRUCTURE */
