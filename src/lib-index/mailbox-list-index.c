@@ -118,11 +118,17 @@ mailbox_list_index_check_header(struct mailbox_list_index *index,
 	if (hdr->next_uid == 0)
 		return mailbox_list_index_set_corrupted(index, "next_uid is 0");
 
+	if (index->mail_index->hdr == NULL) {
+		/* index already marked as corrupted */
+		return -1;
+	}
+
 	if (hdr->uid_validity != index->mail_index->hdr->uid_validity &&
 	    index->mail_index->hdr->uid_validity != 0) {
 		mail_index_set_error(index->mail_index,
 			"uid_validity changed in file %s", index->filepath);
 		mail_index_mark_corrupted(index->mail_index);
+		return -1;
 	}
 
 	return 0;
