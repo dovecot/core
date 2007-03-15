@@ -53,12 +53,12 @@ static void client_input(struct client_command_context *cmd)
 		client_destroy(client, "Disconnected in APPEND");
 		return;
 	case -2:
-		cmd_append_finish(cmd->context);
 		if (ctx->message_input) {
 			/* message data, this is handled internally by
 			   mailbox_save_continue() */
 			break;
 		}
+		cmd_append_finish(cmd->context);
 
 		/* parameter word is longer than max. input buffer size.
 		   this is most likely an error, so skip the new data
