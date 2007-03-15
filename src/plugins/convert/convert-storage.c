@@ -254,7 +254,7 @@ int convert_storage(const char *user, const char *home_dir,
 	int ret;
 
 	mail_storage_parse_env(&flags, &lock_method);
-	flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE;
+	flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE | MAIL_STORAGE_FLAG_HAS_INBOX;
 	source_storage = mail_storage_create_with_data(source_data, user,
 						       flags, lock_method);
 	if (source_storage == NULL) {
