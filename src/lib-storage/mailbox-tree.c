@@ -15,7 +15,7 @@ struct mailbox_tree_context *mailbox_tree_init(char separator)
 	struct mailbox_tree_context *ctx;
 	pool_t pool;
 
-	pool = pool_alloconly_create("mailbox_tree", 10240);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"mailbox_tree", 10240);
 
 	ctx = p_new(pool, struct mailbox_tree_context, 1);
 	ctx->pool = pool;

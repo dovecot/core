@@ -380,7 +380,8 @@ int mailbox_list_index_sync_init(struct mailbox_list_index *index,
 	if (len > 0 && path[len-1] != index->separator)
 		path = t_strdup_printf("%s%c", path, index->separator);
 
-	pool = pool_alloconly_create("mailbox list index sync", 1024*32);
+	pool = pool_alloconly_create(MEMPOOL_GROWING"mailbox list index sync",
+				     1024*32);
 
 	ctx = p_new(pool, struct mailbox_list_index_sync_ctx, 1);
 	ctx->pool = pool;
