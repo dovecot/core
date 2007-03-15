@@ -118,7 +118,7 @@ static ssize_t _read(struct _istream *stream)
 		tee_streams_update_buffer(tstream->tee);
 	}
 
-	i_assert(stream->buffer == data);
+	stream->buffer = data;
 	ret = size - stream->pos;
 	stream->pos = size;
 	return ret;
