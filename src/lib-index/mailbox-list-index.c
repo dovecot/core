@@ -186,6 +186,21 @@ int mailbox_list_index_map(struct mailbox_list_index *index)
 	return 1;
 }
 
+static int mailbox_list_index_map_area(struct mailbox_list_index *index,
+				       uoff_t offset, size_t size)
+{
+	if (offset < index->mmap_size && size <= index->mmap_size - offset)
+		return 1;
+
+	if (mailbox_list_index_map(index) <= 0)
+		return -1;
+
+	if (offset < index->mmap_size && size <= index->mmap_size - offset)
+		return 1;
+	/* outside the file */
+	return 0;
+}
+
 static void
 mailbox_list_index_init_header(struct mailbox_list_index_header *hdr,
 			       uint32_t uid_validity)
@@ -405,6 +420,7 @@ int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
 	struct mailbox_list_index *index = view->index;
 	const struct mailbox_list_dir_record *dir;
 	uint32_t next_offset, view_sync_offset, cur_offset = *offset;
+	int ret;
 
 	i_assert(index->mmap_size > 0);
 
@@ -414,10 +430,15 @@ int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
 		const struct mail_index_header *hdr =
 			mail_index_get_header(view->mail_view);
 		view_sync_offset = hdr->sync_size;
+		i_assert(*offset < view_sync_offset);
 	}
 
 	do {
-		if (cur_offset >= index->mmap_size - sizeof(*dir)) {
+		ret = mailbox_list_index_map_area(index, cur_offset,
+						  sizeof(*dir));
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
 			return mailbox_list_index_set_corrupted(index,
 				"dir_offset points outside file");
 		}
@@ -432,6 +453,11 @@ int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
 			return mailbox_list_index_set_corrupted(index,
 				"next_offset points backwards");
 		}
+		if (dir->dir_size < sizeof(*dir) +
+		    dir->count * sizeof(struct mailbox_list_record)) {
+			return mailbox_list_index_set_corrupted(index,
+				"dir_size is smaller than record count");
+		}
 		if (next_offset >= view_sync_offset) {
 			/* the list index has been changed since the mail
 			   view's last sync. don't show the changes. */
@@ -440,12 +466,19 @@ int mailbox_list_index_get_dir(struct mailbox_list_index_view *view,
 		cur_offset = next_offset;
 	} while (cur_offset != 0);
 
-	cur_offset = (const char *)dir - (const char *)index->const_mmap_base;
-	if (dir->count > INT_MAX/sizeof(struct mailbox_list_record) ||
-	    dir->count * sizeof(struct mailbox_list_record) >
-	    index->mmap_size - cur_offset) {
+	if (dir->count > INT_MAX/sizeof(struct mailbox_list_record)) {
 		mailbox_list_index_set_corrupted(index, "dir count too large");
 		return -1;
+	}
+
+	cur_offset = (const char *)dir - (const char *)index->const_mmap_base;
+
+	ret = mailbox_list_index_map_area(index, cur_offset, dir->dir_size);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		return mailbox_list_index_set_corrupted(index,
+			"dir points outside file");
 	}
 
 	*offset = cur_offset;
@@ -482,6 +515,23 @@ int mailbox_list_index_dir_lookup_rec(struct mailbox_list_index *index,
 	return 1;
 }
 
+static bool
+mailbox_list_index_offset_exists(struct mailbox_list_index_view *view,
+				 uint32_t offset)
+{
+	const struct mail_index_header *hdr;
+
+	if (view->index->mmap_size <= sizeof(*view->index->hdr))
+		return FALSE;
+
+	if (view->mail_view == NULL)
+		return TRUE;
+	else {
+		hdr = mail_index_get_header(view->mail_view);
+		return hdr->sync_size > offset;
+	}
+}
+
 static int
 mailbox_list_index_lookup_rec(struct mailbox_list_index_view *view,
 			      uint32_t dir_offset, const char *name,
@@ -492,8 +542,8 @@ mailbox_list_index_lookup_rec(struct mailbox_list_index_view *view,
 	const char *p, *hier_name;
 	int ret;
 
-	if ((dir_offset == index->mmap_size || index->mmap_size == 0) &&
-	    dir_offset == sizeof(*index->hdr)) {
+	if (dir_offset == sizeof(*index->hdr) &&
+	    !mailbox_list_index_offset_exists(view, dir_offset)) {
 		/* root doesn't exist in the file yet */
 		return 0;
 	}
@@ -517,6 +567,10 @@ mailbox_list_index_lookup_rec(struct mailbox_list_index_view *view,
 	dir_offset = mail_index_offset_to_uint32((*rec_r)->dir_offset);
 	if (dir_offset == 0)
 		return 0;
+	if (!mailbox_list_index_offset_exists(view, dir_offset)) {
+		/* child isn't visible yet */
+		return 0;
+	}
 
 	return mailbox_list_index_lookup_rec(view, dir_offset, p + 1, rec_r);
 }
@@ -604,7 +658,10 @@ mailbox_list_index_iterate_init(struct mailbox_list_index_view *view,
 				mail_index_offset_to_uint32(rec->dir_offset);
 		}
 	}
-	if (!ctx->failed && offset != 0) {
+
+	if (!mailbox_list_index_offset_exists(view, offset)) {
+		/* root doesn't exist / offset isn't visible */
+	} else if (!ctx->failed && offset != 0) {
 		if (mailbox_list_index_get_dir(view, &offset,
 					       &ctx->cur.dir) < 0)
 			ctx->failed = TRUE;
@@ -668,6 +725,12 @@ int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
 	t_pop();
 
 	dir_offset = mail_index_offset_to_uint32(recs->dir_offset);
+	if (dir_offset != 0 &&
+	    !mailbox_list_index_offset_exists(ctx->view, dir_offset)) {
+		/* child isn't visible yet */
+		dir_offset = 0;
+	}
+
 	if (dir_offset != 0 && array_count(&ctx->path) < ctx->recurse_level) {
 		/* recurse into children */
 		array_append(&ctx->path, &ctx->cur, 1);

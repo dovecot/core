@@ -493,7 +493,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	struct mailbox_list_record *new_recs;
 	struct mailbox_list_sync_record *sync_recs;
 	unsigned int src, dest, orig, count, nondeleted_count;
-	unsigned int name_space_needed, deleted_space;
+	unsigned int space_needed, deleted_space;
 	uint32_t base_offset, name_pos, size;
 	void *base;
 
@@ -502,15 +502,14 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 
 	/* count how much space we need and how much we wasted for deleted
 	   records */
-	nondeleted_count = 0; name_space_needed = 0; deleted_space = 0;
+	nondeleted_count = 0; space_needed = 0; deleted_space = 0;
 	sync_recs = array_get_modifiable(&sync_dir->records, &count);
 	for (src = 0; src < count; src++) {
 		if (sync_recs[src].seen || partial) {
 			nondeleted_count++;
 			if (sync_recs[src].created) {
 				/* new record */
-				name_space_needed +=
-					strlen(sync_recs[src].name) + 1;
+				space_needed += strlen(sync_recs[src].name) + 1;
 			}
 		} else {
 			deleted_space += sizeof(*new_recs) +
@@ -519,9 +518,8 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	}
 
 	/* @UNSAFE */
-	name_space_needed += sizeof(*dir) +
-		nondeleted_count * sizeof(*new_recs);
-	if (mailbox_list_index_sync_alloc_space(ctx, name_space_needed,
+	space_needed += sizeof(*dir) + nondeleted_count * sizeof(*new_recs);
+	if (mailbox_list_index_sync_alloc_space(ctx, space_needed,
 						&base, &base_offset) < 0)
 		return -1;
 	/* NOTE: any pointers to the index file may have been invalidated
@@ -541,6 +539,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 
 	new_dir = base;
 	new_dir->count = nondeleted_count;
+	new_dir->dir_size = space_needed;
 
 	new_recs = MAILBOX_LIST_RECORDS_MODIFIABLE(new_dir);
 	name_pos = (const char *)(new_recs + nondeleted_count) -
@@ -587,7 +586,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 		dest++;
 	}
 	i_assert(dest == nondeleted_count);
-	i_assert(name_pos == name_space_needed);
+	i_assert(name_pos == space_needed);
 
 	if (index->mmap_disable) {
 		file_cache_write(index->file_cache, ctx->output_buf->data,

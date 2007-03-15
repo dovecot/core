@@ -29,6 +29,8 @@ struct mailbox_list_dir_record {
 	/* If non-zero, contains a pointer to updated directory list.
 	   Stored using mail_index_uint32_to_offset(). */
 	uint32_t next_offset;
+	/* Bytes used by this record, including mailbox names. */
+	uint32_t dir_size;
 
 	uint32_t count;
 	/* The records are sorted by their name_hash */
