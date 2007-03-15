@@ -594,7 +594,7 @@ void _client_input(struct client *client)
 	if (client->output->closed)
 		client_destroy(client, NULL);
 	else
-		client_continue_pending_input(client);
+		client_add_missing_io(client);
 }
 
 static void client_output_cmd(struct client_command_context *cmd)
