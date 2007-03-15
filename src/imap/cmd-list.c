@@ -27,12 +27,10 @@ struct cmd_list_context {
 	unsigned int match_inbox:1;
 };
 
-static const char *
-mailbox_flags2str(enum mailbox_info_flags flags,
+static void
+mailbox_flags2str(string_t *str, enum mailbox_info_flags flags,
 		  enum mailbox_list_flags list_flags)
 {
-	const char *str;
-
 	if ((flags & MAILBOX_NONEXISTENT) != 0 &&
 	    (list_flags & _MAILBOX_LIST_ITER_LISTEXT) == 0) {
 		flags |= MAILBOX_NOSELECT;
@@ -42,17 +40,20 @@ mailbox_flags2str(enum mailbox_info_flags flags,
 	if ((list_flags & _MAILBOX_LIST_ITER_HIDE_CHILDREN) != 0)
 		flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
 
-	str = t_strconcat(
-		(flags & MAILBOX_NOSELECT) ? " \\Noselect" : "",
-		(flags & MAILBOX_NONEXISTENT) ? " \\NonExistent" : "",
-		(flags & MAILBOX_CHILDREN) ? " \\HasChildren" : "",
-		(flags & MAILBOX_NOCHILDREN) ? " \\HasNoChildren" : "",
-		(flags & MAILBOX_NOINFERIORS) ? " \\NoInferiors" : "",
-		(flags & MAILBOX_MARKED) ? " \\Marked" : "",
-		(flags & MAILBOX_UNMARKED) ? " \\UnMarked" : "",
-		NULL);
-
-	return *str == '\0' ? "" : str+1;
+	if ((flags & MAILBOX_NOSELECT) != 0)
+		str_append(str, " \\Noselect");
+	if ((flags & MAILBOX_NONEXISTENT) != 0)
+		str_append(str, " \\NonExistent");
+	if ((flags & MAILBOX_CHILDREN) != 0)
+		str_append(str, " \\HasChildren");
+	if ((flags & MAILBOX_NOCHILDREN) != 0)
+		str_append(str, " \\HasNoChildren");
+	if ((flags & MAILBOX_NOINFERIORS) != 0)
+		str_append(str, " \\NoInferiors");
+	if ((flags & MAILBOX_MARKED) != 0)
+		str_append(str, " \\Marked");
+	if ((flags & MAILBOX_UNMARKED) != 0)
+		str_append(str, " \\UnMarked");
 }
 
 static bool
@@ -158,10 +159,9 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 		}
 
 		str_truncate(str, 0);
-		str_printfa(str, "* %s (%s) \"%s\" ",
-			    ctx->lsub ? "LSUB" : "LIST",
-			    mailbox_flags2str(info->flags, ctx->list_flags),
-			    ctx->ns->sep_str);
+		str_printfa(str, "* %s (", ctx->lsub ? "LSUB" : "LIST");
+		mailbox_flags2str(str, info->flags, ctx->list_flags);
+		str_printfa(str, ") \"%s\" ", ctx->ns->sep_str);
 		imap_quote_append_string(str, name, FALSE);
 		if (client_send_line(client, str_c(str)) == 0) {
 			/* buffer is full, continue later */
@@ -324,9 +324,9 @@ list_namespace_init(struct client_command_context *cmd,
 			string_t *str = t_str_new(128);
 
 			flags = MAILBOX_NONEXISTENT | MAILBOX_CHILDREN;
-			str_printfa(str, "* LIST (%s) \"%s\" ",
-				    mailbox_flags2str(flags, ctx->list_flags),
-				    ns->sep_str);
+			str_append(str, "* LIST (");
+			mailbox_flags2str(str, flags, ctx->list_flags);
+			str_printfa(str, ") \"%s\" ", ns->sep_str);
 			imap_quote_append_string(str, skip_trailing_sep ?
 				t_strndup(ns->prefix, len-1) : ns->prefix,
 				FALSE);
