@@ -85,7 +85,7 @@ fts_backend_squat_build_init(struct fts_backend *_backend, uint32_t *last_uid_r)
 static int
 fts_backend_squat_build_more(struct fts_backend_build_context *_ctx,
 			     uint32_t uid, const unsigned char *data,
-			     size_t size)
+			     size_t size, bool headers __attr_unused__)
 {
 	struct squat_fts_backend_build_context *ctx =
 		(struct squat_fts_backend_build_context *)_ctx;
@@ -179,8 +179,9 @@ static void fts_backend_squat_unlock(struct fts_backend *_backend)
 }
 
 static int
-fts_backend_squat_lookup(struct fts_backend *_backend, const char *key,
-			 ARRAY_TYPE(seq_range) *result)
+fts_backend_squat_lookup(struct fts_backend *_backend,
+			 enum fts_lookup_flags flags __attr_unused__,
+			 const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;
@@ -189,8 +190,9 @@ fts_backend_squat_lookup(struct fts_backend *_backend, const char *key,
 }
 
 static int
-fts_backend_squat_filter(struct fts_backend *_backend, const char *key,
-			 ARRAY_TYPE(seq_range) *result)
+fts_backend_squat_filter(struct fts_backend *_backend,
+			 enum fts_lookup_flags flags __attr_unused__,
+			 const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	struct squat_fts_backend *backend =
 		(struct squat_fts_backend *)_backend;

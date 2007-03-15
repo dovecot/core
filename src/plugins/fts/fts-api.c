@@ -67,9 +67,9 @@ fts_backend_build_init(struct fts_backend *backend, uint32_t *last_uid_r)
 }
 
 int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
-			   const unsigned char *data, size_t size)
+			   const unsigned char *data, size_t size, bool headers)
 {
-	return ctx->backend->v.build_more(ctx, uid, data, size);
+	return ctx->backend->v.build_more(ctx, uid, data, size, headers);
 }
 
 int fts_backend_build_deinit(struct fts_backend_build_context *ctx)
@@ -98,24 +98,24 @@ void fts_backend_unlock(struct fts_backend *backend)
 	backend->v.unlock(backend);
 }
 
-int fts_backend_lookup(struct fts_backend *backend, const char *key,
-		       ARRAY_TYPE(seq_range) *result)
+int fts_backend_lookup(struct fts_backend *backend, enum fts_lookup_flags flags,
+		       const char *key, ARRAY_TYPE(seq_range) *result)
 {
-	return backend->v.lookup(backend, key, result);
+	return backend->v.lookup(backend, flags, key, result);
 }
 
-int fts_backend_filter(struct fts_backend *backend, const char *key,
-		       ARRAY_TYPE(seq_range) *result)
+int fts_backend_filter(struct fts_backend *backend, enum fts_lookup_flags flags,
+		       const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	ARRAY_TYPE(seq_range) tmp_result;
 	int ret;
 
 	if (backend->v.filter != NULL)
-		return backend->v.filter(backend, key, result);
+		return backend->v.filter(backend, flags, key, result);
 
 	/* do this ourself */
 	i_array_init(&tmp_result, 64);
-	ret = fts_backend_lookup(backend, key, &tmp_result);
+	ret = fts_backend_lookup(backend, flags, key, &tmp_result);
 	if (ret == 0) {
 		const struct seq_range *range;
 		unsigned int i, count;

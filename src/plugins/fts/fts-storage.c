@@ -110,7 +110,7 @@ static int fts_build_mail_flush(struct fts_storage_build_context *ctx)
 		return 1;
 
 	if (fts_backend_build_more(ctx->build, ctx->uid, str_data(ctx->headers),
-				   str_len(ctx->headers)) < 0)
+				   str_len(ctx->headers), TRUE) < 0)
 		return -1;
 
 	str_truncate(ctx->headers, 0);
@@ -210,8 +210,8 @@ static int fts_build_mail(struct fts_storage_build_context *ctx)
 			}
 		} else {
 			if (fts_backend_build_more(ctx->build, ctx->mail->uid,
-						   block.data,
-						   block.size) < 0) {
+						   block.data, block.size,
+						   FALSE) < 0) {
 				ret = -1;
 				break;
 			}
@@ -366,6 +366,7 @@ static void fts_search_filter_args(struct fts_search_context *fctx,
 				   ARRAY_TYPE(seq_range) *uid_result)
 {
 	const char *key;
+	enum fts_lookup_flags flags;
 
 	for (; args != NULL; args = args->next) {
 		switch (args->type) {
@@ -392,7 +393,11 @@ static void fts_search_filter_args(struct fts_search_context *fctx,
 				key = args->hdr_field_name;
 			}
 
-			if (fts_backend_filter(fctx->backend, key,
+			flags = FTS_LOOKUP_FLAG_BODY;
+			if (args->type == SEARCH_TEXT_FAST ||
+			    args->type == SEARCH_TEXT)
+				flags |= FTS_LOOKUP_FLAG_HEADERS;
+			if (fts_backend_filter(fctx->backend, flags, key,
 					       uid_result) < 0) {
 				/* failed, but we already have limited
 				   the search, so just ignore this */
@@ -420,6 +425,7 @@ static void fts_search_init(struct mailbox *box,
 			    struct fts_search_context *fctx)
 {
 	struct fts_backend *backend = fctx->backend;
+	enum fts_lookup_flags flags;
 	const char *key;
 	ARRAY_TYPE(seq_range) uid_result;
 
@@ -433,11 +439,17 @@ static void fts_search_init(struct mailbox *box,
 
 		/* we're only checking the existence
 		   of the header. */
+		flags = FTS_LOOKUP_FLAG_HEADERS;
 		key = fctx->best_arg->hdr_field_name;
+	} else {
+		flags = FTS_LOOKUP_FLAG_BODY;
+		if (fctx->best_arg->type == SEARCH_TEXT_FAST ||
+		    fctx->best_arg->type == SEARCH_TEXT)
+			flags |= FTS_LOOKUP_FLAG_HEADERS;
 	}
 
 	i_array_init(&uid_result, 64);
-	if (fts_backend_lookup(backend, key, &uid_result) < 0) {
+	if (fts_backend_lookup(backend, flags, key, &uid_result) < 0) {
 		/* failed, fallback to reading everything */
 		array_free(&uid_result);
 		return;

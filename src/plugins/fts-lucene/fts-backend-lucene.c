@@ -109,7 +109,7 @@ fts_backend_lucene_build_init(struct fts_backend *_backend, uint32_t *last_uid_r
 static int
 fts_backend_lucene_build_more(struct fts_backend_build_context *ctx,
 			      uint32_t uid, const unsigned char *data,
-			      size_t size)
+			      size_t size, bool headers)
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)ctx->backend;
@@ -122,7 +122,7 @@ fts_backend_lucene_build_more(struct fts_backend_build_context *ctx,
 
 	i_assert(backend->lstorage->selected_box == backend->box);
 	return lucene_index_build_more(backend->lstorage->index,
-				       uid, data, size);
+				       uid, data, size, headers);
 }
 
 static int
@@ -167,14 +167,16 @@ fts_backend_lucene_unlock(struct fts_backend *_backend __attr_unused__)
 }
 
 static int
-fts_backend_lucene_lookup(struct fts_backend *_backend, const char *key,
-			 ARRAY_TYPE(seq_range) *result)
+fts_backend_lucene_lookup(struct fts_backend *_backend,
+			  enum fts_lookup_flags flags,
+			  const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	struct lucene_fts_backend *backend =
 		(struct lucene_fts_backend *)_backend;
 
 	fts_backend_select(backend);
-	return lucene_index_lookup(backend->lstorage->index, key, result);
+	return lucene_index_lookup(backend->lstorage->index,
+				   flags, key, result);
 }
 
 struct fts_backend fts_backend_lucene = {

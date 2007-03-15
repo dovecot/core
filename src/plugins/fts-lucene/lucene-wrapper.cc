@@ -57,10 +57,12 @@ class DovecotAnalyzer : public standard::StandardAnalyzer {
 public:
 	TokenStream *tokenStream(const TCHAR *fieldName,
 				 CL_NS(util)::Reader *reader) {
-		/* Everything except contents should go as-is without any
+		/* Everything except body/headers should go as-is without any
 		   modifications. Isn't there any easier way to do this than
 		   to implement a whole new RawTokenStream?.. */
-		if (fieldName != 0 && wcscmp(fieldName, L"contents") != 0)
+		if (fieldName != 0 &&
+		    wcscmp(fieldName, L"headers") != 0 &&
+		    wcscmp(fieldName, L"body") != 0)
 			return _CLNEW RawTokenStream(reader);
 
 		return standard::StandardAnalyzer::
@@ -282,7 +284,8 @@ static int lucene_index_build_flush(struct lucene_index *index)
 }
 
 int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
-			    const unsigned char *data, size_t size)
+			    const unsigned char *data, size_t size,
+			    bool headers)
 {
 	unsigned int len;
 	char id[MAX_INT_STRLEN];
@@ -309,7 +312,10 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 		index->doc->add(*Field::Text(_T("box"), index->tmailbox_name));
 	}
 
-	index->doc->add(*Field::Text(_T("contents"), dest));
+	if (headers)
+		index->doc->add(*Field::Text(_T("headers"), dest));
+	else
+		index->doc->add(*Field::Text(_T("body"), dest));
 	return 0;
 }
 
@@ -411,11 +417,13 @@ int lucene_index_expunge(struct lucene_index *index, uint32_t uid)
 	}
 }
 
-int lucene_index_lookup(struct lucene_index *index, const char *key,
-			ARRAY_TYPE(seq_range) *result)
+int lucene_index_lookup(struct lucene_index *index, enum fts_lookup_flags flags,
+			const char *key, ARRAY_TYPE(seq_range) *result)
 {
 	const char *quoted_key;
 	int ret = 0;
+
+	i_assert((flags & (FTS_LOOKUP_FLAG_HEADERS|FTS_LOOKUP_FLAG_BODY)) != 0);
 
 	if (lucene_index_open_search(index) <= 0)
 		return -1;
@@ -429,15 +437,26 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 	lucene_utf8towcs(tkey, quoted_key, len + 1);
 	t_pop();
 
-	Query *content_query = NULL;
+	BooleanQuery lookup_query;
+	Query *content_query1 = NULL, *content_query2 = NULL;
 	try {
-		content_query = QueryParser::parse(tkey, _T("contents"),
-						   index->analyzer);
+		if ((flags & FTS_LOOKUP_FLAG_HEADERS) != 0) {
+			content_query1 = QueryParser::parse(tkey, _T("headers"),
+							    index->analyzer);
+			lookup_query.add(content_query1, false, false);
+		}
+		if ((flags & FTS_LOOKUP_FLAG_BODY) != 0) {
+			content_query2 = QueryParser::parse(tkey, _T("body"),
+							    index->analyzer);
+			lookup_query.add(content_query2, false, false);
+		}
 	} catch (CLuceneError &err) {
 		if (getenv("DEBUG") != NULL) {
 			i_info("lucene: QueryParser::parse(%s) failed: %s",
 			       str_sanitize(key, 40), err.what());
 		}
+		if (content_query1 != NULL)
+			_CLDELETE(content_query1);
 		lucene_index_close(index);
 		return -1;
 	}
@@ -445,7 +464,7 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 	BooleanQuery query;
 	Term mailbox_term(_T("box"), index->tmailbox_name);
 	TermQuery mailbox_query(&mailbox_term);
-	query.add(content_query, true, false);
+	query.add(&lookup_query, true, false);
 	query.add(&mailbox_query, true, false);
 
 	try {
@@ -469,6 +488,9 @@ int lucene_index_lookup(struct lucene_index *index, const char *key,
 		ret = -1;
 	}
 
-	_CLDELETE(content_query);
+	if (content_query1 != NULL)
+		_CLDELETE(content_query1);
+	if (content_query2 != NULL)
+		_CLDELETE(content_query2);
 	return ret;
 }
