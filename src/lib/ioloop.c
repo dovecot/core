@@ -171,8 +171,10 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 		tv->tv_usec += 1000000;
 	}
 
-	if (tv->tv_sec > 0 || (tv->tv_sec == 0 && tv->tv_usec > 0))
-		return tv->tv_sec*1000 + tv->tv_usec/1000;
+	if (tv->tv_sec > 0 || (tv->tv_sec == 0 && tv->tv_usec > 0)) {
+		/* round wait times up to next millisecond */
+		return tv->tv_sec * 1000 + (tv->tv_usec + 999) / 1000;
+	}
 
 	/* no need to calculate the times again with this timeout */
         tv->tv_sec = tv->tv_usec = 0;
