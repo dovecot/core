@@ -97,20 +97,23 @@ static void open_logfile(void)
 		return;
 	}
 
-	user = getenv("USER");
-	if (user == NULL) {
-		if (IS_STANDALONE())
-			user = getlogin();
-		if (user == NULL)
-			user = "??";
+	if (getenv("LOG_PREFIX") != NULL)
+		strocpy(log_prefix, getenv("LOG_PREFIX"), sizeof(log_prefix));
+	else {
+		user = getenv("USER");
+		if (user == NULL) {
+			if (IS_STANDALONE())
+				user = getlogin();
+			if (user == NULL)
+				user = "??";
+		}
+		if (strlen(user) >= sizeof(log_prefix)-6) {
+			/* quite a long user name, cut it */
+			user = t_strndup(user, sizeof(log_prefix)-6-2);
+			user = t_strconcat(user, "..", NULL);
+		}
+		i_snprintf(log_prefix, sizeof(log_prefix), "imap(%s): ", user);
 	}
-	if (strlen(user) >= sizeof(log_prefix)-6) {
-		/* quite a long user name, cut it */
-		user = t_strndup(user, sizeof(log_prefix)-6-2);
-		user = t_strconcat(user, "..", NULL);
-	}
-	i_snprintf(log_prefix, sizeof(log_prefix), "imap(%s)", user);
-
 	if (getenv("USE_SYSLOG") != NULL) {
 		const char *env = getenv("SYSLOG_FACILITY");
 		i_set_failure_syslog(log_prefix, LOG_NDELAY,

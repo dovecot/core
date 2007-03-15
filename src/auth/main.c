@@ -59,7 +59,7 @@ static void open_logfile(void)
 				     env == NULL ? LOG_MAIL : atoi(env));
 	} else {
 		/* log to file or stderr */
-		i_set_failure_file(getenv("LOGFILE"), "dovecot-auth");
+		i_set_failure_file(getenv("LOGFILE"), "dovecot-auth: ");
 	}
 
 	if (getenv("INFOLOGFILE") != NULL)

@@ -433,7 +433,7 @@ static void open_logfile(const char *username)
 		i_set_failure_syslog(prefix, LOG_NDELAY, facility);
 	} else {
 		/* log to file or stderr */
-		i_set_failure_file(log_path, prefix);
+		i_set_failure_file(log_path, t_strconcat(prefix, ": ", NULL));
 	}
 
 	log_path = getenv("INFO_LOG_PATH");

@@ -357,6 +357,13 @@ void mail_process_exec(const char *protocol, const char *section)
 		env_put(t_strconcat("LOGFILE=", set->log_path, NULL));
 	if (*set->info_log_path != '\0')
 		env_put(t_strconcat("INFOLOGFILE=", set->info_log_path, NULL));
+	if (*set->mail_log_prefix != '\0') {
+		string_t *str = t_str_new(256);
+
+		str_append(str, "LOG_PREFIX=");
+		var_expand(str, set->mail_log_prefix, var_expand_table);
+		env_put(str_c(str));
+	}
 
 	mail_process_set_environment(set, getenv("MAIL"), var_expand_table,
 				     FALSE);

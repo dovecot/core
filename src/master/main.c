@@ -134,7 +134,7 @@ static void set_logfile(struct settings *set)
 		i_set_failure_syslog("dovecot", LOG_NDELAY, facility);
 	} else {
 		/* log to file or stderr */
-		i_set_failure_file(set->log_path, "dovecot");
+		i_set_failure_file(set->log_path, "dovecot: ");
 	}
 
 	if (*set->info_log_path != '\0')

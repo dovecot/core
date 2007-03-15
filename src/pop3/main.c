@@ -119,14 +119,18 @@ static void open_logfile(void)
 		return;
 	}
 
-	user = getenv("USER");
-	if (user == NULL) user = "??";
-	if (strlen(user) >= sizeof(log_prefix)-6) {
-		/* quite a long user name, cut it */
-		user = t_strndup(user, sizeof(log_prefix)-6-2);
-		user = t_strconcat(user, "..", NULL);
+	if (getenv("LOG_PREFIX") != NULL)
+		strocpy(log_prefix, getenv("LOG_PREFIX"), sizeof(log_prefix));
+	else {
+		user = getenv("USER");
+		if (user == NULL) user = "??";
+		if (strlen(user) >= sizeof(log_prefix)-6) {
+			/* quite a long user name, cut it */
+			user = t_strndup(user, sizeof(log_prefix)-6-2);
+			user = t_strconcat(user, "..", NULL);
+		}
+		i_snprintf(log_prefix, sizeof(log_prefix), "pop3(%s): ", user);
 	}
-	i_snprintf(log_prefix, sizeof(log_prefix), "pop3(%s)", user);
 
 	if (getenv("USE_SYSLOG") != NULL) {
 		const char *env = getenv("SYSLOG_FACILITY");
