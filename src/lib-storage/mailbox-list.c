@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
+#include "mkdir-parents.h"
 #include "mailbox-list-private.h"
 
 #include <time.h>
@@ -105,6 +106,17 @@ int mailbox_list_init(const char *driver,
 	list->set.control_dir = set->control_dir == NULL ||
 		strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
 		p_strdup(list->pool, set->control_dir);
+
+	if (list->set.index_dir != NULL) {
+		if (mkdir_parents(list->set.index_dir, 0700) < 0 &&
+		    errno != EEXIST)
+			i_error("mkdir(%s) failed: %m", list->set.index_dir);
+	}
+	if (list->set.control_dir != NULL) {
+		if (mkdir_parents(list->set.control_dir, 0700) < 0 &&
+		    errno != EEXIST)
+			i_error("mkdir(%s) failed: %m", list->set.control_dir);
+	}
 
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.subscription_fname =
