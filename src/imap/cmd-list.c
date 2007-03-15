@@ -31,6 +31,8 @@ static void
 mailbox_flags2str(string_t *str, enum mailbox_info_flags flags,
 		  enum mailbox_list_flags list_flags)
 {
+	unsigned int orig_len = str_len(str);
+
 	if ((flags & MAILBOX_NONEXISTENT) != 0 &&
 	    (list_flags & _MAILBOX_LIST_ITER_LISTEXT) == 0) {
 		flags |= MAILBOX_NOSELECT;
@@ -41,19 +43,22 @@ mailbox_flags2str(string_t *str, enum mailbox_info_flags flags,
 		flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
 
 	if ((flags & MAILBOX_NOSELECT) != 0)
-		str_append(str, " \\Noselect");
+		str_append(str, "\\Noselect ");
 	if ((flags & MAILBOX_NONEXISTENT) != 0)
-		str_append(str, " \\NonExistent");
+		str_append(str, "\\NonExistent ");
 	if ((flags & MAILBOX_CHILDREN) != 0)
-		str_append(str, " \\HasChildren");
+		str_append(str, "\\HasChildren ");
 	if ((flags & MAILBOX_NOCHILDREN) != 0)
-		str_append(str, " \\HasNoChildren");
+		str_append(str, "\\HasNoChildren ");
 	if ((flags & MAILBOX_NOINFERIORS) != 0)
-		str_append(str, " \\NoInferiors");
+		str_append(str, "\\NoInferiors ");
 	if ((flags & MAILBOX_MARKED) != 0)
-		str_append(str, " \\Marked");
+		str_append(str, "\\Marked ");
 	if ((flags & MAILBOX_UNMARKED) != 0)
-		str_append(str, " \\UnMarked");
+		str_append(str, "\\UnMarked ");
+
+	if (str_len(str) != orig_len)
+		str_truncate(str, str_len(str)-1);
 }
 
 static bool
