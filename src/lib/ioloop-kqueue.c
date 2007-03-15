@@ -140,7 +140,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 	}
 
 	/* execute timeout handlers */
-	io_loop_handle_timeouts(ioloop);
+	io_loop_handle_timeouts(ioloop, ret == 0);
 
 	for (i = 0; i < ret; i++) {
 		/* io_loop_handle_add() may cause events array reallocation,

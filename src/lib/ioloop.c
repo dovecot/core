@@ -182,7 +182,7 @@ int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
         return 0;
 }
 
-void io_loop_handle_timeouts(struct ioloop *ioloop)
+void io_loop_handle_timeouts(struct ioloop *ioloop, bool update_run_now)
 {
 	struct timeout *called_timeouts;
 	struct timeval tv;
@@ -220,13 +220,14 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 			}
 
 			/* Try again. */
-			io_loop_handle_timeouts(ioloop);
+			io_loop_handle_timeouts(ioloop, TRUE);
 		}
 	}
 
 	ioloop_time = ioloop_timeval.tv_sec;
 
-	if (ioloop->timeouts == NULL || !ioloop->timeouts->run_now)
+	if (ioloop->timeouts == NULL ||
+	    (!ioloop->timeouts->run_now && !update_run_now))
 		return;
 
 	called_timeouts = NULL;

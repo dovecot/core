@@ -52,7 +52,7 @@ struct timeout {
 
 int io_loop_get_wait_time(struct timeout *timeout, struct timeval *tv,
 			  struct timeval *tv_now);
-void io_loop_handle_timeouts(struct ioloop *ioloop);
+void io_loop_handle_timeouts(struct ioloop *ioloop, bool update_run_now);
 
 /* I/O handler calls */
 void io_loop_handle_add(struct ioloop *ioloop, struct io_file *io);

@@ -156,7 +156,7 @@ void io_loop_handler_run(struct ioloop *ioloop)
 		i_fatal("poll(): %m");
 
 	/* execute timeout handlers */
-        io_loop_handle_timeouts(ioloop);
+        io_loop_handle_timeouts(ioloop, ret == 0);
 
 	if (ret <= 0 || !ioloop->running) {
                 /* no I/O events */
