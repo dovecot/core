@@ -23,9 +23,9 @@ static int dbox_keyword_map_compare(const void *p1, const void *p2)
 
 int dbox_file_read_keywords(struct dbox_mailbox *mbox, struct dbox_file *file)
 {
-	struct keyword_map *map, *pos, kw;
+	struct keyword_map *map, kw;
 	const char *line;
-	unsigned int idx, count;
+	unsigned int idx, count, insert_idx;
 	uoff_t last_offset;
 
 	if (array_is_created(&file->idx_file_keywords)) {
@@ -58,10 +58,14 @@ int dbox_file_read_keywords(struct dbox_mailbox *mbox, struct dbox_file *file)
 
 		/* look up the position where to insert it */
 		map = array_get_modifiable(&file->idx_file_keywords, &count);
-		pos = idx == 0 ? map :
+		if (idx == 0)
+			insert_idx = 0;
+		else {
 			bsearch_insert_pos(&kw, map, count, sizeof(*map),
-					   dbox_keyword_map_compare);
-		array_insert(&file->idx_file_keywords, pos - map, &kw, 1);
+					   dbox_keyword_map_compare,
+					   &insert_idx);
+		}
+		array_insert(&file->idx_file_keywords, insert_idx, &kw, 1);
 		array_append(&file->file_idx_keywords, &kw.index_idx, 1);
 
 		if (++idx == file->keyword_count)

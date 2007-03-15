@@ -554,8 +554,8 @@ static void index_sort_headers(struct mail_search_sort_program *program,
 			       uint32_t last_seq)
 {
 	struct mail_sort_node *nodes, node;
-	const struct mail_sort_node *cnodes, *pos;
-	unsigned int count;
+	const struct mail_sort_node *cnodes;
+	unsigned int count, idx;
 
 	/* we wish to avoid reading the actual headers as much as possible.
 	   first sort the nodes which already have sort_ids, then start
@@ -578,9 +578,10 @@ static void index_sort_headers(struct mail_search_sort_program *program,
 				     program->sort_program[0], node.seq);
 
 		cnodes = array_get_modifiable(&program->nodes, &count);
-		pos = bsearch_insert_pos(&node, cnodes, count, sizeof(*cnodes),
-					 sort_node_cmp_no_sort_id);
-		array_insert(&program->nodes, pos - cnodes, &node, 1);
+		bsearch_insert_pos(&node, cnodes, count, sizeof(*cnodes),
+				   sort_node_cmp_no_sort_id,
+				   &idx);
+		array_insert(&program->nodes, idx, &node, 1);
 	}
 
 	index_sort_add_ids(program, static_node_cmp_context.mail);
@@ -634,17 +635,18 @@ static int index_sort_build(struct mail_search_sort_program *program,
 static void index_sort_add_node(struct mail_search_sort_program *program,
 				const struct mail_sort_node *node)
 {
-	const struct mail_sort_node *nodes, *pos;
-	unsigned int count;
+	const struct mail_sort_node *nodes;
+	unsigned int count, idx;
 
 	memset(&static_node_cmp_context, 0, sizeof(static_node_cmp_context));
 	static_node_cmp_context.program = program;
 	static_node_cmp_context.mail = program->temp_mail;
 
 	nodes = array_get(&program->nodes, &count);
-	pos = bsearch_insert_pos(node, nodes, count,
-				 sizeof(*node), sort_node_cmp);
-	array_insert(&program->nodes, pos - nodes, node, 1);
+	bsearch_insert_pos(node, nodes, count,
+			   sizeof(*node), sort_node_cmp,
+			   &idx);
+	array_insert(&program->nodes, idx, node, 1);
 
 	program->last_sorted_seq = node->seq;
 	program->prev_seq = node->seq;

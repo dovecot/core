@@ -1030,7 +1030,7 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 	struct trie_node *node = *parent;
 	struct trie_node **children;
 	uint32_t char_idx;
-	bool modified = FALSE;
+	bool match, modified = FALSE;
 	int ret;
 
 	if (*data < MAX_8BIT_CHAR_COUNT) {
@@ -1045,14 +1045,13 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 			char_idx = *data;
 		} else {
 			uint8_t *chars = NODE_CHARS8(node);
-			uint8_t *pos;
 
 			count = node->chars_8bit_count;
-			pos = bsearch_insert_pos(data, chars, count,
-						 sizeof(chars[0]),
-						 chr_8bit_cmp);
-			char_idx = pos - chars;
-			if (char_idx == count || *pos != *data) {
+			match = bsearch_insert_pos(data, chars, count,
+						   sizeof(chars[0]),
+						   chr_8bit_cmp,
+						   &char_idx);
+			if (!match) {
 				node = node_realloc(node, char_idx,
 						    *data, level);
 				*parent = node;
@@ -1071,7 +1070,7 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 			modified = TRUE;
 		} else {
 			unsigned int idx_size;
-			uint16_t *chars, *pos;
+			uint16_t *chars;
 
 			idx_size = level < BLOCK_SIZE ?
 				sizeof(struct trie_node *) : sizeof(uint32_t);
@@ -1080,11 +1079,11 @@ trie_insert_node(struct squat_trie_build_context *ctx,
 			chars = PTR_OFFSET(node, offset);
 
 			count = node->chars_16bit_count;
-			pos = bsearch_insert_pos(data, chars, count,
-						 sizeof(chars[0]),
-						 chr_16bit_cmp);
-			char_idx = pos - chars;
-			if (char_idx == count || *pos != *data) {
+			match = bsearch_insert_pos(data, chars, count,
+						   sizeof(chars[0]),
+						   chr_16bit_cmp,
+						   &char_idx);
+			if (!match) {
 				node = node_realloc(node, char_idx,
 						    *data, level);
 				*parent = node;

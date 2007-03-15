@@ -3,8 +3,9 @@
 #include "lib.h"
 #include "bsearch-insert-pos.h"
 
-void *bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
-			 size_t size, int (*cmp)(const void *, const void *))
+bool bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
+			size_t size, int (*cmp)(const void *, const void *),
+			unsigned int *idx_r)
 {
 	const void *p;
 	unsigned int idx, left_idx, right_idx;
@@ -21,13 +22,19 @@ void *bsearch_insert_pos(const void *key, const void *base, unsigned int nmemb,
 			left_idx = idx+1;
 		else if (ret < 0)
 			right_idx = idx;
-		else
-			return (void *)p;
+		else {
+			*idx_r = idx;
+			return TRUE;
+		}
 	}
 
-	p = CONST_PTR_OFFSET(base, idx * size);
-	if (idx < nmemb && cmp(key, p) > 0)
-		p = CONST_PTR_OFFSET(p, size);
-	return (void *)p;
+	if (idx < nmemb) {
+		p = CONST_PTR_OFFSET(base, idx * size);
+		if (cmp(key, p) > 0)
+			++idx;
+	}
+
+	*idx_r = idx;
+	return FALSE;
 }
 

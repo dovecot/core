@@ -152,7 +152,7 @@ static void dbox_uidlist_update_last_uid(struct dbox_uidlist *uidlist,
 static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 				   const struct dbox_uidlist_entry *src_entry)
 {
-	struct dbox_uidlist_entry *dest_entry, **entries, **pos;
+	struct dbox_uidlist_entry *dest_entry, **entries;
 	const struct seq_range *range;
 	unsigned int i, idx, count;
 
@@ -163,10 +163,10 @@ static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 		/* append new file sequence */
 		idx = count;
 	} else {
-		pos = bsearch_insert_pos(&src_entry->file_seq, entries, count,
-					 sizeof(*entries),
-					 dbox_uidlist_entry_cmp);
-		idx = pos - entries;
+		bsearch_insert_pos(&src_entry->file_seq, entries, count,
+				   sizeof(*entries),
+				   dbox_uidlist_entry_cmp,
+				   &idx);
 	}
 
 	if (idx == count || entries[idx]->file_seq != src_entry->file_seq) {
@@ -1318,7 +1318,7 @@ void dbox_uidlist_sync_set_modified(struct dbox_uidlist_sync_ctx *ctx)
 void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 			      const struct dbox_uidlist_entry *entry)
 {
-	struct dbox_uidlist_entry *const *entries, **pos;
+	struct dbox_uidlist_entry *const *entries;
 	struct dbox_uidlist_entry *new_entry;
 	unsigned int count;
 
@@ -1344,10 +1344,10 @@ void dbox_uidlist_sync_append(struct dbox_uidlist_sync_ctx *ctx,
 	else {
 		unsigned int idx;
 
-		pos = bsearch_insert_pos(&new_entry->file_seq, entries,
-					 count, sizeof(*entries),
-					 dbox_uidlist_entry_cmp);
-		idx = pos - entries;
+		bsearch_insert_pos(&new_entry->file_seq, entries,
+				   count, sizeof(*entries),
+				   dbox_uidlist_entry_cmp,
+				   &idx);
 
 		i_assert(idx < count || idx == 0 ||
 			 new_entry->file_seq > entries[idx-1]->file_seq);

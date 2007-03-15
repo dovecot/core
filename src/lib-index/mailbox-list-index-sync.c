@@ -67,7 +67,6 @@ struct mailbox_list_index_sync_ctx {
 struct mailbox_list_sync_lookup_key {
 	uint32_t name_hash;
 	const char *name;
-	bool *match;
 };
 
 static bool mailbox_list_index_need_compress(struct mailbox_list_index *index);
@@ -135,17 +134,13 @@ static int mailbox_list_sync_record_cmp(const void *_key, const void *_rec)
 {
 	const struct mailbox_list_sync_lookup_key *key = _key;
 	const struct mailbox_list_sync_record *rec = _rec;
-	int ret;
 
 	if (key->name_hash < rec->name_hash)
 		return -1;
 	if (key->name_hash > rec->name_hash)
 		return 1;
 
-	ret = strcmp(key->name, rec->name);
-	if (ret == 0)
-		*key->match = TRUE;
-	return ret;
+	return strcmp(key->name, rec->name);
 }
 
 static struct mailbox_list_sync_record *
@@ -153,24 +148,24 @@ mailbox_list_sync_dir_lookup(struct mailbox_list_sync_dir *dir,
 			     const char *name, unsigned int *idx_r)
 {
 	struct mailbox_list_sync_lookup_key key;
-	const struct mailbox_list_sync_record *recs;
-	struct mailbox_list_sync_record *rec;
+	struct mailbox_list_sync_record *recs;
 	unsigned int count;
 	bool match;
 
 	/* binary search the current hierarchy level name. the values are
 	   sorted primarily by their hash value and secondarily by the actual
 	   name */
-	match = FALSE;
 	key.name = name;
 	key.name_hash = crc32_str(name);
-	key.match = &match;
 
-	recs = array_get(&dir->records, &count);
-	rec = bsearch_insert_pos(&key, recs, count, sizeof(*rec),
-				 mailbox_list_sync_record_cmp);
-	*idx_r = rec - recs;
-	return match ? rec : NULL;
+	recs = array_get_modifiable(&dir->records, &count);
+	match = bsearch_insert_pos(&key, recs, count, sizeof(*recs),
+				   mailbox_list_sync_record_cmp,
+				   idx_r);
+	if (!match)
+		return NULL;
+
+	return &recs[*idx_r];
 }
 
 static struct mailbox_list_sync_record *
