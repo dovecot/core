@@ -25,9 +25,6 @@ struct mail_log_mail {
 	struct mail_vfuncs super;
 };
 
-/* defined by imap, pop3, lda */
-extern void (*hook_mail_storage_created)(struct mail_storage *storage);
-
 const char *mail_log_plugin_version = PACKAGE_VERSION;
 
 static void (*mail_log_next_hook_mail_storage_created)

@@ -46,9 +46,6 @@ struct expire_transaction_context {
 	unsigned int first_expunged:1;
 };
 
-/* defined by imap, pop3, lda */
-extern void (*hook_mail_storage_created)(struct mail_storage *storage);
-
 const char *expire_plugin_version = PACKAGE_VERSION;
 
 static struct expire expire;

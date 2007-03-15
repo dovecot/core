@@ -8,9 +8,6 @@
 
 #include <stdlib.h>
 
-/* defined by imap, pop3, lda */
-extern void (*hook_mail_storage_created)(struct mail_storage *storage);
-
 void (*acl_next_hook_mail_storage_created)(struct mail_storage *storage);
 void (*acl_next_hook_mailbox_list_created)(struct mailbox_list *list);
 
