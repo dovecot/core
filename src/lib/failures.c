@@ -354,7 +354,7 @@ static void open_log_file(FILE **file, const char *path)
 	else {
 		*file = fopen(path, "a");
 		if (*file == NULL) {
-			fprintf(stderr, "Can't open log file %s: %s",
+			fprintf(stderr, "Can't open log file %s: %s\n",
 				path, strerror(errno));
 			failure_exit(FATAL_LOGOPEN);
 		}
