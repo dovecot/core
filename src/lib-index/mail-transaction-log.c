@@ -1104,7 +1104,7 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 {
         const struct mail_transaction_header *hdr;
 	const void *data;
-	size_t size;
+	size_t size, avail;
 	uint32_t hdr_size = 0;
 
 	data = buffer_get_data(file->buffer, &size);
@@ -1131,7 +1131,8 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		file->sync_offset += hdr_size;
 	}
 
-	if (file->sync_offset - file->buffer_offset != size) {
+	avail = file->sync_offset - file->buffer_offset;
+	if (avail != size && avail >= sizeof(*hdr)) {
 		/* record goes outside the file we've seen. or if
 		   we're accessing the log file via unlocked mmaped
 		   memory, it may be just that the memory was updated
