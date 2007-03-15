@@ -465,7 +465,7 @@ mailbox_list_index_lookup_rec(struct mailbox_list_index *index,
 	const char *p, *hier_name;
 	int ret;
 
-	if (dir_offset == index->mmap_size &&
+	if ((dir_offset == index->mmap_size || index->mmap_size == 0) &&
 	    dir_offset == sizeof(*index->hdr)) {
 		/* root doesn't exist in the file yet */
 		return 0;
