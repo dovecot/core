@@ -639,6 +639,7 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 	struct mailbox_list_record *recs;
 	const struct mailbox_list_sync_record *sync_recs;
 	unsigned int i, j, count;
+	uint32_t seq;
 
 	i_assert(sync_dir->offset != 0);
 
@@ -668,8 +669,17 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 			i_assert(j < dir->count);
 		}
 
-		if (!sync_recs[i].seen)
+		if (!sync_recs[i].seen) {
 			recs[j].deleted = TRUE;
+
+			/* expunge from mail index */
+			if (mail_index_lookup_uid_range(ctx->mail_view,
+							sync_recs[i].uid,
+							sync_recs[i].uid,
+							&seq, &seq) == 0 &&
+			    seq != 0)
+				mail_index_expunge(ctx->trans, seq);
+		}
 	}
 	if (ctx->index->mmap_disable) {
 		uoff_t offset, old_offset;
