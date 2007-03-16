@@ -38,6 +38,9 @@ mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 				 bool lock, dev_t dev, ino_t ino,
 				 uoff_t file_size);
 static int
+mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log_file
+					    	*file, bool try_retry);
+static int
 mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 			       uoff_t offset);
 
@@ -305,7 +308,9 @@ mail_transaction_log_open_int(struct mail_index *index, bool create)
 			memset(&st, 0, sizeof(st));
 		if (mail_transaction_log_file_create(file, FALSE,
 						     st.st_dev, st.st_ino,
-						     st.st_size) < 0) {
+						     st.st_size) < 0 ||
+		    mail_transaction_log_file_fd_open_or_create(file,
+								FALSE) < 0) {
 			mail_transaction_log_file_free(file);
 			file = NULL;
 		}
@@ -324,6 +329,7 @@ mail_transaction_log_open_int(struct mail_index *index, bool create)
 	}
 	file->refcount++;
 	log->head = file;
+	i_assert(log->files != NULL);
 
 	if (index->fd != -1 &&
 	    INDEX_HAS_MISSING_LOGS(index, log->head)) {
@@ -953,6 +959,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock)
 		mail_transaction_log_file_unlock(log->head);
 
 	i_assert(log->head != file);
+	i_assert(log->files != NULL);
 	log->head = file;
 	log->head->refcount++;
 	return 0;
@@ -998,6 +1005,7 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log,
 	if (--log->head->refcount == 0)
 		mail_transaction_logs_clean(log);
 
+	i_assert(log->files != NULL);
 	log->head = file;
 	log->head->refcount++;
 	return 0;
