@@ -502,7 +502,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 
 	/* count how much space we need and how much we wasted for deleted
 	   records */
-	nondeleted_count = 0; space_needed = 0; deleted_space = 0;
+	nondeleted_count = 0; space_needed = 0;
 	sync_recs = array_get_modifiable(&sync_dir->records, &count);
 	for (src = 0; src < count; src++) {
 		if (sync_recs[src].seen || partial) {
@@ -511,9 +511,6 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 				/* new record */
 				space_needed += strlen(sync_recs[src].name) + 1;
 			}
-		} else {
-			deleted_space += sizeof(*new_recs) +
-				strlen(sync_recs[src].name) + 1;
 		}
 	}
 
@@ -528,6 +525,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	if (sync_dir->offset == 0) {
 		dir = NULL;
 		recs = NULL;
+		deleted_space = 0;
 	} else {
 		/* the offset should have been verified already to be valid */
 		i_assert(sync_dir->offset == offset_pos);
@@ -535,6 +533,10 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 		dir = CONST_PTR_OFFSET(index->const_mmap_base,
 				       sync_dir->offset);
 		recs = MAILBOX_LIST_RECORDS(dir);
+
+		/* approximate deleted_space. some of the mailbox names will be
+		   reused, but don't bother calculating them. */
+		deleted_space = sizeof(*dir) + dir->dir_size;
 	}
 
 	new_dir = base;
@@ -627,6 +629,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 		index->hdr = index->const_mmap_base;
 	}
 
+	ctx->hdr.deleted_space += deleted_space;
 	sync_dir->offset = base_offset;
 	return 0;
 }
