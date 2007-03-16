@@ -58,8 +58,8 @@ static struct auth_worker_connection *auth_worker_create(void)
 		if (fd >= 0)
 			break;
 
-		if (errno == EAGAIN) {
-			/* we're busy */
+		if (errno == EAGAIN || errno == ECONNREFUSED) {
+			/* we're busy. */
 		} else if (errno == ENOENT) {
 			/* master didn't yet create it? */
 		} else {

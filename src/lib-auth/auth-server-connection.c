@@ -203,7 +203,7 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	/* max. 1 second wait here. */
 	for (try = 0; try < 10; try++) {
 		fd = net_connect_unix(path);
-		if (fd != -1 || errno != EAGAIN)
+		if (fd != -1 || (errno != EAGAIN && errno != ECONNREFUSED))
 			break;
 
 		/* busy. wait for a while. */
