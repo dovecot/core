@@ -1427,12 +1427,10 @@ dnl **
 dnl ** userdb and passdb checks
 dnl **
 
-need_crypt=no
 userdb=""
 passdb=""
 
 if test $want_static_userdb = yes; then
-	need_crypt=yes
         AC_DEFINE(USERDB_STATIC,, Build with static userdb support)
 	userdb="$userdb static"
 fi
@@ -1443,7 +1441,6 @@ if test $want_prefetch_userdb = yes; then
 fi
 
 if test $want_passwd = yes; then
-	need_crypt=yes
         AC_DEFINE(USERDB_PASSWD,, Build with passwd support)
         AC_DEFINE(PASSDB_PASSWD,, Build with passwd support)
 	userdb="$userdb passwd"
@@ -1451,7 +1448,6 @@ if test $want_passwd = yes; then
 fi
 
 if test $want_passwd_file = yes; then
-	need_crypt=yes
         AC_DEFINE(USERDB_PASSWD_FILE,, Build with passwd-file support)
         AC_DEFINE(PASSDB_PASSWD_FILE,, Build with passwd-file support)
 	userdb="$userdb passwd-file"
@@ -1461,7 +1457,6 @@ fi
 if test $want_shadow = yes; then
 	AC_CHECK_FUNC(getspnam, [
 		AC_CHECK_HEADER(shadow.h, [
-			need_crypt=yes
 			AC_DEFINE(PASSDB_SHADOW,, Build with shadow support)
 			passdb="$passdb shadow"
 		])
@@ -1735,7 +1730,6 @@ if test $want_vpopmail = yes; then
 
 	AC_MSG_CHECKING([for vpopmail configuration at $vpop_libdeps])
 	if test -f $vpop_libdeps; then
-		need_crypt=yes
 		AUTH_CFLAGS="$AUTH_CFLAGS `cat $vpopmail_home/etc/inc_deps` $CFLAGS"
 		AUTH_LIBS="$AUTH_LIBS `cat $vpop_libdeps`"
 		AC_DEFINE(USERDB_VPOPMAIL,, Build with vpopmail support)
@@ -1749,15 +1743,13 @@ if test $want_vpopmail = yes; then
 	fi
 fi
 
-if test $need_crypt = yes; then
-	AC_CHECK_LIB(crypt, crypt, [
-		AUTH_LIBS="-lcrypt $AUTH_LIBS"
-	], [
-		AC_CHECK_FUNC(crypt,, [
-			AC_MSG_ERROR([crypt() wasn't found])
-		])
+AC_CHECK_LIB(crypt, crypt, [
+	AUTH_LIBS="-lcrypt $AUTH_LIBS"
+], [
+	AC_CHECK_FUNC(crypt,, [
+		AC_MSG_ERROR([crypt() wasn't found])
 	])
-fi
+])
 
 dnl * dynamic modules?
 have_modules=no
