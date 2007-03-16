@@ -53,7 +53,9 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 	file->hdr.indexid = 0;
 	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
 		if (pwrite_full(file->fd, &file->hdr.indexid,
-				sizeof(file->hdr.indexid), 0) < 0) {
+				sizeof(file->hdr.indexid),
+				offsetof(struct mail_transaction_log_header,
+					 indexid)) < 0) {
 			mail_index_file_set_syscall_error(file->log->index,
 				file->filepath, "pwrite()");
 		}
