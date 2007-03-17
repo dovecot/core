@@ -170,7 +170,7 @@ static void drop_privileges(void)
 		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
 
 		if (plugin_dir == NULL)
-			plugin_dir = MODULEDIR"/imap";
+			plugin_dir = MODULEDIR"/pop3";
 		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
 					  TRUE, version);
 	}
