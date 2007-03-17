@@ -20,6 +20,10 @@
 /* 0.1 .. 0.2msec */
 #define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
 
+/* If the dotlock is newer than this, don't verify that the PID it contains
+   is valid (since it most likely is). */
+#define STALE_PID_CHECK_SECS 2
+
 struct dotlock {
 	struct dotlock_settings settings;
 
@@ -133,11 +137,10 @@ update_change_info(const struct stat *st, struct file_change_info *change,
 	return FALSE;
 }
 
-static int check_lock(time_t now, struct lock_info *lock_info)
+static int update_lock_info(time_t now, struct lock_info *lock_info,
+			    bool *changed_r)
 {
-	time_t stale_timeout = lock_info->set->stale_timeout;
 	struct stat st;
-	pid_t pid;
 
 	if (lstat(lock_info->lock_path, &st) < 0) {
 		if (errno != ENOENT) {
@@ -147,10 +150,27 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 		return 1;
 	}
 
-	if (update_change_info(&st, &lock_info->lock_info,
-			       &lock_info->last_change, now)) {
-		/* either our first check or someone else got the lock file. */
-		pid = read_local_pid(lock_info->lock_path);
+	*changed_r = update_change_info(&st, &lock_info->lock_info,
+					&lock_info->last_change, now);
+	return 0;
+}
+
+static int check_lock(time_t now, struct lock_info *lock_info)
+{
+	time_t stale_timeout = lock_info->set->stale_timeout;
+	pid_t pid;
+	bool changed;
+	int ret;
+
+	if ((ret = update_lock_info(now, lock_info, &changed)) != 0)
+		return ret;
+	if (changed) {
+		/* either our first check or someone else got the lock file.
+		   if the dotlock was created only a couple of seconds ago,
+		   don't bother to read its PID. */
+		pid = lock_info->lock_info.mtime >=
+			now - STALE_PID_CHECK_SECS ? -1 :
+			read_local_pid(lock_info->lock_path);
 		lock_info->have_pid = pid != -1;
 	} else if (!lock_info->have_pid) {
 		/* no pid checking */
@@ -178,10 +198,19 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 			   recreate it.. */
 		}
 
-		/* doesn't exist - go ahead and delete */
-		if (unlink(lock_info->lock_path) < 0 && errno != ENOENT) {
-			i_error("unlink(%s) failed: %m", lock_info->lock_path);
-			return -1;
+		/* doesn't exist - now check again if the dotlock was just
+		   deleted or replaced */
+		if ((ret = update_lock_info(now, lock_info, &changed)) != 0)
+			return ret;
+
+		if (!changed) {
+			/* still there, go ahead and override it */
+			if (unlink(lock_info->lock_path) < 0 &&
+			    errno != ENOENT) {
+				i_error("unlink(%s) failed: %m",
+					lock_info->lock_path);
+				return -1;
+			}
 		}
 		return 1;
 	}
@@ -192,6 +221,8 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 	}
 
 	if (now > lock_info->last_change + stale_timeout) {
+		struct stat st;
+
 		/* possibly stale lock file. check also the timestamp of the
 		   file we're protecting. */
 		if (stat(lock_info->path, &st) < 0) {
