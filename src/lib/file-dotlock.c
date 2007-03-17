@@ -555,7 +555,7 @@ int file_dotlock_delete(struct dotlock **dotlock_p)
 		if (errno == ENOENT) {
 			i_warning("Our dotlock file %s was deleted "
 				  "(kept it %d secs)", lock_path,
-				  (int)(dotlock->lock_time - time(NULL)));
+				  (int)(time(NULL) - dotlock->lock_time));
 			file_dotlock_free(dotlock);
 			return 0;
 		}
@@ -580,14 +580,14 @@ int file_dotlock_delete(struct dotlock **dotlock_p)
 			  "assuming it wasn't overridden (kept it %d secs)",
 			  lock_path,
 			  dec2str(dotlock->mtime), dec2str(st.st_mtime),
-			  (int)(dotlock->lock_time - time(NULL)));
+			  (int)(time(NULL) - dotlock->lock_time));
 	}
 
 	if (unlink(lock_path) < 0) {
 		if (errno == ENOENT) {
 			i_warning("Our dotlock file %s was deleted "
 				  "(kept it %d secs)", lock_path,
-				  (int)(dotlock->lock_time - time(NULL)));
+				  (int)(time(NULL) - dotlock->lock_time));
 			file_dotlock_free(dotlock);
 			return 0;
 		}
@@ -657,7 +657,7 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 		    !CMP_DEV_T(st.st_dev, st2.st_dev)) {
 			i_warning("Our dotlock file %s was overridden "
 				  "(kept it %d secs)", lock_path,
-				  (int)(dotlock->lock_time - time(NULL)));
+				  (int)(time(NULL) - dotlock->lock_time));
 			errno = EEXIST;
 			file_dotlock_free(dotlock);
 			return 0;
