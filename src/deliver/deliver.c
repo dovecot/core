@@ -49,6 +49,7 @@ deliver_mail_func_t *deliver_mail = NULL;
 /* FIXME: these two should be in some context struct instead of as globals.. */
 static const char *default_mailbox_name = NULL;
 static bool tried_default_save = FALSE;
+static bool no_mailbox_autocreate = FALSE;
 
 static struct module *modules;
 static struct ioloop *ioloop;
@@ -81,7 +82,7 @@ mailbox_open_or_create_synced(struct mail_storage *storage, const char *name)
 
 	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
-	if (box != NULL)
+	if (box != NULL || no_mailbox_autocreate)
 		return box;
 
 	(void)mail_storage_get_last_error(storage, &syntax, &temp);
@@ -450,7 +451,7 @@ static void print_help(void)
 {
 	printf(
 "Usage: deliver [-c <config file>] [-d <destination user>] [-m <mailbox>]\n"
-"               [-f <envelope sender>]\n");
+"               [-n] [-f <envelope sender>]\n");
 }
 
 void deliver_env_clean(void)
@@ -530,7 +531,13 @@ int main(int argc, char *argv[])
 				i_fatal_status(EX_USAGE,
 					       "Missing mailbox argument");
 			}
-			mailbox = argv[i];
+			/* Ignore -m "". This allows doing -m ${extension}
+			   in Postfix to handle user+mailbox */
+			if (*argv[i] != '\0')
+				mailbox = argv[i];
+		} else if (strcmp(argv[i], "-n") == 0) {
+			/* destination mailbox */
+			no_mailbox_autocreate = TRUE;
 		} else if (strcmp(argv[i], "-f") == 0) {
 			/* envelope sender address */
 			i++;
@@ -685,6 +692,12 @@ int main(int argc, char *argv[])
 		/* plugins didn't handle this. save into the default mailbox. */
 		i_stream_seek(input, 0);
 		ret = deliver_save(storage, mailbox, mail, 0, NULL);
+		if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
+			/* still didn't work. try once more to save it
+			   to INBOX. */
+			i_stream_seek(input, 0);
+			ret = deliver_save(storage, "INBOX", mail, 0, NULL);
+		}
 	}
 
 	if (ret < 0) {
