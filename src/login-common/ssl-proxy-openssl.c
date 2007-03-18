@@ -747,7 +747,7 @@ void ssl_proxy_init(void)
 	   initialized though. */
 	(void)RAND_bytes(&buf, 1);
 
-        ssl_proxies = hash_create(default_pool, default_pool, 0, NULL, NULL);
+        ssl_proxies = hash_create(system_pool, system_pool, 0, NULL, NULL);
 	ssl_initialized = TRUE;
 }
 

@@ -268,7 +268,7 @@ void login_proxy_detach(struct login_proxy *proxy, struct istream *client_input,
 	proxy->context = NULL;
 
 	if (login_proxies == NULL) {
-		login_proxies = hash_create(default_pool, default_pool,
+		login_proxies = hash_create(system_pool, system_pool,
 					    0, NULL, NULL);
 	}
 	hash_insert(login_proxies, proxy, proxy);

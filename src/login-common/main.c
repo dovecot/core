@@ -365,6 +365,12 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	if (!is_inetd && getenv("GDB") == NULL)
 		fd_debug_verify_leaks(4, 1024);
 #endif
+	/* clear all allocated memory before freeing it. this makes the login
+	   processes pretty safe to reuse for new connections since the
+	   attacker won't be able to find anything interesting from the
+	   memory. */
+	default_pool = system_clean_pool;
+
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
 	lib_init();

@@ -255,7 +255,7 @@ void master_init(int fd)
 	main_ref();
 
 	master_fd = fd;
-	master_requests = hash_create(default_pool, default_pool,
+	master_requests = hash_create(system_pool, system_pool,
 				      0, NULL, NULL);
 
         master_pos = 0;

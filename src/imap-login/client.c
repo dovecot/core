@@ -629,7 +629,7 @@ void clients_destroy_all(void)
 
 void clients_init(void)
 {
-	clients = hash_create(default_pool, default_pool, 128, NULL, NULL);
+	clients = hash_create(system_pool, system_pool, 128, NULL, NULL);
 	to_idle = timeout_add(1000, idle_timeout, NULL);
 }
 
