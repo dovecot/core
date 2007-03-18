@@ -28,6 +28,4 @@ char *i_strdup_vprintf(const char *format, va_list args)
 
 char *i_strconcat(const char *str1, ...)  __attr_sentinel__ __attr_malloc__;
 
-void imem_init(void);
-
 #endif

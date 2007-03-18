@@ -6,6 +6,9 @@
 #include "mempool.h"
 
 #include <stdlib.h>
+#ifdef HAVE_MALLOC_H
+#  include <malloc.h>
+#endif
 
 #ifdef HAVE_GC_GC_H
 #  include <gc/gc.h>
@@ -38,13 +41,12 @@ static struct pool_vfuncs static_system_pool_vfuncs = {
 	pool_system_get_max_easy_alloc_size
 };
 
-static struct pool static_system_pool = {
+struct pool static_system_pool = {
 	MEMBER(v) &static_system_pool_vfuncs,
 
 	MEMBER(alloconly_pool) FALSE,
 	MEMBER(datastack_pool) FALSE
 };
-
 
 pool_t system_pool = &static_system_pool;
 
@@ -105,6 +107,10 @@ static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
 			       "pool_system_realloc(): Out of memory");
 	}
 
+#if !defined(USE_GC) && defined(HAVE_MALLOC_USABLE_SIZE)
+	i_assert(old_size == (size_t)-1 || mem == NULL ||
+		 old_size <= malloc_usable_size(mem));
+#endif
 	if (old_size < new_size) {
                 /* clear new data */
 		memset((char *) mem + old_size, 0, new_size - old_size);

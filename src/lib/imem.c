@@ -2,7 +2,7 @@
 
 #include "lib.h"
 
-pool_t default_pool;
+pool_t default_pool = &static_system_pool;
 
 void *i_malloc(size_t size)
 {
@@ -72,9 +72,4 @@ char *i_strconcat(const char *str1, ...)
 
 	va_end(args);
         return ret;
-}
-
-void imem_init(void)
-{
-	default_pool = system_pool;
 }

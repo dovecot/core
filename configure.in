@@ -15,7 +15,7 @@ AC_C_INLINE
 AC_PROG_LIBTOOL
 AM_ICONV
 
-AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h \
+AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h \
   sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
   sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \
@@ -436,7 +436,8 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
                strcasecmp stricmp vsnprintf vsyslog writev pread \
 	       setrlimit setproctitle seteuid setreuid setegid setresgid \
 	       strtoull strtouq setpriority quotactl getmntent kqueue kevent \
-	       getrusage backtrace_symbols walkcontext dirfd)
+	       getrusage backtrace_symbols walkcontext dirfd \
+	       malloc_usable_size)
 
 dnl * I/O loop function
 have_ioloop=no
@@ -1858,6 +1859,14 @@ done
 AC_SUBST(sql_drivers)
 
 dnl **
+dnl ** Settings
+dnl **
+
+dnl get a list of setting .[ch] files, but list .h files first
+SETTING_FILES=`find $srcdir/src -name '*settings.[[ch]]' ! -name all-settings.[[ch]] | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g' -e 's/^\(.*\)\(.\)$/\2 \1\2/' | sort -r | sed s/^..//|tr '\n' ' '`
+AC_SUBST(SETTING_FILES)
+
+dnl **
 dnl ** Plugins
 dnl **
 
@@ -1889,6 +1898,7 @@ src/lib-dict/Makefile
 src/lib-imap/Makefile
 src/lib-index/Makefile
 src/lib-mail/Makefile
+src/lib-master/Makefile
 src/lib-ntlm/Makefile
 src/lib-otp/Makefile
 src/lib-settings/Makefile
@@ -1908,6 +1918,8 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
+src/config/Makefile
+src/log/Makefile
 src/util/Makefile
 src/plugins/Makefile
 src/plugins/acl/Makefile

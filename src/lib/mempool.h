@@ -48,6 +48,10 @@ struct pool {
 
 /* system_pool uses calloc() + realloc() + free() */
 extern pool_t system_pool;
+extern struct pool static_system_pool;
+/* Similar to pool_alloconly_create_clean(), but uses system_pool to
+   allocate the memory. */
+extern pool_t system_clean_pool;
 
 /* memory allocated from data_stack is valid only until next t_pop() call.
    No checks are performed. */

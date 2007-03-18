@@ -53,6 +53,7 @@ liblib_a_SOURCES = \
 	mempool-alloconly.c \
 	mempool-datastack.c \
 	mempool-system.c \
+	mempool-system-clean.c \
 	mempool-unsafe-datastack.c \
 	mkdir-parents.c \
 	mmap-anon.c \
