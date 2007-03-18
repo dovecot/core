@@ -58,6 +58,9 @@ void i_set_failure_internal(void);
    functions modify the info file too, so call this function after them. */
 void i_set_info_file(const char *path);
 
+/* Set the failure prefix. This is used only when logging to a file. */
+void i_set_failure_prefix(const char *prefix);
+
 /* Prefix failures with a timestamp. fmt is in strftime() format. */
 void i_set_failure_timestamp_format(const char *fmt);
 

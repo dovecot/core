@@ -364,8 +364,7 @@ static void open_log_file(FILE **file, const char *path)
 
 void i_set_failure_file(const char *path, const char *prefix)
 {
-	i_free(log_prefix);
-	log_prefix = i_strdup(prefix);
+	i_set_failure_prefix(prefix);
 
 	if (log_info_fd != NULL && log_info_fd != log_fd &&
 	    log_info_fd != stderr)
@@ -378,6 +377,12 @@ void i_set_failure_file(const char *path, const char *prefix)
 	i_set_fatal_handler(NULL);
 	i_set_error_handler(NULL);
 	i_set_warning_handler(NULL);
+}
+
+void i_set_failure_prefix(const char *prefix)
+{
+	i_free(log_prefix);
+	log_prefix = i_strdup(prefix);
 }
 
 static int __attr_format__(2, 0)
