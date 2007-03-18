@@ -65,8 +65,8 @@ void net_get_ip_any6(struct ip_addr *ip);
 int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog);
 /* Listen for connections on an UNIX socket */
 int net_listen_unix(const char *path, int backlog);
-/* Accept a connection on a socket. Returns -1 for temporary failure,
-   -2 for fatal failure */
+/* Accept a connection on a socket. Returns -1 if the connection got closed,
+   -2 for other failures */
 int net_accept(int fd, struct ip_addr *addr, unsigned int *port);
 
 /* Read data from socket, return number of bytes read,

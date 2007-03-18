@@ -95,7 +95,7 @@ static void auth_master_listener_accept(struct auth_master_listener_socket *s)
 	fd = net_accept(s->fd, NULL, NULL);
 	if (fd < 0) {
 		if (fd < -1)
-			i_fatal("accept(type %d) failed: %m", s->type);
+			i_error("accept(type %d) failed: %m", s->type);
 	} else {
 		net_set_nonblock(fd, TRUE);
 

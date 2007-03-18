@@ -347,11 +347,10 @@ int net_accept(int fd, struct ip_addr *addr, unsigned int *port)
 	ret = accept(fd, &so.sa, &addrlen);
 
 	if (ret < 0) {
-		if (errno == EBADF || errno == ENOTSOCK ||
-		    errno == EOPNOTSUPP || errno == EFAULT || errno == EINVAL)
-			return -2;
-		else
+		if (errno == EAGAIN || errno == ECONNABORTED)
 			return -1;
+		else
+			return -2;
 	}
 
 	if (addr != NULL) sin_get_ip(&so, addr);

@@ -266,7 +266,7 @@ static void auth_worker_input(struct auth_process *p)
 	fd = net_accept(p->worker_listen_fd, NULL, NULL);
 	if (fd < 0) {
 		if (fd == -2)
-			i_fatal("net_accept(worker) failed: %m");
+			i_error("accept(worker) failed: %m");
 		return;
 	}
 

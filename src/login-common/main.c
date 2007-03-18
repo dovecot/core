@@ -73,7 +73,7 @@ static void login_accept(void *context __attr_unused__)
 	fd = net_accept(LOGIN_LISTEN_FD, &remote_ip, &remote_port);
 	if (fd < 0) {
 		if (fd < -1)
-			i_fatal("accept() failed: %m");
+			i_error("accept() failed: %m");
 		return;
 	}
 
@@ -103,7 +103,7 @@ static void login_accept_ssl(void *context __attr_unused__)
 	fd = net_accept(LOGIN_SSL_LISTEN_FD, &remote_ip, &remote_port);
 	if (fd < 0) {
 		if (fd < -1)
-			i_fatal("accept() failed: %m");
+			i_error("accept() failed: %m");
 		return;
 	}
 

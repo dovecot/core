@@ -869,7 +869,7 @@ static void inetd_login_accept(void *context __attr_unused__)
 	fd = net_accept(inetd_login_fd, NULL, NULL);
 	if (fd < 0) {
 		if (fd < -1)
-			i_fatal("accept(inetd_login_fd) failed: %m");
+			i_error("accept(inetd_login_fd) failed: %m");
 	} else {
 		net_set_nonblock(fd, TRUE);
 		fd_close_on_exec(fd, TRUE);

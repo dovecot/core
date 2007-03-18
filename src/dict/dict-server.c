@@ -460,7 +460,7 @@ static void dict_server_listener_accept(struct dict_server *server)
 	fd = net_accept(server->fd, NULL, NULL);
 	if (fd < 0) {
 		if (fd < -1)
-			i_fatal("accept(%s) failed: %m", server->path);
+			i_error("accept(%s) failed: %m", server->path);
 	} else {
 		net_set_nonblock(fd, TRUE);
 		dict_client_connection_init(server, fd);
