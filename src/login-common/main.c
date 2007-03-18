@@ -370,6 +370,7 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	   attacker won't be able to find anything interesting from the
 	   memory. */
 	default_pool = system_clean_pool;
+	data_stack_set_clean_after_pop(TRUE);
 
 	/* NOTE: we start rooted, so keep the code minimal until
 	   restrict_access_by_env() is called */
