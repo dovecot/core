@@ -50,6 +50,19 @@ void auth_client_free(struct auth_client **_client)
 	i_free(client);
 }
 
+void auth_client_reconnect(struct auth_client *client)
+{
+	struct auth_server_connection *next;
+
+	while (client->connections != NULL) {
+		next = client->connections->next;
+		auth_server_connection_destroy(&client->connections, FALSE);
+		client->connections = next;
+	}
+
+	auth_client_connect_missing_servers(client);
+}
+
 const struct auth_mech_desc *
 auth_client_get_available_mechs(struct auth_client *client,
 				unsigned int *mech_count)

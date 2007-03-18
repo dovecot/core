@@ -51,6 +51,13 @@ void main_unref(void)
 		   dovecot-auth, since it's not needed anymore. */
 		if (auth_client != NULL)
 			auth_client_free(&auth_client);
+	} else if (clients_get_count() == 0) {
+		/* make sure we clear all the memory used by the
+		   authentication connections. also this makes sure that if
+		   this connection's authentication was finished but the master
+		   login wasn't, the next connection won't be able to log in
+		   as this user by finishing the master login. */
+		auth_client_reconnect(auth_client);
 	}
 }
 
