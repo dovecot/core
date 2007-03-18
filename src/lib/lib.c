@@ -22,7 +22,6 @@ void lib_init(void)
 	srand((unsigned int) time(NULL));
 
 	data_stack_init();
-	imem_init();
 	hostpid_init();
 }
 
