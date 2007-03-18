@@ -663,6 +663,21 @@ unsigned int ssl_proxy_get_count(void)
 	return ssl_proxies == NULL ? 0 : hash_size(ssl_proxies);
 }
 
+static void *ssl_clean_malloc(size_t size)
+{
+	return p_malloc(system_clean_pool, size);
+}
+
+static void *ssl_clean_realloc(void *ptr, size_t size)
+{
+	return p_realloc(system_clean_pool, ptr, (size_t)-1, size);
+}
+
+static void ssl_clean_free(void *ptr)
+{
+	return p_free(system_clean_pool, ptr);
+}
+
 void ssl_proxy_init(void)
 {
 	static char dovecot[] = "dovecot";
@@ -683,6 +698,8 @@ void ssl_proxy_init(void)
 		return;
 	}
 
+	CRYPTO_set_mem_functions(ssl_clean_malloc, ssl_clean_realloc,
+				 ssl_clean_free);
 	SSL_library_init();
 	SSL_load_error_strings();
 
