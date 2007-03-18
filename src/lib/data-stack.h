@@ -90,6 +90,9 @@ void *t_buffer_reget(void *buffer, size_t size);
         t_buffer_alloc(sizeof(type) * (size))
 void t_buffer_alloc(size_t size);
 
+/* If enabled, all the used memory is cleared after t_pop(). */
+void data_stack_set_clean_after_pop(bool enable);
+
 void data_stack_init(void);
 void data_stack_deinit(void);
 

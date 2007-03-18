@@ -29,7 +29,7 @@
 
 #ifdef DEBUG
 #  define CLEAR_CHR 0xde
-#elif defined(USE_GC)
+#else
 #  define CLEAR_CHR 0
 #endif
 
@@ -69,6 +69,7 @@ static struct stack_block *unused_block; /* largest unused block is kept here */
 
 static struct stack_block *last_buffer_block;
 static size_t last_buffer_size;
+static bool clean_after_pop = FALSE;
 
 unsigned int t_push(void)
 {
@@ -114,7 +115,6 @@ unsigned int t_push(void)
         return data_stack_frame++;
 }
 
-#ifndef USE_GC
 static void free_blocks(struct stack_block *block)
 {
 	struct stack_block *next;
@@ -125,16 +125,27 @@ static void free_blocks(struct stack_block *block)
 		next = block->next;
 
 		if (unused_block == NULL || block->size > unused_block->size) {
+			if (clean_after_pop) {
+				memset(STACK_BLOCK_DATA(unused_block),
+				       CLEAR_CHR, unused_block->size);
+			}
+#ifndef USE_GC
 			free(unused_block);
+#endif
 			unused_block = block;
 		} else {
+			if (clean_after_pop) {
+				memset(STACK_BLOCK_DATA(block), CLEAR_CHR,
+				       block->size);
+			}
+#ifndef USE_GC
 			free(block);
+#endif
 		}
 
 		block = next;
 	}
 }
-#endif
 
 unsigned int t_pop(void)
 {
@@ -147,16 +158,14 @@ unsigned int t_pop(void)
 	/* update the current block */
 	current_block = current_frame_block->block[frame_pos];
 	current_block->left = current_frame_block->block_space_used[frame_pos];
-#ifdef CLEAR_CHR
-	memset(STACK_BLOCK_DATA(current_block) +
-	       (current_block->size - current_block->left), CLEAR_CHR,
-	       current_block->left);
-#endif
+	if (clean_after_pop) {
+		memset(STACK_BLOCK_DATA(current_block) +
+		       (current_block->size - current_block->left), CLEAR_CHR,
+		       current_block->left);
+	}
 	if (current_block->next != NULL) {
 		/* free unused blocks */
-#ifndef USE_GC
 		free_blocks(current_block->next);
-#endif
 		current_block->next = NULL;
 	}
 
@@ -351,6 +360,11 @@ void t_buffer_alloc(size_t size)
 	t_malloc_real(size, TRUE);
 }
 
+void data_stack_set_clean_after_pop(bool enable)
+{
+	clean_after_pop = enable;
+}
+
 void data_stack_init(void)
 {
 	if (data_stack_frame == 0) {
@@ -531,6 +545,9 @@ void data_stack_init(void)
 	current_frame = NULL;
 	buffer_mem = NULL;
 
+#ifdef DEBUG
+	clean_after_pop = TRUE;
+#endif
 	t_push();
 }
 
