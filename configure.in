@@ -1859,14 +1859,6 @@ done
 AC_SUBST(sql_drivers)
 
 dnl **
-dnl ** Settings
-dnl **
-
-dnl get a list of setting .[ch] files, but list .h files first
-SETTING_FILES=`find $srcdir/src -name '*settings.[[ch]]' ! -name all-settings.[[ch]] | sed -e s,$srcdir/src,./src,g -e 's,./src,$(top_srcdir)/src,g' -e 's/^\(.*\)\(.\)$/\2 \1\2/' | sort -r | sed s/^..//|tr '\n' ' '`
-AC_SUBST(SETTING_FILES)
-
-dnl **
 dnl ** Plugins
 dnl **
 
@@ -1898,7 +1890,6 @@ src/lib-dict/Makefile
 src/lib-imap/Makefile
 src/lib-index/Makefile
 src/lib-mail/Makefile
-src/lib-master/Makefile
 src/lib-ntlm/Makefile
 src/lib-otp/Makefile
 src/lib-settings/Makefile
@@ -1918,8 +1909,6 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
-src/config/Makefile
-src/log/Makefile
 src/util/Makefile
 src/plugins/Makefile
 src/plugins/acl/Makefile
