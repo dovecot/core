@@ -11,6 +11,7 @@
 #include "nfs-workarounds.h"
 #include "write-full.h"
 #include "maildir-storage.h"
+#include "maildir-sync.h"
 #include "maildir-uidlist.h"
 
 #include <stdio.h>
@@ -467,8 +468,19 @@ maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 	unsigned int idx;
 
 	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
-	if (rec == NULL)
-		return NULL;
+	if (rec == NULL) {
+		if (uidlist->last_mtime != 0)
+			return NULL;
+
+		/* the uidlist doesn't exist. */
+		if (maildir_storage_sync_force(uidlist->mbox) < 0)
+			return NULL;
+
+		/* try again */
+		rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
+		if (rec == NULL)
+			return NULL;
+	}
 
 	*flags_r = rec->flags;
 	return rec->filename;
