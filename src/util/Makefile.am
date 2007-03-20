@@ -1,10 +1,12 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
-pkglibexec_PROGRAMS = rawlog gdbhelper
+pkglibexec_PROGRAMS = rawlog gdbhelper idxview logview
 sbin_PROGRAMS = dovecotpw
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/auth
 
 rawlog_LDADD = \
@@ -18,6 +20,18 @@ gdbhelper_LDADD = \
 
 gdbhelper_SOURCES = \
 	gdbhelper.c
+
+idxview_LDADD = \
+	../lib/liblib.a
+
+idxview_SOURCES = \
+	idxview.c
+
+logview_LDADD = \
+	../lib/liblib.a
+
+logview_SOURCES = \
+	logview.c
 
 dovecotpw_LDADD = \
 	../auth/libpassword.a \
