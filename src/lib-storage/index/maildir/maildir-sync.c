@@ -1249,7 +1249,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		   have to do it here before syncing index records, since after
 		   that the uidlist's next_uid value may have changed. */
 		next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
-		if (next_uid != 0 && hdr->next_uid != next_uid) {
+		if (hdr->next_uid < next_uid) {
 			mail_index_update_header(trans,
 				offsetof(struct mail_index_header, next_uid),
 				&next_uid, sizeof(next_uid), FALSE);
@@ -1293,11 +1293,12 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		if (uid_validity == 0) {
 			uid_validity = ioloop_time;
 			maildir_uidlist_set_uid_validity(mbox->uidlist,
-							 uid_validity);
+							 uid_validity, 1);
 		}
 	} else if (uid_validity == 0) {
 		maildir_uidlist_set_uid_validity(mbox->uidlist,
-						 hdr->uid_validity);
+						 hdr->uid_validity,
+						 hdr->next_uid);
 	}
 
 	if (uid_validity != hdr->uid_validity && uid_validity != 0) {
