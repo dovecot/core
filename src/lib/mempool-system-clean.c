@@ -98,7 +98,7 @@ static void *pool_system_clean_malloc(pool_t pool __attr_unused__, size_t size)
 	{
 		size_t *saved_size = mem;
 
-		*saved_size = size;
+		*saved_size = size - sizeof(size_t);
 		mem = saved_size + 1;
 	}
 #endif
