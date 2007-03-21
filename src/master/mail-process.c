@@ -24,6 +24,12 @@
 #  include <sys/resource.h>
 #endif
 
+/* Timeout chdir() completely after this many seconds */
+#define CHDIR_TIMEOUT 30
+/* Give a warning about chdir() taking a while if it took longer than this
+   many seconds to finish. */
+#define CHDIR_WARN_SECS 10
+
 static unsigned int mail_process_count = 0;
 
 static bool validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
@@ -429,8 +435,8 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	uid_t uid;
 	gid_t gid;
 	ARRAY_DEFINE(extra_args, const char *);
-	unsigned int i, count;
-	int ret, log_fd, nice;
+	unsigned int i, count, left;
+	int ret, log_fd, nice, chdir_errno;
 	bool home_given, nfs_check;
 
 	// FIXME: per-group
@@ -602,7 +608,14 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 			if (seteuid(uid) < 0)
 				i_fatal("seteuid(%s) failed: %m", dec2str(uid));
 		}
+
+		alarm(CHDIR_TIMEOUT);
 		ret = chdir(full_home_dir);
+		chdir_errno = errno;
+		if ((left = alarm(0)) < CHDIR_TIMEOUT - CHDIR_WARN_SECS) {
+			i_warning("chdir(%s) blocked for %u secs",
+				  full_home_dir, CHDIR_TIMEOUT - left);
+		}
 
 		/* Change UID back. No need to change GID back, it doesn't
 		   really matter. */
@@ -613,8 +626,9 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		   trying to chroot anywhere, fallback to /tmp as the mails
 		   could be stored elsewhere. The ENOTDIR check is mostly for
 		   /dev/null home directory. */
-		if (ret < 0 && ((errno != ENOENT && errno != ENOTDIR) ||
-				*chroot_dir != '\0')) {
+		if (ret < 0 && (*chroot_dir != '\0' ||
+				!(ENOTFOUND(chdir_errno) ||
+				  chdir_errno == EINTR))) {
 			i_fatal("chdir(%s) failed with uid %s: %m",
 				full_home_dir, dec2str(uid));
 		}
