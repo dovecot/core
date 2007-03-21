@@ -156,7 +156,7 @@ static void auth_input(struct auth_connection *conn)
 			auth_parse_input(conn, line + 7);
 		} else if (strcmp(line, "NOTFOUND\t1") == 0)
 			return_value = EX_NOUSER;
-		else if (strncmp(line, "FAIL\t1\t", 7) == 0)
+		else if (strncmp(line, "FAIL\t1", 6) == 0)
 			return_value = EX_TEMPFAIL;
 		else {
 			i_error("BUG: Unexpected input from auth master: %s",
