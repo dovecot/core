@@ -17,8 +17,13 @@
 #  include <gc.h>
 #endif
 
-/* Always give 64 bits to the size so returned memory is always 64bit aligned */
-#define EXTRA_SIZE_SPACE 8
+/* use the maximum of required memory alignment and sizeof(void *)
+   (sizeof(size_t) is assumed to be same. it always is.) */
+#if MEM_ALIGN_SIZE > SIZEOF_VOID_P
+#  define EXTRA_SIZE_SPACE MEM_ALIGN_SIZE
+#else
+#  define EXTRA_SIZE_SPACE SIZEOF_VOID_P
+#endif
 
 #undef HAVE_MALLOC_USABLE_SIZE
 static const char *pool_system_clean_get_name(pool_t pool);
