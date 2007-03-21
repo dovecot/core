@@ -587,9 +587,10 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	if (dump_capability)
 		env_put("DUMP_CAPABILITY=1");
 
-	if (*home_dir == '\0')
+	if (*home_dir == '\0') {
+		full_home_dir = "";
 		ret = -1;
-	else {
+	} else {
 		full_home_dir = *chroot_dir == '\0' ? home_dir :
 			t_strconcat(chroot_dir, "/", home_dir, NULL);
 		/* NOTE: if home directory is NFS-mounted, we might not
@@ -648,11 +649,8 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		}
 	}
 
-	if (nfs_check) {
-		if (*chroot_dir != '\0')
-			home_dir = t_strconcat(chroot_dir, "/", home_dir, NULL);
-		nfs_warn_if_found(getenv("MAIL"), chroot_dir, home_dir);
-	}
+	if (nfs_check)
+		nfs_warn_if_found(getenv("MAIL"), chroot_dir, full_home_dir);
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", home_dir, NULL));
