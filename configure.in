@@ -1197,6 +1197,23 @@ AC_TRY_COMPILE([
   AC_MSG_RESULT(no)
 ])
 
+AC_MSG_CHECKING([if struct stat has tv_nsec fields])
+AC_TRY_COMPILE([
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <unistd.h>
+], [
+  struct stat st;
+  unsigned long x = st.st_mtim.tv_nsec;
+
+  return 0;
+], [
+  AC_DEFINE(HAVE_STAT_TV_NSEC,, Define if you have tv_nsec fields in struct stat)
+  AC_MSG_RESULT(yes)
+], [
+  AC_MSG_RESULT(no)
+])
+
 dnl * Check if statvfs() can be used to find out block device for files
 AC_MSG_CHECKING([if statvfs.f_mntfromname exists])
 AC_TRY_COMPILE([
