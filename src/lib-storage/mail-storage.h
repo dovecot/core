@@ -6,6 +6,9 @@ struct message_size;
 #include "mail-types.h"
 #include "mailbox-list.h"
 
+/* If some operation is taking long, call notify_ok every n seconds. */
+#define MAIL_STORAGE_STAYALIVE_SECS 15
+
 enum mail_storage_flags {
 	/* Print debugging information while initializing the storage */
 	MAIL_STORAGE_FLAG_DEBUG			= 0x01,

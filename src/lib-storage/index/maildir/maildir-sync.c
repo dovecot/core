@@ -209,12 +209,17 @@ struct maildir_sync_context {
 	const char *new_dir, *cur_dir;
 	bool partial;
 
+	unsigned int move_count, check_count;
+	time_t last_touch, last_notify;
+
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
         struct maildir_index_sync_context *index_sync_ctx;
 };
 
 struct maildir_index_sync_context {
         struct maildir_mailbox *mbox;
+	struct maildir_sync_context *maildir_sync_ctx;
+
 	struct mail_index_view *view;
 	struct mail_index_sync_ctx *sync_ctx;
         struct maildir_keywords_sync_ctx *keywords_sync_ctx;
@@ -468,6 +473,38 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	return -1;
 }
 
+static void
+maildir_sync_check_timeouts(struct maildir_sync_context *ctx, bool move)
+{
+	time_t now;
+
+	if (move) {
+		ctx->move_count++;
+		if ((ctx->move_count % MAILDIR_SLOW_MOVE_COUNT) != 0)
+			return;
+	} else {
+		ctx->check_count++;
+		if ((ctx->check_count % MAILDIR_SLOW_CHECK_COUNT) != 0)
+			return;
+	}
+
+	now = time(NULL);
+	if (now - ctx->last_touch > MAILDIR_LOCK_TOUCH_SECS) {
+		(void)maildir_uidlist_lock_touch(ctx->mbox->uidlist);
+		ctx->last_touch = now;
+	}
+	if (now - ctx->last_notify > MAIL_STORAGE_STAYALIVE_SECS) {
+		struct mailbox *box = &ctx->mbox->ibox.box;
+
+		if (box->storage->callbacks->notify_ok != NULL) {
+			box->storage->callbacks->
+				notify_ok(box, "Hang in there..",
+					  box->storage->callback_context);
+		}
+		ctx->last_notify = now;
+	}
+}
+
 static int
 maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
 				 uint32_t last_seq)
@@ -508,10 +545,14 @@ maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
 
 		ctx->seq = seq;
 		if (expunged) {
+			maildir_sync_check_timeouts(ctx->maildir_sync_ctx,
+						    TRUE);
 			if (maildir_file_do(ctx->mbox, uid,
 					    maildir_expunge, ctx) < 0)
 				return -1;
 		} else if (flag_changed) {
+			maildir_sync_check_timeouts(ctx->maildir_sync_ctx,
+						    TRUE);
 			if (maildir_file_do(ctx->mbox, uid,
 					    maildir_sync_flags, ctx) < 0)
 				return -1;
@@ -620,6 +661,8 @@ maildir_sync_context_new(struct maildir_mailbox *mbox)
 	ctx->mbox = mbox;
 	ctx->new_dir = t_strconcat(mbox->path, "/new", NULL);
 	ctx->cur_dir = t_strconcat(mbox->path, "/cur", NULL);
+	ctx->last_touch = ioloop_time;
+	ctx->last_notify = ioloop_time;
 	return ctx;
 }
 
@@ -692,12 +735,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	string_t *src, *dest;
 	struct dirent *dp;
 	enum maildir_uidlist_rec_flag flags;
-	time_t last_touch;
-	unsigned int moves = 0, count = 0;
 	int ret = 1;
 	bool move_new, check_touch;
-
-	last_touch = ioloop_time;
 
 	dir = new_dir ? ctx->new_dir : ctx->cur_dir;
 	dirp = opendir(dir);
@@ -711,6 +750,7 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	src = t_str_new(1024);
 	dest = t_str_new(1024);
 
+	ctx->move_count = 0;
 	move_new = new_dir && !mailbox_is_readonly(&ctx->mbox->ibox.box) &&
 		!ctx->mbox->ibox.keep_recent;
 	while ((dp = readdir(dirp)) != NULL) {
@@ -743,13 +783,13 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 			}
 			if (rename(str_c(src), str_c(dest)) == 0) {
 				/* we moved it - it's \Recent for us */
-				moves++;
+				maildir_sync_check_timeouts(ctx, TRUE);
 				ctx->mbox->dirty_cur_time = ioloop_time;
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED |
 					MAILDIR_UIDLIST_REC_FLAG_RECENT;
 			} else if (ENOTFOUND(errno)) {
 				/* someone else moved it already */
-				moves++;
+				maildir_sync_check_timeouts(ctx, TRUE);
 				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED;
 			} else if (ENOSPACE(errno) || errno == EACCES) {
 				/* not enough disk space / read-only maildir,
@@ -764,23 +804,12 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 					"rename(%s, %s) failed: %m",
 					str_c(src), str_c(dest));
 			}
-			if ((moves % MAILDIR_SLOW_MOVE_COUNT) == 0)
-				check_touch = TRUE;
 		} else if (new_dir) {
 			flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 				MAILDIR_UIDLIST_REC_FLAG_RECENT;
 		}
 
-		count++;
-		if (check_touch || (count % MAILDIR_SLOW_CHECK_COUNT) == 0) {
-			time_t now = time(NULL);
-
-			if (now - last_touch > MAILDIR_LOCK_TOUCH_SECS) {
-				(void)maildir_uidlist_lock_touch(
-							ctx->mbox->uidlist);
-				last_touch = now;
-			}
-		}
+		maildir_sync_check_timeouts(ctx, FALSE);
 
 		ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
 						dp->d_name, flags);
@@ -802,7 +831,8 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	}
 
 	t_pop();
-	return ret < 0 ? -1 : (moves <= MAILDIR_RENAME_RESCAN_COUNT ? 0 : 1);
+	return ret < 0 ? -1 :
+		(ctx->move_count <= MAILDIR_RENAME_RESCAN_COUNT ? 0 : 1);
 }
 
 static void
@@ -1358,6 +1388,7 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 		if (maildir_sync_index_begin(ctx->mbox,
 					     &ctx->index_sync_ctx) < 0)
 			return -1;
+		ctx->index_sync_ctx->maildir_sync_ctx = ctx;
 	}
 
 	if (new_changed || cur_changed) {

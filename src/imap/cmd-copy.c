@@ -1,12 +1,32 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2007 Timo Sirainen */
 
 #include "common.h"
 #include "str.h"
+#include "ostream.h"
 #include "commands.h"
 #include "imap-search.h"
 
-static int fetch_and_copy(struct mailbox_transaction_context *t,
-			  struct mailbox *srcbox,
+#include <time.h>
+
+#define COPY_CHECK_INTERVAL 100
+
+static void client_send_sendalive_if_needed(struct client *client)
+{
+	time_t now;
+
+	if (o_stream_get_buffer_used_size(client->output) != 0)
+		return;
+
+	now = time(NULL);
+	if (now - client->last_output > MAIL_STORAGE_STAYALIVE_SECS) {
+		o_stream_send_str(client->output, "* OK Hang in there..\r\n");
+		o_stream_flush(client->output);
+		client->last_output = now;
+	}
+}
+
+static int fetch_and_copy(struct client *client,
+			  struct mailbox_transaction_context *t,
 			  struct mail_search_arg *search_args)
 {
 	struct mail_search_context *search_ctx;
@@ -14,9 +34,10 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 	struct mail_keywords *keywords;
 	const char *const *keywords_list;
 	struct mail *mail;
+	unsigned int copy_count = 0;
 	int ret;
 
-	src_trans = mailbox_transaction_begin(srcbox, 0);
+	src_trans = mailbox_transaction_begin(client->mailbox, 0);
 	search_ctx = mailbox_search_init(src_trans, NULL, search_args, NULL);
 
 	mail = mail_alloc(src_trans, MAIL_FETCH_STREAM_HEADER |
@@ -27,6 +48,9 @@ static int fetch_and_copy(struct mailbox_transaction_context *t,
 			ret = 0;
 			break;
 		}
+
+		if ((++copy_count % COPY_CHECK_INTERVAL) != 0)
+			client_send_sendalive_if_needed(client);
 
 		keywords_list = mail_get_keywords(mail);
 		keywords = strarray_length(keywords_list) == 0 ? NULL :
@@ -92,7 +116,7 @@ bool cmd_copy(struct client_command_context *cmd)
 
 	t = mailbox_transaction_begin(destbox,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL);
-	ret = fetch_and_copy(t, client->mailbox, search_arg);
+	ret = fetch_and_copy(client, t, search_arg);
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
