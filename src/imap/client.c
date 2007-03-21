@@ -156,6 +156,7 @@ int client_send_line(struct client *client, const char *data)
 
 	if (o_stream_sendv(client->output, iov, 2) < 0)
 		return -1;
+	client->last_output = ioloop_time;
 
 	if (o_stream_get_buffer_used_size(client->output) >=
 	    CLIENT_OUTPUT_OPTIMAL_SIZE) {
@@ -180,6 +181,8 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 	(void)o_stream_send(client->output, " ", 1);
 	(void)o_stream_send_str(client->output, data);
 	(void)o_stream_send(client->output, "\r\n", 2);
+
+	client->last_output = ioloop_time;
 }
 
 void client_send_command_error(struct client_command_context *cmd,
