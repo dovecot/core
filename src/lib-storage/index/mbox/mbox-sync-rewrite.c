@@ -420,7 +420,14 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 	if (mail_ctx->mail.space <= 0) {
 		need_space = str_len(mail_ctx->header) - mail_ctx->mail.space -
 			(mail_ctx->body_offset - mail_ctx->hdr_offset);
-		i_assert(need_space == (uoff_t)-mails[idx].space);
+		if (need_space != (uoff_t)-mails[idx].space) {
+			i_panic("mbox %s: seq=%u uid=%u uid_broken=%d "
+				"originally needed %"PRIuUOFF_T
+				" bytes, now needs %"PRIuSIZE_T" bytes",
+				sync_ctx->mbox->path, seq, mails[idx].uid,
+				mails[idx].uid_broken,
+				(uoff_t)-mails[idx].space, need_space);
+		}
 	}
 
 	if (mails[idx].space == 0) {
