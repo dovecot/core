@@ -6,6 +6,8 @@
 
 ARRAY_DEFINE_TYPE(sync_recs, struct mail_index_sync_rec);
 
+#include <sys/stat.h>
+
 enum mbox_sync_flags {
 	MBOX_SYNC_LAST_COMMIT	= 0x01,
 	MBOX_SYNC_HEADER	= 0x02,
@@ -105,6 +107,7 @@ struct mbox_sync_context {
 
 	time_t orig_mtime;
 	uoff_t orig_size;
+	struct stat last_stat;
 
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
@@ -161,6 +164,8 @@ void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
 				 struct mbox_sync_mail *mail,
 				 bool *keywords_changed_r);
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset);
+bool mbox_sync_file_is_ext_modified(struct mbox_sync_context *sync_ctx);
+void mbox_sync_file_updated(struct mbox_sync_context *sync_ctx, bool dirty);
 int mbox_move(struct mbox_sync_context *sync_ctx,
 	      uoff_t dest, uoff_t source, uoff_t size);
 void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,

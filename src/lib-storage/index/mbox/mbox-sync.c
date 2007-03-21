@@ -74,6 +74,46 @@ int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
 	return 0;
 }
 
+bool mbox_sync_file_is_ext_modified(struct mbox_sync_context *sync_ctx)
+{
+	struct stat st;
+
+	if (fstat(sync_ctx->write_fd, &st) < 0) {
+		mbox_set_syscall_error(sync_ctx->mbox, "fstat()");
+		return TRUE;
+	}
+
+	if (st.st_size != sync_ctx->last_stat.st_size ||
+	    (sync_ctx->last_stat.st_mtime != 0 &&
+	     (st.st_mtime != sync_ctx->last_stat.st_mtime
+#ifdef HAVE_STAT_TV_NSEC
+	      /* nanoseconds give better precision to this check if they're
+		 supported by the OS */
+	      || st.st_mtim.tv_nsec != sync_ctx->last_stat.st_mtim.tv_nsec
+#endif
+	     ))) {
+		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+			"mbox file %s was modified while we were syncing, "
+			"check your locking settings", sync_ctx->mbox->path);
+		return TRUE;
+	}
+
+	sync_ctx->last_stat = st;
+	return FALSE;
+}
+
+void mbox_sync_file_updated(struct mbox_sync_context *sync_ctx, bool dirty)
+{
+	if (dirty) {
+		/* just mark the stat as dirty. */
+		sync_ctx->last_stat.st_mtime = 0;
+		return;
+	}
+	if (fstat(sync_ctx->write_fd, &sync_ctx->last_stat) < 0)
+		mbox_set_syscall_error(sync_ctx->mbox, "fstat()");
+	i_stream_sync(sync_ctx->input);
+}
+
 static void mbox_sync_array_delete_to(ARRAY_TYPE(sync_recs) *syncs_arr,
 				      uint32_t last_uid)
 {
@@ -621,6 +661,7 @@ static int mbox_rewrite_base_uid_last(struct mbox_sync_context *sync_ctx)
 		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
 	}
+	mbox_sync_file_updated(sync_ctx, FALSE);
 
 	sync_ctx->base_uid_last = sync_ctx->next_uid - 1;
 	return 0;
@@ -637,7 +678,7 @@ mbox_write_from_line(struct mbox_sync_mail_context *ctx)
 		return -1;
 	}
 
-	i_stream_sync(ctx->sync_ctx->input);
+	mbox_sync_file_updated(ctx->sync_ctx, FALSE);
 	return 0;
 }
 
@@ -846,6 +887,9 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		move_diff = 0;
 		extra_space = sync_ctx->space_diff;
 	}
+
+	if (mbox_sync_file_is_ext_modified(sync_ctx))
+		return -1;
 
 	if (mbox_sync_rewrite(sync_ctx,
 			      last_seq == sync_ctx->seq ? mail_ctx : NULL,
@@ -1181,6 +1225,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		} else if (sync_ctx->expunged_space > 0) {
 			if (!expunged) {
 				/* move the body */
+				if (mbox_sync_file_is_ext_modified(sync_ctx))
+					return -1;
+
 				if (mbox_move(sync_ctx,
 					      mail_ctx->body_offset -
 					      sync_ctx->expunged_space,
@@ -1276,9 +1323,6 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		return 0;
 	}
 
-	/* make sure i_stream_stat() doesn't try to use cached file size */
-	i_stream_sync(sync_ctx->file_input);
-
 	st = i_stream_stat(sync_ctx->file_input, TRUE);
 	if (st == NULL) {
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
@@ -1313,6 +1357,9 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 		i_assert(sync_ctx->space_diff < 0);
 
+		if (mbox_sync_file_is_ext_modified(sync_ctx))
+			return -1;
+
 		if (file_set_size(sync_ctx->write_fd,
 				  file_size + -sync_ctx->space_diff) < 0) {
 			mbox_set_syscall_error(sync_ctx->mbox,
@@ -1323,7 +1370,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			}
 			return -1;
 		}
-		i_stream_sync(sync_ctx->input);
+		mbox_sync_file_updated(sync_ctx, FALSE);
 
 		if (mbox_sync_rewrite(sync_ctx, mail_ctx, file_size,
 				      -sync_ctx->space_diff, padding,
@@ -1341,15 +1388,11 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	if (sync_ctx->expunged_space > 0) {
 		i_assert(sync_ctx->write_fd != -1);
 
-		/* copy trailer, then truncate the file */
-		st = i_stream_stat(sync_ctx->file_input, TRUE);
-		if (st == NULL) {
-			mbox_set_syscall_error(sync_ctx->mbox,
-					       "i_stream_stat()");
+		if (mbox_sync_file_is_ext_modified(sync_ctx))
 			return -1;
-		}
 
-		file_size = st->st_size;
+		/* copy trailer, then truncate the file */
+		file_size = sync_ctx->last_stat.st_size;
 		if (file_size == (uoff_t)sync_ctx->expunged_space) {
 			/* everything deleted, the trailer_size still contains
 			   the \n trailer though */
@@ -1376,7 +1419,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 		}
 
                 sync_ctx->expunged_space = 0;
-		i_stream_sync(sync_ctx->input);
+		mbox_sync_file_updated(sync_ctx, FALSE);
 	}
 	return 0;
 }
@@ -1512,6 +1555,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
 		return -1;
 	}
+	sync_ctx->last_stat = *st;
 	sync_ctx->orig_size = st->st_size;
 	sync_ctx->orig_mtime = st->st_mtime;
 

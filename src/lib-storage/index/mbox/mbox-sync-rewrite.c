@@ -55,7 +55,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 				       "o_stream_send_istream()");
 	}
 
-	i_stream_sync(sync_ctx->input);
+	mbox_sync_file_updated(sync_ctx, FALSE);
 	o_stream_destroy(&output);
 	return (int)ret;
 }
@@ -79,6 +79,7 @@ static int mbox_fill_space(struct mbox_sync_context *sync_ctx,
 		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
 	}
+	mbox_sync_file_updated(sync_ctx, TRUE);
 	return 0;
 }
 
@@ -314,7 +315,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 		mbox_sync_first_mail_written(ctx, ctx->hdr_offset + move_diff);
 	}
 
-	i_stream_sync(sync_ctx->input);
+	mbox_sync_file_updated(sync_ctx, FALSE);
 	return 1;
 }
 
@@ -408,19 +409,15 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		i_stream_seek(sync_ctx->input, mail_ctx->body_offset);
 	}
 
-	if (first_nonexpunged && expunged_space > 0) {
-		/* move From-line (after parsing headers so we don't
-		   overwrite them) */
-		if (mbox_move(sync_ctx, mails[idx].from_offset - expunged_space,
-			      mails[idx].from_offset,
-			      mails[idx].offset - mails[idx].from_offset) < 0)
-			return -1;
-	}
-
 	if (mail_ctx->mail.space <= 0) {
 		need_space = str_len(mail_ctx->header) - mail_ctx->mail.space -
 			(mail_ctx->body_offset - mail_ctx->hdr_offset);
 		if (need_space != (uoff_t)-mails[idx].space) {
+			/* this check works only if we're doing the first
+			   write, or if the file size was changed externally */
+			if (mbox_sync_file_is_ext_modified(sync_ctx))
+				return -1;
+
 			i_panic("mbox %s: seq=%u uid=%u uid_broken=%d "
 				"originally needed %"PRIuUOFF_T
 				" bytes, now needs %"PRIuSIZE_T" bytes",
@@ -428,6 +425,15 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 				mails[idx].uid_broken,
 				(uoff_t)-mails[idx].space, need_space);
 		}
+	}
+
+	if (first_nonexpunged && expunged_space > 0) {
+		/* move From-line (after parsing headers so we don't
+		   overwrite them) */
+		if (mbox_move(sync_ctx, mails[idx].from_offset - expunged_space,
+			      mails[idx].from_offset,
+			      mails[idx].offset - mails[idx].from_offset) < 0)
+			return -1;
 	}
 
 	if (mails[idx].space == 0) {
@@ -458,6 +464,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
 	}
+	mbox_sync_file_updated(sync_ctx, TRUE);
 
 	if (sync_ctx->dest_first_mail) {
 		mbox_sync_first_mail_written(mail_ctx, dest_offset);
@@ -585,7 +592,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 	i_assert(mails[idx].from_offset == start_offset);
 	i_assert(move_diff + (off_t)expunged_space >= 0);
 
-	i_stream_sync(sync_ctx->input);
+	mbox_sync_file_updated(sync_ctx, FALSE);
 	sync_ctx->prev_msg_uid = orig_prev_msg_uid;
 	return ret;
 }
