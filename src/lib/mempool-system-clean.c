@@ -17,6 +17,10 @@
 #  include <gc.h>
 #endif
 
+/* Always give 64 bits to the size so returned memory is always 64bit aligned */
+#define EXTRA_SIZE_SPACE 8
+
+#undef HAVE_MALLOC_USABLE_SIZE
 static const char *pool_system_clean_get_name(pool_t pool);
 static void pool_system_clean_ref(pool_t pool);
 static void pool_system_clean_unref(pool_t *pool);
@@ -71,7 +75,7 @@ static size_t mem_get_size(void *mem)
 #elif defined(HAVE_MALLOC_USABLE_SIZE)
 	return malloc_usable_size(mem);
 #else
-	return ((size_t *)mem)[-1];
+	return *((size_t *)PTR_OFFSET(mem, -EXTRA_SIZE_SPACE));
 #endif
 }
 
@@ -86,7 +90,7 @@ static void *pool_system_clean_malloc(pool_t pool __attr_unused__, size_t size)
 	mem = GC_malloc(size);
 #else
 #ifndef HAVE_MALLOC_USABLE_SIZE
-	size += sizeof(size_t);
+	size += EXTRA_SIZE_SPACE;
 #endif
 	mem = calloc(size, 1);
 #endif
@@ -98,8 +102,8 @@ static void *pool_system_clean_malloc(pool_t pool __attr_unused__, size_t size)
 	{
 		size_t *saved_size = mem;
 
-		*saved_size = size - sizeof(size_t);
-		mem = saved_size + 1;
+		*saved_size = size - EXTRA_SIZE_SPACE;
+		mem = PTR_OFFSET(mem, EXTRA_SIZE_SPACE);
 	}
 #endif
 	return mem;
@@ -111,7 +115,7 @@ static void pool_system_clean_free(pool_t pool __attr_unused__, void *mem)
 		safe_memset(mem, 0, mem_get_size(mem));
 #ifndef USE_GC
 #ifndef HAVE_MALLOC_USABLE_SIZE
-		mem = (size_t *)mem - 1;
+		mem = PTR_OFFSET(mem, -EXTRA_SIZE_SPACE);
 #endif
 		free(mem);
 #endif
