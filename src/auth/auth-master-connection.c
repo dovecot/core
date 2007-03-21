@@ -142,6 +142,7 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 		return FALSE;
 	}
 
+	auth_request->state = AUTH_REQUEST_STATE_USERDB;
 	auth_request_lookup_user(auth_request, user_callback);
 	return TRUE;
 }
