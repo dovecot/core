@@ -58,9 +58,11 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 	callback(PASSDB_RESULT_OK, request);
 }
 
-static void shadow_init(struct passdb_module *module,
-			const char *args __attr_unused__)
+static void shadow_init(struct passdb_module *module, const char *args)
 {
+	if (strcmp(args, "blocking=yes") == 0)
+		module->blocking = TRUE;
+
 	module->cache_key = SHADOW_CACHE_KEY;
 	module->default_pass_scheme = SHADOW_PASS_SCHEME;
 }
