@@ -629,6 +629,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		if (ret < 0 && (*chroot_dir != '\0' ||
 				!(ENOTFOUND(chdir_errno) ||
 				  chdir_errno == EINTR))) {
+			errno = chdir_errno;
 			i_fatal("chdir(%s) failed with uid %s: %m",
 				full_home_dir, dec2str(uid));
 		}
