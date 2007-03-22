@@ -349,6 +349,7 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 			list_set->root_dir =
 				t_strndup(list_set->root_dir, len-1);
 		}
+		list_set->root_dir = home_expand(list_set->root_dir);
 
 		/* make sure the directory exists */
 		if (*list_set->root_dir == '\0' ||
