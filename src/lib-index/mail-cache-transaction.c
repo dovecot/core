@@ -209,6 +209,34 @@ mail_cache_transaction_add_reservation(struct mail_cache_transaction_ctx *ctx,
 	array_append(&ctx->reservations, &res, 1);
 }
 
+static void
+mail_cache_transaction_partial_commit(struct mail_cache_transaction_ctx *ctx,
+				      uint32_t offset, uint32_t size)
+{
+	struct mail_cache_reservation *res;
+	unsigned int i, count;
+
+	if (offset + size == ctx->cache->hdr_copy.used_file_size &&
+	    offset + size == ctx->reserved_space_offset) {
+		i_assert(ctx->reserved_space == 0);
+		ctx->reserved_space_offset = 0;
+	}
+
+	res = array_get_modifyable(&ctx->reservations, &count);
+	for (i = 0; i < count; i++) {
+		if (res[i].offset == offset) {
+			if (res[i].size == size) {
+				array_delete(&ctx->reservations, i, 1);
+			} else {
+				i_assert(res[i].size > size);
+				res[i].offset += size;
+				res[i].size -= size;
+			}
+			break;
+		}
+	}
+}
+
 static int
 mail_cache_transaction_reserve_more(struct mail_cache_transaction_ctx *ctx,
 				    size_t block_size, bool commit)
@@ -676,6 +704,11 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 							    &hdr_offset) < 0)
 		ret = -1;
 	else {
+		/* if we rollback the transaction, we must not overwrite this
+		   area because it's already committed after updating the
+		   header offset */
+		mail_cache_transaction_partial_commit(ctx, offset, size);
+
 		/* after it's guaranteed to be in disk, update header offset */
 		offset = mail_index_uint32_to_offset(offset);
 		if (mail_cache_write(cache, &offset, sizeof(offset),
