@@ -180,12 +180,19 @@ static void dump_cache_hdr(int fd)
 		i_fatal("cache file fields read() %"PRIuSIZE_T" != %u",
 			ret, fields.size);
 	}
+	printf("fields_count: %u\n", fields.fields_count);
+
+	if (fields.fields_count > 10000)
+		i_fatal("Broken fields_count");
 
 	last_used = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_LAST_USED());
 	size = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_SIZE(fields.fields_count));
 	type = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_TYPE(fields.fields_count));
 	decision = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_DECISION(fields.fields_count));
 	names = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_NAMES(fields.fields_count));
+
+	if (names - (const char *)buf >= fields.size)
+		i_fatal("Fields go outside allocated size");
 
 	i_array_init(&cache_fields, 64);
 	memset(&field, 0, sizeof(field));
