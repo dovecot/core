@@ -9,6 +9,7 @@
 #include "mountpoint.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
+#include "home-expand.h"
 #include "var-expand.h"
 #include "mail-process.h"
 #include "login-process.h"
@@ -378,14 +379,13 @@ void mail_process_exec(const char *protocol, const char *section)
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 }
 
-static void nfs_warn_if_found(const char *mail, const char *chroot,
-			      const char *home)
+static void nfs_warn_if_found(const char *mail, const char *full_home_dir)
 {
 	struct mountpoint point;
 	const char *path;
 
 	if (mail == NULL || *mail == '\0')
-		path = home;
+		path = full_home_dir;
 	else {
 		path = strstr(mail, ":INDEX=");
 		if (path != NULL) {
@@ -403,9 +403,7 @@ static void nfs_warn_if_found(const char *mail, const char *chroot,
 				path++;
 			}
 		}
-		path = t_strcut(path, ':');
-		if (*chroot != '\0')
-			path = t_strconcat(chroot, "/", path, NULL);
+		path = home_expand_tilde(t_strcut(path, ':'), full_home_dir);
 	}
 
 	if (mountpoint_get(path, pool_datastack_create(), &point) <= 0)
@@ -665,7 +663,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	if (nfs_check)
-		nfs_warn_if_found(getenv("MAIL"), chroot_dir, full_home_dir);
+		nfs_warn_if_found(getenv("MAIL"), full_home_dir);
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", home_dir, NULL));
