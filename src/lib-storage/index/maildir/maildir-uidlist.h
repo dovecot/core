@@ -5,6 +5,11 @@
 
 struct maildir_uidlist_sync_ctx;
 
+enum maildir_uidlist_sync_flags {
+	MAILDIR_UIDLIST_SYNC_PARTIAL	= 0x01,
+	MAILDIR_UIDLIST_SYNC_ORDERED	= 0x02
+};
+
 enum maildir_uidlist_rec_flag {
 	MAILDIR_UIDLIST_REC_FLAG_NEW_DIR	= 0x01,
 	MAILDIR_UIDLIST_REC_FLAG_MOVED		= 0x02,
@@ -42,7 +47,8 @@ void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 
 /* Sync uidlist with what's actually on maildir. Returns same as
    maildir_uidlist_lock(). */
-int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist, bool partial,
+int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
+			      enum maildir_uidlist_sync_flags sync_flags,
 			      struct maildir_uidlist_sync_ctx **sync_ctx_r);
 /* Returns 1 = ok, -1 = error, 0 = new file and dovecot-uidlist is locked */
 int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,

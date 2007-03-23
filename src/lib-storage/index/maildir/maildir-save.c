@@ -137,6 +137,30 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	return ctx;
 }
 
+static void maildir_save_add_existing_to_index(struct maildir_save_context *ctx)
+{
+	struct maildir_filename *mf;
+	struct mail_keywords *kw;
+	uint32_t seq;
+
+	for (mf = ctx->files; mf != NULL; mf = mf->next) {
+		mail_index_append(ctx->trans, 0, &seq);
+		mail_index_update_flags(ctx->trans, seq,
+					MODIFY_REPLACE, mf->flags);
+		if (mf->keywords_count != 0) {
+			t_push();
+			/* @UNSAFE */
+			kw = t_malloc(sizeof(*kw) + sizeof(kw->idx[0]) *
+				      mf->keywords_count);
+			memcpy(kw->idx, mf + 1, sizeof(kw->idx[0]) *
+			       mf->keywords_count);
+			mail_index_update_keywords(ctx->trans, ctx->seq,
+						   MODIFY_REPLACE, kw);
+			t_pop();
+		}
+	}
+}
+
 uint32_t maildir_save_add(struct maildir_transaction_context *t,
 			  const char *base_fname, enum mail_flags flags,
 			  struct mail_keywords *keywords,
@@ -146,8 +170,12 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	struct maildir_filename *mf;
 	struct tee_istream *tee;
 
-	if (dest_mail != NULL)
+	if (dest_mail != NULL && !ctx->want_mails) {
 		ctx->want_mails = TRUE;
+		/* if there are any existing mails, we need to append them
+		   to index here to keep the UIDs correct */
+		maildir_save_add_existing_to_index(ctx);
+	}
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
@@ -484,7 +512,7 @@ maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 {
 	struct maildir_filename *mf;
-	uint32_t first_uid, last_uid;
+	uint32_t first_uid, next_uid;
 	enum maildir_uidlist_rec_flag flags;
 	const char *dest;
 	bool newdir, sync_commit = FALSE;
@@ -519,7 +547,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 		first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 		i_assert(first_uid != 0);
-		mail_index_append_assign_uids(ctx->trans, first_uid, &last_uid);
+		mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
 	}
 
 	flags = MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
