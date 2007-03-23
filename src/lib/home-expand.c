@@ -47,3 +47,17 @@ const char *home_expand(const char *path)
 	(void)home_try_expand(&path);
 	return path;
 }
+
+const char *home_expand_tilde(const char *path, const char *home)
+{
+	if (path == NULL || *path != '~')
+		return path;
+
+	if (path[1] == '\0')
+		return home;
+	if (path[1] != '/')
+		return path;
+
+	/* ~/ used */
+	return t_strconcat(home, path + 1, NULL);
+}
