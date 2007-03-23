@@ -478,6 +478,12 @@ maildir_sync_check_timeouts(struct maildir_sync_context *ctx, bool move)
 {
 	time_t now;
 
+	if (ctx == NULL) {
+		/* we got here from maildir-save.c. it has no
+		   maildir_sync_context,  */
+		return;
+	}
+
 	if (move) {
 		ctx->move_count++;
 		if ((ctx->move_count % MAILDIR_SLOW_MOVE_COUNT) != 0)
