@@ -542,7 +542,8 @@ void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 				      uint32_t uid_validity, uint32_t next_uid)
 {
 	uidlist->uid_validity = uid_validity;
-	uidlist->next_uid = next_uid;
+	if (next_uid != 0)
+		uidlist->next_uid = next_uid;
 }
 
 uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)

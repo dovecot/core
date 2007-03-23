@@ -1293,7 +1293,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		if (uid_validity == 0) {
 			uid_validity = ioloop_time;
 			maildir_uidlist_set_uid_validity(mbox->uidlist,
-							 uid_validity, 1);
+							 uid_validity, 0);
 		}
 	} else if (uid_validity == 0) {
 		maildir_uidlist_set_uid_validity(mbox->uidlist,
