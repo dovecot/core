@@ -1,5 +1,10 @@
 docdir = $(datadir)/doc/dovecot
 
+confdir = $(sysconfdir)
+conf_DATA = \
+	dovecot-ldap-example.conf \
+	dovecot-sql-example.conf
+
 doc_DATA = \
 	USE-WIKI-INSTEAD \
 	auth-protocol.txt \
@@ -9,6 +14,5 @@ doc_DATA = \
 EXTRA_DIST = \
 	mkcert.sh \
 	dovecot-openssl.cnf \
-	dovecot-ldap.conf \
-	dovecot-sql.conf \
-	$(doc_DATA)
+	$(doc_DATA) \
+	$(conf_DATA)
