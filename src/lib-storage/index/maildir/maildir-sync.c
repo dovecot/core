@@ -204,6 +204,10 @@
    to see if we need to touch the uidlist lock. */
 #define MAILDIR_SLOW_CHECK_COUNT 10000
 
+/* This is mostly to avoid infinite looping when filesystem breaks itself by
+   making rename() not unlink the source file (ext3, Linux 2.6.20) */
+#define MAILDIR_SCAN_DIR_MAX_COUNT 5
+
 struct maildir_sync_context {
         struct maildir_mailbox *mbox;
 	const char *new_dir, *cur_dir;
@@ -1401,10 +1405,14 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	if (new_changed || cur_changed) {
 		/* if we're going to check cur/ dir our current logic requires
 		   that new/ dir is checked as well. it's a good idea anyway. */
+		unsigned int count = 0;
+
 		while ((ret = maildir_scan_dir(ctx, TRUE)) > 0) {
 			/* rename()d at least some files, which might have
 			   caused some other files to be missed. check again
 			   (see MAILDIR_RENAME_RESCAN_COUNT). */
+			if (++count > MAILDIR_SCAN_DIR_MAX_COUNT)
+				break;
 		}
 		if (ret < 0)
 			return -1;
