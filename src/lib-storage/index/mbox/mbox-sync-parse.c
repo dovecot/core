@@ -385,7 +385,6 @@ static bool parse_x_uid(struct mbox_sync_mail_context *ctx,
 		return FALSE;
 	}
 
-	ctx->sync_ctx->prev_msg_uid = value;
 	ctx->mail.uid = value;
 	/* if we had multiple X-UID headers, we could have
 	   uid_broken=TRUE here. */

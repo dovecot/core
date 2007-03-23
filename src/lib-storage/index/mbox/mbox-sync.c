@@ -1190,8 +1190,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 			mail_ctx->need_rewrite = TRUE;
 			mail_ctx->mail.uid = sync_ctx->next_uid++;
-			sync_ctx->prev_msg_uid = mail_ctx->mail.uid;
 		}
+		sync_ctx->prev_msg_uid = mail_ctx->mail.uid;
 
 		if (!mail_ctx->mail.pseudo)
 			mail_ctx->mail.idx_seq = sync_ctx->idx_seq;
