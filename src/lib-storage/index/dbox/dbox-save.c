@@ -330,7 +330,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	struct dbox_file *file;
 	struct mail_index_view *view;
 	const struct mail_index_header *idx_hdr;
-	uint32_t seq, uid, last_uid, file_seq;
+	uint32_t seq, uid, next_uid, file_seq;
 	time_t old_mtime, new_mtime;
 	uoff_t offset;
 	int ret;
@@ -344,7 +344,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 		dbox_transaction_save_rollback(ctx);
 		return -1;
 	}
-	mail_index_append_assign_uids(ctx->trans, uid, &last_uid);
+	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
 
 	/* update UIDs */
 	for (seq = t->first_saved_mail_seq; seq <= ctx->seq; seq++, uid++) {
