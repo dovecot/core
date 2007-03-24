@@ -72,7 +72,7 @@ struct mail_index_keyword_header {
 };
 
 struct mail_index_keyword_header_rec {
-	uint32_t count;
+	uint32_t unused; /* for backwards compatibility */
 	uint32_t name_offset; /* relative to beginning of name[] */
 };
 
