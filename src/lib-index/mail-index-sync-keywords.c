@@ -120,6 +120,15 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	unsigned int keywords_count;
 	int ret;
 
+	if (!map->write_to_disk) {
+		/* if we crash in the middle of writing the header, the
+		   keywords are more or less corrupted. avoid that by
+		   making sure the header is updated atomically. */
+		map = mail_index_map_clone(map, map->hdr.record_size);
+		mail_index_sync_replace_map(ctx, map);
+	}
+	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
+
 	ext_id = mail_index_map_lookup_ext(map, "keywords");
 	if (ext_id != (uint32_t)-1) {
 		/* update existing header */
