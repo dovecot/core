@@ -204,8 +204,8 @@
    to see if we need to touch the uidlist lock. */
 #define MAILDIR_SLOW_CHECK_COUNT 10000
 
-/* This is mostly to avoid infinite looping when filesystem breaks itself by
-   making rename() not unlink the source file (ext3, Linux 2.6.20) */
+/* This is mostly to avoid infinite looping when rename() destination already
+   exists as the hard link of the file itself. */
 #define MAILDIR_SCAN_DIR_MAX_COUNT 5
 
 struct maildir_sync_context {
@@ -692,8 +692,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	struct maildir_mailbox *mbox = ctx->mbox;
 	const char *existing_fname, *existing_path;
 	const char *new_fname, *old_path, *new_path;
-	struct stat ex_st, old_st, ex2_st, old2_st;
-	bool delete_old;
+	struct stat ex_st, old_st;
 	int ret = 0;
 
 	existing_fname =
@@ -715,60 +714,17 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	}
 	if (ex_st.st_ino == old_st.st_ino &&
 	    CMP_DEV_T(ex_st.st_dev, old_st.st_dev)) {
-		/* files are the same. this means either a race condition
+		/* Files are the same. this means either a race condition
 		   between stat() calls, or that the files were link()ed.
 
-		   if the files really were link()ed, we want to get rid of
-		   them. however we can't just go directly rename() them
-		   because if this was a race between stat()s, we could reverse
-		   a flag change done by another process. so, stat again
-		   and hope that there wasn't another race condition changing
-		   the flag back.. */
-		if (!(stat(existing_path, &ex2_st) == 0 &&
-		      stat(old_path, &old2_st) == 0 &&
-#ifdef HAVE_STAT_TV_NSEC
-		      ex_st.st_ctim.tv_nsec == ex2_st.st_ctim.tv_nsec &&
-		      old_st.st_ctim.tv_nsec == old2_st.st_ctim.tv_nsec &&
-#endif
-		      ex_st.st_ctime == ex2_st.st_ctime &&
-		      old_st.st_ctime == old2_st.st_ctime)) {
-			/* changed again */
-			t_pop();
-			return 0;
-		}
+		   There's really no easy way to handle this. If the files
+		   really are duplicate links, rename()ing one on top of
+		   another won't work. Then again if we unlink() one of them
+		   and this was actually a race condition, we just deleted
+		   a mail.
 
-		/* don't unlink(), if this is a race condition after
-		   all we really don't want to delete the message
-		   accidentally.
-
-		   the ctime checks are only meant to help with stat() race
-		   conditions. the inode is shared between links, so there's
-		   no way to know which filename was created later. */
-		if (old_st.st_ctime != ex_st.st_ctime)
-			delete_old = old_st.st_ctime < ex_st.st_ctime;
-		else {
-#ifdef HAVE_STAT_TV_NSEC
-			delete_old = old_st.st_ctim.tv_nsec <
-				ex_st.st_ctim.tv_nsec;
-#else
-			delete_old = TRUE;
-#endif
-		}
-		if (delete_old)
-			new_path = existing_path;
-		else {
-			new_path = old_path;
-			old_path = existing_path;
-		}
-		ret = rename(old_path, new_path);
-		if (ret == 0) {
-			i_warning("Fixed a duplicate link: %s -> %s",
-				  old_path, new_path);
-		} else if (ret < 0 && errno != ENOENT) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
-						  "rename(%s, %s) failed: %m",
-						  old_path, new_path);
-		}
+		   So for now, just do nothing. Lets hope there aren't any
+		   duplicate links in the maildir. */
 		t_pop();
 		return 0;
 	}
