@@ -1476,6 +1476,7 @@ trie_nodes_write(struct squat_trie_build_context *ctx, uint32_t *uidvalidity_r)
 	}
 
 	ctx->output = o_stream_create_file(trie->fd, default_pool, 0, FALSE);
+	o_stream_cork(ctx->output);
 	if (hdr.used_file_size == 0) {
 		o_stream_send(ctx->output, &hdr, sizeof(hdr));
 		ctx->modified = TRUE;

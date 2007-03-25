@@ -582,6 +582,7 @@ static int squat_uidlist_write_init(struct squat_uidlist *uidlist)
 
 	uidlist->output = o_stream_create_file(uidlist->fd, default_pool,
 					       0, FALSE);
+	o_stream_cork(uidlist->output);
 	if (uidlist->hdr.used_file_size < sizeof(uidlist->hdr)) {
 		/* creating a new file, write a dummy header */
 		o_stream_seek(uidlist->output, 0);
