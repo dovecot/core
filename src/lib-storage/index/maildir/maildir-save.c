@@ -229,12 +229,20 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 		if (mail_set_seq(dest_mail, ctx->seq) < 0)
 			i_unreached();
 
-		tee = tee_i_stream_create(ctx->input, default_pool);
-		ctx->input = tee_i_stream_create_child(tee, default_pool);
-		ctx->input2 = tee_i_stream_create_child(tee, default_pool);
+		if (ctx->input == NULL) {
+			/* FIXME: copying with hardlinking. we could copy the
+			   cached data directly */
+			ctx->cur_dest_mail = 0;
+		} else {
+			tee = tee_i_stream_create(ctx->input, default_pool);
+			ctx->input =
+				tee_i_stream_create_child(tee, default_pool);
+			ctx->input2 =
+				tee_i_stream_create_child(tee, default_pool);
 
-		index_mail_cache_parse_init(dest_mail, ctx->input2);
-		ctx->cur_dest_mail = dest_mail;
+			index_mail_cache_parse_init(dest_mail, ctx->input2);
+			ctx->cur_dest_mail = dest_mail;
+		}
 	} else {
 		ctx->seq = 0;
 		ctx->cur_dest_mail = NULL;
