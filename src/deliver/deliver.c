@@ -692,12 +692,12 @@ int main(int argc, char *argv[])
 		/* plugins didn't handle this. save into the default mailbox. */
 		i_stream_seek(input, 0);
 		ret = deliver_save(storage, mailbox, mail, 0, NULL);
-		if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
-			/* still didn't work. try once more to save it
-			   to INBOX. */
-			i_stream_seek(input, 0);
-			ret = deliver_save(storage, "INBOX", mail, 0, NULL);
-		}
+	}
+	if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
+		/* still didn't work. try once more to save it
+		   to INBOX. */
+		i_stream_seek(input, 0);
+		ret = deliver_save(storage, "INBOX", mail, 0, NULL);
 	}
 
 	if (ret < 0) {
