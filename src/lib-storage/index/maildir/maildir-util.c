@@ -132,8 +132,7 @@ int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			mail_storage_set_critical(STORAGE(mbox->storage),
 						  "open(%s) failed: %m", path);
 		}
-	} else if (st.st_gid != mbox->mail_create_gid &&
-		   mbox->mail_create_gid != (gid_t)-1) {
+	} else if (mbox->mail_create_gid != (gid_t)-1) {
 		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
 				"fchown(%s) failed: %m", path);
