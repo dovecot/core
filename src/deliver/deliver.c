@@ -421,8 +421,6 @@ static void open_logfile(const char *username)
 {
 	const char *prefix, *log_path, *stamp;
 
-	i_set_failure_exit_callback(failure_exit_callback);
-
 	prefix = t_strdup_printf("deliver(%s)", username);
 	log_path = getenv("LOG_PATH");
 	if (log_path == NULL || *log_path == '\0') {
@@ -491,6 +489,8 @@ int main(int argc, char *argv[])
 	struct mail *mail;
 	uid_t process_euid;
 	int i, ret;
+
+	i_set_failure_exit_callback(failure_exit_callback);
 
 	lib_init();
 	ioloop = io_loop_create();
