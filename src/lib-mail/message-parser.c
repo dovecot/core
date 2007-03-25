@@ -319,24 +319,30 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	}
 
 	for (i = boundary_start = 0; i < block_r->size; i++) {
+		/* skip to beginning of the next line. the first line was
+		   handled already. */
 		for (; i < block_r->size; i++) {
 			if (data[i] == '\n') {
 				boundary_start = i;
 				if (i > 0 && data[i-1] == '\r')
 					boundary_start--;
+				i++;
 				break;
 			}
 		}
-		if (boundary_start != 0)
+		if (boundary_start != 0) {
+			/* we can skip the first lines. input buffer can't be
+			   full anymore. */
 			full = FALSE;
+		}
 
-		ret = boundary_line_find(ctx, block_r->data + i + 1,
-					 block_r->size - (i + 1), full,
+		ret = boundary_line_find(ctx, block_r->data + i,
+					 block_r->size - i, full,
 					 &boundary);
 		if (ret >= 0) {
 			/* found / need more data */
 			if (ret == 0 && boundary_start == 0)
-				ctx->want_count += i + 1;
+				ctx->want_count += i;
 			break;
 		}
 	}
