@@ -222,7 +222,7 @@ mail_cache_transaction_partial_commit(struct mail_cache_transaction_ctx *ctx,
 		ctx->reserved_space_offset = 0;
 	}
 
-	res = array_get_modifyable(&ctx->reservations, &count);
+	res = array_get_modifiable(&ctx->reservations, &count);
 	for (i = 0; i < count; i++) {
 		if (res[i].offset == offset) {
 			if (res[i].size == size) {
