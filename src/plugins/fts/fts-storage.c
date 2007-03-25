@@ -473,6 +473,8 @@ static bool arg_is_better(const struct mail_search_arg *new_arg,
 {
 	if (old_arg == NULL)
 		return TRUE;
+	if (new_arg == NULL)
+		return FALSE;
 
 	/* prefer not to use headers. they have a larger possibility of
 	   having lots of identical strings */
