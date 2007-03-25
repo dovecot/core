@@ -416,7 +416,8 @@ int lucene_index_build_more(struct lucene_index *index, uint32_t uid,
 
 	len = uni_utf8_strlen_n(data, size);
 	wchar_t dest[len+1];
-	lucene_utf8towcs(dest, (const char *)data, len + 1);
+	lucene_utf8towcs(dest, (const char *)data, len);
+	dest[len] = 0;
 
 	if (uid != index->prev_uid) {
 		char id[MAX_INT_STRLEN];
@@ -531,16 +532,18 @@ int lucene_index_expunge(struct lucene_index *index, uint32_t uid)
 		_CLDELETE(hits);
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "expunge search");
-		return -1;
+		ret = -1;
 	}
 
 	try {
 		index->reader->close();
-		return 0;
 	} catch (CLuceneError &err) {
 		lucene_handle_error(index, err, "IndexReader::close()");
-		return -1;
+		ret = -1;
 	}
+
+	lucene_index_close(index);
+	return ret;
 }
 
 int lucene_index_lookup(struct lucene_index *index, enum fts_lookup_flags flags,
@@ -560,7 +563,8 @@ int lucene_index_lookup(struct lucene_index *index, enum fts_lookup_flags flags,
 		t_strdup_printf("\"%s\"", key);
 	unsigned int len = uni_utf8_strlen_n(quoted_key, (size_t)-1);
 	wchar_t tkey[len + 1];
-	lucene_utf8towcs(tkey, quoted_key, len + 1);
+	lucene_utf8towcs(tkey, quoted_key, len);
+	tkey[len] = 0;
 	t_pop();
 
 	BooleanQuery lookup_query;
