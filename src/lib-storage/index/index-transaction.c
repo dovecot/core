@@ -70,6 +70,10 @@ index_transaction_begin(struct mailbox *box,
 		(flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	it = MAIL_STORAGE_TRANSACTION(t);
+	if (it == NULL) {
+		i_panic("mail storage transaction context mising for type %s",
+			box->storage->name);
+	}
 	it->flags = flags;
 	return &it->mailbox_ctx;
 }
