@@ -170,6 +170,8 @@ bool cmd_search(struct client_command_context *cmd)
 	if (cmd_search_more(cmd))
 		return TRUE;
 
-	ctx->to = timeout_add(0, cmd_search_more_callback, cmd);
+	/* we could have moved onto syncing by now */
+	if (cmd->func == cmd_search_more)
+		ctx->to = timeout_add(0, cmd_search_more_callback, cmd);
 	return FALSE;
 }
