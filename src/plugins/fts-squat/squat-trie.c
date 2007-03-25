@@ -1238,19 +1238,20 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx, uint32_t uid,
 {
 	const uint16_t *str;
 	uint16_t buf[(BLOCK_SIZE-1)*2];
-	unsigned int i, tmp_size;
+	unsigned int i, tmp_size, str_len;
 
 	if (ctx->failed)
 		return -1;
 
 	t_push();
 	str = data_normalize(data, size, ctx->trie->buf);
+	str_len = ctx->trie->buf->used / sizeof(*str);
 
 	if (uid == ctx->prev_uid) {
 		/* @UNSAFE: continue from last block */
 		memcpy(buf, ctx->prev_added,
 		       sizeof(buf[0]) * ctx->prev_added_size);
-		tmp_size = I_MIN(size, BLOCK_SIZE-1);
+		tmp_size = I_MIN(str_len, BLOCK_SIZE-1);
 		memcpy(buf + ctx->prev_added_size, str,
 		       sizeof(buf[0]) * tmp_size);
 
@@ -1266,7 +1267,7 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx, uint32_t uid,
 			}
 		}
 
-		if (size < BLOCK_SIZE) {
+		if (str_len < BLOCK_SIZE) {
 			ctx->prev_added_size = I_MIN(tmp_size, BLOCK_SIZE-1);
 			memcpy(ctx->prev_added, buf + i,
 			       sizeof(buf[0]) * ctx->prev_added_size);
@@ -1280,10 +1281,11 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx, uint32_t uid,
 			return -1;
 		}
 		str = data_normalize(data, size, ctx->trie->buf);
+		str_len = ctx->trie->buf->used / sizeof(*str);
 	}
 
 	ctx->prev_uid = uid;
-	for (i = 0; i + BLOCK_SIZE <= size; i++) {
+	for (i = 0; i + BLOCK_SIZE <= str_len; i++) {
 		if (block_want_add(str+i)) {
 			if (trie_insert_node(ctx, &ctx->trie->root,
 					     str + i, uid, 1) < 0) {
@@ -1292,7 +1294,7 @@ int squat_trie_build_more(struct squat_trie_build_context *ctx, uint32_t uid,
 			}
 		}
 	}
-	ctx->prev_added_size = I_MIN(size, BLOCK_SIZE-1);
+	ctx->prev_added_size = I_MIN(str_len - i, BLOCK_SIZE-1);
 	memcpy(ctx->prev_added, str + i,
 	       sizeof(ctx->prev_added[0]) * ctx->prev_added_size);
 
