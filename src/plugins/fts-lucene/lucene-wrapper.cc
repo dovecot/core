@@ -2,14 +2,27 @@
 
 extern "C" {
 #include "lib.h"
+#include "env-util.h"
 #include "unichar.h"
+#include "str.h"
 #include "str-sanitize.h"
 #include "lucene-wrapper.h"
+
+#include <dirent.h>
+#include <sys/stat.h>
 };
 #include <CLucene.h>
 
 /* Lucene's default is 10000. Use it here also.. */
 #define MAX_TERMS_PER_DOCUMENT 10000
+
+/* If all the files in the lucene index directory are older than this many
+   seconds, assume we can delete stale locks */
+#define STALE_INDEX_SECS 60
+/* When index is determined to be stale, delete all locks older than this */
+#define STALE_LOCK_SECS 60
+/* Minimum interval between staleness checks */
+#define STALENESS_CHECK_INTERVAL 10
 
 using namespace lucene::document;
 using namespace lucene::index;
@@ -18,9 +31,12 @@ using namespace lucene::queryParser;
 using namespace lucene::analysis;
 
 struct lucene_index {
-	char *path;
+	char *path, *lock_path;
 	char *mailbox_name;
 	TCHAR *tmailbox_name;
+
+	time_t last_stale_check;
+	bool lock_error;
 
 	IndexReader *reader;
 	IndexWriter *writer;
@@ -70,13 +86,96 @@ public:
 	}
 };
 
-struct lucene_index *lucene_index_init(const char *path)
+static bool lucene_dir_scan(const char *dir, const char *skip_path,
+			    time_t stale_stamp, bool unlink_staled)
+{
+	DIR *d;
+	struct dirent *dp;
+	struct stat st;
+	string_t *path;
+	unsigned int dir_len;
+	bool found_nonstale = FALSE;
+
+	d = opendir(dir);
+	if (d == NULL) {
+		i_error("opendir(%s) failed: %m", dir);
+		return TRUE;
+	}
+
+	t_push();
+	path = t_str_new(256);
+	str_append(path, dir);
+	str_append_c(path, '/');
+	dir_len = str_len(path);
+
+	while ((dp = readdir(d)) != NULL) {
+		if (*dp->d_name == '.') {
+			if (dp->d_name[1] == '\0')
+				continue;
+			if (dp->d_name[1] == '.' && dp->d_name[2] == '\0')
+				continue;
+		}
+
+		str_truncate(path, dir_len);
+		str_append(path, dp->d_name);
+
+		if (skip_path != NULL &&
+		    strcmp(str_c(path), skip_path) == 0)
+			continue;
+
+		if (stat(str_c(path), &st) < 0) {
+			if (errno != ENOENT)
+				i_error("stat(%s) failed: %m", str_c(path));
+			found_nonstale = TRUE;
+		} else if (st.st_ctime <= stale_stamp &&
+			   st.st_mtime <= stale_stamp) {
+			if (unlink_staled) {
+				if (unlink(str_c(path)) < 0 &&
+				    errno != ENOENT) {
+					i_error("unlink(%s) failed: %m",
+						str_c(path));
+				}
+			}
+		} else {
+			found_nonstale = TRUE;
+		}
+	}
+	if (closedir(d) < 0)
+		i_error("closedir(%s) failed: %m", dir);
+	t_pop();
+	return found_nonstale;
+}
+
+static void lucene_delete_stale_locks(struct lucene_index *index)
+{
+	time_t now;
+
+	now = time(NULL);
+	if (index->last_stale_check + STALENESS_CHECK_INTERVAL > now)
+		return;
+	index->last_stale_check = now;
+
+	if (lucene_dir_scan(index->path, index->lock_path,
+			    now - STALE_INDEX_SECS, FALSE)) {
+		/* the index is probably being updated */
+		return;
+	}
+	(void)lucene_dir_scan(index->lock_path, NULL,
+			      now - STALE_LOCK_SECS, TRUE);
+}
+
+struct lucene_index *lucene_index_init(const char *path, const char *lock_path)
 {
 	struct lucene_index *index;
 
+	env_put(t_strconcat(LUCENE_LOCK_DIR_ENV_1"=", lock_path, NULL));
+
 	index = i_new(struct lucene_index, 1);
 	index->path = i_strdup(path);
+	index->lock_path = i_strdup(lock_path);
 	index->analyzer = _CLNEW DovecotAnalyzer();
+
+	lucene_delete_stale_locks(index);
 	return index;
 }
 
@@ -93,6 +192,8 @@ void lucene_index_deinit(struct lucene_index *index)
 	_CLDELETE(index->analyzer);
 	i_free(index->mailbox_name);
 	i_free(index->tmailbox_name);
+	i_free(index->path);
+	i_free(index->lock_path);
 	i_free(index);
 }
 
@@ -110,6 +211,23 @@ int lucene_index_select_mailbox(struct lucene_index *index,
 	STRCPY_AtoT(index->tmailbox_name, mailbox_name, len);
 }
 
+static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
+				const char *msg)
+{
+	const char *what = err.what();
+
+	if (err.number() == CL_ERR_IO && strncasecmp(what, "Lock", 4) == 0) {
+		/* "Lock obtain timed out". delete any stale locks. */
+		lucene_delete_stale_locks(index);
+		if (index->lock_error) {
+			/* we've already complained about this */
+			return;
+		}
+		index->lock_error = TRUE;
+	}
+	i_error("lucene index %s: %s failed: %s", index->path, msg, what);
+}
+
 static int lucene_index_open(struct lucene_index *index)
 {
 	if (index->reader != NULL)
@@ -121,7 +239,7 @@ static int lucene_index_open(struct lucene_index *index)
 	try {
 		index->reader = IndexReader::open(index->path);
 	} catch (CLuceneError &err) {
-		i_error("lucene: IndexReader::open(%s): %s", index->path, err.what());
+		lucene_handle_error(index, err, "IndexReader::open()");
 		return -1;
 	}
 	return 1;
@@ -213,9 +331,10 @@ lucene_index_get_last_uid_int(struct lucene_index *index, bool delete_old)
 				deleted = true;
 			}
 		}
+		index->lock_error = FALSE;
 		_CLDELETE(hits);
 	} catch (CLuceneError &err) {
-		i_error("lucene: last_uid search failed: %s", err.what());
+		lucene_handle_error(index, err, "last_uid search");
 		ret = -1;
 	}
 
@@ -244,15 +363,18 @@ int lucene_index_build_init(struct lucene_index *index, uint32_t *last_uid_r)
 
 	i_assert(index->mailbox_name != NULL);
 
+	/* set this even if we fail so fts-storage won't crash */
+	*last_uid_r = index->last_uid;
+
 	lucene_index_close(index);
 
 	bool exists = IndexReader::indexExists(index->path);
 	try {
 		index->writer = _CLNEW IndexWriter(index->path,
 						   index->analyzer, !exists);
+		index->lock_error = FALSE;
 	} catch (CLuceneError &err) {
-		i_error("lucene: IndexWriter(%s) failed: %s",
-			index->path, err.what());
+		lucene_handle_error(index, err, "IndexWriter()");
 		return -1;
 	}
 	index->writer->setMaxFieldLength(MAX_TERMS_PER_DOCUMENT);
@@ -273,8 +395,7 @@ static int lucene_index_build_flush(struct lucene_index *index)
 	try {
 		index->writer->addDocument(index->doc);
 	} catch (CLuceneError &err) {
-		i_error("lucene: IndexWriter::addDocument(%s) failed: %s",
-			index->path, err.what());
+		lucene_handle_error(index, err, "IndexWriter::addDocument()");
 		ret = -1;
 	}
 
@@ -335,8 +456,7 @@ static int lucene_index_update_last_uid(struct lucene_index *index)
 		index->writer->addDocument(&doc);
 		return 0;
 	} catch (CLuceneError &err) {
-		i_error("lucene: IndexWriter::addDocument(%s) failed: %s",
-			index->path, err.what());
+		lucene_handle_error(index, err, "IndexWriter::addDocument()");
 		return -1;
 	}
 }
@@ -367,15 +487,13 @@ int lucene_index_build_deinit(struct lucene_index *index)
 	try {
 		index->writer->optimize();
 	} catch (CLuceneError &err) {
-		i_error("lucene: IndexWriter::optimize(%s) failed: %s",
-			index->path, err.what());
+		lucene_handle_error(index, err, "IndexWriter::optimize()");
 		ret = -1;
 	}
 	try {
 		index->writer->close();
 	} catch (CLuceneError &err) {
-		i_error("lucene: IndexWriter::close(%s) failed: %s",
-			index->path, err.what());
+		lucene_handle_error(index, err, "IndexWriter::close()");
 		ret = -1;
 	}
 
@@ -409,10 +527,18 @@ int lucene_index_expunge(struct lucene_index *index, uint32_t uid)
 
 		for (int32_t i = 0; i < hits->length(); i++)
 			index->reader->deleteDocument(hits->id(i));
+		index->lock_error = FALSE;
 		_CLDELETE(hits);
+	} catch (CLuceneError &err) {
+		lucene_handle_error(index, err, "expunge search");
+		return -1;
+	}
+
+	try {
+		index->reader->close();
 		return 0;
 	} catch (CLuceneError &err) {
-		i_error("lucene: expunge search failed: %s", err.what());
+		lucene_handle_error(index, err, "IndexReader::close()");
 		return -1;
 	}
 }
@@ -481,10 +607,10 @@ int lucene_index_lookup(struct lucene_index *index, enum fts_lookup_flags flags,
 
 			seq_range_array_add(result, 0, uid);
 		}
+		index->lock_error = FALSE;
 		_CLDELETE(hits);
 	} catch (CLuceneError &err) {
-		i_error("lucene: search(%s) failed: %s",
-			index->path, err.what());
+		lucene_handle_error(index, err, "search");
 		ret = -1;
 	}
 

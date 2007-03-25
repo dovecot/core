@@ -2,11 +2,13 @@
 
 #include "lib.h"
 #include "array.h"
+#include "mkdir-parents.h"
 #include "mail-storage-private.h"
 #include "lucene-wrapper.h"
 #include "fts-lucene-plugin.h"
 
 #define LUCENE_INDEX_DIR_NAME "lucene-indexes"
+#define LUCENE_LOCK_SUBDIR_NAME "locks"
 
 struct lucene_mail_storage {
 	struct lucene_index *index;
@@ -35,7 +37,7 @@ static struct fts_backend *fts_backend_lucene_init(struct mailbox *box)
 {
 	struct lucene_mail_storage *lstorage;
 	struct lucene_fts_backend *backend;
-	const char *path;
+	const char *path, *lock_path;
 
 	lstorage = LUCENE_CONTEXT(box->storage);
 	if (lstorage == NULL) {
@@ -47,9 +49,14 @@ static struct fts_backend *fts_backend_lucene_init(struct mailbox *box)
 		}
 
 		path = t_strconcat(path, "/"LUCENE_INDEX_DIR_NAME, NULL);
+		lock_path = t_strdup_printf("%s/"LUCENE_LOCK_SUBDIR_NAME, path);
+		if (mkdir_parents(lock_path, 0700) < 0) {
+			i_error("mkdir_parents(%s) failed: %m", lock_path);
+			return NULL;
+		}
 
 		lstorage = i_new(struct lucene_mail_storage, 1);
-		lstorage->index = lucene_index_init(path);
+		lstorage->index = lucene_index_init(path, lock_path);
 		array_idx_set(&box->storage->module_contexts,
 			      fts_lucene_storage_module_id, &lstorage);
 	}

@@ -3,7 +3,7 @@
 
 #include "fts-api-private.h"
 
-struct lucene_index *lucene_index_init(const char *path);
+struct lucene_index *lucene_index_init(const char *path, const char *lock_path);
 void lucene_index_deinit(struct lucene_index *index);
 
 int lucene_index_select_mailbox(struct lucene_index *index,
