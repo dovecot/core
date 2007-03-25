@@ -45,6 +45,8 @@ struct fts_backend {
 	enum fts_backend_flags flags;
 
 	struct fts_backend_vfuncs v;
+
+	unsigned int building:1;
 };
 
 struct fts_backend_build_context {

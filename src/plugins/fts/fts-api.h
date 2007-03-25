@@ -32,6 +32,9 @@ int fts_backend_build_more(struct fts_backend_build_context *ctx, uint32_t uid,
 /* Finish adding new data to the index. */
 int fts_backend_build_deinit(struct fts_backend_build_context *ctx);
 
+/* Returns TRUE if there exists a build context. */
+bool fts_backend_is_building(struct fts_backend *backend);
+
 /* Expunge given mail from the backend. Note that the transaction may still
    fail later. */
 void fts_backend_expunge(struct fts_backend *backend, struct mail *mail);

@@ -37,7 +37,9 @@ struct fts_search_context {
 	struct mail_search_arg *args, *best_arg;
 	struct fts_backend *backend;
 	struct fts_storage_build_context *build_ctx;
+	struct mailbox_transaction_context *t;
 
+	unsigned int build_initialized:1;
 	unsigned int locked:1;
 };
 
@@ -222,9 +224,9 @@ static int fts_build_mail(struct fts_storage_build_context *ctx)
 	return ret;
 }
 
-static int fts_build_init(struct fts_search_context *fctx,
-			  struct mailbox_transaction_context *t)
+static int fts_build_init(struct fts_search_context *fctx)
 {
+	struct mailbox_transaction_context *t = fctx->t;
 	struct fts_backend *backend = fctx->backend;
 	struct fts_storage_build_context *ctx;
 	struct fts_backend_build_context *build;
@@ -528,6 +530,26 @@ static void fts_search_args_check(struct mail_search_arg *args,
 	}
 }
 
+static bool fts_try_build_init(struct fts_search_context *fctx)
+{
+	if (fctx->backend == NULL) {
+		fctx->build_initialized = TRUE;
+		return TRUE;
+	}
+
+	if (fts_backend_is_building(fctx->backend))
+		return FALSE;
+	fctx->build_initialized = TRUE;
+
+	if (fts_build_init(fctx) < 0)
+		fctx->backend = NULL;
+	else if (fctx->build_ctx == NULL) {
+		/* the index was up to date */
+		fts_search_init(fctx->t->box, fctx);
+	}
+	return TRUE;
+}
+
 static struct mail_search_context *
 fts_mailbox_search_init(struct mailbox_transaction_context *t,
 			const char *charset, struct mail_search_arg *args,
@@ -542,6 +564,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	ctx = fbox->super.search_init(t, charset, args, sort_program);
 
 	fctx = i_new(struct fts_search_context, 1);
+	fctx->t = t;
 	fctx->args = args;
 	array_idx_set(&ctx->module_contexts, fts_storage_module_id, &fctx);
 
@@ -562,15 +585,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 			best_exact_arg : best_fast_arg;
 	}
 
-	if (fctx->backend != NULL) {
-		if (fts_build_init(fctx, t) < 0)
-			fctx->backend = NULL;
-		else if (fctx->build_ctx == NULL) {
-			/* the index was up to date */
-			fts_search_init(t->box, fctx);
-		}
-	}
-
+	fts_try_build_init(fctx);
 	return ctx;
 }
 
@@ -580,6 +595,13 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 	struct fts_mailbox *fbox = FTS_CONTEXT(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
 	int ret;
+
+	if (!fctx->build_initialized) {
+		if (!fts_try_build_init(fctx)) {
+			*tryagain_r = TRUE;
+			return 0;
+		}
+	}
 
 	if (fctx->build_ctx != NULL) {
 		/* still building the index */
