@@ -949,8 +949,15 @@ void auth_request_set_field(struct auth_request *request,
 		request->no_failure_delay = TRUE;
 	} else if (strcmp(name, "nopassword") == 0) {
 		/* NULL password - anything goes */
-		i_assert(request->passdb_password == NULL);
+		if (request->passdb_password != NULL &&
+		    *request->passdb_password != '\0') {
+			auth_request_log_error(request,
+				request->passdb->passdb->iface.name,
+				"nopassword set but password is non-empty");
+			return;
+		}
 		request->no_password = TRUE;
+		request->passdb_password = NULL;
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, value);
 	} else {
