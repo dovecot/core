@@ -26,6 +26,8 @@ enum content_type {
 #define MAX_TRANSLATION_BUF_SIZE 10
 
 struct message_decoder_context {
+	struct message_part *prev_part;
+
 	struct message_header_line hdr;
 	buffer_t *buf, *buf2;
 
@@ -318,7 +320,7 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 				       struct message_block *input,
 				       struct message_block *output)
 {
-	if (input->part != output->part) {
+	if (input->part != ctx->prev_part) {
 		/* MIME part changed. */
 		i_free_and_null(ctx->content_charset);
 		ctx->content_type = CONTENT_TYPE_BINARY;
@@ -327,6 +329,7 @@ bool message_decoder_decode_next_block(struct message_decoder_context *ctx,
 	}
 
 	output->part = input->part;
+	ctx->prev_part = input->part;
 
 	if (input->hdr != NULL)
 		return message_decode_header(ctx, input->hdr, output);
