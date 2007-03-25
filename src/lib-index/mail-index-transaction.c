@@ -122,16 +122,17 @@ static bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 				     void *old_record)
 {
 	void *p;
-	unsigned int idx;
+	unsigned int idx, aligned_record_size;
 
 	/* records need to be 32bit aligned */
-	record_size = (record_size + 3) & ~3;
+	aligned_record_size = (record_size + 3) & ~3;
 
 	if (!array_is_created(array)) {
-		array_create(array, default_pool, sizeof(seq) + record_size,
-			     1024 / (sizeof(seq) + record_size));
+		array_create(array, default_pool,
+			     sizeof(seq) + aligned_record_size,
+			     1024 / (sizeof(seq) + aligned_record_size));
 	}
-	i_assert(array->arr.element_size == sizeof(seq) + record_size);
+	i_assert(array->arr.element_size == sizeof(seq) + aligned_record_size);
 
 	if (mail_index_seq_array_lookup(array, seq, &idx)) {
 		/* already there, update */
