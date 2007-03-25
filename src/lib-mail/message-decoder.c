@@ -242,7 +242,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 			quoted_printable_decode(new_buf,
 						ctx->encoding_size + skip,
 						&pos, ctx->buf);
-			i_assert(pos > ctx->encoding_size);
+			i_assert(pos >= ctx->encoding_size);
 			skip = pos - ctx->encoding_size;
 		}
 
@@ -261,7 +261,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 				   the rest of it */
 				return FALSE;
 			}
-			i_assert(pos > ctx->encoding_size);
+			i_assert(pos >= ctx->encoding_size);
 			skip = pos - ctx->encoding_size;
 		}
 		if (base64_decode(input->data + skip, input->size - skip,
@@ -288,6 +288,8 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		i_assert(ctx->encoding_size <= sizeof(ctx->encoding_buf));
 		memcpy(ctx->encoding_buf, input->data + pos,
 		       ctx->encoding_size);
+	} else {
+		ctx->encoding_size = 0;
 	}
 
 	if (ctx->charset_utf8 || ctx->charset_trans == NULL) {
