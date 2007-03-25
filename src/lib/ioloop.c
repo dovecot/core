@@ -348,10 +348,8 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	while (ioloop->timeouts != NULL) {
 		struct timeout *to = ioloop->timeouts;
 
-		if (!to->destroyed) {
+		if (!to->destroyed)
 			i_warning("Timeout leak: %p", (void *)to->callback);
-			timeout_remove(&to);
-		}
 		ioloop->timeouts = to->next;
 		i_free(to);
 	}
