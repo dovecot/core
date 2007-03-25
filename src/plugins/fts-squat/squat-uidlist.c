@@ -110,6 +110,11 @@ static int squat_uidlist_check_header(struct squat_uidlist *uidlist,
 				      const struct squat_uidlist_header *hdr,
 				      uoff_t file_size)
 {
+	if (hdr->used_file_size == 0) {
+		/* crashed before writing was finished */
+		return -1;
+	}
+
 	if (hdr->uidvalidity != uidlist->uidvalidity) {
 		squat_trie_set_corrupted(uidlist->trie,
 					 "uidlist: uidvalidity changed");
@@ -277,7 +282,8 @@ squat_uidlist_init(struct squat_trie *trie, const char *path,
 	uidlist->mmap_disable = mmap_disable;
 	i_array_init(&uidlist->lists, 65536);
 	uidlist->node_pool =
-		pool_alloconly_create("squat uidlist node pool", 65536);
+		pool_alloconly_create(MEMPOOL_GROWING"squat uidlist node pool",
+				      65536);
 	uidlist->tmp_buf = buffer_create_dynamic(default_pool, 16);
 	uidlist->list_buf = buffer_create_dynamic(default_pool, 256);
 	return uidlist;

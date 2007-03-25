@@ -1746,7 +1746,7 @@ squat_trie_compress_node(struct squat_trie_compress_context *ctx,
 		node_pack_leaf(trie->buf, node);
 	} else {
 		struct trie_node **children8 = NODE_CHILDREN8(node);
-		struct trie_node **children16 = NODE_CHILDREN16(node, 0);
+		struct trie_node **children16;
 
 		if ((ret = squat_trie_compress_children(ctx, children8,
 							node->chars_8bit_count,
@@ -1754,6 +1754,8 @@ squat_trie_compress_node(struct squat_trie_compress_context *ctx,
 			return -1;
 		if (ret == 0)
 			squat_trie_compress_chars8(node);
+
+		children16 = NODE_CHILDREN16(node, 0);
 		if ((ret = squat_trie_compress_children(ctx, children16,
 							node->chars_16bit_count,
 							level + 1)) < 0)
