@@ -55,6 +55,8 @@ static int imap_search_deinit(struct client_command_context *cmd,
 	if (ctx->to != NULL)
 		timeout_remove(&ctx->to);
 	str_free(&ctx->output_buf);
+
+	cmd->context = NULL;
 	return ret;
 }
 
@@ -89,7 +91,6 @@ static bool cmd_search_more(struct client_command_context *cmd)
 
 	if (imap_search_deinit(cmd, ctx) < 0)
 		ret = -1;
-	cmd->context = NULL;
 
 	if (ret < 0) {
 		client_send_storage_error(cmd,
