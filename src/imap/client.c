@@ -367,16 +367,10 @@ void client_command_free(struct client_command_context *cmd)
 	if (!cmd->param_error)
 		client->bad_counter = 0;
 
-	if (client->input_lock == cmd) {
-		/* reset the input handler in case it was changed */
+	if (client->input_lock == cmd)
 		client->input_lock = NULL;
-	}
-	if (client->output_lock == cmd) {
-		/* reset the output handler in case it was changed */
-		o_stream_set_flush_callback(client->output,
-					    _client_output, client);
+	if (client->output_lock == cmd)
 		client->output_lock = NULL;
-	}
 
 	if (client->free_parser != NULL)
 		imap_parser_destroy(&cmd->parser);
@@ -619,7 +613,7 @@ static void client_output_cmd(struct client_command_context *cmd)
 
 int _client_output(struct client *client)
 {
-	struct client_command_context *cmd;
+	struct client_command_context *cmd, *next;
 	int ret;
 
 	i_assert(!client->destroyed);
@@ -636,7 +630,8 @@ int _client_output(struct client *client)
 		client_output_cmd(client->output_lock);
 	if (client->output_lock == NULL) {
 		cmd = client->command_queue;
-		for (; cmd != NULL; cmd = cmd->next) {
+		for (; cmd != NULL; cmd = next) {
+			next = cmd->next;
 			client_output_cmd(cmd);
 			if (client->output_lock != NULL)
 				break;
