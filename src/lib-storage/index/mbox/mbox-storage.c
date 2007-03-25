@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
+#include "home-expand.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
 #include "mbox-file.h"
