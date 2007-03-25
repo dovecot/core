@@ -106,8 +106,13 @@ static bool cmd_search_more(struct client_command_context *cmd)
 static void cmd_search_more_callback(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
+	bool finished;
 
-	if (cmd_search_more(cmd)) {
+	o_stream_cork(client->output);
+	finished = cmd_search_more(cmd);
+	o_stream_uncork(client->output);
+
+	if (finished) {
 		client_command_free(cmd);
 		client_continue_pending_input(client);
 	} else {
