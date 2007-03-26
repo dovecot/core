@@ -29,7 +29,8 @@ struct cmd_idle_context {
 
 static bool cmd_idle_continue(struct client_command_context *cmd);
 
-static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
+static void
+idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 {
 	struct client *client = ctx->client;
 
@@ -62,7 +63,8 @@ static void idle_finish(struct cmd_idle_context *ctx, bool done_ok)
 		client_send_tagline(ctx->cmd, "BAD Expected DONE.");
 
 	o_stream_uncork(client->output);
-	client_command_free(ctx->cmd);
+	if (free_cmd)
+		client_command_free(ctx->cmd);
 	client_continue_pending_input(client);
 }
 
@@ -80,7 +82,7 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 		return;
 	case -2:
 		client->input_skip_line = TRUE;
-		idle_finish(ctx, FALSE);
+		idle_finish(ctx, FALSE, TRUE);
 		return;
 	}
 
@@ -95,7 +97,7 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 		if (client->input_skip_line)
 			client->input_skip_line = FALSE;
 		else {
-			idle_finish(ctx, strcmp(line, "DONE") == 0);
+			idle_finish(ctx, strcmp(line, "DONE") == 0, TRUE);
 			break;
 		}
 	}
@@ -163,7 +165,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 	struct cmd_idle_context *ctx = cmd->context;
 
 	if (cmd->cancel) {
-		idle_finish(ctx, FALSE);
+		idle_finish(ctx, FALSE, FALSE);
 		return TRUE;
 	}
 
@@ -211,7 +213,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 	}
 
 	if (client->output->closed) {
-		idle_finish(ctx, FALSE);
+		idle_finish(ctx, FALSE, FALSE);
 		return TRUE;
 	}
 	if (client->io == NULL) {
