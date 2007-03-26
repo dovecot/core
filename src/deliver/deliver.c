@@ -663,7 +663,7 @@ int main(int argc, char *argv[])
 	storage = mail_storage_create_with_data(mail_env, destination,
 						flags, lock_method);
 	if (storage == NULL) {
-		i_fatal_status(EX_CONFIG,
+		i_fatal_status(EX_TEMPFAIL,
 			"Failed to create storage for '%s' with mail '%s'",
 			destination, mail_env == NULL ? "(null)" : mail_env);
 	}
