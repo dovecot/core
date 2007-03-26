@@ -1899,7 +1899,7 @@ int mail_index_move_to_memory(struct mail_index *index)
 	int ret = 0;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
-		return 0;
+		return index->map == NULL ? -1 : 0;
 
 	/* set the index as being into memory */
 	i_free_and_null(index->dir);
