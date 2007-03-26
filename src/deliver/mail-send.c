@@ -42,7 +42,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 	    i_info("msgid=%s: Return-Path missing, rejection reason: %s",
 		   orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 		   str_sanitize(reason, 512));
-	    return -1;
+	    return 0;
     }
 
     smtp_client = smtp_client_open(return_addr, NULL, &f);
