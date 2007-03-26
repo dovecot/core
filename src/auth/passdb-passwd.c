@@ -6,7 +6,6 @@
 
 #include "safe-memset.h"
 #include "passdb.h"
-#include "mycrypt.h"
 
 #include <pwd.h>
 
@@ -18,7 +17,7 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
 	struct passwd *pw;
-	bool result;
+	int ret;
 
 	auth_request_log_debug(request, "passwd", "lookup");
 
@@ -41,13 +40,13 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 			       PASSWD_PASS_SCHEME);
 
 	/* check if the password is valid */
-	result = strcmp(mycrypt(password, pw->pw_passwd), pw->pw_passwd) == 0;
+	ret = auth_request_password_verify(request, password, pw->pw_passwd,
+					   PASSWD_PASS_SCHEME, "passwd");
 
 	/* clear the passwords from memory */
 	safe_memset(pw->pw_passwd, 0, strlen(pw->pw_passwd));
 
-	if (!result) {
-		auth_request_log_info(request, "passwd", "password mismatch");
+	if (ret <= 0) {
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}

@@ -6,7 +6,6 @@
 
 #include "safe-memset.h"
 #include "passdb.h"
-#include "mycrypt.h"
 
 #include <shadow.h>
 
@@ -18,7 +17,7 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
 	struct spwd *spw;
-	bool result;
+	int ret;
 
 	auth_request_log_debug(request, "shadow", "lookup");
 
@@ -41,13 +40,13 @@ shadow_verify_plain(struct auth_request *request, const char *password,
 			       SHADOW_PASS_SCHEME);
 
 	/* check if the password is valid */
-	result = strcmp(mycrypt(password, spw->sp_pwdp), spw->sp_pwdp) == 0;
+	ret = auth_request_password_verify(request, password, spw->sp_pwdp,
+					   SHADOW_PASS_SCHEME, "shadow");
 
 	/* clear the passwords from memory */
 	safe_memset(spw->sp_pwdp, 0, strlen(spw->sp_pwdp));
 
-	if (!result) {
-		auth_request_log_info(request, "shadow", "password mismatch");
+	if (ret <= 0) {
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}
