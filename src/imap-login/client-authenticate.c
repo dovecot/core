@@ -66,19 +66,16 @@ static void client_auth_input(struct imap_client *client)
 	if (strcmp(line, "*") == 0) {
 		sasl_server_auth_client_error(&client->common,
 					      "Authentication aborted");
-		return;
-	}
-
-	if (client->common.waiting_auth_reply) {
+	} else if (client->common.waiting_auth_reply) {
 		sasl_server_auth_client_error(&client->common,
 					      "Don't send unrequested data");
 	} else {
 		auth_client_request_continue(client->common.auth_request, line);
 		client->common.waiting_auth_reply = TRUE;
-	}
 
-	/* clear sensitive data */
-	safe_memset(line, 0, strlen(line));
+		/* clear sensitive data */
+		safe_memset(line, 0, strlen(line));
+	}
 }
 
 static bool client_handle_args(struct imap_client *client,
