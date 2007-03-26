@@ -56,7 +56,7 @@ static const char *env_tz;
 
 struct ioloop *ioloop;
 struct hash_table *pids;
-int null_fd, inetd_login_fd;
+int null_fd = -1, inetd_login_fd;
 uid_t master_uid;
 char program_path[PATH_MAX];
 char ssl_manual_key_password[100];
