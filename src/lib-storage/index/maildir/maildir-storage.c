@@ -32,7 +32,8 @@ struct rename_context {
 extern struct mail_storage maildir_storage;
 extern struct mailbox maildir_mailbox;
 
-static int verify_inbox(struct mail_storage *storage);
+static int verify_inbox(struct mail_storage *storage,
+			enum mailbox_open_flags *flags);
 
 static const char *strip_tail_slash(const char *path)
 {
@@ -141,6 +142,7 @@ maildir_create(const char *data, const char *user,
 	struct index_storage *istorage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
+	enum mailbox_open_flags open_flags;
 	const char *error;
 	struct stat st;
 	pool_t pool;
@@ -193,7 +195,8 @@ maildir_create(const char *data, const char *user,
 	istorage->user = p_strdup(pool, user);
 	index_storage_init(istorage, list, flags, lock_method);
 
-	(void)verify_inbox(STORAGE(storage));
+	open_flags = 0;
+	(void)verify_inbox(STORAGE(storage), &open_flags);
 	return STORAGE(storage);
 }
 
@@ -330,8 +333,10 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 			      mailbox_list_get_hierarchy_sep(storage->list),
 			      name);
 	if (mkdir_parents(dir, CREATE_MODE) < 0 && errno != EEXIST) {
-		mail_storage_set_critical(storage,
-					  "mkdir(%s) failed: %m", dir);
+		if (!ENOSPACE(errno)) {
+			mail_storage_set_critical(storage,
+						  "mkdir(%s) failed: %m", dir);
+		}
 		return -1;
 	}
 
@@ -361,7 +366,8 @@ static int create_control_dir(struct mail_storage *storage, const char *name)
 	return 0;
 }
 
-static int verify_inbox(struct mail_storage *storage)
+static int verify_inbox(struct mail_storage *storage,
+			enum mailbox_open_flags *flags)
 {
 	const char *path;
 
@@ -371,7 +377,7 @@ static int verify_inbox(struct mail_storage *storage)
 		return -1;
 
 	if (create_index_dir(storage, "INBOX") < 0)
-		return -1;
+		*flags |= MAILBOX_OPEN_NO_INDEX_FILES;
 	if (create_control_dir(storage, "INBOX") < 0)
 		return -1;
 	return 0;
@@ -478,7 +484,7 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	}
 
 	if (strcmp(name, "INBOX") == 0) {
-		if (verify_inbox(_storage) < 0)
+		if (verify_inbox(_storage, &flags) < 0)
 			return NULL;
 		return maildir_open(storage, "INBOX", flags);
 	}
@@ -498,7 +504,7 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 
 		if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) == 0) {
 			if (create_index_dir(_storage, name) < 0)
-				return NULL;
+				flags |= MAILBOX_OPEN_NO_INDEX_FILES;
 		}
 
 		return maildir_open(storage, name, flags);

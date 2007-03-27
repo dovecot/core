@@ -468,8 +468,10 @@ static int create_mbox_index_dirs(struct mail_storage *storage,
 		return 0;
 
 	if (mkdir_parents(index_dir, CREATE_MODE) < 0) {
-		mail_storage_set_critical(storage,
-			"mkdir_parents(%s) failed: %m", index_dir);
+		if (!ENOSPACE(errno)) {
+			mail_storage_set_critical(storage,
+				"mkdir_parents(%s) failed: %m", index_dir);
+		}
 		return -1;
 	}
 
@@ -604,7 +606,7 @@ mbox_open(struct mbox_storage *storage, const char *name,
 	if (*index_dir != '\0') {
 		/* make sure the index directories exist */
 		if (create_mbox_index_dirs(_storage, name) < 0)
-			return NULL;
+			index_dir = "";
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
@@ -643,7 +645,7 @@ mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 
 		/* make sure the required directories are also there */
 		if (create_mbox_index_dirs(_storage, name) < 0)
-			return NULL;
+			index_dir = "";
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
