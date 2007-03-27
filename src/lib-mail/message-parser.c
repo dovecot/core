@@ -321,12 +321,14 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 	for (i = boundary_start = 0; i < block_r->size; i++) {
 		/* skip to beginning of the next line. the first line was
 		   handled already. */
+		size_t next_line_idx = block_r->size;
+
 		for (; i < block_r->size; i++) {
 			if (data[i] == '\n') {
 				boundary_start = i;
 				if (i > 0 && data[i-1] == '\r')
 					boundary_start--;
-				i++;
+				next_line_idx = i + 1;
 				break;
 			}
 		}
@@ -336,13 +338,13 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 			full = FALSE;
 		}
 
-		ret = boundary_line_find(ctx, block_r->data + i,
-					 block_r->size - i, full,
+		ret = boundary_line_find(ctx, block_r->data + next_line_idx,
+					 block_r->size - next_line_idx, full,
 					 &boundary);
 		if (ret >= 0) {
 			/* found / need more data */
 			if (ret == 0 && boundary_start == 0)
-				ctx->want_count += i;
+				ctx->want_count += next_line_idx;
 			break;
 		}
 	}
