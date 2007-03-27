@@ -1,3 +1,5 @@
+SUBDIRS = wiki
+
 docdir = $(datadir)/doc/dovecot
 
 confdir = $(sysconfdir)
@@ -6,10 +8,9 @@ conf_DATA = \
 	dovecot-sql-example.conf
 
 doc_DATA = \
-	USE-WIKI-INSTEAD \
 	auth-protocol.txt \
-	securecoding.txt \
-	variables.txt
+	documentation.txt \
+	securecoding.txt
 
 EXTRA_DIST = \
 	mkcert.sh \

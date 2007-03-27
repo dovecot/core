@@ -1,0 +1,4 @@
+Makefile.am
+Makefile.in
+Makefile
+*.txt

@@ -16,4 +16,17 @@ for dir in $GETTEXT_DIR /usr/share/gettext; do
   fi
 done
 
+if ! test -f doc/wiki/Authentication.txt; then
+  cd doc
+  wget http://www.dovecot.org/tmp/wiki-export.tar.gz
+  tar xzf wiki-export.tar.gz
+  mv wiki-export/*.txt wiki/
+  cd wiki
+  cp -f Makefile.am.in Makefile.am
+  echo *.txt | sed 's/ / \\\n	/g' >> Makefile.am
+  cd ..
+  rm -rf wiki-export wiki-export.tar.gz
+  cd ..
+fi
+
 autoreconf -i

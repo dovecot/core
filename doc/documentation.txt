@@ -1,0 +1,142 @@
+The documentation in wiki/ directory has been imported from
+http://wiki.dovecot.org/. The actual Wiki may contain more up-to-date
+information, so unless this is an old Dovecot release, you may want to use
+the Wiki directly.
+
+Documentation Index
+===================
+
+ * <QuickConfiguration.txt> for people in hurry
+ * <WhyDoesItNotWork.txt> - Why doesn't Dovecot work?
+
+ 1. Welcome to the Dovecot Wiki
+ 2. Dovecot Wiki Contents
+ 3. Generic information about mail servers
+ 4. A simple Dovecot installation
+ 5. Full guide to setting up a new Dovecot installation
+ 6. Examples / Scenarios
+ 7. Migration from existing systems
+ 8. Troubleshooting
+ 9. Tuning
+ 10. Reference
+ 11. Misc
+
+Generic information about mail servers
+======================================
+
+ * Mail protocols: IMAP [http://en.wikipedia.org/wiki/Imap], POP3
+   [http://en.wikipedia.org/wiki/Pop3] and SMTP
+   [http://en.wikipedia.org/wiki/Smtp]
+ * <Mail delivery agents and Sieve> [MDA.txt]
+ * <Mailbox formats> [MailboxFormat.txt]
+ * <User authentication> [Authentication.txt]
+    * <SASL> [Sasl.txt]
+
+A simple Dovecot installation
+=============================
+
+It's a good idea to start with a simple Dovecot installation to see that
+everything works. After that you can start changing things one at a time, so if
+you run into trouble you know immediately where the problem is.
+
+If you're in a hurry and you already know enough about mail servers,
+<QuickConfiguration.txt> may be more helpful to you instead.
+
+ 1. Installing
+     * <Compiling from sources> [CompilingSource.txt]
+     * <Installing prebuilt binaries> [PrebuiltBinaries.txt]
+ 2. <Checking where mail is delivered to> [FindMailLocation.txt]
+ 3. <Configuring Dovecot> [BasicConfiguration.txt]
+ 4. <Running Dovecot> [RunningDovecot.txt]
+ 5. <Logging.txt>
+ 6. <Testing that everything works> [TestInstallation.txt]
+     * <Testing POP3 installation> [TestPop3Installation.txt]
+ 7. <Finishing the test installation> [FinishBasicConfiguration.txt]
+
+Full guide to setting up a new Dovecot installation
+===================================================
+
+This guide assumes that you have already managed to run Dovecot successfully,
+as described in the "A simple Dovecot installation" guide above.
+
+ * Starting guidelines
+    * <System users> [SystemUsers.txt]
+    * <Virtual users> [VirtualUsers.txt]
+    * <UNIX User IDs used by Dovecot> [UserIds.txt]
+ * <Authentication configuration> [Authentication.txt]
+    * <Password databases> [PasswordDatabase.txt]
+    * <User databases> [UserDatabase.txt]
+    * <Multiple authentication databases>
+      [Authentication.MultipleDatabases.txt]
+    * <Kerberos> [Authentication.Kerberos.txt]
+    * <Restricting users' access> [Authentication.RestrictAccess.txt]
+    * <Special authentication features> [PasswordDatabase.ExtraFields.txt]
+    * <Master users> [Authentication.MasterUsers.txt]
+ * <Mailbox location configuration> [MailLocation.txt]
+    * <Mails stored in local disk> [MailLocation.LocalDisk.txt]
+    * <Mails stored in shared filesystem> [MailLocation.SharedDisk.txt]
+      (<NFS.txt>, clustered FS)
+    * <Maildir configuration> [MailLocation.Maildir.txt]
+    * <Mbox configuration> [MailLocation.Mbox.txt]
+    * <Namespaces.txt>
+    * <Shared mailboxes> [SharedMailboxes.txt]
+ * <Login processes and their settings> [LoginProcess.txt]
+ * <SSL.txt> settings and certificate creation
+ * <Plugins.txt>
+    * <Quota.txt>
+    * <Access Control Lists> [ACL.txt] (ACLs)
+ * <Dovecot as a POP3 server> [POP3Server.txt]
+ * <Dovecot's local delivery agent> [LDA.txt]
+ * <Post-login scripting> [PostLoginScripting.txt]
+
+Examples / Scenarios
+====================
+
+See this section in http://wiki.dovecot.org/
+
+ * <Rootless installation> [Rootless.txt]
+ * <POP-before-SMTP> [PopBSMTPAndDovecot.txt]
+    * <Pop Relay Compatibility> [PopRelay.txt]
+
+Migration from existing systems
+===============================
+
+ * <From other IMAP/POP3 servers> [Migration.txt]
+    * <My mailboxes are lost after migrating to Dovecot!>
+      [MissingMailboxes.txt]
+ * <Upgrading from Dovecot 0.99.x to 1.0> [UpgradingDovecot.txt]
+ * <Converting between mailbox formats> [Migration.MailFormat.txt] (mbox <->
+   Maildir, etc.)
+
+Troubleshooting
+===============
+
+ * <Why doesn't Dovecot work?> [WhyDoesItNotWork.txt]
+ * <Finding the error message from logs> [Logging.txt]
+ * <Debugging authentication> [Debugging.Authentication.txt]
+ * <Process tracing> [Debugging.ProcessTracing.txt] is useful when Dovecot
+   seems slow or hangs completely
+ * <mbox errors and crashes> [MboxProblems.txt]
+ * <Client issues and configuration> [Clients.txt]
+    * <Debugging using Thunderbird's logging> [Debugging.Thunderbird.txt]
+ * Sending bug reports [http://dovecot.org/bugreport.html], debugging crashes
+   and sniffing network traffic
+
+Tuning
+======
+
+ * <Performance tuning> [PerformanceTuning.txt]
+ * <Security tuning> [SecurityTuning.txt]
+    * <Chrooting.txt>
+
+Reference
+=========
+
+ * <Command line arguments> [CommandLine.txt]
+ * <Dovecot's design> [Design.txt]
+ * <Client issues and configuration> [Clients.txt]
+
+Misc
+====
+
+ * <Listening on Additional Ports> [Iptables.txt] using IP Tables

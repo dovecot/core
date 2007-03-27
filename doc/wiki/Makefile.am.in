@@ -1,0 +1,3 @@
+wikidir = $(datadir)/doc/dovecot/wiki
+
+wiki_DATA = 
