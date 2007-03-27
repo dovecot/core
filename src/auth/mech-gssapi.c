@@ -20,7 +20,6 @@
 #include "buffer.h"
 #include "hex-binary.h"
 #include "safe-memset.h"
-#include "hostpid.h"
 
 #ifdef HAVE_GSSAPI
 
@@ -113,7 +112,7 @@ static OM_uint32 obtain_service_credentials(struct auth_request *request,
 	principal_name = t_str_new(128);
 	str_append(principal_name, service_name);
 	str_append_c(principal_name, '@');
-	str_append(principal_name, my_hostname); 
+	str_append(principal_name, request->auth->gssapi_hostname);
 
 	auth_request_log_info(request, "gssapi",
 		"Obtaining credentials for %s", str_c(principal_name));

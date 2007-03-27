@@ -187,6 +187,7 @@ struct auth_settings {
 	const char *master_user_separator;
 	const char *anonymous_username;
 	const char *krb5_keytab;
+	const char *gssapi_hostname;
 
 	bool verbose, debug, debug_passwords;
 	bool ssl_require_client_cert;

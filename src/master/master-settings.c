@@ -70,6 +70,7 @@ static struct setting_def auth_setting_defs[] = {
 	DEF(SET_STR, master_user_separator),
 	DEF(SET_STR, anonymous_username),
 	DEF(SET_STR, krb5_keytab),
+	DEF(SET_STR, gssapi_hostname),
 
 	DEF(SET_BOOL, verbose),
 	DEF(SET_BOOL, debug),
@@ -287,6 +288,7 @@ struct auth_settings default_auth_settings = {
 	MEMBER(master_user_separator) "",
 	MEMBER(anonymous_username) "anonymous",
 	MEMBER(krb5_keytab) "",
+	MEMBER(gssapi_hostname) "",
 
 	MEMBER(verbose) FALSE,
 	MEMBER(debug) FALSE,

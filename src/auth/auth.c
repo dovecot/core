@@ -4,6 +4,7 @@
 #include "network.h"
 #include "buffer.h"
 #include "str.h"
+#include "hostpid.h"
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
@@ -261,6 +262,12 @@ void auth_init(struct auth *auth)
 	env = getenv("USERNAME_FORMAT");
 	if (env != NULL && *env != '\0')
 		auth->username_format = env;
+
+	env = getenv("GSSAPI_HOSTNAME");
+	if (env != NULL && *env != '\0')
+		auth->gssapi_hostname = env;
+	else
+		auth->gssapi_hostname = my_hostname;
 
 	env = getenv("MASTER_USER_SEPARATOR");
 	if (env != NULL)

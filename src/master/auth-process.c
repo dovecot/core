@@ -477,6 +477,10 @@ static void auth_set_environment(struct auth_settings *set)
 		/* Environment used by Kerberos 5 library directly */
 		env_put(t_strconcat("KRB5_KTNAME=", set->krb5_keytab, NULL));
 	}
+	if (*set->gssapi_hostname != '\0') {
+		env_put(t_strconcat("GSSAPI_HOSTNAME=",
+				    set->gssapi_hostname, NULL));
+	}
 
 	restrict_process_size(set->process_size, (unsigned int)-1);
 }

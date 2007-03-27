@@ -46,6 +46,7 @@ struct auth {
 	const char *default_realm;
 	const char *anonymous_username;
 	const char *username_format;
+	const char *gssapi_hostname;
 	char username_chars[256];
 	char username_translation[256];
 	char master_user_separator;
