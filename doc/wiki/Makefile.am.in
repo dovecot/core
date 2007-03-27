@@ -1,3 +1,6 @@
 wikidir = $(datadir)/doc/dovecot/wiki
 
+EXTRA_DIST = \
+	$(wiki_DATA)
+
 wiki_DATA = 
