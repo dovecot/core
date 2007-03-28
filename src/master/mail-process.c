@@ -477,7 +477,11 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	if (*chroot_dir == '\0' && (p = strstr(home_dir, "/./")) != NULL) {
 		/* wu-ftpd like <chroot>/./<home> */
 		chroot_dir = t_strdup_until(home_dir, p);
-		home_dir = p + 3;
+		home_dir = p + 2;
+	} else if (*chroot_dir != '\0' && *home_dir != '/') {
+		/* home directories should never be relative, but force this
+		   with chroots. */
+		home_dir = t_strconcat("/", home_dir, NULL);
 	}
 
 	if (!dump_capability) {
@@ -596,7 +600,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		ret = -1;
 	} else {
 		full_home_dir = *chroot_dir == '\0' ? home_dir :
-			t_strconcat(chroot_dir, "/", home_dir, NULL);
+			t_strconcat(chroot_dir, home_dir, NULL);
 		/* NOTE: if home directory is NFS-mounted, we might not
 		   have access to it as root. Change the effective UID and GID
 		   temporarily to make it work. */
