@@ -267,13 +267,16 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 
 static void rawlog_open(enum rawlog_flags flags)
 {
-	const char *home, *path;
+	const char *chroot, *home, *path;
 	struct stat st;
 	int sfd[2];
 	pid_t pid;
 
+	chroot = getenv("RESTRICT_CHROOT");
 	home = getenv("HOME");
-	if (home == NULL)
+	if (chroot != NULL)
+		home = t_strconcat(chroot, home, NULL);
+	else if (home == NULL)
 		home = ".";
 
 	/* see if we want rawlog */
@@ -285,6 +288,11 @@ static void rawlog_open(enum rawlog_flags flags)
 	}
 	if (!S_ISDIR(st.st_mode))
 		return;
+
+	if (chroot != NULL) {
+		/* we'll chroot soon. skip over the chroot in the path. */
+		path += strlen(chroot);
+	}
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) < 0)
 		i_fatal("socketpair() failed: %m");
