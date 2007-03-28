@@ -169,14 +169,23 @@ void restrict_access_by_env(bool disallow_root)
 	if (env != NULL && *env != '\0') {
 		/* kludge: localtime() must be called before chroot(),
 		   or the timezone isn't known */
+		const char *home = getenv("HOME");
 		time_t t = 0;
 		(void)localtime(&t);
 
 		if (chroot(env) != 0)
 			i_fatal("chroot(%s) failed: %m", env);
 
-		if (chdir("/") != 0)
-			i_fatal("chdir(/) failed: %m");
+		if (home != NULL) {
+			if (chdir(home) < 0) {
+				i_error("chdir(%s) failed: %m", home);
+				home = NULL;
+			}
+		}
+		if (home == NULL) {
+			if (chdir("/") != 0)
+				i_fatal("chdir(/) failed: %m");
+		}
 	}
 
 	/* uid last */
