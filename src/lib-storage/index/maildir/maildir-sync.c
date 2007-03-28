@@ -208,6 +208,8 @@
    exists as the hard link of the file itself. */
 #define MAILDIR_SCAN_DIR_MAX_COUNT 5
 
+#define DUPE_LINKS_DELETE_SECS 30
+
 struct maildir_sync_context {
         struct maildir_mailbox *mbox;
 	const char *new_dir, *cur_dir;
@@ -715,16 +717,29 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	if (ex_st.st_ino == old_st.st_ino &&
 	    CMP_DEV_T(ex_st.st_dev, old_st.st_dev)) {
 		/* Files are the same. this means either a race condition
-		   between stat() calls, or that the files were link()ed.
+		   between stat() calls, or that the files were link()ed. */
+		if (ex_st.st_nlink > 1 && old_st.st_nlink == ex_st.st_nlink &&
+		    ex_st.st_ctime == old_st.st_ctime &&
+		    ex_st.st_ctime < ioloop_time - DUPE_LINKS_DELETE_SECS) {
+			/* The file has hard links and it hasn't had any
+			   changes (such as renames) for a while, so this
+			   isn't a race condition.
 
-		   There's really no easy way to handle this. If the files
-		   really are duplicate links, rename()ing one on top of
-		   another won't work. Then again if we unlink() one of them
-		   and this was actually a race condition, we just deleted
-		   a mail.
-
-		   So for now, just do nothing. Lets hope there aren't any
-		   duplicate links in the maildir. */
+			   rename()ing one file on top of the other would fix
+			   this safely, except POSIX decided that rename()
+			   doesn't work that way. So we'll have unlink() one
+			   and hope that another process didn't just decide to
+			   unlink() the other (uidlist lock prevents this from
+			   happening) */
+			if (unlink(old_path) == 0) {
+				i_warning("Unlinked a duplicate: %s",
+					  old_fname);
+			} else {
+				mail_storage_set_critical(
+					STORAGE(mbox->storage),
+					"unlink(%s) failed: %m", old_path);
+			}
+		}
 		t_pop();
 		return 0;
 	}
