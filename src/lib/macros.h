@@ -142,6 +142,18 @@
 	name(__VA_ARGS__, (callback_type *)callback, context)
 #endif
 
+#ifdef __GNUC__
+#  define HAVE_TYPEOF
+#  define COMPILE_ERROR_IF_TRUE(condition) \
+	(sizeof(char[1 - 2 * !!(condition)]) - 1)
+#  define COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(_a, _b) \
+	COMPILE_ERROR_IF_TRUE( \
+		!__builtin_types_compatible_p(typeof(_a), typeof(_b)))
+#else
+#  define COMPILE_ERROR_IF_TRUE(condition) 0
+#  define COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(_a, _b) 0
+#endif
+
 /* Wrap the gcc __PRETTY_FUNCTION__ and __FUNCTION__ variables with
    macros, so we can refer to them as strings unconditionally. */
 #ifdef __GNUC__
