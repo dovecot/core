@@ -60,7 +60,7 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	if (array_is_created(&t->ext_resets))
 		array_free(&t->ext_resets);
 
-	array_free(&t->mail_index_transaction_module_contexts);
+	array_free(&t->module_contexts);
 	mail_index_view_transaction_unref(t->view);
 	mail_index_view_close(&t->view);
 	i_free(t);
@@ -978,8 +978,8 @@ mail_index_transaction_begin(struct mail_index_view *view,
 		t->no_appends = TRUE;
 	}
 
-	array_create(&t->mail_index_transaction_module_contexts, default_pool,
-		     sizeof(void *), I_MIN(5, mail_index_module_id));
+	i_array_init(&t->module_contexts,
+		     I_MIN(5, mail_index_module_register.id));
 
 	if (hook_mail_index_transaction_created != NULL)
 		hook_mail_index_transaction_created(t);

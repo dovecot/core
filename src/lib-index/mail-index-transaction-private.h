@@ -15,6 +15,10 @@ struct mail_index_transaction_vfuncs {
 	void (*rollback)(struct mail_index_transaction *t);
 };
 
+union mail_index_transaction_module_context {
+	struct mail_index_module_register *reg;
+};
+
 struct mail_index_transaction {
 	int refcount;
 
@@ -43,8 +47,9 @@ struct mail_index_transaction {
 
         struct mail_cache_transaction_ctx *cache_trans_ctx;
 
-	/* Module-specific contexts. See mail_index_module_id. */
-	ARRAY_DEFINE(mail_index_transaction_module_contexts, void);
+	/* Module-specific contexts. */
+	ARRAY_DEFINE(module_contexts,
+		     union mail_index_transaction_module_context *);
 
 	/* this transaction was created for index_sync_view view */
 	unsigned int sync_transaction:1;

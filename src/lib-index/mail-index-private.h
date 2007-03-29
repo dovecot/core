@@ -131,6 +131,14 @@ struct mail_index_map {
 	unsigned int write_atomic:1; /* copy to new file and rename() */
 };
 
+struct mail_index_module_register {
+	unsigned int id;
+};
+
+union mail_index_module_context {
+	struct mail_index_module_register *reg;
+};
+
 struct mail_index {
 	char *dir, *prefix;
 
@@ -172,8 +180,8 @@ struct mail_index {
 	uint32_t keywords_ext_id;
 	unsigned int last_grow_count;
 
-	/* Module-specific contexts. See mail_index_module_id. */
-	ARRAY_DEFINE(mail_index_module_contexts, void);
+	/* Module-specific contexts. */
+	ARRAY_DEFINE(module_contexts, union mail_index_module_context *);
 
 	char *error;
 	unsigned int nodiskspace:1;
@@ -190,6 +198,8 @@ struct mail_index {
 	unsigned int sync_update:1;
 	unsigned int mapping:1;
 };
+
+extern struct mail_index_module_register mail_index_module_register;
 
 /* Add/replace sync handler for specified extra record. */
 void mail_index_register_expunge_handler(struct mail_index *index,

@@ -32,6 +32,10 @@ struct mail_index_view_vfuncs {
 			      const void **data_r, size_t *data_size_r);
 };
 
+union mail_index_view_module_context {
+	struct mail_index_module_register *reg;
+};
+
 struct mail_index_view {
 	int refcount;
 
@@ -56,8 +60,8 @@ struct mail_index_view {
 	/* Transaction log offsets which we don't want to return in view sync */
 	ARRAY_TYPE(view_log_sync_pos) syncs_hidden;
 
-	/* Module-specific contexts. See mail_index_module_id. */
-	ARRAY_DEFINE(mail_index_view_module_contexts, void);
+	/* Module-specific contexts. */
+	ARRAY_DEFINE(module_contexts, union mail_index_view_module_context *);
 
 	int transactions;
 	unsigned int lock_id;
