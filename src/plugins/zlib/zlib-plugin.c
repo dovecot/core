@@ -10,27 +10,22 @@
 
 #include <fcntl.h>
 
-struct zlib_mail_storage {
-	struct mail_storage_vfuncs super;
-};
-
 #define ZLIB_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					zlib_storage_module_id))
+	MODULE_CONTEXT(obj, zlib_storage_module)
 
 const char *zlib_plugin_version = PACKAGE_VERSION;
 
 static void (*zlib_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 
-static unsigned int zlib_storage_module_id = 0;
-static bool zlib_storage_module_id_set = FALSE;
+static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
+				  &mail_storage_module_register);
 
 static struct mailbox *
 zlib_mailbox_open(struct mail_storage *storage, const char *name,
 		  struct istream *input, enum mailbox_open_flags flags)
 {
-	struct zlib_mail_storage *qstorage = ZLIB_CONTEXT(storage);
+	union mail_storage_module_context *qstorage = ZLIB_CONTEXT(storage);
 	struct mailbox *box;
 	struct istream *zlib_input = NULL;
 	size_t len = strlen(name);
@@ -63,22 +58,16 @@ zlib_mailbox_open(struct mail_storage *storage, const char *name,
 
 static void zlib_mail_storage_created(struct mail_storage *storage)
 {
-	struct zlib_mail_storage *qstorage;
+	union mail_storage_module_context *qstorage;
 
 	if (zlib_next_hook_mail_storage_created != NULL)
 		zlib_next_hook_mail_storage_created(storage);
 
-	qstorage = p_new(storage->pool, struct zlib_mail_storage, 1);
+	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
 	qstorage->super = storage->v;
 	storage->v.mailbox_open = zlib_mailbox_open;
 
-	if (!zlib_storage_module_id_set) {
-		zlib_storage_module_id = mail_storage_module_id++;
-		zlib_storage_module_id_set = TRUE;
-	}
-
-	array_idx_set(&storage->module_contexts,
-		      zlib_storage_module_id, &qstorage);
+	MODULE_CONTEXT_SET_SELF(storage, zlib_storage_module, qstorage);
 }
 
 void zlib_plugin_init(void)

@@ -29,6 +29,8 @@ struct index_storage {
 
 struct index_mailbox {
 	struct mailbox box;
+	union mail_index_module_context index_module_ctx;
+
 	struct index_storage *storage;
 	enum mailbox_open_flags open_flags;
 

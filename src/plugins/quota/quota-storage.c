@@ -12,42 +12,34 @@
 #include <sys/stat.h>
 
 #define QUOTA_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					quota_storage_module_id))
+	MODULE_CONTEXT(obj, quota_storage_module)
+#define QUOTA_MAIL_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, quota_mail_module)
 #define QUOTA_LIST_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					quota_mailbox_list_module_id))
+	MODULE_CONTEXT(obj, quota_mailbox_list_module)
 
 struct quota_mailbox_list {
-	struct mailbox_list_vfuncs super;
+	union mailbox_list_module_context module_ctx;
 
 	struct mail_storage *storage;
 };
 
-struct quota_mail_storage {
-	struct mail_storage_vfuncs super;
-};
-
 struct quota_mailbox {
-	struct mailbox_vfuncs super;
+	union mailbox_module_context module_ctx;
 
 	unsigned int save_hack:1;
 };
 
-struct quota_mail {
-	struct mail_vfuncs super;
-};
-
-static unsigned int quota_storage_module_id = 0;
-static bool quota_storage_module_id_set = FALSE;
-
-static unsigned int quota_mailbox_list_module_id = 0;
-static bool quota_mailbox_list_module_id_set = FALSE;
+static MODULE_CONTEXT_DEFINE_INIT(quota_storage_module,
+				  &mail_storage_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(quota_mail_module, &mail_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(quota_mailbox_list_module,
+				  &mailbox_list_module_register);
 
 static int quota_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct quota_mail *qmail = QUOTA_CONTEXT(mail);
+	union mail_module_context *qmail = QUOTA_MAIL_CONTEXT(mail);
 	struct quota_transaction_context *qt =
 		QUOTA_CONTEXT(_mail->transaction);
 
@@ -66,10 +58,10 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 	struct mailbox_transaction_context *t;
 	struct quota_transaction_context *qt;
 
-	t = qbox->super.transaction_begin(box, flags);
+	t = qbox->module_ctx.super.transaction_begin(box, flags);
 	qt = quota_transaction_begin(quota_set, box);
 
-	array_idx_set(&t->module_contexts, quota_storage_module_id, &qt);
+	MODULE_CONTEXT_SET(t, quota_storage_module, qt);
 	return t;
 }
 
@@ -80,7 +72,7 @@ quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
 
-	if (qbox->super.transaction_commit(ctx, flags) < 0) {
+	if (qbox->module_ctx.super.transaction_commit(ctx, flags) < 0) {
 		quota_transaction_rollback(qt);
 		return -1;
 	} else {
@@ -97,7 +89,7 @@ quota_mailbox_transaction_rollback(struct mailbox_transaction_context *ctx)
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
 
-	qbox->super.transaction_rollback(ctx);
+	qbox->module_ctx.super.transaction_rollback(ctx);
 
 	if (qt->tmp_mail != NULL)
 		mail_free(&qt->tmp_mail);
@@ -110,18 +102,19 @@ quota_mail_alloc(struct mailbox_transaction_context *t,
 		 struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
-	struct quota_mail *qmail;
+	union mail_module_context *qmail;
 	struct mail *_mail;
 	struct mail_private *mail;
 
-	_mail = qbox->super.mail_alloc(t, wanted_fields, wanted_headers);
+	_mail = qbox->module_ctx.super.
+		mail_alloc(t, wanted_fields, wanted_headers);
 	mail = (struct mail_private *)_mail;
 
-	qmail = p_new(mail->pool, struct quota_mail, 1);
+	qmail = p_new(mail->pool, union mail_module_context, 1);
 	qmail->super = mail->v;
 
 	mail->v.expunge = quota_mail_expunge;
-	array_idx_set(&mail->module_contexts, quota_storage_module_id, &qmail);
+	MODULE_CONTEXT_SET_SELF(mail, quota_mail_module, qmail);
 	return _mail;
 }
 
@@ -162,7 +155,8 @@ quota_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	}
 
 	qbox->save_hack = FALSE;
-	if (qbox->super.copy(t, mail, flags, keywords, dest_mail) < 0)
+	if (qbox->module_ctx.super.copy(t, mail, flags, keywords,
+					dest_mail) < 0)
 		return -1;
 
 	/* if copying used saving internally, we already checked the quota
@@ -216,9 +210,10 @@ quota_save_init(struct mailbox_transaction_context *t,
 		dest_mail = qt->tmp_mail;
 	}
 
-	return qbox->super.save_init(t, flags, keywords, received_date,
-				     timezone_offset, from_envelope,
-				     input, dest_mail, ctx_r);
+	return qbox->module_ctx.super.
+		save_init(t, flags, keywords, received_date,
+			  timezone_offset, from_envelope,
+			  input, dest_mail, ctx_r);
 }
 
 static int quota_save_finish(struct mail_save_context *ctx)
@@ -226,7 +221,7 @@ static int quota_save_finish(struct mail_save_context *ctx)
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx->transaction);
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->transaction->box);
 
-	if (qbox->super.save_finish(ctx) < 0)
+	if (qbox->module_ctx.super.save_finish(ctx) < 0)
 		return -1;
 
 	qbox->save_hack = TRUE;
@@ -238,7 +233,7 @@ static struct mailbox *
 quota_mailbox_open(struct mail_storage *storage, const char *name,
 		   struct istream *input, enum mailbox_open_flags flags)
 {
-	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
+	union mail_storage_module_context *qstorage = QUOTA_CONTEXT(storage);
 	struct mailbox *box;
 	struct quota_mailbox *qbox;
 
@@ -247,7 +242,7 @@ quota_mailbox_open(struct mail_storage *storage, const char *name,
 		return NULL;
 
 	qbox = p_new(box->pool, struct quota_mailbox, 1);
-	qbox->super = box->v;
+	qbox->module_ctx.super = box->v;
 
 	box->v.transaction_begin = quota_mailbox_transaction_begin;
 	box->v.transaction_commit = quota_mailbox_transaction_commit;
@@ -256,7 +251,7 @@ quota_mailbox_open(struct mail_storage *storage, const char *name,
 	box->v.save_init = quota_save_init;
 	box->v.save_finish = quota_save_finish;
 	box->v.copy = quota_copy;
-	array_idx_set(&box->module_contexts, quota_storage_module_id, &qbox);
+	MODULE_CONTEXT_SET(box, quota_storage_module, qbox);
 	return box;
 }
 
@@ -301,12 +296,12 @@ quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	mailbox_close(&box);
 	/* FIXME: here's an unfortunate race condition */
 	return ret < 0 ? -1 :
-		qlist->super.delete_mailbox(list, name);
+		qlist->module_ctx.super.delete_mailbox(list, name);
 }
 
 static void quota_storage_destroy(struct mail_storage *storage)
 {
-	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
+	union mail_storage_module_context *qstorage = QUOTA_CONTEXT(storage);
 
 	quota_remove_user_storage(quota_set, storage);
 
@@ -316,25 +311,19 @@ static void quota_storage_destroy(struct mail_storage *storage)
 void quota_mail_storage_created(struct mail_storage *storage)
 {
 	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(storage->list);
-	struct quota_mail_storage *qstorage;
+	union mail_storage_module_context *qstorage;
 
 	if (quota_next_hook_mail_storage_created != NULL)
 		quota_next_hook_mail_storage_created(storage);
 
 	qlist->storage = storage;
 
-	qstorage = p_new(storage->pool, struct quota_mail_storage, 1);
+	qstorage = p_new(storage->pool, union mail_storage_module_context, 1);
 	qstorage->super = storage->v;
 	storage->v.destroy = quota_storage_destroy;
 	storage->v.mailbox_open = quota_mailbox_open;
 
-	if (!quota_storage_module_id_set) {
-		quota_storage_module_id = mail_storage_module_id++;
-		quota_storage_module_id_set = TRUE;
-	}
-
-	array_idx_set(&storage->module_contexts,
-		      quota_storage_module_id, &qstorage);
+	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
 
 	if ((storage->flags & MAIL_STORAGE_FLAG_SHARED_NAMESPACE) == 0) {
 		/* register to user's quota roots */
@@ -350,14 +339,8 @@ void quota_mailbox_list_created(struct mailbox_list *list)
 		quota_next_hook_mailbox_list_created(list);
 
 	qlist = p_new(list->pool, struct quota_mailbox_list, 1);
-	qlist->super = list->v;
+	qlist->module_ctx.super = list->v;
 	list->v.delete_mailbox = quota_mailbox_list_delete;
 
-	if (!quota_mailbox_list_module_id_set) {
-		quota_mailbox_list_module_id = mailbox_list_module_id++;
-		quota_mailbox_list_module_id_set = TRUE;
-	}
-
-	array_idx_set(&list->module_contexts,
-		      quota_mailbox_list_module_id, &qlist);
+	MODULE_CONTEXT_SET(list, quota_mailbox_list_module, qlist);
 }

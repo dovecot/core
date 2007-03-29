@@ -51,6 +51,15 @@ struct mailbox_list_vfuncs {
 			      const char *newname);
 };
 
+struct mailbox_list_module_register {
+	unsigned int id;
+};
+
+union mailbox_list_module_context {
+	struct mailbox_list_vfuncs super;
+	struct mailbox_list_module_register *reg;
+};
+
 struct mailbox_list {
 	const char *name;
 	char hierarchy_sep;
@@ -66,7 +75,7 @@ struct mailbox_list {
 	char *error;
 	bool temporary_error;
 
-	ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, union mailbox_list_module_context *);
 };
 
 struct mailbox_list_iterate_context {
@@ -77,7 +86,7 @@ struct mailbox_list_iterate_context {
 
 /* Modules should use do "my_id = mailbox_list_module_id++" and
    use objects' module_contexts[id] for their own purposes. */
-extern unsigned int mailbox_list_module_id;
+extern struct mailbox_list_module_register mailbox_list_module_register;
 
 extern void (*hook_mailbox_list_created)(struct mailbox_list *list);
 

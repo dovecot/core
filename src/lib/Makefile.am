@@ -135,6 +135,7 @@ headers = \
 	mempool.h \
 	mkdir-parents.h \
 	mmap-util.h \
+	module-context.h \
 	module-dir.h \
 	mountpoint.h \
 	network.h \

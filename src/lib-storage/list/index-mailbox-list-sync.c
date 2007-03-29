@@ -11,15 +11,14 @@
 #include <sys/stat.h>
 
 #define INDEX_LIST_STORAGE_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					index_list_storage_module_id))
+	MODULE_CONTEXT(obj, index_list_storage_module)
 
 #define CACHED_STATUS_ITEMS \
 	(STATUS_MESSAGES | STATUS_UNSEEN | STATUS_RECENT | \
 	 STATUS_UIDNEXT | STATUS_UIDVALIDITY)
 
 struct index_list_mailbox {
-	struct mailbox_vfuncs super;
+	union mailbox_module_context module_ctx;
 
 	uint32_t log_seq;
 	uoff_t log_offset;
@@ -45,14 +44,14 @@ static struct index_list_map index_list_map[] = {
 
 static void (*index_list_next_hook_mailbox_created)(struct mailbox *box);
 
-static unsigned int index_list_storage_module_id = 0;
-static bool index_list_storage_module_id_set = FALSE;
+static MODULE_CONTEXT_DEFINE_INIT(index_list_storage_module,
+				  &mail_storage_module_register);
 
 static int index_list_box_close(struct mailbox *box)
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 
-	return ibox->super.close(box);
+	return ibox->module_ctx.super.close(box);
 }
 
 static int index_list_update_mail_index(struct index_mailbox_list *ilist,
@@ -251,7 +250,7 @@ index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 		/* nonsynced / error, fallback to doing it the slow way */
 	}
 
-	return ibox->super.get_status(box, items, status);
+	return ibox->module_ctx.super.get_status(box, items, status);
 }
 
 static int index_list_lookup_or_create(struct index_mailbox_list *ilist,
@@ -397,7 +396,7 @@ index_list_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		}
 	}
 
-	return ibox->super.sync_init(box, flags);
+	return ibox->module_ctx.super.sync_init(box, flags);
 }
 
 static int index_list_sync_next(struct mailbox_sync_context *ctx,
@@ -408,7 +407,7 @@ static int index_list_sync_next(struct mailbox_sync_context *ctx,
 	if (!ctx->box->opened)
 		return 0;
 
-	return ibox->super.sync_next(ctx, sync_rec_r);
+	return ibox->module_ctx.super.sync_next(ctx, sync_rec_r);
 }
 
 static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
@@ -436,7 +435,8 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 
 	if (ilist == NULL) {
 		/* indexing disabled */
-		return ibox->super.sync_deinit(ctx, status_items, status_r);
+		return ibox->module_ctx.super.
+			sync_deinit(ctx, status_items, status_r);
 	}
 
 	/* if status_items == 0, the status_r may be NULL. we really want to
@@ -444,7 +444,7 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	status = status_items == 0 ? &tmp_status : status_r;
 	status_items |= CACHED_STATUS_ITEMS;
 
-	if (ibox->super.sync_deinit(ctx, status_items, status) < 0)
+	if (ibox->module_ctx.super.sync_deinit(ctx, status_items, status) < 0)
 		return -1;
 	ctx = NULL;
 
@@ -474,20 +474,14 @@ static void index_list_mail_mailbox_opened(struct mailbox *box)
 		return;
 
 	ibox = p_new(box->pool, struct index_list_mailbox, 1);
-	ibox->super = box->v;
+	ibox->module_ctx.super = box->v;
 	box->v.close = index_list_box_close;
 	box->v.get_status = index_list_get_status;
 	box->v.sync_init = index_list_sync_init;
 	box->v.sync_next = index_list_sync_next;
 	box->v.sync_deinit = index_list_sync_deinit;
 
-	if (!index_list_storage_module_id_set) {
-		index_list_storage_module_id = mail_storage_module_id++;
-		index_list_storage_module_id_set = TRUE;
-	}
-
-	array_idx_set(&box->module_contexts,
-		      index_list_storage_module_id, &ibox);
+	MODULE_CONTEXT_SET(box, index_list_storage_module, ibox);
 }
 
 void index_mailbox_list_sync_init_list(struct mailbox_list *list)

@@ -15,14 +15,15 @@
 #include <stdlib.h>
 
 #define FTS_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					fts_storage_module_id))
+	MODULE_CONTEXT(obj, fts_storage_module)
+#define FTS_MAIL_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, fts_mail_module)
 
 #define FTS_SEARCH_NONBLOCK_COUNT 10
 #define FTS_BUILD_NOTIFY_INTERVAL_SECS 10
 
 struct fts_mailbox {
-	struct mailbox_vfuncs super;
+	union mailbox_module_context module_ctx;
 	struct fts_backend *backend_exact;
 	struct fts_backend *backend_fast;
 
@@ -31,6 +32,8 @@ struct fts_mailbox {
 };
 
 struct fts_search_context {
+	union mail_search_module_context module_ctx;
+
 	ARRAY_TYPE(seq_range) result;
 	unsigned int result_pos;
 
@@ -58,15 +61,13 @@ struct fts_storage_build_context {
 };
 
 struct fts_transaction_context {
+	union mailbox_transaction_module_context module_ctx;
 	bool expunges;
 };
 
-struct fts_mail {
-	struct mail_vfuncs super;
-};
-
-static unsigned int fts_storage_module_id = 0;
-static bool fts_storage_module_id_set = FALSE;
+static MODULE_CONTEXT_DEFINE_INIT(fts_storage_module,
+				  &mail_storage_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(fts_mail_module, &mail_module_register);
 
 static int fts_mailbox_close(struct mailbox *box)
 {
@@ -78,7 +79,7 @@ static int fts_mailbox_close(struct mailbox *box)
 	if (fbox->backend_fast != NULL)
 		fts_backend_deinit(fbox->backend_fast);
 
-	ret = fbox->super.close(box);
+	ret = fbox->module_ctx.super.close(box);
 	i_free(fbox);
 	return ret;
 }
@@ -563,12 +564,13 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	struct mail_search_arg *best_fast_arg, *best_exact_arg;
 	bool have_fast, have_exact;
 
-	ctx = fbox->super.search_init(t, charset, args, sort_program);
+	ctx = fbox->module_ctx.super.
+		search_init(t, charset, args, sort_program);
 
 	fctx = i_new(struct fts_search_context, 1);
 	fctx->t = t;
 	fctx->args = args;
-	array_idx_set(&ctx->module_contexts, fts_storage_module_id, &fctx);
+	MODULE_CONTEXT_SET(ctx, fts_storage_module, fctx);
 
 	if (fbox->backend_exact == NULL && fbox->backend_fast == NULL)
 		return ctx;
@@ -620,7 +622,8 @@ static int fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 		if (ret > 0)
 			fts_search_init(ctx->transaction->box, fctx);
 	}
-	return fbox->super.search_next_nonblock(ctx, mail, tryagain_r);
+	return fbox->module_ctx.super.
+		search_next_nonblock(ctx, mail, tryagain_r);
 
 }
 
@@ -634,7 +637,7 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 	int ret;
 
 	if (!array_is_created(&fctx->result))
-		return fbox->super.search_next_update_seq(ctx);
+		return fbox->module_ctx.super.search_next_update_seq(ctx);
 
 	do {
 		range = array_get_modifiable(&fctx->result, &count);
@@ -658,7 +661,7 @@ static int fts_mailbox_search_next_update_seq(struct mail_search_context *ctx)
 		}
 
 		wanted_seq = ctx->seq + 1;
-		ret = fbox->super.search_next_update_seq(ctx);
+		ret = fbox->module_ctx.super.search_next_update_seq(ctx);
 	} while (ret > 0 && wanted_seq != ctx->seq);
 
 	return ret;
@@ -680,13 +683,13 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 	if (array_is_created(&fctx->result))
 		array_free(&fctx->result);
 	i_free(fctx);
-	return fbox->super.search_deinit(ctx);
+	return fbox->module_ctx.super.search_deinit(ctx);
 }
 
 static int fts_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct fts_mail *fmail = FTS_CONTEXT(mail);
+	union mail_module_context *fmail = FTS_MAIL_CONTEXT(mail);
 	struct fts_mailbox *fbox = FTS_CONTEXT(_mail->box);
 	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
 
@@ -707,20 +710,20 @@ fts_mail_alloc(struct mailbox_transaction_context *t,
 	       struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
-	struct fts_mail *fmail;
+	union mail_module_context *fmail;
 	struct mail *_mail;
 	struct mail_private *mail;
 
-	_mail = fbox->super.mail_alloc(t, wanted_fields, wanted_headers);
+	_mail = fbox->module_ctx.super.
+		mail_alloc(t, wanted_fields, wanted_headers);
 	if (fbox->backend_exact != NULL || fbox->backend_fast != NULL) {
 		mail = (struct mail_private *)_mail;
 
-		fmail = p_new(mail->pool, struct fts_mail, 1);
+		fmail = p_new(mail->pool, union mail_module_context, 1);
 		fmail->super = mail->v;
 
 		mail->v.expunge = fts_mail_expunge;
-		array_idx_set(&mail->module_contexts,
-			      fts_storage_module_id, &fmail);
+		MODULE_CONTEXT_SET_SELF(mail, fts_mail_module, fmail);
 	}
 	return _mail;
 }
@@ -770,8 +773,8 @@ fts_transaction_begin(struct mailbox *box,
 		fbox->backend_set = TRUE;
 	}
 
-	t = fbox->super.transaction_begin(box, flags);
-	array_idx_set(&t->module_contexts, fts_storage_module_id, &ft);
+	t = fbox->module_ctx.super.transaction_begin(box, flags);
+	MODULE_CONTEXT_SET(t, fts_storage_module, ft);
 	return t;
 }
 
@@ -796,7 +799,7 @@ static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 
-	fbox->super.transaction_rollback(t);
+	fbox->module_ctx.super.transaction_rollback(t);
 	fts_transaction_finish(box, ft, FALSE);
 }
 
@@ -808,7 +811,7 @@ static int fts_transaction_commit(struct mailbox_transaction_context *t,
 	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	int ret;
 
-	ret = fbox->super.transaction_commit(t, flags);
+	ret = fbox->module_ctx.super.transaction_commit(t, flags);
 	fts_transaction_finish(box, ft, ret == 0);
 	return ret;
 }
@@ -827,7 +830,7 @@ void fts_mailbox_opened(struct mailbox *box)
 
 	fbox = i_new(struct fts_mailbox, 1);
 	fbox->env = env;
-	fbox->super = box->v;
+	fbox->module_ctx.super = box->v;
 	box->v.close = fts_mailbox_close;
 	box->v.search_init = fts_mailbox_search_init;
 	box->v.search_next_nonblock = fts_mailbox_search_next_nonblock;
@@ -838,10 +841,5 @@ void fts_mailbox_opened(struct mailbox *box)
 	box->v.transaction_rollback = fts_transaction_rollback;
 	box->v.transaction_commit = fts_transaction_commit;
 
-	if (!fts_storage_module_id_set) {
-		fts_storage_module_id = mail_storage_module_id++;
-		fts_storage_module_id_set = TRUE;
-	}
-
-	array_idx_set(&box->module_contexts, fts_storage_module_id, &fbox);
+	MODULE_CONTEXT_SET(box, fts_storage_module, fbox);
 }

@@ -1,17 +1,17 @@
 #ifndef __INDEX_MAILBOX_LIST_H
 #define __INDEX_MAILBOX_LIST_H
 
+#include "module-context.h"
 #include "mailbox-list-private.h"
 
 #define MAIL_INDEX_PREFIX "dovecot.list.index"
 #define MAILBOX_LIST_INDEX_NAME MAIL_INDEX_PREFIX".uidmap"
 
 #define INDEX_LIST_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					index_mailbox_list_module_id))
+	MODULE_CONTEXT(obj, index_mailbox_list_module)
 
 struct index_mailbox_list {
-	struct mailbox_list_vfuncs super;
+	union mailbox_list_module_context module_ctx;
 
 	struct mail_index *mail_index;
 	struct mailbox_list_index *list_index;
@@ -45,7 +45,8 @@ struct index_mailbox_list_iterate_context {
 	unsigned int failed:1;
 };
 
-extern unsigned int index_mailbox_list_module_id;
+extern MODULE_CONTEXT_DEFINE(index_mailbox_list_module,
+			     &mailbox_list_module_register);
 
 void index_mailbox_list_sync_init(void);
 void index_mailbox_list_sync_init_list(struct mailbox_list *list);

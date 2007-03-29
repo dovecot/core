@@ -17,11 +17,9 @@
 #include <time.h>
 
 #define LAZY_EXPUNGE_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					lazy_expunge_storage_module_id))
+	MODULE_CONTEXT(obj, lazy_expunge_mail_storage_module)
 #define LAZY_EXPUNGE_LIST_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					lazy_expunge_mailbox_list_module_id))
+	MODULE_CONTEXT(obj, lazy_expunge_mailbox_list_module)
 
 enum lazy_namespace {
 	LAZY_NAMESPACE_EXPUNGE,
@@ -32,27 +30,22 @@ enum lazy_namespace {
 };
 
 struct lazy_expunge_mailbox_list {
-	struct mailbox_list_vfuncs super;
+	union mailbox_list_module_context module_ctx;
 
 	struct mail_storage *storage;
 };
 
 struct lazy_expunge_mail_storage {
-	struct mail_storage_vfuncs super;
+	union mail_storage_module_context module_ctx;
+
 	bool internal_namespace;
 };
 
-struct lazy_expunge_mailbox {
-	struct mailbox_vfuncs super;
-};
-
 struct lazy_expunge_transaction {
+	union mailbox_transaction_module_context module_ctx;
+
 	ARRAY_TYPE(seq_range) expunge_seqs;
 	struct mailbox *expunge_box;
-};
-
-struct lazy_expunge_mail {
-	struct mail_vfuncs super;
 };
 
 const char *lazy_expunge_plugin_version = PACKAGE_VERSION;
@@ -63,11 +56,12 @@ static void (*lazy_expunge_next_hook_mail_storage_created)
 static void (*lazy_expunge_next_hook_mailbox_list_created)
 	(struct mailbox_list *list);
 
-static unsigned int lazy_expunge_storage_module_id = 0;
-static bool lazy_expunge_storage_module_id_set = FALSE;
-
-static unsigned int lazy_expunge_mailbox_list_module_id = 0;
-static bool lazy_expunge_mailbox_list_module_id_set = FALSE;
+static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_storage_module,
+				  &mail_storage_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_module,
+				  &mail_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mailbox_list_module,
+				  &mailbox_list_module_register);
 
 static struct namespace *lazy_namespaces[LAZY_NAMESPACE_COUNT];
 
@@ -122,14 +116,14 @@ static struct mailbox_transaction_context *
 lazy_expunge_transaction_begin(struct mailbox *box,
 			       enum mailbox_transaction_flags flags)
 {
-	struct lazy_expunge_mailbox *qbox = LAZY_EXPUNGE_CONTEXT(box);
+	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT(box);
 	struct mailbox_transaction_context *t;
 	struct lazy_expunge_transaction *lt;
 
-	t = qbox->super.transaction_begin(box, flags);
+	t = mbox->super.transaction_begin(box, flags);
 	lt = i_new(struct lazy_expunge_transaction, 1);
 
-	array_idx_set(&t->module_contexts, lazy_expunge_storage_module_id, &lt);
+	MODULE_CONTEXT_SET(t, lazy_expunge_mail_storage_module, lt);
 	return t;
 }
 
@@ -218,12 +212,12 @@ static int
 lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 				enum mailbox_sync_flags flags)
 {
-	struct lazy_expunge_mailbox *qbox = LAZY_EXPUNGE_CONTEXT(ctx->box);
+	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT(ctx->box);
 	struct lazy_expunge_transaction *lt = LAZY_EXPUNGE_CONTEXT(ctx);
 	struct mailbox *srcbox = ctx->box;
 	int ret;
 
-	ret = qbox->super.transaction_commit(ctx, flags);
+	ret = mbox->super.transaction_commit(ctx, flags);
 
 	if (ret == 0 && array_is_created(&lt->expunge_seqs))
 		ret = lazy_expunge_move_expunges(srcbox, lt);
@@ -235,10 +229,10 @@ lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 static void
 lazy_expunge_transaction_rollback(struct mailbox_transaction_context *ctx)
 {
-	struct lazy_expunge_mailbox *qbox = LAZY_EXPUNGE_CONTEXT(ctx->box);
+	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT(ctx->box);
 	struct lazy_expunge_transaction *lt = LAZY_EXPUNGE_CONTEXT(ctx);
 
-	qbox->super.transaction_rollback(ctx);
+	mbox->super.transaction_rollback(ctx);
 	lazy_expunge_transaction_free(lt);
 }
 
@@ -247,20 +241,19 @@ lazy_expunge_mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
 			struct mailbox_header_lookup_ctx *wanted_headers)
 {
-	struct lazy_expunge_mailbox *qbox = LAZY_EXPUNGE_CONTEXT(t->box);
-	struct lazy_expunge_mail *lmail;
+	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT(t->box);
+	union mail_module_context *mmail;
 	struct mail *_mail;
 	struct mail_private *mail;
 
-	_mail = qbox->super.mail_alloc(t, wanted_fields, wanted_headers);
+	_mail = mbox->super.mail_alloc(t, wanted_fields, wanted_headers);
 	mail = (struct mail_private *)_mail;
 
-	lmail = p_new(mail->pool, struct lazy_expunge_mail, 1);
-	lmail->super = mail->v;
+	mmail = p_new(mail->pool, union mail_module_context, 1);
+	mmail->super = mail->v;
 
 	mail->v.expunge = lazy_expunge_mail_expunge;
-	array_idx_set(&mail->module_contexts,
-		      lazy_expunge_storage_module_id, &lmail);
+	MODULE_CONTEXT_SET_SELF(mail, lazy_expunge_mail_module, mmail);
 	return _mail;
 }
 
@@ -271,21 +264,21 @@ lazy_expunge_mailbox_open(struct mail_storage *storage, const char *name,
 	struct lazy_expunge_mail_storage *lstorage =
 		LAZY_EXPUNGE_CONTEXT(storage);
 	struct mailbox *box;
-	struct lazy_expunge_mailbox *qbox;
+	union mailbox_module_context *mbox;
 
-	box = lstorage->super.mailbox_open(storage, name, input, flags);
+	box = lstorage->module_ctx.super.
+		mailbox_open(storage, name, input, flags);
 	if (box == NULL || lstorage->internal_namespace)
 		return box;
 
-	qbox = p_new(box->pool, struct lazy_expunge_mailbox, 1);
-	qbox->super = box->v;
+	mbox = p_new(box->pool, union mailbox_module_context, 1);
+	mbox->super = box->v;
 
 	box->v.transaction_begin = lazy_expunge_transaction_begin;
 	box->v.transaction_commit = lazy_expunge_transaction_commit;
 	box->v.transaction_rollback = lazy_expunge_transaction_rollback;
 	box->v.mail_alloc = lazy_expunge_mail_alloc;
-	array_idx_set(&box->module_contexts,
-		      lazy_expunge_storage_module_id, &qbox);
+	MODULE_CONTEXT_SET_SELF(box, lazy_expunge_mail_storage_module, mbox);
 	return box;
 }
 
@@ -423,12 +416,12 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 
 	if (llist->storage == NULL) {
 		/* not a maildir storage */
-		return llist->super.delete_mailbox(list, name);
+		return llist->module_ctx.super.delete_mailbox(list, name);
 	}
 
 	lstorage = LAZY_EXPUNGE_CONTEXT(llist->storage);
 	if (lstorage->internal_namespace)
-		return llist->super.delete_mailbox(list, name);
+		return llist->module_ctx.super.delete_mailbox(list, name);
 
 	/* first do the normal sanity checks */
 	if (strcmp(name, "INBOX") == 0) {
@@ -483,16 +476,10 @@ static void lazy_expunge_mail_storage_created(struct mail_storage *storage)
 	llist->storage = storage;
 
 	lstorage = p_new(storage->pool, struct lazy_expunge_mail_storage, 1);
-	lstorage->super = storage->v;
+	lstorage->module_ctx.super = storage->v;
 	storage->v.mailbox_open = lazy_expunge_mailbox_open;
 
-	if (!lazy_expunge_storage_module_id_set) {
-		lazy_expunge_storage_module_id = mail_storage_module_id++;
-		lazy_expunge_storage_module_id_set = TRUE;
-	}
-
-	array_idx_set(&storage->module_contexts,
-		      lazy_expunge_storage_module_id, &lstorage);
+	MODULE_CONTEXT_SET(storage, lazy_expunge_mail_storage_module, lstorage);
 }
 
 static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
@@ -503,16 +490,10 @@ static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 		lazy_expunge_next_hook_mailbox_list_created(list);
 
 	llist = p_new(list->pool, struct lazy_expunge_mailbox_list, 1);
-	llist->super = list->v;
+	llist->module_ctx.super = list->v;
 	list->v.delete_mailbox = lazy_expunge_mailbox_list_delete;
 
-	if (!lazy_expunge_mailbox_list_module_id_set) {
-		lazy_expunge_mailbox_list_module_id = mailbox_list_module_id++;
-		lazy_expunge_mailbox_list_module_id_set = TRUE;
-	}
-
-	array_idx_set(&list->module_contexts,
-		      lazy_expunge_mailbox_list_module_id, &llist);
+	MODULE_CONTEXT_SET(list, lazy_expunge_mailbox_list_module, llist);
 }
 
 static void lazy_expunge_hook_client_created(struct client **client)

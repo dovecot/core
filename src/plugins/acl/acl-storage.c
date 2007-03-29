@@ -9,9 +9,8 @@
 
 #include <stdlib.h>
 
-unsigned int acl_storage_module_id = 0;
-
-static bool acl_storage_module_id_set = FALSE;
+struct acl_storage_module acl_storage_module =
+	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
 static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 	MAIL_ACL_LOOKUP,
@@ -66,7 +65,7 @@ static void acl_storage_destroy(struct mail_storage *storage)
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
 
 	acl_backend_deinit(&astorage->backend);
-	astorage->super.destroy(storage);
+	astorage->module_ctx.super.destroy(storage);
 }
 
 static struct mailbox *
@@ -101,7 +100,8 @@ acl_mailbox_open(struct mail_storage *storage, const char *name,
 		return NULL;
 	}
 
-	box = astorage->super.mailbox_open(storage, name, input, flags);
+	box = astorage->module_ctx.super.
+		mailbox_open(storage, name, input, flags);
 	if (box == NULL)
 		return NULL;
 
@@ -131,7 +131,8 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 		return -1;
 	}
 
-	return astorage->super.mailbox_create(storage, name, directory);
+	return astorage->module_ctx.super.
+		mailbox_create(storage, name, directory);
 }
 
 void acl_mail_storage_created(struct mail_storage *storage)
@@ -168,7 +169,7 @@ void acl_mail_storage_created(struct mail_storage *storage)
 	}
 
 	astorage = p_new(storage->pool, struct acl_mail_storage, 1);
-	astorage->super = storage->v;
+	astorage->module_ctx.super = storage->v;
 	astorage->backend = backend;
 	storage->v.destroy = acl_storage_destroy;
 	storage->v.mailbox_open = acl_mailbox_open;
@@ -183,12 +184,6 @@ void acl_mail_storage_created(struct mail_storage *storage)
 						 acl_storage_right_names[i]);
 	}
 
-	if (!acl_storage_module_id_set) {
-		acl_storage_module_id = mail_storage_module_id++;
-		acl_storage_module_id_set = TRUE;
-	}
-
-	array_idx_set(&storage->module_contexts,
-		      acl_storage_module_id, &astorage);
+	MODULE_CONTEXT_SET(storage, acl_storage_module, astorage);
 }
 

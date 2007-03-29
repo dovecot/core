@@ -23,8 +23,7 @@
 #define DBOX_LOCK_TOUCH_MSECS (10*1000)
 
 #define DBOX_LIST_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					dbox_mailbox_list_module_id))
+	MODULE_CONTEXT(obj, dbox_mailbox_list_module)
 
 const struct dotlock_settings default_uidlist_dotlock_set = {
 	MEMBER(temp_prefix) NULL,
@@ -68,7 +67,8 @@ static const struct dotlock_settings default_new_file_dotlock_set = {
 extern struct mail_storage dbox_storage;
 extern struct mailbox dbox_mailbox;
 
-static unsigned int dbox_mailbox_list_module_id = 0;
+static MODULE_CONTEXT_DEFINE_INIT(dbox_mailbox_list_module,
+				  &mailbox_list_module_register);
 
 static int
 dbox_list_delete_mailbox(struct mailbox_list *list, const char *name);
@@ -83,7 +83,7 @@ dbox_storage_is_valid_existing_name(struct mailbox_list *list, const char *name)
 	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
 	const char *p;
 
-	if (!storage->list_super.is_valid_existing_name(list, name))
+	if (!storage->list_module_ctx.super.is_valid_existing_name(list, name))
 		return FALSE;
 
 	/* Don't allow the mailbox name to end in dbox-Mails */
@@ -100,7 +100,7 @@ dbox_storage_is_valid_create_name(struct mailbox_list *list, const char *name)
 	const char *const *tmp;
 	bool ret = TRUE;
 
-	if (!storage->list_super.is_valid_create_name(list, name))
+	if (!storage->list_module_ctx.super.is_valid_create_name(list, name))
 		return FALSE;
 
 	/* Don't allow creating mailboxes under dbox-Mails */
@@ -206,14 +206,14 @@ dbox_create(const char *data, const char *user,
 		pool_unref(pool);
 		return NULL;
 	}
-	storage->list_super = list->v;
+	storage->list_module_ctx.super = list->v;
 	list->v.is_valid_existing_name = dbox_storage_is_valid_existing_name;
 	list->v.is_valid_create_name = dbox_storage_is_valid_create_name;
 	list->v.iter_is_mailbox = dbox_list_iter_is_mailbox;
 	list->v.delete_mailbox = dbox_list_delete_mailbox;
 
-	array_idx_set(&list->module_contexts,
-		      dbox_mailbox_list_module_id, &storage);
+	MODULE_CONTEXT_SET_FULL(list, dbox_mailbox_list_module,
+				storage, &storage->list_module_ctx);
 
 	storage->uidlist_dotlock_set = default_uidlist_dotlock_set;
 	storage->file_dotlock_set = default_file_dotlock_set;
@@ -462,7 +462,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	index_storage_destroy_unrefed();
 
 	/* delete the index and control directories */
-	if (storage->list_super.delete_mailbox(list, name) < 0)
+	if (storage->list_module_ctx.super.delete_mailbox(list, name) < 0)
 		return -1;
 
 	path = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR);
@@ -600,7 +600,6 @@ static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 
 static void dbox_class_init(void)
 {
-	dbox_mailbox_list_module_id = mailbox_list_module_id++;
 	dbox_transaction_class_init();
 }
 

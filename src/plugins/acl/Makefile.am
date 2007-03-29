@@ -1,6 +1,7 @@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage
 
 lib01_acl_plugin_la_LDFLAGS = -module -avoid-version

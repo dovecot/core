@@ -22,7 +22,7 @@
 struct mbox_storage {
 	struct index_storage storage;
 
-	struct mailbox_list_vfuncs list_super;
+	union mailbox_list_module_context list_module_ctx;
 };
 
 struct mbox_mailbox {
@@ -56,6 +56,7 @@ struct mbox_mailbox {
 
 struct mbox_transaction_context {
 	struct index_transaction_context ictx;
+	union mail_index_transaction_module_context module_ctx;
 
 	struct mbox_save_context *save_ctx;
 	unsigned int mbox_lock_id;

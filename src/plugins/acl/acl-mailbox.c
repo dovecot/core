@@ -13,19 +13,14 @@
 
 #include <sys/stat.h>
 
-#define ACL_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					acl_storage_module_id))
+#define ACL_MAIL_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, acl_mail_module)
 
 struct acl_mailbox {
-	struct mailbox_vfuncs super;
+	union mailbox_module_context module_ctx;
 	struct acl_object *aclobj;
 
 	unsigned int save_hack:1;
-};
-
-struct acl_mail {
-	struct mail_vfuncs super;
 };
 
 static int acl_mailbox_close(struct mailbox *box)
@@ -33,8 +28,10 @@ static int acl_mailbox_close(struct mailbox *box)
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 
 	acl_object_deinit(&abox->aclobj);
-	return abox->super.close(box);
+	return abox->module_ctx.super.close(box);
 }
+
+static MODULE_CONTEXT_DEFINE_INIT(acl_mail_module, &mail_module_register);
 
 static int mailbox_acl_right_lookup(struct mailbox *box, unsigned int right_idx)
 {
@@ -81,7 +78,7 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		      enum mail_flags flags)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct acl_mail *amail = ACL_CONTEXT(mail);
+	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
 	bool acl_flags, acl_flag_seen, acl_flag_del;
 	int ret;
 
@@ -122,7 +119,7 @@ acl_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
 			 struct mail_keywords *keywords)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct acl_mail *amail = ACL_CONTEXT(mail);
+	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
 	int ret;
 
 	ret = mailbox_acl_right_lookup(_mail->box, ACL_STORAGE_RIGHT_WRITE);
@@ -137,7 +134,7 @@ acl_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
 static int acl_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct acl_mail *amail = ACL_CONTEXT(mail);
+	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
 	int ret;
 
 	ret = mailbox_acl_right_lookup(_mail->box, ACL_STORAGE_RIGHT_EXPUNGE);
@@ -157,20 +154,21 @@ acl_mail_alloc(struct mailbox_transaction_context *t,
 	       struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
-	struct acl_mail *amail;
+	union mail_module_context *amail;
 	struct mail *_mail;
 	struct mail_private *mail;
 
-	_mail = abox->super.mail_alloc(t, wanted_fields, wanted_headers);
+	_mail = abox->module_ctx.super.
+		mail_alloc(t, wanted_fields, wanted_headers);
 	mail = (struct mail_private *)_mail;
 
-	amail = p_new(mail->pool, struct acl_mail, 1);
+	amail = p_new(mail->pool, union mail_module_context, 1);
 	amail->super = mail->v;
 
 	mail->v.update_flags = acl_mail_update_flags;
 	mail->v.update_keywords = acl_mail_update_keywords;
 	mail->v.expunge = acl_mail_expunge;
-	array_idx_set(&mail->module_contexts, acl_storage_module_id, &amail);
+	MODULE_CONTEXT_SET_SELF(mail, acl_mail_module, amail);
 	return _mail;
 }
 
@@ -186,9 +184,10 @@ acl_save_init(struct mailbox_transaction_context *t,
 	if (mailbox_acl_right_lookup(t->box, ACL_STORAGE_RIGHT_INSERT) <= 0)
 		return -1;
 
-	return abox->super.save_init(t, flags, keywords, received_date,
-				     timezone_offset, from_envelope,
-				     input, dest_mail, ctx_r);
+	return abox->module_ctx.super.
+		save_init(t, flags, keywords, received_date,
+			  timezone_offset, from_envelope,
+			  input, dest_mail, ctx_r);
 }
 
 static int
@@ -201,7 +200,7 @@ acl_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	if (mailbox_acl_right_lookup(t->box, ACL_STORAGE_RIGHT_INSERT) <= 0)
 		return -1;
 
-	return abox->super.copy(t, mail, flags, keywords, dest_mail);
+	return abox->module_ctx.super.copy(t, mail, flags, keywords, dest_mail);
 }
 
 struct mailbox *acl_mailbox_open_box(struct mailbox *box)
@@ -210,7 +209,7 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 	struct acl_mailbox *abox;
 
 	abox = p_new(box->pool, struct acl_mailbox, 1);
-	abox->super = box->v;
+	abox->module_ctx.super = box->v;
 	abox->aclobj = acl_object_init_from_name(astorage->backend,
 						 mailbox_get_name(box));
 	
@@ -218,6 +217,6 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 	box->v.mail_alloc = acl_mail_alloc;
 	box->v.save_init = acl_save_init;
 	box->v.copy = acl_copy;
-	array_idx_set(&box->module_contexts, acl_storage_module_id, &abox);
+	MODULE_CONTEXT_SET(box, acl_storage_module, abox);
 	return box;
 }

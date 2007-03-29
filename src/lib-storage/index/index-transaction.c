@@ -69,7 +69,7 @@ index_transaction_begin(struct mailbox *box,
 		(flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0,
 		(flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
-	it = MAIL_STORAGE_TRANSACTION(t);
+	it = MAIL_STORAGE_CONTEXT(t);
 	if (it == NULL) {
 		i_panic("mail storage transaction context mising for type %s",
 			box->storage->name);

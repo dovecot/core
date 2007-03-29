@@ -11,6 +11,7 @@
 #define LUCENE_LOCK_SUBDIR_NAME "locks"
 
 struct lucene_mail_storage {
+	union mail_storage_module_context module_ctx;
 	struct lucene_index *index;
 	struct mailbox *selected_box;
 	int refcount;
@@ -57,8 +58,8 @@ static struct fts_backend *fts_backend_lucene_init(struct mailbox *box)
 
 		lstorage = i_new(struct lucene_mail_storage, 1);
 		lstorage->index = lucene_index_init(path, lock_path);
-		array_idx_set(&box->storage->module_contexts,
-			      fts_lucene_storage_module_id, &lstorage);
+		MODULE_CONTEXT_SET(box->storage, fts_lucene_storage_module,
+				   lstorage);
 	}
 	lstorage->refcount++;
 
@@ -75,8 +76,8 @@ static void fts_backend_lucene_deinit(struct fts_backend *_backend)
 		(struct lucene_fts_backend *)_backend;
 
 	if (--backend->lstorage->refcount == 0) {
-		array_idx_clear(&backend->box->storage->module_contexts,
-				fts_lucene_storage_module_id);
+		MODULE_CONTEXT_UNSET(backend->box->storage,
+				     fts_lucene_storage_module);
 		lucene_index_deinit(backend->lstorage->index);
 		i_free(backend->lstorage);
 	}

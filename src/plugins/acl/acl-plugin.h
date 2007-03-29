@@ -4,8 +4,7 @@
 #include "mail-storage-private.h"
 
 #define ACL_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					acl_storage_module_id))
+	MODULE_CONTEXT(obj, acl_storage_module)
 
 enum acl_storage_rights {
 	ACL_STORAGE_RIGHT_LOOKUP,
@@ -23,7 +22,8 @@ enum acl_storage_rights {
 };
 
 struct acl_mail_storage {
-	struct mail_storage_vfuncs super;
+	union mail_storage_module_context module_ctx;
+
 	struct acl_backend *backend;
 	unsigned int acl_storage_right_idx[ACL_STORAGE_RIGHT_COUNT];
 };
@@ -31,7 +31,7 @@ struct acl_mail_storage {
 extern void (*acl_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 extern void (*acl_next_hook_mailbox_list_created)(struct mailbox_list *list);
-extern unsigned int acl_storage_module_id;
+extern MODULE_CONTEXT_DEFINE(acl_storage_module, &mail_storage_module_register);
 
 void acl_mail_storage_created(struct mail_storage *storage);
 void acl_mailbox_list_created(struct mailbox_list *list);

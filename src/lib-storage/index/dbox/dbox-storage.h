@@ -15,7 +15,7 @@ struct dbox_uidlist;
 
 struct dbox_storage {
 	struct index_storage storage;
-	struct mailbox_list_vfuncs list_super;
+	union mailbox_list_module_context list_module_ctx;
 
 	struct dotlock_settings uidlist_dotlock_set;
 	struct dotlock_settings file_dotlock_set;
@@ -77,6 +77,7 @@ struct dbox_mailbox {
 
 struct dbox_transaction_context {
 	struct index_transaction_context ictx;
+	union mail_index_transaction_module_context module_ctx;
 
 	uint32_t first_saved_mail_seq;
 	struct dbox_save_context *save_ctx;

@@ -23,7 +23,7 @@
 	"Internal error occurred. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
-unsigned int mailbox_list_module_id = 0;
+struct mailbox_list_module_register mailbox_list_module_register = { 0 };
 
 void (*hook_mailbox_list_created)(struct mailbox_list *list);
 

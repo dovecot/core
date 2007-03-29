@@ -26,8 +26,7 @@
 #define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
 
 #define MAILDIR_LIST_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					maildir_mailbox_list_module_id))
+	MODULE_CONTEXT(obj, maildir_mailbox_list_module)
 
 struct rename_context {
 	bool found;
@@ -38,7 +37,8 @@ struct rename_context {
 extern struct mail_storage maildir_storage;
 extern struct mailbox maildir_mailbox;
 
-static unsigned int maildir_mailbox_list_module_id = 0;
+static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
+				  &mailbox_list_module_register);
 
 static int verify_inbox(struct mail_storage *storage,
 			enum mailbox_open_flags *flags);
@@ -178,7 +178,7 @@ static bool maildir_storage_is_valid_existing_name(struct mailbox_list *list,
 	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(list);
 	const char *p;
 
-	if (!storage->list_super.is_valid_existing_name(list, name))
+	if (!storage->list_module_ctx.super.is_valid_existing_name(list, name))
 		return FALSE;
 
 	/* Don't allow the mailbox name to end in cur/new/tmp */
@@ -195,7 +195,7 @@ static bool maildir_storage_is_valid_create_name(struct mailbox_list *list,
 	const char *const *tmp;
 	bool ret = TRUE;
 
-	if (!storage->list_super.is_valid_create_name(list, name))
+	if (!storage->list_module_ctx.super.is_valid_create_name(list, name))
 		return FALSE;
 
 	/* Don't allow creating mailboxes under cur/new/tmp */
@@ -250,7 +250,7 @@ maildir_create(const char *data, const char *user,
 		pool_unref(pool);
 		return NULL;
 	}
-	storage->list_super = list->v;
+	storage->list_module_ctx.super = list->v;
 	if (strcmp(layout, MAILDIR_PLUSPLUS_DRIVER_NAME) == 0) {
 		list->v.iter_is_mailbox = maildirplusplus_iter_is_mailbox;
 	} else {
@@ -263,8 +263,8 @@ maildir_create(const char *data, const char *user,
 	list->v.delete_mailbox = maildir_list_delete_mailbox;
 	list->v.rename_mailbox = maildir_list_rename_mailbox;
 
-	array_idx_set(&list->module_contexts,
-		      maildir_mailbox_list_module_id, &storage);
+	MODULE_CONTEXT_SET_FULL(list, maildir_mailbox_list_module,
+				storage, &storage->list_module_ctx);
 
 	storage->copy_with_hardlinks =
 		getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
@@ -797,7 +797,7 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	index_storage_destroy_unrefed();
 
 	/* delete the index and control directories */
-	if (storage->list_super.delete_mailbox(list, name) < 0)
+	if (storage->list_module_ctx.super.delete_mailbox(list, name) < 0)
 		return -1;
 
 	/* check if the mailbox actually exists */
@@ -873,7 +873,8 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 		}
 	}
 
-	return storage->list_super.rename_mailbox(list, oldname, newname);
+	return storage->list_module_ctx.super.
+		rename_mailbox(list, oldname, newname);
 }
 
 static int maildir_storage_close(struct mailbox *box)
@@ -1054,7 +1055,6 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 
 static void maildir_class_init(void)
 {
-	maildir_mailbox_list_module_id = mailbox_list_module_id++;
 	maildir_transaction_class_init();
 }
 

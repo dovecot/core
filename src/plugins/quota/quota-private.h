@@ -68,6 +68,8 @@ struct quota_root {
 };
 
 struct quota_transaction_context {
+	union mailbox_transaction_module_context module_ctx;
+
 	struct quota *quota;
 	struct mailbox *box;
 

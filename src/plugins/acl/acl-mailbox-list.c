@@ -7,11 +7,10 @@
 #include "acl-plugin.h"
 
 #define ACL_LIST_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					acl_mailbox_list_module_id))
+	MODULE_CONTEXT(obj, acl_mailbox_list_module)
 
 struct acl_mailbox_list {
-	struct mailbox_list_vfuncs super;
+	union mailbox_list_module_context module_ctx;
 
 	/* FIXME: this is wrong. multiple storages can use the same
 	   mailbox_list, so the whole ACL plugin probably needs redesigning.
@@ -19,9 +18,9 @@ struct acl_mailbox_list {
 	struct mail_storage *storage;
 };
 
-unsigned int acl_mailbox_list_module_id = 0;
+static MODULE_CONTEXT_DEFINE_INIT(acl_mailbox_list_module,
+				  &mailbox_list_module_register);
 
-static bool acl_mailbox_list_module_id_set = FALSE;
 
 static struct mailbox_info *
 acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
@@ -31,7 +30,7 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 	int ret;
 
 	for (;;) {
-		info = alist->super.iter_next(ctx);
+		info = alist->module_ctx.super.iter_next(ctx);
 		if (info == NULL)
 			return NULL;
 
@@ -69,7 +68,8 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	if (ret < 0)
 		return -1;
 
-	if (alist->super.get_mailbox_name_status(list, name, status) < 0)
+	if (alist->module_ctx.super.get_mailbox_name_status(list, name,
+							    status) < 0)
 		return -1;
 	if (ret > 0)
 		return 0;
@@ -124,7 +124,7 @@ acl_mailbox_list_delete(struct mailbox_list *list, const char *name)
 		return -1;
 	}
 
-	return alist->super.delete_mailbox(list, name);
+	return alist->module_ctx.super.delete_mailbox(list, name);
 }
 
 static int
@@ -169,7 +169,7 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 		return -1;
 	}
 
-	return alist->super.rename_mailbox(list, oldname, newname);
+	return alist->module_ctx.super.rename_mailbox(list, oldname, newname);
 }
 
 void acl_mailbox_list_created(struct mailbox_list *list)
@@ -180,19 +180,13 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 		acl_next_hook_mailbox_list_created(list);
 
 	alist = p_new(list->pool, struct acl_mailbox_list, 1);
-	alist->super = list->v;
+	alist->module_ctx.super = list->v;
 	list->v.iter_next = acl_mailbox_list_iter_next;
 	list->v.get_mailbox_name_status = acl_get_mailbox_name_status;
 	list->v.delete_mailbox = acl_mailbox_list_delete;
 	list->v.rename_mailbox = acl_mailbox_list_rename;
 
-	if (!acl_mailbox_list_module_id_set) {
-		acl_mailbox_list_module_id = mailbox_list_module_id++;
-		acl_mailbox_list_module_id_set = TRUE;
-	}
-
-	array_idx_set(&list->module_contexts,
-		      acl_mailbox_list_module_id, &alist);
+	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }
 
 void acl_mailbox_list_set_storage(struct mail_storage *storage)

@@ -17,8 +17,11 @@
 	"Internal error occurred. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
-unsigned int mail_storage_module_id = 0;
-unsigned int mail_storage_mail_index_module_id = 0;
+struct mail_storage_module_register mail_storage_module_register = { 0 };
+struct mail_module_register mail_module_register = { 0 };
+
+struct mail_storage_mail_index_module mail_storage_mail_index_module =
+	MODULE_CONTEXT_INIT(&mail_index_module_register);
 
 void (*hook_mail_storage_created)(struct mail_storage *storage);
 void (*hook_mailbox_opened)(struct mailbox *box) = NULL;
@@ -28,8 +31,6 @@ static ARRAY_DEFINE(storages, struct mail_storage *);
 void mail_storage_init(void)
 {
 	i_array_init(&storages, 8);
-
-	mail_storage_mail_index_module_id = mail_index_module_id++;
 }
 
 void mail_storage_deinit(void)

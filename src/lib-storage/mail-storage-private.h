@@ -1,13 +1,23 @@
 #ifndef __MAIL_STORAGE_PRIVATE_H
 #define __MAIL_STORAGE_PRIVATE_H
 
+#include "module-context.h"
 #include "file-lock.h"
 #include "mail-storage.h"
+#include "mail-index-private.h"
 
 /* Called after mail storage has been created */
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 /* Called after mailbox has been opened */
 extern void (*hook_mailbox_opened)(struct mailbox *box);
+
+struct mail_storage_module_register {
+	unsigned int id;
+};
+
+struct mail_module_register {
+	unsigned int id;
+};
 
 struct mail_storage_vfuncs {
 	void (*class_init)(void);
@@ -38,6 +48,11 @@ struct mail_storage_vfuncs {
 				      bool *temporary_error_r);
 };
 
+union mail_storage_module_context {
+	struct mail_storage_vfuncs super;
+	struct mail_storage_module_register *reg;
+};
+
 struct mail_storage {
 	const char *name;
 	bool mailbox_is_file;
@@ -56,7 +71,7 @@ struct mail_storage {
 	void *callback_context;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
-	ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, union mail_storage_module_context *);
 
 	/* IMAP: Give a BAD reply instead of NO */
 	unsigned int syntax_error:1;
@@ -141,6 +156,11 @@ struct mailbox_vfuncs {
 	bool (*is_inconsistent)(struct mailbox *box);
 };
 
+union mailbox_module_context {
+        struct mailbox_vfuncs super;
+	struct mail_storage_module_register *reg;
+};
+
 struct mailbox {
 	char *name;
 	struct mail_storage *storage;
@@ -152,7 +172,7 @@ struct mailbox {
 	unsigned int transaction_count;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
-	ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, union mailbox_module_context *);
 
 	/* When FAST open flag is used, the mailbox isn't actually opened until
 	   it's synced for the first time. */
@@ -194,12 +214,17 @@ struct mail_vfuncs {
 	int (*expunge)(struct mail *mail);
 };
 
+union mail_module_context {
+	struct mail_vfuncs super;
+	struct mail_module_register *reg;
+};
+
 struct mail_private {
 	struct mail mail;
 	struct mail_vfuncs v;
 
 	pool_t pool;
-	ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, union mail_module_context *);
 };
 
 struct mailbox_list_context {
@@ -208,9 +233,18 @@ struct mailbox_list_context {
 	bool failed;
 };
 
+union mailbox_transaction_module_context {
+	struct mail_storage_module_register *reg;
+};
+
 struct mailbox_transaction_context {
 	struct mailbox *box;
-	ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts,
+		     union mailbox_transaction_module_context *);
+};
+
+union mail_search_module_context {
+	struct mail_storage_module_register *reg;
 };
 
 struct mail_search_context {
@@ -221,7 +255,7 @@ struct mail_search_context {
 	struct mail_search_sort_program *sort_program;
 
 	uint32_t seq;
-	ARRAY_DEFINE(module_contexts, void);
+	ARRAY_DEFINE(module_contexts, union mail_search_module_context *);
 };
 
 struct mail_save_context {
@@ -239,25 +273,15 @@ struct mailbox_header_lookup_ctx {
 
 /* Modules should use do "my_id = mail_storage_module_id++" and
    use objects' module_contexts[id] for their own purposes. */
-extern unsigned int mail_storage_module_id;
+extern struct mail_storage_module_register mail_storage_module_register;
 
 /* Storage's module_id for mail_index. */
-extern unsigned int mail_storage_mail_index_module_id;
+extern struct mail_module_register mail_module_register;
 
-#define MAIL_STORAGE_INDEX(index) \
-	*((void **)array_idx_modifiable( \
-		&(index)->mail_index_module_contexts, \
-		mail_storage_mail_index_module_id))
-
-#define MAIL_STORAGE_VIEW(view) \
-	*((void **)array_idx_modifiable( \
-		&(view)->mail_index_view_module_contexts, \
-		mail_storage_mail_index_module_id))
-
-#define MAIL_STORAGE_TRANSACTION(trans) \
-	*((void **)array_idx_modifiable( \
-		&(trans)->mail_index_transaction_module_contexts, \
-		mail_storage_mail_index_module_id))
+#define MAIL_STORAGE_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, mail_storage_mail_index_module)
+extern MODULE_CONTEXT_DEFINE(mail_storage_mail_index_module,
+			     &mail_index_module_register);
 
 /* Set error message in storage. Critical errors are logged with i_error(),
    but user sees only "internal error" message. */

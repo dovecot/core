@@ -12,34 +12,26 @@
 #include <stdlib.h>
 
 #define EXPIRE_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					expire.storage_module_id))
+	MODULE_CONTEXT(obj, expire_storage_module)
+#define EXPIRE_MAIL_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, expire_mail_module)
 
 struct expire {
 	struct dict *db;
 	struct expire_env *env;
 	const char *username;
 
-	unsigned int storage_module_id;
-	bool storage_module_id_set;
-
 	void (*next_hook_mail_storage_created)(struct mail_storage *storage);
 };
 
-struct expire_mail_storage {
-	struct mail_storage_vfuncs super;
-};
-
 struct expire_mailbox {
-	struct mailbox_vfuncs super;
+	union mailbox_module_context module_ctx;
 	time_t expire_secs;
 };
 
-struct expire_mail {
-	struct mail_vfuncs super;
-};
-
 struct expire_transaction_context {
+	union mailbox_transaction_module_context module_ctx;
+
 	struct mail *mail;
 	time_t first_save_time;
 
@@ -49,6 +41,9 @@ struct expire_transaction_context {
 const char *expire_plugin_version = PACKAGE_VERSION;
 
 static struct expire expire;
+static MODULE_CONTEXT_DEFINE_INIT(expire_storage_module,
+				  &mail_storage_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(expire_mail_module, &mail_module_register);
 
 static struct mailbox_transaction_context *
 expire_mailbox_transaction_begin(struct mailbox *box,
@@ -58,11 +53,11 @@ expire_mailbox_transaction_begin(struct mailbox *box,
 	struct mailbox_transaction_context *t;
 	struct expire_transaction_context *xt;
 
-	t = xpr_box->super.transaction_begin(box, flags);
+	t = xpr_box->module_ctx.super.transaction_begin(box, flags);
 	xt = i_new(struct expire_transaction_context, 1);
 	xt->mail = mail_alloc(t, 0, NULL);
 
-	array_idx_set(&t->module_contexts, expire.storage_module_id, &xt);
+	MODULE_CONTEXT_SET(t, expire_storage_module, xt);
 	return t;
 }
 
@@ -133,7 +128,7 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	mail_free(&xt->mail);
 	i_free(xt);
 
-	if (xpr_box->super.transaction_commit(t, flags) < 0) {
+	if (xpr_box->module_ctx.super.transaction_commit(t, flags) < 0) {
 		t_pop();
 		return -1;
 	}
@@ -159,14 +154,14 @@ expire_mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 
 	mail_free(&xt->mail);
 
-	xpr_box->super.transaction_rollback(t);
+	xpr_box->module_ctx.super.transaction_rollback(t);
 	i_free(xt);
 }
 
 static int expire_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct expire_mail *xpr_mail = EXPIRE_CONTEXT(mail);
+	union mail_module_context *xpr_mail = EXPIRE_MAIL_CONTEXT(mail);
 	struct expire_transaction_context *xt =
 		EXPIRE_CONTEXT(_mail->transaction);
 
@@ -186,19 +181,19 @@ expire_mail_alloc(struct mailbox_transaction_context *t,
 		  struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
-	struct expire_mail *xpr_mail;
+	union mail_module_context *xpr_mail;
 	struct mail *_mail;
 	struct mail_private *mail;
 
-	_mail = xpr_box->super.mail_alloc(t, wanted_fields, wanted_headers);
+	_mail = xpr_box->module_ctx.super.
+		mail_alloc(t, wanted_fields, wanted_headers);
 	mail = (struct mail_private *)_mail;
 
-	xpr_mail = p_new(mail->pool, struct expire_mail, 1);
+	xpr_mail = p_new(mail->pool, union mail_module_context, 1);
 	xpr_mail->super = mail->v;
 
 	mail->v.expunge = expire_mail_expunge;
-	array_idx_set(&mail->module_contexts, expire.storage_module_id,
-		      &xpr_mail);
+	MODULE_CONTEXT_SET_SELF(mail, expire_mail_module, xpr_mail);
 	return _mail;
 }
 
@@ -230,9 +225,10 @@ expire_save_init(struct mailbox_transaction_context *t,
 	if (dest_mail == NULL)
 		dest_mail = xt->mail;
 
-	ret = xpr_box->super.save_init(t, flags, keywords, received_date,
-				       timezone_offset, from_envelope, input,
-				       dest_mail, ctx_r);
+	ret = xpr_box->module_ctx.super.
+		save_init(t, flags, keywords, received_date,
+			  timezone_offset, from_envelope, input,
+			  dest_mail, ctx_r);
 	if (ret >= 0)
 		mail_set_save_time(t, dest_mail->seq);
 	return ret;
@@ -250,7 +246,8 @@ expire_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	if (dest_mail == NULL)
 		dest_mail = xt->mail;
 
-	ret = xpr_box->super.copy(t, mail, flags, keywords, dest_mail);
+	ret = xpr_box->module_ctx.super.
+		copy(t, mail, flags, keywords, dest_mail);
 	if (ret >= 0)
 		mail_set_save_time(t, dest_mail->seq);
 	return ret;
@@ -261,7 +258,7 @@ static void mailbox_expire_hook(struct mailbox *box, time_t expire_secs)
 	struct expire_mailbox *xpr_box;
 
 	xpr_box = p_new(box->pool, struct expire_mailbox, 1);
-	xpr_box->super = box->v;
+	xpr_box->module_ctx.super = box->v;
 
 	box->v.transaction_begin = expire_mailbox_transaction_begin;
 	box->v.transaction_commit = expire_mailbox_transaction_commit;
@@ -272,15 +269,15 @@ static void mailbox_expire_hook(struct mailbox *box, time_t expire_secs)
 
 	xpr_box->expire_secs = expire_secs;
 
-	array_idx_set(&box->module_contexts,
-		      expire.storage_module_id, &xpr_box);
+	MODULE_CONTEXT_SET(box, expire_storage_module, xpr_box);
 }
 
 static struct mailbox *
 expire_mailbox_open(struct mail_storage *storage, const char *name,
 		    struct istream *input, enum mailbox_open_flags flags)
 {
-	struct expire_mail_storage *xpr_storage = EXPIRE_CONTEXT(storage);
+	union mail_storage_module_context *xpr_storage =
+		EXPIRE_CONTEXT(storage);
 	struct mailbox *box;
 	const struct expire_box *expire_box;
 
@@ -295,22 +292,17 @@ expire_mailbox_open(struct mail_storage *storage, const char *name,
 
 static void expire_mail_storage_created(struct mail_storage *storage)
 {
-	struct expire_mail_storage *xpr_storage;
+	union mail_storage_module_context *xpr_storage;
 
 	if (expire.next_hook_mail_storage_created != NULL)
 		expire.next_hook_mail_storage_created(storage);
 
-	xpr_storage = p_new(storage->pool, struct expire_mail_storage, 1);
+	xpr_storage =
+		p_new(storage->pool, union mail_storage_module_context, 1);
 	xpr_storage->super = storage->v;
 	storage->v.mailbox_open = expire_mailbox_open;
 
-	if (!expire.storage_module_id_set) {
-		expire.storage_module_id = mail_storage_module_id++;
-		expire.storage_module_id_set = TRUE;
-	}
-
-	array_idx_set(&storage->module_contexts,
-		      expire.storage_module_id, &xpr_storage);
+	MODULE_CONTEXT_SET_SELF(storage, expire_storage_module, xpr_storage);
 }
 
 void expire_plugin_init(void)

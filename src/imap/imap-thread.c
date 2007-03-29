@@ -77,8 +77,7 @@
 #include <stdlib.h>
 
 #define IMAP_THREAD_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					imap_thread_storage_module_id))
+	MODULE_CONTEXT(obj, imap_thread_storage_module)
 
 /* how much memory to allocate initially. these are very rough
    approximations. */
@@ -169,7 +168,7 @@ struct thread_context {
 };
 
 struct imap_thread_mailbox {
-	struct mailbox_vfuncs super;
+	union mailbox_module_context module_ctx;
 	struct mail_hash *msgid_hash;
 
 	/* set only temporarily while needed */
@@ -177,7 +176,9 @@ struct imap_thread_mailbox {
 };
 
 static void (*next_hook_mailbox_opened)(struct mailbox *box);
-static unsigned int imap_thread_storage_module_id;
+
+static MODULE_CONTEXT_DEFINE_INIT(imap_thread_storage_module,
+				  &mail_storage_module_register);
 
 static void imap_thread_hash_init(struct mailbox *box, bool create);
 
@@ -2082,7 +2083,7 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			return 0;
 
 		t = mail_index_transaction_begin(sync_ctx->view, FALSE, FALSE);
-		mt = MAIL_STORAGE_TRANSACTION(t);
+		mt = MAIL_STORAGE_CONTEXT(t);
 
 		ctx->msgid_hash = tbox->msgid_hash;
 		ctx->msgid_pool =
@@ -2143,7 +2144,7 @@ static int imap_thread_mailbox_close(struct mailbox *box)
 	if (tbox->msgid_hash != NULL)
 		mail_hash_free(&tbox->msgid_hash);
 
-	ret = tbox->super.close(box);
+	ret = tbox->module_ctx.super.close(box);
 	i_free(tbox);
 	return ret;
 }
@@ -2178,11 +2179,11 @@ imap_thread_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	struct imap_thread_mailbox *tbox = IMAP_THREAD_CONTEXT(box);
 	struct mailbox_sync_context *ctx;
 
-	ctx = tbox->super.sync_init(box, flags);
+	ctx = tbox->module_ctx.super.sync_init(box, flags);
 	if (box->opened) {
 		imap_thread_hash_init(box, FALSE);
 		/* we don't want to get back here */
-		box->v.sync_init = tbox->super.sync_init;
+		box->v.sync_init = tbox->module_ctx.super.sync_init;
 	}
 	return ctx;
 }
@@ -2195,11 +2196,10 @@ static void imap_thread_mailbox_opened(struct mailbox *box)
 		next_hook_mailbox_opened(box);
 
 	tbox = i_new(struct imap_thread_mailbox, 1);
-	tbox->super = box->v;
+	tbox->module_ctx.super = box->v;
 	box->v.close = imap_thread_mailbox_close;
 
-	array_idx_set(&box->module_contexts,
-		      imap_thread_storage_module_id, &tbox);
+	MODULE_CONTEXT_SET(box, imap_thread_storage_module, tbox);
 
 	if (box->opened)
 		imap_thread_hash_init(box, FALSE);
@@ -2215,8 +2215,6 @@ void imap_thread_init(void)
 {
 	next_hook_mailbox_opened = hook_mailbox_opened;
 	hook_mailbox_opened = imap_thread_mailbox_opened;
-
-	imap_thread_storage_module_id = mail_storage_module_id++;
 }
 
 void imap_thread_deinit(void)

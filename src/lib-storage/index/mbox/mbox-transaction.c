@@ -13,7 +13,7 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 				   uint32_t *log_file_seq_r,
 				   uoff_t *log_file_offset_r)
 {
-	struct mbox_transaction_context *mt = MAIL_STORAGE_TRANSACTION(t);
+	struct mbox_transaction_context *mt = MAIL_STORAGE_CONTEXT(t);
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mt->ictx.ibox;
 	unsigned int lock_id = mt->mbox_lock_id;
 	enum mailbox_sync_flags flags = mt->ictx.commit_flags;
@@ -66,7 +66,7 @@ static int mbox_transaction_commit(struct mail_index_transaction *t,
 
 static void mbox_transaction_rollback(struct mail_index_transaction *t)
 {
-	struct mbox_transaction_context *mt = MAIL_STORAGE_TRANSACTION(t);
+	struct mbox_transaction_context *mt = MAIL_STORAGE_CONTEXT(t);
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mt->ictx.ibox;
 
 	if (mt->save_ctx != NULL)
@@ -79,7 +79,7 @@ static void mbox_transaction_rollback(struct mail_index_transaction *t)
 
 void mbox_transaction_created(struct mail_index_transaction *t)
 {
-	struct mailbox *box = MAIL_STORAGE_INDEX(t->view->index);
+	struct mailbox *box = MAIL_STORAGE_CONTEXT(t->view->index);
 
 	/* index can be for mailbox list index, in which case box=NULL */
 	if (box != NULL && strcmp(box->storage->name, MBOX_STORAGE_NAME) == 0) {
@@ -92,9 +92,7 @@ void mbox_transaction_created(struct mail_index_transaction *t)
 
 		t->v.commit = mbox_transaction_commit;
 		t->v.rollback = mbox_transaction_rollback;
-
-		array_idx_set(&t->mail_index_transaction_module_contexts,
-			      mail_storage_mail_index_module_id, &mt);
+		MODULE_CONTEXT_SET(t, mail_storage_mail_index_module, mt);
 
 		index_transaction_init(&mt->ictx, &mbox->ibox);
 	}

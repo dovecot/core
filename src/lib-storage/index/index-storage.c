@@ -390,8 +390,8 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
 
-	array_idx_set(&ibox->index->mail_index_module_contexts,
-		      mail_storage_mail_index_module_id, &ibox);
+	MODULE_CONTEXT_SET_FULL(ibox->index, mail_storage_mail_index_module,
+				ibox, &ibox->index_module_ctx);
 
 	if ((flags & MAILBOX_OPEN_FAST) == 0)
 		index_storage_mailbox_open(ibox);
@@ -411,8 +411,7 @@ void index_storage_mailbox_free(struct mailbox *box)
 		buffer_free(ibox->recent_flags);
 	i_free(ibox->cache_fields);
 
-	array_idx_clear(&ibox->index->mail_index_module_contexts,
-			mail_storage_mail_index_module_id);
+	MODULE_CONTEXT_UNSET(ibox->index, mail_storage_mail_index_module);
 	pool_unref(box->pool);
 }
 

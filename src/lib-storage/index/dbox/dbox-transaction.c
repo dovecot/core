@@ -12,7 +12,7 @@ static int dbox_transaction_commit(struct mail_index_transaction *t,
 				   uint32_t *log_file_seq_r,
 				   uoff_t *log_file_offset_r)
 {
-	struct dbox_transaction_context *dt = MAIL_STORAGE_TRANSACTION(t);
+	struct dbox_transaction_context *dt = MAIL_STORAGE_CONTEXT(t);
 	struct dbox_mailbox *dbox = (struct dbox_mailbox *)dt->ictx.ibox;
 	struct dbox_save_context *save_ctx;
 	bool syncing = t->sync_transaction;
@@ -54,7 +54,7 @@ static int dbox_transaction_commit(struct mail_index_transaction *t,
 
 static void dbox_transaction_rollback(struct mail_index_transaction *t)
 {
-	struct dbox_transaction_context *dt = MAIL_STORAGE_TRANSACTION(t);
+	struct dbox_transaction_context *dt = MAIL_STORAGE_CONTEXT(t);
 
 	if (dt->save_ctx != NULL)
 		dbox_transaction_save_rollback(dt->save_ctx);
@@ -64,7 +64,7 @@ static void dbox_transaction_rollback(struct mail_index_transaction *t)
 
 void dbox_transaction_created(struct mail_index_transaction *t)
 {
-	struct mailbox *box = MAIL_STORAGE_INDEX(t->view->index);
+	struct mailbox *box = MAIL_STORAGE_CONTEXT(t->view->index);
 
 	/* index can be for mailbox list index, in which case box=NULL */
 	if (box != NULL && strcmp(box->storage->name, DBOX_STORAGE_NAME) == 0) {
@@ -77,9 +77,7 @@ void dbox_transaction_created(struct mail_index_transaction *t)
 
 		t->v.commit = dbox_transaction_commit;
 		t->v.rollback = dbox_transaction_rollback;
-
-		array_idx_set(&t->mail_index_transaction_module_contexts,
-			      mail_storage_mail_index_module_id, &mt);
+		MODULE_CONTEXT_SET(t, mail_storage_mail_index_module, mt);
 
 		index_transaction_init(&mt->ictx, &dbox->ibox);
 	}

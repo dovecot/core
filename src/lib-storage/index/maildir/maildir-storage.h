@@ -57,7 +57,7 @@ struct maildir_copy_context;
 struct maildir_storage {
 	struct index_storage storage;
 
-	struct mailbox_list_vfuncs list_super;
+	union mailbox_list_module_context list_module_ctx;
 	const char *temp_prefix;
 
 	unsigned int copy_with_hardlinks:1;
@@ -94,6 +94,8 @@ struct maildir_mailbox {
 
 struct maildir_transaction_context {
 	struct index_transaction_context ictx;
+	union mail_index_transaction_module_context module_ctx;
+
 	struct maildir_save_context *save_ctx;
 };
 

@@ -32,8 +32,7 @@
 	 (st).st_atime < (st).st_mtime ? MAILBOX_MARKED : MAILBOX_UNMARKED)
 
 #define MBOX_LIST_CONTEXT(obj) \
-	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
-					mbox_mailbox_list_module_id))
+	MODULE_CONTEXT(obj, mbox_mailbox_list_module)
 
 /* NOTE: must be sorted for istream-header-filter. Note that it's not such
    a good idea to change this list, as the messages will then change from
@@ -69,7 +68,8 @@ unsigned int mbox_save_drop_headers_count =
 extern struct mail_storage mbox_storage;
 extern struct mailbox mbox_mailbox;
 
-static unsigned int mbox_mailbox_list_module_id = 0;
+static MODULE_CONTEXT_DEFINE_INIT(mbox_mailbox_list_module,
+				  &mailbox_list_module_register);
 
 static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				     const char *dir, const char *fname,
@@ -387,7 +387,7 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 	struct mbox_storage *storage = MBOX_LIST_CONTEXT(list);
 	const char *path, *p;
 
-	path = storage->list_super.get_path(list, name, type);
+	path = storage->list_module_ctx.super.get_path(list, name, type);
 	if (type == MAILBOX_LIST_PATH_TYPE_CONTROL ||
 	    type == MAILBOX_LIST_PATH_TYPE_INDEX) {
 		p = strrchr(path, '/');
@@ -426,7 +426,7 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 		pool_unref(pool);
 		return NULL;
 	}
-	storage->list_super = list->v;
+	storage->list_module_ctx.super = list->v;
 	if (strcmp(layout, "fs") == 0 && *list_set.maildir_name == '\0') {
 		/* have to use .imap/ directories */
 		list->v.get_path = mbox_list_get_path;
@@ -434,8 +434,8 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 	list->v.iter_is_mailbox = mbox_list_iter_is_mailbox;
 	list->v.delete_mailbox = mbox_list_delete_mailbox;
 
-	array_idx_set(&list->module_contexts,
-		      mbox_mailbox_list_module_id, &storage);
+	MODULE_CONTEXT_SET_FULL(list, mbox_mailbox_list_module,
+				storage, &storage->list_module_ctx);
 
 	istorage = INDEX_STORAGE(storage);
 	istorage->storage = mbox_storage;
@@ -977,7 +977,7 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 
 	/* delete index / control files first */
 	index_storage_destroy_unrefed();
-	if (storage->list_super.delete_mailbox(list, name) < 0)
+	if (storage->list_module_ctx.super.delete_mailbox(list, name) < 0)
 		return -1;
 
 	if (unlink(path) < 0) {
@@ -998,7 +998,6 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 
 static void mbox_class_init(void)
 {
-	mbox_mailbox_list_module_id = mailbox_list_module_id++;
 	mbox_transaction_class_init();
 }
 
