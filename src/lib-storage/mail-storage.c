@@ -1,10 +1,11 @@
-/* Copyright (C) 2002-2006 Timo Sirainen */
+/* Copyright (C) 2002-2007 Timo Sirainen */
 
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
 #include "var-expand.h"
 #include "mail-index-private.h"
+#include "mailbox-list-private.h"
 #include "mail-storage-private.h"
 
 #include <stdlib.h>
@@ -318,17 +319,6 @@ int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 	return storage->v.mailbox_create(storage, name, directory);
 }
 
-int mail_storage_mailbox_delete(struct mail_storage *storage, const char *name)
-{
-	return storage->v.mailbox_delete(storage, name);
-}
-
-int mail_storage_mailbox_rename(struct mail_storage *storage,
-				const char *oldname, const char *newname)
-{
-	return storage->v.mailbox_rename(storage, oldname, newname);
-}
-
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					bool *syntax_error_r,
 					bool *temporary_error_r)
@@ -385,27 +375,17 @@ mail_storage_get_list_flags(enum mail_storage_flags storage_flags)
 	return list_flags;
 }
 
-int mailbox_storage_list_is_mailbox(const char *dir, const char *fname,
-				    enum mailbox_list_file_type type,
-				    enum mailbox_list_iter_flags iter_flags,
-				    enum mailbox_info_flags *flags,
-				    void *context)
+bool mail_storage_errno2str(const char **error_r)
 {
-	struct mail_storage *storage = context;
-
-	return mail_storage_is_mailbox(storage, dir, fname, iter_flags,
-				       flags, type);
-}
-
-
-int mail_storage_is_mailbox(struct mail_storage *storage,
-			    const char *dir, const char *fname,
-			    enum mailbox_list_iter_flags iter_flags,
-			    enum mailbox_info_flags *flags,
-			    enum mailbox_list_file_type type)
-{
-	return storage->v.is_mailbox(storage, dir, fname, iter_flags,
-				     flags, type);
+	if (ENOACCESS(errno))
+		*error_r = MAILBOX_LIST_ERR_NO_PERMISSION;
+	else if (ENOSPACE(errno))
+		*error_r = "Not enough disk space";
+	else if (ENOTFOUND(errno))
+		*error_r = "Directory structure is broken";
+	else
+		return FALSE;
+	return TRUE;
 }
 
 struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,

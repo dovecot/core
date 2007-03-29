@@ -2,6 +2,7 @@
 #define __DBOX_STORAGE_H
 
 #include "index-storage.h"
+#include "mailbox-list-private.h"
 #include "dbox-format.h"
 
 #define DBOX_STORAGE_NAME "dbox"
@@ -14,6 +15,7 @@ struct dbox_uidlist;
 
 struct dbox_storage {
 	struct index_storage storage;
+	struct mailbox_list_vfuncs list_super;
 
 	struct dotlock_settings uidlist_dotlock_set;
 	struct dotlock_settings file_dotlock_set;

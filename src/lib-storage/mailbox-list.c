@@ -1,9 +1,10 @@
-/* Copyright (C) 2006 Timo Sirainen */
+/* Copyright (C) 2006-2007 Timo Sirainen */
 
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
 #include "mkdir-parents.h"
+#include "unlink-directory.h"
 #include "mailbox-list-private.h"
 
 #include <time.h>
@@ -76,7 +77,6 @@ void mailbox_list_unregister(const struct mailbox_list *list)
 int mailbox_list_init(const char *driver,
 		      const struct mailbox_list_settings *set,
 		      enum mailbox_list_flags flags,
-		      mailbox_list_is_mailbox_t *callback, void *context,
 		      struct mailbox_list **list_r, const char **error_r)
 {
 	const struct mailbox_list *const *class_p;
@@ -95,8 +95,6 @@ int mailbox_list_init(const char *driver,
 	list = (*class_p)->v.alloc();
 
 	list->flags = flags;
-	list->callback = callback;
-	list->context = context;
 
 	/* copy settings */
 	list->set.root_dir = p_strdup(list->pool, set->root_dir);
@@ -232,6 +230,60 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set)
 {
 	return list->v.set_subscribed(list, name, set);
+}
+
+int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
+{
+	return list->v.delete_mailbox(list, name);
+}
+
+int mailbox_list_rename_mailbox(struct mailbox_list *list,
+				const char *oldname, const char *newname)
+{
+	return list->v.rename_mailbox(list, oldname, newname);
+}
+
+int mailbox_list_delete_index_control(struct mailbox_list *list,
+				      const char *name)
+{
+	const char *path, *index_dir, *dir;
+
+	if (strcmp(name, "INBOX") == 0) {
+		mailbox_list_set_error(list, "INBOX can't be deleted.");
+		return -1;
+	}
+
+	if (!mailbox_list_is_valid_existing_name(list, name)) {
+		mailbox_list_set_error(list, "Invalid mailbox name");
+		return -1;
+	}
+
+	path = mailbox_list_get_path(list, name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+
+	/* delete the index directory first, so that if we crash we don't
+	   leave indexes for deleted mailboxes lying around */
+	index_dir = mailbox_list_get_path(list, name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*index_dir != '\0' && strcmp(index_dir, path) != 0) {
+		if (unlink_directory(index_dir, TRUE) < 0 && errno != ENOENT) {
+			mailbox_list_set_critical(list,
+				"unlink_directory(%s) failed: %m", index_dir);
+			return -1;
+		}
+	}
+
+	/* control directory next */
+	dir = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_CONTROL);
+	if (*dir != '\0' && strcmp(dir, path) != 0 &&
+	    strcmp(dir, index_dir) != 0) {
+		if (unlink_directory(dir, TRUE) < 0 && errno != ENOENT) {
+			mailbox_list_set_critical(list,
+				"unlink_directory(%s) failed: %m", dir);
+			return -1;
+		}
+	}
+	return 0;
 }
 
 bool mailbox_list_name_is_too_large(const char *name, char sep)

@@ -4,11 +4,6 @@
 #include "file-lock.h"
 #include "mail-storage.h"
 
-/* Some error strings that should be used everywhere to avoid
-   permissions checks from revealing mailbox's existence */
-#define MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND "Mailbox doesn't exist: %s"
-#define MAIL_STORAGE_ERR_NO_PERMISSION "Permission denied"
-
 /* Called after mail storage has been created */
 extern void (*hook_mail_storage_created)(struct mail_storage *storage);
 /* Called after mailbox has been opened */
@@ -37,15 +32,6 @@ struct mail_storage_vfuncs {
 
 	int (*mailbox_create)(struct mail_storage *storage, const char *name,
 			      bool directory);
-	int (*mailbox_delete)(struct mail_storage *storage, const char *name);
-	int (*mailbox_rename)(struct mail_storage *storage, const char *oldname,
-			      const char *newname);
-
-	int (*is_mailbox)(struct mail_storage *storage,
-			  const char *dir, const char *fname,
-			  enum mailbox_list_iter_flags iter_flags,
-			  enum mailbox_info_flags *flags,
-			  enum mailbox_list_file_type type);
 
 	const char *(*get_last_error)(struct mail_storage *storage,
 				      bool *syntax_error_r,
@@ -289,10 +275,6 @@ const char *mail_storage_class_get_last_error(struct mail_storage *storage,
 
 enum mailbox_list_flags
 mail_storage_get_list_flags(enum mail_storage_flags storage_flags);
-int mailbox_storage_list_is_mailbox(const char *dir, const char *fname,
-				    enum mailbox_list_file_type type,
-				    enum mailbox_list_iter_flags iter_flags,
-				    enum mailbox_info_flags *flags,
-				    void *context);
+bool mail_storage_errno2str(const char **error_r);
 
 #endif

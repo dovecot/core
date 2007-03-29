@@ -42,9 +42,9 @@ enum mailbox_list_iter_flags {
 };
 
 enum mailbox_list_path_type {
-	/* Return directory's path (eg. /home/user/mail) */
+	/* Return directory's path (eg. ~/dbox/INBOX) */
 	MAILBOX_LIST_PATH_TYPE_DIR,
-	/* Return mailbox path (dir + maildir_name) */
+	/* Return mailbox path (eg. ~/dbox/INBOX/dbox-Mails) */
 	MAILBOX_LIST_PATH_TYPE_MAILBOX,
 	/* Return control directory */
 	MAILBOX_LIST_PATH_TYPE_CONTROL,
@@ -92,14 +92,6 @@ struct mailbox_info {
         enum mailbox_info_flags flags;
 };
 
-/* Returns -1 if error, 0 if it's not a valid mailbox, 1 if it is.
-   flags may be updated (especially the children flags). */
-typedef int mailbox_list_is_mailbox_t(const char *dir, const char *fname,
-				      enum mailbox_list_file_type type,
-				      enum mailbox_list_iter_flags iter_flags,
-				      enum mailbox_info_flags *flags_r,
-				      void *context);
-
 /* register all drivers */
 void mailbox_list_register_all(void);
 
@@ -110,7 +102,6 @@ void mailbox_list_unregister(const struct mailbox_list *list);
 int mailbox_list_init(const char *driver,
 		      const struct mailbox_list_settings *set,
 		      enum mailbox_list_flags flags,
-		      mailbox_list_is_mailbox_t *callback, void *context,
 		      struct mailbox_list **list_r, const char **error_r);
 void mailbox_list_deinit(struct mailbox_list *list);
 
@@ -160,6 +151,18 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **ctx);
    unexisting mailboxes is optional. */
 int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set);
+
+/* Delete the given mailbox. If it has children, they aren't deleted. */
+int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name);
+/* If the name has inferior hierarchical names, then the inferior
+   hierarchical names MUST also be renamed (ie. foo -> bar renames
+   also foo/bar -> bar/bar). newname may contain multiple new
+   hierarchies.
+
+   If oldname is case-insensitively "INBOX", the mails are moved
+   into new mailbox but the INBOX mailbox must not be deleted. */
+int mailbox_list_rename_mailbox(struct mailbox_list *list,
+				const char *oldname, const char *newname);
 
 /* Returns the error message of last occurred error. */
 const char *mailbox_list_get_last_error(struct mailbox_list *list,

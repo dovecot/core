@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "hash.h"
+#include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-fs.h"
 #include <stdlib.h>
@@ -410,7 +411,7 @@ int quota_set_resource(struct quota_root *root __attr_unused__,
 	/* the quota information comes from userdb (or even config file),
 	   so there's really no way to support this until some major changes
 	   are done */
-	*error_r = MAIL_STORAGE_ERR_NO_PERMISSION;
+	*error_r = MAILBOX_LIST_ERR_NO_PERMISSION;
 	return -1;
 }
 

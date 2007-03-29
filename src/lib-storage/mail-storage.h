@@ -229,18 +229,6 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
    created as long as it shows in LIST. */
 int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 				bool directory);
-/* Only the specified mailbox is deleted, ie. folders under the
-   specified mailbox must not be deleted. */
-int mail_storage_mailbox_delete(struct mail_storage *storage, const char *name);
-/* If the name has inferior hierarchical names, then the inferior
-   hierarchical names MUST also be renamed (ie. foo -> bar renames
-   also foo/bar -> bar/bar). newname may contain multiple new
-   hierarchies.
-
-   If oldname is case-insensitively "INBOX", the mails are moved
-   into new folder but the INBOX folder must not be deleted. */
-int mail_storage_mailbox_rename(struct mail_storage *storage,
-				const char *oldname, const char *newname);
 
 /* Returns the error message of last occurred error. */
 const char *mail_storage_get_last_error(struct mail_storage *storage,
@@ -261,12 +249,6 @@ const char *mail_storage_get_mailbox_control_dir(struct mail_storage *storage,
    in-memory indexes or mailbox doesn't exist. */
 const char *mail_storage_get_mailbox_index_dir(struct mail_storage *storage,
 					       const char *name);
-
-int mail_storage_is_mailbox(struct mail_storage *storage,
-			    const char *dir, const char *fname,
-			    enum mailbox_list_iter_flags iter_flags,
-			    enum mailbox_info_flags *flags,
-			    enum mailbox_list_file_type type);
 
 /* Open a mailbox. If input stream is given, mailbox is opened read-only
    using it as a backend. If storage doesn't support stream backends and its

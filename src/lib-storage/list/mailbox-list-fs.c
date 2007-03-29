@@ -1,12 +1,17 @@
-/* Copyright (C) 2006 Timo Sirainen */
+/* Copyright (C) 2006-2007 Timo Sirainen */
 
 #include "lib.h"
 #include "hostpid.h"
 #include "home-expand.h"
+#include "mkdir-parents.h"
 #include "subscription-file.h"
 #include "mailbox-list-fs.h"
 
+#include <stdio.h>
+#include <unistd.h>
 #include <sys/stat.h>
+
+#define CREATE_MODE 0770 /* umask() should limit it more */
 
 extern struct mailbox_list fs_mailbox_list;
 
@@ -28,8 +33,7 @@ static struct mailbox_list *fs_list_alloc(void)
 
 static void fs_list_deinit(struct mailbox_list *_list)
 {
-	struct fs_mailbox_list *list =
-		(struct fs_mailbox_list *)_list;
+	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 
 	pool_unref(list->list.pool);
 }
@@ -136,8 +140,7 @@ static const char *
 fs_list_get_path(struct mailbox_list *_list, const char *name,
 		 enum mailbox_list_path_type type)
 {
-	struct fs_mailbox_list *list =
-		(struct fs_mailbox_list *)_list;
+	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 	const struct mailbox_list_settings *set = &_list->set;
 
 	mailbox_list_clear_error(&list->list);
@@ -158,7 +161,7 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		i_unreached();
 	}
 
-	i_assert(mailbox_list_is_valid_existing_name(_list, name));
+	i_assert(mailbox_list_is_valid_mask(_list, name));
 
 	if ((list->list.flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~')) {
@@ -188,10 +191,8 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		break;
 	}
 
-	if (strcmp(name, "INBOX") == 0) {
-		return set->inbox_path != NULL ?
-			set->inbox_path : set->root_dir;
-	}
+	if (strcmp(name, "INBOX") == 0 && set->inbox_path != NULL)
+		return set->inbox_path;
 
 	if (*set->maildir_name == '\0')
 		return t_strdup_printf("%s/%s", set->root_dir, name);
@@ -205,8 +206,7 @@ static int
 fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 				enum mailbox_name_status *status)
 {
-	struct fs_mailbox_list *list =
-		(struct fs_mailbox_list *)_list;
+	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 	struct stat st;
 	const char *path;
 
@@ -245,8 +245,7 @@ fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 static const char *
 fs_list_get_temp_prefix(struct mailbox_list *_list)
 {
-	struct fs_mailbox_list *list =
-		(struct fs_mailbox_list *)_list;
+	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 
 	return list->temp_prefix;
 }
@@ -267,8 +266,7 @@ fs_list_join_refmask(struct mailbox_list *_list __attr_unused__,
 static int fs_list_set_subscribed(struct mailbox_list *_list,
 				  const char *name, bool set)
 {
-	struct fs_mailbox_list *list =
-		(struct fs_mailbox_list *)_list;
+	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 	const char *path;
 
 	mailbox_list_clear_error(&list->list);
@@ -278,6 +276,103 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 			   "/", _list->set.subscription_fname, NULL);
 	return subsfile_set_subscribed(_list, path, list->temp_prefix,
 				       name, set);
+}
+
+static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
+{
+	/* let the backend handle the rest */
+	return mailbox_list_delete_index_control(list, name);
+}
+
+static bool fs_handle_errors(struct mailbox_list *list)
+{
+	if (ENOACCESS(errno))
+		mailbox_list_set_error(list, MAILBOX_LIST_ERR_NO_PERMISSION);
+	else if (ENOSPACE(errno))
+		mailbox_list_set_error(list, "Not enough disk space");
+	else if (ENOTFOUND(errno))
+		mailbox_list_set_error(list, "Directory structure is broken");
+	else
+		return FALSE;
+	return TRUE;
+}
+
+static int fs_list_rename_mailbox(struct mailbox_list *list,
+				  const char *oldname, const char *newname)
+{
+	const char *oldpath, *newpath, *old_indexdir, *new_indexdir, *p;
+	struct stat st;
+
+	if (!mailbox_list_is_valid_existing_name(list, oldname) ||
+	    !mailbox_list_is_valid_create_name(list, newname)) {
+		mailbox_list_set_error(list, "Invalid mailbox name");
+		return -1;
+	}
+
+	oldpath = mailbox_list_get_path(list, oldname,
+					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	newpath = mailbox_list_get_path(list, newname,
+					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+
+	/* create the hierarchy */
+	p = strrchr(newpath, '/');
+	if (p != NULL) {
+		p = t_strdup_until(newpath, p);
+		if (mkdir_parents(p, CREATE_MODE) < 0) {
+			if (fs_handle_errors(list))
+				return -1;
+
+			mailbox_list_set_critical(list,
+				"mkdir_parents(%s) failed: %m", p);
+			return -1;
+		}
+	}
+
+	/* first check that the destination mailbox doesn't exist.
+	   this is racy, but we need to be atomic and there's hardly any
+	   possibility that someone actually tries to rename two mailboxes
+	   to same new one */
+	if (lstat(newpath, &st) == 0) {
+		mailbox_list_set_error(list, "Target mailbox already exists");
+		return -1;
+	} else if (errno == ENOTDIR) {
+		mailbox_list_set_error(list,
+			"Target mailbox doesn't allow inferior mailboxes");
+		return -1;
+	} else if (errno != ENOENT && errno != EACCES) {
+		mailbox_list_set_critical(list, "lstat(%s) failed: %m",
+					  newpath);
+		return -1;
+	}
+
+	/* NOTE: renaming INBOX works just fine with us, it's simply recreated
+	   the next time it's needed. */
+	if (rename(oldpath, newpath) < 0) {
+		if (ENOTFOUND(errno)) {
+			mailbox_list_set_error(list, t_strdup_printf(
+				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, oldname));
+		} else if (!fs_handle_errors(list)) {
+			mailbox_list_set_critical(list,
+				"rename(%s, %s) failed: %m", oldpath, newpath);
+		}
+		return -1;
+	}
+
+	/* we need to rename the index directory as well */
+	old_indexdir = mailbox_list_get_path(list, oldname,
+					     MAILBOX_LIST_PATH_TYPE_INDEX);
+	new_indexdir = mailbox_list_get_path(list, newname,
+					     MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*old_indexdir != '\0') {
+		if (rename(old_indexdir, new_indexdir) < 0 &&
+		    errno != ENOENT) {
+			mailbox_list_set_critical(list,
+						  "rename(%s, %s) failed: %m",
+						  old_indexdir, new_indexdir);
+		}
+	}
+
+	return 0;
 }
 
 struct mailbox_list fs_mailbox_list = {
@@ -298,6 +393,9 @@ struct mailbox_list fs_mailbox_list = {
 		fs_list_iter_init,
 		fs_list_iter_next,
 		fs_list_iter_deinit,
-		fs_list_set_subscribed
+		NULL,
+		fs_list_set_subscribed,
+		fs_list_delete_mailbox,
+		fs_list_rename_mailbox
 	}
 };

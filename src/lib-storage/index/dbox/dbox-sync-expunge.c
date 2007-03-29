@@ -116,8 +116,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	file_seq = dbox_uidlist_get_new_file_seq(mbox->uidlist);
 
 	for (;; file_seq++) {
-		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-				       DBOX_MAIL_FILE_FORMAT,
+		path = t_strdup_printf("%s/"DBOX_MAIL_FILE_FORMAT,
 				       mbox->path, file_seq);
 		fd = file_dotlock_open(&mbox->storage->new_file_dotlock_set,
 				       path, DOTLOCK_CREATE_FLAG_NONBLOCK,
@@ -352,8 +351,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 
 	if (!skipped_expunges) {
 		/* all mails expunged from file, unlink it. */
-		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-				       DBOX_MAIL_FILE_FORMAT,
+		path = t_strdup_printf("%s/"DBOX_MAIL_FILE_FORMAT,
 				       mbox->path, entry->file_seq);
 		if (unlink(path) < 0) {
 			mail_storage_set_critical(STORAGE(mbox->storage),
@@ -469,8 +467,7 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 	if (ctx->dotlock_failed_file_seq != sync_entry->file_seq) {
 		/* we need to have the file locked in case another process is
 		   appending there already. */
-		path = t_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-				       DBOX_MAIL_FILE_FORMAT,
+		path = t_strdup_printf("%s/"DBOX_MAIL_FILE_FORMAT,
 				       mbox->path, sync_entry->file_seq);
 		ret = file_dotlock_create(&mbox->storage->new_file_dotlock_set,
 					  path, DOTLOCK_CREATE_FLAG_NONBLOCK,

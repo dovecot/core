@@ -22,7 +22,8 @@ struct fs_list_iterate_context {
 	struct imap_match_glob *glob;
 	struct subsfile_list_context *subsfile_ctx;
 
-	bool inbox_found;
+	bool inbox_found, inbox_listed;
+	enum mailbox_info_flags inbox_flags;
 
 	struct mailbox_info *(*next)(struct fs_list_iterate_context *ctx);
 
@@ -121,7 +122,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 	virtual_path = mask_get_dir(mask);
 
 	path = mailbox_list_get_path(_list, virtual_path,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+				     MAILBOX_LIST_PATH_TYPE_DIR);
 	if (list_opendir(_list, path, TRUE, &dirp) < 0)
 		return &ctx->ctx;
 	/* if user gave invalid directory, we just don't show any results. */
@@ -189,6 +190,41 @@ fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	return ctx->next(ctx);
 }
 
+static void
+path_split(const char *path, const char **dir_r, const char **fname_r)
+{
+	const char *p;
+
+	p = strrchr(path, '/');
+	if (p == NULL) {
+		*dir_r = "";
+		*fname_r = path;
+	} else {
+		*dir_r = t_strdup_until(path, p);
+		*fname_r = p + 1;
+	}
+}
+
+static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
+{
+	const char *inbox_path, *dir, *fname;
+
+	ctx->info.flags = 0;
+	ctx->info.name = "INBOX";
+
+	t_push();
+	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
+					   MAILBOX_LIST_PATH_TYPE_DIR);
+	path_split(inbox_path, &dir, &fname);
+	if (ctx->ctx.list->v.iter_is_mailbox(&ctx->ctx, dir, fname,
+					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
+					     &ctx->info.flags) < 0)
+		ctx->ctx.failed = TRUE;
+	t_pop();
+
+	return &ctx->info;
+}
+
 static int
 list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 {
@@ -218,23 +254,50 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 
 	/* get the info.flags using callback */
 	ctx->info.flags = 0;
-	ret = ctx->ctx.list->callback(ctx->dir->real_path, fname,
-				      mailbox_list_get_file_type(d),
-				      ctx->ctx.flags, &ctx->info.flags,
-				      ctx->ctx.list->context);
+	ret = ctx->ctx.list->v.
+		iter_is_mailbox(&ctx->ctx, ctx->dir->real_path, fname,
+				mailbox_list_get_file_type(d),
+				&ctx->info.flags);
 	if (ret <= 0)
 		return ret;
 
 	/* make sure we give only one correct INBOX */
 	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
-	if (strcasecmp(list_path, "INBOX") == 0 &&
-	    (ctx->ctx.list->flags & MAILBOX_LIST_FLAG_INBOX) != 0) {
-		inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		if (ctx->inbox_found || strcmp(real_path, inbox_path) != 0)
+	if ((ctx->ctx.list->flags & MAILBOX_LIST_FLAG_INBOX) != 0 &&
+	    strcasecmp(list_path, "INBOX") == 0) {
+		if (ctx->inbox_listed) {
+			/* already listed the INBOX */
 			return 0;
+		}
 
-		ctx->inbox_found = TRUE;
+		inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
+						   MAILBOX_LIST_PATH_TYPE_DIR);
+		if (strcmp(real_path, inbox_path) == 0) {
+			/* delay listing in case there's a INBOX/ directory */
+			ctx->inbox_found = TRUE;
+			ctx->inbox_flags = ctx->info.flags;
+			return 0;
+		}
+		if (strcmp(fname, "INBOX") != 0 ||
+		    (ctx->info.flags & MAILBOX_NOINFERIORS) != 0) {
+			/* duplicate INBOX, can't show this */
+			return 0;
+		}
+
+		/* INBOX/ directory. show the INBOX list now */
+		if (!ctx->inbox_found) {
+			enum mailbox_info_flags dir_flags = ctx->info.flags;
+
+			(void)fs_list_inbox(ctx);
+			ctx->info.flags &= ~(MAILBOX_NOINFERIORS |
+					     MAILBOX_NOCHILDREN);
+			ctx->info.flags |= dir_flags;
+			ctx->inbox_found = TRUE;
+		} else {
+			ctx->info.flags &= ~MAILBOX_NOSELECT;
+			ctx->info.flags |= ctx->inbox_flags;
+		}
+		ctx->inbox_listed = TRUE;
 	}
 
 	if ((ctx->info.flags & MAILBOX_NOINFERIORS) == 0) {
@@ -268,21 +331,6 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 	}
 
 	return 0;
-}
-
-static void
-path_split(const char *path, const char **dir_r, const char **fname_r)
-{
-	const char *p;
-
-	p = strrchr(path, '/');
-	if (p == NULL) {
-		*dir_r = "";
-		*fname_r = path;
-	} else {
-		*dir_r = t_strdup_until(path, p);
-		*fname_r = p + 1;
-	}
 }
 
 static struct mailbox_info *fs_list_subs(struct fs_list_iterate_context *ctx)
@@ -321,12 +369,11 @@ static struct mailbox_info *fs_list_subs(struct fs_list_iterate_context *ctx)
 
 	t_push();
 	path = mailbox_list_get_path(ctx->ctx.list, ctx->info.name,
-				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+				     MAILBOX_LIST_PATH_TYPE_DIR);
 	path_split(path, &dir, &fname);
-	if (ctx->ctx.list->callback(dir, fname,
-				    MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-				    ctx->ctx.flags, &ctx->info.flags,
-				    ctx->ctx.list->context) < 0)
+	if (ctx->ctx.list->v.iter_is_mailbox(&ctx->ctx, dir, fname,
+					     MAILBOX_LIST_FILE_TYPE_UNKNOWN,
+					     &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
 	t_pop();
 	return &ctx->info;
@@ -344,27 +391,6 @@ static struct mailbox_info *fs_list_path(struct fs_list_iterate_context *ctx)
 		return &ctx->info;
 	else
 		return ctx->next(ctx);
-}
-
-static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
-{
-	const char *inbox_path, *dir, *fname;
-
-	ctx->info.flags = 0;
-	ctx->info.name = "INBOX";
-
-	t_push();
-	inbox_path = mailbox_list_get_path(ctx->ctx.list, "INBOX",
-					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	path_split(inbox_path, &dir, &fname);
-	if (ctx->ctx.list->callback(dir, fname,
-				    MAILBOX_LIST_FILE_TYPE_UNKNOWN,
-				    ctx->ctx.flags, &ctx->info.flags,
-				    ctx->ctx.list->context) < 0)
-		ctx->ctx.failed = TRUE;
-	t_pop();
-
-	return &ctx->info;
 }
 
 static struct mailbox_info *fs_list_next(struct fs_list_iterate_context *ctx)
@@ -399,8 +425,15 @@ static struct mailbox_info *fs_list_next(struct fs_list_iterate_context *ctx)
 	    (ctx->ctx.list->flags & MAILBOX_LIST_FLAG_INBOX) != 0 &&
 	    ctx->glob != NULL && imap_match(ctx->glob, "INBOX") > 0) {
 		/* show inbox */
+		ctx->inbox_listed = TRUE;
 		ctx->inbox_found = TRUE;
 		return fs_list_inbox(ctx);
+	}
+	if (!ctx->inbox_listed && ctx->inbox_found) {
+		ctx->inbox_listed = TRUE;
+		ctx->info.flags = ctx->inbox_flags;
+		ctx->info.name = "INBOX";
+		return &ctx->info;
 	}
 
 	/* finished */

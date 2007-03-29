@@ -193,7 +193,6 @@ int dbox_sync_full(struct dbox_sync_context *ctx)
 	struct dbox_mailbox *mbox = ctx->mbox;
 	const struct mail_index_header *hdr;
 	unsigned int file_prefix_len = strlen(DBOX_MAIL_FILE_PREFIX);
-	const char *path;
 	uint32_t file_seq;
 	DIR *dirp;
 	struct dirent *dp;
@@ -201,11 +200,10 @@ int dbox_sync_full(struct dbox_sync_context *ctx)
 
 	/* go through msg.* files, sync them to index and based on it
 	   write dbox's index file */
-	path = t_strconcat(mbox->path, "/"DBOX_MAILDIR_NAME, NULL);
-	dirp = opendir(path);
+	dirp = opendir(mbox->path);
 	if (dirp == NULL) {
 		mail_storage_set_critical(STORAGE(mbox->storage),
-					  "opendir(%s) failed: %m", path);
+					  "opendir(%s) failed: %m", mbox->path);
 		return -1;
 	}
 
@@ -231,7 +229,7 @@ int dbox_sync_full(struct dbox_sync_context *ctx)
 	}
 	if (closedir(dirp) < 0) {
 		mail_storage_set_critical(STORAGE(mbox->storage),
-					  "closedir(%s) failed: %m", path);
+			"closedir(%s) failed: %m", mbox->path);
 		ret = -1;
 	}
 

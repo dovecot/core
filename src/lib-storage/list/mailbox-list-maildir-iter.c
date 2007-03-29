@@ -98,10 +98,9 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 
 		/* check if this is an actual mailbox */
 		flags = 0;
-		ret = ctx->ctx.list->callback(ctx->dir, fname,
-					      mailbox_list_get_file_type(d),
-					      ctx->ctx.flags, &flags,
-					      ctx->ctx.list->context);
+		ret = ctx->ctx.list->v.
+			iter_is_mailbox(&ctx->ctx, ctx->dir, fname,
+					mailbox_list_get_file_type(d), &flags);
 		if (ret < 0) {
 			t_pop();
 			return -1;
@@ -148,6 +147,11 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 				node->flags &= ~MAILBOX_NONEXISTENT;
 				node->flags |= MAILBOX_FLAG_MATCHED;
 			}
+		}
+		if (node != NULL) {
+			node->flags |= flags & ~(MAILBOX_NOINFERIORS |
+						 MAILBOX_CHILDREN |
+						 MAILBOX_NOCHILDREN);
 		}
 	}
 	t_pop();

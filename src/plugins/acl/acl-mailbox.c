@@ -7,7 +7,7 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
-#include "mail-storage-private.h"
+#include "mailbox-list-private.h"
 #include "acl-api-private.h"
 #include "acl-plugin.h"
 
@@ -49,7 +49,7 @@ static int mailbox_acl_right_lookup(struct mailbox *box, unsigned int right_idx)
 	if (ret < 0)
 		return -1;
 
-	mail_storage_set_error(box->storage, MAIL_STORAGE_ERR_NO_PERMISSION);
+	mail_storage_set_error(box->storage, MAILBOX_LIST_ERR_NO_PERMISSION);
 	return 0;
 }
 

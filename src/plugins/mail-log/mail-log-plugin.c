@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str-sanitize.h"
 #include "mail-storage-private.h"
+#include "mailbox-list-private.h"
 #include "mail-log-plugin.h"
 
 #define MAILBOX_NAME_LOG_LEN 64
@@ -12,6 +13,13 @@
 #define MAIL_LOG_CONTEXT(obj) \
 	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
 					mail_log_storage_module_id))
+#define MAIL_LOG_LIST_CONTEXT(obj) \
+	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
+					mail_log_mailbox_list_module_id))
+
+struct mail_log_mailbox_list {
+	struct mailbox_list_vfuncs super;
+};
 
 struct mail_log_mail_storage {
 	struct mail_storage_vfuncs super;
@@ -29,9 +37,14 @@ const char *mail_log_plugin_version = PACKAGE_VERSION;
 
 static void (*mail_log_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
+static void (*mail_log_next_hook_mailbox_list_created)
+	(struct mailbox_list *list);
 
 static unsigned int mail_log_storage_module_id = 0;
 static bool mail_log_storage_module_id_set = FALSE;
+
+static unsigned int mail_log_mailbox_list_module_id = 0;
+static bool mail_log_mailbox_list_module_id_set = FALSE;
 
 static void mail_log_action(struct mail *mail, const char *action)
 {
@@ -160,11 +173,11 @@ mail_log_mailbox_open(struct mail_storage *storage, const char *name,
 }
 
 static int
-mail_log_mailbox_delete(struct mail_storage *storage, const char *name)
+mail_log_mailbox_list_delete(struct mailbox_list *list, const char *name)
 {
-	struct mail_log_mail_storage *lstorage = MAIL_LOG_CONTEXT(storage);
+	struct mail_log_mailbox_list *llist = MAIL_LOG_LIST_CONTEXT(list);
 
-	if (lstorage->super.mailbox_delete(storage, name) < 0)
+	if (llist->super.delete_mailbox(list, name) < 0)
 		return -1;
 
 	i_info("Mailbox deleted: %s", str_sanitize(name, MAILBOX_NAME_LOG_LEN));
@@ -181,7 +194,6 @@ static void mail_log_mail_storage_created(struct mail_storage *storage)
 	lstorage = p_new(storage->pool, struct mail_log_mail_storage, 1);
 	lstorage->super = storage->v;
 	storage->v.mailbox_open = mail_log_mailbox_open;
-	storage->v.mailbox_delete = mail_log_mailbox_delete;
 
 	if (!mail_log_storage_module_id_set) {
 		mail_log_storage_module_id = mail_storage_module_id++;
@@ -192,17 +204,37 @@ static void mail_log_mail_storage_created(struct mail_storage *storage)
 		      mail_log_storage_module_id, &lstorage);
 }
 
+static void mail_log_mailbox_list_created(struct mailbox_list *list)
+{
+	struct mail_log_mailbox_list *llist;
+
+	if (mail_log_next_hook_mailbox_list_created != NULL)
+		mail_log_next_hook_mailbox_list_created(list);
+
+	llist = p_new(list->pool, struct mail_log_mailbox_list, 1);
+	llist->super = list->v;
+	list->v.delete_mailbox = mail_log_mailbox_list_delete;
+
+	if (!mail_log_mailbox_list_module_id_set) {
+		mail_log_mailbox_list_module_id = mailbox_list_module_id++;
+		mail_log_mailbox_list_module_id_set = TRUE;
+	}
+
+	array_idx_set(&list->module_contexts,
+		      mail_log_mailbox_list_module_id, &llist);
+}
+
 void mail_log_plugin_init(void)
 {
-	mail_log_next_hook_mail_storage_created =
-		hook_mail_storage_created;
+	mail_log_next_hook_mail_storage_created = hook_mail_storage_created;
 	hook_mail_storage_created = mail_log_mail_storage_created;
+
+	mail_log_next_hook_mailbox_list_created = hook_mailbox_list_created;
+	hook_mailbox_list_created = mail_log_mailbox_list_created;
 }
 
 void mail_log_plugin_deinit(void)
 {
-	if (mail_log_storage_module_id_set) {
-		hook_mail_storage_created =
-			mail_log_next_hook_mail_storage_created;
-	}
+	hook_mail_storage_created = mail_log_next_hook_mail_storage_created;
+	hook_mailbox_list_created = mail_log_next_hook_mailbox_list_created;
 }

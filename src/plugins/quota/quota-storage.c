@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "mail-search.h"
 #include "mail-storage-private.h"
+#include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
 
@@ -13,6 +14,15 @@
 #define QUOTA_CONTEXT(obj) \
 	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
 					quota_storage_module_id))
+#define QUOTA_LIST_CONTEXT(obj) \
+	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
+					quota_mailbox_list_module_id))
+
+struct quota_mailbox_list {
+	struct mailbox_list_vfuncs super;
+
+	struct mail_storage *storage;
+};
 
 struct quota_mail_storage {
 	struct mail_storage_vfuncs super;
@@ -30,6 +40,9 @@ struct quota_mail {
 
 static unsigned int quota_storage_module_id = 0;
 static bool quota_storage_module_id_set = FALSE;
+
+static unsigned int quota_mailbox_list_module_id = 0;
+static bool quota_mailbox_list_module_id_set = FALSE;
 
 static int quota_mail_expunge(struct mail *_mail)
 {
@@ -247,9 +260,10 @@ quota_mailbox_open(struct mail_storage *storage, const char *name,
 	return box;
 }
 
-static int quota_mailbox_delete(struct mail_storage *storage, const char *name)
+static int
+quota_mailbox_list_delete(struct mailbox_list *list, const char *name)
 {
-	struct quota_mail_storage *qstorage = QUOTA_CONTEXT(storage);
+	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(list);
 	struct mailbox *box;
 	struct mail_search_context *ctx;
         struct mailbox_transaction_context *t;
@@ -262,7 +276,7 @@ static int quota_mailbox_delete(struct mail_storage *storage, const char *name)
 	   and free the quota for all the messages existing in it. Open the
 	   mailbox locked so that other processes can't mess up the quota
 	   calculations by adding/removing mails while we're doing this. */
-	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
+	box = mailbox_open(qlist->storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT | MAILBOX_OPEN_KEEP_LOCKED);
 	if (box == NULL)
 		return -1;
@@ -287,7 +301,7 @@ static int quota_mailbox_delete(struct mail_storage *storage, const char *name)
 	mailbox_close(&box);
 	/* FIXME: here's an unfortunate race condition */
 	return ret < 0 ? -1 :
-		qstorage->super.mailbox_delete(storage, name);
+		qlist->super.delete_mailbox(list, name);
 }
 
 static void quota_storage_destroy(struct mail_storage *storage)
@@ -301,16 +315,18 @@ static void quota_storage_destroy(struct mail_storage *storage)
 
 void quota_mail_storage_created(struct mail_storage *storage)
 {
+	struct quota_mailbox_list *qlist = QUOTA_LIST_CONTEXT(storage->list);
 	struct quota_mail_storage *qstorage;
 
 	if (quota_next_hook_mail_storage_created != NULL)
 		quota_next_hook_mail_storage_created(storage);
 
+	qlist->storage = storage;
+
 	qstorage = p_new(storage->pool, struct quota_mail_storage, 1);
 	qstorage->super = storage->v;
 	storage->v.destroy = quota_storage_destroy;
 	storage->v.mailbox_open = quota_mailbox_open;
-	storage->v.mailbox_delete = quota_mailbox_delete;
 
 	if (!quota_storage_module_id_set) {
 		quota_storage_module_id = mail_storage_module_id++;
@@ -324,4 +340,24 @@ void quota_mail_storage_created(struct mail_storage *storage)
 		/* register to user's quota roots */
 		quota_add_user_storage(quota_set, storage);
 	}
+}
+
+void quota_mailbox_list_created(struct mailbox_list *list)
+{
+	struct quota_mailbox_list *qlist;
+
+	if (quota_next_hook_mailbox_list_created != NULL)
+		quota_next_hook_mailbox_list_created(list);
+
+	qlist = p_new(list->pool, struct quota_mailbox_list, 1);
+	qlist->super = list->v;
+	list->v.delete_mailbox = quota_mailbox_list_delete;
+
+	if (!quota_mailbox_list_module_id_set) {
+		quota_mailbox_list_module_id = mailbox_list_module_id++;
+		quota_mailbox_list_module_id_set = TRUE;
+	}
+
+	array_idx_set(&list->module_contexts,
+		      quota_mailbox_list_module_id, &qlist);
 }

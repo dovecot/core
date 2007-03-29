@@ -43,6 +43,7 @@
 #define MAILDIR_SAVE_FLAG_DELETED  0x20000000
 
 #include "index-storage.h"
+#include "mailbox-list-private.h"
 
 #define STORAGE(maildir_storage) \
 	(&(maildir_storage)->storage.storage)
@@ -56,6 +57,7 @@ struct maildir_copy_context;
 struct maildir_storage {
 	struct index_storage storage;
 
+	struct mailbox_list_vfuncs list_super;
 	const char *temp_prefix;
 
 	unsigned int copy_with_hardlinks:1;

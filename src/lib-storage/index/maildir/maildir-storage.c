@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "hostpid.h"
+#include "str.h"
 #include "home-expand.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
@@ -15,6 +16,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -22,6 +24,10 @@
 
 #define MAILDIR_PLUSPLUS_DRIVER_NAME "maildir++"
 #define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
+
+#define MAILDIR_LIST_CONTEXT(obj) \
+	*((void **)array_idx_modifiable(&(obj)->module_contexts, \
+					maildir_mailbox_list_module_id))
 
 struct rename_context {
 	bool found;
@@ -32,8 +38,26 @@ struct rename_context {
 extern struct mail_storage maildir_storage;
 extern struct mailbox maildir_mailbox;
 
+static unsigned int maildir_mailbox_list_module_id = 0;
+
 static int verify_inbox(struct mail_storage *storage,
 			enum mailbox_open_flags *flags);
+static int
+maildir_list_delete_mailbox(struct mailbox_list *list, const char *name);
+static int
+maildir_list_rename_mailbox(struct mailbox_list *list,
+			    const char *oldname, const char *newname);
+static int
+maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
+			     	__attr_unused__,
+			     const char *dir, const char *fname,
+			     enum mailbox_list_file_type type,
+			     enum mailbox_info_flags *flags_r);
+static int
+maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
+				const char *dir, const char *fname,
+				enum mailbox_list_file_type type,
+				enum mailbox_info_flags *flags_r);
 
 static const char *strip_tail_slash(const char *path)
 {
@@ -52,10 +76,13 @@ static const char *strip_tail_slash_and_cut(const char *path)
 
 static int
 maildir_get_list_settings(struct mailbox_list_settings *list_set,
-			  const char *data, enum mail_storage_flags flags)
+			  const char *data, enum mail_storage_flags flags,
+			  const char **layout_r)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	const char *home, *path, *p;
+
+	*layout_r = MAILDIR_PLUSPLUS_DRIVER_NAME;
 
 	memset(list_set, 0, sizeof(*list_set));
 	list_set->subscription_fname = MAILDIR_SUBSCRIPTION_FILE_NAME;
@@ -114,6 +141,9 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 				} else if (strncmp(p, "CONTROL=", 8) == 0) {
 					list_set->control_dir =
 						strip_tail_slash_and_cut(p+8);
+				} else if (strncmp(p, "LAYOUT=", 7) == 0) {
+					*layout_r =
+						strip_tail_slash_and_cut(p+7);
 				}
 				p = strchr(p, ':');
 			} while (p != NULL);
@@ -126,11 +156,58 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 		return -1;
 	}
 	list_set->root_dir = strip_tail_slash(list_set->root_dir);
+	if (list_set->inbox_path == NULL)
+		list_set->inbox_path = list_set->root_dir;
 
 	if (list_set->index_dir != NULL &&
 	    strcmp(list_set->index_dir, "MEMORY") == 0)
 		list_set->index_dir = "";
 	return 0;
+}
+
+static bool maildir_is_internal_name(const char *name)
+{
+	return strcmp(name, "cur") == 0 ||
+		strcmp(name, "new") == 0 ||
+		strcmp(name, "tmp") == 0;
+}
+
+static bool maildir_storage_is_valid_existing_name(struct mailbox_list *list,
+						   const char *name)
+{
+	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(list);
+	const char *p;
+
+	if (!storage->list_super.is_valid_existing_name(list, name))
+		return FALSE;
+
+	/* Don't allow the mailbox name to end in cur/new/tmp */
+	p = strrchr(name, '/');
+	if (p != NULL)
+		name = p + 1;
+	return !maildir_is_internal_name(name);
+}
+
+static bool maildir_storage_is_valid_create_name(struct mailbox_list *list,
+						 const char *name)
+{
+	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(list);
+	const char *const *tmp;
+	bool ret = TRUE;
+
+	if (!storage->list_super.is_valid_create_name(list, name))
+		return FALSE;
+
+	/* Don't allow creating mailboxes under cur/new/tmp */
+	t_push();
+	for (tmp = t_strsplit(name, "/"); *tmp != NULL; tmp++) {
+		if (maildir_is_internal_name(*tmp)) {
+			ret = FALSE;
+			break;
+		}
+	}
+	t_pop();
+	return ret;
 }
 
 static struct mail_storage *
@@ -143,11 +220,11 @@ maildir_create(const char *data, const char *user,
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	enum mailbox_open_flags open_flags;
-	const char *error;
+	const char *layout, *error;
 	struct stat st;
 	pool_t pool;
 
-	if (maildir_get_list_settings(&list_set, data, flags) < 0)
+	if (maildir_get_list_settings(&list_set, data, flags, &layout) < 0)
 		return NULL;
 	list_set.mail_storage_flags = &flags;
 	list_set.lock_method = &lock_method;
@@ -166,14 +243,28 @@ maildir_create(const char *data, const char *user,
 	pool = pool_alloconly_create("storage", 512+256);
 	storage = p_new(pool, struct maildir_storage, 1);
 
-	if (mailbox_list_init("maildir++", &list_set,
+	if (mailbox_list_init(layout, &list_set,
 			      mail_storage_get_list_flags(flags),
-			      mailbox_storage_list_is_mailbox, storage,
 			      &list, &error) < 0) {
-		i_error("maildir++: %s", error);
+		i_error("maildir %s: %s", layout, error);
 		pool_unref(pool);
 		return NULL;
 	}
+	storage->list_super = list->v;
+	if (strcmp(layout, MAILDIR_PLUSPLUS_DRIVER_NAME) == 0) {
+		list->v.iter_is_mailbox = maildirplusplus_iter_is_mailbox;
+	} else {
+		list->v.is_valid_existing_name =
+			maildir_storage_is_valid_existing_name;
+		list->v.is_valid_create_name =
+			maildir_storage_is_valid_create_name;
+		list->v.iter_is_mailbox = maildir_list_iter_is_mailbox;
+	}
+	list->v.delete_mailbox = maildir_list_delete_mailbox;
+	list->v.rename_mailbox = maildir_list_rename_mailbox;
+
+	array_idx_set(&list->module_contexts,
+		      maildir_mailbox_list_module_id, &storage);
 
 	storage->copy_with_hardlinks =
 		getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;
@@ -229,27 +320,6 @@ static bool maildir_autodetect(const char *data, enum mail_storage_flags flags)
 		return FALSE;
 	}
 	return TRUE;
-}
-
-static const char *
-maildir_get_unlink_dest(struct mail_storage *storage, const char *name)
-{
-	const char *root_dir;
-
-	if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0 &&
-	    (*name == '/' || *name == '~'))
-		return NULL;
-
-	if (strcmp(mailbox_list_get_driver_name(storage->list),
-		   MAILDIR_PLUSPLUS_DRIVER_NAME) != 0) {
-		/* Not maildir++ driver. Don't use this trick. */
-		return NULL;
-	}
-
-	root_dir = mailbox_list_get_path(storage->list, NULL,
-					 MAILBOX_LIST_PATH_TYPE_DIR);
-	return t_strdup_printf("%s/%c"MAILDIR_UNLINK_DIRNAME, root_dir,
-			       mailbox_list_get_hierarchy_sep(storage->list));
 }
 
 static int mkdir_verify(struct mail_storage *storage,
@@ -510,7 +580,7 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		return maildir_open(storage, name, flags);
 	} else if (errno == ENOENT) {
 		mail_storage_set_error(_storage,
-			MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
+			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name);
 		return NULL;
 	} else {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
@@ -608,33 +678,117 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 	return 0;
 }
 
-static int maildir_mailbox_delete(struct mail_storage *_storage,
-				  const char *name)
+static const char *
+maildir_get_unlink_dest(struct mailbox_list *list, const char *name)
 {
+	const char *root_dir;
+
+	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
+	    (*name == '/' || *name == '~'))
+		return NULL;
+
+	if (strcmp(mailbox_list_get_driver_name(list),
+		   MAILDIR_PLUSPLUS_DRIVER_NAME) != 0) {
+		/* Not maildir++ driver. Don't use this trick. */
+		return NULL;
+	}
+
+	root_dir = mailbox_list_get_path(list, NULL,
+					 MAILBOX_LIST_PATH_TYPE_DIR);
+	return t_strdup_printf("%s/%c"MAILDIR_UNLINK_DIRNAME, root_dir,
+			       mailbox_list_get_hierarchy_sep(list));
+}
+
+static int
+maildir_delete_nonrecursive(struct mailbox_list *list, const char *path,
+			    const char *name)
+{
+	DIR *dir;
+	struct dirent *d;
+	string_t *full_path;
+	unsigned int dir_len;
+	bool unlinked_something = FALSE;
+
+	dir = opendir(path);
+	if (dir == NULL) {
+		if (errno == ENOENT) {
+			mailbox_list_set_error(list, t_strdup_printf(
+				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+		} else {
+			mailbox_list_set_critical(list,
+				"opendir(%s) failed: %m", path);
+		}
+		return -1;
+	}
+
+	full_path = t_str_new(256);
+	str_append(full_path, path);
+	str_append_c(full_path, '/');
+	dir_len = str_len(full_path);
+
+	errno = 0;
+	while ((d = readdir(dir)) != NULL) {
+		if (d->d_name[0] == '.') {
+			/* skip . and .. */
+			if (d->d_name[1] == '\0')
+				continue;
+			if (d->d_name[1] == '.' && d->d_name[2] == '\0')
+				continue;
+		}
+
+		str_truncate(full_path, dir_len);
+		str_append(full_path, d->d_name);
+
+		if (maildir_is_internal_name(d->d_name)) {
+			if (unlink_directory(str_c(full_path), TRUE) < 0) {
+				mailbox_list_set_critical(list,
+					"unlink_directory(%s) failed: %m",
+					str_c(full_path));
+			} else {
+				unlinked_something = TRUE;
+			}
+			continue;
+		}
+
+		/* trying to unlink() a directory gives either EPERM or EISDIR
+		   (non-POSIX). it doesn't really work anywhere in practise,
+		   so don't bother stat()ing the file first */
+		if (unlink(str_c(full_path)) == 0)
+			unlinked_something = TRUE;
+		else if (errno != ENOENT && errno != EISDIR && errno != EPERM) {
+			mailbox_list_set_critical(list,
+				"unlink_directory(%s) failed: %m",
+				str_c(full_path));
+		}
+	}
+
+	if (closedir(dir) < 0) {
+		mailbox_list_set_critical(list, "closedir(%s) failed: %m",
+					  path);
+	}
+
+	if (rmdir(path) == 0)
+		unlinked_something = TRUE;
+	else if (errno != ENOENT && errno != ENOTEMPTY) {
+		mailbox_list_set_critical(list, "rmdir(%s) failed: %m", path);
+		return -1;
+	}
+
+	if (!unlinked_something) {
+		mailbox_list_set_error(list, t_strdup_printf(
+			"Directory %s isn't empty, can't delete it.", name));
+		return -1;
+	}
+	return 0;
+}
+
+static int
+maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
+{
+	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(list);
 	struct stat st;
-	const char *src, *dest, *index_dir, *control_dir;
+	const char *src, *dest;
 	int count;
-
-	mail_storage_clear_error(_storage);
-
-	if (strcmp(name, "INBOX") == 0) {
-		mail_storage_set_error(_storage, "INBOX can't be deleted.");
-		return -1;
-	}
-
-	if (!mailbox_list_is_valid_existing_name(_storage->list, name)) {
-		mail_storage_set_error(_storage, "Invalid mailbox name");
-		return -1;
-	}
-
-	/* check if the mailbox actually exists */
-	src = mailbox_list_get_path(_storage->list, name,
-				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(src, &st) != 0 && errno == ENOENT) {
-		mail_storage_set_error(_storage,
-			MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
-		return -1;
-	}
 
 	/* Make sure the indexes are closed before trying to delete the
 	   directory that contains them. It can still fail with some NFS
@@ -642,241 +796,84 @@ static int maildir_mailbox_delete(struct mail_storage *_storage,
 	   that can't really be helped. */
 	index_storage_destroy_unrefed();
 
-	/* if there's a separate index directory, delete it before the actual
-	   maildir. this way we never see partially deleted mailboxes. */
-	index_dir = mailbox_list_get_path(_storage->list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (strcmp(index_dir, src) != 0) {
-		i_assert(*name != '/' && *name != '~');
+	/* delete the index and control directories */
+	if (storage->list_super.delete_mailbox(list, name) < 0)
+		return -1;
 
-		if (unlink_directory(index_dir, TRUE) < 0 &&
-		    errno != ENOTEMPTY) {
-			mail_storage_set_critical(_storage,
-				"unlink_directory(%s) failed: %m", index_dir);
-			return -1;
-		}
-	}
-	control_dir = mailbox_list_get_path(_storage->list, name,
-					    MAILBOX_LIST_PATH_TYPE_CONTROL);
-	if (strcmp(control_dir, src) != 0 &&
-	    strcmp(control_dir, index_dir) != 0) {
-		i_assert(*name != '/' && *name != '~');
-
-		if (unlink_directory(control_dir, TRUE) < 0 &&
-		    errno != ENOTEMPTY) {
-			mail_storage_set_critical(_storage,
-				"unlink_directory(%s) failed: %m", control_dir);
-			return -1;
-		}
+	/* check if the mailbox actually exists */
+	src = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (stat(src, &st) != 0 && errno == ENOENT) {
+		mailbox_list_set_error(list, t_strdup_printf(
+			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+		return -1;
 	}
 
-	dest = maildir_get_unlink_dest(_storage, name);
+	dest = maildir_get_unlink_dest(list, name);
 	if (dest == NULL) {
-		/* absolute maildir path, delete the directory directly
-		   without any renaming */
-		dest = src;
-	} else {
-		/* rename the .maildir into ..DOVECOT-TRASH which atomically
-		   marks it as being deleted. If we die before deleting the
-		   ..DOVECOT-TRASH directory, it gets deleted the next time
-		   mailbox listing sees it. */
-		count = 0;
-		while (rename(src, dest) < 0 && count < 2) {
-			if (errno == ENOENT) {
-				/* it was just deleted under us by
-				   another process */
-				mail_storage_set_error(_storage,
-					MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND,
-					name);
-				return -1;
-			}
-			if (!EDESTDIREXISTS(errno)) {
-				mail_storage_set_critical(_storage,
-					"rename(%s, %s) failed: %m", src, dest);
-				return -1;
-			}
+		/* delete the directory directly without any renaming */
+		return maildir_delete_nonrecursive(list, src, name);
+	}
 
-			/* already existed, delete it and try again */
-			if (unlink_directory(dest, TRUE) < 0) {
-				mail_storage_set_critical(_storage,
-					"unlink_directory(%s) failed: %m",
-					dest);
-				return -1;
-			}
-			count++;
+	/* rename the .maildir into ..DOVECOT-TRASH which atomically
+	   marks it as being deleted. If we die before deleting the
+	   ..DOVECOT-TRASH directory, it gets deleted the next time
+	   mailbox listing sees it. */
+	count = 0;
+	while (rename(src, dest) < 0 && count < 2) {
+		if (errno == ENOENT) {
+			/* it was just deleted under us by
+			   another process */
+			mailbox_list_set_error(list, t_strdup_printf(
+				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+			return -1;
 		}
+		if (!EDESTDIREXISTS(errno)) {
+			mailbox_list_set_critical(list,
+				"rename(%s, %s) failed: %m", src, dest);
+			return -1;
+		}
+
+		/* already existed, delete it and try again */
+		if (unlink_directory(dest, TRUE) < 0) {
+			mailbox_list_set_critical(list,
+				"unlink_directory(%s) failed: %m", dest);
+			return -1;
+		}
+		count++;
 	}
 
 	if (unlink_directory(dest, TRUE) < 0 && errno != ENOTEMPTY) {
-		mail_storage_set_critical(_storage,
+		mailbox_list_set_critical(list,
 			"unlink_directory(%s) failed: %m", dest);
 
-		/* it's already renamed to ..dir, which means it's deleted
-		   as far as the client is concerned. Report success. */
+		/* it's already renamed to ..dir, which means it's
+		   deleted as far as the client is concerned. Report
+		   success. */
 	}
-
 	return 0;
 }
 
-static int rename_dir(struct mail_storage *storage,
-		      enum mailbox_list_path_type type,
-		      const char *oldname, const char *newname)
+static int maildir_list_rename_mailbox(struct mailbox_list *list,
+				       const char *oldname, const char *newname)
 {
-	const char *oldpath, *newpath;
-
-	oldpath = mailbox_list_get_path(storage->list, oldname, type);
-	newpath = mailbox_list_get_path(storage->list, newname, type);
-	if (strcmp(oldpath, newpath) == 0)
-		return 0;
-
-	if (rename(oldpath, newpath) < 0 && errno != ENOENT) {
-		mail_storage_set_critical(storage, "rename(%s, %s) failed: %m",
-					  oldpath, newpath);
-		return -1;
-	}
-
-	return 0;
-}
-
-static int rename_subfolders(struct mail_storage *storage,
-			     const char *oldname, const char *newname)
-{
-	struct mailbox_list_iterate_context *iter;
-        struct mailbox_info *info;
-	ARRAY_DEFINE(names_arr, const char *);
-	const char *mask, *oldpath, *newpath, *old_listname, *new_listname;
-	const char *const *names;
-	unsigned int i, count;
-	size_t oldnamelen;
-	pool_t pool;
-	int ret;
-
-	ret = 0;
-	oldnamelen = strlen(oldname);
-
-	/* first get a list of the subfolders and save them to memory, because
-	   we can't rely on readdir() not skipping files while the directory
-	   is being modified. this doesn't protect against modifications by
-	   other processes though. */
-	pool = pool_alloconly_create("Maildir subfolders list", 1024);
-	i_array_init(&names_arr, 64);
-
-	mask = t_strdup_printf("%s%c*", oldname,
-			       mailbox_list_get_hierarchy_sep(storage->list));
-	iter = mailbox_list_iter_init(storage->list, mask,
-				      MAILBOX_LIST_ITER_FAST_FLAGS);
-	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		const char *name;
-
-		i_assert(oldnamelen <= strlen(info->name));
-
-		name = p_strdup(pool, info->name + oldnamelen);
-		array_append(&names_arr, &name, 1);
-	}
-	if (mailbox_list_iter_deinit(&iter) < 0) {
-		ret = -1;
-		names = NULL; count = 0;
-	} else {
-		names = array_get(&names_arr, &count);
-	}
-
-	for (i = 0; i < count; i++) {
-		t_push();
-
-		old_listname = t_strconcat(oldname, names[i], NULL);
-		new_listname = t_strconcat(newname, names[i], NULL);
-		oldpath = mailbox_list_get_path(storage->list, old_listname,
-						MAILBOX_LIST_PATH_TYPE_MAILBOX);
-		newpath = mailbox_list_get_path(storage->list, new_listname,
-						MAILBOX_LIST_PATH_TYPE_MAILBOX);
-
-		/* FIXME: it's possible to merge two folders if either one of
-		   them doesn't have existing root folder. We could check this
-		   but I'm not sure if it's worth it. It could be even
-		   considered as a feature.
-
-		   Anyway, the bug with merging is that if both folders have
-		   identically named subfolder they conflict. Just ignore those
-		   and leave them under the old folder. */
-		if (rename(oldpath, newpath) == 0 || EDESTDIREXISTS(errno))
-			ret = 1;
-		else {
-			mail_storage_set_critical(storage,
-				"rename(%s, %s) failed: %m", oldpath, newpath);
-			ret = -1;
-			t_pop();
-			break;
-		}
-
-		(void)rename_dir(storage, MAILBOX_LIST_PATH_TYPE_CONTROL,
-				 old_listname, new_listname);
-		(void)rename_dir(storage, MAILBOX_LIST_PATH_TYPE_INDEX,
-				 old_listname, new_listname);
-		t_pop();
-	}
-	array_free(&names_arr);
-	pool_unref(pool);
-
-	return ret;
-}
-
-static int maildir_mailbox_rename(struct mail_storage *_storage,
-				  const char *oldname, const char *newname)
-{
-	const char *oldpath, *newpath;
-	int ret;
-        bool found;
-
-	mail_storage_clear_error(_storage);
-
-	if (!mailbox_list_is_valid_existing_name(_storage->list, oldname) ||
-	    !mailbox_list_is_valid_create_name(_storage->list, newname)) {
-		mail_storage_set_error(_storage, "Invalid mailbox name");
-		return -1;
-	}
+	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(list);
+	const char *path1, *path2;
 
 	if (strcmp(oldname, "INBOX") == 0) {
-		mail_storage_set_error(_storage,
-				       "Renaming INBOX isn't supported.");
-		return -1;
-	}
-
-	/* NOTE: it's possible to rename a nonexisting folder which has
-	   subfolders. In that case we should ignore the rename() error. */
-	oldpath = mailbox_list_get_path(_storage->list, oldname,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	newpath = mailbox_list_get_path(_storage->list, newname,
-					MAILBOX_LIST_PATH_TYPE_MAILBOX);
-
-	ret = rename(oldpath, newpath);
-	if (ret == 0 || errno == ENOENT) {
-		(void)rename_dir(_storage, MAILBOX_LIST_PATH_TYPE_CONTROL,
-				 oldname, newname);
-		(void)rename_dir(_storage, MAILBOX_LIST_PATH_TYPE_INDEX,
-				 oldname, newname);
-
-		found = ret == 0;
-		ret = rename_subfolders(_storage, oldname, newname);
-		if (ret < 0)
-			return -1;
-		if (!found && ret == 0) {
-			mail_storage_set_error(_storage,
-				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, oldname);
+		/* INBOX often exists as the root ~/Maildir.
+		   We can't rename it then. */
+		path1 = mailbox_list_get_path(list, oldname,
+					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		path2 = mailbox_list_get_path(list, NULL,
+					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		if (strcmp(path1, path2) == 0) {
+			mailbox_list_set_error(list,
+				"Renaming INBOX isn't supported.");
 			return -1;
 		}
-
-		return 0;
 	}
 
-	if (EDESTDIREXISTS(errno)) {
-		mail_storage_set_error(_storage,
-				       "Target mailbox already exists");
-		return -1;
-	} else {
-		mail_storage_set_critical(_storage, "rename(%s, %s) failed: %m",
-					  oldpath, newpath);
-		return -1;
-	}
+	return storage->list_super.rename_mailbox(list, oldname, newname);
 }
 
 static int maildir_storage_close(struct mailbox *box)
@@ -922,20 +919,71 @@ maildir_notify_changes(struct mailbox *box, unsigned int min_interval,
 }
 
 static int
-maildir_storage_is_mailbox(struct mail_storage *_storage,
-			   const char *dir, const char *fname,
-			   enum mailbox_list_iter_flags iter_flags
-				__attr_unused__,
-			   enum mailbox_info_flags *flags,
-			   enum mailbox_list_file_type type)
+maildir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
+			     	__attr_unused__,
+			     const char *dir, const char *fname,
+			     enum mailbox_list_file_type type,
+			     enum mailbox_info_flags *flags_r)
 {
-	struct maildir_storage *storage = (struct maildir_storage *)_storage;
+	struct stat st;
+	const char *path;
+	int ret;
+
+	if (maildir_is_internal_name(fname)) {
+		*flags_r = MAILBOX_NONEXISTENT;
+		return 0;
+	}
+
+	switch (type) {
+	case MAILBOX_LIST_FILE_TYPE_FILE:
+	case MAILBOX_LIST_FILE_TYPE_OTHER:
+		/* non-directories are not */
+		*flags_r = MAILBOX_NOSELECT;
+		return 0;
+
+	case MAILBOX_LIST_FILE_TYPE_DIR:
+	case MAILBOX_LIST_FILE_TYPE_UNKNOWN:
+	case MAILBOX_LIST_FILE_TYPE_SYMLINK:
+		break;
+	}
+
+	t_push();
+	path = t_strdup_printf("%s/%s", dir, fname);
+	if (stat(path, &st) == 0) {
+		if (S_ISDIR(st.st_mode))
+			ret = 1;
+		else if (strncmp(fname, ".nfs", 4) == 0) {
+			/* temporary NFS file */
+			*flags_r = MAILBOX_NONEXISTENT;
+			ret = 0;
+		} else {
+			*flags_r = MAILBOX_NOSELECT;
+			ret = 0;
+		}
+	} else if (errno == ENOENT) {
+		/* this was a directory. maybe it has children. */
+		*flags_r = MAILBOX_NOSELECT;
+		ret = 1;
+	} else {
+		*flags_r = MAILBOX_NOSELECT;
+		ret = 0;
+	}
+	t_pop();
+	return ret;
+}
+
+static int
+maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
+				const char *dir, const char *fname,
+				enum mailbox_list_file_type type,
+				enum mailbox_info_flags *flags_r)
+{
+	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(ctx->list);
+	struct mail_storage *_storage = &storage->storage.storage;
 	int ret;
 
 	if (fname[1] == mailbox_list_get_hierarchy_sep(_storage->list) &&
-	    strcmp(fname+2, MAILDIR_UNLINK_DIRNAME) == 0 &&
-	    strcmp(mailbox_list_get_driver_name(_storage->list),
-		   MAILDIR_PLUSPLUS_DRIVER_NAME) == 0) {
+	    strcmp(fname+2, MAILDIR_UNLINK_DIRNAME) == 0) {
 		const char *path;
 		struct stat st;
 
@@ -950,7 +998,7 @@ maildir_storage_is_mailbox(struct mail_storage *_storage,
 			(void)unlink_directory(path, TRUE);
 		t_pop();
 
-		*flags = MAILBOX_NONEXISTENT;
+		*flags_r = MAILBOX_NONEXISTENT;
 		return 0;
 	}
 
@@ -962,7 +1010,7 @@ maildir_storage_is_mailbox(struct mail_storage *_storage,
 	case MAILBOX_LIST_FILE_TYPE_FILE:
 	case MAILBOX_LIST_FILE_TYPE_OTHER:
 		/* non-directories are not */
-		*flags = MAILBOX_NOSELECT;
+		*flags_r = MAILBOX_NOSELECT;
 		return 0;
 
 	case MAILBOX_LIST_FILE_TYPE_UNKNOWN:
@@ -979,11 +1027,25 @@ maildir_storage_is_mailbox(struct mail_storage *_storage,
 
 		t_push();
 		path = t_strdup_printf("%s/%s", dir, fname);
-		ret = (stat(path, &st) < 0 || !S_ISDIR(st.st_mode)) ? 0 : 1;
+		if (stat(path, &st) == 0) {
+			if (S_ISDIR(st.st_mode))
+				ret = 1;
+			else {
+				if (strncmp(fname, ".nfs", 4) == 0)
+					*flags_r = MAILBOX_NONEXISTENT;
+				else
+					*flags_r = MAILBOX_NOSELECT;
+				ret = 0;
+			}
+		} else if (errno == ENOENT) {
+			/* just deleted? */
+			*flags_r = MAILBOX_NONEXISTENT;
+			ret = 0;
+		} else {
+			*flags_r = MAILBOX_NOSELECT;
+			ret = 0;
+		}
 		t_pop();
-
-		if (ret == 0)
-			*flags = MAILBOX_NONEXISTENT;
 	} else {
 		ret = 1;
 	}
@@ -992,6 +1054,7 @@ maildir_storage_is_mailbox(struct mail_storage *_storage,
 
 static void maildir_class_init(void)
 {
+	maildir_mailbox_list_module_id = mailbox_list_module_id++;
 	maildir_transaction_class_init();
 }
 
@@ -1013,9 +1076,6 @@ struct mail_storage maildir_storage = {
 		index_storage_set_callbacks,
 		maildir_mailbox_open,
 		maildir_mailbox_create,
-		maildir_mailbox_delete,
-		maildir_mailbox_rename,
-		maildir_storage_is_mailbox,
 		index_storage_get_last_error
 	}
 };

@@ -93,9 +93,7 @@ struct dbox_uidlist *dbox_uidlist_init(struct dbox_mailbox *mbox)
 	uidlist->lock_fd = -1;
 	uidlist->entry_pool =
 		pool_alloconly_create("uidlist entry pool", 1024*32);
-	uidlist->path =
-		i_strconcat(mbox->path, "/"DBOX_MAILDIR_NAME"/"
-			    DBOX_UIDLIST_FILENAME, NULL);
+	uidlist->path = i_strconcat(mbox->path, "/"DBOX_UIDLIST_FILENAME, NULL);
 	i_array_init(&uidlist->entries, 64);
 	return uidlist;
 }
@@ -1054,8 +1052,8 @@ dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 
 		/* try locking the file. */
 		str_truncate(path, 0);
-		str_printfa(path, "%s/"DBOX_MAILDIR_NAME"/"
-			    DBOX_MAIL_FILE_FORMAT, mbox->path, file_seq);
+		str_printfa(path, "%s/"DBOX_MAIL_FILE_FORMAT,
+			    mbox->path, file_seq);
 		ret = file_dotlock_create(&mbox->storage->file_dotlock_set,
 					  str_c(path),
 					  DOTLOCK_CREATE_FLAG_NONBLOCK,

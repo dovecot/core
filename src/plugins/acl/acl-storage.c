@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "acl-api-private.h"
+#include "mailbox-list-private.h"
 #include "acl-plugin.h"
 
 #include <stdlib.h>
@@ -92,10 +93,10 @@ acl_mailbox_open(struct mail_storage *storage, const char *name,
 			return NULL;
 		if (can_see) {
 			mail_storage_set_error(storage,
-					       MAIL_STORAGE_ERR_NO_PERMISSION);
+					       MAILBOX_LIST_ERR_NO_PERMISSION);
 		} else {
 			mail_storage_set_error(storage,
-				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
+				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name);
 		}
 		return NULL;
 	}
@@ -125,80 +126,12 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 			   permission, this not reveals to user the mailbox's
 			   existence. Can't help it. */
 			mail_storage_set_error(storage,
-					       MAIL_STORAGE_ERR_NO_PERMISSION);
+					       MAILBOX_LIST_ERR_NO_PERMISSION);
 		}
 		return -1;
 	}
 
 	return astorage->super.mailbox_create(storage, name, directory);
-}
-
-static int acl_mailbox_delete(struct mail_storage *storage, const char *name)
-{
-	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
-	bool can_see;
-	int ret;
-
-	ret = acl_storage_have_right(storage, name, ACL_STORAGE_RIGHT_DELETE,
-				     &can_see);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		if (can_see) {
-			mail_storage_set_error(storage,
-					       MAIL_STORAGE_ERR_NO_PERMISSION);
-		} else {
-			mail_storage_set_error(storage,
-				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, name);
-		}
-		return -1;
-	}
-
-	return astorage->super.mailbox_delete(storage, name);
-}
-
-static int acl_mailbox_rename(struct mail_storage *storage, const char *oldname,
-			      const char *newname)
-{
-	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
-	bool can_see;
-	int ret;
-
-	/* renaming requires rights to delete the old mailbox */
-	ret = acl_storage_have_right(storage, oldname,
-				     ACL_STORAGE_RIGHT_DELETE, &can_see);
-	if (ret <= 0) {
-		if (ret < 0)
-			return -1;
-		if (can_see) {
-			mail_storage_set_error(storage,
-					       MAIL_STORAGE_ERR_NO_PERMISSION);
-		} else {
-			mail_storage_set_error(storage,
-				MAIL_STORAGE_ERR_MAILBOX_NOT_FOUND, oldname);
-		}
-		return 0;
-	}
-
-	/* and create the new one under the parent mailbox */
-	t_push();
-	ret = acl_storage_have_right(storage,
-			acl_storage_get_parent_mailbox_name(storage, newname),
-			ACL_STORAGE_RIGHT_CREATE, NULL);
-	t_pop();
-
-	if (ret <= 0) {
-		if (ret == 0) {
-			/* Note that if the mailbox didn't have LOOKUP
-			   permission, this not reveals to user the mailbox's
-			   existence. Can't help it. */
-			mail_storage_set_error(storage,
-					       MAIL_STORAGE_ERR_NO_PERMISSION);
-		}
-		return -1;
-	}
-
-	return astorage->super.mailbox_rename(storage, oldname, newname);
 }
 
 void acl_mail_storage_created(struct mail_storage *storage)
@@ -240,8 +173,6 @@ void acl_mail_storage_created(struct mail_storage *storage)
 	storage->v.destroy = acl_storage_destroy;
 	storage->v.mailbox_open = acl_mailbox_open;
 	storage->v.mailbox_create = acl_mailbox_create;
-	storage->v.mailbox_delete = acl_mailbox_delete;
-	storage->v.mailbox_rename = acl_mailbox_rename;
 
 	acl_mailbox_list_set_storage(storage);
 

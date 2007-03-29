@@ -1,11 +1,13 @@
-/* Copyright (C) 2006 Timo Sirainen */
+/* Copyright (C) 2006-2007 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "hostpid.h"
 #include "home-expand.h"
 #include "subscription-file.h"
 #include "mailbox-list-maildir.h"
 
+#include <stdio.h>
 #include <sys/stat.h>
 
 extern struct mailbox_list maildir_mailbox_list;
@@ -270,6 +272,164 @@ static int maildir_list_set_subscribed(struct mailbox_list *_list,
 				       name, set);
 }
 
+static int rename_dir(struct mailbox_list *list,
+		      enum mailbox_list_path_type type,
+		      const char *oldname, const char *newname)
+{
+	const char *oldpath, *newpath;
+
+	oldpath = mailbox_list_get_path(list, oldname, type);
+	newpath = mailbox_list_get_path(list, newname, type);
+
+	if (strcmp(oldpath, newpath) == 0)
+		return 0;
+
+	if (rename(oldpath, newpath) < 0 && errno != ENOENT) {
+		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+					  oldpath, newpath);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int rename_children(struct mailbox_list *list,
+			   const char *oldname, const char *newname)
+{
+	struct mailbox_list_iterate_context *iter;
+        struct mailbox_info *info;
+	ARRAY_DEFINE(names_arr, const char *);
+	const char *mask, *oldpath, *newpath, *old_listname, *new_listname;
+	const char *const *names;
+	unsigned int i, count;
+	size_t oldnamelen;
+	pool_t pool;
+	int ret;
+
+	ret = 0;
+	oldnamelen = strlen(oldname);
+
+	/* first get the list of the children and save them to memory, because
+	   we can't rely on readdir() not skipping files while the directory
+	   is being modified. this doesn't protect against modifications by
+	   other processes though. */
+	pool = pool_alloconly_create("Maildir++ children list", 1024);
+	i_array_init(&names_arr, 64);
+
+	mask = t_strdup_printf("%s%c*", oldname,
+			       mailbox_list_get_hierarchy_sep(list));
+	iter = mailbox_list_iter_init(list, mask, MAILBOX_LIST_ITER_FAST_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) {
+		const char *name;
+
+		i_assert(oldnamelen <= strlen(info->name));
+
+		name = p_strdup(pool, info->name + oldnamelen);
+		array_append(&names_arr, &name, 1);
+	}
+	if (mailbox_list_iter_deinit(&iter) < 0) {
+		ret = -1;
+		names = NULL; count = 0;
+	} else {
+		names = array_get(&names_arr, &count);
+	}
+
+	for (i = 0; i < count; i++) {
+		t_push();
+
+		old_listname = t_strconcat(oldname, names[i], NULL);
+		new_listname = t_strconcat(newname, names[i], NULL);
+		oldpath = mailbox_list_get_path(list, old_listname,
+						MAILBOX_LIST_PATH_TYPE_MAILBOX);
+		newpath = mailbox_list_get_path(list, new_listname,
+						MAILBOX_LIST_PATH_TYPE_MAILBOX);
+
+		/* FIXME: it's possible to merge two mailboxes if either one of
+		   them doesn't have existing root mailbox. We could check this
+		   but I'm not sure if it's worth it. It could be even
+		   considered as a feature.
+
+		   Anyway, the bug with merging is that if both mailboxes have
+		   identically named child mailbox they conflict. Just ignore
+		   those and leave them under the old mailbox. */
+		if (rename(oldpath, newpath) == 0 || EDESTDIREXISTS(errno))
+			ret = 1;
+		else {
+			mailbox_list_set_critical(list,
+				"rename(%s, %s) failed: %m", oldpath, newpath);
+			ret = -1;
+			t_pop();
+			break;
+		}
+
+		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_CONTROL,
+				 old_listname, new_listname);
+		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+				 old_listname, new_listname);
+		t_pop();
+	}
+	array_free(&names_arr);
+	pool_unref(pool);
+
+	return ret;
+}
+
+static int
+maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
+{
+	/* let the backend handle the rest */
+	return mailbox_list_delete_index_control(list, name);
+}
+
+static int maildir_list_rename_mailbox(struct mailbox_list *list,
+				       const char *oldname, const char *newname)
+{
+	const char *oldpath, *newpath;
+	int ret;
+        bool found;
+
+	if (!mailbox_list_is_valid_existing_name(list, oldname) ||
+	    !mailbox_list_is_valid_create_name(list, newname)) {
+		mailbox_list_set_error(list, "Invalid mailbox name");
+		return -1;
+	}
+
+	/* NOTE: it's possible to rename a nonexisting mailbox which has
+	   children. In that case we should ignore the rename() error. */
+	oldpath = mailbox_list_get_path(list, oldname,
+					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	newpath = mailbox_list_get_path(list, newname,
+					MAILBOX_LIST_PATH_TYPE_MAILBOX);
+
+	ret = rename(oldpath, newpath);
+	if (ret == 0 || errno == ENOENT) {
+		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_CONTROL,
+				 oldname, newname);
+		(void)rename_dir(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+				 oldname, newname);
+
+		found = ret == 0;
+		ret = rename_children(list, oldname, newname);
+		if (ret < 0)
+			return -1;
+		if (!found && ret == 0) {
+			mailbox_list_set_error(list, t_strdup_printf(
+				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, oldname));
+			return -1;
+		}
+
+		return 0;
+	}
+
+	if (EDESTDIREXISTS(errno)) {
+		mailbox_list_set_error(list, "Target mailbox already exists");
+	} else {
+		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
+					  oldpath, newpath);
+	}
+	return -1;
+}
+
 struct mailbox_list maildir_mailbox_list = {
 	MEMBER(name) "maildir++",
 	MEMBER(hierarchy_sep) '.',
@@ -288,6 +448,9 @@ struct mailbox_list maildir_mailbox_list = {
 		maildir_list_iter_init,
 		maildir_list_iter_next,
 		maildir_list_iter_deinit,
-		maildir_list_set_subscribed
+		NULL,
+		maildir_list_set_subscribed,
+		maildir_list_delete_mailbox,
+		maildir_list_rename_mailbox
 	}
 };

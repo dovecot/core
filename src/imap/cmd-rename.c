@@ -6,6 +6,7 @@
 bool cmd_rename(struct client_command_context *cmd)
 {
 	struct mail_storage *old_storage, *new_storage;
+	struct mailbox_list *list;
 	const char *oldname, *newname;
 
 	/* <old name> <new name> */
@@ -29,10 +30,12 @@ bool cmd_rename(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (mail_storage_mailbox_rename(old_storage, oldname, newname) < 0)
+	list = mail_storage_get_list(old_storage);
+	if (mailbox_list_rename_mailbox(list, oldname, newname) < 0) {
+		mail_storage_set_list_error(old_storage);
 		client_send_storage_error(cmd, old_storage);
-	else
+	} else {
 		client_send_tagline(cmd, "OK Rename completed.");
-
+	}
 	return TRUE;
 }

@@ -7,6 +7,7 @@ bool cmd_delete(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct mail_storage *storage;
+	struct mailbox_list *list;
 	struct mailbox *mailbox;
 	const char *name;
 
@@ -41,9 +42,12 @@ bool cmd_delete(struct client_command_context *cmd)
 		name = t_strndup(name, strlen(name)-1);
 	}
 
-	if (mail_storage_mailbox_delete(storage, name) < 0)
+	list = mail_storage_get_list(storage);
+	if (mailbox_list_delete_mailbox(list, name) < 0) {
+		mail_storage_set_list_error(storage);
 		client_send_storage_error(cmd, storage);
-	else
+	} else {
 		client_send_tagline(cmd, "OK Delete completed.");
+	}
 	return TRUE;
 }

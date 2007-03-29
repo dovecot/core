@@ -102,6 +102,76 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 	return 0;
 }
 
+static int
+acl_mailbox_list_delete(struct mailbox_list *list, const char *name)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+	bool can_see;
+	int ret;
+
+	ret = acl_storage_have_right(alist->storage, name,
+				     ACL_STORAGE_RIGHT_DELETE, &can_see);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		if (can_see) {
+			mail_storage_set_error(alist->storage,
+					       MAILBOX_LIST_ERR_NO_PERMISSION);
+		} else {
+			mail_storage_set_error(alist->storage,
+				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name);
+		}
+		return -1;
+	}
+
+	return alist->super.delete_mailbox(list, name);
+}
+
+static int
+acl_mailbox_list_rename(struct mailbox_list *list,
+			const char *oldname, const char *newname)
+{
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+	bool can_see;
+	int ret;
+
+	/* renaming requires rights to delete the old mailbox */
+	ret = acl_storage_have_right(alist->storage, oldname,
+				     ACL_STORAGE_RIGHT_DELETE, &can_see);
+	if (ret <= 0) {
+		if (ret < 0)
+			return -1;
+		if (can_see) {
+			mail_storage_set_error(alist->storage,
+					       MAILBOX_LIST_ERR_NO_PERMISSION);
+		} else {
+			mail_storage_set_error(alist->storage,
+				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, oldname);
+		}
+		return 0;
+	}
+
+	/* and create the new one under the parent mailbox */
+	t_push();
+	ret = acl_storage_have_right(alist->storage,
+		acl_storage_get_parent_mailbox_name(alist->storage, newname),
+		ACL_STORAGE_RIGHT_CREATE, NULL);
+	t_pop();
+
+	if (ret <= 0) {
+		if (ret == 0) {
+			/* Note that if the mailbox didn't have LOOKUP
+			   permission, this not reveals to user the mailbox's
+			   existence. Can't help it. */
+			mail_storage_set_error(alist->storage,
+					       MAILBOX_LIST_ERR_NO_PERMISSION);
+		}
+		return -1;
+	}
+
+	return alist->super.rename_mailbox(list, oldname, newname);
+}
+
 void acl_mailbox_list_created(struct mailbox_list *list)
 {
 	struct acl_mailbox_list *alist;
@@ -113,6 +183,8 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	alist->super = list->v;
 	list->v.iter_next = acl_mailbox_list_iter_next;
 	list->v.get_mailbox_name_status = acl_get_mailbox_name_status;
+	list->v.delete_mailbox = acl_mailbox_list_delete;
+	list->v.rename_mailbox = acl_mailbox_list_rename;
 
 	if (!acl_mailbox_list_module_id_set) {
 		acl_mailbox_list_module_id = mailbox_list_module_id++;

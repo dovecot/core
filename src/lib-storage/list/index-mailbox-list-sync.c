@@ -470,7 +470,7 @@ static void index_list_mail_mailbox_opened(struct mailbox *box)
 		index_list_next_hook_mailbox_created(box);
 
 	/* FIXME: maildir-only for now */
-	if (strcmp(box->storage->name, "maildir") != 0)
+	if (strcmp(box->storage->list->name, "maildir++") != 0)
 		return;
 
 	ibox = p_new(box->pool, struct index_list_mailbox, 1);

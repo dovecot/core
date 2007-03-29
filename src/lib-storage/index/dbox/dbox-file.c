@@ -117,8 +117,7 @@ int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset,
 		mbox->file->fd = -1;
 
 		mbox->file->path =
-			i_strdup_printf("%s/"DBOX_MAILDIR_NAME"/"
-					DBOX_MAIL_FILE_FORMAT,
+			i_strdup_printf("%s/"DBOX_MAIL_FILE_FORMAT,
 					mbox->path, file_seq);
 	}
 
