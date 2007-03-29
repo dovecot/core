@@ -120,6 +120,7 @@ static time_t maildir_mail_get_save_date(struct mail *_mail)
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
+	uint32_t t;
 
 	(void)index_mail_get_save_date(_mail);
 	if (data->save_date != (time_t)-1)
@@ -128,9 +129,8 @@ static time_t maildir_mail_get_save_date(struct mail *_mail)
 	if (maildir_mail_stat(_mail, &st) < 0)
 		return (time_t)-1;
 
-	data->save_date = st.st_ctime;
-	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE,
-			     &data->save_date, sizeof(data->save_date));
+	data->save_date = t = st.st_ctime;
+	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
 	return data->save_date;
 }
 
