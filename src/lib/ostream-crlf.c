@@ -104,6 +104,7 @@ sendv_crlf(struct crlf_ostream *cstream, const struct const_iovec *iov,
 			*total_r += pos;
 	}
 	cstream->ostream.ostream.offset = cstream->output->offset;
+	cstream->ostream.ostream.stream_errno = cstream->output->stream_errno;
 	return ret;
 }
 
