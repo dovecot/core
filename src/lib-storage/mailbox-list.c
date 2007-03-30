@@ -253,6 +253,10 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 
 int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
+	if (!mailbox_list_is_valid_existing_name(list, name)) {
+		mailbox_list_set_error(list, "Invalid mailbox name");
+		return -1;
+	}
 	return list->v.delete_mailbox(list, name);
 }
 
