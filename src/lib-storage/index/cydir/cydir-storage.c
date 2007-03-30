@@ -138,18 +138,6 @@ static int cydir_create(struct mail_storage *_storage, const char *data)
 	return 0;
 }
 
-static void cydir_free(struct mail_storage *storage)
-{
-	index_storage_deinit(storage);
-	pool_unref(storage->pool);
-}
-
-static bool cydir_autodetect(const char *data __attr_unused__,
-			     enum mail_storage_flags flags __attr_unused__)
-{
-	return FALSE;
-}
-
 static int create_cydir(struct mail_storage *storage, const char *path)
 {
 	const char *error;
@@ -480,9 +468,8 @@ struct mail_storage cydir_storage = {
 		cydir_class_deinit,
 		cydir_alloc,
 		cydir_create,
-		cydir_free,
-		cydir_autodetect,
-		index_storage_set_callbacks,
+		NULL,
+		NULL,
 		cydir_mailbox_open,
 		cydir_mailbox_create,
 		index_storage_get_last_error

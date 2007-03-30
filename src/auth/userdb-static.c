@@ -60,7 +60,7 @@ static void static_lookup_real(struct auth_request *auth_request,
 	t_pop();
 }
 
-static void
+static bool
 static_credentials_callback(enum passdb_result result,
 			    const char *password __attr_unused__,
 			    struct auth_request *auth_request)
@@ -92,6 +92,7 @@ static_credentials_callback(enum passdb_result result,
 	}
 
 	i_free(ctx);
+	return TRUE;
 }
 
 static void static_lookup(struct auth_request *auth_request,

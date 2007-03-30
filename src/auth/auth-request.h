@@ -110,6 +110,7 @@ void auth_request_initial(struct auth_request *request,
 			  const unsigned char *data, size_t data_size);
 void auth_request_continue(struct auth_request *request,
 			   const unsigned char *data, size_t data_size);
+void auth_request_reset_passdb_lookup(struct auth_request *request);
 
 void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,
@@ -156,9 +157,10 @@ void auth_request_log_error(struct auth_request *auth_request,
 
 void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request);
-void auth_request_lookup_credentials_callback(enum passdb_result result,
+bool auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const char *credentials,
-					      struct auth_request *request);
+					      struct auth_request *request)
+	__attr_warn_unused_result__;
 void auth_request_set_credentials(struct auth_request *request,
 				  enum passdb_credentials credentials,
 				  const char *data,

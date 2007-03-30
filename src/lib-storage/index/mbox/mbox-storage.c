@@ -444,12 +444,6 @@ static int mbox_create(struct mail_storage *_storage, const char *data)
 	return 0;
 }
 
-static void mbox_free(struct mail_storage *storage)
-{
-	index_storage_deinit(storage);
-	pool_unref(storage->pool);
-}
-
 static int create_mbox_index_dirs(struct mail_storage *storage,
 				  const char *name)
 {
@@ -1012,9 +1006,8 @@ struct mail_storage mbox_storage = {
 		mbox_class_deinit,
 		mbox_alloc,
 		mbox_create,
-		mbox_free,
+		NULL,
 		mbox_autodetect,
-		index_storage_set_callbacks,
 		mbox_mailbox_open,
 		mbox_mailbox_create,
 		index_storage_get_last_error

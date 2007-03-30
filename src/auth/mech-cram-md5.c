@@ -107,7 +107,7 @@ static bool parse_cram_response(struct cram_auth_request *request,
 	return TRUE;
 }
 
-static void credentials_callback(enum passdb_result result,
+static bool credentials_callback(enum passdb_result result,
 				 const char *credentials,
 				 struct auth_request *auth_request)
 {
@@ -116,10 +116,11 @@ static void credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (verify_credentials(request, credentials))
-			auth_request_success(auth_request, NULL, 0);
-		else
-			auth_request_fail(auth_request);
+		if (!verify_credentials(request, credentials)) {
+			/* see if we have more credentials */
+			return FALSE;
+		}
+		auth_request_success(auth_request, NULL, 0);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -128,6 +129,7 @@ static void credentials_callback(enum passdb_result result,
 		auth_request_fail(auth_request);
 		break;
 	}
+	return TRUE;
 }
 
 static void

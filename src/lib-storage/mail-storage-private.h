@@ -29,10 +29,6 @@ struct mail_storage_vfuncs {
 
 	bool (*autodetect)(const char *data, enum mail_storage_flags flags);
 
-	void (*set_callbacks)(struct mail_storage *storage,
-			      struct mail_storage_callbacks *callbacks,
-			      void *context);
-
 	struct mailbox *(*mailbox_open)(struct mail_storage *storage,
 					const char *name,
 					struct istream *input,

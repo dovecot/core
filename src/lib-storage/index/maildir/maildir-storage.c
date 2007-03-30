@@ -292,12 +292,6 @@ maildir_create(struct mail_storage *_storage, const char *data)
 	return 0;
 }
 
-static void maildir_free(struct mail_storage *storage)
-{
-	index_storage_deinit(storage);
-	pool_unref(storage->pool);
-}
-
 static bool maildir_autodetect(const char *data, enum mail_storage_flags flags)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
@@ -1070,9 +1064,8 @@ struct mail_storage maildir_storage = {
 		maildir_class_deinit,
 		maildir_alloc,
 		maildir_create,
-		maildir_free,
+		NULL,
 		maildir_autodetect,
-		index_storage_set_callbacks,
 		maildir_mailbox_open,
 		maildir_mailbox_create,
 		index_storage_get_last_error

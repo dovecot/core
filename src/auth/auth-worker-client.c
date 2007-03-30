@@ -164,7 +164,7 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 		verify_plain(auth_request, password, verify_plain_callback);
 }
 
-static void
+static bool
 lookup_credentials_callback(enum passdb_result result, const char *credentials,
 			    struct auth_request *request)
 {
@@ -195,6 +195,7 @@ lookup_credentials_callback(enum passdb_result result, const char *credentials,
 	auth_request_unref(&request);
 	auth_worker_client_check_throttle(client);
 	auth_worker_client_unref(&client);
+	return TRUE;
 }
 
 static void

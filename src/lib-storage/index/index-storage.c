@@ -39,14 +39,6 @@ struct index_list {
 static struct index_list *indexes = NULL;
 static struct timeout *to_index = NULL;
 
-void index_storage_deinit(struct mail_storage *storage)
-{
-	mailbox_list_deinit(storage->list);
-	i_free(storage->error);
-
-        index_storage_destroy_unrefed();
-}
-
 static void index_storage_add(struct mail_index *index,
 			      const char *mailbox_path, struct stat *st)
 {
@@ -414,14 +406,6 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
 	return mail_index_view_is_inconsistent(ibox->view);
-}
-
-void index_storage_set_callbacks(struct mail_storage *storage,
-				 struct mail_storage_callbacks *callbacks,
-				 void *context)
-{
-	*storage->callbacks = *callbacks;
-	storage->callback_context = context;
 }
 
 const char *index_storage_get_last_error(struct mail_storage *storage,

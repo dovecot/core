@@ -180,6 +180,14 @@ void auth_request_continue(struct auth_request *request,
 	request->mech->auth_continue(request, data, data_size);
 }
 
+void auth_request_reset_passdb_lookup(struct auth_request *request)
+{
+	request->passdb_password = NULL;
+
+	if (request->extra_fields != NULL)
+		auth_stream_reply_reset(request->extra_fields);
+}
+
 static void auth_request_save_cache(struct auth_request *request,
 				    enum passdb_result result)
 {
@@ -200,6 +208,7 @@ static void auth_request_save_cache(struct auth_request *request,
 		   return success. */
 		return;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
+	case PASSDB_RESULT_END_OF_LIST:
 		i_unreached();
 	}
 
@@ -336,7 +345,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		   *result != PASSDB_RESULT_USER_DISABLED) {
 		/* try next passdb. */
                 request->passdb = request->passdb->next;
-		request->passdb_password = NULL;
+		auth_request_reset_passdb_lookup(request);
 
                 if (*result == PASSDB_RESULT_INTERNAL_FAILURE) {
 			/* remember that we have had an internal failure. at
@@ -344,9 +353,6 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			   successfully login. */
 			request->passdb_internal_failure = TRUE;
 		}
-		if (request->extra_fields != NULL)
-			auth_stream_reply_reset(request->extra_fields);
-
 		return FALSE;
 	} else if (request->passdb_internal_failure) {
 		/* last passdb lookup returned internal failure. it may have
@@ -445,27 +451,33 @@ void auth_request_verify_plain(struct auth_request *request,
 	}
 }
 
-static void
+static bool
 auth_request_lookup_credentials_callback_finish(enum passdb_result result,
 						const char *password,
 						struct auth_request *request)
 {
 	if (!auth_request_handle_passdb_callback(&result, request)) {
+		if (result != PASSDB_RESULT_END_OF_LIST) {
+			/* see if we can get more credentials */
+			return FALSE;
+		}
+
 		/* try next passdb */
 		auth_request_lookup_credentials(request, request->credentials,
                 	request->private_callback.lookup_credentials);
+		return TRUE;
 	} else {
 		if (request->auth->verbose_debug_passwords &&
 		    result == PASSDB_RESULT_OK) {
 			auth_request_log_debug(request, "password",
 				"Credentials: %s", password);
 		}
-		request->private_callback.
+		return request->private_callback.
 			lookup_credentials(result, password, request);
 	}
 }
 
-void auth_request_lookup_credentials_callback(enum passdb_result result,
+bool auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const char *password,
 					      struct auth_request *request)
 {
@@ -475,7 +487,9 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 
 	request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
 
-	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
+	if (result == PASSDB_RESULT_END_OF_LIST) {
+		/* no more results */
+	} else if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
 	else {
 		/* lookup failed. if we're looking here only because the
@@ -494,8 +508,12 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 		}
 	}
 
-	auth_request_lookup_credentials_callback_finish(result, password,
-							request);
+	if (!auth_request_lookup_credentials_callback_finish(result, password,
+							     request)) {
+		request->state = AUTH_REQUEST_STATE_PASSDB;
+		return FALSE;
+	}
+	return TRUE;
 }
 
 void auth_request_lookup_credentials(struct auth_request *request,
@@ -534,8 +552,9 @@ void auth_request_lookup_credentials(struct auth_request *request,
 			auth_request_lookup_credentials_callback);
 	} else {
 		/* this passdb doesn't support credentials */
-		auth_request_lookup_credentials_callback(
+		bool ret = auth_request_lookup_credentials_callback(
 			PASSDB_RESULT_SCHEME_NOT_AVAILABLE, NULL, request);
+		i_assert(ret);
 	}
 }
 

@@ -7,6 +7,7 @@
 #include "mail-index-private.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
+#include "index/index-storage.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -122,7 +123,8 @@ mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
 
 	classes = array_get(&storages, &count);
 	for (i = 0; i < count; i++) {
-		if (classes[i]->v.autodetect(data, flags))
+		if (classes[i]->v.autodetect != NULL &&
+		    classes[i]->v.autodetect(data, flags))
 			return classes[i];
 	}
 	return NULL;
@@ -214,7 +216,15 @@ void mail_storage_destroy(struct mail_storage **_storage)
 	i_assert(storage != NULL);
 
 	*_storage = NULL;
-	storage->v.destroy(storage);
+
+	if (storage->v.destroy != NULL)
+		storage->v.destroy(storage);
+
+	mailbox_list_deinit(storage->list);
+	i_free(storage->error);
+	pool_unref(storage->pool);
+
+	index_storage_destroy_unrefed();
 }
 
 void mail_storage_clear_error(struct mail_storage *storage)
@@ -313,7 +323,8 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 				struct mail_storage_callbacks *callbacks,
 				void *context)
 {
-	storage->v.set_callbacks(storage, callbacks, context);
+	*storage->callbacks = *callbacks;
+	storage->callback_context = context;
 }
 
 int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,

@@ -27,6 +27,7 @@ enum passdb_result {
 	PASSDB_RESULT_USER_UNKNOWN = -3,
 	PASSDB_RESULT_USER_DISABLED = -4,
 	PASSDB_RESULT_PASS_EXPIRED = -5,
+	PASSDB_RESULT_END_OF_LIST = -6,
 
 	PASSDB_RESULT_PASSWORD_MISMATCH = 0,
 	PASSDB_RESULT_OK = 1
@@ -34,7 +35,11 @@ enum passdb_result {
 
 typedef void verify_plain_callback_t(enum passdb_result result,
 				     struct auth_request *request);
-typedef void lookup_credentials_callback_t(enum passdb_result result,
+/* Returns TRUE if successful, FALSE if more credentials are wanted
+   (ie. support for multiple passwords). If FALSE is returned, the caller must
+   call this function again. If there are no more results,
+   result=PASSDB_RESULT_END_OF_LIST */
+typedef bool lookup_credentials_callback_t(enum passdb_result result,
 					   const char *password,
 					   struct auth_request *request);
 typedef void set_credentials_callback_t(enum passdb_result result,
@@ -80,10 +85,11 @@ const char *
 passdb_get_credentials(struct auth_request *auth_request,
 		       const char *password, const char *scheme);
 
-void passdb_handle_credentials(enum passdb_result result,
+bool passdb_handle_credentials(enum passdb_result result,
 			       const char *password, const char *scheme,
 			       lookup_credentials_callback_t *callback,
-                               struct auth_request *auth_request);
+			       struct auth_request *auth_request)
+	__attr_warn_unused_result__;
 
 const char *passdb_credentials_to_str(enum passdb_credentials credentials,
 				      const char *wanted_scheme);

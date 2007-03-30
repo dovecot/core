@@ -231,12 +231,6 @@ static int dbox_create(struct mail_storage *_storage, const char *data)
 	return 0;
 }
 
-static void dbox_free(struct mail_storage *storage)
-{
-	index_storage_deinit(storage);
-	pool_unref(storage->pool);
-}
-
 static bool dbox_autodetect(const char *data, enum mail_storage_flags flags)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
@@ -611,9 +605,8 @@ struct mail_storage dbox_storage = {
 		dbox_class_deinit,
 		dbox_alloc,
 		dbox_create,
-		dbox_free,
+		NULL,
 		dbox_autodetect,
-		index_storage_set_callbacks,
 		dbox_mailbox_open,
 		dbox_mailbox_create,
 		index_storage_get_last_error

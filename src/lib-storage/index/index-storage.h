@@ -101,8 +101,6 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 
-void index_storage_deinit(struct mail_storage *storage);
-
 void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				enum mailbox_open_flags flags,
 				bool move_to_memory);
@@ -139,9 +137,6 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 
-void index_storage_set_callbacks(struct mail_storage *storage,
-				 struct mail_storage_callbacks *callbacks,
-				 void *context);
 const char *index_storage_get_last_error(struct mail_storage *storage,
 					 bool *syntax_error_r,
 					 bool *temporary_error_r);

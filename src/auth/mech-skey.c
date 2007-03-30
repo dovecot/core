@@ -60,7 +60,7 @@ skey_send_challenge(struct auth_request *auth_request,
 			       answer, strlen(answer));
 }
 
-static void
+static bool
 otp_credentials_callback(enum passdb_result result,
 			 const char *credentials,
 			 struct auth_request *auth_request)
@@ -76,9 +76,10 @@ otp_credentials_callback(enum passdb_result result,
 		auth_request_fail(auth_request);
 		break;
 	}
+	return TRUE;
 }
 
-static void
+static bool
 skey_credentials_callback(enum passdb_result result,
 			  const char *credentials,
 			  struct auth_request *auth_request)
@@ -97,6 +98,7 @@ skey_credentials_callback(enum passdb_result result,
 						otp_credentials_callback);
 		break;
 	}
+	return TRUE;
 }
 
 static void
