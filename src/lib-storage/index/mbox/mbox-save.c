@@ -59,7 +59,7 @@ static char my_hostdomain[256] = "";
 static int write_error(struct mbox_save_context *ctx)
 {
 	if (ENOSPACE(errno)) {
-		mail_storage_set_error(STORAGE(ctx->mbox->storage),
+		mail_storage_set_error(&ctx->mbox->storage->storage,
 				       "Not enough disk space");
 	} else {
 		mbox_set_syscall_error(ctx->mbox, "write()");
@@ -134,7 +134,7 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 	t_push();
 	if (from_envelope == NULL) {
 		from_envelope =
-			t_strconcat(INDEX_STORAGE(ctx->mbox->storage)->user,
+			t_strconcat(ctx->mbox->storage->storage.user,
 				    "@", my_hostdomain, NULL);
 	}
 
@@ -267,7 +267,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	int ret;
 
 	if (ctx->mbox->mbox_readonly) {
-		mail_storage_set_error(STORAGE(ctx->mbox->storage),
+		mail_storage_set_error(&ctx->mbox->storage->storage,
 				       "Read-only mbox");
 		return -1;
 	}
@@ -280,7 +280,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 				   a locking issue that should be possible to
 				   fix.. */
 				mail_storage_set_error(
-					STORAGE(ctx->mbox->storage),
+					&ctx->mbox->storage->storage,
 					"Can't copy mails inside same mailbox");
 				return -1;
 			}
@@ -415,7 +415,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 			str_printfa(ctx->headers, "X-IMAPbase: %u %010u\n",
 				    ctx->uid_validity, ctx->next_uid);
 		}
-		if ((STORAGE(mbox->storage)->flags &
+		if ((mbox->storage->storage.flags &
 		     MAIL_STORAGE_FLAG_KEEP_HEADER_MD5) != 0) {
 			/* we're using MD5 sums to generate POP3 UIDLs.
 			   clients don't like it much if there are duplicates,
@@ -473,7 +473,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 						mbox_save_drop_headers_count,
 						save_header_callback, ctx);
 		ctx->body_output =
-			(STORAGE(mbox->storage)->flags &
+			(mbox->storage->storage.flags &
 			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 			o_stream_create_crlf(default_pool, ctx->output) :
 			o_stream_create_lf(default_pool, ctx->output);

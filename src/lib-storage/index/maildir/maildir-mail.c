@@ -19,7 +19,7 @@ do_open(struct maildir_mailbox *mbox, const char *path, int *fd)
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(STORAGE(mbox->storage),
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "open(%s) failed: %m", path);
 	return -1;
 }
@@ -32,7 +32,7 @@ do_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st)
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(STORAGE(mbox->storage),
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "stat(%s) failed: %m", path);
 	return -1;
 }
@@ -81,7 +81,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 		i_assert(fd != -1);
 
 		if (fstat(fd, st) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 						  "fstat(maildir) failed: %m");
 			return -1;
 		}

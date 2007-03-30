@@ -30,7 +30,7 @@ static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
 	string_t *path = t_str_new(256);
 	const char *dir;
 
-	dir = mailbox_list_get_path(STORAGE(mbox->storage)->list,
+	dir = mailbox_list_get_path(mbox->storage->storage.list,
 				    mbox->ibox.box.name,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	str_append(path, dir);
@@ -86,7 +86,7 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 			str_printfa(path, "%u.", uid);
 			if (unlink(str_c(path)) < 0 && errno != ENOENT) {
 				mail_storage_set_critical(
-					STORAGE(ctx->mbox->storage),
+					&ctx->mbox->storage->storage,
 					"unlink(%s) failed: %m", str_c(path));
 				/* continue anyway */
 			}

@@ -216,7 +216,6 @@ maildir_create(const char *data, const char *user,
 	       enum file_lock_method lock_method)
 {
 	struct maildir_storage *storage;
-	struct index_storage *istorage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	enum mailbox_open_flags open_flags;
@@ -279,24 +278,20 @@ maildir_create(const char *data, const char *user,
 			p_strconcat(pool, "tmp/", storage->temp_prefix, NULL);
 	}
 
-	istorage = INDEX_STORAGE(storage);
-	istorage->storage = maildir_storage;
-	istorage->storage.pool = pool;
-
-	istorage->user = p_strdup(pool, user);
-	index_storage_init(istorage, list, flags, lock_method);
+	storage->storage = maildir_storage;
+	storage->storage.pool = pool;
+	storage->storage.user = p_strdup(pool, user);
+	index_storage_init(&storage->storage, list, flags, lock_method);
 
 	open_flags = 0;
-	(void)verify_inbox(STORAGE(storage), &open_flags);
-	return STORAGE(storage);
+	(void)verify_inbox(&storage->storage, &open_flags);
+	return &storage->storage;
 }
 
-static void maildir_free(struct mail_storage *_storage)
+static void maildir_free(struct mail_storage *storage)
 {
-	struct index_storage *storage = (struct index_storage *) _storage;
-
 	index_storage_deinit(storage);
-	pool_unref(storage->storage.pool);
+	pool_unref(storage->pool);
 }
 
 static bool maildir_autodetect(const char *data, enum mail_storage_flags flags)
@@ -469,7 +464,6 @@ static struct mailbox *
 maildir_open(struct maildir_storage *storage, const char *name,
 	     enum mailbox_open_flags flags)
 {
-	struct index_storage *istorage = INDEX_STORAGE(storage);
 	struct maildir_mailbox *mbox;
 	struct mail_index *index;
 	const char *path, *index_dir, *control_dir;
@@ -477,11 +471,11 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	int shared;
 	pool_t pool;
 
-	path = mailbox_list_get_path(istorage->storage.list, name,
+	path = mailbox_list_get_path(storage->storage.list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(istorage->storage.list, name,
+	index_dir = mailbox_list_get_path(storage->storage.list, name,
 					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	control_dir = mailbox_list_get_path(istorage->storage.list, name,
+	control_dir = mailbox_list_get_path(storage->storage.list, name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 
 	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
@@ -500,7 +494,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox = p_new(pool, struct maildir_mailbox, 1);
 	mbox->ibox.box = maildir_mailbox;
 	mbox->ibox.box.pool = pool;
-	mbox->ibox.storage = istorage;
+	mbox->ibox.storage = &storage->storage;
 	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
 	mbox->ibox.is_recent = maildir_is_recent;
 	mbox->ibox.index = index;
@@ -980,7 +974,7 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 				enum mailbox_info_flags *flags_r)
 {
 	struct maildir_storage *storage = MAILDIR_LIST_CONTEXT(ctx->list);
-	struct mail_storage *_storage = &storage->storage.storage;
+	struct mail_storage *_storage = &storage->storage;
 	int ret;
 
 	if (fname[1] == mailbox_list_get_hierarchy_sep(_storage->list) &&

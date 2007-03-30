@@ -21,17 +21,11 @@ enum mailbox_lock_notify_type {
 	MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE
 };
 
-struct index_storage {
-	struct mail_storage storage;
-
-	const char *user; /* name of user accessing the storage */
-};
-
 struct index_mailbox {
 	struct mailbox box;
 	union mail_index_module_context index_module_ctx;
 
-	struct index_storage *storage;
+	struct mail_storage *storage;
 	enum mailbox_open_flags open_flags;
 
 	struct mail_index *index;
@@ -107,11 +101,11 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 
-void index_storage_init(struct index_storage *storage,
+void index_storage_init(struct mail_storage *storage,
 			struct mailbox_list *list,
 			enum mail_storage_flags flags,
 			enum file_lock_method lock_method);
-void index_storage_deinit(struct index_storage *storage);
+void index_storage_deinit(struct mail_storage *storage);
 
 void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 				enum mailbox_open_flags flags,

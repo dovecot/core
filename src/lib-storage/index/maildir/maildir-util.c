@@ -62,7 +62,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 
 	if (i == 10) {
 		ret = -1;
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"maildir_file_do(%s) racing", mbox->path);
 	}
 
@@ -126,15 +126,15 @@ int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	*fname_r = t_strdup(path);
 	if (fd == -1) {
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(STORAGE(mbox->storage),
+			mail_storage_set_error(&mbox->storage->storage,
 					       "Not enough disk space");
 		} else {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 						  "open(%s) failed: %m", path);
 		}
 	} else if (mbox->mail_create_gid != (gid_t)-1) {
 		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"fchown(%s) failed: %m", path);
 		}
 	}

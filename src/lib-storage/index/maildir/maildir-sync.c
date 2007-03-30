@@ -406,7 +406,7 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 	if (errno == ENOENT)
 		return 0;
 
-	mail_storage_set_critical(STORAGE(mbox->storage),
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "unlink(%s) failed: %m", path);
 	return -1;
 }
@@ -474,7 +474,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		return 1;
 	}
 
-	mail_storage_set_critical(STORAGE(mbox->storage),
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "rename(%s, %s) failed: %m", path, newpath);
 	return -1;
 }
@@ -736,7 +736,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 					  old_fname);
 			} else {
 				mail_storage_set_critical(
-					STORAGE(mbox->storage),
+					&mbox->storage->storage,
 					"unlink(%s) failed: %m", old_path);
 			}
 		}
@@ -750,7 +750,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	if (rename(old_path, new_path) == 0)
 		i_warning("Fixed a duplicate: %s -> %s", old_fname, new_fname);
 	else if (errno != ENOENT) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"rename(%s, %s) failed: %m", old_path, new_path);
 		ret = -1;
 	}
@@ -761,7 +761,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 
 static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 {
-	struct mail_storage *storage = STORAGE(ctx->mbox->storage);
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *dir;
 	DIR *dirp;
 	string_t *src, *dest;
@@ -906,14 +906,14 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 	*new_changed_r = *cur_changed_r = FALSE;
 
 	if (stat(new_dir, &st) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "stat(%s) failed: %m", new_dir);
 		return -1;
 	}
 	new_mtime = st.st_mtime;
 
 	if (stat(cur_dir, &st) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "stat(%s) failed: %m", cur_dir);
 		return -1;
 	}
@@ -1072,7 +1072,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	    uid_validity != 0 && hdr->uid_validity != 0) {
 		/* uidvalidity changed and mailbox isn't being initialized,
 		   reset mailbox so we can add all messages as new */
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"Maildir %s sync: UIDVALIDITY changed (%u -> %u)",
 			mbox->path, hdr->uid_validity, uid_validity);
 
@@ -1127,7 +1127,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 				if ((uflags &
 				     MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 					mail_storage_set_critical(
-						STORAGE(mbox->storage),
+						&mbox->storage->storage,
 						"Maildir %s sync: "
 						"UID < next_uid "
 						"(%u < %u, file = %s)",
@@ -1189,7 +1189,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 			}
 			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
 				mail_storage_set_critical(
-					STORAGE(mbox->storage),
+					&mbox->storage->storage,
 					"Maildir %s sync: "
 					"UID inserted in the middle of mailbox "
 					"(%u > %u, file = %s)",

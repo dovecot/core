@@ -86,7 +86,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
 	}
 	if (ret == 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"Losing sync for mail uid=%u in mbox file %s",
 			mail->mail.mail.uid, mbox->path);
 	}

@@ -61,7 +61,7 @@ struct maildir_keywords *maildir_keywords_init(struct maildir_mailbox *mbox)
 			       strcase_hash, (hash_cmp_callback_t *)strcasecmp);
 
 	mk->dotlock_settings.use_excl_lock =
-		(STORAGE(mbox->storage)->flags &
+		(mbox->storage->storage.flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
 	mk->dotlock_settings.timeout = KEYWORDS_LOCK_STALE_TIMEOUT + 2;
 	mk->dotlock_settings.stale_timeout = KEYWORDS_LOCK_STALE_TIMEOUT;
@@ -103,7 +103,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 			mk->synced = TRUE;
 			return 0;
 		}
-                mail_storage_set_critical(STORAGE(mk->mbox->storage),
+                mail_storage_set_critical(&mk->mbox->storage->storage,
 					  "stat(%s) failed: %m", mk->path);
 		return -1;
 	}
@@ -122,7 +122,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 			mk->synced = TRUE;
 			return 0;
 		}
-                mail_storage_set_critical(STORAGE(mk->mbox->storage),
+                mail_storage_set_critical(&mk->mbox->storage->storage,
 					  "open(%s) failed: %m", mk->path);
 		return -1;
 	}
@@ -154,7 +154,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 	i_stream_destroy(&input);
 
 	if (close(fd) < 0) {
-                mail_storage_set_critical(STORAGE(mk->mbox->storage),
+                mail_storage_set_critical(&mk->mbox->storage->storage,
 					  "close(%s) failed: %m", mk->path);
 		return -1;
 	}
@@ -270,13 +270,13 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 			str_printfa(str, "%u %s\n", i, keywords[i]);
 	}
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "write_full(%s) failed: %m", path);
 		return -1;
 	}
 
 	if (fstat(fd, &st) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "fstat(%s) failed: %m", path);
 		return -1;
 	}
@@ -284,7 +284,7 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 	if (st.st_gid != mbox->mail_create_gid &&
 	    mbox->mail_create_gid != (gid_t)-1) {
 		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"fchown(%s) failed: %m", path);
 		}
 	}
@@ -298,14 +298,14 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 		ut.actime = ioloop_time;
 		ut.modtime = mk->synced_mtime;
 		if (utime(path, &ut) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"utime(%s) failed: %m", path);
 			return -1;
 		}
 	}
 
 	if (fsync(fd) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"fsync(%s) failed: %m", path);
 		return -1;
 	}
@@ -334,7 +334,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 			       DOTLOCK_CREATE_FLAG_NONBLOCK, &dotlock);
 	umask(old_mask);
 	if (fd == -1) {
-		mail_storage_set_critical(STORAGE(mk->mbox->storage),
+		mail_storage_set_critical(&mk->mbox->storage->storage,
 			"file_dotlock_open(%s) failed: %m", mk->path);
 		return -1;
 	}
@@ -345,7 +345,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	}
 
 	if (file_dotlock_replace(&dotlock, 0) < 0) {
-		mail_storage_set_critical(STORAGE(mk->mbox->storage),
+		mail_storage_set_critical(&mk->mbox->storage->storage,
 			"file_dotlock_replace(%s) failed: %m", mk->path);
 		return -1;
 	}

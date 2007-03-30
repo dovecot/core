@@ -20,7 +20,7 @@
 	(&(mbox_storage)->storage)
 
 struct mbox_storage {
-	struct index_storage storage;
+	struct mail_storage storage;
 
 	union mailbox_list_module_context list_module_ctx;
 };

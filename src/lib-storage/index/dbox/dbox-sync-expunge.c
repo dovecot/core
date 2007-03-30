@@ -64,7 +64,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 				  uoff_t orig_offset)
 {
 	struct dbox_mailbox *mbox = ctx->mbox;
-	struct mail_storage *storage = STORAGE(mbox->storage);
+	struct mail_storage *storage = &mbox->storage->storage;
 	struct dotlock *dotlock;
 	struct istream *input;
 	struct ostream *output;
@@ -354,7 +354,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 		path = t_strdup_printf("%s/"DBOX_MAIL_FILE_FORMAT,
 				       mbox->path, entry->file_seq);
 		if (unlink(path) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"unlink(%s) failed: %m", path);
 			return -1;
 		}
@@ -376,13 +376,13 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 		if (pwrite_full(mbox->file->fd, "00000000EFFFFFFF", 16,
 				offsetof(struct dbox_file_header,
 					 append_offset_hex)) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"pwrite_full(%s) failed: %m", mbox->path);
 			return -1;
 		}
 
 		if (ftruncate(mbox->file->fd, offset) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"ftruncate(%s) failed: %m", mbox->file->path);
 			return -1;
 		}
@@ -393,7 +393,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 					offsetof(struct dbox_file_header,
 						 have_expunged_mails)) < 0) {
 				mail_storage_set_critical(
-					STORAGE(mbox->storage),
+					&mbox->storage->storage,
 					"pwrite_full(%s) failed: %m",
 					mbox->path);
 				return -1;
@@ -473,7 +473,7 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 					  path, DOTLOCK_CREATE_FLAG_NONBLOCK,
 					  &dotlock);
 		if (ret < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"file_dotlock_create(%s) failed: %m", path);
 			return -1;
 		}
@@ -503,7 +503,7 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 	if (pwrite_full(mbox->file->fd, "1", 1,
 			offsetof(struct dbox_file_header,
 				 have_expunged_mails)) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"pwrite(%s) failed: %m", mbox->file->path);
 		return -1;
 	}

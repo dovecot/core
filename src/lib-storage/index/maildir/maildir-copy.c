@@ -40,7 +40,7 @@ static int do_save_mail_size(struct maildir_mailbox *mbox, const char *path,
 		if (stat(path, &st) < 0) {
 			if (errno == ENOENT)
 				return 0;
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 						  "stat(%s) failed: %m", path);
 			return -1;
 		}
@@ -71,7 +71,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 			return 0;
 
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(STORAGE(mbox->storage),
+			mail_storage_set_error(&mbox->storage->storage,
 					       "Not enough disk space");
 			return -1;
 		}
@@ -82,7 +82,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 		if (errno == EACCES || ECANTLINK(errno) || errno == EEXIST)
 			return 1;
 
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "link(%s, %s) failed: %m",
 					  path, str_c(ctx->dest_path));
 		return -1;

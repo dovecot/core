@@ -64,6 +64,8 @@ struct mail_storage {
 
 	char *error;
 	struct mailbox_list *list;
+
+	const char *user; /* name of user accessing the storage */
 	enum mail_storage_flags flags;
         enum file_lock_method lock_method;
 

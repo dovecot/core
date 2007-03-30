@@ -193,7 +193,7 @@ static bool dbox_uidlist_add_entry(struct dbox_uidlist *uidlist,
 		for (i = 0; i < count; i++) {
 			if (!uidlist_merge(&dest_entry->uid_list, &range[i])) {
 				mail_storage_set_critical(
-					STORAGE(uidlist->mbox->storage),
+					&uidlist->mbox->storage->storage,
 					"%s: UIDs not ordered (file_seq=%u)",
 					uidlist->path, src_entry->file_seq);
 				return FALSE;
@@ -265,7 +265,7 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 	}
 
 	if (error != NULL) {
-		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+		mail_storage_set_critical(&uidlist->mbox->storage->storage,
 			"%s: Corrupted entry: %s", uidlist->path, error);
 		t_pop();
 		return FALSE;
@@ -282,7 +282,7 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 		entry->create_time = entry->create_time * 10 + *line-'0';
 
 	if (*line != ' ') {
-		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+		mail_storage_set_critical(&uidlist->mbox->storage->storage,
 			"%s: Corrupted entry: Expecting space after timestamp",
 			uidlist->path);
 
@@ -300,7 +300,7 @@ static bool dbox_uidlist_next(struct dbox_uidlist *uidlist, const char *line)
 
 static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 {
-	struct mail_storage *storage = STORAGE(uidlist->mbox->storage);
+	struct mail_storage *storage = &uidlist->mbox->storage->storage;
 	const char *line;
 	unsigned int uid_validity, last_uid, last_file_seq;
 	struct istream *input;
@@ -438,12 +438,12 @@ int dbox_uidlist_lock(struct dbox_uidlist *uidlist)
 				  uidlist->path, 0, &uidlist->dotlock);
 	if (uidlist->lock_fd == -1) {
 		if (errno == EAGAIN) {
-			mail_storage_set_error(STORAGE(mbox->storage),
+			mail_storage_set_error(&mbox->storage->storage,
 				"Timeout while waiting for lock");
-			STORAGE(mbox->storage)->temporary_error = TRUE;
+			mbox->storage->storage.temporary_error = TRUE;
 			return 0;
 		}
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"file_dotlock_open(%s) failed: %m", uidlist->path);
 		return -1;
 	}
@@ -603,7 +603,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 	t_pop();
 
 	if (output->stream_errno != 0) {
-		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+		mail_storage_set_critical(&uidlist->mbox->storage->storage,
 			"write(%s) failed: %m", uidlist->path);
 		ret = -1;
 	}
@@ -617,14 +617,14 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 	if (stat(uidlist->path, &st) < 0) {
 		if (errno != ENOENT) {
 			mail_storage_set_critical(
-				STORAGE(uidlist->mbox->storage),
+				&uidlist->mbox->storage->storage,
 				"stat(%s) failed: %m", uidlist->path);
 			return -1;
 		}
 		st.st_mtime = 0;
 	}
 	if (fstat(uidlist->lock_fd, &st2) < 0) {
-		mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+		mail_storage_set_critical(&uidlist->mbox->storage->storage,
 					  "fstat(%s) failed: %m", lock_path);
 		return -1;
 	}
@@ -638,7 +638,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 
 		if (utime(lock_path, &ut) < 0) {
 			mail_storage_set_critical(
-				STORAGE(uidlist->mbox->storage),
+				&uidlist->mbox->storage->storage,
 				"utime(%s) failed: %m", lock_path);
 			return -1;
 		}
@@ -725,7 +725,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 	i_assert(ctx->uidlist->lock_fd != -1);
 
 	if (fstat(ctx->uidlist->fd, &st) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+		mail_storage_set_critical(&ctx->uidlist->mbox->storage->storage,
 			"fstat(%s) failed: %m", ctx->uidlist->path);
 		return -1;
 	}
@@ -736,7 +736,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 	}
 
 	if (lseek(ctx->uidlist->fd, 0, SEEK_END) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+		mail_storage_set_critical(&ctx->uidlist->mbox->storage->storage,
 			"lseek(%s) failed: %m", ctx->uidlist->path);
 		return -1;
 	}
@@ -759,7 +759,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 	t_pop();
 
 	if (output->stream_errno != 0) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+		mail_storage_set_critical(&ctx->uidlist->mbox->storage->storage,
 			"write(%s) failed: %m", ctx->uidlist->path);
 		ret = -1;
 	}
@@ -770,7 +770,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 
 	/* grow mtime by one to make sure the last write is noticed */
 	if (fstat(ctx->uidlist->fd, &st) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+		mail_storage_set_critical(&ctx->uidlist->mbox->storage->storage,
 			"fstat(%s) failed: %m", ctx->uidlist->path);
 		return -1;
 	}
@@ -778,7 +778,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 	ut.actime = ioloop_time;
 	ut.modtime = st.st_mtime + 1;
 	if (utime(ctx->uidlist->path, &ut) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+		mail_storage_set_critical(&ctx->uidlist->mbox->storage->storage,
 			"utime(%s) failed: %m", ctx->uidlist->path);
 		return -1;
 	}
@@ -791,7 +791,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 static int
 dbox_uidlist_write_append_offsets(struct dbox_uidlist_append_ctx *ctx)
 {
-	struct mail_storage *storage = STORAGE(ctx->uidlist->mbox->storage);
+	struct mail_storage *storage = &ctx->uidlist->mbox->storage->storage;
 	struct dbox_save_file *const *files;
         struct dbox_file_header hdr;
 	unsigned int i, count;
@@ -894,20 +894,20 @@ static int dbox_reopen_file(struct dbox_uidlist_append_ctx *ctx,
 	   since we have it locked */
 	file->fd = open(file->path, O_RDWR);
 	if (file->fd == -1) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+		mail_storage_set_critical(&ctx->uidlist->mbox->storage->storage,
 					  "open(%s) failed: %m", file->path);
 		return -1;
 	}
 
 	if (fstat(file->fd, &st) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+		mail_storage_set_critical(&ctx->uidlist->mbox->storage->storage,
 					  "fstat(%s) failed: %m", file->path);
 		return -1;
 	}
 
 	if (st.st_ino != save_file->ino ||
 	    !CMP_DEV_T(st.st_dev, save_file->dev)) {
-		mail_storage_set_critical(STORAGE(ctx->uidlist->mbox->storage),
+		mail_storage_set_critical(&ctx->uidlist->mbox->storage->storage,
 			"Appended file changed unexpectedly: %s", file->path);
 		return -1;
 	}
@@ -952,13 +952,13 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 			entry->file_size = (uoff_t)-1;
 			return 0;
 		}
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "open(%s) failed: %m", path);
 		return -1;
 	}
 
 	if (fstat(fd, st) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "fstat(%s) failed: %m", path);
 		(void)close(fd);
 		return -1;
@@ -1006,7 +1006,7 @@ static int dbox_file_seq_was_used(struct dbox_mailbox *mbox, const char *path,
 	if (stat(path, &st) == 0)
 		return 0;
 	if (errno != ENOENT) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "stat(%s) failed: %m", path);
 		return -1;
 	}
@@ -1088,7 +1088,7 @@ dbox_file_append_lock(struct dbox_uidlist_append_ctx *ctx, string_t *path,
 			if (ret < 0)
 				return -1;
 		} else if (ret < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"file_dotlock_create(%s) failed: %m",
 				str_c(path));
 			return -1;
@@ -1391,7 +1391,7 @@ int dbox_uidlist_get_mtime(struct dbox_uidlist *uidlist, time_t *mtime_r)
 	if (stat(uidlist->path, &st) < 0) {
 		if (errno != ENOENT) {
 			mail_storage_set_critical(
-				STORAGE(uidlist->mbox->storage),
+				&uidlist->mbox->storage->storage,
 				"stat(%s) failed: %m", uidlist->path);
 			return -1;
 		}

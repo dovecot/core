@@ -168,7 +168,6 @@ dbox_create(const char *data, const char *user,
 	    enum file_lock_method lock_method)
 {
 	struct dbox_storage *storage;
-	struct index_storage *istorage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	const char *error;
@@ -224,22 +223,18 @@ dbox_create(const char *data, const char *user,
 		storage->new_file_dotlock_set.use_excl_lock = TRUE;
 	}
 
-	istorage = INDEX_STORAGE(storage);
-	istorage->storage = dbox_storage;
-	istorage->storage.pool = pool;
+	storage->storage = dbox_storage;
+	storage->storage.pool = pool;
+	storage->storage.user = p_strdup(pool, user);
+	index_storage_init(&storage->storage, list, flags, lock_method);
 
-	istorage->user = p_strdup(pool, user);
-	index_storage_init(istorage, list, flags, lock_method);
-
-	return STORAGE(storage);
+	return &storage->storage;
 }
 
-static void dbox_free(struct mail_storage *_storage)
+static void dbox_free(struct mail_storage *storage)
 {
-	struct index_storage *storage = (struct index_storage *) _storage;
-
 	index_storage_deinit(storage);
-	pool_unref(storage->storage.pool);
+	pool_unref(storage->pool);
 }
 
 static bool dbox_autodetect(const char *data, enum mail_storage_flags flags)
@@ -317,8 +312,7 @@ static struct mailbox *
 dbox_open(struct dbox_storage *storage, const char *name,
 	  enum mailbox_open_flags flags)
 {
-	struct index_storage *istorage = INDEX_STORAGE(storage);
-	struct mail_storage *_storage = STORAGE(storage);
+	struct mail_storage *_storage = &storage->storage;
 	struct dbox_mailbox *mbox;
 	struct mail_index *index;
 	const char *path, *index_dir, *value;
@@ -340,7 +334,7 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox = p_new(pool, struct dbox_mailbox, 1);
 	mbox->ibox.box = dbox_mailbox;
 	mbox->ibox.box.pool = pool;
-	mbox->ibox.storage = istorage;
+	mbox->ibox.storage = &storage->storage;
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
 	mbox->ibox.is_recent = dbox_is_recent;
 	mbox->ibox.index = index;

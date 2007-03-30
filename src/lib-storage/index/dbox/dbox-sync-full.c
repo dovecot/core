@@ -64,7 +64,7 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 		}
 		if (seq == 0) {
 			/* not found. it should have been there. */
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"dbox %s sync: "
 				"UID %u inserted in the middle of mailbox",
 				mbox->path, mbox->file->seeked_uid);
@@ -120,7 +120,7 @@ static int dbox_sync_full_file(struct dbox_sync_context *ctx, uint32_t file_seq)
 	if (ret == 0) {
 		/* broken file, but without any useful data in it */
 		if (unlink(mbox->file->path) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"unlink(%s) failed: %m", mbox->file->path);
 			return -1;
 		}
@@ -154,7 +154,7 @@ static int dbox_sync_full_file(struct dbox_sync_context *ctx, uint32_t file_seq)
 	if (ret == 0 && array_count(&entry.uid_list) == 0) {
 		/* all mails expunged in the file */
 		if (unlink(mbox->file->path) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"unlink(%s) failed: %m", mbox->file->path);
 			return -1;
 		}
@@ -202,7 +202,7 @@ int dbox_sync_full(struct dbox_sync_context *ctx)
 	   write dbox's index file */
 	dirp = opendir(mbox->path);
 	if (dirp == NULL) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "opendir(%s) failed: %m", mbox->path);
 		return -1;
 	}
@@ -228,7 +228,7 @@ int dbox_sync_full(struct dbox_sync_context *ctx)
 			break;
 	}
 	if (closedir(dirp) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"closedir(%s) failed: %m", mbox->path);
 		ret = -1;
 	}

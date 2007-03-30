@@ -75,7 +75,7 @@ int dbox_file_read_keywords(struct dbox_mailbox *mbox, struct dbox_file *file)
 	if (line == NULL || file->input->v_offset > file->header_size) {
 		/* unexpected end of list, or list continues outside its
 		   allocated area */
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"Corrupted keyword list offset in dbox file %s",
 			file->path);
 		array_clear(&file->idx_file_keywords);
@@ -200,7 +200,7 @@ int dbox_file_append_keywords(struct dbox_mailbox *mbox, struct dbox_file *file,
 	if (pwrite_full(file->fd, str_data(keyword_str) + new_pos,
 			str_len(keyword_str) - new_pos,
 			file->keyword_list_offset + new_pos) < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"pwrite_full(%s) failed: %m", file->path);
 	}
 

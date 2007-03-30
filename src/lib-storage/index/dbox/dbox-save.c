@@ -258,10 +258,10 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 
 	if (o_stream_send_istream(ctx->file->output, ctx->input) < 0) {
 		if (ENOSPACE(ctx->file->output->stream_errno)) {
-			mail_storage_set_error(STORAGE(ctx->mbox->storage),
+			mail_storage_set_error(&ctx->mbox->storage->storage,
 					       "Not enough disk space");
 		} else {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"o_stream_send_istream(%s) failed: %m",
 				ctx->file->path);
 		}
@@ -284,7 +284,7 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 		   file to the size before writing. */
 		if (ftruncate(ctx->file->fd, ctx->failed ? ctx->hdr_offset :
 			      ctx->file->output->offset) < 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 						  "ftruncate(%s) failed: %m",
 						  ctx->file->path);
 			ctx->failed = TRUE;
@@ -300,7 +300,7 @@ int dbox_save_finish(struct mail_save_context *_ctx)
 				sizeof(hdr.mail_size_hex), ctx->hdr_offset +
 				offsetof(struct dbox_mail_header,
 					 mail_size_hex)) < 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 						  "pwrite_full(%s) failed: %m",
 						  ctx->file->path);
 			ctx->failed = TRUE;
@@ -360,7 +360,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 				sizeof(hdr.uid_hex), offset +
 				offsetof(struct dbox_mail_header,
 					 uid_hex)) < 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 						  "pwrite_full(%s) failed: %m",
 						  file->path);
 			ctx->failed = TRUE;

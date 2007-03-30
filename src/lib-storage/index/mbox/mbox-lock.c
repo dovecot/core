@@ -249,7 +249,7 @@ static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
         ctx->dotlock_last_stale = -1;
 
 	memset(&set, 0, sizeof(set));
-	set.use_excl_lock = (STORAGE(mbox->storage)->flags &
+	set.use_excl_lock = (mbox->storage->storage.flags &
 			     MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
 	set.timeout = lock_timeout;
 	set.stale_timeout = dotlock_change_timeout;
@@ -262,9 +262,9 @@ static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
 		return -1;
 	}
 	if (ret == 0) {
-		mail_storage_set_error(STORAGE(mbox->storage),
+		mail_storage_set_error(&mbox->storage->storage,
 				       "Timeout while waiting for lock");
-		STORAGE(mbox->storage)->temporary_error = TRUE;
+		mbox->storage->storage.temporary_error = TRUE;
 		return 0;
 	}
 	mbox->mbox_dotlocked = TRUE;
@@ -494,9 +494,9 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type)
 		if (!drop_locks)
 			(void)mbox_unlock_files(&ctx);
 		if (ret == 0) {
-			mail_storage_set_error(STORAGE(mbox->storage),
+			mail_storage_set_error(&mbox->storage->storage,
 				"Timeout while waiting for lock");
-			STORAGE(mbox->storage)->temporary_error = TRUE;
+			mbox->storage->storage.temporary_error = TRUE;
 		}
 		return ret;
 	}

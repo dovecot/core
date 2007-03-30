@@ -46,8 +46,6 @@
 #include "mailbox-list-private.h"
 
 #define STORAGE(maildir_storage) \
-	(&(maildir_storage)->storage.storage)
-#define INDEX_STORAGE(maildir_storage) \
 	(&(maildir_storage)->storage)
 
 struct timeval;
@@ -55,7 +53,7 @@ struct maildir_save_context;
 struct maildir_copy_context;
 
 struct maildir_storage {
-	struct index_storage storage;
+	struct mail_storage storage;
 
 	union mailbox_list_module_context list_module_ctx;
 	const char *temp_prefix;

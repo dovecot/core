@@ -63,7 +63,7 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 			     const char *tmpname, const char *destname,
 			     bool newdir)
 {
-	struct mail_storage *storage = STORAGE(ctx->mbox->storage);
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *tmp_path, *new_path;
 	int ret;
 
@@ -361,7 +361,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 	ctx->input = input;
 
 	output = o_stream_create_file(ctx->fd, system_pool, 0, FALSE);
-	ctx->output = (STORAGE(ctx->mbox->storage)->flags &
+	ctx->output = (ctx->mbox->storage->storage.flags &
 		       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 		o_stream_create_crlf(default_pool, output) :
 		o_stream_create_lf(default_pool, output);
@@ -390,10 +390,10 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 
 	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(STORAGE(ctx->mbox->storage),
+			mail_storage_set_error(&ctx->mbox->storage->storage,
 					       "Not enough disk space");
 		} else {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"o_stream_send_istream(%s/%s) failed: %m",
 				ctx->tmpdir, ctx->file_last->basename);
 		}
@@ -435,7 +435,7 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 
 		if (utime(path, &buf) < 0) {
 			ctx->failed = TRUE;
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 						  "utime(%s) failed: %m", path);
 		}
 	}
@@ -445,13 +445,13 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 
 	if (!ctx->mbox->ibox.fsync_disable) {
 		if (fsync(ctx->fd) < 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 						  "fsync(%s) failed: %m", path);
 			ctx->failed = TRUE;
 		}
 	}
 	if (close(ctx->fd) < 0) {
-		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
 					  "close(%s) failed: %m", path);
 		ctx->failed = TRUE;
 	}
@@ -462,16 +462,16 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 
 		/* delete the tmp file */
 		if (unlink(path) < 0 && errno != ENOENT) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"unlink(%s) failed: %m", path);
 		}
 
 		errno = output_errno;
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(STORAGE(ctx->mbox->storage),
+			mail_storage_set_error(&ctx->mbox->storage->storage,
 					       "Not enough disk space");
 		} else if (errno != 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"write(%s) failed: %m", ctx->mbox->path);
 		}
 

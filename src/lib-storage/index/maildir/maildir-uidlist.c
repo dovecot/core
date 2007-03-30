@@ -102,12 +102,12 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	umask(old_mask);
 	if (fd == -1) {
 		if (errno == EAGAIN) {
-			mail_storage_set_error(STORAGE(mbox->storage),
+			mail_storage_set_error(&mbox->storage->storage,
 				"Timeout while waiting for lock");
-			STORAGE(mbox->storage)->temporary_error = TRUE;
+			mbox->storage->storage.temporary_error = TRUE;
 			return 0;
 		}
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"file_dotlock_open(%s) failed: %m", path);
 		return -1;
 	}
@@ -115,7 +115,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 
 	if (mbox->mail_create_gid != (gid_t)-1) {
 		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"fchown(%s) failed: %m", path);
 		}
 	}
@@ -166,7 +166,7 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist)
 			db_path = t_strconcat(uidlist->mbox->control_dir,
 					      "/" MAILDIR_UIDLIST_NAME, NULL);
 			mail_storage_set_critical(
-				STORAGE(uidlist->mbox->storage),
+				&uidlist->mbox->storage->storage,
 				"file_dotlock_replace(%s) failed: %m", db_path);
 		}
 		uidlist->delayed_rewrite = FALSE;
@@ -189,7 +189,7 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	uidlist->next_uid = 1;
 
 	uidlist->dotlock_settings.use_excl_lock =
-		(STORAGE(mbox->storage)->flags &
+		(mbox->storage->storage.flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
 	uidlist->dotlock_settings.timeout = UIDLIST_LOCK_STALE_TIMEOUT + 2;
 	uidlist->dotlock_settings.stale_timeout = UIDLIST_LOCK_STALE_TIMEOUT;
@@ -233,12 +233,12 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 
 	if (uid == 0 || *line != ' ') {
 		/* invalid file */
-                mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+                mail_storage_set_critical(&uidlist->mbox->storage->storage,
 			"Invalid data in file %s", uidlist->fname);
 		return 0;
 	}
 	if (uid <= uidlist->prev_read_uid) {
-                mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+                mail_storage_set_critical(&uidlist->mbox->storage->storage,
 			"UIDs not ordered in file %s (%u > %u)",
 			uidlist->fname, uid, uidlist->prev_read_uid);
 		return 0;
@@ -252,7 +252,7 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
         uidlist->last_seen_uid = uid;
 
 	if (uid >= uidlist->next_uid) {
-                mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+                mail_storage_set_critical(&uidlist->mbox->storage->storage,
 			"UID larger than next_uid in file %s (%u >= %u)",
 			uidlist->fname, uid, uidlist->next_uid);
 		return 0;
@@ -267,7 +267,7 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	}
 
 	if (hash_lookup_full(uidlist->files, line, NULL, NULL)) {
-                mail_storage_set_critical(STORAGE(uidlist->mbox->storage),
+                mail_storage_set_critical(&uidlist->mbox->storage->storage,
 			"Duplicate file in uidlist file %s: %s",
 			uidlist->fname, line);
 		return 0;
@@ -286,7 +286,7 @@ static int
 maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 			    bool *retry_r, bool try_retry)
 {
-	struct mail_storage *storage = STORAGE(uidlist->mbox->storage);
+	struct mail_storage *storage = &uidlist->mbox->storage->storage;
 	const char *line;
 	unsigned int uid_validity, next_uid;
 	struct istream *input;
@@ -387,7 +387,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 
 int maildir_uidlist_update(struct maildir_uidlist *uidlist)
 {
-	struct mail_storage *storage = STORAGE(uidlist->mbox->storage);
+	struct mail_storage *storage = &uidlist->mbox->storage->storage;
         struct stat st;
         unsigned int i;
         bool retry;
@@ -555,7 +555,7 @@ uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
 static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist,
 				      const char *temp_path)
 {
-	struct mail_storage *storage = STORAGE(uidlist->mbox->storage);
+	struct mail_storage *storage = &uidlist->mbox->storage->storage;
 	struct maildir_uidlist_iter_ctx *iter;
 	struct utimbuf ut;
 	string_t *str;
@@ -661,7 +661,7 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 				      "/" MAILDIR_UIDLIST_NAME, NULL);
 
 		if (file_dotlock_replace(&uidlist->dotlock, 0) <= 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"file_dotlock_replace(%s) failed: %m", db_path);
 			(void)unlink(temp_path);
 			ret = -1;

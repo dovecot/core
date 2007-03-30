@@ -73,7 +73,7 @@ dbox_file_read_mail_header(struct dbox_mailbox *mbox, struct dbox_file *file,
 			return 0;
 
 		errno = file->input->stream_errno;
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 					  "read(%s) failed: %m", file->path);
 		return -1;
 	}
@@ -93,7 +93,7 @@ dbox_file_read_mail_header(struct dbox_mailbox *mbox, struct dbox_file *file,
 
 	if (memcmp(hdr->magic, DBOX_MAIL_HEADER_MAGIC,
 		   sizeof(hdr->magic)) != 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"Corrupted mail header at %"PRIuUOFF_T
 			" in dbox file %s", offset, file->path);
 		return -1;
@@ -126,7 +126,7 @@ int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset,
 		if (mbox->file->fd == -1) {
 			if (errno == ENOENT)
 				return 0;
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"open(%s) failed: %m", mbox->file->path);
 			return -1;
 		}
@@ -233,7 +233,7 @@ int dbox_file_header_parse(struct dbox_mailbox *mbox, struct dbox_file *file,
 	    file->mail_header_size < sizeof(struct dbox_mail_header) ||
 	    file->keyword_count > file->mail_header_size -
 	    sizeof(struct dbox_mail_header)) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"dbox %s: broken file header", file->path);
 		return -1;
 	}
@@ -256,12 +256,12 @@ int dbox_file_read_header(struct dbox_mailbox *mbox, struct dbox_file *file)
 	if (size < sizeof(hdr)) {
 		if (file->input->stream_errno != 0) {
 			errno = file->input->stream_errno;
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"read(%s) failed: %m", file->path);
 			return -1;
 		}
 
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"dbox %s: unexpected end of file", file->path);
 		return -1;
 	}
@@ -292,7 +292,7 @@ int dbox_file_write_header(struct dbox_mailbox *mbox, struct dbox_file *file)
 	/* write header + LF to mark end-of-keywords list */
 	if (o_stream_send(file->output, &hdr, sizeof(hdr)) < 0 ||
 	    o_stream_send_str(file->output, "\n") < 0) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"write(%s) failed: %m", file->path);
 		return -1;
 	}
@@ -304,7 +304,7 @@ int dbox_file_write_header(struct dbox_mailbox *mbox, struct dbox_file *file)
 					  file->output->offset);
 
 		if (o_stream_send(file->output, buf, size) < 0) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"write(%s) failed: %m", file->path);
 			return -1;
 		}

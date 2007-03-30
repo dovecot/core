@@ -65,7 +65,7 @@
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
 {
 	if (istream_raw_mbox_seek(sync_ctx->input, from_offset) < 0) {
-		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"Unexpectedly lost From-line at offset %"PRIuUOFF_T
 			" from mbox file %s", from_offset,
 			sync_ctx->mbox->path);
@@ -92,7 +92,7 @@ bool mbox_sync_file_is_ext_modified(struct mbox_sync_context *sync_ctx)
 	      || st.st_mtim.tv_nsec != sync_ctx->last_stat.st_mtim.tv_nsec
 #endif
 	     ))) {
-		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"mbox file %s was modified while we were syncing, "
 			"check your locking settings", sync_ctx->mbox->path);
 		return TRUE;
@@ -337,7 +337,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 
 	if (rec == NULL && uid < sync_ctx->idx_next_uid) {
 		/* this UID was already in index and it was expunged */
-		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"mbox sync: Expunged message reappeared in mailbox %s "
 			"(UID %u < %u, seq=%u, idx_msgs=%u)",
 			sync_ctx->mbox->path, uid, sync_ctx->idx_next_uid,
@@ -345,7 +345,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 		ret = 0; rec = NULL;
 	} else if (rec != NULL && rec->uid != uid) {
 		/* new UID in the middle of the mailbox - shouldn't happen */
-		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"mbox sync: UID inserted in the middle of mailbox %s "
 			"(%u > %u, seq=%u, idx_msgs=%u)", sync_ctx->mbox->path,
 			rec->uid, uid, sync_ctx->seq, messages_count);
@@ -633,7 +633,7 @@ static int mbox_rewrite_base_uid_last(struct mbox_sync_context *sync_ctx)
 		return -1;
 	}
 	if (ret == 0) {
-		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"X-IMAPbase uid-last unexpectedly points outside "
 			"mbox file %s", sync_ctx->mbox->path);
 		return -1;
@@ -648,7 +648,7 @@ static int mbox_rewrite_base_uid_last(struct mbox_sync_context *sync_ctx)
 	}
 
 	if (uid_last != sync_ctx->base_uid_last) {
-		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"X-IMAPbase uid-last unexpectedly lost in mbox file %s",
 			sync_ctx->mbox->path);
 		return -1;
@@ -921,7 +921,7 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 
 	if (seq == 0) {
 		if (istream_raw_mbox_seek(mbox->mbox_stream, 0) < 0) {
-			mail_storage_set_error(STORAGE(mbox->storage),
+			mail_storage_set_error(&mbox->storage->storage,
 				"Mailbox isn't a valid mbox file");
 			return -1;
 		}
@@ -937,7 +937,7 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 			if (istream_raw_mbox_seek(mbox->mbox_stream,
 						  old_offset) < 0) {
 				mail_storage_set_critical(
-					STORAGE(mbox->storage),
+					&mbox->storage->storage,
 					"Error seeking back to original "
 					"offset %s in mbox file %s",
 					dec2str(old_offset), mbox->path);
@@ -995,7 +995,7 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 		if (istream_raw_mbox_seek(sync_ctx->mbox->mbox_stream,
 					  st->st_size) < 0) {
 			mail_storage_set_critical(
-				STORAGE(sync_ctx->mbox->storage),
+				&sync_ctx->mbox->storage->storage,
 				"Error seeking to end of mbox file %s",
 				sync_ctx->mbox->path);
 			return -1;
@@ -1090,7 +1090,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		    sync_ctx->base_uid_validity !=
 		    sync_ctx->hdr->uid_validity) {
 			mail_storage_set_critical(
-				STORAGE(sync_ctx->mbox->storage),
+				&sync_ctx->mbox->storage->storage,
 				"UIDVALIDITY changed (%u -> %u) "
 				"in mbox file %s",
 				sync_ctx->hdr->uid_validity,
@@ -1108,7 +1108,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				return 0;
 
 			mail_storage_set_critical(
-				STORAGE(sync_ctx->mbox->storage),
+				&sync_ctx->mbox->storage->storage,
 				"UIDs broken with partial sync in mbox file %s",
 				sync_ctx->mbox->path);
 
@@ -1181,7 +1181,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				   happen normally, so just try to get it fixed
 				   without crashing. */
 				mail_storage_set_critical(
-					STORAGE(sync_ctx->mbox->storage),
+					&sync_ctx->mbox->storage->storage,
 					"Out of UIDs, renumbering them in mbox "
 					"file %s", sync_ctx->mbox->path);
 				sync_ctx->renumber_uids = TRUE;
@@ -1330,7 +1330,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	}
 	file_size = st->st_size;
 	if (file_size < sync_ctx->file_input->v_offset) {
-		mail_storage_set_critical(STORAGE(sync_ctx->mbox->storage),
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
 			"file size unexpectedly shrinked in mbox file %s "
 			"(%"PRIuUOFF_T" vs %"PRIuUOFF_T")",
 			sync_ctx->mbox->path, file_size,

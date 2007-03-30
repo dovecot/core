@@ -48,7 +48,7 @@ cydir_get_save_path(struct cydir_save_context *ctx, unsigned int num)
 {
 	const char *dir;
 
-	dir = mailbox_list_get_path(STORAGE(ctx->mbox->storage)->list,
+	dir = mailbox_list_get_path(ctx->mbox->storage->storage.list,
 				    ctx->mbox->ibox.box.name,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	return t_strdup_printf("%s/%s.%u", dir, ctx->tmp_basename, num);
@@ -134,10 +134,10 @@ int cydir_save_continue(struct mail_save_context *_ctx)
 
 	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
 		if (ENOSPACE(ctx->output->stream_errno)) {
-			mail_storage_set_error(STORAGE(ctx->mbox->storage),
+			mail_storage_set_error(&ctx->mbox->storage->storage,
 					       "Not enough disk space");
 		} else {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"o_stream_send_istream(%s) failed: %m",
 				cydir_get_save_path(ctx, ctx->mail_count));
 		}
@@ -187,7 +187,7 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 	uid = hdr->next_uid;
 	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
 
-	dir = mailbox_list_get_path(STORAGE(ctx->mbox->storage)->list,
+	dir = mailbox_list_get_path(ctx->mbox->storage->storage.list,
 				    ctx->mbox->ibox.box.name,
 				    MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
@@ -207,7 +207,7 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 		str_printfa(dest_path, "%u.", uid);
 
 		if (rename(str_c(src_path), str_c(dest_path)) < 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"rename(%s, %s) failed: %m",
 				str_c(src_path), str_c(dest_path));
 			ctx->failed = TRUE;

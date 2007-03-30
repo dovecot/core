@@ -23,14 +23,14 @@ int dbox_sync_get_file_offset(struct dbox_sync_context *ctx, uint32_t seq,
 				      file_seq_r, offset_r);
 	if (ret <= 0) {
 		if (ret == 0) {
-			mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"Unexpectedly lost seq %u in "
 				"dbox %s", seq, ctx->mbox->path);
 		}
 		return -1;
 	}
 	if (*file_seq_r == 0) {
-		mail_storage_set_critical(STORAGE(ctx->mbox->storage),
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
 			"Cached message offset lost for seq %u in "
 			"dbox %s", seq, ctx->mbox->path);
 		return -1;
@@ -190,7 +190,7 @@ dbox_sync_write_mask(struct dbox_sync_context *ctx,
 					  offset + first_flag_offset + start);
 			if (ret < 0) {
 				mail_storage_set_critical(
-					STORAGE(mbox->storage),
+					&mbox->storage->storage,
 					"pwrite(%s) failed: %m",
 					mbox->file->path);
 				return -1;
@@ -573,7 +573,7 @@ int dbox_sync(struct dbox_mailbox *mbox, bool force)
 			return ret;
 
 		if (force) {
-			mail_storage_set_critical(STORAGE(mbox->storage),
+			mail_storage_set_critical(&mbox->storage->storage,
 				"dbox_sync_full(%s) didn't work",
 				mbox->path);
 

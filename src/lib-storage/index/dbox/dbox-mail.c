@@ -23,7 +23,7 @@ static int dbox_mail_parse_mail_header(struct index_mail *mail,
 	uint32_t hdr_uid = hex2dec(hdr->uid_hex, sizeof(hdr->uid_hex));
 
 	if (hdr_uid != mail->mail.mail.uid) {
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"dbox %s: Cached file offset broken",
 			mbox->file->path);
 
@@ -68,7 +68,7 @@ int dbox_mail_lookup_offset(struct index_transaction_context *trans,
 			return -1;
 		}
 
-		mail_storage_set_critical(STORAGE(mbox->storage),
+		mail_storage_set_critical(&mbox->storage->storage,
 			"Cached message offset lost for uid %u in "
 			"dbox %s", uid, mbox->path);
 
@@ -135,7 +135,7 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 		prev_offset = *offset_r;
 	}
 
-	mail_storage_set_critical(STORAGE(mbox->storage),
+	mail_storage_set_critical(&mbox->storage->storage,
 				  "Cached message offset (%u, %"PRIuUOFF_T") "
 				  "broken for uid %u in dbox %s",
 				  file_seq, *offset_r, mail->mail.mail.uid,

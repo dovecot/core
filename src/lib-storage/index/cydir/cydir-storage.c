@@ -88,7 +88,6 @@ cydir_create(const char *data, const char *user,
 	     enum file_lock_method lock_method)
 {
 	struct cydir_storage *storage;
-	struct index_storage *istorage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	const char *error;
@@ -133,22 +132,18 @@ cydir_create(const char *data, const char *user,
 	MODULE_CONTEXT_SET_FULL(list, cydir_mailbox_list_module,
 				storage, &storage->list_module_ctx);
 
-	istorage = INDEX_STORAGE(storage);
-	istorage->storage = cydir_storage;
-	istorage->storage.pool = pool;
+	storage->storage = cydir_storage;
+	storage->storage.pool = pool;
+	storage->storage.user = p_strdup(pool, user);
+	index_storage_init(&storage->storage, list, flags, lock_method);
 
-	istorage->user = p_strdup(pool, user);
-	index_storage_init(istorage, list, flags, lock_method);
-
-	return STORAGE(storage);
+	return &storage->storage;
 }
 
-static void cydir_free(struct mail_storage *_storage)
+static void cydir_free(struct mail_storage *storage)
 {
-	struct index_storage *storage = (struct index_storage *) _storage;
-
 	index_storage_deinit(storage);
-	pool_unref(storage->storage.pool);
+	pool_unref(storage->pool);
 }
 
 static bool cydir_autodetect(const char *data __attr_unused__,
@@ -204,8 +199,7 @@ static struct mailbox *
 cydir_open(struct cydir_storage *storage, const char *name,
 	   enum mailbox_open_flags flags)
 {
-	struct index_storage *istorage = INDEX_STORAGE(storage);
-	struct mail_storage *_storage = STORAGE(storage);
+	struct mail_storage *_storage = &storage->storage;
 	struct cydir_mailbox *mbox;
 	struct mail_index *index;
 	const char *path, *index_dir;
@@ -227,7 +221,7 @@ cydir_open(struct cydir_storage *storage, const char *name,
 	mbox = p_new(pool, struct cydir_mailbox, 1);
 	mbox->ibox.box = cydir_mailbox;
 	mbox->ibox.box.pool = pool;
-	mbox->ibox.storage = istorage;
+	mbox->ibox.storage = &storage->storage;
 	mbox->ibox.mail_vfuncs = &cydir_mail_vfuncs;
 	mbox->ibox.is_recent = cydir_is_recent;
 	mbox->ibox.index = index;
