@@ -502,22 +502,14 @@ static int dbox_storage_close(struct mailbox *box)
 	return 0;
 }
 
-static void
-dbox_notify_changes(struct mailbox *box, unsigned int min_interval,
-		    mailbox_notify_callback_t *callback, void *context)
+static void dbox_notify_changes(struct mailbox *box)
 {
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)box;
 
-	mbox->ibox.min_notify_interval = min_interval;
-	mbox->ibox.notify_callback = callback;
-	mbox->ibox.notify_context = context;
-
-	if (callback == NULL) {
+	if (box->notify_callback == NULL)
 		index_mailbox_check_remove_all(&mbox->ibox);
-		return;
-	}
-
-	index_mailbox_check_add(&mbox->ibox, mbox->path);
+	else
+		index_mailbox_check_add(&mbox->ibox, mbox->path);
 }
 
 static int dbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,

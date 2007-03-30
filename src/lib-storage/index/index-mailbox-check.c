@@ -31,7 +31,7 @@ static void check_timeout(struct index_mailbox *ibox)
 	/* check changes only when we can also notify of new mail */
 	last_check = I_MAX(ibox->sync_last_check, ibox->notify_last_check);
 	if ((unsigned int)(ioloop_time - last_check) <
-	    ibox->min_notify_interval)
+	    ibox->box.notify_min_interval)
 		return;
 
 	ibox->notify_last_check = ioloop_time;
@@ -48,7 +48,7 @@ static void check_timeout(struct index_mailbox *ibox)
 	if (notify) {
 		ibox->notify_last_sent = ioloop_time;
 		ibox->notify_pending = FALSE;
-		ibox->notify_callback(&ibox->box, ibox->notify_context);
+		ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
 	}
 }
 
@@ -56,10 +56,10 @@ static void notify_callback(struct index_mailbox *ibox)
 {
 	ibox->notify_last_check = ioloop_time;
 	if ((unsigned int)(ioloop_time - ibox->notify_last_sent) >=
-	    ibox->min_notify_interval) {
+	    ibox->box.notify_min_interval) {
 		ibox->notify_last_sent = ioloop_time;
                 ibox->notify_pending = FALSE;
-		ibox->notify_callback(&ibox->box, ibox->notify_context);
+		ibox->box.notify_callback(&ibox->box, ibox->box.notify_context);
 	} else {
 		ibox->notify_pending = TRUE;
 	}

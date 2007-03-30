@@ -784,17 +784,11 @@ static int mbox_storage_close(struct mailbox *box)
 	return ret;
 }
 
-static void
-mbox_notify_changes(struct mailbox *box, unsigned int min_interval,
-		    mailbox_notify_callback_t *callback, void *context)
+static void mbox_notify_changes(struct mailbox *box)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 
-	mbox->ibox.min_notify_interval = min_interval;
-	mbox->ibox.notify_callback = callback;
-	mbox->ibox.notify_context = context;
-
-	if (callback == NULL)
+	if (box->notify_callback == NULL)
 		index_mailbox_check_remove_all(&mbox->ibox);
 	else if (!mbox->no_mbox_file)
 		index_mailbox_check_add(&mbox->ibox, mbox->path);

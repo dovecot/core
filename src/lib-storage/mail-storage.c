@@ -489,12 +489,17 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 void mailbox_notify_changes(struct mailbox *box, unsigned int min_interval,
 			    mailbox_notify_callback_t *callback, void *context)
 {
-	box->v.notify_changes(box, min_interval, callback, context);
+	box->notify_min_interval = min_interval;
+	box->notify_callback = callback;
+	box->notify_context = context;
+
+	box->v.notify_changes(box);
 }
 
 void mailbox_notify_changes_stop(struct mailbox *box)
 {
-	box->v.notify_changes(box, 0, NULL, NULL);
+
+	mailbox_notify_changes(box, 0, NULL, NULL);
 }
 
 struct mail_keywords *

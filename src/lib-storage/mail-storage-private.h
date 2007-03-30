@@ -94,9 +94,7 @@ struct mailbox_vfuncs {
 			   enum mailbox_status_items status_items,
 			   struct mailbox_status *status_r);
 
-	void (*notify_changes)(struct mailbox *box, unsigned int min_interval,
-			       mailbox_notify_callback_t *callback,
-			       void *context);
+	void (*notify_changes)(struct mailbox *box);
 
 	struct mailbox_transaction_context *
 		(*transaction_begin)(struct mailbox *box,
@@ -166,6 +164,11 @@ struct mailbox {
 	pool_t pool;
 
 	unsigned int transaction_count;
+
+	/* Mailbox notification settings: */
+	unsigned int notify_min_interval;
+	mailbox_notify_callback_t *notify_callback;
+	void *notify_context;
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mailbox_module_context *);
