@@ -855,15 +855,9 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 		rename_mailbox(list, oldname, newname);
 }
 
-static int maildir_storage_close(struct mailbox *box)
+static int maildir_storage_mailbox_close(struct mailbox *box)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
-	int ret = 0;
-
-	/*FIXME:if (!maildir_try_flush_dirty_flags(ibox->index, TRUE)) {
-		mail_storage_set_index_error(ibox);
-		ret = -1;
-	}*/
 
 	if (mbox->keep_lock_to != NULL) {
 		maildir_uidlist_unlock(mbox->uidlist);
@@ -872,8 +866,7 @@ static int maildir_storage_close(struct mailbox *box)
 
 	maildir_keywords_deinit(mbox->keywords);
 	maildir_uidlist_deinit(mbox->uidlist);
-        index_storage_mailbox_free(box);
-	return ret;
+        return index_storage_mailbox_close(box);
 }
 
 static void maildir_notify_changes(struct mailbox *box)
@@ -1058,7 +1051,7 @@ struct mailbox maildir_mailbox = {
 	{
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
-		maildir_storage_close,
+		maildir_storage_mailbox_close,
 		index_storage_get_status,
 		maildir_storage_sync_init,
 		index_mailbox_sync_next,

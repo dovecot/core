@@ -754,7 +754,7 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 	return -1;
 }
 
-static int mbox_storage_close(struct mailbox *box)
+static int mbox_storage_mailbox_close(struct mailbox *box)
 {
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
 	const struct mail_index_header *hdr;
@@ -780,8 +780,7 @@ static int mbox_storage_close(struct mailbox *box)
 	if (mbox->mbox_file_stream != NULL)
 		i_stream_destroy(&mbox->mbox_file_stream);
 
-	index_storage_mailbox_free(box);
-	return ret;
+	return index_storage_mailbox_close(box);
 }
 
 static void mbox_notify_changes(struct mailbox *box)
@@ -995,7 +994,7 @@ struct mailbox mbox_mailbox = {
 	{
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
-		mbox_storage_close,
+		mbox_storage_mailbox_close,
 		index_storage_get_status,
 		mbox_storage_sync_init,
 		index_mailbox_sync_next,

@@ -498,8 +498,7 @@ static int dbox_storage_close(struct mailbox *box)
 	dbox_uidlist_deinit(mbox->uidlist);
 	if (mbox->file != NULL)
 		dbox_file_close(mbox->file);
-        index_storage_mailbox_free(box);
-	return 0;
+        return index_storage_mailbox_close(box);
 }
 
 static void dbox_notify_changes(struct mailbox *box)

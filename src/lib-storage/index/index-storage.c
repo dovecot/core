@@ -368,7 +368,7 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 		index_storage_mailbox_open(ibox);
 }
 
-void index_storage_mailbox_free(struct mailbox *box)
+int index_storage_mailbox_close(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
@@ -384,6 +384,7 @@ void index_storage_mailbox_free(struct mailbox *box)
 
 	MODULE_CONTEXT_UNSET(ibox->index, mail_storage_mail_index_module);
 	pool_unref(box->pool);
+	return 0;
 }
 
 bool index_storage_is_readonly(struct mailbox *box)

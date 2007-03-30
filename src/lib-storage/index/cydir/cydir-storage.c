@@ -361,12 +361,6 @@ cydir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return cydir_delete_nonrecursive(list, src, name);
 }
 
-static int cydir_storage_close(struct mailbox *box)
-{
-        index_storage_mailbox_free(box);
-	return 0;
-}
-
 static void cydir_notify_changes(struct mailbox *box)
 {
 	struct cydir_mailbox *mbox = (struct cydir_mailbox *)box;
@@ -454,7 +448,7 @@ struct mailbox cydir_mailbox = {
 	{
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
-		cydir_storage_close,
+		index_storage_mailbox_close,
 		index_storage_get_status,
 		cydir_storage_sync_init,
 		index_mailbox_sync_next,
