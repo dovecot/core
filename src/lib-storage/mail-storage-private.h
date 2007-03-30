@@ -23,10 +23,11 @@ struct mail_storage_vfuncs {
 	void (*class_init)(void);
 	void (*class_deinit)(void);
 
-	struct mail_storage *
-		(*create)(const char *data, const char *user,
-			  enum mail_storage_flags flags,
-			  enum file_lock_method lock_method);
+	struct mail_storage *(*alloc)(void);
+	int (*create)(struct mail_storage *storage,
+		      const char *data, const char *user,
+		      enum mail_storage_flags flags,
+		      enum file_lock_method lock_method);
 	void (*destroy)(struct mail_storage *storage);
 
 	bool (*autodetect)(const char *data, enum mail_storage_flags flags);

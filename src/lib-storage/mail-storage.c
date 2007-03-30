@@ -119,14 +119,20 @@ mail_storage_create(const char *driver, const char *data, const char *user,
 		    enum mail_storage_flags flags,
 		    enum file_lock_method lock_method)
 {
-	struct mail_storage *storage;
+	struct mail_storage *storage_class, *storage;
 
-	storage = mail_storage_find(driver);
-	if (storage == NULL)
+	storage_class = mail_storage_find(driver);
+	if (storage_class == NULL)
 		return NULL;
 
-	storage = storage->v.create(data, user, flags, lock_method);
-	if (hook_mail_storage_created != NULL && storage != NULL)
+	storage = storage_class->v.alloc();
+	if (storage_class->v.create(storage, data, user,
+				    flags, lock_method) < 0) {
+		pool_unref(storage->pool);
+		return NULL;
+	}
+
+	if (hook_mail_storage_created != NULL)
 		hook_mail_storage_created(storage);
 	return storage;
 }
@@ -141,8 +147,11 @@ mail_storage_create_default(const char *user, enum mail_storage_flags flags,
 
 	classes = array_get(&storages, &count);
 	for (i = 0; i < count; i++) {
-		storage = classes[i]->v.create(NULL, user, flags, lock_method);
-		if (storage != NULL) {
+		storage = classes[i]->v.alloc();
+		if (classes[i]->v.create(storage, NULL, user,
+					 flags, lock_method) < 0)
+			pool_unref(storage->pool);
+		else {
 			if (hook_mail_storage_created != NULL)
 				hook_mail_storage_created(storage);
 			return storage;
@@ -170,7 +179,7 @@ mail_storage_create_with_data(const char *data, const char *user,
 			      enum mail_storage_flags flags,
 			      enum file_lock_method lock_method)
 {
-	struct mail_storage *storage;
+	struct mail_storage *storage_class, *storage;
 	const char *p, *name;
 
 	if (data == NULL || *data == '\0')
@@ -189,15 +198,20 @@ mail_storage_create_with_data(const char *data, const char *user,
 		return mail_storage_create(name, p+1, user, flags, lock_method);
 	}
 
-	storage = mail_storage_autodetect(data, flags);
-	if (storage == NULL) {
+	storage_class = mail_storage_autodetect(data, flags);
+	if (storage_class == NULL) {
 		i_error("Ambiguous mail location setting, "
 			"don't know what to do with it: %s "
 			"(try prefixing it with mbox: or maildir:)",
 			data);
+		storage = NULL;
 	} else {
-		storage = storage->v.create(data, user, flags,
-					    lock_method);
+		storage = storage_class->v.alloc();
+		if (storage_class->v.create(storage, data, user,
+					    flags, lock_method) < 0) {
+			pool_unref(storage->pool);
+			storage = NULL;
+		}
 	}
 
 	if (hook_mail_storage_created != NULL && storage != NULL)

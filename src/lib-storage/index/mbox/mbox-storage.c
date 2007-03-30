@@ -400,30 +400,38 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 	return path;
 }
 
-static struct mail_storage *
-mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
-	    enum file_lock_method lock_method)
+static struct mail_storage *mbox_alloc(void)
 {
 	struct mbox_storage *storage;
+	pool_t pool;
+
+	pool = pool_alloconly_create("mbox storage", 512+256);
+	storage = p_new(pool, struct mbox_storage, 1);
+	storage->storage = mbox_storage;
+	storage->storage.pool = pool;
+
+	return &storage->storage;
+}
+
+static int
+mbox_create(struct mail_storage *_storage, const char *data, const char *user,
+	    enum mail_storage_flags flags, enum file_lock_method lock_method)
+{
+	struct mbox_storage *storage = (struct mbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	const char *layout, *error;
-	pool_t pool;
 
 	if (mbox_get_list_settings(&list_set, data, flags, &layout) < 0)
-		return NULL;
+		return -1;
 	list_set.mail_storage_flags = &flags;
 	list_set.lock_method = &lock_method;
-
-	pool = pool_alloconly_create("storage", 512+256);
-	storage = p_new(pool, struct mbox_storage, 1);
 
 	if (mailbox_list_init(layout, &list_set,
 			      mail_storage_get_list_flags(flags),
 			      &list, &error) < 0) {
 		i_error("mbox %s: %s", layout, error);
-		pool_unref(pool);
-		return NULL;
+		return -1;
 	}
 	storage->list_module_ctx.super = list->v;
 	if (strcmp(layout, "fs") == 0 && *list_set.maildir_name == '\0') {
@@ -436,11 +444,9 @@ mbox_create(const char *data, const char *user, enum mail_storage_flags flags,
 	MODULE_CONTEXT_SET_FULL(list, mbox_mailbox_list_module,
 				storage, &storage->list_module_ctx);
 
-	storage->storage = mbox_storage;
-	storage->storage.pool = pool;
-	storage->storage.user = p_strdup(pool, user);
-	index_storage_init(&storage->storage, list, flags, lock_method);
-	return &storage->storage;
+	_storage->user = p_strdup(_storage->pool, user);
+	index_storage_init(_storage, list, flags, lock_method);
+	return 0;
 }
 
 static void mbox_free(struct mail_storage *storage)
@@ -528,8 +534,9 @@ static void mbox_lock_touch_timeout(struct mbox_mailbox *mbox)
 }
 
 static struct mbox_mailbox *
-mbox_alloc(struct mbox_storage *storage, struct mail_index *index,
-	   const char *name, const char *path, enum mailbox_open_flags flags)
+mbox_alloc_mailbox(struct mbox_storage *storage, struct mail_index *index,
+		   const char *name, const char *path,
+		   enum mailbox_open_flags flags)
 {
 	struct mbox_mailbox *mbox;
 	pool_t pool;
@@ -602,7 +609,7 @@ mbox_open(struct mbox_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
-	mbox = mbox_alloc(storage, index, name, path, flags);
+	mbox = mbox_alloc_mailbox(storage, index, name, path, flags);
 
 	if (access(path, R_OK|W_OK) < 0) {
 		if (errno < EACCES)
@@ -641,7 +648,7 @@ mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 	}
 
 	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
-	mbox = mbox_alloc(storage, index, name, path, flags);
+	mbox = mbox_alloc_mailbox(storage, index, name, path, flags);
 	if (mbox == NULL)
 		return NULL;
 
@@ -1008,6 +1015,7 @@ struct mail_storage mbox_storage = {
 	{
 		mbox_class_init,
 		mbox_class_deinit,
+		mbox_alloc,
 		mbox_create,
 		mbox_free,
 		mbox_autodetect,

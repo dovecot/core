@@ -82,20 +82,31 @@ cydir_get_list_settings(struct mailbox_list_settings *list_set,
 	return 0;
 }
 
-static struct mail_storage *
-cydir_create(const char *data, const char *user,
-	     enum mail_storage_flags flags,
-	     enum file_lock_method lock_method)
+static struct mail_storage *cydir_alloc(void)
 {
 	struct cydir_storage *storage;
+	pool_t pool;
+
+	pool = pool_alloconly_create("cydir storage", 512+256);
+	storage = p_new(pool, struct cydir_storage, 1);
+	storage->storage = cydir_storage;
+	storage->storage.pool = pool;
+
+	return &storage->storage;
+}
+
+static int
+cydir_create(struct mail_storage *_storage, const char *data, const char *user,
+	     enum mail_storage_flags flags, enum file_lock_method lock_method)
+{
+	struct cydir_storage *storage = (struct cydir_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	const char *error;
 	struct stat st;
-	pool_t pool;
 
 	if (cydir_get_list_settings(&list_set, data, flags) < 0)
-		return NULL;
+		return -1;
 	list_set.mail_storage_flags = &flags;
 	list_set.lock_method = &lock_method;
 
@@ -105,25 +116,21 @@ cydir_create(const char *data, const char *user,
 				i_error("stat(%s) failed: %m",
 					list_set.root_dir);
 			}
-			return NULL;
+			return -1;
 		}
 	}
 
 	if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
 	    errno != EEXIST) {
 		i_error("mkdir_parents(%s) failed: %m", list_set.root_dir);
-		return NULL;
+		return -1;
 	}
-
-	pool = pool_alloconly_create("storage", 512+256);
-	storage = p_new(pool, struct cydir_storage, 1);
 
 	if (mailbox_list_init("fs", &list_set,
 			      mail_storage_get_list_flags(flags),
 			      &list, &error) < 0) {
 		i_error("cydir fs: %s", error);
-		pool_unref(pool);
-		return NULL;
+		return -1;
 	}
 	storage->list_module_ctx.super = list->v;
 	list->v.iter_is_mailbox = cydir_list_iter_is_mailbox;
@@ -132,12 +139,9 @@ cydir_create(const char *data, const char *user,
 	MODULE_CONTEXT_SET_FULL(list, cydir_mailbox_list_module,
 				storage, &storage->list_module_ctx);
 
-	storage->storage = cydir_storage;
-	storage->storage.pool = pool;
-	storage->storage.user = p_strdup(pool, user);
-	index_storage_init(&storage->storage, list, flags, lock_method);
-
-	return &storage->storage;
+	_storage->user = p_strdup(_storage->pool, user);
+	index_storage_init(_storage, list, flags, lock_method);
+	return 0;
 }
 
 static void cydir_free(struct mail_storage *storage)
@@ -480,6 +484,7 @@ struct mail_storage cydir_storage = {
 	{
 		cydir_class_init,
 		cydir_class_deinit,
+		cydir_alloc,
 		cydir_create,
 		cydir_free,
 		cydir_autodetect,

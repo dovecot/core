@@ -162,20 +162,31 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 	return 0;
 }
 
-static struct mail_storage *
-dbox_create(const char *data, const char *user,
-	    enum mail_storage_flags flags,
-	    enum file_lock_method lock_method)
+static struct mail_storage *dbox_alloc(void)
 {
 	struct dbox_storage *storage;
+	pool_t pool;
+
+	pool = pool_alloconly_create("dbox storage", 512+256);
+	storage = p_new(pool, struct dbox_storage, 1);
+	storage->storage = dbox_storage;
+	storage->storage.pool = pool;
+
+	return &storage->storage;
+}
+
+static int
+dbox_create(struct mail_storage *_storage, const char *data, const char *user,
+	    enum mail_storage_flags flags, enum file_lock_method lock_method)
+{
+	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	const char *error;
 	struct stat st;
-	pool_t pool;
 
 	if (dbox_get_list_settings(&list_set, data, flags) < 0)
-		return NULL;
+		return -1;
 	list_set.mail_storage_flags = &flags;
 	list_set.lock_method = &lock_method;
 
@@ -185,25 +196,21 @@ dbox_create(const char *data, const char *user,
 				i_error("stat(%s) failed: %m",
 					list_set.root_dir);
 			}
-			return NULL;
+			return -1;
 		}
 	}
 
 	if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
 	    errno != EEXIST) {
 		i_error("mkdir_parents(%s) failed: %m", list_set.root_dir);
-		return NULL;
+		return -1;
 	}
-
-	pool = pool_alloconly_create("storage", 512+256);
-	storage = p_new(pool, struct dbox_storage, 1);
 
 	if (mailbox_list_init("fs", &list_set,
 			      mail_storage_get_list_flags(flags),
 			      &list, &error) < 0) {
 		i_error("dbox fs: %s", error);
-		pool_unref(pool);
-		return NULL;
+		return -1;
 	}
 	storage->list_module_ctx.super = list->v;
 	list->v.is_valid_existing_name = dbox_storage_is_valid_existing_name;
@@ -223,12 +230,10 @@ dbox_create(const char *data, const char *user,
 		storage->new_file_dotlock_set.use_excl_lock = TRUE;
 	}
 
-	storage->storage = dbox_storage;
-	storage->storage.pool = pool;
-	storage->storage.user = p_strdup(pool, user);
-	index_storage_init(&storage->storage, list, flags, lock_method);
+	storage->storage.user = p_strdup(_storage->pool, user);
+	index_storage_init(_storage, list, flags, lock_method);
 
-	return &storage->storage;
+	return 0;
 }
 
 static void dbox_free(struct mail_storage *storage)
@@ -609,6 +614,7 @@ struct mail_storage dbox_storage = {
 	{
 		dbox_class_init,
 		dbox_class_deinit,
+		dbox_alloc,
 		dbox_create,
 		dbox_free,
 		dbox_autodetect,

@@ -210,21 +210,33 @@ static bool maildir_storage_is_valid_create_name(struct mailbox_list *list,
 	return ret;
 }
 
-static struct mail_storage *
-maildir_create(const char *data, const char *user,
-	       enum mail_storage_flags flags,
-	       enum file_lock_method lock_method)
+static struct mail_storage *maildir_alloc(void)
 {
 	struct maildir_storage *storage;
+	pool_t pool;
+
+	pool = pool_alloconly_create("maildir storage", 512+256);
+	storage = p_new(pool, struct maildir_storage, 1);
+	storage->storage = maildir_storage;
+	storage->storage.pool = pool;
+
+	return &storage->storage;
+}
+
+static int
+maildir_create(struct mail_storage *_storage,
+	       const char *data, const char *user,
+	       enum mail_storage_flags flags, enum file_lock_method lock_method)
+{
+	struct maildir_storage *storage = (struct maildir_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	enum mailbox_open_flags open_flags;
 	const char *layout, *error;
 	struct stat st;
-	pool_t pool;
 
 	if (maildir_get_list_settings(&list_set, data, flags, &layout) < 0)
-		return NULL;
+		return -1;
 	list_set.mail_storage_flags = &flags;
 	list_set.lock_method = &lock_method;
 
@@ -235,19 +247,15 @@ maildir_create(const char *data, const char *user,
 				i_error("stat(%s) failed: %m",
 					list_set.root_dir);
 			}
-			return NULL;
+			return -1;
 		}
 	}
-
-	pool = pool_alloconly_create("storage", 512+256);
-	storage = p_new(pool, struct maildir_storage, 1);
 
 	if (mailbox_list_init(layout, &list_set,
 			      mail_storage_get_list_flags(flags),
 			      &list, &error) < 0) {
 		i_error("maildir %s: %s", layout, error);
-		pool_unref(pool);
-		return NULL;
+		return -1;
 	}
 	storage->list_module_ctx.super = list->v;
 	if (strcmp(layout, MAILDIR_PLUSPLUS_DRIVER_NAME) == 0) {
@@ -275,17 +283,16 @@ maildir_create(const char *data, const char *user,
 	if (list_set.control_dir == NULL) {
 		/* put the temp files into tmp/ directory preferrably */
 		storage->temp_prefix =
-			p_strconcat(pool, "tmp/", storage->temp_prefix, NULL);
+			p_strconcat(_storage->pool,
+				    "tmp/", storage->temp_prefix, NULL);
 	}
 
-	storage->storage = maildir_storage;
-	storage->storage.pool = pool;
-	storage->storage.user = p_strdup(pool, user);
-	index_storage_init(&storage->storage, list, flags, lock_method);
+	_storage->user = p_strdup(_storage->pool, user);
+	index_storage_init(_storage, list, flags, lock_method);
 
 	open_flags = 0;
-	(void)verify_inbox(&storage->storage, &open_flags);
-	return &storage->storage;
+	(void)verify_inbox(_storage, &open_flags);
+	return 0;
 }
 
 static void maildir_free(struct mail_storage *storage)
@@ -1064,6 +1071,7 @@ struct mail_storage maildir_storage = {
 	{
 		maildir_class_init,
 		maildir_class_deinit,
+		maildir_alloc,
 		maildir_create,
 		maildir_free,
 		maildir_autodetect,
