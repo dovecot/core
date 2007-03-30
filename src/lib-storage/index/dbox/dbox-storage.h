@@ -6,10 +6,6 @@
 #include "dbox-format.h"
 
 #define DBOX_STORAGE_NAME "dbox"
-#define STORAGE(mbox_storage) \
-	(&(mbox_storage)->storage.storage)
-#define INDEX_STORAGE(mbox_storage) \
-	(&(mbox_storage)->storage)
 
 struct dbox_uidlist;
 

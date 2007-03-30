@@ -8,11 +8,6 @@
 #define CYDIR_SUBSCRIPTION_FILE_NAME "subscriptions."
 #define CYDIR_INDEX_PREFIX "dovecot.index"
 
-#define STORAGE(mbox_storage) \
-	(&(mbox_storage)->storage.storage)
-#define INDEX_STORAGE(mbox_storage) \
-	(&(mbox_storage)->storage)
-
 struct cydir_storage {
 	struct mail_storage storage;
 	union mailbox_list_module_context list_module_ctx;

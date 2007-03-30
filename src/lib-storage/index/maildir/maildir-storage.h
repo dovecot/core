@@ -45,9 +45,6 @@
 #include "index-storage.h"
 #include "mailbox-list-private.h"
 
-#define STORAGE(maildir_storage) \
-	(&(maildir_storage)->storage)
-
 struct timeval;
 struct maildir_save_context;
 struct maildir_copy_context;

@@ -14,11 +14,6 @@
 #include "index-storage.h"
 #include "mailbox-list-private.h"
 
-#define STORAGE(mbox_storage) \
-	(&(mbox_storage)->storage.storage)
-#define INDEX_STORAGE(mbox_storage) \
-	(&(mbox_storage)->storage)
-
 struct mbox_storage {
 	struct mail_storage storage;
 
