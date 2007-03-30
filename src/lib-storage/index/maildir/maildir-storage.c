@@ -537,8 +537,6 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	const char *path;
 	struct stat st;
 
-	mail_storage_clear_error(_storage);
-
 	if (input != NULL) {
 		mail_storage_set_critical(_storage,
 			"Maildir doesn't support streamed mailboxes");
@@ -549,11 +547,6 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		if (verify_inbox(_storage, &flags) < 0)
 			return NULL;
 		return maildir_open(storage, "INBOX", flags);
-	}
-
-	if (!mailbox_list_is_valid_existing_name(_storage->list, name)) {
-		mail_storage_set_error(_storage, "Invalid mailbox name");
-		return NULL;
 	}
 
 	path = mailbox_list_get_path(_storage->list, name,
@@ -630,13 +623,6 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 	struct stat st;
 	const char *path, *root_dir, *shared_path;
 	int fd;
-
-	mail_storage_clear_error(_storage);
-
-	if (!mailbox_list_is_valid_create_name(_storage->list, name)) {
-		mail_storage_set_error(_storage, "Invalid mailbox name");
-		return -1;
-	}
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);

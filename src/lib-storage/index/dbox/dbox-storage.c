@@ -376,8 +376,6 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 	const char *path;
 	struct stat st;
 
-	mail_storage_clear_error(_storage);
-
 	if (input != NULL) {
 		mail_storage_set_critical(_storage,
 			"dbox doesn't support streamed mailboxes");
@@ -386,11 +384,6 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 
 	if (strcmp(name, "INBOX") == 0)
 		return dbox_open(storage, "INBOX", flags);
-
-	if (!mailbox_list_is_valid_existing_name(_storage->list, name)) {
-		mail_storage_set_error(_storage, "Invalid mailbox name");
-		return NULL;
-	}
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -413,13 +406,6 @@ static int dbox_mailbox_create(struct mail_storage *_storage,
 {
 	const char *path;
 	struct stat st;
-
-	mail_storage_clear_error(_storage);
-
-	if (!mailbox_list_is_valid_create_name(_storage->list, name)) {
-		mail_storage_set_error(_storage, "Invalid mailbox name");
-		return -1;
-	}
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);

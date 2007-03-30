@@ -330,6 +330,13 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 				bool directory)
 {
+	mail_storage_clear_error(storage);
+
+	if (!mailbox_list_is_valid_create_name(storage->list, name)) {
+		mail_storage_set_error(storage, "Invalid mailbox name");
+		return -1;
+	}
+
 	return storage->v.mailbox_create(storage, name, directory);
 }
 
@@ -407,6 +414,13 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 			     enum mailbox_open_flags flags)
 {
 	struct mailbox *box;
+
+	mail_storage_clear_error(storage);
+
+	if (!mailbox_list_is_valid_existing_name(storage->list, name)) {
+		mail_storage_set_error(storage, "Invalid mailbox name");
+		return NULL;
+	}
 
 	box = storage->v.mailbox_open(storage, name, input, flags);
 	if (hook_mailbox_opened != NULL && box != NULL)

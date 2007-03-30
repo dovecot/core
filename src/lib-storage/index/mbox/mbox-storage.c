@@ -651,8 +651,6 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 	const char *path, *error;
 	struct stat st;
 
-	mail_storage_clear_error(_storage);
-
 	if (input != NULL)
 		return mbox_mailbox_open_stream(storage, name, input, flags);
 
@@ -661,11 +659,6 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 		if (verify_inbox(_storage) < 0)
 			return NULL;
 		return mbox_open(storage, "INBOX", flags);
-	}
-
-	if (!mailbox_list_is_valid_existing_name(_storage->list, name)) {
-		mail_storage_set_error(_storage, "Invalid mailbox name");
-		return NULL;
 	}
 
 	path = mailbox_list_get_path(_storage->list, name,
@@ -700,12 +693,6 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 	struct stat st;
 	int fd;
 
-	mail_storage_clear_error(_storage);
-
-	if (!mailbox_list_is_valid_create_name(_storage->list, name)) {
-		mail_storage_set_error(_storage, "Invalid mailbox name");
-		return -1;
-	}
 
 	/* make sure it doesn't exist already */
 	path = mailbox_list_get_path(_storage->list, name,
