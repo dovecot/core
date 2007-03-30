@@ -982,8 +982,7 @@ struct mail_storage mbox_storage = {
 		NULL,
 		mbox_autodetect,
 		mbox_mailbox_open,
-		mbox_mailbox_create,
-		index_storage_get_last_error
+		mbox_mailbox_create
 	}
 };
 

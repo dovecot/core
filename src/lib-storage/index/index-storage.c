@@ -409,19 +409,6 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 	return mail_index_view_is_inconsistent(ibox->view);
 }
 
-const char *index_storage_get_last_error(struct mail_storage *storage,
-					 bool *syntax_error_r,
-					 bool *temporary_error_r)
-{
-	*syntax_error_r = storage->syntax_error;
-	*temporary_error_r = storage->temporary_error;
-
-	/* We get here only in error situations, so we have to return some
-	   error. If storage->error is NULL, it means we forgot to set it at
-	   some point.. */
-	return storage->error != NULL ? storage->error : "Unknown error";
-}
-
 void mail_storage_set_index_error(struct index_mailbox *ibox)
 {
 	switch (mail_index_get_last_error(ibox->index)) {

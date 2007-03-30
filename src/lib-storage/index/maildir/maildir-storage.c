@@ -1039,8 +1039,7 @@ struct mail_storage maildir_storage = {
 		NULL,
 		maildir_autodetect,
 		maildir_mailbox_open,
-		maildir_mailbox_create,
-		index_storage_get_last_error
+		maildir_mailbox_create
 	}
 };
 

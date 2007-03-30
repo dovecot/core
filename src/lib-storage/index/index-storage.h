@@ -134,9 +134,6 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 
-const char *index_storage_get_last_error(struct mail_storage *storage,
-					 bool *syntax_error_r,
-					 bool *temporary_error_r);
 int index_storage_get_status(struct mailbox *box,
 			     enum mailbox_status_items items,
 			     struct mailbox_status *status);

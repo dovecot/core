@@ -344,8 +344,13 @@ const char *mail_storage_get_last_error(struct mail_storage *storage,
 					bool *syntax_error_r,
 					bool *temporary_error_r)
 {
-	return storage->v.get_last_error(storage, syntax_error_r,
-					 temporary_error_r);
+	*syntax_error_r = storage->syntax_error;
+	*temporary_error_r = storage->temporary_error;
+
+	/* We get here only in error situations, so we have to return some
+	   error. If storage->error is NULL, it means we forgot to set it at
+	   some point.. */
+	return storage->error != NULL ? storage->error : "Unknown error";
 }
 
 const char *mail_storage_get_mailbox_path(struct mail_storage *storage,

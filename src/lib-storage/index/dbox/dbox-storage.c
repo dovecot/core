@@ -578,8 +578,7 @@ struct mail_storage dbox_storage = {
 		NULL,
 		dbox_autodetect,
 		dbox_mailbox_open,
-		dbox_mailbox_create,
-		index_storage_get_last_error
+		dbox_mailbox_create
 	}
 };
 

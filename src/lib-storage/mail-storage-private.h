@@ -36,10 +36,6 @@ struct mail_storage_vfuncs {
 
 	int (*mailbox_create)(struct mail_storage *storage, const char *name,
 			      bool directory);
-
-	const char *(*get_last_error)(struct mail_storage *storage,
-				      bool *syntax_error_r,
-				      bool *temporary_error_r);
 };
 
 union mail_storage_module_context {
