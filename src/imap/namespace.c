@@ -72,8 +72,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	ns->inbox = inbox;
 	ns->hidden = hidden;
 	ns->subscriptions = subscriptions;
-	ns->storage = mail_storage_create_with_data(data, user, flags,
-						    lock_method);
+	ns->storage = mail_storage_create(NULL, data, user, flags, lock_method);
 	if (ns->storage == NULL) {
 		i_fatal("Failed to create storage for '%s' with data: %s",
 			ns->prefix, data);
@@ -132,8 +131,7 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 	ns->prefix = "";
 
 	flags |= MAIL_STORAGE_FLAG_HAS_INBOX;
-	ns->storage = mail_storage_create_with_data(mail, user, flags,
-						    lock_method);
+	ns->storage = mail_storage_create(NULL, mail, user, flags, lock_method);
 	if (ns->storage == NULL) {
 		if (mail != NULL && *mail != '\0')
 			i_fatal("Failed to create storage with data: %s", mail);

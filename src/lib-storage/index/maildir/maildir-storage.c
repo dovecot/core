@@ -224,11 +224,10 @@ static struct mail_storage *maildir_alloc(void)
 }
 
 static int
-maildir_create(struct mail_storage *_storage,
-	       const char *data, const char *user,
-	       enum mail_storage_flags flags, enum file_lock_method lock_method)
+maildir_create(struct mail_storage *_storage, const char *data)
 {
 	struct maildir_storage *storage = (struct maildir_storage *)_storage;
+	enum mail_storage_flags flags = _storage->flags;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
 	enum mailbox_open_flags open_flags;
@@ -237,8 +236,8 @@ maildir_create(struct mail_storage *_storage,
 
 	if (maildir_get_list_settings(&list_set, data, flags, &layout) < 0)
 		return -1;
-	list_set.mail_storage_flags = &flags;
-	list_set.lock_method = &lock_method;
+	list_set.mail_storage_flags = &_storage->flags;
+	list_set.lock_method = &_storage->lock_method;
 
 	/* normally the maildir is created in verify_inbox() */
 	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
@@ -257,6 +256,7 @@ maildir_create(struct mail_storage *_storage,
 		i_error("maildir %s: %s", layout, error);
 		return -1;
 	}
+	_storage->list = list;
 	storage->list_module_ctx.super = list->v;
 	if (strcmp(layout, MAILDIR_PLUSPLUS_DRIVER_NAME) == 0) {
 		list->v.iter_is_mailbox = maildirplusplus_iter_is_mailbox;
@@ -286,9 +286,6 @@ maildir_create(struct mail_storage *_storage,
 			p_strconcat(_storage->pool,
 				    "tmp/", storage->temp_prefix, NULL);
 	}
-
-	_storage->user = p_strdup(_storage->pool, user);
-	index_storage_init(_storage, list, flags, lock_method);
 
 	open_flags = 0;
 	(void)verify_inbox(_storage, &open_flags);

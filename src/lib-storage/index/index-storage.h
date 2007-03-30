@@ -101,10 +101,6 @@ index_storage_alloc(const char *index_dir, const char *mailbox_path,
 void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 
-void index_storage_init(struct mail_storage *storage,
-			struct mailbox_list *list,
-			enum mail_storage_flags flags,
-			enum file_lock_method lock_method);
 void index_storage_deinit(struct mail_storage *storage);
 
 void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,

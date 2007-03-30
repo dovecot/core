@@ -43,8 +43,8 @@ static int user_init(struct expire_context *ctx, const char *user)
 
 	mail_env = getenv("MAIL");
 	mail_storage_parse_env(&flags, &lock_method);
-	ctx->storage = mail_storage_create_with_data(mail_env, user,
-						     flags, lock_method);
+	ctx->storage = mail_storage_create(NULL, mail_env, user,
+					   flags, lock_method);
 	if (ctx->storage == NULL) {
 		i_error("Failed to create storage for '%s' with mail '%s'",
 			user, mail_env == NULL ? "(null)" : mail_env);

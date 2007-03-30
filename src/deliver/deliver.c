@@ -660,8 +660,8 @@ int main(int argc, char *argv[])
 
 	/* FIXME: how should we handle namespaces? */
 	mail_storage_parse_env(&flags, &lock_method);
-	storage = mail_storage_create_with_data(mail_env, destination,
-						flags, lock_method);
+	storage = mail_storage_create(NULL, mail_env, destination,
+				      flags, lock_method);
 	if (storage == NULL) {
 		i_fatal_status(EX_TEMPFAIL,
 			"Failed to create storage for '%s' with mail '%s'",

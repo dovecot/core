@@ -114,52 +114,6 @@ static struct mail_storage *mail_storage_find(const char *name)
 	return NULL;
 }
 
-struct mail_storage *
-mail_storage_create(const char *driver, const char *data, const char *user,
-		    enum mail_storage_flags flags,
-		    enum file_lock_method lock_method)
-{
-	struct mail_storage *storage_class, *storage;
-
-	storage_class = mail_storage_find(driver);
-	if (storage_class == NULL)
-		return NULL;
-
-	storage = storage_class->v.alloc();
-	if (storage_class->v.create(storage, data, user,
-				    flags, lock_method) < 0) {
-		pool_unref(storage->pool);
-		return NULL;
-	}
-
-	if (hook_mail_storage_created != NULL)
-		hook_mail_storage_created(storage);
-	return storage;
-}
-
-static struct mail_storage *
-mail_storage_create_default(const char *user, enum mail_storage_flags flags,
-			    enum file_lock_method lock_method)
-{
-	struct mail_storage *const *classes;
-	struct mail_storage *storage;
-	unsigned int i, count;
-
-	classes = array_get(&storages, &count);
-	for (i = 0; i < count; i++) {
-		storage = classes[i]->v.alloc();
-		if (classes[i]->v.create(storage, NULL, user,
-					 flags, lock_method) < 0)
-			pool_unref(storage->pool);
-		else {
-			if (hook_mail_storage_created != NULL)
-				hook_mail_storage_created(storage);
-			return storage;
-		}
-	}
-	return NULL;
-}
-
 static struct mail_storage *
 mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
 {
@@ -174,47 +128,81 @@ mail_storage_autodetect(const char *data, enum mail_storage_flags flags)
 	return NULL;
 }
 
-struct mail_storage *
-mail_storage_create_with_data(const char *data, const char *user,
-			      enum mail_storage_flags flags,
-			      enum file_lock_method lock_method)
+static void
+mail_storage_set_autodetection(const char **data, const char **driver,
+			       enum mail_storage_flags *flags)
 {
-	struct mail_storage *storage_class, *storage;
-	const char *p, *name;
+	const char *p;
 
-	if (data == NULL || *data == '\0')
-		return mail_storage_create_default(user, flags, lock_method);
-
-	/* check if we're in the form of mailformat:data
-	   (eg. maildir:Maildir) */
-	p = data;
+	/* check if data is in driver:data format (eg. mbox:~/mail) */
+	p = *data;
 	while (i_isalnum(*p)) p++;
 
-	if (*p == ':') {
+	if (*p == ':' && p != *data) {
 		/* no autodetection if the storage format is given. */
-		flags |= MAIL_STORAGE_FLAG_NO_AUTODETECTION;
+		*flags |= MAIL_STORAGE_FLAG_NO_AUTODETECTION;
 
-		name = t_strdup_until(data, p);
-		return mail_storage_create(name, p+1, user, flags, lock_method);
+		*driver = t_strdup_until(*data, p);
+		*data = p + 1;
 	}
+}
 
-	storage_class = mail_storage_autodetect(data, flags);
-	if (storage_class == NULL) {
-		i_error("Ambiguous mail location setting, "
-			"don't know what to do with it: %s "
-			"(try prefixing it with mbox: or maildir:)",
-			data);
-		storage = NULL;
-	} else {
-		storage = storage_class->v.alloc();
-		if (storage_class->v.create(storage, data, user,
-					    flags, lock_method) < 0) {
-			pool_unref(storage->pool);
-			storage = NULL;
+struct mail_storage *
+mail_storage_create(const char *driver, const char *data, const char *user,
+		    enum mail_storage_flags flags,
+		    enum file_lock_method lock_method)
+{
+	struct mail_storage *storage_class, *storage;
+	struct mail_storage *const *classes;
+	unsigned int i, count;
+
+	if (data == NULL)
+		data = "";
+	else if (driver == NULL)
+		mail_storage_set_autodetection(&data, &driver, &flags);
+
+	if (*data == '\0' && driver == NULL) {
+		/* use the first driver that works */
+		classes = array_get(&storages, &count);
+	} else if (driver == NULL) {
+		storage_class = mail_storage_autodetect(data, flags);
+		if (storage_class == NULL) {
+			i_error("Ambiguous mail location setting, "
+				"don't know what to do with it: %s "
+				"(try prefixing it with mbox: or maildir:)",
+				data);
+			return NULL;
 		}
+		classes = &storage_class;
+		count = 1;
+	} else {
+		storage_class = mail_storage_find(driver);
+		if (storage_class == NULL)
+			return NULL;
+		classes = &storage_class;
+		count = 1;
 	}
 
-	if (hook_mail_storage_created != NULL && storage != NULL)
+	for (i = 0; i < count; i++) {
+		storage = classes[i]->v.alloc();
+		storage->flags = flags;
+		storage->lock_method = lock_method;
+		storage->user = p_strdup(storage->pool, user);
+
+		storage->callbacks =
+			p_new(storage->pool, struct mail_storage_callbacks, 1);
+		p_array_init(&storage->module_contexts, storage->pool, 5);
+
+		if (classes[i]->v.create(storage, data) == 0)
+			break;
+
+		/* try the next one */
+		pool_unref(storage->pool);
+	}
+	if (i == count)
+		return NULL;
+
+	if (hook_mail_storage_created != NULL)
 		hook_mail_storage_created(storage);
 	return storage;
 }

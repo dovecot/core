@@ -255,8 +255,8 @@ int convert_storage(const char *user, const char *home_dir,
 
 	mail_storage_parse_env(&flags, &lock_method);
 	flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE | MAIL_STORAGE_FLAG_HAS_INBOX;
-	source_storage = mail_storage_create_with_data(source_data, user,
-						       flags, lock_method);
+	source_storage = mail_storage_create(NULL, source_data, user,
+					     flags, lock_method);
 	if (source_storage == NULL) {
 		/* No need for conversion. */
 		return 0;
@@ -276,16 +276,16 @@ int convert_storage(const char *user, const char *home_dir,
 	/* just in case if another process just had converted the mailbox,
 	   reopen the source storage */
 	mail_storage_destroy(&source_storage);
-	source_storage = mail_storage_create_with_data(source_data, user,
-						       flags, lock_method);
+	source_storage = mail_storage_create(NULL, source_data, user,
+					     flags, lock_method);
 	if (source_storage == NULL) {
 		/* No need for conversion anymore. */
 		file_dotlock_delete(&dotlock);
 		return 0;
 	}
 
-	dest_storage = mail_storage_create_with_data(dest_data, user,
-						     flags, lock_method);
+	dest_storage = mail_storage_create(NULL, dest_data, user,
+					   flags, lock_method);
 	if (dest_storage == NULL) {
 		i_error("Mailbox conversion: Failed to create destination "
 			"storage with data: %s", dest_data);

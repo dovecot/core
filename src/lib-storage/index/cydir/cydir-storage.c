@@ -95,22 +95,19 @@ static struct mail_storage *cydir_alloc(void)
 	return &storage->storage;
 }
 
-static int
-cydir_create(struct mail_storage *_storage, const char *data, const char *user,
-	     enum mail_storage_flags flags, enum file_lock_method lock_method)
+static int cydir_create(struct mail_storage *_storage, const char *data)
 {
 	struct cydir_storage *storage = (struct cydir_storage *)_storage;
 	struct mailbox_list_settings list_set;
-	struct mailbox_list *list;
 	const char *error;
 	struct stat st;
 
-	if (cydir_get_list_settings(&list_set, data, flags) < 0)
+	if (cydir_get_list_settings(&list_set, data, _storage->flags) < 0)
 		return -1;
-	list_set.mail_storage_flags = &flags;
-	list_set.lock_method = &lock_method;
+	list_set.mail_storage_flags = &_storage->flags;
+	list_set.lock_method = &_storage->lock_method;
 
-	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
+	if ((_storage->flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
 		if (stat(list_set.root_dir, &st) < 0) {
 			if (errno != ENOENT) {
 				i_error("stat(%s) failed: %m",
@@ -127,20 +124,17 @@ cydir_create(struct mail_storage *_storage, const char *data, const char *user,
 	}
 
 	if (mailbox_list_init("fs", &list_set,
-			      mail_storage_get_list_flags(flags),
-			      &list, &error) < 0) {
+			      mail_storage_get_list_flags(_storage->flags),
+			      &_storage->list, &error) < 0) {
 		i_error("cydir fs: %s", error);
 		return -1;
 	}
-	storage->list_module_ctx.super = list->v;
-	list->v.iter_is_mailbox = cydir_list_iter_is_mailbox;
-	list->v.delete_mailbox = cydir_list_delete_mailbox;
+	storage->list_module_ctx.super = _storage->list->v;
+	_storage->list->v.iter_is_mailbox = cydir_list_iter_is_mailbox;
+	_storage->list->v.delete_mailbox = cydir_list_delete_mailbox;
 
-	MODULE_CONTEXT_SET_FULL(list, cydir_mailbox_list_module,
+	MODULE_CONTEXT_SET_FULL(_storage->list, cydir_mailbox_list_module,
 				storage, &storage->list_module_ctx);
-
-	_storage->user = p_strdup(_storage->pool, user);
-	index_storage_init(_storage, list, flags, lock_method);
 	return 0;
 }
 

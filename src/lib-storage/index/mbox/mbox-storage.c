@@ -413,39 +413,34 @@ static struct mail_storage *mbox_alloc(void)
 	return &storage->storage;
 }
 
-static int
-mbox_create(struct mail_storage *_storage, const char *data, const char *user,
-	    enum mail_storage_flags flags, enum file_lock_method lock_method)
+static int mbox_create(struct mail_storage *_storage, const char *data)
 {
 	struct mbox_storage *storage = (struct mbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
-	struct mailbox_list *list;
 	const char *layout, *error;
 
-	if (mbox_get_list_settings(&list_set, data, flags, &layout) < 0)
+	if (mbox_get_list_settings(&list_set, data,
+				   _storage->flags, &layout) < 0)
 		return -1;
-	list_set.mail_storage_flags = &flags;
-	list_set.lock_method = &lock_method;
+	list_set.mail_storage_flags = &_storage->flags;
+	list_set.lock_method = &_storage->lock_method;
 
 	if (mailbox_list_init(layout, &list_set,
-			      mail_storage_get_list_flags(flags),
-			      &list, &error) < 0) {
+			      mail_storage_get_list_flags(_storage->flags),
+			      &_storage->list, &error) < 0) {
 		i_error("mbox %s: %s", layout, error);
 		return -1;
 	}
-	storage->list_module_ctx.super = list->v;
+	storage->list_module_ctx.super = _storage->list->v;
 	if (strcmp(layout, "fs") == 0 && *list_set.maildir_name == '\0') {
 		/* have to use .imap/ directories */
-		list->v.get_path = mbox_list_get_path;
+		_storage->list->v.get_path = mbox_list_get_path;
 	}
-	list->v.iter_is_mailbox = mbox_list_iter_is_mailbox;
-	list->v.delete_mailbox = mbox_list_delete_mailbox;
+	_storage->list->v.iter_is_mailbox = mbox_list_iter_is_mailbox;
+	_storage->list->v.delete_mailbox = mbox_list_delete_mailbox;
 
-	MODULE_CONTEXT_SET_FULL(list, mbox_mailbox_list_module,
+	MODULE_CONTEXT_SET_FULL(_storage->list, mbox_mailbox_list_module,
 				storage, &storage->list_module_ctx);
-
-	_storage->user = p_strdup(_storage->pool, user);
-	index_storage_init(_storage, list, flags, lock_method);
 	return 0;
 }
 

@@ -239,8 +239,8 @@ static int main_init(void)
 			"%% variables.");
 
 	mail_storage_parse_env(&flags, &lock_method);
-	storage = mail_storage_create_with_data(mail, getenv("USER"),
-						flags, lock_method);
+	storage = mail_storage_create(NULL, mail, getenv("USER"),
+				      flags, lock_method);
 	if (storage == NULL) {
 		/* failed */
 		if (mail != NULL && *mail != '\0')

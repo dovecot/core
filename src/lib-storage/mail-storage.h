@@ -202,16 +202,13 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 			    enum file_lock_method *lock_method_r);
 
 /* Create a new instance of registered mail storage class with given
-   storage-specific data. If data is NULL, it tries to autodetect defaults.
+   storage-specific data. If driver is NULL, it's tried to be autodetected
+   from data. If data is NULL, it uses the first storage that exists.
    May return NULL if anything fails. */
 struct mail_storage *
 mail_storage_create(const char *driver, const char *data, const char *user,
 		    enum mail_storage_flags flags,
 		    enum file_lock_method lock_method);
-struct mail_storage *
-mail_storage_create_with_data(const char *data, const char *user,
-			      enum mail_storage_flags flags,
-			      enum file_lock_method lock_method);
 void mail_storage_destroy(struct mail_storage **storage);
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);

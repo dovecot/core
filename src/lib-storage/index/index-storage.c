@@ -38,32 +38,11 @@ struct index_list {
 
 static struct index_list *indexes = NULL;
 static struct timeout *to_index = NULL;
-static int index_storage_refcount = 0;
-
-void index_storage_init(struct mail_storage *storage,
-			struct mailbox_list *list,
-			enum mail_storage_flags flags,
-			enum file_lock_method lock_method)
-{
-	storage->list = list;
-	storage->flags = flags;
-	storage->lock_method = lock_method;
-
-	storage->callbacks =
-		p_new(storage->pool, struct mail_storage_callbacks, 1);
-
-	array_create(&storage->module_contexts,
-		     storage->pool, sizeof(void *), 5);
-	index_storage_refcount++;
-}
 
 void index_storage_deinit(struct mail_storage *storage)
 {
 	mailbox_list_deinit(storage->list);
 	i_free(storage->error);
-
-	if (--index_storage_refcount > 0)
-		return;
 
         index_storage_destroy_unrefed();
 }

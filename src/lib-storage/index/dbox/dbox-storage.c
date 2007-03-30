@@ -175,9 +175,7 @@ static struct mail_storage *dbox_alloc(void)
 	return &storage->storage;
 }
 
-static int
-dbox_create(struct mail_storage *_storage, const char *data, const char *user,
-	    enum mail_storage_flags flags, enum file_lock_method lock_method)
+static int dbox_create(struct mail_storage *_storage, const char *data)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
@@ -185,12 +183,12 @@ dbox_create(struct mail_storage *_storage, const char *data, const char *user,
 	const char *error;
 	struct stat st;
 
-	if (dbox_get_list_settings(&list_set, data, flags) < 0)
+	if (dbox_get_list_settings(&list_set, data, _storage->flags) < 0)
 		return -1;
-	list_set.mail_storage_flags = &flags;
-	list_set.lock_method = &lock_method;
+	list_set.mail_storage_flags = &_storage->flags;
+	list_set.lock_method = &_storage->lock_method;
 
-	if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
+	if ((_storage->flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
 		if (stat(list_set.root_dir, &st) < 0) {
 			if (errno != ENOENT) {
 				i_error("stat(%s) failed: %m",
@@ -207,11 +205,12 @@ dbox_create(struct mail_storage *_storage, const char *data, const char *user,
 	}
 
 	if (mailbox_list_init("fs", &list_set,
-			      mail_storage_get_list_flags(flags),
+			      mail_storage_get_list_flags(_storage->flags),
 			      &list, &error) < 0) {
 		i_error("dbox fs: %s", error);
 		return -1;
 	}
+	_storage->list = list;
 	storage->list_module_ctx.super = list->v;
 	list->v.is_valid_existing_name = dbox_storage_is_valid_existing_name;
 	list->v.is_valid_create_name = dbox_storage_is_valid_create_name;
@@ -224,15 +223,11 @@ dbox_create(struct mail_storage *_storage, const char *data, const char *user,
 	storage->uidlist_dotlock_set = default_uidlist_dotlock_set;
 	storage->file_dotlock_set = default_file_dotlock_set;
 	storage->new_file_dotlock_set = default_new_file_dotlock_set;
-	if ((flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0) {
+	if ((_storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0) {
 		storage->uidlist_dotlock_set.use_excl_lock = TRUE;
 		storage->file_dotlock_set.use_excl_lock = TRUE;
 		storage->new_file_dotlock_set.use_excl_lock = TRUE;
 	}
-
-	storage->storage.user = p_strdup(_storage->pool, user);
-	index_storage_init(_storage, list, flags, lock_method);
-
 	return 0;
 }
 
