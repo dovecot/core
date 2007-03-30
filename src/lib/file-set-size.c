@@ -1,38 +1,47 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
+#define _XOPEN_SOURCE 600 /* Required by glibc */
 #include "lib.h"
-#include "write-full.h"
 #include "file-set-size.h"
 
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 int file_set_size(int fd, off_t size)
 {
-	char block[1024];
-	off_t pos;
+#ifndef HAVE_POSIX_FALLOCATE
+	char block[4096];
+	off_t offset;
+	ssize_t ret;
+#endif
+	struct stat st;
 
 	i_assert(size >= 0);
 
-	pos = lseek(fd, 0, SEEK_END);
-	if (pos < 0)
+	if (fstat(fd, &st) < 0)
 		return -1;
 
-	if (size < pos)
+	if (size < st.st_size)
 		return ftruncate(fd, size);
-	if (size == pos)
+	if (size == st.st_size)
 		return 0;
 
+#ifdef HAVE_POSIX_FALLOCATE
+	return posix_fallocate(fd, 0, size);
+#else
 	/* start growing the file */
-	memset(block, 0, sizeof(block));
+	offset = st.st_size;
+	memset(block, 0, I_MIN((ssize_t)sizeof(block), size - offset));
 
-	size -= pos;
-	while ((uoff_t)size > sizeof(block)) {
-		/* write in 1kb blocks */
-		if (write_full(fd, block, sizeof(block)) < 0)
+	while (offset < size) {
+		ret = pwrite(fd, block,
+			     I_MIN((ssize_t)sizeof(block), size - offset),
+			     offset);
+		if (ret < 0)
 			return -1;
-		size -= sizeof(block);
+		offset += size;
 	}
-
-	/* write the remainder */
-	return write_full(fd, block, (size_t)size) < 0 ? -1 : 0;
+	return 0;
+#endif
 }
