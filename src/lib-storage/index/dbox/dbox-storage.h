@@ -81,7 +81,6 @@ struct dbox_transaction_context {
 
 extern struct mail_vfuncs dbox_mail_vfuncs;
 
-void dbox_transaction_created(struct mail_index_transaction *t);
 void dbox_transaction_class_init(void);
 void dbox_transaction_class_deinit(void);
 

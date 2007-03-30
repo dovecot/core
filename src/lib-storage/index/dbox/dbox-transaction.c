@@ -62,7 +62,7 @@ static void dbox_transaction_rollback(struct mail_index_transaction *t)
 	index_transaction_finish_rollback(&dt->ictx);
 }
 
-void dbox_transaction_created(struct mail_index_transaction *t)
+static void dbox_transaction_created(struct mail_index_transaction *t)
 {
 	struct mailbox *box = MAIL_STORAGE_CONTEXT(t->view->index);
 

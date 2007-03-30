@@ -119,7 +119,6 @@ int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir);
 bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r);
 
-void maildir_transaction_created(struct mail_index_transaction *t);
 void maildir_transaction_class_init(void);
 void maildir_transaction_class_deinit(void);
 

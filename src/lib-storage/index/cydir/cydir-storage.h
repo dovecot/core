@@ -30,7 +30,6 @@ struct cydir_transaction_context {
 
 extern struct mail_vfuncs cydir_mail_vfuncs;
 
-void cydir_transaction_created(struct mail_index_transaction *t);
 void cydir_transaction_class_init(void);
 void cydir_transaction_class_deinit(void);
 

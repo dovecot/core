@@ -55,7 +55,7 @@ static void maildir_transaction_rollback(struct mail_index_transaction *t)
 	index_transaction_finish_rollback(&mt->ictx);
 }
 
-void maildir_transaction_created(struct mail_index_transaction *t)
+static void maildir_transaction_created(struct mail_index_transaction *t)
 {
 	struct mailbox *box = MAIL_STORAGE_CONTEXT(t->view->index);
 

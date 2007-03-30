@@ -64,7 +64,6 @@ extern unsigned int mbox_hide_headers_count, mbox_save_drop_headers_count;
 
 int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function);
 
-void mbox_transaction_created(struct mail_index_transaction *t);
 void mbox_transaction_class_init(void);
 void mbox_transaction_class_deinit(void);
 
