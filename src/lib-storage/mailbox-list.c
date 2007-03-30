@@ -257,6 +257,10 @@ int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		mailbox_list_set_error(list, "Invalid mailbox name");
 		return -1;
 	}
+	if (strcmp(name, "INBOX") == 0) {
+		mailbox_list_set_error(list, "INBOX can't be deleted.");
+		return -1;
+	}
 	return list->v.delete_mailbox(list, name);
 }
 
@@ -276,16 +280,6 @@ int mailbox_list_delete_index_control(struct mailbox_list *list,
 				      const char *name)
 {
 	const char *path, *index_dir, *dir;
-
-	if (strcmp(name, "INBOX") == 0) {
-		mailbox_list_set_error(list, "INBOX can't be deleted.");
-		return -1;
-	}
-
-	if (!mailbox_list_is_valid_existing_name(list, name)) {
-		mailbox_list_set_error(list, "Invalid mailbox name");
-		return -1;
-	}
 
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
