@@ -225,6 +225,8 @@ struct mailbox_list_iterate_context *
 mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 		       enum mailbox_list_iter_flags flags)
 {
+	mailbox_list_clear_error(list);
+
 	return list->v.iter_init(list, mask, flags);
 }
 

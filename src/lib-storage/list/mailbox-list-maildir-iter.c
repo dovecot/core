@@ -238,14 +238,10 @@ struct mailbox_list_iterate_context *
 maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 		       enum mailbox_list_iter_flags flags)
 {
-	struct maildir_mailbox_list *list =
-		(struct maildir_mailbox_list *)_list;
 	struct maildir_list_iterate_context *ctx;
         struct imap_match_glob *glob;
 	const char *dir, *p;
 	pool_t pool;
-
-	mailbox_list_clear_error(&list->list);
 
 	pool = pool_alloconly_create("maildir_list", 1024);
 	ctx = p_new(pool, struct maildir_list_iterate_context, 1);
@@ -264,7 +260,7 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}
-	} else if ((list->list.flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
+	} else if ((_list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
 		   (p = strrchr(mask, '/')) != NULL) {
 		dir = t_strdup_until(mask, p);
 		ctx->prefix = p_strdup_until(pool, mask, p+1);

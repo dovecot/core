@@ -80,13 +80,9 @@ struct mailbox_list_iterate_context *
 fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 		  enum mailbox_list_iter_flags flags)
 {
-	struct fs_mailbox_list *list =
-		(struct fs_mailbox_list *)_list;
 	struct fs_list_iterate_context *ctx;
 	const char *path, *virtual_path;
 	DIR *dirp;
-
-	mailbox_list_clear_error(&list->list);
 
 	ctx = i_new(struct fs_list_iterate_context, 1);
 	ctx->ctx.list = _list;
