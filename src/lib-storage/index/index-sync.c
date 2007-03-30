@@ -121,7 +121,8 @@ static int index_mailbox_update_recent(struct index_mailbox *ibox,
 		}
 
 		if ((rec->flags & MAIL_RECENT) != 0 ||
-		    ibox->is_recent(ibox, rec->uid))
+		    (ibox->is_recent != NULL &&
+		     ibox->is_recent(ibox, rec->uid)))
                         index_mailbox_set_recent(ibox, seq1);
 	}
 

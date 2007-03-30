@@ -291,12 +291,6 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 	return 0;
 }
 
-static bool dbox_is_recent(struct index_mailbox *ibox __attr_unused__,
-			   uint32_t uid __attr_unused__)
-{
-	return FALSE;
-}
-
 static void dbox_lock_touch_timeout(struct dbox_mailbox *mbox)
 {
 	(void)dbox_uidlist_lock_touch(mbox->uidlist);
@@ -330,7 +324,6 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.storage = &storage->storage;
 	mbox->ibox.mail_vfuncs = &dbox_mail_vfuncs;
-	mbox->ibox.is_recent = dbox_is_recent;
 	mbox->ibox.index = index;
 
 	value = getenv("DBOX_ROTATE_SIZE");

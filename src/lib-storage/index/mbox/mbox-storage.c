@@ -485,12 +485,6 @@ static int verify_inbox(struct mail_storage *storage)
 	return 0;
 }
 
-static bool mbox_mail_is_recent(struct index_mailbox *ibox __attr_unused__,
-				uint32_t uid __attr_unused__)
-{
-	return FALSE;
-}
-
 static bool want_memory_indexes(struct mbox_storage *storage, const char *path)
 {
 	const char *env;
@@ -536,7 +530,6 @@ mbox_alloc_mailbox(struct mbox_storage *storage, struct mail_index *index,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.storage = &storage->storage;
 	mbox->ibox.mail_vfuncs = &mbox_mail_vfuncs;
-	mbox->ibox.is_recent = mbox_mail_is_recent;
 	mbox->ibox.index = index;
 
 	mbox->storage = storage;

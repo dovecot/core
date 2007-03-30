@@ -175,12 +175,6 @@ static int create_index_dir(struct mail_storage *storage, const char *name)
 	return 0;
 }
 
-static bool cydir_is_recent(struct index_mailbox *ibox __attr_unused__,
-			    uint32_t uid __attr_unused__)
-{
-	return FALSE;
-}
-
 static struct mailbox *
 cydir_open(struct cydir_storage *storage, const char *name,
 	   enum mailbox_open_flags flags)
@@ -209,7 +203,6 @@ cydir_open(struct cydir_storage *storage, const char *name,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.storage = &storage->storage;
 	mbox->ibox.mail_vfuncs = &cydir_mail_vfuncs;
-	mbox->ibox.is_recent = cydir_is_recent;
 	mbox->ibox.index = index;
 
 	mbox->storage = storage;
