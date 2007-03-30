@@ -183,6 +183,8 @@ bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
 const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 				  enum mailbox_list_path_type type)
 {
+	mailbox_list_clear_error(list);
+
 	return list->v.get_path(list, name, type);
 }
 
@@ -194,13 +196,28 @@ const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)
 const char *mailbox_list_join_refmask(struct mailbox_list *list,
 				      const char *ref, const char *mask)
 {
-	return list->v.join_refmask(list, ref, mask);
+	if (list->v.join_refmask != NULL)
+		return list->v.join_refmask(list, ref, mask);
+
+	/* the default implementation: */
+	if (*ref != '\0') {
+		/* merge reference and mask */
+		mask = t_strconcat(ref, mask, NULL);
+	}
+	return mask;
 }
 
 int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 					 const char *name,
 					 enum mailbox_name_status *status)
 {
+	mailbox_list_clear_error(list);
+
+	if (!mailbox_list_is_valid_existing_name(list, name)) {
+		*status = MAILBOX_NAME_INVALID;
+		return 0;
+	}
+
 	return list->v.get_mailbox_name_status(list, name, status);
 }
 
@@ -229,6 +246,8 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 int mailbox_list_set_subscribed(struct mailbox_list *list,
 				const char *name, bool set)
 {
+	mailbox_list_clear_error(list);
+
 	return list->v.set_subscribed(list, name, set);
 }
 
@@ -240,6 +259,12 @@ int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 int mailbox_list_rename_mailbox(struct mailbox_list *list,
 				const char *oldname, const char *newname)
 {
+	if (!mailbox_list_is_valid_existing_name(list, oldname) ||
+	    !mailbox_list_is_valid_create_name(list, newname)) {
+		mailbox_list_set_error(list, "Invalid mailbox name");
+		return -1;
+	}
+
 	return list->v.rename_mailbox(list, oldname, newname);
 }
 

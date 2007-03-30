@@ -143,8 +143,6 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 	const struct mailbox_list_settings *set = &_list->set;
 
-	mailbox_list_clear_error(&list->list);
-
 	if (name == NULL) {
 		/* return root directories */
 		switch (type) {
@@ -210,13 +208,6 @@ fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 	struct stat st;
 	const char *path;
 
-	mailbox_list_clear_error(&list->list);
-
-	if (!mailbox_list_is_valid_existing_name(_list, name)) {
-		*status = MAILBOX_NAME_INVALID;
-		return 0;
-	}
-
 	path = mailbox_list_get_path(_list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
@@ -269,8 +260,6 @@ static int fs_list_set_subscribed(struct mailbox_list *_list,
 	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 	const char *path;
 
-	mailbox_list_clear_error(&list->list);
-
 	path = t_strconcat(_list->set.control_dir != NULL ?
 			   _list->set.control_dir : _list->set.root_dir,
 			   "/", _list->set.subscription_fname, NULL);
@@ -302,12 +291,6 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 {
 	const char *oldpath, *newpath, *old_indexdir, *new_indexdir, *p;
 	struct stat st;
-
-	if (!mailbox_list_is_valid_existing_name(list, oldname) ||
-	    !mailbox_list_is_valid_create_name(list, newname)) {
-		mailbox_list_set_error(list, "Invalid mailbox name");
-		return -1;
-	}
 
 	oldpath = mailbox_list_get_path(list, oldname,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX);

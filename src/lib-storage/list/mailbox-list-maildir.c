@@ -142,8 +142,6 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 	struct maildir_mailbox_list *list =
 		(struct maildir_mailbox_list *)_list;
 
-	mailbox_list_clear_error(&list->list);
-
 	if (name == NULL) {
 		/* return root directories */
 		switch (type) {
@@ -201,17 +199,8 @@ maildir_list_get_mailbox_name_status(struct mailbox_list *_list,
 				     const char *name,
 				     enum mailbox_name_status *status)
 {
-	struct maildir_mailbox_list *list =
-		(struct maildir_mailbox_list *)_list;
 	struct stat st;
 	const char *path;
-
-	mailbox_list_clear_error(&list->list);
-
-	if (!mailbox_list_is_valid_existing_name(_list, name)) {
-		*status = MAILBOX_NAME_INVALID;
-		return 0;
-	}
 
 	path = mailbox_list_get_path(_list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
@@ -244,25 +233,12 @@ maildir_list_get_temp_prefix(struct mailbox_list *_list)
 	return list->temp_prefix;
 }
 
-static const char *
-maildir_list_join_refmask(struct mailbox_list *_list __attr_unused__,
-			  const char *ref, const char *mask)
-{
-	if (*ref != '\0') {
-		/* merge reference and mask */
-		mask = t_strconcat(ref, mask, NULL);
-	}
-	return mask;
-}
-
 static int maildir_list_set_subscribed(struct mailbox_list *_list,
 				       const char *name, bool set)
 {
 	struct maildir_mailbox_list *list =
 		(struct maildir_mailbox_list *)_list;
 	const char *path;
-
-	mailbox_list_clear_error(&list->list);
 
 	path = t_strconcat(_list->set.control_dir != NULL ?
 			   _list->set.control_dir : _list->set.root_dir,
@@ -388,12 +364,6 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 	int ret;
         bool found;
 
-	if (!mailbox_list_is_valid_existing_name(list, oldname) ||
-	    !mailbox_list_is_valid_create_name(list, newname)) {
-		mailbox_list_set_error(list, "Invalid mailbox name");
-		return -1;
-	}
-
 	/* NOTE: it's possible to rename a nonexisting mailbox which has
 	   children. In that case we should ignore the rename() error. */
 	oldpath = mailbox_list_get_path(list, oldname,
@@ -444,7 +414,7 @@ struct mailbox_list maildir_mailbox_list = {
 		maildir_list_get_path,
 		maildir_list_get_mailbox_name_status,
 		maildir_list_get_temp_prefix,
-		maildir_list_join_refmask,
+		NULL,
 		maildir_list_iter_init,
 		maildir_list_iter_next,
 		maildir_list_iter_deinit,
