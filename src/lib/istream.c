@@ -265,6 +265,15 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 	return -1;
 }
 
+void _i_stream_compress(struct _istream *stream)
+{
+	memmove(stream->w_buffer, stream->w_buffer + stream->skip,
+		stream->pos - stream->skip);
+	stream->pos -= stream->skip;
+
+	stream->skip = 0;
+}
+
 void _i_stream_grow_buffer(struct _istream *stream, size_t bytes)
 {
 	size_t old_size;

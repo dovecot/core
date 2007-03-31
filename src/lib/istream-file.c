@@ -41,15 +41,6 @@ static void _destroy(struct _iostream *stream)
 	p_free(_stream->iostream.pool, _stream->w_buffer);
 }
 
-static void i_stream_compress(struct _istream *stream)
-{
-	memmove(stream->w_buffer, stream->w_buffer + stream->skip,
-		stream->pos - stream->skip);
-	stream->pos -= stream->skip;
-
-	stream->skip = 0;
-}
-
 static ssize_t _read(struct _istream *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
@@ -64,7 +55,7 @@ static ssize_t _read(struct _istream *stream)
 	if (stream->pos == stream->buffer_size) {
 		if (stream->skip > 0) {
 			/* remove the unused bytes from beginning of buffer */
-                        i_stream_compress(stream);
+                        _i_stream_compress(stream);
 		} else if (stream->max_buffer_size == 0 ||
 			   stream->buffer_size < stream->max_buffer_size) {
 			/* buffer is full - grow it */

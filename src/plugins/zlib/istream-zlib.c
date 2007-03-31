@@ -40,15 +40,6 @@ static void _destroy(struct _iostream *stream __attr_unused__)
 	p_free(_stream->iostream.pool, _stream->w_buffer);
 }
 
-static void i_stream_compress(struct _istream *stream)
-{
-	memmove(stream->w_buffer, stream->w_buffer + stream->skip,
-		stream->pos - stream->skip);
-	stream->pos -= stream->skip;
-
-	stream->skip = 0;
-}
-
 static ssize_t _read(struct _istream *stream)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *)stream;
@@ -64,7 +55,7 @@ static ssize_t _read(struct _istream *stream)
 		if (!zstream->marked && stream->skip > 0) {
 			/* don't try to keep anything cached if we don't
 			   have a seek mark. */
-			i_stream_compress(stream);
+			_i_stream_compress(stream);
 		}
 
 		if (stream->max_buffer_size == 0 ||
@@ -76,7 +67,7 @@ static ssize_t _read(struct _istream *stream)
 		if (stream->pos == stream->buffer_size) {
 			if (stream->skip > 0) {
 				/* lose our buffer cache */
-				i_stream_compress(stream);
+				_i_stream_compress(stream);
 			}
 
 			if (stream->pos == stream->buffer_size)
@@ -165,7 +156,7 @@ static void _seek(struct _istream *stream, uoff_t v_offset, bool mark)
 	}
 
 	if (mark) {
-		i_stream_compress(stream);
+		_i_stream_compress(stream);
 		zstream->marked = TRUE;
 	}
 }
