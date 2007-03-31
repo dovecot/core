@@ -36,11 +36,12 @@ struct istream *i_stream_create_from_data(pool_t pool, const void *data,
 	stream->iostream.close = _close;
 	stream->iostream.destroy = _destroy;
 
-	stream->statbuf.st_size = size;
 	stream->read = _read;
 	stream->seek = _seek;
 
 	stream->istream.blocking = TRUE;
 	stream->istream.seekable = TRUE;
-	return _i_stream_create(stream, pool, -1, 0);
+	(void)_i_stream_create(stream, pool, -1, 0);
+	stream->statbuf.st_size = size;
+	return &stream->istream;
 }
