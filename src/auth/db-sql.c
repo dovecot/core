@@ -22,7 +22,6 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(user_query),
  	DEF_STR(update_query),
 	DEF_STR(default_pass_scheme),
-	DEF_INT(allow_multiple_rows),
 
 	{ 0, NULL, 0 }
 };
@@ -33,8 +32,7 @@ struct sql_settings default_sql_settings = {
 	MEMBER(password_query) "SELECT password FROM users WHERE userid = '%u'",
 	MEMBER(user_query) "SELECT home, uid, gid FROM users WHERE userid = '%u'",
 	MEMBER(update_query) "UPDATE users SET password = '%w' WHERE userid = '%u'",
-	MEMBER(default_pass_scheme) "PLAIN-MD5",
-	MEMBER(allow_multiple_rows) FALSE
+	MEMBER(default_pass_scheme) "PLAIN-MD5"
 };
 
 static struct sql_connection *connections = NULL;

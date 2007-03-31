@@ -10,8 +10,6 @@ struct sql_settings {
 	const char *user_query;
 	const char *update_query;
 	const char *default_pass_scheme;
-
-	bool allow_multiple_rows;
 };
 
 struct sql_connection {

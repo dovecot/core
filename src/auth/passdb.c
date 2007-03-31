@@ -118,19 +118,21 @@ passdb_get_credentials(struct auth_request *auth_request,
 	return password;
 }
 
-bool passdb_handle_credentials(enum passdb_result result,
+void passdb_handle_credentials(enum passdb_result result,
 			       const char *password, const char *scheme,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request)
 {
-	if (result != PASSDB_RESULT_OK)
-		return callback(result, NULL, auth_request);
+	if (result != PASSDB_RESULT_OK) {
+		callback(result, NULL, auth_request);
+		return;
+	}
 
 	password = password == NULL ? NULL :
 		passdb_get_credentials(auth_request, password, scheme);
 	if (password == NULL)
 		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
-	return callback(result, password, auth_request);
+	callback(result, password, auth_request);
 }
 
 struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,

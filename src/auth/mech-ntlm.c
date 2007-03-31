@@ -61,7 +61,7 @@ static int lm_verify_credentials(struct ntlm_auth_request *request,
 	return memcmp(lm_response, client_response, LM_RESPONSE_SIZE) == 0;
 }
 
-static bool
+static void
 lm_credentials_callback(enum passdb_result result,
 			const char *credentials,
 			struct auth_request *auth_request)
@@ -71,10 +71,10 @@ lm_credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (!lm_verify_credentials(request, credentials))
-			return FALSE;
-
-		auth_request_success(auth_request, NULL, 0);
+		if (lm_verify_credentials(request, credentials))
+			auth_request_success(auth_request, NULL, 0);
+		else
+			auth_request_fail(auth_request);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -83,7 +83,6 @@ lm_credentials_callback(enum passdb_result result,
 		auth_request_fail(auth_request);
 		break;
 	}
-	return TRUE;
 }
 
 static int ntlm_verify_credentials(struct ntlm_auth_request *request,
@@ -146,7 +145,7 @@ static int ntlm_verify_credentials(struct ntlm_auth_request *request,
 	}
 }
 
-static bool
+static void
 ntlm_credentials_callback(enum passdb_result result,
 			  const char *credentials,
 			  struct auth_request *auth_request)
@@ -160,14 +159,16 @@ ntlm_credentials_callback(enum passdb_result result,
 		ret = ntlm_verify_credentials(request, credentials);
 		if (ret > 0) {
 			auth_request_success(auth_request, NULL, 0);
-			return TRUE;
+			return;
 		}
-		if (ret < 0)
-			return FALSE;
+		if (ret < 0) {
+			auth_request_fail(auth_request);
+			return;
+		}
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
-		return TRUE;
+		return;
 	default:
 		break;
 	}
@@ -176,7 +177,6 @@ ntlm_credentials_callback(enum passdb_result result,
 	   try with LM credentials */
 	auth_request_lookup_credentials(auth_request, PASSDB_CREDENTIALS_LANMAN,
 					lm_credentials_callback);
-	return TRUE;
 }
 
 static void

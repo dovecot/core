@@ -453,7 +453,7 @@ static bool verify_credentials(struct rpa_auth_request *request,
 	return memcmp(response, request->user_response, 16) == 0;
 }
 
-static bool
+static void
 rpa_credentials_callback(enum passdb_result result,
 			 const char *credentials,
 			 struct auth_request *auth_request)
@@ -466,13 +466,14 @@ rpa_credentials_callback(enum passdb_result result,
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		if (!verify_credentials(request, credentials))
-			return FALSE;
-
-		token4 = mech_rpa_build_token4(request, &token4_size);
-		auth_request->callback(auth_request,
-				       AUTH_CLIENT_RESULT_CONTINUE,
-				       token4, token4_size);
-		request->phase = 2;
+			auth_request_fail(auth_request);
+		else {
+			token4 = mech_rpa_build_token4(request, &token4_size);
+			auth_request->callback(auth_request,
+					       AUTH_CLIENT_RESULT_CONTINUE,
+					       token4, token4_size);
+			request->phase = 2;
+		}
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -481,7 +482,6 @@ rpa_credentials_callback(enum passdb_result result,
 		auth_request_fail(auth_request);
 		break;
 	}
-	return TRUE;
 }
 
 static void

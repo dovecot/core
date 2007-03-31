@@ -52,131 +52,76 @@ static void sql_query_save_results(struct sql_result *result,
 	}
 }
 
-static int sql_query_next_row(struct sql_result *result,
-			      struct passdb_sql_request *sql_request)
-{
-	struct auth_request *auth_request = sql_request->auth_request;
-	struct passdb_module *_module = auth_request->passdb->passdb;
-	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
-	int ret;
-
-	ret = sql_result_next_row(result);
-	if (ret <= 0) {
-		if (ret == 0)
-			return 0;
-
-		auth_request_log_error(auth_request, "sql",
-				       "Password query failed: %s",
-				       sql_result_get_error(result));
-		return -1;
-	}
-
-	sql_query_save_results(result, sql_request);
-
-	/* Note that we really want to check if the password field is
-	   found. Just checking if password is set isn't enough,
-	   because with proxies we might want to return NULL as
-	   password. */
-	if (sql_result_find_field(result, "password") < 0) {
-		auth_request_log_error(auth_request, "sql",
-			"Password query must return a field named 'password'");
-	}
-
-	if (!module->conn->set.allow_multiple_rows) {
-		if (sql_result_next_row(result) > 0) {
-			auth_request_log_error(auth_request, "sql",
-				"Password query returned multiple matches "
-				"and allow_multiple_rows=no");
-			return -1;
-		}
-	}
-	return 1;
-}
-
 static void sql_query_callback(struct sql_result *result,
 			       struct passdb_sql_request *sql_request)
 {
 	struct auth_request *auth_request = sql_request->auth_request;
 	enum passdb_result passdb_result;
 	const char *user, *password, *scheme;
-	unsigned int row;
 	int ret;
-	bool send_last = FALSE;
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-
 	user = auth_request->user;
-	for (row = 0;; row++) {
-		if (row > 0)
-			auth_request_reset_passdb_lookup(auth_request);
+	password = NULL;
 
-		ret = sql_query_next_row(result, sql_request);
-		if (row > 0 && ret == 0) {
-			/* no more rows. use the last result. */
-			send_last = TRUE;
-			break;
-		}
+	ret = sql_result_next_row(result);
+	if (ret < 0) {
+		auth_request_log_error(auth_request, "sql",
+				       "Password query failed: %s",
+				       sql_result_get_error(result));
+	} else if (ret == 0) {
+		auth_request_log_info(auth_request, "sql", "unknown user");
+		passdb_result = PASSDB_RESULT_USER_UNKNOWN;
+	} else {
+		sql_query_save_results(result, sql_request);
 
-		switch (ret) {
-		case 1:
+		/* Note that we really want to check if the password field is
+		   found. Just checking if password is set isn't enough,
+		   because with proxies we might want to return NULL as
+		   password. */
+		if (sql_result_find_field(result, "password") < 0) {
+			auth_request_log_error(auth_request, "sql",
+				"Password query must return a field named "
+				"'password'");
+		} else if (sql_result_next_row(result) > 0) {
+			auth_request_log_error(auth_request, "sql",
+				"Password query returned multiple matches");
+		} else {
 			/* passdb_password may change on the way,
 			   so we'll need to strdup. */
 			password = t_strdup(auth_request->passdb_password);
 			if (password == NULL)
 				auth_request->no_password = TRUE;
 			passdb_result = PASSDB_RESULT_OK;
-			break;
-		case 0:
-			auth_request_log_info(auth_request, "sql",
-					      "unknown user");
-			passdb_result = PASSDB_RESULT_USER_UNKNOWN;
-			password = NULL;
-			break;
-		default:
-			passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-			password = NULL;
-			break;
 		}
-
-		scheme = password_get_scheme(&password);
-		/* auth_request_set_field() sets scheme */
-		i_assert(password == NULL || scheme != NULL);
-
-		if (auth_request->credentials != -1) {
-			lookup_credentials_callback_t *callback =
-				sql_request->callback.lookup_credentials;
-
-			if (passdb_handle_credentials(passdb_result, password,
-						      scheme, callback,
-						      auth_request))
-				break;
-		} else {
-			/* verify plain */
-			if (password == NULL)
-				break;
-
-			if (auth_request_password_verify(auth_request,
-						auth_request->mech_password,
-						password, scheme, "sql") > 0) {
-				passdb_result = PASSDB_RESULT_OK;
-				break;
-			}
-			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-		}
-
-		/* see if there's another row */
 	}
 
-	if (auth_request->credentials == -1)
+	scheme = password_get_scheme(&password);
+	/* auth_request_set_field() sets scheme */
+	i_assert(password == NULL || scheme != NULL);
+
+	if (auth_request->credentials != -1) {
+		passdb_handle_credentials(passdb_result, password, scheme,
+			sql_request->callback.lookup_credentials,
+			auth_request);
+		auth_request_unref(&auth_request);
+		return;
+	}
+
+	/* verify plain */
+	if (password == NULL) {
 		sql_request->callback.verify_plain(passdb_result, auth_request);
-	else if (send_last) {
-		lookup_credentials_callback_t *callback =
-			sql_request->callback.lookup_credentials;
-
-		if (!passdb_handle_credentials(PASSDB_RESULT_END_OF_LIST, NULL,
-					       NULL, callback, auth_request))
-			i_unreached();
+		auth_request_unref(&auth_request);
+		return;
 	}
+
+	ret = auth_request_password_verify(auth_request,
+					   auth_request->mech_password,
+					   password, scheme, "sql");
+
+	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
+					   PASSDB_RESULT_PASSWORD_MISMATCH,
+					   auth_request);
 	auth_request_unref(&auth_request);
 }
 

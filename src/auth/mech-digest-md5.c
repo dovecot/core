@@ -518,7 +518,7 @@ static bool parse_digest_response(struct digest_auth_request *request,
 	return !failed;
 }
 
-static bool credentials_callback(enum passdb_result result,
+static void credentials_callback(enum passdb_result result,
 				 const char *credentials,
 				 struct auth_request *auth_request)
 {
@@ -527,8 +527,10 @@ static bool credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (!verify_credentials(request, credentials))
-			return FALSE;
+		if (!verify_credentials(request, credentials)) {
+			auth_request_fail(auth_request);
+			return;
+		}
 
 		request->authenticated = TRUE;
 		auth_request->callback(auth_request,
@@ -543,7 +545,6 @@ static bool credentials_callback(enum passdb_result result,
 		auth_request_fail(auth_request);
 		break;
 	}
-	return TRUE;
 }
 
 static void
