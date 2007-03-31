@@ -88,8 +88,9 @@ int mailbox_list_init(const char *driver,
 		return -1;
 	}
 
-	i_assert(*set->root_dir != '\0');
-	i_assert(*set->subscription_fname != '\0');
+	i_assert(set->root_dir == NULL || *set->root_dir != '\0');
+	i_assert(set->subscription_fname == NULL ||
+		 *set->subscription_fname != '\0');
 
 	class_p = array_idx(&mailbox_list_drivers, idx);
 	list = (*class_p)->v.alloc();
