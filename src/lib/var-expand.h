@@ -15,4 +15,7 @@ void var_expand(string_t *dest, const char *str,
    that are before it. The string should be the data after the '%' character. */
 char var_get_key(const char *str);
 
+const struct var_expand_table *
+var_expand_table_build(char key, const char *value, char key2, ...);
+
 #endif

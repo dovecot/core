@@ -1,6 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "md5.h"
 #include "hash.h"
 #include "hex-binary.h"
@@ -265,4 +266,31 @@ char var_get_key(const char *str)
 	} while (m->key != '\0');
 
 	return *str;
+}
+
+const struct var_expand_table *
+var_expand_table_build(char key, const char *value, char key2, ...)
+{
+	ARRAY_DEFINE(variables, struct var_expand_table);
+	struct var_expand_table *var;
+	va_list args;
+
+	i_assert(key != '\0');
+
+	t_array_init(&variables, 16);
+	var = array_append_space(&variables);
+	var->key = key;
+	var->value = value;
+
+	va_start(args, key2);
+	for (key = key2; key != '\0'; key = va_arg(args, int)) {
+		var = array_append_space(&variables);
+		var->key = key;
+		var->value = va_arg(args, const char *);
+	}
+	va_end(args);
+
+	/* 0, NULL entry */
+	(void)array_append_space(&variables);
+	return array_idx(&variables, 0);
 }
