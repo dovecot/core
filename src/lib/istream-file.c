@@ -16,7 +16,6 @@
 struct file_istream {
 	struct _istream istream;
 
-	size_t max_buffer_size;
 	uoff_t skip_left;
 
 	unsigned int file:1;
@@ -40,38 +39,6 @@ static void _destroy(struct _iostream *stream)
 	struct _istream *_stream = (struct _istream *) stream;
 
 	p_free(_stream->iostream.pool, _stream->w_buffer);
-}
-
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
-{
-	struct file_istream *fstream = (struct file_istream *) stream;
-
-	fstream->max_buffer_size = max_size;
-}
-
-static void i_stream_grow_buffer(struct _istream *stream, size_t bytes)
-{
-	struct file_istream *fstream = (struct file_istream *) stream;
-	size_t old_size;
-
-	old_size = stream->buffer_size;
-
-	stream->buffer_size = stream->pos + bytes;
-	if (stream->buffer_size <= I_STREAM_MIN_SIZE)
-		stream->buffer_size = I_STREAM_MIN_SIZE;
-	else {
-		stream->buffer_size =
-			pool_get_exp_grown_size(stream->iostream.pool,
-						old_size, stream->buffer_size);
-	}
-
-	if (fstream->max_buffer_size > 0 &&
-	    stream->buffer_size > fstream->max_buffer_size)
-		stream->buffer_size = fstream->max_buffer_size;
-
-	stream->buffer = stream->w_buffer =
-		p_realloc(stream->iostream.pool, stream->w_buffer,
-			  old_size, stream->buffer_size);
 }
 
 static void i_stream_compress(struct _istream *stream)
@@ -98,10 +65,10 @@ static ssize_t _read(struct _istream *stream)
 		if (stream->skip > 0) {
 			/* remove the unused bytes from beginning of buffer */
                         i_stream_compress(stream);
-		} else if (fstream->max_buffer_size == 0 ||
-			   stream->buffer_size < fstream->max_buffer_size) {
+		} else if (stream->max_buffer_size == 0 ||
+			   stream->buffer_size < stream->max_buffer_size) {
 			/* buffer is full - grow it */
-			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
+			_i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
 		}
 
 		if (stream->pos == stream->buffer_size)
@@ -210,13 +177,12 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 	struct stat st;
 
 	fstream = p_new(pool, struct file_istream, 1);
-	fstream->max_buffer_size = max_buffer_size;
 	fstream->autoclose_fd = autoclose_fd;
 
 	fstream->istream.iostream.close = _close;
 	fstream->istream.iostream.destroy = _destroy;
-	fstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
 
+	fstream->istream.max_buffer_size = max_buffer_size;
 	fstream->istream.read = _read;
 	fstream->istream.seek = _seek;
 	fstream->istream.sync = _sync;

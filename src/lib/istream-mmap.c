@@ -15,7 +15,6 @@ struct mmap_istream {
 
 	void *mmap_base;
 	off_t mmap_offset;
-	size_t mmap_block_size;
 	uoff_t v_size;
 
 	unsigned int autoclose_fd:1;
@@ -55,20 +54,10 @@ static void _destroy(struct _iostream *stream)
 	i_stream_munmap(mstream);
 }
 
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+static size_t mstream_get_mmap_block_size(struct _istream *stream)
 {
-	struct mmap_istream *mstream = (struct mmap_istream *) stream;
-
-	/* allow only full page sizes */
-	if (max_size < mmap_get_page_size())
-		mstream->mmap_block_size = mmap_get_page_size();
-	else {
-		if (max_size % mmap_get_page_size() != 0) {
-			max_size += mmap_get_page_size() -
-				(max_size % mmap_get_page_size());
-		}
-		mstream->mmap_block_size = max_size;
-	}
+	return (stream->max_buffer_size + mmap_get_page_size() - 1) & ~
+		(mmap_get_page_size() - 1);
 }
 
 static ssize_t _read(struct _istream *stream)
@@ -105,7 +94,7 @@ static ssize_t _read(struct _istream *stream)
 	}
 
 	top = mstream->v_size - mstream->mmap_offset;
-	stream->buffer_size = I_MIN(top, mstream->mmap_block_size);
+	stream->buffer_size = I_MIN(top, mstream_get_mmap_block_size(stream));
 
 	i_assert((uoff_t)mstream->mmap_offset + stream->buffer_size <=
 		 mstream->v_size);
@@ -219,14 +208,13 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 	}
 
 	mstream = p_new(pool, struct mmap_istream, 1);
-        _set_max_buffer_size(&mstream->istream.iostream, block_size);
 	mstream->autoclose_fd = autoclose_fd;
 	mstream->v_size = v_size;
 
 	mstream->istream.iostream.close = _close;
 	mstream->istream.iostream.destroy = _destroy;
-	mstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
 
+	mstream->istream.max_buffer_size = block_size;
 	mstream->istream.read = _read;
 	mstream->istream.seek = _seek;
 	mstream->istream.sync = _sync;

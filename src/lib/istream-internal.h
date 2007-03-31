@@ -18,17 +18,21 @@ struct _istream {
 	struct istream istream;
 
 	int fd;
-	const unsigned char *buffer;
-	unsigned char *w_buffer; /* may be NULL */
-	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
-	size_t buffer_size;
 	uoff_t abs_start_offset;
 	struct stat statbuf;
 
+	const unsigned char *buffer;
+	unsigned char *w_buffer; /* may be NULL */
+
+	size_t buffer_size, max_buffer_size;
 	size_t skip, pos;
+
+	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
 };
 
 struct istream *_i_stream_create(struct _istream *_buf, pool_t pool, int fd,
 				 uoff_t abs_start_offset);
+
+void _i_stream_grow_buffer(struct _istream *stream, size_t bytes);
 
 #endif

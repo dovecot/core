@@ -5,6 +5,8 @@
 #include "str.h"
 #include "istream-internal.h"
 
+#define I_STREAM_MIN_SIZE 512
+
 void i_stream_destroy(struct istream **stream)
 {
 	i_stream_close(*stream);
@@ -263,12 +265,54 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 	return -1;
 }
 
+void _i_stream_grow_buffer(struct _istream *stream, size_t bytes)
+{
+	size_t old_size;
+
+	old_size = stream->buffer_size;
+
+	stream->buffer_size = stream->pos + bytes;
+	if (stream->buffer_size <= I_STREAM_MIN_SIZE)
+		stream->buffer_size = I_STREAM_MIN_SIZE;
+	else {
+		stream->buffer_size =
+			pool_get_exp_grown_size(stream->iostream.pool,
+						old_size, stream->buffer_size);
+	}
+
+	if (stream->max_buffer_size > 0 &&
+	    stream->buffer_size > stream->max_buffer_size)
+		stream->buffer_size = stream->max_buffer_size;
+
+	stream->buffer = stream->w_buffer =
+		p_realloc(stream->iostream.pool, stream->w_buffer,
+			  old_size, stream->buffer_size);
+}
+
+static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
+{
+	struct _istream *_stream = (struct _istream *) stream;
+
+	_stream->max_buffer_size = max_size;
+}
+
+static const struct stat *
+_stat(struct _istream *stream, bool exact __attr_unused__)
+{
+	return &stream->statbuf;
+}
+
 struct istream *_i_stream_create(struct _istream *_stream, pool_t pool, int fd,
 				 uoff_t abs_start_offset)
 {
 	_stream->fd = fd;
 	_stream->abs_start_offset = abs_start_offset;
 	_stream->istream.real_stream = _stream;
+
+	if (_stream->stat == NULL)
+		_stream->stat = _stat;
+	if (_stream->iostream.set_max_buffer_size == NULL)
+		_stream->iostream.set_max_buffer_size = _set_max_buffer_size;
 
 	memset(&_stream->statbuf, 0, sizeof(_stream->statbuf));
 	_stream->statbuf.st_size = -1;
