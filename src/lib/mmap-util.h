@@ -37,6 +37,6 @@ void *mremap_anon(void *old_address, size_t old_size, size_t new_size,
 		  unsigned long flags);
 int munmap_anon(void *start, size_t length);
 
-size_t mmap_get_page_size(void);
+size_t mmap_get_page_size(void) __attr_const__;
 
 #endif
