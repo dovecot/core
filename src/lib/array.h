@@ -45,13 +45,12 @@
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array) \
 	(typeof(*(array)->v_modifiable))
 #  define ARRAY_TYPE_CHECK(array, data) \
-	typeof(const typeof(**(array)->v_modifiable) *) \
-		__tmp_array_data2 __attr_unused__ = \
-			(typeof(const typeof(typeof(*(data)) *)))NULL;
+	COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		**(array)->v_modifiable, *data)
 #else
 #  define ARRAY_TYPE_CAST_CONST(array)
 #  define ARRAY_TYPE_CAST_MODIFIABLE(array)
-#  define ARRAY_TYPE_CHECK(array, data)
+#  define ARRAY_TYPE_CHECK(array, data) 0
 #endif
 
 static inline void
@@ -107,10 +106,9 @@ _array_append(struct array *array, const void *data, unsigned int count)
 	buffer_append(array->buffer, data, count * array->element_size);
 }
 
-#define array_append(array, data, count) STMT_START { \
-	ARRAY_TYPE_CHECK(array, data) \
-	_array_append(&(array)->arr, data, count); \
-} STMT_END
+#define array_append(array, data, count) \
+	_array_append(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
+		data, count)
 
 static inline void
 _array_append_array(struct array *dest_array, const struct array *src_array)
@@ -129,10 +127,9 @@ _array_insert(struct array *array, unsigned int idx,
 		      data, count * array->element_size);
 }
 
-#define array_insert(array, idx, data, count) STMT_START { \
-	ARRAY_TYPE_CHECK(array, data) \
-	_array_insert(&(array)->arr, idx, data, count); \
-	} STMT_END
+#define array_insert(array, idx, data, count) \
+	_array_insert(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
+		idx, data, count)
 
 static inline void
 _array_delete(struct array *array, unsigned int idx, unsigned int count)
@@ -200,10 +197,8 @@ _array_idx_set(struct array *array, unsigned int idx, const void *data)
 	}
 	buffer_write(array->buffer, pos, data, array->element_size);
 }
-#define array_idx_set(array, idx, data) STMT_START { \
-	ARRAY_TYPE_CHECK(array, data) \
-	_array_idx_set(&(array)->arr, idx, data); \
-	} STMT_END
+#define array_idx_set(array, idx, data) \
+	_array_idx_set(&(array)->arr + ARRAY_TYPE_CHECK(array, data), idx, data)
 
 static inline void
 _array_idx_clear(struct array *array, unsigned int idx)
