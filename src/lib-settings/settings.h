@@ -13,6 +13,19 @@ struct setting_def {
 	size_t offset;
 };
 
+#define DEF_STRUCT_STR(name, struct_name) \
+	{ SET_STR + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		((struct struct_name *)0)->name, const char *), \
+	  #name, offsetof(struct struct_name, name) }
+#define DEF_STRUCT_INT(name, struct_name) \
+	{ SET_INT + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		((struct struct_name *)0)->name, unsigned int), \
+	  #name, offsetof(struct struct_name, name) }
+#define DEF_STRUCT_BOOL(name, struct_name) \
+	{ SET_BOOL + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		((struct struct_name *)0)->name, bool), \
+	  #name, offsetof(struct struct_name, name) }
+
 /* Return error message. When closing section, key = NULL, value = NULL. */
 typedef const char *settings_callback_t(const char *key, const char *value,
 					void *context);

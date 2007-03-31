@@ -41,32 +41,33 @@
 #  define LDAP_OPT_SUCCESS LDAP_SUCCESS
 #endif
 
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct ldap_settings, name) }
+#define DEF_STR(name) DEF_STRUCT_STR(name, ldap_settings)
+#define DEF_INT(name) DEF_STRUCT_INT(name, ldap_settings)
+#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, ldap_settings)
 
 static struct setting_def setting_defs[] = {
-	DEF(SET_STR, hosts),
-	DEF(SET_STR, uris),
-	DEF(SET_STR, dn),
-	DEF(SET_STR, dnpass),
-	DEF(SET_BOOL, auth_bind),
-	DEF(SET_STR, auth_bind_userdn),
-	DEF(SET_BOOL, tls),
-	DEF(SET_BOOL, sasl_bind),
-	DEF(SET_STR, sasl_mech),
-	DEF(SET_STR, sasl_realm),
-	DEF(SET_STR, sasl_authz_id),
-	DEF(SET_STR, deref),
-	DEF(SET_STR, scope),
-	DEF(SET_STR, base),
-	DEF(SET_INT, ldap_version),
-	DEF(SET_STR, user_attrs),
-	DEF(SET_STR, user_filter),
-	DEF(SET_STR, pass_attrs),
-	DEF(SET_STR, pass_filter),
-	DEF(SET_STR, default_pass_scheme),
-	DEF(SET_STR, user_global_uid),
-	DEF(SET_STR, user_global_gid),
+	DEF_STR(hosts),
+	DEF_STR(uris),
+	DEF_STR(dn),
+	DEF_STR(dnpass),
+	DEF_BOOL(auth_bind),
+	DEF_STR(auth_bind_userdn),
+	DEF_BOOL(tls),
+	DEF_BOOL(sasl_bind),
+	DEF_STR(sasl_mech),
+	DEF_STR(sasl_realm),
+	DEF_STR(sasl_authz_id),
+	DEF_STR(deref),
+	DEF_STR(scope),
+	DEF_STR(base),
+	DEF_INT(ldap_version),
+	DEF_STR(user_attrs),
+	DEF_STR(user_filter),
+	DEF_STR(pass_attrs),
+	DEF_STR(pass_filter),
+	DEF_STR(default_pass_scheme),
+	DEF_STR(user_global_uid),
+	DEF_STR(user_global_gid),
 
 	{ 0, NULL, 0 }
 };

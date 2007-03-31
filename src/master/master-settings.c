@@ -51,99 +51,103 @@ struct settings_parse_ctx {
 
 #include "master-settings-defs.c"
 
-#undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct auth_settings, name) }
+#undef DEF_STR
+#undef DEF_INT
+#undef DEF_BOOL
+#define DEF_STR(name) DEF_STRUCT_STR(name, auth_settings)
+#define DEF_INT(name) DEF_STRUCT_INT(name, auth_settings)
+#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, auth_settings)
 
 static struct setting_def auth_setting_defs[] = {
-	DEF(SET_STR, mechanisms),
-	DEF(SET_STR, realms),
-	DEF(SET_STR, default_realm),
-	DEF(SET_INT, cache_size),
-	DEF(SET_INT, cache_ttl),
-	DEF(SET_STR, executable),
-	DEF(SET_STR, user),
-	DEF(SET_STR, chroot),
-	DEF(SET_STR, username_chars),
-	DEF(SET_STR, username_translation),
-	DEF(SET_STR, username_format),
-	DEF(SET_STR, master_user_separator),
-	DEF(SET_STR, anonymous_username),
-	DEF(SET_STR, krb5_keytab),
-	DEF(SET_STR, gssapi_hostname),
+	DEF_STR(mechanisms),
+	DEF_STR(realms),
+	DEF_STR(default_realm),
+	DEF_INT(cache_size),
+	DEF_INT(cache_ttl),
+	DEF_STR(executable),
+	DEF_STR(user),
+	DEF_STR(chroot),
+	DEF_STR(username_chars),
+	DEF_STR(username_translation),
+	DEF_STR(username_format),
+	DEF_STR(master_user_separator),
+	DEF_STR(anonymous_username),
+	DEF_STR(krb5_keytab),
+	DEF_STR(gssapi_hostname),
 
-	DEF(SET_BOOL, verbose),
-	DEF(SET_BOOL, debug),
-	DEF(SET_BOOL, debug_passwords),
-	DEF(SET_BOOL, ssl_require_client_cert),
-	DEF(SET_BOOL, ssl_username_from_cert),
+	DEF_BOOL(verbose),
+	DEF_BOOL(debug),
+	DEF_BOOL(debug_passwords),
+	DEF_BOOL(ssl_require_client_cert),
+	DEF_BOOL(ssl_username_from_cert),
 
-	DEF(SET_INT, count),
-	DEF(SET_INT, worker_max_count),
-	DEF(SET_INT, process_size),
+	DEF_INT(count),
+	DEF_INT(worker_max_count),
+	DEF_INT(process_size),
 
 	{ 0, NULL, 0 }
 };
 
-#undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct socket_settings, name) }
+#undef DEF_STR
+#undef DEF_INT
+#undef DEF_BOOL
+#define DEF_STR(name) DEF_STRUCT_STR(name, socket_settings)
+#define DEF_INT(name) DEF_STRUCT_INT(name, socket_settings)
+#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, socket_settings)
 
 static struct setting_def socket_setting_defs[] = {
-	DEF(SET_STR, path),
-	DEF(SET_INT, mode),
-	DEF(SET_STR, user),
-	DEF(SET_STR, group),
+	DEF_STR(path),
+	DEF_INT(mode),
+	DEF_STR(user),
+	DEF_STR(group),
 
 	{ 0, NULL, 0 }
 };
-
-#undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct auth_socket_settings, name) }
 
 static struct setting_def auth_socket_setting_defs[] = {
-	DEF(SET_STR, type),
+	DEF_STRUCT_STR(type, auth_socket_settings),
 
 	{ 0, NULL, 0 }
 };
 
-#undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct auth_passdb_settings, name) }
+#undef DEF_STR
+#undef DEF_INT
+#undef DEF_BOOL
+#define DEF_STR(name) DEF_STRUCT_STR(name, auth_passdb_settings)
+#define DEF_INT(name) DEF_STRUCT_INT(name, auth_passdb_settings)
+#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, auth_passdb_settings)
 
 static struct setting_def auth_passdb_setting_defs[] = {
-	DEF(SET_STR, driver),
-	DEF(SET_STR, args),
-	DEF(SET_BOOL, deny),
-	DEF(SET_BOOL, pass),
-	DEF(SET_BOOL, master),
+	DEF_STR(driver),
+	DEF_STR(args),
+	DEF_BOOL(deny),
+	DEF_BOOL(pass),
+	DEF_BOOL(master),
 
 	{ 0, NULL, 0 }
 };
-
-#undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct auth_userdb_settings, name) }
 
 static struct setting_def auth_userdb_setting_defs[] = {
-	DEF(SET_STR, driver),
-	DEF(SET_STR, args),
+	DEF_STRUCT_STR(driver, auth_userdb_settings),
+	DEF_STRUCT_STR(args, auth_userdb_settings),
 
 	{ 0, NULL, 0 }
 };
 
-#undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct namespace_settings, name) }
+#undef DEF_STR
+#undef DEF_INT
+#undef DEF_BOOL
+#define DEF_STR(name) DEF_STRUCT_STR(name, namespace_settings)
+#define DEF_INT(name) DEF_STRUCT_INT(name, namespace_settings)
+#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, namespace_settings)
 
 static struct setting_def namespace_setting_defs[] = {
-	DEF(SET_STR, type),
-	DEF(SET_STR, separator),
-	DEF(SET_STR, prefix),
-	DEF(SET_STR, location),
-	DEF(SET_BOOL, inbox),
-	DEF(SET_BOOL, hidden),
+	DEF_STR(type),
+	DEF_STR(separator),
+	DEF_STR(prefix),
+	DEF_STR(location),
+	DEF_BOOL(inbox),
+	DEF_BOOL(hidden),
 
 	{ 0, NULL, 0 }
 };

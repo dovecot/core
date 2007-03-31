@@ -11,16 +11,18 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#define DEF(type, name) { type, #name, offsetof(struct sql_settings, name) }
+#define DEF_STR(name) DEF_STRUCT_STR(name, sql_settings)
+#define DEF_INT(name) DEF_STRUCT_INT(name, sql_settings)
+#define DEF_BOOL(name) DEF_STRUCT_BOOL(name, sql_settings)
 
 static struct setting_def setting_defs[] = {
-	DEF(SET_STR, driver),
-	DEF(SET_STR, connect),
-	DEF(SET_STR, password_query),
-	DEF(SET_STR, user_query),
- 	DEF(SET_STR, update_query),
-	DEF(SET_STR, default_pass_scheme),
-	DEF(SET_BOOL, allow_multiple_rows),
+	DEF_STR(driver),
+	DEF_STR(connect),
+	DEF_STR(password_query),
+	DEF_STR(user_query),
+ 	DEF_STR(update_query),
+	DEF_STR(default_pass_scheme),
+	DEF_INT(allow_multiple_rows),
 
 	{ 0, NULL, 0 }
 };
