@@ -11,8 +11,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define I_STREAM_MIN_SIZE 4096
-
 struct file_istream {
 	struct _istream istream;
 

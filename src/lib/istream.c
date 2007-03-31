@@ -5,8 +5,6 @@
 #include "str.h"
 #include "istream-internal.h"
 
-#define I_STREAM_MIN_SIZE 512
-
 void i_stream_destroy(struct istream **stream)
 {
 	i_stream_close(*stream);

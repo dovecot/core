@@ -4,6 +4,8 @@
 #include "istream.h"
 #include "iostream-internal.h"
 
+#define I_STREAM_MIN_SIZE 4096
+
 struct _istream {
 /* inheritance: */
 	struct _iostream iostream;

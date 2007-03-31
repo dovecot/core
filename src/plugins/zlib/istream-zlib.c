@@ -10,8 +10,6 @@
    this pretty large */
 #define DEFAULT_MAX_BUFFER_SIZE (1024*1024)
 
-#define I_STREAM_MIN_SIZE 4096
-
 struct zlib_istream {
 	struct _istream istream;
 
