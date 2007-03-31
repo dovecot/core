@@ -118,9 +118,6 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	if (mail_set_seq(dest_mail, ctx->seq) < 0)
 		i_unreached();
 
-	if (t->first_saved_mail_seq == 0)
-		t->first_saved_mail_seq = ctx->seq;
-
 	*ctx_r = &ctx->ctx;
 	return ctx->failed ? -1 : 0;
 }
