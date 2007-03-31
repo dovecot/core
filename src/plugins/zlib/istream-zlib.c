@@ -15,8 +15,6 @@
 struct zlib_istream {
 	struct _istream istream;
 
-	size_t max_buffer_size;
-
 	int fd;
 	gzFile *file;
 	uoff_t cached_size;
@@ -40,38 +38,6 @@ static void _destroy(struct _iostream *stream __attr_unused__)
 	struct _istream *_stream = (struct _istream *) stream;
 
 	p_free(_stream->iostream.pool, _stream->w_buffer);
-}
-
-static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
-{
-	struct zlib_istream *zstream = (struct zlib_istream *)stream;
-
-	zstream->max_buffer_size = max_size;
-}
-
-static void i_stream_grow_buffer(struct _istream *stream, size_t bytes)
-{
-	struct zlib_istream *zstream = (struct zlib_istream *)stream;
-	size_t old_size;
-
-	old_size = stream->buffer_size;
-
-	stream->buffer_size = stream->pos + bytes;
-	if (stream->buffer_size <= I_STREAM_MIN_SIZE)
-		stream->buffer_size = I_STREAM_MIN_SIZE;
-	else {
-		stream->buffer_size =
-			pool_get_exp_grown_size(stream->iostream.pool,
-						old_size, stream->buffer_size);
-	}
-
-	if (zstream->max_buffer_size > 0 &&
-	    stream->buffer_size > zstream->max_buffer_size)
-		stream->buffer_size = zstream->max_buffer_size;
-
-	stream->buffer = stream->w_buffer =
-		p_realloc(stream->iostream.pool, stream->w_buffer,
-			  old_size, stream->buffer_size);
 }
 
 static void i_stream_compress(struct _istream *stream)
@@ -101,10 +67,10 @@ static ssize_t _read(struct _istream *stream)
 			i_stream_compress(stream);
 		}
 
-		if (zstream->max_buffer_size == 0 ||
-		    stream->buffer_size < zstream->max_buffer_size) {
+		if (stream->max_buffer_size == 0 ||
+		    stream->buffer_size < stream->max_buffer_size) {
 			/* buffer is full - grow it */
-			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
+			_i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
 		}
 
 		if (stream->pos == stream->buffer_size) {
@@ -247,12 +213,11 @@ struct istream *i_stream_create_zlib(int fd, pool_t pool)
 	zstream->fd = fd;
 	zstream->file = gzdopen(fd, "r");
 	zstream->cached_size = (uoff_t)-1;
-	zstream->max_buffer_size = DEFAULT_MAX_BUFFER_SIZE;
 
 	zstream->istream.iostream.close = _close;
 	zstream->istream.iostream.destroy = _destroy;
-	zstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
 
+	zstream->istream.max_buffer_size = DEFAULT_MAX_BUFFER_SIZE;
 	zstream->istream.read = _read;
 	zstream->istream.seek = _seek;
 	zstream->istream.stat = _stat;
