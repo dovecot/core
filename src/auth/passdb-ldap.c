@@ -203,7 +203,7 @@ static void handle_request(struct ldap_connection *conn,
 				       "No password in reply");
 	} else if (ldap_next_entry(conn->ld, entry) != NULL) {
 		auth_request_log_error(auth_request, "ldap",
-				       "Multiple password replies");
+			"pass_filter matched multiple objects, aborting");
 	} else {
 		/* passdb_password may change on the way,
 		   so we'll need to strdup. */
