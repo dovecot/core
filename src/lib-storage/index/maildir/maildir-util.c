@@ -94,52 +94,59 @@ const char *maildir_generate_tmp_filename(const struct timeval *tv)
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r)
 {
-	const char *path, *tmp_fname;
 	struct stat st;
 	struct timeval *tv, tv_now;
-	pool_t pool;
+	unsigned int prefix_len;
+	const char *tmp_fname = NULL;
+	string_t *path;
 	int fd;
 
 	tv = &ioloop_timeval;
-	pool = pool_alloconly_create("maildir_tmp", 4096);
-	for (;;) {
-		p_clear(pool);
-		tmp_fname = maildir_generate_tmp_filename(tv);
+	path = t_str_new(256);
+	str_append(path, dir);
+	str_append_c(path, '/');
+	prefix_len = str_len(path);
 
-		path = p_strconcat(pool, dir, "/", tmp_fname, NULL);
-		if (stat(path, &st) < 0 && errno == ENOENT) {
+	for (;;) {
+		tmp_fname = maildir_generate_tmp_filename(tv);
+		str_truncate(path, prefix_len);
+		str_append(path, tmp_fname);
+
+		/* stat() first to see if it exists. pretty much the only
+		   possibility of that happening is if time had moved
+		   backwards, but even then it's highly unlikely. */
+		if (stat(str_c(path), &st) < 0 && errno == ENOENT) {
 			/* doesn't exist */
 			mode_t old_mask = umask(0);
-			fd = open(path, O_WRONLY | O_CREAT | O_EXCL, mode);
+			fd = open(str_c(path), O_WRONLY | O_CREAT | O_EXCL,
+				  mode);
 			umask(old_mask);
 			if (fd != -1 || errno != EEXIST)
 				break;
 		}
 
-		/* wait and try again - very unlikely */
 		sleep(2);
 		tv = &tv_now;
 		if (gettimeofday(&tv_now, NULL) < 0)
 			i_fatal("gettimeofday(): %m");
 	}
 
-	*fname_r = t_strdup(path);
+	*fname_r = tmp_fname;
 	if (fd == -1) {
 		if (ENOSPACE(errno)) {
 			mail_storage_set_error(&mbox->storage->storage,
 					       "Not enough disk space");
 		} else {
 			mail_storage_set_critical(&mbox->storage->storage,
-						  "open(%s) failed: %m", path);
+				"open(%s) failed: %m", str_c(path));
 		}
 	} else if (mbox->mail_create_gid != (gid_t)-1) {
 		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
 			mail_storage_set_critical(&mbox->storage->storage,
-				"fchown(%s) failed: %m", path);
+				"fchown(%s) failed: %m", str_c(path));
 		}
 	}
 
-	pool_unref(pool);
 	return fd;
 }
 

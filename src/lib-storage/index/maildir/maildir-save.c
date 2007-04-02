@@ -334,7 +334,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 	struct maildir_save_context *ctx;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->ictx.ibox;
 	struct ostream *output;
-	const char *fname, *path;
+	const char *fname;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
@@ -346,16 +346,12 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 
 	/* create a new file in tmp/ directory */
 	ctx->fd = maildir_create_tmp(mbox, ctx->tmpdir, mbox->mail_create_mode,
-				     &path);
+				     &fname);
 	if (ctx->fd == -1) {
 		ctx->failed = TRUE;
 		t_pop();
 		return -1;
 	}
-
-	fname = strrchr(path, '/');
-	i_assert(fname != NULL);
-	fname++;
 
 	ctx->received_date = received_date;
 	ctx->input = input;
