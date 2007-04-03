@@ -100,6 +100,9 @@ static const char index_64[256] = {
     XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX, XX,XX,XX,XX,
 };
 
+#define IS_EMPTY(c) \
+	((c) == '\n' || (c) == '\r' || (c) == ' ' || (c) == '\t')
+
 int base64_decode(const void *src, size_t src_size,
 		  size_t *src_pos_r, buffer_t *dest)
 {
@@ -112,7 +115,7 @@ int base64_decode(const void *src, size_t src_size,
 	for (src_pos = 0; src_pos+3 < src_size; ) {
 		c1 = src_c[src_pos++];
 
-		if (c1 == '\n' || c1 == '\r' || c1 == ' ' || c1 == '\t')
+		if (IS_EMPTY(c1))
 			continue;
 
 		if (index_64[c1] == XX)
@@ -153,6 +156,11 @@ int base64_decode(const void *src, size_t src_size,
 			/* end of base64 data */
 			break;
 		}
+	}
+
+	for (; src_pos < src_size; src_pos++) {
+		if (!IS_EMPTY(src_c[src_pos]))
+			break;
 	}
 
 	if (src_pos_r != NULL)
