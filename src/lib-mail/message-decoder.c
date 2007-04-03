@@ -210,6 +210,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	const unsigned char *data = NULL;
 	size_t pos, size = 0, skip = 0;
 	bool unknown_charset;
+	int ret;
 
 	if (ctx->charset_trans == NULL && !ctx->charset_utf8) {
 		ctx->charset_trans =
@@ -264,14 +265,14 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 			i_assert(pos >= ctx->encoding_size);
 			skip = pos - ctx->encoding_size;
 		}
-		if (base64_decode(input->data + skip, input->size - skip,
-				  &pos, ctx->buf) < 0) {
+		ret = base64_decode(input->data + skip, input->size - skip,
+				    &pos, ctx->buf);
+		if (ret < 0) {
 			/* corrupted base64 data, don't bother with
 			   the rest of it */
 			return FALSE;
 		}
-		if (pos < input->size - skip && pos > 0 &&
-		    input->data[pos + skip - 1] == '=') {
+		if (ret == 0) {
 			/* end of base64 input */
 			pos = input->size - skip;
 		}
