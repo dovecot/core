@@ -413,10 +413,6 @@ static void search_header_arg(struct mail_search_arg *arg,
 
 		if (strcasecmp(ctx->hdr->name, arg->hdr_field_name) != 0)
 			return;
-	case SEARCH_TEXT:
-		/* TEXT goes through all headers */
-		ctx->custom_header = TRUE;
-		break;
 	default:
 		return;
 	}
@@ -461,7 +457,8 @@ static void search_header_arg(struct mail_search_arg *arg,
 	}
 
 	if (ret == 1 ||
-	    (arg->type != SEARCH_TEXT && arg->type != SEARCH_HEADER)) {
+	    (arg->type != SEARCH_HEADER &&
+	     arg->type != SEARCH_HEADER_ADDRESS)) {
 		/* set only when we definitely know if it's a match */
 		ARG_SET_RESULT(arg, ret);
 	}
