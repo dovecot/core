@@ -62,7 +62,7 @@ struct search_body_context {
 };
 
 struct search_arg_context {
-	struct header_search_context *hdr_search_ctx;
+	struct message_header_search_context *hdr_search_ctx;
 	struct message_body_search_context *body_search_ctx;
 };
 
@@ -332,12 +332,12 @@ search_arg_context(struct index_search_context *ctx,
 	return arg_ctx;
 }
 
-static struct header_search_context *
+static struct message_header_search_context *
 search_header_context(struct index_search_context *ctx,
 		      struct mail_search_arg *arg)
 {
 	struct search_arg_context *arg_ctx;
-	bool unknown_charset;
+	int ret;
 
 	arg_ctx = search_arg_context(ctx, arg);
 	if (arg_ctx->hdr_search_ctx != NULL) {
@@ -345,16 +345,16 @@ search_header_context(struct index_search_context *ctx,
 		return arg_ctx->hdr_search_ctx;
 	}
 
-	arg_ctx->hdr_search_ctx =
-		message_header_search_init(ctx->search_pool, arg->value.str,
-					   ctx->mail_ctx.charset,
-					   &unknown_charset);
-	if (arg_ctx->hdr_search_ctx == NULL) {
-		ctx->error = unknown_charset ?
-			TXT_UNKNOWN_CHARSET : TXT_INVALID_SEARCH_KEY;
-	}
-
-	return arg_ctx->hdr_search_ctx;
+	ret = message_header_search_init(ctx->search_pool, arg->value.str,
+					 ctx->mail_ctx.charset,
+					 &arg_ctx->hdr_search_ctx);
+	if (ret > 0)
+		return arg_ctx->hdr_search_ctx;
+	if (ret == 0)
+		ctx->error = TXT_UNKNOWN_CHARSET;
+	else
+		ctx->error = TXT_INVALID_SEARCH_KEY;
+	return NULL;
 }
 
 static struct message_body_search_context *
@@ -386,7 +386,7 @@ search_body_context(struct index_search_context *ctx,
 static void search_header_arg(struct mail_search_arg *arg,
 			      struct search_header_context *ctx)
 {
-        struct header_search_context *hdr_search_ctx;
+        struct message_header_search_context *hdr_search_ctx;
 	int ret;
 
 	/* first check that the field name matches to argument. */
@@ -446,12 +446,16 @@ static void search_header_arg(struct mail_search_arg *arg,
 						     (unsigned int)-1, TRUE);
 			str = t_str_new(ctx->hdr->value_len);
 			message_address_write(str, addr);
-			ret = message_header_search(str_data(str), str_len(str),
-						    hdr_search_ctx) ? 1 : 0;
+			ret = message_header_search(hdr_search_ctx,
+						    str_data(str),
+						    str_len(str)) ? 1 : 0;
 		} else {
-			ret = message_header_search(ctx->hdr->full_value,
-						    ctx->hdr->full_value_len,
-						    hdr_search_ctx) ? 1 : 0;
+			if (message_header_search(hdr_search_ctx,
+						  ctx->hdr->full_value,
+						  ctx->hdr->full_value_len))
+				ret = 1;
+			else
+				ret = 0;
 		}
 		t_pop();
 	}

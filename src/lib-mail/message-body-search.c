@@ -18,11 +18,10 @@ struct message_body_search_context {
 	pool_t pool;
 
 	char *key;
-	char *charset;
+	char *key_charset;
 	unsigned int key_len;
 
-	struct header_search_context *hdr_search_ctx;
-	unsigned int unknown_charset:1;
+	struct message_header_search_context *hdr_search_ctx;
 	unsigned int search_header:1;
 };
 
@@ -104,7 +103,7 @@ static bool message_search_header(struct part_search_context *ctx,
 				  struct istream *input,
 				  const struct message_part *part)
 {
-	struct header_search_context *hdr_search_ctx =
+	struct message_header_search_context *hdr_search_ctx =
 		ctx->body_ctx->hdr_search_ctx;
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
@@ -126,8 +125,8 @@ static bool message_search_header(struct part_search_context *ctx,
 			continue;
 
 		if (!ctx->ignore_header) {
-			if (message_header_search(hdr->value, hdr->value_len,
-						  hdr_search_ctx)) {
+			if (message_header_search(hdr_search_ctx,
+						  hdr->value, hdr->value_len)) {
 				found = TRUE;
 				break;
 			}
@@ -366,6 +365,7 @@ int message_body_search_init(pool_t pool, const char *key, const char *charset,
 	struct message_body_search_context *ctx;
 	bool unknown_charset;
 	size_t key_len;
+	int ret;
 
 	/* get the key uppercased */
 	t_push();
@@ -381,10 +381,12 @@ int message_body_search_init(pool_t pool, const char *key, const char *charset,
 	ctx->pool = pool;
 	ctx->key = p_strdup(pool, key);
 	ctx->key_len = key_len;
-	ctx->charset = p_strdup(pool, charset);
-	ctx->unknown_charset = charset == NULL;
-	ctx->hdr_search_ctx = !search_header ? NULL :
-		message_header_search_init(pool, ctx->key, "UTF-8", NULL);
+	ctx->key_charset = p_strdup(pool, charset);
+	if (search_header) {
+		ret = message_header_search_init(pool, ctx->key, "UTF-8",
+						 &ctx->hdr_search_ctx);
+		i_assert(ret > 0); /* the search key is in UTF-8 */
+	}
 
 	t_pop();
 	return 1;
@@ -395,9 +397,9 @@ void message_body_search_deinit(struct message_body_search_context **_ctx)
 	struct message_body_search_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	message_header_search_free(&ctx->hdr_search_ctx);
+	message_header_search_deinit(&ctx->hdr_search_ctx);
 	p_free(ctx->pool, ctx->key);
-	p_free(ctx->pool, ctx->charset);
+	p_free(ctx->pool, ctx->key_charset);
 	p_free(ctx->pool, ctx);
 }
 
