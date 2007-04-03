@@ -115,12 +115,13 @@ static int cydir_create(struct mail_storage *_storage, const char *data)
 			}
 			return -1;
 		}
-	}
-
-	if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
-	    errno != EEXIST) {
-		i_error("mkdir_parents(%s) failed: %m", list_set.root_dir);
-		return -1;
+	} else {
+		if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
+		    errno != EEXIST) {
+			i_error("mkdir_parents(%s) failed: %m",
+				list_set.root_dir);
+			return -1;
+		}
 	}
 
 	if (mailbox_list_init("fs", &list_set,
