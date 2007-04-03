@@ -34,7 +34,7 @@ struct index_search_context {
 	struct mail *mail;
 	struct index_mail *imail;
 
-	pool_t hdr_pool;
+	pool_t search_pool;
 	const char *error;
 
 	struct timeval search_start_time, last_notify;
@@ -59,6 +59,11 @@ struct search_body_context {
         struct index_search_context *index_ctx;
 	struct istream *input;
 	const struct message_part *part;
+};
+
+struct search_arg_context {
+	struct header_search_context *hdr_search_ctx;
+	struct message_body_search_context *body_search_ctx;
 };
 
 static int search_parse_msgset_args(struct index_mailbox *ibox,
@@ -310,31 +315,72 @@ static int search_sent(enum mail_search_arg_type type, const char *search_value,
 	}
 }
 
+static struct search_arg_context *
+search_arg_context(struct index_search_context *ctx,
+		   struct mail_search_arg *arg)
+{
+	struct search_arg_context *arg_ctx = arg->context;
+
+	if (arg_ctx != NULL)
+		return arg_ctx;
+
+	if (ctx->search_pool == NULL)
+		ctx->search_pool = pool_alloconly_create("search pool", 8192);
+
+	arg_ctx = p_new(ctx->search_pool, struct search_arg_context, 1);
+	arg->context = arg_ctx;
+	return arg_ctx;
+}
+
 static struct header_search_context *
 search_header_context(struct index_search_context *ctx,
 		      struct mail_search_arg *arg)
 {
+	struct search_arg_context *arg_ctx;
 	bool unknown_charset;
 
-	if (arg->context != NULL) {
-                message_header_search_reset(arg->context);
-		return arg->context;
+	arg_ctx = search_arg_context(ctx, arg);
+	if (arg_ctx->hdr_search_ctx != NULL) {
+                message_header_search_reset(arg_ctx->hdr_search_ctx);
+		return arg_ctx->hdr_search_ctx;
 	}
 
-	if (ctx->hdr_pool == NULL) {
-		ctx->hdr_pool =
-			pool_alloconly_create("message_header_search", 8192);
-	}
-
-	arg->context = message_header_search_init(ctx->hdr_pool, arg->value.str,
-						  ctx->mail_ctx.charset,
-						  &unknown_charset);
-	if (arg->context == NULL) {
+	arg_ctx->hdr_search_ctx =
+		message_header_search_init(ctx->search_pool, arg->value.str,
+					   ctx->mail_ctx.charset,
+					   &unknown_charset);
+	if (arg_ctx->hdr_search_ctx == NULL) {
 		ctx->error = unknown_charset ?
 			TXT_UNKNOWN_CHARSET : TXT_INVALID_SEARCH_KEY;
 	}
 
-	return arg->context;
+	return arg_ctx->hdr_search_ctx;
+}
+
+static struct message_body_search_context *
+search_body_context(struct index_search_context *ctx,
+		    struct mail_search_arg *arg)
+{
+	struct search_arg_context *arg_ctx;
+	int ret;
+
+	arg_ctx = search_arg_context(ctx, arg);
+	if (arg_ctx->body_search_ctx != NULL)
+		return arg_ctx->body_search_ctx;
+
+	ret = message_body_search_init(ctx->search_pool, arg->value.str,
+				       ctx->mail_ctx.charset,
+				       arg->type == SEARCH_TEXT ||
+				       arg->type == SEARCH_TEXT_FAST,
+				       &arg_ctx->body_search_ctx);
+	if (ret > 0)
+		return arg_ctx->body_search_ctx;
+
+	if (ret == 0)
+		ctx->error = TXT_UNKNOWN_CHARSET;
+	else
+		ctx->error = TXT_INVALID_SEARCH_KEY;
+	return NULL;
 }
 
 static void search_header_arg(struct mail_search_arg *arg,
@@ -465,9 +511,8 @@ static void search_header(struct message_header_line *hdr,
 static void search_body(struct mail_search_arg *arg,
 			struct search_body_context *ctx)
 {
-        enum message_body_search_error error;
+	struct message_body_search_context *body_search_ctx;
 	int ret;
-	bool retry = FALSE;
 
 	if (ctx->index_ctx->error != NULL)
 		return;
@@ -482,36 +527,28 @@ static void search_body(struct mail_search_arg *arg,
 		return;
 	}
 
-__retry:
+	body_search_ctx = search_body_context(ctx->index_ctx, arg);
+	if (body_search_ctx == NULL) {
+		ARG_SET_RESULT(arg, 0);
+		return;
+	}
+
 	i_stream_seek(ctx->input, 0);
-	ret = message_body_search(arg->value.str,
-				  ctx->index_ctx->mail_ctx.charset,
-				  ctx->input, ctx->part,
-				  arg->type == SEARCH_TEXT, &error);
-
+	ret = message_body_search(body_search_ctx, ctx->input, ctx->part);
 	if (ret < 0) {
-		switch (error) {
-		case MESSAGE_BODY_SEARCH_ERROR_UNKNOWN_CHARSET:
-			ctx->index_ctx->error = TXT_UNKNOWN_CHARSET;
-			break;
-		case MESSAGE_BODY_SEARCH_ERROR_INVALID_KEY:
-			ctx->index_ctx->error = TXT_INVALID_SEARCH_KEY;
-			break;
-		case MESSAGE_BODY_SEARCH_ERROR_MESSAGE_PART_BROKEN:
-			if (retry)
-				i_panic("Couldn't fix broken body structure");
+		mail_cache_set_corrupted(ctx->index_ctx->ibox->cache,
+			"Broken message structure for mail UID %u",
+			ctx->index_ctx->mail->uid);
 
-			mail_cache_set_corrupted(ctx->index_ctx->ibox->cache,
-				"Broken message structure for mail UID %u",
-				ctx->index_ctx->mail->uid);
+		/* get the body parts, and try again */
+		ctx->index_ctx->imail->data.parts = NULL;
+		ctx->part = mail_get_parts(ctx->index_ctx->mail);
 
-			/* get the body parts, and try again */
-			ctx->index_ctx->imail->data.parts = NULL;
-			ctx->part = mail_get_parts(ctx->index_ctx->mail);
-
-			retry = TRUE;
-			goto __retry;
-		}
+		i_stream_seek(ctx->input, 0);
+		ret = message_body_search(body_search_ctx,
+					  ctx->input, ctx->part);
+		if (ret < 0)
+			i_panic("Couldn't fix broken body structure");
 	}
 
 	ARG_SET_RESULT(arg, ret > 0);
@@ -919,8 +956,8 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 				       "%s", ctx->error);
 	}
 
-	if (ctx->hdr_pool != NULL)
-		pool_unref(ctx->hdr_pool);
+	if (ctx->search_pool != NULL)
+		pool_unref(ctx->search_pool);
 
 	if (ctx->mail_ctx.sort_program != NULL)
 		index_sort_program_deinit(&ctx->mail_ctx.sort_program);
