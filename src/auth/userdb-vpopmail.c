@@ -65,6 +65,11 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 		return;
 	}
 
+	if (auth_request->successful) {
+		/* update the last login only when we're really  */
+		vset_lastauth(vpop_user, vpop_domain, auth_request->service);
+	}
+
 	if (vpw->pw_dir == NULL || vpw->pw_dir[0] == '\0') {
 		/* user's homedir doesn't exist yet, create it */
 		auth_request_log_info(auth_request, "vpopmail",
