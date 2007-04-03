@@ -580,6 +580,21 @@ int main(int argc, char *argv[])
 	if (getenv("MAIL_DEBUG") != NULL)
 		env_put("DEBUG=1");
 
+	if (getenv("MAIL_PLUGINS") == NULL)
+		modules = NULL;
+	else {
+		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
+		const char *version;
+
+		if (plugin_dir == NULL)
+			plugin_dir = MODULEDIR"/lda";
+
+		version = getenv("VERSION_IGNORE") != NULL ?
+			NULL : PACKAGE_VERSION;
+		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
+					  TRUE, version);
+	}
+
 	if (destination != NULL) {
 		auth_socket = getenv("AUTH_SOCKET_PATH");
 		if (auth_socket == NULL)
@@ -642,21 +657,7 @@ int main(int argc, char *argv[])
 		mail_env = expand_mail_env(mail_env, table);
 	}
 
-	if (getenv("MAIL_PLUGINS") == NULL)
-		modules = NULL;
-	else {
-		const char *plugin_dir = getenv("MAIL_PLUGIN_DIR");
-		const char *version;
-
-		if (plugin_dir == NULL)
-			plugin_dir = MODULEDIR"/lda";
-
-		version = getenv("VERSION_IGNORE") != NULL ?
-			NULL : PACKAGE_VERSION;
-		modules = module_dir_load(plugin_dir, getenv("MAIL_PLUGINS"),
-					  TRUE, version);
-		module_dir_init(modules);
-	}
+	module_dir_init(modules);
 
 	/* FIXME: how should we handle namespaces? */
 	mail_storage_parse_env(&flags, &lock_method);
