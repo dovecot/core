@@ -22,13 +22,8 @@ struct message_header_search_context {
 
 	unsigned int found:1;
 	unsigned int last_newline:1;
-	unsigned int submatch:1;
-	unsigned int key_ascii:1;
 	unsigned int unknown_charset:1;
 };
-
-static void search_loop(const unsigned char *data, size_t size,
-			struct message_header_search_context *ctx);
 
 int message_header_search_init(pool_t pool, const char *key,
 			       const char *charset,
@@ -36,7 +31,6 @@ int message_header_search_init(pool_t pool, const char *key,
 {
 	struct message_header_search_context *ctx;
 	size_t key_len;
-	const unsigned char *p;
 	bool unknown_charset;
 
 	/* get the key uppercased */
@@ -56,14 +50,6 @@ int message_header_search_init(pool_t pool, const char *key,
 	ctx->key_len = key_len;
 	ctx->key_charset = p_strdup(pool, charset);
 	ctx->unknown_charset = charset == NULL;
-
-	ctx->key_ascii = TRUE;
-	for (p = ctx->key; *p != '\0'; p++) {
-		if ((*p & 0x80) != 0) {
-			ctx->key_ascii = FALSE;
-			break;
-		}
-	}
 
 	i_assert(ctx->key_len <= SSIZE_T_MAX/sizeof(size_t));
 	ctx->match_buf = buffer_create_static_hard(pool, sizeof(size_t) *
@@ -87,40 +73,8 @@ void message_header_search_deinit(struct message_header_search_context **_ctx)
 	p_free(pool, ctx);
 }
 
-static void search_with_charset(const unsigned char *data, size_t size,
-				const char *charset,
-				struct message_header_search_context *ctx)
-{
-	const void *utf8_data;
-	size_t utf8_size;
-
-	if (ctx->unknown_charset) {
-		/* we don't know the source charset, so assume we want to
-		   match using same charsets */
-		charset = NULL;
-	} else if (charset != NULL && strcasecmp(charset, "x-unknown") == 0) {
-		/* compare with same charset as search key. the key is already
-		   in utf-8 so we can't use charset = NULL comparing. */
-		charset = ctx->key_charset;
-	}
-
-	utf8_data = charset_to_ucase_utf8_string(charset, NULL, data, size,
-						 &utf8_size);
-
-	if (utf8_data == NULL) {
-		/* unknown character set, or invalid data. just compare it
-		   directly so at least ASCII comparision works. */
-		utf8_data = data;
-		utf8_size = size;
-	}
-
-	ctx->submatch = TRUE;
-	search_loop(utf8_data, utf8_size, ctx);
-	ctx->submatch = FALSE;
-}
-
-static void search_loop(const unsigned char *data, size_t size,
-			struct message_header_search_context *ctx)
+static void search_loop(struct message_header_search_context *ctx,
+			const unsigned char *data, size_t size)
 {
 	size_t pos, *matches, match_count, value;
 	ssize_t i;
@@ -134,20 +88,7 @@ static void search_loop(const unsigned char *data, size_t size,
 	for (pos = 0; pos < size; pos++) {
 		chr = data[pos];
 
-		if (!ctx->submatch) {
-			if ((chr & 0x80) == 0)
-				chr = i_toupper(chr);
-			else if (!ctx->key_ascii && !ctx->unknown_charset) {
-				/* we have non-ascii in header and key contains
-				   non-ascii characters. treat the rest of the
-				   header as encoded with the key's charset */
-				search_with_charset(data + pos, size - pos,
-						    ctx->key_charset, ctx);
-				break;
-			}
-		}
-
-		if (last_newline && !ctx->submatch) {
+		if (last_newline) {
 			if (!IS_LWSP(chr)) {
 				/* not a long header, reset matches */
 				buffer_set_used_size(ctx->match_buf, 0);
@@ -192,19 +133,44 @@ static void search_loop(const unsigned char *data, size_t size,
 	ctx->last_newline = last_newline;
 }
 
+static void search_with_charset(const unsigned char *data, size_t size,
+				const char *charset,
+				struct message_header_search_context *ctx)
+{
+	const void *utf8_data;
+	size_t utf8_size;
+
+	if (ctx->unknown_charset) {
+		/* we don't know the source charset, so assume we want to
+		   match using same charsets */
+		charset = NULL;
+	} else if (charset != NULL && strcasecmp(charset, "x-unknown") == 0) {
+		/* compare with same charset as search key. the key is already
+		   in utf-8 so we can't use charset = NULL comparing. */
+		charset = ctx->key_charset;
+	}
+
+	utf8_data = charset_to_ucase_utf8_string(charset, NULL, data, size,
+						 &utf8_size);
+
+	if (utf8_data == NULL) {
+		/* unknown character set, or invalid data. just compare it
+		   directly so at least ASCII comparision works. */
+		utf8_data = str_ucase(p_strndup(unsafe_data_stack_pool,
+						data, size));
+		utf8_size = size;
+	}
+
+	search_loop(ctx, utf8_data, utf8_size);
+}
+
 static bool search_block(const unsigned char *data, size_t size,
 			 const char *charset, void *context)
 {
 	struct message_header_search_context *ctx = context;
 
 	t_push();
-	if (charset != NULL) {
-		/* need to convert to UTF-8 */
-		search_with_charset(data, size, charset, ctx);
-	} else {
-		search_loop(data, size, ctx);
-	}
-
+	search_with_charset(data, size, charset, ctx);
 	t_pop();
 	return !ctx->found;
 }
