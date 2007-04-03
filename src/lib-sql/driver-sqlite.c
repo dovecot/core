@@ -130,7 +130,7 @@ static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 }
 
 static void driver_sqlite_query(struct sql_db *db, const char *query,
-			       sql_query_callback_t *callback, void *context)
+				sql_query_callback_t *callback, void *context)
 {
 	struct sql_result *result;
 
@@ -233,11 +233,21 @@ static int driver_sqlite_result_find_field(struct sql_result *_result,
 
 static const char *
 driver_sqlite_result_get_field_value(struct sql_result *_result,
-				    unsigned int idx)
+				     unsigned int idx)
 {
 	struct sqlite_result *result = (struct sqlite_result *)_result;
 
 	return (const char*)sqlite3_column_text(result->stmt, idx);
+}
+
+static const unsigned char *
+driver_sqlite_result_get_field_value_binary(struct sql_result *_result,
+					    unsigned int idx, size_t *size_r)
+{
+	struct sqlite_result *result = (struct sqlite_result *)_result;
+
+	*size_r = sqlite3_column_bytes(result->stmt, idx);
+	return sqlite3_column_blob(result->stmt, idx);
 }
 
 static const char *
@@ -381,19 +391,18 @@ struct sql_db driver_sqlite_db = {
 };
 
 struct sql_result driver_sqlite_result = {
-	NULL,
-
-	driver_sqlite_result_free,
-	driver_sqlite_result_next_row,
-	driver_sqlite_result_get_fields_count,
-	driver_sqlite_result_get_field_name,
-	driver_sqlite_result_find_field,
-	driver_sqlite_result_get_field_value,
-	driver_sqlite_result_find_field_value,
-	driver_sqlite_result_get_values,
-	driver_sqlite_result_get_error,
-
-	FALSE
+	MEMBER(v) {
+		driver_sqlite_result_free,
+		driver_sqlite_result_next_row,
+		driver_sqlite_result_get_fields_count,
+		driver_sqlite_result_get_field_name,
+		driver_sqlite_result_find_field,
+		driver_sqlite_result_get_field_value,
+		driver_sqlite_result_get_field_value_binary,
+		driver_sqlite_result_find_field_value,
+		driver_sqlite_result_get_values,
+		driver_sqlite_result_get_error
+	}
 };
 
 static int
@@ -403,14 +412,12 @@ driver_sqlite_result_error_next_row(struct sql_result *result __attr_unused__)
 }
 
 struct sql_result driver_sqlite_error_result = {
-	NULL,
-
-	driver_sqlite_result_free,
-	driver_sqlite_result_error_next_row,
-	NULL, NULL, NULL, NULL, NULL, NULL,
-	driver_sqlite_result_get_error,
-
-	FALSE
+	MEMBER(v) {
+		driver_sqlite_result_free,
+		driver_sqlite_result_error_next_row,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+		driver_sqlite_result_get_error
+	}
 };
 
 void driver_sqlite_init(void);

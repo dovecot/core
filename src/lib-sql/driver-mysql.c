@@ -520,6 +520,14 @@ driver_mysql_result_get_field_value(struct sql_result *_result,
 	return (const char *)result->row[idx];
 }
 
+static const unsigned char *
+driver_mysql_result_get_field_value_binary(struct sql_result *_result,
+					   unsigned int idx, size_t *size_r)
+{
+	// FIXME
+	return NULL;
+}
+
 static const char *
 driver_mysql_result_find_field_value(struct sql_result *result,
 				     const char *field_name)
@@ -667,19 +675,18 @@ struct sql_db driver_mysql_db = {
 };
 
 struct sql_result driver_mysql_result = {
-	NULL,
-
-	driver_mysql_result_free,
-	driver_mysql_result_next_row,
-	driver_mysql_result_get_fields_count,
-	driver_mysql_result_get_field_name,
-	driver_mysql_result_find_field,
-	driver_mysql_result_get_field_value,
-	driver_mysql_result_find_field_value,
-	driver_mysql_result_get_values,
-	driver_mysql_result_get_error,
-
-	FALSE
+	MEMBER(v) {
+		driver_mysql_result_free,
+		driver_mysql_result_next_row,
+		driver_mysql_result_get_fields_count,
+		driver_mysql_result_get_field_name,
+		driver_mysql_result_find_field,
+		driver_mysql_result_get_field_value,
+		driver_mysql_result_get_field_value_binary,
+		driver_mysql_result_find_field_value,
+		driver_mysql_result_get_values,
+		driver_mysql_result_get_error
+	}
 };
 
 static int
@@ -689,14 +696,12 @@ driver_mysql_result_error_next_row(struct sql_result *result __attr_unused__)
 }
 
 struct sql_result driver_mysql_error_result = {
-	NULL,
-
-	driver_mysql_result_free,
-	driver_mysql_result_error_next_row,
-	NULL, NULL, NULL, NULL, NULL, NULL,
-	driver_mysql_result_get_error,
-
-	FALSE
+	MEMBER(v) {
+		driver_mysql_result_free,
+		driver_mysql_result_error_next_row,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+		driver_mysql_result_get_error
+	}
 };
 
 void driver_mysql_init(void);

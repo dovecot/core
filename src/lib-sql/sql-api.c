@@ -4,6 +4,8 @@
 #include "array.h"
 #include "sql-api-private.h"
 
+#include <stdlib.h>
+
 ARRAY_TYPE(sql_drivers) sql_drivers;
 
 void sql_drivers_init(void)
@@ -90,50 +92,170 @@ struct sql_result *sql_query_s(struct sql_db *db, const char *query)
 
 void sql_result_free(struct sql_result *result)
 {
-	result->free(result);
+	i_free(result->map);
+	result->v.free(result);
+}
+
+static const struct sql_field_def *
+sql_field_def_find(const struct sql_field_def *fields, const char *name)
+{
+	unsigned int i;
+
+	for (i = 0; fields[i].name != NULL; i++) {
+		if (strcasecmp(fields[i].name, name) == 0)
+			return &fields[i];
+	}
+	return NULL;
+}
+
+static void
+sql_result_build_map(struct sql_result *result,
+		     const struct sql_field_def *fields, size_t dest_size)
+{
+	const struct sql_field_def *def;
+	const char *name;
+	unsigned int i, count, field_size = 0;
+
+	count = sql_result_get_fields_count(result);
+
+	result->map_size = count;
+	result->map = i_new(struct sql_field_map, result->map_size);
+	for (i = 0; i < count; i++) {
+		name = sql_result_get_field_name(result, i);
+		def = sql_field_def_find(fields, name);
+		if (def != NULL) {
+			result->map[i].type = def->type;
+			result->map[i].offset = def->offset;
+			switch (def->type) {
+			case SQL_TYPE_STR:
+				field_size = sizeof(const char *);
+				break;
+			case SQL_TYPE_UINT:
+				field_size = sizeof(unsigned int);
+				break;
+			case SQL_TYPE_ULLONG:
+				field_size = sizeof(unsigned long long);
+				break;
+			case SQL_TYPE_BOOL:
+				field_size = sizeof(bool);
+				break;
+			}
+			i_assert(def->offset + field_size <= dest_size);
+		} else {
+			result->map[i].offset = (size_t)-1;
+		}
+	}
+}
+
+void sql_result_setup_fetch(struct sql_result *result,
+			    const struct sql_field_def *fields,
+			    void *dest, size_t dest_size)
+{
+	if (result->map == NULL)
+		sql_result_build_map(result, fields, dest_size);
+	result->fetch_dest = dest;
+	result->fetch_dest_size = dest_size;
+}
+
+static void sql_result_fetch(struct sql_result *result)
+{
+	unsigned int i, count;
+	const char *value;
+	void *ptr;
+
+	memset(result->fetch_dest, 0, result->fetch_dest_size);
+	count = result->map_size;
+	for (i = 0; i < count; i++) {
+		if (result->map[i].offset == (size_t)-1)
+			continue;
+
+		value = sql_result_get_field_value(result, i);
+		ptr = STRUCT_MEMBER_P(result->fetch_dest,
+				      result->map[i].offset);
+
+		switch (result->map[i].type) {
+		case SQL_TYPE_STR: {
+			*((const char **)ptr) = value;
+			break;
+		}
+		case SQL_TYPE_UINT: {
+			if (value != NULL) {
+				*((unsigned int *)ptr) =
+					strtoul(value, NULL, 10);
+			}
+			break;
+		}
+		case SQL_TYPE_ULLONG: {
+			if (value != NULL) {
+				*((unsigned long long *)ptr) =
+					strtoull(value, NULL, 10);
+			}
+			break;
+		}
+		case SQL_TYPE_BOOL: {
+			if (value != NULL && (*value == 't' || *value == '1'))
+				*((bool *)ptr) = TRUE;
+			break;
+		}
+		}
+	}
 }
 
 int sql_result_next_row(struct sql_result *result)
 {
-	return result->next_row(result);
+	int ret;
+
+	if ((ret = result->v.next_row(result)) <= 0)
+		return ret;
+
+	if (result->fetch_dest != NULL)
+		sql_result_fetch(result);
+	return 1;
 }
 
 unsigned int sql_result_get_fields_count(struct sql_result *result)
 {
-	return result->get_fields_count(result);
+	return result->v.get_fields_count(result);
 }
 
 const char *sql_result_get_field_name(struct sql_result *result,
 				      unsigned int idx)
 {
-	return result->get_field_name(result, idx);
+	return result->v.get_field_name(result, idx);
 }
 
 int sql_result_find_field(struct sql_result *result, const char *field_name)
 {
-	return result->find_field(result, field_name);
+	return result->v.find_field(result, field_name);
 }
 
 const char *sql_result_get_field_value(struct sql_result *result,
 				       unsigned int idx)
 {
-	return result->get_field_value(result, idx);
+	return result->v.get_field_value(result, idx);
+}
+
+const unsigned char *
+sql_result_get_field_value_binary(struct sql_result *result,
+				  unsigned int idx, size_t *size_r)
+{
+	return result->v.get_field_value_binary(result, idx, size_r);
 }
 
 const char *sql_result_find_field_value(struct sql_result *result,
 					const char *field_name)
 {
-	return result->find_field_value(result, field_name);
+	return result->v.find_field_value(result, field_name);
 }
 
 const char *const *sql_result_get_values(struct sql_result *result)
 {
-	return result->get_values(result);
+	return result->v.get_values(result);
 }
 
 const char *sql_result_get_error(struct sql_result *result)
 {
-	return result->get_error(result);
+	return result->v.get_error(result);
 }
 
 static void
@@ -191,12 +313,10 @@ void sql_update(struct sql_transaction_context *ctx, const char *query)
 }
 
 struct sql_result sql_not_connected_result = {
-	NULL,
-
-	sql_result_not_connected_free,
-	sql_result_not_connected_next_row,
-	NULL, NULL, NULL, NULL, NULL, NULL,
-	sql_result_not_connected_get_error,
-
-	FALSE
+	MEMBER(v) {
+		sql_result_not_connected_free,
+		sql_result_not_connected_next_row,
+		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+		sql_result_not_connected_get_error
+	}
 };

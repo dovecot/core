@@ -29,9 +29,7 @@ struct sql_db {
 	void (*update)(struct sql_transaction_context *ctx, const char *query);
 };
 
-struct sql_result {
-	struct sql_db *db;
-
+struct sql_result_vfuncs {
 	void (*free)(struct sql_result *result);
 	int (*next_row)(struct sql_result *result);
 
@@ -42,11 +40,32 @@ struct sql_result {
 
 	const char *(*get_field_value)(struct sql_result *result,
 				       unsigned int idx);
+	const unsigned char *
+		(*get_field_value_binary)(struct sql_result *result,
+					  unsigned int idx,
+					  size_t *size_r);
 	const char *(*find_field_value)(struct sql_result *result,
 					const char *field_name);
 	const char *const *(*get_values)(struct sql_result *result);
 
 	const char *(*get_error)(struct sql_result *result);
+};
+
+struct sql_field_map {
+	enum sql_field_type type;
+	size_t offset;
+};
+
+struct sql_result {
+	struct sql_result_vfuncs v;
+
+	struct sql_db *db;
+	const struct sql_field_def *fields;
+
+	unsigned int map_size;
+	struct sql_field_map *map;
+	void *fetch_dest;
+	size_t fetch_dest_size;
 
 	unsigned int callback:1;
 };

@@ -1,6 +1,7 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "ioloop-internal.h" /* kind of dirty, but it should be fine.. */
 #include "sql-api-private.h"
@@ -34,6 +35,11 @@ struct pgsql_db {
 	unsigned int query_finished:1;
 };
 
+struct pgsql_binary_value {
+	unsigned char *value;
+	size_t size;
+};
+
 struct pgsql_result {
 	struct sql_result api;
 	PGresult *pgres;
@@ -42,6 +48,8 @@ struct pgsql_result {
 	unsigned int fields_count;
 	const char **fields;
 	const char **values;
+
+	ARRAY_DEFINE(binary_values, struct pgsql_binary_value);
 
 	sql_query_callback_t *callback;
 	void *context;
@@ -247,6 +255,16 @@ static void driver_pgsql_result_free(struct sql_result *_result)
 		consume_results(db);
 	} else {
 		db->querying = FALSE;
+	}
+
+	if (array_is_created(&result->binary_values)) {
+		struct pgsql_binary_value *values;
+		unsigned int i, count;
+
+		values = array_get_modifiable(&result->binary_values, &count);
+		for (i = 0; i < count; i++)
+			PQfreemem(values[i].value);
+		array_free(&result->binary_values);
 	}
 
 	i_free(result->fields);
@@ -620,6 +638,35 @@ driver_pgsql_result_get_field_value(struct sql_result *_result,
 	return PQgetvalue(result->pgres, result->rownum, idx);
 }
 
+static const unsigned char *
+driver_pgsql_result_get_field_value_binary(struct sql_result *_result,
+					   unsigned int idx, size_t *size_r)
+{
+	struct pgsql_result *result = (struct pgsql_result *)_result;
+	const char *value;
+	struct pgsql_binary_value *binary_value;
+
+	if (PQgetisnull(result->pgres, result->rownum, idx)) {
+		*size_r = 0;
+		return NULL;
+	}
+
+	value = PQgetvalue(result->pgres, result->rownum, idx);
+
+	if (!array_is_created(&result->binary_values))
+		i_array_init(&result->binary_values, idx + 1);
+
+	binary_value = array_idx_modifiable(&result->binary_values, idx);
+	if (binary_value->value == NULL) {
+		binary_value->value =
+			PQunescapeBytea((const unsigned char *)value,
+					&binary_value->size);
+	}
+
+	*size_r = binary_value->size;
+	return binary_value->value;
+}
+
 static const char *
 driver_pgsql_result_find_field_value(struct sql_result *result,
 				     const char *field_name)
@@ -807,19 +854,18 @@ struct sql_db driver_pgsql_db = {
 };
 
 struct sql_result driver_pgsql_result = {
-	NULL,
-
-	driver_pgsql_result_free,
-	driver_pgsql_result_next_row,
-	driver_pgsql_result_get_fields_count,
-	driver_pgsql_result_get_field_name,
-	driver_pgsql_result_find_field,
-	driver_pgsql_result_get_field_value,
-	driver_pgsql_result_find_field_value,
-	driver_pgsql_result_get_values,
-	driver_pgsql_result_get_error,
-
-	FALSE
+	MEMBER(v) {
+		driver_pgsql_result_free,
+		driver_pgsql_result_next_row,
+		driver_pgsql_result_get_fields_count,
+		driver_pgsql_result_get_field_name,
+		driver_pgsql_result_find_field,
+		driver_pgsql_result_get_field_value,
+		driver_pgsql_result_get_field_value_binary,
+		driver_pgsql_result_find_field_value,
+		driver_pgsql_result_get_values,
+		driver_pgsql_result_get_error
+	}
 };
 
 void driver_pgsql_init(void);

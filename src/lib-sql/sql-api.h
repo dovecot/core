@@ -9,6 +9,33 @@ enum sql_db_flags {
 	SQL_DB_FLAG_BLOCKING		= 0x01
 };
 
+enum sql_field_type {
+	SQL_TYPE_STR,
+	SQL_TYPE_UINT,
+	SQL_TYPE_ULLONG,
+	SQL_TYPE_BOOL
+};
+
+struct sql_field_def {
+	enum sql_field_type type;
+	const char *name;
+	size_t offset;
+};
+
+#define SQL_DEF_STRUCT(name, struct_name, type, c_type) \
+	{ (type) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
+		((struct struct_name *)0)->name, c_type), \
+	  #name, offsetof(struct struct_name, name) }
+
+#define SQL_DEF_STRUCT_STR(name, struct_name) \
+	SQL_DEF_STRUCT(name, struct_name, SQL_TYPE_STR, const char *)
+#define SQL_DEF_STRUCT_UINT(name, struct_name) \
+	SQL_DEF_STRUCT(name, struct_name, SQL_TYPE_UINT, unsigned int)
+#define SQL_DEF_STRUCT_ULLONG(name, struct_name) \
+	SQL_DEF_STRUCT(name, struct_name, SQL_TYPE_ULLONG, unsigned long long)
+#define SQL_DEF_STRUCT_BOOL(name, struct_name) \
+	SQL_DEF_STRUCT(name, struct_name, SQL_TYPE_BOOL, bool)
+
 struct sql_db;
 struct sql_result;
 
@@ -42,7 +69,9 @@ const char *sql_escape_string(struct sql_db *db, const char *string);
 
 /* Execute SQL query without waiting for results. */
 void sql_exec(struct sql_db *db, const char *query);
-/* Execute SQL query and return result in callback. */
+/* Execute SQL query and return result in callback. If fields list is given,
+   the returned fields are validated to be of correct type, and you can use
+   sql_result_next_row_get() */
 void sql_query(struct sql_db *db, const char *query,
 	       sql_query_callback_t *callback, void *context);
 #ifdef CONTEXT_TYPE_SAFETY
@@ -52,10 +81,14 @@ void sql_query(struct sql_db *db, const char *query,
 		(sql_query_callback_t *)callback, context); })
 #else
 #  define sql_query(db, query, callback, context) \
-	  sql_query(db, query, (sql_query_callback_t *)callback, context)
+	sql_query(db, query, (sql_query_callback_t *)callback, context)
 #endif
 /* Execute blocking SQL query and return result. */
 struct sql_result *sql_query_s(struct sql_db *db, const char *query);
+
+void sql_result_setup_fetch(struct sql_result *result,
+			    const struct sql_field_def *fields,
+			    void *dest, size_t dest_size);
 
 /* Go to next row, returns 1 if ok, 0 if this was the last row or -1 if error
    occurred. This needs to be the first call for result. */
@@ -75,6 +108,9 @@ int sql_result_find_field(struct sql_result *result, const char *field_name);
 /* Returns value of given field as string. */
 const char *sql_result_get_field_value(struct sql_result *result,
 				       unsigned int idx);
+const unsigned char *
+sql_result_get_field_value_binary(struct sql_result *result,
+				  unsigned int idx, size_t *size_r);
 const char *sql_result_find_field_value(struct sql_result *result,
 					const char *field_name);
 /* Return all values of current row. */
