@@ -61,6 +61,10 @@ extern message_part_header_callback_t *null_message_part_header_callback;
    are allocated from. */
 struct message_parser_ctx *
 message_parser_init(pool_t part_pool, struct istream *input);
+/* Use preparsed parts to speed up parsing. */
+struct message_parser_ctx *
+message_parser_init_from_parts(struct message_part *parts,
+			       struct istream *input, bool return_body_blocks);
 struct message_part *message_parser_deinit(struct message_parser_ctx **ctx);
 
 /* Read the next block of a message. Returns 1 if block is returned, 0 if
@@ -101,22 +105,6 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 #else
 #  define message_parser_parse_body(ctx, callback, context) \
 	  message_parser_parse_body(ctx, \
-		(message_part_header_callback_t *)callback, context)
-#endif
-
-/* callback is called for each field in message header. */
-void message_parse_from_parts(struct message_part *part, struct istream *input,
-			      message_part_header_callback_t *callback,
-			      void *context);
-#ifdef CONTEXT_TYPE_SAFETY
-#  define message_parse_from_parts(part, input, callback, context) \
-	({(void)(1 ? 0 : callback((struct message_part *)0, \
-				  (struct message_header_line *)0, context)); \
-	  message_parse_from_parts(part, input, \
-		(message_part_header_callback_t *)callback, context); })
-#else
-#  define message_parse_from_parts(part, input, callback, context) \
-	  message_parse_from_parts(part, input, \
 		(message_part_header_callback_t *)callback, context)
 #endif
 

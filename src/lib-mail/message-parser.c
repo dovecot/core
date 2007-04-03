@@ -37,6 +37,7 @@ struct message_parser_ctx {
 	int (*parse_next_block)(struct message_parser_ctx *ctx,
 				struct message_block *block_r);
 
+	unsigned int return_body_blocks:1;
 	unsigned int part_seen_content_type:1;
 };
 
@@ -48,6 +49,8 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 				       struct message_block *block_r);
 static int parse_next_body_to_eof(struct message_parser_ctx *ctx,
 				  struct message_block *block_r);
+static int preparsed_parse_next_header_init(struct message_parser_ctx *ctx,
+					    struct message_block *block_r);
 
 static struct message_boundary *
 boundary_find(struct message_boundary *boundaries,
@@ -538,6 +541,123 @@ static int parse_next_header_init(struct message_parser_ctx *ctx,
 	return parse_next_header(ctx, block_r);
 }
 
+static int preparsed_parse_eof(struct message_parser_ctx *ctx __attr_unused__,
+			       struct message_block *block_r __attr_unused__)
+{
+	return -1;
+}
+
+static void preparsed_skip_to_next(struct message_parser_ctx *ctx)
+{
+	ctx->parse_next_block = preparsed_parse_next_header_init;
+	while (ctx->part != NULL) {
+		if (ctx->part->next != NULL) {
+			ctx->part = ctx->part->next;
+			break;
+		}
+		ctx->part = ctx->part->parent;
+	}
+	if (ctx->part == NULL)
+		ctx->parse_next_block = preparsed_parse_eof;
+}
+
+static int preparsed_parse_body_finish(struct message_parser_ctx *ctx,
+				       struct message_block *block_r)
+{
+	i_stream_skip(ctx->input, ctx->skip);
+	ctx->skip = 0;
+
+	preparsed_skip_to_next(ctx);
+	return ctx->parse_next_block(ctx, block_r);
+}
+
+static int preparsed_parse_body_more(struct message_parser_ctx *ctx,
+				     struct message_block *block_r)
+{
+	uoff_t end_offset = ctx->part->physical_pos +
+		ctx->part->header_size.physical_size +
+		ctx->part->body_size.physical_size;
+	int ret;
+
+	ret = message_parser_read_more(ctx, block_r);
+	if (ret <= 0)
+		return ret;
+
+	if (ctx->input->v_offset + block_r->size >= end_offset) {
+		block_r->size = end_offset - ctx->input->v_offset;
+		ctx->parse_next_block = preparsed_parse_body_finish;
+	}
+	ctx->skip = block_r->size;
+	return 1;
+}
+
+static int preparsed_parse_body_init(struct message_parser_ctx *ctx,
+				     struct message_block *block_r)
+{
+	uoff_t offset = ctx->part->physical_pos +
+		ctx->part->header_size.physical_size;
+
+	i_assert(offset >= ctx->input->v_offset);
+	i_stream_skip(ctx->input, offset - ctx->input->v_offset);
+
+	ctx->parse_next_block = preparsed_parse_body_more;
+	return preparsed_parse_body_more(ctx, block_r);
+}
+
+static int preparsed_parse_finish_header(struct message_parser_ctx *ctx,
+					 struct message_block *block_r)
+{
+	if (ctx->part->children != NULL) {
+		ctx->parse_next_block = preparsed_parse_next_header_init;
+		ctx->part = ctx->part->children;
+	} else if (ctx->return_body_blocks) {
+		ctx->parse_next_block = preparsed_parse_body_init;
+	} else {
+		preparsed_skip_to_next(ctx);
+	}
+	return ctx->parse_next_block(ctx, block_r);
+}
+
+static int preparsed_parse_next_header(struct message_parser_ctx *ctx,
+				       struct message_block *block_r)
+{
+	struct message_header_line *hdr;
+	int ret;
+
+	ret = message_parse_header_next(ctx->hdr_parser_ctx, &hdr);
+	if (ret == 0 || (ret < 0 && ctx->input->stream_errno != 0))
+		return ret;
+
+	if (hdr != NULL) {
+		block_r->hdr = hdr;
+		block_r->size = 0;
+		return 1;
+	}
+	message_parse_header_deinit(&ctx->hdr_parser_ctx);
+
+	ctx->parse_next_block = preparsed_parse_finish_header;
+
+	/* return empty block as end of headers */
+	block_r->hdr = NULL;
+	block_r->size = 0;
+	return 1;
+}
+
+static int preparsed_parse_next_header_init(struct message_parser_ctx *ctx,
+					    struct message_block *block_r)
+{
+	i_assert(ctx->hdr_parser_ctx == NULL);
+
+	i_assert(ctx->part->physical_pos >= ctx->input->v_offset);
+	i_stream_skip(ctx->input, ctx->part->physical_pos -
+		      ctx->input->v_offset);
+
+	ctx->hdr_parser_ctx = message_parse_header_init(ctx->input, NULL, TRUE);
+
+	ctx->parse_next_block = preparsed_parse_next_header;
+	return preparsed_parse_next_header(ctx, block_r);
+}
+
 struct message_parser_ctx *
 message_parser_init(pool_t part_pool, struct istream *input)
 {
@@ -549,8 +669,22 @@ message_parser_init(pool_t part_pool, struct istream *input)
 	ctx->parser_pool = pool;
 	ctx->part_pool = part_pool;
 	ctx->input = input;
-	ctx->parts = ctx->part = p_new(part_pool, struct message_part, 1);
+	ctx->parts = ctx->part = part_pool == NULL ? NULL :
+		p_new(part_pool, struct message_part, 1);
 	ctx->parse_next_block = parse_next_header_init;
+	return ctx;
+}
+
+struct message_parser_ctx *
+message_parser_init_from_parts(struct message_part *parts,
+			       struct istream *input, bool return_body_blocks)
+{
+	struct message_parser_ctx *ctx;
+
+	ctx = message_parser_init(NULL, input);
+	ctx->return_body_blocks = return_body_blocks;
+	ctx->parts = ctx->part = parts;
+	ctx->parse_next_block = preparsed_parse_next_header_init;
 	return ctx;
 }
 
@@ -588,7 +722,7 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 
 	block_r->part = ctx->part;
 
-	if (ret < 0) {
+	if (ret < 0 && ctx->part != NULL) {
 		i_assert(ctx->input->eof);
 		while (ctx->part->parent != NULL) {
 			message_size_add(&ctx->part->parent->body_size,
@@ -640,46 +774,6 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 			hdr_callback(block.part, block.hdr, context);
 	}
 	i_assert(ret != 0);
-}
-
-static void part_parse_headers(struct message_part *part, struct istream *input,
-			       message_part_header_callback_t *callback,
-			       void *context)
-{
-	struct message_header_parser_ctx *hdr_ctx;
-	struct message_header_line *hdr;
-	int ret;
-
-	while (part != NULL) {
-		/* note that we want to parse the header of all
-		   the message parts, multiparts too. */
-		i_assert(part->physical_pos >= input->v_offset);
-		i_stream_skip(input, part->physical_pos - input->v_offset);
-
-		hdr_ctx = message_parse_header_init(input, NULL, TRUE);
-		while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0)
-			callback(part, hdr, context);
-		i_assert(ret != 0);
-		message_parse_header_deinit(&hdr_ctx);
-
-		/* call after the final skipping */
-		callback(part, NULL, context);
-
-		if (part->children != NULL) {
-			part_parse_headers(part->children, input,
-					   callback, context);
-		}
-
-		part = part->next;
-	}
-}
-
-#undef message_parse_from_parts
-void message_parse_from_parts(struct message_part *part, struct istream *input,
-			      message_part_header_callback_t *callback,
-			      void *context)
-{
-	part_parse_headers(part, input, callback, context);
 }
 
 static void

@@ -340,6 +340,23 @@ index_mail_parse_header_cb(struct message_header_line *hdr,
 	index_mail_parse_header(mail->data.parts, hdr, mail);
 }
 
+static void index_mail_init_parser(struct index_mail *mail)
+{
+	struct index_mail_data *data = &mail->data;
+
+	if (data->parser_ctx != NULL)
+		(void)message_parser_deinit(&data->parser_ctx);
+
+	if (data->parts == NULL) {
+		data->parser_ctx =
+			message_parser_init(mail->data_pool, data->stream);
+	} else {
+		data->parser_ctx =
+			message_parser_init_from_parts(data->parts,
+						       data->stream, FALSE);
+	}
+}
+
 int index_mail_parse_headers(struct index_mail *mail,
 			     struct mailbox_header_lookup_ctx *headers)
 {
@@ -357,10 +374,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 					 data->save_bodystructure_header)) {
 		/* initialize bodystructure parsing in case we read the whole
 		   message. */
-		if (data->parser_ctx != NULL)
-			(void)message_parser_deinit(&mail->data.parser_ctx);
-		data->parser_ctx =
-			message_parser_init(mail->data_pool, data->stream);
+		index_mail_init_parser(mail);
 		message_parser_parse_header(data->parser_ctx, &data->hdr_size,
 					    index_mail_parse_part_header_cb,
 					    mail);

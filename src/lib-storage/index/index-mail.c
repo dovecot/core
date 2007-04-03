@@ -581,7 +581,6 @@ static void index_mail_parse_body(struct index_mail *mail,
 	struct index_mail_data *data = &mail->data;
 	uoff_t old_offset;
 
-	i_assert(data->parts == NULL);
 	i_assert(data->parser_ctx != NULL);
 
 	old_offset = data->stream->v_offset;
@@ -619,6 +618,7 @@ struct istream *index_mail_init_stream(struct index_mail *_mail,
 		i_stream_seek(data->stream, 0);
 		if (!data->hdr_size_set) {
 			if ((data->access_part & PARSE_HDR) != 0) {
+				(void)get_cached_parts(mail);
 				if (index_mail_parse_headers(mail, NULL) < 0)
 					return NULL;
 			} else {
@@ -675,30 +675,12 @@ static void index_mail_parse_bodystructure(struct index_mail *mail,
 		/* we haven't parsed the header yet */
 		data->save_bodystructure_header = TRUE;
 		data->save_bodystructure_body = TRUE;
+		(void)get_cached_parts(mail);
 		if (index_mail_parse_headers(mail, NULL) < 0)
 			return;
 	}
 
-	if (data->parts == NULL)
-		index_mail_parse_body(mail, field);
-	else {
-		/* body structure is known already, so use it to parse only
-		   the MIME headers */
-		uoff_t old_offset;
-
-		i_assert(data->parts->next == NULL);
-
-		old_offset = data->stream->v_offset;
-		i_stream_seek(data->stream,
-			      data->hdr_size.physical_size);
-
-		message_parse_from_parts(data->parts->children,
-					 data->stream,
-					 parse_bodystructure_part_header,
-					 mail->data_pool);
-		data->parsed_bodystructure = TRUE;
-		i_stream_seek(data->stream, old_offset);
-	}
+	index_mail_parse_body(mail, field);
 }
 
 static void
