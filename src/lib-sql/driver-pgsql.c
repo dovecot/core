@@ -31,6 +31,7 @@ struct pgsql_db {
 	unsigned int connecting:1;
 	unsigned int connected:1;
 	unsigned int querying:1;
+	unsigned int query_finished:1;
 };
 
 struct pgsql_result {
@@ -489,6 +490,7 @@ static void pgsql_query_s_callback(struct sql_result *result, void *context)
 {
         struct pgsql_db *db = context;
 
+	db->query_finished = TRUE;
 	db->sync_result = result;
 	io_loop_stop(db->ioloop);
 }
@@ -512,9 +514,11 @@ driver_pgsql_query_s(struct sql_db *_db, const char *query)
 				old_io.callback, old_io.context);
 	}
 
+	db->query_finished = FALSE;
 	driver_pgsql_query(_db, query, pgsql_query_s_callback, db);
 
-	io_loop_run(db->ioloop);
+	if (!db->query_finished)
+		io_loop_run(db->ioloop);
 	io_loop_destroy(&db->ioloop);
 
 	i_assert(db->io == NULL);
