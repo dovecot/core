@@ -413,6 +413,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 
 		if (strcasecmp(ctx->hdr->name, arg->hdr_field_name) != 0)
 			return;
+		break;
 	default:
 		return;
 	}
