@@ -7,6 +7,7 @@
 #include "mail-index-private.h"
 #include "mailbox-list-private.h"
 #include "mail-storage-private.h"
+#include "mail-namespace.h"
 #include "index/index-storage.h"
 
 #include <stdlib.h>
@@ -149,10 +150,10 @@ mail_storage_set_autodetection(const char **data, const char **driver,
 	}
 }
 
-struct mail_storage *
-mail_storage_create(const char *driver, const char *data, const char *user,
-		    enum mail_storage_flags flags,
-		    enum file_lock_method lock_method)
+int mail_storage_create(struct mail_namespace *ns, const char *driver,
+			const char *data, const char *user,
+			enum mail_storage_flags flags,
+			enum file_lock_method lock_method)
 {
 	struct mail_storage *storage_class, *storage;
 	struct mail_storage *const *classes;
@@ -173,14 +174,14 @@ mail_storage_create(const char *driver, const char *data, const char *user,
 				"don't know what to do with it: %s "
 				"(try prefixing it with mbox: or maildir:)",
 				data);
-			return NULL;
+			return -1;
 		}
 		classes = &storage_class;
 		count = 1;
 	} else {
 		storage_class = mail_storage_find(driver);
 		if (storage_class == NULL)
-			return NULL;
+			return -1;
 		classes = &storage_class;
 		count = 1;
 	}
@@ -190,6 +191,7 @@ mail_storage_create(const char *driver, const char *data, const char *user,
 		storage->flags = flags;
 		storage->lock_method = lock_method;
 		storage->user = p_strdup(storage->pool, user);
+		storage->ns = ns;
 
 		storage->callbacks =
 			p_new(storage->pool, struct mail_storage_callbacks, 1);
@@ -202,11 +204,13 @@ mail_storage_create(const char *driver, const char *data, const char *user,
 		pool_unref(storage->pool);
 	}
 	if (i == count)
-		return NULL;
+		return -1;
 
 	if (hook_mail_storage_created != NULL)
 		hook_mail_storage_created(storage);
-	return storage;
+
+	ns->storage = storage;
+	return 0;
 }
 
 void mail_storage_destroy(struct mail_storage **_storage)
@@ -317,6 +321,11 @@ char mail_storage_get_hierarchy_sep(struct mail_storage *storage)
 struct mailbox_list *mail_storage_get_list(struct mail_storage *storage)
 {
 	return storage->list;
+}
+
+struct mail_namespace *mail_storage_get_namespace(struct mail_storage *storage)
+{
+	return storage->ns;
 }
 
 void mail_storage_set_callbacks(struct mail_storage *storage,

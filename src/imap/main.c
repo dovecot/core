@@ -14,7 +14,7 @@
 #include "dict-client.h"
 #include "mail-storage.h"
 #include "commands.h"
-#include "namespace.h"
+#include "mail-namespace.h"
 #include "imap-thread.h"
 
 #include <stdio.h>
@@ -163,6 +163,7 @@ static void drop_privileges(void)
 static void main_init(void)
 {
 	struct client *client;
+	struct mail_namespace *ns;
 	const char *user, *str;
 
 	lib_signals_init();
@@ -232,7 +233,9 @@ static void main_init(void)
         parse_workarounds();
 
 	namespace_pool = pool_alloconly_create("namespaces", 1024);
-	client = client_create(0, 1, namespace_init(namespace_pool, user));
+	if (mail_namespaces_init(namespace_pool, user, &ns) < 0)
+		exit(FATAL_DEFAULT);
+	client = client_create(0, 1, ns);
 
         o_stream_cork(client->output);
 	if (IS_STANDALONE()) {

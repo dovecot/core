@@ -18,6 +18,7 @@
 #include "message-address.h"
 #include "istream-header-filter.h"
 #include "mbox-storage.h"
+#include "mail-namespace.h"
 #include "dict-client.h"
 #include "mbox-from.h"
 #include "auth-client.h"
@@ -75,26 +76,35 @@ static int sync_quick(struct mailbox *box)
 }
 
 static struct mailbox *
-mailbox_open_or_create_synced(struct mail_storage *storage, const char *name)
+mailbox_open_or_create_synced(struct mail_namespace *namespaces,
+			      struct mail_storage **storage_r, const char *name)
 {
+	struct mail_namespace *ns;
 	struct mailbox *box;
 	bool syntax, temp;
 
-	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
+	ns = mail_namespace_find(namespaces, &name);
+	if (ns == NULL) {
+		*storage_r = NULL;
+		return NULL;
+	}
+	*storage_r = ns->storage;
+
+	box = mailbox_open(ns->storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
 	if (box != NULL || no_mailbox_autocreate)
 		return box;
 
-	(void)mail_storage_get_last_error(storage, &syntax, &temp);
+	(void)mail_storage_get_last_error(ns->storage, &syntax, &temp);
 	if (syntax || temp)
 		return NULL;
 
 	/* probably the mailbox just doesn't exist. try creating it. */
-	if (mail_storage_mailbox_create(storage, name, FALSE) < 0)
+	if (mail_storage_mailbox_create(ns->storage, name, FALSE) < 0)
 		return NULL;
 
 	/* and try opening again */
-	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
+	box = mailbox_open(ns->storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT);
 	if (box == NULL)
 		return NULL;
@@ -106,7 +116,8 @@ mailbox_open_or_create_synced(struct mail_storage *storage, const char *name)
 	return box;
 }
 
-int deliver_save(struct mail_storage *storage, const char *mailbox,
+int deliver_save(struct mail_namespace *namespaces,
+		 struct mail_storage **storage_r, const char *mailbox,
 		 struct mail *mail, enum mail_flags flags,
 		 const char *const *keywords)
 {
@@ -119,7 +130,7 @@ int deliver_save(struct mail_storage *storage, const char *mailbox,
 	if (strcmp(mailbox, default_mailbox_name) == 0)
 		tried_default_save = TRUE;
 
-	box = mailbox_open_or_create_synced(storage, mailbox);
+	box = mailbox_open_or_create_synced(namespaces, storage_r, mailbox);
 	if (box == NULL)
 		return -1;
 
@@ -480,14 +491,14 @@ int main(int argc, char *argv[])
 	const char *auth_socket;
 	const char *home, *destination, *user, *mail_env, *value;
         const struct var_expand_table *table;
-        enum mail_storage_flags flags;
-        enum file_lock_method lock_method;
-	struct mail_storage *storage, *mbox_storage;
+	struct mail_namespace *ns, *mbox_ns;
+	struct mail_storage *storage;
 	struct mailbox *box;
 	struct istream *input;
 	struct mailbox_transaction_context *t;
 	struct mail *mail;
 	uid_t process_euid;
+	pool_t namespace_pool;
 	int i, ret;
 
 	i_set_failure_exit_callback(failure_exit_callback);
@@ -644,7 +655,8 @@ int main(int argc, char *argv[])
 	mail_storage_register_all();
 	mailbox_list_register_all();
 
-	/* MAIL comes from userdb, MAIL_LOCATION from dovecot.conf */
+	/* MAIL comes from userdb, MAIL_LOCATION from dovecot.conf.
+	   FIXME: should remove these and support namespaces.. */
 	mail_env = getenv("MAIL");
 	if (mail_env == NULL) 
 		mail_env = getenv("MAIL_LOCATION");
@@ -656,23 +668,20 @@ int main(int argc, char *argv[])
 		table = get_var_expand_table(destination, getenv("HOME"));
 		mail_env = expand_mail_env(mail_env, table);
 	}
+	env_put(t_strconcat("MAIL=", mail_env, NULL));
 
 	module_dir_init(modules);
 
-	/* FIXME: how should we handle namespaces? */
-	mail_storage_parse_env(&flags, &lock_method);
-	storage = mail_storage_create(NULL, mail_env, destination,
-				      flags, lock_method);
-	if (storage == NULL) {
-		i_fatal_status(EX_TEMPFAIL,
-			"Failed to create storage for '%s' with mail '%s'",
-			destination, mail_env == NULL ? "(null)" : mail_env);
-	}
+	namespace_pool = pool_alloconly_create("namespaces", 1024);
+	if (mail_namespaces_init(namespace_pool, destination, &ns) < 0)
+		exit(EX_TEMPFAIL);
 
-	mbox_storage = mail_storage_create("mbox", "/tmp", destination, 0,
-					   FILE_LOCK_METHOD_FCNTL);
+	mbox_ns = mail_namespaces_init_empty(namespace_pool);
+	if (mail_storage_create(mbox_ns, "mbox", "/tmp", destination,
+				0, FILE_LOCK_METHOD_FCNTL) < 0)
+		i_fatal("Couldn't create internal mbox storage");
 	input = create_mbox_stream(0, envelope_sender);
-	box = mailbox_open(mbox_storage, "Dovecot Delivery Mail", input,
+	box = mailbox_open(mbox_ns->storage, "Dovecot Delivery Mail", input,
 			   MAILBOX_OPEN_NO_INDEX_FILES |
 			   MAILBOX_OPEN_MBOX_ONE_MSG_ONLY);
 	if (box == NULL)
@@ -687,18 +696,18 @@ int main(int argc, char *argv[])
 
 	default_mailbox_name = mailbox;
 	ret = deliver_mail == NULL ? 0 :
-		deliver_mail(storage, mail, destination, mailbox);
+		deliver_mail(ns, &storage, mail, destination, mailbox);
 
 	if (ret == 0 || (ret < 0 && !tried_default_save)) {
 		/* plugins didn't handle this. save into the default mailbox. */
 		i_stream_seek(input, 0);
-		ret = deliver_save(storage, mailbox, mail, 0, NULL);
+		ret = deliver_save(ns, &storage, mailbox, mail, 0, NULL);
 	}
 	if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
 		i_stream_seek(input, 0);
-		ret = deliver_save(storage, "INBOX", mail, 0, NULL);
+		ret = deliver_save(ns, &storage, "INBOX", mail, 0, NULL);
 	}
 
 	if (ret < 0) {
@@ -723,8 +732,8 @@ int main(int argc, char *argv[])
 	mailbox_transaction_rollback(&t);
 	mailbox_close(&box);
 
-        mail_storage_destroy(&mbox_storage);
-        mail_storage_destroy(&storage);
+	mail_namespaces_deinit(&mbox_ns);
+	mail_namespaces_deinit(&ns);
 
 	module_dir_unload(&modules);
 	mail_storage_deinit();

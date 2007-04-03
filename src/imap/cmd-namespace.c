@@ -4,10 +4,10 @@
 #include "str.h"
 #include "imap-quote.h"
 #include "commands.h"
-#include "namespace.h"
+#include "mail-namespace.h"
 
-static void list_namespaces(struct namespace *ns, enum namespace_type type,
-			    string_t *str)
+static void list_namespaces(struct mail_namespace *ns,
+			    enum namespace_type type, string_t *str)
 {
 	bool found = FALSE;
 

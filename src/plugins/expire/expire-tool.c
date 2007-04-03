@@ -8,6 +8,7 @@
 #include "dict-client.h"
 #include "mail-search.h"
 #include "mail-storage.h"
+#include "mail-namespace.h"
 #include "auth-client.h"
 #include "expire-env.h"
 
@@ -23,14 +24,12 @@ struct expire_context {
 	struct auth_connection *auth_conn;
 
 	char *user;
-	struct mail_storage *storage;
+	pool_t namespace_pool;
+	struct mail_namespace *ns;
 };
 
 static int user_init(struct expire_context *ctx, const char *user)
 {
-	enum mail_storage_flags flags;
-	enum file_lock_method lock_method;
-	const char *mail_env;
 	int ret;
 
 	if ((ret = auth_client_put_user_env(ctx->auth_conn, user)) <= 0) {
@@ -41,22 +40,16 @@ static int user_init(struct expire_context *ctx, const char *user)
 		return 0;
 	}
 
-	mail_env = getenv("MAIL");
-	mail_storage_parse_env(&flags, &lock_method);
-	ctx->storage = mail_storage_create(NULL, mail_env, user,
-					   flags, lock_method);
-	if (ctx->storage == NULL) {
-		i_error("Failed to create storage for '%s' with mail '%s'",
-			user, mail_env == NULL ? "(null)" : mail_env);
+	if (mail_namespaces_init(ctx->namespace_pool, user, &ctx->ns) < 0)
 		return -1;
-	}
 	return 1;
 }
 
 static void user_deinit(struct expire_context *ctx)
 {
-	mail_storage_destroy(&ctx->storage);
+	mail_namespaces_deinit(&ctx->ns);
 	i_free_and_null(ctx->user);
+	p_clear(ctx->namespace_pool);
 }
 
 static int
@@ -64,6 +57,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 			 const char *mailbox, time_t expire_secs,
 			 time_t *oldest_r)
 {
+	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mail_search_context *search_ctx;
 	struct mailbox_transaction_context *t;
@@ -86,7 +80,11 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 	search_arg.type = SEARCH_ALL;
 	search_arg.next = NULL;
 
-	box = mailbox_open(ctx->storage, mailbox, NULL, 0);
+	ns = mail_namespace_find(ctx->ns, &mailbox);
+	if (ns == NULL)
+		return -1;
+
+	box = mailbox_open(ns->storage, mailbox, NULL, 0);
 	t = mailbox_transaction_begin(box, 0);
 	search_ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
 	mail = mail_alloc(t, 0, NULL);
@@ -150,6 +148,7 @@ static void expire_run(void)
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.auth_conn = auth_connection_init(auth_socket);
+	ctx.namespace_pool = pool_alloconly_create("namespaces", 1024);
 	env = expire_env_init(getenv("EXPIRE"));
 	dict = dict_init(getenv("EXPIRE_DICT"), DICT_DATA_TYPE_UINT32, "");
 	trans = dict_transaction_begin(dict);

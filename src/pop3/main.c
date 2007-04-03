@@ -13,6 +13,7 @@
 #include "var-expand.h"
 #include "dict-client.h"
 #include "mail-storage.h"
+#include "mail-namespace.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +39,7 @@ struct ioloop *ioloop;
 void (*hook_client_created)(struct client **client) = NULL;
 
 static struct module *modules = NULL;
+static pool_t namespace_pool;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 static struct io *log_io = NULL;
 
@@ -180,10 +182,7 @@ static void drop_privileges(void)
 
 static int main_init(void)
 {
-        enum mail_storage_flags flags;
-        enum file_lock_method lock_method;
-	struct mail_storage *storage;
-	const char *mail;
+	struct mail_namespace *ns;
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
@@ -213,14 +212,6 @@ static int main_init(void)
 
 	module_dir_init(modules);
 
-	mail = getenv("MAIL");
-	if (mail == NULL) {
-		/* support also maildir-specific environment */
-		mail = getenv("MAILDIR");
-		if (mail != NULL)
-			mail = t_strconcat("maildir:", mail, NULL);
-	}
-
 	parse_workarounds();
 	enable_last_command = getenv("POP3_ENABLE_LAST") != NULL;
 	no_flag_updates = getenv("POP3_NO_FLAG_UPDATES") != NULL;
@@ -238,25 +229,10 @@ static int main_init(void)
 		i_fatal("pop3_uidl_format setting doesn't contain any "
 			"%% variables.");
 
-	mail_storage_parse_env(&flags, &lock_method);
-	storage = mail_storage_create(NULL, mail, getenv("USER"),
-				      flags, lock_method);
-	if (storage == NULL) {
-		/* failed */
-		if (mail != NULL && *mail != '\0')
-			i_fatal("Failed to create storage with data: %s", mail);
-		else {
-			const char *home;
-
-			home = getenv("HOME");
-			if (home == NULL) home = "not set";
-
-			i_fatal("MAIL environment missing and "
-				"autodetection failed (home %s)", home);
-		}
-	}
-
-	return client_create(0, 1, storage) != NULL;
+	namespace_pool = pool_alloconly_create("namespaces", 1024);
+	if (mail_namespaces_init(namespace_pool, getenv("USER"), &ns) < 0)
+		exit(FATAL_DEFAULT);
+	return client_create(0, 1, ns) != NULL;
 }
 
 static void main_deinit(void)

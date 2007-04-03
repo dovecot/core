@@ -53,6 +53,7 @@ struct mail_storage {
 	pool_t pool;
 
 	char *error;
+	struct mail_namespace *ns;
 	struct mailbox_list *list;
 
 	const char *user; /* name of user accessing the storage */

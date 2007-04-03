@@ -136,6 +136,7 @@ enum mailbox_sync_type {
 	MAILBOX_SYNC_TYPE_KEYWORDS	= 0x04
 };
 
+struct mail_namespace;
 struct mail_storage;
 struct mail_search_arg;
 struct mail_keywords;
@@ -204,15 +205,16 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 /* Create a new instance of registered mail storage class with given
    storage-specific data. If driver is NULL, it's tried to be autodetected
    from data. If data is NULL, it uses the first storage that exists.
-   May return NULL if anything fails. */
-struct mail_storage *
-mail_storage_create(const char *driver, const char *data, const char *user,
-		    enum mail_storage_flags flags,
-		    enum file_lock_method lock_method);
+   The storage is put into ns->storage. */
+int mail_storage_create(struct mail_namespace *ns, const char *driver,
+			const char *data, const char *user,
+			enum mail_storage_flags flags,
+			enum file_lock_method lock_method);
 void mail_storage_destroy(struct mail_storage **storage);
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
 struct mailbox_list *mail_storage_get_list(struct mail_storage *storage);
+struct mail_namespace *mail_storage_get_namespace(struct mail_storage *storage);
 void mail_storage_set_list_error(struct mail_storage *storage);
 
 /* Set storage callback functions to use. */

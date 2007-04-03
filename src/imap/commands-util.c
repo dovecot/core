@@ -10,7 +10,7 @@
 #include "imap-parser.h"
 #include "imap-sync.h"
 #include "imap-util.h"
-#include "namespace.h"
+#include "mail-namespace.h"
 
 /* Maximum length for mailbox name, including it's path. This isn't fully
    exact since the user can create folder hierarchy with small names, then
@@ -18,12 +18,12 @@
    to them, mbox/maildir currently allow paths only up to PATH_MAX. */
 #define MAILBOX_MAX_NAME_LEN 512
 
-struct namespace *
+struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 {
-	struct namespace *ns;
+	struct mail_namespace *ns;
 
-	ns = namespace_find(cmd->client->namespaces, mailbox);
+	ns = mail_namespace_find(cmd->client->namespaces, mailbox);
 	if (ns != NULL)
 		return ns;
 
@@ -34,7 +34,7 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 struct mail_storage *
 client_find_storage(struct client_command_context *cmd, const char **mailbox)
 {
-	struct namespace *ns;
+	struct mail_namespace *ns;
 
 	ns = client_find_namespace(cmd, mailbox);
 	return ns == NULL ? NULL : ns->storage;
@@ -44,7 +44,7 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
 				const char *mailbox,
 				bool should_exist, bool should_not_exist)
 {
-	struct namespace *ns;
+	struct mail_namespace *ns;
 	struct mailbox_list *list;
 	enum mailbox_name_status mailbox_status;
 	const char *orig_mailbox, *p;

@@ -1,8 +1,10 @@
 /* Copyright (C) 2006 Timo Sirainen */
 
 #include "lib.h"
+#include "file-lock.h"
 #include "file-dotlock.h"
-#include "index-storage.h"
+#include "mail-storage-private.h"
+#include "mail-namespace.h"
 #include "mail-search.h"
 #include "convert-storage.h"
 
@@ -246,25 +248,25 @@ int convert_storage(const char *user, const char *home_dir,
 		    const char *source_data, const char *dest_data,
 		    bool skip_broken_mailboxes)
 {
-	struct mail_storage *source_storage, *dest_storage;
+	struct mail_namespace *source_ns, *dest_ns;
 	struct dotlock *dotlock;
         enum mail_storage_flags flags;
         enum file_lock_method lock_method;
 	const char *path;
 	int ret;
 
+	source_ns = mail_namespaces_init_empty(pool_datastack_create());
 	mail_storage_parse_env(&flags, &lock_method);
 	flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE | MAIL_STORAGE_FLAG_HAS_INBOX;
-	source_storage = mail_storage_create(NULL, source_data, user,
-					     flags, lock_method);
-	if (source_storage == NULL) {
+	if (mail_storage_create(source_ns, NULL, source_data, user,
+				flags, lock_method) < 0) {
 		/* No need for conversion. */
 		return 0;
 	}
 
         path = t_strconcat(home_dir, "/"CONVERT_LOCK_FILENAME, NULL);
 	dotlock_settings.use_excl_lock =
-		(source_storage->flags &
+		(source_ns->storage->flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
 	ret = file_dotlock_create(&dotlock_settings, path, 0, &dotlock);
 	if (ret <= 0) {
@@ -275,27 +277,26 @@ int convert_storage(const char *user, const char *home_dir,
 
 	/* just in case if another process just had converted the mailbox,
 	   reopen the source storage */
-	mail_storage_destroy(&source_storage);
-	source_storage = mail_storage_create(NULL, source_data, user,
-					     flags, lock_method);
-	if (source_storage == NULL) {
+	mail_storage_destroy(&source_ns->storage);
+	if (mail_storage_create(source_ns, NULL, source_data, user,
+				flags, lock_method) < 0) {
 		/* No need for conversion anymore. */
 		file_dotlock_delete(&dotlock);
 		return 0;
 	}
 
-	dest_storage = mail_storage_create(NULL, dest_data, user,
-					   flags, lock_method);
-	if (dest_storage == NULL) {
+	dest_ns = mail_namespaces_init_empty(pool_datastack_create());
+	if (mail_storage_create(dest_ns, NULL, dest_data, user,
+				flags, lock_method) < 0) {
 		i_error("Mailbox conversion: Failed to create destination "
 			"storage with data: %s", dest_data);
 		ret = -1;
 	} else {
-		ret = mailbox_list_copy(source_storage, dest_storage, dotlock,
-					skip_broken_mailboxes);
+		ret = mailbox_list_copy(source_ns->storage, dest_ns->storage,
+					dotlock, skip_broken_mailboxes);
 		if (ret == 0) {
-			ret = mailbox_list_copy_subscriptions(source_storage,
-							      dest_storage);
+			ret = mailbox_list_copy_subscriptions(
+					source_ns->storage, dest_ns->storage);
 		}
 	}
 
@@ -305,7 +306,7 @@ int convert_storage(const char *user, const char *home_dir,
 		const char *src, *dest;
 		bool is_file;
 
-		src = mail_storage_get_mailbox_path(source_storage, "",
+		src = mail_storage_get_mailbox_path(source_ns->storage, "",
 						    &is_file);
 		if (src != NULL) {
 			dest = t_strconcat(src, "-converted", NULL);
@@ -319,8 +320,7 @@ int convert_storage(const char *user, const char *home_dir,
 	}
 
 	file_dotlock_delete(&dotlock);
-	if (dest_storage != NULL)
-		mail_storage_destroy(&dest_storage);
-	mail_storage_destroy(&source_storage);
+	mail_namespaces_deinit(&dest_ns);
+	mail_namespaces_deinit(&source_ns);
 	return ret;
 }

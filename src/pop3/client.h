@@ -15,7 +15,7 @@ struct client {
 	command_func_t *cmd;
 	void *cmd_context;
 
-	struct mail_storage *storage;
+	struct mail_namespace *namespaces, *inbox_ns;
 	struct mailbox *mailbox;
 	struct mailbox_transaction_context *trans;
 
@@ -49,7 +49,7 @@ struct client {
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out,
-			     struct mail_storage *storage);
+			     struct mail_namespace *namespaces);
 void client_destroy(struct client *client, const char *reason);
 
 /* Disconnect client connection */

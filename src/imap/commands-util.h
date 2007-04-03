@@ -11,7 +11,7 @@ struct mailbox_keywords;
 
 /* Finds namespace for given mailbox from namespaces. If not found,
    sends "Unknown namespace" error message to client. */
-struct namespace *
+struct mail_namespace *
 client_find_namespace(struct client_command_context *cmd, const char **mailbox);
 /* Finds mail storage for given mailbox from namespaces. If not found,
    sends "Unknown namespace" error message to client. */

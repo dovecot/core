@@ -6,7 +6,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "commands.h"
-#include "namespace.h"
+#include "mail-namespace.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -17,7 +17,7 @@ static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
 struct client *client_create(int fd_in, int fd_out,
-			     struct namespace *namespaces)
+			     struct mail_namespace *namespaces)
 {
 	struct client *client;
 
@@ -95,7 +95,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
-	namespace_deinit(client->namespaces);
+	mail_namespaces_deinit(&client->namespaces);
 
 	if (client->free_parser != NULL)
 		imap_parser_destroy(&client->free_parser);

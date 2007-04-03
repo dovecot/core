@@ -6,7 +6,7 @@
 #include "imap-quote.h"
 #include "imap-match.h"
 #include "commands.h"
-#include "namespace.h"
+#include "mail-namespace.h"
 
 enum {
 	_MAILBOX_LIST_ITER_HIDE_CHILDREN	= 0x1000000,
@@ -18,7 +18,7 @@ struct cmd_list_context {
 	const char *mask;
 	enum mailbox_list_flags list_flags;
 
-	struct namespace *ns;
+	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *list_iter;
 	struct imap_match_glob *glob;
 
@@ -232,7 +232,7 @@ list_namespace_init(struct client_command_context *cmd,
 		    struct cmd_list_context *ctx)
 {
         struct client *client = cmd->client;
-	struct namespace *ns = ctx->ns;
+	struct mail_namespace *ns = ctx->ns;
 	const char *cur_ns_prefix, *cur_ref, *cur_mask;
 	enum imap_match_result match;
 	enum imap_match_result inbox_match;
@@ -392,8 +392,8 @@ list_namespace_init(struct client_command_context *cmd,
 		ctx->glob = NULL;
 	}
 
-	cur_ref = namespace_fix_sep(ns, cur_ref);
-	cur_mask = namespace_fix_sep(ns, cur_mask);
+	cur_ref = mail_namespace_fix_sep(ns, cur_ref);
+	cur_mask = mail_namespace_fix_sep(ns, cur_mask);
 
 	list_flags = ctx->list_flags;
 	if (ctx->match_inbox)
@@ -438,7 +438,7 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 {
 	struct client *client = cmd->client;
-	struct namespace *ns;
+	struct mail_namespace *ns;
 	struct imap_arg *args;
 	enum mailbox_list_flags list_flags;
         struct cmd_list_context *ctx;
@@ -485,19 +485,20 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 		   concept which probably no other client uses than Pine.
 		   Just try our best to emulate UW-IMAP behavior and hopefully
 		   we're fine. */
-		ns = namespace_find_visible(client->namespaces, &ref);
+		ns = mail_namespace_find_visible(client->namespaces, &ref);
 		if (ns != NULL)
 			ns_prefix = ns->prefix;
 		else {
 			const char *empty = "";
 
 			ns_prefix = "";
-			ns = namespace_find(client->namespaces, &empty);
+			ns = mail_namespace_find(client->namespaces, &empty);
 			if (ns == NULL) {
 				/* we must reply something. use INBOX
 				   namespace's separator. */
 				const char *inbox = "INBOX";
-				ns = namespace_find(client->namespaces, &inbox);
+				ns = mail_namespace_find(client->namespaces,
+							 &inbox);
 			}
 		}
 

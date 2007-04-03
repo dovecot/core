@@ -7,7 +7,7 @@
 #include "seq-range-array.h"
 #include "maildir-storage.h"
 #include "client.h"
-#include "namespace.h"
+#include "mail-namespace.h"
 #include "lazy-expunge-plugin.h"
 
 #include <stdio.h>
@@ -63,7 +63,7 @@ static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_module,
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static struct namespace *lazy_namespaces[LAZY_NAMESPACE_COUNT];
+static struct mail_namespace *lazy_namespaces[LAZY_NAMESPACE_COUNT];
 
 static struct mailbox *
 mailbox_open_or_create(struct mail_storage *storage, const char *name)
@@ -515,7 +515,7 @@ static void lazy_expunge_hook_client_created(struct client **client)
 			i_fatal("lazy_expunge: Missing namespace #%d", i + 1);
 
 		lazy_namespaces[i] =
-			namespace_find_prefix((*client)->namespaces, name);
+			mail_namespace_find_prefix((*client)->namespaces, name);
 		if (lazy_namespaces[i] == NULL)
 			i_fatal("lazy_expunge: Unknown namespace: '%s'", name);
 		if (strcmp(lazy_namespaces[i]->storage->name, "maildir") != 0) {

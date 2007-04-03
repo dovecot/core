@@ -11,6 +11,7 @@
 #include "mail-storage.h"
 #include "commands.h"
 #include "mail-search.h"
+#include "mail-namespace.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -124,8 +125,10 @@ static int init_mailbox(struct client *client)
 }
 
 struct client *client_create(int fd_in, int fd_out,
-			     struct mail_storage *storage)
+			     struct mail_namespace *namespaces)
 {
+	struct mail_storage *storage;
+	const char *inbox;
 	struct client *client;
         enum mailbox_open_flags flags;
 	const char *errmsg;
@@ -146,8 +149,18 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client->io = io_add(fd_in, IO_READ, client_input, client);
         client->last_input = ioloop_time;
-	client->storage = storage;
 
+	client->namespaces = namespaces;
+
+	inbox = "INBOX";
+	client->inbox_ns = mail_namespace_find(namespaces, &inbox);
+	if (client->inbox_ns == NULL) {
+		client_send_line(client, "-ERR No INBOX namespace for user.");
+		client_destroy(client, "No INBOX namespace for user.");
+		return NULL;
+	}
+
+	storage = client->inbox_ns->storage;
 	mail_storage_set_callbacks(storage, &mail_storage_callbacks, client);
 
 	flags = 0;
@@ -237,7 +250,7 @@ void client_destroy(struct client *client, const char *reason)
 	}
 	if (client->mailbox != NULL)
 		mailbox_close(&client->mailbox);
-	mail_storage_destroy(&client->storage);
+	mail_namespaces_deinit(&client->namespaces);
 
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);
@@ -333,7 +346,7 @@ void client_send_storage_error(struct client *client)
 		return;
 	}
 
-	error = mail_storage_get_last_error(client->storage, &syntax,
+	error = mail_storage_get_last_error(client->inbox_ns->storage, &syntax,
 					    &temporary_error);
 	client_send_line(client, "-ERR %s", error != NULL ? error :
 			 "BUG: Unknown error");

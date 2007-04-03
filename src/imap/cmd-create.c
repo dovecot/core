@@ -1,12 +1,12 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
-#include "namespace.h"
+#include "mail-namespace.h"
 #include "commands.h"
 
 bool cmd_create(struct client_command_context *cmd)
 {
-	struct namespace *ns;
+	struct mail_namespace *ns;
 	const char *mailbox, *full_mailbox;
 	bool directory;
 	size_t len;

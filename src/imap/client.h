@@ -43,7 +43,7 @@ struct client {
 	struct istream *input;
 	struct ostream *output;
 
-        struct namespace *namespaces;
+        struct mail_namespace *namespaces;
 	struct mailbox *mailbox;
         struct mailbox_keywords keywords;
 	unsigned int select_counter; /* increased when mailbox is changed */
@@ -73,7 +73,7 @@ struct client {
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out,
-			     struct namespace *namespaces);
+			     struct mail_namespace *namespaces);
 void client_destroy(struct client *client, const char *reason);
 
 /* Disconnect client connection */

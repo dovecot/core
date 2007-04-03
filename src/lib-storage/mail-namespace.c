@@ -1,13 +1,13 @@
-/* Copyright (C) 2003 Timo Sirainen */
+/* Copyright (C) 2005-2007 Timo Sirainen */
 
-#include "common.h"
+#include "lib.h"
 #include "file-lock.h"
-#include "commands.h"
-#include "namespace.h"
+#include "mail-storage.h"
+#include "mail-namespace.h"
 
 #include <stdlib.h>
 
-static void namespace_init_storage(struct namespace *ns)
+static void namespace_init_storage(struct mail_namespace *ns)
 {
 	ns->prefix_len = strlen(ns->prefix);
 	ns->real_sep = mail_storage_get_hierarchy_sep(ns->storage);
@@ -23,16 +23,16 @@ static void namespace_init_storage(struct namespace *ns)
 	}
 }
 
-static struct namespace *
+static struct mail_namespace *
 namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		  const char *user, enum mail_storage_flags flags,
 		  enum file_lock_method lock_method)
 {
-        struct namespace *ns;
+        struct mail_namespace *ns;
         const char *sep, *type, *prefix;
 	bool inbox, hidden, subscriptions;
 
-	ns = p_new(pool, struct namespace, 1);
+	ns = p_new(pool, struct mail_namespace, 1);
 
 	sep = getenv(t_strdup_printf("NAMESPACE_%u_SEP", num));
 	type = getenv(t_strdup_printf("NAMESPACE_%u_TYPE", num));
@@ -48,8 +48,10 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		ns->type = NAMESPACE_SHARED;
 	else if (strncmp(type, "public", 6) == 0)
 		ns->type = NAMESPACE_PUBLIC;
-	else
-		i_fatal("Unknown namespace type: %s", type);
+	else {
+		i_error("Unknown namespace type: %s", type);
+		return NULL;
+	}
 
 	if (ns->type != NAMESPACE_PRIVATE)
 		flags |= MAIL_STORAGE_FLAG_SHARED_NAMESPACE;
@@ -72,10 +74,10 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	ns->inbox = inbox;
 	ns->hidden = hidden;
 	ns->subscriptions = subscriptions;
-	ns->storage = mail_storage_create(NULL, data, user, flags, lock_method);
-	if (ns->storage == NULL) {
-		i_fatal("Failed to create storage for '%s' with data: %s",
+	if (mail_storage_create(ns, NULL, data, user, flags, lock_method) < 0) {
+		i_error("Failed to create storage for '%s' with data: %s",
 			ns->prefix, data);
+		return NULL;
 	}
 
 	if (sep != NULL)
@@ -84,9 +86,10 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	return ns;
 }
 
-struct namespace *namespace_init(pool_t pool, const char *user)
+int mail_namespaces_init(pool_t pool, const char *user,
+			 struct mail_namespace **namespaces_r)
 {
-	struct namespace *namespaces, *ns, **ns_p;
+	struct mail_namespace *namespaces, *ns, **ns_p;
 	enum mail_storage_flags flags;
         enum file_lock_method lock_method;
 	const char *mail, *data;
@@ -109,11 +112,16 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 					  lock_method);
 		t_pop();
 
+		if (*ns_p != NULL)
+			return -1;
+
 		ns_p = &(*ns_p)->next;
 	}
 
-	if (namespaces != NULL)
-		return namespaces;
+	if (namespaces != NULL) {
+		*namespaces_r = namespaces;
+		return 0;
+	}
 
 	/* fallback to MAIL */
 	mail = getenv("MAIL");
@@ -124,41 +132,55 @@ struct namespace *namespace_init(pool_t pool, const char *user)
 			mail = t_strconcat("maildir:", mail, NULL);
 	}
 
-	ns = p_new(pool, struct namespace, 1);
+	ns = p_new(pool, struct mail_namespace, 1);
 	ns->type = NAMESPACE_PRIVATE;
 	ns->inbox = TRUE;
 	ns->subscriptions = TRUE;
 	ns->prefix = "";
 
 	flags |= MAIL_STORAGE_FLAG_HAS_INBOX;
-	ns->storage = mail_storage_create(NULL, mail, user, flags, lock_method);
-	if (ns->storage == NULL) {
+	if (mail_storage_create(ns, NULL, mail, user, flags, lock_method) < 0) {
 		if (mail != NULL && *mail != '\0')
-			i_fatal("Failed to create storage with data: %s", mail);
+			i_error("Failed to create storage with data: %s", mail);
 		else {
 			const char *home;
 
 			home = getenv("HOME");
 			if (home == NULL) home = "not set";
 
-			i_fatal("MAIL environment missing and "
+			i_error("MAIL environment missing and "
 				"autodetection failed (home %s)", home);
 		}
+		return -1;
 	}
 
 	namespace_init_storage(ns);
+	*namespaces_r = ns;
+	return 0;
+}
+
+struct mail_namespace *mail_namespaces_init_empty(pool_t pool)
+{
+	struct mail_namespace *ns;
+
+	ns = p_new(pool, struct mail_namespace, 1);
+	ns->prefix = "";
 	return ns;
 }
 
-void namespace_deinit(struct namespace *namespaces)
+void mail_namespaces_deinit(struct mail_namespace **_namespaces)
 {
+	struct mail_namespace *namespaces = *_namespaces;
+
+	*_namespaces = NULL;
 	while (namespaces != NULL) {
-		mail_storage_destroy(&namespaces->storage);
+		if (namespaces->storage != NULL)
+			mail_storage_destroy(&namespaces->storage);
 		namespaces = namespaces->next;
 	}
 }
 
-const char *namespace_fix_sep(struct namespace *ns, const char *name)
+const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name)
 {
 	char *ret, *p;
 
@@ -173,15 +195,15 @@ const char *namespace_fix_sep(struct namespace *ns, const char *name)
 	return ret;
 }
 
-static struct namespace *
-namespace_find_int(struct namespace *namespaces, const char **mailbox,
-		   int show_hidden)
+static struct mail_namespace *
+mail_namespace_find_int(struct mail_namespace *namespaces, const char **mailbox,
+			bool show_hidden)
 {
 #define CHECK_VISIBILITY(ns, show_hidden) \
 	((!(ns)->hidden) || (show_hidden))
-        struct namespace *ns = namespaces;
+        struct mail_namespace *ns = namespaces;
 	const char *box = *mailbox;
-	struct namespace *best = NULL;
+	struct mail_namespace *best = NULL;
 	size_t best_len = 0;
 	bool inbox;
 
@@ -216,32 +238,35 @@ namespace_find_int(struct namespace *namespaces, const char **mailbox,
 		else if (inbox && (box[5] == best->sep || box[5] == '\0'))
 			*mailbox = t_strconcat("INBOX", box+5, NULL);
 
-		*mailbox = namespace_fix_sep(best, *mailbox);
+		*mailbox = mail_namespace_fix_sep(best, *mailbox);
 	}
 
 	return best;
 }
 
-struct namespace *
-namespace_find(struct namespace *namespaces, const char **mailbox)
+struct mail_namespace *
+mail_namespace_find(struct mail_namespace *namespaces, const char **mailbox)
 {
-	return namespace_find_int(namespaces, mailbox, TRUE);
+	return mail_namespace_find_int(namespaces, mailbox, TRUE);
 }
 
-struct namespace *
-namespace_find_visible(struct namespace *namespaces, const char **mailbox)
+struct mail_namespace *
+mail_namespace_find_visible(struct mail_namespace *namespaces,
+			    const char **mailbox)
 {
-	return namespace_find_int(namespaces, mailbox, FALSE);
+	return mail_namespace_find_int(namespaces, mailbox, FALSE);
 }
 
-struct namespace *
-namespace_find_prefix(struct namespace *namespaces, const char *prefix)
+struct mail_namespace *
+mail_namespace_find_prefix(struct mail_namespace *namespaces,
+			   const char *prefix)
 {
-        struct namespace *ns;
+        struct mail_namespace *ns;
 	unsigned int len = strlen(prefix);
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
-		if (ns->prefix_len == len && strcmp(ns->prefix, prefix) == 0)
+		if (ns->prefix_len == len &&
+		    strcmp(ns->prefix, prefix) == 0)
 			return ns;
 	}
 	return NULL;

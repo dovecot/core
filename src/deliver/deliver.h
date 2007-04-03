@@ -14,7 +14,9 @@ struct deliver_settings {
 
 extern struct deliver_settings *deliver_set;
 
-typedef int deliver_mail_func_t(struct mail_storage *storage, struct mail *mail,
+typedef int deliver_mail_func_t(struct mail_namespace *namespaces,
+				struct mail_storage **storage_r,
+				struct mail *mail,
 				const char *username, const char *mailbox);
 
 extern deliver_mail_func_t *deliver_mail;
@@ -22,7 +24,8 @@ extern deliver_mail_func_t *deliver_mail;
 void deliver_env_clean(void);
 
 /* Save a mail into given mailbox with given flags and keywords. */
-int deliver_save(struct mail_storage *storage, const char *mailbox,
+int deliver_save(struct mail_namespace *namespaces,
+		 struct mail_storage **storage_r, const char *mailbox,
 		 struct mail *mail, enum mail_flags flags,
 		 const char *const *keywords);
 
