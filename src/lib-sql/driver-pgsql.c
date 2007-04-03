@@ -452,6 +452,10 @@ driver_pgsql_escape_string(struct sql_db *_db, const char *string)
 
 	to = t_buffer_get(len * 2 + 1);
 #ifdef HAVE_PQESCAPE_STRING_CONN
+	if (!db->connected) {
+		/* try connecting again */
+		(void)driver_pgsql_connect(&db->api);
+	}
 	len = PQescapeStringConn(db->pg, to, string, len, NULL);
 #else
 	len = PQescapeString(to, string, len);
