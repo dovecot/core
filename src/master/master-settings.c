@@ -229,6 +229,7 @@ struct settings default_settings = {
 #endif
 	MEMBER(dotlock_use_excl) FALSE,
 	MEMBER(fsync_disable) FALSE,
+	MEMBER(mailbox_list_index_disable) FALSE,
 	MEMBER(lock_method) "fcntl",
 	MEMBER(maildir_stat_dirs) FALSE,
 	MEMBER(maildir_copy_with_hardlinks) FALSE,

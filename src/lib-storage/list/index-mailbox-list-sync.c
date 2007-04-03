@@ -464,13 +464,14 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 
 static void index_list_mail_mailbox_opened(struct mailbox *box)
 {
+	struct index_mailbox_list *ilist =
+		INDEX_LIST_CONTEXT(box->storage->list);
 	struct index_list_mailbox *ibox;
 
 	if (index_list_next_hook_mailbox_created != NULL)
 		index_list_next_hook_mailbox_created(box);
 
-	/* FIXME: maildir-only for now */
-	if (strcmp(box->storage->list->name, "maildir++") != 0)
+	if (ilist == NULL)
 		return;
 
 	ibox = p_new(box->pool, struct index_list_mailbox, 1);

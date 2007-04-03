@@ -10,6 +10,7 @@
 #include "mailbox-list-index.h"
 #include "index-mailbox-list.h"
 
+#include <stdlib.h>
 #include <time.h>
 #include <sys/stat.h>
 
@@ -393,12 +394,17 @@ static int index_mailbox_list_open_indexes(struct mailbox_list *list,
 
 static void index_mailbox_list_created(struct mailbox_list *list)
 {
-	struct index_mailbox_list *ilist;
+	struct index_mailbox_list *ilist = NULL;
 	const char *dir;
 
 	/* FIXME: for now we only work with maildir++ */
-	if (strcmp(list->name, "maildir++") != 0)
+	if (getenv("MAILBOX_LIST_INDEX_DISABLE") != NULL ||
+	    strcmp(list->name, "maildir++") != 0) {
+		/* reserve the module context anyway, so syncing code knows
+		   that the index is disabled */
+		MODULE_CONTEXT_SET(list, index_mailbox_list_module, ilist);
 		return;
+	}
 
 	ilist = p_new(list->pool, struct index_mailbox_list, 1);
 	ilist->module_ctx.super = list->v;
