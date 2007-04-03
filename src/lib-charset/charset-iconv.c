@@ -11,7 +11,6 @@
 
 struct charset_translation {
 	iconv_t cd;
-	bool ascii;
 };
 
 struct charset_translation *charset_to_utf8_begin(const char *charset,
@@ -19,21 +18,13 @@ struct charset_translation *charset_to_utf8_begin(const char *charset,
 {
 	struct charset_translation *t;
 	iconv_t cd;
-	bool ascii;
 
 	if (unknown_charset != NULL)
 		*unknown_charset = FALSE;
 
-	if (strcasecmp(charset, "us-ascii") == 0 ||
-	    strcasecmp(charset, "ascii") == 0) {
+	if (charset_is_utf8(charset))
 		cd = (iconv_t)-1;
-		ascii = TRUE;
-	} else if (strcasecmp(charset, "UTF-8") == 0 ||
-		   strcasecmp(charset, "UTF8") == 0) {
-		cd = (iconv_t)-1;
-		ascii = FALSE;
-	} else {
-		ascii = FALSE;
+	else {
 		cd = iconv_open("UTF-8", charset);
 		if (cd == (iconv_t)-1) {
 			if (unknown_charset != NULL)
@@ -44,7 +35,6 @@ struct charset_translation *charset_to_utf8_begin(const char *charset,
 
 	t = i_new(struct charset_translation, 1);
 	t->cd = cd;
-	t->ascii = ascii;
 	return t;
 }
 
