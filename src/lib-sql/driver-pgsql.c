@@ -699,8 +699,15 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 
 	if (ctx->failed) {
 		callback(ctx->error, context);
-		sql_exec(_ctx->db, "ROLLBACK");
+		if (ctx->opened)
+			sql_exec(_ctx->db, "ROLLBACK");
 		i_free(ctx);
+		return;
+	}
+
+	if (!ctx->opened) {
+		/* nothing done */
+		ctx->callback(NULL, ctx->context);
 		return;
 	}
 
@@ -720,8 +727,11 @@ driver_pgsql_transaction_commit_s(struct sql_transaction_context *_ctx,
 
 	if (ctx->failed) {
 		*error_r = ctx->error;
-		sql_exec(_ctx->db, "ROLLBACK");
-	} else {
+		if (!ctx->opened)
+			sql_exec(_ctx->db, "ROLLBACK");
+	} else if (!ctx->opened)
+		*error_r = NULL;
+	else {
 		result = sql_query_s(_ctx->db, "COMMIT");
 		if (sql_result_next_row(result) < 0)
 			*error_r = sql_result_get_error(result);
@@ -740,7 +750,8 @@ driver_pgsql_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct pgsql_transaction_context *ctx =
 		(struct pgsql_transaction_context *)_ctx;
 
-	sql_exec(_ctx->db, "ROLLBACK");
+	if (ctx->opened)
+		sql_exec(_ctx->db, "ROLLBACK");
 	i_free(ctx);
 }
 
