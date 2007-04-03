@@ -5,7 +5,9 @@
 void base64_encode(const void *src, size_t src_size, buffer_t *dest);
 
 /* Translates base64 data into binary and appends it to dest buffer. dest may
-   point to same buffer as src. Returns 0 if all ok, -1 if data is invalid.
+   point to same buffer as src. Returns 1 if all ok, 0 if end of base64 data
+   found, -1 if data is invalid.
+
    Any CR, LF characters are ignored, as well as whitespace at beginning or
    end of line.
 

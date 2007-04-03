@@ -111,6 +111,7 @@ int base64_decode(const void *src, size_t src_size,
 	unsigned char buf[4];
 	int c1, c2, c3, c4;
 	size_t size;
+	int ret = 1;
 
 	for (src_pos = 0; src_pos+3 < src_size; ) {
 		c1 = src_c[src_pos++];
@@ -154,6 +155,7 @@ int base64_decode(const void *src, size_t src_size,
 		buffer_append(dest, buf, size);
 		if (size < 3) {
 			/* end of base64 data */
+			ret = 0;
 			break;
 		}
 	}
@@ -166,5 +168,5 @@ int base64_decode(const void *src, size_t src_size,
 	if (src_pos_r != NULL)
 		*src_pos_r = src_pos;
 
-	return 0;
+	return ret;
 }
