@@ -77,8 +77,8 @@ message_header_decode_encoded(const unsigned char *data, size_t *size,
 		}
 	}
 
-	ret = callback(buffer_get_data(decodebuf, NULL),
-		       buffer_get_used_size(decodebuf), charset, context);
+	ret = decodebuf->used == 0 ? FALSE :
+		callback(decodebuf->data, decodebuf->used, charset, context);
 
 	t_pop();
 	return ret;
@@ -114,5 +114,8 @@ void message_header_decode(const unsigned char *data, size_t size,
 		}
 	}
 
-	(void)callback(data + start_pos, size - start_pos, NULL, context);
+	if (size > start_pos) {
+		(void)callback(data + start_pos, size - start_pos,
+			       NULL, context);
+	}
 }
