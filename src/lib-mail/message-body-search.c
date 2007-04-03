@@ -16,22 +16,17 @@ struct message_body_search_context {
 	char *key_charset;
 	unsigned int key_len;
 
-	struct message_decoder_context *decoder;
-	unsigned int search_header:1;
-};
-
-struct part_search_context {
-	struct message_body_search_context *body_ctx;
-
 	buffer_t *match_buf;
 
+	struct message_decoder_context *decoder;
+	unsigned int search_header:1;
 	unsigned int content_type_text:1; /* text/any or message/any */
 };
 
 static void parse_content_type(const unsigned char *value, size_t value_len,
 			       void *context)
 {
-	struct part_search_context *ctx = context;
+	struct message_body_search_context *ctx = context;
 	const char *str;
 
 	t_push();
@@ -43,7 +38,7 @@ static void parse_content_type(const unsigned char *value, size_t value_len,
 }
 
 static bool
-message_search_decoded_block(struct part_search_context *ctx,
+message_search_decoded_block(struct message_body_search_context *ctx,
 			     const unsigned char *data, size_t size)
 {
 	const unsigned char *p, *end, *key;
@@ -51,8 +46,8 @@ message_search_decoded_block(struct part_search_context *ctx,
 	size_t *matches, match_count, value;
 	ssize_t i;
 
-	key = (const unsigned char *) ctx->body_ctx->key;
-	key_len = ctx->body_ctx->key_len;
+	key = (const unsigned char *)ctx->key;
+	key_len = ctx->key_len;
 
 	matches = buffer_get_modifiable_data(ctx->match_buf, &match_count);
 	match_count /= sizeof(size_t);
@@ -116,6 +111,8 @@ int message_body_search_init(pool_t pool, const char *key, const char *charset,
 	ctx->key_charset = p_strdup(pool, charset);
 	ctx->search_header = search_header;
 	ctx->decoder = message_decoder_init_ucase();
+	ctx->match_buf =
+		buffer_create_static_hard(pool, sizeof(size_t) * ctx->key_len);
 
 	t_pop();
 	return 1;
@@ -127,12 +124,13 @@ void message_body_search_deinit(struct message_body_search_context **_ctx)
 
 	*_ctx = NULL;
 	message_decoder_deinit(&ctx->decoder);
+	buffer_free(ctx->match_buf);
 	p_free(ctx->pool, ctx->key);
 	p_free(ctx->pool, ctx->key_charset);
 	p_free(ctx->pool, ctx);
 }
 
-static void handle_header(struct part_search_context *ctx,
+static void handle_header(struct message_body_search_context *ctx,
 			  struct message_header_line *hdr)
 {
 	if (hdr->name_len == 12 &&
@@ -147,7 +145,7 @@ static void handle_header(struct part_search_context *ctx,
 	}
 }
 
-static bool search_header(struct part_search_context *ctx,
+static bool search_header(struct message_body_search_context *ctx,
 			  const struct message_header_line *hdr)
 {
 	return message_search_decoded_block(ctx,
@@ -164,18 +162,12 @@ int message_body_search(struct message_body_search_context *ctx,
 			const struct message_part *parts)
 {
 	struct message_parser_ctx *parser_ctx;
-	struct part_search_context part_ctx;
 	struct message_block raw_block, block;
 	int ret = 0;
 
 	t_push();
 	/* Content-Type defaults to text/plain */
-	memset(&part_ctx, 0, sizeof(part_ctx));
-	part_ctx.body_ctx = ctx;
-	part_ctx.content_type_text = TRUE;
-	part_ctx.match_buf =
-		buffer_create_static_hard(pool_datastack_create(),
-					  sizeof(size_t) * ctx->key_len);
+	ctx->content_type_text = TRUE;
 
 	parser_ctx =
 		message_parser_init_from_parts((struct message_part *)parts,
@@ -190,15 +182,15 @@ int message_body_search(struct message_body_search_context *ctx,
 				continue;
 			}
 
-			handle_header(&part_ctx, raw_block.hdr);
+			handle_header(ctx, raw_block.hdr);
 		} else if (raw_block.size == 0) {
 			/* part changes */
-			part_ctx.content_type_text = TRUE;
-			buffer_reset(part_ctx.match_buf);
+			ctx->content_type_text = TRUE;
+			buffer_reset(ctx->match_buf);
 			continue;
 		} else {
 			/* body */
-			if (!part_ctx.content_type_text)
+			if (!ctx->content_type_text)
 				continue;
 		}
 		if (!message_decoder_decode_next_block(ctx->decoder, &raw_block,
@@ -206,12 +198,12 @@ int message_body_search(struct message_body_search_context *ctx,
 			continue;
 
 		if (block.hdr != NULL) {
-			if (search_header(&part_ctx, block.hdr)) {
+			if (search_header(ctx, block.hdr)) {
 				ret = 1;
 				break;
 			}
 		} else {
-			if (message_search_decoded_block(&part_ctx, block.data,
+			if (message_search_decoded_block(ctx, block.data,
 							 block.size)) {
 				ret = 1;
 				break;
