@@ -275,6 +275,7 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 		   care if they do. */
 		if (host != NULL)
 			(void)pam_set_item(pamh, PAM_RHOST, host);
+		(void)pam_set_item(pamh, PAM_RUSER, request->user);
 		/* TTY is needed by eg. pam_access module */
 		(void)pam_set_item(pamh, PAM_TTY, "dovecot");
 
