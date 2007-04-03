@@ -512,7 +512,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 			module->module.blocking = TRUE;
 		} else if (strcmp(t_args[i], "*") == 0) {
 			/* for backwards compatibility */
-			module->service_name = "%s";
+			module->service_name = "%Ls";
 		} else if (t_args[i+1] == NULL) {
 			if (*t_args[i] != '\0') {
 				module->service_name =
