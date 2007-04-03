@@ -16,7 +16,7 @@ for dir in $GETTEXT_DIR /usr/share/gettext; do
   fi
 done
 
-if ! test -f doc/wiki/Authentication.txt; then
+if test ! -f doc/wiki/Authentication.txt; then
   cd doc
   wget http://www.dovecot.org/tmp/wiki-export.tar.gz
   tar xzf wiki-export.tar.gz
