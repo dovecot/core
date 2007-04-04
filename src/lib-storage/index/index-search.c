@@ -332,9 +332,10 @@ msg_search_arg_context(struct index_search_context *ctx,
 	ret = message_search_init(ctx->search_pool, arg->value.str,
 				  ctx->mail_ctx.charset, flags,
 				  &arg_ctx);
-	if (ret > 0)
+	if (ret > 0) {
+		arg->context = arg_ctx;
 		return arg_ctx;
-
+	}
 	if (ret == 0)
 		ctx->error = TXT_UNKNOWN_CHARSET;
 	else
@@ -905,6 +906,17 @@ index_storage_search_init(struct mailbox_transaction_context *_t,
 	return &ctx->mail_ctx;
 }
 
+static void search_arg_deinit(struct mail_search_arg *arg,
+			      void *context __attr_unused__)
+{
+	struct message_search_context *search_ctx = arg->context;
+
+	if (search_ctx != NULL) {
+		message_search_deinit(&search_ctx);
+		arg->context = NULL;
+	}
+}
+
 int index_storage_search_deinit(struct mail_search_context *_ctx)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
@@ -916,6 +928,10 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 		mail_storage_set_error(ctx->ibox->box.storage,
 				       "%s", ctx->error);
 	}
+
+	mail_search_args_reset(ctx->mail_ctx.args, FALSE);
+	(void)mail_search_args_foreach(ctx->mail_ctx.args,
+				       search_arg_deinit, NULL);
 
 	if (ctx->search_pool != NULL)
 		pool_unref(ctx->search_pool);
