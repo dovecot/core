@@ -33,7 +33,7 @@ headers = \
 	message-id.h \
 	message-parser.h \
 	message-part-serialize.h \
-	message-search.a \
+	message-search.h \
 	message-send.h \
 	message-size.h \
 	quoted-printable.h \
