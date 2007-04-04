@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "base64.h"
 #include "buffer.h"
+#include "str-find.h"
 #include "charset-utf8.h"
 #include "quoted-printable.h"
 #include "message-parser.h"
@@ -18,10 +19,10 @@ struct message_header_search_context {
 	size_t key_len;
 	char *key_charset;
 
-	buffer_t *match_buf;
+	struct str_find_context *str_find_ctx;
 
 	unsigned int found:1;
-	unsigned int last_newline:1;
+	unsigned int last_lf:1;
 	unsigned int unknown_charset:1;
 };
 
@@ -50,10 +51,9 @@ int message_header_search_init(pool_t pool, const char *key,
 	ctx->key_len = key_len;
 	ctx->key_charset = p_strdup(pool, charset);
 	ctx->unknown_charset = charset == NULL;
+	ctx->str_find_ctx = str_find_init(pool, key);
 
 	i_assert(ctx->key_len <= SSIZE_T_MAX/sizeof(size_t));
-	ctx->match_buf = buffer_create_static_hard(pool, sizeof(size_t) *
-						   ctx->key_len);
 	t_pop();
 	return 1;
 }
@@ -65,7 +65,7 @@ void message_header_search_deinit(struct message_header_search_context **_ctx)
 
 	*_ctx = NULL;
 
-	buffer_free(ctx->match_buf);
+	str_find_deinit(&ctx->str_find_ctx);
 
 	pool = ctx->pool;
 	p_free(pool, ctx->key);
@@ -73,71 +73,11 @@ void message_header_search_deinit(struct message_header_search_context **_ctx)
 	p_free(pool, ctx);
 }
 
-static void search_loop(struct message_header_search_context *ctx,
-			const unsigned char *data, size_t size)
-{
-	size_t pos, *matches, match_count, value;
-	ssize_t i;
-	unsigned char chr;
-	bool last_newline;
-
-	matches = buffer_get_modifiable_data(ctx->match_buf, &match_count);
-	match_count /= sizeof(size_t);
-
-	last_newline = ctx->last_newline;
-	for (pos = 0; pos < size; pos++) {
-		chr = data[pos];
-
-		if (last_newline) {
-			if (!IS_LWSP(chr)) {
-				/* not a long header, reset matches */
-				buffer_set_used_size(ctx->match_buf, 0);
-				match_count = 0;
-			}
-			chr = ' ';
-		}
-		last_newline = chr == '\n';
-
-		if (chr == '\r' || chr == '\n')
-			continue;
-
-		for (i = match_count-1; i >= 0; i--) {
-			if (ctx->key[matches[i]] == chr) {
-				if (++matches[i] == ctx->key_len) {
-					/* full match */
-					ctx->found = TRUE;
-					return;
-				}
-			} else {
-				/* non-match */
-				buffer_delete(ctx->match_buf,
-					      i * sizeof(size_t),
-					      sizeof(size_t));
-				match_count--;
-			}
-		}
-
-		if (chr == ctx->key[0]) {
-			if (ctx->key_len == 1) {
-				/* only one character in search key */
-				ctx->found = TRUE;
-				break;
-			}
-
-			value = 1;
-			buffer_append(ctx->match_buf, &value, sizeof(value));
-			match_count++;
-		}
-	}
-
-	ctx->last_newline = last_newline;
-}
-
-static void search_with_charset(const unsigned char *data, size_t size,
+static bool search_with_charset(const unsigned char *data, size_t size,
 				const char *charset,
 				struct message_header_search_context *ctx)
 {
-	const void *utf8_data;
+	const char *utf8_data;
 	size_t utf8_size;
 
 	if (ctx->unknown_charset) {
@@ -161,7 +101,7 @@ static void search_with_charset(const unsigned char *data, size_t size,
 		utf8_size = size;
 	}
 
-	search_loop(ctx, utf8_data, utf8_size);
+	return str_find_more(ctx->str_find_ctx, utf8_data, utf8_size);
 }
 
 static bool search_block(const unsigned char *data, size_t size,
@@ -170,7 +110,7 @@ static bool search_block(const unsigned char *data, size_t size,
 	struct message_header_search_context *ctx = context;
 
 	t_push();
-	search_with_charset(data, size, charset, ctx);
+	ctx->found = search_with_charset(data, size, charset, ctx);
 	t_pop();
 	return !ctx->found;
 }
@@ -185,6 +125,7 @@ bool message_header_search(struct message_header_search_context *ctx,
 
 void message_header_search_reset(struct message_header_search_context *ctx)
 {
-	buffer_set_used_size(ctx->match_buf, 0);
+	str_find_reset(ctx->str_find_ctx);
+	ctx->last_lf = FALSE;
 	ctx->found = FALSE;
 }

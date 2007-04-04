@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
+#include "str-find.h"
 #include "charset-utf8.h"
 #include "message-decoder.h"
 #include "message-parser.h"
@@ -16,7 +17,7 @@ struct message_body_search_context {
 	char *key_charset;
 	unsigned int key_len;
 
-	buffer_t *match_buf;
+	struct str_find_context *str_find_ctx;
 
 	struct message_decoder_context *decoder;
 	unsigned int search_header:1;
@@ -35,55 +36,6 @@ static void parse_content_type(const unsigned char *value, size_t value_len,
 		strncasecmp(str, "text/", 5) == 0 ||
 		strncasecmp(str, "message/", 8) == 0;
 	t_pop();
-}
-
-static bool
-message_search_decoded_block(struct message_body_search_context *ctx,
-			     const unsigned char *data, size_t size)
-{
-	const unsigned char *p, *end, *key;
-	unsigned int key_len;
-	size_t *matches, match_count, value;
-	ssize_t i;
-
-	key = (const unsigned char *)ctx->key;
-	key_len = ctx->key_len;
-
-	matches = buffer_get_modifiable_data(ctx->match_buf, &match_count);
-	match_count /= sizeof(size_t);
-
-	end = data + size;
-	for (p = data; p != end; p++) {
-		for (i = match_count-1; i >= 0; i--) {
-			if (key[matches[i]] == *p) {
-				if (++matches[i] == key_len) {
-					/* full match */
-					p++;
-					return TRUE;
-				}
-			} else {
-				/* non-match */
-				buffer_delete(ctx->match_buf,
-					      i * sizeof(size_t),
-					      sizeof(size_t));
-				match_count--;
-			}
-		}
-
-		if (*p == key[0]) {
-			if (key_len == 1) {
-				/* only one character in search key */
-				p++;
-				return TRUE;
-			}
-
-			value = 1;
-			buffer_append(ctx->match_buf, &value, sizeof(value));
-			match_count++;
-		}
-	}
-
-	return FALSE;
 }
 
 int message_body_search_init(pool_t pool, const char *key, const char *charset,
@@ -111,9 +63,7 @@ int message_body_search_init(pool_t pool, const char *key, const char *charset,
 	ctx->key_charset = p_strdup(pool, charset);
 	ctx->search_header = search_header;
 	ctx->decoder = message_decoder_init_ucase();
-	ctx->match_buf =
-		buffer_create_static_hard(pool, sizeof(size_t) * ctx->key_len);
-
+	ctx->str_find_ctx = str_find_init(pool, ctx->key);
 	t_pop();
 	return 1;
 }
@@ -123,8 +73,8 @@ void message_body_search_deinit(struct message_body_search_context **_ctx)
 	struct message_body_search_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	str_find_deinit(&ctx->str_find_ctx);
 	message_decoder_deinit(&ctx->decoder);
-	buffer_free(ctx->match_buf);
 	p_free(ctx->pool, ctx->key);
 	p_free(ctx->pool, ctx->key_charset);
 	p_free(ctx->pool, ctx);
@@ -148,13 +98,12 @@ static void handle_header(struct message_body_search_context *ctx,
 static bool search_header(struct message_body_search_context *ctx,
 			  const struct message_header_line *hdr)
 {
-	return message_search_decoded_block(ctx,
-					    (const unsigned char *)hdr->name,
-					    hdr->name_len) ||
-		message_search_decoded_block(ctx, hdr->middle,
-					     hdr->middle_len) ||
-		message_search_decoded_block(ctx, hdr->full_value,
-					     hdr->full_value_len);
+	return str_find_more(ctx->str_find_ctx,
+			     (const unsigned char *)hdr->name, hdr->name_len) ||
+		str_find_more(ctx->str_find_ctx,
+			      hdr->middle, hdr->middle_len) ||
+		str_find_more(ctx->str_find_ctx, hdr->full_value,
+			      hdr->full_value_len);
 }
 
 int message_body_search(struct message_body_search_context *ctx,
@@ -188,7 +137,7 @@ int message_body_search(struct message_body_search_context *ctx,
 		} else if (raw_block.size == 0) {
 			/* part changes */
 			ctx->content_type_text = TRUE;
-			buffer_reset(ctx->match_buf);
+			str_find_reset(ctx->str_find_ctx);
 			continue;
 		} else {
 			/* body */
@@ -205,8 +154,8 @@ int message_body_search(struct message_body_search_context *ctx,
 				break;
 			}
 		} else {
-			if (message_search_decoded_block(ctx, block.data,
-							 block.size)) {
+			if (str_find_more(ctx->str_find_ctx,
+					  block.data, block.size)) {
 				ret = 1;
 				break;
 			}
