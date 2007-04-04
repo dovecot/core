@@ -171,6 +171,12 @@ get_header_field_idx(struct index_mailbox *ibox, const char *field)
 	return header_field.idx;
 }
 
+bool index_mail_want_parse_headers(struct index_mail *mail)
+{
+	return mail->wanted_headers != NULL || mail->data.save_sent_date ||
+		mail->data.save_bodystructure_header;
+}
+
 void index_mail_parse_header_init(struct index_mail *mail,
 				  struct mailbox_header_lookup_ctx *_headers)
 {

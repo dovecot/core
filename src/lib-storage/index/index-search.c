@@ -597,9 +597,11 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 		hdr_ctx.index_context = ctx;
 		hdr_ctx.custom_header = TRUE;
 		hdr_ctx.args = args;
-		hdr_ctx.parse_headers = headers == NULL;
+		hdr_ctx.parse_headers = headers == NULL &&
+			index_mail_want_parse_headers(ctx->imail);
 
-		index_mail_parse_header_init(ctx->imail, headers_ctx);
+		if (hdr_ctx.parse_headers)
+			index_mail_parse_header_init(ctx->imail, headers_ctx);
 		message_parse_header(input, NULL, search_header, &hdr_ctx);
 		if (headers_ctx != NULL)
 			mailbox_header_lookup_deinit(&headers_ctx);

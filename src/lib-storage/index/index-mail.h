@@ -135,6 +135,7 @@ int index_mail_set_seq(struct mail *mail, uint32_t seq);
 int index_mail_set_uid(struct mail *mail, uint32_t uid);
 void index_mail_free(struct mail *mail);
 
+bool index_mail_want_parse_headers(struct index_mail *mail);
 void index_mail_parse_header_init(struct index_mail *mail,
 				  struct mailbox_header_lookup_ctx *headers);
 void index_mail_parse_header(struct message_part *part,
