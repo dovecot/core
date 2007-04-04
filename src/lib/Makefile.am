@@ -78,6 +78,7 @@ liblib_a_SOURCES = \
 	seq-range-array.c \
 	sha1.c \
 	str.c \
+	str-find.c \
 	str-sanitize.c \
 	strescape.c \
 	strfuncs.c \
@@ -156,6 +157,7 @@ headers = \
 	seq-range-array.h \
 	sha1.h \
 	str.h \
+	str-find.h \
 	str-sanitize.h \
 	strescape.h \
 	strfuncs.h \
