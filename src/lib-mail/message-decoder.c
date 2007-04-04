@@ -304,13 +304,11 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	}
 
 	if (ctx->charset_utf8) {
-#if 0
 		buffer_set_used_size(ctx->buf2, 0);
 		_charset_utf8_ucase(data, size, ctx->buf2, ctx->buf2->used);
 		output->data = ctx->buf2->data;
 		output->size = ctx->buf2->used;
 	} else if (ctx->charset_trans == NULL) {
-#endif
 		output->data = data;
 		output->size = size;
 	} else {
