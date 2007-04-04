@@ -184,27 +184,29 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		/* find ':' */
 		if (colon_pos == UINT_MAX) {
 			for (i = startpos; i < parse_size; i++) {
-				if (msg[i] <= ':') {
-					if (msg[i] == ':') {
-						colon_pos = i;
-						line->full_value_offset =
-							ctx->input->v_offset +
-							i + 1;
-						break;
-					}
-					if (msg[i] == '\n') {
-						/* end of headers, or error */
-						break;
-					}
+				if (msg[i] > ':')
+					continue;
 
-					if (msg[i] == '\0')
-						ctx->has_nuls = TRUE;
+				if (msg[i] == ':') {
+					colon_pos = i;
+					line->full_value_offset =
+						ctx->input->v_offset + i + 1;
+					break;
 				}
+				if (msg[i] == '\n') {
+					/* end of headers, or error */
+					break;
+				}
+
+				if (msg[i] == '\0')
+					ctx->has_nuls = TRUE;
 			}
+		} else {
+			i = startpos;
 		}
 
 		/* find '\n' */
-		for (i = startpos; i < parse_size; i++) {
+		for (; i < parse_size; i++) {
 			if (msg[i] <= '\n') {
 				if (msg[i] == '\n')
 					break;
