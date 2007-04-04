@@ -476,7 +476,7 @@ void mbox_sync_parse_next_mail(struct istream *input,
         mbox_md5_ctx = mbox_md5_init();
 
         line_start_pos = 0;
-	hdr_ctx = message_parse_header_init(input, NULL, FALSE);
+	hdr_ctx = message_parse_header_init(input, NULL, 0);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		if (hdr->eoh) {
 			ctx->have_eoh = TRUE;
@@ -570,7 +570,7 @@ int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 	memset(&ctx, 0, sizeof(ctx));
         mbox_md5_ctx = mbox_md5_init();
 
-	hdr_ctx = message_parse_header_init(mbox->mbox_stream, NULL, FALSE);
+	hdr_ctx = message_parse_header_init(mbox->mbox_stream, NULL, 0);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) {
 		if (hdr->eoh)
 			break;

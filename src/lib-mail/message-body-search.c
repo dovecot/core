@@ -161,6 +161,8 @@ int message_body_search(struct message_body_search_context *ctx,
 			struct istream *input,
 			const struct message_part *parts)
 {
+	const enum message_header_parser_flags hdr_parser_flags =
+		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
 	struct message_parser_ctx *parser_ctx;
 	struct message_block raw_block, block;
 	int ret = 0;
@@ -171,7 +173,7 @@ int message_body_search(struct message_body_search_context *ctx,
 
 	parser_ctx =
 		message_parser_init_from_parts((struct message_part *)parts,
-					       input, TRUE);
+					       input, hdr_parser_flags, 0);
 
 	while ((ret = message_parser_parse_next_block(parser_ctx,
 						      &raw_block)) > 0) {

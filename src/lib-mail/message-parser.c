@@ -25,6 +25,9 @@ struct message_parser_ctx {
 	struct istream *input;
 	struct message_part *parts, *part;
 
+	enum message_header_parser_flags hdr_flags;
+	enum message_parser_flags flags;
+
 	const char *last_boundary;
 	struct message_boundary *boundaries;
 
@@ -37,7 +40,6 @@ struct message_parser_ctx {
 	int (*parse_next_block)(struct message_parser_ctx *ctx,
 				struct message_block *block_r);
 
-	unsigned int return_body_blocks:1;
 	unsigned int part_seen_content_type:1;
 };
 
@@ -534,7 +536,7 @@ static int parse_next_header_init(struct message_parser_ctx *ctx,
 
 	ctx->hdr_parser_ctx =
 		message_parse_header_init(ctx->input, &ctx->part->header_size,
-					  TRUE);
+					  ctx->hdr_flags);
 	ctx->part_seen_content_type = FALSE;
 
 	ctx->parse_next_block = parse_next_header;
@@ -610,7 +612,7 @@ static int preparsed_parse_finish_header(struct message_parser_ctx *ctx,
 	if (ctx->part->children != NULL) {
 		ctx->parse_next_block = preparsed_parse_next_header_init;
 		ctx->part = ctx->part->children;
-	} else if (ctx->return_body_blocks) {
+	} else if ((ctx->flags & MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK) == 0) {
 		ctx->parse_next_block = preparsed_parse_body_init;
 	} else {
 		preparsed_skip_to_next(ctx);
@@ -652,14 +654,17 @@ static int preparsed_parse_next_header_init(struct message_parser_ctx *ctx,
 	i_stream_skip(ctx->input, ctx->part->physical_pos -
 		      ctx->input->v_offset);
 
-	ctx->hdr_parser_ctx = message_parse_header_init(ctx->input, NULL, TRUE);
+	ctx->hdr_parser_ctx =
+		message_parse_header_init(ctx->input, NULL, ctx->hdr_flags);
 
 	ctx->parse_next_block = preparsed_parse_next_header;
 	return preparsed_parse_next_header(ctx, block_r);
 }
 
 struct message_parser_ctx *
-message_parser_init(pool_t part_pool, struct istream *input)
+message_parser_init(pool_t part_pool, struct istream *input,
+		    enum message_header_parser_flags hdr_flags,
+		    enum message_parser_flags flags)
 {
 	struct message_parser_ctx *ctx;
 	pool_t pool;
@@ -668,6 +673,8 @@ message_parser_init(pool_t part_pool, struct istream *input)
 	ctx = p_new(pool, struct message_parser_ctx, 1);
 	ctx->parser_pool = pool;
 	ctx->part_pool = part_pool;
+	ctx->hdr_flags = hdr_flags;
+	ctx->flags = flags;
 	ctx->input = input;
 	ctx->parts = ctx->part = part_pool == NULL ? NULL :
 		p_new(part_pool, struct message_part, 1);
@@ -677,12 +684,13 @@ message_parser_init(pool_t part_pool, struct istream *input)
 
 struct message_parser_ctx *
 message_parser_init_from_parts(struct message_part *parts,
-			       struct istream *input, bool return_body_blocks)
+			       struct istream *input,
+			       enum message_header_parser_flags hdr_flags,
+			       enum message_parser_flags flags)
 {
 	struct message_parser_ctx *ctx;
 
-	ctx = message_parser_init(NULL, input);
-	ctx->return_body_blocks = return_body_blocks;
+	ctx = message_parser_init(NULL, input, hdr_flags, flags);
 	ctx->parts = ctx->part = parts;
 	ctx->parse_next_block = preparsed_parse_next_header_init;
 	return ctx;

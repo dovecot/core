@@ -24,6 +24,12 @@ struct index_header_lookup_ctx {
 	const char **name;
 };
 
+static const enum message_header_parser_flags hdr_parser_flags =
+	MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
+	MESSAGE_HEADER_PARSER_FLAG_DROP_CR;
+static const enum message_parser_flags msg_parser_flags =
+	MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK;
+
 static int header_line_cmp(const void *p1, const void *p2)
 {
 	const struct index_mail_line *l1 = p1, *l2 = p2;
@@ -346,6 +352,18 @@ index_mail_parse_header_cb(struct message_header_line *hdr,
 	index_mail_parse_header(mail->data.parts, hdr, mail);
 }
 
+void index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+
+	i_assert(mail->data.parser_ctx == NULL);
+
+	index_mail_parse_header_init(mail, NULL);
+	mail->data.parser_ctx =
+		message_parser_init(mail->data_pool, input,
+				    hdr_parser_flags, msg_parser_flags);
+}
+
 static void index_mail_init_parser(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
@@ -354,12 +372,16 @@ static void index_mail_init_parser(struct index_mail *mail)
 		(void)message_parser_deinit(&data->parser_ctx);
 
 	if (data->parts == NULL) {
-		data->parser_ctx =
-			message_parser_init(mail->data_pool, data->stream);
+		data->parser_ctx = message_parser_init(mail->data_pool,
+						       data->stream,
+						       hdr_parser_flags,
+						       msg_parser_flags);
 	} else {
 		data->parser_ctx =
 			message_parser_init_from_parts(data->parts,
-						       data->stream, FALSE);
+						       data->stream,
+						       hdr_parser_flags,
+						       msg_parser_flags);
 	}
 }
 
@@ -387,6 +409,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 	} else {
 		/* just read the header */
 		message_parse_header(data->stream, &data->hdr_size,
+				     hdr_parser_flags,
 				     index_mail_parse_header_cb, mail);
 	}
 	data->hdr_size_set = TRUE;
@@ -423,7 +446,7 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 	if (mail->data.envelope == NULL && stream != NULL) {
 		/* we got the headers from cache - parse them to get the
 		   envelope */
-		message_parse_header(stream, NULL,
+		message_parse_header(stream, NULL, hdr_parser_flags,
 				     imap_envelope_parse_callback, mail);
 		mail->data.save_envelope = FALSE;
 	}

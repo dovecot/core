@@ -1050,16 +1050,6 @@ void index_mail_free(struct mail *_mail)
 	pool_unref(mail->mail.pool);
 }
 
-void index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
-{
-	struct index_mail *mail = (struct index_mail *)_mail;
-
-	i_assert(mail->data.parser_ctx == NULL);
-
-	index_mail_parse_header_init(mail, NULL);
-	mail->data.parser_ctx = message_parser_init(mail->data_pool, input);
-}
-
 void index_mail_cache_parse_continue(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;

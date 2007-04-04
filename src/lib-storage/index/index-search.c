@@ -66,6 +66,9 @@ struct search_arg_context {
 	struct message_body_search_context *body_search_ctx;
 };
 
+static const enum message_header_parser_flags hdr_parser_flags =
+	MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
+
 static int search_parse_msgset_args(struct index_mailbox *ibox,
 				    const struct mail_index_header *hdr,
 				    struct mail_search_arg *args,
@@ -602,7 +605,8 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 
 		if (hdr_ctx.parse_headers)
 			index_mail_parse_header_init(ctx->imail, headers_ctx);
-		message_parse_header(input, NULL, search_header, &hdr_ctx);
+		message_parse_header(input, NULL, hdr_parser_flags,
+				     search_header, &hdr_ctx);
 		if (headers_ctx != NULL)
 			mailbox_header_lookup_deinit(&headers_ctx);
 	} else {

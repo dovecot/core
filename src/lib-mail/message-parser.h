@@ -4,6 +4,10 @@
 #include "message-header-parser.h"
 #include "message-size.h"
 
+enum message_parser_flags {
+	MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK	= 0x01
+};
+
 /* Note that these flags are used directly by message-parser-serialize, so
    existing flags can't be changed without breaking backwards compatibility */
 enum message_part_flags {
@@ -60,11 +64,15 @@ extern message_part_header_callback_t *null_message_part_header_callback;
 /* Initialize message parser. part_spool specifies where struct message_parts
    are allocated from. */
 struct message_parser_ctx *
-message_parser_init(pool_t part_pool, struct istream *input);
+message_parser_init(pool_t part_pool, struct istream *input,
+		    enum message_header_parser_flags hdr_flags,
+		    enum message_parser_flags flags);
 /* Use preparsed parts to speed up parsing. */
 struct message_parser_ctx *
 message_parser_init_from_parts(struct message_part *parts,
-			       struct istream *input, bool return_body_blocks);
+			       struct istream *input,
+			       enum message_header_parser_flags hdr_flags,
+			       enum message_parser_flags flags);
 struct message_part *message_parser_deinit(struct message_parser_ctx **ctx);
 
 /* Read the next block of a message. Returns 1 if block is returned, 0 if

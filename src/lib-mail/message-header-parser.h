@@ -7,6 +7,15 @@
 struct message_size;
 struct message_header_parser_ctx;
 
+enum message_header_parser_flags {
+	/* Don't add LWSP after "header: " to value. */
+	MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP	= 0x01,
+	/* Don't add CRs to full_value even if input had them */
+	MESSAGE_HEADER_PARSER_FLAG_DROP_CR		= 0x02,
+	/* Convert [CR+]LF+LWSP to a space character */
+	MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE	= 0x04
+};
+
 struct message_header_line {
 	const char *name;
 	size_t name_len;
@@ -34,13 +43,9 @@ struct message_header_line {
 typedef void message_header_callback_t(struct message_header_line *hdr,
 				       void *context);
 
-/* skip_initial_lwsp controls if we should skip LWSP after "header: ".
-   Note that there may not be the single whitespace after "header:", and that
-   "header : " is also possible. These two conditions can't be determined from
-   struct message_header_line. */
 struct message_header_parser_ctx *
 message_parse_header_init(struct istream *input, struct message_size *hdr_size,
-			  bool skip_initial_lwsp);
+			  enum message_header_parser_flags flags);
 void message_parse_header_deinit(struct message_header_parser_ctx **ctx);
 
 /* Read and return next header line. Returns 1 if header is returned, 0 if
@@ -54,15 +59,16 @@ bool message_parse_header_has_nuls(struct message_header_parser_ctx *ctx);
 
 /* Read and parse the header from the given stream. */
 void message_parse_header(struct istream *input, struct message_size *hdr_size,
+			  enum message_header_parser_flags flags,
 			  message_header_callback_t *callback, void *context);
 #ifdef CONTEXT_TYPE_SAFETY
-#  define message_parse_header(input, hdr_size, callback, context) \
+#  define message_parse_header(input, hdr_size, flags, callback, context) \
 	({(void)(1 ? 0 : callback((struct message_header_line *)0, context)); \
-	  message_parse_header(input, hdr_size, \
+	  message_parse_header(input, hdr_size, flags, \
 		(message_header_callback_t *)callback, context); })
 #else
-#  define message_parse_header(input, hdr_size, callback, context) \
-	  message_parse_header(input, hdr_size, \
+#  define message_parse_header(input, hdr_size, flags, callback, context) \
+	  message_parse_header(input, hdr_size, flags, \
 		(message_header_callback_t *)callback, context)
 #endif
 

@@ -79,7 +79,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 
 	if (mstream->hdr_ctx == NULL) {
 		mstream->hdr_ctx =
-			message_parse_header_init(mstream->input, NULL, FALSE);
+			message_parse_header_init(mstream->input, NULL, 0);
 	}
 
 	buffer_copy(mstream->hdr_buf, 0,

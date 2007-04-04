@@ -17,14 +17,14 @@ struct message_header_parser_ctx {
 	buffer_t *value_buf;
 	size_t skip;
 
-	unsigned int skip_initial_lwsp:1;
+	enum message_header_parser_flags flags;
 	unsigned int skip_line:1;
 	unsigned int has_nuls:1;
 };
 
 struct message_header_parser_ctx *
 message_parse_header_init(struct istream *input, struct message_size *hdr_size,
-			  bool skip_initial_lwsp)
+			  enum message_header_parser_flags flags)
 {
 	struct message_header_parser_ctx *ctx;
 
@@ -32,7 +32,7 @@ message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 	ctx->input = input;
 	ctx->hdr_size = hdr_size;
 	ctx->name = str_new(default_pool, 128);
-	ctx->skip_initial_lwsp = skip_initial_lwsp;
+	ctx->flags = flags;
 
 	if (hdr_size != NULL)
 		memset(hdr_size, 0, sizeof(*hdr_size));
@@ -72,8 +72,10 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 	startpos = 0; colon_pos = UINT_MAX;
 
-	last_crlf = line->crlf_newline;
-	last_no_newline = line->no_newline;
+	last_crlf = line->crlf_newline &&
+		(ctx->flags & MESSAGE_HEADER_PARSER_FLAG_DROP_CR) == 0;
+	last_no_newline = line->no_newline ||
+		(ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) != 0;
 	line->no_newline = FALSE;
 	line->crlf_newline = FALSE;
 
@@ -284,7 +286,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 		line->value = msg + colon_pos+1;
 		line->value_len = size - colon_pos - 1;
-		if (ctx->skip_initial_lwsp) {
+		if (ctx->flags & MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP) {
 			/* get value. skip all LWSP after ':'. Note that
 			   RFC2822 doesn't say we should, but history behind
 			   it..
@@ -341,7 +343,17 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				buffer_append_c(ctx->value_buf, '\r');
 			buffer_append_c(ctx->value_buf, '\n');
 		}
-		buffer_append(ctx->value_buf, line->value, line->value_len);
+		if ((ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) &&
+		    line->value_len > 0 && line->value[0] != ' ') {
+			i_assert(IS_LWSP(line->value[0]));
+
+			buffer_append_c(ctx->value_buf, ' ');
+			buffer_append(ctx->value_buf,
+				      line->value + 1, line->value_len - 1);
+		} else {
+			buffer_append(ctx->value_buf,
+				      line->value, line->value_len);
+		}
 		line->full_value = buffer_get_data(ctx->value_buf,
 						   &line->full_value_len);
 	} else {
@@ -369,13 +381,14 @@ bool message_parse_header_has_nuls(struct message_header_parser_ctx *ctx)
 
 #undef message_parse_header
 void message_parse_header(struct istream *input, struct message_size *hdr_size,
+			  enum message_header_parser_flags flags,
 			  message_header_callback_t *callback, void *context)
 {
 	struct message_header_parser_ctx *hdr_ctx;
 	struct message_header_line *hdr;
 	int ret;
 
-	hdr_ctx = message_parse_header_init(input, hdr_size, TRUE);
+	hdr_ctx = message_parse_header_init(input, hdr_size, flags);
 	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0)
 		callback(hdr, context);
 	i_assert(ret != 0);

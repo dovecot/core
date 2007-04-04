@@ -78,7 +78,7 @@ message_decode_header_callback(const unsigned char *data, size_t size,
 	bool unknown_charset;
 
 	if (charset == NULL || charset_is_utf8(charset)) {
-		/* ASCII */
+		/* ASCII / UTF-8 */
 		_charset_utf8_ucase(data, size, ctx->buf, ctx->buf->used);
 		return TRUE;
 	}
