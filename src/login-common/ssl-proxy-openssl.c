@@ -756,6 +756,8 @@ void ssl_proxy_init(void)
 		SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER |
 				   SSL_VERIFY_CLIENT_ONCE,
 				   ssl_verify_client_cert);
+		SSL_CTX_set_client_CA_list(ssl_ctx,
+					   SSL_load_client_CA_file(cafile));
 	}
 
 	/* PRNG initialization might want to use /dev/urandom, make sure it
