@@ -44,7 +44,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
         if (ret == (off_t)size)
 		ret = 0;
 	else if (ret >= 0) {
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+		mbox_sync_set_critical(sync_ctx,
 			"mbox_move(%"PRIuUOFF_T", %"PRIuUOFF_T", %"PRIuUOFF_T
 			") moved only %"PRIuUOFF_T" bytes in mbox file %s",
 			dest, source, size, (uoff_t)ret, sync_ctx->mbox->path);
@@ -415,10 +415,10 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 		if (need_space != (uoff_t)-mails[idx].space) {
 			/* this check works only if we're doing the first
 			   write, or if the file size was changed externally */
-			if (mbox_sync_file_is_ext_modified(sync_ctx))
-				return -1;
+			mbox_sync_file_update_ext_modified(sync_ctx);
 
-			i_panic("mbox %s: seq=%u uid=%u uid_broken=%d "
+			mbox_sync_set_critical(sync_ctx,
+				"mbox %s: seq=%u uid=%u uid_broken=%d "
 				"originally needed %"PRIuUOFF_T
 				" bytes, now needs %"PRIuSIZE_T" bytes",
 				sync_ctx->mbox->path, seq, mails[idx].uid,

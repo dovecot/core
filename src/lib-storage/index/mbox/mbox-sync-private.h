@@ -141,10 +141,13 @@ struct mbox_sync_context {
 	unsigned int delay_writes:1;
 	unsigned int renumber_uids:1;
 	unsigned int moved_offsets:1;
+	unsigned int ext_modified:1;
 };
 
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags);
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty);
+void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
+			    const char *fmt, ...) __attr_format__(2, 3);
 
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx);
@@ -164,7 +167,7 @@ void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
 				 struct mbox_sync_mail *mail,
 				 bool *keywords_changed_r);
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset);
-bool mbox_sync_file_is_ext_modified(struct mbox_sync_context *sync_ctx);
+void mbox_sync_file_update_ext_modified(struct mbox_sync_context *sync_ctx);
 void mbox_sync_file_updated(struct mbox_sync_context *sync_ctx, bool dirty);
 int mbox_move(struct mbox_sync_context *sync_ctx,
 	      uoff_t dest, uoff_t source, uoff_t size);

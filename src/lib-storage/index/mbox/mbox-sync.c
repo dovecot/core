@@ -62,10 +62,27 @@
 "If deleted, important folder data will be lost, and it will be re-created\n" \
 "with the data reset to initial values.\n"
 
+void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
+			    const char *fmt, ...)
+{
+	va_list va;
+
+	if (sync_ctx->ext_modified) {
+		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+			"mbox file %s was modified while we were syncing, "
+			"check your locking settings", sync_ctx->mbox->path);
+	}
+
+	va_start(va, fmt);
+	mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+				  "%s", t_strdup_vprintf(fmt, va));
+	va_end(va);
+}
+
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
 {
 	if (istream_raw_mbox_seek(sync_ctx->input, from_offset) < 0) {
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+		mbox_sync_set_critical(sync_ctx,
 			"Unexpectedly lost From-line at offset %"PRIuUOFF_T
 			" from mbox file %s", from_offset,
 			sync_ctx->mbox->path);
@@ -74,13 +91,15 @@ int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset)
 	return 0;
 }
 
-bool mbox_sync_file_is_ext_modified(struct mbox_sync_context *sync_ctx)
+void mbox_sync_file_update_ext_modified(struct mbox_sync_context *sync_ctx)
 {
 	struct stat st;
 
+	/* Do this even if ext_modified is already set. Expunging code relies
+	   on last_stat being updated. */
 	if (fstat(sync_ctx->write_fd, &st) < 0) {
 		mbox_set_syscall_error(sync_ctx->mbox, "fstat()");
-		return TRUE;
+		return;
 	}
 
 	if (st.st_size != sync_ctx->last_stat.st_size ||
@@ -91,15 +110,10 @@ bool mbox_sync_file_is_ext_modified(struct mbox_sync_context *sync_ctx)
 		 supported by the OS */
 	      || st.st_mtim.tv_nsec != sync_ctx->last_stat.st_mtim.tv_nsec
 #endif
-	     ))) {
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
-			"mbox file %s was modified while we were syncing, "
-			"check your locking settings", sync_ctx->mbox->path);
-		return TRUE;
-	}
+	     )))
+		sync_ctx->ext_modified = TRUE;
 
 	sync_ctx->last_stat = st;
-	return FALSE;
 }
 
 void mbox_sync_file_updated(struct mbox_sync_context *sync_ctx, bool dirty)
@@ -337,7 +351,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 
 	if (rec == NULL && uid < sync_ctx->idx_next_uid) {
 		/* this UID was already in index and it was expunged */
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+		mbox_sync_set_critical(sync_ctx,
 			"mbox sync: Expunged message reappeared in mailbox %s "
 			"(UID %u < %u, seq=%u, idx_msgs=%u)",
 			sync_ctx->mbox->path, uid, sync_ctx->idx_next_uid,
@@ -345,7 +359,7 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 		ret = 0; rec = NULL;
 	} else if (rec != NULL && rec->uid != uid) {
 		/* new UID in the middle of the mailbox - shouldn't happen */
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+		mbox_sync_set_critical(sync_ctx,
 			"mbox sync: UID inserted in the middle of mailbox %s "
 			"(%u > %u, seq=%u, idx_msgs=%u)", sync_ctx->mbox->path,
 			rec->uid, uid, sync_ctx->seq, messages_count);
@@ -633,7 +647,7 @@ static int mbox_rewrite_base_uid_last(struct mbox_sync_context *sync_ctx)
 		return -1;
 	}
 	if (ret == 0) {
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+		mbox_sync_set_critical(sync_ctx,
 			"X-IMAPbase uid-last unexpectedly points outside "
 			"mbox file %s", sync_ctx->mbox->path);
 		return -1;
@@ -648,7 +662,7 @@ static int mbox_rewrite_base_uid_last(struct mbox_sync_context *sync_ctx)
 	}
 
 	if (uid_last != sync_ctx->base_uid_last) {
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+		mbox_sync_set_critical(sync_ctx,
 			"X-IMAPbase uid-last unexpectedly lost in mbox file %s",
 			sync_ctx->mbox->path);
 		return -1;
@@ -888,9 +902,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 		extra_space = sync_ctx->space_diff;
 	}
 
-	if (mbox_sync_file_is_ext_modified(sync_ctx))
-		return -1;
-
+	mbox_sync_file_update_ext_modified(sync_ctx);
 	if (mbox_sync_rewrite(sync_ctx,
 			      last_seq == sync_ctx->seq ? mail_ctx : NULL,
 			      end_offset, move_diff, extra_space,
@@ -936,8 +948,7 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 		if (ret == 0) {
 			if (istream_raw_mbox_seek(mbox->mbox_stream,
 						  old_offset) < 0) {
-				mail_storage_set_critical(
-					&mbox->storage->storage,
+				mbox_sync_set_critical(sync_ctx,
 					"Error seeking back to original "
 					"offset %s in mbox file %s",
 					dec2str(old_offset), mbox->path);
@@ -994,8 +1005,7 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
 		if (istream_raw_mbox_seek(sync_ctx->mbox->mbox_stream,
 					  st->st_size) < 0) {
-			mail_storage_set_critical(
-				&sync_ctx->mbox->storage->storage,
+			mbox_sync_set_critical(sync_ctx,
 				"Error seeking to end of mbox file %s",
 				sync_ctx->mbox->path);
 			return -1;
@@ -1107,8 +1117,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			if (sync_ctx->mbox->mbox_sync_dirty)
 				return 0;
 
-			mail_storage_set_critical(
-				&sync_ctx->mbox->storage->storage,
+			mbox_sync_set_critical(sync_ctx,
 				"UIDs broken with partial sync in mbox file %s",
 				sync_ctx->mbox->path);
 
@@ -1225,9 +1234,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		} else if (sync_ctx->expunged_space > 0) {
 			if (!expunged) {
 				/* move the body */
-				if (mbox_sync_file_is_ext_modified(sync_ctx))
-					return -1;
-
+				mbox_sync_file_update_ext_modified(sync_ctx);
 				if (mbox_move(sync_ctx,
 					      mail_ctx->body_offset -
 					      sync_ctx->expunged_space,
@@ -1330,7 +1337,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	}
 	file_size = st->st_size;
 	if (file_size < sync_ctx->file_input->v_offset) {
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
+		mbox_sync_set_critical(sync_ctx,
 			"file size unexpectedly shrinked in mbox file %s "
 			"(%"PRIuUOFF_T" vs %"PRIuUOFF_T")",
 			sync_ctx->mbox->path, file_size,
@@ -1356,9 +1363,6 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 			str_append_c(mail_ctx->header, '\n');
 
 		i_assert(sync_ctx->space_diff < 0);
-
-		if (mbox_sync_file_is_ext_modified(sync_ctx))
-			return -1;
 
 		if (file_set_size(sync_ctx->write_fd,
 				  file_size + -sync_ctx->space_diff) < 0) {
@@ -1388,8 +1392,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 	if (sync_ctx->expunged_space > 0) {
 		i_assert(sync_ctx->write_fd != -1);
 
-		if (mbox_sync_file_is_ext_modified(sync_ctx))
-			return -1;
+		mbox_sync_file_update_ext_modified(sync_ctx);
 
 		/* copy trailer, then truncate the file */
 		file_size = sync_ctx->last_stat.st_size;
@@ -1540,6 +1543,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 	sync_ctx->space_diff = 0;
 
 	sync_ctx->dest_first_mail = TRUE;
+	sync_ctx->ext_modified = FALSE;
 }
 
 static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
