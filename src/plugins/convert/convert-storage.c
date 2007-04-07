@@ -253,16 +253,19 @@ int convert_storage(const char *user, const char *home_dir,
 {
 	struct mail_namespace *source_ns, *dest_ns;
 	struct dotlock *dotlock;
-        enum mail_storage_flags flags;
+        enum mail_storage_flags src_flags, dest_flags;
         enum file_lock_method lock_method;
 	const char *path;
 	int ret;
 
 	source_ns = mail_namespaces_init_empty(pool_datastack_create());
-	mail_storage_parse_env(&flags, &lock_method);
-	flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE | MAIL_STORAGE_FLAG_HAS_INBOX;
+	mail_storage_parse_env(&src_flags, &lock_method);
+	src_flags |= MAIL_STORAGE_FLAG_HAS_INBOX;
+	dest_flags = src_flags;
+
+	src_flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE;
 	if (mail_storage_create(source_ns, NULL, source_data, user,
-				flags, lock_method) < 0) {
+				src_flags, lock_method) < 0) {
 		/* No need for conversion. */
 		return 0;
 	}
@@ -282,7 +285,7 @@ int convert_storage(const char *user, const char *home_dir,
 	   reopen the source storage */
 	mail_storage_destroy(&source_ns->storage);
 	if (mail_storage_create(source_ns, NULL, source_data, user,
-				flags, lock_method) < 0) {
+				src_flags, lock_method) < 0) {
 		/* No need for conversion anymore. */
 		file_dotlock_delete(&dotlock);
 		return 0;
@@ -290,7 +293,7 @@ int convert_storage(const char *user, const char *home_dir,
 
 	dest_ns = mail_namespaces_init_empty(pool_datastack_create());
 	if (mail_storage_create(dest_ns, NULL, dest_data, user,
-				flags, lock_method) < 0) {
+				dest_flags, lock_method) < 0) {
 		i_error("Mailbox conversion: Failed to create destination "
 			"storage with data: %s", dest_data);
 		ret = -1;
