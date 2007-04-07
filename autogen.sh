@@ -21,12 +21,13 @@ if test ! -f doc/wiki/Authentication.txt; then
   wget http://www.dovecot.org/tmp/wiki-export.tar.gz
   tar xzf wiki-export.tar.gz
   mv wiki-export/*.txt wiki/
-  cd wiki
-  cp -f Makefile.am.in Makefile.am
-  echo *.txt | sed 's/ / \\\n	/g' >> Makefile.am
-  cd ..
   rm -rf wiki-export wiki-export.tar.gz
   cd ..
 fi
+
+cd doc/wiki
+cp -f Makefile.am.in Makefile.am
+echo *.txt | sed 's, , \\/	,g' | tr '/' '\n' >> Makefile.am
+cd ../..
 
 autoreconf -i
