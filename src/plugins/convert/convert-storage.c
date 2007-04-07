@@ -226,6 +226,7 @@ static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 	struct mailbox_list_iterate_context *iter;
 	struct mailbox_info *info;
 	struct mailbox_list *dest_list;
+	const char *dest_name;
 	int ret = 0;
 
 	dest_list = mail_storage_get_list(dest_storage);
@@ -233,7 +234,9 @@ static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 				      "*", MAILBOX_LIST_ITER_SUBSCRIBED |
 				      MAILBOX_LIST_ITER_FAST_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (mailbox_list_set_subscribed(dest_list, info->name,
+		dest_name = mailbox_name_convert(dest_storage, source_storage,
+						 info->name);
+		if (mailbox_list_set_subscribed(dest_list, dest_name,
 						TRUE) < 0) {
 			ret = -1;
 			break;
