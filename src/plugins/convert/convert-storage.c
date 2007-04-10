@@ -138,12 +138,13 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 
 	if ((info->flags & MAILBOX_NONEXISTENT) != 0)
 		return 0;
-	if (*info->name == '.' && set->skip_dotfiles)
-		return 0;
 
 	name = strcasecmp(info->name, "INBOX") == 0 ? "INBOX" : info->name;
 	if ((info->flags & MAILBOX_NOSELECT) != 0) {
 		/* \NoSelect mailbox, so it's probably a "directory" */
+		if (*info->name == '.' && set->skip_dotdirs)
+			return 0;
+
 		dest_name = mailbox_name_convert(dest_storage, source_storage,
 						 set, name);
 		if (mail_storage_mailbox_create(dest_storage, dest_name,

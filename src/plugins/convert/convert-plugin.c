@@ -30,7 +30,7 @@ void convert_plugin_init(void)
 		i_fatal("convert plugin: HOME unset");
 
 	set.skip_broken_mailboxes = getenv("CONVERT_SKIP_BROKEN_MAILBOXES") != NULL;
-	set.skip_dotfiles = getenv("CONVERT_SKIP_DOTFILES") != NULL;
+	set.skip_dotdirs = getenv("CONVERT_SKIP_DOTDIRS") != NULL;
 
 	str = getenv("CONVERT_ALT_HIERARCHY_CHAR");
 	set.alt_hierarchy_char = *str != '\0' ? *str : '_';

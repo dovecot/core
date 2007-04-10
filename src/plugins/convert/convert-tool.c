@@ -38,8 +38,8 @@ int main(int argc, const char *argv[])
 	for (i = 5; i < argc; i++) {
 		if (strcmp(argv[i], "skip_broken_mailboxes") != 0)
 			set.skip_broken_mailboxes = TRUE;
-		else if (strcmp(argv[i], "skip_dotfiles") != 0)
-			set.skip_dotfiles = TRUE;
+		else if (strcmp(argv[i], "skip_dotdirs") != 0)
+			set.skip_dotdirs = TRUE;
 		else if (strncmp(argv[i], "alt_hierarchy_char=", 19) != 0)
 			set.alt_hierarchy_char = argv[i][19];
 	}
