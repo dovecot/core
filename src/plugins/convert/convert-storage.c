@@ -108,7 +108,8 @@ static const char *storage_error(struct mail_storage *storage)
 
 static const char *
 mailbox_name_convert(struct mail_storage *dest_storage,
-		     struct mail_storage *source_storage, const char *name)
+		     struct mail_storage *source_storage,
+		     const struct convert_settings *set, const char *name)
 {
 	char *dest_name, *p, src_sep, dest_sep;
 
@@ -117,6 +118,8 @@ mailbox_name_convert(struct mail_storage *dest_storage,
 
 	dest_name = t_strdup_noconst(name);
 	for (p = dest_name; *p != '\0'; p++) {
+		if (*p == dest_sep)
+			*p = set->alt_hierarchy_char;
 		if (*p == src_sep)
 			*p = dest_sep;
 	}
@@ -127,7 +130,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 				     struct mail_storage *dest_storage,
 				     struct mailbox_info *info,
 				     struct dotlock *dotlock,
-				     bool skip_broken_mailboxes)
+				     const struct convert_settings *set)
 {
 	const char *name, *dest_name;
 	struct mailbox *srcbox, *destbox;
@@ -135,12 +138,14 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 
 	if ((info->flags & MAILBOX_NONEXISTENT) != 0)
 		return 0;
+	if (*info->name == '.' && set->skip_dotfiles)
+		return 0;
 
 	name = strcasecmp(info->name, "INBOX") == 0 ? "INBOX" : info->name;
 	if ((info->flags & MAILBOX_NOSELECT) != 0) {
 		/* \NoSelect mailbox, so it's probably a "directory" */
 		dest_name = mailbox_name_convert(dest_storage, source_storage,
-						 name);
+						 set, name);
 		if (mail_storage_mailbox_create(dest_storage, dest_name,
 						TRUE) < 0) {
 			i_error("Mailbox conversion: Couldn't create mailbox "
@@ -155,7 +160,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 	srcbox = mailbox_open(source_storage, name, NULL,
 			      MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
 	if (srcbox == NULL) {
-		if (skip_broken_mailboxes)
+		if (set->skip_broken_mailboxes)
 			return 0;
 
 		i_error("Mailbox conversion: "
@@ -165,7 +170,8 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 	}
 
 	/* Create and open the destination mailbox. */
-	dest_name = mailbox_name_convert(dest_storage, source_storage, name);
+	dest_name = mailbox_name_convert(dest_storage, source_storage,
+					 set, name);
 	if (mail_storage_mailbox_create(dest_storage, dest_name, FALSE) < 0) {
 		i_error("Mailbox conversion: Couldn't create mailbox %s: %s",
 			dest_name, storage_error(dest_storage));
@@ -195,7 +201,7 @@ static int mailbox_convert_list_item(struct mail_storage *source_storage,
 static int mailbox_list_copy(struct mail_storage *source_storage,
 			     struct mail_storage *dest_storage,
 			     struct dotlock *dotlock,
-			     bool skip_broken_mailboxes)
+			     const struct convert_settings *set)
 {
 	struct mailbox_list_iterate_context *iter;
 	struct mailbox_info *info;
@@ -205,8 +211,7 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 				      "*", MAILBOX_LIST_ITER_FAST_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (mailbox_convert_list_item(source_storage, dest_storage,
-					      info, dotlock,
-					      skip_broken_mailboxes) < 0) {
+					      info, dotlock, set) < 0) {
 			ret = -1;
 			break;
 		}
@@ -221,7 +226,8 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 }
 
 static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
-					   struct mail_storage *dest_storage)
+					   struct mail_storage *dest_storage,
+					   const struct convert_settings *set)
 {
 	struct mailbox_list_iterate_context *iter;
 	struct mailbox_info *info;
@@ -235,7 +241,7 @@ static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 				      MAILBOX_LIST_ITER_FAST_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		dest_name = mailbox_name_convert(dest_storage, source_storage,
-						 info->name);
+						 set, info->name);
 		if (mailbox_list_set_subscribed(dest_list, dest_name,
 						TRUE) < 0) {
 			ret = -1;
@@ -247,9 +253,8 @@ static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 	return ret;
 }
 
-int convert_storage(const char *user, const char *home_dir,
-		    const char *source_data, const char *dest_data,
-		    bool skip_broken_mailboxes)
+int convert_storage(const char *source_data, const char *dest_data,
+		    const struct convert_settings *set)
 {
 	struct mail_namespace *source_ns, *dest_ns;
 	struct dotlock *dotlock;
@@ -264,7 +269,7 @@ int convert_storage(const char *user, const char *home_dir,
 	dest_flags = src_flags;
 
 	src_flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE;
-	if (mail_storage_create(source_ns, NULL, source_data, user,
+	if (mail_storage_create(source_ns, NULL, source_data, set->user,
 				src_flags, lock_method) < 0) {
 		/* No need for conversion. */
 		return 0;
@@ -273,7 +278,7 @@ int convert_storage(const char *user, const char *home_dir,
 	/* If home directory doesn't exist, creating the destination storage
 	   will most likely create it. So do this before locking. */
 	dest_ns = mail_namespaces_init_empty(pool_datastack_create());
-	if (mail_storage_create(dest_ns, NULL, dest_data, user,
+	if (mail_storage_create(dest_ns, NULL, dest_data, set->user,
 				dest_flags, lock_method) < 0) {
 		i_error("Mailbox conversion: Failed to create destination "
 			"storage with data: %s", dest_data);
@@ -282,7 +287,7 @@ int convert_storage(const char *user, const char *home_dir,
 		return -1;
 	}
 
-        path = t_strconcat(home_dir, "/"CONVERT_LOCK_FILENAME, NULL);
+        path = t_strconcat(set->home, "/"CONVERT_LOCK_FILENAME, NULL);
 	dotlock_settings.use_excl_lock =
 		(source_ns->storage->flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
@@ -296,7 +301,7 @@ int convert_storage(const char *user, const char *home_dir,
 	/* just in case if another process just had converted the mailbox,
 	   reopen the source storage */
 	mail_storage_destroy(&source_ns->storage);
-	if (mail_storage_create(source_ns, NULL, source_data, user,
+	if (mail_storage_create(source_ns, NULL, source_data, set->user,
 				src_flags, lock_method) < 0) {
 		/* No need for conversion anymore. */
 		file_dotlock_delete(&dotlock);
@@ -304,10 +309,10 @@ int convert_storage(const char *user, const char *home_dir,
 	}
 
 	ret = mailbox_list_copy(source_ns->storage, dest_ns->storage,
-				dotlock, skip_broken_mailboxes);
+				dotlock, set);
 	if (ret == 0) {
 		ret = mailbox_list_copy_subscriptions(source_ns->storage,
-						      dest_ns->storage);
+						      dest_ns->storage, set);
 	}
 
 	if (ret == 0) {

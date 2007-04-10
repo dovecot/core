@@ -9,10 +9,15 @@
 
 #include <stdlib.h>
 
+#define USAGE_STRING \
+"Usage: <username> <home dir> <source mail env> <dest mail env>\n" \
+"       [skip_broken_mailboxes] [skip_dotfiles] [alt_hierarchy_char=<c>]"
+
 int main(int argc, const char *argv[])
 {
 	struct ioloop *ioloop;
-	int ret = 0;
+	struct convert_settings set;
+	int i, ret = 0;
 
 	lib_init();
 	lib_signals_init();
@@ -21,16 +26,25 @@ int main(int argc, const char *argv[])
 	mail_storage_register_all();
 	mailbox_list_register_all();
 
-	if (argc <= 4) {
-		i_fatal("Usage: <username> <home dir> "
-			"<source mail env> <dest mail env> "
-			"[<1=skip broken mailboxes>]");
-	}
+	if (argc <= 4)
+		i_fatal(USAGE_STRING);
 
 	ioloop = io_loop_create();
 
-	ret = convert_storage(argv[1], argv[2], argv[3], argv[4],
-			      argv[5] != NULL && atoi(argv[5]) == 1);
+	memset(&set, 0, sizeof(set));
+	set.user = argv[1];
+	set.home = argv[2];
+
+	for (i = 5; i < argc; i++) {
+		if (strcmp(argv[i], "skip_broken_mailboxes") != 0)
+			set.skip_broken_mailboxes = TRUE;
+		else if (strcmp(argv[i], "skip_dotfiles") != 0)
+			set.skip_dotfiles = TRUE;
+		else if (strncmp(argv[i], "alt_hierarchy_char=", 19) != 0)
+			set.alt_hierarchy_char = argv[i][19];
+	}
+
+	ret = convert_storage(argv[3], argv[4], &set);
 	if (ret > 0)
 		i_info("Successfully converted");
 	else if (ret == 0)
