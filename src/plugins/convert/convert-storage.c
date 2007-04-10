@@ -270,6 +270,18 @@ int convert_storage(const char *user, const char *home_dir,
 		return 0;
 	}
 
+	/* If home directory doesn't exist, creating the destination storage
+	   will most likely create it. So do this before locking. */
+	dest_ns = mail_namespaces_init_empty(pool_datastack_create());
+	if (mail_storage_create(dest_ns, NULL, dest_data, user,
+				dest_flags, lock_method) < 0) {
+		i_error("Mailbox conversion: Failed to create destination "
+			"storage with data: %s", dest_data);
+		mail_namespaces_deinit(&dest_ns);
+		mail_namespaces_deinit(&source_ns);
+		return -1;
+	}
+
         path = t_strconcat(home_dir, "/"CONVERT_LOCK_FILENAME, NULL);
 	dotlock_settings.use_excl_lock =
 		(source_ns->storage->flags &
@@ -291,19 +303,11 @@ int convert_storage(const char *user, const char *home_dir,
 		return 0;
 	}
 
-	dest_ns = mail_namespaces_init_empty(pool_datastack_create());
-	if (mail_storage_create(dest_ns, NULL, dest_data, user,
-				dest_flags, lock_method) < 0) {
-		i_error("Mailbox conversion: Failed to create destination "
-			"storage with data: %s", dest_data);
-		ret = -1;
-	} else {
-		ret = mailbox_list_copy(source_ns->storage, dest_ns->storage,
-					dotlock, skip_broken_mailboxes);
-		if (ret == 0) {
-			ret = mailbox_list_copy_subscriptions(
-					source_ns->storage, dest_ns->storage);
-		}
+	ret = mailbox_list_copy(source_ns->storage, dest_ns->storage,
+				dotlock, skip_broken_mailboxes);
+	if (ret == 0) {
+		ret = mailbox_list_copy_subscriptions(source_ns->storage,
+						      dest_ns->storage);
 	}
 
 	if (ret == 0) {
