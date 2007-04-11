@@ -39,7 +39,9 @@ enum mailbox_list_iter_flags {
 	/* Don't return any flags unless it can be done without cost */
 	MAILBOX_LIST_ITER_FAST_FLAGS	= 0x02,
 	/* Return children flags */
-	MAILBOX_LIST_ITER_CHILDREN	= 0x04
+	MAILBOX_LIST_ITER_CHILDREN	= 0x04,
+	/* Ignore index file and ACLs (used by ACL plugin internally) */
+	MAILBOX_LIST_ITER_RAW_LIST	= 0x08
 };
 
 enum mailbox_list_path_type {
@@ -124,6 +126,13 @@ bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
    For INDEX=MEMORY it returns "" as the path. */
 const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 				  enum mailbox_list_path_type type);
+/* Returns the mode, UID and GID that should be used when creating new files
+   to the given mailbox. (uid_t)-1 and (gid_t)-1 is returned if it's not
+   necessary to change the default UID or GID. The name must be a valid
+   existing mailbox name, or NULL to get global permissions.
+   Returns -1 if error, 0 if mailbox not found, 1 if ok. */
+int mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
+				 mode_t *mode_r, uid_t *uid_r, gid_t *gid_r);
 /* Returns mailbox name status */
 int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 					 const char *name,

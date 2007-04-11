@@ -8,7 +8,9 @@
 #include "mailbox-list-private.h"
 
 #include <time.h>
+#include <unistd.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 /* 20 * (200+1) < 4096 which is the standard PATH_MAX. Having these settings
    prevents malicious user from creating eg. "a/a/a/.../a" mailbox name and
@@ -97,6 +99,8 @@ int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 
 	list->ns = ns;
 	list->flags = flags;
+	list->cached_uid = (uid_t)-1;
+	list->cached_gid = (gid_t)-1;
 
 	/* copy settings */
 	list->set.root_dir = p_strdup(list->pool, set->root_dir);
@@ -198,6 +202,43 @@ const char *mailbox_list_get_path(struct mailbox_list *list, const char *name,
 	mailbox_list_clear_error(list);
 
 	return list->v.get_path(list, name, type);
+}
+
+int mailbox_list_get_permissions(struct mailbox_list *list, const char *name,
+				 mode_t *mode_r, uid_t *uid_r, gid_t *gid_r)
+{
+	const char *path;
+	struct stat st;
+
+	mailbox_list_clear_error(list);
+
+	path = mailbox_list_get_path(list, name,
+				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	if (*path == '\0')
+		return -1;
+
+	if (stat(path, &st) < 0) {
+		if (ENOTFOUND(errno))
+			return 0;
+		mailbox_list_set_critical(list, "stat(%s) failed: %m", path);
+		return -1;
+	}
+
+	*mode_r = st.st_mode & 0666;
+
+	if (list->cached_uid == (uid_t)-1)
+		list->cached_uid = geteuid();
+	*uid_r = list->cached_uid == st.st_uid ? (uid_t)-1 : st.st_uid;
+
+	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
+		/* directory's GID is used automatically for new files */
+		*gid_r = (gid_t)-1;
+	} else {
+		if (list->cached_gid == (gid_t)-1)
+			list->cached_gid = getegid();
+		*gid_r = list->cached_gid == st.st_gid ? (gid_t)-1 : st.st_gid;
+	}
+	return 1;
 }
 
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)

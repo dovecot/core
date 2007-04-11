@@ -126,7 +126,11 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 	ctx->mail_view = mail_index_view_open(ilist->mail_index);
 	ctx->view = mailbox_list_index_view_init(ilist->list_index,
 						 ctx->mail_view);
-	if (index_mailbox_list_is_synced(ctx) > 0) {
+	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
+		/* Ignore indexes completely */
+		ctx->backend_ctx = ilist->module_ctx.super.
+			iter_init(list, mask, flags);
+	} else if (index_mailbox_list_is_synced(ctx) > 0) {
 		/* synced, list from index */
 		mask_parse(list, mask, &prefix, &recurse_level);
 

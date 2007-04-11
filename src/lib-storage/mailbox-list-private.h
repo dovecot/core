@@ -73,6 +73,10 @@ struct mailbox_list {
 	struct mailbox_list_settings set;
 	enum mailbox_list_flags flags;
 
+	/* -1 if unset: */
+	uid_t cached_uid;
+	gid_t cached_gid;
+
 	char *error;
 	bool temporary_error;
 
