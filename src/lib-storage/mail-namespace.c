@@ -113,7 +113,7 @@ int mail_namespaces_init(pool_t pool, const char *user,
 					  lock_method);
 		t_pop();
 
-		if (*ns_p != NULL)
+		if (*ns_p == NULL)
 			return -1;
 
 		ns_p = &(*ns_p)->next;
