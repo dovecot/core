@@ -109,6 +109,6 @@ int acl_object_update(struct acl_object *aclobj,
 struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj);
 int acl_object_list_next(struct acl_object_list_iter *iter,
                          struct acl_rights *rights_r);
-void acl_object_list_deinit(struct acl_object_list_iter **_iter);
+void acl_object_list_deinit(struct acl_object_list_iter **iter);
 
 #endif
