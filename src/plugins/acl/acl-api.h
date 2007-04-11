@@ -76,7 +76,7 @@ struct acl_backend *
 acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const char *const *groups,
 		 const char *owner_username);
-void acl_backend_deinit(struct acl_backend **user);
+void acl_backend_deinit(struct acl_backend **backend);
 /* Returns TRUE if user isn't anonymous. */
 bool acl_backend_user_is_authenticated(struct acl_backend *backend);
 /* Returns TRUE if given name matches the ACL user name. */
@@ -109,6 +109,6 @@ int acl_object_update(struct acl_object *aclobj,
 struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj);
 int acl_object_list_next(struct acl_object_list_iter *iter,
                          struct acl_rights *rights_r);
-void acl_object_list_deinit(struct acl_object_list_iter *iter);
+void acl_object_list_deinit(struct acl_object_list_iter **_iter);
 
 #endif

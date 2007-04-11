@@ -134,7 +134,10 @@ int acl_object_list_next(struct acl_object_list_iter *iter,
         return iter->aclobj->backend->v.object_list_next(iter, rights_r);
 }
 
-void acl_object_list_deinit(struct acl_object_list_iter *iter)
+void acl_object_list_deinit(struct acl_object_list_iter **_iter)
 {
+	struct acl_object_list_iter *iter = *_iter;
+
+	*_iter = NULL;
         iter->aclobj->backend->v.object_list_deinit(iter);
 }
