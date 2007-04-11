@@ -9,15 +9,13 @@
 #include "acl-cache.h"
 #include "acl-api-private.h"
 
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 
 #define ACL_FILENAME "dovecot-acl"
 
-/* Minimum time between stat()ing the ACL file to see if its timestamp has
-   changed. */
-#define ACL_VALIDITY_SECS 1
 /* Time difference to allow between this system's time and file server's time */
 #define ACL_SYNC_SECS 1
 
@@ -38,6 +36,7 @@ struct acl_backend_vfile_validity {
 struct acl_backend_vfile {
 	struct acl_backend backend;
 	const char *global_dir;
+	unsigned int cache_secs;
 };
 
 struct acl_object_vfile {
@@ -81,14 +80,30 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 {
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
+	const char *const *tmp;
 
-	if (_backend->debug)
-		i_info("acl vfile: Global ACL directory: %s", data);
+	t_push();
+	tmp = t_strsplit(data, ":");
+	backend->global_dir = p_strdup(_backend->pool, *tmp);
 
-	backend->global_dir = p_strdup(_backend->pool, data);
+	while (*++tmp != NULL) {
+		if (strncmp(*tmp, "cache_secs=", 11) == 0)
+			backend->cache_secs = atoi(*tmp + 11);
+		else {
+			i_error("acl vfile: Unknown parameter: %s", *tmp);
+			t_pop();
+			return -1;
+		}
+	}
+	if (_backend->debug) {
+		i_info("acl vfile: Global ACL directory: %s",
+		       backend->global_dir);
+	}
+
 	_backend->cache =
 		acl_cache_init(_backend,
 			       sizeof(struct acl_backend_vfile_validity));
+	t_pop();
 	return 0;
 }
 
@@ -388,12 +403,14 @@ static int
 acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 			  struct acl_vfile_validity *validity)
 {
+	struct acl_backend_vfile *backend =
+		(struct acl_backend_vfile *)aclobj->backend;
 	struct stat st;
 
 	if (validity == NULL)
 		return 1;
 	if (path == NULL ||
-	    validity->last_check + ACL_VALIDITY_SECS > ioloop_time)
+	    validity->last_check + backend->cache_secs > ioloop_time)
 		return 0;
 
 	validity->last_check = ioloop_time;
