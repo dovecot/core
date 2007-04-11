@@ -205,7 +205,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data)
 		}
 	}
 
-	if (mailbox_list_init("fs", &list_set,
+	if (mailbox_list_init(_storage->ns, "fs", &list_set,
 			      mail_storage_get_list_flags(_storage->flags),
 			      &list, &error) < 0) {
 		i_error("dbox fs: %s", error);

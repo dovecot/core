@@ -9,8 +9,9 @@
 
 static void namespace_init_storage(struct mail_namespace *ns)
 {
+	ns->list = mail_storage_get_list(ns->storage);
 	ns->prefix_len = strlen(ns->prefix);
-	ns->real_sep = mail_storage_get_hierarchy_sep(ns->storage);
+	ns->real_sep = mailbox_list_get_hierarchy_sep(ns->list);
 
 	if (ns->sep == '\0')
                 ns->sep = ns->real_sep;

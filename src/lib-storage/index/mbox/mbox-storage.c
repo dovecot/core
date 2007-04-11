@@ -425,7 +425,7 @@ static int mbox_create(struct mail_storage *_storage, const char *data)
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
 
-	if (mailbox_list_init(layout, &list_set,
+	if (mailbox_list_init(_storage->ns, layout, &list_set,
 			      mail_storage_get_list_flags(_storage->flags),
 			      &_storage->list, &error) < 0) {
 		i_error("mbox %s: %s", layout, error);

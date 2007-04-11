@@ -69,6 +69,7 @@ struct mailbox_list {
 
 /* private: */
 	pool_t pool;
+	struct mail_namespace *ns;
 	struct mailbox_list_settings set;
 	enum mailbox_list_flags flags;
 

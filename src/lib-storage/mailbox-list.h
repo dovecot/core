@@ -1,6 +1,7 @@
 #ifndef __MAILBOX_LIST_H
 #define __MAILBOX_LIST_H
 
+struct mail_namespace;
 struct mailbox_list;
 struct mailbox_list_iterate_context;
 
@@ -99,7 +100,7 @@ void mailbox_list_register(const struct mailbox_list *list);
 void mailbox_list_unregister(const struct mailbox_list *list);
 
 /* Returns 0 if ok, -1 if initialization failed. */
-int mailbox_list_init(const char *driver,
+int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 		      const struct mailbox_list_settings *set,
 		      enum mailbox_list_flags flags,
 		      struct mailbox_list **list_r, const char **error_r);
@@ -107,6 +108,8 @@ void mailbox_list_deinit(struct mailbox_list *list);
 
 const char *mailbox_list_get_driver_name(struct mailbox_list *list);
 char mailbox_list_get_hierarchy_sep(struct mailbox_list *list);
+enum mailbox_list_flags mailbox_list_get_flags(struct mailbox_list *list);
+struct mail_namespace *mailbox_list_get_namespace(struct mailbox_list *list);
 
 /* Returns TRUE if the name doesn't contain any invalid characters.
    The create name check can be more strict. */

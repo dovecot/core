@@ -74,7 +74,7 @@ void mailbox_list_unregister(const struct mailbox_list *list)
 		array_free(&mailbox_list_drivers);
 }
 
-int mailbox_list_init(const char *driver,
+int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 		      const struct mailbox_list_settings *set,
 		      enum mailbox_list_flags flags,
 		      struct mailbox_list **list_r, const char **error_r)
@@ -95,6 +95,7 @@ int mailbox_list_init(const char *driver,
 	class_p = array_idx(&mailbox_list_drivers, idx);
 	list = (*class_p)->v.alloc();
 
+	list->ns = ns;
 	list->flags = flags;
 
 	/* copy settings */
@@ -162,6 +163,16 @@ const char *mailbox_list_get_driver_name(struct mailbox_list *list)
 char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)
 {
 	return list->hierarchy_sep;
+}
+
+enum mailbox_list_flags mailbox_list_get_flags(struct mailbox_list *list)
+{
+	return list->flags;
+}
+
+struct mail_namespace *mailbox_list_get_namespace(struct mailbox_list *list)
+{
+	return list->ns;
 }
 
 bool mailbox_list_is_valid_mask(struct mailbox_list *list, const char *mask)
