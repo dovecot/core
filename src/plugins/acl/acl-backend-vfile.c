@@ -16,10 +16,8 @@
 
 #define ACL_FILENAME "dovecot-acl"
 
-/* Time difference to allow between this system's time and file server's time */
-#define ACL_SYNC_SECS 1
-
 #define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
+#define ACL_VFILE_DEFAULT_CACHE_SECS (60*5)
 
 struct acl_vfile_validity {
 	time_t last_check;
@@ -85,6 +83,7 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	t_push();
 	tmp = t_strsplit(data, ":");
 	backend->global_dir = p_strdup_empty(_backend->pool, *tmp);
+	backend->cache_secs = ACL_VFILE_DEFAULT_CACHE_SECS;
 
 	while (*++tmp != NULL) {
 		if (strncmp(*tmp, "cache_secs=", 11) == 0)
@@ -416,8 +415,10 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 		   do it only after a couple of seconds so we don't
 		   keep re-reading it all the time within those
 		   seconds) */
-		if (st.st_mtime < validity->last_read_time - ACL_SYNC_SECS ||
-		    ioloop_time - validity->last_read_time <= ACL_SYNC_SECS)
+		unsigned int cache_secs = backend->cache_secs;
+
+		if (st.st_mtime < validity->last_read_time - cache_secs ||
+		    ioloop_time - validity->last_read_time <= cache_secs)
 			return 0;
 	}
 
