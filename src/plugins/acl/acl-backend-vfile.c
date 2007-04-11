@@ -85,7 +85,9 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	backend->global_dir = p_strdup_empty(_backend->pool, *tmp);
 	backend->cache_secs = ACL_VFILE_DEFAULT_CACHE_SECS;
 
-	while (*++tmp != NULL) {
+	if (*tmp != NULL)
+		tmp++;
+	for (; *tmp != NULL; tmp++) {
 		if (strncmp(*tmp, "cache_secs=", 11) == 0)
 			backend->cache_secs = atoi(*tmp + 11);
 		else {
