@@ -4,10 +4,9 @@
 #include "array.h"
 #include "istream.h"
 #include "acl-api-private.h"
+#include "mail-namespace.h"
 #include "mailbox-list-private.h"
 #include "acl-plugin.h"
-
-#include <stdlib.h>
 
 struct acl_storage_module acl_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
@@ -25,15 +24,31 @@ static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 	MAIL_ACL_ADMIN
 };
 
-int acl_storage_have_right(struct mail_storage *storage, const char *name,
-			   unsigned int acl_storage_right_idx, bool *can_see_r)
+void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
+				 struct acl_backend *backend)
 {
-	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
-	const unsigned int *idx_arr = astorage->acl_storage_right_idx;
+	unsigned int i;
+
+	ctx->backend = backend;
+	for (i = 0; i < ACL_STORAGE_RIGHT_COUNT; i++) {
+		ctx->acl_storage_right_idx[i] =
+			acl_backend_lookup_right(backend,
+						 acl_storage_right_names[i]);
+	}
+}
+
+int acl_storage_rights_ctx_have_right(struct acl_storage_rights_context *ctx,
+				      const char *name,
+				      unsigned int acl_storage_right_idx,
+				      bool *can_see_r)
+{
+	const unsigned int *idx_arr = ctx->acl_storage_right_idx;
+	struct mail_namespace *ns;
 	struct acl_object *aclobj;
 	int ret, ret2;
 
-	aclobj = acl_object_init_from_name(astorage->backend, name);
+	ns = mailbox_list_get_namespace(ctx->backend->list);
+	aclobj = acl_object_init_from_name(ctx->backend, ns->storage, name);
 	ret = acl_object_have_right(aclobj, idx_arr[acl_storage_right_idx]);
 
 	if (can_see_r != NULL) {
@@ -48,24 +63,28 @@ int acl_storage_have_right(struct mail_storage *storage, const char *name,
 	return ret;
 }
 
-const char *
-acl_storage_get_parent_mailbox_name(struct mail_storage *storage,
-				    const char *name)
+static int
+acl_storage_have_right(struct mail_storage *storage, const char *name,
+		       unsigned int acl_storage_right_idx, bool *can_see_r)
 {
-	const char *p;
-	char sep;
+	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
+	int ret;
 
-	sep = mail_storage_get_hierarchy_sep(storage);
-	p = strrchr(name, sep);
-	return p == NULL ? "" : t_strdup_until(name, p);
+	ret = acl_storage_rights_ctx_have_right(&astorage->rights, name,
+						acl_storage_right_idx,
+						can_see_r);
+	if (ret < 0) 
+		mail_storage_set_internal_error(storage);
+	return ret;
 }
 
 static void acl_storage_destroy(struct mail_storage *storage)
 {
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
 
-	acl_backend_deinit(&astorage->backend);
-	astorage->module_ctx.super.destroy(storage);
+	acl_backend_deinit(&astorage->rights.backend);
+	if (astorage->module_ctx.super.destroy != NULL)
+		astorage->module_ctx.super.destroy(storage);
 }
 
 static struct mailbox *
@@ -112,11 +131,12 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 			      bool directory)
 {
 	struct acl_mail_storage *astorage = ACL_CONTEXT(storage);
+	struct mailbox_list *list = mail_storage_get_list(storage);
 	int ret;
 
 	t_push();
 	ret = acl_storage_have_right(storage,
-			acl_storage_get_parent_mailbox_name(storage, name),
+			acl_mailbox_list_get_parent_mailbox_name(list, name),
 			ACL_STORAGE_RIGHT_CREATE, NULL);
 	t_pop();
 
@@ -139,50 +159,18 @@ void acl_mail_storage_created(struct mail_storage *storage)
 {
 	struct acl_mail_storage *astorage;
 	struct acl_backend *backend;
-	const char *acl_env, *user_env, *owner_username;
-	unsigned int i;
 
 	if (acl_next_hook_mail_storage_created != NULL)
 		acl_next_hook_mail_storage_created(storage);
 
-	acl_env = getenv("ACL");
-	user_env = getenv("MASTER_USER");
-	if (user_env == NULL)
-		user_env = getenv("USER");
-	i_assert(acl_env != NULL && user_env != NULL);
-
-	/* FIXME: set groups. owner_username isn't also correct here it's a
-	   per-mailbox thing. but we don't currently support shared mailboxes,
-	   so this will do for now.. */
-	owner_username =
-		(storage->flags & MAIL_STORAGE_FLAG_SHARED_NAMESPACE) == 0 ?
-		getenv("USER") : NULL;
-	backend = acl_backend_init(acl_env, storage, user_env, NULL,
-				   owner_username);
-	if (backend == NULL)
-		i_fatal("ACL backend initialization failed");
-
-	if ((storage->flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0) {
-		/* FIXME: not necessarily, but safer to do this for now.. */
-		i_fatal("mail_full_filesystem_access=yes is "
-			"incompatible with ACLs");
-	}
-
 	astorage = p_new(storage->pool, struct acl_mail_storage, 1);
 	astorage->module_ctx.super = storage->v;
-	astorage->backend = backend;
 	storage->v.destroy = acl_storage_destroy;
 	storage->v.mailbox_open = acl_mailbox_open;
 	storage->v.mailbox_create = acl_mailbox_create;
 
-	acl_mailbox_list_set_storage(storage);
-
-	/* build ACL right lookup table */
-	for (i = 0; i < ACL_STORAGE_RIGHT_COUNT; i++) {
-		astorage->acl_storage_right_idx[i] =
-			acl_backend_lookup_right(backend,
-						 acl_storage_right_names[i]);
-	}
+	backend = acl_mailbox_list_get_backend(mail_storage_get_list(storage));
+	acl_storage_rights_ctx_init(&astorage->rights, backend);
 
 	MODULE_CONTEXT_SET(storage, acl_storage_module, astorage);
 }

@@ -21,11 +21,14 @@ enum acl_storage_rights {
 	ACL_STORAGE_RIGHT_COUNT
 };
 
-struct acl_mail_storage {
-	union mail_storage_module_context module_ctx;
-
+struct acl_storage_rights_context {
 	struct acl_backend *backend;
 	unsigned int acl_storage_right_idx[ACL_STORAGE_RIGHT_COUNT];
+};
+
+struct acl_mail_storage {
+	union mail_storage_module_context module_ctx;
+	struct acl_storage_rights_context rights;
 };
 
 extern void (*acl_next_hook_mail_storage_created)
@@ -38,12 +41,16 @@ void acl_mailbox_list_created(struct mailbox_list *list);
 
 struct mailbox *acl_mailbox_open_box(struct mailbox *box);
 
-const char *
-acl_storage_get_parent_mailbox_name(struct mail_storage *storage,
-				    const char *name);
-int acl_storage_have_right(struct mail_storage *storage, const char *name,
-			   unsigned int acl_storage_right_idx, bool *can_see_r);
-void acl_mailbox_list_set_storage(struct mail_storage *storage);
+void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
+				 struct acl_backend *backend);
+int acl_storage_rights_ctx_have_right(struct acl_storage_rights_context *ctx,
+				      const char *name,
+				      unsigned int acl_storage_right_idx,
+				      bool *can_see_r);
+
+struct acl_backend *acl_mailbox_list_get_backend(struct mailbox_list *list);
+const char *acl_mailbox_list_get_parent_mailbox_name(struct mailbox_list *list,
+						     const char *name);
 
 void acl_plugin_init(void);
 void acl_plugin_deinit(void);

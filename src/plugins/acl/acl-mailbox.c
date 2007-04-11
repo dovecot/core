@@ -40,11 +40,13 @@ static int mailbox_acl_right_lookup(struct mailbox *box, unsigned int right_idx)
 	int ret;
 
 	ret = acl_object_have_right(abox->aclobj,
-				    astorage->acl_storage_right_idx[right_idx]);
+			astorage->rights.acl_storage_right_idx[right_idx]);
 	if (ret > 0)
 		return 1;
-	if (ret < 0)
+	if (ret < 0) {
+		mail_storage_set_internal_error(box->storage);
 		return -1;
+	}
 
 	mail_storage_set_error(box->storage, MAILBOX_LIST_ERR_NO_PERMISSION);
 	return 0;
@@ -210,7 +212,8 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 
 	abox = p_new(box->pool, struct acl_mailbox, 1);
 	abox->module_ctx.super = box->v;
-	abox->aclobj = acl_object_init_from_name(astorage->backend,
+	abox->aclobj = acl_object_init_from_name(astorage->rights.backend,
+						 box->storage,
 						 mailbox_get_name(box));
 	
 	box->v.close = acl_mailbox_close;

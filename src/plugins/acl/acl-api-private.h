@@ -9,6 +9,7 @@ struct acl_backend_vfuncs {
 	void (*deinit)(struct acl_backend *backend);
 
 	struct acl_object *(*object_init)(struct acl_backend *backend,
+					  struct mail_storage *storage,
 					  const char *name);
 	void (*object_deinit)(struct acl_object *aclobj);
 
@@ -29,7 +30,7 @@ struct acl_backend {
 	const char **groups;
 	unsigned int group_count;
 
-	struct mail_storage *storage;
+	struct mailbox_list *list;
 	struct acl_cache *cache;
 
 	struct acl_object *default_aclobj;

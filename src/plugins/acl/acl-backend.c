@@ -26,7 +26,7 @@ static const char *const owner_mailbox_rights[] = {
 static const char *const non_owner_mailbox_rights[] = { NULL };
 
 struct acl_backend *
-acl_backend_init(const char *data, struct mail_storage *storage,
+acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const char *const *groups,
 		 const char *owner_username)
 {
@@ -54,7 +54,7 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 	backend = acl_backend_vfile.alloc();
 	backend->debug = debug;
 	backend->v = acl_backend_vfile;
-	backend->storage = storage;
+	backend->list = list;
 	backend->username = p_strdup(backend->pool, acl_username);
 	backend->owner_username = owner_username == NULL ? "" :
 		p_strdup(backend->pool, owner_username);
@@ -79,7 +79,7 @@ acl_backend_init(const char *data, struct mail_storage *storage,
 				    storage_owner ? owner_mailbox_rights :
 				    non_owner_mailbox_rights);
 
-	backend->default_aclobj = acl_object_init_from_name(backend, "");
+	backend->default_aclobj = acl_object_init_from_name(backend, NULL, "");
 	return backend;
 }
 

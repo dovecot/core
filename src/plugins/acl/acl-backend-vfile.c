@@ -84,7 +84,7 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 
 	t_push();
 	tmp = t_strsplit(data, ":");
-	backend->global_dir = p_strdup(_backend->pool, *tmp);
+	backend->global_dir = p_strdup_empty(_backend->pool, *tmp);
 
 	while (*++tmp != NULL) {
 		if (strncmp(*tmp, "cache_secs=", 11) == 0)
@@ -113,37 +113,30 @@ static void acl_backend_vfile_deinit(struct acl_backend *backend)
 }
 
 static struct acl_object *
-acl_backend_vfile_object_init(struct acl_backend *_backend, const char *name)
+acl_backend_vfile_object_init(struct acl_backend *_backend,
+			      struct mail_storage *storage, const char *name)
 {
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
 	struct acl_object_vfile *aclobj;
-	const char *control_dir, *dir;
+	const char *dir;
 	bool is_file;
 
 	aclobj = i_new(struct acl_object_vfile, 1);
 	aclobj->aclobj.backend = _backend;
 	aclobj->aclobj.name = i_strdup(name);
-	aclobj->global_path = *backend->global_dir == '\0' ? NULL :
+	aclobj->global_path = backend->global_dir == NULL ? NULL :
 		i_strconcat(backend->global_dir, "/", name, NULL);
 
-	control_dir =
-		mail_storage_get_mailbox_control_dir(_backend->storage, name);
-	dir = mail_storage_get_mailbox_path(_backend->storage, name, &is_file);
-	if (is_file) {
-		/* use control directory with mboxes */
-		dir = control_dir;
-	} else if (strcmp(control_dir, dir) != 0) {
-		/* FIXME: this is only for making sure people won't upgrade
-		   improperly. remove this check some day. */
-		const char *path;
-		struct stat st;
-
-		path = t_strconcat(control_dir, "/"ACL_FILENAME, NULL);
-		if (stat(path, &st) == 0) {
-			i_fatal("%s is no longer kept in control directory, "
-				"move it to the actual maildir (%s)",
-				path, dir);
+	if (storage == NULL) {
+		/* the default ACL for mailbox list */
+		dir = mailbox_list_get_path(_backend->list, NULL,
+					    MAILBOX_LIST_PATH_TYPE_DIR);
+	} else {
+		dir = mail_storage_get_mailbox_path(storage, name, &is_file);
+		if (is_file) {
+			dir = mailbox_list_get_path(_backend->list, name,
+					MAILBOX_LIST_PATH_TYPE_CONTROL);
 		}
 	}
 	aclobj->local_path = i_strconcat(dir, "/"ACL_FILENAME, NULL);
@@ -258,9 +251,7 @@ acl_object_vfile_parse_line(struct acl_object *aclobj, const char *path,
 	}
 
 	if (error != NULL) {
-		mail_storage_set_critical(aclobj->backend->storage,
-					  "ACL file %s line %u: %s",
-					  path, linenum, error);
+		i_error("ACL file %s line %u: %s", path, linenum, error);
 		t_pop();
 		return -1;
 	}
@@ -276,7 +267,6 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		       struct acl_vfile_validity *validity, bool try_retry,
 		       bool *is_dir_r)
 {
-	struct mail_storage *storage = aclobj->backend->storage;
 	struct istream *input;
 	struct stat st;
 	const char *line;
@@ -296,7 +286,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 			validity->last_read_time = ioloop_time;
 			return 1;
 		}
-		mail_storage_set_critical(storage, "open(%s) failed: %m", path);
+		i_error("open(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -306,8 +296,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 			return 0;
 		}
 
-		mail_storage_set_critical(storage,
-					  "fstat(%s) failed: %m", path);
+		i_error("fstat(%s) failed: %m", path);
 		(void)close(fd);
 		return -1;
 	}
@@ -337,8 +326,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 			ret = 0;
 		else {
 			ret = -1;
-			mail_storage_set_critical(storage,
-						  "read(%s) failed: %m", path);
+			i_error("read(%s) failed: %m", path);
 		}
 	}
 
@@ -348,8 +336,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 				ret = 0;
 			else {
 				ret = -1;
-				mail_storage_set_critical(storage,
-					"read(%s) failed: %m", path);
+				i_error("read(%s) failed: %m", path);
 			}
 		} else {
 			validity->last_read_time = ioloop_time;
@@ -363,8 +350,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		if (errno == ESTALE && try_retry)
 			return 0;
 
-		mail_storage_set_critical(storage, "close(%s) failed: %m",
-					  path);
+		i_error("close(%s) failed: %m", path);
 		return -1;
 	}
 	return ret;
@@ -419,8 +405,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 			/* if the file used to exist, we have to re-read it */
 			return validity->last_mtime != 0;
 		} 
-		mail_storage_set_critical(aclobj->backend->storage,
-					  "stat(%s) failed: %m", path);
+		i_error("stat(%s) failed: %m", path);
 		return -1;
 	}
 

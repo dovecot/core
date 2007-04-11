@@ -2,22 +2,14 @@
 
 #include "lib.h"
 #include "hash.h"
-#include "mail-storage.h"
 #include "acl-cache.h"
 #include "acl-api-private.h"
 
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
+					     struct mail_storage *storage,
 					     const char *name)
 {
-	return backend->v.object_init(backend, name);
-}
-
-struct acl_object *acl_object_init_from_mailbox(struct acl_backend *backend,
-						struct mailbox *box)
-{
-	i_assert(mailbox_get_storage(box) == backend->storage);
-
-	return acl_object_init_from_name(backend, mailbox_get_name(box));
+	return backend->v.object_init(backend, storage, name);
 }
 
 void acl_object_deinit(struct acl_object **_aclobj)

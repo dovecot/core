@@ -1,8 +1,8 @@
 #ifndef __ACL_API_H
 #define __ACL_API_H
 
+struct mailbox_list;
 struct mail_storage;
-struct mailbox;
 struct acl_object;
 
 /* Show mailbox in mailbox list. Allow subscribing to it. */
@@ -73,7 +73,7 @@ struct acl_rights {
    is NULL, it means the user is anonymous. Username and groups are matched
    case-sensitively. */
 struct acl_backend *
-acl_backend_init(const char *data, struct mail_storage *storage,
+acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const char *const *groups,
 		 const char *owner_username);
 void acl_backend_deinit(struct acl_backend **user);
@@ -90,9 +90,8 @@ unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 				      const char *right);
 
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
+					     struct mail_storage *storage,
 					     const char *name);
-struct acl_object *acl_object_init_from_mailbox(struct acl_backend *backend,
-						struct mailbox *box);
 void acl_object_deinit(struct acl_object **aclobj);
 
 /* Returns 1 if we have the requested rights, 0 if not, or -1 if internal
