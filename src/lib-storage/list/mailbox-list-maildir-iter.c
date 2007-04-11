@@ -19,10 +19,8 @@ struct maildir_list_iterate_context {
 	const char *dir, *prefix;
 
         struct mailbox_tree_context *tree_ctx;
+	struct mailbox_tree_iterate_context *tree_iter;
 
-	string_t *node_path;
-	size_t parent_pos;
-	struct mailbox_node *root, *next_node;
 	struct mailbox_info info;
 };
 
@@ -279,8 +277,8 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 		}
 	}
 
-	ctx->node_path = str_new(pool, 256);
-	ctx->root = mailbox_tree_get(ctx->tree_ctx, NULL, NULL);
+	ctx->tree_iter = mailbox_tree_iterate_init(ctx->tree_ctx, NULL,
+						   MAILBOX_FLAG_MATCHED);
 	return &ctx->ctx;
 }
 
@@ -290,39 +288,11 @@ int maildir_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		(struct maildir_list_iterate_context *)_ctx;
 	int ret = ctx->ctx.failed ? -1 : 0;
 
-	mailbox_tree_deinit(ctx->tree_ctx);
+	if (ctx->tree_iter != NULL)
+		mailbox_tree_iterate_deinit(&ctx->tree_iter);
+	mailbox_tree_deinit(&ctx->tree_ctx);
 	pool_unref(ctx->pool);
 	return ret;
-}
-
-static struct mailbox_node *find_next(struct mailbox_node **node,
-				      string_t *path, char hierarchy_sep)
-{
-	struct mailbox_node *child;
-	size_t len;
-
-	while (*node != NULL) {
-		if (((*node)->flags & MAILBOX_FLAG_MATCHED) != 0)
-			return *node;
-
-		if ((*node)->children != NULL) {
-			len = str_len(path);
-			if (len != 0)
-				str_append_c(path, hierarchy_sep);
-			str_append(path, (*node)->name);
-
-			child = find_next(&(*node)->children, path,
-					  hierarchy_sep);
-			if (child != NULL)
-				return child;
-
-			str_truncate(path, len);
-		}
-
-		*node = (*node)->next;
-	}
-
-	return NULL;
 }
 
 struct mailbox_info *
@@ -332,34 +302,13 @@ maildir_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		(struct maildir_list_iterate_context *)_ctx;
 	struct mailbox_node *node;
 
-	for (node = ctx->next_node; node != NULL; node = node->next) {
-		if ((node->flags & MAILBOX_FLAG_MATCHED) != 0)
-			break;
-	}
+	if (ctx->ctx.failed)
+		return NULL;
 
-	if (node == NULL) {
-		if (ctx->root == NULL)
-			return NULL;
+	node = mailbox_tree_iterate_next(ctx->tree_iter, &ctx->info.name);
+	if (node == NULL)
+		return NULL;
 
-		str_truncate(ctx->node_path, 0);
-		node = find_next(&ctx->root, ctx->node_path,
-				 ctx->ctx.list->hierarchy_sep);
-                ctx->parent_pos = str_len(ctx->node_path);
-
-		if (node == NULL)
-			return NULL;
-	}
-	ctx->next_node = node->next;
-
-	i_assert((node->flags & MAILBOX_FLAG_MATCHED) != 0);
-	node->flags &= ~MAILBOX_FLAG_MATCHED;
-
-	str_truncate(ctx->node_path, ctx->parent_pos);
-	if (ctx->parent_pos != 0)
-		str_append_c(ctx->node_path, ctx->ctx.list->hierarchy_sep);
-	str_append(ctx->node_path, node->name);
-
-	ctx->info.name = str_c(ctx->node_path);
 	ctx->info.flags = node->flags;
 	return &ctx->info;
 }
