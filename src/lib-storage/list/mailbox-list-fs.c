@@ -204,7 +204,6 @@ static int
 fs_list_get_mailbox_name_status(struct mailbox_list *_list, const char *name,
 				enum mailbox_name_status *status)
 {
-	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 	struct stat st;
 	const char *path;
 
