@@ -2,7 +2,7 @@
 #define __ACL_CACHE_H
 
 struct acl_backend;
-struct acl_rights;
+struct acl_rights_update;
 
 struct acl_mask {
 	pool_t pool;
@@ -34,7 +34,7 @@ void acl_cache_flush_all(struct acl_cache *cache);
 
 /* Update object ACLs. */
 void acl_cache_update(struct acl_cache *cache, const char *objname,
-		      const struct acl_rights *rights);
+		      const struct acl_rights_update *rights);
 /* Return ACL object validity, or NULL if object doesn't exit. */
 void *acl_cache_get_validity(struct acl_cache *cache, const char *objname);
 /* Update ACL object validity, creating the object if needed. */
@@ -50,5 +50,8 @@ const char *const *acl_cache_get_names(struct acl_cache *cache,
    for this object. */
 const struct acl_mask *
 acl_cache_get_my_rights(struct acl_cache *cache, const char *objname);
+
+/* Returns TRUE if given right index is set in mask. */
+bool acl_cache_mask_isset(const struct acl_mask *mask, unsigned int right_idx);
 
 #endif

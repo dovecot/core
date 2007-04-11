@@ -251,15 +251,15 @@ acl_cache_update_rights_mask(struct acl_cache *cache,
 static void
 acl_cache_update_rights(struct acl_cache *cache,
 			struct acl_object_cache *obj_cache,
-			const struct acl_rights *rights)
+			const struct acl_rights_update *rights)
 {
-	enum acl_id_type id_type = rights->id_type;
+	enum acl_id_type id_type = rights->rights.id_type;
 
 	acl_cache_update_rights_mask(cache, obj_cache, rights->modify_mode,
-				     rights->rights,
+				     rights->rights.rights,
 				     &obj_cache->my_rights[id_type]);
 	acl_cache_update_rights_mask(cache, obj_cache, rights->neg_modify_mode,
-				     rights->neg_rights,
+				     rights->rights.neg_rights,
 				     &obj_cache->my_neg_rights[id_type]);
 }
 
@@ -283,7 +283,7 @@ acl_cache_object_get(struct acl_cache *cache, const char *objname,
 }
 
 void acl_cache_update(struct acl_cache *cache, const char *objname,
-		      const struct acl_rights *rights)
+		      const struct acl_rights_update *rights)
 {
 	struct acl_object_cache *obj_cache;
 	bool created;
@@ -291,7 +291,7 @@ void acl_cache_update(struct acl_cache *cache, const char *objname,
 	obj_cache = acl_cache_object_get(cache, objname, &created);
 	i_assert(obj_cache->my_current_rights != &negative_cache_entry);
 
-	switch (rights->id_type) {
+	switch (rights->rights.id_type) {
 	case ACL_ID_ANYONE:
 		acl_cache_update_rights(cache, obj_cache, rights);
 		break;
@@ -302,12 +302,16 @@ void acl_cache_update(struct acl_cache *cache, const char *objname,
 	case ACL_ID_GROUP:
 	case ACL_ID_GROUP_OVERRIDE:
 		if (acl_backend_user_is_in_group(cache->backend,
-						 rights->identifier))
+						 rights->rights.identifier))
 			acl_cache_update_rights(cache, obj_cache, rights);
 		break;
 	case ACL_ID_USER:
 		if (acl_backend_user_name_equals(cache->backend,
-						 rights->identifier))
+						 rights->rights.identifier))
+			acl_cache_update_rights(cache, obj_cache, rights);
+		break;
+	case ACL_ID_OWNER:
+		if (acl_backend_user_is_owner(cache->backend))
 			acl_cache_update_rights(cache, obj_cache, rights);
 		break;
 	case ACL_ID_TYPE_COUNT:
@@ -401,4 +405,13 @@ acl_cache_get_my_rights(struct acl_cache *cache, const char *objname)
 	if (obj_cache->my_current_rights == NULL)
 		acl_cache_my_current_rights_recalculate(obj_cache);
 	return obj_cache->my_current_rights;
+}
+
+bool acl_cache_mask_isset(const struct acl_mask *mask, unsigned int right_idx)
+{
+	unsigned int mask_idx;
+
+	mask_idx = right_idx / CHAR_BIT;
+	return mask_idx < mask->size &&
+		(mask->mask[mask_idx] & (1 << (right_idx % CHAR_BIT))) != 0;
 }

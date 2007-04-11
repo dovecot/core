@@ -20,23 +20,10 @@ void acl_object_deinit(struct acl_object **_aclobj)
 	aclobj->backend->v.object_deinit(aclobj);
 }
 
-static int acl_backend_get_default_rights(struct acl_backend *backend,
-					  const struct acl_mask **mask_r)
-{
-	if (backend->v.object_refresh_cache(backend->default_aclobj) < 0)
-		return -1;
-
-	*mask_r = acl_cache_get_my_rights(backend->cache, "");
-	if (*mask_r == NULL)
-		*mask_r = backend->default_aclmask;
-	return 0;
-}
-
 int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 {
 	struct acl_backend *backend = aclobj->backend;
 	const struct acl_mask *have_mask;
-	unsigned int mask_idx;
 
 	if (*aclobj->name == '\0') {
 		/* we want to look up default rights */
@@ -55,10 +42,7 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 		}
 	}
 
-	mask_idx = right_idx / CHAR_BIT;
-	return mask_idx < have_mask->size &&
-		(have_mask->mask[mask_idx] &
-		 (1 << (right_idx % CHAR_BIT))) != 0;
+	return acl_cache_mask_isset(have_mask, right_idx);
 }
 
 int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
@@ -118,7 +102,7 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 }
 
 int acl_object_update(struct acl_object *aclobj,
-		      const struct acl_rights *rights)
+		      const struct acl_rights_update *rights)
 {
         return aclobj->backend->v.object_update(aclobj, rights);
 }
@@ -131,7 +115,10 @@ struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj)
 int acl_object_list_next(struct acl_object_list_iter *iter,
                          struct acl_rights *rights_r)
 {
-        return iter->aclobj->backend->v.object_list_next(iter, rights_r);
+	if (iter->failed)
+		return -1;
+
+	return iter->aclobj->backend->v.object_list_next(iter, rights_r);
 }
 
 void acl_object_list_deinit(struct acl_object_list_iter **_iter)
@@ -140,4 +127,25 @@ void acl_object_list_deinit(struct acl_object_list_iter **_iter)
 
 	*_iter = NULL;
         iter->aclobj->backend->v.object_list_deinit(iter);
+}
+
+struct acl_mailbox_list_context *
+acl_backend_nonowner_lookups_iter_init(struct acl_backend *backend)
+{
+	return backend->v.nonowner_lookups_iter_init(backend);
+}
+
+int acl_backend_nonowner_lookups_iter_next(struct acl_mailbox_list_context *ctx,
+					   const char **name_r)
+{
+	return ctx->backend->v.nonowner_lookups_iter_next(ctx, name_r);
+}
+
+void
+acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_ctx)
+{
+	struct acl_mailbox_list_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	ctx->backend->v.nonowner_lookups_iter_deinit(ctx);
 }

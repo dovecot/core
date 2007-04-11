@@ -3,9 +3,9 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
-#include "acl-api-private.h"
 #include "mail-namespace.h"
 #include "mailbox-list-private.h"
+#include "acl-api-private.h"
 #include "acl-plugin.h"
 
 struct acl_storage_module acl_storage_module =

@@ -27,16 +27,19 @@ struct acl_object;
 /* Allow changing ACL state in this mailbox */
 #define MAIL_ACL_ADMIN		"admin"
 
+/* ACL identifiers in override order */
 enum acl_id_type {
 	/* Anyone's rights, including anonymous's.
 	   identifier name is ignored. */
 	ACL_ID_ANYONE,
-	/* Authenticate users' rights, overrides anyone's rights.
-	   identifier name is ignored. */
+	/* Authenticate users' rights. identifier name is ignored. */
 	ACL_ID_AUTHENTICATED,
-	/* Group's rights, overrides authenticated users' rights */
+	/* Group's rights */
 	ACL_ID_GROUP,
-	/* User's rights, overrides group's rights */
+	/* Owner's rights, used when user is the storage's owner.
+	   identifier name is ignored. */
+	ACL_ID_OWNER,
+	/* User's rights */
 	ACL_ID_USER,
 	/* Same as group's rights, but also overrides user's rights */
 	ACL_ID_GROUP_OVERRIDE,
@@ -63,8 +66,11 @@ struct acl_rights {
 	const char *const *rights;
 	/* Negative rights assigned */
 	const char *const *neg_rights;
+};
 
-	/* For set: */
+struct acl_rights_update {
+	struct acl_rights rights;
+
 	enum acl_modify_mode modify_mode;
 	enum acl_modify_mode neg_modify_mode;
 };
@@ -75,10 +81,12 @@ struct acl_rights {
 struct acl_backend *
 acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const char *const *groups,
-		 const char *owner_username);
+		 bool owner);
 void acl_backend_deinit(struct acl_backend **backend);
 /* Returns TRUE if user isn't anonymous. */
 bool acl_backend_user_is_authenticated(struct acl_backend *backend);
+/* Returns TRUE if user owns the storage. */
+bool acl_backend_user_is_owner(struct acl_backend *backend);
 /* Returns TRUE if given name matches the ACL user name. */
 bool acl_backend_user_name_equals(struct acl_backend *backend,
 				  const char *username);
@@ -88,6 +96,14 @@ bool acl_backend_user_is_in_group(struct acl_backend *backend,
 /* Returns index for the right name. If it doesn't exist, it's created. */
 unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 				      const char *right);
+
+/* List mailboxes that have lookup right to some non-owners. */
+struct acl_mailbox_list_context *
+acl_backend_nonowner_lookups_iter_init(struct acl_backend *backend);
+int acl_backend_nonowner_lookups_iter_next(struct acl_mailbox_list_context *ctx,
+					   const char **name_r);
+void
+acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **ctx);
 
 struct acl_object *acl_object_init_from_name(struct acl_backend *backend,
 					     struct mail_storage *storage,
@@ -103,7 +119,7 @@ int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
 
 /* Update ACL of given object. */
 int acl_object_update(struct acl_object *aclobj,
-		      const struct acl_rights *rights);
+		      const struct acl_rights_update *rights);
 
 /* List all identifiers. */
 struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj);

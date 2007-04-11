@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 Timo Sirainen */
+/* Copyright (C) 2006-2007 Timo Sirainen */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -7,14 +7,12 @@
 #include "nfs-workarounds.h"
 #include "mail-storage-private.h"
 #include "acl-cache.h"
-#include "acl-api-private.h"
+#include "acl-backend-vfile.h"
 
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
-
-#define ACL_FILENAME "dovecot-acl"
 
 #define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 #define ACL_VFILE_DEFAULT_CACHE_SECS (60*5)
@@ -29,18 +27,6 @@ struct acl_vfile_validity {
 
 struct acl_backend_vfile_validity {
 	struct acl_vfile_validity global_validity, local_validity;
-};
-
-struct acl_backend_vfile {
-	struct acl_backend backend;
-	const char *global_dir;
-	unsigned int cache_secs;
-};
-
-struct acl_object_vfile {
-	struct acl_object aclobj;
-
-	char *global_path, *local_path;
 };
 
 struct acl_letter_map {
@@ -148,6 +134,11 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 {
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
 
+	if (array_is_created(&aclobj->rights))
+		array_free(&aclobj->rights);
+	if (aclobj->rights_pool != NULL)
+		pool_unref(aclobj->rights_pool);
+
 	i_free(aclobj->local_path);
 	i_free(aclobj->global_path);
 	i_free(aclobj->aclobj.name);
@@ -155,11 +146,11 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 }
 
 static const char *const *
-acl_parse_rights(const char *acl, const char **error_r)
+acl_parse_rights(pool_t pool, const char *acl, const char **error_r)
 {
 	ARRAY_DEFINE(rights, const char *);
-	const char *const *names;
-	unsigned int i;
+	const char *const *names, **ret_rights;
+	unsigned int i, count;
 
 	/* parse IMAP ACL list */
 	while (*acl == ' ' || *acl == '\t')
@@ -180,29 +171,32 @@ acl_parse_rights(const char *acl, const char **error_r)
 		array_append(&rights, &acl_letter_map[i].name, 1);
 	}
 
-	if (*acl == '\0') {
-		(void)array_append_space(&rights);
-		return array_idx(&rights, 0);
+	if (*acl != '\0') {
+		/* parse our own extended ACLs */
+		i_assert(*acl == ':');
+
+		names = t_strsplit_spaces(acl, ", ");
+		for (; *names != NULL; names++) {
+			const char *name = p_strdup(pool, *names);
+			array_append(&rights, &name, 1);
+		}
 	}
 
-	/* parse our own extended ACLs */
-	i_assert(*acl == ':');
-
-	names = t_strsplit_spaces(acl, ", ");
-	if (array_count(&rights) == 0)
-		return names;
-	
-	for (; *names != NULL; names++)
-		array_append(&rights, names, 1);
-	(void)array_append_space(&rights);
-	return array_idx(&rights, 0);
+	/* @UNSAFE */
+	count = array_count(&rights);
+	ret_rights = p_new(pool, const char *, count + 1);
+	if (count > 0) {
+		memcpy(ret_rights, array_idx(&rights, 0),
+		       sizeof(const char *) * count);
+	}
+	return ret_rights;
 }
 
 static int
-acl_object_vfile_parse_line(struct acl_object *aclobj, const char *path,
+acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, const char *path,
 			    const char *line, unsigned int linenum)
 {
-	struct acl_rights rights;
+	struct acl_rights_update rights;
 	const char *p, *const *right_names, *error = NULL;
 
 	if (*line == '\0' || *line == '#')
@@ -220,35 +214,50 @@ acl_object_vfile_parse_line(struct acl_object *aclobj, const char *path,
 
 	memset(&rights, 0, sizeof(rights));
 
-	right_names = acl_parse_rights(p, &error);
+	right_names = acl_parse_rights(aclobj->rights_pool, p, &error);
 	if (*line != '-') {
 		rights.modify_mode = ACL_MODIFY_MODE_REPLACE;
-		rights.rights = right_names;
+		rights.rights.rights = right_names;
 	} else {
 		line++;
 		rights.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
-		rights.neg_rights = right_names;
+		rights.rights.neg_rights = right_names;
 	}
 
-	if (strncmp(line, "user=", 5) == 0) {
-		rights.id_type = ACL_ID_USER;
-		rights.identifier = line + 5;
-	} else if (strncmp(line, "group=", 6) == 0) {
-		rights.id_type = ACL_ID_GROUP;
-		rights.identifier = line + 6;
-	} else if (strncmp(line, "group-override=", 15) == 0) {
-		rights.id_type = ACL_ID_GROUP_OVERRIDE;
-		rights.identifier = line + 15;
-	} else if (strcmp(line, "owner") == 0) {
-		rights.id_type = ACL_ID_USER;
-		rights.identifier = aclobj->backend->owner_username;
-	} else if (strcmp(line, "authenticated") == 0) {
-		rights.id_type = ACL_ID_AUTHENTICATED;
-	} else if (strcmp(line, "anyone") == 0 ||
-		   strcmp(line, "anonymous") == 0) {
-		rights.id_type = ACL_ID_ANYONE;
-	} else {
+	switch (*line) {
+	case 'u':
+		if (strncmp(line, "user=", 5) == 0) {
+			rights.rights.id_type = ACL_ID_USER;
+			rights.rights.identifier = line + 5;
+			break;
+		}
+	case 'o':
+		if (strcmp(line, "owner") == 0) {
+			rights.rights.id_type = ACL_ID_OWNER;
+			break;
+		}
+	case 'g':
+		if (strncmp(line, "group=", 6) == 0) {
+			rights.rights.id_type = ACL_ID_GROUP;
+			rights.rights.identifier = line + 6;
+			break;
+		} else if (strncmp(line, "group-override=", 15) == 0) {
+			rights.rights.id_type = ACL_ID_GROUP_OVERRIDE;
+			rights.rights.identifier = line + 15;
+			break;
+		}
+	case 'a':
+		if (strcmp(line, "authenticated") == 0) {
+			rights.rights.id_type = ACL_ID_AUTHENTICATED;
+			break;
+		} else if (strcmp(line, "anyone") == 0 ||
+			   strcmp(line, "anonymous") == 0) {
+			rights.rights.id_type = ACL_ID_ANYONE;
+			break;
+		}
+	default:
 		error = t_strdup_printf("Unknown ID '%s'", line);
+		break;
 	}
 
 	if (error != NULL) {
@@ -257,14 +266,19 @@ acl_object_vfile_parse_line(struct acl_object *aclobj, const char *path,
 		return -1;
 	}
 
-	acl_cache_update(aclobj->backend->cache, aclobj->name, &rights);
+	rights.rights.identifier =
+		p_strdup(aclobj->rights_pool, rights.rights.identifier);
+	array_append(&aclobj->rights, &rights.rights, 1);
+
+	acl_cache_update(aclobj->aclobj.backend->cache,
+			 aclobj->aclobj.name, &rights);
 
 	t_pop();
 	return 0;
 }
 
 static int
-acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
+acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 		       struct acl_vfile_validity *validity, bool try_retry,
 		       bool *is_dir_r)
 {
@@ -279,7 +293,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT) {
-			if (aclobj->backend->debug)
+			if (aclobj->aclobj.backend->debug)
 				i_info("acl vfile: file %s not found", path);
 
 			validity->last_size = 0;
@@ -308,10 +322,20 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		return 0;
 	}
 
-	if (aclobj->backend->debug)
+	if (aclobj->aclobj.backend->debug)
 		i_info("acl vfile: reading file %s", path);
 
 	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
+
+	if (!array_is_created(&aclobj->rights)) {
+		aclobj->rights_pool =
+			pool_alloconly_create("acl rights",
+					      I_MAX(256, st.st_size / 2));
+		i_array_init(&aclobj->rights, I_MAX(16, st.st_size / 40));
+	} else {
+		array_clear(&aclobj->rights);
+		p_clear(aclobj->rights_pool);
+	}
 
 	linenum = 1;
 	while ((line = i_stream_read_next_line(input)) != NULL) {
@@ -358,7 +382,8 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 }
 
 static int
-acl_backend_vfile_read_with_retry(struct acl_object *aclobj, const char *path,
+acl_backend_vfile_read_with_retry(struct acl_object_vfile *aclobj,
+				  const char *path,
 				  struct acl_vfile_validity *validity)
 {
 	unsigned int i;
@@ -427,11 +452,32 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 	return 1;
 }
 
+int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
+				       time_t *mtime_r)
+{
+	struct acl_backend_vfile_validity *validity;
+
+	validity = acl_cache_get_validity(aclobj->backend->cache, aclobj->name);
+	if (validity == NULL)
+		return -1;
+
+	if (validity->local_validity.last_mtime != 0)
+		*mtime_r = validity->local_validity.last_mtime;
+	else if (validity->global_validity.last_mtime != 0)
+		*mtime_r = validity->global_validity.last_mtime;
+	else
+		*mtime_r = 0;
+	return 0;
+}
+
 static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 {
 	struct acl_object_vfile *aclobj = (struct acl_object_vfile *)_aclobj;
+	struct acl_backend_vfile *backend =
+		(struct acl_backend_vfile *)_aclobj->backend;
 	struct acl_backend_vfile_validity *old_validity;
 	struct acl_backend_vfile_validity validity;
+	time_t mtime;
 	int ret;
 
 	old_validity = acl_cache_get_validity(_aclobj->backend->cache,
@@ -451,21 +497,25 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 	acl_cache_flush(_aclobj->backend->cache, _aclobj->name);
 
 	memset(&validity, 0, sizeof(validity));
-	if (acl_backend_vfile_read_with_retry(_aclobj, aclobj->global_path,
+	if (acl_backend_vfile_read_with_retry(aclobj, aclobj->global_path,
 					      &validity.global_validity) < 0)
 		return -1;
-	if (acl_backend_vfile_read_with_retry(_aclobj, aclobj->local_path,
+	if (acl_backend_vfile_read_with_retry(aclobj, aclobj->local_path,
 					      &validity.local_validity) < 0)
 		return -1;
 
 	acl_cache_set_validity(_aclobj->backend->cache,
 			       _aclobj->name, &validity);
+
+	if (acl_backend_vfile_object_get_mtime(_aclobj, &mtime) == 0)
+		acl_backend_vfile_acllist_verify(backend, _aclobj->name, mtime);
 	return 0;
 }
 
 static int
 acl_backend_vfile_object_update(struct acl_object *aclobj __attr_unused__,
-				const struct acl_rights *rights __attr_unused__)
+				const struct acl_rights_update *rights
+					__attr_unused__)
 {
 	/* FIXME */
 	return -1;
@@ -478,15 +528,27 @@ acl_backend_vfile_object_list_init(struct acl_object *aclobj)
 
 	iter = i_new(struct acl_object_list_iter, 1);
 	iter->aclobj = aclobj;
+
+	if (aclobj->backend->v.object_refresh_cache(aclobj) < 0)
+		iter->failed = TRUE;
 	return iter;
 }
 
 static int
-acl_backend_vfile_object_list_next(struct acl_object_list_iter *iter
-				   	__attr_unused__,
-				   struct acl_rights *rights_r __attr_unused__)
+acl_backend_vfile_object_list_next(struct acl_object_list_iter *iter,
+				   struct acl_rights *rights_r)
 {
-	return -1;
+	struct acl_object_vfile *aclobj =
+		(struct acl_object_vfile *)iter->aclobj;
+	const struct acl_rights *rights;
+
+	if (!array_is_created(&aclobj->rights) ||
+	    iter->idx == array_count(&aclobj->rights))
+		return 0;
+
+	rights = array_idx(&aclobj->rights, iter->idx++);
+	*rights_r = *rights;
+	return 1;
 }
 
 static void
@@ -499,6 +561,9 @@ struct acl_backend_vfuncs acl_backend_vfile = {
 	acl_backend_vfile_alloc,
 	acl_backend_vfile_init,
 	acl_backend_vfile_deinit,
+	acl_backend_vfile_nonowner_iter_init,
+	acl_backend_vfile_nonowner_iter_next,
+	acl_backend_vfile_nonowner_iter_deinit,
 	acl_backend_vfile_object_init,
 	acl_backend_vfile_object_deinit,
 	acl_backend_vfile_object_refresh_cache,

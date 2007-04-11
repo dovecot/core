@@ -1,7 +1,6 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "lib.h"
-#include "mail-storage.h"
 #include "mailbox-list-private.h"
 #include "acl-api.h"
 #include "acl-plugin.h"

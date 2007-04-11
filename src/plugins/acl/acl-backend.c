@@ -28,18 +28,17 @@ static const char *const non_owner_mailbox_rights[] = { NULL };
 struct acl_backend *
 acl_backend_init(const char *data, struct mailbox_list *list,
 		 const char *acl_username, const char *const *groups,
-		 const char *owner_username)
+		 bool owner)
 {
 	struct acl_backend *backend;
 	unsigned int i, group_count;
-	bool storage_owner, debug;
+	bool debug;
 
 	debug = getenv("DEBUG") != NULL;
 	if (debug) {
 		i_info("acl: initializing backend with data: %s", data);
 		i_info("acl: acl username = %s", acl_username);
-		i_info("acl: owner username = %s",
-		       owner_username != NULL ? owner_username : "");
+		i_info("acl: owner = %d", owner);
 	}
 
 	group_count = strarray_length(groups);
@@ -56,8 +55,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	backend->v = acl_backend_vfile;
 	backend->list = list;
 	backend->username = p_strdup(backend->pool, acl_username);
-	backend->owner_username = owner_username == NULL ? "" :
-		p_strdup(backend->pool, owner_username);
+	backend->owner = owner;
 
 	if (group_count > 0) {
 		backend->group_count = group_count;
@@ -72,11 +70,9 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	if (acl_backend_vfile.init(backend, data) < 0)
 		i_fatal("acl: backend vfile init failed with data: %s", data);
 
-	storage_owner = owner_username != NULL &&
-		strcmp(acl_username, owner_username) == 0;
 	backend->default_aclmask =
 		acl_cache_mask_init(backend->cache, backend->pool,
-				    storage_owner ? owner_mailbox_rights :
+				    owner ? owner_mailbox_rights :
 				    non_owner_mailbox_rights);
 
 	backend->default_aclobj = acl_object_init_from_name(backend, NULL, "");
@@ -97,6 +93,11 @@ void acl_backend_deinit(struct acl_backend **_backend)
 bool acl_backend_user_is_authenticated(struct acl_backend *backend)
 {
 	return backend->username != NULL;
+}
+
+bool acl_backend_user_is_owner(struct acl_backend *backend)
+{
+	return backend->owner;
 }
 
 bool acl_backend_user_name_equals(struct acl_backend *backend,
@@ -121,4 +122,16 @@ unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 				      const char *right)
 {
 	return acl_cache_right_lookup(backend->cache, right);
+}
+
+int acl_backend_get_default_rights(struct acl_backend *backend,
+				   const struct acl_mask **mask_r)
+{
+	if (backend->v.object_refresh_cache(backend->default_aclobj) < 0)
+		return -1;
+
+	*mask_r = acl_cache_get_my_rights(backend->cache, "");
+	if (*mask_r == NULL)
+		*mask_r = backend->default_aclmask;
+	return 0;
 }
