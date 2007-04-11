@@ -281,7 +281,7 @@ static int create_temp_file(string_t *path, bool write_pid)
 			str_truncate(path, len);
 			str_append(path,
 				   binary_to_hex(randbuf, sizeof(randbuf)));
-		} while (stat(str_c(path), &st) == 0);
+		} while (lstat(str_c(path), &st) == 0);
 
 		if (errno != ENOENT) {
 			i_error("stat(%s) failed: %m", str_c(path));
