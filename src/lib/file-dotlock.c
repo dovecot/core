@@ -6,6 +6,7 @@
 #include "hostpid.h"
 #include "randgen.h"
 #include "write-full.h"
+#include "safe-mkstemp.h"
 #include "file-dotlock.h"
 
 #include <stdio.h>
@@ -267,46 +268,6 @@ static int file_write_pid(int fd, const char *path)
 	return 0;
 }
 
-static int create_temp_file(string_t *path, bool write_pid)
-{
-	size_t len;
-	struct stat st;
-	unsigned char randbuf[8];
-	int fd;
-
-	len = str_len(path);
-	for (;;) {
-		do {
-			random_fill_weak(randbuf, sizeof(randbuf));
-			str_truncate(path, len);
-			str_append(path,
-				   binary_to_hex(randbuf, sizeof(randbuf)));
-		} while (lstat(str_c(path), &st) == 0);
-
-		if (errno != ENOENT) {
-			i_error("stat(%s) failed: %m", str_c(path));
-			return -1;
-		}
-
-		fd = open(str_c(path), O_RDWR | O_EXCL | O_CREAT, 0666);
-		if (fd != -1)
-			break;
-
-		if (errno != EEXIST) {
-			i_error("open(%s) failed: %m", str_c(path));
-			return -1;
-		}
-	}
-
-	if (write_pid) {
-		if (file_write_pid(fd, str_c(path)) < 0) {
-			(void)close(fd);
-			return -1;
-		}
-	}
-	return fd;
-}
-
 static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 				    string_t *tmp_path)
 {
@@ -339,9 +300,19 @@ static int try_create_lock_hardlink(struct lock_info *lock_info, bool write_pid,
 				    my_hostname, my_pid);
 		}
 
-		lock_info->fd = create_temp_file(tmp_path, write_pid);
+		lock_info->fd = safe_mkstemp(tmp_path, 0666,
+					     (uid_t)-1, (gid_t)-1);
 		if (lock_info->fd == -1)
 			return -1;
+
+		if (write_pid) {
+			if (file_write_pid(lock_info->fd,
+					   str_c(tmp_path)) < 0) {
+				(void)close(lock_info->fd);
+				lock_info->fd = -1;
+				return -1;
+			}
+		}
 
                 lock_info->temp_path = str_c(tmp_path);
 	}
