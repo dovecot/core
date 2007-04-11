@@ -74,6 +74,7 @@ liblib_a_SOURCES = \
 	restrict-process-size.c \
 	safe-memset.c \
 	safe-mkdir.c \
+	safe-mkstemp.c \
 	sendfile-util.c \
 	seq-range-array.c \
 	sha1.c \
@@ -153,6 +154,7 @@ headers = \
 	restrict-process-size.h \
 	safe-memset.h \
 	safe-mkdir.h \
+	safe-mkstemp.h \
 	sendfile-util.h \
 	seq-range-array.h \
 	sha1.h \
