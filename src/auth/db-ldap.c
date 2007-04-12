@@ -197,6 +197,8 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 				request->callback(conn, request, NULL);
 				return;
 			}
+			db_ldap_add_delayed_request(conn, request);
+			return;
 		}
 
 		msgid = ldap_search(conn->ld, request->base, scope,
