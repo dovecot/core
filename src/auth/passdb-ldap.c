@@ -173,7 +173,12 @@ handle_request_get_entry(struct ldap_connection *conn,
 		}
 	}
 
-	request->callback.verify_plain(passdb_result, auth_request);
+	if (auth_request->credentials != -1) {
+		request->callback.lookup_credentials(passdb_result, NULL,
+						     auth_request);
+	} else {
+		request->callback.verify_plain(passdb_result, auth_request);
+	}
 	auth_request_unref(&auth_request);
 	return NULL;
 }
