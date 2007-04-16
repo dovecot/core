@@ -5,6 +5,7 @@
 #include "buffer.h"
 #include "hash.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -193,9 +194,15 @@ static void master_input(struct auth_master_connection *conn)
 			ret = master_input_request(conn, line + 8);
 		else if (strncmp(line, "USER\t", 5) == 0)
 			ret = master_input_user(conn, line + 5);
-		else {
+		else if (strncmp(line, "CPID\t", 5) == 0) {
+			i_error("Authentication client trying to connect to "
+				"master socket");
+			ret = FALSE;
+		} else {
 			/* ignore unknown command */
-			ret = TRUE;
+			i_error("BUG: Unknown command in master socket: %s",
+				str_sanitize(line, 80));
+			ret = FALSE;
 		}
 		t_pop();
 

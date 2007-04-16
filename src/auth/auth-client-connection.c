@@ -7,6 +7,7 @@
 #include "network.h"
 #include "array.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "safe-memset.h"
 #include "auth-request-handler.h"
 #include "auth-client-interface.h"
@@ -182,10 +183,9 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 							  line + 5);
 	}
 
-	/* ignore unknown command */
-	if (conn->auth->verbose_debug)
-		i_info("client in (unknown command): %s", line);
-	return TRUE;
+	i_error("BUG: Authentication client sent unknown command: %s",
+		str_sanitize(line, 80));
+	return FALSE;
 }
 
 static void auth_client_input(struct auth_client_connection *conn)
@@ -234,6 +234,12 @@ static void auth_client_input(struct auth_client_connection *conn)
 				auth_client_connection_destroy(&conn);
 				return;
 			}
+		} else {
+			i_error("BUG: Authentication client sent "
+				"unknown handshake command: %s",
+				str_sanitize(line, 80));
+			auth_client_connection_destroy(&conn);
+			return;
 		}
 	}
 
