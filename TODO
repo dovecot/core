@@ -1,3 +1,56 @@
+ - SQL/LDAP should require setting "nopassword" if no password is wanted
+ - dovecot -o setting=something overriding
+ - don't use squat with header if index doesn't exist
+ - don't use squat index if searching only a couple of mails
+ - Send local/remote ports to dovecot-auth
+ - vmailmgr patch
+ - managesieve patch
+ - cache-while-saving doesn't work with mbox/dbox
+ - threading: (all done?) 
+    - duplicate: mark original as rebuild
+    - re-parent (also reparenting to root): mark as rebuild
+    - unref: if refcount drops to zero, set children's parent=0 (can happen
+      if there are only grandchildren and dummy children)
+    - mail-hash: stat() and reopen if needed
+    - subjects: group roots togethere already while gathering subjects. then
+      go through them and sort them to get their sent date. then start writing
+      the nodes out. sorting needs to these cases:
+        1) root is dummy -> just sort their children. if there are dummies
+	   they're skipped and their children ascend
+	2) root is non-dummy -> there are no dummies at all in the thread.
+	   the root has the oldest date in the thread. after the root if there
+	   are re: or fwd: messages they're children to the root. if there are
+	   more messages after that, a new dummy parent needs to be created,
+	   and the rest of the messages need to be sorted before sending
+
+ - mmap_disable: updated cache header doesn't invalidate other processes' cache?
+ - mail_index_move_to_memory() should lock the index..
+ - mbox: UID renumbering doesn't really work after all?
+ - maildir: we could finish writing dovecot-uidlist.lock before rename()ing
+   any files from tmp/, so if it fails we'll abort the mail saving
+ - file_cache: we're growing the mmap in page size blocks, which is horribly
+   slow if mremap() doesn't exist.
+ - quota: delay counting the quota until it's really needed
+ - login_max_processes_count shouldn't count proxying processes
+ - maildir_copy_with_hardlinks: We're currently first hardlinking to tmp/ and
+   then rename()ing. This wouldn't be necessary if uidlist syncing noticed
+   that someone else already had added them to uidlist, and the existing UIDs
+   could be assigned to them in the index.
+ - maildir_copy_preserve_filename=yes has a race condition causing "Append with
+   UID n, but next_uid = y" errors when quota plugin is loaded. Practically
+   won't happen except in stress testing.
+ - maildir_copy_with_hardlinks=yes is problematic with shared folders where
+   the file mode should change..
+ - still problems with CRLF mboxes..
+
+ - Allow %variables in mail_chroot setting
+ - something should be done to umask setting. we should be creating files with
+   0666 or 0777 and rely on umask, but we shouldn't do that unless we're sure
+   that the umask is the wanted one (ie. imap/pop3 process wasn't started
+   directly)
+ - filesystem group quota patch
+ - ssl_verify_client_cert isn't working if the SSL cert doesn't have CRL
+
  - keywords:
     - add some limits to how many there can be
        - don't return \* in PERMANENTFLAGS when we're full
@@ -43,11 +96,12 @@
     - when sorting maildir files, sort based on Mxxxx first so the files are
       sorted always in ascending order. required for proper out-of-quota
       uidlist handling
+    - physical separator could be configurable
 
  - dbox
    - keyword list header locking isn't correct now. saving uses file's
-     dotlock, sync uses sync lock. and what about reading?...
-   - dbox is leaking index fds
+     dotlock, sync uses sync lock. and what about reading?... (I think this
+     is fixed?)
    - append_offset in header shouldn't be trusted
    - show in index if there are expunge-flagged mails in the mailbox
    - pop3_lock_session doesn't work
@@ -55,10 +109,6 @@
  - index
     - dd if=/dev/zero of=dovecot.index bs=1024 count=1 -> NOOP -> crash!
     - delete >30min old dovecot.index.log.2 files when opening index?
-    - Panic: file mail-index.c: line 844 (mail_index_sync_from_transactions):
-      assertion failed: (hdr.messages_count == (*map)->hdr.messages_count)
-    - Corrupted transaction log file dovecot.index.log: record size wrong (type 0x4, 20 % 12 != 0)
-      -> mail-index.c: line 841 (mail_index_sync_from_transactions): assertion failed: (hdr.messages_count == (*map)->hdr.messages_count)
     - optimize initial left_idx in _view_lookup_uid_range()
     - if log file is lost, generate it from old and new index
     - transaction log: when replacing log with a same sequence, we remove it
@@ -80,9 +130,9 @@
        - for shared/public namespaces default to "no"
 
  - lib-storage
+    - rename: allow moving between storages, as long as they're of same type
     - calls fsync()s etc. less often (when copying). optionally disable them.
     - x search charset asdf all -> should fail
-    - index_removal_timeout gets leaked in some conditions. how?
     - subscribe: IMAP(anonymous): open(anonymous/mail/.temp...) failed: Permission denied
     - should we allow following symlinks in mbox/maildirs? they are now.
        - if we implement shared mailboxes with shared indexes, never do that or
@@ -120,6 +170,9 @@
  - auth
     - ability to specify default password scheme with passwd-file
     - with blocking passdb we're not caching lookups if the password was wrong
+    - non-plaintext authentication doesn't support all features:
+        - multiple passdbs don't work, only the first one is used
+	- auth cache's last_success password change check doesn't exist
     - if PAM child process doesn't finish within a minute, kill it
     - PAM / checkpassword should use passdb-blocking
     - support specifying hex/base64 encoding in password scheme. for example
@@ -128,7 +181,6 @@
     - remove system_user and allow returning multiple gids instead.
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
-    - post-login-sql-command (userdb command doesn't do because of deliver)
     - does dovecot-auth really break when it runs out of fds?
     - dovecot-auth should limit how fast authentication requests are allowed
       from login processes. especially if there's one login/connection the speed
@@ -194,8 +246,8 @@
        be only one or two charsets which are used for nearly all conversions.
 
  - deliver
-    - empty mail gives an error.
     - We should always return EX_* failures and never our own 89 etc.
+    - recipient_delimiter setting so user+mailbox@domain works directly
 
  - general
     - add imap_logout_format
