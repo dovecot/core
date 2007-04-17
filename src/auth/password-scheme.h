@@ -14,7 +14,8 @@ struct password_scheme {
 int password_verify(const char *plaintext, const char *password,
 		    const char *scheme, const char *user);
 
-/* Extracts scheme from password, or returns NULL if it isn't found. */
+/* Extracts scheme from password, or returns NULL if it isn't found.
+   If auth_request is given, it's used for debug logging. */
 const char *password_get_scheme(const char **password);
 
 /* Create wanted password scheme out of plaintext password and username. */

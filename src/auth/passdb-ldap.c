@@ -222,6 +222,16 @@ static void handle_request(struct ldap_connection *conn,
 	/* auth_request_set_field() sets scheme */
 	i_assert(password == NULL || scheme != NULL);
 
+	/* LDAP's RFC2307 specifies the MD5 scheme for what we call PLAIN-MD5.
+	   We can detect this case, because base64 doesn't use '$'. */
+	if (scheme != NULL && strncasecmp(scheme, "MD5", 3) == 0 &&
+	    strncmp(password, "$1$", 3) != 0) {
+		auth_request_log_debug(auth_request, "ldap",
+				       "Password doesn't look like MD5-CRYPT, "
+				       "scheme changed to PLAIN-MD5");
+		scheme = "PLAIN-MD5";
+	}
+
 	if (auth_request->credentials != -1) {
 		passdb_handle_credentials(passdb_result, password, scheme,
 			ldap_request->callback.lookup_credentials,
