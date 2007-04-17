@@ -58,12 +58,15 @@ const struct command imap_ext_commands[] = {
 static ARRAY_DEFINE(commands, struct command);
 static bool commands_unsorted;
 
-void command_register(const char *name, command_func_t *func)
+void command_register(const char *name, command_func_t *func,
+		      enum command_flags flags)
 {
 	struct command cmd;
 
+	memset(&cmd, 0, sizeof(cmd));
 	cmd.name = name;
 	cmd.func = func;
+	cmd.flags = flags;
 	array_append(&commands, &cmd, 1);
 
 	commands_unsorted = TRUE;

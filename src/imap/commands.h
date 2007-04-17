@@ -28,7 +28,8 @@ struct command {
 
 /* Register command. Given name parameter must be permanently stored until
    command is unregistered. */
-void command_register(const char *name, command_func_t *func);
+void command_register(const char *name, command_func_t *func,
+		      enum command_flags flags);
 void command_unregister(const char *name);
 
 /* Register array of commands. */

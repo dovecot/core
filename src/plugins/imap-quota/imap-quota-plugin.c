@@ -180,9 +180,9 @@ static bool cmd_setquota(struct client_command_context *cmd)
 
 void imap_quota_plugin_init(void)
 {
-	command_register("GETQUOTAROOT", cmd_getquotaroot);
-	command_register("GETQUOTA", cmd_getquota);
-	command_register("SETQUOTA", cmd_setquota);
+	command_register("GETQUOTAROOT", cmd_getquotaroot, 0);
+	command_register("GETQUOTA", cmd_getquota, 0);
+	command_register("SETQUOTA", cmd_setquota, 0);
 	str_append(capability_string, " QUOTA");
 }
 
