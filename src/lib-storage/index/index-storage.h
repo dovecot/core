@@ -82,7 +82,7 @@ struct index_transaction_context {
 	struct mail_cache_view *cache_view;
 	struct mail_cache_transaction_ctx *cache_trans;
 
-	uint32_t first_saved_uid, last_saved_uid;
+	uint32_t *first_saved_uid, *last_saved_uid;
 
 	unsigned int cache_trans_failed:1;
 };

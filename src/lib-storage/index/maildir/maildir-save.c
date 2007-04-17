@@ -556,8 +556,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		i_assert(first_uid != 0);
 		mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
 
-		t->ictx.first_saved_uid = first_uid;
-		t->ictx.last_saved_uid = next_uid - 1;
+		*t->ictx.first_saved_uid = first_uid;
+		*t->ictx.last_saved_uid = next_uid - 1;
 	}
 
 	flags = MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |

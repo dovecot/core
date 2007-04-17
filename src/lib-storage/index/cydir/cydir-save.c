@@ -186,8 +186,8 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 	uid = hdr->next_uid;
 	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
 
-	t->ictx.first_saved_uid = uid;
-	t->ictx.last_saved_uid = next_uid - 1;
+	*t->ictx.first_saved_uid = uid;
+	*t->ictx.last_saved_uid = next_uid - 1;
 
 	dir = mailbox_list_get_path(ctx->mbox->storage->storage.list,
 				    ctx->mbox->ibox.box.name,

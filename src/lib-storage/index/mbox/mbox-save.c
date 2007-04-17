@@ -200,7 +200,7 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 	ctx->synced = TRUE;
 	t->mbox_modified = TRUE;
 
-	t->ictx.first_saved_uid = ctx->next_uid;
+	*t->ictx.first_saved_uid = ctx->next_uid;
 
 	mail_index_view_close(&view);
 }
@@ -650,7 +650,7 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 				&sync_size, sizeof(sync_size), TRUE);
 		}
 
-		t->ictx.last_saved_uid = ctx->next_uid - 1;
+		*t->ictx.last_saved_uid = ctx->next_uid - 1;
 	}
 
 	if (!ctx->synced && ctx->mbox->mbox_fd != -1 &&
