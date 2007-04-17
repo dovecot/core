@@ -25,6 +25,7 @@ struct cmd_append_context {
 	struct imap_parser *save_parser;
 	struct mail_save_context *save_ctx;
 	struct mailbox_keywords old_keywords;
+	unsigned int count;
 
 	unsigned int message_input:1;
 	unsigned int failed:1;
@@ -231,6 +232,9 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	if (args->type == IMAP_ARG_EOL) {
 		/* last message */
 		enum mailbox_sync_flags sync_flags;
+		struct mailbox_status status;
+		uint32_t uid1, uid2;
+		const char *msg;
 
 		/* eat away the trailing CRLF */
 		client->input_skip_line = TRUE;
@@ -241,18 +245,37 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			return TRUE;
 		}
 
-		ret = mailbox_transaction_commit(&ctx->t, 0);
+		if (mailbox_get_status(ctx->box, STATUS_UIDVALIDITY,
+				       &status) < 0) {
+			client_send_storage_error(cmd, ctx->storage);
+			cmd_append_finish(ctx);
+			return TRUE;
+		}
+
+		ret = mailbox_transaction_commit_get_uids(&ctx->t, 0,
+							  &uid1, &uid2);
 		if (ret < 0) {
 			client_send_storage_error(cmd, ctx->storage);
 			cmd_append_finish(ctx);
 			return TRUE;
+		}
+		i_assert(ctx->count == uid2 - uid1 + 1);
+
+		if (uid1 == uid2) {
+			msg = t_strdup_printf("OK [APPENDUID %u %u] "
+					      "Append completed.",
+					      status.uidvalidity, uid1);
+		} else {
+			msg = t_strdup_printf("OK [APPENDUID %u %u:%u] "
+					      "Append completed.",
+					      status.uidvalidity, uid1, uid2);
 		}
 
 		sync_flags = ctx->box == cmd->client->mailbox ?
 			0 : MAILBOX_SYNC_FLAG_FAST;
 
 		cmd_append_finish(ctx);
-		return cmd_sync(cmd, sync_flags, 0, "OK Append completed.");
+		return cmd_sync(cmd, sync_flags, 0, msg);
 	}
 
 	if (!validate_args(args, &flags_list, &internal_date_str,
@@ -321,6 +344,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		o_stream_uncork(client->output);
 	}
 
+	ctx->count++;
 	ctx->message_input = TRUE;
 	cmd->func = cmd_append_continue_message;
 	return cmd_append_continue_message(cmd);
@@ -473,7 +497,8 @@ bool cmd_append(struct client_command_context *cmd)
 			ctx->failed = TRUE;
 		} else {
 			ctx->t = mailbox_transaction_begin(ctx->box,
-					MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
+					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
 		}
 	}
 

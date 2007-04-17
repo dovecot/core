@@ -27,7 +27,9 @@ static void client_send_sendalive_if_needed(struct client *client)
 
 static int fetch_and_copy(struct client *client,
 			  struct mailbox_transaction_context *t,
-			  struct mail_search_arg *search_args)
+			  struct mail_search_arg *search_args,
+			  const char **src_uidset_r,
+			  unsigned int *copy_count_r)
 {
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *src_trans;
@@ -35,7 +37,12 @@ static int fetch_and_copy(struct client *client,
 	const char *const *keywords_list;
 	struct mail *mail;
 	unsigned int copy_count = 0;
+	struct msgset_generator_context srcset_ctx;
+	string_t *src_uidset;
 	int ret;
+
+	src_uidset = t_str_new(256);
+	msgset_generator_init(&srcset_ctx, src_uidset);
 
 	src_trans = mailbox_transaction_begin(client->mailbox, 0);
 	search_ctx = mailbox_search_init(src_trans, NULL, search_args, NULL);
@@ -59,8 +66,11 @@ static int fetch_and_copy(struct client *client,
 				 keywords, NULL) < 0)
 			ret = mail->expunged ? 0 : -1;
 		mailbox_keywords_free(t, &keywords);
+
+		msgset_generator_next(&srcset_ctx, mail->uid);
 	}
 	mail_free(&mail);
+	msgset_generator_finish(&srcset_ctx);
 
 	if (mailbox_search_deinit(&search_ctx) < 0)
 		ret = -1;
@@ -68,6 +78,8 @@ static int fetch_and_copy(struct client *client,
 	if (mailbox_transaction_commit(&src_trans, 0) < 0)
 		ret = -1;
 
+	*src_uidset_r = str_c(src_uidset);
+	*copy_count_r = copy_count;
 	return ret;
 }
 
@@ -78,8 +90,11 @@ bool cmd_copy(struct client_command_context *cmd)
 	struct mailbox *destbox;
 	struct mailbox_transaction_context *t;
         struct mail_search_arg *search_arg;
-	const char *messageset, *mailbox;
+	struct mailbox_status status;
+	const char *messageset, *mailbox, *src_uidset, *msg = NULL;
         enum mailbox_sync_flags sync_flags = 0;
+	unsigned int copy_count;
+	uint32_t uid1, uid2;
 	int ret;
 
 	/* <message set> <mailbox> */
@@ -115,14 +130,34 @@ bool cmd_copy(struct client_command_context *cmd)
 	}
 
 	t = mailbox_transaction_begin(destbox,
-				      MAILBOX_TRANSACTION_FLAG_EXTERNAL);
-	ret = fetch_and_copy(client, t, search_arg);
+				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |
+				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
+	ret = fetch_and_copy(client, t, search_arg, &src_uidset, &copy_count);
+
+	if (ret > 0 &&
+	    mailbox_get_status(destbox, STATUS_UIDVALIDITY, &status) < 0) {
+		client_send_storage_error(cmd, storage);
+		ret = -1;
+	}
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
+	else if (mailbox_transaction_commit_get_uids(&t, 0, &uid1, &uid2) < 0)
+		ret = -1;
 	else {
-		if (mailbox_transaction_commit(&t, 0) < 0)
-			ret = -1;
+		i_assert(copy_count == uid2 - uid1 + 1);
+
+		if (uid1 == uid2) {
+			msg = t_strdup_printf("OK [COPYUID %u %s %u] "
+					      "Copy completed.",
+					      status.uidvalidity,
+					      src_uidset, uid1);
+		} else {
+			msg = t_strdup_printf("OK [COPYUID %u %s %u:%u] "
+					      "Copy completed.",
+					      status.uidvalidity,
+					      src_uidset, uid1, uid2);
+		}
 	}
 
 	if (destbox != client->mailbox) {
@@ -131,7 +166,7 @@ bool cmd_copy(struct client_command_context *cmd)
 	}
 
 	if (ret > 0)
-		return cmd_sync(cmd, sync_flags, 0, "OK Copy completed.");
+		return cmd_sync(cmd, sync_flags, 0, msg);
 	else if (ret == 0) {
 		/* some messages were expunged, sync them */
 		return cmd_sync(cmd, 0, 0,
