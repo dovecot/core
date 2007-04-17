@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "dict.h"
+#include "mail-namespace.h"
 #include "index-mail.h"
 #include "index-storage.h"
 #include "expire-env.h"
@@ -284,10 +285,12 @@ expire_mailbox_open(struct mail_storage *storage, const char *name,
 		EXPIRE_CONTEXT(storage);
 	struct mailbox *box;
 	const struct expire_box *expire_box;
+	const char *full_name;
 
 	box = xpr_storage->super.mailbox_open(storage, name, input, flags);
 	if (box != NULL) {
-		expire_box = expire_box_find(expire.env, name);
+		full_name = t_strconcat(storage->ns->prefix, name, NULL);
+		expire_box = expire_box_find(expire.env, full_name);
 		if (expire_box != NULL)
 			mailbox_expire_hook(box, expire_box->expire_secs);
 	}

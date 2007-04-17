@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "home-expand.h"
+#include "mail-namespace.h"
 #include "mail-search.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
@@ -94,6 +95,21 @@ static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
 	return 1;
 }
 
+static void trash_find_storage(struct trash_mailbox *trash)
+{
+	struct mail_storage *const *storages;
+	unsigned int i, count;
+
+	storages = array_get(&quota_set->storages, &count);
+	for (i = 0; i < count; i++) {
+		if (mail_namespace_update_name(storages[i]->ns, &trash->name)) {
+			trash->storage = storages[i];
+			return;
+		}
+	}
+	i_fatal("trash: Namespace not found for mailbox '%s'", trash->name);
+}
+
 static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 				 uint64_t size_needed)
 {
@@ -113,15 +129,8 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 			if (trashes[j].priority != trashes[i].priority)
 				break;
 
-			if (trashes[j].storage == NULL) {
-				/* FIXME: this is really ugly. it'll do however
-				   until we get proper namespace support for
-				   lib-storage. */
-				struct mail_storage *const *storage;
-
-				storage = array_idx(&quota_set->storages, 0);
-				trashes[j].storage = *storage;
-			}
+			if (trashes[j].storage == NULL)
+				trash_find_storage(&trashes[j]);
 
 			ret = trash_clean_mailbox_get_next(&trashes[j],
 							   &received);
