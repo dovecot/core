@@ -35,8 +35,10 @@ dbox_next_expunge(struct dbox_sync_context *ctx,
                   const struct dbox_sync_file_entry *sync_entry,
 		  unsigned int *sync_idx, uint32_t *uid1_r, uint32_t *uid2_r)
 {
+	struct mailbox *box = &ctx->mbox->ibox.box;
 	const struct dbox_sync_rec *sync_recs;
 	unsigned int count;
+	uint32_t uid;
 
 	sync_recs = array_get(&sync_entry->sync_recs, &count);
 
@@ -49,6 +51,15 @@ dbox_next_expunge(struct dbox_sync_context *ctx,
 		if (dbox_sync_rec_get_uids(ctx, &sync_recs[*sync_idx],
 					   uid1_r, uid2_r) < 0)
 			return -1;
+
+		if (box->v.sync_notify != NULL) {
+			/* all of the UIDs uid1..uid2 should exist */
+			for (uid = *uid1_r; uid <= *uid2_r; uid++) {
+				box->v.sync_notify(box, uid,
+						   MAILBOX_SYNC_TYPE_EXPUNGE);
+			}
+		}
+
 		return 1;
 	}
 

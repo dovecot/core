@@ -284,18 +284,18 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 
 void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
 				 struct mbox_sync_mail *mail,
-				 bool *keywords_changed_r)
+				 enum mailbox_sync_type *sync_type_r)
 {
 	const struct mail_index_sync_rec *syncs;
 	unsigned int i, count;
-
-	*keywords_changed_r = FALSE;
+	enum mailbox_sync_type sync_type = 0;
 
 	syncs = array_get(&sync_ctx->syncs, &count);
 	for (i = 0; i < count; i++) {
 		switch (syncs[i].type) {
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 			mail_index_sync_flags_apply(&syncs[i], &mail->flags);
+			sync_type |= MAILBOX_SYNC_TYPE_FLAGS;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
@@ -313,12 +313,14 @@ void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
 			}
 			if (mail_index_sync_keywords_apply(&syncs[i],
 							   &mail->keywords))
-				*keywords_changed_r = TRUE;
+				sync_type |= MAILBOX_SYNC_TYPE_KEYWORDS;
 			break;
 		default:
 			break;
 		}
 	}
+
+	*sync_type_r = sync_type;
 }
 
 static int
@@ -481,8 +483,9 @@ mbox_sync_update_md5_if_changed(struct mbox_sync_mail_context *mail_ctx)
 static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 				  const struct mail_index_record *rec)
 {
-        struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
+	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	struct mbox_sync_mail *mail = &mail_ctx->mail;
+	struct mailbox *box = &sync_ctx->mbox->ibox.box;
 	uint8_t mbox_flags;
 
 	mbox_flags = mail->flags & MAIL_FLAGS_MASK;
@@ -509,7 +512,7 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		   sync records are automatically applied to rec->flags at the
 		   end of index syncing, so calculate those new flags first */
 		struct mbox_sync_mail idx_mail;
-		bool keywords_changed;
+		enum mailbox_sync_type sync_type;
 
 		memset(&idx_mail, 0, sizeof(idx_mail));
 		idx_mail.flags = rec->flags;
@@ -525,7 +528,9 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 			return -1;
 		}
 		mbox_sync_apply_index_syncs(sync_ctx, &idx_mail,
-					    &keywords_changed);
+					    &sync_type);
+		if (sync_type != 0 && box->v.sync_notify != NULL)
+			box->v.sync_notify(box, rec->uid, sync_type);
 
 #define SYNC_FLAGS (MAIL_RECENT | MAIL_INDEX_MAIL_FLAG_DIRTY)
 		if ((idx_mail.flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
@@ -720,6 +725,12 @@ static void update_from_offsets(struct mbox_sync_context *sync_ctx)
 static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
+	struct mailbox *box = &sync_ctx->mbox->ibox.box;
+
+	if (box->v.sync_notify != NULL) {
+		box->v.sync_notify(box, mail_ctx->mail.uid,
+				   MAILBOX_SYNC_TYPE_EXPUNGE);
+	}
 
 	mail_ctx->mail.expunged = TRUE;
 	mail_ctx->mail.offset = mail_ctx->mail.from_offset;
@@ -727,6 +738,7 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 		mail_ctx->body_offset - mail_ctx->mail.from_offset +
 		mail_ctx->mail.body_size;
 	mail_ctx->mail.body_size = 0;
+	mail_ctx->mail.uid = 0;
 
 	if (sync_ctx->seq == 1) {
 		/* expunging first message, fix space to contain next
@@ -1210,7 +1222,6 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				return -1;
 			sync_ctx->dest_first_mail = FALSE;
 		} else {
-			mail_ctx->mail.uid = 0;
 			mbox_sync_handle_expunge(mail_ctx);
 		}
 

@@ -595,6 +595,7 @@ struct mailbox dbox_mailbox = {
 		dbox_storage_sync_init,
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,
+		NULL,
 		dbox_notify_changes,
 		index_transaction_begin,
 		index_transaction_commit,

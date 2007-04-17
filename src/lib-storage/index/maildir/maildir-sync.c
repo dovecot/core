@@ -232,7 +232,7 @@ struct maildir_index_sync_context {
 	struct mail_index_transaction *trans;
 
 	ARRAY_DEFINE(sync_recs, struct mail_index_sync_rec);
-	uint32_t seq;
+	uint32_t seq, uid;
 	int dirty_state;
 };
 
@@ -397,9 +397,15 @@ const char *maildir_filename_set_flags(struct maildir_keywords_sync_ctx *ctx,
 }
 
 static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
-			   void *context __attr_unused__)
+			   struct maildir_index_sync_context *ctx)
 {
+	struct mailbox *box = &mbox->ibox.box;
+
 	if (unlink(path) == 0) {
+		if (box->v.sync_notify != NULL) {
+			box->v.sync_notify(box, ctx->uid,
+					   MAILBOX_SYNC_TYPE_EXPUNGE);
+		}
 		mbox->dirty_cur_time = ioloop_time;
 		return 1;
 	}
@@ -414,9 +420,11 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			      struct maildir_index_sync_context *ctx)
 {
+	struct mailbox *box = &mbox->ibox.box;
 	const struct mail_index_sync_rec *recs;
 	const char *dir, *fname, *newfname, *newpath;
 	enum mail_flags flags;
+	enum mailbox_sync_type sync_type = 0;
 	ARRAY_TYPE(keyword_indexes) keywords;
 	unsigned int i, count;
 	uint8_t flags8;
@@ -441,11 +449,13 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		switch (recs[i].type) {
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 			mail_index_sync_flags_apply(&recs[i], &flags8);
+			sync_type |= MAILBOX_SYNC_TYPE_FLAGS;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			mail_index_sync_keywords_apply(&recs[i], &keywords);
+			sync_type |= MAILBOX_SYNC_TYPE_KEYWORDS;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
@@ -453,12 +463,15 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			break;
 		}
 	}
-
+	i_assert(sync_type != 0);
 
 	newfname = maildir_filename_set_flags(ctx->keywords_sync_ctx,
 					      fname, flags8, &keywords);
 	newpath = t_strconcat(dir, newfname, NULL);
 	if (rename(path, newpath) == 0) {
+		if (box->v.sync_notify != NULL)
+			box->v.sync_notify(box, ctx->uid, sync_type);
+
 		if ((flags8 & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 			ctx->dirty_state = -1;
 		mbox->dirty_cur_time = ioloop_time;
@@ -556,6 +569,7 @@ maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
 		}
 
 		ctx->seq = seq;
+		ctx->uid = uid;
 		if (expunged) {
 			maildir_sync_check_timeouts(ctx->maildir_sync_ctx,
 						    TRUE);

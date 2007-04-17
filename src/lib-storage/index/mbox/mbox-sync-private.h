@@ -165,7 +165,7 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 
 void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
 				 struct mbox_sync_mail *mail,
-				 bool *keywords_changed_r);
+				 enum mailbox_sync_type *sync_type_r);
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset);
 void mbox_sync_file_update_ext_modified(struct mbox_sync_context *sync_ctx);
 void mbox_sync_file_updated(struct mbox_sync_context *sync_ctx, bool dirty);

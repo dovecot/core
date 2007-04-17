@@ -1055,6 +1055,7 @@ struct mailbox maildir_mailbox = {
 		maildir_storage_sync_init,
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,
+		NULL,
 		maildir_notify_changes,
 		index_transaction_begin,
 		index_transaction_commit,

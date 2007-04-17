@@ -91,6 +91,9 @@ struct mailbox_vfuncs {
 			   enum mailbox_status_items status_items,
 			   struct mailbox_status *status_r);
 
+	void (*sync_notify)(struct mailbox *box, uint32_t uid,
+			    enum mailbox_sync_type sync_type);
+
 	void (*notify_changes)(struct mailbox *box);
 
 	struct mailbox_transaction_context *

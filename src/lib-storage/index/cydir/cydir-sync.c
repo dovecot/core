@@ -27,7 +27,7 @@ static int cydir_sync_set_uidvalidity(struct cydir_sync_context *ctx)
 
 static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
 {
-	string_t *path = t_str_new(256);
+	string_t *path = str_new(default_pool, 256);
 	const char *dir;
 
 	dir = mailbox_list_get_path(mbox->storage->storage.list,
@@ -38,13 +38,44 @@ static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
 	return path;
 }
 
+static int
+cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
+{
+	struct mailbox *box = &ctx->mbox->ibox.box;
+	uint32_t uid;
+
+	if (ctx->path == NULL) {
+		ctx->path = cydir_get_path_prefix(ctx->mbox);
+		ctx->path_dir_prefix_len = str_len(ctx->path);
+	}
+
+	for (; seq1 <= seq2; seq1++) {
+		if (mail_index_lookup_uid(ctx->sync_view, seq1, &uid) < 0) {
+			mail_storage_set_index_error(&ctx->mbox->ibox);
+			return -1;
+		}
+
+		str_truncate(ctx->path, ctx->path_dir_prefix_len);
+		str_printfa(ctx->path, "%u.", uid);
+		if (unlink(str_c(ctx->path)) == 0) {
+			if (box->v.sync_notify != NULL) {
+				box->v.sync_notify(box, uid,
+						   MAILBOX_SYNC_TYPE_EXPUNGE);
+			}
+		} else if (errno != ENOENT) {
+			mail_storage_set_critical(&ctx->mbox->storage->storage,
+				"unlink(%s) failed: %m", str_c(ctx->path));
+			/* continue anyway */
+		}
+	}
+	return 0;
+}
+
 static int cydir_sync_index(struct cydir_sync_context *ctx)
 {
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_rec sync_rec;
-	string_t *path = NULL;
-	unsigned int prefix_len = 0;
-	uint32_t seq1, seq2, uid;
+	uint32_t seq1, seq2;
 	int ret;
 
 	hdr = mail_index_get_header(ctx->sync_view);
@@ -53,12 +84,8 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 			return -1;
 	}
 
-	/* unlink expunged messages */
 	while ((ret = mail_index_sync_next(ctx->index_sync_ctx,
 					   &sync_rec)) > 0) {
-		if (sync_rec.type != MAIL_INDEX_SYNC_TYPE_EXPUNGE)
-			continue;
-
 		if (mail_index_lookup_uid_range(ctx->sync_view,
 						sync_rec.uid1, sync_rec.uid2,
 						&seq1, &seq2) < 0) {
@@ -66,30 +93,24 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 			return -1;
 		}
 		if (seq1 == 0) {
-			/* already expunged everything. nothing to do. */
+			/* already expunged, nothing to do. */
 			continue;
 		}
 
-		if (path == NULL) {
-			path = cydir_get_path_prefix(ctx->mbox);
-			prefix_len = str_len(path);
-		}
-
-		for (; seq1 <= seq2; seq1++) {
-			if (mail_index_lookup_uid(ctx->sync_view, seq1,
-						  &uid) < 0) {
-				mail_storage_set_index_error(&ctx->mbox->ibox);
+		switch (sync_rec.type) {
+		case MAIL_INDEX_SYNC_TYPE_APPEND:
+			/* don't care */
+			break;
+		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
+			if (cydir_sync_expunge(ctx, seq1, seq2) < 0)
 				return -1;
-			}
-
-			str_truncate(path, prefix_len);
-			str_printfa(path, "%u.", uid);
-			if (unlink(str_c(path)) < 0 && errno != ENOENT) {
-				mail_storage_set_critical(
-					&ctx->mbox->storage->storage,
-					"unlink(%s) failed: %m", str_c(path));
-				/* continue anyway */
-			}
+			break;
+		case MAIL_INDEX_SYNC_TYPE_FLAGS:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
+		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
+			/* FIXME: should be bother calling sync_notify()? */
+			break;
 		}
 	}
 	return 0;
@@ -137,6 +158,8 @@ int cydir_sync_finish(struct cydir_sync_context **_ctx, bool success)
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
+	if (ctx->path != NULL)
+		str_free(&ctx->path);
 	i_free(ctx);
 	return 0;
 }
