@@ -37,6 +37,7 @@ struct index_mailbox_list_iterate_context {
 	char *prefix;
 	int recurse_level;
 	struct imap_match_glob *glob;
+	struct mailbox_tree_context *mailbox_tree;
 
 	pool_t info_pool;
 	struct mailbox_info info;

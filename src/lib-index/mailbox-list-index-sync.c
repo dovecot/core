@@ -214,12 +214,13 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 	const char *p, *hier_name;
 	struct mailbox_list_sync_dir *dir;
 	struct mailbox_list_sync_record *rec = NULL;
-	unsigned int idx;
+	unsigned int idx, child_flags;
 
 	if (ctx->failed)
 		return -1;
 
 	dir = ctx->sync_root;
+	child_flags = MAILBOX_LIST_INDEX_FLAG_CHILDREN;
 
 	t_push();
 	for (;;) {
@@ -237,15 +238,20 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 		}
 
 		if (rec != NULL) {
+			/* add CHILDREN flag to the parent and remove
+			   NOCHILDREN flag. if we happened to create the
+			   parent ourself, also add NONEXISTENT flag. */
 			mail_index_update_flags(ctx->trans, rec->seq,
-				MODIFY_REPLACE,
-				MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
-				MAILBOX_LIST_INDEX_FLAG_CHILDREN);
+						MODIFY_ADD, child_flags);
+			mail_index_update_flags(ctx->trans, rec->seq,
+					MODIFY_REMOVE,
+					MAILBOX_LIST_INDEX_FLAG_NOCHILDREN);
 		}
 
 		rec = mailbox_list_sync_dir_lookup(dir, hier_name, &idx);
 		if (rec == NULL) {
 			/* new record */
+			child_flags |= MAILBOX_LIST_INDEX_FLAG_NONEXISTENT;
 			rec = mailbox_list_alloc_add_record(ctx, dir,
 							    hier_name, idx);
 		} else if (rec->seq == 0) {
