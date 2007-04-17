@@ -333,6 +333,9 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 	ibox->view = mail_index_view_open(ibox->index);
 	ibox->keyword_names = mail_index_get_keywords(ibox->index);
 
+	MODULE_CONTEXT_SET_FULL(ibox->view, mail_storage_mail_index_module,
+				ibox, &ibox->view_module_ctx);
+
 	ibox->box.opened = TRUE;
 }
 
@@ -361,9 +364,6 @@ void index_storage_mailbox_init(struct index_mailbox *ibox, const char *name,
 	ibox->md5hdr_ext_idx =
 		mail_index_ext_register(ibox->index, "header-md5", 0, 16, 1);
 
-	MODULE_CONTEXT_SET_FULL(ibox->index, mail_storage_mail_index_module,
-				ibox, &ibox->index_module_ctx);
-
 	if ((flags & MAILBOX_OPEN_FAST) == 0)
 		index_storage_mailbox_open(ibox);
 }
@@ -382,7 +382,6 @@ int index_storage_mailbox_close(struct mailbox *box)
 		buffer_free(ibox->recent_flags);
 	i_free(ibox->cache_fields);
 
-	MODULE_CONTEXT_UNSET(ibox->index, mail_storage_mail_index_module);
 	pool_unref(box->pool);
 	return 0;
 }

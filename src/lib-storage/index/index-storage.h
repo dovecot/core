@@ -23,7 +23,7 @@ enum mailbox_lock_notify_type {
 
 struct index_mailbox {
 	struct mailbox box;
-	union mail_index_module_context index_module_ctx;
+	union mail_index_view_module_context view_module_ctx;
 
 	struct mail_storage *storage;
 	enum mailbox_open_flags open_flags;

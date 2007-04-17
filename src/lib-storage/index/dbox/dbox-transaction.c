@@ -64,7 +64,7 @@ static void dbox_transaction_rollback(struct mail_index_transaction *t)
 
 static void dbox_transaction_created(struct mail_index_transaction *t)
 {
-	struct mailbox *box = MAIL_STORAGE_CONTEXT(t->view->index);
+	struct mailbox *box = MAIL_STORAGE_CONTEXT(t->view);
 
 	/* index can be for mailbox list index, in which case box=NULL */
 	if (box != NULL && strcmp(box->storage->name, DBOX_STORAGE_NAME) == 0) {
