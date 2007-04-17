@@ -259,8 +259,7 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 
 	/* make sure we give only one correct INBOX */
 	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
-	if ((ctx->ctx.list->flags & MAILBOX_LIST_FLAG_INBOX) != 0 &&
-	    strcasecmp(list_path, "INBOX") == 0) {
+	if (ctx->ctx.list->ns->inbox && strcasecmp(list_path, "INBOX") == 0) {
 		if (ctx->inbox_listed) {
 			/* already listed the INBOX */
 			return 0;
@@ -417,8 +416,7 @@ static struct mailbox_info *fs_list_next(struct fs_list_iterate_context *ctx)
 		list_dir_context_free(dir);
 	}
 
-	if (!ctx->inbox_found &&
-	    (ctx->ctx.list->flags & MAILBOX_LIST_FLAG_INBOX) != 0 &&
+	if (!ctx->inbox_found && ctx->ctx.list->ns->inbox &&
 	    ctx->glob != NULL && imap_match(ctx->glob, "INBOX") > 0) {
 		/* show inbox */
 		ctx->inbox_listed = TRUE;

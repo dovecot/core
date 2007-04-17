@@ -270,7 +270,6 @@ int convert_storage(const char *source_data, const char *dest_data,
 
 	source_ns = mail_namespaces_init_empty(pool_datastack_create());
 	mail_storage_parse_env(&src_flags, &lock_method);
-	src_flags |= MAIL_STORAGE_FLAG_HAS_INBOX;
 	dest_flags = src_flags;
 
 	src_flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE;

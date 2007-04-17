@@ -24,8 +24,6 @@ enum mail_storage_flags {
 	MAIL_STORAGE_FLAG_KEEP_HEADER_MD5	= 0x10,
 	/* Use CRLF linefeeds when saving mails. */
 	MAIL_STORAGE_FLAG_SAVE_CRLF		= 0x40,
-	/* The storage points to shared namespaces */
-	MAIL_STORAGE_FLAG_SHARED_NAMESPACE	= 0x80,
 	/* Don't try to autodetect anything, require that the given data 
 	   contains all the necessary information. */
 	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x100,
@@ -33,9 +31,7 @@ enum mail_storage_flags {
 	   fail to create the storage. */
 	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x200,
 	/* Rely on O_EXCL when creating dotlocks */
-	MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL	= 0x400,
-	/* Ths storage contains INBOX */
-	MAIL_STORAGE_FLAG_HAS_INBOX		= 0x800
+	MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL	= 0x400
 };
 
 enum mailbox_open_flags {

@@ -452,7 +452,7 @@ void quota_mail_storage_created(struct mail_storage *storage)
 
 	MODULE_CONTEXT_SET_SELF(storage, quota_storage_module, qstorage);
 
-	if ((storage->flags & MAIL_STORAGE_FLAG_SHARED_NAMESPACE) == 0) {
+	if (storage->ns->type == NAMESPACE_PRIVATE) {
 		/* register to user's quota roots */
 		quota_add_user_storage(quota_set, storage);
 	}

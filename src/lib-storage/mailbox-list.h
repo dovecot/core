@@ -8,8 +8,6 @@ struct mailbox_list_iterate_context;
 enum mailbox_list_flags {
 	/* Print debugging information while initializing the driver */
 	MAILBOX_LIST_FLAG_DEBUG			= 0x01,
-	/* This mailbox list contains INBOX. Match case-insensitively for it. */
-	MAILBOX_LIST_FLAG_INBOX			= 0x02,
 	/* Allow full filesystem access with absolute or relative paths. */
 	MAILBOX_LIST_FLAG_FULL_FS_ACCESS	= 0x04,
 	/* Rely on O_EXCL when creating dotlocks */

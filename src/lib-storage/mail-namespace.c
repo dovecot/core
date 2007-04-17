@@ -54,11 +54,6 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		return NULL;
 	}
 
-	if (ns->type != NAMESPACE_PRIVATE)
-		flags |= MAIL_STORAGE_FLAG_SHARED_NAMESPACE;
-	if (ns->inbox)
-		flags |= MAIL_STORAGE_FLAG_HAS_INBOX;
-
 	if (prefix == NULL)
 		prefix = "";
 
@@ -136,7 +131,6 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	ns->subscriptions = TRUE;
 	ns->prefix = "";
 
-	flags |= MAIL_STORAGE_FLAG_HAS_INBOX;
 	if (mail_storage_create(ns, NULL, mail, user, flags, lock_method) < 0) {
 		if (mail != NULL && *mail != '\0')
 			i_error("Failed to create storage with data: %s", mail);
@@ -163,6 +157,7 @@ struct mail_namespace *mail_namespaces_init_empty(pool_t pool)
 
 	ns = p_new(pool, struct mail_namespace, 1);
 	ns->prefix = "";
+	ns->inbox = TRUE;
 	return ns;
 }
 

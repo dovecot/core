@@ -401,8 +401,6 @@ mail_storage_get_list_flags(enum mail_storage_flags storage_flags)
 
 	if ((storage_flags & MAIL_STORAGE_FLAG_DEBUG) != 0)
 		list_flags |= MAILBOX_LIST_FLAG_DEBUG;
-	if ((storage_flags & MAIL_STORAGE_FLAG_HAS_INBOX) != 0)
-		list_flags |= MAILBOX_LIST_FLAG_INBOX;
 	if ((storage_flags & MAIL_STORAGE_FLAG_FULL_FS_ACCESS) != 0)
 		list_flags |= MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
 	if ((storage_flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0)

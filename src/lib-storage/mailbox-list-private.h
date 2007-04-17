@@ -6,6 +6,7 @@
 #define MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND "Mailbox doesn't exist: %s"
 #define MAILBOX_LIST_ERR_NO_PERMISSION "Permission denied"
 
+#include "mail-namespace.h"
 #include "mailbox-list.h"
 
 struct dirent;
