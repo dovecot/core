@@ -77,8 +77,11 @@ index_transaction_begin(struct mailbox *box,
 	it->flags = flags;
 	return &it->mailbox_ctx;
 }
+
 int index_transaction_commit(struct mailbox_transaction_context *_t,
-			     enum mailbox_sync_flags flags)
+			     enum mailbox_sync_flags flags,
+			     uint32_t *first_saved_uid_r,
+			     uint32_t *last_saved_uid_r)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
@@ -87,7 +90,14 @@ int index_transaction_commit(struct mailbox_transaction_context *_t,
 	uoff_t offset;
 
 	t->commit_flags = flags;
-	return mail_index_transaction_commit(&itrans, &seq, &offset);
+	if (mail_index_transaction_commit(&itrans, &seq, &offset) < 0)
+		return -1;
+
+	if (t->first_saved_uid <= t->last_saved_uid) {
+		*first_saved_uid_r = t->first_saved_uid;
+		*last_saved_uid_r = t->last_saved_uid;
+	}
+	return 0;
 }
 
 void index_transaction_rollback(struct mailbox_transaction_context *_t)

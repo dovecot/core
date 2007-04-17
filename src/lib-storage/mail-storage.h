@@ -107,7 +107,11 @@ enum mailbox_transaction_flags {
 	MAILBOX_TRANSACTION_FLAG_HIDE		= 0x01,
 	/* External transaction. Should be used for copying and appends,
 	   but nothing else. */
-	MAILBOX_TRANSACTION_FLAG_EXTERNAL	= 0x02
+	MAILBOX_TRANSACTION_FLAG_EXTERNAL	= 0x02,
+	/* Always assign UIDs to messages when saving/copying. Normally this
+	   is done only if the mailbox is synced, or if dest_mail parameter
+	   was non-NULL to mailbox_save_init() or mailbox_copy() */
+	MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS	= 0x04
 };
 
 enum mailbox_sync_flags {
@@ -303,6 +307,11 @@ mailbox_transaction_begin(struct mailbox *box,
 			  enum mailbox_transaction_flags flags);
 int mailbox_transaction_commit(struct mailbox_transaction_context **t,
 			       enum mailbox_sync_flags flags);
+/* If no messages were saved/copied, first/last_saved_uid_r are 0. */
+int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **t,
+					enum mailbox_sync_flags flags,
+					uint32_t *first_saved_uid_r,
+					uint32_t *last_saved_uid_r);
 void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
 /* Return the number of active transactions for the mailbox. */
 unsigned int mailbox_transaction_get_count(struct mailbox *box);

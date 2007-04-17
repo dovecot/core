@@ -346,6 +346,9 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 	}
 	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
 
+	t->ictx.first_saved_uid = uid;
+	t->ictx.last_saved_uid = next_uid - 1;
+
 	/* update UIDs */
 	for (seq = t->first_saved_mail_seq; seq <= ctx->seq; seq++, uid++) {
 		ret = dbox_mail_lookup_offset(&t->ictx, seq,

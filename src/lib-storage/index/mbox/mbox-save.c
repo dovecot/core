@@ -198,7 +198,9 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 	ctx->next_uid = hdr->next_uid;
 	ctx->uid_validity = hdr->uid_validity;
 	ctx->synced = TRUE;
-        t->mbox_modified = TRUE;
+	t->mbox_modified = TRUE;
+
+	t->ictx.first_saved_uid = ctx->next_uid;
 
 	mail_index_view_close(&view);
 }
@@ -271,6 +273,9 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 				       "Read-only mbox");
 		return -1;
 	}
+
+	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0)
+		want_mail = TRUE;
 
 	if (ctx->append_offset == (uoff_t)-1) {
 		/* first appended mail in this transaction */
@@ -618,6 +623,8 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 
 int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 {
+	struct mbox_transaction_context *t =
+		(struct mbox_transaction_context *)ctx->ctx.transaction;
 	struct stat st;
 	int ret = 0;
 
@@ -642,6 +649,8 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 				offsetof(struct mail_index_header, sync_size),
 				&sync_size, sizeof(sync_size), TRUE);
 		}
+
+		t->ictx.last_saved_uid = ctx->next_uid - 1;
 	}
 
 	if (!ctx->synced && ctx->mbox->mbox_fd != -1 &&

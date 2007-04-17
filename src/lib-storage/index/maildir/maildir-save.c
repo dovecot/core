@@ -128,7 +128,8 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	   synced state. in that case it's cheap to update index file.
 	   this can't be completely trusted because uidlist isn't locked,
 	   but if there are some changes we can deal with it. */
-	ctx->want_mails = maildir_sync_is_synced(mbox);
+	ctx->want_mails = maildir_sync_is_synced(mbox) ||
+		(t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0;
 
 	ctx->keywords_buffer = buffer_create_const_data(pool, NULL, 0);
 	array_create_from_buffer(&ctx->keywords_array, ctx->keywords_buffer,
@@ -515,6 +516,8 @@ maildir_transaction_unlink_copied_files(struct maildir_save_context *ctx,
 
 int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 {
+	struct maildir_transaction_context *t =
+		(struct maildir_transaction_context *)ctx->ctx.transaction;
 	struct maildir_filename *mf;
 	uint32_t first_uid, next_uid;
 	enum maildir_uidlist_rec_flag flags;
@@ -552,6 +555,9 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 		i_assert(first_uid != 0);
 		mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
+
+		t->ictx.first_saved_uid = first_uid;
+		t->ictx.last_saved_uid = next_uid - 1;
 	}
 
 	flags = MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |

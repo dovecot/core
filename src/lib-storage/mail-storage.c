@@ -595,15 +595,26 @@ mailbox_transaction_begin(struct mailbox *box,
 	return box->v.transaction_begin(box, flags);
 }
 
-int mailbox_transaction_commit(struct mailbox_transaction_context **_t,
+int mailbox_transaction_commit(struct mailbox_transaction_context **t,
 			       enum mailbox_sync_flags flags)
+{
+	uint32_t tmp;
+
+	return mailbox_transaction_commit_get_uids(t, flags, &tmp, &tmp);
+}
+
+int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **_t,
+					enum mailbox_sync_flags flags,
+					uint32_t *first_saved_uid_r,
+					uint32_t *last_saved_uid_r)
 {
 	struct mailbox_transaction_context *t = *_t;
 
 	t->box->transaction_count--;
 
 	*_t = NULL;
-	return t->box->v.transaction_commit(t, flags);
+	return t->box->v.transaction_commit(t, flags, first_saved_uid_r,
+					    last_saved_uid_r);
 }
 
 void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)

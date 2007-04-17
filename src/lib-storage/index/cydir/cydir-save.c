@@ -166,6 +166,8 @@ void cydir_save_cancel(struct mail_save_context *_ctx)
 
 int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 {
+	struct cydir_transaction_context *t =
+		(struct cydir_transaction_context *)ctx->ctx.transaction;
 	const struct mail_index_header *hdr;
 	uint32_t i, uid, next_uid;
 	const char *dir;
@@ -183,6 +185,9 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
 	uid = hdr->next_uid;
 	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
+
+	t->ictx.first_saved_uid = uid;
+	t->ictx.last_saved_uid = next_uid - 1;
 
 	dir = mailbox_list_get_path(ctx->mbox->storage->storage.list,
 				    ctx->mbox->ibox.box.name,

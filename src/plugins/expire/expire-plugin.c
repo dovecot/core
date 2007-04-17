@@ -100,7 +100,9 @@ static int first_nonexpunged_timestamp(struct mailbox_transaction_context *_t,
 
 static int
 expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
-				  enum mailbox_sync_flags flags)
+				  enum mailbox_sync_flags flags,
+				  uint32_t *first_saved_uid_r,
+				  uint32_t *last_saved_uid_r)
 {
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(t->box);
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(t);
@@ -128,7 +130,9 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 	mail_free(&xt->mail);
 	i_free(xt);
 
-	if (xpr_box->module_ctx.super.transaction_commit(t, flags) < 0) {
+	if (xpr_box->module_ctx.super.
+			transaction_commit(t, flags, first_saved_uid_r,
+					   last_saved_uid_r) < 0) {
 		t_pop();
 		return -1;
 	}

@@ -210,14 +210,17 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 
 static int
 lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
-				enum mailbox_sync_flags flags)
+				  enum mailbox_sync_flags flags,
+				  uint32_t *first_saved_uid_r,
+				  uint32_t *last_saved_uid_r)
 {
 	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT(ctx->box);
 	struct lazy_expunge_transaction *lt = LAZY_EXPUNGE_CONTEXT(ctx);
 	struct mailbox *srcbox = ctx->box;
 	int ret;
 
-	ret = mbox->super.transaction_commit(ctx, flags);
+	ret = mbox->super.transaction_commit(ctx, flags, first_saved_uid_r,
+					     last_saved_uid_r);
 
 	if (ret == 0 && array_is_created(&lt->expunge_seqs))
 		ret = lazy_expunge_move_expunges(srcbox, lt);

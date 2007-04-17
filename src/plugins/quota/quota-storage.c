@@ -86,12 +86,16 @@ quota_mailbox_transaction_begin(struct mailbox *box,
 
 static int
 quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
-				 enum mailbox_sync_flags flags)
+				 enum mailbox_sync_flags flags,
+				 uint32_t *first_saved_uid_r,
+				 uint32_t *last_saved_uid_r)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
 
-	if (qbox->module_ctx.super.transaction_commit(ctx, flags) < 0) {
+	if (qbox->module_ctx.super.transaction_commit(ctx, flags,
+						      first_saved_uid_r,
+						      last_saved_uid_r) < 0) {
 		quota_transaction_rollback(&qt);
 		return -1;
 	} else {
