@@ -236,7 +236,6 @@ list_namespace_init(struct client_command_context *cmd,
 	const char *cur_ns_prefix, *cur_ref, *cur_mask;
 	enum imap_match_result match;
 	enum imap_match_result inbox_match;
-	enum mailbox_list_flags list_flags;
 	struct mailbox_list *list;
 	struct imap_match_glob *inbox_glob;
 	unsigned int count;
@@ -395,13 +394,10 @@ list_namespace_init(struct client_command_context *cmd,
 	cur_ref = mail_namespace_fix_sep(ns, cur_ref);
 	cur_mask = mail_namespace_fix_sep(ns, cur_mask);
 
-	list_flags = ctx->list_flags;
-	if (ctx->match_inbox)
-		list_flags |= MAILBOX_LIST_FLAG_INBOX;
-
 	list = mail_storage_get_list(ns->storage);
 	cur_mask = mailbox_list_join_refmask(list, cur_ref, cur_mask);
-	ctx->list_iter = mailbox_list_iter_init(list, cur_mask, list_flags);
+	ctx->list_iter = mailbox_list_iter_init(list, cur_mask,
+						ctx->list_flags);
 }
 
 static bool cmd_list_continue(struct client_command_context *cmd)
