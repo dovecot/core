@@ -290,6 +290,18 @@ static int maildirsize_recalculate_storage(struct maildir_quota_root *root,
 	return ret;
 }
 
+static void maildirsize_rebuild_later(struct maildir_quota_root *root)
+{
+	if (!root->master_message_limits) {
+		/* FIXME: can't unlink(), because the limits would be lost. */
+		return;
+	}
+
+	if (unlink(root->maildirsize_path) < 0 &&
+	    errno != ENOENT && errno != ESTALE)
+		i_error("unlink(%s) failed: %m", root->maildirsize_path);
+}
+
 static int maildirsize_recalculate_finish(struct maildir_quota_root *root,
 					  int ret)
 {
@@ -297,14 +309,8 @@ static int maildirsize_recalculate_finish(struct maildir_quota_root *root,
 		/* maildir didn't change, we can write the maildirsize file */
 		ret = maildirsize_write(root, root->maildirsize_path);
 	}
-	if (ret != 0) {
-		/* make sure it gets rebuilt later */
-		if (unlink(root->maildirsize_path) < 0 &&
-		    errno != ENOENT && errno != ESTALE) {
-			i_error("unlink(%s) failed: %m",
-				root->maildirsize_path);
-		}
-	}
+	if (ret != 0)
+		maildirsize_rebuild_later(root);
 
 	return ret;
 }
@@ -655,11 +661,10 @@ maildir_quota_update(struct quota_root *_root,
 	struct maildir_quota_root *root =
 		(struct maildir_quota_root *) _root;
 
-	if (root->fd != -1) {
-		/* if writing fails, we don't care all that much */
-		(void)maildirsize_update(root, ctx->count_used,
-					 ctx->bytes_used);
-	}
+	if (root->fd == -1 || ctx->recalculate ||
+	    maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0)
+		maildirsize_rebuild_later(root);
+
 	return 0;
 }
 

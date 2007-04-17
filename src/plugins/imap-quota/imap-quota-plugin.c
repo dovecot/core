@@ -91,15 +91,14 @@ static bool cmd_getquotaroot(struct client_command_context *cmd)
 		str_append_c(str, ' ');
 		imap_quote_append_string(str, quota_root_get_name(root), FALSE);
 	}
-	quota_root_iter_deinit(iter);
+	quota_root_iter_deinit(&iter);
 	client_send_line(cmd->client, str_c(str));
 
 	/* send QUOTA reply for each quotaroot */
 	iter = quota_root_iter_init(quota_set, box);
 	while ((root = quota_root_iter_next(iter)) != NULL)
 		quota_send(cmd, root);
-	quota_root_iter_deinit(iter);
-
+	quota_root_iter_deinit(&iter);
 	mailbox_close(&box);
 
 	client_send_tagline(cmd, "OK Getquotaroot completed.");

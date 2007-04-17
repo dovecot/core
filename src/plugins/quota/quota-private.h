@@ -79,6 +79,7 @@ struct quota_transaction_context {
 	struct mail *tmp_mail;
 
 	unsigned int failed:1;
+	unsigned int recalculate:1;
 };
 
 /* Register storage to all user's quota roots. */

@@ -90,6 +90,6 @@ void quota_plugin_deinit(void)
 			quota_next_hook_mail_storage_created;
 		hook_mailbox_list_created =
 			quota_next_hook_mailbox_list_created;
-		quota_deinit(quota_set);
+		quota_deinit(&quota_set);
 	}
 }

@@ -119,7 +119,7 @@ dict_quota_get_resource(struct quota_root *_root, const char *name,
 	else {
 		long long tmp;
 
-		/* recalculate quota if it's negative */
+		/* recalculate quota if it's negative or if it wasn't found */
 		tmp = ret == 0 ? -1 : strtoll(value, NULL, 10);
 		if (tmp < 0)
 			ret = dict_quota_count(root, want_bytes, value_r);
@@ -139,13 +139,19 @@ dict_quota_update(struct quota_root *_root,
 	struct dict_transaction_context *dt;
 
 	dt = dict_transaction_begin(root->dict);
-	if (ctx->bytes_used != 0) {
-		dict_atomic_inc(dt, DICT_QUOTA_CURRENT_BYTES_PATH,
-				ctx->bytes_used);
-	}
-	if (ctx->count_used != 0) {
-		dict_atomic_inc(dt, DICT_QUOTA_CURRENT_COUNT_PATH,
-				ctx->count_used);
+
+	if (ctx->recalculate) {
+		dict_unset(dt, DICT_QUOTA_CURRENT_BYTES_PATH);
+		dict_unset(dt, DICT_QUOTA_CURRENT_COUNT_PATH);
+	} else {
+		if (ctx->bytes_used != 0) {
+			dict_atomic_inc(dt, DICT_QUOTA_CURRENT_BYTES_PATH,
+					ctx->bytes_used);
+		}
+		if (ctx->count_used != 0) {
+			dict_atomic_inc(dt, DICT_QUOTA_CURRENT_COUNT_PATH,
+					ctx->count_used);
+		}
 	}
 	
 	if (dict_transaction_commit(dt) < 0)

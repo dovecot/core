@@ -50,13 +50,15 @@ struct quota *quota_init(void)
 	return quota;
 }
 
-void quota_deinit(struct quota *quota)
+void quota_deinit(struct quota **_quota)
 {
+	struct quota *quota = *_quota;
 	struct quota_root **root;
 
+	*_quota = NULL;
 	while (array_count(&quota->roots) > 0) {
 		root = array_idx_modifiable(&quota->roots, 0);
-		quota_root_deinit(*root);
+		quota_root_deinit(root);
 	}
 
 	array_free(&quota->roots);
@@ -127,15 +129,16 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 
 	if (backend->v.init != NULL) {
 		if (backend->v.init(root, args) < 0) {
-			quota_root_deinit(root);
+			quota_root_deinit(&root);
 			return NULL;
 		}
 	}
 	return root;
 }
 
-void quota_root_deinit(struct quota_root *root)
+void quota_root_deinit(struct quota_root **_root)
 {
+	struct quota_root *root = *_root;
 	pool_t pool = root->pool;
 	struct quota_root *const *roots;
 	unsigned int i, count;
@@ -145,6 +148,7 @@ void quota_root_deinit(struct quota_root *root)
 		if (roots[i] == root)
 			array_delete(&root->quota->roots, i, 1);
 	}
+	*_root = NULL;
 
 	array_free(&root->rules);
 	array_free(&root->quota_module_contexts);
@@ -346,8 +350,11 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 	return root;
 }
 
-void quota_root_iter_deinit(struct quota_root_iter *iter)
+void quota_root_iter_deinit(struct quota_root_iter **_iter)
 {
+	struct quota_root_iter *iter = *_iter;
+
+	*_iter = NULL;
 	i_free(iter);
 }
 
@@ -467,11 +474,14 @@ struct quota_transaction_context *quota_transaction_begin(struct quota *quota,
 	return ctx;
 }
 
-int quota_transaction_commit(struct quota_transaction_context *ctx)
+int quota_transaction_commit(struct quota_transaction_context **_ctx)
 {
+	struct quota_transaction_context *ctx = *_ctx;
 	struct quota_root *const *roots;
 	unsigned int i, count;
 	int ret = 0;
+
+	*_ctx = NULL;
 
 	if (ctx->failed)
 		ret = -1;
@@ -487,8 +497,11 @@ int quota_transaction_commit(struct quota_transaction_context *ctx)
 	return ret;
 }
 
-void quota_transaction_rollback(struct quota_transaction_context *ctx)
+void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 {
+	struct quota_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
 	i_free(ctx);
 }
 
@@ -560,8 +573,20 @@ void quota_free(struct quota_transaction_context *ctx, struct mail *mail)
 	uoff_t size;
 
 	size = mail_get_physical_size(mail);
-	if (size != (uoff_t)-1)
-		ctx->bytes_used -= size;
+	if (size == (uoff_t)-1)
+		quota_recalculate(ctx);
+	else
+		quota_free_bytes(ctx, size);
+}
 
+void quota_free_bytes(struct quota_transaction_context *ctx,
+		      uoff_t physical_size)
+{
+	ctx->bytes_used -= physical_size;
 	ctx->count_used--;
+}
+
+void quota_recalculate(struct quota_transaction_context *ctx)
+{
+	ctx->recalculate = TRUE;
 }

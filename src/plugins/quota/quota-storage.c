@@ -27,7 +27,13 @@ struct quota_mailbox_list {
 struct quota_mailbox {
 	union mailbox_module_context module_ctx;
 
+	struct mailbox_transaction_context *expunge_trans;
+	struct quota_transaction_context *expunge_qt;
+	ARRAY_DEFINE(expunge_uids, uint32_t);
+	ARRAY_DEFINE(expunge_sizes, uoff_t);
+
 	unsigned int save_hack:1;
+	unsigned int recalculate:1;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(quota_storage_module,
@@ -39,14 +45,27 @@ static MODULE_CONTEXT_DEFINE_INIT(quota_mailbox_list_module,
 static int quota_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
+	struct quota_mailbox *qbox = QUOTA_CONTEXT(_mail->box);
 	union mail_module_context *qmail = QUOTA_MAIL_CONTEXT(mail);
-	struct quota_transaction_context *qt =
-		QUOTA_CONTEXT(_mail->transaction);
+	uoff_t size;
 
 	if (qmail->super.expunge(_mail) < 0)
 		return -1;
 
-	quota_free(qt, _mail);
+	/* We need to handle the situation where multiple transactions expunged
+	   the mail at the same time. In here we'll just save the message's
+	   physical size and do the quota freeing later when the message was
+	   known to be expunged. */
+	size = mail_get_physical_size(_mail);
+	if (size != (uoff_t)-1) {
+		if (!array_is_created(&qbox->expunge_uids)) {
+			i_array_init(&qbox->expunge_uids, 64);
+			i_array_init(&qbox->expunge_sizes, 64);
+		}
+		array_append(&qbox->expunge_uids, &_mail->uid, 1);
+		array_append(&qbox->expunge_sizes, &size, 1);
+	}
+
 	return 0;
 }
 
@@ -73,12 +92,12 @@ quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
 
 	if (qbox->module_ctx.super.transaction_commit(ctx, flags) < 0) {
-		quota_transaction_rollback(qt);
+		quota_transaction_rollback(&qt);
 		return -1;
 	} else {
-		(void)quota_transaction_commit(qt);
 		if (qt->tmp_mail != NULL)
 			mail_free(&qt->tmp_mail);
+		(void)quota_transaction_commit(&qt);
 		return 0;
 	}
 }
@@ -93,7 +112,7 @@ quota_mailbox_transaction_rollback(struct mailbox_transaction_context *ctx)
 
 	if (qt->tmp_mail != NULL)
 		mail_free(&qt->tmp_mail);
-	quota_transaction_rollback(qt);
+	quota_transaction_rollback(&qt);
 }
 
 static struct mail *
@@ -229,6 +248,110 @@ static int quota_save_finish(struct mail_save_context *ctx)
 			   ctx->dest_mail : qt->tmp_mail);
 }
 
+static void quota_mailbox_sync_finish(struct quota_mailbox *qbox)
+{
+	if (array_is_created(&qbox->expunge_uids)) {
+		array_clear(&qbox->expunge_uids);
+		array_clear(&qbox->expunge_sizes);
+	}
+
+	if (qbox->expunge_qt != NULL) {
+		if (qbox->expunge_qt->tmp_mail != NULL) {
+			mail_free(&qbox->expunge_qt->tmp_mail);
+			mailbox_transaction_rollback(&qbox->expunge_trans);
+		}
+		(void)quota_transaction_commit(&qbox->expunge_qt);
+	}
+	qbox->recalculate = FALSE;
+}
+
+static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
+				      enum mailbox_sync_type sync_type)
+{
+	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
+	const uint32_t *uids;
+	const uoff_t *sizep;
+	unsigned int i, count;
+	uoff_t size;
+
+	if (qbox->module_ctx.super.sync_notify != NULL)
+		qbox->module_ctx.super.sync_notify(box, uid, sync_type);
+
+	if (sync_type != MAILBOX_SYNC_TYPE_EXPUNGE || qbox->recalculate) {
+		if (uid == 0)
+			quota_mailbox_sync_finish(qbox);
+		return;
+	}
+
+	/* we're in the middle of syncing the mailbox, so it's a bad idea to
+	   try and get the message sizes at this point. Rely on sizes that
+	   we saved earlier, or recalculate the whole quota if we don't know
+	   the size. */
+	if (!array_is_created(&qbox->expunge_uids)) {
+		i = count = 0;
+	} else {
+		uids = array_get(&qbox->expunge_uids, &count);
+		for (i = 0; i < count; i++) {
+			if (uids[i] == uid)
+				break;
+		}
+	}
+
+	if (qbox->expunge_qt == NULL)
+		qbox->expunge_qt = quota_transaction_begin(quota_set, box);
+
+	if (i != count) {
+		/* we already know the size */
+		sizep = array_idx(&qbox->expunge_sizes, i);
+		quota_free_bytes(qbox->expunge_qt, *sizep);
+		return;
+	}
+
+	/* try to look up the size. this works only if it's cached. */
+	if (qbox->expunge_qt->tmp_mail == NULL) {
+		qbox->expunge_trans = mailbox_transaction_begin(box, 0);
+		qbox->expunge_qt->tmp_mail =
+			mail_alloc(qbox->expunge_trans,
+				   MAIL_FETCH_PHYSICAL_SIZE, NULL);
+	}
+	mail_set_uid(qbox->expunge_qt->tmp_mail, uid);
+
+	size = mail_get_physical_size(qbox->expunge_qt->tmp_mail);
+	if (size != (uoff_t)-1)
+		quota_free_bytes(qbox->expunge_qt, size);
+	else {
+		/* there's no way to get the size. recalculate the quota. */
+		quota_recalculate(qbox->expunge_qt);
+		qbox->recalculate = TRUE;
+	}
+}
+
+static int quota_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
+				     enum mailbox_status_items status_items,
+				     struct mailbox_status *status_r)
+{
+	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
+
+	/* just in case sync_notify() wasn't called with uid=0 */
+	quota_mailbox_sync_finish(qbox);
+
+	return qbox->module_ctx.super.sync_deinit(ctx, status_items, status_r);
+}
+
+static int quota_mailbox_close(struct mailbox *box)
+{
+	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
+
+	if (array_is_created(&qbox->expunge_uids)) {
+		array_free(&qbox->expunge_uids);
+		array_free(&qbox->expunge_sizes);
+	}
+	i_assert(qbox->expunge_qt == NULL ||
+		 qbox->expunge_qt->tmp_mail == NULL);
+
+	return qbox->module_ctx.super.close(box);
+}
+
 static struct mailbox *
 quota_mailbox_open(struct mail_storage *storage, const char *name,
 		   struct istream *input, enum mailbox_open_flags flags)
@@ -251,6 +374,9 @@ quota_mailbox_open(struct mail_storage *storage, const char *name,
 	box->v.save_init = quota_save_init;
 	box->v.save_finish = quota_save_finish;
 	box->v.copy = quota_copy;
+	box->v.sync_notify = quota_mailbox_sync_notify;
+	box->v.sync_deinit = quota_mailbox_sync_deinit;
+	box->v.close = quota_mailbox_close;
 	MODULE_CONTEXT_SET(box, quota_storage_module, qbox);
 	return box;
 }
@@ -305,7 +431,8 @@ static void quota_storage_destroy(struct mail_storage *storage)
 
 	quota_remove_user_storage(quota_set, storage);
 
-	qstorage->super.destroy(storage);
+	if (qstorage->super.destroy != NULL)
+		qstorage->super.destroy(storage);
 }
 
 void quota_mail_storage_created(struct mail_storage *storage)
