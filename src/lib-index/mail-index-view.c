@@ -27,6 +27,9 @@ void mail_index_view_clone(struct mail_index_view *dest,
 
 	dest->log_file_seq = src->log_file_seq;
 	dest->log_file_offset = src->log_file_offset;
+
+	i_array_init(&dest->module_contexts,
+		     I_MIN(5, mail_index_module_register.id));
 }
 
 void mail_index_view_ref(struct mail_index_view *view)
@@ -50,6 +53,7 @@ static void _view_close(struct mail_index_view *view)
 		mail_index_view_unref_maps(view);
 		array_free(&view->map_refs);
 	}
+	array_free(&view->module_contexts);
 	i_free(view);
 }
 
@@ -712,6 +716,9 @@ struct mail_index_view *mail_index_view_open(struct mail_index *index)
 	view->log_file_offset =
 		I_MIN(view->map->hdr.log_file_int_offset,
 		      view->map->hdr.log_file_ext_offset);
+
+	i_array_init(&view->module_contexts,
+		     I_MIN(5, mail_index_module_register.id));
 	return view;
 }
 
