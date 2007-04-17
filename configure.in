@@ -1964,5 +1964,3 @@ echo "Building with SQL drivers ............:$sql_drivers"
 
 echo
 echo "NOTE: This is the UNSTABLE development branch of Dovecot."
-echo "You may want to change into the stabilizing branch:"
-echo "  cvs up -r branch_1_0"
