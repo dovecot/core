@@ -5,8 +5,13 @@ enum imap_match_result {
 	IMAP_MATCH_YES = 1, /* match */
 	IMAP_MATCH_NO = -1, /* definite non-match */
 
-	IMAP_MATCH_CHILDREN = 0, /* it's children might match */
-	IMAP_MATCH_PARENT = -2 /* one of it's parents would match */
+	/* non-match, but its children could match (eg. "box" vs "box/%") */
+	IMAP_MATCH_CHILDREN = 0,
+	/* non-match, but one of its parents does match. This should often be
+	   handled with YES matches, because when listing for "%" and "box/foo"
+	   exists but "box" doesn't, you should still list "box" as
+	   (Nonexistent Children) mailbox. */
+	IMAP_MATCH_PARENT = -2
 };
 
 struct imap_match_glob;
