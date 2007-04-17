@@ -31,17 +31,17 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 {
         struct mail_namespace *ns;
         const char *sep, *type, *prefix;
-	bool inbox, hidden, subscriptions;
 
 	ns = p_new(pool, struct mail_namespace, 1);
 
 	sep = getenv(t_strdup_printf("NAMESPACE_%u_SEP", num));
 	type = getenv(t_strdup_printf("NAMESPACE_%u_TYPE", num));
 	prefix = getenv(t_strdup_printf("NAMESPACE_%u_PREFIX", num));
-	inbox = getenv(t_strdup_printf("NAMESPACE_%u_INBOX", num)) != NULL;
-	hidden = getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN", num)) != NULL;
-	subscriptions = getenv(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS",
-					       num)) != NULL;
+	ns->inbox = getenv(t_strdup_printf("NAMESPACE_%u_INBOX", num)) != NULL;
+	ns->hidden = getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN",
+					    num)) != NULL;
+	ns->subscriptions = getenv(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS",
+						   num)) != NULL;
 
 	if (type == NULL || *type == '\0' || strncmp(type, "private", 7) == 0)
 		ns->type = NAMESPACE_PRIVATE;
@@ -66,15 +66,12 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		i_info("Namespace: type=%s, prefix=%s, sep=%s, "
 		       "inbox=%s, hidden=%s, subscriptions=%s",
 		       type == NULL ? "" : type, prefix, sep == NULL ? "" : sep,
-		       inbox ? "yes" : "no",
-		       hidden ? "yes" : "no",
-		       subscriptions ? "yes" : "no");
+		       ns->inbox ? "yes" : "no",
+		       ns->hidden ? "yes" : "no",
+		       ns->subscriptions ? "yes" : "no");
 	}
 
 	ns->prefix = p_strdup(pool, prefix);
-	ns->inbox = inbox;
-	ns->hidden = hidden;
-	ns->subscriptions = subscriptions;
 	if (mail_storage_create(ns, NULL, data, user, flags, lock_method) < 0) {
 		i_error("Failed to create storage for '%s' with data: %s",
 			ns->prefix, data);
