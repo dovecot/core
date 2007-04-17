@@ -39,8 +39,8 @@ static int mbox_mail_seek(struct index_mail *mail)
 	int ret, try;
 	bool deleted;
 
-	if (mail->mail.mail.expunged)
-		return 0;
+	if (mail->mail.mail.expunged || mbox->syncing)
+		return -1;
 
 	for (try = 0; try < 2; try++) {
 		if (mbox->mbox_lock_type == F_UNLCK) {
@@ -74,10 +74,8 @@ static int mbox_mail_seek(struct index_mail *mail)
 			break;
 		}
 		if (ret < 0) {
-			if (deleted) {
+			if (deleted)
 				mail->mail.mail.expunged = TRUE;
-				return 0;
-			}
 			return -1;
 		}
 
@@ -90,7 +88,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 			"Losing sync for mail uid=%u in mbox file %s",
 			mail->mail.mail.uid, mbox->path);
 	}
-	return 1;
+	return 0;
 }
 
 static time_t mbox_mail_get_received_date(struct mail *_mail)
@@ -104,7 +102,7 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 	if (data->received_date != (time_t)-1)
 		return data->received_date;
 
-	if (mbox_mail_seek(mail) <= 0)
+	if (mbox_mail_seek(mail) < 0)
 		return (time_t)-1;
 	data->received_date =
 		istream_raw_mbox_get_received_time(mbox->mbox_stream);
@@ -147,7 +145,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:
-		if (mbox_mail_seek(mail) <= 0)
+		if (mbox_mail_seek(mail) < 0)
 			return NULL;
 
 		return istream_raw_mbox_get_sender(mbox->mbox_stream);
@@ -179,7 +177,7 @@ static uoff_t mbox_mail_get_physical_size(struct mail *_mail)
 	struct istream *stream;
 	uoff_t hdr_offset, body_offset, body_size;
 
-	if (mbox_mail_seek(mail) <= 0)
+	if (mbox_mail_seek(mail) < 0)
 		return (uoff_t)-1;
 
 	/* our header size varies, so don't do any caching */
@@ -206,7 +204,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 	uoff_t offset;
 
 	if (data->stream == NULL) {
-		if (mbox_mail_seek(mail) <= 0)
+		if (mbox_mail_seek(mail) < 0)
 			return NULL;
 
 		raw_stream = mbox->mbox_stream;

@@ -436,6 +436,7 @@ static int dbox_sync_file(struct dbox_sync_context *ctx,
 
 static int dbox_sync_index(struct dbox_sync_context *ctx)
 {
+	struct mailbox *box = &ctx->mbox->ibox.box;
 	struct mail_index_sync_rec sync_rec;
         struct hash_iterate_context *iter;
 	void *key, *value;
@@ -469,6 +470,9 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 		}
 	}
 	hash_iterate_deinit(iter);
+
+	if (box->v.sync_notify != NULL)
+		box->v.sync_notify(box, 0, 0);
 
 	hash_destroy(ctx->syncs);
 	pool_unref(ctx->pool);
@@ -577,7 +581,7 @@ static int dbox_sync_finish(struct dbox_sync_context *ctx, bool force)
 	return 0;
 }
 
-int dbox_sync(struct dbox_mailbox *mbox, bool force)
+static int dbox_sync_int(struct dbox_mailbox *mbox, bool force)
 {
 	struct dbox_sync_context ctx;
 	int ret;
@@ -607,6 +611,16 @@ int dbox_sync(struct dbox_mailbox *mbox, bool force)
 	} else {
 		return 0;
 	}
+}
+
+int dbox_sync(struct dbox_mailbox *mbox, bool force)
+{
+	int ret;
+
+	mbox->syncing = TRUE;
+	ret = dbox_sync_int(mbox, force);
+	mbox->syncing = FALSE;
+	return ret;
 }
 
 struct mailbox_sync_context *

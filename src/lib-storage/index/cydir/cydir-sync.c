@@ -73,10 +73,11 @@ cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 
 static int cydir_sync_index(struct cydir_sync_context *ctx)
 {
+	struct mailbox *box = &ctx->mbox->ibox.box;
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq1, seq2;
-	int ret;
+	int ret = 1;
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity == 0) {
@@ -84,7 +85,8 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 			return -1;
 	}
 
-	while ((ret = mail_index_sync_next(ctx->index_sync_ctx,
+	while (ret > 0 &&
+	       (ret = mail_index_sync_next(ctx->index_sync_ctx,
 					   &sync_rec)) > 0) {
 		if (mail_index_lookup_uid_range(ctx->sync_view,
 						sync_rec.uid1, sync_rec.uid2,
@@ -103,7 +105,7 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 			break;
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 			if (cydir_sync_expunge(ctx, seq1, seq2) < 0)
-				return -1;
+				ret = -1;
 			break;
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
@@ -113,7 +115,10 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 			break;
 		}
 	}
-	return 0;
+
+	if (box->v.sync_notify != NULL)
+		box->v.sync_notify(box, 0, 0);
+	return ret;
 }
 
 int cydir_sync_begin(struct cydir_mailbox *mbox,

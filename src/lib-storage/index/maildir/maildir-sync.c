@@ -1309,6 +1309,9 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		if (maildir_sync_index_records(sync_ctx) < 0)
 			ret = -1;
 		mbox->syncing_commit = FALSE;
+
+		if (mbox->ibox.box.v.sync_notify != NULL)
+			mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);
 	}
 
 	if (mbox->dirty_cur_time != 0)

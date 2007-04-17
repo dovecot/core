@@ -91,6 +91,9 @@ struct mailbox_vfuncs {
 			   enum mailbox_status_items status_items,
 			   struct mailbox_status *status_r);
 
+	/* Called once for each expunge. Called one or more times for
+	   flag/keyword changes. Once the sync is finished, called with
+	   uid=0 and sync_type=0. */
 	void (*sync_notify)(struct mailbox *box, uint32_t uid,
 			    enum mailbox_sync_type sync_type);
 

@@ -114,7 +114,7 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 	uoff_t prev_offset = 0;
 	int i, ret;
 
-	if (mail->mail.mail.expunged)
+	if (mail->mail.mail.expunged || mbox->syncing)
 		return 0;
 
 	for (i = 0; i < 3; i++) {

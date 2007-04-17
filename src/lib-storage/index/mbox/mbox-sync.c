@@ -1686,7 +1686,7 @@ static void mbox_sync_context_free(struct mbox_sync_context *sync_ctx)
 	array_free(&sync_ctx->syncs);
 }
 
-int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
+static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
@@ -1901,6 +1901,19 @@ __again:
 	}
 
 	mbox_sync_context_free(&sync_ctx);
+	return ret;
+}
+
+int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
+{
+	int ret;
+
+	mbox->syncing = TRUE;
+	ret = mbox_sync_int(mbox, flags);
+	mbox->syncing = FALSE;
+
+	if (mbox->ibox.box.v.sync_notify != NULL)
+		mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);
 	return ret;
 }
 

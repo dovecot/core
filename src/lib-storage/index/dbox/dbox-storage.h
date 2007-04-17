@@ -69,6 +69,8 @@ struct dbox_mailbox {
 
 	uoff_t rotate_size, rotate_min_size;
 	unsigned int rotate_days;
+
+	unsigned int syncing:1;
 };
 
 struct dbox_transaction_context {
