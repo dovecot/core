@@ -59,7 +59,7 @@ struct dict *dict_init(const char *uri, enum dict_data_type value_type,
 
 	p = strchr(uri, ':');
 	if (p == NULL) {
-		i_error("URI is missing ':': %s", uri);
+		i_error("Dictionary URI is missing ':': %s", uri);
 		return NULL;
 	}
 
