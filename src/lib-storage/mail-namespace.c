@@ -250,6 +250,16 @@ mail_namespace_find_visible(struct mail_namespace *namespaces,
 	return mail_namespace_find_int(namespaces, mailbox, FALSE);
 }
 
+bool mail_namespace_update_name(struct mail_namespace *ns,
+				const char **mailbox)
+{
+	struct mail_namespace tmp_ns = *ns;
+
+	/* FIXME: a bit kludgy.. */
+	tmp_ns.next = NULL;
+	return mail_namespace_find_int(&tmp_ns, mailbox, TRUE) != NULL;
+}
+
 struct mail_namespace *
 mail_namespace_find_prefix(struct mail_namespace *namespaces,
 			   const char *prefix)
