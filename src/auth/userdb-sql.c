@@ -94,7 +94,7 @@ static void sql_query_callback(struct sql_result *sql_result,
 				       sql_result_get_error(sql_result));
 	} else if (ret == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
-		auth_request_log_info(auth_request, "sql", "User not found");
+		auth_request_log_info(auth_request, "sql", "Unknown user");
 	} else {
 		reply = sql_query_get_result(sql_result, auth_request);
 		if (reply != NULL)

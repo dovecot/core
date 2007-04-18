@@ -157,7 +157,7 @@ static void handle_request(struct ldap_connection *conn,
 		if (res != NULL) {
 			result = USERDB_RESULT_USER_UNKNOWN;
 			auth_request_log_error(auth_request, "ldap",
-					       "Authenticated user not found");
+					       "Unknown user");
 		}
 	} else {
 		reply = ldap_query_get_result(conn, entry, auth_request);
