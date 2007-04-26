@@ -309,12 +309,6 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 			   syncing. */
 			mbox_save_init_sync(t);
 		}
-
-		if (mbox_seek_to_end(ctx, &ctx->append_offset) < 0)
-			return -1;
-
-		ctx->output = o_stream_create_file(mbox->mbox_fd, default_pool,
-						   0, FALSE);
 	}
 
 	if (!ctx->synced && want_mail) {
@@ -324,6 +318,14 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		mbox_save_init_sync(t);
 	}
 
+	/* the syncing above could have changed the append offset */
+	if (ctx->append_offset == (uoff_t)-1) {
+		if (mbox_seek_to_end(ctx, &ctx->append_offset) < 0)
+			return -1;
+
+		ctx->output = o_stream_create_file(mbox->mbox_fd, default_pool,
+						   0, FALSE);
+	}
 	return 0;
 }
 
