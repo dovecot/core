@@ -48,6 +48,7 @@ struct mbox_save_context {
 	char last_char;
 
 	struct mbox_md5_context *mbox_md5_ctx;
+	unsigned int x_delivery_id_pos;
 
 	unsigned int synced:1;
 	unsigned int failed:1;
@@ -370,6 +371,7 @@ static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
 	md5_get_digest(buf->data, buf->used, md5_result);
 
 	str_append(ctx->headers, "X-Delivery-ID: ");
+	ctx->x_delivery_id_pos = str_len(ctx->headers);
 	base64_encode(md5_result, sizeof(md5_result), ctx->headers);
 	str_append_c(ctx->headers, '\n');
 	t_pop();
@@ -415,6 +417,8 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	save_flags = (flags & ~MAIL_RECENT) | MAIL_RECENT;
 	str_truncate(ctx->headers, 0);
 	if (ctx->synced) {
+		if (ctx->mbox->mbox_save_md5)
+			ctx->mbox_md5_ctx = mbox_md5_init();
 		if (ctx->output->offset == 0) {
 			/* writing the first mail. Insert X-IMAPbase as well. */
 			str_printfa(ctx->headers, "X-IMAPbase: %u %010u\n",
@@ -482,8 +486,6 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 			o_stream_create_crlf(default_pool, ctx->output) :
 			o_stream_create_lf(default_pool, ctx->output);
-		if (ctx->mbox->mbox_save_md5 && ctx->synced)
-			ctx->mbox_md5_ctx = mbox_md5_init();
 	}
 
 	*ctx_r = &ctx->ctx;
@@ -555,6 +557,22 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	if (ctx->mbox_md5_ctx) {
 		unsigned char hdr_md5_sum[16];
 
+		if (ctx->x_delivery_id_pos != 0) {
+			struct message_header_line hdr;
+			const unsigned char *p;
+
+			memset(&hdr, 0, sizeof(hdr));
+			hdr.name = "X-Delivery-ID";
+			hdr.name_len = strlen(hdr.name);
+			hdr.middle = (const unsigned char *)": ";
+			hdr.middle_len = 2;
+			hdr.value = hdr.full_value = str_data(ctx->headers) +
+				ctx->x_delivery_id_pos;
+
+			for (p = hdr.value; *p != '\n'; p++) ;
+			hdr.value_len = hdr.full_value_len = p - hdr.value;
+			mbox_md5_continue(ctx->mbox_md5_ctx, &hdr);
+		}
 		mbox_md5_finish(ctx->mbox_md5_ctx, hdr_md5_sum);
 		mail_index_update_ext(ctx->trans, ctx->seq,
 				      ctx->mbox->ibox.md5hdr_ext_idx,
