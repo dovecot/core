@@ -765,7 +765,8 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 		i_warning("Fixed a duplicate: %s -> %s", old_fname, new_fname);
 	else if (errno != ENOENT) {
 		mail_storage_set_critical(&mbox->storage->storage,
-			"rename(%s, %s) failed: %m", old_path, new_path);
+			"Couldn't fix a duplicate: rename(%s, %s) failed: %m",
+			old_path, new_path);
 		ret = -1;
 	}
 	t_pop();
