@@ -347,6 +347,11 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 			"%s: next_uid was lowered (%u -> %u)",
 			uidlist->fname, uidlist->next_uid, next_uid);
 		ret = 0;
+	} else if (uid_validity == 0 || next_uid == 0) {
+                mail_storage_set_critical(storage,
+			"%s: Broken header (uidvalidity = %u, next_uid=%u)",
+			uidlist->fname, uid_validity, next_uid);
+		ret = 0;
 	} else {
 		uidlist->uid_validity = uid_validity;
 		uidlist->next_uid = next_uid;
