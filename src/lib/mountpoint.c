@@ -58,7 +58,11 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 
 	point_r->device_path = p_strdup(pool, buf.f_mntfromname);
 	point_r->mount_path = p_strdup(pool, buf.f_mntonname);
+#ifdef __osf__ /* Tru64 */
+	point_r->type = p_strdup(pool, getvfsbynumber(buf.f_type));
+#else
 	point_r->type = p_strdup(pool, buf.f_fstypename);
+#endif
 	point_r->block_size = buf.f_bsize;
 	return 1;
 #else
