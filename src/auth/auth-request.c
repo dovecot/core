@@ -133,6 +133,8 @@ void auth_request_export(struct auth_request *request, string_t *str)
 		str_append(str, "\trip=");
 		str_append(str, net_ip2addr(&request->remote_ip));
 	}
+	if (request->secured)
+		str_append(str, "\tsecured=1");
 }
 
 bool auth_request_import(struct auth_request *request,
