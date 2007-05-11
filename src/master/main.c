@@ -850,7 +850,7 @@ int main(int argc, char *argv[])
 	if (dump_config) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
-		printf("# %s\n", configfile);
+		printf("# "VERSION": %s\n", configfile);
 	}
 
 	/* read and verify settings before forking */
