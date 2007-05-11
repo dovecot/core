@@ -12,13 +12,14 @@
 
 static void client_send_sendalive_if_needed(struct client *client)
 {
-	time_t now;
+	time_t now, last_io;
 
 	if (o_stream_get_buffer_used_size(client->output) != 0)
 		return;
 
 	now = time(NULL);
-	if (now - client->last_output > MAIL_STORAGE_STAYALIVE_SECS) {
+	last_io = I_MAX(client->last_input, client->last_output);
+	if (now - last_io > MAIL_STORAGE_STAYALIVE_SECS) {
 		o_stream_send_str(client->output, "* OK Hang in there..\r\n");
 		o_stream_flush(client->output);
 		client->last_output = now;
@@ -56,7 +57,7 @@ static int fetch_and_copy(struct client *client,
 			break;
 		}
 
-		if ((++copy_count % COPY_CHECK_INTERVAL) != 0)
+		if ((++copy_count % COPY_CHECK_INTERVAL) == 0)
 			client_send_sendalive_if_needed(client);
 
 		keywords_list = mail_get_keywords(mail);
