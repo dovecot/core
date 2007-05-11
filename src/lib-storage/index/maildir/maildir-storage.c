@@ -526,6 +526,10 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	}
 
 	index_storage_mailbox_init(&mbox->ibox, name, flags, FALSE);
+
+	if (access(t_strconcat(path, "/cur", NULL), W_OK) < 0 &&
+	    errno == EACCES)
+		mbox->ibox.readonly = TRUE;
 	return &mbox->ibox.box;
 }
 
