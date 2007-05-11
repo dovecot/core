@@ -523,7 +523,12 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 	/* some NFS implementations may have used cached mtime in previous
 	   fstat() call. Check again to avoid "dotlock was modified" errors. */
 	if (stat(lock_path, &st) < 0) {
-		i_error("stat(%s) failed: %m", lock_path);
+		if (errno != ENOENT)
+			i_error("stat(%s) failed: %m", lock_path);
+		else {
+			i_error("dotlock %s was immediately deleted under us",
+				lock_path);
+		}
                 file_dotlock_free(dotlock);
 		t_pop();
 		return -1;
