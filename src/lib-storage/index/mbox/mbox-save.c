@@ -40,7 +40,7 @@ struct mbox_save_context {
 
 	string_t *headers;
 	size_t space_end_idx;
-	uint32_t seq, next_uid, uid_validity;
+	uint32_t seq, next_uid, uid_validity, first_saved_uid;
 
 	struct istream *input;
 	struct ostream *output, *body_output;
@@ -197,11 +197,10 @@ static void mbox_save_init_sync(struct mbox_transaction_context *t)
 	hdr = mail_index_get_header(view);
 
 	ctx->next_uid = hdr->next_uid;
+	ctx->first_saved_uid = ctx->next_uid;
 	ctx->uid_validity = hdr->uid_validity;
 	ctx->synced = TRUE;
 	t->mbox_modified = TRUE;
-
-	*t->ictx.first_saved_uid = ctx->next_uid;
 
 	mail_index_view_close(&view);
 }
@@ -651,6 +650,8 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 	i_assert(ctx->finished);
 
 	if (ctx->synced) {
+		*t->ictx.first_saved_uid = ctx->first_saved_uid;
+
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, next_uid),
 			&ctx->next_uid, sizeof(ctx->next_uid), FALSE);
