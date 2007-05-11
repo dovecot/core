@@ -183,6 +183,7 @@
 
 #include <stdio.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -296,13 +297,20 @@ int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
 	return 1;
 }
 
+static int char_cmp(const void *p1, const void *p2)
+{
+	const unsigned char *c1 = p1, *c2 = p2;
+
+	return *c1 - *c2;
+}
+
 static void
 maildir_filename_append_keywords(struct maildir_keywords_sync_ctx *ctx,
 				 ARRAY_TYPE(keyword_indexes) *keywords,
 				 string_t *str)
 {
 	const unsigned int *indexes;
-	unsigned int i, count;
+	unsigned int i, count, start = str_len(str);
 	char chr;
 
 	indexes = array_get(keywords, &count);
@@ -311,6 +319,8 @@ maildir_filename_append_keywords(struct maildir_keywords_sync_ctx *ctx,
 		if (chr != '\0')
 			str_append_c(str, chr);
 	}
+
+	qsort(str_c_modifiable(str) + start, str_len(str) - start, 1, char_cmp);
 }
 
 const char *maildir_filename_set_flags(struct maildir_keywords_sync_ctx *ctx,
