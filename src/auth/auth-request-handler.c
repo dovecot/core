@@ -102,7 +102,7 @@ void auth_request_handler_check_timeouts(struct auth_request_handler *handler)
 	while (hash_iterate(iter, &key, &value)) {
 		struct auth_request *request = value;
 
-		if (request->created + AUTH_REQUEST_TIMEOUT < ioloop_time)
+		if (request->last_access + AUTH_REQUEST_TIMEOUT < ioloop_time)
 			auth_request_handler_remove(handler, request);
 	}
 	hash_iterate_deinit(iter);

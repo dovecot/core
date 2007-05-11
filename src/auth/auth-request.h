@@ -54,7 +54,7 @@ struct auth_request {
 	unsigned int connect_uid;
 	unsigned int client_pid;
 	unsigned int id;
-	time_t created;
+	time_t last_access;
 
 	const char *service;
 	struct ip_addr local_ip, remote_ip;
