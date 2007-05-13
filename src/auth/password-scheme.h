@@ -25,6 +25,9 @@ const char *password_generate(const char *plaintext, const char *user,
 /* Iterate through the list of password schemes, returning names */
 const char *password_list_schemes(const struct password_scheme **listptr);
 
+/* Returns TRUE if schemes are equivalent. */
+bool password_scheme_is_alias(const char *scheme1, const char *scheme2);
+
 void password_schemes_init(void);
 void password_schemes_deinit(void);
 

@@ -92,8 +92,7 @@ skey_credentials_callback(enum passdb_result result,
 		break;
 	default:
 		/* S/KEY credentials not found, try OTP */
-		auth_request_lookup_credentials(auth_request,
-						PASSDB_CREDENTIALS_OTP,
+		auth_request_lookup_credentials(auth_request, "OTP",
 						otp_credentials_callback);
 		break;
 	}
@@ -113,7 +112,7 @@ mech_skey_auth_phase1(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_lookup_credentials(auth_request, PASSDB_CREDENTIALS_SKEY,
+	auth_request_lookup_credentials(auth_request, "SKEY",
 					skey_credentials_callback);
 }
 
@@ -153,8 +152,7 @@ mech_skey_auth_phase2(struct auth_request *auth_request,
 
 	memcpy(state->hash, hash, sizeof(state->hash));
 
-	auth_request_set_credentials(auth_request,
-				     PASSDB_CREDENTIALS_OTP,
+	auth_request_set_credentials(auth_request, "OTP",
 				     otp_print_dbentry(state),
 				     otp_set_credentials_callback);
 }

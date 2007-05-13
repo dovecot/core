@@ -6,20 +6,6 @@
 
 struct auth_request;
 
-enum passdb_credentials {
-	_PASSDB_CREDENTIALS_INTERNAL = -1,
-
-	PASSDB_CREDENTIALS_PLAINTEXT,
-	PASSDB_CREDENTIALS_CRYPT,
-	PASSDB_CREDENTIALS_CRAM_MD5,
-	PASSDB_CREDENTIALS_DIGEST_MD5,
-	PASSDB_CREDENTIALS_LANMAN,
-	PASSDB_CREDENTIALS_NTLM,
-	PASSDB_CREDENTIALS_OTP,
-	PASSDB_CREDENTIALS_SKEY,
-	PASSDB_CREDENTIALS_RPA
-};
-
 enum passdb_result {
 	PASSDB_RESULT_INTERNAL_FAILURE = -1,
 	PASSDB_RESULT_SCHEME_NOT_AVAILABLE = -2,
@@ -84,9 +70,6 @@ void passdb_handle_credentials(enum passdb_result result,
 			       const char *password, const char *scheme,
 			       lookup_credentials_callback_t *callback,
                                struct auth_request *auth_request);
-
-const char *passdb_credentials_to_str(enum passdb_credentials credentials,
-				      const char *wanted_scheme);
 
 struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
 				   const char *args, unsigned int id);

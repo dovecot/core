@@ -52,6 +52,25 @@ const char *password_list_schemes(const struct password_scheme **listptr)
 	return (*listptr)++->name;
 }
 
+bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
+{
+	const struct password_scheme *s, *s1 = NULL, *s2 = NULL;
+
+	if (strcasecmp(scheme1, scheme2) == 0)
+		return TRUE;
+
+	for (s = schemes; s->name != NULL; s++) {
+		if (strcasecmp(s->name, scheme1) == 0)
+			s1 = s;
+		else if (strcasecmp(s->name, scheme2) == 0)
+			s2 = s;
+	}
+
+	/* if they've the same verify function, they're equivalent */
+	return s1 != NULL && s2 != NULL &&
+		s1->password_verify == s2->password_verify;
+}
+
 const char *password_get_scheme(const char **password)
 {
 	const char *p, *scheme;

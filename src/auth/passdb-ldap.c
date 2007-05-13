@@ -173,7 +173,7 @@ handle_request_get_entry(struct ldap_connection *conn,
 		}
 	}
 
-	if (auth_request->credentials != -1) {
+	if (auth_request->credentials_scheme != NULL) {
 		request->callback.lookup_credentials(passdb_result, NULL,
 						     auth_request);
 	} else {
@@ -232,7 +232,7 @@ static void handle_request(struct ldap_connection *conn,
 		scheme = "PLAIN-MD5";
 	}
 
-	if (auth_request->credentials != -1) {
+	if (auth_request->credentials_scheme != NULL) {
 		passdb_handle_credentials(passdb_result, password, scheme,
 			ldap_request->callback.lookup_credentials,
 			auth_request);

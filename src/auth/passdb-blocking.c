@@ -151,8 +151,8 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 		 request->master_user != NULL);
 
 	str = t_str_new(64);
-	str_printfa(str, "PASSL\t%u\t%d\t",
-		    request->passdb->id, request->credentials);
+	str_printfa(str, "PASSL\t%u\t%s\t",
+		    request->passdb->id, request->credentials_scheme);
 	auth_request_export(request, str);
 
 	auth_worker_call(request, str_c(str), lookup_credentials_callback);

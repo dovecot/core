@@ -65,7 +65,7 @@ struct auth_request {
 		set_credentials_callback_t *set_credentials;
                 userdb_callback_t *userdb;
 	} private_callback;
-        enum passdb_credentials credentials;
+        const char *credentials_scheme;
 
 	mech_callback_t *callback;
 	void *context;
@@ -115,7 +115,7 @@ void auth_request_verify_plain(struct auth_request *request,
 			       const char *password,
 			       verify_plain_callback_t *callback);
 void auth_request_lookup_credentials(struct auth_request *request,
-				     enum passdb_credentials credentials,
+				     const char *scheme,
 				     lookup_credentials_callback_t *callback);
 void auth_request_lookup_user(struct auth_request *request,
 			      userdb_callback_t *callback);
@@ -160,8 +160,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 					      const char *credentials,
 					      struct auth_request *request);
 void auth_request_set_credentials(struct auth_request *request,
-				  enum passdb_credentials credentials,
-				  const char *data,
+				  const char *scheme, const char *data,
 				  set_credentials_callback_t *callback);
 void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_stream_reply *reply,

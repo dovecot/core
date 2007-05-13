@@ -54,55 +54,18 @@ struct passdb_module_interface *passdb_interfaces[] = {
 };
 
 const char *
-passdb_credentials_to_str(enum passdb_credentials credentials,
-			  const char *wanted_scheme)
-{
-	switch (credentials) {
-	case _PASSDB_CREDENTIALS_INTERNAL:
-		break;
-	case PASSDB_CREDENTIALS_PLAINTEXT:
-		if (strcasecmp(wanted_scheme, "CLEARTEXT") == 0)
-			return wanted_scheme;
-		return "PLAIN";
-	case PASSDB_CREDENTIALS_CRYPT:
-		return "CRYPT";
-	case PASSDB_CREDENTIALS_CRAM_MD5:
-		if (strcasecmp(wanted_scheme, "HMAC-MD5") == 0)
-			return wanted_scheme;
-		return "CRAM-MD5";
-	case PASSDB_CREDENTIALS_DIGEST_MD5:
-		return "DIGEST-MD5";
-	case PASSDB_CREDENTIALS_LANMAN:
-		return "LANMAN";
-	case PASSDB_CREDENTIALS_NTLM:
-		return "NTLM";
-	case PASSDB_CREDENTIALS_OTP:
-		return "OTP";
-	case PASSDB_CREDENTIALS_SKEY:
-		return "SKEY";
-	case PASSDB_CREDENTIALS_RPA:
-		return "RPA";
-	}
-
-	return "??";
-}
-
-const char *
 passdb_get_credentials(struct auth_request *auth_request,
 		       const char *password, const char *scheme)
 {
-	const char *wanted_scheme;
+	const char *wanted_scheme = auth_request->credentials_scheme;
 
-	if (auth_request->credentials == PASSDB_CREDENTIALS_CRYPT) {
+	if (strcasecmp(wanted_scheme, "CRYPT") == 0) {
 		/* anything goes */
 		return t_strdup_printf("{%s}%s", scheme, password);
 	}
 
-	wanted_scheme = passdb_credentials_to_str(auth_request->credentials,
-						  scheme);
-	if (strcasecmp(scheme, wanted_scheme) != 0) {
-		if (strcasecmp(scheme, "PLAIN") != 0 &&
-		    strcasecmp(scheme, "CLEARTEXT") != 0) {
+	if (!password_scheme_is_alias(scheme, wanted_scheme)) {
+		if (!password_scheme_is_alias(scheme, "PLAIN")) {
 			auth_request_log_info(auth_request, "password",
 				"Requested %s scheme, but we have only %s",
 				wanted_scheme, scheme);

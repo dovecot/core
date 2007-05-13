@@ -116,8 +116,7 @@ static void static_lookup(struct auth_request *auth_request,
 		auth_request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
 
 		auth_request->context = ctx;
-		auth_request_lookup_credentials(auth_request,
-						PASSDB_CREDENTIALS_CRYPT,
+		auth_request_lookup_credentials(auth_request, "CRYPT",
 						static_credentials_callback);
 	} else {
 		static_lookup_real(auth_request, callback);

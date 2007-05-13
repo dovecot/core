@@ -528,7 +528,7 @@ mech_rpa_auth_phase2(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_lookup_credentials(auth_request, PASSDB_CREDENTIALS_RPA,
+	auth_request_lookup_credentials(auth_request, "RPA",
 					rpa_credentials_callback);
 }
 

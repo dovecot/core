@@ -181,8 +181,7 @@ lookup_credentials_callback(enum passdb_result result, const char *credentials,
 		str_printfa(str, "FAIL\t%d", result);
 	else {
 		str_printfa(str, "OK\t%s\t{%s}%s\t", request->user,
-			    passdb_credentials_to_str(request->credentials, ""),
-			    credentials);
+			    request->credentials_scheme, credentials);
 		if (request->extra_fields != NULL) {
 			const char *field =
 				auth_stream_reply_export(request->extra_fields);
@@ -203,8 +202,7 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 {
 	/* lookup credentials */
 	struct auth_request *auth_request;
-	const char *credentials_str;
-        enum passdb_credentials credentials;
+	const char *scheme;
 	unsigned int passdb_id;
 
 	passdb_id = atoi(t_strcut(args, '\t'));
@@ -215,14 +213,12 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 	}
 	args++;
 
-	credentials_str = t_strcut(args, '\t');
+	scheme = t_strcut(args, '\t');
 	args = strchr(args, '\t');
 	if (args != NULL) args++;
 
-	credentials = atoi(credentials_str);
-
 	auth_request = worker_auth_request_new(client, id, args);
-	auth_request->credentials = credentials;
+	auth_request->credentials_scheme = p_strdup(auth_request->pool, scheme);
 
 	if (auth_request->user == NULL || auth_request->service == NULL) {
 		i_error("BUG: PASSL had missing parameters");

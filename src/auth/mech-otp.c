@@ -86,8 +86,7 @@ otp_credentials_callback(enum passdb_result result,
 		break;
 	default:
 		/* OTP credentials not found, try S/KEY */
-		auth_request_lookup_credentials(auth_request,
-						PASSDB_CREDENTIALS_OTP,
+		auth_request_lookup_credentials(auth_request, "OTP",
 						skey_credentials_callback);
 		break;
 	}
@@ -128,7 +127,7 @@ mech_otp_auth_phase1(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_lookup_credentials(auth_request, PASSDB_CREDENTIALS_OTP,
+	auth_request_lookup_credentials(auth_request, "OTP",
 					otp_credentials_callback);
 }
 
@@ -161,8 +160,7 @@ static void mech_otp_verify(struct auth_request *auth_request,
 
 	memcpy(state->hash, hash, sizeof(state->hash));
 
-	auth_request_set_credentials(auth_request,
-				     PASSDB_CREDENTIALS_OTP,
+	auth_request_set_credentials(auth_request, "OTP",
 				     otp_print_dbentry(state),
 				     otp_set_credentials_callback);
 }
@@ -195,8 +193,7 @@ static void mech_otp_verify_init(struct auth_request *auth_request,
 		return;
 	}
 
-	auth_request_set_credentials(auth_request,
-				     PASSDB_CREDENTIALS_OTP,
+	auth_request_set_credentials(auth_request, "OTP",
 				     otp_print_dbentry(&new_state),
 				     otp_set_credentials_callback);
 }

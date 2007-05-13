@@ -569,8 +569,7 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 
 		if (auth_request_set_username(auth_request, username, &error)) {
 			auth_request_lookup_credentials(auth_request,
-						PASSDB_CREDENTIALS_DIGEST_MD5,
-						credentials_callback);
+					"DIGEST-MD5", credentials_callback);
 			return;
 		}
 	}

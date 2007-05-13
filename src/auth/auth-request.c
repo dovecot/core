@@ -34,7 +34,6 @@ auth_request_new(struct auth *auth, struct mech_module *mech,
 
 	request->refcount = 1;
 	request->last_access = ioloop_time;
-	request->credentials = -1;
 
 	request->auth = auth;
 	request->mech = mech;
@@ -57,7 +56,6 @@ struct auth_request *auth_request_new_dummy(struct auth *auth)
 	auth_request->auth = auth;
 	auth_request->passdb = auth->passdbs;
 	auth_request->userdb = auth->userdbs;
-	auth_request->credentials = -1;
 
 	return auth_request;
 }
@@ -440,7 +438,7 @@ void auth_request_verify_plain(struct auth_request *request,
 	}
 
 	request->state = AUTH_REQUEST_STATE_PASSDB;
-	request->credentials = -1;
+	request->credentials_scheme = NULL;
 
 	if (passdb->blocking)
 		passdb_blocking_verify_plain(request);
@@ -457,7 +455,8 @@ auth_request_lookup_credentials_callback_finish(enum passdb_result result,
 {
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
-		auth_request_lookup_credentials(request, request->credentials,
+		auth_request_lookup_credentials(request,
+			request->credentials_scheme,
                 	request->private_callback.lookup_credentials);
 	} else {
 		if (request->auth->verbose_debug_passwords &&
@@ -504,28 +503,28 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 }
 
 void auth_request_lookup_credentials(struct auth_request *request,
-				     enum passdb_credentials credentials,
+				     const char *scheme,
 				     lookup_credentials_callback_t *callback)
 {
 	struct passdb_module *passdb = request->passdb->passdb;
-	const char *cache_key, *password, *scheme;
+	const char *cache_key, *cache_cred, *cache_scheme;
 	enum passdb_result result;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	request->credentials = credentials;
+	request->credentials_scheme = p_strdup(request->pool, scheme);
 	request->private_callback.lookup_credentials = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
 	if (cache_key != NULL) {
 		if (passdb_cache_lookup_credentials(request, cache_key,
-						    &password, &scheme,
+						    &cache_cred, &cache_scheme,
 						    &result, FALSE)) {
-			password = result != PASSDB_RESULT_OK ? NULL :
-				passdb_get_credentials(request, password,
-						       scheme);
+			cache_cred = result != PASSDB_RESULT_OK ? NULL :
+				passdb_get_credentials(request, cache_cred,
+						       cache_scheme);
 			auth_request_lookup_credentials_callback_finish(
-				result, password, request);
+				result, cache_cred, request);
 			return;
 		}
 	}
@@ -545,8 +544,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 }
 
 void auth_request_set_credentials(struct auth_request *request,
-				  enum passdb_credentials credentials,
-				  const char *data,
+				  const char *scheme, const char *data,
 				  set_credentials_callback_t *callback)
 {
 	struct passdb_module *passdb = request->passdb->passdb;
@@ -558,9 +556,7 @@ void auth_request_set_credentials(struct auth_request *request,
 
 	request->private_callback.set_credentials = callback;
 
-	new_credentials = t_strconcat("{",
-		passdb_credentials_to_str(credentials, ""), "}", data, NULL);
-
+	new_credentials = t_strdup_printf("{%s}%s", scheme, data);
 	if (passdb->blocking)
 		passdb_blocking_set_credentials(request, new_credentials);
 	else if (passdb->iface.set_credentials != NULL) {

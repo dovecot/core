@@ -133,8 +133,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 
 	memcpy(request->digest, tmp, sizeof(request->digest));
 
-	auth_request_lookup_credentials(auth_request,
-					PASSDB_CREDENTIALS_PLAINTEXT,
+	auth_request_lookup_credentials(auth_request, "PLAIN",
 					apop_credentials_callback);
 }
 
