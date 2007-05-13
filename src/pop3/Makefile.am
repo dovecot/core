@@ -40,7 +40,6 @@ pop3_DEPENDENCIES = $(libs)
 pop3_SOURCES = \
 	client.c \
 	commands.c \
-	mail-storage-callbacks.c \
 	main.c
 
 headers = \

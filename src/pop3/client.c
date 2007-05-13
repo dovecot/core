@@ -32,8 +32,6 @@
 /* Disconnect client after idling this many seconds */
 #define CLIENT_IDLE_TIMEOUT (10*60)
 
-extern struct mail_storage_callbacks mail_storage_callbacks;
-
 static struct client *my_client; /* we don't need more than one currently */
 static struct timeout *to_idle;
 
@@ -161,7 +159,6 @@ struct client *client_create(int fd_in, int fd_out,
 	}
 
 	storage = client->inbox_ns->storage;
-	mail_storage_set_callbacks(storage, &mail_storage_callbacks, client);
 
 	flags = 0;
 	if (no_flag_updates)
