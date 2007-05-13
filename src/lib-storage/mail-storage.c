@@ -225,7 +225,7 @@ void mail_storage_destroy(struct mail_storage **_storage)
 		storage->v.destroy(storage);
 
 	mailbox_list_deinit(storage->list);
-	i_free(storage->error);
+	i_free(storage->error_string);
 	pool_unref(storage->pool);
 
 	index_storage_destroy_unrefed();
@@ -233,23 +233,17 @@ void mail_storage_destroy(struct mail_storage **_storage)
 
 void mail_storage_clear_error(struct mail_storage *storage)
 {
-	i_free(storage->error);
-	storage->error = NULL;
+	i_free_and_null(storage->error_string);
 
-	storage->temporary_error = FALSE;
+	storage->error = MAIL_ERROR_NONE;
 }
 
-void mail_storage_set_error(struct mail_storage *storage, const char *fmt, ...)
+void mail_storage_set_error(struct mail_storage *storage,
+			    enum mail_error error, const char *string)
 {
-	va_list va;
-
-	mail_storage_clear_error(storage);
-
-	if (fmt != NULL) {
-		va_start(va, fmt);
-		storage->error = i_strdup_vprintf(fmt, va);
-		va_end(va);
-	}
+	i_free(storage->error_string);
+	storage->error_string = i_strdup(string);
+	storage->error = error;
 }
 
 void mail_storage_set_internal_error(struct mail_storage *storage)
@@ -259,11 +253,11 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 
 	tm = localtime(&ioloop_time);
 
-	i_free(storage->error);
-	storage->error =
+	i_free(storage->error_string);
+	storage->error_string =
 		strftime(str, sizeof(str), CRITICAL_MSG_STAMP, tm) > 0 ?
 		i_strdup(str) : i_strdup(CRITICAL_MSG);
-	storage->temporary_error = TRUE;
+	storage->error = MAIL_ERROR_TEMP;
 }
 
 void mail_storage_set_critical(struct mail_storage *storage,
@@ -313,7 +307,8 @@ int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 	mail_storage_clear_error(storage);
 
 	if (!mailbox_list_is_valid_create_name(storage->list, name)) {
-		mail_storage_set_error(storage, "Invalid mailbox name");
+		mail_storage_set_error(storage, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
 		return -1;
 	}
 
@@ -321,14 +316,15 @@ int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 }
 
 const char *mail_storage_get_last_error(struct mail_storage *storage,
-					bool *temporary_error_r)
+					enum mail_error *error_r)
 {
-	*temporary_error_r = storage->temporary_error;
+	*error_r = storage->error;
 
 	/* We get here only in error situations, so we have to return some
 	   error. If storage->error is NULL, it means we forgot to set it at
 	   some point.. */
-	return storage->error != NULL ? storage->error : "Unknown error";
+	return storage->error_string != NULL ? storage->error_string :
+		"Unknown internal error";
 }
 
 const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
@@ -377,16 +373,15 @@ mail_storage_get_list_flags(enum mail_storage_flags storage_flags)
 	return list_flags;
 }
 
-bool mail_storage_errno2str(const char **error_r)
+bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 {
-	if (ENOACCESS(errno))
-		*error_r = MAILBOX_LIST_ERR_NO_PERMISSION;
-	else if (ENOSPACE(errno))
-		*error_r = "Not enough disk space";
-	else if (ENOTFOUND(errno))
-		*error_r = "Directory structure is broken";
-	else
+	const char *error_string;
+	enum mail_error error;
+
+	if (!mail_error_from_errno(&error, &error_string))
 		return FALSE;
+
+	mail_storage_set_error(storage, error, error_string);
 	return TRUE;
 }
 
@@ -399,7 +394,8 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 	mail_storage_clear_error(storage);
 
 	if (!mailbox_list_is_valid_existing_name(storage->list, name)) {
-		mail_storage_set_error(storage, "Invalid mailbox name");
+		mail_storage_set_error(storage, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
 		return NULL;
 	}
 

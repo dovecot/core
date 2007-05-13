@@ -94,7 +94,7 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 		ret = -1;
 		if (ENOSPACE(errno)) {
 			mail_storage_set_error(storage,
-					       "Not enough disk space");
+				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 		} else {
 			mail_storage_set_critical(storage,
 				"rename(%s, %s) failed: %m",
@@ -378,6 +378,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 int maildir_save_continue(struct mail_save_context *_ctx)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 
 	if (ctx->failed)
 		return -1;
@@ -386,11 +387,8 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 		index_mail_cache_parse_continue(ctx->cur_dest_mail);
 
 	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
-		if (ENOSPACE(errno)) {
-			mail_storage_set_error(&ctx->mbox->storage->storage,
-					       "Not enough disk space");
-		} else {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
+		if (!mail_storage_set_error_from_errno(storage)) {
+			mail_storage_set_critical(storage,
 				"o_stream_send_istream(%s/%s) failed: %m",
 				ctx->tmpdir, ctx->file_last->basename);
 		}
@@ -466,7 +464,7 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 		errno = output_errno;
 		if (ENOSPACE(errno)) {
 			mail_storage_set_error(&ctx->mbox->storage->storage,
-					       "Not enough disk space");
+				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 		} else if (errno != 0) {
 			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"write(%s) failed: %m", ctx->mbox->path);

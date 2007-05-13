@@ -257,16 +257,11 @@ static bool dbox_autodetect(const char *data, enum mail_storage_flags flags)
 
 static int create_dbox(struct mail_storage *storage, const char *path)
 {
-	const char *error;
-
 	if (mkdir_parents(path, CREATE_MODE) < 0 && errno != EEXIST) {
-		if (mail_storage_errno2str(&error)) {
-			mail_storage_set_error(storage, "%s", error);
-			return -1;
+		if (!mail_storage_set_error_from_errno(storage)) {
+			mail_storage_set_critical(storage,
+				"mkdir(%s) failed: %m", path);
 		}
-
-		mail_storage_set_critical(storage, "mkdir(%s) failed: %m",
-					  path);
 		return -1;
 	}
 	return 0;
@@ -391,8 +386,8 @@ dbox_mailbox_open(struct mail_storage *_storage, const char *name,
 	if (stat(path, &st) == 0) {
 		return dbox_open(storage, name, flags);
 	} else if (errno == ENOENT) {
-		mail_storage_set_error(_storage,
-			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name);
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return NULL;
 	} else {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
@@ -411,7 +406,8 @@ static int dbox_mailbox_create(struct mail_storage *_storage,
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(_storage, "Mailbox already exists");
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox already exists");
 		return -1;
 	}
 
@@ -423,7 +419,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct dbox_storage *storage = DBOX_LIST_CONTEXT(list);
 	struct stat st;
-	const char *path, *mail_path, *error;
+	const char *path, *mail_path;
 
 	/* make sure the indexes are closed before trying to delete the
 	   directory that contains them */
@@ -440,8 +436,8 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	if (stat(mail_path, &st) < 0 && ENOTFOUND(errno)) {
 		if (stat(path, &st) < 0) {
 			/* doesn't exist at all */
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 			return -1;
 		}
 
@@ -450,9 +446,9 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 			return 0;
 
 		if (errno == ENOTEMPTY) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				"Directory %s isn't empty, can't delete it.",
-				name));
+			mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				t_strdup_printf("Directory %s isn't empty, "
+						"can't delete it.", name));
 		} else {
 			mailbox_list_set_critical(list,
 				"rmdir() failed for %s: %m", path);
@@ -463,9 +459,7 @@ dbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 
 
 	if (unlink_directory(mail_path, TRUE) < 0) {
-		if (mail_storage_errno2str(&error))
-			mailbox_list_set_error(list, error);
-		else {
+		if (!mailbox_list_set_error_from_errno(list)) {
 			mailbox_list_set_critical(list,
 				"unlink_directory() failed for %s: %m",
 				mail_path);

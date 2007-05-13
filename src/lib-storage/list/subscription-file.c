@@ -30,9 +30,10 @@ static void subsfile_set_syscall_error(struct mailbox_list *list,
 {
 	i_assert(function != NULL);
 
-	if (errno == EACCES)
-		mailbox_list_set_error(list, "Permission denied");
-	else {
+	if (errno == EACCES) {
+		mailbox_list_set_error(list, MAIL_ERROR_PERM,
+				       MAIL_ERRSTR_NO_PERMISSION);
+	} else {
 		mailbox_list_set_critical(list,
 			"%s failed with subscription file %s: %m",
 			function, path);
@@ -97,7 +98,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	fd_out = file_dotlock_open(&dotlock_set, path, 0, &dotlock);
 	if (fd_out == -1) {
 		if (errno == EAGAIN) {
-			mailbox_list_set_error(list,
+			mailbox_list_set_error(list, MAIL_ERROR_TEMP,
 				"Timeout waiting for subscription file lock");
 		} else {
 			subsfile_set_syscall_error(list,

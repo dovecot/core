@@ -48,7 +48,8 @@ static int mailbox_acl_right_lookup(struct mailbox *box, unsigned int right_idx)
 		return -1;
 	}
 
-	mail_storage_set_error(box->storage, MAILBOX_LIST_ERR_NO_PERMISSION);
+	mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
+			       MAIL_ERRSTR_NO_PERMISSION);
 	return 0;
 }
 

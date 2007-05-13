@@ -383,8 +383,8 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 		if (ret < 0)
 			return -1;
 		if (!found && ret == 0) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, oldname));
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
 			return -1;
 		}
 
@@ -392,7 +392,8 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 	}
 
 	if (EDESTDIREXISTS(errno)) {
-		mailbox_list_set_error(list, "Target mailbox already exists");
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				       "Target mailbox already exists");
 	} else {
 		mailbox_list_set_critical(list, "rename(%s, %s) failed: %m",
 					  oldpath, newpath);

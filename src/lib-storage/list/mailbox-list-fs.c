@@ -272,19 +272,6 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	return mailbox_list_delete_index_control(list, name);
 }
 
-static bool fs_handle_errors(struct mailbox_list *list)
-{
-	if (ENOACCESS(errno))
-		mailbox_list_set_error(list, MAILBOX_LIST_ERR_NO_PERMISSION);
-	else if (ENOSPACE(errno))
-		mailbox_list_set_error(list, "Not enough disk space");
-	else if (ENOTFOUND(errno))
-		mailbox_list_set_error(list, "Directory structure is broken");
-	else
-		return FALSE;
-	return TRUE;
-}
-
 static int fs_list_rename_mailbox(struct mailbox_list *list,
 				  const char *oldname, const char *newname)
 {
@@ -301,7 +288,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	if (p != NULL) {
 		p = t_strdup_until(newpath, p);
 		if (mkdir_parents(p, CREATE_MODE) < 0) {
-			if (fs_handle_errors(list))
+			if (mailbox_list_set_error_from_errno(list))
 				return -1;
 
 			mailbox_list_set_critical(list,
@@ -315,10 +302,11 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	   possibility that someone actually tries to rename two mailboxes
 	   to same new one */
 	if (lstat(newpath, &st) == 0) {
-		mailbox_list_set_error(list, "Target mailbox already exists");
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				       "Target mailbox already exists");
 		return -1;
 	} else if (errno == ENOTDIR) {
-		mailbox_list_set_error(list,
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
 			"Target mailbox doesn't allow inferior mailboxes");
 		return -1;
 	} else if (errno != ENOENT && errno != EACCES) {
@@ -331,9 +319,9 @@ static int fs_list_rename_mailbox(struct mailbox_list *list,
 	   the next time it's needed. */
 	if (rename(oldpath, newpath) < 0) {
 		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, oldname));
-		} else if (!fs_handle_errors(list)) {
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
+		} else if (!mailbox_list_set_error_from_errno(list)) {
 			mailbox_list_set_critical(list,
 				"rename(%s, %s) failed: %m", oldpath, newpath);
 		}

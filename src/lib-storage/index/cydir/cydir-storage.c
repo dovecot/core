@@ -141,16 +141,11 @@ static int cydir_create(struct mail_storage *_storage, const char *data)
 
 static int create_cydir(struct mail_storage *storage, const char *path)
 {
-	const char *error;
-
 	if (mkdir_parents(path, CREATE_MODE) < 0 && errno != EEXIST) {
-		if (mail_storage_errno2str(&error)) {
-			mail_storage_set_error(storage, "%s", error);
-			return -1;
+		if (!mail_storage_set_error_from_errno(storage)) {
+			mail_storage_set_critical(storage,
+				"mkdir(%s) failed: %m", path);
 		}
-
-		mail_storage_set_critical(storage, "mkdir(%s) failed: %m",
-					  path);
 		return -1;
 	}
 	return 0;
@@ -235,8 +230,8 @@ cydir_mailbox_open(struct mail_storage *_storage, const char *name,
 	if (stat(path, &st) == 0) {
 		return cydir_open(storage, name, flags);
 	} else if (errno == ENOENT) {
-		mail_storage_set_error(_storage,
-			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name);
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return NULL;
 	} else {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
@@ -255,7 +250,8 @@ static int cydir_mailbox_create(struct mail_storage *_storage,
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(_storage, "Mailbox already exists");
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox already exists");
 		return -1;
 	}
 
@@ -274,10 +270,7 @@ cydir_delete_nonrecursive(struct mailbox_list *list, const char *path,
 
 	dir = opendir(path);
 	if (dir == NULL) {
-		if (errno == ENOENT) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
-		} else {
+		if (!mailbox_list_set_error_from_errno(list)) {
 			mailbox_list_set_critical(list,
 				"opendir(%s) failed: %m", path);
 		}
@@ -327,8 +320,9 @@ cydir_delete_nonrecursive(struct mailbox_list *list, const char *path,
 	}
 
 	if (!unlinked_something) {
-		mailbox_list_set_error(list, t_strdup_printf(
-			"Directory %s isn't empty, can't delete it.", name));
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			t_strdup_printf("Directory %s isn't empty, "
+					"can't delete it.", name));
 		return -1;
 	}
 	return 0;
@@ -354,8 +348,8 @@ cydir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	/* check if the mailbox actually exists */
 	src = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(src, &st) != 0 && errno == ENOENT) {
-		mailbox_list_set_error(list, t_strdup_printf(
-			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return -1;
 	}
 

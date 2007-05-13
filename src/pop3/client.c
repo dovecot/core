@@ -130,7 +130,7 @@ struct client *client_create(int fd_in, int fd_out,
 	struct client *client;
         enum mailbox_open_flags flags;
 	const char *errmsg;
-	bool temporary_error;
+	enum mail_error error;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
@@ -169,7 +169,7 @@ struct client *client_create(int fd_in, int fd_out,
 	if (client->mailbox == NULL) {
 		errmsg = t_strdup_printf("Couldn't open INBOX: %s",
 				mail_storage_get_last_error(storage,
-							    &temporary_error));
+							    &error));
 		i_error("%s", errmsg);
 		client_send_line(client, "-ERR [IN-USE] %s", errmsg);
 		client_destroy(client, "Couldn't open INBOX");
@@ -178,7 +178,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 	if (!init_mailbox(client)) {
 		i_error("Couldn't init INBOX: %s",
-			mail_storage_get_last_error(storage, &temporary_error));
+			mail_storage_get_last_error(storage, &error));
 		client_destroy(client, "Mailbox init failed");
 		return NULL;
 	}
@@ -331,8 +331,7 @@ int client_send_line(struct client *client, const char *fmt, ...)
 
 void client_send_storage_error(struct client *client)
 {
-	const char *error;
-	bool temporary_error;
+	enum mail_error error;
 
 	if (mailbox_is_inconsistent(client->mailbox)) {
 		client_send_line(client, "-ERR Mailbox is in inconsistent "
@@ -341,10 +340,9 @@ void client_send_storage_error(struct client *client)
 		return;
 	}
 
-	error = mail_storage_get_last_error(client->inbox_ns->storage,
-					    &temporary_error);
-	client_send_line(client, "-ERR %s", error != NULL ? error :
-			 "BUG: Unknown error");
+	client_send_line(client, "-ERR %s",
+			 mail_storage_get_last_error(client->inbox_ns->storage,
+						     &error));
 }
 
 static void client_input(struct client *client)

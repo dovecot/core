@@ -286,11 +286,11 @@ acl_mailbox_list_delete(struct mailbox_list *list, const char *name)
 		if (ret < 0)
 			return -1;
 		if (can_see) {
-			mailbox_list_set_error(list,
-					       MAILBOX_LIST_ERR_NO_PERMISSION);
+			mailbox_list_set_error(list, MAIL_ERROR_PERM,
+					       MAIL_ERRSTR_NO_PERMISSION);
 		} else {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		}
 		return -1;
 	}
@@ -313,11 +313,11 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 		if (ret < 0)
 			return -1;
 		if (can_see) {
-			mailbox_list_set_error(list,
-					       MAILBOX_LIST_ERR_NO_PERMISSION);
+			mailbox_list_set_error(list, MAIL_ERROR_PERM,
+					       MAIL_ERRSTR_NO_PERMISSION);
 		} else {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, oldname));
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(oldname));
 		}
 		return 0;
 	}
@@ -334,8 +334,8 @@ acl_mailbox_list_rename(struct mailbox_list *list,
 			/* Note that if the mailbox didn't have LOOKUP
 			   permission, this not reveals to user the mailbox's
 			   existence. Can't help it. */
-			mailbox_list_set_error(list,
-					       MAILBOX_LIST_ERR_NO_PERMISSION);
+			mailbox_list_set_error(list, MAIL_ERROR_PERM,
+					       MAIL_ERRSTR_NO_PERMISSION);
 		}
 		return -1;
 	}

@@ -4,6 +4,7 @@
 struct message_size;
 
 #include "mail-types.h"
+#include "mail-error.h"
 #include "mailbox-list.h"
 
 /* If some operation is taking long, call notify_ok every n seconds. */
@@ -228,7 +229,7 @@ int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 
 /* Returns the error message of last occurred error. */
 const char *mail_storage_get_last_error(struct mail_storage *storage,
-					bool *temporary_error_r);
+					enum mail_error *error_r);
 
 /* Returns path to the given mailbox, or NULL if mailbox doesn't exist in
    filesystem. is_file_r is set to TRUE if returned path points to a file,

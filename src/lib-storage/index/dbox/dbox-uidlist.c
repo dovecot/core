@@ -439,8 +439,7 @@ int dbox_uidlist_lock(struct dbox_uidlist *uidlist)
 	if (uidlist->lock_fd == -1) {
 		if (errno == EAGAIN) {
 			mail_storage_set_error(&mbox->storage->storage,
-				"Timeout while waiting for lock");
-			mbox->storage->storage.temporary_error = TRUE;
+				MAIL_ERROR_TEMP, MAIL_ERRSTR_LOCK_TIMEOUT);
 			return 0;
 		}
 		mail_storage_set_critical(&mbox->storage->storage,

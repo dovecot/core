@@ -154,7 +154,7 @@ int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 
 void mailbox_list_deinit(struct mailbox_list *list)
 {
-	i_free_and_null(list->error);
+	i_free_and_null(list->error_string);
 
 	list->v.deinit(list);
 }
@@ -309,11 +309,13 @@ int mailbox_list_set_subscribed(struct mailbox_list *list,
 int mailbox_list_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	if (!mailbox_list_is_valid_existing_name(list, name)) {
-		mailbox_list_set_error(list, "Invalid mailbox name");
+		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
 		return -1;
 	}
 	if (strcmp(name, "INBOX") == 0) {
-		mailbox_list_set_error(list, "INBOX can't be deleted.");
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				       "INBOX can't be deleted.");
 		return -1;
 	}
 	return list->v.delete_mailbox(list, name);
@@ -324,7 +326,8 @@ int mailbox_list_rename_mailbox(struct mailbox_list *list,
 {
 	if (!mailbox_list_is_valid_existing_name(list, oldname) ||
 	    !mailbox_list_is_valid_create_name(list, newname)) {
-		mailbox_list_set_error(list, "Invalid mailbox name");
+		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
 		return -1;
 	}
 
@@ -415,26 +418,28 @@ enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d)
 }
 
 const char *mailbox_list_get_last_error(struct mailbox_list *list,
-					bool *temporary_error_r)
+					enum mail_error *error_r)
 {
-	*temporary_error_r = list->temporary_error;
+	*error_r = list->error;
 
-	return list->error;
+	return list->error_string != NULL ? list->error_string :
+		"Unknown internal list error";
 }
 
 void mailbox_list_clear_error(struct mailbox_list *list)
 {
-	i_free_and_null(list->error);
+	i_free_and_null(list->error_string);
 
-	list->temporary_error = FALSE;
+	list->error = MAIL_ERROR_NONE;
 }
 
-void mailbox_list_set_error(struct mailbox_list *list, const char *error)
+void mailbox_list_set_error(struct mailbox_list *list,
+			    enum mail_error error, const char *string)
 {
-	i_free(list->error);
-	list->error = i_strdup(error);
+	i_free(list->error_string);
+	list->error_string = i_strdup(string);
 
-	list->temporary_error = FALSE;
+	list->error = error;
 }
 
 void mailbox_list_set_internal_error(struct mailbox_list *list)
@@ -444,11 +449,11 @@ void mailbox_list_set_internal_error(struct mailbox_list *list)
 
 	tm = localtime(&ioloop_time);
 
-	i_free(list->error);
-	list->error =
+	i_free(list->error_string);
+	list->error_string =
 		strftime(str, sizeof(str), CRITICAL_MSG_STAMP, tm) > 0 ?
 		i_strdup(str) : i_strdup(CRITICAL_MSG);
-	list->temporary_error = TRUE;
+	list->error = MAIL_ERROR_TEMP;
 }
 
 void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
@@ -463,4 +468,16 @@ void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 	   see only "Internal error" with a timestamp to make it
 	   easier to look from log files the actual error message. */
 	mailbox_list_set_internal_error(list);
+}
+
+bool mailbox_list_set_error_from_errno(struct mailbox_list *list)
+{
+	const char *error_string;
+	enum mail_error error;
+
+	if (!mail_error_from_errno(&error, &error_string))
+		return FALSE;
+
+	mailbox_list_set_error(list, error, error_string);
+	return TRUE;
 }

@@ -110,11 +110,11 @@ acl_mailbox_open(struct mail_storage *storage, const char *name,
 		if (ret < 0)
 			return NULL;
 		if (can_see) {
-			mail_storage_set_error(storage,
-					       MAILBOX_LIST_ERR_NO_PERMISSION);
+			mail_storage_set_error(storage, MAIL_ERROR_PERM,
+					       MAIL_ERRSTR_NO_PERMISSION);
 		} else {
-			mail_storage_set_error(storage,
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name);
+			mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		}
 		return NULL;
 	}
@@ -145,8 +145,8 @@ static int acl_mailbox_create(struct mail_storage *storage, const char *name,
 			/* Note that if the mailbox didn't have LOOKUP
 			   permission, this not reveals to user the mailbox's
 			   existence. Can't help it. */
-			mail_storage_set_error(storage,
-					       MAILBOX_LIST_ERR_NO_PERMISSION);
+			mail_storage_set_error(storage, MAIL_ERROR_PERM,
+					       MAIL_ERRSTR_NO_PERMISSION);
 		}
 		return -1;
 	}

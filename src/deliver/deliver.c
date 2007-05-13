@@ -81,7 +81,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
-	bool temp;
+	enum mail_error error;
 
 	ns = mail_namespace_find(namespaces, &name);
 	if (ns == NULL) {
@@ -95,11 +95,11 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	if (box != NULL || no_mailbox_autocreate)
 		return box;
 
-	(void)mail_storage_get_last_error(ns->storage, &temp);
-	if (temp)
+	(void)mail_storage_get_last_error(ns->storage, &error);
+	if (error != MAIL_ERROR_NOTFOUND)
 		return NULL;
 
-	/* probably the mailbox just doesn't exist. try creating it. */
+	/* try creating it. */
 	if (mail_storage_mailbox_create(ns->storage, name, FALSE) < 0)
 		return NULL;
 
@@ -714,25 +714,29 @@ int main(int argc, char *argv[])
 	}
 
 	if (ret < 0) {
-		const char *error, *msgid;
-		bool temporary_error;
+		const char *error_string, *msgid;
+		enum mail_error error;
 		int ret;
 
-		error = mail_storage_get_last_error(storage, &temporary_error);
-		if (temporary_error)
+		error_string = mail_storage_get_last_error(ns->storage, &error);
+		if (error != MAIL_ERROR_NOSPACE) {
+			/* Saving to INBOX should always work unless
+			   we're over quota. If it didn't, it's probably a
+			   configuration problem. */
 			return EX_TEMPFAIL;
+		}
 
 		msgid = mail_get_first_header(mail, "Message-ID");
 		i_info("msgid=%s: Rejected: %s",
 		       msgid == NULL ? "" : str_sanitize(msgid, 80),
-		       str_sanitize(error, 512));
+		       str_sanitize(error_string, 512));
 
 		/* we'll have to reply with permanent failure */
 		if (stderr_rejection) {
-			fprintf(stderr, "%s\n", error);
+			fprintf(stderr, "%s\n", error_string);
 			return EX_NOPERM;
 		}
-		ret = mail_send_rejection(mail, destination, error);
+		ret = mail_send_rejection(mail, destination, error_string);
 		if (ret != 0)
 			return ret < 0 ? EX_TEMPFAIL : ret;
 		/* ok, rejection sent */

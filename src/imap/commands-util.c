@@ -146,18 +146,18 @@ bool client_verify_open_mailbox(struct client_command_context *cmd)
 void client_send_list_error(struct client_command_context *cmd,
 			    struct mailbox_list *list)
 {
-	const char *error;
-	bool temporary_error;
+	const char *error_string;
+	enum mail_error error;
 
-	error = mailbox_list_get_last_error(list, &temporary_error);
-	client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
+	error_string = mailbox_list_get_last_error(list, &error);
+	client_send_tagline(cmd, t_strconcat("NO ", error_string, NULL));
 }
 
 void client_send_storage_error(struct client_command_context *cmd,
 			       struct mail_storage *storage)
 {
-	const char *error;
-	bool temporary_error;
+	const char *error_string;
+	enum mail_error error;
 
 	if (cmd->client->mailbox != NULL &&
 	    mailbox_is_inconsistent(cmd->client->mailbox)) {
@@ -167,15 +167,15 @@ void client_send_storage_error(struct client_command_context *cmd,
 		return;
 	}
 
-	error = mail_storage_get_last_error(storage, &temporary_error);
-	client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
+	error_string = mail_storage_get_last_error(storage, &error);
+	client_send_tagline(cmd, t_strconcat("NO ", error_string, NULL));
 }
 
 void client_send_untagged_storage_error(struct client *client,
 					struct mail_storage *storage)
 {
-	const char *error;
-	bool temporary_error;
+	const char *error_string;
+	enum mail_error error;
 
 	if (client->mailbox != NULL &&
 	    mailbox_is_inconsistent(client->mailbox)) {
@@ -185,8 +185,8 @@ void client_send_untagged_storage_error(struct client *client,
 		return;
 	}
 
-	error = mail_storage_get_last_error(storage, &temporary_error);
-	client_send_line(client, t_strconcat("* NO ", error, NULL));
+	error_string = mail_storage_get_last_error(storage, &error);
+	client_send_line(client, t_strconcat("* NO ", error_string, NULL));
 }
 
 static bool is_valid_keyword(struct client_command_context *cmd,

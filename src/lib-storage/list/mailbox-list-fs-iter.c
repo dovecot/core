@@ -68,7 +68,8 @@ static int list_opendir(struct mailbox_list *list,
 			/* subfolder, ignore */
 			return 0;
 		}
-		mailbox_list_set_error(list, "Access denied");
+		mailbox_list_set_error(list, MAIL_ERROR_PERM,
+				       MAIL_ERRSTR_NO_PERMISSION);
 		return -1;
 	}
 
@@ -92,7 +93,8 @@ fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 
 	/* check that we're not trying to do any "../../" lists */
 	if (!mailbox_list_is_valid_mask(_list, mask)) {
-		mailbox_list_set_error(_list, "Invalid mask");
+		mailbox_list_set_error(_list, MAIL_ERROR_PARAMS,
+				       "Invalid mask");
 		ctx->ctx.failed = TRUE;
 		return &ctx->ctx;
 	}

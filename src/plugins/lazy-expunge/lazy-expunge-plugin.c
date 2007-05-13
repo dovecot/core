@@ -69,7 +69,7 @@ static struct mailbox *
 mailbox_open_or_create(struct mail_storage *storage, const char *name)
 {
 	struct mailbox *box;
-	bool temp;
+	enum mail_error error;
 
 	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT |
@@ -77,11 +77,11 @@ mailbox_open_or_create(struct mail_storage *storage, const char *name)
 	if (box != NULL)
 		return box;
 
-	(void)mail_storage_get_last_error(storage, &temp);
-	if (temp)
+	(void)mail_storage_get_last_error(storage, &error);
+	if (error != MAIL_ERROR_NOTFOUND)
 		return NULL;
 
-	/* probably the mailbox just doesn't exist. try creating it. */
+	/* try creating it. */
 	if (mail_storage_mailbox_create(storage, name, FALSE) < 0)
 		return NULL;
 
@@ -428,14 +428,16 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 
 	/* first do the normal sanity checks */
 	if (strcmp(name, "INBOX") == 0) {
-		mailbox_list_set_error(list, "INBOX can't be deleted.");
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				       "INBOX can't be deleted.");
 		return -1;
 	}
 
 	if (mailbox_list_get_mailbox_name_status(list, name, &status) < 0)
 		return -1;
 	if (status == MAILBOX_NAME_INVALID) {
-		mailbox_list_set_error(list, "Invalid mailbox name");
+		mailbox_list_set_error(list, MAIL_ERROR_PARAMS,
+				       "Invalid mailbox name");
 		return -1;
 	}
 
@@ -450,8 +452,8 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	if ((ret = mailbox_move(list, name, dest_list, &destname)) < 0)
 		return -1;
 	if (ret == 0) {
-		mailbox_list_set_error(list, t_strdup_printf(
-			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return -1;
 	}
 

@@ -135,7 +135,7 @@ int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 	if (fd == -1) {
 		if (ENOSPACE(errno)) {
 			mail_storage_set_error(&mbox->storage->storage,
-					       "Not enough disk space");
+				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 		} else {
 			mail_storage_set_critical(&mbox->storage->storage,
 				"open(%s) failed: %m", str_c(path));

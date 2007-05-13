@@ -84,7 +84,7 @@ int mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 
 	if (ENOSPACE(errno)) {
 		mail_storage_set_error(&mbox->storage->storage,
-				       "Not enough disk space");
+			MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 	} else {
 		mail_storage_set_critical(&mbox->storage->storage,
 					  "%s failed with mbox file %s: %m",
@@ -648,7 +648,7 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 		  struct istream *input, enum mailbox_open_flags flags)
 {
 	struct mbox_storage *storage = (struct mbox_storage *)_storage;
-	const char *path, *error;
+	const char *path;
 	struct stat st;
 
 	if (input != NULL)
@@ -665,8 +665,9 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
 		if (S_ISDIR(st.st_mode)) {
-			mail_storage_set_error(_storage,
-				"Mailbox isn't selectable: %s", name);
+			mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+				t_strdup_printf("Mailbox isn't selectable: %s",
+						name));
 			return NULL;
 		}
 
@@ -674,11 +675,9 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 	}
 
 	if (ENOTFOUND(errno)) {
-		mail_storage_set_error(_storage,
-			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name);
-	} else if (mail_storage_errno2str(&error))
-		mail_storage_set_error(_storage, "%s", error);
-	else {
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+	} else if (!mail_storage_set_error_from_errno(_storage)) {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
 					  path);
 	}
@@ -689,7 +688,7 @@ mbox_mailbox_open(struct mail_storage *_storage, const char *name,
 static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 			       bool directory)
 {
-	const char *path, *p, *error;
+	const char *path, *p;
 	struct stat st;
 	int fd;
 
@@ -698,17 +697,16 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(path, &st) == 0) {
-		mail_storage_set_error(_storage, "Mailbox already exists");
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox already exists");
 		return -1;
 	}
 
 	if (errno != ENOENT) {
 		if (errno == ENOTDIR) {
-			mail_storage_set_error(_storage,
+			mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
 				"Mailbox doesn't allow inferior mailboxes");
-		} else if (mail_storage_errno2str(&error))
-			mail_storage_set_error(_storage, "%s", error);
-		else {
+		} else if (!mail_storage_set_error_from_errno(_storage)) {
 			mail_storage_set_critical(_storage,
 				"stat() failed for mbox file %s: %m", path);
 		}
@@ -720,9 +718,7 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 	if (p != NULL) {
 		p = t_strdup_until(path, p);
 		if (mkdir_parents(p, CREATE_MODE) < 0) {
-			if (mail_storage_errno2str(&error))
-				mail_storage_set_error(_storage, "%s", error);
-			else {
+			if (!mail_storage_set_error_from_errno(_storage)) {
 				mail_storage_set_critical(_storage,
 					"mkdir_parents(%s) failed: %m", p);
 			}
@@ -744,10 +740,9 @@ static int mbox_mailbox_create(struct mail_storage *_storage, const char *name,
 
 	if (errno == EEXIST) {
 		/* mailbox was just created between stat() and open() call.. */
-		mail_storage_set_error(_storage, "Mailbox already exists");
-	} else if (mail_storage_errno2str(&error))
-		mail_storage_set_error(_storage, "%s", error);
-	else {
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox already exists");
+	} else if (!mail_storage_set_error_from_errno(_storage)) {
 		mail_storage_set_critical(_storage,
 			"Can't create mailbox %s: %m", name);
 	}
@@ -883,17 +878,15 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 {
 	struct mbox_storage *storage = MBOX_LIST_CONTEXT(list);
 	struct stat st;
-	const char *path, *index_dir, *error;
+	const char *path, *index_dir;
 
 	path = mailbox_list_get_path(list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (lstat(path, &st) < 0) {
 		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
-		} else if (mail_storage_errno2str(&error))
-			mailbox_list_set_error(list, error);
-		else {
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+		} else if (!mailbox_list_set_error_from_errno(list)) {
 			mailbox_list_set_critical(list,
 				"lstat() failed for %s: %m", path);
 		}
@@ -911,9 +904,7 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 
 		if (*index_dir != '\0' && rmdir(index_dir) < 0 &&
 		    !ENOTFOUND(errno) && errno != ENOTEMPTY) {
-			if (mail_storage_errno2str(&error))
-				mailbox_list_set_error(list, error);
-			else {
+			if (!mailbox_list_set_error_from_errno(list)) {
 				mailbox_list_set_critical(list,
 					"rmdir() failed for %s: %m", index_dir);
 			}
@@ -924,15 +915,13 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 			return 0;
 
 		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		} else if (errno == ENOTEMPTY) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				"Directory %s isn't empty, can't delete it.",
-				name));
-		} else if (mail_storage_errno2str(&error))
-			mailbox_list_set_error(list, error);
-		else {
+			mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+				t_strdup_printf("Directory %s isn't empty, "
+						"can't delete it.", name));
+		} else if (!mailbox_list_set_error_from_errno(list)) {
 			mailbox_list_set_critical(list,
 				"rmdir() failed for %s: %m", path);
 		}
@@ -946,11 +935,9 @@ static int mbox_list_delete_mailbox(struct mailbox_list *list,
 
 	if (unlink(path) < 0) {
 		if (ENOTFOUND(errno)) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
-		} else if (mail_storage_errno2str(&error))
-			mailbox_list_set_error(list, error);
-		else {
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
+		} else if (!mailbox_list_set_error_from_errno(list)) {
 			mailbox_list_set_critical(list,
 				"unlink() failed for %s: %m", path);
 		}

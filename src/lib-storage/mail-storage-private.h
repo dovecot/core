@@ -52,7 +52,9 @@ struct mail_storage {
 /* private: */
 	pool_t pool;
 
-	char *error;
+	char *error_string;
+	enum mail_error error;
+
 	struct mail_namespace *ns;
 	struct mailbox_list *list;
 
@@ -65,10 +67,6 @@ struct mail_storage {
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mail_storage_module_context *);
-
-	/* Internal temporary error, as opposed to visible user errors like
-	   "permission denied" or "out of disk space" */
-	unsigned int temporary_error:1;
 };
 
 struct mailbox_vfuncs {
@@ -289,15 +287,13 @@ extern MODULE_CONTEXT_DEFINE(mail_storage_mail_index_module,
    but user sees only "internal error" message. */
 void mail_storage_clear_error(struct mail_storage *storage);
 void mail_storage_set_error(struct mail_storage *storage,
-			    const char *fmt, ...) __attr_format__(2, 3);
+			    enum mail_error error, const char *string);
 void mail_storage_set_critical(struct mail_storage *storage,
 			       const char *fmt, ...) __attr_format__(2, 3);
 void mail_storage_set_internal_error(struct mail_storage *storage);
-
-const char *mail_storage_class_get_last_error(struct mail_storage *storage);
+bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 
 enum mailbox_list_flags
 mail_storage_get_list_flags(enum mail_storage_flags storage_flags);
-bool mail_storage_errno2str(const char **error_r);
 
 #endif

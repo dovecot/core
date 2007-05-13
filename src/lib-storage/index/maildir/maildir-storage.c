@@ -568,8 +568,8 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 
 		return maildir_open(storage, name, flags);
 	} else if (errno == ENOENT) {
-		mail_storage_set_error(_storage,
-			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name);
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return NULL;
 	} else {
 		mail_storage_set_critical(_storage, "stat(%s) failed: %m",
@@ -593,7 +593,7 @@ static int maildir_create_shared(struct mail_storage *storage,
 	old_mask = umask(0777 ^ mode);
 	if (create_maildir(storage, dir, FALSE) < 0) {
 		if (errno == EEXIST) {
-			mail_storage_set_error(storage,
+			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
 					       "Mailbox already exists");
 		}
 		umask(old_mask);
@@ -643,7 +643,7 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 
 	if (create_maildir(_storage, path, FALSE) < 0) {
 		if (errno == EEXIST) {
-			mail_storage_set_error(_storage,
+			mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
 					       "Mailbox already exists");
 		}
 		return -1;
@@ -694,8 +694,8 @@ maildir_delete_nonrecursive(struct mailbox_list *list, const char *path,
 	dir = opendir(path);
 	if (dir == NULL) {
 		if (errno == ENOENT) {
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		} else {
 			mailbox_list_set_critical(list,
 				"opendir(%s) failed: %m", path);
@@ -757,8 +757,9 @@ maildir_delete_nonrecursive(struct mailbox_list *list, const char *path,
 	}
 
 	if (!unlinked_something) {
-		mailbox_list_set_error(list, t_strdup_printf(
-			"Directory %s isn't empty, can't delete it.", name));
+		mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
+			t_strdup_printf("Directory %s isn't empty, "
+					"can't delete it.", name));
 		return -1;
 	}
 	return 0;
@@ -785,8 +786,8 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	/* check if the mailbox actually exists */
 	src = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (stat(src, &st) != 0 && errno == ENOENT) {
-		mailbox_list_set_error(list, t_strdup_printf(
-			MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return -1;
 	}
 
@@ -805,8 +806,8 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		if (errno == ENOENT) {
 			/* it was just deleted under us by
 			   another process */
-			mailbox_list_set_error(list, t_strdup_printf(
-				MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND, name));
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 			return -1;
 		}
 		if (!EDESTDIREXISTS(errno)) {
@@ -849,7 +850,7 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 		path2 = mailbox_list_get_path(list, NULL,
 					      MAILBOX_LIST_PATH_TYPE_MAILBOX);
 		if (strcmp(path1, path2) == 0) {
-			mailbox_list_set_error(list,
+			mailbox_list_set_error(list, MAIL_ERROR_NOTPOSSIBLE,
 				"Renaming INBOX isn't supported.");
 			return -1;
 		}

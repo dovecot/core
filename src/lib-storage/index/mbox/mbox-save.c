@@ -59,13 +59,7 @@ static char my_hostdomain[256] = "";
 
 static int write_error(struct mbox_save_context *ctx)
 {
-	if (ENOSPACE(errno)) {
-		mail_storage_set_error(&ctx->mbox->storage->storage,
-				       "Not enough disk space");
-	} else {
-		mbox_set_syscall_error(ctx->mbox, "write()");
-	}
-
+	mbox_set_syscall_error(ctx->mbox, "write()");
 	ctx->failed = TRUE;
 	return -1;
 }
@@ -266,10 +260,11 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		    struct mbox_transaction_context *t, bool want_mail)
 {
 	struct mbox_mailbox *mbox = ctx->mbox;
+	struct mail_storage *storage = &mbox->storage->storage;
 	int ret;
 
 	if (ctx->mbox->mbox_readonly) {
-		mail_storage_set_error(&ctx->mbox->storage->storage,
+		mail_storage_set_error(storage, MAIL_ERROR_PERM,
 				       "Read-only mbox");
 		return -1;
 	}
@@ -284,8 +279,8 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 				/* FIXME: we shouldn't fail here. it's just
 				   a locking issue that should be possible to
 				   fix.. */
-				mail_storage_set_error(
-					&ctx->mbox->storage->storage,
+				mail_storage_set_error(storage,
+					MAIL_ERROR_NOTPOSSIBLE,
 					"Can't copy mails inside same mailbox");
 				return -1;
 			}

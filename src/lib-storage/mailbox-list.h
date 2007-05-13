@@ -1,6 +1,8 @@
 #ifndef __MAILBOX_LIST_H
 #define __MAILBOX_LIST_H
 
+#include "mail-error.h"
+
 struct mail_namespace;
 struct mailbox_list;
 struct mailbox_list_iterate_context;
@@ -176,6 +178,6 @@ int mailbox_list_rename_mailbox(struct mailbox_list *list,
 
 /* Returns the error message of last occurred error. */
 const char *mailbox_list_get_last_error(struct mailbox_list *list,
-					bool *temporary_error_r);
+					enum mail_error *error_r);
 
 #endif

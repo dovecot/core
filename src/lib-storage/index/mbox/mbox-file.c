@@ -171,6 +171,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 	if (istream_raw_mbox_seek(mbox->mbox_stream, offset) < 0) {
 		if (offset == 0) {
 			mail_storage_set_error(&mbox->storage->storage,
+				MAIL_ERROR_NOTPOSSIBLE,
 				"Mailbox isn't a valid mbox file");
 			return -1;
 		}

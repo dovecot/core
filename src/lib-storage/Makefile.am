@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
 libstorage_a_SOURCES = \
 	mail.c \
 	mail-copy.c \
+	mail-error.c \
 	mail-namespace.c \
 	mail-search.c \
 	mail-storage.c \
@@ -19,6 +20,7 @@ libstorage_a_SOURCES = \
 
 headers = \
 	mail-copy.h \
+	mail-error.h \
 	mail-namespace.h \
 	mail-search.h \
 	mail-storage.h \

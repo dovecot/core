@@ -1,11 +1,6 @@
 #ifndef __MAILBOX_LIST_PRIVATE_H
 #define __MAILBOX_LIST_PRIVATE_H
 
-/* Some error strings that should be used everywhere to avoid
-   permissions checks from revealing mailbox's existence */
-#define MAILBOX_LIST_ERR_MAILBOX_NOT_FOUND "Mailbox doesn't exist: %s"
-#define MAILBOX_LIST_ERR_NO_PERMISSION "Permission denied"
-
 #include "mail-namespace.h"
 #include "mailbox-list.h"
 
@@ -78,7 +73,8 @@ struct mailbox_list {
 	uid_t cached_uid;
 	gid_t cached_gid;
 
-	char *error;
+	char *error_string;
+	enum mail_error error;
 	bool temporary_error;
 
 	ARRAY_DEFINE(module_contexts, union mailbox_list_module_context *);
@@ -103,9 +99,11 @@ bool mailbox_list_name_is_too_large(const char *name, char sep);
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
 
 void mailbox_list_clear_error(struct mailbox_list *list);
-void mailbox_list_set_error(struct mailbox_list *list, const char *error);
+void mailbox_list_set_error(struct mailbox_list *list,
+			    enum mail_error error, const char *string);
 void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 	__attr_format__(2, 3);
 void mailbox_list_set_internal_error(struct mailbox_list *list);
+bool mailbox_list_set_error_from_errno(struct mailbox_list *list);
 
 #endif

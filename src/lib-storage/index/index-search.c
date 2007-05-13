@@ -907,7 +907,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 
 	if (ctx->error != NULL) {
 		mail_storage_set_error(ctx->ibox->box.storage,
-				       "%s", ctx->error);
+				       MAIL_ERROR_PARAMS, ctx->error);
 	}
 
 	mail_search_args_reset(ctx->mail_ctx.args, FALSE);

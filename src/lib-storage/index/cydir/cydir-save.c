@@ -125,16 +125,14 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 int cydir_save_continue(struct mail_save_context *_ctx)
 {
 	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 
 	if (ctx->failed)
 		return -1;
 
 	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
-		if (ENOSPACE(ctx->output->stream_errno)) {
-			mail_storage_set_error(&ctx->mbox->storage->storage,
-					       "Not enough disk space");
-		} else {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
+		if (!mail_storage_set_error_from_errno(storage)) {
+			mail_storage_set_critical(storage,
 				"o_stream_send_istream(%s) failed: %m",
 				cydir_get_save_path(ctx, ctx->mail_count));
 		}

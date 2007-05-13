@@ -72,7 +72,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 
 		if (ENOSPACE(errno)) {
 			mail_storage_set_error(&mbox->storage->storage,
-					       "Not enough disk space");
+				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 			return -1;
 		}
 
