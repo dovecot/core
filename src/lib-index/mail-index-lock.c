@@ -384,8 +384,11 @@ static void mail_index_write_map(struct mail_index *index)
 	} else {
 		/* write the modified parts. header is small enough to be
 		   always written, write_seq_* specifies the record range. */
-                if (mail_index_write_map_over(index) < 0)
+		if (mail_index_write_map_over(index) < 0) {
+			mail_index_set_error(index,
+				"pwrite_full(%s) failed: %m", index->filepath);
 			mail_index_set_inconsistent(index);
+		}
 	}
 
 	map->write_to_disk = FALSE;
