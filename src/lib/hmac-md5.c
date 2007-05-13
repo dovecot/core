@@ -54,7 +54,7 @@ void hmac_md5_final(struct hmac_md5_context *ctx, unsigned char *digest)
 }
 
 void hmac_md5_get_cram_context(struct hmac_md5_context *ctx,
-			       unsigned char *context_digest)
+			unsigned char context_digest[CRAM_MD5_CONTEXTLEN])
 {
 	unsigned char *cdp;
 
@@ -76,9 +76,9 @@ void hmac_md5_get_cram_context(struct hmac_md5_context *ctx,
 }
 
 void hmac_md5_set_cram_context(struct hmac_md5_context *ctx,
-			       unsigned char *context_digest)
+			const unsigned char context_digest[CRAM_MD5_CONTEXTLEN])
 {
-	unsigned char *cdp;
+	const unsigned char *cdp;
 
 #define CDGET(p, c) STMT_START { \
 	(c)  = (*p++);           \

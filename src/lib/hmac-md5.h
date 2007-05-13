@@ -3,18 +3,21 @@
 
 #include "md5.h"
 
+#define CRAM_MD5_CONTEXTLEN 32
+
 struct hmac_md5_context {
 	struct md5_context ctx, ctxo;
 };
 
 void hmac_md5_init(struct hmac_md5_context *ctx,
 		   const unsigned char *key, size_t key_len);
-void hmac_md5_final(struct hmac_md5_context *ctx, unsigned char *digest);
+void hmac_md5_final(struct hmac_md5_context *ctx,
+		    unsigned char digest[MD5_RESULTLEN]);
 
 void hmac_md5_get_cram_context(struct hmac_md5_context *ctx,
-			       unsigned char *context_digest);
+		unsigned char context_digest[CRAM_MD5_CONTEXTLEN]);
 void hmac_md5_set_cram_context(struct hmac_md5_context *ctx,
-			       unsigned char *context_digest);
+		const unsigned char context_digest[CRAM_MD5_CONTEXTLEN]);
 
 
 static inline void

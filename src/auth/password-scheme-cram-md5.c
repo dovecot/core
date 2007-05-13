@@ -8,7 +8,7 @@
 const char *password_generate_cram_md5(const char *plaintext)
 {
 	struct hmac_md5_context ctx;
-	unsigned char context_digest[32];
+	unsigned char context_digest[CRAM_MD5_CONTEXTLEN];
 
 	hmac_md5_init(&ctx, (const unsigned char *)plaintext,
 		      strlen(plaintext));

@@ -50,7 +50,8 @@ static bool verify_credentials(struct cram_auth_request *request,
 			       const char *credentials)
 {
 	
-	unsigned char digest[16], context_digest[32];
+	unsigned char digest[MD5_RESULTLEN];
+	unsigned char context_digest[CRAM_MD5_CONTEXTLEN];
         struct hmac_md5_context ctx;
 	buffer_t *context_digest_buf;
 	const char *response_hex;
@@ -69,9 +70,9 @@ static bool verify_credentials(struct cram_auth_request *request,
 	hmac_md5_update(&ctx, request->challenge, strlen(request->challenge));
 	hmac_md5_final(&ctx, digest);
 
-	response_hex = binary_to_hex(digest, 16);
+	response_hex = binary_to_hex(digest, sizeof(digest));
 
-	if (memcmp(response_hex, request->response, 32) != 0) {
+	if (memcmp(response_hex, request->response, sizeof(digest)*2) != 0) {
 		auth_request_log_info(&request->auth_request, "cram-md5",
 				      "password mismatch");
 		return FALSE;
