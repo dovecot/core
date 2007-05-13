@@ -719,7 +719,8 @@ int main(int argc, char *argv[])
 		int ret;
 
 		error_string = mail_storage_get_last_error(ns->storage, &error);
-		if (error != MAIL_ERROR_NOSPACE) {
+		if (error != MAIL_ERROR_NOSPACE ||
+		    getenv("QUOTA_FULL_TEMPFAIL") != NULL) {
 			/* Saving to INBOX should always work unless
 			   we're over quota. If it didn't, it's probably a
 			   configuration problem. */
