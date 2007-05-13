@@ -456,7 +456,8 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	const char *dir;
 
 	/* FIXME: for now we only work with maildir++ */
-	if (getenv("MAILBOX_LIST_INDEX_DISABLE") != NULL ||
+	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*dir == '\0' || getenv("MAILBOX_LIST_INDEX_DISABLE") != NULL ||
 	    strcmp(list->name, "maildir++") != 0) {
 		/* reserve the module context anyway, so syncing code knows
 		   that the index is disabled */
@@ -473,7 +474,6 @@ static void index_mailbox_list_created(struct mailbox_list *list)
 	list->v.iter_next = index_mailbox_list_iter_next;
 	MODULE_CONTEXT_SET(list, index_mailbox_list_module, ilist);
 
-	dir = mailbox_list_get_path(list, NULL, MAILBOX_LIST_PATH_TYPE_INDEX);
 	ilist->mail_index = mail_index_alloc(dir, MAIL_INDEX_PREFIX);
 
 	/* sync_init allocates the extensions. do it here before opening the

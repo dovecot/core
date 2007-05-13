@@ -111,7 +111,8 @@ int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 		strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
 		p_strdup(list->pool, set->control_dir);
 
-	if (list->set.index_dir != NULL) {
+	if (list->set.index_dir != NULL &&
+	   *list->set.index_dir != '\0') {
 		if (mkdir_parents(list->set.index_dir, 0700) < 0 &&
 		    errno != EEXIST)
 			i_error("mkdir(%s) failed: %m", list->set.index_dir);
