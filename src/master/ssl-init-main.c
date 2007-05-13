@@ -64,7 +64,7 @@ static int generate_parameters_file(const char *fname __attr_unused__)
 
 int main(int argc, char *argv[])
 {
-	int ret;
+	int ret = 0;
 
 	lib_init();
 	i_set_failure_internal();
