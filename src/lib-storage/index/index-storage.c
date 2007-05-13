@@ -4,6 +4,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "ioloop.h"
+#include "mkdir-parents.h"
 #include "mail-index-private.h"
 #include "index-storage.h"
 #include "index-mail.h"
@@ -12,6 +13,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
+#define CREATE_MODE 0770 /* umask() should limit it more */
 
 #define DEFAULT_CACHE_FIELDS "flags"
 #define DEFAULT_NEVER_CACHE_FIELDS "imap.envelope"
@@ -63,20 +66,72 @@ static void index_list_free(struct index_list *list)
 	i_free(list);
 }
 
+static int create_index_dir(struct mail_storage *storage, const char *name)
+{
+	const char *root_dir, *index_dir;
+
+	root_dir = mailbox_list_get_path(storage->list, name,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	index_dir = mailbox_list_get_path(storage->list, name,
+					  MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (strcmp(index_dir, root_dir) == 0 || *index_dir == '\0')
+		return 0;
+
+	if (mkdir_parents(index_dir, CREATE_MODE) < 0 && errno != EEXIST) {
+		mail_storage_set_critical(storage, "mkdir(%s) failed: %m",
+					  index_dir);
+		return -1;
+	}
+
+	return 0;
+}
+
+static const char *
+get_index_dir(struct mail_storage *storage, const char *name,
+	      enum mailbox_open_flags flags, struct stat *st_r)
+{
+	const char *index_dir;
+
+	index_dir = (flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0 ? "" :
+		mailbox_list_get_path(storage->list, name,
+				      MAILBOX_LIST_PATH_TYPE_INDEX);
+	if (*index_dir == '\0') {
+		/* disabled */
+		return NULL;
+	}
+
+	if (stat(index_dir, st_r) < 0) {
+		if (errno == ENOENT) {
+			/* try to create it */
+			if (create_index_dir(storage, name) < 0)
+				return NULL;
+			if (stat(index_dir, st_r) == 0)
+				return index_dir;
+		}
+
+		mail_storage_set_critical(storage, "stat(%s) failed: %m",
+					  index_dir);
+		return NULL;
+	}
+	return index_dir;
+}
+
 struct mail_index *
-index_storage_alloc(const char *index_dir, const char *mailbox_path,
-		    const char *prefix)
+index_storage_alloc(struct mail_storage *storage, const char *name,
+		    enum mailbox_open_flags flags, const char *prefix)
 {
 	struct index_list **list, *rec;
 	struct mail_index *index;
 	struct stat st, st2;
+	const char *index_dir, *mailbox_path;
 	int destroy_count;
 
-	if (*index_dir == '\0' || stat(index_dir, &st) < 0) {
-		if (*index_dir == '\0')
-			index_dir = NULL;
+	mailbox_path = mailbox_list_get_path(storage->list, name,
+					     MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	index_dir = get_index_dir(storage, name, flags, &st);
+
+	if (index_dir == NULL)
 		memset(&st, 0, sizeof(st));
-	}
 
 	/* compare index_dir inodes so we don't break even with symlinks.
 	   for in-memory indexes compare just mailbox paths */

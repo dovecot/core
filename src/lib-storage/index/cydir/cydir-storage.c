@@ -151,26 +151,6 @@ static int create_cydir(struct mail_storage *storage, const char *path)
 	return 0;
 }
 
-static int create_index_dir(struct mail_storage *storage, const char *name)
-{
-	const char *root_dir, *index_dir;
-
-	root_dir = mailbox_list_get_path(storage->list, name,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(storage->list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (strcmp(index_dir, root_dir) == 0)
-		return 0;
-
-	if (mkdir_parents(index_dir, CREATE_MODE) < 0 && errno != EEXIST) {
-		mail_storage_set_critical(storage, "mkdir(%s) failed: %m",
-					  index_dir);
-		return -1;
-	}
-
-	return 0;
-}
-
 static struct mailbox *
 cydir_open(struct cydir_storage *storage, const char *name,
 	   enum mailbox_open_flags flags)
@@ -178,20 +158,15 @@ cydir_open(struct cydir_storage *storage, const char *name,
 	struct mail_storage *_storage = &storage->storage;
 	struct cydir_mailbox *mbox;
 	struct mail_index *index;
-	const char *path, *index_dir;
+	const char *path;
 	pool_t pool;
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(_storage->list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-
 	if (create_cydir(_storage, path) < 0)
 		return NULL;
-	if (create_index_dir(_storage, name) < 0)
-		return NULL;
 
-	index = index_storage_alloc(index_dir, path, CYDIR_INDEX_PREFIX);
+	index = index_storage_alloc(_storage, name, flags, CYDIR_INDEX_PREFIX);
 
 	pool = pool_alloconly_create("cydir mailbox", 1024+512);
 	mbox = p_new(pool, struct cydir_mailbox, 1);

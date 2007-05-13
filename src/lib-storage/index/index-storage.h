@@ -95,8 +95,8 @@ void index_storage_lock_notify(struct index_mailbox *ibox,
 void index_storage_lock_notify_reset(struct index_mailbox *ibox);
 
 struct mail_index *
-index_storage_alloc(const char *index_dir, const char *mailbox_path,
-		    const char *prefix);
+index_storage_alloc(struct mail_storage *storage, const char *name,
+		    enum mailbox_open_flags flags, const char *prefix);
 void index_storage_unref(struct mail_index *index);
 void index_storage_destroy_unrefed(void);
 

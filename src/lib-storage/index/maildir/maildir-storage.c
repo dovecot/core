@@ -40,8 +40,7 @@ extern struct mailbox maildir_mailbox;
 static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static int verify_inbox(struct mail_storage *storage,
-			enum mailbox_open_flags *flags);
+static int verify_inbox(struct mail_storage *storage);
 static int
 maildir_list_delete_mailbox(struct mailbox_list *list, const char *name);
 static int
@@ -230,7 +229,6 @@ maildir_create(struct mail_storage *_storage, const char *data)
 	enum mail_storage_flags flags = _storage->flags;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
-	enum mailbox_open_flags open_flags;
 	const char *layout, *error;
 	struct stat st;
 
@@ -287,8 +285,7 @@ maildir_create(struct mail_storage *_storage, const char *data)
 				    "tmp/", storage->temp_prefix, NULL);
 	}
 
-	open_flags = 0;
-	(void)verify_inbox(_storage, &open_flags);
+	(void)verify_inbox(_storage);
 	return 0;
 }
 
@@ -378,34 +375,6 @@ static int create_maildir(struct mail_storage *storage,
 	return 0;
 }
 
-static int create_index_dir(struct mail_storage *storage, const char *name)
-{
-	const char *index_dir, *root_dir, *dir;
-
-	index_dir = mailbox_list_get_path(storage->list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*index_dir == '\0')
-		return 0;
-
-	root_dir = mailbox_list_get_path(storage->list, name,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (strcmp(index_dir, root_dir) == 0)
-		return 0;
-
-	dir = t_strdup_printf("%s/%c%s", index_dir,
-			      mailbox_list_get_hierarchy_sep(storage->list),
-			      name);
-	if (mkdir_parents(dir, CREATE_MODE) < 0 && errno != EEXIST) {
-		if (!ENOSPACE(errno)) {
-			mail_storage_set_critical(storage,
-						  "mkdir(%s) failed: %m", dir);
-		}
-		return -1;
-	}
-
-	return 0;
-}
-
 static int create_control_dir(struct mail_storage *storage, const char *name)
 {
 	const char *control_dir, *root_dir, *dir;
@@ -429,8 +398,7 @@ static int create_control_dir(struct mail_storage *storage, const char *name)
 	return 0;
 }
 
-static int verify_inbox(struct mail_storage *storage,
-			enum mailbox_open_flags *flags)
+static int verify_inbox(struct mail_storage *storage)
 {
 	const char *path;
 
@@ -438,9 +406,6 @@ static int verify_inbox(struct mail_storage *storage,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	if (create_maildir(storage, path, TRUE) < 0)
 		return -1;
-
-	if (create_index_dir(storage, "INBOX") < 0)
-		*flags |= MAILBOX_OPEN_NO_INDEX_FILES;
 	if (create_control_dir(storage, "INBOX") < 0)
 		return -1;
 	return 0;
@@ -464,22 +429,17 @@ maildir_open(struct maildir_storage *storage, const char *name,
 {
 	struct maildir_mailbox *mbox;
 	struct mail_index *index;
-	const char *path, *index_dir, *control_dir;
+	const char *path, *control_dir;
 	struct stat st;
 	int shared;
 	pool_t pool;
 
 	path = mailbox_list_get_path(storage->storage.list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(storage->storage.list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
 	control_dir = mailbox_list_get_path(storage->storage.list, name,
 					    MAILBOX_LIST_PATH_TYPE_CONTROL);
 
-	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
-		index_dir = "";
-
-	index = index_storage_alloc(index_dir, path,
+	index = index_storage_alloc(&storage->storage, name, flags,
 				    MAILDIR_INDEX_PREFIX);
 
 	/* for shared mailboxes get the create mode from the
@@ -548,7 +508,7 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 	}
 
 	if (strcmp(name, "INBOX") == 0) {
-		if (verify_inbox(_storage, &flags) < 0)
+		if (verify_inbox(_storage) < 0)
 			return NULL;
 		return maildir_open(storage, "INBOX", flags);
 	}
@@ -560,11 +520,6 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		if (create_maildir(_storage, path, TRUE) < 0 ||
 		    create_control_dir(_storage, name) < 0)
 			return NULL;
-
-		if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) == 0) {
-			if (create_index_dir(_storage, name) < 0)
-				flags |= MAILBOX_OPEN_NO_INDEX_FILES;
-		}
 
 		return maildir_open(storage, name, flags);
 	} else if (errno == ENOENT) {

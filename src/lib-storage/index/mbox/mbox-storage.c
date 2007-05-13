@@ -444,27 +444,6 @@ static int mbox_create(struct mail_storage *_storage, const char *data)
 	return 0;
 }
 
-static int create_mbox_index_dirs(struct mail_storage *storage,
-				  const char *name)
-{
-	const char *index_dir;
-
-	index_dir = mailbox_list_get_path(storage->list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (*index_dir == '\0')
-		return 0;
-
-	if (mkdir_parents(index_dir, CREATE_MODE) < 0) {
-		if (!ENOSPACE(errno)) {
-			mail_storage_set_critical(storage,
-				"mkdir_parents(%s) failed: %m", index_dir);
-		}
-		return -1;
-	}
-
-	return 0;
-}
-
 static int verify_inbox(struct mail_storage *storage)
 {
 	const char *inbox_path;
@@ -574,23 +553,12 @@ mbox_open(struct mbox_storage *storage, const char *name,
 	struct mail_storage *_storage = &storage->storage;
 	struct mbox_mailbox *mbox;
 	struct mail_index *index;
-	const char *path, *index_dir;
+	const char *path;
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(_storage->list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
 
-	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
-		index_dir = "";
-
-	if (*index_dir != '\0') {
-		/* make sure the index directories exist */
-		if (create_mbox_index_dirs(_storage, name) < 0)
-			index_dir = "";
-	}
-
-	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
+	index = index_storage_alloc(_storage, name, flags, MBOX_INDEX_PREFIX);
 	mbox = mbox_alloc_mailbox(storage, index, name, path, flags);
 
 	if (access(path, R_OK|W_OK) < 0) {
@@ -612,24 +580,13 @@ mbox_mailbox_open_stream(struct mbox_storage *storage, const char *name,
 	struct mail_storage *_storage = &storage->storage;
 	struct mail_index *index;
 	struct mbox_mailbox *mbox;
-	const char *path, *index_dir;
+	const char *path;
 
 	flags |= MAILBOX_OPEN_READONLY;
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if ((flags & MAILBOX_OPEN_NO_INDEX_FILES) != 0)
-		index_dir = "";
-	else {
-		index_dir = mailbox_list_get_path(_storage->list, name,
-						  MAILBOX_LIST_PATH_TYPE_INDEX);
-
-		/* make sure the required directories are also there */
-		if (create_mbox_index_dirs(_storage, name) < 0)
-			index_dir = "";
-	}
-
-	index = index_storage_alloc(index_dir, path, MBOX_INDEX_PREFIX);
+	index = index_storage_alloc(_storage, name, flags, MBOX_INDEX_PREFIX);
 	mbox = mbox_alloc_mailbox(storage, index, name, path, flags);
 	if (mbox == NULL)
 		return NULL;

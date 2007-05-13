@@ -267,25 +267,6 @@ static int create_dbox(struct mail_storage *storage, const char *path)
 	return 0;
 }
 
-static int create_index_dir(struct mail_storage *storage, const char *name)
-{
-	const char *root_dir, *index_dir;
-
-	root_dir = mailbox_list_get_path(storage->list, name,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(storage->list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-	if (strcmp(index_dir, root_dir) == 0)
-		return 0;
-
-	if (mkdir_parents(index_dir, CREATE_MODE) < 0 && errno != EEXIST) {
-		mail_storage_set_critical(storage, "mkdir(%s) failed: %m",
-					  index_dir);
-		return -1;
-	}
-
-	return 0;
-}
 
 static void dbox_lock_touch_timeout(struct dbox_mailbox *mbox)
 {
@@ -299,20 +280,15 @@ dbox_open(struct dbox_storage *storage, const char *name,
 	struct mail_storage *_storage = &storage->storage;
 	struct dbox_mailbox *mbox;
 	struct mail_index *index;
-	const char *path, *index_dir, *value;
+	const char *path, *value;
 	pool_t pool;
 
 	path = mailbox_list_get_path(_storage->list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	index_dir = mailbox_list_get_path(_storage->list, name,
-					  MAILBOX_LIST_PATH_TYPE_INDEX);
-
 	if (create_dbox(_storage, path) < 0)
 		return NULL;
-	if (create_index_dir(_storage, name) < 0)
-		return NULL;
 
-	index = index_storage_alloc(index_dir, path, DBOX_INDEX_PREFIX);
+	index = index_storage_alloc(_storage, name, flags, DBOX_INDEX_PREFIX);
 
 	pool = pool_alloconly_create("dbox mailbox", 1024+512);
 	mbox = p_new(pool, struct dbox_mailbox, 1);
