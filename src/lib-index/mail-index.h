@@ -42,15 +42,6 @@ enum mail_index_mail_flags {
 	MAIL_INDEX_MAIL_FLAG_DIRTY = 0x80
 };
 
-enum mail_index_error {
-	/* No errors */
-	MAIL_INDEX_ERROR_NONE,
-	/* Internal error, see get_error_text() for more information. */
-	MAIL_INDEX_ERROR_INTERNAL,
-	/* We ran out of available disk space. */
-	MAIL_INDEX_ERROR_DISKSPACE
-};
-
 #define MAIL_INDEX_FLAGS_MASK \
 	(MAIL_ANSWERED | MAIL_FLAGGED | MAIL_DELETED | MAIL_SEEN | MAIL_DRAFT)
 
@@ -349,8 +340,6 @@ void mail_index_update_header(struct mail_index_transaction *t,
 			      size_t offset, const void *data, size_t size,
 			      bool prepend);
 
-/* Returns the last error code. */
-enum mail_index_error mail_index_get_last_error(struct mail_index *index);
 /* Returns the full error message for last error. This message may
    contain paths etc. so it shouldn't be shown to users. */
 const char *mail_index_get_error_message(struct mail_index *index);

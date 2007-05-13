@@ -410,15 +410,7 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 
 void mail_storage_set_index_error(struct index_mailbox *ibox)
 {
-	switch (mail_index_get_last_error(ibox->index)) {
-	case MAIL_INDEX_ERROR_NONE:
-	case MAIL_INDEX_ERROR_INTERNAL:
-		mail_storage_set_internal_error(ibox->box.storage);
-		break;
-	case MAIL_INDEX_ERROR_DISKSPACE:
-		mail_storage_set_error(ibox->box.storage, "Out of disk space");
-		break;
-	}
+	mail_storage_set_internal_error(ibox->box.storage);
 
 	mail_index_view_unlock(ibox->view);
 	mail_index_reset_error(ibox->index);

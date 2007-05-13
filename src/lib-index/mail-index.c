@@ -1987,16 +1987,6 @@ int mail_index_file_set_syscall_error(struct mail_index *index,
 				    function, filepath);
 }
 
-enum mail_index_error mail_index_get_last_error(struct mail_index *index)
-{
-	if (index->nodiskspace)
-		return MAIL_INDEX_ERROR_DISKSPACE;
-	if (index->error != NULL)
-		return MAIL_INDEX_ERROR_INTERNAL;
-
-	return MAIL_INDEX_ERROR_NONE;
-}
-
 const char *mail_index_get_error_message(struct mail_index *index)
 {
 	return index->error;
