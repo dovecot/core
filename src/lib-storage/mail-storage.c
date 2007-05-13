@@ -236,7 +236,6 @@ void mail_storage_clear_error(struct mail_storage *storage)
 	i_free(storage->error);
 	storage->error = NULL;
 
-	storage->syntax_error = FALSE;
 	storage->temporary_error = FALSE;
 }
 
@@ -253,21 +252,6 @@ void mail_storage_set_error(struct mail_storage *storage, const char *fmt, ...)
 	}
 }
 
-void mail_storage_set_syntax_error(struct mail_storage *storage,
-				   const char *fmt, ...)
-{
-	va_list va;
-
-	mail_storage_clear_error(storage);
-
-	if (fmt != NULL) {
-		va_start(va, fmt);
-		storage->error = i_strdup_vprintf(fmt, va);
-		storage->syntax_error = TRUE;
-		va_end(va);
-	}
-}
-
 void mail_storage_set_internal_error(struct mail_storage *storage)
 {
 	struct tm *tm;
@@ -279,7 +263,6 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	storage->error =
 		strftime(str, sizeof(str), CRITICAL_MSG_STAMP, tm) > 0 ?
 		i_strdup(str) : i_strdup(CRITICAL_MSG);
-	storage->syntax_error = FALSE;
 	storage->temporary_error = TRUE;
 }
 
@@ -291,7 +274,6 @@ void mail_storage_set_list_error(struct mail_storage *storage)
 	storage->error =
 		i_strdup(mailbox_list_get_last_error(storage->list, &temp));
 
-	storage->syntax_error = FALSE;
 	storage->temporary_error = temp;
 }
 
@@ -350,10 +332,8 @@ int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 }
 
 const char *mail_storage_get_last_error(struct mail_storage *storage,
-					bool *syntax_error_r,
 					bool *temporary_error_r)
 {
-	*syntax_error_r = storage->syntax_error;
 	*temporary_error_r = storage->temporary_error;
 
 	/* We get here only in error situations, so we have to return some

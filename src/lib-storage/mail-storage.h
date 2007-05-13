@@ -231,7 +231,6 @@ int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 
 /* Returns the error message of last occurred error. */
 const char *mail_storage_get_last_error(struct mail_storage *storage,
-					bool *syntax_error_r,
 					bool *temporary_error_r);
 
 /* Returns path to the given mailbox, or NULL if mailbox doesn't exist in

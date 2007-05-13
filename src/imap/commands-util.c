@@ -147,7 +147,7 @@ void client_send_storage_error(struct client_command_context *cmd,
 			       struct mail_storage *storage)
 {
 	const char *error;
-	bool syntax, temporary_error;
+	bool temporary_error;
 
 	if (cmd->client->mailbox != NULL &&
 	    mailbox_is_inconsistent(cmd->client->mailbox)) {
@@ -157,16 +157,15 @@ void client_send_storage_error(struct client_command_context *cmd,
 		return;
 	}
 
-	error = mail_storage_get_last_error(storage, &syntax, &temporary_error);
-	client_send_tagline(cmd,
-			    t_strconcat(syntax ? "BAD " : "NO ", error, NULL));
+	error = mail_storage_get_last_error(storage, &temporary_error);
+	client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
 }
 
 void client_send_untagged_storage_error(struct client *client,
 					struct mail_storage *storage)
 {
 	const char *error;
-	bool syntax, temporary_error;
+	bool temporary_error;
 
 	if (client->mailbox != NULL &&
 	    mailbox_is_inconsistent(client->mailbox)) {
@@ -176,9 +175,8 @@ void client_send_untagged_storage_error(struct client *client,
 		return;
 	}
 
-	error = mail_storage_get_last_error(storage, &syntax, &temporary_error);
-	client_send_line(client,
-			 t_strconcat(syntax ? "* BAD " : "* NO ", error, NULL));
+	error = mail_storage_get_last_error(storage, &temporary_error);
+	client_send_line(client, t_strconcat("* NO ", error, NULL));
 }
 
 static bool is_valid_keyword(struct client_command_context *cmd,

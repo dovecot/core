@@ -66,8 +66,6 @@ struct mail_storage {
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY_DEFINE(module_contexts, union mail_storage_module_context *);
 
-	/* IMAP: Give a BAD reply instead of NO */
-	unsigned int syntax_error:1;
 	/* Internal temporary error, as opposed to visible user errors like
 	   "permission denied" or "out of disk space" */
 	unsigned int temporary_error:1;
@@ -292,14 +290,11 @@ extern MODULE_CONTEXT_DEFINE(mail_storage_mail_index_module,
 void mail_storage_clear_error(struct mail_storage *storage);
 void mail_storage_set_error(struct mail_storage *storage,
 			    const char *fmt, ...) __attr_format__(2, 3);
-void mail_storage_set_syntax_error(struct mail_storage *storage,
-				   const char *fmt, ...) __attr_format__(2, 3);
 void mail_storage_set_critical(struct mail_storage *storage,
 			       const char *fmt, ...) __attr_format__(2, 3);
 void mail_storage_set_internal_error(struct mail_storage *storage);
 
-const char *mail_storage_class_get_last_error(struct mail_storage *storage,
-					      bool *syntax_error_r);
+const char *mail_storage_class_get_last_error(struct mail_storage *storage);
 
 enum mailbox_list_flags
 mail_storage_get_list_flags(enum mail_storage_flags storage_flags);

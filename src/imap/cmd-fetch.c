@@ -79,7 +79,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 	if (ctx->failed) {
 		struct mail_storage *storage;
 		const char *error;
-		bool syntax, temporary_error;
+		bool temporary_error;
 
 		if (ctx->client->output->closed) {
 			client_disconnect(cmd->client, "Disconnected");
@@ -87,16 +87,11 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx)
 		}
 
                 storage = mailbox_get_storage(cmd->client->mailbox);
-		error = mail_storage_get_last_error(storage, &syntax,
-						    &temporary_error);
-		if (!syntax) {
-			/* We never want to reply NO to FETCH requests,
-			   BYE is preferrable (see imap-ml for reasons). */
-			client_disconnect_with_error(cmd->client, error);
-		} else {
-			/* user error, we'll reply with BAD */
-			client_send_storage_error(cmd, storage);
-		}
+		error = mail_storage_get_last_error(storage, &temporary_error);
+
+		/* We never want to reply NO to FETCH requests,
+		   BYE is preferrable (see imap-ml for reasons). */
+		client_disconnect_with_error(cmd->client, error);
 		return TRUE;
 	}
 

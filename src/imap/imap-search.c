@@ -19,7 +19,7 @@ imap_uidset_parse(pool_t pool, struct mailbox *box, const char *uidset,
 		  struct mail_search_seqset **seqset_r, const char **error_r)
 {
 	struct mail_search_seqset *seqset, **p;
-	bool syntax, temporary, last;
+	bool temporary, last;
 
 	*seqset_r = imap_messageset_parse(pool, uidset);
 	if (*seqset_r == NULL) {
@@ -39,7 +39,6 @@ imap_uidset_parse(pool_t pool, struct mailbox *box, const char *uidset,
 				     &seqset->seq1, &seqset->seq2) < 0) {
 			struct mail_storage *storage = mailbox_get_storage(box);
 			*error_r = mail_storage_get_last_error(storage,
-							       &syntax,
 							       &temporary);
 			return -1;
 		}

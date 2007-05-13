@@ -81,7 +81,7 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
-	bool syntax, temp;
+	bool temp;
 
 	ns = mail_namespace_find(namespaces, &name);
 	if (ns == NULL) {
@@ -95,8 +95,8 @@ mailbox_open_or_create_synced(struct mail_namespace *namespaces,
 	if (box != NULL || no_mailbox_autocreate)
 		return box;
 
-	(void)mail_storage_get_last_error(ns->storage, &syntax, &temp);
-	if (syntax || temp)
+	(void)mail_storage_get_last_error(ns->storage, &temp);
+	if (temp)
 		return NULL;
 
 	/* probably the mailbox just doesn't exist. try creating it. */
@@ -715,11 +715,10 @@ int main(int argc, char *argv[])
 
 	if (ret < 0) {
 		const char *error, *msgid;
-		bool syntax, temporary_error;
+		bool temporary_error;
 		int ret;
 
-		error = mail_storage_get_last_error(storage, &syntax,
-						    &temporary_error);
+		error = mail_storage_get_last_error(storage, &temporary_error);
 		if (temporary_error)
 			return EX_TEMPFAIL;
 

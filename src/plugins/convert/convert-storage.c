@@ -101,9 +101,9 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 
 static const char *storage_error(struct mail_storage *storage)
 {
-	bool syntax, temp;
+	bool temp;
 
-	return mail_storage_get_last_error(storage, &syntax, &temp);
+	return mail_storage_get_last_error(storage, &temp);
 }
 
 static const char *

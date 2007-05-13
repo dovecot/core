@@ -69,7 +69,7 @@ static struct mailbox *
 mailbox_open_or_create(struct mail_storage *storage, const char *name)
 {
 	struct mailbox *box;
-	bool syntax, temp;
+	bool temp;
 
 	box = mailbox_open(storage, name, NULL, MAILBOX_OPEN_FAST |
 			   MAILBOX_OPEN_KEEP_RECENT |
@@ -77,8 +77,8 @@ mailbox_open_or_create(struct mail_storage *storage, const char *name)
 	if (box != NULL)
 		return box;
 
-	(void)mail_storage_get_last_error(storage, &syntax, &temp);
-	if (syntax || temp)
+	(void)mail_storage_get_last_error(storage, &temp);
+	if (temp)
 		return NULL;
 
 	/* probably the mailbox just doesn't exist. try creating it. */
