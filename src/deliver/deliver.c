@@ -460,7 +460,7 @@ static void print_help(void)
 {
 	printf(
 "Usage: deliver [-c <config file>] [-d <destination user>] [-m <mailbox>]\n"
-"               [-n] [-f <envelope sender>]\n");
+"               [-n] [-e] [-f <envelope sender>]\n");
 }
 
 void deliver_env_clean(void)
@@ -499,6 +499,7 @@ int main(int argc, char *argv[])
 	struct mail *mail;
 	uid_t process_euid;
 	pool_t namespace_pool;
+	bool stderr_rejection = FALSE;
 	int i, ret;
 
 	i_set_failure_exit_callback(failure_exit_callback);
@@ -527,6 +528,8 @@ int main(int argc, char *argv[])
 					       "Missing destination argument");
 			}
 			destination = argv[i];
+		} else if (strcmp(argv[i], "-e") == 0) {
+			stderr_rejection = TRUE;
 		} else if (strcmp(argv[i], "-c") == 0) {
 			/* config file path */
 			i++;
@@ -711,7 +714,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (ret < 0) {
-		const char *error;
+		const char *error, *msgid;
 		bool syntax, temporary_error;
 		int ret;
 
@@ -720,7 +723,16 @@ int main(int argc, char *argv[])
 		if (temporary_error)
 			return EX_TEMPFAIL;
 
+		msgid = mail_get_first_header(mail, "Message-ID");
+		i_info("msgid=%s: Rejected: %s",
+		       msgid == NULL ? "" : str_sanitize(msgid, 80),
+		       str_sanitize(error, 512));
+
 		/* we'll have to reply with permanent failure */
+		if (stderr_rejection) {
+			fprintf(stderr, "%s\n", error);
+			return EX_NOPERM;
+		}
 		ret = mail_send_rejection(mail, destination, error);
 		if (ret != 0)
 			return ret < 0 ? EX_TEMPFAIL : ret;
