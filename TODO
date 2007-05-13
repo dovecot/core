@@ -1,4 +1,24 @@
- - SQL/LDAP should require setting "nopassword" if no password is wanted
+POP3(username): UID larger than next_uid in file /home/username/Maildir/dovecot-uidlist (1 >= 1)
+  - 229  (1 >= 1)   44  (2 >= 2)    3  (3 >= 3)    1  (7 >= 7)
+
+POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assertion failed: (uid > prev_uid)
+
+ - v1.1:
+   - IMAP ACL / shared mailboxes support
+      - subscriptions
+      - is it useful to subscribe to a namespace prefix?
+   - mailbox list index for fs layout
+   - quota: delay counting the quota until it's really needed
+
+ - rquotad support for FS quota
+ - logging
+  - consistency: http://www.dovecot.org/list/dovecot/2007-April/021532.html
+  - add imap_logout_format
+    - number of bytes sent
+ - If dovecot.index.log has EXPUNGE command but mailbox is read-only it won't
+   get fixed by itself.
+ - EXPUNGE command in read-only mailbox should give an error message if
+   there are messages marked as \Deleted?
  - dovecot -o setting=something overriding
  - don't use squat with header if index doesn't exist
  - don't use squat index if searching only a couple of mails
@@ -30,7 +50,6 @@
    any files from tmp/, so if it fails we'll abort the mail saving
  - file_cache: we're growing the mmap in page size blocks, which is horribly
    slow if mremap() doesn't exist.
- - quota: delay counting the quota until it's really needed
  - login_max_processes_count shouldn't count proxying processes
  - maildir_copy_with_hardlinks: We're currently first hardlinking to tmp/ and
    then rename()ing. This wouldn't be necessary if uidlist syncing noticed
@@ -90,8 +109,6 @@
       selected in read-only state
 
  - maildir
-    - if indexes exist but dovecot-uidlist doesn't, it's not tried to be
-      recreated
     - with pop3 don't move messages from new/ to cur/ before RETR
     - when sorting maildir files, sort based on Mxxxx first so the files are
       sorted always in ascending order. required for proper out-of-quota
@@ -123,7 +140,7 @@
       (eg. file doesn't exist), just ignore the problem and disable the
       namespace
     - subscribe <namespace prefix> doesn't work.
-    - namespaces don't work in plugins: acl, trash, convert
+    - namespaces don't work in plugins: convert
     - subscriptions file should contain namespace prefixes. at least optionally.
       there's the subscriptions = yes setting now for namespaces.. do it so that
       if prefix = "" has subscriptions, it contains prefixes. otherwise not.
@@ -131,7 +148,6 @@
 
  - lib-storage
     - rename: allow moving between storages, as long as they're of same type
-    - calls fsync()s etc. less often (when copying). optionally disable them.
     - x search charset asdf all -> should fail
     - subscribe: IMAP(anonymous): open(anonymous/mail/.temp...) failed: Permission denied
     - should we allow following symlinks in mbox/maildirs? they are now.
@@ -168,6 +184,7 @@
       maybe just log the IP immediately.
 
  - auth
+    - uid_file and gid_file to get the uid/gid from given file's owner/group
     - ability to specify default password scheme with passwd-file
     - with blocking passdb we're not caching lookups if the password was wrong
     - non-plaintext authentication doesn't support all features:
@@ -175,9 +192,6 @@
 	- auth cache's last_success password change check doesn't exist
     - if PAM child process doesn't finish within a minute, kill it
     - PAM / checkpassword should use passdb-blocking
-    - support specifying hex/base64 encoding in password scheme. for example
-      {plain-md5.base64}
-    - auth cache: cache userdb data too.
     - remove system_user and allow returning multiple gids instead.
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
@@ -209,10 +223,6 @@
       the next_uid field with the current highest next_uid. Whenever we have
       assumed UIDs and uidlist gets updated, throw the client out with
       "inconsist mailbox".
-    - make sure all syscalls check for ENOSPACE (and ENOACCESS while at it)
-    - quota code should probably be always doing some quota_set_critical()
-      instead of using mail_storage_set_critical(), so that quota_last_error()
-      would work properly
     - if storage=0 is given, use unlimited quota but track it anyway
 
  - ssl
@@ -246,11 +256,9 @@
        be only one or two charsets which are used for nearly all conversions.
 
  - deliver
-    - We should always return EX_* failures and never our own 89 etc.
     - recipient_delimiter setting so user+mailbox@domain works directly
 
  - general
-    - add imap_logout_format
     - stop using atol(), atoi(), strtoul() etc. in places where we actually
       care about what they return, and rather create our own function which
       checks if the input overflows the integer, and if so call i_fatal()
@@ -277,23 +285,7 @@ capabilities:
  - preferrably all should be implemented as plugins
  - possibility to disable them from config file
  - THREAD=ORDEREDSUBJECT - although pretty useless I'd think.
- - acl (rfc2086, draft-ietf-imapext-acl), namespace (rfc2342)
-     - probably do it like cyrus. "user.<username>" to access other
-       users, with "" defaulting to "user.<myself>". these should be
-       configurable however.
-     - shared namespaces? maybe configurable in config file
-     - easiest way to do ACL would be to use unix modes, but is that
-       useful at all? Well, ACL2 has a bit better support for that, so
-       maybe we could support it.
-     - otherwise gets a bit trickly, we could keep all mail in "imapmail"
-       group and 0600/0700 mode by default, but when mail is shared to others,
-       the group read/write access bits would be set. or alternatively we
-       could launch another imap process to handle it, which we should support
-       anyway. ACLs could be stored into ".acl" ascii file in each folder.
-     - support for private and shared flags, configurable by mailbox admin.
-       this isn't in any draft yet, but ACL2 author was going to create one.
-       [SHAREDFLAGS (...)] would specify which ones are shared, don't know yet
-       how they would be configured.
+ - acl (rfc4314)
  - id (rfc2971)
      - must be configurable what gets sent, default to only name=Dovecot
      - separate pre/post-login settings
@@ -332,14 +324,10 @@ capabilities:
 	   temporary files, annotations are permanent data. we'd have to
 	   support non-db way to do this too, which would probably be just a
 	   simple (slow) text file.
-     - annotatemore (draft-daboo-imap-annotatemore)
+	 - use lib-dict probably
+     - metadata (draft-daboo-imap-annotatemore)
 	 - server and per-mailbox annotations. much easier than
 	   per-message annotations, but they'd be easier to place into
 	   db as well.
+	 - lib-dict, again
      - binary (draft-nerenberg-imap-binary)
-	 - perhaps not too useful. I'd like to make Dovecot fully
-	   binary-safe though.
-     - view (draft-ietf-imapext-view)
-         - slow, complex, luckily draft expired almost two years ago.
-	   i hope i don't have to implement this :)
-	 - can be done client-side just fine (evolution's virtual folders)
