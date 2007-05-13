@@ -92,7 +92,7 @@ static bool dbox_mail_try_open(struct index_mail *mail,
 					 file_seq_r, offset_r);
 	if (*ret_r <= 0) {
 		if (*ret_r == 0)
-			mail->mail.mail.expunged = TRUE;
+			mail_set_expunged(&mail->mail.mail);
 		return TRUE;
 	}
 

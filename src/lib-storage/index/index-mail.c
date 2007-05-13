@@ -1022,7 +1022,7 @@ int index_mail_set_uid(struct mail *_mail, uint32_t uid)
 	if (seq == 0) {
 		index_mail_reset(mail);
 		mail->mail.mail.uid = uid;
-		mail->mail.mail.expunged = TRUE;
+		mail_set_expunged(&mail->mail.mail);
 		return 0;
 	}
 

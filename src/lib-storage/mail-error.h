@@ -27,7 +27,9 @@ enum mail_error {
 	/* Out of disk space or quota */
 	MAIL_ERROR_NOSPACE,
 	/* Item (eg. mailbox) doesn't exist or it's not visible to us */
-	MAIL_ERROR_NOTFOUND
+	MAIL_ERROR_NOTFOUND,
+	/* Tried to access an expunged message */
+	MAIL_ERROR_EXPUNGED
 };
 
 /* Convert errno to mail_error and an error string. Returns TRUE if successful,

@@ -150,3 +150,10 @@ int mail_expunge(struct mail *mail)
 
 	return p->v.expunge(mail);
 }
+
+void mail_set_expunged(struct mail *mail)
+{
+	mail_storage_set_error(mail->box->storage, MAIL_ERROR_EXPUNGED,
+			       "Message was expunged");
+	mail->expunged = TRUE;
+}

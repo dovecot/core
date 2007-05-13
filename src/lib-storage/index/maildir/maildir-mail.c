@@ -156,7 +156,7 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 		fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid,
 					       &flags);
 		if (fname == NULL) {
-			_mail->expunged = TRUE;
+			mail_set_expunged(_mail);
 			return (uoff_t)-1;
 		}
 	} else {
@@ -190,7 +190,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 			fname = maildir_uidlist_lookup(mbox->uidlist,
 						       _mail->uid, &flags);
 			if (fname == NULL) {
-				_mail->expunged = TRUE;
+				mail_set_expunged(_mail);
 				return NULL;
 			}
 		} else {
@@ -224,7 +224,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 		fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid,
 					       &flags);
 		if (fname == NULL) {
-			_mail->expunged = TRUE;
+			mail_set_expunged(_mail);
 			return (uoff_t)-1;
 		}
 		path = NULL;
@@ -267,7 +267,8 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 	if (data->stream == NULL) {
 		data->stream = maildir_open_mail(mbox, _mail, &deleted);
 		if (data->stream == NULL) {
-			_mail->expunged = deleted;
+			if (deleted)
+				mail_set_expunged(_mail);
 			return NULL;
 		}
 	}

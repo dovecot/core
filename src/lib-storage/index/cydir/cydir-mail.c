@@ -25,7 +25,7 @@ static int cydir_mail_stat(struct mail *mail, struct stat *st_r)
 	path = cydir_mail_get_path(mail);
 	if (stat(path, st_r) < 0) {
 		if (errno == ENOENT)
-			mail->expunged = TRUE;
+			mail_set_expunged(mail);
 		else {
 			mail_storage_set_critical(mail->box->storage,
 						  "stat(%s) failed: %m", path);
@@ -104,7 +104,7 @@ cydir_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 		fd = open(path, O_RDONLY);
 		if (fd == -1) {
 			if (errno == ENOENT)
-				_mail->expunged = TRUE;
+				mail_set_expunged(_mail);
 			else {
 				mail_storage_set_critical(_mail->box->storage,
 					"open(%s) failed: %m", path);

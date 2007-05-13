@@ -293,6 +293,8 @@ void mail_storage_set_critical(struct mail_storage *storage,
 void mail_storage_set_internal_error(struct mail_storage *storage);
 bool mail_storage_set_error_from_errno(struct mail_storage *storage);
 
+void mail_set_expunged(struct mail *mail);
+
 enum mailbox_list_flags
 mail_storage_get_list_flags(enum mail_storage_flags storage_flags);
 

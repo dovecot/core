@@ -75,7 +75,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 		}
 		if (ret < 0) {
 			if (deleted)
-				mail->mail.mail.expunged = TRUE;
+				mail_set_expunged(&mail->mail.mail);
 			return -1;
 		}
 
