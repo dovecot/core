@@ -233,6 +233,9 @@ static void sigchld_handler(int signo __attr_unused__,
 					i_error("unknown child %s exited "
 						"successfully", dec2str(pid));
 				}
+			} else if (status == 1 &&
+				   process_type == PROCESS_TYPE_SSL_PARAM) {
+				/* kludgy. hide this failure. */
 			} else {
 				msg = get_exit_status_message(status);
 				msg = msg == NULL ? "" :
@@ -256,7 +259,7 @@ static void sigchld_handler(int signo __attr_unused__,
 			mail_process_destroyed(pid);
 			break;
 		case PROCESS_TYPE_SSL_PARAM:
-			ssl_parameter_process_destroyed(pid);
+			ssl_parameter_process_destroyed(abnormal_exit);
 			break;
 		case PROCESS_TYPE_DICT:
 			dict_process_restart();

@@ -60,11 +60,14 @@ static void start_generate_process(const char *fname)
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", binpath);
 }
 
-void ssl_parameter_process_destroyed(pid_t pid __attr_unused__)
+void ssl_parameter_process_destroyed(bool abnormal_exit)
 {
-	if (file_copy(SSL_PARAMETERS_PERM_PATH, generating_path, TRUE) <= 0) {
-		i_error("file_copy(%s, %s) failed: %m",
-			SSL_PARAMETERS_PERM_PATH, generating_path);
+	if (!abnormal_exit) {
+		if (file_copy(SSL_PARAMETERS_PERM_PATH,
+			      generating_path, TRUE) <= 0) {
+			i_error("file_copy(%s, %s) failed: %m",
+				SSL_PARAMETERS_PERM_PATH, generating_path);
+		}
 	}
 	i_free_and_null(generating_path);
 }
