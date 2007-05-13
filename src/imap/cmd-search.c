@@ -164,7 +164,7 @@ bool cmd_search(struct client_command_context *cmd)
 				       args, &error);
 	if (sargs == NULL) {
 		/* error in search arguments */
-		client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
+		client_send_tagline(cmd, t_strconcat("BAD ", error, NULL));
 		return TRUE;
 	}
 

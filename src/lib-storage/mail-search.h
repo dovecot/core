@@ -20,10 +20,10 @@ enum mail_search_arg_type {
 
 	/* dates */
 	SEARCH_BEFORE,
-	SEARCH_ON,
+	SEARCH_ON, /* time must point to beginning of the day */
 	SEARCH_SINCE,
 	SEARCH_SENTBEFORE,
-	SEARCH_SENTON,
+	SEARCH_SENTON, /* time must point to beginning of the day */
 	SEARCH_SENTSINCE,
 
 	/* sizes */
@@ -54,6 +54,7 @@ struct mail_search_arg {
 		struct mail_search_arg *subargs;
                 struct mail_search_seqset *seqset;
 		const char *str;
+		time_t time;
 	} value;
 
         void *context;

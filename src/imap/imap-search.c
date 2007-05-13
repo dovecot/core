@@ -3,6 +3,7 @@
 #include "common.h"
 #include "mail-storage.h"
 #include "mail-search.h"
+#include "imap-date.h"
 #include "imap-search.h"
 #include "imap-parser.h"
 #include "imap-messageset.h"
@@ -100,7 +101,21 @@ static bool arg_new(struct search_build_data *data, struct imap_arg **args,
 		return FALSE;
 	}
 
-	sarg->value.str = p_strdup(data->pool, IMAP_ARG_STR(*args));
+	switch (type) {
+	case SEARCH_BEFORE:
+	case SEARCH_ON:
+	case SEARCH_SINCE:
+	case SEARCH_SENTBEFORE:
+	case SEARCH_SENTON:
+	case SEARCH_SENTSINCE:
+		if (!imap_parse_date(IMAP_ARG_STR(*args), &sarg->value.time)) {
+			data->error = "Invalid search date parameter";
+			return FALSE;
+		}
+	default:
+		sarg->value.str = p_strdup(data->pool, IMAP_ARG_STR(*args));
+		break;
+	}
 	*args += 1;
 
 	if (hdr_name != NULL)

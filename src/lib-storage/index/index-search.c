@@ -9,7 +9,6 @@
 #include "message-date.h"
 #include "message-search.h"
 #include "message-parser.h"
-#include "imap-date.h"
 #include "index-storage.h"
 #include "index-mail.h"
 #include "index-sort.h"
@@ -186,14 +185,13 @@ static void search_index_arg(struct mail_search_arg *arg,
 
 /* Returns >0 = matched, 0 = not matched, -1 = unknown */
 static int search_arg_match_cached(struct index_search_context *ctx,
-				   enum mail_search_arg_type type,
-				   const char *value)
+				   struct mail_search_arg *arg)
 {
-	time_t date, search_time;
 	uoff_t virtual_size, search_size;
+	time_t date;
 	int timezone_offset;
 
-	switch (type) {
+	switch (arg->type) {
 	/* internal dates */
 	case SEARCH_BEFORE:
 	case SEARCH_ON:
@@ -202,17 +200,14 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		if (date == (time_t)-1)
 			return -1;
 
-		if (!imap_parse_date(value, &search_time))
-			return 0;
-
-		switch (type) {
+		switch (arg->type) {
 		case SEARCH_BEFORE:
-			return date < search_time;
+			return date < arg->value.time;
 		case SEARCH_ON:
-			return date >= search_time &&
-				date < search_time + 3600*24;
+			return date >= arg->value.time &&
+				date < arg->value.time + 3600*24;
 		case SEARCH_SINCE:
-			return date >= search_time;
+			return date >= arg->value.time;
 		default:
 			/* unreachable */
 			break;
@@ -229,17 +224,14 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 			return -1;
 		date += timezone_offset * 60;
 
-		if (!imap_parse_date(value, &search_time))
-			return 0;
-
-		switch (type) {
+		switch (arg->type) {
 		case SEARCH_SENTBEFORE:
-			return date < search_time;
+			return date < arg->value.time;
 		case SEARCH_SENTON:
-			return date >= search_time &&
-				date < search_time + 3600*24;
+			return date >= arg->value.time &&
+				date < arg->value.time + 3600*24;
 		case SEARCH_SENTSINCE:
-			return date >= search_time;
+			return date >= arg->value.time;
 		default:
 			/* unreachable */
 			break;
@@ -252,8 +244,8 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		if (virtual_size == (uoff_t)-1)
 			return -1;
 
-		search_size = str_to_uoff_t(value);
-		if (type == SEARCH_SMALLER)
+		search_size = str_to_uoff_t(arg->value.str);
+		if (arg->type == SEARCH_SMALLER)
 			return virtual_size < search_size;
 		else
 			return virtual_size > search_size;
@@ -266,8 +258,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 static void search_cached_arg(struct mail_search_arg *arg,
 			      struct index_search_context *ctx)
 {
-	switch (search_arg_match_cached(ctx, arg->type,
-					arg->value.str)) {
+	switch (search_arg_match_cached(ctx, arg)) {
 	case -1:
 		/* unknown */
 		break;
@@ -280,16 +271,13 @@ static void search_cached_arg(struct mail_search_arg *arg,
 	}
 }
 
-static int search_sent(enum mail_search_arg_type type, const char *search_value,
+static int search_sent(enum mail_search_arg_type type, time_t search_time,
 		       const unsigned char *sent_value, size_t sent_value_len)
 {
-	time_t search_time, sent_time;
+	time_t sent_time;
 	int timezone_offset;
 
 	if (sent_value == NULL)
-		return 0;
-
-	if (!imap_parse_date(search_value, &search_time))
 		return 0;
 
 	/* NOTE: RFC-3501 specifies that timezone is ignored
@@ -361,7 +349,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 				ctx->hdr->use_full_value = TRUE;
 				return;
 			}
-			ret = search_sent(arg->type, arg->value.str,
+			ret = search_sent(arg->type, arg->value.time,
 					  ctx->hdr->full_value,
 					  ctx->hdr->full_value_len);
 			ARG_SET_RESULT(arg, ret);
