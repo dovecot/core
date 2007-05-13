@@ -26,7 +26,7 @@ struct rpa_auth_request {
 	int phase;
 
 	/* cached: */
-	unsigned char pwd_md5[16];
+	unsigned char pwd_md5[MD5_RESULTLEN];
 	size_t service_len;
 	const unsigned char *service_ucs2be;
 	size_t username_len;
@@ -42,7 +42,7 @@ struct rpa_auth_request {
 	unsigned int user_challenge_len;
 	unsigned char *user_challenge;
 	unsigned char *user_response;
-	unsigned char *session_key;
+	unsigned char session_key[16];
 };
 
 #define RPA_SCHALLENGE_LEN	32
@@ -62,7 +62,7 @@ void *ucs2be_str(pool_t pool, const char *str, size_t *size);
  * Compute client -> server authentication response.
  */
 static void rpa_user_response(struct rpa_auth_request *request,
-			      unsigned char *digest)
+			      unsigned char digest[MD5_RESULTLEN])
 {
 	struct md5_context ctx;
 	unsigned char z[48];
@@ -70,7 +70,7 @@ static void rpa_user_response(struct rpa_auth_request *request,
 	memset(z, 0, sizeof(z));
 
 	md5_init(&ctx);
-	md5_update(&ctx, request->pwd_md5, 16);
+	md5_update(&ctx, request->pwd_md5, sizeof(request->pwd_md5));
 	md5_update(&ctx, z, sizeof(z));
 	md5_update(&ctx, request->username_ucs2be, request->username_len);
 	md5_update(&ctx, request->service_ucs2be, request->service_len);
@@ -78,7 +78,7 @@ static void rpa_user_response(struct rpa_auth_request *request,
 	md5_update(&ctx, request->user_challenge, request->user_challenge_len);
 	md5_update(&ctx, request->service_challenge, RPA_SCHALLENGE_LEN);
 	md5_update(&ctx, request->service_timestamp, RPA_TIMESTAMP_LEN);
-	md5_update(&ctx, request->pwd_md5, 16);
+	md5_update(&ctx, request->pwd_md5, sizeof(request->pwd_md5));
 	md5_final(&ctx, digest);
 }
 
@@ -86,17 +86,17 @@ static void rpa_user_response(struct rpa_auth_request *request,
  * Compute server -> client authentication response.
  */
 static void rpa_server_response(struct rpa_auth_request *request,
-				unsigned char *digest)
+				unsigned char digest[MD5_RESULTLEN])
 {
 	struct md5_context ctx;
-	unsigned char tmp[16];
+	unsigned char tmp[MD5_RESULTLEN];
 	unsigned char z[48];
-	int i;
+	unsigned int i;
 
 	memset(z, 0, sizeof(z));
 
 	md5_init(&ctx);
-	md5_update(&ctx, request->pwd_md5, 16);
+	md5_update(&ctx, request->pwd_md5, sizeof(request->pwd_md5));
 	md5_update(&ctx, z, sizeof(z));
 	md5_update(&ctx, request->service_ucs2be, request->service_len);
 	md5_update(&ctx, request->username_ucs2be, request->username_len);
@@ -104,24 +104,24 @@ static void rpa_server_response(struct rpa_auth_request *request,
 	md5_update(&ctx, request->service_challenge, RPA_SCHALLENGE_LEN);
 	md5_update(&ctx, request->user_challenge, request->user_challenge_len);
 	md5_update(&ctx, request->service_timestamp, RPA_TIMESTAMP_LEN);
-	md5_update(&ctx, request->pwd_md5, 16);
+	md5_update(&ctx, request->pwd_md5, sizeof(request->pwd_md5));
 	md5_final(&ctx, tmp);
 
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < sizeof(tmp); i++)
 		tmp[i] = request->session_key[i] ^ tmp[i];
 
 	md5_init(&ctx);
-	md5_update(&ctx, request->pwd_md5, 16);
+	md5_update(&ctx, request->pwd_md5, sizeof(request->pwd_md5));
 	md5_update(&ctx, z, sizeof(z));
 	md5_update(&ctx, request->service_ucs2be, request->service_len);
 	md5_update(&ctx, request->username_ucs2be, request->username_len);
 	md5_update(&ctx, request->realm_ucs2be, request->realm_len);
-	md5_update(&ctx, request->session_key, 16);
+	md5_update(&ctx, request->session_key, sizeof(request->session_key));
 	md5_update(&ctx, request->service_challenge, RPA_SCHALLENGE_LEN);
 	md5_update(&ctx, request->user_challenge, request->user_challenge_len);
 	md5_update(&ctx, request->service_timestamp, RPA_TIMESTAMP_LEN);
-	md5_update(&ctx, tmp, 16);
-	md5_update(&ctx, request->pwd_md5, 16);
+	md5_update(&ctx, tmp, sizeof(tmp));
+	md5_update(&ctx, request->pwd_md5, sizeof(request->pwd_md5));
 	md5_final(&ctx, digest);
 }
 
@@ -407,9 +407,11 @@ mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 static const unsigned char *
 mech_rpa_build_token4(struct rpa_auth_request *request, size_t *size)
 {
-	unsigned int length = sizeof(rpa_oid) + 17 + 17 + 1;
 	buffer_t *buf;
-	unsigned char server_response[16];
+	unsigned char server_response[MD5_RESULTLEN];
+	unsigned int length = sizeof(rpa_oid) +
+		sizeof(server_response) + 1 +
+		sizeof(request->session_key) + 1 + 1;
 
 	buf = buffer_create_dynamic(request->pool, length + 4);
 
@@ -418,16 +420,15 @@ mech_rpa_build_token4(struct rpa_auth_request *request, size_t *size)
 	buffer_append(buf, rpa_oid, sizeof(rpa_oid));
 
 	/* Generate random session key */
-	request->session_key = p_malloc(request->pool, 16);
-	random_fill(request->session_key, 16);
+	random_fill(request->session_key, sizeof(request->session_key));
 
 	/* Server authentication response */
 	rpa_server_response(request, server_response);
-	buffer_append_c(buf, 16);
-	buffer_append(buf, server_response, 16);
+	buffer_append_c(buf, sizeof(server_response));
+	buffer_append(buf, server_response, sizeof(server_response));
 
-	buffer_append_c(buf, 16);
-	buffer_append(buf, request->session_key, 16);
+	buffer_append_c(buf, sizeof(request->session_key));
+	buffer_append(buf, request->session_key, sizeof(request->session_key));
 
 	/* Status, 0 - success */
 	buffer_append_c(buf, 0);
@@ -439,18 +440,19 @@ mech_rpa_build_token4(struct rpa_auth_request *request, size_t *size)
 static bool verify_credentials(struct rpa_auth_request *request,
 			       const char *credentials)
 {
-	unsigned char response[16];
+	unsigned char response[MD5_RESULTLEN];
 	buffer_t *hash_buffer;
 
-	if (strlen(credentials) != 32)
+	if (strlen(credentials) != sizeof(request->pwd_md5)*2)
 		return FALSE;
 
-	hash_buffer = buffer_create_data(request->pool, request->pwd_md5, 16);
+	hash_buffer = buffer_create_data(request->pool, request->pwd_md5,
+					 sizeof(request->pwd_md5));
 	if (hex_to_binary(credentials, hash_buffer) < 0)
 		return FALSE;
 
 	rpa_user_response(request, response);
-	return memcmp(response, request->user_response, 16) == 0;
+	return memcmp(response, request->user_response, sizeof(response)) == 0;
 }
 
 static void
@@ -578,7 +580,7 @@ mech_rpa_auth_free(struct auth_request *auth_request)
 		(struct rpa_auth_request *)auth_request;
 
 	if (request->pwd_md5 != NULL)
-		safe_memset(request->pwd_md5, 0, 16);
+		safe_memset(request->pwd_md5, 0, sizeof(request->pwd_md5));
 
 	pool_unref(auth_request->pool);
 }
