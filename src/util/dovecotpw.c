@@ -108,22 +108,21 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if ((hash = password_generate(plaintext, user, scheme)) == NULL) {
-		fprintf(stderr, "error generating password hash\n");
+	if (!password_generate_encoded(plaintext, user, scheme, &hash)) {
+		fprintf(stderr, "Unknown scheme: %s\n", scheme);
 		exit(1);
 	}
 	if (Vflag == 1) {
-		const char *checkscheme, *checkpass;
+		const unsigned char *raw_password;
+		size_t size;
 
-		checkpass = t_strdup_printf("{%s}%s", scheme, hash);
-		checkscheme = password_get_scheme(&checkpass);
-
-		if (strcmp(scheme, checkscheme) != 0) {
-			fprintf(stderr, "reverse scheme lookup check failed\n");
+		if (password_decode(hash, scheme, &raw_password, &size) <= 0) {
+			fprintf(stderr, "reverse decode check failed\n");
 			exit(2);
 		}
-		if (password_verify(plaintext, checkpass,
-				    checkscheme, user) != 1) {
+
+		if (password_verify(plaintext, user, scheme,
+				    raw_password, size) != 1) {
 			fprintf(stderr,
 				"reverse password verification check failed\n");
 			exit(2);
