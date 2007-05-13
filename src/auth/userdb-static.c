@@ -62,7 +62,8 @@ static void static_lookup_real(struct auth_request *auth_request,
 
 static void
 static_credentials_callback(enum passdb_result result,
-			    const char *password __attr_unused__,
+			    const unsigned char *credentials __attr_unused__,
+			    size_t size __attr_unused__,
 			    struct auth_request *auth_request)
 {
 	struct static_context *ctx = auth_request->context;
@@ -116,7 +117,7 @@ static void static_lookup(struct auth_request *auth_request,
 		auth_request->state = AUTH_REQUEST_STATE_MECH_CONTINUE;
 
 		auth_request->context = ctx;
-		auth_request_lookup_credentials(auth_request, "CRYPT",
+		auth_request_lookup_credentials(auth_request, "",
 						static_credentials_callback);
 	} else {
 		static_lookup_real(auth_request, callback);

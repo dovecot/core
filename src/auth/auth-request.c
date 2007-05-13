@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "buffer.h"
 #include "hash.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "safe-memset.h"
 #include "str-sanitize.h"
@@ -449,9 +450,10 @@ void auth_request_verify_plain(struct auth_request *request,
 }
 
 static void
-auth_request_lookup_credentials_callback_finish(enum passdb_result result,
-						const char *password,
-						struct auth_request *request)
+auth_request_lookup_credentials_finish(enum passdb_result result,
+				       const unsigned char *credentials,
+				       size_t size,
+				       struct auth_request *request)
 {
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
@@ -462,18 +464,20 @@ auth_request_lookup_credentials_callback_finish(enum passdb_result result,
 		if (request->auth->verbose_debug_passwords &&
 		    result == PASSDB_RESULT_OK) {
 			auth_request_log_debug(request, "password",
-				"Credentials: %s", password);
+				"Credentials: %s",
+				binary_to_hex(credentials, size));
 		}
 		request->private_callback.
-			lookup_credentials(result, password, request);
+			lookup_credentials(result, credentials, size, request);
 	}
 }
 
 void auth_request_lookup_credentials_callback(enum passdb_result result,
-					      const char *password,
+					      const unsigned char *credentials,
+					      size_t size,
 					      struct auth_request *request)
 {
-	const char *scheme;
+	const char *cache_cred, *cache_scheme;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
@@ -488,18 +492,21 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 		const char *cache_key = request->passdb->passdb->cache_key;
 
 		if (passdb_cache_lookup_credentials(request, cache_key,
-						    &password, &scheme,
+						    &cache_cred, &cache_scheme,
 						    &result, TRUE)) {
 			auth_request_log_info(request, "passdb",
 				"Fallbacking to expired data from cache");
-			password = result != PASSDB_RESULT_OK ? NULL :
-				passdb_get_credentials(request, password,
-						       scheme);
+		}
+		if (result == PASSDB_RESULT_OK) {
+			if (!passdb_get_credentials(request, cache_cred,
+						    cache_scheme,
+						    &credentials, &size))
+				result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 		}
 	}
 
-	auth_request_lookup_credentials_callback_finish(result, password,
-							request);
+	auth_request_lookup_credentials_finish(result, credentials, size,
+					       request);
 }
 
 void auth_request_lookup_credentials(struct auth_request *request,
@@ -508,6 +515,8 @@ void auth_request_lookup_credentials(struct auth_request *request,
 {
 	struct passdb_module *passdb = request->passdb->passdb;
 	const char *cache_key, *cache_cred, *cache_scheme;
+	const unsigned char *credentials;
+	size_t size;
 	enum passdb_result result;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -520,11 +529,13 @@ void auth_request_lookup_credentials(struct auth_request *request,
 		if (passdb_cache_lookup_credentials(request, cache_key,
 						    &cache_cred, &cache_scheme,
 						    &result, FALSE)) {
-			cache_cred = result != PASSDB_RESULT_OK ? NULL :
-				passdb_get_credentials(request, cache_cred,
-						       cache_scheme);
-			auth_request_lookup_credentials_callback_finish(
-				result, cache_cred, request);
+			if (result == PASSDB_RESULT_OK &&
+			    !passdb_get_credentials(request, cache_cred,
+						    cache_scheme,
+						    &credentials, &size))
+				result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
+			auth_request_lookup_credentials_finish(
+				result, credentials, size, request);
 			return;
 		}
 	}
@@ -539,7 +550,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	} else {
 		/* this passdb doesn't support credentials */
 		auth_request_lookup_credentials_callback(
-			PASSDB_RESULT_SCHEME_NOT_AVAILABLE, NULL, request);
+			PASSDB_RESULT_SCHEME_NOT_AVAILABLE, NULL, 0, request);
 	}
 }
 
@@ -1021,6 +1032,9 @@ int auth_request_password_verify(struct auth_request *request,
 				 const char *crypted_password,
 				 const char *scheme, const char *subsystem)
 {
+	const unsigned char *raw_password;
+	size_t raw_password_size;
+	const char *user;
 	int ret;
 
 	if (request->skip_password_check) {
@@ -1034,16 +1048,29 @@ int auth_request_password_verify(struct auth_request *request,
 		return 0;
 	}
 
+	ret = password_decode(crypted_password, scheme,
+			      &raw_password, &raw_password_size);
+	if (ret <= 0) {
+		if (ret < 0) {
+			auth_request_log_error(request, subsystem,
+				"Invalid password format for scheme %s",
+				scheme);
+		} else {
+			auth_request_log_error(request, subsystem,
+					       "Unknown scheme %s", scheme);
+		}
+		return -1;
+	}
+
 	/* If original_username is set, use it. It may be important for some
 	   password schemes (eg. digest-md5). Otherwise the username is used
 	   only for logging purposes. */
-	ret = password_verify(plain_password, crypted_password, scheme,
-			      request->original_username != NULL ?
-			      request->original_username : request->user);
-	if (ret < 0) {
-		auth_request_log_error(request, subsystem,
-				       "Unknown password scheme %s", scheme);
-	} else if (ret == 0) {
+	user = request->original_username != NULL ?
+		request->original_username : request->user;
+	ret = password_verify(plain_password, user, scheme,
+			      raw_password, raw_password_size);
+	i_assert(ret >= 0);
+	if (ret == 0) {
 		auth_request_log_info(request, subsystem,
 				      "Password mismatch");
 		if (request->auth->verbose_debug_passwords) {

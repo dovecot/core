@@ -30,14 +30,18 @@ struct ntlm_auth_request {
 	struct ntlmssp_response *response;
 };
 
-static int lm_verify_credentials(struct ntlm_auth_request *request,
-				 const char *credentials)
+static bool lm_verify_credentials(struct ntlm_auth_request *request,
+				  const unsigned char *credentials, size_t size)
 {
 	const unsigned char *client_response;
 	unsigned char lm_response[LM_RESPONSE_SIZE];
-	unsigned char hash[LM_HASH_SIZE];
 	unsigned int response_length;
-	buffer_t *hash_buffer;
+
+	if (size != LM_HASH_SIZE) {
+                auth_request_log_error(&request->auth_request, "lm",
+				       "invalid credentials length");
+		return FALSE;
+	}
 
 	response_length =
 		ntlmssp_buffer_length(request->response, lm_response);
@@ -49,21 +53,13 @@ static int lm_verify_credentials(struct ntlm_auth_request *request,
 		return FALSE;
 	}
 
-	hash_buffer = buffer_create_data(request->auth_request.pool,
-					 hash, sizeof(hash));
-	if (hex_to_binary(credentials, hash_buffer) < 0) {
-                auth_request_log_error(&request->auth_request, "ntlm",
-				       "passdb credentials are not in hex");
-		return FALSE;
-	}
-
-	ntlmssp_v1_response(hash, request->challenge, lm_response);
+	ntlmssp_v1_response(credentials, request->challenge, lm_response);
 	return memcmp(lm_response, client_response, LM_RESPONSE_SIZE) == 0;
 }
 
 static void
 lm_credentials_callback(enum passdb_result result,
-			const char *credentials,
+			const unsigned char *credentials, size_t size,
 			struct auth_request *auth_request)
 {
 	struct ntlm_auth_request *request =
@@ -71,7 +67,7 @@ lm_credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (lm_verify_credentials(request, credentials))
+		if (lm_verify_credentials(request, credentials, size))
 			auth_request_success(auth_request, NULL, 0);
 		else
 			auth_request_fail(auth_request);
@@ -85,14 +81,13 @@ lm_credentials_callback(enum passdb_result result,
 	}
 }
 
-static int ntlm_verify_credentials(struct ntlm_auth_request *request,
-				   const char *credentials)
+static int
+ntlm_verify_credentials(struct ntlm_auth_request *request,
+			const unsigned char *credentials, size_t size)
 {
         struct auth_request *auth_request = &request->auth_request;
 	const unsigned char *client_response;
-	unsigned char hash[NTLMSSP_HASH_SIZE];
 	unsigned int response_length;
-	buffer_t *hash_buffer;
 
 	response_length =
 		ntlmssp_buffer_length(request->response, ntlm_response);
@@ -103,12 +98,10 @@ static int ntlm_verify_credentials(struct ntlm_auth_request *request,
 		return request->ntlm2_negotiated ? -1 : 0;
 	}
 
-	hash_buffer = buffer_create_data(auth_request->pool,
-					 hash, sizeof(hash));
-	if (hex_to_binary(credentials, hash_buffer) < 0) {
+	if (size != NTLMSSP_HASH_SIZE) {
                 auth_request_log_error(&request->auth_request, "ntlm",
-				       "passdb credentials are not in hex");
-		return 0;
+				       "invalid credentials length");
+		return -1;
 	}
 
 	if (response_length > NTLMSSP_RESPONSE_SIZE) {
@@ -121,7 +114,7 @@ static int ntlm_verify_credentials(struct ntlm_auth_request *request,
 		 * as a standalone server, not as NT domain member.
 		 */
 		ntlmssp_v2_response(auth_request->user, NULL,
-				    hash, request->challenge, blob,
+				    credentials, request->challenge, blob,
 				    response_length - NTLMSSP_V2_RESPONSE_SIZE,
 				    ntlm_v2_response);
 
@@ -133,11 +126,11 @@ static int ntlm_verify_credentials(struct ntlm_auth_request *request,
 			ntlmssp_buffer_data(request->response, lm_response);
 
 		if (request->ntlm2_negotiated)
-			ntlmssp2_response(hash, request->challenge,
+			ntlmssp2_response(credentials, request->challenge,
 					  client_lm_response,
 					  ntlm_response);
 		else 
-			ntlmssp_v1_response(hash, request->challenge,
+			ntlmssp_v1_response(credentials, request->challenge,
 					    ntlm_response);
 
 		return memcmp(ntlm_response, client_response,
@@ -147,7 +140,7 @@ static int ntlm_verify_credentials(struct ntlm_auth_request *request,
 
 static void
 ntlm_credentials_callback(enum passdb_result result,
-			  const char *credentials,
+			  const unsigned char *credentials, size_t size,
 			  struct auth_request *auth_request)
 {
 	struct ntlm_auth_request *request =
@@ -156,7 +149,7 @@ ntlm_credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		ret = ntlm_verify_credentials(request, credentials);
+		ret = ntlm_verify_credentials(request, credentials, size);
 		if (ret > 0) {
 			auth_request_success(auth_request, NULL, 0);
 			return;

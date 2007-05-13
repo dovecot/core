@@ -21,7 +21,8 @@ enum passdb_result {
 typedef void verify_plain_callback_t(enum passdb_result result,
 				     struct auth_request *request);
 typedef void lookup_credentials_callback_t(enum passdb_result result,
-					   const char *password,
+					   const unsigned char *credentials,
+					   size_t size,
 					   struct auth_request *request);
 typedef void set_credentials_callback_t(enum passdb_result result,
 					struct auth_request *request);
@@ -62,9 +63,17 @@ struct passdb_module {
 	struct passdb_module_interface iface;
 };
 
-const char *
-passdb_get_credentials(struct auth_request *auth_request,
-		       const char *password, const char *scheme);
+/* Try to get credentials in wanted scheme (request->credentials_scheme) from
+   given input. Returns FALSE if this wasn't possible (unknown scheme,
+   conversion not possible or invalid credentials).
+
+   If wanted scheme is "", the credentials are returned as-is without any
+   checks. This is useful mostly just to see if there exist any credentials
+   at all. */
+bool passdb_get_credentials(struct auth_request *auth_request,
+			    const char *input, const char *input_scheme,
+			    const unsigned char **credentials_r,
+			    size_t *size_r);
 
 void passdb_handle_credentials(enum passdb_result result,
 			       const char *password, const char *scheme,

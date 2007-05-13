@@ -438,26 +438,24 @@ mech_rpa_build_token4(struct rpa_auth_request *request, size_t *size)
 }
 
 static bool verify_credentials(struct rpa_auth_request *request,
-			       const char *credentials)
+			       const unsigned char *credentials, size_t size)
 {
 	unsigned char response[MD5_RESULTLEN];
-	buffer_t *hash_buffer;
 
-	if (strlen(credentials) != sizeof(request->pwd_md5)*2)
+	if (size != sizeof(request->pwd_md5)) {
+                auth_request_log_error(&request->auth_request, "rpa",
+				       "invalid credentials length");
 		return FALSE;
+	}
 
-	hash_buffer = buffer_create_data(request->pool, request->pwd_md5,
-					 sizeof(request->pwd_md5));
-	if (hex_to_binary(credentials, hash_buffer) < 0)
-		return FALSE;
-
+	memcpy(request->pwd_md5, credentials, sizeof(request->pwd_md5));
 	rpa_user_response(request, response);
 	return memcmp(response, request->user_response, sizeof(response)) == 0;
 }
 
 static void
 rpa_credentials_callback(enum passdb_result result,
-			 const char *credentials,
+			 const unsigned char *credentials, size_t size,
 			 struct auth_request *auth_request)
 {
 	struct rpa_auth_request *request =
@@ -467,7 +465,7 @@ rpa_credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (!verify_credentials(request, credentials))
+		if (!verify_credentials(request, credentials, size))
 			auth_request_fail(auth_request);
 		else {
 			token4 = mech_rpa_build_token4(request, &token4_size);

@@ -30,14 +30,14 @@ struct apop_auth_request {
 };
 
 static bool verify_credentials(struct apop_auth_request *request,
-			       const char *credentials)
+			       const unsigned char *credentials, size_t size)
 {
 	unsigned char digest[16];
 	struct md5_context ctx;
 
 	md5_init(&ctx);
 	md5_update(&ctx, request->challenge, strlen(request->challenge));
-	md5_update(&ctx, credentials, strlen(credentials));
+	md5_update(&ctx, credentials, size);
 	md5_final(&ctx, digest);
 
 	return memcmp(digest, request->digest, 16) == 0;
@@ -45,7 +45,7 @@ static bool verify_credentials(struct apop_auth_request *request,
 
 static void
 apop_credentials_callback(enum passdb_result result,
-			  const char *credentials,
+			  const unsigned char *credentials, size_t size,
 			  struct auth_request *auth_request)
 {
 	struct apop_auth_request *request =
@@ -53,7 +53,7 @@ apop_credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (verify_credentials(request, credentials))
+		if (verify_credentials(request, credentials, size))
 			auth_request_success(auth_request, NULL, 0);
 		else
 			auth_request_fail(auth_request);

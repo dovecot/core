@@ -102,7 +102,7 @@ passwd_file_lookup_credentials(struct auth_request *request,
 
 	pu = db_passwd_file_lookup(module->pwf, request);
 	if (pu == NULL) {
-		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, request);
+		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, 0, request);
 		return;
 	}
 

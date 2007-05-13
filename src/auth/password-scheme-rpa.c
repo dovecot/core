@@ -24,17 +24,12 @@ void *ucs2be_str(pool_t pool, const char *str, size_t *size)
 	return buffer_free_without_data(buf);
 }
 
-const char *password_generate_rpa(const char *pw)
+void password_generate_rpa(const char *pw, unsigned char result[])
 {
-	unsigned char hash[MD5_RESULTLEN];
 	unsigned char *ucs2be_pw;
 	size_t size;
 
 	ucs2be_pw = ucs2be_str(unsafe_data_stack_pool, pw, &size);
-
-	md5_get_digest(ucs2be_pw, size, hash);
-
+	md5_get_digest(ucs2be_pw, size, result);
 	safe_memset(ucs2be_pw, 0, size);
-
-	return binary_to_hex(hash, sizeof(hash));
 }

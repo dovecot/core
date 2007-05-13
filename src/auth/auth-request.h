@@ -157,7 +157,8 @@ void auth_request_log_error(struct auth_request *auth_request,
 void auth_request_verify_plain_callback(enum passdb_result result,
 					struct auth_request *request);
 void auth_request_lookup_credentials_callback(enum passdb_result result,
-					      const char *credentials,
+					      const unsigned char *credentials,
+					      size_t size,
 					      struct auth_request *request);
 void auth_request_set_credentials(struct auth_request *request,
 				  const char *scheme, const char *data,

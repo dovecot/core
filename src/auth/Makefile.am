@@ -20,8 +20,6 @@ libpassword_a_SOURCES = \
 	mycrypt.c \
 	password-scheme.c \
 	password-scheme-md5crypt.c \
-	password-scheme-cram-md5.c \
-	password-scheme-ntlm.c \
 	password-scheme-otp.c \
 	password-scheme-rpa.c
 

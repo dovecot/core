@@ -17,13 +17,14 @@
 
 static void 
 otp_send_challenge(struct auth_request *auth_request,
-		   const char *credentials)
+		   const unsigned char *credentials, size_t size)
 {
 	struct otp_auth_request *request =
 		(struct otp_auth_request *)auth_request;
 	const char *answer;
 
-	if (otp_parse_dbentry(credentials, &request->state) != 0) {
+	if (otp_parse_dbentry(t_strndup(credentials, size),
+			      &request->state) != 0) {
 		auth_request_log_error(&request->auth_request, "otp",
 				       "invalid OTP data in passdb");
 		auth_request_fail(auth_request);
@@ -56,12 +57,12 @@ otp_send_challenge(struct auth_request *auth_request,
 
 static void
 skey_credentials_callback(enum passdb_result result,
-			  const char *credentials,
+			  const unsigned char *credentials, size_t size,
 			  struct auth_request *auth_request)
 {
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		otp_send_challenge(auth_request, credentials);
+		otp_send_challenge(auth_request, credentials, size);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -74,12 +75,12 @@ skey_credentials_callback(enum passdb_result result,
 
 static void
 otp_credentials_callback(enum passdb_result result,
-			 const char *credentials,
+			 const unsigned char *credentials, size_t size,
 			 struct auth_request *auth_request)
 {
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		otp_send_challenge(auth_request, credentials);
+		otp_send_challenge(auth_request, credentials, size);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);

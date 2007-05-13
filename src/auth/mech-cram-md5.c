@@ -47,26 +47,20 @@ static const char *get_cram_challenge(void)
 }
 
 static bool verify_credentials(struct cram_auth_request *request,
-			       const char *credentials)
+			       const unsigned char *credentials, size_t size)
 {
 	
 	unsigned char digest[MD5_RESULTLEN];
-	unsigned char context_digest[CRAM_MD5_CONTEXTLEN];
         struct hmac_md5_context ctx;
-	buffer_t *context_digest_buf;
 	const char *response_hex;
 
-	context_digest_buf =
-		buffer_create_data(pool_datastack_create(),
-				   context_digest, sizeof(context_digest));
-
-	if (hex_to_binary(credentials, context_digest_buf) < 0) {
+	if (size != CRAM_MD5_CONTEXTLEN) {
                 auth_request_log_error(&request->auth_request, "cram-md5",
-				       "passdb credentials are not in hex");
+				       "invalid credentials length");
 		return FALSE;
 	}
 
-	hmac_md5_set_cram_context(&ctx, context_digest);
+	hmac_md5_set_cram_context(&ctx, credentials);
 	hmac_md5_update(&ctx, request->challenge, strlen(request->challenge));
 	hmac_md5_final(&ctx, digest);
 
@@ -109,7 +103,7 @@ static bool parse_cram_response(struct cram_auth_request *request,
 }
 
 static void credentials_callback(enum passdb_result result,
-				 const char *credentials,
+				 const unsigned char *credentials, size_t size,
 				 struct auth_request *auth_request)
 {
 	struct cram_auth_request *request =
@@ -117,7 +111,7 @@ static void credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (verify_credentials(request, credentials))
+		if (verify_credentials(request, credentials, size))
 			auth_request_success(auth_request, NULL, 0);
 		else
 			auth_request_fail(auth_request);

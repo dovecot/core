@@ -1,6 +1,7 @@
 /* Copyright (C) 2005 Timo Sirainen */
 
 #include "common.h"
+#include "base64.h"
 #include "ioloop.h"
 #include "network.h"
 #include "istream.h"
@@ -165,7 +166,8 @@ auth_worker_handle_passv(struct auth_worker_client *client,
 }
 
 static void
-lookup_credentials_callback(enum passdb_result result, const char *credentials,
+lookup_credentials_callback(enum passdb_result result,
+			    const unsigned char *credentials, size_t size,
 			    struct auth_request *request)
 {
 	struct auth_worker_client *client = request->context;
@@ -180,8 +182,10 @@ lookup_credentials_callback(enum passdb_result result, const char *credentials,
 	if (result != PASSDB_RESULT_OK)
 		str_printfa(str, "FAIL\t%d", result);
 	else {
-		str_printfa(str, "OK\t%s\t{%s}%s\t", request->user,
-			    request->credentials_scheme, credentials);
+		str_printfa(str, "OK\t%s\t{%s.b64}", request->user,
+			    request->credentials_scheme);
+		base64_encode(credentials, size, str);
+		str_append_c(str, '\t');
 		if (request->extra_fields != NULL) {
 			const char *field =
 				auth_stream_reply_export(request->extra_fields);

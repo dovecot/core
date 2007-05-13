@@ -174,7 +174,7 @@ handle_request_get_entry(struct ldap_connection *conn,
 	}
 
 	if (auth_request->credentials_scheme != NULL) {
-		request->callback.lookup_credentials(passdb_result, NULL,
+		request->callback.lookup_credentials(passdb_result, NULL, 0,
 						     auth_request);
 	} else {
 		request->callback.verify_plain(passdb_result, auth_request);

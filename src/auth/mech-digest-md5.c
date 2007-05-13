@@ -118,26 +118,17 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 }
 
 static bool verify_credentials(struct digest_auth_request *request,
-			       const char *credentials)
+			       const unsigned char *credentials, size_t size)
 {
 	struct md5_context ctx;
-	unsigned char digest[16];
+	unsigned char digest[MD5_RESULTLEN];
 	const char *a1_hex, *a2_hex, *response_hex;
-	buffer_t *digest_buf;
 	int i;
 
 	/* get the MD5 password */
-	if (strlen(credentials) != sizeof(digest)*2) {
+	if (size != MD5_RESULTLEN) {
                 auth_request_log_error(&request->auth_request, "digest-md5",
-				       "passdb credentials' length is wrong");
-		return FALSE;
-	}
-
-	digest_buf = buffer_create_data(pool_datastack_create(),
-					digest, sizeof(digest));
-	if (hex_to_binary(credentials, digest_buf) < 0) {
-                auth_request_log_error(&request->auth_request, "digest-md5",
-				       "passdb credentials are not in hex");
+				       "invalid credentials length");
 		return FALSE;
 	}
 
@@ -164,7 +155,7 @@ static bool verify_credentials(struct digest_auth_request *request,
 
 	/* A1 */
 	md5_init(&ctx);
-	md5_update(&ctx, digest, 16);
+	md5_update(&ctx, credentials, size);
 	md5_update(&ctx, ":", 1);
 	md5_update(&ctx, request->nonce, strlen(request->nonce));
 	md5_update(&ctx, ":", 1);
@@ -519,7 +510,7 @@ static bool parse_digest_response(struct digest_auth_request *request,
 }
 
 static void credentials_callback(enum passdb_result result,
-				 const char *credentials,
+				 const unsigned char *credentials, size_t size,
 				 struct auth_request *auth_request)
 {
 	struct digest_auth_request *request =
@@ -527,7 +518,7 @@ static void credentials_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (!verify_credentials(request, credentials)) {
+		if (!verify_credentials(request, credentials, size)) {
 			auth_request_fail(auth_request);
 			return;
 		}
