@@ -113,7 +113,7 @@ ntlmssp2_response(const unsigned char *hash,
 		  unsigned char response[NTLMSSP_RESPONSE_SIZE])
 {
 	struct md5_context ctx;
-	unsigned char session_hash[16];
+	unsigned char session_hash[MD5_RESULTLEN];
 
 	md5_init(&ctx);
 	md5_update(&ctx, server_challenge, NTLMSSP_CHALLENGE_SIZE);
