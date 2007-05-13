@@ -961,12 +961,17 @@ void auth_request_set_field(struct auth_request *request,
 		request->no_failure_delay = TRUE;
 	} else if (strcmp(name, "nopassword") == 0) {
 		/* NULL password - anything goes */
-		if (request->passdb_password != NULL &&
-		    *request->passdb_password != '\0') {
-			auth_request_log_error(request,
-				request->passdb->passdb->iface.name,
-				"nopassword set but password is non-empty");
-			return;
+		const char *password = request->passdb_password;
+
+		if (password != NULL) {
+			(void)password_get_scheme(&password);
+			if (*password != '\0') {
+				auth_request_log_error(request,
+					request->passdb->passdb->iface.name,
+					"nopassword set but password is "
+					"non-empty");
+				return;
+			}
 		}
 		request->no_password = TRUE;
 		request->passdb_password = NULL;
@@ -1046,6 +1051,11 @@ int auth_request_password_verify(struct auth_request *request,
 	if (request->passdb->deny) {
 		/* this is a deny database, we don't care about the password */
 		return 0;
+	}
+
+	if (request->no_password) {
+		auth_request_log_info(request, subsystem, "No password");
+		return 1;
 	}
 
 	ret = password_decode(crypted_password, scheme,

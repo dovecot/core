@@ -86,12 +86,15 @@ static void sql_query_callback(struct sql_result *result,
 		} else if (sql_result_next_row(result) > 0) {
 			auth_request_log_error(auth_request, "sql",
 				"Password query returned multiple matches");
+		} else if (auth_request->passdb_password == NULL &&
+			   !auth_request->no_password) {
+			auth_request_log_info(auth_request, "sql",
+				"Empty password returned without no_password");
+			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		} else {
 			/* passdb_password may change on the way,
 			   so we'll need to strdup. */
 			password = t_strdup(auth_request->passdb_password);
-			if (password == NULL)
-				auth_request->no_password = TRUE;
 			passdb_result = PASSDB_RESULT_OK;
 		}
 	}

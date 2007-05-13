@@ -255,6 +255,11 @@ crypt_verify(const char *plaintext, const char *user __attr_unused__,
 {
 	const char *password;
 
+	if (size == 0) {
+		/* the default mycrypt() handler would return match */
+		return FALSE;
+	}
+
 	password = t_strndup(raw_password, size);
 	return strcmp(mycrypt(plaintext, password), password) == 0;
 }

@@ -209,12 +209,15 @@ static void handle_request(struct ldap_connection *conn,
 	} else if (ldap_next_entry(conn->ld, entry) != NULL) {
 		auth_request_log_error(auth_request, "ldap",
 			"pass_filter matched multiple objects, aborting");
+	} else if (auth_request->passdb_password == NULL &&
+		   !auth_request->no_password) {
+		auth_request_log_info(auth_request, "ldap",
+			"Empty password returned without no_password");
+		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	} else {
 		/* passdb_password may change on the way,
 		   so we'll need to strdup. */
 		password = t_strdup(auth_request->passdb_password);
-		if (password == NULL)
-			auth_request->no_password = TRUE;
 		passdb_result = PASSDB_RESULT_OK;
 	}
 
