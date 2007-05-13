@@ -28,9 +28,13 @@ static void __attr_noreturn__
 smtp_client_run_sendmail(const char *destination,
 			 const char *return_path, int fd)
 {
-	const char *argv[7];
+	const char *argv[7], *sendmail_path;
 
-	argv[0] = deliver_set->sendmail_path;
+	/* deliver_set's contents may point to environment variables.
+	   deliver_env_clean() cleans them up, so they have to be copied. */
+	sendmail_path = t_strdup(deliver_set->sendmail_path);
+
+	argv[0] = sendmail_path;
 	argv[1] = "-i"; /* ignore dots */
 	argv[2] = "-f";
 	argv[3] = return_path != NULL && *return_path != '\0' ?
@@ -44,8 +48,8 @@ smtp_client_run_sendmail(const char *destination,
 
 	deliver_env_clean();
 
-	(void)execv(deliver_set->sendmail_path, (char **)argv);
-	i_fatal("execv(%s) failed: %m", deliver_set->sendmail_path);
+	(void)execv(sendmail_path, (char **)argv);
+	i_fatal("execv(%s) failed: %m", sendmail_path);
 }
 
 struct smtp_client *smtp_client_open(const char *destination,
