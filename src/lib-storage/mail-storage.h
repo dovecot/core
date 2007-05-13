@@ -174,8 +174,6 @@ struct mail {
 };
 
 struct mail_storage_callbacks {
-	/* Alert: Not enough disk space */
-	void (*alert_no_diskspace)(struct mailbox *mailbox, void *context);
 	/* "* OK <text>" */
 	void (*notify_ok)(struct mailbox *mailbox, const char *text,
 			  void *context);
