@@ -213,16 +213,17 @@ static bool sha1_verify(const char *plaintext, const char *password,
 static const char *ssha_generate(const char *plaintext,
 				 const char *user __attr_unused__)
 {
-	unsigned char ssha_digest[SHA1_RESULTLEN+4];
+#define SSHA_SALT_LEN 4
+	unsigned char ssha_digest[SHA1_RESULTLEN + SSHA_SALT_LEN];
 	unsigned char *salt = &ssha_digest[SHA1_RESULTLEN];
 	struct sha1_ctxt ctx;
 	string_t *str;
 
-	random_fill(salt, 4);
+	random_fill(salt, SSHA_SALT_LEN);
 
 	sha1_init(&ctx);
 	sha1_loop(&ctx, plaintext, strlen(plaintext));
-	sha1_loop(&ctx, salt, 4);
+	sha1_loop(&ctx, salt, SSHA_SALT_LEN);
 	sha1_result(&ctx, ssha_digest);
 
 	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(ssha_digest))+1);
@@ -265,16 +266,17 @@ static bool ssha_verify(const char *plaintext, const char *password,
 static const char *smd5_generate(const char *plaintext,
 				 const char *user __attr_unused__)
 {
-	unsigned char smd5_digest[20];
+#define SMD5_SALT_LEN 4
+	unsigned char smd5_digest[MD5_RESULTLEN + SMD5_SALT_LEN];
 	unsigned char *salt = &smd5_digest[MD5_RESULTLEN];
 	struct md5_context ctx;
 	string_t *str;
 
-	random_fill(salt, 4);
+	random_fill(salt, SMD5_SALT_LEN);
 
 	md5_init(&ctx);
 	md5_update(&ctx, plaintext, strlen(plaintext));
-	md5_update(&ctx, salt, 4);
+	md5_update(&ctx, salt, SMD5_SALT_LEN);
 	md5_final(&ctx, smd5_digest);
 
 	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(smd5_digest))+1);
