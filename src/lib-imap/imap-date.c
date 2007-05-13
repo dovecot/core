@@ -84,7 +84,7 @@ bool imap_parse_date(const char *str, time_t *time)
 	struct tm tm;
 
 	str = imap_parse_date_internal(str, &tm);
-	if (str == NULL)
+	if (str == NULL || str[0] != '\0')
 		return FALSE;
 
 	tm.tm_isdst = -1;
