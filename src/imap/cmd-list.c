@@ -175,10 +175,8 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 		}
 	}
 
-	if (mailbox_list_iter_deinit(&ctx->list_iter) < 0) {
-		mail_storage_set_list_error(ctx->ns->storage);
+	if (mailbox_list_iter_deinit(&ctx->list_iter) < 0)
 		ret = -1;
-	}
 
 	if (ret == 0)
 		list_namespace_inbox(client, ctx);
@@ -236,7 +234,6 @@ list_namespace_init(struct client_command_context *cmd,
 	const char *cur_ns_prefix, *cur_ref, *cur_mask;
 	enum imap_match_result match;
 	enum imap_match_result inbox_match;
-	struct mailbox_list *list;
 	struct imap_match_glob *inbox_glob;
 	unsigned int count;
 	size_t len;
@@ -394,9 +391,8 @@ list_namespace_init(struct client_command_context *cmd,
 	cur_ref = mail_namespace_fix_sep(ns, cur_ref);
 	cur_mask = mail_namespace_fix_sep(ns, cur_mask);
 
-	list = mail_storage_get_list(ns->storage);
-	cur_mask = mailbox_list_join_refmask(list, cur_ref, cur_mask);
-	ctx->list_iter = mailbox_list_iter_init(list, cur_mask,
+	cur_mask = mailbox_list_join_refmask(ns->list, cur_ref, cur_mask);
+	ctx->list_iter = mailbox_list_iter_init(ns->list, cur_mask,
 						ctx->list_flags);
 }
 
@@ -407,10 +403,8 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 	int ret;
 
 	if (cmd->cancel) {
-		if (ctx->list_iter != NULL) {
-			if (mailbox_list_iter_deinit(&ctx->list_iter) < 0)
-				mail_storage_set_list_error(ctx->ns->storage);
-		}
+		if (ctx->list_iter != NULL)
+			(void)mailbox_list_iter_deinit(&ctx->list_iter);
 		return TRUE;
 	}
 	for (; ctx->ns != NULL; ctx->ns = ctx->ns->next) {
@@ -418,7 +412,7 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 			list_namespace_init(cmd, ctx);
 
 		if ((ret = list_namespace_mailboxes(client, ctx)) < 0) {
-			client_send_storage_error(cmd, ctx->ns->storage);
+			client_send_list_error(cmd, ctx->ns->list);
 			return TRUE;
 		}
 		if (ret == 0)

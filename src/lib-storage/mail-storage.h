@@ -213,7 +213,6 @@ void mail_storage_destroy(struct mail_storage **storage);
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);
 struct mailbox_list *mail_storage_get_list(struct mail_storage *storage);
 struct mail_namespace *mail_storage_get_namespace(struct mail_storage *storage);
-void mail_storage_set_list_error(struct mail_storage *storage);
 
 /* Set storage callback functions to use. */
 void mail_storage_set_callbacks(struct mail_storage *storage,

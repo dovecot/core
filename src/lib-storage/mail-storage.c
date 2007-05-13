@@ -266,17 +266,6 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	storage->temporary_error = TRUE;
 }
 
-void mail_storage_set_list_error(struct mail_storage *storage)
-{
-	bool temp;
-
-	i_free(storage->error);
-	storage->error =
-		i_strdup(mailbox_list_get_last_error(storage->list, &temp));
-
-	storage->temporary_error = temp;
-}
-
 void mail_storage_set_critical(struct mail_storage *storage,
 			       const char *fmt, ...)
 {

@@ -43,10 +43,9 @@ bool cmd_delete(struct client_command_context *cmd)
 	}
 
 	list = mail_storage_get_list(storage);
-	if (mailbox_list_delete_mailbox(list, name) < 0) {
-		mail_storage_set_list_error(storage);
-		client_send_storage_error(cmd, storage);
-	} else {
+	if (mailbox_list_delete_mailbox(list, name) < 0)
+		client_send_list_error(cmd, list);
+	else {
 		client_send_tagline(cmd, "OK Delete completed.");
 	}
 	return TRUE;

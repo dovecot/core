@@ -143,6 +143,16 @@ bool client_verify_open_mailbox(struct client_command_context *cmd)
 	}
 }
 
+void client_send_list_error(struct client_command_context *cmd,
+			    struct mailbox_list *list)
+{
+	const char *error;
+	bool temporary_error;
+
+	error = mailbox_list_get_last_error(list, &temporary_error);
+	client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
+}
+
 void client_send_storage_error(struct client_command_context *cmd,
 			       struct mail_storage *storage)
 {

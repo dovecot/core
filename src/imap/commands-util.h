@@ -32,6 +32,9 @@ bool client_verify_mailbox_name(struct client_command_context *cmd,
    error message to client. */
 bool client_verify_open_mailbox(struct client_command_context *cmd);
 
+/* Send last mailbox list error message to client. */
+void client_send_list_error(struct client_command_context *cmd,
+			    struct mailbox_list *list);
 /* Send last mail storage error message to client. */
 void client_send_storage_error(struct client_command_context *cmd,
 			       struct mail_storage *storage);
