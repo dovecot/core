@@ -62,8 +62,7 @@ struct search_body_context {
 static const enum message_header_parser_flags hdr_parser_flags =
 	MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
 
-static int search_parse_msgset_args(struct index_mailbox *ibox,
-				    const struct mail_index_header *hdr,
+static int search_parse_msgset_args(const struct mail_index_header *hdr,
 				    struct mail_search_arg *args,
 				    uint32_t *seq1_r, uint32_t *seq2_r,
 				    bool not);
@@ -603,10 +602,9 @@ static void update_seqs(const struct mail_search_seqset *set,
 	}
 }
 
-static int search_msgset_fix(struct index_mailbox *ibox,
-                             const struct mail_index_header *hdr,
-			     struct mail_search_seqset *set,
-			     uint32_t *seq1_r, uint32_t *seq2_r, bool not)
+static void search_msgset_fix(const struct mail_index_header *hdr,
+			      struct mail_search_seqset *set,
+			      uint32_t *seq1_r, uint32_t *seq2_r, bool not)
 {
 	struct mail_search_seqset full_set;
 	uint32_t min_seq = (uint32_t)-1, max_seq = 0;
@@ -622,7 +620,7 @@ static int search_msgset_fix(struct index_mailbox *ibox,
 				/* completely outside our range */
 				*seq1_r = (uint32_t)-1;
 				*seq2_r = 0;
-				return 0;
+				return;
 			}
 			/* either seq1 or seq2 is '*', so the last message is
 			   in range. */
@@ -632,9 +630,10 @@ static int search_msgset_fix(struct index_mailbox *ibox,
 			set->seq2 = hdr->messages_count;
 
 		if (set->seq1 == 0 || set->seq2 == 0) {
-			mail_storage_set_syntax_error(ibox->box.storage,
-						      "Invalid messageset");
-			return -1;
+			/* this shouldn't happen. treat as nonexisting. */
+			*seq1_r = (uint32_t)-1;
+			*seq2_r = 0;
+			return;
 		}
 
 		if (set->seq1 < min_seq)
@@ -647,11 +646,10 @@ static int search_msgset_fix(struct index_mailbox *ibox,
 	full_set.seq2 = max_seq;
 	full_set.next = NULL;
 	update_seqs(&full_set, hdr, seq1_r, seq2_r, not);
-	return 0;
+	return;
 }
 
-static int search_or_parse_msgset_args(struct index_mailbox *ibox,
-				       const struct mail_index_header *hdr,
+static int search_or_parse_msgset_args(const struct mail_index_header *hdr,
 				       struct mail_search_arg *args,
 				       uint32_t *seq1_r, uint32_t *seq2_r,
 				       bool not)
@@ -666,20 +664,18 @@ static int search_or_parse_msgset_args(struct index_mailbox *ibox,
 		seq1 = 1; seq2 = hdr->messages_count;
 
 		if (args->type == SEARCH_SUB) {
-			if (search_parse_msgset_args(ibox, hdr,
-						     args->value.subargs,
+			if (search_parse_msgset_args(hdr, args->value.subargs,
 						     &seq1, &seq2, cur_not) < 0)
 				return -1;
 		} else if (args->type == SEARCH_OR) {
-			if (search_or_parse_msgset_args(ibox, hdr,
+			if (search_or_parse_msgset_args(hdr,
 							args->value.subargs,
 							&seq1, &seq2,
 							cur_not) < 0)
 				return -1;
 		} else if (args->type == SEARCH_SEQSET) {
-			if (search_msgset_fix(ibox, hdr, args->value.seqset,
-					      &seq1, &seq2, cur_not) < 0)
-				return -1;
+			search_msgset_fix(hdr, args->value.seqset,
+					  &seq1, &seq2, cur_not);
 		}
 
 		if (min_seq1 == 0) {
@@ -701,8 +697,7 @@ static int search_or_parse_msgset_args(struct index_mailbox *ibox,
 	return 0;
 }
 
-static int search_parse_msgset_args(struct index_mailbox *ibox,
-				    const struct mail_index_header *hdr,
+static int search_parse_msgset_args(const struct mail_index_header *hdr,
 				    struct mail_search_arg *args,
 				    uint32_t *seq1_r, uint32_t *seq2_r,
 				    bool not)
@@ -714,23 +709,21 @@ static int search_parse_msgset_args(struct index_mailbox *ibox,
 			cur_not = !cur_not;
 
 		if (args->type == SEARCH_SUB) {
-			if (search_parse_msgset_args(ibox, hdr,
-						     args->value.subargs,
+			if (search_parse_msgset_args(hdr, args->value.subargs,
 						     seq1_r, seq2_r,
 						     cur_not) < 0)
 				return -1;
 		} else if (args->type == SEARCH_OR) {
 			/* go through our children and use the widest seqset
 			   range */
-			if (search_or_parse_msgset_args(ibox, hdr,
+			if (search_or_parse_msgset_args(hdr,
 							args->value.subargs,
 							seq1_r, seq2_r,
 							cur_not) < 0)
 				return -1;
 		} else if (args->type == SEARCH_SEQSET) {
-			if (search_msgset_fix(ibox, hdr, args->value.seqset,
-					      seq1_r, seq2_r, cur_not) < 0)
-				return -1;
+			search_msgset_fix(hdr, args->value.seqset,
+					  seq1_r, seq2_r, cur_not);
 		}
 	}
 	return 0;
@@ -834,8 +827,8 @@ static int search_get_seqset(struct index_search_context *ctx,
 	ctx->seq1 = 1;
 	ctx->seq2 = hdr->messages_count;
 
-	if (search_parse_msgset_args(ctx->ibox, hdr, args,
-				     &ctx->seq1, &ctx->seq2, FALSE) < 0)
+	if (search_parse_msgset_args(hdr, args, &ctx->seq1, &ctx->seq2,
+				     FALSE) < 0)
 		return -1;
 
 	if (ctx->seq1 == 0) {
