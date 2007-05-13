@@ -1,7 +1,7 @@
-/* Copyright (C) 2003 Timo Sirainen */
+/* Copyright (C) 2003-2007 Timo Sirainen */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "base64.h"
 #include "hex-binary.h"
 #include "md4.h"
@@ -17,7 +17,7 @@
 static const char salt_chars[] =
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-static buffer_t *schemes_buf;
+static ARRAY_DEFINE(schemes_arr, struct password_scheme);
 static const struct password_scheme *schemes;
 #ifdef HAVE_MODULES
 static struct module *scheme_modules;
@@ -521,16 +521,16 @@ static const struct password_scheme default_schemes[] = {
 
 void password_schemes_init(void)
 {
-	static const struct password_scheme null_scheme = { NULL, NULL, NULL };
 	const struct password_scheme *s;
 #ifdef HAVE_MODULES
 	struct module *mod;
 	const char *symbol;
 #endif
 
-	schemes_buf = buffer_create_dynamic(default_pool, 128);
+	i_array_init(&schemes_arr, sizeof(default_schemes) /
+		     sizeof(default_schemes[0]) + 4);
 	for (s = default_schemes; s->name != NULL; s++)
-		buffer_append(schemes_buf, s, sizeof(*s));
+		array_append(&schemes_arr, s, 1);
 
 #ifdef HAVE_MODULES
 	scheme_modules = module_dir_load(AUTH_MODULE_DIR"/password",
@@ -541,13 +541,13 @@ void password_schemes_init(void)
 		symbol = t_strconcat(mod->name, "_scheme", NULL);
 		s = module_get_symbol(mod, symbol);
 		if (s != NULL)
-			buffer_append(schemes_buf, s, sizeof(*s));
+			array_append(&schemes_arr, s, 1);
 		t_pop();
 	}
 #endif
 
-	buffer_append(schemes_buf, &null_scheme, sizeof(null_scheme));
-	schemes = buffer_get_data(schemes_buf, NULL);
+	(void)array_append_space(&schemes_arr);
+	schemes = array_idx(&schemes_arr, 0);
 }
 
 void password_schemes_deinit(void)
@@ -556,6 +556,6 @@ void password_schemes_deinit(void)
 	module_dir_unload(&scheme_modules);
 #endif
 
-	buffer_free(schemes_buf);
+	array_free(&schemes_arr);
 	schemes = NULL;
 }
