@@ -167,7 +167,8 @@ const char *deliver_get_return_address(struct mail *mail)
 		message_address_parse(pool_datastack_create(),
 				      (const unsigned char *)str,
 				      strlen(str), 1, FALSE);
-	return addr == NULL || addr->mailbox == NULL || addr->domain == NULL ?
+	return addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
+		*addr->mailbox == '\0' || *addr->domain == '\0' ?
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
 }
 
