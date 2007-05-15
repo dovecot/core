@@ -43,6 +43,23 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 	return ret;
 }
 
+static int do_racecheck(struct maildir_mailbox *mbox, const char *path,
+			void *context __attr_unused__)
+{
+	struct stat st;
+
+	if (lstat(path, &st) == 0 && (st.st_mode & S_IFLNK) != 0) {
+		/* most likely a symlink pointing to a non-existing file */
+		mail_storage_set_critical(&mbox->storage->storage,
+			"Maildir: Symlink destination doesn't exist: %s", path);
+		return -2;
+	} else {
+		mail_storage_set_critical(&mbox->storage->storage,
+			"maildir_file_do(%s): Filename keeps changing", path);
+		return -1;
+	}
+}
+
 #undef maildir_file_do
 int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		    maildir_file_do_func *callback, void *context)
@@ -60,11 +77,8 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		ret = maildir_file_do_try(mbox, uid, callback, context);
 	}
 
-	if (i == 10) {
-		ret = -1;
-		mail_storage_set_critical(&mbox->storage->storage,
-			"maildir_file_do(%s) racing", mbox->path);
-	}
+	if (i == 10)
+		ret = maildir_file_do_try(mbox, uid, do_racecheck, context);
 
 	return ret == -2 ? 0 : ret;
 }
