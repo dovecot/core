@@ -162,7 +162,6 @@ struct mail_index {
 
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id;
-	char *copy_lock_path;
 	enum file_lock_method lock_method;
 
 	struct file_lock *file_lock;

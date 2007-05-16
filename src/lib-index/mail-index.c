@@ -1707,7 +1707,6 @@ void mail_index_close(struct mail_index *index)
 		index->fd = -1;
 	}
 
-	i_free_and_null(index->copy_lock_path);
 	i_free_and_null(index->filepath);
 
 	index->indexid = 0;
@@ -1796,8 +1795,6 @@ int mail_index_reopen(struct mail_index *index, int fd)
 int mail_index_reopen_if_needed(struct mail_index *index)
 {
 	struct stat st1, st2;
-
-        i_assert(index->copy_lock_path == NULL);
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return 0;
