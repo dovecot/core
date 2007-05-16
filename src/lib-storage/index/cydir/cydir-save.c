@@ -11,6 +11,7 @@
 #include "cydir-sync.h"
 
 #include <stdio.h>
+#include <utime.h>
 
 struct cydir_save_context {
 	struct mail_save_context ctx;
@@ -28,6 +29,7 @@ struct cydir_save_context {
 	struct istream *input;
 	struct ostream *output;
 	struct mail *mail;
+	int fd;
 
 	unsigned int failed:1;
 	unsigned int finished:1;
@@ -68,12 +70,8 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	enum mail_flags save_flags;
 	struct ostream *output;
 	const char *path;
-	int fd;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
-
-	if (received_date == (time_t)-1)
-		received_date = ioloop_time;
 
 	if (ctx == NULL) {
 		ctx = t->save_ctx = i_new(struct cydir_save_context, 1);
@@ -86,11 +84,23 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 
 	t_push();
 	path = cydir_get_save_path(ctx, ctx->mail_count);
-	fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
-	if (fd != -1) {
-		output = o_stream_create_file(fd, default_pool, 0, TRUE);
+	ctx->fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
+	if (ctx->fd != -1) {
+		output = o_stream_create_file(ctx->fd, default_pool, 0, FALSE);
 		ctx->output = o_stream_create_crlf(default_pool, output);
 		o_stream_unref(&output);
+
+		if (received_date != (time_t)-1) {
+			struct utimbuf ut;
+
+			ut.actime = ioloop_time;
+			ut.modtime = received_date;
+			if (utime(path, &ut) < 0) {
+				mail_storage_set_critical(_t->box->storage,
+					"utime(%s) failed: %m", path);
+				/* ignore this error anyway */
+			}
+		}
 	} else {
 		mail_storage_set_critical(_t->box->storage,
 					  "open(%s) failed: %m", path);
@@ -145,8 +155,26 @@ int cydir_save_continue(struct mail_save_context *_ctx)
 int cydir_save_finish(struct mail_save_context *_ctx)
 {
 	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 
 	ctx->finished = TRUE;
+
+	if (!ctx->mbox->ibox.fsync_disable) {
+		if (fsync(ctx->fd) < 0) {
+			mail_storage_set_critical(storage,
+				"fsync(%s) failed: %m",
+				cydir_get_save_path(ctx, ctx->mail_count));
+			ctx->failed = TRUE;
+		}
+	}
+
+	o_stream_destroy(&ctx->output);
+	if (close(ctx->fd) < 0) {
+		mail_storage_set_critical(storage, "close(%s) failed: %m",
+			cydir_get_save_path(ctx, ctx->mail_count));
+		ctx->failed = TRUE;
+	}
+	ctx->fd = -1;
 
 	if (!ctx->failed)
 		ctx->mail_count++;
