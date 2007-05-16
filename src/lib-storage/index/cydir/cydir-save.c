@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "hostpid.h"
 #include "istream.h"
+#include "istream-tee.h"
 #include "ostream.h"
 #include "ostream-crlf.h"
 #include "str.h"
@@ -26,9 +27,9 @@ struct cydir_save_context {
 
 	/* updated for each appended mail: */
 	uint32_t seq;
-	struct istream *input;
+	struct istream *input, *input2;
 	struct ostream *output;
-	struct mail *mail;
+	struct mail *mail, *cur_dest_mail;
 	int fd;
 
 	unsigned int failed:1;
@@ -69,6 +70,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	struct cydir_save_context *ctx = t->save_ctx;
 	enum mail_flags save_flags;
 	struct ostream *output;
+	struct tee_istream *tee;
 	const char *path;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -80,7 +82,6 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 		ctx->trans = t->ictx.trans;
 		ctx->tmp_basename = cydir_generate_tmp_filename();
 	}
-	ctx->input = input;
 
 	t_push();
 	path = cydir_get_save_path(ctx, ctx->mail_count);
@@ -128,6 +129,13 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	if (mail_set_seq(dest_mail, ctx->seq) < 0)
 		i_unreached();
 
+	tee = tee_i_stream_create(input, default_pool);
+	ctx->input = tee_i_stream_create_child(tee, default_pool);
+	ctx->input2 = tee_i_stream_create_child(tee, default_pool);
+
+	ctx->cur_dest_mail = dest_mail;
+	index_mail_cache_parse_init(dest_mail, ctx->input2);
+
 	*ctx_r = &ctx->ctx;
 	return ctx->failed ? -1 : 0;
 }
@@ -139,6 +147,8 @@ int cydir_save_continue(struct mail_save_context *_ctx)
 
 	if (ctx->failed)
 		return -1;
+
+	index_mail_cache_parse_continue(ctx->cur_dest_mail);
 
 	if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
 		if (!mail_storage_set_error_from_errno(storage)) {
@@ -156,28 +166,38 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 {
 	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
+	const char *path = cydir_get_save_path(ctx, ctx->mail_count);
 
 	ctx->finished = TRUE;
 
 	if (!ctx->mbox->ibox.fsync_disable) {
 		if (fsync(ctx->fd) < 0) {
 			mail_storage_set_critical(storage,
-				"fsync(%s) failed: %m",
-				cydir_get_save_path(ctx, ctx->mail_count));
+						  "fsync(%s) failed: %m", path);
 			ctx->failed = TRUE;
 		}
 	}
 
 	o_stream_destroy(&ctx->output);
 	if (close(ctx->fd) < 0) {
-		mail_storage_set_critical(storage, "close(%s) failed: %m",
-			cydir_get_save_path(ctx, ctx->mail_count));
+		mail_storage_set_critical(storage,
+					  "close(%s) failed: %m", path);
 		ctx->failed = TRUE;
 	}
 	ctx->fd = -1;
 
 	if (!ctx->failed)
 		ctx->mail_count++;
+	else {
+		if (unlink(path) < 0) {
+			mail_storage_set_critical(storage,
+				"unlink(%s) failed: %m", path);
+		}
+	}
+
+	index_mail_cache_parse_deinit(ctx->cur_dest_mail);
+	i_stream_unref(&ctx->input);
+	i_stream_unref(&ctx->input2);
 
 	return ctx->failed ? -1 : 0;
 }
