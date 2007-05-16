@@ -1246,7 +1246,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	struct mail_index *index = file->log->index;
 	size_t size;
 	struct stat st;
-	int ret, use_mmap;
+	int ret;
 
 	i_assert(start_offset <= end_offset);
 
@@ -1265,11 +1265,6 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
 		return 1;
 
-	/* with mmap_no_write we could alternatively just write to log with
-	   msync() rather than pwrite(). but since there aren't many such OSes
-	   left, it's easier to just use mmap_disable behavior with it */
-	use_mmap = !index->mmap_disable && !index->mmap_no_write;
-
 	if (file->buffer != NULL && file->buffer_offset <= start_offset) {
 		/* see if we already have it */
 		size = buffer_get_used_size(file->buffer);
@@ -1277,7 +1272,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 			return 1;
 	}
 
-	if (use_mmap) {
+	if (!index->mmap_disable) {
 		if (fstat(file->fd, &st) < 0) {
 			mail_index_file_set_syscall_error(index, file->filepath,
 							  "fstat()");
@@ -1305,7 +1300,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 
 	if (file->buffer != NULL &&
-	    (file->mmap_base != NULL || use_mmap)) {
+	    (file->mmap_base != NULL || !index->mmap_disable)) {
 		buffer_free(file->buffer);
 		file->buffer = NULL;
 	}
@@ -1317,7 +1312,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		file->mmap_base = NULL;
 	}
 
-	if (!use_mmap) {
+	if (index->mmap_disable) {
 		ret = mail_transaction_log_file_read(file, start_offset);
 		if (ret <= 0) {
 			/* make sure we don't leave ourself in

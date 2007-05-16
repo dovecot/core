@@ -16,10 +16,6 @@ enum mail_index_open_flags {
 	MAIL_INDEX_OPEN_FLAG_CREATE		= 0x01,
 	/* Don't try to mmap() index files */
 	MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE	= 0x04,
-	/* Don't try to write() to mmap()ed index files. Required for the few
-	   OSes that don't have unified buffer cache
-	   (currently OpenBSD <= 3.5) */
-	MAIL_INDEX_OPEN_FLAG_MMAP_NO_WRITE	= 0x08,
 	/* Rely on O_EXCL when creating dotlocks */
 	MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL	= 0x10,
 	/* Don't fsync() or fdatasync() */

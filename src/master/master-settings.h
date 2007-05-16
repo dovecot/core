@@ -78,7 +78,6 @@ struct settings {
 	unsigned int mail_max_keyword_length;
 	bool mail_save_crlf;
 	bool mmap_disable;
-	bool mmap_no_write;
 	bool dotlock_use_excl;
 	bool fsync_disable;
 	bool mailbox_list_index_disable;

@@ -327,7 +327,7 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 	cache->dotlock_settings.stale_timeout = MAIL_CACHE_LOCK_CHANGE_TIMEOUT;
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
-		if (index->mmap_disable || index->mmap_no_write)
+		if (index->mmap_disable)
 			cache->file_cache = file_cache_new(-1);
 	}
 

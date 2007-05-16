@@ -74,7 +74,6 @@ static struct setting_def setting_defs[] = {
 	DEF_INT(mail_max_keyword_length),
 	DEF_BOOL(mail_save_crlf),
 	DEF_BOOL(mmap_disable),
-	DEF_BOOL(mmap_no_write),
 	DEF_BOOL(dotlock_use_excl),
 	DEF_BOOL(fsync_disable),
 	DEF_BOOL(mailbox_list_index_disable),

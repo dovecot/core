@@ -235,8 +235,6 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("MAIL_SAVE_CRLF=1");
 	if (set->mmap_disable)
 		env_put("MMAP_DISABLE=1");
-	if (set->mmap_no_write)
-		env_put("MMAP_NO_WRITE=1");
 	if (set->dotlock_use_excl)
 		env_put("DOTLOCK_USE_EXCL=1");
 	if (set->fsync_disable)
