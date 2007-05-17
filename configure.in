@@ -1939,6 +1939,7 @@ src/plugins/fts-lucene/Makefile
 src/plugins/fts-squat/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/mail-log/Makefile
+src/plugins/mbox-snarf/Makefile
 src/plugins/quota/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/trash/Makefile
