@@ -4,7 +4,7 @@
 #include "network.h"
 
 #define LOGIN_LISTEN_FD 0
-#define LOGIN_SSL_LISTEN_FD 1
+#define LOGIN_SSL_LISTEN_FD 4
 #define LOGIN_MASTER_SOCKET_FD 3
 
 /* Increase the version number every time master_login_request

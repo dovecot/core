@@ -597,7 +597,7 @@ static pid_t create_login_process(struct login_group *group)
 
 	max_log_lines_per_sec =
 		group->set->login_process_per_connection ? 10 : 0;
-	log_fd = log_create_pipe(&log, max_log_lines_per_sec);
+	log_fd = log_create_pipe(&log, /*max_log_lines_per_sec*/0);
 	if (log_fd < 0)
 		pid = -1;
 	else {
@@ -646,9 +646,15 @@ static pid_t create_login_process(struct login_group *group)
 		i_fatal("dup2(master) failed: %m");
 	fd_close_on_exec(LOGIN_MASTER_SOCKET_FD, FALSE);
 
-	if (dup2(log_fd, 2) < 0)
+	if (dup2(log_fd, STDERR_FILENO) < 0)
 		i_fatal("dup2(stderr) failed: %m");
-	fd_close_on_exec(2, FALSE);
+	fd_close_on_exec(STDERR_FILENO, FALSE);
+
+	/* redirect writes to stdout also to error log. For example OpenSSL
+	   can be made to log its debug messages to stdout. */
+	if (dup2(log_fd, STDOUT_FILENO) < 0)
+		i_fatal("dup2(stdout) failed: %m");
+	fd_close_on_exec(STDOUT_FILENO, FALSE);
 
 	(void)close(fd[0]);
 	(void)close(fd[1]);
