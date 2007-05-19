@@ -12,6 +12,7 @@ conf_DATA = dovecot-example.conf
 EXTRA_DIST = \
 	COPYING.LGPL \
 	COPYING.MIT \
+	ChangeLog \
 	$(conf_DATA)
 
 datafiles = \
@@ -22,6 +23,11 @@ if INSTALL_HEADERS
   pkglib_DATA = $(datafiles)
 else
   noinst_DATA = $(datafiles)
+endif
+
+if MAINTAINER_MODE
+ChangeLog: .hg/dirstate
+	hg log --style=changelog > ChangeLog
 endif
 
 dovecot-config: dovecot-config.in Makefile
