@@ -220,7 +220,7 @@ static int main_init(void)
 
 	uidl_format = getenv("POP3_UIDL_FORMAT");
 	if (uidl_format == NULL || *uidl_format == '\0')
-		i_fatal("Set pop3_uidl_format in config file");
+		i_fatal("You must configure pop3_uidl_format in dovecot.conf");
 	logout_format = getenv("POP3_LOGOUT_FORMAT");
 	if (logout_format == NULL)
 		logout_format = "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s";
