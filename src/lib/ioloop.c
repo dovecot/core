@@ -204,10 +204,13 @@ void io_loop_handle_timeouts(struct ioloop *ioloop, bool update_run_now)
 		if (diff > IOLOOP_MAX_TIME_BACKWARDS_SLEEP) {
 			i_fatal("Time just moved backwards by %ld seconds. "
 				"This might cause a lot of problems, "
-				"so I'll just kill myself now.", (long)diff);
+				"so I'll just kill myself now. "
+				"http://wiki.dovecot.org/TimeMovedBackwards",
+				(long)diff);
 		} else {
 			i_error("Time just moved backwards by %ld seconds. "
-				"I'll sleep now until we're back in present.",
+				"I'll sleep now until we're back in present. "
+				"http://wiki.dovecot.org/TimeMovedBackwards",
 				(long)diff);
 			/* Sleep extra second to make sure usecs also grows. */
 			diff++;
