@@ -18,7 +18,7 @@
 void (*hook_mail_index_transaction_created)
 		(struct mail_index_transaction *t) = NULL;
 
-static void mail_index_transaction_free(struct mail_index_transaction *t)
+void mail_index_transction_reset(struct mail_index_transaction *t)
 {
 	ARRAY_TYPE(seq_array) *recs;
 	unsigned i, count;
@@ -59,6 +59,28 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 		array_free(&t->ext_resizes);
 	if (array_is_created(&t->ext_resets))
 		array_free(&t->ext_resets);
+
+	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
+	t->last_new_seq = 0;
+	t->last_update_idx = 0;
+
+	memset(t->pre_hdr_mask, 0, sizeof(t->pre_hdr_mask));
+	memset(t->post_hdr_mask, 0, sizeof(t->post_hdr_mask));
+
+	if (t->cache_trans_ctx != NULL) {
+		mail_cache_transaction_rollback(t->cache_trans_ctx);
+                t->cache_trans_ctx = NULL;
+	}
+
+	t->appends_nonsorted = FALSE;
+	t->pre_hdr_changed = FALSE;
+	t->post_hdr_changed = FALSE;
+	t->log_updates = FALSE;
+}
+
+static void mail_index_transaction_free(struct mail_index_transaction *t)
+{
+	mail_index_transction_reset(t);
 
 	array_free(&t->module_contexts);
 	mail_index_view_transaction_unref(t->view);

@@ -187,6 +187,8 @@ int mail_index_transaction_commit(struct mail_index_transaction **t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r);
 void mail_index_transaction_rollback(struct mail_index_transaction **t);
+/* Discard all changes in the transaction. */
+void mail_index_transction_reset(struct mail_index_transaction *t);
 
 /* Returns a view to transaction. Currently this differs from normal view only
    in that it contains newly appended messages in transaction. The view can
