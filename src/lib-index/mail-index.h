@@ -189,9 +189,13 @@ int mail_index_transaction_commit(struct mail_index_transaction **t,
 void mail_index_transaction_rollback(struct mail_index_transaction **t);
 /* Discard all changes in the transaction. */
 void mail_index_transaction_reset(struct mail_index_transaction *t);
+
 /* Returns the view transaction was created for. */
 struct mail_index_view *
 mail_index_transaction_get_view(struct mail_index_transaction *t);
+/* Returns TRUE if the given sequence is being expunged in this transaction. */
+bool mail_index_transaction_is_expunged(struct mail_index_transaction *t,
+					uint32_t seq);
 
 /* Returns a view to transaction. Currently this differs from normal view only
    in that it contains newly appended messages in transaction. The view can
