@@ -58,8 +58,9 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 
 /* Returns TRUE if cache should be compressed. */
 bool mail_cache_need_compress(struct mail_cache *cache);
-/* Compress cache file. */
-int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view);
+/* Compress cache file. Offsets are updated to given transaction. */
+int mail_cache_compress(struct mail_cache *cache,
+			struct mail_index_transaction *trans);
 
 struct mail_cache_view *
 mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview);
