@@ -189,6 +189,9 @@ int mail_index_transaction_commit(struct mail_index_transaction **t,
 void mail_index_transaction_rollback(struct mail_index_transaction **t);
 /* Discard all changes in the transaction. */
 void mail_index_transction_reset(struct mail_index_transaction *t);
+/* Returns the view transaction was created for. */
+struct mail_index_view *
+mail_index_transction_get_view(struct mail_index_transaction *t);
 
 /* Returns a view to transaction. Currently this differs from normal view only
    in that it contains newly appended messages in transaction. The view can

@@ -88,6 +88,12 @@ static void mail_index_transaction_free(struct mail_index_transaction *t)
 	i_free(t);
 }
 
+struct mail_index_view *
+mail_index_transction_get_view(struct mail_index_transaction *t)
+{
+	return t->view;
+}
+
 void mail_index_transaction_ref(struct mail_index_transaction *t)
 {
 	t->refcount++;
