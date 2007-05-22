@@ -367,7 +367,6 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	struct mail_index_header idx_hdr;
 	struct log_append_context ctx;
 	uoff_t append_offset;
-	unsigned int old_hidden_syncs_count;
 	unsigned int lock_id;
 
 	index = mail_index_view_get_index(view);
@@ -417,10 +416,6 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	ctx.file = file;
 	ctx.trans = t;
 	ctx.output = buffer_create_dynamic(default_pool, 1024);
-
-	/* Transactions can be hidden. Mark all such  */
-	old_hidden_syncs_count = !array_is_created(&view->syncs_hidden) ? 0 :
-		array_count(&view->syncs_hidden);
 
 	/* send all extension introductions and resizes before appends
 	   to avoid resize overhead as much as possible */
