@@ -62,18 +62,18 @@ void mech_generic_auth_free(struct auth_request *request)
 	pool_unref(request->pool);
 }
 
-extern struct mech_module mech_plain;
-extern struct mech_module mech_login;
-extern struct mech_module mech_apop;
-extern struct mech_module mech_cram_md5;
-extern struct mech_module mech_digest_md5;
-extern struct mech_module mech_ntlm;
-extern struct mech_module mech_otp;
-extern struct mech_module mech_skey;
-extern struct mech_module mech_rpa;
-extern struct mech_module mech_anonymous;
+extern const struct mech_module mech_plain;
+extern const struct mech_module mech_login;
+extern const struct mech_module mech_apop;
+extern const struct mech_module mech_cram_md5;
+extern const struct mech_module mech_digest_md5;
+extern const struct mech_module mech_ntlm;
+extern const struct mech_module mech_otp;
+extern const struct mech_module mech_skey;
+extern const struct mech_module mech_rpa;
+extern const struct mech_module mech_anonymous;
 #ifdef HAVE_GSSAPI
-extern struct mech_module mech_gssapi;
+extern const struct mech_module mech_gssapi;
 #endif
 
 void mech_init(void)
