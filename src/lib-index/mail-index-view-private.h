@@ -3,11 +3,12 @@
 
 #include "mail-index-private.h"
 
-struct mail_index_view_log_sync_pos {
+struct mail_index_view_log_sync_area {
 	uint32_t log_file_seq;
+	unsigned int length;
 	uoff_t log_file_offset;
 };
-ARRAY_DEFINE_TYPE(view_log_sync_pos, struct mail_index_view_log_sync_pos);
+ARRAY_DEFINE_TYPE(view_log_sync_area, struct mail_index_view_log_sync_area);
 
 struct mail_index_view_vfuncs {
 	void (*close)(struct mail_index_view *view);
@@ -56,9 +57,9 @@ struct mail_index_view {
 	uint32_t log_file_seq;
 	uoff_t log_file_offset;
 	/* Transaction log offsets which we have already synced */
-	ARRAY_TYPE(view_log_sync_pos) syncs_done;
+	ARRAY_TYPE(view_log_sync_area) syncs_done;
 	/* Transaction log offsets which we don't want to return in view sync */
-	ARRAY_TYPE(view_log_sync_pos) syncs_hidden;
+	ARRAY_TYPE(view_log_sync_area) syncs_hidden;
 
 	/* Module-specific contexts. */
 	ARRAY_DEFINE(module_contexts, union mail_index_view_module_context *);
@@ -80,12 +81,10 @@ void mail_index_view_ref(struct mail_index_view *view);
 int mail_index_view_lock(struct mail_index_view *view);
 int mail_index_view_lock_head(struct mail_index_view *view, bool update_index);
 void mail_index_view_unref_maps(struct mail_index_view *view);
-void mail_index_view_add_synced_transaction(struct mail_index_view *view,
-					    uint32_t log_file_seq,
-					    uoff_t log_file_offset);
 void mail_index_view_add_hidden_transaction(struct mail_index_view *view,
 					    uint32_t log_file_seq,
-					    uoff_t log_file_offset);
+					    uoff_t log_file_offset,
+					    unsigned int length);
 
 struct mail_index_view *mail_index_dummy_view_open(struct mail_index *index);
 

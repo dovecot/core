@@ -495,6 +495,7 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
+	i_assert(!t->hide_transaction);
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
 
 	t->log_updates = TRUE;

@@ -368,10 +368,25 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	return 0;
 }
 
-static bool view_sync_pos_find(ARRAY_TYPE(view_log_sync_pos) *sync_arr,
-			       uint32_t seq, uoff_t offset)
+static void
+view_add_synced_transaction(struct mail_index_view *view,
+			    uint32_t log_file_seq, uoff_t log_file_offset)
 {
-	const struct mail_index_view_log_sync_pos *syncs;
+	struct mail_index_view_log_sync_area *pos;
+
+	if (!array_is_created(&view->syncs_done))
+		i_array_init(&view->syncs_done, 32);
+
+	pos = array_append_space(&view->syncs_done);
+	pos->log_file_seq = log_file_seq;
+	pos->log_file_offset = log_file_offset;
+	pos->length = 1;
+}
+
+static bool view_sync_area_find(ARRAY_TYPE(view_log_sync_area) *sync_arr,
+				uint32_t seq, uoff_t offset)
+{
+	const struct mail_index_view_log_sync_area *syncs;
 	unsigned int i, count;
 
 	if (!array_is_created(sync_arr))
@@ -379,7 +394,8 @@ static bool view_sync_pos_find(ARRAY_TYPE(view_log_sync_pos) *sync_arr,
 
 	syncs = array_get(sync_arr, &count);
 	for (i = 0; i < count; i++) {
-		if (syncs[i].log_file_offset == offset &&
+		if (syncs[i].log_file_offset <= offset &&
+		    offset - syncs[i].log_file_offset < syncs[i].length &&
 		    syncs[i].log_file_seq == seq)
 			return TRUE;
 	}
@@ -429,7 +445,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		}
 
 		/* skip everything we've already synced */
-		if (view_sync_pos_find(&view->syncs_done, seq, offset))
+		if (view_sync_area_find(&view->syncs_done, seq, offset))
 			continue;
 
 		if (ctx->skipped_some) {
@@ -437,8 +453,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 			   we'll go through these same transactions again
 			   later. Since we're syncing this one, we don't want
 			   to do it again. */
-			mail_index_view_add_synced_transaction(view, seq,
-							       offset);
+			view_add_synced_transaction(view, seq, offset);
 		}
 
 		/* if we started from a map that we didn't create ourself,
@@ -469,7 +484,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 
 		/* skip changes committed by hidden transactions (eg. in IMAP
 		   store +flags.silent command) */
-		if (view_sync_pos_find(&view->syncs_hidden, seq, offset))
+		if (view_sync_area_find(&view->syncs_hidden, seq, offset))
 			continue;
 		break;
 	}
@@ -594,16 +609,19 @@ void mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 
 static void
 mail_index_view_sync_clean_log_syncs(struct mail_index_view_sync_ctx *ctx,
-				     ARRAY_TYPE(view_log_sync_pos) *sync_arr)
+				     ARRAY_TYPE(view_log_sync_area) *sync_arr,
+				     bool fast_clean)
 {
 	struct mail_index_view *view = ctx->view;
-	const struct mail_index_view_log_sync_pos *syncs;
+	const struct mail_index_view_log_sync_area *syncs;
+	uint32_t seq = view->log_file_seq;
+	uoff_t offset = view->log_file_offset;
 	unsigned int i, count;
 
 	if (!array_is_created(sync_arr))
 		return;
 
-	if (!ctx->skipped_some) {
+	if (!ctx->skipped_some && fast_clean) {
 		/* Nothing skipped. Clean it up the quick way. */
 		array_clear(sync_arr);
 		return;
@@ -612,9 +630,9 @@ mail_index_view_sync_clean_log_syncs(struct mail_index_view_sync_ctx *ctx,
 	/* Clean up until view's current syncing position */
 	syncs = array_get(sync_arr, &count);
 	for (i = 0; i < count; i++) {
-		if ((syncs[i].log_file_offset >= view->log_file_offset &&
-                     syncs[i].log_file_seq == view->log_file_seq) ||
-		    syncs[i].log_file_seq > view->log_file_seq)
+		if ((syncs[i].log_file_offset + syncs[i].length > offset &&
+                     syncs[i].log_file_seq == seq) ||
+		    syncs[i].log_file_seq > seq)
 			break;
 	}
 	if (i > 0)
@@ -630,8 +648,8 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 
 	*_ctx = NULL;
 	mail_index_sync_map_deinit(&ctx->sync_map_ctx);
-	mail_index_view_sync_clean_log_syncs(ctx, &view->syncs_done);
-	mail_index_view_sync_clean_log_syncs(ctx, &view->syncs_hidden);
+	mail_index_view_sync_clean_log_syncs(ctx, &view->syncs_done, TRUE);
+	mail_index_view_sync_clean_log_syncs(ctx, &view->syncs_hidden, FALSE);
 
 	if (!ctx->last_read && ctx->hdr != NULL &&
 	    ctx->data_offset != ctx->hdr->size) {
@@ -685,29 +703,18 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	i_free(ctx);
 }
 
-static void log_sync_pos_add(ARRAY_TYPE(view_log_sync_pos) *sync_arr,
-			     uint32_t log_file_seq, uoff_t log_file_offset)
-{
-	struct mail_index_view_log_sync_pos *pos;
-
-	if (!array_is_created(sync_arr))
-		i_array_init(sync_arr, 32);
-
-	pos = array_append_space(sync_arr);
-	pos->log_file_seq = log_file_seq;
-	pos->log_file_offset = log_file_offset;
-}
-
-void mail_index_view_add_synced_transaction(struct mail_index_view *view,
-					    uint32_t log_file_seq,
-					    uoff_t log_file_offset)
-{
-	log_sync_pos_add(&view->syncs_done, log_file_seq, log_file_offset);
-}
-
 void mail_index_view_add_hidden_transaction(struct mail_index_view *view,
 					    uint32_t log_file_seq,
-					    uoff_t log_file_offset)
+					    uoff_t log_file_offset,
+					    unsigned int length)
 {
-	log_sync_pos_add(&view->syncs_hidden, log_file_seq, log_file_offset);
+	struct mail_index_view_log_sync_area *area;
+
+	if (!array_is_created(&view->syncs_hidden))
+		i_array_init(&view->syncs_hidden, 32);
+
+	area = array_append_space(&view->syncs_hidden);
+	area->log_file_seq = log_file_seq;
+	area->log_file_offset = log_file_offset;
+	area->length = length;
 }

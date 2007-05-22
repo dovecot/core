@@ -321,11 +321,6 @@ log_append_keyword_update(struct mail_transaction_log_file *file,
 	if ((hdr_buf->used % 4) != 0)
 		buffer_append_zero(hdr_buf, 4 - (hdr_buf->used % 4));
 
-	if (t->hide_transaction) {
-		mail_index_view_add_hidden_transaction(t->view,
-			file->hdr.file_seq, file->sync_offset);
-	}
-
 	return log_append_buffer(file, buffer, hdr_buf,
 				 MAIL_TRANSACTION_KEYWORD_UPDATE, t->external);
 }
@@ -449,18 +444,10 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 					t->external);
 	}
 	if (array_is_created(&t->appends) && ret == 0) {
-		if (t->hide_transaction) {
-			mail_index_view_add_hidden_transaction(view,
-				file->hdr.file_seq, file->sync_offset);
-		}
 		ret = log_append_buffer(file, t->appends.arr.buffer, NULL,
 					MAIL_TRANSACTION_APPEND, t->external);
 	}
 	if (array_is_created(&t->updates) && ret == 0) {
-		if (t->hide_transaction) {
-			mail_index_view_add_hidden_transaction(view,
-				file->hdr.file_seq, file->sync_offset);
-		}
 		ret = log_append_buffer(file, t->updates.arr.buffer, NULL,
 					MAIL_TRANSACTION_FLAG_UPDATE,
 					t->external);
@@ -471,10 +458,6 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 
 	/* keyword resets before updates */
 	if (array_is_created(&t->keyword_resets) && ret == 0) {
-		if (t->hide_transaction) {
-			mail_index_view_add_hidden_transaction(view,
-				file->hdr.file_seq, file->sync_offset);
-		}
 		ret = log_append_buffer(file, t->keyword_resets.arr.buffer,
 					NULL, MAIL_TRANSACTION_KEYWORD_RESET,
 					t->external);
@@ -483,7 +466,6 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		ret = log_append_keyword_updates(file, t);
 
 	if (array_is_created(&t->expunges) && ret == 0) {
-		/* Expunges cannot be hidden */
 		ret = log_append_buffer(file, t->expunges.arr.buffer, NULL,
 					MAIL_TRANSACTION_EXPUNGE, t->external);
 	}
@@ -527,16 +509,13 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		}
 	}
 
-	if (ret < 0) {
-		if (array_is_created(&view->syncs_hidden)) {
-			/* revert changes to log_syncs */
-			array_delete(&view->syncs_hidden,
-				     old_hidden_syncs_count,
-				     array_count(&view->syncs_hidden) -
-				     old_hidden_syncs_count);
-		}
-		file->sync_offset = append_offset;
+	if (t->hide_transaction && ret == 0) {
+		/* mark the area covered by this transaction hidden */
+		mail_index_view_add_hidden_transaction(view, file->hdr.file_seq,
+			append_offset, file->sync_offset - append_offset);
 	}
+	if (ret < 0)
+		file->sync_offset = append_offset;
 
 	*log_file_seq_r = file->hdr.file_seq;
 	*log_file_offset_r = file->sync_offset;
