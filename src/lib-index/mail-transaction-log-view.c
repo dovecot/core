@@ -242,6 +242,56 @@ mail_transaction_log_view_get_prev_pos(struct mail_transaction_log_view *view,
 	*file_offset_r = view->prev_file_offset;
 }
 
+static bool
+mail_transaction_log_view_get_last(struct mail_transaction_log_view *view,
+				   struct mail_transaction_log_file **last_r,
+				   uoff_t *last_offset_r)
+{
+	struct mail_transaction_log_file *cur = view->cur;
+	uoff_t cur_offset = view->cur_offset;
+	bool last = FALSE;
+
+	if (cur == NULL) {
+		*last_r = NULL;
+		return TRUE;
+	}
+
+	for (;;) {
+		if (cur->hdr.file_seq == view->max_file_seq) {
+			/* last file */
+			if (cur_offset == view->max_file_offset ||
+			    cur_offset == cur->sync_offset) {
+				/* we're all finished */
+				last = TRUE;
+			}
+		} else if (cur_offset == cur->sync_offset) {
+			/* end of file, go to next one */
+			if (cur->next == NULL) {
+				last = TRUE;
+			} else {
+				cur = cur->next;
+				cur_offset = cur->hdr.hdr_size;
+				continue;
+			}
+		} 
+
+		/* not EOF */
+		break;
+	}
+
+	*last_r = cur;
+	*last_offset_r = cur_offset;
+	return last;
+}
+
+bool mail_transaction_log_view_is_last(struct mail_transaction_log_view *view)
+{
+	struct mail_transaction_log_file *cur;
+	uoff_t cur_offset;
+
+	return mail_transaction_log_view_get_last(view, &cur, &cur_offset);
+}
+
 void
 mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 					const char *fmt, ...)
@@ -283,27 +333,20 @@ log_view_get_next(struct mail_transaction_log_view *view,
 
 	/* prev_file_offset should point to beginning of previous log record.
 	   when we reach EOF, it should be left there, not to beginning of the
-	   next file. */
+	   next file that's not included inside the view. */
+	if (mail_transaction_log_view_get_last(view, &view->cur,
+					       &view->cur_offset)) {
+		/* if the last file was the beginning of a file, we want to
+		   move prev pointers there */
+		view->prev_file_seq = view->cur->hdr.file_seq;
+		view->prev_file_offset = view->cur_offset;
+		view->cur = NULL;
+		return 0;
+	}
+
 	view->prev_file_seq = view->cur->hdr.file_seq;
 	view->prev_file_offset = view->cur_offset;
 
-	if (view->cur->hdr.file_seq == view->max_file_seq) {
-		/* last file */
-		if (view->cur_offset == view->max_file_offset ||
-		    view->cur_offset == view->cur->sync_offset) {
-			/* we're all finished */
-			view->cur = NULL;
-			return 0;
-		}
-	} else if (view->cur_offset == view->cur->sync_offset) {
-		/* end of file, go to next one */
-		view->cur = view->cur->next;
-		if (view->cur == NULL)
-			return 0;
-
-		view->cur_offset = view->cur->hdr.hdr_size;
-		return log_view_get_next(view, hdr_r, data_r);
-	}
 	file = view->cur;
 
 	data = buffer_get_data(file->buffer, &file_size);

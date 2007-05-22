@@ -139,6 +139,8 @@ void
 mail_transaction_log_view_get_prev_pos(struct mail_transaction_log_view *view,
 				       uint32_t *file_seq_r,
 				       uoff_t *file_offset_r);
+/* Returns TRUE if we're at the end of the view window. */
+bool mail_transaction_log_view_is_last(struct mail_transaction_log_view *view);
 
 /* Marks the log file in current position to be corrupted. */
 void
