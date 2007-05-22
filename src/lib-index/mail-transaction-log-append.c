@@ -10,100 +10,103 @@
 #include "mail-index-transaction-private.h"
 #include "mail-transaction-log-private.h"
 
-static int log_append_buffer(struct mail_transaction_log_file *file,
-			     const buffer_t *buf, const buffer_t *hdr_buf,
-			     enum mail_transaction_type type, bool external)
+struct log_append_context {
+	struct mail_transaction_log_file *file;
+	struct mail_index_transaction *trans;
+	buffer_t *output;
+};
+
+static void log_append_buffer(struct log_append_context *ctx,
+			      const buffer_t *buf, const buffer_t *hdr_buf,
+			      enum mail_transaction_type type)
 {
 	struct mail_transaction_header hdr;
-	const void *data, *hdr_data;
-	size_t size, hdr_data_size;
-	uoff_t offset;
 	uint32_t hdr_size;
 
 	i_assert((type & MAIL_TRANSACTION_TYPE_MASK) != 0);
+	i_assert((buf->used % 4) == 0);
+	i_assert(hdr_buf == NULL || (hdr_buf->used % 4) == 0);
 
-	data = buffer_get_data(buf, &size);
-	if (size == 0)
-		return 0;
-
-	i_assert((size % 4) == 0);
-
-	if (hdr_buf != NULL) {
-		hdr_data = buffer_get_data(hdr_buf, &hdr_data_size);
-		i_assert((hdr_data_size % 4) == 0);
-	} else {
-		hdr_data = NULL;
-		hdr_data_size = 0;
-	}
+	if (buf->used == 0)
+		return;
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.type = type;
 	if (type == MAIL_TRANSACTION_EXPUNGE)
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
-	if (external)
+	if (ctx->trans->external)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
 
-	hdr_size = mail_index_uint32_to_offset(sizeof(hdr) + size +
-					       hdr_data_size);
-	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
-		do {
-			offset = file->sync_offset;
-			if (file->first_append_size == 0) {
-				/* size will be written later once everything
-				   is in disk */
-				file->first_append_size = hdr_size;
-			} else {
-				hdr.size = hdr_size;
-			}
-			if (pwrite_full(file->fd, &hdr, sizeof(hdr),
-					offset) < 0)
-				break;
-			offset += sizeof(hdr);
-
-			if (hdr_data_size > 0) {
-				if (pwrite_full(file->fd, hdr_data,
-						hdr_data_size, offset) < 0)
-					break;
-				offset += hdr_data_size;
-			}
-
-			if (pwrite_full(file->fd, data, size, offset) < 0)
-				break;
-
-			file->sync_offset = offset + size;
-			return 0;
-		} while (0);
-
-		/* write failure. */
-		mail_index_file_set_syscall_error(file->log->index,
-						  file->filepath,
-						  "pwrite_full()");
-		if (!ENOSPACE(errno))
-			return -1;
-
-		/* not enough space. fallback to in-memory indexes. first
-		   we need to truncate this latest write so that log syncing
-		   doesn't break */
-		if (ftruncate(file->fd, file->sync_offset) < 0) {
-			mail_index_file_set_syscall_error(file->log->index,
-							  file->filepath,
-							  "ftruncate()");
-			return -1;
-		}
-
-		if (mail_index_move_to_memory(file->log->index) < 0)
-			return -1;
-		i_assert(MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));
+	hdr_size = mail_index_uint32_to_offset(sizeof(hdr) + buf->used +
+					       (hdr_buf == NULL ? 0 :
+						hdr_buf->used));
+	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(ctx->file) &&
+	    ctx->file->first_append_size == 0) {
+		/* size will be written later once everything
+		   is in disk */
+		ctx->file->first_append_size = hdr_size;
+	} else {
+		hdr.size = hdr_size;
 	}
 
-	hdr.size = hdr_size;
+	buffer_append(ctx->output, &hdr, sizeof(hdr));
+	if (hdr_buf != NULL)
+		buffer_append(ctx->output, hdr_buf->data, hdr_buf->used);
+	buffer_append(ctx->output, buf->data, buf->used);
+}
+
+static int log_buffer_move_to_memory(struct log_append_context *ctx)
+{
+	struct mail_transaction_log_file *file = ctx->file;
+
+	/* first we need to truncate this latest write so that log syncing
+	   doesn't break */
+	if (ftruncate(file->fd, file->sync_offset) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath,
+						  "ftruncate()");
+	}
+
+	if (mail_index_move_to_memory(file->log->index) < 0)
+		return -1;
+	i_assert(MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));
 
 	i_assert(file->buffer_offset + file->buffer->used ==
 		 file->sync_offset);
-	buffer_append(file->buffer, &hdr, sizeof(hdr));
-	buffer_append(file->buffer, hdr_data, hdr_data_size);
-	buffer_append(file->buffer, data, size);
+	buffer_append_buf(file->buffer, ctx->output, 0, (size_t)-1);
 	file->sync_offset = file->buffer_offset + file->buffer->used;
+	return 0;
+}
+
+static int log_buffer_write(struct log_append_context *ctx)
+{
+	struct mail_transaction_log_file *file = ctx->file;
+
+	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
+		file->sync_offset = file->buffer_offset + file->buffer->used;
+		return 0;
+	}
+
+	i_assert(file->first_append_size != 0);
+	if (pwrite_full(file->fd, ctx->output->data, ctx->output->used,
+			file->sync_offset) < 0) {
+		/* write failure, fallback to in-memory indexes. */
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath,
+						  "pwrite_full()");
+		return log_buffer_move_to_memory(ctx);
+	}
+
+	/* now that the whole transaction has been written, rewrite the first
+	   record's size so the transaction becomes visible */
+	if (pwrite_full(file->fd, &file->first_append_size,
+			sizeof(uint32_t), file->sync_offset) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath,
+						  "pwrite_full()");
+		return log_buffer_move_to_memory(ctx);
+	}
+	file->sync_offset += ctx->output->used;
 	return 0;
 }
 
@@ -140,10 +143,10 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t, bool prepend)
 	return buf;
 }
 
-static int log_append_ext_intro(struct mail_transaction_log_file *file,
-				struct mail_index_transaction *t,
-				uint32_t ext_id, uint32_t reset_id)
+static void log_append_ext_intro(struct log_append_context *ctx,
+				 uint32_t ext_id, uint32_t reset_id)
 {
+	struct mail_index_transaction *t = ctx->trans;
 	const struct mail_index_registered_ext *rext;
         struct mail_transaction_ext_intro *intro;
 	buffer_t *buf;
@@ -198,14 +201,13 @@ static int log_append_ext_intro(struct mail_transaction_log_file *file,
 	if ((buf->used % 4) != 0)
 		buffer_append_zero(buf, 4 - (buf->used % 4));
 
-	return log_append_buffer(file, buf, NULL, MAIL_TRANSACTION_EXT_INTRO,
-				 t->external);
+	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_INTRO);
 }
 
-static int
-mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
-				       struct mail_index_transaction *t)
+static void
+mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 {
+	struct mail_index_transaction *t = ctx->trans;
         const struct mail_transaction_ext_intro *resize;
 	struct mail_transaction_ext_reset ext_reset;
 	unsigned int update_count, resize_count, reset_count, ext_count;
@@ -249,24 +251,18 @@ mail_transaction_log_append_ext_intros(struct mail_transaction_log_file *file,
 		if ((ext_id < resize_count && resize[ext_id].name_size) ||
 		    (ext_id < update_count &&
 		     array_is_created(&update[ext_id])) ||
-		    ext_reset.new_reset_id != 0) {
-			if (log_append_ext_intro(file, t, ext_id, 0) < 0)
-				return -1;
-		}
+		    ext_reset.new_reset_id != 0)
+			log_append_ext_intro(ctx, ext_id, 0);
 		if (ext_reset.new_reset_id != 0) {
-			if (log_append_buffer(file, buf, NULL,
-					      MAIL_TRANSACTION_EXT_RESET,
-					      t->external) < 0)
-				return -1;
+			log_append_buffer(ctx, buf, NULL,
+					  MAIL_TRANSACTION_EXT_RESET);
 		}
 	}
-
-	return 0;
 }
 
-static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
-				      struct mail_index_transaction *t)
+static void log_append_ext_rec_updates(struct log_append_context *ctx)
 {
+	struct mail_index_transaction *t = ctx->trans;
 	ARRAY_TYPE(seq_array) *updates;
 	const uint32_t *reset;
 	unsigned int ext_id, count, reset_count;
@@ -292,20 +288,15 @@ static int log_append_ext_rec_updates(struct mail_transaction_log_file *file,
 
 		reset_id = ext_id < reset_count && reset[ext_id] != 0 ?
 			reset[ext_id] : 0;
-		if (log_append_ext_intro(file, t, ext_id, reset_id) < 0)
-			return -1;
+		log_append_ext_intro(ctx, ext_id, reset_id);
 
-		if (log_append_buffer(file, updates[ext_id].arr.buffer, NULL,
-				      MAIL_TRANSACTION_EXT_REC_UPDATE,
-				      t->external) < 0)
-			return -1;
+		log_append_buffer(ctx, updates[ext_id].arr.buffer, NULL,
+				  MAIL_TRANSACTION_EXT_REC_UPDATE);
 	}
-	return 0;
 }
 
-static int
-log_append_keyword_update(struct mail_transaction_log_file *file,
-			  struct mail_index_transaction *t,
+static void
+log_append_keyword_update(struct log_append_context *ctx,
 			  buffer_t *hdr_buf, enum modify_type modify_type,
 			  const char *keyword, const buffer_t *buffer)
 {
@@ -321,12 +312,11 @@ log_append_keyword_update(struct mail_transaction_log_file *file,
 	if ((hdr_buf->used % 4) != 0)
 		buffer_append_zero(hdr_buf, 4 - (hdr_buf->used % 4));
 
-	return log_append_buffer(file, buffer, hdr_buf,
-				 MAIL_TRANSACTION_KEYWORD_UPDATE, t->external);
+	log_append_buffer(ctx, buffer, hdr_buf,
+			  MAIL_TRANSACTION_KEYWORD_UPDATE);
 }
 
-static int log_append_keyword_updates(struct mail_transaction_log_file *file,
-				      struct mail_index_transaction *t)
+static void log_append_keyword_updates(struct log_append_context *ctx)
 {
         const struct mail_index_transaction_keyword_update *updates;
 	const char *const *keywords;
@@ -335,27 +325,23 @@ static int log_append_keyword_updates(struct mail_transaction_log_file *file,
 
 	hdr_buf = buffer_create_dynamic(pool_datastack_create(), 64);
 
-	keywords = array_get_modifiable(&t->view->index->keywords,
+	keywords = array_get_modifiable(&ctx->trans->view->index->keywords,
 					&keywords_count);
-	updates = array_get_modifiable(&t->keyword_updates, &count);
+	updates = array_get_modifiable(&ctx->trans->keyword_updates, &count);
 	i_assert(count <= keywords_count);
 
 	for (i = 0; i < count; i++) {
 		if (array_is_created(&updates[i].add_seq)) {
-			if (log_append_keyword_update(file, t, hdr_buf,
+			log_append_keyword_update(ctx, hdr_buf,
 					MODIFY_ADD, keywords[i],
-					updates[i].add_seq.arr.buffer) < 0)
-				return -1;
+					updates[i].add_seq.arr.buffer);
 		}
 		if (array_is_created(&updates[i].remove_seq)) {
-			if (log_append_keyword_update(file, t, hdr_buf,
+			log_append_keyword_update(ctx, hdr_buf,
 					MODIFY_REMOVE, keywords[i],
-					updates[i].remove_seq.arr.buffer) < 0)
-				return -1;
+					updates[i].remove_seq.arr.buffer);
 		}
 	}
-
-	return 0;
 }
 
 #define LOG_WANT_ROTATE(file) \
@@ -379,10 +365,10 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	struct mail_transaction_log *log;
 	struct mail_transaction_log_file *file;
 	struct mail_index_header idx_hdr;
+	struct log_append_context ctx;
 	uoff_t append_offset;
 	unsigned int old_hidden_syncs_count;
 	unsigned int lock_id;
-	int ret;
 
 	index = mail_index_view_get_index(view);
 	log = index->log;
@@ -423,61 +409,59 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 
 	file = log->head;
 	file->first_append_size = 0;
-	append_offset = file->sync_offset;
 
 	if (file->sync_offset < file->buffer_offset)
 		file->sync_offset = file->buffer_offset;
 
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.file = file;
+	ctx.trans = t;
+	ctx.output = buffer_create_dynamic(default_pool, 1024);
+
+	/* Transactions can be hidden. Mark all such  */
 	old_hidden_syncs_count = !array_is_created(&view->syncs_hidden) ? 0 :
 		array_count(&view->syncs_hidden);
 
-	ret = 0;
-
 	/* send all extension introductions and resizes before appends
 	   to avoid resize overhead as much as possible */
-        ret = mail_transaction_log_append_ext_intros(file, t);
+        mail_transaction_log_append_ext_intros(&ctx);
 
-	if (t->pre_hdr_changed && ret == 0) {
-		ret = log_append_buffer(file,
-					log_get_hdr_update_buffer(t, TRUE),
-					NULL, MAIL_TRANSACTION_HEADER_UPDATE,
-					t->external);
+	if (t->pre_hdr_changed) {
+		log_append_buffer(&ctx,
+				  log_get_hdr_update_buffer(t, TRUE),
+				  NULL, MAIL_TRANSACTION_HEADER_UPDATE);
 	}
-	if (array_is_created(&t->appends) && ret == 0) {
-		ret = log_append_buffer(file, t->appends.arr.buffer, NULL,
-					MAIL_TRANSACTION_APPEND, t->external);
+	if (array_is_created(&t->appends)) {
+		log_append_buffer(&ctx, t->appends.arr.buffer, NULL,
+				  MAIL_TRANSACTION_APPEND);
 	}
-	if (array_is_created(&t->updates) && ret == 0) {
-		ret = log_append_buffer(file, t->updates.arr.buffer, NULL,
-					MAIL_TRANSACTION_FLAG_UPDATE,
-					t->external);
+	if (array_is_created(&t->updates)) {
+		log_append_buffer(&ctx, t->updates.arr.buffer, NULL,
+				  MAIL_TRANSACTION_FLAG_UPDATE);
 	}
 
-	if (array_is_created(&t->ext_rec_updates) && ret == 0)
-		ret = log_append_ext_rec_updates(file, t);
+	if (array_is_created(&t->ext_rec_updates))
+		log_append_ext_rec_updates(&ctx);
 
 	/* keyword resets before updates */
-	if (array_is_created(&t->keyword_resets) && ret == 0) {
-		ret = log_append_buffer(file, t->keyword_resets.arr.buffer,
-					NULL, MAIL_TRANSACTION_KEYWORD_RESET,
-					t->external);
+	if (array_is_created(&t->keyword_resets)) {
+		log_append_buffer(&ctx, t->keyword_resets.arr.buffer,
+				  NULL, MAIL_TRANSACTION_KEYWORD_RESET);
 	}
-	if (array_is_created(&t->keyword_updates) && ret == 0)
-		ret = log_append_keyword_updates(file, t);
+	if (array_is_created(&t->keyword_updates))
+		log_append_keyword_updates(&ctx);
 
-	if (array_is_created(&t->expunges) && ret == 0) {
-		ret = log_append_buffer(file, t->expunges.arr.buffer, NULL,
-					MAIL_TRANSACTION_EXPUNGE, t->external);
-	}
-
-	if (t->post_hdr_changed && ret == 0) {
-		ret = log_append_buffer(file,
-					log_get_hdr_update_buffer(t, FALSE),
-					NULL, MAIL_TRANSACTION_HEADER_UPDATE,
-					t->external);
+	if (array_is_created(&t->expunges)) {
+		log_append_buffer(&ctx, t->expunges.arr.buffer, NULL,
+				  MAIL_TRANSACTION_EXPUNGE);
 	}
 
-	if (ret == 0 && file->sync_offset < file->last_size) {
+	if (t->post_hdr_changed) {
+		log_append_buffer(&ctx, log_get_hdr_update_buffer(t, FALSE),
+				  NULL, MAIL_TRANSACTION_HEADER_UPDATE);
+	}
+
+	if (file->sync_offset < file->last_size) {
 		/* there is some garbage at the end of the transaction log
 		   (eg. previous write failed). remove it so reader doesn't
 		   break because of it. */
@@ -491,35 +475,22 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		}
 	}
 
-	if (ret == 0 && file->first_append_size != 0) {
-		if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
-			/* synced - rewrite first record's header */
-			ret = pwrite_full(file->fd, &file->first_append_size,
-					  sizeof(uint32_t), append_offset);
-			if (ret < 0) {
-				mail_index_file_set_syscall_error(index,
-					file->filepath, "pwrite()");
-			}
-		} else {
-			/* changed into in-memory buffer in the middle */
-			buffer_write(file->buffer,
-				     append_offset - file->buffer_offset,
-				     &file->first_append_size,
-				     sizeof(file->first_append_size));
-		}
+	append_offset = file->sync_offset;
+	if (log_buffer_write(&ctx) < 0) {
+		buffer_free(ctx.output);
+		return -1;
 	}
+	buffer_free(ctx.output);
 
-	if (t->hide_transaction && ret == 0) {
+	if (t->hide_transaction) {
 		/* mark the area covered by this transaction hidden */
 		mail_index_view_add_hidden_transaction(view, file->hdr.file_seq,
 			append_offset, file->sync_offset - append_offset);
 	}
-	if (ret < 0)
-		file->sync_offset = append_offset;
 
 	*log_file_seq_r = file->hdr.file_seq;
 	*log_file_offset_r = file->sync_offset;
-	return ret;
+	return 0;
 }
 
 int mail_transaction_log_append(struct mail_index_transaction *t,
