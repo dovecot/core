@@ -654,6 +654,13 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	uoff_t offset;
 	int ret = 0;
 
+	if (mail_cache_need_compress(index->cache)) {
+		/* if cache compression fails, we don't really care.
+		   the cache offsets are updated only if the compression was
+		   successful. */
+		(void)mail_cache_compress(index->cache, ctx->ext_trans);
+	}
+
 	if (mail_index_transaction_commit(&ctx->ext_trans, &seq, &offset) < 0)
 		ret = -1;
 
@@ -677,18 +684,6 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 			ret = -1;
 		else if (mail_index_sync_update_index(ctx, FALSE) < 0)
 			ret = -1;
-	}
-
-	if (ret == 0 && mail_cache_need_compress(index->cache)) {
-		/* if cache compression fails, we don't really care */
-		if (mail_cache_compress(index->cache, ctx->view) == 0) {
-			/* cache_offsets have changed, sync them */
-			if (mail_index_sync_set_log_view(ctx->view,
-							 seq, offset) < 0)
-				ret = -1;
-			else if (mail_index_sync_update_index(ctx, FALSE) < 0)
-				ret = -1;
-		}
 	}
 
 	if (ret == 0) {

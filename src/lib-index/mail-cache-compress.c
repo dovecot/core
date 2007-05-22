@@ -1,7 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "ostream.h"
 #include "nfs-workarounds.h"
 #include "read-full.h"
@@ -12,6 +12,8 @@
 #include "mail-cache-private.h"
 
 #include <sys/stat.h>
+
+ARRAY_DEFINE_TYPE(ext_offset, uint32_t);
 
 struct mail_cache_copy_context {
 	bool new_msg;
@@ -113,18 +115,21 @@ get_next_file_seq(struct mail_cache *cache, struct mail_index_view *view)
 }
 
 static int
-mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
+mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
+		int fd, uint32_t *file_seq_r,
+		ARRAY_TYPE(ext_offset) *ext_offsets)
 {
         struct mail_cache_copy_context ctx;
+	struct mail_index_view *view;
 	struct mail_cache_view *cache_view;
-	struct mail_index_transaction *t;
 	const struct mail_index_header *idx_hdr;
 	struct mail_cache_header hdr;
 	struct mail_cache_record cache_rec;
 	struct ostream *output;
 	buffer_t *buffer;
-	uint32_t i, message_count, seq, first_new_seq, old_offset;
-	uoff_t offset;
+	uint32_t i, message_count, seq, first_new_seq, ext_offset;
+
+	view = mail_index_transaction_get_view(trans);
 
 	/* get sequence of first message which doesn't need its temp fields
 	   removed. */
@@ -142,7 +147,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	}
 
 	cache_view = mail_cache_view_open(cache, view);
-	t = mail_index_transaction_begin(view, FALSE, TRUE);
 	output = o_stream_create_file(fd, default_pool, 0, FALSE);
 
 	memset(&hdr, 0, sizeof(hdr));
@@ -157,9 +161,13 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
 	ctx.field_seen_value = 0;
 
-	mail_index_ext_reset(t, cache->ext_id, hdr.file_seq);
-
+	t_array_init(ext_offsets, message_count);
 	for (seq = 1; seq <= message_count; seq++) {
+		if (mail_index_transaction_is_expunged(trans, seq)) {
+			(void)array_append_space(ext_offsets);
+			continue;
+		}
+
 		ctx.new_msg = seq >= first_new_seq;
 		buffer_set_used_size(ctx.buffer, 0);
 
@@ -176,15 +184,19 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 					 mail_cache_compress_callback, &ctx);
 
 		cache_rec.size = buffer_get_used_size(ctx.buffer);
-		if (cache_rec.size == sizeof(cache_rec))
-			continue;
+		if (cache_rec.size == sizeof(cache_rec)) {
+			/* nothing cached */
+			ext_offset = 0;
+		} else {
+			ext_offset = output->offset;
+			buffer_write(ctx.buffer, 0, &cache_rec,
+				     sizeof(cache_rec));
+			o_stream_send(output, ctx.buffer->data, cache_rec.size);
+		}
 
-		mail_index_update_ext(t, seq, cache->ext_id, &output->offset,
-				      &old_offset);
-
-		buffer_write(ctx.buffer, 0, &cache_rec, sizeof(cache_rec));
-		o_stream_send(output, ctx.buffer->data, cache_rec.size);
+		array_append(ext_offsets, &ext_offset, 1);
 	}
+	i_assert(array_count(ext_offsets) == message_count);
 
 	if (cache->fields_count != 0) {
 		hdr.field_header_offset =
@@ -217,7 +229,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	if (o_stream_flush(output) < 0) {
 		errno = output->stream_errno;
 		mail_cache_set_syscall_error(cache, "o_stream_flush()");
-		(void)mail_index_transaction_rollback(&t);
 		o_stream_destroy(&output);
 		return -1;
 	}
@@ -232,12 +243,12 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_view *view, int fd)
 	if (!cache->index->fsync_disable) {
 		if (fdatasync(fd) < 0) {
 			mail_cache_set_syscall_error(cache, "fdatasync()");
-			(void)mail_index_transaction_rollback(&t);
 			return -1;
 		}
 	}
 
-	return mail_index_transaction_commit(&t, &seq, &offset);
+	*file_seq_r = hdr.file_seq;
+	return 0;
 }
 
 static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
@@ -275,11 +286,15 @@ static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
 }
 
 static int mail_cache_compress_locked(struct mail_cache *cache,
-				      struct mail_index_view *view,
+				      struct mail_index_transaction *trans,
 				      bool *unlock)
 {
 	struct dotlock *dotlock;
         mode_t old_mask;
+	uint32_t file_seq, old_offset;
+	ARRAY_TYPE(ext_offset) ext_offsets;
+	const uint32_t *offsets;
+	unsigned int i, count;
 	int fd, ret;
 
 	/* get the latest info on fields */
@@ -319,8 +334,10 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return -1;
 	}
 
-	if (mail_cache_copy(cache, view, fd) < 0) {
+	t_push();
+	if (mail_cache_copy(cache, trans, fd, &file_seq, &ext_offsets) < 0) {
 		(void)file_dotlock_delete(&dotlock);
+		t_pop();
 		return -1;
 	}
 
@@ -329,8 +346,21 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		mail_cache_set_syscall_error(cache,
 					     "file_dotlock_replace()");
 		(void)close(fd);
+		t_pop();
 		return -1;
 	}
+
+	/* once we're sure that the compression was successful,
+	   update the offsets */
+	mail_index_ext_reset(trans, cache->ext_id, file_seq);
+	offsets = array_get(&ext_offsets, &count);
+	for (i = 0; i < count; i++) {
+		if (offsets[i] != 0) {
+			mail_index_update_ext(trans, i + 1, cache->ext_id,
+					      &offsets[i], &old_offset);
+		}
+	}
+	t_pop();
 
 	if (*unlock) {
 		(void)mail_cache_unlock(cache);
@@ -352,7 +382,8 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	return 0;
 }
 
-int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
+int mail_cache_compress(struct mail_cache *cache,
+			struct mail_index_transaction *trans)
 {
 	bool unlock = FALSE;
 	int ret;
@@ -363,7 +394,7 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 	if (cache->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		/* we're using dotlocking, cache file creation itself creates
 		   the dotlock file we need. */
-		return mail_cache_compress_locked(cache, view, &unlock);
+		return mail_cache_compress_locked(cache, trans, &unlock);
 	}
 
 	switch (mail_cache_lock(cache)) {
@@ -372,11 +403,11 @@ int mail_cache_compress(struct mail_cache *cache, struct mail_index_view *view)
 	case 0:
 		/* couldn't lock, either it's broken or doesn't exist.
 		   just start creating it. */
-		return mail_cache_compress_locked(cache, view, &unlock);
+		return mail_cache_compress_locked(cache, trans, &unlock);
 	default:
 		/* locking succeeded. */
 		unlock = TRUE;
-		ret = mail_cache_compress_locked(cache, view, &unlock);
+		ret = mail_cache_compress_locked(cache, trans, &unlock);
 		if (unlock) {
 			if (mail_cache_unlock(cache) < 0)
 				ret = -1;
