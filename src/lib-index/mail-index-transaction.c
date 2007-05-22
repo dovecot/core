@@ -372,6 +372,9 @@ static int _mail_index_transaction_commit(struct mail_index_transaction *t,
 {
 	int ret;
 
+	i_assert(t->first_new_seq >
+		 mail_index_view_get_messages_count(t->view));
+
 	if (t->cache_trans_ctx != NULL) {
 		mail_cache_transaction_commit(t->cache_trans_ctx);
                 t->cache_trans_ctx = NULL;
@@ -1004,13 +1007,16 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	t->view = view;
 	t->hide_transaction = hide;
 	t->external = external;
-	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
 	t->sync_transaction = view->index_sync_view;
 
 	if (view->syncing) {
 		/* transaction view cannot work if new records are being added
 		   in two places. make sure it doesn't happen. */
 		t->no_appends = TRUE;
+		t->first_new_seq = (uint32_t)-1;
+	} else {
+		t->first_new_seq =
+			mail_index_view_get_messages_count(t->view) + 1;
 	}
 
 	i_array_init(&t->module_contexts,
