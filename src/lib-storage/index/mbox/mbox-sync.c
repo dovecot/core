@@ -1544,7 +1544,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 
 	memset(&sync_ctx->sync_rec, 0, sizeof(sync_ctx->sync_rec));
         mail_index_sync_reset(sync_ctx->index_sync_ctx);
-	mail_index_transction_reset(sync_ctx->t);
+	mail_index_transaction_reset(sync_ctx->t);
 
 	sync_ctx->prev_msg_uid = 0;
 	sync_ctx->next_uid = sync_ctx->hdr->next_uid;
