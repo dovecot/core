@@ -34,7 +34,7 @@ static struct auth_request *mech_anonymous_auth_new(void)
 	return request;
 }
 
-struct mech_module mech_anonymous = {
+const struct mech_module mech_anonymous = {
 	"ANONYMOUS",
 
 	MEMBER(flags) MECH_SEC_ANONYMOUS,

@@ -90,7 +90,7 @@ static struct auth_request *mech_plain_auth_new(void)
 	return request;
 }
 
-struct mech_module mech_plain = {
+const struct mech_module mech_plain = {
 	"PLAIN",
 
 	MEMBER(flags) MECH_SEC_PLAINTEXT,

@@ -10,7 +10,7 @@
 
 static struct mech_module_list *mech_modules;
 
-void mech_register_module(struct mech_module *module)
+void mech_register_module(const struct mech_module *module)
 {
 	struct mech_module_list *list;
 
@@ -21,7 +21,7 @@ void mech_register_module(struct mech_module *module)
 	mech_modules = list;
 }
 
-void mech_unregister_module(struct mech_module *module)
+void mech_unregister_module(const struct mech_module *module)
 {
 	struct mech_module_list **pos, *list;
 

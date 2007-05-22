@@ -601,7 +601,7 @@ static struct auth_request *mech_digest_md5_auth_new(void)
 	return &request->auth_request;
 }
 
-struct mech_module mech_digest_md5 = {
+const struct mech_module mech_digest_md5 = {
 	"DIGEST-MD5",
 
 	MEMBER(flags) MECH_SEC_DICTIONARY | MECH_SEC_ACTIVE |

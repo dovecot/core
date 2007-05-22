@@ -42,8 +42,8 @@ struct mech_module_list {
 	struct mech_module module;
 };
 
-void mech_register_module(struct mech_module *module);
-void mech_unregister_module(struct mech_module *module);
+void mech_register_module(const struct mech_module *module);
+void mech_unregister_module(const struct mech_module *module);
 struct mech_module *mech_module_find(const char *name);
 
 void mech_generic_auth_initial(struct auth_request *request,
