@@ -408,7 +408,6 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->sync_dirty = sync_dirty;
 
 	ctx->view = mail_index_view_open(index);
-	ctx->ext_trans = mail_index_transaction_begin(ctx->view, FALSE, TRUE);
 
 	sync_view = mail_index_dummy_view_open(index);
 	ctx->sync_trans = mail_index_transaction_begin(sync_view, FALSE, TRUE);
@@ -456,6 +455,11 @@ int mail_index_sync_begin(struct mail_index *index,
 	}
 
 	ctx->view->index_sync_view = TRUE;
+
+	/* create the transaction after the view has been updated with
+	   external transactions and marked as sync view */
+	ctx->ext_trans = mail_index_transaction_begin(ctx->view, FALSE, TRUE);
+
 	*ctx_r = ctx;
 	*view_r = ctx->view;
 	*trans_r = ctx->ext_trans;
