@@ -20,7 +20,7 @@ static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
 
 	for (i = 0; i < size; i++) {
 		for (uid = e[i].uid1; uid <= e[i].uid2; uid++)
-			mail_index_expunge(ctx->trans, uid);
+			mail_index_expunge(ctx->sync_trans, uid);
 	}
 }
 
@@ -31,13 +31,13 @@ static void mail_index_sync_add_flag_update(struct mail_index_sync_ctx *ctx)
 
 	for (i = 0; i < size; i++) {
 		if (u[i].add_flags != 0) {
-			mail_index_update_flags_range(ctx->trans,
+			mail_index_update_flags_range(ctx->sync_trans,
 						      u[i].uid1, u[i].uid2,
 						      MODIFY_ADD,
 						      u[i].add_flags);
 		}
 		if (u[i].remove_flags != 0) {
-			mail_index_update_flags_range(ctx->trans,
+			mail_index_update_flags_range(ctx->sync_trans,
 						      u[i].uid1, u[i].uid2,
 						      MODIFY_REMOVE,
 						      u[i].remove_flags);
@@ -62,13 +62,13 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 	t_push();
 	keyword_names[0] = t_strndup(u + 1, u->name_size);
 	keyword_names[1] = NULL;
-	keywords = mail_index_keywords_create(ctx->trans, keyword_names);
+	keywords = mail_index_keywords_create(ctx->sync_trans, keyword_names);
 
 	size = (ctx->hdr->size - uidset_offset) / sizeof(uint32_t);
 	for (i = 0; i < size; i += 2) {
 		/* FIXME: mail_index_update_keywords_range() */
 		for (uid = uids[i]; uid <= uids[i+1]; uid++) {
-			mail_index_update_keywords(ctx->trans, uid,
+			mail_index_update_keywords(ctx->sync_trans, uid,
 						   u->modify_type, keywords);
 		}
 	}
@@ -84,10 +84,10 @@ static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
 	struct mail_keywords *keywords;
 	uint32_t uid;
 
-	keywords = mail_index_keywords_create(ctx->trans, NULL);
+	keywords = mail_index_keywords_create(ctx->sync_trans, NULL);
 	for (i = 0; i < size; i++) {
 		for (uid = u[i].uid1; uid <= u[i].uid2; uid++) {
-			mail_index_update_keywords(ctx->trans, uid,
+			mail_index_update_keywords(ctx->sync_trans, uid,
 						   MODIFY_REPLACE, keywords);
 		}
 	}
@@ -145,7 +145,7 @@ static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) == 0)
 			continue;
 
-		mail_index_update_flags(ctx->trans, rec->uid,
+		mail_index_update_flags(ctx->sync_trans, rec->uid,
 					MODIFY_REPLACE, rec->flags);
 	}
 	return 0;
@@ -164,7 +164,7 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 
 		if ((rec->flags & MAIL_RECENT) != 0) {
 			seen_recent = TRUE;
-			mail_index_update_flags(ctx->trans, rec->uid,
+			mail_index_update_flags(ctx->sync_trans, rec->uid,
 						MODIFY_REMOVE, MAIL_RECENT);
 		}
 	}
@@ -182,6 +182,7 @@ static int
 mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 			      bool *seen_external_r)
 {
+	struct mail_index_transaction *sync_trans = ctx->sync_trans;
 	struct mail_index_sync_list *synclist;
         const struct mail_index_transaction_keyword_update *keyword_updates;
 	unsigned int i, keyword_count;
@@ -213,28 +214,28 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 
 	/* create an array containing all expunge, flag and keyword update
 	   arrays so we can easily go through all of the changes. */
-	keyword_count = !array_is_created(&ctx->trans->keyword_updates) ? 0 :
-		array_count(&ctx->trans->keyword_updates);
+	keyword_count = !array_is_created(&sync_trans->keyword_updates) ? 0 :
+		array_count(&sync_trans->keyword_updates);
 	i_array_init(&ctx->sync_list, keyword_count + 2);
 
-	if (array_is_created(&ctx->trans->expunges)) {
+	if (array_is_created(&sync_trans->expunges)) {
 		synclist = array_append_space(&ctx->sync_list);
-		synclist->array = (void *)&ctx->trans->expunges;
+		synclist->array = (void *)&sync_trans->expunges;
 	}
 
-	if (array_is_created(&ctx->trans->updates)) {
+	if (array_is_created(&sync_trans->updates)) {
 		synclist = array_append_space(&ctx->sync_list);
-		synclist->array = (void *)&ctx->trans->updates;
+		synclist->array = (void *)&sync_trans->updates;
 	}
 
 	/* we must return resets before keyword additions or they get lost */
-	if (array_is_created(&ctx->trans->keyword_resets)) {
+	if (array_is_created(&sync_trans->keyword_resets)) {
 		synclist = array_append_space(&ctx->sync_list);
-		synclist->array = (void *)&ctx->trans->keyword_resets;
+		synclist->array = (void *)&sync_trans->keyword_resets;
 	}
 
 	keyword_updates = keyword_count == 0 ? NULL :
-		array_idx(&ctx->trans->keyword_updates, 0);
+		array_idx(&sync_trans->keyword_updates, 0);
 	for (i = 0; i < keyword_count; i++) {
 		if (array_is_created(&keyword_updates[i].add_seq)) {
 			synclist = array_append_space(&ctx->sync_list);
@@ -334,11 +335,12 @@ static int mail_index_sync_commit_external(struct mail_index_sync_ctx *ctx)
 int mail_index_sync_begin(struct mail_index *index,
                           struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
+			  struct mail_index_transaction **trans_r,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
 			  bool sync_recent, bool sync_dirty)
 {
 	struct mail_index_sync_ctx *ctx;
-	struct mail_index_view *dummy_view;
+	struct mail_index_view *sync_view;
 	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id = 0;
@@ -406,10 +408,11 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->sync_dirty = sync_dirty;
 
 	ctx->view = mail_index_view_open(index);
+	ctx->ext_trans = mail_index_transaction_begin(ctx->view, FALSE, TRUE);
 
-	dummy_view = mail_index_dummy_view_open(index);
-	ctx->trans = mail_index_transaction_begin(dummy_view, FALSE, TRUE);
-	mail_index_view_close(&dummy_view);
+	sync_view = mail_index_dummy_view_open(index);
+	ctx->sync_trans = mail_index_transaction_begin(sync_view, FALSE, TRUE);
+	mail_index_view_close(&sync_view);
 
 	if (mail_index_sync_set_log_view(ctx->view,
 					 index->hdr->log_file_seq,
@@ -455,6 +458,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->view->index_sync_view = TRUE;
 	*ctx_r = ctx;
 	*view_r = ctx->view;
+	*trans_r = ctx->ext_trans;
 	return 1;
 }
 
@@ -525,6 +529,7 @@ static int mail_index_sync_rec_check(struct mail_index_view *view,
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec)
 {
+	struct mail_index_transaction *sync_trans = ctx->sync_trans;
 	struct mail_index_sync_list *sync_list;
 	const struct uid_range *uid_range = NULL;
 	unsigned int i, count, next_i;
@@ -570,13 +575,13 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 		uid_range = array_idx(sync_list[i].array, sync_list[i].idx);
 	}
 
-	if (sync_list[i].array == (void *)&ctx->trans->expunges) {
+	if (sync_list[i].array == (void *)&sync_trans->expunges) {
 		mail_index_sync_get_expunge(sync_rec,
 			(const struct mail_transaction_expunge *)uid_range);
-	} else if (sync_list[i].array == (void *)&ctx->trans->updates) {
+	} else if (sync_list[i].array == (void *)&sync_trans->updates) {
 		mail_index_sync_get_update(sync_rec,
 			(const struct mail_transaction_flag_update *)uid_range);
-	} else if (sync_list[i].array == (void *)&ctx->trans->keyword_resets) {
+	} else if (sync_list[i].array == (void *)&sync_trans->keyword_resets) {
 		mail_index_sync_get_keyword_reset(sync_rec, uid_range);
 	} else {
 		mail_index_sync_get_keyword_update(sync_rec, uid_range,
@@ -630,7 +635,7 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 	mail_transaction_log_sync_unlock(ctx->index->log);
 
 	mail_index_view_close(&ctx->view);
-	mail_index_transaction_rollback(&ctx->trans);
+	mail_index_transaction_rollback(&ctx->sync_trans);
 	if (array_is_created(&ctx->sync_list))
 		array_free(&ctx->sync_list);
 	i_free(ctx);
@@ -644,6 +649,9 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	uint32_t seq;
 	uoff_t offset;
 	int ret = 0;
+
+	if (mail_index_transaction_commit(&ctx->ext_trans, &seq, &offset) < 0)
+		ret = -1;
 
 	if (mail_transaction_log_view_is_corrupted(ctx->view->log_view))
 		ret = -1;
@@ -691,6 +699,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 
 void mail_index_sync_rollback(struct mail_index_sync_ctx **ctx)
 {
+	mail_index_transaction_rollback(&(*ctx)->ext_trans);
 	mail_index_sync_end(ctx);
 }
 

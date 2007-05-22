@@ -60,14 +60,16 @@ static int index_list_update_mail_index(struct index_mailbox_list *ilist,
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 	struct mail_index_sync_ctx *mail_sync_ctx;
 	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
 	struct mail_index_sync_rec sync_rec;
 	int ret;
 
 	if (ibox->log_seq == 0)
 		return 0;
 
-	ret = mail_index_sync_begin(ilist->mail_index, &mail_sync_ctx,
-				    &view, ibox->log_seq, ibox->log_offset,
+	ret = mail_index_sync_begin(ilist->mail_index,
+				    &mail_sync_ctx, &view, &trans,
+				    ibox->log_seq, ibox->log_offset,
 				    FALSE, FALSE);
 	if (ret <= 0)
 		return ret;

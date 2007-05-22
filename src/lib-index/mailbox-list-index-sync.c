@@ -332,7 +332,7 @@ static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 	struct mail_index_sync_rec sync_rec;
 
 	if (mail_index_sync_begin(ctx->index->mail_index, &ctx->mail_sync_ctx,
-				  &ctx->mail_view, (uint32_t)-1, 0,
+				  &ctx->mail_view, &ctx->trans, (uint32_t)-1, 0,
 				  FALSE, FALSE) < 0)
 		return -1;
 
@@ -357,7 +357,6 @@ static int sync_mail_sync_init2(struct mailbox_list_index_sync_ctx *ctx)
 		}
 	}
 
-	ctx->trans = mail_index_transaction_begin(ctx->mail_view, FALSE, TRUE);
 	if (hdr->uid_validity == 0) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, uid_validity),
@@ -856,18 +855,6 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 			&used_space, sizeof(used_space), FALSE);
 	}
 
-	if (ctx->trans != NULL) {
-		if (ret < 0)
-			mail_index_transaction_rollback(&ctx->trans);
-		else {
-			uint32_t seq;
-			uoff_t offset;
-
-			if (mail_index_transaction_commit(&ctx->trans,
-							  &seq, &offset) < 0)
-				ret = -1;
-		}
-	}
 	if (ctx->mail_sync_ctx != NULL) {
 		if (ret < 0)
 			mail_index_sync_rollback(&ctx->mail_sync_ctx);

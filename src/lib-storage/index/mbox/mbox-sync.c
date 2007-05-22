@@ -1544,6 +1544,7 @@ static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 
 	memset(&sync_ctx->sync_rec, 0, sizeof(sync_ctx->sync_rec));
         mail_index_sync_reset(sync_ctx->index_sync_ctx);
+	mail_index_transction_reset(sync_ctx->t);
 
 	sync_ctx->prev_msg_uid = 0;
 	sync_ctx->next_uid = sync_ctx->hdr->next_uid;
@@ -1612,10 +1613,6 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		   also if we ran out of UIDs. */
 		i_assert(sync_ctx->mbox->mbox_sync_dirty);
 		mbox_sync_restart(sync_ctx);
-
-		mail_index_transaction_rollback(&sync_ctx->t);
-		sync_ctx->t = mail_index_transaction_begin(sync_ctx->sync_view,
-							   FALSE, TRUE);
 		partial = FALSE;
 	}
 
@@ -1675,8 +1672,6 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 
 static void mbox_sync_context_free(struct mbox_sync_context *sync_ctx)
 {
-	if (sync_ctx->t != NULL)
-		mail_index_transaction_rollback(&sync_ctx->t);
 	if (sync_ctx->index_sync_ctx != NULL)
 		mail_index_sync_rollback(&sync_ctx->index_sync_ctx);
 	pool_unref(sync_ctx->mail_keyword_pool);
@@ -1691,6 +1686,7 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 {
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
+	struct mail_index_transaction *trans;
 	struct mbox_sync_context sync_ctx;
 	uint32_t seq;
 	uoff_t offset;
@@ -1758,7 +1754,7 @@ __again:
 	}
 
 	ret = mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
-				    &sync_view, seq, offset,
+				    &sync_view, &trans, seq, offset,
 				    !mbox->ibox.keep_recent,
 				    (flags & MBOX_SYNC_REWRITE) != 0);
 	if (ret <= 0) {
@@ -1793,7 +1789,7 @@ __again:
 
 	sync_ctx.index_sync_ctx = index_sync_ctx;
 	sync_ctx.sync_view = sync_view;
-	sync_ctx.t = mail_index_transaction_begin(sync_view, FALSE, TRUE);
+	sync_ctx.t = trans;
 	sync_ctx.mail_keyword_pool =
 		pool_alloconly_create("mbox keywords", 256);
 	sync_ctx.saved_keywords_pool =
@@ -1816,16 +1812,6 @@ __again:
 		if (mbox_sync_read_index_syncs(&sync_ctx, 1, &expunged) < 0)
 			return -1;
 		if (sync_ctx.sync_rec.uid1 == 0) {
-			if (mail_index_transaction_commit(&sync_ctx.t,
-							  &seq, &offset) < 0) {
-				mail_storage_set_index_error(&mbox->ibox);
-				mbox_sync_context_free(&sync_ctx);
-				if (lock_id != 0)
-					(void)mbox_unlock(mbox, lock_id);
-				return -1;
-			}
-			sync_ctx.t = NULL;
-
 			sync_ctx.index_sync_ctx = NULL;
 			mbox_sync_context_free(&sync_ctx);
 			goto __nothing_to_do;
@@ -1854,9 +1840,8 @@ __again:
 	ret = mbox_sync_do(&sync_ctx, flags);
 
 	if (ret < 0)
-		mail_index_transaction_rollback(&sync_ctx.t);
-	else if (mail_index_transaction_commit(&sync_ctx.t,
-					       &seq, &offset) < 0) {
+		mail_index_sync_rollback(&index_sync_ctx);
+	else if (mail_index_sync_commit(&index_sync_ctx) < 0) {
 		mail_storage_set_index_error(&mbox->ibox);
 		ret = -1;
 	} else {
@@ -1864,13 +1849,6 @@ __again:
 		mbox->ibox.commit_log_file_offset = 0;
 	}
 	sync_ctx.t = NULL;
-
-	if (ret < 0)
-		mail_index_sync_rollback(&index_sync_ctx);
-	else if (mail_index_sync_commit(&index_sync_ctx) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		ret = -1;
-	}
 	sync_ctx.index_sync_ctx = NULL;
 
 	if (sync_ctx.base_uid_last != sync_ctx.next_uid-1 &&

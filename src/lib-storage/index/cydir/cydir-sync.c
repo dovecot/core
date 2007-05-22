@@ -8,20 +8,11 @@
 
 static int cydir_sync_set_uidvalidity(struct cydir_sync_context *ctx)
 {
-	struct mail_index_transaction *trans;
 	uint32_t uid_validity = ioloop_time;
-	uint32_t seq;
-	uoff_t offset;
 
-	trans = mail_index_transaction_begin(ctx->sync_view, FALSE, TRUE);
-	mail_index_update_header(trans,
+	mail_index_update_header(ctx->trans,
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
-
-	if (mail_index_transaction_commit(&trans, &seq, &offset) < 0) {
-		mail_storage_set_index_error(&ctx->mbox->ibox);
-		return -1;
-	}
 	return 0;
 }
 
@@ -130,7 +121,8 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 	ctx = i_new(struct cydir_sync_context, 1);
 	ctx->mbox = mbox;
 	ret = mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
-				    &ctx->sync_view, (uint32_t)-1, (uoff_t)-1,
+				    &ctx->sync_view, &ctx->trans,
+				    (uint32_t)-1, (uoff_t)-1,
 				    !mbox->ibox.keep_recent, TRUE);
 	if (ret <= 0) {
 		if (ret < 0)

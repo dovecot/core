@@ -8,6 +8,7 @@ struct cydir_sync_context {
 	struct cydir_mailbox *mbox;
         struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
+	struct mail_index_transaction *trans;
 
 	string_t *path;
 	unsigned int path_dir_prefix_len;

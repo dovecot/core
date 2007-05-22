@@ -496,7 +496,8 @@ static int dbox_sync_init(struct dbox_mailbox *mbox,
 		return -1;
 
 	ret = mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
-				    &ctx->sync_view, (uint32_t)-1, (uoff_t)-1,
+				    &ctx->sync_view, &ctx->trans,
+				    (uint32_t)-1, (uoff_t)-1,
 				    !mbox->ibox.keep_recent, TRUE);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -504,8 +505,6 @@ static int dbox_sync_init(struct dbox_mailbox *mbox,
 		dbox_uidlist_sync_rollback(ctx->uidlist_sync_ctx);
 		return ret;
 	}
-
-	ctx->trans = mail_index_transaction_begin(ctx->sync_view, FALSE, TRUE);
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	if ((uint32_t)mtime != hdr->sync_stamp) {
@@ -518,8 +517,7 @@ static int dbox_sync_init(struct dbox_mailbox *mbox,
 static int dbox_sync_finish(struct dbox_sync_context *ctx, bool force)
 {
 	const struct mail_index_header *hdr;
-	uint32_t seq, uid_validity, next_uid;
-	uoff_t offset;
+	uint32_t uid_validity, next_uid;
 	time_t mtime;
 	int ret;
 
@@ -562,12 +560,6 @@ static int dbox_sync_finish(struct dbox_sync_context *ctx, bool force)
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, sync_stamp),
 			&sync_stamp, sizeof(sync_stamp), TRUE);
-	}
-
-	if (mail_index_transaction_commit(&ctx->trans, &seq, &offset) < 0) {
-		mail_storage_set_index_error(&ctx->mbox->ibox);
-		mail_index_sync_rollback(&ctx->index_sync_ctx);
-		return -1;
 	}
 
 	if (force) {

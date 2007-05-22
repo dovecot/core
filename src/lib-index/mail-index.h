@@ -216,12 +216,12 @@ mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
    Returned sequence numbers describe the mailbox state at the beginning of
    synchronization, ie. expunges don't affect them.
 
-   You may create a new transaction for the returned view. That transaction
-   acts as "external mailbox changes" transaction. Any changes done there are
-   expected to describe mailbox's current state. */
+   Changes done to the returned transaction are expected to describe the
+   mailbox's current state. */
 int mail_index_sync_begin(struct mail_index *index,
 			  struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
+			  struct mail_index_transaction **trans_r,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
 			  bool sync_recent, bool sync_dirty);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */

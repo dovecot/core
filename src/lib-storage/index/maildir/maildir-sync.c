@@ -1001,8 +1001,9 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	struct maildir_index_sync_context *ctx;
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
+	struct mail_index_transaction *trans;
 
-	if (mail_index_sync_begin(mbox->ibox.index, &sync_ctx, &view,
+	if (mail_index_sync_begin(mbox->ibox.index, &sync_ctx, &view, &trans,
 				  (uint32_t)-1, (uoff_t)-1,
 				  FALSE, FALSE) <= 0) {
 		mail_storage_set_index_error(&mbox->ibox);
@@ -1013,6 +1014,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	ctx->mbox = mbox;
 	ctx->sync_ctx = sync_ctx;
 	ctx->view = view;
+	ctx->trans = trans;
 	ctx->keywords_sync_ctx =
 		maildir_keywords_sync_init(mbox->keywords, mbox->ibox.index);
 	*ctx_r = ctx;
@@ -1024,26 +1026,10 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_sync_ctx,
 {
 	struct maildir_index_sync_context *sync_ctx = *_sync_ctx;
 	struct maildir_mailbox *mbox = sync_ctx->mbox;
-	uint32_t seq;
-	uoff_t offset;
 	int ret = failed ? -1 : 0;
 
 	*_sync_ctx = NULL;
 
-	if (sync_ctx->trans != NULL) {
-		if (ret < 0 || cancel)
-			mail_index_transaction_rollback(&sync_ctx->trans);
-		else {
-			if (mail_index_transaction_commit(&sync_ctx->trans,
-							  &seq, &offset) < 0) {
-				mail_storage_set_index_error(&mbox->ibox);
-				ret = -1;
-			} else if (seq != 0) {
-				mbox->ibox.commit_log_file_seq = seq;
-				mbox->ibox.commit_log_file_offset = offset;
-			}
-		}
-	}
 	if (ret < 0 || cancel)
 		mail_index_sync_rollback(&sync_ctx->sync_ctx);
 	else {
@@ -1075,7 +1061,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	struct maildir_mailbox *mbox = sync_ctx->mbox;
 	struct mail_index_view *view = sync_ctx->view;
 	struct maildir_uidlist_iter_ctx *iter;
-	struct mail_index_transaction *trans;
+	struct mail_index_transaction *trans = sync_ctx->trans;
 	const struct mail_index_header *hdr;
 	const struct mail_index_record *rec;
 	uint32_t seq, uid, prev_uid;
@@ -1104,9 +1090,6 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		mail_index_mark_corrupted(mbox->ibox.index);
 		return -1;
 	}
-
-	sync_ctx->trans = trans =
-		mail_index_transaction_begin(sync_ctx->view, FALSE, TRUE);
 
 	seq = prev_uid = 0;
 	t_array_init(&keywords, MAILDIR_MAX_KEYWORDS);

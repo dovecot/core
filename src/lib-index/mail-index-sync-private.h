@@ -11,7 +11,7 @@ ARRAY_DEFINE_TYPE(uid_range, struct uid_range);
 struct mail_index_sync_ctx {
 	struct mail_index *index;
 	struct mail_index_view *view;
-	struct mail_index_transaction *trans;
+	struct mail_index_transaction *sync_trans, *ext_trans;
 
 	const struct mail_transaction_header *hdr;
 	const void *data;
