@@ -319,9 +319,11 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 			mail_alloc(qbox->expunge_trans,
 				   MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	}
-	mail_set_uid(qbox->expunge_qt->tmp_mail, uid);
+	if (mail_set_uid(qbox->expunge_qt->tmp_mail, uid) <= 0)
+		size = (uoff_t)-1;
+	else
+		size = mail_get_physical_size(qbox->expunge_qt->tmp_mail);
 
-	size = mail_get_physical_size(qbox->expunge_qt->tmp_mail);
 	if (size != (uoff_t)-1)
 		quota_free_bytes(qbox->expunge_qt, size);
 	else {
