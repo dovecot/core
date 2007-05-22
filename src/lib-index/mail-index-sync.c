@@ -703,7 +703,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 
 void mail_index_sync_rollback(struct mail_index_sync_ctx **ctx)
 {
-	mail_index_transaction_rollback(&(*ctx)->ext_trans);
+	if ((*ctx)->ext_trans != NULL)
+		mail_index_transaction_rollback(&(*ctx)->ext_trans);
 	mail_index_sync_end(ctx);
 }
 
