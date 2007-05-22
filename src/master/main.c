@@ -861,7 +861,7 @@ int main(int argc, char *argv[])
 	master_settings_init();
 	if (!master_settings_read(configfile, exec_protocol != NULL,
 				  dump_config))
-		exit(FATAL_DEFAULT);
+		i_fatal("Invalid configuration in %s", configfile);
 	t_pop();
 
 	if (dump_config) {
