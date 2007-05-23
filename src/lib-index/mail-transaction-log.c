@@ -699,7 +699,7 @@ mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 }
 
 static void
-mail_transaction_log_file_add_to_head(struct mail_transaction_log_file *file)
+mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 {
 	struct mail_transaction_log *log = file->log;
 	struct mail_transaction_log_file **p;
@@ -715,25 +715,11 @@ mail_transaction_log_file_add_to_head(struct mail_transaction_log_file *file)
 		file->sync_offset = file->hdr.hdr_size;
 	}
 
-	/* append to end of list. */
-	for (p = &log->files; *p != NULL; p = &(*p)->next)
-		i_assert((*p)->hdr.file_seq < file->hdr.file_seq);
-	*p = file;
-}
-
-static void
-mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
-{
-	struct mail_transaction_log *log = file->log;
-	struct mail_transaction_log_file **p;
-
-	file->sync_offset = file->hdr.hdr_size;
-
 	/* insert it to correct position */
 	for (p = &log->files; *p != NULL; p = &(*p)->next) {
-		i_assert((*p)->hdr.file_seq != file->hdr.file_seq);
 		if ((*p)->hdr.file_seq > file->hdr.file_seq)
 			break;
+		i_assert((*p)->hdr.file_seq < file->hdr.file_seq);
 	}
 
 	file->next = *p;
@@ -791,7 +777,7 @@ mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log_file
 	if (ret < 0)
 		return errno == ENOENT && try_retry ? 0 : -1;
 
-        mail_transaction_log_file_add_to_head(file);
+        mail_transaction_log_file_add_to_list(file);
 	return 1;
 }
 
@@ -813,7 +799,7 @@ mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log)
 	file->buffer = buffer_create_dynamic(default_pool, 4096);
 	file->buffer_offset = sizeof(file->hdr);
 
-	mail_transaction_log_file_add_to_head(file);
+	mail_transaction_log_file_add_to_list(file);
 	return file;
 }
 
@@ -881,7 +867,7 @@ mail_transaction_log_file_open(struct mail_transaction_log *log,
                 		TRUE, i < MAIL_INDEX_ESTALE_RETRY_COUNT);
 		if (ret > 0) {
 			/* success */
-			mail_transaction_log_file_add_to_head(file);
+			mail_transaction_log_file_add_to_list(file);
 			return file;
 		}
 
