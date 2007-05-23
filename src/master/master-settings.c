@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -824,6 +825,46 @@ static bool settings_fix(struct settings *set, bool nochecks, bool nofixes)
 	return nofixes ? TRUE : settings_do_fixes(set);
 }
 
+static int pid_file_is_running(const char *path)
+{
+	char buf[32];
+	int fd;
+	ssize_t ret;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		if (errno == ENOENT)
+			return 0;
+		i_error("open(%s) failed: %m", path);
+		return -1;
+	}
+
+	ret = read(fd, buf, sizeof(buf));
+	if (ret <= 0) {
+		if (ret == 0)
+			i_error("Empty PID file in %s, overriding", path);
+		else
+			i_error("read(%s) failed: %m", path);
+	} else {
+		pid_t pid;
+
+		if (buf[ret-1] == '\n')
+			ret--;
+		buf[ret] = '\0';
+		pid = atoi(buf);
+		if (pid == getpid() || (kill(pid, 0) < 0 && errno == ESRCH)) {
+			/* doesn't exist */
+			ret = 0;
+		} else {
+			i_error("Dovecot is already running with PID %s "
+				"(read from %s)", buf, path);
+			ret = 1;
+		}
+	}
+	(void)close(fd);
+	return ret;
+}
+
 static struct auth_settings *
 auth_settings_new(struct server_settings *server, const char *name)
 {
@@ -1294,6 +1335,16 @@ bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 	/* If server sections were defined, skip the root */
 	if (ctx.root->next != NULL)
 		ctx.root = ctx.root->next;
+
+	if (!nochecks && !nofixes) {
+		ctx.root->defaults = settings_is_active(ctx.root->imap) ?
+			ctx.root->imap : ctx.root->pop3;
+
+		path = t_strconcat(ctx.root->defaults->base_dir,
+				   "/master.pid", NULL);
+		if (pid_file_is_running(path) != 0)
+			return FALSE;
+	}
 
 	prev = NULL;
 	for (server = ctx.root; server != NULL; server = server->next) {
