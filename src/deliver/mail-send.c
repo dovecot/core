@@ -4,7 +4,9 @@
 #include "ioloop.h"
 #include "hostpid.h"
 #include "istream.h"
+#include "str.h"
 #include "str-sanitize.h"
+#include "var-expand.h"
 #include "message-date.h"
 #include "message-size.h"
 #include "duplicate.h"
@@ -15,13 +17,31 @@
 
 #include <sys/wait.h>
 
-#define MAIL_REJECTION_HUMAN_REASON \
-"Your message was automatically rejected by Dovecot Mail Delivery Agent.\r\n" \
-"\r\n" \
-"The following reason was given:\r\n" \
-"%s\r\n"
-
 int global_outgoing_count = 0;
+
+static const struct var_expand_table *
+get_var_expand_table(struct mail *mail, const char *reason,
+		     const char *recipient)
+{
+	static struct var_expand_table static_tab[] = {
+		{ 'n', NULL },
+		{ 'r', NULL },
+		{ 's', NULL },
+		{ 't', NULL },
+		{ '\0', NULL }
+	};
+	struct var_expand_table *tab;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = "\r\n";
+	tab[1].value = reason;
+	tab[2].value = str_sanitize(mail_get_first_header(mail, "Subject"), 80);
+	tab[3].value = recipient;
+
+	return tab;
+}
 
 int mail_send_rejection(struct mail *mail, const char *recipient,
 			const char *reason)
@@ -33,6 +53,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     const char *return_addr, *str;
     const unsigned char *data;
     const char *msgid, *orig_msgid, *boundary;
+    string_t *human_reason;
     size_t size;
     int ret;
 
@@ -69,7 +90,11 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     fprintf(f, "Content-Type: text/plain; charset=utf-8\r\n");
     fprintf(f, "Content-Disposition: inline\r\n");
     fprintf(f, "Content-Transfer-Encoding: 8bit\r\n\r\n");
-    fprintf(f, MAIL_REJECTION_HUMAN_REASON"\r\n", reason);
+
+    human_reason = t_str_new(256);
+    var_expand(human_reason, deliver_set->rejection_reason,
+	       get_var_expand_table(mail, reason, recipient));
+    fprintf(f, "%s\r\n", str_c(human_reason));
 
     /* MDN status report */
     fprintf(f, "--%s\r\n"

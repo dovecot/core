@@ -652,6 +652,11 @@ int main(int argc, char *argv[])
 	deliver_set->sendmail_path = getenv("SENDMAIL_PATH");
 	if (deliver_set->sendmail_path == NULL)
 		deliver_set->sendmail_path = DEFAULT_SENDMAIL_PATH;
+	deliver_set->rejection_reason = getenv("REJECTION_REASON");
+	if (deliver_set->rejection_reason == NULL) {
+		deliver_set->rejection_reason =
+			DEFAULT_MAIL_REJECTION_HUMAN_REASON;
+	}
 
 	dict_driver_register(&dict_driver_client);
         duplicate_init();
