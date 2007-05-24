@@ -72,6 +72,16 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	    mstream->istream.istream.v_offset +
 	    (mstream->istream.pos - mstream->istream.skip) ==
 	    mstream->header_size.virtual_size) {
+		/* if there's no body at all, return EOF */
+		(void)i_stream_get_data(mstream->input, &pos);
+		if (pos == 0) {
+			ret = i_stream_read(mstream->input);
+			if (ret == -1) {
+				/* EOF */
+				mstream->istream.istream.eof = TRUE;
+				return -1;
+			}
+		}
 		/* we don't support mixing headers and body.
 		   it shouldn't be needed. */
 		return -2;
@@ -182,11 +192,13 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	}
 
 	if (ret == 0) {
+		/* we're at the end of headers. */
 		i_assert(hdr == NULL);
 		i_assert(mstream->istream.istream.v_offset +
 			 mstream->istream.pos ==
 			 mstream->header_size.virtual_size);
-		return -2;
+
+		return read_header(mstream);
 	}
 
 	return ret;
