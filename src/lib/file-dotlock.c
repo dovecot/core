@@ -25,6 +25,10 @@
    is valid (since it most likely is). */
 #define STALE_PID_CHECK_SECS 2
 
+/* Maximum difference between current time and create file's ctime before
+   logging a warning. Should be less than a second in normal operation. */
+#define MAX_TIME_DIFF 30
+
 struct dotlock {
 	struct dotlock_settings settings;
 
@@ -452,7 +456,8 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
                         dotlock->lock_time = now;
 			lock_info.fd = -1;
 
-			if (st.st_ctime + 60 < now || st.st_ctime - 60 > now) {
+			if (st.st_ctime + MAX_TIME_DIFF < now ||
+			    st.st_ctime - MAX_TIME_DIFF > now) {
 				i_warning("Created dotlock file's timestamp is "
 					  "different than current time "
 					  "(%s vs %s): %s", dec2str(st.st_ctime),
