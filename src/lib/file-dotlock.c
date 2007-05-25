@@ -452,12 +452,10 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
                         dotlock->lock_time = now;
 			lock_info.fd = -1;
 
-			if (st.st_ctime < now)
-				now = time(NULL);
-			if (st.st_ctime < now) {
+			if (st.st_ctime + 60 < now || st.st_ctime - 60 > now) {
 				i_warning("Created dotlock file's timestamp is "
-					  "smaller than current time "
-					  "(%s < %s): %s", dec2str(st.st_ctime),
+					  "different than current time "
+					  "(%s vs %s): %s", dec2str(st.st_ctime),
 					  dec2str(now), path);
 			}
 		}
