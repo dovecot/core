@@ -665,19 +665,22 @@ int main(int argc, char *argv[])
 	mailbox_list_register_all();
 
 	/* MAIL comes from userdb, MAIL_LOCATION from dovecot.conf.
+	   We don't want to expand settings coming from userdb.
 	   FIXME: should remove these and support namespaces.. */
 	mail_env = getenv("MAIL");
-	if (mail_env == NULL) 
-		mail_env = getenv("MAIL_LOCATION");
 	if (mail_env == NULL)  {
-		/* Keep this for backwards compatibility */
-		mail_env = getenv("DEFAULT_MAIL_ENV");
+		mail_env = getenv("MAIL_LOCATION");
+		if (mail_env == NULL)  {
+			/* Keep this for backwards compatibility */
+			mail_env = getenv("DEFAULT_MAIL_ENV");
+		}
+		if (mail_env != NULL) {
+			table = get_var_expand_table(destination,
+						     getenv("HOME"));
+			mail_env = expand_mail_env(mail_env, table);
+		}
+		env_put(t_strconcat("MAIL=", mail_env, NULL));
 	}
-	if (mail_env != NULL) {
-		table = get_var_expand_table(destination, getenv("HOME"));
-		mail_env = expand_mail_env(mail_env, table);
-	}
-	env_put(t_strconcat("MAIL=", mail_env, NULL));
 
 	module_dir_init(modules);
 
