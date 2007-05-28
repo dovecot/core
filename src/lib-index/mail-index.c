@@ -1998,30 +1998,53 @@ void mail_index_reset_error(struct mail_index *index)
         index->index_lock_timeout = FALSE;
 }
 
+#ifdef WORDS_BIGENDIAN
+/* FIXME: Unfortunately these functions were originally written to use
+   endian-specific code and we can't avoid that without breaking backwards
+   compatibility. When we do break it, just select one of these. */
 uint32_t mail_index_uint32_to_offset(uint32_t offset)
 {
-	unsigned char buf[4];
-
 	i_assert(offset < 0x40000000);
 	i_assert((offset & 3) == 0);
 
 	offset >>= 2;
-	buf[0] = 0x80 | ((offset & 0x0fe00000) >> 21);
-	buf[1] = 0x80 | ((offset & 0x001fc000) >> 14);
-	buf[2] = 0x80 | ((offset & 0x00003f80) >> 7);
-	buf[3] = 0x80 |  (offset & 0x0000007f);
-	return *((uint32_t *) buf);
+	return  0x00000080 | ((offset & 0x0000007f)) |
+		0x00008000 | ((offset & 0x00003f80) >> 7 << 8) |
+		0x00800000 | ((offset & 0x001fc000) >> 14 << 16) |
+		0x80000000 | ((offset & 0x0fe00000) >> 21 << 24);
 }
 
 uint32_t mail_index_offset_to_uint32(uint32_t offset)
 {
-	const unsigned char *buf = (const unsigned char *) &offset;
-
 	if ((offset & 0x80808080) != 0x80808080)
 		return 0;
 
-	return (((uint32_t)buf[3] & 0x7f) << 2) |
-		(((uint32_t)buf[2] & 0x7f) << 9) |
-		(((uint32_t)buf[1] & 0x7f) << 16) |
-		(((uint32_t)buf[0] & 0x7f) << 23);
+	return  (((offset & 0x0000007f)) |
+		 ((offset & 0x00007f00) >> 8 << 7) |
+		 ((offset & 0x007f0000) >> 16 << 14) |
+		 ((offset & 0x7f000000) >> 24 << 21)) << 2;
 }
+#else
+uint32_t mail_index_uint32_to_offset(uint32_t offset)
+{
+	i_assert(offset < 0x40000000);
+	i_assert((offset & 3) == 0);
+
+	offset >>= 2;
+	return  0x80000000 | ((offset & 0x0000007f) << 24) |
+		0x00800000 | ((offset & 0x00003f80) >> 7 << 16) |
+		0x00008000 | ((offset & 0x001fc000) >> 14 << 8) |
+		0x00000080 | ((offset & 0x0fe00000) >> 21);
+}
+
+uint32_t mail_index_offset_to_uint32(uint32_t offset)
+{
+	if ((offset & 0x80808080) != 0x80808080)
+		return 0;
+
+	return  (((offset & 0x0000007f) << 21) |
+		 ((offset & 0x00007f00) >> 8 << 14) |
+		 ((offset & 0x007f0000) >> 16 << 7) |
+		 ((offset & 0x7f000000) >> 24)) << 2;
+}
+#endif
