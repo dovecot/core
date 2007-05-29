@@ -28,7 +28,7 @@ int file_set_size(int fd, off_t size)
 		return 0;
 
 #ifdef HAVE_POSIX_FALLOCATE
-	return posix_fallocate(fd, 0, size);
+	return posix_fallocate(fd, st.st_size, size - st.st_size);
 #else
 	/* start growing the file */
 	offset = st.st_size;
