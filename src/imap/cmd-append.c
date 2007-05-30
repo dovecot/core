@@ -72,7 +72,9 @@ static void client_input(struct client_command_context *cmd)
 		return;
 	}
 
+	o_stream_cork(client->output);
 	if (cmd->func(cmd)) {
+		o_stream_uncork(client->output);
 		client_command_free(cmd);
 		client_continue_pending_input(client);
 	}
@@ -342,6 +344,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		o_stream_send(client->output, "+ OK\r\n", 6);
 		o_stream_flush(client->output);
 		o_stream_uncork(client->output);
+		o_stream_cork(client->output);
 	}
 
 	ctx->count++;
