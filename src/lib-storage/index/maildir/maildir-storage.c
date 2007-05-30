@@ -740,10 +740,20 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 
 	/* check if the mailbox actually exists */
 	src = mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	if (stat(src, &st) != 0 && errno == ENOENT) {
+	if (lstat(src, &st) != 0 && errno == ENOENT) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		return -1;
+	}
+
+	if (!S_ISDIR(st.st_mode)) {
+		/* a symlink most likely */
+		if (unlink(src) < 0 && errno != ENOENT) {
+			mail_storage_set_critical(_storage,
+				"unlink(%s) failed: %m", src);
+			return -1;
+		}
+		return 0;
 	}
 
 	dest = maildir_get_unlink_dest(list, name);
