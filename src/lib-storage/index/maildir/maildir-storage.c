@@ -749,7 +749,7 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	if (!S_ISDIR(st.st_mode)) {
 		/* a symlink most likely */
 		if (unlink(src) < 0 && errno != ENOENT) {
-			mail_storage_set_critical(_storage,
+			mailbox_list_set_critical(list,
 				"unlink(%s) failed: %m", src);
 			return -1;
 		}
