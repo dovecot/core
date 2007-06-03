@@ -46,6 +46,8 @@ const char *login_protocol = "POP3";
 static struct hash_table *clients;
 static struct timeout *to_idle;
 
+static void idle_timeout(void *context);
+
 static void client_set_title(struct pop3_client *client)
 {
 	const char *addr;
@@ -337,6 +339,9 @@ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
 	if (client->auth_connected)
 		client_auth_ready(client);
 	client_set_title(client);
+
+	if (to_idle == NULL)
+		to_idle = timeout_add(1000, idle_timeout, NULL);
 	return &client->common;
 }
 
@@ -350,6 +355,8 @@ void client_destroy(struct pop3_client *client, const char *reason)
 		client_syslog(&client->common, reason);
 
 	hash_remove(clients, client);
+	if (hash_size(clients) == 0)
+		timeout_remove(&to_idle);
 
 	if (client->input != NULL)
 		i_stream_close(client->input);
@@ -512,7 +519,6 @@ void clients_destroy_all(void)
 void clients_init(void)
 {
 	clients = hash_create(system_pool, system_pool, 128, NULL, NULL);
-	to_idle = timeout_add(1000, idle_timeout, NULL);
 }
 
 void clients_deinit(void)
@@ -520,5 +526,5 @@ void clients_deinit(void)
 	clients_destroy_all();
 	hash_destroy(clients);
 
-	timeout_remove(&to_idle);
+	i_assert(to_idle == NULL);
 }
