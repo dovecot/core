@@ -104,21 +104,22 @@
 #  define __attr_noreturn__ __attribute__((noreturn))
 #  define __attr_const__ __attribute__((const))
 #  define __attr_malloc__ __attribute__((malloc))
-#  if __GNUC__ > 3
-/* GCC 4.0 and later */
-#    define __attr_warn_unused_result__ __attribute__((warn_unused_result))
-#    define __attr_sentinel__ __attribute__((sentinel))
-#  else
-#    define __attr_warn_unused_result__
-#    define __attr_sentinel__
-#  endif
 #else
 #  define __attr_format__(format_idx, arg_idx)
 #  define __attr_format_arg__(arg_idx)
+#  define __attr_scanf__
 #  define __attr_unused__
 #  define __attr_noreturn__
 #  define __attr_const__
 #  define __attr_unused__
+#  define __attr_malloc__
+#endif
+#if __GNUC__ > 3
+/* GCC 4.0 and later */
+#  define __attr_warn_unused_result__ __attribute__((warn_unused_result))
+#  define __attr_sentinel__ __attribute__((sentinel))
+#else
+#  define __attr_warn_unused_result__
 #  define __attr_sentinel__
 #endif
 
