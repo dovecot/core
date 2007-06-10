@@ -62,8 +62,16 @@ const char *printf_string_fix_format(const char *fmt)
 	const char *p;
 
 	for (p = fmt; *p != '\0'; p++) {
-		if (*p == '%' && p[1] == 'm')
-			return fix_format_real(fmt, p);
+		if (*p++ == '%') {
+			switch (*p) {
+			case 'n':
+				i_panic("%%n modifier used");
+			case 'm':
+				return fix_format_real(fmt, p-1);
+			case '\0':
+				i_panic("%% modifier missing");
+			}
+		}
 	}
 
 	return fmt;
