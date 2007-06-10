@@ -67,7 +67,6 @@ liblib_a_SOURCES = \
 	ostream-crlf.c \
 	primes.c \
 	printf-format-fix.c \
-	printf-upper-bound.c \
 	process-title.c \
 	randgen.c \
 	read-full.c \
@@ -148,7 +147,6 @@ headers = \
 	ostream-internal.h \
 	primes.h \
 	printf-format-fix.h \
-	printf-upper-bound.h \
 	process-title.h \
 	randgen.h \
 	read-full.h \

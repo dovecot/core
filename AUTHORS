@@ -14,20 +14,6 @@ This product includes software developed by Computing Services
 at Carnegie Mellon University (http://www.cmu.edu/computing/).
 (src/lib/base64.c, src/lib/utc-mktime.c)
 
-GLib Team (src/lib/printf-upper-bound.c)
----------
-Shawn T. Amundson  <amundson@gimp.org>
-Jeff Garzik        <jgarzik@pobox.com>
-Raja R Harinath    <harinath@cs.umn.edu>
-Tim Janik          <timj@gtk.org>
-Elliot Lee         <sopwith@redhat.com>
-Tor Lillqvist      <tml@iki.fi>
-Paolo Molaro       <lupus@debian.org>
-Havoc Pennington   <hp@pobox.com>
-Manish Singh       <yosh@gimp.org>
-Owen Taylor        <otaylor@gtk.org>
-Sebastian Wilhelmi <wilhelmi@ira.uka.de>
-
 Simon Tatham (src/imap/imap-thread.c merge sorting)
 
 Vaclav Haisman <v.haisman@sh.cvut.cz> (src/lib/ioloop-kqueue.c)

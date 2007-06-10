@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "printf-upper-bound.h"
+#include "printf-format-fix.h"
 #include "str.h"
 
 #include <stdio.h>
@@ -102,29 +102,15 @@ void str_printfa(string_t *str, const char *fmt, ...)
 
 void str_vprintfa(string_t *str, const char *fmt, va_list args)
 {
-	char *buf;
-	int ret;
-	va_list args2;
-	size_t len, append_len;
+	const char *tmp;
+	unsigned int size;
 
-	VA_COPY(args2, args);
-
-	len = buffer_get_used_size(str);
-
-	append_len = printf_string_upper_bound(&fmt, args);
-	buf = buffer_append_space_unsafe(str, append_len);
-
-#ifdef HAVE_VSNPRINTF
-	ret = vsnprintf(buf, append_len, fmt, args2);
-	i_assert(ret >= 0 && (size_t)ret <= append_len);
-#else
-	ret = vsprintf(buf, fmt, args2);
-	i_assert(ret >= 0);
-#endif
-
-	len += ret;
-
-	buffer_set_used_size(str, len);
+	tmp = t_noalloc_strdup_vprintf(fmt, args, &size);
+	if (buffer_get_pool(str)->datastack_pool) {
+		/* appending to buffer may allocate more data from data stack */
+		t_buffer_alloc(size);
+	}
+	buffer_append(str, tmp, size - 1);
 }
 
 void str_insert(string_t *str, size_t pos, const char *cstr)

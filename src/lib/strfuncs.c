@@ -3,7 +3,7 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
-#include "printf-upper-bound.h"
+#include "printf-format-fix.h"
 #include "strfuncs.h"
 
 #include <stdio.h>
@@ -14,51 +14,18 @@
 
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 {
-#ifndef HAVE_VSNPRINTF
-	char *buf;
-#endif
-	va_list args, args2;
-	ssize_t len;
+	va_list args;
 	int ret;
 
 	i_assert(max_chars < INT_MAX);
 
-	t_push();
-
 	va_start(args, format);
-	VA_COPY(args2, args);
-
-	len = printf_string_upper_bound(&format, args);
-
-	i_assert(len >= 0);
-
-#ifdef HAVE_VSNPRINTF
-	len = vsnprintf(dest, max_chars, format, args2);
-#else
-	buf = t_buffer_get(len);
-	len = vsprintf(buf, format, args2);
-#endif
+	ret = vsnprintf(dest, max_chars, printf_format_fix_unsafe(format),
+			args);
 	va_end(args);
 
-	if (len < 0) {
-		/* some error occurred */
-		len = 0;
-		ret = -1;
-	} else if ((size_t)len >= max_chars) {
-		/* too large */
-		len = max_chars-1;
-		ret = -1;
-	} else {
-		ret = 0;
-	}
-
-#ifndef HAVE_VSNPRINTF
-	memcpy(dest, buf, len);
-#endif
-	dest[len] = '\0';
-
-	t_pop();
-	return ret;
+	i_assert(ret >= 0);
+	return (unsigned int)ret < max_chars ? 0 : -1;
 }
 
 char *p_strdup(pool_t pool, const char *str)
@@ -132,28 +99,52 @@ char *p_strdup_printf(pool_t pool, const char *format, ...)
 	return ret;
 }
 
-char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
+char *t_noalloc_strdup_vprintf(const char *format, va_list args,
+			       unsigned int *size_r)
 {
-	char *ret;
+#define SNPRINTF_INITIAL_EXTRA_SIZE 256
 	va_list args2;
-	size_t len;
-
-	if (!pool->datastack_pool)
-		t_push();
+	char *tmp;
+	unsigned int init_size;
+	int ret;
 
 	VA_COPY(args2, args);
 
-	len = printf_string_upper_bound(&format, args);
-        ret = p_malloc(pool, len);
+	/* the format string is modified only if %m exists in it. it happens
+	   only in error conditions, so don't try to t_push() here since it'll
+	   just slow down the normal code path. */
+	format = printf_format_fix_get_len(format, &init_size);
+	init_size += SNPRINTF_INITIAL_EXTRA_SIZE;
 
-#ifdef HAVE_VSNPRINTF
-	vsnprintf(ret, len, format, args2);
-#else
-	vsprintf(ret, format, args2);
-#endif
-	if (!pool->datastack_pool)
-		t_pop();
-	return ret;
+	tmp = t_buffer_get(init_size);
+	ret = vsnprintf(tmp, init_size, format, args);
+	i_assert(ret >= 0);
+
+	*size_r = ret + 1;
+	if ((unsigned int)ret >= init_size) {
+		/* didn't fit with the first guess. now we know the size,
+		   so try again. */
+		tmp = t_buffer_get(*size_r);
+		ret = vsnprintf(tmp, *size_r, format, args2);
+		i_assert((unsigned int)ret == *size_r-1);
+	}
+	return tmp;
+}
+
+char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
+{
+	char *tmp, *buf;
+	unsigned int size;
+
+	tmp = t_noalloc_strdup_vprintf(format, args, &size);
+	if (pool->datastack_pool) {
+		t_buffer_alloc(size);
+		return tmp;
+	} else {
+		buf = p_malloc(pool, size);
+		memcpy(buf, tmp, size - 1);
+		return buf;
+	}
 }
 
 char *_vstrconcat(const char *str1, va_list args, size_t *ret_len)

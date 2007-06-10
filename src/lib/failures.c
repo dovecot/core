@@ -83,7 +83,7 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 
 	if (recursed == 2) {
 		/* we're being called from some signal handler, or
-		   printf_format_fix() killed us again */
+		   printf_format_fix_unsafe() killed us again */
 		return -1;
 	}
 
@@ -98,9 +98,8 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 
 	VA_COPY(args2, args);
 
-	t_push();
 	if (recursed == 2) {
-		/* printf_format_fix() probably killed us last time,
+		/* printf_format_fix_unsafe() probably killed us last time,
 		   just write the format now. */
 
 		fputs("recursed: ", f);
@@ -114,13 +113,10 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 		errno = old_errno;
 
 		/* make sure there's no %n in there and fix %m */
-		(void)printf_format_fix(&format);
-		vfprintf(f, format, args2);
+		vfprintf(f, printf_format_fix_unsafe(format), args2);
 	}
 
 	fputc('\n', f);
-
-	t_pop();
 
 	errno = old_errno;
 	recursed--;
@@ -290,8 +286,7 @@ syslog_handler(int level, const char *format, va_list args)
 
 	/* make sure there's no %n in there. vsyslog() supports %m, but since
 	   we'll convert it ourself anyway, we might as well it */
-	(void)printf_format_fix(&format);
-	vsyslog(level, format, args);
+	vsyslog(level, printf_format_fix_unsafe(format), args);
 	recursed--;
 
 	return 0;
