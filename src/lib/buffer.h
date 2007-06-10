@@ -34,6 +34,9 @@ void _buffer_free(buffer_t **buf);
 void *_buffer_free_without_data(buffer_t **buf);
 #define buffer_free_without_data(buf) _buffer_free_without_data(&(buf))
 
+/* Returns the pool buffer was created with. */
+pool_t buffer_get_pool(buffer_t *buf);
+
 /* Reset the buffer. used size and it's contents are zeroed. */
 void buffer_reset(buffer_t *buf);
 

@@ -135,6 +135,13 @@ void *_buffer_free_without_data(buffer_t **_buf)
 	return data;
 }
 
+pool_t buffer_get_pool(buffer_t *_buf)
+{
+	struct real_buffer *buf = (struct real_buffer *)_buf;
+
+	return buf->pool;
+}
+
 void buffer_reset(buffer_t *_buf)
 {
 	struct real_buffer *buf = (struct real_buffer *)_buf;
