@@ -412,7 +412,6 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 #ifdef HAVE_IPV6
 	union sockaddr_union *so;
 	struct addrinfo hints, *ai, *origai;
-	char hbuf[NI_MAXHOST];
 	int host_error;
 #else
 	struct hostent *hp;
@@ -432,11 +431,6 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 
 	/* save error to host_error for later use */
 	host_error = getaddrinfo(addr, NULL, &hints, &ai);
-	if (host_error != 0)
-		return host_error;
-
-	host_error = getnameinfo(ai->ai_addr, ai->ai_addrlen, hbuf,
-				 sizeof(hbuf), NULL, 0, NI_NUMERICHOST);
 	if (host_error != 0)
 		return host_error;
 
