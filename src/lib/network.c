@@ -435,10 +435,10 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 	if (host_error != 0)
 		return host_error;
 
-	if (getnameinfo(ai->ai_addr, ai->ai_addrlen, hbuf,
-			sizeof(hbuf), NULL, 0, NI_NUMERICHOST) != 0)
-		return 1;
-
+	host_error = getnameinfo(ai->ai_addr, ai->ai_addrlen, hbuf,
+				 sizeof(hbuf), NULL, 0, NI_NUMERICHOST);
+	if (host_error != 0)
+		return host_error;
 
         /* get number of IPs */
         origai = ai;
@@ -594,11 +594,6 @@ const char *net_gethosterror(int error)
 {
 #ifdef HAVE_IPV6
 	i_assert(error != 0);
-
-	if (error == 1) {
-		/* getnameinfo() failed */
-		return strerror(errno);
-	}
 
 	return gai_strerror(error);
 #else
