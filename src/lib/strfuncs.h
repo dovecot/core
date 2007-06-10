@@ -6,8 +6,6 @@
 
 #define MAX_INT_STRLEN ((sizeof(uintmax_t) * CHAR_BIT + 2) / 3 + 1)
 
-const char *printf_string_fix_format(const char *fmt) __attr_format_arg__(1);
-
 /* Returns -1 if dest wasn't large enough, 0 if not. */
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 	__attr_format__(3, 4);

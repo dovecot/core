@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "backtrace-string.h"
+#include "printf-format-fix.h"
 #include "write-full.h"
 #include "fd-close-on-exec.h"
 
@@ -82,7 +83,7 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 
 	if (recursed == 2) {
 		/* we're being called from some signal handler, or
-		   printf_string_fix_format() killed us again */
+		   printf_format_fix() killed us again */
 		return -1;
 	}
 
@@ -99,8 +100,8 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 
 	t_push();
 	if (recursed == 2) {
-		/* printf_string_fix_format() probably killed us last time,
-		 just write the format now. */
+		/* printf_format_fix() probably killed us last time,
+		   just write the format now. */
 
 		fputs("recursed: ", f);
 		fputs(format, f);
@@ -113,7 +114,8 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 		errno = old_errno;
 
 		/* make sure there's no %n in there and fix %m */
-		vfprintf(f, printf_string_fix_format(format), args2);
+		(void)printf_format_fix(&format);
+		vfprintf(f, format, args2);
 	}
 
 	fputc('\n', f);
@@ -288,7 +290,8 @@ syslog_handler(int level, const char *format, va_list args)
 
 	/* make sure there's no %n in there. vsyslog() supports %m, but since
 	   we'll convert it ourself anyway, we might as well it */
-	vsyslog(level, printf_string_fix_format(format), args);
+	(void)printf_format_fix(&format);
+	vsyslog(level, format, args);
 	recursed--;
 
 	return 0;

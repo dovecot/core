@@ -19,6 +19,7 @@
 */
 
 #include "lib.h"
+#include "printf-format-fix.h"
 #include "printf-upper-bound.h"
 
 typedef union  _GDoubleIEEE754  GDoubleIEEE754;
@@ -320,6 +321,6 @@ size_t printf_string_upper_bound(const char **format_p, va_list args)
     } /* while (*format) */
 
   if (fix_format)
-    *format_p = printf_string_fix_format(*format_p);
+    (void)printf_format_fix(format_p);
   return len;
 }
