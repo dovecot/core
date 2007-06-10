@@ -35,7 +35,7 @@ void mech_unregister_module(const struct mech_module *module)
 	}
 }
 
-struct mech_module *mech_module_find(const char *name)
+const struct mech_module *mech_module_find(const char *name)
 {
 	struct mech_module_list *list;
 

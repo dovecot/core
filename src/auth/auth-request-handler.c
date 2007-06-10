@@ -245,7 +245,7 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 				     const char *args)
 {
-	struct mech_module *mech;
+	const struct mech_module *mech;
 	struct auth_request *request;
 	const char *const *list, *name, *arg, *initial_resp;
 	const void *initial_resp_data;

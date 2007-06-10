@@ -23,7 +23,7 @@
 #include <stdlib.h>
 
 struct auth_request *
-auth_request_new(struct auth *auth, struct mech_module *mech,
+auth_request_new(struct auth *auth, const struct mech_module *mech,
 		 mech_callback_t *callback, void *context)
 {
 	struct auth_request *request;

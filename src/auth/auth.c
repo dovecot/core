@@ -94,7 +94,7 @@ const string_t *auth_mechanisms_get_list(struct auth *auth)
 	return str;
 }
 
-static void auth_mech_register(struct auth *auth, struct mech_module *mech)
+static void auth_mech_register(struct auth *auth, const struct mech_module *mech)
 {
 	struct mech_module_list *list;
 
@@ -186,7 +186,7 @@ void auth_init(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
-	struct mech_module *mech;
+	const struct mech_module *mech;
 	const char *const *mechanisms;
 	const char *env;
 
