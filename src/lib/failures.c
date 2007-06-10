@@ -5,7 +5,6 @@
 #include "backtrace-string.h"
 #include "write-full.h"
 #include "fd-close-on-exec.h"
-#include "printf-upper-bound.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,7 +82,7 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 
 	if (recursed == 2) {
 		/* we're being called from some signal handler, or
-		   printf_string_upper_bound() killed us again */
+		   printf_string_fix_format() killed us again */
 		return -1;
 	}
 
@@ -100,7 +99,7 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 
 	t_push();
 	if (recursed == 2) {
-		/* printf_string_upper_bound() probably killed us last time,
+		/* printf_string_fix_format() probably killed us last time,
 		 just write the format now. */
 
 		fputs("recursed: ", f);
@@ -114,8 +113,7 @@ default_handler(const char *prefix, FILE *f, const char *format, va_list args)
 		errno = old_errno;
 
 		/* make sure there's no %n in there and fix %m */
-                (void)printf_string_upper_bound(&format, args);
-		vfprintf(f, format, args2);
+		vfprintf(f, printf_string_fix_format(format), args2);
 	}
 
 	fputc('\n', f);
@@ -281,8 +279,6 @@ void i_set_info_handler(failure_callback_t *callback)
 static int __attr_format__(2, 0)
 syslog_handler(int level, const char *format, va_list args)
 {
-	va_list args2;
-
 	static int recursed = 0;
 
 	if (recursed != 0)
@@ -290,11 +286,9 @@ syslog_handler(int level, const char *format, va_list args)
 
 	recursed++;
 
-	/* make sure there's no %n in there */
-	VA_COPY(args2, args);
-	(void)printf_string_upper_bound(&format, args);
-
-	vsyslog(level, format, args2);
+	/* make sure there's no %n in there. vsyslog() supports %m, but since
+	   we'll convert it ourself anyway, we might as well it */
+	vsyslog(level, printf_string_fix_format(format), args);
 	recursed--;
 
 	return 0;
