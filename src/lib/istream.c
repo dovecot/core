@@ -170,8 +170,6 @@ char *i_stream_next_line(struct istream *stream)
 	char *ret_buf;
         size_t i;
 
-        i_assert(stream != NULL);
-
 	if (_stream->skip >= _stream->pos) {
 		stream->stream_errno = 0;
 		return NULL;

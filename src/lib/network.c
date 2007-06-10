@@ -237,8 +237,6 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 	int ret, fd, opt = 1;
 	socklen_t len;
 
-	i_assert(port != NULL);
-
 	memset(&so, 0, sizeof(so));
 	sin_set_port(&so, *port);
 	sin_set_ip(&so, my_ip);
@@ -364,7 +362,6 @@ ssize_t net_receive(int fd, void *buf, size_t len)
 	ssize_t ret;
 
 	i_assert(fd >= 0);
-	i_assert(buf != NULL);
 	i_assert(len <= SSIZE_T_MAX);
 
 	ret = read(fd, buf, len);
@@ -392,7 +389,6 @@ ssize_t net_transmit(int fd, const void *data, size_t len)
         ssize_t ret;
 
 	i_assert(fd >= 0);
-	i_assert(data != NULL);
 	i_assert(len <= SSIZE_T_MAX);
 
 	ret = send(fd, data, len, 0);
@@ -417,10 +413,6 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 	struct hostent *hp;
 #endif
         int count;
-
-	i_assert(addr != NULL);
-	i_assert(ips != NULL);
-	i_assert(ips_count != NULL);
 
 	*ips = NULL;
         *ips_count = 0;

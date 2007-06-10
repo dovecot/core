@@ -195,8 +195,6 @@ char *p_strdup_vprintf(pool_t pool, const char *format, va_list args)
 	va_list args2;
 	size_t len;
 
-	i_assert(format != NULL);
-
 	if (!pool->datastack_pool)
 		t_push();
 
