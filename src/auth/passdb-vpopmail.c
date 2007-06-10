@@ -66,7 +66,7 @@ static void vpopmail_lookup_credentials(struct auth_request *request,
 
 	password = vpopmail_password_lookup(request, TRUE, &result);
 	if (password == NULL) {
-		callback(result, "", request);
+		callback(result, "", 0, request);
 		return;
 	}
 	
