@@ -955,9 +955,14 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 		old_offset = istream_raw_mbox_get_start_offset(sync_ctx->input);
 
 		ret = mbox_file_seek(mbox, sync_ctx->sync_view, seq, &deleted);
-		if (ret < 0)
+		if (ret < 0) {
+			if (deleted) {
+				mbox_sync_set_critical(sync_ctx,
+					"Message was expunged unexpectedly "
+					"in mbox file %s", mbox->path);
+			}
 			return -1;
-
+		}
 		if (ret == 0) {
 			if (istream_raw_mbox_seek(mbox->mbox_stream,
 						  old_offset) < 0) {
