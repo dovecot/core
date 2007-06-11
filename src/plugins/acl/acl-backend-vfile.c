@@ -277,6 +277,16 @@ acl_object_vfile_parse_line(struct acl_object_vfile *aclobj, const char *path,
 	return 0;
 }
 
+static void acl_backend_remove_all_access(struct acl_object *aclobj)
+{
+	struct acl_rights_update rights;
+
+	memset(&rights, 0, sizeof(rights));
+	rights.rights.id_type = ACL_ID_ANYONE;
+	rights.modify_mode = ACL_MODIFY_MODE_REPLACE;
+	acl_cache_update(aclobj->backend->cache, aclobj->name, &rights);
+}
+
 static int
 acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 		       struct acl_vfile_validity *validity, bool try_retry,
@@ -295,14 +305,20 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 		if (errno == ENOENT) {
 			if (aclobj->aclobj.backend->debug)
 				i_info("acl vfile: file %s not found", path);
+		} else if (errno == EACCES) {
+			if (aclobj->aclobj.backend->debug)
+				i_info("acl vfile: no access to file %s", path);
 
-			validity->last_size = 0;
-			validity->last_mtime = 0;
-			validity->last_read_time = ioloop_time;
-			return 1;
+			acl_backend_remove_all_access(&aclobj->aclobj);
+		} else {
+			i_error("open(%s) failed: %m", path);
+			return -1;
 		}
-		i_error("open(%s) failed: %m", path);
-		return -1;
+
+		validity->last_size = 0;
+		validity->last_mtime = 0;
+		validity->last_read_time = ioloop_time;
+		return 1;
 	}
 
 	if (fstat(fd, &st) < 0) {
