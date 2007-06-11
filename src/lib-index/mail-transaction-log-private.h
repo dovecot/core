@@ -60,6 +60,33 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 					const char *fmt, ...)
 	__attr_format__(2, 3);
 
+struct mail_transaction_log_file *
+mail_transaction_log_file_alloc(struct mail_transaction_log *log,
+				const char *path);
+struct mail_transaction_log_file *
+mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log);
+void mail_transaction_log_file_free(struct mail_transaction_log_file *file);
+
+struct mail_transaction_log_file *
+mail_transaction_log_file_open(struct mail_transaction_log *log,
+			       const char *path);
+struct mail_transaction_log_file *
+mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
+					 const char *path);
+int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
+				     bool lock, dev_t dev, ino_t ino,
+				     uoff_t file_size);
+
+int mail_transaction_log_file_fd_open(struct mail_transaction_log_file *file,
+				      bool head, bool ignore_estale);
+int mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log_file
+						*file, bool try_retry);
+int mail_transaction_log_file_read(struct mail_transaction_log_file *file,
+				   uoff_t offset);
+int mail_transaction_log_file_lock(struct mail_transaction_log_file *file);
+void
+mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file);
+
 int mail_transaction_log_file_find(struct mail_transaction_log *log,
 				   uint32_t file_seq,
 				   struct mail_transaction_log_file **file_r);
