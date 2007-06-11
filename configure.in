@@ -398,16 +398,10 @@ dnl **
 dnl ** just some generic stuff...
 dnl **
 
-AC_CHECK_FUNC(socket, [], [
-	AC_CHECK_LIB(socket, socket, [
-		LIBS="$LIBS -lsocket"
-	])
-])
-
-AC_CHECK_FUNC(inet_addr, [], [
-	AC_CHECK_LIB(nsl, inet_addr, [
-		LIBS="$LIBS -lnsl"
-	])
+AC_SEARCH_LIBS(socket, socket)
+AC_SEARCH_LIBS(inet_addr, nsl)
+AC_SEARCH_LIBS(fdatasync, rt, [
+  AC_DEFINE(HAVE_FDATASYNC,, Define if you have fdatasync())
 ])
 
 AC_CHECK_FUNC(cap_init, [], [
@@ -417,19 +411,6 @@ AC_CHECK_FUNC(cap_init, [], [
 	])
 ])
 AC_SUBST(LIBCAP)
-
-AC_CHECK_FUNC(fdatasync, [
-	have_fdatasync=yes
-], [
-	AC_CHECK_LIB(rt, fdatasync, [
-		have_fdatasync=yes
-		LIBS="$LIBS -lrt"
-	])
-])
-
-if test "$have_fdatasync" = "yes"; then
-	AC_DEFINE(HAVE_FDATASYNC,, Define if you have fdatasync())
-fi
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
 AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
