@@ -4,13 +4,23 @@
 #include "file-dotlock.h"
 #include "mail-transaction-log.h"
 
+#if 0 // FIXME
 /* Rotate when log is older than ROTATE_TIME and larger than MIN_SIZE */
-#define MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE (1024*128)
+#define MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE (1024*4)
+/* If log is larger than MAX_SIZE, rotate regardless of the time */
+#define MAIL_TRANSACTION_LOG_ROTATE_MAX_SIZE (1024*16)
+#define MAIL_TRANSACTION_LOG_ROTATE_TIME (30)
+
+#define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
+#else
+/* Rotate when log is older than ROTATE_TIME and larger than MIN_SIZE */
+#define MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE (1024*256)
 /* If log is larger than MAX_SIZE, rotate regardless of the time */
 #define MAIL_TRANSACTION_LOG_ROTATE_MAX_SIZE (1024*1024)
 #define MAIL_TRANSACTION_LOG_ROTATE_TIME (60*5)
 
 #define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
+#endif
 
 struct mail_transaction_log_file {
 	struct mail_transaction_log *log;
@@ -28,14 +38,20 @@ struct mail_transaction_log_file {
 	time_t last_mtime;
 	uoff_t last_size;
 
+	struct mail_transaction_log_header hdr;
 	buffer_t *buffer;
 	uoff_t buffer_offset;
 	void *mmap_base;
 	size_t mmap_size;
 
-	struct mail_transaction_log_header hdr;
+	/* points to the next uncommitted transaction. usually same as EOF. */
 	uoff_t sync_offset;
-	uint32_t first_append_size;
+	/* saved_offset is the offset that was last written to transaction log.
+	   max_offset is what should be written to the log the next time a
+	   transaction is written. transaction log handling may update
+	   max_offset automatically by making it skip external transactions
+	   after the last saved offset (to avoid re-reading them unneededly). */
+	uoff_t mailbox_sync_saved_offset, mailbox_sync_max_offset;
 
 	struct file_lock *file_lock;
 
@@ -45,10 +61,14 @@ struct mail_transaction_log_file {
 struct mail_transaction_log {
 	struct mail_index *index;
         struct mail_transaction_log_view *views;
+
 	/* files is a linked list of all the opened log files. the list is
 	   sorted by the log file sequence, so that transaction views can use
 	   them easily. head contains a pointer to the newest log file. */
 	struct mail_transaction_log_file *files, *head;
+	/* open_file is used temporarily while opening the log file.
+	   if _open() failed, it's left there for _create(). */
+	struct mail_transaction_log_file *open_file;
 
 	unsigned int dotlock_count;
         struct dotlock_settings dotlock_settings, new_dotlock_settings;
@@ -61,33 +81,20 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 	__attr_format__(2, 3);
 
 struct mail_transaction_log_file *
+mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log);
+struct mail_transaction_log_file *
 mail_transaction_log_file_alloc(struct mail_transaction_log *log,
 				const char *path);
-struct mail_transaction_log_file *
-mail_transaction_log_file_alloc_in_memory(struct mail_transaction_log *log);
-void mail_transaction_log_file_free(struct mail_transaction_log_file *file);
+void mail_transaction_log_file_free(struct mail_transaction_log_file **file);
 
-struct mail_transaction_log_file *
-mail_transaction_log_file_open(struct mail_transaction_log *log,
-			       const char *path);
-struct mail_transaction_log_file *
-mail_transaction_log_file_open_or_create(struct mail_transaction_log *log,
-					 const char *path);
-int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
-				     bool lock, dev_t dev, ino_t ino,
-				     uoff_t file_size);
-
-int mail_transaction_log_file_fd_open(struct mail_transaction_log_file *file,
-				      bool head, bool ignore_estale);
-int mail_transaction_log_file_fd_open_or_create(struct mail_transaction_log_file
-						*file, bool try_retry);
+int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
+				   bool check_existing);
+int mail_transaction_log_file_create(struct mail_transaction_log_file *file);
 int mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 				   uoff_t offset);
 int mail_transaction_log_file_lock(struct mail_transaction_log_file *file);
-void
-mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file);
 
-int mail_transaction_log_file_find(struct mail_transaction_log *log,
+int mail_transaction_log_find_file(struct mail_transaction_log *log,
 				   uint32_t file_seq,
 				   struct mail_transaction_log_file **file_r);
 
@@ -96,7 +103,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log);
 
-int mail_transaction_log_rotate(struct mail_transaction_log *log, bool lock);
+bool mail_transaction_log_want_rotate(struct mail_transaction_log *log);
+int mail_transaction_log_rotate(struct mail_transaction_log *log);
 int mail_transaction_log_lock_head(struct mail_transaction_log *log);
 void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file);
 

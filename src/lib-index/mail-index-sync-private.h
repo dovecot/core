@@ -8,26 +8,6 @@ struct uid_range {
 };
 ARRAY_DEFINE_TYPE(uid_range, struct uid_range);
 
-struct mail_index_sync_ctx {
-	struct mail_index *index;
-	struct mail_index_view *view;
-	struct mail_index_transaction *sync_trans, *ext_trans;
-
-	const struct mail_transaction_header *hdr;
-	const void *data;
-
-	ARRAY_DEFINE(sync_list, struct mail_index_sync_list);
-	uint32_t next_uid;
-
-	uint32_t append_uid_first, append_uid_last;
-
-	unsigned int lock_id;
-
-	unsigned int sync_appends:1;
-	unsigned int sync_recent:1;
-	unsigned int sync_dirty:1;
-};
-
 struct mail_index_sync_list {
 	const ARRAY_TYPE(uid_range) *array;
 	unsigned int idx;
@@ -69,15 +49,18 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 			      struct mail_index_view *view,
 			      enum mail_index_sync_handler_type type);
 void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx);
-int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
-				 bool sync_only_external);
+int mail_index_sync_map(struct mail_index *index, struct mail_index_map **map,
+			enum mail_index_sync_handler_type type, bool force);
 
 int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			   const struct mail_transaction_header *hdr,
 			   const void *data);
 
-void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
-				 struct mail_index_map *map);
+void mail_index_sync_move_to_private(struct mail_index_sync_map_ctx *ctx);
+struct mail_index_map *
+mail_index_sync_get_atomic_map(struct mail_index_sync_map_ctx *ctx);
+void mail_index_sync_write_seq_update(struct mail_index_sync_map_ctx *ctx,
+				      uint32_t seq1, uint32_t seq2);
 
 void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx);
 void

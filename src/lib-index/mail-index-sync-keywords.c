@@ -120,14 +120,10 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	unsigned int keywords_count;
 	int ret;
 
-	if (!map->write_to_disk) {
-		/* if we crash in the middle of writing the header, the
-		   keywords are more or less corrupted. avoid that by
-		   making sure the header is updated atomically. */
-		map = mail_index_map_clone(map, map->hdr.record_size);
-		mail_index_sync_replace_map(ctx, map);
-	}
-	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
+	/* if we crash in the middle of writing the header, the
+	   keywords are more or less corrupted. avoid that by
+	   making sure the header is updated atomically. */
+	map = mail_index_sync_get_atomic_map(ctx);
 
 	ext_id = mail_index_map_lookup_ext(map, "keywords");
 	if (ext_id != (uint32_t)-1) {
@@ -199,12 +195,12 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 }
 
 static int
-keywords_update_records(struct mail_index_view *view,
+keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 			const struct mail_index_ext *ext,
-			unsigned int keyword_idx,
-			enum modify_type type,
+			unsigned int keyword_idx, enum modify_type type,
 			uint32_t uid1, uint32_t uid2)
 {
+	struct mail_index_view *view = ctx->view;
 	struct mail_index_record *rec;
 	unsigned char *data, data_mask;
 	unsigned int data_offset;
@@ -218,11 +214,8 @@ keywords_update_records(struct mail_index_view *view,
 	if (seq1 == 0)
 		return 1;
 
-	if (view->map->write_seq_first == 0 ||
-	    view->map->write_seq_first > seq1)
-		view->map->write_seq_first = seq1;
-	if (view->map->write_seq_last < seq2)
-		view->map->write_seq_last = seq2;
+	mail_index_sync_move_to_private(ctx);
+	mail_index_sync_write_seq_update(ctx, seq1, seq2);
 
 	data_offset = keyword_idx / CHAR_BIT;
 	data_mask = 1 << (keyword_idx % CHAR_BIT);
@@ -320,7 +313,7 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 			return -1;
 		}
 
-		ret = keywords_update_records(ctx->view, ext, keyword_idx,
+		ret = keywords_update_records(ctx, ext, keyword_idx,
 					      rec->modify_type,
 					      uid[0], uid[1]);
 		if (ret <= 0)
@@ -358,11 +351,8 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 		if (seq1 == 0)
 			continue;
 
-		if (map->write_seq_first == 0 || map->write_seq_first > seq1)
-			map->write_seq_first = seq1;
-		if (map->write_seq_last < seq2)
-			map->write_seq_last = seq2;
-
+		mail_index_sync_move_to_private(ctx);
+		mail_index_sync_write_seq_update(ctx, seq1, seq2);
 		for (seq1--; seq1 < seq2; seq1++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq1);
 			memset(PTR_OFFSET(rec, ext->record_offset),

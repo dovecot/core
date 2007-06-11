@@ -5,7 +5,7 @@
 #include "seq-range-array.h"
 
 #define MAIL_INDEX_MAJOR_VERSION 7
-#define MAIL_INDEX_MINOR_VERSION 0
+#define MAIL_INDEX_MINOR_VERSION 1
 
 #define MAIL_INDEX_HEADER_MIN_SIZE 120
 
@@ -71,11 +71,9 @@ struct mail_index_header {
 	uint32_t first_unseen_uid_lowwater;
 	uint32_t first_deleted_uid_lowwater;
 
-	/* We have internal and external sync offsets. External changes are
-	   synced into index somewhat more often, so int_offset <= ext_offset */
 	uint32_t log_file_seq;
-	uint32_t log_file_int_offset;
-	uint32_t log_file_ext_offset;
+	uint32_t log_file_index_int_offset;
+	uint32_t log_file_index_ext_offset;
 
 	uint64_t sync_size;
 	uint32_t sync_stamp;
@@ -83,6 +81,8 @@ struct mail_index_header {
 	/* daily first UIDs that have been added to index. */
 	uint32_t day_stamp;
 	uint32_t day_first_uid[8];
+
+	uint32_t log_file_mailbox_offset;
 };
 
 struct mail_index_record {
@@ -172,8 +172,9 @@ uint32_t mail_index_view_get_messages_count(struct mail_index_view *view);
 bool mail_index_view_is_inconsistent(struct mail_index_view *view);
 
 /* Transaction has to be opened to be able to modify index. You can have
-   multiple transactions open simultaneously. Note that committed transactions
-   won't show up until you've synchronized mailbox (mail_index_sync_begin).
+   multiple transactions open simultaneously. Committed transactions won't
+   show up until you've synchronized the view. Expunges won't show up until
+   you've synchronized the mailbox (mail_index_sync_begin).
 
    If transaction is marked as hidden, the changes won't be listed when the
    view is synchronized. Expunges can't be hidden.
@@ -203,12 +204,11 @@ bool mail_index_transaction_is_expunged(struct mail_index_transaction *t,
 struct mail_index_view *
 mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
 
-/* Begin synchronizing mailbox with index file. This call locks the index
-   exclusively against other modifications. Returns 1 if ok, -1 if error.
+/* Begin synchronizing mailbox with index file. Returns 1 if ok, -1 if error.
 
    If log_file_seq is not (uint32_t)-1 and index is already synchronized up
-   to given log_file_offset, the synchronization isn't started and this
-   function returns 0. This should be done when you wish to sync your previous
+   to the given log_file_offset, the synchronization isn't started and this
+   function returns 0. This should be done when you wish to sync your committed
    transaction instead of doing a full mailbox synchronization.
 
    mail_index_sync_next() returns all changes from previously committed
@@ -217,7 +217,7 @@ mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
    sync types, then they might). You must go through all of them and update
    the mailbox accordingly.
 
-   None of the changes actually show up in index until after successful
+   None of the changes actually show up in the index until after a successful
    mail_index_sync_commit().
 
    Returned sequence numbers describe the mailbox state at the beginning of

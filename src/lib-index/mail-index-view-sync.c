@@ -23,7 +23,7 @@ struct mail_index_view_sync_ctx {
 	unsigned int sync_map_update:1;
 };
 
-static void
+static int
 mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 				   const struct seq_range *src, size_t src_size)
 {
@@ -38,14 +38,15 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 	dest = array_get_modifiable(expunges, &dest_count);
 	if (dest_count == 0) {
 		array_append(expunges, src, src_size / sizeof(*src));
-		return;
+		return 0;
 	}
 
 	src_end = CONST_PTR_OFFSET(src, src_size);
 	for (i = 0; src != src_end; src++) {
 		/* src[] must be sorted. */
-		i_assert(src+1 == src_end || src->seq2 < src[1].seq1);
-		i_assert(src->seq1 <= src->seq2);
+		if (src->seq1 > src->seq2 ||
+		    (src+1 != src_end && src->seq2 >= src[1].seq1))
+			return -1;
 
 		for (; i < dest_count; i++) {
 			if (src->seq1 < dest[i].seq1)
@@ -84,6 +85,7 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 			i = first;
 		}
 	}
+	return 0;
 }
 
 static int view_sync_set_log_view_range(struct mail_index_view *view,
@@ -97,7 +99,7 @@ static int view_sync_set_log_view_range(struct mail_index_view *view,
 					    view->log_file_seq,
 					    view->log_file_offset,
 					    hdr->log_file_seq,
-					    hdr->log_file_int_offset,
+					    hdr->log_file_index_int_offset,
 					    type_mask);
 	if (ret <= 0) {
 		if (ret == 0) {
@@ -132,7 +134,13 @@ view_sync_get_expunges(struct mail_index_view *view,
 	while ((ret = mail_transaction_log_view_next(view->log_view,
 						     &hdr, &data, NULL)) > 0) {
 		i_assert((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0);
-		mail_transaction_log_sort_expunges(expunges_r, data, hdr->size);
+		if (mail_transaction_log_sort_expunges(expunges_r, data,
+						       hdr->size) < 0) {
+			mail_transaction_log_view_set_corrupted(view->log_view,
+				"Corrupted expunge record");
+			ret = -1;
+			break;
+		}
 	}
 
 	if (ret < 0) {
@@ -175,22 +183,14 @@ static void mail_index_view_hdr_update(struct mail_index_view *view,
 
 	/* Keep log position so we know where to continue syncing */
 	map->hdr.log_file_seq = view->hdr.log_file_seq;
-	map->hdr.log_file_int_offset = view->hdr.log_file_int_offset;
-	map->hdr.log_file_ext_offset = view->hdr.log_file_ext_offset;
+	map->hdr.log_file_index_int_offset =
+		view->hdr.log_file_index_int_offset;
+	map->hdr.log_file_index_ext_offset =
+		view->hdr.log_file_index_ext_offset;
 
 	view->hdr = map->hdr;
 	buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
 }
-
-#define MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK \
-	(MAIL_INDEX_SYNC_TYPE_FLAGS | \
-	 MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET | \
-	 MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD | MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE)
-
-#define MAIL_TRANSACTION_VISIBLE_SYNC_MASK \
-	(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND | \
-	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE | \
-	 MAIL_TRANSACTION_KEYWORD_RESET)
 
 #ifdef DEBUG
 static void mail_index_view_check(struct mail_index_view *view)
@@ -228,10 +228,20 @@ static void mail_index_view_check(struct mail_index_view *view)
 }
 #endif
 
+#define MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK \
+	(MAIL_INDEX_SYNC_TYPE_FLAGS | \
+	 MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET | \
+	 MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD | MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE)
+
+#define MAIL_TRANSACTION_VISIBLE_SYNC_MASK \
+	(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND | \
+	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE | \
+	 MAIL_TRANSACTION_KEYWORD_RESET)
+
 #define VIEW_IS_SYNCED_TO_SAME(view, hdr) \
 	((hdr)->log_file_seq == (view)->log_file_seq && \
-	 (hdr)->log_file_int_offset == (view)->log_file_offset && \
-	 (hdr)->log_file_ext_offset == (view)->log_file_offset && \
+	 (hdr)->log_file_index_int_offset == (view)->log_file_offset && \
+	 (hdr)->log_file_index_ext_offset == (view)->log_file_offset && \
 	 (!array_is_created(&view->syncs_done) || \
 	  array_count(&view->syncs_done) == 0))
 
@@ -255,7 +265,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
 
-	if (mail_index_view_lock_head(view, TRUE) < 0)
+	if (mail_index_view_lock_head(view) < 0)
 		return -1;
 
 	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0) {
@@ -341,8 +351,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 #endif
 		}
 
-		map = mail_index_map_clone(view->map,
-					   view->map->hdr.record_size);
+		map = mail_index_map_clone(view->map);
 		view->map->records_count = old_records_count;
 		mail_index_unmap(view->index, &view->map);
 		view->map = map;
@@ -461,7 +470,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		   at the end of view sync we'll update the ext_offset in the
 		   header so that this check always becomes FALSE for
 		   subsequent syncs. */
-		synced_to_map = offset < view->hdr.log_file_ext_offset &&
+		synced_to_map = offset < view->hdr.log_file_index_ext_offset &&
 			seq == view->hdr.log_file_seq &&
 			(ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0;
 
@@ -651,8 +660,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	mail_index_view_sync_clean_log_syncs(ctx, &view->syncs_done, TRUE);
 	mail_index_view_sync_clean_log_syncs(ctx, &view->syncs_hidden, FALSE);
 
-	if (!ctx->last_read && ctx->hdr != NULL &&
-	    ctx->data_offset != ctx->hdr->size) {
+	if (!ctx->last_read) {
 		/* we didn't sync everything */
 		view->inconsistent = TRUE;
 	}
@@ -668,18 +676,25 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 			i_assert(view->log_file_seq >
 				 view->map->hdr.log_file_seq);
 			view->map->hdr.log_file_seq = view->log_file_seq;
-			view->map->hdr.log_file_ext_offset =
+			view->map->hdr.log_file_index_ext_offset =
 				view->log_file_offset;
 		} else {
 			i_assert(view->log_file_offset >=
-				 view->map->hdr.log_file_int_offset);
+				 view->map->hdr.log_file_index_int_offset);
 			if (view->log_file_offset >
-			    view->map->hdr.log_file_ext_offset) {
-				view->map->hdr.log_file_ext_offset =
+			    view->map->hdr.log_file_index_ext_offset) {
+				view->map->hdr.log_file_index_ext_offset =
 					view->log_file_offset;
 			}
 		}
-		view->map->hdr.log_file_int_offset = view->log_file_offset;
+		view->map->hdr.log_file_index_int_offset =
+			view->log_file_offset;
+		buffer_write(view->map->hdr_copy_buf, 0,
+			     &view->map->hdr, sizeof(view->map->hdr));
+	} else {
+		i_assert(view->inconsistent ||
+			 view->log_file_offset >=
+			 view->map->hdr.log_file_index_int_offset);
 	}
 	view->hdr = view->map->hdr;
 

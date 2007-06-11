@@ -3,8 +3,6 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
-#include "buffer.h"
-#include "file-set-size.h"
 #include "mmap-util.h"
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
@@ -35,94 +33,99 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 		prev_offset = ctx->ext_intro_offset;
 	}
 
-	if (!ctx->sync_only_external) {
-		i_assert(prev_offset >= map->hdr.log_file_int_offset ||
+	if (!ctx->sync_only_external) { // FIXME: never happens
+		i_assert(prev_offset >= map->hdr.log_file_index_int_offset ||
 			 prev_seq > map->hdr.log_file_seq);
-		map->hdr.log_file_int_offset = prev_offset;
+		map->hdr.log_file_index_int_offset = prev_offset;
 	} else if (map->hdr.log_file_seq != prev_seq) {
 		/* log sequence changed. update internal offset to
 		   beginning of the new file. */
-		i_assert(map->hdr.log_file_int_offset ==
+		i_assert(map->hdr.log_file_index_int_offset ==
 			 ctx->view->index->log->head->hdr.prev_file_offset);
-		map->hdr.log_file_int_offset =
+		map->hdr.log_file_index_int_offset =
 			ctx->view->index->log->head->hdr.hdr_size;
 	}
 
 	/* we might be in the middle of syncing internal transactions, with
 	   some of the following external transactions already synced. */
 	i_assert(prev_seq > map->hdr.log_file_seq ||
-		 prev_offset >= map->hdr.log_file_ext_offset ||
+		 prev_offset >= map->hdr.log_file_index_ext_offset ||
 		 (!eol && !ctx->sync_only_external));
 	if (map->hdr.log_file_seq != prev_seq ||
-	    prev_offset > map->hdr.log_file_ext_offset) {
+	    prev_offset > map->hdr.log_file_index_ext_offset) {
 		map->hdr.log_file_seq = prev_seq;
-		map->hdr.log_file_ext_offset = prev_offset;
+		map->hdr.log_file_index_ext_offset = prev_offset;
 	}
 }
 
+#if 0 // FIXME: can we / do we want to support this?
 static int
 mail_index_map_msync(struct mail_index *index, struct mail_index_map *map)
 {
-	unsigned int base_size;
-
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
+	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+		buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
 		return 0;
+	}
 
-	base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
-	map->mmap_used_size = index->hdr->header_size +
+	map->mmap_used_size = map->hdr.header_size +
 		map->records_count * map->hdr.record_size;
 
-	memcpy(map->mmap_base, &map->hdr, base_size);
-	memcpy(PTR_OFFSET(map->mmap_base, base_size),
-	       CONST_PTR_OFFSET(map->hdr_base, base_size),
-	       map->hdr.header_size - base_size);
+	memcpy(map->mmap_base, &map->hdr,
+	       I_MIN(map->hdr.base_header_size, sizeof(map->hdr)));
+	memcpy(PTR_OFFSET(map->mmap_base, map->hdr.base_header_size),
+	       CONST_PTR_OFFSET(map->hdr_base, map->hdr.base_header_size),
+	       map->hdr.header_size - map->hdr.base_header_size);
 	if (msync(map->mmap_base, map->mmap_used_size, MS_SYNC) < 0) {
 		mail_index_set_syscall_error(index, "msync()");
 		return -1;
 	}
 	return 0;
 }
+#endif
 
-void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
-				 struct mail_index_map *map)
+static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
+					struct mail_index_map *map)
 {
         struct mail_index_view *view = ctx->view;
-	struct mail_index_map *old_map = view->map;
 
 	i_assert(view->map != map);
 
-	old_map->refcount++;
-
-	/* if map still exists after this, it's only in views. */
-	view->map->write_to_disk = FALSE;
-	/* keywords aren't parsed for the new map yet */
-	view->map->keywords_read = FALSE;
+#if 0 // FIXME
+	/* we could have already updated some of the records, so make sure
+	   that other views (in possibly other processes) will see this map's
+	   header in a valid state.  */
+	mail_index_sync_update_log_offset(ctx, view->map, FALSE);
+	(void)mail_index_map_msync(view->index, view->map);
+#endif
 
 	mail_index_unmap(view->index, &view->map);
 	view->map = map;
 
-	if ((ctx->type & (MAIL_INDEX_SYNC_HANDLER_FILE |
-			  MAIL_INDEX_SYNC_HANDLER_HEAD)) != 0 &&
-	    view->index->map != map) {
-		mail_index_unmap(view->index, &view->index->map);
+	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
 		view->index->map = map;
 		view->index->hdr = &map->hdr;
-		map->refcount++;
-
-		if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE) {
-			map->write_to_disk = TRUE;
-			map->write_atomic = TRUE;
-		}
 	}
+}
 
-	/* some views may still use the same mapping, and since we could have
-	   already updated the records, make sure we leave the header in a
-	   valid state as well */
-	mail_index_sync_update_log_offset(ctx, old_map, FALSE);
-	(void)mail_index_map_msync(view->index, old_map);
-	mail_index_unmap(view->index, &old_map);
+void mail_index_sync_move_to_private(struct mail_index_sync_map_ctx *ctx)
+{
+	struct mail_index_map *map = ctx->view->map;
 
-	i_assert(view->hdr.messages_count == map->hdr.messages_count);
+	if (map->refcount == 1) {
+		if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map))
+			mail_index_map_move_to_memory(map);
+	} else {
+		map = mail_index_map_clone(map);
+		mail_index_sync_replace_map(ctx, map);
+	}
+}
+
+struct mail_index_map *
+mail_index_sync_get_atomic_map(struct mail_index_sync_map_ctx *ctx)
+{
+	mail_index_sync_move_to_private(ctx);
+	ctx->view->map->write_atomic = TRUE;
+	return ctx->view->map;
 }
 
 static int
@@ -191,6 +194,22 @@ mail_index_header_update_counts(struct mail_index_header *hdr,
 	return 0;
 }
 
+static void
+mail_index_sync_header_update_counts(struct mail_index_sync_map_ctx *ctx,
+				     uint8_t old_flags, uint8_t new_flags)
+{
+	const char *error;
+
+	if (ctx->view->broken_counters)
+		return;
+
+	if (mail_index_header_update_counts(&ctx->view->map->hdr,
+					    old_flags, new_flags, &error) < 0) {
+		mail_index_sync_set_corrupted(ctx, "%s", error);
+		ctx->view->broken_counters = TRUE;
+	}
+}
+
 void mail_index_view_recalc_counters(struct mail_index_view *view)
 {
 	struct mail_index_map *map = view->map;
@@ -231,105 +250,109 @@ mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 		hdr->first_deleted_uid_lowwater = rec->uid;
 }
 
-static int sync_expunge(const struct mail_transaction_expunge *e,
-			struct mail_index_sync_map_ctx *ctx)
+static int
+sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
+			   uint32_t seq1, uint32_t seq2)
 {
-	struct mail_index_view *view = ctx->view;
-	struct mail_index_map *map = view->map;
+	const struct mail_index_expunge_handler *eh;
 	struct mail_index_record *rec;
-	const char *error;
-	uint32_t count, seq, seq1, seq2;
-        const struct mail_index_expunge_handler *expunge_handlers, *eh;
-	unsigned int i, expunge_handlers_count;
-
-	if (e->uid1 > e->uid2 || e->uid1 == 0) {
-		mail_index_sync_set_corrupted(ctx,
-				"Invalid UID range in expunge (%u .. %u)",
-				e->uid1, e->uid2);
-		return -1;
-	}
-
-	if (!view->map->write_to_disk || view->map->refcount != 1) {
-		/* expunges have to be atomic. so we'll have to copy
-		   the mapping, do the changes there and then finally
-		   replace the whole index file. to avoid extra disk
-		   I/O we copy the index into memory rather than to
-		   temporary file */
-		map = mail_index_map_clone(map, map->hdr.record_size);
-		mail_index_sync_replace_map(ctx, map);
-	}
-	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
-
-	/* we want atomic rename()ing */
-	map->write_atomic = TRUE;
-
-	if (mail_index_lookup_uid_range(view, e->uid1, e->uid2,
-					&seq1, &seq2) < 0)
-		return -1;
-
-	if (seq1 == 0)
-		return 1;
+	unsigned int i, count;
 
 	/* call expunge handlers only when syncing index file */
-	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE &&
-	    !ctx->expunge_handlers_set)
+	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_FILE)
+		return 0;
+
+	if (!ctx->expunge_handlers_set)
 		mail_index_sync_init_expunge_handlers(ctx);
 
-	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE &&
-	    array_is_created(&ctx->expunge_handlers)) {
-		expunge_handlers = array_get(&ctx->expunge_handlers,
-					     &expunge_handlers_count);
-	} else {
-		expunge_handlers = NULL;
-		expunge_handlers_count = 0;
-	}
+	if (!array_is_created(&ctx->expunge_handlers))
+		return 0;
 
-	if (ctx->unreliable_flags || view->broken_counters)
-		view->broken_counters = TRUE;
-	else {
-		for (seq = seq1; seq <= seq2; seq++) {
-			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-			if (mail_index_header_update_counts(&map->hdr,
-							    rec->flags, 0,
-							    &error) < 0) {
-				mail_index_sync_set_corrupted(ctx, "%s", error);
-				return -1;
-			}
-		}
-	}
-
-	for (i = 0; i < expunge_handlers_count; i++) {
-		eh = &expunge_handlers[i];
-
-		for (seq = seq1; seq <= seq2; seq++) {
-			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-			if (eh->handler(ctx, seq,
+	eh = array_get(&ctx->expunge_handlers, &count);
+	for (i = 0; i < count; i++, eh++) {
+		for (; seq1 <= seq2; seq1++) {
+			rec = MAIL_INDEX_MAP_IDX(ctx->view->map, seq1-1);
+			if (eh->handler(ctx, seq1,
 					PTR_OFFSET(rec, eh->record_offset),
 					eh->sync_context, eh->context) < 0)
 				return -1;
 		}
 	}
+	return 0;
+}
 
-	/* @UNSAFE */
-	count = seq2 - seq1 + 1;
-	memmove(MAIL_INDEX_MAP_IDX(map, seq1-1), MAIL_INDEX_MAP_IDX(map, seq2),
-		(map->records_count - seq2) * map->hdr.record_size);
+static int
+sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
+	     struct mail_index_sync_map_ctx *ctx)
+{
+	struct mail_index_map *map = ctx->view->map;
+	struct mail_index_record *rec;
+	uint32_t seq_count, seq, seq1, seq2;
+	unsigned int i;
 
-	map->records_count -= count;
-	map->hdr.messages_count -= count;
-	view->hdr.messages_count -= count;
+	/* we don't ever want to move around data inside a memory mapped file.
+	   it gets corrupted too easily if we crash in the middle. */
+	// FIXME: it's necessary for current view code that we get atomic
+	// map even if these messages are already expunged, because the
+	// view code doesn't check that and our index_int_offset goes wrong
+	map = mail_index_sync_get_atomic_map(ctx);
 
-	if (map->buffer != NULL) {
-		buffer_set_used_size(map->buffer, map->records_count *
-				     map->hdr.record_size);
-		map->records = buffer_get_modifiable_data(map->buffer, NULL);
+	for (i = 0; i < count; i++, e++) {
+		if (e->uid1 > e->uid2 || e->uid1 == 0) {
+			mail_index_sync_set_corrupted(ctx,
+				"Invalid UID range in expunge (%u .. %u)",
+				e->uid1, e->uid2);
+			return -1;
+		}
+		if (i > 0 && e->uid1 <= e[-1].uid2) {
+			mail_index_sync_set_corrupted(ctx,
+				"Non-sorted UID ranges in expunge");
+			return -1;
+		}
+
+		if (mail_index_lookup_uid_range(ctx->view, e->uid1, e->uid2,
+						&seq1, &seq2) < 0)
+			return -1;
+		if (seq1 == 0) {
+			/* everything expunged already */
+			continue;
+		}
+
+		if (ctx->unreliable_flags || ctx->view->broken_counters)
+			ctx->view->broken_counters = TRUE;
+		else {
+			for (seq = seq1; seq <= seq2; seq++) {
+				rec = MAIL_INDEX_MAP_IDX(map, seq-1);
+				mail_index_sync_header_update_counts(ctx,
+								rec->flags, 0);
+			}
+		}
+
+		if (sync_expunge_call_handlers(ctx, seq1, seq2) < 0)
+			return -1;
+
+		/* @UNSAFE */
+		memmove(MAIL_INDEX_MAP_IDX(map, seq1-1),
+			MAIL_INDEX_MAP_IDX(map, seq2),
+			(map->records_count - seq2) * map->hdr.record_size);
+
+		seq_count = seq2 - seq1 + 1;
+		map->records_count -= seq_count;
+		map->hdr.messages_count -= seq_count;
+
+		/* lookup_uid_range() relies on this */
+		ctx->view->hdr.messages_count -= seq_count;
 	}
 	return 1;
 }
 
-static void write_seq_update(struct mail_index_map *map,
-			     uint32_t seq1, uint32_t seq2)
+void mail_index_sync_write_seq_update(struct mail_index_sync_map_ctx *ctx,
+				      uint32_t seq1, uint32_t seq2)
 {
+	struct mail_index_map *map = ctx->view->map;
+
+	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
+
 	if (map->write_seq_first == 0 ||
 	    map->write_seq_first > seq1)
 		map->write_seq_first = seq1;
@@ -342,8 +365,8 @@ static int sync_append(const struct mail_index_record *rec,
 {
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
-	const char *error;
 	void *dest;
+	size_t append_pos;
 
 	if (rec->uid < map->hdr.next_uid) {
 		mail_index_sync_set_corrupted(ctx,
@@ -352,17 +375,19 @@ static int sync_append(const struct mail_index_record *rec,
 		return -1;
 	}
 
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
-		i_assert(map->records_count * map->hdr.record_size ==
-			 buffer_get_used_size(map->buffer));
-		dest = buffer_append_space_unsafe(map->buffer,
-						  map->hdr.record_size);
-		map->records = buffer_get_modifiable_data(map->buffer, NULL);
-	} else {
-		i_assert((map->records_count+1) * map->hdr.record_size <=
-			 map->mmap_size);
-		dest = MAIL_INDEX_MAP_IDX(map, map->records_count);
-	}
+	/* move to memory. the mapping is written when unlocking so we don't
+	   waste time re-mmap()ing multiple times or waste space growing index
+	   file too large */
+	mail_index_sync_move_to_private(ctx);
+	map = view->map;
+
+	/* don't rely on buffer->used being at the correct position.
+	   at least expunges can move it */
+	append_pos = map->records_count * map->hdr.record_size;
+	dest = buffer_get_space_unsafe(map->buffer, append_pos,
+				       map->hdr.record_size);
+	map->records = buffer_get_modifiable_data(map->buffer, NULL);
+
 	memcpy(dest, rec, sizeof(*rec));
 	memset(PTR_OFFSET(dest, sizeof(*rec)), 0,
 	       map->hdr.record_size - sizeof(*rec));
@@ -370,22 +395,16 @@ static int sync_append(const struct mail_index_record *rec,
 	map->hdr.messages_count++;
 	map->hdr.next_uid = rec->uid+1;
 	map->records_count++;
-	view->hdr.messages_count++;
-	view->hdr.next_uid = rec->uid+1;
 
-	write_seq_update(map, map->hdr.messages_count, map->hdr.messages_count);
+	mail_index_sync_write_seq_update(ctx, map->hdr.messages_count,
+					 map->hdr.messages_count);
+	map->write_base_header = TRUE;
 
 	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
 	mail_index_header_update_lowwaters(&map->hdr, rec);
-	if (!view->broken_counters) {
-		if (mail_index_header_update_counts(&map->hdr, 0, rec->flags,
-						    &error) < 0) {
-			mail_index_sync_set_corrupted(ctx, "%s", error);
-			return -1;
-		}
-	}
+	mail_index_sync_header_update_counts(ctx, 0, rec->flags);
 	return 1;
 }
 
@@ -395,7 +414,6 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	struct mail_index_view *view = ctx->view;
 	struct mail_index_header *hdr;
 	struct mail_index_record *rec;
-	const char *error;
 	uint8_t flag_mask, old_flags;
 	uint32_t idx, seq1, seq2;
 
@@ -413,7 +431,9 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	if (seq1 == 0)
 		return 1;
 
-	write_seq_update(view->map, seq1, seq2);
+	mail_index_sync_move_to_private(ctx);
+	mail_index_sync_write_seq_update(ctx, seq1, seq2);
+	view->map->write_base_header = TRUE;
 
 	hdr = &view->map->hdr;
 	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
@@ -444,12 +464,8 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 			rec->flags = (rec->flags & flag_mask) | u->add_flags;
 
 			mail_index_header_update_lowwaters(hdr, rec);
-			if (mail_index_header_update_counts(hdr, old_flags,
-							    rec->flags,
-							    &error) < 0) {
-				mail_index_sync_set_corrupted(ctx, "%s", error);
-				return -1;
-			}
+			mail_index_sync_header_update_counts(ctx, old_flags,
+							     rec->flags);
 		}
 	}
 	return 1;
@@ -470,6 +486,7 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 
 	buffer_write(map->hdr_copy_buf, u->offset, u + 1, u->size);
 	map->hdr_base = map->hdr_copy_buf->data;
+	map->write_base_header = TRUE;
 
 	/* @UNSAFE */
 	if ((uint32_t)(u->offset + u->size) <= sizeof(map->hdr)) {
@@ -482,70 +499,10 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	return 1;
 }
 
-static int mail_index_grow(struct mail_index *index, struct mail_index_map *map,
-			   unsigned int count)
-{
-	void *hdr_copy;
-	size_t size, hdr_copy_size;
-
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
-		return 1;
-
-	i_assert(map == index->map);
-	i_assert(!index->mapping); /* mail_index_sync_from_transactions() */
-
-	size = map->hdr.header_size +
-		(map->records_count + count) * map->hdr.record_size;
-	if (size <= map->mmap_size)
-		return 1;
-
-	/* when we grow fast, do it exponentially */
-	if (count < index->last_grow_count)
-		count = index->last_grow_count;
-	if (count < MAIL_INDEX_MAX_POWER_GROW)
-		count = nearest_power(count);
-	index->last_grow_count = count;
-
-	size = map->hdr.header_size +
-		(map->records_count + count) * map->hdr.record_size;
-	if (file_set_size(index->fd, (off_t)size) < 0) {
-		mail_index_set_syscall_error(index, "file_set_size()");
-		return !ENOSPACE(errno) ? -1 :
-			mail_index_move_to_memory(index);
-	}
-
-	/* we only wish to grow the file, but mail_index_map() updates the
-	   headers as well and may break our modified hdr_copy. so, take
-	   a backup of it and put it back afterwards */
-	t_push();
-	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
-        hdr_copy_size = map->hdr_copy_buf->used;
-	hdr_copy = t_malloc(hdr_copy_size);
-	memcpy(hdr_copy, map->hdr_copy_buf->data, hdr_copy_size);
-	memcpy(hdr_copy, &map->hdr, sizeof(map->hdr));
-
-	if (mail_index_map(index, TRUE) <= 0) {
-		t_pop();
-		return -1;
-	}
-
-	map = index->map;
-	buffer_reset(map->hdr_copy_buf);
-	buffer_append(map->hdr_copy_buf, hdr_copy, hdr_copy_size);
-
-	map->hdr_base = map->hdr_copy_buf->data;
-	memcpy(&map->hdr, hdr_copy, sizeof(map->hdr));
-	map->records_count = map->hdr.messages_count;
-
-	i_assert(map->mmap_size >= size);
-
-	t_pop();
-	return 1;
-}
-
 static void
 mail_index_update_day_headers(struct mail_index_header *hdr, uint32_t uid)
 {
+	// FIXME: move as header updates to transaction committing
 	const int max_days =
 		sizeof(hdr->day_first_uid) / sizeof(hdr->day_first_uid[0]);
 	struct tm tm;
@@ -601,14 +558,10 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 	}
 	case MAIL_TRANSACTION_EXPUNGE:
 	case MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT: {
-		const struct mail_transaction_expunge *rec, *end;
+		const struct mail_transaction_expunge *rec = data, *end;
 
 		end = CONST_PTR_OFFSET(data, hdr->size);
-		for (rec = data; rec < end; rec++) {
-			ret = sync_expunge(rec, ctx);
-			if (ret <= 0)
-				break;
-		}
+		ret = sync_expunge(rec, end - rec, ctx);
 		break;
 	}
 	case MAIL_TRANSACTION_FLAG_UPDATE: {
@@ -740,8 +693,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 
 	i_assert(ctx->view->map->records_count ==
 		 ctx->view->map->hdr.messages_count);
-	i_assert(ctx->view->hdr.messages_count ==
-		 ctx->view->map->hdr.messages_count);
+	ctx->view->hdr = ctx->view->map->hdr;
 	return ret;
 }
 
@@ -767,9 +719,9 @@ void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx)
 	mail_index_sync_deinit_handlers(sync_map_ctx);
 }
 
-static void mail_index_sync_remove_recent(struct mail_index_sync_ctx *sync_ctx)
+static void mail_index_sync_remove_recent(struct mail_index_sync_map_ctx *ctx)
 {
-	struct mail_index_map *map = sync_ctx->view->map;
+	struct mail_index_map *map = ctx->view->map;
 	struct mail_index_record *rec;
 	unsigned int i;
 
@@ -778,167 +730,192 @@ static void mail_index_sync_remove_recent(struct mail_index_sync_ctx *sync_ctx)
 		if ((rec->flags & MAIL_RECENT) != 0) {
 			rec->flags &= ~MAIL_RECENT;
 
-			write_seq_update(map, i + 1, i + 1);
+			mail_index_sync_write_seq_update(ctx, i + 1, i + 1);
 		}
 	}
 
 	map->hdr.recent_messages_count = 0;
 	map->hdr.first_recent_uid_lowwater = map->hdr.next_uid;
+	map->write_base_header = TRUE;
 }
 
-static void log_view_seek_back(struct mail_transaction_log_view *log_view)
+static void mail_index_sync_update_hdr_dirty_flag(struct mail_index_map *map)
 {
-	uint32_t prev_seq;
-	uoff_t prev_offset;
+	const struct mail_index_record *rec;
+	unsigned int i;
 
-	mail_transaction_log_view_get_prev_pos(log_view, &prev_seq,
-					       &prev_offset);
-	mail_transaction_log_view_seek(log_view, prev_seq, prev_offset);
+	if ((map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0)
+		return;
+
+	/* do we have dirty flags anymore? */
+	for (i = 0; i < map->records_count; i++) {
+		rec = MAIL_INDEX_MAP_IDX(map, i);
+		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
+			map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
+			break;
+		}
+	}
 }
 
-int mail_index_sync_update_index(struct mail_index_sync_ctx *sync_ctx,
-				 bool sync_only_external)
+int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
+			enum mail_index_sync_handler_type type, bool force)
 {
-	struct mail_index *index = sync_ctx->index;
-	struct mail_index_view *view = sync_ctx->view;
-	struct mail_index_map *map;
-        struct mail_index_sync_map_ctx sync_map_ctx;
+	struct mail_index_map *map = *_map;
+	struct mail_index_view *view;
+	struct mail_index_sync_map_ctx sync_map_ctx;
 	const struct mail_transaction_header *thdr;
-	const void *data;
-	unsigned int count, old_lock_id;
-	uint32_t i, first_append_uid;
+	const void *tdata;
+	uint32_t prev_seq, mailbox_sync_seq, expunge_seq;
+	uoff_t prev_offset, mailbox_sync_offset, expunge_offset;
 	int ret;
-	bool had_dirty, skipped, check_ext_offsets;
+	bool had_dirty;
 
-	mail_index_sync_map_init(&sync_map_ctx, view,
-				 MAIL_INDEX_SYNC_HANDLER_FILE);
-	sync_map_ctx.sync_only_external = sync_only_external;
+	if (!force) {
+		/* see if we'd prefer to reopen the index file instead of
+		   syncing the current map from the transaction log */
+		uoff_t log_size, index_size;
 
-	/* we'll have to update view->lock_id to avoid mail_index_view_lock()
-	   trying to update the file later. */
-	old_lock_id = view->lock_id;
-	if (mail_index_lock_exclusive(index, &view->lock_id) < 0)
-		return -1;
-	mail_index_unlock(index, old_lock_id);
+		if (index->log->head == NULL || index->fd == -1)
+			return 0;
 
-	/* NOTE: locking may change index->map so make sure the assignment is
-	   after locking */
-	map = index->map;
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map))
-		map->write_to_disk = TRUE;
+		index_size = map->hdr.header_size +
+			map->records_count * map->hdr.record_size;
+
+		/* this isn't necessary correct currently, but it should be
+		   close enough */
+		log_size = index->log->head->last_size;
+		if (log_size > map->hdr.log_file_index_int_offset &&
+		    log_size - map->hdr.log_file_index_int_offset > index_size)
+			return 0;
+	}
+
+	view = mail_index_view_open_with_map(index, map);
+	if (mail_transaction_log_view_set(view->log_view,
+					  map->hdr.log_file_seq,
+					  map->hdr.log_file_index_int_offset,
+					  (uint32_t)-1, (uoff_t)-1,
+					  MAIL_TRANSACTION_TYPE_MASK) <= 0) {
+		/* can't use it. sync by re-reading index. */
+		mail_index_view_close(&view);
+		return 0;
+	}
+
+	mail_transaction_log_get_mailbox_sync_pos(index->log, &mailbox_sync_seq,
+						  &mailbox_sync_offset);
+
+	/* view referenced the map. avoid unnecessary map cloning by
+	   unreferencing the map while view exists. */
+	map->refcount--;
+
+	had_dirty = (map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0;
+	if (had_dirty) {
+		map->hdr.flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
+		map->write_base_header = TRUE;
+	}
 
 	if (map->hdr_base != map->hdr_copy_buf->data) {
+		/* if syncing updates the header, it updates hdr_copy_buf
+		   and updates hdr_base to hdr_copy_buf. so the buffer must
+		   initially contain a valid header or we'll break it when
+		   writing it. */
 		buffer_reset(map->hdr_copy_buf);
 		buffer_append(map->hdr_copy_buf, map->hdr_base,
 			      map->hdr.header_size);
 		map->hdr_base = map->hdr_copy_buf->data;
 	}
-	i_assert(map->hdr.base_header_size >= sizeof(map->hdr));
 
-	mail_index_unmap(index, &view->map);
-	view->map = map;
-	view->map->refcount++;
-
-	i_assert(view->hdr.messages_count == map->hdr.messages_count);
-
-	had_dirty = (map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0;
-	if (had_dirty)
-		map->hdr.flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
-
-	if (sync_ctx->sync_recent) {
-		/* mark all messages non-recent */
-		mail_index_sync_remove_recent(sync_ctx);
+	if (type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
+		i_assert(index->map == NULL && index->hdr == NULL);
+		index->map = map;
+		index->hdr = &map->hdr;
 	}
 
-	/* make sure we don't go doing fsck while modifying the index */
-	index->sync_update = TRUE;
+	mail_index_sync_map_init(&sync_map_ctx, view, type);
+	map = NULL;
 
-	first_append_uid = 0;
-	check_ext_offsets = TRUE;
+	/* FIXME: when transaction sync lock is removed, we'll need to handle
+	   the case when a transaction is committed while mailbox is being
+	   synced ([synced transactions][new transaction][ext transaction]).
+	   this means int_offset contains [synced] and ext_offset contains
+	   all */
+	expunge_seq = expunge_offset = 0;
 	while ((ret = mail_transaction_log_view_next(view->log_view, &thdr,
-						     &data, &skipped)) > 0) {
-		if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
-			if (sync_only_external) {
-				/* we're syncing only external changes. */
+						     &tdata, NULL)) > 0) {
+		mail_transaction_log_view_get_prev_pos(view->log_view,
+						       &prev_seq, &prev_offset);
+
+		if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
+			/* see if this transaction is already synced */
+			if (prev_seq < view->map->hdr.log_file_seq ||
+			    (prev_seq == view->map->hdr.log_file_seq &&
+			     prev_offset <
+			     view->map->hdr.log_file_index_ext_offset))
 				continue;
-			}
-		} else if (check_ext_offsets) {
-			if (mail_index_is_ext_synced(view->log_view, view->map))
-				continue;
-			check_ext_offsets = FALSE;
-		}
-
-		if ((thdr->type & MAIL_TRANSACTION_APPEND) != 0) {
-			const struct mail_index_record *rec = data;
-
-			if (first_append_uid == 0)
-				first_append_uid = rec->uid;
-
-			map = view->map;
-			count = thdr->size / sizeof(*rec);
-			if ((ret = mail_index_grow(index, map, count)) < 0)
-				break;
-
-			if (map != index->map) {
-				index->map->refcount++;
-				mail_index_sync_replace_map(&sync_map_ctx,
-							    index->map);
-			}
-
-			if (ret == 0) {
-				/* moved to memory. data pointer is invalid,
-				   seek back and do this append again. */
-				log_view_seek_back(view->log_view);
+		} else if ((thdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
+			/* if the message hasn't yet been expunged from the
+			   mailbox, skip this expunge */
+			if (prev_seq > mailbox_sync_seq ||
+			    (prev_seq == mailbox_sync_seq &&
+			     prev_offset >= mailbox_sync_offset)) {
+				if (expunge_seq == 0) {
+					expunge_seq = prev_seq;
+					expunge_offset = prev_offset;
+				}
 				continue;
 			}
 		}
 
-		if (mail_index_sync_record(&sync_map_ctx, thdr, data) < 0) {
-			ret = -1;
-			break;
-		}
+		/* we'll just skip over broken entries */
+		(void)mail_index_sync_record(&sync_map_ctx, thdr, tdata);
+	}
+	map = view->map;
+
+	if (view->broken_counters)
+		mail_index_view_recalc_counters(view);
+
+	if (had_dirty)
+		mail_index_sync_update_hdr_dirty_flag(map);
+
+	/* update sync position */
+	// FIXME: eol=TRUE gives intro errors
+	mail_index_sync_update_log_offset(&sync_map_ctx, map, FALSE);
+	if (expunge_seq != 0) {
+		i_assert(expunge_seq == map->hdr.log_file_seq);
+		map->hdr.log_file_index_int_offset = expunge_offset;
+		map->write_base_header = TRUE;
 	}
 
-	if (ret == 0) {
-		mail_index_sync_update_log_offset(&sync_map_ctx, view->map,
-						  TRUE);
+	/* although mailbox_sync_update gets updated by the header update
+	   records, transaction log syncing can internally also update
+	   mailbox_sync_max_offset to skip over following external
+	   transactions. use it to avoid extra unneeded log reading. */
+	map->hdr.log_file_mailbox_offset =
+		index->log->head->mailbox_sync_max_offset;
+
+	/*FIXME: if (first_append_uid != 0)
+		mail_index_update_day_headers(&map->hdr, first_append_uid);*/
+
+	if (map->write_base_header) {
+		i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
+		buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
 	}
+
+	/*FIXME:if (mail_index_map_msync(index, map) < 0)
+		ret = -1;*/
+
+	/* restore refcount before closing the view. this is necessary also
+	   if map got cloned, because view closing would otherwise destroy it */
+	map->refcount++;
+	mail_index_view_close(&view);
+
 	mail_index_sync_map_deinit(&sync_map_ctx);
 
-	index->sync_update = FALSE;
-
-	if (ret < 0) {
-		mail_index_view_unlock(view);
-		return -1;
+	if (type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
+		i_assert(index->map == map);
+		index->map = NULL;
+		index->hdr = NULL;
 	}
 
-	map = view->map;
-	i_assert(map->records_count == map->hdr.messages_count);
-	i_assert(map->hdr_copy_buf->used <= map->hdr.header_size);
-
-	if (first_append_uid != 0)
-		mail_index_update_day_headers(&map->hdr, first_append_uid);
-
-	if ((map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) == 0 &&
-	    had_dirty) {
-		/* do we have dirty flags anymore? */
-		const struct mail_index_record *rec;
-
-		for (i = 0; i < map->records_count; i++) {
-			rec = MAIL_INDEX_MAP_IDX(map, i);
-			if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
-				map->hdr.flags |=
-					MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
-				break;
-			}
-		}
-	}
-
-	if (mail_index_map_msync(index, map) < 0)
-		ret = -1;
-	i_assert(view->map == index->map);
-	view->hdr = map->hdr;
-
-        mail_index_view_unlock(view);
-	return ret;
+	*_map = map;
+	return ret < 0 ? -1 : 1;
 }

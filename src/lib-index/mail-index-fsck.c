@@ -23,43 +23,12 @@ static void mail_index_fsck_error(struct mail_index *index,
 				      map->hdr.field, hdr.field); \
 	}
 
-static void
-mail_index_fsck_locked(struct mail_index *index, struct mail_index_header *hdr)
-{
-	uint32_t log_seq;
-	uoff_t log_offset;
-
-	mail_transaction_log_get_head(index->log, &log_seq, &log_offset);
-
-	if (hdr->log_file_int_offset > hdr->log_file_ext_offset) {
-		mail_index_fsck_error(index,
-			"log_file_int_offset > log_file_ext_offset");
-		hdr->log_file_int_offset = hdr->log_file_ext_offset;
-	}
-
-	if ((hdr->log_file_seq == log_seq &&
-	     hdr->log_file_ext_offset > log_offset) ||
-	    (hdr->log_file_seq != log_seq &&
-	     !mail_transaction_log_is_head_prev(index->log,
-						hdr->log_file_seq,
-						hdr->log_file_ext_offset))) {
-		mail_index_fsck_error(index,
-			"log file sync pos %u,%u -> %u, %"PRIuUOFF_T,
-			hdr->log_file_seq, hdr->log_file_ext_offset,
-			log_seq, log_offset);
-		hdr->log_file_seq = log_seq;
-		hdr->log_file_int_offset =
-			hdr->log_file_ext_offset = log_offset;
-	}
-}
-
 static int
 mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 		    const char **error_r)
 {
 	struct mail_index_header hdr;
 	const struct mail_index_record *rec;
-	unsigned int records_count;
 	uint32_t i, last_uid;
 
 	*error_r = NULL;
@@ -70,13 +39,6 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 	if (hdr.uid_validity == 0 && hdr.next_uid != 1) {
 		*error_r = "uid_validity = 0 && next_uid != 1";
 		return 0;
-	}
-
-	if (!index->log_locked)
-		records_count = map->hdr.messages_count;
-	else {
-		records_count = map->records_count;
-		mail_index_fsck_locked(index, &hdr);
 	}
 
 	hdr.flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;
@@ -149,30 +111,14 @@ int mail_index_fsck(struct mail_index *index)
 {
 	const char *error;
 	unsigned int lock_id;
-	uint32_t file_seq;
-	uoff_t file_offset;
 	int ret;
-	bool lock_log;
-
-	if (index->sync_update) {
-		/* we're modifying index, don't do anything */
-		return 1;
-	}
 
 	i_warning("fscking index file %s", index->filepath);
-        lock_log = !index->log_locked;
-	if (lock_log) {
-		if (mail_transaction_log_sync_lock(index->log, &file_seq,
-						   &file_offset) < 0)
-			return -1;
-	}
-	if (mail_index_lock_exclusive(index, &lock_id) < 0) {
-                mail_transaction_log_sync_unlock(index->log);
-		return -1;
-	}
 
+	// FIXME: should we be fscking a given map instead? anyway we probably
+	// want to rewrite the main index after fsck is finished.
 	error = NULL;
-	ret = mail_index_map(index, TRUE);
+	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD, &lock_id);
 	if (ret > 0) {
 		ret = mail_index_fsck_map(index, index->map, &error);
 		if (ret > 0) {
@@ -183,8 +129,6 @@ int mail_index_fsck(struct mail_index *index)
 	}
 
 	mail_index_unlock(index, lock_id);
-	if (lock_log)
-		mail_transaction_log_sync_unlock(index->log);
 
 	if (error != NULL) {
 		mail_index_set_error(index, "Corrupted index file %s: %s",

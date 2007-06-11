@@ -106,12 +106,31 @@ struct mail_transaction_ext_rec_update {
 };
 
 struct mail_transaction_log *
-mail_transaction_log_open_or_create(struct mail_index *index);
-struct mail_transaction_log *
-mail_transaction_log_create(struct mail_index *index);
-void mail_transaction_log_close(struct mail_transaction_log **log);
+mail_transaction_log_alloc(struct mail_index *index);
+void mail_transaction_log_free(struct mail_transaction_log **log);
 
-int mail_transaction_log_move_to_memory(struct mail_transaction_log *log);
+/* Open the transaction log. Returns 1 if ok, 0 if file doesn't exist or it's
+   is corrupted, -1 if there was some I/O error. */
+int mail_transaction_log_open(struct mail_transaction_log *log);
+/* Create, or recreate, the transaction log. Returns 0 if ok, -1 if error. */
+int mail_transaction_log_create(struct mail_transaction_log *log);
+/* Close all the open transactions log files. */
+void mail_transaction_log_close(struct mail_transaction_log *log);
+
+/* Returns the file seq/offset where the mailbox is currently synced at.
+   Since the log is rotated only when mailbox is fully synced, the sequence
+   points always to the latest file. This function doesn't actually find the
+   latest sync position, so you'll need to use eg. log_view_set() before
+   calling this. */
+void mail_transaction_log_get_mailbox_sync_pos(struct mail_transaction_log *log,
+					       uint32_t *file_seq_r,
+					       uoff_t *file_offset_r);
+/* Set the current mailbox sync position. file_seq must always be the latest
+   log file's sequence. The offset written automatically to the log when
+   other transactions are being written. */
+void mail_transaction_log_set_mailbox_sync_pos(struct mail_transaction_log *log,
+					       uint32_t file_seq,
+					       uoff_t file_offset);
 
 struct mail_transaction_log_view *
 mail_transaction_log_view_open(struct mail_transaction_log *log);
@@ -171,5 +190,9 @@ void mail_transaction_log_get_head(struct mail_transaction_log *log,
 /* Returns TRUE if given seq/offset is current head log's rotate point. */
 bool mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
 				       uint32_t file_seq, uoff_t file_offset);
+
+/* Move currently opened log files to memory (called by
+   mail_index_move_to_memory()) */
+int mail_transaction_log_move_to_memory(struct mail_transaction_log *log);
 
 #endif

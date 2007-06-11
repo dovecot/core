@@ -111,8 +111,14 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	}
 
 	if (min_file_seq == 0) {
-		/* new index, transaction file not synced yet */
-		min_file_seq = 1;
+		/* index file doesn't exist yet. this transaction log should
+		   start from the beginning */
+		if (view->log->files->hdr.prev_file_seq != 0) {
+			/* but it doesn't */
+			return 0;
+		}
+
+		min_file_seq = view->log->files->hdr.file_seq;
 		min_file_offset = 0;
 
 		if (max_file_seq == 0) {
@@ -135,7 +141,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	}
 
 	/* find the oldest log file first. */
-	ret = mail_transaction_log_file_find(view->log, min_file_seq, &file);
+	ret = mail_transaction_log_find_file(view->log, min_file_seq, &file);
 	if (ret <= 0)
 		return ret;
 
@@ -169,7 +175,7 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		file = file->next;
 		if (file == NULL || file->hdr.file_seq != seq) {
 			/* see if we could find the missing file */
-			ret = mail_transaction_log_file_find(view->log,
+			ret = mail_transaction_log_find_file(view->log,
 							     seq, &file);
 			if (ret <= 0) {
 				if (ret < 0)

@@ -69,8 +69,9 @@ static void dump_hdr(int fd)
 	printf("first unseen uid lowwater = %u\n", hdr.first_unseen_uid_lowwater);
 	printf("first deleted uid lowwater = %u\n", hdr.first_deleted_uid_lowwater);
 	printf("log file seq = %u\n", hdr.log_file_seq);
-	printf("log file int offset = %u\n", hdr.log_file_int_offset);
-	printf("log file ext offset = %u\n", hdr.log_file_ext_offset);
+	printf("log file index int offset = %u\n", hdr.log_file_index_int_offset);
+	printf("log file index ext offset = %u\n", hdr.log_file_index_ext_offset);
+	printf("log file mailbox offset = %u\n", hdr.log_file_mailbox_offset);
 	printf("sync size = %llu\n", (unsigned long long)hdr.sync_size);
 	printf("sync stamp = %u\n", hdr.sync_stamp);
 	printf("day stamp = %u\n", hdr.day_stamp);

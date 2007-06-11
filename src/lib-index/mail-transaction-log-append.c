@@ -1,7 +1,6 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "array.h"
 #include "buffer.h"
 #include "write-full.h"
@@ -14,6 +13,9 @@ struct log_append_context {
 	struct mail_transaction_log_file *file;
 	struct mail_index_transaction *trans;
 	buffer_t *output;
+
+	uint32_t first_append_size;
+	bool sync_includes_this;
 };
 
 static void log_append_buffer(struct log_append_context *ctx,
@@ -41,10 +43,10 @@ static void log_append_buffer(struct log_append_context *ctx,
 					       (hdr_buf == NULL ? 0 :
 						hdr_buf->used));
 	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(ctx->file) &&
-	    ctx->file->first_append_size == 0) {
+	    ctx->first_append_size == 0) {
 		/* size will be written later once everything
 		   is in disk */
-		ctx->file->first_append_size = hdr_size;
+		ctx->first_append_size = hdr_size;
 	} else {
 		hdr.size = hdr_size;
 	}
@@ -87,7 +89,7 @@ static int log_buffer_write(struct log_append_context *ctx)
 		return 0;
 	}
 
-	i_assert(file->first_append_size != 0);
+	i_assert(ctx->first_append_size != 0);
 	if (pwrite_full(file->fd, ctx->output->data, ctx->output->used,
 			file->sync_offset) < 0) {
 		/* write failure, fallback to in-memory indexes. */
@@ -97,15 +99,32 @@ static int log_buffer_write(struct log_append_context *ctx)
 		return log_buffer_move_to_memory(ctx);
 	}
 
+	i_assert(!ctx->sync_includes_this ||
+		 file->sync_offset + ctx->output->used ==
+		 file->mailbox_sync_max_offset);
+
+	if (!file->log->index->fsync_disable && fdatasync(file->fd) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath,
+						  "fsync()");
+		return log_buffer_move_to_memory(ctx);
+	}
+
 	/* now that the whole transaction has been written, rewrite the first
 	   record's size so the transaction becomes visible */
-	if (pwrite_full(file->fd, &file->first_append_size,
+	if (pwrite_full(file->fd, &ctx->first_append_size,
 			sizeof(uint32_t), file->sync_offset) < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
 						  file->filepath,
 						  "pwrite_full()");
 		return log_buffer_move_to_memory(ctx);
 	}
+
+	/* FIXME: when we're relying on O_APPEND and someone else wrote a
+	   transaction, we'll need to wait for it to commit its transaction.
+	   if it crashes before doing that, we'll need to overwrite it with
+	   a dummy record */
+
 	file->sync_offset += ctx->output->used;
 	return 0;
 }
@@ -344,16 +363,36 @@ static void log_append_keyword_updates(struct log_append_context *ctx)
 	}
 }
 
-#define LOG_WANT_ROTATE(file) \
-	(((file)->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE && \
-	  (time_t)(file)->hdr.create_stamp < \
-	   ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_TIME) || \
-	 ((file)->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_MAX_SIZE))
+static void log_append_sync_offset_if_needed(struct log_append_context *ctx)
+{
+	struct mail_transaction_header_update *u;
+	buffer_t *buf;
+	uint32_t offset;
 
-#define ARE_ALL_TRANSACTIONS_IN_INDEX(log, idx_hdr) \
-	((log)->head->hdr.file_seq == (idx_hdr)->log_file_seq && \
-	 (log)->head->sync_offset == (idx_hdr)->log_file_int_offset && \
-	 (log)->head->sync_offset == (idx_hdr)->log_file_ext_offset)
+	if (ctx->file->mailbox_sync_max_offset == ctx->file->sync_offset) {
+		/* FIXME: when we remove exclusive log locking, we
+		   can't rely on this. then write non-changed offset + check
+		   real offset + rewrite the new offset if other transactions
+		   weren't written in the middle */
+		ctx->file->mailbox_sync_max_offset += ctx->output->used +
+			sizeof(struct mail_transaction_header) +
+			sizeof(*u) + sizeof(offset);
+		ctx->sync_includes_this = TRUE;
+	}
+	offset = ctx->file->mailbox_sync_max_offset;
+
+	if (ctx->file->mailbox_sync_saved_offset == offset)
+		return;
+
+	buf = buffer_create_static_hard(pool_datastack_create(),
+					sizeof(*u) + sizeof(offset));
+	u = buffer_append_space_unsafe(buf, sizeof(*u));
+	u->offset = offsetof(struct mail_index_header, log_file_mailbox_offset);
+	u->size = sizeof(offset);
+	buffer_append(buf, &offset, sizeof(offset));
+
+	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_HEADER_UPDATE);
+}
 
 static int
 mail_transaction_log_append_locked(struct mail_index_transaction *t,
@@ -364,10 +403,8 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	struct mail_index *index;
 	struct mail_transaction_log *log;
 	struct mail_transaction_log_file *file;
-	struct mail_index_header idx_hdr;
 	struct log_append_context ctx;
 	uoff_t append_offset;
-	unsigned int lock_id;
 
 	index = mail_index_view_get_index(view);
 	log = index->log;
@@ -380,34 +417,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 			return -1;
 	}
 
-	if (LOG_WANT_ROTATE(log->head) &&
-	    ARE_ALL_TRANSACTIONS_IN_INDEX(log, index->hdr)) {
-		/* we might want to rotate, but check first that everything is
-		   synced in index. */
-		if (mail_index_lock_shared(index, TRUE, &lock_id) < 0)
-			return -1;
-
-		/* we need the latest log_file_*_offsets. It's important to
-		   use this function instead of mail_index_map() as it may
-		   have generated them by reading log files. */
-		if (mail_index_get_latest_header(index, &idx_hdr) <= 0) {
-			mail_index_unlock(index, lock_id);
-			return -1;
-		}
-		mail_index_unlock(index, lock_id);
-
-		if (ARE_ALL_TRANSACTIONS_IN_INDEX(log, &idx_hdr)) {
-			/* if rotation fails because there's not enough disk
-			   space, just continue. we'll probably move to
-			   in-memory indexes then. */
-			if (mail_transaction_log_rotate(log, TRUE) < 0 &&
-			    !index->nodiskspace)
-				return -1;
-		}
-	}
-
 	file = log->head;
-	file->first_append_size = 0;
 
 	if (file->sync_offset < file->buffer_offset)
 		file->sync_offset = file->buffer_offset;
@@ -455,6 +465,12 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		log_append_buffer(&ctx, log_get_hdr_update_buffer(t, FALSE),
 				  NULL, MAIL_TRANSACTION_HEADER_UPDATE);
 	}
+
+	/* NOTE: mailbox sync offset update must be the last change.
+	   it may update the sync offset to include this transaction, so it
+	   needs to know this transaction's size */
+	if (t->external)
+		log_append_sync_offset_if_needed(&ctx);
 
 	if (file->sync_offset < file->last_size) {
 		/* there is some garbage at the end of the transaction log
