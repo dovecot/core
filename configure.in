@@ -404,11 +404,9 @@ AC_SEARCH_LIBS(fdatasync, rt, [
   AC_DEFINE(HAVE_FDATASYNC,, Define if you have fdatasync())
 ])
 
-AC_CHECK_FUNC(cap_init, [], [
-	AC_CHECK_LIB(cap, cap_init, [
-		AC_DEFINE(HAVE_LIBCAP,, libcap is installed for cap_init())
-		LIBCAP="-lcap"
-	])
+AC_CHECK_LIB(cap, cap_init, [
+  AC_DEFINE(HAVE_LIBCAP,, libcap is installed for cap_init())
+  LIBCAP="-lcap"
 ])
 AC_SUBST(LIBCAP)
 
