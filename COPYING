@@ -10,6 +10,3 @@ Current exceptions are:
 src/lib/
   - md5.c : Public Domain
   - base64.c, utc-mktime.c : BSD-like (read it)
-  - printf-upper-bound.c : LGPL v2
-
-src/imap/imap-thread.c : merge sorting code is with MIT license.
