@@ -17,6 +17,7 @@ libindex_a_SOURCES = \
         mail-index-dummy-view.c \
         mail-index-fsck.c \
         mail-index-lock.c \
+        mail-index-map.c \
         mail-index-transaction.c \
         mail-index-transaction-view.c \
         mail-index-sync.c \
