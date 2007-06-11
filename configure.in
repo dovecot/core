@@ -1769,12 +1769,12 @@ if test $want_vpopmail = yes; then
 	fi
 fi
 
-AC_CHECK_LIB(crypt, crypt, [
-	AUTH_LIBS="-lcrypt $AUTH_LIBS"
-], [
-	AC_CHECK_FUNC(crypt,, [
-		AC_MSG_ERROR([crypt() wasn't found])
-	])
+AC_CHECK_FUNC(crypt,, [
+  AC_CHECK_LIB(crypt, crypt, [
+    AUTH_LIBS="-lcrypt $AUTH_LIBS"
+  ], [
+    AC_MSG_ERROR([crypt() wasn't found])
+  ])
 ])
 
 dnl * dynamic modules?
