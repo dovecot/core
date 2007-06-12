@@ -79,6 +79,32 @@ static const char *imap_parse_date_internal(const char *str, struct tm *tm)
 	return str;
 }
 
+static bool imap_mktime(struct tm *tm, time_t *time_r)
+{
+	*time_r = utc_mktime(tm);
+	if (*time_r != (time_t)-1)
+		return TRUE;
+
+	/* the date is outside valid range for time_t. it might still be
+	   technically valid though, so try to handle this case.
+	   with 64bit time_t the full 0..9999 year range is valid. */
+	if (tm->tm_year <= 100) {
+		/* too old. time_t can be signed or unsigned, handle
+		   both cases. */
+		*time_r = (time_t)-1 < (int)0 ? INT_MIN : 0;
+	} else {
+		/* too high. return the highest allowed value.
+		   we shouldn't get here with 64bit time_t,
+		   but handle that anyway. */
+#if (TIME_T_MAX_BITS == 32 || TIME_T_MAX_BITS == 64)
+		*time_r = (1UL << (TIME_T_MAX_BITS-1)) - 1;
+#else
+		*time_r = (1UL << TIME_T_MAX_BITS) - 1;
+#endif
+	}
+	return FALSE;
+}
+
 bool imap_parse_date(const char *str, time_t *time)
 {
 	struct tm tm;
@@ -88,8 +114,8 @@ bool imap_parse_date(const char *str, time_t *time)
 		return FALSE;
 
 	tm.tm_isdst = -1;
-	*time = utc_mktime(&tm);
-	return *time != (time_t)-1;
+	(void)imap_mktime(&tm, time);
+	return TRUE;
 }
 
 bool imap_parse_datetime(const char *str, time_t *time, int *timezone_offset)
@@ -126,11 +152,8 @@ bool imap_parse_datetime(const char *str, time_t *time, int *timezone_offset)
 	*timezone_offset = parse_timezone(str);
 
 	tm.tm_isdst = -1;
-	*time = utc_mktime(&tm);
-	if (*time == (time_t)-1)
-		return FALSE;
-
-	*time -= *timezone_offset * 60;
+	if (imap_mktime(&tm, time))
+		*time -= *timezone_offset * 60;
 	return TRUE;
 }
 
