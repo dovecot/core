@@ -345,38 +345,55 @@ static int maildirsize_recalculate(struct maildir_quota_root *root)
 	return maildirsize_recalculate_finish(root, ret);
 }
 
+static bool
+maildir_parse_limit(const char *str, uint64_t *bytes_r, uint64_t *count_r)
+{
+	const char *const *limit;
+	unsigned long long value;
+	char *pos;
+	bool ret = TRUE;
+
+	*bytes_r = (uint64_t)-1;
+	*count_r = (uint64_t)-1;
+
+	/* 0 values mean unlimited */
+	for (limit = t_strsplit(str, ","); *limit != NULL; limit++) {
+		value = strtoull(*limit, &pos, 10);
+		if (pos[0] != '\0' && pos[1] == '\0') {
+			switch (pos[0]) {
+			case 'C':
+				if (value != 0)
+					*count_r = value;
+				break;
+			case 'S':
+				if (value != 0)
+					*bytes_r = value;
+				break;
+			default:
+				ret = FALSE;
+				break;
+			}
+		} else {
+			ret = FALSE;
+		}
+	}
+	return ret;
+}
+
 static int maildirsize_parse(struct maildir_quota_root *root,
 			     int fd, const char *const *lines)
 {
-	unsigned long long bytes;
 	uint64_t message_bytes_limit, message_count_limit;
 	long long bytes_diff, total_bytes;
 	int count_diff, total_count;
 	unsigned int line_count = 0;
-	const char *const *limit;
-	char *pos;
 
 	if (*lines == NULL)
 		return -1;
 
-	/* first line contains the limits. 0 value mean unlimited. */
-	message_bytes_limit = (uint64_t)-1;
-	message_count_limit = (uint64_t)-1;
-	for (limit = t_strsplit(lines[0], ","); *limit != NULL; limit++) {
-		bytes = strtoull(*limit, &pos, 10);
-		if (pos[0] != '\0' && pos[1] == '\0') {
-			switch (pos[0]) {
-			case 'C':
-				if (bytes != 0)
-					message_count_limit = bytes;
-				break;
-			case 'S':
-				if (bytes != 0)
-					message_bytes_limit = bytes;
-				break;
-			}
-		}
-	}
+	/* first line contains the limits */
+	(void)maildir_parse_limit(lines[0], &message_bytes_limit,
+				  &message_count_limit);
 
 	if (!root->master_message_limits) {
 		/* we don't know the limits, use whatever the file says */
@@ -586,6 +603,23 @@ static void maildir_quota_deinit(struct quota_root *_root)
 	i_free(root);
 }
 
+static bool
+maildir_quota_parse_rule(struct quota_root *root __attr_unused__,
+			 struct quota_rule *rule,
+			 const char *str, const char **error_r)
+{
+	uint64_t bytes, count;
+
+	if (!maildir_parse_limit(str, &bytes, &count)) {
+		*error_r = "Invalid Maildir++ quota rule";
+		return FALSE;
+	}
+
+	rule->bytes_limit = bytes;
+	rule->count_limit = count;
+	return TRUE;
+}
+
 static void
 maildir_quota_root_storage_added(struct quota_root *_root,
 				 struct mail_storage *storage)
@@ -675,6 +709,7 @@ struct quota_backend quota_backend_maildir = {
 		maildir_quota_alloc,
 		NULL,
 		maildir_quota_deinit,
+		maildir_quota_parse_rule,
 		maildir_quota_storage_added,
 		maildir_quota_root_get_resources,
 		maildir_quota_get_resource,

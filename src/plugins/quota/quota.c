@@ -198,7 +198,16 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 		}
 	}
 
-	for (args = t_strsplit(p, ":"); *args != NULL; args++) {
+	if (strncmp(p, "backend=", 8) == 0) {
+		if (!root->backend.v.parse_rule(root, rule, p, error_r))
+			ret = -1;
+		p = "";
+		args = &p;
+	} else {
+		args = t_strsplit(p, ":");
+	}
+
+	for (; *args != NULL; args++) {
 		if (strncmp(*args, "storage=", 8) == 0)
 			rule->bytes_limit = strtoll(*args + 8, NULL, 10) * 1024;
 		else if (strncmp(*args, "bytes=", 6) == 0)

@@ -208,6 +208,7 @@ struct quota_backend quota_backend_dirsize = {
 		NULL,
 		dirsize_quota_deinit,
 		NULL,
+		NULL,
 		dirsize_quota_root_get_resources,
 		dirsize_quota_get_resource,
 		dirsize_quota_update

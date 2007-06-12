@@ -19,10 +19,19 @@ struct quota {
 	unsigned int counting:1;
 };
 
+struct quota_rule {
+	char *mailbox_name;
+
+	int64_t bytes_limit, count_limit;
+};
+
 struct quota_backend_vfuncs {
 	struct quota_root *(*alloc)(void);
 	int (*init)(struct quota_root *root, const char *args);
 	void (*deinit)(struct quota_root *root);
+
+	bool (*parse_rule)(struct quota_root *root, struct quota_rule *rule,
+			   const char *str, const char **error_r);
 
 	/* called once for each backend */
 	void (*storage_added)(struct quota *quota,
@@ -42,12 +51,6 @@ struct quota_backend {
 	/* quota backends equal if backend1.name == backend2.name */
 	const char *name;
 	struct quota_backend_vfuncs v;
-};
-
-struct quota_rule {
-	char *mailbox_name;
-
-	int64_t bytes_limit, count_limit;
 };
 
 struct quota_root {

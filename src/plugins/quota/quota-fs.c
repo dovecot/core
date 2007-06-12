@@ -291,6 +291,7 @@ struct quota_backend quota_backend_fs = {
 		fs_quota_alloc,
 		NULL,
 		fs_quota_deinit,
+		NULL,
 
 		fs_quota_storage_added,
 
