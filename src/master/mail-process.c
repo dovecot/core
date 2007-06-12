@@ -666,8 +666,15 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		}
 	}
 
-	if (nfs_check)
-		nfs_warn_if_found(getenv("MAIL"), full_home_dir);
+	if (nfs_check) {
+		/* ideally we should check all of the namespaces,
+		   but for now don't bother. */
+		const char *mail_location = getenv("NAMESPACE_1");
+
+		if (mail_location == NULL)
+			mail_location = getenv("MAIL");
+		nfs_warn_if_found(mail_location, full_home_dir);
+	}
 
 	env_put("LOGGED_IN=1");
 	env_put(t_strconcat("HOME=", home_dir, NULL));
