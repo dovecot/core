@@ -19,14 +19,13 @@ fix_format_real(const char *fmt, const char *p, unsigned int *len_r)
 	   it multiple times. */
 	len1 = p - fmt;
 	len2 = strlen(errstr);
-	len3 = strlen(fmt + 1);
+	len3 = strlen(p + 2);
 
 	/* @UNSAFE */
 	buf = t_buffer_get(len1 + len2 + len3 + 1);
 	memcpy(buf, fmt, len1);
 	memcpy(buf + len1, errstr, len2);
-	memcpy(buf + len1 + len2, p + 1, len3);
-	buf[len1 + len2 + len3] = '\0';
+	memcpy(buf + len1 + len2, p + 2, len3 + 1);
 
 	*len_r = len1 + len2 + len3;
 	return buf;
