@@ -17,6 +17,9 @@
 #define ACL_ESTALE_RETRY_COUNT NFS_ESTALE_RETRY_COUNT
 #define ACL_VFILE_DEFAULT_CACHE_SECS (60*5)
 
+#define VALIDITY_MTIME_NOTFOUND 0
+#define VALIDITY_MTIME_NOACCESS -1
+
 struct acl_vfile_validity {
 	time_t last_check;
 
@@ -305,18 +308,19 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 		if (errno == ENOENT) {
 			if (aclobj->aclobj.backend->debug)
 				i_info("acl vfile: file %s not found", path);
+			validity->last_mtime = VALIDITY_MTIME_NOTFOUND;
 		} else if (errno == EACCES) {
 			if (aclobj->aclobj.backend->debug)
 				i_info("acl vfile: no access to file %s", path);
 
 			acl_backend_remove_all_access(&aclobj->aclobj);
+			validity->last_mtime = VALIDITY_MTIME_NOACCESS;
 		} else {
 			i_error("open(%s) failed: %m", path);
 			return -1;
 		}
 
 		validity->last_size = 0;
-		validity->last_mtime = 0;
 		validity->last_read_time = ioloop_time;
 		return 1;
 	}
@@ -445,8 +449,10 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT) {
 			/* if the file used to exist, we have to re-read it */
-			return validity->last_mtime != 0;
+			return validity->last_mtime != VALIDITY_MTIME_NOTFOUND;
 		} 
+		if (errno == EACCES)
+			return validity->last_mtime != VALIDITY_MTIME_NOACCESS;
 		i_error("stat(%s) failed: %m", path);
 		return -1;
 	}
