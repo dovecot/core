@@ -200,6 +200,8 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 	for (args++; *args != NULL; args++) {
 		if (strncmp(*args, "storage=", 8) == 0)
 			rule->bytes_limit = strtoll(*args + 8, NULL, 10) * 1024;
+		else if (strncmp(*args, "bytes=", 6) == 0)
+			rule->bytes_limit = strtoll(*args + 6, NULL, 10);
 		else if (strncmp(*args, "messages=", 9) == 0)
 			rule->count_limit = strtoll(*args + 9, NULL, 10);
 		else {
