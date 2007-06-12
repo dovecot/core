@@ -24,6 +24,7 @@
 struct maildir_filename {
 	struct maildir_filename *next;
 	const char *basename;
+	const char *saved_dest_fname; /* only if it had keywords */
 
 	uoff_t size;
 	enum mail_flags flags;
@@ -276,12 +277,20 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 		return FALSE;
 	}
 
+	/* If we're unlinking already copied files, ctx->sync_ctx could be
+	   NULL by now. So we use the saved filename if it exists. */
+	if (mf->saved_dest_fname != NULL) {
+		*fname_r = mf->saved_dest_fname;
+		return FALSE;
+	}
+
 	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
 				 mf->keywords_count * sizeof(unsigned int));
 	*fname_r = maildir_filename_set_flags(
 			maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx),
 			basename, mf->flags & MAIL_FLAGS_MASK,
 			&ctx->keywords_array);
+	mf->saved_dest_fname = p_strdup(ctx->pool, *fname_r);
 	return FALSE;
 }
 
