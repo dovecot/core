@@ -372,7 +372,7 @@ static void auth_process_destroy(struct auth_process *p)
 static void
 socket_settings_env_put(const char *env_base, struct socket_settings *set)
 {
-	if (*set->path == '\0')
+	if (!set->used)
 		return;
 
 	env_put(t_strdup_printf("%s=%s", env_base, set->path));

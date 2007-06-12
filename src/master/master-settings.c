@@ -314,8 +314,10 @@ struct auth_settings default_auth_settings = {
 };
 
 struct socket_settings default_socket_settings = {
+#define DEFAULT_MASTER_SOCKET_PATH "auth-master"
+#define DEFAULT_CLIENT_SOCKET_PATH "auth-client"
 	MEMBER(path) "",
-	MEMBER(mode) 0,
+	MEMBER(mode) 0600,
 	MEMBER(user) "",
 	MEMBER(group) ""
 };
@@ -369,6 +371,7 @@ static bool get_login_uid(struct settings *set)
 static bool auth_settings_verify(struct auth_settings *auth)
 {
 	struct passwd *pw;
+	struct auth_socket_settings *s;
 
 	if ((pw = getpwnam(auth->user)) == NULL) {
 		i_error("Auth user doesn't exist: %s", auth->user);
@@ -405,6 +408,10 @@ static bool auth_settings_verify(struct auth_settings *auth)
 			auth->parent->imap->ssl_verify_client_cert = TRUE;
 	}
 
+	for (s = auth->sockets; s != NULL; s = s->next) {
+		fix_base_path(auth->parent->defaults, &s->master.path);
+		fix_base_path(auth->parent->defaults, &s->client.path);
+	}
 	return TRUE;
 }
 
@@ -953,6 +960,9 @@ auth_socket_settings_new(struct auth_settings *auth, const char *type)
 	as->master = default_socket_settings;
 	as->client = default_socket_settings;
 
+	as->master.path = DEFAULT_MASTER_SOCKET_PATH;
+	as->client.path = DEFAULT_CLIENT_SOCKET_PATH;
+
 	as_p = &auth->sockets;
 	while (*as_p != NULL)
 		as_p = &(*as_p)->next;
@@ -1257,11 +1267,13 @@ static bool parse_section(const char *type, const char *name,
 
 		if (strcmp(type, "master") == 0) {
 			ctx->socket = &ctx->auth_socket->master;
+			ctx->socket->used = TRUE;
 			return TRUE;
 		}
 
 		if (strcmp(type, "client") == 0) {
 			ctx->socket = &ctx->auth_socket->client;
+			ctx->socket->used = TRUE;
 			return TRUE;
 		}
 	}
@@ -1541,14 +1553,14 @@ static void auth_settings_dump(struct auth_settings *auth, bool nondefaults)
 			settings_dump(auth_socket_setting_defs, sets2, NULL, 2,
 				      nondefaults, 4);
 
-			if (socket->client.path != NULL) {
+			if (socket->client.used) {
 				printf("    client:\n");
 				sets2[1] = &socket->client;
 				settings_dump(socket_setting_defs, sets2, NULL,
 					      2, nondefaults, 6);
 			}
 
-			if (socket->master.path != NULL) {
+			if (socket->master.used) {
 				printf("    master:\n");
 				sets2[1] = &socket->master;
 				settings_dump(socket_setting_defs, sets2, NULL,

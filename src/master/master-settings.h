@@ -138,6 +138,8 @@ struct socket_settings {
 	unsigned int mode;
 	const char *user;
 	const char *group;
+
+	unsigned int used:1;
 };
 
 struct auth_socket_settings {
