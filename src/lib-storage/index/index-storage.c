@@ -458,7 +458,8 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *) box;
 
-	return mail_index_view_is_inconsistent(ibox->view);
+	return mail_index_view_is_inconsistent(ibox->view) ||
+		ibox->mailbox_deleted;
 }
 
 void mail_storage_set_index_error(struct index_mailbox *ibox)

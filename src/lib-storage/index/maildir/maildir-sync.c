@@ -931,6 +931,12 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 	*new_changed_r = *cur_changed_r = FALSE;
 
 	if (stat(new_dir, &st) < 0) {
+		if (errno == ENOENT) {
+			/* mailbox was deleted under us. this isn't the only
+			   way it can break, but the most common one. */
+			ibox->mailbox_deleted = TRUE;
+			return -1;
+		}
 		mail_storage_set_critical(&mbox->storage->storage,
 					  "stat(%s) failed: %m", new_dir);
 		return -1;
