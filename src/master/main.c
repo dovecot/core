@@ -601,8 +601,11 @@ static void main_init(bool log_error)
 
 	log_init();
 
-	if (log_error)
-		i_fatal("This is Dovecot's error log");
+	if (log_error) {
+		i_warning("This is Dovecot's warning log");
+		i_error("This is Dovecot's error log");
+		i_fatal("This is Dovecot's fatal log");
+	}
 
 #ifdef HAVE_LIBCAP
 	/* drop capabilities that we don't need, be very restrictive. */
