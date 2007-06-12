@@ -124,7 +124,7 @@ int deliver_save(struct mail_namespace *namespaces,
 	struct mailbox *box;
 	struct mailbox_transaction_context *t;
 	struct mail_keywords *kw;
-	const char *msgid;
+	const char *msgid, *mailbox_name;
 	int ret = 0;
 
 	if (strcmp(mailbox, default_mailbox_name) == 0)
@@ -148,10 +148,17 @@ int deliver_save(struct mail_namespace *namespaces,
 		ret = mailbox_transaction_commit(&t, 0);
 
 	msgid = mail_get_first_header(mail, "Message-ID");
-	i_info(ret < 0 ? "msgid=%s: save failed to %s" :
-	       "msgid=%s: saved mail to %s",
-	       msgid == NULL ? "" : str_sanitize(msgid, 80),
-	       str_sanitize(mailbox_get_name(box), 80));
+	msgid = msgid == NULL ? "" : str_sanitize(msgid, 80);
+	mailbox_name = str_sanitize(mailbox_get_name(box), 80);
+
+	if (ret == 0)
+		i_info("msgid=%s: saved mail to %s", msgid, mailbox_name);
+	else {
+		enum mail_error error;
+
+		i_info("msgid=%s: save failed to %s: %s", msgid, mailbox_name,
+		       mail_storage_get_last_error(*storage_r, &error));
+	}
 
 	mailbox_close(&box);
 	return ret;
