@@ -12,9 +12,9 @@ Documentation Index
  1. Welcome to the Dovecot Wiki
  2. Dovecot Wiki Contents
  3. Generic information about mail servers
- 4. A simple Dovecot installation
- 5. Full guide to setting up a new Dovecot installation
- 6. Examples / Scenarios
+ 4. Dovecot installation
+ 5. Dovecot configuration
+ 6. HOWTOs, examples and tutorials
  7. Migration from existing systems
  8. Troubleshooting
  9. Tuning
@@ -29,11 +29,12 @@ Generic information about mail servers
    [http://en.wikipedia.org/wiki/Smtp]
  * <Mail delivery agents and Sieve> [MDA.txt]
  * <Mailbox formats> [MailboxFormat.txt]
+    * <Dovecot's index files> [IndexFiles.txt]
  * <User authentication> [Authentication.txt]
     * <SASL> [Sasl.txt]
 
-A simple Dovecot installation
-=============================
+Dovecot installation
+====================
 
 It's a good idea to start with a simple Dovecot installation to see that
 everything works. After that you can start changing things one at a time, so if
@@ -53,11 +54,8 @@ If you're in a hurry and you already know enough about mail servers,
      * <Testing POP3 installation> [TestPop3Installation.txt]
  7. <Finishing the test installation> [FinishBasicConfiguration.txt]
 
-Full guide to setting up a new Dovecot installation
-===================================================
-
-This guide assumes that you have already managed to run Dovecot successfully,
-as described in the "A simple Dovecot installation" guide above.
+Dovecot configuration
+=====================
 
  * Starting guidelines
     * <System users> [SystemUsers.txt]
@@ -89,14 +87,15 @@ as described in the "A simple Dovecot installation" guide above.
  * <Dovecot's local delivery agent> [LDA.txt]
  * <Post-login scripting> [PostLoginScripting.txt]
 
-Examples / Scenarios
-====================
+HOWTOs, examples and tutorials
+==============================
 
-See this section in http://wiki.dovecot.org/
+Some HOWTOs haven't been included in wiki/. Use http://wiki.dovecot.org/
+instead.
 
- * <Rootless installation> [Rootless.txt]
- * <POP-before-SMTP> [PopBSMTPAndDovecot.txt]
-    * <Pop Relay Compatibility> [PopRelay.txt]
+ * <HOWTOs, examples and tutorials> [HowTo.txt] for different installations
+ * Existing Dovecot installations
+   [http://wiki.dovecot.org/DovecotServerInstallations]
 
 Migration from existing systems
 ===============================
@@ -118,7 +117,9 @@ Troubleshooting
    seems slow or hangs completely
  * <mbox errors and crashes> [MboxProblems.txt]
  * <Client issues and configuration> [Clients.txt]
+    * <Negative UIDs / message sets> [Clients.NegativeUIDs.txt]
     * <Debugging using Thunderbird's logging> [Debugging.Thunderbird.txt]
+ * <"Time moved backwards" error> [TimeMovedBackwards.txt]
  * Sending bug reports [http://dovecot.org/bugreport.html], debugging crashes
    and sniffing network traffic
 
@@ -139,4 +140,4 @@ Reference
 Misc
 ====
 
- * <Listening on Additional Ports> [Iptables.txt] using IP Tables
+ * <Listening on Additional Ports> [Iptables.txt] using IP Tables or socat
