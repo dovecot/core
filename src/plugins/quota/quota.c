@@ -175,29 +175,30 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 			const char **error_r)
 {
 	struct quota_rule *rule;
-	const char **args;
+	const char *p, *mailbox_name, **args;
 	int ret = 0;
 
-	if (*rule_def == '\0') {
-		*error_r = "Empty rule";
+	p = strchr(rule_def, ':');
+	if (p == NULL) {
+		*error_r = "Invalid rule";
 		return -1;
 	}
 
 	/* <mailbox name>:<quota limits> */
 	t_push();
-        args = t_strsplit(rule_def, ":");
+	mailbox_name = t_strdup_until(rule_def, p++);
 
-	rule = quota_root_rule_find(root, *args);
+	rule = quota_root_rule_find(root, mailbox_name);
 	if (rule == NULL) {
-		if (strcmp(*args, RULE_NAME_ALL_MAILBOXES) == 0)
+		if (strcmp(mailbox_name, RULE_NAME_ALL_MAILBOXES) == 0)
 			rule = &root->default_rule;
 		else {
 			rule = array_append_space(&root->rules);
-			rule->mailbox_name = p_strdup(root->pool, *args);
+			rule->mailbox_name = p_strdup(root->pool, mailbox_name);
 		}
 	}
 
-	for (args++; *args != NULL; args++) {
+	for (args = t_strsplit(p, ":"); *args != NULL; args++) {
 		if (strncmp(*args, "storage=", 8) == 0)
 			rule->bytes_limit = strtoll(*args + 8, NULL, 10) * 1024;
 		else if (strncmp(*args, "bytes=", 6) == 0)
