@@ -83,6 +83,7 @@ struct mail_index_header {
 	uint32_t day_first_uid[8];
 
 	uint32_t log_file_mailbox_offset;
+	uint32_t padding;
 };
 
 struct mail_index_record {
