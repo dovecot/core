@@ -5,8 +5,17 @@
 #include "common.h"
 
 #if defined(PASSDB_VPOPMAIL) || defined(USERDB_VPOPMAIL)
+#include "str.h"
+#include "var-expand.h"
 #include "userdb.h"
 #include "userdb-vpopmail.h"
+
+struct vpopmail_userdb_module {
+	struct userdb_module module;
+
+	const char *quota_template_key;
+	const char *quota_template_value;
+};
 
 struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 				     char vpop_user[VPOPMAIL_LIMIT],
@@ -41,12 +50,33 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 }
 
 #ifdef USERDB_VPOPMAIL
+
+static const char *
+userdb_vpopmail_get_quota(const char *template, const char *vpop_str)
+{
+	const struct var_expand_table *tab;
+	string_t *quota;
+
+	if (template == NULL || *vpop_str == '\0' ||
+	    strcmp(vpop_str, "NOQUOTA") == 0)
+		return "";
+
+	tab = var_expand_table_build('q', format_maildirquota(vpop_str), '\0');
+	quota = t_str_new(128);
+	var_expand(quota, template, tab);
+	return str_c(quota);
+}
+
 static void vpopmail_lookup(struct auth_request *auth_request,
 			    userdb_callback_t *callback)
 {
+	struct userdb_module *_module = auth_request->userdb->userdb;
+	struct vpopmail_userdb_module *module =
+		(struct vpopmail_userdb_module *)_module;
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
 	struct auth_stream_reply *reply;
+	const char *quota;
 	uid_t uid;
 	gid_t gid;
 
@@ -67,7 +97,8 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 
 	if (auth_request->successful) {
 		/* update the last login only when we're really  */
-		vset_lastauth(vpop_user, vpop_domain, auth_request->service);
+		vset_lastauth(vpop_user, vpop_domain,
+			      t_strdup_noconst(auth_request->service));
 	}
 
 	if (vpw->pw_dir == NULL || vpw->pw_dir[0] == '\0') {
@@ -99,21 +130,39 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	auth_stream_reply_add(reply, "gid", dec2str(gid));
 	auth_stream_reply_add(reply, "home", vpw->pw_dir);
 
+	quota = userdb_vpopmail_get_quota(module->quota_template_value,
+					  vpw->pw_shell);
+	if (*quota != '\0')
+		auth_stream_reply_add(reply, module->quota_template_key, quota);
+
 	callback(USERDB_RESULT_OK, reply, auth_request);
 }
 
 static struct userdb_module *
 vpopmail_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
-	struct userdb_module *module;
+	struct vpopmail_userdb_module *module;
+	const char *const *tmp, *p;
+	pool_t pool = auth_userdb->auth->pool;
 
-	module = p_new(auth_userdb->auth->pool, struct userdb_module, 1);
+	module = p_new(pool, struct vpopmail_userdb_module, 1);
 
-	if (strncmp(args, "cache_key=", 10) == 0) {
-		module->cache_key = p_strconcat(auth_userdb->auth->pool,
-						args + 10, NULL);
+	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
+		if (strncmp(*tmp, "cache_key=", 10) == 0)
+			module->module.cache_key = p_strdup(pool, *tmp + 10);
+		else if (strncmp(*tmp, "quota_template=", 15) == 0) {
+			p = strchr(*tmp + 15, '=');
+			if (p == NULL) {
+				i_fatal("vpopmail userdb: "
+					"quota_template missing '='");
+			}
+			module->quota_template_key =
+				p_strdup_until(pool, *tmp + 15, p);
+			module->quota_template_value = p_strdup(pool, p + 1);
+		} else
+			i_fatal("vpopmail userdb: Unknown args: %s", *tmp);
 	}
-	return module;
+	return &module->module;
 }
 
 struct userdb_module_interface userdb_vpopmail = {
