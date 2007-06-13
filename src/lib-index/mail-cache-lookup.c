@@ -442,6 +442,9 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	if (fields_count == 0)
 		return 1;
 
+	if (!view->cache->opened)
+		(void)mail_cache_open_and_verify(view->cache);
+
 	t_push();
 
 	/* @UNSAFE */
