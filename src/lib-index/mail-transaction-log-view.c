@@ -451,9 +451,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 {
 	const struct mail_transaction_header *hdr;
 	struct mail_transaction_log_file *file;
-	const struct mail_transaction_type_map *type_rec;
 	const void *data;
-	unsigned int record_size;
 	enum mail_transaction_type rec_type;
 	uint32_t full_size;
 	size_t file_size;
@@ -497,35 +495,10 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	rec_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
 	full_size = mail_index_offset_to_uint32(hdr->size);
 	if (full_size < sizeof(*hdr)) {
-		/* we'll fail below with "records size too small" */
-		type_rec = NULL;
-		record_size = 0;
-	} else {
-		type_rec = mail_transaction_type_lookup(hdr->type);
-		if (type_rec != NULL)
-			record_size = type_rec->record_size;
-		else {
-			mail_transaction_log_file_set_corrupted(file,
-				"unknown record type 0x%x", rec_type);
-			return -1;
-		}
-	}
-
-	if (full_size < sizeof(*hdr) + record_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too small (type=0x%x, "
 			"offset=%"PRIuUOFF_T", size=%u)",
 			rec_type, view->cur_offset, full_size);
-		return -1;
-	}
-
-	if (record_size != 0 &&
-	    (full_size - sizeof(*hdr)) % record_size != 0) {
-		mail_transaction_log_file_set_corrupted(file,
-			"record size wrong (type 0x%x, "
-			"offset=%"PRIuUOFF_T", size=%"PRIuSIZE_T" %% %u != 0)",
-			rec_type, view->cur_offset, (full_size - sizeof(*hdr)),
-			record_size);
 		return -1;
 	}
 
