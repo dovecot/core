@@ -326,26 +326,26 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 			 const void *data,
 			 const struct mail_transaction_type_map *type_rec)
 {
-	enum mail_transaction_type hdr_type;
+	enum mail_transaction_type rec_type;
 	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
 	buffer_t *uid_buf;
 	uint32_t rec_size;
 	bool ret = TRUE;
 
-	hdr_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
+	rec_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
 	rec_size = mail_index_offset_to_uint32(hdr->size) - sizeof(*hdr);
 
 	/* we want to be extra careful with expunges */
 	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
-		if (hdr_type != (MAIL_TRANSACTION_EXPUNGE |
+		if (rec_type != (MAIL_TRANSACTION_EXPUNGE |
 				 MAIL_TRANSACTION_EXPUNGE_PROT)) {
 			mail_transaction_log_file_set_corrupted(file,
 				"expunge record missing protection mask");
 			return FALSE;
 		}
-	} else if (hdr_type != type_rec->type) {
+	} else if (rec_type != type_rec->type) {
 		mail_transaction_log_file_set_corrupted(file,
-			"extra bits in header type: 0x%x", hdr_type);
+			"extra bits in header type: 0x%x", rec_type);
 		return FALSE;
 	}
 
@@ -354,21 +354,19 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 	   multiple times. other records are checked internally by
 	   mail_index_sync_record(). */
 	t_push();
-	switch (hdr_type) {
-	case MAIL_TRANSACTION_EXPUNGE: {
+	switch (rec_type) {
+	case MAIL_TRANSACTION_EXPUNGE:
 		uid_buf = buffer_create_const_data(pool_datastack_create(),
 						   data, rec_size);
 		array_create_from_buffer(&uids, uid_buf,
 			sizeof(struct mail_transaction_expunge));
 		break;
-	}
-	case MAIL_TRANSACTION_FLAG_UPDATE: {
+	case MAIL_TRANSACTION_FLAG_UPDATE:
 		uid_buf = buffer_create_const_data(pool_datastack_create(),
 						   data, rec_size);
 		array_create_from_buffer(&uids, uid_buf,
 			sizeof(struct mail_transaction_flag_update));
 		break;
-	}
 	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
 		const struct mail_transaction_keyword_update *rec = data;
 		unsigned int seqset_offset;
@@ -391,13 +389,12 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		array_create_from_buffer(&uids, uid_buf, sizeof(uint32_t)*2);
 		break;
 	}
-	case MAIL_TRANSACTION_KEYWORD_RESET: {
+	case MAIL_TRANSACTION_KEYWORD_RESET:
 		uid_buf = buffer_create_const_data(pool_datastack_create(),
 						   data, rec_size);
 		array_create_from_buffer(&uids, uid_buf,
 			sizeof(struct mail_transaction_keyword_reset));
 		break;
-	}
 	default:
 		break;
 	}
@@ -412,14 +409,14 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 				mail_transaction_log_file_set_corrupted(file,
 					"Invalid UID range "
 					"(%u .. %u, type=0x%x)",
-					rec->seq1, rec->seq2, hdr_type);
+					rec->seq1, rec->seq2, rec_type);
 				ret = FALSE;
 				break;
 			}
 			if (prev != NULL && rec->seq1 <= prev->seq2) {
 				mail_transaction_log_file_set_corrupted(file,
 					"Non-sorted UID ranges (type=0x%x)",
-					hdr_type);
+					rec_type);
 				ret = FALSE;
 				break;
 			}
@@ -439,7 +436,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	const struct mail_transaction_type_map *type_rec;
 	const void *data;
 	unsigned int record_size;
-	enum mail_transaction_type hdr_type;
+	enum mail_transaction_type rec_type;
 	uint32_t full_size;
 	size_t file_size;
 
@@ -479,7 +476,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	hdr = CONST_PTR_OFFSET(data, view->cur_offset - file->buffer_offset);
 	data = CONST_PTR_OFFSET(hdr, sizeof(*hdr));
 
-	hdr_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
+	rec_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
 	full_size = mail_index_offset_to_uint32(hdr->size);
 	if (full_size < sizeof(*hdr)) {
 		/* we'll fail below with "records size too small" */
@@ -491,7 +488,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 			record_size = type_rec->record_size;
 		else {
 			mail_transaction_log_file_set_corrupted(file,
-				"unknown record type 0x%x", hdr_type);
+				"unknown record type 0x%x", rec_type);
 			return -1;
 		}
 	}
@@ -500,7 +497,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too small (type=0x%x, "
 			"offset=%"PRIuUOFF_T", size=%u)",
-			hdr_type, view->cur_offset, full_size);
+			rec_type, view->cur_offset, full_size);
 		return -1;
 	}
 
@@ -509,7 +506,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		mail_transaction_log_file_set_corrupted(file,
 			"record size wrong (type 0x%x, "
 			"offset=%"PRIuUOFF_T", size=%"PRIuSIZE_T" %% %u != 0)",
-			hdr_type, view->cur_offset, (full_size - sizeof(*hdr)),
+			rec_type, view->cur_offset, (full_size - sizeof(*hdr)),
 			record_size);
 		return -1;
 	}
@@ -518,7 +515,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too large (type=0x%x, "
 			"offset=%"PRIuUOFF_T", size=%u, end=%"PRIuSIZE_T")",
-			hdr_type, view->cur_offset, full_size, file_size);
+			rec_type, view->cur_offset, full_size, file_size);
 		return -1;
 	}
 
