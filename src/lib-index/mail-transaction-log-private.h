@@ -96,6 +96,8 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 				   uint32_t file_seq,
 				   struct mail_transaction_log_file **file_r);
 
+/* Returns 1 if ok, 0 if file is corrupted or offset range is invalid,
+   -1 if I/O error */
 int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 				  uoff_t start_offset, uoff_t end_offset);
 void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
