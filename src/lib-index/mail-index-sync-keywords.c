@@ -261,21 +261,10 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	seqset_offset = sizeof(*rec) + rec->name_size;
 	if ((seqset_offset % 4) != 0)
 		seqset_offset += 4 - (seqset_offset % 4);
-
-	if (seqset_offset > hdr->size) {
-		mail_index_sync_set_corrupted(ctx,
-			"Keyword header ended unexpectedly");
-		return -1;
-	}
+	i_assert(seqset_offset < hdr->size);
 
 	uid = CONST_PTR_OFFSET(rec, seqset_offset);
 	end = CONST_PTR_OFFSET(rec, hdr->size);
-
-	if (uid == end) {
-		mail_index_sync_set_corrupted(ctx,
-			"Keyword sequence list empty");
-		return -1;
-	}
 
 	keyword_name = t_strndup(rec + 1, rec->name_size);
 	if (keyword_lookup(ctx, keyword_name, &keyword_idx) < 0)
@@ -307,12 +296,6 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	while (uid+2 <= end) {
-		if (uid[0] > uid[1] || uid[0] == 0) {
-			mail_index_sync_set_corrupted(ctx,
-				"Keyword record UIDs are broken");
-			return -1;
-		}
-
 		ret = keywords_update_records(ctx, ext, keyword_idx,
 					      rec->modify_type,
 					      uid[0], uid[1]);

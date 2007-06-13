@@ -298,18 +298,6 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 	map = mail_index_sync_get_atomic_map(ctx);
 
 	for (i = 0; i < count; i++, e++) {
-		if (e->uid1 > e->uid2 || e->uid1 == 0) {
-			mail_index_sync_set_corrupted(ctx,
-				"Invalid UID range in expunge (%u .. %u)",
-				e->uid1, e->uid2);
-			return -1;
-		}
-		if (i > 0 && e->uid1 <= e[-1].uid2) {
-			mail_index_sync_set_corrupted(ctx,
-				"Non-sorted UID ranges in expunge");
-			return -1;
-		}
-
 		if (mail_index_lookup_uid_range(ctx->view, e->uid1, e->uid2,
 						&seq1, &seq2) < 0)
 			return -1;
@@ -416,13 +404,6 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	struct mail_index_record *rec;
 	uint8_t flag_mask, old_flags;
 	uint32_t idx, seq1, seq2;
-
-	if (u->uid1 > u->uid2 || u->uid1 == 0) {
-		mail_index_sync_set_corrupted(ctx,
-				"Invalid UID range in flag update (%u .. %u)",
-				u->uid1, u->uid2);
-		return -1;
-	}
 
 	if (mail_index_lookup_uid_range(view, u->uid1, u->uid2,
 					&seq1, &seq2) < 0)
@@ -610,6 +591,13 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			}
 
 			rec = CONST_PTR_OFFSET(data, i);
+			if (i + sizeof(*rec) + rec->name_size > hdr->size) {
+				mail_index_sync_set_corrupted(ctx,
+					"extension intro: name_size too large");
+				ret = -1;
+				break;
+			}
+
 			ret = mail_index_sync_ext_intro(ctx, rec);
 			if (ret <= 0)
 				break;

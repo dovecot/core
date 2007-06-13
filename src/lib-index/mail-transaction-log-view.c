@@ -320,6 +320,115 @@ mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view)
 	return view->broken;
 }
 
+static bool
+log_view_is_record_valid(struct mail_transaction_log_file *file,
+			 const struct mail_transaction_header *hdr,
+			 const void *data,
+			 const struct mail_transaction_type_map *type_rec)
+{
+	enum mail_transaction_type hdr_type;
+	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
+	buffer_t *uid_buf;
+	uint32_t hdr_size;
+	bool ret = TRUE;
+
+	hdr_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
+	hdr_size = mail_index_offset_to_uint32(hdr->size) - sizeof(*hdr);
+
+	/* we want to be extra careful with expunges */
+	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
+		if (hdr_type != (MAIL_TRANSACTION_EXPUNGE |
+				 MAIL_TRANSACTION_EXPUNGE_PROT)) {
+			mail_transaction_log_file_set_corrupted(file,
+				"expunge record missing protection mask");
+			return FALSE;
+		}
+	} else if (hdr_type != type_rec->type) {
+		mail_transaction_log_file_set_corrupted(file,
+			"extra bits in header type: 0x%x", hdr_type);
+		return FALSE;
+	}
+
+	/* records that are exported by syncing and view syncing will be
+	   checked here so that we don't have to implement the same validation
+	   multiple times. other records are checked internally by
+	   mail_index_sync_record(). */
+	t_push();
+	switch (hdr_type) {
+	case MAIL_TRANSACTION_EXPUNGE: {
+		uid_buf = buffer_create_const_data(pool_datastack_create(),
+						   data, hdr_size);
+		array_create_from_buffer(&uids, uid_buf,
+			sizeof(struct mail_transaction_expunge));
+		break;
+	}
+	case MAIL_TRANSACTION_FLAG_UPDATE: {
+		uid_buf = buffer_create_const_data(pool_datastack_create(),
+						   data, hdr_size);
+		array_create_from_buffer(&uids, uid_buf,
+			sizeof(struct mail_transaction_flag_update));
+		break;
+	}
+	case MAIL_TRANSACTION_KEYWORD_UPDATE: {
+		const struct mail_transaction_keyword_update *rec = data;
+		unsigned int seqset_offset;
+
+		seqset_offset = sizeof(*rec) + rec->name_size;
+		if ((seqset_offset % 4) != 0)
+			seqset_offset += 4 - (seqset_offset % 4);
+
+		if (seqset_offset >= hdr_size ||
+		    ((hdr_size - seqset_offset) % (sizeof(uint32_t)*2)) != 0) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Invalid keyword update record size");
+			ret = FALSE;
+			break;
+		}
+
+		uid_buf = buffer_create_const_data(pool_datastack_create(),
+					CONST_PTR_OFFSET(data, seqset_offset),
+					hdr_size - seqset_offset);
+		array_create_from_buffer(&uids, uid_buf, sizeof(uint32_t)*2);
+		break;
+	}
+	case MAIL_TRANSACTION_KEYWORD_RESET: {
+		uid_buf = buffer_create_const_data(pool_datastack_create(),
+						   data, hdr_size);
+		array_create_from_buffer(&uids, uid_buf,
+			sizeof(struct mail_transaction_keyword_reset));
+		break;
+	}
+	default:
+		break;
+	}
+
+	if (array_is_created(&uids)) {
+		const struct seq_range *rec, *prev = NULL;
+		unsigned int i, count = array_count(&uids);
+
+		for (i = 0; i < count; i++, prev = rec) {
+			rec = array_idx(&uids, i);
+			if (rec->seq1 > rec->seq2 || rec->seq1 == 0) {
+				mail_transaction_log_file_set_corrupted(file,
+					"Invalid UID range "
+					"(%u .. %u, type=0x%x)",
+					rec->seq1, rec->seq2, hdr_type);
+				ret = FALSE;
+				break;
+			}
+			if (prev != NULL && rec->seq1 <= prev->seq2) {
+				mail_transaction_log_file_set_corrupted(file,
+					"Non-sorted UID ranges (type=0x%x)",
+					hdr_type);
+				ret = FALSE;
+				break;
+			}
+		}
+	}
+	t_pop();
+	return ret;
+}
+
 static int
 log_view_get_next(struct mail_transaction_log_view *view,
 		  const struct mail_transaction_header **hdr_r,
@@ -373,6 +482,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	hdr_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
 	hdr_size = mail_index_offset_to_uint32(hdr->size);
 	if (hdr_size < sizeof(*hdr)) {
+		/* we'll fail below with "records size too small" */
 		type_rec = NULL;
 		record_size = 0;
 	} else {
@@ -412,38 +522,8 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
-		if (hdr_type != (MAIL_TRANSACTION_EXPUNGE |
-				 MAIL_TRANSACTION_EXPUNGE_PROT)) {
-			mail_transaction_log_file_set_corrupted(file,
-				"found expunge without protection mask");
-			return -1;
-		}
-	} else if (hdr_type != type_rec->type) {
-		mail_transaction_log_file_set_corrupted(file,
-			"extra bits in header type: 0x%x", hdr_type);
+	if (!log_view_is_record_valid(file, hdr, data, type_rec))
 		return -1;
-	} else if (hdr_type == MAIL_TRANSACTION_EXT_INTRO) {
-		const struct mail_transaction_ext_intro *intro;
-		uint32_t i;
-
-		for (i = 0; i < hdr_size; ) {
-			if (i + sizeof(*intro) > hdr_size) {
-				/* should be just extra padding */
-				break;
-			}
-
-			intro = CONST_PTR_OFFSET(data, i);
-			if (intro->name_size >
-			    hdr_size - sizeof(*hdr) - sizeof(*intro)) {
-				mail_transaction_log_file_set_corrupted(file,
-					"extension intro: name_size too large");
-				return -1;
-			}
-
-			i += sizeof(*intro) + intro->name_size;
-		}
-	}
 
 	*hdr_r = hdr;
 	*data_r = data;
