@@ -34,6 +34,18 @@ struct mail_index_sync_ctx {
 	unsigned int sync_dirty:1;
 };
 
+static bool mail_index_sync_check_uid_range(struct mail_index_sync_ctx *ctx,
+					    uint32_t uid1, uint32_t uid2)
+{
+	if (uid1 > uid2 || uid1 == 0) {
+		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
+			"Broken UID range: %u..%u (type=0x%x)", uid1, uid2,
+			ctx->hdr->type & MAIL_TRANSACTION_TYPE_MASK);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
 {
 	const struct mail_transaction_expunge *e = ctx->data;
@@ -41,6 +53,8 @@ static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
 	uint32_t uid;
 
 	for (i = 0; i < size; i++) {
+		if (!mail_index_sync_check_uid_range(ctx, e[i].uid1, e[i].uid2))
+			break;
 		for (uid = e[i].uid1; uid <= e[i].uid2; uid++)
 			mail_index_expunge(ctx->sync_trans, uid);
 	}
@@ -52,6 +66,8 @@ static void mail_index_sync_add_flag_update(struct mail_index_sync_ctx *ctx)
 	size_t i, size = ctx->hdr->size / sizeof(*u);
 
 	for (i = 0; i < size; i++) {
+		if (!mail_index_sync_check_uid_range(ctx, u[i].uid1, u[i].uid2))
+			break;
 		if (u[i].add_flags != 0) {
 			mail_index_update_flags_range(ctx->sync_trans,
 						      u[i].uid1, u[i].uid2,
@@ -89,6 +105,8 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 	size = (ctx->hdr->size - uidset_offset) / sizeof(uint32_t);
 	for (i = 0; i < size; i += 2) {
 		/* FIXME: mail_index_update_keywords_range() */
+		if (!mail_index_sync_check_uid_range(ctx, uids[i], uids[i+1]))
+			break;
 		for (uid = uids[i]; uid <= uids[i+1]; uid++) {
 			mail_index_update_keywords(ctx->sync_trans, uid,
 						   u->modify_type, keywords);
@@ -108,6 +126,8 @@ static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
 
 	keywords = mail_index_keywords_create(ctx->sync_trans, NULL);
 	for (i = 0; i < size; i++) {
+		if (!mail_index_sync_check_uid_range(ctx, u[i].uid1, u[i].uid2))
+			break;
 		for (uid = u[i].uid1; uid <= u[i].uid2; uid++) {
 			mail_index_update_keywords(ctx->sync_trans, uid,
 						   MODIFY_REPLACE, keywords);
@@ -474,28 +494,6 @@ static void mail_index_sync_get_keyword_reset(struct mail_index_sync_rec *rec,
 	rec->uid2 = range->uid2;
 }
 
-static int mail_index_sync_rec_check(struct mail_index_view *view,
-				     struct mail_index_sync_rec *rec)
-{
-	switch (rec->type) {
-	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-		if (rec->uid1 > rec->uid2 || rec->uid1 == 0) {
-			mail_transaction_log_view_set_corrupted(view->log_view,
-				"Broken UID range: %u..%u (type 0x%x)",
-				rec->uid1, rec->uid2, rec->type);
-			return -1;
-		}
-		break;
-	case MAIL_INDEX_SYNC_TYPE_APPEND:
-		break;
-	}
-	return 0;
-}
-
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec)
 {
@@ -558,9 +556,6 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 						   &sync_list[i]);
 	}
 	sync_list[i].idx++;
-
-	if (mail_index_sync_rec_check(ctx->view, sync_rec) < 0)
-		return -1;
 	return 1;
 }
 
