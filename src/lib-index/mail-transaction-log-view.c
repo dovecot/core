@@ -323,8 +323,7 @@ mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view)
 static bool
 log_view_is_record_valid(struct mail_transaction_log_file *file,
 			 const struct mail_transaction_header *hdr,
-			 const void *data,
-			 const struct mail_transaction_type_map *type_rec)
+			 const void *data)
 {
 	enum mail_transaction_type rec_type;
 	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
@@ -343,10 +342,6 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 				"expunge record missing protection mask");
 			return FALSE;
 		}
-	} else if (rec_type != type_rec->type) {
-		mail_transaction_log_file_set_corrupted(file,
-			"extra bits in header type: 0x%x", rec_type);
-		return FALSE;
 	}
 
 	if (rec_size == 0) {
@@ -542,7 +537,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	if (!log_view_is_record_valid(file, hdr, data, type_rec))
+	if (!log_view_is_record_valid(file, hdr, data))
 		return -1;
 
 	*hdr_r = hdr;
@@ -557,6 +552,7 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 {
 	const struct mail_transaction_header *hdr;
 	const void *data;
+	uint32_t hdr_type = 0;
 	int ret = 0;
 
 	if (skipped_r != NULL)
@@ -565,12 +561,16 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 		return -1;
 
 	while ((ret = log_view_get_next(view, &hdr, &data)) > 0) {
-		if ((view->type_mask & hdr->type) != 0) {
-			/* looks like this is within our mask, but expunge
-			   protection may mess up the check. */
-			if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0 ||
-			    (view->type_mask & MAIL_TRANSACTION_EXPUNGE) != 0)
-				break;
+		/* drop expunge protection */
+		if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
+		    (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT))
+			hdr_type = hdr->type & ~MAIL_TRANSACTION_EXPUNGE_PROT;
+		else
+			hdr_type = hdr->type;
+
+		if ((view->type_mask & hdr_type) != 0) {
+			/* the record is within our wanted mask */
+			break;
 		}
 
 		/* we don't want this record */
@@ -588,15 +588,12 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	if (ret == 0)
 		return 0;
 
-	view->tmp_hdr = *hdr;
+	/* return type without expunge protection */
+	view->tmp_hdr.type = hdr_type;
+	/* return record's size */
 	view->tmp_hdr.size =
 		mail_index_offset_to_uint32(view->tmp_hdr.size) - sizeof(*hdr);
 	i_assert(view->tmp_hdr.size != 0);
-
-	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
-		/* hide expunge protection */
-		view->tmp_hdr.type &= ~MAIL_TRANSACTION_EXPUNGE_PROT;
-	}
 
 	*hdr_r = &view->tmp_hdr;
 	*data_r = data;

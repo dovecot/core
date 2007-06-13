@@ -860,7 +860,8 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 			     prev_offset <
 			     view->map->hdr.log_file_index_ext_offset))
 				continue;
-		} else if ((thdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
+		} else if ((thdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
+			   MAIL_TRANSACTION_EXPUNGE) {
 			/* if the message hasn't yet been expunged from the
 			   mailbox, skip this expunge */
 			if (prev_seq > mailbox_sync_seq ||

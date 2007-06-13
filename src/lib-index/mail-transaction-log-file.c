@@ -668,7 +668,8 @@ log_file_track_mailbox_sync_offset(struct mail_transaction_log_file *file,
 
 	i_assert((hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0);
 
-	if ((hdr->type & MAIL_TRANSACTION_HEADER_UPDATE) != 0) {
+	if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
+	    MAIL_TRANSACTION_HEADER_UPDATE) {
 		/* see if this updates mailbox_sync_offset */
 		ret = log_file_track_mailbox_sync_offset_hdr(file, hdr + 1,
 							     trans_size -
