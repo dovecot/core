@@ -246,7 +246,7 @@ static void mail_index_view_check(struct mail_index_view *view)
 	  array_count(&view->syncs_done) == 0))
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
-                               enum mail_index_sync_type sync_mask,
+                               enum mail_index_view_sync_type sync_type,
 			       struct mail_index_view_sync_ctx **ctx_r)
 {
 	struct mail_index_view_sync_ctx *ctx;
@@ -254,29 +254,32 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	enum mail_transaction_type log_get_mask, visible_mask;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
 
-	/* We must sync flags as long as view is mmap()ed, as the flags may
-	   have already changed under us. */
-	i_assert((sync_mask & MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK) ==
-		 MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK);
-	/* Currently we're not handling correctly expunges + no-appends case */
-	i_assert((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) == 0 ||
-		 (sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0);
-
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
 
 	if (mail_index_view_lock_head(view) < 0)
 		return -1;
 
-	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0) {
+	if (sync_type == MAIL_INDEX_VIEW_SYNC_TYPE_ALL) {
 		/* get list of all expunges first */
 		if (view_sync_get_expunges(view, &expunges) < 0)
 			return -1;
 	}
 
 	/* only flags, appends and expunges can be left to be synced later */
-	visible_mask = mail_transaction_type_mask_get(sync_mask);
-	i_assert((visible_mask & ~MAIL_TRANSACTION_VISIBLE_SYNC_MASK) == 0);
+	switch (sync_type) {
+	case MAIL_INDEX_VIEW_SYNC_TYPE_ALL:
+		visible_mask = MAIL_TRANSACTION_VISIBLE_SYNC_MASK;
+		break;
+	case MAIL_INDEX_VIEW_SYNC_TYPE_NOAPPENDS_NOEXPUNGES:
+		visible_mask = MAIL_TRANSACTION_VISIBLE_SYNC_MASK &
+			~(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND);
+		break;
+	case MAIL_INDEX_VIEW_SYNC_TYPE_NOEXPUNGES:
+		visible_mask = MAIL_TRANSACTION_VISIBLE_SYNC_MASK &
+			~MAIL_TRANSACTION_EXPUNGE;
+		break;
+	}
 
 	/* we want to also get non-visible changes. especially because we use
 	   the returned skipped-flag in mail_transaction_log_view_next() to
@@ -296,8 +299,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	if ((sync_mask & MAIL_INDEX_SYNC_TYPE_EXPUNGE) != 0 &&
-	    (sync_mask & MAIL_INDEX_SYNC_TYPE_APPEND) != 0) {
+	if (sync_type == MAIL_INDEX_VIEW_SYNC_TYPE_ALL) {
 		view->sync_new_map = view->index->map;
 		view->sync_new_map->refcount++;
 

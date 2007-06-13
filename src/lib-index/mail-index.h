@@ -107,7 +107,15 @@ enum mail_index_sync_type {
 	MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE	= 0x10,
 	MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET	= 0x20
 };
-#define MAIL_INDEX_SYNC_MASK_ALL 0xff
+
+enum mail_index_view_sync_type {
+	/* Sync everything */
+	MAIL_INDEX_VIEW_SYNC_TYPE_ALL,
+	/* Don't sync appends or expunges */
+	MAIL_INDEX_VIEW_SYNC_TYPE_NOAPPENDS_NOEXPUNGES,
+	/* Don't sync expunges */
+	MAIL_INDEX_VIEW_SYNC_TYPE_NOEXPUNGES
+};
 
 struct mail_index_sync_rec {
 	uint32_t uid1, uid2;
@@ -257,7 +265,7 @@ int mail_index_fsck(struct mail_index *index);
    will be marked inconsistent. Only sync_mask type records are
    synchronized. */
 int mail_index_view_sync_begin(struct mail_index_view *view,
-                               enum mail_index_sync_type sync_mask,
+                               enum mail_index_view_sync_type sync_type,
 			       struct mail_index_view_sync_ctx **ctx_r);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,

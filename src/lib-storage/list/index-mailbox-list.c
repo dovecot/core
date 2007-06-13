@@ -29,7 +29,8 @@ index_mailbox_view_sync(struct index_mailbox_list_iterate_context *ctx)
 	struct mail_index_view_sync_rec sync_rec;
 	int ret;
 
-	if (mail_index_view_sync_begin(ctx->mail_view, MAIL_INDEX_SYNC_MASK_ALL,
+	if (mail_index_view_sync_begin(ctx->mail_view,
+				       MAIL_INDEX_VIEW_SYNC_TYPE_ALL,
 				       &sync_ctx) < 0) {
 		mailbox_list_set_internal_error(ctx->ctx.list);
 		return -1;
