@@ -8,7 +8,6 @@
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
 #include "mail-transaction-log-private.h"
-#include "mail-transaction-util.h"
 
 static void
 mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,

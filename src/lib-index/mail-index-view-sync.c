@@ -6,7 +6,6 @@
 #include "mail-index-view-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
-#include "mail-transaction-util.h"
 
 struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;

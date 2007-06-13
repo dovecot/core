@@ -4,7 +4,6 @@
 #include "array.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
-#include "mail-transaction-util.h"
 
 struct mail_transaction_log_view {
 	struct mail_transaction_log *log;
