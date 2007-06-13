@@ -485,6 +485,9 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 		}
 	}
 
+	for (i = 0; i < fields_count; i++)
+		mail_cache_decision_lookup(view, seq, fields[i]);
+
 	data = buffer_get_modifiable_data(ctx.data, &size);
 	size /= sizeof(*data);
 	qsort(data, size, sizeof(*data), header_lookup_data_cmp);
