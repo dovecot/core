@@ -413,7 +413,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		/* update sync_offset */
 		if (mail_transaction_log_file_map(log->head,
 						  log->head->sync_offset,
-						  (uoff_t)-1) < 0)
+						  (uoff_t)-1) <= 0)
 			return -1;
 	}
 

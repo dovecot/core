@@ -361,7 +361,7 @@ int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 
 	/* update sync_offset */
 	if (mail_transaction_log_file_map(log->head, log->head->sync_offset,
-					  (uoff_t)-1) < 0) {
+					  (uoff_t)-1) <= 0) {
 		mail_transaction_log_file_unlock(log->head);
 		return -1;
 	}
