@@ -564,7 +564,7 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	view->tmp_hdr.type = hdr_type;
 	/* return record's size */
 	view->tmp_hdr.size =
-		mail_index_offset_to_uint32(view->tmp_hdr.size) - sizeof(*hdr);
+		mail_index_offset_to_uint32(hdr->size) - sizeof(*hdr);
 	i_assert(view->tmp_hdr.size != 0);
 
 	*hdr_r = &view->tmp_hdr;
