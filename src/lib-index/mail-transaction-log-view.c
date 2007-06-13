@@ -349,12 +349,25 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		return FALSE;
 	}
 
+	if (rec_size == 0) {
+		mail_transaction_log_file_set_corrupted(file,
+			"Empty record contents (type=0x%x)", rec_type);
+		return FALSE;
+	}
+
 	/* records that are exported by syncing and view syncing will be
 	   checked here so that we don't have to implement the same validation
 	   multiple times. other records are checked internally by
 	   mail_index_sync_record(). */
 	t_push();
 	switch (rec_type) {
+	case MAIL_TRANSACTION_APPEND:
+		if ((rec_size % sizeof(struct mail_index_record)) != 0) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Invalid append record size");
+			ret = FALSE;
+		}
+		break;
 	case MAIL_TRANSACTION_EXPUNGE:
 		uid_buf = buffer_create_const_data(pool_datastack_create(),
 						   data, rec_size);
@@ -375,8 +388,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		if ((seqset_offset % 4) != 0)
 			seqset_offset += 4 - (seqset_offset % 4);
 
-		if (seqset_offset >= rec_size ||
-		    ((rec_size - seqset_offset) % (sizeof(uint32_t)*2)) != 0) {
+		if (seqset_offset > rec_size) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid keyword update record size");
 			ret = FALSE;
@@ -402,6 +414,17 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 	if (array_is_created(&uids)) {
 		const struct seq_range *rec, *prev = NULL;
 		unsigned int i, count = array_count(&uids);
+
+		if ((uid_buf->used % uids.arr.element_size) != 0) {
+			mail_transaction_log_file_set_corrupted(file,
+				"Invalid record size (type=0x%x)", rec_type);
+			ret = FALSE;
+			count = 0;
+		} else if (count == 0) {
+			mail_transaction_log_file_set_corrupted(file,
+				"No UID ranges (type=0x%x)", rec_type);
+			ret = FALSE;
+		}
 
 		for (i = 0; i < count; i++, prev = rec) {
 			rec = array_idx(&uids, i);

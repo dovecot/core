@@ -593,7 +593,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			rec = CONST_PTR_OFFSET(data, i);
 			if (i + sizeof(*rec) + rec->name_size > hdr->size) {
 				mail_index_sync_set_corrupted(ctx,
-					"extension intro: name_size too large");
+					"ext intro: name_size too large");
 				ret = -1;
 				break;
 			}
@@ -610,6 +610,13 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 	}
 	case MAIL_TRANSACTION_EXT_RESET: {
 		const struct mail_transaction_ext_reset *rec = data;
+
+		if (hdr->size != sizeof(*rec)) {
+			mail_index_sync_set_corrupted(ctx,
+				"ext reset: invalid record size");
+			ret = -1;
+			break;
+		}
 		ret = mail_index_sync_ext_reset(ctx, rec);
 		break;
 	}
@@ -619,6 +626,15 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 
 		for (i = 0; i < hdr->size; ) {
 			rec = CONST_PTR_OFFSET(data, i);
+
+			if (i + sizeof(*rec) > hdr->size ||
+			    i + sizeof(*rec) + rec->size > hdr->size) {
+				mail_index_sync_set_corrupted(ctx,
+					"ext hdr update: invalid record size");
+				ret = -1;
+				break;
+			}
+
 			ret = mail_index_sync_ext_hdr_update(ctx, rec);
 			if (ret <= 0)
 				break;
@@ -630,9 +646,9 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		break;
 	}
 	case MAIL_TRANSACTION_EXT_REC_UPDATE: {
-		const struct mail_transaction_ext_rec_update *rec, *end;
+		const struct mail_transaction_ext_rec_update *rec;
 		const struct mail_index_ext *ext;
-		unsigned int record_size;
+		unsigned int i, record_size;
 
 		if (ctx->cur_ext_id == (uint32_t)-1) {
 			mail_index_sync_set_corrupted(ctx,
@@ -651,14 +667,19 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		/* the record is padded to 32bits in the transaction log */
 		record_size = (sizeof(*rec) + ext->record_size + 3) & ~3;
 
-		rec = data;
-		end = CONST_PTR_OFFSET(data, hdr->size);
-		while (rec < end) {
+		for (i = 0; i < hdr->size; i += record_size) {
+			rec = CONST_PTR_OFFSET(data, i);
+
+			if (i + record_size > hdr->size) {
+				mail_index_sync_set_corrupted(ctx,
+					"ext rec update: invalid record size");
+				ret = -1;
+				break;
+			}
+
 			ret = mail_index_sync_ext_rec_update(ctx, rec);
 			if (ret <= 0)
 				break;
-
-			rec = CONST_PTR_OFFSET(rec, record_size);
 		}
 		break;
 	}
