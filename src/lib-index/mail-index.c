@@ -639,7 +639,6 @@ void mail_index_set_inconsistent(struct mail_index *index)
 int mail_index_move_to_memory(struct mail_index *index)
 {
 	struct mail_index_map *map;
-	int ret = 0;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return index->map == NULL ? -1 : 0;
@@ -667,8 +666,7 @@ int mail_index_move_to_memory(struct mail_index *index)
 
 	if (index->log != NULL) {
 		/* move transaction log to memory */
-		if (mail_transaction_log_move_to_memory(index->log) < 0)
-			ret = -1;
+		mail_transaction_log_move_to_memory(index->log);
 	}
 
 	if (index->file_lock != NULL)
@@ -678,8 +676,7 @@ int mail_index_move_to_memory(struct mail_index *index)
 	if (close(index->fd) < 0)
 		mail_index_set_syscall_error(index, "close()");
 	index->fd = -1;
-
-	return ret;
+	return 0;
 }
 
 void mail_index_mark_corrupted(struct mail_index *index)

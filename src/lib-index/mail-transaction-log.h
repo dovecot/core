@@ -191,8 +191,8 @@ void mail_transaction_log_get_head(struct mail_transaction_log *log,
 bool mail_transaction_log_is_head_prev(struct mail_transaction_log *log,
 				       uint32_t file_seq, uoff_t file_offset);
 
-/* Move currently opened log files to memory (called by
+/* Move currently opened log head file to memory (called by
    mail_index_move_to_memory()) */
-int mail_transaction_log_move_to_memory(struct mail_transaction_log *log);
+void mail_transaction_log_move_to_memory(struct mail_transaction_log *log);
 
 #endif

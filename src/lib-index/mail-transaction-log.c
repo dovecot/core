@@ -131,42 +131,10 @@ void mail_transaction_log_free(struct mail_transaction_log **_log)
 	i_free(log);
 }
 
-int mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
+void mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
 {
-	struct mail_transaction_log_file *file = log->head;
-
-	if (file == NULL || MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
-		return 0;
-
-	/* read the whole file to memory. we might currently be appending
-	   data into it, so we want to read it up to end of file */
-        file->buffer_offset = 0;
-
-	if (file->buffer != NULL) {
-		buffer_free(file->buffer);
-		file->buffer = NULL;
-	}
-
-	if (file->mmap_base != NULL) {
-		if (munmap(file->mmap_base, file->mmap_size) < 0) {
-			mail_index_file_set_syscall_error(file->log->index,
-							  file->filepath,
-							  "munmap()");
-		}
-		file->mmap_base = NULL;
-	}
-
-	if (mail_transaction_log_file_read(file, 0) <= 0)
-		return -1;
-
-	/* after we've read the file into memory, make it into in-memory
-	   log file */
-	if (close(file->fd) < 0) {
-		mail_index_file_set_syscall_error(file->log->index,
-						  file->filepath, "close()");
-	}
-	file->fd = -1;
-	return 0;
+	if (log->head != NULL)
+		mail_transaction_log_file_move_to_memory(log->head);
 }
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log)

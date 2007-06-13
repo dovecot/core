@@ -742,8 +742,9 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 	return 0;
 }
 
-int mail_transaction_log_file_read(struct mail_transaction_log_file *file,
-				   uoff_t offset)
+static int
+mail_transaction_log_file_read(struct mail_transaction_log_file *file,
+			       uoff_t offset)
 {
 	void *data;
 	size_t size;
@@ -952,4 +953,40 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	}
 
 	return 1;
+}
+
+void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
+					      *file)
+{
+	buffer_t *buf;
+
+	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
+		return;
+
+	if (file->mmap_base != NULL) {
+		/* just copy to memory */
+		i_assert(file->buffer_offset == 0);
+
+		buf = buffer_create_dynamic(default_pool, file->mmap_size);
+		buffer_append(buf, file->mmap_base, file->mmap_size);
+		buffer_free(file->buffer);
+		file->buffer = buf;
+
+		/* and lose the mmap */
+		if (munmap(file->mmap_base, file->mmap_size) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "munmap()");
+		}
+		file->mmap_base = NULL;
+	} else if (file->buffer_offset != 0) {
+		/* we don't have the full log in the memory. read it. */
+		(void)mail_transaction_log_file_read(file, 0);
+	}
+
+	if (close(file->fd) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath, "close()");
+	}
+	file->fd = -1;
 }
