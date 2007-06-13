@@ -250,7 +250,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 {
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
-	enum mail_transaction_type log_get_mask, visible_mask;
+	enum mail_transaction_type log_get_mask, visible_mask = 0;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
 
 	i_assert(!view->syncing);

@@ -326,7 +326,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 {
 	enum mail_transaction_type rec_type;
 	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
-	buffer_t *uid_buf;
+	buffer_t *uid_buf = NULL;
 	uint32_t rec_size;
 	bool ret = TRUE;
 
