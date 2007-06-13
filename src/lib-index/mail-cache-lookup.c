@@ -503,7 +503,7 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 		}
 		hdr_size = (size_t)(p - start);
 		data[i].data->offset += hdr_size;
-		data[i].data->data_size += hdr_size;
+		data[i].data->data_size -= hdr_size;
 		buffer_append(dest, start, hdr_size);
 	}
 
