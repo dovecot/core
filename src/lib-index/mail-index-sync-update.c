@@ -479,44 +479,6 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	return 1;
 }
 
-static void
-mail_index_update_day_headers(struct mail_index_header *hdr, uint32_t uid)
-{
-	// FIXME: move as header updates to transaction committing
-	const int max_days =
-		sizeof(hdr->day_first_uid) / sizeof(hdr->day_first_uid[0]);
-	struct tm tm;
-	time_t stamp;
-	int i, days;
-
-	/* get beginning of today */
-	tm = *localtime(&ioloop_time);
-	tm.tm_hour = 0;
-	tm.tm_min = 0;
-	tm.tm_sec = 0;
-	stamp = mktime(&tm);
-	if (stamp == (time_t)-1)
-		i_panic("mktime(today) failed");
-
-	if ((time_t)hdr->day_stamp >= stamp)
-		return;
-
-	/* get number of days since last message */
-	days = (stamp - hdr->day_stamp) / (3600*24);
-	if (days > max_days)
-		days = max_days;
-
-	/* @UNSAFE: move days forward and fill the missing days with old
-	   day_first_uid[0]. */
-	memcpy(hdr->day_first_uid + days,
-	       hdr->day_first_uid, max_days - days);
-	for (i = 1; i < days; i++)
-		hdr->day_first_uid[i] = hdr->day_first_uid[0];
-
-	hdr->day_stamp = stamp;
-	hdr->day_first_uid[0] = uid;
-}
-
 int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			   const struct mail_transaction_header *hdr,
 			   const void *data)
@@ -899,9 +861,6 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	   transactions. use it to avoid extra unneeded log reading. */
 	map->hdr.log_file_mailbox_offset =
 		index->log->head->mailbox_sync_max_offset;
-
-	/*FIXME: if (first_append_uid != 0)
-		mail_index_update_day_headers(&map->hdr, first_append_uid);*/
 
 	if (map->write_base_header) {
 		i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));

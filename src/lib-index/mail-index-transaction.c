@@ -5,6 +5,7 @@
    UIDs. This is because we're able to compress sequence ranges better. */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "array.h"
 #include "seq-range-array.h"
 #include "mail-index-view-private.h"
@@ -14,6 +15,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <time.h>
 
 void (*hook_mail_index_transaction_created)
 		(struct mail_index_transaction *t) = NULL;
@@ -289,6 +291,53 @@ static int uid_map_cmp(const void *p1, const void *p2)
 		(m1->uid > m2->uid ? 1 : 0);
 }
 
+static void
+mail_index_update_day_headers(struct mail_index_transaction *t)
+{
+	struct mail_index_header hdr;
+	const struct mail_index_record *rec;
+	const int max_days =
+		sizeof(hdr.day_first_uid) / sizeof(hdr.day_first_uid[0]);
+	struct tm tm;
+	time_t stamp;
+	int i, days;
+
+	hdr = *mail_index_get_header(t->view);
+	rec = array_idx(&t->appends, 0);
+
+	/* get beginning of today */
+	tm = *localtime(&ioloop_time);
+	tm.tm_hour = 0;
+	tm.tm_min = 0;
+	tm.tm_sec = 0;
+	stamp = mktime(&tm);
+	i_assert(stamp != (time_t)-1);
+
+	if ((time_t)hdr.day_stamp >= stamp)
+		return;
+
+	/* get number of days since last message */
+	days = (stamp - hdr.day_stamp) / (3600*24);
+	if (days > max_days)
+		days = max_days;
+
+	/* @UNSAFE: move days forward and fill the missing days with old
+	   day_first_uid[0]. */
+	memcpy(hdr.day_first_uid + days, hdr.day_first_uid, max_days - days);
+	for (i = 1; i < days; i++)
+		hdr.day_first_uid[i] = hdr.day_first_uid[0];
+
+	hdr.day_stamp = stamp;
+	hdr.day_first_uid[0] = rec->uid;
+
+	mail_index_update_header(t,
+		offsetof(struct mail_index_header, day_stamp),
+		&hdr.day_stamp, sizeof(hdr.day_stamp), FALSE);
+	mail_index_update_header(t,
+		offsetof(struct mail_index_header, day_first_uid),
+		hdr.day_first_uid, sizeof(hdr.day_first_uid), FALSE);
+}
+
 void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 {
 	struct mail_index_record *recs, *sorted_recs;
@@ -380,7 +429,10 @@ static int _mail_index_transaction_commit(struct mail_index_transaction *t,
                 t->cache_trans_ctx = NULL;
 	}
 
-	mail_index_transaction_sort_appends(t);
+	if (array_is_created(&t->appends)) {
+		mail_index_transaction_sort_appends(t);
+		mail_index_update_day_headers(t);
+	}
 
 	if (mail_index_transaction_convert_to_uids(t) < 0)
 		ret = -1;
