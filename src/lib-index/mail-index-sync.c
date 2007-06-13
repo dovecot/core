@@ -241,7 +241,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	   included in our view */
 	while ((ret = mail_transaction_log_view_next(ctx->view->log_view,
 						     &ctx->hdr,
-						     &ctx->data, NULL)) > 0) {
+						     &ctx->data)) > 0) {
 		if ((ctx->hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0)
 			continue;
 
@@ -321,8 +321,7 @@ mail_index_sync_set_log_view(struct mail_index_view *view,
 
 	ret = mail_transaction_log_view_set(view->log_view,
                                             start_file_seq, start_file_offset,
-					    log_seq, log_offset,
-					    MAIL_TRANSACTION_TYPE_MASK);
+					    log_seq, log_offset);
 	if (ret <= 0) {
 		/* either corrupted or the file was deleted for
 		   some reason. either way, we can't go forward */

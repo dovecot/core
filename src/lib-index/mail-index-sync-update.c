@@ -801,8 +801,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	if (mail_transaction_log_view_set(view->log_view,
 					  map->hdr.log_file_seq,
 					  map->hdr.log_file_index_int_offset,
-					  (uint32_t)-1, (uoff_t)-1,
-					  MAIL_TRANSACTION_TYPE_MASK) <= 0) {
+					  (uint32_t)-1, (uoff_t)-1) <= 0) {
 		/* can't use it. sync by re-reading index. */
 		mail_index_view_close(&view);
 		return 0;
@@ -848,7 +847,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	   all */
 	expunge_seq = expunge_offset = 0;
 	while ((ret = mail_transaction_log_view_next(view->log_view, &thdr,
-						     &tdata, NULL)) > 0) {
+						     &tdata)) > 0) {
 		mail_transaction_log_view_get_prev_pos(view->log_view,
 						       &prev_seq, &prev_offset);
 

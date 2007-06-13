@@ -140,14 +140,13 @@ void mail_transaction_log_view_close(struct mail_transaction_log_view **view);
 int
 mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			      uint32_t min_file_seq, uoff_t min_file_offset,
-			      uint32_t max_file_seq, uoff_t max_file_offset,
-			      enum mail_transaction_type type_mask);
+			      uint32_t max_file_seq, uoff_t max_file_offset);
 
 /* Read next transaction record from current position. The position is updated.
    Returns -1 if error, 0 if we're at end of the view, 1 if ok. */
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 				   const struct mail_transaction_header **hdr_r,
-				   const void **data_r, bool *skipped_r);
+				   const void **data_r);
 /* Seek to given position within view. Must be inside the view's range. */
 void mail_transaction_log_view_seek(struct mail_transaction_log_view *view,
 				    uint32_t seq, uoff_t offset);

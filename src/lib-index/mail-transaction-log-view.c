@@ -12,7 +12,6 @@ struct mail_transaction_log_view {
 	uint32_t min_file_seq, max_file_seq;
 	uoff_t min_file_offset, max_file_offset;
 
-	enum mail_transaction_type type_mask;
 	struct mail_transaction_header tmp_hdr;
 
 	/* a list of log files we've referenced. we have to keep this list
@@ -92,8 +91,7 @@ void mail_transaction_log_views_close(struct mail_transaction_log *log)
 int
 mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			      uint32_t min_file_seq, uoff_t min_file_offset,
-			      uint32_t max_file_seq, uoff_t max_file_offset,
-			      enum mail_transaction_type type_mask)
+			      uint32_t max_file_seq, uoff_t max_file_offset)
 {
 	struct mail_transaction_log_file *file, *first;
 	uint32_t seq;
@@ -230,7 +228,6 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	view->min_file_offset = min_file_offset;
 	view->max_file_seq = max_file_seq;
 	view->max_file_offset = max_file_offset;
-	view->type_mask = type_mask;
 	view->broken = FALSE;
 
 	i_assert(view->cur_offset <= view->cur->sync_offset);
@@ -520,52 +517,33 @@ log_view_get_next(struct mail_transaction_log_view *view,
 
 int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 				   const struct mail_transaction_header **hdr_r,
-				   const void **data_r, bool *skipped_r)
+				   const void **data_r)
 {
 	const struct mail_transaction_header *hdr;
 	const void *data;
-	uint32_t hdr_type = 0;
 	int ret = 0;
 
-	if (skipped_r != NULL)
-		*skipped_r = FALSE;
 	if (view->broken)
 		return -1;
 
-	while ((ret = log_view_get_next(view, &hdr, &data)) > 0) {
-		/* drop expunge protection */
-		if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
-		    (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT))
-			hdr_type = hdr->type & ~MAIL_TRANSACTION_EXPUNGE_PROT;
-		else
-			hdr_type = hdr->type;
-
-		if ((view->type_mask & hdr_type) != 0) {
-			/* the record is within our wanted mask */
-			break;
-		}
-
-		/* we don't want this record */
-		if (skipped_r != NULL)
-			*skipped_r = TRUE;
-
-		/* FIXME: hide flag/cache updates for appends if
-		   append isn't in mask */
+	ret = log_view_get_next(view, &hdr, &data);
+	if (ret <= 0) {
+		if (ret < 0)
+			view->cur_offset = view->cur->sync_offset;
+		return ret;
 	}
 
-	if (ret < 0) {
-		view->cur_offset = view->cur->sync_offset;
-		return -1;
-	}
-	if (ret == 0)
-		return 0;
+	/* drop expunge protection */
+	if ((hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
+	    (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT))
+		view->tmp_hdr.type = hdr->type & ~MAIL_TRANSACTION_EXPUNGE_PROT;
+	else
+		view->tmp_hdr.type = hdr->type;
 
-	/* return type without expunge protection */
-	view->tmp_hdr.type = hdr_type;
 	/* return record's size */
-	view->tmp_hdr.size =
-		mail_index_offset_to_uint32(hdr->size) - sizeof(*hdr);
-	i_assert(view->tmp_hdr.size != 0);
+	view->tmp_hdr.size = mail_index_offset_to_uint32(hdr->size);
+	i_assert(view->tmp_hdr.size > sizeof(*hdr));
+	view->tmp_hdr.size -= sizeof(*hdr);
 
 	*hdr_r = &view->tmp_hdr;
 	*data_r = data;
