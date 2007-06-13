@@ -329,11 +329,11 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 	enum mail_transaction_type hdr_type;
 	ARRAY_TYPE(seq_range) uids = ARRAY_INIT;
 	buffer_t *uid_buf;
-	uint32_t hdr_size;
+	uint32_t rec_size;
 	bool ret = TRUE;
 
 	hdr_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
-	hdr_size = mail_index_offset_to_uint32(hdr->size) - sizeof(*hdr);
+	rec_size = mail_index_offset_to_uint32(hdr->size) - sizeof(*hdr);
 
 	/* we want to be extra careful with expunges */
 	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0) {
@@ -357,14 +357,14 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 	switch (hdr_type) {
 	case MAIL_TRANSACTION_EXPUNGE: {
 		uid_buf = buffer_create_const_data(pool_datastack_create(),
-						   data, hdr_size);
+						   data, rec_size);
 		array_create_from_buffer(&uids, uid_buf,
 			sizeof(struct mail_transaction_expunge));
 		break;
 	}
 	case MAIL_TRANSACTION_FLAG_UPDATE: {
 		uid_buf = buffer_create_const_data(pool_datastack_create(),
-						   data, hdr_size);
+						   data, rec_size);
 		array_create_from_buffer(&uids, uid_buf,
 			sizeof(struct mail_transaction_flag_update));
 		break;
@@ -377,8 +377,8 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 		if ((seqset_offset % 4) != 0)
 			seqset_offset += 4 - (seqset_offset % 4);
 
-		if (seqset_offset >= hdr_size ||
-		    ((hdr_size - seqset_offset) % (sizeof(uint32_t)*2)) != 0) {
+		if (seqset_offset >= rec_size ||
+		    ((rec_size - seqset_offset) % (sizeof(uint32_t)*2)) != 0) {
 			mail_transaction_log_file_set_corrupted(file,
 				"Invalid keyword update record size");
 			ret = FALSE;
@@ -387,13 +387,13 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 
 		uid_buf = buffer_create_const_data(pool_datastack_create(),
 					CONST_PTR_OFFSET(data, seqset_offset),
-					hdr_size - seqset_offset);
+					rec_size - seqset_offset);
 		array_create_from_buffer(&uids, uid_buf, sizeof(uint32_t)*2);
 		break;
 	}
 	case MAIL_TRANSACTION_KEYWORD_RESET: {
 		uid_buf = buffer_create_const_data(pool_datastack_create(),
-						   data, hdr_size);
+						   data, rec_size);
 		array_create_from_buffer(&uids, uid_buf,
 			sizeof(struct mail_transaction_keyword_reset));
 		break;
@@ -440,7 +440,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	const void *data;
 	unsigned int record_size;
 	enum mail_transaction_type hdr_type;
-	uint32_t hdr_size;
+	uint32_t full_size;
 	size_t file_size;
 
 	if (view->cur == NULL)
@@ -480,8 +480,8 @@ log_view_get_next(struct mail_transaction_log_view *view,
 	data = CONST_PTR_OFFSET(hdr, sizeof(*hdr));
 
 	hdr_type = hdr->type & MAIL_TRANSACTION_TYPE_MASK;
-	hdr_size = mail_index_offset_to_uint32(hdr->size);
-	if (hdr_size < sizeof(*hdr)) {
+	full_size = mail_index_offset_to_uint32(hdr->size);
+	if (full_size < sizeof(*hdr)) {
 		/* we'll fail below with "records size too small" */
 		type_rec = NULL;
 		record_size = 0;
@@ -496,29 +496,29 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		}
 	}
 
-	if (hdr_size < sizeof(*hdr) + record_size) {
+	if (full_size < sizeof(*hdr) + record_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too small (type=0x%x, "
 			"offset=%"PRIuUOFF_T", size=%u)",
-			hdr_type, view->cur_offset, hdr_size);
+			hdr_type, view->cur_offset, full_size);
 		return -1;
 	}
 
 	if (record_size != 0 &&
-	    (hdr_size - sizeof(*hdr)) % record_size != 0) {
+	    (full_size - sizeof(*hdr)) % record_size != 0) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size wrong (type 0x%x, "
 			"offset=%"PRIuUOFF_T", size=%"PRIuSIZE_T" %% %u != 0)",
-			hdr_type, view->cur_offset, (hdr_size - sizeof(*hdr)),
+			hdr_type, view->cur_offset, (full_size - sizeof(*hdr)),
 			record_size);
 		return -1;
 	}
 
-	if (file_size - view->cur_offset < hdr_size) {
+	if (file_size - view->cur_offset < full_size) {
 		mail_transaction_log_file_set_corrupted(file,
 			"record size too large (type=0x%x, "
 			"offset=%"PRIuUOFF_T", size=%u, end=%"PRIuSIZE_T")",
-			hdr_type, view->cur_offset, hdr_size, file_size);
+			hdr_type, view->cur_offset, full_size, file_size);
 		return -1;
 	}
 
@@ -527,7 +527,7 @@ log_view_get_next(struct mail_transaction_log_view *view,
 
 	*hdr_r = hdr;
 	*data_r = data;
-	view->cur_offset += hdr_size;
+	view->cur_offset += full_size;
 	return 1;
 }
 
