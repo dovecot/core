@@ -88,81 +88,6 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 	return 1;
 }
 
-static int
-mail_cache_foreach_rec(struct mail_cache_view *view, uint32_t *offset,
-		       mail_cache_foreach_callback_t *callback, void *context)
-{
-	struct mail_cache *cache = view->cache;
-	const struct mail_cache_record *rec;
-	unsigned int data_size;
-	uint32_t pos, rec_size, file_field;
-	unsigned int field;
-	int ret;
-
-	if (mail_cache_get_record(view->cache, *offset, &rec) < 0)
-		return -1;
-
-	rec_size = rec->size;
-	for (pos = sizeof(*rec); pos + sizeof(uint32_t) <= rec_size; ) {
-		file_field = *((const uint32_t *)CONST_PTR_OFFSET(rec, pos));
-		pos += sizeof(uint32_t);
-
-		if (file_field >= cache->file_fields_count) {
-			/* new field, have to re-read fields header to figure
-			   out its size */
-			if (mail_cache_header_fields_read(cache) < 0)
-				return -1;
-			if (file_field >= cache->file_fields_count) {
-				mail_cache_set_corrupted(cache,
-					"field index too large (%u >= %u)",
-					file_field, cache->file_fields_count);
-				return -1;
-			}
-
-			/* field reading might have re-mmaped the file and
-			   caused rec pointer to break. need to get it again. */
-			if (mail_cache_get_record(view->cache, *offset,
-						  &rec) < 0)
-				return -1;
-		}
-
-		field = cache->file_field_map[file_field];
-		data_size = cache->fields[field].field.field_size;
-		if (data_size == (unsigned int)-1) {
-			/* variable size field. get its size from the file. */
-			if (pos + sizeof(uint32_t) > rec_size) {
-				/* broken. we'll catch this error below. */
-			} else {
-				data_size = *((const uint32_t *)
-					      CONST_PTR_OFFSET(rec, pos));
-				pos += sizeof(uint32_t);
-			}
-		}
-
-		if (rec_size - pos < data_size) {
-			mail_cache_set_corrupted(cache,
-				"record continues outside its allocated size");
-			return -1;
-		}
-
-		ret = callback(view, field, CONST_PTR_OFFSET(rec, pos),
-			       data_size, context);
-		if (ret != 1)
-			return ret;
-
-		/* each record begins from 32bit aligned position */
-		pos += (data_size + sizeof(uint32_t)-1) & ~(sizeof(uint32_t)-1);
-	}
-
-	if (pos != rec_size) {
-		mail_cache_set_corrupted(cache, "record has invalid size");
-		return -1;
-	}
-
-	*offset = rec->prev_offset;
-	return 1;
-}
-
 bool mail_cache_track_loops(ARRAY_TYPE(uint32_t) *array, uint32_t offset)
 {
 	const uint32_t *offsets;
@@ -177,66 +102,142 @@ bool mail_cache_track_loops(ARRAY_TYPE(uint32_t) *array, uint32_t offset)
 	return FALSE;
 }
 
-int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
-                       mail_cache_foreach_callback_t *callback, void *context)
+void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
+				 struct mail_cache_lookup_iterate_ctx *ctx_r)
 {
-	uint32_t offset;
-	int ret;
+	struct mail_cache_lookup_iterate_ctx *ctx = ctx_r;
 
 	if (!view->cache->opened)
 		(void)mail_cache_open_and_verify(view->cache);
 
-        if (MAIL_CACHE_IS_UNUSABLE(view->cache))
-		return 0;
+	memset(ctx, 0, sizeof(*ctx));
+	ctx->view = view;
+	ctx->seq = seq;
 
-	if ((ret = mail_cache_lookup_offset(view->cache, view->view,
-					    seq, &offset)) <= 0)
-		return ret;
+	if (!MAIL_CACHE_IS_UNUSABLE(view->cache)) {
+		/* look up the first offset */
+		if (mail_cache_lookup_offset(view->cache, view->view, seq,
+					     &ctx->offset) < 0)
+			ctx->failed = TRUE;
+	}
+	ctx->remap_counter = view->cache->remap_counter;
 
-	ret = 1;
 	array_clear(&view->looping_offsets);
-	while (offset != 0 && ret > 0) {
-		if (mail_cache_track_loops(&view->looping_offsets, offset)) {
-			mail_cache_set_corrupted(view->cache,
-						 "record list is circular");
-			return -1;
-		}
-		ret = mail_cache_foreach_rec(view, &offset,
-					     callback, context);
-	}
-
-	if (ret > 0 && view->trans_seq1 <= seq && view->trans_seq2 >= seq &&
-	    mail_cache_lookup_offset(view->cache, view->trans_view,
-				     seq, &offset) > 0) {
-		array_clear(&view->looping_offsets);
-		while (offset != 0 && ret > 0) {
-			if (mail_cache_track_loops(&view->looping_offsets,
-						   offset)) {
-				mail_cache_set_corrupted(view->cache,
-					"record list is circular");
-				return -1;
-			}
-			ret = mail_cache_foreach_rec(view, &offset,
-						     callback, context);
-		}
-	}
-
-	return ret;
 }
 
 static int
-mail_cache_seq_callback(struct mail_cache_view *view, uint32_t field,
-			const void *data __attr_unused__,
-			size_t data_size __attr_unused__,
-			void *context __attr_unused__)
+mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 {
-	buffer_write(view->cached_exists_buf, field,
-		     &view->cached_exists_value, 1);
+	struct mail_cache_view *view = ctx->view;
+
+	if (ctx->failed)
+		return -1;
+
+	if (ctx->rec != NULL)
+		ctx->offset = ctx->rec->prev_offset;
+	if (ctx->offset == 0) {
+		/* end of this record list. check newly appended data. */
+		if (ctx->appends_checked ||
+		    view->trans_seq1 > ctx->seq ||
+		    view->trans_seq2 < ctx->seq ||
+		    mail_cache_lookup_offset(view->cache, view->trans_view,
+					     ctx->seq, &ctx->offset) <= 0)
+			return 0;
+
+		ctx->appends_checked = TRUE;
+		ctx->remap_counter = view->cache->remap_counter;
+		array_clear(&view->looping_offsets);
+	}
+
+	/* look up the next record */
+	if (mail_cache_track_loops(&view->looping_offsets, ctx->offset)) {
+		mail_cache_set_corrupted(view->cache,
+					 "record list is circular");
+		return -1;
+	}
+	if (mail_cache_get_record(view->cache, ctx->offset, &ctx->rec) < 0)
+		return -1;
+	ctx->remap_counter = view->cache->remap_counter;
+
+	ctx->pos = sizeof(*ctx->rec);
+	ctx->rec_size = ctx->rec->size;
+	return 1;
+}
+
+int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
+				struct mail_cache_iterate_field *field_r)
+{
+	struct mail_cache *cache = ctx->view->cache;
+	unsigned int field_idx;
+	unsigned int data_size;
+	uint32_t file_field;
+	int ret;
+
+	i_assert(ctx->remap_counter == cache->remap_counter);
+
+	if (ctx->pos + sizeof(uint32_t) > ctx->rec_size) {
+		if (ctx->pos != ctx->rec_size) {
+			mail_cache_set_corrupted(cache,
+				"record has invalid size");
+			return -1;
+		}
+
+		if ((ret = mail_cache_lookup_iter_next_record(ctx)) <= 0)
+			return ret;
+	}
+
+	/* return the next field */
+	file_field = *((const uint32_t *)CONST_PTR_OFFSET(ctx->rec, ctx->pos));
+	ctx->pos += sizeof(uint32_t);
+
+	if (file_field >= cache->file_fields_count) {
+		/* new field, have to re-read fields header to figure
+		   out its size */
+		if (mail_cache_header_fields_read(cache) < 0)
+			return -1;
+		if (file_field >= cache->file_fields_count) {
+			mail_cache_set_corrupted(cache,
+				"field index too large (%u >= %u)",
+				file_field, cache->file_fields_count);
+			return -1;
+		}
+
+		/* field reading might have re-mmaped the file and
+		   caused rec pointer to break. need to get it again. */
+		if (mail_cache_get_record(cache, ctx->offset, &ctx->rec) < 0)
+			return -1;
+		ctx->remap_counter = cache->remap_counter;
+	}
+
+	field_idx = cache->file_field_map[file_field];
+	data_size = cache->fields[field_idx].field.field_size;
+	if (data_size == (unsigned int)-1 &&
+	    ctx->pos + sizeof(uint32_t) <= ctx->rec->size) {
+		/* variable size field. get its size from the file. */
+		data_size = *((const uint32_t *)
+			      CONST_PTR_OFFSET(ctx->rec, ctx->pos));
+		ctx->pos += sizeof(uint32_t);
+	}
+
+	if (ctx->rec->size - ctx->pos < data_size) {
+		mail_cache_set_corrupted(cache,
+			"record continues outside its allocated size");
+		return -1;
+	}
+
+	field_r->field_idx = field_idx;
+	field_r->data = CONST_PTR_OFFSET(ctx->rec, ctx->pos);
+	field_r->size = data_size;
+
+	/* each record begins from 32bit aligned position */
+	ctx->pos += (data_size + sizeof(uint32_t)-1) & ~(sizeof(uint32_t)-1);
 	return 1;
 }
 
 static int mail_cache_seq(struct mail_cache_view *view, uint32_t seq)
 {
+	struct mail_cache_lookup_iterate_ctx iter;
+	struct mail_cache_iterate_field field;
 	int ret;
 
 	if (++view->cached_exists_value == 0) {
@@ -244,10 +245,14 @@ static int mail_cache_seq(struct mail_cache_view *view, uint32_t seq)
 		buffer_reset(view->cached_exists_buf);
 		view->cached_exists_value++;
 	}
-
 	view->cached_exists_seq = seq;
-	ret = mail_cache_foreach(view, seq, mail_cache_seq_callback, NULL);
-	return ret < 0 ? -1 : 0;
+
+	mail_cache_lookup_iter_init(view, seq, &iter);
+	while ((ret = mail_cache_lookup_iter_next(&iter, &field)) > 0) {
+		buffer_write(view->cached_exists_buf, field.field_idx,
+			     &view->cached_exists_value, 1);
+	}
+	return ret;
 }
 
 static bool
@@ -289,79 +294,65 @@ mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field_idx)
 	return cache->fields[field_idx].field.decision;
 }
 
-struct mail_cache_lookup_context {
-	buffer_t *dest_buf;
-	uint32_t field;
-	bool found;
-};
-
 static int
-mail_cache_lookup_callback(struct mail_cache_view *view __attr_unused__,
-			   uint32_t field, const void *data,
-			   size_t data_size, void *context)
+mail_cache_lookup_bitmask(struct mail_cache_lookup_iterate_ctx *iter,
+			  unsigned int field_idx, unsigned int field_size,
+			  buffer_t *dest_buf)
 {
-        struct mail_cache_lookup_context *ctx = context;
-
-	i_assert(!ctx->found);
-
-	if (ctx->field != field)
-		return 1;
-
-	buffer_append(ctx->dest_buf, data, data_size);
-	ctx->found = TRUE;
-	return 0;
-}
-
-static int
-mail_cache_lookup_bitmask_callback(struct mail_cache_view *view __attr_unused__,
-				   uint32_t field, const void *data,
-				   size_t data_size, void *context)
-{
-        struct mail_cache_lookup_context *ctx = context;
-	const unsigned char *src = data;
+	struct mail_cache_iterate_field field;
+	const unsigned char *src;
 	unsigned char *dest;
-	size_t i;
+	unsigned int i;
+	bool found = FALSE;
+	int ret;
 
-        if (ctx->field != field)
-		return 1;
+	/* make sure all bits are cleared first */
+	buffer_write_zero(dest_buf, 0, field_size);
 
-	/* merge all bits */
-	dest = buffer_get_space_unsafe(ctx->dest_buf, 0, data_size);
-	for (i = 0; i < data_size; i++)
-		dest[i] |= src[i];
-	ctx->found = TRUE;
-	return 1;
+	while ((ret = mail_cache_lookup_iter_next(iter, &field)) > 0) {
+		if (field.field_idx != field_idx)
+			continue;
+
+		/* merge all bits */
+		src = field.data;
+		dest = buffer_get_space_unsafe(dest_buf, 0, field.size);
+		for (i = 0; i < field.size; i++)
+			dest[i] |= src[i];
+		found = TRUE;
+	}
+	return ret < 0 ? -1 : (found ? 1 : 0);
 }
 
 int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 			    uint32_t seq, unsigned int field_idx)
 {
-	struct mail_cache_lookup_context ctx;
 	const struct mail_cache_field *field_def;
+	struct mail_cache_lookup_iterate_ctx iter;
+	struct mail_cache_iterate_field field;
 	int ret;
 
 	if ((ret = mail_cache_field_exists(view, seq, field_idx)) <= 0)
 		return ret;
-	field_def = &view->cache->fields[field_idx].field;
-
+	/* the field should exist */
 	mail_cache_decision_state_update(view, seq, field_idx);
 
-	/* the field should exist */
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.field = field_idx;
-	ctx.dest_buf = dest_buf;
-
-	if (field_def->type != MAIL_CACHE_FIELD_BITMASK) {
-		ret = mail_cache_foreach(view, seq, mail_cache_lookup_callback,
-					 &ctx);
-	} else {
-		/* make sure all bits are cleared first */
-		buffer_write_zero(dest_buf, 0, field_def->field_size);
-		ret = mail_cache_foreach(view, seq,
-					 mail_cache_lookup_bitmask_callback,
-					 &ctx);
+	mail_cache_lookup_iter_init(view, seq, &iter);
+	field_def = &view->cache->fields[field_idx].field;
+	if (field_def->type == MAIL_CACHE_FIELD_BITMASK) {
+		return mail_cache_lookup_bitmask(&iter, field_idx,
+						 field_def->field_size,
+						 dest_buf);
 	}
-	return ret < 0 ? -1 : (ctx.found ? 1 : 0);
+
+	/* return the first one that's found. if there are multiple
+	   they're all identical. */
+	while ((ret = mail_cache_lookup_iter_next(&iter, &field)) > 0) {
+		if (field.field_idx == field_idx) {
+			buffer_append(dest_buf, field.data, field.size);
+			break;
+		}
+	}
+	return ret;
 }
 
 struct header_lookup_data {
@@ -374,35 +365,25 @@ struct header_lookup_line {
         struct header_lookup_data *data;
 };
 
+struct header_lookup_context {
+	struct mail_cache_view *view;
+	ARRAY_DEFINE(lines, struct header_lookup_line);
+};
+
 enum {
 	HDR_FIELD_STATE_DONTWANT = 0,
 	HDR_FIELD_STATE_WANT,
 	HDR_FIELD_STATE_SEEN
 };
 
-struct header_lookup_context {
-	ARRAY_DEFINE(lines, struct header_lookup_line);
-
-	unsigned int max_field;
-	uint8_t *field_state;
-};
-
-static int
-headers_find_callback(struct mail_cache_view *view, uint32_t field,
-		      const void *data, size_t data_size, void *context)
+static void header_lines_save(struct header_lookup_context *ctx,
+			      const struct mail_cache_iterate_field *field)
 {
-	struct header_lookup_context *ctx = context;
-	const uint32_t *lines = data;
+	const uint32_t *lines = field->data;
+	uint32_t data_size = field->size;
 	struct header_lookup_line hdr_line;
         struct header_lookup_data *hdr_data;
 	unsigned int i, lines_count;
-
-	if (field > ctx->max_field ||
-	    ctx->field_state[field] != HDR_FIELD_STATE_WANT) {
-		/* a) don't want it, b) duplicate */
-		return 1;
-	}
-	ctx->field_state[field] = HDR_FIELD_STATE_SEEN;
 
 	/* data = { line_nums[], 0, "headers" } */
 	for (i = 0; data_size >= sizeof(uint32_t); i++) {
@@ -414,15 +395,14 @@ headers_find_callback(struct mail_cache_view *view, uint32_t field,
 
 	hdr_data = t_new(struct header_lookup_data, 1);
 	hdr_data->offset = (const char *)&lines[lines_count+1] -
-		(const char *)view->cache->data;
-	hdr_data->data_size = (uint32_t)data_size;
+		(const char *)ctx->view->cache->data;
+	hdr_data->data_size = data_size;
 
 	for (i = 0; i < lines_count; i++) {
 		hdr_line.line_num = lines[i];
 		hdr_line.data = hdr_data;
 		array_append(&ctx->lines, &hdr_line, 1);
 	}
-	return 1;
 }
 
 static int header_lookup_line_cmp(const void *p1, const void *p2)
@@ -433,14 +413,17 @@ static int header_lookup_line_cmp(const void *p1, const void *p2)
 }
 
 int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
-			      uint32_t seq, unsigned int fields[],
+			      uint32_t seq, unsigned int field_idxs[],
 			      unsigned int fields_count)
 {
 	struct mail_cache *cache = view->cache;
+	struct mail_cache_lookup_iterate_ctx iter;
+	struct mail_cache_iterate_field field;
 	struct header_lookup_context ctx;
 	struct header_lookup_line *lines;
 	const unsigned char *p, *start, *end;
-	unsigned int i, count;
+	uint8_t *field_state;
+	unsigned int i, count, max_field = 0;
 	size_t hdr_size;
 	uint8_t want = HDR_FIELD_STATE_WANT;
 	buffer_t *buf;
@@ -453,41 +436,53 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 		(void)mail_cache_open_and_verify(view->cache);
 
 	t_push();
-	memset(&ctx, 0, sizeof(ctx));
 
 	/* mark all the fields we want to find. */
 	buf = buffer_create_dynamic(pool_datastack_create(), 32);
 	for (i = 0; i < fields_count; i++) {
-		if (!mail_cache_file_has_field(cache, fields[i])) {
+		if (!mail_cache_file_has_field(cache, field_idxs[i])) {
 			t_pop();
 			return 0;
 		}
 
-		if (fields[i] > ctx.max_field)
-			ctx.max_field = fields[i];
+		if (field_idxs[i] > max_field)
+			max_field = field_idxs[i];
 
-		buffer_write(buf, fields[i], &want, 1);
+		buffer_write(buf, field_idxs[i], &want, 1);
 	}
-	ctx.field_state = buffer_get_modifiable_data(buf, NULL);
+	field_state = buffer_get_modifiable_data(buf, NULL);
 
 	/* lookup the fields */
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.view = view;
 	t_array_init(&ctx.lines, 32);
-	ret = mail_cache_foreach(view, seq, headers_find_callback, &ctx);
+
+	mail_cache_lookup_iter_init(view, seq, &iter);
+	while ((ret = mail_cache_lookup_iter_next(&iter, &field)) > 0) {
+		if (field.field_idx > max_field ||
+		    field_state[field.field_idx] != HDR_FIELD_STATE_WANT) {
+			/* a) don't want it, b) duplicate */
+		} else {
+			field_state[field.field_idx] = HDR_FIELD_STATE_SEEN;
+			header_lines_save(&ctx, &field);
+		}
+
+	}
 	if (ret <= 0) {
 		t_pop();
 		return ret;
 	}
 
 	/* check that all fields were found */
-	for (i = 0; i <= ctx.max_field; i++) {
-		if (ctx.field_state[i] == HDR_FIELD_STATE_WANT) {
+	for (i = 0; i <= max_field; i++) {
+		if (field_state[i] == HDR_FIELD_STATE_WANT) {
 			t_pop();
 			return 0;
 		}
 	}
 
 	for (i = 0; i < fields_count; i++)
-		mail_cache_decision_state_update(view, seq, fields[i]);
+		mail_cache_decision_state_update(view, seq, field_idxs[i]);
 
 	/* we need to return headers in the order they existed originally.
 	   we can do this by sorting the messages by their line numbers. */

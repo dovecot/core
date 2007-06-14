@@ -14,9 +14,11 @@
 #include <sys/stat.h>
 
 struct mail_cache_copy_context {
-	bool new_msg;
+	struct mail_cache *cache;
+
 	buffer_t *buffer, *field_seen;
 	uint8_t field_seen_value;
+	bool new_msg;
 };
 
 static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
@@ -56,49 +58,49 @@ static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
 	}
 }
 
-static int
-mail_cache_compress_callback(struct mail_cache_view *view, uint32_t field,
-			     const void *data, size_t data_size, void *context)
+static void
+mail_cache_compress_field(struct mail_cache_copy_context *ctx,
+			  const struct mail_cache_iterate_field *field)
 {
-	struct mail_cache_copy_context *ctx = context;
+	uint32_t field_idx = field->field_idx;
         struct mail_cache_field *cache_field;
 	enum mail_cache_decision_type dec;
 	uint8_t *field_seen;
 	uint32_t size32;
 
-	cache_field = &view->cache->fields[field].field;
+	cache_field = &ctx->cache->fields[field_idx].field;
 
-	field_seen = buffer_get_space_unsafe(ctx->field_seen, field, 1);
+	field_seen = buffer_get_space_unsafe(ctx->field_seen, field_idx, 1);
 	if (*field_seen == ctx->field_seen_value) {
 		/* duplicate */
 		if (cache_field->type == MAIL_CACHE_FIELD_BITMASK) {
-			mail_cache_merge_bitmask(view->cache, ctx->buffer,
-						 field, data, data_size);
+			mail_cache_merge_bitmask(ctx->cache, ctx->buffer,
+						 field_idx, field->data,
+						 field->size);
 		}
-		return 1;
+		return;
 	}
 	*field_seen = ctx->field_seen_value;
 
 	dec = cache_field->decision & ~MAIL_CACHE_DECISION_FORCED;
 	if (ctx->new_msg) {
 		if (dec == MAIL_CACHE_DECISION_NO)
-			return 1;
+			return;
 	} else {
 		if (dec != MAIL_CACHE_DECISION_YES)
-			return 1;
+			return;
 	}
 
-	buffer_append(ctx->buffer, &field, sizeof(field));
+	buffer_append(ctx->buffer, &field_idx, sizeof(field_idx));
 
 	if (cache_field->field_size == (unsigned int)-1) {
-		size32 = (uint32_t)data_size;
+		size32 = (uint32_t)field->size;
 		buffer_append(ctx->buffer, &size32, sizeof(size32));
 	}
 
-	buffer_append(ctx->buffer, data, data_size);
-	if ((data_size & 3) != 0)
-		buffer_append_zero(ctx->buffer, 4 - (data_size & 3));
-	return 1;
+	buffer_append(ctx->buffer, field->data, field->size);
+	if ((field->size & 3) != 0)
+		buffer_append_zero(ctx->buffer, 4 - (field->size & 3));
 }
 
 static uint32_t
@@ -118,6 +120,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		ARRAY_TYPE(uint32_t) *ext_offsets)
 {
         struct mail_cache_copy_context ctx;
+	struct mail_cache_lookup_iterate_ctx iter;
+	struct mail_cache_iterate_field field;
 	struct mail_index_view *view;
 	struct mail_cache_view *cache_view;
 	const struct mail_index_header *idx_hdr;
@@ -155,6 +159,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	o_stream_send(output, &hdr, sizeof(hdr));
 
 	memset(&ctx, 0, sizeof(ctx));
+	ctx.cache = cache;
 	ctx.buffer = buffer_create_dynamic(default_pool, 4096);
 	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
 	ctx.field_seen_value = 0;
@@ -178,8 +183,9 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		memset(&cache_rec, 0, sizeof(cache_rec));
 		buffer_append(ctx.buffer, &cache_rec, sizeof(cache_rec));
 
-		(void)mail_cache_foreach(cache_view, seq,
-					 mail_cache_compress_callback, &ctx);
+		mail_cache_lookup_iter_init(cache_view, seq, &iter);
+		while (mail_cache_lookup_iter_next(&iter, &field) > 0)
+			mail_cache_compress_field(&ctx, &field);
 
 		cache_rec.size = buffer_get_used_size(ctx.buffer);
 		if (cache_rec.size == sizeof(cache_rec)) {
@@ -295,6 +301,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	unsigned int i, count;
 	int fd, ret;
 
+	i_warning("cache compress");
 	/* get the latest info on fields */
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;

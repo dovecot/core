@@ -126,6 +126,8 @@ struct mail_cache {
 	const void *data;
 	size_t mmap_length;
 	struct file_cache *file_cache;
+	/* mail_cache_map() increases this always. */
+	unsigned int remap_counter;
 
 	struct dotlock_settings dotlock_settings;
 	struct dotlock *dotlock;
@@ -171,10 +173,24 @@ struct mail_cache_view {
 	uint32_t cached_exists_seq;
 };
 
-typedef int mail_cache_foreach_callback_t(struct mail_cache_view *view,
-					  uint32_t field,
-					  const void *data, size_t data_size,
-					  void *context);
+struct mail_cache_iterate_field {
+	unsigned int field_idx;
+	const void *data;
+	unsigned int size;
+};
+
+struct mail_cache_lookup_iterate_ctx {
+	struct mail_cache_view *view;
+	unsigned int remap_counter;
+	uint32_t seq;
+
+	const struct mail_cache_record *rec;
+	unsigned int pos, rec_size;
+	uint32_t offset;
+
+	unsigned int failed:1;
+	unsigned int appends_checked:1;
+};
 
 int mail_cache_open_and_verify(struct mail_cache *cache);
 
@@ -199,8 +215,13 @@ int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 /* Returns TRUE if offset is already in given array. Otherwise return FALSE
    and add the offset to the array. */
 bool mail_cache_track_loops(ARRAY_TYPE(uint32_t) *array, uint32_t offset);
-int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
-		       mail_cache_foreach_callback_t *callback, void *context);
+
+/* Iterate through a message's cached fields. */
+void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
+				 struct mail_cache_lookup_iterate_ctx *ctx_r);
+/* Returns 1 if field was returned, 0 if end of fields, or -1 if error */
+int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
+				struct mail_cache_iterate_field *field_r);
 
 int mail_cache_transaction_commit(struct mail_cache_transaction_ctx *ctx);
 void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx);

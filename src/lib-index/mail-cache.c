@@ -131,6 +131,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 	}
 
 	mail_index_view_close(&view);
+	i_assert(!MAIL_CACHE_IS_UNUSABLE(cache));
 	return 1;
 }
 
@@ -187,6 +188,8 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 {
 	ssize_t ret;
+
+	cache->remap_counter++;
 
 	if (size == 0)
 		size = sizeof(struct mail_cache_header);
