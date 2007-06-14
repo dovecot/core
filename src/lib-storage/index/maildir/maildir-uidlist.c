@@ -957,6 +957,11 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 
 void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 {
+	if (ctx->uidlist->uid_validity == 0) {
+		/* saving a message to a newly created maildir */
+		ctx->uidlist->uid_validity = ioloop_time;
+	}
+
 	if (!ctx->partial) {
 		if (!ctx->failed)
 			maildir_uidlist_swap(ctx);
