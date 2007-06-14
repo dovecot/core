@@ -74,33 +74,33 @@ mail_cache_get_transaction(struct mail_cache_view *view,
 /* Add new field to given record. Updates are not allowed. Fixed size fields
    must be exactly the expected size. */
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
-		    unsigned int field, const void *data, size_t data_size);
+		    unsigned int field_idx, const void *data, size_t data_size);
 /* Returns TRUE if field is wanted to be added and it doesn't already exist.
    If current caching decisions say not to cache this field, FALSE is returned.
    If seq is 0, the existence isn't checked. */
 bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
-			       uint32_t seq, unsigned int field);
+			       uint32_t seq, unsigned int field_idx);
 /* Like mail_cache_field_want_add(), but in caching decisions FALSE is
    returned only if the decision is a forced no. */
 bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
-			      uint32_t seq, unsigned int field);
+			      uint32_t seq, unsigned int field_idx);
 
 /* Retursn 1 if field exists, 0 if not, -1 if error. */
 int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
-			    unsigned int field);
+			    unsigned int field_idx);
 /* Returns current caching decision for given field. */
 enum mail_cache_decision_type
-mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field);
+mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field_idx);
 
 /* Set data_r and size_r to point to wanted field in cache file.
    Returns 1 if field was found, 0 if not, -1 if error. */
 int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
-			    uint32_t seq, unsigned int field);
+			    uint32_t seq, unsigned int field_idx);
 
 /* Return specified cached headers. Returns 1 if all fields were found,
    0 if not, -1 if error. dest is updated only if all fields were found. */
 int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
-			      uint32_t seq, unsigned int fields[],
+			      uint32_t seq, unsigned int field_idxs[],
 			      unsigned int fields_count);
 
 /* "Error in index cache file %s: ...". */

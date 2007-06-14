@@ -660,7 +660,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx *ctx)
 }
 
 static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
-				       unsigned int field)
+				       unsigned int field_idx)
 {
 	struct mail_cache *cache = ctx->cache;
 	buffer_t *buffer;
@@ -678,7 +678,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		return -1;
 	}
 
-	if (ctx->cache->field_file_map[field] != (uint32_t)-1) {
+	if (ctx->cache->field_file_map[field_idx] != (uint32_t)-1) {
 		/* it was already added */
 		if (mail_cache_unlock(cache) < 0)
 			return -1;
@@ -726,32 +726,32 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 }
 
 void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
-		    unsigned int field, const void *data, size_t data_size)
+		    unsigned int field_idx, const void *data, size_t data_size)
 {
 	uint32_t file_field, data_size32;
 	unsigned int fixed_size;
 	size_t full_size;
 
-	i_assert(field < ctx->cache->fields_count);
+	i_assert(field_idx < ctx->cache->fields_count);
 	i_assert(data_size < (uint32_t)-1);
 
-	if (ctx->cache->fields[field].field.decision ==
+	if (ctx->cache->fields[field_idx].field.decision ==
 	    (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED))
 		return;
 
-	file_field = ctx->cache->field_file_map[field];
+	file_field = ctx->cache->field_file_map[field_idx];
 	if (file_field == (uint32_t)-1) {
 		/* we'll have to add this field to headers */
-		if (mail_cache_header_add_field(ctx, field) < 0)
+		if (mail_cache_header_add_field(ctx, field_idx) < 0)
 			return;
 
-		file_field = ctx->cache->field_file_map[field];
+		file_field = ctx->cache->field_file_map[field_idx];
 		i_assert(file_field != (uint32_t)-1);
 	}
 
-	mail_cache_decision_add(ctx->view, seq, field);
+	mail_cache_decision_add(ctx->view, seq, field_idx);
 
-	fixed_size = ctx->cache->fields[field].field.field_size;
+	fixed_size = ctx->cache->fields[field_idx].field.field_size;
 	i_assert(fixed_size == (unsigned int)-1 || fixed_size == data_size);
 
 	data_size32 = (uint32_t)data_size;
@@ -799,27 +799,27 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 }
 
 bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
-			       uint32_t seq, unsigned int field)
+			       uint32_t seq, unsigned int field_idx)
 {
 	enum mail_cache_decision_type decision;
 
-	decision = mail_cache_field_get_decision(ctx->view->cache, field);
+	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
 	if ((decision & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO)
 		return FALSE;
 
-	return mail_cache_field_exists(ctx->view, seq, field) == 0;
+	return mail_cache_field_exists(ctx->view, seq, field_idx) == 0;
 }
 
 bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
-			      uint32_t seq, unsigned int field)
+			      uint32_t seq, unsigned int field_idx)
 {
 	enum mail_cache_decision_type decision;
 
-	decision = mail_cache_field_get_decision(ctx->view->cache, field);
+	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
 	if (decision == (MAIL_CACHE_DECISION_FORCED | MAIL_CACHE_DECISION_NO))
 		return FALSE;
 
-	return mail_cache_field_exists(ctx->view, seq, field) == 0;
+	return mail_cache_field_exists(ctx->view, seq, field_idx) == 0;
 }
 
 static int mail_cache_link_unlocked(struct mail_cache *cache,

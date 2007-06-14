@@ -282,11 +282,11 @@ int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
 }
 
 enum mail_cache_decision_type
-mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field)
+mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field_idx)
 {
-	i_assert(field < cache->fields_count);
+	i_assert(field_idx < cache->fields_count);
 
-	return cache->fields[field].field.decision;
+	return cache->fields[field_idx].field.decision;
 }
 
 struct mail_cache_lookup_context {
@@ -334,21 +334,21 @@ mail_cache_lookup_bitmask_callback(struct mail_cache_view *view __attr_unused__,
 }
 
 int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
-			    uint32_t seq, unsigned int field)
+			    uint32_t seq, unsigned int field_idx)
 {
 	struct mail_cache_lookup_context ctx;
 	const struct mail_cache_field *field_def;
 	int ret;
 
-	if ((ret = mail_cache_field_exists(view, seq, field)) <= 0)
+	if ((ret = mail_cache_field_exists(view, seq, field_idx)) <= 0)
 		return ret;
-	field_def = &view->cache->fields[field].field;
+	field_def = &view->cache->fields[field_idx].field;
 
-	mail_cache_decision_state_update(view, seq, field);
+	mail_cache_decision_state_update(view, seq, field_idx);
 
 	/* the field should exist */
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.field = field;
+	ctx.field = field_idx;
 	ctx.dest_buf = dest_buf;
 
 	if (field_def->type != MAIL_CACHE_FIELD_BITMASK) {
