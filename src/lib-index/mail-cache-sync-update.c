@@ -140,6 +140,12 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		return 1;
 	}
 
+	if (*old_cache_offset == *new_cache_offset) {
+		mail_index_sync_set_corrupted(sync_ctx,
+			"Cache offset replaced with itself");
+		return -1;
+	}
+
 	if (mail_cache_link(cache, *old_cache_offset, *new_cache_offset) < 0)
 		return -1;
 
