@@ -318,13 +318,24 @@ int mail_storage_mailbox_create(struct mail_storage *storage, const char *name,
 const char *mail_storage_get_last_error(struct mail_storage *storage,
 					enum mail_error *error_r)
 {
-	*error_r = storage->error;
-
 	/* We get here only in error situations, so we have to return some
-	   error. If storage->error is NULL, it means we forgot to set it at
+	   error. If storage->error is NONE, it means we forgot to set it at
 	   some point.. */
-	return storage->error_string != NULL ? storage->error_string :
-		"Unknown internal error";
+	if (storage->error == MAIL_ERROR_NONE) {
+		*error_r = MAIL_ERROR_TEMP;
+		return storage->error_string != NULL ? storage->error_string :
+			"BUG: Unknown internal error";
+	}
+
+	if (storage->error_string == NULL) {
+		/* This shouldn't happen.. */
+		storage->error_string =
+			i_strdup_printf("BUG: Unknown 0x%x error",
+					storage->error);
+	}
+
+	*error_r = storage->error;
+	return storage->error_string;
 }
 
 const char *mail_storage_get_mailbox_path(struct mail_storage *storage,
