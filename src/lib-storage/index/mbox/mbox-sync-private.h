@@ -105,7 +105,7 @@ struct mbox_sync_context {
 	struct istream *input, *file_input;
 	int write_fd;
 
-	time_t orig_mtime;
+	time_t orig_mtime, orig_atime;
 	uoff_t orig_size;
 	struct stat last_stat;
 

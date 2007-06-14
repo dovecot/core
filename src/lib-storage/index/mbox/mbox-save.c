@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <netdb.h>
+#include <utime.h>
 
 #define MBOX_DELIVERY_ID_RAND_BYTES (64/8)
 
@@ -37,6 +38,7 @@ struct mbox_save_context {
 	struct mail_index_transaction *trans;
 	struct mail *mail;
 	uoff_t append_offset, mail_offset;
+	time_t orig_atime;
 
 	string_t *headers;
 	size_t space_end_idx;
@@ -78,6 +80,8 @@ static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 	fd = ctx->mbox->mbox_fd;
 	if (fstat(fd, &st) < 0)
                 return mbox_set_syscall_error(ctx->mbox, "fstat()");
+
+	ctx->orig_atime = st.st_atime;
 
 	*offset = (uoff_t)st.st_size;
 	if (st.st_size == 0)
@@ -644,6 +648,11 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 
 	i_assert(ctx->finished);
 
+	if (fstat(ctx->mbox->mbox_fd, &st) < 0) {
+		mbox_set_syscall_error(ctx->mbox, "fstat()");
+		ret = -1;
+	}
+
 	if (ctx->synced) {
 		*t->ictx.first_saved_uid = ctx->first_saved_uid;
 
@@ -651,10 +660,7 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 			offsetof(struct mail_index_header, next_uid),
 			&ctx->next_uid, sizeof(ctx->next_uid), FALSE);
 
-		if (fstat(ctx->mbox->mbox_fd, &st) < 0) {
-			mbox_set_syscall_error(ctx->mbox, "fstat()");
-			ret = -1;
-		} else if (!ctx->mbox->mbox_sync_dirty) {
+		if (!ctx->mbox->mbox_sync_dirty && ret == 0) {
 			uint32_t sync_stamp = st.st_mtime;
 			uint64_t sync_size = st.st_size;
 
@@ -667,6 +673,16 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 		}
 
 		*t->ictx.last_saved_uid = ctx->next_uid - 1;
+	}
+
+	if (ret == 0 && ctx->orig_atime != st.st_atime) {
+		/* try to set atime back to its original value */
+		struct utimbuf buf;
+
+		buf.modtime = st.st_mtime;
+		buf.actime = ctx->orig_atime;
+		if (utime(ctx->mbox->path, &buf) < 0)
+			mbox_set_syscall_error(ctx->mbox, "utime()");
 	}
 
 	if (!ctx->synced && ctx->mbox->mbox_fd != -1 &&

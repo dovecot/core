@@ -1579,6 +1579,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	}
 	sync_ctx->last_stat = *st;
 	sync_ctx->orig_size = st->st_size;
+	sync_ctx->orig_atime = st->st_atime;
 	sync_ctx->orig_mtime = st->st_mtime;
 
 	if ((flags & MBOX_SYNC_FORCE_SYNC) != 0) {
@@ -1862,6 +1863,21 @@ __again:
 		/* Rewrite uid_last in X-IMAPbase header if we've seen it
 		   (ie. the file isn't empty) */
                 ret = mbox_rewrite_base_uid_last(&sync_ctx);
+	}
+
+	if (ret == 0 && mbox->mbox_fd != -1 && mbox->ibox.keep_recent) {
+		/* try to set atime back to its original value */
+		struct utimbuf buf;
+		struct stat st;
+
+		if (fstat(mbox->mbox_fd, &st) < 0)
+			mbox_set_syscall_error(mbox, "fstat()");
+		else {
+			buf.modtime = st.st_mtime;
+			buf.actime = sync_ctx.orig_atime;
+			if (utime(mbox->path, &buf) < 0)
+				mbox_set_syscall_error(mbox, "utime()");
+		}
 	}
 
 	i_assert(lock_id != 0);
