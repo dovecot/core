@@ -17,45 +17,27 @@ struct mail_cache_copy_context {
 	struct mail_cache *cache;
 
 	buffer_t *buffer, *field_seen;
+	ARRAY_DEFINE(bitmask_pos, unsigned int);
 	uint8_t field_seen_value;
 	bool new_msg;
 };
 
-static void mail_cache_merge_bitmask(struct mail_cache *cache, buffer_t *buffer,
-				     uint32_t field, const void *data,
-				     size_t data_size)
+static void
+mail_cache_merge_bitmask(struct mail_cache_copy_context *ctx,
+			 const struct mail_cache_iterate_field *field)
 {
-	void *buf_data;
-	uint32_t buf_field;
-	unsigned int i, buf_data_size;
-	size_t pos, buf_size;
+	unsigned char *dest;
+	unsigned int i, *pos;
 
-	buf_data = buffer_get_modifiable_data(buffer, &buf_size);
-	for (pos = sizeof(struct mail_cache_record); pos < buf_size; ) {
-		buf_field = *((uint32_t *)PTR_OFFSET(buf_data, pos));
-		pos += sizeof(uint32_t);
-		i_assert(buf_field < cache->fields_count);
-
-		buf_data_size = cache->fields[buf_field].field.field_size;
-		if (buf_data_size == (unsigned int)-1) {
-			buf_data_size =
-				*((uint32_t *)PTR_OFFSET(buf_data, pos));
-			pos += sizeof(uint32_t);
-		}
-
-		if (buf_field == field) {
-			/* @UNSAFE: found it, do the merging */
-			unsigned char *dest = PTR_OFFSET(buf_data, pos);
-
-			i_assert(buf_data_size == data_size);
-			i_assert(pos + buf_data_size <= buf_size);
-			for (i = 0; i < buf_data_size; i++)
-				dest[i] |= ((const unsigned char*)data)[i];
-			break;
-		}
-		pos += (buf_data_size + 3) & ~3;
-		i_assert(pos <= buf_size);
+	pos = array_idx_modifiable(&ctx->bitmask_pos, field->field_idx);
+	if (*pos == 0) {
+		/* we decided to drop this field */
+		return;
 	}
+
+	dest = buffer_get_space_unsafe(ctx->buffer, *pos, field->size);
+	for (i = 0; i < field->size; i++)
+		dest[i] |= ((const unsigned char*)field->data)[i];
 }
 
 static void
@@ -73,11 +55,8 @@ mail_cache_compress_field(struct mail_cache_copy_context *ctx,
 	field_seen = buffer_get_space_unsafe(ctx->field_seen, field_idx, 1);
 	if (*field_seen == ctx->field_seen_value) {
 		/* duplicate */
-		if (cache_field->type == MAIL_CACHE_FIELD_BITMASK) {
-			mail_cache_merge_bitmask(ctx->cache, ctx->buffer,
-						 field_idx, field->data,
-						 field->size);
-		}
+		if (cache_field->type == MAIL_CACHE_FIELD_BITMASK)
+			mail_cache_merge_bitmask(ctx, field);
 		return;
 	}
 	*field_seen = ctx->field_seen_value;
@@ -98,6 +77,12 @@ mail_cache_compress_field(struct mail_cache_copy_context *ctx,
 		buffer_append(ctx->buffer, &size32, sizeof(size32));
 	}
 
+	if (cache_field->type == MAIL_CACHE_FIELD_BITMASK) {
+		/* remember the position in case we need to update it */
+		unsigned int pos = ctx->buffer->used;
+
+		array_idx_set(&ctx->bitmask_pos, field->field_idx, &pos);
+	}
 	buffer_append(ctx->buffer, field->data, field->size);
 	if ((field->size & 3) != 0)
 		buffer_append_zero(ctx->buffer, 4 - (field->size & 3));
@@ -163,6 +148,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	ctx.buffer = buffer_create_dynamic(default_pool, 4096);
 	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
 	ctx.field_seen_value = 0;
+	t_array_init(&ctx.bitmask_pos, 32);
 
 	t_array_init(ext_offsets, message_count);
 	for (seq = 1; seq <= message_count; seq++) {
@@ -301,7 +287,6 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	unsigned int i, count;
 	int fd, ret;
 
-	i_warning("cache compress");
 	/* get the latest info on fields */
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
