@@ -446,17 +446,25 @@ static int mbox_create(struct mail_storage *_storage, const char *data)
 
 static int verify_inbox(struct mail_storage *storage)
 {
-	const char *inbox_path;
+	const char *inbox_path, *rootdir;
 	int fd;
 
 	inbox_path = mailbox_list_get_path(storage->list, "INBOX",
 					   MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	rootdir = mailbox_list_get_path(storage->list, "",
+					MAILBOX_LIST_PATH_TYPE_DIR);
 
 	/* make sure inbox file itself exists */
 	fd = open(inbox_path, O_RDWR | O_CREAT | O_EXCL, 0660);
 	if (fd != -1)
 		(void)close(fd);
-	else if (errno != EEXIST) {
+	else if (errno == ENOTDIR &&
+		 strncmp(inbox_path, rootdir, strlen(rootdir)) == 0) {
+		mail_storage_set_critical(storage,
+			"mbox root directory can't be a file: %s "
+			"(http://wiki.dovecot.org/MailLocation/Mbox)",
+			rootdir);
+	} else if (errno != EEXIST) {
 		mail_storage_set_critical(storage,
 			"open(%s, O_CREAT) failed: %m", inbox_path);
 	}
