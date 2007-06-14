@@ -39,8 +39,6 @@ struct mail_cache_transaction_ctx {
 	unsigned int changes:1;
 };
 
-ARRAY_DEFINE_TYPE(uint32_t, uint32_t);
-
 static int mail_cache_link_unlocked(struct mail_cache *cache,
 				    uint32_t old_offset, uint32_t new_offset);
 

@@ -13,8 +13,6 @@
 
 #include <sys/stat.h>
 
-ARRAY_DEFINE_TYPE(ext_offset, uint32_t);
-
 struct mail_cache_copy_context {
 	bool new_msg;
 	buffer_t *buffer, *field_seen;
@@ -117,7 +115,7 @@ get_next_file_seq(struct mail_cache *cache, struct mail_index_view *view)
 static int
 mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		int fd, uint32_t *file_seq_r,
-		ARRAY_TYPE(ext_offset) *ext_offsets)
+		ARRAY_TYPE(uint32_t) *ext_offsets)
 {
         struct mail_cache_copy_context ctx;
 	struct mail_index_view *view;
@@ -292,7 +290,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	struct dotlock *dotlock;
         mode_t old_mask;
 	uint32_t file_seq, old_offset;
-	ARRAY_TYPE(ext_offset) ext_offsets;
+	ARRAY_TYPE(uint32_t) ext_offsets;
 	const uint32_t *offsets;
 	unsigned int i, count;
 	int fd, ret;
