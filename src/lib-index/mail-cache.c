@@ -564,7 +564,7 @@ mail_cache_view_open(struct mail_cache *cache, struct mail_index_view *iview)
 	view = i_new(struct mail_cache_view, 1);
 	view->cache = cache;
 	view->view = iview;
-	i_array_init(&view->tmp_offsets, 32);
+	i_array_init(&view->looping_offsets, 32);
 	view->cached_exists_buf =
 		buffer_create_dynamic(default_pool,
 				      cache->file_fields_count + 10);
@@ -579,7 +579,7 @@ void mail_cache_view_close(struct mail_cache_view *view)
 	if (view->trans_view != NULL)
 		mail_index_view_close(&view->trans_view);
 
-	array_free(&view->tmp_offsets);
+	array_free(&view->looping_offsets);
 	buffer_free(view->cached_exists_buf);
 	i_free(view);
 }

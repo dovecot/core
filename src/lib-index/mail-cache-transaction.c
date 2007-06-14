@@ -854,30 +854,13 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 	return 0;
 }
 
-static bool find_offset(ARRAY_TYPE(uint32_t) *array, uint32_t offset)
-{
-	const uint32_t *offsets;
-	unsigned int i, count;
-
-	offsets = array_get(array, &count);
-	for (i = 0; i < count; i++) {
-		if (offsets[i] == offset)
-			return TRUE;
-	}
-	return FALSE;
-}
-
 int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 {
-	const struct mail_cache_record *cache_rec;
-	ARRAY_TYPE(uint32_t) tmp_offsets;
+	const struct mail_cache_record *rec;
+	ARRAY_TYPE(uint32_t) looping_offsets;
+	int ret = -1;
 
 	i_assert(cache->locked);
-
-	if (mail_cache_get_record(cache, offset, &cache_rec) < 0)
-		return -1;
-	if (cache_rec == NULL)
-		return 0;
 
 	/* we'll only update the deleted_space in header. we can't really
 	   do any actual deleting as other processes might still be using
@@ -885,29 +868,26 @@ int mail_cache_delete(struct mail_cache *cache, uint32_t offset)
 	   able to ask cached data from messages that have already been
 	   expunged. */
 	t_push();
-	t_array_init(&tmp_offsets, 8);
-	array_append(&tmp_offsets, &offset, 1);
-	for (;;) {
-		cache->hdr_copy.deleted_space += cache_rec->size;
-		if (mail_cache_get_record(cache, cache_rec->prev_offset,
-					  &cache_rec) < 0) {
-			t_pop();
-			return -1;
+	t_array_init(&looping_offsets, 8);
+	array_append(&looping_offsets, &offset, 1);
+	while (mail_cache_get_record(cache, offset, &rec) == 0) {
+		cache->hdr_copy.deleted_space += rec->size;
+		offset = rec->prev_offset;
+
+		if (offset == 0) {
+			/* successfully got to the end of the list */
+			ret = 0;
+			break;
 		}
 
-		if (cache_rec == NULL)
-			break;
-
-		if (find_offset(&tmp_offsets, cache_rec->prev_offset)) {
+		if (mail_cache_track_loops(&looping_offsets, offset)) {
 			mail_cache_set_corrupted(cache,
 						 "record list is circular");
-			t_pop();
-			return -1;
+			break;
 		}
-		array_append(&tmp_offsets, &cache_rec->prev_offset, 1);
 	}
 	t_pop();
 
 	cache->hdr_modified = TRUE;
-	return 0;
+	return ret;
 }

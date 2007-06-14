@@ -70,8 +70,8 @@
 #include "ioloop.h"
 #include "mail-cache-private.h"
 
-void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
-				unsigned int field)
+void mail_cache_decision_state_update(struct mail_cache_view *view,
+				      uint32_t seq, unsigned int field)
 {
 	struct mail_cache *cache = view->cache;
 	const struct mail_index_header *hdr;

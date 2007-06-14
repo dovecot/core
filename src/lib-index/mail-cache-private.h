@@ -161,7 +161,7 @@ struct mail_cache_view {
 	uint32_t trans_seq1, trans_seq2;
 
 	/* temporary array, just to avoid mallocs. */
-	ARRAY_DEFINE(tmp_offsets, uint32_t);
+	ARRAY_TYPE(uint32_t) looping_offsets;
 
 	/* if cached_exists_buf[field] == cached_exists_value, it's cached.
 	   this allows us to avoid constantly clearing the whole buffer.
@@ -196,6 +196,9 @@ int mail_cache_header_fields_get_next_offset(struct mail_cache *cache,
 int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 			  const struct mail_cache_record **rec_r);
 
+/* Returns TRUE if offset is already in given array. Otherwise return FALSE
+   and add the offset to the array. */
+bool mail_cache_track_loops(ARRAY_TYPE(uint32_t) *array, uint32_t offset);
 int mail_cache_foreach(struct mail_cache_view *view, uint32_t seq,
 		       mail_cache_foreach_callback_t *callback, void *context);
 
@@ -212,8 +215,9 @@ int mail_cache_link(struct mail_cache *cache, uint32_t old_offset,
 /* Mark record in given offset to be deleted. */
 int mail_cache_delete(struct mail_cache *cache, uint32_t offset);
 
-void mail_cache_decision_lookup(struct mail_cache_view *view, uint32_t seq,
-				unsigned int field);
+/* Notify the decision handling code that field was looked up for seq */
+void mail_cache_decision_state_update(struct mail_cache_view *view,
+				      uint32_t seq, unsigned int field);
 void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 			     unsigned int field);
 
