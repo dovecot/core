@@ -157,7 +157,7 @@ dbox_sync_write_mask(struct dbox_sync_context *ctx,
 	struct dbox_mailbox *mbox = ctx->mbox;
 	struct mailbox *box = &mbox->ibox.box;
 	enum mailbox_sync_type sync_type;
-	uint32_t file_seq, uid2;
+	uint32_t file_seq, uid2, seq;
 	uoff_t offset;
 	unsigned int i, start;
 	int ret;
@@ -177,6 +177,8 @@ dbox_sync_write_mask(struct dbox_sync_context *ctx,
 	switch (sync_rec->type) {
 	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
 		sync_type = MAILBOX_SYNC_TYPE_EXPUNGE;
+		for (seq = sync_rec->seq1; seq != sync_rec->seq2; seq++)
+			mail_index_expunge(ctx->trans, seq);
 		break;
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
 		sync_type = MAILBOX_SYNC_TYPE_FLAGS;

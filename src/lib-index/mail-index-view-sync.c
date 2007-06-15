@@ -132,6 +132,10 @@ view_sync_get_expunges(struct mail_index_view *view,
 						     &hdr, &data)) > 0) {
 		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0)
 			continue;
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* this is simply a request for expunge */
+			continue;
+		}
 
 		if (mail_transaction_log_sort_expunges(expunges_r, data,
 						       hdr->size) < 0) {
@@ -519,6 +523,12 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 	case MAIL_TRANSACTION_EXPUNGE: {
 		const struct mail_transaction_expunge *exp =
 			CONST_PTR_OFFSET(data, ctx->data_offset);
+
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* this is simply a request for expunge */
+			ctx->data_offset = ctx->hdr->size;
+			return 0;
+		}
 
 		/* data contains mail_transaction_expunge[] */
 		rec->type = MAIL_INDEX_SYNC_TYPE_EXPUNGE;

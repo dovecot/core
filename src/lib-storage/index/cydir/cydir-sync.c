@@ -53,6 +53,7 @@ cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 				box->v.sync_notify(box, uid,
 						   MAILBOX_SYNC_TYPE_EXPUNGE);
 			}
+			mail_index_expunge(ctx->trans, seq1);
 		} else if (errno != ENOENT) {
 			mail_storage_set_critical(&ctx->mbox->storage->storage,
 				"unlink(%s) failed: %m", str_c(ctx->path));

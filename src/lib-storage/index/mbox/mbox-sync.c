@@ -731,6 +731,7 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 		box->v.sync_notify(box, mail_ctx->mail.uid,
 				   MAILBOX_SYNC_TYPE_EXPUNGE);
 	}
+	mail_index_expunge(sync_ctx->t, mail_ctx->mail.idx_seq);
 
 	mail_ctx->mail.expunged = TRUE;
 	mail_ctx->mail.offset = mail_ctx->mail.from_offset;

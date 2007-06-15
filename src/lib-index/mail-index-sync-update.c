@@ -502,6 +502,10 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 	case MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT: {
 		const struct mail_transaction_expunge *rec = data, *end;
 
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* this is simply a request for expunge */
+			break;
+		}
 		end = CONST_PTR_OFFSET(data, hdr->size);
 		ret = sync_expunge(rec, end - rec, ctx);
 		break;
@@ -735,8 +739,8 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	struct mail_index_sync_map_ctx sync_map_ctx;
 	const struct mail_transaction_header *thdr;
 	const void *tdata;
-	uint32_t prev_seq, mailbox_sync_seq, expunge_seq;
-	uoff_t prev_offset, mailbox_sync_offset, expunge_offset;
+	uint32_t prev_seq, mailbox_sync_seq;
+	uoff_t prev_offset, mailbox_sync_offset;
 	int ret;
 	bool had_dirty;
 
@@ -807,7 +811,6 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	   synced ([synced transactions][new transaction][ext transaction]).
 	   this means int_offset contains [synced] and ext_offset contains
 	   all */
-	expunge_seq = expunge_offset = 0;
 	while ((ret = mail_transaction_log_view_next(view->log_view, &thdr,
 						     &tdata)) > 0) {
 		mail_transaction_log_view_get_prev_pos(view->log_view,
@@ -820,19 +823,6 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 			     prev_offset <
 			     view->map->hdr.log_file_index_ext_offset))
 				continue;
-		} else if ((thdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
-			   MAIL_TRANSACTION_EXPUNGE) {
-			/* if the message hasn't yet been expunged from the
-			   mailbox, skip this expunge */
-			if (prev_seq > mailbox_sync_seq ||
-			    (prev_seq == mailbox_sync_seq &&
-			     prev_offset >= mailbox_sync_offset)) {
-				if (expunge_seq == 0) {
-					expunge_seq = prev_seq;
-					expunge_offset = prev_offset;
-				}
-				continue;
-			}
 		}
 
 		/* we'll just skip over broken entries */
@@ -849,11 +839,6 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	/* update sync position */
 	// FIXME: eol=TRUE gives intro errors
 	mail_index_sync_update_log_offset(&sync_map_ctx, map, FALSE);
-	if (expunge_seq != 0) {
-		i_assert(expunge_seq == map->hdr.log_file_seq);
-		map->hdr.log_file_index_int_offset = expunge_offset;
-		map->write_base_header = TRUE;
-	}
 
 	/* although mailbox_sync_update gets updated by the header update
 	   records, transaction log syncing can internally also update

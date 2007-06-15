@@ -416,6 +416,7 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 			box->v.sync_notify(box, ctx->uid,
 					   MAILBOX_SYNC_TYPE_EXPUNGE);
 		}
+		mail_index_expunge(ctx->trans, ctx->seq);
 		mbox->dirty_cur_time = ioloop_time;
 		return 1;
 	}
@@ -583,15 +584,13 @@ maildir_sync_record_commit_until(struct maildir_index_sync_context *ctx,
 		if (expunged) {
 			maildir_sync_check_timeouts(ctx->maildir_sync_ctx,
 						    TRUE);
-			if (maildir_file_do(ctx->mbox, uid,
-					    maildir_expunge, ctx) < 0)
-				return -1;
+			(void)maildir_file_do(ctx->mbox, uid,
+					      maildir_expunge, ctx);
 		} else if (flag_changed) {
 			maildir_sync_check_timeouts(ctx->maildir_sync_ctx,
 						    TRUE);
-			if (maildir_file_do(ctx->mbox, uid,
-					    maildir_sync_flags, ctx) < 0)
-				return -1;
+			(void)maildir_file_do(ctx->mbox, uid,
+					      maildir_sync_flags, ctx);
 		}
 
 		for (i = count; i > 0; i--) {
