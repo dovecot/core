@@ -140,6 +140,7 @@ mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 		if (ctx->appends_checked ||
 		    view->trans_seq1 > ctx->seq ||
 		    view->trans_seq2 < ctx->seq ||
+		    MAIL_CACHE_IS_UNUSABLE(view->cache) ||
 		    mail_cache_lookup_offset(view->cache, view->trans_view,
 					     ctx->seq, &ctx->offset) <= 0)
 			return 0;
