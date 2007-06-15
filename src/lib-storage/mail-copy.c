@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "istream.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-copy.h"
 
 int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
@@ -30,6 +30,8 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	}
 
 	if (input->stream_errno != 0) {
+		mail_storage_set_critical(t->box->storage,
+					  "copy: i_stream_read() failed: %m");
 		mailbox_save_cancel(&ctx);
 		return -1;
 	}
