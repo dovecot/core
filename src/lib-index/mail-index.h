@@ -72,8 +72,10 @@ struct mail_index_header {
 	uint32_t first_deleted_uid_lowwater;
 
 	uint32_t log_file_seq;
-	uint32_t log_file_index_int_offset;
-	uint32_t log_file_index_ext_offset;
+	/* non-external records between tail..head haven't been committed to
+	   mailbox yet. */
+	uint32_t log_file_tail_offset;
+	uint32_t log_file_head_offset;
 
 	uint64_t sync_size;
 	uint32_t sync_stamp;
@@ -81,9 +83,6 @@ struct mail_index_header {
 	/* daily first UIDs that have been added to index. */
 	uint32_t day_stamp;
 	uint32_t day_first_uid[8];
-
-	uint32_t log_file_mailbox_offset;
-	uint32_t padding;
 };
 
 struct mail_index_record {

@@ -697,8 +697,8 @@ static int mail_index_map_latest_file(struct mail_index *index,
 		return ret;
 	}
 
-	index->last_read_log_file_index_offset =
-		new_map->hdr.log_file_index_int_offset;
+	index->last_read_log_file_tail_offset =
+		new_map->hdr.log_file_tail_offset;
 	mail_index_unmap(index, map);
 	*map = new_map;
 	return 1;

@@ -119,7 +119,7 @@ static int view_sync_set_log_view_range(struct mail_index_view *view)
 	ret = mail_transaction_log_view_set(view->log_view,
 					    tail_seq, tail_offset,
 					    hdr->log_file_seq,
-					    hdr->log_file_index_int_offset);
+					    hdr->log_file_head_offset);
 	if (ret <= 0) {
 		if (ret == 0) {
 			/* FIXME: use the new index to get needed changes */
@@ -256,8 +256,7 @@ static void mail_index_view_check(struct mail_index_view *view)
 
 #define VIEW_IS_SYNCED_TO_SAME(hdr, tail_seq, tail_offset) \
 	((hdr)->log_file_seq == (tail_seq) && \
-	 (hdr)->log_file_index_int_offset == (tail_offset) && \
-	 (hdr)->log_file_index_ext_offset == (tail_offset))
+	 (hdr)->log_file_head_offset == (tail_offset))
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_view_sync_type sync_type,
@@ -525,14 +524,14 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 
 		mail_transaction_log_view_get_prev_pos(log_view, &seq, &offset);
 
-		/* if we started from a map that we didn't create ourself,
-		   some of the external transactions may already be synced.
-		   at the end of view sync we'll update the file_seq=0 in the
-		   header so that this check always becomes FALSE for
-		   subsequent syncs. */
-		synced_to_map = offset < view->hdr.log_file_index_ext_offset &&
-			seq == view->hdr.log_file_seq &&
-			(hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0;
+		/* If we started from a map that we didn't create ourself,
+		   some of the transactions may already be synced. at the end
+		   of this view sync we'll update file_seq=0 so that this check
+		   always becomes FALSE for subsequent syncs. */
+		synced_to_map = view->map->hdr.log_file_seq != 0 &&
+			!LOG_IS_BEFORE(seq, offset,
+				       view->map->hdr.log_file_seq,
+				       view->map->hdr.log_file_head_offset);
 
 		/* Apply transaction to view's mapping if needed (meaning we
 		   didn't just re-map the view to head mapping). */
@@ -740,8 +739,8 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 		/* log offsets have no meaning in views. make sure they're not
 		   tried to be used wrong by setting them to zero. */
 		view->map->hdr.log_file_seq = 0;
-		view->map->hdr.log_file_index_int_offset = 0;
-		view->map->hdr.log_file_index_ext_offset = 0;
+		view->map->hdr.log_file_head_offset = 0;
+		view->map->hdr.log_file_tail_offset = 0;
 	}
 	view->hdr = view->map->hdr;
 

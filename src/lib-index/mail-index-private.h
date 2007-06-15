@@ -159,7 +159,9 @@ struct mail_index {
 	const struct mail_index_header *hdr;
 	struct mail_index_map *map;
 	uint32_t indexid;
-	uint32_t last_read_log_file_index_offset;
+	/* last known log_file_tail_offset in main index file. used for
+	   optimizing main index updates. */
+	uint32_t last_read_log_file_tail_offset;
 
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id;

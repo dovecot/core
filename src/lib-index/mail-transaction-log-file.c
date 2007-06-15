@@ -107,20 +107,19 @@ mail_transaction_log_file_add_to_list(struct mail_transaction_log_file *file)
 	struct mail_index_map *map = log->index->map;
 
 	if (map != NULL && file->hdr.file_seq == map->hdr.log_file_seq &&
-	    map->hdr.log_file_index_int_offset != 0) {
+	    map->hdr.log_file_head_offset != 0) {
 		/* we can get a valid log offset from index file. initialize
 		   sync_offset from it so we don't have to read the whole log
 		   file from beginning. */
-		if (map->hdr.log_file_index_int_offset >= file->hdr.hdr_size)
-			file->sync_offset = map->hdr.log_file_index_int_offset;
+		if (map->hdr.log_file_head_offset >= file->hdr.hdr_size)
+			file->sync_offset = map->hdr.log_file_head_offset;
 		else {
 			mail_index_set_error(log->index,
-				"%s: log_file_index_int_offset too small",
+				"%s: log_file_head_offset too small",
 				log->index->filepath);
 			file->sync_offset = file->hdr.hdr_size;
 		}
-		file->mailbox_sync_saved_offset =
-			map->hdr.log_file_mailbox_offset;
+		file->saved_tail_offset = map->hdr.log_file_tail_offset;
 	} else {
 		file->sync_offset = file->hdr.hdr_size;
 	}
@@ -161,7 +160,7 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	}
 	if (index->hdr != NULL) {
 		hdr->prev_file_seq = index->hdr->log_file_seq;
-		hdr->prev_file_offset = index->hdr->log_file_index_int_offset;
+		hdr->prev_file_offset = index->hdr->log_file_head_offset;
 		hdr->file_seq = index->hdr->log_file_seq + 1;
 	} else {
 		hdr->file_seq = 1;
@@ -628,8 +627,8 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 	const struct mail_transaction_header_update *u = data;
 	const struct mail_index_header *ihdr;
 	const unsigned int offset_pos =
-		offsetof(struct mail_index_header, log_file_mailbox_offset);
-	const unsigned int offset_size = sizeof(ihdr->log_file_mailbox_offset);
+		offsetof(struct mail_index_header, log_file_tail_offset);
+	const unsigned int offset_size = sizeof(ihdr->log_file_tail_offset);
 	uint32_t sync_offset;
 
 	i_assert(offset_size == sizeof(sync_offset));
@@ -646,14 +645,14 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 		       CONST_PTR_OFFSET(u + 1, offset_pos - u->offset),
 		       sizeof(sync_offset));
 
-		if (sync_offset < file->mailbox_sync_saved_offset) {
+		if (sync_offset < file->saved_tail_offset) {
 			mail_transaction_log_file_set_corrupted(file,
-				"mailbox_sync_offset shrinked");
+				"log_file_tail_offset shrinked");
 			return -1;
 		}
-		file->mailbox_sync_saved_offset = sync_offset;
-		if (sync_offset > file->mailbox_sync_max_offset)
-			file->mailbox_sync_max_offset = sync_offset;
+		file->saved_tail_offset = sync_offset;
+		if (sync_offset > file->max_tail_offset)
+			file->max_tail_offset = sync_offset;
 		return 1;
 	}
 	return 0;
@@ -678,11 +677,11 @@ log_file_track_mailbox_sync_offset(struct mail_transaction_log_file *file,
 			return ret < 0 ? -1 : 0;
 	}
 
-	if (file->mailbox_sync_max_offset == file->sync_offset) {
+	if (file->max_tail_offset == file->sync_offset) {
 		/* external transactions aren't synced to mailbox. we can
 		   update mailbox sync offset to skip this transaction to
 		   avoid re-reading it at the next sync. */
-		file->mailbox_sync_max_offset += trans_size;
+		file->max_tail_offset += trans_size;
 	}
 	return 0;
 }

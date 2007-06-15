@@ -46,12 +46,12 @@ struct mail_transaction_log_file {
 
 	/* points to the next uncommitted transaction. usually same as EOF. */
 	uoff_t sync_offset;
-	/* saved_offset is the offset that was last written to transaction log.
-	   max_offset is what should be written to the log the next time a
-	   transaction is written. transaction log handling may update
-	   max_offset automatically by making it skip external transactions
+	/* saved_tail_offset is the offset that was last written to transaction
+	   log. max_tail_offset is what should be written to the log the next
+	   time a transaction is written. transaction log handling may update
+	   max_tail_offset automatically by making it skip external transactions
 	   after the last saved offset (to avoid re-reading them unneededly). */
-	uoff_t mailbox_sync_saved_offset, mailbox_sync_max_offset;
+	uoff_t saved_tail_offset, max_tail_offset;
 
 	struct file_lock *file_lock;
 

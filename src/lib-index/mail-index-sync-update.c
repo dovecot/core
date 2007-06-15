@@ -9,6 +9,7 @@
 #include "mail-transaction-log.h"
 #include "mail-transaction-log-private.h"
 
+#if 0 // FIXME: can we / do we want to support this?
 static void
 mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 				  struct mail_index_map *map, bool eol)
@@ -32,22 +33,11 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 		prev_offset = ctx->ext_intro_offset;
 	}
 
-	i_assert(prev_offset >= map->hdr.log_file_index_int_offset ||
-		 prev_seq > map->hdr.log_file_seq);
-	map->hdr.log_file_index_int_offset = prev_offset;
-
-	/* we might be in the middle of syncing internal transactions, with
-	   some of the following external transactions already synced. */
-	i_assert(prev_seq > map->hdr.log_file_seq ||
-		 prev_offset >= map->hdr.log_file_index_ext_offset || !eol);
-	if (map->hdr.log_file_seq != prev_seq ||
-	    prev_offset > map->hdr.log_file_index_ext_offset) {
-		map->hdr.log_file_seq = prev_seq;
-		map->hdr.log_file_index_ext_offset = prev_offset;
-	}
+	i_assert(prev_seq == map->hdr.log_file_seq);
+	i_assert(prev_offset >= map->hdr.log_file_head_offset);
+	map->hdr.log_file_head_offset = prev_offset;
 }
 
-#if 0 // FIXME: can we / do we want to support this?
 static int
 mail_index_map_msync(struct mail_index *index, struct mail_index_map *map)
 {
@@ -730,7 +720,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	const struct mail_transaction_header *thdr;
 	const void *tdata;
 	uint32_t prev_seq, mailbox_sync_seq;
-	uoff_t prev_offset, mailbox_sync_offset;
+	uoff_t start_offset, prev_offset, mailbox_sync_offset;
 	int ret;
 	bool had_dirty;
 
@@ -748,15 +738,16 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 		/* this isn't necessary correct currently, but it should be
 		   close enough */
 		log_size = index->log->head->last_size;
-		if (log_size > map->hdr.log_file_index_int_offset &&
-		    log_size - map->hdr.log_file_index_int_offset > index_size)
+		if (log_size > map->hdr.log_file_tail_offset &&
+		    log_size - map->hdr.log_file_tail_offset > index_size)
 			return 0;
 	}
 
+	start_offset = type == MAIL_INDEX_SYNC_HANDLER_FILE ?
+		map->hdr.log_file_tail_offset : map->hdr.log_file_head_offset;
 	view = mail_index_view_open_with_map(index, map);
 	if (mail_transaction_log_view_set(view->log_view,
-					  map->hdr.log_file_seq,
-					  map->hdr.log_file_index_int_offset,
+					  map->hdr.log_file_seq, start_offset,
 					  (uint32_t)-1, (uoff_t)-1) <= 0) {
 		/* can't use it. sync by re-reading index. */
 		mail_index_view_close(&view);
@@ -806,12 +797,16 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 		mail_transaction_log_view_get_prev_pos(view->log_view,
 						       &prev_seq, &prev_offset);
 
-		if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
-			/* see if this transaction is already synced */
-			if (prev_seq < view->map->hdr.log_file_seq ||
-			    (prev_seq == view->map->hdr.log_file_seq &&
-			     prev_offset <
-			     view->map->hdr.log_file_index_ext_offset))
+		if (LOG_IS_BEFORE(prev_seq, prev_offset,
+				  view->map->hdr.log_file_seq,
+				  view->map->hdr.log_file_head_offset)) {
+			/* this has been synced already. we're here only to call
+			   expunge handlers and extension update handlers. */
+			i_assert(type == MAIL_INDEX_SYNC_HANDLER_FILE);
+
+			if ((thdr->type & MAIL_TRANSACTION_EXTERNAL) != 0)
+				continue;
+			if ((thdr->type & MAIL_TRANSACTION_EXT_MASK) == 0)
 				continue;
 		}
 
@@ -827,15 +822,17 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 		mail_index_sync_update_hdr_dirty_flag(map);
 
 	/* update sync position */
-	// FIXME: eol=TRUE gives intro errors
-	mail_index_sync_update_log_offset(&sync_map_ctx, map, FALSE);
+	mail_transaction_log_view_get_prev_pos(view->log_view,
+					       &prev_seq, &prev_offset);
+	i_assert(index->log->head->hdr.file_seq == prev_seq);
+	map->hdr.log_file_seq = prev_seq;
+	map->hdr.log_file_head_offset = prev_offset;
 
-	/* although mailbox_sync_update gets updated by the header update
-	   records, transaction log syncing can internally also update
-	   mailbox_sync_max_offset to skip over following external
-	   transactions. use it to avoid extra unneeded log reading. */
-	map->hdr.log_file_mailbox_offset =
-		index->log->head->mailbox_sync_max_offset;
+	/* transaction log tracks internally the current tail offset.
+	   besides using header updates, it also updates the offset to skip
+	   over following external transactions to avoid extra unneeded log
+	   reading. */
+	map->hdr.log_file_tail_offset = index->log->head->max_tail_offset;
 
 	if (map->write_base_header) {
 		i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));

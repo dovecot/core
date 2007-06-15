@@ -22,7 +22,7 @@ struct mail_index_sync_ctx {
 
 	ARRAY_DEFINE(sync_list, struct mail_index_sync_list);
 	uint32_t next_uid;
-	uint32_t last_mailbox_seq, last_mailbox_offset;
+	uint32_t last_tail_seq, last_tail_offset;
 
 	uint32_t append_uid_first, append_uid_last;
 
@@ -211,8 +211,8 @@ mail_index_sync_update_mailbox_pos(struct mail_index_sync_ctx *ctx)
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 					       &seq, &offset);
 
-	ctx->last_mailbox_seq = seq;
-	ctx->last_mailbox_offset = offset + ctx->hdr->size + sizeof(*ctx->hdr);
+	ctx->last_tail_seq = seq;
+	ctx->last_tail_offset = offset + ctx->hdr->size + sizeof(*ctx->hdr);
 }
 
 static int
@@ -302,7 +302,7 @@ mail_index_need_sync(struct mail_index *index,
 
 	if (hdr->log_file_seq < log_file_seq ||
 	     (hdr->log_file_seq == log_file_seq &&
-	      hdr->log_file_mailbox_offset < log_file_offset))
+	      hdr->log_file_tail_offset < log_file_offset))
 		return TRUE;
 
 	/* already synced */
@@ -373,11 +373,9 @@ int mail_index_sync_begin(struct mail_index *index,
 		return 0;
 	}
 
-	if (hdr->log_file_index_int_offset > hdr->log_file_index_ext_offset ||
+	if (hdr->log_file_tail_offset > hdr->log_file_head_offset ||
 	    hdr->log_file_seq > seq ||
-	    (hdr->log_file_seq == seq &&
-	     (hdr->log_file_index_ext_offset > offset ||
-	      hdr->log_file_mailbox_offset > offset))) {
+	    (hdr->log_file_seq == seq && hdr->log_file_tail_offset > offset)) {
 		/* broken sync positions. fix them. */
 		mail_index_set_error(index,
 			"broken sync positions in index file %s",
@@ -394,8 +392,8 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->lock_id = lock_id;
 	ctx->sync_recent = sync_recent;
 	ctx->sync_dirty = sync_dirty;
-	ctx->last_mailbox_seq = hdr->log_file_seq;
-	ctx->last_mailbox_offset = hdr->log_file_mailbox_offset;
+	ctx->last_tail_seq = hdr->log_file_seq;
+	ctx->last_tail_offset = hdr->log_file_tail_offset;
 
 	ctx->view = mail_index_view_open(index);
 
@@ -406,7 +404,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	/* we wish to see all the changes from last mailbox sync position to
 	   the end of the transaction log */
 	if (mail_index_sync_set_log_view(ctx->view, hdr->log_file_seq,
-					 hdr->log_file_mailbox_offset) < 0) {
+					 hdr->log_file_tail_offset) < 0) {
                 mail_index_sync_rollback(&ctx);
 		return -1;
 	}
@@ -721,7 +719,7 @@ static void mail_index_write(struct mail_index *index, bool want_rotate)
 		mail_index_unlock(index, lock_id);
 	}
 
-	index->last_read_log_file_index_offset = hdr->log_file_index_int_offset;
+	index->last_read_log_file_tail_offset = hdr->log_file_tail_offset;
 
 	map->write_atomic = FALSE;
 	map->write_seq_first = map->write_seq_last = 0;
@@ -729,8 +727,7 @@ static void mail_index_write(struct mail_index *index, bool want_rotate)
 	map->write_ext_header = FALSE;
 
 	if (want_rotate &&
-	    hdr->log_file_index_int_offset == hdr->log_file_index_ext_offset &&
-	    hdr->log_file_index_int_offset == hdr->log_file_mailbox_offset)
+	    hdr->log_file_tail_offset == hdr->log_file_head_offset)
 		(void)mail_transaction_log_rotate(index->log);
 }
 
@@ -745,11 +742,9 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 					       &seq, &offset);
 	mail_transaction_log_set_mailbox_sync_pos(ctx->index->log, seq, offset);
 
-	/* This sync may have seen only external transactions, in which case
-	   it's not required to write the mailbox sync offset. Otherwise we
-	   must update the offset even if nothing else is going to be
-	   written. */
-	if (hdr->log_file_mailbox_offset != ctx->last_mailbox_offset)
+	/* If tail offset has changed, make sure it gets written to
+	   transaction log. */
+	if (hdr->log_file_tail_offset != ctx->last_tail_offset)
 		ctx->ext_trans->log_updates = TRUE;
 }
 
@@ -788,8 +783,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 
 	/* FIXME: create a better rule? */
 	want_rotate = mail_transaction_log_want_rotate(index->log);
-	diff = index->map->hdr.log_file_index_int_offset -
-		index->last_read_log_file_index_offset;
+	diff = index->map->hdr.log_file_tail_offset -
+		index->last_read_log_file_tail_offset;
 	if (ret == 0 && (diff > 1024 || want_rotate))
 		mail_index_write(index, want_rotate);
 	mail_index_sync_end(_ctx);

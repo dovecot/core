@@ -698,7 +698,7 @@ mail_index_view_open_with_map(struct mail_index *index,
 	view->log_file_append_offset =
 		view->log_file_expunge_offset =
 		view->log_file_head_offset =
-		view->map->hdr.log_file_index_int_offset;
+		view->map->hdr.log_file_head_offset;
 
 	i_array_init(&view->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));

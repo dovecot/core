@@ -101,7 +101,7 @@ static int log_buffer_write(struct log_append_context *ctx)
 
 	i_assert(!ctx->sync_includes_this ||
 		 file->sync_offset + ctx->output->used ==
-		 file->mailbox_sync_max_offset);
+		 file->max_tail_offset);
 
 	if (!file->log->index->fsync_disable && fdatasync(file->fd) < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
@@ -369,25 +369,25 @@ static void log_append_sync_offset_if_needed(struct log_append_context *ctx)
 	buffer_t *buf;
 	uint32_t offset;
 
-	if (ctx->file->mailbox_sync_max_offset == ctx->file->sync_offset) {
+	if (ctx->file->max_tail_offset == ctx->file->sync_offset) {
 		/* FIXME: when we remove exclusive log locking, we
 		   can't rely on this. then write non-changed offset + check
 		   real offset + rewrite the new offset if other transactions
 		   weren't written in the middle */
-		ctx->file->mailbox_sync_max_offset += ctx->output->used +
+		ctx->file->max_tail_offset += ctx->output->used +
 			sizeof(struct mail_transaction_header) +
 			sizeof(*u) + sizeof(offset);
 		ctx->sync_includes_this = TRUE;
 	}
-	offset = ctx->file->mailbox_sync_max_offset;
+	offset = ctx->file->max_tail_offset;
 
-	if (ctx->file->mailbox_sync_saved_offset == offset)
+	if (ctx->file->saved_tail_offset == offset)
 		return;
 
 	buf = buffer_create_static_hard(pool_datastack_create(),
 					sizeof(*u) + sizeof(offset));
 	u = buffer_append_space_unsafe(buf, sizeof(*u));
-	u->offset = offsetof(struct mail_index_header, log_file_mailbox_offset);
+	u->offset = offsetof(struct mail_index_header, log_file_tail_offset);
 	u->size = sizeof(offset);
 	buffer_append(buf, &offset, sizeof(offset));
 

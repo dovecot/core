@@ -248,7 +248,7 @@ void mail_transaction_log_get_mailbox_sync_pos(struct mail_transaction_log *log,
 					       uoff_t *file_offset_r)
 {
 	*file_seq_r = log->head->hdr.file_seq;
-	*file_offset_r = log->head->mailbox_sync_max_offset;
+	*file_offset_r = log->head->max_tail_offset;
 }
 
 void mail_transaction_log_set_mailbox_sync_pos(struct mail_transaction_log *log,
@@ -256,10 +256,10 @@ void mail_transaction_log_set_mailbox_sync_pos(struct mail_transaction_log *log,
 					       uoff_t file_offset)
 {
 	i_assert(file_seq == log->head->hdr.file_seq);
-	i_assert(file_offset >= log->head->mailbox_sync_saved_offset);
+	i_assert(file_offset >= log->head->saved_tail_offset);
 
-	if (file_offset >= log->head->mailbox_sync_max_offset)
-		log->head->mailbox_sync_max_offset = file_offset;
+	if (file_offset >= log->head->max_tail_offset)
+		log->head->max_tail_offset = file_offset;
 }
 
 int mail_transaction_log_find_file(struct mail_transaction_log *log,

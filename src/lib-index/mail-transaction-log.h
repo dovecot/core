@@ -31,6 +31,10 @@ enum mail_transaction_type {
 
 	MAIL_TRANSACTION_TYPE_MASK		= 0x0000ffff,
 
+#define MAIL_TRANSACTION_EXT_MASK \
+	(MAIL_TRANSACTION_EXT_INTRO | MAIL_TRANSACTION_EXT_RESET | \
+	MAIL_TRANSACTION_EXT_HDR_UPDATE | MAIL_TRANSACTION_EXT_REC_UPDATE)
+
 	/* since we'll expunge mails based on data read from transaction log,
 	   try to avoid the possibility of corrupted transaction log expunging
 	   messages. this value is ORed to the actual MAIL_TRANSACTION_EXPUNGE
