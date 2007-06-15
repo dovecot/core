@@ -122,9 +122,12 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 				      (uoff_t)-1);
 	}
 
-	if (*old_cache_offset == 0 ||
-	    sync_ctx->type != MAIL_INDEX_SYNC_HANDLER_FILE)
+	if (*old_cache_offset == 0 || *old_cache_offset == *new_cache_offset ||
+	    sync_ctx->type == MAIL_INDEX_SYNC_HANDLER_VIEW)
 		return 1;
+
+	/* FIXME: we should do this only once to avoid extra overhead.
+	   currently this can happen multiple times as map is synchronized. */
 
 	/* we'll need to link the old and new cache records */
 	ret = mail_cache_handler_init(&ctx, cache);
@@ -138,12 +141,6 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	if (cache_file_seq != cache->hdr->file_seq) {
 		/* cache has been compressed, don't modify it */
 		return 1;
-	}
-
-	if (*old_cache_offset == *new_cache_offset) {
-		mail_index_sync_set_corrupted(sync_ctx,
-			"Cache offset replaced with itself");
-		return -1;
 	}
 
 	if (mail_cache_link(cache, *old_cache_offset, *new_cache_offset) < 0)
