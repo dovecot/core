@@ -435,6 +435,7 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 			      struct mail_index_sync_map_ctx *ctx)
 {
 	struct mail_index_map *map = ctx->view->map;
+	uint32_t orig_log_file_tail_offset = map->hdr.log_file_tail_offset;
 
 	if (u->offset >= map->hdr.base_header_size ||
 	    u->offset + u->size > map->hdr.base_header_size) {
@@ -456,6 +457,11 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 		memcpy(PTR_OFFSET(&map->hdr, u->offset),
 		       u + 1, sizeof(map->hdr) - u->offset);
 	}
+
+	/* the tail offset updates are intended for internal transaction
+	   log handling. we'll update the offset in the header only when
+	   the sync is finished. */
+	map->hdr.log_file_tail_offset = orig_log_file_tail_offset;
 	return 1;
 }
 
