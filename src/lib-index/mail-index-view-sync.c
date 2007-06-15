@@ -412,6 +412,26 @@ static bool view_sync_area_find(ARRAY_TYPE(view_log_sync_area) *sync_arr,
 	return FALSE;
 }
 
+static bool
+mail_index_view_sync_skip(struct mail_index_view_sync_ctx *ctx,
+			  const struct mail_transaction_header *hdr)
+{
+	if ((hdr->type & ctx->visible_sync_mask) != 0)
+		return FALSE;
+
+	if ((hdr->type & MAIL_TRANSACTION_VISIBLE_SYNC_MASK) == 0)
+		return FALSE;
+
+	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0 &&
+	    (hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+		/* expunge request. this will be ignored */
+		return FALSE;
+	}
+
+	/* visible record that we want to skip */
+	return TRUE;
+}
+
 static int
 mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 {
@@ -437,8 +457,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		}
 
 		hdr = ctx->hdr;
-		if ((hdr->type & ctx->visible_sync_mask) == 0 &&
-		    (hdr->type & MAIL_TRANSACTION_VISIBLE_SYNC_MASK) != 0) {
+		if (mail_index_view_sync_skip(ctx, hdr)) {
 			/* This is a visible record that we don't want to
 			   sync. */
 			ctx->skipped_some = TRUE;
@@ -479,7 +498,8 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		/* Apply transaction to view's mapping if needed (meaning we
 		   didn't just re-map the view to head mapping). */
 		if (ctx->sync_map_update && !synced_to_map) {
-			i_assert((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0);
+			i_assert((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0 ||
+				 (hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0);
 
 			if (mail_index_sync_record(&ctx->sync_map_ctx,
 						   hdr, ctx->data) < 0)
