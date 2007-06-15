@@ -105,7 +105,8 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	struct mail_cache_sync_context *ctx = *context;
 	const uint32_t *old_cache_offset = old_data;
 	const uint32_t *new_cache_offset = new_data;
-	uint32_t cache_file_seq;
+	uint32_t cache_file_seq, cur_seq, tail_seq;
+	uoff_t cur_offset, tail_offset;
 	int ret;
 
 	if (new_cache_offset == NULL) {
@@ -126,8 +127,14 @@ int mail_cache_sync_handler(struct mail_index_sync_map_ctx *sync_ctx,
 	    sync_ctx->type == MAIL_INDEX_SYNC_HANDLER_VIEW)
 		return 1;
 
-	/* FIXME: we should do this only once to avoid extra overhead.
-	   currently this can happen multiple times as map is synchronized. */
+	mail_transaction_log_view_get_prev_pos(view->log_view,
+					       &cur_seq, &cur_offset);
+	mail_transaction_log_get_mailbox_sync_pos(view->index->log,
+						  &tail_seq, &tail_offset);
+	if (LOG_IS_BEFORE(cur_seq, cur_offset, tail_seq, tail_offset)) {
+		/* already been linked */
+		return 1;
+	}
 
 	/* we'll need to link the old and new cache records */
 	ret = mail_cache_handler_init(&ctx, cache);
