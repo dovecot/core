@@ -195,7 +195,7 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 
 	if (!seen_recent) {
 		/* no recent messages, drop the sync_recent flag so we
-		   don't scan through the message again */
+		   don't scan through the messages again */
 		ctx->sync_recent = FALSE;
 	}
 
@@ -846,21 +846,14 @@ bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,
 void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 				   const char *fmt, ...)
 {
-	const char *error;
 	va_list va;
 
 	va_start(va, fmt);
 	t_push();
-	error = t_strdup_vprintf(fmt, va);
-	if (ctx->type == MAIL_INDEX_SYNC_HANDLER_FILE) {
-		mail_transaction_log_view_set_corrupted(ctx->view->log_view,
-							"%s", error);
-	} else {
-		mail_index_set_error(ctx->view->index,
-			"View synchronization from transaction log "
-			"for index %s failed: %s", ctx->view->index->filepath,
-			error);
-	}
+	mail_index_set_error(ctx->view->index,
+			     "Synchronization error from %s: %s",
+			     ctx->view->index->filepath,
+			     t_strdup_vprintf(fmt, va));
 	t_pop();
 	va_end(va);
 }
