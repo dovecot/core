@@ -25,8 +25,12 @@ void mail_index_view_clone(struct mail_index_view *dest,
 	dest->hdr = src->hdr;
 	dest->broken_counters = src->broken_counters;
 
-	dest->log_file_seq = src->log_file_seq;
-	dest->log_file_offset = src->log_file_offset;
+	dest->log_file_append_seq = src->log_file_append_seq;
+	dest->log_file_append_offset = src->log_file_append_offset;
+	dest->log_file_expunge_seq = src->log_file_expunge_seq;
+	dest->log_file_expunge_offset = src->log_file_expunge_offset;
+	dest->log_file_head_seq = src->log_file_head_seq;
+	dest->log_file_head_offset = src->log_file_head_offset;
 
 	i_array_init(&dest->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));
@@ -44,8 +48,6 @@ static void _view_close(struct mail_index_view *view)
 	mail_index_view_unlock(view);
 	mail_transaction_log_view_close(&view->log_view);
 
-	if (array_is_created(&view->syncs_done))
-		array_free(&view->syncs_done);
 	if (array_is_created(&view->syncs_hidden))
 		array_free(&view->syncs_hidden);
 	mail_index_unmap(view->index, &view->map);
@@ -691,8 +693,12 @@ mail_index_view_open_with_map(struct mail_index *index,
 
 	view->hdr = view->map->hdr;
 
-	view->log_file_seq = view->map->hdr.log_file_seq;
-	view->log_file_offset = view->map->hdr.log_file_index_int_offset;
+	view->log_file_append_seq = view->log_file_expunge_seq =
+		view->log_file_head_seq = view->map->hdr.log_file_seq;
+	view->log_file_append_offset =
+		view->log_file_expunge_offset =
+		view->log_file_head_offset =
+		view->map->hdr.log_file_index_int_offset;
 
 	i_array_init(&view->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));

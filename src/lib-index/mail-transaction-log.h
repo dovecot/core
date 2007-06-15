@@ -105,6 +105,9 @@ struct mail_transaction_ext_rec_update {
 	/* unsigned char data[]; */
 };
 
+#define LOG_IS_BEFORE(seq1, offset1, seq2, offset2) \
+	(((offset1) < (offset2) && (seq1) == (seq2)) || (seq1) < (seq2))
+
 struct mail_transaction_log *
 mail_transaction_log_alloc(struct mail_index *index);
 void mail_transaction_log_free(struct mail_transaction_log **log);

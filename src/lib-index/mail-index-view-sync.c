@@ -17,9 +17,10 @@ struct mail_index_view_sync_ctx {
 	const void *data;
 
 	size_t data_offset;
-	unsigned int skipped_some:1;
-	unsigned int last_read:1;
 	unsigned int sync_map_update:1;
+	unsigned int skipped_appends:1;
+	unsigned int skipped_expunges:1;
+	unsigned int last_read:1;
 };
 
 static int
@@ -87,15 +88,36 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 	return 0;
 }
 
+static void view_sync_get_tail(struct mail_index_view *view,
+			       uint32_t *seq_r, uoff_t *offset_r)
+{
+	if (LOG_IS_BEFORE(view->log_file_append_seq,
+			  view->log_file_append_offset,
+			  view->log_file_expunge_seq,
+			  view->log_file_expunge_offset)) {
+		*seq_r = view->log_file_append_seq;
+		*offset_r = view->log_file_append_offset;
+	} else {
+		*seq_r = view->log_file_expunge_seq;
+		*offset_r = view->log_file_expunge_offset;
+	}
+	i_assert(!LOG_IS_BEFORE(view->log_file_head_seq,
+				view->log_file_head_offset,
+				*seq_r, *offset_r));
+}
+
 static int view_sync_set_log_view_range(struct mail_index_view *view)
 {
 	const struct mail_index_header *hdr = view->index->hdr;
+	uint32_t tail_seq;
+	uoff_t tail_offset;
 	int ret;
+
+	view_sync_get_tail(view, &tail_seq, &tail_offset);
 
 	/* the view begins from the first non-synced transaction */
 	ret = mail_transaction_log_view_set(view->log_view,
-					    view->log_file_seq,
-					    view->log_file_offset,
+					    tail_seq, tail_offset,
 					    hdr->log_file_seq,
 					    hdr->log_file_index_int_offset);
 	if (ret <= 0) {
@@ -170,8 +192,8 @@ view_sync_get_expunges(struct mail_index_view *view,
 	return 0;
 }
 
-static void mail_index_view_hdr_update(struct mail_index_view *view,
-				       struct mail_index_map *map)
+static void mail_index_view_hdr_drop_appends(struct mail_index_view *view,
+					     struct mail_index_map *map)
 {
 	/* Keep message count the same. */
 	map->hdr.next_uid = view->hdr.next_uid;
@@ -183,16 +205,6 @@ static void mail_index_view_hdr_update(struct mail_index_view *view,
 	map->hdr.recent_messages_count = view->hdr.recent_messages_count;
 	map->hdr.seen_messages_count = view->hdr.seen_messages_count;
 	map->hdr.deleted_messages_count = view->hdr.deleted_messages_count;
-
-	/* Keep log position so we know where to continue syncing */
-	map->hdr.log_file_seq = view->hdr.log_file_seq;
-	map->hdr.log_file_index_int_offset =
-		view->hdr.log_file_index_int_offset;
-	map->hdr.log_file_index_ext_offset =
-		view->hdr.log_file_index_ext_offset;
-
-	view->hdr = map->hdr;
-	buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
 }
 
 #ifdef DEBUG
@@ -200,6 +212,7 @@ static void mail_index_view_check(struct mail_index_view *view)
 {
 	unsigned int i, del = 0, recent = 0, seen = 0;
 
+	i_assert(view->hdr.messages_count == view->map->records_count);
 	i_assert(view->hdr.deleted_messages_count ==
 		 view->map->hdr.deleted_messages_count);
 	i_assert(view->hdr.recent_messages_count ==
@@ -241,12 +254,10 @@ static void mail_index_view_check(struct mail_index_view *view)
 	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE | \
 	 MAIL_TRANSACTION_KEYWORD_RESET)
 
-#define VIEW_IS_SYNCED_TO_SAME(view, hdr) \
-	((hdr)->log_file_seq == (view)->log_file_seq && \
-	 (hdr)->log_file_index_int_offset == (view)->log_file_offset && \
-	 (hdr)->log_file_index_ext_offset == (view)->log_file_offset && \
-	 (!array_is_created(&view->syncs_done) || \
-	  array_count(&view->syncs_done) == 0))
+#define VIEW_IS_SYNCED_TO_SAME(hdr, tail_seq, tail_offset) \
+	((hdr)->log_file_seq == (tail_seq) && \
+	 (hdr)->log_file_index_int_offset == (tail_offset) && \
+	 (hdr)->log_file_index_ext_offset == (tail_offset))
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_view_sync_type sync_type,
@@ -254,8 +265,11 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 {
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
+	uint32_t tail_seq;
+	uoff_t tail_offset;
 	enum mail_transaction_type visible_mask = 0;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
+	bool drop_appends;
 
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
@@ -320,50 +334,58 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			/* Using non-head mapping. We have to apply
 			   transactions to it to get latest changes into it. */
 			ctx->sync_map_update = TRUE;
+		}
 
-			/* Unless map was synced at the exact same position as
-			   view, the message flags can't be reliably used to
-			   update flag counters. note that map->hdr may contain
-			   old information if another process updated the
-			   index file since. */
-			if (view->map->mmap_base != NULL) {
-				const struct mail_index_header *hdr;
+		/* Unless map was synced at the exact same position as
+		   view, the message flags can't be reliably used to
+		   update flag counters. note that map->hdr may contain
+		   old information if another process updated the
+		   index file since. */
+		if (view->map->mmap_base != NULL) {
+			const struct mail_index_header *hdr;
 
-				hdr = view->map->mmap_base;
-				view->map->hdr = *hdr;
-			}
-			ctx->sync_map_ctx.unreliable_flags =
-				!VIEW_IS_SYNCED_TO_SAME(view, &view->map->hdr);
+			hdr = view->map->mmap_base;
+			view->map->hdr = *hdr;
+		}
 
+		view_sync_get_tail(view, &tail_seq, &tail_offset);
+		ctx->sync_map_ctx.unreliable_flags =
+			!VIEW_IS_SYNCED_TO_SAME(&view->map->hdr,
+						tail_seq, tail_offset);
+
+		drop_appends = ctx->sync_map_update || sync_type ==
+			MAIL_INDEX_VIEW_SYNC_TYPE_NOAPPENDS_NOEXPUNGES;
+		if (drop_appends) {
 			/* Copy only the mails that we see currently, since
 			   we're going to append the new ones when we see
 			   their transactions. */
 			i_assert(view->map->records_count >=
 				 view->hdr.messages_count);
 			view->map->records_count = view->hdr.messages_count;
+		}
 
 #ifdef DEBUG
-			if (!ctx->sync_map_ctx.unreliable_flags) {
-				i_assert(view->map->hdr.messages_count ==
-					 view->hdr.messages_count);
-				mail_index_view_check(view);
-			}
-#endif
+		if (!ctx->sync_map_ctx.unreliable_flags) {
+			i_assert(view->map->hdr.messages_count ==
+				 view->hdr.messages_count);
+			mail_index_view_check(view);
 		}
+#endif
 
 		map = mail_index_map_clone(view->map);
 		view->map->records_count = old_records_count;
 		mail_index_unmap(view->index, &view->map);
 		view->map = map;
 
-		if (ctx->sync_map_update) {
+		if (drop_appends) {
 			/* Start the sync using our old view's header.
 			   The old view->hdr may differ from map->hdr if
 			   another view sharing the map with us had synced
 			   itself. */
 			i_assert(map->hdr_base == map->hdr_copy_buf->data);
-			mail_index_view_hdr_update(view, map);
+			mail_index_view_hdr_drop_appends(view, map);
 		}
+		view->hdr = map->hdr;
 
 		i_assert(map->records_count == map->hdr.messages_count);
 	}
@@ -375,21 +397,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 
 	*ctx_r = ctx;
 	return 0;
-}
-
-static void
-view_add_synced_transaction(struct mail_index_view *view,
-			    uint32_t log_file_seq, uoff_t log_file_offset)
-{
-	struct mail_index_view_log_sync_area *pos;
-
-	if (!array_is_created(&view->syncs_done))
-		i_array_init(&view->syncs_done, 32);
-
-	pos = array_append_space(&view->syncs_done);
-	pos->log_file_seq = log_file_seq;
-	pos->log_file_offset = log_file_offset;
-	pos->length = 1;
 }
 
 static bool view_sync_area_find(ARRAY_TYPE(view_log_sync_area) *sync_arr,
@@ -413,22 +420,75 @@ static bool view_sync_area_find(ARRAY_TYPE(view_log_sync_area) *sync_arr,
 }
 
 static bool
-mail_index_view_sync_skip(struct mail_index_view_sync_ctx *ctx,
+mail_index_view_sync_want(struct mail_index_view_sync_ctx *ctx,
 			  const struct mail_transaction_header *hdr)
 {
-	if ((hdr->type & ctx->visible_sync_mask) != 0)
-		return FALSE;
+        struct mail_index_view *view = ctx->view;
+	uint32_t seq;
+	uoff_t offset, next_offset;
 
-	if ((hdr->type & MAIL_TRANSACTION_VISIBLE_SYNC_MASK) == 0)
-		return FALSE;
+	mail_transaction_log_view_get_prev_pos(view->log_view, &seq, &offset);
+	next_offset = offset + sizeof(*hdr) + hdr->size;
 
-	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0 &&
-	    (hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
-		/* expunge request. this will be ignored */
+	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
+	case MAIL_TRANSACTION_APPEND:
+		if ((ctx->visible_sync_mask & MAIL_TRANSACTION_APPEND) == 0) {
+			i_assert(!LOG_IS_BEFORE(seq, offset,
+						view->log_file_append_seq,
+						view->log_file_append_offset));
+			if (!ctx->skipped_appends) {
+				view->log_file_append_seq = seq;
+				view->log_file_append_offset = offset;
+				ctx->skipped_appends = TRUE;
+			}
+			return FALSE;
+		}
+		if (LOG_IS_BEFORE(seq, offset, view->log_file_append_seq,
+				  view->log_file_append_offset)) {
+			/* already synced */
+			return FALSE;
+		}
+		break;
+	case MAIL_TRANSACTION_EXPUNGE:
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* expunge request. this will be ignored */
+			break;
+		}
+		if ((ctx->visible_sync_mask & MAIL_TRANSACTION_EXPUNGE) == 0) {
+			i_assert(!LOG_IS_BEFORE(seq, offset,
+						view->log_file_expunge_seq,
+						view->log_file_expunge_offset));
+			if (!ctx->skipped_expunges) {
+				view->log_file_expunge_seq = seq;
+				view->log_file_expunge_offset = offset;
+				ctx->skipped_expunges = TRUE;
+			}
+			return FALSE;
+		}
+		if (LOG_IS_BEFORE(seq, offset, view->log_file_expunge_seq,
+				  view->log_file_expunge_offset)) {
+			/* already synced */
+			return FALSE;
+		}
+		break;
+	default:
+		if ((hdr->type & ctx->visible_sync_mask) != 0)
+			break;
+		if ((hdr->type & MAIL_TRANSACTION_VISIBLE_SYNC_MASK) == 0)
+			break;
+
+		/* visible record that we want to skip */
 		return FALSE;
 	}
 
-	/* visible record that we want to skip */
+	if (LOG_IS_BEFORE(seq, offset, view->log_file_head_seq,
+			  view->log_file_head_offset)) {
+		/* already synced */
+		return FALSE;
+	}
+
+	view->log_file_head_seq = seq;
+	view->log_file_head_offset = next_offset;
 	return TRUE;
 }
 
@@ -457,38 +517,17 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		}
 
 		hdr = ctx->hdr;
-		if (mail_index_view_sync_skip(ctx, hdr)) {
+		if (!mail_index_view_sync_want(ctx, hdr)) {
 			/* This is a visible record that we don't want to
 			   sync. */
-			ctx->skipped_some = TRUE;
 			continue;
 		}
 
 		mail_transaction_log_view_get_prev_pos(log_view, &seq, &offset);
 
-		if (!ctx->skipped_some) {
-			/* We haven't skipped anything while syncing this view.
-			   Update this view's synced log offset. */
-			view->log_file_seq = seq;
-			view->log_file_offset = offset + sizeof(*hdr) +
-				hdr->size;
-		}
-
-		/* skip everything we've already synced */
-		if (view_sync_area_find(&view->syncs_done, seq, offset))
-			continue;
-
-		if (ctx->skipped_some) {
-			/* We've been skipping some transactions, which means
-			   we'll go through these same transactions again
-			   later. Since we're syncing this one, we don't want
-			   to do it again. */
-			view_add_synced_transaction(view, seq, offset);
-		}
-
 		/* if we started from a map that we didn't create ourself,
 		   some of the external transactions may already be synced.
-		   at the end of view sync we'll update the ext_offset in the
+		   at the end of view sync we'll update the file_seq=0 in the
 		   header so that this check always becomes FALSE for
 		   subsequent syncs. */
 		synced_to_map = offset < view->hdr.log_file_index_ext_offset &&
@@ -644,35 +683,28 @@ void mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 }
 
 static void
-mail_index_view_sync_clean_log_syncs(struct mail_index_view_sync_ctx *ctx,
-				     ARRAY_TYPE(view_log_sync_area) *sync_arr,
-				     bool fast_clean)
+mail_index_view_sync_clean_log_syncs(struct mail_index_view *view)
 {
-	struct mail_index_view *view = ctx->view;
 	const struct mail_index_view_log_sync_area *syncs;
-	uint32_t seq = view->log_file_seq;
-	uoff_t offset = view->log_file_offset;
+	uint32_t tail_seq;
+	uoff_t tail_offset;
 	unsigned int i, count;
 
-	if (!array_is_created(sync_arr))
+	if (!array_is_created(&view->syncs_hidden))
 		return;
 
-	if (!ctx->skipped_some && fast_clean) {
-		/* Nothing skipped. Clean it up the quick way. */
-		array_clear(sync_arr);
-		return;
-	}
+	/* Clean up to view's tail */
+	view_sync_get_tail(view, &tail_seq, &tail_offset);
 
-	/* Clean up until view's current syncing position */
-	syncs = array_get(sync_arr, &count);
+	syncs = array_get(&view->syncs_hidden, &count);
 	for (i = 0; i < count; i++) {
-		if ((syncs[i].log_file_offset + syncs[i].length > offset &&
-                     syncs[i].log_file_seq == seq) ||
-		    syncs[i].log_file_seq > seq)
+		if ((syncs[i].log_file_offset + syncs[i].length > tail_offset &&
+                     syncs[i].log_file_seq == tail_seq) ||
+		    syncs[i].log_file_seq > tail_seq)
 			break;
 	}
 	if (i > 0)
-		array_delete(sync_arr, 0, i);
+		array_delete(&view->syncs_hidden, 0, i);
 }
 
 void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
@@ -683,9 +715,6 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	i_assert(view->syncing);
 
 	*_ctx = NULL;
-	mail_index_sync_map_deinit(&ctx->sync_map_ctx);
-	mail_index_view_sync_clean_log_syncs(ctx, &view->syncs_done, TRUE);
-	mail_index_view_sync_clean_log_syncs(ctx, &view->syncs_hidden, FALSE);
 
 	if (!ctx->last_read) {
 		/* we didn't sync everything */
@@ -698,32 +727,26 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 		view->sync_new_map = NULL;
 	}
 
+	if (!ctx->skipped_expunges) {
+		view->log_file_expunge_seq = view->log_file_head_seq;
+		view->log_file_expunge_offset = view->log_file_head_offset;
+	}
+	if (!ctx->skipped_appends) {
+		view->log_file_append_seq = view->log_file_head_seq;
+		view->log_file_append_offset = view->log_file_head_offset;
+	}
+
 	if (ctx->sync_map_update) {
-		if (view->log_file_seq != view->map->hdr.log_file_seq) {
-			i_assert(view->log_file_seq >
-				 view->map->hdr.log_file_seq);
-			view->map->hdr.log_file_seq = view->log_file_seq;
-			view->map->hdr.log_file_index_ext_offset =
-				view->log_file_offset;
-		} else {
-			i_assert(view->log_file_offset >=
-				 view->map->hdr.log_file_index_int_offset);
-			if (view->log_file_offset >
-			    view->map->hdr.log_file_index_ext_offset) {
-				view->map->hdr.log_file_index_ext_offset =
-					view->log_file_offset;
-			}
-		}
-		view->map->hdr.log_file_index_int_offset =
-			view->log_file_offset;
-		buffer_write(view->map->hdr_copy_buf, 0,
-			     &view->map->hdr, sizeof(view->map->hdr));
-	} else {
-		i_assert(view->inconsistent ||
-			 view->log_file_offset >=
-			 view->map->hdr.log_file_index_int_offset);
+		/* log offsets have no meaning in views. make sure they're not
+		   tried to be used wrong by setting them to zero. */
+		view->map->hdr.log_file_seq = 0;
+		view->map->hdr.log_file_index_int_offset = 0;
+		view->map->hdr.log_file_index_ext_offset = 0;
 	}
 	view->hdr = view->map->hdr;
+
+	mail_index_sync_map_deinit(&ctx->sync_map_ctx);
+	mail_index_view_sync_clean_log_syncs(ctx->view);
 
 #ifdef DEBUG
 	if (!view->broken_counters && !ctx->sync_map_ctx.unreliable_flags)
@@ -732,10 +755,10 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 
 	/* set log view to empty range so unneeded memory gets freed */
 	(void)mail_transaction_log_view_set(view->log_view,
-					    view->log_file_seq,
-					    view->log_file_offset,
-					    view->log_file_seq,
-					    view->log_file_offset);
+					    view->log_file_head_seq,
+					    view->log_file_head_offset,
+					    view->log_file_head_seq,
+					    view->log_file_head_offset);
 
 	if (array_is_created(&ctx->expunges))
 		array_free(&ctx->expunges);
