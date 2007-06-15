@@ -1,6 +1,7 @@
-/* Copyright (C) 2004 Timo Sirainen */
+/* Copyright (C) 2004-2007 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log.h"
 
@@ -25,23 +26,45 @@ static void mail_index_fsck_error(struct mail_index *index,
 
 static int
 mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
-		    const char **error_r)
+		    bool *lock, const char **error_r)
 {
 	struct mail_index_header hdr;
 	const struct mail_index_record *rec;
+	uint32_t file_seq;
+	uoff_t file_offset;
 	uint32_t i, last_uid;
 
 	*error_r = NULL;
 
+	if (*lock) {
+		if (mail_transaction_log_sync_lock(index->log, &file_seq,
+						   &file_offset) < 0) {
+			*lock = FALSE;
+			return -1;
+		}
+	} else {
+		mail_transaction_log_get_head(index->log, &file_seq,
+					      &file_offset);
+	}
+
 	/* locking already does the most important sanity checks for header */
 	hdr = map->hdr;
 
-	if (hdr.uid_validity == 0 && hdr.next_uid != 1) {
-		*error_r = "uid_validity = 0 && next_uid != 1";
-		return 0;
-	}
+	if (hdr.uid_validity == 0 && hdr.next_uid != 1)
+		hdr.uid_validity = ioloop_time;
 
 	hdr.flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;
+
+	if (hdr.log_file_seq != file_seq) {
+		hdr.log_file_seq = file_seq;
+		hdr.log_file_head_offset = hdr.log_file_tail_offset =
+			sizeof(struct mail_transaction_log_header);
+	} else {
+		if (hdr.log_file_head_offset > file_offset)
+			hdr.log_file_head_offset = file_offset;
+		if (hdr.log_file_tail_offset > hdr.log_file_head_offset)
+			hdr.log_file_tail_offset = hdr.log_file_head_offset;
+	}
 
 	hdr.messages_count = 0;
 	hdr.recent_messages_count = 0;
@@ -94,6 +117,11 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 	if (hdr.first_deleted_uid_lowwater == 0)
                 hdr.first_deleted_uid_lowwater = hdr.next_uid;
 
+        CHECK(log_file_seq, !=);
+        CHECK(log_file_head_offset, !=);
+        CHECK(log_file_tail_offset, !=);
+
+	CHECK(uid_validity, !=);
         CHECK(messages_count, !=);
         CHECK(recent_messages_count, !=);
         CHECK(seen_messages_count, !=);
@@ -101,7 +129,7 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 
         CHECK(first_recent_uid_lowwater, <);
         CHECK(first_unseen_uid_lowwater, <);
-        CHECK(first_deleted_uid_lowwater, <);
+	CHECK(first_deleted_uid_lowwater, <);
 
 	map->hdr = hdr;
 	return 1;
@@ -109,26 +137,24 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 
 int mail_index_fsck(struct mail_index *index)
 {
-	const char *error;
-	unsigned int lock_id;
+	const char *error = NULL;
+	struct mail_index_map *map;
+	bool lock = !index->log_locked;
 	int ret;
 
 	i_warning("fscking index file %s", index->filepath);
 
-	// FIXME: should we be fscking a given map instead? anyway we probably
-	// want to rewrite the main index after fsck is finished.
-	error = NULL;
-	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD, &lock_id);
-	if (ret > 0) {
-		ret = mail_index_fsck_map(index, index->map, &error);
-		if (ret > 0) {
-			if (mail_index_write_base_header(index,
-							 &index->map->hdr) < 0)
-				ret = -1;
-		}
-	}
+	map = mail_index_map_clone(index->map);
+	mail_index_unmap(index, &index->map);
+	index->map = map;
 
-	mail_index_unlock(index, lock_id);
+	ret = mail_index_fsck_map(index, map, &lock, &error);
+	if (ret > 0) {
+		map->write_base_header = TRUE;
+		map->write_atomic = TRUE;
+
+		mail_index_write(index, FALSE);
+	}
 
 	if (error != NULL) {
 		mail_index_set_error(index, "Corrupted index file %s: %s",
@@ -136,5 +162,8 @@ int mail_index_fsck(struct mail_index *index)
 	}
 	if (ret == 0)
 		mail_index_mark_corrupted(index);
+
+	if (lock)
+		mail_transaction_log_sync_unlock(index->log);
 	return ret;
 }
