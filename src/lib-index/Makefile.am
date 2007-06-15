@@ -26,6 +26,7 @@ libindex_a_SOURCES = \
         mail-index-sync-update.c \
         mail-index-view.c \
         mail-index-view-sync.c \
+        mail-index-write.c \
         mail-transaction-log.c \
         mail-transaction-log-append.c \
         mail-transaction-log-file.c \
