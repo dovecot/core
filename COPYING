@@ -9,4 +9,5 @@ Current exceptions are:
 
 src/lib/
   - md5.c : Public Domain
+  - sha1.c, sha2.c : BSD
   - base64.c, utc-mktime.c : BSD-like (read it)

@@ -78,6 +78,7 @@ liblib_a_SOURCES = \
 	sendfile-util.c \
 	seq-range-array.c \
 	sha1.c \
+	sha2.c \
 	str.c \
 	str-find.c \
 	str-sanitize.c \
@@ -158,6 +159,7 @@ headers = \
 	sendfile-util.h \
 	seq-range-array.h \
 	sha1.h \
+	sha2.h \
 	str.h \
 	str-find.h \
 	str-sanitize.h \

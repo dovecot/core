@@ -12,6 +12,7 @@
 #include "mycrypt.h"
 #include "randgen.h"
 #include "sha1.h"
+#include "sha2.h"
 #include "otp.h"
 #include "str.h"
 #include "password-scheme.h"
@@ -324,6 +325,19 @@ sha1_generate(const char *plaintext, const char *user __attr_unused__,
 }
 
 static void
+sha256_generate(const char *plaintext, const char *user __attr_unused__,
+		const unsigned char **raw_password_r, size_t *size_r)
+{
+	unsigned char *digest;
+
+	digest = t_malloc(SHA256_RESULTLEN);
+	sha256_get_digest(plaintext, strlen(plaintext), digest);
+
+	*raw_password_r = digest;
+	*size_r = SHA256_RESULTLEN;
+}
+
+static void
 ssha_generate(const char *plaintext, const char *user __attr_unused__,
 	      const unsigned char **raw_password_r, size_t *size_r)
 {
@@ -554,6 +568,8 @@ static const struct password_scheme default_schemes[] = {
 	  md5_crypt_verify, md5_crypt_generate },
  	{ "SHA", PW_ENCODING_BASE64, SHA1_RESULTLEN, NULL, sha1_generate },
  	{ "SHA1", PW_ENCODING_BASE64, SHA1_RESULTLEN, NULL, sha1_generate },
+ 	{ "SHA256", PW_ENCODING_BASE64, SHA256_RESULTLEN,
+	  NULL, sha256_generate },
 	{ "SMD5", PW_ENCODING_BASE64, 0, smd5_verify, smd5_generate },
 	{ "SSHA", PW_ENCODING_BASE64, 0, ssha_verify, ssha_generate },
 	{ "PLAIN", PW_ENCODING_NONE, 0, NULL, plain_generate },
