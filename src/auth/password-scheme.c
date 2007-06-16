@@ -371,8 +371,8 @@ smd5_generate(const char *plaintext, const char *user __attr_unused__,
 	unsigned char *digest, *salt;
 	struct md5_context ctx;
 
-	digest = t_malloc(SHA1_RESULTLEN + SSHA_SALT_LEN);
-	salt = digest + SHA1_RESULTLEN;
+	digest = t_malloc(MD5_RESULTLEN + SMD5_SALT_LEN);
+	salt = digest + MD5_RESULTLEN;
 	random_fill(salt, SMD5_SALT_LEN);
 
 	md5_init(&ctx);
@@ -381,7 +381,7 @@ smd5_generate(const char *plaintext, const char *user __attr_unused__,
 	md5_final(&ctx, digest);
 
 	*raw_password_r = digest;
-	*size_r = SHA1_RESULTLEN + SSHA_SALT_LEN;
+	*size_r = MD5_RESULTLEN + SMD5_SALT_LEN;
 }
 
 static bool smd5_verify(const char *plaintext, const char *user,
