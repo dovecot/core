@@ -259,7 +259,7 @@ static void mail_index_view_check(struct mail_index_view *view)
 	 (hdr)->log_file_head_offset == (tail_offset))
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
-                               enum mail_index_view_sync_type sync_type,
+                               enum mail_index_view_sync_flags flags,
 			       struct mail_index_view_sync_ctx **ctx_r)
 {
 	struct mail_index_view_sync_ctx *ctx;
@@ -268,7 +268,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	uoff_t tail_offset;
 	enum mail_transaction_type visible_mask = 0;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
-	bool drop_appends;
 
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
@@ -276,25 +275,14 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	if (mail_index_view_lock_head(view) < 0)
 		return -1;
 
-	if (sync_type == MAIL_INDEX_VIEW_SYNC_TYPE_ALL) {
+	if ((flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0) {
 		/* get list of all expunges first */
 		if (view_sync_get_expunges(view, &expunges) < 0)
 			return -1;
-	}
-
-	/* only flags, appends and expunges can be left to be synced later */
-	switch (sync_type) {
-	case MAIL_INDEX_VIEW_SYNC_TYPE_ALL:
 		visible_mask = MAIL_TRANSACTION_VISIBLE_SYNC_MASK;
-		break;
-	case MAIL_INDEX_VIEW_SYNC_TYPE_NOAPPENDS_NOEXPUNGES:
-		visible_mask = MAIL_TRANSACTION_VISIBLE_SYNC_MASK &
-			~(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND);
-		break;
-	case MAIL_INDEX_VIEW_SYNC_TYPE_NOEXPUNGES:
+	} else {
 		visible_mask = MAIL_TRANSACTION_VISIBLE_SYNC_MASK &
 			~MAIL_TRANSACTION_EXPUNGE;
-		break;
 	}
 
 	if (view_sync_set_log_view_range(view) < 0) {
@@ -310,7 +298,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	if (sync_type == MAIL_INDEX_VIEW_SYNC_TYPE_ALL) {
+	if ((flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0) {
 		view->sync_new_map = view->index->map;
 		view->sync_new_map->refcount++;
 
@@ -352,9 +340,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			!VIEW_IS_SYNCED_TO_SAME(&view->map->hdr,
 						tail_seq, tail_offset);
 
-		drop_appends = ctx->sync_map_update || sync_type ==
-			MAIL_INDEX_VIEW_SYNC_TYPE_NOAPPENDS_NOEXPUNGES;
-		if (drop_appends) {
+		if (ctx->sync_map_update) {
 			/* Copy only the mails that we see currently, since
 			   we're going to append the new ones when we see
 			   their transactions. */
@@ -376,7 +362,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		mail_index_unmap(view->index, &view->map);
 		view->map = map;
 
-		if (drop_appends) {
+		if (ctx->sync_map_update) {
 			/* Start the sync using our old view's header.
 			   The old view->hdr may differ from map->hdr if
 			   another view sharing the map with us had synced

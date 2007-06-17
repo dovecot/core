@@ -135,7 +135,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
         struct index_mailbox_sync_context *ctx;
-	enum mail_index_view_sync_type sync_type;
+	enum mail_index_view_sync_flags sync_flags = 0;
 
 	ctx = i_new(struct index_mailbox_sync_context, 1);
 	ctx->ctx.box = box;
@@ -149,11 +149,9 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 	ctx->messages_count = mail_index_view_get_messages_count(ibox->view);
 
 	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
-		sync_type = MAIL_INDEX_VIEW_SYNC_TYPE_NOEXPUNGES;
-	else
-		sync_type = MAIL_INDEX_VIEW_SYNC_TYPE_ALL;
+		sync_flags = MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES;
 
-	if (mail_index_view_sync_begin(ibox->view, sync_type,
+	if (mail_index_view_sync_begin(ibox->view, sync_flags,
 				       &ctx->sync_ctx) < 0) {
 		mail_storage_set_index_error(ibox);
 		ctx->failed = TRUE;
