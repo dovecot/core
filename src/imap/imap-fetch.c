@@ -384,12 +384,11 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx)
 		mailbox_header_lookup_deinit(&ctx->all_headers_ctx);
 
 	if (ctx->trans != NULL) {
-		if (ctx->failed)
-			mailbox_transaction_rollback(&ctx->trans);
-		else {
-			if (mailbox_transaction_commit(&ctx->trans, 0) < 0)
-				ctx->failed = TRUE;
-		}
+		/* even if something failed, we want to commit changes to
+		   cache, as well as possible \Seen flag changes for FETCH
+		   replies we returned so far. */
+		if (mailbox_transaction_commit(&ctx->trans, 0) < 0)
+			ctx->failed = TRUE;
 	}
 	return ctx->failed ? -1 : 0;
 }
