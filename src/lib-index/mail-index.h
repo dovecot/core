@@ -109,7 +109,7 @@ enum mail_index_sync_type {
 
 enum mail_index_view_sync_flags {
 	/* Don't sync expunges */
-	MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES
+	MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES	= 0x01
 };
 
 struct mail_index_sync_rec {
