@@ -77,15 +77,17 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 
 	t_push();
 
-	if (status.messages != ctx->messages_count && !ctx->no_newmail) {
+	if (!ctx->no_newmail) {
 		ctx->client->messages_count = status.messages;
-		client_send_line(ctx->client,
-			t_strdup_printf("* %u EXISTS", status.messages));
-	}
-	if (status.recent != ctx->client->recent_count && !ctx->no_newmail) {
-                ctx->client->recent_count = status.recent;
-		client_send_line(ctx->client,
-			t_strdup_printf("* %u RECENT", status.recent));
+		if (status.messages != ctx->messages_count) {
+			client_send_line(ctx->client,
+				t_strdup_printf("* %u EXISTS", status.messages));
+		}
+		if (status.recent != ctx->client->recent_count && !ctx->no_newmail) {
+			ctx->client->recent_count = status.recent;
+			client_send_line(ctx->client,
+				t_strdup_printf("* %u RECENT", status.recent));
+		}
 	}
 
 	t_pop();
