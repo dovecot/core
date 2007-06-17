@@ -343,6 +343,7 @@ int imap_fetch(struct imap_fetch_context *ctx)
 		ctx->line_partial = FALSE;
 		if (o_stream_send(client->output, ")\r\n", 3) < 0)
 			return -1;
+		ctx->client->last_output = ioloop_time;
 
 		ctx->cur_mail = NULL;
 		ctx->cur_handler = 0;
