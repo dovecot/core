@@ -26,7 +26,8 @@ struct imap_sync_context {
 
 	unsigned int messages_count;
 
-	bool failed;
+	unsigned int failed:1;
+	unsigned int no_newmail:1;
 };
 
 struct imap_sync_context *
@@ -76,12 +77,12 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 
 	t_push();
 
-	ctx->client->messages_count = status.messages;
-	if (status.messages != ctx->messages_count) {
+	if (status.messages != ctx->messages_count && !ctx->no_newmail) {
+		ctx->client->messages_count = status.messages;
 		client_send_line(ctx->client,
 			t_strdup_printf("* %u EXISTS", status.messages));
 	}
-	if (status.recent != ctx->client->recent_count) {
+	if (status.recent != ctx->client->recent_count && !ctx->no_newmail) {
                 ctx->client->recent_count = status.recent;
 		client_send_line(ctx->client,
 			t_strdup_printf("* %u RECENT", status.recent));
@@ -230,6 +231,7 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 {
 	struct client *client = cmd->client;
 	struct cmd_sync_context *ctx;
+	bool no_newmail;
 
 	i_assert(client->output_lock == cmd || client->output_lock == NULL);
 
@@ -239,20 +241,19 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 		return TRUE;
 	}
 
-	if ((client_workarounds & WORKAROUND_DELAY_NEWMAIL) != 0 &&
-	    (flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
-		/* expunges might break just as badly as new mail
-		   notifications. besides, currently indexing code doesn't
-		   handle expunges + no-newmail so this is required, unless
-		   we did this only for no-expunges case.. */
-		flags |= MAILBOX_SYNC_FLAG_NO_NEWMAIL |
-			MAILBOX_SYNC_FLAG_NO_EXPUNGES;
+	no_newmail = (client_workarounds & WORKAROUND_DELAY_NEWMAIL) != 0 &&
+		(flags & MAILBOX_SYNC_FLAG_FAST) != 0;
+	if (no_newmail) {
+		/* expunges might break the client just as badly as new mail
+		   notifications. */
+		flags |= MAILBOX_SYNC_FLAG_NO_EXPUNGES;
 	}
 
 	ctx = p_new(cmd->pool, struct cmd_sync_context, 1);
 	ctx->tagline = p_strdup(cmd->pool, tagline);
 	ctx->sync_ctx = imap_sync_init(client, client->mailbox,
 				       imap_flags, flags);
+	ctx->sync_ctx->no_newmail = no_newmail;
 
 	cmd->func = cmd_sync_continue;
 	cmd->context = ctx;
