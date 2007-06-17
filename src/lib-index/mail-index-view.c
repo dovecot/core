@@ -23,7 +23,6 @@ void mail_index_view_clone(struct mail_index_view *dest,
 	if (dest->map != NULL)
 		dest->map->refcount++;
 	dest->hdr = src->hdr;
-	dest->broken_counters = src->broken_counters;
 
 	dest->log_file_expunge_seq = src->log_file_expunge_seq;
 	dest->log_file_expunge_offset = src->log_file_expunge_offset;
@@ -188,8 +187,6 @@ static uint32_t _view_get_messages_count(struct mail_index_view *view)
 static const struct mail_index_header *
 _view_get_header(struct mail_index_view *view)
 {
-	if (view->broken_counters)
-		mail_index_view_recalc_counters(view);
 	return &view->hdr;
 }
 

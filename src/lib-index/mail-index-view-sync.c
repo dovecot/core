@@ -170,21 +170,6 @@ view_sync_get_expunges(struct mail_index_view *view,
 	return 0;
 }
 
-static void mail_index_view_hdr_drop_appends(struct mail_index_view *view,
-					     struct mail_index_map *map)
-{
-	/* Keep message count the same. */
-	map->hdr.next_uid = view->hdr.next_uid;
-	map->hdr.messages_count = view->hdr.messages_count;
-
-	/* Keep the old message flag counts also, although they may be
-	   somewhat stale already. We just don't want them to be more than
-	   our old messages_count. */
-	map->hdr.recent_messages_count = view->hdr.recent_messages_count;
-	map->hdr.seen_messages_count = view->hdr.seen_messages_count;
-	map->hdr.deleted_messages_count = view->hdr.deleted_messages_count;
-}
-
 #ifdef DEBUG
 static void mail_index_view_check(struct mail_index_view *view)
 {
@@ -263,9 +248,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		view->sync_new_map = view->index->map;
 		view->sync_new_map->refcount++;
 
-		/* since we're syncing everything, the counters get fixed */
-		view->broken_counters = FALSE;
-
 		/* keep the old mapping without expunges until we're
 		   fully synced */
 	} else {
@@ -276,8 +258,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		   already all the latest changes and there's no need for us
 		   to apply any changes to it. This can only happen if there
 		   hadn't been any expunges. */
-		uint32_t old_records_count = view->map->records_count;
-
 		if (view->map != view->index->map) {
 			/* Using non-head mapping. We have to apply
 			   transactions to it to get latest changes into it. */
@@ -290,49 +270,27 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		   old information if another process updated the
 		   index file since. */
 		if (view->map->mmap_base != NULL) {
+			// FIXME: locking should do this..?..
 			const struct mail_index_header *hdr;
 
 			hdr = view->map->mmap_base;
 			view->map->hdr = *hdr;
 		}
 
-		ctx->sync_map_ctx.unreliable_flags =
-			!VIEW_IS_SYNCED_TO_SAME(&view->map->hdr,
-						view->log_file_expunge_seq,
-						view->log_file_expunge_offset);
-
-		if (ctx->sync_map_update) {
-			/* Copy only the mails that we see currently, since
-			   we're going to append the new ones when we see
-			   their transactions. */
-			i_assert(view->map->records_count >=
-				 view->hdr.messages_count);
-			view->map->records_count = view->hdr.messages_count;
-		}
-
 #ifdef DEBUG
-		if (!ctx->sync_map_ctx.unreliable_flags) {
-			i_assert(view->map->hdr.messages_count ==
-				 view->hdr.messages_count);
-			mail_index_view_check(view);
-		}
+		i_assert(view->map->hdr.messages_count ==
+			 view->hdr.messages_count);
+		mail_index_view_check(view);
 #endif
 
-		map = mail_index_map_clone(view->map);
-		view->map->records_count = old_records_count;
-		mail_index_unmap(view->index, &view->map);
-		view->map = map;
-
-		if (ctx->sync_map_update) {
-			/* Start the sync using our old view's header.
-			   The old view->hdr may differ from map->hdr if
-			   another view sharing the map with us had synced
-			   itself. */
-			i_assert(map->hdr_base == map->hdr_copy_buf->data);
-			mail_index_view_hdr_drop_appends(view, map);
+		if (view->map->refcount > 1) {
+			map = mail_index_map_clone(view->map);
+			mail_index_unmap(view->index, &view->map);
+			view->map = map;
+		} else {
+			map = view->map;
 		}
 		view->hdr = map->hdr;
-
 		i_assert(map->records_count == map->hdr.messages_count);
 	}
 
@@ -652,8 +610,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	mail_index_view_sync_clean_log_syncs(ctx->view);
 
 #ifdef DEBUG
-	if (!view->broken_counters && !ctx->sync_map_ctx.unreliable_flags)
-		mail_index_view_check(view);
+	mail_index_view_check(view);
 #endif
 
 	/* set log view to empty range so unneeded memory gets freed */

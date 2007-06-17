@@ -179,39 +179,9 @@ mail_index_sync_header_update_counts(struct mail_index_sync_map_ctx *ctx,
 {
 	const char *error;
 
-	if (ctx->view->broken_counters)
-		return;
-
 	if (mail_index_header_update_counts(&ctx->view->map->hdr,
-					    old_flags, new_flags, &error) < 0) {
+					    old_flags, new_flags, &error) < 0)
 		mail_index_sync_set_corrupted(ctx, "%s", error);
-		ctx->view->broken_counters = TRUE;
-	}
-}
-
-void mail_index_view_recalc_counters(struct mail_index_view *view)
-{
-	struct mail_index_map *map = view->map;
-	const struct mail_index_record *rec;
-	const char *error;
-	unsigned int i;
-
-	map->hdr.recent_messages_count = 0;
-	map->hdr.seen_messages_count = 0;
-	map->hdr.deleted_messages_count = 0;
-
-	for (i = 0; i < view->hdr.messages_count; i++) {
-		rec = MAIL_INDEX_MAP_IDX(map, i);
-		if (mail_index_header_update_counts(&map->hdr, 0, rec->flags,
-						    &error) < 0)
-			i_panic("mail_index_view_recalc_counters(): %s", error);
-	}
-
-	view->hdr.recent_messages_count = map->hdr.recent_messages_count;
-	view->hdr.seen_messages_count = map->hdr.seen_messages_count;
-	view->hdr.deleted_messages_count = map->hdr.deleted_messages_count;
-
-	view->broken_counters = FALSE;
 }
 
 static void
@@ -285,14 +255,10 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 			continue;
 		}
 
-		if (ctx->unreliable_flags || ctx->view->broken_counters)
-			ctx->view->broken_counters = TRUE;
-		else {
-			for (seq = seq1; seq <= seq2; seq++) {
-				rec = MAIL_INDEX_MAP_IDX(map, seq-1);
-				mail_index_sync_header_update_counts(ctx,
-								rec->flags, 0);
-			}
+		for (seq = seq1; seq <= seq2; seq++) {
+			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
+			mail_index_sync_header_update_counts(ctx,
+							     rec->flags, 0);
 		}
 
 		if (sync_expunge_call_handlers(ctx, seq1, seq2) < 0)
@@ -407,14 +373,6 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 		for (idx = seq1-1; idx < seq2; idx++) {
 			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
 			rec->flags = (rec->flags & flag_mask) | u->add_flags;
-		}
-	} else if (view->broken_counters || ctx->unreliable_flags) {
-		view->broken_counters = TRUE;
-		for (idx = seq1-1; idx < seq2; idx++) {
-			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
-			rec->flags = (rec->flags & flag_mask) | u->add_flags;
-
-			mail_index_header_update_lowwaters(hdr, rec);
 		}
 	} else {
 		for (idx = seq1-1; idx < seq2; idx++) {
@@ -820,9 +778,6 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 		(void)mail_index_sync_record(&sync_map_ctx, thdr, tdata);
 	}
 	map = view->map;
-
-	if (view->broken_counters)
-		mail_index_view_recalc_counters(view);
 
 	if (had_dirty)
 		mail_index_sync_update_hdr_dirty_flag(map);

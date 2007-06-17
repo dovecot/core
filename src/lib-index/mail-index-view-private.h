@@ -72,7 +72,6 @@ struct mail_index_view {
 	unsigned int index_sync_view:1;
 	/* this view is being synced */
 	unsigned int syncing:1;
-	unsigned int broken_counters:1;
 };
 
 struct mail_index_view *
