@@ -148,9 +148,7 @@ index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 
 	ctx->messages_count = mail_index_view_get_messages_count(ibox->view);
 
-	if ((flags & MAILBOX_SYNC_FLAG_NO_NEWMAIL) != 0)
-		sync_type = MAIL_INDEX_VIEW_SYNC_TYPE_NOAPPENDS_NOEXPUNGES;
-	else if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
+	if ((flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
 		sync_type = MAIL_INDEX_VIEW_SYNC_TYPE_NOEXPUNGES;
 	else
 		sync_type = MAIL_INDEX_VIEW_SYNC_TYPE_ALL;

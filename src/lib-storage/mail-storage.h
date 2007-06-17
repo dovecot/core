@@ -125,8 +125,6 @@ enum mailbox_sync_flags {
 
 	/* Don't sync expunges from our view */
 	MAILBOX_SYNC_FLAG_NO_EXPUNGES	= 0x08,
-	/* Don't show new mail */
-	MAILBOX_SYNC_FLAG_NO_NEWMAIL	= 0x10,
 	/* Stop auto syncing */
 	MAILBOX_SYNC_AUTO_STOP		= 0x20
 };
