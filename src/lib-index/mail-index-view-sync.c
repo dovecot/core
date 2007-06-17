@@ -18,7 +18,6 @@ struct mail_index_view_sync_ctx {
 
 	size_t data_offset;
 	unsigned int sync_map_update:1;
-	unsigned int skipped_appends:1;
 	unsigned int skipped_expunges:1;
 	unsigned int last_read:1;
 };
@@ -88,36 +87,15 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 	return 0;
 }
 
-static void view_sync_get_tail(struct mail_index_view *view,
-			       uint32_t *seq_r, uoff_t *offset_r)
-{
-	if (LOG_IS_BEFORE(view->log_file_append_seq,
-			  view->log_file_append_offset,
-			  view->log_file_expunge_seq,
-			  view->log_file_expunge_offset)) {
-		*seq_r = view->log_file_append_seq;
-		*offset_r = view->log_file_append_offset;
-	} else {
-		*seq_r = view->log_file_expunge_seq;
-		*offset_r = view->log_file_expunge_offset;
-	}
-	i_assert(!LOG_IS_BEFORE(view->log_file_head_seq,
-				view->log_file_head_offset,
-				*seq_r, *offset_r));
-}
-
 static int view_sync_set_log_view_range(struct mail_index_view *view)
 {
 	const struct mail_index_header *hdr = view->index->hdr;
-	uint32_t tail_seq;
-	uoff_t tail_offset;
 	int ret;
-
-	view_sync_get_tail(view, &tail_seq, &tail_offset);
 
 	/* the view begins from the first non-synced transaction */
 	ret = mail_transaction_log_view_set(view->log_view,
-					    tail_seq, tail_offset,
+					    view->log_file_expunge_seq,
+					    view->log_file_expunge_offset,
 					    hdr->log_file_seq,
 					    hdr->log_file_head_offset);
 	if (ret <= 0) {
@@ -264,8 +242,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 {
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
-	uint32_t tail_seq;
-	uoff_t tail_offset;
 	enum mail_transaction_type visible_mask = 0;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
 
@@ -335,10 +311,10 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			view->map->hdr = *hdr;
 		}
 
-		view_sync_get_tail(view, &tail_seq, &tail_offset);
 		ctx->sync_map_ctx.unreliable_flags =
 			!VIEW_IS_SYNCED_TO_SAME(&view->map->hdr,
-						tail_seq, tail_offset);
+						view->log_file_expunge_seq,
+						view->log_file_expunge_offset);
 
 		if (ctx->sync_map_update) {
 			/* Copy only the mails that we see currently, since
@@ -416,24 +392,6 @@ mail_index_view_sync_want(struct mail_index_view_sync_ctx *ctx,
 	next_offset = offset + sizeof(*hdr) + hdr->size;
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
-	case MAIL_TRANSACTION_APPEND:
-		if ((ctx->visible_sync_mask & MAIL_TRANSACTION_APPEND) == 0) {
-			i_assert(!LOG_IS_BEFORE(seq, offset,
-						view->log_file_append_seq,
-						view->log_file_append_offset));
-			if (!ctx->skipped_appends) {
-				view->log_file_append_seq = seq;
-				view->log_file_append_offset = offset;
-				ctx->skipped_appends = TRUE;
-			}
-			return FALSE;
-		}
-		if (LOG_IS_BEFORE(seq, offset, view->log_file_append_seq,
-				  view->log_file_append_offset)) {
-			/* already synced */
-			return FALSE;
-		}
-		break;
 	case MAIL_TRANSACTION_EXPUNGE:
 		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
 			/* expunge request. this will be ignored */
@@ -671,21 +629,18 @@ static void
 mail_index_view_sync_clean_log_syncs(struct mail_index_view *view)
 {
 	const struct mail_index_view_log_sync_area *syncs;
-	uint32_t tail_seq;
-	uoff_t tail_offset;
 	unsigned int i, count;
 
 	if (!array_is_created(&view->syncs_hidden))
 		return;
 
 	/* Clean up to view's tail */
-	view_sync_get_tail(view, &tail_seq, &tail_offset);
-
 	syncs = array_get(&view->syncs_hidden, &count);
 	for (i = 0; i < count; i++) {
-		if ((syncs[i].log_file_offset + syncs[i].length > tail_offset &&
-                     syncs[i].log_file_seq == tail_seq) ||
-		    syncs[i].log_file_seq > tail_seq)
+		if ((syncs[i].log_file_offset +
+		     syncs[i].length > view->log_file_expunge_offset &&
+                     syncs[i].log_file_seq == view->log_file_expunge_seq) ||
+		    syncs[i].log_file_seq > view->log_file_expunge_seq)
 			break;
 	}
 	if (i > 0)
@@ -715,10 +670,6 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	if (!ctx->skipped_expunges) {
 		view->log_file_expunge_seq = view->log_file_head_seq;
 		view->log_file_expunge_offset = view->log_file_head_offset;
-	}
-	if (!ctx->skipped_appends) {
-		view->log_file_append_seq = view->log_file_head_seq;
-		view->log_file_append_offset = view->log_file_head_offset;
 	}
 
 	if (ctx->sync_map_update) {

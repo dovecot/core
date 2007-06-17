@@ -54,10 +54,9 @@ struct mail_index_view {
 
 	struct mail_index_header hdr;
 
-	/* (append, expunge) <= head */
-	uint32_t log_file_append_seq, log_file_expunge_seq, log_file_head_seq;
-	uoff_t log_file_append_offset, log_file_expunge_offset;
-	uoff_t log_file_head_offset;
+	/* expunge <= head */
+	uint32_t log_file_expunge_seq, log_file_head_seq;
+	uoff_t log_file_expunge_offset, log_file_head_offset;
 
 	/* Transaction log offsets which we don't want to return in view sync */
 	ARRAY_TYPE(view_log_sync_area) syncs_hidden;
