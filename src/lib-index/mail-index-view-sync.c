@@ -9,7 +9,7 @@
 
 struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
-	enum mail_transaction_type visible_sync_mask;
+	enum mail_index_view_sync_flags flags;
 	struct mail_index_sync_map_ctx sync_map_ctx;
 	ARRAY_TYPE(seq_range) expunges;
 
@@ -222,16 +222,6 @@ static void mail_index_view_check(struct mail_index_view *view)
 }
 #endif
 
-#define MAIL_INDEX_VIEW_VISIBLE_FLAGS_MASK \
-	(MAIL_INDEX_SYNC_TYPE_FLAGS | \
-	 MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET | \
-	 MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD | MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE)
-
-#define MAIL_TRANSACTION_VISIBLE_SYNC_MASK \
-	(MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_APPEND | \
-	 MAIL_TRANSACTION_FLAG_UPDATE | MAIL_TRANSACTION_KEYWORD_UPDATE | \
-	 MAIL_TRANSACTION_KEYWORD_RESET)
-
 #define VIEW_IS_SYNCED_TO_SAME(hdr, tail_seq, tail_offset) \
 	((hdr)->log_file_seq == (tail_seq) && \
 	 (hdr)->log_file_head_offset == (tail_offset))
@@ -242,7 +232,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 {
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
-	enum mail_transaction_type visible_mask = 0;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
 
 	i_assert(!view->syncing);
@@ -255,10 +244,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		/* get list of all expunges first */
 		if (view_sync_get_expunges(view, &expunges) < 0)
 			return -1;
-		visible_mask = MAIL_TRANSACTION_VISIBLE_SYNC_MASK;
-	} else {
-		visible_mask = MAIL_TRANSACTION_VISIBLE_SYNC_MASK &
-			~MAIL_TRANSACTION_EXPUNGE;
 	}
 
 	if (view_sync_set_log_view_range(view) < 0) {
@@ -269,7 +254,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 
 	ctx = i_new(struct mail_index_view_sync_ctx, 1);
 	ctx->view = view;
-	ctx->visible_sync_mask = visible_mask;
+	ctx->flags = flags;
 	ctx->expunges = expunges;
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
@@ -360,16 +345,16 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	return 0;
 }
 
-static bool view_sync_area_find(ARRAY_TYPE(view_log_sync_area) *sync_arr,
-				uint32_t seq, uoff_t offset)
+static bool
+view_sync_area_find(struct mail_index_view *view, uint32_t seq, uoff_t offset)
 {
 	const struct mail_index_view_log_sync_area *syncs;
 	unsigned int i, count;
 
-	if (!array_is_created(sync_arr))
+	if (!array_is_created(&view->syncs_hidden))
 		return FALSE;
 
-	syncs = array_get(sync_arr, &count);
+	syncs = array_get(&view->syncs_hidden, &count);
 	for (i = 0; i < count; i++) {
 		if (syncs[i].log_file_offset <= offset &&
 		    offset - syncs[i].log_file_offset < syncs[i].length &&
@@ -391,13 +376,9 @@ mail_index_view_sync_want(struct mail_index_view_sync_ctx *ctx,
 	mail_transaction_log_view_get_prev_pos(view->log_view, &seq, &offset);
 	next_offset = offset + sizeof(*hdr) + hdr->size;
 
-	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
-	case MAIL_TRANSACTION_EXPUNGE:
-		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
-			/* expunge request. this will be ignored */
-			break;
-		}
-		if ((ctx->visible_sync_mask & MAIL_TRANSACTION_EXPUNGE) == 0) {
+	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0 &&
+	    (hdr->type & MAIL_TRANSACTION_EXTERNAL) != 0) {
+		if ((ctx->flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) != 0) {
 			i_assert(!LOG_IS_BEFORE(seq, offset,
 						view->log_file_expunge_seq,
 						view->log_file_expunge_offset));
@@ -413,15 +394,6 @@ mail_index_view_sync_want(struct mail_index_view_sync_ctx *ctx,
 			/* already synced */
 			return FALSE;
 		}
-		break;
-	default:
-		if ((hdr->type & ctx->visible_sync_mask) != 0)
-			break;
-		if ((hdr->type & MAIL_TRANSACTION_VISIBLE_SYNC_MASK) == 0)
-			break;
-
-		/* visible record that we want to skip */
-		return FALSE;
 	}
 
 	if (LOG_IS_BEFORE(seq, offset, view->log_file_head_seq,
@@ -488,15 +460,9 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 				return -1;
 		}
 
-		if ((hdr->type & ctx->visible_sync_mask) == 0) {
-			/* non-visible change that we just wanted to update
-			   to map. */
-			continue;
-		}
-
 		/* skip changes committed by hidden transactions (eg. in IMAP
 		   store +flags.silent command) */
-		if (view_sync_area_find(&view->syncs_hidden, seq, offset))
+		if (view_sync_area_find(view, seq, offset))
 			continue;
 		break;
 	}
@@ -507,7 +473,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 	((((u)->add_flags | (u)->remove_flags) & \
 	  ~(MAIL_INDEX_MAIL_FLAG_DIRTY | MAIL_RECENT)) == 0)
 
-static int
+static bool
 mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 			     struct mail_index_view_sync_rec *rec)
 {
@@ -596,9 +562,10 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 		break;
 	}
 	default:
-		i_unreached();
+		ctx->hdr = NULL;
+		return FALSE;
 	}
-	return 1;
+	return TRUE;
 }
 
 int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
