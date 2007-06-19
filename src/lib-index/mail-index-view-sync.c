@@ -304,7 +304,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 }
 
 static bool
-view_sync_area_find(struct mail_index_view *view, uint32_t seq, uoff_t offset)
+view_sync_is_hidden(struct mail_index_view *view, uint32_t seq, uoff_t offset)
 {
 	const struct mail_index_view_log_sync_area *syncs;
 	unsigned int i, count;
@@ -420,7 +420,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 
 		/* skip changes committed by hidden transactions (eg. in IMAP
 		   store +flags.silent command) */
-		if (view_sync_area_find(view, seq, offset))
+		if (view_sync_is_hidden(view, seq, offset))
 			continue;
 		break;
 	}
