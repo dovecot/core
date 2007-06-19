@@ -695,12 +695,18 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 				   const char *fmt, ...)
 {
 	va_list va;
+	uint32_t seq;
+	uoff_t offset;
+
+	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
+					       &seq, &offset);
 
 	va_start(va, fmt);
 	t_push();
 	mail_index_set_error(ctx->view->index,
-			     "Synchronization error from %s: %s",
-			     ctx->view->index->filepath,
+			     "Log synchronization error at "
+			     "seq=%u,offset=%"PRIuUOFF_T" for %s: %s",
+			     seq, offset, ctx->view->index->filepath,
 			     t_strdup_vprintf(fmt, va));
 	t_pop();
 	va_end(va);
