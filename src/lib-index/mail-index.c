@@ -433,7 +433,6 @@ static bool mail_index_open_files(struct mail_index *index,
 		if (ret == 0) {
 			/* doesn't exist / corrupted */
 			index->map = mail_index_map_alloc(index);
-			index->hdr = &index->map->hdr;
 		}
 	}
 	if (ret < 0) {
@@ -456,8 +455,9 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	int i = 0, ret = 1;
 
 	if (index->opened) {
-		if (index->hdr != NULL &&
-		    (index->hdr->flags & MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
+		if (index->map != NULL &&
+		    (index->map->hdr.flags &
+		     MAIL_INDEX_HDR_FLAG_CORRUPTED) != 0) {
 			/* corrupted, reopen files */
                         mail_index_close(index);
 		} else {
@@ -661,7 +661,6 @@ int mail_index_move_to_memory(struct mail_index *index)
 		map = mail_index_map_clone(index->map);
 		mail_index_unmap(index, &index->map);
 		index->map = map;
-		index->hdr = &map->hdr;
 	}
 
 	if (index->log != NULL) {
@@ -681,16 +680,13 @@ int mail_index_move_to_memory(struct mail_index *index)
 
 void mail_index_mark_corrupted(struct mail_index *index)
 {
-	struct mail_index_header hdr;
-
 	mail_index_set_inconsistent(index);
 
 	if (index->readonly || index->map == NULL)
 		return;
 
-	hdr = *index->hdr;
-	hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
-	if (mail_index_write_base_header(index, &hdr) == 0) {
+	index->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
+	if (mail_index_write_base_header(index, &index->map->hdr) == 0) {
 		if (!MAIL_INDEX_IS_IN_MEMORY(index) && fsync(index->fd) < 0)
 			mail_index_set_syscall_error(index, "fsync()");
 	}

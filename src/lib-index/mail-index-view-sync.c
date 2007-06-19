@@ -89,7 +89,7 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 
 static int view_sync_set_log_view_range(struct mail_index_view *view)
 {
-	const struct mail_index_header *hdr = view->index->hdr;
+	const struct mail_index_header *hdr = &view->index->map->hdr;
 	int ret;
 
 	/* the view begins from the first non-synced transaction */

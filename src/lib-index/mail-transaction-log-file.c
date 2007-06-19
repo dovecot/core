@@ -158,10 +158,10 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 				   &lock_id) <= 0)
 			return -1;
 	}
-	if (index->hdr != NULL) {
-		hdr->prev_file_seq = index->hdr->log_file_seq;
-		hdr->prev_file_offset = index->hdr->log_file_head_offset;
-		hdr->file_seq = index->hdr->log_file_seq + 1;
+	if (index->map != NULL) {
+		hdr->prev_file_seq = index->map->hdr.log_file_seq;
+		hdr->prev_file_offset = index->map->hdr.log_file_head_offset;
+		hdr->file_seq = index->map->hdr.log_file_seq + 1;
 	} else {
 		hdr->file_seq = 1;
 	}

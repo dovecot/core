@@ -228,8 +228,8 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	   usually there are only a few expunges, so just going downwards from
 	   our initial sequence position is probably faster than binary
 	   search. */
-	if (seq > view->index->hdr->messages_count)
-		seq = view->index->hdr->messages_count;
+	if (seq > view->index->map->hdr.messages_count)
+		seq = view->index->map->hdr.messages_count;
 	if (seq == 0) {
 		/* everything is expunged from head. use the old record. */
 		*map_r = view->map;

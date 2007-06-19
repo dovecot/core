@@ -363,7 +363,7 @@ int mail_index_sync_begin(struct mail_index *index,
 		mail_transaction_log_sync_unlock(index->log);
 		return -1;
 	}
-	hdr = index->hdr;
+	hdr = &index->map->hdr;
 
 	if (!mail_index_need_sync(index, hdr, sync_recent,
 				  log_file_seq, log_file_offset)) {

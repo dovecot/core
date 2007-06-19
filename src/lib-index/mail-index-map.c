@@ -769,7 +769,6 @@ int mail_index_map(struct mail_index *index,
 	if (map == NULL)
 		map = mail_index_map_alloc(index);
 
-	index->hdr = NULL;
 	index->map = NULL;
 
 	ret = mail_index_map_update(index, &map, type, lock_id_r);
@@ -777,7 +776,6 @@ int mail_index_map(struct mail_index *index,
 
 	if (ret > 0) {
 		i_assert(map->hdr.messages_count == map->records_count);
-		index->hdr = &map->hdr;
 		index->map = map;
 	} else {
 		if (map != NULL)

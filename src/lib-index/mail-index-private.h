@@ -156,7 +156,6 @@ struct mail_index {
 	char *filepath;
 	int fd;
 
-	const struct mail_index_header *hdr;
 	struct mail_index_map *map;
 	uint32_t indexid;
 	/* last known log_file_tail_offset in main index file. used for

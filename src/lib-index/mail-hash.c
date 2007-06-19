@@ -153,7 +153,7 @@ static int mail_hash_check_header(struct mail_hash *hash,
 
 	if (hdr->version != MAIL_HASH_VERSION ||
 	    (hdr->last_uid != 0 &&
-	     hdr->uid_validity != hash->index->hdr->uid_validity) ||
+	     hdr->uid_validity != hash->index->map->hdr.uid_validity) ||
 	    (hdr->corrupted && hash->change_offset_end == 0)) {
 		/* silent rebuild */
 		return -1;
@@ -473,10 +473,10 @@ mail_hash_header_init(struct mail_hash *hash, unsigned int initial_count,
 	hdr->record_size = hash->record_size;
 	/* note that since the index may not have been synced yet, the
 	   uid_validity may be 0 */
-	hdr->uid_validity = hash->index->hdr->uid_validity;
+	hdr->uid_validity = hash->index->map->hdr.uid_validity;
 
 	if (initial_count == 0)
-		initial_count = I_MAX(hash->index->hdr->messages_count, 25);
+		initial_count = I_MAX(hash->index->map->hdr.messages_count, 25);
 	hdr->hash_size = I_MAX(primes_closest(initial_count * 2),
 			       MAIL_HASH_MIN_SIZE);
 
@@ -678,7 +678,7 @@ int mail_hash_lock(struct mail_hash *hash)
 	}
 	if (hash->hdr->uid_validity == 0) {
 		i_assert(hash->hdr->last_uid == 0);
-		hash->hdr->uid_validity = hash->index->hdr->uid_validity;
+		hash->hdr->uid_validity = hash->index->map->hdr.uid_validity;
 	}
 	hash->locked = TRUE;
 	return 1;
@@ -768,7 +768,7 @@ static int mail_hash_grow_file(struct mail_hash *hash)
 	size_t new_size, grow_size;
 
 	grow_size = hash->mmap_size * 100 / MAIL_HASH_GROW_PERCENTAGE;
-	message_count = hash->index->hdr->messages_count;
+	message_count = hash->index->map->hdr.messages_count;
 	if (hash->hdr->record_count < message_count) {
 		/* if lots of messages have been added, the grow percentage
 		   may not be enough. */

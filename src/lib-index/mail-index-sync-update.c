@@ -80,10 +80,8 @@ static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 	mail_index_unmap(view->index, &view->map);
 	view->map = map;
 
-	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
+	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW)
 		view->index->map = map;
-		view->index->hdr = &map->hdr;
-	}
 }
 
 void mail_index_sync_move_to_private(struct mail_index_sync_map_ctx *ctx)
@@ -743,9 +741,8 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	}
 
 	if (type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
-		i_assert(index->map == NULL && index->hdr == NULL);
+		i_assert(index->map == NULL);
 		index->map = map;
-		index->hdr = &map->hdr;
 	}
 
 	mail_index_sync_map_init(&sync_map_ctx, view, type);
@@ -813,7 +810,6 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	if (type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
 		i_assert(index->map == map);
 		index->map = NULL;
-		index->hdr = NULL;
 	}
 
 	*_map = map;
