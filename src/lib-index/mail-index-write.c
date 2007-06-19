@@ -154,6 +154,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	map->write_ext_header = FALSE;
 
 	if (want_rotate &&
+	    hdr->log_file_seq == index->log->head->hdr.file_seq &&
 	    hdr->log_file_tail_offset == hdr->log_file_head_offset)
 		(void)mail_transaction_log_rotate(index->log);
 }
