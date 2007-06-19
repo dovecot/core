@@ -20,9 +20,6 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 					       &prev_seq, &prev_offset);
 
 	if (!eol) {
-		i_assert(prev_seq == map->hdr.log_file_seq);
-		i_assert(prev_offset >= map->hdr.log_file_head_offset);
-
 		if (prev_offset == ctx->ext_intro_end_offset &&
 		    prev_seq == ctx->ext_intro_seq) {
 			/* previous transaction was an extension introduction.
