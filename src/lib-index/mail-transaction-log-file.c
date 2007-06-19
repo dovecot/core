@@ -884,6 +884,9 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 	if (index->log_locked && file == file->log->head &&
 	    end_offset == (uoff_t)-1) {
 		/* we're not interested of going further than sync_offset */
+		if (log_file_map_check_offsets(file, start_offset,
+					       end_offset) == 0)
+			return 0;
 		i_assert(start_offset <= file->sync_offset);
 		end_offset = file->sync_offset;
 	}
