@@ -104,13 +104,7 @@ void mbox_sync_file_update_ext_modified(struct mbox_sync_context *sync_ctx)
 
 	if (st.st_size != sync_ctx->last_stat.st_size ||
 	    (sync_ctx->last_stat.st_mtime != 0 &&
-	     (st.st_mtime != sync_ctx->last_stat.st_mtime
-#ifdef HAVE_STAT_TV_NSEC
-	      /* nanoseconds give better precision to this check if they're
-		 supported by the OS */
-	      || st.st_mtim.tv_nsec != sync_ctx->last_stat.st_mtim.tv_nsec
-#endif
-	     )))
+	     !CMP_ST_MTIME(&st, &sync_ctx->last_stat)))
 		sync_ctx->ext_modified = TRUE;
 
 	sync_ctx->last_stat = st;
