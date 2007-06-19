@@ -82,12 +82,12 @@ static int mail_index_write_map_over(struct mail_index *index)
 			return -1;
 	}
 
-	/* write base header */
-	if (map->write_base_header) {
-		base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
-		if (pwrite_full(index->fd, &map->hdr, base_size, 0) < 0)
-			return -1;
-	}
+	/* write base header. it has changed practically always, so
+	   map->write_base_header might not be TRUE here in all situations.
+	   It's used only to figure out if we want to write the map at all. */
+	base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
+	if (pwrite_full(index->fd, &map->hdr, base_size, 0) < 0)
+		return -1;
 
 	/* write extended headers */
 	if (map->write_ext_header) {

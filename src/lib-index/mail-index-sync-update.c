@@ -332,7 +332,6 @@ static int sync_append(const struct mail_index_record *rec,
 
 	mail_index_sync_write_seq_update(ctx, map->hdr.messages_count,
 					 map->hdr.messages_count);
-	map->write_base_header = TRUE;
 
 	if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
@@ -360,7 +359,6 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 
 	mail_index_sync_move_to_private(ctx);
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);
-	view->map->write_base_header = TRUE;
 
 	hdr = &view->map->hdr;
 	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
