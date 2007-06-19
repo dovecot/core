@@ -9,7 +9,6 @@
 #include "mail-transaction-log.h"
 #include "mail-transaction-log-private.h"
 
-#if 0 // FIXME: can we / do we want to support this?
 static void
 mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 				  struct mail_index_map *map, bool eol)
@@ -20,24 +19,31 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 					       &prev_seq, &prev_offset);
 
-	if (prev_offset == ctx->ext_intro_offset + ctx->ext_intro_size &&
-	    prev_seq == ctx->ext_intro_seq && !eol) {
-		/* previous transaction was an extension introduction.
-		   we probably came here from mail_index_sync_ext_reset().
-		   if there are any more views which want to continue syncing
-		   it needs the intro. so back up a bit more.
+	if (!eol) {
+		i_assert(prev_seq == map->hdr.log_file_seq);
+		i_assert(prev_offset >= map->hdr.log_file_head_offset);
 
-		   don't do this in case the last transaction in the log is
-		   the extension intro, so we don't keep trying to sync it
-		   over and over again. */
-		prev_offset = ctx->ext_intro_offset;
+		if (prev_offset == ctx->ext_intro_end_offset &&
+		    prev_seq == ctx->ext_intro_seq) {
+			/* previous transaction was an extension introduction.
+			   we probably came here from
+			   mail_index_sync_ext_reset(). if there are any more
+			   views which want to continue syncing it needs the
+			   intro. so back up a bit more.
+
+			   don't do this in case the last transaction in the
+			   log is the extension intro, so we don't keep trying
+			   to sync it over and over again. */
+			prev_offset = ctx->ext_intro_offset;
+		}
+	} else {
+		i_assert(ctx->view->index->log->head->hdr.file_seq == prev_seq);
+		map->hdr.log_file_seq = prev_seq;
 	}
-
-	i_assert(prev_seq == map->hdr.log_file_seq);
-	i_assert(prev_offset >= map->hdr.log_file_head_offset);
 	map->hdr.log_file_head_offset = prev_offset;
 }
 
+#if 0 // FIXME: can we / do we want to support this?
 static int
 mail_index_map_msync(struct mail_index *index, struct mail_index_map *map)
 {
@@ -69,11 +75,11 @@ static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 
 	i_assert(view->map != map);
 
+	mail_index_sync_update_log_offset(ctx, view->map, FALSE);
 #if 0 // FIXME
 	/* we could have already updated some of the records, so make sure
 	   that other views (in possibly other processes) will see this map's
 	   header in a valid state.  */
-	mail_index_sync_update_log_offset(ctx, view->map, FALSE);
 	(void)mail_index_map_msync(view->index, view->map);
 #endif
 
@@ -489,7 +495,8 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 						       &prev_seq, &prev_offset);
 		ctx->ext_intro_seq = prev_seq;
 		ctx->ext_intro_offset = prev_offset;
-		ctx->ext_intro_size = hdr->size + sizeof(*hdr);
+		ctx->ext_intro_end_offset =
+			prev_offset + hdr->size + sizeof(*hdr);
 
 		for (i = 0; i < hdr->size; ) {
 			if (i + sizeof(*rec) > hdr->size) {
@@ -781,12 +788,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	if (had_dirty)
 		mail_index_sync_update_hdr_dirty_flag(map);
 
-	/* update sync position */
-	mail_transaction_log_view_get_prev_pos(view->log_view,
-					       &prev_seq, &prev_offset);
-	i_assert(index->log->head->hdr.file_seq == prev_seq);
-	map->hdr.log_file_seq = prev_seq;
-	map->hdr.log_file_head_offset = prev_offset;
+	mail_index_sync_update_log_offset(&sync_map_ctx, view->map, TRUE);
 
 	/* transaction log tracks internally the current tail offset.
 	   besides using header updates, it also updates the offset to skip
