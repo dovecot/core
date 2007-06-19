@@ -710,9 +710,14 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	start_offset = type == MAIL_INDEX_SYNC_HANDLER_FILE ?
 		map->hdr.log_file_tail_offset : map->hdr.log_file_head_offset;
 	view = mail_index_view_open_with_map(index, map);
-	if (mail_transaction_log_view_set(view->log_view,
-					  map->hdr.log_file_seq, start_offset,
-					  (uint32_t)-1, (uoff_t)-1) <= 0) {
+	ret = mail_transaction_log_view_set(view->log_view,
+					    map->hdr.log_file_seq, start_offset,
+					    (uint32_t)-1, (uoff_t)-1);
+	if (ret <= 0) {
+		if (force && ret == 0) {
+			/* the seq/offset is probably broken */
+			(void)mail_index_fsck(index);
+		}
 		/* can't use it. sync by re-reading index. */
 		mail_index_view_close(&view);
 		return 0;
