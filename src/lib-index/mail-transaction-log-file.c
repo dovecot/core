@@ -727,11 +727,12 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 
 	avail = file->sync_offset - file->buffer_offset;
 	if (avail != size && avail >= sizeof(*hdr)) {
-		/* record goes outside the file we've seen. or if
-		   we're accessing the log file via unlocked mmaped
-		   memory, it may be just that the memory was updated
-		   after we checked the file size. */
-		if (file->locked || file->mmap_base == NULL) {
+		/* Record goes outside the file we've seen. Unless we're
+		   locked, we can't know if this is expected or not. Even when
+		   we're read()ing the file, the kernel (at least Linux 2.6)
+		   can show the last read memory page updated, but without the
+		   expected next page. */
+		if (file->locked) {
 			if (trans_size != 0) {
 				mail_transaction_log_file_set_corrupted(file,
 					"hdr.size too large (%u)", trans_size);
