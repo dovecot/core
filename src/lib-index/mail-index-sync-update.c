@@ -655,6 +655,37 @@ static void mail_index_sync_update_hdr_dirty_flag(struct mail_index_map *map)
 	}
 }
 
+#ifdef DEBUG
+void mail_index_map_check(struct mail_index_map *map)
+{
+	const struct mail_index_header *hdr = &map->hdr;
+	unsigned int i, del = 0, recent = 0, seen = 0;
+
+	i_assert(hdr->messages_count == map->records_count);
+	for (i = 0; i < map->records_count; i++) {
+		const struct mail_index_record *rec;
+
+		rec = MAIL_INDEX_MAP_IDX(map, i);
+
+		if (rec->flags & MAIL_DELETED) {
+			i_assert(rec->uid >= hdr->first_deleted_uid_lowwater);
+			del++;
+		}
+		if (rec->flags & MAIL_RECENT) {
+			i_assert(rec->uid >= hdr->first_recent_uid_lowwater);
+			recent++;
+		}
+		if (rec->flags & MAIL_SEEN)
+			seen++;
+		else
+			i_assert(rec->uid >= hdr->first_unseen_uid_lowwater);
+	}
+	i_assert(del == hdr->deleted_messages_count);
+	i_assert(recent == hdr->recent_messages_count);
+	i_assert(seen == hdr->seen_messages_count);
+}
+#endif
+
 int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 			enum mail_index_sync_handler_type type, bool force)
 {
@@ -764,6 +795,10 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 		mail_index_sync_update_hdr_dirty_flag(map);
 
 	mail_index_sync_update_log_offset(&sync_map_ctx, view->map, TRUE);
+
+#ifdef DEBUG
+	mail_index_map_check(map);
+#endif
 
 	/* transaction log tracks internally the current tail offset.
 	   besides using header updates, it also updates the offset to skip

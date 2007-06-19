@@ -173,37 +173,15 @@ view_sync_get_expunges(struct mail_index_view *view,
 #ifdef DEBUG
 static void mail_index_view_check(struct mail_index_view *view)
 {
-	unsigned int i, del = 0, recent = 0, seen = 0;
+	mail_index_map_check(view->map);
 
-	i_assert(view->hdr.messages_count == view->map->records_count);
+	i_assert(view->hdr.messages_count == view->map->hdr.messages_count);
 	i_assert(view->hdr.deleted_messages_count ==
 		 view->map->hdr.deleted_messages_count);
 	i_assert(view->hdr.recent_messages_count ==
 		 view->map->hdr.recent_messages_count);
 	i_assert(view->hdr.seen_messages_count ==
 		 view->map->hdr.seen_messages_count);
-
-	for (i = 0; i < view->map->records_count; i++) {
-		const struct mail_index_record *rec;
-
-		rec = MAIL_INDEX_MAP_IDX(view->map, i);
-
-		if (rec->flags & MAIL_DELETED) {
-			i_assert(rec->uid >= view->hdr.first_deleted_uid_lowwater);
-			del++;
-		}
-		if (rec->flags & MAIL_RECENT) {
-			i_assert(rec->uid >= view->hdr.first_recent_uid_lowwater);
-			recent++;
-		}
-		if (rec->flags & MAIL_SEEN)
-			seen++;
-		else
-			i_assert(rec->uid >= view->hdr.first_unseen_uid_lowwater);
-	}
-	i_assert(del == view->hdr.deleted_messages_count);
-	i_assert(recent == view->hdr.recent_messages_count);
-	i_assert(seen == view->hdr.seen_messages_count);
 }
 #endif
 
@@ -277,12 +255,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			view->map->hdr = *hdr;
 		}
 
-#ifdef DEBUG
-		i_assert(view->map->hdr.messages_count ==
-			 view->hdr.messages_count);
-		mail_index_view_check(view);
-#endif
-
 		if (view->map->refcount > 1) {
 			map = mail_index_map_clone(view->map);
 			mail_index_unmap(view->index, &view->map);
@@ -293,6 +265,10 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		view->hdr = map->hdr;
 		i_assert(map->records_count == map->hdr.messages_count);
 	}
+
+#ifdef DEBUG
+	mail_index_view_check(view);
+#endif
 
 	/* Syncing the view invalidates all previous looked up records.
 	   Unreference the mappings this view keeps because of them. */
