@@ -639,26 +639,6 @@ void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx)
 	mail_index_sync_deinit_handlers(sync_map_ctx);
 }
 
-static void mail_index_sync_remove_recent(struct mail_index_sync_map_ctx *ctx)
-{
-	struct mail_index_map *map = ctx->view->map;
-	struct mail_index_record *rec;
-	unsigned int i;
-
-	for (i = 0; i < map->records_count; i++) {
-		rec = MAIL_INDEX_MAP_IDX(map, i);
-		if ((rec->flags & MAIL_RECENT) != 0) {
-			rec->flags &= ~MAIL_RECENT;
-
-			mail_index_sync_write_seq_update(ctx, i + 1, i + 1);
-		}
-	}
-
-	map->hdr.recent_messages_count = 0;
-	map->hdr.first_recent_uid_lowwater = map->hdr.next_uid;
-	map->write_base_header = TRUE;
-}
-
 static void mail_index_sync_update_hdr_dirty_flag(struct mail_index_map *map)
 {
 	const struct mail_index_record *rec;

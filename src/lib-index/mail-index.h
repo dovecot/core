@@ -107,6 +107,13 @@ enum mail_index_sync_type {
 	MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET	= 0x20
 };
 
+enum mail_index_sync_flags {
+	/* Resync all dirty messages' flags. */
+	MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY	= 0x01,
+	/* Drop recent flags from all messages */
+	MAIL_INDEX_SYNC_FLAG_DROP_RECENT	= 0x02
+};
+
 enum mail_index_view_sync_flags {
 	/* Don't sync expunges */
 	MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES	= 0x01
@@ -234,7 +241,7 @@ int mail_index_sync_begin(struct mail_index *index,
 			  struct mail_index_view **view_r,
 			  struct mail_index_transaction **trans_r,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
-			  bool sync_recent, bool sync_dirty);
+			  enum mail_index_sync_flags flags);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
 int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 			 struct mail_index_sync_rec *sync_rec);

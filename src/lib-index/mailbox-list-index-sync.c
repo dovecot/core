@@ -333,7 +333,7 @@ static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 
 	if (mail_index_sync_begin(ctx->index->mail_index, &ctx->mail_sync_ctx,
 				  &ctx->mail_view, &ctx->trans, (uint32_t)-1, 0,
-				  FALSE, FALSE) < 0)
+				  0) < 0)
 		return -1;
 
 	/* we should have only external transactions in here, for which we

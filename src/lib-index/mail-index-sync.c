@@ -28,8 +28,6 @@ struct mail_index_sync_ctx {
 	unsigned int lock_id;
 
 	unsigned int sync_appends:1;
-	unsigned int sync_recent:1;
-	unsigned int sync_dirty:1;
 };
 
 static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
@@ -192,12 +190,6 @@ static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
 		}
 	}
 
-	if (!seen_recent) {
-		/* no recent messages, drop the sync_recent flag so we
-		   don't scan through the messages again */
-		ctx->sync_recent = FALSE;
-	}
-
 	return 0;
 }
 
@@ -215,7 +207,8 @@ mail_index_sync_update_mailbox_pos(struct mail_index_sync_ctx *ctx)
 }
 
 static int
-mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
+mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
+			      enum mail_index_sync_flags flags)
 {
 	struct mail_index_transaction *sync_trans = ctx->sync_trans;
 	struct mail_index_sync_list *synclist;
@@ -224,13 +217,13 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	int ret;
 
 	if ((ctx->view->map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
-	    ctx->sync_dirty) {
+	    (flags & MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY) != 0) {
 		/* show dirty flags as flag updates */
 		if (mail_index_sync_add_dirty_updates(ctx) < 0)
 			return -1;
 	}
 
-	if (ctx->sync_recent) {
+	if ((flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0) {
 		if (mail_index_sync_add_recent_updates(ctx) < 0)
 			return -1;
 	}
@@ -292,11 +285,12 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 
 static bool
 mail_index_need_sync(struct mail_index *index,
-		     const struct mail_index_header *hdr, bool sync_recent,
+		     const struct mail_index_header *hdr,
+		     enum mail_index_sync_flags flags,
 		     uint32_t log_file_seq, uoff_t log_file_offset)
 {
-	// FIXME: how's this recent syncing supposed to work?
-	if (sync_recent && hdr->recent_messages_count > 0)
+	if (hdr->recent_messages_count > 0 &&
+	    (flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0)
 		return TRUE;
 
 	if (hdr->log_file_seq < log_file_seq ||
@@ -338,7 +332,7 @@ int mail_index_sync_begin(struct mail_index *index,
 			  struct mail_index_view **view_r,
 			  struct mail_index_transaction **trans_r,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
-			  bool sync_recent, bool sync_dirty)
+			  enum mail_index_sync_flags flags)
 {
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_ctx *ctx;
@@ -365,7 +359,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	}
 	hdr = &index->map->hdr;
 
-	if (!mail_index_need_sync(index, hdr, sync_recent,
+	if (!mail_index_need_sync(index, hdr, flags,
 				  log_file_seq, log_file_offset)) {
 		mail_index_unlock(index, lock_id);
 		mail_transaction_log_sync_unlock(index->log);
@@ -389,8 +383,6 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx = i_new(struct mail_index_sync_ctx, 1);
 	ctx->index = index;
 	ctx->lock_id = lock_id;
-	ctx->sync_recent = sync_recent;
-	ctx->sync_dirty = sync_dirty;
 	ctx->last_tail_seq = hdr->log_file_seq;
 	ctx->last_tail_offset = hdr->log_file_tail_offset;
 
@@ -410,7 +402,7 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	/* we need to have all the transactions sorted to optimize
 	   caller's mailbox access patterns */
-	if (mail_index_sync_read_and_sort(ctx) < 0) {
+	if (mail_index_sync_read_and_sort(ctx, flags) < 0) {
                 mail_index_sync_rollback(&ctx);
 		return -1;
 	}

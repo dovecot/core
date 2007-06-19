@@ -69,8 +69,7 @@ static int index_list_update_mail_index(struct index_mailbox_list *ilist,
 
 	ret = mail_index_sync_begin(ilist->mail_index,
 				    &mail_sync_ctx, &view, &trans,
-				    ibox->log_seq, ibox->log_offset,
-				    FALSE, FALSE);
+				    ibox->log_seq, ibox->log_offset, 0);
 	if (ret <= 0)
 		return ret;
 
