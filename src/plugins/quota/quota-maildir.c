@@ -222,7 +222,7 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	if (fd == -1) {
 		if (errno == EAGAIN) {
 			/* someone's just in the middle of updating it */
-			return -1;
+			return 1;
 		}
 
 		i_error("file_dotlock_open(%s) failed: %m", path);
