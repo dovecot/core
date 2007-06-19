@@ -370,27 +370,6 @@ mail_index_try_open(struct mail_index *index)
 	return ret;
 }
 
-int mail_index_write_base_header(struct mail_index *index,
-				 const struct mail_index_header *hdr)
-{
-	size_t hdr_size;
-
-	// FIXME: this whole function should go away
-	if (index->fd == -1)
-		return -1;
-
-	hdr_size = I_MIN(sizeof(*hdr), hdr->base_header_size);
-
-	if (pwrite_full(index->fd, hdr, hdr_size, 0) < 0) {
-		mail_index_set_syscall_error(index, "pwrite_full()");
-		return -1;
-	}
-
-	index->map->hdr = *hdr;
-	buffer_write(index->map->hdr_copy_buf, 0, hdr, hdr_size);
-	return 0;
-}
-
 int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
 {
         mode_t old_mask;
@@ -680,14 +659,9 @@ void mail_index_mark_corrupted(struct mail_index *index)
 {
 	mail_index_set_inconsistent(index);
 
-	if (index->readonly || index->map == NULL)
-		return;
-
 	index->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
-	if (mail_index_write_base_header(index, &index->map->hdr) == 0) {
-		if (!MAIL_INDEX_IS_IN_MEMORY(index) && fsync(index->fd) < 0)
-			mail_index_set_syscall_error(index, "fsync()");
-	}
+	if (unlink(index->filepath) < 0 && errno != ENOENT && errno != ESTALE)
+		mail_index_set_syscall_error(index, "unlink()");
 }
 
 int mail_index_set_syscall_error(struct mail_index *index,

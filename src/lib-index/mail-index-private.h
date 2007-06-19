@@ -211,9 +211,6 @@ void mail_index_register_sync_lost_handler(struct mail_index *index,
 void mail_index_unregister_sync_lost_handler(struct mail_index *index,
 					mail_index_sync_lost_handler_t *cb);
 
-int mail_index_write_base_header(struct mail_index *index,
-				 const struct mail_index_header *hdr);
-
 int mail_index_create_tmp_file(struct mail_index *index, const char **path_r);
 
 int mail_index_try_open_only(struct mail_index *index);
