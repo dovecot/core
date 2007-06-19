@@ -704,26 +704,27 @@ static int mail_index_map_latest_file(struct mail_index *index,
 	return 1;
 }
 
-static int
-mail_index_map_update(struct mail_index *index, struct mail_index_map **_map,
-		      enum mail_index_sync_handler_type type,
-		      unsigned int *lock_id_r)
+int mail_index_map(struct mail_index *index,
+		   enum mail_index_sync_handler_type type,
+		   unsigned int *lock_id_r)
 {
-	struct mail_index_map *map = *_map;
 	unsigned int lock_id = 0;
 	int ret;
 
+	i_assert(index->lock_type != F_WRLCK);
 	i_assert(!index->mapping);
-	i_assert(map->refcount > 0);
 
 	*lock_id_r = 0;
 	index->mapping = TRUE;
 
+	if (index->map == NULL)
+		index->map = mail_index_map_alloc(index);
+
 	/* first try updating the existing mapping from transaction log. */
-	if (map->hdr.indexid != 0) {
+	if (index->map->hdr.indexid != 0) {
 		/* we're not creating the index, or opening transaction log.
 		   sync this as a view from transaction log. */
-		ret = mail_index_sync_map(index, &map, type, FALSE);
+		ret = mail_index_sync_map(index, &index->map, type, FALSE);
 	} else {
 		ret = 0;
 	}
@@ -733,54 +734,20 @@ mail_index_map_update(struct mail_index *index, struct mail_index_map **_map,
 		   any reason, we'll fallback to updating the existing mapping
 		   from transaction logs (which we'll also do even if the
 		   reopening succeeds) */
-		(void)mail_index_map_latest_file(index, &map, &lock_id);
+		(void)mail_index_map_latest_file(index, &index->map, &lock_id);
 
 		/* and update the map with the latest changes from
 		   transaction log */
-		ret = mail_index_sync_map(index, &map, type, TRUE);
+		ret = mail_index_sync_map(index, &index->map, type, TRUE);
 
 		/* we need the lock only if we didn't move the map to memory */
-		if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map))
+		if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map))
 			*lock_id_r = lock_id;
 		else
 			mail_index_unlock(index, lock_id);
 	}
 
-	if (ret <= 0) {
-		/* broken index */
-		mail_index_map_clear(index, map);
-		mail_index_unmap(index, &map);
-	}
-
-	*_map = map;
 	index->mapping = FALSE;
-	return ret;
-}
-
-int mail_index_map(struct mail_index *index,
-		   enum mail_index_sync_handler_type type,
-		   unsigned int *lock_id_r)
-{
-	struct mail_index_map *map = index->map;
-	int ret;
-
-	i_assert(index->lock_type != F_WRLCK);
-
-	if (map == NULL)
-		map = mail_index_map_alloc(index);
-
-	index->map = NULL;
-
-	ret = mail_index_map_update(index, &map, type, lock_id_r);
-	i_assert(index->map == NULL);
-
-	if (ret > 0) {
-		i_assert(map->hdr.messages_count == map->records_count);
-		index->map = map;
-	} else {
-		if (map != NULL)
-			mail_index_unmap(index, &map);
-	}
 	return ret;
 }
 

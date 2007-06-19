@@ -522,8 +522,6 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 
 static void mail_index_close_file(struct mail_index *index)
 {
-	if (index->map != NULL)
-		mail_index_unmap(index, &index->map);
 	if (index->file_lock != NULL)
 		file_lock_free(&index->file_lock);
 

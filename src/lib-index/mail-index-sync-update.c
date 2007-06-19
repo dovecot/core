@@ -686,6 +686,8 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	int ret;
 	bool had_dirty;
 
+	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
+
 	if (!force) {
 		/* see if we'd prefer to reopen the index file instead of
 		   syncing the current map from the transaction log */
@@ -738,11 +740,6 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 		buffer_append(map->hdr_copy_buf, map->hdr_base,
 			      map->hdr.header_size);
 		map->hdr_base = map->hdr_copy_buf->data;
-	}
-
-	if (type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
-		i_assert(index->map == NULL);
-		index->map = map;
 	}
 
 	mail_index_sync_map_init(&sync_map_ctx, view, type);
@@ -807,10 +804,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 
 	mail_index_sync_map_deinit(&sync_map_ctx);
 
-	if (type != MAIL_INDEX_SYNC_HANDLER_VIEW) {
-		i_assert(index->map == map);
-		index->map = NULL;
-	}
+	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
 
 	*_map = map;
 	return ret < 0 ? -1 : 1;
