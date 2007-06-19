@@ -63,6 +63,18 @@ typedef int socklen_t;
 #  error I do not know how to compare dev_t
 #endif
 
+#ifdef HAVE_STAT_TV_NSEC
+#  define CMP_ST_MTIME(st1, st2) \
+	((st1)->st_mtime == (st2)->st_mtime && \
+	 (st1)->st_mtim.tv_nsec == (st2)->st_mtim.tv_nsec)
+#  define CMP_ST_CTIME(st1, st2) \
+	((st1)->st_ctime == (st2)->st_ctime && \
+	 (st1)->st_ctim.tv_nsec == (st2)->st_ctim.tv_nsec)
+#else
+#  define CMP_ST_MTIME(st1, st2) ((st1)->st_mtime == (st2)->st_mtime)
+#  define CMP_ST_CTIME(st1, st2) ((st1)->st_ctime == (st2)->st_ctime)
+#endif
+
 /* strcasecmp(), strncasecmp() */
 #ifndef HAVE_STRCASECMP
 #  ifdef HAVE_STRICMP
