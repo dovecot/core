@@ -6,6 +6,8 @@
 #include "mail-index-view-private.h"
 #include "mail-index-transaction-private.h"
 
+#include <sys/stat.h>
+
 struct mail_transaction_header;
 struct mail_transaction_log_view;
 struct mail_index_sync_map_ctx;
@@ -158,9 +160,14 @@ struct mail_index {
 
 	struct mail_index_map *map;
 	uint32_t indexid;
-	/* last known log_file_tail_offset in main index file. used for
-	   optimizing main index updates. */
+	/* last_read_log_file_* contains the seq/offsets we last read from
+	   the main index file's headers. these are used ro figure out when
+	   the main index file should be updated, and if we can update it
+	   by writing on top of it or if we need to recreate it. */
+	uint32_t last_read_log_file_seq;
+	uint32_t last_read_log_file_head_offset;
 	uint32_t last_read_log_file_tail_offset;
+	struct stat last_read_stat;
 
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id;
