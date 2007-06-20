@@ -93,9 +93,10 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			      uint32_t min_file_seq, uoff_t min_file_offset,
 			      uint32_t max_file_seq, uoff_t max_file_offset)
 {
-	struct mail_transaction_log_file *file, *first;
+	struct mail_transaction_log_file *file, *const *files;
+	uoff_t start_offset, end_offset;
+	unsigned int i;
 	uint32_t seq;
-	uoff_t end_offset;
 	int ret;
 
 	i_assert(view->log != NULL);
@@ -143,12 +144,12 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return ret;
 
 	if (min_file_offset == 0) {
-		/* this could happen if internal transactions haven't yet been
-		   committed but external are. just assume we're at the
-		   beginning. */
+		/* beginning of the file */
 		min_file_offset = file->hdr.hdr_size;
-		if (max_file_offset == 0 && min_file_seq == max_file_seq)
+		if (max_file_offset == 0 && min_file_seq == max_file_seq) {
+			/* we don't actually want to show anything */
 			max_file_offset = min_file_offset;
+		}
 	}
 	i_assert(min_file_offset >= file->hdr.hdr_size);
 
@@ -161,12 +162,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	end_offset = min_file_seq == max_file_seq ?
-		max_file_offset : (uoff_t)-1;
-	ret = mail_transaction_log_file_map(file, min_file_offset, end_offset);
-	if (ret <= 0)
-		return ret;
-	first = file;
+	view->tail = file;
+	view->head = file;
 
 	for (seq = min_file_seq+1; seq <= max_file_seq; seq++) {
 		file = file->next;
@@ -194,40 +191,57 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			/* missing files in the middle */
 			return 0;
 		}
+		view->head = file;
+	}
 
+	/* we have all of them. update refcounts. */
+	mail_transaction_log_view_unref_all(view);
+
+	/* Reference all used files. */
+	for (file = view->tail;; file = file->next) {
+		array_append(&view->file_refs, &file, 1);
+		file->refcount++;
+
+		if (file == view->head)
+			break;
+	}
+
+	/* Map the files only after we've found them all. Otherwise if we map
+	   one file and then another file just happens to get rotated, we could
+	   include both files in the view but skip the last transactions from
+	   the first file.
+
+	   We're mapping the files in reverse order so that _log_file_map()
+	   can verify that prev_file_offset matches how far it actually managed
+	   to sync the file. */
+	files = array_idx(&view->file_refs, 0);
+	for (i = array_count(&view->file_refs); i > 0; i--) {
+		file = files[i-1];
+		start_offset = file->hdr.file_seq == min_file_seq ?
+			min_file_offset : file->hdr.hdr_size;
 		end_offset = file->hdr.file_seq == max_file_seq ?
 			max_file_offset : (uoff_t)-1;
-		ret = mail_transaction_log_file_map(file, file->hdr.hdr_size,
+		ret = mail_transaction_log_file_map(file, start_offset,
 						    end_offset);
 		if (ret <= 0)
 			return ret;
 	}
 
+	i_assert(max_file_seq == (uint32_t)-1 ||
+		 max_file_seq == view->head->hdr.file_seq);
 	i_assert(max_file_offset == (uoff_t)-1 ||
-		 max_file_offset <= file->sync_offset);
-
-	/* we have all of them. update refcounts. */
-	mail_transaction_log_view_unref_all(view);
-
-	view->tail = first;
-	view->head = view->log->head;
-
-	/* reference all used files */
-	for (file = view->tail; file != NULL; file = file->next) {
-		array_append(&view->file_refs, &file, 1);
-		file->refcount++;
-	}
+		 max_file_offset <= view->head->sync_offset);
 
 	view->prev_file_seq = 0;
 	view->prev_file_offset = 0;
 
-	view->cur = first;
+	view->cur = view->tail;
 	view->cur_offset = min_file_offset;
 
 	view->min_file_seq = min_file_seq;
 	view->min_file_offset = min_file_offset;
 	view->max_file_seq = max_file_seq;
-	view->max_file_offset = max_file_offset;
+	view->max_file_offset = I_MIN(max_file_offset, view->head->sync_offset);
 	view->broken = FALSE;
 
 	i_assert(view->cur_offset <= view->cur->sync_offset);
