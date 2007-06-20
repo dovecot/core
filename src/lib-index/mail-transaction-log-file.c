@@ -723,16 +723,20 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 				return -1;
 		}
 		file->sync_offset += trans_size;
+		trans_size = 0;
 	}
 
 	avail = file->sync_offset - file->buffer_offset;
-	if (avail != size && avail >= sizeof(*hdr)) {
-		/* Record goes outside the file we've seen. Unless we're
-		   locked, we can't know if this is expected or not. Even when
-		   we're read()ing the file, the kernel (at least Linux 2.6)
-		   can show the last read memory page updated, but without the
-		   expected next page. */
-		if (file->locked) {
+	if (avail != size) {
+		/* There's more data than we could sync at the moment. If the
+		   last record's size wasn't valid, we can't know if it will
+		   be updated unless we've locked the log.
+
+		   Without locking we can be sure only if we're not using
+		   mmaping, because with mmaping the data and the file size
+		   can get updated at any time. */
+		if (file->locked ||
+		    (trans_size != 0 && file->mmap_base == NULL)) {
 			if (trans_size != 0) {
 				mail_transaction_log_file_set_corrupted(file,
 					"hdr.size too large (%u)", trans_size);
@@ -822,25 +826,24 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	file->last_size = read_offset;
 
+	if (ret < 0) {
+		if (errno == ESTALE) {
+			/* log file was deleted in NFS server, fail silently */
+			return 0;
+		}
+
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath, "pread()");
+		return -1;
+	}
+
 	if (mail_transaction_log_file_sync(file) < 0)
 		return 0;
 
-	if (ret == 0) {
-		/* EOF */
-		i_assert(file->sync_offset >= file->buffer_offset);
-		buffer_set_used_size(file->buffer,
-				     file->sync_offset - file->buffer_offset);
-		return 1;
-	}
-
-	if (errno == ESTALE) {
-		/* log file was deleted in NFS server, fail silently */
-		return 0;
-	}
-
-	mail_index_file_set_syscall_error(file->log->index, file->filepath,
-					  "pread()");
-	return -1;
+	i_assert(file->sync_offset >= file->buffer_offset);
+	buffer_set_used_size(file->buffer,
+			     file->sync_offset - file->buffer_offset);
+	return 1;
 }
 
 static int
