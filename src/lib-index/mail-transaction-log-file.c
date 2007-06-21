@@ -727,36 +727,38 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		trans_size = 0;
 	}
 
+	if (file->mmap_base != NULL && !file->locked) {
+		/* Now that all the mmaped pages have page faulted, check if
+		   the file had changed while doing that. Only after the last
+		   page has faulted, the size returned by fstat() can be
+		   trusted. Otherwise it might point to a page boundary while
+		   the next page is still being written.
+
+		   Without this check we might see partial transactions,
+		   sometimes causing "Extension record updated without intro
+		   prefix" errors. */
+		if (fstat(file->fd, &st) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+							  file->filepath,
+							  "fstat()");
+			return -1;
+		}
+		if ((uoff_t)st.st_size != file->last_size) {
+			file->last_size = st.st_size;
+			return 0;
+		}
+	}
+
 	avail = file->sync_offset - file->buffer_offset;
 	if (avail != size) {
 		/* There's more data than we could sync at the moment. If the
 		   last record's size wasn't valid, we can't know if it will
 		   be updated unless we've locked the log.
 
-		   If the last record size was valid but there isn't enough
-		   data for it, it might or might not be an error:
-
-		   1. If we're locked, it's definitely an error.
-		   2. If not and we're using pread()s, it's also an error.
-		   3. If not and we're using mmap()s, we can't be sure yet.
-		   The data might have changed, so we'll need to fstat()
-		   to check if the file size had changed. If it did, return 0
-		   so the caller will re-mmap() and resync the file. */
+		   If the record size was valid, this is an error because the
+		   pread()s or the above fstat() check for mmaps should have
+		   guaranteed that this doesn't happen. */
 		if (file->locked || trans_size != 0) {
-			if (file->mmap_base != NULL && !file->locked) {
-				i_assert(trans_size != 0);
-
-				if (fstat(file->fd, &st) < 0) {
-					mail_index_file_set_syscall_error(
-						file->log->index,
-						file->filepath, "fstat()");
-					return -1;
-				}
-				if ((uoff_t)st.st_size != file->last_size) {
-					file->last_size = st.st_size;
-					return 0;
-				}
-			}
 			if (trans_size != 0) {
 				mail_transaction_log_file_set_corrupted(file,
 					"hdr.size too large (%u)", trans_size);
