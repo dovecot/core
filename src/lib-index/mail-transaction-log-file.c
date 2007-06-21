@@ -691,6 +691,7 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 {
         const struct mail_transaction_header *hdr;
 	const void *data;
+	struct stat st;
 	size_t size, avail;
 	uint32_t trans_size = 0;
 
@@ -705,7 +706,7 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		trans_size = mail_index_offset_to_uint32(hdr->size);
 		if (trans_size == 0) {
 			/* unfinished */
-			return 0;
+			return 1;
 		}
 		if (trans_size < sizeof(*hdr)) {
 			mail_transaction_log_file_set_corrupted(file,
@@ -732,11 +733,30 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		   last record's size wasn't valid, we can't know if it will
 		   be updated unless we've locked the log.
 
-		   Without locking we can be sure only if we're not using
-		   mmaping, because with mmaping the data and the file size
-		   can get updated at any time. */
-		if (file->locked ||
-		    (trans_size != 0 && file->mmap_base == NULL)) {
+		   If the last record size was valid but there isn't enough
+		   data for it, it might or might not be an error:
+
+		   1. If we're locked, it's definitely an error.
+		   2. If not and we're using pread()s, it's also an error.
+		   3. If not and we're using mmap()s, we can't be sure yet.
+		   The data might have changed, so we'll need to fstat()
+		   to check if the file size had changed. If it did, return 0
+		   so the caller will re-mmap() and resync the file. */
+		if (file->locked || trans_size != 0) {
+			if (file->mmap_base != NULL && !file->locked) {
+				i_assert(trans_size != 0);
+
+				if (fstat(file->fd, &st) < 0) {
+					mail_index_file_set_syscall_error(
+						file->log->index,
+						file->filepath, "fstat()");
+					return -1;
+				}
+				if ((uoff_t)st.st_size != file->last_size) {
+					file->last_size = st.st_size;
+					return 0;
+				}
+			}
 			if (trans_size != 0) {
 				mail_transaction_log_file_set_corrupted(file,
 					"hdr.size too large (%u)", trans_size);
@@ -759,7 +779,7 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		return -1;
 	}
 
-	return 0;
+	return 1;
 }
 
 static int
@@ -848,8 +868,10 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 		return -1;
 	}
 
-	if (mail_transaction_log_file_sync(file) < 0)
+	if ((ret = mail_transaction_log_file_sync(file)) <= 0) {
+		i_assert(ret != 0);
 		return 0;
+	}
 
 	i_assert(file->sync_offset >= file->buffer_offset);
 	buffer_set_used_size(file->buffer,
@@ -878,6 +900,54 @@ log_file_map_check_offsets(struct mail_transaction_log_file *file,
 	}
 
 	return 1;
+}
+
+static int
+mail_transaction_log_file_mmap(struct mail_transaction_log_file *file)
+{
+	if (file->buffer != NULL) {
+		/* in case we just switched to mmaping */
+		buffer_free(file->buffer);
+	}
+	file->mmap_size = file->last_size;
+	file->mmap_base = mmap(NULL, file->mmap_size, PROT_READ, MAP_SHARED,
+			       file->fd, 0);
+	if (file->mmap_base == MAP_FAILED) {
+		file->mmap_base = NULL;
+		file->mmap_size = 0;
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath, "mmap()");
+		return -1;
+	}
+
+	if (file->mmap_size > mmap_get_page_size()) {
+		if (madvise(file->mmap_base, file->mmap_size,
+			    MADV_SEQUENTIAL) < 0) {
+			mail_index_file_set_syscall_error(file->log->index,
+				file->filepath, "madvise()");
+		}
+	}
+
+	file->buffer = buffer_create_const_data(default_pool,
+						file->mmap_base,
+						file->mmap_size);
+	file->buffer_offset = 0;
+	return 0;
+}
+
+static void
+mail_transaction_log_file_munmap(struct mail_transaction_log_file *file)
+{
+	if (file->mmap_base == NULL)
+		return;
+
+	if (munmap(file->mmap_base, file->mmap_size) < 0) {
+		mail_index_file_set_syscall_error(file->log->index,
+						  file->filepath, "munmap()");
+	}
+	file->mmap_base = NULL;
+	file->mmap_size = 0;
+	buffer_free(file->buffer);
 }
 
 int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
@@ -947,58 +1017,32 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 		if ((uoff_t)st.st_size == file->mmap_size) {
 			/* we already have the whole file mmaped */
-			if (mail_transaction_log_file_sync(file) < 0)
+			if ((ret = mail_transaction_log_file_sync(file)) < 0)
 				return 0;
-			return log_file_map_check_offsets(file, start_offset,
-							  end_offset);
+			if (ret > 0) {
+				return log_file_map_check_offsets(file,
+								  start_offset,
+								  end_offset);
+			}
+			/* size changed, re-mmap */
 		}
-	}
-
-	if (file->mmap_base != NULL) {
-		if (munmap(file->mmap_base, file->mmap_size) < 0) {
-			mail_index_file_set_syscall_error(index, file->filepath,
-							  "munmap()");
-		}
-		file->mmap_base = NULL;
-		file->mmap_size = 0;
-		buffer_free(file->buffer);
 	}
 
 	if (index->mmap_disable) {
+		mail_transaction_log_file_munmap(file);
+
 		ret = mail_transaction_log_file_read(file, start_offset);
 		if (ret <= 0)
 			return ret;
 	} else {
-		if (file->buffer != NULL) {
-			/* in case we just switched to mmaping */
-			buffer_free(file->buffer);
-		}
-		file->mmap_size = st.st_size;
-		file->mmap_base = mmap(NULL, file->mmap_size, PROT_READ,
-				       MAP_SHARED, file->fd, 0);
-		if (file->mmap_base == MAP_FAILED) {
-			file->mmap_base = NULL;
-			file->mmap_size = 0;
-			mail_index_file_set_syscall_error(index, file->filepath,
-							  "mmap()");
-			return -1;
-		}
+		do {
+			mail_transaction_log_file_munmap(file);
 
-		if (file->mmap_size > mmap_get_page_size()) {
-			if (madvise(file->mmap_base, file->mmap_size,
-				    MADV_SEQUENTIAL) < 0) {
-				mail_index_file_set_syscall_error(index,
-					file->filepath, "madvise()");
-			}
-		}
-
-		file->buffer = buffer_create_const_data(default_pool,
-							file->mmap_base,
-							file->mmap_size);
-		file->buffer_offset = 0;
-
-		if (mail_transaction_log_file_sync(file) < 0)
-			return 0;
+			if (mail_transaction_log_file_mmap(file) < 0)
+				return -1;
+			if ((ret = mail_transaction_log_file_sync(file)) < 0)
+				return 0;
+		} while (ret == 0);
 	}
 
 	return log_file_map_check_offsets(file, start_offset, end_offset);
