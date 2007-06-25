@@ -16,7 +16,7 @@ struct mail_namespace {
 	const char *prefix;
 	size_t prefix_len;
 
-	bool inbox, hidden, subscriptions;
+	bool inbox, hidden, list_prefix, subscriptions;
 	struct mailbox_list *list;
 	/* FIXME: we should support multiple storages in one namespace */
 	struct mail_storage *storage;

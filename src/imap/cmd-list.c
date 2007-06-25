@@ -308,15 +308,16 @@ list_namespace_init(struct client_command_context *cmd,
 			cur_ns_prefix = t_strndup(cur_ns_prefix, len-1);
 		}
 
-		/* hidden namespaces should still be seen without wildcards.
-		   some clients rely on this. */
-		match = (ns->hidden && list_mask_has_wildcards(cur_mask)) ?
+		/* hidden and non-listable namespaces should still be seen
+		   without wildcards. */
+		match = (!ns->list_prefix &&
+			 list_mask_has_wildcards(cur_mask)) ?
 			IMAP_MATCH_NO : imap_match(ctx->glob, cur_ns_prefix);
 		if (match < 0)
 			return;
 
 		len = strlen(ns->prefix);
-		if (match == IMAP_MATCH_YES &&
+		if (match == IMAP_MATCH_YES && ctx->ns->list_prefix &&
 		    (ctx->list_flags & MAILBOX_LIST_ITER_SUBSCRIBED) == 0 &&
 		    (!ctx->ns->inbox ||
 		     strncmp(ns->prefix, "INBOX", len-1) != 0)) {

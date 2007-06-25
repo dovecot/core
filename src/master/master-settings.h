@@ -218,6 +218,7 @@ struct namespace_settings {
 
 	bool inbox;
 	bool hidden;
+	bool list;
 };
 
 struct server_settings {

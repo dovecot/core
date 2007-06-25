@@ -40,6 +40,8 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	ns->inbox = getenv(t_strdup_printf("NAMESPACE_%u_INBOX", num)) != NULL;
 	ns->hidden = getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN",
 					    num)) != NULL;
+	ns->list_prefix = !ns->hidden && *prefix != '\0' &&
+		getenv(t_strdup_printf("NAMESPACE_%u_LIST", num)) != NULL;
 	ns->subscriptions = getenv(t_strdup_printf("NAMESPACE_%u_SUBSCRIPTIONS",
 						   num)) != NULL;
 
@@ -59,10 +61,11 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 
 	if ((flags & MAIL_STORAGE_FLAG_DEBUG) != 0) {
 		i_info("Namespace: type=%s, prefix=%s, sep=%s, "
-		       "inbox=%s, hidden=%s, subscriptions=%s",
+		       "inbox=%s, hidden=%s, list=%s, subscriptions=%s",
 		       type == NULL ? "" : type, prefix, sep == NULL ? "" : sep,
 		       ns->inbox ? "yes" : "no",
 		       ns->hidden ? "yes" : "no",
+		       ns->list ? "yes" : "no",
 		       ns->subscriptions ? "yes" : "no");
 	}
 
@@ -97,6 +100,13 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 		if (ns->type == NAMESPACE_PRIVATE) {
 			private_ns = ns;
 			private_ns_count++;
+		}
+		if (ns->list_prefix &&
+		    ns->prefix[strlen(ns->prefix)-1] != ns->sep) {
+			i_error("namespace configuration error: "
+				"list=yes requires prefix=%s "
+				"to end with separator", ns->prefix);
+			return FALSE;
 		}
 	}
 
