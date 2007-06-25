@@ -455,12 +455,11 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 		/* non-hidden namespace, use it as the root name */
 		imap_quote_append_string(str, ns_prefix, FALSE);
 	} else {
-		/* Hidden namespace or empty namespace prefix. Pine with
-		   ~/mail/
-
-		   use the mailbox
-		   name's first part as the root. */
-		const char *p = /*strchr(ref, ns->sep)*/NULL;
+		/* Hidden namespace or empty namespace prefix. We could just
+		   return an empty root name, but it's safer to emulate what
+		   UW-IMAP does. With full filesystem access this might even
+		   matter (root of "~user/mail/" is "~user/", not "") */
+		const char *p = strchr(ref, ns->sep);
 
 		if (p == NULL)
 			str_append(str, "\"\"");
