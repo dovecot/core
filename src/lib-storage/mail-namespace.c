@@ -79,6 +79,41 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	return ns;
 }
 
+static bool namespaces_check(struct mail_namespace *namespaces)
+{
+	struct mail_namespace *ns, *inbox_ns = NULL, *private_ns = NULL;
+	unsigned int private_ns_count = 0;
+
+	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (ns->inbox) {
+			if (inbox_ns != NULL) {
+				i_error("namespace configuration error: "
+					"There can be only one namespace with "
+					"inbox=yes");
+				return FALSE;
+			}
+			inbox_ns = ns;
+		}
+		if (ns->type == NAMESPACE_PRIVATE) {
+			private_ns = ns;
+			private_ns_count++;
+		}
+	}
+
+	if (inbox_ns == NULL) {
+		if (private_ns_count == 1) {
+			/* just one private namespace. we'll assume it's
+			   the INBOX namespace. */
+			private_ns->inbox = TRUE;
+		} else {
+			i_error("namespace configuration error: "
+				"inbox=yes namespace missing");
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 int mail_namespaces_init(pool_t pool, const char *user,
 			 struct mail_namespace **namespaces_r)
 {
@@ -112,6 +147,8 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	}
 
 	if (namespaces != NULL) {
+		if (!namespaces_check(namespaces))
+			return -1;
 		*namespaces_r = namespaces;
 		return 0;
 	}
