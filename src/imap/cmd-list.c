@@ -425,10 +425,57 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static void cmd_list_ref_root(struct client *client, const char *ref)
+{
+	struct mail_namespace *ns;
+	const char *ns_prefix;
+	string_t *str;
+
+	/* Special request to return the hierarchy delimiter and mailbox root
+	   name. If namespace has a prefix, it's returned as the mailbox root.
+	   Otherwise we'll emulate UW-IMAP behavior. */
+	ns = mail_namespace_find_visible(client->namespaces, &ref);
+	if (ns != NULL)
+		ns_prefix = ns->prefix;
+	else {
+		ns_prefix = "";
+		ns = mail_namespace_find(client->namespaces, &ns_prefix);
+		if (ns == NULL) {
+			/* we must reply something. use INBOX namespace's
+			   separator. */
+			const char *inbox = "INBOX";
+
+			ns = mail_namespace_find(client->namespaces, &inbox);
+		}
+	}
+
+	str = t_str_new(64);
+	str_printfa(str, "* LIST (\\Noselect) \"%s\" ", ns->sep_str);
+	if (*ns_prefix != '\0' && !ns->hidden) {
+		/* non-hidden namespace, use it as the root name */
+		imap_quote_append_string(str, ns_prefix, FALSE);
+	} else {
+		/* Hidden namespace or empty namespace prefix. Pine with
+		   ~/mail/
+
+		   use the mailbox
+		   name's first part as the root. */
+		const char *p = /*strchr(ref, ns->sep)*/NULL;
+
+		if (p == NULL)
+			str_append(str, "\"\"");
+		else {
+			imap_quote_append_string(str,
+						 t_strdup_until(ref, p + 1),
+						 FALSE);
+		}
+	}
+	client_send_line(client, str_c(str));
+}
+
 bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 {
 	struct client *client = cmd->client;
-	struct mail_namespace *ns;
 	struct imap_arg *args;
 	enum mailbox_list_flags list_flags;
         struct cmd_list_context *ctx;
@@ -468,54 +515,7 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 	}
 
 	if (*mask == '\0' && !lsub) {
-		const char *ns_prefix;
-
-		/* special request to return the hierarchy delimiter and
-		   mailbox root name. Mailbox root name is somewhat strange
-		   concept which probably no other client uses than Pine.
-		   Just try our best to emulate UW-IMAP behavior and hopefully
-		   we're fine. */
-		ns = mail_namespace_find_visible(client->namespaces, &ref);
-		if (ns != NULL)
-			ns_prefix = ns->prefix;
-		else {
-			const char *empty = "";
-
-			ns_prefix = "";
-			ns = mail_namespace_find(client->namespaces, &empty);
-			if (ns == NULL) {
-				/* we must reply something. use INBOX
-				   namespace's separator. */
-				const char *inbox = "INBOX";
-				ns = mail_namespace_find(client->namespaces,
-							 &inbox);
-			}
-		}
-
-		if (ns != NULL) {
-			string_t *str = t_str_new(64);
-
-			str_printfa(str, "* LIST (\\Noselect) \"%s\" ",
-				    ns->sep_str);
-			if (*ns_prefix != '\0' && !ns->hidden) {
-				/* public namespace, use it as the root name */
-				imap_quote_append_string(str, ns_prefix, FALSE);
-			} else {
-				/* private namespace, or empty namespace
-				   prefix. use the mailbox name's first part
-				   as the root. */
-				const char *p = strchr(ref, ns->sep);
-
-				if (p == NULL)
-					str_append(str, "\"\"");
-				else {
-					imap_quote_append_string(str,
-						t_strdup_until(ref, p + 1),
-						FALSE);
-				}
-			}
-			client_send_line(client, str_c(str));
-		}
+		cmd_list_ref_root(client, ref);
 		client_send_tagline(cmd, "OK List completed.");
 	} else {
 		ctx = p_new(cmd->pool, struct cmd_list_context, 1);
