@@ -316,8 +316,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	if (ctx->msg_size == 0) {
 		/* no message data, abort */
 		client_send_tagline(cmd, "NO Append aborted.");
-		cmd_append_finish(ctx);
-		return TRUE;
+		return cmd_append_cancel(ctx, nonsync);
 	}
 
 	/* save the mail */
