@@ -350,11 +350,18 @@ int mail_index_sync_begin(struct mail_index *index,
 	   We'll update the view to contain everything that exist in the
 	   transaction log except for expunges. They're synced in
 	   mail_index_sync_commit(). */
-	if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD,
-			   &lock_id) <= 0) {
-		// FIXME: handle ret=0 specially?
-		mail_transaction_log_sync_unlock(index->log);
-		return -1;
+	if ((ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD,
+				  &lock_id)) <= 0) {
+		if (ret == 0 || mail_index_fsck(index) <= 0) {
+			mail_transaction_log_sync_unlock(index->log);
+			return -1;
+		}
+		/* let's try again */
+		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD,
+				   &lock_id) <= 0) {
+			mail_transaction_log_sync_unlock(index->log);
+			return -1;
+		}
 	}
 	hdr = &index->map->hdr;
 
@@ -623,11 +630,8 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	   and the synced expunges. sync using file handler here so that the
 	   expunge handlers get called. */
 	if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE,
-			   &lock_id) <= 0) {
-		// FIXME: handle ret=0 specially?
-		// FIXME: do we really need to return failure?
+			   &lock_id) <= 0)
 		ret = -1;
-	}
 
 	/* FIXME: create a better rule? */
 	want_rotate = mail_transaction_log_want_rotate(index->log);
