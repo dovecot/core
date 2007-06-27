@@ -650,13 +650,18 @@ int _client_output(struct client *client)
 
 static void idle_timeout(void *context __attr_unused__)
 {
-	time_t idle_time;
+	time_t idle_time, last_change;
 
 	if (my_client == NULL)
 		return;
 
-	idle_time = ioloop_time -
+	/* We mostly want to check last_input here, but if there is a very long
+	   running command (like copying thousands of messages), we don't want
+	   to disconnect the client just after the command was finished.
+	   But any output that IDLE has sent should be ignored. */
+	last_change = my_client->idling ? my_client->last_input :
 		I_MAX(my_client->last_input, my_client->last_output);
+	idle_time = ioloop_time - last_change;
 
 	if (o_stream_get_buffer_used_size(my_client->output) > 0 &&
 	    idle_time >= CLIENT_OUTPUT_TIMEOUT) {

@@ -57,6 +57,7 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 	if (client->mailbox != NULL)
 		mailbox_notify_changes_stop(client->mailbox);
 
+	client->idling = FALSE;
 	if (done_ok)
 		client_send_tagline(ctx->cmd, "OK Idle completed.");
 	else
@@ -259,6 +260,7 @@ bool cmd_idle(struct client_command_context *cmd)
 	client->io = io_add(i_stream_get_fd(client->input),
 			    IO_READ, idle_client_input, ctx);
 
+	client->idling = TRUE;
 	cmd->func = cmd_idle_continue;
 	cmd->context = ctx;
 
