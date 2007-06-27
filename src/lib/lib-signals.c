@@ -21,10 +21,11 @@ struct signal_handler {
 /* Remember that these are accessed inside signal handler which may be called
    even while we're initializing/deinitializing. Try hard to keep everything
    in consistent state. */
-static struct signal_handler *signal_handlers[MAX_SIGNAL_VALUE+1];
-static int sig_pipe_fd[2];
+static struct signal_handler *signal_handlers[MAX_SIGNAL_VALUE+1] = { NULL, };
+static int sig_pipe_fd[2] = { -1, -1 };
 
-static struct io *io_sig;
+static bool signals_initialized = FALSE;
+static struct io *io_sig = NULL;
 
 static void sig_handler(int signo)
 {
@@ -99,6 +100,18 @@ static void signal_read(void *context __attr_unused__)
 	}
 }
 
+static void lib_signals_set(int signo, bool ignore)
+{
+	struct sigaction act;
+
+	if (sigemptyset(&act.sa_mask) < 0)
+		i_fatal("sigemptyset(): %m");
+	act.sa_flags = 0;
+	act.sa_handler = ignore ? sig_ignore : sig_handler;
+	if (sigaction(signo, &act, NULL) < 0)
+		i_fatal("sigaction(%d): %m", signo);
+}
+
 void lib_signals_set_handler(int signo, bool delayed,
 			     signal_handler_t *handler, void *context)
 {
@@ -111,17 +124,8 @@ void lib_signals_set_handler(int signo, bool delayed,
 			signo, MAX_SIGNAL_VALUE);
 	}
 
-	if (signal_handlers[signo] == NULL) {
-		/* first handler for this signal */
-		struct sigaction act;
-
-		if (sigemptyset(&act.sa_mask) < 0)
-			i_fatal("sigemptyset(): %m");
-		act.sa_flags = 0;
-		act.sa_handler = sig_handler;
-		if (sigaction(signo, &act, NULL) < 0)
-			i_fatal("sigaction(%d): %m", signo);
-	}
+	if (signal_handlers[signo] == NULL && signals_initialized)
+		lib_signals_set(signo, FALSE);
 
 	if (delayed && sig_pipe_fd[0] == -1) {
 		/* first delayed handler */
@@ -129,7 +133,10 @@ void lib_signals_set_handler(int signo, bool delayed,
 			i_fatal("pipe() failed: %m");
 		fd_close_on_exec(sig_pipe_fd[0], TRUE);
 		fd_close_on_exec(sig_pipe_fd[1], TRUE);
-		io_sig = io_add(sig_pipe_fd[0], IO_READ, signal_read, NULL);
+		if (signals_initialized) {
+			io_sig = io_add(sig_pipe_fd[0], IO_READ,
+					signal_read, NULL);
+		}
 	}
 
 	h = i_new(struct signal_handler, 1);
@@ -182,10 +189,18 @@ void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 
 void lib_signals_init(void)
 {
-        sig_pipe_fd[0] = sig_pipe_fd[1] = -1;
-	io_sig = NULL;
+	int i;
 
-	memset(signal_handlers, 0, sizeof(signal_handlers));
+	signals_initialized = TRUE;
+
+	/* add signals that were already registered */
+	for (i = 0; i < MAX_SIGNAL_VALUE; i++) {
+		if (signal_handlers[i] != NULL)
+			lib_signals_set(i, FALSE);
+	}
+
+	if (sig_pipe_fd[0] != -1)
+		io_sig = io_add(sig_pipe_fd[0], IO_READ, signal_read, NULL);
 }
 
 void lib_signals_deinit(void)
