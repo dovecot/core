@@ -124,6 +124,9 @@ int mail_transaction_log_create(struct mail_transaction_log *log);
 /* Close all the open transactions log files. */
 void mail_transaction_log_close(struct mail_transaction_log *log);
 
+/* Notify of indexid change */
+void mail_transaction_log_indexid_changed(struct mail_transaction_log *log);
+
 /* Returns the file seq/offset where the mailbox is currently synced at.
    Since the log is rotated only when mailbox is fully synced, the sequence
    points always to the latest file. This function doesn't actually find the

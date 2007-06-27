@@ -1,6 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "array.h"
 #include "buffer.h"
 #include "hash.h"
@@ -404,11 +405,20 @@ static bool mail_index_open_files(struct mail_index *index,
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
 			return FALSE;
 
+		/* if dovecot.index exists, read it first so that we can get
+		   the correct indexid and log sequence */
+		(void)mail_index_try_open(index);
+
+		if (index->indexid == 0) {
+			/* create a new indexid for us */
+			index->indexid = ioloop_time;
+		}
+
 		ret = mail_transaction_log_create(index->log);
 		created = TRUE;
 	}
 	if (ret >= 0) {
-		ret = created ? 0 : mail_index_try_open(index);
+		ret = index->map != NULL ? 0 : mail_index_try_open(index);
 		if (ret == 0) {
 			/* doesn't exist / corrupted */
 			index->map = mail_index_map_alloc(index);

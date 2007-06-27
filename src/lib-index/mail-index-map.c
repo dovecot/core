@@ -7,6 +7,7 @@
 #include "read-full.h"
 #include "mail-index-private.h"
 #include "mail-index-sync-private.h"
+#include "mail-transaction-log-private.h"
 
 static void mail_index_map_init_extbufs(struct mail_index_map *map,
 					unsigned int initial_count)
@@ -252,7 +253,18 @@ static bool mail_index_check_header_compat(struct mail_index *index,
 				     "Corrupted header size (%u > %"PRIuUOFF_T")",
 				     index->filepath, hdr->header_size,
 				     file_size);
-		return 0;
+		return FALSE;
+	}
+
+	if (hdr->indexid != index->indexid) {
+		if (index->indexid != 0) {
+			mail_index_set_error(index, "Index file %s: "
+					     "indexid changed: %u -> %u",
+					     index->filepath, index->indexid,
+					     hdr->indexid);
+		}
+		index->indexid = hdr->indexid;
+		mail_transaction_log_indexid_changed(index->log);
 	}
 
 	return TRUE;
@@ -609,7 +621,6 @@ mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
 static void mail_index_header_init(struct mail_index *index,
 				   struct mail_index_header *hdr)
 {
-	i_assert(index->indexid != 0);
 	i_assert((sizeof(*hdr) % sizeof(uint64_t)) == 0);
 
 	memset(hdr, 0, sizeof(*hdr));
@@ -741,9 +752,14 @@ int mail_index_map(struct mail_index *index,
 		   reopening succeeds) */
 		(void)mail_index_map_latest_file(index, &index->map, &lock_id);
 
-		/* and update the map with the latest changes from
-		   transaction log */
-		ret = mail_index_sync_map(index, &index->map, type, TRUE);
+		/* if we're creating the index file, we don't have any
+		   logs yet */
+		if (index->log->head != NULL) {
+			/* and update the map with the latest changes from
+			   transaction log */
+			ret = mail_index_sync_map(index, &index->map,
+						  type, TRUE);
+		}
 
 		/* we need the lock only if we didn't move the map to memory */
 		if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map))

@@ -799,6 +799,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 #ifdef DEBUG
 	mail_index_map_check(map);
 #endif
+	i_assert(map->hdr.indexid == index->indexid);
 
 	/* transaction log tracks internally the current tail offset.
 	   besides using header updates, it also updates the offset to skip

@@ -137,6 +137,28 @@ void mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
 		mail_transaction_log_file_move_to_memory(log->head);
 }
 
+void mail_transaction_log_indexid_changed(struct mail_transaction_log *log)
+{
+	struct mail_transaction_log_file *file;
+
+	mail_transaction_logs_clean(log);
+
+	for (file = log->files; file != NULL; file = file->next) {
+		if (file->hdr.indexid != log->index->indexid) {
+			mail_transaction_log_file_set_corrupted(file,
+				"indexid changed: %u -> %u",
+				file->hdr.indexid, log->index->indexid);
+		}
+	}
+
+	if (log->head != NULL &&
+	    log->head->hdr.indexid != log->index->indexid) {
+		if (--log->head->refcount == 0)
+			mail_transaction_log_file_free(&log->head);
+		(void)mail_transaction_log_create(log);
+	}
+}
+
 void mail_transaction_logs_clean(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file, *next;

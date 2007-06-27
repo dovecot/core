@@ -20,6 +20,7 @@ mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 {
 	va_list va;
 
+	file->corrupted = TRUE;
 	file->hdr.indexid = 0;
 	if (!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
 		/* indexid=0 marks the log file as corrupted */
@@ -142,9 +143,6 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	struct mail_index *index = log->index;
 	unsigned int lock_id = 0;
 
-	if (log->index->indexid == 0)
-		log->index->indexid = ioloop_time;
-
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->major_version = MAIL_TRANSACTION_LOG_MAJOR_VERSION;
 	hdr->minor_version = MAIL_TRANSACTION_LOG_MINOR_VERSION;
@@ -154,9 +152,15 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 
 	if (index->fd != -1) {
 		/* not creating index - make sure we have latest header */
-		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD,
-				   &lock_id) <= 0)
-			return -1;
+		if (!index->mapping) {
+			if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD,
+					   &lock_id) <= 0)
+				return -1;
+		} else {
+			/* if we got here from mapping, the .log file is
+			   corrupted. use whatever values we got from index
+			   file */
+		}
 	}
 	if (index->map != NULL) {
 		hdr->prev_file_seq = index->map->hdr.log_file_seq;
@@ -314,6 +318,9 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 
 	i_assert(!MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));
 
+	if (file->corrupted)
+		return 0;
+
 	ret = pread_full(file->fd, &file->hdr, sizeof(file->hdr), 0);
 	if (ret < 0) {
                 if (errno != ESTALE || !ignore_estale) {
@@ -347,18 +354,19 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 
 	if (file->hdr.indexid == 0) {
 		/* corrupted */
+		file->corrupted = TRUE;
 		mail_index_set_error(file->log->index,
 			"Transaction log file %s: marked corrupted",
 			file->filepath);
 		return 0;
 	}
 	if (file->hdr.indexid != file->log->index->indexid) {
-		if (file->log->index->fd != -1) {
+		if (file->log->index->indexid != 0) {
 			/* index file was probably just rebuilt and we don't
 			   know about it yet */
 			mail_transaction_log_file_set_corrupted(file,
-				"invalid indexid (%u != %u)",
-				file->hdr.indexid, file->log->index->indexid);
+				"indexid changed %u -> %u",
+				file->log->index->indexid, file->hdr.indexid);
 			return 0;
 		}
 
@@ -462,7 +470,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		} else {
 			file->fd = fd;
 			if (mail_transaction_log_file_read_hdr(file,
-							       FALSE) == 0) {
+							       FALSE) > 0) {
 				/* yes, it was ok */
 				(void)file_dotlock_delete(dotlock);
 				return 0;

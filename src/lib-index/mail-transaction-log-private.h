@@ -46,6 +46,7 @@ struct mail_transaction_log_file {
 	struct file_lock *file_lock;
 
 	unsigned int locked:1;
+	unsigned int corrupted:1;
 };
 
 struct mail_transaction_log {

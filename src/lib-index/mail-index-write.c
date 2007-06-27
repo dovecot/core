@@ -20,6 +20,7 @@ static int mail_index_recreate(struct mail_index *index)
 	int ret, fd;
 
 	i_assert(!MAIL_INDEX_IS_IN_MEMORY(index));
+	i_assert(map->hdr.indexid == index->indexid);
 
 	fd = mail_index_create_tmp_file(index, &path);
 	if (fd == -1)
