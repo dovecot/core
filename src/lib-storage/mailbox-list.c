@@ -284,7 +284,7 @@ mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 	return list->v.iter_init(list, mask, flags);
 }
 
-struct mailbox_info *
+const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 {
 	return ctx->list->v.iter_next(ctx);

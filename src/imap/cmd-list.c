@@ -106,7 +106,7 @@ list_namespace_inbox(struct client *client, struct cmd_list_context *ctx)
 
 static bool
 list_insert_ns_prefix(string_t *name_str, struct cmd_list_context *ctx,
-		      struct mailbox_info *info)
+		      const struct mailbox_info *info)
 {
 	if (strcasecmp(info->name, "INBOX") != 0) {
 		/* non-INBOX always has prefix */
@@ -135,7 +135,7 @@ list_insert_ns_prefix(string_t *name_str, struct cmd_list_context *ctx,
 static int
 list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 {
-	struct mailbox_info *info;
+	const struct mailbox_info *info;
 	const char *name;
 	string_t *str, *name_str;
 	int ret = 0;

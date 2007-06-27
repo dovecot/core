@@ -152,7 +152,7 @@ struct mailbox_list_iterate_context *
 mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 		       enum mailbox_list_iter_flags flags);
 /* Get next mailbox. Returns the mailbox name */
-struct mailbox_info *
+const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx);
 /* Deinitialize mailbox list request. Returns FALSE if some error
    occurred while listing. */

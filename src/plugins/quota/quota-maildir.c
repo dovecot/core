@@ -39,7 +39,7 @@ struct maildir_quota_root {
 struct maildir_list_context {
 	struct mail_storage *storage;
 	struct mailbox_list_iterate_context *iter;
-	struct mailbox_info *info;
+	const struct mailbox_info *info;
 
 	string_t *path;
 	int state;

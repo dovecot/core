@@ -211,7 +211,7 @@ index_mailbox_list_info_flags_translate(enum mailbox_info_flags info_flags)
 	 (ctx)->recurse_level >= 0)
 
 static int iter_next_nonsync(struct index_mailbox_list_iterate_context *ctx,
-			     struct mailbox_info **info_r)
+			     const struct mailbox_info **info_r)
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(ctx->ctx.list);
 	struct mailbox_list_index_info iinfo;
@@ -294,13 +294,13 @@ mailbox_info_move_to_parent(struct index_mailbox_list_iterate_context *ctx,
 	return &ctx->info;
 }
 
-static struct mailbox_info *
+static const struct mailbox_info *
 index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct index_mailbox_list_iterate_context *ctx =
 		(struct index_mailbox_list_iterate_context *)_ctx;
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(_ctx->list);
-	struct mailbox_info *info;
+	const struct mailbox_info *info;
 	uint32_t seq, flags;
 	enum imap_match_result match;
 

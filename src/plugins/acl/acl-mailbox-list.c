@@ -154,13 +154,13 @@ acl_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 	return &ctx->ctx;
 }
 
-static struct mailbox_info *
+static const struct mailbox_info *
 acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct acl_mailbox_list_iterate_context *ctx =
 		(struct acl_mailbox_list_iterate_context *)_ctx;
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(_ctx->list);
-	struct mailbox_info *info;
+	const struct mailbox_info *info;
 	struct mailbox_node *node;
 	int ret;
 
@@ -170,8 +170,8 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 							 &ctx->info.name);
 			if (node == NULL)
 				return NULL;
+			ctx->info.flags = node->flags;
 			info = &ctx->info;
-			info->flags = node->flags;
 		} else {
 			info = alist->module_ctx.super.
 				iter_next(ctx->super_ctx);
@@ -198,8 +198,13 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0) {
 			/* it's subscribed, show it as non-existent */
 			if ((ctx->ctx.flags &
-			     MAILBOX_LIST_ITER_FAST_FLAGS) == 0)
-				info->flags = MAILBOX_NONEXISTENT;
+			     MAILBOX_LIST_ITER_FAST_FLAGS) == 0) {
+				if (info != &ctx->info) {
+					ctx->info = *info;
+					info = &ctx->info;
+				}
+				ctx->info.flags = MAILBOX_NONEXISTENT;
+			}
 			return info;
 		}
 

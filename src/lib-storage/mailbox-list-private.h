@@ -29,7 +29,7 @@ struct mailbox_list_vfuncs {
 	struct mailbox_list_iterate_context *
 		(*iter_init)(struct mailbox_list *list, const char *mask,
 			     enum mailbox_list_iter_flags flags);
-	struct mailbox_info *
+	const struct mailbox_info *
 		(*iter_next)(struct mailbox_list_iterate_context *ctx);
 	int (*iter_deinit)(struct mailbox_list_iterate_context *ctx);
 

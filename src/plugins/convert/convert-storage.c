@@ -128,7 +128,7 @@ mailbox_name_convert(struct mail_storage *dest_storage,
 
 static int mailbox_convert_list_item(struct mail_storage *source_storage,
 				     struct mail_storage *dest_storage,
-				     struct mailbox_info *info,
+				     const struct mailbox_info *info,
 				     struct dotlock *dotlock,
 				     const struct convert_settings *set)
 {
@@ -209,7 +209,7 @@ static int mailbox_list_copy(struct mail_storage *source_storage,
 			     const struct convert_settings *set)
 {
 	struct mailbox_list_iterate_context *iter;
-	struct mailbox_info *info;
+	const struct mailbox_info *info;
 	int ret = 0;
 
 	iter = mailbox_list_iter_init(mail_storage_get_list(source_storage),
@@ -235,7 +235,7 @@ static int mailbox_list_copy_subscriptions(struct mail_storage *source_storage,
 					   const struct convert_settings *set)
 {
 	struct mailbox_list_iterate_context *iter;
-	struct mailbox_info *info;
+	const struct mailbox_info *info;
 	struct mailbox_list *dest_list;
 	const char *dest_name;
 	int ret = 0;

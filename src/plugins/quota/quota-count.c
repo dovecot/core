@@ -51,7 +51,7 @@ static int quota_count_storage(struct mail_storage *storage,
 			       uint64_t *bytes, uint64_t *count)
 {
 	struct mailbox_list_iterate_context *ctx;
-	struct mailbox_info *info;
+	const struct mailbox_info *info;
 	int ret = 0;
 
 	ctx = mailbox_list_iter_init(storage->list, "*",

@@ -295,7 +295,7 @@ int maildir_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
-struct mailbox_info *
+const struct mailbox_info *
 maildir_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct maildir_list_iterate_context *ctx =

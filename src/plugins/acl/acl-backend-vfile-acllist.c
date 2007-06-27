@@ -180,7 +180,7 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	struct mailbox_list *list = backend->backend.list;
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *iter;
-	struct mailbox_info *info;
+	const struct mailbox_info *info;
 	const char *rootdir, *acllist_path;
 	struct ostream *output;
 	struct stat st;

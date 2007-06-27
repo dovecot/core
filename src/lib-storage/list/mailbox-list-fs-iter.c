@@ -25,16 +25,19 @@ struct fs_list_iterate_context {
 	bool inbox_found, inbox_listed;
 	enum mailbox_info_flags inbox_flags;
 
-	struct mailbox_info *(*next)(struct fs_list_iterate_context *ctx);
+	const struct mailbox_info *(*next)(struct fs_list_iterate_context *ctx);
 
 	pool_t info_pool;
 	struct mailbox_info info;
         struct list_dir_context *dir;
 };
 
-static struct mailbox_info *fs_list_subs(struct fs_list_iterate_context *ctx);
-static struct mailbox_info *fs_list_path(struct fs_list_iterate_context *ctx);
-static struct mailbox_info *fs_list_next(struct fs_list_iterate_context *ctx);
+static const struct mailbox_info *
+fs_list_subs(struct fs_list_iterate_context *ctx);
+static const struct mailbox_info *
+fs_list_path(struct fs_list_iterate_context *ctx);
+static const struct mailbox_info *
+fs_list_next(struct fs_list_iterate_context *ctx);
 
 static const char *mask_get_dir(const char *mask)
 {
@@ -176,7 +179,7 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	return ret;
 }
 
-struct mailbox_info *
+const struct mailbox_info *
 fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct fs_list_iterate_context *ctx =
@@ -330,7 +333,8 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 	return 0;
 }
 
-static struct mailbox_info *fs_list_subs(struct fs_list_iterate_context *ctx)
+static const struct mailbox_info *
+fs_list_subs(struct fs_list_iterate_context *ctx)
 {
 	const char *name, *path, *p, *dir, *fname;
 	enum imap_match_result match = IMAP_MATCH_NO;
@@ -376,7 +380,8 @@ static struct mailbox_info *fs_list_subs(struct fs_list_iterate_context *ctx)
 	return &ctx->info;
 }
 
-static struct mailbox_info *fs_list_path(struct fs_list_iterate_context *ctx)
+static const struct mailbox_info *
+fs_list_path(struct fs_list_iterate_context *ctx)
 {
 	ctx->next = fs_list_next;
 
@@ -390,7 +395,8 @@ static struct mailbox_info *fs_list_path(struct fs_list_iterate_context *ctx)
 		return ctx->next(ctx);
 }
 
-static struct mailbox_info *fs_list_next(struct fs_list_iterate_context *ctx)
+static const struct mailbox_info *
+fs_list_next(struct fs_list_iterate_context *ctx)
 {
 	struct list_dir_context *dir;
 	struct dirent *d;

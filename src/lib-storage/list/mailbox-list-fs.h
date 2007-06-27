@@ -17,7 +17,7 @@ struct mailbox_list_iterate_context *
 fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 		  enum mailbox_list_iter_flags flags);
 int fs_list_iter_deinit(struct mailbox_list_iterate_context *ctx);
-struct mailbox_info *
+const struct mailbox_info *
 fs_list_iter_next(struct mailbox_list_iterate_context *ctx);
 
 #endif

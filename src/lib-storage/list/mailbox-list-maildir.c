@@ -273,7 +273,7 @@ static int rename_children(struct mailbox_list *list,
 			   const char *oldname, const char *newname)
 {
 	struct mailbox_list_iterate_context *iter;
-        struct mailbox_info *info;
+        const struct mailbox_info *info;
 	ARRAY_DEFINE(names_arr, const char *);
 	const char *mask, *oldpath, *newpath, *old_listname, *new_listname;
 	const char *const *names;
