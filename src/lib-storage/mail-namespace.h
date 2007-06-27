@@ -8,6 +8,7 @@ enum namespace_type {
 };
 
 struct mail_namespace {
+	/* Namespaces are sorted by their prefix length, "" comes first */
 	struct mail_namespace *next;
 
         enum namespace_type type;

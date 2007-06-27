@@ -140,6 +140,24 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 	return TRUE;
 }
 
+static struct mail_namespace *
+namespaces_sort(struct mail_namespace *src)
+{
+	struct mail_namespace **tmp, *next, *dest = NULL;
+
+	for (; src != NULL; src = next) {
+		next = src->next;
+
+		for (tmp = &dest; *tmp != NULL; tmp = &(*tmp)->next) {
+			if (strlen(src->prefix) < strlen((*tmp)->prefix))
+				break;
+		}
+		src->next = *tmp;
+		*tmp = src;
+	}
+	return dest;
+}
+
 int mail_namespaces_init(pool_t pool, const char *user,
 			 struct mail_namespace **namespaces_r)
 {
@@ -175,6 +193,7 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	if (namespaces != NULL) {
 		if (!namespaces_check(namespaces))
 			return -1;
+		namespaces = namespaces_sort(namespaces);
 		*namespaces_r = namespaces;
 		return 0;
 	}
