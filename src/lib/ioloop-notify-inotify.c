@@ -133,7 +133,12 @@ static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 
 	ctx->inotify_fd = inotify_init();
 	if (ctx->inotify_fd == -1) {
-		i_error("inotify_init() failed: %m");
+		if (errno != EMFILE)
+			i_error("inotify_init() failed: %m");
+		else {
+			i_warning("Inotify instance limit for user exceeded, "
+				  "disabling.");
+		}
 		ctx->disabled = TRUE;
 	} else {
 		fd_close_on_exec(ctx->inotify_fd, TRUE);
