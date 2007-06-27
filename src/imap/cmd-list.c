@@ -244,17 +244,15 @@ skip_namespace_prefix(const char **prefix, const char **mask,
 
 static bool
 skip_namespace_prefix_refmask(struct cmd_list_context *ctx,
-			      const char **cur_ns_prefix_r,
-			      const char **cur_ref_r, const char **cur_mask_r)
+			      const char **cur_ns_prefix_p,
+			      const char **cur_ref_p, const char **cur_mask_p)
 {
-	const char *cur_ns_prefix, *cur_ref, *cur_mask;
+	const char *cur_ns_prefix = *cur_ns_prefix_p;
+	const char *cur_ref = *cur_ref_p;
+	const char *cur_mask = *cur_mask_p;
 
 	if (*ctx->ns->prefix == '\0')
 		return TRUE;
-
-	cur_ns_prefix = ctx->ns->prefix;
-	cur_ref = ctx->ref;
-	cur_mask = ctx->mask;
 
 	if (*cur_ref != '\0') {
 		/* reference argument given. skip namespace prefix using it.
@@ -292,9 +290,9 @@ skip_namespace_prefix_refmask(struct cmd_list_context *ctx,
 		}
 	}
 
-	*cur_ns_prefix_r = cur_ns_prefix;
-	*cur_ref_r = cur_ref;
-	*cur_mask_r = cur_mask;
+	*cur_ns_prefix_p = cur_ns_prefix;
+	*cur_ref_p = cur_ref;
+	*cur_mask_p = cur_mask;
 	return TRUE;
 }
 
@@ -361,6 +359,10 @@ list_namespace_init(struct client_command_context *cmd,
 	enum imap_match_result match;
 	enum imap_match_result inbox_match;
 	size_t len;
+
+	cur_ns_prefix = ctx->ns->prefix;
+	cur_ref = ctx->ref;
+	cur_mask = ctx->mask;
 
 	if (!skip_namespace_prefix_refmask(ctx, &cur_ns_prefix,
 					   &cur_ref, &cur_mask))
