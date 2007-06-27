@@ -13,7 +13,9 @@ void drop_capabilities(void)
 		CAP_SYS_CHROOT,
 		CAP_SETUID,
 		CAP_SETGID,
-		CAP_NET_BIND_SERVICE
+		CAP_NET_BIND_SERVICE,
+		/* we may want to open any config/log files */
+		CAP_DAC_OVERRIDE
 	};
 	cap_t caps;
 
