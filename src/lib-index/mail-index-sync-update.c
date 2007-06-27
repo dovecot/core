@@ -814,6 +814,10 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 
 	/*FIXME:if (mail_index_map_msync(index, map) < 0)
 		ret = -1;*/
+	if (sync_map_ctx.errors) {
+		/* avoid the same syncing errors the next time */
+		mail_index_write(index, FALSE);
+	}
 
 	/* restore refcount before closing the view. this is necessary also
 	   if map got cloned, because view closing would otherwise destroy it */

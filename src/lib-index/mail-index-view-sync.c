@@ -104,7 +104,7 @@ static int view_sync_set_log_view_range(struct mail_index_view *view)
 			mail_index_set_error(view->index,
 				"Transaction log got desynced for index %s",
 				view->index->filepath);
-			mail_index_set_inconsistent(view->index);
+			view->inconsistent = TRUE;
 		}
 		return -1;
 	}

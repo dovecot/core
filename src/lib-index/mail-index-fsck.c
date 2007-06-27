@@ -47,6 +47,11 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 					      &file_offset);
 	}
 
+	/* Remember the log head position. If we go back in the index's head
+	   offset, ignore errors in the log up to this offset. */
+	index->fsck_log_head_file_seq = file_seq;
+	index->fsck_log_head_file_offset = file_offset;
+
 	/* locking already does the most important sanity checks for header */
 	hdr = map->hdr;
 
@@ -55,8 +60,7 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 
 	hdr.flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;
 
-	if (hdr.log_file_seq != file_seq) {
-		hdr.log_file_seq = file_seq;
+	if (hdr.log_file_seq < file_seq) {
 		hdr.log_file_head_offset = hdr.log_file_tail_offset =
 			sizeof(struct mail_transaction_log_header);
 	} else {
@@ -65,6 +69,7 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 		if (hdr.log_file_tail_offset > hdr.log_file_head_offset)
 			hdr.log_file_tail_offset = hdr.log_file_head_offset;
 	}
+	hdr.log_file_seq = file_seq;
 
 	hdr.messages_count = 0;
 	hdr.recent_messages_count = 0;

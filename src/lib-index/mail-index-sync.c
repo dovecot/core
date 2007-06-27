@@ -321,7 +321,6 @@ mail_index_sync_set_log_view(struct mail_index_view *view,
 		mail_index_set_error(view->index,
 			"Unexpected transaction log desync with index %s",
 			view->index->filepath);
-		mail_index_set_inconsistent(view->index);
 		return -1;
 	}
 	return 0;
@@ -396,8 +395,17 @@ int mail_index_sync_begin(struct mail_index *index,
 	   the end of the transaction log */
 	if (mail_index_sync_set_log_view(ctx->view, hdr->log_file_seq,
 					 hdr->log_file_tail_offset) < 0) {
-                mail_index_sync_rollback(&ctx);
-		return -1;
+		/* if a log file is missing, there's nothing we can do except
+		   to skip over it. fix the problem with fsck and try again. */
+		mail_index_sync_rollback(&ctx);
+		if (mail_index_fsck(index) <= 0) {
+			mail_index_unlock(index, lock_id);
+			mail_transaction_log_sync_unlock(index->log);
+			return -1;
+		}
+		return mail_index_sync_begin(index, ctx_r, view_r, trans_r,
+					     log_file_seq, log_file_offset,
+					     flags);
 	}
 
 	/* we need to have all the transactions sorted to optimize
@@ -690,8 +698,17 @@ void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
 	uint32_t seq;
 	uoff_t offset;
 
+	ctx->errors = TRUE;
+
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 					       &seq, &offset);
+
+	if (seq < ctx->view->index->fsck_log_head_file_seq ||
+	    (seq == ctx->view->index->fsck_log_head_file_seq &&
+	     offset < ctx->view->index->fsck_log_head_file_offset)) {
+		/* be silent */
+		return;
+	}
 
 	va_start(va, fmt);
 	t_push();

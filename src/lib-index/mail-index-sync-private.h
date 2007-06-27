@@ -38,6 +38,7 @@ struct mail_index_sync_map_ctx {
 	unsigned int expunge_handlers_set:1;
 	unsigned int expunge_handlers_used:1;
 	unsigned int cur_ext_ignore:1;
+	unsigned int errors:1;
 };
 
 extern struct mail_transaction_map_functions mail_index_map_sync_funcs;

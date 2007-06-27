@@ -194,7 +194,10 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	} else {
 		if (mail_index_write_map_over(index) < 0) {
 			mail_index_set_syscall_error(index, "pwrite_full()");
-			mail_index_set_inconsistent(index);
+			/* hopefully didn't break badly */
+			mail_index_unlock(index, lock_id);
+			mail_index_move_to_memory(index);
+			return;
 		}
 		mail_index_unlock(index, lock_id);
 	}

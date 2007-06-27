@@ -161,13 +161,17 @@ struct mail_index {
 	struct mail_index_map *map;
 	uint32_t indexid;
 	/* last_read_log_file_* contains the seq/offsets we last read from
-	   the main index file's headers. these are used ro figure out when
+	   the main index file's headers. these are used to figure out when
 	   the main index file should be updated, and if we can update it
 	   by writing on top of it or if we need to recreate it. */
 	uint32_t last_read_log_file_seq;
 	uint32_t last_read_log_file_head_offset;
 	uint32_t last_read_log_file_tail_offset;
 	struct stat last_read_stat;
+
+	/* transaction log head seq/offset when we last fscked */
+	uint32_t fsck_log_head_file_seq;
+	uoff_t fsck_log_head_file_offset;
 
 	int lock_type, shared_lock_count, excl_lock_count;
 	unsigned int lock_id;
@@ -280,8 +284,6 @@ int mail_index_map_parse_keywords(struct mail_index *index,
 
 void mail_index_view_transaction_ref(struct mail_index_view *view);
 void mail_index_view_transaction_unref(struct mail_index_view *view);
-
-void mail_index_set_inconsistent(struct mail_index *index);
 
 int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	__attr_format__(2, 3);

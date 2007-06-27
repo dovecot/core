@@ -364,9 +364,11 @@ mail_index_try_open(struct mail_index *index)
 
 	if (ret == 0) {
 		/* it's corrupted - recreate it */
-		if (close(index->fd) < 0)
-			mail_index_set_syscall_error(index, "close()");
-		index->fd = -1;
+		if (index->fd != -1) {
+			if (close(index->fd) < 0)
+				mail_index_set_syscall_error(index, "close()");
+			index->fd = -1;
+		}
 	}
 	return ret;
 }
@@ -618,11 +620,6 @@ int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	return -1;
 }
 
-void mail_index_set_inconsistent(struct mail_index *index)
-{
-	index->indexid = 0;
-}
-
 int mail_index_move_to_memory(struct mail_index *index)
 {
 	struct mail_index_map *map;
@@ -667,7 +664,7 @@ int mail_index_move_to_memory(struct mail_index *index)
 
 void mail_index_mark_corrupted(struct mail_index *index)
 {
-	mail_index_set_inconsistent(index);
+	index->indexid = 0;
 
 	index->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_CORRUPTED;
 	if (unlink(index->filepath) < 0 && errno != ENOENT && errno != ESTALE)
