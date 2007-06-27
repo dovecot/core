@@ -104,6 +104,34 @@ list_namespace_inbox(struct client *client, struct cmd_list_context *ctx)
 	}
 }
 
+static bool
+list_insert_ns_prefix(string_t *name_str, struct cmd_list_context *ctx,
+		      struct mailbox_info *info)
+{
+	if (strcasecmp(info->name, "INBOX") != 0) {
+		/* non-INBOX always has prefix */
+	} else if (!ctx->ns->inbox) {
+		/* INBOX from non-INBOX namespace. */
+		if (*ctx->ns->prefix == '\0') {
+			/* no namespace prefix, we can't list this */
+			return FALSE;
+		}
+	} else if (!ctx->match_inbox) {
+		/* The mask doesn't match INBOX (eg. prefix.%).
+		   We still want to list prefix.INBOX if it has
+		   children. Otherwise we don't want to list
+		   this INBOX at all. */
+		if ((info->flags & MAILBOX_CHILDREN) == 0)
+			return FALSE;
+	} else {
+		/* Listing INBOX from inbox=yes namespace.
+		   Don't insert the namespace prefix. */
+		return TRUE;
+	}
+	str_append(name_str, ctx->ns->prefix);
+	return TRUE;
+}
+
 static int
 list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 {
@@ -122,21 +150,9 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 	name_str = t_str_new(256);
 	while ((info = mailbox_list_iter_next(ctx->list_iter)) != NULL) {
 		str_truncate(name_str, 0);
-		if (ctx->ns->inbox && strcasecmp(info->name, "INBOX") == 0) {
-			/* Listing INBOX from inbox=yes namespace.
-			   Don't insert the namespace prefix. */
-			if (!ctx->match_inbox) {
-				/* The mask doesn't match INBOX (eg. prefix.%).
-				   We still want to list prefix.INBOX if it has
-				   children. Otherwise we don't want to list
-				   this INBOX at all. */
-				if ((info->flags & MAILBOX_CHILDREN) == 0)
-					continue;
-				str_append(name_str, ctx->ns->prefix);
-			}
-		} else {
-			str_append(name_str, ctx->ns->prefix);
-		}
+
+		if (!list_insert_ns_prefix(name_str, ctx, info))
+			continue;
 		str_append(name_str, info->name);
 
 		if (ctx->ns->sep != ctx->ns->real_sep) {
