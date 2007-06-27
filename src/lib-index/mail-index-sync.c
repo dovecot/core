@@ -339,6 +339,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	uint32_t seq;
 	uoff_t offset;
 	unsigned int lock_id = 0;
+	int ret;
 
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
 		return -1;
