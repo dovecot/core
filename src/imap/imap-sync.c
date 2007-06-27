@@ -218,6 +218,7 @@ static bool cmd_sync_continue(struct client_command_context *cmd)
 	if (ret < 0)
 		ctx->sync_ctx->failed = TRUE;
 
+	cmd->client->syncing = FALSE;
 	if (imap_sync_deinit(ctx->sync_ctx) < 0) {
 		client_send_untagged_storage_error(cmd->client,
 			mailbox_get_storage(cmd->client->mailbox));
@@ -263,5 +264,6 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	if (client->input_lock == cmd)
 		client->input_lock = NULL;
 	client->output_lock = NULL;
+	client->syncing = TRUE;
 	return cmd_sync_continue(cmd);
 }

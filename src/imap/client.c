@@ -312,8 +312,13 @@ static bool client_command_check_ambiguity(struct client_command_context *cmd)
 		return FALSE;
 	}
 
-	if (client_command_find_with_flags(cmd, flags) == NULL)
+	if (client_command_find_with_flags(cmd, flags) == NULL) {
+		if (cmd->client->syncing) {
+			/* don't do anything until syncing is finished */
+			return TRUE;
+		}
 		return FALSE;
+	}
 
 	if (broken_client) {
 		client_send_line(cmd->client,
@@ -420,6 +425,7 @@ void client_continue_pending_input(struct client *client)
 		   commands to finish. */
 		if (client_command_check_ambiguity(client->input_lock))
 			return;
+		client->input_lock->waiting_unambiguity = FALSE;
 	}
 
 	client_add_missing_io(client);
@@ -522,8 +528,11 @@ static bool client_handle_next_command(struct client *client)
 {
 	size_t size;
 
-	if (client->input_lock != NULL)
+	if (client->input_lock != NULL) {
+		if (client->input_lock->waiting_unambiguity)
+			return FALSE;
 		return client_command_input(client->input_lock);
+	}
 
 	if (client->input_skip_line) {
 		/* first eat the previous command line */
@@ -632,9 +641,11 @@ int _client_output(struct client *client)
 		cmd = client->command_queue;
 		for (; cmd != NULL; cmd = next) {
 			next = cmd->next;
-			client_output_cmd(cmd);
-			if (client->output_lock != NULL)
-				break;
+			if (!cmd->waiting_unambiguity) {
+				client_output_cmd(cmd);
+				if (client->output_lock != NULL)
+					break;
+			}
 		}
 	}
 	o_stream_uncork(client->output);
