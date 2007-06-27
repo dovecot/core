@@ -160,7 +160,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		return -1;
 	}
 
-	if (ctx->ctx.list->ns->inbox &&
+	if ((ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
 	    (ctx->ctx.flags & MAILBOX_LIST_ITER_SUBSCRIBED) == 0) {
 		/* make sure INBOX is there */
 		node = mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);

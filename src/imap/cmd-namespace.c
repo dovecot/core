@@ -12,7 +12,8 @@ static void list_namespaces(struct mail_namespace *ns,
 	bool found = FALSE;
 
 	while (ns != NULL) {
-		if (ns->type == type && !ns->hidden) {
+		if (ns->type == type &&
+		    (ns->flags & NAMESPACE_FLAG_HIDDEN) == 0) {
 			if (!found) {
 				str_append_c(str, '(');
 				found = TRUE;

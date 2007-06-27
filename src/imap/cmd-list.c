@@ -95,7 +95,8 @@ list_namespace_inbox(struct client *client, struct cmd_list_context *ctx)
 {
 	const char *str;
 
-	if (!ctx->inbox_found && ctx->ns->inbox && ctx->match_inbox &&
+	if (!ctx->inbox_found && ctx->match_inbox &&
+	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
 	    (ctx->list_flags & MAILBOX_LIST_ITER_SUBSCRIBED) == 0) {
 		/* INBOX always exists */
 		str = t_strdup_printf("* LIST (\\Unmarked) \"%s\" \"INBOX\"",
@@ -110,7 +111,7 @@ list_insert_ns_prefix(string_t *name_str, struct cmd_list_context *ctx,
 {
 	if (strcasecmp(info->name, "INBOX") != 0) {
 		/* non-INBOX always has prefix */
-	} else if (!ctx->ns->inbox) {
+	} else if ((ctx->ns->flags & NAMESPACE_FLAG_INBOX) == 0) {
 		/* INBOX from non-INBOX namespace. */
 		if (*ctx->ns->prefix == '\0') {
 			/* no namespace prefix, we can't list this */
@@ -172,7 +173,7 @@ list_namespace_mailboxes(struct client *client, struct cmd_list_context *ctx)
 				continue;
 		}
 		if (strcasecmp(name, "INBOX") == 0) {
-			if (!ctx->ns->inbox)
+			if ((ctx->ns->flags & NAMESPACE_FLAG_INBOX) == 0)
 				continue;
 
 			name = "INBOX";
@@ -303,7 +304,8 @@ list_use_inboxcase(struct client_command_context *cmd,
 {
 	struct imap_match_glob *inbox_glob;
 
-	if (*ctx->ns->prefix != '\0' && !ctx->ns->inbox)
+	if (*ctx->ns->prefix != '\0' &&
+	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX) == 0)
 		return IMAP_MATCH_NO;
 
 	/* if the original reference and mask combined produces something
@@ -391,14 +393,15 @@ list_namespace_init(struct client_command_context *cmd,
 
 		/* hidden and non-listable namespaces should still be seen
 		   without wildcards. */
-		match = (!ns->list_prefix &&
+		match = ((ns->flags & NAMESPACE_FLAG_LIST) == 0 &&
 			 list_mask_has_wildcards(cur_mask)) ?
 			IMAP_MATCH_NO : imap_match(ctx->glob, cur_ns_prefix);
 		if (match < 0)
 			return;
 
 		len = strlen(ns->prefix);
-		if (match == IMAP_MATCH_YES && ctx->ns->list_prefix &&
+		if (match == IMAP_MATCH_YES &&
+		    (ctx->ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
 		    (ctx->list_flags & MAILBOX_LIST_ITER_SUBSCRIBED) == 0 &&
 		    (!ctx->match_inbox ||
 		     strncmp(ns->prefix, "INBOX", len-1) != 0)) {

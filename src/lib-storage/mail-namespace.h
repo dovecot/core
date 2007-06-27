@@ -7,17 +7,26 @@ enum namespace_type {
 	NAMESPACE_PUBLIC
 };
 
+enum namespace_flags {
+	/* Namespace contains the INBOX mailbox (there can be only one) */
+	NAMESPACE_FLAG_INBOX	= 0x01,
+	/* Namespace is visible only by explicitly using its full prefix */
+	NAMESPACE_FLAG_HIDDEN	= 0x02,
+	/* Namespace is visible with LIST */
+	NAMESPACE_FLAG_LIST	= 0x04
+};
+
 struct mail_namespace {
 	/* Namespaces are sorted by their prefix length, "" comes first */
 	struct mail_namespace *next;
 
         enum namespace_type type;
 	char sep, real_sep, sep_str[3];
+	enum namespace_flags flags;
 
 	const char *prefix;
 	size_t prefix_len;
 
-	bool inbox, hidden, list_prefix, subscriptions;
 	struct mailbox_list *list;
 	/* FIXME: we should support multiple storages in one namespace */
 	struct mail_storage *storage;
