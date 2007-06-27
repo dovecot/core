@@ -460,6 +460,12 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 	cur_ref = ctx->ref;
 	cur_mask = ctx->mask;
 
+	if ((ctx->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0 &&
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0) {
+		/* ignore hidden namespaces */
+		return;
+	}
+
 	ctx->cur_ns_skip_trailing_sep = FALSE;
 
 	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0)

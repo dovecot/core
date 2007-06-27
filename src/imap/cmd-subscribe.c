@@ -2,9 +2,11 @@
 
 #include "common.h"
 #include "commands.h"
+#include "mail-namespace.h"
 
 bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 {
+	struct mail_namespace *ns;
         struct mail_storage *storage;
 	struct mailbox_list *list;
 	const char *mailbox, *verify_name;
@@ -14,20 +16,19 @@ bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		return FALSE;
 
 	verify_name = mailbox;
-	if ((client_workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
-	    *mailbox != '\0') {
-		/* verify the validity without the trailing '/' */
-		storage = client_find_storage(cmd, &mailbox);
-		if (storage == NULL)
-			return TRUE;
+	ns = mail_namespace_find_visible(cmd->client->namespaces, &mailbox);
+	if (ns == NULL) {
+		client_send_tagline(cmd, "NO Unknown namespace.");
+		return TRUE;
+	}
+	storage = ns->storage;
+	verify_name += strlen(ns->prefix);
 
-		if (mailbox[strlen(mailbox)-1] ==
-		    mail_storage_get_hierarchy_sep(storage))
-			verify_name = t_strndup(mailbox, strlen(mailbox)-1);
-	} else {
-		storage = client_find_storage(cmd, &mailbox);
-		if (storage == NULL)
-			return TRUE;
+	if ((client_workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
+	    *mailbox != '\0' && mailbox[strlen(mailbox)-1] ==
+	    mail_storage_get_hierarchy_sep(storage)) {
+		/* verify the validity without the trailing '/' */
+		verify_name = t_strndup(mailbox, strlen(mailbox)-1);
 	}
 
 	if (!client_verify_mailbox_name(cmd, verify_name, subscribe, FALSE))
