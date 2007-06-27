@@ -231,8 +231,7 @@ static int pam_auth(struct auth_request *request,
 	        }
 	}
 
-	/* FIXME: this doesn't actually work since we're in the child
-	   process.. */
+	/* FIXME: this works only with blocking=yes */
 	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
 	if (status != PAM_SUCCESS) {
 		*error = t_strdup_printf("pam_get_item() failed: %s",
