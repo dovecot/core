@@ -51,6 +51,9 @@ mail_namespace_find(struct mail_namespace *namespaces, const char **mailbox);
 struct mail_namespace *
 mail_namespace_find_visible(struct mail_namespace *namespaces,
 			    const char **mailbox);
+/* Returns the INBOX namespace */
+struct mail_namespace *
+mail_namespace_find_inbox(struct mail_namespace *namespaces);
 /* Returns TRUE if the given namespace matches the mailbox's prefix.
    Updates mailbox name to be a valid name inside the namespace. */
 bool mail_namespace_update_name(struct mail_namespace *ns,
@@ -60,5 +63,9 @@ bool mail_namespace_update_name(struct mail_namespace *ns,
 struct mail_namespace *
 mail_namespace_find_prefix(struct mail_namespace *namespaces,
 			   const char *prefix);
+/* Like _find_prefix(), but ignore trailing separator */
+struct mail_namespace *
+mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
+				 const char *prefix);
 
 #endif

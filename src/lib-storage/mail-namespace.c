@@ -338,6 +338,14 @@ mail_namespace_find_visible(struct mail_namespace *namespaces,
 	return mail_namespace_find_int(namespaces, mailbox, FALSE);
 }
 
+struct mail_namespace *
+mail_namespace_find_inbox(struct mail_namespace *namespaces)
+{
+	while ((namespaces->flags & NAMESPACE_FLAG_INBOX) == 0)
+		namespaces = namespaces->next;
+	return namespaces;
+}
+
 bool mail_namespace_update_name(struct mail_namespace *ns,
 				const char **mailbox)
 {
@@ -358,6 +366,22 @@ mail_namespace_find_prefix(struct mail_namespace *namespaces,
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
 		if (ns->prefix_len == len &&
 		    strcmp(ns->prefix, prefix) == 0)
+			return ns;
+	}
+	return NULL;
+}
+
+struct mail_namespace *
+mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
+				 const char *prefix)
+{
+        struct mail_namespace *ns;
+	unsigned int len = strlen(prefix);
+
+	for (ns = namespaces; ns != NULL; ns = ns->next) {
+		if (ns->prefix_len == len + 1 &&
+		    strncmp(ns->prefix, prefix, len) == 0 &&
+		    ns->prefix[len] == ns->sep)
 			return ns;
 	}
 	return NULL;
