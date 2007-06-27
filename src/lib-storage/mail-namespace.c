@@ -41,7 +41,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		ns->flags |= NAMESPACE_FLAG_INBOX;
 	if (getenv(t_strdup_printf("NAMESPACE_%u_HIDDEN", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_HIDDEN;
-	if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0 && *prefix != '\0' &&
+	if ((ns->flags & NAMESPACE_FLAG_HIDDEN) == 0 &&
 	    getenv(t_strdup_printf("NAMESPACE_%u_LIST", num)) != NULL)
 		ns->flags |= NAMESPACE_FLAG_LIST;
 
@@ -101,7 +101,8 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 			private_ns = ns;
 			private_ns_count++;
 		}
-		if ((ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
+		if (*ns->prefix != '\0' &&
+		    (ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
 		    ns->prefix[strlen(ns->prefix)-1] != ns->sep) {
 			i_error("namespace configuration error: "
 				"list=yes requires prefix=%s "
