@@ -430,29 +430,27 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 {
 	struct mail_namespace *ns;
 	const char *ns_prefix;
+	char ns_sep;
 	string_t *str;
 
 	/* Special request to return the hierarchy delimiter and mailbox root
 	   name. If namespace has a prefix, it's returned as the mailbox root.
 	   Otherwise we'll emulate UW-IMAP behavior. */
 	ns = mail_namespace_find_visible(client->namespaces, &ref);
-	if (ns != NULL)
+	if (ns != NULL) {
 		ns_prefix = ns->prefix;
-	else {
+		ns_sep = ns->sep;
+	} else {
 		ns_prefix = "";
-		ns = mail_namespace_find(client->namespaces, &ns_prefix);
-		if (ns == NULL) {
-			/* we must reply something. use INBOX namespace's
-			   separator. */
-			const char *inbox = "INBOX";
-
-			ns = mail_namespace_find(client->namespaces, &inbox);
-		}
+		ns_sep = mail_namespace_get_root_sep(client->namespaces);
 	}
 
 	str = t_str_new(64);
-	str_printfa(str, "* LIST (\\Noselect) \"%s\" ", ns->sep_str);
-	if (*ns_prefix != '\0' && !ns->hidden) {
+	str_append(str, "* LIST (\\Noselect) \"");
+	if (ns_sep == '\\' || ns_sep == '"')
+		str_append_c(str, '\\');
+	str_printfa(str, "%c\" ", ns_sep);
+	if (*ns_prefix != '\0') {
 		/* non-hidden namespace, use it as the root name */
 		imap_quote_append_string(str, ns_prefix, FALSE);
 	} else {
@@ -460,7 +458,7 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 		   return an empty root name, but it's safer to emulate what
 		   UW-IMAP does. With full filesystem access this might even
 		   matter (root of "~user/mail/" is "~user/", not "") */
-		const char *p = strchr(ref, ns->sep);
+		const char *p = strchr(ref, ns_sep);
 
 		if (p == NULL)
 			str_append(str, "\"\"");

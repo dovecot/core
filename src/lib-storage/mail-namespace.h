@@ -29,6 +29,8 @@ void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
 /* Update hierarchy separators in given name to real_sep characters. */
 const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name);
+/* Returns the hierarchy separator for mailboxes that are listed at root. */
+char mail_namespace_get_root_sep(struct mail_namespace *namespaces);
 
 /* Returns namespace based on the mailbox name's prefix. Updates mailbox to
    be a valid name inside the namespace (prefix is skipped, hierarchy separator

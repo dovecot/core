@@ -86,6 +86,7 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 {
 	struct mail_namespace *ns, *inbox_ns = NULL, *private_ns = NULL;
 	unsigned int private_ns_count = 0;
+	char list_sep = '\0';
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
 		if (ns->inbox) {
@@ -108,6 +109,16 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 				"to end with separator", ns->prefix);
 			return FALSE;
 		}
+		if (ns->list_prefix) {
+			if (list_sep == '\0')
+				list_sep = ns->sep;
+			else if (list_sep != ns->sep) {
+				i_error("namespace configuration error: "
+					"All list=yes namespaces must use "
+					"the same separator");
+				return FALSE;
+			}
+		}
 	}
 
 	if (inbox_ns == NULL) {
@@ -120,6 +131,11 @@ static bool namespaces_check(struct mail_namespace *namespaces)
 				"inbox=yes namespace missing");
 			return FALSE;
 		}
+	}
+	if (list_sep == '\0') {
+		i_error("namespace configuration error: "
+			"no list=yes namespaces");
+		return FALSE;
 	}
 	return TRUE;
 }
@@ -233,6 +249,13 @@ const char *mail_namespace_fix_sep(struct mail_namespace *ns, const char *name)
 			*p = ns->real_sep;
 	}
 	return ret;
+}
+
+char mail_namespace_get_root_sep(struct mail_namespace *namespaces)
+{
+	while (!namespaces->list_prefix)
+		namespaces = namespaces->next;
+	return namespaces->sep;
 }
 
 static struct mail_namespace *
