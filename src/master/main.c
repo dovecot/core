@@ -571,29 +571,24 @@ static void create_pid_file(const char *path)
 
 static void main_init(bool log_error)
 {
+	drop_capabilities();
+
 	/* deny file access from everyone else except owner */
         (void)umask(0077);
 
-	/* close stderr unless we're logging into /dev/stderr. keep as little
-	   distance between closing it and opening the actual log file so that
-	   we don't lose anything. */
+	set_logfile(settings_root->defaults);
+	/* close stderr unless we're logging into /dev/stderr. */
 	if (!have_stderr(settings_root)) {
 		if (dup2(null_fd, 2) < 0)
 			i_fatal("dup2(2) failed: %m");
 	}
-
-	set_logfile(settings_root->defaults);
 	i_info("Dovecot v"VERSION" starting up");
-
-	log_init();
 
 	if (log_error) {
 		i_warning("This is Dovecot's warning log");
 		i_error("This is Dovecot's error log");
 		i_fatal("This is Dovecot's fatal log");
 	}
-
-	drop_capabilities();
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
@@ -606,6 +601,7 @@ static void main_init(bool log_error)
 	pids = hash_create(default_pool, default_pool, 128, NULL, NULL);
 	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
 
+	log_init();
 	ssl_init();
 	dict_process_init();
 	auth_processes_init();
