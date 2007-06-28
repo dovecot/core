@@ -530,6 +530,10 @@ static void mail_index_close_file(struct mail_index *index)
 
 void mail_index_close(struct mail_index *index)
 {
+	if (index->map != NULL)
+		mail_index_unmap(index, &index->map);
+
+	mail_index_close_file(index);
 	mail_transaction_log_close(index->log);
 	if (index->cache != NULL)
 		mail_cache_free(&index->cache);
