@@ -36,7 +36,7 @@ printf_format_fix_noalloc(const char *format, unsigned int *len_r)
 {
 	const char *p;
 
-	for (p = format; *p != '\0'; p++) {
+	for (p = format; *p != '\0'; ) {
 		if (*p++ == '%') {
 			switch (*p) {
 			case 'n':
