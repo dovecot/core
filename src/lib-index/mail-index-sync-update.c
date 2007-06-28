@@ -822,9 +822,8 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	/* restore refcount before closing the view. this is necessary also
 	   if map got cloned, because view closing would otherwise destroy it */
 	map->refcount++;
-	mail_index_view_close(&view);
-
 	mail_index_sync_map_deinit(&sync_map_ctx);
+	mail_index_view_close(&view);
 
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
 
