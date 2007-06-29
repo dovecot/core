@@ -48,7 +48,8 @@ mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
 	    (ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0)
 		str_append(str, "\\Subscribed ");
 
-	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 && !ctx->used_listext) {
+	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
+	    (flags & MAILBOX_SUBSCRIBED) == 0 && !ctx->used_listext) {
 		/* LSUB uses \Noselect for this */
 		flags |= MAILBOX_NOSELECT;
 	}
