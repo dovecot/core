@@ -169,7 +169,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 			mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
 		if (created)
 			node->flags = MAILBOX_NOCHILDREN;
-		else
+		else if (node != NULL)
 			node->flags &= ~MAILBOX_NONEXISTENT;
 
 		switch (imap_match(glob, "INBOX")) {
