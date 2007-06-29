@@ -10,7 +10,8 @@ struct mailbox_list_vfuncs {
 	struct mailbox_list *(*alloc)(void);
 	void (*deinit)(struct mailbox_list *list);
 
-	bool (*is_valid_mask)(struct mailbox_list *list, const char *mask);
+	bool (*is_valid_pattern)(struct mailbox_list *list,
+				 const char *pattern);
 	bool (*is_valid_existing_name)(struct mailbox_list *list,
 				       const char *name);
 	bool (*is_valid_create_name)(struct mailbox_list *list,
@@ -23,11 +24,11 @@ struct mailbox_list_vfuncs {
 				       enum mailbox_name_status *status);
 
 	const char *(*get_temp_prefix)(struct mailbox_list *list);
-	const char *(*join_refmask)(struct mailbox_list *list,
-				    const char *ref, const char *mask);
+	const char *(*join_refpattern)(struct mailbox_list *list,
+				       const char *ref, const char *pattern);
 
 	struct mailbox_list_iterate_context *
-		(*iter_init)(struct mailbox_list *list, const char *mask,
+		(*iter_init)(struct mailbox_list *list, const char *pattern,
 			     enum mailbox_list_iter_flags flags);
 	const struct mailbox_info *
 		(*iter_next)(struct mailbox_list_iterate_context *ctx);

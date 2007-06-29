@@ -91,8 +91,8 @@ static bool maildir_list_is_valid_common_nonfs(const char *name)
 }
 
 static bool __attr_noreturn__
-maildir_is_valid_mask(struct mailbox_list *list __attr_unused__,
-		      const char *mask __attr_unused__)
+maildir_is_valid_pattern(struct mailbox_list *list __attr_unused__,
+			 const char *pattern __attr_unused__)
 {
 	i_unreached();
 #ifndef __attrs_used__
@@ -275,7 +275,7 @@ static int rename_children(struct mailbox_list *list,
 	struct mailbox_list_iterate_context *iter;
         const struct mailbox_info *info;
 	ARRAY_DEFINE(names_arr, const char *);
-	const char *mask, *oldpath, *newpath, *old_listname, *new_listname;
+	const char *pattern, *oldpath, *newpath, *old_listname, *new_listname;
 	const char *const *names;
 	unsigned int i, count;
 	size_t oldnamelen;
@@ -292,9 +292,9 @@ static int rename_children(struct mailbox_list *list,
 	pool = pool_alloconly_create("Maildir++ children list", 1024);
 	i_array_init(&names_arr, 64);
 
-	mask = t_strdup_printf("%s%c*", oldname,
-			       mailbox_list_get_hierarchy_sep(list));
-	iter = mailbox_list_iter_init(list, mask,
+	pattern = t_strdup_printf("%s%c*", oldname,
+				  mailbox_list_get_hierarchy_sep(list));
+	iter = mailbox_list_iter_init(list, pattern,
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		const char *name;
@@ -410,7 +410,7 @@ struct mailbox_list maildir_mailbox_list = {
 	{
 		maildir_list_alloc,
 		maildir_list_deinit,
-		maildir_is_valid_mask,
+		maildir_is_valid_pattern,
 		maildir_is_valid_existing_name,
 		maildir_is_valid_create_name,
 		maildir_list_get_path,

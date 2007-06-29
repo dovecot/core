@@ -79,26 +79,26 @@ index_mailbox_list_is_synced(struct index_mailbox_list_iterate_context *ctx)
 	return hdr->sync_stamp == ctx->sync_stamp;
 }
 
-static void mask_parse(struct mailbox_list *list, const char *mask,
-		       const char **prefix_r, int *recurse_level_r)
+static void pattern_parse(struct mailbox_list *list, const char *pattern,
+			  const char **prefix_r, int *recurse_level_r)
 {
 	char sep = list->hierarchy_sep;
 	const char *prefix_start, *prefix_end;
 	bool seen_wildcards = FALSE;
 	int recurse_level = 0;
 
-	prefix_start = prefix_end = mask;
-	for (; *mask != '\0'; mask++) {
-		if (*mask == '%')
+	prefix_start = prefix_end = pattern;
+	for (; *pattern != '\0'; pattern++) {
+		if (*pattern == '%')
 			seen_wildcards = TRUE;
-		else if (*mask == '*') {
+		else if (*pattern == '*') {
 			recurse_level = -1;
 			break;
 		}
 
-		if (*mask == sep) {
+		if (*pattern == sep) {
 			if (!seen_wildcards)
-				prefix_end = mask;
+				prefix_end = pattern;
 			recurse_level++;
 		}
 	}
@@ -109,7 +109,7 @@ static void mask_parse(struct mailbox_list *list, const char *mask,
 }
 
 static struct mailbox_list_iterate_context *
-index_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
+index_mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 			     enum mailbox_list_iter_flags flags)
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
@@ -121,7 +121,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 	ctx = i_new(struct index_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
-	ctx->glob = imap_match_init(default_pool, mask, TRUE,
+	ctx->glob = imap_match_init(default_pool, pattern, TRUE,
 				    list->hierarchy_sep);
 
 	ctx->mail_view = mail_index_view_open(ilist->mail_index);
@@ -130,10 +130,10 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
 		/* Ignore indexes completely */
 		ctx->backend_ctx = ilist->module_ctx.super.
-			iter_init(list, mask, flags);
+			iter_init(list, pattern, flags);
 	} else if (index_mailbox_list_is_synced(ctx) > 0) {
 		/* synced, list from index */
-		mask_parse(list, mask, &prefix, &recurse_level);
+		pattern_parse(list, pattern, &prefix, &recurse_level);
 
 		ctx->info_pool =
 			pool_alloconly_create("mailbox name pool", 128);
@@ -147,7 +147,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 		/* FIXME: this works nicely with maildir++, but not others */
 		sync_flags = MAILBOX_LIST_SYNC_FLAG_RECURSIVE;
 
-		if (strchr(mask, '*') != NULL)
+		if (strchr(pattern, '*') != NULL)
 			ctx->recurse_level = -1;
 		else {
 			ctx->mailbox_tree =
@@ -159,14 +159,14 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 		if (mailbox_list_index_sync_init(ilist->list_index, "",
 						 sync_flags,
 						 &ctx->sync_ctx) == 0) {
-			mask = "*";
+			pattern = "*";
 			prefix = "";
 			ctx->trans = mailbox_list_index_sync_get_transaction(
 								ctx->sync_ctx);
 		}
 
 		ctx->backend_ctx = ilist->module_ctx.super.
-			iter_init(list, mask, flags);
+			iter_init(list, pattern, flags);
 	}
 	return &ctx->ctx;
 }

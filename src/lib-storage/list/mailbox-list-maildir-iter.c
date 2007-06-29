@@ -62,7 +62,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		    (fname[1] == '\0' || (fname[1] == '.' && fname[2] == '\0')))
 			continue;
 
-		/* make sure the mask matches */
+		/* make sure the pattern matches */
 		str_truncate(mailbox, 0);
 		str_append(mailbox, ctx->prefix);
 		str_append(mailbox, fname + 1);
@@ -185,7 +185,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 }
 
 struct mailbox_list_iterate_context *
-maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
+maildir_list_iter_init(struct mailbox_list *_list, const char *pattern,
 		       enum mailbox_list_iter_flags flags)
 {
 	struct maildir_list_iterate_context *ctx;
@@ -200,7 +200,7 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 	ctx->pool = pool;
 	ctx->tree_ctx = mailbox_tree_init(_list->hierarchy_sep);
 
-	glob = imap_match_init(pool, mask, TRUE, _list->hierarchy_sep);
+	glob = imap_match_init(pool, pattern, TRUE, _list->hierarchy_sep);
 
 	ctx->dir = _list->set.root_dir;
 	ctx->prefix = "";
@@ -214,12 +214,12 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 			return &ctx->ctx;
 		}
 	} else if ((_list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
-		   (p = strrchr(mask, '/')) != NULL) {
+		   (p = strrchr(pattern, '/')) != NULL) {
 		/* Listing non-default maildir */
-		dir = t_strdup_until(mask, p);
-		ctx->prefix = p_strdup_until(pool, mask, p+1);
+		dir = t_strdup_until(pattern, p);
+		ctx->prefix = p_strdup_until(pool, pattern, p+1);
 
-		if (*mask != '/' && *mask != '~')
+		if (*pattern != '/' && *pattern != '~')
 			dir = t_strconcat(_list->set.root_dir, "/", dir, NULL);
 		ctx->dir = p_strdup(pool, home_expand(dir));
 	}

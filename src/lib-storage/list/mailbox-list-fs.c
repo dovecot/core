@@ -96,12 +96,12 @@ fs_list_is_valid_common_nonfs(struct mailbox_list *list, const char *name)
 }
 
 static bool
-fs_is_valid_mask(struct mailbox_list *list, const char *mask)
+fs_is_valid_pattern(struct mailbox_list *list, const char *pattern)
 {
 	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0)
 		return TRUE;
 
-	return fs_list_is_valid_common_nonfs(list, mask);
+	return fs_list_is_valid_common_nonfs(list, pattern);
 }
 
 static bool
@@ -159,7 +159,7 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 		i_unreached();
 	}
 
-	i_assert(mailbox_list_is_valid_mask(_list, name));
+	i_assert(mailbox_list_is_valid_pattern(_list, name));
 
 	if ((list->list.flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~')) {
@@ -241,16 +241,16 @@ fs_list_get_temp_prefix(struct mailbox_list *_list)
 }
 
 static const char *
-fs_list_join_refmask(struct mailbox_list *_list __attr_unused__,
-		     const char *ref, const char *mask)
+fs_list_join_refpattern(struct mailbox_list *_list __attr_unused__,
+			const char *ref, const char *pattern)
 {
-	if (*mask == '/' || *mask == '~') {
-		/* mask overrides reference */
+	if (*pattern == '/' || *pattern == '~') {
+		/* pattern overrides reference */
 	} else if (*ref != '\0') {
-		/* merge reference and mask */
-		mask = t_strconcat(ref, mask, NULL);
+		/* merge reference and pattern */
+		pattern = t_strconcat(ref, pattern, NULL);
 	}
-	return mask;
+	return pattern;
 }
 
 static int fs_list_set_subscribed(struct mailbox_list *_list,
@@ -353,13 +353,13 @@ struct mailbox_list fs_mailbox_list = {
 	{
 		fs_list_alloc,
 		fs_list_deinit,
-		fs_is_valid_mask,
+		fs_is_valid_pattern,
 		fs_is_valid_existing_name,
 		fs_is_valid_create_name,
 		fs_list_get_path,
 		fs_list_get_mailbox_name_status,
 		fs_list_get_temp_prefix,
-		fs_list_join_refmask,
+		fs_list_join_refpattern,
 		fs_list_iter_init,
 		fs_list_iter_next,
 		fs_list_iter_deinit,

@@ -127,7 +127,8 @@ struct mail_namespace *mailbox_list_get_namespace(struct mailbox_list *list);
 
 /* Returns TRUE if the name doesn't contain any invalid characters.
    The create name check can be more strict. */
-bool mailbox_list_is_valid_mask(struct mailbox_list *list, const char *mask);
+bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
+				   const char *pattern);
 bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
 					 const char *name);
 bool mailbox_list_is_valid_create_name(struct mailbox_list *list,
@@ -154,14 +155,14 @@ int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
    with the namespace. */
 const char *mailbox_list_get_temp_prefix(struct mailbox_list *list);
 
-/* Returns a single mask from given reference and mask. */
-const char *mailbox_list_join_refmask(struct mailbox_list *list,
-				      const char *ref, const char *mask);
+/* Returns a single pattern from given reference and pattern. */
+const char *mailbox_list_join_refpattern(struct mailbox_list *list,
+					 const char *ref, const char *pattern);
 
-/* Initialize new mailbox list request. mask may contain '%' and '*'
+/* Initialize new mailbox list request. pattern may contain '%' and '*'
    wildcards as defined by RFC-3501. */
 struct mailbox_list_iterate_context *
-mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
+mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 		       enum mailbox_list_iter_flags flags);
 /* Get next mailbox. Returns the mailbox name */
 const struct mailbox_info *

@@ -41,17 +41,17 @@ fs_list_path(struct fs_list_iterate_context *ctx);
 static const struct mailbox_info *
 fs_list_next(struct fs_list_iterate_context *ctx);
 
-static const char *mask_get_dir(const char *mask)
+static const char *pattern_get_dir(const char *pattern)
 {
 	const char *p, *last_dir;
 
 	last_dir = NULL;
-	for (p = mask; *p != '\0' && *p != '%' && *p != '*'; p++) {
+	for (p = pattern; *p != '\0' && *p != '%' && *p != '*'; p++) {
 		if (*p == '/')
 			last_dir = p;
 	}
 
-	return last_dir == NULL ? NULL : t_strdup_until(mask, last_dir);
+	return last_dir == NULL ? NULL : t_strdup_until(pattern, last_dir);
 }
 
 static int list_opendir(struct mailbox_list *list,
@@ -83,7 +83,7 @@ static int list_opendir(struct mailbox_list *list,
 }
 
 struct mailbox_list_iterate_context *
-fs_list_iter_init(struct mailbox_list *_list, const char *mask,
+fs_list_iter_init(struct mailbox_list *_list, const char *pattern,
 		  enum mailbox_list_iter_flags flags)
 {
 	struct fs_list_iterate_context *ctx;
@@ -95,10 +95,10 @@ fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 	ctx->ctx.flags = flags;
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
         ctx->next = fs_list_next;
-	ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
+	ctx->glob = imap_match_init(default_pool, pattern, TRUE, '/');
 
 	/* check that we're not trying to do any "../../" lists */
-	if (!mailbox_list_is_valid_mask(_list, mask))
+	if (!mailbox_list_is_valid_pattern(_list, pattern))
 		return &ctx->ctx;
 
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
@@ -123,7 +123,7 @@ fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 
 	/* if we're matching only subdirectories, don't bother scanning the
 	   parent directories */
-	virtual_path = mask_get_dir(mask);
+	virtual_path = pattern_get_dir(pattern);
 
 	path = mailbox_list_get_path(_list, virtual_path,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
@@ -255,7 +255,7 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 	     (fname[1] == '.' && fname[2] == '\0')))
 		return 0;
 
-	/* check the mask */
+	/* check the pattern */
 	if (ctx->dir->virtual_path == NULL)
 		list_path = fname;
 	else {

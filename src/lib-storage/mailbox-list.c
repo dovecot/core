@@ -180,9 +180,10 @@ struct mail_namespace *mailbox_list_get_namespace(struct mailbox_list *list)
 	return list->ns;
 }
 
-bool mailbox_list_is_valid_mask(struct mailbox_list *list, const char *mask)
+bool mailbox_list_is_valid_pattern(struct mailbox_list *list,
+				   const char *pattern)
 {
-	return list->v.is_valid_mask(list, mask);
+	return list->v.is_valid_pattern(list, pattern);
 }
 
 bool mailbox_list_is_valid_existing_name(struct mailbox_list *list,
@@ -247,18 +248,18 @@ const char *mailbox_list_get_temp_prefix(struct mailbox_list *list)
 	return list->v.get_temp_prefix(list);
 }
 
-const char *mailbox_list_join_refmask(struct mailbox_list *list,
-				      const char *ref, const char *mask)
+const char *mailbox_list_join_refpattern(struct mailbox_list *list,
+					 const char *ref, const char *pattern)
 {
-	if (list->v.join_refmask != NULL)
-		return list->v.join_refmask(list, ref, mask);
+	if (list->v.join_refpattern != NULL)
+		return list->v.join_refpattern(list, ref, pattern);
 
 	/* the default implementation: */
 	if (*ref != '\0') {
-		/* merge reference and mask */
-		mask = t_strconcat(ref, mask, NULL);
+		/* merge reference and pattern */
+		pattern = t_strconcat(ref, pattern, NULL);
 	}
-	return mask;
+	return pattern;
 }
 
 int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
@@ -276,12 +277,12 @@ int mailbox_list_get_mailbox_name_status(struct mailbox_list *list,
 }
 
 struct mailbox_list_iterate_context *
-mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
+mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 		       enum mailbox_list_iter_flags flags)
 {
 	mailbox_list_clear_error(list);
 
-	return list->v.iter_init(list, mask, flags);
+	return list->v.iter_init(list, pattern, flags);
 }
 
 const struct mailbox_info *
