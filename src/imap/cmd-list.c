@@ -565,7 +565,7 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 		match = ((ns->flags & NAMESPACE_FLAG_LIST) == 0 &&
 			 list_pattern_has_wildcards(cur_pattern)) ?
 			IMAP_MATCH_NO : imap_match(ctx->glob, cur_ns_prefix);
-		if (match < 0)
+		if (match != IMAP_MATCH_YES && match != IMAP_MATCH_CHILDREN)
 			return;
 
 		if (match == IMAP_MATCH_YES &&

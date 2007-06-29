@@ -93,7 +93,8 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 					    hierarchy_sep)) != NULL) {
 				str_truncate(mailbox, (size_t) (p-mailbox_c));
 				mailbox_c = str_c(mailbox);
-				if (imap_match(glob, mailbox_c) > 0)
+				if (imap_match(glob, mailbox_c) ==
+				    IMAP_MATCH_YES)
 					break;
 			}
 			i_assert(p != NULL);

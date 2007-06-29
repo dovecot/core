@@ -64,7 +64,7 @@ int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 
 			while ((p = strrchr(name, hierarchy_sep)) != NULL) {
 				name = t_strdup_until(name, p);
-				if (imap_match(glob, name) > 0)
+				if (imap_match(glob, name) == IMAP_MATCH_YES)
 					break;
 			}
 			i_assert(p != NULL);

@@ -263,7 +263,8 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 					"/", fname, NULL);
 	}
 
-	if ((match = imap_match(ctx->glob, list_path)) < 0)
+	match = imap_match(ctx->glob, list_path);
+	if (match != IMAP_MATCH_YES && match != IMAP_MATCH_CHILDREN)
 		return 0;
 
 	/* get the info.flags using callback */
@@ -324,14 +325,15 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 		path = t_strconcat(list_path, "/", NULL);
 		match2 = imap_match(ctx->glob, path);
 
-		if (match > 0)
+		if (match == IMAP_MATCH_YES)
 			ctx->info.name = p_strdup(ctx->info_pool, list_path);
-		else if (match2 > 0)
+		else if (match2 == IMAP_MATCH_YES)
 			ctx->info.name = p_strdup(ctx->info_pool, path);
 		else
 			ctx->info.name = NULL;
 
-		ret = match2 < 0 ? 0 :
+		ret = match2 != IMAP_MATCH_YES &&
+			match2 != IMAP_MATCH_CHILDREN ? 0 :
 			list_opendir(ctx->ctx.list, real_path, FALSE, &dirp);
 		if (ret > 0) {
 			dir = i_new(struct list_dir_context, 1);
@@ -343,8 +345,8 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 			ctx->dir = dir;
 		} else if (ret < 0)
 			return -1;
-		return match > 0 || match2 > 0;
-	} else if (match > 0) {
+		return match == IMAP_MATCH_YES || match2 == IMAP_MATCH_YES;
+	} else if (match == IMAP_MATCH_YES) {
 		ctx->info.name = p_strdup(ctx->info_pool, list_path);
 		return 1;
 	}
@@ -395,7 +397,7 @@ fs_list_path(struct fs_list_iterate_context *ctx)
 	ctx->info.name =
 		p_strconcat(ctx->info_pool, ctx->dir->virtual_path, "/", NULL);
 
-	if (imap_match(ctx->glob, ctx->info.name) > 0)
+	if (imap_match(ctx->glob, ctx->info.name) == IMAP_MATCH_YES)
 		return &ctx->info;
 	else
 		return ctx->next(ctx);
@@ -432,7 +434,8 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 
 	if (!ctx->inbox_found &&
 	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
-	    ctx->glob != NULL && imap_match(ctx->glob, "INBOX") > 0) {
+	    ctx->glob != NULL &&
+	    imap_match(ctx->glob, "INBOX") == IMAP_MATCH_YES) {
 		/* INBOX wasn't seen while listing other mailboxes. It might
 		   be located elsewhere. */
 		ctx->inbox_listed = TRUE;

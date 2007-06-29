@@ -131,7 +131,7 @@ match_sub(const struct imap_match_glob *glob, const char **data_p,
 		while (*data != '\0') {
 			if (cmp_chr(glob, data, *pattern)) {
 				ret = match_sub(glob, &data, &pattern);
-				if (ret > 0)
+				if (ret == IMAP_MATCH_YES)
 					break;
 
 				if (ret == IMAP_MATCH_CHILDREN ||
@@ -168,7 +168,7 @@ enum imap_match_result
 imap_match(struct imap_match_glob *glob, const char *data)
 {
 	const char *pattern;
-	int ret;
+	enum imap_match_result ret;
 
 	if (glob->inboxcase &&
 	    strncasecmp(data, inbox, INBOXLEN) == 0 &&
@@ -179,11 +179,9 @@ imap_match(struct imap_match_glob *glob, const char *data)
 
 	pattern = glob->pattern;
 	if (*pattern != '*') {
-		if ((ret = match_sub(glob, &data, &pattern)) <= 0)
+		ret = match_sub(glob, &data, &pattern);
+		if (ret != IMAP_MATCH_YES || *pattern == '\0')
 			return ret;
-
-		if (*pattern == '\0')
-			return IMAP_MATCH_YES;
 	}
 
 	while (*pattern == '*') {
@@ -193,10 +191,9 @@ imap_match(struct imap_match_glob *glob, const char *data)
 			return IMAP_MATCH_YES;
 
 		while (*data != '\0') {
-			if (cmp_chr(glob, data, *pattern)) {
-				if (match_sub(glob, &data, &pattern) > 0)
-					break;
-			}
+			if (cmp_chr(glob, data, *pattern) &&
+			    match_sub(glob, &data, &pattern) == IMAP_MATCH_YES)
+				break;
 
 			data++;
 		}
