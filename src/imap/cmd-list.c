@@ -105,6 +105,11 @@ parse_select_flags(struct client_command_context *cmd, struct imap_arg *args,
 				MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		} else if (strcasecmp(atom, "RECURSIVEMATCH") == 0)
 			*list_flags |= MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH;
+		else {
+			/* skip also optional list value */
+			if (args[1].type == IMAP_ARG_LIST)
+				args++;
+		}
 		args++;
 	}
 
@@ -136,6 +141,11 @@ parse_return_flags(struct client_command_context *cmd, struct imap_arg *args,
 			*list_flags |= MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		else if (strcasecmp(atom, "CHILDREN") == 0)
 			*list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
+		else {
+			/* skip also optional list value */
+			if (args[1].type == IMAP_ARG_LIST)
+				args++;
+		}
 		args++;
 	}
 	return TRUE;
@@ -695,7 +705,7 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 {
 	struct client *client = cmd->client;
 	struct imap_arg *args;
-	enum mailbox_list_flags list_flags;
+	enum mailbox_list_flags list_flags = 0;
         struct cmd_list_context *ctx;
 	const char *ref, *mask;
 	bool used_listext = FALSE;
@@ -705,47 +715,49 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
 
+	if (args[0].type == IMAP_ARG_LIST && !lsub) {
+		/* LIST-EXTENDED selection options */
+		used_listext = TRUE;
+		if (!parse_select_flags(cmd, IMAP_ARG_LIST(&args[0])->args,
+					&list_flags))
+			return TRUE;
+		args++;
+	}
+
+	ref = imap_arg_string(&args[0]);
+	if (ref == NULL) {
+		/* broken */
+		mask = NULL;
+	} else if (args[1].type == IMAP_ARG_LIST) {
+		/* FIXME: pattern list */
+		mask = NULL;
+		args += 2;
+	} else {
+		mask = imap_arg_string(&args[1]);
+		args += 2;
+	}
+
+	if (args[0].type == IMAP_ARG_ATOM && args[1].type == IMAP_ARG_LIST &&
+	    strcasecmp(imap_arg_string(&args[0]), "RETURN") == 0) {
+		/* LIST-EXTENDED return options */
+		used_listext = TRUE;
+		if (!parse_return_flags(cmd, IMAP_ARG_LIST(&args[1])->args,
+					&list_flags))
+			return TRUE;
+		args += 2;
+	}
+
 	if (lsub) {
 		/* LSUB - we don't care about flags */
 		list_flags = MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 			MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH |
 			MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
-	} else if (args[0].type != IMAP_ARG_LIST) {
-		/* LIST - allow children flags, but don't require them */
+	} else if (!used_listext) {
+		/* non-extended LIST - return children flags always */
 		list_flags = MAILBOX_LIST_ITER_RETURN_CHILDREN;
-	} else {
-		/* LIST-EXTENDED extension */
-		used_listext = TRUE;
-
-		if (!parse_select_flags(cmd, IMAP_ARG_LIST(&args[0])->args,
-					&list_flags))
-			return TRUE;
-		args++;
-
-		if (args[0].type == IMAP_ARG_EOL ||
-		    args[1].type == IMAP_ARG_EOL) {
-			client_send_command_error(cmd, "Invalid arguments.");
-			return TRUE;
-		}
-
-		if (args[2].type == IMAP_ARG_ATOM &&
-		    strcasecmp(imap_arg_string(&args[2]), "RETURN") == 0 &&
-		    args[3].type == IMAP_ARG_LIST &&
-		    args[4].type == IMAP_ARG_EOL) {
-			if (!parse_return_flags(cmd,
-						IMAP_ARG_LIST(&args[3])->args,
-						&list_flags))
-				return TRUE;
-		} else if (args[2].type != IMAP_ARG_EOL) {
-			client_send_command_error(cmd, "Invalid arguments.");
-			return TRUE;
-		}
 	}
 
-	ref = imap_arg_string(&args[0]);
-	mask = ref == NULL ? NULL : imap_arg_string(&args[1]);
-
-	if (ref == NULL || (mask == NULL && args[1].type != IMAP_ARG_LIST)) {
+	if (ref == NULL || args[0].type != IMAP_ARG_EOL) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
