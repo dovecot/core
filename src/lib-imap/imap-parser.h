@@ -50,10 +50,13 @@ struct imap_arg {
 	} _data;
 };
 
+#define IMAP_ARG_TYPE_IS_STRING(type) \
+	((type) == IMAP_ARG_ATOM || (type) == IMAP_ARG_STRING || \
+	 (type) == IMAP_ARG_LITERAL)
+
 #define IMAP_ARG_STR(arg) \
 	((arg)->type == IMAP_ARG_NIL ? NULL : \
-	 (arg)->type == IMAP_ARG_ATOM || (arg)->type == IMAP_ARG_STRING || \
-	 (arg)->type == IMAP_ARG_LITERAL ? \
+	 IMAP_ARG_TYPE_IS_STRING((arg)->type) ? \
 	 (arg)->_data.str : _imap_arg_str_error(arg))
 
 #define IMAP_ARG_STR_NONULL(arg) \
