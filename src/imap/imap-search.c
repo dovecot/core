@@ -148,7 +148,7 @@ static bool search_arg_build(struct search_build_data *data,
 	}
 
 	if (arg->type == IMAP_ARG_LIST) {
-		const struct imap_arg *listargs = IMAP_ARG_LIST(arg)->args;
+		const struct imap_arg *listargs = IMAP_ARG_LIST_ARGS(arg);
 
 		if (listargs->type == IMAP_ARG_EOL) {
 			data->error = "Empty list not allowed";

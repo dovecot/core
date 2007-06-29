@@ -112,7 +112,7 @@ bool cmd_sort(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	if (get_sort_program(cmd, IMAP_ARG_LIST(args)->args, sorting) < 0)
+	if (get_sort_program(cmd, IMAP_ARG_LIST_ARGS(args), sorting) < 0)
 		return TRUE;
 	args++;
 

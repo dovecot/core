@@ -99,7 +99,7 @@ bool cmd_status(struct client_command_context *cmd)
 	}
 
 	/* get the items client wants */
-	items = get_status_items(cmd, IMAP_ARG_LIST(&args[1])->args);
+	items = get_status_items(cmd, IMAP_ARG_LIST_ARGS(&args[1]));
 	if (items == (enum mailbox_status_items)-1) {
 		/* error */
 		return TRUE;

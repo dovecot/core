@@ -724,7 +724,8 @@ static bool read_uoff_t(const char **p, uoff_t *value)
 static bool body_section_build(struct imap_fetch_context *ctx,
 			       struct imap_fetch_body_data *body,
 			       const char *prefix,
-			       const struct imap_arg_list *list)
+			       const struct imap_arg *args,
+			       unsigned int args_count)
 {
 	string_t *str;
 	const char **arr;
@@ -735,11 +736,11 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 	str_append(str, " (");
 
 	/* @UNSAFE: NULL-terminated list of headers */
-	arr = p_new(ctx->cmd->pool, const char *, list->size + 1);
+	arr = p_new(ctx->cmd->pool, const char *, args_count + 1);
 
-	for (i = 0; i < list->size; i++) {
-		if (list->args[i].type != IMAP_ARG_ATOM &&
-		    list->args[i].type != IMAP_ARG_STRING) {
+	for (i = 0; i < args_count; i++) {
+		if (args[i].type != IMAP_ARG_ATOM &&
+		    args[i].type != IMAP_ARG_STRING) {
 			client_send_command_error(ctx->cmd,
 				"Invalid BODY[..] parameter: "
 				"Header list contains non-strings");
@@ -748,9 +749,9 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 
 		if (i != 0)
 			str_append_c(str, ' ');
-		arr[i] = t_str_ucase(IMAP_ARG_STR(&list->args[i]));
+		arr[i] = t_str_ucase(IMAP_ARG_STR(&args[i]));
 
-		if (list->args[i].type == IMAP_ARG_ATOM)
+		if (args[i].type == IMAP_ARG_ATOM)
 			str_append(str, arr[i]);
 		else {
 			str_append_c(str, '"');
@@ -760,9 +761,9 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 	}
 	str_append_c(str, ')');
 
-	qsort(arr, list->size, sizeof(*arr), strcasecmp_p);
+	qsort(arr, args_count, sizeof(*arr), strcasecmp_p);
 	body->fields = arr;
-	body->fields_count = list->size;
+	body->fields_count = args_count;
 	body->section = str_c(str);
 	return TRUE;
 }
@@ -799,7 +800,8 @@ bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
 			return FALSE;
 		}
 		if (!body_section_build(ctx, body, p+1,
-					IMAP_ARG_LIST(&(*args)[0])))
+					IMAP_ARG_LIST_ARGS(&(*args)[0]),
+					IMAP_ARG_LIST_COUNT(&(*args)[0])))
 			return FALSE;
 		p = IMAP_ARG_STR(&(*args)[1]);
 		*args += 2;

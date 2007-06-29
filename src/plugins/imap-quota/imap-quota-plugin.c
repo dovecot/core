@@ -158,7 +158,7 @@ static bool cmd_setquota(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-        arg = IMAP_ARG_LIST(&args[1])->args;
+        arg = IMAP_ARG_LIST_ARGS(&args[1]);
 	for (; arg->type != IMAP_ARG_EOL; arg += 2) {
 		name = imap_arg_string(arg);
 		if (name == NULL || arg[1].type != IMAP_ARG_ATOM ||

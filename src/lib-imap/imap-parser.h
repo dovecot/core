@@ -1,6 +1,8 @@
 #ifndef __IMAP_PARSER_H
 #define __IMAP_PARSER_H
 
+#include "array.h"
+
 /* FIXME: we don't have ']' here due to FETCH BODY[] handling failing
    with it.. also '%' and '*' are banned due to LIST, and '\' due to it being
    in flags. oh well.. */
@@ -36,6 +38,7 @@ enum imap_arg_type {
 
 struct imap_parser;
 
+ARRAY_DEFINE_TYPE(imap_arg_list, struct imap_arg);
 struct imap_arg {
 	enum imap_arg_type type;
         struct imap_arg *parent; /* always of type IMAP_ARG_LIST */
@@ -43,7 +46,7 @@ struct imap_arg {
 	union {
 		const char *str;
 		uoff_t literal_size;
-		struct imap_arg_list *list;
+		ARRAY_TYPE(imap_arg_list) list;
 	} _data;
 };
 
@@ -65,13 +68,11 @@ struct imap_arg {
 
 #define IMAP_ARG_LIST(arg) \
 	((arg)->type == IMAP_ARG_LIST ? \
-	 (const struct imap_arg_list *)(arg)->_data.list : \
-		_imap_arg_list_error(arg))
-
-struct imap_arg_list {
-	size_t size, alloc;
-	struct imap_arg args[1]; /* variable size */
-};
+	 &(arg)->_data.list : _imap_arg_list_error(arg))
+#define IMAP_ARG_LIST_ARGS(arg) \
+	array_idx(IMAP_ARG_LIST(arg), 0)
+#define IMAP_ARG_LIST_COUNT(arg) \
+	(array_count(IMAP_ARG_LIST(arg)) - 1)
 
 /* Create new IMAP argument parser. output is used for sending command
    continuation requests for literals.
@@ -126,7 +127,7 @@ const char *imap_arg_string(const struct imap_arg *arg);
 char *_imap_arg_str_error(const struct imap_arg *arg) __attr_noreturn__;
 uoff_t _imap_arg_literal_size_error(const struct imap_arg *arg)
 	__attr_noreturn__;
-struct imap_arg_list *_imap_arg_list_error(const struct imap_arg *arg)
+ARRAY_TYPE(imap_arg_list) *_imap_arg_list_error(const struct imap_arg *arg)
 	__attr_noreturn__;
 
 #endif

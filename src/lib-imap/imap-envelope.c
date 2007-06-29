@@ -214,24 +214,26 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 static bool imap_address_arg_append(const struct imap_arg *arg, string_t *str,
 				    bool *in_group)
 {
-	const struct imap_arg_list *list;
+	const struct imap_arg *list_args;
+	unsigned int list_count;
 	const char *args[4];
 	int i;
 
 	if (arg->type != IMAP_ARG_LIST)
 		return FALSE;
-	list = IMAP_ARG_LIST(arg);
+	list_args = IMAP_ARG_LIST_ARGS(arg);
+	list_count = IMAP_ARG_LIST_COUNT(arg);
 
 	/* we require 4 arguments, strings or NILs */
-	if (list->size < 4)
+	if (list_count < 4)
 		return FALSE;
 
 	for (i = 0; i < 4; i++) {
-		if (list->args[i].type == IMAP_ARG_NIL)
+		if (list_args[i].type == IMAP_ARG_NIL)
 			args[i] = NULL;
-		else if (list->args[i].type == IMAP_ARG_STRING ||
-			 list->args[i].type == IMAP_ARG_ATOM)
-			args[i] = IMAP_ARG_STR(&list->args[i]);
+		else if (list_args[i].type == IMAP_ARG_STRING ||
+			 list_args[i].type == IMAP_ARG_ATOM)
+			args[i] = IMAP_ARG_STR(&list_args[i]);
 		else
 			return FALSE;
 	}
@@ -290,9 +292,8 @@ static bool imap_address_arg_append(const struct imap_arg *arg, string_t *str,
 
 static const char *imap_envelope_parse_address(const struct imap_arg *arg)
 {
-	const struct imap_arg_list *list;
+	const struct imap_arg *list_args;
 	string_t *str;
-	size_t i;
 	bool in_group;
 
 	if (arg->type != IMAP_ARG_LIST)
@@ -301,9 +302,9 @@ static const char *imap_envelope_parse_address(const struct imap_arg *arg)
 	in_group = FALSE;
 	str = t_str_new(128);
 
-        list = IMAP_ARG_LIST(arg);
-	for (i = 0; i < list->size; i++) {
-		if (!imap_address_arg_append(&list->args[i], str, &in_group))
+	list_args = IMAP_ARG_LIST_ARGS(arg);
+	for (; list_args->type != IMAP_ARG_EOL; list_args++) {
+		if (!imap_address_arg_append(list_args, str, &in_group))
 			return NULL;
 	}
 
@@ -312,25 +313,22 @@ static const char *imap_envelope_parse_address(const struct imap_arg *arg)
 
 static const char *imap_envelope_parse_first_mailbox(const struct imap_arg *arg)
 {
-	const struct imap_arg_list *list;
+	const struct imap_arg *list_args;
 
-	/* ((name route mailbox domain) ...) */
+	/* ((...)(...) ...) */
 	if (arg->type != IMAP_ARG_LIST)
 		return NULL;
 
-	list = IMAP_ARG_LIST(arg);
-	if (list->size == 0)
+	list_args = IMAP_ARG_LIST_ARGS(arg);
+	if (list_args->type == IMAP_ARG_EOL)
 		return "";
 
-	arg = IMAP_ARG_LIST(arg)->args;
-	if (arg->type != IMAP_ARG_LIST)
+	/* (name route mailbox domain) */
+	if (IMAP_ARG_LIST_COUNT(list_args) != 4)
 		return NULL;
 
-	list = IMAP_ARG_LIST(arg);
-	if (list->size != 4)
-		return NULL;
-
-	return t_strdup(imap_arg_string(&list->args[2]));
+	list_args = IMAP_ARG_LIST_ARGS(list_args);
+	return t_strdup(imap_arg_string(&list_args[2]));
 }
 
 static bool

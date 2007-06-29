@@ -46,7 +46,7 @@ fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg)
 			}
 		}
 	} else {
-		arg = IMAP_ARG_LIST(arg)->args;
+		arg = IMAP_ARG_LIST_ARGS(arg);
 		while (arg->type == IMAP_ARG_ATOM) {
 			str = t_str_ucase(IMAP_ARG_STR(arg));
 			arg++;

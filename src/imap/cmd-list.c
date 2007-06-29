@@ -721,7 +721,7 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 	if (args[0].type == IMAP_ARG_LIST && !lsub) {
 		/* LIST-EXTENDED selection options */
 		used_listext = TRUE;
-		if (!parse_select_flags(cmd, IMAP_ARG_LIST(&args[0])->args,
+		if (!parse_select_flags(cmd, IMAP_ARG_LIST_ARGS(&args[0]),
 					&list_flags))
 			return TRUE;
 		args++;
@@ -744,7 +744,7 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 	    strcasecmp(imap_arg_string(&args[0]), "RETURN") == 0) {
 		/* LIST-EXTENDED return options */
 		used_listext = TRUE;
-		if (!parse_return_flags(cmd, IMAP_ARG_LIST(&args[1])->args,
+		if (!parse_return_flags(cmd, IMAP_ARG_LIST_ARGS(&args[1]),
 					&list_flags))
 			return TRUE;
 		args += 2;

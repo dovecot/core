@@ -72,7 +72,7 @@ bool cmd_store(struct client_command_context *cmd)
 
 	if (args[2].type == IMAP_ARG_LIST) {
 		if (!client_parse_mail_flags(cmd,
-					     IMAP_ARG_LIST(&args[2])->args,
+					     IMAP_ARG_LIST_ARGS(&args[2]),
 					     &flags, &keywords_list))
 			return TRUE;
 	} else {

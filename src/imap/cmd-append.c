@@ -84,7 +84,7 @@ static void client_input(struct client_command_context *cmd)
    internal_date may be NULL as a result, but mailbox and msg_size are always
    set when successful. */
 static int validate_args(const struct imap_arg *args,
-			 const struct imap_arg_list **flags_r,
+			 const struct imap_arg **flags_r,
 			 const char **internal_date_r, uoff_t *msg_size_r,
 			 bool *nonsync_r)
 {
@@ -92,7 +92,7 @@ static int validate_args(const struct imap_arg *args,
 	if (args->type != IMAP_ARG_LIST)
 		*flags_r = NULL;
 	else {
-		*flags_r = IMAP_ARG_LIST(args);
+		*flags_r = IMAP_ARG_LIST_ARGS(args);
 		args++;
 	}
 
@@ -201,7 +201,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
 	const struct imap_arg *args;
-	const struct imap_arg_list *flags_list;
+	const struct imap_arg *flags_list;
 	enum mail_flags flags;
 	const char *const *keywords_list;
 	struct mail_keywords *keywords;
@@ -294,7 +294,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	}
 
 	if (flags_list != NULL) {
-		if (!client_parse_mail_flags(cmd, flags_list->args,
+		if (!client_parse_mail_flags(cmd, flags_list,
 					     &flags, &keywords_list))
 			return cmd_append_cancel(ctx, nonsync);
 		keywords = keywords_list == NULL ? NULL :
