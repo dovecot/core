@@ -616,6 +616,7 @@ const char *imap_arg_string(const struct imap_arg *arg)
 
 	case IMAP_ARG_ATOM:
 	case IMAP_ARG_STRING:
+	case IMAP_ARG_LITERAL:
 		return arg->_data.str;
 
 	default:
