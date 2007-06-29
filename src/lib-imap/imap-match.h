@@ -19,7 +19,8 @@ struct imap_match_glob;
 /* If inboxcase is TRUE, the "INBOX" string at the beginning of line is
    compared case-insensitively */
 struct imap_match_glob *
-imap_match_init(pool_t pool, const char *mask, bool inboxcase, char separator);
+imap_match_init(pool_t pool, const char *pattern,
+		bool inboxcase, char separator);
 
 void imap_match_deinit(struct imap_match_glob **glob);
 
