@@ -195,16 +195,14 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		}
 
 		/* no permission to see this mailbox */
-		if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0) {
+		if ((ctx->info.flags & MAILBOX_SUBSCRIBED) != 0) {
 			/* it's subscribed, show it as non-existent */
-			if ((ctx->ctx.flags &
-			     MAILBOX_LIST_ITER_FAST_FLAGS) == 0) {
-				if (info != &ctx->info) {
-					ctx->info = *info;
-					info = &ctx->info;
-				}
-				ctx->info.flags = MAILBOX_NONEXISTENT;
+			if (info != &ctx->info) {
+				ctx->info = *info;
+				info = &ctx->info;
 			}
+			ctx->info.flags = MAILBOX_NONEXISTENT |
+				MAILBOX_SUBSCRIBED;
 			return info;
 		}
 

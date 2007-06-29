@@ -136,7 +136,7 @@ maildir_list_init(struct mail_storage *storage)
 	ctx->storage = storage;
 	ctx->path = str_new(default_pool, 512);
 	ctx->iter = mailbox_list_iter_init(mail_storage_get_list(storage), "*",
-					   MAILBOX_LIST_ITER_FAST_FLAGS);
+					   MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	return ctx;
 }
 

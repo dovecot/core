@@ -55,7 +55,7 @@ static int quota_count_storage(struct mail_storage *storage,
 	int ret = 0;
 
 	ctx = mailbox_list_iter_init(storage->list, "*",
-				     MAILBOX_LIST_ITER_FAST_FLAGS);
+				     MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(ctx)) != NULL) {
 		if ((info->flags & (MAILBOX_NONEXISTENT |
 				    MAILBOX_NOSELECT)) == 0) {

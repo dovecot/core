@@ -804,7 +804,7 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	}
 	if (type != MAILBOX_LIST_FILE_TYPE_SYMLINK &&
 	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN &&
-	    (ctx->flags & MAILBOX_LIST_ITER_FAST_FLAGS) != 0) {
+	    (ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
 		*flags_r = MAILBOX_NOINFERIORS;
 		return 1;
 	}
@@ -827,9 +827,10 @@ static int mbox_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 		}
 	} else if (errno == EACCES || errno == ELOOP)
 		*flags_r = MAILBOX_NOSELECT;
-	else if (ENOTFOUND(errno))
+	else if (ENOTFOUND(errno)) {
+		*flags_r = MAILBOX_NONEXISTENT;
 		ret = 0;
-	else {
+	} else {
 		mail_storage_set_critical(storage, "stat(%s) failed: %m", path);
 		ret = -1;
 	}

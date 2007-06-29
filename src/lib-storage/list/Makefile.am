@@ -15,6 +15,7 @@ libstorage_list_a_SOURCES = \
 	mailbox-list-fs-iter.c \
 	mailbox-list-maildir.c \
 	mailbox-list-maildir-iter.c \
+	mailbox-list-subscriptions.c \
 	subscription-file.c
 
 headers = \

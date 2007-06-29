@@ -4,6 +4,7 @@
 #include "mailbox-list.h"
 
 struct mailbox_node {
+	struct mailbox_node *parent;
 	struct mailbox_node *next;
 	struct mailbox_node *children;
 
@@ -19,7 +20,7 @@ mailbox_tree_get(struct mailbox_tree_context *tree, const char *path,
 		 bool *created);
 
 struct mailbox_node *
-mailbox_tree_update(struct mailbox_tree_context *tree, const char *path);
+mailbox_tree_lookup(struct mailbox_tree_context *tree, const char *path);
 
 struct mailbox_tree_iterate_context *
 mailbox_tree_iterate_init(struct mailbox_tree_context *tree,

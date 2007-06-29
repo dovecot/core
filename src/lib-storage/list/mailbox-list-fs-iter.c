@@ -4,7 +4,8 @@
 #include "home-expand.h"
 #include "unlink-directory.h"
 #include "imap-match.h"
-#include "subscription-file.h"
+#include "mailbox-tree.h"
+#include "mailbox-list-subscriptions.h"
 #include "mailbox-list-fs.h"
 
 #include <dirent.h>
@@ -20,7 +21,8 @@ struct fs_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 
 	struct imap_match_glob *glob;
-	struct subsfile_list_context *subsfile_ctx;
+	struct mailbox_tree_context *subs_tree;
+	struct mailbox_tree_iterate_context *tree_iter;
 
 	bool inbox_found, inbox_listed;
 	enum mailbox_info_flags inbox_flags;
@@ -93,28 +95,29 @@ fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 	ctx->ctx.flags = flags;
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
         ctx->next = fs_list_next;
+	ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
 
 	/* check that we're not trying to do any "../../" lists */
-	if (!mailbox_list_is_valid_mask(_list, mask)) {
-		mailbox_list_set_error(_list, MAIL_ERROR_PARAMS,
-				       "Invalid mask");
-		ctx->ctx.failed = TRUE;
+	if (!mailbox_list_is_valid_mask(_list, mask))
 		return &ctx->ctx;
-	}
 
-	if ((flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0) {
-		ctx->next = fs_list_subs;
-
-		path = t_strconcat(_list->set.control_dir != NULL ?
-				   _list->set.control_dir : _list->set.root_dir,
-				   "/", _list->set.subscription_fname, NULL);
-		ctx->subsfile_ctx = subsfile_list_init(_list, path);
-		if (ctx->subsfile_ctx == NULL) {
-			ctx->next = fs_list_next;
+	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
+		/* we want to return MAILBOX_SUBSCRIBED flags, possibly for all
+		   mailboxes. Build a mailbox tree of all the subscriptions. */
+		ctx->subs_tree = mailbox_tree_init('/');
+		if (mailbox_list_subscriptions_fill(&ctx->ctx,
+						    ctx->subs_tree,
+						    ctx->glob, FALSE) < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}
-		ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
+	}
+
+	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+		ctx->next = fs_list_subs;
+		ctx->tree_iter = mailbox_tree_iterate_init(ctx->subs_tree, NULL,
+							   MAILBOX_MATCHED);
 		return &ctx->ctx;
 	}
 
@@ -127,9 +130,6 @@ fs_list_iter_init(struct mailbox_list *_list, const char *mask,
 	if (list_opendir(_list, path, TRUE, &dirp) < 0)
 		return &ctx->ctx;
 	/* if user gave invalid directory, we just don't show any results. */
-
-	ctx->ctx.flags = flags;
-	ctx->glob = imap_match_init(default_pool, mask, TRUE, '/');
 
 	if (virtual_path != NULL && dirp != NULL)
 		ctx->next = fs_list_path;
@@ -158,11 +158,6 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 
 	int ret = ctx->ctx.failed ? -1 : 0;
 
-	if (ctx->subsfile_ctx != NULL) {
-		if (subsfile_list_deinit(ctx->subsfile_ctx) < 0)
-			ret = -1;
-	}
-
 	while (ctx->dir != NULL) {
 		struct list_dir_context *dir = ctx->dir;
 
@@ -170,6 +165,10 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
                 list_dir_context_free(dir);
 	}
 
+	if (ctx->tree_iter != NULL)
+		mailbox_tree_iterate_deinit(&ctx->tree_iter);
+	if (ctx->subs_tree != NULL)
+		mailbox_tree_deinit(&ctx->subs_tree);
 	if (ctx->info_pool != NULL)
 		pool_unref(ctx->info_pool);
 	if (ctx->glob != NULL)
@@ -206,6 +205,19 @@ path_split(const char *path, const char **dir_r, const char **fname_r)
 	}
 }
 
+static enum mailbox_info_flags
+fs_list_get_subscription_flags(struct fs_list_iterate_context *ctx,
+			       const char *mailbox)
+{
+	struct mailbox_node *node;
+
+	node = mailbox_tree_lookup(ctx->subs_tree, mailbox);
+	if (node == NULL)
+		return 0;
+
+	return node->flags & (MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
+}
+
 static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 {
 	const char *inbox_path, *dir, *fname;
@@ -223,6 +235,7 @@ static struct mailbox_info *fs_list_inbox(struct fs_list_iterate_context *ctx)
 		ctx->ctx.failed = TRUE;
 	t_pop();
 
+	ctx->info.flags |= fs_list_get_subscription_flags(ctx, "INBOX");
 	return &ctx->info;
 }
 
@@ -261,6 +274,11 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 				&ctx->info.flags);
 	if (ret <= 0)
 		return ret;
+
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
+		ctx->info.flags |=
+			fs_list_get_subscription_flags(ctx, list_path);
+	}
 
 	/* make sure we give only one correct INBOX */
 	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
@@ -337,37 +355,22 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 static const struct mailbox_info *
 fs_list_subs(struct fs_list_iterate_context *ctx)
 {
-	const char *name, *path, *p, *dir, *fname;
-	enum imap_match_result match = IMAP_MATCH_NO;
+	struct mailbox_node *node;
+	enum mailbox_info_flags flags;
+	const char *path, *dir, *fname;
 
-	while ((name = subsfile_list_next(ctx->subsfile_ctx)) != NULL) {
-		match = imap_match(ctx->glob, name);
-		if (match == IMAP_MATCH_YES || match == IMAP_MATCH_PARENT)
-			break;
-	}
-
-	if (name == NULL)
+	node = mailbox_tree_iterate_next(ctx->tree_iter, &ctx->info.name);
+	if (node == NULL)
 		return NULL;
 
-	ctx->info.flags = 0;
-	ctx->info.name = name;
+	/* subscription list has real knowledge of only subscription flags */
+	flags = node->flags & (MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
 
-	if (match == IMAP_MATCH_PARENT) {
-		/* placeholder */
-		ctx->info.flags = MAILBOX_NONEXISTENT | MAILBOX_CHILDREN;
-		while ((p = strrchr(name, '/')) != NULL) {
-			name = t_strdup_until(name, p);
-			if (imap_match(ctx->glob, name) > 0) {
-				p_clear(ctx->info_pool);
-				ctx->info.name = p_strdup(ctx->info_pool, name);
-				return &ctx->info;
-			}
-		}
-		i_unreached();
-	}
-
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_FAST_FLAGS) != 0)
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0 &&
+	    (ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) == 0) {
+		ctx->info.flags = flags;
 		return &ctx->info;
+	}
 
 	t_push();
 	path = mailbox_list_get_path(ctx->ctx.list, ctx->info.name,
@@ -378,6 +381,8 @@ fs_list_subs(struct fs_list_iterate_context *ctx)
 					     &ctx->info.flags) < 0)
 		ctx->ctx.failed = TRUE;
 	t_pop();
+
+	ctx->info.flags |= flags;
 	return &ctx->info;
 }
 
@@ -428,12 +433,14 @@ fs_list_next(struct fs_list_iterate_context *ctx)
 	if (!ctx->inbox_found &&
 	    (ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
 	    ctx->glob != NULL && imap_match(ctx->glob, "INBOX") > 0) {
-		/* show inbox */
+		/* INBOX wasn't seen while listing other mailboxes. It might
+		   be located elsewhere. */
 		ctx->inbox_listed = TRUE;
 		ctx->inbox_found = TRUE;
 		return fs_list_inbox(ctx);
 	}
 	if (!ctx->inbox_listed && ctx->inbox_found) {
+		/* INBOX was found, but we delayed listing it. Show it now. */
 		ctx->inbox_listed = TRUE;
 		ctx->info.flags = ctx->inbox_flags;
 		ctx->info.name = "INBOX";

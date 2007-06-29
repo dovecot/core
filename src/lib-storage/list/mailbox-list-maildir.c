@@ -294,7 +294,8 @@ static int rename_children(struct mailbox_list *list,
 
 	mask = t_strdup_printf("%s%c*", oldname,
 			       mailbox_list_get_hierarchy_sep(list));
-	iter = mailbox_list_iter_init(list, mask, MAILBOX_LIST_ITER_FAST_FLAGS);
+	iter = mailbox_list_iter_init(list, mask,
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		const char *name;
 

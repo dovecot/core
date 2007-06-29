@@ -9,11 +9,6 @@
 #include "commands.h"
 #include "mail-namespace.h"
 
-enum {
-	_MAILBOX_LIST_ITER_HIDE_CHILDREN	= 0x1000000,
-	_MAILBOX_LIST_ITER_LISTEXT		= 0x0800000
-};
-
 struct cmd_list_context {
 	struct client_command_context *cmd;
 	const char *ref;
@@ -32,35 +27,44 @@ struct cmd_list_context {
 	unsigned int cur_ns_match_inbox:1;
 	unsigned int cur_ns_send_prefix:1;
 	unsigned int cur_ns_skip_trailing_sep:1;
+	unsigned int used_listext:1;
 };
 
 static void
-mailbox_flags2str(string_t *str, enum mailbox_info_flags flags,
-		  enum mailbox_list_flags list_flags)
+mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
+		  enum mailbox_info_flags flags)
 {
 	unsigned int orig_len = str_len(str);
 
-	if ((flags & MAILBOX_NONEXISTENT) != 0 &&
-	    (list_flags & _MAILBOX_LIST_ITER_LISTEXT) == 0) {
+	if ((flags & MAILBOX_NONEXISTENT) != 0 && !ctx->used_listext) {
 		flags |= MAILBOX_NOSELECT;
 		flags &= ~MAILBOX_NONEXISTENT;
 	}
 
-	if ((list_flags & _MAILBOX_LIST_ITER_HIDE_CHILDREN) != 0)
+	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) == 0)
 		flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
+
+	if ((flags & MAILBOX_SUBSCRIBED) != 0 &&
+	    (ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0)
+		str_append(str, "\\Subscribed ");
+
+	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 && !ctx->used_listext) {
+		/* LSUB uses \Noselect for this */
+		flags |= MAILBOX_NOSELECT;
+	}
 
 	if ((flags & MAILBOX_NOSELECT) != 0)
 		str_append(str, "\\Noselect ");
 	if ((flags & MAILBOX_NONEXISTENT) != 0)
 		str_append(str, "\\NonExistent ");
+
 	if ((flags & MAILBOX_CHILDREN) != 0)
 		str_append(str, "\\HasChildren ");
-	else {
-		if ((flags & MAILBOX_NOCHILDREN) != 0)
-			str_append(str, "\\HasNoChildren ");
-		if ((flags & MAILBOX_NOINFERIORS) != 0)
-			str_append(str, "\\NoInferiors ");
-	}
+	else if ((flags & MAILBOX_NOINFERIORS) != 0)
+		str_append(str, "\\NoInferiors ");
+	else if ((flags & MAILBOX_NOCHILDREN) != 0)
+		str_append(str, "\\HasNoChildren ");
+
 	if ((flags & MAILBOX_MARKED) != 0)
 		str_append(str, "\\Marked ");
 	if ((flags & MAILBOX_UNMARKED) != 0)
@@ -70,9 +74,52 @@ mailbox_flags2str(string_t *str, enum mailbox_info_flags flags,
 		str_truncate(str, str_len(str)-1);
 }
 
+static void
+mailbox_childinfo2str(struct cmd_list_context *ctx, string_t *str,
+		      enum mailbox_info_flags flags)
+{
+	if (!ctx->used_listext)
+		return;
+
+	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0)
+		str_append(str, " (\"CHILDINFO\" (\"SUBSCRIBED\"))");
+}
+
 static bool
-parse_list_flags(struct client_command_context *cmd, struct imap_arg *args,
-		 enum mailbox_list_flags *list_flags)
+parse_select_flags(struct client_command_context *cmd, struct imap_arg *args,
+		   enum mailbox_list_flags *list_flags)
+{
+	const char *atom;
+
+	while (args->type != IMAP_ARG_EOL) {
+		if (args->type != IMAP_ARG_ATOM) {
+			client_send_command_error(cmd,
+				"List options contains non-atoms.");
+			return FALSE;
+		}
+
+		atom = IMAP_ARG_STR(args);
+
+		if (strcasecmp(atom, "SUBSCRIBED") == 0) {
+			*list_flags |= MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+				MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
+		} else if (strcasecmp(atom, "RECURSIVEMATCH") == 0)
+			*list_flags |= MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH;
+		args++;
+	}
+
+	if ((*list_flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) != 0 &&
+	    (*list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
+		client_send_command_error(cmd,
+			"RECURSIVEMATCH must not be the only selection.");
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool
+parse_return_flags(struct client_command_context *cmd, struct imap_arg *args,
+		   enum mailbox_list_flags *list_flags)
 {
 	const char *atom;
 
@@ -86,14 +133,9 @@ parse_list_flags(struct client_command_context *cmd, struct imap_arg *args,
 		atom = IMAP_ARG_STR(args);
 
 		if (strcasecmp(atom, "SUBSCRIBED") == 0)
-			*list_flags |= MAILBOX_LIST_ITER_SUBSCRIBED;
+			*list_flags |= MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		else if (strcasecmp(atom, "CHILDREN") == 0)
-			*list_flags |= MAILBOX_LIST_ITER_CHILDREN;
-		else {
-			client_send_tagline(cmd, t_strconcat(
-				"BAD Invalid list option ", atom, NULL));
-			return FALSE;
-		}
+			*list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
 		args++;
 	}
 	return TRUE;
@@ -132,7 +174,7 @@ static bool list_namespace_has_children(struct cmd_list_context *ctx)
 	bool ret = FALSE;
 
 	list_iter = mailbox_list_iter_init(ctx->ns->list, "%",
-					   MAILBOX_LIST_ITER_FAST_FLAGS);
+					   MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	info = mailbox_list_iter_next(list_iter);
 	if (info != NULL)
 		ret = TRUE;
@@ -185,15 +227,17 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 			flags |= MAILBOX_NOCHILDREN;
 		}
 	}
-	
-	str = t_str_new(128);
-	str_append(str, "* LIST (");
-	mailbox_flags2str(str, flags, ctx->list_flags);
-	str_printfa(str, ") \"%s\" ", ctx->ns->sep_str);
 
 	name = ctx->cur_ns_skip_trailing_sep ?
 		t_strndup(ctx->ns->prefix, len-1) : ctx->ns->prefix;
+
+	str = t_str_new(128);
+	str_append(str, "* LIST (");
+	mailbox_flags2str(ctx, str, flags);
+	str_printfa(str, ") \"%s\" ", ctx->ns->sep_str);
 	imap_quote_append_string(str, name, FALSE);
+	mailbox_childinfo2str(ctx, str, flags);
+
 	client_send_line(ctx->cmd->client, str_c(str));
 }
 
@@ -285,9 +329,11 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 
 		str_truncate(str, 0);
 		str_printfa(str, "* %s (", ctx->lsub ? "LSUB" : "LIST");
-		mailbox_flags2str(str, flags, ctx->list_flags);
+		mailbox_flags2str(ctx, str, flags);
 		str_printfa(str, ") \"%s\" ", ctx->ns->sep_str);
 		imap_quote_append_string(str, name, FALSE);
+		mailbox_childinfo2str(ctx, str, flags);
+
 		if (client_send_line(ctx->cmd->client, str_c(str)) == 0) {
 			/* buffer is full, continue later */
 			t_pop();
@@ -461,7 +507,7 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 	cur_mask = ctx->mask;
 
 	if ((ctx->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0 &&
-	    (ctx->list_flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0) {
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* ignore hidden namespaces */
 		return;
 	}
@@ -509,7 +555,8 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 
 		if (match == IMAP_MATCH_YES &&
 		    (ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
-		    (ctx->list_flags & MAILBOX_LIST_ITER_SUBSCRIBED) == 0)
+		    (ctx->list_flags &
+		     MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0)
 			ctx->cur_ns_send_prefix = TRUE;
 	}
 
@@ -555,7 +602,7 @@ static void list_inbox(struct cmd_list_context *ctx)
 	/* INBOX always exists */
 	if (!ctx->inbox_found && ctx->cur_ns_match_inbox &&
 	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
-	    (ctx->list_flags & MAILBOX_LIST_ITER_SUBSCRIBED) == 0) {
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
 		str = t_strdup_printf("* LIST (\\Unmarked) \"%s\" \"INBOX\"",
 				      ctx->ns->sep_str);
 		client_send_line(ctx->cmd->client, str);
@@ -651,49 +698,70 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 	enum mailbox_list_flags list_flags;
         struct cmd_list_context *ctx;
 	const char *ref, *mask;
+	bool used_listext = FALSE;
 
-	/* [(<options>)] <reference> <mailbox wildcards> */
+	/* [(<selection options>)] <reference> <pattern>|(<pattern list>)
+	   [RETURN (<return options>)] */
 	if (!client_read_args(cmd, 0, 0, &args))
 		return FALSE;
 
 	if (lsub) {
 		/* LSUB - we don't care about flags */
-		list_flags = MAILBOX_LIST_ITER_SUBSCRIBED |
-			MAILBOX_LIST_ITER_FAST_FLAGS |
-			_MAILBOX_LIST_ITER_HIDE_CHILDREN;
+		list_flags = MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+			MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH |
+			MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	} else if (args[0].type != IMAP_ARG_LIST) {
 		/* LIST - allow children flags, but don't require them */
-		list_flags = 0;
+		list_flags = MAILBOX_LIST_ITER_RETURN_CHILDREN;
 	} else {
-		list_flags =
-			(enum mailbox_list_flags)_MAILBOX_LIST_ITER_LISTEXT;
-		if (!parse_list_flags(cmd, IMAP_ARG_LIST(&args[0])->args,
-				      &list_flags))
+		/* LIST-EXTENDED extension */
+		used_listext = TRUE;
+
+		if (!parse_select_flags(cmd, IMAP_ARG_LIST(&args[0])->args,
+					&list_flags))
 			return TRUE;
 		args++;
 
-		/* don't show children flags unless explicitly specified */
-		if ((list_flags & MAILBOX_LIST_ITER_CHILDREN) == 0)
-			list_flags |= _MAILBOX_LIST_ITER_HIDE_CHILDREN;
+		if (args[0].type == IMAP_ARG_EOL ||
+		    args[1].type == IMAP_ARG_EOL) {
+			client_send_command_error(cmd, "Invalid arguments.");
+			return TRUE;
+		}
+
+		if (args[2].type == IMAP_ARG_ATOM &&
+		    strcasecmp(imap_arg_string(&args[2]), "RETURN") == 0 &&
+		    args[3].type == IMAP_ARG_LIST &&
+		    args[4].type == IMAP_ARG_EOL) {
+			if (!parse_return_flags(cmd,
+						IMAP_ARG_LIST(&args[3])->args,
+						&list_flags))
+				return TRUE;
+		} else if (args[2].type != IMAP_ARG_EOL) {
+			client_send_command_error(cmd, "Invalid arguments.");
+			return TRUE;
+		}
 	}
 
 	ref = imap_arg_string(&args[0]);
-	mask = imap_arg_string(&args[1]);
+	mask = ref == NULL ? NULL : imap_arg_string(&args[1]);
 
-	if (ref == NULL || mask == NULL) {
+	if (ref == NULL || (mask == NULL && args[1].type != IMAP_ARG_LIST)) {
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
 
-	if (*mask == '\0' && !lsub) {
+	if (mask != NULL && *mask == '\0' && !lsub) {
+		/* only with mask string, not with list */
 		cmd_list_ref_root(client, ref);
 		client_send_tagline(cmd, "OK List completed.");
 	} else {
+		/* FIXME: handle mask lists */
 		ctx = p_new(cmd->pool, struct cmd_list_context, 1);
 		ctx->cmd = cmd;
 		ctx->ref = ref;
 		ctx->mask = mask;
 		ctx->list_flags = list_flags;
+		ctx->used_listext = used_listext;
 		ctx->lsub = lsub;
 		ctx->ns = client->namespaces;
 		p_array_init(&ctx->ns_prefixes_listed, cmd->pool, 8);

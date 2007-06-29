@@ -17,13 +17,18 @@ enum mailbox_list_flags {
 };
 
 enum mailbox_info_flags {
-	MAILBOX_NOSELECT	= 0x001,
-	MAILBOX_NONEXISTENT	= 0x002,
-	MAILBOX_CHILDREN	= 0x004,
-	MAILBOX_NOCHILDREN	= 0x008,
-	MAILBOX_NOINFERIORS	= 0x010,
-	MAILBOX_MARKED		= 0x020,
-	MAILBOX_UNMARKED	= 0x040
+	MAILBOX_NOSELECT		= 0x001,
+	MAILBOX_NONEXISTENT		= 0x002,
+	MAILBOX_CHILDREN		= 0x004,
+	MAILBOX_NOCHILDREN		= 0x008,
+	MAILBOX_NOINFERIORS		= 0x010,
+	MAILBOX_MARKED			= 0x020,
+	MAILBOX_UNMARKED		= 0x040,
+	MAILBOX_SUBSCRIBED		= 0x080,
+	MAILBOX_CHILD_SUBSCRIBED	= 0x100,
+
+	/* Internally used by lib-storage */
+	MAILBOX_MATCHED			= 0x40000000
 };
 
 enum mailbox_name_status {
@@ -34,14 +39,21 @@ enum mailbox_name_status {
 };
 
 enum mailbox_list_iter_flags {
-	/* List only subscribed mailboxes */
-	MAILBOX_LIST_ITER_SUBSCRIBED	= 0x01,
-	/* Don't return any flags unless it can be done without cost */
-	MAILBOX_LIST_ITER_FAST_FLAGS	= 0x02,
-	/* Return children flags */
-	MAILBOX_LIST_ITER_CHILDREN	= 0x04,
 	/* Ignore index file and ACLs (used by ACL plugin internally) */
-	MAILBOX_LIST_ITER_RAW_LIST	= 0x08
+	MAILBOX_LIST_ITER_RAW_LIST		= 0x000001,
+
+	/* List only subscribed mailboxes */
+	MAILBOX_LIST_ITER_SELECT_SUBSCRIBED	= 0x000010,
+	/* Return MAILBOX_CHILD_* if mailbox's children match selection
+	   criteria, even if the mailbox itself wouldn't match. */
+	MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH	= 0x000020,
+
+	/* Don't return any flags unless it can be done without cost */
+	MAILBOX_LIST_ITER_RETURN_NO_FLAGS	= 0x001000,
+	/* Return MAILBOX_SUBSCRIBED flag */
+	MAILBOX_LIST_ITER_RETURN_SUBSCRIBED	= 0x002000,
+	/* Return children flags */
+	MAILBOX_LIST_ITER_RETURN_CHILDREN	= 0x004000
 };
 
 enum mailbox_list_path_type {

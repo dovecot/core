@@ -4,13 +4,11 @@
 #include "str.h"
 #include "home-expand.h"
 #include "imap-match.h"
-#include "subscription-file.h"
 #include "mailbox-tree.h"
+#include "mailbox-list-subscriptions.h"
 #include "mailbox-list-maildir.h"
 
 #include <dirent.h>
-
-#define MAILBOX_FLAG_MATCHED 0x40000000
 
 struct maildir_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
@@ -23,24 +21,6 @@ struct maildir_list_iterate_context {
 
 	struct mailbox_info info;
 };
-
-static void maildir_nodes_fix(struct mailbox_node *node, bool is_subs)
-{
-	while (node != NULL) {
-		if (node->children != NULL) {
-			node->flags |= MAILBOX_CHILDREN;
-			node->flags &= ~MAILBOX_NOCHILDREN;
-			maildir_nodes_fix(node->children, is_subs);
-		} else if ((node->flags & MAILBOX_NONEXISTENT) != 0) {
-			if (!is_subs) {
-				node->flags &= ~MAILBOX_NONEXISTENT;
-				node->flags |= MAILBOX_NOSELECT;
-			}
-			node->flags |= MAILBOX_CHILDREN;
-		}
-		node = node->next;
-	}
-}
 
 static int
 maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
@@ -107,6 +87,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 			continue;
 
 		if (match == IMAP_MATCH_PARENT) {
+			/* get the name of the parent mailbox that matches */
 			t_push();
 			while ((p = strrchr(mailbox_c,
 					    hierarchy_sep)) != NULL) {
@@ -119,15 +100,18 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 
 			created = FALSE;
 			node = update_only ?
-				mailbox_tree_update(ctx->tree_ctx, mailbox_c) :
+				mailbox_tree_lookup(ctx->tree_ctx, mailbox_c) :
 				mailbox_tree_get(ctx->tree_ctx,
 						 mailbox_c, &created);
 			if (node != NULL) {
-				if (created)
+				if (created) {
+					/* we haven't yet seen this mailbox,
+					   but we might see it later */
 					node->flags = MAILBOX_NONEXISTENT;
-
-				node->flags |= MAILBOX_CHILDREN |
-					MAILBOX_FLAG_MATCHED;
+				}
+				if (!update_only)
+					node->flags |= MAILBOX_MATCHED;
+				node->flags |= MAILBOX_CHILDREN;
 				node->flags &= ~MAILBOX_NOCHILDREN;
 			}
 
@@ -135,21 +119,37 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		} else {
 			created = FALSE;
 			node = update_only ?
-				mailbox_tree_update(ctx->tree_ctx, mailbox_c) :
+				mailbox_tree_lookup(ctx->tree_ctx, mailbox_c) :
 				mailbox_tree_get(ctx->tree_ctx,
 						 mailbox_c, &created);
 
 			if (node != NULL) {
 				if (created)
 					node->flags = MAILBOX_NOCHILDREN;
-				node->flags &= ~MAILBOX_NONEXISTENT;
-				node->flags |= MAILBOX_FLAG_MATCHED;
+				else
+					node->flags &= ~MAILBOX_NONEXISTENT;
+				if (!update_only)
+					node->flags |= MAILBOX_MATCHED;
 			}
 		}
 		if (node != NULL) {
+			/* apply flags given by storage. we know the children
+			   flags ourself, so ignore if any of them were set. */
 			node->flags |= flags & ~(MAILBOX_NOINFERIORS |
 						 MAILBOX_CHILDREN |
 						 MAILBOX_NOCHILDREN);
+
+			/* Fix parent nodes' children states. also if we
+			   happened to create any of the parents, we need to
+			   mark them nonexistent. */
+			node = node->parent;
+			for (; node != NULL; node = node->parent) {
+				if ((node->flags & MAILBOX_MATCHED) == 0)
+					node->flags |= MAILBOX_NONEXISTENT;
+
+				node->flags |= MAILBOX_CHILDREN;
+				node->flags &= ~MAILBOX_NOCHILDREN;
+			}
 		}
 	}
 	t_pop();
@@ -160,10 +160,12 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		return -1;
 	}
 
-	if ((ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
-	    (ctx->ctx.flags & MAILBOX_LIST_ITER_SUBSCRIBED) == 0) {
+	if ((ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		/* make sure INBOX is there */
-		node = mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
+		created = FALSE;
+		node = update_only ?
+			mailbox_tree_lookup(ctx->tree_ctx, "INBOX") :
+			mailbox_tree_get(ctx->tree_ctx, "INBOX", &created);
 		if (created)
 			node->flags = MAILBOX_NOCHILDREN;
 		else
@@ -172,64 +174,14 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		switch (imap_match(glob, "INBOX")) {
 		case IMAP_MATCH_YES:
 		case IMAP_MATCH_PARENT:
-			node->flags |= MAILBOX_FLAG_MATCHED;
+			if (!update_only)
+				node->flags |= MAILBOX_MATCHED;
 			break;
 		default:
 			break;
 		}
 	}
-	maildir_nodes_fix(mailbox_tree_get(ctx->tree_ctx, NULL, NULL),
-			  (ctx->ctx.flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0);
 	return 0;
-}
-
-static int maildir_fill_subscribed(struct maildir_list_iterate_context *ctx,
-				   struct imap_match_glob *glob)
-{
-	struct subsfile_list_context *subsfile_ctx;
-	const char *path, *name, *p;
-	struct mailbox_node *node;
-	char hierarchy_sep;
-	bool created;
-
-	path = t_strconcat(ctx->ctx.list->set.control_dir != NULL ?
-			   ctx->ctx.list->set.control_dir :
-			   ctx->ctx.list->set.root_dir,
-			   "/", ctx->ctx.list->set.subscription_fname, NULL);
-	subsfile_ctx = subsfile_list_init(ctx->ctx.list, path);
-
-	hierarchy_sep = ctx->ctx.list->hierarchy_sep;
-	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) {
-		switch (imap_match(glob, name)) {
-		case IMAP_MATCH_YES:
-			node = mailbox_tree_get(ctx->tree_ctx, name, NULL);
-			node->flags = MAILBOX_FLAG_MATCHED;
-			if ((ctx->ctx.flags &
-			     MAILBOX_LIST_ITER_FAST_FLAGS) == 0) {
-				node->flags |= MAILBOX_NONEXISTENT |
-					MAILBOX_NOCHILDREN;
-			}
-			break;
-		case IMAP_MATCH_PARENT:
-			/* placeholder */
-			while ((p = strrchr(name, hierarchy_sep)) != NULL) {
-				name = t_strdup_until(name, p);
-				if (imap_match(glob, name) > 0)
-					break;
-			}
-			i_assert(p != NULL);
-
-			node = mailbox_tree_get(ctx->tree_ctx, name, &created);
-			if (created) node->flags = MAILBOX_NONEXISTENT;
-			node->flags |= MAILBOX_FLAG_MATCHED | MAILBOX_CHILDREN;
-			node->flags &= ~MAILBOX_NOCHILDREN;
-			break;
-		default:
-			break;
-		}
-	}
-
-	return subsfile_list_deinit(subsfile_ctx);
 }
 
 struct mailbox_list_iterate_context *
@@ -253,13 +205,17 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 	ctx->dir = _list->set.root_dir;
 	ctx->prefix = "";
 
-	if ((flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0) {
-		if (maildir_fill_subscribed(ctx, glob) < 0) {
+	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+		/* Listing only subscribed mailboxes.
+		   Flags are set later if needed. */
+		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx,
+						    glob, FALSE) < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}
 	} else if ((_list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
 		   (p = strrchr(mask, '/')) != NULL) {
+		/* Listing non-default maildir */
 		dir = t_strdup_until(mask, p);
 		ctx->prefix = p_strdup_until(pool, mask, p+1);
 
@@ -268,17 +224,31 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *mask,
 		ctx->dir = p_strdup(pool, home_expand(dir));
 	}
 
-	if ((flags & MAILBOX_LIST_ITER_SUBSCRIBED) == 0 ||
-	    (ctx->ctx.flags & MAILBOX_LIST_ITER_FAST_FLAGS) == 0) {
-		bool update_only = (flags & MAILBOX_LIST_ITER_SUBSCRIBED) != 0;
+	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||
+	    (flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) {
+		/* Add/update mailbox list with flags */
+		bool update_only =
+			(flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0;
+
 		if (maildir_fill_readdir(ctx, glob, update_only) < 0) {
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}
 	}
 
+	if ((flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0 &&
+	    (flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
+		/* we're listing all mailboxes but we want to know
+		   \Subscribed flags */
+		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->tree_ctx,
+						    glob, TRUE) < 0) {
+			ctx->ctx.failed = TRUE;
+			return &ctx->ctx;
+		}
+	}
+
 	ctx->tree_iter = mailbox_tree_iterate_init(ctx->tree_ctx, NULL,
-						   MAILBOX_FLAG_MATCHED);
+						   MAILBOX_MATCHED);
 	return &ctx->ctx;
 }
 

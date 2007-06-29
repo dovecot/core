@@ -214,8 +214,8 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	ns = mailbox_list_get_namespace(list);
 
 	backend->rebuilding_acllist = TRUE;
-	iter = mailbox_list_iter_init(list, "*", MAILBOX_LIST_ITER_FAST_FLAGS |
-				      MAILBOX_LIST_ITER_RAW_LIST);
+	iter = mailbox_list_iter_init(list, "*", MAILBOX_LIST_ITER_RAW_LIST |
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if (acllist_append(backend, output, ns->storage,
 				   info->name) < 0) {
