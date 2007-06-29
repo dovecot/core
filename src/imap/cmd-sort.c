@@ -24,7 +24,8 @@ static struct sort_name sort_names[] = {
 };
 
 static int
-get_sort_program(struct client_command_context *cmd, struct imap_arg *args,
+get_sort_program(struct client_command_context *cmd,
+		 const struct imap_arg *args,
 		 enum mail_sort_type program[MAX_SORT_PROGRAM_SIZE])
 {
 	enum mail_sort_type mask = 0;
@@ -86,7 +87,7 @@ bool cmd_sort(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct mail_search_arg *sargs;
 	enum mail_sort_type sorting[MAX_SORT_PROGRAM_SIZE];
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	int args_count;
 	pool_t pool;
 	const char *error, *charset;

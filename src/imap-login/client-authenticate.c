@@ -242,7 +242,7 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 	client_unref(client);
 }
 
-int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
+int cmd_authenticate(struct imap_client *client, const struct imap_arg *args)
 {
 	const char *mech_name, *init_resp = NULL;
 
@@ -275,7 +275,7 @@ int cmd_authenticate(struct imap_client *client, struct imap_arg *args)
 	return 0;
 }
 
-int cmd_login(struct imap_client *client, struct imap_arg *args)
+int cmd_login(struct imap_client *client, const struct imap_arg *args)
 {
 	const char *user, *pass;
 	string_t *plain_login, *base64;

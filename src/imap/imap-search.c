@@ -79,7 +79,8 @@ search_arg_new(pool_t pool, enum mail_search_arg_type type)
 #define ARG_NEW_HEADER(type, hdr_name) \
 	arg_new(data, args, next_sarg, type, TRUE, hdr_name)
 
-static bool arg_new(struct search_build_data *data, struct imap_arg **args,
+static bool arg_new(struct search_build_data *data,
+		    const struct imap_arg **args,
 		    struct mail_search_arg **next_sarg,
 		    enum mail_search_arg_type type, bool have_value,
 		    const char *hdr_name)
@@ -125,13 +126,13 @@ static bool arg_new(struct search_build_data *data, struct imap_arg **args,
 }
 
 static bool search_arg_build(struct search_build_data *data,
-			     struct imap_arg **args,
+			     const struct imap_arg **args,
 			     struct mail_search_arg **next_sarg)
 {
         struct mail_search_seqset *seqset;
 	struct mail_search_arg **subargs;
-	struct imap_arg *arg;
-	char *str;
+	const struct imap_arg *arg;
+	const char *str;
 
 	if ((*args)->type == IMAP_ARG_EOL) {
 		data->error = "Missing argument";
@@ -147,7 +148,7 @@ static bool search_arg_build(struct search_build_data *data,
 	}
 
 	if (arg->type == IMAP_ARG_LIST) {
-		struct imap_arg *listargs = IMAP_ARG_LIST(arg)->args;
+		const struct imap_arg *listargs = IMAP_ARG_LIST(arg)->args;
 
 		if (listargs->type == IMAP_ARG_EOL) {
 			data->error = "Empty list not allowed";
@@ -172,7 +173,7 @@ static bool search_arg_build(struct search_build_data *data,
 	/* string argument - get the name and jump to next */
 	str = IMAP_ARG_STR(arg);
 	*args += 1;
-	str_ucase(str);
+	str = t_str_ucase(str);
 
 	switch (*str) {
 	case 'A':
@@ -228,7 +229,7 @@ static bool search_arg_build(struct search_build_data *data,
 				return FALSE;
 			}
 
-			key = str_ucase(IMAP_ARG_STR(*args));
+			key = t_str_ucase(IMAP_ARG_STR(*args));
 			*args += 1;
 			return ARG_NEW_HEADER(SEARCH_HEADER, key);
 		}
@@ -414,8 +415,8 @@ static bool search_arg_build(struct search_build_data *data,
 }
 
 struct mail_search_arg *
-imap_search_args_build(pool_t pool, struct mailbox *box, struct imap_arg *args,
-		       const char **error_r)
+imap_search_args_build(pool_t pool, struct mailbox *box,
+		       const struct imap_arg *args, const char **error_r)
 {
         struct search_build_data data;
 	struct mail_search_arg *first_sarg, **sargs;

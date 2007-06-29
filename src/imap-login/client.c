@@ -213,7 +213,7 @@ static int cmd_logout(struct imap_client *client)
 }
 
 static int client_command_execute(struct imap_client *client, const char *cmd,
-				  struct imap_arg *args)
+				  const struct imap_arg *args)
 {
 	cmd = t_str_ucase(cmd);
 	if (strcmp(cmd, "LOGIN") == 0)
@@ -234,7 +234,7 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 
 static bool client_handle_input(struct imap_client *client)
 {
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	const char *msg;
 	int ret;
 	bool fatal;

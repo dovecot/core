@@ -41,7 +41,7 @@ struct imap_arg {
         struct imap_arg *parent; /* always of type IMAP_ARG_LIST */
 
 	union {
-		char *str;
+		const char *str;
 		uoff_t literal_size;
 		struct imap_arg_list *list;
 	} _data;
@@ -65,7 +65,8 @@ struct imap_arg {
 
 #define IMAP_ARG_LIST(arg) \
 	((arg)->type == IMAP_ARG_LIST ? \
-	 (arg)->_data.list : _imap_arg_list_error(arg))
+	 (const struct imap_arg_list *)(arg)->_data.list : \
+		_imap_arg_list_error(arg))
 
 struct imap_arg_list {
 	size_t size, alloc;
@@ -105,20 +106,21 @@ const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal);
    can be set to 0 to read all arguments in the line. Last element in
    args is always of type IMAP_ARG_EOL. */
 int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
-			  enum imap_parser_flags flags, struct imap_arg **args);
+			  enum imap_parser_flags flags,
+			  const struct imap_arg **args_r);
 
 /* just like imap_parser_read_args(), but assume \n at end of data in
    input stream. */
 int imap_parser_finish_line(struct imap_parser *parser, unsigned int count,
 			    enum imap_parser_flags flags,
-			    struct imap_arg **args);
+			    const struct imap_arg **args_r);
 
 /* Read one word - used for reading tag and command name.
    Returns NULL if more data is needed. */
 const char *imap_parser_read_word(struct imap_parser *parser);
 
 /* Returns the imap argument as string. NIL returns "" and list returns NULL. */
-const char *imap_arg_string(struct imap_arg *arg);
+const char *imap_arg_string(const struct imap_arg *arg);
 
 /* Error functions */
 char *_imap_arg_str_error(const struct imap_arg *arg) __attr_noreturn__;

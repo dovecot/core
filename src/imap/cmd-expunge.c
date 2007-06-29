@@ -8,7 +8,7 @@
 bool cmd_uid_expunge(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	struct mail_search_arg *search_arg;
 	const char *uidset;
 

@@ -39,7 +39,7 @@ get_modify_type(struct client_command_context *cmd, const char *item,
 bool cmd_store(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	enum mail_flags flags;
 	const char *const *keywords_list;
 	struct mail_keywords *keywords;

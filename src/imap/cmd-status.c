@@ -8,7 +8,8 @@
 
 /* Returns status items, or -1 if error */
 static enum mailbox_status_items
-get_status_items(struct client_command_context *cmd, struct imap_arg *args)
+get_status_items(struct client_command_context *cmd,
+		 const struct imap_arg *args)
 {
 	const char *item;
 	enum mailbox_status_items items;
@@ -22,7 +23,7 @@ get_status_items(struct client_command_context *cmd, struct imap_arg *args)
 			return -1;
 		}
 
-		item = str_ucase(IMAP_ARG_STR(args));
+		item = t_str_ucase(IMAP_ARG_STR(args));
 
 		if (strcmp(item, "MESSAGES") == 0)
 			items |= STATUS_MESSAGES;
@@ -80,7 +81,7 @@ get_mailbox_status(struct client *client, struct mail_storage *storage,
 bool cmd_status(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	struct mailbox_status status;
 	enum mailbox_status_items items;
 	struct mail_storage *storage;

@@ -18,12 +18,12 @@ const char *full_macro[] = {
 };
 
 static bool
-fetch_parse_args(struct imap_fetch_context *ctx, struct imap_arg *arg)
+fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg)
 {
 	const char *str, *const *macro;
 
 	if (arg->type == IMAP_ARG_ATOM) {
-		str = str_ucase(IMAP_ARG_STR(arg));
+		str = t_str_ucase(IMAP_ARG_STR(arg));
 		arg++;
 
 		/* handle macros first */
@@ -48,7 +48,7 @@ fetch_parse_args(struct imap_fetch_context *ctx, struct imap_arg *arg)
 	} else {
 		arg = IMAP_ARG_LIST(arg)->args;
 		while (arg->type == IMAP_ARG_ATOM) {
-			str = str_ucase(IMAP_ARG_STR(arg));
+			str = t_str_ucase(IMAP_ARG_STR(arg));
 			arg++;
 			if (!imap_fetch_init_handler(ctx, str, &arg))
 				return FALSE;
@@ -118,7 +118,7 @@ static bool cmd_fetch_continue(struct client_command_context *cmd)
 bool cmd_fetch(struct client_command_context *cmd)
 {
 	struct imap_fetch_context *ctx;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	struct mail_search_arg *search_arg;
 	const char *messageset;
 	int ret;

@@ -125,7 +125,7 @@ bool cmd_search(struct client_command_context *cmd)
 {
 	struct imap_search_context *ctx;
 	struct mail_search_arg *sargs;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	int args_count;
 	const char *error, *charset;
 

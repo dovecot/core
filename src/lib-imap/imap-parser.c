@@ -199,6 +199,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 				 const unsigned char *data, size_t size)
 {
 	struct imap_arg *arg;
+	char *str;
 
 	arg = imap_arg_create(parser);
 
@@ -218,15 +219,15 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 		i_assert(size > 0);
 
 		arg->type = IMAP_ARG_STRING;
-		arg->_data.str = p_strndup(parser->pool, data+1, size-1);
+		str = p_strndup(parser->pool, data+1, size-1);
 
 		/* remove the escapes */
 		if (parser->str_first_escape >= 0 &&
 		    (parser->flags & IMAP_PARSE_FLAG_NO_UNESCAPE) == 0) {
 			/* -1 because we skipped the '"' prefix */
-			str_unescape(arg->_data.str +
-				     parser->str_first_escape-1);
+			str_unescape(str + parser->str_first_escape-1);
 		}
+		arg->_data.str = str;
 		break;
 	case ARG_PARSE_LITERAL_DATA:
 		if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) != 0) {
@@ -536,7 +537,7 @@ static int imap_parser_read_arg(struct imap_parser *parser)
 	 (parser)->cur_list != parser->root_list)
 
 static int finish_line(struct imap_parser *parser, unsigned int count,
-		       struct imap_arg **args)
+		       const struct imap_arg **args_r)
 {
 	parser->line_size += parser->cur_pos;
 	i_stream_skip(parser->input, parser->cur_pos);
@@ -544,7 +545,7 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 
 	if (parser->list_arg != NULL) {
 		parser->error = "Missing ')'";
-		*args = NULL;
+		*args_r = NULL;
 		return -1;
 	}
 
@@ -557,12 +558,13 @@ static int finish_line(struct imap_parser *parser, unsigned int count,
 
 	parser->root_list->args[parser->root_list->size].type = IMAP_ARG_EOL;
 
-	*args = parser->root_list->args;
+	*args_r = parser->root_list->args;
 	return parser->root_list->size;
 }
 
 int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
-			  enum imap_parser_flags flags, struct imap_arg **args)
+			  enum imap_parser_flags flags,
+			  const struct imap_arg **args_r)
 {
 	parser->flags = flags;
 
@@ -582,28 +584,28 @@ int imap_parser_read_args(struct imap_parser *parser, unsigned int count,
 		parser->line_size += parser->cur_pos;
 		i_stream_skip(parser->input, parser->cur_pos);
 		parser->cur_pos = 0;
-		*args = NULL;
+		*args_r = NULL;
 		return -1;
 	} else if ((!IS_UNFINISHED(parser) && count > 0 &&
 		    parser->root_list->size >= count) || parser->eol) {
 		/* all arguments read / end of line. */
-                return finish_line(parser, count, args);
+                return finish_line(parser, count, args_r);
 	} else {
 		/* need more data */
-		*args = NULL;
+		*args_r = NULL;
 		return -2;
 	}
 }
 
 int imap_parser_finish_line(struct imap_parser *parser, unsigned int count,
 			    enum imap_parser_flags flags,
-			    struct imap_arg **args)
+			    const struct imap_arg **args_r)
 {
 	const unsigned char *data;
 	size_t data_size;
 	int ret;
 
-	ret = imap_parser_read_args(parser, count, flags, args);
+	ret = imap_parser_read_args(parser, count, flags, args_r);
 	if (ret == -2) {
 		/* we should have noticed end of everything except atom */
 		if (parser->cur_type == ARG_PARSE_ATOM) {
@@ -611,7 +613,7 @@ int imap_parser_finish_line(struct imap_parser *parser, unsigned int count,
 			imap_parser_save_arg(parser, data, data_size);
 		}
 	}
-	return finish_line(parser, count, args);
+	return finish_line(parser, count, args_r);
 }
 
 const char *imap_parser_read_word(struct imap_parser *parser)
@@ -636,7 +638,7 @@ const char *imap_parser_read_word(struct imap_parser *parser)
 	}
 }
 
-const char *imap_arg_string(struct imap_arg *arg)
+const char *imap_arg_string(const struct imap_arg *arg)
 {
 	switch (arg->type) {
 	case IMAP_ARG_NIL:

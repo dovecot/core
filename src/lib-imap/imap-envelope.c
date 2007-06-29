@@ -211,10 +211,10 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 	str_append(str, NVL(data->message_id, "NIL"));
 }
 
-static bool imap_address_arg_append(struct imap_arg *arg, string_t *str,
+static bool imap_address_arg_append(const struct imap_arg *arg, string_t *str,
 				    bool *in_group)
 {
-	struct imap_arg_list *list;
+	const struct imap_arg_list *list;
 	const char *args[4];
 	int i;
 
@@ -288,9 +288,9 @@ static bool imap_address_arg_append(struct imap_arg *arg, string_t *str,
 	return TRUE;
 }
 
-static const char *imap_envelope_parse_address(struct imap_arg *arg)
+static const char *imap_envelope_parse_address(const struct imap_arg *arg)
 {
-	struct imap_arg_list *list;
+	const struct imap_arg_list *list;
 	string_t *str;
 	size_t i;
 	bool in_group;
@@ -310,9 +310,9 @@ static const char *imap_envelope_parse_address(struct imap_arg *arg)
 	return str_c(str);
 }
 
-static const char *imap_envelope_parse_first_mailbox(struct imap_arg *arg)
+static const char *imap_envelope_parse_first_mailbox(const struct imap_arg *arg)
 {
-	struct imap_arg_list *list;
+	const struct imap_arg_list *list;
 
 	/* ((name route mailbox domain) ...) */
 	if (arg->type != IMAP_ARG_LIST)
@@ -334,7 +334,8 @@ static const char *imap_envelope_parse_first_mailbox(struct imap_arg *arg)
 }
 
 static bool
-imap_envelope_parse_arg(struct imap_arg *arg, enum imap_envelope_field field,
+imap_envelope_parse_arg(const struct imap_arg *arg,
+			enum imap_envelope_field field,
 			const char *envelope,
 			enum imap_envelope_result_type result_type,
 			const char **result)
@@ -376,7 +377,7 @@ bool imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
 {
 	struct istream *input;
 	struct imap_parser *parser;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	int ret;
 
 	i_assert(field < IMAP_ENVELOPE_FIELDS);

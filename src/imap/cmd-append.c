@@ -83,34 +83,35 @@ static void client_input(struct client_command_context *cmd)
 /* Returns -1 = error, 0 = need more data, 1 = successful. flags and
    internal_date may be NULL as a result, but mailbox and msg_size are always
    set when successful. */
-static int validate_args(struct imap_arg *args, struct imap_arg_list **flags,
-			 const char **internal_date, uoff_t *msg_size,
-			 bool *nonsync)
+static int validate_args(const struct imap_arg *args,
+			 const struct imap_arg_list **flags_r,
+			 const char **internal_date_r, uoff_t *msg_size_r,
+			 bool *nonsync_r)
 {
 	/* [<flags>] */
 	if (args->type != IMAP_ARG_LIST)
-		*flags = NULL;
+		*flags_r = NULL;
 	else {
-		*flags = IMAP_ARG_LIST(args);
+		*flags_r = IMAP_ARG_LIST(args);
 		args++;
 	}
 
 	/* [<internal date>] */
 	if (args->type != IMAP_ARG_STRING)
-		*internal_date = NULL;
+		*internal_date_r = NULL;
 	else {
-		*internal_date = IMAP_ARG_STR(args);
+		*internal_date_r = IMAP_ARG_STR(args);
 		args++;
 	}
 
 	if (args->type != IMAP_ARG_LITERAL_SIZE &&
 	    args->type != IMAP_ARG_LITERAL_SIZE_NONSYNC) {
-		*nonsync = FALSE;
+		*nonsync_r = FALSE;
 		return FALSE;
 	}
 
-	*nonsync = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
-	*msg_size = IMAP_ARG_LITERAL_SIZE(args);
+	*nonsync_r = args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
+	*msg_size_r = IMAP_ARG_LITERAL_SIZE(args);
 	return TRUE;
 }
 
@@ -199,8 +200,8 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct cmd_append_context *ctx = cmd->context;
-	struct imap_arg *args;
-	struct imap_arg_list *flags_list;
+	const struct imap_arg *args;
+	const struct imap_arg_list *flags_list;
 	enum mail_flags flags;
 	const char *const *keywords_list;
 	struct mail_keywords *keywords;

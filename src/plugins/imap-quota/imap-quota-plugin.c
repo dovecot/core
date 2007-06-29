@@ -133,7 +133,7 @@ static bool cmd_getquota(struct client_command_context *cmd)
 static bool cmd_setquota(struct client_command_context *cmd)
 {
 	struct quota_root *root;
-        struct imap_arg *args, *arg;
+        const struct imap_arg *args, *arg;
 	const char *root_name, *name, *error;
 	uint64_t value;
 

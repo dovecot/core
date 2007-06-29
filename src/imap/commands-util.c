@@ -216,11 +216,12 @@ static bool is_valid_keyword(struct client_command_context *cmd,
 }
 
 bool client_parse_mail_flags(struct client_command_context *cmd,
-			     struct imap_arg *args, enum mail_flags *flags_r,
+			     const struct imap_arg *args,
+			     enum mail_flags *flags_r,
 			     const char *const **keywords_r)
 {
 	const char *const *keywords;
-	char *atom;
+	const char *atom;
 	buffer_t *buffer;
 	size_t size, i;
 
@@ -238,7 +239,7 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 		atom = IMAP_ARG_STR(args);
 		if (*atom == '\\') {
 			/* system flag */
-			str_ucase(atom);
+			atom = t_str_ucase(atom);
 			if (strcmp(atom, "\\ANSWERED") == 0)
 				*flags_r |= MAIL_ANSWERED;
 			else if (strcmp(atom, "\\FLAGGED") == 0)

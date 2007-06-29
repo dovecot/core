@@ -11,7 +11,7 @@ bool cmd_thread(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	enum mail_thread_type threading;
 	struct mail_search_arg *sargs;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	int args_count;
 	pool_t pool;
 	const char *error, *charset, *str;

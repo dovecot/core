@@ -559,8 +559,8 @@ static bool imap_write_list(const struct imap_arg *args, string_t *str)
 static bool imap_parse_bodystructure_args(const struct imap_arg *args,
 					  string_t *str)
 {
-	struct imap_arg *subargs;
-	struct imap_arg_list *list;
+	const struct imap_arg *subargs;
+	const struct imap_arg_list *list;
 	bool multipart, text, message_rfc822;
 	int i;
 
@@ -669,7 +669,7 @@ bool imap_body_parse_from_bodystructure(const char *bodystructure,
 {
 	struct istream *input;
 	struct imap_parser *parser;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	int ret;
 
 	input = i_stream_create_from_data(pool_datastack_create(),

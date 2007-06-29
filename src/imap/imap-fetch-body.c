@@ -748,7 +748,7 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 
 		if (i != 0)
 			str_append_c(str, ' ');
-		arr[i] = str_ucase(IMAP_ARG_STR(&list->args[i]));
+		arr[i] = t_str_ucase(IMAP_ARG_STR(&list->args[i]));
 
 		if (list->args[i].type == IMAP_ARG_ATOM)
 			str_append(str, arr[i]);
@@ -768,7 +768,7 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 }
   
 bool fetch_body_section_init(struct imap_fetch_context *ctx, const char *name,
-			     struct imap_arg **args)
+			     const struct imap_arg **args)
 {
 	struct imap_fetch_body_data *body;
 	const char *partial;
@@ -948,7 +948,7 @@ static int fetch_rfc822_text(struct imap_fetch_context *ctx, struct mail *mail,
 }
 
 bool fetch_rfc822_init(struct imap_fetch_context *ctx, const char *name,
-		       struct imap_arg **args __attr_unused__)
+		       const struct imap_arg **args __attr_unused__)
 {
 	if (name[6] == '\0') {
 		ctx->fetch_data |= MAIL_FETCH_STREAM_HEADER |

@@ -224,13 +224,13 @@ void client_send_command_error(struct client_command_context *cmd,
 }
 
 bool client_read_args(struct client_command_context *cmd, unsigned int count,
-		      unsigned int flags, struct imap_arg **args)
+		      unsigned int flags, const struct imap_arg **args_r)
 {
 	int ret;
 
 	i_assert(count <= INT_MAX);
 
-	ret = imap_parser_read_args(cmd->parser, count, flags, args);
+	ret = imap_parser_read_args(cmd->parser, count, flags, args_r);
 	if (ret >= (int)count) {
 		/* all parameters read successfully */
 		i_assert(cmd->client->input_lock == NULL ||
@@ -251,7 +251,7 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 bool client_read_string_args(struct client_command_context *cmd,
 			     unsigned int count, ...)
 {
-	struct imap_arg *imap_args;
+	const struct imap_arg *imap_args;
 	va_list va;
 	const char *str;
 	unsigned int i;

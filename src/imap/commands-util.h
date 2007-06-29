@@ -46,7 +46,8 @@ void client_send_untagged_storage_error(struct client *client,
 /* Parse flags. Returns TRUE if successful, if not sends an error message to
    client. */
 bool client_parse_mail_flags(struct client_command_context *cmd,
-			     struct imap_arg *args, enum mail_flags *flags_r,
+			     const struct imap_arg *args,
+			     enum mail_flags *flags_r,
 			     const char *const **keywords_r);
 
 /* Send FLAGS + PERMANENTFLAGS to client. */

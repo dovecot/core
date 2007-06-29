@@ -87,7 +87,8 @@ mailbox_childinfo2str(struct cmd_list_context *ctx, string_t *str,
 }
 
 static bool
-parse_select_flags(struct client_command_context *cmd, struct imap_arg *args,
+parse_select_flags(struct client_command_context *cmd,
+		   const struct imap_arg *args,
 		   enum mailbox_list_flags *list_flags)
 {
 	const char *atom;
@@ -124,7 +125,8 @@ parse_select_flags(struct client_command_context *cmd, struct imap_arg *args,
 }
 
 static bool
-parse_return_flags(struct client_command_context *cmd, struct imap_arg *args,
+parse_return_flags(struct client_command_context *cmd,
+		   const struct imap_arg *args,
 		   enum mailbox_list_flags *list_flags)
 {
 	const char *atom;
@@ -705,7 +707,7 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 {
 	struct client *client = cmd->client;
-	struct imap_arg *args;
+	const struct imap_arg *args;
 	enum mailbox_list_flags list_flags = 0;
         struct cmd_list_context *ctx;
 	const char *ref, *mask;
