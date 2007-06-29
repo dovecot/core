@@ -4,22 +4,7 @@
 #include "safe-memset.h"
 #include "mech.h"
 #include "passdb.h"
-
-static void verify_callback(enum passdb_result result,
-			    struct auth_request *request)
-{
-	switch (result) {
-	case PASSDB_RESULT_OK:
-		auth_request_success(request, NULL, 0);
-		break;
-	case PASSDB_RESULT_INTERNAL_FAILURE:
-		auth_request_internal_failure(request);
-		break;
-	default:
-		auth_request_fail(request);
-		break;
-	}
-}
+#include "plain-common.h"
 
 static void
 mech_plain_auth_continue(struct auth_request *request,
@@ -71,7 +56,7 @@ mech_plain_auth_continue(struct auth_request *request,
                 auth_request_fail(request);
         } else {
                 auth_request_verify_plain(request, pass,
-                                          verify_callback);
+                                          plain_verify_callback);
 	}
 
         /* make sure it's cleared */

@@ -63,6 +63,7 @@ dovecot_auth_SOURCES = \
 	mech-rpa.c \
 	mech-apop.c \
 	otp-skey-common.c \
+	plain-common.c \
 	passdb.c \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
@@ -107,6 +108,7 @@ headers = \
 	mech.h \
 	mycrypt.h \
 	otp-skey-common.h \
+	plain-common.h \
 	passdb.h \
 	passdb-blocking.h \
 	passdb-cache.h \
