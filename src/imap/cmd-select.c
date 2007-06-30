@@ -54,6 +54,7 @@ bool _cmd_select_full(struct client_command_context *cmd, bool readonly)
 	client_save_keywords(&client->keywords, status.keywords);
 	client->messages_count = status.messages;
 	client->recent_count = status.recent;
+	client->uidvalidity = status.uidvalidity;
 
 	/* set client's mailbox only after getting status to make sure
 	   we're not sending any expunge/exists replies too early to client */

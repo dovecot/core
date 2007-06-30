@@ -65,7 +65,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 
 	mail_free(&ctx->mail);
 
-	if (mailbox_sync_deinit(&ctx->sync_ctx,
+	if (mailbox_sync_deinit(&ctx->sync_ctx, STATUS_UIDVALIDITY |
 				STATUS_MESSAGES | STATUS_RECENT, &status) < 0 ||
 	    ctx->failed) {
 		mailbox_transaction_rollback(&ctx->t);
@@ -77,6 +77,11 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 
 	t_push();
 
+	if (status.uidvalidity != ctx->client->uidvalidity) {
+		/* most clients would get confused by this. disconnect them. */
+		client_disconnect_with_error(ctx->client,
+					     "Mailbox UIDVALIDITY changed");
+	}
 	if (!ctx->no_newmail) {
 		ctx->client->messages_count = status.messages;
 		if (status.messages != ctx->messages_count) {

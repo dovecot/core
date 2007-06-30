@@ -47,7 +47,7 @@ struct client {
 	struct mailbox *mailbox;
         struct mailbox_keywords keywords;
 	unsigned int select_counter; /* increased when mailbox is changed */
-	uint32_t messages_count, recent_count;
+	uint32_t messages_count, recent_count, uidvalidity;
 
 	time_t last_input, last_output;
 	unsigned int bad_counter;
