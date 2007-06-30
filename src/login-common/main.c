@@ -57,7 +57,8 @@ void main_unref(void)
 		   this connection's authentication was finished but the master
 		   login wasn't, the next connection won't be able to log in
 		   as this user by finishing the master login. */
-		auth_client_reconnect(auth_client);
+		if (auth_client != NULL)
+			auth_client_reconnect(auth_client);
 	}
 }
 
