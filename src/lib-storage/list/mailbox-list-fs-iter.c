@@ -211,6 +211,9 @@ fs_list_get_subscription_flags(struct fs_list_iterate_context *ctx,
 {
 	struct mailbox_node *node;
 
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) == 0)
+		return 0;
+
 	node = mailbox_tree_lookup(ctx->subs_tree, mailbox);
 	if (node == NULL)
 		return 0;
@@ -276,10 +279,7 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 	if (ret <= 0)
 		return ret;
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0) {
-		ctx->info.flags |=
-			fs_list_get_subscription_flags(ctx, list_path);
-	}
+	ctx->info.flags |= fs_list_get_subscription_flags(ctx, list_path);
 
 	/* make sure we give only one correct INBOX */
 	real_path = t_strconcat(ctx->dir->real_path, "/", fname, NULL);
