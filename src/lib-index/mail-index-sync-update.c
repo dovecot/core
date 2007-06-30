@@ -694,8 +694,8 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	struct mail_index_sync_map_ctx sync_map_ctx;
 	const struct mail_transaction_header *thdr;
 	const void *tdata;
-	uint32_t prev_seq, mailbox_sync_seq;
-	uoff_t start_offset, prev_offset, mailbox_sync_offset;
+	uint32_t prev_seq;
+	uoff_t start_offset, prev_offset;
 	int ret;
 	bool had_dirty;
 
@@ -735,9 +735,6 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 		mail_index_view_close(&view);
 		return 0;
 	}
-
-	mail_transaction_log_get_mailbox_sync_pos(index->log, &mailbox_sync_seq,
-						  &mailbox_sync_offset);
 
 	/* view referenced the map. avoid unnecessary map cloning by
 	   unreferencing the map while view exists. */
