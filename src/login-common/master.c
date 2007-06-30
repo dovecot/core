@@ -22,7 +22,8 @@ static unsigned int master_pos;
 static char master_buf[sizeof(struct master_login_reply)];
 static struct client destroyed_client;
 
-static void client_call_master_callback(struct client *client, bool success)
+static void client_call_master_callback(struct client *client,
+					enum master_login_status status)
 {
 	master_callback_t *master_callback;
 
@@ -30,7 +31,7 @@ static void client_call_master_callback(struct client *client, bool success)
 	client->master_tag = 0;
 	client->master_callback = NULL;
 
-	master_callback(client, success);
+	master_callback(client, status);
 }
 
 static void request_handle(struct master_login_reply *reply)
@@ -50,7 +51,7 @@ static void request_handle(struct master_login_reply *reply)
 
 	hash_remove(master_requests, POINTER_CAST(reply->tag));
 	if (client != &destroyed_client) {
-		client_call_master_callback(client, reply->success);
+		client_call_master_callback(client, reply->status);
 		/* NOTE: client may be destroyed now */
 	}
 }

@@ -461,11 +461,15 @@ static void main_deinit(void)
 	(void)unlink(t_strconcat(settings_root->defaults->base_dir,
 				 "/master.pid", NULL));
 
+	login_processes_destroy_all();
+	/* call process destroy handlers first */
+	child_processes_deinit();
+
+	mail_processes_deinit();
 	login_processes_deinit();
 	auth_processes_deinit();
 	dict_process_deinit();
 	ssl_deinit();
-	child_processes_deinit();
 
 	if (close(null_fd) < 0)
 		i_error("close(null_fd) failed: %m");

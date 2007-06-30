@@ -61,6 +61,7 @@ struct settings {
 	const char *valid_chroot_dirs;
 	const char *mail_chroot;
 	unsigned int max_mail_processes;
+	unsigned int mail_max_user_connections;
 	bool verbose_proctitle;
 
 	unsigned int first_valid_uid, last_valid_uid;

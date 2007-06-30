@@ -159,6 +159,7 @@ static void dict_process_unlisten(struct dict_process *process)
 
 static void
 dict_process_destroyed(struct child_process *process,
+		       pid_t pid __attr_unused__,
 		       bool abnormal_exit __attr_unused__)
 {
 	struct dict_process *p = (struct dict_process *)process;

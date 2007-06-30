@@ -1,7 +1,8 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
 #include "array.h"
+#include "hash.h"
 #include "fd-close-on-exec.h"
 #include "env-util.h"
 #include "str.h"
@@ -12,6 +13,7 @@
 #include "home-expand.h"
 #include "var-expand.h"
 #include "mail-process.h"
+#include "master-login-interface.h"
 #include "login-process.h"
 #include "log.h"
 
@@ -31,10 +33,76 @@
    many seconds to finish. */
 #define CHDIR_WARN_SECS 10
 
-static struct child_process imap_child_process = { PROCESS_TYPE_IMAP };
-static struct child_process pop3_child_process = { PROCESS_TYPE_POP3 };
+struct mail_process_group {
+	/* process.type / user identifies this process group */
+	struct child_process process;
+	char *user;
 
+	/* processes array acts also as refcount */
+	ARRAY_DEFINE(processes, pid_t);
+};
+
+/* type+user -> struct mail_process_group */
+static struct hash_table *mail_process_groups;
 static unsigned int mail_process_count = 0;
+
+static unsigned int mail_process_group_hash(const void *p)
+{
+	const struct mail_process_group *group = p;
+
+	return str_hash(group->user) ^ group->process.type;
+}
+
+static int mail_process_group_cmp(const void *p1, const void *p2)
+{
+	const struct mail_process_group *group1 = p1, *group2 = p2;
+	int ret;
+
+	ret = strcmp(group1->user, group2->user);
+	if (ret == 0)
+		ret = group1->process.type - group2->process.type;
+	return ret;
+}
+
+static struct mail_process_group *
+mail_process_group_lookup(enum process_type type, const char *user)
+{
+	struct mail_process_group lookup_group;
+
+	lookup_group.process.type = type;
+	lookup_group.user = t_strdup_noconst(user);
+
+	return hash_lookup(mail_process_groups, &lookup_group);
+}
+
+static struct mail_process_group *
+mail_process_group_create(enum process_type type, const char *user)
+{
+	struct mail_process_group *group;
+
+	group = i_new(struct mail_process_group, 1);
+	group->process.type = type;
+	group->user = i_strdup(user);
+
+	i_array_init(&group->processes, 10);
+	hash_insert(mail_process_groups, group, group);
+	return group;
+}
+
+static void
+mail_process_group_add(struct mail_process_group *group, pid_t pid)
+{
+	mail_process_count++;
+	array_append(&group->processes, &pid, 1);
+	child_process_add(pid, &group->process);
+}
+
+static void mail_process_group_free(struct mail_process_group *group)
+{
+	array_free(&group->processes);
+	i_free(group->user);
+	i_free(group);
+}
 
 static bool validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
 			     const char *user)
@@ -422,15 +490,17 @@ static void nfs_warn_if_found(const char *mail, const char *full_home_dir)
 		"If you're sure this check was wrong, set nfs_check=no.", path);
 }
 
-bool create_mail_process(enum process_type process_type, struct settings *set,
-			 int socket, const struct ip_addr *local_ip,
-			 const struct ip_addr *remote_ip,
-			 const char *user, const char *const *args,
-			 bool dump_capability)
+enum master_login_status
+create_mail_process(enum process_type process_type, struct settings *set,
+		    int socket, const struct ip_addr *local_ip,
+		    const struct ip_addr *remote_ip,
+		    const char *user, const char *const *args,
+		    bool dump_capability)
 {
 	const struct var_expand_table *var_expand_table;
 	const char *p, *addr, *mail, *chroot_dir, *home_dir, *full_home_dir;
 	const char *system_user;
+	struct mail_process_group *process_group;
 	char title[1024];
 	struct log_io *log;
 	string_t *str;
@@ -438,18 +508,25 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	uid_t uid;
 	gid_t gid;
 	ARRAY_DEFINE(extra_args, const char *);
-	unsigned int i, count, left;
+	unsigned int i, count, left, process_count;
 	int ret, log_fd, nice, chdir_errno;
 	bool home_given, nfs_check;
 
 	i_assert(process_type == PROCESS_TYPE_IMAP ||
 		 process_type == PROCESS_TYPE_POP3);
 
-	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
 		i_error("Maximum number of mail processes exceeded");
-		return FALSE;
+		return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
+
+	/* check process limit for this user */
+	process_group = mail_process_group_lookup(process_type, user);
+	process_count = process_group == NULL ? 0 :
+		array_count(&process_group->processes);
+	if (process_count >= set->mail_max_user_connections &&
+	    set->mail_max_user_connections != 0)
+		return MASTER_LOGIN_STATUS_MAX_CONNECTIONS;
 
 	t_array_init(&extra_args, 16);
 	mail = home_dir = chroot_dir = system_user = "";
@@ -471,7 +548,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 			if (uid != 0) {
 				i_error("uid specified multiple times for %s",
 					user);
-				return FALSE;
+				return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 			}
 			uid = (uid_t)strtoul(*args + 4, NULL, 10);
 		} else if (strncmp(*args, "gid=", 4) == 0)
@@ -494,7 +571,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 
 	if (!dump_capability) {
 		if (!validate_uid_gid(set, uid, gid, user))
-			return FALSE;
+			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
 
 	if (*chroot_dir == '\0' && *set->mail_chroot != '\0')
@@ -505,26 +582,26 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 			i_error("Invalid chroot directory '%s' (user %s) "
 				"(see valid_chroot_dirs in config file)",
 				chroot_dir, user);
-			return FALSE;
+			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
 		if (set->mail_drop_priv_before_exec) {
 			i_error("Can't chroot to directory '%s' (user %s) "
 				"with mail_drop_priv_before_exec=yes",
 				chroot_dir, user);
-			return FALSE;
+			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
 	}
 
 	if (!dump_capability) {
 		log_fd = log_create_pipe(&log, set->mail_log_max_lines_per_sec);
 		if (log_fd == -1)
-			return FALSE;
+			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	} else {
 		log = NULL;
 		log_fd = dup(STDERR_FILENO);
 		if (log_fd == -1) {
 			i_error("dup() failed: %m");
-			return FALSE;
+			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
 		fd_close_on_exec(log_fd, TRUE);
 	}
@@ -542,7 +619,7 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	if (pid < 0) {
 		i_error("fork() failed: %m");
 		(void)close(log_fd);
-		return FALSE;
+		return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	}
 
 	var_expand_table =
@@ -557,16 +634,15 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		/* master */
 		var_expand(str, set->mail_log_prefix, var_expand_table);
 
-		mail_process_count++;
-		if (!dump_capability) {
+		if (!dump_capability)
 			log_set_prefix(log, str_c(str));
-			child_process_add(pid,
-					  process_type == PROCESS_TYPE_IMAP ?
-					  &imap_child_process :
-					  &pop3_child_process);
+		if (process_group == NULL) {
+			process_group = mail_process_group_create(process_type,
+								  user);
 		}
+		mail_process_group_add(process_group, pid);
 		(void)close(log_fd);
-		return TRUE;
+		return MASTER_LOGIN_STATUS_OK;
 	}
 
 #ifdef HAVE_SETPRIORITY
@@ -715,20 +791,58 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		       set->mail_executable);
 
 	/* not reached */
-	return FALSE;
+	return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 }
 
 static void
-mail_process_destroyed(struct child_process *process __attr_unused__,
-		       bool abnormal_exit __attr_unused__)
+mail_process_destroyed(struct child_process *process,
+		       pid_t pid, bool abnormal_exit __attr_unused__)
 {
+	struct mail_process_group *group = (struct mail_process_group *)process;
+	const pid_t *pids;
+	unsigned int i, count;
+
+	pids = array_get(&group->processes, &count);
+	if (count == 1) {
+		/* last process in this group */
+		i_assert(pids[0] == pid);
+		hash_remove(mail_process_groups, group);
+		mail_process_group_free(group);
+	} else {
+		for (i = 0; i < count; i++) {
+			if (pids[i] == pid)
+				break;
+		}
+		i_assert(i != count);
+		array_delete(&group->processes, i, 1);
+	}
+
 	mail_process_count--;
 }
 
 void mail_processes_init(void)
 {
+	mail_process_groups = hash_create(default_pool, default_pool, 0,
+					  mail_process_group_hash,
+					  mail_process_group_cmp);
+
 	child_process_set_destroy_callback(PROCESS_TYPE_IMAP,
 					   mail_process_destroyed);
 	child_process_set_destroy_callback(PROCESS_TYPE_POP3,
 					   mail_process_destroyed);
+}
+
+void mail_processes_deinit(void)
+{
+	struct hash_iterate_context *iter;
+	void *key, *value;
+
+	iter = hash_iterate_init(mail_process_groups);
+	while (hash_iterate(iter, &key, &value)) {
+		struct mail_process_group *group = value;
+		mail_process_group_free(group);
+	}
+	hash_iterate_deinit(iter);
+
+	hash_destroy(mail_process_groups);
 }

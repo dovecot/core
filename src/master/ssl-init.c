@@ -67,7 +67,7 @@ static void start_generate_process(const char *fname)
 
 static void
 ssl_parameter_process_destroyed(struct child_process *process __attr_unused__,
-				bool abnormal_exit)
+				pid_t pid __attr_unused__, bool abnormal_exit)
 {
 	if (!abnormal_exit) {
 		if (file_copy(SSL_PARAMETERS_PERM_PATH,

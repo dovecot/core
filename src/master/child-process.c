@@ -153,8 +153,10 @@ static void sigchld_handler(int signo __attr_unused__,
 				WTERMSIG(status));
 		}
 
-		if (destroy_callbacks[process_type] != NULL)
-			destroy_callbacks[process_type](process, abnormal_exit);
+		if (destroy_callbacks[process_type] != NULL) {
+			destroy_callbacks[process_type](process, pid,
+							abnormal_exit);
+		}
 	}
 
 	if (pid == -1 && errno != EINTR && errno != ECHILD)

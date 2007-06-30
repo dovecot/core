@@ -36,9 +36,16 @@ struct master_login_request {
 	struct ip_addr local_ip, remote_ip;
 };
 
+enum master_login_status {
+	MASTER_LOGIN_STATUS_OK,
+	MASTER_LOGIN_STATUS_INTERNAL_ERROR,
+	/* user reached max. simultaneous connections */
+	MASTER_LOGIN_STATUS_MAX_CONNECTIONS
+};
+
 struct master_login_reply {
 	unsigned int tag;
-	bool success;
+	enum master_login_status status;
 };
 
 #endif

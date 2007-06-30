@@ -194,7 +194,13 @@ static void sasl_callback(struct client *_client, enum sasl_server_reply reply,
 		}
 		break;
 	case SASL_SERVER_REPLY_MASTER_FAILED:
-		client_destroy_internal_failure(client);
+		if (data == NULL)
+			client_destroy_internal_failure(client);
+		else {
+			client_send_line(client,
+				t_strconcat("-ERR [IN-USE] ", data, NULL));
+			client_destroy(client, data);
+		}
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
 		data_len = strlen(data);

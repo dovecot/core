@@ -10,6 +10,7 @@
 #include "unlink-directory.h"
 #include "syslog-util.h"
 #include "mail-process.h"
+#include "master-login-interface.h"
 #include "settings.h"
 
 #include <stdio.h>
@@ -205,6 +206,7 @@ struct settings default_settings = {
 	MEMBER(valid_chroot_dirs) "",
 	MEMBER(mail_chroot) "",
 	MEMBER(max_mail_processes) 1024,
+	MEMBER(mail_max_user_connections) 10,
 	MEMBER(verbose_proctitle) FALSE,
 
 	MEMBER(first_valid_uid) 500,
@@ -546,6 +548,7 @@ static bool get_imap_capability(struct settings *set)
 		"gid=65534",
 		NULL
 	};
+	enum master_login_status login_status;
 	struct ip_addr ip;
 	char buf[4096];
 	int fd[2], status;
@@ -577,8 +580,10 @@ static bool get_imap_capability(struct settings *set)
 	}
 	fd_close_on_exec(fd[0], TRUE);
 	fd_close_on_exec(fd[1], TRUE);
-	if (!create_mail_process(PROCESS_TYPE_IMAP, set, fd[1],
-				 &ip, &ip, "dump-capability", args, TRUE)) {
+	login_status = create_mail_process(PROCESS_TYPE_IMAP, set, fd[1],
+					   &ip, &ip, "dump-capability",
+					   args, TRUE);
+	if (login_status != MASTER_LOGIN_STATUS_OK) {
 		(void)close(fd[0]);
 		(void)close(fd[1]);
 		return FALSE;

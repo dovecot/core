@@ -37,11 +37,24 @@ call_client_callback(struct client *client, enum sasl_server_reply reply,
 	/* NOTE: client may be destroyed now */
 }
 
-static void master_callback(struct client *client, bool success)
+static void
+master_callback(struct client *client, enum master_login_status status)
 {
+	enum sasl_server_reply reply = SASL_SERVER_REPLY_MASTER_FAILED;
+	const char *data = NULL;
+
 	client->authenticating = FALSE;
-	call_client_callback(client, success ? SASL_SERVER_REPLY_SUCCESS :
-			     SASL_SERVER_REPLY_MASTER_FAILED, NULL, NULL);
+	switch (status) {
+	case MASTER_LOGIN_STATUS_OK:
+		reply = SASL_SERVER_REPLY_SUCCESS;
+		break;
+	case MASTER_LOGIN_STATUS_INTERNAL_ERROR:
+		break;
+	case MASTER_LOGIN_STATUS_MAX_CONNECTIONS:
+		data = "Maximum number of connections exceeded";
+		break;
+	}
+	call_client_callback(client, reply, data, NULL);
 }
 
 static void authenticate_callback(struct auth_request *request, int status,

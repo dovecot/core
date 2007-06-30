@@ -94,12 +94,12 @@ void auth_master_callback(const char *user, const char *const *args,
 
 	memset(&master_reply, 0, sizeof(master_reply));
 	if (user == NULL)
-		master_reply.success = FALSE;
+		master_reply.status = MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 	else {
 		struct login_group *group = request->process->group;
 
 		t_push();
-		master_reply.success =
+		master_reply.status =
 			create_mail_process(group->mail_process_type,
 					    group->set,
 					    request->fd, &request->local_ip,
@@ -683,7 +683,8 @@ static pid_t create_login_process(struct login_group *group)
 }
 
 static void
-login_process_destroyed(struct child_process *process, bool abnormal_exit)
+login_process_destroyed(struct child_process *process,
+			pid_t pid __attr_unused__, bool abnormal_exit)
 {
 	struct login_process *p = (struct login_process *)process;
 
@@ -910,8 +911,6 @@ void login_processes_init(void)
 
 void login_processes_deinit(void)
 {
-        login_processes_destroy_all();
-
 	if (to != NULL)
 		timeout_remove(&to);
 	if (io_listen != NULL)

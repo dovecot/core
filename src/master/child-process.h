@@ -18,8 +18,8 @@ struct child_process {
 	enum process_type type;
 };
 
-typedef void child_process_destroy_callback_t(struct child_process *,
-					      bool abnormal_exit);
+typedef void child_process_destroy_callback_t(struct child_process *process,
+					      pid_t pid, bool abnormal_exit);
 
 extern const char *process_names[];
 extern struct hash_table *processes;
