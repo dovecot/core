@@ -9,6 +9,10 @@
 #include "mail-transaction-log.h"
 #include "mail-transaction-log-private.h"
 
+/* If we have less than this many bytes to sync from log file, don't bother
+   reading the main index */
+#define MAIL_INDEX_SYNC_MIN_READ_INDEX_SIZE 2048
+
 static void
 mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 				  struct mail_index_map *map, bool eol)
@@ -706,11 +710,18 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 		   syncing the current map from the transaction log */
 		uoff_t log_size, index_size;
 
-		if (index->log->head == NULL || index->fd == -1)
+		if (index->log->head == NULL)
 			return 0;
 
-		index_size = map->hdr.header_size +
-			map->records_count * map->hdr.record_size;
+		if (index->fd == -1 &&
+		    index->log->head->hdr.prev_file_seq != 0) {
+			/* we don't know the index's size, so use the
+			   smallest index size we're willing to read */
+			index_size = MAIL_INDEX_SYNC_MIN_READ_INDEX_SIZE;
+		} else {
+			index_size = map->hdr.header_size +
+				map->records_count * map->hdr.record_size;
+		}
 
 		/* this isn't necessary correct currently, but it should be
 		   close enough */
