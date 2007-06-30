@@ -22,6 +22,7 @@ dovecot_SOURCES = \
 	auth-process.c \
 	askpass.c \
 	capabilities-posix.c \
+	child-process.c \
 	dict-process.c \
 	log.c \
 	login-process.c \
@@ -35,6 +36,7 @@ noinst_HEADERS = \
 	auth-process.h \
 	askpass.h \
 	capabilities.h \
+	child-process.h \
 	dict-process.h \
 	common.h \
 	log.h \

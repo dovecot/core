@@ -24,30 +24,17 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
-
-const char *process_names[PROCESS_TYPE_MAX] = {
-	"unknown",
-	"auth",
-	"auth-worker",
-	"login",
-	"imap",
-	"pop3",
-	"ssl-build-param",
-	"dict"
-};
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
-static const char *env_tz;
 
 struct ioloop *ioloop;
-struct hash_table *pids;
 int null_fd = -1, inetd_login_fd;
 uid_t master_uid;
 char program_path[PATH_MAX];
 char ssl_manual_key_password[100];
+const char *env_tz;
 #ifdef DEBUG
-static bool gdb;
+bool gdb;
 #endif
 
 static void listen_fds_open(bool retry);
@@ -63,50 +50,6 @@ bool validate_str(const char *str, size_t max_len)
 	}
 
 	return FALSE;
-}
-
-void child_process_init_env(void)
-{
-	int facility;
-
-	/* remove all environment, we don't need them */
-	env_clean();
-
-	/* we'll log through master process */
-	env_put("LOG_TO_MASTER=1");
-	if (env_tz != NULL)
-		env_put(t_strconcat("TZ=", env_tz, NULL));
-
-	if (settings_root == NULL ||
-	    !syslog_facility_find(settings_root->defaults->syslog_facility,
-				  &facility))
-		facility = LOG_MAIL;
-	env_put(t_strdup_printf("SYSLOG_FACILITY=%d", facility));
-
-	if (settings_root != NULL && !settings_root->defaults->version_ignore)
-		env_put("DOVECOT_VERSION="PACKAGE_VERSION);
-#ifdef DEBUG
-	if (gdb) env_put("GDB=1");
-#endif
-}
-
-void client_process_exec(const char *cmd, const char *title)
-{
-	const char *executable, *p, **argv;
-
-	/* very simple argument splitting. */
-	if (*title == '\0')
-		argv = t_strsplit(cmd, " ");
-	else
-		argv = t_strsplit(t_strconcat(cmd, " ", title, NULL), " ");
-
-	executable = argv[0];
-
-	/* hide the path, it's ugly */
-	p = strrchr(argv[0], '/');
-	if (p != NULL) argv[0] = p+1;
-
-	execv(executable, (char **)argv);
 }
 
 static void set_logfile(struct settings *set)
@@ -170,91 +113,6 @@ static void sig_reopen_logs(int signo __attr_unused__,
 			    void *context __attr_unused__)
 {
 	set_logfile(settings_root->defaults);
-}
-
-static const char *get_exit_status_message(enum fatal_exit_status status)
-{
-	switch (status) {
-	case FATAL_LOGOPEN:
-		return "Can't open log file";
-	case FATAL_LOGWRITE:
-		return "Can't write to log file";
-	case FATAL_LOGERROR:
-		return "Internal logging error";
-	case FATAL_OUTOFMEM:
-		return "Out of memory";
-	case FATAL_EXEC:
-		return "exec() failed";
-
-	case FATAL_DEFAULT:
-		return NULL;
-	}
-
-	return NULL;
-}
-
-static void sigchld_handler(int signo __attr_unused__,
-			    void *context __attr_unused__)
-{
-	const char *process_type_name, *msg;
-	pid_t pid;
-	int status, process_type;
-	bool abnormal_exit;
-
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		/* get the type and remove from hash */
-		process_type = PID_GET_PROCESS_TYPE(pid);
-		if (process_type != PROCESS_TYPE_UNKNOWN)
-			PID_REMOVE_PROCESS_TYPE(pid);
-
-		abnormal_exit = TRUE;
-
-		/* write errors to syslog */
-		process_type_name = process_names[process_type];
-		if (WIFEXITED(status)) {
-			status = WEXITSTATUS(status);
-			if (status == 0) {
-				abnormal_exit = FALSE;
-				if (process_type == PROCESS_TYPE_UNKNOWN) {
-					i_error("unknown child %s exited "
-						"successfully", dec2str(pid));
-				}
-			} else if (status == 1 &&
-				   process_type == PROCESS_TYPE_SSL_PARAM) {
-				/* kludgy. hide this failure. */
-			} else {
-				msg = get_exit_status_message(status);
-				msg = msg == NULL ? "" :
-					t_strconcat(" (", msg, ")", NULL);
-				i_error("child %s (%s) returned error %d%s",
-					dec2str(pid), process_type_name,
-					status, msg);
-			}
-		} else if (WIFSIGNALED(status)) {
-			i_error("child %s (%s) killed with signal %d",
-				dec2str(pid), process_type_name,
-				WTERMSIG(status));
-		}
-
-		switch (process_type) {
-		case PROCESS_TYPE_LOGIN:
-			login_process_destroyed(pid, abnormal_exit);
-			break;
-		case PROCESS_TYPE_IMAP:
-		case PROCESS_TYPE_POP3:
-			mail_process_destroyed(pid);
-			break;
-		case PROCESS_TYPE_SSL_PARAM:
-			ssl_parameter_process_destroyed(abnormal_exit);
-			break;
-		case PROCESS_TYPE_DICT:
-			dict_process_restart();
-			break;
-		}
-	}
-
-	if (pid == -1 && errno != EINTR && errno != ECHILD)
-		i_warning("waitpid() failed: %m");
 }
 
 static void resolve_ip(const char *set_name, const char *name,
@@ -598,14 +456,13 @@ static void main_init(bool log_error)
         lib_signals_set_handler(SIGHUP, TRUE, sig_reload_settings, NULL);
         lib_signals_set_handler(SIGUSR1, TRUE, sig_reopen_logs, NULL);
 
-	pids = hash_create(default_pool, default_pool, 128, NULL, NULL);
-	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
-
+	child_processes_init();
 	log_init();
 	ssl_init();
 	dict_process_init();
 	auth_processes_init();
 	login_processes_init();
+	mail_processes_init();
 
 	create_pid_file(t_strconcat(settings_root->defaults->base_dir,
 				    "/master.pid", NULL));
@@ -616,20 +473,15 @@ static void main_deinit(void)
 	(void)unlink(t_strconcat(settings_root->defaults->base_dir,
 				 "/master.pid", NULL));
 
-	/* make sure we log if child processes died unexpectedly */
-	sigchld_handler(SIGCHLD, NULL);
-
 	login_processes_deinit();
 	auth_processes_deinit();
 	dict_process_deinit();
 	ssl_deinit();
-
-	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
+	child_processes_deinit();
 
 	if (close(null_fd) < 0)
 		i_error("close(null_fd) failed: %m");
 
-	hash_destroy(pids);
 	lib_signals_deinit();
 	log_deinit();
 	closelog();

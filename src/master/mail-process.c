@@ -31,6 +31,9 @@
    many seconds to finish. */
 #define CHDIR_WARN_SECS 10
 
+static struct child_process imap_child_process = { PROCESS_TYPE_IMAP };
+static struct child_process pop3_child_process = { PROCESS_TYPE_POP3 };
+
 static unsigned int mail_process_count = 0;
 
 static bool validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
@@ -439,6 +442,9 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	int ret, log_fd, nice, chdir_errno;
 	bool home_given, nfs_check;
 
+	i_assert(process_type == PROCESS_TYPE_IMAP ||
+		 process_type == PROCESS_TYPE_POP3);
+
 	// FIXME: per-group
 	if (mail_process_count == set->max_mail_processes) {
 		i_error("Maximum number of mail processes exceeded");
@@ -554,7 +560,10 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 		mail_process_count++;
 		if (!dump_capability) {
 			log_set_prefix(log, str_c(str));
-			PID_ADD_PROCESS_TYPE(pid, process_type);
+			child_process_add(pid,
+					  process_type == PROCESS_TYPE_IMAP ?
+					  &imap_child_process :
+					  &pop3_child_process);
 		}
 		(void)close(log_fd);
 		return TRUE;
@@ -709,7 +718,17 @@ bool create_mail_process(enum process_type process_type, struct settings *set,
 	return FALSE;
 }
 
-void mail_process_destroyed(pid_t pid __attr_unused__)
+static void
+mail_process_destroyed(struct child_process *process __attr_unused__,
+		       bool abnormal_exit __attr_unused__)
 {
 	mail_process_count--;
+}
+
+void mail_processes_init(void)
+{
+	child_process_set_destroy_callback(PROCESS_TYPE_IMAP,
+					   mail_process_destroyed);
+	child_process_set_destroy_callback(PROCESS_TYPE_POP3,
+					   mail_process_destroyed);
 }

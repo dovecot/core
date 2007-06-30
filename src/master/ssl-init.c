@@ -5,6 +5,7 @@
 #include "env-util.h"
 #include "file-copy.h"
 #include "log.h"
+#include "child-process.h"
 #include "ssl-init.h"
 
 #ifdef HAVE_SSL
@@ -15,6 +16,9 @@
 #include <fcntl.h>
 #include <utime.h>
 #include <sys/stat.h>
+
+static struct child_process ssl_param_child_process =
+	{ PROCESS_TYPE_SSL_PARAM };
 
 static struct timeout *to;
 static char *generating_path = NULL;
@@ -46,7 +50,7 @@ static void start_generate_process(const char *fname)
 		/* parent */
 		i_assert(generating_path == NULL);
 		generating_path = i_strdup(fname);
-		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_SSL_PARAM);
+		child_process_add(pid, &ssl_param_child_process);
 		(void)close(log_fd);
 		return;
 	}
@@ -61,7 +65,9 @@ static void start_generate_process(const char *fname)
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", binpath);
 }
 
-void ssl_parameter_process_destroyed(bool abnormal_exit)
+static void
+ssl_parameter_process_destroyed(struct child_process *process __attr_unused__,
+				bool abnormal_exit)
 {
 	if (!abnormal_exit) {
 		if (file_copy(SSL_PARAMETERS_PERM_PATH,
@@ -154,6 +160,9 @@ static void check_parameters_file_timeout(void *context __attr_unused__)
 void ssl_init(void)
 {
 	generating_path = NULL;
+
+	child_process_set_destroy_callback(PROCESS_TYPE_SSL_PARAM,
+					   ssl_parameter_process_destroyed);
 
 	/* check every 10 mins */
 	to = timeout_add(600 * 1000, check_parameters_file_timeout, NULL);

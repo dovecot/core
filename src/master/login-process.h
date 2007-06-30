@@ -1,11 +1,13 @@
 #ifndef __LOGIN_PROCESS_H
 #define __LOGIN_PROCESS_H
 
+#include "child-process.h"
+
 struct login_group {
 	struct login_group *next;
 	int refcount;
 
-	enum process_type process_type;
+	enum process_type mail_process_type;
 	struct settings *set;
 
 	unsigned int processes;
@@ -17,8 +19,6 @@ struct login_group {
 	struct login_process *oldest_prelogin_process;
 	struct login_process *newest_prelogin_process;
 };
-
-void login_process_destroyed(pid_t pid, bool abnormal_exit);
 
 void login_processes_destroy_all(void);
 

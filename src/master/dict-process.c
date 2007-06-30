@@ -7,6 +7,7 @@
 #include "fd-close-on-exec.h"
 #include "env-util.h"
 #include "log.h"
+#include "child-process.h"
 #include "dict-process.h"
 
 #include <syslog.h>
@@ -16,6 +17,7 @@
 #define DICT_SERVER_SOCKET_NAME "dict-server"
 
 struct dict_process {
+	struct child_process process;
 	char *path;
 	int fd;
 
@@ -51,7 +53,7 @@ static int dict_process_start(struct dict_process *process)
 
 	if (pid != 0) {
 		/* master */
-		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_DICT);
+		child_process_add(pid, &process->process);
 		log_set_prefix(log, "dict: ");
 		(void)close(log_fd);
 
@@ -155,13 +157,26 @@ static void dict_process_unlisten(struct dict_process *process)
 	process->fd = -1;
 }
 
+static void
+dict_process_destroyed(struct child_process *process,
+		       bool abnormal_exit __attr_unused__)
+{
+	struct dict_process *p = (struct dict_process *)process;
+
+	(void)dict_process_listen(p);
+}
+
 void dict_process_init(void)
 {
 	process = i_new(struct dict_process, 1);
+	process->process.type = PROCESS_TYPE_DICT;
 	process->fd = -1;
 	process->path = i_strconcat(settings_root->defaults->base_dir,
 				    "/"DICT_SERVER_SOCKET_NAME, NULL);
 	(void)dict_process_listen(process);
+
+	child_process_set_destroy_callback(PROCESS_TYPE_DICT,
+					   dict_process_destroyed);
 }
 
 void dict_process_deinit(void)
@@ -171,12 +186,6 @@ void dict_process_deinit(void)
 		log_unref(process->log);
 	i_free(process->path);
 	i_free(process);
-}
-
-void dict_process_restart(void)
-{
-	dict_process_deinit();
-	dict_process_init();
 }
 
 void dict_process_kill(void)

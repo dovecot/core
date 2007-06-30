@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "hash.h"
 #include "ioloop.h"
 #include "env-util.h"
 #include "fd-close-on-exec.h"
@@ -12,6 +13,7 @@
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "auth-process.h"
+#include "child-process.h"
 #include "../auth/auth-master-interface.h"
 #include "log.h"
 
@@ -55,6 +57,11 @@ struct auth_process {
 };
 
 bool have_initialized_auth_processes = FALSE;
+
+static struct child_process auth_child_process =
+	{ PROCESS_TYPE_AUTH };
+static struct child_process auth_worker_child_process =
+	{ PROCESS_TYPE_AUTH_WORKER };
 
 static struct timeout *to;
 static unsigned int auth_tag;
@@ -283,7 +290,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	const char *path, *handshake;
 
 	if (pid != 0)
-		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH);
+		child_process_add(pid, &auth_child_process);
 
 	p = i_new(struct auth_process, 1);
 	p->group = group;
@@ -603,7 +610,7 @@ static int create_auth_worker(struct auth_process *process, int fd)
 
 	if (pid != 0) {
 		/* master */
-		PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_AUTH_WORKER);
+		child_process_add(pid, &auth_worker_child_process);
 		prefix = t_strdup_printf("auth-worker(%s): ",
 					 process->group->set->name);
 		log_set_prefix(log, prefix);

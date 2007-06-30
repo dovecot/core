@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "hash.h"
 #include "network.h"
 #include "ostream.h"
 #include "fdpass.h"
@@ -21,6 +22,8 @@
 #include <sys/stat.h>
 
 struct login_process {
+	struct child_process process;
+
 	struct login_group *group;
 	struct login_process *prev_prelogin, *next_prelogin;
 	int refcount;
@@ -51,7 +54,6 @@ static struct timeout *to;
 static struct io *io_listen;
 static bool logins_stalled = FALSE;
 
-static struct hash_table *processes;
 static struct login_group *login_groups;
 
 static void login_processes_stall(void);
@@ -67,7 +69,7 @@ static void login_group_create(struct settings *set)
 	group = i_new(struct login_group, 1);
 	group->refcount = 1;
 	group->set = set;
-	group->process_type = set->protocol == MAIL_PROTOCOL_IMAP ?
+	group->mail_process_type = set->protocol == MAIL_PROTOCOL_IMAP ?
 		PROCESS_TYPE_IMAP : PROCESS_TYPE_POP3;
 
 	group->next = login_groups;
@@ -98,7 +100,8 @@ void auth_master_callback(const char *user, const char *const *args,
 
 		t_push();
 		master_reply.success =
-			create_mail_process(group->process_type, group->set,
+			create_mail_process(group->mail_process_type,
+					    group->set,
 					    request->fd, &request->local_ip,
 					    &request->remote_ip, user, args,
 					    FALSE);
@@ -438,6 +441,7 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	i_assert(pid != 0);
 
 	p = i_new(struct login_process, 1);
+	p->process.type = PROCESS_TYPE_LOGIN;
 	p->group = group;
 	p->refcount = 2; /* once for fd close, another for process exit */
 	p->pid = pid;
@@ -446,9 +450,7 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	p->output = o_stream_create_file(fd, default_pool,
 					 sizeof(struct master_login_reply)*10,
 					 FALSE);
-
-	PID_ADD_PROCESS_TYPE(pid, PROCESS_TYPE_LOGIN);
-	hash_insert(processes, POINTER_CAST(pid), p);
+	child_process_add(pid, &p->process);
 
 	p->state = LOGIN_STATE_LISTENING;
 
@@ -465,7 +467,6 @@ static void login_process_exited(struct login_process *p)
 	if (p->group != NULL)
 		p->group->processes--;
 
-	hash_remove(processes, POINTER_CAST(p->pid));
 	login_process_unref(p);
 }
 
@@ -570,7 +571,7 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 	if (set->login_greeting_capability)
 		env_put("GREETING_CAPABILITY=1");
 
-	if (group->process_type == PROCESS_TYPE_IMAP) {
+	if (group->mail_process_type == PROCESS_TYPE_IMAP) {
 		env_put(t_strconcat("CAPABILITY_STRING=",
 				    *set->imap_capability != '\0' ?
 				    set->imap_capability :
@@ -616,7 +617,7 @@ static pid_t create_login_process(struct login_group *group)
 	if (pid != 0) {
 		/* master */
 		prefix = t_strdup_printf("%s-login: ",
-					 process_names[group->process_type]);
+				process_names[group->mail_process_type]);
 		log_set_prefix(log, prefix);
 
 		net_set_nonblock(fd[0], TRUE);
@@ -628,7 +629,7 @@ static pid_t create_login_process(struct login_group *group)
 	}
 
 	prefix = t_strdup_printf("master-%s-login: ",
-				 process_names[group->process_type]);
+				 process_names[group->mail_process_type]);
 	log_set_prefix(log, prefix);
 
 	/* move the listen handle */
@@ -681,13 +682,11 @@ static pid_t create_login_process(struct login_group *group)
 	return -1;
 }
 
-void login_process_destroyed(pid_t pid, bool abnormal_exit)
+static void
+login_process_destroyed(struct child_process *process, bool abnormal_exit)
 {
-	struct login_process *p;
+	struct login_process *p = (struct login_process *)process;
 
-	p = hash_lookup(processes, POINTER_CAST(pid));
-	if (p == NULL)
-		i_panic("Lost login process PID %s", dec2str(pid));
 	i_assert(!p->inetd_child);
 
 	if (abnormal_exit) {
@@ -706,8 +705,12 @@ void login_processes_destroy_all(void)
 	void *key, *value;
 
 	iter = hash_iterate_init(processes);
-	while (hash_iterate(iter, &key, &value))
-		login_process_destroy(value);
+	while (hash_iterate(iter, &key, &value)) {
+		struct login_process *p = value;
+
+		if (p->process.type == PROCESS_TYPE_LOGIN)
+			login_process_destroy(p);
+	}
 	hash_iterate_deinit(iter);
 
 	while (login_groups != NULL) {
@@ -730,7 +733,7 @@ static void login_processes_notify_group(struct login_group *group)
 	while (hash_iterate(iter, &key, &value)) {
 		struct login_process *p = value;
 
-		if (p->group == group)
+		if (p->process.type == PROCESS_TYPE_LOGIN && p->group == group)
 			(void)o_stream_send(p->output, &reply, sizeof(reply));
 	}
 	hash_iterate_deinit(iter);
@@ -892,7 +895,9 @@ void login_processes_init(void)
         login_pid_counter = 0;
 	login_groups = NULL;
 
-	processes = hash_create(default_pool, default_pool, 128, NULL, NULL);
+	child_process_set_destroy_callback(PROCESS_TYPE_LOGIN,
+					   login_process_destroyed);
+
 	if (!IS_INETD()) {
 		to = timeout_add(1000, login_processes_start_missing, NULL);
 		io_listen = NULL;
@@ -906,7 +911,6 @@ void login_processes_init(void)
 void login_processes_deinit(void)
 {
         login_processes_destroy_all();
-	hash_destroy(processes);
 
 	if (to != NULL)
 		timeout_remove(&to);
