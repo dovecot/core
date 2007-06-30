@@ -77,6 +77,7 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 	t->appends_nonsorted = FALSE;
 	t->pre_hdr_changed = FALSE;
 	t->post_hdr_changed = FALSE;
+	t->reset = FALSE;
 	t->log_updates = FALSE;
 }
 
@@ -1036,6 +1037,14 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 		break;
 	}
 
+	t->log_updates = TRUE;
+}
+
+void mail_index_reset(struct mail_index_transaction *t)
+{
+	mail_index_transaction_reset(t);
+
+	t->reset = TRUE;
 	t->log_updates = TRUE;
 }
 

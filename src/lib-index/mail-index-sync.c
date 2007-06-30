@@ -308,13 +308,14 @@ mail_index_sync_set_log_view(struct mail_index_view *view,
 {
 	uint32_t log_seq;
 	uoff_t log_offset;
+	bool reset;
 	int ret;
 
 	mail_transaction_log_get_head(view->index->log, &log_seq, &log_offset);
 
 	ret = mail_transaction_log_view_set(view->log_view,
                                             start_file_seq, start_file_offset,
-					    log_seq, log_offset);
+					    log_seq, log_offset, &reset);
 	if (ret <= 0) {
 		/* either corrupted or the file was deleted for
 		   some reason. either way, we can't go forward */

@@ -87,27 +87,53 @@ mail_transaction_log_sort_expunges(ARRAY_TYPE(seq_range) *expunges,
 	return 0;
 }
 
-static int view_sync_set_log_view_range(struct mail_index_view *view)
+static int
+view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges)
 {
 	const struct mail_index_header *hdr = &view->index->map->hdr;
+	uint32_t start_seq, end_seq;
+	uoff_t start_offset, end_offset;
+	bool reset;
 	int ret;
 
-	/* the view begins from the first non-synced transaction */
-	ret = mail_transaction_log_view_set(view->log_view,
-					    view->log_file_expunge_seq,
-					    view->log_file_expunge_offset,
-					    hdr->log_file_seq,
-					    hdr->log_file_head_offset);
-	if (ret <= 0) {
-		if (ret == 0) {
-			/* FIXME: use the new index to get needed changes */
+	start_seq = view->log_file_expunge_seq;
+	start_offset = view->log_file_expunge_offset;
+	end_seq = hdr->log_file_seq;
+	end_offset = hdr->log_file_head_offset;
+
+	for (;;) {
+		/* the view begins from the first non-synced transaction */
+		ret = mail_transaction_log_view_set(view->log_view,
+						    start_seq, start_offset,
+						    end_seq, end_offset,
+						    &reset);
+		if (ret <= 0) {
+			if (ret < 0)
+				return -1;
+
+			/* FIXME: use the new index to get needed
+			   changes */
 			mail_index_set_error(view->index,
 				"Transaction log got desynced for index %s",
 				view->index->filepath);
 			view->inconsistent = TRUE;
+			return -1;
 		}
-		return -1;
+
+		if (!reset || sync_expunges)
+			break;
+
+		/* we can't do this. sync only up to reset. */
+		mail_transaction_log_view_get_prev_pos(view->log_view,
+						       &end_seq, &end_offset);
+		end_seq--; end_offset = (uoff_t)-1;
+		if (end_seq < start_seq) {
+			/* we have only this reset log */
+			mail_transaction_log_view_clear(view->log_view);
+			break;
+		}
 	}
+
 	return 0;
 }
 
@@ -121,7 +147,7 @@ view_sync_get_expunges(struct mail_index_view *view,
 	unsigned int count;
 	int ret;
 
-	if (view_sync_set_log_view_range(view) < 0)
+	if (view_sync_set_log_view_range(view, TRUE) < 0)
 		return -1;
 
 	/* get a list of expunge transactions. there may be some that we have
@@ -196,6 +222,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
+	bool sync_expunges;
 
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
@@ -203,13 +230,14 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	if (mail_index_view_lock_head(view) < 0)
 		return -1;
 
-	if ((flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0) {
+	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;
+	if (sync_expunges) {
 		/* get list of all expunges first */
 		if (view_sync_get_expunges(view, &expunges) < 0)
 			return -1;
 	}
 
-	if (view_sync_set_log_view_range(view) < 0) {
+	if (view_sync_set_log_view_range(view, sync_expunges) < 0) {
 		if (array_is_created(&expunges))
 			array_free(&expunges);
 		return -1;
@@ -222,7 +250,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	if ((flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0) {
+	if (sync_expunges) {
 		view->sync_new_map = view->index->map;
 		view->sync_new_map->refcount++;
 
@@ -590,11 +618,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 #endif
 
 	/* set log view to empty range so unneeded memory gets freed */
-	(void)mail_transaction_log_view_set(view->log_view,
-					    view->log_file_head_seq,
-					    view->log_file_head_offset,
-					    view->log_file_head_seq,
-					    view->log_file_head_offset);
+	mail_transaction_log_view_clear(view->log_view);
 
 	if (array_is_created(&ctx->expunges))
 		array_free(&ctx->expunges);

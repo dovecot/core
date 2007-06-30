@@ -173,7 +173,8 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 	uint32_t idx;
 	unsigned int count;
 
-	if (!mail_index_map_get_ext_idx(t->view->map, ext_id, &idx)) {
+	if (t->reset ||
+	    !mail_index_map_get_ext_idx(t->view->map, ext_id, &idx)) {
 		/* new extension */
 		idx = (uint32_t)-1;
 	}
@@ -409,6 +410,14 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 
 	index = mail_index_view_get_index(view);
 	log = index->log;
+
+	if (t->reset) {
+		/* Reset the whole index, preserving only indexid. Begin by
+		   rotating the log. We don't care if we skip some non-synced
+		   transactions. */
+		if (mail_transaction_log_rotate(log, TRUE) < 0)
+			return -1;
+	}
 
 	if (!index->log_locked) {
 		/* update sync_offset */

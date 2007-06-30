@@ -80,7 +80,8 @@ void mail_transaction_log_file_free(struct mail_transaction_log_file **file);
 
 int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 				   bool check_existing);
-int mail_transaction_log_file_create(struct mail_transaction_log_file *file);
+int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
+				     bool reset);
 int mail_transaction_log_file_lock(struct mail_transaction_log_file *file);
 
 int mail_transaction_log_find_file(struct mail_transaction_log *log,
@@ -97,7 +98,7 @@ void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
 void mail_transaction_logs_clean(struct mail_transaction_log *log);
 
 bool mail_transaction_log_want_rotate(struct mail_transaction_log *log);
-int mail_transaction_log_rotate(struct mail_transaction_log *log);
+int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset);
 int mail_transaction_log_lock_head(struct mail_transaction_log *log);
 void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file);
 

@@ -697,7 +697,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	uint32_t prev_seq;
 	uoff_t start_offset, prev_offset;
 	int ret;
-	bool had_dirty;
+	bool had_dirty, reset;
 
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
 
@@ -725,7 +725,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	view = mail_index_view_open_with_map(index, map);
 	ret = mail_transaction_log_view_set(view->log_view,
 					    map->hdr.log_file_seq, start_offset,
-					    (uint32_t)-1, (uoff_t)-1);
+					    (uint32_t)-1, (uoff_t)-1, &reset);
 	if (ret <= 0) {
 		if (force && ret == 0) {
 			/* the seq/offset is probably broken */
@@ -758,6 +758,15 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 	}
 
 	mail_index_sync_map_init(&sync_map_ctx, view, type);
+	if (reset) {
+		/* Reset the entire index. Leave only indexid and
+		   log_file_seq. */
+		mail_transaction_log_view_get_prev_pos(view->log_view,
+						       &prev_seq, &prev_offset);
+		map = mail_index_map_alloc(index);
+		map->hdr.log_file_seq = prev_seq;
+		mail_index_sync_replace_map(&sync_map_ctx, map);
+	}
 	map = NULL;
 
 	/* FIXME: when transaction sync lock is removed, we'll need to handle

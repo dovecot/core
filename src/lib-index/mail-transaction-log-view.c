@@ -88,10 +88,10 @@ void mail_transaction_log_views_close(struct mail_transaction_log *log)
 		view->log = NULL;
 }
 
-int
-mail_transaction_log_view_set(struct mail_transaction_log_view *view,
-			      uint32_t min_file_seq, uoff_t min_file_offset,
-			      uint32_t max_file_seq, uoff_t max_file_offset)
+int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
+				  uint32_t min_file_seq, uoff_t min_file_offset,
+				  uint32_t max_file_seq, uoff_t max_file_offset,
+				  bool *reset_r)
 {
 	struct mail_transaction_log_file *file, *const *files;
 	uoff_t start_offset, end_offset;
@@ -101,6 +101,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	i_assert(view->log != NULL);
 	i_assert(min_file_seq <= max_file_seq);
+
+	*reset_r = FALSE;
 
 	if (view->log == NULL) {
 		/* transaction log is closed already. this log view shouldn't
@@ -138,21 +140,6 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		}
 	}
 
-	/* find the oldest log file first. */
-	ret = mail_transaction_log_find_file(view->log, min_file_seq, &file);
-	if (ret <= 0)
-		return ret;
-
-	if (min_file_offset == 0) {
-		/* beginning of the file */
-		min_file_offset = file->hdr.hdr_size;
-		if (max_file_offset == 0 && min_file_seq == max_file_seq) {
-			/* we don't actually want to show anything */
-			max_file_offset = min_file_offset;
-		}
-	}
-	i_assert(min_file_offset >= file->hdr.hdr_size);
-
 	if (min_file_seq == max_file_seq && min_file_offset > max_file_offset) {
 		/* log file offset is probably corrupted in the index file. */
 		mail_transaction_log_view_set_corrupted(view,
@@ -162,11 +149,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return -1;
 	}
 
-	view->tail = file;
-	view->head = file;
-
-	for (seq = min_file_seq+1; seq <= max_file_seq; seq++) {
-		file = file->next;
+	view->tail = view->head = file = NULL;
+	for (seq = min_file_seq; seq <= max_file_seq; seq++) {
 		if (file == NULL || file->hdr.file_seq != seq) {
 			/* see if we could find the missing file */
 			ret = mail_transaction_log_find_file(view->log,
@@ -181,18 +165,50 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		}
 
 		if (file == NULL || file->hdr.file_seq != seq) {
-			if (file == NULL && max_file_seq == (uint32_t)-1) {
+			if (file == NULL && max_file_seq == (uint32_t)-1 &&
+			    view->head == view->log->head) {
 				/* we just wanted to sync everything */
 				i_assert(max_file_offset == (uoff_t)-1);
 				max_file_seq = seq-1;
 				break;
 			}
+			/* if any of the found files reset the index,
+			   ignore any missing files up to it */
+			file = view->tail != NULL ? view->tail :
+				view->log->files;
+			for (;; file = file->next) {
+				if (file == NULL ||
+				    file->hdr.file_seq > max_file_seq) {
+					/* missing files in the middle */
+					return 0;
+				}
 
-			/* missing files in the middle */
-			return 0;
-		}
+				if (file->hdr.file_seq >= seq &&
+				    file->hdr.prev_file_seq == 0) {
+					/* we can ignore the missing file */
+					break;
+				}
+			}
+			seq = file->hdr.file_seq;
+			view->tail = NULL;
+		} 
+
+		if (view->tail == NULL)
+			view->tail = file;
 		view->head = file;
+		file = file->next;
 	}
+
+	if (min_file_offset == 0) {
+		/* beginning of the file */
+		min_file_offset = view->tail->hdr.hdr_size;
+		if (min_file_offset > max_file_offset &&
+		    min_file_seq == max_file_seq) {
+			/* we don't actually want to show anything */
+			max_file_offset = min_file_offset;
+		}
+	}
+	i_assert(min_file_offset >= view->tail->hdr.hdr_size);
 
 	/* we have all of them. update refcounts. */
 	mail_transaction_log_view_unref_all(view);
@@ -205,6 +221,10 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		if (file == view->head)
 			break;
 	}
+
+	view->cur = view->tail;
+	view->cur_offset = view->cur->hdr.file_seq == min_file_seq ?
+		min_file_offset : view->cur->hdr.hdr_size;
 
 	/* Map the files only after we've found them all. Otherwise if we map
 	   one file and then another file just happens to get rotated, we could
@@ -225,6 +245,19 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 						    end_offset);
 		if (ret <= 0)
 			return ret;
+
+		if (file->hdr.prev_file_seq == 0) {
+			/* this file resets the index.
+			   don't bother reading the others. */
+			if (view->cur != file ||
+			    view->cur_offset == file->hdr.hdr_size) {
+				view->cur = file;
+				view->cur_offset = file->hdr.hdr_size;
+				*reset_r = TRUE;
+				break;
+			}
+			i_assert(i == 1);
+		}
 	}
 
 	i_assert(max_file_seq == (uint32_t)-1 ||
@@ -232,11 +265,8 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	i_assert(max_file_offset == (uoff_t)-1 ||
 		 max_file_offset <= view->head->sync_offset);
 
-	view->prev_file_seq = 0;
-	view->prev_file_offset = 0;
-
-	view->cur = view->tail;
-	view->cur_offset = min_file_offset;
+	view->prev_file_seq = view->cur->hdr.file_seq;
+	view->prev_file_offset = view->cur_offset;
 
 	view->min_file_seq = min_file_seq;
 	view->min_file_offset = min_file_offset;
@@ -245,8 +275,21 @@ mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	view->broken = FALSE;
 
 	i_assert(view->cur_offset <= view->cur->sync_offset);
-	i_assert(view->cur->hdr.file_seq == min_file_seq);
 	return 1;
+}
+
+void mail_transaction_log_view_clear(struct mail_transaction_log_view *view)
+{
+	mail_transaction_log_view_unref_all(view);
+
+	view->cur = view->head = view->tail = NULL;
+
+	view->min_file_seq = view->max_file_seq = 0;
+	view->min_file_offset = view->max_file_offset = 0;
+	view->cur_offset = 0;
+
+	view->prev_file_seq = 0;
+	view->prev_file_offset = 0;
 }
 
 void

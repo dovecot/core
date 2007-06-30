@@ -101,7 +101,7 @@ int mail_transaction_log_create(struct mail_transaction_log *log)
 		mail_transaction_log_file_free(&log->open_file);
 	}
 
-	if (mail_transaction_log_file_create(file) < 0)
+	if (mail_transaction_log_file_create(file, FALSE) < 0)
 		mail_transaction_log_file_free(&file);
 
 	mail_transaction_log_set_head(log, file);
@@ -183,7 +183,7 @@ bool mail_transaction_log_want_rotate(struct mail_transaction_log *log)
 	return LOG_WANT_ROTATE(log->head);
 }
 
-int mail_transaction_log_rotate(struct mail_transaction_log *log)
+int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 {
 	struct mail_transaction_log_file *file;
 	const char *path = log->head->filepath;
@@ -191,9 +191,13 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log)
 
 	i_assert(log->head->locked);
 
-	if (MAIL_INDEX_IS_IN_MEMORY(log->index))
+	if (MAIL_INDEX_IS_IN_MEMORY(log->index)) {
 		file = mail_transaction_log_file_alloc_in_memory(log);
-	else {
+		if (reset) {
+			file->hdr.prev_file_seq = 0;
+			file->hdr.prev_file_offset = 0;
+		}
+	} else {
                 /* we're locked, we shouldn't need to worry about ESTALE
                    problems in here. */
 		if (fstat(log->head->fd, &st) < 0) {
@@ -209,7 +213,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log)
 		file->last_mtime = st.st_mtime;
 		file->last_size = st.st_size;
 
-		if (mail_transaction_log_file_create(file) < 0) {
+		if (mail_transaction_log_file_create(file, reset) < 0) {
 			mail_transaction_log_file_free(&file);
 			return -1;
 		}

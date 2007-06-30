@@ -25,6 +25,8 @@ struct mail_index_transaction {
 	struct mail_index_transaction_vfuncs v;
 	struct mail_index_view *view;
 
+	/* NOTE: If you add anything new, remember to update
+	   mail_index_transaction_reset() to reset it. */
         ARRAY_DEFINE(appends, struct mail_index_record);
 	uint32_t first_new_seq, last_new_seq;
 
@@ -55,10 +57,12 @@ struct mail_index_transaction {
 	unsigned int sync_transaction:1;
 	unsigned int hide_transaction:1;
 	unsigned int no_appends:1;
-	unsigned int appends_nonsorted:1;
 	unsigned int external:1;
+
+	unsigned int appends_nonsorted:1;
 	unsigned int pre_hdr_changed:1;
 	unsigned int post_hdr_changed:1;
+	unsigned int reset:1;
 	unsigned int log_updates:1;
 };
 

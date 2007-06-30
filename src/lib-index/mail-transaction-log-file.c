@@ -429,7 +429,8 @@ mail_transaction_log_file_is_dupe(struct mail_transaction_log_file *file)
 
 static int
 mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
-				  int new_fd, struct dotlock **dotlock)
+				  int new_fd, bool reset,
+				  struct dotlock **dotlock)
 {
 	struct mail_index *index = file->log->index;
 	struct stat st;
@@ -443,7 +444,9 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	   if we go and open()+close() the file and we had it already opened,
 	   its locks are lost. so we use stat() to check if the file has been
 	   recreated, although it almost never is. */
-	if (nfs_safe_stat(file->filepath, &st) < 0) {
+	if (reset)
+		rename_existing = FALSE;
+	else if (nfs_safe_stat(file->filepath, &st) < 0) {
 		if (errno != ENOENT) {
 			mail_index_file_set_syscall_error(index, file->filepath,
 							  "stat()");
@@ -486,6 +489,11 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 
 	if (mail_transaction_log_init_hdr(file->log, &file->hdr) < 0)
 		return -1;
+
+	if (reset) {
+		file->hdr.prev_file_seq = 0;
+		file->hdr.prev_file_offset = 0;
+	}
 
 	if (write_full(new_fd, &file->hdr, sizeof(file->hdr)) < 0) {
 		mail_index_file_set_syscall_error(index, file->filepath,
@@ -533,7 +541,8 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	return 0;
 }
 
-int mail_transaction_log_file_create(struct mail_transaction_log_file *file)
+int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
+				     bool reset)
 {
 	struct mail_index *index = file->log->index;
 	struct dotlock *dotlock;
@@ -565,7 +574,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file)
 
         /* either fd gets used or the dotlock gets deleted and returned fd
            is for the existing file */
-        if (mail_transaction_log_file_create2(file, fd, &dotlock) < 0) {
+        if (mail_transaction_log_file_create2(file, fd, reset, &dotlock) < 0) {
 		if (dotlock != NULL)
 			(void)file_dotlock_delete(&dotlock);
 		return -1;

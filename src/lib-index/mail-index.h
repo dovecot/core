@@ -323,6 +323,9 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 				   uint32_t seq1, uint32_t seq2,
 				   enum modify_type modify_type,
 				   enum mail_flags flags);
+/* Reset the index before committing this transaction. This is usually done
+   only when UIDVALIDITY changes. */
+void mail_index_reset(struct mail_index_transaction *t);
 
 /* Lookup a keyword, returns TRUE if found, FALSE if not. If autocreate is
    TRUE, the keyword is automatically created and TRUE is always returned. */
