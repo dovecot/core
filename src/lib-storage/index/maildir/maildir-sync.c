@@ -1067,6 +1067,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	struct maildir_uidlist_iter_ctx *iter;
 	struct mail_index_transaction *trans = sync_ctx->trans;
 	const struct mail_index_header *hdr;
+	struct mail_index_header empty_hdr;
 	const struct mail_index_record *rec;
 	uint32_t seq, uid, prev_uid;
         enum maildir_uidlist_rec_flag uflags;
@@ -1087,12 +1088,13 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	    uid_validity != 0 && hdr->uid_validity != 0) {
 		/* uidvalidity changed and mailbox isn't being initialized,
 		   reset mailbox so we can add all messages as new */
-		mail_storage_set_critical(&mbox->storage->storage,
-			"Maildir %s sync: UIDVALIDITY changed (%u -> %u)",
-			mbox->path, hdr->uid_validity, uid_validity);
+		i_warning("Maildir %s: UIDVALIDITY changed (%u -> %u)",
+			  mbox->path, hdr->uid_validity, uid_validity);
+		mail_index_reset(trans);
 
-		mail_index_mark_corrupted(mbox->ibox.index);
-		return -1;
+		memset(&empty_hdr, 0, sizeof(empty_hdr));
+		empty_hdr.next_uid = 1;
+		hdr = &empty_hdr;
 	}
 
 	seq = prev_uid = 0;
@@ -1293,6 +1295,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		   have to do it here before syncing index records, since after
 		   that the uidlist's next_uid value may have changed. */
 		next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
+		i_assert(next_uid > prev_uid);
 		if (hdr->next_uid < next_uid) {
 			mail_index_update_header(trans,
 				offsetof(struct mail_index_header, next_uid),
@@ -1300,7 +1303,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		}
 	}
 
-	if (!mbox->syncing_commit) {
+	if (!mbox->syncing_commit && hdr != &empty_hdr) {
 		/* now, sync the index. NOTE: may recurse back to here with
 		   partial syncs */
 		mbox->syncing_commit = TRUE;

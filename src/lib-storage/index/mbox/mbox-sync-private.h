@@ -112,6 +112,8 @@ struct mbox_sync_context {
 	struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
 	struct mail_index_transaction *t;
+
+	struct mail_index_header reset_hdr;
 	const struct mail_index_header *hdr;
 
 	string_t *header, *from_line;
@@ -142,6 +144,7 @@ struct mbox_sync_context {
 	unsigned int renumber_uids:1;
 	unsigned int moved_offsets:1;
 	unsigned int ext_modified:1;
+	unsigned int index_reset:1;
 };
 
 int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags);
