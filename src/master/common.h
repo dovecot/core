@@ -19,9 +19,4 @@ extern bool gdb;
 #define IS_INETD() \
 	(inetd_login_fd != -1)
 
-/* misc */
-#define VALIDATE_STR(str) \
-	validate_str(str, sizeof(str))
-bool validate_str(const char *str, size_t max_len);
-
 #endif

@@ -40,18 +40,6 @@ bool gdb;
 static void listen_fds_open(bool retry);
 static void listen_fds_close(struct server_settings *server);
 
-bool validate_str(const char *str, size_t max_len)
-{
-	size_t i;
-
-	for (i = 0; i < max_len; i++) {
-		if (str[i] == '\0')
-			return TRUE;
-	}
-
-	return FALSE;
-}
-
 static void set_logfile(struct settings *set)
 {
 	int facility;
