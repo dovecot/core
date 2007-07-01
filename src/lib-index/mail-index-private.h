@@ -117,6 +117,7 @@ struct mail_index_map {
 
 	void *mmap_base;
 	size_t mmap_size, mmap_used_size;
+	unsigned int lock_id;
 
 	buffer_t *buffer;
 	buffer_t *hdr_copy_buf;
@@ -175,7 +176,7 @@ struct mail_index {
 	uoff_t fsck_log_head_file_offset;
 
 	int lock_type, shared_lock_count, excl_lock_count;
-	unsigned int lock_id;
+	unsigned int lock_id_counter;
 	enum file_lock_method lock_method;
 
 	struct file_lock *file_lock;
@@ -235,7 +236,7 @@ int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r);
 /* Returns 1 = ok, 0 = already locked, -1 = error. */
 int mail_index_try_lock_exclusive(struct mail_index *index,
 				  unsigned int *lock_id_r);
-void mail_index_unlock(struct mail_index *index, unsigned int lock_id);
+void mail_index_unlock(struct mail_index *index, unsigned int *lock_id);
 /* Returns TRUE if given lock_id is valid. */
 bool mail_index_is_locked(struct mail_index *index, unsigned int lock_id);
 
@@ -249,22 +250,23 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index);
    file and/or it may read the latest changes from transaction log. The log is
    read up to EOF, but non-synced expunges are skipped.
 
-   If mapping required reading the index file, it's shared locked and lock_id
-   is returned. Otherwise returned lock_id is 0.
+   If we mmap()ed the index file, the map is returned locked.
 
    Returns 1 = ok, 0 = corrupted, -1 = error. If non-fatal problems were found,
    1 is returned but index->fsck=TRUE is set. */
 int mail_index_map(struct mail_index *index,
-		   enum mail_index_sync_handler_type type,
-		   unsigned int *lock_id_r);
-/* Return the latest index file's header. This should be used only when you
-   don't want to see later changes from transaction log.
-   Returns 1 = ok, 0 = corrupted, -1 = error. */
-int mail_index_get_last_written_header(struct mail_index *index,
-				       struct mail_index_header *hdr_r);
+		   enum mail_index_sync_handler_type type);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
 void mail_index_unmap(struct mail_index_map **map);
+
+/* Lock the map if the data is mmaped and map is unlocked. */
+int mail_index_map_lock(struct mail_index_map *map);
+/* Unlock the map if it's locked. */
+void mail_index_map_unlock(struct mail_index_map *map);
+
+/* Clone a map. The returned map is always in memory. */
 struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map);
+/* Move a mmaped map to memory. */
 void mail_index_map_move_to_memory(struct mail_index_map *map);
 
 uint32_t mail_index_map_lookup_ext(struct mail_index_map *map,

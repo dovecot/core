@@ -653,11 +653,11 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 }
 
 static int mail_index_map_latest_file(struct mail_index *index,
-				      struct mail_index_map **map,
-				      unsigned int *lock_id_r)
+				      struct mail_index_map **map)
 {
 	struct mail_index_map *new_map;
 	struct stat st;
+	unsigned int lock_id;
 	uoff_t file_size;
 	bool use_mmap;
 	int ret;
@@ -673,7 +673,7 @@ static int mail_index_map_latest_file(struct mail_index *index,
 	}
 
 	/* the index file is still open, lock it */
-	if (mail_index_lock_shared(index, lock_id_r) < 0)
+	if (mail_index_lock_shared(index, &lock_id) < 0)
 		return -1;
 
 	if (fstat(index->fd, &st) == 0)
@@ -681,6 +681,7 @@ static int mail_index_map_latest_file(struct mail_index *index,
 	else {
 		if (errno != ESTALE) {
 			mail_index_set_syscall_error(index, "fstat()");
+			mail_index_unlock(index, &lock_id);
 			return -1;
 		}
 		file_size = (uoff_t)-1;
@@ -692,8 +693,13 @@ static int mail_index_map_latest_file(struct mail_index *index,
 		file_size > MAIL_INDEX_MMAP_MIN_SIZE;
 
 	new_map = mail_index_map_alloc(index);
-	ret = use_mmap ? mail_index_mmap(new_map, file_size) :
-		mail_index_read_map(new_map, file_size);
+	if (use_mmap) {
+		new_map->lock_id = lock_id;
+		ret = mail_index_mmap(new_map, file_size);
+	} else {
+		ret = mail_index_read_map(new_map, file_size);
+		mail_index_unlock(index, &lock_id);
+	}
 	if (ret > 0) {
 		/* make sure the header is ok before using this mapping */
 		ret = mail_index_check_header(new_map);
@@ -720,16 +726,13 @@ static int mail_index_map_latest_file(struct mail_index *index,
 }
 
 int mail_index_map(struct mail_index *index,
-		   enum mail_index_sync_handler_type type,
-		   unsigned int *lock_id_r)
+		   enum mail_index_sync_handler_type type)
 {
-	unsigned int lock_id = 0;
 	int ret;
 
 	i_assert(index->lock_type != F_WRLCK);
 	i_assert(!index->mapping);
 
-	*lock_id_r = 0;
 	index->mapping = TRUE;
 
 	if (index->map == NULL)
@@ -749,7 +752,7 @@ int mail_index_map(struct mail_index *index,
 		   any reason, we'll fallback to updating the existing mapping
 		   from transaction logs (which we'll also do even if the
 		   reopening succeeds) */
-		(void)mail_index_map_latest_file(index, &index->map, &lock_id);
+		(void)mail_index_map_latest_file(index, &index->map);
 
 		/* if we're creating the index file, we don't have any
 		   logs yet */
@@ -758,12 +761,6 @@ int mail_index_map(struct mail_index *index,
 			   transaction log */
 			ret = mail_index_sync_map(&index->map, type, TRUE);
 		}
-
-		/* we need the lock only if we didn't move the map to memory */
-		if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map))
-			*lock_id_r = lock_id;
-		else
-			mail_index_unlock(index, lock_id);
 	}
 
 	index->mapping = FALSE;
@@ -780,12 +777,27 @@ void mail_index_unmap(struct mail_index_map **_map)
 
 	i_assert(map->refcount == 0);
 	mail_index_map_clear(map);
+	mail_index_map_unlock(map);
+
 	if (map->extension_pool != NULL)
 		pool_unref(map->extension_pool);
 	if (array_is_created(&map->keyword_idx_map))
 		array_free(&map->keyword_idx_map);
 	buffer_free(map->hdr_copy_buf);
 	i_free(map);
+}
+
+int mail_index_map_lock(struct mail_index_map *map)
+{
+	if (map->lock_id != 0 || MAIL_INDEX_MAP_IS_IN_MEMORY(map))
+		return 0;
+
+	return mail_index_lock_shared(map->index, &map->lock_id);
+}
+
+void mail_index_map_unlock(struct mail_index_map *map)
+{
+	mail_index_unlock(map->index, &map->lock_id);
 }
 
 static void mail_index_map_copy(struct mail_index_map *dest,
@@ -882,7 +894,10 @@ void mail_index_map_move_to_memory(struct mail_index_map *map)
 	if (map->mmap_base == NULL)
 		return;
 
+	i_assert(map->lock_id != 0);
+
 	mail_index_map_copy(map, map);
+	mail_index_map_unlock(map);
 
 	if (munmap(map->mmap_base, map->mmap_size) < 0)
 		i_error("munmap(index map) failed: %m");

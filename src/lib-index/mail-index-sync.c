@@ -25,8 +25,6 @@ struct mail_index_sync_ctx {
 
 	uint32_t append_uid_first, append_uid_last;
 
-	unsigned int lock_id;
-
 	unsigned int sync_appends:1;
 };
 
@@ -339,7 +337,6 @@ int mail_index_sync_begin(struct mail_index *index,
 	struct mail_index_view *sync_view;
 	uint32_t seq;
 	uoff_t offset;
-	unsigned int lock_id = 0;
 	int ret;
 
 	if (mail_transaction_log_sync_lock(index->log, &seq, &offset) < 0)
@@ -352,15 +349,15 @@ int mail_index_sync_begin(struct mail_index *index,
 	   We'll update the view to contain everything that exist in the
 	   transaction log except for expunges. They're synced in
 	   mail_index_sync_commit(). */
-	if ((ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD,
-				  &lock_id)) <= 0) {
+	if ((ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD)) <= 0) {
 		if (ret == 0 || mail_index_fsck(index) <= 0) {
+			mail_index_map_unlock(index->map);
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
 		/* let's try again */
-		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD,
-				   &lock_id) <= 0) {
+		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0) {
+			mail_index_map_unlock(index->map);
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
@@ -369,7 +366,7 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	if (!mail_index_need_sync(index, hdr, flags,
 				  log_file_seq, log_file_offset)) {
-		mail_index_unlock(index, lock_id);
+		mail_index_map_unlock(index->map);
 		mail_transaction_log_sync_unlock(index->log);
 		return 0;
 	}
@@ -382,7 +379,7 @@ int mail_index_sync_begin(struct mail_index *index,
 			"broken sync positions in index file %s",
 			index->filepath);
 		if (mail_index_fsck(index) <= 0) {
-			mail_index_unlock(index, lock_id);
+			mail_index_map_unlock(index->map);
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
@@ -390,7 +387,6 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	ctx = i_new(struct mail_index_sync_ctx, 1);
 	ctx->index = index;
-	ctx->lock_id = lock_id;
 	ctx->last_tail_seq = hdr->log_file_seq;
 	ctx->last_tail_offset = hdr->log_file_tail_offset;
 
@@ -408,7 +404,7 @@ int mail_index_sync_begin(struct mail_index *index,
 		   to skip over it. fix the problem with fsck and try again. */
 		mail_index_sync_rollback(&ctx);
 		if (mail_index_fsck(index) <= 0) {
-			mail_index_unlock(index, lock_id);
+			mail_index_map_unlock(index->map);
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
@@ -578,7 +574,7 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 
 	*_ctx = NULL;
 
-	mail_index_unlock(ctx->index, ctx->lock_id);
+	mail_index_map_unlock(ctx->index->map);
 	mail_transaction_log_sync_unlock(ctx->index->log);
 
 	mail_index_view_close(&ctx->view);
@@ -609,7 +605,6 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
-	unsigned int lock_id;
 	uint32_t seq, diff;
 	uoff_t offset;
 	bool want_rotate;
@@ -631,8 +626,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	/* refresh the mapping with newly committed external transactions
 	   and the synced expunges. sync using file handler here so that the
 	   expunge handlers get called. */
-	if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE,
-			   &lock_id) <= 0)
+	if (mail_index_map(ctx->index, MAIL_INDEX_SYNC_HANDLER_FILE) <= 0)
 		ret = -1;
 
 	/* FIXME: create a better rule? */

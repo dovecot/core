@@ -218,6 +218,8 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 				rec = MAIL_INDEX_MAP_IDX(view->map, *seq - 1);
 			}
 
+			/* we're using only rec->uid, no need to bother locking
+			   the index. */
 			if (rec->uid == 0) {
 				/* FIXME: replace with simple assert once we
 				   figure out why this happens.. */
@@ -257,9 +259,6 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 {
 	ARRAY_TYPE(seq_array) *updates;
 	unsigned int i, count;
-
-	if (mail_index_view_lock(t->view) < 0)
-		return -1;
 
 	if (array_is_created(&t->ext_rec_updates)) {
 		updates = array_get_modifiable(&t->ext_rec_updates, &count);

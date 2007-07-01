@@ -227,7 +227,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
 
-	if (mail_index_view_lock_head(view) < 0)
+	if (mail_index_map_lock(view->index->map) < 0)
 		return -1;
 
 	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;

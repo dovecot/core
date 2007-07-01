@@ -706,6 +706,9 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
 
+	if (mail_index_map_lock(map) < 0)
+		return -1;
+
 	if (!force) {
 		/* see if we'd prefer to reopen the index file instead of
 		   syncing the current map from the transaction log */
@@ -734,7 +737,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	start_offset = type == MAIL_INDEX_SYNC_HANDLER_FILE ?
 		map->hdr.log_file_tail_offset : map->hdr.log_file_head_offset;
-	view = mail_index_view_open_with_map(map);
+	view = mail_index_view_open_with_map(index, map);
 	ret = mail_transaction_log_view_set(view->log_view,
 					    map->hdr.log_file_seq, start_offset,
 					    (uint32_t)-1, (uoff_t)-1, &reset);

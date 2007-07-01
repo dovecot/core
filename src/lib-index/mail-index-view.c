@@ -42,7 +42,9 @@ static void _view_close(struct mail_index_view *view)
 {
 	i_assert(view->refcount == 0);
 
-	mail_index_view_unlock(view);
+	/* we're not unlocking the view, because views could be temporarily
+	   created and closed and the current map should stay locked
+	   (especially syncing) */
 	mail_transaction_log_view_close(&view->log_view);
 
 	if (array_is_created(&view->syncs_hidden))
@@ -69,51 +71,14 @@ static void mail_index_view_check_nextuid(struct mail_index_view *view)
 }
 #endif
 
-int mail_index_view_lock_head(struct mail_index_view *view)
-{
-#ifdef DEBUG
-	mail_index_view_check_nextuid(view);
-#endif
-	if (mail_index_view_is_inconsistent(view))
-		return -1;
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(view->index->map))
-		return 0;
-
-	if (!mail_index_is_locked(view->index, view->lock_id)) {
-		if (mail_index_lock_shared(view->index, &view->lock_id) < 0) {
-			view->inconsistent = TRUE;
-			return -1;
-		}
-	}
-	return 0;
-}
-
-int mail_index_view_lock(struct mail_index_view *view)
-{
-	if (view->map != view->index->map) {
-		/* not head mapping, no need to lock */
-		if (mail_index_view_is_inconsistent(view))
-			return -1;
-
-#ifdef DEBUG
-		mail_index_view_check_nextuid(view);
-#endif
-		return 0;
-	}
-
-	return mail_index_view_lock_head(view);
-}
-
 void mail_index_view_unlock(struct mail_index_view *view)
 {
 #ifdef DEBUG
 	mail_index_view_check_nextuid(view);
 #endif
 
-	if (view->lock_id != 0 && view->transactions == 0) {
-		mail_index_unlock(view->index, view->lock_id);
-		view->lock_id = 0;
-	}
+	mail_index_map_unlock(view->map);
+	mail_index_map_unlock(view->index->map);
 }
 
 bool mail_index_view_is_inconsistent(struct mail_index_view *view)
@@ -199,7 +164,7 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(view));
 
-	if (mail_index_view_lock(view) < 0)
+	if (mail_index_map_lock(view->map) < 0)
 		return -1;
 
 	/* look up the record */
@@ -218,7 +183,7 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	}
 
 	/* look up the record from head mapping. it may contain some changes. */
-	if (mail_index_view_lock_head(view) < 0)
+	if (mail_index_map_lock(view->index->map) < 0)
 		return -1;
 
 	/* start looking up from the same sequence as in the old view.
@@ -265,9 +230,8 @@ static int _view_lookup_uid(struct mail_index_view *view, uint32_t seq,
 {
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(view));
 
-	if (mail_index_view_lock(view) < 0)
-		return -1;
-
+	/* UID lookups don't require the view to be locked. only expunges
+	   change them, and expunges will recreate the file */
 	*uid_r = MAIL_INDEX_MAP_IDX(view->map, seq-1)->uid;
 	return 0;
 }
@@ -326,9 +290,7 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 	i_assert(first_uid > 0);
 	i_assert(first_uid <= last_uid);
 
-	if (mail_index_view_lock(view) < 0)
-		return -1;
-
+	/* no locking needed for UIDs, see _view_lookup_uid() */
 	if (view->hdr.messages_count == 0) {
 		*first_seq_r = *last_seq_r = 0;
 		return 0;
@@ -375,9 +337,6 @@ static int _view_lookup_first(struct mail_index_view *view,
 
 	*seq_r = 0;
 
-	if (mail_index_view_lock(view) < 0)
-		return -1;
-
 	if ((flags_mask & MAIL_RECENT) != 0 && (flags & MAIL_RECENT) != 0)
 		LOW_UPDATE(view->map->hdr.first_recent_uid_lowwater);
 	if ((flags_mask & MAIL_SEEN) != 0 && (flags & MAIL_SEEN) == 0)
@@ -397,6 +356,10 @@ static int _view_lookup_first(struct mail_index_view *view,
 	}
 
 	i_assert(view->hdr.messages_count <= view->map->records_count);
+
+	/* we can delay locking until we're looking at the flags */
+	if (mail_index_map_lock(view->map) < 0)
+		return -1;
 
 	for (; seq <= view->hdr.messages_count; seq++) {
 		rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
@@ -440,14 +403,13 @@ static int _view_get_header_ext(struct mail_index_view *view,
 	const struct mail_index_ext *ext;
 	uint32_t idx;
 
-	/* if we have a mapping, the view where it's from is already locked */
 	if (map == NULL) {
 		/* no mapping given, use head mapping */
-		if (mail_index_view_lock_head(view) < 0)
-			return -1;
-
 		map = view->index->map;
 	}
+
+	if (mail_index_map_lock(map) < 0)
+		return -1;
 
 	if (!mail_index_map_get_ext_idx(map, ext_id, &idx)) {
 		/* extension doesn't exist in this index file */
@@ -472,7 +434,6 @@ void mail_index_view_close(struct mail_index_view **_view)
 
 	i_assert(view->transactions == 0);
 
-	mail_index_view_unlock(view);
 	view->v.close(view);
 }
 
@@ -670,17 +631,18 @@ static struct mail_index_view_vfuncs view_vfuncs = {
 };
 
 struct mail_index_view *
-mail_index_view_open_with_map(struct mail_index_map *map)
+mail_index_view_open_with_map(struct mail_index *index,
+			      struct mail_index_map *map)
 {
 	struct mail_index_view *view;
 
 	view = i_new(struct mail_index_view, 1);
 	view->refcount = 1;
 	view->v = view_vfuncs;
-	view->index = map->index;
-	view->log_view = mail_transaction_log_view_open(map->index->log);
+	view->index = index;
+	view->log_view = mail_transaction_log_view_open(index->log);
 
-	view->indexid = map->index->indexid;
+	view->indexid = index->indexid;
 	view->map = map;
 	view->map->refcount++;
 
@@ -698,7 +660,7 @@ mail_index_view_open_with_map(struct mail_index_map *map)
 
 struct mail_index_view *mail_index_view_open(struct mail_index *index)
 {
-	return mail_index_view_open_with_map(index->map);
+	return mail_index_view_open_with_map(index, index->map);
 }
 
 const struct mail_index_ext *

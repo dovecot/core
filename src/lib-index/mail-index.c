@@ -351,7 +351,6 @@ int mail_index_try_open_only(struct mail_index *index)
 static int
 mail_index_try_open(struct mail_index *index)
 {
-	unsigned int lock_id;
 	int ret;
 
         i_assert(index->fd == -1);
@@ -359,9 +358,9 @@ mail_index_try_open(struct mail_index *index)
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return 0;
 
-	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD, &lock_id);
-	mail_index_unlock(index, lock_id);
-
+	i_assert(index->map == NULL || index->map->lock_id == 0);
+	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD);
+	mail_index_map_unlock(index->map);
 	if (ret == 0) {
 		/* it's corrupted - recreate it */
 		if (index->fd != -1) {
@@ -465,7 +464,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		index->shared_lock_count = 0;
 		index->excl_lock_count = 0;
 		index->lock_type = F_UNLCK;
-		index->lock_id = 2;
+		index->lock_id_counter = 2;
 
 		index->readonly = FALSE;
 		index->nodiskspace = FALSE;
@@ -524,7 +523,7 @@ static void mail_index_close_file(struct mail_index *index)
 
 	if (index->lock_type == F_RDLCK)
 		index->lock_type = F_UNLCK;
-	index->lock_id += 2;
+	index->lock_id_counter += 2;
 	index->shared_lock_count = 0;
 }
 
@@ -583,7 +582,7 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 
 int mail_index_refresh(struct mail_index *index)
 {
-	unsigned int lock_id;
+	bool locked = index->map->lock_id != 0;
 	int ret;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
@@ -595,8 +594,9 @@ int mail_index_refresh(struct mail_index *index)
 		return 0;
 	}
 
-	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD, &lock_id);
-	mail_index_unlock(index, lock_id);
+	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD);
+	if (!locked)
+		mail_index_map_unlock(index->map);
 	return ret <= 0 ? -1 : 0;
 }
 

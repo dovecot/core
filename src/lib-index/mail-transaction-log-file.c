@@ -141,7 +141,7 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 			      struct mail_transaction_log_header *hdr)
 {
 	struct mail_index *index = log->index;
-	unsigned int lock_id = 0;
+	bool locked = index->map->lock_id != 0;
 
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->major_version = MAIL_TRANSACTION_LOG_MAJOR_VERSION;
@@ -153,9 +153,11 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	if (index->fd != -1) {
 		/* not creating index - make sure we have latest header */
 		if (!index->mapping) {
-			if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD,
-					   &lock_id) <= 0)
+			if (mail_index_map(index,
+					   MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0)
 				return -1;
+			if (!locked)
+				mail_index_map_unlock(index->map);
 		} else {
 			/* if we got here from mapping, the .log file is
 			   corrupted. use whatever values we got from index
@@ -169,9 +171,6 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	} else {
 		hdr->file_seq = 1;
 	}
-
-	if (index->fd != -1)
-		mail_index_unlock(index, lock_id);
 
 	if (log->head != NULL && hdr->file_seq <= log->head->hdr.file_seq) {
 		/* make sure the sequence grows */

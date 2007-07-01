@@ -42,11 +42,11 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 
 	if (lock_type == F_RDLCK && index->lock_type != F_UNLCK) {
 		index->shared_lock_count++;
-		*lock_id_r = index->lock_id;
+		*lock_id_r = index->lock_id_counter;
 		ret = 1;
 	} else if (lock_type == F_WRLCK && index->lock_type == F_WRLCK) {
 		index->excl_lock_count++;
-		*lock_id_r = index->lock_id + 1;
+		*lock_id_r = index->lock_id_counter + 1;
 		ret = 1;
 	} else {
 		ret = 0;
@@ -67,7 +67,7 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 
 		index->shared_lock_count++;
 		index->lock_type = F_RDLCK;
-		*lock_id_r = index->lock_id;
+		*lock_id_r = index->lock_id_counter;
 		return 1;
 	}
 
@@ -103,15 +103,15 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 		return ret;
 
 	if (index->lock_type == F_UNLCK)
-		index->lock_id += 2;
+		index->lock_id_counter += 2;
 	index->lock_type = lock_type;
 
 	if (lock_type == F_RDLCK) {
 		index->shared_lock_count++;
-		*lock_id_r = index->lock_id;
+		*lock_id_r = index->lock_id_counter;
 	} else {
 		index->excl_lock_count++;
-		*lock_id_r = index->lock_id + 1;
+		*lock_id_r = index->lock_id_counter + 1;
 	}
 
 	return 1;
@@ -140,8 +140,12 @@ int mail_index_try_lock_exclusive(struct mail_index *index,
 	return mail_index_lock(index, F_WRLCK, 0, lock_id_r);
 }
 
-void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
+void mail_index_unlock(struct mail_index *index, unsigned int *_lock_id)
 {
+	unsigned int lock_id = *_lock_id;
+
+	*_lock_id = 0;
+
 	if ((lock_id & 1) == 0) {
 		/* shared lock */
 		if (!mail_index_is_locked(index, lock_id)) {
@@ -154,7 +158,7 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 		index->shared_lock_count--;
 	} else {
 		/* exclusive lock */
-		i_assert(lock_id == index->lock_id + 1);
+		i_assert(lock_id == index->lock_id_counter + 1);
 		i_assert(index->excl_lock_count > 0);
 		i_assert(index->lock_type == F_WRLCK);
 		if (--index->excl_lock_count == 0 &&
@@ -166,7 +170,7 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 	}
 
 	if (index->shared_lock_count == 0 && index->excl_lock_count == 0) {
-		index->lock_id += 2;
+		index->lock_id_counter += 2;
 		index->lock_type = F_UNLCK;
 		if (index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 			if (!MAIL_INDEX_IS_IN_MEMORY(index))
@@ -178,7 +182,7 @@ void mail_index_unlock(struct mail_index *index, unsigned int lock_id)
 
 bool mail_index_is_locked(struct mail_index *index, unsigned int lock_id)
 {
-	if ((index->lock_id ^ lock_id) <= 1 && lock_id != 0) {
+	if ((index->lock_id_counter ^ lock_id) <= 1 && lock_id != 0) {
 		i_assert(index->lock_type != F_UNLCK);
 		return TRUE;
 	}

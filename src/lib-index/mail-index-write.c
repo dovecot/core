@@ -180,7 +180,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 		} else if (mail_index_has_last_changed(index)) {
 			/* changed, we can't trust updating it anymore */
 			map->write_atomic = TRUE;
-			mail_index_unlock(index, lock_id);
+			mail_index_unlock(index, &lock_id);
 		}
 	}
 
@@ -195,11 +195,11 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 		if (mail_index_write_map_over(index) < 0) {
 			mail_index_set_syscall_error(index, "pwrite_full()");
 			/* hopefully didn't break badly */
-			mail_index_unlock(index, lock_id);
+			mail_index_unlock(index, &lock_id);
 			mail_index_move_to_memory(index);
 			return;
 		}
-		mail_index_unlock(index, lock_id);
+		mail_index_unlock(index, &lock_id);
 	}
 
 	index->last_read_log_file_seq = hdr->log_file_seq;
