@@ -209,9 +209,9 @@ bool mail_index_keyword_lookup(struct mail_index *index,
 	return TRUE;
 }
 
-int mail_index_map_parse_keywords(struct mail_index *index,
-                                  struct mail_index_map *map)
+int mail_index_map_parse_keywords(struct mail_index_map *map)
 {
+	struct mail_index *index = map->index;
 	const struct mail_index_ext *ext;
 	const struct mail_index_keyword_header *kw_hdr;
 	const struct mail_index_keyword_header_rec *kw_rec;
@@ -319,7 +319,7 @@ const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index)
 {
 	/* Make sure all the keywords are in index->keywords. It's quick to do
 	   if nothing has changed. */
-	(void)mail_index_map_parse_keywords(index, index->map);
+	(void)mail_index_map_parse_keywords(index->map);
 
 	return &index->keywords;
 }
@@ -531,7 +531,7 @@ static void mail_index_close_file(struct mail_index *index)
 void mail_index_close(struct mail_index *index)
 {
 	if (index->map != NULL)
-		mail_index_unmap(index, &index->map);
+		mail_index_unmap(&index->map);
 
 	mail_index_close_file(index);
 	mail_transaction_log_close(index->log);
@@ -647,7 +647,7 @@ int mail_index_move_to_memory(struct mail_index *index)
 	/* move index map to memory */
 	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(index->map)) {
 		map = mail_index_map_clone(index->map);
-		mail_index_unmap(index, &index->map);
+		mail_index_unmap(&index->map);
 		index->map = map;
 	}
 

@@ -84,7 +84,7 @@ static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 	(void)mail_index_map_msync(view->index, view->map);
 #endif
 
-	mail_index_unmap(view->index, &view->map);
+	mail_index_unmap(&view->map);
 	view->map = map;
 
 	if (ctx->type != MAIL_INDEX_SYNC_HANDLER_VIEW)
@@ -690,10 +690,11 @@ void mail_index_map_check(struct mail_index_map *map)
 }
 #endif
 
-int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
+int mail_index_sync_map(struct mail_index_map **_map,
 			enum mail_index_sync_handler_type type, bool force)
 {
 	struct mail_index_map *map = *_map;
+	struct mail_index *index = map->index;
 	struct mail_index_view *view;
 	struct mail_index_sync_map_ctx sync_map_ctx;
 	const struct mail_transaction_header *thdr;
@@ -733,7 +734,7 @@ int mail_index_sync_map(struct mail_index *index, struct mail_index_map **_map,
 
 	start_offset = type == MAIL_INDEX_SYNC_HANDLER_FILE ?
 		map->hdr.log_file_tail_offset : map->hdr.log_file_head_offset;
-	view = mail_index_view_open_with_map(index, map);
+	view = mail_index_view_open_with_map(map);
 	ret = mail_transaction_log_view_set(view->log_view,
 					    map->hdr.log_file_seq, start_offset,
 					    (uint32_t)-1, (uoff_t)-1, &reset);

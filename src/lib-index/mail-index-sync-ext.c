@@ -400,9 +400,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	   sync_ext_reorder() will fix it. */
 	hdr_offset = hdr_buf->used + sizeof(ext_hdr) + strlen(name);
 	hdr_offset = MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_offset);
-	ext_id = mail_index_map_register_ext(ctx->view->index, map, name,
-					     hdr_offset, u->hdr_size, 0,
-					     u->record_size, u->record_align,
+	ext_id = mail_index_map_register_ext(map, name, hdr_offset, u->hdr_size,
+					     0, u->record_size, u->record_align,
 					     u->reset_id);
 
 	ext = array_idx(&map->extensions, ext_id);

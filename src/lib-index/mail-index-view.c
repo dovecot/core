@@ -47,7 +47,7 @@ static void _view_close(struct mail_index_view *view)
 
 	if (array_is_created(&view->syncs_hidden))
 		array_free(&view->syncs_hidden);
-	mail_index_unmap(view->index, &view->map);
+	mail_index_unmap(&view->map);
 	if (array_is_created(&view->map_refs)) {
 		mail_index_view_unref_maps(view);
 		array_free(&view->map_refs);
@@ -174,7 +174,7 @@ void mail_index_view_unref_maps(struct mail_index_view *view)
 
 	maps = array_get_modifiable(&view->map_refs, &count);
 	for (i = 0; i < count; i++)
-		mail_index_unmap(view->index, &maps[i]);
+		mail_index_unmap(&maps[i]);
 
 	array_clear(&view->map_refs);
 }
@@ -553,8 +553,7 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 			if (idx >= keyword_count) {
 				/* keyword header was updated, parse it again
 				   it so we know what this keyword is called */
-				if (mail_index_map_parse_keywords(view->index,
-                                                                  map) < 0)
+				if (mail_index_map_parse_keywords(map) < 0)
 					return -1;
 
 				if (!array_is_created(&map->keyword_idx_map))
@@ -671,18 +670,17 @@ static struct mail_index_view_vfuncs view_vfuncs = {
 };
 
 struct mail_index_view *
-mail_index_view_open_with_map(struct mail_index *index,
-			      struct mail_index_map *map)
+mail_index_view_open_with_map(struct mail_index_map *map)
 {
 	struct mail_index_view *view;
 
 	view = i_new(struct mail_index_view, 1);
 	view->refcount = 1;
 	view->v = view_vfuncs;
-	view->index = index;
-	view->log_view = mail_transaction_log_view_open(index->log);
+	view->index = map->index;
+	view->log_view = mail_transaction_log_view_open(map->index->log);
 
-	view->indexid = index->indexid;
+	view->indexid = map->index->indexid;
 	view->map = map;
 	view->map->refcount++;
 
@@ -700,7 +698,7 @@ mail_index_view_open_with_map(struct mail_index *index,
 
 struct mail_index_view *mail_index_view_open(struct mail_index *index)
 {
-	return mail_index_view_open_with_map(index, index->map);
+	return mail_index_view_open_with_map(index->map);
 }
 
 const struct mail_index_ext *

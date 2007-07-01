@@ -103,6 +103,7 @@ struct mail_index_registered_ext {
 };
 
 struct mail_index_map {
+	struct mail_index *index;
 	int refcount;
 
 	struct mail_index_header hdr;
@@ -262,15 +263,14 @@ int mail_index_map(struct mail_index *index,
 int mail_index_get_last_written_header(struct mail_index *index,
 				       struct mail_index_header *hdr_r);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
-void mail_index_unmap(struct mail_index *index, struct mail_index_map **map);
+void mail_index_unmap(struct mail_index_map **map);
 struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map);
 void mail_index_map_move_to_memory(struct mail_index_map *map);
 
 uint32_t mail_index_map_lookup_ext(struct mail_index_map *map,
 				   const char *name);
 uint32_t
-mail_index_map_register_ext(struct mail_index *index,
-			    struct mail_index_map *map, const char *name,
+mail_index_map_register_ext(struct mail_index_map *map, const char *name,
 			    uint32_t hdr_offset, uint32_t hdr_size,
 			    uint32_t record_offset, uint32_t record_size,
 			    uint32_t record_align, uint32_t reset_id);
@@ -279,8 +279,7 @@ int mail_index_map_get_ext_idx(struct mail_index_map *map,
 const struct mail_index_ext *
 mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id);
 
-int mail_index_map_parse_keywords(struct mail_index *index,
-                                  struct mail_index_map *map);
+int mail_index_map_parse_keywords(struct mail_index_map *map);
 
 void mail_index_view_transaction_ref(struct mail_index_view *view);
 void mail_index_view_transaction_unref(struct mail_index_view *view);

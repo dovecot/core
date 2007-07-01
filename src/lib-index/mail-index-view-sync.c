@@ -285,7 +285,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 
 		if (view->map->refcount > 1) {
 			map = mail_index_map_clone(view->map);
-			mail_index_unmap(view->index, &view->map);
+			mail_index_unmap(&view->map);
 			view->map = map;
 		} else {
 			map = view->map;
@@ -591,7 +591,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	}
 
 	if (view->sync_new_map != NULL) {
-		mail_index_unmap(view->index, &view->map);
+		mail_index_unmap(&view->map);
 		view->map = view->sync_new_map;
 		view->sync_new_map = NULL;
 	}

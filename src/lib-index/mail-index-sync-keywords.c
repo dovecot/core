@@ -16,7 +16,7 @@ keyword_lookup(struct mail_index_sync_map_ctx *ctx,
 	unsigned int i, count, keyword_idx;
 
 	if (!map->keywords_read) {
-		if (mail_index_map_parse_keywords(ctx->view->index, map) < 0)
+		if (mail_index_map_parse_keywords(map) < 0)
 			return -1;
 	}
 	if (array_is_created(&map->keyword_idx_map) &&
@@ -290,8 +290,7 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	if (!ctx->view->map->keywords_read) {
-		if (mail_index_map_parse_keywords(ctx->view->index,
-                                                  ctx->view->map) < 0)
+		if (mail_index_map_parse_keywords(ctx->view->map) < 0)
 			return -1;
 	}
 

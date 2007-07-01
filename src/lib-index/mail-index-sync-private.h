@@ -47,7 +47,7 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 			      struct mail_index_view *view,
 			      enum mail_index_sync_handler_type type);
 void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx);
-int mail_index_sync_map(struct mail_index *index, struct mail_index_map **map,
+int mail_index_sync_map(struct mail_index_map **map,
 			enum mail_index_sync_handler_type type, bool force);
 
 int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,

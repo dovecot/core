@@ -150,7 +150,7 @@ int mail_index_fsck(struct mail_index *index)
 	i_warning("fscking index file %s", index->filepath);
 
 	map = mail_index_map_clone(index->map);
-	mail_index_unmap(index, &index->map);
+	mail_index_unmap(&index->map);
 	index->map = map;
 
 	ret = mail_index_fsck_map(index, map, &lock, &error);

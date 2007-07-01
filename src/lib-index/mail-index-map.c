@@ -59,8 +59,7 @@ uint32_t mail_index_map_lookup_ext(struct mail_index_map *map, const char *name)
 }
 
 uint32_t
-mail_index_map_register_ext(struct mail_index *index,
-			    struct mail_index_map *map, const char *name,
+mail_index_map_register_ext(struct mail_index_map *map, const char *name,
 			    uint32_t hdr_offset, uint32_t hdr_size,
 			    uint32_t record_offset, uint32_t record_size,
 			    uint32_t record_align, uint32_t reset_id)
@@ -85,7 +84,7 @@ mail_index_map_register_ext(struct mail_index *index,
 	ext->record_align = record_align;
 	ext->reset_id = reset_id;
 
-	ext->index_idx = mail_index_ext_register(index, name, hdr_size,
+	ext->index_idx = mail_index_ext_register(map->index, name, hdr_size,
 						 record_size, record_align);
 
 	/* Update index ext_id -> map ext_id mapping. Fill non-used
@@ -110,9 +109,9 @@ static size_t get_align(size_t name_len)
 	return MAIL_INDEX_HEADER_SIZE_ALIGN(size) - size;
 }
 
-static int mail_index_parse_extensions(struct mail_index *index,
-                                       struct mail_index_map *map)
+static int mail_index_parse_extensions(struct mail_index_map *map)
 {
+	struct mail_index *index = map->index;
 	const struct mail_index_ext_header *ext_hdr;
 	unsigned int i, old_count;
 	const char *name;
@@ -200,7 +199,7 @@ static int mail_index_parse_extensions(struct mail_index *index,
 			return -1;
 		}
 
-		mail_index_map_register_ext(index, map, name,
+		mail_index_map_register_ext(map, name,
 					    offset, ext_hdr->hdr_size,
 					    ext_hdr->record_offset,
 					    ext_hdr->record_size,
@@ -270,9 +269,9 @@ static bool mail_index_check_header_compat(struct mail_index *index,
 	return TRUE;
 }
 
-static int mail_index_check_header(struct mail_index *index,
-				   struct mail_index_map *map)
+static int mail_index_check_header(struct mail_index_map *map)
 {
+	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr = &map->hdr;
 
 	if (!mail_index_check_header_compat(index, hdr, (uoff_t)-1))
@@ -322,8 +321,7 @@ static int mail_index_check_header(struct mail_index *index,
 	return 1;
 }
 
-static void mail_index_map_clear(struct mail_index *index,
-				 struct mail_index_map *map)
+static void mail_index_map_clear(struct mail_index_map *map)
 {
 	if (map->buffer != NULL) {
 		i_assert(map->mmap_base == NULL);
@@ -332,7 +330,7 @@ static void mail_index_map_clear(struct mail_index *index,
 	} else if (map->mmap_base != NULL) {
 		i_assert(map->buffer == NULL);
 		if (munmap(map->mmap_base, map->mmap_size) < 0)
-			mail_index_set_syscall_error(index, "munmap()");
+			mail_index_set_syscall_error(map->index, "munmap()");
 		map->mmap_base = NULL;
 	}
 
@@ -358,9 +356,9 @@ static void mail_index_map_copy_hdr(struct mail_index_map *map,
 	}
 }
 
-static int mail_index_mmap(struct mail_index *index, struct mail_index_map *map,
-			   uoff_t file_size)
+static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 {
+	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr;
 	unsigned int records_count;
 
@@ -452,9 +450,10 @@ static int mail_index_read_header(struct mail_index *index,
 }
 
 static int
-mail_index_try_read_map(struct mail_index *index, struct mail_index_map *map,
+mail_index_try_read_map(struct mail_index_map *map,
 			uoff_t file_size, bool *retry_r, bool try_retry)
 {
+	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr;
 	unsigned char read_buf[4096];
 	const void *buf;
@@ -563,10 +562,9 @@ mail_index_try_read_map(struct mail_index *index, struct mail_index_map *map,
 	return 1;
 }
 
-static int
-mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
-		    uoff_t file_size)
+static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 {
+	struct mail_index *index = map->index;
 	mail_index_sync_lost_handler_t *const *handlers;
 	struct stat st;
 	unsigned int i, count;
@@ -585,7 +583,7 @@ mail_index_read_map(struct mail_index *index, struct mail_index_map *map,
 			ret = 0;
 			retry = try_retry;
 		} else {
-			ret = mail_index_try_read_map(index, map, file_size,
+			ret = mail_index_try_read_map(map, file_size,
 						      &retry, try_retry);
 		}
 		if (ret != 0 || !retry)
@@ -646,6 +644,7 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 
 	memset(&tmp_map, 0, sizeof(tmp_map));
 	mail_index_header_init(index, &tmp_map.hdr);
+	tmp_map.index = index;
 	tmp_map.hdr_base = &tmp_map.hdr;
 
 	/* a bit kludgy way to do this, but it initializes everything
@@ -693,18 +692,18 @@ static int mail_index_map_latest_file(struct mail_index *index,
 		file_size > MAIL_INDEX_MMAP_MIN_SIZE;
 
 	new_map = mail_index_map_alloc(index);
-	ret = use_mmap ? mail_index_mmap(index, new_map, file_size) :
-		mail_index_read_map(index, new_map, file_size);
+	ret = use_mmap ? mail_index_mmap(new_map, file_size) :
+		mail_index_read_map(new_map, file_size);
 	if (ret > 0) {
 		/* make sure the header is ok before using this mapping */
-		ret = mail_index_check_header(index, new_map);
+		ret = mail_index_check_header(new_map);
 		if (ret >= 0)
-			ret = mail_index_parse_extensions(index, new_map);
+			ret = mail_index_parse_extensions(new_map);
 		if (ret++ == 0)
 			index->fsck = TRUE;
 	}
 	if (ret <= 0) {
-		mail_index_unmap(index, &new_map);
+		mail_index_unmap(&new_map);
 		return ret;
 	}
 
@@ -715,7 +714,7 @@ static int mail_index_map_latest_file(struct mail_index *index,
 		new_map->hdr.log_file_tail_offset;
 	index->last_read_stat = st;
 
-	mail_index_unmap(index, map);
+	mail_index_unmap(map);
 	*map = new_map;
 	return 1;
 }
@@ -740,7 +739,7 @@ int mail_index_map(struct mail_index *index,
 	if (index->map->hdr.indexid != 0) {
 		/* we're not creating the index, or opening transaction log.
 		   sync this as a view from transaction log. */
-		ret = mail_index_sync_map(index, &index->map, type, FALSE);
+		ret = mail_index_sync_map(&index->map, type, FALSE);
 	} else {
 		ret = 0;
 	}
@@ -757,8 +756,7 @@ int mail_index_map(struct mail_index *index,
 		if (index->log->head != NULL) {
 			/* and update the map with the latest changes from
 			   transaction log */
-			ret = mail_index_sync_map(index, &index->map,
-						  type, TRUE);
+			ret = mail_index_sync_map(&index->map, type, TRUE);
 		}
 
 		/* we need the lock only if we didn't move the map to memory */
@@ -772,7 +770,7 @@ int mail_index_map(struct mail_index *index,
 	return ret;
 }
 
-void mail_index_unmap(struct mail_index *index, struct mail_index_map **_map)
+void mail_index_unmap(struct mail_index_map **_map)
 {
 	struct mail_index_map *map = *_map;
 
@@ -781,7 +779,7 @@ void mail_index_unmap(struct mail_index *index, struct mail_index_map **_map)
 		return;
 
 	i_assert(map->refcount == 0);
-	mail_index_map_clear(index, map);
+	mail_index_map_clear(map);
 	if (map->extension_pool != NULL)
 		pool_unref(map->extension_pool);
 	if (array_is_created(&map->keyword_idx_map))
@@ -841,6 +839,7 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 	unsigned int i, count;
 
 	mem_map = i_new(struct mail_index_map, 1);
+	mem_map->index = map->index;
 	mem_map->refcount = 1;
 
 	mail_index_map_copy(mem_map, map);
