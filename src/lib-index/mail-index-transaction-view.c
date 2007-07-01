@@ -31,7 +31,7 @@ static uint32_t _tview_get_message_count(struct mail_index_view *view)
 	struct mail_index_view_transaction *tview =
                 (struct mail_index_view_transaction *)view;
 
-	return view->hdr.messages_count +
+	return view->map->hdr.messages_count +
 		(tview->t->last_new_seq == 0 ? 0 :
 		 tview->t->last_new_seq - tview->t->first_new_seq);
 }

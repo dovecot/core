@@ -52,8 +52,6 @@ struct mail_index_view {
 	   valid until view is synchronized. */
 	ARRAY_DEFINE(map_refs, struct mail_index_map *);
 
-	struct mail_index_header hdr;
-
 	/* expunge <= head */
 	uint32_t log_file_expunge_seq, log_file_head_seq;
 	uoff_t log_file_expunge_offset, log_file_head_offset;

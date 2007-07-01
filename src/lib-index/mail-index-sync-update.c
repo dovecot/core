@@ -277,9 +277,6 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 		seq_count = seq2 - seq1 + 1;
 		map->records_count -= seq_count;
 		map->hdr.messages_count -= seq_count;
-
-		/* lookup_uid_range() relies on this */
-		ctx->view->hdr.messages_count -= seq_count;
 	}
 	return 1;
 }
@@ -615,7 +612,6 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 
 	i_assert(ctx->view->map->records_count ==
 		 ctx->view->map->hdr.messages_count);
-	ctx->view->hdr = ctx->view->map->hdr;
 	return ret;
 }
 

@@ -196,21 +196,6 @@ view_sync_get_expunges(struct mail_index_view *view,
 	return 0;
 }
 
-#ifdef DEBUG
-static void mail_index_view_check(struct mail_index_view *view)
-{
-	mail_index_map_check(view->map);
-
-	i_assert(view->hdr.messages_count == view->map->hdr.messages_count);
-	i_assert(view->hdr.deleted_messages_count ==
-		 view->map->hdr.deleted_messages_count);
-	i_assert(view->hdr.recent_messages_count ==
-		 view->map->hdr.recent_messages_count);
-	i_assert(view->hdr.seen_messages_count ==
-		 view->map->hdr.seen_messages_count);
-}
-#endif
-
 #define VIEW_IS_SYNCED_TO_SAME(hdr, tail_seq, tail_offset) \
 	((hdr)->log_file_seq == (tail_seq) && \
 	 (hdr)->log_file_head_offset == (tail_offset))
@@ -290,12 +275,11 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		} else {
 			map = view->map;
 		}
-		view->hdr = map->hdr;
 		i_assert(map->records_count == map->hdr.messages_count);
 	}
 
 #ifdef DEBUG
-	mail_index_view_check(view);
+	mail_index_map_check(view->map);
 #endif
 
 	/* Syncing the view invalidates all previous looked up records.
@@ -608,13 +592,12 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 		view->map->hdr.log_file_head_offset = 0;
 		view->map->hdr.log_file_tail_offset = 0;
 	}
-	view->hdr = view->map->hdr;
 
 	mail_index_sync_map_deinit(&ctx->sync_map_ctx);
 	mail_index_view_sync_clean_log_syncs(ctx->view);
 
 #ifdef DEBUG
-	mail_index_view_check(view);
+	mail_index_map_check(view->map);
 #endif
 
 	/* set log view to empty range so unneeded memory gets freed */

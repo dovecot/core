@@ -22,7 +22,6 @@ void mail_index_view_clone(struct mail_index_view *dest,
 	dest->map = src->map;
 	if (dest->map != NULL)
 		dest->map->refcount++;
-	dest->hdr = src->hdr;
 
 	dest->log_file_expunge_seq = src->log_file_expunge_seq;
 	dest->log_file_expunge_offset = src->log_file_expunge_offset;
@@ -63,11 +62,11 @@ static void mail_index_view_check_nextuid(struct mail_index_view *view)
 {
 	struct mail_index_record *rec;
 
-	if (view->hdr.messages_count == 0)
+	if (view->map->hdr.messages_count == 0)
 		return;
 
-	rec = MAIL_INDEX_MAP_IDX(view->map, view->hdr.messages_count-1);
-	i_assert(rec->uid < view->hdr.next_uid);
+	rec = MAIL_INDEX_MAP_IDX(view->map, view->map->hdr.messages_count-1);
+	i_assert(rec->uid < view->map->hdr.next_uid);
 }
 #endif
 
@@ -146,13 +145,13 @@ void mail_index_view_unref_maps(struct mail_index_view *view)
 
 static uint32_t _view_get_messages_count(struct mail_index_view *view)
 {
-	return view->hdr.messages_count;
+	return view->map->hdr.messages_count;
 }
 
 static const struct mail_index_header *
 _view_get_header(struct mail_index_view *view)
 {
-	return &view->hdr;
+	return &view->map->hdr;
 }
 
 static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
@@ -243,7 +242,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	const struct mail_index_record *rec_base, *rec;
 	uint32_t idx, right_idx, record_size;
 
-	i_assert(view->hdr.messages_count <= view->map->records_count);
+	i_assert(view->map->hdr.messages_count <= view->map->records_count);
 
 	if (uid == 1) {
 		/* optimization: the message can be only the first one */
@@ -253,7 +252,7 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	record_size = view->map->hdr.record_size;
 
 	idx = left_idx;
-	right_idx = view->hdr.messages_count;
+	right_idx = view->map->hdr.messages_count;
 
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
@@ -266,14 +265,15 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 		else
 			break;
 	}
-	i_assert(idx < view->hdr.messages_count);
+	i_assert(idx < view->map->hdr.messages_count);
 
 	rec = CONST_PTR_OFFSET(rec_base, idx * record_size);
 	if (rec->uid != uid) {
 		if (nearest_side > 0) {
 			/* we want uid or larger */
 			return rec->uid > uid ? idx+1 :
-				idx == view->hdr.messages_count-1 ? 0 : idx+2;
+				(idx == view->map->hdr.messages_count-1 ?
+				 0 : idx+2);
 		} else {
 			/* we want uid or smaller */
 			return rec->uid < uid ? idx + 1 : idx;
@@ -291,7 +291,7 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 	i_assert(first_uid <= last_uid);
 
 	/* no locking needed for UIDs, see _view_lookup_uid() */
-	if (view->hdr.messages_count == 0) {
+	if (view->map->hdr.messages_count == 0) {
 		*first_seq_r = *last_seq_r = 0;
 		return 0;
 	}
@@ -311,7 +311,7 @@ static int _view_lookup_uid_range(struct mail_index_view *view,
 			return 0;
 		}
 
-		*last_seq_r = view->hdr.messages_count;
+		*last_seq_r = view->map->hdr.messages_count;
 		return 0;
 	}
 
@@ -355,13 +355,13 @@ static int _view_lookup_first(struct mail_index_view *view,
 			return 0;
 	}
 
-	i_assert(view->hdr.messages_count <= view->map->records_count);
+	i_assert(view->map->hdr.messages_count <= view->map->records_count);
 
 	/* we can delay locking until we're looking at the flags */
 	if (mail_index_map_lock(view->map) < 0)
 		return -1;
 
-	for (; seq <= view->hdr.messages_count; seq++) {
+	for (; seq <= view->map->hdr.messages_count; seq++) {
 		rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 		if ((rec->flags & flags_mask) == (uint8_t)flags) {
 			*seq_r = seq;
@@ -645,8 +645,6 @@ mail_index_view_open_with_map(struct mail_index *index,
 	view->indexid = index->indexid;
 	view->map = map;
 	view->map->refcount++;
-
-	view->hdr = view->map->hdr;
 
 	view->log_file_expunge_seq = view->log_file_head_seq =
 		view->map->hdr.log_file_seq;
