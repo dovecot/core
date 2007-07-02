@@ -102,15 +102,36 @@ void str_printfa(string_t *str, const char *fmt, ...)
 
 void str_vprintfa(string_t *str, const char *fmt, va_list args)
 {
-	const char *tmp;
-	unsigned int size;
+#define SNPRINTF_INITIAL_EXTRA_SIZE 256
+	va_list args2;
+	char *tmp;
+	unsigned int init_size;
+	size_t pos = str->used;
+	int ret, ret2;
 
-	tmp = t_noalloc_strdup_vprintf(fmt, args, &size);
-	if (buffer_get_pool(str)->datastack_pool) {
-		/* appending to buffer may allocate more data from data stack */
-		t_buffer_alloc(size);
+	VA_COPY(args2, args);
+
+	/* the format string is modified only if %m exists in it. it happens
+	   only in error conditions, so don't try to t_push() here since it'll
+	   just slow down the normal code path. */
+	fmt = printf_format_fix_get_len(fmt, &init_size);
+	init_size += SNPRINTF_INITIAL_EXTRA_SIZE;
+
+	/* @UNSAFE */
+	tmp = buffer_get_space_unsafe(str, pos, init_size);
+	ret = vsnprintf(tmp, init_size, fmt, args);
+	i_assert(ret >= 0);
+
+	if ((unsigned int)ret >= init_size) {
+		/* didn't fit with the first guess. now we know the size,
+		   so try again. */
+		tmp = buffer_get_space_unsafe(str, pos, ret + 1);
+		ret2 = vsnprintf(tmp, ret + 1, fmt, args2);
+		i_assert(ret2 == ret);
 	}
-	buffer_append(str, tmp, size - 1);
+
+	/* drop the unused data, including terminating NUL */
+	buffer_set_used_size(str, pos + ret);
 }
 
 void str_insert(string_t *str, size_t pos, const char *cstr)
