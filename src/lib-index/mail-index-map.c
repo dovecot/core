@@ -803,10 +803,7 @@ void mail_index_map_unlock(struct mail_index_map *map)
 static void mail_index_map_copy(struct mail_index_map *dest,
 				const struct mail_index_map *src)
 {
-	const struct mail_index_header *src_hdr;
 	size_t size;
-
-	src_hdr = src->mmap_base != NULL ? src->mmap_base : src->hdr_base;
 
 	/* copy records */
 	size = src->records_count * src->hdr.record_size;
@@ -816,20 +813,9 @@ static void mail_index_map_copy(struct mail_index_map *dest,
 	dest->records = buffer_get_modifiable_data(dest->buffer, NULL);
 	dest->records_count = src->records_count;
 
-	if (src->mmap_base == NULL)
-		dest->hdr = src->hdr;
-	else {
-		/* refresh the header */
-		memcpy(&dest->hdr, src_hdr, src->hdr.base_header_size);
-		/* fix base header size if needed */
-		if (dest->hdr.base_header_size < sizeof(dest->hdr)) {
-			dest->hdr.base_header_size = sizeof(dest->hdr);
-			dest->hdr.header_size +=
-				sizeof(dest->hdr) - dest->hdr.base_header_size;
-		}
-	}
-
-	/* copy header */
+	/* copy header. use src->hdr copy directly, because if we got here
+	   from syncing it has the latest changes. */
+	dest->hdr = src->hdr;
 	if (dest->hdr_copy_buf != NULL)
 		buffer_set_used_size(dest->hdr_copy_buf, 0);
 	else {
@@ -837,10 +823,11 @@ static void mail_index_map_copy(struct mail_index_map *dest,
 			buffer_create_dynamic(default_pool,
 					      dest->hdr.header_size);
 	}
-	buffer_append(dest->hdr_copy_buf, &dest->hdr, sizeof(dest->hdr));
-	buffer_append(dest->hdr_copy_buf,
-		      CONST_PTR_OFFSET(src_hdr, src_hdr->base_header_size),
-		      src_hdr->header_size - src_hdr->base_header_size);
+	buffer_append(dest->hdr_copy_buf, &dest->hdr,
+		      I_MIN(sizeof(dest->hdr), src->hdr.base_header_size));
+	buffer_write(dest->hdr_copy_buf, src->hdr.base_header_size,
+		     CONST_PTR_OFFSET(src->hdr_base, src->hdr.base_header_size),
+		     src->hdr.header_size - src->hdr.base_header_size);
 	dest->hdr_base = buffer_get_modifiable_data(dest->hdr_copy_buf, NULL);
 }
 
