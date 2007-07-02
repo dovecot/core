@@ -106,6 +106,7 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 		attr = ldap_next_attribute(conn->ld, entry, ber);
 	}
+	ber_free(ber, 0);
 
 	if (!seen_uid) {
 		if (conn->set.uid == (uid_t)-1) {

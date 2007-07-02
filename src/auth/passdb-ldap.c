@@ -123,6 +123,7 @@ ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
 
 		attr = ldap_next_attribute(conn->ld, entry, ber);
 	}
+	ber_free(ber, 0);
 
 	if (ctx.add_userdb_uid && conn->set.uid != (uid_t)-1) {
 		auth_request_set_field(auth_request, "userdb_uid",
