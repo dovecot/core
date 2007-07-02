@@ -29,6 +29,10 @@
 #  include <gssapi.h>
 #endif
 
+#ifdef HAVE_GSSAPI_GSSAPI_EXT_H
+#  include <gssapi/gssapi_ext.h>
+#endif
+
 /* Non-zero flags defined in RFC 2222 */
 enum sasl_gssapi_qop {
 	SASL_GSSAPI_QOP_UNSPECIFIED = 0x00,
@@ -273,6 +277,7 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
 	int equal_authn_authz = 0;
+	const char *name;
 
 	major_status = gss_unwrap(&minor_status, request->gss_ctx, 
 				  &inbuf, &outbuf, NULL, NULL);
@@ -292,6 +297,33 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 		return;
 	}
 
+#ifdef HAVE___GSS_USEROK
+	/* Solaris __gss_userok() correctly handles cross-realm
+	   authentication. */
+	request->auth_request.user =
+		p_strndup(request->auth_request.pool,
+			  (unsigned char *)outbuf.value + 4,
+			  outbuf.length - 4);
+
+	major_status = __gss_userok(&minor_status, request->authn_name,
+				    request->auth_request.user,
+				    &equal_authn_authz);
+	if (GSS_ERROR(major_status)) {
+		auth_request_log_gss_error(&request->auth_request, major_status,
+					   GSS_C_GSS_CODE,
+					   "__gss_userok failed");
+		auth_request_fail(&request->auth_request);
+		return;
+	} 
+
+	if (equal_authn_authz == 0) {
+		auth_request_log_error(&request->auth_request, "gssapi",
+				       "credentials not valid");
+
+		auth_request_fail(&request->auth_request);
+		return;
+	}
+#else
 	request->authz_name = import_name(&request->auth_request,
 					  (unsigned char *)outbuf.value + 4,
 					  outbuf.length - 4);
@@ -319,6 +351,7 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 			  (unsigned char *)outbuf.value + 4,
 			  outbuf.length - 4);
 
+#endif
 	auth_request_success(&request->auth_request, NULL, 0);
 }
 
