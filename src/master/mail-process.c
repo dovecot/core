@@ -529,8 +529,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	/* check process limit for this user */
-	process_group = mail_process_group_lookup(process_type, user,
-						  remote_ip);
+	process_group = dump_capability ? NULL :
+		mail_process_group_lookup(process_type, user, remote_ip);
 	process_count = process_group == NULL ? 0 :
 		array_count(&process_group->processes);
 	if (process_count >= set->mail_max_userip_connections &&
@@ -643,14 +643,16 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		/* master */
 		var_expand(str, set->mail_log_prefix, var_expand_table);
 
-		if (!dump_capability)
+		if (!dump_capability) {
 			log_set_prefix(log, str_c(str));
-		if (process_group == NULL) {
-			process_group = mail_process_group_create(process_type,
+			if (process_group == NULL) {
+				process_group =
+					mail_process_group_create(process_type,
 								  user,
 								  remote_ip);
+			}
+			mail_process_group_add(process_group, pid);
 		}
-		mail_process_group_add(process_group, pid);
 		(void)close(log_fd);
 		return MASTER_LOGIN_STATUS_OK;
 	}
