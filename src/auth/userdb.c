@@ -16,6 +16,7 @@ extern struct userdb_module_interface userdb_passwd_file;
 extern struct userdb_module_interface userdb_vpopmail;
 extern struct userdb_module_interface userdb_ldap;
 extern struct userdb_module_interface userdb_sql;
+extern struct userdb_module_interface userdb_nss;
 
 struct userdb_module_interface *userdb_interfaces[] = {
 #ifdef USERDB_PASSWD
@@ -38,6 +39,9 @@ struct userdb_module_interface *userdb_interfaces[] = {
 #endif
 #ifdef USERDB_SQL
 	&userdb_sql,
+#endif
+#ifdef USERDB_NSS
+	&userdb_nss,
 #endif
 	NULL
 };

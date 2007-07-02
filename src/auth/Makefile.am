@@ -68,11 +68,11 @@ dovecot_auth_SOURCES = \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
 	passdb-cache.c \
+	passdb-checkpassword.c \
 	passdb-ldap.c \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
 	passdb-pam.c \
-	passdb-checkpassword.c \
 	passdb-shadow.c \
 	passdb-sia.c \
 	passdb-vpopmail.c \
@@ -80,6 +80,7 @@ dovecot_auth_SOURCES = \
 	userdb.c \
 	userdb-blocking.c \
 	userdb-ldap.c \
+	userdb-nss.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
 	userdb-prefetch.c \

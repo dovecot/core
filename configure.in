@@ -82,6 +82,15 @@ AC_ARG_WITH(passwd,
 	fi,
 	want_passwd=yes)
 
+AC_ARG_WITH(passwd,
+[  --with-nss              Build with NSS module support (default)],
+	if test x$withval = xno; then
+		want_nss=no
+	else
+		want_nss=yes
+	fi,
+	want_nss=yes)
+
 AC_ARG_WITH(passwd-file,
 [  --with-passwd-file      Build with passwd-like file support (default)],
 	if test x$withval = xno; then
@@ -1802,6 +1811,17 @@ if test $have_modules = yes; then
   passdb="$passdb (modules)"
 
   AC_SUBST(MODULE_LIBS)
+fi
+
+if test $want_nss = yes && test $have_modules = yes; then
+  AC_TRY_COMPILE([
+    #include <nss.h>
+  ], [
+    enum nss_status status = NSS_STATUS_TRYAGAIN;
+  ], [
+    AC_DEFINE(USERDB_NSS,, Build with NSS module support)
+    userdb="$userdb nss"
+  ])
 fi
 
 AC_SUBST(AUTH_CFLAGS)
