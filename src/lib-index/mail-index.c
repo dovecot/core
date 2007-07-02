@@ -360,7 +360,6 @@ mail_index_try_open(struct mail_index *index)
 
 	i_assert(index->map == NULL || index->map->lock_id == 0);
 	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD);
-	mail_index_map_unlock(index->map);
 	if (ret == 0) {
 		/* it's corrupted - recreate it */
 		if (index->fd != -1) {
@@ -582,7 +581,6 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 
 int mail_index_refresh(struct mail_index *index)
 {
-	bool locked = index->map->lock_id != 0;
 	int ret;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
@@ -595,8 +593,6 @@ int mail_index_refresh(struct mail_index *index)
 	}
 
 	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD);
-	if (!locked)
-		mail_index_map_unlock(index->map);
 	return ret <= 0 ? -1 : 0;
 }
 

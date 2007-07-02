@@ -44,31 +44,6 @@ mail_index_sync_update_log_offset(struct mail_index_sync_map_ctx *ctx,
 	map->hdr.log_file_head_offset = prev_offset;
 }
 
-#if 0 // FIXME: can we / do we want to support this?
-static int
-mail_index_map_msync(struct mail_index *index, struct mail_index_map *map)
-{
-	if (MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
-		buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
-		return 0;
-	}
-
-	map->mmap_used_size = map->hdr.header_size +
-		map->records_count * map->hdr.record_size;
-
-	memcpy(map->mmap_base, &map->hdr,
-	       I_MIN(map->hdr.base_header_size, sizeof(map->hdr)));
-	memcpy(PTR_OFFSET(map->mmap_base, map->hdr.base_header_size),
-	       CONST_PTR_OFFSET(map->hdr_base, map->hdr.base_header_size),
-	       map->hdr.header_size - map->hdr.base_header_size);
-	if (msync(map->mmap_base, map->mmap_used_size, MS_SYNC) < 0) {
-		mail_index_set_syscall_error(index, "msync()");
-		return -1;
-	}
-	return 0;
-}
-#endif
-
 static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 					struct mail_index_map *map)
 {
@@ -77,13 +52,6 @@ static void mail_index_sync_replace_map(struct mail_index_sync_map_ctx *ctx,
 	i_assert(view->map != map);
 
 	mail_index_sync_update_log_offset(ctx, view->map, FALSE);
-#if 0 // FIXME
-	/* we could have already updated some of the records, so make sure
-	   that other views (in possibly other processes) will see this map's
-	   header in a valid state.  */
-	(void)mail_index_map_msync(view->index, view->map);
-#endif
-
 	mail_index_unmap(&view->map);
 	view->map = map;
 
@@ -95,19 +63,27 @@ void mail_index_sync_move_to_private(struct mail_index_sync_map_ctx *ctx)
 {
 	struct mail_index_map *map = ctx->view->map;
 
-	if (map->refcount == 1) {
-		if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map))
-			mail_index_map_move_to_memory(map);
-	} else {
+	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map) || map->lock_id != 0);
+
+	if (map->refcount > 1) {
 		map = mail_index_map_clone(map);
 		mail_index_sync_replace_map(ctx, map);
 	}
 }
 
+static void
+mail_index_sync_move_to_private_memory(struct mail_index_sync_map_ctx *ctx)
+{
+	mail_index_sync_move_to_private(ctx);
+
+	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(ctx->view->map))
+		mail_index_map_move_to_memory(ctx->view->map);
+}
+
 struct mail_index_map *
 mail_index_sync_get_atomic_map(struct mail_index_sync_map_ctx *ctx)
 {
-	mail_index_sync_move_to_private(ctx);
+	mail_index_sync_move_to_private_memory(ctx);
 	ctx->view->map->write_atomic = TRUE;
 	return ctx->view->map;
 }
@@ -286,8 +262,6 @@ void mail_index_sync_write_seq_update(struct mail_index_sync_map_ctx *ctx,
 {
 	struct mail_index_map *map = ctx->view->map;
 
-	i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
-
 	if (map->write_seq_first == 0 ||
 	    map->write_seq_first > seq1)
 		map->write_seq_first = seq1;
@@ -313,7 +287,7 @@ static int sync_append(const struct mail_index_record *rec,
 	/* move to memory. the mapping is written when unlocking so we don't
 	   waste time re-mmap()ing multiple times or waste space growing index
 	   file too large */
-	mail_index_sync_move_to_private(ctx);
+	mail_index_sync_move_to_private_memory(ctx);
 	map = view->map;
 
 	/* don't rely on buffer->used being at the correct position.
@@ -358,7 +332,6 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	if (seq1 == 0)
 		return 1;
 
-	mail_index_sync_move_to_private(ctx);
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);
 
 	hdr = &view->map->hdr;
@@ -824,13 +797,12 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	   reading. */
 	map->hdr.log_file_tail_offset = index->log->head->max_tail_offset;
 
-	if (map->write_base_header) {
-		i_assert(MAIL_INDEX_MAP_IS_IN_MEMORY(map));
-		buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
+	buffer_write(map->hdr_copy_buf, 0, &map->hdr, sizeof(map->hdr));
+	if (!MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
+		memcpy(map->mmap_base, map->hdr_copy_buf->data,
+		       map->hdr_copy_buf->used);
 	}
 
-	/*FIXME:if (mail_index_map_msync(index, map) < 0)
-		ret = -1;*/
 	if (sync_map_ctx.errors) {
 		/* avoid the same syncing errors the next time */
 		mail_index_write(index, FALSE);

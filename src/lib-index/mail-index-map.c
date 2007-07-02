@@ -375,8 +375,8 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 		return -1;
 	}
 
-	map->mmap_base =
-		mmap(NULL, file_size, PROT_READ, MAP_SHARED, index->fd, 0);
+	map->mmap_base = mmap(NULL, file_size, PROT_READ | PROT_WRITE,
+			      MAP_PRIVATE, index->fd, 0);
 	if (map->mmap_base == MAP_FAILED) {
 		map->mmap_base = NULL;
 		mail_index_set_syscall_error(index, "mmap()");
@@ -792,7 +792,11 @@ int mail_index_map_lock(struct mail_index_map *map)
 	if (map->lock_id != 0 || MAIL_INDEX_MAP_IS_IN_MEMORY(map))
 		return 0;
 
-	return mail_index_lock_shared(map->index, &map->lock_id);
+	if (mail_index_lock_shared(map->index, &map->lock_id) < 0)
+		return -1;
+
+	mail_index_map_copy_hdr(map, map->mmap_base);
+	return 0;
 }
 
 void mail_index_map_unlock(struct mail_index_map *map)

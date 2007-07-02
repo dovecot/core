@@ -351,13 +351,11 @@ int mail_index_sync_begin(struct mail_index *index,
 	   mail_index_sync_commit(). */
 	if ((ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD)) <= 0) {
 		if (ret == 0 || mail_index_fsck(index) <= 0) {
-			mail_index_map_unlock(index->map);
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
 		/* let's try again */
 		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0) {
-			mail_index_map_unlock(index->map);
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
@@ -366,7 +364,6 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	if (!mail_index_need_sync(index, hdr, flags,
 				  log_file_seq, log_file_offset)) {
-		mail_index_map_unlock(index->map);
 		mail_transaction_log_sync_unlock(index->log);
 		return 0;
 	}
@@ -379,7 +376,6 @@ int mail_index_sync_begin(struct mail_index *index,
 			"broken sync positions in index file %s",
 			index->filepath);
 		if (mail_index_fsck(index) <= 0) {
-			mail_index_map_unlock(index->map);
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
@@ -404,7 +400,6 @@ int mail_index_sync_begin(struct mail_index *index,
 		   to skip over it. fix the problem with fsck and try again. */
 		mail_index_sync_rollback(&ctx);
 		if (mail_index_fsck(index) <= 0) {
-			mail_index_map_unlock(index->map);
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
@@ -574,7 +569,6 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 
 	*_ctx = NULL;
 
-	mail_index_map_unlock(ctx->index->map);
 	mail_transaction_log_sync_unlock(ctx->index->log);
 
 	mail_index_view_close(&ctx->view);

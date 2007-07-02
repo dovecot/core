@@ -214,7 +214,6 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 	if (seq1 == 0)
 		return 1;
 
-	mail_index_sync_move_to_private(ctx);
 	mail_index_sync_write_seq_update(ctx, seq1, seq2);
 
 	data_offset = keyword_idx / CHAR_BIT;
@@ -333,7 +332,6 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 		if (seq1 == 0)
 			continue;
 
-		mail_index_sync_move_to_private(ctx);
 		mail_index_sync_write_seq_update(ctx, seq1, seq2);
 		for (seq1--; seq1 < seq2; seq1++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq1);

@@ -76,8 +76,10 @@ void mail_index_view_unlock(struct mail_index_view *view)
 	mail_index_view_check_nextuid(view);
 #endif
 
-	mail_index_map_unlock(view->map);
-	mail_index_map_unlock(view->index->map);
+	/* currently this is a no-op. if we unlock any maps, they might get
+	   changed and then it's unspecified what parts of the memory mapping
+	   are up-to-date. we could also copy the map to memory always, but
+	   that kinds of defeats the purpose of mmaps. */
 }
 
 bool mail_index_view_is_inconsistent(struct mail_index_view *view)

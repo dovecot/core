@@ -301,19 +301,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 			ctx->sync_map_update = TRUE;
 		}
 
-		/* Unless map was synced at the exact same position as
-		   view, the message flags can't be reliably used to
-		   update flag counters. note that map->hdr may contain
-		   old information if another process updated the
-		   index file since. */
-		if (view->map->mmap_base != NULL) {
-			// FIXME: locking should do this..?..
-			const struct mail_index_header *hdr;
-
-			hdr = view->map->mmap_base;
-			view->map->hdr = *hdr;
-		}
-
 		if (view->map->refcount > 1) {
 			map = mail_index_map_clone(view->map);
 			mail_index_unmap(&view->map);
