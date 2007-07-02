@@ -614,7 +614,7 @@ void mail_transaction_log_view_seek(struct mail_transaction_log_view *view,
 
 	i_assert(seq >= view->min_file_seq && seq <= view->max_file_seq);
 	i_assert(seq != view->min_file_seq || offset >= view->min_file_offset);
-	i_assert(seq != view->max_file_seq || offset < view->max_file_offset);
+	i_assert(seq != view->max_file_seq || offset <= view->max_file_offset);
 
 	if (view->cur == NULL || seq != view->cur->hdr.file_seq) {
 		for (file = view->tail; file != NULL; file = file->next) {
