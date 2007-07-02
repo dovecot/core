@@ -39,6 +39,28 @@ bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
 	return memcmp(&ip1->ip, &ip2->ip, 4) == 0;
 }
 
+unsigned int net_ip_hash(const struct ip_addr *ip)
+{
+        const unsigned char *p = (const unsigned char *)&ip->ip;
+	unsigned int len, g, h = 0;
+
+#ifdef HAVE_IPV6
+	if (ip->family == AF_INET6)
+		len = sizeof(ip->ip);
+	else
+#endif
+		len = 4;
+
+	for (; len > 0; len--, p++) {
+		h = (h << 4) + *p;
+		if ((g = h & 0xf0000000UL)) {
+			h = h ^ (g >> 24);
+			h = h ^ g;
+		}
+	}
+
+	return h;
+}
 
 /* copy IP to sockaddr */
 static inline void

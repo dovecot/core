@@ -41,6 +41,7 @@ struct ip_addr {
 
 /* returns 1 if IPADDRs are the same */
 bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2);
+unsigned int net_ip_hash(const struct ip_addr *ip);
 
 /* Connect to socket with ip address */
 int net_connect_ip(const struct ip_addr *ip, unsigned int port,
