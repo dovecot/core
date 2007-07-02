@@ -289,6 +289,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 				   new_size - old_size);
 		modified = TRUE;
 	}
+	map->hdr_base = map->hdr_copy_buf->data;
 
 	old_record_size = ext->record_size;
 	ext->hdr_size = u->hdr_size;
