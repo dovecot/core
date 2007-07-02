@@ -220,13 +220,6 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 	uint32_t seq_count, seq, seq1, seq2;
 	unsigned int i;
 
-	/* we don't ever want to move around data inside a memory mapped file.
-	   it gets corrupted too easily if we crash in the middle. */
-	// FIXME: it's necessary for current view code that we get atomic
-	// map even if these messages are already expunged, because the
-	// view code doesn't check that and our index_int_offset goes wrong
-	map = mail_index_sync_get_atomic_map(ctx);
-
 	for (i = 0; i < count; i++, e++) {
 		if (mail_index_lookup_uid_range(ctx->view, e->uid1, e->uid2,
 						&seq1, &seq2) < 0)
@@ -236,6 +229,7 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 			continue;
 		}
 
+		map = mail_index_sync_get_atomic_map(ctx);
 		for (seq = seq1; seq <= seq2; seq++) {
 			rec = MAIL_INDEX_MAP_IDX(map, seq-1);
 			mail_index_sync_header_update_counts(ctx,
