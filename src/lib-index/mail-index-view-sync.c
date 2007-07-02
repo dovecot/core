@@ -196,9 +196,55 @@ view_sync_get_expunges(struct mail_index_view *view,
 	return 0;
 }
 
-#define VIEW_IS_SYNCED_TO_SAME(hdr, tail_seq, tail_offset) \
-	((hdr)->log_file_seq == (tail_seq) && \
-	 (hdr)->log_file_head_offset == (tail_offset))
+static int have_existing_expunges(struct mail_index_view *view,
+				  const struct seq_range *range, size_t size)
+{
+	const struct seq_range *range_end;
+	uint32_t seq1, seq2;
+
+	range_end = CONST_PTR_OFFSET(range, size);
+	for (; range < range_end && seq1 != 0; range++) {
+		if (mail_index_lookup_uid_range(view, range->seq1, range->seq2,
+						&seq1, &seq2) < 0)
+			return -1;
+		if (seq1 != 0)
+			return 1;
+	}
+	return 0;
+}
+
+static bool view_sync_have_expunges(struct mail_index_view *view)
+{
+	const struct mail_transaction_header *hdr;
+	const void *data;
+	uint32_t seq;
+	uoff_t offset;
+	int ret = 0;
+
+	mail_transaction_log_view_get_prev_pos(view->log_view,
+					       &seq, &offset);
+
+	while ((ret = mail_transaction_log_view_next(view->log_view,
+						     &hdr, &data)) > 0) {
+		if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) == 0)
+			continue;
+		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
+			/* this is simply a request for expunge */
+			continue;
+		}
+
+		/* we have an expunge. see if it still exists. */
+		ret = have_existing_expunges(view, data, hdr->size);
+		if (ret != 0)
+			break;
+	}
+
+	mail_transaction_log_view_seek(view->log_view, seq, offset);
+
+	/* handle failures as having expunges (which is safer).
+	   we'll probably fail later. */
+	return ret != 0;
+}
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_view_sync_flags flags,
@@ -235,7 +281,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
-	if (sync_expunges) {
+	if (sync_expunges || !view_sync_have_expunges(view)) {
 		view->sync_new_map = view->index->map;
 		view->sync_new_map->refcount++;
 
