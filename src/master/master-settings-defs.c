@@ -55,7 +55,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(valid_chroot_dirs),
 	DEF_STR(mail_chroot),
 	DEF_INT(max_mail_processes),
-	DEF_INT(mail_max_user_connections),
+	DEF_INT(mail_max_userip_connections),
 	DEF_BOOL(verbose_proctitle),
 
 	DEF_INT(first_valid_uid),

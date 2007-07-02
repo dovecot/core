@@ -34,9 +34,10 @@
 #define CHDIR_WARN_SECS 10
 
 struct mail_process_group {
-	/* process.type / user identifies this process group */
+	/* process.type + user + remote_ip identifies this process group */
 	struct child_process process;
 	char *user;
+	struct ip_addr remote_ip;
 
 	/* processes array acts also as refcount */
 	ARRAY_DEFINE(processes, pid_t);
@@ -50,7 +51,8 @@ static unsigned int mail_process_group_hash(const void *p)
 {
 	const struct mail_process_group *group = p;
 
-	return str_hash(group->user) ^ group->process.type;
+	return str_hash(group->user) ^ group->process.type ^
+		net_ip_hash(&group->remote_ip);
 }
 
 static int mail_process_group_cmp(const void *p1, const void *p2)
@@ -61,28 +63,34 @@ static int mail_process_group_cmp(const void *p1, const void *p2)
 	ret = strcmp(group1->user, group2->user);
 	if (ret == 0)
 		ret = group1->process.type - group2->process.type;
+	if (ret == 0 && !net_ip_compare(&group1->remote_ip, &group2->remote_ip))
+		ret = -1;
 	return ret;
 }
 
 static struct mail_process_group *
-mail_process_group_lookup(enum process_type type, const char *user)
+mail_process_group_lookup(enum process_type type, const char *user,
+			  const struct ip_addr *ip)
 {
 	struct mail_process_group lookup_group;
 
 	lookup_group.process.type = type;
 	lookup_group.user = t_strdup_noconst(user);
+	lookup_group.remote_ip = *ip;
 
 	return hash_lookup(mail_process_groups, &lookup_group);
 }
 
 static struct mail_process_group *
-mail_process_group_create(enum process_type type, const char *user)
+mail_process_group_create(enum process_type type, const char *user,
+			  const struct ip_addr *ip)
 {
 	struct mail_process_group *group;
 
 	group = i_new(struct mail_process_group, 1);
 	group->process.type = type;
 	group->user = i_strdup(user);
+	group->remote_ip = *ip;
 
 	i_array_init(&group->processes, 10);
 	hash_insert(mail_process_groups, group, group);
@@ -521,11 +529,12 @@ create_mail_process(enum process_type process_type, struct settings *set,
 	}
 
 	/* check process limit for this user */
-	process_group = mail_process_group_lookup(process_type, user);
+	process_group = mail_process_group_lookup(process_type, user,
+						  remote_ip);
 	process_count = process_group == NULL ? 0 :
 		array_count(&process_group->processes);
-	if (process_count >= set->mail_max_user_connections &&
-	    set->mail_max_user_connections != 0)
+	if (process_count >= set->mail_max_userip_connections &&
+	    set->mail_max_userip_connections != 0)
 		return MASTER_LOGIN_STATUS_MAX_CONNECTIONS;
 
 	t_array_init(&extra_args, 16);
@@ -638,7 +647,8 @@ create_mail_process(enum process_type process_type, struct settings *set,
 			log_set_prefix(log, str_c(str));
 		if (process_group == NULL) {
 			process_group = mail_process_group_create(process_type,
-								  user);
+								  user,
+								  remote_ip);
 		}
 		mail_process_group_add(process_group, pid);
 		(void)close(log_fd);
