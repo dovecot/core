@@ -353,6 +353,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	struct mail_namespace *ns;
 	enum mailbox_list_flags flags;
 	const char *acl_env, *current_username, *owner_username;
+	bool owner = TRUE;
 
 	if (acl_next_hook_mailbox_list_created != NULL)
 		acl_next_hook_mailbox_list_created(list);
@@ -367,17 +368,21 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 	current_username = getenv("MASTER_USER");
 	if (current_username == NULL)
 		current_username = owner_username;
+	else
+		owner = strcmp(current_username, owner_username) == 0;
 
 	/* We don't care about the username for non-private mailboxes.
 	   It's used only when checking if we're the mailbox owner. We never
 	   are for shared/public mailboxes. */
 	ns = mailbox_list_get_namespace(list);
 	if (ns->type != NAMESPACE_PRIVATE)
-		owner_username = NULL;
+		owner = FALSE;
 
 	/* FIXME: set groups */
-	backend = acl_backend_init(acl_env, list, current_username, NULL,
-				   owner_username);
+	backend = acl_backend_init(acl_env, list, current_username,
+				   getenv("ACL_GROUPS") == NULL ? NULL :
+				   t_strsplit(getenv("ACL_GROUPS"), ","),
+				   owner);
 	if (backend == NULL)
 		i_fatal("ACL backend initialization failed");
 
