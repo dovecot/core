@@ -277,7 +277,6 @@ static void gssapi_unwrap(struct gssapi_auth_request *request,
 	OM_uint32 major_status, minor_status;
 	gss_buffer_desc outbuf;
 	int equal_authn_authz = 0;
-	const char *name;
 
 	major_status = gss_unwrap(&minor_status, request->gss_ctx, 
 				  &inbuf, &outbuf, NULL, NULL);
