@@ -21,6 +21,7 @@
 #include "password-scheme.h"
 
 #include <stdlib.h>
+#include <sys/stat.h>
 
 struct auth_request *
 auth_request_new(struct auth *auth, const struct mech_module *mech,
@@ -1045,10 +1046,56 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
 }
 
+static void
+auth_request_change_userdb_user(struct auth_request *request, const char *user)
+{
+	const char *str;
+
+	/* replace the username in userdb_reply if it changed */
+	if (strcmp(user, request->user) == 0)
+		return;
+
+	t_push();
+	str = t_strdup(auth_stream_reply_export(request->userdb_reply));
+
+	/* reset the reply and add the new username */
+	auth_request_set_field(request, "user", user, NULL);
+	auth_stream_reply_reset(request->userdb_reply);
+	auth_stream_reply_add(request->userdb_reply,
+			      NULL, request->user);
+
+	/* add the rest */
+	str = strchr(str, '\t');
+	i_assert(str != NULL);
+	auth_stream_reply_import(request->userdb_reply, str + 1);
+	t_pop();
+}
+
+static void auth_request_set_uidgid_file(struct auth_request *request,
+					 const char *path_template)
+{
+	string_t *path;
+	struct stat st;
+
+	t_push();
+	path = t_str_new(256);
+	var_expand(path, path_template,
+		   auth_request_get_var_expand_table(request, NULL));
+	if (stat(str_c(path), &st) < 0) {
+		auth_request_log_error(request, "uidgid_file",
+				       "stat(%s) failed: %m", str_c(path));
+	} else {
+		auth_stream_reply_add(request->userdb_reply,
+				      "uid", dec2str(st.st_uid));
+		auth_stream_reply_add(request->userdb_reply,
+				      "gid", dec2str(st.st_gid));
+	}
+	t_pop();
+}
+
 void auth_request_set_userdb_field(struct auth_request *request,
 				   const char *name, const char *value)
 {
-	const char *str;
 	uid_t uid;
 	gid_t gid;
 
@@ -1067,24 +1114,11 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		}
 		value = dec2str(gid);
 	} else if (strcmp(name, "user") == 0) {
-		/* replace the username if it changed */
-		if (strcmp(value, request->user) == 0)
-			return;
-
-		t_push();
-		str = t_strdup(auth_stream_reply_export(request->userdb_reply));
-
-		/* reset the reply and add the new username */
-		auth_request_set_field(request, "user", value, NULL);
-		auth_stream_reply_reset(request->userdb_reply);
-		auth_stream_reply_add(request->userdb_reply,
-				      NULL, request->user);
-
-		/* add the rest */
-		str = strchr(str, '\t');
-		i_assert(str != NULL);
-		auth_stream_reply_import(request->userdb_reply, str + 1);
-		t_pop();
+		auth_request_change_userdb_user(request, value);
+		return;
+	} else if (strcmp(name, "uidgid_file") == 0) {
+		auth_request_set_uidgid_file(request, value);
+		return;
 	}
 
 	auth_stream_reply_add(request->userdb_reply, name, value);
