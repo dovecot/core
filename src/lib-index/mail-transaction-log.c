@@ -49,6 +49,29 @@ mail_transaction_log_alloc(struct mail_index *index)
 	return log;
 }
 
+static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
+{
+	struct stat st;
+	const char *path;
+
+	path = t_strconcat(log->index->filepath,
+			   MAIL_TRANSACTION_LOG_SUFFIX".2", NULL);
+	if (stat(path, &st) < 0) {
+		if (errno != ENOENT && errno != ESTALE) {
+			mail_index_set_error(log->index,
+				"stat(%s) failed: %m", path);
+		}
+		return;
+	}
+
+	if (st.st_mtime + MAIL_TRANSACTION_LOG2_STALE_SECS <= ioloop_time) {
+		if (unlink(path) < 0 && errno != ENOENT) {
+			mail_index_set_error(log->index,
+				"unlink(%s) failed: %m", path);
+		}
+	}
+}
+
 int mail_transaction_log_open(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
@@ -70,8 +93,8 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 		log->open_file = file;
 		return ret;
 	}
-
 	mail_transaction_log_set_head(log, file);
+	mail_transaction_log_2_unlink_old(log);
 	return 1;
 }
 

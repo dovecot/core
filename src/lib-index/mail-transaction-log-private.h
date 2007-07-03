@@ -10,6 +10,9 @@
 #define MAIL_TRANSACTION_LOG_ROTATE_MAX_SIZE (1024*1024)
 #define MAIL_TRANSACTION_LOG_ROTATE_TIME (60*5)
 
+/* Delete .log.2 files older than this many seconds */
+#define MAIL_TRANSACTION_LOG2_STALE_SECS (60*30)
+
 #define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
 
 struct mail_transaction_log_file {
