@@ -34,87 +34,6 @@ struct passdb_ldap_request {
 	} callback;
 };
 
-struct ldap_query_save_context {
-	struct ldap_connection *conn;
-	struct auth_request *auth_request;
-	LDAPMessage *entry;
-
-	string_t *debug;
-};
-
-static void
-ldap_query_save_attr(struct ldap_query_save_context *ctx, const char *attr)
-{
-	struct auth *auth = ctx->auth_request->auth;
-	const char *name;
-	char **vals;
-	unsigned int i;
-
-	name = hash_lookup(ctx->conn->pass_attr_map, attr);
-
-	if (auth->verbose_debug) {
-		if (ctx->debug == NULL)
-			ctx->debug = t_str_new(256);
-		else
-			str_append_c(ctx->debug, ' ');
-		str_append(ctx->debug, attr);
-		str_printfa(ctx->debug, "(%s)=",
-			    name != NULL ? name : "?unknown?");
-	}
-
-	if (name == NULL)
-		return;
-
-	vals = ldap_get_values(ctx->conn->ld, ctx->entry, attr);
-	if (vals != NULL && *name != '\0') {
-		for (i = 0; vals[i] != NULL; i++) {
-			if (ctx->debug != NULL) {
-				if (i != 0)
-					str_append_c(ctx->debug, '/');
-				if (auth->verbose_debug_passwords ||
-				    strcmp(name, "password") != 0)
-					str_append(ctx->debug, vals[i]);
-				else {
-					str_append(ctx->debug,
-						   PASSWORD_HIDDEN_STR);
-				}
-			}
-			auth_request_set_field(ctx->auth_request, name, vals[i],
-					ctx->conn->set.default_pass_scheme);
-		}
-	}
-
-	ldap_value_free(vals);
-}
-
-static void
-ldap_query_save_result(struct ldap_connection *conn, LDAPMessage *entry,
-		       struct auth_request *auth_request)
-{
-	struct ldap_query_save_context ctx;
-	BerElement *ber;
-	char *attr;
-
-	memset(&ctx, 0, sizeof(ctx));
-	ctx.conn = conn;
-	ctx.auth_request = auth_request;
-	ctx.entry = entry;
-
-	attr = ldap_first_attribute(conn->ld, entry, &ber);
-	while (attr != NULL) {
-		ldap_query_save_attr(&ctx, attr);
-		ldap_memfree(attr);
-
-		attr = ldap_next_attribute(conn->ld, entry, ber);
-	}
-	ber_free(ber, 0);
-
-	if (ctx.debug != NULL) {
-		auth_request_log_debug(auth_request, "ldap",
-				       "result: %s", str_c(ctx.debug));
-	}
-}
-
 static LDAPMessage *
 handle_request_get_entry(struct ldap_connection *conn,
 			 struct auth_request *auth_request,
@@ -157,6 +76,21 @@ handle_request_get_entry(struct ldap_connection *conn,
 	}
 	auth_request_unref(&auth_request);
 	return NULL;
+}
+
+static void
+ldap_query_save_result(struct ldap_connection *conn,
+		       LDAPMessage *entry, struct auth_request *auth_request)
+{
+	struct db_ldap_result_iterate_context *ldap_iter;
+	const char *name, *value;
+
+	ldap_iter = db_ldap_result_iterate_init(conn, entry, auth_request,
+						conn->pass_attr_map);
+	while (db_ldap_result_iterate_next(ldap_iter, &name, &value)) {
+		auth_request_set_field(auth_request, name, value,
+				       conn->set.default_pass_scheme);
+	}
 }
 
 static void handle_request(struct ldap_connection *conn,

@@ -34,27 +34,15 @@ static void
 ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 		      struct auth_request *auth_request)
 {
-	BerElement *ber;
-	const char *name;
-	char *attr, **vals;
+	struct db_ldap_result_iterate_context *ldap_iter;
+	const char *name, *const *values;
 
-	auth_request_init_userdb_reply(auth_request);
-
-	attr = ldap_first_attribute(conn->ld, entry, &ber);
-	while (attr != NULL) {
-		name = hash_lookup(conn->user_attr_map, attr);
-		vals = ldap_get_values(conn->ld, entry, attr);
-
-		if (name != NULL && *name != '\0' && vals != NULL) {
-			auth_request_set_userdb_field_values(auth_request,
-					name, (const char *const *)vals);
-		}
-		ldap_value_free(vals);
-		ldap_memfree(attr);
-
-		attr = ldap_next_attribute(conn->ld, entry, ber);
+	ldap_iter = db_ldap_result_iterate_init(conn, entry, auth_request,
+						conn->user_attr_map);
+	while (db_ldap_result_iterate_next_all(ldap_iter, &name, &values)) {
+		auth_request_set_userdb_field_values(auth_request,
+						     name, values);
 	}
-	ber_free(ber, 0);
 }
 
 static void handle_request(struct ldap_connection *conn,

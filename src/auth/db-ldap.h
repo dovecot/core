@@ -107,8 +107,21 @@ void db_ldap_unref(struct ldap_connection **conn);
 
 int db_ldap_connect(struct ldap_connection *conn);
 
+struct var_expand_table *
+db_ldap_value_get_var_expand_table(struct auth_request *auth_request);
+
 const char *ldap_escape(const char *str,
 			const struct auth_request *auth_request);
 const char *ldap_get_error(struct ldap_connection *conn);
+
+struct db_ldap_result_iterate_context *
+db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
+			    struct auth_request *auth_request,
+			    struct hash_table *attr_map);
+bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
+				 const char **name_r, const char **value_r);
+bool db_ldap_result_iterate_next_all(struct db_ldap_result_iterate_context *ctx,
+				     const char **name_r,
+				     const char *const **values_r);
 
 #endif

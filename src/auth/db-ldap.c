@@ -8,6 +8,7 @@
 #include "ioloop.h"
 #include "hash.h"
 #include "str.h"
+#include "var-expand.h"
 #include "settings.h"
 #include "userdb.h"
 #include "db-ldap.h"
@@ -40,6 +41,21 @@
 #ifndef LDAP_OPT_SUCCESS
 #  define LDAP_OPT_SUCCESS LDAP_SUCCESS
 #endif
+
+struct db_ldap_result_iterate_context {
+	struct ldap_connection *conn;
+	LDAPMessage *entry;
+	struct auth_request *auth_request;
+
+	struct hash_table *attr_map;
+	struct var_expand_table *var_table;
+
+	char *attr, **vals;
+	const char *name, *value, *template, *val_1_arr[2];
+	BerElement *ber;
+
+	string_t *var, *debug;
+};
 
 #define DEF_STR(name) DEF_STRUCT_STR(name, ldap_settings)
 #define DEF_INT(name) DEF_STRUCT_INT(name, ldap_settings)
@@ -642,6 +658,23 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	t_pop();
 }
 
+struct var_expand_table *
+db_ldap_value_get_var_expand_table(struct auth_request *auth_request)
+{
+	const struct var_expand_table *auth_table;
+	struct var_expand_table *table;
+	unsigned int count;
+
+	auth_table = auth_request_get_var_expand_table(auth_request, NULL);
+	for (count = 0; auth_table[count].key != '\0'; count++) ;
+	count++;
+
+	table = t_new(struct var_expand_table, count + 1);
+	table[0].key = '$';
+	memcpy(table + 1, auth_table, sizeof(*table) * count);
+	return table;
+}
+
 #define IS_LDAP_ESCAPED_CHAR(c) \
 	((c) == '*' || (c) == '(' || (c) == ')' || (c) == '\\')
 
@@ -668,6 +701,149 @@ const char *ldap_escape(const char *str,
 		str_append_c(ret, *p);
 	}
 	return str_c(ret);
+}
+
+struct db_ldap_result_iterate_context *
+db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
+			    struct auth_request *auth_request,
+			    struct hash_table *attr_map)
+{
+	struct db_ldap_result_iterate_context *ctx;
+
+	ctx = t_new(struct db_ldap_result_iterate_context, 1);
+	ctx->conn = conn;
+	ctx->entry = entry;
+	ctx->auth_request = auth_request;
+	ctx->attr_map = attr_map;
+
+	if (auth_request->auth->verbose_debug)
+		ctx->debug = t_str_new(256);
+
+	ctx->attr = ldap_first_attribute(conn->ld, entry, &ctx->ber);
+	return ctx;
+}
+
+static void
+db_ldap_result_iterate_finish(struct db_ldap_result_iterate_context *ctx)
+{
+	if (ctx->debug != NULL && str_len(ctx->debug) > 0) {
+		auth_request_log_debug(ctx->auth_request, "ldap",
+				       "result: %s", str_c(ctx->debug) + 1);
+	}
+
+	ber_free(ctx->ber, 0);
+}
+
+static void
+db_ldap_result_change_attr(struct db_ldap_result_iterate_context *ctx)
+{
+	ctx->name = hash_lookup(ctx->attr_map, ctx->attr);
+
+	if (ctx->debug != NULL) {
+		str_printfa(ctx->debug, " %s(%s)=", ctx->attr,
+			    ctx->name != NULL ? ctx->name : "?unknown?");
+	}
+
+	if (ctx->name == NULL || *ctx->name == '\0') {
+		ctx->value = NULL;
+		return;
+	}
+
+	if (strchr(ctx->name, '%') != NULL &&
+	    (ctx->template = strchr(ctx->name, '=')) != NULL) {
+		/* we want to use variables */
+		ctx->name = t_strdup_until(ctx->name, ctx->template);
+		ctx->template++;
+		if (ctx->var_table == NULL) {
+			ctx->var_table = db_ldap_value_get_var_expand_table(
+							ctx->auth_request);
+			ctx->var = t_str_new(256);
+		}
+	}
+
+	ctx->vals = ldap_get_values(ctx->conn->ld, ctx->entry,
+				    ctx->attr);
+	ctx->value = ctx->vals[0];
+}
+
+static void
+db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx)
+{
+	bool first = ctx->value == ctx->vals[0];
+
+	if (ctx->template != NULL) {
+		ctx->var_table[0].value = ctx->value;
+		str_truncate(ctx->var, 0);
+		var_expand(ctx->var, ctx->template, ctx->var_table);
+		ctx->value = str_c(ctx->var);
+	}
+
+	if (ctx->debug != NULL) {
+		if (!first)
+			str_append_c(ctx->debug, '/');
+		if (ctx->auth_request->auth->verbose_debug_passwords ||
+		    strcmp(ctx->name, "password") != 0)
+			str_append(ctx->debug, ctx->value);
+		else
+			str_append(ctx->debug, PASSWORD_HIDDEN_STR);
+	}
+}
+
+static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
+{
+	while (ctx->attr != NULL) {
+		if (ctx->vals == NULL) {
+			/* a new attribute */
+			db_ldap_result_change_attr(ctx);
+		} else {
+			/* continuing existing attribute */
+			if (ctx->value != NULL)
+				ctx->value++;
+		}
+
+		if (ctx->value != NULL) {
+			db_ldap_result_return_value(ctx);
+			return TRUE;
+		}
+
+		ldap_value_free(ctx->vals); ctx->vals = NULL;
+		ldap_memfree(ctx->attr);
+		ctx->attr = ldap_next_attribute(ctx->conn->ld, ctx->entry,
+						ctx->ber);
+	}
+
+	db_ldap_result_iterate_finish(ctx);
+	return FALSE;
+}
+
+bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
+				 const char **name_r, const char **value_r)
+{
+	if (!db_ldap_result_int_next(ctx))
+		return FALSE;
+
+	*name_r = ctx->name;
+	*value_r = ctx->value;
+	return TRUE;
+}
+
+bool db_ldap_result_iterate_next_all(struct db_ldap_result_iterate_context *ctx,
+				     const char **name_r,
+				     const char *const **values_r)
+{
+	if (!db_ldap_result_int_next(ctx))
+		return FALSE;
+
+	if (ctx->template != NULL) {
+		/* we can use only one value with templates */
+		ctx->val_1_arr[0] = ctx->value;
+		*values_r = ctx->val_1_arr;
+	} else {
+		*values_r = (const char *const *)ctx->vals;
+	}
+	ctx->value = NULL;
+	*name_r = ctx->name;
+	return TRUE;
 }
 
 static const char *parse_setting(const char *key, const char *value,
