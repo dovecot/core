@@ -72,7 +72,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 	struct group *gr;
 
 	if (str == NULL)
-		return (uid_t)-1;
+		return (gid_t)-1;
 
 	if (*str >= '0' && *str <= '9')
 		return (gid_t)strtoul(str, NULL, 10);
