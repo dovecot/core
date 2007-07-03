@@ -285,7 +285,8 @@ maildir_create(struct mail_storage *_storage, const char *data)
 				    "tmp/", storage->temp_prefix, NULL);
 	}
 
-	(void)verify_inbox(_storage);
+	if ((_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0)
+		(void)verify_inbox(_storage);
 	return 0;
 }
 
@@ -507,7 +508,8 @@ maildir_mailbox_open(struct mail_storage *_storage, const char *name,
 		return NULL;
 	}
 
-	if (strcmp(name, "INBOX") == 0) {
+	if (strcmp(name, "INBOX") == 0 &&
+	    (_storage->ns->flags & NAMESPACE_FLAG_INBOX) != 0) {
 		if (verify_inbox(_storage) < 0)
 			return NULL;
 		return maildir_open(storage, "INBOX", flags);
@@ -956,12 +958,15 @@ maildirplusplus_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 
 	/* Check files beginning with .nfs always because they may be
 	   temporary files created by the kernel */
-	if (storage->stat_dirs || strncmp(fname, ".nfs", 4) == 0) {
+	if (storage->stat_dirs || *fname == '\0' ||
+	    strncmp(fname, ".nfs", 4) == 0) {
 		const char *path;
 		struct stat st;
 
 		t_push();
-		path = t_strdup_printf("%s/%s", dir, fname);
+		/* if fname="", we're checking if a base maildir has INBOX */
+		path = *fname == '\0' ? t_strdup_printf("%s/cur", dir) :
+			t_strdup_printf("%s/%s", dir, fname);
 		if (stat(path, &st) == 0) {
 			if (S_ISDIR(st.st_mode))
 				ret = 1;
