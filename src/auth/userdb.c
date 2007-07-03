@@ -49,12 +49,17 @@ struct userdb_module_interface *userdb_interfaces[] = {
 uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 {
 	struct passwd *pw;
+	uid_t uid;
+	char *p;
 
 	if (str == NULL)
 		return (uid_t)-1;
 
-	if (*str >= '0' && *str <= '9')
-		return (uid_t)strtoul(str, NULL, 10);
+	if (*str >= '0' && *str <= '9') {
+		uid = (uid_t)strtoul(str, &p, 10);
+		if (*p == '\0')
+			return uid;
+	}
 
 	pw = getpwnam(str);
 	if (pw == NULL) {
@@ -70,12 +75,17 @@ uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 {
 	struct group *gr;
+	gid_t gid;
+	char *p;
 
 	if (str == NULL)
 		return (gid_t)-1;
 
-	if (*str >= '0' && *str <= '9')
-		return (gid_t)strtoul(str, NULL, 10);
+	if (*str >= '0' && *str <= '9') {
+		gid = (gid_t)strtoul(str, &p, 10);
+		if (*p == '\0')
+			return gid;
+	}
 
 	gr = getgrnam(str);
 	if (gr == NULL) {
