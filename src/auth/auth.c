@@ -73,12 +73,13 @@ struct auth *auth_preinit(void)
 
                 args = getenv(t_strdup_printf("USERDB_%u_ARGS", i));
 		userdb_preinit(auth, driver, args);
-
 	}
 	t_pop();
 
-	if (auth->userdbs == NULL)
-		i_fatal("You'll need to add at least one userdb");
+	if (auth->userdbs == NULL) {
+		/* use a dummy userdb static. */
+		userdb_preinit(auth, "static", "");
+	}
 	return auth;
 }
 
