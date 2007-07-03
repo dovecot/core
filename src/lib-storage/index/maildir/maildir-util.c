@@ -224,12 +224,7 @@ void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
 #endif
 	else if (st.st_atime < ioloop_time) {
 		/* mounted with noatime. update it ourself. */
-		struct utimbuf ut;
-
-		ut.actime = ioloop_time;
-		ut.modtime = st.st_mtime;
-
-		if (utime(dir, &ut) < 0 && errno != ENOENT) {
+		if (utime(dir, NULL) < 0 && errno != ENOENT) {
 			mail_storage_set_critical(storage,
 				"utime(%s) failed: %m", dir);
 		}
