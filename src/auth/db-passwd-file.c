@@ -67,34 +67,38 @@ static void passwd_file_add(struct passwd_file *pw, const char *username,
 		pu->password = p_strdup(pw->pool, pass);
 	}
 
-	if (*args != NULL && **args != '\0') {
-		pu->uid = !pw->db->userdb ? (uid_t)-1 :
-			userdb_parse_uid(NULL, *args);
-		if ((pu->uid == 0 || pu->uid == (uid_t)-1) && pw->db->userdb) {
-			i_error("passwd-file %s: User %s has invalid UID %s",
-				pw->path, username, *args);
-			return;
-		}
-		args++;
-	} else if (*args != NULL)
-		args++;
+	pu->uid = (uid_t)-1;
+	pu->gid = (gid_t)-1;
 
-	if (*args != NULL && **args != '\0') {
-		pu->gid = !pw->db->userdb ? (gid_t)-1 :
-			userdb_parse_gid(NULL, *args);
-		if ((pu->gid == 0 || pu->gid == (gid_t)-1) && pw->db->userdb) {
-			i_error("passwd-file %s: User %s has invalid GID %s",
-				pw->path, username, *args);
-			return;
-		}
+	if (*args == NULL)
+		;
+	else if (!pw->db->userdb || **args == '\0') {
 		args++;
 	} else {
+		pu->uid = userdb_parse_uid(NULL, *args);
+		if (pu->uid == 0 || pu->uid == (uid_t)-1) {
+			i_error("passwd-file %s: User %s has invalid UID '%s'",
+				pw->path, username, *args);
+			return;
+		}
+		args++;
+	}
+
+	if (*args == NULL) {
 		if (pw->db->userdb) {
 			i_error("passwd-file %s: User %s is missing "
 				"userdb info", pw->path, username);
 		}
-		if (*args != NULL)
-			args++;
+	} else if (!pw->db->userdb || **args == '\0')
+		args++;
+	else {
+		pu->gid = userdb_parse_gid(NULL, *args);
+		if (pu->gid == 0 || pu->gid == (gid_t)-1) {
+			i_error("passwd-file %s: User %s has invalid GID '%s'",
+				pw->path, username, *args);
+			return;
+		}
+		args++;
 	}
 
 	/* user info */

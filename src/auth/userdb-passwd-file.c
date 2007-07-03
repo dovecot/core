@@ -38,8 +38,14 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	}
 
 	auth_request_init_userdb_reply(auth_request);
-	auth_request_set_userdb_field(auth_request, "uid", dec2str(pu->uid));
-	auth_request_set_userdb_field(auth_request, "gid", dec2str(pu->gid));
+	if (pu->uid != (uid_t)-1) {
+		auth_request_set_userdb_field(auth_request, "uid",
+					      dec2str(pu->uid));
+	}
+	if (pu->gid != (gid_t)-1) {
+		auth_request_set_userdb_field(auth_request, "gid",
+					      dec2str(pu->gid));
+	}
 
 	if (pu->home != NULL)
 		auth_request_set_userdb_field(auth_request, "home", pu->home);
