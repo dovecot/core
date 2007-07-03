@@ -66,8 +66,6 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(pass_attrs),
 	DEF_STR(pass_filter),
 	DEF_STR(default_pass_scheme),
-	DEF_STR(user_global_uid),
-	DEF_STR(user_global_gid),
 
 	{ 0, NULL, 0 }
 };
@@ -92,9 +90,7 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(user_filter) "(&(objectClass=posixAccount)(uid=%u))",
 	MEMBER(pass_attrs) "uid,userPassword",
 	MEMBER(pass_filter) "(&(objectClass=posixAccount)(uid=%u))",
-	MEMBER(default_pass_scheme) "crypt",
-	MEMBER(user_global_uid) "",
-	MEMBER(user_global_gid) ""
+	MEMBER(default_pass_scheme) "crypt"
 };
 
 static struct ldap_connection *ldap_connections = NULL;
@@ -736,28 +732,6 @@ struct ldap_connection *db_ldap_init(const char *config_path)
 
         conn->set.ldap_deref = deref2str(conn->set.deref);
 	conn->set.ldap_scope = scope2str(conn->set.scope);
-
-	if (*conn->set.user_global_uid == '\0')
-		conn->set.uid = (uid_t)-1;
-	else {
-		conn->set.uid =
-			userdb_parse_uid(NULL, conn->set.user_global_uid);
-		if (conn->set.uid == (uid_t)-1) {
-			i_fatal("LDAP: Invalid user_global_uid: %s",
-				conn->set.user_global_uid);
-		}
-	}
-
-	if (*conn->set.user_global_gid == '\0')
-		conn->set.gid = (gid_t)-1;
-	else {
-		conn->set.gid =
-			userdb_parse_gid(NULL, conn->set.user_global_gid);
-		if (conn->set.gid == (gid_t)-1) {
-			i_fatal("LDAP: Invalid user_global_gid: %s",
-				conn->set.user_global_gid);
-		}
-	}
 
 	conn->next = ldap_connections;
         ldap_connections = conn;

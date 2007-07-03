@@ -399,15 +399,18 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 }
 
 static void userdb_callback(enum userdb_result result,
-			    struct auth_stream_reply *reply,
 			    struct auth_request *request)
 {
         struct auth_request_handler *handler = request->context;
+	struct auth_stream_reply *reply = request->userdb_reply;
 	string_t *str;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_USERDB);
 
 	request->state = AUTH_REQUEST_STATE_FINISHED;
+
+	if (request->userdb_lookup_failed)
+		result = USERDB_RESULT_INTERNAL_FAILURE;
 
 	str = t_str_new(256);
 	switch (result) {

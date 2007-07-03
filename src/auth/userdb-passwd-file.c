@@ -25,7 +25,6 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct passwd_file_userdb_module *module =
 		(struct passwd_file_userdb_module *)_module;
-	struct auth_stream_reply *reply;
 	struct passwd_user *pu;
         const struct var_expand_table *table;
 	string_t *str;
@@ -34,17 +33,16 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 
 	pu = db_passwd_file_lookup(module->pwf, auth_request);
 	if (pu == NULL) {
-		callback(USERDB_RESULT_USER_UNKNOWN, NULL, auth_request);
+		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}
 
-	reply = auth_stream_reply_init(auth_request);
-	auth_stream_reply_add(reply, NULL, auth_request->user);
-	auth_stream_reply_add(reply, "uid", dec2str(pu->uid));
-	auth_stream_reply_add(reply, "gid", dec2str(pu->gid));
+	auth_request_init_userdb_reply(auth_request);
+	auth_request_set_userdb_field(auth_request, "uid", dec2str(pu->uid));
+	auth_request_set_userdb_field(auth_request, "gid", dec2str(pu->gid));
 
 	if (pu->home != NULL)
-		auth_stream_reply_add(reply, "home", pu->home);
+		auth_request_set_userdb_field(auth_request, "home", pu->home);
 
 	if (pu->extra_fields != NULL) {
 		t_push();
@@ -63,12 +61,12 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 				var_expand(str, value + 1, table);
 				value = str_c(str);
 			}
-			auth_stream_reply_add(reply, key, value);
+			auth_request_set_userdb_field(auth_request, key, value);
 		}
 		t_pop();
 	}
 
-	callback(USERDB_RESULT_OK, reply, auth_request);
+	callback(USERDB_RESULT_OK, auth_request);
 }
 
 static struct userdb_module *

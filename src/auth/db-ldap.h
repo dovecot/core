@@ -40,8 +40,6 @@ struct ldap_settings {
 	const char *pass_filter;
 
 	const char *default_pass_scheme;
-	const char *user_global_uid;
-	const char *user_global_gid;
 
 	/* ... */
 	int ldap_deref, ldap_scope;

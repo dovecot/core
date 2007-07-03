@@ -580,7 +580,6 @@ void auth_request_set_credentials(struct auth_request *request,
 }
 
 static void auth_request_userdb_save_cache(struct auth_request *request,
-					   struct auth_stream_reply *reply,
 					   enum userdb_result result)
 {
 	struct userdb_module *userdb = request->userdb->userdb;
@@ -590,7 +589,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 		return;
 
 	str = result == USERDB_RESULT_USER_UNKNOWN ? "" :
-		auth_stream_reply_export(reply);
+		auth_stream_reply_export(request->userdb_reply);
 	/* last_success has no meaning with userdb */
 	auth_cache_insert(passdb_cache, request, userdb->cache_key, str, FALSE);
 }
@@ -624,7 +623,6 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 }
 
 void auth_request_userdb_callback(enum userdb_result result,
-				  struct auth_stream_reply *reply,
 				  struct auth_request *request)
 {
 	struct userdb_module *userdb = request->userdb->userdb;
@@ -653,20 +651,23 @@ void auth_request_userdb_callback(enum userdb_result result,
 	}
 
 	if (result != USERDB_RESULT_INTERNAL_FAILURE)
-		auth_request_userdb_save_cache(request, reply, result);
+		auth_request_userdb_save_cache(request, result);
 	else if (passdb_cache != NULL && userdb->cache_key != NULL) {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
 		   expired record. */
 		const char *cache_key = userdb->cache_key;
+		struct auth_stream_reply *reply;
 
 		if (auth_request_lookup_user_cache(request, cache_key, &reply,
-						   &result, TRUE))
+						   &result, TRUE)) {
+			request->userdb_reply = reply;
 			auth_request_log_info(request, "userdb",
 				"Fallbacking to expired data from cache");
+		}
 	}
 
-        request->private_callback.userdb(result, reply, request);
+        request->private_callback.userdb(result, request);
 }
 
 void auth_request_lookup_user(struct auth_request *request,
@@ -686,8 +687,8 @@ void auth_request_lookup_user(struct auth_request *request,
 
 		if (auth_request_lookup_user_cache(request, cache_key, &reply,
 						   &result, FALSE)) {
-			request->private_callback.userdb(result, reply,
-							 request);
+			request->userdb_reply = reply;
+			request->private_callback.userdb(result, request);
 			return;
 		}
 	}
@@ -765,7 +766,8 @@ bool auth_request_set_username(struct auth_request *request,
 		return TRUE;
 	}
 
-	if (request->auth->master_user_separator != '\0') {
+	if (request->auth->master_user_separator != '\0' &&
+	    !request->userdb_lookup) {
 		/* check if the username contains a master user */
 		p = strchr(username, request->auth->master_user_separator);
 		if (p != NULL) {
@@ -977,6 +979,11 @@ void auth_request_set_field(struct auth_request *request,
 		request->passdb_password = NULL;
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, value);
+	} else if (strncmp(name, "userdb_", 7) == 0) {
+		/* for prefetch userdb */
+		if (request->userdb_reply == NULL)
+			auth_request_init_userdb_reply(request);
+		auth_request_set_userdb_field(request, name + 7, value);
 	} else {
 		if (strcmp(name, "nologin") == 0) {
 			/* user can't actually login - don't keep this
@@ -1030,6 +1037,95 @@ void auth_request_set_fields(struct auth_request *request,
 		auth_request_set_field(request, key, value, default_scheme);
 	}
 	t_pop();
+}
+
+void auth_request_init_userdb_reply(struct auth_request *request)
+{
+	request->userdb_reply = auth_stream_reply_init(request);
+	auth_stream_reply_add(request->userdb_reply, NULL, request->user);
+}
+
+void auth_request_set_userdb_field(struct auth_request *request,
+				   const char *name, const char *value)
+{
+	const char *str;
+	uid_t uid;
+	gid_t gid;
+
+	if (strcmp(name, "uid") == 0) {
+		uid = userdb_parse_uid(request, value);
+		if (uid == (uid_t)-1) {
+			request->userdb_lookup_failed = TRUE;
+			return;
+		}
+		value = dec2str(uid);
+	} else if (strcmp(name, "gid") == 0) {
+		gid = userdb_parse_gid(request, value);
+		if (gid == (gid_t)-1) {
+			request->userdb_lookup_failed = TRUE;
+			return;
+		}
+		value = dec2str(gid);
+	} else if (strcmp(name, "user") == 0) {
+		/* replace the username if it changed */
+		if (strcmp(value, request->user) == 0)
+			return;
+
+		t_push();
+		str = t_strdup(auth_stream_reply_export(request->userdb_reply));
+
+		/* reset the reply and add the new username */
+		auth_request_set_field(request, "user", value, NULL);
+		auth_stream_reply_reset(request->userdb_reply);
+		auth_stream_reply_add(request->userdb_reply,
+				      NULL, request->user);
+
+		/* add the rest */
+		str = strchr(str, '\t');
+		i_assert(str != NULL);
+		auth_stream_reply_import(request->userdb_reply, str + 1);
+		t_pop();
+	}
+
+	auth_stream_reply_add(request->userdb_reply, name, value);
+}
+
+void auth_request_set_userdb_field_values(struct auth_request *request,
+					  const char *name,
+					  const char *const *values)
+{
+	if (*values == NULL)
+		return;
+
+	if (strcmp(name, "uid") == 0) {
+		/* there can be only one. use the first one. */
+		auth_request_set_userdb_field(request, name, *values);
+	} else if (strcmp(name, "gid") == 0) {
+		/* convert gids to comma separated list */
+		string_t *value;
+		gid_t gid;
+
+		t_push();
+		value = t_str_new(128);
+		for (; *values != NULL; values++) {
+			gid = userdb_parse_gid(request, *values);
+			if (gid == (gid_t)-1) {
+				request->userdb_lookup_failed = TRUE;
+				t_pop();
+				return;
+			}
+
+			if (str_len(value) > 0)
+				str_append_c(value, ',');
+			str_append(value, dec2str(gid));
+		}
+		auth_stream_reply_add(request->userdb_reply, name,
+				      str_c(value));
+		t_pop();
+	} else {
+		/* add only one */
+		auth_request_set_userdb_field(request, name, *values);
+	}
 }
 
 int auth_request_password_verify(struct auth_request *request,

@@ -31,7 +31,6 @@ static void static_lookup_real(struct auth_request *auth_request,
 	struct static_userdb_module *module =
 		(struct static_userdb_module *)_module;
         const struct var_expand_table *table;
-	struct auth_stream_reply *reply;
 	string_t *str;
 	const char *const *args, *value;
 	unsigned int i, count;
@@ -40,8 +39,7 @@ static void static_lookup_real(struct auth_request *auth_request,
 	str = t_str_new(256);
 	table = auth_request_get_var_expand_table(auth_request, NULL);
 
-	reply = auth_stream_reply_init(auth_request);
-	auth_stream_reply_add(reply, NULL, auth_request->user);
+	auth_request_init_userdb_reply(auth_request);
 
 	args = array_get(&module->template, &count);
 	i_assert((count % 2) == 0);
@@ -53,10 +51,10 @@ static void static_lookup_real(struct auth_request *auth_request,
 			var_expand(str, args[i+1], table);
 			value = str_c(str);
 		}
-		auth_stream_reply_add(reply, args[i], value);
+		auth_request_set_userdb_field(auth_request, args[i], value);
 	}
 
-	callback(USERDB_RESULT_OK, reply, auth_request);
+	callback(USERDB_RESULT_OK, auth_request);
 	t_pop();
 }
 
@@ -79,7 +77,7 @@ static_credentials_callback(enum passdb_result result,
 	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
-		ctx->callback(USERDB_RESULT_USER_UNKNOWN, NULL, auth_request);
+		ctx->callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		break;
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 		auth_request_log_error(auth_request, "static",
@@ -87,8 +85,7 @@ static_credentials_callback(enum passdb_result result,
 			"can't verify user's existence");
 		/* fall through */
 	default:
-		ctx->callback(USERDB_RESULT_INTERNAL_FAILURE,
-			      NULL, auth_request);
+		ctx->callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		break;
 	}
 

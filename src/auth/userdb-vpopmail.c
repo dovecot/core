@@ -75,14 +75,13 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 		(struct vpopmail_userdb_module *)_module;
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
-	struct auth_stream_reply *reply;
 	const char *quota;
 	uid_t uid;
 	gid_t gid;
 
 	vpw = vpopmail_lookup_vqp(auth_request, vpop_user, vpop_domain);
 	if (vpw == NULL) {
-		callback(USERDB_RESULT_USER_UNKNOWN, NULL, auth_request);
+		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}
 
@@ -91,7 +90,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 	if (vget_assign(vpop_domain, NULL, 0, &uid, &gid) == NULL) {
 		auth_request_log_info(auth_request, "vpopmail",
 				      "vget_assign(%s) failed", vpop_domain);
-		callback(USERDB_RESULT_INTERNAL_FAILURE, NULL, auth_request);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 		return;
 	}
 
@@ -110,32 +109,32 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 			auth_request_log_error(auth_request, "vpopmail",
 					       "make_user_dir(%s, %s) failed",
 					       vpop_user, vpop_domain);
-			callback(USERDB_RESULT_INTERNAL_FAILURE,
-				 NULL, auth_request);
+			callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 			return;
 		}
 
 		/* get the user again so pw_dir is visible */
 		vpw = vauth_getpw(vpop_user, vpop_domain);
 		if (vpw == NULL) {
-			callback(USERDB_RESULT_INTERNAL_FAILURE,
-				 NULL, auth_request);
+			callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 			return;
 		}
 	}
 
-	reply = auth_stream_reply_init(auth_request);
-	auth_stream_reply_add(reply, NULL, auth_request->user);
-	auth_stream_reply_add(reply, "uid", dec2str(uid));
-	auth_stream_reply_add(reply, "gid", dec2str(gid));
-	auth_stream_reply_add(reply, "home", vpw->pw_dir);
+	auth_request_init_userdb_reply(auth_request);
+	auth_request_set_userdb_field(auth_request, NULL, auth_request->user);
+	auth_request_set_userdb_field(auth_request, "uid", dec2str(uid));
+	auth_request_set_userdb_field(auth_request, "gid", dec2str(gid));
+	auth_request_set_userdb_field(auth_request, "home", vpw->pw_dir);
 
 	quota = userdb_vpopmail_get_quota(module->quota_template_value,
 					  vpw->pw_shell);
-	if (*quota != '\0')
-		auth_stream_reply_add(reply, module->quota_template_key, quota);
-
-	callback(USERDB_RESULT_OK, reply, auth_request);
+	if (*quota != '\0') {
+		auth_request_set_userdb_field(auth_request,
+					      module->quota_template_key,
+					      quota);
+	}
+	callback(USERDB_RESULT_OK, auth_request);
 }
 
 static struct userdb_module *

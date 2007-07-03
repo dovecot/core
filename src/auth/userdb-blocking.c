@@ -10,7 +10,6 @@
 
 static void user_callback(struct auth_request *request, const char *reply)
 {
-	struct auth_stream_reply *stream_reply = NULL;
 	enum userdb_result result;
 
 	if (strncmp(reply, "FAIL\t", 5) == 0)
@@ -19,14 +18,14 @@ static void user_callback(struct auth_request *request, const char *reply)
 		result = USERDB_RESULT_USER_UNKNOWN;
 	else if (strncmp(reply, "OK\t", 3) == 0) {
 		result = USERDB_RESULT_OK;
-		stream_reply = auth_stream_reply_init(request);
-		auth_stream_reply_import(stream_reply, reply + 3);
+		request->userdb_reply = auth_stream_reply_init(request);
+		auth_stream_reply_import(request->userdb_reply, reply + 3);
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 		i_error("BUG: auth-worker sent invalid user reply");
 	}
 
-        auth_request_userdb_callback(result, stream_reply, request);
+        auth_request_userdb_callback(result, request);
 }
 
 void userdb_blocking_lookup(struct auth_request *request)

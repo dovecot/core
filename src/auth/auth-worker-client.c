@@ -309,11 +309,14 @@ auth_worker_handle_setcred(struct auth_worker_client *client,
 
 static void
 lookup_user_callback(enum userdb_result result,
-		     struct auth_stream_reply *reply,
 		     struct auth_request *auth_request)
 {
 	struct auth_worker_client *client = auth_request->context;
+	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
+
+	if (auth_request->userdb_lookup_failed)
+		result = USERDB_RESULT_INTERNAL_FAILURE;
 
 	str = t_str_new(128);
 	str_printfa(str, "%u\t", auth_request->id);

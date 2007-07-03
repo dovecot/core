@@ -25,65 +25,31 @@ struct userdb_sql_request {
 	userdb_callback_t *callback;
 };
 
-static struct auth_stream_reply *
+static void
 sql_query_get_result(struct sql_result *result,
 		     struct auth_request *auth_request)
 {
-	struct auth_stream_reply *reply;
-	uid_t uid, gid;
 	const char *name, *value;
 	unsigned int i, fields_count;
 
-	uid = (uid_t)-1;
-	gid = (gid_t)-1;
-
-	reply = auth_stream_reply_init(auth_request);
-	auth_stream_reply_add(reply, NULL, auth_request->user);
+	auth_request_init_userdb_reply(auth_request);
 
 	fields_count = sql_result_get_fields_count(result);
 	for (i = 0; i < fields_count; i++) {
 		name = sql_result_get_field_name(result, i);
 		value = sql_result_get_field_value(result, i);
 
-		if (value == NULL)
-			continue;
-
-		/* some special handling for UID and GID. */
-		if (strcmp(name, "uid") == 0) {
-			uid = userdb_parse_uid(auth_request, value);
-			if (uid == (uid_t)-1)
-				return NULL;
-			value = dec2str(uid);
-		} else if (strcmp(name, "gid") == 0) {
-			gid = userdb_parse_gid(auth_request, value);
-			if (gid == (gid_t)-1)
-				return NULL;
-			value = dec2str(gid);
+		if (*name != '\0' && value != NULL) {
+			auth_request_set_userdb_field(auth_request,
+						      name, value);
 		}
-
-		if (*name != '\0')
-			auth_stream_reply_add(reply, name, value);
 	}
-
-	if (uid == (uid_t)-1) {
-		auth_request_log_error(auth_request, "sql",
-			"User query didn't return uid, or it was NULL");
-		return NULL;
-	}
-	if (gid == (gid_t)-1) {
-		auth_request_log_error(auth_request, "sql",
-			"User query didn't return gid, or it was NULL");
-		return NULL;
-	}
-
-	return reply;
 }
 
 static void sql_query_callback(struct sql_result *sql_result,
 			       struct userdb_sql_request *sql_request)
 {
 	struct auth_request *auth_request = sql_request->auth_request;
-	struct auth_stream_reply *reply = NULL;
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 	int ret;
 
@@ -96,12 +62,11 @@ static void sql_query_callback(struct sql_result *sql_result,
 		result = USERDB_RESULT_USER_UNKNOWN;
 		auth_request_log_info(auth_request, "sql", "Unknown user");
 	} else {
-		reply = sql_query_get_result(sql_result, auth_request);
-		if (reply != NULL)
-			result = USERDB_RESULT_OK;
+		sql_query_get_result(sql_result, auth_request);
+		result = USERDB_RESULT_OK;
 	}
 
-	sql_request->callback(result, reply, auth_request);
+	sql_request->callback(result, auth_request);
 	auth_request_unref(&auth_request);
 	i_free(sql_request);
 }

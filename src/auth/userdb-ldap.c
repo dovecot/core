@@ -30,76 +30,24 @@ static const char *default_attr_map[] = {
 	"", "home", "mail", "system_user", "uid", "gid", NULL
 };
 
-static bool append_uid_list(struct auth_request *auth_request,
-			    struct auth_stream_reply *reply,
-			    const char *name, char **vals)
-{
-	uid_t uid;
-
-	for (; *vals != NULL; vals++) {
-		uid = userdb_parse_uid(auth_request, *vals);
-		if (uid == (uid_t)-1)
-			return FALSE;
-
-		auth_stream_reply_add(reply, name, dec2str(uid));
-	}
-
-	return TRUE;
-}
-
-static bool append_gid_list(struct auth_request *auth_request,
-			    struct auth_stream_reply *reply,
-			    const char *name, char **vals)
-{
-	gid_t gid;
-
-	for (; *vals != NULL; vals++) {
-		gid = userdb_parse_gid(auth_request, *vals);
-		if (gid == (gid_t)-1)
-			return FALSE;
-
-		auth_stream_reply_add(reply, name, dec2str(gid));
-	}
-
-	return TRUE;
-}
-
-static struct auth_stream_reply *
+static void
 ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 		      struct auth_request *auth_request)
 {
-	struct auth_stream_reply *reply;
 	BerElement *ber;
 	const char *name;
 	char *attr, **vals;
-	unsigned int i;
-	bool seen_uid = FALSE, seen_gid = FALSE;
 
-	reply = auth_stream_reply_init(auth_request);
-	auth_stream_reply_add(reply, NULL, auth_request->user);
+	auth_request_init_userdb_reply(auth_request);
 
 	attr = ldap_first_attribute(conn->ld, entry, &ber);
 	while (attr != NULL) {
 		name = hash_lookup(conn->user_attr_map, attr);
 		vals = ldap_get_values(conn->ld, entry, attr);
 
-		if (name != NULL && vals != NULL && vals[0] != NULL) {
-			if (strcmp(name, "uid") == 0) {
-				if (!append_uid_list(auth_request, reply,
-						     name, vals))
-					return NULL;
-				seen_uid = TRUE;
-			} else if (strcmp(name, "gid") == 0) {
-				if (!append_gid_list(auth_request, reply,
-						     name, vals)) 
-					return NULL;
-				seen_gid = TRUE;
-			} else if (*name != '\0') {
-				for (i = 0; vals[i] != NULL; i++) {
-					auth_stream_reply_add(reply, name,
-							      vals[i]);
-				}
-			}
+		if (name != NULL && *name != '\0' && vals != NULL) {
+			auth_request_set_userdb_field_values(auth_request,
+					name, (const char *const *)vals);
 		}
 		ldap_value_free(vals);
 		ldap_memfree(attr);
@@ -107,29 +55,6 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 		attr = ldap_next_attribute(conn->ld, entry, ber);
 	}
 	ber_free(ber, 0);
-
-	if (!seen_uid) {
-		if (conn->set.uid == (uid_t)-1) {
-			auth_request_log_error(auth_request, "ldap",
-				"uid not in user_attrs and no default given in "
-				"user_global_uid");
-			return NULL;
-		}
-
-		auth_stream_reply_add(reply, "uid", dec2str(conn->set.uid));
-	}
-	if (!seen_gid) {
-		if (conn->set.gid == (gid_t)-1) {
-			auth_request_log_error(auth_request, "ldap",
-				"gid not in user_attrs and no default given in "
-				"user_global_gid");
-			return NULL;
-		}
-
-		auth_stream_reply_add(reply, "gid", dec2str(conn->set.gid));
-	}
-
-	return reply;
 }
 
 static void handle_request(struct ldap_connection *conn,
@@ -139,7 +64,6 @@ static void handle_request(struct ldap_connection *conn,
 		(struct userdb_ldap_request *) request;
 	struct auth_request *auth_request = urequest->auth_request;
 	LDAPMessage *entry;
-	struct auth_stream_reply *reply = NULL;
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
 	int ret;
 
@@ -148,7 +72,7 @@ static void handle_request(struct ldap_connection *conn,
 		if (ret != LDAP_SUCCESS) {
 			auth_request_log_error(auth_request, "ldap",
 					       "ldap_search() failed: %s", ldap_err2string(ret));
-			urequest->userdb_callback(result, NULL, auth_request);
+			urequest->userdb_callback(result, auth_request);
 			return;
 		}
 	}
@@ -161,17 +85,16 @@ static void handle_request(struct ldap_connection *conn,
 					       "Unknown user");
 		}
 	} else {
-		reply = ldap_query_get_result(conn, entry, auth_request);
+		ldap_query_get_result(conn, entry, auth_request);
 		if (ldap_next_entry(conn->ld, entry) == NULL)
 			result = USERDB_RESULT_OK;
 		else {
 			auth_request_log_error(auth_request, "ldap",
 				"Multiple replies found for user");
-			reply = NULL;
 		}
 	}
 
-	urequest->userdb_callback(result, reply, auth_request);
+	urequest->userdb_callback(result, auth_request);
 	auth_request_unref(&auth_request);
 }
 

@@ -78,11 +78,14 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 
 static void
 user_callback(enum userdb_result result,
-	      struct auth_stream_reply *reply,
 	      struct auth_request *auth_request)
 {
 	struct auth_master_connection *conn = auth_request->context;
+	struct auth_stream_reply *reply = auth_request->userdb_reply;
 	string_t *str;
+
+	if (auth_request->userdb_lookup_failed)
+		result = USERDB_RESULT_INTERNAL_FAILURE;
 
 	str = t_str_new(128);
 	switch (result) {

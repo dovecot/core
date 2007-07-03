@@ -45,6 +45,8 @@ struct auth_request {
 	/* extra_fields that aren't supposed to be sent to the client, but
 	   are supposed to be stored to auth cache. */
 	struct auth_stream_reply *extra_cache_fields;
+	/* the whole userdb result reply */
+	struct auth_stream_reply *userdb_reply;
 
 	const struct mech_module *mech;
 	struct auth *auth;
@@ -85,6 +87,7 @@ struct auth_request {
 	unsigned int proxy:1;
 	unsigned int cert_username:1;
 	unsigned int userdb_lookup:1;
+	unsigned int userdb_lookup_failed:1;
 	unsigned int secured:1;
 
 	/* ... mechanism specific data ... */
@@ -133,6 +136,13 @@ void auth_request_set_fields(struct auth_request *request,
 			     const char *const *fields,
 			     const char *default_scheme);
 
+void auth_request_init_userdb_reply(struct auth_request *request);
+void auth_request_set_userdb_field(struct auth_request *request,
+				   const char *name, const char *value);
+void auth_request_set_userdb_field_values(struct auth_request *request,
+					  const char *name,
+					  const char *const *values);
+
 int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,
@@ -164,7 +174,6 @@ void auth_request_set_credentials(struct auth_request *request,
 				  const char *scheme, const char *data,
 				  set_credentials_callback_t *callback);
 void auth_request_userdb_callback(enum userdb_result result,
-				  struct auth_stream_reply *reply,
 				  struct auth_request *request);
 
 #endif

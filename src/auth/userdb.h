@@ -13,7 +13,6 @@ enum userdb_result {
 };
 
 typedef void userdb_callback_t(enum userdb_result result,
-			       struct auth_stream_reply *reply,
 			       struct auth_request *request);
 
 struct userdb_module {

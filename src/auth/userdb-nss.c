@@ -33,7 +33,6 @@ userdb_nss_lookup(struct auth_request *auth_request,
 {
 	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct nss_userdb_module *module = (struct nss_userdb_module *)_module;
-	struct auth_stream_reply *reply;
 	struct passwd pw;
 	enum nss_status status;
 	enum userdb_result result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -66,18 +65,19 @@ userdb_nss_lookup(struct auth_request *auth_request,
 	}
 
 	if (result != USERDB_RESULT_OK) {
-		callback(result, NULL, auth_request);
+		callback(result, auth_request);
 		return;
 	}
 
-	reply = auth_stream_reply_init(auth_request);
-	auth_stream_reply_add(reply, NULL, pw.pw_name);
-	auth_stream_reply_add(reply, "system_user", pw.pw_name);
-	auth_stream_reply_add(reply, "uid", dec2str(pw.pw_uid));
-	auth_stream_reply_add(reply, "gid", dec2str(pw.pw_gid));
-	auth_stream_reply_add(reply, "home", pw.pw_dir);
+	auth_request_set_field(auth_request, "user", pw.pw_name, NULL);
 
-	callback(USERDB_RESULT_OK, reply, auth_request);
+	auth_request_init_userdb_reply(auth_request);
+	auth_request_set_userdb_field(auth_request, "system_user", pw.pw_name);
+	auth_request_set_userdb_field(auth_request, "uid", dec2str(pw.pw_uid));
+	auth_request_set_userdb_field(auth_request, "gid", dec2str(pw.pw_gid));
+	auth_request_set_userdb_field(auth_request, "home", pw.pw_dir);
+
+	callback(USERDB_RESULT_OK, auth_request);
 }
 
 static void
