@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "ioloop.h"
 #include "hash.h"
 #include "network.h"
@@ -10,6 +11,7 @@
 #include "env-util.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
+#include "dup2-array.h"
 #include "login-process.h"
 #include "auth-process.h"
 #include "mail-process.h"
@@ -582,10 +584,13 @@ static void login_process_init_env(struct login_group *group, pid_t pid)
 static pid_t create_login_process(struct login_group *group)
 {
 	struct log_io *log;
+	const struct listener *listens;
 	unsigned int max_log_lines_per_sec;
 	const char *prefix;
 	pid_t pid;
-	int fd[2], log_fd;
+	ARRAY_TYPE(dup2) dups;
+	unsigned int i, listen_count = 0, ssl_listen_count = 0;
+	int fd[2], log_fd, cur_fd;
 
 	if (group->set->login_uid == 0)
 		i_fatal("Login process must not run as root");
@@ -632,35 +637,43 @@ static pid_t create_login_process(struct login_group *group)
 				 process_names[group->mail_process_type]);
 	log_set_prefix(log, prefix);
 
-	/* move the listen handle */
-	if (dup2(group->set->listen_fd, LOGIN_LISTEN_FD) < 0)
-		i_fatal("dup2(listen_fd) failed: %m");
-	fd_close_on_exec(LOGIN_LISTEN_FD, FALSE);
-
-	/* move the SSL listen handle */
-	if (dup2(group->set->ssl_listen_fd, LOGIN_SSL_LISTEN_FD) < 0)
-		i_fatal("dup2(ssl_listen_fd) failed: %m");
-	fd_close_on_exec(LOGIN_SSL_LISTEN_FD, FALSE);
-
-	/* move communication handle */
-	if (dup2(fd[1], LOGIN_MASTER_SOCKET_FD) < 0)
-		i_fatal("dup2(master) failed: %m");
-	fd_close_on_exec(LOGIN_MASTER_SOCKET_FD, FALSE);
-
-	if (dup2(log_fd, STDERR_FILENO) < 0)
-		i_fatal("dup2(stderr) failed: %m");
-	fd_close_on_exec(STDERR_FILENO, FALSE);
-
+	t_array_init(&dups, 16);
+	dup2_append(&dups, null_fd, STDIN_FILENO);
 	/* redirect writes to stdout also to error log. For example OpenSSL
 	   can be made to log its debug messages to stdout. */
-	if (dup2(log_fd, STDOUT_FILENO) < 0)
-		i_fatal("dup2(stdout) failed: %m");
-	fd_close_on_exec(STDOUT_FILENO, FALSE);
+	dup2_append(&dups, log_fd, STDOUT_FILENO);
+	dup2_append(&dups, log_fd, STDERR_FILENO);
+	dup2_append(&dups, fd[1], LOGIN_MASTER_SOCKET_FD);
+
+	/* redirect listener fds */
+	cur_fd = LOGIN_MASTER_SOCKET_FD + 1;
+	if (array_is_created(&group->set->listens)) {
+		listens = array_get(&group->set->listens, &listen_count);
+		for (i = 0; i < listen_count; i++, cur_fd++)
+			dup2_append(&dups, listens[i].fd, cur_fd);
+	}
+
+	if (array_is_created(&group->set->ssl_listens)) {
+		listens = array_get(&group->set->ssl_listens,
+				    &ssl_listen_count);
+		for (i = 0; i < ssl_listen_count; i++, cur_fd++)
+			dup2_append(&dups, listens[i].fd, cur_fd);
+	}
+
+	if (dup2_array(&dups) < 0)
+		i_fatal("Failed to dup2() fds");
+
+	/* don't close any of these */
+	while (cur_fd >= 0)
+		fd_close_on_exec(cur_fd--, FALSE);
 
 	(void)close(fd[0]);
 	(void)close(fd[1]);
 
 	login_process_init_env(group, getpid());
+
+	env_put(t_strdup_printf("LISTEN_FDS=%u", listen_count));
+	env_put(t_strdup_printf("SSL_LISTEN_FDS=%u", ssl_listen_count));
 
 	if (!group->set->login_chroot) {
 		/* no chrooting, but still change to the directory */

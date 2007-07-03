@@ -24,6 +24,8 @@ dovecot_SOURCES = \
 	capabilities-posix.c \
 	child-process.c \
 	dict-process.c \
+	dup2-array.c \
+	listener.c \
 	log.c \
 	login-process.c \
 	mail-process.c \
@@ -38,6 +40,8 @@ noinst_HEADERS = \
 	capabilities.h \
 	child-process.h \
 	dict-process.h \
+	dup2-array.h \
+	listener.h \
 	common.h \
 	log.h \
 	login-process.h \

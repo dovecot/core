@@ -1,6 +1,7 @@
 /* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "ioloop.h"
 #include "lib-signals.h"
 #include "network.h"
@@ -37,9 +38,6 @@ const char *env_tz;
 bool gdb;
 #endif
 
-static void listen_fds_open(bool retry);
-static void listen_fds_close(struct server_settings *server);
-
 static void set_logfile(struct settings *set)
 {
 	int facility;
@@ -74,10 +72,8 @@ static void settings_reload(void)
 	if (!master_settings_read(configfile, FALSE, FALSE))
 		i_warning("Invalid configuration, keeping old one");
 	else {
-		if (!IS_INETD()) {
-			listen_fds_close(old_set);
-			listen_fds_open(TRUE);
-		}
+		if (!IS_INETD())
+			listeners_open_fds(old_set, TRUE);
                 set_logfile(settings_root->defaults);
 	}
 }
@@ -101,248 +97,6 @@ static void sig_reopen_logs(int signo __attr_unused__,
 			    void *context __attr_unused__)
 {
 	set_logfile(settings_root->defaults);
-}
-
-static void resolve_ip(const char *set_name, const char *name,
-		       struct ip_addr *ip, unsigned int *port)
-{
-	struct ip_addr *ip_list;
-	const char *p;
-	unsigned int ips_count;
-	int ret;
-
-	if (*name == '\0') {
-                /* defaults to "*" or "[::]" */
-		ip->family = 0;
-		return;
-	}
-
-	if (name[0] == '[') {
-		/* IPv6 address */
-		p = strchr(name, ']');
-		if (p == NULL) {
-			i_fatal("%s: Missing ']' in address %s",
-				set_name, name);
-		}
-		name = t_strdup_until(name+1, p);
-
-		p++;
-		if (*p == '\0')
-			p = NULL;
-		else if (*p != ':') {
-			i_fatal("%s: Invalid data after ']' in address %s",
-				set_name, name);
-		}
-	} else {
-		p = strrchr(name, ':');
-		if (p != NULL)
-			name = t_strdup_until(name, p);
-	}
-
-	if (p != NULL) {
-		if (!is_numeric(p+1, '\0')) {
-			i_fatal("%s: Invalid port in address %s",
-				set_name, name);
-		}
-		*port = atoi(p+1);
-	}
-
-	if (strcmp(name, "*") == 0) {
-		/* IPv4 any */
-		net_get_ip_any4(ip);
-		return;
-	}
-
-	if (strcmp(name, "::") == 0) {
-		/* IPv6 any */
-		net_get_ip_any6(ip);
-		return;
-	}
-
-	/* Return the first IP if there happens to be multiple. */
-	ret = net_gethostbyname(name, &ip_list, &ips_count);
-	if (ret != 0) {
-		i_fatal("%s: Can't resolve address %s: %s",
-			set_name, name, net_gethosterror(ret));
-	}
-
-	if (ips_count < 1)
-		i_fatal("%s: No IPs for address: %s", set_name, name);
-
-	*ip = ip_list[0];
-}
-
-static void
-check_conflicts_set(const struct settings *set, const struct ip_addr *ip,
-		    unsigned int port, const char *name1, const char *name2)
-{
-	if (set->listen_port == port && net_ip_compare(ip, &set->listen_ip) &&
-	    set->listen_fd > 0) {
-		i_fatal("Protocols %s and %s are listening in same ip/port",
-			name1, name2);
-	}
-	if (set->ssl_listen_port == port &&
-	    net_ip_compare(ip, &set->ssl_listen_ip) && set->ssl_listen_fd > 0) {
-		i_fatal("Protocols %ss and %s are listening in same ip/port",
-			name1, name2);
-	}
-}
-
-static void check_conflicts(const struct ip_addr *ip, unsigned int port,
-			    const char *proto)
-{
-	struct server_settings *server;
-
-	for (server = settings_root; server != NULL; server = server->next) {
-		if (server->imap != NULL) {
-			check_conflicts_set(server->imap, ip, port,
-					    "imap", proto);
-		}
-		if (server->pop3 != NULL) {
-			check_conflicts_set(server->pop3, ip, port,
-					    "pop3", proto);
-		}
-	}
-}
-
-static void listen_protocols(struct settings *set, bool retry)
-{
-	struct ip_addr *ip;
-	const char *const *proto;
-	unsigned int port;
-	int *fd, i;
-
-	set->listen_port = set->protocol == MAIL_PROTOCOL_IMAP ? 143 : 110;
-#ifdef HAVE_SSL
-	set->ssl_listen_port = set->protocol == MAIL_PROTOCOL_IMAP ? 993 : 995;
-#else
-	set->ssl_listen_port = 0;
-#endif
-
-	/* resolve */
-	resolve_ip("listen", set->listen, &set->listen_ip, &set->listen_port);
-	if (!set->ssl_disable) {
-		resolve_ip("ssl_listen", set->ssl_listen, &set->ssl_listen_ip,
-			   &set->ssl_listen_port);
-	}
-
-	/* if ssl_listen wasn't explicitly set in the config file,
-	   use the non-ssl IP settings for the ssl listener, too. */
-	if (set->ssl_listen_ip.family == 0 && *set->ssl_listen == '\0')
-		set->ssl_listen_ip = set->listen_ip;
-
-	/* register wanted protocols */
-        proto = t_strsplit_spaces(set->protocols, " ");
-	for (; *proto != NULL; proto++) {
-		fd = NULL; ip = NULL; port = 0;
-		if (strcasecmp(*proto, "imap") == 0) {
-			if (set->protocol == MAIL_PROTOCOL_IMAP) {
-				fd = &set->listen_fd;
-				port = set->listen_port;
-				ip = &set->listen_ip;
-			}
-		} else if (strcasecmp(*proto, "imaps") == 0) {
-			if (set->protocol == MAIL_PROTOCOL_IMAP &&
-			    !set->ssl_disable) {
-				fd = &set->ssl_listen_fd;
-				port = set->ssl_listen_port;
-				ip = &set->ssl_listen_ip;
-			}
-		} else if (strcasecmp(*proto, "pop3") == 0) {
-			if (set->protocol == MAIL_PROTOCOL_POP3) {
-				fd = &set->listen_fd;
-				port = set->listen_port;
-				ip = &set->listen_ip;
-			}
-		} else if (strcasecmp(*proto, "pop3s") == 0) {
-			if (set->protocol == MAIL_PROTOCOL_POP3 &&
-			    !set->ssl_disable) {
-				fd = &set->ssl_listen_fd;
-				port = set->ssl_listen_port;
-				ip = &set->ssl_listen_ip;
-			}
-		} else {
-			i_fatal("Unknown protocol %s", *proto);
-		}
-
-		if (fd == NULL)
-			continue;
-
-		if (*fd != -1)
-			i_fatal("Protocol %s given more than once", *proto);
-
-		if (port == 0)
-			*fd = null_fd;
-		else {
-			for (i = 0; i < 10; i++) {
-				*fd = net_listen(ip, &port, 8);
-				if (*fd != -1)
-					break;
-				if (errno == EADDRINUSE) {
-					/* retry */
-				} else if (errno == EINTR &&
-					   io_loop_is_running(ioloop)) {
-					/* SIGHUPing sometimes gets us here.
-					   we don't want to die. */
-				} else {
-					/* error */
-					break;
-				}
-
-				check_conflicts(ip, port, *proto);
-				if (!retry)
-					break;
-
-				/* wait a while and try again. we're SIGHUPing
-				   so we most likely just closed it ourself.. */
-				sleep(1);
-			}
-
-			if (*fd == -1)
-				i_fatal("listen(%d) failed: %m", port);
-			net_set_nonblock(*fd, TRUE);
-			fd_close_on_exec(*fd, TRUE);
-		}
-	}
-
-	if (set->listen_fd == -1)
-		set->listen_fd = null_fd;
-	if (set->ssl_listen_fd == -1)
-		set->ssl_listen_fd = null_fd;
-}
-
-static void listen_fds_open(bool retry)
-{
-	struct server_settings *server;
-
-	for (server = settings_root; server != NULL; server = server->next) {
-		if (server->imap != NULL)
-			listen_protocols(server->imap, retry);
-		if (server->pop3 != NULL)
-			listen_protocols(server->pop3, retry);
-	}
-}
-
-static void listen_fds_close(struct server_settings *server)
-{
-	for (; server != NULL; server = server->next) {
-		if (server->imap != NULL) {
-			if (server->imap->listen_fd != null_fd &&
-			    close(server->imap->listen_fd) < 0)
-				i_error("close(imap.listen_fd) failed: %m");
-			if (server->imap->ssl_listen_fd != null_fd &&
-			    close(server->imap->ssl_listen_fd) < 0)
-				i_error("close(imap.ssl_listen_fd) failed: %m");
-		}
-		if (server->pop3 != NULL) {
-			if (server->pop3->listen_fd != null_fd &&
-			    close(server->pop3->listen_fd) < 0)
-				i_error("close(pop3.listen_fd) failed: %m");
-			if (server->pop3->ssl_listen_fd != null_fd &&
-			    close(server->pop3->ssl_listen_fd) < 0)
-				i_error("close(pop3.ssl_listen_fd) failed: %m");
-		}
-	}
 }
 
 static bool have_stderr_set(struct settings *set)
@@ -391,7 +145,7 @@ static void open_fds(void)
 	}
 
 	if (!IS_INETD())
-		listen_fds_open(FALSE);
+		listeners_open_fds(FALSE);
 
 	/* close stdin and stdout. */
 	if (dup2(null_fd, 0) < 0)
@@ -470,6 +224,8 @@ static void main_deinit(void)
 	auth_processes_deinit();
 	dict_process_deinit();
 	ssl_deinit();
+
+	listeners_close_fds();
 
 	if (close(null_fd) < 0)
 		i_error("close(null_fd) failed: %m");

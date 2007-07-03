@@ -10,6 +10,14 @@ enum mail_protocol {
 	MAIL_PROTOCOL_LDA
 };
 
+struct listener {
+	struct ip_addr ip;
+	unsigned int port;
+	int fd;
+	bool wanted;
+};
+ARRAY_DEFINE_TYPE(listener, struct listener);
+
 struct settings {
 	struct server_settings *server;
 	enum mail_protocol protocol;
@@ -124,13 +132,11 @@ struct settings {
 	const char *pop3_logout_format;
 
 	/* .. */
-	int listen_fd, ssl_listen_fd;
+	ARRAY_TYPE(listener) listens;
+	ARRAY_TYPE(listener) ssl_listens;
 
 	uid_t login_uid, mail_uid_t;
 	gid_t mail_gid_t;
-
-	struct ip_addr listen_ip, ssl_listen_ip;
-	unsigned int listen_port, ssl_listen_port;
 
 	const char *imap_generated_capability;
 

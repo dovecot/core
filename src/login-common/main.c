@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "array.h"
 #include "lib-signals.h"
 #include "randgen.h"
 #include "restrict-access.h"
@@ -29,9 +30,11 @@ bool closing_down;
 
 static const char *process_name;
 static struct ioloop *ioloop;
-static struct io *io_listen, *io_ssl_listen;
 static int main_refcount;
 static bool is_inetd, listening;
+
+static ARRAY_DEFINE(listen_ios, struct io *);
+static unsigned int listen_count, ssl_listen_count;
 
 void main_ref(void)
 {
@@ -71,14 +74,15 @@ static void sig_die(int signo, void *context __attr_unused__)
 	io_loop_stop(ioloop);
 }
 
-static void login_accept(void *context __attr_unused__)
+static void login_accept(void *context)
 {
+	int listen_fd = POINTER_CAST_TO(context, int);
 	struct ip_addr remote_ip, local_ip;
 	unsigned int remote_port, local_port;
 	struct client *client;
 	int fd;
 
-	fd = net_accept(LOGIN_LISTEN_FD, &remote_ip, &remote_port);
+	fd = net_accept(listen_fd, &remote_ip, &remote_port);
 	if (fd < 0) {
 		if (fd < -1)
 			i_error("accept() failed: %m");
@@ -100,15 +104,16 @@ static void login_accept(void *context __attr_unused__)
 	}
 }
 
-static void login_accept_ssl(void *context __attr_unused__)
+static void login_accept_ssl(void *context)
 {
+	int listen_fd = POINTER_CAST_TO(context, int);
 	struct ip_addr remote_ip, local_ip;
 	unsigned int remote_port, local_port;
 	struct client *client;
 	struct ssl_proxy *proxy;
 	int fd, fd_ssl;
 
-	fd = net_accept(LOGIN_SSL_LISTEN_FD, &remote_ip, &remote_port);
+	fd = net_accept(listen_fd, &remote_ip, &remote_port);
 	if (fd < 0) {
 		if (fd < -1)
 			i_error("accept() failed: %m");
@@ -138,7 +143,9 @@ static void login_accept_ssl(void *context __attr_unused__)
 
 void main_listen_start(void)
 {
-	unsigned int current_count;
+	struct io *io;
+	unsigned int i, current_count;
+	int cur_fd;
 
 	if (listening)
 		return;
@@ -156,21 +163,17 @@ void main_listen_start(void)
 		return;
 	}
 
-	if (net_getsockname(LOGIN_LISTEN_FD, NULL, NULL) == 0) {
-		io_listen = io_add(LOGIN_LISTEN_FD, IO_READ,
-				   login_accept, NULL);
+	cur_fd = LOGIN_MASTER_SOCKET_FD + 1;
+	i_array_init(&listen_ios, listen_count + ssl_listen_count);
+	for (i = 0; i < listen_count; i++, cur_fd++) {
+		io = io_add(cur_fd, IO_READ, login_accept,
+			    POINTER_CAST(cur_fd));
+		array_append(&listen_ios, &io, 1);
 	}
-
-	if (net_getsockname(LOGIN_SSL_LISTEN_FD, NULL, NULL) == 0) {
-		if (!ssl_initialized) {
-			/* this shouldn't happen, master should have
-			   disabled the ssl socket.. */
-			i_fatal("BUG: SSL initialization parameters not given "
-				"while they should have been");
-		}
-
-		io_ssl_listen = io_add(LOGIN_SSL_LISTEN_FD, IO_READ,
-				       login_accept_ssl, NULL);
+	for (i = 0; i < ssl_listen_count; i++, cur_fd++) {
+		io = io_add(cur_fd, IO_READ, login_accept_ssl,
+			    POINTER_CAST(cur_fd));
+		array_append(&listen_ios, &io, 1);
 	}
 	listening = TRUE;
 
@@ -181,30 +184,34 @@ void main_listen_start(void)
 
 void main_listen_stop(void)
 {
+	struct io **ios;
+	unsigned int i, count;
+	int cur_fd;
+
 	if (!listening)
 		return;
 
-	listening = FALSE;
-	if (io_listen != NULL) {
-		io_remove(&io_listen);
-		if (closing_down) {
-			if (close(LOGIN_LISTEN_FD) < 0)
-				i_fatal("close(listen) failed: %m");
-		}
-	}
+	ios = array_get_modifiable(&listen_ios, &count);
+	for (i = 0; i < count; i++)
+		io_remove(&ios[i]);
+	array_free(&listen_ios);
 
-	if (io_ssl_listen != NULL) {
-		io_remove(&io_ssl_listen);
-		if (closing_down) {
-			if (close(LOGIN_SSL_LISTEN_FD) < 0)
-				i_fatal("close(ssl_listen) failed: %m");
+	if (closing_down) {
+		cur_fd = LOGIN_MASTER_SOCKET_FD + 1;
+		for (i = 0; i < count; i++, cur_fd++) {
+			if (close(cur_fd) < 0) {
+				i_fatal("close(listener %d) failed: %m",
+					cur_fd);
+			}
 		}
 	}
 
 	listening = FALSE;
-	master_notify_state_change(clients_get_count() == 0 ?
-				   LOGIN_STATE_FULL_LOGINS :
-				   LOGIN_STATE_FULL_PRELOGINS);
+	if (io_loop_is_running(ioloop)) {
+		master_notify_state_change(clients_get_count() == 0 ?
+					   LOGIN_STATE_FULL_LOGINS :
+					   LOGIN_STATE_FULL_PRELOGINS);
+	}
 }
 
 void connection_queue_add(unsigned int connection_count)
@@ -332,7 +339,18 @@ static void main_init(void)
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
 	clients_init();
 
-	io_listen = io_ssl_listen = NULL;
+	value = getenv("LISTEN_FDS");
+	listen_count = value == NULL ? 0 : atoi(value);
+
+	value = getenv("SSL_LISTEN_FDS");
+	ssl_listen_count = value == NULL ? 0 : atoi(value);
+
+	if (!ssl_initialized && ssl_listen_count > 0) {
+		/* this shouldn't happen, master should have
+		   disabled the ssl socket.. */
+		i_fatal("BUG: SSL initialization parameters not given "
+			"while they should have been");
+	}
 
 	if (!is_inetd) {
 		master_init(LOGIN_MASTER_SOCKET_FD);
@@ -342,8 +360,8 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	if (io_listen != NULL) io_remove(&io_listen);
-	if (io_ssl_listen != NULL) io_remove(&io_ssl_listen);
+	closing_down = TRUE;
+	main_listen_stop();
 
 	ssl_proxy_deinit();
 	login_proxy_deinit();
@@ -370,8 +388,17 @@ int main(int argc __attr_unused__, char *argv[], char *envp[])
 	is_inetd = getenv("DOVECOT_MASTER") == NULL;
 
 #ifdef DEBUG
-	if (!is_inetd && getenv("GDB") == NULL)
-		fd_debug_verify_leaks(5, 1024);
+	if (!is_inetd && getenv("GDB") == NULL) {
+		const char *env;
+
+		i = LOGIN_MASTER_SOCKET_FD + 1;
+		env = getenv("LISTEN_FDS");
+		if (env != NULL) i += atoi(env);
+		env = getenv("SSL_LISTEN_FDS");
+		if (env != NULL) i += atoi(env);
+
+		fd_debug_verify_leaks(i + 1, 1024);
+	}
 #endif
 	/* clear all allocated memory before freeing it. this makes the login
 	   processes pretty safe to reuse for new connections since the

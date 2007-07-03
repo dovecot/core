@@ -276,8 +276,6 @@ struct settings default_settings = {
 	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
 
 	/* .. */
-	MEMBER(listen_fd) -1,
-	MEMBER(ssl_listen_fd) -1
 };
 
 struct auth_settings default_auth_settings = {
