@@ -116,6 +116,19 @@ static struct passdb_module *
 passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
 	struct passwd_file_passdb_module *module;
+	const char *p, *scheme = PASSWD_FILE_DEFAULT_SCHEME;
+
+	if (strncmp(args, "scheme=", 7) == 0) {
+		scheme = args + 7;
+		p = strchr(scheme, ' ');
+		if (p == NULL)
+			args = "";
+		else {
+			scheme = p_strdup_until(auth_passdb->auth->pool,
+						scheme, p);
+			args = p + 1;
+		}
+	}
 
 	module = p_new(auth_passdb->auth->pool,
 		       struct passwd_file_passdb_module, 1);
@@ -133,7 +146,7 @@ passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 							 NULL));
 	}
 
-	module->module.default_pass_scheme = PASSWD_FILE_DEFAULT_SCHEME;
+	module->module.default_pass_scheme = scheme;
 	return &module->module;
 }
 
