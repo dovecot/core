@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <pwd.h>
+#include <grp.h>
 
 enum settings_type {
 	SETTINGS_TYPE_ROOT,
@@ -214,6 +215,8 @@ struct settings default_settings = {
 	MEMBER(first_valid_gid) 1,
 	MEMBER(last_valid_gid) 0,
 	MEMBER(mail_extra_groups) "",
+	MEMBER(mail_uid) "",
+	MEMBER(mail_gid) "",
 
 	MEMBER(default_mail_env) "",
 	MEMBER(mail_location) "",
@@ -348,6 +351,44 @@ static void fix_base_path(struct settings *set, const char **str)
 		*str = p_strconcat(settings_pool,
 				   set->base_dir, "/", *str, NULL);
 	}
+}
+
+static bool parse_uid(const char *str, uid_t *uid_r)
+{
+	struct passwd *pw;
+	char *p;
+
+	if (*str >= '0' && *str <= '9') {
+		*uid_r = (uid_t)strtoul(str, &p, 10);
+		if (*p == '\0')
+			return TRUE;
+	}
+
+	pw = getpwnam(str);
+	if (pw == NULL)
+		return FALSE;
+
+	*uid_r = pw->pw_uid;
+	return TRUE;
+}
+
+static bool parse_gid(const char *str, gid_t *gid_r)
+{
+	struct group *gr;
+	char *p;
+
+	if (*str >= '0' && *str <= '9') {
+		*gid_r = (gid_t)strtoul(str, &p, 10);
+		if (*p == '\0')
+			return TRUE;
+	}
+
+	gr = getgrnam(str);
+	if (gr == NULL)
+		return FALSE;
+
+	*gid_r = gr->gr_gid;
+	return TRUE;
 }
 
 static bool get_login_uid(struct settings *set)
@@ -640,6 +681,18 @@ static bool settings_verify(struct settings *set)
 
 	if (!get_login_uid(set))
 		return FALSE;
+
+	set->mail_uid_t = (uid_t)-1;
+	set->mail_gid_t = (gid_t)-1;
+
+	if (*set->mail_uid != '\0') {
+		if (!parse_uid(set->mail_uid, &set->mail_uid_t))
+			return FALSE;
+	}
+	if (*set->mail_gid != '\0') {
+		if (!parse_gid(set->mail_gid, &set->mail_gid_t))
+			return FALSE;
+	}
 
 	if (set->protocol == MAIL_PROTOCOL_POP3 &&
 	    *set->pop3_uidl_format == '\0') {

@@ -539,7 +539,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	t_array_init(&extra_args, 16);
 	mail = home_dir = chroot_dir = system_user = "";
-	uid = gid = 0; nice = 0;
+	uid = (uid_t)-1; gid = (gid_t)-1; nice = 0;
 	home_given = FALSE;
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "home=", 5) == 0) {
@@ -554,7 +554,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		else if (strncmp(*args, "system_user=", 12) == 0)
 			system_user = *args + 12;
 		else if (strncmp(*args, "uid=", 4) == 0) {
-			if (uid != 0) {
+			if (uid != (uid_t)-1) {
 				i_error("uid specified multiple times for %s",
 					user);
 				return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
@@ -565,6 +565,22 @@ create_mail_process(enum process_type process_type, struct settings *set,
 		else {
 			const char *arg = *args;
 			array_append(&extra_args, &arg, 1);
+		}
+	}
+
+	/* if uid/gid wasn't returned, use the defaults */
+	if (uid == (uid_t)-1) {
+		uid = set->mail_uid_t;
+		if (uid == (uid_t)-1) {
+			i_error("User %s is missing UID (set mail_uid)", user);
+			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
+		}
+	}
+	if (gid == (gid_t)-1) {
+		gid = set->mail_gid_t;
+		if (gid == (gid_t)-1) {
+			i_error("User %s is missing GID (set mail_gid)", user);
+			return MASTER_LOGIN_STATUS_INTERNAL_ERROR;
 		}
 	}
 

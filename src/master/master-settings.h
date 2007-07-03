@@ -67,6 +67,8 @@ struct settings {
 	unsigned int first_valid_uid, last_valid_uid;
 	unsigned int first_valid_gid, last_valid_gid;
 	const char *mail_extra_groups;
+	const char *mail_uid;
+	const char *mail_gid;
 
 	const char *default_mail_env;
 	const char *mail_location;
@@ -124,7 +126,8 @@ struct settings {
 	/* .. */
 	int listen_fd, ssl_listen_fd;
 
-	uid_t login_uid;
+	uid_t login_uid, mail_uid_t;
+	gid_t mail_gid_t;
 
 	struct ip_addr listen_ip, ssl_listen_ip;
 	unsigned int listen_port, ssl_listen_port;
