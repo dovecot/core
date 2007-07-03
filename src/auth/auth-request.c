@@ -135,6 +135,14 @@ void auth_request_export(struct auth_request *request, string_t *str)
 		str_append(str, "\trip=");
 		str_append(str, net_ip2addr(&request->remote_ip));
 	}
+	if (request->local_port != 0) {
+		str_append(str, "\tlport=");
+		str_printfa(str, "%u", request->local_port);
+	}
+	if (request->remote_port != 0) {
+		str_append(str, "\trport=");
+		str_printfa(str, "%u", request->remote_port);
+	}
 	if (request->secured)
 		str_append(str, "\tsecured=1");
 }
@@ -159,6 +167,10 @@ bool auth_request_import(struct auth_request *request,
 		net_addr2ip(value, &request->local_ip);
 	else if (strcmp(key, "rip") == 0)
 		net_addr2ip(value, &request->remote_ip);
+	else if (strcmp(key, "lport") == 0)
+		request->local_port = atoi(value);
+	else if (strcmp(key, "rport") == 0)
+		request->remote_port = atoi(value);
 	else if (strcmp(key, "secured") == 0)
 		request->secured = TRUE;
 	else
@@ -1254,6 +1266,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 		{ '!', NULL },
 		{ 'm', NULL },
 		{ 'c', NULL },
+		{ 'a', NULL },
+		{ 'b', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -1291,6 +1305,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 	tab[10].value = auth_request->mech == NULL ? "" :
 		auth_request->mech->mech_name;
 	tab[11].value = auth_request->secured ? "secured" : "";
+	tab[12].value = dec2str(auth_request->local_port);
+	tab[13].value = dec2str(auth_request->remote_port);
 	return tab;
 }
 

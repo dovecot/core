@@ -60,6 +60,7 @@ struct auth_request {
 
 	const char *service;
 	struct ip_addr local_ip, remote_ip;
+	unsigned int local_port, remote_port;
 
 	union {
 		verify_plain_callback_t *verify_plain;

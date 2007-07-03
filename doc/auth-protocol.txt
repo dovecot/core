@@ -100,6 +100,8 @@ AUTH parameters are:
 
  - lip=<local ip>    : Local IP  - in standard string format,
  - rip=<remote ip>   : Remote IP - ie. for IPv4 127.0.0.1 and for IPv6 ::1
+ - lport=<port>      : Local port number
+ - rport=<port>      : Remote port number
  - secured           : Remote user has secured transport to auth client
                        (eg. localhost, SSL, TLS)
  - valid-client-cert : Remote user has presented a valid SSL certificate.

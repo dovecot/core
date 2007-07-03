@@ -163,6 +163,8 @@ void sasl_server_auth_begin(struct client *client,
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;
+	info.local_port = client->local_port;
+	info.remote_port = client->remote_port;
 	info.initial_resp_base64 = initial_resp_base64;
 
 	client->auth_request =

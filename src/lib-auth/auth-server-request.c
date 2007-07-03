@@ -18,6 +18,7 @@ struct auth_request {
 	char *mech, *service, *cert_username;
         enum auth_request_flags flags;
 	struct ip_addr local_ip, remote_ip;
+	unsigned int local_port, remote_port;
 
 	char *initial_resp_base64;
 
@@ -112,6 +113,10 @@ static int auth_server_send_new_request(struct auth_server_connection *conn,
 		str_printfa(str, "\tlip=%s", net_ip2addr(&request->local_ip));
 	if (request->remote_ip.family != 0)
 		str_printfa(str, "\trip=%s", net_ip2addr(&request->remote_ip));
+	if (request->local_port != 0)
+		str_printfa(str, "\tlport=%u", request->local_port);
+	if (request->remote_port != 0)
+		str_printfa(str, "\trport=%u", request->remote_port);
 	if (request->initial_resp_base64 != NULL) {
 		/*if (!is_valid_string(request->initial_resp_base64)) {
 			t_pop();
