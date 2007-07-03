@@ -181,6 +181,16 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		default:
 			break;
 		}
+	} else if (mailbox_tree_lookup(ctx->tree_ctx, "INBOX") == NULL &&
+		   imap_match(glob, "INBOX")) {
+		/* see if INBOX exists. */
+		ret = ctx->ctx.list->v.
+			iter_is_mailbox(&ctx->ctx, ctx->dir, "",
+					MAILBOX_LIST_FILE_TYPE_UNKNOWN, &flags);
+		if (ret > 0) {
+			node = mailbox_tree_get(ctx->tree_ctx, "INBOX", NULL);
+			node->flags = MAILBOX_NOCHILDREN | MAILBOX_MATCHED;
+		}
 	}
 	return 0;
 }
