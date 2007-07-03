@@ -131,9 +131,6 @@ static_preinit(struct auth_userdb *auth_userdb, const char *args)
 
 	module = p_new(auth_userdb->auth->pool, struct static_userdb_module, 1);
 
-	uid = (uid_t)-1;
-	gid = (gid_t)-1;
-
 	tmp = t_strsplit_spaces(args, " ");
 	p_array_init(&module->template, auth_userdb->auth->pool,
 		     strarray_length(tmp));
@@ -177,10 +174,6 @@ static_preinit(struct auth_userdb *auth_userdb, const char *args)
 	}
 	t_pop();
 
-	if (uid == (uid_t)-1)
-		i_fatal("static userdb: uid missing");
-	if (gid == (gid_t)-1)
-		i_fatal("static userdb: gid missing");
 	return &module->module;
 }
 
