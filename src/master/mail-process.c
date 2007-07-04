@@ -297,20 +297,34 @@ mail_process_set_environment(struct settings *set, const char *mail,
 				set->mailbox_idle_check_interval));
 	env_put(t_strdup_printf("MAIL_MAX_KEYWORD_LENGTH=%u",
 				set->mail_max_keyword_length));
-	env_put(t_strdup_printf("IMAP_MAX_LINE_LENGTH=%u",
-				set->imap_max_line_length));
-	if (*set->imap_capability != '\0') {
-		env_put(t_strconcat("IMAP_CAPABILITY=",
-				    set->imap_capability, NULL));
+
+	if (set->protocol == MAIL_PROTOCOL_IMAP) {
+		env_put(t_strdup_printf("IMAP_MAX_LINE_LENGTH=%u",
+					set->imap_max_line_length));
+		if (*set->imap_capability != '\0') {
+			env_put(t_strconcat("IMAP_CAPABILITY=",
+					    set->imap_capability, NULL));
+		}
+		env_put(t_strconcat("IMAP_CLIENT_WORKAROUNDS=",
+				    set->imap_client_workarounds, NULL));
 	}
-	env_put(t_strconcat("IMAP_CLIENT_WORKAROUNDS=",
-			    set->imap_client_workarounds, NULL));
-	env_put(t_strconcat("POP3_UIDL_FORMAT=",
-			    set->pop3_uidl_format, NULL));
-	env_put(t_strconcat("POP3_CLIENT_WORKAROUNDS=",
-			    set->pop3_client_workarounds, NULL));
-	env_put(t_strconcat("POP3_LOGOUT_FORMAT=",
-			    set->pop3_logout_format, NULL));
+	if (set->protocol == MAIL_PROTOCOL_POP3) {
+		env_put(t_strconcat("POP3_CLIENT_WORKAROUNDS=",
+				    set->pop3_client_workarounds, NULL));
+		env_put(t_strconcat("POP3_LOGOUT_FORMAT=",
+				    set->pop3_logout_format, NULL));
+		if (set->pop3_no_flag_updates)
+			env_put("POP3_NO_FLAG_UPDATES=1");
+		if (set->pop3_reuse_xuidl)
+			env_put("POP3_REUSE_XUIDL=1");
+		if (set->pop3_enable_last)
+			env_put("POP3_ENABLE_LAST=1");
+		if (set->pop3_lock_session)
+			env_put("POP3_LOCK_SESSION=1");
+	}
+
+	/* We care about POP3 UIDL format in all process types */
+	env_put(t_strconcat("POP3_UIDL_FORMAT=", set->pop3_uidl_format, NULL));
 
 	if (set->mail_save_crlf)
 		env_put("MAIL_SAVE_CRLF=1");
@@ -332,14 +346,6 @@ mail_process_set_environment(struct settings *set, const char *mail,
 		env_put("DEBUG=1");
 	if (set->mail_full_filesystem_access)
 		env_put("FULL_FILESYSTEM_ACCESS=1");
-	if (set->pop3_no_flag_updates)
-		env_put("POP3_NO_FLAG_UPDATES=1");
-	if (set->pop3_reuse_xuidl)
-		env_put("POP3_REUSE_XUIDL=1");
-	if (set->pop3_enable_last)
-		env_put("POP3_ENABLE_LAST=1");
-	if (set->pop3_lock_session)
-		env_put("POP3_LOCK_SESSION=1");
 	if (set->mbox_dirty_syncs)
 		env_put("MBOX_DIRTY_SYNCS=1");
 	if (set->mbox_very_dirty_syncs)
