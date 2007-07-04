@@ -903,10 +903,8 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx,
 	recs = array_get_modifiable(&ctx->uidlist->records, &count);
 
 	/* sort new files and assign UIDs for them */
-	if ((ctx->sync_flags & MAILDIR_UIDLIST_SYNC_ORDERED) == 0) {
-		qsort(recs + first_new_pos, count - first_new_pos,
-		      sizeof(*recs), maildir_time_cmp);
-	}
+	qsort(recs + first_new_pos, count - first_new_pos,
+	      sizeof(*recs), maildir_time_cmp);
 	for (dest = first_new_pos; dest < count; dest++) {
 		i_assert(recs[dest]->uid == (uint32_t)-1);
 		recs[dest]->uid = ctx->uidlist->next_uid++;
