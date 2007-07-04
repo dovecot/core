@@ -374,10 +374,11 @@ static void pam_child_input(struct pam_auth_request *request)
 	}
 
 	request->callback(result, auth_request);
-	auth_request_unref(&auth_request);
 
-	if (--request->refcount == 0)
+	if (--request->refcount == 0) {
+		auth_request_unref(&auth_request);
 		i_free(request);
+	}
 }
 
 static void sigchld_handler(int signo __attr_unused__,
@@ -412,8 +413,10 @@ static void sigchld_handler(int signo __attr_unused__,
 		}
 
 		hash_remove(pam_requests, POINTER_CAST(request->pid));
-		if (--request->refcount == 0)
+		if (--request->refcount == 0) {
+			auth_request_unref(&request->request);
 			i_free(request);
+		}
 	}
 }
 
