@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "lib-signals.h"
 #include "file-lock.h"
+#include "array.h"
 #include "ioloop.h"
 #include "hostpid.h"
 #include "home-expand.h"
@@ -54,6 +55,9 @@ static bool no_mailbox_autocreate = FALSE;
 
 static struct module *modules;
 static struct ioloop *ioloop;
+
+static pool_t plugin_pool;
+static ARRAY_DEFINE(plugin_envs, const char *);
 
 static void sig_die(int signo, void *context __attr_unused__)
 {
@@ -211,8 +215,12 @@ static void config_file_init(const char *path)
 	struct istream *input;
 	const char *key, *value;
 	char *line, *p, quote;
-	int fd, sections = 0, lda_section = FALSE, pop3_section = FALSE;
+	int fd, sections = 0;
+	bool lda_section = FALSE, pop3_section = FALSE, plugin_section = FALSE;
 	size_t len;
+
+	plugin_pool = pool_alloconly_create("Plugin strings", 512);
+	i_array_init(&plugin_envs, 16);
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
@@ -256,16 +264,19 @@ static void config_file_init(const char *path)
 		value = p = strchr(line, '=');
 		if (value == NULL) {
 			if (strchr(line, '{') != NULL) {
-				if (strcmp(line, "protocol lda {") == 0 ||
-				    strcmp(line, "plugin {") == 0)
+				if (strcmp(line, "protocol lda {") == 0)
 					lda_section = TRUE;
-				if (strcmp(line, "protocol pop3 {") == 0)
+				else if (strcmp(line, "plugin {") == 0) {
+					plugin_section = TRUE;
+					lda_section = TRUE;
+				} else if (strcmp(line, "protocol pop3 {") == 0)
 					pop3_section = TRUE;
 				sections++;
 			}
 			if (*line == '}') {
 				sections--;
 				lda_section = FALSE;
+				plugin_section = FALSE;
 				pop3_section = FALSE;
 			}
 			continue;
@@ -294,7 +305,16 @@ static void config_file_init(const char *path)
 		if (setting_is_bool(key) && strcasecmp(value, "yes") != 0)
 			continue;
 
-		env_put(t_strconcat(t_str_ucase(key), "=", value, NULL));
+		if (!plugin_section) {
+			env_put(t_strconcat(t_str_ucase(key), "=",
+					    value, NULL));
+		} else {
+			/* %variables need to be expanded.
+			   store these for later. */
+			value = p_strconcat(plugin_pool,
+					    t_str_ucase(key), "=", value, NULL);
+			array_append(&plugin_envs, &value, 1);
+		}
 	}
 	i_stream_unref(&input);
 	t_pop();
@@ -491,14 +511,49 @@ void deliver_env_clean(void)
 	if (home != NULL) env_put(home);
 }
 
+static void expand_envs(const char *destination)
+{
+        const struct var_expand_table *table;
+	const char *mail_env, *const *envs;
+	unsigned int i, count;
+	string_t *str;
+
+	str = t_str_new(256);
+	table = get_var_expand_table(destination, getenv("HOME"));
+	envs = array_get(&plugin_envs, &count);
+	for (i = 0; i < count; i++) {
+		str_truncate(str, 0);
+		var_expand(str, envs[i], table);
+		env_put(str_c(str));
+	}
+
+	/* get the table again in case plugin provided the home directory
+	   (yea, kludgy) */
+	table = get_var_expand_table(destination, getenv("HOME"));
+
+	/* MAIL comes from userdb, MAIL_LOCATION from dovecot.conf.
+	   We don't want to expand settings coming from userdb.
+	   FIXME: should remove these and support namespaces.. */
+	mail_env = getenv("MAIL");
+	if (mail_env == NULL)  {
+		mail_env = getenv("MAIL_LOCATION");
+		if (mail_env == NULL)  {
+			/* Keep this for backwards compatibility */
+			mail_env = getenv("DEFAULT_MAIL_ENV");
+		}
+		if (mail_env != NULL)
+			mail_env = expand_mail_env(mail_env, table);
+		env_put(t_strconcat("MAIL=", mail_env, NULL));
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	const char *config_path = DEFAULT_CONFIG_FILE;
 	const char *envelope_sender = DEFAULT_ENVELOPE_SENDER;
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
-	const char *home, *destination, *user, *mail_env, *value;
-        const struct var_expand_table *table;
+	const char *home, *destination, *user, *value;
 	struct mail_namespace *ns, *mbox_ns;
 	struct mail_storage *storage;
 	struct mailbox *box;
@@ -665,29 +720,13 @@ int main(int argc, char *argv[])
 			DEFAULT_MAIL_REJECTION_HUMAN_REASON;
 	}
 
+	expand_envs(destination);
+
 	dict_driver_register(&dict_driver_client);
         duplicate_init();
         mail_storage_init();
 	mail_storage_register_all();
 	mailbox_list_register_all();
-
-	/* MAIL comes from userdb, MAIL_LOCATION from dovecot.conf.
-	   We don't want to expand settings coming from userdb.
-	   FIXME: should remove these and support namespaces.. */
-	mail_env = getenv("MAIL");
-	if (mail_env == NULL)  {
-		mail_env = getenv("MAIL_LOCATION");
-		if (mail_env == NULL)  {
-			/* Keep this for backwards compatibility */
-			mail_env = getenv("DEFAULT_MAIL_ENV");
-		}
-		if (mail_env != NULL) {
-			table = get_var_expand_table(destination,
-						     getenv("HOME"));
-			mail_env = expand_mail_env(mail_env, table);
-		}
-		env_put(t_strconcat("MAIL=", mail_env, NULL));
-	}
 
 	module_dir_init(modules);
 
