@@ -192,7 +192,8 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id,
 			if (sorted[i]->record_align > max_align)
 				max_align = sorted[i]->record_align;
 
-			if (sorted[i]->record_offset == 0) {
+			if (sorted[i]->record_offset == 0 &&
+			    sorted[i]->record_size > 0) {
 				if ((offset % sorted[i]->record_align) == 0)
 					break;
 				if (sorted[i]->record_align < min_align)

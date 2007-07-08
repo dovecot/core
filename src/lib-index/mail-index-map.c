@@ -171,7 +171,8 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 		}
 
 		if ((ext_hdr->record_size == 0 && ext_hdr->hdr_size == 0) ||
-		    ext_hdr->record_align == 0 || *name == '\0') {
+		    (ext_hdr->record_align == 0 && ext_hdr->record_size != 0) ||
+		    *name == '\0') {
 			mail_index_set_error(index, "Corrupted index file %s: "
 					     "Broken header extension %s",
 					     index->filepath, *name == '\0' ?
@@ -190,8 +191,9 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 			return -1;
 		}
 
-		if ((ext_hdr->record_offset % ext_hdr->record_align) != 0 ||
-		    (map->hdr.record_size % ext_hdr->record_align) != 0) {
+		if (ext_hdr->record_size > 0 &&
+		    ((ext_hdr->record_offset % ext_hdr->record_align) != 0 ||
+		     (map->hdr.record_size % ext_hdr->record_align) != 0)) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"Record field %s alignmentation %u not used",
 				index->filepath, name, ext_hdr->record_align);
