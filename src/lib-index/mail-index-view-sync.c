@@ -11,7 +11,9 @@ struct mail_index_view_sync_ctx {
 	struct mail_index_view *view;
 	enum mail_index_view_sync_flags flags;
 	struct mail_index_sync_map_ctx sync_map_ctx;
+
 	ARRAY_TYPE(seq_range) expunges;
+	unsigned int finish_min_msg_count;
 
 	const struct mail_transaction_header *hdr;
 	const void *data;
@@ -139,12 +141,13 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges)
 
 static int
 view_sync_get_expunges(struct mail_index_view *view,
-		       ARRAY_TYPE(seq_range) *expunges_r)
+		       ARRAY_TYPE(seq_range) *expunges_r,
+		       unsigned int *expunge_count_r)
 {
 	const struct mail_transaction_header *hdr;
 	struct seq_range *src, *src_end, *dest;
 	const void *data;
-	unsigned int count;
+	unsigned int count, expunge_count = 0;
 	int ret;
 
 	if (view_sync_set_log_view_range(view, TRUE) < 0)
@@ -189,10 +192,13 @@ view_sync_get_expunges(struct mail_index_view *view,
 
 		if (dest->seq1 == 0)
 			count--;
-		else
+		else {
+			expunge_count += dest->seq2 - dest->seq1 + 1;
 			dest++;
+		}
 	}
 	array_delete(expunges_r, count, array_count(expunges_r) - count);
+	*expunge_count_r = expunge_count;
 	return 0;
 }
 
@@ -203,7 +209,7 @@ static int have_existing_expunges(struct mail_index_view *view,
 	uint32_t seq1, seq2;
 
 	range_end = CONST_PTR_OFFSET(range, size);
-	for (; range < range_end && seq1 != 0; range++) {
+	for (; range < range_end; range++) {
 		if (mail_index_lookup_uid_range(view, range->seq1, range->seq2,
 						&seq1, &seq2) < 0)
 			return -1;
@@ -253,6 +259,7 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *map;
 	ARRAY_TYPE(seq_range) expunges = ARRAY_INIT;
+	unsigned int expunge_count = 0;
 	bool sync_expunges;
 
 	i_assert(!view->syncing);
@@ -264,7 +271,8 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;
 	if (sync_expunges) {
 		/* get list of all expunges first */
-		if (view_sync_get_expunges(view, &expunges) < 0)
+		if (view_sync_get_expunges(view, &expunges,
+					   &expunge_count) < 0)
 			return -1;
 	}
 
@@ -278,12 +286,17 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	ctx->view = view;
 	ctx->flags = flags;
 	ctx->expunges = expunges;
+	ctx->finish_min_msg_count =
+		view->map->hdr.messages_count - expunge_count;
 	mail_index_sync_map_init(&ctx->sync_map_ctx, view,
 				 MAIL_INDEX_SYNC_HANDLER_VIEW);
 
 	if (sync_expunges || !view_sync_have_expunges(view)) {
 		view->sync_new_map = view->index->map;
 		view->sync_new_map->refcount++;
+		i_assert(sync_expunges ||
+			 view->index->map->hdr.messages_count >=
+			 view->map->hdr.messages_count);
 
 		/* keep the old mapping without expunges until we're
 		   fully synced */
@@ -612,6 +625,8 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 		view->map = view->sync_new_map;
 		view->sync_new_map = NULL;
 	}
+
+	i_assert(view->map->hdr.messages_count >= ctx->finish_min_msg_count);
 
 	if (!ctx->skipped_expunges) {
 		view->log_file_expunge_seq = view->log_file_head_seq;
