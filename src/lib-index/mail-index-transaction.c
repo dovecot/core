@@ -885,6 +885,8 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 			"support multiple updates to the same ext header");
 	}
 	*pos = hdr;
+
+	t->log_updates = TRUE;
 }
 
 void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
