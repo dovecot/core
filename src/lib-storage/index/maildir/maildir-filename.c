@@ -97,20 +97,21 @@ static int char_cmp(const void *p1, const void *p2)
 static void
 maildir_filename_append_keywords(struct maildir_keywords_sync_ctx *ctx,
 				 ARRAY_TYPE(keyword_indexes) *keywords,
-				 string_t *str)
+				 string_t *fname)
 {
 	const unsigned int *indexes;
-	unsigned int i, count, start = str_len(str);
+	unsigned int i, count, start = str_len(fname);
 	char chr;
 
 	indexes = array_get(keywords, &count);
 	for (i = 0; i < count; i++) {
 		chr = maildir_keywords_idx_char(ctx, indexes[i]);
 		if (chr != '\0')
-			str_append_c(str, chr);
+			str_append_c(fname, chr);
 	}
 
-	qsort(str_c_modifiable(str) + start, str_len(str) - start, 1, char_cmp);
+	qsort(str_c_modifiable(fname) + start, str_len(fname) - start, 1,
+	      char_cmp);
 }
 
 const char *maildir_filename_set_flags(struct maildir_keywords_sync_ctx *ctx,
@@ -247,16 +248,18 @@ unsigned int maildir_filename_base_hash(const void *p)
 
 int maildir_filename_base_cmp(const void *p1, const void *p2)
 {
-	const char *s1 = p1, *s2 = p2;
+	const char *fname1 = p1, *fname2 = p2;
 
-	while (*s1 == *s2 && *s1 != MAILDIR_INFO_SEP && *s1 != '\0') {
-		i_assert(*s1 != '/');
-		s1++; s2++;
+	while (*fname1 == *fname2 && *fname1 != MAILDIR_INFO_SEP &&
+	       *fname1 != '\0') {
+		i_assert(*fname1 != '/');
+		fname1++; fname2++;
 	}
-	if ((*s1 == '\0' || *s1 == MAILDIR_INFO_SEP) &&
-	    (*s2 == '\0' || *s2 == MAILDIR_INFO_SEP))
+
+	if ((*fname1 == '\0' || *fname1 == MAILDIR_INFO_SEP) &&
+	    (*fname2 == '\0' || *fname2 == MAILDIR_INFO_SEP))
 		return 0;
-	return *s1 - *s2;
+	return *fname1 - *fname2;
 }
 
 static bool maildir_fname_get_usecs(const char *fname, int *usecs_r)
