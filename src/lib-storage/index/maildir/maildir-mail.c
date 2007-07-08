@@ -135,6 +135,20 @@ static time_t maildir_mail_get_save_date(struct mail *_mail)
 	return data->save_date;
 }
 
+static bool
+maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
+		       const char **fname_r)
+{
+	enum maildir_uidlist_rec_flag flags;
+
+	*fname_r = maildir_uidlist_lookup(mbox->uidlist, mail->uid, &flags);
+	if (*fname_r == NULL) {
+		mail_set_expunged(mail);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -142,7 +156,6 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 	const char *path, *fname;
 	uoff_t virtual_size;
-        enum maildir_uidlist_rec_flag flags;
 
 	if (data->virtual_size != (uoff_t)-1)
 		return data->virtual_size;
@@ -154,12 +167,8 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 	}
 
 	if (_mail->uid != 0) {
-		fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid,
-					       &flags);
-		if (fname == NULL) {
-			mail_set_expunged(_mail);
+		if (!maildir_mail_get_fname(mbox, _mail, &fname))
 			return (uoff_t)-1;
-		}
 	} else {
 		path = maildir_save_file_get_path(_mail->transaction,
 						  _mail->seq);
@@ -183,17 +192,12 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
-	enum maildir_uidlist_rec_flag flags;
 	const char *path, *fname, *end;
 
 	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
 		if (_mail->uid != 0) {
-			fname = maildir_uidlist_lookup(mbox->uidlist,
-						       _mail->uid, &flags);
-			if (fname == NULL) {
-				mail_set_expunged(_mail);
+			if (!maildir_mail_get_fname(mbox, _mail, &fname))
 				return NULL;
-			}
 		} else {
 			path = maildir_save_file_get_path(_mail->transaction,
 							  _mail->seq);
@@ -215,19 +219,14 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	struct stat st;
 	const char *path, *fname;
 	uoff_t size;
-	enum maildir_uidlist_rec_flag flags;
 
 	size = index_mail_get_physical_size(_mail);
 	if (size != (uoff_t)-1)
 		return size;
 
 	if (_mail->uid != 0) {
-		fname = maildir_uidlist_lookup(mbox->uidlist, _mail->uid,
-					       &flags);
-		if (fname == NULL) {
-			mail_set_expunged(_mail);
+		if (!maildir_mail_get_fname(mbox, _mail, &fname))
 			return (uoff_t)-1;
-		}
 		path = NULL;
 	} else {
 		path = maildir_save_file_get_path(_mail->transaction,
