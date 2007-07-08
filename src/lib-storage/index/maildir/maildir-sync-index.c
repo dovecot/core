@@ -254,7 +254,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	bool expunged, full_rescan = FALSE;
 
 	i_assert(!mbox->syncing_commit);
-	i_assert(maildir_uidlist_is_locked(ctx->mbox->uidlist));
+	i_assert(maildir_uidlist_is_locked(mbox->uidlist));
 
 	hdr = mail_index_get_header(view);
 	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
@@ -348,7 +348,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		}
 
 		if (expunged) {
-			if (maildir_file_do(ctx->mbox, ctx->uid,
+			if (maildir_file_do(mbox, ctx->uid,
 					    maildir_expunge, ctx) >= 0) {
 				/* successful expunge */
 				mail_index_expunge(trans, ctx->seq);
@@ -385,7 +385,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		if (index_sync_changes_have(ctx->sync_changes)) {
 			/* apply flag changes to maildir */
-			if (maildir_file_do(ctx->mbox, ctx->uid,
+			if (maildir_file_do(mbox, ctx->uid,
 					    maildir_sync_flags, ctx) < 0)
 				ctx->flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
 			if ((++changes % MAILDIR_SLOW_MOVE_COUNT) == 0)
@@ -458,8 +458,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	}
 
 	if (ctx->changed)
-		ctx->mbox->maildir_hdr.cur_mtime = time(NULL);
-	maildir_index_update_ext_header(ctx->mbox, trans);
+		mbox->maildir_hdr.cur_mtime = time(NULL);
+	maildir_index_update_ext_header(mbox, trans);
 
 	if (hdr->uid_validity == 0) {
 		/* get the initial uidvalidity */
