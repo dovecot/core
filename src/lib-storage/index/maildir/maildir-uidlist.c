@@ -877,22 +877,8 @@ maildir_uidlist_get_full_filename(struct maildir_uidlist *uidlist,
 static int maildir_time_cmp(const void *p1, const void *p2)
 {
 	const struct maildir_uidlist_rec *const *rec1 = p1, *const *rec2 = p2;
-	const char *s1 = (*rec1)->filename, *s2 = (*rec2)->filename;
-	time_t t1 = 0, t2 = 0;
 
-	/* we have to do numeric comparision, strcmp() will break when
-	   there's different amount of digits (mostly the 999999999 ->
-	   1000000000 change in Sep 9 2001) */
-	while (*s1 >= '0' && *s1 <= '9') {
-		t1 = t1*10 + (*s1 - '0');
-		s1++;
-	}
-	while (*s2 >= '0' && *s2 <= '9') {
-		t2 = t2*10 + (*s2 - '0');
-		s2++;
-	}
-
-	return t1 < t2 ? -1 : t1 > t2 ? 1 : 0;
+	return maildir_filename_sort_cmp((*rec1)->filename, (*rec2)->filename);
 }
 
 static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx,

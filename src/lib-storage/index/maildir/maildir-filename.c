@@ -256,3 +256,53 @@ int maildir_filename_base_cmp(const void *p1, const void *p2)
 		return 0;
 	return *s1 - *s2;
 }
+
+static bool maildir_fname_get_usecs(const char *fname, int *usecs_r)
+{
+	int usecs = 0;
+
+	/* Assume we already read the timestamp. Next up is
+	   ".<uniqueness>.<host>". Find usecs inside the uniqueness. */
+	if (*fname != '.')
+		return FALSE;
+
+	fname++;
+	while (*fname != '\0' && *fname != '.' && *fname != MAILDIR_INFO_SEP) {
+		if (*fname++ == 'M') {
+			while (*fname >= '0' && *fname <= '9') {
+				usecs = usecs * 10 + (*fname - '0');
+				fname++;
+			}
+			*usecs_r = usecs;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+int maildir_filename_sort_cmp(const char *fname1, const char *fname2)
+{
+	const char *s1, *s2;
+	time_t secs1 = 0, secs2 = 0;
+	int ret, usecs1, usecs2;
+
+	/* sort primarily by the timestamp in file name */
+	for (s1 = fname1; *s1 >= '0' && *s1 <= '9'; s1++)
+		secs1 = secs1 * 10 + (*s1 - '0');
+	for (s2 = fname2; *s2 >= '0' && *s2 <= '9'; s2++)
+		secs2 = secs2 * 10 + (*s2 - '0');
+
+	ret = (int)((long)secs1 - (long)secs2);
+	if (ret == 0) {
+		/* sort secondarily by microseconds, if they exist */
+		if (maildir_fname_get_usecs(s1, &usecs1) &&
+		    maildir_fname_get_usecs(s2, &usecs2))
+			ret = usecs1 - usecs2;
+
+		if (ret == 0) {
+			/* fallback to comparing the base file name */
+			ret = maildir_filename_base_cmp(s1, s2);
+		}
+	}
+	return ret;
+}

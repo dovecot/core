@@ -17,5 +17,6 @@ bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r);
 
 unsigned int maildir_filename_base_hash(const void *p);
 int maildir_filename_base_cmp(const void *p1, const void *p2);
+int maildir_filename_sort_cmp(const char *fname1, const char *fname2);
 
 #endif
