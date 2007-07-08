@@ -50,6 +50,8 @@ struct maildir_uidlist {
 	pool_t record_pool;
 	ARRAY_TYPE(maildir_uidlist_rec_p) records;
 	struct hash_table *files;
+	unsigned int change_counter;
+
 	struct dotlock_settings dotlock_settings;
 	struct dotlock *dotlock;
 
@@ -81,7 +83,11 @@ struct maildir_uidlist_sync_ctx {
 };
 
 struct maildir_uidlist_iter_ctx {
+	struct maildir_uidlist *uidlist;
 	struct maildir_uidlist_rec *const *next, *const *end;
+
+	unsigned int change_counter;
+	uint32_t prev_uid;
 };
 
 static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
@@ -372,6 +378,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 		uidlist->uid_validity = uid_validity;
 		uidlist->next_uid = next_uid;
 		uidlist->prev_read_uid = 0;
+		uidlist->change_counter++;
 
 		ret = 1;
 		while ((line = i_stream_read_next_line(input)) != NULL) {
@@ -772,6 +779,7 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 			    struct maildir_uidlist_rec, 1);
 		rec->uid = (uint32_t)-1;
 		array_append(&uidlist->records, &rec, 1);
+		uidlist->change_counter++;
 	}
 
 	if ((flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
@@ -942,6 +950,8 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 
 	if (ctx->new_files_count != 0)
 		maildir_uidlist_assign_uids(ctx, count - ctx->new_files_count);
+
+	ctx->uidlist->change_counter++;
 }
 
 void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
@@ -1031,9 +1041,30 @@ maildir_uidlist_iter_init(struct maildir_uidlist *uidlist)
 	unsigned int count;
 
 	ctx = i_new(struct maildir_uidlist_iter_ctx, 1);
+	ctx->uidlist = uidlist;
 	ctx->next = array_get(&uidlist->records, &count);
 	ctx->end = ctx->next + count;
+	ctx->change_counter = ctx->uidlist->change_counter;
 	return ctx;
+}
+
+static void
+maildir_uidlist_iter_update_idx(struct maildir_uidlist_iter_ctx *ctx)
+{
+	unsigned int old_rev_idx, idx, count;
+
+	old_rev_idx = ctx->end - ctx->next;
+	ctx->next = array_get(&ctx->uidlist->records, &count);
+	ctx->end = ctx->next + count;
+
+	idx = old_rev_idx >= count ? 0 :
+		count - old_rev_idx;
+	while (idx < count && ctx->next[idx]->uid <= ctx->prev_uid)
+		idx++;
+	while (idx > 0 && ctx->next[idx-1]->uid > ctx->prev_uid)
+		idx--;
+
+	ctx->next += idx;
 }
 
 int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
@@ -1041,6 +1072,9 @@ int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
 			      enum maildir_uidlist_rec_flag *flags_r,
 			      const char **filename_r)
 {
+	if (ctx->change_counter != ctx->uidlist->change_counter)
+		maildir_uidlist_iter_update_idx(ctx);
+
 	if (ctx->next == ctx->end)
 		return 0;
 
@@ -1048,6 +1082,7 @@ int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
 	*flags_r = (*ctx->next)->flags;
 	*filename_r = (*ctx->next)->filename;
 	ctx->next++;
+	ctx->prev_uid = *uid_r;
 	return 1;
 }
 
