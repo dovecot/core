@@ -716,7 +716,7 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 	return 1;
 }
 
-static int
+static void
 maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 				  const char *filename,
 				  enum maildir_uidlist_rec_flag flags)
@@ -754,7 +754,6 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(uidlist->record_pool, filename);
 	hash_insert(uidlist->files, rec->filename, rec);
-	return 1;
 }
 
 int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
@@ -788,8 +787,10 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 	if (ctx->failed)
 		return -1;
 
-	if (ctx->partial)
-		return maildir_uidlist_sync_next_partial(ctx, filename, flags);
+	if (ctx->partial) {
+		maildir_uidlist_sync_next_partial(ctx, filename, flags);
+		return 1;
+	}
 
 	rec = hash_lookup(ctx->files, filename);
 	if (rec != NULL) {
