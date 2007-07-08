@@ -465,6 +465,10 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox->uidlist = maildir_uidlist_init(mbox);
 	mbox->keywords = maildir_keywords_init(mbox);
 
+	mbox->maildir_ext_id =
+		mail_index_ext_register(index, "maildir",
+					sizeof(mbox->maildir_hdr), 0, 0);
+
 	if (!shared) {
 		mbox->mail_create_mode = 0600;
 		mbox->mail_create_gid = (gid_t)-1;

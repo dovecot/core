@@ -120,7 +120,7 @@ static void maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 	   shouldn't actually exist. */
 	if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) == 0) {
 		/* mark it racy and check in next sync */
-		ctx->mbox->dirty_cur_time = ioloop_time;
+		ctx->mbox->maildir_hdr.cur_check_time = 0;
 		maildir_uidlist_add_flags(ctx->mbox->uidlist, filename,
 					  MAILDIR_UIDLIST_REC_FLAG_RACING);
 		return;
@@ -214,6 +214,27 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
 	return ret;
 }
 
+static void
+maildir_index_update_ext_header(struct maildir_mailbox *mbox,
+				struct mail_index_transaction *trans)
+{
+	const void *data;
+	size_t data_size;
+
+	if (mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
+				      &data, &data_size) < 0)
+		data_size = 0;
+
+	if (data_size == sizeof(mbox->maildir_hdr) &&
+	    memcmp(data, &mbox->maildir_hdr, data_size) == 0) {
+		/* nothing changed */
+	} else {
+		mail_index_update_header_ext(trans, mbox->maildir_ext_id, 0,
+					     &mbox->maildir_hdr,
+					     sizeof(mbox->maildir_hdr));
+	}
+}
+
 int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		       bool partial)
 {
@@ -229,7 +250,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	const char *filename;
 	ARRAY_TYPE(keyword_indexes) idx_keywords;
 	uint32_t uid_validity, next_uid;
-	uint64_t value;
 	unsigned int changes = 0;
 	int ret = 0;
 	bool expunged, full_rescan = FALSE;
@@ -439,31 +459,11 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	}
 
 	if (ctx->changed)
-		mbox->dirty_cur_time = ioloop_time;
-	if (mbox->dirty_cur_time != 0)
-		mbox->last_dirty_flags |= MAILDIR_DIRTY_CUR;
-
-	if (mbox->last_cur_mtime != (time_t)hdr->sync_stamp) {
-		uint32_t sync_stamp = mbox->last_cur_mtime;
-
-		mail_index_update_header(trans,
-			offsetof(struct mail_index_header, sync_stamp),
-			&sync_stamp, sizeof(sync_stamp), TRUE);
-	}
-
-	/* FIXME: use a header extension instead of sync_size.. */
-	value = mbox->last_new_mtime |
-		((uint64_t)mbox->last_dirty_flags << 32);
-	if (value != hdr->sync_size) {
-		mail_index_update_header(trans,
-			offsetof(struct mail_index_header, sync_size),
-			&value, sizeof(value), TRUE);
-	}
+		ctx->mbox->maildir_hdr.cur_mtime = time(NULL);
+	maildir_index_update_ext_header(ctx->mbox, trans);
 
 	if (hdr->uid_validity == 0) {
 		/* get the initial uidvalidity */
-		if (maildir_uidlist_refresh(mbox->uidlist) < 0)
-			ret = -1;
 		uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
 		if (uid_validity == 0) {
 			uid_validity = ioloop_time;

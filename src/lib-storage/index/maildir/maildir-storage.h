@@ -49,6 +49,11 @@ struct timeval;
 struct maildir_save_context;
 struct maildir_copy_context;
 
+struct maildir_index_header {
+	uint32_t new_check_time, new_mtime, new_mtime_nsecs;
+	uint32_t cur_check_time, cur_mtime, cur_mtime_nsecs;
+};
+
 struct maildir_storage {
 	struct mail_storage storage;
 
@@ -61,11 +66,6 @@ struct maildir_storage {
 	unsigned int stat_dirs:1;
 };
 
-enum maildir_dirty_flags {
-	MAILDIR_DIRTY_NEW = 0x01,
-	MAILDIR_DIRTY_CUR = 0x02
-};
-
 struct maildir_mailbox {
 	struct index_mailbox ibox;
 	struct maildir_storage *storage;
@@ -76,9 +76,9 @@ struct maildir_mailbox {
 	/* maildir sync: */
 	struct maildir_uidlist *uidlist;
 	struct maildir_keywords *keywords;
-	time_t last_new_mtime, last_cur_mtime;
-	time_t dirty_cur_time;
-	enum maildir_dirty_flags last_dirty_flags;
+
+	struct maildir_index_header maildir_hdr;
+	uint32_t maildir_ext_id;
 
 	mode_t mail_create_mode;
 	gid_t mail_create_gid;
