@@ -604,7 +604,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	}
 
 	/* Start syncing so that keywords_sync_ctx gets set.. */
-	if (maildir_sync_index_begin(ctx->mbox, &ctx->sync_ctx) < 0) {
+	if (maildir_sync_index_begin(ctx->mbox, NULL, &ctx->sync_ctx) < 0) {
 		maildir_transaction_save_rollback(ctx);
 		return -1;
 	}

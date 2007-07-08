@@ -16,6 +16,7 @@ libstorage_maildir_a_SOURCES = \
 	maildir-save.c \
 	maildir-storage.c \
 	maildir-sync.c \
+	maildir-sync-index.c \
 	maildir-transaction.c \
 	maildir-uidlist.c \
 	maildir-util.c
