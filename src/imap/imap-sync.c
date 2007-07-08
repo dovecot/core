@@ -83,6 +83,8 @@ int imap_sync_deinit(struct imap_sync_context *ctx)
 					     "Mailbox UIDVALIDITY changed");
 	}
 	if (!ctx->no_newmail) {
+		if (status.messages < ctx->messages_count)
+			i_panic("Message count decreased");
 		ctx->client->messages_count = status.messages;
 		if (status.messages != ctx->messages_count) {
 			client_send_line(ctx->client,
