@@ -224,7 +224,7 @@ bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r)
 }
 
 /* a char* hash function from ASU -- from glib */
-unsigned int maildir_hash(const void *p)
+unsigned int maildir_filename_base_hash(const void *p)
 {
         const unsigned char *s = p;
 	unsigned int g, h = 0;
@@ -243,7 +243,7 @@ unsigned int maildir_hash(const void *p)
 	return h;
 }
 
-int maildir_cmp(const void *p1, const void *p2)
+int maildir_filename_base_cmp(const void *p1, const void *p2)
 {
 	const char *s1 = p1, *s2 = p2;
 

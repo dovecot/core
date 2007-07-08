@@ -188,7 +188,8 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	uidlist->lock_fd = -1;
 	i_array_init(&uidlist->records, 128);
 	uidlist->files = hash_create(default_pool, default_pool, 4096,
-				     maildir_hash, maildir_cmp);
+				     maildir_filename_base_hash,
+				     maildir_filename_base_cmp);
 	uidlist->next_uid = 1;
 
 	uidlist->dotlock_settings.use_excl_lock =
@@ -736,7 +737,8 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 	ctx->record_pool = pool_alloconly_create(MEMPOOL_GROWING
 						 "maildir_uidlist_sync", 16384);
 	ctx->files = hash_create(default_pool, ctx->record_pool, 4096,
-				 maildir_hash, maildir_cmp);
+				 maildir_filename_base_hash,
+				 maildir_filename_base_cmp);
 
 	i_array_init(&ctx->records, array_count(&uidlist->records));
 	return 1;
