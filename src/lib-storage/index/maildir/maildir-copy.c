@@ -140,8 +140,7 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 	if (filename == NULL) {
 		/* the generated filename is _always_ unique, so we don't
 		   bother trying to check if it already exists */
-		do_ctx.dest_fname =
-			maildir_generate_tmp_filename(&ioloop_timeval);
+		do_ctx.dest_fname = maildir_filename_generate();
 	} else {
 		do_ctx.dest_fname = filename;
 		do_ctx.preserve_filename = TRUE;

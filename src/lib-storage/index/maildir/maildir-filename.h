@@ -3,7 +3,7 @@
 
 struct maildir_keywords_sync_ctx;
 
-const char *maildir_generate_tmp_filename(const struct timeval *tv);
+const char *maildir_filename_generate(void);
 
 void maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
 			       const char *fname, enum mail_flags *flags_r,

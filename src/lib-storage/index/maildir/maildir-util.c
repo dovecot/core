@@ -88,20 +88,18 @@ int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r)
 {
 	struct stat st;
-	struct timeval *tv, tv_now;
 	unsigned int prefix_len;
 	const char *tmp_fname = NULL;
 	string_t *path;
 	int fd;
 
-	tv = &ioloop_timeval;
 	path = t_str_new(256);
 	str_append(path, dir);
 	str_append_c(path, '/');
 	prefix_len = str_len(path);
 
 	for (;;) {
-		tmp_fname = maildir_generate_tmp_filename(tv);
+		tmp_fname = maildir_filename_generate();
 		str_truncate(path, prefix_len);
 		str_append(path, tmp_fname);
 
@@ -117,11 +115,6 @@ int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 			if (fd != -1 || errno != EEXIST)
 				break;
 		}
-
-		sleep(2);
-		tv = &tv_now;
-		if (gettimeofday(&tv_now, NULL) < 0)
-			i_fatal("gettimeofday(): %m");
 	}
 
 	*fname_r = tmp_fname;

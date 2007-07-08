@@ -11,26 +11,28 @@
 
 #include <stdlib.h>
 
-const char *maildir_generate_tmp_filename(const struct timeval *tv)
+const char *maildir_filename_generate(void)
 {
-	static unsigned int create_count = 0;
-	static time_t first_stamp = 0;
+	static struct timeval last_tv = { 0, 0 };
+	struct timeval tv;
 
-	if (first_stamp == 0 || first_stamp == ioloop_time) {
-		/* it's possible that within last second another process had
-		   the same PID as us. Use usecs to make sure we don't create
-		   duplicate base name. */
-		first_stamp = ioloop_time;
-		return t_strdup_printf("%s.P%sQ%uM%s.%s",
-				       dec2str(tv->tv_sec), my_pid,
-				       create_count++,
-				       dec2str(tv->tv_usec), my_hostname);
-	} else {
-		/* Don't bother with usecs. Saves a bit space :) */
-		return t_strdup_printf("%s.P%sQ%u.%s",
-				       dec2str(tv->tv_sec), my_pid,
-				       create_count++, my_hostname);
+	/* use secs + usecs to guarantee uniqueness within this process. */
+	if (ioloop_timeval.tv_sec > last_tv.tv_sec ||
+	    (ioloop_timeval.tv_sec == last_tv.tv_sec &&
+	     ioloop_timeval.tv_usec > last_tv.tv_usec))
+		tv = ioloop_timeval;
+	else {
+		tv = last_tv;
+		if (++tv.tv_usec == 1000000) {
+			tv.tv_sec++;
+			tv.tv_usec = 0;
+		}
 	}
+	last_tv = tv;
+
+	return t_strdup_printf("%s.M%sP%s.%s",
+			       dec2str(tv.tv_sec), dec2str(tv.tv_usec),
+			       my_pid, my_hostname);
 }
 
 void maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,

@@ -605,7 +605,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 		return 0;
 	}
 
-	new_fname = maildir_generate_tmp_filename(&ioloop_timeval);
+	new_fname = maildir_filename_generate();
 	new_path = t_strconcat(mbox->path, "/new/", new_fname, NULL);
 
 	if (rename(old_path, new_path) == 0)
