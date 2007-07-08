@@ -286,8 +286,8 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	dir = t_strdup_until(path, fname);
 
 	t_array_init(&keywords, 16);
-	(void)maildir_filename_get_flags(ctx->keywords_sync_ctx,
-					 fname, &flags, &keywords);
+	maildir_filename_get_flags(ctx->keywords_sync_ctx,
+				   fname, &flags, &keywords);
 	flags8 = flags;
 
 	recs = array_get_modifiable(&ctx->sync_recs, &count);

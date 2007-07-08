@@ -5,9 +5,9 @@ struct maildir_keywords_sync_ctx;
 
 const char *maildir_generate_tmp_filename(const struct timeval *tv);
 
-int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
-			       const char *fname, enum mail_flags *flags_r,
-                               ARRAY_TYPE(keyword_indexes) *keywords_r);
+void maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
+				const char *fname, enum mail_flags *flags_r,
+				ARRAY_TYPE(keyword_indexes) *keywords_r);
 
 const char *maildir_filename_set_flags(struct maildir_keywords_sync_ctx *ctx,
 				       const char *fname, enum mail_flags flags,

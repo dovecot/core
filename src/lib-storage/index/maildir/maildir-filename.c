@@ -33,9 +33,9 @@ const char *maildir_generate_tmp_filename(const struct timeval *tv)
 	}
 }
 
-int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
-			       const char *fname, enum mail_flags *flags_r,
-                               ARRAY_TYPE(keyword_indexes) *keywords_r)
+void maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
+				const char *fname, enum mail_flags *flags_r,
+				ARRAY_TYPE(keyword_indexes) *keywords_r)
 {
 	const char *info;
 
@@ -44,7 +44,7 @@ int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
 
 	info = strchr(fname, MAILDIR_INFO_SEP);
 	if (info == NULL || info[1] != '2' || info[2] != MAILDIR_FLAGS_SEP)
-		return 0;
+		return;
 
 	for (info += 3; *info != '\0' && *info != MAILDIR_FLAGS_SEP; info++) {
 		switch (*info) {
@@ -83,8 +83,6 @@ int maildir_filename_get_flags(struct maildir_keywords_sync_ctx *ctx,
 			break;
 		}
 	}
-
-	return 1;
 }
 
 static int char_cmp(const void *p1, const void *p2)
