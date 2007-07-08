@@ -550,38 +550,35 @@ static void maildir_sync_deinit(struct maildir_sync_context *ctx)
 }
 
 static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
-				 const char *dir, const char *old_fname)
+				 const char *dir, const char *fname2)
 {
-	struct maildir_mailbox *mbox = ctx->mbox;
-	const char *existing_fname, *existing_path;
-	const char *new_fname, *old_path, *new_path;
-	struct stat ex_st, old_st;
+	const char *fname1, *path1, *path2;
+	const char *new_fname, *new_path;
+	struct stat st1, st2;
 	int ret = 0;
 
-	existing_fname =
-		maildir_uidlist_sync_get_full_filename(ctx->uidlist_sync_ctx,
-						       old_fname);
-	i_assert(existing_fname != NULL);
+	fname1 = maildir_uidlist_sync_get_full_filename(ctx->uidlist_sync_ctx,
+							fname2);
+	i_assert(fname1 != NULL);
 
 	t_push();
 
-	existing_path = t_strconcat(dir, "/", existing_fname, NULL);
-	old_path = t_strconcat(dir, "/", old_fname, NULL);
+	path1 = t_strconcat(dir, "/", fname1, NULL);
+	path2 = t_strconcat(dir, "/", fname2, NULL);
 
-	if (stat(existing_path, &ex_st) < 0 ||
-	    stat(old_path, &old_st) < 0) {
+	if (stat(path1, &st1) < 0 || stat(path2, &st2) < 0) {
 		/* most likely the files just don't exist anymore.
 		   don't really care about other errors much. */
 		t_pop();
 		return 0;
 	}
-	if (ex_st.st_ino == old_st.st_ino &&
-	    CMP_DEV_T(ex_st.st_dev, old_st.st_dev)) {
+	if (st1.st_ino == st2.st_ino &&
+	    CMP_DEV_T(st1.st_dev, st2.st_dev)) {
 		/* Files are the same. this means either a race condition
 		   between stat() calls, or that the files were link()ed. */
-		if (ex_st.st_nlink > 1 && old_st.st_nlink == ex_st.st_nlink &&
-		    ex_st.st_ctime == old_st.st_ctime &&
-		    ex_st.st_ctime < ioloop_time - DUPE_LINKS_DELETE_SECS) {
+		if (st1.st_nlink > 1 && st2.st_nlink == st1.st_nlink &&
+		    st1.st_ctime == st2.st_ctime &&
+		    st1.st_ctime < ioloop_time - DUPE_LINKS_DELETE_SECS) {
 			/* The file has hard links and it hasn't had any
 			   changes (such as renames) for a while, so this
 			   isn't a race condition.
@@ -592,13 +589,12 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 			   and hope that another process didn't just decide to
 			   unlink() the other (uidlist lock prevents this from
 			   happening) */
-			if (unlink(old_path) == 0) {
-				i_warning("Unlinked a duplicate: %s",
-					  old_fname);
-			} else {
+			if (unlink(path2) == 0)
+				i_warning("Unlinked a duplicate: %s", path2);
+			else {
 				mail_storage_set_critical(
-					&mbox->storage->storage,
-					"unlink(%s) failed: %m", old_path);
+					&ctx->mbox->storage->storage,
+					"unlink(%s) failed: %m", path2);
 			}
 		}
 		t_pop();
@@ -606,14 +602,14 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	}
 
 	new_fname = maildir_filename_generate();
-	new_path = t_strconcat(mbox->path, "/new/", new_fname, NULL);
+	new_path = t_strconcat(ctx->mbox->path, "/new/", new_fname, NULL);
 
-	if (rename(old_path, new_path) == 0)
-		i_warning("Fixed a duplicate: %s -> %s", old_fname, new_fname);
+	if (rename(path2, new_path) == 0)
+		i_warning("Fixed a duplicate: %s -> %s", path2, new_fname);
 	else if (errno != ENOENT) {
-		mail_storage_set_critical(&mbox->storage->storage,
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
 			"Couldn't fix a duplicate: rename(%s, %s) failed: %m",
-			old_path, new_path);
+			path2, new_path);
 		ret = -1;
 	}
 	t_pop();
