@@ -19,12 +19,14 @@ libstorage_index_a_SOURCES = \
 	index-status.c \
 	index-storage.c \
 	index-sync.c \
+	index-sync-changes.c \
 	index-transaction.c
 
 headers = \
 	index-mail.h \
 	index-sort.h \
-	index-storage.h
+	index-storage.h \
+	index-sync-changes.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/lib-storage/index
