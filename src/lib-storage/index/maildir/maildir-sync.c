@@ -643,7 +643,9 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	ctx->move_count = 0;
 	move_new = new_dir && !mailbox_is_readonly(&ctx->mbox->ibox.box) &&
 		!ctx->mbox->ibox.keep_recent;
-	while ((dp = readdir(dirp)) != NULL) {
+
+	errno = 0;
+	for (; (dp = readdir(dirp)) != NULL; errno = 0) {
 		if (dp->d_name[0] == '.')
 			continue;
 
@@ -715,9 +717,16 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 		}
 	}
 
+	if (errno != 0) {
+		mail_storage_set_critical(storage,
+					  "readdir(%s) failed: %m", dir);
+		ret = -1;
+	}
+
 	if (closedir(dirp) < 0) {
 		mail_storage_set_critical(storage,
 					  "closedir(%s) failed: %m", dir);
+		ret = -1;
 	}
 
 	t_pop();
