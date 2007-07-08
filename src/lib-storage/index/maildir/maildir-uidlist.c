@@ -208,14 +208,21 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 	return uidlist;
 }
 
+static void maildir_uidlist_close(struct maildir_uidlist *uidlist)
+{
+	if (uidlist->fd != -1) {
+		if (close(uidlist->fd) < 0)
+			i_error("close(%s) failed: %m", uidlist->fname);
+		uidlist->fd = -1;
+		uidlist->fd_ino = 0;
+	}
+}
+
 void maildir_uidlist_deinit(struct maildir_uidlist *uidlist)
 {
 	i_assert(!UIDLIST_IS_LOCKED(uidlist));
 
-	if (uidlist->fd != -1) {
-		if (close(uidlist->fd) < 0)
-			i_error("close(%s) failed: %m", uidlist->fname);
-	}
+	maildir_uidlist_close(uidlist);
 
 	hash_destroy(uidlist->files);
 	if (uidlist->record_pool != NULL)
@@ -310,12 +317,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 
 	*retry_r = FALSE;
 
-	if (uidlist->fd != -1) {
-		if (close(uidlist->fd) < 0)
-			i_error("close(%s) failed: %m", uidlist->fname);
-		uidlist->fd = -1;
-		uidlist->fd_ino = 0;
-	}
+	maildir_uidlist_close(uidlist);
 
 	fd = nfs_safe_open(uidlist->fname, O_RDONLY);
 	if (fd == -1) {
@@ -683,6 +685,7 @@ static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
 			(void)close(uidlist->lock_fd);
 			ret = -1;
 		} else {
+			maildir_uidlist_close(uidlist);
 			uidlist->fd = uidlist->lock_fd;
 			if (fstat(uidlist->fd, &st) < 0) {
 				i_error("fstat(%s) failed: %m", uidlist->fname);
