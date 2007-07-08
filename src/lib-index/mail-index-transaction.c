@@ -23,6 +23,7 @@ void (*hook_mail_index_transaction_created)
 void mail_index_transaction_reset(struct mail_index_transaction *t)
 {
 	ARRAY_TYPE(seq_array) *recs;
+	struct mail_index_transaction_ext_hdr_update **ext_hdrs;
 	unsigned i, count;
 
 	if (array_is_created(&t->ext_rec_updates)) {
@@ -33,6 +34,13 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 				array_free(&recs[i]);
 		}
 		array_free(&t->ext_rec_updates);
+	}
+	if (array_is_created(&t->ext_hdr_updates)) {
+		ext_hdrs = array_get_modifiable(&t->ext_hdr_updates, &count);
+
+		for (i = 0; i < count; i++)
+			i_free(ext_hdrs[i]);
+		array_free(&t->ext_hdr_updates);
 	}
 
 	if (array_is_created(&t->keyword_updates)) {
@@ -860,7 +868,23 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 				  uint32_t ext_id, size_t offset,
 				  const void *data, size_t size)
 {
-	// FIXME
+	struct mail_index_transaction_ext_hdr_update *hdr, **pos;
+
+	hdr = i_malloc(sizeof(*hdr) + size);
+	hdr->ext_id = ext_id;
+	hdr->offset = offset;
+	hdr->size = size;
+	memcpy(hdr + 1, data, size);
+
+	if (!array_is_created(&t->ext_hdr_updates))
+		i_array_init(&t->ext_hdr_updates, ext_id + 2);
+
+	pos = array_idx_modifiable(&t->ext_hdr_updates, ext_id);
+	if (*pos != NULL) {
+		i_panic("mail_index_update_header_ext() doesn't currently "
+			"support multiple updates to the same ext header");
+	}
+	*pos = hdr;
 }
 
 void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,

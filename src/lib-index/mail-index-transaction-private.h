@@ -9,6 +9,13 @@ struct mail_index_transaction_keyword_update {
 	ARRAY_TYPE(seq_range) remove_seq;
 };
 
+struct mail_index_transaction_ext_hdr_update {
+	uint32_t ext_id;
+	uint16_t offset;
+	uint16_t size;
+	/* unsigned char data[]; */
+};
+
 struct mail_index_transaction_vfuncs {
 	int (*commit)(struct mail_index_transaction *t,
 		      uint32_t *log_file_seq_r, uoff_t *log_file_offset_r);
@@ -39,6 +46,8 @@ struct mail_index_transaction {
 	unsigned char post_hdr_change[sizeof(struct mail_index_header)];
 	unsigned char post_hdr_mask[sizeof(struct mail_index_header)];
 
+	ARRAY_DEFINE(ext_hdr_updates,
+		     struct mail_index_transaction_ext_hdr_update *);
 	ARRAY_DEFINE(ext_rec_updates, ARRAY_TYPE(seq_array));
 	ARRAY_DEFINE(ext_resizes, struct mail_transaction_ext_intro);
 	ARRAY_DEFINE(ext_resets, uint32_t);

@@ -226,12 +226,33 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 }
 
 static void
+log_append_ext_hdr_update(struct log_append_context *ctx,
+			  struct mail_index_transaction_ext_hdr_update *hdr)
+{
+	struct mail_transaction_ext_hdr_update *trans_hdr;
+	buffer_t *buf;
+	unsigned int hdr_size;
+
+	t_push();
+	hdr_size = sizeof(*trans_hdr) + hdr->size;
+	buf = buffer_create_static_hard(pool_datastack_create(), hdr_size);
+	trans_hdr = buffer_append_space_unsafe(buf, sizeof(*trans_hdr));
+	trans_hdr->offset = hdr->offset;
+	trans_hdr->size = hdr->size;
+	buffer_append(buf, hdr + 1, hdr->size);
+	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_HDR_UPDATE);
+	t_pop();
+}
+
+static void
 mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 {
 	struct mail_index_transaction *t = ctx->trans;
         const struct mail_transaction_ext_intro *resize;
+	struct mail_index_transaction_ext_hdr_update *const *hdrs;
 	struct mail_transaction_ext_reset ext_reset;
-	unsigned int update_count, resize_count, reset_count, ext_count;
+	unsigned int update_count, resize_count, reset_count, ext_count = 0;
+	unsigned int hdrs_count;
 	uint32_t ext_id;
 	const uint32_t *reset;
 	const ARRAY_TYPE(seq_array) *update;
@@ -242,6 +263,7 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 		update_count = 0;
 	} else {
 		update = array_get(&t->ext_rec_updates, &update_count);
+		ext_count = update_count;
 	}
 
 	if (!array_is_created(&t->ext_resizes)) {
@@ -249,6 +271,8 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 		resize_count = 0;
 	} else {
 		resize = array_get(&t->ext_resizes, &resize_count);
+		if (ext_count < resize_count)
+			ext_count = resize_count;
 	}
 
 	if (!array_is_created(&t->ext_resets)) {
@@ -256,6 +280,17 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 		reset_count = 0;
 	} else {
 		reset = array_get(&t->ext_resets, &reset_count);
+		if (ext_count < reset_count)
+			ext_count = reset_count;
+	}
+
+	if (!array_is_created(&t->ext_hdr_updates)) {
+		hdrs = NULL;
+		hdrs_count = 0;
+	} else {
+		hdrs = array_get(&t->ext_hdr_updates, &hdrs_count);
+		if (ext_count < hdrs_count)
+			ext_count = hdrs_count;
 	}
 
 	memset(&ext_reset, 0, sizeof(ext_reset));
@@ -263,7 +298,6 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 	buf = buffer_create_data(pool_datastack_create(),
 				 &ext_reset, sizeof(ext_reset));
 	buffer_set_used_size(buf, sizeof(ext_reset));
-	ext_count = I_MAX(I_MAX(update_count, resize_count), reset_count);
 
 	for (ext_id = 0; ext_id < ext_count; ext_id++) {
 		ext_reset.new_reset_id =
@@ -272,12 +306,15 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 		if ((ext_id < resize_count && resize[ext_id].name_size) ||
 		    (ext_id < update_count &&
 		     array_is_created(&update[ext_id])) ||
-		    ext_reset.new_reset_id != 0)
+		    ext_reset.new_reset_id != 0 ||
+		    (ext_id < hdrs_count && hdrs[ext_id] != NULL))
 			log_append_ext_intro(ctx, ext_id, 0);
 		if (ext_reset.new_reset_id != 0) {
 			log_append_buffer(ctx, buf, NULL,
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
+		if (ext_id < hdrs_count && hdrs[ext_id] != NULL)
+			log_append_ext_hdr_update(ctx, hdrs[ext_id]);
 	}
 }
 
