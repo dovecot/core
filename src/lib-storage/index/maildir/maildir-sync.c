@@ -902,13 +902,13 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_sync_ctx,
 	return ret;
 }
 
-int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
+int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		       bool partial)
 {
-	struct maildir_mailbox *mbox = sync_ctx->mbox;
-	struct mail_index_view *view = sync_ctx->view;
+	struct maildir_mailbox *mbox = ctx->mbox;
+	struct mail_index_view *view = ctx->view;
 	struct maildir_uidlist_iter_ctx *iter;
-	struct mail_index_transaction *trans = sync_ctx->trans;
+	struct mail_index_transaction *trans = ctx->trans;
 	const struct mail_index_header *hdr;
 	struct mail_index_header empty_hdr;
 	const struct mail_index_record *rec;
@@ -923,7 +923,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	int ret = 0;
 	bool full_rescan = FALSE;
 
-	i_assert(maildir_uidlist_is_locked(sync_ctx->mbox->uidlist));
+	i_assert(maildir_uidlist_is_locked(ctx->mbox->uidlist));
 
 	hdr = mail_index_get_header(view);
 	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
@@ -945,7 +945,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 	t_array_init(&idx_keywords, MAILDIR_MAX_KEYWORDS);
 	iter = maildir_uidlist_iter_init(mbox->uidlist);
 	while (maildir_uidlist_iter_next(iter, &uid, &uflags, &filename)) {
-		maildir_filename_get_flags(sync_ctx->keywords_sync_ctx,
+		maildir_filename_get_flags(ctx->keywords_sync_ctx,
 					   filename, &flags, &keywords);
 
 		i_assert(uid > prev_uid);
@@ -1150,7 +1150,7 @@ int maildir_sync_index(struct maildir_index_sync_context *sync_ctx,
 		/* now, sync the index. NOTE: may recurse back to here with
 		   partial syncs */
 		mbox->syncing_commit = TRUE;
-		if (maildir_sync_index_records(sync_ctx) < 0)
+		if (maildir_sync_index_records(ctx) < 0)
 			ret = -1;
 		mbox->syncing_commit = FALSE;
 
