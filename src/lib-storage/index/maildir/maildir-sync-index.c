@@ -65,7 +65,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 {
 	struct mailbox *box = &mbox->ibox.box;
 	const char *dir, *fname, *newfname, *newpath;
-	enum mailbox_sync_type sync_type = 0;
+	enum mailbox_sync_type sync_type;
 	uint8_t flags8;
 
 	fname = strrchr(path, '/');
@@ -90,7 +90,6 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 	if (rename(path, newpath) == 0) {
 		if (box->v.sync_notify != NULL)
 			box->v.sync_notify(box, ctx->uid, sync_type);
-
 		ctx->changed = TRUE;
 		return 1;
 	}
@@ -98,7 +97,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 		return 0;
 
 	if (!ENOSPACE(errno) && errno != EACCES) {
-		mail_storage_set_critical(&mbox->storage->storage,
+		mail_storage_set_critical(box->storage,
 			"rename(%s, %s) failed: %m", path, newpath);
 	}
 	return -1;

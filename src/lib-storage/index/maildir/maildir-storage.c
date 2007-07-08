@@ -842,7 +842,7 @@ static int maildir_storage_mailbox_close(struct mailbox *box)
 
 	maildir_keywords_deinit(mbox->keywords);
 	maildir_uidlist_deinit(mbox->uidlist);
-        return index_storage_mailbox_close(box);
+	return index_storage_mailbox_close(box);
 }
 
 static void maildir_notify_changes(struct mailbox *box)
