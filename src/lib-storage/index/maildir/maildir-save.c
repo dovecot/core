@@ -333,6 +333,58 @@ const char *maildir_save_file_get_path(struct mailbox_transaction_context *_t,
 	return maildir_mf_get_path(ctx, mf);
 }
 
+static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
+			      mode_t mode, const char **fname_r)
+{
+	struct stat st;
+	unsigned int prefix_len;
+	const char *tmp_fname = NULL;
+	string_t *path;
+	int fd;
+
+	path = t_str_new(256);
+	str_append(path, dir);
+	str_append_c(path, '/');
+	prefix_len = str_len(path);
+
+	for (;;) {
+		tmp_fname = maildir_filename_generate();
+		str_truncate(path, prefix_len);
+		str_append(path, tmp_fname);
+
+		/* stat() first to see if it exists. pretty much the only
+		   possibility of that happening is if time had moved
+		   backwards, but even then it's highly unlikely. */
+		if (stat(str_c(path), &st) < 0 && errno == ENOENT) {
+			/* doesn't exist */
+			mode_t old_mask = umask(0);
+			fd = open(str_c(path), O_WRONLY | O_CREAT | O_EXCL,
+				  mode);
+			umask(old_mask);
+			if (fd != -1 || errno != EEXIST)
+				break;
+		}
+	}
+
+	*fname_r = tmp_fname;
+	if (fd == -1) {
+		if (ENOSPACE(errno)) {
+			mail_storage_set_error(&mbox->storage->storage,
+				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
+		} else {
+			mail_storage_set_critical(&mbox->storage->storage,
+				"open(%s) failed: %m", str_c(path));
+		}
+	} else if (mbox->mail_create_gid != (gid_t)-1) {
+		if (fchown(fd, (uid_t)-1, mbox->mail_create_gid) < 0) {
+			mail_storage_set_critical(&mbox->storage->storage,
+				"fchown(%s) failed: %m", str_c(path));
+		}
+	}
+
+	return fd;
+}
+
 int maildir_save_init(struct mailbox_transaction_context *_t,
 		      enum mail_flags flags, struct mail_keywords *keywords,
 		      time_t received_date, int timezone_offset __attr_unused__,

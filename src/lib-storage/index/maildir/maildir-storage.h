@@ -113,8 +113,6 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	maildir_file_do(mbox, seq, (maildir_file_do_func *)callback, context)
 #endif
 
-int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
-		       mode_t mode, const char **fname_r);
 void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir);
 
 void maildir_transaction_class_init(void);
