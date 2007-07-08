@@ -6,6 +6,7 @@
 #include "str.h"
 #include "message-parser.h"
 #include "index-storage.h"
+#include "index-sync-changes.h"
 #include "mbox-storage.h"
 #include "mbox-sync-private.h"
 
@@ -388,16 +389,16 @@ void mbox_sync_update_header(struct mbox_sync_mail_context *ctx)
 
 	old_flags = ctx->mail.flags;
 
-	if (array_count(&ctx->sync_ctx->syncs) > 0) {
-		mbox_sync_apply_index_syncs(ctx->sync_ctx, &ctx->mail,
-					    &sync_type);
+	index_sync_changes_apply(ctx->sync_ctx->sync_changes,
+				 ctx->sync_ctx->mail_keyword_pool,
+				 &ctx->mail.flags, &ctx->mail.keywords,
+				 &sync_type);
 
-		if ((old_flags & XSTATUS_FLAGS_MASK) !=
-		    (ctx->mail.flags & XSTATUS_FLAGS_MASK))
-			mbox_sync_update_xstatus(ctx);
-		if ((sync_type & MAILBOX_SYNC_TYPE_KEYWORDS) != 0)
-			mbox_sync_update_xkeywords(ctx);
-	}
+	if ((old_flags & XSTATUS_FLAGS_MASK) !=
+	    (ctx->mail.flags & XSTATUS_FLAGS_MASK))
+		mbox_sync_update_xstatus(ctx);
+	if ((sync_type & MAILBOX_SYNC_TYPE_KEYWORDS) != 0)
+		mbox_sync_update_xkeywords(ctx);
 
 	if (!ctx->sync_ctx->mbox->ibox.keep_recent)
 		ctx->mail.flags &= ~MAIL_RECENT;

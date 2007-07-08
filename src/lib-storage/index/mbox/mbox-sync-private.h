@@ -4,8 +4,6 @@
 #include "md5.h"
 #include "mail-index.h"
 
-ARRAY_DEFINE_TYPE(sync_recs, struct mail_index_sync_rec);
-
 #include <sys/stat.h>
 
 enum mbox_sync_flags {
@@ -124,8 +122,7 @@ struct mbox_sync_context {
 
 	/* mail state: */
 	ARRAY_DEFINE(mails, struct mbox_sync_mail);
-	ARRAY_TYPE(sync_recs) syncs;
-	struct mail_index_sync_rec sync_rec;
+	struct index_sync_changes_context *sync_changes;
 
 	/* per-mail pool */
 	pool_t mail_keyword_pool;
@@ -166,9 +163,6 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 		      uoff_t end_offset, off_t move_diff, uoff_t extra_space,
 		      uint32_t first_seq, uint32_t last_seq);
 
-void mbox_sync_apply_index_syncs(struct mbox_sync_context *sync_ctx,
-				 struct mbox_sync_mail *mail,
-				 enum mailbox_sync_type *sync_type_r);
 int mbox_sync_seek(struct mbox_sync_context *sync_ctx, uoff_t from_offset);
 void mbox_sync_file_update_ext_modified(struct mbox_sync_context *sync_ctx);
 void mbox_sync_file_updated(struct mbox_sync_context *sync_ctx, bool dirty);
