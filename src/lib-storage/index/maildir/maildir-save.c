@@ -334,7 +334,7 @@ const char *maildir_save_file_get_path(struct mailbox_transaction_context *_t,
 }
 
 static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
-			      mode_t mode, const char **fname_r)
+			      const char **fname_r)
 {
 	struct stat st;
 	unsigned int prefix_len;
@@ -355,14 +355,23 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		/* stat() first to see if it exists. pretty much the only
 		   possibility of that happening is if time had moved
 		   backwards, but even then it's highly unlikely. */
-		if (stat(str_c(path), &st) < 0 && errno == ENOENT) {
+		if (stat(str_c(path), &st) == 0) {
+			/* try another file name */
+		} else if (errno != ENOENT) {
+			mail_storage_set_critical(&mbox->storage->storage,
+				"stat(%s) failed: %m", str_c(path));
+			return -1;
+		} else {
 			/* doesn't exist */
-			mode_t old_mask = umask(0);
-			fd = open(str_c(path), O_WRONLY | O_CREAT | O_EXCL,
-				  mode);
+			mode_t old_mask = umask(0777 & ~mbox->mail_create_mode);
+			fd = open(str_c(path),
+				  O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, 0777);
 			umask(old_mask);
+
 			if (fd != -1 || errno != EEXIST)
 				break;
+			/* race condition between stat() and open().
+			   highly unlikely. */
 		}
 	}
 
@@ -408,8 +417,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 	ctx = t->save_ctx;
 
 	/* create a new file in tmp/ directory */
-	ctx->fd = maildir_create_tmp(mbox, ctx->tmpdir, mbox->mail_create_mode,
-				     &fname);
+	ctx->fd = maildir_create_tmp(mbox, ctx->tmpdir, &fname);
 	if (ctx->fd == -1) {
 		ctx->failed = TRUE;
 		t_pop();
