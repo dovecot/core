@@ -1,13 +1,10 @@
 /* Copyright (C) 2004 Timo Sirainen */
 
 #include "lib.h"
-#include "hostpid.h"
 #include "ioloop.h"
 #include "str.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
-#include "maildir-filename.h"
-#include "maildir-keywords.h"
 #include "maildir-sync.h"
 
 #include <unistd.h>
