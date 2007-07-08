@@ -1020,17 +1020,23 @@ int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
 			      enum maildir_uidlist_rec_flag *flags_r,
 			      const char **filename_r)
 {
+	struct maildir_uidlist_rec *rec;
+
 	if (ctx->change_counter != ctx->uidlist->change_counter)
 		maildir_uidlist_iter_update_idx(ctx);
 
 	if (ctx->next == ctx->end)
 		return 0;
 
-	*uid_r = (*ctx->next)->uid;
-	*flags_r = (*ctx->next)->flags;
-	*filename_r = (*ctx->next)->filename;
+	rec = *ctx->next;
+	i_assert(rec->uid != (uint32_t)-1);
+
+	ctx->prev_uid = rec->uid;
 	ctx->next++;
-	ctx->prev_uid = *uid_r;
+
+	*uid_r = rec->uid;
+	*flags_r = rec->flags;
+	*filename_r = rec->filename;
 	return 1;
 }
 
