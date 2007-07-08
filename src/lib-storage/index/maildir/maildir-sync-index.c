@@ -22,6 +22,7 @@ struct maildir_index_sync_context {
         struct maildir_keywords_sync_ctx *keywords_sync_ctx;
 	struct mail_index_transaction *trans;
 
+	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
 	struct index_sync_changes_context *sync_changes;
 	enum mail_flags flags;
 	ARRAY_TYPE(keyword_indexes) keywords;
@@ -101,6 +102,49 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			"rename(%s, %s) failed: %m", path, newpath);
 	}
 	return -1;
+}
+
+static void maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
+					 enum maildir_uidlist_rec_flag uflags,
+					 const char *filename, uint32_t uid)
+{
+	int ret;
+
+	if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
+		/* partial syncing */
+		return;
+	}
+
+	/* most likely a race condition: we read the maildir, then someone else
+	   expunged messages and committed changes to index. so, this message
+	   shouldn't actually exist. */
+	if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) == 0) {
+		/* mark it racy and check in next sync */
+		ctx->mbox->dirty_cur_time = ioloop_time;
+		maildir_uidlist_add_flags(ctx->mbox->uidlist, filename,
+					  MAILDIR_UIDLIST_REC_FLAG_RACING);
+		return;
+	}
+
+	if (ctx->uidlist_sync_ctx == NULL) {
+		ret = maildir_uidlist_sync_init(ctx->mbox->uidlist,
+						MAILDIR_UIDLIST_SYNC_PARTIAL,
+						&ctx->uidlist_sync_ctx);
+		i_assert(ret > 0);
+	}
+
+	uflags &= (MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
+		   MAILDIR_UIDLIST_REC_FLAG_RECENT);
+	maildir_uidlist_sync_remove(ctx->uidlist_sync_ctx, filename);
+	ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
+					filename, uflags);
+	i_assert(ret > 0);
+
+	/* give the new UID to it immediately */
+	maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
+
+	i_warning("Maildir %s: Expunged message reappeared, giving a new UID "
+		  "(old uid=%u, file=%s)", ctx->mbox->path, uid, filename);
 }
 
 int maildir_sync_index_begin(struct maildir_mailbox *mbox,
@@ -237,39 +281,8 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		if (seq > hdr->messages_count) {
 			if (uid < hdr->next_uid) {
-				/* most likely a race condition: we read the
-				   maildir, then someone else expunged messages
-				   and committed changes to index. so, this
-				   message shouldn't actually exist. mark it
-				   racy and check in next sync.
-
-				   the difference between this and the later
-				   check is that this one happens when messages
-				   are expunged from the end */
-				if ((uflags &
-				    MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
-					/* partial syncing */
-					continue;
-				}
-				if ((uflags &
-				     MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
-					mail_storage_set_critical(
-						&mbox->storage->storage,
-						"Maildir %s sync: "
-						"UID < next_uid "
-						"(%u < %u, file = %s)",
-						mbox->path, uid, hdr->next_uid,
-						filename);
-					mail_index_mark_corrupted(
-						mbox->ibox.index);
-					ret = -1;
-					break;
-				}
-				mbox->dirty_cur_time = ioloop_time;
-				maildir_uidlist_add_flags(mbox->uidlist,
-					filename,
-					MAILDIR_UIDLIST_REC_FLAG_RACING);
-
+				maildir_handle_uid_insertion(ctx, uflags,
+							     filename, uid);
 				seq--;
 				continue;
 			}
@@ -296,40 +309,15 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			break;
 		}
 
-		if (rec->uid < uid) {
+		if (uid > rec->uid) {
 			/* expunged */
 			mail_index_expunge(trans, seq);
 			goto __again;
 		}
 
-		if (rec->uid > uid) {
-			/* most likely a race condition: we read the
-			   maildir, then someone else expunged messages and
-			   committed changes to index. so, this message
-			   shouldn't actually exist. mark it racy and check
-			   in next sync. */
-			if ((uflags &
-			    MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
-				/* partial syncing */
-				seq--;
-				continue;
-			}
-			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_RACING) != 0) {
-				mail_storage_set_critical(
-					&mbox->storage->storage,
-					"Maildir %s sync: "
-					"UID inserted in the middle of mailbox "
-					"(%u > %u, file = %s)",
-					mbox->path, rec->uid, uid, filename);
-				mail_index_mark_corrupted(mbox->ibox.index);
-				ret = -1;
-				break;
-			}
-
-			mbox->dirty_cur_time = ioloop_time;
-			maildir_uidlist_add_flags(mbox->uidlist, filename,
-				MAILDIR_UIDLIST_REC_FLAG_RACING);
-
+		if (uid < rec->uid) {
+			maildir_handle_uid_insertion(ctx, uflags,
+						     filename, uid);
 			seq--;
 			continue;
 		}
@@ -423,6 +411,11 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	}
 	maildir_uidlist_iter_deinit(iter);
 	mbox->syncing_commit = FALSE;
+
+	if (ctx->uidlist_sync_ctx != NULL) {
+		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx) < 0)
+			ret = -1;
+	}
 
 	if (mbox->ibox.box.v.sync_notify != NULL)
 		mbox->ibox.box.v.sync_notify(&mbox->ibox.box, 0, 0);
