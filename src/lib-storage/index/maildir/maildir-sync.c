@@ -1027,7 +1027,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 	if (hdr->uid_validity == 0) {
 		/* get the initial uidvalidity */
-		if (maildir_uidlist_update(mbox->uidlist) < 0)
+		if (maildir_uidlist_refresh(mbox->uidlist) < 0)
 			ret = -1;
 		uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
 		if (uid_validity == 0) {

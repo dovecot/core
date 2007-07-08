@@ -132,7 +132,7 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 		src_fname = maildir_uidlist_lookup(src_mbox->uidlist,
 						   mail->uid, &src_flags);
 		if (src_fname != NULL &&
-		    maildir_uidlist_update(dest_mbox->uidlist) >= 0 &&
+		    maildir_uidlist_refresh(dest_mbox->uidlist) >= 0 &&
 		    maildir_uidlist_get_full_filename(dest_mbox->uidlist,
 						      src_fname) == NULL)
 			filename = t_strcut(src_fname, ':');

@@ -120,7 +120,7 @@ static int maildir_uidlist_lock_timeout(struct maildir_uidlist *uidlist,
 	uidlist->lock_count++;
 
 	/* make sure we have the latest changes before changing anything */
-	if (maildir_uidlist_update(uidlist) < 0) {
+	if (maildir_uidlist_refresh(uidlist) < 0) {
 		maildir_uidlist_unlock(uidlist);
 		return -1;
 	}
@@ -396,7 +396,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 	return ret;
 }
 
-int maildir_uidlist_update(struct maildir_uidlist *uidlist)
+int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
 {
 	struct mail_storage *storage = &uidlist->mbox->storage->storage;
         struct stat st;
@@ -443,7 +443,7 @@ maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
 
 	if (!uidlist->initial_read) {
 		/* first time we need to read uidlist */
-		if (maildir_uidlist_update(uidlist) < 0)
+		if (maildir_uidlist_refresh(uidlist) < 0)
 			return NULL;
 	}
 
@@ -765,7 +765,7 @@ int maildir_uidlist_sync_next_pre(struct maildir_uidlist_sync_ctx *ctx,
 	    (ctx->partial || hash_lookup(ctx->files, filename) == NULL)) {
 		if (!ctx->uidlist->initial_read) {
 			/* first time reading the uidlist */
-			if (maildir_uidlist_update(ctx->uidlist) < 0) {
+			if (maildir_uidlist_refresh(ctx->uidlist) < 0) {
 				ctx->failed = TRUE;
 				return -1;
 			}

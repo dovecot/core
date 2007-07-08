@@ -27,7 +27,7 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox);
 void maildir_uidlist_deinit(struct maildir_uidlist *uidlist);
 
 /* Returns -1 if error, 0 if file is broken or lost, 1 if ok. */
-int maildir_uidlist_update(struct maildir_uidlist *uidlist);
+int maildir_uidlist_refresh(struct maildir_uidlist *uidlist);
 
 /* Returns uidlist record for given filename, or NULL if not found. */
 const char *
