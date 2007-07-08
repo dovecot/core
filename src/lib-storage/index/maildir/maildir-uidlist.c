@@ -614,7 +614,7 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist, int fd,
 	return 0;
 }
 
-static int maildir_uidlist_rewrite(struct maildir_uidlist *uidlist)
+static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 {
 	struct maildir_mailbox *mbox = uidlist->mbox;
 	const char *temp_path;
@@ -953,7 +953,7 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 
 	if (ctx->new_files_count != 0 && !ctx->failed) {
 		t_push();
-		ret = maildir_uidlist_rewrite(ctx->uidlist);
+		ret = maildir_uidlist_recreate(ctx->uidlist);
 		t_pop();
 	}
 
