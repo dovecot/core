@@ -6,6 +6,7 @@
 #include "str.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "maildir-filename.h"
 #include "maildir-keywords.h"
 #include "maildir-sync.h"
 #include "index-mail.h"

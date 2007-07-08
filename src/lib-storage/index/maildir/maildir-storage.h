@@ -113,11 +113,9 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	maildir_file_do(mbox, seq, (maildir_file_do_func *)callback, context)
 #endif
 
-const char *maildir_generate_tmp_filename(const struct timeval *tv);
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 		       mode_t mode, const char **fname_r);
 void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir);
-bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r);
 
 void maildir_transaction_class_init(void);
 void maildir_transaction_class_deinit(void);
@@ -149,8 +147,5 @@ int maildir_copy(struct mailbox_transaction_context *t, struct mail *mail,
 		 struct mail *dest_mail);
 int maildir_transaction_copy_commit(struct maildir_copy_context *ctx);
 void maildir_transaction_copy_rollback(struct maildir_copy_context *ctx);
-
-unsigned int maildir_hash(const void *p);
-int maildir_cmp(const void *p1, const void *p2);
 
 #endif

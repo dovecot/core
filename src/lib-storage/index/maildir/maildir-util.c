@@ -6,6 +6,7 @@
 #include "str.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "maildir-filename.h"
 #include "maildir-keywords.h"
 #include "maildir-sync.h"
 
@@ -81,28 +82,6 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 		ret = maildir_file_do_try(mbox, uid, do_racecheck, context);
 
 	return ret == -2 ? 0 : ret;
-}
-
-const char *maildir_generate_tmp_filename(const struct timeval *tv)
-{
-	static unsigned int create_count = 0;
-	static time_t first_stamp = 0;
-
-	if (first_stamp == 0 || first_stamp == ioloop_time) {
-		/* it's possible that within last second another process had
-		   the same PID as us. Use usecs to make sure we don't create
-		   duplicate base name. */
-		first_stamp = ioloop_time;
-		return t_strdup_printf("%s.P%sQ%uM%s.%s",
-				       dec2str(tv->tv_sec), my_pid,
-				       create_count++,
-				       dec2str(tv->tv_usec), my_hostname);
-	} else {
-		/* Don't bother with usecs. Saves a bit space :) */
-		return t_strdup_printf("%s.P%sQ%u.%s",
-				       dec2str(tv->tv_sec), my_pid,
-				       create_count++, my_hostname);
-	}
 }
 
 int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
@@ -234,67 +213,4 @@ void maildir_tmp_cleanup(struct mail_storage *storage, const char *dir)
 		mail_storage_set_critical(storage,
 			"closedir(%s) failed: %m", dir);
 	}
-}
-
-bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r)
-{
-	uoff_t size = 0;
-
-	for (; *fname != '\0'; fname++) {
-		i_assert(*fname != '/');
-		if (*fname == ',' && fname[1] == type && fname[2] == '=') {
-			fname += 3;
-			break;
-		}
-	}
-
-	if (*fname == '\0')
-		return FALSE;
-
-	while (*fname >= '0' && *fname <= '9') {
-		size = size * 10 + (*fname - '0');
-		fname++;
-	}
-
-	if (*fname != MAILDIR_INFO_SEP &&
-	    *fname != MAILDIR_EXTRA_SEP &&
-	    *fname != '\0')
-		return FALSE;
-
-	*size_r = size;
-	return TRUE;
-}
-
-/* a char* hash function from ASU -- from glib */
-unsigned int maildir_hash(const void *p)
-{
-        const unsigned char *s = p;
-	unsigned int g, h = 0;
-
-	while (*s != MAILDIR_INFO_SEP && *s != '\0') {
-		i_assert(*s != '/');
-		h = (h << 4) + *s;
-		if ((g = h & 0xf0000000UL)) {
-			h = h ^ (g >> 24);
-			h = h ^ g;
-		}
-
-		s++;
-	}
-
-	return h;
-}
-
-int maildir_cmp(const void *p1, const void *p2)
-{
-	const char *s1 = p1, *s2 = p2;
-
-	while (*s1 == *s2 && *s1 != MAILDIR_INFO_SEP && *s1 != '\0') {
-		i_assert(*s1 != '/');
-		s1++; s2++;
-	}
-	if ((*s1 == '\0' || *s1 == MAILDIR_INFO_SEP) &&
-	    (*s2 == '\0' || *s2 == MAILDIR_INFO_SEP))
-		return 0;
-	return *s1 - *s2;
 }

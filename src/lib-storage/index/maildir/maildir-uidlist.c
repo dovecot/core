@@ -12,6 +12,7 @@
 #include "write-full.h"
 #include "maildir-storage.h"
 #include "maildir-sync.h"
+#include "maildir-filename.h"
 #include "maildir-uidlist.h"
 
 #include <stdio.h>

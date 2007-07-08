@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "index-mail.h"
 #include "maildir-storage.h"
+#include "maildir-filename.h"
 #include "maildir-uidlist.h"
 
 #include <fcntl.h>

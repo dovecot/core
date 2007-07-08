@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 
 libstorage_maildir_a_SOURCES = \
 	maildir-copy.c \
+	maildir-filename.c \
 	maildir-keywords.c \
 	maildir-mail.c \
 	maildir-save.c \
@@ -20,6 +21,7 @@ libstorage_maildir_a_SOURCES = \
 	maildir-util.c
 
 headers = \
+	maildir-filename.h \
 	maildir-keywords.h \
 	maildir-storage.h \
 	maildir-sync.h \
