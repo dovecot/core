@@ -176,6 +176,7 @@
 #include "buffer.h"
 #include "hash.h"
 #include "str.h"
+#include "nfs-workarounds.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-filename.h"
@@ -334,6 +335,22 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	return ret;
 }
 
+static int
+maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
+{
+	if (nfs_safe_stat(path, st_r) == 0)
+		return 0;
+	if (errno == ENOENT) {
+		/* if mailbox gets deleted under us, don't log an error */
+		mbox->ibox.mailbox_deleted = TRUE;
+		return -1;
+	}
+
+	mail_storage_set_critical(mbox->ibox.box.storage,
+				  "stat(%s) failed: %m", path);
+	return -1;
+}
+
 static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 {
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
@@ -349,6 +366,10 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 	dir = new_dir ? ctx->new_dir : ctx->cur_dir;
 	dirp = opendir(dir);
 	if (dirp == NULL) {
+		if (errno == ENOENT) {
+			ctx->mbox->ibox.mailbox_deleted = TRUE;
+			return -1;
+		}
 		mail_storage_set_critical(storage,
 					  "opendir(%s) failed: %m", dir);
 		return -1;
@@ -493,24 +514,12 @@ maildir_sync_quick_check(struct maildir_mailbox *mbox,
 
 	*new_changed_r = *cur_changed_r = FALSE;
 
-	if (stat(new_dir, &st) < 0) {
-		if (errno == ENOENT) {
-			/* mailbox was deleted under us. this isn't the only
-			   way it can break, but the most common one. */
-			ibox->mailbox_deleted = TRUE;
-			return -1;
-		}
-		mail_storage_set_critical(&mbox->storage->storage,
-					  "stat(%s) failed: %m", new_dir);
+	if (maildir_stat(mbox, new_dir, &st) < 0)
 		return -1;
-	}
 	new_mtime = st.st_mtime;
 
-	if (stat(cur_dir, &st) < 0) {
-		mail_storage_set_critical(&mbox->storage->storage,
-					  "stat(%s) failed: %m", cur_dir);
+	if (maildir_stat(mbox, cur_dir, &st) < 0)
 		return -1;
-	}
 	cur_mtime = st.st_mtime;
 
 	/* cur stamp is kept in index, we don't have to sync if
