@@ -400,9 +400,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		if ((ctx->flags & ~MAIL_RECENT) !=
 		    (rec->flags & (MAIL_FLAGS_MASK^MAIL_RECENT))) {
-			/* FIXME: this is wrong if there's pending changes in
-			   transaction log already. it gets fixed in next sync
-			   however.. */
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
 						ctx->flags);
 		} else if ((ctx->flags & MAIL_RECENT) == 0 &&
