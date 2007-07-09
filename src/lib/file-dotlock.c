@@ -1,6 +1,7 @@
 /* Copyright (C) 2003 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "str.h"
 #include "hex-binary.h"
 #include "hostpid.h"
@@ -58,7 +59,7 @@ struct lock_info {
 	struct file_change_info lock_info;
 	struct file_change_info file_info;
 
-	bool have_pid;
+	bool have_pid, use_io_notify;
 	time_t last_pid_check;
 	time_t last_change;
 };
@@ -363,6 +364,46 @@ static int try_create_lock_excl(struct lock_info *lock_info, bool write_pid)
 	return 1;
 }
 
+static void dotlock_wait_end(struct ioloop *ioloop)
+{
+	io_loop_stop(ioloop);
+}
+
+static void dotlock_wait(struct lock_info *lock_info)
+{
+	struct ioloop *ioloop;
+	struct io *io;
+	struct timeout *to;
+
+	if (!lock_info->use_io_notify) {
+		usleep(LOCK_RANDOM_USLEEP_TIME);
+		return;
+	}
+
+	ioloop = io_loop_create();
+	switch (io_add_notify(lock_info->lock_path, dotlock_wait_end,
+			      ioloop, &io)) {
+	case IO_NOTIFY_ADDED:
+		break;
+	case IO_NOTIFY_NOTFOUND:
+		/* the lock file doesn't exist anymore, don't sleep */
+		io_loop_destroy(&ioloop);
+		return;
+	case IO_NOTIFY_DISABLED:
+		/* listening for files not supported */
+		io_loop_destroy(&ioloop);
+		lock_info->use_io_notify = FALSE;
+		usleep(LOCK_RANDOM_USLEEP_TIME);
+		return;
+	}
+	to = timeout_add(LOCK_RANDOM_USLEEP_TIME/1000,
+			 dotlock_wait_end, ioloop);
+	io_loop_run(ioloop);
+	io_remove(&io);
+	timeout_remove(&to);
+	io_loop_destroy(&ioloop);
+}
+
 static int dotlock_create(const char *path, struct dotlock *dotlock,
 			  enum dotlock_create_flags flags, bool write_pid)
 {
@@ -390,12 +431,13 @@ static int dotlock_create(const char *path, struct dotlock *dotlock,
 	lock_info.set = set;
 	lock_info.lock_path = lock_path;
 	lock_info.fd = -1;
-
+	lock_info.use_io_notify = set->use_io_notify;
+;
 	last_notify = 0; do_wait = FALSE;
 
 	do {
 		if (do_wait) {
-			usleep(LOCK_RANDOM_USLEEP_TIME);
+			dotlock_wait(&lock_info);
 			do_wait = FALSE;
 		}
 

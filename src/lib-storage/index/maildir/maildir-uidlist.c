@@ -181,6 +181,7 @@ struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox)
 				     maildir_filename_base_cmp);
 	uidlist->next_uid = 1;
 
+	uidlist->dotlock_settings.use_io_notify = TRUE;
 	uidlist->dotlock_settings.use_excl_lock =
 		(mbox->storage->storage.flags &
 		 MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
