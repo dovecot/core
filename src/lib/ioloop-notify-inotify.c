@@ -98,8 +98,8 @@ enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
 		return IO_NOTIFY_DISABLED;
 
 	wd = inotify_add_watch(ctx->inotify_fd, path,
-			       IN_CREATE | IN_DELETE | IN_MOVE |
-			       IN_CLOSE | IN_MODIFY);
+			       IN_CREATE | IN_DELETE | IN_DELETE_SELF |
+			       IN_MOVE | IN_CLOSE | IN_MODIFY);
 	if (wd < 0) {
 		if (errno == ENOENT)
 			return IO_NOTIFY_NOTFOUND;
@@ -128,7 +128,10 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
 	struct io_notify *io = (struct io_notify *)_io;
 
 	if (io->fd != -1) {
-		if (inotify_rm_watch(ctx->inotify_fd, io->fd) < 0)
+		/* ernro=EINVAL happens if the file itself is deleted and
+		   kernel has sent IN_IGNORED event which we haven't read. */
+		if (inotify_rm_watch(ctx->inotify_fd, io->fd) < 0 &&
+		    errno != EINVAL)
 			i_error("inotify_rm_watch() failed: %m");
 	}
 
