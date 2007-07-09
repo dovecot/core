@@ -113,7 +113,6 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 	struct kevent ev;
 	struct io_notify *io;
 	int fd;
-	struct stat sb;
 
 	if (ctx == NULL)
 		ctx = io_loop_notify_handler_init();
@@ -122,16 +121,6 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 	if (fd == -1) {
 		if (errno != ENOENT)
 			i_error("open(%s) for kq notify failed: %m", path);
-		return NULL;
-	}
-
-	if (fstat(fd, &sb) < 0) {
-		i_error("fstat(%d, %s) for kq notify failed: %m", fd, path);
-		(void)close(fd);
-		return NULL;
-	}
-	if (!S_ISDIR(sb.st_mode)) {
-		(void)close(fd);
 		return NULL;
 	}
 	fd_close_on_exec(fd, TRUE);
