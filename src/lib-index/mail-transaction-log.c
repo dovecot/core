@@ -29,6 +29,9 @@ mail_transaction_log_set_head(struct mail_transaction_log *log,
 
 	file->refcount++;
 	log->head = file;
+
+	i_assert(log->files != NULL);
+	i_assert(log->files->next != NULL || log->files == file);
 }
 
 struct mail_transaction_log *
@@ -193,6 +196,7 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 		if (file->refcount == 0)
 			mail_transaction_log_file_free(&file);
 	}
+	i_assert(log->head == NULL || log->files != NULL);
 }
 
 #define LOG_WANT_ROTATE(file) \
