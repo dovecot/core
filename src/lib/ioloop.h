@@ -19,6 +19,12 @@ enum io_condition {
 	IO_NOTIFY	= 0x08
 };
 
+enum io_notify_result {
+	IO_NOTIFY_ADDED,
+	IO_NOTIFY_NOTFOUND,
+	IO_NOTIFY_DISABLED
+};
+
 typedef void io_callback_t(void *context);
 typedef void timeout_callback_t(void *context);
 
@@ -40,10 +46,17 @@ struct io *io_add(int fd, enum io_condition condition,
 #define io_add(fd, condition, callback, context) \
 	CONTEXT_CALLBACK(io_add, io_callback_t, \
 			 callback, context, fd, condition)
-struct io *io_add_notify(const char *path, io_callback_t *callback,
-			 void *context);
-#define io_add_notify(path, callback, context) \
-	CONTEXT_CALLBACK(io_add_notify, io_callback_t, callback, context, path)
+enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
+				    void *context, struct io **io_r);
+#ifdef CONTEXT_TYPE_SAFETY
+#  define io_add_notify(path, callback, context, io_r) \
+	({(void)(1 ? 0 : callback(context)); \
+	io_add_notify(path, (io_callback_t *)callback, context, io_r); })
+#else
+#  define io_add_notify(path, callback, context, io_r) \
+	io_add_notify(path, (io_callback_t *)callback, context, io_r)
+#endif
+
 /* Remove I/O handler, and set io pointer to NULL. */
 void io_remove(struct io **io);
 

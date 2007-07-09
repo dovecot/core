@@ -73,7 +73,7 @@ void index_mailbox_check_add(struct index_mailbox *ibox,
 	struct io *io = NULL;
 	struct index_notify_io *aio;
 
-	io = io_add_notify(path, notify_callback, ibox);
+	(void)io_add_notify(path, notify_callback, ibox, &io);
 	if (io != NULL) {
 		aio = i_new(struct index_notify_io, 1);
 		aio->io = io;

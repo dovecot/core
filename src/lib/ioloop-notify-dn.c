@@ -72,48 +72,51 @@ static void dnotify_input(struct ioloop *ioloop)
 }
 
 #undef io_add_notify
-struct io *io_add_notify(const char *path, io_callback_t *callback,
-			 void *context)
+enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
+				    void *context, struct io **io_r)
 {
 	struct ioloop_notify_handler_context *ctx =
 		current_ioloop->notify_handler_context;
-	int fd;
+	int fd, ret;
+
+	*io_r = NULL;
 
 	if (ctx == NULL)
 		ctx = io_loop_notify_handler_init();
 	if (ctx->disabled)
-		return NULL;
+		return IO_NOTIFY_DISABLED;
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		i_error("open(%s) for dnotify failed: %m", path);
-		return NULL;
+		if (errno != ENOENT)
+			i_error("open(%s) for dnotify failed: %m", path);
+		return IO_NOTIFY_NOTFOUND;
 	}
 
 	if (fcntl(fd, F_SETSIG, SIGRTMIN) < 0) {
-		if (errno == EINVAL) {
-			/* not supported, disable dnotify */
-			ctx->disabled = TRUE;
-		} else {
+		/* EINVAL means there's no realtime signals and no dnotify */
+		if (errno != EINVAL)
 			i_error("fcntl(F_SETSIG) failed: %m");
-		}
+		ctx->disabled = TRUE;
 		(void)close(fd);
-		return NULL;
+		return IO_NOTIFY_DISABLED;
 	}
 	if (fcntl(fd, F_NOTIFY, DN_CREATE | DN_DELETE | DN_RENAME |
 		  DN_MULTISHOT) < 0) {
 		if (errno == ENOTDIR) {
 			/* we're trying to add dnotify to a non-directory fd.
 			   fail silently. */
-		} else if (errno == EINVAL) {
-			/* dnotify not in kernel. disable it. */
-			ctx->disabled = TRUE;
+			ret = IO_NOTIFY_NOTFOUND;
 		} else {
-			i_error("fcntl(F_NOTIFY) failed: %m");
+			/* dnotify not in kernel. disable it. */
+			if (errno != EINVAL)
+				i_error("fcntl(F_NOTIFY) failed: %m");
+			ctx->disabled = TRUE;
+			ret = IO_NOTIFY_DISABLED;
 		}
 		(void)fcntl(fd, F_SETSIG, 0);
 		(void)close(fd);
-		return NULL;
+		return ret;
 	}
 
 	if (ctx->event_io == NULL) {
@@ -121,7 +124,8 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 				       dnotify_input, current_ioloop);
 	}
 
-	return io_notify_fd_add(&ctx->fd_ctx, fd, callback, context);
+	*io_r = io_notify_fd_add(&ctx->fd_ctx, fd, callback, context);
+	return IO_NOTIFY_ADDED;
 }
 
 void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)

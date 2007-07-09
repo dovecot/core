@@ -6,6 +6,7 @@
 #ifdef IOLOOP_NOTIFY_INOTIFY
 
 #include "fd-close-on-exec.h"
+#include "fd-set-nonblock.h"
 #include "ioloop-internal.h"
 #include "ioloop-notify-fd.h"
 #include "buffer.h"
@@ -62,12 +63,18 @@ static bool inotify_input_more(struct ioloop *ioloop)
 		pos += sizeof(*event) + event->len;
 
 		io = io_notify_fd_find(&ctx->fd_ctx, event->wd);
-		if (io != NULL)
+		if (io != NULL) {
+			if ((event->mask & IN_IGNORED) != 0) {
+				/* calling inotify_rm_watch() would now give
+				   EINVAL */
+				io->fd = -1;
+			}
 			io->io.callback(io->io.context);
+		}
 	}
 	if (pos != ret)
 		i_error("read(inotify) returned partial event");
-	return TRUE;
+	return (size_t)ret >= sizeof(event_buf)-512;
 }
 
 static void inotify_input(struct ioloop *ioloop)
@@ -76,28 +83,33 @@ static void inotify_input(struct ioloop *ioloop)
 }
 
 #undef io_add_notify
-struct io *io_add_notify(const char *path, io_callback_t *callback,
-			 void *context)
+enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
+				    void *context, struct io **io_r)
 {
 	struct ioloop_notify_handler_context *ctx =
 		current_ioloop->notify_handler_context;
-	int fd;
+	int wd;
+
+	*io_r = NULL;
 
 	if (ctx == NULL)
 		ctx = io_loop_notify_handler_init();
 	if (ctx->disabled)
-		return NULL;
+		return IO_NOTIFY_DISABLED;
 
-	fd = inotify_add_watch(ctx->inotify_fd, path,
+	wd = inotify_add_watch(ctx->inotify_fd, path,
 			       IN_CREATE | IN_DELETE | IN_MOVE |
 			       IN_CLOSE | IN_MODIFY);
-	if (fd < 0) {
+	if (wd < 0) {
+		if (errno == ENOENT)
+			return IO_NOTIFY_NOTFOUND;
+
 		/* ESTALE could happen with NFS. Don't bother giving an error
 		   message then. */
 		if (errno != ESTALE)
 			i_error("inotify_add_watch(%s) failed: %m", path);
 		ctx->disabled = TRUE;
-		return NULL;
+		return IO_NOTIFY_DISABLED;
 	}
 
 	if (ctx->event_io == NULL) {
@@ -105,7 +117,8 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 				       inotify_input, current_ioloop);
 	}
 
-	return io_notify_fd_add(&ctx->fd_ctx, fd, callback, context);
+	*io_r = io_notify_fd_add(&ctx->fd_ctx, wd, callback, context);
+	return IO_NOTIFY_ADDED;
 }
 
 void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
@@ -114,8 +127,10 @@ void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
 		ioloop->notify_handler_context;
 	struct io_notify *io = (struct io_notify *)_io;
 
-	if (inotify_rm_watch(ctx->inotify_fd, io->fd) < 0)
-		i_error("inotify_rm_watch() failed: %m");
+	if (io->fd != -1) {
+		if (inotify_rm_watch(ctx->inotify_fd, io->fd) < 0)
+			i_error("inotify_rm_watch() failed: %m");
+	}
 
 	io_notify_fd_free(&ctx->fd_ctx, io);
 
@@ -142,6 +157,7 @@ static struct ioloop_notify_handler_context *io_loop_notify_handler_init(void)
 		ctx->disabled = TRUE;
 	} else {
 		fd_close_on_exec(ctx->inotify_fd, TRUE);
+		fd_set_nonblock(ctx->inotify_fd, TRUE);
 	}
 	return ctx;
 }
@@ -154,6 +170,7 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 	if (ctx->inotify_fd != -1) {
 		if (close(ctx->inotify_fd) < 0)
 			i_error("close(inotify) failed: %m");
+		ctx->inotify_fd = -1;
 	}
 	i_free(ctx);
 }

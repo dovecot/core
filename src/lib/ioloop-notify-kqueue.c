@@ -105,8 +105,8 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 }
 
 #undef io_add_notify
-struct io *io_add_notify(const char *path, io_callback_t *callback,
-			 void *context)
+enum io_notify_result io_add_notify(const char *path, io_callback_t *callback,
+				    void *context, struct io **io_r)
 {
 	struct ioloop_notify_handler_context *ctx =
 		current_ioloop->notify_handler_context;
@@ -121,7 +121,7 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 	if (fd == -1) {
 		if (errno != ENOENT)
 			i_error("open(%s) for kq notify failed: %m", path);
-		return NULL;
+		return IO_NOTIFY_NOTFOUND;
 	}
 	fd_close_on_exec(fd, TRUE);
 
@@ -140,14 +140,15 @@ struct io *io_add_notify(const char *path, io_callback_t *callback,
 		i_error("kevent(%d, %s) for notify failed: %m", fd, path);
 		(void)close(fd);
 		i_free(io);
-		return NULL;
+		return IO_NOTIFY_DISABLED;
 	}
 
 	if (ctx->event_io == NULL) {
 		ctx->event_io = io_add(ctx->kq, IO_READ, event_callback,
 				       current_ioloop->notify_handler_context);
 	}
-	return &io->io;
+	*io_r = &io->io;
+	return IO_NOTIFY_ADDED;
 }
 
 void io_loop_notify_remove(struct ioloop *ioloop, struct io *_io)
