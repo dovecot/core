@@ -36,6 +36,8 @@ struct io *io_add(int fd, enum io_condition condition,
 	io->refcount = 1;
 	io->fd = fd;
 
+	if (current_ioloop->handler_context == NULL)
+		io_loop_handler_init(current_ioloop);
 	io_loop_handle_add(current_ioloop, io);
 
 	if (current_ioloop->io_files != NULL) {
@@ -293,7 +295,10 @@ void io_loop_handle_timeouts(struct ioloop *ioloop, bool update_run_now)
 
 void io_loop_run(struct ioloop *ioloop)
 {
-        ioloop->running = TRUE;
+	if (ioloop->handler_context == NULL)
+		io_loop_handler_init(ioloop);
+
+	ioloop->running = TRUE;
 	while (ioloop->running)
 		io_loop_handler_run(ioloop);
 }
@@ -323,7 +328,6 @@ struct ioloop *io_loop_create(void)
 	ioloop_time = ioloop_timeval.tv_sec;
 
         ioloop = i_new(struct ioloop, 1);
-	io_loop_handler_init(ioloop);
 
 	ioloop->prev = current_ioloop;
         current_ioloop = ioloop;
@@ -357,7 +361,8 @@ void io_loop_destroy(struct ioloop **_ioloop)
 		i_free(to);
 	}
 	
-        io_loop_handler_deinit(ioloop);
+	if (current_ioloop->handler_context != NULL)
+		io_loop_handler_deinit(ioloop);
 
         /* ->prev won't work unless loops are destroyed in create order */
         i_assert(ioloop == current_ioloop);
