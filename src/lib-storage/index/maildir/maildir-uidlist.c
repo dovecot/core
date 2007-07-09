@@ -543,18 +543,22 @@ uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist)
 	return uidlist->uid_validity;
 }
 
-void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
-				      uint32_t uid_validity, uint32_t next_uid)
-{
-	uidlist->uid_validity = uid_validity;
-	/* set next_uid only if we know newer UIDs haven't been added yet */
-	if (uidlist->next_uid < next_uid)
-		uidlist->next_uid = next_uid;
-}
-
 uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
 {
 	return !uidlist->initial_read ? 0 : uidlist->next_uid;
+}
+
+void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
+				      uint32_t uid_validity)
+{
+	uidlist->uid_validity = uid_validity;
+}
+
+void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
+				  uint32_t next_uid, bool force)
+{
+	if (uidlist->next_uid < next_uid || force)
+		uidlist->next_uid = next_uid;
 }
 
 static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist, int fd,

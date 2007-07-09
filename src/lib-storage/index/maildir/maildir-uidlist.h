@@ -42,7 +42,9 @@ uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist);
 uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist);
 
 void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
-				      uint32_t uid_validity, uint32_t next_uid);
+				      uint32_t uid_validity);
+void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
+				  uint32_t next_uid, bool force);
 
 /* Sync uidlist with what's actually on maildir. Returns same as
    maildir_uidlist_lock(). */

@@ -248,7 +248,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
         enum maildir_uidlist_rec_flag uflags;
 	const char *filename;
 	ARRAY_TYPE(keyword_indexes) idx_keywords;
-	uint32_t uid_validity, next_uid;
+	uint32_t uid_validity, next_uid, hdr_next_uid;
 	unsigned int changes = 0;
 	int ret = 0;
 	bool expunged, full_rescan = FALSE;
@@ -260,16 +260,19 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
 	if (uid_validity != hdr->uid_validity &&
 	    uid_validity != 0 && hdr->uid_validity != 0) {
-		/* uidvalidity changed and mailbox isn't being initialized,
-		   reset mailbox so we can add all messages as new */
+		/* uidvalidity changed and index isn't being synced for the
+		   first time, reset the index so we can add all messages as
+		   new */
 		i_warning("Maildir %s: UIDVALIDITY changed (%u -> %u)",
 			  mbox->path, hdr->uid_validity, uid_validity);
 		mail_index_reset(trans);
+		maildir_uidlist_set_next_uid(mbox->uidlist, 1, TRUE);
 
 		memset(&empty_hdr, 0, sizeof(empty_hdr));
 		empty_hdr.next_uid = 1;
 		hdr = &empty_hdr;
 	}
+	hdr_next_uid = hdr->next_uid;
 
 	mbox->syncing_commit = TRUE;
 	seq = prev_uid = 0;
@@ -299,13 +302,14 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		ctx->uid = uid;
 
 		if (seq > hdr->messages_count) {
-			if (uid < hdr->next_uid) {
+			if (uid < hdr_next_uid) {
 				maildir_handle_uid_insertion(ctx, uflags,
 							     filename, uid);
 				seq--;
 				continue;
 			}
 
+			hdr_next_uid = uid + 1;
 			mail_index_append(trans, uid, &seq);
 			mail_index_update_flags(trans, seq, MODIFY_REPLACE,
 						ctx->flags);
@@ -440,43 +444,30 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		/* expunge the rest */
 		for (seq++; seq <= hdr->messages_count; seq++)
 			mail_index_expunge(trans, seq);
-
-		/* next_uid must be updated only in non-partial syncs since
-		   partial syncs don't add the new mails to index. also we'll
-		   have to do it here before syncing index records, since after
-		   that the uidlist's next_uid value may have changed. */
-		next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
-		i_assert(next_uid > prev_uid);
-		if (hdr->next_uid < next_uid) {
-			mail_index_update_header(trans,
-				offsetof(struct mail_index_header, next_uid),
-				&next_uid, sizeof(next_uid), FALSE);
-		}
 	}
 
 	if (ctx->changed)
 		mbox->maildir_hdr.cur_mtime = time(NULL);
 	maildir_index_update_ext_header(mbox, trans);
 
-	if (hdr->uid_validity == 0) {
-		/* get the initial uidvalidity */
-		uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
-		if (uid_validity == 0) {
-			uid_validity = ioloop_time;
-			maildir_uidlist_set_uid_validity(mbox->uidlist,
-							 uid_validity, 0);
-		}
-	} else if (uid_validity == 0) {
-		maildir_uidlist_set_uid_validity(mbox->uidlist,
-						 hdr->uid_validity,
-						 hdr->next_uid);
+	if (uid_validity == 0) {
+		uid_validity = hdr->uid_validity != 0 ?
+			hdr->uid_validity : ioloop_time;
+		maildir_uidlist_set_uid_validity(mbox->uidlist, uid_validity);
 	}
+	maildir_uidlist_set_next_uid(mbox->uidlist, hdr_next_uid, FALSE);
 
-	if (uid_validity != hdr->uid_validity && uid_validity != 0) {
+	if (uid_validity != hdr->uid_validity) {
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 
+	next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
+	if (hdr_next_uid < next_uid) {
+		mail_index_update_header(trans,
+			offsetof(struct mail_index_header, next_uid),
+			&next_uid, sizeof(next_uid), FALSE);
+	}
 	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
