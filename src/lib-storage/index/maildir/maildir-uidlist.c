@@ -27,6 +27,8 @@
 /* how many seconds to wait before overriding uidlist.lock */
 #define UIDLIST_LOCK_STALE_TIMEOUT (60*2)
 
+#define UIDLIST_COMPRESS_PERCENTAGE 75
+
 #define UIDLIST_IS_LOCKED(uidlist) \
 	((uidlist)->lock_count > 0)
 
@@ -44,6 +46,7 @@ struct maildir_uidlist {
 	int fd;
 	dev_t fd_dev;
 	ino_t fd_ino;
+	off_t fd_size;
 
 	unsigned int lock_count;
 
@@ -57,8 +60,11 @@ struct maildir_uidlist {
 
 	unsigned int version;
 	unsigned int uid_validity, next_uid, prev_read_uid, last_seen_uid;
+	unsigned int read_records_count;
 	uint32_t first_recent_uid;
+	uoff_t last_read_offset;
 
+	unsigned int recreate:1;
 	unsigned int initial_read:1;
 	unsigned int initial_sync:1;
 };
@@ -193,6 +199,7 @@ static void maildir_uidlist_close(struct maildir_uidlist *uidlist)
 		uidlist->fd = -1;
 		uidlist->fd_ino = 0;
 	}
+	uidlist->last_read_offset = 0;
 }
 
 void maildir_uidlist_deinit(struct maildir_uidlist *uidlist)
@@ -250,13 +257,6 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	}
         uidlist->last_seen_uid = uid;
 
-	if (uid >= uidlist->next_uid) {
-                mail_storage_set_critical(&uidlist->mbox->storage->storage,
-			"UID larger than next_uid in file %s (%u >= %u)",
-			uidlist->path, uid, uidlist->next_uid);
-		return 0;
-	}
-
 	while (*line == ' ') line++;
 
 	if (uidlist->version == 2) {
@@ -281,29 +281,76 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	return 1;
 }
 
+static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
+				       struct istream *input)
+{
+	unsigned int uid_validity, next_uid;
+	const char *line;
+
+	line = i_stream_read_next_line(input);
+        if (line == NULL) {
+                /* I/O error / empty file */
+                return input->stream_errno == 0 ? 0 : -1;
+	}
+
+	if (sscanf(line, "%u %u %u", &uidlist->version,
+		   &uid_validity, &next_uid) != 3 ||
+	    uidlist->version < 1 || uidlist->version > 2) {
+		/* broken file */
+		mail_storage_set_critical(&uidlist->mbox->storage->storage,
+			"Corrupted header in file %s (version = %u)",
+			uidlist->path, uidlist->version);
+		return 0;
+	}
+	if (uid_validity == 0 || next_uid == 0) {
+		mail_storage_set_critical(&uidlist->mbox->storage->storage,
+			"%s: Broken header (uidvalidity = %u, next_uid=%u)",
+			uidlist->path, uid_validity, next_uid);
+		return 0;
+	}
+
+	uidlist->uid_validity = uid_validity;
+	uidlist->next_uid = next_uid;
+	return 1;
+}
+
 static int
 maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 			    bool *retry_r, bool try_retry)
 {
 	struct mail_storage *storage = &uidlist->mbox->storage->storage;
 	const char *line;
-	unsigned int uid_validity, next_uid;
+	unsigned int orig_next_uid;
 	struct istream *input;
 	struct stat st;
+	uoff_t last_read_offset;
 	int fd, ret;
 
 	*retry_r = FALSE;
 
-	maildir_uidlist_close(uidlist);
-
-	fd = nfs_safe_open(uidlist->path, O_RDONLY);
-	if (fd == -1) {
-		if (errno != ENOENT) {
+	if (uidlist->fd == -1) {
+		fd = nfs_safe_open(uidlist->path, O_RDWR);
+		if (fd == -1) {
+			if (errno != ENOENT) {
+				mail_storage_set_critical(storage,
+					"open(%s) failed: %m", uidlist->path);
+				return -1;
+			}
+			return 0;
+		}
+		last_read_offset = 0;
+	} else {
+		/* the file was updated */
+		fd = uidlist->fd;
+		if (lseek(fd, 0, SEEK_SET) < 0) {
 			mail_storage_set_critical(storage,
-				"open(%s) failed: %m", uidlist->path);
+				"lseek(%s) failed: %m", uidlist->path);
 			return -1;
 		}
-		return 0;
+		uidlist->fd = -1;
+		uidlist->fd_ino = 0;
+		last_read_offset = uidlist->last_read_offset;
+		uidlist->last_read_offset = 0;
 	}
 
 	if (fstat(fd, &st) < 0) {
@@ -325,49 +372,38 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 							    st.st_size/8));
 	}
 
-	uidlist->version = 0;
-
 	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
+	i_stream_seek(input, uidlist->last_read_offset);
 
-	/* get header */
-	line = i_stream_read_next_line(input);
-        if (line == NULL) {
-                /* I/O error / empty file */
-                ret = input->stream_errno == 0 ? 0 : -1;
-        } else if (sscanf(line, "%u %u %u", &uidlist->version,
-                          &uid_validity, &next_uid) != 3 ||
-                   uidlist->version < 1 || uidlist->version > 2) {
-                /* broken file */
-                mail_storage_set_critical(storage,
-			"Corrupted header in file %s (version = %u)",
-			uidlist->path, uidlist->version);
-		ret = 0;
-	} else if (uid_validity == uidlist->uid_validity &&
-		   next_uid < uidlist->next_uid) {
-                mail_storage_set_critical(storage,
-			"%s: next_uid was lowered (%u -> %u)",
-			uidlist->path, uidlist->next_uid, next_uid);
-		ret = 0;
-	} else if (uid_validity == 0 || next_uid == 0) {
-                mail_storage_set_critical(storage,
-			"%s: Broken header (uidvalidity = %u, next_uid=%u)",
-			uidlist->path, uid_validity, next_uid);
-		ret = 0;
-	} else {
-		uidlist->uid_validity = uid_validity;
-		uidlist->next_uid = next_uid;
+	orig_next_uid = uidlist->next_uid;
+	ret = input->v_offset != 0 ? 1 :
+		maildir_uidlist_read_header(uidlist, input);
+	if (ret > 0) {
 		uidlist->prev_read_uid = 0;
 		uidlist->change_counter++;
+		uidlist->read_records_count = 0;
 
 		ret = 1;
 		while ((line = i_stream_read_next_line(input)) != NULL) {
+			uidlist->read_records_count++;
 			if (!maildir_uidlist_next(uidlist, line)) {
 				ret = 0;
 				break;
 			}
                 }
-                if (input->stream_errno != 0)
+		if (input->stream_errno != 0)
                         ret = -1;
+
+		if (uidlist->next_uid <= uidlist->prev_read_uid)
+			uidlist->next_uid = uidlist->prev_read_uid + 1;
+		if (uidlist->next_uid < orig_next_uid) {
+			mail_storage_set_critical(storage,
+				"%s: next_uid was lowered (%u -> %u)",
+				uidlist->path, orig_next_uid,
+				uidlist->next_uid);
+			uidlist->recreate = TRUE;
+			uidlist->next_uid = orig_next_uid;
+		}
 	}
 
         if (ret == 0) {
@@ -378,6 +414,8 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 		uidlist->fd = fd;
 		uidlist->fd_dev = st.st_dev;
 		uidlist->fd_ino = st.st_ino;
+		uidlist->fd_size = st.st_size;
+		uidlist->last_read_offset = input->v_offset;
         } else {
                 /* I/O error */
                 if (input->stream_errno == ESTALE && try_retry)
@@ -397,41 +435,62 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 	return ret;
 }
 
-int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
+static int
+maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 {
 	struct mail_storage *storage = &uidlist->mbox->storage->storage;
         struct stat st;
+
+	*recreated_r = FALSE;
+
+	/* FIXME: nfs attribute cache flush */
+	if (nfs_safe_stat(uidlist->path, &st) < 0) {
+		if (errno != ENOENT) {
+			mail_storage_set_critical(storage,
+				"stat(%s) failed: %m", uidlist->path);
+			return -1;
+		}
+		return 0;
+	}
+
+	if (st.st_ino != uidlist->fd_ino ||
+	    !CMP_DEV_T(st.st_dev, uidlist->fd_dev)) {
+		/* file recreated */
+		*recreated_r = TRUE;
+		return 1;
+	} else if (st.st_size != uidlist->fd_size) {
+		/* file modified but not recreated */
+		return 1;
+	} else {
+		/* unchanged */
+		return 0;
+	}
+}
+
+int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
+{
         unsigned int i;
-        bool retry;
+        bool retry, recreated;
         int ret;
 
 	if (uidlist->fd != -1) {
-		if (nfs_safe_stat(uidlist->path, &st) < 0) {
-			if (errno != ENOENT) {
-				mail_storage_set_critical(storage,
-					"stat(%s) failed: %m", uidlist->path);
-				return -1;
-			}
-			return 0;
-		}
+		ret = maildir_uidlist_has_changed(uidlist, &recreated);
+		if (ret <= 0)
+			return ret;
 
-		if (st.st_ino == uidlist->fd_ino &&
-		    CMP_DEV_T(st.st_dev, uidlist->fd_dev)) {
-			/* unchanged */
-			return 1;
-		}
+		if (recreated)
+			maildir_uidlist_close(uidlist);
 	}
 
         for (i = 0; ; i++) {
 		ret = maildir_uidlist_update_read(uidlist, &retry,
 						i < UIDLIST_ESTALE_RETRY_COUNT);
-                if (!retry) {
-                        if (ret >= 0)
-                                uidlist->initial_read = TRUE;
-                        break;
-                }
+		if (!retry)
+			break;
                 /* ESTALE - try reopening and rereading */
         }
+	if (ret >= 0)
+		uidlist->initial_read = TRUE;
         return ret;
 }
 
@@ -561,8 +620,9 @@ void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 		uidlist->next_uid = next_uid;
 }
 
-static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist, int fd,
-				      const char *path)
+static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
+				    const char *path, unsigned int first_idx,
+				    uoff_t *file_size_r)
 {
 	struct mail_storage *storage = &uidlist->mbox->storage->storage;
 	struct maildir_uidlist_iter_ctx *iter;
@@ -573,32 +633,44 @@ static int maildir_uidlist_rewrite_fd(struct maildir_uidlist *uidlist, int fd,
 	const char *filename;
 	int ret;
 
-	uidlist->version = 1;
+	i_assert(fd != -1);
+
 	output = o_stream_create_file(fd, default_pool, 0, FALSE);
+	str = t_str_new(512);
 
-	if (uidlist->uid_validity == 0) {
-		/* Get UIDVALIDITY from index */
-		const struct mail_index_header *hdr;
+	if (output->offset == 0) {
+		i_assert(first_idx == 0);
+		uidlist->version = 1;
+		if (uidlist->uid_validity == 0) {
+			/* Get UIDVALIDITY from index */
+			const struct mail_index_header *hdr;
 
-		hdr = mail_index_get_header(uidlist->mbox->ibox.view);
-		uidlist->uid_validity = hdr->uid_validity;
-		i_assert(uidlist->uid_validity != 0);
+			hdr = mail_index_get_header(uidlist->mbox->ibox.view);
+			uidlist->uid_validity = hdr->uid_validity;
+			i_assert(uidlist->uid_validity != 0);
+		}
+
+		str_printfa(str, "%u %u %u\n", uidlist->version,
+			    uidlist->uid_validity, uidlist->next_uid);
+		o_stream_send(output, str_data(str), str_len(str));
+	} else {
+		i_assert(first_idx != 0);
 	}
 
-	str = t_str_new(512);
-	str_printfa(str, "%u %u %u\n", uidlist->version,
-		    uidlist->uid_validity, uidlist->next_uid);
-	o_stream_send(output, str_data(str), str_len(str));
-
 	iter = maildir_uidlist_iter_init(uidlist->mbox->uidlist);
+	iter->next += first_idx;
+
 	while (maildir_uidlist_iter_next(iter, &uid, &flags, &filename)) {
 		str_truncate(str, 0);
 		str_printfa(str, "%u %s\n", uid, filename);
 		o_stream_send(output, str_data(str), str_len(str));
 	}
 	maildir_uidlist_iter_deinit(iter);
+	o_stream_flush(output);
 
 	ret = output->stream_errno == 0 ? 0 : -1;
+
+	*file_size_r = output->offset;
 	o_stream_unref(&output);
 
 	if (ret < 0) {
@@ -625,6 +697,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 	const char *temp_path;
 	struct stat st;
 	mode_t old_mask;
+	uoff_t file_size;
 	int fd, ret;
 
 	temp_path = t_strconcat(mbox->control_dir,
@@ -647,7 +720,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		}
 	}
 
-	ret = maildir_uidlist_rewrite_fd(uidlist, fd, temp_path);
+	ret = maildir_uidlist_write_fd(uidlist, fd, temp_path, 0, &file_size);
 	if (ret == 0) {
 		if (rename(temp_path, uidlist->path) < 0) {
 			mail_storage_set_critical(&mbox->storage->storage,
@@ -667,11 +740,40 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		(void)close(fd);
 		ret = -1;
 	} else {
+		i_assert(file_size == (uoff_t)st.st_size);
 		uidlist->fd = fd;
 		uidlist->fd_dev = st.st_dev;
 		uidlist->fd_ino = st.st_ino;
+		uidlist->fd_size = st.st_size;
+		uidlist->last_read_offset = st.st_size;
 	}
 	return ret;
+}
+
+static int maildir_uidlist_update(struct maildir_uidlist_sync_ctx *ctx)
+{
+	struct maildir_uidlist *uidlist = ctx->uidlist;
+	uoff_t file_size;
+
+	if (ctx->uidlist->recreate || uidlist->fd == -1 ||
+	    (uidlist->read_records_count + ctx->new_files_count) *
+	    UIDLIST_COMPRESS_PERCENTAGE / 100 >= array_count(&uidlist->records))
+		return maildir_uidlist_recreate(uidlist);
+
+	i_assert(ctx->first_new_pos != 0);
+
+	if (lseek(uidlist->fd, 0, SEEK_END) < 0) {
+		mail_storage_set_critical(&uidlist->mbox->storage->storage,
+			"lseek(%s) failed: %m", uidlist->path);
+		return -1;
+	}
+
+	if (maildir_uidlist_write_fd(uidlist, uidlist->fd, uidlist->path,
+				     ctx->first_new_pos, &file_size) < 0)
+		return -1;
+
+	uidlist->last_read_offset = file_size;
+	return 0;
 }
 
 static void maildir_uidlist_mark_all(struct maildir_uidlist *uidlist,
@@ -851,6 +953,9 @@ void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 
 	i_assert(ctx->partial);
 
+	if (ctx->first_new_pos != 0)
+		ctx->first_new_pos--;
+
 	rec = hash_lookup(ctx->uidlist->files, filename);
 	i_assert(rec != NULL);
 
@@ -863,6 +968,7 @@ void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 	array_delete(&ctx->uidlist->records, pos - recs, 1);
 
 	ctx->changed = TRUE;
+	ctx->uidlist->recreate = TRUE;
 }
 
 const char *
@@ -943,8 +1049,10 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	uidlist->record_pool = ctx->record_pool;
 	ctx->record_pool = NULL;
 
-	if (ctx->new_files_count != 0)
-		maildir_uidlist_assign_uids(ctx, count - ctx->new_files_count);
+	if (ctx->new_files_count != 0) {
+		ctx->first_new_pos = count - ctx->new_files_count;
+		maildir_uidlist_assign_uids(ctx, ctx->first_new_pos);
+	}
 
 	ctx->uidlist->change_counter++;
 }
@@ -983,7 +1091,7 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 
 	if (ctx->changed && !ctx->failed) {
 		t_push();
-		ret = maildir_uidlist_recreate(ctx->uidlist);
+		ret = maildir_uidlist_update(ctx);
 		t_pop();
 	}
 
