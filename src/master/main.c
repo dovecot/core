@@ -16,6 +16,7 @@
 #include "login-process.h"
 #include "mail-process.h"
 #include "syslog-util.h"
+#include "listener.h"
 #include "ssl-init.h"
 #include "log.h"
 
@@ -145,7 +146,7 @@ static void open_fds(void)
 	}
 
 	if (!IS_INETD())
-		listeners_open_fds(FALSE);
+		listeners_open_fds(NULL, FALSE);
 
 	/* close stdin and stdout. */
 	if (dup2(null_fd, 0) < 0)
