@@ -1423,7 +1423,9 @@ bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 			i_error("No protocols given in configuration file");
 			return FALSE;
 		}
-		if (!settings_is_active(server->imap)) {
+		/* --exec-mail is used if nochecks=TRUE. Allow it regardless
+		   of what's in protocols setting. */
+		if (!settings_is_active(server->imap) && !nochecks) {
 			if (strcmp(server->imap->protocols, "none") == 0) {
 				if (!settings_fix(server->imap, nochecks,
 						  nofixes))
@@ -1437,7 +1439,7 @@ bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 			server->defaults = server->imap;
 		}
 
-		if (!settings_is_active(server->pop3))
+		if (!settings_is_active(server->pop3) && !nochecks)
 			server->pop3 = NULL;
 		else {
 			if (!settings_fix(server->pop3, nochecks, nofixes))
