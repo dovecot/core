@@ -1150,10 +1150,10 @@ maildir_uidlist_iter_update_idx(struct maildir_uidlist_iter_ctx *ctx)
 	ctx->next += idx;
 }
 
-int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
-			      uint32_t *uid_r,
-			      enum maildir_uidlist_rec_flag *flags_r,
-			      const char **filename_r)
+bool maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
+			       uint32_t *uid_r,
+			       enum maildir_uidlist_rec_flag *flags_r,
+			       const char **filename_r)
 {
 	struct maildir_uidlist_rec *rec;
 
@@ -1161,7 +1161,7 @@ int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
 		maildir_uidlist_iter_update_idx(ctx);
 
 	if (ctx->next == ctx->end)
-		return 0;
+		return FALSE;
 
 	rec = *ctx->next;
 	i_assert(rec->uid != (uint32_t)-1);
@@ -1172,7 +1172,7 @@ int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
 	*uid_r = rec->uid;
 	*flags_r = rec->flags;
 	*filename_r = rec->filename;
-	return 1;
+	return TRUE;
 }
 
 void maildir_uidlist_iter_deinit(struct maildir_uidlist_iter_ctx *ctx)

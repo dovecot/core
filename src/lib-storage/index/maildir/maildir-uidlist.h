@@ -76,10 +76,10 @@ void maildir_uidlist_add_flags(struct maildir_uidlist *uidlist,
 /* List all maildir files. */
 struct maildir_uidlist_iter_ctx *
 maildir_uidlist_iter_init(struct maildir_uidlist *uidlist);
-int maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
-			      uint32_t *uid_r,
-			      enum maildir_uidlist_rec_flag *flags_r,
-			      const char **filename_r);
+bool maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
+			       uint32_t *uid_r,
+			       enum maildir_uidlist_rec_flag *flags_r,
+			       const char **filename_r);
 void maildir_uidlist_iter_deinit(struct maildir_uidlist_iter_ctx *ctx);
 
 #endif
