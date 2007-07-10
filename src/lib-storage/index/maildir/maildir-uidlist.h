@@ -17,6 +17,21 @@ enum maildir_uidlist_rec_flag {
 	MAILDIR_UIDLIST_REC_FLAG_RACING		= 0x10
 };
 
+enum maildir_uidlist_hdr_ext_key {
+	MAILDIR_UIDLIST_HDR_EXT_UID_VALIDITY		= 'V',
+	MAILDIR_UIDLIST_HDR_EXT_NEXT_UID		= 'N',
+	/* POP3 UIDL format unless overridden by records */
+	MAILDIR_UIDLIST_HDR_EXT_POP3_UIDL_FORMAT	= 'P'
+};
+
+enum maildir_uidlist_rec_ext_key {
+	/* Virtual message size. If filename also contains ,W=<vsize> this
+	   isn't written to uidlist. */
+	MAILDIR_UIDLIST_REC_EXT_VSIZE		= 'W',
+	/* POP3 UIDL overriding the default format */
+	MAILDIR_UIDLIST_REC_EXT_POP3_UIDL	= 'P'
+};
+
 int maildir_uidlist_lock(struct maildir_uidlist *uidlist);
 int maildir_uidlist_try_lock(struct maildir_uidlist *uidlist);
 int maildir_uidlist_lock_touch(struct maildir_uidlist *uidlist);
@@ -33,6 +48,10 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist);
 const char *
 maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 		       enum maildir_uidlist_rec_flag *flags_r);
+/* Returns extension's value or NULL if it doesn't exist. */
+const char *
+maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
+			   enum maildir_uidlist_rec_ext_key key);
 /* Returns TRUE if mail with given UID is recent. */
 bool maildir_uidlist_is_recent(struct maildir_uidlist *uidlist, uint32_t uid);
 /* Returns number of recent messages. */
