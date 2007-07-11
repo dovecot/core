@@ -414,7 +414,7 @@ int mail_cache_header_fields_update(struct mail_cache *cache)
 	if (cache->locked)
 		return mail_cache_header_fields_update_locked(cache);
 
-	if (mail_cache_lock(cache) <= 0)
+	if (mail_cache_lock(cache, NULL) <= 0)
 		return -1;
 
 	ret = mail_cache_header_fields_update_locked(cache);

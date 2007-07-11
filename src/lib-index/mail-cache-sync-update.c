@@ -37,7 +37,7 @@ static int mail_cache_handler_init(struct mail_cache_sync_context **ctx_r,
 		return 0;
 
 	if (!ctx->locked) {
-		if ((ret = mail_cache_lock(cache)) <= 0) {
+		if ((ret = mail_cache_lock(cache, TRUE)) <= 0) {
                         ctx->lock_failed = TRUE;
 			return ret;
 		}

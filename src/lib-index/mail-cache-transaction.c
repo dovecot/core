@@ -36,6 +36,7 @@ struct mail_cache_transaction_ctx {
 	uint32_t reserved_space_offset, reserved_space;
 	uint32_t last_grow_size;
 
+	unsigned int tried_compression:1;
 	unsigned int changes:1;
 };
 
@@ -69,6 +70,8 @@ static void mail_cache_transaction_reset(struct mail_cache_transaction_ctx *ctx)
 {
 	ctx->cache_file_seq = MAIL_CACHE_IS_UNUSABLE(ctx->cache) ? 0 :
 		ctx->cache->hdr->file_seq;
+	mail_index_ext_set_reset_id(ctx->trans, ctx->cache->ext_id,
+				    ctx->cache_file_seq);
 
 	if (ctx->cache_data)
 		buffer_set_used_size(ctx->cache_data, 0);
@@ -109,7 +112,7 @@ static int mail_cache_transaction_lock(struct mail_cache_transaction_ctx *ctx)
 			ctx->cache_file_seq = ctx->cache->hdr->file_seq;
 	}
 
-	if ((ret = mail_cache_lock(ctx->cache)) <= 0)
+	if ((ret = mail_cache_lock(ctx->cache, FALSE)) <= 0)
 		return ret;
 
 	if (ctx->cache_file_seq != ctx->cache->hdr->file_seq)
@@ -669,8 +672,17 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	uint32_t offset, hdr_offset;
 	int ret = 0;
 
-	if (mail_cache_transaction_lock(ctx) <= 0)
-		return -1;
+	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
+		/* create the cache file if it doesn't exist yet */
+		if (ctx->tried_compression)
+			return -1;
+		ctx->tried_compression = TRUE;
+
+		if (mail_cache_compress(cache, ctx->trans) < 0)
+			return -1;
+		if ((ret = mail_cache_transaction_lock(ctx)) <= 0)
+			return ret;
+	}
 
 	/* re-read header to make sure we don't lose any fields. */
 	if (mail_cache_header_fields_read(cache) < 0) {

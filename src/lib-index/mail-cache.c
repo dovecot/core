@@ -104,7 +104,7 @@ int mail_cache_reopen(struct mail_cache *cache)
 	cache->fd = nfs_safe_open(cache->filepath, O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT)
-			cache->need_compress_file_seq = (uint32_t)-1;
+			cache->need_compress_file_seq = 0;
 		else
 			mail_cache_set_syscall_error(cache, "open()");
 		return -1;
@@ -220,7 +220,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 			cache->need_compress_file_seq =
 				!MAIL_CACHE_IS_UNUSABLE(cache) &&
 				cache->hdr->file_seq != 0 ?
-				cache->hdr->file_seq : (uint32_t)-1;
+				cache->hdr->file_seq : 0;
 			return -1;
 		}
 		return 0;
@@ -263,7 +263,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size)
 		cache->need_compress_file_seq =
 			!MAIL_CACHE_IS_UNUSABLE(cache) &&
 			cache->hdr->file_seq != 0 ?
-			cache->hdr->file_seq : (uint32_t)-1;
+			cache->hdr->file_seq : 0;
 		return -1;
 	}
 
@@ -280,7 +280,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 	cache->fd = nfs_safe_open(cache->filepath, O_RDWR);
 	if (cache->fd == -1) {
 		if (errno == ENOENT) {
-			cache->need_compress_file_seq = (uint32_t)-1;
+			cache->need_compress_file_seq = 0;
 			return 0;
 		}
 
@@ -366,8 +366,8 @@ struct mail_cache *mail_cache_create(struct mail_index *index)
 	struct mail_cache *cache;
 
 	cache = mail_cache_alloc(index);
-	cache->opened = TRUE;
-	cache->need_compress_file_seq = (uint32_t)-1;
+	if (unlink(cache->filepath) < 0 && errno != ENOENT)
+		mail_cache_set_syscall_error(cache, "unlink()");
 	return cache;
 }
 
@@ -420,10 +420,11 @@ static void mail_cache_unlock_file(struct mail_cache *cache)
 		(void)file_dotlock_delete(&cache->dotlock);
 }
 
-int mail_cache_lock(struct mail_cache *cache)
+int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 {
-	struct mail_index_view *view;
 	const struct mail_index_ext *ext;
+	struct mail_index_view *iview;
+	uint32_t reset_id;
 	int i, ret;
 
 	i_assert(!cache->locked);
@@ -435,20 +436,21 @@ int mail_cache_lock(struct mail_cache *cache)
 	    MAIL_INDEX_IS_IN_MEMORY(cache->index))
 		return 0;
 
-	view = mail_index_view_open(cache->index);
-	ext = mail_index_view_get_ext(view, cache->ext_id);
-	if (ext == NULL) {
+	iview = mail_index_view_open(cache->index);
+	ext = mail_index_view_get_ext(iview, cache->ext_id);
+	reset_id = ext == NULL ? 0 : ext->reset_id;
+	mail_index_view_close(&iview);
+
+	if (ext == NULL && require_same_reset_id) {
 		/* cache not used */
-		mail_index_view_close(&view);
 		return 0;
 	}
 
-	if (cache->hdr->file_seq != ext->reset_id) {
+	if (cache->hdr->file_seq != reset_id) {
 		/* we want the latest cache file */
-		if ((ret = mail_cache_reopen(cache)) <= 0) {
-			mail_index_view_close(&view);
+		ret = mail_cache_reopen(cache);
+		if (ret < 0 || (ret == 0 && require_same_reset_id))
 			return ret;
-		}
 	}
 
 	for (i = 0; i < 3; i++) {
@@ -457,7 +459,8 @@ int mail_cache_lock(struct mail_cache *cache)
 			break;
 		cache->locked = TRUE;
 
-		if (cache->hdr->file_seq == ext->reset_id) {
+		if (cache->hdr->file_seq == reset_id ||
+		    !require_same_reset_id) {
 			/* got it */
 			break;
 		}
@@ -483,7 +486,6 @@ int mail_cache_lock(struct mail_cache *cache)
 		}
 	}
 
-	mail_index_view_close(&view);
 	i_assert((ret <= 0 && !cache->locked) || (ret > 0 && cache->locked));
 	return ret;
 }

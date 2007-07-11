@@ -387,7 +387,7 @@ int mail_cache_compress(struct mail_cache *cache,
 		return mail_cache_compress_locked(cache, trans, &unlock);
 	}
 
-	switch (mail_cache_lock(cache)) {
+	switch (mail_cache_lock(cache, FALSE)) {
 	case -1:
 		return -1;
 	case 0:
