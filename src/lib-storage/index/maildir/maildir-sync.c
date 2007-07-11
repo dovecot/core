@@ -762,14 +762,18 @@ int maildir_storage_sync_force(struct maildir_mailbox *mbox)
 int maildir_sync_last_commit(struct maildir_mailbox *mbox)
 {
         struct maildir_sync_context *ctx;
-	int ret;
+	int ret = 0;
 
-	if (mbox->ibox.commit_log_file_seq == 0)
-		return 0;
+	if (mbox->ibox.commit_log_file_seq != 0) {
+		ctx = maildir_sync_context_new(mbox);
+		ret = maildir_sync_context(ctx, FALSE, TRUE);
+		maildir_sync_deinit(ctx);
+	}
 
-	ctx = maildir_sync_context_new(mbox);
-	ret = maildir_sync_context(ctx, FALSE, TRUE);
-	maildir_sync_deinit(ctx);
+	if (ret == 0) {
+		if (maildir_uidlist_update(mbox->uidlist) < 0)
+			ret = -1;
+	}
 	return ret < 0 ? -1 : 0;
 }
 

@@ -612,7 +612,7 @@ int maildir_uidlist_refresh(struct maildir_uidlist *uidlist)
         return ret;
 }
 
-static const struct maildir_uidlist_rec *
+static struct maildir_uidlist_rec *
 maildir_uidlist_lookup_rec(struct maildir_uidlist *uidlist, uint32_t uid,
 			   unsigned int *idx_r)
 {
@@ -761,6 +761,44 @@ void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 		uidlist->next_uid = next_uid;
 }
 
+void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
+			     enum maildir_uidlist_rec_ext_key key,
+			     const char *value)
+{
+	struct maildir_uidlist_rec *rec;
+	unsigned int idx;
+	const char *p;
+	buffer_t *buf;
+	unsigned int len;
+
+	rec = maildir_uidlist_lookup_rec(uidlist, uid, &idx);
+	i_assert(rec != NULL);
+
+	t_push();
+	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+
+	/* copy existing extensions, except for the one we're updating */
+	if (rec->extensions != NULL) {
+		p = rec->extensions;
+		while (*p != '\0') {
+			/* <key><value>\0 */
+			len = strlen(p) + 1;
+			if (*p != (char)key)
+				buffer_append(buf, p, len);
+			p += len;
+		}
+	}
+	buffer_append_c(buf, key);
+	buffer_append(buf, value, strlen(value) + 1);
+	buffer_append_c(buf, '\0');
+
+	rec->extensions = p_malloc(uidlist->record_pool, buf->used);
+	memcpy(rec->extensions, buf->data, buf->used);
+
+	uidlist->recreate = TRUE;
+	t_pop();
+}
+
 static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 				    const char *path, unsigned int first_idx,
 				    uoff_t *file_size_r)
@@ -895,7 +933,21 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 	return ret;
 }
 
-static int maildir_uidlist_update(struct maildir_uidlist_sync_ctx *ctx)
+int maildir_uidlist_update(struct maildir_uidlist *uidlist)
+{
+	int ret;
+
+	if (!uidlist->recreate)
+		return 0;
+
+	if (maildir_uidlist_lock(uidlist) <= 0)
+		return -1;
+	ret = maildir_uidlist_recreate(uidlist);
+	maildir_uidlist_unlock(uidlist);
+	return ret;
+}
+
+static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 	uoff_t file_size;
@@ -1231,9 +1283,9 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 	if (ctx->partial)
 		maildir_uidlist_mark_all(ctx->uidlist, FALSE);
 
-	if (ctx->changed && !ctx->failed) {
+	if ((ctx->changed || ctx->uidlist->recreate) && !ctx->failed) {
 		t_push();
-		ret = maildir_uidlist_update(ctx);
+		ret = maildir_uidlist_sync_update(ctx);
 		t_pop();
 	}
 

@@ -65,6 +65,14 @@ void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 void maildir_uidlist_set_next_uid(struct maildir_uidlist *uidlist,
 				  uint32_t next_uid, bool force);
 
+void maildir_uidlist_set_ext(struct maildir_uidlist *uidlist, uint32_t uid,
+			     enum maildir_uidlist_rec_ext_key key,
+			     const char *value);
+
+/* If uidlist has changed, update it. This is mostly meant to be used with
+   maildir_uidlist_set_ext() */
+int maildir_uidlist_update(struct maildir_uidlist *uidlist);
+
 /* Sync uidlist with what's actually on maildir. Returns same as
    maildir_uidlist_lock(). */
 int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
