@@ -175,6 +175,10 @@ void imap_fetch_begin(struct imap_fetch_context *ctx,
 			mailbox_header_lookup_init(ctx->box, data);
 	}
 
+	if ((ctx->fetch_data &
+	     (MAIL_FETCH_STREAM_HEADER | MAIL_FETCH_STREAM_BODY)) != 0)
+		ctx->fetch_data |= MAIL_FETCH_NUL_STATE;
+
 	ctx->trans = mailbox_transaction_begin(ctx->box,
 		MAILBOX_TRANSACTION_FLAG_HIDE);
 	ctx->select_counter = ctx->client->select_counter;

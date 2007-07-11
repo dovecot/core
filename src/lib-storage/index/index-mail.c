@@ -916,10 +916,13 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	data->rec = rec;
 	data->seq = seq;
 
-	if (!index_mail_get_fixed_field(mail, MAIL_CACHE_FLAGS,
-					&data->cache_flags,
-					sizeof(data->cache_flags)))
-		data->cache_flags = 0;
+	if ((mail->wanted_fields & (MAIL_FETCH_NUL_STATE |
+				    MAIL_FETCH_IMAP_BODY |
+				    MAIL_FETCH_IMAP_BODYSTRUCTURE)) != 0) {
+		(void)index_mail_get_fixed_field(mail, MAIL_CACHE_FLAGS,
+						 &data->cache_flags,
+						 sizeof(data->cache_flags));
+	}
 
 	/* set public fields */
 	mail->mail.mail.seq = seq;

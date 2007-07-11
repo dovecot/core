@@ -94,6 +94,9 @@ enum mail_fetch_field {
 	MAIL_FETCH_PHYSICAL_SIZE	= 0x00000080,
 	MAIL_FETCH_VIRTUAL_SIZE		= 0x00000100,
 
+	/* Set has_nuls / has_no_nuls fields */
+	MAIL_FETCH_NUL_STATE		= 0x00000200,
+
 	/* specials: */
 	MAIL_FETCH_IMAP_BODY		= 0x00001000,
 	MAIL_FETCH_IMAP_BODYSTRUCTURE	= 0x00002000,
