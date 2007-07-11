@@ -391,6 +391,11 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
    used to figure this out, so it must be different every time. */
 void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
 			  uint32_t reset_id);
+/* Discard existing extension updates and write new updates using the given
+   reset_id. The difference to mail_index_ext_reset() is that this doesn't
+   clear any existing record or header data. */
+void mail_index_ext_set_reset_id(struct mail_index_transaction *t,
+				 uint32_t ext_id, uint32_t reset_id);
 
 /* Returns extension header. */
 int mail_index_get_header_ext(struct mail_index_view *view, uint32_t ext_id,

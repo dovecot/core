@@ -51,6 +51,7 @@ struct mail_index_transaction {
 	ARRAY_DEFINE(ext_rec_updates, ARRAY_TYPE(seq_array));
 	ARRAY_DEFINE(ext_resizes, struct mail_transaction_ext_intro);
 	ARRAY_DEFINE(ext_resets, uint32_t);
+	ARRAY_DEFINE(ext_reset_ids, uint32_t);
 
 	ARRAY_DEFINE(keyword_updates,
 		     struct mail_index_transaction_keyword_update);

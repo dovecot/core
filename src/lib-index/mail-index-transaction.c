@@ -849,6 +849,16 @@ void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
 
 	t->log_updates = TRUE;
 
+	mail_index_ext_set_reset_id(t, ext_id, reset_id);
+
+	if (!array_is_created(&t->ext_resets))
+		i_array_init(&t->ext_resets, ext_id + 2);
+	array_idx_set(&t->ext_resets, ext_id, &reset_id);
+}
+
+void mail_index_ext_set_reset_id(struct mail_index_transaction *t,
+				 uint32_t ext_id, uint32_t reset_id)
+{
 	if (array_is_created(&t->ext_rec_updates) &&
 	    ext_id < array_count(&t->ext_rec_updates)) {
 		/* if extension records have been updated, clear them */
@@ -859,9 +869,9 @@ void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
 			array_clear(array);
 	}
 
-	if (!array_is_created(&t->ext_resets))
-		i_array_init(&t->ext_resets, ext_id + 2);
-	array_idx_set(&t->ext_resets, ext_id, &reset_id);
+	if (!array_is_created(&t->ext_reset_ids))
+		i_array_init(&t->ext_reset_ids, ext_id + 2);
+	array_idx_set(&t->ext_reset_ids, ext_id, &reset_id);
 }
 
 void mail_index_update_header_ext(struct mail_index_transaction *t,

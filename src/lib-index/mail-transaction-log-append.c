@@ -251,10 +251,10 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
         const struct mail_transaction_ext_intro *resize;
 	struct mail_index_transaction_ext_hdr_update *const *hdrs;
 	struct mail_transaction_ext_reset ext_reset;
-	unsigned int update_count, resize_count, reset_count, ext_count = 0;
-	unsigned int hdrs_count;
+	unsigned int update_count, resize_count, ext_count = 0;
+	unsigned int hdrs_count, reset_id_count, reset_count;
 	uint32_t ext_id;
-	const uint32_t *reset;
+	const uint32_t *reset_ids, *reset;
 	const ARRAY_TYPE(seq_array) *update;
 	buffer_t *buf;
 
@@ -273,6 +273,13 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 		resize = array_get(&t->ext_resizes, &resize_count);
 		if (ext_count < resize_count)
 			ext_count = resize_count;
+	}
+
+	if (!array_is_created(&t->ext_reset_ids)) {
+		reset_ids = NULL;
+		reset_id_count = 0;
+	} else {
+		reset_ids = array_get(&t->ext_reset_ids, &reset_count);
 	}
 
 	if (!array_is_created(&t->ext_resets)) {
@@ -301,15 +308,15 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 
 	for (ext_id = 0; ext_id < ext_count; ext_id++) {
 		ext_reset.new_reset_id =
-			ext_id < reset_count && reset[ext_id] != 0 ?
-			reset[ext_id] : 0;
+			ext_id < reset_id_count && reset_ids[ext_id] != 0 ?
+			reset_ids[ext_id] : 0;
 		if ((ext_id < resize_count && resize[ext_id].name_size) ||
 		    (ext_id < update_count &&
 		     array_is_created(&update[ext_id])) ||
 		    ext_reset.new_reset_id != 0 ||
 		    (ext_id < hdrs_count && hdrs[ext_id] != NULL))
 			log_append_ext_intro(ctx, ext_id, 0);
-		if (ext_reset.new_reset_id != 0) {
+		if (ext_id < reset_count && reset[ext_id] != 0) {
 			log_append_buffer(ctx, buf, NULL,
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
@@ -333,11 +340,11 @@ static void log_append_ext_rec_updates(struct log_append_context *ctx)
 		updates = array_get_modifiable(&t->ext_rec_updates, &count);
 	}
 
-	if (!array_is_created(&t->ext_resets)) {
+	if (!array_is_created(&t->ext_reset_ids)) {
 		reset = NULL;
 		reset_count = 0;
 	} else {
-		reset = array_get_modifiable(&t->ext_resets, &reset_count);
+		reset = array_get_modifiable(&t->ext_reset_ids, &reset_count);
 	}
 
 	for (ext_id = 0; ext_id < count; ext_id++) {
