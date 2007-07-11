@@ -7,6 +7,7 @@
 #include "maildir-filename.h"
 #include "maildir-uidlist.h"
 
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -149,22 +150,75 @@ maildir_mail_get_fname(struct maildir_mailbox *mbox, struct mail *mail,
 	return TRUE;
 }
 
+static int maildir_get_pop3_state(struct index_mail *mail)
+{
+	const struct mail_cache_field *fields;
+	unsigned int i, count, vsize_idx;
+	enum mail_cache_decision_type dec, vsize_dec;
+	enum mail_fetch_field allowed_pop3_fields;
+	bool not_pop3_only = FALSE;
+
+	if (mail->pop3_state_set)
+		return mail->pop3_state;
+
+	/* if this mail itself has non-pop3 fields we know we're not
+	   pop3-only */
+	allowed_pop3_fields = MAIL_FETCH_FLAGS | MAIL_FETCH_STREAM_HEADER |
+		MAIL_FETCH_STREAM_BODY | MAIL_FETCH_UIDL_FILE_NAME |
+		MAIL_FETCH_VIRTUAL_SIZE;
+
+	if (mail->wanted_headers != NULL ||
+	    (mail->wanted_fields & allowed_pop3_fields) == 0)
+		not_pop3_only = TRUE;
+
+	/* get vsize decision */
+	vsize_idx = mail->ibox->cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx;
+	if (not_pop3_only) {
+		vsize_dec = mail_cache_field_get_decision(mail->ibox->cache,
+							  vsize_idx);
+		vsize_dec &= ~MAIL_CACHE_DECISION_FORCED;
+	} else {
+		/* also check if there are any non-vsize cached fields */
+		vsize_dec = MAIL_CACHE_DECISION_NO;
+		fields = mail_cache_register_get_list(mail->ibox->cache,
+						      pool_datastack_create(),
+						      &count);
+		for (i = 0; i < count; i++) {
+			dec = fields[i].decision & ~MAIL_CACHE_DECISION_FORCED;
+			if (fields[i].idx == vsize_idx)
+				vsize_dec = dec;
+			else if (dec != MAIL_CACHE_DECISION_NO)
+				not_pop3_only = TRUE;
+		}
+	}
+
+	if (!not_pop3_only) {
+		/* either nothing is cached, or only vsize is cached. */
+		mail->pop3_state = 1;
+	} else if (vsize_dec != MAIL_CACHE_DECISION_YES) {
+		/* if virtual size isn't cached permanently,
+		   POP3 isn't being used */
+		mail->pop3_state = -1;
+	} else {
+		/* possibly a mixed pop3/imap */
+		mail->pop3_state = 0;
+	}
+	mail->pop3_state_set = TRUE;
+	return mail->pop3_state;
+}
+
 static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
-	const char *path, *fname;
-	uoff_t virtual_size;
+	struct message_size hdr_size, body_size;
+	const char *path, *fname, *value;
+	uoff_t old_offset;
+	int pop3_state;
 
-	if (data->virtual_size != (uoff_t)-1)
+	if (index_mail_get_cached_virtual_size(mail) != (uoff_t)-1)
 		return data->virtual_size;
-
-	if ((mail->wanted_fields & MAIL_FETCH_VIRTUAL_SIZE) == 0) {
-		data->virtual_size = index_mail_get_cached_virtual_size(mail);
-		if (data->virtual_size != (uoff_t)-1)
-			return data->virtual_size;
-	}
 
 	if (_mail->uid != 0) {
 		if (!maildir_mail_get_fname(mbox, _mail, &fname))
@@ -178,13 +232,44 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 
 	/* size can be included in filename */
 	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
-				      &virtual_size)) {
-		index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
-				     &virtual_size, sizeof(virtual_size));
-		return virtual_size;
+				      &data->virtual_size))
+		return data->virtual_size;
+
+	/* size can be included in uidlist entry */
+	if (_mail->uid != 0) {
+		value = maildir_uidlist_lookup_ext(mbox->uidlist, _mail->uid,
+						MAILDIR_UIDLIST_REC_EXT_VSIZE);
+		if (value != NULL) {
+			char *p;
+
+			data->virtual_size = strtoull(value, &p, 10);
+			if (*p == '\0')
+				return data->virtual_size;
+		}
 	}
 
-	return index_mail_get_virtual_size(_mail);
+	/* fallback to reading the file */
+	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
+	if (mail_get_stream(_mail, &hdr_size, &body_size) == NULL)
+		return (uoff_t)-1;
+	i_stream_seek(data->stream, old_offset);
+	i_assert(data->virtual_size != (uoff_t)-1);
+
+	/* 1 = pop3-only, 0 = mixed, -1 = no pop3 */
+	pop3_state = maildir_get_pop3_state(mail);
+	if (pop3_state <= 0) {
+		index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
+				     &data->virtual_size,
+				     sizeof(data->virtual_size));
+	}
+	if (pop3_state >= 0) {
+		/* if virtual size is wanted permanently, store it to uidlist
+		   so that in case cache file gets lost we can get it quickly */
+		maildir_uidlist_set_ext(mbox->uidlist, _mail->uid,
+					MAILDIR_UIDLIST_REC_EXT_VSIZE,
+					dec2str(data->virtual_size));
+	}
+	return data->virtual_size;
 }
 
 static const char *

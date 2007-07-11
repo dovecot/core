@@ -110,17 +110,6 @@ uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 	return uoff;
 }
 
-uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail)
-{
-	return index_mail_get_cached_uoff_t(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE);
-}
-
-static uoff_t index_mail_get_cached_physical_size(struct index_mail *mail)
-{
-	return index_mail_get_cached_uoff_t(mail,
-					    MAIL_CACHE_PHYSICAL_FULL_SIZE);
-}
-
 enum mail_flags index_mail_get_flags(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
@@ -296,6 +285,21 @@ static bool get_cached_msgpart_sizes(struct index_mail *mail)
 	return data->parts != NULL;
 }
 
+uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail)
+{
+	uoff_t size;
+
+	if (mail->data.virtual_size != (uoff_t)-1)
+		return mail->data.virtual_size;
+
+	size = index_mail_get_cached_uoff_t(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE);
+	if (size != (uoff_t)-1)
+		mail->data.virtual_size = size;
+	else
+		(void)get_cached_msgpart_sizes(mail);
+	return mail->data.virtual_size;
+}
+
 uoff_t index_mail_get_virtual_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
@@ -303,20 +307,13 @@ uoff_t index_mail_get_virtual_size(struct mail *_mail)
 	struct message_size hdr_size, body_size;
 	uoff_t old_offset;
 
-	if (data->virtual_size != (uoff_t)-1)
+	if (index_mail_get_cached_virtual_size(mail) != (uoff_t)-1)
 		return data->virtual_size;
 
-	data->virtual_size = index_mail_get_cached_virtual_size(mail);
-	if (data->virtual_size != (uoff_t)-1)
-		return data->virtual_size;
-
-	if (!get_cached_msgpart_sizes(mail)) {
-		old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
-
-		if (mail_get_stream(_mail, &hdr_size, &body_size) == NULL)
-			return (uoff_t)-1;
-		i_stream_seek(data->stream, old_offset);
-	}
+	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
+	if (mail_get_stream(_mail, &hdr_size, &body_size) == NULL)
+		return (uoff_t)-1;
+	i_stream_seek(data->stream, old_offset);
 
 	i_assert(data->virtual_size != (uoff_t)-1);
 	index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
@@ -328,18 +325,18 @@ uoff_t index_mail_get_physical_size(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
+	uoff_t size;
 
 	if (data->physical_size != (uoff_t)-1)
 		return data->physical_size;
 
-	data->physical_size = index_mail_get_cached_physical_size(mail);
-	if (data->physical_size != (uoff_t)-1)
-		return data->physical_size;
-
-	if (get_cached_msgpart_sizes(mail))
-		return data->physical_size;
-
-	return (uoff_t)-1;
+	size = index_mail_get_cached_uoff_t(mail,
+					    MAIL_CACHE_PHYSICAL_FULL_SIZE);
+	if (size != (uoff_t)-1)
+		data->physical_size = size;
+	else
+		(void)get_cached_msgpart_sizes(mail);
+	return data->physical_size;
 }
 
 void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,

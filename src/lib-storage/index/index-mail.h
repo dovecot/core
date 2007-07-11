@@ -118,6 +118,8 @@ struct index_mail {
 	enum mail_fetch_field wanted_fields;
 	struct index_header_lookup_ctx *wanted_headers;
 
+	int pop3_state;
+
 	/* per-mail variables, here for performance reasons: */
 	uint32_t header_seq;
 	string_t *header_data;
@@ -125,6 +127,8 @@ struct index_mail {
 	ARRAY_DEFINE(header_match, uint8_t);
 	ARRAY_DEFINE(header_match_lines, unsigned int);
 	uint8_t header_match_value;
+
+	unsigned int pop3_state_set:1;
 };
 
 struct mail *
