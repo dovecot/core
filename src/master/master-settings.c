@@ -220,7 +220,7 @@ struct settings default_settings = {
 
 	MEMBER(default_mail_env) "",
 	MEMBER(mail_location) "",
-	MEMBER(mail_cache_fields) "flags",
+	MEMBER(mail_cache_fields) "",
 	MEMBER(mail_never_cache_fields) "imap.envelope",
 	MEMBER(mail_cache_min_mail_count) 0,
 	MEMBER(mailbox_idle_check_interval) 30,

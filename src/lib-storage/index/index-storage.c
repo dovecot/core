@@ -16,7 +16,7 @@
 
 #define CREATE_MODE 0770 /* umask() should limit it more */
 
-#define DEFAULT_CACHE_FIELDS "flags"
+#define DEFAULT_CACHE_FIELDS ""
 #define DEFAULT_NEVER_CACHE_FIELDS "imap.envelope"
 
 /* How many seconds to keep index opened for reuse after it's been closed */
