@@ -130,41 +130,11 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	ctx->newdir = p_strconcat(pool, mbox->path, "/new", NULL);
 	ctx->curdir = p_strconcat(pool, mbox->path, "/cur", NULL);
 
-	/* we'll do a quick check here to see if maildir is currently in
-	   synced state. in that case it's cheap to update index file.
-	   this can't be completely trusted because uidlist isn't locked,
-	   but if there are some changes we can deal with it. */
-	ctx->want_mails = maildir_sync_is_synced(mbox);
-
 	ctx->keywords_buffer = buffer_create_const_data(pool, NULL, 0);
 	array_create_from_buffer(&ctx->keywords_array, ctx->keywords_buffer,
 				 sizeof(unsigned int));
 	ctx->finished = TRUE;
 	return ctx;
-}
-
-static void maildir_save_add_existing_to_index(struct maildir_save_context *ctx)
-{
-	struct maildir_filename *mf;
-	struct mail_keywords *kw;
-	uint32_t seq;
-
-	for (mf = ctx->files; mf != NULL; mf = mf->next) {
-		mail_index_append(ctx->trans, 0, &seq);
-		mail_index_update_flags(ctx->trans, seq,
-					MODIFY_REPLACE, mf->flags);
-		if (mf->keywords_count != 0) {
-			t_push();
-			/* @UNSAFE */
-			kw = t_malloc(sizeof(*kw) + sizeof(kw->idx[0]) *
-				      mf->keywords_count);
-			memcpy(kw->idx, mf + 1, sizeof(kw->idx[0]) *
-			       mf->keywords_count);
-			mail_index_update_keywords(ctx->trans, ctx->seq,
-						   MODIFY_REPLACE, kw);
-			t_pop();
-		}
-	}
 }
 
 uint32_t maildir_save_add(struct maildir_transaction_context *t,
@@ -175,13 +145,6 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	struct maildir_save_context *ctx = t->save_ctx;
 	struct maildir_filename *mf;
 	struct tee_istream *tee;
-
-	if (dest_mail != NULL && !ctx->want_mails) {
-		ctx->want_mails = TRUE;
-		/* if there are any existing mails, we need to append them
-		   to index here to keep the UIDs correct */
-		maildir_save_add_existing_to_index(ctx);
-	}
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
@@ -211,52 +174,43 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 		ctx->have_keywords = TRUE;
 	}
 
-	if (ctx->want_mails) {
-		/* insert into index */
-		mail_index_append(ctx->trans, 0, &ctx->seq);
-		mail_index_update_flags(ctx->trans, ctx->seq,
-					MODIFY_REPLACE, flags);
-		if (keywords != NULL) {
-			mail_index_update_keywords(ctx->trans, ctx->seq,
-						   MODIFY_REPLACE, keywords);
-		}
-
-		if (ctx->first_seq == 0) {
-			ctx->first_seq = ctx->seq;
-			i_assert(ctx->files->next == NULL);
-		}
-
-		if (dest_mail == NULL) {
-			if (ctx->mail == NULL) {
-				struct mailbox_transaction_context *_t =
-					&t->ictx.mailbox_ctx;
-
-				ctx->mail = index_mail_alloc(_t, 0, NULL);
-			}
-			dest_mail = ctx->mail;
-		}
-		if (mail_set_seq(dest_mail, ctx->seq) < 0)
-			i_unreached();
-
-		if (ctx->input == NULL) {
-			/* FIXME: copying with hardlinking. we could copy the
-			   cached data directly */
-			ctx->cur_dest_mail = NULL;
-		} else {
-			tee = tee_i_stream_create(ctx->input, default_pool);
-			ctx->input =
-				tee_i_stream_create_child(tee, default_pool);
-			ctx->input2 =
-				tee_i_stream_create_child(tee, default_pool);
-
-			index_mail_cache_parse_init(dest_mail, ctx->input2);
-			ctx->cur_dest_mail = dest_mail;
-		}
-	} else {
-		ctx->seq = 0;
-		ctx->cur_dest_mail = NULL;
+	/* insert into index */
+	mail_index_append(ctx->trans, 0, &ctx->seq);
+	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE, flags);
+	if (keywords != NULL) {
+		mail_index_update_keywords(ctx->trans, ctx->seq,
+					   MODIFY_REPLACE, keywords);
 	}
 
+	if (ctx->first_seq == 0) {
+		ctx->first_seq = ctx->seq;
+		i_assert(ctx->files->next == NULL);
+	}
+
+	if (dest_mail == NULL) {
+		if (ctx->mail == NULL) {
+			struct mailbox_transaction_context *_t =
+				&t->ictx.mailbox_ctx;
+
+			ctx->mail = index_mail_alloc(_t, 0, NULL);
+		}
+		dest_mail = ctx->mail;
+	}
+	if (mail_set_seq(dest_mail, ctx->seq) < 0)
+		i_unreached();
+
+	if (ctx->input == NULL) {
+		/* FIXME: copying with hardlinking. we could copy the
+		   cached data directly */
+		ctx->cur_dest_mail = NULL;
+	} else {
+		tee = tee_i_stream_create(ctx->input, default_pool);
+		ctx->input = tee_i_stream_create_child(tee, default_pool);
+		ctx->input2 = tee_i_stream_create_child(tee, default_pool);
+
+		index_mail_cache_parse_init(dest_mail, ctx->input2);
+		ctx->cur_dest_mail = dest_mail;
+	}
 	return ctx->seq;
 }
 
