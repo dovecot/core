@@ -1,6 +1,7 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2007 Timo Sirainen */
 
 #include "lib.h"
+#include "nfs-workarounds.h"
 #include "mail-index-private.h"
 #include "mbox-storage.h"
 #include "mbox-file.h"
@@ -43,6 +44,7 @@ struct mbox_lock_context {
 
 	int lock_type;
 	bool dotlock_last_stale;
+	bool fcntl_locked;
 };
 
 struct mbox_lock_data {
@@ -165,7 +167,10 @@ static int mbox_file_open_latest(struct mbox_lock_context *ctx, int lock_type)
 		return 0;
 
 	if (mbox->mbox_fd != -1) {
-		if (stat(mbox->path, &st) < 0) {
+		if ((mbox->storage->storage.flags &
+		     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
+			nfs_flush_attr_cache(mbox->path);
+		if (nfs_safe_stat(mbox->path, &st) < 0) {
 			mbox_set_syscall_error(mbox, "stat()");
 			return -1;
 		}
@@ -421,6 +426,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 	}
 
 	alarm(0);
+	ctx->fcntl_locked = TRUE;
 	return 1;
 }
 
@@ -451,12 +457,15 @@ static int mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
 	return ret;
 }
 
-static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type)
+static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
+			       bool *fcntl_locked_r)
 {
 	struct mbox_lock_context ctx;
 	time_t max_wait_time;
 	int ret, i;
 	bool drop_locks;
+
+	*fcntl_locked_r = FALSE;
 
         index_storage_lock_notify_reset(&mbox->ibox);
 
@@ -513,12 +522,14 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type)
 		mbox->mbox_lock_type = F_RDLCK;
 	}
 
+	*fcntl_locked_r = ctx.fcntl_locked;
 	return 1;
 }
 
 int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	      unsigned int *lock_id_r)
 {
+	bool fcntl_locked;
 	int ret;
 
 	/* allow only unlock -> shared/exclusive or exclusive -> shared */
@@ -529,9 +540,16 @@ int mbox_lock(struct mbox_mailbox *mbox, int lock_type,
 	i_assert(mbox->ibox.index->lock_type != F_WRLCK);
 
 	if (mbox->mbox_lock_type == F_UNLCK) {
-		ret = mbox_update_locking(mbox, lock_type);
+		ret = mbox_update_locking(mbox, lock_type, &fcntl_locked);
 		if (ret <= 0)
 			return ret;
+
+		if ((mbox->storage->storage.flags &
+		     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0) {
+			nfs_flush_read_cache(mbox->path, mbox->mbox_fd,
+					     fcntl_locked ? lock_type : F_UNLCK,
+					     fcntl_locked);
+		}
 
 		mbox->mbox_lock_id += 2;
 	}
@@ -561,6 +579,7 @@ static int mbox_unlock_files(struct mbox_lock_context *ctx)
 int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 {
 	struct mbox_lock_context ctx;
+	bool fcntl_locked;
 	int i;
 
 	i_assert(mbox->mbox_lock_id == (lock_id & ~1));
@@ -572,7 +591,8 @@ int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 			return 0;
 		if (mbox->mbox_shared_locks > 0) {
 			/* drop to shared lock */
-			if (mbox_update_locking(mbox, F_RDLCK) < 0)
+			if (mbox_update_locking(mbox, F_RDLCK,
+						&fcntl_locked) < 0)
 				return -1;
 			return 0;
 		}

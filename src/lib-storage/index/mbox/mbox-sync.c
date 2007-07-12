@@ -1781,6 +1781,14 @@ __again:
 
 	i_assert(lock_id != 0);
 
+	if ((mbox->storage->storage.flags &
+	     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0 && mbox->mbox_fd != -1) {
+		if (fdatasync(mbox->mbox_fd) < 0) {
+			mbox_set_syscall_error(mbox, "fdatasync()");
+			ret = -1;
+		}
+	}
+
 	if (mbox->mbox_lock_type != F_RDLCK) {
 		/* drop to read lock */
 		unsigned int read_lock_id = 0;

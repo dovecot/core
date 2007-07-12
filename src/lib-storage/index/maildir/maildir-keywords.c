@@ -12,6 +12,7 @@
 #include "istream.h"
 #include "file-dotlock.h"
 #include "write-full.h"
+#include "nfs-workarounds.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
 #include "maildir-keywords.h"
@@ -97,7 +98,11 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
            we rely on stat()'s timestamp and don't bother handling ESTALE
            errors. */
 
-	if (stat(mk->path, &st) < 0) {
+	if ((mk->mbox->storage->storage.flags &
+	     MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
+		nfs_flush_attr_cache(mk->path);
+
+	if (nfs_safe_stat(mk->path, &st) < 0) {
 		if (errno == ENOENT) {
 			maildir_keywords_clear(mk);
 			mk->synced = TRUE;

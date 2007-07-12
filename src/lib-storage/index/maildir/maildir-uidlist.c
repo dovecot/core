@@ -575,7 +575,9 @@ maildir_uidlist_has_changed(struct maildir_uidlist *uidlist, bool *recreated_r)
 
 	*recreated_r = FALSE;
 
-	/* FIXME: nfs attribute cache flush */
+	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE) != 0)
+		nfs_flush_attr_cache(uidlist->path);
+
 	if (nfs_safe_stat(uidlist->path, &st) < 0) {
 		if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
