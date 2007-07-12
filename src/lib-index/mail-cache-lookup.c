@@ -78,6 +78,11 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 		if (++i == 2)
 			return 0;
 
+		if (cache->locked) {
+			/* we're probably compressing */
+			return 0;
+		}
+
 		if ((ret = mail_cache_reopen(cache)) <= 0) {
 			/* error / we already have the latest file open */
 			return ret;
@@ -117,7 +122,7 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 	if (!MAIL_CACHE_IS_UNUSABLE(view->cache)) {
 		/* look up the first offset */
 		if (mail_cache_lookup_offset(view->cache, view->view, seq,
-					     &ctx->offset) < 0)
+					     &ctx->offset) <= 0)
 			ctx->failed = TRUE;
 	}
 	ctx->remap_counter = view->cache->remap_counter;
