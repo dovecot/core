@@ -354,11 +354,6 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 
 	i_assert(!ibox->box.opened);
 
-	if (getenv("FSYNC_DISABLE") != NULL) {
-		ibox->fsync_disable = TRUE;
-		index_flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
-	}
-
 	if (!ibox->move_to_memory)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_CREATE;
 #ifndef MMAP_CONFLICTS_WRITE
@@ -369,6 +364,10 @@ void index_storage_mailbox_open(struct index_mailbox *ibox)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL;
 	if ((storage->flags & MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX) != 0)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_NFS_FLUSH;
+	if ((storage->flags & MAIL_STORAGE_FLAG_FSYNC_DISABLE) != 0) {
+		index_flags |= MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE;
+		ibox->fsync_disable = TRUE;
+	}
 
 	ret = mail_index_open(ibox->index, index_flags, storage->lock_method);
 	if (ret <= 0 || ibox->move_to_memory) {

@@ -36,6 +36,8 @@ enum mail_storage_flags {
 	/* Flush NFS caches for mail storage / index */
 	MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE	= 0x800,
 	MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX	= 0x1000,
+	/* Don't use fsync() or fdatasync() */
+	MAIL_STORAGE_FLAG_FSYNC_DISABLE		= 0x2000
 };
 
 enum mailbox_open_flags {

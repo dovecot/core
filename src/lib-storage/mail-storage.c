@@ -84,6 +84,8 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 		*flags_r |= MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL;
 	if (getenv("MAIL_SAVE_CRLF") != NULL)
 		*flags_r |= MAIL_STORAGE_FLAG_SAVE_CRLF;
+	if (getenv("FSYNC_DISABLE") != NULL)
+		*flags_r |= MAIL_STORAGE_FLAG_FSYNC_DISABLE;
 
 	str = getenv("POP3_UIDL_FORMAT");
 	if (str != NULL && (str = strchr(str, '%')) != NULL &&
