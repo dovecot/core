@@ -12,6 +12,7 @@
 #include "index-mail.h"
 #include "maildir-storage.h"
 #include "maildir-uidlist.h"
+#include "maildir-keywords.h"
 #include "maildir-filename.h"
 #include "maildir-sync.h"
 
@@ -25,7 +26,6 @@
 struct maildir_filename {
 	struct maildir_filename *next;
 	const char *basename;
-	const char *saved_dest_fname; /* only if it had keywords */
 
 	uoff_t size;
 	enum mail_flags flags;
@@ -40,11 +40,13 @@ struct maildir_save_context {
 	struct maildir_mailbox *mbox;
 	struct mail_index_transaction *trans;
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
+	struct maildir_keywords_sync_ctx *keywords_sync_ctx;
 	struct maildir_index_sync_context *sync_ctx;
 	struct mail *mail, *cur_dest_mail;
 
 	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files, **files_tail, *file_last;
+	unsigned int files_count;
 
 	buffer_t *keywords_buffer;
 	ARRAY_TYPE(keyword_indexes) keywords_array;
@@ -56,6 +58,8 @@ struct maildir_save_context {
 	uint32_t first_seq, seq;
 
 	unsigned int want_mails:1;
+	unsigned int have_keywords:1;
+	unsigned int locked:1;
 	unsigned int failed:1;
 	unsigned int moving:1;
 	unsigned int finished:1;
@@ -130,8 +134,7 @@ maildir_save_transaction_init(struct maildir_transaction_context *t)
 	   synced state. in that case it's cheap to update index file.
 	   this can't be completely trusted because uidlist isn't locked,
 	   but if there are some changes we can deal with it. */
-	ctx->want_mails = maildir_sync_is_synced(mbox) ||
-		(t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0;
+	ctx->want_mails = maildir_sync_is_synced(mbox);
 
 	ctx->keywords_buffer = buffer_create_const_data(pool, NULL, 0);
 	array_create_from_buffer(&ctx->keywords_array, ctx->keywords_buffer,
@@ -195,6 +198,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	i_assert(*ctx->files_tail == NULL);
 	*ctx->files_tail = mf;
 	ctx->files_tail = &mf->next;
+	ctx->files_count++;
 
 	if (keywords != NULL) {
 		i_assert(sizeof(keywords->idx[0]) == sizeof(unsigned int));
@@ -203,6 +207,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 		mf->keywords_count = keywords->count;
 		memcpy(mf + 1, keywords->idx,
 		       sizeof(unsigned int) * keywords->count);
+		ctx->have_keywords = TRUE;
 	}
 
 	if (ctx->want_mails) {
@@ -235,7 +240,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 		if (ctx->input == NULL) {
 			/* FIXME: copying with hardlinking. we could copy the
 			   cached data directly */
-			ctx->cur_dest_mail = 0;
+			ctx->cur_dest_mail = NULL;
 		} else {
 			tee = tee_i_stream_create(ctx->input, default_pool);
 			ctx->input =
@@ -278,20 +283,11 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 		return FALSE;
 	}
 
-	/* If we're unlinking already copied files, ctx->sync_ctx could be
-	   NULL by now. So we use the saved filename if it exists. */
-	if (mf->saved_dest_fname != NULL) {
-		*fname_r = mf->saved_dest_fname;
-		return FALSE;
-	}
-
 	buffer_update_const_data(ctx->keywords_buffer, mf + 1,
 				 mf->keywords_count * sizeof(unsigned int));
-	*fname_r = maildir_filename_set_flags(
-			maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx),
-			basename, mf->flags & MAIL_FLAGS_MASK,
-			&ctx->keywords_array);
-	mf->saved_dest_fname = p_strdup(ctx->pool, *fname_r);
+	*fname_r = maildir_filename_set_flags(ctx->keywords_sync_ctx, basename,
+					      mf->flags & MAIL_FLAGS_MASK,
+					      &ctx->keywords_array);
 	return FALSE;
 }
 
@@ -546,6 +542,7 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 		*fm = NULL;
 		ctx->files_tail = fm;
 		ctx->file_last = NULL;
+		ctx->files_count--;
 
 		t_pop();
 		return -1;
@@ -596,20 +593,34 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 	i_assert(ctx->output == NULL);
 	i_assert(ctx->finished);
 
-	if (maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE,
-				      &ctx->uidlist_sync_ctx) <= 0) {
-		/* error or timeout - our transaction is broken */
-		maildir_transaction_save_rollback(ctx);
-		return -1;
+	/* if we want to assign UIDs or keywords, we require uidlist lock */
+	if ((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) == 0 &&
+	    !ctx->have_keywords) {
+		/* assign the UIDs if we happen to get a lock */
+		ctx->locked = maildir_uidlist_try_lock(ctx->mbox->uidlist) > 0;
+	} else {
+		if (maildir_uidlist_lock(ctx->mbox->uidlist) <= 0) {
+			/* error or timeout - our transaction is broken */
+			maildir_transaction_save_rollback(ctx);
+			return -1;
+		}
+		ctx->locked = TRUE;
 	}
 
-	/* Start syncing so that keywords_sync_ctx gets set.. */
-	if (maildir_sync_index_begin(ctx->mbox, NULL, &ctx->sync_ctx) < 0) {
-		maildir_transaction_save_rollback(ctx);
-		return -1;
-	}
+	if (ctx->locked) {
+		ret = maildir_uidlist_sync_init(ctx->mbox->uidlist, TRUE,
+						&ctx->uidlist_sync_ctx);
+		i_assert(ret > 0); /* already locked, shouldn't fail */
 
-	if (ctx->want_mails) {
+		if (maildir_sync_index_begin(ctx->mbox, NULL,
+					     &ctx->sync_ctx) < 0) {
+			maildir_transaction_save_rollback(ctx);
+			return -1;
+		}
+
+		ctx->keywords_sync_ctx =
+			maildir_sync_get_keywords_sync_ctx(ctx->sync_ctx);
+
 		/* now that uidlist is locked, make sure all the existing mails
 		   have been added to index. we don't really look into the
 		   maildir, just add all the new mails listed in
@@ -620,12 +631,14 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		}
 		sync_commit = TRUE;
 
+		/* if messages were added to index, assign them UIDs */
 		first_uid = maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
 		i_assert(first_uid != 0);
 		mail_index_append_assign_uids(ctx->trans, first_uid, &next_uid);
 
+		/* this will work even if index isn't updated */
 		*t->ictx.first_saved_uid = first_uid;
-		*t->ictx.last_saved_uid = next_uid - 1;
+		*t->ictx.last_saved_uid = first_uid + ctx->files_count - 1;
 	}
 
 	flags = MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
@@ -646,26 +659,47 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			ret = maildir_file_move(ctx, mf->basename,
 						dest, newdir);
 		}
-		if (ret == 0) {
-			ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
-							dest, flags);
-			i_assert(ret != 0);
-			ret = ret < 0 ? -1 : 0;
-		}
 		t_pop();
 	}
 
-	/* if we didn't call maildir_sync_index() we could skip over
-	   transactions by committing the changes */
-	if (maildir_sync_index_finish(&ctx->sync_ctx, ret < 0,
-				      !sync_commit) < 0)
-		ret = -1;
+	if (ret == 0 && ctx->uidlist_sync_ctx != NULL) {
+		/* everything was moved successfully. update our internal
+		   state. */
+		for (mf = ctx->files; mf != NULL; mf = mf->next) {
+			t_push();
+			newdir = maildir_get_updated_filename(ctx, mf, &dest);
+
+			ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
+							dest, flags);
+			i_assert(ret > 0);
+			t_pop();
+		}
+	}
+
+	if (ctx->uidlist_sync_ctx != NULL) {
+		/* update dovecot-uidlist file. */
+		if (maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx) < 0)
+			ret = -1;
+	}
+
+	if (sync_commit) {
+		/* It doesn't matter if index syncing fails */
+		(void)maildir_sync_index_finish(&ctx->sync_ctx,
+						ret < 0, !sync_commit);
+	}
 
 	if (ret < 0) {
+		ctx->keywords_sync_ctx = !ctx->have_keywords ? NULL :
+			maildir_keywords_sync_init(ctx->mbox->keywords,
+						   ctx->mbox->ibox.index);
+
 		/* unlink the files we just moved in an attempt to rollback
 		   the transaction. uidlist is still locked, so at least other
 		   Dovecot instances haven't yet seen the files. */
 		maildir_transaction_unlink_copied_files(ctx, mf);
+
+		maildir_keywords_sync_deinit(ctx->keywords_sync_ctx);
+		ctx->keywords_sync_ctx = NULL;
 
 		/* returning failure finishes the save_context */
 		maildir_transaction_save_rollback(ctx);
@@ -676,9 +710,8 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 {
-	/* uidlist locks the syncing. don't release it until save's transaction
-	   has been written to disk. */
-	(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
+	if (ctx->locked)
+		maildir_uidlist_unlock(ctx->mbox->uidlist);
 
 	if (ctx->mail != NULL)
 		index_mail_free(ctx->mail);
@@ -719,8 +752,10 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 	if (hardlinks)
 		maildir_transaction_unlink_copied_files(ctx, NULL);
 
-	if (ctx->uidlist_sync_ctx != NULL)
+	if (ctx->locked) {
 		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx);
+		maildir_uidlist_unlock(ctx->mbox->uidlist);
+	}
 	if (ctx->sync_ctx != NULL)
 		(void)maildir_sync_index_finish(&ctx->sync_ctx, TRUE, FALSE);
 
