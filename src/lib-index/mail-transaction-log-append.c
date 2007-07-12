@@ -253,7 +253,7 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 	struct mail_transaction_ext_reset ext_reset;
 	unsigned int update_count, resize_count, ext_count = 0;
 	unsigned int hdrs_count, reset_id_count, reset_count;
-	uint32_t ext_id;
+	uint32_t ext_id, reset_id;
 	const uint32_t *reset_ids, *reset;
 	const ARRAY_TYPE(seq_array) *update;
 	buffer_t *buf;
@@ -308,15 +308,18 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 
 	for (ext_id = 0; ext_id < ext_count; ext_id++) {
 		ext_reset.new_reset_id =
-			ext_id < reset_id_count && reset_ids[ext_id] != 0 ?
-			reset_ids[ext_id] : 0;
+			ext_id < reset_count && reset[ext_id] != 0 ?
+			reset[ext_id] : 0;
 		if ((ext_id < resize_count && resize[ext_id].name_size) ||
 		    (ext_id < update_count &&
 		     array_is_created(&update[ext_id])) ||
 		    ext_reset.new_reset_id != 0 ||
-		    (ext_id < hdrs_count && hdrs[ext_id] != NULL))
-			log_append_ext_intro(ctx, ext_id, 0);
-		if (ext_id < reset_count && reset[ext_id] != 0) {
+		    (ext_id < hdrs_count && hdrs[ext_id] != NULL)) {
+			reset_id = ext_id < reset_id_count ?
+				reset_ids[ext_id] : 0;
+			log_append_ext_intro(ctx, ext_id, reset_id);
+		}
+		if (ext_reset.new_reset_id != 0) {
 			log_append_buffer(ctx, buf, NULL,
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
@@ -329,8 +332,8 @@ static void log_append_ext_rec_updates(struct log_append_context *ctx)
 {
 	struct mail_index_transaction *t = ctx->trans;
 	ARRAY_TYPE(seq_array) *updates;
-	const uint32_t *reset;
-	unsigned int ext_id, count, reset_count;
+	const uint32_t *reset_ids;
+	unsigned int ext_id, count, reset_id_count;
 	uint32_t reset_id;
 
 	if (!array_is_created(&t->ext_rec_updates)) {
@@ -341,18 +344,18 @@ static void log_append_ext_rec_updates(struct log_append_context *ctx)
 	}
 
 	if (!array_is_created(&t->ext_reset_ids)) {
-		reset = NULL;
-		reset_count = 0;
+		reset_ids = NULL;
+		reset_id_count = 0;
 	} else {
-		reset = array_get_modifiable(&t->ext_reset_ids, &reset_count);
+		reset_ids = array_get_modifiable(&t->ext_reset_ids,
+						 &reset_id_count);
 	}
 
 	for (ext_id = 0; ext_id < count; ext_id++) {
 		if (!array_is_created(&updates[ext_id]))
 			continue;
 
-		reset_id = ext_id < reset_count && reset[ext_id] != 0 ?
-			reset[ext_id] : 0;
+		reset_id = ext_id < reset_id_count ? reset_ids[ext_id] : 0;
 		log_append_ext_intro(ctx, ext_id, reset_id);
 
 		log_append_buffer(ctx, updates[ext_id].arr.buffer, NULL,
