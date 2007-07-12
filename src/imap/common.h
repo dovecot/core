@@ -34,6 +34,7 @@ extern struct ioloop *ioloop;
 extern unsigned int max_keyword_length;
 extern unsigned int imap_max_line_length;
 extern enum client_workarounds client_workarounds;
+extern const char *logout_format;
 
 extern string_t *capability_string;
 

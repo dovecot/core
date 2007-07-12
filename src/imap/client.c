@@ -2,9 +2,11 @@
 
 #include "common.h"
 #include "ioloop.h"
+#include "str.h"
 #include "network.h"
 #include "istream.h"
 #include "ostream.h"
+#include "var-expand.h"
 #include "commands.h"
 #include "mail-namespace.h"
 
@@ -70,6 +72,27 @@ void client_command_cancel(struct client_command_context *cmd)
 	}
 }
 
+static const char *client_stats(struct client *client)
+{
+	static struct var_expand_table static_tab[] = {
+		{ 'i', NULL },
+		{ 'o', NULL },
+		{ '\0', NULL }
+	};
+	struct var_expand_table *tab;
+	string_t *str;
+
+	tab = t_malloc(sizeof(static_tab));
+	memcpy(tab, static_tab, sizeof(static_tab));
+
+	tab[0].value = dec2str(client->input->v_offset);
+	tab[1].value = dec2str(client->output->offset);
+
+	str = t_str_new(128);
+	var_expand(str, logout_format, tab);
+	return str_c(str);
+}
+
 void client_destroy(struct client *client, const char *reason)
 {
 	i_assert(!client->destroyed);
@@ -79,7 +102,7 @@ void client_destroy(struct client *client, const char *reason)
 		client->disconnected = TRUE;
 		if (reason == NULL)
 			reason = "Disconnected";
-		i_info("%s", reason);
+		i_info("%s %s", reason, client_stats(client));
 	}
 
 	i_stream_close(client->input);
@@ -128,7 +151,7 @@ void client_disconnect(struct client *client, const char *reason)
 	if (client->disconnected)
 		return;
 
-	i_info("Disconnected: %s", reason);
+	i_info("Disconnected: %s %s", reason, client_stats(client));
 	client->disconnected = TRUE;
 	(void)o_stream_flush(client->output);
 

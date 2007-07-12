@@ -42,8 +42,9 @@ struct ioloop *ioloop;
 unsigned int max_keyword_length;
 unsigned int imap_max_line_length;
 enum client_workarounds client_workarounds = 0;
-static struct io *log_io = NULL;
+const char *logout_format;
 
+static struct io *log_io = NULL;
 static struct module *modules = NULL;
 static char log_prefix[128]; /* syslog() needs this to be permanent */
 static pool_t namespace_pool;
@@ -229,6 +230,10 @@ static void main_init(void)
 	max_keyword_length = str != NULL ?
 		(unsigned int)strtoul(str, NULL, 10) :
 		DEFAULT_MAX_KEYWORD_LENGTH;
+
+	logout_format = getenv("IMAP_LOGOUT_FORMAT");
+	if (logout_format == NULL)
+		logout_format = "bytes=%i/%o";
 
         parse_workarounds();
 

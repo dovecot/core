@@ -123,6 +123,7 @@ struct settings {
 	unsigned int imap_max_line_length;
 	const char *imap_capability;
 	const char *imap_client_workarounds;
+	const char *imap_logout_format;
 
 	/* pop3 */
 	bool pop3_no_flag_updates;

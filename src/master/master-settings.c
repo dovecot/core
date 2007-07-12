@@ -267,6 +267,7 @@ struct settings default_settings = {
 	MEMBER(imap_max_line_length) 65536,
 	MEMBER(imap_capability) "",
 	MEMBER(imap_client_workarounds) "outlook-idle",
+	MEMBER(imap_logout_format) "bytes=%i/%o",
 
 	/* pop3 */
 	MEMBER(pop3_no_flag_updates) FALSE,
