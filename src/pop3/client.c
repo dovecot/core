@@ -202,6 +202,8 @@ static const char *client_stats(struct client *client)
 		{ 'd', NULL },
 		{ 'm', NULL },
 		{ 's', NULL },
+		{ 'i', NULL },
+		{ 'o', NULL },
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
@@ -217,6 +219,8 @@ static const char *client_stats(struct client *client)
 	tab[4].value = dec2str(client->expunged_count);
 	tab[5].value = dec2str(client->messages_count);
 	tab[6].value = dec2str(client->total_size);
+	tab[7].value = dec2str(client->input->v_offset);
+	tab[8].value = dec2str(client->output->offset);
 
 	str = t_str_new(128);
 	var_expand(str, logout_format, tab);
