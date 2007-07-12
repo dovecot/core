@@ -12,5 +12,6 @@
 int nfs_safe_open(const char *path, int flags);
 /* stat() with some NFS workarounds */
 int nfs_safe_stat(const char *path, struct stat *buf);
+int nfs_safe_lstat(const char *path, struct stat *buf);
 
 #endif

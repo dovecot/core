@@ -84,3 +84,15 @@ int nfs_safe_stat(const char *path, struct stat *buf)
 {
 	return nfs_safe_do(path, nfs_safe_stat_callback, buf);
 }
+
+static int nfs_safe_lstat_callback(const char *path, void *context)
+{
+	struct stat *buf = context;
+
+	return lstat(path, buf);
+}
+
+int nfs_safe_lstat(const char *path, struct stat *buf)
+{
+	return nfs_safe_do(path, nfs_safe_lstat_callback, buf);
+}
