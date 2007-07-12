@@ -479,16 +479,10 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 			(flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 		index->lock_method = lock_method;
 
-		if (index->nfs_flush && index->fsync_disable) {
-			i_warning("nfs_flush_cache=yes requires "
-				  "fsync_disable=no, changing it");
-			index->fsync_disable = FALSE;
-		}
-		if (index->nfs_flush && !index->mmap_disable) {
-			i_warning("nfs_flush_cache=yes requires "
-				  "mmap_disable=yes, changing it");
-			index->mmap_disable = TRUE;
-		}
+		if (index->nfs_flush && index->fsync_disable)
+			i_fatal("nfs flush requires fsync_disable=no");
+		if (index->nfs_flush && !index->mmap_disable)
+			i_fatal("nfs flush requires mmap_disable=yes");
 
 		i_assert(!index->opened);
 		if (!mail_index_open_files(index, flags)) {
