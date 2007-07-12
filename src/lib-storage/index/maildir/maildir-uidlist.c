@@ -324,6 +324,13 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	}
         uidlist->last_seen_uid = uid;
 
+	if (uid >= uidlist->next_uid && uidlist->version == 1) {
+		mail_storage_set_critical(storage,
+			"UID larger than next_uid in file %s (%u >= %u)",
+			uidlist->path, uid, uidlist->next_uid);
+		return 0;
+	}
+
 	rec = p_new(uidlist->record_pool, struct maildir_uidlist_rec, 1);
 	rec->uid = uid;
 	rec->flags = MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
@@ -383,6 +390,13 @@ static int maildir_uidlist_read_header(struct maildir_uidlist *uidlist,
 			mail_storage_set_critical(storage,
 				"%s: Corrupted header (version 1)",
 				uidlist->path);
+			return 0;
+		}
+		if (uid_validity == uidlist->uid_validity &&
+		    next_uid < uidlist->next_uid) {
+			mail_storage_set_critical(storage,
+				"%s: next_uid was lowered (v1, %u -> %u)",
+				uidlist->path, uidlist->next_uid, next_uid);
 			return 0;
 		}
 		break;
