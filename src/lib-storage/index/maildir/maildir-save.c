@@ -27,7 +27,7 @@ struct maildir_filename {
 	struct maildir_filename *next;
 	const char *basename;
 
-	uoff_t size;
+	uoff_t size, vsize;
 	enum mail_flags flags;
 	unsigned int keywords_count;
 	/* unsigned int keywords[]; */
@@ -193,6 +193,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 	mf->basename = p_strdup(ctx->pool, base_fname);
 	mf->flags = flags;
 	mf->size = (uoff_t)-1;
+	mf->vsize = (uoff_t)-1;
 
 	ctx->file_last = mf;
 	i_assert(*ctx->files_tail == NULL);
@@ -270,6 +271,11 @@ maildir_get_updated_filename(struct maildir_save_context *ctx,
 	    mf->size != (uoff_t)-1) {
 		basename = t_strdup_printf("%s,S=%"PRIuUOFF_T,
 					   basename, mf->size);
+	}
+
+	if (mf->vsize != (uoff_t)-1) {
+		basename = t_strdup_printf("%s,W=%"PRIuUOFF_T,
+					   basename, mf->vsize);
 	}
 
 	if (mf->keywords_count == 0) {
@@ -490,6 +496,8 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 
 	/* remember the size in case we want to add it to filename */
 	ctx->file_last->size = ctx->output->offset;
+	ctx->file_last->vsize = ctx->cur_dest_mail == NULL ? (uoff_t)-1 :
+		mail_get_virtual_size(ctx->cur_dest_mail);
 
 	t_push();
 	path = t_strconcat(ctx->tmpdir, "/", ctx->file_last->basename, NULL);
