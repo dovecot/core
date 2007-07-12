@@ -845,6 +845,30 @@ static int maildir_storage_mailbox_close(struct mailbox *box)
 	return index_storage_mailbox_close(box);
 }
 
+static int maildir_storage_get_status(struct mailbox *box,
+				      enum mailbox_status_items items,
+				      struct mailbox_status *status_r)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	uint32_t uid_validity, next_uid;
+
+	if (index_storage_get_status(box, items, status_r) < 0)
+		return -1;
+
+	/* if index isn't up-to-date, get the values from uidlist */
+	if (maildir_uidlist_refresh(mbox->uidlist) < 0)
+		return -1;
+
+	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
+	if (uid_validity != 0)
+		status_r->uidvalidity = uid_validity;
+
+	next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
+	if (status_r->uidnext < next_uid)
+		status_r->uidnext = next_uid;
+	return 0;
+}
+
 static void maildir_notify_changes(struct mailbox *box)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
@@ -1030,7 +1054,7 @@ struct mailbox maildir_mailbox = {
 		index_storage_is_readonly,
 		index_storage_allow_new_keywords,
 		maildir_storage_mailbox_close,
-		index_storage_get_status,
+		maildir_storage_get_status,
 		maildir_storage_sync_init,
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,
