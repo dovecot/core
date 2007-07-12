@@ -207,6 +207,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	const uint8_t *types, *decisions;
 	const char *p, *names, *end;
 	void *orig_key, *orig_value;
+	unsigned int new_fields_count;
 	uint32_t offset, i;
 
 	if (mail_cache_header_fields_get_offset(cache, &offset) < 0)
@@ -243,18 +244,18 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			return -1;
 	}
 	field_hdr = CONST_PTR_OFFSET(cache->data, offset);
+	new_fields_count = field_hdr->fields_count;
 
-	if (field_hdr->fields_count != 0) {
+	if (new_fields_count != 0) {
 		cache->file_field_map =
 			i_realloc(cache->file_field_map,
 				  cache->file_fields_count *
 				  sizeof(unsigned int),
-				  field_hdr->fields_count *
-				  sizeof(unsigned int));
+				  new_fields_count * sizeof(unsigned int));
 	} else {
 		i_free_and_null(cache->file_field_map);
 	}
-	cache->file_fields_count = field_hdr->fields_count;
+	cache->file_fields_count = new_fields_count;
 
 	last_used = CONST_PTR_OFFSET(field_hdr, MAIL_CACHE_FIELD_LAST_USED());
 	sizes = CONST_PTR_OFFSET(field_hdr,
