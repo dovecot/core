@@ -370,16 +370,39 @@ static void parse_bodystructure_part_header(struct message_part *part,
 	imap_bodystructure_parse_header(pool, part, hdr);
 }
 
+static bool want_plain_bodystructure_cached(struct index_mail *mail)
+{
+	if ((mail->wanted_fields & (MAIL_FETCH_IMAP_BODY |
+				    MAIL_FETCH_IMAP_BODYSTRUCTURE)) != 0)
+		return TRUE;
+
+	if (mail_cache_field_want_add(mail->trans->cache_trans, mail->data.seq,
+		mail->ibox->cache_fields[MAIL_CACHE_IMAP_BODY].idx))
+		return TRUE;
+	if (mail_cache_field_want_add(mail->trans->cache_trans, mail->data.seq,
+		mail->ibox->cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx))
+		return TRUE;
+	return FALSE;
+}
+
 static void index_mail_body_parsed_cache_flags(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
+	unsigned int cache_flags_idx;
 	uint32_t cache_flags = data->cache_flags;
+	bool want_cached;
+
+	cache_flags_idx = mail->ibox->cache_fields[MAIL_CACHE_FLAGS].idx;
+	want_cached = mail_cache_field_want_add(mail->trans->cache_trans,
+						data->seq, cache_flags_idx);
 
 	if (data->parsed_bodystructure &&
-	    imap_bodystructure_is_plain_7bit(data->parts)) {
+	    imap_bodystructure_is_plain_7bit(data->parts) &&
+	    (want_cached || want_plain_bodystructure_cached(mail))) {
 		cache_flags |= MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII;
 		/* we need message_parts cached to be able to
 		   actually use it in BODY/BODYSTRUCTURE reply */
+		want_cached = TRUE;
 		data->save_message_parts = TRUE;
 	}
 
@@ -404,11 +427,11 @@ static void index_mail_body_parsed_cache_flags(struct index_mail *mail)
 	if (data->body_size.virtual_size == data->body_size.physical_size)
 		cache_flags |= MAIL_CACHE_FLAG_BINARY_BODY;
 
-	if (cache_flags != data->cache_flags) {
-		data->cache_flags = cache_flags;
-		index_mail_cache_add(mail, MAIL_CACHE_FLAGS,
-				     &cache_flags, sizeof(cache_flags));
+	if (cache_flags != data->cache_flags && want_cached) {
+		index_mail_cache_add_idx(mail, cache_flags_idx,
+					 &cache_flags, sizeof(cache_flags));
 	}
+	data->cache_flags = cache_flags;
 }
 
 static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
