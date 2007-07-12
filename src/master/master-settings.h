@@ -91,6 +91,8 @@ struct settings {
 	bool mmap_disable;
 	bool dotlock_use_excl;
 	bool fsync_disable;
+	bool mail_nfs_storage;
+	bool mail_nfs_index;
 	bool mailbox_list_index_disable;
 	const char *lock_method;
 	bool maildir_stat_dirs;

@@ -86,6 +86,15 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 		*flags_r |= MAIL_STORAGE_FLAG_SAVE_CRLF;
 	if (getenv("FSYNC_DISABLE") != NULL)
 		*flags_r |= MAIL_STORAGE_FLAG_FSYNC_DISABLE;
+	if (getenv("MAIL_NFS_STORAGE") != NULL)
+		*flags_r |= MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE;
+	if (getenv("MAIL_NFS_INDEX") != NULL) {
+		*flags_r |= MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX;
+		if ((*flags_r & MAIL_STORAGE_FLAG_MMAP_DISABLE) == 0)
+			i_fatal("mail_nfs_index=yes requires mmap_disable=yes");
+		if ((*flags_r & MAIL_STORAGE_FLAG_FSYNC_DISABLE) != 0)
+			i_fatal("mail_nfs_index=yes requires fsync_disable=no");
+	}
 
 	str = getenv("POP3_UIDL_FORMAT");
 	if (str != NULL && (str = strchr(str, '%')) != NULL &&
