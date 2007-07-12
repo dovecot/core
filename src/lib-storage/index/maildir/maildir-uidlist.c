@@ -924,6 +924,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		ret = -1;
 	} else {
 		i_assert(file_size == (uoff_t)st.st_size);
+		maildir_uidlist_close(uidlist);
 		uidlist->fd = fd;
 		uidlist->fd_dev = st.st_dev;
 		uidlist->fd_ino = st.st_ino;
