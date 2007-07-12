@@ -815,6 +815,9 @@ bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
 {
 	enum mail_cache_decision_type decision;
 
+	if (!ctx->cache->opened)
+		(void)mail_cache_open_and_verify(ctx->cache);
+
 	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
 	if ((decision & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO)
 		return FALSE;
@@ -826,6 +829,9 @@ bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 			      uint32_t seq, unsigned int field_idx)
 {
 	enum mail_cache_decision_type decision;
+
+	if (!ctx->cache->opened)
+		(void)mail_cache_open_and_verify(ctx->cache);
 
 	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
 	if (decision == (MAIL_CACHE_DECISION_FORCED | MAIL_CACHE_DECISION_NO))
