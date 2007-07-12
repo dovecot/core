@@ -472,6 +472,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 							       FALSE) > 0) {
 				/* yes, it was ok */
 				(void)file_dotlock_delete(dotlock);
+				mail_transaction_log_file_add_to_list(file);
 				return 0;
 			}
 			file->fd = -1;

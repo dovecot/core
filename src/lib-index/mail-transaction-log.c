@@ -127,8 +127,10 @@ int mail_transaction_log_create(struct mail_transaction_log *log)
 		mail_transaction_log_file_free(&log->open_file);
 	}
 
-	if (mail_transaction_log_file_create(file, FALSE) < 0)
+	if (mail_transaction_log_file_create(file, FALSE) < 0) {
 		mail_transaction_log_file_free(&file);
+		return -1;
+	}
 
 	mail_transaction_log_set_head(log, file);
 	return 1;
