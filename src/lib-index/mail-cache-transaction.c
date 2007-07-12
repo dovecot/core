@@ -681,7 +681,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 		if (mail_cache_compress(cache, ctx->trans) < 0)
 			return -1;
 		if ((ret = mail_cache_transaction_lock(ctx)) <= 0)
-			return ret;
+			return -1;
 	}
 
 	/* re-read header to make sure we don't lose any fields. */
