@@ -954,6 +954,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	uoff_t file_size;
 
 	if (ctx->uidlist->recreate || uidlist->fd == -1 ||
+	    uidlist->version != 3 ||
 	    (uidlist->read_records_count + ctx->new_files_count) *
 	    UIDLIST_COMPRESS_PERCENTAGE / 100 >= array_count(&uidlist->records))
 		return maildir_uidlist_recreate(uidlist);
