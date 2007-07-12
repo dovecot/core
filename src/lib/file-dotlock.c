@@ -8,6 +8,7 @@
 #include "randgen.h"
 #include "write-full.h"
 #include "safe-mkstemp.h"
+#include "nfs-workarounds.h"
 #include "file-dotlock.h"
 
 #include <stdio.h>
@@ -148,7 +149,7 @@ static int update_lock_info(time_t now, struct lock_info *lock_info,
 {
 	struct stat st;
 
-	if (lstat(lock_info->lock_path, &st) < 0) {
+	if (nfs_safe_lstat(lock_info->lock_path, &st) < 0) {
 		if (errno != ENOENT) {
 			i_error("lstat(%s) failed: %m", lock_info->lock_path);
 			return -1;
@@ -231,7 +232,7 @@ static int check_lock(time_t now, struct lock_info *lock_info)
 
 		/* possibly stale lock file. check also the timestamp of the
 		   file we're protecting. */
-		if (stat(lock_info->path, &st) < 0) {
+		if (nfs_safe_stat(lock_info->path, &st) < 0) {
 			if (errno == ENOENT) {
 				/* file doesn't exist. treat it as if
 				   it hasn't changed */
@@ -574,9 +575,10 @@ int file_dotlock_create(const struct dotlock_settings *set, const char *path,
 		return -1;
 	}
 
-	/* some NFS implementations may have used cached mtime in previous
-	   fstat() call. Check again to avoid "dotlock was modified" errors. */
-	if (stat(lock_path, &st) < 0) {
+	/* With NFS the writes may have been flushed only when closing the
+	   file. Get the mtime again after that to avoid "dotlock was modified"
+	   errors. */
+	if (lstat(lock_path, &st) < 0) {
 		if (errno != ENOENT)
 			i_error("stat(%s) failed: %m", lock_path);
 		else {
@@ -612,7 +614,7 @@ int file_dotlock_delete(struct dotlock **dotlock_p)
 	*dotlock_p = NULL;
 
 	lock_path = file_dotlock_get_lock_path(dotlock);
-	if (lstat(lock_path, &st) < 0) {
+	if (nfs_safe_lstat(lock_path, &st) < 0) {
 		if (errno == ENOENT) {
 			i_warning("Our dotlock file %s was deleted "
 				  "(kept it %d secs)", lock_path,
@@ -708,7 +710,7 @@ int file_dotlock_replace(struct dotlock **dotlock_p,
 			return -1;
 		}
 
-		if (lstat(lock_path, &st2) < 0) {
+		if (nfs_safe_lstat(lock_path, &st2) < 0) {
 			i_error("lstat(%s) failed: %m", lock_path);
 			file_dotlock_free(dotlock);
 			return -1;
