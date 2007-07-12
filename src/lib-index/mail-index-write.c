@@ -138,6 +138,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	const struct mail_index_header *hdr = &map->hdr;
 	struct stat st;
 	unsigned int lock_id;
+	int ret;
 
 	if (!mail_index_map_has_changed(map))
 		return;
@@ -192,14 +193,23 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 			}
 		}
 	} else {
-		if (mail_index_write_map_over(index) < 0) {
+		ret = mail_index_write_map_over(index);
+		if (ret < 0)
 			mail_index_set_syscall_error(index, "pwrite_full()");
+		else if (index->nfs_flush) {
+			ret = fdatasync(index->fd);
+			if (ret < 0) {
+				mail_index_set_syscall_error(index,
+							     "fdatasync()");
+			}
+		}
+		mail_index_unlock(index, &lock_id);
+
+		if (ret < 0) {
 			/* hopefully didn't break badly */
-			mail_index_unlock(index, &lock_id);
 			mail_index_move_to_memory(index);
 			return;
 		}
-		mail_index_unlock(index, &lock_id);
 	}
 
 	index->last_read_log_file_seq = hdr->log_file_seq;

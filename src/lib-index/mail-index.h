@@ -19,7 +19,9 @@ enum mail_index_open_flags {
 	/* Rely on O_EXCL when creating dotlocks */
 	MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL	= 0x10,
 	/* Don't fsync() or fdatasync() */
-	MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE	= 0x20
+	MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE	= 0x20,
+	/* Flush NFS attr/data/write cache when necessary */
+	MAIL_INDEX_OPEN_FLAG_NFS_FLUSH		= 0x40,
 };
 
 enum mail_index_header_compat_flags {

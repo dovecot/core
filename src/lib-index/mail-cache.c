@@ -77,6 +77,9 @@ static void mail_cache_init_file_cache(struct mail_cache *cache)
 	if (cache->file_cache == NULL)
 		return;
 
+	nfs_flush_attr_cache_fd(cache->filepath, cache->fd);
+	nfs_flush_read_cache(cache->filepath, cache->fd, F_UNLCK, FALSE);
+
 	file_cache_set_fd(cache->file_cache, cache->fd);
 
 	if (fstat(cache->fd, &st) < 0)
@@ -397,19 +400,44 @@ void mail_cache_free(struct mail_cache **_cache)
 	i_free(cache);
 }
 
-static int mail_cache_lock_file(struct mail_cache *cache, int lock_type)
+void mail_cache_flush_read_cache(struct mail_cache *cache, bool just_locked)
 {
+	if (!cache->index->nfs_flush)
+		return;
+
+	/* Assume flock() is independent of fcntl() locks. This isn't true
+	   with Linux 2.6 NFS, but with it there's no point in using flock() */
+	if (cache->locked &&
+	    cache->index->lock_method == FILE_LOCK_METHOD_FCNTL) {
+		nfs_flush_read_cache(cache->filepath, cache->fd,
+				     F_WRLCK, just_locked);
+	} else {
+		nfs_flush_read_cache(cache->filepath, cache->fd,
+				     F_UNLCK, FALSE);
+	}
+}
+
+static int mail_cache_lock_file(struct mail_cache *cache)
+{
+	int ret;
+
 	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 		i_assert(cache->file_lock == NULL);
-		return mail_index_lock_fd(cache->index, cache->filepath,
-					  cache->fd, lock_type,
-					  MAIL_INDEX_LOCK_SECS,
-					  &cache->file_lock);
+		ret = mail_index_lock_fd(cache->index, cache->filepath,
+					 cache->fd, F_WRLCK,
+					 MAIL_INDEX_LOCK_SECS,
+					 &cache->file_lock);
 	} else {
 		i_assert(cache->dotlock == NULL);
-		return file_dotlock_create(&cache->dotlock_settings,
-					   cache->filepath, 0, &cache->dotlock);
+		ret = file_dotlock_create(&cache->dotlock_settings,
+					  cache->filepath, 0, &cache->dotlock);
 	}
+
+	if (ret <= 0)
+		return ret;
+
+	mail_cache_flush_read_cache(cache, TRUE);
+	return 1;
 }
 
 static void mail_cache_unlock_file(struct mail_cache *cache)
@@ -454,7 +482,7 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id)
 	}
 
 	for (i = 0; i < 3; i++) {
-		ret = mail_cache_lock_file(cache, F_WRLCK);
+		ret = mail_cache_lock_file(cache);
 		if (ret <= 0)
 			break;
 		cache->locked = TRUE;
@@ -536,6 +564,11 @@ int mail_cache_unlock(struct mail_cache *cache)
 				     sizeof(cache->hdr_copy), 0) < 0)
 			ret = -1;
 		mail_cache_update_need_compress(cache);
+	}
+
+	if (cache->index->nfs_flush) {
+		if (fdatasync(cache->fd) < 0)
+			mail_cache_set_syscall_error(cache, "fdatasync()");
 	}
 
 	mail_cache_unlock_file(cache);

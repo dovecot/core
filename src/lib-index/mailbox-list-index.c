@@ -9,6 +9,7 @@
 #include "file-dotlock.h"
 #include "mmap-util.h"
 #include "write-full.h"
+#include "nfs-workarounds.h"
 #include "mail-index-private.h"
 #include "mailbox-list-index-private.h"
 
@@ -61,6 +62,11 @@ int mailbox_list_index_set_syscall_error(struct mailbox_list_index *index,
 
 static void mailbox_list_index_unmap(struct mailbox_list_index *index)
 {
+	if (index->mail_index->nfs_flush && index->fd != -1) {
+		nfs_flush_read_cache(index->filepath, index->fd,
+				     F_UNLCK, FALSE);
+	}
+
 	if (index->file_cache != NULL)
 		file_cache_invalidate(index->file_cache, 0, (uoff_t)-1);
 
@@ -224,7 +230,10 @@ static int mailbox_list_index_is_recreated(struct mailbox_list_index *index)
 	if (index->fd == -1)
 		return 1;
 
-	if (stat(index->filepath, &st1) < 0) {
+	if (index->mail_index->nfs_flush)
+		nfs_flush_attr_cache(index->filepath);
+
+	if (nfs_safe_stat(index->filepath, &st1) < 0) {
 		if (errno == ENOENT)
 			return 1;
 
@@ -268,6 +277,12 @@ int mailbox_list_index_file_create(struct mailbox_list_index *index,
 	mailbox_list_index_init_header(&hdr, uid_validity);
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		mailbox_list_index_set_syscall_error(index, "write_full()");
+		(void)file_dotlock_delete(&dotlock);
+		return -1;
+	}
+
+	if (index->mail_index->nfs_flush && fdatasync(fd) < 0) {
+		mailbox_list_index_set_syscall_error(index, "fdatasync()");
 		(void)file_dotlock_delete(&dotlock);
 		return -1;
 	}

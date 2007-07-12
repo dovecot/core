@@ -434,6 +434,9 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	int fd, ret;
 	bool rename_existing;
 
+	if (index->nfs_flush)
+		nfs_flush_attr_cache(file->filepath);
+
 	/* log creation is locked now - see if someone already created it.
 	   note that if we're rotating, we need to keep the log locked until
 	   the file has been rewritten. and because fcntl() locks are stupid,
@@ -496,6 +499,16 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		mail_index_file_set_syscall_error(index, file->filepath,
 						  "write_full()");
 		return -1;
+	}
+
+	if (index->nfs_flush) {
+		/* the header isn't important, so don't bother calling
+		   fdatasync() unless NFS is used */
+		if (fdatasync(new_fd) < 0) {
+			mail_index_file_set_syscall_error(index, file->filepath,
+							  "fdatasync()");
+			return -1;
+		}
 	}
 
 	file->fd = new_fd;
@@ -782,7 +795,12 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 			}
 			return -1;
 		}
-		// FIXME: here we probably want to flush NFS data cache
+
+		if (file->log->index->nfs_flush) {
+			/* The size field will be updated soon */
+			nfs_flush_read_cache(file->filepath, file->fd,
+					     F_UNLCK, FALSE);
+		}
 	}
 
 	if (file->next != NULL &&
@@ -844,6 +862,11 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	int ret;
 
 	i_assert(file->mmap_base == NULL);
+
+	if (file->log->index->nfs_flush) {
+		/* Make sure we know the latest file size */
+		nfs_flush_attr_cache_fd(file->filepath, file->fd);
+	}
 
 	if (file->buffer != NULL && file->buffer_offset > start_offset) {
 		/* we have to insert missing data to beginning of buffer */

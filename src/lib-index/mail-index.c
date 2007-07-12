@@ -475,7 +475,20 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 			(flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
 		index->fsync_disable =
 			(flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0;
+		index->nfs_flush =
+			(flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 		index->lock_method = lock_method;
+
+		if (index->nfs_flush && index->fsync_disable) {
+			i_warning("nfs_flush_cache=yes requires "
+				  "fsync_disable=no, changing it");
+			index->fsync_disable = FALSE;
+		}
+		if (index->nfs_flush && !index->mmap_disable) {
+			i_warning("nfs_flush_cache=yes requires "
+				  "mmap_disable=yes, changing it");
+			index->mmap_disable = TRUE;
+		}
 
 		i_assert(!index->opened);
 		if (!mail_index_open_files(index, flags)) {
@@ -560,6 +573,9 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 		/* deleted/recreated, reopen */
 		return mail_index_try_open_only(index);
 	}
+
+	if (index->nfs_flush)
+		nfs_flush_attr_cache(index->filepath);
 	if (nfs_safe_stat(index->filepath, &st2) < 0) {
 		if (errno == ENOENT)
 			return 0;

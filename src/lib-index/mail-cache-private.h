@@ -200,6 +200,7 @@ int mail_cache_lock(struct mail_cache *cache, bool require_same_reset_id);
 /* Returns -1 if cache is / just got corrupted, 0 if ok. */
 int mail_cache_unlock(struct mail_cache *cache);
 
+void mail_cache_flush_read_cache(struct mail_cache *cache, bool just_locked);
 int mail_cache_write(struct mail_cache *cache, const void *data, size_t size,
 		     uoff_t offset);
 

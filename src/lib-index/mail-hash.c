@@ -10,6 +10,7 @@
 #include "read-full.h"
 #include "write-full.h"
 #include "mmap-util.h"
+#include "nfs-workarounds.h"
 #include "mail-index-private.h"
 #include "mail-hash.h"
 
@@ -273,6 +274,9 @@ static int mail_hash_file_read(struct mail_hash *hash,
 		hash->mmap_size = size;
 	}
 
+	if (hash->index->nfs_flush)
+		nfs_flush_read_cache(hash->filepath, hash->fd, F_UNLCK, FALSE);
+
 	ret = pread_full(hash->fd, hash->mmap_base, size, 0);
 	if (ret < 0) {
 		mail_hash_set_syscall_error(hash, "pread_full()");
@@ -356,6 +360,9 @@ static int mail_hash_file_map(struct mail_hash *hash, bool full)
 {
 	struct stat st;
 	size_t size;
+
+	if (hash->index->nfs_flush)
+		nfs_flush_attr_cache_fd(hash->filepath, hash->fd);
 
 	if (fstat(hash->fd, &st) < 0) {
 		mail_hash_set_syscall_error(hash, "fstat()");
@@ -644,7 +651,10 @@ static int mail_hash_reopen_if_needed(struct mail_hash *hash)
 	if (hash->fd == -1)
 		return mail_hash_reopen(hash);
 
-	if (stat(hash->filepath, &st) < 0) {
+	if (hash->index->nfs_flush)
+		nfs_flush_attr_cache(hash->filepath);
+
+	if (nfs_safe_stat(hash->filepath, &st) < 0) {
 		if (errno == ENOENT)
 			return mail_hash_reopen(hash);
 

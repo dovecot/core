@@ -18,6 +18,7 @@
 */
 
 #include "lib.h"
+#include "nfs-workarounds.h"
 #include "mail-index-private.h"
 
 int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
@@ -117,13 +118,31 @@ static int mail_index_lock(struct mail_index *index, int lock_type,
 	return 1;
 }
 
+static void mail_index_flush_read_cache(struct mail_index *index)
+{
+	if (!index->nfs_flush)
+		return;
+
+	/* Assume flock() is independent of fcntl() locks. This isn't true
+	   with Linux 2.6 NFS, but with it there's no point in using flock() */
+	if (index->lock_method == FILE_LOCK_METHOD_FCNTL) {
+		nfs_flush_read_cache(index->filepath, index->fd,
+				     index->lock_type, TRUE);
+	} else {
+		nfs_flush_read_cache(index->filepath, index->fd,
+				     F_UNLCK, FALSE);
+	}
+}
+
 int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r)
 {
 	int ret;
 
 	ret = mail_index_lock(index, F_RDLCK, MAIL_INDEX_LOCK_SECS, lock_id_r);
-	if (ret > 0)
+	if (ret > 0) {
+		mail_index_flush_read_cache(index);
 		return 0;
+	}
 	if (ret < 0)
 		return -1;
 
@@ -137,7 +156,11 @@ int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r)
 int mail_index_try_lock_exclusive(struct mail_index *index,
 				  unsigned int *lock_id_r)
 {
-	return mail_index_lock(index, F_WRLCK, 0, lock_id_r);
+	int ret;
+
+	if ((ret = mail_index_lock(index, F_WRLCK, 0, lock_id_r)) > 0)
+		mail_index_flush_read_cache(index);
+	return ret;
 }
 
 void mail_index_unlock(struct mail_index *index, unsigned int *_lock_id)

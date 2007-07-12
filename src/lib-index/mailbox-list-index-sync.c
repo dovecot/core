@@ -336,6 +336,11 @@ static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 				  0) < 0)
 		return -1;
 
+	if (ctx->index->mail_index->nfs_flush) {
+		nfs_flush_read_cache(ctx->index->filepath, ctx->index->fd,
+				     F_UNLCK, FALSE);
+	}
+
 	/* we should have only external transactions in here, for which we
 	   don't need to do anything but write them to the index */
 	while (mail_index_sync_next(ctx->mail_sync_ctx, &sync_rec) > 0)
@@ -823,6 +828,18 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 		if (ret == 0) {
 			o_stream_seek(ctx->output, 0);
 			o_stream_send(ctx->output, &ctx->hdr, sizeof(ctx->hdr));
+		}
+
+		if (o_stream_flush(ctx->output) < 0) {
+			mailbox_list_index_set_syscall_error(ctx->index,
+							"o_stream_flush()");
+			ret = -1;
+		}
+		if (ret == 0 && ctx->index->mail_index->nfs_flush &&
+		    fdatasync(ctx->index->fd) < 0) {
+			mailbox_list_index_set_syscall_error(ctx->index,
+							     "fdatasync()");
+			ret = -1;
 		}
 
 		o_stream_destroy(&ctx->output);

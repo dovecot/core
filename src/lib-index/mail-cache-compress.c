@@ -257,6 +257,7 @@ static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
 			return -1;
 		}
 
+		mail_cache_flush_read_cache(cache, FALSE);
 		ret = read_full(fd, &hdr, sizeof(hdr));
 		close_keep_errno(fd);
 
@@ -286,6 +287,9 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 	const uint32_t *offsets;
 	unsigned int i, count;
 	int fd, ret;
+
+	if (cache->fd != -1)
+		mail_cache_flush_read_cache(cache, TRUE);
 
 	/* get the latest info on fields */
 	if (mail_cache_header_fields_read(cache) < 0)
