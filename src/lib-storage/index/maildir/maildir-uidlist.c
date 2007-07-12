@@ -967,6 +967,15 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	struct maildir_uidlist *uidlist = ctx->uidlist;
 	uoff_t file_size;
 
+	if (uidlist->uid_validity == 0) {
+		/* saving a message to a newly created maildir. */
+		const struct mail_index_header *hdr;
+
+		hdr = mail_index_get_header(uidlist->mbox->ibox.view);
+		uidlist->uid_validity = hdr->uid_validity != 0 ?
+			hdr->uid_validity : ioloop_time;
+	}
+
 	if (ctx->uidlist->recreate || uidlist->fd == -1 ||
 	    uidlist->version != 3 ||
 	    (uidlist->read_records_count + ctx->new_files_count) *
@@ -1288,8 +1297,6 @@ int maildir_uidlist_sync_deinit(struct maildir_uidlist_sync_ctx **_ctx)
 {
 	struct maildir_uidlist_sync_ctx *ctx = *_ctx;
 	int ret = ctx->failed ? -1 : 0;
-
-	i_assert(ctx->uidlist->uid_validity != 0);
 
 	*_ctx = NULL;
 
