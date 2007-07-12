@@ -32,7 +32,10 @@ enum mail_storage_flags {
 	   fail to create the storage. */
 	MAIL_STORAGE_FLAG_NO_AUTOCREATE		= 0x200,
 	/* Rely on O_EXCL when creating dotlocks */
-	MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL	= 0x400
+	MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL	= 0x400,
+	/* Flush NFS caches for mail storage / index */
+	MAIL_STORAGE_FLAG_NFS_FLUSH_STORAGE	= 0x800,
+	MAIL_STORAGE_FLAG_NFS_FLUSH_INDEX	= 0x1000,
 };
 
 enum mailbox_open_flags {
