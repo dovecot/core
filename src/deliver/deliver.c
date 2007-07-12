@@ -50,6 +50,7 @@ deliver_mail_func_t *deliver_mail = NULL;
 
 /* FIXME: these two should be in some context struct instead of as globals.. */
 static const char *default_mailbox_name = NULL;
+static bool saved_mail = FALSE;
 static bool tried_default_save = FALSE;
 static bool no_mailbox_autocreate = FALSE;
 
@@ -155,9 +156,10 @@ int deliver_save(struct mail_namespace *namespaces,
 	msgid = msgid == NULL ? "" : str_sanitize(msgid, 80);
 	mailbox_name = str_sanitize(mailbox_get_name(box), 80);
 
-	if (ret == 0)
+	if (ret == 0) {
+		saved_mail = TRUE;
 		i_info("msgid=%s: saved mail to %s", msgid, mailbox_name);
-	else {
+	} else {
 		enum mail_error error;
 
 		i_info("msgid=%s: save failed to %s: %s", msgid, mailbox_name,
@@ -753,22 +755,22 @@ int main(int argc, char *argv[])
 		i_fatal("mail_set_seq() failed");
 
 	default_mailbox_name = mailbox;
-	ret = deliver_mail == NULL ? 0 :
-		deliver_mail(ns, &storage, mail, destination, mailbox);
+	if (deliver_mail != NULL)
+		(void)deliver_mail(ns, &storage, mail, destination, mailbox);
 
-	if (ret == 0 || (ret < 0 && !tried_default_save)) {
+	if (!saved_mail && !tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
 		i_stream_seek(input, 0);
-		ret = deliver_save(ns, &storage, mailbox, mail, 0, NULL);
+		(void)deliver_save(ns, &storage, mailbox, mail, 0, NULL);
 	}
-	if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
+	if (!saved_mail && strcasecmp(mailbox, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
 		i_stream_seek(input, 0);
-		ret = deliver_save(ns, &storage, "INBOX", mail, 0, NULL);
+		(void)deliver_save(ns, &storage, "INBOX", mail, 0, NULL);
 	}
 
-	if (ret < 0) {
+	if (!saved_mail) {
 		const char *error_string, *msgid;
 		enum mail_error error;
 		int ret;
