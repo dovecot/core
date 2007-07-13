@@ -871,8 +871,13 @@ static int is_ip_in_network(const char *network, const struct ip_addr *ip)
 		ip1 = &ip->u.ip4.s_addr;
 		ip2 = &net_ip.u.ip4.s_addr;
 	} else {
+#ifdef HAVE_IPV6
 		ip1 = (const void *)&ip->u.ip6;
 		ip2 = (const void *)&net_ip.u.ip6;
+#else
+		/* shouldn't get here */
+		return -1;
+#endif
 	}
 
 	/* check first the full 32bit ints */
