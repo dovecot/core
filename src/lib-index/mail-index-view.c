@@ -70,7 +70,7 @@ static void mail_index_view_check_nextuid(struct mail_index_view *view)
 }
 #endif
 
-void mail_index_view_unlock(struct mail_index_view *view)
+void mail_index_view_unlock(struct mail_index_view *view __attr_unused__)
 {
 #ifdef DEBUG
 	mail_index_view_check_nextuid(view);
