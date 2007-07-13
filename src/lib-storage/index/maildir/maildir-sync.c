@@ -550,7 +550,7 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox,
 {
 #ifdef HAVE_STAT_TV_NSEC
 #  define DIR_NSECS_CHANGED(st, hdr, name) \
-	((st).st_mtim.tv_nsec != (hdr)->name ## _mtime_nsecs)
+	((unsigned int)(st).st_mtim.tv_nsec != (hdr)->name ## _mtime_nsecs)
 #else
 #  define DIR_NSECS_CHANGED(st, hdr, name) 0
 #endif
@@ -558,10 +558,10 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox,
 #define DIR_DELAYED_REFRESH(hdr, name) \
 	((hdr)->name ## _check_time <= \
 		(hdr)->name ## _mtime + MAILDIR_SYNC_SECS && \
-	 (hdr)->name ## _check_time < ioloop_time - MAILDIR_SYNC_SECS)
+	 (time_t)(hdr)->name ## _check_time < ioloop_time - MAILDIR_SYNC_SECS)
 
 #define DIR_MTIME_CHANGED(st, hdr, name) \
-	((st).st_mtime != (hdr)->name ## _mtime || \
+	((st).st_mtime != (time_t)(hdr)->name ## _mtime || \
 	 DIR_NSECS_CHANGED(st, hdr, name))
 
 	struct maildir_index_header *hdr = &mbox->maildir_hdr;

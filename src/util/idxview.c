@@ -91,7 +91,7 @@ static void dump_hdr(int fd)
 
 	base = i_malloc(hdr.header_size);
 	ret = pread(fd, base, hdr.header_size, 0);
-	if (ret != hdr.header_size) {
+	if (ret != (ssize_t)hdr.header_size) {
 		i_fatal("file hdr read() %"PRIuSIZE_T" != %u",
 			ret, hdr.header_size);
 	}
@@ -181,7 +181,7 @@ static void dump_cache_hdr(int fd)
 
 	buf = i_malloc(fields.size);
 	ret = pread(fd, buf, fields.size, field_offset);
-	if (ret != fields.size) {
+	if (ret != (ssize_t)fields.size) {
 		i_fatal("cache file fields read() %"PRIuSIZE_T" != %u",
 			ret, fields.size);
 	}
@@ -196,7 +196,7 @@ static void dump_cache_hdr(int fd)
 	decision = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_DECISION(fields.fields_count));
 	names = CONST_PTR_OFFSET(buf, MAIL_CACHE_FIELD_NAMES(fields.fields_count));
 
-	if (names - (const char *)buf >= fields.size)
+	if ((unsigned int)(names - (const char *)buf) >= fields.size)
 		i_fatal("Fields go outside allocated size");
 
 	i_array_init(&cache_fields, 64);
@@ -245,7 +245,7 @@ static void dump_cache(uint32_t offset)
 
 	buf = t_malloc(rec.size);
 	ret = pread(cache_fd, buf, rec.size, offset);
-	if (ret != rec.size)
+	if (ret != (ssize_t)rec.size)
 		i_fatal("cache rec read() %"PRIuSIZE_T" != %u", ret, rec.size);
 	printf(" - cache at %u + %u (prev_offset = %u)\n",
 	       offset, rec.size, rec.prev_offset);
@@ -347,7 +347,7 @@ static int dump_record(int fd, void *buf, unsigned int seq)
 	if (ret == 0)
 		return 0;
 
-	if (ret != hdr.record_size) {
+	if (ret != (ssize_t)hdr.record_size) {
 		i_fatal("rec hdr read() %"PRIuSIZE_T" != %u",
 			ret, hdr.record_size);
 	}

@@ -975,7 +975,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 
 		hdr = mail_index_get_header(uidlist->mbox->ibox.view);
 		uidlist->uid_validity = hdr->uid_validity != 0 ?
-			hdr->uid_validity : ioloop_time;
+			hdr->uid_validity : (uint32_t)ioloop_time;
 	}
 
 	if (ctx->uidlist->recreate || uidlist->fd == -1 ||

@@ -442,7 +442,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 	if (validity == NULL)
 		return 1;
 	if (path == NULL ||
-	    validity->last_check + backend->cache_secs > ioloop_time)
+	    validity->last_check + (time_t)backend->cache_secs > ioloop_time)
 		return 0;
 
 	validity->last_check = ioloop_time;
@@ -464,7 +464,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 		   do it only after a couple of seconds so we don't
 		   keep re-reading it all the time within those
 		   seconds) */
-		unsigned int cache_secs = backend->cache_secs;
+		time_t cache_secs = backend->cache_secs;
 
 		if (st.st_mtime < validity->last_read_time - cache_secs ||
 		    ioloop_time - validity->last_read_time <= cache_secs)

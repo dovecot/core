@@ -109,7 +109,8 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 
 void acl_backend_vfile_acllist_refresh(struct acl_backend_vfile *backend)
 {
-	if (backend->acllist_last_check + backend->cache_secs > ioloop_time)
+	if (backend->acllist_last_check +
+	    (time_t)backend->cache_secs > ioloop_time)
 		return;
 
 	if (acl_backend_vfile_acllist_read(backend) < 0) {

@@ -7,6 +7,7 @@
 #include "file-cache.h"
 #include "file-set-size.h"
 #include "mmap-util.h"
+#include "nfs-workarounds.h"
 #include "ostream.h"
 #include "mail-index-private.h"
 #include "mailbox-list-index-private.h"
