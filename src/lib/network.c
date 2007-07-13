@@ -32,24 +32,29 @@ bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
 		return 0;
 
 #ifdef HAVE_IPV6
-	if (ip1->family == AF_INET6)
-		return memcmp(&ip1->ip, &ip2->ip, sizeof(ip1->ip)) == 0;
+	if (ip1->family == AF_INET6) {
+		return memcmp(&ip1->u.ip6, &ip2->u.ip6,
+			      sizeof(ip1->u.ip6)) == 0;
+	}
 #endif
 
-	return memcmp(&ip1->ip, &ip2->ip, 4) == 0;
+	return memcmp(&ip1->u.ip4, &ip2->u.ip4, sizeof(ip1->u.ip4)) == 0;
 }
 
 unsigned int net_ip_hash(const struct ip_addr *ip)
 {
-        const unsigned char *p = (const unsigned char *)&ip->ip;
+        const unsigned char *p;
 	unsigned int len, g, h = 0;
 
 #ifdef HAVE_IPV6
-	if (ip->family == AF_INET6)
-		len = sizeof(ip->ip);
-	else
+	if (ip->family == AF_INET6) {
+		p = ip->u.ip6.s6_addr;
+		len = sizeof(ip->u.ip6);
+	} else
 #endif
-		len = 4;
+	{
+		return ip->u.ip4.s_addr;
+	}
 
 	for (; len > 0; len--, p++) {
 		h = (h << 4) + *p;
@@ -80,10 +85,10 @@ sin_set_ip(union sockaddr_union *so, const struct ip_addr *ip)
 	so->sin.sin_family = ip->family;
 #ifdef HAVE_IPV6
 	if (ip->family == AF_INET6)
-		memcpy(&so->sin6.sin6_addr, &ip->ip, sizeof(ip->ip));
+		memcpy(&so->sin6.sin6_addr, &ip->u.ip6, sizeof(ip->u.ip6));
 	else
 #endif
-		memcpy(&so->sin.sin_addr, &ip->ip, 4);
+		memcpy(&so->sin.sin_addr, &ip->u.ip4, sizeof(ip->u.ip4));
 }
 
 static inline void
@@ -93,13 +98,13 @@ sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 
 #ifdef HAVE_IPV6
 	if (ip->family == AF_INET6)
-		memcpy(&ip->ip, &so->sin6.sin6_addr, sizeof(ip->ip));
+		memcpy(&ip->u.ip6, &so->sin6.sin6_addr, sizeof(ip->u.ip6));
 	else
 #endif
 	if (ip->family == AF_INET)
-		memcpy(&ip->ip, &so->sin.sin_addr, 4);
+		memcpy(&ip->u.ip4, &so->sin.sin_addr, sizeof(ip->u.ip4));
 	else
-		memset(&ip->ip, 0, sizeof(ip->ip));
+		memset(&ip->u, 0, sizeof(ip->u));
 }
 
 static inline void sin_set_port(union sockaddr_union *so, unsigned int port)
@@ -237,17 +242,15 @@ int net_set_cork(int fd __attr_unused__, bool cork __attr_unused__)
 
 void net_get_ip_any4(struct ip_addr *ip)
 {
-	struct in_addr *in_ip = (struct in_addr *) &ip->ip;
-
 	ip->family = AF_INET;
-	in_ip->s_addr = INADDR_ANY;
+	ip->u.ip4.s_addr = INADDR_ANY;
 }
 
 void net_get_ip_any6(struct ip_addr *ip)
 {
 #ifdef HAVE_IPV6
 	ip->family = AF_INET6;
-	ip->ip = in6addr_any;
+	ip->u.ip6 = in6addr_any;
 #else
 	memset(ip, 0, sizeof(struct ip_addr));
 #endif
@@ -480,7 +483,8 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		count--;
 
 		(*ips)[count].family = AF_INET;
-                memcpy(&(*ips)[count].ip, hp->h_addr_list[count], 4);
+		memcpy(&(*ips)[count].u.ip4, hp->h_addr_list[count],
+		       sizeof((*ips)[count].u.ip4));
 	}
 #endif
 
@@ -527,7 +531,7 @@ const char *net_ip2addr(const struct ip_addr *ip)
 	char addr[MAX_IP_LEN+1];
 
 	addr[MAX_IP_LEN] = '\0';
-	if (inet_ntop(ip->family, &ip->ip, addr, MAX_IP_LEN) == NULL)
+	if (inet_ntop(ip->family, &ip->u.ip6, addr, MAX_IP_LEN) == NULL)
 		return NULL;
 
 	return t_strdup(addr);
@@ -537,7 +541,7 @@ const char *net_ip2addr(const struct ip_addr *ip)
 	if (ip->family != AF_INET)
 		return NULL;
 
-	ip4 = ntohl(ip->ip.s_addr);
+	ip4 = ntohl(ip->u.ip4.s_addr);
 	return t_strdup_printf("%lu.%lu.%lu.%lu",
 			       (ip4 & 0xff000000UL) >> 24,
 			       (ip4 & 0x00ff0000) >> 16,
@@ -552,15 +556,15 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 		/* IPv6 */
 		ip->family = AF_INET6;
 #ifdef HAVE_IPV6
-		if (inet_pton(AF_INET6, addr, &ip->ip) == 0)
+		if (inet_pton(AF_INET6, addr, &ip->u.ip6) == 0)
 			return -1;
 #else
-		ip->ip.s_addr = 0;
+		ip->u.ip4.s_addr = 0;
 #endif
  	} else {
 		/* IPv4 */
 		ip->family = AF_INET;
-		if (inet_aton(addr, (struct in_addr *) &ip->ip) == 0)
+		if (inet_aton(addr, &ip->u.ip4) == 0)
 			return -1;
 	}
 
@@ -576,11 +580,11 @@ int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 
 	if (!IPADDR_IS_V6(src))
 		return -1;
-	if (memcmp(src->ip.s6_addr, v4_prefix, sizeof(v4_prefix)) != 0)
+	if (memcmp(src->u.ip6.s6_addr, v4_prefix, sizeof(v4_prefix)) != 0)
 		return -1;
 
 	dest->family = AF_INET;
-	memcpy(&dest->ip, &src->ip.s6_addr[3*4], 4);
+	memcpy(&dest->u.ip6, &src->u.ip6.s6_addr[3*4], 4);
 	return 0;
 #else
 	return -1;

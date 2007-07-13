@@ -867,8 +867,13 @@ static int is_ip_in_network(const char *network, const struct ip_addr *ip)
 	}
 	i_assert(IPADDR_IS_V6(ip) == IPADDR_IS_V6(&net_ip));
 
-	ip1 = (const uint32_t *)&ip->ip;
-	ip2 = (const uint32_t *)&net_ip.ip;
+	if (IPADDR_IS_V4(ip)) {
+		ip1 = &ip->u.ip4.s_addr;
+		ip2 = &net_ip.u.ip4.s_addr;
+	} else {
+		ip1 = (const void *)&ip->u.ip6;
+		ip2 = (const void *)&net_ip.u.ip6;
+	}
 
 	/* check first the full 32bit ints */
 	for (pos = 0, i = 0; pos + 32 <= bits; pos += 32, i++) {

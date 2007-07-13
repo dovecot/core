@@ -22,11 +22,12 @@
 
 struct ip_addr {
 	unsigned short family;
+	union {
 #ifdef HAVE_IPV6
-	struct in6_addr ip;
-#else
-	struct in_addr ip;
+		struct in6_addr ip6;
 #endif
+		struct in_addr ip4;
+	} u;
 };
 
 /* maxmimum string length of IP address */
