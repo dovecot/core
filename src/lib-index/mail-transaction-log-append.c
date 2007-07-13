@@ -279,7 +279,7 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 		reset_ids = NULL;
 		reset_id_count = 0;
 	} else {
-		reset_ids = array_get(&t->ext_reset_ids, &reset_count);
+		reset_ids = array_get(&t->ext_reset_ids, &reset_id_count);
 	}
 
 	if (!array_is_created(&t->ext_resets)) {
