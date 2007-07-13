@@ -48,7 +48,7 @@ smtp_client_run_sendmail(const char *destination,
 
 	deliver_env_clean();
 
-	(void)execv(sendmail_path, (char **)argv);
+	(void)execv(sendmail_path, (void *)argv);
 	i_fatal("execv(%s) failed: %m", sendmail_path);
 }
 

@@ -477,7 +477,7 @@ struct mail_search_arg *
 imap_search_get_arg(struct client_command_context *cmd,
 		    const char *set, bool uid)
 {
-	struct mail_search_arg *search_arg;
+	struct mail_search_arg *search_arg = NULL;
 	const char *error;
 	int ret;
 

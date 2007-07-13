@@ -247,7 +247,7 @@ static void master_input(void *context __attr_unused__)
 		return;
 
 	/* reply is now read */
-	request_handle((struct master_login_reply *) master_buf);
+	request_handle((void *)master_buf);
 	master_pos = 0;
 }
 
