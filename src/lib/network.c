@@ -186,12 +186,15 @@ int net_connect_ip(const struct ip_addr *ip, unsigned int port,
 
 int net_connect_unix(const char *path)
 {
-	struct sockaddr_un sa;
+	union {
+		struct sockaddr sa;
+		struct sockaddr_un un;
+	} sa;
 	int fd, ret;
 
 	memset(&sa, 0, sizeof(sa));
-	sa.sun_family = AF_UNIX;
-	if (strocpy(sa.sun_path, path, sizeof(sa.sun_path)) < 0) {
+	sa.un.sun_family = AF_UNIX;
+	if (strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
 		errno = EINVAL;
 		return -1;
@@ -207,7 +210,7 @@ int net_connect_unix(const char *path)
 	net_set_nonblock(fd, TRUE);
 
 	/* connect */
-	ret = connect(fd, (void *)&sa, sizeof(sa));
+	ret = connect(fd, &sa.sa, sizeof(sa));
 	if (ret < 0 && errno != EINPROGRESS) {
                 close_keep_errno(fd);
 		return -1;
@@ -323,12 +326,15 @@ int net_listen(const struct ip_addr *my_ip, unsigned int *port, int backlog)
 
 int net_listen_unix(const char *path, int backlog)
 {
-	struct sockaddr_un sa;
+	union {
+		struct sockaddr sa;
+		struct sockaddr_un un;
+	} sa;
 	int fd;
 
 	memset(&sa, 0, sizeof(sa));
-	sa.sun_family = AF_UNIX;
-	if (strocpy(sa.sun_path, path, sizeof(sa.sun_path)) < 0) {
+	sa.un.sun_family = AF_UNIX;
+	if (strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
 		errno = EINVAL;
 		return -1;
@@ -342,7 +348,7 @@ int net_listen_unix(const char *path, int backlog)
 	}
 
 	/* bind */
-	if (bind(fd, (void *)&sa, sizeof(sa)) < 0) {
+	if (bind(fd, &sa.sa, sizeof(sa)) < 0) {
 		if (errno != EADDRINUSE)
 			i_error("bind(%s) failed: %m", path);
 	} else {
