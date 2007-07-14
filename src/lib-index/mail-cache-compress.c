@@ -96,6 +96,10 @@ get_next_file_seq(struct mail_cache *cache, struct mail_index_view *view)
 
 	ext = mail_index_view_get_ext(view, cache->ext_id);
 	file_seq = ext != NULL ? ext->reset_id + 1 : (uint32_t)ioloop_time;
+
+	if (cache->hdr != NULL && file_seq <= cache->hdr->file_seq)
+		file_seq = cache->hdr->file_seq + 1;
+
 	return file_seq != 0 ? file_seq : 1;
 }
 
