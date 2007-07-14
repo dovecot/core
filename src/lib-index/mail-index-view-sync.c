@@ -148,6 +148,7 @@ view_sync_get_expunges(struct mail_index_view *view,
 	struct seq_range *src, *src_end, *dest;
 	const void *data;
 	unsigned int count, expunge_count = 0;
+	uint32_t prev_seq = 0;
 	int ret;
 
 	if (view_sync_set_log_view_range(view, TRUE) < 0)
@@ -193,6 +194,9 @@ view_sync_get_expunges(struct mail_index_view *view,
 		if (dest->seq1 == 0)
 			count--;
 		else {
+			i_assert(dest->seq1 > prev_seq);
+			prev_seq = dest->seq2;
+
 			expunge_count += dest->seq2 - dest->seq1 + 1;
 			dest++;
 		}
