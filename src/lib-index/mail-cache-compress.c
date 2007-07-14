@@ -264,7 +264,7 @@ static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
 		if (ret >= 0) {
 			if (ret == 0)
 				return 0;
-			if (cache->need_compress_file_seq == (uint32_t)-1) {
+			if (cache->need_compress_file_seq == 0) {
 				/* previously it didn't exist */
 				return 1;
 			}
