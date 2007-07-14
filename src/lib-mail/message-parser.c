@@ -361,7 +361,7 @@ static int parse_next_body_to_boundary(struct message_parser_ctx *ctx,
 			ret = -1;
 		else {
 			ret = 0;
-			ctx->want_count = i + 1;
+			ctx->want_count = (block_r->size - boundary_start) + 1;
 		}
 	}
 	i_assert(!(ret == 0 && full));
