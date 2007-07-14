@@ -91,9 +91,6 @@ struct index_mail_data {
 	int parsing_count;
 	ARRAY_TYPE(keywords) keywords;
 
-	const struct mail_cache_field *all_cache_fields;
-	unsigned int all_cache_fields_count;
-
 	unsigned int save_sent_date:1;
 	unsigned int save_envelope:1;
 	unsigned int save_bodystructure_header:1;
