@@ -780,6 +780,10 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 			ctx->view->trans_seq2 = seq;
 	}
 
+	/* remember that this value exists, in case we try to look it up */
+	buffer_write(ctx->view->cached_exists_buf, field_idx,
+		     &ctx->view->cached_exists_value, 1);
+
 	full_size = (data_size + 3) & ~3;
 	if (fixed_size == (unsigned int)-1)
 		full_size += sizeof(data_size32);
