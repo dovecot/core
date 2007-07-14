@@ -854,35 +854,13 @@ mail_transaction_log_file_insert_read(struct mail_transaction_log_file *file,
 }
 
 static int
-mail_transaction_log_file_read(struct mail_transaction_log_file *file,
-			       uoff_t start_offset)
+mail_transaction_log_file_read_more(struct mail_transaction_log_file *file)
 {
 	void *data;
 	size_t size;
 	uint32_t read_offset;
-	int ret;
+	ssize_t ret;
 
-	i_assert(file->mmap_base == NULL);
-
-	if (file->log->index->nfs_flush) {
-		/* Make sure we know the latest file size */
-		nfs_flush_attr_cache_fd(file->filepath, file->fd);
-	}
-
-	if (file->buffer != NULL && file->buffer_offset > start_offset) {
-		/* we have to insert missing data to beginning of buffer */
-		ret = mail_transaction_log_file_insert_read(file, start_offset);
-		if (ret <= 0)
-			return ret;
-	}
-
-	if (file->buffer == NULL) {
-		file->buffer =
-			buffer_create_dynamic(default_pool, LOG_PREFETCH);
-		file->buffer_offset = start_offset;
-	}
-
-	/* read all records */
 	read_offset = file->buffer_offset + buffer_get_used_size(file->buffer);
 
 	do {
@@ -907,10 +885,41 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 						  file->filepath, "pread()");
 		return -1;
 	}
+	return 1;
+}
+
+static int
+mail_transaction_log_file_read(struct mail_transaction_log_file *file,
+			       uoff_t start_offset)
+{
+	int ret;
+
+	i_assert(file->mmap_base == NULL);
+
+	if (file->log->index->nfs_flush) {
+		/* Make sure we know the latest file size */
+		nfs_flush_attr_cache_fd(file->filepath, file->fd);
+	}
+
+	if (file->buffer != NULL && file->buffer_offset > start_offset) {
+		/* we have to insert missing data to beginning of buffer */
+		ret = mail_transaction_log_file_insert_read(file, start_offset);
+		if (ret <= 0)
+			return ret;
+	}
+
+	if (file->buffer == NULL) {
+		file->buffer =
+			buffer_create_dynamic(default_pool, LOG_PREFETCH);
+		file->buffer_offset = start_offset;
+	}
+
+	if ((ret = mail_transaction_log_file_read_more(file)) <= 0)
+		return ret;
 
 	if ((ret = mail_transaction_log_file_sync(file)) <= 0) {
-		i_assert(ret != 0);
-		return 0;
+		i_assert(ret != 0); /* happens only with mmap */
+		return -1;
 	}
 
 	i_assert(file->sync_offset >= file->buffer_offset);
