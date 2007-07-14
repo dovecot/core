@@ -8,6 +8,8 @@ struct tee_istream {
 	pool_t pool;
 	struct istream *input;
 	struct tee_child_istream *children;
+
+	uoff_t max_read_offset;
 };
 
 struct tee_child_istream {
@@ -25,6 +27,10 @@ static void tee_streams_update_buffer(struct tee_istream *tee)
 
 	data = i_stream_get_data(tee->input, &size);
 	for (; tstream != NULL; tstream = tstream->next) {
+		if (tstream->istream.istream.closed) {
+			tstream->istream.skip = tstream->istream.pos = 0;
+			continue;
+		}
 		old_used = tstream->istream.pos - tstream->istream.skip;
 
 		tstream->istream.buffer = data;
@@ -42,11 +48,12 @@ static void tee_streams_skip(struct tee_istream *tee)
 
 	min_skip = (size_t)-1;
 	for (; tstream != NULL; tstream = tstream->next) {
-		if (tstream->istream.skip < min_skip)
+		if (tstream->istream.skip < min_skip &&
+		    !tstream->istream.istream.closed)
 			min_skip = tstream->istream.skip;
 	}
 
-	if (min_skip > 0) {
+	if (min_skip > 0 && min_skip != (size_t)-1) {
 		i_stream_skip(tee->input, min_skip);
 		tee_streams_update_buffer(tee);
 	}
@@ -65,6 +72,9 @@ static void _destroy(struct _iostream *stream)
 	struct tee_istream *tee = tstream->tee;
 	struct tee_child_istream **p;
 
+	if (tstream->istream.istream.v_offset > tee->max_read_offset)
+		tee->max_read_offset = tstream->istream.istream.v_offset;
+
 	for (p = &tee->children; *p != NULL; p = &(*p)->next) {
 		if (*p == tstream) {
 			*p = tstream->next;
@@ -73,8 +83,14 @@ static void _destroy(struct _iostream *stream)
 	}
 
 	if (tee->children == NULL) {
+		i_assert(tee->input->v_offset <= tee->max_read_offset);
+		i_stream_skip(tee->input,
+			      tee->max_read_offset - tee->input->v_offset);
+
 		i_stream_unref(&tee->input);
 		p_free(tee->pool, tee);
+	} else {
+		tee_streams_skip(tstream->tee);
 	}
 }
 
@@ -116,9 +132,11 @@ static ssize_t _read(struct _istream *stream)
 		data = i_stream_get_data(input, &size);
 	} else if (stream->buffer == NULL) {
 		tee_streams_update_buffer(tstream->tee);
+	} else {
+		stream->buffer = data;
 	}
 
-	stream->buffer = data;
+	i_assert(stream->buffer == data);
 	ret = size - stream->pos;
 	stream->pos = size;
 	return ret;
