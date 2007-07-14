@@ -87,6 +87,7 @@ void mail_index_transaction_reset(struct mail_index_transaction *t)
 	t->post_hdr_changed = FALSE;
 	t->reset = FALSE;
 	t->log_updates = FALSE;
+	t->log_ext_updates = FALSE;
 }
 
 static void mail_index_transaction_free(struct mail_index_transaction *t)
@@ -830,7 +831,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 		 (old_record_size == record_size &&
 		  old_record_align == record_align));
 
-	t->log_updates = TRUE;
+	t->log_ext_updates = TRUE;
 
 	if (!array_is_created(&t->ext_resizes))
 		i_array_init(&t->ext_resizes, ext_id + 2);
@@ -847,13 +848,56 @@ void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
 {
 	i_assert(reset_id != 0);
 
-	t->log_updates = TRUE;
-
 	mail_index_ext_set_reset_id(t, ext_id, reset_id);
 
 	if (!array_is_created(&t->ext_resets))
 		i_array_init(&t->ext_resets, ext_id + 2);
 	array_idx_set(&t->ext_resets, ext_id, &reset_id);
+	t->log_ext_updates = TRUE;
+}
+
+static bool
+mail_index_transaction_has_ext_changes(struct mail_index_transaction *t)
+{
+	unsigned int i, count;
+
+	if (array_is_created(&t->ext_rec_updates)) {
+		const ARRAY_TYPE(seq_array) *array;
+
+		array = array_get(&t->ext_rec_updates, &count);
+		for (i = 0; i < count; i++) {
+			if (array_is_created(&array[i]))
+				return TRUE;
+		}
+	}
+	if (array_is_created(&t->ext_hdr_updates)) {
+		struct mail_index_transaction_ext_hdr_update *const *hdr;
+
+		hdr = array_get(&t->ext_hdr_updates, &count);
+		for (i = 0; i < count; i++) {
+			if (hdr[i] != NULL)
+				return TRUE;
+		}
+	}
+	if (array_is_created(&t->ext_resets)) {
+		const uint32_t *ids;
+
+		ids = array_get(&t->ext_resets, &count);
+		for (i = 0; i < count; i++) {
+			if (ids[i] != 0)
+				return TRUE;
+		}
+	}
+	if (array_is_created(&t->ext_resizes)) {
+		const struct mail_transaction_ext_intro *resizes;
+
+		resizes = array_get(&t->ext_resizes, &count);
+		for (i = 0; i < count; i++) {
+			if (resizes[i].name_size > 0)
+				return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 void mail_index_ext_set_reset_id(struct mail_index_transaction *t,
@@ -891,6 +935,8 @@ void mail_index_ext_set_reset_id(struct mail_index_transaction *t,
 	if (!array_is_created(&t->ext_reset_ids))
 		i_array_init(&t->ext_reset_ids, ext_id + 2);
 	array_idx_set(&t->ext_reset_ids, ext_id, &reset_id);
+
+	t->log_ext_updates = mail_index_transaction_has_ext_changes(t);
 }
 
 void mail_index_update_header_ext(struct mail_index_transaction *t,
@@ -915,7 +961,7 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 	}
 	*pos = hdr;
 
-	t->log_updates = TRUE;
+	t->log_ext_updates = TRUE;
 }
 
 void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
@@ -933,7 +979,7 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 		  seq <= t->last_new_seq));
 	i_assert(ext_id < array_count(&index->extensions));
 
-	t->log_updates = TRUE;
+	t->log_ext_updates = TRUE;
 
 	if (!array_is_created(&t->ext_resizes)) {
 		intro = NULL;

@@ -578,7 +578,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	struct mail_index *index;
 	int ret;
 
-	if (!t->log_updates) {
+	if (!t->log_updates && !t->log_ext_updates) {
 		/* nothing to append */
 		*log_file_seq_r = 0;
 		*log_file_offset_r = 0;

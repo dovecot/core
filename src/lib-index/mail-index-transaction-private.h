@@ -73,7 +73,10 @@ struct mail_index_transaction {
 	unsigned int pre_hdr_changed:1;
 	unsigned int post_hdr_changed:1;
 	unsigned int reset:1;
+	/* non-extension updates */
 	unsigned int log_updates:1;
+	/* extension updates */
+	unsigned int log_ext_updates:1;
 };
 
 extern void (*hook_mail_index_transaction_created)
