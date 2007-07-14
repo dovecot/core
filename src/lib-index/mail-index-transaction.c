@@ -885,7 +885,7 @@ void mail_index_ext_set_reset_id(struct mail_index_transaction *t,
 	if (array_is_created(&t->ext_resizes) &&
 	    ext_id < array_count(&t->ext_resizes)) {
 		/* clear resizes */
-		array_idx_clear(&t->ext_resets, ext_id);
+		array_idx_clear(&t->ext_resizes, ext_id);
 	}
 
 	if (!array_is_created(&t->ext_reset_ids))
