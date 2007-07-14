@@ -111,6 +111,7 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 				 struct mail_cache_lookup_iterate_ctx *ctx_r)
 {
 	struct mail_cache_lookup_iterate_ctx *ctx = ctx_r;
+	int ret;
 
 	if (!view->cache->opened)
 		(void)mail_cache_open_and_verify(view->cache);
@@ -121,9 +122,12 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 
 	if (!MAIL_CACHE_IS_UNUSABLE(view->cache)) {
 		/* look up the first offset */
-		if (mail_cache_lookup_offset(view->cache, view->view, seq,
-					     &ctx->offset) <= 0)
-			ctx->failed = TRUE;
+		ret = mail_cache_lookup_offset(view->cache, view->view, seq,
+					       &ctx->offset);
+		if (ret <= 0) {
+			ctx->stop = TRUE;
+			ctx->failed = ret < 0;
+		}
 	}
 	ctx->remap_counter = view->cache->remap_counter;
 
@@ -135,8 +139,8 @@ mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 {
 	struct mail_cache_view *view = ctx->view;
 
-	if (ctx->failed)
-		return -1;
+	if (ctx->stop)
+		return ctx->failed ? -1 : 0;
 
 	if (ctx->rec != NULL)
 		ctx->offset = ctx->rec->prev_offset;

@@ -188,6 +188,7 @@ struct mail_cache_lookup_iterate_ctx {
 	unsigned int pos, rec_size;
 	uint32_t offset;
 
+	unsigned int stop:1;
 	unsigned int failed:1;
 	unsigned int appends_checked:1;
 };
