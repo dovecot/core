@@ -147,6 +147,9 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
         struct mail_cache_field *list;
 	unsigned int i;
 
+	if (!cache->opened)
+		(void)mail_cache_open_and_verify(cache);
+
 	list = p_new(pool, struct mail_cache_field, cache->fields_count);
 	for (i = 0; i < cache->fields_count; i++) {
 		list[i] = cache->fields[i].field;
