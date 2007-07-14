@@ -437,9 +437,9 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 		   of this view sync we'll update file_seq=0 so that this check
 		   always becomes FALSE for subsequent syncs. */
 		synced_to_map = view->map->hdr.log_file_seq != 0 &&
-			!LOG_IS_BEFORE(seq, offset,
-				       view->map->hdr.log_file_seq,
-				       view->map->hdr.log_file_head_offset);
+			LOG_IS_BEFORE(seq, offset,
+				      view->map->hdr.log_file_seq,
+				      view->map->hdr.log_file_head_offset);
 
 		/* Apply transaction to view's mapping if needed (meaning we
 		   didn't just re-map the view to head mapping). */
