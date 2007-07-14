@@ -315,11 +315,14 @@ mail_transaction_log_append_ext_intros(struct log_append_context *ctx)
 		     array_is_created(&update[ext_id])) ||
 		    ext_reset.new_reset_id != 0 ||
 		    (ext_id < hdrs_count && hdrs[ext_id] != NULL)) {
-			reset_id = ext_id < reset_id_count ?
+			reset_id = ext_id < reset_id_count &&
+				ext_reset.new_reset_id == 0 ?
 				reset_ids[ext_id] : 0;
 			log_append_ext_intro(ctx, ext_id, reset_id);
 		}
 		if (ext_reset.new_reset_id != 0) {
+			i_assert(ext_id < reset_id_count &&
+				 ext_reset.new_reset_id == reset_ids[ext_id]);
 			log_append_buffer(ctx, buf, NULL,
 					  MAIL_TRANSACTION_EXT_RESET);
 		}
