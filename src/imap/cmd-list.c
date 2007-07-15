@@ -22,6 +22,7 @@ struct cmd_list_context {
 	ARRAY_DEFINE(ns_prefixes_listed, struct mail_namespace *);
 
 	unsigned int lsub:1;
+	unsigned int lsub_no_unsubscribed:1;
 	unsigned int inbox_found:1;
 	unsigned int seen_inbox_namespace:1;
 	unsigned int cur_ns_match_inbox:1;
@@ -338,6 +339,14 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 			flags |= MAILBOX_CHILDREN;
 			flags &= ~MAILBOX_NOCHILDREN;
 			array_append(&ctx->ns_prefixes_listed, &ns, 1);
+		}
+
+		if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
+		    (flags & MAILBOX_SUBSCRIBED) == 0 &&
+		    ctx->lsub_no_unsubscribed) {
+			/* mask doesn't end with %. we don't want to show
+			   any extra mailboxes. */
+			continue;
 		}
 
 		str_truncate(str, 0);
@@ -857,6 +866,11 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 		ctx->list_flags = list_flags;
 		ctx->used_listext = used_listext;
 		ctx->lsub = lsub;
+		if (lsub) {
+			size_t len = strlen(patterns_strarr[0]);
+			ctx->lsub_no_unsubscribed = len == 0 ||
+				patterns_strarr[0][len-1] != '%';
+		}
 		ctx->ns = client->namespaces;
 		p_array_init(&ctx->ns_prefixes_listed, cmd->pool, 8);
 
