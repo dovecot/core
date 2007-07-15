@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2003 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "str.h"
 #include "backtrace-string.h"
 #include "printf-format-fix.h"
@@ -135,6 +136,34 @@ default_panic_handler(const char *format, va_list args)
 	abort();
 }
 
+static void log_fd_flush_stop(struct ioloop *ioloop)
+{
+	io_loop_stop(ioloop);
+}
+
+static int log_fd_flush(FILE *fd)
+{
+	struct ioloop *ioloop;
+	struct io *io;
+
+	while (fflush(fd) < 0) {
+		if (errno == EINTR)
+			continue;
+		if (errno != EAGAIN)
+			return -1;
+
+		/* wait until we can write more. this can happen at least
+		   when writing to terminal, even if fd is blocking. */
+		ioloop = io_loop_create();
+		io = io_add(IO_WRITE, fileno(log_fd),
+			    log_fd_flush_stop, ioloop);
+		io_loop_run(ioloop);
+		io_remove(&io);
+		io_loop_destroy(&ioloop);
+	}
+	return 0;
+}
+
 static void __attr_format__(2, 0)
 default_fatal_handler(int status, const char *format, va_list args)
 {
@@ -142,7 +171,7 @@ default_fatal_handler(int status, const char *format, va_list args)
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
-	if (fflush(log_fd) < 0 && status == FATAL_DEFAULT)
+	if (log_fd_flush(log_fd) < 0 && status == FATAL_DEFAULT)
 		status = FATAL_LOGWRITE;
 
 	failure_exit(status);
@@ -154,7 +183,7 @@ default_error_handler(const char *format, va_list args)
 	if (default_handler("Error: ", log_fd, format, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 
-	if (fflush(log_fd) < 0)
+	if (log_fd_flush(log_fd) < 0)
 		failure_exit(FATAL_LOGWRITE);
 }
 
@@ -163,7 +192,7 @@ default_warning_handler(const char *format, va_list args)
 {
 	(void)default_handler("Warning: ", log_fd, format, args);
 
-	if (fflush(log_fd) < 0)
+	if (log_fd_flush(log_fd) < 0)
 		failure_exit(FATAL_LOGWRITE);
 }
 
@@ -172,7 +201,7 @@ default_info_handler(const char *format, va_list args)
 {
 	(void)default_handler("Info: ", log_info_fd, format, args);
 
-	if (fflush(log_info_fd) < 0)
+	if (log_fd_flush(log_info_fd) < 0)
 		failure_exit(FATAL_LOGWRITE);
 }
 
