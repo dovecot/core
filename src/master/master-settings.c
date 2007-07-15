@@ -695,12 +695,6 @@ static bool settings_verify(struct settings *set)
 			return FALSE;
 	}
 
-	if (set->protocol == MAIL_PROTOCOL_POP3 &&
-	    *set->pop3_uidl_format == '\0') {
-		i_error("POP3 enabled but pop3_uidl_format not set");
-		return FALSE;
-	}
-
 	if (access(t_strcut(set->mail_executable, ' '), X_OK) < 0) {
 		i_error("Can't use mail executable %s: %m",
 			t_strcut(set->mail_executable, ' '));
