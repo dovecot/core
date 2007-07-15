@@ -41,17 +41,24 @@ fs_list_path(struct fs_list_iterate_context *ctx);
 static const struct mailbox_info *
 fs_list_next(struct fs_list_iterate_context *ctx);
 
-static const char *pattern_get_dir(const char *pattern)
+static const char *patterns_get_dir(const char *const *patterns)
 {
-	const char *p, *last_dir;
+	unsigned int i, j, last_dir = 0;
 
-	last_dir = NULL;
-	for (p = pattern; *p != '\0' && *p != '%' && *p != '*'; p++) {
-		if (*p == '/')
-			last_dir = p;
+	/* If all patterns begin with the same directory prefix, return it. */
+	for (i = 0; patterns[0][i] != '\0'; i++) {
+		for (j = 1; patterns[j] != NULL; j++) {
+			if (patterns[j][i] != patterns[j-1][i])
+				break;
+		}
+		if (patterns[j] != NULL)
+			break;
+
+		if (patterns[0][i] == '/')
+			last_dir = i;
 	}
 
-	return last_dir == NULL ? NULL : t_strdup_until(pattern, last_dir);
+	return last_dir == 0 ? NULL : t_strndup(patterns[0], last_dir);
 }
 
 static int list_opendir(struct mailbox_list *list,
@@ -83,11 +90,12 @@ static int list_opendir(struct mailbox_list *list,
 }
 
 struct mailbox_list_iterate_context *
-fs_list_iter_init(struct mailbox_list *_list, const char *pattern,
+fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		  enum mailbox_list_iter_flags flags)
 {
 	struct fs_list_iterate_context *ctx;
 	const char *path, *virtual_path;
+	unsigned int i;
 	DIR *dirp;
 
 	ctx = i_new(struct fs_list_iterate_context, 1);
@@ -95,11 +103,13 @@ fs_list_iter_init(struct mailbox_list *_list, const char *pattern,
 	ctx->ctx.flags = flags;
 	ctx->info_pool = pool_alloconly_create("fs list", 1024);
         ctx->next = fs_list_next;
-	ctx->glob = imap_match_init(default_pool, pattern, TRUE, '/');
+	ctx->glob = imap_match_init_multiple(default_pool, patterns, TRUE, '/');
 
 	/* check that we're not trying to do any "../../" lists */
-	if (!mailbox_list_is_valid_pattern(_list, pattern))
-		return &ctx->ctx;
+	for (i = 0; patterns[i] != NULL; i++) {
+		if (!mailbox_list_is_valid_pattern(_list, patterns[i]))
+			return &ctx->ctx;
+	}
 
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
@@ -122,8 +132,9 @@ fs_list_iter_init(struct mailbox_list *_list, const char *pattern,
 	}
 
 	/* if we're matching only subdirectories, don't bother scanning the
-	   parent directories */
-	virtual_path = pattern_get_dir(pattern);
+	   parent directories. FIXME: we could support doing this separately
+	   for multiple virtual paths. */
+	virtual_path = patterns_get_dir(patterns);
 
 	path = mailbox_list_get_path(_list, virtual_path,
 				     MAILBOX_LIST_PATH_TYPE_DIR);
@@ -211,7 +222,7 @@ fs_list_get_subscription_flags(struct fs_list_iterate_context *ctx,
 {
 	struct mailbox_node *node;
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) == 0)
+	if (ctx->subs_tree == NULL)
 		return 0;
 
 	node = mailbox_tree_lookup(ctx->subs_tree, mailbox);
@@ -267,7 +278,7 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 	}
 
 	match = imap_match(ctx->glob, list_path);
-	if (match != IMAP_MATCH_YES && match != IMAP_MATCH_CHILDREN)
+	if (match != IMAP_MATCH_YES && (match & IMAP_MATCH_CHILDREN) == 0)
 		return 0;
 
 	/* get the info.flags using callback */
@@ -332,8 +343,8 @@ list_file(struct fs_list_iterate_context *ctx, const struct dirent *d)
 		else
 			ctx->info.name = NULL;
 
-		ret = match2 != IMAP_MATCH_YES &&
-			match2 != IMAP_MATCH_CHILDREN ? 0 :
+		ret = (match2 & (IMAP_MATCH_YES | IMAP_MATCH_CHILDREN)) == 0 ?
+			0 :
 			list_opendir(ctx->ctx.list, real_path, FALSE, &dirp);
 		if (ret > 0) {
 			dir = i_new(struct list_dir_context, 1);

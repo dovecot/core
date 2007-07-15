@@ -280,9 +280,22 @@ struct mailbox_list_iterate_context *
 mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 		       enum mailbox_list_iter_flags flags)
 {
-	mailbox_list_clear_error(list);
+	const char *patterns[2];
 
-	return list->v.iter_init(list, pattern, flags);
+	patterns[0] = pattern;
+	patterns[1] = NULL;
+	return mailbox_list_iter_init_multiple(list, patterns, flags);
+}
+
+struct mailbox_list_iterate_context *
+mailbox_list_iter_init_multiple(struct mailbox_list *list,
+				const char *const *patterns,
+				enum mailbox_list_iter_flags flags)
+{
+	i_assert(*patterns != NULL);
+
+	mailbox_list_clear_error(list);
+	return list->v.iter_init(list, patterns, flags);
 }
 
 const struct mailbox_info *

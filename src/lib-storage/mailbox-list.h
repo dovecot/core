@@ -159,11 +159,17 @@ const char *mailbox_list_get_temp_prefix(struct mailbox_list *list);
 const char *mailbox_list_join_refpattern(struct mailbox_list *list,
 					 const char *ref, const char *pattern);
 
-/* Initialize new mailbox list request. pattern may contain '%' and '*'
+/* Initialize new mailbox list request. Pattern may contain '%' and '*'
    wildcards as defined by RFC-3501. */
 struct mailbox_list_iterate_context *
 mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 		       enum mailbox_list_iter_flags flags);
+/* Like mailbox_list_iter_init(), but support multiple patterns. Patterns is
+   a NULL-terminated list of strings. It must contain at least one pattern. */
+struct mailbox_list_iterate_context *
+mailbox_list_iter_init_multiple(struct mailbox_list *list,
+				const char *const *patterns,
+				enum mailbox_list_iter_flags flags);
 /* Get next mailbox. Returns the mailbox name */
 const struct mailbox_info *
 mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx);

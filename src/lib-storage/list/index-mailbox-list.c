@@ -109,7 +109,8 @@ static void pattern_parse(struct mailbox_list *list, const char *pattern,
 }
 
 static struct mailbox_list_iterate_context *
-index_mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
+index_mailbox_list_iter_init(struct mailbox_list *list,
+			     const char *const *patterns,
 			     enum mailbox_list_iter_flags flags)
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
@@ -121,7 +122,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 	ctx = i_new(struct index_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
-	ctx->glob = imap_match_init(default_pool, pattern, TRUE,
+	ctx->glob = imap_match_init(default_pool, patterns[0], TRUE, // FIXME
 				    list->hierarchy_sep);
 
 	ctx->mail_view = mail_index_view_open(ilist->mail_index);
@@ -130,10 +131,10 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
 		/* Ignore indexes completely */
 		ctx->backend_ctx = ilist->module_ctx.super.
-			iter_init(list, pattern, flags);
+			iter_init(list, patterns, flags);
 	} else if (index_mailbox_list_is_synced(ctx) > 0) {
 		/* synced, list from index */
-		pattern_parse(list, pattern, &prefix, &recurse_level);
+		pattern_parse(list, patterns[0], &prefix, &recurse_level); // FIXME
 
 		ctx->info_pool =
 			pool_alloconly_create("mailbox name pool", 128);
@@ -147,7 +148,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 		/* FIXME: this works nicely with maildir++, but not others */
 		sync_flags = MAILBOX_LIST_SYNC_FLAG_RECURSIVE;
 
-		if (strchr(pattern, '*') != NULL)
+		if (strchr(patterns[0], '*') != NULL) // FIXME
 			ctx->recurse_level = -1;
 		else {
 			ctx->mailbox_tree =
@@ -159,14 +160,14 @@ index_mailbox_list_iter_init(struct mailbox_list *list, const char *pattern,
 		if (mailbox_list_index_sync_init(ilist->list_index, "",
 						 sync_flags,
 						 &ctx->sync_ctx) == 0) {
-			pattern = "*";
+			//FIXME:patterns = "*";
 			prefix = "";
 			ctx->trans = mailbox_list_index_sync_get_transaction(
 								ctx->sync_ctx);
 		}
 
 		ctx->backend_ctx = ilist->module_ctx.super.
-			iter_init(list, pattern, flags);
+			iter_init(list, patterns, flags);
 	}
 	return &ctx->ctx;
 }
@@ -327,7 +328,7 @@ index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 						flags);
 		}
 		match = imap_match(ctx->glob, info->name);
-		if (match == IMAP_MATCH_PARENT) {
+		if ((match & IMAP_MATCH_PARENT) != 0) {
 			info = mailbox_info_move_to_parent(ctx, info);
 			match = IMAP_MATCH_YES;
 		}

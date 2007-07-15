@@ -64,7 +64,7 @@ acl_mailbox_list_have_right(struct acl_mailbox_list *alist, const char *name,
 
 static bool
 acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
-			  const char *mask)
+			  const char *const *patterns)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ctx->ctx.list);
 	struct acl_backend *backend = alist->rights.backend;
@@ -73,6 +73,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 	const struct acl_mask *acl_mask;
 	struct acl_mailbox_list_context *nonowner_list_ctx;
 	struct imap_match_glob *glob;
+	enum imap_match_result match;
 	struct mailbox_node *node;
 	const char *name;
 	char sep;
@@ -89,7 +90,8 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 	/* default is to not list mailboxes. we can optimize this. */
 	t_push();
 	sep = mailbox_list_get_hierarchy_sep(ctx->ctx.list);
-	glob = imap_match_init(pool_datastack_create(), mask, TRUE, sep);
+	glob = imap_match_init_multiple(pool_datastack_create(), patterns,
+					TRUE, sep);
 
 	for (try = 0; try < 2; try++) {
 		nonowner_list_ctx =
@@ -98,16 +100,15 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 
 		while ((ret = acl_backend_nonowner_lookups_iter_next(
 					nonowner_list_ctx, &name)) > 0) {
-			switch (imap_match(glob, name)) {
-			case IMAP_MATCH_YES:
+			match = imap_match(glob, name);
+			if (match == IMAP_MATCH_YES) {
 				node = mailbox_tree_get(ctx->tree, name,
 							&created);
 				if (created)
 					node->flags |= MAILBOX_NOCHILDREN;
 				node->flags |= MAILBOX_FLAG_MATCHED;
 				node->flags &= ~MAILBOX_NONEXISTENT;
-				break;
-			case IMAP_MATCH_PARENT:
+			} else if ((match & IMAP_MATCH_PARENT) != 0) {
 				node = mailbox_tree_get(ctx->tree, name,
 							&created);
 				if (created)
@@ -115,9 +116,6 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 				node->flags |= MAILBOX_FLAG_MATCHED |
 					MAILBOX_CHILDREN;
 				node->flags &= ~MAILBOX_NOCHILDREN;
-				break;
-			default:
-				break;
 			}
 		}
 		if (ret == 0)
@@ -137,7 +135,8 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx,
 }
 
 static struct mailbox_list_iterate_context *
-acl_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
+acl_mailbox_list_iter_init(struct mailbox_list *list,
+			   const char *const *patterns,
 			   enum mailbox_list_iter_flags flags)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
@@ -147,9 +146,9 @@ acl_mailbox_list_iter_init(struct mailbox_list *list, const char *mask,
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
 
-	if (!acl_mailbox_try_list_fast(ctx, mask)) {
-		ctx->super_ctx =
-			alist->module_ctx.super.iter_init(list, mask, flags);
+	if (!acl_mailbox_try_list_fast(ctx, patterns)) {
+		ctx->super_ctx = alist->module_ctx.super.
+			iter_init(list, patterns, flags);
 	}
 	return &ctx->ctx;
 }

@@ -69,9 +69,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
                 mailbox_c = str_c(mailbox);
 
 		match = imap_match(glob, mailbox_c);
-
-		if (match != IMAP_MATCH_YES &&
-		    match != IMAP_MATCH_PARENT)
+		if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) == 0)
 			continue;
 
 		/* check if this is an actual mailbox */
@@ -86,7 +84,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		if (ret == 0)
 			continue;
 
-		if (match == IMAP_MATCH_PARENT) {
+		if ((match & IMAP_MATCH_PARENT) != 0) {
 			/* get the name of the parent mailbox that matches */
 			t_push();
 			while ((p = strrchr(mailbox_c,
@@ -172,14 +170,10 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		else if (node != NULL)
 			node->flags &= ~MAILBOX_NONEXISTENT;
 
-		switch (imap_match(glob, "INBOX")) {
-		case IMAP_MATCH_YES:
-		case IMAP_MATCH_PARENT:
+		match = imap_match(glob, "INBOX");
+		if ((match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0) {
 			if (!update_only)
 				node->flags |= MAILBOX_MATCHED;
-			break;
-		default:
-			break;
 		}
 	} else if (mailbox_tree_lookup(ctx->tree_ctx, "INBOX") == NULL &&
 		   imap_match(glob, "INBOX")) {
@@ -196,12 +190,11 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 }
 
 struct mailbox_list_iterate_context *
-maildir_list_iter_init(struct mailbox_list *_list, const char *pattern,
+maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		       enum mailbox_list_iter_flags flags)
 {
 	struct maildir_list_iterate_context *ctx;
         struct imap_match_glob *glob;
-	const char *dir, *p;
 	pool_t pool;
 
 	pool = pool_alloconly_create("maildir_list", 1024);
@@ -211,7 +204,8 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *pattern,
 	ctx->pool = pool;
 	ctx->tree_ctx = mailbox_tree_init(_list->hierarchy_sep);
 
-	glob = imap_match_init(pool, pattern, TRUE, _list->hierarchy_sep);
+	glob = imap_match_init_multiple(pool, patterns, TRUE,
+					_list->hierarchy_sep);
 
 	ctx->dir = _list->set.root_dir;
 	ctx->prefix = "";
@@ -224,15 +218,6 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *pattern,
 			ctx->ctx.failed = TRUE;
 			return &ctx->ctx;
 		}
-	} else if ((_list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
-		   (p = strrchr(pattern, '/')) != NULL) {
-		/* Listing non-default maildir */
-		dir = t_strdup_until(pattern, p);
-		ctx->prefix = p_strdup_until(pool, pattern, p+1);
-
-		if (*pattern != '/' && *pattern != '~')
-			dir = t_strconcat(_list->set.root_dir, "/", dir, NULL);
-		ctx->dir = p_strdup(pool, home_expand(dir));
 	}
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0 ||

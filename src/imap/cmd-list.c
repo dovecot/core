@@ -12,7 +12,7 @@
 struct cmd_list_context {
 	struct client_command_context *cmd;
 	const char *ref;
-	const char *pattern;
+	const char *const *patterns;
 	enum mailbox_list_flags list_flags;
 
 	struct mail_namespace *ns;
@@ -403,17 +403,12 @@ skip_namespace_prefix(const char **prefix, const char **pattern,
 }
 
 static bool
-skip_namespace_prefix_refpattern(struct cmd_list_context *ctx,
-				 const char **cur_ns_prefix_p,
-				 const char **cur_ref_p,
-				 const char **cur_pattern_p)
+skip_namespace_prefix_ref(struct cmd_list_context *ctx,
+			  const char **cur_ns_prefix_p,
+			  const char **cur_ref_p)
 {
 	const char *cur_ns_prefix = *cur_ns_prefix_p;
 	const char *cur_ref = *cur_ref_p;
-	const char *cur_pattern = *cur_pattern_p;
-
-	if (*ctx->ns->prefix == '\0')
-		return TRUE;
 
 	if (*cur_ref != '\0') {
 		/* reference argument given. skip namespace prefix using it.
@@ -434,33 +429,46 @@ skip_namespace_prefix_refpattern(struct cmd_list_context *ctx,
 		}
 	}
 
-	if (*cur_ns_prefix != '\0') {
-		/* skip namespace prefix using pattern */
-		const char *old_ns_prefix = cur_ns_prefix;
-		const char *old_pattern = cur_pattern;
+	*cur_ns_prefix_p = cur_ns_prefix;
+	*cur_ref_p = cur_ref;
+	return TRUE;
+}
 
-		i_assert(*cur_ref == '\0');
+static void
+skip_namespace_prefix_pattern(struct cmd_list_context *ctx,
+			      const char **cur_ns_prefix_p,
+			      const char *cur_ref, const char **cur_pattern_p)
+{
+	const char *cur_ns_prefix = *cur_ns_prefix_p;
+	const char *cur_pattern = *cur_pattern_p;
+	const char *old_ns_prefix = cur_ns_prefix;
+	const char *old_pattern = cur_pattern;
 
-		skip_namespace_prefix(&cur_ns_prefix, &cur_pattern,
-				      cur_ref == ctx->ref, ctx->ns->sep);
+	if (*cur_ns_prefix == '\0')
+		return;
 
-		if (*cur_pattern == '\0' && *cur_ns_prefix == '\0') {
-			/* trying to list the namespace prefix itself. */
-			cur_ns_prefix = old_ns_prefix;
-			cur_pattern = old_pattern;
-		}
+	/* skip namespace prefix using pattern */
+	i_assert(*cur_ref == '\0');
+
+	skip_namespace_prefix(&cur_ns_prefix, &cur_pattern,
+			      cur_ref == ctx->ref, ctx->ns->sep);
+
+	if (*cur_pattern == '\0' && *cur_ns_prefix == '\0') {
+		/* trying to list the namespace prefix itself. */
+		cur_ns_prefix = old_ns_prefix;
+		cur_pattern = old_pattern;
 	}
 
 	*cur_ns_prefix_p = cur_ns_prefix;
-	*cur_ref_p = cur_ref;
 	*cur_pattern_p = cur_pattern;
-	return TRUE;
 }
 
 static enum imap_match_result
 list_use_inboxcase(struct cmd_list_context *ctx)
 {
 	struct imap_match_glob *inbox_glob;
+	const char *const *pat;
+	enum imap_match_result match, ret;
 
 	if (*ctx->ns->prefix != '\0' &&
 	    (ctx->ns->flags & NAMESPACE_FLAG_INBOX) == 0)
@@ -468,10 +476,22 @@ list_use_inboxcase(struct cmd_list_context *ctx)
 
 	/* if the original reference and pattern combined produces something
 	   that matches INBOX, the INBOX casing is on. */
-	inbox_glob = imap_match_init(ctx->cmd->pool,
-				     t_strconcat(ctx->ref, ctx->pattern, NULL),
-				     TRUE, ctx->ns->sep);
-	return imap_match(inbox_glob, "INBOX");
+	ret = IMAP_MATCH_NO;
+	for (pat = ctx->patterns; *pat != NULL; pat++) {
+		t_push();
+		inbox_glob =
+			imap_match_init(pool_datastack_create(),
+					t_strconcat(ctx->ref, *pat, NULL),
+					TRUE, ctx->ns->sep);
+		match = imap_match(inbox_glob, "INBOX");
+		t_pop();
+
+		if (match == IMAP_MATCH_YES)
+			return IMAP_MATCH_YES;
+		if ((match & IMAP_MATCH_PARENT) != 0)
+			ret = IMAP_MATCH_PARENT;
+	}
+	return ret;
 }
 
 static void
@@ -509,19 +529,95 @@ skip_pattern_wildcard_prefix(const char *cur_ns_prefix, char sep,
 	*cur_pattern_p = cur_pattern;
 }
 
+static bool
+list_namespace_init_pattern(struct cmd_list_context *ctx, bool inboxcase,
+			    const char *cur_ref, const char *cur_ns_prefix,
+			    const char **cur_pattern_p, bool *want_glob_r)
+{
+	struct mail_namespace *ns = ctx->ns;
+	struct imap_match_glob *pat_glob;
+	const char *cur_pattern = *cur_pattern_p;
+	enum imap_match_result match;
+	size_t len;
+
+	skip_namespace_prefix_pattern(ctx, &cur_ns_prefix,
+				      cur_ref, &cur_pattern);
+	if (*cur_ns_prefix == '\0') {
+		*want_glob_r = FALSE;
+		*cur_pattern_p = cur_pattern;
+		return TRUE;
+	}
+
+	/* namespace prefix still wasn't completely skipped over.
+	   for example cur_ns_prefix=INBOX/, pattern=%/% or pattern=IN%.
+	   Check that pattern matches namespace prefix. */
+	i_assert(*cur_ref == '\0');
+
+	/* drop the trailing separator in namespace prefix.
+	   don't do it if we're listing only the prefix itself
+	   (LIST "" foo/ needs to return "foo/" entry) */
+	len = strlen(cur_ns_prefix);
+	if (cur_ns_prefix[len-1] == ns->sep &&
+	    strcmp(cur_pattern, cur_ns_prefix) != 0) {
+		ctx->cur_ns_skip_trailing_sep = TRUE;
+		cur_ns_prefix = t_strndup(cur_ns_prefix, len-1);
+	}
+
+	/* hidden and non-listable namespaces are invisible to wildcards */
+	if ((ns->flags & NAMESPACE_FLAG_LIST) == 0 &&
+	    list_pattern_has_wildcards(cur_pattern))
+		return FALSE;
+
+	/* check if this namespace prefix matches the current pattern */
+	pat_glob = imap_match_init(pool_datastack_create(), *cur_pattern_p,
+				   inboxcase, ns->sep);
+	match = imap_match(pat_glob, cur_ns_prefix);
+	if ((match & (IMAP_MATCH_YES | IMAP_MATCH_CHILDREN)) == 0)
+		return FALSE;
+
+	if (match == IMAP_MATCH_YES && (ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0) {
+		/* the namespace prefix itself matches too. send it. */
+		ctx->cur_ns_send_prefix = TRUE;
+	}
+
+	/* We have now verified that the pattern matches the namespace prefix,
+	   so we'll just have to skip over as many hierarchies from pattern as
+	   there exists in namespace prefix. */
+	skip_pattern_wildcard_prefix(cur_ns_prefix, ns->sep, &cur_pattern);
+
+	if (*cur_pattern == '\0' && ctx->cur_ns_match_inbox) {
+		/* ns_prefix="INBOX/" and we wanted to list "%".
+		   This is an optimization to avoid doing an empty
+		   listing followed by another INBOX listing later. */
+		cur_pattern = "INBOX";
+		*want_glob_r = FALSE;
+	} else if (*cur_pattern != '*' || strcmp(*cur_pattern_p, "*") == 0) {
+		/* a) we don't have '*' in pattern
+		   b) we want to display everything
+
+		   we don't need to do separate filtering ourself */
+		*want_glob_r = FALSE;
+	} else {
+		*want_glob_r = TRUE;
+	}
+
+	*cur_pattern_p = cur_pattern;
+	return TRUE;
+}
+
 static void list_namespace_init(struct cmd_list_context *ctx)
 {
 	struct mail_namespace *ns = ctx->ns;
-	const char *cur_ns_prefix, *cur_ref, *cur_pattern;
-	enum imap_match_result match;
+	const char *cur_ns_prefix, *cur_ref, *const *pat, *pattern;
 	enum imap_match_result inbox_match;
-	size_t len;
+	ARRAY_DEFINE(used_patterns, const char *);
+	bool inboxcase, want_glob = FALSE, want_any_glob = FALSE;
 
 	cur_ns_prefix = ns->prefix;
 	cur_ref = ctx->ref;
-	cur_pattern = ctx->pattern;
 
-	if ((ctx->ns->flags & NAMESPACE_FLAG_HIDDEN) != 0 &&
+	if ((ns->flags & NAMESPACE_FLAG_HIDDEN) != 0 &&
 	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* ignore hidden namespaces */
 		return;
@@ -532,85 +628,42 @@ static void list_namespace_init(struct cmd_list_context *ctx)
 	if ((ns->flags & NAMESPACE_FLAG_INBOX) != 0)
 		ctx->seen_inbox_namespace = TRUE;
 
-	if (!skip_namespace_prefix_refpattern(ctx, &cur_ns_prefix,
-					      &cur_ref, &cur_pattern))
-		return;
+	if (*cur_ns_prefix != '\0') {
+		/* namespace has a prefix. see if we can skip over it. */
+		if (!skip_namespace_prefix_ref(ctx, &cur_ns_prefix, &cur_ref))
+			return;
+	}
 
 	inbox_match = list_use_inboxcase(ctx);
 	ctx->cur_ns_match_inbox = inbox_match == IMAP_MATCH_YES;
+	inboxcase = (inbox_match & (IMAP_MATCH_YES | IMAP_MATCH_PARENT)) != 0;
 
-	ctx->glob = imap_match_init(ctx->cmd->pool, ctx->pattern,
-				    (inbox_match == IMAP_MATCH_YES ||
-				     inbox_match == IMAP_MATCH_PARENT) &&
-				    cur_pattern == ctx->pattern, ns->sep);
-
-	if (*cur_ns_prefix != '\0') {
-		/* namespace prefix still wasn't completely skipped over.
-		   for example cur_ns_prefix=INBOX/, pattern=%/% or pattern=IN%.
-		   Check that pattern matches namespace prefix. */
-		i_assert(*cur_ref == '\0');
-
-		/* drop the trailing separator in namespace prefix.
-		   don't do it if we're listing only the prefix itself
-		   (LIST "" foo/ needs to return "foo/" entry) */
-		len = strlen(cur_ns_prefix);
-		if (cur_ns_prefix[len-1] == ns->sep &&
-		    strcmp(cur_pattern, cur_ns_prefix) != 0) {
-			ctx->cur_ns_skip_trailing_sep = TRUE;
-			cur_ns_prefix = t_strndup(cur_ns_prefix, len-1);
-		}
-
-		/* hidden and non-listable namespaces should still be seen
-		   without wildcards. */
-		match = ((ns->flags & NAMESPACE_FLAG_LIST) == 0 &&
-			 list_pattern_has_wildcards(cur_pattern)) ?
-			IMAP_MATCH_NO : imap_match(ctx->glob, cur_ns_prefix);
-		if (match != IMAP_MATCH_YES && match != IMAP_MATCH_CHILDREN)
-			return;
-
-		if (match == IMAP_MATCH_YES &&
-		    (ns->flags & NAMESPACE_FLAG_LIST) != 0 &&
-		    (ctx->list_flags &
-		     MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) == 0)
-			ctx->cur_ns_send_prefix = TRUE;
-	}
-
-
-	if (*cur_ns_prefix != '\0') {
-		/* We didn't skip over the whole namespace prefix. For example
-		   cur_ns_prefix=INBOX/ and pattern=%/% or IN*.
-
-		   We have already verified that the pattern matches the
-		   namespace prefix, so we'll just have to skip over as many
-		   hierarchies from pattern as there exists in namespace
-		   prefix. */
-		i_assert(*cur_ref == '\0');
-		skip_pattern_wildcard_prefix(cur_ns_prefix, ns->sep,
-					     &cur_pattern);
-
-		if (*cur_pattern == '\0' && ctx->cur_ns_match_inbox) {
-			/* ns_prefix="INBOX/" and we wanted to list "%".
-			   This is an optimization to avoid doing an empty
-			   listing followed by another INBOX listing later. */
-			cur_pattern = "INBOX";
+	t_array_init(&used_patterns, 16);
+	for (pat = ctx->patterns; *pat != NULL; pat++) {
+		pattern = *pat;
+		if (list_namespace_init_pattern(ctx, inboxcase, cur_ref,
+						cur_ns_prefix, &pattern,
+						&want_glob)) {
+			if (want_glob)
+				want_any_glob = TRUE;
+			pattern = mailbox_list_join_refpattern(ns->list,
+				cur_ref, mail_namespace_fix_sep(ns, pattern));
+			array_append(&used_patterns, &pattern, 1);
 		}
 	}
 
-	if (*cur_pattern != '*' || strcmp(ctx->pattern, "*") == 0) {
-		/* a) we don't have '*' in pattern
-		   b) we want to display everything
+	if (array_count(&used_patterns) == 0)
+		return;
+	(void)array_append_space(&used_patterns); /* NULL-terminate */
+	pat = array_idx(&used_patterns, 0);
 
-		   we don't need to do separate filtering ourself */
-		ctx->glob = NULL;
-	}
+	ctx->glob = !want_any_glob ? NULL :
+		imap_match_init_multiple(ctx->cmd->pool, pat,
+					 inboxcase, ns->sep);
 
 	cur_ref = mail_namespace_fix_sep(ns, cur_ref);
-	cur_pattern = mail_namespace_fix_sep(ns, cur_pattern);
-
-	cur_pattern = mailbox_list_join_refpattern(ns->list,
-						   cur_ref, cur_pattern);
-	ctx->list_iter = mailbox_list_iter_init(ns->list, cur_pattern,
-						ctx->list_flags);
+	ctx->list_iter = mailbox_list_iter_init_multiple(ns->list, pat,
+							 ctx->list_flags);
 }
 
 static void list_inbox(struct cmd_list_context *ctx)
@@ -639,7 +692,9 @@ static bool cmd_list_continue(struct client_command_context *cmd)
 	}
 	for (; ctx->ns != NULL; ctx->ns = ctx->ns->next) {
 		if (ctx->list_iter == NULL) {
+			t_push();
 			list_namespace_init(ctx);
+			t_pop();
 			if (ctx->list_iter == NULL)
 				continue;
 		}
@@ -712,10 +767,11 @@ static void cmd_list_ref_root(struct client *client, const char *ref)
 bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 {
 	struct client *client = cmd->client;
-	const struct imap_arg *args;
+	const struct imap_arg *args, *arg;
 	enum mailbox_list_flags list_flags = 0;
         struct cmd_list_context *ctx;
-	const char *ref, *pattern;
+	ARRAY_DEFINE(patterns, const char *) = ARRAY_INIT;
+	const char *ref, *pattern, *const *patterns_strarr;
 	bool used_listext = FALSE;
 
 	/* [(<selection options>)] <reference> <pattern>|(<pattern list>)
@@ -735,13 +791,30 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 	ref = imap_arg_string(&args[0]);
 	if (ref == NULL) {
 		/* broken */
-		pattern = NULL;
 	} else if (args[1].type == IMAP_ARG_LIST) {
-		/* FIXME: pattern list */
-		pattern = NULL;
+		used_listext = TRUE;
+		/* convert pattern list to string array */
+		p_array_init(&patterns, cmd->pool,
+			     IMAP_ARG_LIST_COUNT(&args[1]));
+		arg = IMAP_ARG_LIST_ARGS(&args[1]);
+		for (; arg->type != IMAP_ARG_EOL; arg++) {
+			if (!IMAP_ARG_TYPE_IS_STRING(arg->type)) {
+				/* broken */
+				ref = NULL;
+				break;
+			}
+			pattern = imap_arg_string(arg);
+			array_append(&patterns, &pattern, 1);
+		}
 		args += 2;
 	} else {
 		pattern = imap_arg_string(&args[1]);
+		if (pattern == NULL)
+			ref = NULL;
+		else {
+			p_array_init(&patterns, cmd->pool, 1);
+			array_append(&patterns, &pattern, 1);
+		}
 		args += 2;
 	}
 
@@ -770,16 +843,17 @@ bool _cmd_list_full(struct client_command_context *cmd, bool lsub)
 		return TRUE;
 	}
 
-	if (pattern != NULL && *pattern == '\0' && !lsub) {
-		/* only with pattern string, not with list */
+	(void)array_append_space(&patterns); /* NULL-terminate */
+	patterns_strarr = array_idx(&patterns, 0);
+	if (!used_listext && !lsub && *patterns_strarr[0] == '\0') {
+		/* Only LIST ref "" gets us here */
 		cmd_list_ref_root(client, ref);
 		client_send_tagline(cmd, "OK List completed.");
 	} else {
-		/* FIXME: handle pattern lists */
 		ctx = p_new(cmd->pool, struct cmd_list_context, 1);
 		ctx->cmd = cmd;
 		ctx->ref = ref;
-		ctx->pattern = pattern;
+		ctx->patterns = patterns_strarr;
 		ctx->list_flags = list_flags;
 		ctx->used_listext = used_listext;
 		ctx->lsub = lsub;
