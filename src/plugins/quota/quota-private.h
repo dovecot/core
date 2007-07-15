@@ -16,7 +16,6 @@ struct quota {
 			  uoff_t size, bool *too_large_r);
 
 	unsigned int debug:1;
-	unsigned int counting:1;
 };
 
 struct quota_rule {
@@ -81,6 +80,7 @@ struct quota_transaction_context {
 
 	struct mail *tmp_mail;
 
+	unsigned int limits_set:1;
 	unsigned int failed:1;
 	unsigned int recalculate:1;
 };

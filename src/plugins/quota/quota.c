@@ -438,51 +438,12 @@ struct quota_transaction_context *quota_transaction_begin(struct quota *quota,
 							  struct mailbox *box)
 {
 	struct quota_transaction_context *ctx;
-	struct quota_root *const *roots;
-	const char *mailbox_name;
-	unsigned int i, count;
-	uint64_t current, limit, left;
-	int ret;
 
-	mailbox_name = mailbox_get_name(box);
-	
 	ctx = i_new(struct quota_transaction_context, 1);
 	ctx->quota = quota;
 	ctx->box = box;
 	ctx->bytes_left = (uint64_t)-1;
 	ctx->count_left = (uint64_t)-1;
-
-	if (quota->counting) {
-		/* we got here through quota_count_storage() */
-		return ctx;
-	}
-
-	/* find the lowest quota limits from all roots and use them */
-	roots = array_get(&quota->roots, &count);
-	for (i = 0; i < count; i++) {
-		ret = quota_get_resource(roots[i], mailbox_name,
-					 QUOTA_NAME_STORAGE_BYTES,
-					 &current, &limit);
-		if (ret > 0) {
-			left = limit < current ? 0 : limit - current;
-			if (ctx->bytes_left > left)
-				ctx->bytes_left = left;
-		} else if (ret < 0) {
-			ctx->failed = TRUE;
-			break;
-		}
-		
-		ret = quota_get_resource(roots[i], mailbox_name,
-					 QUOTA_NAME_MESSAGES, &current, &limit);
-		if (ret > 0) {
-			left = limit < current ? 0 : limit - current;
-			if (ctx->count_left > left)
-				ctx->count_left = left;
-		} else if (ret < 0) {
-			ctx->failed = TRUE;
-			break;
-		}
-	}
 	return ctx;
 }
 
@@ -497,7 +458,8 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 
 	if (ctx->failed)
 		ret = -1;
-	else {
+	else if (ctx->bytes_used != 0 || ctx->count_used != 0 ||
+		 ctx->recalculate) {
 		roots = array_get(&ctx->quota->roots, &count);
 		for (i = 0; i < count; i++) {
 			if (roots[i]->backend.v.update(roots[i], ctx) < 0)
@@ -517,6 +479,48 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 	i_free(ctx);
 }
 
+static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
+{
+	struct quota_root *const *roots;
+	const char *mailbox_name;
+	unsigned int i, count;
+	uint64_t current, limit, left;
+	int ret;
+
+	ctx->limits_set = TRUE;
+	mailbox_name = mailbox_get_name(ctx->box);
+
+	/* find the lowest quota limits from all roots and use them */
+	roots = array_get(&ctx->quota->roots, &count);
+	for (i = 0; i < count; i++) {
+		ret = quota_get_resource(roots[i], mailbox_name,
+					 QUOTA_NAME_STORAGE_BYTES,
+					 &current, &limit);
+		if (ret > 0) {
+			current += ctx->bytes_used;
+			left = limit < current ? 0 : limit - current;
+			if (ctx->bytes_left > left)
+				ctx->bytes_left = left;
+		} else if (ret < 0) {
+			ctx->failed = TRUE;
+			return -1;
+		}
+		
+		ret = quota_get_resource(roots[i], mailbox_name,
+					 QUOTA_NAME_MESSAGES, &current, &limit);
+		if (ret > 0) {
+			current += ctx->count_used;
+			left = limit < current ? 0 : limit - current;
+			if (ctx->count_left > left)
+				ctx->count_left = left;
+		} else if (ret < 0) {
+			ctx->failed = TRUE;
+			return -1;
+		}
+	}
+	return 0;
+}
+
 int quota_try_alloc(struct quota_transaction_context *ctx,
 		    struct mail *mail, bool *too_large_r)
 {
@@ -533,6 +537,13 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 int quota_test_alloc(struct quota_transaction_context *ctx,
 		     uoff_t size, bool *too_large_r)
 {
+	if (ctx->failed)
+		return -1;
+
+	if (!ctx->limits_set) {
+		if (quota_transaction_set_limits(ctx) < 0)
+			return -1;
+	}
 	return ctx->quota->test_alloc(ctx, size, too_large_r);
 }
 
@@ -544,8 +555,6 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 
 	*too_large_r = FALSE;
 
-	if (ctx->failed)
-		return -1;
 	if (ctx->count_left != 0 && ctx->bytes_left >= ctx->bytes_used + size)
 		return 1;
 

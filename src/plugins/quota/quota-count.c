@@ -77,11 +77,7 @@ int quota_count(struct quota *quota, uint64_t *bytes_r, uint64_t *count_r)
 	unsigned int i, count;
 	int ret = 0;
 
-	i_assert(!quota->counting);
-
 	*bytes_r = *count_r = 0;
-
-	quota->counting = TRUE;
 
 	storages = array_get(&quota->storages, &count);
 	for (i = 0; i < count; i++) {
@@ -89,7 +85,5 @@ int quota_count(struct quota *quota, uint64_t *bytes_r, uint64_t *count_r)
 		if (ret < 0)
 			break;
 	}
-	quota->counting = FALSE;
-
 	return ret;
 }
