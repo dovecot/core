@@ -24,6 +24,13 @@ struct quota_rule {
 	int64_t bytes_limit, count_limit;
 };
 
+struct quota_warning_rule {
+	uint64_t bytes_limit;
+	uint64_t count_limit;
+
+	char *command;
+};
+
 struct quota_backend_vfuncs {
 	struct quota_root *(*alloc)(void);
 	int (*init)(struct quota_root *root, const char *args);
@@ -64,6 +71,7 @@ struct quota_root {
 	struct quota_backend backend;
 	struct quota_rule default_rule;
 	ARRAY_DEFINE(rules, struct quota_rule);
+	ARRAY_DEFINE(warning_rules, struct quota_warning_rule);
 
 	/* Module-specific contexts. See quota_module_id. */
 	ARRAY_DEFINE(quota_module_contexts, void);

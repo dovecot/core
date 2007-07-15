@@ -26,6 +26,10 @@ void quota_root_deinit(struct quota_root **root);
 /* Add a new rule too the quota root. Returns 0 if ok, -1 if rule is invalid. */
 int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 			const char **error_r);
+/* Add a new warning rule for the quota root. Returns 0 if ok, -1 if rule is
+   invalid. */
+int quota_root_add_warning_rule(struct quota_root *root, const char *rule_def,
+				const char **error_r);
 
 /* List all quota roots. Returned quota roots are freed by quota_deinit(). */
 struct quota_root_iter *

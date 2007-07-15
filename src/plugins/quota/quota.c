@@ -9,6 +9,7 @@
 
 #include <ctype.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 
 #define RULE_NAME_ALL_MAILBOXES "*"
 
@@ -124,6 +125,7 @@ struct quota_root *quota_root_init(struct quota *quota, const char *root_def)
 	}
 
 	i_array_init(&root->rules, 4);
+	i_array_init(&root->warning_rules, 4);
 	array_create(&root->quota_module_contexts, default_pool,
 		     sizeof(void *), 5);
 
@@ -143,6 +145,7 @@ void quota_root_deinit(struct quota_root **_root)
 	struct quota_root *root = *_root;
 	pool_t pool = root->pool;
 	struct quota_root *const *roots;
+	struct quota_warning_rule *warnings;
 	unsigned int i, count;
 
 	roots = array_get(&root->quota->roots, &count);
@@ -151,6 +154,11 @@ void quota_root_deinit(struct quota_root **_root)
 			array_delete(&root->quota->roots, i, 1);
 	}
 	*_root = NULL;
+
+	warnings = array_get_modifiable(&root->warning_rules, &count);
+	for (i = 0; i < count; i++)
+		i_free(warnings[i].command);
+	array_free(&root->warning_rules);
 
 	array_free(&root->rules);
 	array_free(&root->quota_module_contexts);
@@ -397,6 +405,44 @@ void quota_remove_user_storage(struct quota *quota,
 	}
 }
 
+int quota_root_add_warning_rule(struct quota_root *root, const char *rule_def,
+				const char **error_r)
+{
+	struct quota_warning_rule *warning;
+	struct quota_rule rule;
+	const char *p;
+	int ret;
+
+	p = strchr(rule_def, ' ');
+	if (p == NULL) {
+		*error_r = "No command specified";
+		return -1;
+	}
+
+	memset(&rule, 0, sizeof(rule));
+	t_push();
+	ret = quota_rule_parse_limits(root, &rule, t_strdup_until(rule_def, p),
+				      error_r);
+	t_pop();
+	if (ret < 0)
+		return -1;
+
+	if (rule.bytes_limit < 0) {
+		*error_r = "Bytes limit can't be negative";
+		return -1;
+	}
+	if (rule.count_limit < 0) {
+		*error_r = "Count limit can't be negative";
+		return -1;
+	}
+
+	warning = array_append_space(&root->warning_rules);
+	warning->command = i_strdup(p+1);
+	warning->bytes_limit = rule.bytes_limit;
+	warning->count_limit = rule.count_limit;
+	return 0;
+}
+
 struct quota_root_iter *
 quota_root_iter_init(struct quota *quota, struct mailbox *box)
 {
@@ -523,38 +569,6 @@ struct quota_transaction_context *quota_transaction_begin(struct quota *quota,
 	return ctx;
 }
 
-int quota_transaction_commit(struct quota_transaction_context **_ctx)
-{
-	struct quota_transaction_context *ctx = *_ctx;
-	struct quota_root *const *roots;
-	unsigned int i, count;
-	int ret = 0;
-
-	*_ctx = NULL;
-
-	if (ctx->failed)
-		ret = -1;
-	else if (ctx->bytes_used != 0 || ctx->count_used != 0 ||
-		 ctx->recalculate) {
-		roots = array_get(&ctx->quota->roots, &count);
-		for (i = 0; i < count; i++) {
-			if (roots[i]->backend.v.update(roots[i], ctx) < 0)
-				ret = -1;
-		}
-	}
-
-	i_free(ctx);
-	return ret;
-}
-
-void quota_transaction_rollback(struct quota_transaction_context **_ctx)
-{
-	struct quota_transaction_context *ctx = *_ctx;
-
-	*_ctx = NULL;
-	i_free(ctx);
-}
-
 static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 {
 	struct quota_root *const *roots;
@@ -595,6 +609,84 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 		}
 	}
 	return 0;
+}
+
+static void quota_warning_execute(const char *cmd)
+{
+	int ret = system(cmd);
+
+	if (ret < 0) {
+		i_error("system(%s) failed: %m", cmd);
+	} else if (WIFSIGNALED(ret)) {
+		i_error("system(%s) died with signal %d", cmd, WTERMSIG(ret));
+	} else if (!WIFEXITED(ret) || WEXITSTATUS(ret) != 0) {
+		i_error("system(%s) exited with status %d",
+			cmd, WIFEXITED(ret) ? WEXITSTATUS(ret) : ret);
+	}
+}
+
+static void quota_warnings_execute(struct quota_root *root,
+				   struct quota_transaction_context *ctx)
+{
+	struct quota_warning_rule *warnings;
+	unsigned int i, count;
+	uint64_t bytes_current, bytes_limit, count_current, count_limit;
+
+	warnings = array_get_modifiable(&root->warning_rules, &count);
+	if (count == 0)
+		return;
+
+	if (quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
+			       &bytes_current, &bytes_limit) < 0)
+		return;
+	if (quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
+			       &count_current, &count_limit) < 0)
+		return;
+
+	for (i = 0; i < count; i++) {
+		if ((bytes_current < warnings[i].bytes_limit &&
+		     bytes_current +
+		     ctx->bytes_used >= warnings[i].bytes_limit) ||
+		    (count_current < warnings[i].count_limit &&
+		     count_current +
+		     ctx->count_used >= warnings[i].count_limit)) {
+			quota_warning_execute(warnings[i].command);
+			break;
+		}
+	}
+}
+
+int quota_transaction_commit(struct quota_transaction_context **_ctx)
+{
+	struct quota_transaction_context *ctx = *_ctx;
+	struct quota_root *const *roots;
+	unsigned int i, count;
+	int ret = 0;
+
+	*_ctx = NULL;
+
+	if (ctx->failed)
+		ret = -1;
+	else if (ctx->bytes_used != 0 || ctx->count_used != 0 ||
+		 ctx->recalculate) {
+		roots = array_get(&ctx->quota->roots, &count);
+		for (i = 0; i < count; i++) {
+			quota_warnings_execute(roots[i], ctx);
+			if (roots[i]->backend.v.update(roots[i], ctx) < 0)
+				ret = -1;
+		}
+	}
+
+	i_free(ctx);
+	return ret;
+}
+
+void quota_transaction_rollback(struct quota_transaction_context **_ctx)
+{
+	struct quota_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	i_free(ctx);
 }
 
 int quota_try_alloc(struct quota_transaction_context *ctx,
