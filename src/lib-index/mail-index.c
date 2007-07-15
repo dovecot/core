@@ -665,10 +665,11 @@ int mail_index_move_to_memory(struct mail_index *index)
 	if (index->file_lock != NULL)
 		file_lock_free(&index->file_lock);
 
-	/* close the index file. */
-	if (close(index->fd) < 0)
-		mail_index_set_syscall_error(index, "close()");
-	index->fd = -1;
+	if (index->fd != -1) {
+		if (close(index->fd) < 0)
+			mail_index_set_syscall_error(index, "close()");
+		index->fd = -1;
+	}
 	return 0;
 }
 
