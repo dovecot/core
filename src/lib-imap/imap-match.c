@@ -82,8 +82,10 @@ static bool pattern_is_inboxcase(const char *pattern, char separator)
 	while (*inboxp == i_toupper(*p) && *p != '\0') {
 		inboxp++; p++;
 	}
-	if (*p != '%')
-		return *p == '*' || (*inboxp == '\0' && *p == '\0');
+	if (*p != '%') {
+		return *p == '*' || *p == separator ||
+			(*inboxp == '\0' && *p == '\0');
+	}
 
 	/* handle 'I%B%X' style checks */
 	for (; *p != '\0' && *p != '*' && *p != separator; p++) {
