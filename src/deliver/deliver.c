@@ -555,7 +555,7 @@ int main(int argc, char *argv[])
 	const char *envelope_sender = DEFAULT_ENVELOPE_SENDER;
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
-	const char *home, *destination, *user, *value;
+	const char *home, *destination, *user, *value, *error;
 	struct mail_namespace *ns, *mbox_ns;
 	struct mail_storage *storage;
 	struct mailbox *box;
@@ -738,8 +738,8 @@ int main(int argc, char *argv[])
 
 	mbox_ns = mail_namespaces_init_empty(namespace_pool);
 	if (mail_storage_create(mbox_ns, "mbox", "/tmp", destination,
-				0, FILE_LOCK_METHOD_FCNTL) < 0)
-		i_fatal("Couldn't create internal mbox storage");
+				0, FILE_LOCK_METHOD_FCNTL, &error) < 0)
+		i_fatal("Couldn't create internal mbox storage: %s", error);
 	input = create_mbox_stream(0, envelope_sender);
 	box = mailbox_open(mbox_ns->storage, "Dovecot Delivery Mail", input,
 			   MAILBOX_OPEN_NO_INDEX_FILES |

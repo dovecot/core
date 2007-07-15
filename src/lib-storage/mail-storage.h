@@ -214,7 +214,8 @@ void mail_storage_parse_env(enum mail_storage_flags *flags_r,
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			const char *data, const char *user,
 			enum mail_storage_flags flags,
-			enum file_lock_method lock_method);
+			enum file_lock_method lock_method,
+			const char **error_r);
 void mail_storage_destroy(struct mail_storage **storage);
 
 char mail_storage_get_hierarchy_sep(struct mail_storage *storage);

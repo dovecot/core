@@ -62,7 +62,7 @@ static const char *strip_tail_slash(const char *path)
 {
 	size_t len = strlen(path);
 
-	if (len > 0 && path[len-1] == '/')
+	if (len > 1 && path[len-1] == '/')
 		return t_strndup(path, len-1);
 	else
 		return path;
@@ -76,7 +76,7 @@ static const char *strip_tail_slash_and_cut(const char *path)
 static int
 maildir_get_list_settings(struct mailbox_list_settings *list_set,
 			  const char *data, enum mail_storage_flags flags,
-			  const char **layout_r)
+			  const char **layout_r, const char **error_r)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	const char *home, *path, *p;
@@ -89,7 +89,7 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 
 	if (data == NULL || *data == '\0') {
 		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0) {
-			i_error("maildir: root directory not given");
+			*error_r = "Root mail directory not given";
 			return -1;
 		}
 
@@ -149,9 +149,10 @@ maildir_get_list_settings(struct mailbox_list_settings *list_set,
 		}
 	}
 
-	if (list_set->root_dir == NULL) {
+	if (list_set->root_dir == NULL || *list_set->root_dir == '\0') {
 		if (debug)
 			i_info("maildir: couldn't find root dir");
+		*error_r = "Root mail directory not given";
 		return -1;
 	}
 	list_set->root_dir = strip_tail_slash(list_set->root_dir);
@@ -223,16 +224,18 @@ static struct mail_storage *maildir_alloc(void)
 }
 
 static int
-maildir_create(struct mail_storage *_storage, const char *data)
+maildir_create(struct mail_storage *_storage, const char *data,
+	       const char **error_r)
 {
 	struct maildir_storage *storage = (struct maildir_storage *)_storage;
 	enum mail_storage_flags flags = _storage->flags;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
-	const char *layout, *error;
+	const char *layout;
 	struct stat st;
 
-	if (maildir_get_list_settings(&list_set, data, flags, &layout) < 0)
+	if (maildir_get_list_settings(&list_set, data, flags, &layout,
+				      error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
@@ -244,16 +247,16 @@ maildir_create(struct mail_storage *_storage, const char *data)
 				i_error("stat(%s) failed: %m",
 					list_set.root_dir);
 			}
+			*error_r = "Mail storage doesn't exist";
 			return -1;
 		}
 	}
 
 	if (mailbox_list_init(_storage->ns, layout, &list_set,
 			      mail_storage_get_list_flags(flags),
-			      &list, &error) < 0) {
-		i_error("maildir %s: %s", layout, error);
+			      &list, error_r) < 0)
 		return -1;
-	}
+
 	_storage->list = list;
 	storage->list_module_ctx.super = list->v;
 	if (strcmp(layout, MAILDIR_PLUSPLUS_DRIVER_NAME) == 0) {

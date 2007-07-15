@@ -37,7 +37,8 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 
 static int
 cydir_get_list_settings(struct mailbox_list_settings *list_set,
-			const char *data, enum mail_storage_flags flags)
+			const char *data, enum mail_storage_flags flags,
+			const char **error_r)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	const char *p;
@@ -47,10 +48,11 @@ cydir_get_list_settings(struct mailbox_list_settings *list_set,
 	list_set->subscription_fname = CYDIR_SUBSCRIPTION_FILE_NAME;
 	list_set->maildir_name = "";
 
-	if (data == NULL || *data == '\0') {
+	if (data == NULL || *data == '\0' || *data == ':') {
 		/* we won't do any guessing for this format. */
 		if (debug)
 			i_info("cydir: mailbox location not given");
+		*error_r = "Root mail directory not given";
 		return -1;
 	}
 
@@ -73,7 +75,7 @@ cydir_get_list_settings(struct mailbox_list_settings *list_set,
 
 	/* strip trailing '/' */
 	len = strlen(list_set->root_dir);
-	if (list_set->root_dir[len-1] == '/')
+	if (len > 1 && list_set->root_dir[len-1] == '/')
 		list_set->root_dir = t_strndup(list_set->root_dir, len-1);
 
 	if (list_set->index_dir != NULL &&
@@ -95,14 +97,15 @@ static struct mail_storage *cydir_alloc(void)
 	return &storage->storage;
 }
 
-static int cydir_create(struct mail_storage *_storage, const char *data)
+static int cydir_create(struct mail_storage *_storage, const char *data,
+			const char **error_r)
 {
 	struct cydir_storage *storage = (struct cydir_storage *)_storage;
 	struct mailbox_list_settings list_set;
-	const char *error;
 	struct stat st;
 
-	if (cydir_get_list_settings(&list_set, data, _storage->flags) < 0)
+	if (cydir_get_list_settings(&list_set, data, _storage->flags,
+				    error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
@@ -110,7 +113,12 @@ static int cydir_create(struct mail_storage *_storage, const char *data)
 	if ((_storage->flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
 		if (stat(list_set.root_dir, &st) < 0) {
 			if (errno != ENOENT) {
-				i_error("stat(%s) failed: %m",
+				*error_r = t_strdup_printf(
+							"stat(%s) failed: %m",
+							list_set.root_dir);
+			} else {
+				*error_r = t_strdup_printf(
+					"Root mail directory doesn't exist: %s",
 					list_set.root_dir);
 			}
 			return -1;
@@ -118,18 +126,16 @@ static int cydir_create(struct mail_storage *_storage, const char *data)
 	} else {
 		if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
 		    errno != EEXIST) {
-			i_error("mkdir_parents(%s) failed: %m",
-				list_set.root_dir);
+			*error_r = t_strdup_printf("mkdir(%s) failed: %m",
+						   list_set.root_dir);
 			return -1;
 		}
 	}
 
 	if (mailbox_list_init(_storage->ns, "fs", &list_set,
 			      mail_storage_get_list_flags(_storage->flags),
-			      &_storage->list, &error) < 0) {
-		i_error("cydir fs: %s", error);
+			      &_storage->list, error_r) < 0)
 		return -1;
-	}
 	storage->list_module_ctx.super = _storage->list->v;
 	_storage->list->v.iter_is_mailbox = cydir_list_iter_is_mailbox;
 	_storage->list->v.delete_mailbox = cydir_list_delete_mailbox;

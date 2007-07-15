@@ -164,10 +164,12 @@ mail_storage_set_autodetection(const char **data, const char **driver,
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			const char *data, const char *user,
 			enum mail_storage_flags flags,
-			enum file_lock_method lock_method)
+			enum file_lock_method lock_method,
+			const char **error_r)
 {
 	struct mail_storage *storage_class, *storage;
 	struct mail_storage *const *classes;
+	const char *home;
 	unsigned int i, count;
 
 	if (data == NULL)
@@ -181,7 +183,8 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 	} else if (driver == NULL) {
 		storage_class = mail_storage_autodetect(data, flags);
 		if (storage_class == NULL) {
-			i_error("Ambiguous mail location setting, "
+			*error_r = t_strdup_printf(
+				"Ambiguous mail location setting, "
 				"don't know what to do with it: %s "
 				"(try prefixing it with mbox: or maildir:)",
 				data);
@@ -191,8 +194,11 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		count = 1;
 	} else {
 		storage_class = mail_storage_find(driver);
-		if (storage_class == NULL)
+		if (storage_class == NULL) {
+			*error_r = t_strdup_printf(
+				"Unknown mail storage driver %s", driver);
 			return -1;
+		}
 		classes = &storage_class;
 		count = 1;
 	}
@@ -208,14 +214,31 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 			p_new(storage->pool, struct mail_storage_callbacks, 1);
 		p_array_init(&storage->module_contexts, storage->pool, 5);
 
-		if (classes[i]->v.create(storage, data) == 0)
+		if (classes[i]->v.create(storage, data, error_r) == 0)
 			break;
+
+		if ((flags & MAIL_STORAGE_FLAG_DEBUG) != 0 && count > 1) {
+			i_info("%s: Couldn't create mail storage %s: %s",
+			       classes[i]->name, data, *error_r);
+		}
 
 		/* try the next one */
 		pool_unref(storage->pool);
 	}
-	if (i == count)
+	if (i == count) {
+		if (count <= 1) {
+			*error_r = t_strdup_printf("%s: %s", classes[0]->name,
+						   *error_r);
+			return -1;
+		}
+
+		home = getenv("HOME");
+		if (home == NULL || *home == '\0') home = "(not set)";
+
+		*error_r = t_strdup_printf(
+			"Mail storage autodetection failed with home=%s", home);
 		return -1;
+	}
 
 	if (hook_mail_storage_created != NULL)
 		hook_mail_storage_created(storage);

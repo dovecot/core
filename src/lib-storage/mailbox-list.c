@@ -86,7 +86,8 @@ int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 	unsigned int idx;
 
 	if (!mailbox_list_driver_find(driver, &idx)) {
-		*error_r = "Unknown mailbox list driver";
+		*error_r = t_strdup_printf("Unknown mailbox list driver: %s",
+					   driver);
 		return -1;
 	}
 

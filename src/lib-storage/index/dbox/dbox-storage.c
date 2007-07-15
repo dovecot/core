@@ -117,7 +117,8 @@ dbox_storage_is_valid_create_name(struct mailbox_list *list, const char *name)
 
 static int
 dbox_get_list_settings(struct mailbox_list_settings *list_set,
-		       const char *data, enum mail_storage_flags flags)
+		       const char *data, enum mail_storage_flags flags,
+		       const char **error_r)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	const char *p;
@@ -127,10 +128,11 @@ dbox_get_list_settings(struct mailbox_list_settings *list_set,
 	list_set->subscription_fname = DBOX_SUBSCRIPTION_FILE_NAME;
 	list_set->maildir_name = DBOX_MAILDIR_NAME;
 
-	if (data == NULL || *data == '\0') {
+	if (data == NULL || *data == '\0' || *data == ':') {
 		/* we won't do any guessing for this format. */
 		if (debug)
 			i_info("dbox: mailbox location not given");
+		*error_r = "Root mail directory not given";
 		return -1;
 	}
 
@@ -175,15 +177,16 @@ static struct mail_storage *dbox_alloc(void)
 	return &storage->storage;
 }
 
-static int dbox_create(struct mail_storage *_storage, const char *data)
+static int dbox_create(struct mail_storage *_storage, const char *data,
+		       const char **error_r)
 {
 	struct dbox_storage *storage = (struct dbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
 	struct mailbox_list *list;
-	const char *error;
 	struct stat st;
 
-	if (dbox_get_list_settings(&list_set, data, _storage->flags) < 0)
+	if (dbox_get_list_settings(&list_set, data, _storage->flags,
+				   error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
@@ -191,7 +194,12 @@ static int dbox_create(struct mail_storage *_storage, const char *data)
 	if ((_storage->flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
 		if (stat(list_set.root_dir, &st) < 0) {
 			if (errno != ENOENT) {
-				i_error("stat(%s) failed: %m",
+				*error_r = t_strdup_printf(
+							"stat(%s) failed: %m",
+							list_set.root_dir);
+			} else {
+				*error_r = t_strdup_printf(
+					"Root mail directory doesn't exist: %s",
 					list_set.root_dir);
 			}
 			return -1;
@@ -199,18 +207,17 @@ static int dbox_create(struct mail_storage *_storage, const char *data)
 	} else {
 		if (mkdir_parents(list_set.root_dir, CREATE_MODE) < 0 &&
 		    errno != EEXIST) {
-			i_error("mkdir_parents(%s) failed: %m",
-				list_set.root_dir);
+			*error_r = t_strdup_printf("mkdir(%s) failed: %m",
+						   list_set.root_dir);
 			return -1;
 		}
 	}
 
 	if (mailbox_list_init(_storage->ns, "fs", &list_set,
 			      mail_storage_get_list_flags(_storage->flags),
-			      &list, &error) < 0) {
-		i_error("dbox fs: %s", error);
+			      &list, error_r) < 0)
 		return -1;
-	}
+
 	_storage->list = list;
 	storage->list_module_ctx.super = list->v;
 	list->v.is_valid_existing_name = dbox_storage_is_valid_existing_name;

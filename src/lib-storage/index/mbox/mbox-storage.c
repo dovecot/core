@@ -253,20 +253,20 @@ get_inbox_file(const char *root_dir, bool only_root, bool debug)
 	return path;
 }
 
-static const char *create_root_dir(bool debug)
+static const char *create_root_dir(bool debug, const char **error_r)
 {
 	const char *home, *path;
 
 	home = getenv("HOME");
 	if (home == NULL) {
-		i_error("mbox: We need root mail directory, "
-			"but can't find it or HOME environment");
+		*error_r = "Root mail directory not set and "
+			"home directory is missing";
 		return NULL;
 	}
 
 	path = t_strconcat(home, "/mail", NULL);
 	if (mkdir_parents(path, CREATE_MODE) < 0) {
-		i_error("mbox: Can't create root mail directory %s: %m", path);
+		*error_r = t_strdup_printf("mkdir(%s) failed: %m", path);
 		return NULL;
 	}
 
@@ -278,7 +278,7 @@ static const char *create_root_dir(bool debug)
 static int
 mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		       const char *data, enum mail_storage_flags flags,
-		       const char **layout_r)
+		       const char **layout_r, const char **error_r)
 {
 	bool debug = (flags & MAIL_STORAGE_FLAG_DEBUG) != 0;
 	const char *p;
@@ -294,7 +294,7 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 	autodetect = data == NULL || *data == '\0';
 	if (autodetect) {
 		if ((flags & MAIL_STORAGE_FLAG_NO_AUTODETECTION) != 0) {
-			i_error("mbox: root mail directory not given");
+			*error_r = "Root mail directory not given";
 			return -1;
 		}
 
@@ -335,18 +335,20 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		}
 	}
 
-	if (list_set->root_dir == NULL) {
-		if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0)
+	if (list_set->root_dir == NULL || *list_set->root_dir == '\0') {
+		if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
+			*error_r = "Root mail directory not given";
 			return -1;
+		}
 
-		list_set->root_dir = create_root_dir(debug);
+		list_set->root_dir = create_root_dir(debug, error_r);
 		if (list_set->root_dir == NULL)
 			return -1;
 	} else {
 		/* strip trailing '/' */
 		size_t len = strlen(list_set->root_dir);
 
-		if (list_set->root_dir[len-1] == '/') {
+		if (len > 1 && list_set->root_dir[len-1] == '/') {
 			list_set->root_dir =
 				t_strndup(list_set->root_dir, len-1);
 		}
@@ -357,14 +359,18 @@ mbox_get_list_settings(struct mailbox_list_settings *list_set,
 		    lstat(list_set->root_dir, &st) == 0) {
 			/* yep, go ahead */
 		} else if (errno != ENOENT && errno != ENOTDIR) {
-			i_error("lstat(%s) failed: %m", list_set->root_dir);
+			*error_r = t_strdup_printf("lstat(%s) failed: %m",
+						   list_set->root_dir);
 			return -1;
 		} else if ((flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) != 0) {
+			*error_r = t_strdup_printf(
+					"Root mail directory doesn't exist: %s",
+					list_set->root_dir);
 			return -1;
 		} else if (mkdir_parents(list_set->root_dir, CREATE_MODE) < 0 &&
 			   errno != EEXIST) {
-			i_error("mkdir_parents(%s) failed: %m",
-				list_set->root_dir);
+			*error_r = t_strdup_printf("mkdir(%s) failed: %m",
+						   list_set->root_dir);
 			return -1;
 		}
 	}
@@ -413,24 +419,24 @@ static struct mail_storage *mbox_alloc(void)
 	return &storage->storage;
 }
 
-static int mbox_create(struct mail_storage *_storage, const char *data)
+static int mbox_create(struct mail_storage *_storage, const char *data,
+		       const char **error_r)
 {
 	struct mbox_storage *storage = (struct mbox_storage *)_storage;
 	struct mailbox_list_settings list_set;
-	const char *layout, *error;
+	const char *layout;
 
 	if (mbox_get_list_settings(&list_set, data,
-				   _storage->flags, &layout) < 0)
+				   _storage->flags, &layout, error_r) < 0)
 		return -1;
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
 
 	if (mailbox_list_init(_storage->ns, layout, &list_set,
 			      mail_storage_get_list_flags(_storage->flags),
-			      &_storage->list, &error) < 0) {
-		i_error("mbox %s: %s", layout, error);
+			      &_storage->list, error_r) < 0)
 		return -1;
-	}
+
 	storage->list_module_ctx.super = _storage->list->v;
 	if (strcmp(layout, "fs") == 0 && *list_set.maildir_name == '\0') {
 		/* have to use .imap/ directories */

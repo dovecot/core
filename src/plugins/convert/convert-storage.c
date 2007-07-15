@@ -265,7 +265,7 @@ int convert_storage(const char *source_data, const char *dest_data,
 	struct dotlock *dotlock;
         enum mail_storage_flags src_flags, dest_flags;
         enum file_lock_method lock_method;
-	const char *path;
+	const char *path, *error;
 	int ret;
 
 	source_ns = mail_namespaces_init_empty(pool_datastack_create());
@@ -274,7 +274,7 @@ int convert_storage(const char *source_data, const char *dest_data,
 
 	src_flags |= MAIL_STORAGE_FLAG_NO_AUTOCREATE;
 	if (mail_storage_create(source_ns, NULL, source_data, set->user,
-				src_flags, lock_method) < 0) {
+				src_flags, lock_method, &error) < 0) {
 		/* No need for conversion. */
 		return 0;
 	}
@@ -283,9 +283,9 @@ int convert_storage(const char *source_data, const char *dest_data,
 	   will most likely create it. So do this before locking. */
 	dest_ns = mail_namespaces_init_empty(pool_datastack_create());
 	if (mail_storage_create(dest_ns, NULL, dest_data, set->user,
-				dest_flags, lock_method) < 0) {
+				dest_flags, lock_method, &error) < 0) {
 		i_error("Mailbox conversion: Failed to create destination "
-			"storage with data: %s", dest_data);
+			"mail storage with data '%s': %s", dest_data, error);
 		mail_namespaces_deinit(&dest_ns);
 		mail_namespaces_deinit(&source_ns);
 		return -1;
@@ -306,7 +306,7 @@ int convert_storage(const char *source_data, const char *dest_data,
 	   reopen the source storage */
 	mail_storage_destroy(&source_ns->storage);
 	if (mail_storage_create(source_ns, NULL, source_data, set->user,
-				src_flags, lock_method) < 0) {
+				src_flags, lock_method, &error) < 0) {
 		/* No need for conversion anymore. */
 		file_dotlock_delete(&dotlock);
 		return 0;

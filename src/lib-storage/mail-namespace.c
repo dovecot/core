@@ -30,7 +30,7 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 		  enum file_lock_method lock_method)
 {
         struct mail_namespace *ns;
-	const char *sep, *type, *prefix;
+	const char *sep, *type, *prefix, *error;
 
 	ns = p_new(pool, struct mail_namespace, 1);
 
@@ -69,9 +69,9 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 	}
 
 	ns->prefix = p_strdup(pool, prefix);
-	if (mail_storage_create(ns, NULL, data, user, flags, lock_method) < 0) {
-		i_error("Namespace '%s' mail storage creation failed "
-			"with mail location: %s", ns->prefix, data);
+	if (mail_storage_create(ns, NULL, data, user, flags, lock_method,
+				&error) < 0) {
+		i_error("Namespace '%s': %s", ns->prefix, error);
 		return NULL;
 	}
 
@@ -164,7 +164,7 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	struct mail_namespace *namespaces, *ns, **ns_p;
 	enum mail_storage_flags flags;
         enum file_lock_method lock_method;
-	const char *mail, *data;
+	const char *mail, *data, *error;
 	unsigned int i;
 
 	mail_storage_parse_env(&flags, &lock_method);
@@ -212,18 +212,13 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	ns->flags = NAMESPACE_FLAG_INBOX | NAMESPACE_FLAG_LIST;
 	ns->prefix = "";
 
-	if (mail_storage_create(ns, NULL, mail, user, flags, lock_method) < 0) {
-		if (mail != NULL && *mail != '\0') {
-			i_error("Mail storage creation failed with "
-				"mail_location: %s", mail);
-		} else {
-			const char *home;
-
-			home = getenv("HOME");
-			if (home == NULL || *home == '\0') home = "(not set)";
-
+	if (mail_storage_create(ns, NULL, mail, user, flags, lock_method,
+				&error) < 0) {
+		if (mail != NULL && *mail != '\0')
+			i_error("mail_location: %s", error);
+		else {
 			i_error("mail_location not set and "
-				"autodetection failed with home=%s", home);
+				"autodetection failed: %s", error);
 		}
 		return -1;
 	}
