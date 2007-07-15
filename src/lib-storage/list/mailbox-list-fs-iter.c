@@ -213,14 +213,14 @@ fs_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	}
 
 	path = mailbox_list_get_path(_list, NULL, MAILBOX_LIST_PATH_TYPE_DIR);
-	if ((ret = list_opendir(ctx, path, "", &dirp)) < 0)
+	if ((ret = list_opendir(ctx, path, _list->ns->prefix, &dirp)) < 0)
 		return &ctx->ctx;
 
 	if (ret > 0) {
 		ctx->dir = i_new(struct list_dir_context, 1);
 		ctx->dir->dirp = dirp;
 		ctx->dir->real_path = i_strdup(path);
-		ctx->dir->virtual_path = i_strdup("");
+		ctx->dir->virtual_path = i_strdup(_list->ns->prefix);
 	}
 	return &ctx->ctx;
 }

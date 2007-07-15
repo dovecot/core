@@ -14,7 +14,7 @@ struct maildir_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	pool_t pool;
 
-	const char *dir, *prefix;
+	const char *dir;
 
         struct mailbox_tree_context *tree_ctx;
 	struct mailbox_tree_iterate_context *tree_iter;
@@ -117,7 +117,9 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 
 		/* make sure the pattern matches */
 		str_truncate(mailbox, 0);
-		str_append(mailbox, ctx->prefix);
+		if ((ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
+		    strcasecmp(fname + 1, "INBOX") != 0)
+			str_append(mailbox, ctx->ctx.list->ns->prefix);
 		str_append(mailbox, fname + 1);
                 mailbox_c = str_c(mailbox);
 
@@ -221,7 +223,6 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 					_list->hierarchy_sep);
 
 	ctx->dir = _list->set.root_dir;
-	ctx->prefix = "";
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* Listing only subscribed mailboxes.

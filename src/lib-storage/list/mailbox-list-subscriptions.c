@@ -30,6 +30,12 @@ mailbox_list_subscription_add(struct mailbox_list_iterate_context *ctx,
 	const char *p;
 	bool created;
 
+	if ((ctx->list->ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
+	    strcasecmp(name, "INBOX") != 0) {
+		/* add namespace prefix to all but INBOX */
+		name = t_strconcat(ctx->list->ns->prefix, name, NULL);
+	}
+
 	create_flags = (update_only ||
 			(ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) ?
 		(MAILBOX_NONEXISTENT | MAILBOX_NOCHILDREN) : 0;
@@ -86,8 +92,10 @@ int mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 	subsfile_ctx = subsfile_list_init(ctx->list, path);
 
 	while ((name = subsfile_list_next(subsfile_ctx)) != NULL) {
+		t_push();
 		mailbox_list_subscription_add(ctx, tree_ctx, glob, update_only,
 					      name);
+		t_pop();
 	}
 
 	return subsfile_list_deinit(subsfile_ctx);
