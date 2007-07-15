@@ -274,7 +274,7 @@ struct settings default_settings = {
 	MEMBER(pop3_enable_last) FALSE,
 	MEMBER(pop3_reuse_xuidl) FALSE,
 	MEMBER(pop3_lock_session) FALSE,
-	MEMBER(pop3_uidl_format) "",
+	MEMBER(pop3_uidl_format) "%08Xu%08Xv",
 	MEMBER(pop3_client_workarounds) "",
 	MEMBER(pop3_logout_format) "top=%t/%p, retr=%r/%b, del=%d/%m, size=%s",
 
