@@ -6,6 +6,7 @@
 #include "strescape.h"
 #include "imap-quote.h"
 #include "imap-match.h"
+#include "imap-status.h"
 #include "commands.h"
 #include "mail-namespace.h"
 
@@ -14,6 +15,7 @@ struct cmd_list_context {
 	const char *ref;
 	const char *const *patterns;
 	enum mailbox_list_flags list_flags;
+	enum mailbox_status_items status_items;
 
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *list_iter;
@@ -144,7 +146,15 @@ parse_return_flags(struct cmd_list_context *ctx, const struct imap_arg *args)
 			list_flags |= MAILBOX_LIST_ITER_RETURN_SUBSCRIBED;
 		else if (strcasecmp(atom, "CHILDREN") == 0)
 			list_flags |= MAILBOX_LIST_ITER_RETURN_CHILDREN;
-		else {
+		else if (strcasecmp(atom, "X-STATUS") == 0 &&
+			 args[1].type == IMAP_ARG_LIST) {
+			/* FIXME: this should probably be a plugin.. */
+			if (imap_status_parse_items(ctx->cmd,
+						IMAP_ARG_LIST_ARGS(&args[1]),
+						&ctx->status_items) < 0)
+				return FALSE;
+			args++;
+		} else {
 			/* skip also optional list value */
 			if (args[1].type == IMAP_ARG_LIST)
 				args++;
@@ -256,6 +266,25 @@ list_namespace_send_prefix(struct cmd_list_context *ctx, bool have_children)
 	client_send_line(ctx->cmd->client, str_c(str));
 }
 
+static void list_send_status(struct cmd_list_context *ctx, const char *name)
+{
+	struct mailbox_status status;
+	const char *storage_name;
+	size_t prefix_len = strlen(ctx->ns->prefix);
+
+	storage_name = strncmp(name, ctx->ns->prefix, prefix_len) == 0 ?
+		name + prefix_len : name;
+
+	if (!imap_status_get(ctx->cmd->client, ctx->ns->storage, storage_name,
+			     ctx->status_items, &status)) {
+		client_send_untagged_storage_error(ctx->cmd->client,
+						   ctx->ns->storage);
+		return;
+	}
+
+	imap_status_send(ctx->cmd->client, name, ctx->status_items, &status);
+}
+
 static int
 list_namespace_mailboxes(struct cmd_list_context *ctx)
 {
@@ -320,6 +349,10 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		str_printfa(str, ") \"%s\" ", ctx->ns->sep_str);
 		imap_quote_append_string(str, name, FALSE);
 		mailbox_childinfo2str(ctx, str, flags);
+
+		if (ctx->status_items != 0 &&
+		    (flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) == 0)
+			list_send_status(ctx, name);
 
 		if (client_send_line(ctx->cmd->client, str_c(str)) == 0) {
 			/* buffer is full, continue later */
