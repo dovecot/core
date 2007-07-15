@@ -6,6 +6,8 @@
 #include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-fs.h"
+
+#include <ctype.h>
 #include <stdlib.h>
 
 #define RULE_NAME_ALL_MAILBOXES "*"
@@ -171,11 +173,69 @@ quota_root_rule_find(struct quota_root *root, const char *name)
 	return NULL;
 }
 
+static int
+quota_rule_parse_limits(struct quota_root *root, struct quota_rule *rule,
+			const char *limits, const char **error_r)
+{
+	const char **args;
+	char *p;
+	uint64_t multiply;
+	int64_t *limit;
+
+	args = t_strsplit(limits, ":");
+	for (; *args != NULL; args++) {
+		multiply = 1;
+		limit = NULL;
+		if (strncmp(*args, "storage=", 8) == 0) {
+			multiply = 1024;
+			limit = &rule->bytes_limit;
+			*limit = strtoll(*args + 8, &p, 10);
+		} else if (strncmp(*args, "bytes=", 6) == 0) {
+			limit = &rule->bytes_limit;
+			*limit = strtoll(*args + 6, &p, 10);
+		} else if (strncmp(*args, "messages=", 9) == 0) {
+			limit = &rule->count_limit;
+			*limit = strtoll(*args + 9, &p, 10);
+		} else {
+			*error_r = p_strdup_printf(root->pool,
+					"Unknown rule limit name: %s", *args);
+			return -1;
+		}
+
+		switch (i_toupper(*p)) {
+		case '\0':
+			/* default */
+			break;
+		case 'B':
+			multiply = 1;
+			break;
+		case 'K':
+			multiply = 1024;
+			break;
+		case 'M':
+			multiply = 1024*1024;
+			break;
+		case 'G':
+			multiply = 1024*1024*1024;
+			break;
+		case 'T':
+			multiply = 1024ULL*1024*1024*1024;
+			break;
+		default:
+			*error_r = p_strdup_printf(root->pool,
+					"Invalid rule limit value: %s", *args);
+			return -1;
+		}
+		*limit *= multiply;
+	}
+	return 0;
+}
+
 int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 			const char **error_r)
 {
 	struct quota_rule *rule;
-	const char *p, *mailbox_name, **args;
+	const char *p, *mailbox_name;
 	int ret = 0;
 
 	p = strchr(rule_def, ':');
@@ -201,25 +261,9 @@ int quota_root_add_rule(struct quota_root *root, const char *rule_def,
 	if (strncmp(p, "backend=", 8) == 0) {
 		if (!root->backend.v.parse_rule(root, rule, p, error_r))
 			ret = -1;
-		p = "";
-		args = &p;
 	} else {
-		args = t_strsplit(p, ":");
-	}
-
-	for (; *args != NULL; args++) {
-		if (strncmp(*args, "storage=", 8) == 0)
-			rule->bytes_limit = strtoll(*args + 8, NULL, 10) * 1024;
-		else if (strncmp(*args, "bytes=", 6) == 0)
-			rule->bytes_limit = strtoll(*args + 6, NULL, 10);
-		else if (strncmp(*args, "messages=", 9) == 0)
-			rule->count_limit = strtoll(*args + 9, NULL, 10);
-		else {
-			*error_r = p_strdup_printf(root->pool,
-					"Invalid rule limit: %s", *args);
+		if (quota_rule_parse_limits(root, rule, p, error_r) < 0)
 			ret = -1;
-			break;
-		}
 	}
 
 	if (root->quota->debug) {
