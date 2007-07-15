@@ -70,8 +70,8 @@ namespace_add_env(pool_t pool, const char *data, unsigned int num,
 
 	ns->prefix = p_strdup(pool, prefix);
 	if (mail_storage_create(ns, NULL, data, user, flags, lock_method) < 0) {
-		i_error("Failed to create storage for '%s' with data: %s",
-			ns->prefix, data);
+		i_error("Namespace '%s' mail storage creation failed "
+			"with mail location: %s", ns->prefix, data);
 		return NULL;
 	}
 
@@ -213,16 +213,17 @@ int mail_namespaces_init(pool_t pool, const char *user,
 	ns->prefix = "";
 
 	if (mail_storage_create(ns, NULL, mail, user, flags, lock_method) < 0) {
-		if (mail != NULL && *mail != '\0')
-			i_error("Failed to create storage with data: %s", mail);
-		else {
+		if (mail != NULL && *mail != '\0') {
+			i_error("Mail storage creation failed with "
+				"mail_location: %s", mail);
+		} else {
 			const char *home;
 
 			home = getenv("HOME");
-			if (home == NULL) home = "not set";
+			if (home == NULL || *home == '\0') home = "(not set)";
 
-			i_error("MAIL environment missing and "
-				"autodetection failed (home %s)", home);
+			i_error("mail_location not set and "
+				"autodetection failed with home=%s", home);
 		}
 		return -1;
 	}
