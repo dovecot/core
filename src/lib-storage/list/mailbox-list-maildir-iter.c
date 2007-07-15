@@ -22,13 +22,66 @@ struct maildir_list_iterate_context {
 	struct mailbox_info info;
 };
 
+static void node_fix_parents(struct mailbox_node *node)
+{
+	/* Fix parent nodes' children states. also if we happened to create any
+	   of the parents, we need to mark them nonexistent. */
+	node = node->parent;
+	for (; node != NULL; node = node->parent) {
+		if ((node->flags & MAILBOX_MATCHED) == 0)
+			node->flags |= MAILBOX_NONEXISTENT;
+
+		node->flags |= MAILBOX_CHILDREN;
+		node->flags &= ~MAILBOX_NOCHILDREN;
+	}
+}
+
+static void maildir_fill_parents(struct maildir_list_iterate_context *ctx,
+				 struct imap_match_glob *glob, bool update_only,
+				 string_t *mailbox, const char *mailbox_c,
+				 enum mailbox_info_flags flags)
+{
+	struct mailbox_node *node;
+	const char *p;
+	char hierarchy_sep;
+	bool created;
+
+	hierarchy_sep = ctx->ctx.list->hierarchy_sep;
+
+	t_push();
+	while ((p = strrchr(mailbox_c, hierarchy_sep)) != NULL) {
+		str_truncate(mailbox, (size_t) (p-mailbox_c));
+		mailbox_c = str_c(mailbox);
+		if (imap_match(glob, mailbox_c) == IMAP_MATCH_YES) {
+			created = FALSE;
+			node = update_only ?
+				mailbox_tree_lookup(ctx->tree_ctx, mailbox_c) :
+				mailbox_tree_get(ctx->tree_ctx,
+						 mailbox_c, &created);
+			if (node != NULL) {
+				if (created) {
+					/* we haven't yet seen this mailbox,
+					   but we might see it later */
+					node->flags = MAILBOX_NONEXISTENT;
+				}
+				if (!update_only)
+					node->flags |= MAILBOX_MATCHED;
+				node->flags |= MAILBOX_CHILDREN | flags;
+				node->flags &= ~MAILBOX_NOCHILDREN;
+				node_fix_parents(node);
+			}
+		}
+	}
+	t_pop();
+}
+
 static int
 maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		     struct imap_match_glob *glob, bool update_only)
 {
 	DIR *dirp;
 	struct dirent *d;
-	const char *p, *mailbox_c;
+	const char *mailbox_c;
 	string_t *mailbox;
 	enum mailbox_info_flags flags;
 	enum imap_match_result match;
@@ -84,37 +137,14 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		if (ret == 0)
 			continue;
 
+		/* we know the children flags ourself, so ignore if any of
+		   them were set. */
+		flags &= ~(MAILBOX_NOINFERIORS |
+			   MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
+
 		if ((match & IMAP_MATCH_PARENT) != 0) {
-			/* get the name of the parent mailbox that matches */
-			t_push();
-			while ((p = strrchr(mailbox_c,
-					    hierarchy_sep)) != NULL) {
-				str_truncate(mailbox, (size_t) (p-mailbox_c));
-				mailbox_c = str_c(mailbox);
-				if (imap_match(glob, mailbox_c) ==
-				    IMAP_MATCH_YES)
-					break;
-			}
-			i_assert(p != NULL);
-
-			created = FALSE;
-			node = update_only ?
-				mailbox_tree_lookup(ctx->tree_ctx, mailbox_c) :
-				mailbox_tree_get(ctx->tree_ctx,
-						 mailbox_c, &created);
-			if (node != NULL) {
-				if (created) {
-					/* we haven't yet seen this mailbox,
-					   but we might see it later */
-					node->flags = MAILBOX_NONEXISTENT;
-				}
-				if (!update_only)
-					node->flags |= MAILBOX_MATCHED;
-				node->flags |= MAILBOX_CHILDREN;
-				node->flags &= ~MAILBOX_NOCHILDREN;
-			}
-
-			t_pop();
+			maildir_fill_parents(ctx, glob, update_only,
+					     mailbox, mailbox_c, flags);
 		} else {
 			created = FALSE;
 			node = update_only ?
@@ -129,25 +159,8 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 					node->flags &= ~MAILBOX_NONEXISTENT;
 				if (!update_only)
 					node->flags |= MAILBOX_MATCHED;
-			}
-		}
-		if (node != NULL) {
-			/* apply flags given by storage. we know the children
-			   flags ourself, so ignore if any of them were set. */
-			node->flags |= flags & ~(MAILBOX_NOINFERIORS |
-						 MAILBOX_CHILDREN |
-						 MAILBOX_NOCHILDREN);
-
-			/* Fix parent nodes' children states. also if we
-			   happened to create any of the parents, we need to
-			   mark them nonexistent. */
-			node = node->parent;
-			for (; node != NULL; node = node->parent) {
-				if ((node->flags & MAILBOX_MATCHED) == 0)
-					node->flags |= MAILBOX_NONEXISTENT;
-
-				node->flags |= MAILBOX_CHILDREN;
-				node->flags &= ~MAILBOX_NOCHILDREN;
+				node->flags |= flags;
+				node_fix_parents(node);
 			}
 		}
 	}
