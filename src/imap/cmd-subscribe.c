@@ -22,13 +22,12 @@ bool _cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		return TRUE;
 	}
 	storage = ns->storage;
-	verify_name += strlen(ns->prefix);
 
 	if ((client_workarounds & WORKAROUND_TB_EXTRA_MAILBOX_SEP) != 0 &&
 	    *mailbox != '\0' && mailbox[strlen(mailbox)-1] ==
 	    mail_storage_get_hierarchy_sep(storage)) {
 		/* verify the validity without the trailing '/' */
-		verify_name = t_strndup(mailbox, strlen(mailbox)-1);
+		verify_name = t_strndup(verify_name, strlen(verify_name)-1);
 	}
 
 	if (!client_verify_mailbox_name(cmd, verify_name, subscribe, FALSE))
