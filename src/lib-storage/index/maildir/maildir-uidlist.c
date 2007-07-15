@@ -1030,10 +1030,13 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 	ctx->uidlist = uidlist;
 	ctx->sync_flags = sync_flags;
 	ctx->partial = (sync_flags & MAILDIR_UIDLIST_SYNC_PARTIAL) != 0;
+	ctx->first_new_pos = (unsigned int)-1;
 
 	if (ctx->partial) {
-		/* initially mark all nonsynced */
-                maildir_uidlist_mark_all(uidlist, TRUE);
+		if ((sync_flags & MAILDIR_UIDLIST_SYNC_KEEP_STATE) == 0) {
+			/* initially mark all nonsynced */
+			maildir_uidlist_mark_all(uidlist, TRUE);
+		}
 		return 1;
 	}
 

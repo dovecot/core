@@ -127,7 +127,8 @@ static void maildir_handle_uid_insertion(struct maildir_index_sync_context *ctx,
 
 	if (ctx->uidlist_sync_ctx == NULL) {
 		ret = maildir_uidlist_sync_init(ctx->mbox->uidlist,
-						MAILDIR_UIDLIST_SYNC_PARTIAL,
+						MAILDIR_UIDLIST_SYNC_PARTIAL |
+						MAILDIR_UIDLIST_SYNC_KEEP_STATE,
 						&ctx->uidlist_sync_ctx);
 		i_assert(ret > 0);
 	}

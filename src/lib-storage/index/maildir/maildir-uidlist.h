@@ -6,7 +6,8 @@
 struct maildir_uidlist_sync_ctx;
 
 enum maildir_uidlist_sync_flags {
-	MAILDIR_UIDLIST_SYNC_PARTIAL	= 0x01
+	MAILDIR_UIDLIST_SYNC_PARTIAL	= 0x01,
+	MAILDIR_UIDLIST_SYNC_KEEP_STATE	= 0x02
 };
 
 enum maildir_uidlist_rec_flag {
