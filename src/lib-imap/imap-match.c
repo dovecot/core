@@ -24,8 +24,7 @@ struct imap_match_glob {
 };
 
 struct imap_match_context {
-	const char *data, *inboxcase_end;
-	const char *pattern;
+	const char *inboxcase_end;
 
 	char sep;
 	bool inboxcase;
@@ -165,20 +164,21 @@ void imap_match_deinit(struct imap_match_glob **glob)
 	*glob = NULL;
 }
 
-#define CMP_CUR_CHR(ctx) \
-	(*(ctx)->data == *(ctx)->pattern || \
-	 (i_toupper(*(ctx)->data) == i_toupper(*(ctx)->pattern) && \
-	 (ctx)->data < (ctx)->inboxcase_end))
+#define CMP_CUR_CHR(ctx, data, pattern) \
+	(*(data) == *(pattern) || \
+	 (i_toupper(*(data)) == i_toupper(*(pattern)) && \
+	 (data) < (ctx)->inboxcase_end))
 
 static enum imap_match_result
-match_sub(struct imap_match_context *ctx)
+match_sub(struct imap_match_context *ctx, const char **data_p,
+	  const char **pattern_p)
 {
 	enum imap_match_result ret, match;
-	const char *data = ctx->data, *pattern = ctx->pattern;
+	const char *data = *data_p, *pattern = *pattern_p;
 
 	/* match all non-wildcards */
 	while (*pattern != '\0' && *pattern != '*' && *pattern != '%') {
-		if (!CMP_CUR_CHR(ctx)) {
+		if (!CMP_CUR_CHR(ctx, data, pattern)) {
 			return *data == '\0' && *pattern == ctx->sep ?
 				IMAP_MATCH_CHILDREN : IMAP_MATCH_NO;
 		}
@@ -198,8 +198,8 @@ match_sub(struct imap_match_context *ctx)
 
 		/* skip over this hierarchy */
 		while (*data != '\0') {
-			if (CMP_CUR_CHR(ctx)) {
-				ret = match_sub(ctx);
+			if (CMP_CUR_CHR(ctx, data, pattern)) {
+				ret = match_sub(ctx, &data, &pattern);
 				if (ret == IMAP_MATCH_YES)
 					break;
 
@@ -227,52 +227,52 @@ match_sub(struct imap_match_context *ctx)
 		}
 	}
 
-	ctx->data = data;
-	ctx->pattern = pattern;
+	*data_p = data;
+	*pattern_p = pattern;
 	return IMAP_MATCH_YES;
 }
 
 static enum imap_match_result
-imap_match_pattern(struct imap_match_context *ctx)
+imap_match_pattern(struct imap_match_context *ctx,
+		   const char *data, const char *pattern)
 {
 	enum imap_match_result ret, match;
 
-	ctx->inboxcase_end = ctx->data;
-	if (ctx->inboxcase &&
-	    strncasecmp(ctx->data, inbox, INBOXLEN) == 0 &&
-	    (ctx->data[INBOXLEN] == '\0' || ctx->data[INBOXLEN] == ctx->sep)) {
+	ctx->inboxcase_end = data;
+	if (ctx->inboxcase && strncasecmp(data, inbox, INBOXLEN) == 0 &&
+	    (data[INBOXLEN] == '\0' || data[INBOXLEN] == ctx->sep)) {
 		/* data begins with INBOX/, use case-insensitive comparison
 		   for it */
 		ctx->inboxcase_end += INBOXLEN;
 	}
 
-	if (*ctx->pattern != '*') {
+	if (*pattern != '*') {
 		/* handle the pattern up to the first '*' */
-		ret = match_sub(ctx);
-		if (ret != IMAP_MATCH_YES || *ctx->pattern == '\0')
+		ret = match_sub(ctx, &data, &pattern);
+		if (ret != IMAP_MATCH_YES || *pattern == '\0')
 			return ret;
 	}
 
 	match = IMAP_MATCH_CHILDREN;
-	while (*ctx->pattern == '*') {
-		ctx->pattern++;
+	while (*pattern == '*') {
+		pattern++;
 
-		if (*ctx->pattern == '\0')
+		if (*pattern == '\0')
 			return IMAP_MATCH_YES;
 
-		while (*ctx->data != '\0') {
-			if (CMP_CUR_CHR(ctx)) {
-				ret = match_sub(ctx);
+		while (*data != '\0') {
+			if (CMP_CUR_CHR(ctx, data, pattern)) {
+				ret = match_sub(ctx, &data, &pattern);
 				if (ret == IMAP_MATCH_YES)
 					break;
 				match |= ret;
 			}
 
-			ctx->data++;
+			data++;
 		}
 	}
 
-	return *ctx->data == '\0' && *ctx->pattern == '\0' ?
+	return *data == '\0' && *pattern == '\0' ?
 		IMAP_MATCH_YES : match;
 }
 
@@ -286,11 +286,9 @@ imap_match(struct imap_match_glob *glob, const char *data)
 	match = IMAP_MATCH_NO;
 	ctx.sep = glob->sep;
 	for (i = 0; glob->patterns[i].pattern != NULL; i++) {
-		ctx.data = data;
-		ctx.pattern = glob->patterns[i].pattern;
 		ctx.inboxcase = glob->patterns[i].inboxcase;
 
-		ret = imap_match_pattern(&ctx);
+		ret = imap_match_pattern(&ctx, data, glob->patterns[i].pattern);
 		if (ret == IMAP_MATCH_YES)
 			return IMAP_MATCH_YES;
 
