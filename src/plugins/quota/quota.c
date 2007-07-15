@@ -174,6 +174,32 @@ quota_root_rule_find(struct quota_root *root, const char *name)
 }
 
 static int
+quota_rule_parse_percentage(struct quota_root *root, struct quota_rule *rule,
+			    int64_t *limit, const char **error_r)
+{
+	int64_t percentage = *limit;
+
+	if (percentage < 0) {
+		*error_r = p_strdup_printf(root->pool,
+			"Invalid rule percentage: %lld", (long long)percentage);
+		return -1;
+	}
+
+	if (rule == &root->default_rule) {
+		*error_r = "Default rule can't be a percentage";
+		return -1;
+	}
+
+	if (limit == &rule->bytes_limit)
+		*limit = rule->bytes_limit * percentage / 100;
+	else if (limit == &rule->count_limit)
+		*limit = rule->count_limit * percentage / 100;
+	else
+		i_unreached();
+	return 0;
+}
+
+static int
 quota_rule_parse_limits(struct quota_root *root, struct quota_rule *rule,
 			const char *limits, const char **error_r)
 {
@@ -220,6 +246,12 @@ quota_rule_parse_limits(struct quota_root *root, struct quota_rule *rule,
 			break;
 		case 'T':
 			multiply = 1024ULL*1024*1024*1024;
+			break;
+		case '%':
+			multiply = 1;
+			if (quota_rule_parse_percentage(root, rule, limit,
+							error_r) < 0)
+				return -1;
 			break;
 		default:
 			*error_r = p_strdup_printf(root->pool,
