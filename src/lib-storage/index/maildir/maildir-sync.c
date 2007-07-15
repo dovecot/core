@@ -622,6 +622,29 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox,
 	return 0;
 }
 
+static void maildir_sync_update_next_uid(struct maildir_mailbox *mbox)
+{
+	const struct mail_index_header *hdr;
+	uint32_t uid_validity, next_uid;
+
+	hdr = mail_index_get_header(mbox->ibox.view);
+	if (hdr->uid_validity == 0)
+		return;
+
+	uid_validity = maildir_uidlist_get_uid_validity(mbox->uidlist);
+	next_uid = maildir_uidlist_get_next_uid(mbox->uidlist);
+
+	if (uid_validity == hdr->uid_validity || uid_validity == 0) {
+		/* make sure uidlist's next_uid is at least as large as
+		   index file's. typically this happens only if uidlist gets
+		   deleted. */
+		maildir_uidlist_set_uid_validity(mbox->uidlist,
+						 hdr->uid_validity);
+		maildir_uidlist_set_next_uid(mbox->uidlist,
+					     hdr->next_uid, FALSE);
+	}
+}
+
 static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 				bool sync_last_commit)
 {
@@ -722,6 +745,8 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 			if (maildir_scan_dir(ctx, FALSE) < 0)
 				return -1;
 		}
+
+		maildir_sync_update_next_uid(ctx->mbox);
 
 		/* finish uidlist syncing, but keep it still locked */
 		maildir_uidlist_sync_finish(ctx->uidlist_sync_ctx);
