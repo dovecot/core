@@ -109,21 +109,41 @@ static int _tview_lookup_uid_range(struct mail_index_view *view,
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
+	const struct mail_index_record *rec;
+	uint32_t seq;
 
 	if (tview->super->lookup_uid_range(view, first_uid, last_uid,
 					   first_seq_r, last_seq_r) < 0)
 		return -1;
 
-	/* FIXME: we don't need this function yet.. new UIDs might be 0 as
-	   well.. */
-
-	if (*first_seq_r == 0) {
-		/* nothing found, either doesn't exist or it's completely
-		   newly appended. */
-	} else if (*last_seq_r + 1 == tview->t->first_new_seq) {
-		/* last_seq_r may be growed from transactions */
+	if (tview->t->last_new_seq == 0) {
+		/* no new messages, the results are final. */
+		return 0;
 	}
 
+	rec = mail_index_transaction_lookup(tview->t, tview->t->first_new_seq);
+	if (rec->uid == 0) {
+		/* new messages don't have UIDs */
+		return 0;
+	}
+	if (last_uid < rec->uid) {
+		/* all wanted messages were existing */
+		return 0;
+	}
+
+	/* at least some of the wanted messages are newly created */
+	if (*first_seq_r == 0)
+		*first_seq_r = tview->t->first_new_seq;
+
+	seq = tview->t->last_new_seq;
+	for (; seq >= tview->t->first_new_seq; seq--) {
+		rec = mail_index_transaction_lookup(tview->t, seq);
+		if (rec->uid <= last_uid) {
+			*last_seq_r = seq;
+			break;
+		}
+	}
+	i_assert(seq >= tview->t->first_new_seq);
 	return 0;
 }
 
