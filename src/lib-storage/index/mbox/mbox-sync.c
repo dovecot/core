@@ -446,10 +446,10 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		}
 	}
 
-	if (!mail_ctx->recent) {
-		sync_ctx->last_nonrecent_idx_seq = sync_ctx->idx_seq;
+	if (!mail_ctx->recent)
 		sync_ctx->last_nonrecent_uid = mail->uid;
-	}
+	else
+		index_mailbox_set_recent_uid(&sync_ctx->mbox->ibox, mail->uid);
 
 	/* update from_offsets, but not if we're going to rewrite this message.
 	   rewriting would just move it anyway. */
@@ -1432,6 +1432,7 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 
 static int mbox_sync_recent_state(struct mbox_sync_context *sync_ctx)
 {
+#if 0
 	uint32_t seq1, seq2;
 
 	/* see what index thinks is the lowest recent sequence */
@@ -1453,13 +1454,11 @@ static int mbox_sync_recent_state(struct mbox_sync_context *sync_ctx)
 		seq1 = sync_ctx->last_nonrecent_idx_seq + 1;
 	}
 
-	if (seq2 < sync_ctx->idx_seq)
-		seq2 = sync_ctx->idx_seq - 1;
-
 	if (seq1 <= seq2) {
 		index_mailbox_set_recent_seq(&sync_ctx->mbox->ibox,
 					     sync_ctx->sync_view, seq1, seq2);
 	}
+#endif
 	return 0;
 }
 

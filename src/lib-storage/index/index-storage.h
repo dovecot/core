@@ -119,6 +119,7 @@ void index_mailbox_set_recent_seq(struct index_mailbox *ibox,
 				  struct mail_index_view *view,
 				  uint32_t seq1, uint32_t seq2);
 bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t uid);
+unsigned int index_mailbox_get_recent_count(struct index_mailbox *ibox);
 
 void index_mailbox_check_add(struct index_mailbox *ibox,
 			     const char *path);

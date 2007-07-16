@@ -131,7 +131,7 @@ struct mbox_sync_context {
 
 	uint32_t prev_msg_uid, next_uid, idx_next_uid;
 	uint32_t seq, idx_seq, need_space_seq;
-	uint32_t last_nonrecent_idx_seq, last_nonrecent_uid;
+	uint32_t last_nonrecent_uid;
 	off_t expunged_space, space_diff;
 
 	unsigned int dest_first_mail:1;

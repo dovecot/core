@@ -116,7 +116,7 @@ enum mail_flags index_mail_get_flags(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 
 	data->flags = data->rec->flags & MAIL_FLAGS_NONRECENT;
-	if (index_mailbox_is_recent(mail->ibox, data->seq))
+	if (index_mailbox_is_recent(mail->ibox, _mail->uid))
 		data->flags |= MAIL_RECENT;
 
 	return data->flags;

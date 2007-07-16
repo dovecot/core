@@ -51,6 +51,35 @@ bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t uid)
 		seq_range_exists(&ibox->recent_flags, uid);
 }
 
+unsigned int index_mailbox_get_recent_count(struct index_mailbox *ibox)
+{
+	const struct mail_index_header *hdr;
+	const struct seq_range *range;
+	unsigned int i, count, recent_count;
+
+	if (!array_is_created(&ibox->recent_flags))
+		return 0;
+
+	hdr = mail_index_get_header(ibox->view);
+	recent_count = ibox->recent_flags_count;
+	range = array_get(&ibox->recent_flags, &count);
+	for (i = count; i > 0; ) {
+		i--;
+		if (range[i].seq2 < hdr->next_uid)
+			break;
+
+		if (range[i].seq1 >= hdr->next_uid) {
+			/* completely invisible to this view */
+			recent_count -= range[i].seq2 - range[i].seq1 + 1;
+		} else {
+			/* partially invisible */
+			recent_count -= range[i].seq2 - hdr->next_uid + 1;
+			break;
+		}
+	}
+	return recent_count;
+}
+
 static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 					 uint32_t seq1, uint32_t seq2)
 {
@@ -200,8 +229,12 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 			return 1;
 		}
 	}
+	if (ret < 0) {
+		mail_storage_set_index_error(ctx->ibox);
+		return -1;
+	}
 
-	if (ret == 0 && ctx->expunge_pos > 0) {
+	if (ctx->expunge_pos > 0) {
 		/* expunges is a sorted array of sequences. it's easiest for
 		   us to print them from end to beginning. */
 		const struct seq_range *range;
@@ -222,9 +255,7 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 		return 1;
 	}
 
-	if (ret < 0)
-		mail_storage_set_index_error(ctx->ibox);
-	return ret;
+	return 0;
 }
 
 int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
