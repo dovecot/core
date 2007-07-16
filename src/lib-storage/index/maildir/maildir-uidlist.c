@@ -101,7 +101,7 @@ struct maildir_uidlist_sync_ctx {
 	ARRAY_TYPE(maildir_uidlist_rec_p) records;
 	struct hash_table *files;
 
-	unsigned int first_new_pos;
+	unsigned int first_unwritten_pos, first_nouid_pos;
 	unsigned int new_files_count;
 
 	unsigned int partial:1;
@@ -255,6 +255,28 @@ maildir_uidlist_mark_recent(struct maildir_uidlist *uidlist, uint32_t uid)
 		uidlist->first_recent_uid = uid;
 }
 
+static int maildir_uid_cmp(const void *p1, const void *p2)
+{
+	const struct maildir_uidlist_rec *const *rec1 = p1, *const *rec2 = p2;
+
+	return (*rec1)->uid < (*rec2)->uid ? -1 :
+		(*rec1)->uid > (*rec2)->uid ? 1 : 0;
+}
+
+static void
+maildir_uidlist_records_array_delete(struct maildir_uidlist *uidlist,
+				     struct maildir_uidlist_rec *rec)
+{
+	struct maildir_uidlist_rec *const *recs, *const *pos;
+	unsigned int count;
+
+	recs = array_get(&uidlist->records, &count);
+	pos = bsearch(&rec, recs, count, sizeof(*recs), maildir_uid_cmp);
+	i_assert(pos != NULL);
+
+	array_delete(&uidlist->records, pos - recs, 1);
+}
+
 static bool
 maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 			      const char **line_p,
@@ -295,7 +317,7 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 				const char *line)
 {
 	struct mail_storage *storage = &uidlist->mbox->storage->storage;
-	struct maildir_uidlist_rec *rec;
+	struct maildir_uidlist_rec *rec, *old_rec;
 	uint32_t uid;
 
 	uid = 0;
@@ -346,11 +368,17 @@ static int maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		}
 	}
 
-	if (hash_lookup_full(uidlist->files, line, NULL, NULL)) {
-                mail_storage_set_critical(&uidlist->mbox->storage->storage,
-			"Duplicate file in uidlist file %s: %s",
-			uidlist->path, line);
-		return 0;
+	old_rec = hash_lookup(uidlist->files, line);
+	if (old_rec != NULL) {
+		/* This can happen if expunged file is moved back and the file
+		   was appended to uidlist. */
+		i_warning("%s: Duplicate file entry: %s", uidlist->path, line);
+		/* Delete the old UID */
+		maildir_uidlist_records_array_delete(uidlist, old_rec);
+		/* Replace the old record with this new one */
+		*old_rec = *rec;
+		rec = old_rec;
+		uidlist->recreate = TRUE;
 	}
 
 	rec->filename = p_strdup(uidlist->record_pool, line);
@@ -944,6 +972,7 @@ static int maildir_uidlist_recreate(struct maildir_uidlist *uidlist)
 		uidlist->fd_ino = st.st_ino;
 		uidlist->fd_size = st.st_size;
 		uidlist->last_read_offset = st.st_size;
+		uidlist->recreate = FALSE;
 	}
 	return ret;
 }
@@ -982,7 +1011,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	    UIDLIST_COMPRESS_PERCENTAGE / 100 >= array_count(&uidlist->records))
 		return maildir_uidlist_recreate(uidlist);
 
-	i_assert(ctx->first_new_pos != (unsigned int)-1);
+	i_assert(ctx->first_unwritten_pos != (unsigned int)-1);
 
 	if (lseek(uidlist->fd, 0, SEEK_END) < 0) {
 		mail_storage_set_critical(&uidlist->mbox->storage->storage,
@@ -991,7 +1020,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 	}
 
 	if (maildir_uidlist_write_fd(uidlist, uidlist->fd, uidlist->path,
-				     ctx->first_new_pos, &file_size) < 0)
+				     ctx->first_unwritten_pos, &file_size) < 0)
 		return -1;
 
 	uidlist->last_read_offset = file_size;
@@ -1028,7 +1057,8 @@ int maildir_uidlist_sync_init(struct maildir_uidlist *uidlist,
 	ctx->uidlist = uidlist;
 	ctx->sync_flags = sync_flags;
 	ctx->partial = (sync_flags & MAILDIR_UIDLIST_SYNC_PARTIAL) != 0;
-	ctx->first_new_pos = (unsigned int)-1;
+	ctx->first_unwritten_pos = (unsigned int)-1;
+	ctx->first_nouid_pos = (unsigned int)-1;
 
 	if (ctx->partial) {
 		if ((sync_flags & MAILDIR_UIDLIST_SYNC_KEEP_STATE) == 0) {
@@ -1061,8 +1091,8 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	i_assert(rec != NULL || UIDLIST_IS_LOCKED(uidlist));
 
 	if (rec == NULL) {
-		if (ctx->new_files_count == 0)
-			ctx->first_new_pos = array_count(&uidlist->records);
+		if (ctx->first_nouid_pos == (unsigned int)-1)
+			ctx->first_nouid_pos = array_count(&uidlist->records);
 		ctx->new_files_count++;
 		ctx->changed = TRUE;
 
@@ -1164,36 +1194,28 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 	return 1;
 }
 
-static int maildir_uid_cmp(const void *p1, const void *p2)
-{
-	const struct maildir_uidlist_rec *const *rec1 = p1, *const *rec2 = p2;
-
-	return (*rec1)->uid < (*rec2)->uid ? -1 :
-		(*rec1)->uid > (*rec2)->uid ? 1 : 0;
-}
-
 void maildir_uidlist_sync_remove(struct maildir_uidlist_sync_ctx *ctx,
 				 const char *filename)
 {
-	struct maildir_uidlist_rec *const *recs, *const *pos, *rec;
-	unsigned int count;
+	struct maildir_uidlist_rec *rec;
 
 	i_assert(ctx->partial);
 
-	if (ctx->first_new_pos != (unsigned int)-1)
-		ctx->first_new_pos--;
+	if (ctx->first_unwritten_pos != (unsigned int)-1) {
+		i_assert(ctx->first_unwritten_pos > 0);
+		ctx->first_unwritten_pos--;
+	}
+	if (ctx->first_nouid_pos != (unsigned int)-1) {
+		i_assert(ctx->first_nouid_pos > 0);
+		ctx->first_nouid_pos--;
+	}
 
 	rec = hash_lookup(ctx->uidlist->files, filename);
 	i_assert(rec != NULL);
 	i_assert(rec->uid != (uint32_t)-1);
 
 	hash_remove(ctx->uidlist->files, filename);
-
-	recs = array_get(&ctx->uidlist->records, &count);
-	pos = bsearch(&rec, recs, count, sizeof(*recs), maildir_uid_cmp);
-	i_assert(pos != NULL);
-
-	array_delete(&ctx->uidlist->records, pos - recs, 1);
+	maildir_uidlist_records_array_delete(ctx->uidlist, rec);
 
 	ctx->changed = TRUE;
 	ctx->uidlist->recreate = TRUE;
@@ -1232,14 +1254,17 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 	unsigned int dest, count;
 
 	i_assert(UIDLIST_IS_LOCKED(ctx->uidlist));
-	i_assert(ctx->first_new_pos != (unsigned int)-1);
+	i_assert(ctx->first_nouid_pos != (unsigned int)-1);
 
-	recs = array_get_modifiable(&ctx->uidlist->records, &count);
+	if (ctx->first_unwritten_pos == (unsigned int)-1)
+		ctx->first_unwritten_pos = ctx->first_nouid_pos;
 
 	/* sort new files and assign UIDs for them */
-	qsort(recs + ctx->first_new_pos, count - ctx->first_new_pos,
+	recs = array_get_modifiable(&ctx->uidlist->records, &count);
+	qsort(recs + ctx->first_nouid_pos, count - ctx->first_nouid_pos,
 	      sizeof(*recs), maildir_time_cmp);
-	for (dest = ctx->first_new_pos; dest < count; dest++) {
+
+	for (dest = ctx->first_nouid_pos; dest < count; dest++) {
 		i_assert(recs[dest]->uid == (uint32_t)-1);
 		recs[dest]->uid = ctx->uidlist->next_uid++;
 		recs[dest]->flags &= ~MAILDIR_UIDLIST_REC_FLAG_MOVED;
@@ -1251,8 +1276,8 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 		}
 	}
 
-	ctx->first_new_pos = (unsigned int)-1;
 	ctx->new_files_count = 0;
+	ctx->first_nouid_pos = (unsigned int)-1;
 
         ctx->uidlist->last_seen_uid = ctx->uidlist->next_uid-1;
 	ctx->uidlist->change_counter++;
@@ -1282,7 +1307,7 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 	ctx->record_pool = NULL;
 
 	if (ctx->new_files_count != 0) {
-		ctx->first_new_pos = count - ctx->new_files_count;
+		ctx->first_nouid_pos = count - ctx->new_files_count;
 		maildir_uidlist_assign_uids(ctx);
 	}
 
@@ -1295,7 +1320,7 @@ void maildir_uidlist_sync_finish(struct maildir_uidlist_sync_ctx *ctx)
 		if (!ctx->failed)
 			maildir_uidlist_swap(ctx);
 	} else {
-		if (ctx->changed)
+		if (ctx->new_files_count != 0)
 			maildir_uidlist_assign_uids(ctx);
 	}
 
