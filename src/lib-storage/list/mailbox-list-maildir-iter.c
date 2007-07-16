@@ -117,7 +117,7 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 
 		/* make sure the pattern matches */
 		str_truncate(mailbox, 0);
-		if ((ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) != 0 &&
+		if ((ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
 		    strcasecmp(fname + 1, "INBOX") != 0)
 			str_append(mailbox, ctx->ctx.list->ns->prefix);
 		str_append(mailbox, fname + 1);
@@ -197,7 +197,9 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 			iter_is_mailbox(&ctx->ctx, ctx->dir, "",
 					MAILBOX_LIST_FILE_TYPE_UNKNOWN, &flags);
 		if (ret > 0) {
-			node = mailbox_tree_get(ctx->tree_ctx, "INBOX", NULL);
+			mailbox_c = t_strconcat(ctx->ctx.list->ns->prefix,
+						"INBOX", NULL);
+			node = mailbox_tree_get(ctx->tree_ctx, mailbox_c, NULL);
 			node->flags = MAILBOX_NOCHILDREN | MAILBOX_MATCHED;
 		}
 	}
