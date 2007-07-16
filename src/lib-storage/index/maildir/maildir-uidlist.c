@@ -84,7 +84,6 @@ struct maildir_uidlist {
 	unsigned int version;
 	unsigned int uid_validity, next_uid, prev_read_uid, last_seen_uid;
 	unsigned int read_records_count;
-	uint32_t first_recent_uid;
 	uoff_t last_read_offset;
 	string_t *hdr_extensions;
 
@@ -245,14 +244,6 @@ void maildir_uidlist_deinit(struct maildir_uidlist *uidlist)
 	str_free(&uidlist->hdr_extensions);
 	i_free(uidlist->path);
 	i_free(uidlist);
-}
-
-static void
-maildir_uidlist_mark_recent(struct maildir_uidlist *uidlist, uint32_t uid)
-{
-	if (uidlist->first_recent_uid == 0 ||
-	    uid < uidlist->first_recent_uid)
-		uidlist->first_recent_uid = uid;
 }
 
 static int maildir_uid_cmp(const void *p1, const void *p2)
@@ -738,50 +729,6 @@ maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 	return NULL;
 }
 
-bool maildir_uidlist_is_recent(struct maildir_uidlist *uidlist, uint32_t uid)
-{
-	enum maildir_uidlist_rec_flag flags;
-
-	if (uidlist->first_recent_uid == 0 || uid < uidlist->first_recent_uid)
-		return FALSE;
-
-	if (maildir_uidlist_lookup(uidlist, uid, &flags) == NULL)
-		return FALSE;
-
-	i_assert(uidlist->first_recent_uid != uid ||
-		 (flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0);
-	return (flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0;
-}
-
-uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist)
-{
-	struct maildir_uidlist_rec *const *recs;
-	unsigned int idx, count;
-	uint32_t recent_count;
-
-	if (!uidlist->initial_sync) {
-		/* we haven't synced yet, trust index */
-		const struct mail_index_header *hdr;
-
-		hdr = mail_index_get_header(uidlist->mbox->ibox.view);
-		return hdr->recent_messages_count;
-	}
-
-	/* all recent messages were in new/ dir, so even if we did only
-	   a partial sync we should know all the recent messages. */
-
-	if (uidlist->first_recent_uid == 0)
-		return 0;
-
-	recs = array_get(&uidlist->records, &count);
-	maildir_uidlist_lookup_rec(uidlist, uidlist->first_recent_uid, &idx);
-	for (recent_count = 0; idx < count; idx++) {
-		if ((recs[idx]->flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0)
-			recent_count++;
-	}
-	return recent_count;
-}
-
 uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist)
 {
 	return uidlist->uid_validity;
@@ -1110,10 +1057,6 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		uidlist->change_counter++;
 	}
 
-	if ((flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
-	    rec->uid != (uint32_t)-1)
-		maildir_uidlist_mark_recent(uidlist, rec->uid);
-
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(uidlist->record_pool, filename);
 	hash_insert(uidlist->files, rec->filename, rec);
@@ -1165,6 +1108,9 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			return 0;
 		}
 
+		/* probably was in new/ and now we're seeing it in cur/.
+		   remove new/moved flags so if this happens again we'll know
+		   to check for duplicates. */
 		rec->flags &= ~(MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 				MAILDIR_UIDLIST_REC_FLAG_MOVED);
 	} else {
@@ -1179,14 +1125,12 @@ int maildir_uidlist_sync_next(struct maildir_uidlist_sync_ctx *ctx,
 			rec->uid = (uint32_t)-1;
 			ctx->new_files_count++;
 			ctx->changed = TRUE;
+			/* didn't exist in uidlist, it's recent */
+			flags |= MAILDIR_UIDLIST_REC_FLAG_RECENT;
 		}
 
 		array_append(&ctx->records, &rec, 1);
 	}
-
-	if ((flags & MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0 &&
-	    rec->uid != (uint32_t)-1)
-		maildir_uidlist_mark_recent(uidlist, rec->uid);
 
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	rec->filename = p_strdup(ctx->record_pool, filename);
@@ -1268,12 +1212,6 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 		i_assert(recs[dest]->uid == (uint32_t)-1);
 		recs[dest]->uid = ctx->uidlist->next_uid++;
 		recs[dest]->flags &= ~MAILDIR_UIDLIST_REC_FLAG_MOVED;
-
-		if ((recs[dest]->flags &
-		     MAILDIR_UIDLIST_REC_FLAG_RECENT) != 0) {
-			maildir_uidlist_mark_recent(ctx->uidlist,
-						    recs[dest]->uid);
-		}
 	}
 
 	ctx->new_files_count = 0;

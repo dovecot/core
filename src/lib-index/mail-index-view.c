@@ -339,8 +339,6 @@ static int _view_lookup_first(struct mail_index_view *view,
 
 	*seq_r = 0;
 
-	if ((flags_mask & MAIL_RECENT) != 0 && (flags & MAIL_RECENT) != 0)
-		LOW_UPDATE(view->map->hdr.first_recent_uid_lowwater);
 	if ((flags_mask & MAIL_SEEN) != 0 && (flags & MAIL_SEEN) == 0)
 		LOW_UPDATE(view->map->hdr.first_unseen_uid_lowwater);
 	if ((flags_mask & MAIL_DELETED) != 0 && (flags & MAIL_DELETED) != 0)

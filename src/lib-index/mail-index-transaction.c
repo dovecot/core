@@ -424,6 +424,40 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 	t->appends_nonsorted = FALSE;
 }
 
+uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
+{
+	const struct mail_index_header *hdr;
+	const struct mail_index_record *recs;
+	unsigned int count, offset;
+	uint32_t next_uid;
+
+	next_uid = t->view->map->hdr.next_uid;
+	if (array_is_created(&t->appends)) {
+		/* get next_uid from appends if they have UIDs */
+		mail_index_transaction_sort_appends(t);
+
+		recs = array_get(&t->appends, &count);
+		if (count > 0 && recs[count-1].uid != 0) {
+			i_assert(recs[count-1].uid >= next_uid);
+			next_uid = recs[count-1].uid + 1;
+		}
+	}
+
+	/* see if it's been updated in pre/post header changes */
+	offset = offsetof(struct mail_index_header, next_uid);
+	if (t->post_hdr_mask[offset] != 0) {
+		hdr = (const void *)t->post_hdr_change;
+		if (hdr->next_uid > next_uid)
+			next_uid = hdr->next_uid;
+	}
+	if (t->pre_hdr_mask[offset] != 0) {
+		hdr = (const void *)t->pre_hdr_change;
+		if (hdr->next_uid > next_uid)
+			next_uid = hdr->next_uid;
+	}
+	return next_uid;
+}
+
 static int _mail_index_transaction_commit(struct mail_index_transaction *t,
 					  uint32_t *log_file_seq_r,
 					  uoff_t *log_file_offset_r)

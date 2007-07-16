@@ -62,10 +62,9 @@ static void dump_hdr(int fd)
 	printf("uid validity = %u\n", hdr.uid_validity);
 	printf("next uid = %u\n", hdr.next_uid);
 	printf("messages count = %u\n", hdr.messages_count);
-	printf("recent messages count = %u\n", hdr.recent_messages_count);
 	printf("seen messages count = %u\n", hdr.seen_messages_count);
 	printf("deleted messages count = %u\n", hdr.deleted_messages_count);
-	printf("first recent uid lowwater = %u\n", hdr.first_recent_uid_lowwater);
+	printf("first recent uid = %u\n", hdr.first_recent_uid);
 	printf("first unseen uid lowwater = %u\n", hdr.first_unseen_uid_lowwater);
 	printf("first deleted uid lowwater = %u\n", hdr.first_deleted_uid_lowwater);
 	printf("log file seq = %u\n", hdr.log_file_seq);

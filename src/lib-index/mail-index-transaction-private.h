@@ -89,6 +89,7 @@ void mail_index_transaction_ref(struct mail_index_transaction *t);
 void mail_index_transaction_unref(struct mail_index_transaction **t);
 
 void mail_index_transaction_sort_appends(struct mail_index_transaction *t);
+uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t);
 
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r);

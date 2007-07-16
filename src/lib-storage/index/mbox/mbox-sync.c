@@ -357,7 +357,7 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 	struct mailbox *box = &sync_ctx->mbox->ibox.box;
 	uint8_t mbox_flags;
 
-	mbox_flags = mail->flags & MAIL_FLAGS_MASK;
+	mbox_flags = mail->flags & MAIL_FLAGS_NONRECENT;
 
 	if (mail_ctx->dirty)
 		mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
@@ -384,7 +384,7 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		enum mailbox_sync_type sync_type;
 
 		memset(&idx_mail, 0, sizeof(idx_mail));
-		idx_mail.flags = rec->flags;
+		idx_mail.flags = rec->flags & ~MAIL_RECENT;
 
 		/* get old keywords */
 		t_push();
@@ -404,34 +404,22 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		if (sync_type != 0 && box->v.sync_notify != NULL)
 			box->v.sync_notify(box, rec->uid, sync_type);
 
-#define SYNC_FLAGS (MAIL_RECENT | MAIL_INDEX_MAIL_FLAG_DIRTY)
 		if ((idx_mail.flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 			/* flags are dirty. ignore whatever was in the mbox,
-			   but update recent/dirty flag states if needed. */
-			mbox_flags &= SYNC_FLAGS;
-			mbox_flags |= idx_mail.flags & ~SYNC_FLAGS;
+			   but update dirty flag state if needed. */
+			mbox_flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
+			mbox_flags |=
+				idx_mail.flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY;
 			if (sync_ctx->delay_writes)
 				mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
-		} else {
-			/* keep index's internal flags */
-			mbox_flags &= MAIL_FLAGS_MASK | SYNC_FLAGS;
-			mbox_flags |= idx_mail.flags &
-				~(MAIL_FLAGS_MASK | SYNC_FLAGS);
 		}
 
-		if ((idx_mail.flags & ~SYNC_FLAGS) !=
-		    (mbox_flags & ~SYNC_FLAGS)) {
+		if ((idx_mail.flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY) !=
+		    (mbox_flags & ~MAIL_INDEX_MAIL_FLAG_DIRTY)) {
 			/* flags other than recent/dirty have changed */
 			mail_index_update_flags(sync_ctx->t, sync_ctx->idx_seq,
 						MODIFY_REPLACE, mbox_flags);
 		} else {
-			if (((idx_mail.flags ^ mbox_flags) &
-			     MAIL_RECENT) != 0) {
-				/* drop recent flag (it can only be dropped) */
-				mail_index_update_flags(sync_ctx->t,
-					sync_ctx->idx_seq,
-					MODIFY_REMOVE, MAIL_RECENT);
-			}
 			if (((idx_mail.flags ^ mbox_flags) &
 			     MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
 				/* dirty flag state changed */
@@ -458,11 +446,9 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		}
 	}
 
-	if (mail_ctx->recent &&
-	    (rec == NULL || (rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) == 0 ||
-	     (rec->flags & MAIL_RECENT) != 0)) {
-		index_mailbox_set_recent(&sync_ctx->mbox->ibox,
-					 sync_ctx->idx_seq);
+	if (!mail_ctx->recent) {
+		sync_ctx->last_nonrecent_idx_seq = sync_ctx->idx_seq;
+		sync_ctx->last_nonrecent_uid = mail->uid;
 	}
 
 	/* update from_offsets, but not if we're going to rewrite this message.
@@ -926,7 +912,21 @@ static int mbox_sync_partial_seek_next(struct mbox_sync_context *sync_ctx,
 	if (index_sync_changes_have(sync_ctx->sync_changes))
 		return 1;
 
+	if (sync_ctx->hdr->first_recent_uid <= next_uid &&
+	    !sync_ctx->mbox->ibox.keep_recent) {
+		/* we'll need to rewrite Status: O headers */
+		return 1;
+	}
+
 	uid = index_sync_changes_get_next_uid(sync_ctx->sync_changes);
+
+	if (sync_ctx->hdr->first_recent_uid < sync_ctx->hdr->next_uid &&
+	    (uid > sync_ctx->hdr->first_recent_uid || uid == 0) &&
+	    !sync_ctx->mbox->ibox.keep_recent) {
+		/* we'll need to rewrite Status: O headers */
+		uid = sync_ctx->hdr->first_recent_uid;
+	}
+
 	if (uid != 0) {
 		/* we can skip forward to next record which needs updating. */
 		if (uid != next_uid) {
@@ -1331,6 +1331,7 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 {
 	const struct stat *st;
+	uint32_t first_recent_uid;
 
 	st = i_stream_stat(sync_ctx->file_input, FALSE);
 	if (st == NULL) {
@@ -1415,9 +1416,50 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			&sync_size, sizeof(sync_size), TRUE);
 	}
 
+	first_recent_uid = !sync_ctx->mbox->ibox.keep_recent ? 0 :
+		sync_ctx->last_nonrecent_uid + 1;
+	if (sync_ctx->hdr->first_recent_uid < first_recent_uid) {
+		mail_index_update_header(sync_ctx->t,
+			offsetof(struct mail_index_header, first_recent_uid),
+			&first_recent_uid, sizeof(first_recent_uid), FALSE);
+	}
+
 	sync_ctx->mbox->mbox_dirty_stamp = st->st_mtime;
 	sync_ctx->mbox->mbox_dirty_size = st->st_size;
 
+	return 0;
+}
+
+static int mbox_sync_recent_state(struct mbox_sync_context *sync_ctx)
+{
+	uint32_t seq1, seq2;
+
+	/* see what index thinks is the lowest recent sequence */
+	if (mail_index_lookup_uid_range(sync_ctx->sync_view,
+					sync_ctx->hdr->first_recent_uid,
+					sync_ctx->hdr->next_uid,
+					&seq1, &seq2) < 0) {
+		mail_storage_set_index_error(&sync_ctx->mbox->ibox);
+		return -1;
+	}
+
+	if (seq1 == 0 && sync_ctx->idx_seq <= 1) {
+		/* nothing new */
+		return 0;
+	}
+
+	if (sync_ctx->last_nonrecent_idx_seq >= seq1) {
+		/* we've seen newer non-recent messages. */
+		seq1 = sync_ctx->last_nonrecent_idx_seq + 1;
+	}
+
+	if (seq2 < sync_ctx->idx_seq)
+		seq2 = sync_ctx->idx_seq - 1;
+
+	if (seq1 <= seq2) {
+		index_mailbox_set_recent_seq(&sync_ctx->mbox->ibox,
+					     sync_ctx->sync_view, seq1, seq2);
+	}
 	return 0;
 }
 
@@ -1511,6 +1553,8 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		partial = FALSE;
 	}
 
+	if (mbox_sync_recent_state(sync_ctx) < 0)
+		return -1;
 	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
 		return -1;
 
@@ -1662,6 +1706,13 @@ __again:
 		if (lock_id != 0)
 			(void)mbox_unlock(mbox, lock_id);
 		return ret;
+	}
+
+	if (!mbox->ibox.keep_recent) {
+		/* see if we need to drop recent flags */
+		sync_ctx.hdr = mail_index_get_header(sync_view);
+		if (sync_ctx.hdr->first_recent_uid < sync_ctx.hdr->next_uid)
+			changed = 1;
 	}
 
 	if (!changed && !mail_index_sync_have_more(index_sync_ctx)) {

@@ -9,7 +9,8 @@ enum mail_flags {
 	MAIL_DRAFT	= 0x10,
 	MAIL_RECENT	= 0x20,
 
-	MAIL_FLAGS_MASK = 0x3f
+	MAIL_FLAGS_MASK = 0x3f,
+	MAIL_FLAGS_NONRECENT = (MAIL_FLAGS_MASK ^ MAIL_RECENT)
 };
 
 enum modify_type {

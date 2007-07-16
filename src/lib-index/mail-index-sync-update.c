@@ -93,26 +93,6 @@ mail_index_header_update_counts(struct mail_index_header *hdr,
 				uint8_t old_flags, uint8_t new_flags,
 				const char **error_r)
 {
-	if (((old_flags ^ new_flags) & MAIL_RECENT) != 0) {
-		/* different recent-flag */
-		if ((old_flags & MAIL_RECENT) == 0) {
-			hdr->recent_messages_count++;
-			if (hdr->recent_messages_count > hdr->messages_count) {
-				*error_r = "Recent counter wrong";
-				return -1;
-			}
-		} else {
-			if (hdr->recent_messages_count == 0 ||
-			    hdr->recent_messages_count > hdr->messages_count) {
-				*error_r = "Recent counter wrong";
-				return -1;
-			}
-
-			if (--hdr->recent_messages_count == 0)
-				hdr->first_recent_uid_lowwater = hdr->next_uid;
-		}
-	}
-
 	if (((old_flags ^ new_flags) & MAIL_SEEN) != 0) {
 		/* different seen-flag */
 		if ((old_flags & MAIL_SEEN) != 0) {
@@ -169,9 +149,6 @@ static void
 mail_index_header_update_lowwaters(struct mail_index_header *hdr,
 				   const struct mail_index_record *rec)
 {
-	if ((rec->flags & MAIL_RECENT) != 0 &&
-	    rec->uid < hdr->first_recent_uid_lowwater)
-		hdr->first_recent_uid_lowwater = rec->uid;
 	if ((rec->flags & MAIL_SEEN) == 0 &&
 	    rec->uid < hdr->first_unseen_uid_lowwater)
 		hdr->first_unseen_uid_lowwater = rec->uid;
@@ -335,7 +312,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
         flag_mask = ~u->remove_flags;
 
 	if (((u->add_flags | u->remove_flags) &
-	     (MAIL_SEEN | MAIL_DELETED | MAIL_RECENT)) == 0) {
+	     (MAIL_SEEN | MAIL_DELETED)) == 0) {
 		/* we're not modifying any counted/lowwatered flags */
 		for (idx = seq1-1; idx < seq2; idx++) {
 			rec = MAIL_INDEX_MAP_IDX(view->map, idx);
@@ -626,7 +603,7 @@ static void mail_index_sync_update_hdr_dirty_flag(struct mail_index_map *map)
 void mail_index_map_check(struct mail_index_map *map)
 {
 	const struct mail_index_header *hdr = &map->hdr;
-	unsigned int i, del = 0, recent = 0, seen = 0;
+	unsigned int i, del = 0, seen = 0;
 
 	i_assert(hdr->messages_count == map->records_count);
 	for (i = 0; i < map->records_count; i++) {
@@ -638,17 +615,12 @@ void mail_index_map_check(struct mail_index_map *map)
 			i_assert(rec->uid >= hdr->first_deleted_uid_lowwater);
 			del++;
 		}
-		if (rec->flags & MAIL_RECENT) {
-			i_assert(rec->uid >= hdr->first_recent_uid_lowwater);
-			recent++;
-		}
 		if (rec->flags & MAIL_SEEN)
 			seen++;
 		else
 			i_assert(rec->uid >= hdr->first_unseen_uid_lowwater);
 	}
 	i_assert(del == hdr->deleted_messages_count);
-	i_assert(recent == hdr->recent_messages_count);
 	i_assert(seen == hdr->seen_messages_count);
 }
 #endif

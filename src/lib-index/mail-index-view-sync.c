@@ -466,7 +466,7 @@ mail_index_view_sync_get_next_transaction(struct mail_index_view_sync_ctx *ctx)
 
 #define FLAG_UPDATE_IS_INTERNAL(u) \
 	((((u)->add_flags | (u)->remove_flags) & \
-	  ~(MAIL_INDEX_MAIL_FLAG_DIRTY | MAIL_RECENT)) == 0)
+	  ~MAIL_INDEX_MAIL_FLAG_DIRTY) == 0)
 
 static bool
 mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,

@@ -53,10 +53,6 @@ maildir_uidlist_lookup(struct maildir_uidlist *uidlist, uint32_t uid,
 const char *
 maildir_uidlist_lookup_ext(struct maildir_uidlist *uidlist, uint32_t uid,
 			   enum maildir_uidlist_rec_ext_key key);
-/* Returns TRUE if mail with given UID is recent. */
-bool maildir_uidlist_is_recent(struct maildir_uidlist *uidlist, uint32_t uid);
-/* Returns number of recent messages. */
-uint32_t maildir_uidlist_get_recent_count(struct maildir_uidlist *uidlist);
 
 uint32_t maildir_uidlist_get_uid_validity(struct maildir_uidlist *uidlist);
 uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist);

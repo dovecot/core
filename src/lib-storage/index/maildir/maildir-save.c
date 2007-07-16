@@ -608,9 +608,6 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		*t->ictx.last_saved_uid = first_uid + ctx->files_count - 1;
 	}
 
-	flags = MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
-		MAILDIR_UIDLIST_REC_FLAG_RECENT;
-
 	/* move them into new/ and/or cur/ */
 	ret = 0;
 	ctx->moving = TRUE;
@@ -636,6 +633,9 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			t_push();
 			newdir = maildir_get_updated_filename(ctx, mf, &dest);
 
+			flags = MAILDIR_UIDLIST_REC_FLAG_RECENT;
+			if (newdir)
+				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
 			ret = maildir_uidlist_sync_next(ctx->uidlist_sync_ctx,
 							dest, flags);
 			i_assert(ret > 0);

@@ -33,8 +33,6 @@ struct index_mailbox {
 	struct mail_cache *cache;
 	struct mail_vfuncs *mail_vfuncs;
 
-	bool (*is_recent)(struct index_mailbox *ibox, uint32_t uid);
-
 	uint32_t md5hdr_ext_idx;
 
 	struct timeout *notify_to;
@@ -52,16 +50,15 @@ struct index_mailbox {
 	struct mail_cache_field *cache_fields;
 	unsigned int mail_cache_min_mail_count;
 
-	buffer_t *recent_flags;
-	uint32_t recent_flags_start_seq, recent_flags_count;
+	ARRAY_TYPE(seq_range) recent_flags;
+	uint32_t recent_flags_prev_uid;
+	uint32_t recent_flags_count;
 
-	uint32_t synced_recent_count;
 	time_t sync_last_check;
 
 	unsigned int readonly:1;
 	unsigned int keep_recent:1;
 	unsigned int keep_locked:1;
-	unsigned int recent_flags_synced:1;
 	unsigned int sent_diskspace_warning:1;
 	unsigned int sent_readonly_flags_warning:1;
 	unsigned int notify_pending:1;
@@ -117,10 +114,11 @@ index_keywords_create(struct mailbox_transaction_context *t,
 void index_keywords_free(struct mailbox_transaction_context *t,
 			 struct mail_keywords *keywords);
 
-void index_mailbox_set_recent(struct index_mailbox *ibox, uint32_t seq);
-bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t seq);
-
-unsigned int index_storage_get_recent_count(struct mail_index_view *view);
+void index_mailbox_set_recent_uid(struct index_mailbox *ibox, uint32_t uid);
+void index_mailbox_set_recent_seq(struct index_mailbox *ibox,
+				  struct mail_index_view *view,
+				  uint32_t seq1, uint32_t seq2);
+bool index_mailbox_is_recent(struct index_mailbox *ibox, uint32_t uid);
 
 void index_mailbox_check_add(struct index_mailbox *ibox,
 			     const char *path);

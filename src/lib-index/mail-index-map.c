@@ -301,11 +301,11 @@ static int mail_index_check_header(struct mail_index_map *map)
 	if (hdr->next_uid == 0)
 		return 0;
 
-	if (hdr->recent_messages_count > hdr->messages_count ||
-	    hdr->seen_messages_count > hdr->messages_count ||
+	if (hdr->seen_messages_count > hdr->messages_count ||
 	    hdr->deleted_messages_count > hdr->messages_count)
 		return 0;
-	if (hdr->first_recent_uid_lowwater > hdr->next_uid ||
+	if (hdr->first_recent_uid == 0 ||
+	    hdr->first_recent_uid > hdr->next_uid ||
 	    hdr->first_unseen_uid_lowwater > hdr->next_uid ||
 	    hdr->first_deleted_uid_lowwater > hdr->next_uid)
 		return 0;
@@ -638,6 +638,7 @@ static void mail_index_header_init(struct mail_index *index,
 	hdr->indexid = index->indexid;
 	hdr->log_file_seq = 1;
 	hdr->next_uid = 1;
+	hdr->first_recent_uid = 1;
 }
 
 struct mail_index_map *mail_index_map_alloc(struct mail_index *index)

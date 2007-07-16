@@ -72,11 +72,9 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 	hdr.log_file_seq = file_seq;
 
 	hdr.messages_count = 0;
-	hdr.recent_messages_count = 0;
 	hdr.seen_messages_count = 0;
 	hdr.deleted_messages_count = 0;
 
-	hdr.first_recent_uid_lowwater = 0;
 	hdr.first_unseen_uid_lowwater = 0;
 	hdr.first_deleted_uid_lowwater = 0;
 
@@ -88,16 +86,11 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 		}
 
 		hdr.messages_count++;
-		if ((rec->flags & MAIL_RECENT) != 0)
-			hdr.recent_messages_count++;
 		if ((rec->flags & MAIL_SEEN) != 0)
 			hdr.seen_messages_count++;
 		if ((rec->flags & MAIL_DELETED) != 0)
 			hdr.deleted_messages_count++;
 
-		if ((rec->flags & MAIL_RECENT) != 0 &&
-		    hdr.first_recent_uid_lowwater == 0)
-			hdr.first_recent_uid_lowwater = rec->uid;
 		if ((rec->flags & MAIL_SEEN) == 0 &&
 		    hdr.first_unseen_uid_lowwater == 0)
 			hdr.first_unseen_uid_lowwater = rec->uid;
@@ -115,12 +108,14 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 		hdr.next_uid = last_uid+1;
 	}
 
-	if (hdr.first_recent_uid_lowwater == 0)
-                hdr.first_recent_uid_lowwater = hdr.next_uid;
 	if (hdr.first_unseen_uid_lowwater == 0)
                 hdr.first_unseen_uid_lowwater = hdr.next_uid;
 	if (hdr.first_deleted_uid_lowwater == 0)
                 hdr.first_deleted_uid_lowwater = hdr.next_uid;
+	if (hdr.first_recent_uid > hdr.next_uid)
+		hdr.first_recent_uid = hdr.next_uid;
+	if (hdr.first_recent_uid == 0)
+		hdr.first_recent_uid = 1;
 
         CHECK(log_file_seq, !=);
         CHECK(log_file_head_offset, !=);
@@ -128,13 +123,12 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 
 	CHECK(uid_validity, !=);
         CHECK(messages_count, !=);
-        CHECK(recent_messages_count, !=);
         CHECK(seen_messages_count, !=);
         CHECK(deleted_messages_count, !=);
 
-        CHECK(first_recent_uid_lowwater, <);
         CHECK(first_unseen_uid_lowwater, <);
 	CHECK(first_deleted_uid_lowwater, <);
+	CHECK(first_recent_uid, !=);
 
 	map->hdr = hdr;
 	return 1;

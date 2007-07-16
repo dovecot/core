@@ -14,7 +14,7 @@ int index_storage_get_status_locked(struct index_mailbox *ibox,
 	/* we can get most of the status items without any trouble */
 	hdr = mail_index_get_header(ibox->view);
 	status_r->messages = hdr->messages_count;
-	status_r->recent = ibox->synced_recent_count;
+	status_r->recent = ibox->recent_flags_count;
 	status_r->unseen =
 		hdr->messages_count - hdr->seen_messages_count;
 	status_r->uidvalidity = hdr->uid_validity;

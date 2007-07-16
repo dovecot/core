@@ -453,16 +453,15 @@ static int maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir)
 				/* someone else moved it already */
 				dir_changed = TRUE;
 				move_count++;
-				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED;
+				flags |= MAILDIR_UIDLIST_REC_FLAG_MOVED |
+					MAILDIR_UIDLIST_REC_FLAG_RECENT;
 			} else if (ENOSPACE(errno) || errno == EACCES) {
 				/* not enough disk space / read-only maildir,
 				   leave here */
-				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
-					MAILDIR_UIDLIST_REC_FLAG_RECENT;
+				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
 				move_new = FALSE;
 			} else {
-				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
-					MAILDIR_UIDLIST_REC_FLAG_RECENT;
+				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
 				mail_storage_set_critical(storage,
 					"rename(%s, %s) failed: %m",
 					str_c(src), str_c(dest));
@@ -645,6 +644,22 @@ static void maildir_sync_update_next_uid(struct maildir_mailbox *mbox)
 	}
 }
 
+static bool move_recent_messages(struct maildir_sync_context *ctx)
+{
+	const struct mail_index_header *hdr;
+
+	if (ctx->mbox->ibox.keep_recent)
+		return FALSE;
+
+	(void)maildir_uidlist_refresh(ctx->mbox->uidlist);
+
+	/* if there are files in new/, we'll need to move them. we'll check
+	   this by checking if we have any recent messages */
+	hdr = mail_index_get_header(ctx->mbox->ibox.view);
+	return hdr->first_recent_uid <
+		maildir_uidlist_get_next_uid(ctx->mbox->uidlist);
+}
+
 static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 				bool sync_last_commit)
 {
@@ -659,8 +674,11 @@ static int maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 					     &new_changed, &cur_changed) < 0)
 			return -1;
 
-		if (!new_changed && !cur_changed)
-			return 1;
+		if (!new_changed && !cur_changed) {
+			if (!move_recent_messages(ctx))
+				return 1;
+			new_changed = TRUE;
+		}
 	} else {
 		new_changed = cur_changed = TRUE;
 	}

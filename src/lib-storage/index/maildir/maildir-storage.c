@@ -415,13 +415,6 @@ static int verify_inbox(struct mail_storage *storage)
 	return 0;
 }
 
-static bool maildir_is_recent(struct index_mailbox *ibox, uint32_t uid)
-{
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)ibox;
-
-	return maildir_uidlist_is_recent(mbox->uidlist, uid);
-}
-
 static void maildir_lock_touch_timeout(struct maildir_mailbox *mbox)
 {
 	(void)maildir_uidlist_lock_touch(mbox->uidlist);
@@ -458,7 +451,6 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	mbox->ibox.box.pool = pool;
 	mbox->ibox.storage = &storage->storage;
 	mbox->ibox.mail_vfuncs = &maildir_mail_vfuncs;
-	mbox->ibox.is_recent = maildir_is_recent;
 	mbox->ibox.index = index;
 
 	mbox->storage = storage;

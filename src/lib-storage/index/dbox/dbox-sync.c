@@ -74,23 +74,6 @@ static int dbox_sync_add_seq(struct dbox_sync_context *ctx, uint32_t seq,
 	return 0;
 }
 
-static int dbox_update_recent_flags(struct dbox_sync_context *ctx,
-				    uint32_t seq1, uint32_t seq2)
-{
-	uint32_t seq;
-	const struct mail_index_record *rec;
-
-	for (seq = seq1; seq <= seq2; seq++) {
-		if (mail_index_lookup(ctx->sync_view, seq, &rec) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox);
-			return -1;
-		}
-		if ((rec->flags & MAIL_RECENT) != 0)
-			index_mailbox_set_recent(&ctx->mbox->ibox, seq);
-	}
-	return 0;
-}
-
 static int dbox_sync_add(struct dbox_sync_context *ctx,
 			 const struct mail_index_sync_rec *sync_rec)
 {
@@ -124,10 +107,6 @@ static int dbox_sync_add(struct dbox_sync_context *ctx,
 	case MAIL_INDEX_SYNC_TYPE_FLAGS:
 		dbox_sync_rec.value.flags.add = sync_rec->add_flags;
 		dbox_sync_rec.value.flags.remove = sync_rec->remove_flags;
-		if ((sync_rec->remove_flags & MAIL_RECENT) != 0) {
-			if (dbox_update_recent_flags(ctx, seq1, seq2) < 0)
-				return -1;
-		}
 		break;
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
 	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:

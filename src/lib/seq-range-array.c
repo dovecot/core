@@ -100,22 +100,22 @@ void seq_range_array_add(ARRAY_TYPE(seq_range) *array,
 	}
 }
 
-void seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
+bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	struct seq_range *data, value;
 	unsigned int idx, left_idx, right_idx, count;
 
 	if (!array_is_created(array))
-		return;
+		return FALSE;
 
 	data = array_get_modifiable(array, &count);
 	if (count == 0)
-		return;
+		return FALSE;
 
 	/* quick checks */
 	if (seq > data[count-1].seq2 || seq < data[0].seq1) {
 		/* outside the range */
-		return;
+		return FALSE;
 	}
 	if (data[count-1].seq2 == seq) {
 		/* shrink last range */
@@ -123,7 +123,7 @@ void seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 			data[count-1].seq2--;
 		else
 			array_delete(array, count-1, 1);
-		return;
+		return TRUE;
 	}
 	if (data[0].seq1 == seq) {
 		/* shrink up first range */
@@ -131,7 +131,7 @@ void seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 			data[0].seq1++;
 		else
 			array_delete(array, 0, 1);
-		return;
+		return TRUE;
 	}
 
 	/* somewhere in the middle, array is sorted so find it with
@@ -166,9 +166,10 @@ void seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 
 				array_insert(array, idx + 1, &value, 1);
 			}
-			break;
+			return TRUE;
 		}
 	}
+	return FALSE;
 }
 
 void seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,

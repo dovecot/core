@@ -219,7 +219,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 	ctx->mail_offset = ctx->file->output->offset;
 
 	/* add to index */
-	save_flags = (flags & ~MAIL_RECENT) | MAIL_RECENT;
+	save_flags = flags & ~MAIL_RECENT;
 	mail_index_append(ctx->trans, 0, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 				save_flags);

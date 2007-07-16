@@ -77,6 +77,17 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 			return -1;
 	}
 
+	/* mark the newly seen messages as recent */
+	if (mail_index_lookup_uid_range(ctx->sync_view, hdr->first_recent_uid,
+					hdr->next_uid, &seq1, &seq2) < 0) {
+		mail_storage_set_index_error(&ctx->mbox->ibox);
+		return -1;
+	}
+	if (seq1 != 0) {
+		index_mailbox_set_recent_seq(&ctx->mbox->ibox, ctx->sync_view,
+					     seq1, seq2);
+	}
+
 	while (ret > 0 &&
 	       (ret = mail_index_sync_next(ctx->index_sync_ctx,
 					   &sync_rec)) > 0) {

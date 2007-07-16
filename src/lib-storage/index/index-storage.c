@@ -432,8 +432,8 @@ int index_storage_mailbox_close(struct mailbox *box)
 	index_mailbox_check_remove_all(ibox);
 	if (ibox->index != NULL)
 		index_storage_unref(ibox->index);
-	if (ibox->recent_flags != NULL)
-		buffer_free(ibox->recent_flags);
+	if (array_is_created(&ibox->recent_flags))
+		array_free(&ibox->recent_flags);
 	i_free(ibox->cache_fields);
 
 	pool_unref(box->pool);

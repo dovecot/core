@@ -15,6 +15,7 @@ struct mail_index_sync_ctx {
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_index_transaction *sync_trans, *ext_trans;
+	enum mail_index_sync_flags flags;
 
 	const struct mail_transaction_header *hdr;
 	const void *data;
@@ -170,27 +171,6 @@ static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 	return 0;
 }
 
-static int mail_index_sync_add_recent_updates(struct mail_index_sync_ctx *ctx)
-{
-	const struct mail_index_record *rec;
-	uint32_t seq, messages_count;
-	bool seen_recent = FALSE;
-
-	messages_count = mail_index_view_get_messages_count(ctx->view);
-	for (seq = 1; seq <= messages_count; seq++) {
-		if (mail_index_lookup(ctx->view, seq, &rec) < 0)
-			return -1;
-
-		if ((rec->flags & MAIL_RECENT) != 0) {
-			seen_recent = TRUE;
-			mail_index_update_flags(ctx->sync_trans, rec->uid,
-						MODIFY_REMOVE, MAIL_RECENT);
-		}
-	}
-
-	return 0;
-}
-
 static void
 mail_index_sync_update_mailbox_pos(struct mail_index_sync_ctx *ctx)
 {
@@ -205,8 +185,7 @@ mail_index_sync_update_mailbox_pos(struct mail_index_sync_ctx *ctx)
 }
 
 static int
-mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
-			      enum mail_index_sync_flags flags)
+mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 {
 	struct mail_index_transaction *sync_trans = ctx->sync_trans;
 	struct mail_index_sync_list *synclist;
@@ -215,14 +194,9 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx,
 	int ret;
 
 	if ((ctx->view->map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
-	    (flags & MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY) != 0) {
+	    (ctx->flags & MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY) != 0) {
 		/* show dirty flags as flag updates */
 		if (mail_index_sync_add_dirty_updates(ctx) < 0)
-			return -1;
-	}
-
-	if ((flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0) {
-		if (mail_index_sync_add_recent_updates(ctx) < 0)
 			return -1;
 	}
 
@@ -287,7 +261,7 @@ mail_index_need_sync(struct mail_index *index,
 		     enum mail_index_sync_flags flags,
 		     uint32_t log_file_seq, uoff_t log_file_offset)
 {
-	if (hdr->recent_messages_count > 0 &&
+	if (hdr->first_recent_uid < hdr->next_uid &&
 	    (flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0)
 		return TRUE;
 
@@ -385,6 +359,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->index = index;
 	ctx->last_tail_seq = hdr->log_file_seq;
 	ctx->last_tail_offset = hdr->log_file_tail_offset;
+	ctx->flags = flags;
 
 	ctx->view = mail_index_view_open(index);
 
@@ -410,7 +385,7 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	/* we need to have all the transactions sorted to optimize
 	   caller's mailbox access patterns */
-	if (mail_index_sync_read_and_sort(ctx, flags) < 0) {
+	if (mail_index_sync_read_and_sort(ctx) < 0) {
                 mail_index_sync_rollback(&ctx);
 		return -1;
 	}
@@ -599,7 +574,7 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
 	struct mail_index *index = ctx->index;
-	uint32_t seq, diff;
+	uint32_t seq, diff, next_uid;
 	uoff_t offset;
 	bool want_rotate;
 	int ret = 0;
@@ -610,6 +585,14 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		   the cache offsets are updated only if the compression was
 		   successful. */
 		(void)mail_cache_compress(index->cache, ctx->ext_trans);
+	}
+
+	next_uid = mail_index_transaction_get_next_uid(ctx->ext_trans);
+	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0 &&
+	    index->map->hdr.first_recent_uid < next_uid) {
+		mail_index_update_header(ctx->ext_trans,
+			offsetof(struct mail_index_header, first_recent_uid),
+			&next_uid, sizeof(next_uid), FALSE);
 	}
 
 	if (mail_index_transaction_commit(&ctx->ext_trans, &seq, &offset) < 0) {

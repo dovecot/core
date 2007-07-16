@@ -64,12 +64,12 @@ struct mail_index_header {
 	uint32_t next_uid;
 
 	uint32_t messages_count;
-	uint32_t recent_messages_count;
+	uint32_t unused_old_recent_messages_count;
 	uint32_t seen_messages_count;
 	uint32_t deleted_messages_count;
 
-	/* these UIDs may not exist and may not even be unseen */
-	uint32_t first_recent_uid_lowwater;
+	uint32_t first_recent_uid;
+	/* these UIDs may not exist and may not even be unseen/deleted */
 	uint32_t first_unseen_uid_lowwater;
 	uint32_t first_deleted_uid_lowwater;
 

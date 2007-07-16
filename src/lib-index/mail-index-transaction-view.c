@@ -42,23 +42,16 @@ _tview_get_header(struct mail_index_view *view)
 	struct mail_index_view_transaction *tview =
                 (struct mail_index_view_transaction *)view;
 	const struct mail_index_header *hdr;
-	const struct mail_index_record *recs;
-	unsigned int count;
+	uint32_t next_uid;
 
 	/* FIXME: header counters may not be correct */
 	hdr = tview->super->get_header(view);
 
-	if (array_is_created(&tview->t->appends)) {
-		/* update next_uid from appends, if UIDs have been given yet */
-		mail_index_transaction_sort_appends(tview->t);
-
-		recs = array_get(&tview->t->appends, &count);
-		if (count > 0 && recs[count-1].uid != 0) {
-			i_assert(recs[count-1].uid >= hdr->next_uid);
-			tview->hdr = *hdr;
-			tview->hdr.next_uid = recs[count-1].uid + 1;
-			hdr = &tview->hdr;
-		}
+	next_uid = mail_index_transaction_get_next_uid(tview->t);
+	if (next_uid != hdr->next_uid) {
+		tview->hdr = *hdr;
+		tview->hdr.next_uid = next_uid;
+		hdr = &tview->hdr;
 	}
 	return hdr;
 }
