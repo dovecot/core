@@ -248,13 +248,6 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			return TRUE;
 		}
 
-		if (mailbox_get_status(ctx->box, STATUS_UIDVALIDITY,
-				       &status) < 0) {
-			client_send_storage_error(cmd, ctx->storage);
-			cmd_append_finish(ctx);
-			return TRUE;
-		}
-
 		ret = mailbox_transaction_commit_get_uids(&ctx->t, 0,
 							  &uid1, &uid2);
 		if (ret < 0) {
@@ -263,6 +256,13 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			return TRUE;
 		}
 		i_assert(ctx->count == uid2 - uid1 + 1);
+
+		if (mailbox_get_status(ctx->box, STATUS_UIDVALIDITY,
+				       &status) < 0) {
+			client_send_storage_error(cmd, ctx->storage);
+			cmd_append_finish(ctx);
+			return TRUE;
+		}
 
 		if (uid1 == uid2) {
 			msg = t_strdup_printf("OK [APPENDUID %u %u] "
