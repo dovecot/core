@@ -240,6 +240,15 @@ static int acl_get_mailbox_name_status(struct mailbox_list *list,
 					  NULL);
 	if (ret < 0)
 		return -1;
+	if (ret == 0) {
+		/* If we have INSERT right for the mailbox, we'll need to
+		   reveal its existence so that APPEND and COPY works. */
+		ret = acl_mailbox_list_have_right(alist, name,
+						  ACL_STORAGE_RIGHT_INSERT,
+						  NULL);
+		if (ret < 0)
+			return -1;
+	}
 
 	if (alist->module_ctx.super.get_mailbox_name_status(list, name,
 							    status) < 0)
