@@ -172,23 +172,26 @@ bool seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 	return FALSE;
 }
 
-void seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
-				  uint32_t seq1, uint32_t seq2)
+unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
+					  uint32_t seq1, uint32_t seq2)
 {
 	const struct seq_range *data;
-	unsigned int idx, idx2, count;
+	unsigned int idx, idx2, count, remove_count = 0;
 
 	/* remove first and last. this makes sure that everything between
 	   can simply be deleted with array_delete().
 
 	   FIXME: it would be faster if we did only one binary lookup here
 	   and handled the splitting ourself.. */
-	seq_range_array_remove(array, seq1++);
+	if (seq_range_array_remove(array, seq1++))
+		remove_count++;
 	if (seq1 > seq2)
-		return;
-	seq_range_array_remove(array, seq2--);
+		return remove_count;
+
+	if (seq_range_array_remove(array, seq2--))
+		remove_count++;
 	if (seq1 == seq2)
-		return;
+		return remove_count;
 
 	/* find the beginning */
 	data = array_get(array, &count);
@@ -197,14 +200,16 @@ void seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 		idx++;
 
 	if (idx == count)
-		return;
+		return remove_count;
 
 	i_assert(data[idx].seq1 >= seq1);
 	for (idx2 = idx; idx2 < count; idx2++) {
 		if (data[idx2].seq1 > seq2)
 			break;
+		remove_count += data[idx2].seq2 - data[idx2].seq1 + 1;
 	}
 	array_delete(array, idx, idx2-idx);
+	return remove_count;
 }
 
 bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq)
