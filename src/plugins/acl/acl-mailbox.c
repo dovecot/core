@@ -25,14 +25,6 @@ struct acl_mailbox {
 
 static MODULE_CONTEXT_DEFINE_INIT(acl_mail_module, &mail_module_register);
 
-static int acl_mailbox_close(struct mailbox *box)
-{
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
-
-	acl_object_deinit(&abox->aclobj);
-	return abox->module_ctx.super.close(box);
-}
-
 static int mailbox_acl_right_lookup(struct mailbox *box, unsigned int right_idx)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
@@ -51,6 +43,49 @@ static int mailbox_acl_right_lookup(struct mailbox *box, unsigned int right_idx)
 	mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
 			       MAIL_ERRSTR_NO_PERMISSION);
 	return 0;
+}
+
+static bool acl_is_readonly(struct mailbox *box)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+
+	if (abox->module_ctx.super.is_readonly(box))
+		return TRUE;
+
+	if (mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_INSERT) > 0)
+		return FALSE;
+	if (mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_EXPUNGE) > 0)
+		return FALSE;
+
+	/* Next up is the "shared flag rights" */
+	if (mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0)
+		return FALSE;
+	if ((box->private_flags_mask & MAIL_DELETED) == 0 &&
+	    mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED) > 0)
+		return FALSE;
+	if ((box->private_flags_mask & MAIL_SEEN) == 0 &&
+	    mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) > 0)
+		return FALSE;
+
+	return TRUE;
+}
+
+static bool acl_allow_new_keywords(struct mailbox *box)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+
+	if (!abox->module_ctx.super.allow_new_keywords(box))
+		return FALSE;
+
+	return mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_WRITE) > 0;
+}
+
+static int acl_mailbox_close(struct mailbox *box)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
+
+	acl_object_deinit(&abox->aclobj);
+	return abox->module_ctx.super.close(box);
 }
 
 static int acl_mailbox_get_status(struct mailbox *box,
@@ -261,6 +296,8 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 						 box->storage,
 						 mailbox_get_name(box));
 	
+	box->v.is_readonly = acl_is_readonly;
+	box->v.allow_new_keywords = acl_allow_new_keywords;
 	box->v.close = acl_mailbox_close;
 	box->v.get_status = acl_mailbox_get_status;
 	box->v.mail_alloc = acl_mail_alloc;
