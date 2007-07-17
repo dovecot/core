@@ -73,7 +73,7 @@ acl_get_write_rights(struct mailbox *box,
 	if (ret < 0)
 		return -1;
 	*flag_del_r = ret > 0;
-	return 1;
+	return 0;
 }
 
 static int
@@ -83,11 +83,9 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
 	bool acl_flags, acl_flag_seen, acl_flag_del;
-	int ret;
 
-	ret = acl_get_write_rights(_mail->box, &acl_flags, &acl_flag_seen,
-				   &acl_flag_del);
-	if (ret < 0)
+	if (acl_get_write_rights(_mail->box, &acl_flags, &acl_flag_seen,
+				 &acl_flag_del) < 0)
 		return -1;
 
 	if (modify_type != MODIFY_REPLACE) {
@@ -99,7 +97,7 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 			flags &= ~MAIL_SEEN;
 		if (!acl_flag_del)
 			flags &= ~MAIL_DELETED;
-	} else if (!acl_flags || acl_flag_seen || !acl_flag_del) {
+	} else if (!acl_flags || !acl_flag_seen || !acl_flag_del) {
 		/* we don't have permission to replace all the flags. */
 		if (!acl_flags && !acl_flag_seen && !acl_flag_del) {
 			/* no flag changes allowed. ignore silently. */
@@ -175,6 +173,26 @@ acl_mail_alloc(struct mailbox_transaction_context *t,
 	return _mail;
 }
 
+static int acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
+			      struct mail_keywords **keywords)
+{
+	bool acl_flags, acl_flag_seen, acl_flag_del;
+
+	if (acl_get_write_rights(box, &acl_flags, &acl_flag_seen,
+				 &acl_flag_del) < 0)
+		return -1;
+
+	if (!acl_flag_seen)
+		*flags &= ~MAIL_SEEN;
+	if (!acl_flag_del)
+		*flags &= ~MAIL_DELETED;
+	if (!acl_flags) {
+		*flags &= MAIL_SEEN | MAIL_DELETED;
+		*keywords = NULL;
+	}
+	return 0;
+}
+
 static int
 acl_save_init(struct mailbox_transaction_context *t,
 	      enum mail_flags flags, struct mail_keywords *keywords,
@@ -185,6 +203,8 @@ acl_save_init(struct mailbox_transaction_context *t,
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 
 	if (mailbox_acl_right_lookup(t->box, ACL_STORAGE_RIGHT_INSERT) <= 0)
+		return -1;
+	if (acl_save_get_flags(t->box, &flags, &keywords) < 0)
 		return -1;
 
 	return abox->module_ctx.super.
@@ -201,6 +221,8 @@ acl_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 
 	if (mailbox_acl_right_lookup(t->box, ACL_STORAGE_RIGHT_INSERT) <= 0)
+		return -1;
+	if (acl_save_get_flags(t->box, &flags, &keywords) < 0)
 		return -1;
 
 	return abox->module_ctx.super.copy(t, mail, flags, keywords, dest_mail);
