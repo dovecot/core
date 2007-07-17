@@ -82,7 +82,6 @@ struct maildir_mailbox {
 
 	mode_t mail_create_mode;
 	gid_t mail_create_gid;
-	unsigned int private_flags_mask;
 
 	unsigned int syncing_commit:1;
 };

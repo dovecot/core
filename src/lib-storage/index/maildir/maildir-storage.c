@@ -470,7 +470,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	} else {
 		mbox->mail_create_mode = st.st_mode & 0666;
 		mbox->mail_create_gid = st.st_gid;
-		mbox->private_flags_mask = MAIL_SEEN;
+		mbox->ibox.box.private_flags_mask = MAIL_SEEN;
 	}
 
 	if ((flags & MAILBOX_OPEN_KEEP_LOCKED) != 0) {

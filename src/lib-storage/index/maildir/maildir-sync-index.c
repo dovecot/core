@@ -294,7 +294,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		/* the private flags are kept only in indexes. don't use them
 		   at all even for newly seen mails */
-		ctx->flags &= ~mbox->private_flags_mask;
+		ctx->flags &= ~mbox->ibox.box.private_flags_mask;
 
 	__again:
 		ctx->seq = ++seq;
@@ -372,7 +372,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			index_mailbox_set_recent_uid(&mbox->ibox, uid);
 
 		/* the private flags are stored only in indexes, keep them */
-		ctx->flags |= rec->flags & mbox->private_flags_mask;
+		ctx->flags |= rec->flags & mbox->ibox.box.private_flags_mask;
 
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
 			/* partial syncing */

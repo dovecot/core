@@ -167,6 +167,9 @@ struct mailbox {
 
 	unsigned int transaction_count;
 
+	/* User's private flags if this is a shared mailbox */
+	enum mail_flags private_flags_mask;
+
 	/* Mailbox notification settings: */
 	unsigned int notify_min_interval;
 	mailbox_notify_callback_t *notify_callback;
