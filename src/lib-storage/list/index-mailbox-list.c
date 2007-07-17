@@ -116,41 +116,50 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
 	struct index_mailbox_list_iterate_context *ctx;
 	enum mailbox_list_sync_flags sync_flags;
-	const char *prefix;
-	int recurse_level;
+	const char *prefix, *cur_prefix, *const *tmp, *tmp_patterns[2];
+	int cur_recurse_level;
 
 	ctx = i_new(struct index_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
-	ctx->glob = imap_match_init(default_pool, patterns[0], TRUE, // FIXME
-				    list->hierarchy_sep);
 
-	ctx->mail_view = mail_index_view_open(ilist->mail_index);
-	ctx->view = mailbox_list_index_view_init(ilist->list_index,
-						 ctx->mail_view);
 	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
 		/* Ignore indexes completely */
 		ctx->backend_ctx = ilist->module_ctx.super.
 			iter_init(list, patterns, flags);
-	} else if (index_mailbox_list_is_synced(ctx) > 0) {
-		/* synced, list from index */
-		pattern_parse(list, patterns[0], &prefix, &recurse_level); // FIXME
+		return &ctx->ctx;
+	}
 
+	ctx->glob = imap_match_init_multiple(default_pool, patterns, TRUE,
+					     list->hierarchy_sep);
+	ctx->mail_view = mail_index_view_open(ilist->mail_index);
+	ctx->view = mailbox_list_index_view_init(ilist->list_index,
+						 ctx->mail_view);
+
+	/* FIXME: we could just do multiple lookups for different patterns */
+	prefix = NULL;
+	for (tmp = patterns; *tmp != NULL; tmp++) {
+		pattern_parse(list, *tmp, &cur_prefix, &cur_recurse_level);
+		if (prefix != NULL && strcmp(prefix, cur_prefix) != 0)
+			prefix = "";
+		if (cur_recurse_level > ctx->recurse_level ||
+		    cur_recurse_level == -1)
+			ctx->recurse_level = cur_recurse_level;
+	}
+
+	if (index_mailbox_list_is_synced(ctx) > 0) {
+		/* synced, list from index */
 		ctx->info_pool =
 			pool_alloconly_create("mailbox name pool", 128);
 		ctx->iter_ctx = mailbox_list_index_iterate_init(ctx->view,
-								prefix,
-								recurse_level);
-		ctx->recurse_level = recurse_level;
+						prefix, ctx->recurse_level);
 		ctx->prefix = *prefix == '\0' ? i_strdup("") :
 			i_strdup_printf("%s%c", prefix, list->hierarchy_sep);
 	} else {
 		/* FIXME: this works nicely with maildir++, but not others */
 		sync_flags = MAILBOX_LIST_SYNC_FLAG_RECURSIVE;
 
-		if (strchr(patterns[0], '*') != NULL) // FIXME
-			ctx->recurse_level = -1;
-		else {
+		if (ctx->recurse_level >= 0) {
 			ctx->mailbox_tree =
 				mailbox_tree_init(list->hierarchy_sep);
 		}
@@ -160,8 +169,8 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 		if (mailbox_list_index_sync_init(ilist->list_index, "",
 						 sync_flags,
 						 &ctx->sync_ctx) == 0) {
-			//FIXME:patterns = "*";
-			prefix = "";
+			tmp_patterns[0] = "*"; tmp_patterns[1] = NULL;
+			patterns = tmp_patterns;
 			ctx->trans = mailbox_list_index_sync_get_transaction(
 								ctx->sync_ctx);
 		}
@@ -386,7 +395,8 @@ index_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		ret = ilist->module_ctx.super.iter_deinit(ctx->backend_ctx);
 	}
 
-	imap_match_deinit(&ctx->glob);
+	if (ctx->glob != NULL)
+		imap_match_deinit(&ctx->glob);
 	i_free(ctx->prefix);
 	i_free(ctx);
 	return ret;
