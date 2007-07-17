@@ -135,12 +135,6 @@ bool cmd_copy(struct client_command_context *cmd)
 				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
 	ret = fetch_and_copy(client, t, search_arg, &src_uidset, &copy_count);
 
-	if (ret > 0 &&
-	    mailbox_get_status(destbox, STATUS_UIDVALIDITY, &status) < 0) {
-		client_send_storage_error(cmd, storage);
-		ret = -1;
-	}
-
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
 	else if (mailbox_transaction_commit_get_uids(&t, 0, &uid1, &uid2) < 0)
@@ -148,7 +142,10 @@ bool cmd_copy(struct client_command_context *cmd)
 	else {
 		i_assert(copy_count == uid2 - uid1 + 1);
 
-		if (uid1 == uid2) {
+		if (mailbox_get_status(destbox, STATUS_UIDVALIDITY,
+				       &status) < 0) {
+			msg = "OK Copy completed. UIDVALIDITY lookup failed.";
+		} else if (uid1 == uid2) {
 			msg = t_strdup_printf("OK [COPYUID %u %s %u] "
 					      "Copy completed.",
 					      status.uidvalidity,
