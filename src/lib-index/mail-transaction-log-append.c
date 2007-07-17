@@ -14,8 +14,6 @@ struct log_append_context {
 	struct mail_index_transaction *trans;
 	buffer_t *output;
 
-	uint32_t last_ext_id, last_reset_id;
-
 	uint32_t first_append_size;
 	bool sync_includes_this;
 };
@@ -175,6 +173,8 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 	uint32_t idx;
 	unsigned int count;
 
+	i_assert(ext_id != (uint32_t)-1);
+
 	if (t->reset ||
 	    !mail_index_map_get_ext_idx(t->view->map, ext_id, &idx)) {
 		/* new extension */
@@ -224,11 +224,7 @@ static void log_append_ext_intro(struct log_append_context *ctx,
 	if ((buf->used % 4) != 0)
 		buffer_append_zero(buf, 4 - (buf->used % 4));
 
-	if (ctx->last_ext_id != ext_id || intro->reset_id != ctx->last_reset_id)
-		log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_INTRO);
-
-	ctx->last_ext_id = ext_id;
-	ctx->last_reset_id = intro->reset_id;
+	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_EXT_INTRO);
 }
 
 static void
@@ -492,7 +488,6 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	ctx.file = file;
 	ctx.trans = t;
 	ctx.output = buffer_create_dynamic(default_pool, 1024);
-	ctx.last_ext_id = (uint32_t)-1;
 
 	/* send all extension introductions and resizes before appends
 	   to avoid resize overhead as much as possible */
