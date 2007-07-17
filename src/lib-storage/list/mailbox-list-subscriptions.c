@@ -28,7 +28,7 @@ mailbox_list_subscription_add(struct mailbox_list_iterate_context *ctx,
 	enum mailbox_info_flags create_flags, always_flags;
 	enum imap_match_result match;
 	const char *p;
-	bool created;
+	bool created, add_matched;
 
 	if ((ctx->list->ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
 	    strcasecmp(name, "INBOX") != 0) {
@@ -40,6 +40,7 @@ mailbox_list_subscription_add(struct mailbox_list_iterate_context *ctx,
 			(ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) ?
 		(MAILBOX_NONEXISTENT | MAILBOX_NOCHILDREN) : 0;
 	always_flags = MAILBOX_SUBSCRIBED;
+	add_matched = TRUE;
 
 	t_push();
 	for (;;) {
@@ -55,12 +56,21 @@ mailbox_list_subscription_add(struct mailbox_list_iterate_context *ctx,
 					node_fix_parents(node);
 			}
 			if (node != NULL) {
-				if (!update_only)
+				if (!update_only && add_matched)
 					node->flags |= MAILBOX_MATCHED;
 				node->flags |= always_flags;
 			}
-		} else if ((match & IMAP_MATCH_PARENT) == 0)
-			break;
+			/* We don't want to show the parent mailboxes unless
+			   something else matches them, but if they are matched
+			   we want to show them having child subscriptions */
+			add_matched = FALSE;
+		} else {
+			if ((match & IMAP_MATCH_PARENT) == 0)
+				break;
+			/* We've a (possibly) non-subscribed parent mailbox
+			   which has a subscribed child mailbox. Make sure we
+			   return the parent mailbox. */
+		}
 
 		if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_RECURSIVEMATCH) == 0)
 			break;
