@@ -1430,38 +1430,6 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	return 0;
 }
 
-static int mbox_sync_recent_state(struct mbox_sync_context *sync_ctx)
-{
-#if 0
-	uint32_t seq1, seq2;
-
-	/* see what index thinks is the lowest recent sequence */
-	if (mail_index_lookup_uid_range(sync_ctx->sync_view,
-					sync_ctx->hdr->first_recent_uid,
-					sync_ctx->hdr->next_uid,
-					&seq1, &seq2) < 0) {
-		mail_storage_set_index_error(&sync_ctx->mbox->ibox);
-		return -1;
-	}
-
-	if (seq1 == 0 && sync_ctx->idx_seq <= 1) {
-		/* nothing new */
-		return 0;
-	}
-
-	if (sync_ctx->last_nonrecent_idx_seq >= seq1) {
-		/* we've seen newer non-recent messages. */
-		seq1 = sync_ctx->last_nonrecent_idx_seq + 1;
-	}
-
-	if (seq1 <= seq2) {
-		index_mailbox_set_recent_seq(&sync_ctx->mbox->ibox,
-					     sync_ctx->sync_view, seq1, seq2);
-	}
-#endif
-	return 0;
-}
-
 static void mbox_sync_restart(struct mbox_sync_context *sync_ctx)
 {
 	sync_ctx->base_uid_validity = 0;
@@ -1552,8 +1520,6 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		partial = FALSE;
 	}
 
-	if (mbox_sync_recent_state(sync_ctx) < 0)
-		return -1;
 	if (mbox_sync_handle_eof_updates(sync_ctx, &mail_ctx) < 0)
 		return -1;
 
