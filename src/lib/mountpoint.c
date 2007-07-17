@@ -37,6 +37,12 @@
 #  define MNTTYPE_IGNORE "ignore"
 #endif
 
+/* autofs mounts will show two entries. First for autofs and second for the
+   actual filesystem type. We want the second one. */
+#ifndef MNTTYPE_AUTOFS
+#  define MNTTYPE_AUTOFS "autofs"
+#endif
+
 int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 {
 #ifdef MOUNTPOINT_UNKNOWN
@@ -96,6 +102,7 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	}
 	while ((getmntent(f, &ent)) == 0) {
 		if (strcmp(ent.mnt_fstype, MNTTYPE_SWAP) == 0 ||
+		    strcmp(ent.mnt_fstype, MNTTYPE_AUTOFS) == 0 ||
 		    strcmp(ent.mnt_fstype, MNTTYPE_IGNORE) == 0)
 			continue;
 
