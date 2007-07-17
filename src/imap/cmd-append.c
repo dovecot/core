@@ -259,7 +259,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 
 		if (mailbox_get_status(ctx->box, STATUS_UIDVALIDITY,
 				       &status) < 0)
-			msg = "OK Append completed. UIDVALIDITY lookup failed.";
+			msg = "OK Append completed.";
 		else if (uid1 == uid2) {
 			msg = t_strdup_printf("OK [APPENDUID %u %u] "
 					      "Append completed.",

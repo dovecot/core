@@ -144,7 +144,7 @@ bool cmd_copy(struct client_command_context *cmd)
 
 		if (mailbox_get_status(destbox, STATUS_UIDVALIDITY,
 				       &status) < 0) {
-			msg = "OK Copy completed. UIDVALIDITY lookup failed.";
+			msg = "OK Copy completed.";
 		} else if (uid1 == uid2) {
 			msg = t_strdup_printf("OK [COPYUID %u %s %u] "
 					      "Copy completed.",
