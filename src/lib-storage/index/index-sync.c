@@ -258,6 +258,38 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 	return 0;
 }
 
+static int index_mailbox_expunge_unseen_recent(struct index_mailbox *ibox)
+{
+	const struct mail_index_header *hdr;
+	uint32_t uid;
+
+	if (!array_is_created(&ibox->recent_flags))
+		return 0;
+
+	/* expunges array contained expunges for the messages that were already
+	   visible in this view, but append+expunge would be invisible.
+	   recent_flags may however contain the append UID, so we'll have to
+	   remove it separately */
+	hdr = mail_index_get_header(ibox->view);
+	if (hdr->messages_count == 0)
+		uid = 0;
+	else {
+		if (mail_index_lookup_uid(ibox->view, hdr->messages_count,
+					  &uid) < 0) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+	}
+
+	if (uid + 1 < hdr->next_uid) {
+		ibox->recent_flags_count -=
+			seq_range_array_remove_range(&ibox->recent_flags,
+						     uid + 1,
+						     hdr->next_uid - 1);
+	}
+	return 0;
+}
+
 int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 			      enum mailbox_status_items status_items,
 			      struct mailbox_status *status_r)
@@ -271,6 +303,8 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	if (ctx->sync_ctx != NULL)
 		mail_index_view_sync_end(&ctx->sync_ctx);
+	if (index_mailbox_expunge_unseen_recent(ibox) < 0)
+		ret = -1;
 
 	if (ibox->keep_recent) {
 		/* mailbox syncing didn't necessarily update our recent state */
