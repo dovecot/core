@@ -117,13 +117,18 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 	struct index_mailbox_list_iterate_context *ctx;
 	enum mailbox_list_sync_flags sync_flags;
 	const char *prefix, *cur_prefix, *const *tmp, *tmp_patterns[2];
+	enum mailbox_list_iter_flags subs_flags;
 	int cur_recurse_level;
 
 	ctx = i_new(struct index_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
 
-	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
+	subs_flags = MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
+	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0 ||
+	    (flags & (subs_flags |
+		      MAILBOX_LIST_ITER_RETURN_CHILDREN)) == subs_flags) {
 		/* Ignore indexes completely */
 		ctx->backend_ctx = ilist->module_ctx.super.
 			iter_init(list, patterns, flags);
