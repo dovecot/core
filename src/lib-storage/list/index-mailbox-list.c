@@ -22,6 +22,40 @@ struct index_mailbox_list_module index_mailbox_list_module =
 	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
 static void (*index_next_hook_mailbox_list_created)(struct mailbox_list *list);
 
+static enum mailbox_info_flags
+index_mailbox_list_index_flags_translate(enum mailbox_list_index_flags flags)
+{
+	enum mailbox_info_flags info_flags = 0;
+
+	if ((flags & MAILBOX_LIST_INDEX_FLAG_CHILDREN) != 0)
+		info_flags |= MAILBOX_CHILDREN;
+	if ((flags & MAILBOX_LIST_INDEX_FLAG_NOCHILDREN) != 0)
+		info_flags |= MAILBOX_NOCHILDREN;
+
+	if ((flags & MAILBOX_LIST_INDEX_FLAG_NONEXISTENT) != 0)
+		info_flags |= MAILBOX_NONEXISTENT;
+	if ((flags & MAILBOX_LIST_INDEX_FLAG_NOSELECT) != 0)
+		info_flags |= MAILBOX_NOSELECT;
+	return info_flags;
+}
+
+static enum mailbox_list_index_flags
+index_mailbox_list_info_flags_translate(enum mailbox_info_flags info_flags)
+{
+	enum mailbox_list_index_flags flags = 0;
+
+	if ((info_flags & MAILBOX_CHILDREN) != 0)
+		flags |= MAILBOX_LIST_INDEX_FLAG_CHILDREN;
+	else if ((info_flags & MAILBOX_NOCHILDREN) != 0)
+		flags |= MAILBOX_LIST_INDEX_FLAG_NOCHILDREN;
+
+	if ((info_flags & MAILBOX_NONEXISTENT) != 0)
+		flags |= MAILBOX_LIST_INDEX_FLAG_NONEXISTENT;
+	if ((info_flags & MAILBOX_NOSELECT) != 0)
+		flags |= MAILBOX_LIST_INDEX_FLAG_NOSELECT;
+	return flags;
+}
+
 static int
 index_mailbox_view_sync(struct index_mailbox_list_iterate_context *ctx)
 {
@@ -108,6 +142,58 @@ static void pattern_parse(struct mailbox_list *list, const char *pattern,
 	*recurse_level_r = recurse_level;
 }
 
+static int
+index_mailbox_list_sync(struct index_mailbox_list_iterate_context *ctx)
+{
+	struct mailbox_list *list = ctx->ctx.list;
+	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_iterate_context *iter;
+	struct mailbox_list_index_sync_ctx *sync_ctx;
+	const struct mailbox_info *info;
+	enum mailbox_list_sync_flags sync_flags;
+	enum mailbox_list_index_flags flags;
+	const char *patterns[2];
+	uint32_t seq;
+	int ret = 0;
+
+	/* FIXME: this works nicely with maildir++, but not others */
+	sync_flags = MAILBOX_LIST_SYNC_FLAG_RECURSIVE;
+	patterns[0] = "*"; patterns[1] = NULL;
+
+	if (mailbox_list_index_sync_init(ilist->list_index, "",
+					 sync_flags, &sync_ctx) < 0)
+		return -1;
+
+	ctx->info_pool = pool_alloconly_create("mailbox name pool", 128);
+	ctx->trans = mailbox_list_index_sync_get_transaction(sync_ctx);
+
+	iter = ilist->module_ctx.super.
+		iter_init(list, patterns, MAILBOX_LIST_ITER_RETURN_CHILDREN);
+	while ((info = ilist->module_ctx.super.iter_next(iter)) != NULL) {
+		if (mailbox_list_index_sync_more(sync_ctx, info->name,
+						 &seq) < 0) {
+			ret = -1;
+			break;
+		}
+
+		flags = index_mailbox_list_info_flags_translate(info->flags);
+		mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE, flags);
+	}
+	if (ilist->module_ctx.super.iter_deinit(iter) < 0)
+		ret = -1;
+
+	if (ret < 0) {
+		mailbox_list_index_sync_rollback(&sync_ctx);
+		return -1;
+	}
+
+	/* FIXME: single sync_stamp works only with maildir++ */
+	mail_index_update_header(ctx->trans,
+		offsetof(struct mail_index_header, sync_stamp),
+		&ctx->sync_stamp, sizeof(ctx->sync_stamp), TRUE);
+	return mailbox_list_index_sync_commit(&sync_ctx);
+}
+
 static struct mailbox_list_iterate_context *
 index_mailbox_list_iter_init(struct mailbox_list *list,
 			     const char *const *patterns,
@@ -115,8 +201,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
 	struct index_mailbox_list_iterate_context *ctx;
-	enum mailbox_list_sync_flags sync_flags;
-	const char *prefix, *cur_prefix, *const *tmp, *tmp_patterns[2];
+	const char *prefix, *cur_prefix, *const *tmp;
 	enum mailbox_list_iter_flags subs_flags;
 	int cur_recurse_level;
 
@@ -151,73 +236,35 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 		    cur_recurse_level == -1)
 			ctx->recurse_level = cur_recurse_level;
 	}
+	if (prefix == NULL)
+		prefix = "";
 
-	if (index_mailbox_list_is_synced(ctx) > 0) {
-		/* synced, list from index */
-		ctx->info_pool =
-			pool_alloconly_create("mailbox name pool", 128);
-		ctx->iter_ctx = mailbox_list_index_iterate_init(ctx->view,
-						prefix, ctx->recurse_level);
-		ctx->prefix = *prefix == '\0' ? i_strdup("") :
-			i_strdup_printf("%s%c", prefix, list->hierarchy_sep);
-	} else {
-		/* FIXME: this works nicely with maildir++, but not others */
-		sync_flags = MAILBOX_LIST_SYNC_FLAG_RECURSIVE;
-
-		if (ctx->recurse_level >= 0) {
-			ctx->mailbox_tree =
-				mailbox_tree_init(list->hierarchy_sep);
+	if (!index_mailbox_list_is_synced(ctx) > 0) {
+		if (index_mailbox_list_sync(ctx) < 0) {
+			ctx->backend_ctx = ilist->module_ctx.super.
+				iter_init(list, patterns, flags);
+			return &ctx->ctx;
 		}
+		/* updated, we'll have to reopen views */
+		mail_index_view_close(&ctx->mail_view);
+		mailbox_list_index_view_deinit(&ctx->view);
 
-		ctx->info_pool =
-			pool_alloconly_create("mailbox name pool", 128);
-		if (mailbox_list_index_sync_init(ilist->list_index, "",
-						 sync_flags,
-						 &ctx->sync_ctx) == 0) {
-			tmp_patterns[0] = "*"; tmp_patterns[1] = NULL;
-			patterns = tmp_patterns;
-			ctx->trans = mailbox_list_index_sync_get_transaction(
-								ctx->sync_ctx);
-		}
-
-		ctx->backend_ctx = ilist->module_ctx.super.
-			iter_init(list, patterns, flags);
+		ctx->mail_view = mail_index_view_open(ilist->mail_index);
+		ctx->view = mailbox_list_index_view_init(ilist->list_index,
+							 ctx->mail_view);
 	}
+
+	/* list from index */
+	if (ctx->info_pool == NULL) {
+		ctx->info_pool =
+			pool_alloconly_create("mailbox name pool", 128);
+	}
+	ctx->iter_ctx =
+		mailbox_list_index_iterate_init(ctx->view, prefix,
+						ctx->recurse_level);
+	ctx->prefix = *prefix == '\0' ? i_strdup("") :
+		i_strdup_printf("%s%c", prefix, list->hierarchy_sep);
 	return &ctx->ctx;
-}
-
-static enum mailbox_info_flags
-index_mailbox_list_index_flags_translate(enum mailbox_list_index_flags flags)
-{
-	enum mailbox_info_flags info_flags = 0;
-
-	if ((flags & MAILBOX_LIST_INDEX_FLAG_CHILDREN) != 0)
-		info_flags |= MAILBOX_CHILDREN;
-	if ((flags & MAILBOX_LIST_INDEX_FLAG_NOCHILDREN) != 0)
-		info_flags |= MAILBOX_NOCHILDREN;
-
-	if ((flags & MAILBOX_LIST_INDEX_FLAG_NONEXISTENT) != 0)
-		info_flags |= MAILBOX_NONEXISTENT;
-	if ((flags & MAILBOX_LIST_INDEX_FLAG_NOSELECT) != 0)
-		info_flags |= MAILBOX_NOSELECT;
-	return info_flags;
-}
-
-static enum mailbox_list_index_flags
-index_mailbox_list_info_flags_translate(enum mailbox_info_flags info_flags)
-{
-	enum mailbox_list_index_flags flags = 0;
-
-	if ((info_flags & MAILBOX_CHILDREN) != 0)
-		flags |= MAILBOX_LIST_INDEX_FLAG_CHILDREN;
-	if ((info_flags & MAILBOX_NOCHILDREN) != 0)
-		flags |= MAILBOX_LIST_INDEX_FLAG_NOCHILDREN;
-
-	if ((info_flags & MAILBOX_NONEXISTENT) != 0)
-		flags |= MAILBOX_LIST_INDEX_FLAG_NONEXISTENT;
-	if ((info_flags & MAILBOX_NOSELECT) != 0)
-		flags |= MAILBOX_LIST_INDEX_FLAG_NOSELECT;
-	return flags;
 }
 
 /* skip nonexistent mailboxes when finding with "*" */
@@ -283,32 +330,6 @@ static int iter_next_nonsync(struct index_mailbox_list_iterate_context *ctx,
 	return 0;
 }
 
-static struct mailbox_info *
-mailbox_info_move_to_parent(struct index_mailbox_list_iterate_context *ctx,
-			    const struct mailbox_info *info)
-{
-	const char *p, *name = info->name;
-	char sep = ctx->ctx.list->hierarchy_sep;
-
-	p_clear(ctx->info_pool);
-
-	t_push();
-	while ((p = strrchr(name, sep)) != NULL) {
-		name = t_strdup_until(name, p);
-		if (imap_match(ctx->glob, name) == IMAP_MATCH_YES) {
-			ctx->info.name = p_strdup(ctx->info_pool, name);
-			break;
-		}
-	}
-	t_pop();
-
-	if (p == NULL)
-		i_unreached();
-
-	ctx->info.flags = MAILBOX_CHILDREN | MAILBOX_NONEXISTENT;
-	return &ctx->info;
-}
-
 static const struct mailbox_info *
 index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
@@ -316,8 +337,6 @@ index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		(struct index_mailbox_list_iterate_context *)_ctx;
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(_ctx->list);
 	const struct mailbox_info *info;
-	uint32_t seq, flags;
-	enum imap_match_result match;
 
 	if (ctx->iter_ctx != NULL) {
 		if (iter_next_nonsync(ctx, &info) < 0) {
@@ -327,39 +346,7 @@ index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		return info;
 	}
 
-	do {
-		info = ilist->module_ctx.super.iter_next(ctx->backend_ctx);
-		if (info == NULL || ctx->sync_ctx == NULL)
-			return info;
-
-		/* if the sync fails, just ignore it. we don't require synced
-		   indexes to be able to return valid output. */
-		if (mailbox_list_index_sync_more(ctx->sync_ctx, info->name,
-						 &seq) == 0) {
-			flags = index_mailbox_list_info_flags_translate(
-								info->flags);
-			mail_index_update_flags(ctx->trans, seq, MODIFY_REPLACE,
-						flags);
-		}
-		match = imap_match(ctx->glob, info->name);
-		if ((match & IMAP_MATCH_PARENT) != 0) {
-			info = mailbox_info_move_to_parent(ctx, info);
-			match = IMAP_MATCH_YES;
-		}
-		if (ctx->recurse_level >= 0) {
-			/* no "*" wildcards, keep track of what mailboxes we
-			   have returned so we don't return same parents
-			   multiple times. */
-			bool created;
-
-			(void)mailbox_tree_get(ctx->mailbox_tree,
-					       info->name, &created);
-			if (!created)
-				match = IMAP_MATCH_NO;
-		}
-	} while (match != IMAP_MATCH_YES || !info_flags_match(ctx, info));
-
-	return info;
+	return ilist->module_ctx.super.iter_next(ctx->backend_ctx);
 }
 
 static int
@@ -374,31 +361,14 @@ index_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		mailbox_list_index_iterate_deinit(&ctx->iter_ctx);
 	if (ctx->info_pool != NULL)
 		pool_unref(ctx->info_pool);
-	if (ctx->mailbox_tree != NULL)
-		mailbox_tree_deinit(&ctx->mailbox_tree);
 
 	if (ctx->mail_view != NULL)
 		mail_index_view_close(&ctx->mail_view);
 	if (ctx->view != NULL)
 		mailbox_list_index_view_deinit(&ctx->view);
 
-	if (ctx->sync_ctx != NULL) {
-		/* FIXME: single sync_stamp works only with maildir++ */
-		mail_index_update_header(ctx->trans,
-			offsetof(struct mail_index_header, sync_stamp),
-			&ctx->sync_stamp, sizeof(ctx->sync_stamp), TRUE);
-
+	if (ctx->backend_ctx != NULL)
 		ret = ilist->module_ctx.super.iter_deinit(ctx->backend_ctx);
-		if (ret < 0)
-			mailbox_list_index_sync_rollback(&ctx->sync_ctx);
-		else {
-			/* index updates aren't that important. if the commit
-			   fails, we've still returned full output. */
-			(void)mailbox_list_index_sync_commit(&ctx->sync_ctx);
-		}
-	} else if (ctx->backend_ctx != NULL) {
-		ret = ilist->module_ctx.super.iter_deinit(ctx->backend_ctx);
-	}
 
 	if (ctx->glob != NULL)
 		imap_match_deinit(&ctx->glob);
