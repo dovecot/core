@@ -356,18 +356,12 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	struct stat st;
 	int ret = 1;
 
-	if (strchr(fname, '.') != NULL) {
-		*flags = MAILBOX_NOSELECT;
-		return 0;
-	}
-
 	/* try to avoid stat() with these checks */
 	if (type != MAILBOX_LIST_FILE_TYPE_DIR &&
 	    type != MAILBOX_LIST_FILE_TYPE_SYMLINK &&
 	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN &&
 	    (ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
 		/* it's a file */
-		*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
 		return 0;
 	}
 
