@@ -444,9 +444,11 @@ struct mailbox *mailbox_open(struct mail_storage *storage, const char *name,
 		return NULL;
 	}
 
+	t_push();
 	box = storage->v.mailbox_open(storage, name, input, flags);
 	if (hook_mailbox_opened != NULL && box != NULL)
 		hook_mailbox_opened(box);
+	t_pop();
 	return box;
 }
 
