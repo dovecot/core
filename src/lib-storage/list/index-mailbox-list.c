@@ -274,7 +274,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 	ctx->ns_prefix = list->ns->prefix;
 	ctx->ns_prefix_len = strlen(ctx->ns_prefix);
 
-	if (index_mailbox_list_iter_init_try(ctx, patterns) < 0) {
+	if (!index_mailbox_list_iter_init_try(ctx, patterns)) {
 		/* no indexing */
 		ctx->backend_ctx = ilist->module_ctx.super.
 			iter_init(list, patterns, flags);
