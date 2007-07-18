@@ -165,7 +165,6 @@ index_mailbox_list_sync(struct index_mailbox_list_iterate_context *ctx)
 					 sync_flags, &sync_ctx) < 0)
 		return -1;
 
-	ctx->info_pool = pool_alloconly_create("mailbox name pool", 128);
 	ctx->trans = mailbox_list_index_sync_get_transaction(sync_ctx);
 
 	iter = ilist->module_ctx.super.
@@ -209,6 +208,8 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 	ctx = i_new(struct index_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
 	ctx->ctx.flags = flags;
+	ctx->ns_prefix = list->ns->prefix;
+	ctx->ns_prefix_len = strlen(ctx->ns_prefix);
 
 	subs_flags = MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -271,22 +272,20 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 							 ctx->mail_view);
 	}
 
-	if (ctx->info_pool == NULL) {
-		ctx->info_pool =
-			pool_alloconly_create("mailbox name pool", 128);
-	}
-
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		ctx->subs_iter =
 			mailbox_tree_iterate_init(ctx->subs_tree,
 						  NULL, MAILBOX_MATCHED);
 	} else {
 		/* list from index */
+		ctx->info_pool =
+			pool_alloconly_create("mailbox name pool", 256);
 		ctx->iter_ctx =
 			mailbox_list_index_iterate_init(ctx->view, prefix,
 							ctx->recurse_level);
-		ctx->prefix = *prefix == '\0' ? i_strdup("") :
-			i_strdup_printf("%s%c", prefix, list->hierarchy_sep);
+		ctx->prefix = *prefix == '\0' ? i_strdup(ctx->ns_prefix) :
+			i_strdup_printf("%s%s%c", ctx->ns_prefix, prefix,
+					list->hierarchy_sep);
 	}
 	return &ctx->ctx;
 }
@@ -378,6 +377,7 @@ index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(_ctx->list);
 	const struct mailbox_info *info;
 	struct mailbox_node *subs_node;
+	const char *index_name;
 	uint32_t uid;
 
 	if (ctx->iter_ctx != NULL) {
@@ -397,7 +397,12 @@ index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	if (subs_node == NULL)
 		return NULL;
 
-	if (mailbox_list_index_lookup(ctx->view, ctx->info.name, &uid) < 0 ||
+	index_name = ctx->info.name;
+	if (ctx->ns_prefix_len > 0 &&
+	    strncmp(ctx->info.name, ctx->ns_prefix, ctx->ns_prefix_len) == 0)
+		index_name += ctx->ns_prefix_len;
+
+	if (mailbox_list_index_lookup(ctx->view, index_name, &uid) < 0 ||
 	    list_index_get_info_flags(ctx, uid, &ctx->info.flags) < 0) {
 		ctx->failed = TRUE;
 		return NULL;

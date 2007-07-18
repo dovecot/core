@@ -40,6 +40,9 @@ struct index_mailbox_list_iterate_context {
 	int recurse_level;
 	struct imap_match_glob *glob;
 
+	const char *ns_prefix;
+	unsigned int ns_prefix_len;
+
 	pool_t info_pool;
 	struct mailbox_info info;
 	uint32_t sync_stamp;
