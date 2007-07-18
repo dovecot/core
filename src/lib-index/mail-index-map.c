@@ -762,7 +762,7 @@ int mail_index_map(struct mail_index *index,
 
 		/* if we're creating the index file, we don't have any
 		   logs yet */
-		if (index->log->head != NULL) {
+		if (index->log->head != NULL && index->indexid != 0) {
 			/* and update the map with the latest changes from
 			   transaction log */
 			ret = mail_index_sync_map(&index->map, type, TRUE);
