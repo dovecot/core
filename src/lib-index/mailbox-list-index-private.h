@@ -95,4 +95,7 @@ void mailbox_list_index_file_close(struct mailbox_list_index *index);
 
 int mailbox_list_index_refresh(struct mailbox_list_index *index);
 
+int mailbox_list_index_set_corrupted(struct mailbox_list_index *index,
+				     const char *str);
+
 #endif

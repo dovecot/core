@@ -85,7 +85,4 @@ int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
 				    struct mailbox_list_index_info *info_r);
 void mailbox_list_index_iterate_deinit(struct mailbox_list_iter_ctx **ctx);
 
-int mailbox_list_index_set_corrupted(struct mailbox_list_index *index,
-				     const char *str);
-
 #endif
