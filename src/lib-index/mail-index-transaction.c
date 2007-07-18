@@ -680,8 +680,16 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 		updates[idx].remove_flags =
 			(updates[idx].remove_flags | u.remove_flags) &
 			~u.add_flags;
-
 		u.uid1 = updates[idx].uid2 + 1;
+
+		if (updates[idx].add_flags == 0 &&
+		    updates[idx].remove_flags == 0) {
+			/* we can remove this update completely */
+			array_delete(&t->updates, idx, 1);
+			updates = array_get_modifiable(&t->updates, &count);
+			idx--;
+		}
+
 		if (u.uid1 > u.uid2) {
 			/* break here before idx++ so last_update_idx is set
 			   correctly */
