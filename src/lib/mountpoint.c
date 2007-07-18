@@ -19,6 +19,7 @@
 #elif defined(HAVE_SYS_MNTTAB_H)
 #  include <stdio.h>
 #  include <sys/mnttab.h> /* Solaris */
+#  include <sys/mntent.h>
 #else
 #  define MOUNTPOINT_UNKNOWN
 #endif
@@ -37,11 +38,6 @@
 #  define MNTTYPE_IGNORE "ignore"
 #endif
 
-/* autofs mounts will show two entries. First for autofs and second for the
-   actual filesystem type. We want the second one. */
-#ifndef MNTTYPE_AUTOFS
-#  define MNTTYPE_AUTOFS "autofs"
-#endif
 
 int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 {
@@ -74,11 +70,15 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 #else
 	/* Linux, Solaris: /etc/mtab reading */
 #ifdef HAVE_SYS_MNTTAB_H
-	struct mnttab ent;
+	union {
+		struct mnttab ent;
+		struct extmnttab ext;
+	} ent;
 #else
 	struct mntent *ent;
+	struct stat st2;
 #endif
-	struct stat st, st2;
+	struct stat st;
 	const char *device_path = NULL, *mount_path = NULL, *type = NULL;
 	unsigned int block_size;
 	FILE *f;
@@ -100,17 +100,19 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 		i_error("fopen(%s) failed: %m", MTAB_PATH);
 		return -1;
 	}
-	while ((getmntent(f, &ent)) == 0) {
-		if (strcmp(ent.mnt_fstype, MNTTYPE_SWAP) == 0 ||
-		    strcmp(ent.mnt_fstype, MNTTYPE_AUTOFS) == 0 ||
-		    strcmp(ent.mnt_fstype, MNTTYPE_IGNORE) == 0)
+	while ((getextmntent(f, &ent.ext, sizeof(ent.ext))) == 0) {
+		if (hasmntopt(&ent.ent, MNTOPT_IGNORE) != NULL)
 			continue;
 
-		if (stat(ent.mnt_mountp, &st2) == 0 &&
-		    CMP_DEV_T(st.st_dev, st2.st_dev)) {
-			device_path = ent.mnt_special;
-			mount_path = ent.mnt_mountp;
-			type = ent.mnt_fstype;
+		/* mnt_type contains tmpfs with swap */
+		if (strcmp(ent.ent.mnt_special, MNTTYPE_SWAP) == 0)
+			continue;
+
+		if (major(st.st_dev) == ent.ext.mnt_major &&
+		    minor(st.st_dev) == ent.ext.mnt_minor) {
+			device_path = ent.ent.mnt_special;
+			mount_path = ent.ent.mnt_mountp;
+			type = ent.ent.mnt_fstype;
 			break;
 		}
 	}
