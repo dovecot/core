@@ -39,7 +39,7 @@ static void dump_hdr(int fd)
 	printf("deleted space = %u\n", hdr.deleted_space);
 }
 
-static void dump_dir(int fd, unsigned int show_offset, const char *indent)
+static void dump_dir(int fd, unsigned int show_offset, const char *path)
 {
 	struct mailbox_list_dir_record dir;
 	struct mailbox_list_record rec;
@@ -51,7 +51,7 @@ static void dump_dir(int fd, unsigned int show_offset, const char *indent)
 	offset = lseek(fd, 0, SEEK_CUR);
 	ret = read(fd, &dir, sizeof(dir));
 	if (ret == 0) {
-		if (*indent != '\0')
+		if (*path != '\0')
 			i_fatal("unexpected EOF when reading dir");
 		return;
 	}
@@ -60,12 +60,12 @@ static void dump_dir(int fd, unsigned int show_offset, const char *indent)
 		i_fatal("dir read() %d != %ld", ret, sizeof(dir));
 
 	dir.next_offset = mail_index_offset_to_uint32(dir.next_offset);
-	printf("%sDIR: offset=%"PRIuUOFF_T" next_offset=%u count=%u dir_size=%u\n",
-	       indent, offset, dir.next_offset, dir.count, dir.dir_size);
+	printf("%s: DIR: offset=%"PRIuUOFF_T" next_offset=%u count=%u dir_size=%u\n",
+	       path, offset, dir.next_offset, dir.count, dir.dir_size);
 
 	if (dir.next_offset != 0 && dir.next_offset != show_offset) {
 		lseek(fd, dir.next_offset, SEEK_SET);
-		dump_dir(fd, show_offset, indent);
+		dump_dir(fd, show_offset, path);
 		return;
 	}
 
@@ -78,39 +78,43 @@ static void dump_dir(int fd, unsigned int show_offset, const char *indent)
 
 		if (ret != sizeof(rec))
 			i_fatal("rec read() %d != %ld", ret, sizeof(rec));
-
 		rec.dir_offset = mail_index_offset_to_uint32(rec.dir_offset);
-		printf("%sRECORD: offset=%"PRIuUOFF_T" uid=%u "
-		       "deleted=%d name_offset=%u dir_offset=%u\n",
-		       indent, offset, rec.uid, rec.deleted,
-		       rec.name_offset, rec.dir_offset);
 
 		ret = pread(fd, name, sizeof(name)-1, rec.name_offset);
-		if (ret <= 0)
-			printf("%s - invalid name_offset\n", indent);
-		else {
-			name[ret] = '\0';
-			if (strlen(name) == (size_t)ret)
-				i_fatal("name missing NUL terminator");
-			printf("%s - name: %s (hash %u)\n",
-			       indent, name, rec.name_hash);
+		name[ret < 0 ? 0 : ret] = '\0';
 
-			if (crc32_str(name) != rec.name_hash) {
-				printf("%s - invalid name hash %u vs %u\n",
-				       indent, crc32_str(name), rec.name_hash);
-			}
+		printf("%s%s: offset=%"PRIuUOFF_T" uid=%u "
+		       "name_offset=%u name_hash=%u", path, name, offset,
+		       rec.uid, rec.name_offset, rec.name_hash);
+
+		if (rec.deleted != 0)
+			printf(" deleted=%u", rec.deleted);
+		if (rec.dir_offset != 0)
+			printf(" dir_offset=%u", rec.dir_offset);
+		printf("\n");
+
+		if (ret <= 0)
+			printf("%s%s: - invalid name_offset", path, name);
+		else if (strlen(name) == (size_t)ret) {
+			printf("%s%s: - name missing NUL terminator",
+			       path, name);
+		}
+
+		if (crc32_str(name) != rec.name_hash) {
+			printf("%s%s: - invalid name hash %u vs %u\n",
+			       path, name, crc32_str(name), rec.name_hash);
 		}
 
 		if (rec.dir_offset != 0) {
-			const char *new_indent;
+			const char *new_path;
 
 			t_push();
 			lseek(fd, rec.dir_offset, SEEK_SET);
-			if (*indent == '\0')
-				new_indent = t_strdup_printf("%s: ", name);
+			if (*path == '\0')
+				new_path = t_strdup_printf("%s/", name);
 			else
-				new_indent = t_strdup_printf("%s/%s: ", t_strndup(indent, strlen(indent)-2), name);
-			dump_dir(fd, show_offset, new_indent);
+				new_path = t_strdup_printf("%s%s/", path, name);
+			dump_dir(fd, show_offset, new_path);
 			t_pop();
 		}
 
