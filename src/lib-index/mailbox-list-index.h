@@ -1,6 +1,7 @@
 #ifndef __MAILBOX_LIST_INDEX_H
 #define __MAILBOX_LIST_INDEX_H
 
+struct mailbox_list_index_view;
 struct mailbox_list_index_sync_ctx;
 
 /* Mailbox list index contains UID <-> mailbox name mapping. It also takes in
@@ -61,10 +62,10 @@ void mailbox_list_index_sync_rollback(struct mailbox_list_index_sync_ctx **ctx);
 
 /* Mailbox list index and mail index must be kept in sync, so lookups and
    iterations must know the mail index view. The mail_view can be set to NULL
-   to use the latest changes. */
-struct mailbox_list_index_view *
-mailbox_list_index_view_init(struct mailbox_list_index *index,
-			     struct mail_index_view *mail_view);
+   to use the latest changes. Returns -1 if uidvalidity doesn't match. */
+int mailbox_list_index_view_init(struct mailbox_list_index *index,
+				 struct mail_index_view *mail_view,
+				 struct mailbox_list_index_view **view_r);
 void mailbox_list_index_view_deinit(struct mailbox_list_index_view **view);
 
 /* Get mailbox UID for a given name. Returns 1 if found, 0 if not,

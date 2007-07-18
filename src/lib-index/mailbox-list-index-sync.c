@@ -395,8 +395,12 @@ int mailbox_list_index_sync_init(struct mailbox_list_index *index,
 				 struct mailbox_list_index_sync_ctx **ctx_r)
 {
 	struct mailbox_list_index_sync_ctx *ctx;
+	struct mailbox_list_index_view *view;
 	pool_t pool;
 	size_t len;
+
+	if (mailbox_list_index_view_init(index, NULL, &view) < 0)
+		return -1;
 
 	/* add separator to end of path if it isn't there */
 	len = strlen(path);
@@ -409,7 +413,7 @@ int mailbox_list_index_sync_init(struct mailbox_list_index *index,
 	ctx = p_new(pool, struct mailbox_list_index_sync_ctx, 1);
 	ctx->pool = pool;
 	ctx->index = index;
-	ctx->view = mailbox_list_index_view_init(index, NULL);
+	ctx->view = view;
 	ctx->sync_path = p_strdup(pool, path);
 	ctx->flags = flags;
 

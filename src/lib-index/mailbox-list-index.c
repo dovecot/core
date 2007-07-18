@@ -132,18 +132,6 @@ mailbox_list_index_check_header(struct mailbox_list_index *index,
 		/* index already marked as corrupted */
 		return -1;
 	}
-
-	if (hdr->uid_validity != index->mail_index->map->hdr.uid_validity &&
-	    index->mail_index->map->hdr.uid_validity != 0) {
-		mail_index_set_error(index->mail_index,
-			"uid_validity changed in file %s: %u -> %u",
-			index->filepath,
-			index->mail_index->map->hdr.uid_validity,
-			hdr->uid_validity);
-		mail_index_mark_corrupted(index->mail_index);
-		return -1;
-	}
-
 	return 0;
 }
 
@@ -608,16 +596,27 @@ int mailbox_list_index_refresh(struct mailbox_list_index *index)
 	return mailbox_list_index_open_or_create(index);
 }
 
-struct mailbox_list_index_view *
-mailbox_list_index_view_init(struct mailbox_list_index *index,
-			     struct mail_index_view *mail_view)
+int mailbox_list_index_view_init(struct mailbox_list_index *index,
+				 struct mail_index_view *mail_view,
+				 struct mailbox_list_index_view **view_r)
 {
 	struct mailbox_list_index_view *view;
+	const struct mail_index_header *hdr;
 
-	view = i_new(struct mailbox_list_index_view, 1);
+	hdr = mail_view != NULL ? mail_index_get_header(mail_view) :
+		&index->mail_index->map->hdr;
+	if (hdr->uid_validity != index->hdr->uid_validity) {
+		mail_index_set_error(index->mail_index,
+			"uid_validity mismatch in file %s: %u != %u",
+			index->filepath, index->hdr->uid_validity,
+			hdr->uid_validity);
+		return -1;
+	}
+
+	view = *view_r = i_new(struct mailbox_list_index_view, 1);
 	view->index = index;
 	view->mail_view = mail_view;
-	return view;
+	return 0;
 }
 
 void mailbox_list_index_view_deinit(struct mailbox_list_index_view **_view)

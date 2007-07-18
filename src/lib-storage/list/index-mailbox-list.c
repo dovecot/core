@@ -172,22 +172,16 @@ index_mailbox_list_sync(struct index_mailbox_list_iterate_context *ctx)
 	return mailbox_list_index_sync_commit(&sync_ctx);
 }
 
-static struct mailbox_list_iterate_context *
-index_mailbox_list_iter_init(struct mailbox_list *list,
-			     const char *const *patterns,
-			     enum mailbox_list_iter_flags flags)
+static bool
+index_mailbox_list_iter_init_try(struct index_mailbox_list_iterate_context *ctx,
+				 const char *const *patterns)
 {
+	struct mailbox_list *list = ctx->ctx.list;
+	enum mailbox_list_iter_flags flags = ctx->ctx.flags;
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
-	struct index_mailbox_list_iterate_context *ctx;
 	const char *prefix, *cur_prefix, *const *tmp;
 	enum mailbox_list_iter_flags subs_flags;
-	int ret, cur_recurse_level;
-
-	ctx = i_new(struct index_mailbox_list_iterate_context, 1);
-	ctx->ctx.list = list;
-	ctx->ctx.flags = flags;
-	ctx->ns_prefix = list->ns->prefix;
-	ctx->ns_prefix_len = strlen(ctx->ns_prefix);
+	int cur_recurse_level;
 
 	subs_flags = MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -195,9 +189,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 	    (flags & (subs_flags |
 		      MAILBOX_LIST_ITER_RETURN_CHILDREN)) == subs_flags) {
 		/* Ignore indexes completely */
-		ctx->backend_ctx = ilist->module_ctx.super.
-			iter_init(list, patterns, flags);
-		return &ctx->ctx;
+		return FALSE;
 	}
 
 	ctx->glob = imap_match_init_multiple(default_pool, patterns, TRUE,
@@ -209,22 +201,18 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->subs_tree,
 						    ctx->glob, FALSE) < 0) {
 			/* let the backend handle this failure */
-			ctx->backend_ctx = ilist->module_ctx.super.
-				iter_init(list, patterns, flags);
-			return &ctx->ctx;
+			return FALSE;
 		}
 	}
 
 	/* Refresh index before opening our view */
-	if (mail_index_refresh(ilist->mail_index) < 0) {
-		ctx->backend_ctx = ilist->module_ctx.super.
-			iter_init(list, patterns, flags);
-		return &ctx->ctx;
-	}
+	if (mail_index_refresh(ilist->mail_index) < 0)
+		return FALSE;
 
 	ctx->mail_view = mail_index_view_open(ilist->mail_index);
-	ctx->view = mailbox_list_index_view_init(ilist->list_index,
-						 ctx->mail_view);
+	if (mailbox_list_index_view_init(ilist->list_index,
+					 ctx->mail_view, &ctx->view) < 0)
+		return FALSE;
 
 	/* FIXME: we could just do multiple lookups for different patterns */
 	prefix = NULL;
@@ -240,21 +228,18 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 		prefix = "";
 
 	if (index_mailbox_list_is_synced(ctx) <= 0) {
-		ret = index_mailbox_list_sync(ctx);
+		if (index_mailbox_list_sync(ctx) < 0)
+			return FALSE;
 
+		/* updated, we'll have to reopen views */
 		mail_index_view_close(&ctx->mail_view);
 		mailbox_list_index_view_deinit(&ctx->view);
 
-		if (ret < 0) {
-			ctx->backend_ctx = ilist->module_ctx.super.
-				iter_init(list, patterns, flags);
-			return &ctx->ctx;
-		}
-
-		/* updated, we'll have to reopen views */
 		ctx->mail_view = mail_index_view_open(ilist->mail_index);
-		ctx->view = mailbox_list_index_view_init(ilist->list_index,
-							 ctx->mail_view);
+		if (mailbox_list_index_view_init(ilist->list_index,
+						 ctx->mail_view,
+						 &ctx->view) < 0)
+			return FALSE;
 	}
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
@@ -271,6 +256,28 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 		ctx->prefix = *prefix == '\0' ? i_strdup(ctx->ns_prefix) :
 			i_strdup_printf("%s%s%c", ctx->ns_prefix, prefix,
 					list->hierarchy_sep);
+	}
+	return TRUE;
+}
+
+static struct mailbox_list_iterate_context *
+index_mailbox_list_iter_init(struct mailbox_list *list,
+			     const char *const *patterns,
+			     enum mailbox_list_iter_flags flags)
+{
+	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(list);
+	struct index_mailbox_list_iterate_context *ctx;
+
+	ctx = i_new(struct index_mailbox_list_iterate_context, 1);
+	ctx->ctx.list = list;
+	ctx->ctx.flags = flags;
+	ctx->ns_prefix = list->ns->prefix;
+	ctx->ns_prefix_len = strlen(ctx->ns_prefix);
+
+	if (index_mailbox_list_iter_init_try(ctx, patterns) < 0) {
+		/* no indexing */
+		ctx->backend_ctx = ilist->module_ctx.super.
+			iter_init(list, patterns, flags);
 	}
 	return &ctx->ctx;
 }
@@ -480,8 +487,11 @@ static int index_mailbox_list_open_indexes(struct mailbox_list *list,
 		mailbox_list_index_free(&ilist->list_index);
 		return -1;
 	}
-	ilist->list_sync_view = mailbox_list_index_view_init(ilist->list_index,
-							     NULL);
+	if (mailbox_list_index_view_init(ilist->list_index, NULL,
+					 &ilist->list_sync_view) < 0) {
+		mailbox_list_index_free(&ilist->list_index);
+		return -1;
+	}
 	return 0;
 }
 
