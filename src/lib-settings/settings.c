@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 
+#define SECTION_ERRORMSG "%s (section changed at line %d)"
+
 settings_section_callback_t *null_settings_section_callback = NULL;
 
 static const char *get_bool(const char *value, bool *result)
@@ -70,7 +72,7 @@ bool settings_read(const char *path, const char *section,
 	const char *errormsg, *next_section, *name;
 	char *line, *key, *p, quote;
 	size_t len;
-	int fd, linenum, skip, sections, root_section;
+	int fd, linenum, last_section_line = 0, skip, sections, root_section;
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
@@ -185,6 +187,7 @@ bool settings_read(const char *path, const char *section,
 			if (*line != '{')
 				errormsg = "Expecting '='";
 			else {
+				last_section_line = linenum;
 				sections++;
 				if (next_section != NULL &&
 				    strcmp(next_section, name) == 0) {
@@ -208,6 +211,12 @@ bool settings_read(const char *path, const char *section,
 						!sect_callback(key, name,
 							       context,
 							       &errormsg);
+					if (errormsg != NULL &&
+					    last_section_line != 0) {
+						errormsg = t_strdup_printf(
+							SECTION_ERRORMSG,
+							errormsg, linenum);
+					}
 				}
 			}
 		} else {
@@ -227,6 +236,7 @@ bool settings_read(const char *path, const char *section,
 						break;
 					}
 				}
+				last_section_line = linenum;
 				sections--;
 			}
 		}
