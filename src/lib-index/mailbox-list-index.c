@@ -601,15 +601,15 @@ int mailbox_list_index_view_init(struct mailbox_list_index *index,
 				 struct mailbox_list_index_view **view_r)
 {
 	struct mailbox_list_index_view *view;
-	const struct mail_index_header *hdr;
+	const struct mail_index_header *mail_hdr;
 
-	hdr = mail_view != NULL ? mail_index_get_header(mail_view) :
-		&index->mail_index->map->hdr;
-	if (hdr->uid_validity != index->hdr->uid_validity) {
+	mail_hdr = mail_view != NULL ? mail_index_get_header(mail_view) : NULL;
+	if (mail_hdr != NULL && index->hdr != NULL &&
+	    mail_hdr->uid_validity != index->hdr->uid_validity) {
 		mail_index_set_error(index->mail_index,
 			"uid_validity mismatch in file %s: %u != %u",
 			index->filepath, index->hdr->uid_validity,
-			hdr->uid_validity);
+			mail_hdr->uid_validity);
 		return -1;
 	}
 

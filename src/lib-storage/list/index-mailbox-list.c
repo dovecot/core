@@ -64,6 +64,11 @@ index_mailbox_list_is_synced(struct index_mailbox_list_iterate_context *ctx)
 	struct stat st;
 	const char *path = ctx->ctx.list->set.root_dir;
 
+	if (ctx->view == NULL) {
+		/* uid_validity changed */
+		return 0;
+	}
+
 	/* FIXME: single sync_stamp works only with maildir++ */
 	if (stat(path, &st) < 0) {
 		mailbox_list_set_critical(ctx->ctx.list,
@@ -212,7 +217,7 @@ index_mailbox_list_iter_init_try(struct index_mailbox_list_iterate_context *ctx,
 	ctx->mail_view = mail_index_view_open(ilist->mail_index);
 	if (mailbox_list_index_view_init(ilist->list_index,
 					 ctx->mail_view, &ctx->view) < 0)
-		return FALSE;
+		ctx->view = NULL;
 
 	/* FIXME: we could just do multiple lookups for different patterns */
 	prefix = NULL;
@@ -233,7 +238,8 @@ index_mailbox_list_iter_init_try(struct index_mailbox_list_iterate_context *ctx,
 
 		/* updated, we'll have to reopen views */
 		mail_index_view_close(&ctx->mail_view);
-		mailbox_list_index_view_deinit(&ctx->view);
+		if (ctx->view != NULL)
+			mailbox_list_index_view_deinit(&ctx->view);
 
 		ctx->mail_view = mail_index_view_open(ilist->mail_index);
 		if (mailbox_list_index_view_init(ilist->list_index,

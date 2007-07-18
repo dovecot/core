@@ -367,19 +367,24 @@ static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 
 static int sync_mail_sync_init2(struct mailbox_list_index_sync_ctx *ctx)
 {
-	const struct mail_index_header *hdr;
+	const struct mail_index_header *mail_hdr;
+	uint32_t uid_validity;
 
 	ctx->hdr = *ctx->index->hdr;
+	mail_hdr = mail_index_get_header(ctx->mail_view);
+	uid_validity = mail_hdr->uid_validity;
 
-	hdr = mail_index_get_header(ctx->mail_view);
-	if (hdr->uid_validity != 0) {
-		if (hdr->uid_validity != ctx->hdr.uid_validity) {
-			return mailbox_list_index_set_corrupted(ctx->index,
-				"Desync: uid_validity changed");
+	if (uid_validity != 0 || mail_hdr->next_uid != 1) {
+		if (uid_validity != ctx->hdr.uid_validity) {
+			i_warning("%s: Desync: uid_validity changed %u -> %u",
+				  ctx->index->mail_index->filepath,
+				  uid_validity, ctx->hdr.uid_validity);
+			uid_validity = 0;
+			mail_index_reset(ctx->trans);
 		}
 	}
 
-	if (hdr->uid_validity == 0) {
+	if (uid_validity != ctx->hdr.uid_validity ) {
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&ctx->hdr.uid_validity, sizeof(ctx->hdr.uid_validity),
