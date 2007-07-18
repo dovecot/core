@@ -30,7 +30,10 @@ struct mailbox_list_sync_record {
 	uint32_t dir_offset;
 
 	uint32_t created:1;
+	/* This record was seen while syncing, either as parent or as leaf */
 	uint32_t seen:1;
+	/* This record was seen as leaf while syncing, so it exists */
+	uint32_t exists:1;
 };
 
 struct mailbox_list_sync_dir {
@@ -273,7 +276,20 @@ mailbox_list_index_sync_int(struct mailbox_list_index_sync_ctx *ctx,
 
 		if (p == NULL) {
 			/* leaf */
+			rec->exists = TRUE;
+			mail_index_update_flags(ctx->trans, rec->seq,
+				MODIFY_REMOVE,
+				MAILBOX_LIST_INDEX_FLAG_NONEXISTENT);
 			break;
+		}
+
+		/* we were handling a parent, continue with its child */
+		if (!rec->exists) {
+			/* Mark this mailbox non-existent for now. If it
+			   exists, this flag is removed later. */
+			mail_index_update_flags(ctx->trans, rec->seq,
+				MODIFY_ADD,
+				MAILBOX_LIST_INDEX_FLAG_NONEXISTENT);
 		}
 
 		if (rec->dir == NULL) {
