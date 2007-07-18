@@ -898,16 +898,6 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 			ret = mailbox_list_index_compress(ctx);
 	}
 
-	if (ret == 0) {
-		uint64_t used_space = ctx->hdr.used_space;
-
-		/* FIXME: we should use some extension header instead of
-		   reusing sync_size */
-		mail_index_update_header(ctx->trans,
-			offsetof(struct mail_index_header, sync_size),
-			&used_space, sizeof(used_space), FALSE);
-	}
-
 	if (ctx->mail_sync_ctx != NULL) {
 		if (ret < 0 && !ctx->restart)
 			mail_index_sync_rollback(&ctx->mail_sync_ctx);
