@@ -1187,7 +1187,6 @@ void mail_index_reset(struct mail_index_transaction *t)
 	mail_index_transaction_reset(t);
 
 	t->reset = TRUE;
-	t->log_updates = TRUE;
 }
 
 struct mail_index_transaction_vfuncs trans_vfuncs = {

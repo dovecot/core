@@ -469,6 +469,11 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		   transactions. */
 		if (mail_transaction_log_rotate(log, TRUE) < 0)
 			return -1;
+
+		if (!t->log_updates && !t->log_ext_updates) {
+			/* we only wanted to reset */
+			return 0;
+		}
 	}
 
 	if (!index->log_locked) {
@@ -573,15 +578,15 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	struct mail_index *index;
 	int ret;
 
-	if (!t->log_updates && !t->log_ext_updates) {
+	*log_file_seq_r = 0;
+	*log_file_offset_r = 0;
+
+	if (!t->log_updates && !t->log_ext_updates && !t->reset) {
 		/* nothing to append */
-		*log_file_seq_r = 0;
-		*log_file_offset_r = 0;
 		return 0;
 	}
 
 	index = mail_index_view_get_index(t->view);
-
 	if (index->log_locked) {
 		i_assert(t->external);
 	} else {
