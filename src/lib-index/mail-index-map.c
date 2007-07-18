@@ -745,7 +745,7 @@ int mail_index_map(struct mail_index *index,
 		index->map = mail_index_map_alloc(index);
 
 	/* first try updating the existing mapping from transaction log. */
-	if (index->map->hdr.indexid != 0) {
+	if (index->map->hdr.indexid != 0 && index->indexid != 0) {
 		/* we're not creating the index, or opening transaction log.
 		   sync this as a view from transaction log. */
 		ret = mail_index_sync_map(&index->map, type, FALSE);
