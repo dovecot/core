@@ -106,7 +106,11 @@ enum mail_index_transaction_flags {
 	MAIL_INDEX_TRANSACTION_FLAG_HIDE		= 0x01,
 	/* External transactions describe changes to mailbox that have already
 	   happened. */
-	MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL		= 0x02
+	MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL		= 0x02,
+	/* Don't add flag updates unless they actually change something.
+	   This is reliable only when syncing, otherwise someone else might
+	   have already committed a transaction that had changed the flags. */
+	MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES	= 0x04
 };
 
 enum mail_index_sync_type {
@@ -122,7 +126,9 @@ enum mail_index_sync_flags {
 	/* Resync all dirty messages' flags. */
 	MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY	= 0x01,
 	/* Drop recent flags from all messages */
-	MAIL_INDEX_SYNC_FLAG_DROP_RECENT	= 0x02
+	MAIL_INDEX_SYNC_FLAG_DROP_RECENT	= 0x02,
+	/* Create the transaction with AVOID_FLAG_UPDATES flag */
+	MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES	= 0x04,
 };
 
 enum mail_index_view_sync_flags {

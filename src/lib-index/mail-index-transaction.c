@@ -598,6 +598,28 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 	seq_range_array_add(&t->expunges, 128, seq);
 }
 
+static bool
+mail_transaction_update_want_add(struct mail_index_transaction *t,
+				 const struct mail_transaction_flag_update *u)
+{
+	const struct mail_index_record *rec;
+	uint32_t seq;
+	
+	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES) == 0)
+		return TRUE;
+
+	for (seq = u->uid1; seq <= u->uid2; seq++) {
+		if (mail_index_lookup(t->view, seq, &rec) < 0)
+			return TRUE;
+
+		if ((rec->flags & u->add_flags) != u->add_flags ||
+		    (rec->flags & u->remove_flags) != 0)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
 static void
 mail_index_insert_flag_update(struct mail_index_transaction *t,
 			      struct mail_transaction_flag_update u,
@@ -651,7 +673,8 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 			i_assert(tmp_update.uid1 <= tmp_update.uid2);
 			i_assert(updates[idx].uid1 <= updates[idx].uid2);
 
-			array_insert(&t->updates, idx, &tmp_update, 1);
+			if (mail_transaction_update_want_add(t, &tmp_update))
+				array_insert(&t->updates, idx, &tmp_update, 1);
 			updates = array_get_modifiable(&t->updates, &count);
 			idx += move;
 		} else if (u.uid1 < updates[idx].uid1) {
@@ -669,7 +692,8 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 			i_assert(tmp_update.uid1 <= tmp_update.uid2);
 			i_assert(updates[idx].uid1 <= updates[idx].uid2);
 
-			array_insert(&t->updates, idx, &tmp_update, 1);
+			if (mail_transaction_update_want_add(t, &tmp_update))
+				array_insert(&t->updates, idx, &tmp_update, 1);
 			updates = array_get_modifiable(&t->updates, &count);
 		}
 
@@ -700,7 +724,8 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 	if (u.uid1 <= u.uid2) {
 		i_assert(idx == 0 || updates[idx-1].uid2 < u.uid1);
 		i_assert(idx == count || updates[idx].uid1 > u.uid2);
-		array_insert(&t->updates, idx, &u, 1);
+		if (mail_transaction_update_want_add(t, &u))
+			array_insert(&t->updates, idx, &u, 1);
 	}
 	t->last_update_idx = idx;
 }
@@ -770,7 +795,8 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 
 	if (!array_is_created(&t->updates)) {
 		i_array_init(&t->updates, 256);
-		array_append(&t->updates, &u, 1);
+		if (mail_transaction_update_want_add(t, &u))
+			array_append(&t->updates, &u, 1);
 		return;
 	}
 
@@ -796,7 +822,8 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	}
 
 	if (t->last_update_idx == count) {
-		array_append(&t->updates, &u, 1);
+		if (mail_transaction_update_want_add(t, &u))
+			array_append(&t->updates, &u, 1);
 		return;
 	}
 

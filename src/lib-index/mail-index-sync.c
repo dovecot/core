@@ -309,6 +309,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_ctx *ctx;
 	struct mail_index_view *sync_view;
+	enum mail_index_transaction_flags trans_flags;
 	uint32_t seq;
 	uoff_t offset;
 	int ret;
@@ -395,8 +396,10 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	/* create the transaction after the view has been updated with
 	   external transactions and marked as sync view */
-	ctx->ext_trans = mail_index_transaction_begin(ctx->view,
-					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	trans_flags = MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
+	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) != 0)
+		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES;
+	ctx->ext_trans = mail_index_transaction_begin(ctx->view, trans_flags);
 
 	*ctx_r = ctx;
 	*view_r = ctx->view;
