@@ -5,7 +5,6 @@
 #include "array.h"
 #include "buffer.h"
 #include "istream.h"
-#include "istream-tee.h"
 #include "ostream.h"
 #include "ostream-crlf.h"
 #include "str.h"
@@ -51,7 +50,7 @@ struct maildir_save_context {
 	buffer_t *keywords_buffer;
 	ARRAY_TYPE(keyword_indexes) keywords_array;
 
-	struct istream *input, *input2;
+	struct istream *input;
 	struct ostream *output;
 	int fd;
 	time_t received_date;
@@ -144,7 +143,6 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 {
 	struct maildir_save_context *ctx = t->save_ctx;
 	struct maildir_filename *mf;
-	struct tee_istream *tee;
 
 	/* now, we want to be able to rollback the whole append session,
 	   so we'll just store the name of this temp file and move it later
@@ -204,11 +202,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 		   cached data directly */
 		ctx->cur_dest_mail = NULL;
 	} else {
-		tee = tee_i_stream_create(ctx->input, default_pool);
-		ctx->input = tee_i_stream_create_child(tee, default_pool);
-		ctx->input2 = tee_i_stream_create_child(tee, default_pool);
-
-		index_mail_cache_parse_init(dest_mail, ctx->input2);
+		ctx->input = index_mail_cache_parse_init(dest_mail, ctx->input);
 		ctx->cur_dest_mail = dest_mail;
 	}
 	return ctx->seq;
@@ -410,8 +404,6 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 		return -1;
 
 	do {
-		if (ctx->cur_dest_mail != NULL)
-			index_mail_cache_parse_continue(ctx->cur_dest_mail);
 		if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
@@ -422,10 +414,13 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 			ctx->failed = TRUE;
 			return -1;
 		}
-		/* both input and input2 readers may consume data from our
-		   primary input stream. we'll have to handle all the data
-		   here. */
-	} while (i_stream_read(ctx->input2) > 0);
+		if (ctx->cur_dest_mail != NULL)
+			index_mail_cache_parse_continue(ctx->cur_dest_mail);
+
+		/* both tee input readers may consume data from our primary
+		   input stream. we'll have to make sure we don't return with
+		   one of the streams still having data in them. */
+	} while (i_stream_read(ctx->input) > 0);
 	return 0;
 }
 
@@ -439,7 +434,6 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 	if (ctx->cur_dest_mail != NULL) {
 		index_mail_cache_parse_deinit(ctx->cur_dest_mail);
 		i_stream_unref(&ctx->input);
-		i_stream_unref(&ctx->input2);
 	}
 
 	ctx->finished = TRUE;

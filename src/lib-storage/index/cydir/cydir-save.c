@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "hostpid.h"
 #include "istream.h"
-#include "istream-tee.h"
 #include "ostream.h"
 #include "ostream-crlf.h"
 #include "str.h"
@@ -27,7 +26,7 @@ struct cydir_save_context {
 
 	/* updated for each appended mail: */
 	uint32_t seq;
-	struct istream *input, *input2;
+	struct istream *input;
 	struct ostream *output;
 	struct mail *mail, *cur_dest_mail;
 	int fd;
@@ -70,7 +69,6 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	struct cydir_save_context *ctx = t->save_ctx;
 	enum mail_flags save_flags;
 	struct ostream *output;
-	struct tee_istream *tee;
 	const char *path;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -129,12 +127,8 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	if (mail_set_seq(dest_mail, ctx->seq) < 0)
 		i_unreached();
 
-	tee = tee_i_stream_create(input, default_pool);
-	ctx->input = tee_i_stream_create_child(tee, default_pool);
-	ctx->input2 = tee_i_stream_create_child(tee, default_pool);
-
 	ctx->cur_dest_mail = dest_mail;
-	index_mail_cache_parse_init(dest_mail, ctx->input2);
+	ctx->input = index_mail_cache_parse_init(dest_mail, input);
 
 	*ctx_r = &ctx->ctx;
 	return ctx->failed ? -1 : 0;
@@ -149,8 +143,6 @@ int cydir_save_continue(struct mail_save_context *_ctx)
 		return -1;
 
 	do {
-		index_mail_cache_parse_continue(ctx->cur_dest_mail);
-
 		if (o_stream_send_istream(ctx->output, ctx->input) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
@@ -160,10 +152,12 @@ int cydir_save_continue(struct mail_save_context *_ctx)
 			ctx->failed = TRUE;
 			return -1;
 		}
-		/* both input and input2 readers may consume data from our
-		   primary input stream. we'll have to handle all the data
-		   here. */
-	} while (i_stream_read(ctx->input2) > 0);
+		index_mail_cache_parse_continue(ctx->cur_dest_mail);
+
+		/* both tee input readers may consume data from our primary
+		   input stream. we'll have to make sure we don't return with
+		   one of the streams still having data in them. */
+	} while (i_stream_read(ctx->input) > 0);
 	return 0;
 }
 
@@ -202,7 +196,6 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 
 	index_mail_cache_parse_deinit(ctx->cur_dest_mail);
 	i_stream_unref(&ctx->input);
-	i_stream_unref(&ctx->input2);
 
 	return ctx->failed ? -1 : 0;
 }

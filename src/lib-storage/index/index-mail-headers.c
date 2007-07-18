@@ -7,6 +7,7 @@
 #include "str.h"
 #include "message-date.h"
 #include "message-parser.h"
+#include "istream-tee.h"
 #include "istream-header-filter.h"
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
@@ -339,16 +340,25 @@ index_mail_parse_header_cb(struct message_header_line *hdr,
 	index_mail_parse_header(mail->data.parts, hdr, mail);
 }
 
-void index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
+struct istream *index_mail_cache_parse_init(struct mail *_mail,
+					    struct istream *input)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+	struct tee_istream *tee;
+	struct istream *input2;
 
 	i_assert(mail->data.parser_ctx == NULL);
+
+	tee = tee_i_stream_create(input, default_pool);
+	input = tee_i_stream_create_child(tee, default_pool);
+	input2 = tee_i_stream_create_child(tee, default_pool);
 
 	index_mail_parse_header_init(mail, NULL);
 	mail->data.parser_ctx =
 		message_parser_init(mail->data_pool, input,
 				    hdr_parser_flags, msg_parser_flags);
+	i_stream_unref(&input);
+	return input2;
 }
 
 static void index_mail_init_parser(struct index_mail *mail)

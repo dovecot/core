@@ -182,7 +182,8 @@ void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
 void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 			      const void *data, size_t data_size);
 
-void index_mail_cache_parse_init(struct mail *mail, struct istream *input);
+struct istream *index_mail_cache_parse_init(struct mail *mail,
+					    struct istream *input);
 void index_mail_cache_parse_continue(struct mail *mail);
 void index_mail_cache_parse_deinit(struct mail *mail);
 
