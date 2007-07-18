@@ -29,6 +29,9 @@ struct index_mailbox_list_iterate_context {
 	struct mailbox_list_iter_ctx *iter_ctx;
 	struct mailbox_list_iterate_context *backend_ctx;
 
+	struct mailbox_tree_context *subs_tree;
+	struct mailbox_tree_iterate_context *subs_iter;
+
 	struct mailbox_list_index_view *view;
 	struct mail_index_view *mail_view;
 	struct mail_index_transaction *trans;

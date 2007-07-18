@@ -8,6 +8,7 @@
 #include "mail-index.h"
 #include "mail-storage.h"
 #include "mailbox-tree.h"
+#include "mailbox-list-subscriptions.h"
 #include "mailbox-list-index.h"
 #include "index-mailbox-list.h"
 
@@ -203,7 +204,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 	struct index_mailbox_list_iterate_context *ctx;
 	const char *prefix, *cur_prefix, *const *tmp;
 	enum mailbox_list_iter_flags subs_flags;
-	int cur_recurse_level;
+	int ret, cur_recurse_level;
 
 	ctx = i_new(struct index_mailbox_list_iterate_context, 1);
 	ctx->ctx.list = list;
@@ -222,6 +223,19 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 
 	ctx->glob = imap_match_init_multiple(default_pool, patterns, TRUE,
 					     list->hierarchy_sep);
+	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
+		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
+		/* we'll need to know the subscriptions */
+		ctx->subs_tree = mailbox_tree_init(list->hierarchy_sep);
+		if (mailbox_list_subscriptions_fill(&ctx->ctx, ctx->subs_tree,
+						    ctx->glob, FALSE) < 0) {
+			/* let the backend handle this failure */
+			ctx->backend_ctx = ilist->module_ctx.super.
+				iter_init(list, patterns, flags);
+			return &ctx->ctx;
+		}
+	}
+
 	ctx->mail_view = mail_index_view_open(ilist->mail_index);
 	ctx->view = mailbox_list_index_view_init(ilist->list_index,
 						 ctx->mail_view);
@@ -240,63 +254,52 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 		prefix = "";
 
 	if (!index_mailbox_list_is_synced(ctx) > 0) {
-		if (index_mailbox_list_sync(ctx) < 0) {
+		ret = index_mailbox_list_sync(ctx);
+
+		mail_index_view_close(&ctx->mail_view);
+		mailbox_list_index_view_deinit(&ctx->view);
+
+		if (ret < 0) {
 			ctx->backend_ctx = ilist->module_ctx.super.
 				iter_init(list, patterns, flags);
 			return &ctx->ctx;
 		}
-		/* updated, we'll have to reopen views */
-		mail_index_view_close(&ctx->mail_view);
-		mailbox_list_index_view_deinit(&ctx->view);
 
+		/* updated, we'll have to reopen views */
 		ctx->mail_view = mail_index_view_open(ilist->mail_index);
 		ctx->view = mailbox_list_index_view_init(ilist->list_index,
 							 ctx->mail_view);
 	}
 
-	/* list from index */
 	if (ctx->info_pool == NULL) {
 		ctx->info_pool =
 			pool_alloconly_create("mailbox name pool", 128);
 	}
-	ctx->iter_ctx =
-		mailbox_list_index_iterate_init(ctx->view, prefix,
-						ctx->recurse_level);
-	ctx->prefix = *prefix == '\0' ? i_strdup("") :
-		i_strdup_printf("%s%c", prefix, list->hierarchy_sep);
+
+	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+		ctx->subs_iter =
+			mailbox_tree_iterate_init(ctx->subs_tree,
+						  NULL, MAILBOX_MATCHED);
+	} else {
+		/* list from index */
+		ctx->iter_ctx =
+			mailbox_list_index_iterate_init(ctx->view, prefix,
+							ctx->recurse_level);
+		ctx->prefix = *prefix == '\0' ? i_strdup("") :
+			i_strdup_printf("%s%c", prefix, list->hierarchy_sep);
+	}
 	return &ctx->ctx;
 }
 
-/* skip nonexistent mailboxes when finding with "*" */
-#define info_flags_match(ctx, info) \
-	(((info)->flags & MAILBOX_NONEXISTENT) == 0 || \
-	 (ctx)->recurse_level >= 0)
-
-static int iter_next_nonsync(struct index_mailbox_list_iterate_context *ctx,
-			     const struct mailbox_info **info_r)
+static int
+list_index_get_info_flags(struct index_mailbox_list_iterate_context *ctx,
+			  uint32_t uid, enum mailbox_info_flags *flags_r)
 {
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(ctx->ctx.list);
-	struct mailbox_list_index_info iinfo;
 	const struct mail_index_record *rec;
 	uint32_t seq;
-	int ret;
 
-	/* find the next matching mailbox */
-	do {
-		p_clear(ctx->info_pool);
-		ret = mailbox_list_index_iterate_next(ctx->iter_ctx, &iinfo);
-		if (ret <= 0) {
-			*info_r = NULL;
-			return ret;
-		}
-
-		ctx->info.name = *ctx->prefix == '\0' ? iinfo.name :
-			p_strconcat(ctx->info_pool, ctx->prefix,
-				    iinfo.name, NULL);
-	} while (imap_match(ctx->glob, ctx->info.name) != IMAP_MATCH_YES);
-
-	/* get the mailbox's flags */
-	if (mail_index_lookup_uid_range(ctx->mail_view, iinfo.uid, iinfo.uid,
+	if (mail_index_lookup_uid_range(ctx->mail_view, uid, uid,
 					&seq, &seq) < 0)
 		return -1;
 	if (seq == 0) {
@@ -307,27 +310,64 @@ static int iter_next_nonsync(struct index_mailbox_list_iterate_context *ctx,
 
 	if (mail_index_lookup(ctx->mail_view, seq, &rec) < 0)
 		return -1;
-	ctx->info.flags = index_mailbox_list_index_flags_translate(rec->flags);
 
-	/* do some sanity checks to the flags */
-	if ((ctx->info.flags & MAILBOX_CHILDREN) != 0 &&
-	    (ctx->info.flags & MAILBOX_NOCHILDREN) != 0) {
-		mailbox_list_index_set_corrupted(ilist->list_index,
-			"Mail index has both children and nochildren flags");
-		return -1;
-	}
-	if ((ctx->info.flags & MAILBOX_NOCHILDREN) != 0 &&
-	    iinfo.has_children) {
-		mailbox_list_index_set_corrupted(ilist->list_index,
-			"Desynced: Children flags wrong in mail index");
-		return -1;
-	}
-
-	if (!info_flags_match(ctx, &ctx->info))
-		return iter_next_nonsync(ctx, info_r);
-
-	*info_r = &ctx->info;
+	*flags_r = index_mailbox_list_index_flags_translate(rec->flags);
 	return 0;
+}
+
+static int list_index_iter_next(struct index_mailbox_list_iterate_context *ctx,
+				const struct mailbox_info **info_r)
+{
+	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(ctx->ctx.list);
+	struct mailbox_list_index_info iinfo;
+	struct mailbox_node *subs_node;
+	int ret;
+
+	/* find the next matching mailbox */
+	for (;;) {
+		p_clear(ctx->info_pool);
+		ret = mailbox_list_index_iterate_next(ctx->iter_ctx, &iinfo);
+		if (ret <= 0) {
+			*info_r = NULL;
+			return ret;
+		}
+
+		ctx->info.name = *ctx->prefix == '\0' ? iinfo.name :
+			p_strconcat(ctx->info_pool, ctx->prefix,
+				    iinfo.name, NULL);
+		if (imap_match(ctx->glob, ctx->info.name) != IMAP_MATCH_YES)
+			continue;
+
+		if (list_index_get_info_flags(ctx, iinfo.uid,
+					      &ctx->info.flags) < 0)
+			return -1;
+
+		if ((ctx->info.flags & MAILBOX_NOCHILDREN) != 0 &&
+		    iinfo.has_children) {
+			mailbox_list_index_set_corrupted(ilist->list_index,
+				"Desynced: Children flags wrong in mail index");
+			return -1;
+		}
+
+		/* skip nonexistent mailboxes when finding with "*" */
+		if ((ctx->info.flags & MAILBOX_NONEXISTENT) != 0 &&
+		    ctx->recurse_level < 0)
+			continue;
+
+		if (ctx->subs_tree != NULL) {
+			/* get subscription states */
+			subs_node = mailbox_tree_lookup(ctx->subs_tree,
+							ctx->info.name);
+			if (subs_node != NULL) {
+				ctx->info.flags |= subs_node->flags &
+					(MAILBOX_SUBSCRIBED |
+					 MAILBOX_CHILD_SUBSCRIBED);
+			}
+		}
+
+		*info_r = &ctx->info;
+		return 0;
+	}
 }
 
 static const struct mailbox_info *
@@ -337,16 +377,35 @@ index_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		(struct index_mailbox_list_iterate_context *)_ctx;
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(_ctx->list);
 	const struct mailbox_info *info;
+	struct mailbox_node *subs_node;
+	uint32_t uid;
 
 	if (ctx->iter_ctx != NULL) {
-		if (iter_next_nonsync(ctx, &info) < 0) {
+		/* listing mailboxes from index */
+		if (list_index_iter_next(ctx, &info) < 0) {
 			ctx->failed = TRUE;
 			return NULL;
 		}
 		return info;
+	} else if (ctx->backend_ctx != NULL) {
+		/* index isn't being used */
+		return ilist->module_ctx.super.iter_next(ctx->backend_ctx);
 	}
 
-	return ilist->module_ctx.super.iter_next(ctx->backend_ctx);
+	/* listing subscriptions, but we also want flags */
+	subs_node = mailbox_tree_iterate_next(ctx->subs_iter, &ctx->info.name);
+	if (subs_node == NULL)
+		return NULL;
+
+	if (mailbox_list_index_lookup(ctx->view, ctx->info.name, &uid) < 0 ||
+	    list_index_get_info_flags(ctx, uid, &ctx->info.flags) < 0) {
+		ctx->failed = TRUE;
+		return NULL;
+	}
+
+	ctx->info.flags |= subs_node->flags &
+		(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
+	return &ctx->info;
 }
 
 static int
@@ -357,6 +416,8 @@ index_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	struct index_mailbox_list *ilist = INDEX_LIST_CONTEXT(_ctx->list);
 	int ret = ctx->failed ? -1 : 0;
 
+	if (ctx->subs_iter != NULL)
+		mailbox_tree_iterate_deinit(&ctx->subs_iter);
 	if (ctx->iter_ctx != NULL)
 		mailbox_list_index_iterate_deinit(&ctx->iter_ctx);
 	if (ctx->info_pool != NULL)
