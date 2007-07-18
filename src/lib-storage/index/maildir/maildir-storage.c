@@ -774,7 +774,7 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	   ..DOVECOT-TRASH directory, it gets deleted the next time
 	   mailbox listing sees it. */
 	count = 0;
-	while (rename(src, dest) < 0 && count < 2) {
+	while (rename(src, dest) < 0) {
 		if (errno == ENOENT) {
 			/* it was just deleted under us by
 			   another process */
@@ -789,7 +789,8 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		}
 
 		/* already existed, delete it and try again */
-		if (unlink_directory(dest, TRUE) < 0) {
+		if (unlink_directory(dest, TRUE) < 0 &&
+		    (errno != ENOTEMPTY || count >= 5)) {
 			mailbox_list_set_critical(list,
 				"unlink_directory(%s) failed: %m", dest);
 			return -1;
