@@ -431,7 +431,7 @@ uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 	unsigned int count, offset;
 	uint32_t next_uid;
 
-	next_uid = t->view->map->hdr.next_uid;
+	next_uid = t->reset ? 1 : t->view->map->hdr.next_uid;
 	if (array_is_created(&t->appends)) {
 		/* get next_uid from appends if they have UIDs */
 		mail_index_transaction_sort_appends(t);
