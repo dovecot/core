@@ -195,6 +195,8 @@ static int
 mailbox_list_index_sync_get_seq(struct mailbox_list_index_sync_ctx *ctx,
 				struct mailbox_list_sync_record *rec)
 {
+	const struct mail_index_header *mail_hdr;
+
 	if (rec->uid == 0) {
 		return mailbox_list_index_set_corrupted(ctx->index,
 							"Record with UID=0");
@@ -204,10 +206,15 @@ mailbox_list_index_sync_get_seq(struct mailbox_list_index_sync_ctx *ctx,
 		return -1;
 
 	if (rec->seq == 0) {
-		i_warning("%s: Desync: Record uid=%u expunged from mail index",
-			  ctx->index->mail_index->filepath, rec->uid);
-		ctx->restart = TRUE;
-		return -1;
+		mail_hdr = mail_index_get_header(ctx->mail_view);
+		if (rec->uid < mail_hdr->next_uid) {
+			i_warning("%s: Desync: Record uid=%u "
+				  "expunged from mail index",
+				  ctx->index->mail_index->filepath, rec->uid);
+			ctx->restart = TRUE;
+			return -1;
+		}
+		mail_index_append(ctx->trans, rec->uid, &rec->seq);
 	}
 	return 0;
 }
