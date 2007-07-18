@@ -624,6 +624,7 @@ static const char *
 maildir_get_unlink_dest(struct mailbox_list *list, const char *name)
 {
 	const char *root_dir;
+	char sep;
 
 	if ((list->flags & MAILBOX_LIST_FLAG_FULL_FS_ACCESS) != 0 &&
 	    (*name == '/' || *name == '~'))
@@ -637,8 +638,9 @@ maildir_get_unlink_dest(struct mailbox_list *list, const char *name)
 
 	root_dir = mailbox_list_get_path(list, NULL,
 					 MAILBOX_LIST_PATH_TYPE_DIR);
-	return t_strdup_printf("%s/%c"MAILDIR_UNLINK_DIRNAME, root_dir,
-			       mailbox_list_get_hierarchy_sep(list));
+	sep = mailbox_list_get_hierarchy_sep(list);
+	return t_strdup_printf("%s/%c%c"MAILDIR_UNLINK_DIRNAME, root_dir,
+			       sep, sep);
 }
 
 static int
