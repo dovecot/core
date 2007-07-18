@@ -54,11 +54,17 @@ struct maildir_index_header {
 	uint32_t cur_check_time, cur_mtime, cur_mtime_nsecs;
 };
 
+struct maildir_list_index_record {
+	uint32_t new_mtime, cur_mtime;
+};
+
 struct maildir_storage {
 	struct mail_storage storage;
 
 	union mailbox_list_module_context list_module_ctx;
 	const char *temp_prefix;
+
+	uint32_t maildir_list_ext_id;
 
 	unsigned int copy_with_hardlinks:1;
 	unsigned int copy_preserve_filename:1;

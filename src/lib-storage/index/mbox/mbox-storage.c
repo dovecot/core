@@ -954,6 +954,8 @@ struct mailbox mbox_mailbox = {
 		index_storage_allow_new_keywords,
 		mbox_storage_mailbox_close,
 		index_storage_get_status,
+		NULL,
+		NULL,
 		mbox_storage_sync_init,
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,

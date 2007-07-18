@@ -82,82 +82,6 @@ static int index_list_update_mail_index(struct index_mailbox_list *ilist,
 }
 
 static int
-index_list_lookup_stamps(struct index_mailbox_list *ilist,
-			 struct mail_index_view *view, uint32_t seq,
-			 time_t *new_stamp_r, time_t *cur_stamp_r,
-			 uint8_t *dirty_flags_r)
-{
-	const void *data;
-
-	if (mail_index_lookup_ext(view, seq, ilist->eid_new_sync_stamp,
-				  &data) <= 0)
-		return -1;
-	*new_stamp_r = data == NULL ? 0 : *(const uint32_t *)data;
-
-	if (mail_index_lookup_ext(view, seq, ilist->eid_cur_sync_stamp,
-				  &data) <= 0)
-		return -1;
-	*cur_stamp_r = data == NULL ? 0 : *(const uint32_t *)data;
-
-	if (mail_index_lookup_ext(view, seq, ilist->eid_dirty_flags,
-				  &data) <= 0)
-		return -1;
-	*dirty_flags_r = data == NULL ? 0 : *(const uint8_t *)data;
-	return 0;
-}
-
-static int
-index_list_has_mailbox_changed(struct mailbox *box,
-			       struct mail_index_view *view, uint32_t seq)
-{
-	/* FIXME: this function shouldn't be maildir-specific */
-	struct index_mailbox_list *ilist;
-	struct mailbox_list *list;
-	const char *root_dir, *new_dir, *cur_dir;
-	struct stat st;
-	time_t idx_new_stamp, idx_cur_stamp, max_stamp;
-	uint8_t idx_dirty_flags;
-
-	list = mail_storage_get_list(box->storage);
-	ilist = INDEX_LIST_CONTEXT(list);
-
-	if (index_list_lookup_stamps(ilist, view, seq, &idx_new_stamp,
-				     &idx_cur_stamp, &idx_dirty_flags) < 0)
-		return -1;
-
-	/* if there are dirty flags and the timestamp is old enough,
-	   do a resync in any case */
-	max_stamp = I_MAX(idx_new_stamp, idx_cur_stamp);
-	if (idx_dirty_flags != 0 &&
-	    ioloop_time - max_stamp >= MAILDIR_SYNC_SECS)
-		return 1;
-
-	/* check if new/ changed */
-	root_dir = mailbox_list_get_path(list, box->name,
-					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
-	new_dir = t_strconcat(root_dir, "/new", NULL);
-	if (stat(new_dir, &st) < 0) {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", new_dir);
-		return -1;
-	}
-	if (idx_new_stamp != st.st_mtime)
-		return 1;
-
-	/* check if cur/ changed */
-	cur_dir = t_strconcat(root_dir, "/cur", NULL);
-	if (stat(cur_dir, &st) < 0) {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", cur_dir);
-		return -1;
-	}
-	if (idx_cur_stamp != st.st_mtime)
-		return 1;
-
-	return 0;
-}
-
-static int
 index_list_mailbox_open_unchanged_view(struct mailbox *box,
 				       struct mail_index_view **view_r,
 				       uint32_t *seq_r)
@@ -193,7 +117,7 @@ index_list_mailbox_open_unchanged_view(struct mailbox *box,
 	}
 
 	t_push();
-	ret = index_list_has_mailbox_changed(box, view, seq);
+	ret = box->v.list_index_has_changed(box, view, seq);
 	t_pop();
 	if (ret != 0) {
 		/* error / mailbox has changed. we'll need to sync it. */
@@ -291,42 +215,6 @@ static int index_list_lookup_or_create(struct index_mailbox_list *ilist,
 }
 
 static int
-index_list_update_sync_stamps(struct index_mailbox_list *ilist,
-			      struct mailbox *box,
-			      struct mail_index_transaction *trans,
-			      struct mail_index_view *view, uint32_t seq)
-{
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
-	const struct mail_index_header *hdr;
-	time_t hdr_new_stamp, hdr_cur_stamp;
-	time_t idx_new_stamp, idx_cur_stamp;
-	uint8_t hdr_dirty_flags, idx_dirty_flags;
-
-	hdr = mail_index_get_header(ibox->view);
-	hdr_cur_stamp = hdr->sync_stamp;
-	hdr_new_stamp = hdr->sync_size & 0xffffffff;
-	hdr_dirty_flags = hdr->sync_size >> 32;
-
-	if (index_list_lookup_stamps(ilist, view, seq, &idx_new_stamp,
-				     &idx_cur_stamp, &idx_dirty_flags) < 0)
-		return -1;
-
-	if (idx_new_stamp != hdr_new_stamp) {
-		mail_index_update_ext(trans, seq, ilist->eid_new_sync_stamp,
-				      &hdr_new_stamp, NULL);
-	}
-	if (idx_cur_stamp != hdr_cur_stamp) {
-		mail_index_update_ext(trans, seq, ilist->eid_cur_sync_stamp,
-				      &hdr_cur_stamp, NULL);
-	}
-	if (idx_dirty_flags != hdr_dirty_flags) {
-		mail_index_update_ext(trans, seq, ilist->eid_dirty_flags,
-				      &hdr_dirty_flags, NULL);
-	}
-	return 0;
-}
-
-static int
 index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 		  struct mail_index_view *view, uint32_t seq,
 		  const struct mailbox_status *status)
@@ -356,7 +244,8 @@ index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 					      counter_p, NULL);
 		}
 	}
-	if (index_list_update_sync_stamps(ilist, box, trans, view, seq) < 0)
+
+	if (box->v.list_index_update_sync(box, trans, seq) < 0)
 		ret = -1;
 	if (ret <= 0) {
 		mail_index_transaction_rollback(&trans);
@@ -498,17 +387,6 @@ void index_mailbox_list_sync_init_list(struct mailbox_list *list)
 					index_list_map[i].name, 0,
 					sizeof(uint32_t), sizeof(uint32_t));
 	}
-
-	/* FIXME: maildir-only: */
-	ilist->eid_cur_sync_stamp =
-		mail_index_ext_register(ilist->mail_index, "sync-cur", 0,
-					sizeof(uint32_t), sizeof(uint32_t));
-	ilist->eid_new_sync_stamp =
-		mail_index_ext_register(ilist->mail_index, "sync-new", 0,
-					sizeof(uint32_t), sizeof(uint32_t));
-	ilist->eid_dirty_flags =
-		mail_index_ext_register(ilist->mail_index, "sync-dirty", 0,
-					sizeof(uint8_t), sizeof(uint8_t));
 }
 
 void index_mailbox_list_sync_init(void)

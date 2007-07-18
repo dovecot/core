@@ -79,6 +79,16 @@ struct mailbox_vfuncs {
 	int (*get_status)(struct mailbox *box, enum mailbox_status_items items,
 			  struct mailbox_status *status);
 
+	/* Lookup sync extension record and figure out if it mailbox has
+	   changed since. Returns 1 = yes, 0 = no, -1 = error. */
+	int (*list_index_has_changed)(struct mailbox *box,
+				      struct mail_index_view *list_view,
+				      uint32_t seq);
+	/* Update the sync extension record. Returns 0 = ok, -1 = error. */
+	int (*list_index_update_sync)(struct mailbox *box,
+				      struct mail_index_transaction *trans,
+				      uint32_t seq);
+
 	struct mailbox_sync_context *
 		(*sync_init)(struct mailbox *box,
 			     enum mailbox_sync_flags flags);

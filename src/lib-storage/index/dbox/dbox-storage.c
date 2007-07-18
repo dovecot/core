@@ -569,6 +569,8 @@ struct mailbox dbox_mailbox = {
 		index_storage_allow_new_keywords,
 		dbox_storage_close,
 		index_storage_get_status,
+		NULL,
+		NULL,
 		dbox_storage_sync_init,
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,

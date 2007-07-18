@@ -19,8 +19,6 @@ struct index_mailbox_list {
 
 	uint32_t eid_messages, eid_unseen, eid_recent;
 	uint32_t eid_uid_validity, eid_uidnext;
-
-	uint32_t eid_cur_sync_stamp, eid_new_sync_stamp, eid_dirty_flags;
 };
 
 struct index_mailbox_list_iterate_context {

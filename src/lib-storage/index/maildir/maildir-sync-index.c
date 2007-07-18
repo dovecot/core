@@ -472,3 +472,100 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	}
 	return ret < 0 ? -1 : (full_rescan ? 0 : 1);
 }
+
+static unsigned int maildir_list_get_ext_id(struct maildir_storage *storage,
+					    struct mail_index_view *view)
+{
+	if (storage->maildir_list_ext_id == (uint32_t)-1) {
+		storage->maildir_list_ext_id =
+			mail_index_ext_register(mail_index_view_get_index(view),
+				"maildir", 0,
+				sizeof(struct maildir_list_index_record),
+				sizeof(uint32_t));
+	}
+	return storage->maildir_list_ext_id;
+}
+
+int maildir_list_index_has_changed(struct mailbox *box,
+				   struct mail_index_view *list_view,
+				   uint32_t seq)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	const struct maildir_list_index_record *rec;
+	const void *data;
+	const char *root_dir, *new_dir, *cur_dir;
+	struct stat st;
+	uint32_t ext_id;
+
+	ext_id = maildir_list_get_ext_id(mbox->storage, list_view);
+	if (mail_index_lookup_ext(list_view, seq, ext_id, &data) <= 0)
+		return -1;
+	rec = data;
+
+	if (rec == NULL || rec->new_mtime == 0 || rec->cur_mtime == 0) {
+		/* doesn't exist, not synced or dirty-synced */
+		return 1;
+	}
+
+	root_dir = mailbox_list_get_path(mail_storage_get_list(box->storage),
+					 box->name,
+					 MAILBOX_LIST_PATH_TYPE_MAILBOX);
+
+	/* check if new/ changed */
+	new_dir = t_strconcat(root_dir, "/new", NULL);
+	if (stat(new_dir, &st) < 0) {
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", new_dir);
+		return -1;
+	}
+	if (rec->new_mtime != st.st_mtime)
+		return 1;
+
+	/* check if cur/ changed */
+	cur_dir = t_strconcat(root_dir, "/cur", NULL);
+	if (stat(cur_dir, &st) < 0) {
+		mail_storage_set_critical(box->storage,
+					  "stat(%s) failed: %m", cur_dir);
+		return -1;
+	}
+	if (rec->cur_mtime != st.st_mtime)
+		return 1;
+	return 0;
+}
+
+int maildir_list_index_update_sync(struct mailbox *box,
+				   struct mail_index_transaction *trans,
+				   uint32_t seq)
+{
+	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct mail_index_view *list_view;
+	const struct maildir_index_header *mhdr = &mbox->maildir_hdr;
+	const struct maildir_list_index_record *old_rec;
+	struct maildir_list_index_record new_rec;
+	const void *data;
+	uint32_t ext_id;
+
+	/* get the current record */
+	list_view = mail_index_transaction_get_view(trans);
+	ext_id = maildir_list_get_ext_id(mbox->storage, list_view);
+	if (mail_index_lookup_ext(list_view, seq, ext_id, &data) <= 0)
+		return -1;
+	old_rec = data;
+
+	memset(&new_rec, 0, sizeof(new_rec));
+	if (mhdr->new_check_time <= mhdr->new_mtime + MAILDIR_SYNC_SECS ||
+	    mhdr->cur_check_time <= mhdr->cur_mtime + MAILDIR_SYNC_SECS) {
+		/* dirty, we need a refresh next time */
+	} else {
+		new_rec.new_mtime = mhdr->new_mtime;
+		new_rec.cur_mtime = mhdr->cur_mtime;
+	}
+
+	if (old_rec == NULL ||
+	    memcmp(old_rec, &new_rec, sizeof(old_rec)) != 0) {
+		mail_index_update_ext(trans, seq,
+				      mbox->storage->maildir_list_ext_id,
+				      &new_rec, NULL);
+	}
+	return 0;
+}

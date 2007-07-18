@@ -270,6 +270,7 @@ maildir_create(struct mail_storage *_storage, const char *data,
 	}
 	list->v.delete_mailbox = maildir_list_delete_mailbox;
 	list->v.rename_mailbox = maildir_list_rename_mailbox;
+	storage->maildir_list_ext_id = (uint32_t)-1;
 
 	MODULE_CONTEXT_SET_FULL(list, maildir_mailbox_list_module,
 				storage, &storage->list_module_ctx);
@@ -1053,6 +1054,8 @@ struct mailbox maildir_mailbox = {
 		index_storage_allow_new_keywords,
 		maildir_storage_mailbox_close,
 		maildir_storage_get_status,
+		maildir_list_index_has_changed,
+		maildir_list_index_update_sync,
 		maildir_storage_sync_init,
 		index_mailbox_sync_next,
 		index_mailbox_sync_deinit,
