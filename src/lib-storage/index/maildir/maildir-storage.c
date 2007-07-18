@@ -431,6 +431,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	int shared;
 	pool_t pool;
 
+	t_push();
 	path = mailbox_list_get_path(storage->storage.list, name,
 				     MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	control_dir = mailbox_list_get_path(storage->storage.list, name,
@@ -478,6 +479,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 			struct mailbox *box = &mbox->ibox.box;
 
 			mailbox_close(&box);
+			t_pop();
 			return NULL;
 		}
 		mbox->keep_lock_to = timeout_add(MAILDIR_LOCK_TOUCH_SECS * 1000,
@@ -490,6 +492,7 @@ maildir_open(struct maildir_storage *storage, const char *name,
 	if (access(t_strconcat(path, "/cur", NULL), W_OK) < 0 &&
 	    errno == EACCES)
 		mbox->ibox.readonly = TRUE;
+	t_pop();
 	return &mbox->ibox.box;
 }
 
