@@ -100,6 +100,15 @@ struct mail_keywords {
 	unsigned int idx[1];
 };
 
+enum mail_index_transaction_flags {
+	/* If transaction is marked as hidden, the changes won't be listed
+	   when the view is synchronized. */
+	MAIL_INDEX_TRANSACTION_FLAG_HIDE		= 0x01,
+	/* External transactions describe changes to mailbox that have already
+	   happened. */
+	MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL		= 0x02
+};
+
 enum mail_index_sync_type {
 	MAIL_INDEX_SYNC_TYPE_APPEND		= 0x01,
 	MAIL_INDEX_SYNC_TYPE_EXPUNGE		= 0x02,
@@ -187,16 +196,10 @@ bool mail_index_view_is_inconsistent(struct mail_index_view *view);
 /* Transaction has to be opened to be able to modify index. You can have
    multiple transactions open simultaneously. Committed transactions won't
    show up until you've synchronized the view. Expunges won't show up until
-   you've synchronized the mailbox (mail_index_sync_begin).
-
-   If transaction is marked as hidden, the changes won't be listed when the
-   view is synchronized. Expunges can't be hidden.
-
-   External transactions describe changes to mailbox that have already
-   happened. */
+   you've synchronized the mailbox (mail_index_sync_begin). */
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
-			     bool hide, bool external);
+			     enum mail_index_transaction_flags flags);
 int mail_index_transaction_commit(struct mail_index_transaction **t,
 				  uint32_t *log_file_seq_r,
 				  uoff_t *log_file_offset_r);

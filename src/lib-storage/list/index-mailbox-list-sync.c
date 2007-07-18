@@ -227,7 +227,8 @@ index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 	unsigned int i;
 	int ret = 1;
 
-	trans = mail_index_transaction_begin(view, FALSE, TRUE);
+	trans = mail_index_transaction_begin(view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 
 	/* update counters */
 	for (i = 0; index_list_map[i].name != NULL; i++) {

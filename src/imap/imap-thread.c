@@ -2082,7 +2082,7 @@ imap_thread_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 		if (mail_hash_lock(tbox->msgid_hash) <= 0)
 			return 0;
 
-		t = mail_index_transaction_begin(sync_ctx->view, FALSE, FALSE);
+		t = mail_index_transaction_begin(sync_ctx->view, 0);
 		mt = MAIL_STORAGE_CONTEXT(t);
 
 		ctx->msgid_hash = tbox->msgid_hash;

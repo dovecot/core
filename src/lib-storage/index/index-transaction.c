@@ -61,13 +61,16 @@ index_transaction_begin(struct mailbox *box,
 	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	struct mail_index_transaction *t;
 	struct index_transaction_context *it;
+	enum mail_index_transaction_flags trans_flags = 0;
 
 	if (!box->opened)
 		index_storage_mailbox_open(ibox);
 
-	t = mail_index_transaction_begin(ibox->view,
-		(flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0,
-		(flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
+	if ((flags & MAILBOX_TRANSACTION_FLAG_HIDE) != 0)
+		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_HIDE;
+	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)
+		trans_flags |= MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;
+	t = mail_index_transaction_begin(ibox->view, trans_flags);
 
 	it = MAIL_STORAGE_CONTEXT(t);
 	if (it == NULL) {

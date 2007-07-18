@@ -364,7 +364,8 @@ int mail_index_sync_begin(struct mail_index *index,
 	ctx->view = mail_index_view_open(index);
 
 	sync_view = mail_index_dummy_view_open(index);
-	ctx->sync_trans = mail_index_transaction_begin(sync_view, FALSE, TRUE);
+	ctx->sync_trans = mail_index_transaction_begin(sync_view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 	mail_index_view_close(&sync_view);
 
 	/* we wish to see all the changes from last mailbox sync position to
@@ -394,7 +395,8 @@ int mail_index_sync_begin(struct mail_index *index,
 
 	/* create the transaction after the view has been updated with
 	   external transactions and marked as sync view */
-	ctx->ext_trans = mail_index_transaction_begin(ctx->view, FALSE, TRUE);
+	ctx->ext_trans = mail_index_transaction_begin(ctx->view,
+					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
 
 	*ctx_r = ctx;
 	*view_r = ctx->view;

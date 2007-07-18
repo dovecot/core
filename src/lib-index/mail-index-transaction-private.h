@@ -29,6 +29,7 @@ union mail_index_transaction_module_context {
 struct mail_index_transaction {
 	int refcount;
 
+	enum mail_index_transaction_flags flags;
 	struct mail_index_transaction_vfuncs v;
 	struct mail_index_view *view;
 
@@ -65,9 +66,7 @@ struct mail_index_transaction {
 
 	/* this transaction was created for index_sync_view view */
 	unsigned int sync_transaction:1;
-	unsigned int hide_transaction:1;
 	unsigned int no_appends:1;
-	unsigned int external:1;
 
 	unsigned int appends_nonsorted:1;
 	unsigned int pre_hdr_changed:1;

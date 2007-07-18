@@ -590,7 +590,6 @@ void mail_index_append_assign_uids(struct mail_index_transaction *t,
 
 void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq)
 {
-	i_assert(!t->hide_transaction);
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(t->view));
 
 	t->log_updates = TRUE;
@@ -1196,7 +1195,7 @@ struct mail_index_transaction_vfuncs trans_vfuncs = {
 
 struct mail_index_transaction *
 mail_index_transaction_begin(struct mail_index_view *view,
-			     bool hide, bool external)
+			     enum mail_index_transaction_flags flags)
 {
 	struct mail_index_transaction *t;
 
@@ -1208,8 +1207,7 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	t->refcount = 1;
 	t->v = trans_vfuncs;
 	t->view = view;
-	t->hide_transaction = hide;
-	t->external = external;
+	t->flags = flags;
 	t->sync_transaction = view->index_sync_view;
 
 	if (view->syncing) {

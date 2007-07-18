@@ -36,7 +36,7 @@ static void log_append_buffer(struct log_append_context *ctx,
 	hdr.type = type;
 	if (type == MAIL_TRANSACTION_EXPUNGE)
 		hdr.type |= MAIL_TRANSACTION_EXPUNGE_PROT;
-	if (ctx->trans->external)
+	if ((ctx->trans->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
 		hdr.type |= MAIL_TRANSACTION_EXTERNAL;
 
 	hdr_size = mail_index_uint32_to_offset(sizeof(hdr) + buf->used +
@@ -536,7 +536,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	/* NOTE: mailbox sync offset update must be the last change.
 	   it may update the sync offset to include this transaction, so it
 	   needs to know this transaction's size */
-	if (t->external)
+	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
 		log_append_sync_offset_if_needed(&ctx);
 
 	if (file->sync_offset < file->last_size) {
@@ -560,7 +560,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 	}
 	buffer_free(ctx.output);
 
-	if (t->hide_transaction) {
+	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_HIDE) != 0) {
 		/* mark the area covered by this transaction hidden */
 		mail_index_view_add_hidden_transaction(view, file->hdr.file_seq,
 			append_offset, file->sync_offset - append_offset);
@@ -588,7 +588,8 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 
 	index = mail_index_view_get_index(t->view);
 	if (index->log_locked) {
-		i_assert(t->external);
+		i_assert((t->flags &
+			  MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0);
 	} else {
 		if (mail_transaction_log_lock_head(index->log) < 0)
 			return -1;
