@@ -34,6 +34,7 @@ static void dump_hdr(int fd)
 	printf("version = %u.%u\n", hdr.major_version, hdr.minor_version);
 	printf("header size = %u\n", hdr.header_size);
 	printf("uid validity = %u\n", hdr.uid_validity);
+	printf("file seq = %u\n", hdr.file_seq);
 	printf("next uid = %u\n", hdr.next_uid);
 	printf("used space = %u\n", hdr.used_space);
 	printf("deleted space = %u\n", hdr.deleted_space);
