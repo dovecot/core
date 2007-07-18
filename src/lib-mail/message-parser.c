@@ -679,6 +679,7 @@ message_parser_init(pool_t part_pool, struct istream *input,
 	ctx->parts = ctx->part = part_pool == NULL ? NULL :
 		p_new(part_pool, struct message_part, 1);
 	ctx->parse_next_block = parse_next_header_init;
+	i_stream_ref(input);
 	return ctx;
 }
 
@@ -702,6 +703,7 @@ struct message_part *message_parser_deinit(struct message_parser_ctx **_ctx)
 	struct message_part *parts = ctx->parts;
 
 	*_ctx = NULL;
+	i_stream_unref(&ctx->input);
 	pool_unref(ctx->parser_pool);
 	return parts;
 }
