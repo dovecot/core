@@ -587,12 +587,14 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 		(void)mail_cache_compress(index->cache, ctx->ext_trans);
 	}
 
-	next_uid = mail_index_transaction_get_next_uid(ctx->ext_trans);
-	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0 &&
-	    index->map->hdr.first_recent_uid < next_uid) {
-		mail_index_update_header(ctx->ext_trans,
-			offsetof(struct mail_index_header, first_recent_uid),
-			&next_uid, sizeof(next_uid), FALSE);
+	if ((ctx->flags & MAIL_INDEX_SYNC_FLAG_DROP_RECENT) != 0) {
+		next_uid = mail_index_transaction_get_next_uid(ctx->ext_trans);
+		if (index->map->hdr.first_recent_uid < next_uid) {
+			mail_index_update_header(ctx->ext_trans,
+				offsetof(struct mail_index_header,
+					 first_recent_uid),
+				&next_uid, sizeof(next_uid), FALSE);
+		}
 	}
 
 	if (mail_index_transaction_commit(&ctx->ext_trans, &seq, &offset) < 0) {
