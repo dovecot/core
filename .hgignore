@@ -67,5 +67,6 @@ src/pop3/pop3
 src/util/dovecotpw
 src/util/gdbhelper
 src/util/idxview
+src/util/listview
 src/util/logview
 src/util/rawlog

@@ -1,0 +1,142 @@
+/* Copyright (C) 2007 Timo Sirainen */
+
+#include "lib.h"
+#include "crc32.h"
+#include "mail-index.h"
+#include "mailbox-list-index-private.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+static struct mailbox_list_index_header hdr;
+
+static uint32_t mail_index_offset_to_uint32(uint32_t offset)
+{
+	const unsigned char *buf = (const unsigned char *) &offset;
+
+	if ((offset & 0x80808080) != 0x80808080)
+		return 0;
+
+	return (((uint32_t)buf[3] & 0x7f) << 2) |
+		(((uint32_t)buf[2] & 0x7f) << 9) |
+		(((uint32_t)buf[1] & 0x7f) << 16) |
+		(((uint32_t)buf[0] & 0x7f) << 23);
+}
+
+static void dump_hdr(int fd)
+{
+	int ret;
+
+	ret = read(fd, &hdr, sizeof(hdr));
+	if (ret != sizeof(hdr))
+		i_fatal("file hdr read() %d != %ld\n", ret, sizeof(hdr));
+
+	printf("version = %u.%u\n", hdr.major_version, hdr.minor_version);
+	printf("header size = %u\n", hdr.header_size);
+	printf("uid validity = %u\n", hdr.uid_validity);
+	printf("next uid = %u\n", hdr.next_uid);
+	printf("used space = %u\n", hdr.used_space);
+	printf("deleted space = %u\n", hdr.deleted_space);
+}
+
+static void dump_dir(int fd, unsigned int show_offset, const char *indent)
+{
+	struct mailbox_list_dir_record dir;
+	struct mailbox_list_record rec;
+	off_t offset;
+	char name[1024];
+	unsigned int i;
+	int ret;
+
+	offset = lseek(fd, 0, SEEK_CUR);
+	ret = read(fd, &dir, sizeof(dir));
+	if (ret == 0) {
+		if (*indent != '\0')
+			i_fatal("unexpected EOF when reading dir");
+		return;
+	}
+
+	if (ret != sizeof(dir))
+		i_fatal("dir read() %d != %ld", ret, sizeof(dir));
+
+	dir.next_offset = mail_index_offset_to_uint32(dir.next_offset);
+	printf("%sDIR: offset=%"PRIuUOFF_T" next_offset=%u count=%u dir_size=%u\n",
+	       indent, offset, dir.next_offset, dir.count, dir.dir_size);
+
+	if (dir.next_offset != 0 && dir.next_offset != show_offset) {
+		lseek(fd, dir.next_offset, SEEK_SET);
+		dump_dir(fd, show_offset, indent);
+		return;
+	}
+
+	offset += sizeof(dir);
+	for (i = 0; i < dir.count; i++) {
+		lseek(fd, offset, SEEK_SET);
+		ret = read(fd, &rec, sizeof(rec));
+		if (ret == 0)
+			i_fatal("unexpected EOF, %d/%d records", i, dir.count);
+
+		if (ret != sizeof(rec))
+			i_fatal("rec read() %d != %ld", ret, sizeof(rec));
+
+		rec.dir_offset = mail_index_offset_to_uint32(rec.dir_offset);
+		printf("%sRECORD: offset=%"PRIuUOFF_T" uid=%u "
+		       "deleted=%d name_offset=%u dir_offset=%u\n",
+		       indent, offset, rec.uid, rec.deleted,
+		       rec.name_offset, rec.dir_offset);
+
+		ret = pread(fd, name, sizeof(name)-1, rec.name_offset);
+		if (ret <= 0)
+			printf("%s - invalid name_offset\n", indent);
+		else {
+			name[ret] = '\0';
+			if (strlen(name) == (size_t)ret)
+				i_fatal("name missing NUL terminator");
+			printf("%s - name: %s (hash %u)\n",
+			       indent, name, rec.name_hash);
+
+			if (crc32_str(name) != rec.name_hash) {
+				printf("%s - invalid name hash %u vs %u\n",
+				       indent, crc32_str(name), rec.name_hash);
+			}
+		}
+
+		if (rec.dir_offset != 0) {
+			const char *new_indent;
+
+			t_push();
+			lseek(fd, rec.dir_offset, SEEK_SET);
+			if (*indent == '\0')
+				new_indent = t_strdup_printf("%s: ", name);
+			else
+				new_indent = t_strdup_printf("%s/%s: ", t_strndup(indent, strlen(indent)-2), name);
+			dump_dir(fd, show_offset, new_indent);
+			t_pop();
+		}
+
+		offset += sizeof(rec);
+	}
+}
+
+int main(int argc __attr_unused__, const char *argv[])
+{
+	int fd;
+
+	lib_init();
+
+	fd = open(argv[1], O_RDONLY);
+	if (fd < 0) {
+		i_error("open(): %m");
+		return 1;
+	}
+
+	printf("-- LIST INDEX: %s\n", argv[1]);
+
+	dump_hdr(fd);
+	lseek(fd, hdr.header_size, SEEK_SET);
+
+	printf("---------------\n");
+
+	dump_dir(fd, argv[2] == NULL ? 0 : atoi(argv[2]), "");
+	return 0;
+}
