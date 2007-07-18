@@ -756,8 +756,6 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	struct mail_transaction_flag_update u, *last_update;
 	unsigned int count;
 
-	t->log_updates = TRUE;
-
 	if (seq2 >= t->first_new_seq) {
 		/* updates for appended messages, modify them directly */
 		uint32_t seq;

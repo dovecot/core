@@ -72,7 +72,9 @@ struct mail_index_transaction {
 	unsigned int pre_hdr_changed:1;
 	unsigned int post_hdr_changed:1;
 	unsigned int reset:1;
-	/* non-extension updates */
+	/* non-extension updates. flag updates don't change this because
+	   they may be added and removed, so be sure to check that the updates
+	   array is non-empty also. */
 	unsigned int log_updates:1;
 	/* extension updates */
 	unsigned int log_ext_updates:1;

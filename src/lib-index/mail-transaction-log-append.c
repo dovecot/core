@@ -448,6 +448,10 @@ static void log_append_sync_offset_if_needed(struct log_append_context *ctx)
 	log_append_buffer(ctx, buf, NULL, MAIL_TRANSACTION_HEADER_UPDATE);
 }
 
+#define TRANSACTION_HAS_CHANGES(t) \
+	((t)->log_updates || (t)->log_ext_updates || \
+	 (array_is_created(&(t)->updates) && array_count(&(t)->updates) > 0))
+
 static int
 mail_transaction_log_append_locked(struct mail_index_transaction *t,
 				   uint32_t *log_file_seq_r,
@@ -470,7 +474,7 @@ mail_transaction_log_append_locked(struct mail_index_transaction *t,
 		if (mail_transaction_log_rotate(log, TRUE) < 0)
 			return -1;
 
-		if (!t->log_updates && !t->log_ext_updates) {
+		if (!TRANSACTION_HAS_CHANGES(t)) {
 			/* we only wanted to reset */
 			return 0;
 		}
@@ -581,7 +585,7 @@ int mail_transaction_log_append(struct mail_index_transaction *t,
 	*log_file_seq_r = 0;
 	*log_file_offset_r = 0;
 
-	if (!t->log_updates && !t->log_ext_updates && !t->reset) {
+	if (!TRANSACTION_HAS_CHANGES(t) && !t->reset) {
 		/* nothing to append */
 		return 0;
 	}
