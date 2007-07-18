@@ -58,33 +58,11 @@ index_mailbox_list_info_flags_translate(enum mailbox_info_flags info_flags)
 }
 
 static int
-index_mailbox_view_sync(struct index_mailbox_list_iterate_context *ctx)
-{
-	struct mail_index_view_sync_ctx *sync_ctx;
-	struct mail_index_view_sync_rec sync_rec;
-	int ret;
-
-	if (mail_index_view_sync_begin(ctx->mail_view, 0,
-				       &sync_ctx) < 0) {
-		mailbox_list_set_internal_error(ctx->ctx.list);
-		return -1;
-	}
-
-	while ((ret = mail_index_view_sync_next(sync_ctx, &sync_rec)) > 0) ;
-
-	mail_index_view_sync_end(&sync_ctx);
-	return ret;
-}
-
-static int
 index_mailbox_list_is_synced(struct index_mailbox_list_iterate_context *ctx)
 {
 	const struct mail_index_header *hdr;
 	struct stat st;
 	const char *path = ctx->ctx.list->set.root_dir;
-
-	if (index_mailbox_view_sync(ctx) < 0)
-		return -1;
 
 	/* FIXME: single sync_stamp works only with maildir++ */
 	if (stat(path, &st) < 0) {
@@ -237,6 +215,13 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 		}
 	}
 
+	/* Refresh index before opening our view */
+	if (mail_index_refresh(ilist->mail_index) < 0) {
+		ctx->backend_ctx = ilist->module_ctx.super.
+			iter_init(list, patterns, flags);
+		return &ctx->ctx;
+	}
+
 	ctx->mail_view = mail_index_view_open(ilist->mail_index);
 	ctx->view = mailbox_list_index_view_init(ilist->list_index,
 						 ctx->mail_view);
@@ -254,7 +239,7 @@ index_mailbox_list_iter_init(struct mailbox_list *list,
 	if (prefix == NULL)
 		prefix = "";
 
-	if (!index_mailbox_list_is_synced(ctx) > 0) {
+	if (index_mailbox_list_is_synced(ctx) <= 0) {
 		ret = index_mailbox_list_sync(ctx);
 
 		mail_index_view_close(&ctx->mail_view);
