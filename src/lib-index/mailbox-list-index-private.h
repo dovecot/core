@@ -15,6 +15,7 @@ struct mailbox_list_index_header {
 	uint8_t minor_version;
 	uint8_t unused[2];
 
+	uint32_t file_seq;
 	uint32_t header_size;
 	uint32_t uid_validity;
 

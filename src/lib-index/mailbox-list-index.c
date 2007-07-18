@@ -197,13 +197,15 @@ static int mailbox_list_index_map_area(struct mailbox_list_index *index,
 }
 
 static void
-mailbox_list_index_init_header(struct mailbox_list_index_header *hdr,
+mailbox_list_index_init_header(struct mailbox_list_index *index,
+			       struct mailbox_list_index_header *hdr,
 			       uint32_t uid_validity)
 {
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->major_version = MAILBOX_LIST_INDEX_MAJOR_VERSION;
 	hdr->minor_version = MAILBOX_LIST_INDEX_MINOR_VERSION;
 
+	hdr->file_seq = index->hdr == NULL ? 1 : index->hdr->file_seq + 1;
 	hdr->header_size = sizeof(*hdr);
 	hdr->used_space = hdr->header_size;
 
@@ -262,7 +264,7 @@ int mailbox_list_index_file_create(struct mailbox_list_index *index,
 		}
 	}
 
-	mailbox_list_index_init_header(&hdr, uid_validity);
+	mailbox_list_index_init_header(index, &hdr, uid_validity);
 	if (write_full(fd, &hdr, sizeof(hdr)) < 0) {
 		mailbox_list_index_set_syscall_error(index, "write_full()");
 		(void)file_dotlock_delete(&dotlock);

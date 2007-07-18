@@ -987,6 +987,7 @@ static int mailbox_list_index_compress(struct mailbox_list_index_sync_ctx *ctx)
 		return -1;
 
 	/* reset header */
+	ctx->hdr.file_seq++;
 	ctx->hdr.used_space = sizeof(ctx->hdr);
 	ctx->hdr.deleted_space = 0;
 
