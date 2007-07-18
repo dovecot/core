@@ -300,8 +300,9 @@ list_index_get_info_flags(struct index_mailbox_list_iterate_context *ctx,
 					&seq, &seq) < 0)
 		return -1;
 	if (seq == 0) {
-		mailbox_list_index_set_corrupted(ilist->list_index,
-			"Desynced: Record expunged from mail index");
+		i_error("Mailbox list index desynced: "
+			"Record uid=%u expunged from mail index", uid);
+		mail_index_mark_corrupted(ilist->mail_index);
 		return -1;
 	}
 
@@ -341,8 +342,10 @@ static int list_index_iter_next(struct index_mailbox_list_iterate_context *ctx,
 
 		if ((ctx->info.flags & MAILBOX_NOCHILDREN) != 0 &&
 		    iinfo.has_children) {
-			mailbox_list_index_set_corrupted(ilist->list_index,
-				"Desynced: Children flags wrong in mail index");
+			i_error("Mailbox list index desynced: "
+				"Children flags for uid=%u wrong in mail index",
+				iinfo.uid);
+			mail_index_mark_corrupted(ilist->mail_index);
 			return -1;
 		}
 

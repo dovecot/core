@@ -64,6 +64,7 @@ struct mailbox_list_index_sync_ctx {
 	buffer_t *output_buf;
 
 	unsigned int failed:1;
+	unsigned int restart:1;
 	unsigned int partial:1;
 	unsigned int seen_sync_root:1;
 };
@@ -203,8 +204,10 @@ mailbox_list_index_sync_get_seq(struct mailbox_list_index_sync_ctx *ctx,
 		return -1;
 
 	if (rec->seq == 0) {
-		return mailbox_list_index_set_corrupted(ctx->index,
-			"Desync: Record expunged from mail index");
+		i_warning("%s: Desync: Record uid=%u expunged from mail index",
+			  ctx->index->mail_index->filepath, rec->uid);
+		ctx->restart = TRUE;
+		return -1;
 	}
 	return 0;
 }
@@ -899,9 +902,11 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 	}
 
 	if (ctx->mail_sync_ctx != NULL) {
-		if (ret < 0)
+		if (ret < 0 && !ctx->restart)
 			mail_index_sync_rollback(&ctx->mail_sync_ctx);
 		else {
+			if (ctx->restart)
+				mail_index_reset(ctx->trans);
 			if (mail_index_sync_commit(&ctx->mail_sync_ctx) < 0)
 				ret = -1;
 		}
