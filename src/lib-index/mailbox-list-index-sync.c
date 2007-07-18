@@ -501,7 +501,7 @@ mailbox_list_index_sync_alloc_space(struct mailbox_list_index_sync_ctx *ctx,
 
 	if (ctx->index->mmap_disable) {
 		/* write the data into temporary buffer first */
-		buffer_set_used_size(ctx->output_buf, 0);
+		buffer_reset(ctx->output_buf);
 
 		if (ctx->output->offset != pos) {
 			i_assert(pos > ctx->output->offset &&
@@ -520,6 +520,7 @@ mailbox_list_index_sync_alloc_space(struct mailbox_list_index_sync_ctx *ctx,
 			i_assert(pos + size < ctx->index->mmap_size);
 		}
 		*base_r = PTR_OFFSET(ctx->index->mmap_base, pos);
+		memset(*base_r, 0, size);
 	}
 
 	*base_offset_r = pos;
