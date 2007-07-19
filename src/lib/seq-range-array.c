@@ -190,7 +190,7 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 
 	if (seq_range_array_remove(array, seq2--))
 		remove_count++;
-	if (seq1 == seq2)
+	if (seq1 > seq2)
 		return remove_count;
 
 	/* find the beginning */
