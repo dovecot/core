@@ -1,31 +1,51 @@
-POP3(username): UID larger than next_uid in file /home/username/Maildir/dovecot-uidlist (1 >= 1)
-  - 229  (1 >= 1)   44  (2 >= 2)    3  (3 >= 3)    1  (7 >= 7)
-
-POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assertion failed: (uid > prev_uid)
-
- - v1.1:
-   - IMAP ACL / shared mailboxes support
-      - subscriptions
-      - is it useful to subscribe to a namespace prefix?
-   - mailbox list index for fs layout
-   - quota: delay counting the quota until it's really needed
-
+ - command didn't cancel itself: STATUS
+ - allow sql plugins
+ - indexes: are cache prev_offsets updated right?
+ - mmap_disable: updated cache header doesn't invalidate other processes' cache?
  - rquotad support for FS quota
- - logging
-  - consistency: http://www.dovecot.org/list/dovecot/2007-April/021532.html
-  - add imap_logout_format
-    - number of bytes sent
- - If dovecot.index.log has EXPUNGE command but mailbox is read-only it won't
-   get fixed by itself.
- - EXPUNGE command in read-only mailbox should give an error message if
-   there are messages marked as \Deleted?
- - dovecot -o setting=something overriding
+ - filesystem group quota patch
+ - userdb lookups aren't verifying / translating usernames
+ - message-header-decode.h API: Add support for returning UTF-8 decoded strings
+   directly.
+   - Fix Sieve plugin to decode headers using it
+
+ - maildir+pop3/deliver fast updates:
+   - with locking enabled, pop3 could just keep the one and same sync lock and
+     do the whole thing using sync transaction
+   - don't update dovecot-uidlist if dovecot.index.cache doesn't exist /
+     there's nothing to cache
+   - if all messages are expunged and there are no unknown extensions in index,
+     unlink dovecot.index and rotate log and add some initial useful info to
+     the log (uidvalidity, nextuid)
+
+ - maildir
+   - physical separator could be configurable
+   - setting flags to same as they already are causes unnecessary
+     rename()s with identical parameters
+   - deliver+maildir: if new mails are in new/ or cur/ they're not added to
+     dovecot-uidlist but newly saved mails are, so UIDs will be in wrong order
+   - maildir_copy_with_hardlinks: We're currently first hardlinking to tmp/ and
+     then rename()ing. This wouldn't be necessary if uidlist syncing noticed
+     that someone else already had added them to uidlist, and the existing UIDs
+     could be assigned to them in the index.
+   - maildir_copy_preserve_filename=yes has a race condition causing "Append with
+     UID n, but next_uid = y" errors when quota plugin is loaded. Practically
+     won't happen except in stress testing.
+   - maildir_copy_with_hardlinks=yes is problematic with shared folders where
+     the file mode should change..
+
+ - mbox
+   - UID renumbering doesn't really work after all?
+   - still problems with CRLF mboxes..
+
+ - Mailbox list indexes
+   - Should probably check dovecot.index.log stamp/size too so that non-zero
+     recent counters get reset
+   - Why are updates so slow?
+   - Support for FS layout
+
  - don't use squat with header if index doesn't exist
  - don't use squat index if searching only a couple of mails
- - Send local/remote ports to dovecot-auth
- - vmailmgr patch
- - managesieve patch
- - cache-while-saving doesn't work with mbox/dbox
  - threading: (all done?) 
     - duplicate: mark original as rebuild
     - re-parent (also reparenting to root): mark as rebuild
@@ -43,31 +63,24 @@ POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assert
 	   more messages after that, a new dummy parent needs to be created,
 	   and the rest of the messages need to be sorted before sending
 
- - mmap_disable: updated cache header doesn't invalidate other processes' cache?
- - mail_index_move_to_memory() should lock the index..
- - mbox: UID renumbering doesn't really work after all?
- - maildir: we could finish writing dovecot-uidlist.lock before rename()ing
-   any files from tmp/, so if it fails we'll abort the mail saving
+ - mail_log: log appends
+ - pop3 proxying(?): dovecot: login: tried to change state 2 -> 2
+ - logging consistency:
+   http://www.dovecot.org/list/dovecot/2007-April/021532.html
+ - EXPUNGE command in read-only mailbox should give an error message if
+   there are messages marked as \Deleted?
+ - dovecot -o setting=something overriding
+ - vmailmgr patch
+ - managesieve patch
  - file_cache: we're growing the mmap in page size blocks, which is horribly
    slow if mremap() doesn't exist.
  - login_max_processes_count shouldn't count proxying processes
- - maildir_copy_with_hardlinks: We're currently first hardlinking to tmp/ and
-   then rename()ing. This wouldn't be necessary if uidlist syncing noticed
-   that someone else already had added them to uidlist, and the existing UIDs
-   could be assigned to them in the index.
- - maildir_copy_preserve_filename=yes has a race condition causing "Append with
-   UID n, but next_uid = y" errors when quota plugin is loaded. Practically
-   won't happen except in stress testing.
- - maildir_copy_with_hardlinks=yes is problematic with shared folders where
-   the file mode should change..
- - still problems with CRLF mboxes..
 
  - Allow %variables in mail_chroot setting
  - something should be done to umask setting. we should be creating files with
    0666 or 0777 and rely on umask, but we shouldn't do that unless we're sure
    that the umask is the wanted one (ie. imap/pop3 process wasn't started
    directly)
- - filesystem group quota patch
  - ssl_verify_client_cert isn't working if the SSL cert doesn't have CRL
 
  - keywords:
@@ -79,8 +92,11 @@ POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assert
     - force bits should be used only for nonregistered fields
     - change envelope parsing not to use get_headers() so imap.envelope can
       actually be cached without all the headers..
+    - permanent -> temp change is never made (do it always when compressing?)
     - compression should drop fields with last_used <
       (latest_mail_index_date - month)
+    - if there's no other pressure for compression, we should do it when
+      enough temp fields are ready to be dropped
     - we could try compressing same field values into a single
       location in cache file.
     - support caching all message headers. this could be useful when
@@ -91,7 +107,6 @@ POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assert
     - after some locking timeouts: mbox-lock.c: line 518 (mbox_lock):
       assertion failed: (lock_type == F_RDLCK || mbox->mbox_lock_type != F_RDLCK)
     - controldir for mboxes too and place subscriptions file there?
-    - size.physical isn't cached, but should it even be? ..
     - syncing existing indexes takes 4x longer than creating new one, why?
     - how well does dirty sync + status work? it reads the last mail every
       time? not very good..
@@ -101,19 +116,8 @@ POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assert
       in the file
     - Quote "From ", unquote ">From "
     - COPY doesn't work to itself (lock assert crash, for now just disallowed)
-    - keep mbox lock for two extra seconds after sync (do we really need to?)
-    - move /var/mail/user to ~/mbox if ~/mbox exists.. supposedly this
-      could be useful if /var/mail doesn't have quota, but ~/mail does.
-      now, what do we then do if we can move only some of the mails?..
     - if we can't create dotlock file for mbox, make sure it still can be
       selected in read-only state
-
- - maildir
-    - with pop3 don't move messages from new/ to cur/ before RETR
-    - when sorting maildir files, sort based on Mxxxx first so the files are
-      sorted always in ascending order. required for proper out-of-quota
-      uidlist handling
-    - physical separator could be configurable
 
  - dbox
    - keyword list header locking isn't correct now. saving uses file's
@@ -124,22 +128,16 @@ POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assert
    - pop3_lock_session doesn't work
 
  - index
-    - dd if=/dev/zero of=dovecot.index bs=1024 count=1 -> NOOP -> crash!
-    - delete >30min old dovecot.index.log.2 files when opening index?
-    - optimize initial left_idx in _view_lookup_uid_range()
     - if log file is lost, generate it from old and new index
-    - transaction log: when replacing log with a same sequence, we remove it
-      from log's file list, but we don't do anything to existing log views.
-      this can crash later in mail_transaction_log_view_set() because 'first'
-      is from log list, while we're comparing it into view->tail which it never
-      is. also overwriting it leaks memory..
     - read-only support for mailboxes where we don't have write-access
+    - index file format changes:
+	- pack UIDs to beginning of file with UID ranges
+	- use squat-like compressed uid ranges everywhere
 
  - namespaces
     - namespaces: add new "auto_disable" flag so if the mailbox can't be opened
       (eg. file doesn't exist), just ignore the problem and disable the
       namespace
-    - subscribe <namespace prefix> doesn't work.
     - namespaces don't work in plugins: convert
     - subscriptions file should contain namespace prefixes. at least optionally.
       there's the subscriptions = yes setting now for namespaces.. do it so that
@@ -184,14 +182,11 @@ POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assert
       maybe just log the IP immediately.
 
  - auth
-    - uid_file and gid_file to get the uid/gid from given file's owner/group
-    - ability to specify default password scheme with passwd-file
     - with blocking passdb we're not caching lookups if the password was wrong
     - non-plaintext authentication doesn't support all features:
         - multiple passdbs don't work, only the first one is used
 	- auth cache's last_success password change check doesn't exist
-    - if PAM child process doesn't finish within a minute, kill it
-    - PAM / checkpassword should use passdb-blocking
+    - checkpassword should use passdb-blocking
     - remove system_user and allow returning multiple gids instead.
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
@@ -211,10 +206,7 @@ POP3(xxxxx@xxxxxxx): file maildir-sync.c: line 1075 (maildir_sync_index): assert
       there should be a completely separate simple PAM authenticator binary.
 
  - master
-    - Support listening in multiple sockets
-    - per-user/ip limits..
     - configurable syslog prefix
-    - SIGHUP rather shouldn't restart listening sockets if they didn't change..
     - if there are duplicate settings, complain about it
 
  - quota
