@@ -22,6 +22,7 @@ headers = \
 	index-mailbox-list.h \
 	mailbox-list-fs.h \
 	mailbox-list-maildir.h \
+	mailbox-list-subscriptions.h \
 	subscription-file.h
 
 if INSTALL_HEADERS
