@@ -250,10 +250,8 @@ maildir_index_update_ext_header(struct maildir_mailbox *mbox,
 				      &data, &data_size) < 0)
 		data_size = 0;
 
-	if (data_size == sizeof(mbox->maildir_hdr) &&
-	    !maildir_index_header_has_changed(data, &mbox->maildir_hdr)) {
-		/* nothing changed */
-	} else {
+	if (data_size != sizeof(mbox->maildir_hdr) ||
+	    maildir_index_header_has_changed(data, &mbox->maildir_hdr)) {
 		mail_index_update_header_ext(trans, mbox->maildir_ext_id, 0,
 					     &mbox->maildir_hdr,
 					     sizeof(mbox->maildir_hdr));
