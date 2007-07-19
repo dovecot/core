@@ -64,6 +64,7 @@ struct mailbox_list_index_sync_ctx {
 	buffer_t *output_buf;
 
 	unsigned int failed:1;
+	unsigned int changed:1;
 	unsigned int restart:1;
 	unsigned int partial:1;
 	unsigned int seen_sync_root:1;
@@ -179,6 +180,8 @@ mailbox_list_alloc_add_record(struct mailbox_list_index_sync_ctx *ctx,
 			      const char *name, unsigned int idx)
 {
 	struct mailbox_list_sync_record *rec;
+
+	ctx->changed = TRUE;
 
 	rec = array_insert_space(&dir->records, idx);
 	rec->name_hash = crc32_str(name);
@@ -525,6 +528,7 @@ mailbox_list_index_sync_alloc_space(struct mailbox_list_index_sync_ctx *ctx,
 
 	*base_offset_r = pos;
 	ctx->hdr.used_space = pos + size;
+	ctx->changed = TRUE;
 	return 0;
 }
 
@@ -683,6 +687,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	}
 
 	ctx->hdr.deleted_space += deleted_space;
+	ctx->changed = TRUE;
 	sync_dir->offset = base_offset;
 	return 0;
 }
@@ -758,6 +763,7 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 		o_stream_seek(ctx->output, old_offset);
 		t_pop();
 	}
+	ctx->changed = TRUE;
 	return 0;
 }
 
@@ -862,7 +868,9 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 	if (mailbox_list_index_sync_write_dir(ctx, ctx->root, 0, partial) < 0)
 		ret = -1;
 
-	if (!ctx->index->mmap_disable) {
+	if (!ctx->changed) {
+		/* nothing written */
+	} else if (!ctx->index->mmap_disable) {
 		/* update header */
 		hdr = ctx->index->mmap_base;
 		if (ret == 0)
@@ -891,7 +899,8 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 							     "fdatasync()");
 			ret = -1;
 		}
-
+	}
+	if (ctx->index->mmap_disable) {
 		o_stream_destroy(&ctx->output);
 		buffer_free(ctx->output_buf);
 	}
