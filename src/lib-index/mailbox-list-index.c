@@ -717,6 +717,9 @@ int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
 	str_append(ctx->name_path, name);
 	t_pop();
 
+	info_r->name = str_c(ctx->name_path);
+	info_r->uid = recs->uid;
+
 	dir_offset = mail_index_offset_to_uint32(recs->dir_offset);
 	if (dir_offset != 0 && array_count(&ctx->path) < ctx->recurse_level) {
 		/* recurse into children */
@@ -729,12 +732,10 @@ int mailbox_list_index_iterate_next(struct mailbox_list_iter_ctx *ctx,
 			ctx->failed = TRUE;
 			return -1;
 		}
+		recs = NULL; /* don't use anymore */
 	} else {
 		ctx->cur.pos++;
 	}
-
-	info_r->name = str_c(ctx->name_path);
-	info_r->uid = recs->uid;
 	info_r->has_children = dir_offset != 0;
 	return 1;
 }
