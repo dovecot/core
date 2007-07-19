@@ -139,12 +139,24 @@ mailbox_list_index_check_header(struct mailbox_list_index *index,
 int mailbox_list_index_map(struct mailbox_list_index *index)
 {
 	const struct mailbox_list_index_header *hdr;
+	struct stat st;
 	ssize_t ret;
 
 	mailbox_list_index_unmap(index);
 
 	if (!index->mmap_disable) {
-		index->mmap_base = mmap_rw_file(index->fd, &index->mmap_size);
+		if (fstat(index->fd, &st) < 0) {
+			mailbox_list_index_set_syscall_error(index, "fstat()");
+			return -1;
+		}
+	}
+
+	if (!index->mmap_disable &&
+	    st.st_size >= MAILBOX_LIST_INDEX_MMAP_MIN_SIZE) {
+		index->mmap_size = st.st_size;
+		index->mmap_base = mmap(NULL, index->mmap_size,
+					PROT_READ | PROT_WRITE,
+					MAP_SHARED, index->fd, 0);
 		if (index->mmap_base == MAP_FAILED) {
 			index->mmap_base = NULL;
 			mailbox_list_index_set_syscall_error(index, "mmap()");

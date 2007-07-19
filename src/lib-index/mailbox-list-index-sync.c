@@ -502,7 +502,7 @@ mailbox_list_index_sync_alloc_space(struct mailbox_list_index_sync_ctx *ctx,
 	/* all allocations must be 32bit aligned */
 	pos = (pos + 3) & ~3;
 
-	if (ctx->index->mmap_disable) {
+	if (ctx->index->mmap_base == NULL) {
 		/* write the data into temporary buffer first */
 		buffer_reset(ctx->output_buf);
 
@@ -647,7 +647,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	i_assert(dest == nondeleted_count);
 	i_assert(name_pos == space_needed);
 
-	if (index->mmap_disable) {
+	if (index->mmap_base == NULL) {
 		file_cache_write(index->file_cache, ctx->output_buf->data,
 				 ctx->output_buf->used, ctx->output->offset);
 		o_stream_send(ctx->output, ctx->output_buf->data,
@@ -661,7 +661,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 		/* add a link to this newly created directory. */
 		uint32_t data = mail_index_uint32_to_offset(base_offset);
 
-		if (!index->mmap_disable)  {
+		if (index->mmap_base != NULL)  {
 			uint32_t *pos;
 
 			pos = PTR_OFFSET(index->mmap_base, offset_pos);
@@ -679,7 +679,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 		}
 	}
 
-	if (index->mmap_disable) {
+	if (index->mmap_base == NULL) {
 		/* file_cache_write() calls may have moved mmaping */
 		index->const_mmap_base = file_cache_get_map(index->file_cache,
 							    &index->mmap_size);
@@ -711,7 +711,7 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 	i_assert(count <= dir->count);
 	i_assert(sync_dir->seen_records_count < count);
 
-	if (!ctx->index->mmap_disable)
+	if (ctx->index->mmap_base != NULL)
 		recs = MAILBOX_LIST_RECORDS_MODIFIABLE(dir);
 	else {
 		/* @UNSAFE: copy the records into a temporary buffer that
@@ -749,7 +749,7 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 			i++;
 		}
 	}
-	if (ctx->index->mmap_disable) {
+	if (ctx->index->mmap_base == NULL) {
 		uoff_t offset, old_offset;
 		size_t size = sizeof(struct mailbox_list_record) * dir->count;
 
@@ -849,7 +849,7 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 	bool partial;
 	int ret = 0;
 
-	if (ctx->index->mmap_disable) {
+	if (ctx->index->mmap_base == NULL) {
 		ctx->output = o_stream_create_file(ctx->index->fd, default_pool,
 						   0, FALSE);
 		ctx->output_buf = buffer_create_dynamic(default_pool, 4096);
@@ -870,7 +870,7 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 
 	if (!ctx->changed) {
 		/* nothing written */
-	} else if (!ctx->index->mmap_disable) {
+	} else if (ctx->index->mmap_base != NULL) {
 		/* update header */
 		hdr = ctx->index->mmap_base;
 		if (ret == 0)
@@ -900,7 +900,7 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 			ret = -1;
 		}
 	}
-	if (ctx->index->mmap_disable) {
+	if (ctx->index->mmap_base == NULL) {
 		o_stream_destroy(&ctx->output);
 		buffer_free(ctx->output_buf);
 	}

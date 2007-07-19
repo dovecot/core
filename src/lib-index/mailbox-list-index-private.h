@@ -10,6 +10,8 @@
 #define MAILBOX_LIST_COMPRESS_PERCENTAGE 10
 #define MAILBOX_LIST_COMPRESS_MIN_SIZE 1024
 
+#define MAILBOX_LIST_INDEX_MMAP_MIN_SIZE (1024*32)
+
 struct mailbox_list_index_header {
 	uint8_t major_version;
 	uint8_t minor_version;
