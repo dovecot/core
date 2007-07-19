@@ -673,10 +673,12 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 			i_assert(tmp_update.uid1 <= tmp_update.uid2);
 			i_assert(updates[idx].uid1 <= updates[idx].uid2);
 
-			if (mail_transaction_update_want_add(t, &tmp_update))
+			if (mail_transaction_update_want_add(t, &tmp_update)) {
 				array_insert(&t->updates, idx, &tmp_update, 1);
-			updates = array_get_modifiable(&t->updates, &count);
-			idx += move;
+				updates = array_get_modifiable(&t->updates,
+							       &count);
+				idx += move;
+			}
 		} else if (u.uid1 < updates[idx].uid1) {
 			updates[idx].uid1 = u.uid1;
 		}
@@ -724,10 +726,12 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 	if (u.uid1 <= u.uid2) {
 		i_assert(idx == 0 || updates[idx-1].uid2 < u.uid1);
 		i_assert(idx == count || updates[idx].uid1 > u.uid2);
-		if (mail_transaction_update_want_add(t, &u))
+		if (mail_transaction_update_want_add(t, &u)) {
 			array_insert(&t->updates, idx, &u, 1);
+			count++;
+		}
 	}
-	t->last_update_idx = idx;
+	t->last_update_idx = idx == count ? count-1 : idx;
 }
 
 static void mail_index_record_modify_flags(struct mail_index_record *rec,
@@ -754,7 +758,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 {
 	struct mail_index_record *rec;
 	struct mail_transaction_flag_update u, *last_update;
-	unsigned int count;
+	unsigned int first_idx, count;
 
 	if (seq2 >= t->first_new_seq) {
 		/* updates for appended messages, modify them directly */
@@ -822,17 +826,21 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	if (t->last_update_idx == count) {
 		if (mail_transaction_update_want_add(t, &u))
 			array_append(&t->updates, &u, 1);
-		return;
-	}
-
-	/* slow path */
-	if (seq1 > last_update->uid2) {
-		/* added after this */
-		mail_index_insert_flag_update(t, u, t->last_update_idx + 1,
-					      count);
+		else if (t->last_update_idx > 0)
+			t->last_update_idx--;
 	} else {
-		/* added before this or on top of this */
-		mail_index_insert_flag_update(t, u, 0, t->last_update_idx + 1);
+		i_assert(t->last_update_idx < count);
+
+		/* slow path */
+		if (seq1 > last_update->uid2) {
+			/* added after this */
+			first_idx = t->last_update_idx + 1;
+		} else {
+			/* added before this or on top of this */
+			first_idx = 0;
+			count = t->last_update_idx + 1;
+		}
+		mail_index_insert_flag_update(t, u, first_idx, count);
 	}
 }
 
