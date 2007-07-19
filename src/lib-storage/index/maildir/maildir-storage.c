@@ -333,17 +333,22 @@ static int mkdir_verify(struct mail_storage *storage,
 		}
 	}
 
-	if (mkdir_parents(dir, CREATE_MODE) < 0) {
-		if (errno == EEXIST) {
-			if (!verify)
-				return -1;
-		} else {
-			mail_storage_set_critical(storage,
-						  "mkdir(%s) failed: %m", dir);
-			return -1;
-		}
+	if (mkdir_parents(dir, CREATE_MODE) == 0)
+		return 0;
+
+	if (errno == EEXIST) {
+		if (verify)
+			return 0;
+		mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox already exists");
+	} else if (errno == ENOENT) {
+		mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
+			"Mailbox was deleted while it was being created");
+	} else {
+		mail_storage_set_critical(storage,
+					  "mkdir(%s) failed: %m", dir);
 	}
-	return 0;
+	return -1;
 }
 
 /* create or fix maildir, ignore if it already exists */
@@ -552,10 +557,6 @@ static int maildir_create_shared(struct mail_storage *storage,
 
 	old_mask = umask(0777 ^ mode);
 	if (create_maildir(storage, dir, FALSE) < 0) {
-		if (errno == EEXIST) {
-			mail_storage_set_error(storage, MAIL_ERROR_NOTPOSSIBLE,
-					       "Mailbox already exists");
-		}
 		umask(old_mask);
 		return -1;
 	}
@@ -601,22 +602,22 @@ static int maildir_mailbox_create(struct mail_storage *_storage,
 					     st.st_mode & 0666, st.st_gid);
 	}
 
-	if (create_maildir(_storage, path, FALSE) < 0) {
-		if (errno == EEXIST) {
-			mail_storage_set_error(_storage, MAIL_ERROR_NOTPOSSIBLE,
-					       "Mailbox already exists");
-		}
+	if (create_maildir(_storage, path, FALSE) < 0)
 		return -1;
-	}
 
 	/* Maildir++ spec want that maildirfolder named file is created for
 	   all subfolders. */
 	path = t_strconcat(path, "/" MAILDIR_SUBFOLDER_FILENAME, NULL);
 	fd = open(path, O_CREAT | O_WRONLY, CREATE_MODE & 0666);
-	if (fd == -1)
-		i_error("open(%s, O_CREAT) failed: %m", path);
-	else
+	if (fd != -1)
 		(void)close(fd);
+	else if (errno == ENOENT) {
+		mail_storage_set_error(_storage, MAIL_ERROR_NOTFOUND,
+			"Mailbox was deleted while it was being created");
+		return -1;
+	} else {
+		i_error("open(%s, O_CREAT) failed: %m", path);
+	}
 	return 0;
 }
 
