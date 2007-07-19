@@ -15,7 +15,7 @@ v1.1.UNSTABLE
 	  It's similar to REFERENCES, but it doesn't do base subject merging
 	  and it sorts the threads by their newest message.
 	+ When saving messages, update cache file immediately with the data
-	  that we expect client to fetch later. Maildir-only currently.
+	  that we expect client to fetch later.
 	+ NFS attribute and data caches are are flushed whenever needed.
 	  See mail_nfs_storage and mail_nfs_index settings.
 	+ Mailbox list indexes. Mailbox metadata is stored there, so STATUS
