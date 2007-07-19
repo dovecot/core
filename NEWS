@@ -1,3 +1,45 @@
+v1.1.UNSTABLE
+
+	* After Dovecot v1.1 has modified index or dovecot-uidlist files,
+	  they can't be opened anymore with Dovecot versions earlier than
+	  v1.0.2.
+	* Empty passwords in passdb doesn't allow user to log in with any
+	  password anymore. To do that you'll also need to set nopassword
+	  extra field.
+
+	+ IMAP: Added support for UIDPLUS and LIST-EXTENDED extensions.
+	+ IMAP SORT: Sort keys are indexed, which makes SORT commands faster.
+	+ IMAP THREAD: Threads are indexed into a dovecot.index.thread file.
+	  It can usually be updated incrementally, so this makes THREAD fast.
+	+ Added Dovecot-specific X-REFERENCES2 threading algorithm.
+	  It's similar to REFERENCES, but it doesn't do base subject merging
+	  and it sorts the threads by their newest message.
+	+ When saving messages, update cache file immediately with the data
+	  that we expect client to fetch later. Maildir-only currently.
+	+ NFS attribute and data caches are are flushed whenever needed.
+	  See mail_nfs_storage and mail_nfs_index settings.
+	+ Mailbox list indexes. Mailbox metadata is stored there, so STATUS
+	  commands can return synchronized mailboxes' metadata simply by
+	  reading a single mailbox list index file. Currently works only with
+	  Maildir++ layout.
+	+ Out of order command execution (SEARCH, FETCH, LIST), nonstandard
+	  command cancellation (X-CANCEL <tag>)
+	+ Expire plugin can be used to keep track of oldest messages in
+	  specific mailboxes. A nightly run can then quickly expunge old
+	  messages from the mailboxes that have them. The tracking is done
+	  using lib-dict, so you can use either Berkeley DB or SQL database.
+	+ Namespaces are supported everywhere now.
+	+ Full text search indexing support with Lucene and Squat backends.
+	+ OTP and S/KEY authentication mechanisms (by Andrey Panin).
+	+ mbox and Maildir works with both Maildir++ and FS layouts. You can
+	  change these by appending :LAYOUT=maildir++ or :LAYOUT=fs to
+	  mail_location.
+	+ LDAP: Support templates in pass_attrs and user_attrs
+	+ Support for listening in multiple IPs/ports.
+	+ Quota plugin rewrite: Support for multiple quota roots, warnings,
+	  allow giving storage size in bytes or kilo/mega/giga/terabytes,
+	  per-mailbox quota rules.
+
 v1.0.0 2007-04-13  Timo Sirainen <tss@iki.fi>
 
 	+ Documentation updated.
