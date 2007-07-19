@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2007 Timo Sirainen */
 
 #include "lib.h"
 #include "seq-range-array.h"
@@ -258,10 +258,12 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 	return 0;
 }
 
-static int index_mailbox_expunge_unseen_recent(struct index_mailbox *ibox)
+static int
+index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 {
+	struct index_mailbox *ibox = ctx->ibox;
 	const struct mail_index_header *hdr;
-	uint32_t uid;
+	uint32_t seq, start_uid, uid;
 
 	if (!array_is_created(&ibox->recent_flags))
 		return 0;
@@ -271,14 +273,28 @@ static int index_mailbox_expunge_unseen_recent(struct index_mailbox *ibox)
 	   recent_flags may however contain the append UID, so we'll have to
 	   remove it separately */
 	hdr = mail_index_get_header(ibox->view);
-	if (hdr->messages_count == 0)
+	if (ctx->messages_count == 0)
 		uid = 0;
 	else {
-		if (mail_index_lookup_uid(ibox->view, hdr->messages_count,
+		if (mail_index_lookup_uid(ibox->view, ctx->messages_count,
 					  &uid) < 0) {
 			mail_storage_set_index_error(ibox);
 			return -1;
 		}
+	}
+
+	for (seq = ctx->messages_count + 1; seq <= hdr->messages_count; seq++) {
+		start_uid = uid;
+		if (mail_index_lookup_uid(ibox->view, seq, &uid) < 0) {
+			mail_storage_set_index_error(ibox);
+			return -1;
+		}
+		if (start_uid + 1 > uid - 1)
+			continue;
+
+		ibox->recent_flags_count -=
+			seq_range_array_remove_range(&ibox->recent_flags,
+						     start_uid + 1, uid - 1);
 	}
 
 	if (uid + 1 < hdr->next_uid) {
@@ -287,6 +303,23 @@ static int index_mailbox_expunge_unseen_recent(struct index_mailbox *ibox)
 						     uid + 1,
 						     hdr->next_uid - 1);
 	}
+#ifdef DEBUG
+	{
+		const struct seq_range *range;
+		unsigned int i, count;
+
+		range = array_get(&ibox->recent_flags, &count);
+		for (i = 0; i < count; i++) {
+			for (uid = range[i].seq1; uid <= range[i].seq2; uid++) {
+				if (uid >= hdr->next_uid)
+					break;
+				mail_index_lookup_uid_range(ibox->view, uid, uid,
+							    &seq, &seq);
+				i_assert(seq != 0);
+			}
+		}
+	}
+#endif
 	return 0;
 }
 
@@ -303,7 +336,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	if (ctx->sync_ctx != NULL)
 		mail_index_view_sync_end(&ctx->sync_ctx);
-	if (index_mailbox_expunge_unseen_recent(ibox) < 0)
+	if (index_mailbox_expunge_unseen_recent(ctx) < 0)
 		ret = -1;
 
 	if (ibox->keep_recent) {
