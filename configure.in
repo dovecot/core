@@ -82,7 +82,7 @@ AC_ARG_WITH(passwd,
 	fi,
 	want_passwd=yes)
 
-AC_ARG_WITH(passwd,
+AC_ARG_WITH(nss,
 [  --with-nss              Build with NSS module support (default)],
 	if test x$withval = xno; then
 		want_nss=no
