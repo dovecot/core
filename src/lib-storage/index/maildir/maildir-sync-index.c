@@ -219,6 +219,26 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
 	return ret;
 }
 
+static bool
+maildir_index_header_has_changed(const struct maildir_index_header *old_hdr,
+				 const struct maildir_index_header *new_hdr)
+{
+#define DIR_DELAYED_REFRESH(hdr, name) \
+	((hdr)->name ## _check_time <= \
+		(hdr)->name ## _mtime + MAILDIR_SYNC_SECS)
+
+	if (old_hdr->new_mtime != new_hdr->new_mtime ||
+	    old_hdr->cur_mtime != new_hdr->cur_mtime ||
+	    old_hdr->new_mtime_nsecs != new_hdr->new_mtime_nsecs ||
+	    old_hdr->cur_mtime_nsecs != new_hdr->cur_mtime_nsecs)
+		return TRUE;
+
+	return DIR_DELAYED_REFRESH(old_hdr, new) !=
+		DIR_DELAYED_REFRESH(new_hdr, new) ||
+		DIR_DELAYED_REFRESH(old_hdr, cur) !=
+		DIR_DELAYED_REFRESH(new_hdr, cur);
+}
+
 static void
 maildir_index_update_ext_header(struct maildir_mailbox *mbox,
 				struct mail_index_transaction *trans)
@@ -231,7 +251,7 @@ maildir_index_update_ext_header(struct maildir_mailbox *mbox,
 		data_size = 0;
 
 	if (data_size == sizeof(mbox->maildir_hdr) &&
-	    memcmp(data, &mbox->maildir_hdr, data_size) == 0) {
+	    !maildir_index_header_has_changed(data, &mbox->maildir_hdr)) {
 		/* nothing changed */
 	} else {
 		mail_index_update_header_ext(trans, mbox->maildir_ext_id, 0,
