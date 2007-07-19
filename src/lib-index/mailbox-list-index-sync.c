@@ -593,7 +593,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 	new_recs = MAILBOX_LIST_RECORDS_MODIFIABLE(new_dir);
 	name_pos = (const char *)(new_recs + nondeleted_count) -
 		(const char *)base;
-	for (src = dest = 0; src < count; src++) {
+	for (src = dest = 0; src < count;) {
 		if (!sync_recs[src].seen && !partial) {
 			/* expunge from mail index */
 			uint32_t seq;
@@ -607,6 +607,12 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 			if (seq != 0)
 				mail_index_expunge(ctx->trans, seq);
 			// FIXME: expunge also NONEXISTENT parents
+
+			/* If we compress the file, the record must be removed
+			   from the array. */
+			array_delete(&sync_dir->records, src, 1);
+			sync_recs = array_get_modifiable(&sync_dir->records,
+							 &count);
 			continue;
 		}
 
@@ -632,7 +638,7 @@ mailbox_list_index_sync_recreate_dir(struct mailbox_list_index_sync_ctx *ctx,
 			new_recs[dest].uid = sync_recs[src].uid;
 			new_recs[dest].name_offset = recs[orig].name_offset;
 		}
-		dest++;
+		src++; dest++;
 	}
 	i_assert(dest == nondeleted_count);
 	i_assert(name_pos == space_needed);
@@ -713,7 +719,7 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 
 	/* records marked with deleted have been removed from sync_recs, so
 	   we need to skip those */
-	for (i = j = 0; i < count; i++) {
+	for (i = j = 0; i < count; ) {
 		while (recs[j].uid != sync_recs[i].uid) {
 			j++;
 			i_assert(j < dir->count);
@@ -729,6 +735,13 @@ mailbox_list_index_sync_update_dir(struct mailbox_list_index_sync_ctx *ctx,
 							&seq, &seq) == 0 &&
 			    seq != 0)
 				mail_index_expunge(ctx->trans, seq);
+
+			/* If we compress the file, the record must be removed
+			   from the array. */
+			array_delete(&sync_dir->records, i, 1);
+			sync_recs = array_get(&sync_dir->records, &count);
+		} else {
+			i++;
 		}
 	}
 	if (ctx->index->mmap_disable) {
