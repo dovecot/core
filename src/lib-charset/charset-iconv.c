@@ -74,7 +74,7 @@ charset_to_utf8(struct charset_translation *t,
 		if (*src_size > destleft)
 			*src_size = destleft;
 		if (t->ucase)
-			_charset_utf8_ucase(src, *src_size, dest, destpos);
+			charset_utf8_ucase_write(dest, destpos, src, *src_size);
 		else
 			buffer_write(dest, destpos, src, *src_size);
 		return CHARSET_RET_OK;
@@ -103,8 +103,9 @@ charset_to_utf8(struct charset_translation *t,
 
 	*src_size -= srcleft;
 	if (t->ucase) {
-		_charset_utf8_ucase((unsigned char *) ic_destbuf - size, size,
-				    dest, destpos);
+		charset_utf8_ucase_write(dest, destpos,
+					 (unsigned char *)ic_destbuf - size,
+					 size);
 	} else {
 		buffer_write(dest, destpos, ic_destbuf - size, size);
 	}
@@ -157,7 +158,7 @@ charset_to_utf8_string_int(const char *charset, bool *unknown_charset,
 			return t_strndup(data, size);
 		}
 
-		return _charset_utf8_ucase_strdup(data, size, utf8_size_r);
+		return charset_utf8_ucase_strdup(data, size, utf8_size_r);
 	}
 
 	cd = iconv_open("UTF-8", charset);

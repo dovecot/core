@@ -14,8 +14,8 @@ bool charset_is_utf8(const char *charset)
 		strcasecmp(charset, "UTF8") == 0;
 }
 
-void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
-			 buffer_t *dest, size_t destpos)
+void charset_utf8_ucase_write(buffer_t *dest, size_t destpos,
+			      const unsigned char *src, size_t src_size)
 {
 	char *destbuf;
 	size_t i;
@@ -25,13 +25,13 @@ void _charset_utf8_ucase(const unsigned char *src, size_t src_size,
 		destbuf[i] = i_toupper(src[i]); /* FIXME: utf8 */
 }
 
-const char *_charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
-				       size_t *utf8_size_r)
+const char *charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
+				      size_t *utf8_size_r)
 {
 	buffer_t *dest;
 
 	dest = buffer_create_dynamic(pool_datastack_create(), size);
-	_charset_utf8_ucase(data, size, dest, 0);
+	charset_utf8_ucase_write(dest, 0, data, size);
 	if (utf8_size_r != NULL)
 		*utf8_size_r = buffer_get_used_size(dest);
 	buffer_append_c(dest, '\0');
@@ -90,7 +90,7 @@ charset_to_utf8(struct charset_translation *t,
 
 	/* no translation needed - just copy it to outbuf uppercased */
 	if (t == &utf8_translation_uc || t == &ascii_translation_uc)
-		_charset_utf8_ucase(src, *src_size, dest, destpos);
+		charset_utf8_ucase_write(dest, destpos, src, *src_size);
 	else
 		buffer_write(dest, destpos, src, *src_size);
 	return CHARSET_RET_OK;
@@ -102,7 +102,7 @@ charset_to_utf8_full(struct charset_translation *t,
 		     buffer_t *dest)
 {
 	if (t == &utf8_translation_uc || t == &ascii_translation_uc)
-		_charset_utf8_ucase(src, *src_size, dest, dest->used);
+		charset_utf8_ucase_write(dest, dest->used, src, *src_size);
 	else
 		buffer_append(dest, src, *src_size);
 	return CHARSET_RET_OK;
@@ -137,7 +137,7 @@ charset_to_ucase_utf8_string(const char *charset, bool *unknown_charset,
 	if (charset == NULL || charset_is_utf8(charset)) {
 		if (unknown_charset != NULL)
 			*unknown_charset = FALSE;
-		return _charset_utf8_ucase_strdup(data, size, utf8_size_r);
+		return charset_utf8_ucase_strdup(data, size, utf8_size_r);
 	} else {
 		if (unknown_charset != NULL)
 			*unknown_charset = TRUE;
