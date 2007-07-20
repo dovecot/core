@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "base64.h"
 #include "buffer.h"
+#include "unichar.h"
 #include "charset-utf8.h"
 #include "quoted-printable.h"
 #include "message-header-decode.h"
@@ -139,8 +140,8 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 	if (charset == NULL || charset_is_utf8(charset)) {
 		/* ASCII / UTF-8 */
 		if (ctx->ucase) {
-			charset_utf8_ucase_write(ctx->dest, ctx->dest->used,
-						 data, size);
+			(void)uni_utf8_to_decomposed_titlecase(data, size,
+							       ctx->dest);
 		} else {
 			buffer_append(ctx->dest, data, size);
 		}

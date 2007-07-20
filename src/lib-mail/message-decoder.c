@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "base64.h"
 #include "str.h"
+#include "unichar.h"
 #include "charset-utf8.h"
 #include "quoted-printable.h"
 #include "rfc822-parser.h"
@@ -159,9 +160,8 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 	value_len = ctx->buf->used;
 
 	if (ctx->ucase) {
-		charset_utf8_ucase_write(ctx->buf, ctx->buf->used,
-					 (const unsigned char *)hdr->name,
-					 hdr->name_len);
+		(void)uni_utf8_to_decomposed_titlecase(hdr->name, hdr->name_len,
+						       ctx->buf);
 		buffer_append_c(ctx->buf, '\0');
 	}
 
@@ -300,7 +300,8 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	if (ctx->charset_utf8) {
 		if (ctx->ucase) {
 			buffer_set_used_size(ctx->buf2, 0);
-			charset_utf8_ucase_write(ctx->buf2, 0, data, size);
+			(void)uni_utf8_to_decomposed_titlecase(data, size,
+							       ctx->buf);
 			output->data = ctx->buf2->data;
 			output->size = ctx->buf2->used;
 		} else {

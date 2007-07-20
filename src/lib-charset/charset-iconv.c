@@ -1,7 +1,8 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2007 Timo Sirainen */
 
 #include "lib.h"
 #include "buffer.h"
+#include "unichar.h"
 #include "charset-utf8.h"
 
 #ifdef HAVE_ICONV
@@ -63,32 +64,37 @@ charset_to_utf8_try(struct charset_translation *t,
 		    enum charset_result *result)
 {
 	ICONV_CONST char *ic_srcbuf;
-	char *ic_destbuf;
-	size_t srcleft, destpos, destleft, size;
+	char tmpbuf[8192], *ic_destbuf;
+	size_t srcleft, destleft;
 	bool ret = TRUE;
 
-	destpos = dest->used;
 	if (t->cd == (iconv_t)-1) {
 		/* no translation needed - just copy it to outbuf uppercased */
-		if (t->ucase)
-			charset_utf8_ucase_write(dest, destpos, src, *src_size);
-		else
-			buffer_append(dest, src, *src_size);
-
 		*result = CHARSET_RET_OK;
+		if (!t->ucase) {
+			buffer_append(dest, src, *src_size);
+			return TRUE;
+		}
+
+		if (uni_utf8_to_decomposed_titlecase(src, *src_size, dest) < 0)
+			*result = CHARSET_RET_INVALID_INPUT;
 		return TRUE;
 	}
-	destleft = buffer_get_size(dest) - destpos;
-	if (destleft < *src_size) {
-		/* The buffer is most likely too small to hold the output,
-		   so increase it at least to the input size. */
-		destleft = *src_size;
+	if (!t->ucase) {
+		destleft = buffer_get_size(dest) - dest->used;
+		if (destleft < *src_size) {
+			/* The buffer is most likely too small to hold the
+			   output, so increase it at least to the input size. */
+			destleft = *src_size;
+		}
+		ic_destbuf = buffer_append_space_unsafe(dest, destleft);
+	} else {
+		destleft = sizeof(tmpbuf);
+		ic_destbuf = tmpbuf;
 	}
 
-	size = destleft;
 	srcleft = *src_size;
 	ic_srcbuf = (ICONV_CONST char *) src;
-	ic_destbuf = buffer_append_space_unsafe(dest, destleft);
 
 	if (iconv(t->cd, &ic_srcbuf, &srcleft,
 		  &ic_destbuf, &destleft) != (size_t)-1)
@@ -104,16 +110,17 @@ charset_to_utf8_try(struct charset_translation *t,
 		*result = CHARSET_RET_INVALID_INPUT;
 		return TRUE;
 	}
-	size -= destleft;
-
-	/* give back the memory we didn't use */
-	buffer_set_used_size(dest, dest->used - destleft);
-
 	*src_size -= srcleft;
-	if (t->ucase) {
-		charset_utf8_ucase_write(dest, destpos,
-					 (unsigned char *)ic_destbuf - size,
-					 size);
+
+	if (!t->ucase) {
+		/* give back the memory we didn't use */
+		buffer_set_used_size(dest, dest->used - destleft);
+	} else {
+		size_t tmpsize = sizeof(tmpbuf) - destleft;
+
+		/* we just converted data to UTF-8, it can't be invalid */
+		if (uni_utf8_to_decomposed_titlecase(tmpbuf, tmpsize, dest) < 0)
+			i_unreached();
 	}
 	return ret;
 }
