@@ -146,9 +146,11 @@ int index_mail_parse_headers(struct index_mail *mail,
 			     struct mailbox_header_lookup_ctx *headers);
 void index_mail_headers_get_envelope(struct index_mail *mail);
 
-const char *index_mail_get_first_header(struct mail *_mail, const char *field);
+const char *index_mail_get_first_header(struct mail *_mail, const char *field,
+					bool decode_to_utf8);
 const char *const *
-index_mail_get_headers(struct mail *_mail, const char *field);
+index_mail_get_headers(struct mail *_mail, const char *field,
+		       bool decode_to_utf8);
 struct istream *
 index_mail_get_header_stream(struct mail *_mail,
 			     struct mailbox_header_lookup_ctx *headers);

@@ -208,8 +208,10 @@ struct mail_vfuncs {
 	uoff_t (*get_virtual_size)(struct mail *mail);
 	uoff_t (*get_physical_size)(struct mail *mail);
 
-	const char *(*get_first_header)(struct mail *mail, const char *field);
-	const char *const *(*get_headers)(struct mail *mail, const char *field);
+	const char *(*get_first_header)(struct mail *mail, const char *field,
+					bool decode_to_utf8);
+	const char *const *(*get_headers)(struct mail *mail, const char *field,
+					  bool decode_to_utf8);
 	struct istream *
 		(*get_header_stream)(struct mail *mail,
 				     struct mailbox_header_lookup_ctx *headers);

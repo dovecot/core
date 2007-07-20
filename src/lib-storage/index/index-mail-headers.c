@@ -7,6 +7,7 @@
 #include "str.h"
 #include "message-date.h"
 #include "message-parser.h"
+#include "message-header-decode.h"
 #include "istream-tee.h"
 #include "istream-header-filter.h"
 #include "imap-envelope.h"
@@ -547,9 +548,9 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 	return array_idx(&header_values, 0);
 }
 
-const char *const *index_mail_get_headers(struct mail *_mail, const char *field)
+static const char *const *
+index_mail_get_raw_headers(struct index_mail *mail, const char *field)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
 	const char *headers[2], *value;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	unsigned char *data;
@@ -620,11 +621,62 @@ const char *const *index_mail_get_headers(struct mail *_mail, const char *field)
 	return array_idx(&header_values, 0);
 }
 
-const char *index_mail_get_first_header(struct mail *mail, const char *field)
+static const char *const *
+index_mail_headers_decode(struct index_mail *mail, const char *const *list,
+			  unsigned int max_count)
 {
-	const char *const *list = index_mail_get_headers(mail, field);
+	const char **decoded_list;
+	unsigned int i, count;
+	buffer_t *buf;
 
-	return list == NULL ? NULL : list[0];
+	count = strarray_length(list);
+	if (count > max_count)
+		count = max_count;
+	decoded_list = p_new(mail->data_pool, const char *, count + 1);
+
+	t_push();
+	buf = buffer_create_dynamic(pool_datastack_create(), 512);
+
+	for (i = 0; i < count; i++) {
+		buffer_set_used_size(buf, 0);
+		if (!message_header_decode_utf8((const unsigned char *)list[i],
+						strlen(list[i]), buf, FALSE))
+			decoded_list[i] = list[i];
+		else {
+			decoded_list[i] = p_strndup(mail->data_pool,
+						    buf->data, buf->used);
+		}
+	}
+	t_pop();
+	return decoded_list;
+}
+
+const char *const *index_mail_get_headers(struct mail *_mail, const char *field,
+					  bool decode_to_utf8)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	const char *const *list;
+
+	list = index_mail_get_raw_headers(mail, field);
+	if (!decode_to_utf8 || list == NULL || *list == NULL)
+		return list;
+
+	return index_mail_headers_decode(mail, list, (unsigned int)-1);
+}
+
+const char *index_mail_get_first_header(struct mail *_mail, const char *field,
+					bool decode_to_utf8)
+{
+	struct index_mail *mail = (struct index_mail *)_mail;
+	const char *const *list;
+
+	list = index_mail_get_raw_headers(mail, field);
+	if (list == NULL || *list == NULL)
+		return NULL;
+
+	if (decode_to_utf8)
+		list = index_mail_headers_decode(mail, list, 1);
+	return list[0];
 }
 
 static void header_cache_callback(struct message_header_line *hdr,

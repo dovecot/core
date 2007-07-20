@@ -93,14 +93,28 @@ const char *mail_get_first_header(struct mail *mail, const char *field)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_first_header(mail, field);
+	return p->v.get_first_header(mail, field, FALSE);
+}
+
+const char *mail_get_first_header_utf8(struct mail *mail, const char *field)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_first_header(mail, field, TRUE);
 }
 
 const char *const *mail_get_headers(struct mail *mail, const char *field)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_headers(mail, field);
+	return p->v.get_headers(mail, field, FALSE);
+}
+
+const char *const *mail_get_headers_utf8(struct mail *mail, const char *field)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	return p->v.get_headers(mail, field, TRUE);
 }
 
 struct istream *

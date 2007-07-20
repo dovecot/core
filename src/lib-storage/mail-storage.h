@@ -424,8 +424,12 @@ uoff_t mail_get_physical_size(struct mail *mail);
 
 /* Get value for single header field */
 const char *mail_get_first_header(struct mail *mail, const char *field);
+/* Like mail_get_first_header(), but decode MIME encoded words to UTF-8 */
+const char *mail_get_first_header_utf8(struct mail *mail, const char *field);
 /* Return a NULL-terminated list of values for each found field. */
 const char *const *mail_get_headers(struct mail *mail, const char *field);
+/* Like mail_get_headers(), but decode MIME encoded words to UTF-8 */
+const char *const *mail_get_headers_utf8(struct mail *mail, const char *field);
 /* Returns stream containing specified headers. */
 struct istream *
 mail_get_header_stream(struct mail *mail,
