@@ -31,23 +31,27 @@ int message_search_init(pool_t pool, const char *key, const char *charset,
 			struct message_search_context **ctx_r)
 {
 	struct message_search_context *ctx;
-	bool unknown_charset;
+	struct charset_translation *t;
+	string_t *key_utf8;
 	size_t key_len;
 
-	/* get the key uppercased */
+	t = charset_to_utf8_begin(charset, TRUE, NULL);
+	if (t == NULL)
+		return 0;
+
 	t_push();
-	key = charset_to_ucase_utf8_string(charset, &unknown_charset,
-					   (const unsigned char *)key,
-					   strlen(key), &key_len);
-	if (key == NULL) {
+	key_utf8 = t_str_new(I_MAX(128, key_len*2));
+	key_len = strlen(key);
+	if (charset_to_utf8(t, (const unsigned char *)key, &key_len,
+			    key_utf8) != CHARSET_RET_OK) {
 		t_pop();
-		return unknown_charset ? 0 : -1;
+		return -1;
 	}
 
 	ctx = *ctx_r = p_new(pool, struct message_search_context, 1);
 	ctx->pool = pool;
-	ctx->key = p_strdup(pool, key);
-	ctx->key_len = key_len;
+	ctx->key = p_strdup(pool, str_c(key_utf8));
+	ctx->key_len = str_len(key_utf8);
 	ctx->key_charset = p_strdup(pool, charset);
 	ctx->flags = flags;
 	ctx->decoder = message_decoder_init(TRUE);
