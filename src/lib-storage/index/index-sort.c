@@ -31,6 +31,7 @@
 #include "array.h"
 #include "bsearch-insert-pos.h"
 #include "str.h"
+#include "unichar.h"
 #include "message-address.h"
 #include "imap-base-subject.h"
 #include "index-storage.h"
@@ -171,6 +172,7 @@ static const char *
 sort_header_get(enum mail_sort_type sort_type, struct mail *mail, uint32_t seq)
 {
 	const char *str;
+	string_t *buf;
 
 	mail_set_seq(mail, seq);
 	switch (sort_type & MAIL_SORT_MASK) {
@@ -180,14 +182,21 @@ sort_header_get(enum mail_sort_type sort_type, struct mail *mail, uint32_t seq)
 			imap_get_base_subject_cased(pool_datastack_create(),
 						    str, NULL);
 	case MAIL_SORT_CC:
-		return get_first_mailbox(mail, "Cc");
+		str = get_first_mailbox(mail, "Cc");
+		break;
 	case MAIL_SORT_FROM:
-		return get_first_mailbox(mail, "From");
+		str = get_first_mailbox(mail, "From");
+		break;
 	case MAIL_SORT_TO:
-		return get_first_mailbox(mail, "To");
+		str = get_first_mailbox(mail, "To");
+		break;
 	default:
 		i_unreached();
 	}
+
+	buf = t_str_new(128);
+	(void)uni_utf8_to_decomposed_titlecase(str, (size_t)-1, buf);
+	return str_c(buf);
 }
 
 static int sort_node_cmp_type(struct sort_cmp_context *ctx,
@@ -213,7 +222,7 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			sort_header_get(sort_type, ctx->mail, n1->seq);
 		str2 = sort_header_get(sort_type, ctx->mail, n2->seq);
 
-		ret = strcasecmp(str1, str2);
+		ret = strcmp(str1, str2);
 		t_pop();
 		break;
 	case MAIL_SORT_ARRIVAL:
@@ -358,9 +367,9 @@ index_sort_add_ids_range(struct mail_search_sort_program *program,
 		str = sort_header_get(program->sort_program[0], mail,
 				      nodes[i].seq);
 
-		if (i == idx2 && strcasecmp(str, last_str) == 0)
+		if (i == idx2 && strcmp(str, last_str) == 0)
 			nodes[i].sort_id = last_id;
-		else if (strcasecmp(str, str_c(prev_str)) == 0 && prev_id != 0)
+		else if (strcmp(str, str_c(prev_str)) == 0 && prev_id != 0)
 			nodes[i].sort_id = prev_id;
 		else {
 			/* divide the available space so that each message gets
