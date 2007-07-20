@@ -308,7 +308,7 @@ rfc822_parse_domain_literal(struct rfc822_parser_context *ctx, string_t *str)
 		} else if (*ctx->data == ']') {
 			ctx->data++;
 			str_append_n(str, start, ctx->data - start);
-			return ctx->data != ctx->end;
+			return rfc822_skip_lwsp(ctx);
 		}
 	}
 
@@ -329,13 +329,8 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 	if (rfc822_skip_lwsp(ctx) <= 0)
 		return -1;
 
-	if (*ctx->data == '[') {
-		if (rfc822_parse_domain_literal(ctx, str) < 0)
-			return -1;
-	} else {
-		if (rfc822_parse_dot_atom(ctx, str) < 0)
-			return -1;
-	}
-
-	return ctx->data != ctx->end;
+	if (*ctx->data == '[')
+		return rfc822_parse_domain_literal(ctx, str);
+	else
+		return rfc822_parse_dot_atom(ctx, str);
 }
