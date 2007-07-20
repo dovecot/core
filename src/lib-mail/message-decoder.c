@@ -2,12 +2,12 @@
 
 #include "lib.h"
 #include "buffer.h"
-#include "strescape.h"
 #include "base64.h"
+#include "str.h"
 #include "charset-utf8.h"
 #include "quoted-printable.h"
+#include "rfc822-parser.h"
 #include "message-parser.h"
-#include "message-content-parser.h"
 #include "message-header-decode.h"
 #include "message-decoder.h"
 
@@ -102,46 +102,68 @@ message_decode_header_callback(const unsigned char *data, size_t size,
 	return TRUE;
 }
 
-static void parse_content_encoding(const unsigned char *value, size_t value_len,
-				   void *context)
+static void
+parse_content_transfer_encoding(struct message_decoder_context *ctx,
+				struct message_header_line *hdr)
 {
-	struct message_decoder_context *ctx = context;
+	struct rfc822_parser_context parser;
+	string_t *value;
 
-	ctx->content_type = CONTENT_TYPE_UNKNOWN;
+	t_push();
+	value = t_str_new(64);
+	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
 
-	switch (value_len) {
+	(void)rfc822_skip_lwsp(&parser);
+	(void)rfc822_parse_mime_token(&parser, value);
+
+	switch (str_len(value)) {
 	case 4:
-		if (memcasecmp(value, "7bit", 4) == 0 ||
-		    memcasecmp(value, "8bit", 4) == 0)
+		if (memcasecmp(str_data(value), "7bit", 4) == 0 ||
+		    memcasecmp(str_data(value), "8bit", 4) == 0)
 			ctx->content_type = CONTENT_TYPE_BINARY;
 		break;
 	case 6:
-		if (memcasecmp(value, "base64", 6) == 0)
+		if (memcasecmp(str_data(value), "base64", 6) == 0)
 			ctx->content_type = CONTENT_TYPE_BASE64;
-		else if (memcasecmp(value, "binary", 6) == 0)
+		else if (memcasecmp(str_data(value), "binary", 6) == 0)
 			ctx->content_type = CONTENT_TYPE_BINARY;
 		break;
 	case 16:
-		if (memcasecmp(value, "quoted-printable", 16) == 0)
+		if (memcasecmp(str_data(value), "quoted-printable", 16) == 0)
 			ctx->content_type = CONTENT_TYPE_QP;
 		break;
 	}
+	t_pop();
 }
 
 static void
-parse_content_type_param(const unsigned char *name, size_t name_len,
-			 const unsigned char *value, size_t value_len,
-			 bool value_quoted, void *context)
+parse_content_type(struct message_decoder_context *ctx,
+		   struct message_header_line *hdr)
 {
-	struct message_decoder_context *ctx = context;
+	struct rfc822_parser_context parser;
+	const char *key, *value;
+	string_t *str;
 
-	if (name_len == 7 && memcasecmp(name, "charset", 7) == 0 &&
-	    ctx->content_charset == NULL) {
-		ctx->content_charset = i_strndup(value, value_len);
-		if (value_quoted) str_unescape(ctx->content_charset);
+	if (ctx->content_charset != NULL)
+		return;
 
-		ctx->charset_utf8 = charset_is_utf8(ctx->content_charset);
+	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
+	(void)rfc822_skip_lwsp(&parser);
+	t_push();
+	str = t_str_new(64);
+	if (rfc822_parse_content_type(&parser, str) <= 0) {
+		t_pop();
+		return;
 	}
+
+	while (rfc822_parse_content_param(&parser, &key, &value) > 0) {
+		if (strcasecmp(key, "charset") == 0) {
+			ctx->content_charset = i_strdup(value);
+			ctx->charset_utf8 = charset_is_utf8(value);
+			break;
+		}
+	}
+	t_pop();
 }
 
 static bool message_decode_header(struct message_decoder_context *ctx,
@@ -156,20 +178,11 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 	}
 
 	if (hdr->name_len == 12 &&
-	    strcasecmp(hdr->name, "Content-Type") == 0) {
-		message_content_parse_header(hdr->full_value,
-					     hdr->full_value_len,
-					     null_parse_content_callback,
-					     parse_content_type_param, ctx);
-	}
+	    strcasecmp(hdr->name, "Content-Type") == 0)
+		parse_content_type(ctx, hdr);
 	if (hdr->name_len == 25 &&
-	    strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0) {
-		message_content_parse_header(hdr->full_value,
-					     hdr->full_value_len,
-					     parse_content_encoding,
-					     null_parse_content_param_callback,
-					     ctx);
-	}
+	    strcasecmp(hdr->name, "Content-Transfer-Encoding") == 0)
+		parse_content_transfer_encoding(ctx, hdr);
 
 	buffer_set_used_size(ctx->buf, 0);
 	message_header_decode(hdr->full_value, hdr->full_value_len,

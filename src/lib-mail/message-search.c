@@ -3,11 +3,12 @@
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
+#include "str.h"
 #include "str-find.h"
 #include "charset-utf8.h"
+#include "rfc822-parser.h"
 #include "message-decoder.h"
 #include "message-parser.h"
-#include "message-content-parser.h"
 #include "message-search.h"
 
 struct message_search_context {
@@ -24,20 +25,6 @@ struct message_search_context {
 	struct message_decoder_context *decoder;
 	unsigned int content_type_text:1; /* text/any or message/any */
 };
-
-static void parse_content_type(const unsigned char *value, size_t value_len,
-			       void *context)
-{
-	struct message_search_context *ctx = context;
-	const char *str;
-
-	t_push();
-	str = t_strndup(value, value_len);
-	ctx->content_type_text =
-		strncasecmp(str, "text/", 5) == 0 ||
-		strncasecmp(str, "message/", 8) == 0;
-	t_pop();
-}
 
 int message_search_init(pool_t pool, const char *key, const char *charset,
 			enum message_search_flags flags,
@@ -81,6 +68,25 @@ void message_search_deinit(struct message_search_context **_ctx)
 	p_free(ctx->pool, ctx);
 }
 
+static void parse_content_type(struct message_search_context *ctx,
+			       struct message_header_line *hdr)
+{
+	struct rfc822_parser_context parser;
+	string_t *content_type;
+
+	t_push();
+	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
+	(void)rfc822_skip_lwsp(&parser);
+
+	content_type = t_str_new(64);
+	if (rfc822_parse_content_type(&parser, content_type) >= 0) {
+		ctx->content_type_text =
+			strncasecmp(str_c(content_type), "text/", 5) == 0 ||
+			strncasecmp(str_c(content_type), "message/", 8) == 0;
+	}
+	t_pop();
+}
+
 static void handle_header(struct message_search_context *ctx,
 			  struct message_header_line *hdr)
 {
@@ -90,9 +96,7 @@ static void handle_header(struct message_search_context *ctx,
 			hdr->use_full_value = TRUE;
 			return;
 		}
-		message_content_parse_header(hdr->full_value,
-					     hdr->full_value_len,
-					     parse_content_type, NULL, ctx);
+		parse_content_type(ctx, hdr);
 	}
 }
 

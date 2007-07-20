@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "strescape.h"
 #include "rfc822-parser.h"
 
 /*
@@ -333,4 +334,73 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 		return rfc822_parse_domain_literal(ctx, str);
 	else
 		return rfc822_parse_dot_atom(ctx, str);
+}
+
+int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str)
+{
+	if (rfc822_skip_lwsp(ctx) <= 0)
+		return -1;
+
+	/* get main type */
+	if (rfc822_parse_mime_token(ctx, str) <= 0)
+		return -1;
+
+	/* skip over "/" */
+	if (*ctx->data != '/')
+		return -1;
+	ctx->data++;
+	if (rfc822_skip_lwsp(ctx) <= 0)
+		return -1;
+	str_append_c(str, '/');
+
+	/* get subtype */
+	return rfc822_parse_mime_token(ctx, str);
+}
+
+int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
+			       const char **key_r, const char **value_r)
+{
+	string_t *tmp;
+	size_t value_pos;
+	int ret;
+
+	/* .. := *(";" parameter)
+	   parameter := attribute "=" value
+	   attribute := token
+	   value := token / quoted-string
+	*/
+	*key_r = NULL;
+	*value_r = NULL;
+
+	if (ctx->data == ctx->end)
+		return 0;
+	if (*ctx->data != ';')
+		return -1;
+	ctx->data++;
+
+	if (rfc822_skip_lwsp(ctx) <= 0)
+		return -1;
+
+	tmp = t_str_new(64);
+	if (rfc822_parse_mime_token(ctx, tmp) <= 0)
+		return -1;
+	str_append_c(tmp, '\0');
+	value_pos = str_len(tmp);
+
+	if (*ctx->data != '=')
+		return -1;
+	ctx->data++;
+
+	if ((ret = rfc822_skip_lwsp(ctx)) <= 0) {
+		/* broken / no value */
+	} else if (*ctx->data == '"') {
+		ret = rfc822_parse_quoted_string(ctx, tmp);
+		str_unescape(str_c_modifiable(tmp) + value_pos);
+	} else {
+		ret = rfc822_parse_mime_token(ctx, tmp);
+	}
+
+	*key_r = str_c(tmp);
+	*value_r = *key_r + value_pos;
+	return ret < 0 ? -1 : 1;
 }

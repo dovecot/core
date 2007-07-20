@@ -36,4 +36,12 @@ int rfc822_parse_phrase(struct rfc822_parser_context *ctx, string_t *str);
 /* dot-atom / domain-literal */
 int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str);
 
+/* Parse Content-Type header's type/subtype. */
+int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str);
+/* For Content-Type style parameter parsing. Expect ";" key "=" value.
+   value is unescaped if needed. The returned strings are allocated from data
+   stack. Returns 1 = key/value set, 0 = no more data, -1 = invalid input. */
+int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
+			       const char **key_r, const char **value_r);
+
 #endif

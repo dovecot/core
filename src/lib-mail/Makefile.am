@@ -7,7 +7,6 @@ AM_CPPFLAGS = \
 libmail_a_SOURCES = \
 	istream-header-filter.c \
 	message-address.c \
-	message-content-parser.c \
 	message-date.c \
 	message-decoder.c \
 	message-header-decode.c \
@@ -25,7 +24,6 @@ headers = \
 	istream-header-filter.h \
 	mail-types.h \
 	message-address.h \
-	message-content-parser.h \
 	message-date.h \
 	message-decoder.h \
 	message-header-decode.h \

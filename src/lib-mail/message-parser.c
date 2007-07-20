@@ -1,9 +1,9 @@
 /* Copyright (C) 2002-2006 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
 #include "istream.h"
-#include "strescape.h"
-#include "message-content-parser.h"
+#include "rfc822-parser.h"
 #include "message-parser.h"
 
 /* RFC-2046 requires boundaries are max. 70 chars + "--" prefix + "--" suffix.
@@ -388,49 +388,46 @@ static int parse_next_body_to_eof(struct message_parser_ctx *ctx,
 	return 1;
 }
 
-static void
-parse_content_type(const unsigned char *value, size_t value_len, void *context)
+static void parse_content_type(struct message_parser_ctx *ctx,
+			       struct message_header_line *hdr)
 {
-	struct message_parser_ctx *ctx = context;
-	const char *str;
+	struct rfc822_parser_context parser;
+	const char *key, *value;
+	string_t *content_type;
 
-	if (ctx->part_seen_content_type || value_len == 0)
+	if (ctx->part_seen_content_type)
 		return;
 	ctx->part_seen_content_type = TRUE;
 
-	t_push();
-	str = t_strndup(value, value_len);
-	if (strcasecmp(str, "message/rfc822") == 0)
-		ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
-	else if (strncasecmp(str, "text", 4) == 0 &&
-		 (str[4] == '/' || str[4] == '\0'))
-		ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
-	else if (strncasecmp(str, "multipart/", 10) == 0) {
-		ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART;
+	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
+	(void)rfc822_skip_lwsp(&parser);
 
-		if (strcasecmp(str+10, "digest") == 0)
-			ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART_DIGEST;
-	}
-	t_pop();
-}
-
-static void
-parse_content_type_param(const unsigned char *name, size_t name_len,
-			 const unsigned char *value, size_t value_len,
-			 bool value_quoted, void *context)
-{
-	struct message_parser_ctx *ctx = context;
-	char *boundary;
-
-	if ((ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
-	    name_len != 8 || memcasecmp(name, "boundary", 8) != 0)
+	content_type = t_str_new(64);
+	if (rfc822_parse_content_type(&parser, content_type) < 0)
 		return;
 
-	if (ctx->last_boundary == NULL) {
-		boundary = p_strndup(ctx->parser_pool, value, value_len);
-		if (value_quoted)
-			str_unescape(boundary);
-		ctx->last_boundary = boundary;
+	if (strcasecmp(str_c(content_type), "message/rfc822") == 0)
+		ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
+	else if (strncasecmp(str_c(content_type), "text", 4) == 0 &&
+		 (str_len(content_type) == 4 ||
+		  str_data(content_type)[4] == '/'))
+		ctx->part->flags |= MESSAGE_PART_FLAG_TEXT;
+	else if (strncasecmp(str_c(content_type), "multipart/", 10) == 0) {
+		ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART;
+
+		if (strcasecmp(str_c(content_type)+10, "digest") == 0)
+			ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART_DIGEST;
+	}
+
+	if ((ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
+	    ctx->last_boundary != NULL)
+		return;
+
+	while (rfc822_parse_content_param(&parser, &key, &value) > 0) {
+		if (strcasecmp(key, "boundary") == 0) {
+			ctx->last_boundary = p_strdup(ctx->parser_pool, value);
+			break;
+		}
 	}
 }
 
@@ -463,10 +460,9 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 			if (hdr->continues)
 				hdr->use_full_value = TRUE;
 			else {
-				message_content_parse_header(hdr->full_value,
-						hdr->full_value_len,
-						parse_content_type,
-						parse_content_type_param, ctx);
+				t_push();
+				parse_content_type(ctx, hdr);
+				t_pop();
 			}
 		}
 
