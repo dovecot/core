@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "base64.h"
 #include "buffer.h"
+#include "charset-utf8.h"
 #include "quoted-printable.h"
 #include "message-header-decode.h"
 
@@ -112,4 +113,50 @@ void message_header_decode(const unsigned char *data, size_t size,
 			       NULL, context);
 	}
 	t_pop();
+}
+
+struct decode_utf8_context {
+	buffer_t *dest;
+	bool ucase;
+};
+
+static bool
+decode_utf8_callback(const unsigned char *data, size_t size,
+		     const char *charset, void *context)
+{
+	struct decode_utf8_context *ctx = context;
+	struct charset_translation *t;
+	bool unknown_charset;
+
+	if (charset == NULL || charset_is_utf8(charset)) {
+		/* ASCII / UTF-8 */
+		if (ctx->ucase) {
+			charset_utf8_ucase_write(ctx->dest, ctx->dest->used,
+						 data, size);
+		} else {
+			buffer_append(ctx->dest, data, size);
+		}
+		return TRUE;
+	}
+
+	t = charset_to_utf8_begin(charset, ctx->ucase, &unknown_charset);
+	if (unknown_charset) {
+		/* let's just ignore this part */
+		return TRUE;
+	}
+
+	/* ignore any errors */
+	(void)charset_to_utf8_full(t, data, &size, ctx->dest);
+	charset_to_utf8_end(&t);
+	return TRUE;
+}
+
+void message_header_decode_utf8(const unsigned char *data, size_t size,
+				buffer_t *dest, bool ucase)
+{
+	struct decode_utf8_context ctx;
+
+	ctx.dest = dest;
+	ctx.ucase = ucase;
+	message_header_decode(data, size, decode_utf8_callback, &ctx);
 }

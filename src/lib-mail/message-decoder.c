@@ -71,37 +71,6 @@ void message_decoder_deinit(struct message_decoder_context **_ctx)
 	i_free(ctx);
 }
 
-static bool
-message_decode_header_callback(const unsigned char *data, size_t size,
-			       const char *charset, void *context)
-{
-	struct message_decoder_context *ctx = context;
-	struct charset_translation *t;
-	bool unknown_charset;
-
-	if (charset == NULL || charset_is_utf8(charset)) {
-		/* ASCII / UTF-8 */
-		if (ctx->ucase) {
-			charset_utf8_ucase_write(ctx->buf, ctx->buf->used,
-						 data, size);
-		} else {
-			buffer_append(ctx->buf, data, size);
-		}
-		return TRUE;
-	}
-
-	t = charset_to_utf8_begin(charset, ctx->ucase, &unknown_charset);
-	if (unknown_charset) {
-		/* let's just ignore this part */
-		return TRUE;
-	}
-
-	/* ignore any errors */
-	(void)charset_to_utf8_full(t, data, &size, ctx->buf);
-	charset_to_utf8_end(&t);
-	return TRUE;
-}
-
 static void
 parse_content_transfer_encoding(struct message_decoder_context *ctx,
 				struct message_header_line *hdr)
@@ -185,8 +154,8 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 		parse_content_transfer_encoding(ctx, hdr);
 
 	buffer_set_used_size(ctx->buf, 0);
-	message_header_decode(hdr->full_value, hdr->full_value_len,
-			      message_decode_header_callback, ctx);
+	message_header_decode_utf8(hdr->full_value, hdr->full_value_len,
+				   ctx->buf, ctx->ucase);
 	value_len = ctx->buf->used;
 
 	if (ctx->ucase) {
