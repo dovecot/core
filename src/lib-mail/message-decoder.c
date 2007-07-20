@@ -193,8 +193,7 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 	memcpy(trans_buf + ctx->translation_size, data, skip);
 
 	pos = *size;
-	(void)charset_to_utf8_full(ctx->charset_trans,
-				   *data, &pos, ctx->buf2);
+	(void)charset_to_utf8(ctx->charset_trans, *data, &pos, ctx->buf2);
 
 	i_assert(pos > ctx->translation_size);
 	skip = (ctx->translation_size + skip) - pos;
@@ -317,8 +316,8 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 			translation_buf_decode(ctx, &data, &size);
 
 		pos = size;
-		(void)charset_to_utf8_full(ctx->charset_trans,
-					   data, &pos, ctx->buf2);
+		(void)charset_to_utf8(ctx->charset_trans,
+				      data, &pos, ctx->buf2);
 		if (pos != size) {
 			ctx->translation_size = size - pos;
 			i_assert(ctx->translation_size <=

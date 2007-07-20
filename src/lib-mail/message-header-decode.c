@@ -155,7 +155,7 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 	}
 
 	/* ignore any errors */
-	(void)charset_to_utf8_full(t, data, &size, ctx->dest);
+	(void)charset_to_utf8(t, data, &size, ctx->dest);
 	charset_to_utf8_end(&t);
 	return TRUE;
 }

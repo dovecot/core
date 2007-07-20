@@ -82,25 +82,6 @@ enum charset_result
 charset_to_utf8(struct charset_translation *t,
 		const unsigned char *src, size_t *src_size, buffer_t *dest)
 {
-	size_t destpos = dest->used, destleft;
-
-	destleft = buffer_get_size(dest) - destpos;
-	if (*src_size > destleft)
-		*src_size = destleft;
-
-	/* no translation needed - just copy it to outbuf uppercased */
-	if (t == &utf8_translation_uc || t == &ascii_translation_uc)
-		charset_utf8_ucase_write(dest, destpos, src, *src_size);
-	else
-		buffer_write(dest, destpos, src, *src_size);
-	return CHARSET_RET_OK;
-}
-
-enum charset_result
-charset_to_utf8_full(struct charset_translation *t,
-		     const unsigned char *src, size_t *src_size,
-		     buffer_t *dest)
-{
 	if (t == &utf8_translation_uc || t == &ascii_translation_uc)
 		charset_utf8_ucase_write(dest, dest->used, src, *src_size);
 	else

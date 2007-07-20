@@ -57,9 +57,9 @@ void charset_to_utf8_reset(struct charset_translation *t)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
 }
 
-enum charset_result
-charset_to_utf8(struct charset_translation *t,
-		const unsigned char *src, size_t *src_size, buffer_t *dest)
+static enum charset_result
+charset_to_utf8_try(struct charset_translation *t,
+		    const unsigned char *src, size_t *src_size, buffer_t *dest)
 {
 	ICONV_CONST char *ic_srcbuf;
 	char *ic_destbuf;
@@ -67,17 +67,19 @@ charset_to_utf8(struct charset_translation *t,
         enum charset_result ret;
 
 	destpos = dest->used;
-	destleft = buffer_get_size(dest) - destpos;
-
 	if (t->cd == (iconv_t)-1) {
 		/* no translation needed - just copy it to outbuf uppercased */
-		if (*src_size > destleft)
-			*src_size = destleft;
 		if (t->ucase)
 			charset_utf8_ucase_write(dest, destpos, src, *src_size);
 		else
-			buffer_write(dest, destpos, src, *src_size);
+			buffer_append(dest, src, *src_size);
 		return CHARSET_RET_OK;
+	}
+	destleft = buffer_get_size(dest) - destpos;
+	if (destleft < *src_size) {
+		/* The buffer is most likely too small to hold the output,
+		   so increase it at least to the input size. */
+		destleft = *src_size;
 	}
 
 	size = destleft;
@@ -106,23 +108,20 @@ charset_to_utf8(struct charset_translation *t,
 		charset_utf8_ucase_write(dest, destpos,
 					 (unsigned char *)ic_destbuf - size,
 					 size);
-	} else {
-		buffer_write(dest, destpos, ic_destbuf - size, size);
 	}
 	return ret;
 }
 
 enum charset_result
-charset_to_utf8_full(struct charset_translation *t,
-		     const unsigned char *src, size_t *src_size,
-		     buffer_t *dest)
+charset_to_utf8(struct charset_translation *t,
+		const unsigned char *src, size_t *src_size, buffer_t *dest)
 {
 	enum charset_result ret;
 	size_t pos, used, size;
 
 	for (pos = 0;;) {
 		size = *src_size - pos;
-		ret = charset_to_utf8(t, src + pos, &size, dest);
+		ret = charset_to_utf8_try(t, src + pos, &size, dest);
 		pos += size;
 
 		if (ret != CHARSET_RET_OUTPUT_FULL) {
