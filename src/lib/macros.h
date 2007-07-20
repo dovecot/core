@@ -15,6 +15,9 @@
 #  define TRUE (!FALSE)
 #endif
 
+#define N_ELEMENTS(arr) \
+	(sizeof(arr) / sizeof((arr)[0]))
+
 #define BITS_IN_UINT (CHAR_BIT * sizeof(unsigned int))
 #define BITS_IN_SIZE_T (CHAR_BIT * sizeof(size_t))
 
