@@ -89,41 +89,4 @@ charset_to_utf8(struct charset_translation *t,
 	return CHARSET_RET_OK;
 }
 
-const char *
-charset_to_utf8_string(const char *charset, bool *unknown_charset,
-		       const unsigned char *data, size_t size,
-		       size_t *utf8_size_r)
-{
-	if (charset == NULL || strcasecmp(charset, "us-ascii") == 0 ||
-	    strcasecmp(charset, "ascii") == 0 ||
-	    strcasecmp(charset, "UTF-8") == 0 ||
-	    strcasecmp(charset, "UTF8") == 0) {
-		if (unknown_charset != NULL)
-			*unknown_charset = FALSE;
-		if (utf8_size_r != NULL)
-			*utf8_size_r = size;
-		return t_strndup(data, size);
-	} else {
-		if (unknown_charset != NULL)
-			*unknown_charset = TRUE;
-		return NULL;
-	}
-}
-
-const char *
-charset_to_ucase_utf8_string(const char *charset, bool *unknown_charset,
-			     const unsigned char *data, size_t size,
-			     size_t *utf8_size_r)
-{
-	if (charset == NULL || charset_is_utf8(charset)) {
-		if (unknown_charset != NULL)
-			*unknown_charset = FALSE;
-		return charset_utf8_ucase_strdup(data, size, utf8_size_r);
-	} else {
-		if (unknown_charset != NULL)
-			*unknown_charset = TRUE;
-		return NULL;
-	}
-}
-
 #endif

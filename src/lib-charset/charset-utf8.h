@@ -24,17 +24,6 @@ enum charset_result
 charset_to_utf8(struct charset_translation *t,
 		const unsigned char *src, size_t *src_size, buffer_t *dest);
 
-/* Simple wrappers for above functions. If utf8_size is non-NULL, it's set
-   to same as strlen(returned data). */
-const char *
-charset_to_utf8_string(const char *charset, bool *unknown_charset,
-		       const unsigned char *data, size_t size,
-		       size_t *utf8_size_r);
-const char *
-charset_to_ucase_utf8_string(const char *charset, bool *unknown_charset,
-			     const unsigned char *data, size_t size,
-			     size_t *utf8_size_r);
-
 void charset_utf8_ucase_write(buffer_t *dest, size_t destpos,
 			      const unsigned char *src, size_t src_size);
 const char *charset_utf8_ucase_strdup(const unsigned char *data, size_t size,
