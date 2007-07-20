@@ -63,7 +63,7 @@ int message_search_init(pool_t pool, const char *key, const char *charset,
 	ctx->key_len = key_len;
 	ctx->key_charset = p_strdup(pool, charset);
 	ctx->flags = flags;
-	ctx->decoder = message_decoder_init_ucase();
+	ctx->decoder = message_decoder_init(TRUE);
 	ctx->str_find_ctx = str_find_init(pool, ctx->key);
 	t_pop();
 	return 1;

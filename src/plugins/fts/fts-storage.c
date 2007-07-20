@@ -176,7 +176,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx)
 	parser = message_parser_init(pool_datastack_create(), input,
 				     MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
 				     0);
-	decoder = message_decoder_init_ucase();
+	decoder = message_decoder_init(TRUE);
 	for (;;) {
 		ret = message_parser_parse_next_block(parser, &raw_block);
 		i_assert(ret != 0);

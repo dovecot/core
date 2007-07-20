@@ -5,8 +5,8 @@ struct message_block;
 
 /* Decode message's contents as UTF-8, both the headers and the MIME bodies.
    The bodies are decoded from quoted-printable and base64 formats if needed.
-   The data is returned uppercased. */
-struct message_decoder_context *message_decoder_init_ucase(void);
+   If ucase=TRUE, the data is returned uppercased. */
+struct message_decoder_context *message_decoder_init(bool ucase);
 void message_decoder_deinit(struct message_decoder_context **ctx);
 
 /* Decode input and return decoded output. Headers are returned only in their
