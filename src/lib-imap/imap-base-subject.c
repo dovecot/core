@@ -22,9 +22,9 @@ static bool header_decode(const unsigned char *data, size_t size,
 		/* It's ASCII. */
 		buffer_append(buf, data, size);
 	} else {
-		t = charset_to_utf8_begin(charset, NULL);
+		t = charset_to_utf8_begin(charset, TRUE, NULL);
 		if (t != NULL) {
-			(void)charset_to_ucase_utf8(t, data, &size, buf);
+			(void)charset_to_utf8(t, data, &size, buf);
                         charset_to_utf8_end(&t);
 		}
 	}

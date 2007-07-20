@@ -48,24 +48,25 @@ struct charset_translation {
 };
 
 static struct charset_translation ascii_translation, utf8_translation;
+static struct charset_translation ascii_translation_uc, utf8_translation_uc;
 
-struct charset_translation *charset_to_utf8_begin(const char *charset,
-						  bool *unknown_charset)
+struct charset_translation *
+charset_to_utf8_begin(const char *charset, bool ucase, bool *unknown_charset_r)
 {
-	if (unknown_charset != NULL)
-		*unknown_charset = FALSE;
+	if (unknown_charset_r != NULL)
+		*unknown_charset_r = FALSE;
 
 	if (strcasecmp(charset, "us-ascii") == 0 ||
 	    strcasecmp(charset, "ascii") == 0)
-		return &ascii_translation;
+		return ucase ? &ascii_translation_uc : &ascii_translation;
 
 	if (strcasecmp(charset, "UTF-8") == 0 ||
 	    strcasecmp(charset, "UTF8") == 0)
-		return &utf8_translation;
+		return ucase ? &utf8_translation_uc : &utf8_translation;
 
 	/* no support for charsets that need translation */
-	if (unknown_charset != NULL)
-		*unknown_charset = TRUE;
+	if (unknown_charset_r != NULL)
+		*unknown_charset_r = TRUE;
 	return NULL;
 }
 
@@ -78,19 +79,32 @@ void charset_to_utf8_reset(struct charset_translation *t __attr_unused__)
 }
 
 enum charset_result
-charset_to_ucase_utf8(struct charset_translation *t __attr_unused__,
-		      const unsigned char *src, size_t *src_size,
-		      buffer_t *dest)
+charset_to_utf8(struct charset_translation *t,
+		const unsigned char *src, size_t *src_size, buffer_t *dest)
 {
-	size_t destpos, destleft;
+	size_t destpos = dest->used, destleft;
 
-	destpos = buffer_get_used_size(dest);
 	destleft = buffer_get_size(dest) - destpos;
-
-	/* no translation needed - just copy it to outbuf uppercased */
 	if (*src_size > destleft)
 		*src_size = destleft;
-	_charset_utf8_ucase(src, *src_size, dest, destpos);
+
+	/* no translation needed - just copy it to outbuf uppercased */
+	if (t == &utf8_translation_uc || t == &ascii_translation_uc)
+		_charset_utf8_ucase(src, *src_size, dest, destpos);
+	else
+		buffer_write(dest, destpos, src, *src_size);
+	return CHARSET_RET_OK;
+}
+
+enum charset_result
+charset_to_utf8_full(struct charset_translation *t,
+		     const unsigned char *src, size_t *src_size,
+		     buffer_t *dest)
+{
+	if (t == &utf8_translation_uc || t == &ascii_translation_uc)
+		_charset_utf8_ucase(src, *src_size, dest, dest->used);
+	else
+		buffer_append(dest, src, *src_size);
 	return CHARSET_RET_OK;
 }
 

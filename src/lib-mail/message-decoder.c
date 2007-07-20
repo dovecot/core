@@ -83,14 +83,14 @@ message_decode_header_callback(const unsigned char *data, size_t size,
 		return TRUE;
 	}
 
-	t = charset_to_utf8_begin(charset, &unknown_charset);
+	t = charset_to_utf8_begin(charset, TRUE, &unknown_charset);
 	if (unknown_charset) {
 		/* let's just ignore this part */
 		return TRUE;
 	}
 
 	/* ignore any errors */
-	(void)charset_to_ucase_utf8_full(t, data, &size, ctx->buf);
+	(void)charset_to_utf8_full(t, data, &size, ctx->buf);
 	charset_to_utf8_end(&t);
 	return TRUE;
 }
@@ -199,8 +199,8 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 	memcpy(trans_buf + ctx->translation_size, data, skip);
 
 	pos = *size;
-	(void)charset_to_ucase_utf8_full(ctx->charset_trans,
-					 *data, &pos, ctx->buf2);
+	(void)charset_to_utf8_full(ctx->charset_trans,
+				   *data, &pos, ctx->buf2);
 
 	i_assert(pos > ctx->translation_size);
 	skip = (ctx->translation_size + skip) - pos;
@@ -226,6 +226,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 		ctx->charset_trans =
 			charset_to_utf8_begin(ctx->content_charset != NULL ?
 					      ctx->content_charset : "UTF-8",
+					      TRUE,
 					      &unknown_charset);
 	}
 
@@ -317,8 +318,8 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 			translation_buf_decode(ctx, &data, &size);
 
 		pos = size;
-		(void)charset_to_ucase_utf8_full(ctx->charset_trans,
-						 data, &pos, ctx->buf2);
+		(void)charset_to_utf8_full(ctx->charset_trans,
+					   data, &pos, ctx->buf2);
 		if (pos != size) {
 			ctx->translation_size = size - pos;
 			i_assert(ctx->translation_size <=

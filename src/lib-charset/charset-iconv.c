@@ -11,30 +11,32 @@
 
 struct charset_translation {
 	iconv_t cd;
+	unsigned int ucase:1;
 };
 
-struct charset_translation *charset_to_utf8_begin(const char *charset,
-						  bool *unknown_charset)
+struct charset_translation *
+charset_to_utf8_begin(const char *charset, bool ucase, bool *unknown_charset_r)
 {
 	struct charset_translation *t;
 	iconv_t cd;
 
-	if (unknown_charset != NULL)
-		*unknown_charset = FALSE;
+	if (unknown_charset_r != NULL)
+		*unknown_charset_r = FALSE;
 
 	if (charset_is_utf8(charset))
 		cd = (iconv_t)-1;
 	else {
 		cd = iconv_open("UTF-8", charset);
 		if (cd == (iconv_t)-1) {
-			if (unknown_charset != NULL)
-				*unknown_charset = TRUE;
+			if (unknown_charset_r != NULL)
+				*unknown_charset_r = TRUE;
 			return NULL;
 		}
 	}
 
 	t = i_new(struct charset_translation, 1);
 	t->cd = cd;
+	t->ucase = ucase;
 	return t;
 }
 
@@ -56,23 +58,25 @@ void charset_to_utf8_reset(struct charset_translation *t)
 }
 
 enum charset_result
-charset_to_ucase_utf8(struct charset_translation *t,
-		      const unsigned char *src, size_t *src_size,
-		      buffer_t *dest)
+charset_to_utf8(struct charset_translation *t,
+		const unsigned char *src, size_t *src_size, buffer_t *dest)
 {
 	ICONV_CONST char *ic_srcbuf;
 	char *ic_destbuf;
 	size_t srcleft, destpos, destleft, size;
         enum charset_result ret;
 
-	destpos = buffer_get_used_size(dest);
+	destpos = dest->used;
 	destleft = buffer_get_size(dest) - destpos;
 
 	if (t->cd == (iconv_t)-1) {
 		/* no translation needed - just copy it to outbuf uppercased */
 		if (*src_size > destleft)
 			*src_size = destleft;
-		_charset_utf8_ucase(src, *src_size, dest, destpos);
+		if (t->ucase)
+			_charset_utf8_ucase(src, *src_size, dest, destpos);
+		else
+			buffer_write(dest, destpos, src, *src_size);
 		return CHARSET_RET_OK;
 	}
 
@@ -95,25 +99,29 @@ charset_to_ucase_utf8(struct charset_translation *t,
 	size -= destleft;
 
 	/* give back the memory we didn't use */
-	buffer_set_used_size(dest, buffer_get_used_size(dest) - destleft);
+	buffer_set_used_size(dest, dest->used - destleft);
 
 	*src_size -= srcleft;
-	_charset_utf8_ucase((unsigned char *) ic_destbuf - size, size,
-			    dest, destpos);
+	if (t->ucase) {
+		_charset_utf8_ucase((unsigned char *) ic_destbuf - size, size,
+				    dest, destpos);
+	} else {
+		buffer_write(dest, destpos, ic_destbuf - size, size);
+	}
 	return ret;
 }
 
 enum charset_result
-charset_to_ucase_utf8_full(struct charset_translation *t,
-			   const unsigned char *src, size_t *src_size,
-			   buffer_t *dest)
+charset_to_utf8_full(struct charset_translation *t,
+		     const unsigned char *src, size_t *src_size,
+		     buffer_t *dest)
 {
 	enum charset_result ret;
 	size_t pos, used, size;
 
 	for (pos = 0;;) {
 		size = *src_size - pos;
-		ret = charset_to_ucase_utf8(t, src + pos, &size, dest);
+		ret = charset_to_utf8(t, src + pos, &size, dest);
 		pos += size;
 
 		if (ret != CHARSET_RET_OUTPUT_FULL) {
