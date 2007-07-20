@@ -129,7 +129,6 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 {
 	struct decode_utf8_context *ctx = context;
 	struct charset_translation *t;
-	bool unknown_charset;
 
 	/* one call with charset=NULL means nothing changed */
 	if (!ctx->called && charset == NULL)
@@ -148,8 +147,7 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 		return TRUE;
 	}
 
-	t = charset_to_utf8_begin(charset, ctx->ucase, &unknown_charset);
-	if (unknown_charset) {
+	if (charset_to_utf8_begin(charset, ctx->ucase, &t) < 0) {
 		/* let's just ignore this part */
 		return TRUE;
 	}

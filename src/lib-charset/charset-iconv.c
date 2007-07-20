@@ -12,33 +12,28 @@
 
 struct charset_translation {
 	iconv_t cd;
-	unsigned int ucase:1;
+	enum charset_flags flags;
 };
 
-struct charset_translation *
-charset_to_utf8_begin(const char *charset, bool ucase, bool *unknown_charset_r)
+int charset_to_utf8_begin(const char *charset, enum charset_flags flags,
+			  struct charset_translation **t_r)
 {
 	struct charset_translation *t;
 	iconv_t cd;
-
-	if (unknown_charset_r != NULL)
-		*unknown_charset_r = FALSE;
 
 	if (charset_is_utf8(charset))
 		cd = (iconv_t)-1;
 	else {
 		cd = iconv_open("UTF-8", charset);
-		if (cd == (iconv_t)-1) {
-			if (unknown_charset_r != NULL)
-				*unknown_charset_r = TRUE;
-			return NULL;
-		}
+		if (cd == (iconv_t)-1)
+			return -1;
 	}
 
 	t = i_new(struct charset_translation, 1);
 	t->cd = cd;
-	t->ucase = ucase;
-	return t;
+	t->flags = flags;
+	*t_r = t;
+	return 0;
 }
 
 void charset_to_utf8_end(struct charset_translation **_t)
@@ -66,12 +61,13 @@ charset_to_utf8_try(struct charset_translation *t,
 	ICONV_CONST char *ic_srcbuf;
 	char tmpbuf[8192], *ic_destbuf;
 	size_t srcleft, destleft;
+	bool dtcase = (t->flags & CHARSET_FLAG_DECOMP_TITLECASE) != 0;
 	bool ret = TRUE;
 
 	if (t->cd == (iconv_t)-1) {
 		/* no translation needed - just copy it to outbuf uppercased */
 		*result = CHARSET_RET_OK;
-		if (!t->ucase) {
+		if (!dtcase) {
 			buffer_append(dest, src, *src_size);
 			return TRUE;
 		}
@@ -80,7 +76,7 @@ charset_to_utf8_try(struct charset_translation *t,
 			*result = CHARSET_RET_INVALID_INPUT;
 		return TRUE;
 	}
-	if (!t->ucase) {
+	if (!dtcase) {
 		destleft = buffer_get_size(dest) - dest->used;
 		if (destleft < *src_size) {
 			/* The buffer is most likely too small to hold the
@@ -112,7 +108,7 @@ charset_to_utf8_try(struct charset_translation *t,
 	}
 	*src_size -= srcleft;
 
-	if (!t->ucase) {
+	if (!dtcase) {
 		/* give back the memory we didn't use */
 		buffer_set_used_size(dest, dest->used - destleft);
 	} else {

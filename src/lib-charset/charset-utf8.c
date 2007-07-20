@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "unichar.h"
 #include "charset-utf8.h"
 
 #include <ctype.h>
@@ -16,33 +17,28 @@ bool charset_is_utf8(const char *charset)
 
 #ifndef HAVE_ICONV
 
-#include <ctype.h>
-
 struct charset_translation {
-	int dummy;
+	enum charset_flags flags;
 };
 
-static struct charset_translation ascii_translation, utf8_translation;
-static struct charset_translation ascii_translation_uc, utf8_translation_uc;
+static struct charset_translation raw_translation = { 0 };
+static struct charset_translation tc_translation = {
+	CHARSET_FLAG_DECOMP_TITLECASE
+};
 
-struct charset_translation *
-charset_to_utf8_begin(const char *charset, bool ucase, bool *unknown_charset_r)
+int charset_to_utf8_begin(const char *charset, enum charset_flags flags,
+			  struct charset_translation **t_r)
 {
-	if (unknown_charset_r != NULL)
-		*unknown_charset_r = FALSE;
-
-	if (strcasecmp(charset, "us-ascii") == 0 ||
-	    strcasecmp(charset, "ascii") == 0)
-		return ucase ? &ascii_translation_uc : &ascii_translation;
-
-	if (strcasecmp(charset, "UTF-8") == 0 ||
-	    strcasecmp(charset, "UTF8") == 0)
-		return ucase ? &utf8_translation_uc : &utf8_translation;
+	if (charset_is_utf8(charset)) {
+		if ((flags & CHARSET_FLAG_DECOMP_TITLECASE) != 0)
+			*t_r = &tc_translation;
+		else
+			*t_r = &raw_translation;
+		return 0;
+	}
 
 	/* no support for charsets that need translation */
-	if (unknown_charset_r != NULL)
-		*unknown_charset_r = TRUE;
-	return NULL;
+	return -1;
 }
 
 void charset_to_utf8_end(struct charset_translation **t __attr_unused__)
@@ -57,12 +53,12 @@ enum charset_result
 charset_to_utf8(struct charset_translation *t,
 		const unsigned char *src, size_t *src_size, buffer_t *dest)
 {
-	if (t != &utf8_translation_uc && t != &ascii_translation_uc) {
+	if ((t->flags & CHARSET_FLAG_DECOMP_TITLECASE) == 0)
 		buffer_append(dest, src, *src_size);
-		return CHARSET_RET_OK;
+	else {
+		if (uni_utf8_to_decomposed_titlecase(src, *src_size, dest) < 0)
+			return CHARSET_RET_INVALID_INPUT;
 	}
-	if (uni_utf8_to_decomposed_titlecase(src, *src_size, dest) < 0)
-		return CHARSET_RET_INVALID_INPUT;
 	return CHARSET_RET_OK;
 }
 

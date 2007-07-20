@@ -212,15 +212,13 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	unsigned char new_buf[MAX_ENCODING_BUF_SIZE+1];
 	const unsigned char *data = NULL;
 	size_t pos, size = 0, skip = 0;
-	bool unknown_charset;
 	int ret;
 
 	if (ctx->charset_trans == NULL && !ctx->charset_utf8) {
-		ctx->charset_trans =
-			charset_to_utf8_begin(ctx->content_charset != NULL ?
-					      ctx->content_charset : "UTF-8",
-					      ctx->ucase,
-					      &unknown_charset);
+		if (charset_to_utf8_begin(ctx->content_charset != NULL ?
+					  ctx->content_charset : "UTF-8",
+					  ctx->ucase, &ctx->charset_trans) < 0)
+			ctx->charset_trans = NULL;
 	}
 
 	if (ctx->encoding_size != 0) {

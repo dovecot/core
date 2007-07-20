@@ -1,18 +1,23 @@
 #ifndef __CHARSET_UTF8_H
 #define __CHARSET_UTF8_H
 
+struct charset_translation;
+
+enum charset_flags {
+	/* Translate the output to decomposed titlecase */
+	CHARSET_FLAG_DECOMP_TITLECASE	= 0x01
+};
+
 enum charset_result {
 	CHARSET_RET_OK = 1,
 	CHARSET_RET_INCOMPLETE_INPUT = -1,
 	CHARSET_RET_INVALID_INPUT = -2
 };
 
-/* Begin translation to UTF-8. If ucase=TRUE, returns data uppercased. */
-struct charset_translation *
-charset_to_utf8_begin(const char *charset, bool ucase, bool *unknown_charset_r);
-
+/* Begin translation to UTF-8. Returns -1 if charset is unknown. */
+int charset_to_utf8_begin(const char *charset, enum charset_flags flags,
+			  struct charset_translation **t_r);
 void charset_to_utf8_end(struct charset_translation **t);
-
 void charset_to_utf8_reset(struct charset_translation *t);
 
 /* Returns TRUE if charset is UTF-8 or ASCII */

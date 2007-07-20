@@ -35,8 +35,7 @@ int message_search_init(pool_t pool, const char *key, const char *charset,
 	string_t *key_utf8;
 	size_t key_len;
 
-	t = charset_to_utf8_begin(charset, TRUE, NULL);
-	if (t == NULL)
+	if (charset_to_utf8_begin(charset, TRUE, &t) < 0)
 		return 0;
 
 	t_push();
