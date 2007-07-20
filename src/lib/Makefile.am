@@ -1,5 +1,13 @@
 noinst_LIBRARIES = liblib.a
 
+BUILT_SOURCES = unicodemap.c
+
+EXTRA_DIST = unicodemap.c
+
+unicodemap.c:
+	test -f UnicodeData.txt || wget http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
+	perl unicodemap.pl < UnicodeData.txt > $@
+
 liblib_a_SOURCES = \
 	backtrace-string.c \
 	base64.c \

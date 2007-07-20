@@ -2,7 +2,13 @@
 
 #include "lib.h"
 #include "buffer.h"
+#include "bsearch-insert-pos.h"
 #include "unichar.h"
+
+#include "unicodemap.c"
+
+#define HANGUL_FIRST 0xac00
+#define HANGUL_LAST 0xd7a3
 
 static const uint8_t utf8_non1_bytes[256 - 192 - 2] = {
 	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
@@ -163,4 +169,119 @@ unsigned int uni_utf8_strlen_n(const void *_input, size_t size)
 		len++;
 	}
 	return len;
+}
+
+static bool uint16_find(const uint16_t *data, unsigned int count,
+			uint16_t value, unsigned int *idx_r)
+{
+	BINARY_NUMBER_SEARCH(data, count, value, idx_r);
+}
+
+static bool uint32_find(const uint32_t *data, unsigned int count,
+			uint32_t value, unsigned int *idx_r)
+{
+	BINARY_NUMBER_SEARCH(data, count, value, idx_r);
+}
+
+unichar_t uni_ucs4_to_titlecase(unichar_t chr)
+{
+	unsigned int idx;
+
+	if (chr <= 0xffff) {
+		if (!uint16_find(titlecase16_keys, N_ELEMENTS(titlecase16_keys),
+				 chr, &idx))
+			return chr;
+		else
+			return titlecase16_values[idx];
+	} else {
+		if (!uint32_find(titlecase32_keys, N_ELEMENTS(titlecase32_keys),
+				 chr, &idx))
+			return chr;
+		else
+			return titlecase32_values[idx];
+	}
+}
+
+static bool uni_ucs4_decompose_uni(unichar_t *chr)
+{
+	unsigned int idx;
+
+	if (*chr <= 0xffff) {
+		if (!uint16_find(uni16_decomp_keys,
+				 N_ELEMENTS(uni16_decomp_keys),
+				 *chr, &idx))
+			return FALSE;
+		*chr = uni16_decomp_values[idx];
+	} else {
+		if (!uint32_find(uni32_decomp_keys,
+				 N_ELEMENTS(uni32_decomp_keys),
+				 *chr, &idx))
+			return FALSE;
+		*chr = uni32_decomp_values[idx];
+	}
+	return TRUE;
+}
+
+static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
+{
+#define SBase HANGUL_FIRST
+#define LBase 0x1100 
+#define VBase 0x1161 
+#define TBase 0x11A7
+#define LCount 19 
+#define VCount 21
+#define TCount 28
+#define NCount (VCount * TCount)
+	unsigned int SIndex = chr - SBase;
+        unichar_t L = LBase + SIndex / NCount;
+        unichar_t V = VBase + (SIndex % NCount) / TCount;
+        unichar_t T = TBase + SIndex % TCount;
+
+	uni_ucs4_to_utf8_c(L, output);
+	uni_ucs4_to_utf8_c(V, output);
+	if (T != TBase) uni_ucs4_to_utf8_c(T, output);
+}
+
+static bool uni_ucs4_decompose_multi_utf8(unichar_t chr, buffer_t *output)
+{
+	const uint16_t *value;
+	unsigned int idx;
+
+	if (chr > 0xffff)
+		return FALSE;
+
+	if (!uint16_find(multidecomp_keys, N_ELEMENTS(multidecomp_keys),
+			 chr, &idx))
+		return FALSE;
+
+	value = &multidecomp_values[multidecomp_offsets[idx]];
+	for (; *value != 0; value++)
+		uni_ucs4_to_utf8_c(*value, output);
+	return TRUE;
+}
+
+int uni_utf8_to_decomposed_titlecase(const void *_input, size_t max_len,
+				     buffer_t *output)
+{
+	const unsigned char *input = _input;
+	unsigned int bytes;
+	unichar_t chr;
+
+	while (max_len > 0 && *input != '\0') {
+		if (uni_utf8_get_char_n(input, max_len, &chr) <= 0) {
+			/* invalid input */
+			return -1;
+		}
+		bytes = uni_utf8_char_bytes(*input);
+		input += bytes;
+		max_len -= bytes;
+
+		chr = uni_ucs4_to_titlecase(chr);
+		if (chr >= HANGUL_FIRST && chr <= HANGUL_LAST)
+			uni_ucs4_decompose_hangul_utf8(chr, output);
+		else if (uni_ucs4_decompose_uni(&chr) ||
+			 !uni_ucs4_decompose_multi_utf8(chr, output))
+			uni_ucs4_to_utf8_c(chr, output);
+	}
+	return 0;
 }

@@ -53,6 +53,7 @@ src/deliver/deliver
 src/dict/dict
 src/imap-login/imap-login
 src/imap/imap
+src/lib/unicodemap.c
 src/lib-dict/dict-drivers-register.c
 src/lib-sql/sql-drivers-register.c
 src/lib-storage/register/mail-storage-register.c

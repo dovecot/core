@@ -31,4 +31,13 @@ static inline unsigned int uni_utf8_char_bytes(char chr)
 	return uni_utf8_non1_bytes[(uint8_t)chr - (192 + 2)];
 }
 
+/* Return given character in titlecase. */
+unichar_t uni_ucs4_to_titlecase(unichar_t chr);
+
+/* Convert UTF-8 input to titlecase and decompose the titlecase characters to
+   output buffer. Returns 0 if ok, -1 if input was invalid. This generates
+   output that's compatible with i;unicode-casemap comparator. */
+int uni_utf8_to_decomposed_titlecase(const void *input, size_t max_len,
+				     buffer_t *output);
+
 #endif
