@@ -42,16 +42,16 @@ struct message_decoder_context {
 	char *content_charset;
 	enum content_type content_type;
 
-	unsigned int ucase:1;
+	unsigned int dtcase:1;
 	unsigned int charset_utf8:1;
 };
 
-struct message_decoder_context *message_decoder_init(bool ucase)
+struct message_decoder_context *message_decoder_init(bool dtcase)
 {
 	struct message_decoder_context *ctx;
 
 	ctx = i_new(struct message_decoder_context, 1);
-	ctx->ucase = ucase;
+	ctx->dtcase = dtcase;
 	ctx->buf = buffer_create_dynamic(default_pool, 8192);
 	ctx->buf2 = buffer_create_dynamic(default_pool, 8192);
 	return ctx;
@@ -156,10 +156,10 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 
 	buffer_set_used_size(ctx->buf, 0);
 	message_header_decode_utf8(hdr->full_value, hdr->full_value_len,
-				   ctx->buf, ctx->ucase);
+				   ctx->buf, ctx->dtcase);
 	value_len = ctx->buf->used;
 
-	if (ctx->ucase) {
+	if (ctx->dtcase) {
 		(void)uni_utf8_to_decomposed_titlecase(hdr->name, hdr->name_len,
 						       ctx->buf);
 		buffer_append_c(ctx->buf, '\0');
@@ -169,7 +169,7 @@ static bool message_decode_header(struct message_decoder_context *ctx,
 	ctx->hdr.full_value = ctx->buf->data;
 	ctx->hdr.full_value_len = value_len;
 	ctx->hdr.value_len = 0;
-	if (ctx->ucase) {
+	if (ctx->dtcase) {
 		ctx->hdr.name = CONST_PTR_OFFSET(ctx->buf->data,
 						 ctx->hdr.full_value_len);
 		ctx->hdr.name_len = ctx->buf->used - 1 - value_len;
@@ -217,7 +217,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	if (ctx->charset_trans == NULL && !ctx->charset_utf8) {
 		if (charset_to_utf8_begin(ctx->content_charset != NULL ?
 					  ctx->content_charset : "UTF-8",
-					  ctx->ucase, &ctx->charset_trans) < 0)
+					  ctx->dtcase, &ctx->charset_trans) < 0)
 			ctx->charset_trans = NULL;
 	}
 
@@ -296,7 +296,7 @@ static bool message_decode_body(struct message_decoder_context *ctx,
 	}
 
 	if (ctx->charset_utf8) {
-		if (ctx->ucase) {
+		if (ctx->dtcase) {
 			buffer_set_used_size(ctx->buf2, 0);
 			(void)uni_utf8_to_decomposed_titlecase(data, size,
 							       ctx->buf);

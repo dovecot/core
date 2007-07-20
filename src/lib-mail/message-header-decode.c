@@ -120,7 +120,7 @@ struct decode_utf8_context {
 	buffer_t *dest;
 	unsigned int changed:1;
 	unsigned int called:1;
-	unsigned int ucase:1;
+	unsigned int dtcase:1;
 };
 
 static bool
@@ -138,7 +138,7 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 
 	if (charset == NULL || charset_is_utf8(charset)) {
 		/* ASCII / UTF-8 */
-		if (ctx->ucase) {
+		if (ctx->dtcase) {
 			(void)uni_utf8_to_decomposed_titlecase(data, size,
 							       ctx->dest);
 		} else {
@@ -147,7 +147,7 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 		return TRUE;
 	}
 
-	if (charset_to_utf8_begin(charset, ctx->ucase, &t) < 0) {
+	if (charset_to_utf8_begin(charset, ctx->dtcase, &t) < 0) {
 		/* let's just ignore this part */
 		return TRUE;
 	}
@@ -159,14 +159,14 @@ decode_utf8_callback(const unsigned char *data, size_t size,
 }
 
 bool message_header_decode_utf8(const unsigned char *data, size_t size,
-				buffer_t *dest, bool ucase)
+				buffer_t *dest, bool dtcase)
 {
 	struct decode_utf8_context ctx;
 	size_t used = dest->used;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.dest = dest;
-	ctx.ucase = ucase;
+	ctx.dtcase = dtcase;
 	message_header_decode(data, size, decode_utf8_callback, &ctx);
 	return ctx.changed || (dest->used - used != size);
 }

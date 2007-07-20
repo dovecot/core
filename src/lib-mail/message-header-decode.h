@@ -13,10 +13,10 @@ void message_header_decode(const unsigned char *data, size_t size,
 			   message_header_decode_callback_t *callback,
 			   void *context);
 
-/* Append decoded RFC2047 header as UTF-8 to given buffer. If ucase=TRUE,
-   the header is appended uppercased. Returns TRUE if output changed in any
-   way from input. */
+/* Append decoded RFC2047 header as UTF-8 to given buffer. If dtcase=TRUE,
+   the header is appended through uni_utf8_to_decomposed_titlecase().
+   Returns TRUE if output changed in any way from input. */
 bool message_header_decode_utf8(const unsigned char *data, size_t size,
-				buffer_t *dest, bool ucase);
+				buffer_t *dest, bool dtcase);
 
 #endif
