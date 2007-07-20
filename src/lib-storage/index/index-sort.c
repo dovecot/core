@@ -158,7 +158,7 @@ static const char *get_first_mailbox(struct mail *mail, const char *header)
 	struct message_address *addr;
 	const char *str;
 
-	str = mail_get_first_header(mail, header);
+	str = mail_get_first_header_utf8(mail, header);
 	if (str == NULL)
 		return "";
 
