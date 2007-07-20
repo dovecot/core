@@ -6,9 +6,16 @@ struct rfc822_parser_context {
 	string_t *last_comment;
 };
 
+/* Parse given data using RFC 822 token parser. */
 void rfc822_parser_init(struct rfc822_parser_context *ctx,
 			const unsigned char *data, size_t size,
 			string_t *last_comment);
+
+/* The functions below return 1 = more data available, 0 = no more data
+   available (but a value might have been returned now), -1 = invalid input.
+
+   LWSP is automatically skipped after value, but not before it. So typically
+   you begin with skipping LWSP and then start using the parse functions. */
 
 /* Parse comment. Assumes parser's data points to '(' */
 int rfc822_skip_comment(struct rfc822_parser_context *ctx);
