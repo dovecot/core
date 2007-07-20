@@ -9,39 +9,6 @@
 #include "message-header-decode.h"
 #include "imap-base-subject.h"
 
-static bool header_decode(const unsigned char *data, size_t size,
-			  const char *charset, void *context)
-{
-	buffer_t *buf = context;
-        struct charset_translation *t;
-	unsigned char *buf_data;
-	size_t pos, used_size;
-
-	pos = buffer_get_used_size(buf);
-	if (charset == NULL) {
-		/* It's ASCII. */
-		buffer_append(buf, data, size);
-	} else {
-		t = charset_to_utf8_begin(charset, TRUE, NULL);
-		if (t != NULL) {
-			(void)charset_to_utf8(t, data, &size, buf);
-                        charset_to_utf8_end(&t);
-		}
-	}
-
-	if (size > 0) {
-		/* @UNSAFE: uppercase it. Current draft specifies that we
-		   should touch only ASCII. */
-		buf_data = buffer_get_modifiable_data(buf, &used_size);
-		for (; pos < used_size; pos++) {
-			if (buf_data[pos] >= 'a' && buf_data[pos] <= 'z')
-				buf_data[pos] = buf_data[pos] - 'a' + 'A';
-		}
-	}
-
-	return TRUE;
-}
-
 static void pack_whitespace(buffer_t *buf)
 {
 	char *data, *dest;
@@ -246,8 +213,8 @@ const char *imap_get_base_subject_cased(pool_t pool, const char *subject,
 	/* (1) Convert any RFC 2047 encoded-words in the subject to
 	   UTF-8.  Convert all tabs and continuations to space.
 	   Convert all multiple spaces to a single space. */
-	message_header_decode((const unsigned char *)subject, subject_len,
-			      header_decode, buf);
+	message_header_decode_utf8((const unsigned char *)subject, subject_len,
+				   buf, TRUE);
 	buffer_append_c(buf, '\0');
 
 	pack_whitespace(buf);
