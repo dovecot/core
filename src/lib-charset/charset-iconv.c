@@ -57,14 +57,15 @@ void charset_to_utf8_reset(struct charset_translation *t)
 		(void)iconv(t->cd, NULL, NULL, NULL, NULL);
 }
 
-static enum charset_result
+static bool
 charset_to_utf8_try(struct charset_translation *t,
-		    const unsigned char *src, size_t *src_size, buffer_t *dest)
+		    const unsigned char *src, size_t *src_size, buffer_t *dest,
+		    enum charset_result *result)
 {
 	ICONV_CONST char *ic_srcbuf;
 	char *ic_destbuf;
 	size_t srcleft, destpos, destleft, size;
-        enum charset_result ret;
+	bool ret = TRUE;
 
 	destpos = dest->used;
 	if (t->cd == (iconv_t)-1) {
@@ -73,7 +74,9 @@ charset_to_utf8_try(struct charset_translation *t,
 			charset_utf8_ucase_write(dest, destpos, src, *src_size);
 		else
 			buffer_append(dest, src, *src_size);
-		return CHARSET_RET_OK;
+
+		*result = CHARSET_RET_OK;
+		return TRUE;
 	}
 	destleft = buffer_get_size(dest) - destpos;
 	if (destleft < *src_size) {
@@ -89,14 +92,17 @@ charset_to_utf8_try(struct charset_translation *t,
 
 	if (iconv(t->cd, &ic_srcbuf, &srcleft,
 		  &ic_destbuf, &destleft) != (size_t)-1)
-		ret = CHARSET_RET_OK;
-	else if (errno == E2BIG)
-		ret = CHARSET_RET_OUTPUT_FULL;
-	else if (errno == EINVAL)
-		ret = CHARSET_RET_INCOMPLETE_INPUT;
+		*result = CHARSET_RET_OK;
+	else if (errno == E2BIG) {
+		/* set result just to avoid compiler warning */
+		*result = CHARSET_RET_INCOMPLETE_INPUT;
+		ret = FALSE;
+	} else if (errno == EINVAL)
+		*result = CHARSET_RET_INCOMPLETE_INPUT;
 	else {
 		/* should be EILSEQ */
-		return CHARSET_RET_INVALID_INPUT;
+		*result = CHARSET_RET_INVALID_INPUT;
+		return TRUE;
 	}
 	size -= destleft;
 
@@ -116,17 +122,18 @@ enum charset_result
 charset_to_utf8(struct charset_translation *t,
 		const unsigned char *src, size_t *src_size, buffer_t *dest)
 {
-	enum charset_result ret;
+	enum charset_result result;
 	size_t pos, used, size;
+	bool ret;
 
 	for (pos = 0;;) {
 		size = *src_size - pos;
-		ret = charset_to_utf8_try(t, src + pos, &size, dest);
+		ret = charset_to_utf8_try(t, src + pos, &size, dest, &result);
 		pos += size;
 
-		if (ret != CHARSET_RET_OUTPUT_FULL) {
+		if (ret) {
 			*src_size = pos;
-			return ret;
+			return result;
 		}
 
 		/* force buffer to grow */
