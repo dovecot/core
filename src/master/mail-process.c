@@ -124,6 +124,7 @@ static bool validate_uid_gid(struct settings *set, uid_t uid, gid_t gid,
 		i_error("Logins with login process UID %s (user %s) "
 			"not permitted (see login_user in config file).",
 			dec2str(uid), user);
+		return FALSE;
 	}
 
 	if (uid < (uid_t)set->first_valid_uid ||
