@@ -347,7 +347,8 @@ static void cydir_notify_changes(struct mailbox *box)
 		index_mailbox_check_add(&mbox->ibox, mbox->path);
 }
 
-static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
+static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx
+				      			__attr_unused__,
 				      const char *dir, const char *fname,
 				      enum mailbox_list_file_type type,
 				      enum mailbox_info_flags *flags)
@@ -359,9 +360,9 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 	/* try to avoid stat() with these checks */
 	if (type != MAILBOX_LIST_FILE_TYPE_DIR &&
 	    type != MAILBOX_LIST_FILE_TYPE_SYMLINK &&
-	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN &&
-	    (ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
+	    type != MAILBOX_LIST_FILE_TYPE_UNKNOWN) {
 		/* it's a file */
+		*flags |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
 		return 0;
 	}
 
@@ -376,7 +377,8 @@ static int cydir_list_iter_is_mailbox(struct mailbox_list_iterate_context *ctx,
 			ret = 0;
 		}
 	} else {
-		/* non-selectable, but may contain subdirs */
+		/* non-selectable. probably either access denied, or symlink
+		   destination not found. don't bother logging errors. */
 		*flags |= MAILBOX_NOSELECT;
 	}
 	t_pop();
