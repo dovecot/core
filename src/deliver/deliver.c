@@ -754,6 +754,7 @@ int main(int argc, char *argv[])
 	if (mail_set_seq(mail, 1) < 0)
 		i_fatal("mail_set_seq() failed");
 
+	storage = NULL;
 	default_mailbox_name = mailbox;
 	if (deliver_mail == NULL)
 		ret = -1;
@@ -786,7 +787,13 @@ int main(int argc, char *argv[])
 		enum mail_error error;
 		int ret;
 
-		error_string = mail_storage_get_last_error(ns->storage, &error);
+		if (storage == NULL) {
+			/* This shouldn't happen */
+			i_error("BUG: Saving failed for unknown storage");
+			return EX_TEMPFAIL;
+		}
+
+		error_string = mail_storage_get_last_error(storage, &error);
 		if (error != MAIL_ERROR_NOSPACE ||
 		    getenv("QUOTA_FULL_TEMPFAIL") != NULL) {
 			/* Saving to INBOX should always work unless
