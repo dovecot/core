@@ -755,22 +755,33 @@ int main(int argc, char *argv[])
 		i_fatal("mail_set_seq() failed");
 
 	default_mailbox_name = mailbox;
-	if (deliver_mail != NULL)
-		(void)deliver_mail(ns, &storage, mail, destination, mailbox);
+	if (deliver_mail == NULL)
+		ret = -1;
+	else {
+		if (deliver_mail(ns, &storage, mail,
+				 destination, mailbox) <= 0) {
+			/* if message was saved, don't bounce it even though
+			   the script failed later. */
+			ret = saved_mail ? 0 : -1;
+		} else {
+			/* success. message may or may not have been saved. */
+			ret = 0;
+		}
+	}
 
-	if (!saved_mail && !tried_default_save) {
+	if (ret < 0 && !tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
 		i_stream_seek(input, 0);
-		(void)deliver_save(ns, &storage, mailbox, mail, 0, NULL);
+		ret = deliver_save(ns, &storage, mailbox, mail, 0, NULL);
 	}
-	if (!saved_mail && strcasecmp(mailbox, "INBOX") != 0) {
+	if (ret < 0 && strcasecmp(mailbox, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
 		i_stream_seek(input, 0);
-		(void)deliver_save(ns, &storage, "INBOX", mail, 0, NULL);
+		ret = deliver_save(ns, &storage, "INBOX", mail, 0, NULL);
 	}
 
-	if (!saved_mail) {
+	if (ret < 0 ) {
 		const char *error_string, *msgid;
 		enum mail_error error;
 		int ret;
