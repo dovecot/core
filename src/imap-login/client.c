@@ -68,10 +68,8 @@ static void client_set_title(struct imap_client *client)
 
 static void client_open_streams(struct imap_client *client, int fd)
 {
-	client->input = i_stream_create_file(fd, default_pool,
-					     MAX_INBUF_SIZE, FALSE);
-	client->output = o_stream_create_file(fd, default_pool, MAX_OUTBUF_SIZE,
-					      FALSE);
+	client->input = i_stream_create_file(fd, MAX_INBUF_SIZE, FALSE);
+	client->output = o_stream_create_file(fd, MAX_OUTBUF_SIZE, FALSE);
 	client->parser = imap_parser_create(client->input, client->output,
 					    MAX_IMAP_LINE);
 }

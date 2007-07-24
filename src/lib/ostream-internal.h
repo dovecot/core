@@ -26,6 +26,6 @@ struct _ostream {
 	void *context;
 };
 
-struct ostream *_o_stream_create(struct _ostream *_stream, pool_t pool);
+struct ostream *_o_stream_create(struct _ostream *_stream);
 
 #endif

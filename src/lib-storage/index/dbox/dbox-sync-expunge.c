@@ -145,7 +145,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 
 		/* try again with another file name */
 	}
-	output = o_stream_create_file(fd, default_pool, 0, FALSE);
+	output = o_stream_create_file(fd, 0, FALSE);
 	lock_path = file_dotlock_get_lock_path(dotlock);
 
 	memset(&dest_entry, 0, sizeof(dest_entry));
@@ -190,7 +190,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 		/* copy the mail */
 		full_size = mbox->file->mail_header_size +
 			mbox->file->seeked_mail_size;
-		input = i_stream_create_limit(default_pool, mbox->file->input,
+		input = i_stream_create_limit(mbox->file->input,
 					      mbox->file->seeked_offset,
 					      full_size);
 		bytes = o_stream_send_istream(output, input);

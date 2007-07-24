@@ -262,7 +262,7 @@ static int read_configuration(const char *path)
 	p_clear(config_pool);
 	p_array_init(&trash_boxes, config_pool, INIT_TRASH_MAILBOX_COUNT);
 
-	input = i_stream_create_file(fd, default_pool, (size_t)-1, FALSE);
+	input = i_stream_create_file(fd, (size_t)-1, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* <priority> <mailbox name> */
 		name = strchr(line, ' ');

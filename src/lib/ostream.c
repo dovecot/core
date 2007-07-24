@@ -157,10 +157,10 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	return ret;
 }
 
-struct ostream *_o_stream_create(struct _ostream *_stream, pool_t pool)
+struct ostream *_o_stream_create(struct _ostream *_stream)
 {
 	_stream->ostream.real_stream = _stream;
 
-	_io_stream_init(pool, &_stream->iostream);
+	_io_stream_init(&_stream->iostream);
 	return &_stream->ostream;
 }

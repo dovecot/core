@@ -24,8 +24,7 @@ typedef int stream_flush_callback_t(void *context);
 /* Create new output stream from given file descriptor.
    If max_buffer_size is 0, an "optimal" buffer size is used (max 128kB). */
 struct ostream *
-o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
-		     bool autoclose_fd);
+o_stream_create_file(int fd, size_t max_buffer_size, bool autoclose_fd);
 
 /* o_stream_close() + o_stream_unref() */
 void o_stream_destroy(struct ostream **stream);

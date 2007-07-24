@@ -32,8 +32,8 @@ struct _istream {
 	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
 };
 
-struct istream *_i_stream_create(struct _istream *_buf, pool_t pool, int fd,
-				 uoff_t abs_start_offset);
+struct istream *
+_i_stream_create(struct _istream *_buf, int fd, uoff_t abs_start_offset);
 
 void _i_stream_compress(struct _istream *stream);
 void _i_stream_grow_buffer(struct _istream *stream, size_t bytes);

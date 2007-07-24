@@ -229,8 +229,7 @@ dbox_mail_get_stream(struct mail *_mail,
 
 		offset += mbox->file->mail_header_size;
 		mail->data.stream =
-			i_stream_create_limit(default_pool, mbox->file->input,
-					      offset,
+			i_stream_create_limit(mbox->file->input, offset,
 					      mbox->file->seeked_mail_size);
 	}
 

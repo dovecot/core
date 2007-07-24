@@ -1474,7 +1474,7 @@ trie_nodes_write(struct squat_trie_build_context *ctx, uint32_t *uidvalidity_r)
 		return -1;
 	}
 
-	ctx->output = o_stream_create_file(trie->fd, default_pool, 0, FALSE);
+	ctx->output = o_stream_create_file(trie->fd, 0, FALSE);
 	o_stream_cork(ctx->output);
 	if (hdr.used_file_size == 0) {
 		o_stream_send(ctx->output, &hdr, sizeof(hdr));
@@ -1799,7 +1799,7 @@ static int squat_trie_compress_init(struct squat_trie_compress_context *ctx,
 	}
 
 	ctx->trie = trie;
-	ctx->output = o_stream_create_file(ctx->fd, default_pool, 0, FALSE);
+	ctx->output = o_stream_create_file(ctx->fd, 0, FALSE);
 	ctx->node_count = trie->hdr->node_count;
 
 	/* write a dummy header first */

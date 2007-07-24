@@ -226,10 +226,9 @@ auth_server_connection_new(struct auth_client *client, const char *path)
 	conn->path = p_strdup(pool, path);
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, auth_client_input, conn);
-	conn->input = i_stream_create_file(fd, default_pool,
-					   AUTH_CLIENT_MAX_LINE_LENGTH, FALSE);
-	conn->output = o_stream_create_file(fd, default_pool, (size_t)-1,
-					    FALSE);
+	conn->input = i_stream_create_file(fd, AUTH_CLIENT_MAX_LINE_LENGTH,
+					   FALSE);
+	conn->output = o_stream_create_file(fd, (size_t)-1, FALSE);
 	conn->requests = hash_create(default_pool, pool, 100, NULL, NULL);
 	conn->auth_mechs_buf = buffer_create_dynamic(default_pool, 256);
 

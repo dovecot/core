@@ -17,7 +17,6 @@
 
 struct seekable_istream {
 	struct _istream istream;
-	pool_t pool;
 
 	size_t max_buffer_size;
 	char *temp_prefix;
@@ -54,8 +53,7 @@ static void _destroy(struct _iostream *stream)
 	for (i = 0; sstream->input[i] != NULL; i++)
 		i_stream_unref(&sstream->input[i]);
 
-	p_free(sstream->pool, sstream->temp_prefix);
-	pool_unref(sstream->pool);
+	i_free(sstream->temp_prefix);
 }
 
 static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
@@ -124,8 +122,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 
 	sstream->fd = fd;
 	sstream->fd_input =
-		i_stream_create_file(fd, sstream->pool,
-				     sstream->max_buffer_size, TRUE);
+		i_stream_create_file(fd, sstream->max_buffer_size, TRUE);
 	return 0;
 }
 
@@ -296,7 +293,7 @@ static const struct stat *_stat(struct _istream *stream, bool exact)
 }
 
 struct istream *
-i_stream_create_seekable(struct istream *input[], pool_t pool,
+i_stream_create_seekable(struct istream *input[],
 			 size_t max_buffer_size, const char *temp_prefix)
 {
 	struct seekable_istream *sstream;
@@ -308,14 +305,12 @@ i_stream_create_seekable(struct istream *input[], pool_t pool,
 		i_stream_ref(input[count]);
 	i_assert(count != 0);
 
-	pool_ref(pool);
-	sstream = p_new(pool, struct seekable_istream, 1);
-	sstream->pool = pool;
-	sstream->temp_prefix = p_strdup(pool, temp_prefix);
-	sstream->buffer = buffer_create_dynamic(pool, BUF_INITIAL_SIZE);
+	sstream = i_new(struct seekable_istream, 1);
+	sstream->temp_prefix = i_strdup(temp_prefix);
+	sstream->buffer = buffer_create_dynamic(default_pool, BUF_INITIAL_SIZE);
         sstream->max_buffer_size = max_buffer_size;
 
-	sstream->input = p_new(pool, struct istream *, count + 1);
+	sstream->input = i_new(struct istream *, count + 1);
 	memcpy(sstream->input, input, sizeof(*input) * count);
 	sstream->cur_input = sstream->input[0];
 
@@ -332,5 +327,5 @@ i_stream_create_seekable(struct istream *input[], pool_t pool,
 	sstream->istream.seek = _seek;
 	sstream->istream.stat = _stat;
 
-	return _i_stream_create(&sstream->istream, pool, -1, 0);
+	return _i_stream_create(&sstream->istream, -1, 0);
 }

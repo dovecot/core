@@ -35,7 +35,7 @@ static void _destroy(struct _iostream *stream __attr_unused__)
 {
 	struct _istream *_stream = (struct _istream *) stream;
 
-	p_free(_stream->iostream.pool, _stream->w_buffer);
+	i_free(_stream->w_buffer);
 }
 
 static ssize_t _read(struct _istream *stream)
@@ -193,12 +193,12 @@ static void _sync(struct _istream *stream)
 	zstream->cached_size = (uoff_t)-1;
 }
 
-struct istream *i_stream_create_zlib(int fd, pool_t pool)
+struct istream *i_stream_create_zlib(int fd)
 {
 	struct zlib_istream *zstream;
 	struct stat st;
 
-	zstream = p_new(pool, struct zlib_istream, 1);
+	zstream = i_new(struct zlib_istream, 1);
 	zstream->fd = fd;
 	zstream->file = gzdopen(fd, "r");
 	zstream->cached_size = (uoff_t)-1;
@@ -218,5 +218,5 @@ struct istream *i_stream_create_zlib(int fd, pool_t pool)
 		zstream->istream.istream.seekable = TRUE;
 	}
 
-	return _i_stream_create(&zstream->istream, pool, fd, 0);
+	return _i_stream_create(&zstream->istream, fd, 0);
 }

@@ -347,12 +347,11 @@ _send_istream(struct _ostream *outstream, struct istream *instream)
 	return sent == 0 && instream->stream_errno != 0 ? -1 : (ssize_t)sent;
 }
 
-static struct crlf_ostream *
-o_stream_create_common(pool_t pool, struct ostream *output)
+static struct crlf_ostream *o_stream_create_common(struct ostream *output)
 {
 	struct crlf_ostream *cstream;
 
-	cstream = p_new(pool, struct crlf_ostream, 1);
+	cstream = i_new(struct crlf_ostream, 1);
 	cstream->output = output;
 	o_stream_ref(output);
 
@@ -369,20 +368,20 @@ o_stream_create_common(pool_t pool, struct ostream *output)
 	return cstream;
 }
 
-struct ostream *o_stream_create_crlf(pool_t pool, struct ostream *output)
+struct ostream *o_stream_create_crlf(struct ostream *output)
 {
 	struct crlf_ostream *cstream;
 
-	cstream = o_stream_create_common(pool, output);
+	cstream = o_stream_create_common(output);
 	cstream->ostream.sendv = _sendv_crlf;
-	return _o_stream_create(&cstream->ostream, pool);
+	return _o_stream_create(&cstream->ostream);
 }
 
-struct ostream *o_stream_create_lf(pool_t pool, struct ostream *output)
+struct ostream *o_stream_create_lf(struct ostream *output)
 {
 	struct crlf_ostream *cstream;
 
-	cstream = o_stream_create_common(pool, output);
+	cstream = o_stream_create_common(output);
 	cstream->ostream.sendv = _sendv_lf;
-	return _o_stream_create(&cstream->ostream, pool);
+	return _o_stream_create(&cstream->ostream);
 }

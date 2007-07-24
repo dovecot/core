@@ -343,14 +343,14 @@ static const struct stat *_stat(struct _istream *stream, bool exact)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input,
+struct istream *i_stream_create_raw_mbox(struct istream *input,
 					 bool kludge_one_mail_only)
 {
 	struct raw_mbox_istream *rstream;
 
 	i_stream_ref(input);
 
-	rstream = p_new(pool, struct raw_mbox_istream, 1);
+	rstream = i_new(struct raw_mbox_istream, 1);
 
 	rstream->one_mail_only = kludge_one_mail_only;
 	rstream->input = input;
@@ -370,7 +370,7 @@ struct istream *i_stream_create_raw_mbox(pool_t pool, struct istream *input,
 
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
-	return _i_stream_create(&rstream->istream, pool, -1,
+	return _i_stream_create(&rstream->istream, -1,
 				input->real_stream->abs_start_offset);
 }
 

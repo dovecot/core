@@ -36,7 +36,7 @@ static void _destroy(struct _iostream *stream)
 {
 	struct _istream *_stream = (struct _istream *) stream;
 
-	p_free(_stream->iostream.pool, _stream->w_buffer);
+	i_free(_stream->w_buffer);
 }
 
 static ssize_t _read(struct _istream *stream)
@@ -159,13 +159,13 @@ _stat(struct _istream *stream, bool exact __attr_unused__)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_file(int fd, pool_t pool,
-				     size_t max_buffer_size, bool autoclose_fd)
+struct istream *i_stream_create_file(int fd, size_t max_buffer_size,
+				     bool autoclose_fd)
 {
 	struct file_istream *fstream;
 	struct stat st;
 
-	fstream = p_new(pool, struct file_istream, 1);
+	fstream = i_new(struct file_istream, 1);
 	fstream->autoclose_fd = autoclose_fd;
 
 	fstream->istream.iostream.close = _close;
@@ -184,5 +184,5 @@ struct istream *i_stream_create_file(int fd, pool_t pool,
 		fstream->istream.istream.seekable = TRUE;
 	}
 
-	return _i_stream_create(&fstream->istream, pool, fd, 0);
+	return _i_stream_create(&fstream->istream, fd, 0);
 }

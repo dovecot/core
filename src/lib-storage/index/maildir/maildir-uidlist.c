@@ -523,7 +523,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 							    st.st_size/8));
 	}
 
-	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
+	input = i_stream_create_file(fd, 4096, FALSE);
 	i_stream_seek(input, uidlist->last_read_offset);
 
 	orig_next_uid = uidlist->next_uid;
@@ -804,7 +804,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 
 	i_assert(fd != -1);
 
-	output = o_stream_create_file(fd, default_pool, 0, FALSE);
+	output = o_stream_create_file(fd, 0, FALSE);
 	str = t_str_new(512);
 
 	if (output->offset == 0) {

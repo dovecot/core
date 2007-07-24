@@ -580,8 +580,7 @@ static int squat_uidlist_write_init(struct squat_uidlist *uidlist)
 			return -1;
 	}
 
-	uidlist->output = o_stream_create_file(uidlist->fd, default_pool,
-					       0, FALSE);
+	uidlist->output = o_stream_create_file(uidlist->fd, 0, FALSE);
 	o_stream_cork(uidlist->output);
 	if (uidlist->hdr.used_file_size < sizeof(uidlist->hdr)) {
 		/* creating a new file, write a dummy header */
@@ -761,7 +760,7 @@ squat_uidlist_compress_begin(struct squat_uidlist *uidlist,
 		ctx->failed = TRUE;
 		i_error("open(%s) failed: %m", ctx->tmp_path);
 	} else {
-		ctx->output = o_stream_create_file(fd, default_pool, 0, TRUE);
+		ctx->output = o_stream_create_file(fd, 0, TRUE);
 		o_stream_send(ctx->output, &ctx->hdr, sizeof(ctx->hdr));
 	}
 

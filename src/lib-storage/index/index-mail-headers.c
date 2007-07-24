@@ -350,9 +350,9 @@ struct istream *index_mail_cache_parse_init(struct mail *_mail,
 
 	i_assert(mail->data.parser_ctx == NULL);
 
-	tee = tee_i_stream_create(input, default_pool);
-	input = tee_i_stream_create_child(tee, default_pool);
-	input2 = tee_i_stream_create_child(tee, default_pool);
+	tee = tee_i_stream_create(input);
+	input = tee_i_stream_create_child(tee);
+	input2 = tee_i_stream_create_child(tee);
 
 	index_mail_parse_header_init(mail, NULL);
 	mail->data.parser_ctx =
@@ -710,8 +710,7 @@ index_mail_get_header_stream(struct mail *_mail,
 		if (mail->data.filter_stream != NULL)
 			i_stream_destroy(&mail->data.filter_stream);
 		mail->data.filter_stream =
-			i_stream_create_from_data(default_pool,
-						  str_data(dest),
+			i_stream_create_from_data(str_data(dest),
 						  str_len(dest));
 		return mail->data.filter_stream;
 	}

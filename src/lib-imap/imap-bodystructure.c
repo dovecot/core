@@ -695,8 +695,7 @@ bool imap_body_parse_from_bodystructure(const char *bodystructure,
 	const struct imap_arg *args;
 	int ret;
 
-	input = i_stream_create_from_data(pool_datastack_create(),
-					  bodystructure, strlen(bodystructure));
+	input = i_stream_create_from_data(bodystructure, strlen(bodystructure));
 	(void)i_stream_read(input);
 
 	parser = imap_parser_create(input, NULL, (size_t)-1);

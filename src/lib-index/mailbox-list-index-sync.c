@@ -850,8 +850,7 @@ mailbox_list_index_sync_write(struct mailbox_list_index_sync_ctx *ctx)
 	int ret = 0;
 
 	if (ctx->index->mmap_base == NULL) {
-		ctx->output = o_stream_create_file(ctx->index->fd, default_pool,
-						   0, FALSE);
+		ctx->output = o_stream_create_file(ctx->index->fd, 0, FALSE);
 		ctx->output_buf = buffer_create_dynamic(default_pool, 4096);
 		o_stream_seek(ctx->output, ctx->hdr.used_space);
 	}

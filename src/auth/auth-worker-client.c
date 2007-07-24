@@ -468,10 +468,9 @@ auth_worker_client_create(struct auth *auth, int fd)
 	client->auth = auth;
 	client->fd = fd;
 	client->input =
-		i_stream_create_file(fd, default_pool,
-				     AUTH_WORKER_MAX_LINE_LENGTH, FALSE);
+		i_stream_create_file(fd, AUTH_WORKER_MAX_LINE_LENGTH, FALSE);
 	client->output =
-		o_stream_create_file(fd, default_pool, (size_t)-1, FALSE);
+		o_stream_create_file(fd, (size_t)-1, FALSE);
 	o_stream_set_flush_callback(client->output, auth_worker_output, client);
 	client->io = io_add(fd, IO_READ, auth_worker_input, client);
 

@@ -108,14 +108,14 @@ static const struct stat *_stat(struct _istream *stream, bool exact)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
+struct istream *i_stream_create_limit(struct istream *input,
 				      uoff_t v_start_offset, uoff_t v_size)
 {
 	struct limit_istream *lstream;
 
 	i_stream_ref(input);
 
-	lstream = p_new(pool, struct limit_istream, 1);
+	lstream = i_new(struct limit_istream, 1);
 	lstream->input = input;
 	lstream->v_start_offset = v_start_offset;
 	lstream->v_size = v_size;
@@ -135,7 +135,7 @@ struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
 
 	lstream->istream.istream.blocking = input->blocking;
 	lstream->istream.istream.seekable = input->seekable;
-	return _i_stream_create(&lstream->istream, pool, i_stream_get_fd(input),
+	return _i_stream_create(&lstream->istream, i_stream_get_fd(input),
 				input->real_stream->abs_start_offset +
 				v_start_offset);
 }

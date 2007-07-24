@@ -5,7 +5,6 @@
 #include "istream-tee.h"
 
 struct tee_istream {
-	pool_t pool;
 	struct istream *input;
 	struct tee_child_istream *children;
 
@@ -88,7 +87,7 @@ static void _destroy(struct _iostream *stream)
 			      tee->max_read_offset - tee->input->v_offset);
 
 		i_stream_unref(&tee->input);
-		p_free(tee->pool, tee);
+		i_free(tee);
 	} else {
 		tee_streams_skip(tstream->tee);
 	}
@@ -170,24 +169,22 @@ static void _sync(struct _istream *stream)
 	return i_stream_sync(tstream->tee->input);
 }
 
-struct tee_istream *tee_i_stream_create(struct istream *input, pool_t pool)
+struct tee_istream *tee_i_stream_create(struct istream *input)
 {
 	struct tee_istream *tee;
 
-	tee = p_new(pool, struct tee_istream, 1);
-	tee->pool = pool;
+	tee = i_new(struct tee_istream, 1);
 	tee->input = input;
 
 	i_stream_ref(input);
 	return tee;
 }
 
-struct istream *
-tee_i_stream_create_child(struct tee_istream *tee, pool_t pool)
+struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 {
 	struct tee_child_istream *tstream;
 
-	tstream = p_new(pool, struct tee_child_istream, 1);
+	tstream = i_new(struct tee_child_istream, 1);
 	tstream->tee = tee;
 
 	tstream->istream.iostream.close = _close;
@@ -202,6 +199,6 @@ tee_i_stream_create_child(struct tee_istream *tee, pool_t pool)
 	tstream->next = tee->children;
 	tee->children = tstream;
 
-	return _i_stream_create(&tstream->istream, pool,
+	return _i_stream_create(&tstream->istream,
 				i_stream_get_fd(tee->input), 0);
 }

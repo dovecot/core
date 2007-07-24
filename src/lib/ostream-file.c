@@ -78,7 +78,7 @@ static void _destroy(struct _iostream *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
-	p_free(fstream->ostream.iostream.pool, fstream->buffer);
+	i_free(fstream->buffer);
 }
 
 static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
@@ -322,9 +322,7 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 {
 	size_t size, new_size, end_size;
 
-	size = pool_get_exp_grown_size(fstream->ostream.iostream.pool,
-				       fstream->buffer_size,
-                                       fstream->buffer_size + bytes);
+	size = nearest_power(fstream->buffer_size + bytes);
 	if (size > fstream->max_buffer_size) {
 		/* limit the size */
 		size = fstream->max_buffer_size;
@@ -339,8 +337,7 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 	if (size <= fstream->buffer_size)
 		return;
 
-	fstream->buffer = p_realloc(fstream->ostream.iostream.pool,
-				    fstream->buffer,
+	fstream->buffer = i_realloc(fstream->buffer,
 				    fstream->buffer_size, size);
 
 	if (fstream->tail <= fstream->head && !IS_STREAM_EMPTY(fstream)) {
@@ -737,15 +734,14 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 }
 
 struct ostream *
-o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
-		     bool autoclose_fd)
+o_stream_create_file(int fd, size_t max_buffer_size, bool autoclose_fd)
 {
 	struct file_ostream *fstream;
 	struct ostream *ostream;
 	struct stat st;
 	off_t offset;
 
-	fstream = p_new(pool, struct file_ostream, 1);
+	fstream = i_new(struct file_ostream, 1);
 	fstream->fd = fd;
 	fstream->max_buffer_size = max_buffer_size;
 	fstream->autoclose_fd = autoclose_fd;
@@ -763,7 +759,7 @@ o_stream_create_file(int fd, pool_t pool, size_t max_buffer_size,
 	fstream->ostream.sendv = _sendv;
 	fstream->ostream.send_istream = _send_istream;
 
-	ostream = _o_stream_create(&fstream->ostream, pool);
+	ostream = _o_stream_create(&fstream->ostream);
 
 	offset = lseek(fd, 0, SEEK_CUR);
 	if (offset >= 0) {

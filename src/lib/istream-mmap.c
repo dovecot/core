@@ -185,7 +185,7 @@ _stat(struct _istream *stream, bool exact __attr_unused__)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
+struct istream *i_stream_create_mmap(int fd, size_t block_size,
 				     uoff_t start_offset, uoff_t v_size,
 				     bool autoclose_fd)
 {
@@ -207,7 +207,7 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 		}
 	}
 
-	mstream = p_new(pool, struct mmap_istream, 1);
+	mstream = i_new(struct mmap_istream, 1);
 	mstream->autoclose_fd = autoclose_fd;
 	mstream->v_size = v_size;
 
@@ -220,7 +220,7 @@ struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
 	mstream->istream.sync = _sync;
 	mstream->istream.stat = _stat;
 
-	istream = _i_stream_create(&mstream->istream, pool, fd, start_offset);
+	istream = _i_stream_create(&mstream->istream, fd, start_offset);
 	istream->mmaped = TRUE;
 	istream->blocking = TRUE;
 	istream->seekable = TRUE;

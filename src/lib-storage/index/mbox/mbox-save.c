@@ -321,8 +321,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		if (mbox_seek_to_end(ctx, &ctx->append_offset) < 0)
 			return -1;
 
-		ctx->output = o_stream_create_file(mbox->mbox_fd, default_pool,
-						   0, FALSE);
+		ctx->output = o_stream_create_file(mbox->mbox_fd, 0, FALSE);
 	}
 	return 0;
 }
@@ -477,8 +476,8 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 		ctx->body_output =
 			(mbox->storage->storage.flags &
 			 MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
-			o_stream_create_crlf(default_pool, ctx->output) :
-			o_stream_create_lf(default_pool, ctx->output);
+			o_stream_create_crlf(ctx->output) :
+			o_stream_create_lf(ctx->output);
 		if (ctx->mail != NULL) {
 			input = index_mail_cache_parse_init(ctx->mail,
 							    ctx->input);

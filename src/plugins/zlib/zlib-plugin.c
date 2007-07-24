@@ -41,10 +41,8 @@ zlib_mailbox_open(struct mail_storage *storage, const char *name,
 			int fd;
 
 			fd = open(path, O_RDONLY);
-			if (fd != -1) {
-				input = zlib_input =
-					i_stream_create_zlib(fd, default_pool);
-			}
+			if (fd != -1)
+				input = zlib_input = i_stream_create_zlib(fd);
 		}
 	}
 

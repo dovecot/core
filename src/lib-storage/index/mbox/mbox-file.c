@@ -73,8 +73,7 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 		i_assert(mbox->mbox_fd == -1 && mbox->mbox_readonly);
 
 		mbox->mbox_stream =
-			i_stream_create_raw_mbox(default_pool,
-						 mbox->mbox_file_stream,
+			i_stream_create_raw_mbox(mbox->mbox_file_stream,
 						 one_mail_only);
 		return 0;
 	}
@@ -84,18 +83,16 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 			return -1;
 	}
 
-	if (mbox->mbox_writeonly) {
+	if (mbox->mbox_writeonly)
+		mbox->mbox_file_stream = i_stream_create_from_data(NULL, 0);
+	else {
 		mbox->mbox_file_stream =
-			i_stream_create_from_data(default_pool, NULL, 0);
-	} else {
-		mbox->mbox_file_stream =
-			i_stream_create_file(mbox->mbox_fd, default_pool,
+			i_stream_create_file(mbox->mbox_fd,
 					     MAIL_READ_BLOCK_SIZE, FALSE);
 	}
 
 	mbox->mbox_stream =
-		i_stream_create_raw_mbox(default_pool, mbox->mbox_file_stream,
-					 one_mail_only);
+		i_stream_create_raw_mbox(mbox->mbox_file_stream, one_mail_only);
 	return 0;
 }
 

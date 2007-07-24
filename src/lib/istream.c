@@ -279,19 +279,15 @@ void _i_stream_grow_buffer(struct _istream *stream, size_t bytes)
 	stream->buffer_size = stream->pos + bytes;
 	if (stream->buffer_size <= I_STREAM_MIN_SIZE)
 		stream->buffer_size = I_STREAM_MIN_SIZE;
-	else {
-		stream->buffer_size =
-			pool_get_exp_grown_size(stream->iostream.pool,
-						old_size, stream->buffer_size);
-	}
+	else
+		stream->buffer_size = nearest_power(stream->buffer_size);
 
 	if (stream->max_buffer_size > 0 &&
 	    stream->buffer_size > stream->max_buffer_size)
 		stream->buffer_size = stream->max_buffer_size;
 
 	stream->buffer = stream->w_buffer =
-		p_realloc(stream->iostream.pool, stream->w_buffer,
-			  old_size, stream->buffer_size);
+		i_realloc(stream->w_buffer, old_size, stream->buffer_size);
 }
 
 static void _set_max_buffer_size(struct _iostream *stream, size_t max_size)
@@ -307,8 +303,8 @@ _stat(struct _istream *stream, bool exact __attr_unused__)
 	return &stream->statbuf;
 }
 
-struct istream *_i_stream_create(struct _istream *_stream, pool_t pool, int fd,
-				 uoff_t abs_start_offset)
+struct istream *
+_i_stream_create(struct _istream *_stream, int fd, uoff_t abs_start_offset)
 {
 	_stream->fd = fd;
 	_stream->abs_start_offset = abs_start_offset;
@@ -325,7 +321,7 @@ struct istream *_i_stream_create(struct _istream *_stream, pool_t pool, int fd,
 		_stream->statbuf.st_mtime =
 		_stream->statbuf.st_ctime = ioloop_time;
 
-	_io_stream_init(pool, &_stream->iostream);
+	_io_stream_init(&_stream->iostream);
 	return &_stream->istream;
 }
 
@@ -371,7 +367,7 @@ int main(void)
 	write(fd1, buf, sizeof(buf));
 
 	/* test reading */
-	input = i_stream_create_file(fd1, default_pool, 512, FALSE);
+	input = i_stream_create_file(fd1, 512, FALSE);
 	i_assert(i_stream_get_size(input) == sizeof(buf));
 
 	i_assert(i_stream_read_data(input, &data, &size, 0) > 0);
@@ -394,8 +390,8 @@ int main(void)
 	check_buffer(data, size, 900);
 
 	/* test moving data */
-	output1 = o_stream_create_file(fd1, default_pool, 512, FALSE);
-	output2 = o_stream_create_file(fd2, default_pool, 512, FALSE);
+	output1 = o_stream_create_file(fd1, 512, FALSE);
+	output2 = o_stream_create_file(fd2, 512, FALSE);
 
 	i_stream_seek(input, 1); size = sizeof(buf)-1;
 	i_assert(o_stream_send_istream(output2, input) == size);
@@ -410,8 +406,7 @@ int main(void)
 	i_assert(o_stream_send_istream(output1, input) == sizeof(buf));
 
 	/* test moving with limits */
-	l_input = i_stream_create_limit(default_pool, input,
-					sizeof(buf)/2, 512);
+	l_input = i_stream_create_limit(input, sizeof(buf)/2, 512);
 	i_stream_seek(l_input, 0);
 	o_stream_seek(output1, 10);
 	i_assert(o_stream_send_istream(output1, l_input) == 512);

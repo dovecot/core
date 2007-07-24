@@ -18,14 +18,13 @@ struct istream {
 	struct _istream *real_stream;
 };
 
-struct istream *i_stream_create_file(int fd, pool_t pool,
-				     size_t max_buffer_size, bool autoclose_fd);
-struct istream *i_stream_create_mmap(int fd, pool_t pool, size_t block_size,
+struct istream *i_stream_create_file(int fd, size_t max_buffer_size,
+				     bool autoclose_fd);
+struct istream *i_stream_create_mmap(int fd, size_t block_size,
 				     uoff_t start_offset, uoff_t v_size,
 				     bool autoclose_fd);
-struct istream *i_stream_create_from_data(pool_t pool, const void *data,
-					  size_t size);
-struct istream *i_stream_create_limit(pool_t pool, struct istream *input,
+struct istream *i_stream_create_from_data(const void *data, size_t size);
+struct istream *i_stream_create_limit(struct istream *input,
 				      uoff_t v_start_offset, uoff_t v_size);
 
 /* i_stream_close() + i_stream_unref() */

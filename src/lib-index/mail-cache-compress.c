@@ -138,7 +138,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	}
 
 	cache_view = mail_cache_view_open(cache, view);
-	output = o_stream_create_file(fd, default_pool, 0, FALSE);
+	output = o_stream_create_file(fd, 0, FALSE);
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.version = MAIL_CACHE_VERSION;

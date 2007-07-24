@@ -186,7 +186,7 @@ static bool cmd_append_cancel(struct cmd_append_context *ctx, bool nonsync)
 
 	/* we have to read the nonsynced literal so we don't treat the message
 	   data as commands. */
-	ctx->input = i_stream_create_limit(default_pool, ctx->client->input,
+	ctx->input = i_stream_create_limit(ctx->client->input,
 					   ctx->client->input->v_offset,
 					   ctx->msg_size);
 
@@ -317,7 +317,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	}
 
 	/* save the mail */
-	ctx->input = i_stream_create_limit(default_pool, client->input,
+	ctx->input = i_stream_create_limit(client->input,
 					   client->input->v_offset,
 					   ctx->msg_size);
 	ret = mailbox_save_init(ctx->t, flags, keywords,

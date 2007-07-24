@@ -353,7 +353,7 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 	uidlist->ino = st.st_ino;
 	uidlist->mtime = st.st_mtime;
 
-	input = i_stream_create_file(uidlist->fd, default_pool, 65536, FALSE);
+	input = i_stream_create_file(uidlist->fd, 65536, FALSE);
 
 	/* read header: <version> <uidvalidity> <next-uid>.
 	   Note that <next-uid> may be updated by UID lines, so it can't be
@@ -559,7 +559,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 		return 0;
 	}
 
-	output = o_stream_create_file(uidlist->lock_fd, default_pool, 0, FALSE);
+	output = o_stream_create_file(uidlist->lock_fd, 0, FALSE);
 
 	t_push();
 	str = t_str_new(256);
@@ -739,7 +739,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 			"lseek(%s) failed: %m", ctx->uidlist->path);
 		return -1;
 	}
-	output = o_stream_create_file(ctx->uidlist->fd, default_pool, 0, FALSE);
+	output = o_stream_create_file(ctx->uidlist->fd, 0, FALSE);
 
 	uid_start = ctx->uidlist->last_uid + 1;
 
@@ -967,9 +967,8 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 	file->path = i_strdup(path);
 	file->fd = fd;
 
-	file->input = i_stream_create_file(file->fd, default_pool,
-					   65536, FALSE);
-	file->output = o_stream_create_file(file->fd, default_pool, 0, FALSE);
+	file->input = i_stream_create_file(file->fd, 65536, FALSE);
+	file->output = o_stream_create_file(file->fd, 0, FALSE);
 	if ((uoff_t)st->st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {
 			dbox_file_close(file);
@@ -1152,7 +1151,7 @@ int dbox_uidlist_append_locked(struct dbox_uidlist_append_ctx *ctx,
 
 	/* we'll always use CRLF linefeeds for mails (but not the header,
 	   so don't do this before dbox_file_write_header()) */
-	output = o_stream_create_crlf(default_pool, file->output);
+	output = o_stream_create_crlf(file->output);
 	o_stream_unref(&file->output);
 	file->output = output;
 

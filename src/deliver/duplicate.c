@@ -94,7 +94,7 @@ static int duplicate_read(struct duplicate_file *file)
 	}
 
 	/* <timestamp> <id_size> <user_size> <id> <user> */
-	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
+	input = i_stream_create_file(fd, 4096, FALSE);
 
 	change_count = 0;
 	while (i_stream_read_data(input, &data, &size, sizeof(stamp) +
@@ -218,7 +218,7 @@ void duplicate_flush(void)
 	if (duplicate_file == NULL || !file->changed || file->new_fd == -1)
 		return;
 
-	output = o_stream_create_file(file->new_fd, default_pool, 4096, FALSE);
+	output = o_stream_create_file(file->new_fd, 4096, FALSE);
 	iter = hash_iterate_init(file->hash);
 	while (hash_iterate(iter, &key, &value)) {
 		struct duplicate *d = value;

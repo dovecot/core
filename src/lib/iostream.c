@@ -3,10 +3,8 @@
 #include "lib.h"
 #include "iostream-internal.h"
 
-void _io_stream_init(pool_t pool, struct _iostream *stream)
+void _io_stream_init(struct _iostream *stream)
 {
-	pool_ref(pool);
-	stream->pool = pool;
 	stream->refcount = 1;
 }
 
@@ -17,8 +15,6 @@ void _io_stream_ref(struct _iostream *stream)
 
 void _io_stream_unref(struct _iostream *stream)
 {
-	pool_t pool;
-
 	i_assert(stream->refcount > 0);
 	if (--stream->refcount != 0)
 		return;
@@ -26,9 +22,7 @@ void _io_stream_unref(struct _iostream *stream)
 	stream->close(stream);
 	stream->destroy(stream);
 
-	pool = stream->pool;
-        p_free(pool, stream);
-	pool_unref(pool);
+        i_free(stream);
 }
 
 void _io_stream_close(struct _iostream *stream)

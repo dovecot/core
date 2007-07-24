@@ -179,7 +179,7 @@ int log_create_pipe(struct log_io **log_r, unsigned int max_lines_per_sec)
 
 	log_io = i_new(struct log_io, 1);
 	log_io->refcount = 1;
-	log_io->stream = i_stream_create_file(fd[0], default_pool, 1024, TRUE);
+	log_io->stream = i_stream_create_file(fd[0], 1024, TRUE);
 	log_io->max_lines_per_sec =
 		max_lines_per_sec != 0 ? max_lines_per_sec : (unsigned int)-1;
 

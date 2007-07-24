@@ -446,9 +446,9 @@ dict_client_connection_init(struct dict_server *server, int fd)
 	conn = i_new(struct dict_client_connection, 1);
 	conn->server = server;
 	conn->fd = fd;
-	conn->input = i_stream_create_file(fd, default_pool,
-					   DICT_CLIENT_MAX_LINE_LENGTH, FALSE);
-	conn->output = o_stream_create_file(fd, default_pool, 128*1024, FALSE);
+	conn->input = i_stream_create_file(fd, DICT_CLIENT_MAX_LINE_LENGTH,
+					   FALSE);
+	conn->output = o_stream_create_file(fd, 128*1024, FALSE);
 	conn->io = io_add(fd, IO_READ, dict_client_connection_input, conn);
 	return conn;
 }

@@ -329,24 +329,22 @@ i_stream_create_header_filter(struct istream *input,
 			      header_filter_callback *callback, void *context)
 {
 	struct header_filter_istream *mstream;
-	pool_t pool;
 	unsigned int i;
 
 	i_assert((flags & (HEADER_FILTER_INCLUDE|HEADER_FILTER_EXCLUDE)) != 0);
 
-	pool = pool_alloconly_create("header filter stream", 4096);
-	mstream = p_new(pool, struct header_filter_istream, 1);
-	mstream->pool = pool;
+	mstream = i_new(struct header_filter_istream, 1);
+	mstream->pool = pool_alloconly_create("header filter stream", 4096);
 
 	mstream->input = input;
 	i_stream_ref(mstream->input);
 
 	mstream->headers = headers_count == 0 ? NULL :
-		p_new(pool, const char *, headers_count);
+		p_new(mstream->pool, const char *, headers_count);
 	for (i = 0; i < headers_count; i++) 
-		mstream->headers[i] = p_strdup(pool, headers[i]);
+		mstream->headers[i] = p_strdup(mstream->pool, headers[i]);
 	mstream->headers_count = headers_count;
-	mstream->hdr_buf = buffer_create_dynamic(pool, 1024);
+	mstream->hdr_buf = buffer_create_dynamic(mstream->pool, 1024);
 
 	mstream->callback = callback;
 	mstream->context = context;
@@ -366,5 +364,5 @@ i_stream_create_header_filter(struct istream *input,
 
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
-	return _i_stream_create(&mstream->istream, pool, -1, 0);
+	return _i_stream_create(&mstream->istream, -1, 0);
 }

@@ -7,9 +7,8 @@
 
    If the stream's buffer gets full because some child isn't consuming the
    data, other streams get returned 0 by i_stream_read(). */
-struct tee_istream *tee_i_stream_create(struct istream *input, pool_t pool);
+struct tee_istream *tee_i_stream_create(struct istream *input);
 
-struct istream *
-tee_i_stream_create_child(struct tee_istream *tee, pool_t pool);
+struct istream *tee_i_stream_create_child(struct tee_istream *tee);
 
 #endif

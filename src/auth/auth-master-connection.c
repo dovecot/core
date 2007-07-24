@@ -242,10 +242,8 @@ auth_master_connection_create(struct auth_master_listener *listener, int fd)
 	conn->listener = listener;
 	conn->refcount = 1;
 	conn->fd = fd;
-	conn->input = i_stream_create_file(fd, default_pool,
-					   MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_file(fd, default_pool,
-					    (size_t)-1, FALSE);
+	conn->input = i_stream_create_file(fd, MAX_INBUF_SIZE, FALSE);
+	conn->output = o_stream_create_file(fd, (size_t)-1, FALSE);
 	o_stream_set_flush_callback(conn->output, master_output, conn);
 	conn->io = io_add(fd, IO_READ, master_input, conn);
 

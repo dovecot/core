@@ -165,7 +165,7 @@ static void master_read_env(int fd)
 	env_clean();
 
 	/* read environment variable lines until empty line comes */
-	input = i_stream_create_file(fd, default_pool, 8192, FALSE);
+	input = i_stream_create_file(fd, 8192, FALSE);
 	do {
 		switch (i_stream_read(input)) {
 		case -1:

@@ -345,7 +345,7 @@ acl_backend_vfile_read(struct acl_object_vfile *aclobj, const char *path,
 	if (aclobj->aclobj.backend->debug)
 		i_info("acl vfile: reading file %s", path);
 
-	input = i_stream_create_file(fd, default_pool, 4096, FALSE);
+	input = i_stream_create_file(fd, 4096, FALSE);
 
 	if (!array_is_created(&aclobj->rights)) {
 		aclobj->rights_pool =

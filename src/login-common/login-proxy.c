@@ -121,11 +121,10 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 
 	/* connect successful */
 	proxy->server_input =
-		i_stream_create_file(proxy->server_fd, default_pool,
-				     MAX_PROXY_INPUT_SIZE, FALSE);
+		i_stream_create_file(proxy->server_fd, MAX_PROXY_INPUT_SIZE,
+				     FALSE);
 	proxy->server_output =
-		o_stream_create_file(proxy->server_fd, default_pool,
-				     (size_t)-1, FALSE);
+		o_stream_create_file(proxy->server_fd, (size_t)-1, FALSE);
 
 	io_remove(&proxy->server_io);
 	proxy->server_io =

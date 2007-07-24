@@ -244,10 +244,8 @@ static int client_dict_connect(struct client_dict *dict)
 	/* Dictionary lookups are blocking */
 	net_set_nonblock(dict->fd, FALSE);
 
-	dict->input = i_stream_create_file(dict->fd, default_pool,
-					   (size_t)-1, FALSE);
-	dict->output = o_stream_create_file(dict->fd, default_pool,
-					    4096, FALSE);
+	dict->input = i_stream_create_file(dict->fd, (size_t)-1, FALSE);
+	dict->output = o_stream_create_file(dict->fd, 4096, FALSE);
 	dict->transaction_id_counter = 0;
 
 	t_push();

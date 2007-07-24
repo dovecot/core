@@ -132,8 +132,7 @@ int dbox_file_seek(struct dbox_mailbox *mbox, uint32_t file_seq, uoff_t offset,
 		}
 
 		mbox->file->input =
-			i_stream_create_file(mbox->file->fd, default_pool,
-					     65536, FALSE);
+			i_stream_create_file(mbox->file->fd, 65536, FALSE);
 
 		if (dbox_file_read_header(mbox, mbox->file) < 0)
 			return -1;

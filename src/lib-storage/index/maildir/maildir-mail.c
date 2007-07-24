@@ -62,8 +62,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 		return NULL;
 	}
 
-	return i_stream_create_file(fd, default_pool,
-				    MAIL_READ_BLOCK_SIZE, TRUE);
+	return i_stream_create_file(fd, MAIL_READ_BLOCK_SIZE, TRUE);
 }
 
 static int maildir_mail_stat(struct mail *mail, struct stat *st)
