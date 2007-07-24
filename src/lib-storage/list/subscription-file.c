@@ -16,11 +16,9 @@
 #define SUBSCRIPTION_FILE_CHANGE_TIMEOUT 30
 
 struct subsfile_list_context {
-	pool_t pool;
-
 	struct mailbox_list *list;
 	struct istream *input;
-	const char *path;
+	char *path;
 
 	bool failed;
 };
@@ -176,14 +174,9 @@ struct subsfile_list_context *
 subsfile_list_init(struct mailbox_list *list, const char *path)
 {
 	struct subsfile_list_context *ctx;
-	pool_t pool;
 	int fd;
 
-	pool = pool_alloconly_create("subsfile_list",
-				     list->mailbox_name_max_length + 1024);
-
-	ctx = p_new(pool, struct subsfile_list_context, 1);
-	ctx->pool = pool;
+	ctx = i_new(struct subsfile_list_context, 1);
 	ctx->list = list;
 
 	fd = nfs_safe_open(path, O_RDONLY);
@@ -194,11 +187,11 @@ subsfile_list_init(struct mailbox_list *list, const char *path)
 		}
 	} else {
 		ctx->input =
-			i_stream_create_file(fd, pool,
+			i_stream_create_file(fd, default_pool,
 					     list->mailbox_name_max_length+1,
 					     TRUE);
 	}
-	ctx->path = p_strdup(pool, path);
+	ctx->path = i_strdup(path);
 	return ctx;
 }
 
@@ -208,7 +201,8 @@ int subsfile_list_deinit(struct subsfile_list_context *ctx)
 
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
-	pool_unref(ctx->pool);
+	i_free(ctx->path);
+	i_free(ctx);
 	return ret;
 }
 
@@ -247,7 +241,7 @@ const char *subsfile_list_next(struct subsfile_list_context *ctx)
                         return NULL;
                 }
 
-		ctx->input = i_stream_create_file(fd, ctx->pool,
+		ctx->input = i_stream_create_file(fd, default_pool,
 					ctx->list->mailbox_name_max_length+1,
 					TRUE);
         }
