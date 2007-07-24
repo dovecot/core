@@ -84,7 +84,7 @@ static uoff_t cydir_mail_get_physical_size(struct mail *_mail)
 		return data->physical_size;
 
 	if (cydir_mail_stat(_mail, &st) < 0)
-		return (time_t)-1;
+		return (uoff_t)-1;
 
 	data->physical_size = data->virtual_size = st.st_size;
 	index_mail_cache_add(mail, MAIL_CACHE_PHYSICAL_FULL_SIZE,
