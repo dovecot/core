@@ -619,7 +619,6 @@ static void ldap_conn_close(struct ldap_connection *conn, bool flush_requests)
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,
-		       const char *const default_attr_map[],
 		       const char *skip_attr)
 {
 	const char *const *attr;
@@ -638,11 +637,9 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 
 	for (i = j = 0; i < size; i++) {
 		p = strchr(attr[i], '=');
-		if (p == NULL) {
-			name = p_strdup(conn->pool, attr[i]);
-			value = *default_attr_map == NULL ? name :
-				p_strdup(conn->pool, *default_attr_map);
-		} else {
+		if (p == NULL)
+			name = value = p_strdup(conn->pool, attr[i]);
+		else {
 			name = p_strdup_until(conn->pool, attr[i], p);
 			value = p_strdup(conn->pool, p + 1);
 		}
@@ -652,9 +649,6 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			hash_insert(attr_map, name, value);
 			(*attr_names_r)[j++] = name;
 		}
-
-		if (*default_attr_map != NULL)
-			default_attr_map++;
 	}
 	t_pop();
 }

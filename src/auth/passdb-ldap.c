@@ -15,10 +15,6 @@
 #include <ldap.h>
 #include <stdlib.h>
 
-static const char *default_attr_map[] = {
-	"user", "password", NULL
-};
-
 struct ldap_passdb_module {
 	struct passdb_module module;
 
@@ -434,7 +430,7 @@ passdb_ldap_preinit(struct auth_passdb *auth_passdb, const char *args)
 	if (conn->set.auth_bind_userdn != NULL)
 		conn->set.auth_bind = TRUE;
 	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
-			  conn->pass_attr_map, default_attr_map,
+			  conn->pass_attr_map,
 			  conn->set.auth_bind ? "password" : NULL);
 	module->module.cache_key =
 		auth_cache_parse_key(auth_passdb->auth->pool,

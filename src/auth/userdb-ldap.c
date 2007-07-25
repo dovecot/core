@@ -26,10 +26,6 @@ struct userdb_ldap_request {
         userdb_callback_t *userdb_callback;
 };
 
-static const char *default_attr_map[] = {
-	"", "home", "mail", "system_user", "uid", "gid", NULL
-};
-
 static void
 ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 		      struct auth_request *auth_request)
@@ -141,7 +137,7 @@ userdb_ldap_preinit(struct auth_userdb *auth_userdb, const char *args)
 			    (hash_cmp_callback_t *)strcmp);
 
 	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
-			  conn->user_attr_map, default_attr_map, NULL);
+			  conn->user_attr_map, NULL);
 	module->module.cache_key =
 		auth_cache_parse_key(auth_userdb->auth->pool,
 				     conn->set.user_filter);

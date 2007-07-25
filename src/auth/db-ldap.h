@@ -99,7 +99,6 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,
-		       const char *const default_attr_map[],
 		       const char *skip_attr);
 
 struct ldap_connection *db_ldap_init(const char *config_path);
