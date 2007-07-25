@@ -103,9 +103,9 @@ struct ldap_settings default_ldap_settings = {
 	MEMBER(scope) "subtree",
 	MEMBER(base) NULL,
 	MEMBER(ldap_version) 2,
-	MEMBER(user_attrs) "uid,homeDirectory,,,uidNumber,gidNumber",
+	MEMBER(user_attrs) "homeDirectory=home,uidNumber=uid,gidNumber=gid",
 	MEMBER(user_filter) "(&(objectClass=posixAccount)(uid=%u))",
-	MEMBER(pass_attrs) "uid,userPassword",
+	MEMBER(pass_attrs) "uid=user,userPassword=password",
 	MEMBER(pass_filter) "(&(objectClass=posixAccount)(uid=%u))",
 	MEMBER(default_pass_scheme) "crypt"
 };
