@@ -1,6 +1,7 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002-2007 Timo Sirainen */
 
 #include "lib.h"
+#include "str.h"
 #include "istream.h"
 #include "strescape.h"
 #include "settings.h"
@@ -71,6 +72,7 @@ bool settings_read(const char *path, const char *section,
 	struct istream *input;
 	const char *errormsg, *next_section, *name;
 	char *line, *key, *p, quote;
+	string_t *full_line;
 	size_t len;
 	int fd, linenum, last_section_line = 0, skip, sections, root_section;
 
@@ -90,6 +92,7 @@ bool settings_read(const char *path, const char *section,
 		next_section = t_strcut(section, '/');
 	}
 
+	full_line = t_str_new(512);
 	linenum = 0; sections = 0; root_section = 0; errormsg = NULL;
 	input = i_stream_create_file(fd, 2048, TRUE);
 	for (;;) {
@@ -139,6 +142,17 @@ bool settings_read(const char *path, const char *section,
 		while (IS_WHITE(line[len-1]))
 			len--;
 		line[len] = '\0';
+
+		if (len > 0 && line[len-1] == '\\') {
+			/* continues in next line */
+			line[len-1] = '\0';
+			str_append(full_line, line);
+			continue;
+		}
+		if (str_len(full_line) > 0) {
+			str_append(full_line, line);
+			line = str_c_modifiable(full_line);
+		}
 
 		/* a) key = value
 		   b) section_type [section_name] {
@@ -246,6 +260,7 @@ bool settings_read(const char *path, const char *section,
 				path, linenum, errormsg);
 			break;
 		}
+		str_truncate(full_line, 0);
 	}
 
 	i_stream_destroy(&input);
