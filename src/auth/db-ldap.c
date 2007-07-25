@@ -52,6 +52,7 @@ struct db_ldap_result_iterate_context {
 
 	char *attr, **vals;
 	const char *name, *value, *template, *val_1_arr[2];
+	const char *const *static_attrs;
 	BerElement *ber;
 
 	string_t *var, *debug;
@@ -622,6 +623,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       const char *skip_attr)
 {
 	const char *const *attr;
+	string_t *static_data;
 	char *name, *value, *p;
 	unsigned int i, j, size;
 
@@ -630,6 +632,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 
 	t_push();
 	attr = t_strsplit(attrlist, ",");
+	static_data = t_str_new(128);
 
 	/* @UNSAFE */
 	for (size = 0; attr[size] != NULL; size++) ;
@@ -639,9 +642,15 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		p = strchr(attr[i], '=');
 		if (p == NULL)
 			name = value = p_strdup(conn->pool, attr[i]);
-		else {
+		else if (p != attr[i]) {
 			name = p_strdup_until(conn->pool, attr[i], p);
 			value = p_strdup(conn->pool, p + 1);
+		} else {
+			/* =<static key>=<static value> */
+			if (str_len(static_data) > 0)
+				str_append_c(static_data, ',');
+			str_append(static_data, p + 1);
+			continue;
 		}
 
 		if (*name != '\0' &&
@@ -649,6 +658,10 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			hash_insert(attr_map, name, value);
 			(*attr_names_r)[j++] = name;
 		}
+	}
+	if (str_len(static_data) > 0) {
+		hash_insert(attr_map, "",
+			    p_strdup(conn->pool, str_c(static_data)));
 	}
 	t_pop();
 }
@@ -704,12 +717,17 @@ db_ldap_result_iterate_init(struct ldap_connection *conn, LDAPMessage *entry,
 			    struct hash_table *attr_map)
 {
 	struct db_ldap_result_iterate_context *ctx;
+	const char *static_data;
 
 	ctx = t_new(struct db_ldap_result_iterate_context, 1);
 	ctx->conn = conn;
 	ctx->entry = entry;
 	ctx->auth_request = auth_request;
 	ctx->attr_map = attr_map;
+
+	static_data = hash_lookup(attr_map, "");
+	if (static_data != NULL)
+		ctx->static_attrs = t_strsplit(static_data, ",");
 
 	if (auth_request->auth->verbose_debug)
 		ctx->debug = t_str_new(256);
@@ -787,6 +805,8 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx)
 
 static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 {
+	const char *p;
+
 	while (ctx->attr != NULL) {
 		if (ctx->vals == NULL) {
 			/* a new attribute */
@@ -806,6 +826,19 @@ static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 		ldap_memfree(ctx->attr);
 		ctx->attr = ldap_next_attribute(ctx->conn->ld, ctx->entry,
 						ctx->ber);
+	}
+
+	if (ctx->static_attrs != NULL && *ctx->static_attrs != NULL) {
+		p = strchr(*ctx->static_attrs, '=');
+		if (p == NULL) {
+			ctx->name = *ctx->static_attrs;
+			ctx->value = "";
+		} else {
+			ctx->name = t_strdup_until(*ctx->static_attrs, p);
+			ctx->value = p + 1;
+		}
+		ctx->static_attrs++;
+		return TRUE;
 	}
 
 	db_ldap_result_iterate_finish(ctx);
