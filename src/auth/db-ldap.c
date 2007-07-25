@@ -55,6 +55,7 @@ struct db_ldap_result_iterate_context {
 	BerElement *ber;
 
 	string_t *var, *debug;
+	unsigned int value_idx;
 };
 
 #define DEF_STR(name) DEF_STRUCT_STR(name, ldap_settings)
@@ -764,12 +765,13 @@ db_ldap_result_change_attr(struct db_ldap_result_iterate_context *ctx)
 	ctx->vals = ldap_get_values(ctx->conn->ld, ctx->entry,
 				    ctx->attr);
 	ctx->value = ctx->vals[0];
+	ctx->value_idx = 0;
 }
 
 static void
 db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx)
 {
-	bool first = ctx->value == ctx->vals[0];
+	bool first = ctx->value_idx == 0;
 
 	if (ctx->template != NULL) {
 		ctx->var_table[0].value = ctx->value;
@@ -798,7 +800,7 @@ static bool db_ldap_result_int_next(struct db_ldap_result_iterate_context *ctx)
 		} else {
 			/* continuing existing attribute */
 			if (ctx->value != NULL)
-				ctx->value++;
+				ctx->value = ctx->vals[++ctx->value_idx];
 		}
 
 		if (ctx->value != NULL) {

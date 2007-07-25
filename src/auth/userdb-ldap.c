@@ -37,6 +37,8 @@ ldap_query_get_result(struct ldap_connection *conn, LDAPMessage *entry,
 	struct db_ldap_result_iterate_context *ldap_iter;
 	const char *name, *const *values;
 
+	auth_request_init_userdb_reply(auth_request);
+
 	ldap_iter = db_ldap_result_iterate_init(conn, entry, auth_request,
 						conn->user_attr_map);
 	while (db_ldap_result_iterate_next_all(ldap_iter, &name, &values)) {
