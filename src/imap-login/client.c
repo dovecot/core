@@ -119,7 +119,7 @@ static void client_start_tls(struct imap_client *client)
 
 	client_ref(client);
 	connection_queue_add(1);
-	if (!client_unref(client))
+	if (!client_unref(client) || client->destroyed)
 		return;
 
 	fd_ssl = ssl_proxy_new(client->common.fd, &client->common.ip,
