@@ -298,6 +298,7 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 			i_assert(request->filter == NULL);
 			request->callback(conn, request, NULL);
 		}
+		conn->delayed_requests_head = NULL;
 	}
 	hash_destroy(old_requests);
 
