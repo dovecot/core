@@ -12,6 +12,11 @@ lib10_quota_plugin_la_LDFLAGS = -module -avoid-version
 module_LTLIBRARIES = \
 	lib10_quota_plugin.la
 
+if HAVE_RQUOTA
+lib10_quota_plugin_la_LIBADD = \
+	-lrpcsvc
+endif
+
 lib10_quota_plugin_la_SOURCES = \
 	quota.c \
 	quota-count.c \

@@ -1921,6 +1921,13 @@ AC_CHECK_HEADER(zlib.h, [
 ])
 AM_CONDITIONAL(BUILD_ZLIB, test "$have_zlib" = "yes")
 
+have_rquota=no
+AC_CHECK_HEADER(rpcsvc/rquota.h, [
+  AC_DEFINE(HAVE_RQUOTA,, Define if you wish to retrieve quota of NFS mounted mailboxes)
+  have_rquota=yes
+])
+AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
+
 dnl **
 dnl ** capabilities
 dnl **
