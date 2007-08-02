@@ -18,8 +18,8 @@ struct istream {
 	struct _istream *real_stream;
 };
 
-struct istream *i_stream_create_file(int fd, size_t max_buffer_size,
-				     bool autoclose_fd);
+struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
+				   bool autoclose_fd);
 struct istream *i_stream_create_mmap(int fd, size_t block_size,
 				     uoff_t start_offset, uoff_t v_size,
 				     bool autoclose_fd);

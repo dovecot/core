@@ -94,7 +94,7 @@ static int duplicate_read(struct duplicate_file *file)
 	}
 
 	/* <timestamp> <id_size> <user_size> <id> <user> */
-	input = i_stream_create_file(fd, 4096, FALSE);
+	input = i_stream_create_fd(fd, 4096, FALSE);
 
 	change_count = 0;
 	while (i_stream_read_data(input, &data, &size, sizeof(stamp) +

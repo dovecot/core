@@ -113,7 +113,7 @@ cydir_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 			return NULL;
 		}
 		mail->data.stream =
-			i_stream_create_file(fd, MAIL_READ_BLOCK_SIZE, TRUE);
+			i_stream_create_fd(fd, MAIL_READ_BLOCK_SIZE, TRUE);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size);

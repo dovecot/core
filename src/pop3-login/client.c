@@ -65,7 +65,7 @@ static void client_set_title(struct pop3_client *client)
 
 static void client_open_streams(struct pop3_client *client, int fd)
 {
-	client->input = i_stream_create_file(fd, MAX_INBUF_SIZE, FALSE);
+	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	client->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
 }
 

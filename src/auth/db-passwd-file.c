@@ -183,7 +183,7 @@ static bool passwd_file_open(struct passwd_file *pw)
 	pw->users = hash_create(default_pool, pw->pool, 100,
 				str_hash, (hash_cmp_callback_t *)strcmp);
 
-	input = i_stream_create_file(pw->fd, 4096, FALSE);
+	input = i_stream_create_fd(pw->fd, 4096, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (*line == '\0' || *line == ':' || *line == '#')
 			continue; /* no username or comment */

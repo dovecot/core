@@ -353,7 +353,7 @@ static int dbox_uidlist_read(struct dbox_uidlist *uidlist)
 	uidlist->ino = st.st_ino;
 	uidlist->mtime = st.st_mtime;
 
-	input = i_stream_create_file(uidlist->fd, 65536, FALSE);
+	input = i_stream_create_fd(uidlist->fd, 65536, FALSE);
 
 	/* read header: <version> <uidvalidity> <next-uid>.
 	   Note that <next-uid> may be updated by UID lines, so it can't be
@@ -967,7 +967,7 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 	file->path = i_strdup(path);
 	file->fd = fd;
 
-	file->input = i_stream_create_file(file->fd, 65536, FALSE);
+	file->input = i_stream_create_fd(file->fd, 65536, FALSE);
 	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
 	if ((uoff_t)st->st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {

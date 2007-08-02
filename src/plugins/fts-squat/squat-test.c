@@ -59,7 +59,7 @@ int main(int argc __attr_unused__, char *argv[])
 		return 1;
 
 	build_ctx = squat_trie_build_init(trie, &last_uid);
-	input = i_stream_create_file(fd, 0, FALSE);
+	input = i_stream_create_fd(fd, 0, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (last != input->v_offset/(1024*100)) {
 			fprintf(stderr, "\r%ukB", (unsigned)(input->v_offset/1024));

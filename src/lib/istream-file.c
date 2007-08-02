@@ -159,8 +159,8 @@ _stat(struct _istream *stream, bool exact __attr_unused__)
 	return &stream->statbuf;
 }
 
-struct istream *i_stream_create_file(int fd, size_t max_buffer_size,
-				     bool autoclose_fd)
+struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
+				   bool autoclose_fd)
 {
 	struct file_istream *fstream;
 	struct stat st;

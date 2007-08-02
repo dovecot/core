@@ -68,7 +68,7 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 	/* try to change the group, don't really care if it fails */
 	(void)fchown(fd_out, (uid_t)-1, st.st_gid);
 
-	input = i_stream_create_file(fd_in, 0, FALSE);
+	input = i_stream_create_fd(fd_in, 0, FALSE);
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 
 	while ((ret = o_stream_send_istream(output, input)) > 0) ;

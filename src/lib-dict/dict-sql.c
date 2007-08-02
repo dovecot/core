@@ -48,7 +48,7 @@ static int sql_dict_read_config(struct sql_dict *dict, const char *path)
 		return -1;
 	}
 
-	input = i_stream_create_file(fd, (size_t)-1, FALSE);
+	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		while (*line == ' ') line++;
 		value = strchr(line, '=');

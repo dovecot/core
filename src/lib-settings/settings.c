@@ -94,7 +94,7 @@ bool settings_read(const char *path, const char *section,
 
 	full_line = t_str_new(512);
 	linenum = 0; sections = 0; root_section = 0; errormsg = NULL;
-	input = i_stream_create_file(fd, 2048, TRUE);
+	input = i_stream_create_fd(fd, 2048, TRUE);
 	for (;;) {
 		line = i_stream_read_next_line(input);
 		if (line == NULL) {

@@ -240,7 +240,7 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	proxy = i_new(struct rawlog_proxy, 1);
 	proxy->server_fd = server_fd;
 	proxy->server_input =
-		i_stream_create_file(server_fd, MAX_PROXY_INPUT_SIZE, FALSE);
+		i_stream_create_fd(server_fd, MAX_PROXY_INPUT_SIZE, FALSE);
 	proxy->server_output = o_stream_create_fd(server_fd, (size_t)-1, FALSE);
 	proxy->server_io = io_add(server_fd, IO_READ, server_input, proxy);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);

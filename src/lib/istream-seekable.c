@@ -122,7 +122,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 
 	sstream->fd = fd;
 	sstream->fd_input =
-		i_stream_create_file(fd, sstream->max_buffer_size, TRUE);
+		i_stream_create_fd(fd, sstream->max_buffer_size, TRUE);
 	return 0;
 }
 

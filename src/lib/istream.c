@@ -367,7 +367,7 @@ int main(void)
 	write(fd1, buf, sizeof(buf));
 
 	/* test reading */
-	input = i_stream_create_file(fd1, 512, FALSE);
+	input = i_stream_create_fd(fd1, 512, FALSE);
 	i_assert(i_stream_get_size(input) == sizeof(buf));
 
 	i_assert(i_stream_read_data(input, &data, &size, 0) > 0);
@@ -390,8 +390,8 @@ int main(void)
 	check_buffer(data, size, 900);
 
 	/* test moving data */
-	output1 = o_stream_create_file(fd1, 512, FALSE);
-	output2 = o_stream_create_file(fd2, 512, FALSE);
+	output1 = o_stream_create_fd(fd1, 512, FALSE);
+	output2 = o_stream_create_fd(fd2, 512, FALSE);
 
 	i_stream_seek(input, 1); size = sizeof(buf)-1;
 	i_assert(o_stream_send_istream(output2, input) == size);

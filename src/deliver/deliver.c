@@ -229,7 +229,7 @@ static void config_file_init(const char *path)
 		i_fatal_status(EX_CONFIG, "open(%s) failed: %m", path);
 
 	t_push();
-	input = i_stream_create_file(fd, 1024, TRUE);
+	input = i_stream_create_fd(fd, 1024, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* @UNSAFE: line is modified */
 
@@ -417,7 +417,7 @@ static struct istream *create_mbox_stream(int fd, const char *envelope_sender)
 	envelope_sender = address_sanitize(envelope_sender);
 	mbox_hdr = mbox_from_create(envelope_sender, ioloop_time);
 
-	input = i_stream_create_file(fd, 4096, FALSE);
+	input = i_stream_create_fd(fd, 4096, FALSE);
 	input_filter =
 		i_stream_create_header_filter(input,
 					      HEADER_FILTER_EXCLUDE |
