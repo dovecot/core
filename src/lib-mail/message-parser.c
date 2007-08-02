@@ -457,6 +457,10 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 			/* it's MIME. Content-* headers are valid */
 			part->flags |= MESSAGE_PART_FLAG_IS_MIME;
 		} else if (strcasecmp(hdr->name, "Content-Type") == 0) {
+			if ((ctx->flags &
+			     MESSAGE_PARSER_FLAG_MIME_VERSION_STRICT) == 0)
+				part->flags |= MESSAGE_PART_FLAG_IS_MIME;
+
 			if (hdr->continues)
 				hdr->use_full_value = TRUE;
 			else {

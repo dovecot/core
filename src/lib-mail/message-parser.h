@@ -5,7 +5,12 @@
 #include "message-size.h"
 
 enum message_parser_flags {
-	MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK	= 0x01
+	/* Don't return message bodies in message_blocks. */
+	MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK	= 0x01,
+	/* Buggy software creates Content-Type: headers without Mime-Version:
+	   header. By default we allow this and assume message is MIME if
+	   Content-Type: is found. This flag disables this. */
+	MESSAGE_PARSER_FLAG_MIME_VERSION_STRICT	= 0x02
 };
 
 /* Note that these flags are used directly by message-parser-serialize, so
