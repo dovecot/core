@@ -382,6 +382,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 		       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 		o_stream_create_crlf(output) : o_stream_create_lf(output);
 	o_stream_unref(&output);
+	o_stream_cork(ctx->output);
 
 	flags &= ~MAIL_RECENT;
 	if (mbox->ibox.keep_recent)
@@ -429,6 +430,13 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 	struct utimbuf buf;
 	const char *path;
 	int output_errno;
+
+	if (o_stream_flush(ctx->output) < 0) {
+		mail_storage_set_critical(&ctx->mbox->storage->storage,
+			"o_stream_flush(%s/%s) failed: %m",
+			ctx->tmpdir, ctx->file_last->basename);
+		ctx->failed = TRUE;
+	}
 
 	if (ctx->cur_dest_mail != NULL) {
 		index_mail_cache_parse_deinit(ctx->cur_dest_mail);

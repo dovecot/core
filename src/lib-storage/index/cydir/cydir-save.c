@@ -37,9 +37,9 @@ struct cydir_save_context {
 
 static char *cydir_generate_tmp_filename(void)
 {
-	static unsigned int create_count;
+	static unsigned int create_count = 0;
 
-	return i_strdup_printf("%s.P%sQ%uM%s.%s",
+	return i_strdup_printf("temp.%s.P%sQ%uM%s.%s",
 			       dec2str(ioloop_timeval.tv_sec), my_pid,
 			       create_count++,
 			       dec2str(ioloop_timeval.tv_usec), my_hostname);
@@ -88,6 +88,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 		output = o_stream_create_file(ctx->fd, 0, FALSE);
 		ctx->output = o_stream_create_crlf(output);
 		o_stream_unref(&output);
+		o_stream_cork(ctx->output);
 
 		if (received_date != (time_t)-1) {
 			struct utimbuf ut;
@@ -168,6 +169,12 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 	const char *path = cydir_get_save_path(ctx, ctx->mail_count);
 
 	ctx->finished = TRUE;
+
+	if (o_stream_flush(ctx->output) < 0) {
+		mail_storage_set_critical(storage,
+			"o_stream_flush(%s) failed: %m", path);
+		ctx->failed = TRUE;
+	}
 
 	if (!ctx->mbox->ibox.fsync_disable) {
 		if (fsync(ctx->fd) < 0) {
