@@ -369,8 +369,10 @@ struct mail_cache *mail_cache_create(struct mail_index *index)
 	struct mail_cache *cache;
 
 	cache = mail_cache_alloc(index);
-	if (unlink(cache->filepath) < 0 && errno != ENOENT)
-		mail_cache_set_syscall_error(cache, "unlink()");
+	if (!MAIL_INDEX_IS_IN_MEMORY(index)) {
+		if (unlink(cache->filepath) < 0 && errno != ENOENT)
+			mail_cache_set_syscall_error(cache, "unlink()");
+	}
 	return cache;
 }
 
