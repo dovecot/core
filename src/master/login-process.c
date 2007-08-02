@@ -449,9 +449,8 @@ login_process_new(struct login_group *group, pid_t pid, int fd)
 	p->pid = pid;
 	p->fd = fd;
 	p->io = io_add(fd, IO_READ, login_process_input, p);
-	p->output = o_stream_create_file(fd,
-					 sizeof(struct master_login_reply)*10,
-					 FALSE);
+	p->output = o_stream_create_fd(fd, sizeof(struct master_login_reply)*10,
+				       FALSE);
 	child_process_add(pid, &p->process);
 
 	p->state = LOGIN_STATE_LISTENING;

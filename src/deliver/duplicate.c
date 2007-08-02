@@ -218,7 +218,7 @@ void duplicate_flush(void)
 	if (duplicate_file == NULL || !file->changed || file->new_fd == -1)
 		return;
 
-	output = o_stream_create_file(file->new_fd, 4096, FALSE);
+	output = o_stream_create_fd_file(file->new_fd, 0, FALSE);
 	iter = hash_iterate_init(file->hash);
 	while (hash_iterate(iter, &key, &value)) {
 		struct duplicate *d = value;

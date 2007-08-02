@@ -85,7 +85,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 	path = cydir_get_save_path(ctx, ctx->mail_count);
 	ctx->fd = open(path, O_WRONLY | O_CREAT | O_EXCL, 0660);
 	if (ctx->fd != -1) {
-		output = o_stream_create_file(ctx->fd, 0, FALSE);
+		output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
 		ctx->output = o_stream_create_crlf(output);
 		o_stream_unref(&output);
 		o_stream_cork(ctx->output);

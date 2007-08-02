@@ -321,7 +321,9 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		if (mbox_seek_to_end(ctx, &ctx->append_offset) < 0)
 			return -1;
 
-		ctx->output = o_stream_create_file(mbox->mbox_fd, 0, FALSE);
+		ctx->output = o_stream_create_fd_file(mbox->mbox_fd,
+						      ctx->append_offset,
+						      FALSE);
 	}
 	return 0;
 }

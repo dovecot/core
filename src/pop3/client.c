@@ -141,7 +141,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_file(fd_in, MAX_INBUF_SIZE, FALSE);
-	client->output = o_stream_create_file(fd_out, (size_t)-1, FALSE);
+	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	client->io = io_add(fd_in, IO_READ, client_input, client);

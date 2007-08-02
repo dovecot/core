@@ -81,7 +81,7 @@ static struct auth_worker_connection *auth_worker_create(void)
 	conn->fd = fd;
 	conn->input = i_stream_create_file(fd, AUTH_WORKER_MAX_LINE_LENGTH,
 					   FALSE);
-	conn->output = o_stream_create_file(fd, (size_t)-1, FALSE);
+	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
 	conn->requests = buffer_create_dynamic(default_pool, 128);
 

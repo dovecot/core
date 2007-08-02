@@ -559,7 +559,7 @@ static int dbox_uidlist_full_rewrite(struct dbox_uidlist *uidlist)
 		return 0;
 	}
 
-	output = o_stream_create_file(uidlist->lock_fd, 0, FALSE);
+	output = o_stream_create_fd_file(uidlist->lock_fd, 0, FALSE);
 
 	t_push();
 	str = t_str_new(256);
@@ -739,7 +739,7 @@ static int dbox_uidlist_append_changes(struct dbox_uidlist_append_ctx *ctx)
 			"lseek(%s) failed: %m", ctx->uidlist->path);
 		return -1;
 	}
-	output = o_stream_create_file(ctx->uidlist->fd, 0, FALSE);
+	output = o_stream_create_fd_file(ctx->uidlist->fd, 0, FALSE);
 
 	uid_start = ctx->uidlist->last_uid + 1;
 
@@ -968,7 +968,7 @@ dbox_file_append(struct dbox_uidlist_append_ctx *ctx,
 	file->fd = fd;
 
 	file->input = i_stream_create_file(file->fd, 65536, FALSE);
-	file->output = o_stream_create_file(file->fd, 0, FALSE);
+	file->output = o_stream_create_fd_file(file->fd, 0, FALSE);
 	if ((uoff_t)st->st_size < sizeof(struct dbox_file_header)) {
 		if (dbox_file_write_header(mbox, file) < 0) {
 			dbox_file_close(file);

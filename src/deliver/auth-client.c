@@ -180,7 +180,7 @@ static struct auth_connection *auth_connection_new(const char *auth_socket)
 	conn = i_new(struct auth_connection, 1);
 	conn->fd = fd;
 	conn->input = i_stream_create_file(fd, MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_file(fd, MAX_OUTBUF_SIZE, FALSE);
+	conn->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
 	conn->io = io_add(fd, IO_READ, auth_input, conn);
 	return conn;
 }

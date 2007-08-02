@@ -298,7 +298,7 @@ auth_process_new(pid_t pid, int fd, struct auth_process_group *group)
 	p->fd = fd;
 	p->io = io_add(fd, IO_READ, auth_process_input, p);
 	p->input = i_stream_create_file(fd, MAX_INBUF_SIZE, FALSE);
-	p->output = o_stream_create_file(fd, MAX_OUTBUF_SIZE, FALSE);
+	p->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
 	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
 
 	group->process_count++;

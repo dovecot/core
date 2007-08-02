@@ -24,7 +24,11 @@ typedef int stream_flush_callback_t(void *context);
 /* Create new output stream from given file descriptor.
    If max_buffer_size is 0, an "optimal" buffer size is used (max 128kB). */
 struct ostream *
-o_stream_create_file(int fd, size_t max_buffer_size, bool autoclose_fd);
+o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd);
+/* Create an output stream from a regular file which begins at given offset.
+   If offset==(uoff_t)-1, the current offset isn't known. */
+struct ostream *
+o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd);
 
 /* o_stream_close() + o_stream_unref() */
 void o_stream_destroy(struct ostream **stream);

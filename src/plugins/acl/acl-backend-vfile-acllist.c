@@ -208,7 +208,7 @@ int acl_backend_vfile_acllist_rebuild(struct acl_backend_vfile *backend)
 	fd = safe_mkstemp(path, mode, uid, gid);
 	if (fd == -1)
 		return -1;
-	output = o_stream_create_file(fd, 0, FALSE);
+	output = o_stream_create_fd_file(fd, 0, FALSE);
 
 	ret = 0;
 	acllist_clear(backend, 0);

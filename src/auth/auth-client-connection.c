@@ -276,8 +276,7 @@ auth_client_connection_create(struct auth_master_listener *listener, int fd)
 	conn->fd = fd;
 	conn->input =
 		i_stream_create_file(fd, AUTH_CLIENT_MAX_LINE_LENGTH, FALSE);
-	conn->output =
-		o_stream_create_file(fd, (size_t)-1, FALSE);
+	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	o_stream_set_flush_callback(conn->output, auth_client_output, conn);
 	conn->io = io_add(fd, IO_READ, auth_client_input, conn);
 

@@ -47,7 +47,7 @@ static int auth_connection_connect(struct auth_connection *conn)
 
 	conn->fd = fd;
 	conn->input = i_stream_create_file(fd, MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_file(fd, MAX_OUTBUF_SIZE, FALSE);
+	conn->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
 	conn->io = io_add(fd, IO_READ, auth_input, conn);
 
 	o_stream_send_str(conn->output, "VERSION\t1\t0\n");

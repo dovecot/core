@@ -733,17 +733,13 @@ static off_t _send_istream(struct _ostream *outstream, struct istream *instream)
 		return io_stream_copy_backwards(outstream, instream, in_size);
 }
 
-struct ostream *
-o_stream_create_file(int fd, size_t max_buffer_size, bool autoclose_fd)
+static struct file_ostream *
+o_stream_create_fd_common(int fd, bool autoclose_fd)
 {
 	struct file_ostream *fstream;
-	struct ostream *ostream;
-	struct stat st;
-	off_t offset;
 
 	fstream = i_new(struct file_ostream, 1);
 	fstream->fd = fd;
-	fstream->max_buffer_size = max_buffer_size;
 	fstream->autoclose_fd = autoclose_fd;
 	fstream->optimal_block_size = DEFAULT_OPTIMAL_BLOCK_SIZE;
 
@@ -759,28 +755,44 @@ o_stream_create_file(int fd, size_t max_buffer_size, bool autoclose_fd)
 	fstream->ostream.sendv = _sendv;
 	fstream->ostream.send_istream = _send_istream;
 
+	return fstream;
+}
+
+static void fstream_init_file(struct file_ostream *fstream)
+{
+	struct stat st;
+
+	fstream->no_sendfile = TRUE;
+	if (fstat(fstream->fd, &st) < 0)
+		return;
+
+	if ((uoff_t)st.st_blksize > fstream->optimal_block_size) {
+		/* use the optimal block size, but with a reasonable limit */
+		fstream->optimal_block_size =
+			I_MIN(st.st_blksize, MAX_OPTIMAL_BLOCK_SIZE);
+	}
+
+	if (S_ISREG(st.st_mode)) {
+		fstream->no_socket_cork = TRUE;
+		fstream->file = TRUE;
+	}
+}
+
+struct ostream *
+o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
+{
+	struct file_ostream *fstream;
+	struct ostream *ostream;
+	off_t offset;
+
+	fstream = o_stream_create_fd_common(fd, autoclose_fd);
+	fstream->max_buffer_size = max_buffer_size;
 	ostream = _o_stream_create(&fstream->ostream);
 
 	offset = lseek(fd, 0, SEEK_CUR);
 	if (offset >= 0) {
 		ostream->offset = offset;
-
-		if (fstat(fd, &st) == 0) {
-			if ((uoff_t)st.st_blksize >
-			    fstream->optimal_block_size) {
-				/* use the optimal block size, but with a
-				   reasonable limit */
-				fstream->optimal_block_size =
-					I_MIN(st.st_blksize,
-					      MAX_OPTIMAL_BLOCK_SIZE);
-			}
-
-			if (S_ISREG(st.st_mode)) {
-				fstream->no_socket_cork = TRUE;
-				fstream->file = TRUE;
-			}
-		}
-		fstream->no_sendfile = TRUE;
+		fstream_init_file(fstream);
 	} else {
 		if (net_getsockname(fd, NULL, NULL) < 0) {
 			fstream->no_sendfile = TRUE;
@@ -791,5 +803,23 @@ o_stream_create_file(int fd, size_t max_buffer_size, bool autoclose_fd)
 	if (max_buffer_size == 0)
 		fstream->max_buffer_size = fstream->optimal_block_size;
 
+	return ostream;
+}
+
+struct ostream *
+o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
+{
+	struct file_ostream *fstream;
+	struct ostream *ostream;
+
+	if (offset == (uoff_t)-1)
+		offset = lseek(fd, 0, SEEK_CUR);
+
+	fstream = o_stream_create_fd_common(fd, autoclose_fd);
+	fstream_init_file(fstream);
+	fstream->max_buffer_size = fstream->optimal_block_size;
+
+	ostream = _o_stream_create(&fstream->ostream);
+	ostream->offset = offset;
 	return ostream;
 }

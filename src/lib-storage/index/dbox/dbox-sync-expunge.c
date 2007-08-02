@@ -145,7 +145,7 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 
 		/* try again with another file name */
 	}
-	output = o_stream_create_file(fd, 0, FALSE);
+	output = o_stream_create_fd_file(fd, 0, FALSE);
 	lock_path = file_dotlock_get_lock_path(dotlock);
 
 	memset(&dest_entry, 0, sizeof(dest_entry));

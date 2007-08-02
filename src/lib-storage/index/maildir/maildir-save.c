@@ -377,7 +377,7 @@ int maildir_save_init(struct mailbox_transaction_context *_t,
 	ctx->received_date = received_date;
 	ctx->input = input;
 
-	output = o_stream_create_file(ctx->fd, 0, FALSE);
+	output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
 	ctx->output = (ctx->mbox->storage->storage.flags &
 		       MAIL_STORAGE_FLAG_SAVE_CRLF) != 0 ?
 		o_stream_create_crlf(output) : o_stream_create_lf(output);

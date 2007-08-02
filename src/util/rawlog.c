@@ -241,15 +241,14 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	proxy->server_fd = server_fd;
 	proxy->server_input =
 		i_stream_create_file(server_fd, MAX_PROXY_INPUT_SIZE, FALSE);
-	proxy->server_output =
-		o_stream_create_file(server_fd, (size_t)-1, FALSE);
+	proxy->server_output = o_stream_create_fd(server_fd, (size_t)-1, FALSE);
 	proxy->server_io = io_add(server_fd, IO_READ, server_input, proxy);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
 
 	proxy->client_in_fd = client_in_fd;
 	proxy->client_out_fd = client_out_fd;
 	proxy->client_output =
-		o_stream_create_file(client_out_fd, (size_t)-1, FALSE);
+		o_stream_create_fd(client_out_fd, (size_t)-1, FALSE);
 	proxy->client_io = io_add(proxy->client_in_fd, IO_READ,
 				  client_input, proxy);
 	o_stream_set_flush_callback(proxy->client_output, client_output, proxy);

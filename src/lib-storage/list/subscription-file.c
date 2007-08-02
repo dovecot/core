@@ -115,8 +115,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	input = fd_in == -1 ? NULL :
 		i_stream_create_file(fd_in, list->mailbox_name_max_length+1,
 				     TRUE);
-	output = o_stream_create_file(fd_out, list->mailbox_name_max_length+1,
-				      FALSE);
+	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 	found = FALSE;
 	while ((line = next_line(list, path, input,
 				 &failed, FALSE)) != NULL) {
