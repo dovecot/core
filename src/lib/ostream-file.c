@@ -33,6 +33,7 @@ struct file_ostream {
 
 	int fd;
 	struct io *io;
+	uoff_t buffer_offset;
 	uoff_t real_offset;
 
 	unsigned char *buffer; /* ring-buffer */
@@ -136,43 +137,42 @@ static void o_stream_socket_cork(struct file_ostream *fstream)
 
 static int o_stream_lseek(struct file_ostream *fstream)
 {
-	uoff_t offset = fstream->ostream.ostream.offset;
 	off_t ret;
 
-	if (fstream->real_offset == offset)
+	if (fstream->real_offset == fstream->buffer_offset)
 		return 0;
 
-	ret = lseek(fstream->fd, (off_t)offset, SEEK_SET);
+	ret = lseek(fstream->fd, (off_t)fstream->buffer_offset, SEEK_SET);
 	if (ret < 0) {
 		fstream->ostream.ostream.stream_errno = errno;
 		return -1;
 	}
 
-	if (ret != (off_t)offset) {
+	if (ret != (off_t)fstream->buffer_offset) {
 		fstream->ostream.ostream.stream_errno = EINVAL;
 		return -1;
 	}
-	fstream->real_offset = offset;
+	fstream->real_offset = fstream->buffer_offset;
 	return 0;
 }
 
 static ssize_t o_stream_writev(struct file_ostream *fstream,
 			       const struct const_iovec *iov, int iov_size)
 {
-	uoff_t offset = fstream->ostream.ostream.offset;
 	ssize_t ret;
 	size_t size, sent;
 	int i;
 
 	o_stream_socket_cork(fstream);
 	if (iov_size == 1) {
-		if (!fstream->file || fstream->real_offset == offset) {
+		if (!fstream->file ||
+		    fstream->real_offset == fstream->buffer_offset) {
 			ret = write(fstream->fd, iov->iov_base, iov->iov_len);
 			if (ret > 0)
 				fstream->real_offset += ret;
 		} else {
 			ret = pwrite(fstream->fd, iov->iov_base, iov->iov_len,
-				     offset);
+				     fstream->buffer_offset);
 		}
 	} else {
 		if (o_stream_lseek(fstream) < 0)
@@ -190,6 +190,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 				break;
 
 			fstream->real_offset += ret;
+			fstream->buffer_offset += ret;
 			sent += ret;
 			iov += IOV_MAX;
 			iov_size -= IOV_MAX;
@@ -213,6 +214,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		return -1;
 	}
 
+	fstream->buffer_offset += ret;
 	return ret;
 }
 
@@ -340,6 +342,7 @@ static int _seek(struct _ostream *stream, uoff_t offset)
 
 	stream->ostream.stream_errno = 0;
 	stream->ostream.offset = offset;
+	fstream->buffer_offset = offset;
 	return 1;
 }
 
@@ -557,6 +560,8 @@ static off_t io_stream_sendfile(struct _ostream *outstream,
 		}
 
 		v_offset += ret;
+		foutstream->real_offset += ret;
+		foutstream->buffer_offset += ret;
 		outstream->ostream.offset += ret;
 	} while ((uoff_t)ret != send_size);
 
@@ -818,6 +823,7 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 	if (offset >= 0) {
 		ostream->offset = offset;
 		fstream->real_offset = offset;
+		fstream->buffer_offset = offset;
 		fstream_init_file(fstream);
 	} else {
 		if (net_getsockname(fd, NULL, NULL) < 0) {
@@ -845,6 +851,7 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 	fstream_init_file(fstream);
 	fstream->max_buffer_size = fstream->optimal_block_size;
 	fstream->real_offset = offset;
+	fstream->buffer_offset = offset;
 
 	ostream = _o_stream_create(&fstream->ostream);
 	ostream->offset = offset;
