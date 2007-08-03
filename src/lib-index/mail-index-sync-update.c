@@ -637,8 +637,8 @@ void mail_index_map_check(struct mail_index_map *map)
 	const struct mail_index_header *hdr = &map->hdr;
 	unsigned int i, del = 0, seen = 0;
 
-	i_assert(hdr->messages_count == map->records_count);
-	for (i = 0; i < map->records_count; i++) {
+	i_assert(hdr->messages_count <= map->rec_map->records_count);
+	for (i = 0; i < hdr->messages_count; i++) {
 		const struct mail_index_record *rec;
 
 		rec = MAIL_INDEX_MAP_IDX(map, i);
