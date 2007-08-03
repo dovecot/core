@@ -358,7 +358,7 @@ mail_index_try_open(struct mail_index *index)
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
 		return 0;
 
-	i_assert(index->map == NULL || index->map->lock_id == 0);
+	i_assert(index->map == NULL || index->map->rec_map->lock_id == 0);
 	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD);
 	if (ret == 0) {
 		/* it's corrupted - recreate it */

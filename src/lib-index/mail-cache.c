@@ -527,8 +527,8 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 	uoff_t max_del_space;
 
         cont_percentage = hdr->continued_record_count * 100 /
-		(cache->index->map->records_count == 0 ? 1 :
-		 cache->index->map->records_count);
+		(cache->index->map->rec_map->records_count == 0 ? 1 :
+		 cache->index->map->rec_map->records_count);
 	if (cont_percentage >= MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE &&
 	    hdr->used_file_size >= MAIL_CACHE_COMPRESS_MIN_SIZE) {
 		/* too many continued rows, compress */

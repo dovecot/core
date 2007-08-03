@@ -78,8 +78,8 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 	hdr.first_unseen_uid_lowwater = 0;
 	hdr.first_deleted_uid_lowwater = 0;
 
-	rec = map->records; last_uid = 0;
-	for (i = 0; i < map->records_count; i++) {
+	rec = map->rec_map->records; last_uid = 0;
+	for (i = 0; i < map->rec_map->records_count; i++) {
 		if (rec->uid <= last_uid) {
 			*error_r = "Record UIDs are not ordered";
 			return 0;

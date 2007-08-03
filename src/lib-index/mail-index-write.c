@@ -35,7 +35,8 @@ static int mail_index_recreate(struct mail_index *index)
 				 map->hdr.header_size - base_size);
 	}
 	if (ret == 0) {
-		ret = write_full(fd, map->records, map->records_count *
+		ret = write_full(fd, map->rec_map->records,
+				 map->rec_map->records_count *
 				 map->hdr.record_size);
 	}
 	if (ret < 0)
@@ -69,6 +70,7 @@ static int mail_index_recreate(struct mail_index *index)
 static int mail_index_write_map_over(struct mail_index *index)
 {
 	struct mail_index_map *map = index->map;
+	struct mail_index_record_map *rec_map = map->rec_map;
 	unsigned int base_size;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index))
@@ -85,14 +87,15 @@ static int mail_index_write_map_over(struct mail_index *index)
 	}
 
 	/* write records. */
-	if (map->write_seq_first != 0) {
+	if (rec_map->write_seq_first != 0) {
 		size_t rec_offset =
-			(map->write_seq_first-1) * map->hdr.record_size;
+			(rec_map->write_seq_first-1) * map->hdr.record_size;
 		size_t recs_size = map->hdr.record_size *
-			(map->write_seq_last - map->write_seq_first + 1);
+			(rec_map->write_seq_last -
+			 rec_map->write_seq_first + 1);
 
 		if (pwrite_full(index->fd,
-				CONST_PTR_OFFSET(map->records, rec_offset),
+				CONST_PTR_OFFSET(rec_map->records, rec_offset),
 				recs_size,
 				map->hdr.header_size + rec_offset) < 0)
 			return -1;
@@ -130,7 +133,7 @@ static bool mail_index_has_last_changed(struct mail_index *index)
 
 #define mail_index_map_has_changed(map) \
 	((map)->write_base_header || (map)->write_ext_header || \
-	 (map)->write_seq_first != 0)
+	 (map)->rec_map->write_seq_first != 0)
 
 void mail_index_write(struct mail_index *index, bool want_rotate)
 {
@@ -154,8 +157,9 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	}
 
 	if (index->last_read_stat.st_size < MAIL_INDEX_MIN_UPDATE_SIZE ||
-	    (map->write_seq_last - map->write_seq_first + 1) +
-	    MAIL_INDEX_MAX_OVERWRITE_NEG_SEQ_COUNT >= map->records_count) {
+	    (map->rec_map->write_seq_last - map->rec_map->write_seq_first + 1) +
+	    MAIL_INDEX_MAX_OVERWRITE_NEG_SEQ_COUNT >=
+	    map->rec_map->records_count) {
 		/* the file is so small that we don't even bother trying to
 		   update it / changes are so large we might as well recreate */
 		map->write_atomic = TRUE;
@@ -216,8 +220,8 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 	index->last_read_log_file_head_offset = hdr->log_file_head_offset;
 	index->last_read_log_file_tail_offset = hdr->log_file_tail_offset;
 
+	map->rec_map->write_seq_first = map->rec_map->write_seq_last = 0;
 	map->write_atomic = FALSE;
-	map->write_seq_first = map->write_seq_last = 0;
 	map->write_base_header = FALSE;
 	map->write_ext_header = FALSE;
 

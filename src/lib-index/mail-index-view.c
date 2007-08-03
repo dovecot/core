@@ -244,13 +244,14 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	const struct mail_index_record *rec_base, *rec;
 	uint32_t idx, right_idx, record_size;
 
-	i_assert(view->map->hdr.messages_count <= view->map->records_count);
+	i_assert(view->map->hdr.messages_count <=
+		 view->map->rec_map->records_count);
 
 	if (uid == 1) {
 		/* optimization: the message can be only the first one */
 		return 1;
 	}
-	rec_base = view->map->records;
+	rec_base = view->map->rec_map->records;
 	record_size = view->map->hdr.record_size;
 
 	idx = left_idx;
@@ -355,7 +356,8 @@ static int _view_lookup_first(struct mail_index_view *view,
 			return 0;
 	}
 
-	i_assert(view->map->hdr.messages_count <= view->map->records_count);
+	i_assert(view->map->hdr.messages_count <=
+		 view->map->rec_map->records_count);
 
 	/* we can delay locking until we're looking at the flags */
 	if (mail_index_map_lock(view->map) < 0)

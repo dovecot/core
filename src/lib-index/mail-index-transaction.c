@@ -223,7 +223,7 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 			if (*seq >= t->first_new_seq)
 				rec = mail_index_transaction_lookup(t, *seq);
 			else {
-				i_assert(*seq <= view->map->records_count);
+				i_assert(*seq <= view->map->hdr.messages_count);
 				rec = MAIL_INDEX_MAP_IDX(view->map, *seq - 1);
 			}
 
@@ -233,9 +233,9 @@ mail_index_buffer_convert_to_uids(struct mail_index_transaction *t,
 				/* FIXME: replace with simple assert once we
 				   figure out why this happens.. */
 				i_panic("seq = %u, rec->uid = %u, "
-					"first_new_seq = %u, records = %u",
+					"first_new_seq = %u, messages = %u",
 					*seq, rec->uid, t->first_new_seq,
-					view->map->records_count);
+					view->map->hdr.messages_count);
 			}
 			*seq = rec->uid;
 		}

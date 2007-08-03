@@ -223,11 +223,11 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id,
 	new_record_size = offset;
 
 	/* copy the records to new buffer */
-	new_buffer_size = map->records_count * new_record_size;
+	new_buffer_size = map->rec_map->records_count * new_record_size;
 	new_buffer = buffer_create_dynamic(default_pool, new_buffer_size);
-	src = map->records;
+	src = map->rec_map->records;
 	offset = 0;
-	for (rec_idx = 0; rec_idx < map->records_count; rec_idx++) {
+	for (rec_idx = 0; rec_idx < map->rec_map->records_count; rec_idx++) {
 		/* write the base record */
 		buffer_write(new_buffer, offset, src,
 			     sizeof(struct mail_index_record));
@@ -249,9 +249,10 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id,
 		buffer_append_zero(new_buffer, space);
 	}
 
-	buffer_free(map->buffer);
-	map->buffer = new_buffer;
-	map->records = buffer_get_modifiable_data(map->buffer, NULL);
+	buffer_free(map->rec_map->buffer);
+	map->rec_map->buffer = new_buffer;
+	map->rec_map->records =
+		buffer_get_modifiable_data(map->rec_map->buffer, NULL);
 	map->hdr.record_size = new_record_size;
 
 	/* update record offsets in headers */
@@ -468,13 +469,13 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 				       ext->hdr_size), 0, ext->hdr_size);
 	map->hdr_base = map->hdr_copy_buf->data;
 
-	for (i = 0; i < view->map->records_count; i++) {
+	for (i = 0; i < view->map->rec_map->records_count; i++) {
 		rec = MAIL_INDEX_MAP_IDX(view->map, i);
 		memset(PTR_OFFSET(rec, ext->record_offset), 0,
 		       ext->record_size);
 	}
-	map->write_seq_first = 1;
-	map->write_seq_last = view->map->records_count;
+	map->rec_map->write_seq_first = 1;
+	map->rec_map->write_seq_last = view->map->rec_map->records_count;
 
 	ext_hdr = get_ext_header(map, ext);
 	ext_hdr->reset_id = u->new_reset_id;
@@ -526,7 +527,6 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 
 	if (seq == 0)
 		return 1;
-	mail_index_sync_move_to_private(ctx);
 
 	ext = array_idx(&view->map->extensions, ctx->cur_ext_id);
 

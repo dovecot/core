@@ -25,11 +25,11 @@ struct mail_index_sync_map_ctx;
 	((index)->dir == NULL)
 
 #define MAIL_INDEX_MAP_IS_IN_MEMORY(map) \
-	((map)->buffer != NULL)
+	((map)->rec_map->mmap_base == NULL)
 
 #define MAIL_INDEX_MAP_IDX(map, idx) \
 	((struct mail_index_record *) \
-		PTR_OFFSET((map)->records, (idx) * (map)->hdr.record_size))
+	 PTR_OFFSET((map)->rec_map->records, (idx) * (map)->hdr.record_size))
 
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 uint32_t seq, const void *data,
@@ -102,33 +102,43 @@ struct mail_index_registered_ext {
 	unsigned int expunge_handler_call_always:1;
 };
 
+struct mail_index_record_map {
+	ARRAY_DEFINE(maps, struct mail_index_map *);
+
+	void *mmap_base;
+	size_t mmap_size, mmap_used_size;
+
+	unsigned int lock_count;
+	unsigned int lock_id;
+
+	buffer_t *buffer;
+
+	void *records; /* struct mail_index_record[] */
+	unsigned int records_count;
+
+	/* If this mapping is written to disk and write_atomic=FALSE,
+	   write_seq_* specify the message sequence range that needs to be
+	   written. */
+	uint32_t write_seq_first, write_seq_last;
+};
+
 struct mail_index_map {
 	struct mail_index *index;
 	int refcount;
 
 	struct mail_index_header hdr;
 	const void *hdr_base;
-	void *records; /* struct mail_index_record[] */
-	unsigned int records_count;
+	buffer_t *hdr_copy_buf;
 
 	pool_t extension_pool;
 	ARRAY_DEFINE(extensions, struct mail_index_ext);
 	ARRAY_DEFINE(ext_id_map, uint32_t); /* index -> file */
 
-	void *mmap_base;
-	size_t mmap_size, mmap_used_size;
-	unsigned int lock_id;
-
-	buffer_t *buffer;
-	buffer_t *hdr_copy_buf;
-
 	ARRAY_DEFINE(keyword_idx_map, unsigned int); /* file -> index */
 
-	/* If this mapping is written to disk and write_atomic=FALSE,
-	   write_seq_* specify the message sequence range that needs to be
-	   written. */
-	uint32_t write_seq_first, write_seq_last;
+	struct mail_index_record_map *rec_map;
 
+	unsigned int locked:1;
 	unsigned int keywords_read:1;
 	unsigned int write_base_header:1;
 	unsigned int write_ext_header:1;
