@@ -53,9 +53,8 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 			 uint32_t seq, uint32_t *offset_r)
 {
 	struct mail_index_map *map;
-	const struct mail_index_ext *ext;
 	const void *data;
-	uint32_t idx;
+	uint32_t reset_id;
 	int i, ret;
 
 	if (mail_index_lookup_ext_full(view, seq, cache->ext_id,
@@ -66,15 +65,14 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 		return 0;
 	}
 
-	if (!mail_index_map_get_ext_idx(map, cache->ext_id, &idx))
+	if (!mail_index_ext_get_reset_id(view, cache->ext_id, &reset_id))
 		i_unreached();
-	ext = array_idx(&map->extensions, idx);
 
 	/* reset_id must match file_seq or the offset is for a different cache
 	   file. if this happens, try if reopening the cache helps. if not,
 	   it was probably for an old cache file that's already lost by now. */
 	i = 0;
-	while (cache->hdr->file_seq != ext->reset_id) {
+	while (cache->hdr->file_seq != reset_id) {
 		if (++i == 2)
 			return 0;
 
