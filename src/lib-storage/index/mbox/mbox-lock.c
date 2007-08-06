@@ -30,6 +30,7 @@
 
 enum mbox_lock_type {
 	MBOX_LOCK_DOTLOCK,
+	MBOX_LOCK_DOTLOCK_TRY,
 	MBOX_LOCK_FCNTL,
 	MBOX_LOCK_FLOCK,
 	MBOX_LOCK_LOCKF,
@@ -56,6 +57,8 @@ struct mbox_lock_data {
 
 static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
 			     time_t max_wait_time);
+static int mbox_lock_dotlock_try(struct mbox_lock_context *ctx, int lock_type,
+				 time_t max_wait_time);
 static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time);
 #ifdef HAVE_FLOCK
@@ -73,6 +76,7 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 
 struct mbox_lock_data lock_data[] = {
 	{ MBOX_LOCK_DOTLOCK, "dotlock", mbox_lock_dotlock },
+	{ MBOX_LOCK_DOTLOCK_TRY, "dotlock_try", mbox_lock_dotlock_try },
 	{ MBOX_LOCK_FCNTL, "fcntl", mbox_lock_fcntl },
 	{ MBOX_LOCK_FLOCK, "flock", mbox_lock_flock },
 	{ MBOX_LOCK_LOCKF, "lockf", mbox_lock_lockf },
@@ -229,8 +233,8 @@ static bool dotlock_callback(unsigned int secs_left, bool stale, void *context)
 	return TRUE;
 }
 
-static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
-			     time_t max_wait_time __attr_unused__)
+static int
+mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 {
 	struct mbox_mailbox *mbox = ctx->mbox;
 	struct dotlock_settings set;
@@ -263,6 +267,9 @@ static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
 
 	ret = file_dotlock_create(&set, mbox->path, 0, &mbox->mbox_dotlock);
 	if (ret < 0) {
+		if ((ENOSPACE(errno) || errno == EACCES) && try)
+			return 1;
+
 		mbox_set_syscall_error(mbox, "file_lock_dotlock()");
 		return -1;
 	}
@@ -276,6 +283,18 @@ static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
 	if (mbox_file_open_latest(ctx, lock_type) < 0)
 		return -1;
 	return 1;
+}
+
+static int mbox_lock_dotlock(struct mbox_lock_context *ctx, int lock_type,
+			     time_t max_wait_time __attr_unused__)
+{
+	return mbox_lock_dotlock_int(ctx, lock_type, FALSE);
+}
+
+static int mbox_lock_dotlock_try(struct mbox_lock_context *ctx, int lock_type,
+				 time_t max_wait_time __attr_unused__)
+{
+	return mbox_lock_dotlock_int(ctx, lock_type, TRUE);
 }
 
 #ifdef HAVE_FLOCK
