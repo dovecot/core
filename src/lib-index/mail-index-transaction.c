@@ -7,6 +7,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "bsearch-insert-pos.h"
 #include "seq-range-array.h"
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"
@@ -127,41 +128,23 @@ void mail_index_transaction_unref(struct mail_index_transaction **_t)
 		mail_index_transaction_free(t);
 }
 
+static int mail_index_seq_record_cmp(const void *key, const void *data)
+{
+	const uint32_t *seq_p = key;
+	const uint32_t *data_seq = data;
+
+	return *seq_p - *data_seq;
+}
+
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r)
 {
-	unsigned int idx, left_idx, right_idx, count;
-	const uint32_t *seq_p;
+	const void *base;
+	unsigned int count;
 
-	count = array_count(array);
-	if (count == 0) {
-		*idx_r = 0;
-		return FALSE;
-	}
-
-	/* we're probably appending it, check */
-	seq_p = array_idx(array, count-1);
-	if (*seq_p < seq)
-		idx = count;
-	else {
-		idx = 0; left_idx = 0; right_idx = count;
-		while (left_idx < right_idx) {
-			idx = (left_idx + right_idx) / 2;
-
-			seq_p = array_idx(array, idx);
-			if (*seq_p < seq)
-				left_idx = idx+1;
-			else if (*seq_p > seq)
-				right_idx = idx;
-			else {
-				*idx_r = idx;
-				return TRUE;
-			}
-		}
-	}
-
-	*idx_r = idx;
-	return FALSE;
+	base = array_get(array, &count);
+	return bsearch_insert_pos(&seq, base, count, array->arr.element_size,
+				  mail_index_seq_record_cmp, idx_r);
 }
 
 static bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
