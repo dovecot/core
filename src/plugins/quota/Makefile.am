@@ -28,6 +28,8 @@ lib10_quota_plugin_la_SOURCES = \
 	quota-storage.c
 
 if HAVE_RQUOTA
+quota-fs.c: rquota_xdr.c
+
 rquota_xdr.c: Makefile
 	$(RPCGEN) -c /usr/include/rpcsvc/rquota.x | \
 	  $(SED) -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
