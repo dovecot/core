@@ -982,14 +982,14 @@ void mail_index_map_move_to_memory(struct mail_index_map *map)
 	}
 }
 
-int mail_index_map_get_ext_idx(struct mail_index_map *map,
-			       uint32_t ext_id, uint32_t *idx_r)
+bool mail_index_map_get_ext_idx(struct mail_index_map *map,
+				uint32_t ext_id, uint32_t *idx_r)
 {
 	const uint32_t *id;
 
 	if (!array_is_created(&map->ext_id_map) ||
 	    ext_id >= array_count(&map->ext_id_map))
-		return 0;
+		return FALSE;
 
 	id = array_idx(&map->ext_id_map, ext_id);
 	*idx_r = *id;

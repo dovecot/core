@@ -290,8 +290,8 @@ mail_index_map_register_ext(struct mail_index_map *map, const char *name,
 			    uint32_t hdr_offset, uint32_t hdr_size,
 			    uint32_t record_offset, uint32_t record_size,
 			    uint32_t record_align, uint32_t reset_id);
-int mail_index_map_get_ext_idx(struct mail_index_map *map,
-			       uint32_t ext_id, uint32_t *idx_r);
+bool mail_index_map_get_ext_idx(struct mail_index_map *map,
+				uint32_t ext_id, uint32_t *idx_r);
 const struct mail_index_ext *
 mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id);
 
