@@ -58,8 +58,12 @@ struct fs_quota_root {
 	struct quota_root root;
 
 	uid_t uid;
+	gid_t gid;
 	struct fs_quota_mountpoint *mount;
-	bool inode_per_mail;
+
+	unsigned int inode_per_mail:1;
+	unsigned int user_disabled:1;
+	unsigned int group_disabled:1;
 };
 
 extern struct quota_backend quota_backend_fs;
@@ -70,6 +74,7 @@ static struct quota_root *fs_quota_alloc(void)
 
 	root = i_new(struct fs_quota_root, 1);
 	root->uid = geteuid();
+	root->gid = getegid();
 
 	return &root->root;
 }
@@ -313,23 +318,40 @@ static int do_rquota(struct fs_quota_root *root, bool bytes,
 }
 #endif
 
+#if defined(FS_QUOTA_LINUX) || defined(FS_QUOTA_BSDAIX)
+static void fs_quota_root_disable(struct fs_quota_root *root, bool group)
+{
+	if (group)
+		root->group_disabled = TRUE;
+	else
+		root->user_disabled = TRUE;
+}
+#endif
+
 #ifdef FS_QUOTA_LINUX
 static int
-fs_quota_get_linux(struct fs_quota_root *root, bool bytes,
+fs_quota_get_linux(struct fs_quota_root *root, bool group, bool bytes,
 		   uint64_t *value_r, uint64_t *limit_r)
 {
 	struct dqblk dqblk;
+	int type, id;
+
+	type = group ? GRPQUOTA : USRQUOTA;
+	id = group ? root->gid : root->uid;
 
 #ifdef HAVE_XFS_QUOTA
 	if (strcmp(root->mount->type, "xfs") == 0) {
-		/* XFS */
 		struct fs_disk_quota xdqblk;
 
-		if (quotactl(QCMD(Q_XGETQUOTA, USRQUOTA),
+		if (quotactl(QCMD(Q_XGETQUOTA, type),
 			     root->mount->device_path,
-			     root->uid, (caddr_t)&xdqblk) < 0) {
-			i_error("quotactl(Q_XGETQUOTA, %s) failed: %m",
-				root->mount->device_path);
+			     id, (caddr_t)&xdqblk) < 0) {
+			if (errno == ESRCH) {
+				fs_quota_root_disable(root, group);
+				return 0;
+			}
+			i_error("%d quotactl(Q_XGETQUOTA, %s) failed: %m",
+				errno, root->mount->device_path);
 			return -1;
 		}
 
@@ -345,9 +367,13 @@ fs_quota_get_linux(struct fs_quota_root *root, bool bytes,
 #endif
 	{
 		/* ext2, ext3 */
-		if (quotactl(QCMD(Q_GETQUOTA, USRQUOTA),
+		if (quotactl(QCMD(Q_GETQUOTA, type),
 			     root->mount->device_path,
-			     root->uid, (caddr_t)&dqblk) < 0) {
+			     id, (caddr_t)&dqblk) < 0) {
+			if (errno == ESRCH) {
+				fs_quota_root_disable(root, group);
+				return 0;
+			}
 			i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
 				root->mount->device_path);
 			if (errno == EINVAL) {
@@ -377,13 +403,21 @@ fs_quota_get_linux(struct fs_quota_root *root, bool bytes,
 
 #ifdef FS_QUOTA_BSDAIX
 static int
-fs_quota_get_bsdaix(struct fs_quota_root *root, bool bytes,
+fs_quota_get_bsdaix(struct fs_quota_root *root, bool group, bool bytes,
 		    uint64_t *value_r, uint64_t *limit_r)
 {
 	struct dqblk dqblk;
+	int type, id;
 
-	if (quotactl(root->mount->mount_path, QCMD(Q_GETQUOTA, USRQUOTA),
-		     root->uid, (void *)&dqblk) < 0) {
+	type = group ? GRPQUOTA : USRQUOTA;
+	id = group ? root->gid : root->uid;
+
+	if (quotactl(root->mount->mount_path, QCMD(Q_GETQUOTA, type),
+		     id, (void *)&dqblk) < 0) {
+		if (errno == ESRCH) {
+			fs_quota_root_disable(root, group);
+			return 0;
+		}
 		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
 			root->mount->mount_path);
 		return -1;
@@ -429,11 +463,36 @@ fs_quota_get_solaris(struct fs_quota_root *root, bool bytes,
 #endif
 
 static int
+fs_quota_get_one_resource(struct fs_quota_root *root, bool group, bool bytes,
+			  uint64_t *value_r, uint64_t *limit_r)
+{
+	if (group) {
+		if (root->group_disabled)
+			return 0;
+	} else {
+		if (root->user_disabled)
+			return 0;
+	}
+#ifdef FS_QUOTA_LINUX
+	return fs_quota_get_linux(root, group, bytes, value_r, limit_r);
+#elif defined (FS_QUOTA_BSDAIX)
+	return fs_quota_get_bsdaix(root, group, bytes, value_r, limit_r);
+#else
+	if (group) {
+		/* not supported */
+		return 0;
+	}
+	return fs_quota_get_solaris(root, bytes, value_r, limit_r);
+#endif
+}
+
+static int
 fs_quota_get_resource(struct quota_root *_root, const char *name,
 		      uint64_t *value_r, uint64_t *limit_r)
 {
 	struct fs_quota_root *root = (struct fs_quota_root *)_root;
 	bool bytes;
+	int ret;
 
 	*value_r = 0;
 	*limit_r = 0;
@@ -455,13 +514,13 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	}
 #endif
 
-#ifdef FS_QUOTA_LINUX
-	return fs_quota_get_linux(root, bytes, value_r, limit_r);
-#elif defined (FS_QUOTA_BSDAIX)
-	return fs_quota_get_bsdaix(root, bytes, value_r, limit_r);
-#else
-	return fs_quota_get_solaris(root, bytes, value_r, limit_r);
-#endif
+	ret = fs_quota_get_one_resource(root, FALSE, bytes,
+					value_r, limit_r);
+	if (ret != 0)
+		return ret;
+
+	/* fallback to group quota */
+	return fs_quota_get_one_resource(root, TRUE, bytes, value_r, limit_r);
 }
 
 static int 
