@@ -1,6 +1,7 @@
 /* Copyright (C) 2004 Joshua Goodall */
 
 #include "lib.h"
+#include "array.h"
 #include "password-scheme.h"
 #include "randgen.h"
 #include "safe-memset.h"
@@ -69,11 +70,12 @@ int main(int argc, char *argv[])
 	}
 
 	if (lflag) {
-		const struct password_scheme *p = NULL;
-		const char *s;
+		const struct password_scheme *const *schemes;
+		unsigned int i, count;
 
-		while ((s = password_list_schemes(&p)) != NULL)
-			printf("%s ", s);
+		schemes = array_get(&password_schemes, &count);
+		for (i = 0; i < count; i++)
+			printf("%s ", schemes[i]->name);
 		printf("\n");
 		exit(0);
 	}

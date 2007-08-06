@@ -20,49 +20,61 @@
 static const char salt_chars[] =
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-static ARRAY_DEFINE(schemes_arr, struct password_scheme);
-static const struct password_scheme *schemes;
+ARRAY_TYPE(password_scheme_p) password_schemes;
 #ifdef HAVE_MODULES
 static struct module *scheme_modules;
 #endif
+
+static const struct password_scheme *
+password_scheme_lookup_name(const char *name)
+{
+	const struct password_scheme *const *schemes;
+	unsigned int i, count;
+
+	schemes = array_get(&password_schemes, &count);
+	for (i = 0; i < count; i++) {
+		if (strcasecmp(schemes[i]->name, name) == 0)
+			return schemes[i];
+	}
+	return NULL;
+}
 
 /* Lookup scheme and encoding by given name. The encoding is taken from
    ".base64", ".b64" or ".hex" suffix if it exists, otherwise the default
    encoding is used. */
 static const struct password_scheme *
-password_scheme_lookup(const char *scheme, enum password_encoding *encoding_r)
+password_scheme_lookup(const char *name, enum password_encoding *encoding_r)
 {
-	const struct password_scheme *s;
+	const struct password_scheme *scheme;
 	const char *encoding = NULL;
 	unsigned int scheme_len;
 
 	*encoding_r = PW_ENCODING_NONE;
 
-	for (scheme_len = 0; scheme[scheme_len] != '\0'; scheme_len++) {
-		if (scheme[scheme_len] == '.') {
-			encoding = scheme + scheme_len + 1;
+	for (scheme_len = 0; name[scheme_len] != '\0'; scheme_len++) {
+		if (name[scheme_len] == '.') {
+			encoding = name + scheme_len + 1;
+			name = t_strndup(name, scheme_len);
 			break;
 		}
 	}
 
-	for (s = schemes; s->name != NULL; s++) {
-		if (strncasecmp(s->name, scheme, scheme_len) == 0 &&
-		    s->name[scheme_len] == '\0') {
-			if (encoding == NULL)
-				*encoding_r = s->default_encoding;
-			else if (strcasecmp(encoding, "b64") == 0 ||
-				 strcasecmp(encoding, "base64") == 0)
-				*encoding_r = PW_ENCODING_BASE64;
-			else if (strcasecmp(encoding, "hex") == 0)
-				*encoding_r = PW_ENCODING_HEX;
-			else {
-				/* unknown encoding. treat as invalid scheme. */
-				return NULL;
-			}
-			return s;
-		}
+	scheme = password_scheme_lookup_name(name);
+	if (scheme == NULL)
+		return NULL;
+
+	if (encoding == NULL)
+		*encoding_r = scheme->default_encoding;
+	else if (strcasecmp(encoding, "b64") == 0 ||
+		 strcasecmp(encoding, "base64") == 0)
+		*encoding_r = PW_ENCODING_BASE64;
+	else if (strcasecmp(encoding, "hex") == 0)
+		*encoding_r = PW_ENCODING_HEX;
+	else {
+		/* unknown encoding. treat as invalid scheme. */
+		return NULL;
 	}
-	return NULL;
+	return scheme;
 }
 
 int password_verify(const char *plaintext, const char *user, const char *scheme,
@@ -85,19 +97,6 @@ int password_verify(const char *plaintext, const char *user, const char *scheme,
 	s->password_generate(plaintext, user, &generated, &generated_size);
 	return size != generated_size ? 0 :
 		memcmp(generated, raw_password, size) == 0;
-}
-
-const char *password_list_schemes(const struct password_scheme **listptr)
-{
-	if (*listptr == NULL)
-		*listptr = schemes;
-
-	if ((*listptr)->name == NULL) {
-		*listptr = NULL;
-		return NULL;
-	}
-
-	return (*listptr)++->name;
 }
 
 const char *password_get_scheme(const char **password)
@@ -230,7 +229,8 @@ bool password_generate_encoded(const char *plaintext, const char *user,
 
 bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 {
-	const struct password_scheme *s, *s1 = NULL, *s2 = NULL;
+	const struct password_scheme *const *schemes, *s1 = NULL, *s2 = NULL;
+	unsigned int i, count;
 
 	scheme1 = t_strcut(scheme1, '.');
 	scheme2 = t_strcut(scheme2, '.');
@@ -238,11 +238,12 @@ bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 	if (strcasecmp(scheme1, scheme2) == 0)
 		return TRUE;
 
-	for (s = schemes; s->name != NULL; s++) {
-		if (strcasecmp(s->name, scheme1) == 0)
-			s1 = s;
-		else if (strcasecmp(s->name, scheme2) == 0)
-			s2 = s;
+	schemes = array_get(&password_schemes, &count);
+	for (i = 0; i < count; i++) {
+		if (strcasecmp(schemes[i]->name, scheme1) == 0)
+			s1 = schemes[i];
+		else if (strcasecmp(schemes[i]->name, scheme2) == 0)
+			s2 = schemes[i];
 	}
 
 	/* if they've the same generate function, they're equivalent */
@@ -561,7 +562,7 @@ rpa_generate(const char *plaintext, const char *user __attr_unused__,
 	*size_r = MD5_RESULTLEN;
 }
 
-static const struct password_scheme default_schemes[] = {
+static const struct password_scheme builtin_schemes[] = {
 	{ "CRYPT", PW_ENCODING_NONE, 0, crypt_verify, crypt_generate },
 	{ "MD5", PW_ENCODING_NONE, 0, md5_crypt_verify, md5_crypt_generate },
 	{ "MD5-CRYPT", PW_ENCODING_NONE, 0,
@@ -589,10 +590,32 @@ static const struct password_scheme default_schemes[] = {
 	{ "NTLM", PW_ENCODING_HEX, NTLMSSP_HASH_SIZE, NULL, ntlm_generate },
 	{ "OTP", PW_ENCODING_NONE, 0, otp_verify, otp_generate },
 	{ "SKEY", PW_ENCODING_NONE, 0, otp_verify, skey_generate },
-	{ "RPA", PW_ENCODING_HEX, MD5_RESULTLEN, NULL, rpa_generate },
-
-	{ NULL, 0, 0, NULL, NULL }
+	{ "RPA", PW_ENCODING_HEX, MD5_RESULTLEN, NULL, rpa_generate }
 };
+
+void password_scheme_register(const struct password_scheme *scheme)
+{
+	if (password_scheme_lookup_name(scheme->name) != NULL) {
+		i_panic("password_scheme_register(%s): Already registered",
+			scheme->name);
+	}
+	array_append(&password_schemes, &scheme, 1);
+}
+
+void password_scheme_unregister(const struct password_scheme *scheme)
+{
+	const struct password_scheme *const *schemes;
+	unsigned int i, count;
+
+	schemes = array_get(&password_schemes, &count);
+	for (i = 0; i < count; i++) {
+		if (strcasecmp(schemes[i]->name, scheme->name) == 0) {
+			array_delete(&password_schemes, i, 1);
+			return;
+		}
+	}
+	i_panic("password_scheme_unregister(%s): Not registered", scheme->name);
+}
 
 void password_schemes_init(void)
 {
@@ -601,11 +624,11 @@ void password_schemes_init(void)
 	struct module *mod;
 	const char *symbol;
 #endif
+	unsigned int i;
 
-	i_array_init(&schemes_arr, sizeof(default_schemes) /
-		     sizeof(default_schemes[0]) + 4);
-	for (s = default_schemes; s->name != NULL; s++)
-		array_append(&schemes_arr, s, 1);
+	i_array_init(&password_schemes, N_ELEMENTS(builtin_schemes) + 4);
+	for (i = 0; i < N_ELEMENTS(builtin_schemes); i++)
+		password_scheme_register(&builtin_schemes[i]);
 
 #ifdef HAVE_MODULES
 	scheme_modules = module_dir_load(AUTH_MODULE_DIR"/password",
@@ -616,13 +639,10 @@ void password_schemes_init(void)
 		symbol = t_strconcat(mod->name, "_scheme", NULL);
 		s = module_get_symbol(mod, symbol);
 		if (s != NULL)
-			array_append(&schemes_arr, s, 1);
+			password_scheme_register(s);
 		t_pop();
 	}
 #endif
-
-	(void)array_append_space(&schemes_arr);
-	schemes = array_idx(&schemes_arr, 0);
 }
 
 void password_schemes_deinit(void)
@@ -631,6 +651,5 @@ void password_schemes_deinit(void)
 	module_dir_unload(&scheme_modules);
 #endif
 
-	array_free(&schemes_arr);
-	schemes = NULL;
+	array_free(&password_schemes);
 }

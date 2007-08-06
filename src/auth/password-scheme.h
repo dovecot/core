@@ -21,6 +21,9 @@ struct password_scheme {
 				  const unsigned char **raw_password_r,
 				  size_t *size_r);
 };
+ARRAY_DEFINE_TYPE(password_scheme_p, const struct password_scheme *);
+
+extern ARRAY_TYPE(password_scheme_p) password_schemes;
 
 /* Returns 1 = matched, 0 = didn't match, -1 = unknown scheme */
 int password_verify(const char *plaintext, const char *user, const char *scheme,
@@ -50,8 +53,8 @@ bool password_generate_encoded(const char *plaintext, const char *user,
 /* Returns TRUE if schemes are equivalent. */
 bool password_scheme_is_alias(const char *scheme1, const char *scheme2);
 
-/* Iterate through the list of password schemes, returning names */
-const char *password_list_schemes(const struct password_scheme **listptr);
+void password_scheme_register(const struct password_scheme *scheme);
+void password_scheme_unregister(const struct password_scheme *scheme);
 
 void password_schemes_init(void);
 void password_schemes_deinit(void);
