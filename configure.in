@@ -212,8 +212,12 @@ AC_ARG_WITH(sql,
 [  --with-sql              Build with generic SQL support],
 	if test x$withval = xno; then
 		want_sql=no
+	elif test x$withval = xplugin; then
+		want_sql=yes
+		want_sql_plugins=yes
 	else
 		want_sql=yes
+		want_sql_plugins=no
 	fi,
 	want_sql=no)
 
@@ -243,15 +247,6 @@ AC_ARG_WITH(sqlite,
 	want_sqlite=yes
 	fi,
 	want_sqlite=no)
-
-AC_ARG_ENABLE(sql-plugins,
-[  --enable-sql-plugins    Build SQL modules as plugins],
-	if test x$enableval = xno; then
-		want_sql_plugins=no
-	else
-		want_sql_plugins=yes
-	fi,
-	want_sql_plugins=no)
 
 AC_ARG_WITH(lucene,
 [  --with-lucene           Build with CLucene full text search support],
@@ -1765,11 +1760,11 @@ if test $want_sqlite = yes; then
 fi
 	
 SQL_CFLAGS="$MYSQL_CFLAGS $PGSQL_CFLAGS $SQLITE_CFLAGS"
-if test "$want_sql_plugins" = "no"; then
+if test "$want_sql_plugins" != "yes"; then
 	SQL_LIBS="$MYSQL_LIBS $PGSQL_LIBS $SQLITE_LIBS"
 fi
 
-if test "$found_sql_drivers" != "" -o "$want_sql" = "yes"; then
+if test "$found_sql_drivers" != "" -o "$want_sql" != "no"; then
 	if test "$all_sql_drivers" = "yes"; then
 	  sql_drivers="$found_sql_drivers"
 	fi
