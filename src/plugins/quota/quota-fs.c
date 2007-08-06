@@ -95,6 +95,8 @@ static int fs_quota_init(struct quota_root *_root, const char *args)
 			root->group_disabled = TRUE;
 		else if (strcmp(*tmp, "group") == 0)
 			root->user_disabled = TRUE;
+		else if (strcmp(*tmp, "inode_per_mail") == 0)
+			root->inode_per_mail = TRUE;
 		else if (strncmp(*tmp, "mount=", 6) == 0) {
 			i_free(root->storage_mount_path);
 			root->storage_mount_path = i_strdup(*tmp + 6);
@@ -188,7 +190,7 @@ static void fs_quota_storage_added(struct quota *quota,
 	struct quota_root *const *roots;
 	const char *dir;
 	unsigned int i, count;
-	bool is_file, inode_per_mail;
+	bool is_file;
 
 	dir = mail_storage_get_mailbox_path(storage, "", &is_file);
 	mount = fs_quota_mountpoint_get(dir);
@@ -213,14 +215,7 @@ static void fs_quota_storage_added(struct quota *quota,
 			i_error("open(%s) failed: %m", mount->path);
 	}
 #endif
-
-	/* FIXME: pretty ugly to hardcode these */
-	inode_per_mail =
-		strcmp(storage->name, "maildir") == 0 ||
-		strcmp(storage->name, "cydir") == 0;
-
 	root->mount = mount;
-	root->inode_per_mail = inode_per_mail;
 
 	/* if there are more unused quota roots, copy this mount to them */
 	roots = array_get(&quota->roots, &count);
@@ -229,7 +224,6 @@ static void fs_quota_storage_added(struct quota *quota,
 		if (QUOTA_ROOT_MATCH(root, mount) && root->mount == NULL) {
 			mount->refcount++;
 			root->mount = mount;
-			root->inode_per_mail = inode_per_mail;
 		}
 	}
 }
