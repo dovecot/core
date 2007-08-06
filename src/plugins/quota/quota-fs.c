@@ -48,7 +48,7 @@ struct fs_quota_mountpoint {
 	char *device_path;
 	char *type;
 
-#ifdef HAVE_Q_QUOTACTL
+#ifdef FS_QUOTA_SOLARIS
 	int fd;
 	char *path;
 #endif
@@ -76,7 +76,7 @@ static struct quota_root *fs_quota_alloc(void)
 
 static void fs_quota_mountpoint_free(struct fs_quota_mountpoint *mount)
 {
-#ifdef HAVE_Q_QUOTACTL
+#ifdef FS_QUOTA_SOLARIS
 	if (mount->fd != -1) {
 		if (close(mount->fd) < 0)
 			i_error("close(%s) failed: %m", mount->path);
@@ -181,7 +181,7 @@ static void fs_quota_storage_added(struct quota *quota,
 		strcmp(storage->name, "maildir") == 0 ||
 		strcmp(storage->name, "cydir") == 0;
 
-#ifdef HAVE_Q_QUOTACTL
+#ifdef FS_QUOTA_SOLARIS
 	if (mount->path == NULL) {
 		mount->path = i_strconcat(mount->mount_path, "/quotas", NULL);
 		mount->fd = open(mount->path, O_RDONLY);
@@ -313,39 +313,13 @@ static int do_rquota(struct fs_quota_root *root, bool bytes,
 }
 #endif
 
+#ifdef FS_QUOTA_LINUX
 static int
-fs_quota_get_resource(struct quota_root *_root, const char *name,
-		      uint64_t *value_r, uint64_t *limit_r)
+fs_quota_get_linux(struct fs_quota_root *root, bool bytes,
+		   uint64_t *value_r, uint64_t *limit_r)
 {
-	struct fs_quota_root *root = (struct fs_quota_root *)_root;
 	struct dqblk dqblk;
-#ifdef HAVE_Q_QUOTACTL
-	struct quotctl ctl;
-#endif
-	bool bytes;
 
-	*value_r = 0;
-	*limit_r = 0;
-
-	if (root->mount == NULL ||
-	    (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0 &&
-	     strcasecmp(name, QUOTA_NAME_MESSAGES) != 0))
-		return 0;
-	bytes = strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) == 0;
-
-#ifdef HAVE_RQUOTA
-	if (strcmp(root->mount->type, "nfs") == 0) {
-		int ret;
-
-		t_push();
-		ret = do_rquota(root, bytes, value_r, limit_r);
-		t_pop();
-		return ret;
-	}
-#endif
-
-#if defined (HAVE_QUOTACTL) && defined(HAVE_SYS_QUOTA_H)
-	/* Linux */
 #ifdef HAVE_XFS_QUOTA
 	if (strcmp(root->mount->type, "xfs") == 0) {
 		/* XFS */
@@ -397,8 +371,17 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			*value_r = dqblk.dqb_isoftlimit;
 		}
 	}
-#elif defined(HAVE_QUOTACTL)
-	/* BSD, AIX */
+	return 1;
+}
+#endif
+
+#ifdef FS_QUOTA_BSDAIX
+static int
+fs_quota_get_bsdaix(struct fs_quota_root *root, bool bytes,
+		    uint64_t *value_r, uint64_t *limit_r)
+{
+	struct dqblk dqblk;
+
 	if (quotactl(root->mount->mount_path, QCMD(Q_GETQUOTA, USRQUOTA),
 		     root->uid, (void *)&dqblk) < 0) {
 		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
@@ -412,8 +395,18 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		*value_r = dqblk.dqb_curinodes;
 		*value_r = dqblk.dqb_isoftlimit;
 	}
-#else
-	/* Solaris */
+	return 1;
+}
+#endif
+
+#ifdef FS_QUOTA_SOLARIS
+static int
+fs_quota_get_solaris(struct fs_quota_root *root, bool bytes,
+		     uint64_t *value_r, uint64_t *limit_r)
+{
+	struct dqblk dqblk;
+	struct quotctl ctl;
+
 	if (root->mount->fd == -1)
 		return 0;
 
@@ -431,8 +424,44 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		*value_r = dqblk.dqb_curfiles;
 		*value_r = dqblk.dqb_fsoftlimit;
 	}
-#endif
 	return 1;
+}
+#endif
+
+static int
+fs_quota_get_resource(struct quota_root *_root, const char *name,
+		      uint64_t *value_r, uint64_t *limit_r)
+{
+	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+	bool bytes;
+
+	*value_r = 0;
+	*limit_r = 0;
+
+	if (root->mount == NULL ||
+	    (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0 &&
+	     strcasecmp(name, QUOTA_NAME_MESSAGES) != 0))
+		return 0;
+	bytes = strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) == 0;
+
+#ifdef HAVE_RQUOTA
+	if (strcmp(root->mount->type, "nfs") == 0) {
+		int ret;
+
+		t_push();
+		ret = do_rquota(root, bytes, value_r, limit_r);
+		t_pop();
+		return ret;
+	}
+#endif
+
+#ifdef FS_QUOTA_LINUX
+	return fs_quota_get_linux(root, bytes, value_r, limit_r);
+#elif defined (FS_QUOTA_BSDAIX)
+	return fs_quota_get_bsdaix(root, bytes, value_r, limit_r);
+#else
+	return fs_quota_get_solaris(root, bytes, value_r, limit_r);
+#endif
 }
 
 static int 

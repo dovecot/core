@@ -18,7 +18,13 @@
 #  undef HAVE_FS_QUOTA
 #endif
 
-#if !defined(HAVE_QUOTACTL) && !defined(HAVE_Q_QUOTACTL)
+#if defined (HAVE_QUOTACTL) && defined(HAVE_SYS_QUOTA_H)
+#  define FS_QUOTA_LINUX
+#elif defined(HAVE_QUOTACTL)
+#  define FS_QUOTA_BSDAIX
+#elif defined (HAVE_Q_QUOTACTL)
+#  define FS_QUOTA_SOLARIS
+#else
 #  undef HAVE_FS_QUOTA
 #endif
 
