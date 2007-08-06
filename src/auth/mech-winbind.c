@@ -11,7 +11,6 @@
 #include "mech.h"
 #include "str.h"
 #include "buffer.h"
-#include "safe-memset.h"
 #include "base64.h"
 #include "istream.h"
 #include "ostream.h"
