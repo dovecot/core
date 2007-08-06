@@ -183,6 +183,15 @@ static void add_extra_listeners(void)
 
 static void drop_privileges(void)
 {
+	const char *version;
+
+	version = getenv("DOVECOT_VERSION");
+	if (version != NULL && strcmp(version, PACKAGE_VERSION) != 0) {
+		i_fatal("Dovecot version mismatch: "
+			"Master is v%s, dovecot-auth is v"PACKAGE_VERSION" "
+			"(if you don't care, set version_ignore=yes)", version);
+	}
+
 	open_logfile();
 
 	/* Open /dev/urandom before chrooting */
@@ -196,7 +205,7 @@ static void drop_privileges(void)
 	   only by root. Also load all modules here. */
 	passdbs_init();
 	userdbs_init();
-	modules = module_dir_load(AUTH_MODULE_DIR, NULL, TRUE, PACKAGE_VERSION);
+	modules = module_dir_load(AUTH_MODULE_DIR, NULL, TRUE, version);
 	auth = auth_preinit();
 
 	auth_master_listeners_init();
@@ -210,14 +219,6 @@ static void drop_privileges(void)
 static void main_init(bool nodaemon)
 {
 	struct auth_master_listener *listener;
-	const char *value;
-
-	value = getenv("DOVECOT_VERSION");
-	if (value != NULL && strcmp(value, PACKAGE_VERSION) != 0) {
-		i_fatal("Dovecot version mismatch: "
-			"Master is v%s, dovecot-auth is v"PACKAGE_VERSION" "
-			"(if you don't care, set version_ignore=yes)", value);
-	}
 
         process_start_time = ioloop_time;
 
