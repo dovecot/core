@@ -231,6 +231,10 @@ static int do_rquota(struct fs_quota_root *root, uint64_t *value_r,
 		return -1;
 	}
 
+	/* Establish some RPC credentials */
+	auth_destroy(cl->cl_auth);
+	cl->cl_auth = authunix_create_default();
+
 	/* make the rquota call on the remote host */
 	args.gqa_pathp = path;
 	args.gqa_uid = root->uid;
@@ -243,6 +247,7 @@ static int do_rquota(struct fs_quota_root *root, uint64_t *value_r,
 				timeout);
 	
 	/* the result has been deserialized, let the client go */
+	auth_destroy(cl->cl_auth);
 	clnt_destroy(cl);
 
 	if (call_status != RPC_SUCCESS) {
