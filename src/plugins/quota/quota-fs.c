@@ -59,6 +59,7 @@ struct fs_quota_root {
 
 	uid_t uid;
 	struct fs_quota_mountpoint *mount;
+	bool inode_per_mail;
 };
 
 extern struct quota_backend quota_backend_fs;
@@ -175,6 +176,10 @@ static void fs_quota_storage_added(struct quota *quota,
 		/* this is the default root. */
 	}
 	root->mount = mount;
+	/* FIXME: pretty ugly to hardcode these */
+	root->inode_per_mail =
+		strcmp(storage->name, "maildir") == 0 ||
+		strcmp(storage->name, "cydir") == 0;
 
 #ifdef HAVE_Q_QUOTACTL
 	if (mount->path == NULL) {
@@ -187,17 +192,26 @@ static void fs_quota_storage_added(struct quota *quota,
 }
 
 static const char *const *
-fs_quota_root_get_resources(struct quota_root *root __attr_unused__)
+fs_quota_root_get_resources(struct quota_root *_root)
 {
-	static const char *resources[] = { QUOTA_NAME_STORAGE_KILOBYTES, NULL };
+	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+	static const char *resources_kb[] = {
+		QUOTA_NAME_STORAGE_KILOBYTES,
+		NULL
+	};
+	static const char *resources_kb_messages[] = {
+		QUOTA_NAME_STORAGE_KILOBYTES,
+		QUOTA_NAME_MESSAGES,
+		NULL
+	};
 
-	return resources;
+	return root->inode_per_mail ? resources_kb_messages : resources_kb;
 }
 
 #ifdef HAVE_RQUOTA
 /* retrieve user quota from a remote host */
-static int do_rquota(struct fs_quota_root *root, uint64_t *value_r,
-		     uint64_t *limit_r)
+static int do_rquota(struct fs_quota_root *root, bool bytes,
+		     uint64_t *value_r, uint64_t *limit_r)
 {
 	struct getquota_rslt result;
 	struct getquota_args args;
@@ -264,10 +278,15 @@ static int do_rquota(struct fs_quota_root *root, uint64_t *value_r,
 		rquota *rq = &result.getquota_rslt_u.gqr_rquota;
 
 		if (rq->rq_active) {
-			*value_r = (uint64_t)rq->rq_curblocks *
-				(uint64_t)rq->rq_bsize;
-			*limit_r = (uint64_t)rq->rq_bsoftlimit *
-				(uint64_t)rq->rq_bsize;
+			if (bytes) {
+				*value_r = (uint64_t)rq->rq_curblocks *
+					(uint64_t)rq->rq_bsize;
+				*limit_r = (uint64_t)rq->rq_bsoftlimit *
+					(uint64_t)rq->rq_bsize;
+			} else {
+				*value_r = rq->rq_curfiles;
+				*limit_r = rq->rq_fsoftlimit;
+			}
 		}
 		if (getenv("DEBUG") != NULL) {
 			i_info("quota-fs: uid=%s, value=%llu, "
@@ -303,20 +322,23 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 #ifdef HAVE_Q_QUOTACTL
 	struct quotctl ctl;
 #endif
+	bool bytes;
 
 	*value_r = 0;
 	*limit_r = 0;
 
-	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0 ||
-	    root->mount == NULL)
+	if (root->mount == NULL ||
+	    (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0 &&
+	     strcasecmp(name, QUOTA_NAME_MESSAGES) != 0))
 		return 0;
+	bytes = strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) == 0;
 
 #ifdef HAVE_RQUOTA
 	if (strcmp(root->mount->type, "nfs") == 0) {
 		int ret;
 
 		t_push();
-		ret = do_rquota(root, value_r, limit_r);
+		ret = do_rquota(root, bytes, value_r, limit_r);
 		t_pop();
 		return ret;
 	}
@@ -337,9 +359,14 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			return -1;
 		}
 
-		/* values always returned in 512 byte blocks */
-		*value_r = xdqblk.d_bcount * 512;
-		*limit_r = xdqblk.d_blk_softlimit * 512;
+		if (bytes) {
+			/* values always returned in 512 byte blocks */
+			*value_r = xdqblk.d_bcount * 512;
+			*limit_r = xdqblk.d_blk_softlimit * 512;
+		} else {
+			*value_r = xdqblk.d_icount;
+			*limit_r = xdqblk.d_ino_softlimit;
+		}
 	} else
 #endif
 	{
@@ -358,12 +385,17 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			return -1;
 		}
 
+		if (bytes) {
 #if _LINUX_QUOTA_VERSION == 1
-		*value_r = dqblk.dqb_curblocks * 1024;
+			*value_r = dqblk.dqb_curblocks * 1024;
 #else
-		*value_r = dqblk.dqb_curblocks;
+			*value_r = dqblk.dqb_curblocks;
 #endif
-		*limit_r = dqblk.dqb_bsoftlimit * 1024;
+			*limit_r = dqblk.dqb_bsoftlimit * 1024;
+		} else {
+			*value_r = dqblk.dqb_curinodes;
+			*value_r = dqblk.dqb_isoftlimit;
+		}
 	}
 #elif defined(HAVE_QUOTACTL)
 	/* BSD, AIX */
@@ -373,8 +405,13 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 			root->mount->mount_path);
 		return -1;
 	}
-	*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
-	*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
+	if (bytes) {
+		*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
+		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
+	} else {
+		*value_r = dqblk.dqb_curinodes;
+		*value_r = dqblk.dqb_isoftlimit;
+	}
 #else
 	/* Solaris */
 	if (root->mount->fd == -1)
@@ -387,8 +424,13 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		i_error("ioctl(%s, Q_QUOTACTL) failed: %m", root->mount->path);
 		return -1;
 	}
-	*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
-	*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
+	if (bytes) {
+		*value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
+		*limit_r = (uint64_t)dqblk.dqb_bsoftlimit * DEV_BSIZE;
+	} else {
+		*value_r = dqblk.dqb_curfiles;
+		*value_r = dqblk.dqb_fsoftlimit;
+	}
 #endif
 	return 1;
 }
