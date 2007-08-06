@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "auth-module.h"
 #include "auth-worker-server.h"
 #include "userdb.h"
@@ -9,42 +10,44 @@
 #include <pwd.h>
 #include <grp.h>
 
-extern struct userdb_module_interface userdb_prefetch;
-extern struct userdb_module_interface userdb_static;
-extern struct userdb_module_interface userdb_passwd;
-extern struct userdb_module_interface userdb_passwd_file;
-extern struct userdb_module_interface userdb_vpopmail;
-extern struct userdb_module_interface userdb_ldap;
-extern struct userdb_module_interface userdb_sql;
-extern struct userdb_module_interface userdb_nss;
+static ARRAY_DEFINE(userdb_interfaces, struct userdb_module_interface *);
 
-struct userdb_module_interface *userdb_interfaces[] = {
-#ifdef USERDB_PASSWD
-	&userdb_passwd,
-#endif
-#ifdef USERDB_PASSWD_FILE
-	&userdb_passwd_file,
-#endif
-#ifdef USERDB_PREFETCH
-	&userdb_prefetch,
-#endif
-#ifdef USERDB_STATIC
-	&userdb_static,
-#endif
-#ifdef USERDB_VPOPMAIL
-	&userdb_vpopmail,
-#endif
-#ifdef USERDB_LDAP
-	&userdb_ldap,
-#endif
-#ifdef USERDB_SQL
-	&userdb_sql,
-#endif
-#ifdef USERDB_NSS
-	&userdb_nss,
-#endif
-	NULL
-};
+static struct userdb_module_interface *userdb_interface_find(const char *name)
+{
+	struct userdb_module_interface *const *ifaces;
+	unsigned int i, count;
+
+	ifaces = array_get(&userdb_interfaces, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(ifaces[i]->name, name) == 0)
+			return ifaces[i];
+	}
+	return NULL;
+}
+
+void userdb_register_module(struct userdb_module_interface *iface)
+{
+	if (userdb_interface_find(iface->name) != NULL) {
+		i_panic("userdb_register_module(%s): Already registered",
+			iface->name);
+	}
+	array_append(&userdb_interfaces, &iface, 1);
+}
+
+void userdb_unregister_module(struct userdb_module_interface *iface)
+{
+	struct userdb_module_interface *const *ifaces;
+	unsigned int i, count;
+
+	ifaces = array_get(&userdb_interfaces, &count);
+	for (i = 0; i < count; i++) {
+		if (ifaces[i] == iface) {
+			array_delete(&userdb_interfaces, i, 1);
+			return;
+		}
+	}
+	i_panic("userdb_unregister_module(%s): Not registered", iface->name);
+}
 
 uid_t userdb_parse_uid(struct auth_request *request, const char *str)
 {
@@ -100,7 +103,7 @@ gid_t userdb_parse_gid(struct auth_request *request, const char *str)
 
 void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 {
-	struct userdb_module_interface **p, *iface;
+	struct userdb_module_interface *iface;
         struct auth_userdb *auth_userdb, **dest;
 
 	if (args == NULL) args = "";
@@ -113,14 +116,7 @@ void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 		auth_userdb->num++;
 	*dest = auth_userdb;
 
-	iface = NULL;
-	for (p = userdb_interfaces; *p != NULL; p++) {
-		if (strcmp((*p)->name, driver) == 0) {
-			iface = *p;
-			break;
-		}
-	}
-	
+	iface = userdb_interface_find(driver);
 #ifdef HAVE_MODULES
 	if (auth_userdb->userdb == NULL)
 		auth_userdb->module = auth_module_open(driver);
@@ -166,4 +162,47 @@ void userdb_deinit(struct auth_userdb *userdb)
 	if (userdb->module != NULL)
                 auth_module_close(&userdb->module);
 #endif
+}
+
+extern struct userdb_module_interface userdb_prefetch;
+extern struct userdb_module_interface userdb_static;
+extern struct userdb_module_interface userdb_passwd;
+extern struct userdb_module_interface userdb_passwd_file;
+extern struct userdb_module_interface userdb_vpopmail;
+extern struct userdb_module_interface userdb_ldap;
+extern struct userdb_module_interface userdb_sql;
+extern struct userdb_module_interface userdb_nss;
+
+void userdbs_init(void)
+{
+	i_array_init(&userdb_interfaces, 16);
+#ifdef USERDB_PASSWD
+	userdb_register_module(&userdb_passwd);
+#endif
+#ifdef USERDB_PASSWD_FILE
+	userdb_register_module(&userdb_passwd_file);
+#endif
+#ifdef USERDB_PREFETCH
+	userdb_register_module(&userdb_prefetch);
+#endif
+#ifdef USERDB_STATIC
+	userdb_register_module(&userdb_static);
+#endif
+#ifdef USERDB_VPOPMAIL
+	userdb_register_module(&userdb_vpopmail);
+#endif
+#ifdef USERDB_LDAP
+	userdb_register_module(&userdb_ldap);
+#endif
+#ifdef USERDB_SQL
+	userdb_register_module(&userdb_sql);
+#endif
+#ifdef USERDB_NSS
+	userdb_register_module(&userdb_nss);
+#endif
+}
+
+void userdbs_deinit(void)
+{
+	array_free(&userdb_interfaces);
 }

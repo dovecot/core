@@ -45,6 +45,12 @@ void userdb_preinit(struct auth *auth, const char *driver, const char *args);
 void userdb_init(struct auth_userdb *userdb);
 void userdb_deinit(struct auth_userdb *userdb);
 
+void userdb_register_module(struct userdb_module_interface *iface);
+void userdb_unregister_module(struct userdb_module_interface *iface);
+
+void userdbs_init(void);
+void userdbs_deinit(void);
+
 #include "auth-request.h"
 
 #endif

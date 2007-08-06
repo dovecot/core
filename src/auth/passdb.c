@@ -1,6 +1,7 @@
 /* Copyright (C) 2002-2003 Timo Sirainen */
 
 #include "common.h"
+#include "array.h"
 #include "auth-module.h"
 #include "password-scheme.h"
 #include "auth-worker-server.h"
@@ -8,50 +9,44 @@
 
 #include <stdlib.h>
 
-extern struct passdb_module_interface passdb_passwd;
-extern struct passdb_module_interface passdb_bsdauth;
-extern struct passdb_module_interface passdb_shadow;
-extern struct passdb_module_interface passdb_passwd_file;
-extern struct passdb_module_interface passdb_pam;
-extern struct passdb_module_interface passdb_checkpassword;
-extern struct passdb_module_interface passdb_vpopmail;
-extern struct passdb_module_interface passdb_ldap;
-extern struct passdb_module_interface passdb_sql;
-extern struct passdb_module_interface passdb_sia;
+static ARRAY_DEFINE(passdb_interfaces, struct passdb_module_interface *);
 
-struct passdb_module_interface *passdb_interfaces[] = {
-#ifdef PASSDB_PASSWD
-	&passdb_passwd,
-#endif
-#ifdef PASSDB_BSDAUTH
-	&passdb_bsdauth,
-#endif
-#ifdef PASSDB_PASSWD_FILE
-	&passdb_passwd_file,
-#endif
-#ifdef PASSDB_PAM
-	&passdb_pam,
-#endif
-#ifdef PASSDB_CHECKPASSWORD
-	&passdb_checkpassword,
-#endif
-#ifdef PASSDB_SHADOW
-	&passdb_shadow,
-#endif
-#ifdef PASSDB_VPOPMAIL
-	&passdb_vpopmail,
-#endif
-#ifdef PASSDB_LDAP
-	&passdb_ldap,
-#endif
-#ifdef PASSDB_SQL
-	&passdb_sql,
-#endif
-#ifdef PASSDB_SIA
-	&passdb_sia,
-#endif
-	NULL
-};
+static struct passdb_module_interface *passdb_interface_find(const char *name)
+{
+	struct passdb_module_interface *const *ifaces;
+	unsigned int i, count;
+
+	ifaces = array_get(&passdb_interfaces, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(ifaces[i]->name, name) == 0)
+			return ifaces[i];
+	}
+	return NULL;
+}
+
+void passdb_register_module(struct passdb_module_interface *iface)
+{
+	if (passdb_interface_find(iface->name) != NULL) {
+		i_panic("passdb_register_module(%s): Already registered",
+			iface->name);
+	}
+	array_append(&passdb_interfaces, &iface, 1);
+}
+
+void passdb_unregister_module(struct passdb_module_interface *iface)
+{
+	struct passdb_module_interface *const *ifaces;
+	unsigned int i, count;
+
+	ifaces = array_get(&passdb_interfaces, &count);
+	for (i = 0; i < count; i++) {
+		if (ifaces[i] == iface) {
+			array_delete(&passdb_interfaces, i, 1);
+			return;
+		}
+	}
+	i_panic("passdb_unregister_module(%s): Not registered", iface->name);
+}
 
 bool passdb_get_credentials(struct auth_request *auth_request,
 			    const char *input, const char *input_scheme,
@@ -127,7 +122,7 @@ void passdb_handle_credentials(enum passdb_result result,
 struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
 				   const char *args, unsigned int id)
 {
-	struct passdb_module_interface **p, *iface;
+	struct passdb_module_interface *iface;
         struct auth_passdb *auth_passdb;
 
 	if (args == NULL) args = "";
@@ -137,14 +132,7 @@ struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
         auth_passdb->args = p_strdup(auth->pool, args);
         auth_passdb->id = id;
 
-	iface = NULL;
-	for (p = passdb_interfaces; *p != NULL; p++) {
-		if (strcmp((*p)->name, driver) == 0) {
-			iface = *p;
-			break;
-		}
-	}
-	
+	iface = passdb_interface_find(driver);
 #ifdef HAVE_MODULES
 	if (iface == NULL)
 		auth_passdb->module = auth_module_open(driver);
@@ -194,4 +182,55 @@ void passdb_deinit(struct auth_passdb *passdb)
 	if (passdb->module != NULL)
                 auth_module_close(&passdb->module);
 #endif
+}
+
+extern struct passdb_module_interface passdb_passwd;
+extern struct passdb_module_interface passdb_bsdauth;
+extern struct passdb_module_interface passdb_shadow;
+extern struct passdb_module_interface passdb_passwd_file;
+extern struct passdb_module_interface passdb_pam;
+extern struct passdb_module_interface passdb_checkpassword;
+extern struct passdb_module_interface passdb_vpopmail;
+extern struct passdb_module_interface passdb_ldap;
+extern struct passdb_module_interface passdb_sql;
+extern struct passdb_module_interface passdb_sia;
+
+void passdbs_init(void)
+{
+	i_array_init(&passdb_interfaces, 16);
+#ifdef PASSDB_PASSWD
+	passdb_register_module(&passdb_passwd);
+#endif
+#ifdef PASSDB_BSDAUTH
+	passdb_register_module(&passdb_bsdauth);
+#endif
+#ifdef PASSDB_PASSWD_FILE
+	passdb_register_module(&passdb_passwd_file);
+#endif
+#ifdef PASSDB_PAM
+	passdb_register_module(&passdb_pam);
+#endif
+#ifdef PASSDB_CHECKPASSWORD
+	passdb_register_module(&passdb_checkpassword);
+#endif
+#ifdef PASSDB_SHADOW
+	passdb_register_module(&passdb_shadow);
+#endif
+#ifdef PASSDB_VPOPMAIL
+	passdb_register_module(&passdb_vpopmail);
+#endif
+#ifdef PASSDB_LDAP
+	passdb_register_module(&passdb_ldap);
+#endif
+#ifdef PASSDB_SQL
+	passdb_register_module(&passdb_sql);
+#endif
+#ifdef PASSDB_SIA
+	passdb_register_module(&passdb_sia);
+#endif
+}
+
+void passdbs_deinit(void)
+{
+	array_free(&passdb_interfaces);
 }

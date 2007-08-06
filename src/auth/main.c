@@ -192,6 +192,8 @@ static void drop_privileges(void)
 
 	/* Initialize databases so their configuration files can be readable
 	   only by root. Also load all modules here. */
+	passdbs_init();
+	userdbs_init();
 	auth = auth_preinit();
         password_schemes_init();
 
@@ -284,6 +286,8 @@ static void main_deinit(void)
         auth_worker_server_deinit();
 	auth_master_listeners_deinit();
 	auth_deinit(&auth);
+	userdbs_deinit();
+	passdbs_deinit();
 	mech_deinit();
 
         password_schemes_deinit();

@@ -85,6 +85,12 @@ struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
 void passdb_init(struct auth_passdb *passdb);
 void passdb_deinit(struct auth_passdb *passdb);
 
+void passdb_register_module(struct passdb_module_interface *iface);
+void passdb_unregister_module(struct passdb_module_interface *iface);
+
+void passdbs_init(void);
+void passdbs_deinit(void);
+
 #include "auth-request.h"
 
 #endif
