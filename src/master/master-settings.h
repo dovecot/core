@@ -204,10 +204,12 @@ struct auth_settings {
 	const char *anonymous_username;
 	const char *krb5_keytab;
 	const char *gssapi_hostname;
+	const char *winbind_helper;
 
 	bool verbose, debug, debug_passwords;
 	bool ssl_require_client_cert;
 	bool ssl_username_from_cert;
+	bool ntlm_use_winbind;
 
 	unsigned int count;
 	unsigned int worker_max_count;

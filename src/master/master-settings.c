@@ -78,12 +78,14 @@ static struct setting_def auth_setting_defs[] = {
 	DEF_STR(anonymous_username),
 	DEF_STR(krb5_keytab),
 	DEF_STR(gssapi_hostname),
+	DEF_STR(winbind_helper),
 
 	DEF_BOOL(verbose),
 	DEF_BOOL(debug),
 	DEF_BOOL(debug_passwords),
 	DEF_BOOL(ssl_require_client_cert),
 	DEF_BOOL(ssl_username_from_cert),
+	DEF_BOOL(ntlm_use_winbind),
 
 	DEF_INT(count),
 	DEF_INT(worker_max_count),
@@ -303,12 +305,14 @@ struct auth_settings default_auth_settings = {
 	MEMBER(anonymous_username) "anonymous",
 	MEMBER(krb5_keytab) "",
 	MEMBER(gssapi_hostname) "",
+	MEMBER(winbind_helper) "/usr/bin/ntlm_auth",
 
 	MEMBER(verbose) FALSE,
 	MEMBER(debug) FALSE,
 	MEMBER(debug_passwords) FALSE,
 	MEMBER(ssl_require_client_cert) FALSE,
 	MEMBER(ssl_username_from_cert) FALSE,
+	MEMBER(ntlm_use_winbind) FALSE,
 
 	MEMBER(count) 1,
 	MEMBER(worker_max_count) 30,

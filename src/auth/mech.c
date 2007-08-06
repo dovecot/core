@@ -75,6 +75,8 @@ extern const struct mech_module mech_anonymous;
 #ifdef HAVE_GSSAPI
 extern const struct mech_module mech_gssapi;
 #endif
+extern const struct mech_module mech_winbind_ntlm;
+extern const struct mech_module mech_winbind_spnego;
 
 void mech_init(void)
 {
@@ -83,7 +85,11 @@ void mech_init(void)
 	mech_register_module(&mech_apop);
 	mech_register_module(&mech_cram_md5);
 	mech_register_module(&mech_digest_md5);
-	mech_register_module(&mech_ntlm);
+	if (getenv("NTLM_USE_WINBIND") != NULL)
+		mech_register_module(&mech_winbind_ntlm);
+	else
+		mech_register_module(&mech_ntlm);
+	mech_register_module(&mech_winbind_spnego);
 	mech_register_module(&mech_otp);
 	mech_register_module(&mech_skey);
 	mech_register_module(&mech_rpa);
@@ -100,7 +106,11 @@ void mech_deinit(void)
 	mech_unregister_module(&mech_apop);
 	mech_unregister_module(&mech_cram_md5);
 	mech_unregister_module(&mech_digest_md5);
-	mech_unregister_module(&mech_ntlm);
+	if (getenv("NTLM_USE_WINBIND") != NULL)
+		mech_unregister_module(&mech_winbind_ntlm);
+	else
+		mech_unregister_module(&mech_ntlm);
+	mech_unregister_module(&mech_winbind_spnego);
 	mech_unregister_module(&mech_otp);
 	mech_unregister_module(&mech_skey);
 	mech_unregister_module(&mech_rpa);

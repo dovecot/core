@@ -62,6 +62,7 @@ dovecot_auth_SOURCES = \
 	mech-gssapi.c \
 	mech-rpa.c \
 	mech-apop.c \
+	mech-winbind.c \
 	otp-skey-common.c \
 	plain-common.c \
 	passdb.c \

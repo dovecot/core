@@ -480,6 +480,8 @@ static void auth_set_environment(struct auth_settings *set)
 		env_put("SSL_REQUIRE_CLIENT_CERT=1");
 	if (set->ssl_username_from_cert)
 		env_put("SSL_USERNAME_FROM_CERT=1");
+	if (set->ntlm_use_winbind)
+		env_put("NTLM_USE_WINBIND=1");
 	if (*set->krb5_keytab != '\0') {
 		/* Environment used by Kerberos 5 library directly */
 		env_put(t_strconcat("KRB5_KTNAME=", set->krb5_keytab, NULL));
@@ -488,6 +490,7 @@ static void auth_set_environment(struct auth_settings *set)
 		env_put(t_strconcat("GSSAPI_HOSTNAME=",
 				    set->gssapi_hostname, NULL));
 	}
+	env_put(t_strconcat("WINBIND_HELPER=", set->winbind_helper, NULL));
 
 	restrict_process_size(set->process_size, (unsigned int)-1);
 }
