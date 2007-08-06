@@ -182,30 +182,11 @@ fs_quota_root_find_mountpoint(struct quota *quota,
 	return empty;
 }
 
-static void fs_quota_storage_added(struct quota *quota,
-				   struct mail_storage *storage)
+static void fs_quota_mount_init(struct fs_quota_root *root,
+				struct fs_quota_mountpoint *mount)
 {
-	struct fs_quota_mountpoint *mount;
-	struct fs_quota_root *root;
 	struct quota_root *const *roots;
-	const char *dir;
 	unsigned int i, count;
-	bool is_file;
-
-	dir = mail_storage_get_mailbox_path(storage, "", &is_file);
-	mount = fs_quota_mountpoint_get(dir);
-	if (getenv("DEBUG") != NULL) {
-		i_info("fs quota add storage dir = %s", dir);
-		i_info("fs quota block device = %s", mount->device_path);
-		i_info("fs quota mount point = %s", mount->mount_path);
-	}
-
-	root = fs_quota_root_find_mountpoint(quota, mount);
-	if (root == NULL || (root != NULL && root->mount != NULL)) {
-		/* already exists */
-		fs_quota_mountpoint_free(mount);
-		return;
-	}
 
 #ifdef FS_QUOTA_SOLARIS
 	if (mount->path == NULL) {
@@ -218,7 +199,7 @@ static void fs_quota_storage_added(struct quota *quota,
 	root->mount = mount;
 
 	/* if there are more unused quota roots, copy this mount to them */
-	roots = array_get(&quota->roots, &count);
+	roots = array_get(&root->root.quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		struct fs_quota_root *root = (struct fs_quota_root *)roots[i];
 		if (QUOTA_ROOT_MATCH(root, mount) && root->mount == NULL) {
@@ -226,6 +207,52 @@ static void fs_quota_storage_added(struct quota *quota,
 			root->mount = mount;
 		}
 	}
+}
+
+static void fs_quota_add_missing_mounts(struct quota *quota)
+{
+	struct fs_quota_mountpoint *mount;
+	struct quota_root *const *roots;
+	unsigned int i, count;
+
+	roots = array_get(&quota->roots, &count);
+	for (i = 0; i < count; i++) {
+		struct fs_quota_root *root = (struct fs_quota_root *)roots[i];
+
+		if (root->root.backend.name != quota_backend_fs.name ||
+		    root->storage_mount_path == NULL || root->mount != NULL)
+			continue;
+
+		mount = fs_quota_mountpoint_get(root->storage_mount_path);
+		fs_quota_mount_init(root, mount);
+	}
+}
+
+static void fs_quota_storage_added(struct quota *quota,
+				   struct mail_storage *storage)
+{
+	struct fs_quota_mountpoint *mount;
+	struct fs_quota_root *root;
+	const char *dir;
+	bool is_file;
+
+	dir = mail_storage_get_mailbox_path(storage, "", &is_file);
+	mount = fs_quota_mountpoint_get(dir);
+	if (getenv("DEBUG") != NULL) {
+		i_info("fs quota add storage dir = %s", dir);
+		i_info("fs quota block device = %s", mount->device_path);
+		i_info("fs quota mount point = %s", mount->mount_path);
+	}
+
+	root = fs_quota_root_find_mountpoint(quota, mount);
+	if (root != NULL && root->mount == NULL)
+		fs_quota_mount_init(root, mount);
+	else
+		fs_quota_mountpoint_free(mount);
+
+	/* we would actually want to do this only once after all quota roots
+	   are created, but there's no way to do this right now */
+	fs_quota_add_missing_mounts(quota);
 }
 
 static const char *const *
