@@ -62,7 +62,7 @@ void client_command_cancel(struct client_command_context *cmd)
 
 	cmd->cancel = TRUE;
 	cmd_ret = cmd->func == NULL ? TRUE : cmd->func(cmd);
-	if (!cmd_ret) {
+	if (!cmd_ret && !cmd->param_error) {
 		if (cmd->client->output->closed)
 			i_panic("command didn't cancel itself: %s", cmd->name);
 	} else {
@@ -260,6 +260,10 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		return TRUE;
 	} else if (ret == -2) {
 		/* need more data */
+		if (cmd->client->input->closed) {
+			/* disconnected */
+			cmd->param_error = TRUE;
+		}
 		return FALSE;
 	} else {
 		/* error, or missing arguments */
