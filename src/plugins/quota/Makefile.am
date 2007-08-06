@@ -27,6 +27,13 @@ lib10_quota_plugin_la_SOURCES = \
         quota-plugin.c \
 	quota-storage.c
 
+if HAVE_RQUOTA
+rquota_xdr.c: Makefile
+	$(RPCGEN) -c /usr/include/rpcsvc/rquota.x | \
+	  $(SED) -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
+	    -e 's/int32_t \*buf/int32_t *buf __attr_unused__/' > rquota_xdr.c
+endif
+
 noinst_HEADERS = \
 	quota.h \
 	quota-fs.h \
@@ -39,3 +46,8 @@ install-exec-local:
 	  rm -f $(DESTDIR)$(moduledir)/$$d/lib10_quota_plugin.so; \
 	  $(LN_S) ../lib10_quota_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done
+
+DISTFILES = $(DIST_COMMON) $(dist_sources) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+distclean-generic:
+	rm -f Makefile rquota_xdr.c

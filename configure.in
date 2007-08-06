@@ -1921,11 +1921,17 @@ AC_CHECK_HEADER(zlib.h, [
 ])
 AM_CONDITIONAL(BUILD_ZLIB, test "$have_zlib" = "yes")
 
+RPCGEN=${RPCGEN-rpcgen}
+if ! $RPCGEN -c /dev/null > /dev/null; then
+  RPCGEN=
+fi
+AC_SUBST(RPCGEN)
+
 have_rquota=no
-AC_CHECK_HEADER(rpcsvc/rquota.h, [
+if test -f /usr/include/rpcsvc/rquota.x && test -n "$RPCGEN"; then
   AC_DEFINE(HAVE_RQUOTA,, Define if you wish to retrieve quota of NFS mounted mailboxes)
   have_rquota=yes
-])
+fi
 AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
 
 dnl **
