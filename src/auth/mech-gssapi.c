@@ -448,4 +448,19 @@ const struct mech_module mech_gssapi = {
 	mech_gssapi_auth_free
 };
 
+#ifndef BUILTIN_GSSAPI
+void mech_gssapi_init(void);
+void mech_gssapi_deinit(void);
+
+void mech_gssapi_init(void)
+{
+	mech_register_module(&mech_gssapi);
+}
+
+void mech_gssapi_deinit(void)
+{
+	mech_unregister_module(&mech_gssapi);
+}
+#endif
+
 #endif

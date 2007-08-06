@@ -1,11 +1,16 @@
 noinst_LIBRARIES = libpassword.a
 auth_moduledir = $(moduledir)/auth
 
+if GSSAPI_PLUGIN
+GSSAPI_LIB = libmech_gssapi.la
+endif
+
 if LDAP_PLUGIN
 LDAP_LIB = libauthdb_ldap.la
 endif
 
 auth_module_LTLIBRARIES = \
+	$(GSSAPI_LIB) \
 	$(LDAP_LIB)
 
 pkglibexecdir = $(libexecdir)/dovecot
@@ -48,6 +53,10 @@ if ! LDAP_PLUGIN
 builtin_ldap_sources = $(ldap_sources)
 endif
 
+if ! GSSAPI_PLUGIN
+builtin_gssapi_sources = mech-gssapi.c
+endif
+
 dovecot_auth_SOURCES = \
 	auth.c \
 	auth-cache.c \
@@ -71,7 +80,6 @@ dovecot_auth_SOURCES = \
 	mech-ntlm.c \
 	mech-otp.c \
 	mech-skey.c \
-	mech-gssapi.c \
 	mech-rpa.c \
 	mech-apop.c \
 	mech-winbind.c \
@@ -98,6 +106,7 @@ dovecot_auth_SOURCES = \
 	userdb-static.c \
 	userdb-vpopmail.c \
 	userdb-sql.c \
+	$(builtin_gssapi_sources) \
 	$(builtin_ldap_sources)
 
 headers = \
@@ -128,6 +137,13 @@ headers = \
 	userdb.h \
 	userdb-blocking.h \
 	userdb-vpopmail.h
+
+if GSSAPI_PLUGIN
+libmech_gssapi_la_LDFLAGS = -module -avoid-version
+libmech_gssapi_la_LIBADD = $(KRB5_LIBS)
+libmech_gssapi_la_CPPFLAGS = $(AM_CPPFLAGS) $(KRB5_CFLAGS)
+libmech_gssapi_la_SOURCES = mech-gssapi.c
+endif
 
 if LDAP_PLUGIN
 libauthdb_ldap_la_LDFLAGS = -module -avoid-version

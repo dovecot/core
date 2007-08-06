@@ -138,10 +138,14 @@ AC_ARG_WITH(bsdauth,
 
 AC_ARG_WITH(gssapi,
 [  --with-gssapi           Build with GSSAPI authentication support],
-    if test x$withval = xno; then
+	if test x$withval = xno; then
 		want_gssapi=no
+	elif test x$withval = xplugin; then
+		want_gssapi=yes
+		want_gssapi_plugin=yes
 	else
 		want_gssapi=yes
+		want_gssapi_plugin=no
 	fi,
 	want_gssapi=no)
 
@@ -1556,8 +1560,10 @@ if test $want_gssapi = yes; then
 		# version >= v1.3. Although this doesn't work right with
 		# non-MIT kerberos versioning..
 		if `krb5-config --version|grep -v '1\.2' > /dev/null`; then
-			AUTH_LIBS="$AUTH_LIBS `krb5-config --libs gssapi`"
-			AUTH_CFLAGS="$AUTH_CFLAGS `krb5-config --cflags gssapi`"
+			KRB5_LIBS=`krb5-config --libs gssapi`
+			KRB5_CFLAGS=`krb5-config --cflags gssapi`
+			AC_SUBST(KRB5_LIBS)
+			AC_SUBST(KRB5_CFLAGS)
 			
 			# Although krb5-config exists, all systems still don't
 			# have gssapi.h
@@ -1579,12 +1585,21 @@ if test $want_gssapi = yes; then
 				AC_CHECK_LIB(gss, __gss_userok, [
 					AC_DEFINE(HAVE___GSS_USEROK,,
 						Define if you have __gss_userok())
-				],, `krb5-config --libs gssapi`)
+				],, $KRB5_LIBS)
 			fi
 			CFLAGS=$old_CFLAGS
+
+			if test x$want_gssapi_plugin != xyes; then
+			  AUTH_LIBS="$AUTH_LIBS $KRB5_LIBS"
+			  AUTH_CFLAGS="$AUTH_CFLAGS `krb5-config --cflags gssapi`"
+		          AC_DEFINE(BUILTIN_GSSAPI,, GSSAPI support is built in)
+			else
+			  have_gssapi_plugin=yes
+			fi
 		fi
 	fi
 fi
+AM_CONDITIONAL(GSSAPI_PLUGIN, test "$have_gssapi_plugin" = "yes")
 
 if test $want_sia = yes; then
 	AC_CHECK_FUNC(sia_validate_user, [
