@@ -209,7 +209,7 @@ AC_ARG_WITH(db,
 dnl The --with-sql is useful only if Dovecot is being built with all the SQL
 dnl drivers as modules. If any SQL driver is built-in, this option is ignored.
 AC_ARG_WITH(sql,
-[  --with-sql              Build with generic SQL support],
+[  --with-sql=yes|plugin   Build with generic SQL support],
 	if test x$withval = xno; then
 		want_sql=no
 	elif test x$withval = xplugin; then
@@ -259,7 +259,7 @@ AC_ARG_WITH(lucene,
 AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
 
 AC_ARG_WITH(ssl,
-[  --with-ssl=[gnutls|openssl] Build with GNUTLS or OpenSSL (default)],
+[  --with-ssl=gnutls|openssl Build with GNUTLS or OpenSSL (default)],
 	if test x$withval = xno; then
 		want_gnutls=no
 		want_openssl=no
