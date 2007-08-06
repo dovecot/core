@@ -44,6 +44,8 @@
 #endif
 
 struct fs_quota_mountpoint {
+	int refcount;
+
 	char *mount_path;
 	char *device_path;
 	char *type;
@@ -79,8 +81,26 @@ static struct quota_root *fs_quota_alloc(void)
 	return &root->root;
 }
 
+static int fs_quota_init(struct quota_root *_root, const char *args)
+{
+	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+
+	if (strcmp(args, "user") == 0)
+		root->group_disabled = TRUE;
+	else if (strcmp(args, "group") == 0)
+		root->user_disabled = TRUE;
+	else {
+		i_error("fs quota: Invalid parameters: %s", args);
+		return -1;
+	}
+	return 0;
+}
+
 static void fs_quota_mountpoint_free(struct fs_quota_mountpoint *mount)
 {
+	if (--mount->refcount > 0)
+		return;
+
 #ifdef FS_QUOTA_SOLARIS
 	if (mount->fd != -1) {
 		if (close(mount->fd) < 0)
@@ -115,6 +135,7 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 		return NULL;
 
 	mount = i_new(struct fs_quota_mountpoint, 1);
+	mount->refcount = 1;
 	mount->device_path = point.device_path;
 	mount->mount_path = point.mount_path;
 	mount->type = point.type;
@@ -151,8 +172,10 @@ static void fs_quota_storage_added(struct quota *quota,
 	struct fs_quota_mountpoint *mount;
 	struct quota_root *_root;
 	struct fs_quota_root *root;
+	struct quota_root *const *roots;
 	const char *dir;
-	bool is_file;
+	unsigned int i, count;
+	bool is_file, inode_per_mail;
 
 	dir = mail_storage_get_mailbox_path(storage, "", &is_file);
 	mount = fs_quota_mountpoint_get(dir);
@@ -169,6 +192,20 @@ static void fs_quota_storage_added(struct quota *quota,
 		return;
 	}
 
+#ifdef FS_QUOTA_SOLARIS
+	if (mount->path == NULL) {
+		mount->path = i_strconcat(mount->mount_path, "/quotas", NULL);
+		mount->fd = open(mount->path, O_RDONLY);
+		if (mount->fd == -1 && errno != ENOENT)
+			i_error("open(%s) failed: %m", mount->path);
+	}
+#endif
+
+	/* FIXME: pretty ugly to hardcode these */
+	inode_per_mail =
+		strcmp(storage->name, "maildir") == 0 ||
+		strcmp(storage->name, "cydir") == 0;
+
 	if (root == NULL) {
 		/* create a new root for this mountpoint */
 		_root = quota_root_init(quota, quota_backend_fs.name);
@@ -181,19 +218,22 @@ static void fs_quota_storage_added(struct quota *quota,
 		/* this is the default root. */
 	}
 	root->mount = mount;
-	/* FIXME: pretty ugly to hardcode these */
-	root->inode_per_mail =
-		strcmp(storage->name, "maildir") == 0 ||
-		strcmp(storage->name, "cydir") == 0;
+	root->inode_per_mail = inode_per_mail;
 
-#ifdef FS_QUOTA_SOLARIS
-	if (mount->path == NULL) {
-		mount->path = i_strconcat(mount->mount_path, "/quotas", NULL);
-		mount->fd = open(mount->path, O_RDONLY);
-		if (mount->fd == -1 && errno != ENOENT)
-			i_error("open(%s) failed: %m", mount->path);
+	/* if there are more unused quota roots, copy this mount to them */
+	roots = array_get(&quota->roots, &count);
+	for (i = 0; i < count; i++) {
+		if (roots[i]->backend.name == quota_backend_fs.name) {
+			struct fs_quota_root *root =
+				(struct fs_quota_root *)roots[i];
+
+			if (root->mount == NULL) {
+				mount->refcount++;
+				root->mount = mount;
+				root->inode_per_mail = inode_per_mail;
+			}
+		}
 	}
-#endif
 }
 
 static const char *const *
@@ -535,7 +575,7 @@ struct quota_backend quota_backend_fs = {
 
 	{
 		fs_quota_alloc,
-		NULL,
+		fs_quota_init,
 		fs_quota_deinit,
 		NULL,
 
