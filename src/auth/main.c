@@ -206,6 +206,7 @@ static void drop_privileges(void)
 	passdbs_init();
 	userdbs_init();
 	modules = module_dir_load(AUTH_MODULE_DIR, NULL, TRUE, version);
+	module_dir_init(modules);
 	auth = auth_preinit();
 
 	auth_master_listeners_init();
@@ -231,8 +232,6 @@ static void main_init(bool nodaemon)
 	/* If auth caches aren't used, just ignore these signals */
 	lib_signals_ignore(SIGHUP, TRUE);
 	lib_signals_ignore(SIGUSR2, TRUE);
-
-	module_dir_init(modules);
 
 	mech_init();
         password_schemes_init();
@@ -292,8 +291,8 @@ static void main_deinit(void)
         auth_worker_server_deinit();
 	auth_master_listeners_deinit();
 
-	module_dir_unload(&modules);
 	auth_deinit(&auth);
+	module_dir_unload(&modules);
 	userdbs_deinit();
 	passdbs_deinit();
 	mech_deinit();
