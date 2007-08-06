@@ -73,6 +73,14 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 	return auth_request;
 }
 
+static void add_userdb_replies(string_t *str, const char *data)
+{
+	const char *const *tmp;
+
+	for (tmp = t_strsplit(data, "\t"); *tmp != NULL; tmp++)
+		str_printfa(str, "\tuserdb_%s", *tmp);
+}
+
 static void verify_plain_callback(enum passdb_result result,
 				  struct auth_request *request)
 {
@@ -101,6 +109,11 @@ static void verify_plain_callback(enum passdb_result result,
 
 			str_append_c(str, '\t');
 			str_append(str, field);
+		}
+		if (request->userdb_reply != NULL) {
+			const char *data =
+				auth_stream_reply_export(request->userdb_reply);
+			add_userdb_replies(str, data);
 		}
 	}
 	str_append_c(str, '\n');
@@ -190,6 +203,11 @@ lookup_credentials_callback(enum passdb_result result,
 			const char *field =
 				auth_stream_reply_export(request->extra_fields);
 			str_append(str, field);
+		}
+		if (request->userdb_reply != NULL) {
+			const char *data =
+				auth_stream_reply_export(request->userdb_reply);
+			add_userdb_replies(str, data);
 		}
 	}
 	str_append_c(str, '\n');
