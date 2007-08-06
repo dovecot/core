@@ -58,6 +58,7 @@ struct fs_quota_mountpoint {
 
 struct fs_quota_root {
 	struct quota_root root;
+	char *storage_mount_path;
 
 	uid_t uid;
 	gid_t gid;
@@ -84,14 +85,23 @@ static struct quota_root *fs_quota_alloc(void)
 static int fs_quota_init(struct quota_root *_root, const char *args)
 {
 	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+	const char *const *tmp;
 
-	if (strcmp(args, "user") == 0)
-		root->group_disabled = TRUE;
-	else if (strcmp(args, "group") == 0)
-		root->user_disabled = TRUE;
-	else {
-		i_error("fs quota: Invalid parameters: %s", args);
-		return -1;
+	if (args == NULL)
+		return 0;
+
+	for (tmp = t_strsplit(args, ":"); *tmp != NULL; tmp++) {
+		if (strcmp(*tmp, "user") == 0)
+			root->group_disabled = TRUE;
+		else if (strcmp(*tmp, "group") == 0)
+			root->user_disabled = TRUE;
+		else if (strncmp(*tmp, "mount=", 6) == 0) {
+			i_free(root->storage_mount_path);
+			root->storage_mount_path = i_strdup(*tmp + 6);
+		} else {
+			i_error("fs quota: Invalid parameter: %s", *tmp);
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -121,6 +131,7 @@ static void fs_quota_deinit(struct quota_root *_root)
 
 	if (root->mount != NULL)
 		fs_quota_mountpoint_free(root->mount);
+	i_free(root->storage_mount_path);
 	i_free(root);
 }
 
@@ -142,6 +153,11 @@ static struct fs_quota_mountpoint *fs_quota_mountpoint_get(const char *dir)
 	return mount;
 }
 
+#define QUOTA_ROOT_MATCH(root, mount) \
+	((root)->root.backend.name == quota_backend_fs.name && \
+	 ((root)->storage_mount_path == NULL || \
+	  strcmp((root)->storage_mount_path, (mount)->mount_path) == 0))
+
 static struct fs_quota_root *
 fs_quota_root_find_mountpoint(struct quota *quota,
 			      const struct fs_quota_mountpoint *mount)
@@ -152,10 +168,8 @@ fs_quota_root_find_mountpoint(struct quota *quota,
 
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (roots[i]->backend.name == quota_backend_fs.name) {
-			struct fs_quota_root *root =
-				(struct fs_quota_root *)roots[i];
-
+		struct fs_quota_root *root = (struct fs_quota_root *)roots[i];
+		if (QUOTA_ROOT_MATCH(root, mount)) {
 			if (root->mount == NULL)
 				empty = root;
 			else if (strcmp(root->mount->mount_path,
@@ -170,7 +184,6 @@ static void fs_quota_storage_added(struct quota *quota,
 				   struct mail_storage *storage)
 {
 	struct fs_quota_mountpoint *mount;
-	struct quota_root *_root;
 	struct fs_quota_root *root;
 	struct quota_root *const *roots;
 	const char *dir;
@@ -186,7 +199,7 @@ static void fs_quota_storage_added(struct quota *quota,
 	}
 
 	root = fs_quota_root_find_mountpoint(quota, mount);
-	if (root != NULL && root->mount != NULL) {
+	if (root == NULL || (root != NULL && root->mount != NULL)) {
 		/* already exists */
 		fs_quota_mountpoint_free(mount);
 		return;
@@ -206,32 +219,17 @@ static void fs_quota_storage_added(struct quota *quota,
 		strcmp(storage->name, "maildir") == 0 ||
 		strcmp(storage->name, "cydir") == 0;
 
-	if (root == NULL) {
-		/* create a new root for this mountpoint */
-		_root = quota_root_init(quota, quota_backend_fs.name);
-		root = (struct fs_quota_root *)_root;
-		root->root.name =
-			p_strdup_printf(root->root.pool, "%s%d",
-					quota_backend_fs.name,
-					array_count(&quota->roots));
-	} else {
-		/* this is the default root. */
-	}
 	root->mount = mount;
 	root->inode_per_mail = inode_per_mail;
 
 	/* if there are more unused quota roots, copy this mount to them */
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (roots[i]->backend.name == quota_backend_fs.name) {
-			struct fs_quota_root *root =
-				(struct fs_quota_root *)roots[i];
-
-			if (root->mount == NULL) {
-				mount->refcount++;
-				root->mount = mount;
-				root->inode_per_mail = inode_per_mail;
-			}
+		struct fs_quota_root *root = (struct fs_quota_root *)roots[i];
+		if (QUOTA_ROOT_MATCH(root, mount) && root->mount == NULL) {
+			mount->refcount++;
+			root->mount = mount;
+			root->inode_per_mail = inode_per_mail;
 		}
 	}
 }
