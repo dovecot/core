@@ -623,9 +623,9 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		       char ***attr_names_r, struct hash_table *attr_map,
 		       const char *skip_attr)
 {
-	const char *const *attr;
+	const char *const *attr, *attr_data, *p;
 	string_t *static_data;
-	char *name, *value, *p;
+	char *name, *value;
 	unsigned int i, j, size;
 
 	if (*attrlist == '\0')
@@ -640,11 +640,15 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	*attr_names_r = p_new(conn->pool, char *, size + 1);
 
 	for (i = j = 0; i < size; i++) {
-		p = strchr(attr[i], '=');
+		/* allow spaces here so "foo=1, bar=2" works */
+		attr_data = attr[i];
+		while (*attr_data == ' ') attr_data++;
+
+		p = strchr(attr_data, '=');
 		if (p == NULL)
-			name = value = p_strdup(conn->pool, attr[i]);
-		else if (p != attr[i]) {
-			name = p_strdup_until(conn->pool, attr[i], p);
+			name = value = p_strdup(conn->pool, attr_data);
+		else if (p != attr_data) {
+			name = p_strdup_until(conn->pool, attr_data, p);
 			value = p_strdup(conn->pool, p + 1);
 		} else {
 			/* =<static key>=<static value> */
