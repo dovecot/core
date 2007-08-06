@@ -56,12 +56,13 @@ struct quota *quota_init(void)
 void quota_deinit(struct quota **_quota)
 {
 	struct quota *quota = *_quota;
-	struct quota_root **root;
+	struct quota_root **root_p, *root;
 
 	*_quota = NULL;
 	while (array_count(&quota->roots) > 0) {
-		root = array_idx_modifiable(&quota->roots, 0);
-		quota_root_deinit(root);
+		root_p = array_idx_modifiable(&quota->roots, 0);
+		root = *root_p;
+		quota_root_deinit(&root);
 	}
 
 	array_free(&quota->roots);
@@ -148,12 +149,15 @@ void quota_root_deinit(struct quota_root **_root)
 	struct quota_warning_rule *warnings;
 	unsigned int i, count;
 
+	*_root = NULL;
+
 	roots = array_get(&root->quota->roots, &count);
 	for (i = 0; i < count; i++) {
-		if (roots[i] == root)
+		if (roots[i] == root) {
 			array_delete(&root->quota->roots, i, 1);
+			break;
+		}
 	}
-	*_root = NULL;
 
 	warnings = array_get_modifiable(&root->warning_rules, &count);
 	for (i = 0; i < count; i++)
