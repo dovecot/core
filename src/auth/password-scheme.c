@@ -8,7 +8,6 @@
 #include "md5.h"
 #include "hmac-md5.h"
 #include "ntlm.h"
-#include "module-dir.h"
 #include "mycrypt.h"
 #include "randgen.h"
 #include "sha1.h"
@@ -21,9 +20,6 @@ static const char salt_chars[] =
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 ARRAY_TYPE(password_scheme_p) password_schemes;
-#ifdef HAVE_MODULES
-static struct module *scheme_modules;
-#endif
 
 static const struct password_scheme *
 password_scheme_lookup_name(const char *name)
@@ -619,37 +615,14 @@ void password_scheme_unregister(const struct password_scheme *scheme)
 
 void password_schemes_init(void)
 {
-	const struct password_scheme *s;
-#ifdef HAVE_MODULES
-	struct module *mod;
-	const char *symbol;
-#endif
 	unsigned int i;
 
 	i_array_init(&password_schemes, N_ELEMENTS(builtin_schemes) + 4);
 	for (i = 0; i < N_ELEMENTS(builtin_schemes); i++)
 		password_scheme_register(&builtin_schemes[i]);
-
-#ifdef HAVE_MODULES
-	scheme_modules = module_dir_load(AUTH_MODULE_DIR"/password",
-					 NULL, FALSE, PACKAGE_VERSION);
-	module_dir_init(scheme_modules);
-	for (mod = scheme_modules; mod != NULL; mod = mod->next) {
-		t_push();
-		symbol = t_strconcat(mod->name, "_scheme", NULL);
-		s = module_get_symbol(mod, symbol);
-		if (s != NULL)
-			password_scheme_register(s);
-		t_pop();
-	}
-#endif
 }
 
 void password_schemes_deinit(void)
 {
-#ifdef HAVE_MODULES
-	module_dir_unload(&scheme_modules);
-#endif
-
 	array_free(&password_schemes);
 }

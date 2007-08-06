@@ -11,9 +11,7 @@ struct auth_passdb {
 	unsigned int id;
 	const char *args;
 	struct passdb_module *passdb;
-#ifdef HAVE_MODULES
-	struct auth_module *module;
-#endif
+
         /* if user is found from this passdb, deny authentication immediately */
 	unsigned int deny:1;
 	/* after a successful lookup, continue to next passdb */
@@ -27,9 +25,6 @@ struct auth_userdb {
 	unsigned int num;
 	const char *args;
 	struct userdb_module *userdb;
-#ifdef HAVE_MODULES
-	struct auth_module *module;
-#endif
 };
 
 struct auth {

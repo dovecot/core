@@ -40,7 +40,6 @@ dovecot_auth_SOURCES = \
 	auth-client-connection.c \
 	auth-master-connection.c \
 	auth-master-listener.c \
-	auth-module.c \
 	auth-request.c \
 	auth-request-handler.c \
 	auth-stream.c \
@@ -97,7 +96,6 @@ headers = \
 	auth-master-interface.h \
 	auth-master-connection.h \
 	auth-master-listener.h \
-	auth-module.h \
 	auth-request.h \
 	auth-request-handler.h \
 	auth-stream.h \

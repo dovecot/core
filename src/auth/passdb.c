@@ -2,7 +2,6 @@
 
 #include "common.h"
 #include "array.h"
-#include "auth-module.h"
 #include "password-scheme.h"
 #include "auth-worker-server.h"
 #include "passdb.h"
@@ -133,15 +132,6 @@ struct auth_passdb *passdb_preinit(struct auth *auth, const char *driver,
         auth_passdb->id = id;
 
 	iface = passdb_interface_find(driver);
-#ifdef HAVE_MODULES
-	if (iface == NULL)
-		auth_passdb->module = auth_module_open(driver);
-	if (auth_passdb->module != NULL) {
-		iface = auth_module_sym(auth_passdb->module,
-					t_strconcat("passdb_", driver, NULL));
-	}
-#endif
-
 	if (iface == NULL) {
 		i_fatal("Unknown passdb driver '%s' "
 			"(typo, or Dovecot was built without support for it? "
@@ -178,10 +168,6 @@ void passdb_deinit(struct auth_passdb *passdb)
 {
 	if (passdb->passdb->iface.deinit != NULL)
 		passdb->passdb->iface.deinit(passdb->passdb);
-#ifdef HAVE_MODULES
-	if (passdb->module != NULL)
-                auth_module_close(&passdb->module);
-#endif
 }
 
 extern struct passdb_module_interface passdb_passwd;

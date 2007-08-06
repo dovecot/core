@@ -8,6 +8,7 @@
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "sql-api.h"
+#include "module-dir.h"
 #include "randgen.h"
 #include "password-scheme.h"
 #include "mech.h"
@@ -32,6 +33,7 @@ struct ioloop *ioloop;
 bool standalone = FALSE, worker = FALSE;
 time_t process_start_time;
 
+static struct module *modules = NULL;
 static struct auth *auth;
 static struct auth_worker_client *worker_client;
 
@@ -194,8 +196,8 @@ static void drop_privileges(void)
 	   only by root. Also load all modules here. */
 	passdbs_init();
 	userdbs_init();
+	modules = module_dir_load(AUTH_MODULE_DIR, NULL, TRUE, PACKAGE_VERSION);
 	auth = auth_preinit();
-        password_schemes_init();
 
 	auth_master_listeners_init();
 	if (!worker)
@@ -229,7 +231,10 @@ static void main_init(bool nodaemon)
 	lib_signals_ignore(SIGHUP, TRUE);
 	lib_signals_ignore(SIGUSR2, TRUE);
 
+	module_dir_init(modules);
+
 	mech_init();
+        password_schemes_init();
 	auth_init(auth);
 	auth_request_handler_init();
 
@@ -285,6 +290,8 @@ static void main_deinit(void)
 
         auth_worker_server_deinit();
 	auth_master_listeners_deinit();
+
+	module_dir_unload(&modules);
 	auth_deinit(&auth);
 	userdbs_deinit();
 	passdbs_deinit();

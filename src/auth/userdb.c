@@ -2,7 +2,6 @@
 
 #include "common.h"
 #include "array.h"
-#include "auth-module.h"
 #include "auth-worker-server.h"
 #include "userdb.h"
 
@@ -117,15 +116,6 @@ void userdb_preinit(struct auth *auth, const char *driver, const char *args)
 	*dest = auth_userdb;
 
 	iface = userdb_interface_find(driver);
-#ifdef HAVE_MODULES
-	if (auth_userdb->userdb == NULL)
-		auth_userdb->module = auth_module_open(driver);
-	if (auth_userdb->module != NULL) {
-		iface = auth_module_sym(auth_userdb->module,
-					t_strconcat("userdb_", driver, NULL));
-	}
-#endif
-
 	if (iface == NULL) {
 		i_fatal("Unknown userdb driver '%s' "
 			"(typo, or Dovecot was built without support for it? "
@@ -158,10 +148,6 @@ void userdb_deinit(struct auth_userdb *userdb)
 {
 	if (userdb->userdb->iface->deinit != NULL)
 		userdb->userdb->iface->deinit(userdb->userdb);
-#ifdef HAVE_MODULES
-	if (userdb->module != NULL)
-                auth_module_close(&userdb->module);
-#endif
 }
 
 extern struct userdb_module_interface userdb_prefetch;
