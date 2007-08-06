@@ -17,6 +17,9 @@ void base64_encode(const void *src, size_t src_size, buffer_t *dest);
 int base64_decode(const void *src, size_t src_size,
 		  size_t *src_pos_r, buffer_t *dest);
 
+/* Decode given string to a buffer allocated from data stack. */
+buffer_t *t_base64_decode_str(const char *str);
+
 /* max. buffer size required for base64_encode() */
 #define MAX_BASE64_ENCODED_SIZE(size) \
 	((size) / 3 * 4 + 2+2)

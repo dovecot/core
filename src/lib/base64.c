@@ -170,3 +170,14 @@ int base64_decode(const void *src, size_t src_size,
 
 	return ret;
 }
+
+buffer_t *t_base64_decode_str(const char *str)
+{
+	buffer_t *buf;
+	size_t len = strlen(str);
+
+	buf = buffer_create_dynamic(pool_datastack_create(),
+				    MAX_BASE64_DECODED_SIZE(len));
+	(void)base64_decode(str, len, NULL, buf);
+	return buf;
+}
