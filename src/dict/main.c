@@ -77,8 +77,7 @@ static void main_init(void)
 
 	dict_drivers_register_all();
 
-	modules = getenv("MODULE_DIR") == NULL ? NULL :
-		module_dir_load(getenv("MODULE_DIR"), NULL, TRUE, version);
+	modules = module_dir_load(DICT_MODULE_DIR, NULL, TRUE, version);
 	module_dir_init(modules);
 
 	path = getenv("DICT_LISTEN_FROM_FD");
