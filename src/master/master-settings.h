@@ -193,6 +193,7 @@ struct auth_settings {
 	const char *default_realm;
 	unsigned int cache_size;
 	unsigned int cache_ttl;
+	unsigned int cache_negative_ttl;
 	const char *executable;
 	const char *user;
 	const char *chroot;

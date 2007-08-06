@@ -16,7 +16,7 @@ struct auth_cache {
 	struct auth_cache_node *head, *tail;
 
 	size_t size_left;
-	unsigned int ttl_secs;
+	unsigned int ttl_secs, neg_ttl_secs;
 
 	unsigned int hit_count, miss_count;
 };
@@ -112,7 +112,9 @@ static void sig_auth_cache_stats(int signo __attr_unused__, void *context)
 	cache->hit_count = cache->miss_count = 0;
 }
 
-struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs)
+struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
+				  unsigned int neg_ttl_secs
+)
 {
 	struct auth_cache *cache;
 
@@ -121,6 +123,7 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs)
 				  (hash_cmp_callback_t *)strcmp);
 	cache->size_left = max_size;
 	cache->ttl_secs = ttl_secs;
+	cache->neg_ttl_secs = neg_ttl_secs;
 
 	lib_signals_set_handler(SIGHUP, TRUE, sig_auth_cache_clear, cache);
 	lib_signals_set_handler(SIGUSR2, TRUE, sig_auth_cache_stats, cache);
@@ -154,6 +157,8 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 {
 	string_t *str;
 	struct auth_cache_node *node;
+	const char *value;
+	unsigned int ttl_secs;
 
 	*expired_r = FALSE;
 
@@ -171,7 +176,10 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 	}
 	cache->hit_count++;
 
-	if (node->created < time(NULL) - (time_t)cache->ttl_secs) {
+	value = node->data + strlen(node->data) + 1;
+	ttl_secs = *value == '\0' ? cache->neg_ttl_secs : cache->ttl_secs;
+
+	if (node->created < time(NULL) - (time_t)ttl_secs) {
 		/* TTL expired */
 		*expired_r = TRUE;
 	} else {
@@ -185,7 +193,7 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 	if (node_r != NULL)
 		*node_r = node;
 
-	return node->data + strlen(node->data) + 1;
+	return value;
 }
 
 void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
@@ -195,6 +203,11 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
         struct auth_cache_node *node;
 	size_t data_size, alloc_size, value_len = strlen(value);
 	char *current_username;
+
+	if (*value == '\0' && cache->neg_ttl_secs == 0) {
+		/* we're not caching negative entries */
+		return;
+	}
 
 	/* store into cache using the original username, except if we're doing
 	   a master user login */

@@ -117,7 +117,7 @@ void passdb_cache_init(void)
 {
 	const char *env;
 	size_t max_size;
-	unsigned int cache_ttl;
+	unsigned int cache_ttl, neg_cache_ttl;
 
 	env = getenv("CACHE_SIZE");
 	if (env == NULL)
@@ -135,7 +135,9 @@ void passdb_cache_init(void)
 	if (cache_ttl == 0)
 		return;
 
-	passdb_cache = auth_cache_new(max_size, cache_ttl);
+	env = getenv("CACHE_NEGATIVE_TTL");
+	neg_cache_ttl = env == NULL ? 0 : (unsigned int)strtoul(env, NULL, 10);
+	passdb_cache = auth_cache_new(max_size, cache_ttl, neg_cache_ttl);
 }
 
 void passdb_cache_deinit(void)

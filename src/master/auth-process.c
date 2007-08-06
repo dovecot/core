@@ -436,6 +436,8 @@ static void auth_set_environment(struct auth_settings *set)
 			    set->master_user_separator, NULL));
 	env_put(t_strdup_printf("CACHE_SIZE=%u", set->cache_size));
 	env_put(t_strdup_printf("CACHE_TTL=%u", set->cache_ttl));
+	env_put(t_strdup_printf("CACHE_NEGATIVE_TTL=%u",
+				set->cache_negative_ttl));
 
 	for (ap = set->passdbs, i = 1; ap != NULL; ap = ap->next, i++) {
 		env_put(t_strdup_printf("PASSDB_%u_DRIVER=%s", i, ap->driver));
