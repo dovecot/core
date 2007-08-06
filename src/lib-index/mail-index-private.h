@@ -116,6 +116,8 @@ struct mail_index_record_map {
 	void *records; /* struct mail_index_record[] */
 	unsigned int records_count;
 
+	uint32_t last_appended_uid;
+
 	/* If this mapping is written to disk and write_atomic=FALSE,
 	   write_seq_* specify the message sequence range that needs to be
 	   written. */
@@ -277,6 +279,7 @@ void mail_index_map_unlock(struct mail_index_map *map);
 
 /* Clone a map. The returned map is always in memory. */
 struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map);
+void mail_index_record_map_move_to_private(struct mail_index_map *map);
 /* Move a mmaped map to memory. */
 void mail_index_map_move_to_memory(struct mail_index_map *map);
 

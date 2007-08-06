@@ -845,11 +845,6 @@ static void mail_index_map_copy_records(struct mail_index_record_map *dest,
 {
 	size_t size;
 
-	if (src == NULL) {
-		dest->buffer = buffer_create_dynamic(default_pool, 1024);
-		return;
-	}
-
 	size = src->records_count * record_size;
 	dest->buffer = buffer_create_dynamic(default_pool, I_MIN(size, 1024));
 	buffer_append(dest->buffer, src->records, size);
@@ -878,9 +873,12 @@ static void mail_index_map_copy_header(struct mail_index_map *dest,
 	}
 	buffer_append(dest->hdr_copy_buf, &dest->hdr,
 		      I_MIN(sizeof(dest->hdr), src->hdr.base_header_size));
-	buffer_write(dest->hdr_copy_buf, src->hdr.base_header_size,
-		     CONST_PTR_OFFSET(src->hdr_base, src->hdr.base_header_size),
-		     src->hdr.header_size - src->hdr.base_header_size);
+	if (src != dest) {
+		buffer_write(dest->hdr_copy_buf, src->hdr.base_header_size,
+			     CONST_PTR_OFFSET(src->hdr_base,
+					      src->hdr.base_header_size),
+			     src->hdr.header_size - src->hdr.base_header_size);
+	}
 	dest->hdr_base = buffer_get_modifiable_data(dest->hdr_copy_buf, NULL);
 }
 
@@ -904,10 +902,15 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 	mem_map = i_new(struct mail_index_map, 1);
 	mem_map->index = map->index;
 	mem_map->refcount = 1;
-	mem_map->rec_map = mail_index_record_map_alloc(mem_map);
+	if (map->rec_map == NULL) {
+		mem_map->rec_map = mail_index_record_map_alloc(mem_map);
+		mem_map->rec_map->buffer =
+			buffer_create_dynamic(default_pool, 1024);
+	} else {
+		mem_map->rec_map = map->rec_map;
+		array_append(&mem_map->rec_map->maps, &mem_map, 1);
+	}
 
-	mail_index_map_copy_records(mem_map->rec_map, map->rec_map,
-				    map->hdr.record_size);
 	mail_index_map_copy_header(mem_map, map);
 
 	mem_map->write_atomic = map->write_atomic;
@@ -934,6 +937,22 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 	}
 
 	return mem_map;
+}
+
+void mail_index_record_map_move_to_private(struct mail_index_map *map)
+{
+	struct mail_index_record_map *new_map;
+
+	if (array_count(&map->rec_map->maps) == 1)
+		return;
+
+	new_map = mail_index_record_map_alloc(map);
+	mail_index_map_copy_records(new_map, map->rec_map,
+				    map->hdr.record_size);
+
+	mail_index_map_unlock(map);
+	mail_index_record_map_unlink(map);
+	map->rec_map = new_map;
 }
 
 void mail_index_map_move_to_memory(struct mail_index_map *map)

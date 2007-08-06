@@ -324,8 +324,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 		} else {
 			map = view->map;
 		}
-		i_assert(map->rec_map->records_count ==
-			 map->hdr.messages_count);
 	}
 
 #ifdef DEBUG

@@ -54,7 +54,6 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			   const struct mail_transaction_header *hdr,
 			   const void *data);
 
-void mail_index_sync_move_to_private(struct mail_index_sync_map_ctx *ctx);
 struct mail_index_map *
 mail_index_sync_get_atomic_map(struct mail_index_sync_map_ctx *ctx);
 void mail_index_sync_write_seq_update(struct mail_index_sync_map_ctx *ctx,
