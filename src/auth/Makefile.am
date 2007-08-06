@@ -1,4 +1,12 @@
 noinst_LIBRARIES = libpassword.a
+auth_moduledir = $(moduledir)/auth
+
+if LDAP_PLUGIN
+LDAP_LIB = libauthdb_ldap.la
+endif
+
+auth_module_LTLIBRARIES = \
+	$(LDAP_LIB)
 
 pkglibexecdir = $(libexecdir)/dovecot
 
@@ -10,7 +18,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ntlm \
 	-I$(top_srcdir)/src/lib-otp \
-	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
+	-DAUTH_MODULE_DIR=\""$(auth_moduledir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	$(AUTH_CFLAGS)
 
@@ -34,6 +42,12 @@ dovecot_auth_LDADD = \
 	$(RAND_LIBS) \
 	$(MODULE_LIBS)
 
+ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
+
+if ! LDAP_PLUGIN
+builtin_ldap_sources = $(ldap_sources)
+endif
+
 dovecot_auth_SOURCES = \
 	auth.c \
 	auth-cache.c \
@@ -45,7 +59,6 @@ dovecot_auth_SOURCES = \
 	auth-stream.c \
 	auth-worker-client.c \
 	auth-worker-server.c \
-	db-ldap.c \
 	db-sql.c \
 	db-passwd-file.c \
 	main.c \
@@ -69,7 +82,6 @@ dovecot_auth_SOURCES = \
 	passdb-bsdauth.c \
 	passdb-cache.c \
 	passdb-checkpassword.c \
-	passdb-ldap.c \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
 	passdb-pam.c \
@@ -79,14 +91,14 @@ dovecot_auth_SOURCES = \
 	passdb-sql.c \
 	userdb.c \
 	userdb-blocking.c \
-	userdb-ldap.c \
 	userdb-nss.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
 	userdb-prefetch.c \
 	userdb-static.c \
 	userdb-vpopmail.c \
-	userdb-sql.c
+	userdb-sql.c \
+	$(builtin_ldap_sources)
 
 headers = \
 	auth.h \
@@ -116,6 +128,13 @@ headers = \
 	userdb.h \
 	userdb-blocking.h \
 	userdb-vpopmail.h
+
+if LDAP_PLUGIN
+libauthdb_ldap_la_LDFLAGS = -module -avoid-version
+libauthdb_ldap_la_LIBADD = $(LDAP_LIBS)
+libauthdb_ldap_la_CPPFLAGS = $(AM_CPPFLAGS)
+libauthdb_ldap_la_SOURCES = $(ldap_sources)
+endif
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/auth

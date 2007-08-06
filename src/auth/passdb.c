@@ -205,7 +205,7 @@ void passdbs_init(void)
 #ifdef PASSDB_VPOPMAIL
 	passdb_register_module(&passdb_vpopmail);
 #endif
-#ifdef PASSDB_LDAP
+#if defined(PASSDB_LDAP) && defined(BUILTIN_LDAP)
 	passdb_register_module(&passdb_ldap);
 #endif
 #ifdef PASSDB_SQL

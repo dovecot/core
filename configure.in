@@ -155,11 +155,15 @@ AC_ARG_WITH(sia,
       want_sia=no)
 
 AC_ARG_WITH(ldap,
-[  --with-ldap             Build with LDAP support],
+[  --with-ldap=yes|plugin  Build with LDAP support],
 	if test x$withval = xno; then
 		want_ldap=no
+	elif test x$withval = xplugin; then
+		want_ldap=yes
+		want_ldap_plugin=yes
 	else
 		want_ldap=yes
+		want_ldap_plugin=no
 	fi,
 	want_ldap=no)
 
@@ -1599,15 +1603,26 @@ if test $want_ldap = yes; then
 			AC_CHECK_LIB(ldap, ldap_start_tls_s, [
 				AC_DEFINE(LDAP_HAVE_START_TLS_S,, Define if you have ldap_start_tls_s)
 			])
-			AUTH_LIBS="$AUTH_LIBS -lldap"
+			LDAP_LIBS=-lldap
+			AC_SUBST(LDAP_LIBS)
+			if test $want_ldap_plugin != yes; then
+				AUTH_LIBS="$AUTH_LIBS $LDAP_LIBS"
+		        	AC_DEFINE(BUILTIN_LDAP,, LDAP support is built in)
+			fi
 
         		AC_DEFINE(USERDB_LDAP,, Build with LDAP support)
 		        AC_DEFINE(PASSDB_LDAP,, Build with LDAP support)
 			userdb="$userdb ldap"
 			passdb="$passdb ldap"
+			if test $want_ldap_plugin = yes; then
+				have_ldap_plugin=yes
+				userdb="$userdb (plugin)"
+				passdb="$passdb (plugin)"
+			fi
 		])
 	])
 fi
+AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
 
 dict_drivers=client
 
@@ -1816,9 +1831,6 @@ AC_CHECK_FUNC(dlopen, [
 
 if test $have_modules = yes; then
   AC_DEFINE(HAVE_MODULES,, Define if you have dynamic module support)
-  userdb="$userdb (modules)"
-  passdb="$passdb (modules)"
-
   AC_SUBST(MODULE_LIBS)
 fi
 

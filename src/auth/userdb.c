@@ -177,7 +177,7 @@ void userdbs_init(void)
 #ifdef USERDB_VPOPMAIL
 	userdb_register_module(&userdb_vpopmail);
 #endif
-#ifdef USERDB_LDAP
+#if defined(USERDB_LDAP) && defined(BUILTIN_LDAP)
 	userdb_register_module(&userdb_ldap);
 #endif
 #ifdef USERDB_SQL
