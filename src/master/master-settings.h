@@ -204,7 +204,7 @@ struct auth_settings {
 	const char *anonymous_username;
 	const char *krb5_keytab;
 	const char *gssapi_hostname;
-	const char *winbind_helper;
+	const char *winbind_helper_path;
 
 	bool verbose, debug, debug_passwords;
 	bool ssl_require_client_cert;

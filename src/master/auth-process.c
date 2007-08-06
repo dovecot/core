@@ -490,7 +490,8 @@ static void auth_set_environment(struct auth_settings *set)
 		env_put(t_strconcat("GSSAPI_HOSTNAME=",
 				    set->gssapi_hostname, NULL));
 	}
-	env_put(t_strconcat("WINBIND_HELPER=", set->winbind_helper, NULL));
+	env_put(t_strconcat("WINBIND_HELPER_PATH=",
+			    set->winbind_helper_path, NULL));
 
 	restrict_process_size(set->process_size, (unsigned int)-1);
 }

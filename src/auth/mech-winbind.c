@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define DEFAULT_WINBIND_HELPER "/usr/bin/ntlm_auth"
+#define DEFAULT_WINBIND_HELPER_PATH "/usr/bin/ntlm_auth"
 
 enum helper_result {
 	HR_OK	= 0,	/* OK or continue */
@@ -90,9 +90,9 @@ static void winbind_helper_connect(struct winbind_helper *winbind)
 		    dup2(infd[1], STDOUT_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
 
-		helper_path = getenv("WINBIND_HELPER");
+		helper_path = getenv("WINBIND_HELPER_PATH");
 		if (helper_path == NULL)
-			helper_path = DEFAULT_WINBIND_HELPER;
+			helper_path = DEFAULT_WINBIND_HELPER_PATH;
 
 		args[0] = helper_path;
 		args[1] = winbind->param;
