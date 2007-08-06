@@ -221,6 +221,23 @@ static int _tview_get_header_ext(struct mail_index_view *view,
 					    data_r, data_size_r);
 }
 
+static bool _tview_ext_get_reset_id(struct mail_index_view *view,
+				    uint32_t ext_id, uint32_t *reset_id_r)
+{
+	struct mail_index_view_transaction *tview =
+		(struct mail_index_view_transaction *)view;
+	const uint32_t *reset_id_p;
+
+	if (array_is_created(&tview->t->ext_reset_ids) &&
+	    ext_id < array_count(&tview->t->ext_reset_ids)) {
+		reset_id_p = array_idx(&tview->t->ext_reset_ids, ext_id);
+		*reset_id_r = *reset_id_p;
+		return TRUE;
+	}
+
+	return tview->super->ext_get_reset_id(view, ext_id, reset_id_r);
+}
+
 static struct mail_index_view_vfuncs trans_view_vfuncs = {
 	_tview_close,
         _tview_get_message_count,
@@ -230,7 +247,8 @@ static struct mail_index_view_vfuncs trans_view_vfuncs = {
 	_tview_lookup_uid_range,
 	_tview_lookup_first,
 	_tview_lookup_ext_full,
-	_tview_get_header_ext
+	_tview_get_header_ext,
+	_tview_ext_get_reset_id
 };
 
 struct mail_index_view *

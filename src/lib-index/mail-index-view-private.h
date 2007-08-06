@@ -31,6 +31,8 @@ struct mail_index_view_vfuncs {
 	int (*get_header_ext)(struct mail_index_view *view,
 			      struct mail_index_map *map, uint32_t ext_id,
 			      const void **data_r, size_t *data_size_r);
+	bool (*ext_get_reset_id)(struct mail_index_view *view,
+				 uint32_t ext_id, uint32_t *reset_id_r);
 };
 
 union mail_index_view_module_context {
