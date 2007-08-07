@@ -8,6 +8,7 @@
  */
 
 #include "common.h"
+#include "lib-signals.h"
 #include "mech.h"
 #include "str.h"
 #include "buffer.h"
@@ -17,6 +18,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #define DEFAULT_WINBIND_HELPER_PATH "/usr/bin/ntlm_auth"
 
@@ -28,6 +30,8 @@ enum helper_result {
 
 struct winbind_helper {
 	const char *param;
+	pid_t pid;
+
 	struct istream *in_pipe;
 	struct ostream *out_pipe;
 };
@@ -40,11 +44,13 @@ struct winbind_auth_request {
 };
 
 static struct winbind_helper winbind_ntlm_context = {
-	"--helper-protocol=squid-2.5-ntlmssp", NULL, NULL
+	"--helper-protocol=squid-2.5-ntlmssp", -1, NULL, NULL
 };
 static struct winbind_helper winbind_spnego_context = {
-	"--helper-protocol=gss-spnego", NULL, NULL
+	"--helper-protocol=gss-spnego", -1, NULL, NULL
 };
+
+static bool sigchld_handler_set = FALSE;
 
 static void winbind_helper_disconnect(struct winbind_helper *winbind)
 {
@@ -54,12 +60,46 @@ static void winbind_helper_disconnect(struct winbind_helper *winbind)
 		o_stream_destroy(&winbind->out_pipe);
 }
 
+static void winbind_wait_pid(struct winbind_helper *winbind)
+{
+	int status;
+
+	if (winbind->pid == -1)
+		return;
+
+	/* FIXME: if we ever do some other kind of forking, this needs fixing */
+	if (waitpid(winbind->pid, &status, WNOHANG) == -1) {
+		if (errno != ECHILD && errno != EINTR)
+			i_error("waitpid() failed: %m");
+		return;
+	}
+
+	if (WIFSIGNALED(status)) {
+		i_error("winbind: ntlm_auth died with signal %d",
+			WTERMSIG(status));
+	} else if (WIFEXITED(status)) {
+		i_error("winbind: ntlm_auth exited with exit code %d",
+			WEXITSTATUS(status));
+	} else {
+		/* shouldn't happen */
+		i_error("winbind: ntlm_auth exited with status %d",
+			status);
+	}
+}
+
+static void sigchld_handler(int signo __attr_unused__,
+			    void *context __attr_unused__)
+{
+	winbind_wait_pid(&winbind_ntlm_context);
+	winbind_wait_pid(&winbind_spnego_context);
+}
+
 static void winbind_helper_connect(struct winbind_helper *winbind)
 {
 	int infd[2], outfd[2];
 	pid_t pid;
 
-	if (winbind->in_pipe != NULL)
+	if (winbind->in_pipe != NULL || winbind->pid != -1)
 		return;
 
 	if (pipe(infd) < 0) {
@@ -109,6 +149,11 @@ static void winbind_helper_connect(struct winbind_helper *winbind)
 		i_stream_create_fd(infd[0], AUTH_CLIENT_MAX_LINE_LENGTH, TRUE);
 	winbind->out_pipe =
 		o_stream_create_fd(outfd[1], (size_t)-1, TRUE);
+
+	if (!sigchld_handler_set) {
+		sigchld_handler_set = TRUE;
+		lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+	}
 }
 
 static enum helper_result
