@@ -85,6 +85,7 @@ static void winbind_wait_pid(struct winbind_helper *winbind)
 		i_error("winbind: ntlm_auth exited with status %d",
 			status);
 	}
+	winbind->pid = -1;
 }
 
 static void sigchld_handler(int signo __attr_unused__,
