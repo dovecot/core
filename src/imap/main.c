@@ -205,7 +205,6 @@ static void main_init(void)
 	mailbox_list_register_all();
 	clients_init();
 	commands_init();
-	imap_thread_init();
 
 	module_dir_init(modules);
 
@@ -263,7 +262,6 @@ static void main_deinit(void)
 	clients_deinit();
 
 	module_dir_unload(&modules);
-	imap_thread_deinit();
 	commands_deinit();
         mail_storage_deinit();
 	dict_driver_unregister(&dict_driver_client);
