@@ -49,7 +49,5 @@ install-exec-local:
 	  $(LN_S) ../lib10_quota_plugin.so $(DESTDIR)$(moduledir)/$$d; \
 	done
 
-DISTFILES = $(DIST_COMMON) $(dist_sources) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
-
 distclean-generic:
 	rm -f Makefile rquota_xdr.c

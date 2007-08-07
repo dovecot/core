@@ -108,7 +108,5 @@ install-exec-local:
 endif
 
 
-DISTFILES = $(DIST_COMMON) $(dist_sources) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
-
 distclean-generic:
 	rm -f Makefile sql-drivers-register.c
