@@ -59,7 +59,8 @@ static void winbind_helper_connect(struct winbind_helper *winbind)
 	int infd[2], outfd[2];
 	pid_t pid;
 
-	i_assert(winbind->in_pipe == NULL);
+	if (winbind->in_pipe != NULL)
+		return;
 
 	if (pipe(infd) < 0) {
 		i_error("pipe() failed: %m");
