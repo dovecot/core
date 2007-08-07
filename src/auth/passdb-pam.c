@@ -45,25 +45,6 @@
 #endif
 typedef linux_const void *pam_item_t;
 
-#ifdef AUTH_PAM_USERPASS
-#  include <security/pam_client.h>
-
-#  ifndef PAM_BP_RCONTROL
-/* Linux-PAM prior to 0.74 */
-#    define PAM_BP_RCONTROL	PAM_BP_CONTROL
-#    define PAM_BP_WDATA	PAM_BP_DATA
-#    define PAM_BP_RDATA	PAM_BP_DATA
-#  endif
-
-#  define USERPASS_AGENT_ID		"userpass"
-#  define USERPASS_AGENT_ID_LENGTH	8
-
-#  define USERPASS_USER_MASK		0x03
-#  define USERPASS_USER_REQUIRED	1
-#  define USERPASS_USER_KNOWN		2
-#  define USERPASS_USER_FIXED		3
-#endif
-
 struct pam_passdb_module {
 	struct passdb_module module;
 
@@ -96,46 +77,6 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 {
 	/* @UNSAFE */
 	struct pam_userpass *userpass = (struct pam_userpass *) appdata_ptr;
-#ifdef AUTH_PAM_USERPASS
-	pamc_bp_t prompt;
-	const char *input;
-	char *output;
-	char flags;
-	size_t userlen, passlen;
-
-	if (num_msg != 1 || msg[0]->msg_style != PAM_BINARY_PROMPT)
-		return PAM_CONV_ERR;
-
-	prompt = (pamc_bp_t)msg[0]->msg;
-	input = PAM_BP_RDATA(prompt);
-
-	if (PAM_BP_RCONTROL(prompt) != PAM_BPC_SELECT ||
-	    strncmp(input, USERPASS_AGENT_ID "/", USERPASS_AGENT_ID_LENGTH + 1))
-		return PAM_CONV_ERR;
-
-	flags = input[USERPASS_AGENT_ID_LENGTH + 1];
-	input += USERPASS_AGENT_ID_LENGTH + 1 + 1;
-
-	if ((flags & USERPASS_USER_MASK) == USERPASS_USER_FIXED &&
-	    strcmp(input, userpass->user))
-		return PAM_CONV_AGAIN;
-
-	if (!(*resp = malloc(sizeof(struct pam_response))))
-		return PAM_CONV_ERR;
-
-	userlen = strlen(userpass->user);
-	passlen = strlen(userpass->pass);
-
-	prompt = NULL;
-	PAM_BP_RENEW(&prompt, PAM_BPC_DONE, userlen + 1 + passlen);
-	output = PAM_BP_WDATA(prompt);
-
-	memcpy(output, userpass->user, userlen + 1);
-	memcpy(output + userlen + 1, userpass->pass, passlen);
-
-	(*resp)[0].resp_retcode = 0;
-	(*resp)[0].resp = (char *)prompt;
-#else
 	char *string;
 	int i;
 
@@ -177,7 +118,6 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 		(*resp)[i].resp_retcode = PAM_SUCCESS;
 		(*resp)[i].resp = string;
 	}
-#endif
 
 	return PAM_SUCCESS;
 }
