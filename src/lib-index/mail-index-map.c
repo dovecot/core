@@ -864,9 +864,12 @@ static void mail_index_map_copy_header(struct mail_index_map *dest,
 	/* use src->hdr copy directly, because if we got here
 	   from syncing it has the latest changes. */
 	dest->hdr = src->hdr;
-	if (dest->hdr_copy_buf != NULL)
+	if (dest->hdr_copy_buf != NULL) {
+		if (src == dest)
+			return;
+
 		buffer_set_used_size(dest->hdr_copy_buf, 0);
-	else {
+	} else {
 		dest->hdr_copy_buf =
 			buffer_create_dynamic(default_pool,
 					      dest->hdr.header_size);
@@ -880,6 +883,7 @@ static void mail_index_map_copy_header(struct mail_index_map *dest,
 			     src->hdr.header_size - src->hdr.base_header_size);
 	}
 	dest->hdr_base = buffer_get_modifiable_data(dest->hdr_copy_buf, NULL);
+	i_assert(dest->hdr_copy_buf->used == dest->hdr.header_size);
 }
 
 static struct mail_index_record_map *
