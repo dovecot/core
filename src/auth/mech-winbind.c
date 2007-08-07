@@ -62,13 +62,13 @@ static void winbind_helper_disconnect(struct winbind_helper *winbind)
 
 static void winbind_wait_pid(struct winbind_helper *winbind)
 {
-	int status;
+	int status, ret;
 
 	if (winbind->pid == -1)
 		return;
 
-	if (waitpid(winbind->pid, &status, WNOHANG) == -1) {
-		if (errno != ECHILD && errno != EINTR)
+	if ((ret = waitpid(winbind->pid, &status, WNOHANG)) <= 0) {
+		if (ret < 0 && errno != ECHILD && errno != EINTR)
 			i_error("waitpid() failed: %m");
 		return;
 	}
