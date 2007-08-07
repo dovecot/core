@@ -64,34 +64,45 @@ struct pam_auth_request {
         verify_plain_callback_t *callback;
 };
 
-struct pam_userpass {
-	const char *user;
+struct pam_conv_context {
+	struct auth_request *request;
 	const char *pass;
 };
 
 static struct hash_table *pam_requests;
 static struct timeout *to;
 
-static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
-	struct pam_response **resp, void *appdata_ptr)
+static int
+pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
+		  struct pam_response **resp_r, void *appdata_ptr)
 {
 	/* @UNSAFE */
-	struct pam_userpass *userpass = (struct pam_userpass *) appdata_ptr;
+	struct pam_conv_context *ctx = appdata_ptr;
+	struct pam_response *resp;
 	char *string;
 	int i;
 
-	if (!(*resp = malloc(num_msg * sizeof(struct pam_response))))
-		return PAM_CONV_ERR;
+	*resp_r = NULL;
+
+	resp = calloc(num_msg, sizeof(struct pam_response));
+	if (resp == NULL)
+		i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
 
 	for (i = 0; i < num_msg; i++) {
+		auth_request_log_debug(ctx->request, "pam",
+				       "#%d/%d style=%d msg=%s", i+1, num_msg,
+				       msg[i]->msg_style, msg[i]->msg);
 		switch (msg[i]->msg_style) {
 		case PAM_PROMPT_ECHO_ON:
-			string = strdup(userpass->user);
+			/* Assume we're asking for user. We might not ever
+			   get here because PAM already knows the user. */
+			string = strdup(ctx->request->user);
 			if (string == NULL)
 				i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
 			break;
 		case PAM_PROMPT_ECHO_OFF:
-			string = strdup(userpass->pass);
+			/* Assume we're asking for password */
+			string = strdup(ctx->pass);
 			if (string == NULL)
 				i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
 			break;
@@ -101,24 +112,22 @@ static int pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 			break;
 		default:
 			while (--i >= 0) {
-				if ((*resp)[i].resp == NULL)
-					continue;
-				safe_memset((*resp)[i].resp, 0,
-					    strlen((*resp)[i].resp));
-				free((*resp)[i].resp);
-				(*resp)[i].resp = NULL;
+				if (resp[i].resp != NULL) {
+					safe_memset(resp[i].resp, 0,
+						    strlen(resp[i].resp));
+					free(resp[i].resp);
+				}
 			}
 
-			free(*resp);
-			*resp = NULL;
-
+			free(resp);
 			return PAM_CONV_ERR;
 		}
 
-		(*resp)[i].resp_retcode = PAM_SUCCESS;
-		(*resp)[i].resp = string;
+		resp[i].resp_retcode = PAM_SUCCESS;
+		resp[i].resp = string;
 	}
 
+	*resp_r = resp;
 	return PAM_SUCCESS;
 }
 
@@ -127,7 +136,7 @@ static int pam_auth(struct auth_request *request,
 {
         struct passdb_module *_module = request->passdb->passdb;
         struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
-	void *item;
+	pam_item_t item;
 	int status;
 
 	*error = NULL;
@@ -172,7 +181,7 @@ static int pam_auth(struct auth_request *request,
 	}
 
 	/* FIXME: this works only with blocking=yes */
-	status = pam_get_item(pamh, PAM_USER, (linux_const void **)&item);
+	status = pam_get_item(pamh, PAM_USER, &item);
 	if (status != PAM_SUCCESS) {
 		*error = t_strdup_printf("pam_get_item() failed: %s",
 					 pam_strerror(pamh, status));
@@ -188,7 +197,7 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 		       const char *password, int fd)
 {
 	pam_handle_t *pamh;
-	struct pam_userpass userpass;
+	struct pam_conv_context ctx;
 	struct pam_conv conv;
 	enum passdb_result result;
 	int ret, status, status2;
@@ -197,10 +206,10 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 	buffer_t *buf;
 
 	conv.conv = pam_userpass_conv;
-	conv.appdata_ptr = &userpass;
+	conv.appdata_ptr = &ctx;
 
-	userpass.user = request->user;
-	userpass.pass = password;
+	ctx.request = request;
+	ctx.pass = password;
 
 	status = pam_start(service, request->user, &conv, &pamh);
 	if (status != PAM_SUCCESS) {
