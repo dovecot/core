@@ -97,7 +97,8 @@ pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 	for (i = 0; i < num_msg; i++) {
 		auth_request_log_debug(ctx->request, "pam",
 				       "#%d/%d style=%d msg=%s", i+1, num_msg,
-				       msg[i]->msg_style, msg[i]->msg);
+				       msg[i]->msg_style,
+				       msg[i]->msg != NULL ? msg[i]->msg : "");
 		switch (msg[i]->msg_style) {
 		case PAM_PROMPT_ECHO_ON:
 			/* Assume we're asking for user. We might not ever
