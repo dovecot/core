@@ -200,6 +200,16 @@ maildir_copy_hardlink(struct maildir_transaction_context *t, struct mail *mail,
 	return 1;
 }
 
+static bool
+maildir_compatible_file_modes(struct maildir_mailbox *mbox1,
+			      struct mailbox *box2)
+{
+	struct maildir_mailbox *mbox2 = (struct maildir_mailbox *)box2;
+
+	return mbox1->mail_create_mode == mbox2->mail_create_mode &&
+		mbox2->mail_create_gid == mbox2->mail_create_gid;
+}
+
 int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 		 enum mail_flags flags, struct mail_keywords *keywords,
 		 struct mail *dest_mail)
@@ -210,7 +220,8 @@ int maildir_copy(struct mailbox_transaction_context *_t, struct mail *mail,
 	int ret;
 
 	if (mbox->storage->copy_with_hardlinks &&
-	    mail->box->storage == mbox->ibox.box.storage) {
+	    mail->box->storage == mbox->ibox.box.storage &&
+	    maildir_compatible_file_modes(mbox, mail->box)) {
 		t_push();
 		ret = maildir_copy_hardlink(t, mail, flags,
 					    keywords, dest_mail);
