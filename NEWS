@@ -6,14 +6,11 @@ v1.1.UNSTABLE
 	* Empty passwords in passdb doesn't allow user to log in with any
 	  password anymore. To do that you'll also need to set nopassword
 	  extra field.
+	* PAM always works in blocking=yes mode now. If you have problems
+	  with memory leaks, change auth_worker_max_request_count setting.
 
 	+ IMAP: Added support for UIDPLUS and LIST-EXTENDED extensions.
 	+ IMAP SORT: Sort keys are indexed, which makes SORT commands faster.
-	+ IMAP THREAD: Threads are indexed into a dovecot.index.thread file.
-	  It can usually be updated incrementally, so this makes THREAD fast.
-	+ Added Dovecot-specific X-REFERENCES2 threading algorithm.
-	  It's similar to REFERENCES, but it doesn't do base subject merging
-	  and it sorts the threads by their newest message.
 	+ When saving messages, update cache file immediately with the data
 	  that we expect client to fetch later.
 	+ NFS attribute and data caches are are flushed whenever needed.
@@ -39,6 +36,11 @@ v1.1.UNSTABLE
 	+ Quota plugin rewrite: Support for multiple quota roots, warnings,
 	  allow giving storage size in bytes or kilo/mega/giga/terabytes,
 	  per-mailbox quota rules.
+	+ Filesystem quota backend supports inode limits, group quota and
+	  RPC quota for NFS.
+	+ SEARCH and SORT finally compare all characters case-insensitively.
+	  We use i;unicode-casemap algorithm.
+	+ Config files support splitting values to multiple lines with \
 
 v1.0.0 2007-04-13  Timo Sirainen <tss@iki.fi>
 

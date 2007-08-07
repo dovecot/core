@@ -1,13 +1,6 @@
- - command didn't cancel itself: STATUS
- - allow sql plugins
+ - SORT: Invalid input is supposed to be sorted last.
  - indexes: are cache prev_offsets updated right?
  - mmap_disable: updated cache header doesn't invalidate other processes' cache?
- - rquotad support for FS quota
- - filesystem group quota patch
- - userdb lookups aren't verifying / translating usernames
- - message-header-decode.h API: Add support for returning UTF-8 decoded strings
-   directly.
-   - Fix Sieve plugin to decode headers using it
 
  - maildir+pop3/deliver fast updates:
    - with locking enabled, pop3 could just keep the one and same sync lock and
@@ -31,8 +24,6 @@
    - maildir_copy_preserve_filename=yes has a race condition causing "Append with
      UID n, but next_uid = y" errors when quota plugin is loaded. Practically
      won't happen except in stress testing.
-   - maildir_copy_with_hardlinks=yes is problematic with shared folders where
-     the file mode should change..
 
  - mbox
    - UID renumbering doesn't really work after all?
@@ -70,8 +61,6 @@
  - EXPUNGE command in read-only mailbox should give an error message if
    there are messages marked as \Deleted?
  - dovecot -o setting=something overriding
- - vmailmgr patch
- - managesieve patch
  - file_cache: we're growing the mmap in page size blocks, which is horribly
    slow if mremap() doesn't exist.
  - login_max_processes_count shouldn't count proxying processes
@@ -147,7 +136,6 @@
  - lib-storage
     - rename: allow moving between storages, as long as they're of same type
     - x search charset asdf all -> should fail
-    - subscribe: IMAP(anonymous): open(anonymous/mail/.temp...) failed: Permission denied
     - should we allow following symlinks in mbox/maildirs? they are now.
        - if we implement shared mailboxes with shared indexes, never do that or
 	 others could symlink your personal mailboxes and see the indexes
@@ -186,7 +174,6 @@
     - non-plaintext authentication doesn't support all features:
         - multiple passdbs don't work, only the first one is used
 	- auth cache's last_success password change check doesn't exist
-    - checkpassword should use passdb-blocking
     - remove system_user and allow returning multiple gids instead.
     - SIGHUP restarts auth processes .. but does it wait until they've finished
       with all requests? no.
@@ -215,7 +202,6 @@
       the next_uid field with the current highest next_uid. Whenever we have
       assumed UIDs and uidlist gets updated, throw the client out with
       "inconsist mailbox".
-    - if storage=0 is given, use unlimited quota but track it anyway
 
  - ssl
     - add setting: ssl_options = bitmask. by default we enable all openssl
@@ -223,29 +209,17 @@
     - gnutls support isn't working
 
  - search
-    - message header search: we should ignore LWSP between two MIME blocks
-    - message_body_search() could accept multiple search keywords so we
+    - message header search: we should ignore LWSP between two MIME blocks(?)
+    - message_search_init() could accept multiple search keywords so we
       wouldn't need to call it separately for each one (so we wouldn't need
       to parse the message multiple times).
-    - message_body_search() could support NULL MessagePart and the searching
-      could be done while parsing the message. this would need changes to
-      message_parse() as well.
     - could optionally support scanning inside file attachments and use
       plugins to extract text out of them (word, excel, pdf, etc. etc.)
-    - use a trie index for fast text searching, like cyrus squat?
     - Create our own extension: When searching with TEXT/BODY, return
       the message text surrounding the keywords just like web search engines
       do. like: SEARCH X-PRINT-MATCHES TEXT "hello" -> * SEARCH 1 "He said:
       Hello world!" 2 "Hello, I'm ...". This would be especially useful with
       the above attachment scanning.
-
- - lib-charset
-     - utf8_toupper() is a must. and a bit difficult if we want to do it right.
-     - add support for other things than iconv() as well? we could reuse
-       the code from cyrus or courier
-     - cache iconvs? they'd probably be faster if we just reset the
-       conversion instead of opening new one every time. and there will likely
-       be only one or two charsets which are used for nearly all conversions.
 
  - deliver
     - recipient_delimiter setting so user+mailbox@domain works directly
@@ -261,16 +235,6 @@
     - ability to build plugins statically into the binaries
     - ~/.dovecotrc to override system wide settings. namespace settings should
       override all the previous namespace settings instead of adding new.
-    - option to disable SORT, SEARCH and other memory/cpu-intensive features.
-      defaults and per-user by dovecot-auth.
-    - dotlock overriding is racy, but it's pretty difficult to fix it. Also
-      overriding someone else's dotlock in shared folder isn't possible. These
-      could be fixed by having separate lock process running as root, which
-      would chown() the file for another uid and then unlink() it as that user.
-      One problem with that is that if malicious user sets setuid+execute bits
-      on for the file, he could run the file and get changed to the new uid.
-      That hopefully shouldn't matter much since the new uid should be user
-      with minimum possible privileges. Anyway, optional..
     - things break if next_uid gets to 2^32
 
 capabilities:
