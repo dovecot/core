@@ -145,6 +145,7 @@ static void winbind_helper_connect(struct winbind_helper *winbind)
 	(void)close(infd[1]);
 	(void)close(outfd[0]);
 
+	winbind->pid = pid;
 	winbind->in_pipe =
 		i_stream_create_fd(infd[0], AUTH_CLIENT_MAX_LINE_LENGTH, TRUE);
 	winbind->out_pipe =
