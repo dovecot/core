@@ -113,7 +113,7 @@ static bool
 master_input_user(struct auth_master_connection *conn, const char *args)
 {
 	struct auth_request *auth_request;
-	const char *const *list, *name, *arg;
+	const char *const *list, *name, *arg, *error;
 
 	/* <id> <userid> [<parameters>] */
 	list = t_strsplit(args, "\t");
@@ -124,8 +124,13 @@ master_input_user(struct auth_master_connection *conn, const char *args)
 
 	auth_request = auth_request_new_dummy(conn->listener->auth);
 	auth_request->id = (unsigned int)strtoul(list[0], NULL, 10);
-	auth_request->user = p_strdup(auth_request->pool, list[1]);
 	auth_request->context = conn;
+
+	if (!auth_request_set_username(auth_request, list[1], &error)) {
+                auth_request_log_info(auth_request, "userdb", "%s", error);
+		user_callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
+		return TRUE;
+	}
 
 	for (list += 2; *list != NULL; list++) {
 		arg = strchr(*list, '=');
