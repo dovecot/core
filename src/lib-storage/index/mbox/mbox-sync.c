@@ -446,7 +446,10 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		}
 	}
 
-	if (!mail_ctx->recent)
+	/* mail_ctx->recent is TRUE always if Status: O doesn't exist in the
+	   mbox file. With lazy writes another session could have taken it
+	   already, so we'll also have to check this from index header. */
+	if (!mail_ctx->recent || mail->uid < sync_ctx->hdr->first_recent_uid)
 		sync_ctx->last_nonrecent_uid = mail->uid;
 	else
 		index_mailbox_set_recent_uid(&sync_ctx->mbox->ibox, mail->uid);
