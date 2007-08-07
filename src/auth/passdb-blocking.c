@@ -9,104 +9,56 @@
 
 #include <stdlib.h>
 
-static enum passdb_result
-check_failure(struct auth_request *request, const char **reply)
+static void
+auth_worker_reply_parse_args(struct auth_request *request,
+			     const char *const *args)
 {
-	enum passdb_result ret;
-	const char *p;
+	if (**args != '\0')
+		request->passdb_password = p_strdup(request->pool, *args);
+	args++;
 
-	/* OK / FAIL */
-	if (strncmp(*reply, "OK\t", 3) == 0) {
-		*reply += 3;
-		return PASSDB_RESULT_OK;
-	}
-
-	/* FAIL \t result \t password */
-	if (strncmp(*reply, "FAIL\t", 5) == 0) {
-		*reply += 5;
-		ret = atoi(t_strcut(*reply, '\t'));
-
-		p = strchr(*reply, '\t');
-		if (p == NULL)
-			*reply += strlen(*reply);
-		else
-			*reply = p + 1;
-		if (ret != PASSDB_RESULT_OK)
-			return ret;
-
-		auth_request_log_error(request, "blocking",
-			"Received invalid FAIL result from worker: %d", ret);
-		return PASSDB_RESULT_INTERNAL_FAILURE;
-	} else {
-		auth_request_log_error(request, "blocking",
-			"Received unknown reply from worker: %s", *reply);
-		return PASSDB_RESULT_INTERNAL_FAILURE;
+	if (*args != NULL) {
+		i_assert(auth_stream_is_empty(request->extra_fields) ||
+			 request->master_user != NULL);
+		auth_request_set_fields(request, args, NULL);
 	}
 }
 
-static int get_pass_reply(struct auth_request *request, const char *reply,
-			  const char **password_r, const char **scheme_r)
+static enum passdb_result
+auth_worker_reply_parse(struct auth_request *request, const char *reply)
 {
-	const char *p, *p2;
+	enum passdb_result ret;
+	const char *const *args;
 
-	/* user \t {scheme}password [\t extra] */
-	p = strchr(reply, '\t');
+	args = t_strsplit(reply, "\t");
 
-	/* username may have changed, update it */
-	auth_request_set_field(request, "user", p == NULL ? reply :
-			       t_strdup_until(reply, p), NULL);
-	if (p == NULL) {
-		/* we didn't get a password. */
-		*password_r = NULL;
-		*scheme_r = NULL;
-		return 0;
-	}
-	p2 = strchr(++p, '\t');
-	if (p2 == NULL) {
-		*password_r = p;
-		reply = "";
-	} else {
-		*password_r = t_strdup_until(p, p2);
-		reply = p2 + 1;
+	if (strcmp(*args, "OK") == 0 && args[1] != NULL && args[2] != NULL) {
+		/* OK \t user \t password [\t extra] */
+		auth_request_set_field(request, "user", args[1], NULL);
+		auth_worker_reply_parse_args(request, args + 2);
+		return PASSDB_RESULT_OK;
 	}
 
-	if (**password_r == '\0') {
-		*password_r = NULL;
-		*scheme_r = NULL;
-	} else {
-		request->passdb_password =
-			p_strdup(request->pool, *password_r);
-
-		*scheme_r = password_get_scheme(password_r);
-		if (*scheme_r == NULL) {
-			auth_request_log_error(request, "blocking",
-				"Received reply from worker without "
-				"password scheme");
-			return -1;
+	if (strcmp(*args, "FAIL") == 0 && args[1] != NULL && args[2] != NULL) {
+		/* FAIL \t result \t password [\t extra] */
+		ret = atoi(args[1]);
+		if (ret != PASSDB_RESULT_OK) {
+			auth_worker_reply_parse_args(request, args + 2);
+			return ret;
 		}
 	}
 
-	if (*reply != '\0') {
-		i_assert(auth_stream_is_empty(request->extra_fields) ||
-			 request->master_user != NULL);
-
-		auth_request_set_fields(request, t_strsplit(reply, "\t"), NULL);
-	}
-	return 0;
+	auth_request_log_error(request, "blocking",
+		"Received invalid reply from worker: %s", reply);
+	return PASSDB_RESULT_INTERNAL_FAILURE;
 }
 
 static void
 verify_plain_callback(struct auth_request *request, const char *reply)
 {
 	enum passdb_result result;
-	const char *password, *scheme;
 
-	result = check_failure(request, &reply);
-	if (result > 0) {
-		if (get_pass_reply(request, reply, &password, &scheme) < 0)
-			result = PASSDB_RESULT_INTERNAL_FAILURE;
-	}
-
+	result = auth_worker_reply_parse(request, reply);
 	auth_request_verify_plain_callback(result, request);
 }
 
@@ -132,10 +84,16 @@ lookup_credentials_callback(struct auth_request *request, const char *reply)
 	enum passdb_result result;
 	const char *password = NULL, *scheme = NULL;
 
-	result = check_failure(request, &reply);
-	if (result > 0) {
-		if (get_pass_reply(request, reply, &password, &scheme) < 0)
+	result = auth_worker_reply_parse(request, reply);
+	if (result == PASSDB_RESULT_OK && request->passdb_password != NULL) {
+		password = request->passdb_password;
+		scheme = password_get_scheme(&password);
+		if (scheme == NULL) {
+			auth_request_log_error(request, "blocking",
+				"Received reply from worker without "
+				"password scheme");
 			result = PASSDB_RESULT_INTERNAL_FAILURE;
+		}
 	}
 
 	passdb_handle_credentials(result, password, scheme,
