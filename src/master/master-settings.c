@@ -243,7 +243,7 @@ struct settings default_settings = {
 	MEMBER(mailbox_list_index_disable) FALSE,
 	MEMBER(lock_method) "fcntl",
 	MEMBER(maildir_stat_dirs) FALSE,
-	MEMBER(maildir_copy_with_hardlinks) FALSE,
+	MEMBER(maildir_copy_with_hardlinks) TRUE,
 	MEMBER(maildir_copy_preserve_filename) FALSE,
 	MEMBER(mbox_read_locks) "fcntl",
 	MEMBER(mbox_write_locks) "dotlock fcntl",
