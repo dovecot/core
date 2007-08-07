@@ -48,8 +48,11 @@ typedef linux_const void *pam_item_t;
 struct pam_passdb_module {
 	struct passdb_module module;
 
-	bool pam_setcred, pam_session;
 	const char *service_name, *pam_cache_key;
+
+	unsigned int pam_setcred:1;
+	unsigned int pam_session:1;
+	unsigned int failure_show_msg:1;
 };
 
 struct pam_auth_request {
@@ -67,6 +70,7 @@ struct pam_auth_request {
 struct pam_conv_context {
 	struct auth_request *request;
 	const char *pass;
+	const char *failure_msg;
 };
 
 static struct hash_table *pam_requests;
@@ -78,6 +82,8 @@ pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 {
 	/* @UNSAFE */
 	struct pam_conv_context *ctx = appdata_ptr;
+	struct passdb_module *_passdb = ctx->request->passdb->passdb;
+	struct pam_passdb_module *passdb = (struct pam_passdb_module *)_passdb;
 	struct pam_response *resp;
 	char *string;
 	int i;
@@ -102,6 +108,8 @@ pam_userpass_conv(int num_msg, linux_const struct pam_message **msg,
 			break;
 		case PAM_PROMPT_ECHO_OFF:
 			/* Assume we're asking for password */
+			if (passdb->failure_show_msg)
+				ctx->failure_msg = t_strdup(msg[i]->msg);
 			string = strdup(ctx->pass);
 			if (string == NULL)
 				i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
@@ -208,6 +216,7 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 	conv.conv = pam_userpass_conv;
 	conv.appdata_ptr = &ctx;
 
+	memset(&ctx, 0, sizeof(ctx));
 	ctx.request = request;
 	ctx.pass = password;
 
@@ -248,6 +257,10 @@ pam_verify_plain_child(struct auth_request *request, const char *service,
 			result = PASSDB_RESULT_INTERNAL_FAILURE;
 			str = t_strdup_printf("pam_end() failed: %s",
 					      pam_strerror(pamh, status2));
+		}
+		if (result != PASSDB_RESULT_OK && ctx.failure_msg != NULL) {
+			auth_request_set_field(request, "reason",
+					       ctx.failure_msg, NULL);
 		}
 	}
 
@@ -447,7 +460,7 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 	module->service_name = "dovecot";
 
 	t_push();
-	t_args = t_strsplit(args, " ");
+	t_args = t_strsplit_spaces(args, " ");
 	for(i = 0; t_args[i] != NULL; i++) {
 		/* -session for backwards compatibility */
 		if (strcmp(t_args[i], "-session") == 0 ||
@@ -461,15 +474,14 @@ pam_preinit(struct auth_passdb *auth_passdb, const char *args)
 					 t_args[i] + 10);
 		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
 			module->module.blocking = TRUE;
+		} else if (strcmp(t_args[i], "failure_show_msg=yes") == 0) {
+			module->failure_show_msg = TRUE;
 		} else if (strcmp(t_args[i], "*") == 0) {
 			/* for backwards compatibility */
 			module->service_name = "%Ls";
 		} else if (t_args[i+1] == NULL) {
-			if (*t_args[i] != '\0') {
-				module->service_name =
-					p_strdup(auth_passdb->auth->pool,
-						 t_args[i]);
-			}
+			module->service_name =
+				p_strdup(auth_passdb->auth->pool, t_args[i]);
 		} else {
 			i_fatal("Unexpected PAM parameter: %s", t_args[i]);
 		}
