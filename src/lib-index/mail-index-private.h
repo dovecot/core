@@ -48,6 +48,7 @@ struct mail_index_ext {
 	const char *name;
 	uint32_t index_idx; /* index ext_id */
 	uint32_t reset_id;
+	uint32_t ext_offset; /* points to beginning of mail_index_ext_header */
 	uint32_t hdr_offset; /* points to mail_index_ext_header.data[] */
 	uint32_t hdr_size; /* size of mail_index_ext_header.data[] */
 	uint16_t record_offset;
@@ -287,7 +288,7 @@ uint32_t mail_index_map_lookup_ext(struct mail_index_map *map,
 				   const char *name);
 uint32_t
 mail_index_map_register_ext(struct mail_index_map *map, const char *name,
-			    uint32_t hdr_offset, uint32_t hdr_size,
+			    uint32_t ext_offset, uint32_t hdr_size,
 			    uint32_t record_offset, uint32_t record_size,
 			    uint32_t record_align, uint32_t reset_id);
 bool mail_index_map_get_ext_idx(struct mail_index_map *map,

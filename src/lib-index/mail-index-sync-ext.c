@@ -123,16 +123,11 @@ static struct mail_index_ext_header *
 get_ext_header(struct mail_index_map *map, const struct mail_index_ext *ext)
 {
 	struct mail_index_ext_header *ext_hdr;
-	uint32_t offset;
 	void *hdr_base;
 
 	/* do some kludgy jumping to get to it. */
-	offset = ext->hdr_offset -
-		MAIL_INDEX_HEADER_SIZE_ALIGN(sizeof(*ext_hdr) +
-					     strlen(ext->name));
-
 	hdr_base = buffer_get_modifiable_data(map->hdr_copy_buf, NULL);
-	ext_hdr = PTR_OFFSET(hdr_base, offset);
+	ext_hdr = PTR_OFFSET(hdr_base, ext->ext_offset);
 	i_assert(memcmp((char *)(ext_hdr + 1),
 			ext->name, strlen(ext->name)) == 0);
 	return ext_hdr;
@@ -392,6 +387,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	map = mail_index_sync_get_atomic_map(ctx);
 
 	hdr_buf = map->hdr_copy_buf;
+	i_assert(hdr_buf->used == map->hdr.header_size);
+
 	if (MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_buf->used) != hdr_buf->used) {
 		/* we need to add padding between base header and extensions */
 		buffer_append_zero(hdr_buf,
@@ -401,11 +398,9 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 
 	/* register record offset initially using zero,
 	   sync_ext_reorder() will fix it. */
-	hdr_offset = hdr_buf->used + sizeof(ext_hdr) + strlen(name);
-	hdr_offset = MAIL_INDEX_HEADER_SIZE_ALIGN(hdr_offset);
-	ext_id = mail_index_map_register_ext(map, name, hdr_offset, u->hdr_size,
-					     0, u->record_size, u->record_align,
-					     u->reset_id);
+	ext_id = mail_index_map_register_ext(map, name, hdr_buf->used,
+					     u->hdr_size, 0, u->record_size,
+					     u->record_align, u->reset_id);
 
 	ext = array_idx(&map->extensions, ext_id);
 
