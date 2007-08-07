@@ -67,7 +67,6 @@ static void winbind_wait_pid(struct winbind_helper *winbind)
 	if (winbind->pid == -1)
 		return;
 
-	/* FIXME: if we ever do some other kind of forking, this needs fixing */
 	if (waitpid(winbind->pid, &status, WNOHANG) == -1) {
 		if (errno != ECHILD && errno != EINTR)
 			i_error("waitpid() failed: %m");
