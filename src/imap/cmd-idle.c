@@ -19,11 +19,9 @@ struct cmd_idle_context {
 	struct client_command_context *cmd;
 
 	struct imap_sync_context *sync_ctx;
-	struct timeout *idle_to, *keepalive_to;
-	uint32_t dummy_seq;
+	struct timeout *keepalive_to;
 
 	unsigned int manual_cork:1;
-	unsigned int idle_timeout:1;
 	unsigned int sync_pending:1;
 };
 
@@ -34,8 +32,6 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 {
 	struct client *client = ctx->client;
 
-	if (ctx->idle_to != NULL)
-		timeout_remove(&ctx->idle_to);
 	if (ctx->keepalive_to != NULL)
 		timeout_remove(&ctx->keepalive_to);
 
@@ -45,19 +41,11 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 	}
 
 	o_stream_cork(client->output);
-
-	if (ctx->dummy_seq != 0) {
-		/* outlook idle workaround */
-		client_send_line(client,
-			t_strdup_printf("* %u EXPUNGE", ctx->dummy_seq));
-	}
-
 	io_remove(&client->io);
 
 	if (client->mailbox != NULL)
 		mailbox_notify_changes_stop(client->mailbox);
 
-	client->idling = FALSE;
 	if (done_ok)
 		client_send_tagline(ctx->cmd, "OK Idle completed.");
 	else
@@ -104,33 +92,6 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 	}
 }
 
-static void idle_send_fake_exists(struct cmd_idle_context *ctx)
-{
-	struct client *client = ctx->client;
-
-	ctx->dummy_seq = client->messages_count+1;
-	client_send_line(client,
-			 t_strdup_printf("* %u EXISTS", ctx->dummy_seq));
-	mailbox_notify_changes_stop(client->mailbox);
-}
-
-static void idle_timeout(struct cmd_idle_context *ctx)
-{
-	/* outlook workaround - it hasn't sent anything for a long time and
-	   we're about to disconnect unless it does something. send a fake
-	   EXISTS to see if it responds. it's expunged later. */
-
-	timeout_remove(&ctx->idle_to);
-
-	if (ctx->sync_ctx != NULL) {
-		/* we're already syncing.. do this after it's finished */
-		ctx->idle_timeout = TRUE;
-		return;
-	}
-
-	idle_send_fake_exists(ctx);
-}
-
 static void keepalive_timeout(struct cmd_idle_context *ctx)
 {
 	if (ctx->client->output_lock != NULL) {
@@ -138,6 +99,11 @@ static void keepalive_timeout(struct cmd_idle_context *ctx)
 		return;
 	}
 
+	/* Sending this keeps NATs/stateful firewalls alive, and it also
+	   updates client->last_output so we don't ever disconnect the
+	   client. Sending this output should kill dead connections and there
+	   are several clients that really want to IDLE forever (Outlook
+	   especially). */
 	client_send_line(ctx->client, "* OK Still here");
 }
 
@@ -195,10 +161,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		ctx->sync_ctx = NULL;
 	}
 
-	if (ctx->idle_timeout) {
-		/* outlook workaround */
-		idle_send_fake_exists(ctx);
-	} else if (ctx->sync_pending) {
+	if (ctx->sync_pending) {
 		/* more changes occurred while we were sending changes to
 		   client */
 		idle_sync_now(client->mailbox, ctx);
@@ -237,11 +200,6 @@ bool cmd_idle(struct client_command_context *cmd)
 	ctx->cmd = cmd;
 	ctx->client = client;
 
-	if ((client_workarounds & WORKAROUND_OUTLOOK_IDLE) != 0 &&
-	    client->mailbox != NULL) {
-		ctx->idle_to = timeout_add((CLIENT_IDLE_TIMEOUT - 60) * 1000,
-					   idle_timeout, ctx);
-	}
 	ctx->keepalive_to = timeout_add(KEEPALIVE_TIMEOUT * 1000,
 					keepalive_timeout, ctx);
 
@@ -260,7 +218,6 @@ bool cmd_idle(struct client_command_context *cmd)
 	client->io = io_add(i_stream_get_fd(client->input),
 			    IO_READ, idle_client_input, ctx);
 
-	client->idling = TRUE;
 	cmd->func = cmd_idle_continue;
 	cmd->context = ctx;
 

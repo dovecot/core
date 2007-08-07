@@ -32,7 +32,7 @@ struct client_workaround_list {
 
 struct client_workaround_list client_workaround_list[] = {
 	{ "delay-newmail", WORKAROUND_DELAY_NEWMAIL },
-	{ "outlook-idle", WORKAROUND_OUTLOOK_IDLE },
+	{ "outlook-idle", 0 }, /* only for backwards compatibility */
 	{ "netscape-eoh", WORKAROUND_NETSCAPE_EOH },
 	{ "tb-extra-mailbox-sep", WORKAROUND_TB_EXTRA_MAILBOX_SEP },
 	{ NULL, 0 }

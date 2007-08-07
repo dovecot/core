@@ -66,7 +66,6 @@ struct client {
 	unsigned int disconnected:1;
 	unsigned int destroyed:1;
 	unsigned int handling_input:1;
-	unsigned int idling:1;
 	unsigned int syncing:1;
 	unsigned int input_skip_line:1; /* skip all the data until we've
 					   found a new line */
