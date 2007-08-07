@@ -34,11 +34,13 @@ struct auth_worker_connection {
 
 	time_t last_used;
 	unsigned int request_count;
+	unsigned int requests_left;
 };
 
 static buffer_t *connections = NULL;
 static unsigned int idle_count;
 static unsigned int auth_workers_max;
+static unsigned int auth_workers_max_request_count;
 
 static char *worker_socket_path;
 static struct timeout *to;
@@ -84,6 +86,7 @@ static struct auth_worker_connection *auth_worker_create(void)
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
 	conn->requests = buffer_create_dynamic(default_pool, 128);
+	conn->requests_left = auth_workers_max_request_count;
 
 	idle_count++;
 
@@ -175,7 +178,7 @@ static struct auth_worker_connection *auth_worker_find_free(void)
 	best_size = (size_t)-1;
 	for (i = 0; i < size; i++) {
 		outbuf_size = o_stream_get_buffer_used_size(conn[i]->output);
-		if (outbuf_size < best_size) {
+		if (outbuf_size < best_size && conn[i]->requests_left > 0) {
 			best = conn[i];
 			best_size = outbuf_size;
 		}
@@ -235,6 +238,12 @@ static void worker_input(struct auth_worker_connection *conn)
 		if (request != NULL)
 			auth_worker_handle_request(conn, request, line + 1);
 	}
+
+	if (conn->requests_left == 0) {
+		auth_worker_destroy(conn);
+		if (idle_count == 0)
+			auth_worker_create();
+	}
 }
 
 static struct auth_worker_request *
@@ -277,6 +286,8 @@ void auth_worker_call(struct auth_request *auth_request, const char *data,
 		}
 	}
 
+	i_assert(conn->requests_left > 0);
+
 	iov[0].iov_base = t_strdup_printf("%d\t", ++conn->id_counter);
 	iov[0].iov_len = strlen(iov[0].iov_base);
 	iov[1].iov_base = data;
@@ -309,6 +320,7 @@ void auth_worker_call(struct auth_request *auth_request, const char *data,
 	}
 
 	conn->last_used = ioloop_time;
+	conn->requests_left--;
 	if (conn->request_count++ == 0)
 		idle_count--;
 }
@@ -355,6 +367,13 @@ void auth_worker_server_init(void)
 	if (env == NULL)
 		i_fatal("AUTH_WORKER_MAX_COUNT environment not set");
 	auth_workers_max = atoi(env);
+
+	env = getenv("AUTH_WORKER_MAX_REQUEST_COUNT");
+	if (env == NULL)
+		i_fatal("AUTH_WORKER_MAX_REQUEST_COUNT environment not set");
+	auth_workers_max_request_count = atoi(env);
+	if (auth_workers_max_request_count == 0)
+		auth_workers_max_request_count = (unsigned int)-1;
 
 	connections = buffer_create_dynamic(default_pool,
 		sizeof(struct auth_worker_connection) * 16);

@@ -580,6 +580,8 @@ static int create_auth_process(struct auth_process_group *group)
 				dec2str(getpid())));
 	env_put(t_strdup_printf("AUTH_WORKER_MAX_COUNT=%u",
 				group->set->worker_max_count));
+	env_put(t_strdup_printf("AUTH_WORKER_MAX_REQUEST_COUNT=%u",
+				group->set->worker_max_request_count));
 
 	/* make sure we don't leak syslog fd, but do it last so that
 	   any errors above will be logged */
