@@ -262,21 +262,14 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 }
 
 static void
-set_credentials_callback(enum passdb_result result,
-			  struct auth_request *request)
+set_credentials_callback(bool success, struct auth_request *request)
 {
 	struct auth_worker_client *client = request->context;
 
 	string_t *str;
 
 	str = t_str_new(64);
-	str_printfa(str, "%u\t", request->id);
-
-	if (result != PASSDB_RESULT_OK)
-		str_printfa(str, "FAIL\t%d\t", result);
-	else
-		str_printfa(str, "OK\t%s\t", request->user);
-	str_append_c(str, '\n');
+	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
 	o_stream_send(client->output, str_data(str), str_len(str));
 
 	auth_request_unref(&request);

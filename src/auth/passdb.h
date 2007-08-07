@@ -24,7 +24,7 @@ typedef void lookup_credentials_callback_t(enum passdb_result result,
 					   const unsigned char *credentials,
 					   size_t size,
 					   struct auth_request *request);
-typedef void set_credentials_callback_t(enum passdb_result result,
+typedef void set_credentials_callback_t(bool success,
 					struct auth_request *request);
 
 struct passdb_module_interface {

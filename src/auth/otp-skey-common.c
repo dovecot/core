@@ -47,17 +47,14 @@ void otp_unlock(struct auth_request *auth_request)
 	request->lock = FALSE;
 }
 
-void otp_set_credentials_callback(enum passdb_result result,
+void otp_set_credentials_callback(bool success,
 				  struct auth_request *auth_request)
 {
-	switch (result) {
-	case PASSDB_RESULT_OK:
+	if (success)
 		auth_request_success(auth_request, NULL, 0);
-		break;
-	default:
+	else {
 		auth_request_internal_failure(auth_request);
 		otp_unlock(auth_request);
-		break;
 	}
 
 	otp_unlock(auth_request);

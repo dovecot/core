@@ -185,18 +185,14 @@ static void sql_lookup_credentials(struct auth_request *request,
 static void sql_set_credentials_callback(const char *error,
 					 struct passdb_sql_request *sql_request)
 {
-	enum passdb_result result;
-
-	if (error == NULL)
-		result = PASSDB_RESULT_OK;
-	else {
-		result = PASSDB_RESULT_INTERNAL_FAILURE;
+	if (error != NULL) {
 		auth_request_log_error(sql_request->auth_request, "sql",
 				       "Set credentials query failed: %s",
 				       error);
 	}
-	sql_request->callback.set_credentials(result,
-					      sql_request->auth_request);
+
+	sql_request->callback.
+		set_credentials(error == NULL, sql_request->auth_request);
 	i_free(sql_request);
 }
 

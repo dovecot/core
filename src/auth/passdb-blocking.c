@@ -161,9 +161,10 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 static void
 set_credentials_callback(struct auth_request *request, const char *reply)
 {
-	enum passdb_result result = check_failure(request, &reply);
+	bool success;
 
-	request->private_callback.set_credentials(result, request);
+	success = strcmp(reply, "OK") == 0 || strncmp(reply, "OK\t", 3) == 0;
+	request->private_callback.set_credentials(success, request);
 }
 
 void passdb_blocking_set_credentials(struct auth_request *request,
