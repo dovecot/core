@@ -392,6 +392,15 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		/* the private flags are stored only in indexes, keep them */
 		ctx->flags |= rec->flags & mbox->ibox.box.private_flags_mask;
 
+		if (index_sync_changes_have(ctx->sync_changes)) {
+			/* apply flag changes to maildir */
+			if (maildir_file_do(mbox, ctx->uid,
+					    maildir_sync_flags, ctx) < 0)
+				ctx->flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
+			if ((++changes % MAILDIR_SLOW_MOVE_COUNT) == 0)
+				maildir_sync_notify(ctx->maildir_sync_ctx);
+		}
+
 		if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) != 0) {
 			/* partial syncing */
 			if ((uflags & MAILDIR_UIDLIST_REC_FLAG_NEW_DIR) != 0) {
@@ -401,15 +410,6 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 				full_rescan = TRUE;
 			}
 			continue;
-		}
-
-		if (index_sync_changes_have(ctx->sync_changes)) {
-			/* apply flag changes to maildir */
-			if (maildir_file_do(mbox, ctx->uid,
-					    maildir_sync_flags, ctx) < 0)
-				ctx->flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;
-			if ((++changes % MAILDIR_SLOW_MOVE_COUNT) == 0)
-				maildir_sync_notify(ctx->maildir_sync_ctx);
 		}
 
 		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0) {
