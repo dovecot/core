@@ -32,6 +32,9 @@ struct mail_namespace {
 	struct mail_storage *storage;
 };
 
+/* Called after namespaces has been created */
+extern void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
+
 int mail_namespaces_init(pool_t pool, const char *user,
 			 struct mail_namespace **namespaces_r);
 struct mail_namespace *mail_namespaces_init_empty(pool_t pool);

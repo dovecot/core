@@ -7,6 +7,8 @@
 
 #include <stdlib.h>
 
+void (*hook_mail_namespaces_created)(struct mail_namespace *namespaces);
+
 static void namespace_init_storage(struct mail_namespace *ns)
 {
 	ns->list = mail_storage_get_list(ns->storage);
@@ -195,6 +197,9 @@ int mail_namespaces_init(pool_t pool, const char *user,
 			return -1;
 		namespaces = namespaces_sort(namespaces);
 		*namespaces_r = namespaces;
+
+		if (hook_mail_namespaces_created != NULL)
+			hook_mail_namespaces_created(namespaces);
 		return 0;
 	}
 
@@ -225,6 +230,9 @@ int mail_namespaces_init(pool_t pool, const char *user,
 
 	namespace_init_storage(ns);
 	*namespaces_r = ns;
+
+	if (hook_mail_namespaces_created != NULL)
+		hook_mail_namespaces_created(namespaces);
 	return 0;
 }
 
