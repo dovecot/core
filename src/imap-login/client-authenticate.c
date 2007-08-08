@@ -265,7 +265,7 @@ int cmd_authenticate(struct imap_client *client, const struct imap_arg *args)
 
 	mech_name = IMAP_ARG_STR(&args[0]);
 	if (*mech_name == '\0')
-		return 0;
+		return -1;
 
 	client_ref(client);
 	sasl_server_auth_begin(&client->common, IMAP_SERVICE_NAME, mech_name,
