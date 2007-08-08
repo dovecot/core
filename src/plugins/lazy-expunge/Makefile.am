@@ -6,7 +6,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/maildir \
 	-I$(top_srcdir)/src/lib-imap \
-	-I$(top_srcdir)/src/imap \
 	-I$(top_srcdir)/src/plugins/quota
 
 lib02_lazy_expunge_plugin_la_LDFLAGS = -module -avoid-version

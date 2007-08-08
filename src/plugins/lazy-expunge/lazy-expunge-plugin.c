@@ -1,12 +1,11 @@
 /* Copyright (C) 2006 Timo Sirainen */
 
-#include "common.h"
+#include "lib.h"
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
 #include "seq-range-array.h"
 #include "maildir-storage.h"
-#include "client.h"
 #include "mail-namespace.h"
 #include "lazy-expunge-plugin.h"
 
@@ -50,7 +49,8 @@ struct lazy_expunge_transaction {
 
 const char *lazy_expunge_plugin_version = PACKAGE_VERSION;
 
-static void (*lazy_expunge_next_hook_client_created)(struct client **client);
+static void (*lazy_expunge_next_hook_mail_namespaces_created)
+	(struct mail_namespace *namespaces);
 static void (*lazy_expunge_next_hook_mail_storage_created)
 	(struct mail_storage *storage);
 static void (*lazy_expunge_next_hook_mailbox_list_created)
@@ -501,16 +501,16 @@ static void lazy_expunge_mailbox_list_created(struct mailbox_list *list)
 	MODULE_CONTEXT_SET(list, lazy_expunge_mailbox_list_module, llist);
 }
 
-static void lazy_expunge_hook_client_created(struct client **client)
+static void
+lazy_expunge_hook_mail_namespaces_created(struct mail_namespace *namespaces)
 {
 	struct lazy_expunge_mail_storage *lstorage;
 	const char *const *p;
 	int i;
 
-	if (lazy_expunge_next_hook_client_created != NULL)
-		lazy_expunge_next_hook_client_created(client);
+	if (lazy_expunge_next_hook_mail_namespaces_created != NULL)
+		lazy_expunge_next_hook_mail_namespaces_created(namespaces);
 
-	/* FIXME: this works only as long as there's only one client. */
 	t_push();
 	p = t_strsplit(getenv("LAZY_EXPUNGE"), " ");
 	for (i = 0; i < LAZY_NAMESPACE_COUNT; i++, p++) {
@@ -520,7 +520,7 @@ static void lazy_expunge_hook_client_created(struct client **client)
 			i_fatal("lazy_expunge: Missing namespace #%d", i + 1);
 
 		lazy_namespaces[i] =
-			mail_namespace_find_prefix((*client)->namespaces, name);
+			mail_namespace_find_prefix(namespaces, name);
 		if (lazy_namespaces[i] == NULL)
 			i_fatal("lazy_expunge: Unknown namespace: '%s'", name);
 		if (strcmp(lazy_namespaces[i]->storage->name, "maildir") != 0) {
@@ -541,8 +541,10 @@ void lazy_expunge_plugin_init(void)
 	if (getenv("LAZY_EXPUNGE") == NULL)
 		return;
 
-	lazy_expunge_next_hook_client_created = hook_client_created;
-	hook_client_created = lazy_expunge_hook_client_created;
+	lazy_expunge_next_hook_mail_namespaces_created =
+		hook_mail_namespaces_created;
+	hook_mail_namespaces_created =
+		lazy_expunge_hook_mail_namespaces_created;
 
 	lazy_expunge_next_hook_mail_storage_created =
 		hook_mail_storage_created;
@@ -557,7 +559,8 @@ void lazy_expunge_plugin_deinit(void)
 	if (getenv("LAZY_EXPUNGE") == NULL)
 		return;
 
-	hook_client_created = lazy_expunge_hook_client_created;
+	hook_mail_namespaces_created =
+		lazy_expunge_hook_mail_namespaces_created;
 	hook_mail_storage_created = lazy_expunge_next_hook_mail_storage_created;
 	hook_mailbox_list_created = lazy_expunge_next_hook_mailbox_list_created;
 }
