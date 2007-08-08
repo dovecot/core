@@ -284,7 +284,7 @@ static void config_file_init(const char *path)
 			continue;
 		}
 
-		while (p > line && p[-1] == ' ') p--;
+		while (p > line && IS_WHITE(p[-1])) p--;
 		key = t_strdup_until(line, p);
 
 		if (sections > 0 && !lda_section) {
@@ -295,7 +295,7 @@ static void config_file_init(const char *path)
 
 		do {
 			value++;
-		} while (*value == ' ');
+		} while (IS_WHITE(*value));
 
 		len = strlen(value);
 		if (len > 0 &&
