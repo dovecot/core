@@ -521,7 +521,7 @@ static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
 			break;
 	}
 	stream->ostream.offset += ret;
-	i_assert(ret < (ssize_t)total_size);
+	i_assert(ret <= (ssize_t)total_size);
 	return ret;
 }
 
