@@ -51,7 +51,7 @@ master_callback(struct client *client, enum master_login_status status)
 	case MASTER_LOGIN_STATUS_INTERNAL_ERROR:
 		break;
 	case MASTER_LOGIN_STATUS_MAX_CONNECTIONS:
-		data = "Maximum number of connections exceeded";
+		data = "Maximum number of connections from user+IP exceeded";
 		break;
 	}
 	call_client_callback(client, reply, data, NULL);
