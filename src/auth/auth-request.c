@@ -555,15 +555,15 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	request->state = AUTH_REQUEST_STATE_PASSDB;
 
-	if (passdb->blocking)
-		passdb_blocking_lookup_credentials(request);
-	else if (passdb->iface.lookup_credentials != NULL) {
-		passdb->iface.lookup_credentials(request,
-			auth_request_lookup_credentials_callback);
-	} else {
+	if (passdb->iface.lookup_credentials == NULL) {
 		/* this passdb doesn't support credentials */
 		auth_request_lookup_credentials_callback(
 			PASSDB_RESULT_SCHEME_NOT_AVAILABLE, NULL, 0, request);
+	} else if (passdb->blocking) {
+		passdb_blocking_lookup_credentials(request);
+	} else {
+		passdb->iface.lookup_credentials(request,
+			auth_request_lookup_credentials_callback);
 	}
 }
 

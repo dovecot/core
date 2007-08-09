@@ -259,6 +259,12 @@ auth_worker_handle_passl(struct auth_worker_client *client,
 		}
 	}
 
+	if (auth_request->passdb->passdb->iface.lookup_credentials == NULL) {
+		i_error("BUG: PASSL lookup not supported by given passdb");
+		auth_request_unref(&auth_request);
+		return;
+	}
+
 	auth_request->passdb->passdb->iface.
 		lookup_credentials(auth_request, lookup_credentials_callback);
 }
