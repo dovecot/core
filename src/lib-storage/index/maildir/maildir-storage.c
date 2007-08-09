@@ -252,9 +252,7 @@ maildir_create(struct mail_storage *_storage, const char *data,
 		}
 	}
 
-	if (mailbox_list_init(_storage->ns, layout, &list_set,
-			      mail_storage_get_list_flags(flags),
-			      &list, error_r) < 0)
+	if (mailbox_list_alloc(layout, &list, error_r) < 0)
 		return -1;
 
 	_storage->list = list;
@@ -274,6 +272,10 @@ maildir_create(struct mail_storage *_storage, const char *data,
 
 	MODULE_CONTEXT_SET_FULL(list, maildir_mailbox_list_module,
 				storage, &storage->list_module_ctx);
+
+	/* finish list init after we've overridden vfuncs */
+	mailbox_list_init(list, _storage->ns, &list_set,
+			  mail_storage_get_list_flags(flags));
 
 	storage->copy_with_hardlinks =
 		getenv("MAILDIR_COPY_WITH_HARDLINKS") != NULL;

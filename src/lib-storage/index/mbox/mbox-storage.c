@@ -432,10 +432,7 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 	list_set.mail_storage_flags = &_storage->flags;
 	list_set.lock_method = &_storage->lock_method;
 
-	if (mailbox_list_init(_storage->ns, layout, &list_set,
-			      mail_storage_get_list_flags(_storage->flags) |
-			      MAILBOX_LIST_FLAG_MAILBOX_FILES,
-			      &_storage->list, error_r) < 0)
+	if (mailbox_list_alloc(layout, &_storage->list, error_r) < 0)
 		return -1;
 
 	storage->list_module_ctx.super = _storage->list->v;
@@ -445,6 +442,11 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 	}
 	_storage->list->v.iter_is_mailbox = mbox_list_iter_is_mailbox;
 	_storage->list->v.delete_mailbox = mbox_list_delete_mailbox;
+
+	/* finish list init after we've overridden vfuncs */
+	mailbox_list_init(_storage->list, _storage->ns, &list_set,
+			  mail_storage_get_list_flags(_storage->flags) |
+			  MAILBOX_LIST_FLAG_MAILBOX_FILES);
 
 	MODULE_CONTEXT_SET_FULL(_storage->list, mbox_mailbox_list_module,
 				storage, &storage->list_module_ctx);

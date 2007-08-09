@@ -115,11 +115,12 @@ void mailbox_list_register_all(void);
 void mailbox_list_register(const struct mailbox_list *list);
 void mailbox_list_unregister(const struct mailbox_list *list);
 
-/* Returns 0 if ok, -1 if initialization failed. */
-int mailbox_list_init(struct mail_namespace *ns, const char *driver,
-		      const struct mailbox_list_settings *set,
-		      enum mailbox_list_flags flags,
-		      struct mailbox_list **list_r, const char **error_r);
+/* Returns 0 if ok, -1 if driver was unknown. */
+int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,
+		       const char **error_r);
+void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
+		       const struct mailbox_list_settings *set,
+		       enum mailbox_list_flags flags);
 void mailbox_list_deinit(struct mailbox_list *list);
 
 const char *mailbox_list_get_driver_name(struct mailbox_list *list);

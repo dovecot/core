@@ -76,10 +76,8 @@ void mailbox_list_unregister(const struct mailbox_list *list)
 		array_free(&mailbox_list_drivers);
 }
 
-int mailbox_list_init(struct mail_namespace *ns, const char *driver,
-		      const struct mailbox_list_settings *set,
-		      enum mailbox_list_flags flags,
-		      struct mailbox_list **list_r, const char **error_r)
+int mailbox_list_alloc(const char *driver, struct mailbox_list **list_r,
+		       const char **error_r)
 {
 	const struct mailbox_list *const *class_p;
 	struct mailbox_list *list;
@@ -91,12 +89,19 @@ int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 		return -1;
 	}
 
+	class_p = array_idx(&mailbox_list_drivers, idx);
+	list = *list_r = (*class_p)->v.alloc();
+	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
+	return 0;
+}
+
+void mailbox_list_init(struct mailbox_list *list, struct mail_namespace *ns,
+		       const struct mailbox_list_settings *set,
+		       enum mailbox_list_flags flags)
+{
 	i_assert(set->root_dir == NULL || *set->root_dir != '\0');
 	i_assert(set->subscription_fname == NULL ||
 		 *set->subscription_fname != '\0');
-
-	class_p = array_idx(&mailbox_list_drivers, idx);
-	list = (*class_p)->v.alloc();
 
 	list->ns = ns;
 	list->flags = flags;
@@ -134,7 +139,7 @@ int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 
 	if ((flags & MAILBOX_LIST_FLAG_DEBUG) != 0) {
 		i_info("%s: root=%s, index=%s, control=%s, inbox=%s",
-		       driver, list->set.root_dir,
+		       list->name, list->set.root_dir,
 		       list->set.index_dir == NULL ? "" : list->set.index_dir,
 		       list->set.control_dir == NULL ?
 		       "" : list->set.control_dir,
@@ -142,16 +147,11 @@ int mailbox_list_init(struct mail_namespace *ns, const char *driver,
 		       "" : list->set.inbox_path);
 	}
 
-	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
-
 	if (hook_mailbox_list_created != NULL)
 		hook_mailbox_list_created(list);
 
 	list->set.mail_storage_flags = NULL;
 	list->set.lock_method = NULL;
-
-	*list_r = list;
-	return 0;
 }
 
 void mailbox_list_deinit(struct mailbox_list *list)

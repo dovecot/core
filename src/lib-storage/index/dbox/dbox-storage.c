@@ -213,9 +213,7 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 		}
 	}
 
-	if (mailbox_list_init(_storage->ns, "fs", &list_set,
-			      mail_storage_get_list_flags(_storage->flags),
-			      &list, error_r) < 0)
+	if (mailbox_list_alloc("fs", &list, error_r) < 0)
 		return -1;
 
 	_storage->list = list;
@@ -227,6 +225,10 @@ static int dbox_create(struct mail_storage *_storage, const char *data,
 
 	MODULE_CONTEXT_SET_FULL(list, dbox_mailbox_list_module,
 				storage, &storage->list_module_ctx);
+
+	/* finish list init after we've overridden vfuncs */
+	mailbox_list_init(list, _storage->ns, &list_set,
+			  mail_storage_get_list_flags(_storage->flags));
 
 	storage->uidlist_dotlock_set = default_uidlist_dotlock_set;
 	storage->file_dotlock_set = default_file_dotlock_set;
