@@ -129,13 +129,13 @@ static_preinit(struct auth_userdb *auth_userdb, const char *args)
 	uid_t uid;
 	gid_t gid;
 
+	t_push();
 	module = p_new(auth_userdb->auth->pool, struct static_userdb_module, 1);
 
 	tmp = t_strsplit_spaces(args, " ");
 	p_array_init(&module->template, auth_userdb->auth->pool,
 		     strarray_length(tmp));
 
-	t_push();
 	for (; *tmp != NULL; tmp++) {
 		value = strchr(*tmp, '=');
 		if (value == NULL)
