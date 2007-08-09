@@ -136,7 +136,8 @@ vpopmail_preinit(struct auth_passdb *auth_passdb, const char *args)
 
 	if (strncmp(args, "cache_key=", 10) == 0) {
 		module->cache_key =
-			p_strdup(auth_passdb->auth->pool, args + 10);
+			auth_cache_parse_key(auth_passdb->auth->pool,
+					     args + 10);
 	}
 	return module;
 }
