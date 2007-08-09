@@ -66,7 +66,6 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(mail_uid),
 	DEF_STR(mail_gid),
 
-	DEF_STR(default_mail_env),
 	DEF_STR(mail_location),
 	DEF_STR(mail_cache_fields),
 	DEF_STR(mail_never_cache_fields),

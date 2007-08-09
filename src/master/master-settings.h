@@ -78,7 +78,6 @@ struct settings {
 	const char *mail_uid;
 	const char *mail_gid;
 
-	const char *default_mail_env;
 	const char *mail_location;
 	const char *mail_cache_fields;
 	const char *mail_never_cache_fields;

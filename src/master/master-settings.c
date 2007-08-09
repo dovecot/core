@@ -222,7 +222,6 @@ struct settings default_settings = {
 	MEMBER(mail_uid) "",
 	MEMBER(mail_gid) "",
 
-	MEMBER(default_mail_env) "",
 	MEMBER(mail_location) "",
 	MEMBER(mail_cache_fields) "",
 	MEMBER(mail_never_cache_fields) "imap.envelope",
@@ -880,14 +879,6 @@ static bool settings_fix(struct settings *set, bool nochecks, bool nofixes)
 	/* fix relative paths */
 	fix_base_path(set, &set->login_dir);
 
-	if (*set->mail_location == '\0') {
-		/* keep this for backwards compatibility */
-		set->mail_location = set->default_mail_env;
-	} else if (*set->default_mail_env != '\0') {
-		i_error("Both mail_location and default_mail_env set. "
-			"Use only one of them.");
-		return FALSE;
-	}
 	if (nochecks)
 		return TRUE;
 	if (!settings_verify(set))
