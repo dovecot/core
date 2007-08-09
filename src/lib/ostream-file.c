@@ -203,6 +203,8 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		if (ret > 0) {
 			fstream->real_offset += ret;
 			ret += sent;
+		} else {
+			ret = sent;
 		}
 	}
 
@@ -461,7 +463,7 @@ static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
 		      unsigned int iov_count)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
-	size_t size, added, optimal_size;
+	size_t size, total_size, added, optimal_size;
 	unsigned int i;
 	ssize_t ret = 0;
 
@@ -469,6 +471,7 @@ static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
 
 	for (i = 0, size = 0; i < iov_count; i++)
 		size += iov[i].iov_len;
+	total_size = size;
 
 	if (size > get_unused_space(fstream) && !IS_STREAM_EMPTY(fstream)) {
 		if (_flush(stream) < 0)
@@ -485,13 +488,15 @@ static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
 			return -1;
 
 		size = ret;
-		while (size > 0 && size >= iov[0].iov_len) {
+		while (size > 0 && iov_count > 0 && size >= iov[0].iov_len) {
 			size -= iov[0].iov_len;
 			iov++;
 			iov_count--;
 		}
 
-		if (iov_count > 0) {
+		if (iov_count == 0)
+			i_assert(size == 0);
+		else {
 			added = o_stream_add(fstream,
 					CONST_PTR_OFFSET(iov[0].iov_base, size),
 					iov[0].iov_len - size);
@@ -516,6 +521,7 @@ static ssize_t _sendv(struct _ostream *stream, const struct const_iovec *iov,
 			break;
 	}
 	stream->ostream.offset += ret;
+	i_assert(ret < (ssize_t)total_size);
 	return ret;
 }
 
