@@ -416,9 +416,11 @@ mech_gssapi_auth_free(struct auth_request *request)
 	struct gssapi_auth_request *gssapi_request = 
 		(struct gssapi_auth_request *)request;
 
-	major_status = gss_delete_sec_context(&minor_status, 
-					      &gssapi_request->gss_ctx,
-					      GSS_C_NO_BUFFER);
+	if (gssapi_request->gss_ctx != GSS_C_NO_CONTEXT) {
+		major_status = gss_delete_sec_context(&minor_status,
+						      &gssapi_request->gss_ctx,
+						      GSS_C_NO_BUFFER);
+	}
 
 	major_status = gss_release_cred(&minor_status,
 					&gssapi_request->service_cred);
