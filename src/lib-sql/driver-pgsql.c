@@ -11,6 +11,8 @@
 #include <time.h>
 #include <libpq-fe.h>
 
+#define QUERY_TIMEOUT_SECS 6
+
 struct pgsql_db {
 	struct sql_db api;
 
@@ -376,7 +378,7 @@ static void send_query(struct pgsql_result *result, const char *query)
 	}
 }
 
-static void queue_send_next(struct pgsql_db *db)
+static struct pgsql_queue *queue_unlink_first(struct pgsql_db *db)
 {
 	struct pgsql_queue *queue;
 
@@ -385,11 +387,34 @@ static void queue_send_next(struct pgsql_db *db)
 
 	if (db->queue == NULL)
 		db->queue_tail = &db->queue;
+	return queue;
+}
 
+static void queue_send_next(struct pgsql_db *db)
+{
+	struct pgsql_queue *queue;
+
+	queue = queue_unlink_first(db);
 	send_query(queue->result, queue->query);
 
 	i_free(queue->query);
 	i_free(queue);
+}
+
+static void queue_drop_timed_out_queries(struct pgsql_db *db)
+{
+	struct pgsql_queue *queue;
+
+	while (db->queue != NULL &&
+	       db->queue->created + QUERY_TIMEOUT_SECS < ioloop_time) {
+		queue = queue_unlink_first(db);
+
+		queue->result->api = sql_not_connected_result;
+		queue->result->callback(&queue->result->api,
+					queue->result->context);
+		i_free(queue->query);
+		i_free(queue);
+	}
 }
 
 static void queue_timeout(struct pgsql_db *db)
@@ -398,6 +423,7 @@ static void queue_timeout(struct pgsql_db *db)
 		return;
 
 	if (!db->connected) {
+		queue_drop_timed_out_queries(db);
 		driver_pgsql_connect(&db->api);
 		return;
 	}
