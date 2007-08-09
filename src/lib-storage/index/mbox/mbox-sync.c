@@ -1648,8 +1648,17 @@ __again:
 		   before index syncing is started to avoid deadlocks, so we
 		   don't have much choice either (well, easy ones anyway). */
 		int lock_type = mbox->mbox_readonly ? F_RDLCK : F_WRLCK;
-		if (mbox_lock(mbox, lock_type, &lock_id) <= 0)
-			return -1;
+		int ret;
+
+		if ((ret = mbox_lock(mbox, lock_type, &lock_id)) <= 0) {
+			if (ret == 0 || lock_type == F_RDLCK)
+				return -1;
+
+			/* try as read-only */
+			if (mbox_lock(mbox, F_RDLCK, &lock_id) <= 0)
+				return -1;
+			mbox->mbox_readonly = TRUE;
+		}
 	}
 
 	if ((flags & MBOX_SYNC_LAST_COMMIT) != 0) {
@@ -1734,7 +1743,8 @@ __again:
 
 		if (mbox_sync_read_index_syncs(&sync_ctx, 1, &expunged) < 0)
 			return -1;
-		uid = index_sync_changes_get_next_uid(sync_ctx.sync_changes);
+		uid = expunged ? 1 :
+			index_sync_changes_get_next_uid(sync_ctx.sync_changes);
 		if (uid == 0) {
 			sync_ctx.index_sync_ctx = NULL;
 			mbox_sync_context_free(&sync_ctx);
