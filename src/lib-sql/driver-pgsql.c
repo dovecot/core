@@ -17,7 +17,7 @@ struct pgsql_db {
 	struct sql_db api;
 
 	pool_t pool;
-	const char *connect_string;
+	char *connect_string;
 	PGconn *pg;
 
 	struct io *io;
@@ -212,6 +212,7 @@ static void _driver_pgsql_deinit(struct sql_db *_db)
 		timeout_remove(&db->queue_to);
         driver_pgsql_close(db);
 	i_free(db->error);
+	i_free(db->connect_string);
 	i_free(db);
 }
 
@@ -412,6 +413,7 @@ static void queue_drop_timed_out_queries(struct pgsql_db *db)
 		queue->result->api = sql_not_connected_result;
 		queue->result->callback(&queue->result->api,
 					queue->result->context);
+		i_free(queue->result);
 		i_free(queue->query);
 		i_free(queue);
 	}
