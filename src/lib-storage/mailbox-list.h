@@ -13,7 +13,9 @@ enum mailbox_list_flags {
 	/* Allow full filesystem access with absolute or relative paths. */
 	MAILBOX_LIST_FLAG_FULL_FS_ACCESS	= 0x04,
 	/* Rely on O_EXCL when creating dotlocks */
-	MAILBOX_LIST_FLAG_DOTLOCK_USE_EXCL	= 0x08
+	MAILBOX_LIST_FLAG_DOTLOCK_USE_EXCL	= 0x08,
+	/* Mailboxes are files, not directories. */
+	MAILBOX_LIST_FLAG_MAILBOX_FILES		= 0x10
 };
 
 enum mailbox_info_flags {
