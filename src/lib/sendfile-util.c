@@ -120,8 +120,8 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 			/* not supported, return Linux-like EINVAL so caller
 			   sees only consistent errnos. */
 			errno = EINVAL;
-		} else if (errno == EAGAIN && s_offset != (off_t)*offset) {
-			/* some data was sent, return them */
+		} else if (s_offset != (off_t)*offset) {
+			/* some data was sent, return it */
 			i_assert(s_offset > (off_t)*offset);
 			ret = s_offset - (off_t)*offset;
 		}
