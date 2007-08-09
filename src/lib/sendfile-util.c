@@ -114,13 +114,19 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 
 	s_offset = (off_t)*offset;
 	ret = sendfile(out_fd, in_fd, &s_offset, count);
-	*offset = (uoff_t)s_offset;
 
-	if (ret < 0 && errno == EAFNOSUPPORT) {
-		/* not supported, return Linux-like EINVAL so caller
-		   sees only consistent errnos. */
-		errno = EINVAL;
+	if (ret < 0) {
+		if (errno == EAFNOSUPPORT) {
+			/* not supported, return Linux-like EINVAL so caller
+			   sees only consistent errnos. */
+			errno = EINVAL;
+		} else if (errno == EAGAIN && s_offset != (off_t)*offset) {
+			/* some data was sent, return them */
+			i_assert(s_offset > (off_t)*offset);
+			ret = s_offset - (off_t)*offset;
+		}
 	}
+	*offset = (uoff_t)s_offset;
 	return ret;
 }
 
