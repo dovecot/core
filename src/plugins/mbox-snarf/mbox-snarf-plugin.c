@@ -5,6 +5,7 @@
 #include "home-expand.h"
 #include "mail-search.h"
 #include "mail-storage-private.h"
+#include "mailbox-list-private.h"
 #include "mbox-snarf-plugin.h"
 
 #include <stdlib.h>
@@ -129,11 +130,16 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 {
 	struct mbox_snarf_mail_storage *mstorage =
 		MBOX_SNARF_CONTEXT(storage);
+	struct mailbox_list *list;
 	struct mailbox *box;
 	struct mbox_snarf_mailbox *mbox;
 	struct stat st;
 	enum mail_storage_flags old_flags = storage->flags;
+	enum mailbox_list_flags old_list_flags;
 	bool use_snarfing = FALSE;
+
+	list = mail_storage_get_list(storage);
+	old_list_flags = list->flags;
 
 	if (strcasecmp(name, "INBOX") == 0 && !mstorage->open_spool_inbox) {
 		if (stat(mstorage->snarf_inbox_path, &st) == 0) {
@@ -141,6 +147,7 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 			name = mstorage->snarf_inbox_path;
 			use_snarfing = TRUE;
 			storage->flags |= MAIL_STORAGE_FLAG_FULL_FS_ACCESS;
+			list->flags |= MAILBOX_LIST_FLAG_FULL_FS_ACCESS;
 		} else if (errno != ENOENT) {
 			mail_storage_set_critical(storage,
 						  "stat(%s) failed: %m",
@@ -151,6 +158,7 @@ mbox_snarf_mailbox_open(struct mail_storage *storage, const char *name,
 	box = mstorage->module_ctx.super.
 		mailbox_open(storage, name, input, flags);
 	storage->flags = old_flags;
+	list->flags = old_list_flags;
 
 	if (box == NULL || !use_snarfing)
 		return box;
