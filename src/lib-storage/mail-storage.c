@@ -456,6 +456,11 @@ int mailbox_close(struct mailbox **_box)
 {
 	struct mailbox *box = *_box;
 
+	if (box->transaction_count != 0) {
+		i_panic("Trying to close mailbox %s with open transactions",
+			box->name);
+	}
+
 	*_box = NULL;
 	return box->v.close(box);
 }
