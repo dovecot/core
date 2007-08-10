@@ -70,7 +70,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
 	struct index_mail_data *data = &((struct index_mail *)mail)->data;
 	const char *path;
-	int fd;
+	int fd, ret;
 
 	if (data->access_part != 0 && data->stream == NULL) {
 		/* we're going to open the mail anyway */
@@ -87,8 +87,12 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 			return -1;
 		}
 	} else if (mail->uid != 0) {
-		if (maildir_file_do(mbox, mail->uid, do_stat, st) <= 0)
+		ret = maildir_file_do(mbox, mail->uid, do_stat, st);
+		if (ret <= 0) {
+			if (ret == 0)
+				mail_set_expunged(mail);
 			return -1;
+		}
 	} else {
 		path = maildir_save_file_get_path(mail->transaction, mail->seq);
 		if (do_stat(mbox, path, st) <= 0)
@@ -303,6 +307,7 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	struct stat st;
 	const char *path, *fname;
 	uoff_t size;
+	int ret;
 
 	size = index_mail_get_physical_size(_mail);
 	if (size != (uoff_t)-1)
@@ -322,9 +327,12 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	/* size can be included in filename */
 	if (!maildir_filename_get_size(fname, MAILDIR_EXTRA_FILE_SIZE, &size)) {
 		if (_mail->uid != 0) {
-			if (maildir_file_do(mbox, _mail->uid,
-					    do_stat, &st) <= 0)
+			ret = maildir_file_do(mbox, _mail->uid, do_stat, &st);
+			if (ret <= 0) {
+				if (ret == 0)
+					mail_set_expunged(_mail);
 				return (uoff_t)-1;
+			}
 		} else {
 			/* saved mail which hasn't been committed yet */
 			if (do_stat(mbox, path, &st) <= 0)
