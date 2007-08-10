@@ -137,7 +137,7 @@ AC_ARG_WITH(bsdauth,
 	want_bsdauth=yes)
 
 AC_ARG_WITH(gssapi,
-[  --with-gssapi           Build with GSSAPI authentication support],
+[  --with-gssapi=yes|plugin Build with GSSAPI authentication support],
 	if test x$withval = xno; then
 		want_gssapi=no
 	elif test x$withval = xplugin; then
