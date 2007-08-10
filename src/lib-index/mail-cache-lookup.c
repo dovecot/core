@@ -65,7 +65,7 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 		return 0;
 	}
 
-	if (!mail_index_ext_get_reset_id(view, cache->ext_id, &reset_id))
+	if (!mail_index_ext_get_reset_id(view, map, cache->ext_id, &reset_id))
 		i_unreached();
 
 	/* reset_id must match file_seq or the offset is for a different cache

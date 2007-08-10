@@ -426,16 +426,17 @@ static int _view_get_header_ext(struct mail_index_view *view,
 	return 0;
 }
 
-static bool _view_ext_get_reset_id(struct mail_index_view *view,
+static bool _view_ext_get_reset_id(struct mail_index_view *view __attr_unused__,
+				   struct mail_index_map *map,
 				   uint32_t ext_id, uint32_t *reset_id_r)
 {
 	const struct mail_index_ext *ext;
 	uint32_t idx;
 
-	if (!mail_index_map_get_ext_idx(view->map, ext_id, &idx))
+	if (!mail_index_map_get_ext_idx(map, ext_id, &idx))
 		return FALSE;
 
-	ext = array_idx(&view->map->extensions, idx);
+	ext = array_idx(&map->extensions, idx);
 	*reset_id_r = ext->reset_id;
 	return TRUE;
 }
@@ -604,9 +605,10 @@ int mail_index_map_get_header_ext(struct mail_index_view *view,
 }
 
 bool mail_index_ext_get_reset_id(struct mail_index_view *view,
+				 struct mail_index_map *map,
 				 uint32_t ext_id, uint32_t *reset_id_r)
 {
-	return view->v.ext_get_reset_id(view, ext_id, reset_id_r);
+	return view->v.ext_get_reset_id(view, map, ext_id, reset_id_r);
 }
 
 int mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,

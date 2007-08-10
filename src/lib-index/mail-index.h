@@ -409,6 +409,7 @@ void mail_index_ext_set_reset_id(struct mail_index_transaction *t,
 				 uint32_t ext_id, uint32_t reset_id);
 /* Get the current reset_id for given extension. Returns TRUE if it exists. */
 bool mail_index_ext_get_reset_id(struct mail_index_view *view,
+				 struct mail_index_map *map,
 				 uint32_t ext_id, uint32_t *reset_id_r);
 
 /* Returns extension header. */
