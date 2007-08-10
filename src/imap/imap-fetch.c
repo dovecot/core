@@ -367,12 +367,13 @@ int imap_fetch_deinit(struct imap_fetch_context *ctx)
 			handlers[i].handler(ctx, NULL, handlers[i].context);
 	}
 
-	str_free(&ctx->cur_str);
-
 	if (!ctx->line_finished) {
+		if (imap_fetch_flush_buffer(ctx) < 0)
+			return -1;
 		if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
 			ctx->failed = TRUE;
 	}
+	str_free(&ctx->cur_str);
 
 	if (ctx->cur_input != NULL)
 		i_stream_unref(&ctx->cur_input);
