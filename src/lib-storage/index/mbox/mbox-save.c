@@ -39,6 +39,7 @@ struct mbox_save_context {
 	struct mail *mail;
 	uoff_t append_offset, mail_offset;
 	time_t orig_atime;
+	time_t received_date;
 
 	string_t *headers;
 	size_t space_end_idx;
@@ -465,6 +466,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	ctx->eoh_input_offset = (uoff_t)-1;
 	ctx->eoh_offset = (uoff_t)-1;
 	ctx->last_char = '\n';
+	ctx->received_date = received_date;
 
 	if (write_from_line(ctx, received_date, from_envelope) < 0)
 		ctx->failed = TRUE;
@@ -611,7 +613,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 	}
 
 	if (ctx->mail != NULL)
-		index_mail_cache_parse_deinit(ctx->mail);
+		index_mail_cache_parse_deinit(ctx->mail, ctx->received_date);
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
 	if (ctx->body_output != NULL)

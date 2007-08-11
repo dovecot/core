@@ -341,8 +341,8 @@ index_mail_parse_header_cb(struct message_header_line *hdr,
 	index_mail_parse_header(mail->data.parts, hdr, mail);
 }
 
-struct istream *index_mail_cache_parse_init(struct mail *_mail,
-					    struct istream *input)
+struct istream *
+index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct tee_istream *tee;

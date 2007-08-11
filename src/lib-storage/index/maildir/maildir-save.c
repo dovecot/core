@@ -427,21 +427,11 @@ int maildir_save_continue(struct mail_save_context *_ctx)
 int maildir_save_finish(struct mail_save_context *_ctx)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	struct utimbuf buf;
+	struct stat st;
 	const char *path;
 	int output_errno;
-
-	if (o_stream_flush(ctx->output) < 0) {
-		mail_storage_set_critical(&ctx->mbox->storage->storage,
-			"o_stream_flush(%s/%s) failed: %m",
-			ctx->tmpdir, ctx->file_last->basename);
-		ctx->failed = TRUE;
-	}
-
-	if (ctx->cur_dest_mail != NULL) {
-		index_mail_cache_parse_deinit(ctx->cur_dest_mail);
-		i_stream_unref(&ctx->input);
-	}
 
 	ctx->finished = TRUE;
 	if (ctx->failed && ctx->fd == -1) {
@@ -449,13 +439,14 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 		return -1;
 	}
 
-	/* remember the size in case we want to add it to filename */
-	ctx->file_last->size = ctx->output->offset;
-	ctx->file_last->vsize = ctx->cur_dest_mail == NULL ? (uoff_t)-1 :
-		mail_get_virtual_size(ctx->cur_dest_mail);
-
 	t_push();
 	path = t_strconcat(ctx->tmpdir, "/", ctx->file_last->basename, NULL);
+
+	if (o_stream_flush(ctx->output) < 0) {
+		mail_storage_set_critical(storage,
+			"o_stream_flush(%s) failed: %m", path);
+		ctx->failed = TRUE;
+	}
 
 	if (ctx->received_date != (time_t)-1) {
 		/* set the received_date by modifying mtime */
@@ -464,23 +455,51 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 
 		if (utime(path, &buf) < 0) {
 			ctx->failed = TRUE;
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
+			mail_storage_set_critical(storage,
 						  "utime(%s) failed: %m", path);
 		}
+	} else if (ctx->fd != -1) {
+		if (fstat(ctx->fd, &st) == 0)
+			ctx->received_date = st.st_mtime;
+		else {
+			ctx->failed = TRUE;
+			mail_storage_set_critical(storage,
+						  "fstat(%s) failed: %m", path);
+		}
+	} else {
+		/* hardlinked */
+		if (stat(path, &st) == 0)
+			ctx->received_date = st.st_mtime;
+		else {
+			ctx->failed = TRUE;
+			mail_storage_set_critical(storage,
+						  "stat(%s) failed: %m", path);
+		}
 	}
+
+	if (ctx->cur_dest_mail != NULL) {
+		index_mail_cache_parse_deinit(ctx->cur_dest_mail,
+					      ctx->received_date);
+		i_stream_unref(&ctx->input);
+	}
+
+	/* remember the size in case we want to add it to filename */
+	ctx->file_last->size = ctx->output->offset;
+	ctx->file_last->vsize = ctx->cur_dest_mail == NULL ? (uoff_t)-1 :
+		mail_get_virtual_size(ctx->cur_dest_mail);
 
 	output_errno = ctx->output->stream_errno;
 	o_stream_destroy(&ctx->output);
 
 	if (!ctx->mbox->ibox.fsync_disable) {
 		if (fsync(ctx->fd) < 0) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
+			mail_storage_set_critical(storage,
 						  "fsync(%s) failed: %m", path);
 			ctx->failed = TRUE;
 		}
 	}
 	if (close(ctx->fd) < 0) {
-		mail_storage_set_critical(&ctx->mbox->storage->storage,
+		mail_storage_set_critical(storage,
 					  "close(%s) failed: %m", path);
 		ctx->failed = TRUE;
 	}
@@ -491,16 +510,16 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 
 		/* delete the tmp file */
 		if (unlink(path) < 0 && errno != ENOENT) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
+			mail_storage_set_critical(storage,
 				"unlink(%s) failed: %m", path);
 		}
 
 		errno = output_errno;
 		if (ENOSPACE(errno)) {
-			mail_storage_set_error(&ctx->mbox->storage->storage,
+			mail_storage_set_error(storage,
 				MAIL_ERROR_NOSPACE, MAIL_ERRSTR_NO_SPACE);
 		} else if (errno != 0) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
+			mail_storage_set_critical(storage,
 				"write(%s) failed: %m", ctx->mbox->path);
 		}
 

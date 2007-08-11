@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "buffer.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "hex-binary.h"
 #include "str.h"
@@ -225,11 +226,33 @@ time_t index_mail_get_save_date(struct mail *_mail)
 	return data->save_date;
 }
 
+static void index_mail_cache_sent_date(struct index_mail *mail)
+{
+	struct index_mail_data *data = &mail->data;
+	const char *str;
+	time_t t;
+	int tz;
+
+	if (data->sent_date.time != (uint32_t)-1)
+		return;
+
+	str = mail_get_first_header(&mail->mail.mail, "Date");
+	if (str == NULL || !message_date_parse((const unsigned char *)str,
+					       strlen(str), &t, &tz)) {
+		/* 0 = not found / invalid */
+		t = 0;
+		tz = 0;
+	}
+	data->sent_date.time = t;
+	data->sent_date.timezone = tz;
+	index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
+			     &data->sent_date, sizeof(data->sent_date));
+}
+
 time_t index_mail_get_date(struct mail *_mail, int *timezone)
 {
 	struct index_mail *mail = (struct index_mail *) _mail;
 	struct index_mail_data *data = &mail->data;
-	const char *str;
 
 	if (data->sent_date.time != (uint32_t)-1) {
 		if (timezone != NULL)
@@ -241,24 +264,7 @@ time_t index_mail_get_date(struct mail *_mail, int *timezone)
 					 &data->sent_date,
 					 sizeof(data->sent_date));
 
-	if (data->sent_date.time == (uint32_t)-1) {
-		time_t t;
-		int tz;
-
-		str = mail_get_first_header(_mail, "Date");
-		if (str == NULL ||
-		    !message_date_parse((const unsigned char *)str,
-					strlen(str), &t, &tz)) {
-			/* 0 = not found / invalid */
-			t = 0;
-			tz = 0;
-		}
-		data->sent_date.time = t;
-		data->sent_date.timezone = tz;
-		index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
-				     &data->sent_date, sizeof(data->sent_date));
-	}
-
+	index_mail_cache_sent_date(mail);
 	if (timezone != NULL)
 		*timezone = data->sent_date.timezone;
 	return data->sent_date.time;
@@ -561,17 +567,27 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 	}
 }
 
-static void
-index_mail_body_parsed_cache_virtual_size(struct index_mail *mail)
+static void index_mail_body_parsed_cache_sizes(struct index_mail *mail)
 {
-	unsigned int cache_field =
-		mail->ibox->cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx;
+	static enum index_cache_field date_fields[] = {
+		MAIL_CACHE_VIRTUAL_FULL_SIZE,
+		MAIL_CACHE_PHYSICAL_FULL_SIZE
+	};
+	uoff_t sizes[N_ELEMENTS(date_fields)];
+	unsigned int i, cache_field;
 
-	if (mail_cache_field_want_add(mail->trans->cache_trans,
-				      mail->data.seq, cache_field)) {
-		index_mail_cache_add(mail, MAIL_CACHE_VIRTUAL_FULL_SIZE,
-				     &mail->data.virtual_size,
-				     sizeof(mail->data.virtual_size));
+	sizes[0] = mail->data.virtual_size;
+	sizes[1] = mail->data.physical_size;
+
+	for (i = 0; i < N_ELEMENTS(date_fields); i++) {
+		cache_field = mail->ibox->cache_fields[date_fields[i]].idx;
+
+		i_assert(sizes[i] != (uoff_t)-1);
+		if (mail_cache_field_want_add(mail->trans->cache_trans,
+					      mail->data.seq, cache_field)) {
+			index_mail_cache_add(mail, date_fields[i],
+					     &sizes[i], sizeof(sizes[i]));
+		}
 	}
 }
 
@@ -592,7 +608,7 @@ static void index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_body_parsed_cache_flags(mail);
 	index_mail_body_parsed_cache_message_parts(mail);
 	index_mail_body_parsed_cache_bodystructure(mail, field);
-	index_mail_body_parsed_cache_virtual_size(mail);
+	index_mail_body_parsed_cache_sizes(mail);
 }
 
 static void index_mail_parse_body(struct index_mail *mail,
@@ -1095,13 +1111,54 @@ void index_mail_cache_parse_continue(struct mail *_mail)
 	}
 }
 
-void index_mail_cache_parse_deinit(struct mail *_mail)
+static void index_mail_cache_dates(struct index_mail *mail)
+{
+	static enum index_cache_field date_fields[] = {
+		MAIL_CACHE_RECEIVED_DATE,
+		MAIL_CACHE_SAVE_DATE
+	};
+	time_t dates[N_ELEMENTS(date_fields)];
+	unsigned int i, cache_field;
+	uint32_t t;
+
+	dates[0] = mail->data.received_date;
+	dates[1] = mail->data.save_date;
+
+	for (i = 0; i < N_ELEMENTS(date_fields); i++) {
+		cache_field = mail->ibox->cache_fields[date_fields[i]].idx;
+
+		i_assert(dates[i] != (time_t)-1);
+		if (mail_cache_field_want_add(mail->trans->cache_trans,
+					      mail->data.seq, cache_field)) {
+			t = dates[i];
+			index_mail_cache_add(mail, date_fields[i],
+					     &t, sizeof(t));
+		}
+	}
+
+	cache_field = mail->ibox->cache_fields[MAIL_CACHE_SENT_DATE].idx;
+	if (mail_cache_field_want_add(mail->trans->cache_trans,
+				      mail->data.seq, cache_field))
+		index_mail_cache_sent_date(mail);
+}
+
+void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+
+	if (mail->data.received_date == (time_t)-1)
+		mail->data.received_date = received_date;
+	if (mail->data.save_date == (time_t)-1) {
+		/* this save_date may not be exactly the same as what we get
+		   in future, but then again neither mbox nor maildir
+		   guarantees it anyway. */
+		mail->data.save_date = ioloop_time;
+	}
 
 	mail->data.save_bodystructure_body = FALSE;
 	mail->data.parsed_bodystructure = TRUE;
 	index_mail_parse_body_finish(mail, 0, TRUE);
+	index_mail_cache_dates(mail);
 }
 
 int index_mail_update_flags(struct mail *mail, enum modify_type modify_type,

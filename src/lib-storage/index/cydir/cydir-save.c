@@ -29,6 +29,7 @@ struct cydir_save_context {
 	struct istream *input;
 	struct ostream *output;
 	struct mail *mail, *cur_dest_mail;
+	time_t cur_received_date;
 	int fd;
 
 	unsigned int failed:1;
@@ -89,18 +90,6 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 		ctx->output = o_stream_create_crlf(output);
 		o_stream_unref(&output);
 		o_stream_cork(ctx->output);
-
-		if (received_date != (time_t)-1) {
-			struct utimbuf ut;
-
-			ut.actime = ioloop_time;
-			ut.modtime = received_date;
-			if (utime(path, &ut) < 0) {
-				mail_storage_set_critical(_t->box->storage,
-					"utime(%s) failed: %m", path);
-				/* ignore this error anyway */
-			}
-		}
 	} else {
 		mail_storage_set_critical(_t->box->storage,
 					  "open(%s) failed: %m", path);
@@ -130,6 +119,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 
 	ctx->cur_dest_mail = dest_mail;
 	ctx->input = index_mail_cache_parse_init(dest_mail, input);
+	ctx->cur_received_date = received_date;
 
 	*ctx_r = &ctx->ctx;
 	return ctx->failed ? -1 : 0;
@@ -167,6 +157,7 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *path = cydir_get_save_path(ctx, ctx->mail_count);
+	struct stat st;
 
 	ctx->finished = TRUE;
 
@@ -180,6 +171,26 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 		if (fsync(ctx->fd) < 0) {
 			mail_storage_set_critical(storage,
 						  "fsync(%s) failed: %m", path);
+			ctx->failed = TRUE;
+		}
+	}
+
+	if (ctx->cur_received_date == (time_t)-1) {
+		if (fstat(ctx->fd, &st) == 0)
+			ctx->cur_received_date = st.st_mtime;
+		else {
+			mail_storage_set_critical(storage,
+						  "fstat(%s) failed: %m", path);
+			ctx->failed = TRUE;
+		}
+	} else {
+		struct utimbuf ut;
+
+		ut.actime = ioloop_time;
+		ut.modtime = ctx->cur_received_date;
+		if (utime(path, &ut) < 0) {
+			mail_storage_set_critical(storage,
+						  "utime(%s) failed: %m", path);
 			ctx->failed = TRUE;
 		}
 	}
@@ -201,7 +212,8 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 		}
 	}
 
-	index_mail_cache_parse_deinit(ctx->cur_dest_mail);
+	index_mail_cache_parse_deinit(ctx->cur_dest_mail,
+				      ctx->cur_received_date);
 	i_stream_unref(&ctx->input);
 
 	return ctx->failed ? -1 : 0;

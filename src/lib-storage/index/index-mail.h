@@ -187,6 +187,6 @@ void index_mail_cache_add_idx(struct index_mail *mail, unsigned int field_idx,
 struct istream *index_mail_cache_parse_init(struct mail *mail,
 					    struct istream *input);
 void index_mail_cache_parse_continue(struct mail *mail);
-void index_mail_cache_parse_deinit(struct mail *mail);
+void index_mail_cache_parse_deinit(struct mail *mail, time_t received_date);
 
 #endif
