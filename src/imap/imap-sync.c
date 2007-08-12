@@ -143,11 +143,7 @@ int imap_sync_more(struct imap_sync_context *ctx)
 				if (ret <= 0)
 					break;
 
-				if (mail_set_seq(ctx->mail, ctx->seq) < 0) {
-					t_pop();
-					return -1;
-				}
-
+				mail_set_seq(ctx->mail, ctx->seq);
 				flags = mail_get_flags(ctx->mail);
 				keywords = mail_get_keywords(ctx->mail);
 

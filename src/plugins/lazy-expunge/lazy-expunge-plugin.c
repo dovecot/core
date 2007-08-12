@@ -45,6 +45,8 @@ struct lazy_expunge_transaction {
 
 	ARRAY_TYPE(seq_range) expunge_seqs;
 	struct mailbox *expunge_box;
+
+	bool failed;
 };
 
 const char *lazy_expunge_plugin_version = PACKAGE_VERSION;
@@ -91,7 +93,7 @@ mailbox_open_or_create(struct mail_storage *storage, const char *name)
 	return box;
 }
 
-static int lazy_expunge_mail_expunge(struct mail *_mail)
+static void lazy_expunge_mail_expunge(struct mail *_mail)
 {
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
@@ -104,12 +106,12 @@ static int lazy_expunge_mail_expunge(struct mail *_mail)
 		if (lt->expunge_box == NULL) {
 			mail_storage_set_critical(_mail->box->storage,
 				"lazy_expunge: Couldn't open expunge mailbox");
-			return -1;
+			lt->failed = TRUE;
+			return;
 		}
 	}
 
 	seq_range_array_add(&lt->expunge_seqs, 32, _mail->uid);
-	return 0;
 }
 
 static struct mailbox_transaction_context *
@@ -206,19 +208,24 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 
 static int
 lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
-				  enum mailbox_sync_flags flags,
-				  uint32_t *uid_validity_r,
-				  uint32_t *first_saved_uid_r,
-				  uint32_t *last_saved_uid_r)
+				enum mailbox_sync_flags flags,
+				uint32_t *uid_validity_r,
+				uint32_t *first_saved_uid_r,
+				uint32_t *last_saved_uid_r)
 {
 	union mailbox_module_context *mbox = LAZY_EXPUNGE_CONTEXT(ctx->box);
 	struct lazy_expunge_transaction *lt = LAZY_EXPUNGE_CONTEXT(ctx);
 	struct mailbox *srcbox = ctx->box;
 	int ret;
 
-	ret = mbox->super.transaction_commit(ctx, flags, uid_validity_r,
-					     first_saved_uid_r,
-					     last_saved_uid_r);
+	if (lt->failed) {
+		mbox->super.transaction_rollback(ctx);
+		ret = -1;
+	} else {
+		ret = mbox->super.transaction_commit(ctx, flags, uid_validity_r,
+						     first_saved_uid_r,
+						     last_saved_uid_r);
+	}
 
 	if (ret == 0 && array_is_created(&lt->expunge_seqs))
 		ret = lazy_expunge_move_expunges(srcbox, lt);

@@ -149,7 +149,7 @@ static bool mail_index_sync_add_transaction(struct mail_index_sync_ctx *ctx)
 	return TRUE;
 }
 
-static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
+static void mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 {
 	struct mail_transaction_flag_update update;
 	const struct mail_index_record *rec;
@@ -159,16 +159,13 @@ static int mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 
 	messages_count = mail_index_view_get_messages_count(ctx->view);
 	for (seq = 1; seq <= messages_count; seq++) {
-		if (mail_index_lookup(ctx->view, seq, &rec) < 0)
-			return -1;
-
+		rec = mail_index_lookup(ctx->view, seq);
 		if ((rec->flags & MAIL_INDEX_MAIL_FLAG_DIRTY) == 0)
 			continue;
 
 		mail_index_update_flags(ctx->sync_trans, rec->uid,
 					MODIFY_REPLACE, rec->flags);
 	}
-	return 0;
 }
 
 static void
@@ -196,8 +193,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	if ((ctx->view->map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) &&
 	    (ctx->flags & MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY) != 0) {
 		/* show dirty flags as flag updates */
-		if (mail_index_sync_add_dirty_updates(ctx) < 0)
-			return -1;
+		mail_index_sync_add_dirty_updates(ctx);
 	}
 
 	/* read all transactions from log into a transaction in memory.

@@ -401,9 +401,10 @@ struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
 			struct mailbox_header_lookup_ctx *wanted_headers);
 void mail_free(struct mail **mail);
-int mail_set_seq(struct mail *mail, uint32_t seq);
-/* Returns -1 if error, 0 if UID has already been expunged, 1 if ok */
-int mail_set_uid(struct mail *mail, uint32_t uid);
+void mail_set_seq(struct mail *mail, uint32_t seq);
+/* Returns TRUE if successful, FALSE if message doesn't exist.
+   mail_*() functions shouldn't be called if FALSE is returned. */
+bool mail_set_uid(struct mail *mail, uint32_t uid);
 
 /* Get the Date-header of the mail. Timezone is in minutes.
    Returns (time_t)-1 if error occurred, 0 if field wasn't found or
@@ -445,13 +446,13 @@ struct istream *mail_get_stream(struct mail *mail,
 const char *mail_get_special(struct mail *mail, enum mail_fetch_field field);
 
 /* Update message flags. */
-int mail_update_flags(struct mail *mail, enum modify_type modify_type,
-		      enum mail_flags flags);
+void mail_update_flags(struct mail *mail, enum modify_type modify_type,
+		       enum mail_flags flags);
 /* Update message keywords. */
-int mail_update_keywords(struct mail *mail, enum modify_type modify_type,
-			 struct mail_keywords *keywords);
+void mail_update_keywords(struct mail *mail, enum modify_type modify_type,
+			  struct mail_keywords *keywords);
 
 /* Expunge this message. Sequence numbers don't change until commit. */
-int mail_expunge(struct mail *mail);
+void mail_expunge(struct mail *mail);
 
 #endif

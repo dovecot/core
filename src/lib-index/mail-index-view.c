@@ -141,9 +141,9 @@ _view_get_header(struct mail_index_view *view)
 	return &view->map->hdr;
 }
 
-static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
-			     struct mail_index_map **map_r,
-			     const struct mail_index_record **rec_r)
+static const struct mail_index_record *
+_view_lookup_full(struct mail_index_view *view, uint32_t seq,
+		  struct mail_index_map **map_r, bool *expunged_r)
 {
 	struct mail_index_map *map;
 	const struct mail_index_record *rec, *head_rec;
@@ -156,13 +156,16 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 		mail_index_set_error(view->index, "Corrupted Index file %s: "
 			"Record [%u].uid=0", view->index->filepath, seq);
 		mail_index_mark_corrupted(view->index);
-		return -1;
+
+		*map_r = view->map;
+		*expunged_r = TRUE;
+		return rec;
 	}
 	if (view->map == view->index->map) {
 		/* view's mapping is latest. we can use it directly. */
 		*map_r = view->map;
-		*rec_r = rec;
-		return 1;
+		*expunged_r = FALSE;
+		return rec;
 	}
 
 	/* look up the record from head mapping. it may contain some changes.
@@ -179,8 +182,8 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	if (seq == 0) {
 		/* everything is expunged from head. use the old record. */
 		*map_r = view->map;
-		*rec_r = rec;
-		return 0;
+		*expunged_r = TRUE;
+		return rec;
 	}
 
 	map = view->index->map;
@@ -196,13 +199,13 @@ static int _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 		   returned record doesn't get invalidated after next sync. */
 		mail_index_view_ref_map(view, view->index->map);
 		*map_r = view->index->map;
-		*rec_r = head_rec;
-		return 1;
+		*expunged_r = FALSE;
+		return head_rec;
 	} else {
 		/* expuned from head. use the old record. */
 		*map_r = view->map;
-		*rec_r = rec;
-		return 0;
+		*expunged_r = TRUE;
+		return rec;
 	}
 }
 
@@ -340,28 +343,25 @@ static void _view_lookup_first(struct mail_index_view *view,
 	}
 }
 
-static int _view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
-				 uint32_t ext_id, struct mail_index_map **map_r,
-				 const void **data_r)
+static void
+_view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+		      uint32_t ext_id, struct mail_index_map **map_r,
+		      const void **data_r, bool *expunged_r)
 {
 	const struct mail_index_ext *ext;
 	const struct mail_index_record *rec;
 	uint32_t idx, offset;
-	int ret;
 
-	if ((ret = mail_index_lookup_full(view, seq, map_r, &rec)) < 0)
-		return -1;
-
-	if (rec == NULL || !mail_index_map_get_ext_idx(*map_r, ext_id, &idx)) {
+	rec = view->v.lookup_full(view, seq, map_r, expunged_r);
+	if (!mail_index_map_get_ext_idx(*map_r, ext_id, &idx)) {
 		*data_r = NULL;
-		return ret;
+		return;
 	}
 
 	ext = array_idx(&(*map_r)->extensions, idx);
 	offset = ext->record_offset;
 
 	*data_r = offset == 0 ? NULL : CONST_PTR_OFFSET(rec, offset);
-	return ret;
 }
 
 static void _view_get_header_ext(struct mail_index_view *view,
@@ -427,23 +427,34 @@ mail_index_get_header(struct mail_index_view *view)
 	return view->v.get_header(view);
 }
 
-int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
-		      const struct mail_index_record **rec_r)
+const struct mail_index_record *
+mail_index_lookup(struct mail_index_view *view, uint32_t seq)
 {
 	struct mail_index_map *map;
 
-	return mail_index_lookup_full(view, seq, &map, rec_r);
+	return mail_index_lookup_full(view, seq, &map);
 }
 
-int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
-			   struct mail_index_map **map_r,
-			   const struct mail_index_record **rec_r)
+const struct mail_index_record *
+mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
+		       struct mail_index_map **map_r)
 {
-	return view->v.lookup_full(view, seq, map_r, rec_r);
+	bool expunged;
+
+	return view->v.lookup_full(view, seq, map_r, &expunged);
 }
 
-int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
-			       ARRAY_TYPE(keyword_indexes) *keyword_idx)
+bool mail_index_is_expunged(struct mail_index_view *view, uint32_t seq)
+{
+	struct mail_index_map *map;
+	bool expunged;
+
+	(void)view->v.lookup_full(view, seq, &map, &expunged);
+	return expunged;
+}
+
+void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
+				ARRAY_TYPE(keyword_indexes) *keyword_idx)
 {
 	struct mail_index_map *map;
 	const void *data;
@@ -452,19 +463,15 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 	unsigned int i, j, keyword_count, index_idx;
 	uint32_t ext_id, idx;
 	uint16_t record_size;
-	int ret;
 
 	array_clear(keyword_idx);
 
 	/* get the keywords data. */
 	ext_id = view->index->keywords_ext_id;
-	ret = mail_index_lookup_ext_full(view, seq, ext_id, &map, &data);
-	if (ret < 0)
-		return -1;
-
+	mail_index_lookup_ext_full(view, seq, ext_id, &map, &data, NULL);
 	if (data == NULL) {
 		/* no keywords at all in index */
-		return ret;
+		return;
 	}
 
 	(void)mail_index_ext_get_size(view, ext_id, map, NULL,
@@ -494,10 +501,10 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 				/* keyword header was updated, parse it again
 				   it so we know what this keyword is called */
 				if (mail_index_map_parse_keywords(map) < 0)
-					return -1;
+					return;
 
 				if (!array_is_created(&map->keyword_idx_map))
-					return ret;
+					return;
 
 				/* pointer may have changed. update it. */
 				keyword_idx_map =
@@ -515,7 +522,6 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 			array_append(keyword_idx, &index_idx, 1);
 		}
 	}
-	return ret;
 }
 
 void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -539,19 +545,25 @@ void mail_index_lookup_first(struct mail_index_view *view,
 	view->v.lookup_first(view, flags, flags_mask, seq_r);
 }
 
-int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
-			  uint32_t ext_id, const void **data_r)
+void mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
+			   uint32_t ext_id, const void **data_r,
+			   bool *expunged_r)
 {
 	struct mail_index_map *map;
 
-	return view->v.lookup_ext_full(view, seq, ext_id, &map, data_r);
+	mail_index_lookup_ext_full(view, seq, ext_id, &map, data_r, expunged_r);
 }
 
-int mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
-			       uint32_t ext_id, struct mail_index_map **map_r,
-			       const void **data_r)
+void mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+				uint32_t ext_id, struct mail_index_map **map_r,
+				const void **data_r, bool *expunged_r)
 {
-	return view->v.lookup_ext_full(view, seq, ext_id, map_r, data_r);
+	bool expunged;
+
+	if (expunged_r == NULL)
+		expunged_r = &expunged;
+
+	view->v.lookup_ext_full(view, seq, ext_id, map_r, data_r, expunged_r);
 }
 
 void mail_index_get_header_ext(struct mail_index_view *view, uint32_t ext_id,
@@ -574,10 +586,10 @@ bool mail_index_ext_get_reset_id(struct mail_index_view *view,
 	return view->v.ext_get_reset_id(view, map, ext_id, reset_id_r);
 }
 
-int mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,
-			    uint32_t ext_id, struct mail_index_map *map,
-			    uint32_t *hdr_size_r, uint16_t *record_size_r,
-			    uint16_t *record_align_r)
+void mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,
+			     uint32_t ext_id, struct mail_index_map *map,
+			     uint32_t *hdr_size_r, uint16_t *record_size_r,
+			     uint16_t *record_align_r)
 {
 	const struct mail_index_ext *ext;
 	uint32_t idx;
@@ -592,7 +604,7 @@ int mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,
 			*record_size_r = 0;
 		if (record_align_r != NULL)
 			*record_align_r = 0;
-		return 0;
+		return;
 	}
 
 	ext = array_idx(&map->extensions, idx);
@@ -602,7 +614,6 @@ int mail_index_ext_get_size(struct mail_index_view *view __attr_unused__,
 		*record_size_r = ext->record_size;
 	if (record_align_r != NULL)
 		*record_align_r = ext->record_align;
-	return 0;
 }
 
 static struct mail_index_view_vfuncs view_vfuncs = {

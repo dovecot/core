@@ -12,7 +12,7 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 	struct mail *mail;
 	struct mail_search_arg search_arg;
         enum mailbox_sync_flags flags;
-	bool failed = FALSE;
+	bool failed;
 
 	if (mailbox_is_readonly(box)) {
 		/* silently ignore */
@@ -27,24 +27,17 @@ bool imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg)
 	ctx = mailbox_search_init(t, NULL, &search_arg, NULL);
 
 	mail = mail_alloc(t, 0, NULL);
-	while (mailbox_search_next(ctx, mail) > 0) {
-		if (mail_expunge(mail) < 0) {
-			failed = TRUE;
-			break;
-		}
-	}
+	while (mailbox_search_next(ctx, mail) > 0)
+		mail_expunge(mail);
 	mail_free(&mail);
 
-	if (mailbox_search_deinit(&ctx) < 0)
+	if (mailbox_search_deinit(&ctx) < 0) {
 		failed = TRUE;
-
-	if (failed)
 		mailbox_transaction_rollback(&t);
-	else {
+	} else {
 		flags = MAILBOX_SYNC_FLAG_FULL_READ |
 			MAILBOX_SYNC_FLAG_FULL_WRITE;
-		if (mailbox_transaction_commit(&t, flags) < 0)
-			failed = TRUE;
+		failed = mailbox_transaction_commit(&t, flags) < 0;
 	}
 
 	return !failed;

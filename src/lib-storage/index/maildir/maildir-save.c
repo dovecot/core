@@ -194,8 +194,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 		}
 		dest_mail = ctx->mail;
 	}
-	if (mail_set_seq(dest_mail, ctx->seq) < 0)
-		i_unreached();
+	mail_set_seq(dest_mail, ctx->seq);
 
 	if (ctx->input == NULL) {
 		/* FIXME: copying with hardlinking. we could copy the

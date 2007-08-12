@@ -23,7 +23,12 @@ struct acl_mailbox {
 	unsigned int save_hack:1;
 };
 
+struct acl_transaction_context {
+	union mailbox_transaction_module_context module_ctx;
+};
+
 static MODULE_CONTEXT_DEFINE_INIT(acl_mail_module, &mail_module_register);
+static struct acl_transaction_context acl_transaction_failure;
 
 static int mailbox_acl_right_lookup(struct mailbox *box, unsigned int right_idx)
 {
@@ -111,7 +116,13 @@ acl_get_write_rights(struct mailbox *box,
 	return 0;
 }
 
-static int
+static void acl_transaction_set_failure(struct mailbox_transaction_context *t)
+{
+	MODULE_CONTEXT_SET(t, acl_storage_module,
+			   &acl_transaction_failure);
+}
+
+static void
 acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		      enum mail_flags flags)
 {
@@ -120,8 +131,10 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 	bool acl_flags, acl_flag_seen, acl_flag_del;
 
 	if (acl_get_write_rights(_mail->box, &acl_flags, &acl_flag_seen,
-				 &acl_flag_del) < 0)
-		return -1;
+				 &acl_flag_del) < 0) {
+		acl_transaction_set_failure(_mail->transaction);
+		return;
+	}
 
 	if (modify_type != MODIFY_REPLACE) {
 		/* adding/removing flags. just remove the disallowed
@@ -136,21 +149,19 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		/* we don't have permission to replace all the flags. */
 		if (!acl_flags && !acl_flag_seen && !acl_flag_del) {
 			/* no flag changes allowed. ignore silently. */
-			return 0;
+			return;
 		}
 
 		/* handle this by first removing the allowed flags and
 		   then adding the allowed flags */
-		if (acl_mail_update_flags(_mail, MODIFY_REMOVE,
-					  ~flags) < 0)
-			return -1;
-		return acl_mail_update_flags(_mail, MODIFY_ADD, flags);
+		acl_mail_update_flags(_mail, MODIFY_REMOVE, ~flags);
+		acl_mail_update_flags(_mail, MODIFY_ADD, flags);
 	}
 
-	return amail->super.update_flags(_mail, modify_type, flags);
+	amail->super.update_flags(_mail, modify_type, flags);
 }
 
-static int
+static void
 acl_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
 			 struct mail_keywords *keywords)
 {
@@ -161,13 +172,15 @@ acl_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
 	ret = mailbox_acl_right_lookup(_mail->box, ACL_STORAGE_RIGHT_WRITE);
 	if (ret <= 0) {
 		/* if we don't have permission, just silently return success. */
-		return ret;
+		if (ret < 0)
+			acl_transaction_set_failure(_mail->transaction);
+		return;
 	}
 
-	return amail->super.update_keywords(_mail, modify_type, keywords);
+	amail->super.update_keywords(_mail, modify_type, keywords);
 }
 
-static int acl_mail_expunge(struct mail *_mail)
+static void acl_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *amail = ACL_MAIL_CONTEXT(mail);
@@ -178,10 +191,12 @@ static int acl_mail_expunge(struct mail *_mail)
 		/* if we don't have permission, silently return success so
 		   users won't see annoying error messages in case their
 		   clients try automatic expunging. */
-		return ret;
+		if (ret < 0)
+			acl_transaction_set_failure(_mail->transaction);
+		return;
 	}
 
-	return amail->super.expunge(_mail);
+	amail->super.expunge(_mail);
 }
 
 static struct mail *
@@ -263,6 +278,23 @@ acl_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	return abox->module_ctx.super.copy(t, mail, flags, keywords, dest_mail);
 }
 
+static int
+acl_transaction_commit(struct mailbox_transaction_context *ctx,
+		       enum mailbox_sync_flags flags, uint32_t *uid_validity_r,
+		       uint32_t *first_saved_uid_r, uint32_t *last_saved_uid_r)
+{
+	struct acl_mailbox *abox = ACL_CONTEXT(ctx->box);
+	void *at = ACL_CONTEXT(ctx);
+
+	if (at != NULL) {
+		abox->module_ctx.super.transaction_rollback(ctx);
+		return -1;
+	}
+
+	return abox->module_ctx.super.
+		transaction_commit(ctx, flags, uid_validity_r,
+				   first_saved_uid_r, last_saved_uid_r);
+}
 struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 {
 	struct acl_mail_storage *astorage = ACL_CONTEXT(box->storage);
@@ -280,6 +312,7 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 	box->v.mail_alloc = acl_mail_alloc;
 	box->v.save_init = acl_save_init;
 	box->v.copy = acl_copy;
+	box->v.transaction_commit = acl_transaction_commit;
 	MODULE_CONTEXT_SET(box, acl_storage_module, abox);
 	return box;
 }

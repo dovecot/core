@@ -544,8 +544,8 @@ void mbox_sync_parse_next_mail(struct istream *input,
 	ctx->body_offset = input->v_offset;
 }
 
-int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
-			       struct mail_index_view *view, uint32_t seq)
+bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
+				struct mail_index_view *view, uint32_t seq)
 {
         struct mbox_sync_mail_context ctx;
 	struct message_header_parser_ctx *hdr_ctx;
@@ -600,11 +600,8 @@ int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 	/* match by MD5 sum */
 	mbox->mbox_save_md5 = TRUE;
 
-	if (mail_index_lookup_ext(view, seq, mbox->ibox.md5hdr_ext_idx,
-				  &data) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		return -1;
-	}
+	mail_index_lookup_ext(view, seq, mbox->ibox.md5hdr_ext_idx,
+			      &data, NULL);
 	return data == NULL ? 0 :
 		memcmp(data, ctx.hdr_md5_sum, 16) == 0;
 }

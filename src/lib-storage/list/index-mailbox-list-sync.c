@@ -139,6 +139,7 @@ index_list_get_cached_status(struct mailbox *box, struct mailbox_status *status)
 	const void *data;
 	uint32_t seq, *ext_id_p, *counter_p;
 	unsigned int i;
+	bool expunged;
 	int ret;
 
 	memset(status, 0, sizeof(*status));
@@ -151,16 +152,18 @@ index_list_get_cached_status(struct mailbox *box, struct mailbox_status *status)
 	ilist = INDEX_LIST_CONTEXT(list);
 	for (i = 0; index_list_map[i].name != NULL; i++) {
 		ext_id_p = PTR_OFFSET(ilist, index_list_map[i].eid_offset);
-		ret = mail_index_lookup_ext(view, seq, *ext_id_p, &data);
-		if (ret <= 0 || data == NULL)
+		mail_index_lookup_ext(view, seq, *ext_id_p, &data, &expunged);
+		if (expunged || data == NULL) {
+			ret = 0;
 			break;
+		}
 
 		counter_p = PTR_OFFSET(status, index_list_map[i].status_offset);
 		*counter_p = *(const uint32_t *)data;
 	}
 
 	mail_index_view_close(&view);
-	return 1;
+	return ret;
 }
 
 static void
@@ -225,7 +228,8 @@ index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 	const uint32_t *counter_p;
 	uint32_t *ext_id_p;
 	unsigned int i;
-	int ret = 1;
+	bool expunged;
+	int ret = 0;
 
 	trans = mail_index_transaction_begin(view,
 					MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
@@ -233,9 +237,11 @@ index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 	/* update counters */
 	for (i = 0; index_list_map[i].name != NULL; i++) {
 		ext_id_p = PTR_OFFSET(ilist, index_list_map[i].eid_offset);
-		ret = mail_index_lookup_ext(view, seq, *ext_id_p, &data);
-		if (ret <= 0)
+		mail_index_lookup_ext(view, seq, *ext_id_p, &data, &expunged);
+		if (expunged) {
+			ret = -1;
 			break;
+		}
 
 		counter_p = CONST_PTR_OFFSET(status,
 					     index_list_map[i].status_offset);
@@ -248,7 +254,7 @@ index_list_update(struct index_mailbox_list *ilist, struct mailbox *box,
 
 	if (box->v.list_index_update_sync(box, trans, seq) < 0)
 		ret = -1;
-	if (ret <= 0) {
+	if (ret < 0) {
 		mail_index_transaction_rollback(&trans);
 		return -1;
 	}

@@ -62,41 +62,30 @@ expire_mailbox_transaction_begin(struct mailbox *box,
 	return t;
 }
 
-static int first_nonexpunged_timestamp(struct mailbox_transaction_context *_t,
-				       time_t *stamp_r)
+static void first_nonexpunged_timestamp(struct mailbox_transaction_context *_t,
+					time_t *stamp_r)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
 	struct expire_transaction_context *xt = EXPIRE_CONTEXT(_t);
 	struct mail_index_view *view = t->trans_view;
 	const struct mail_index_header *hdr;
-	const struct mail_index_record *rec;
 	uint32_t seq;
-	int ret = 0;
 
 	/* find the first non-expunged mail. we're here because the first
 	   mail was expunged, so don't bother checking it. */
 	hdr = mail_index_get_header(view);
 	for (seq = 2; seq <= hdr->messages_count; seq++) {
-		ret = mail_index_lookup(view, seq, &rec);
-		if (ret != 0)
-			break;
-	}
-	if (ret < 0) {
-		*stamp_r = 0;
-		return -1;
+		if (!mail_index_is_expunged(view, seq)) {
+			mail_set_seq(xt->mail, seq);
+			*stamp_r = mail_get_save_date(xt->mail);
+			if (*stamp_r != (time_t)-1)
+				return;
+		}
 	}
 
-	if (ret > 0) {
-		mail_set_seq(xt->mail, seq);
-		*stamp_r = mail_get_save_date(xt->mail);
-		if (*stamp_r == (time_t)-1)
-			return -1;
-	} else {
-		/* everything expunged */
-		*stamp_r = 0;
-	}
-	return 0;
+	/* everything expunged */
+	*stamp_r = 0;
 }
 
 static int
@@ -119,7 +108,8 @@ expire_mailbox_transaction_commit(struct mailbox_transaction_context *t,
 
 	if (xt->first_expunged) {
 		/* first mail expunged. dict needs updating. */
-		update_dict = first_nonexpunged_timestamp(t, &new_stamp) == 0;
+		first_nonexpunged_timestamp(t, &new_stamp);
+		update_dict = TRUE;
 	} else {
 		/* saved new mails. dict needs to be updated only if this is
 		   the first mail in the database */
@@ -164,21 +154,18 @@ expire_mailbox_transaction_rollback(struct mailbox_transaction_context *t)
 	i_free(xt);
 }
 
-static int expire_mail_expunge(struct mail *_mail)
+static void expire_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *xpr_mail = EXPIRE_MAIL_CONTEXT(mail);
 	struct expire_transaction_context *xt =
 		EXPIRE_CONTEXT(_mail->transaction);
 
-	if (xpr_mail->super.expunge(_mail) < 0)
-		return -1;
-
 	if (_mail->seq == 1) {
 		/* first mail expunged, database needs to be updated */
 		xt->first_expunged = TRUE;
 	}
-	return 0;
+	xpr_mail->super.expunge(_mail);
 }
 
 static struct mail *

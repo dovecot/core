@@ -238,8 +238,7 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 			ctx->mail = index_mail_alloc(_t, 0, NULL);
 		dest_mail = ctx->mail;
 	}
-	if (mail_set_seq(dest_mail, ctx->seq) < 0)
-		i_unreached();
+	mail_set_seq(dest_mail, ctx->seq);
 
 	if (t->first_saved_mail_seq == 0)
 		t->first_saved_mail_seq = ctx->seq;

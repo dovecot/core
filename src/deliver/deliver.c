@@ -749,8 +749,7 @@ int main(int argc, char *argv[])
 
 	t = mailbox_transaction_begin(box, 0);
 	mail = mail_alloc(t, 0, NULL);
-	if (mail_set_seq(mail, 1) < 0)
-		i_fatal("mail_set_seq() failed");
+	mail_set_seq(mail, 1);
 
 	storage = NULL;
 	default_mailbox_name = mailbox;

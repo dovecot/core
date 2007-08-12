@@ -189,7 +189,6 @@ static bool expunge_mails(struct client *client)
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	uint32_t idx;
-	bool ret = TRUE;
 
 	if (client->deleted_bitmask == NULL)
 		return TRUE;
@@ -212,18 +211,13 @@ static bool expunge_mails(struct client *client)
 		idx = mail->seq - 1;
 		if ((client->deleted_bitmask[idx / CHAR_BIT] &
 		     1 << (idx % CHAR_BIT)) != 0) {
-			if (mail_expunge(mail) < 0) {
-				ret = FALSE;
-				break;
-			}
+			mail_expunge(mail);
 			client->expunged_count++;
 		}
 	}
 	mail_free(&mail);
 
-	if (mailbox_search_deinit(&ctx) < 0)
-		ret = FALSE;
-	return ret;
+	return mailbox_search_deinit(&ctx) == 0;
 }
 
 static int cmd_quit(struct client *client, const char *args __attr_unused__)
@@ -464,11 +458,8 @@ static int cmd_rset(struct client *client, const char *args __attr_unused__)
 		search_ctx = mailbox_search_init(client->trans, NULL,
 						 &search_arg, NULL);
 		mail = mail_alloc(client->trans, 0, NULL);
-		while (mailbox_search_next(search_ctx, mail) > 0) {
-			if (mail_update_flags(mail, MODIFY_REMOVE,
-					      MAIL_SEEN) < 0)
-				break;
-		}
+		while (mailbox_search_next(search_ctx, mail) > 0)
+			mail_update_flags(mail, MODIFY_REMOVE, MAIL_SEEN);
 		mail_free(&mail);
 		(void)mailbox_search_deinit(&search_ctx);
 	} else {

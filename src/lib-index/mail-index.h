@@ -295,16 +295,17 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **ctx);
 /* Returns the index header. */
 const struct mail_index_header *
 mail_index_get_header(struct mail_index_view *view);
-/* Returns the given message. Returns -1 if error, 1 if ok, 0 if mail was
-   expunged but data was returned from some older index.  */
-int mail_index_lookup(struct mail_index_view *view, uint32_t seq,
-		      const struct mail_index_record **rec_r);
-int mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
-			   struct mail_index_map **map_r,
-			   const struct mail_index_record **rec_r);
+/* Returns the wanted message record. */
+const struct mail_index_record *
+mail_index_lookup(struct mail_index_view *view, uint32_t seq);
+const struct mail_index_record *
+mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
+		       struct mail_index_map **map_r);
+/* Returns TRUE if the given message has already been expunged from index. */
+bool mail_index_is_expunged(struct mail_index_view *view, uint32_t seq);
 /* Note that returned keyword indexes aren't sorted. */
-int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
-			       ARRAY_TYPE(keyword_indexes) *keyword_idx);
+void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
+				ARRAY_TYPE(keyword_indexes) *keyword_idx);
 /* Returns the UID for given message. May be slightly faster than
    mail_index_lookup()->uid. */
 void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -424,18 +425,20 @@ void mail_index_map_get_header_ext(struct mail_index_view *view,
 				   struct mail_index_map *map, uint32_t ext_id,
 				   const void **data_r, size_t *data_size_r);
 /* Returns the wanted extension record for given message. If it doesn't exist,
-   *data_r is set to NULL. Return values are same as for mail_index_lookup(). */
-int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
-			  uint32_t ext_id, const void **data_r);
-int mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
-			       uint32_t ext_id, struct mail_index_map **map_r,
-			       const void **data_r);
+   *data_r is set to NULL. expunged_r is TRUE if the message has already been
+   expunged from the index. */
+void mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,
+			   uint32_t ext_id, const void **data_r,
+			   bool *expunged_r);
+void mail_index_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+				uint32_t ext_id, struct mail_index_map **map_r,
+				const void **data_r, bool *expunged_r);
 /* Get current extension sizes. Returns 1 if ok, 0 if extension doesn't exist
    in view. Any of the _r parameters may be NULL. */
-int mail_index_ext_get_size(struct mail_index_view *view,
-			    uint32_t ext_id, struct mail_index_map *map,
-			    uint32_t *hdr_size_r, uint16_t *record_size_r,
-			    uint16_t *record_align_r);
+void mail_index_ext_get_size(struct mail_index_view *view,
+			     uint32_t ext_id, struct mail_index_map *map,
+			     uint32_t *hdr_size_r, uint16_t *record_size_r,
+			     uint16_t *record_align_r);
 /* Update extension header field. */
 void mail_index_update_header_ext(struct mail_index_transaction *t,
 				  uint32_t ext_id, size_t offset,

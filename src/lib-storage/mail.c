@@ -19,14 +19,14 @@ void mail_free(struct mail **mail)
 	*mail = NULL;
 }
 
-int mail_set_seq(struct mail *mail, uint32_t seq)
+void mail_set_seq(struct mail *mail, uint32_t seq)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.set_seq(mail, seq);
+	p->v.set_seq(mail, seq);
 }
 
-int mail_set_uid(struct mail *mail, uint32_t uid)
+bool mail_set_uid(struct mail *mail, uint32_t uid)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
@@ -142,27 +142,27 @@ const char *mail_get_special(struct mail *mail, enum mail_fetch_field field)
 	return p->v.get_special(mail, field);
 }
 
-int mail_update_flags(struct mail *mail, enum modify_type modify_type,
-		      enum mail_flags flags)
+void mail_update_flags(struct mail *mail, enum modify_type modify_type,
+		       enum mail_flags flags)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
 	return p->v.update_flags(mail, modify_type, flags);
 }
 
-int mail_update_keywords(struct mail *mail, enum modify_type modify_type,
-			 struct mail_keywords *keywords)
+void mail_update_keywords(struct mail *mail, enum modify_type modify_type,
+			  struct mail_keywords *keywords)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.update_keywords(mail, modify_type, keywords);
+	p->v.update_keywords(mail, modify_type, keywords);
 }
 
-int mail_expunge(struct mail *mail)
+void mail_expunge(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.expunge(mail);
+	p->v.expunge(mail);
 }
 
 void mail_set_expunged(struct mail *mail)

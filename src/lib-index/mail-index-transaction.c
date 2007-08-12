@@ -592,9 +592,7 @@ mail_transaction_update_want_add(struct mail_index_transaction *t,
 		return TRUE;
 
 	for (seq = u->uid1; seq <= u->uid2; seq++) {
-		if (mail_index_lookup(t->view, seq, &rec) < 0)
-			return TRUE;
-
+		rec = mail_index_lookup(t->view, seq);
 		if ((rec->flags & u->add_flags) != u->add_flags ||
 		    (rec->flags & u->remove_flags) != 0)
 			return TRUE;

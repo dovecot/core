@@ -679,22 +679,20 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 	return fbox->module_ctx.super.search_deinit(ctx);
 }
 
-static int fts_mail_expunge(struct mail *_mail)
+static void fts_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *fmail = FTS_MAIL_CONTEXT(mail);
 	struct fts_mailbox *fbox = FTS_CONTEXT(_mail->box);
 	struct fts_transaction_context *ft = FTS_CONTEXT(_mail->transaction);
 
-	if (fmail->super.expunge(_mail) < 0)
-		return -1;
-
 	ft->expunges = TRUE;
 	if (fbox->backend_exact != NULL)
 		fts_backend_expunge(fbox->backend_exact, _mail);
 	if (fbox->backend_fast != NULL)
 		fts_backend_expunge(fbox->backend_fast, _mail);
-	return 0;
+
+	fmail->super.expunge(_mail);
 }
 
 static struct mail *

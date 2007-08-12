@@ -131,8 +131,8 @@ struct mail *
 index_mail_alloc(struct mailbox_transaction_context *t,
 		 enum mail_fetch_field wanted_fields,
 		 struct mailbox_header_lookup_ctx *wanted_headers);
-int index_mail_set_seq(struct mail *mail, uint32_t seq);
-int index_mail_set_uid(struct mail *mail, uint32_t uid);
+void index_mail_set_seq(struct mail *mail, uint32_t seq);
+bool index_mail_set_uid(struct mail *mail, uint32_t uid);
 void index_mail_free(struct mail *mail);
 
 bool index_mail_want_parse_headers(struct index_mail *mail);
@@ -168,11 +168,11 @@ struct istream *index_mail_init_stream(struct index_mail *mail,
 const char *index_mail_get_special(struct mail *_mail,
 				   enum mail_fetch_field field);
 
-int index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
-			    enum mail_flags flags);
-int index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
-			       struct mail_keywords *keywords);
-int index_mail_expunge(struct mail *mail);
+void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
+			     enum mail_flags flags);
+void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
+				struct mail_keywords *keywords);
+void index_mail_expunge(struct mail *mail);
 
 uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
 				    enum index_cache_field field);

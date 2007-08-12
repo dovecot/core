@@ -152,8 +152,8 @@ void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
 
 void mbox_sync_parse_next_mail(struct istream *input,
 			       struct mbox_sync_mail_context *ctx);
-int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
-			       struct mail_index_view *view, uint32_t seq);
+bool mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
+				struct mail_index_view *view, uint32_t seq);
 
 void mbox_sync_update_header(struct mbox_sync_mail_context *ctx);
 void mbox_sync_update_header_from(struct mbox_sync_mail_context *ctx,

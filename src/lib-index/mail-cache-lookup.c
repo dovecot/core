@@ -57,9 +57,8 @@ mail_cache_lookup_offset(struct mail_cache *cache, struct mail_index_view *view,
 	uint32_t reset_id;
 	int i, ret;
 
-	if (mail_index_lookup_ext_full(view, seq, cache->ext_id,
-				       &map, &data) < 0)
-		return -1;
+	mail_index_lookup_ext_full(view, seq, cache->ext_id,
+				   &map, &data, NULL);
 	if (data == NULL || *((const uint32_t *)data) == 0) {
 		/* nothing in cache (for this record) */
 		return 0;

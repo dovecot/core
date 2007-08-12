@@ -182,30 +182,23 @@ static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
 	return 0;
 }
 
-static int
+static bool
 mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 			 uint32_t uid, const struct mail_index_record **rec_r)
 {
         const struct mail_index_record *rec = NULL;
 	uint32_t messages_count;
-	int ret = 0;
+	bool ret = FALSE;
 
 	if (sync_ctx->index_reset) {
 		*rec_r = NULL;
-		return 1;
+		return TRUE;
 	}
 
 	messages_count =
 		mail_index_view_get_messages_count(sync_ctx->sync_view);
 	while (sync_ctx->idx_seq <= messages_count) {
-		ret = mail_index_lookup(sync_ctx->sync_view,
-					sync_ctx->idx_seq, &rec);
-		if (ret < 0) {
-			mail_storage_set_index_error(&sync_ctx->mbox->ibox);
-			return -1;
-		}
-		i_assert(ret != 0); /* we should be looking at head index */
-
+		rec = mail_index_lookup(sync_ctx->sync_view, sync_ctx->idx_seq);
 		if (uid <= rec->uid)
 			break;
 
@@ -222,54 +215,43 @@ mbox_sync_read_index_rec(struct mbox_sync_context *sync_ctx,
 			"(UID %u < %u, seq=%u, idx_msgs=%u)",
 			sync_ctx->mbox->path, uid, sync_ctx->idx_next_uid,
 			sync_ctx->seq, messages_count);
-		ret = 0; rec = NULL;
+		ret = FALSE; rec = NULL;
 	} else if (rec != NULL && rec->uid != uid) {
 		/* new UID in the middle of the mailbox - shouldn't happen */
 		mbox_sync_set_critical(sync_ctx,
 			"mbox sync: UID inserted in the middle of mailbox %s "
 			"(%u > %u, seq=%u, idx_msgs=%u)", sync_ctx->mbox->path,
 			rec->uid, uid, sync_ctx->seq, messages_count);
-		ret = 0; rec = NULL;
+		ret = FALSE; rec = NULL;
 	} else {
-		ret = 1;
+		ret = TRUE;
 	}
 
 	*rec_r = rec;
 	return ret;
 }
 
-static int mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
-				    unsigned char hdr_md5_sum[],
-				    const struct mail_index_record **rec_r)
+static void mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
+				     unsigned char hdr_md5_sum[],
+				     const struct mail_index_record **rec_r)
 {
         const struct mail_index_record *rec = NULL;
 	uint32_t messages_count;
 	const void *data;
-	int ret;
 
 	if (sync_ctx->index_reset) {
 		*rec_r = NULL;
-		return 0;
+		return;
 	}
 
 	messages_count =
 		mail_index_view_get_messages_count(sync_ctx->sync_view);
 	while (sync_ctx->idx_seq <= messages_count) {
-		ret = mail_index_lookup(sync_ctx->sync_view,
-					sync_ctx->idx_seq, &rec);
-		if (ret < 0) {
-			mail_storage_set_index_error(&sync_ctx->mbox->ibox);
-			return -1;
-		}
-
-		if (mail_index_lookup_ext(sync_ctx->sync_view,
-					  sync_ctx->idx_seq,
-					  sync_ctx->mbox->ibox.md5hdr_ext_idx,
-					  &data) < 0) {
-			mail_storage_set_index_error(&sync_ctx->mbox->ibox);
-			return -1;
-		}
-
+		rec = mail_index_lookup(sync_ctx->sync_view, sync_ctx->idx_seq);
+		mail_index_lookup_ext(sync_ctx->sync_view,
+				      sync_ctx->idx_seq,
+				      sync_ctx->mbox->ibox.md5hdr_ext_idx,
+				      &data, NULL);
 		if (data != NULL && memcmp(data, hdr_md5_sum, 16) == 0)
 			break;
 
@@ -280,10 +262,9 @@ static int mbox_sync_find_index_md5(struct mbox_sync_context *sync_ctx,
 	}
 
 	*rec_r = rec;
-	return 0;
 }
 
-static int
+static void
 mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
                              struct mbox_sync_mail *mail,
 			     bool nocheck)
@@ -293,23 +274,17 @@ mbox_sync_update_from_offset(struct mbox_sync_context *sync_ctx,
 
 	if (!nocheck) {
 		/* see if from_offset needs updating */
-		if (mail_index_lookup_ext(sync_ctx->sync_view,
-					  sync_ctx->idx_seq,
-					  sync_ctx->mbox->mbox_ext_idx,
-					  &data) < 0) {
-			mail_storage_set_index_error(&sync_ctx->mbox->ibox);
-			return -1;
-		}
-
+		mail_index_lookup_ext(sync_ctx->sync_view, sync_ctx->idx_seq,
+				      sync_ctx->mbox->mbox_ext_idx,
+				      &data, NULL);
 		if (data != NULL &&
 		    *((const uint64_t *)data) == mail->from_offset)
-			return 0;
+			return;
 	}
 
 	offset = mail->from_offset;
 	mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
 			      sync_ctx->mbox->mbox_ext_idx, &offset, NULL);
-	return 0;
 }
 
 static void
@@ -327,30 +302,25 @@ mbox_sync_update_index_keywords(struct mbox_sync_mail_context *mail_ctx)
 	mail_index_keywords_free(&keywords);
 }
 
-static int
+static void
 mbox_sync_update_md5_if_changed(struct mbox_sync_mail_context *mail_ctx)
 {
         struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	const void *ext_data;
 
-	if (mail_index_lookup_ext(sync_ctx->sync_view, sync_ctx->idx_seq,
-				  sync_ctx->mbox->ibox.md5hdr_ext_idx,
-				  &ext_data) < 0) {
-		mail_storage_set_index_error(&sync_ctx->mbox->ibox);
-		return -1;
-	}
-
+	mail_index_lookup_ext(sync_ctx->sync_view, sync_ctx->idx_seq,
+			      sync_ctx->mbox->ibox.md5hdr_ext_idx,
+			      &ext_data, NULL);
 	if (ext_data == NULL ||
 	    memcmp(mail_ctx->hdr_md5_sum, ext_data, 16) != 0) {
 		mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
 				      sync_ctx->mbox->ibox.md5hdr_ext_idx,
 				      mail_ctx->hdr_md5_sum, NULL);
 	}
-	return 0;
 }
 
-static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
-				  const struct mail_index_record *rec)
+static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
+				   const struct mail_index_record *rec)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	struct mbox_sync_mail *mail = &mail_ctx->mail;
@@ -389,14 +359,9 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		/* get old keywords */
 		t_push();
 		t_array_init(&idx_mail.keywords, 32);
-		if (mail_index_lookup_keywords(sync_ctx->sync_view,
-					       sync_ctx->idx_seq,
-					       &idx_mail.keywords) < 0) {
-			mail_storage_set_index_error(&sync_ctx->mbox->ibox);
-			t_pop();
-			return -1;
-		}
-
+		mail_index_lookup_keywords(sync_ctx->sync_view,
+					   sync_ctx->idx_seq,
+					   &idx_mail.keywords);
 		index_sync_changes_apply(sync_ctx->sync_changes,
 					 sync_ctx->mail_keyword_pool,
 					 &idx_mail.flags, &idx_mail.keywords,
@@ -440,10 +405,8 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 		t_pop();
 
 		/* see if we need to update md5 sum. */
-		if (sync_ctx->mbox->mbox_save_md5 != 0) {
-			if (mbox_sync_update_md5_if_changed(mail_ctx) < 0)
-				return -1;
-		}
+		if (sync_ctx->mbox->mbox_save_md5 != 0)
+			mbox_sync_update_md5_if_changed(mail_ctx);
 	}
 
 	/* mail_ctx->recent is TRUE always if Status: O doesn't exist in the
@@ -458,10 +421,8 @@ static int mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 	   rewriting would just move it anyway. */
 	if (sync_ctx->need_space_seq == 0) {
 		bool nocheck = rec == NULL || sync_ctx->expunged_space > 0;
-		if (mbox_sync_update_from_offset(sync_ctx, mail, nocheck) < 0)
-			return -1;
+		mbox_sync_update_from_offset(sync_ctx, mail, nocheck);
 	}
-	return 0;
 }
 
 static int mbox_read_from_line(struct mbox_sync_mail_context *ctx)
@@ -1031,9 +992,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 		rec = NULL; ret = 1;
 		if (uid != 0) {
-			ret = mbox_sync_read_index_rec(sync_ctx, uid, &rec);
-			if (ret < 0)
-				return -1;
+			if (!mbox_sync_read_index_rec(sync_ctx, uid, &rec))
+				ret = 0;
 		}
 
 		if (ret == 0) {
@@ -1048,11 +1008,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			   able to write X-UIDs. */
 			sync_ctx->mbox->mbox_save_md5 = TRUE;
 
-			if (mbox_sync_find_index_md5(sync_ctx,
-						     mail_ctx->hdr_md5_sum,
-						     &rec) < 0)
-				return -1;
-
+			mbox_sync_find_index_md5(sync_ctx,
+						 mail_ctx->hdr_md5_sum, &rec);
 			if (rec != NULL)
 				uid = mail_ctx->mail.uid = rec->uid;
 		}
@@ -1113,10 +1070,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		}
 
 		if (!mail_ctx->mail.pseudo) {
-			if (!expunged) {
-				if (mbox_sync_update_index(mail_ctx, rec) < 0)
-					return -1;
-			}
+			if (!expunged)
+				mbox_sync_update_index(mail_ctx, rec);
 			sync_ctx->idx_seq++;
 		}
 

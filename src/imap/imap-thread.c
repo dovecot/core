@@ -691,7 +691,8 @@ static void gather_base_subjects(struct thread_context *ctx)
 		else
 			mailbox_get_uids(ctx->box, id, id, &seq, &seq);
 
-		if (seq != 0 && mail_set_seq(ctx->mail, seq) == 0) {
+		if (seq != 0) {
+			mail_set_seq(ctx->mail, seq);
 			t_push();
                         subject = mail_get_first_header(ctx->mail, "subject");
 			add_base_subject(ctx, subject, node);

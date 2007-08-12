@@ -147,14 +147,9 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 
 	*deleted_r = FALSE;
 
-	ret = mail_index_lookup_ext(view, seq, mbox->mbox_ext_idx, &data);
-	if (ret <= 0) {
-		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox);
-		else
-			*deleted_r = TRUE;
+	mail_index_lookup_ext(view, seq, mbox->mbox_ext_idx, &data, deleted_r);
+	if (*deleted_r)
 		return -1;
-	}
 
 	if (data == NULL) {
 		mail_storage_set_critical(&mbox->storage->storage,
@@ -185,9 +180,8 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 
 	if (mbox->mbox_sync_dirty) {
 		/* we're dirty - make sure this is the correct mail */
-		ret = mbox_sync_parse_match_mail(mbox, view, seq);
-		if (ret <= 0)
-			return ret;
+		if (!mbox_sync_parse_match_mail(mbox, view, seq))
+			return 0;
 
 		ret = istream_raw_mbox_seek(mbox->mbox_stream, offset);
 		i_assert(ret == 0);

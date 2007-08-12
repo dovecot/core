@@ -152,9 +152,7 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 				continue;
 			}
 
-			if (mail_expunge(trashes[oldest_idx].mail) < 0)
-				break;
-
+			mail_expunge(trashes[oldest_idx].mail);
 			expunged_count++;
 			size_expunged += size;
 			if (size_expunged >= size_needed)

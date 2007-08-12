@@ -137,12 +137,8 @@ const char *const *index_mail_get_keywords(struct mail *_mail)
 
 	t_push();
 	t_array_init(&keyword_indexes_arr, 128);
-	if (mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
-				       &keyword_indexes_arr) < 0) {
-		mail_storage_set_index_error(mail->ibox);
-		t_pop();
-		return NULL;
-	}
+	mail_index_lookup_keywords(mail->ibox->view, mail->data.seq,
+				   &keyword_indexes_arr);
 
 	keyword_indexes = array_get(&keyword_indexes_arr, &count);
 	if (count == 0) {
@@ -825,12 +821,9 @@ const char *index_mail_get_special(struct mail *_mail,
 	case MAIL_FETCH_UIDL_FILE_NAME:
 		return NULL;
 	case MAIL_FETCH_HEADER_MD5:
-		if (mail_index_lookup_ext(mail->trans->trans_view, data->seq,
-					  mail->ibox->md5hdr_ext_idx,
-					  &ext_data) < 0) {
-			mail_storage_set_index_error(mail->ibox);
-			return NULL;
-		}
+		mail_index_lookup_ext(mail->trans->trans_view, data->seq,
+				      mail->ibox->md5hdr_ext_idx,
+				      &ext_data, NULL);
 		if (ext_data == NULL)
 			return NULL;
 		return binary_to_hex(ext_data, 16);
@@ -930,7 +923,7 @@ static void check_envelope(struct index_mail *mail)
 	mail->data.save_envelope = TRUE;
 }
 
-int index_mail_set_seq(struct mail *_mail, uint32_t seq)
+void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
@@ -939,15 +932,11 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	const struct mail_index_record *rec;
 
 	if (data->seq == seq)
-		return 0;
-
-	if (mail_index_lookup(mail->trans->trans_view, seq, &rec) < 0) {
-		mail_storage_set_index_error(mail->ibox);
-		return -1;
-	}
+		return;
 
 	index_mail_reset(mail);
 
+	rec = mail_index_lookup(mail->trans->trans_view, seq);
 	data->seq = seq;
 	data->flags = rec->flags & MAIL_FLAGS_NONRECENT;
 
@@ -1044,26 +1033,23 @@ int index_mail_set_seq(struct mail *_mail, uint32_t seq)
 
 		(void)mail_get_stream(_mail, NULL, NULL);
 	}
-
-	return 0;
 }
 
-int index_mail_set_uid(struct mail *_mail, uint32_t uid)
+bool index_mail_set_uid(struct mail *_mail, uint32_t uid)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	uint32_t seq;
 
 	mail_index_lookup_uid_range(mail->ibox->view, uid, uid, &seq, &seq);
-	if (seq == 0) {
+	if (seq != 0) {
+		index_mail_set_seq(_mail, seq);
+		return TRUE;
+	} else {
 		index_mail_reset(mail);
 		mail->mail.mail.uid = uid;
 		mail_set_expunged(&mail->mail.mail);
-		return 0;
+		return FALSE;
 	}
-
-	if (index_mail_set_seq(_mail, seq) < 0)
-		return -1;
-	return 1;
 }
 
 void index_mail_free(struct mail *_mail)
@@ -1157,30 +1143,27 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date)
 	index_mail_cache_dates(mail);
 }
 
-int index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
-			    enum mail_flags flags)
+void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
+			     enum mail_flags flags)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 
 	mail_index_update_flags(imail->trans->trans, mail->seq, modify_type,
 				flags & MAIL_FLAGS_NONRECENT);
-	return 0;
 }
 
-int index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
-			       struct mail_keywords *keywords)
+void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
+				struct mail_keywords *keywords)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 
 	mail_index_update_keywords(imail->trans->trans, mail->seq, modify_type,
 				   keywords);
-	return 0;
 }
 
-int index_mail_expunge(struct mail *mail)
+void index_mail_expunge(struct mail *mail)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 
 	mail_index_expunge(imail->trans->trans, mail->seq);
-	return 0;
 }

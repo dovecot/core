@@ -348,12 +348,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			continue;
 		}
 
-		if (mail_index_lookup(view, seq, &rec) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
-			ret = -1;
-			break;
-		}
-
+		rec = mail_index_lookup(view, seq);
 		if (uid > rec->uid) {
 			/* expunged */
 			mail_index_expunge(trans, seq);
@@ -422,11 +417,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		}
 
 		/* update keywords if they have changed */
-		if (mail_index_lookup_keywords(view, seq, &idx_keywords) < 0) {
-			mail_storage_set_index_error(&mbox->ibox);
-			ret = -1;
-			break;
-		}
+		mail_index_lookup_keywords(view, seq, &idx_keywords);
 		if (!index_keyword_array_cmp(&ctx->keywords, &idx_keywords)) {
 			struct mail_keywords *kw;
 
@@ -512,13 +503,14 @@ int maildir_list_index_has_changed(struct mailbox *box,
 	const char *root_dir, *new_dir, *cur_dir;
 	struct stat st;
 	uint32_t ext_id;
+	bool expunged;
 
 	ext_id = maildir_list_get_ext_id(mbox->storage, list_view);
-	if (mail_index_lookup_ext(list_view, seq, ext_id, &data) <= 0)
-		return -1;
+	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
 	rec = data;
 
-	if (rec == NULL || rec->new_mtime == 0 || rec->cur_mtime == 0) {
+	if (rec == NULL || expunged ||
+	    rec->new_mtime == 0 || rec->cur_mtime == 0) {
 		/* doesn't exist, not synced or dirty-synced */
 		return 1;
 	}
@@ -560,12 +552,14 @@ int maildir_list_index_update_sync(struct mailbox *box,
 	struct maildir_list_index_record new_rec;
 	const void *data;
 	uint32_t ext_id;
+	bool expunged;
 
 	/* get the current record */
 	list_view = mail_index_transaction_get_view(trans);
 	ext_id = maildir_list_get_ext_id(mbox->storage, list_view);
-	if (mail_index_lookup_ext(list_view, seq, ext_id, &data) <= 0)
-		return -1;
+	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
+	if (expunged)
+		return 0;
 	old_rec = data;
 
 	memset(&new_rec, 0, sizeof(new_rec));

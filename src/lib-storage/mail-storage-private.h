@@ -196,8 +196,8 @@ struct mailbox {
 
 struct mail_vfuncs {
 	void (*free)(struct mail *mail);
-	int (*set_seq)(struct mail *mail, uint32_t seq);
-	int (*set_uid)(struct mail *mail, uint32_t uid);
+	void (*set_seq)(struct mail *mail, uint32_t seq);
+	bool (*set_uid)(struct mail *mail, uint32_t uid);
 
 	enum mail_flags (*get_flags)(struct mail *mail);
 	const char *const *(*get_keywords)(struct mail *mail);
@@ -223,12 +223,11 @@ struct mail_vfuncs {
 	const char *(*get_special)(struct mail *mail,
 				   enum mail_fetch_field field);
 
-	int (*update_flags)(struct mail *mail, enum modify_type modify_type,
-			    enum mail_flags flags);
-	int (*update_keywords)(struct mail *mail, enum modify_type modify_type,
-			       struct mail_keywords *keywords);
-
-	int (*expunge)(struct mail *mail);
+	void (*update_flags)(struct mail *mail, enum modify_type modify_type,
+			     enum mail_flags flags);
+	void (*update_keywords)(struct mail *mail, enum modify_type modify_type,
+				struct mail_keywords *keywords);
+	void (*expunge)(struct mail *mail);
 };
 
 union mail_module_context {

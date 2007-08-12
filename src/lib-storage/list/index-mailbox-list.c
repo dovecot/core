@@ -304,9 +304,7 @@ list_index_get_info_flags(struct index_mailbox_list_iterate_context *ctx,
 		return -1;
 	}
 
-	if (mail_index_lookup(ctx->mail_view, seq, &rec) < 0)
-		return -1;
-
+	rec = mail_index_lookup(ctx->mail_view, seq);
 	*flags_r = index_mailbox_list_index_flags_translate(rec->flags);
 	return 0;
 }

@@ -596,8 +596,8 @@ static void index_sort_headers(struct mail_search_sort_program *program,
 	index_sort_add_ids(program, static_node_cmp_context.mail);
 }
 
-static int index_sort_build(struct mail_search_sort_program *program,
-			    uint32_t last_seq)
+static void index_sort_build(struct mail_search_sort_program *program,
+			     uint32_t last_seq)
 {
 	struct index_mailbox *ibox = (struct index_mailbox *)program->t->box;
 	struct mail_sort_node node;
@@ -612,9 +612,8 @@ static int index_sort_build(struct mail_search_sort_program *program,
 		for (; i < last_seq; i++) {
 			node.seq = i+1;
 
-			if (mail_index_lookup_ext(ibox->view, i+1,
-						  program->ext_id, &data) < 0)
-				return -1;
+			mail_index_lookup_ext(ibox->view, i+1, program->ext_id,
+					      &data, NULL);
 
 			node.sort_id = data == NULL ? 0 :
 				*(const uint32_t *)data;
@@ -638,7 +637,6 @@ static int index_sort_build(struct mail_search_sort_program *program,
 		break;
 	}
 	index_sort_save_ids(program, first_missing_sort_id_seq);
-	return 0;
 }
 
 static void index_sort_add_node(struct mail_search_sort_program *program,
@@ -661,15 +659,14 @@ static void index_sort_add_node(struct mail_search_sort_program *program,
 	program->prev_seq = node->seq;
 }
 
-int index_sort_list_add(struct mail_search_sort_program *program,
-			struct mail *mail)
+void index_sort_list_add(struct mail_search_sort_program *program,
+			 struct mail *mail)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)program->t;
 	const struct mail_index_header *hdr;
 	const void *data;
 	struct mail_sort_node node;
-	int ret;
 
 	i_assert(mail->transaction == program->t);
 
@@ -680,14 +677,12 @@ int index_sort_list_add(struct mail_search_sort_program *program,
 	if (program->last_sorted_seq == program->prev_seq) {
 		/* we're still on the fast path using sort_ids from the
 		   index file */
-		if (mail_index_lookup_ext(t->trans_view, mail->seq,
-					  program->ext_id, &data) < 0)
-			return -1;
-
+		mail_index_lookup_ext(t->trans_view, mail->seq,
+				      program->ext_id, &data, NULL);
 		node.sort_id = data == NULL ? 0 : *(const uint32_t *)data;
 		if (node.sort_id != 0) {
 			index_sort_add_node(program, &node);
-			return 0;
+			return;
 		}
 		i_assert(!program->sort_ids_added);
 	} else {
@@ -701,24 +696,21 @@ int index_sort_list_add(struct mail_search_sort_program *program,
 		   node array. so here we just keep counting the sequences
 		   until either we skip a sequence or we reach list_finish() */
 		program->prev_seq = mail->seq;
-		return 0;
+		return;
 	}
 
 	/* we're not returning all the mails. have to create a temporary array
 	   for all the nodes so we can set all the missing sort_ids. */
 	hdr = mail_index_get_header(t->ibox->view);
 	i_array_init(&program->all_nodes, hdr->messages_count);
-	ret = index_sort_build(program, hdr->messages_count);
+	index_sort_build(program, hdr->messages_count);
 	array_free(&program->all_nodes);
-	if (ret < 0)
-		return -1;
 
 	/* add the nodes in the middle */
 	node.seq = program->last_sorted_seq + 1;
 	for (; node.seq <= program->prev_seq; node.seq++) {
-		if (mail_index_lookup_ext(t->trans_view, mail->seq,
-					  program->ext_id, &data) < 0)
-			return -1;
+		mail_index_lookup_ext(t->trans_view, mail->seq, program->ext_id,
+				      &data, NULL);
 
 		node.sort_id = *(const uint32_t *)data;
 		i_assert(node.sort_id != 0);
@@ -728,10 +720,10 @@ int index_sort_list_add(struct mail_search_sort_program *program,
 
 	/* and add this last node */
 	program->sort_ids_added = TRUE;
-	return index_sort_list_add(program, mail);
+	index_sort_list_add(program, mail);
 }
 
-int index_sort_list_finish(struct mail_search_sort_program *program)
+void index_sort_list_finish(struct mail_search_sort_program *program)
 {
 	if (program->last_sorted_seq != program->prev_seq) {
 		/* nodes array contains a contiguous range of sequences from
@@ -740,8 +732,7 @@ int index_sort_list_finish(struct mail_search_sort_program *program)
 		i_assert(!program->sort_ids_added);
 
 		program->all_nodes = program->nodes;
-		if (index_sort_build(program, program->prev_seq) < 0)
-			return -1;
+		index_sort_build(program, program->prev_seq);
 	}
 
 	program->nodes_ptr =
@@ -749,25 +740,24 @@ int index_sort_list_finish(struct mail_search_sort_program *program)
 
 	if (program->reverse)
 		program->iter_idx = program->nodes_count;
-	return 0;
 }
 
-int index_sort_list_next(struct mail_search_sort_program *program,
-			 struct mail *mail)
+bool index_sort_list_next(struct mail_search_sort_program *program,
+			  struct mail *mail)
 {
 	const struct mail_sort_node *node;
 
 	if (!program->reverse) {
 		if (program->iter_idx == program->nodes_count)
-			return 0;
+			return FALSE;
 
 		node = &program->nodes_ptr[program->iter_idx++];
 	} else {
 		if (program->iter_idx == 0)
-			return 0;
+			return FALSE;
 
 		node = &program->nodes_ptr[--program->iter_idx];
 	}
 	mail_set_seq(mail, node->seq);
-	return 1;
+	return TRUE;
 }

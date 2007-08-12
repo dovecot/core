@@ -15,17 +15,16 @@ int dbox_file_lookup_offset(struct dbox_mailbox *mbox,
 			    uint32_t *file_seq_r, uoff_t *offset_r)
 {
 	const void *data1, *data2;
-	int ret;
+	bool expunged;
 
-	ret = mail_index_lookup_ext(view, seq, mbox->dbox_file_ext_idx, &data1);
-	ret = ret <= 0 ? ret :
-		mail_index_lookup_ext(view, seq, mbox->dbox_offset_ext_idx,
-				      &data2);
-	if (ret <= 0) {
-		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox);
-		return ret;
-	}
+	mail_index_lookup_ext(view, seq, mbox->dbox_file_ext_idx,
+			      &data1, &expunged);
+	if (expunged)
+		return 0;
+	mail_index_lookup_ext(view, seq, mbox->dbox_offset_ext_idx,
+			      &data2, &expunged);
+	if (expunged)
+		return 0;
 
 	if (data1 == NULL || data2 == NULL) {
 		*file_seq_r = 0;

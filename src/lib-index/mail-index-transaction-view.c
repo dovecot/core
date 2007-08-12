@@ -60,30 +60,29 @@ _tview_get_header(struct mail_index_view *view)
 	return hdr;
 }
 
-static int _tview_lookup_full(struct mail_index_view *view, uint32_t seq,
-			      struct mail_index_map **map_r,
-			      const struct mail_index_record **rec_r)
+static const struct mail_index_record *
+_tview_lookup_full(struct mail_index_view *view, uint32_t seq,
+		   struct mail_index_map **map_r, bool *expunged_r)
 {
 	struct mail_index_view_transaction *tview =
                 (struct mail_index_view_transaction *)view;
-	int ret;
+	const struct mail_index_record *rec;
 
 	if (seq >= tview->t->first_new_seq) {
 		/* FIXME: is this right to return index map..?
 		   it's not there yet. */
 		*map_r = view->index->map;
-		*rec_r = mail_index_transaction_lookup(tview->t, seq);
-		return 1;
+		*expunged_r = FALSE;
+		return mail_index_transaction_lookup(tview->t, seq);
 	}
 
-	ret = tview->super->lookup_full(view, seq, map_r, rec_r);
-	if (ret <= 0)
-		return ret;
+	rec = tview->super->lookup_full(view, seq, map_r, expunged_r);
 
 	/* if we're expunged within this transaction, return 0 */
-	return array_is_created(&tview->t->expunges) &&
-		seq_range_exists(&tview->t->expunges, seq) ? 0 : 1;
-
+	if (array_is_created(&tview->t->expunges) &&
+	    seq_range_exists(&tview->t->expunges, seq))
+		*expunged_r = TRUE;
+	return rec;
 }
 
 static void _tview_lookup_uid(struct mail_index_view *view, uint32_t seq,
@@ -176,10 +175,10 @@ tview_get_lookup_map(struct mail_index_view_transaction *tview)
 	return tview->lookup_map;
 }
 
-static int
+static void
 _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 		       uint32_t ext_id, struct mail_index_map **map_r,
-		       const void **data_r)
+		       const void **data_r, bool *expunged_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -188,6 +187,8 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 	unsigned int idx;
 
 	i_assert(ext_id < array_count(&view->index->extensions));
+
+	*expunged_r = FALSE;
 
 	if (array_is_created(&tview->t->ext_rec_updates) &&
 	    ext_id < array_count(&tview->t->ext_rec_updates)) {
@@ -199,19 +200,18 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 			data = array_idx(ext_buf, idx);
 			*map_r = tview_get_lookup_map(tview);
 			*data_r = CONST_PTR_OFFSET(data, sizeof(uint32_t));
-			return 1;
+			return;
 		}
 	}
 
 	/* not updated, return the existing value */
 	if (seq < tview->t->first_new_seq) {
-		return tview->super->lookup_ext_full(view, seq, ext_id,
-						     map_r, data_r);
+		tview->super->lookup_ext_full(view, seq, ext_id,
+					      map_r, data_r, expunged_r);
+	} else {
+		*map_r = view->index->map;
+		*data_r = NULL;
 	}
-
-	*map_r = view->index->map;
-	*data_r = NULL;
-	return 1;
 }
 
 static void _tview_get_header_ext(struct mail_index_view *view,

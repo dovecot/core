@@ -320,19 +320,16 @@ static void mail_log_action(struct mail *mail, enum mail_log_event event,
 	t_pop();
 }
 
-static int mail_log_mail_expunge(struct mail *_mail)
+static void mail_log_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *lmail = MAIL_LOG_MAIL_CONTEXT(mail);
 
-	if (lmail->super.expunge(_mail) < 0)
-		return -1;
-
 	mail_log_action(_mail, MAIL_LOG_EVENT_EXPUNGE, NULL);
-	return 0;
+	lmail->super.expunge(_mail);
 }
 
-static int
+static void
 mail_log_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 			   enum mail_flags flags)
 {
@@ -341,8 +338,7 @@ mail_log_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 	enum mail_flags old_flags, new_flags;
 
 	old_flags = mail_get_flags(_mail);
-	if (lmail->super.update_flags(_mail, modify_type, flags) < 0)
-		return -1;
+	lmail->super.update_flags(_mail, modify_type, flags);
 
 	new_flags = old_flags;
 	switch (modify_type) {
@@ -357,11 +353,10 @@ mail_log_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		break;
 	}
 	if (((old_flags ^ new_flags) & MAIL_DELETED) == 0)
-		return 0;
+		return;
 
 	mail_log_action(_mail, (new_flags & MAIL_DELETED) != 0 ?
 			MAIL_LOG_EVENT_DELETE : MAIL_LOG_EVENT_UNDELETE, NULL);
-	return 0;
 }
 
 static struct mail *

@@ -453,8 +453,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 				ctx->mail = index_mail_alloc(_t, 0, NULL);
 			dest_mail = ctx->mail;
 		}
-		if (mail_set_seq(dest_mail, ctx->seq) < 0)
-			i_unreached();
+		mail_set_seq(dest_mail, ctx->seq);
 	}
 	mbox_save_append_flag_headers(ctx->headers, save_flags);
 	mbox_save_append_keyword_headers(ctx, keywords);

@@ -118,12 +118,10 @@ static int search_arg_match_index(struct index_mail *imail,
 		return mail_get_flags(&imail->mail.mail) & MAIL_RECENT;
 	case SEARCH_KEYWORD:
 		keywords = mail_get_keywords(&imail->mail.mail);
-		if (keywords != NULL) {
-			while (*keywords != NULL) {
-				if (strcasecmp(*keywords, value) == 0)
-					return 1;
-				keywords++;
-			}
+		while (*keywords != NULL) {
+			if (strcasecmp(*keywords, value) == 0)
+				return 1;
+			keywords++;
 		}
 		return 0;
 
@@ -961,7 +959,9 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	if (ctx->sorted) {
 		/* everything searched at this point already. just returning
 		   matches from sort list */
-		return index_sort_list_next(ctx->mail_ctx.sort_program, mail);
+		if (!index_sort_list_next(ctx->mail_ctx.sort_program, mail))
+			return 0;
+		return 1;
 	}
 
 	ctx->mail = mail;
@@ -972,10 +972,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 		index_storage_search_notify(box, ctx);
 
 	while ((ret = box->v.search_next_update_seq(_ctx)) > 0) {
-		if (mail_set_seq(mail, _ctx->seq) < 0) {
-			ret = -1;
-			break;
-		}
+		mail_set_seq(mail, _ctx->seq);
 
 		t_push();
 		ret = search_match_next(ctx) ? 1 : 0;
@@ -989,11 +986,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 			if (ctx->mail_ctx.sort_program == NULL)
 				break;
 
-			if (index_sort_list_add(ctx->mail_ctx.sort_program,
-						mail) < 0) {
-				ret = -1;
-				break;
-			}
+			index_sort_list_add(ctx->mail_ctx.sort_program, mail);
 		}
 
 		if (++count == SEARCH_NONBLOCK_COUNT) {
@@ -1010,8 +1003,7 @@ int index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 		/* finished searching the messages. now sort them and start
 		   returning the messages. */
 		ctx->sorted = TRUE;
-		if (index_sort_list_finish(ctx->mail_ctx.sort_program) < 0)
-			return -1;
+		index_sort_list_finish(ctx->mail_ctx.sort_program);
 		return index_storage_search_next_nonblock(_ctx, mail,
 							  tryagain_r);
 	}

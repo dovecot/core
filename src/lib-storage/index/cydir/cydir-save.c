@@ -114,8 +114,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 			ctx->mail = index_mail_alloc(_t, 0, NULL);
 		dest_mail = ctx->mail;
 	}
-	if (mail_set_seq(dest_mail, ctx->seq) < 0)
-		i_unreached();
+	mail_set_seq(dest_mail, ctx->seq);
 
 	ctx->cur_dest_mail = dest_mail;
 	ctx->input = index_mail_cache_parse_init(dest_mail, input);

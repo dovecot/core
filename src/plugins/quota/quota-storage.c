@@ -42,15 +42,12 @@ static MODULE_CONTEXT_DEFINE_INIT(quota_mail_module, &mail_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(quota_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-static int quota_mail_expunge(struct mail *_mail)
+static void quota_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(_mail->box);
 	union mail_module_context *qmail = QUOTA_MAIL_CONTEXT(mail);
 	uoff_t size;
-
-	if (qmail->super.expunge(_mail) < 0)
-		return -1;
 
 	/* We need to handle the situation where multiple transactions expunged
 	   the mail at the same time. In here we'll just save the message's
@@ -66,7 +63,7 @@ static int quota_mail_expunge(struct mail *_mail)
 		array_append(&qbox->expunge_sizes, &size, 1);
 	}
 
-	return 0;
+	qmail->super.expunge(_mail);
 }
 
 static struct mailbox_transaction_context *
@@ -321,7 +318,7 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 			mail_alloc(qbox->expunge_trans,
 				   MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	}
-	if (mail_set_uid(qbox->expunge_qt->tmp_mail, uid) <= 0)
+	if (!mail_set_uid(qbox->expunge_qt->tmp_mail, uid))
 		size = (uoff_t)-1;
 	else
 		size = mail_get_physical_size(qbox->expunge_qt->tmp_mail);
