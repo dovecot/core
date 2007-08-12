@@ -239,14 +239,20 @@ mail_index_transaction_open_updated_view(struct mail_index_transaction *t);
    sync types, then they might). You must go through all of them and update
    the mailbox accordingly.
 
-   None of the changes actually show up in the index until after a successful
-   mail_index_sync_commit().
+   Changes done to the returned transaction are expected to describe the
+   mailbox's current state.
+
+   The returned view already contains all the changes, so if e.g. a record's
+   flags are different in view than in the mailbox you can assume that they
+   were changed externally, and you need to update the index.
+
+   Returned expunges are treated as expunge requests. They're not really
+   removed from the index until you mark them expunged to the returned
+   transaction. If it's not possible to expunge the message (e.g. permission
+   denied), simply don't mark them expunged.
 
    Returned sequence numbers describe the mailbox state at the beginning of
-   synchronization, ie. expunges don't affect them.
-
-   Changes done to the returned transaction are expected to describe the
-   mailbox's current state. */
+   synchronization, ie. expunges don't affect them. */
 int mail_index_sync_begin(struct mail_index *index,
 			  struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
