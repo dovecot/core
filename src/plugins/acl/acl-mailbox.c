@@ -88,28 +88,6 @@ static int acl_mailbox_close(struct mailbox *box)
 	return abox->module_ctx.super.close(box);
 }
 
-static int acl_mailbox_get_status(struct mailbox *box,
-				  enum mailbox_status_items items,
-				  struct mailbox_status *status)
-{
-	struct acl_mailbox *abox = ACL_CONTEXT(box);
-	int ret;
-
-	ret = mailbox_acl_right_lookup(box, ACL_STORAGE_RIGHT_READ);
-	if (ret < 0)
-		return -1;
-	if (ret == 0) {
-		/* No read rights. APPEND however wants to lookup keywords
-		   and we don't want to fail that lookup. We could fail or
-		   return empty keywords if user had no INSERT+WRITE rights,
-		   but don't bother. */
-		if (items != STATUS_KEYWORDS)
-			return -1;
-	}
-
-	return abox->module_ctx.super.get_status(box, items, status);
-}
-
 static int
 acl_get_write_rights(struct mailbox *box,
 		     bool *flags_r, bool *flag_seen_r, bool *flag_del_r)
@@ -299,7 +277,6 @@ struct mailbox *acl_mailbox_open_box(struct mailbox *box)
 	box->v.is_readonly = acl_is_readonly;
 	box->v.allow_new_keywords = acl_allow_new_keywords;
 	box->v.close = acl_mailbox_close;
-	box->v.get_status = acl_mailbox_get_status;
 	box->v.mail_alloc = acl_mail_alloc;
 	box->v.save_init = acl_save_init;
 	box->v.copy = acl_copy;
