@@ -99,21 +99,21 @@ static int search_arg_match_index(struct index_mail *imail,
 				  enum mail_search_arg_type type,
 				  const char *value)
 {
-	const struct mail_index_record *rec = imail->data.rec;
+	enum mail_flags flags = imail->data.flags;
 	const char *const *keywords;
 
 	switch (type) {
 	/* flags */
 	case SEARCH_ANSWERED:
-		return rec->flags & MAIL_ANSWERED;
+		return flags & MAIL_ANSWERED;
 	case SEARCH_DELETED:
-		return rec->flags & MAIL_DELETED;
+		return flags & MAIL_DELETED;
 	case SEARCH_DRAFT:
-		return rec->flags & MAIL_DRAFT;
+		return flags & MAIL_DRAFT;
 	case SEARCH_FLAGGED:
-		return rec->flags & MAIL_FLAGGED;
+		return flags & MAIL_FLAGGED;
 	case SEARCH_SEEN:
-		return rec->flags & MAIL_SEEN;
+		return flags & MAIL_SEEN;
 	case SEARCH_RECENT:
 		return mail_get_flags(&imail->mail.mail) & MAIL_RECENT;
 	case SEARCH_KEYWORD:
@@ -162,12 +162,6 @@ static void search_seqset_arg(struct mail_search_arg *arg,
 static void search_index_arg(struct mail_search_arg *arg,
 			     struct index_search_context *ctx)
 {
-	if (ctx->imail->data.rec == NULL) {
-		/* expunged message */
-		ARG_SET_RESULT(arg, 0);
-		return;
-	}
-
 	switch (search_arg_match_index(ctx->imail, arg->type,
 				       arg->value.str)) {
 	case -1:
@@ -902,12 +896,6 @@ static bool search_match_next(struct index_search_context *ctx)
 				       search_index_arg, ctx);
 	if (ret >= 0)
 		return ret > 0;
-
-	if (ctx->imail->data.rec == NULL) {
-		/* expunged message, no way to check if the rest would have
-		   matched */
-		return FALSE;
-	}
 
 	/* next search only from cached arguments */
 	ret = mail_search_args_foreach(ctx->mail_ctx.args,

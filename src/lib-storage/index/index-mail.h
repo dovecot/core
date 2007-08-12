@@ -81,7 +81,6 @@ struct index_mail_data {
 	struct message_part_envelope_data *envelope_data;
 
 	uint32_t seq;
-	const struct mail_index_record *rec;
 	uint32_t cache_flags;
         enum index_mail_access_part access_part;
 
