@@ -443,13 +443,13 @@ static int mbox_create(struct mail_storage *_storage, const char *data,
 	_storage->list->v.iter_is_mailbox = mbox_list_iter_is_mailbox;
 	_storage->list->v.delete_mailbox = mbox_list_delete_mailbox;
 
+	MODULE_CONTEXT_SET_FULL(_storage->list, mbox_mailbox_list_module,
+				storage, &storage->list_module_ctx);
+
 	/* finish list init after we've overridden vfuncs */
 	mailbox_list_init(_storage->list, _storage->ns, &list_set,
 			  mail_storage_get_list_flags(_storage->flags) |
 			  MAILBOX_LIST_FLAG_MAILBOX_FILES);
-
-	MODULE_CONTEXT_SET_FULL(_storage->list, mbox_mailbox_list_module,
-				storage, &storage->list_module_ctx);
 	return 0;
 }
 
