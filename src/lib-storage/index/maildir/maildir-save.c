@@ -697,8 +697,14 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 {
+	struct maildir_transaction_context *t =
+		(struct maildir_transaction_context *)ctx->ctx.transaction;
+
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->mbox->uidlist);
+
+	*t->ictx.saved_uid_validity =
+		maildir_uidlist_get_uid_validity(ctx->mbox->uidlist);
 
 	if (ctx->mail != NULL)
 		index_mail_free(ctx->mail);

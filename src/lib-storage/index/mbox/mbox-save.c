@@ -664,6 +664,7 @@ int mbox_transaction_save_commit(struct mbox_save_context *ctx)
 	}
 
 	if (ctx->synced) {
+		*t->ictx.saved_uid_validity = ctx->uid_validity;
 		*t->ictx.first_saved_uid = ctx->first_saved_uid;
 
 		mail_index_update_header(ctx->trans,

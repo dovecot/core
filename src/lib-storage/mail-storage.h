@@ -314,6 +314,7 @@ int mailbox_transaction_commit(struct mailbox_transaction_context **t,
 /* If no messages were saved/copied, first/last_saved_uid_r are 0. */
 int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **t,
 					enum mailbox_sync_flags flags,
+					uint32_t *uid_validity_r,
 					uint32_t *first_saved_uid_r,
 					uint32_t *last_saved_uid_r);
 void mailbox_transaction_rollback(struct mailbox_transaction_context **t);

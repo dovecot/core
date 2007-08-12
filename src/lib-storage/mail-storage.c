@@ -617,11 +617,12 @@ int mailbox_transaction_commit(struct mailbox_transaction_context **t,
 {
 	uint32_t tmp;
 
-	return mailbox_transaction_commit_get_uids(t, flags, &tmp, &tmp);
+	return mailbox_transaction_commit_get_uids(t, flags, &tmp, &tmp, &tmp);
 }
 
 int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **_t,
 					enum mailbox_sync_flags flags,
+					uint32_t *uid_validity_r,
 					uint32_t *first_saved_uid_r,
 					uint32_t *last_saved_uid_r)
 {
@@ -630,7 +631,8 @@ int mailbox_transaction_commit_get_uids(struct mailbox_transaction_context **_t,
 	t->box->transaction_count--;
 
 	*_t = NULL;
-	return t->box->v.transaction_commit(t, flags, first_saved_uid_r,
+	return t->box->v.transaction_commit(t, flags, uid_validity_r,
+					    first_saved_uid_r,
 					    last_saved_uid_r);
 }
 

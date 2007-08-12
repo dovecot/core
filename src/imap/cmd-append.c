@@ -235,8 +235,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 	if (args->type == IMAP_ARG_EOL) {
 		/* last message */
 		enum mailbox_sync_flags sync_flags;
-		struct mailbox_status status;
-		uint32_t uid1, uid2;
+		uint32_t uid_validity, uid1, uid2;
 		const char *msg;
 
 		/* eat away the trailing CRLF */
@@ -249,6 +248,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		}
 
 		ret = mailbox_transaction_commit_get_uids(&ctx->t, 0,
+							  &uid_validity,
 							  &uid1, &uid2);
 		if (ret < 0) {
 			client_send_storage_error(cmd, ctx->storage);
@@ -257,17 +257,14 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		}
 		i_assert(ctx->count == uid2 - uid1 + 1);
 
-		if (mailbox_get_status(ctx->box, STATUS_UIDVALIDITY,
-				       &status) < 0)
-			msg = "OK Append completed.";
-		else if (uid1 == uid2) {
+		if (uid1 == uid2) {
 			msg = t_strdup_printf("OK [APPENDUID %u %u] "
 					      "Append completed.",
-					      status.uidvalidity, uid1);
+					      uid_validity, uid1);
 		} else {
 			msg = t_strdup_printf("OK [APPENDUID %u %u:%u] "
 					      "Append completed.",
-					      status.uidvalidity, uid1, uid2);
+					      uid_validity, uid1, uid2);
 		}
 
 		sync_flags = ctx->box == cmd->client->mailbox ?

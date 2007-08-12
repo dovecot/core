@@ -13,6 +13,7 @@ static int cydir_sync_set_uidvalidity(struct cydir_sync_context *ctx)
 	mail_index_update_header(ctx->trans,
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
+	ctx->uid_validity = uid_validity;
 	return 0;
 }
 
@@ -72,7 +73,9 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 	int ret = 1;
 
 	hdr = mail_index_get_header(ctx->sync_view);
-	if (hdr->uid_validity == 0) {
+	if (hdr->uid_validity != 0)
+		ctx->uid_validity = hdr->uid_validity;
+	else {
 		if (cydir_sync_set_uidvalidity(ctx) < 0)
 			return -1;
 	}

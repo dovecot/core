@@ -91,11 +91,10 @@ bool cmd_copy(struct client_command_context *cmd)
 	struct mailbox *destbox;
 	struct mailbox_transaction_context *t;
         struct mail_search_arg *search_arg;
-	struct mailbox_status status;
 	const char *messageset, *mailbox, *src_uidset, *msg = NULL;
         enum mailbox_sync_flags sync_flags = 0;
 	unsigned int copy_count;
-	uint32_t uid1, uid2;
+	uint32_t uid_validity, uid1, uid2;
 	int ret;
 
 	/* <message set> <mailbox> */
@@ -137,24 +136,21 @@ bool cmd_copy(struct client_command_context *cmd)
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
-	else if (mailbox_transaction_commit_get_uids(&t, 0, &uid1, &uid2) < 0)
+	else if (mailbox_transaction_commit_get_uids(&t, 0, &uid_validity,
+						     &uid1, &uid2) < 0)
 		ret = -1;
 	else {
 		i_assert(copy_count == uid2 - uid1 + 1);
 
-		if (mailbox_get_status(destbox, STATUS_UIDVALIDITY,
-				       &status) < 0) {
-			msg = "OK Copy completed.";
-		} else if (uid1 == uid2) {
+		if (uid1 == uid2) {
 			msg = t_strdup_printf("OK [COPYUID %u %s %u] "
 					      "Copy completed.",
-					      status.uidvalidity,
-					      src_uidset, uid1);
+					      uid_validity, src_uidset, uid1);
 		} else {
 			msg = t_strdup_printf("OK [COPYUID %u %s %u:%u] "
 					      "Copy completed.",
-					      status.uidvalidity,
-					      src_uidset, uid1, uid2);
+					      uid_validity, src_uidset,
+					      uid1, uid2);
 		}
 	}
 

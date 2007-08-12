@@ -12,6 +12,7 @@ struct cydir_sync_context {
 
 	string_t *path;
 	unsigned int path_dir_prefix_len;
+	uint32_t uid_validity;
 };
 
 int cydir_sync_begin(struct cydir_mailbox *mbox,
