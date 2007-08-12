@@ -144,16 +144,16 @@ static int dbox_mail_open(struct index_mail *mail, uoff_t *offset_r)
 	return -1;
 }
 
-static time_t dbox_mail_get_received_date(struct mail *_mail)
+static int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	uoff_t offset;
 	uint32_t t;
 
-	(void)index_mail_get_received_date(_mail);
-	if (data->received_date != (time_t)-1)
-		return data->received_date;
+	(void)index_mail_get_received_date(_mail, date_r);
+	if (*date_r != (time_t)-1)
+		return 0;
 
 	if (dbox_mail_open(mail, &offset) <= 0)
 		return (time_t)-1;
@@ -165,21 +165,22 @@ static time_t dbox_mail_get_received_date(struct mail *_mail)
 
 	t = data->received_date;
 	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE, &t, sizeof(t));
-	return data->received_date;
+	*date_r = data->received_date;
+	return 0;
 }
 
-static time_t dbox_mail_get_save_date(struct mail *_mail)
+static int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	uoff_t offset;
 
-	(void)index_mail_get_save_date(_mail);
-	if (data->save_date != (time_t)-1)
-		return data->save_date;
+	(void)index_mail_get_save_date(_mail, date_r);
+	if (*date_r != (time_t)-1)
+		return 0;
 
 	if (dbox_mail_open(mail, &offset) <= 0)
-		return (time_t)-1;
+		return -1;
 	if (data->save_date == (time_t)-1) {
 		/* it's broken and conflicts with our "not found"
 		   return value. change it. */
@@ -188,32 +189,34 @@ static time_t dbox_mail_get_save_date(struct mail *_mail)
 
 	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE,
 			     &data->save_date, sizeof(data->save_date));
-	return data->save_date;
+	*date_r = data->save_date;
+	return 0;
 }
 
-static uoff_t dbox_mail_get_physical_size(struct mail *_mail)
+static int dbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	uoff_t offset;
 
-	(void)index_mail_get_physical_size(_mail);
-	if (data->physical_size != (uoff_t)-1)
-		return data->physical_size;
+	(void)index_mail_get_physical_size(_mail, size_r);
+	if (*size_r != (uoff_t)-1)
+		return 0;
 
 	if (dbox_mail_open(mail, &offset) <= 0)
-		return (uoff_t)-1;
+		return -1;
 
 	index_mail_cache_add(mail, MAIL_CACHE_PHYSICAL_FULL_SIZE,
 			     &data->physical_size, sizeof(data->physical_size));
-	return data->physical_size;
+	*size_r = data->physical_size;
+	return 0;
 
 }
 
-static struct istream *
-dbox_mail_get_stream(struct mail *_mail,
-		     struct message_size *hdr_size,
-		     struct message_size *body_size)
+static int dbox_mail_get_stream(struct mail *_mail,
+				struct message_size *hdr_size,
+				struct message_size *body_size,
+				struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)mail->ibox;
@@ -221,7 +224,7 @@ dbox_mail_get_stream(struct mail *_mail,
 
 	if (mail->data.stream == NULL) {
 		if (dbox_mail_open(mail, &offset) <= 0)
-			return NULL;
+			return -1;
 
 		offset += mbox->file->mail_header_size;
 		mail->data.stream =
@@ -229,7 +232,7 @@ dbox_mail_get_stream(struct mail *_mail,
 					      mbox->file->seeked_mail_size);
 	}
 
-	return index_mail_init_stream(mail, hdr_size, body_size);
+	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
 struct mail_vfuncs dbox_mail_vfuncs = {

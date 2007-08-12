@@ -74,7 +74,9 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 
 	if (data->access_part != 0 && data->stream == NULL) {
 		/* we're going to open the mail anyway */
-		(void)mail_get_stream(mail, NULL, NULL);
+		struct istream *input;
+
+		(void)mail_get_stream(mail, NULL, NULL, &input);
 	}
 
 	if (data->stream != NULL) {
@@ -95,46 +97,49 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st)
 		}
 	} else {
 		path = maildir_save_file_get_path(mail->transaction, mail->seq);
-		if (do_stat(mbox, path, st) <= 0)
+		if (stat(path, st) < 0) {
+			mail_storage_set_critical(mail->box->storage,
+						  "stat(%s) failed: %m", path);
 			return -1;
+		}
 	}
 	return 0;
 }
 
-static time_t maildir_mail_get_received_date(struct mail *_mail)
+static int maildir_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 	uint32_t t;
 
-	(void)index_mail_get_received_date(_mail);
-	if (data->received_date != (time_t)-1)
-		return data->received_date;
+	(void)index_mail_get_received_date(_mail, date_r);
+	if (*date_r != (time_t)-1)
+		return 0;
 
 	if (maildir_mail_stat(_mail, &st) < 0)
-		return (time_t)-1;
+		return -1;
 
-	data->received_date = t = st.st_mtime;
+	*date_r = data->received_date = t = st.st_mtime;
 	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE, &t, sizeof(t));
-	return data->received_date;
+	return 0;
 }
 
-static time_t maildir_mail_get_save_date(struct mail *_mail)
+static int maildir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 	uint32_t t;
 
-	(void)index_mail_get_save_date(_mail);
-	if (data->save_date != (time_t)-1)
-		return data->save_date;
+	(void)index_mail_get_save_date(_mail, date_r);
+	if (*date_r != (time_t)-1)
+		return 0;
 
 	if (maildir_mail_stat(_mail, &st) < 0)
-		return (time_t)-1;
+		return -1;
 
-	data->save_date = t = st.st_ctime;
+	*date_r = data->save_date = t = st.st_ctime;
 	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
 	return data->save_date;
 }
@@ -210,22 +215,23 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 	return mail->pop3_state;
 }
 
-static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
+static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
 	struct index_mail_data *data = &mail->data;
 	struct message_size hdr_size, body_size;
+	struct istream *input;
 	const char *path, *fname, *value;
-	uoff_t old_offset;
+	uoff_t old_offset, size;
 	int pop3_state;
 
-	if (index_mail_get_cached_virtual_size(mail) != (uoff_t)-1)
-		return data->virtual_size;
+	if (index_mail_get_cached_virtual_size(mail, size_r))
+		return 0;
 
 	if (_mail->uid != 0) {
 		if (!maildir_mail_get_fname(mbox, _mail, &fname))
-			return (uoff_t)-1;
+			return -1;
 	} else {
 		path = maildir_save_file_get_path(_mail->transaction,
 						  _mail->seq);
@@ -235,8 +241,10 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 
 	/* size can be included in filename */
 	if (maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
-				      &data->virtual_size))
-		return data->virtual_size;
+				      &data->virtual_size)) {
+		*size_r = data->virtual_size;
+		return 0;
+	}
 
 	/* size can be included in uidlist entry */
 	if (_mail->uid != 0) {
@@ -245,16 +253,18 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 		if (value != NULL) {
 			char *p;
 
-			data->virtual_size = strtoull(value, &p, 10);
-			if (*p == '\0')
-				return data->virtual_size;
+			size = strtoull(value, &p, 10);
+			if (*p == '\0') {
+				data->virtual_size = *size_r = size;
+				return 0;
+			}
 		}
 	}
 
 	/* fallback to reading the file */
 	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
-	if (mail_get_stream(_mail, &hdr_size, &body_size) == NULL)
-		return (uoff_t)-1;
+	if (mail_get_stream(_mail, &hdr_size, &body_size, &input) < 0)
+		return -1;
 	i_stream_seek(data->stream, old_offset);
 	i_assert(data->virtual_size != (uoff_t)-1);
 
@@ -272,11 +282,13 @@ static uoff_t maildir_mail_get_virtual_size(struct mail *_mail)
 					MAILDIR_UIDLIST_REC_EXT_VSIZE,
 					dec2str(data->virtual_size));
 	}
-	return data->virtual_size;
+	*size_r = data->virtual_size;
+	return 0;
 }
 
-static const char *
-maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
+static int
+maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+			 const char **value_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
@@ -285,7 +297,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 	if (field == MAIL_FETCH_UIDL_FILE_NAME) {
 		if (_mail->uid != 0) {
 			if (!maildir_mail_get_fname(mbox, _mail, &fname))
-				return NULL;
+				return -1;
 		} else {
 			path = maildir_save_file_get_path(_mail->transaction,
 							  _mail->seq);
@@ -293,13 +305,14 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 			fname = fname != NULL ? fname + 1 : path;
 		}
 		end = strchr(fname, MAILDIR_INFO_SEP);
-		return end == NULL ? fname : t_strdup_until(fname, end);
+		*value_r = end == NULL ? fname : t_strdup_until(fname, end);
+		return 0;
 	}
 
-	return index_mail_get_special(_mail, field);
+	return index_mail_get_special(_mail, field, value_r);
 }
 							
-static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
+static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
@@ -309,13 +322,13 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	uoff_t size;
 	int ret;
 
-	size = index_mail_get_physical_size(_mail);
-	if (size != (uoff_t)-1)
-		return size;
+	(void)index_mail_get_physical_size(_mail, size_r);
+	if (*size_r != (uoff_t)-1)
+		return 0;
 
 	if (_mail->uid != 0) {
 		if (!maildir_mail_get_fname(mbox, _mail, &fname))
-			return (uoff_t)-1;
+			return -1;
 		path = NULL;
 	} else {
 		path = maildir_save_file_get_path(_mail->transaction,
@@ -331,12 +344,15 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 			if (ret <= 0) {
 				if (ret == 0)
 					mail_set_expunged(_mail);
-				return (uoff_t)-1;
+				return -1;
 			}
 		} else {
 			/* saved mail which hasn't been committed yet */
-			if (do_stat(mbox, path, &st) <= 0)
-				return (uoff_t)-1;
+			if (stat(path, &st) < 0) {
+				mail_storage_set_critical(_mail->box->storage,
+					"stat(%s) failed: %m", path);
+				return -1;
+			}
 		}
 		size = st.st_size;
 	}
@@ -344,12 +360,14 @@ static uoff_t maildir_mail_get_physical_size(struct mail *_mail)
 	index_mail_cache_add(mail, MAIL_CACHE_PHYSICAL_FULL_SIZE,
 			     &size, sizeof(size));
 	data->physical_size = size;
-	return size;
+	*size_r = size;
+	return 0;
 }
 
-static struct istream *maildir_mail_get_stream(struct mail *_mail,
-					       struct message_size *hdr_size,
-					       struct message_size *body_size)
+static int maildir_mail_get_stream(struct mail *_mail,
+				   struct message_size *hdr_size,
+				   struct message_size *body_size,
+				   struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->ibox;
@@ -361,11 +379,11 @@ static struct istream *maildir_mail_get_stream(struct mail *_mail,
 		if (data->stream == NULL) {
 			if (deleted)
 				mail_set_expunged(_mail);
-			return NULL;
+			return -1;
 		}
 	}
 
-	return index_mail_init_stream(mail, hdr_size, body_size);
+	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
 struct mail_vfuncs maildir_mail_vfuncs = {

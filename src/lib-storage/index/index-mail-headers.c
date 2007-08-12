@@ -387,11 +387,12 @@ int index_mail_parse_headers(struct index_mail *mail,
 			     struct mailbox_header_lookup_ctx *headers)
 {
 	struct index_mail_data *data = &mail->data;
+	struct istream *input;
 	uoff_t old_offset;
 
 	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
 
-	if (mail_get_stream(&mail->mail.mail, NULL, NULL) == NULL)
+	if (mail_get_stream(&mail->mail.mail, NULL, NULL, &input) < 0)
 		return -1;
 
 	index_mail_parse_header_init(mail, headers);
@@ -427,7 +428,7 @@ imap_envelope_parse_callback(struct message_header_line *hdr,
 		index_mail_parse_finish_imap_envelope(mail);
 }
 
-void index_mail_headers_get_envelope(struct index_mail *mail)
+int index_mail_headers_get_envelope(struct index_mail *mail)
 {
 	struct mailbox_header_lookup_ctx *header_ctx;
 	struct istream *stream;
@@ -439,7 +440,9 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 	mail->data.save_envelope = TRUE;
 	header_ctx = mailbox_header_lookup_init(&mail->ibox->box,
 						imap_envelope_headers);
-	stream = mail_get_header_stream(&mail->mail.mail, header_ctx);
+	if (mail_get_header_stream(&mail->mail.mail, header_ctx, &stream) < 0)
+		return -1;
+
 	if (mail->data.envelope == NULL && stream != NULL) {
 		/* we got the headers from cache - parse them to get the
 		   envelope */
@@ -451,6 +454,7 @@ void index_mail_headers_get_envelope(struct index_mail *mail)
 
 	if (mail->data.stream != NULL)
 		i_stream_seek(mail->data.stream, old_offset);
+	return 0;
 }
 
 static size_t get_header_size(buffer_t *buffer, size_t pos)
@@ -548,8 +552,9 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 	return array_idx(&header_values, 0);
 }
 
-static const char *const *
-index_mail_get_raw_headers(struct index_mail *mail, const char *field)
+static int
+index_mail_get_raw_headers(struct index_mail *mail, const char *field,
+			   const char *const **value_r)
 {
 	const char *headers[2], *value;
 	struct mailbox_header_lookup_ctx *headers_ctx;
@@ -569,34 +574,32 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field)
 				      mail->data.seq, &field_idx, 1) <= 0) {
 		/* not in cache / error - first see if it's already parsed */
 		p_free(mail->data_pool, dest);
-		if (mail->header_seq == mail->data.seq) {
-			ret = index_mail_header_is_parsed(mail, field_idx);
-			if (ret != -1) {
-				return ret == 0 ? NULL :
-					index_mail_get_parsed_header(mail,
-								     field_idx);
-			}
+		if (mail->header_seq != mail->data.seq) {
+			/* parse */
+			headers[0] = field; headers[1] = NULL;
+			headers_ctx = mailbox_header_lookup_init(
+						&mail->ibox->box, headers);
+			ret = index_mail_parse_headers(mail, headers_ctx);
+			mailbox_header_lookup_deinit(&headers_ctx);
+			if (ret < 0)
+				return -1;
 		}
 
-		/* parse */
-		headers[0] = field; headers[1] = NULL;
-		headers_ctx = mailbox_header_lookup_init(&mail->ibox->box,
-							 headers);
-		ret = index_mail_parse_headers(mail, headers_ctx);
-		mailbox_header_lookup_deinit(&headers_ctx);
-		if (ret < 0)
-			return NULL;
-
-		ret = index_mail_header_is_parsed(mail, field_idx);
-		i_assert(ret != -1);
-		return ret == 0 ? NULL :
-			index_mail_get_parsed_header(mail, field_idx);
+		if ((ret = index_mail_header_is_parsed(mail, field_idx)) <= 0) {
+			/* not found */
+			i_assert(ret != -1);
+			*value_r = p_new(mail->data_pool, const char *, 1);
+			return 0;
+		}
+		*value_r = index_mail_get_parsed_header(mail, field_idx);
+		return 0;
 	}
 	data = buffer_get_modifiable_data(dest, &len);
 
 	if (len == 0) {
 		/* cached as non-existing. */
-		return p_new(mail->data_pool, const char *, 1);
+		*value_r = p_new(mail->data_pool, const char *, 1);
+		return 0;
 	}
 
 	p_array_init(&header_values, mail->data_pool, 4);
@@ -618,7 +621,8 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field)
 
 	value = NULL;
 	array_append(&header_values, &value, sizeof(value));
-	return array_idx(&header_values, 0);
+	*value_r = array_idx(&header_values, 0);
+	return 0;
 }
 
 static const char *const *
@@ -651,32 +655,32 @@ index_mail_headers_decode(struct index_mail *mail, const char *const *list,
 	return decoded_list;
 }
 
-const char *const *index_mail_get_headers(struct mail *_mail, const char *field,
-					  bool decode_to_utf8)
+int index_mail_get_headers(struct mail *_mail, const char *field,
+			   bool decode_to_utf8, const char *const **value_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	const char *const *list;
 
-	list = index_mail_get_raw_headers(mail, field);
-	if (!decode_to_utf8 || list == NULL || *list == NULL)
-		return list;
+	if (index_mail_get_raw_headers(mail, field, value_r) < 0)
+		return -1;
+	if (!decode_to_utf8 || **value_r == NULL)
+		return 0;
 
-	return index_mail_headers_decode(mail, list, (unsigned int)-1);
+	*value_r = index_mail_headers_decode(mail, *value_r, (unsigned int)-1);
+	return 0;
 }
 
-const char *index_mail_get_first_header(struct mail *_mail, const char *field,
-					bool decode_to_utf8)
+int index_mail_get_first_header(struct mail *_mail, const char *field,
+				bool decode_to_utf8, const char **value_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	const char *const *list;
 
-	list = index_mail_get_raw_headers(mail, field);
-	if (list == NULL || *list == NULL)
-		return NULL;
-
-	if (decode_to_utf8)
+	if (index_mail_get_raw_headers(mail, field, &list) < 0)
+		return -1;
+	if (decode_to_utf8 && list[0] != NULL)
 		list = index_mail_headers_decode(mail, list, 1);
-	return list[0];
+	*value_r = list[0];
+	return list[0] != NULL ? 1 : 0;
 }
 
 static void header_cache_callback(struct message_header_line *hdr,
@@ -688,19 +692,20 @@ static void header_cache_callback(struct message_header_line *hdr,
 	index_mail_parse_header(NULL, hdr, mail);
 }
 
-struct istream *
-index_mail_get_header_stream(struct mail *_mail,
-			     struct mailbox_header_lookup_ctx *_headers)
+int index_mail_get_header_stream(struct mail *_mail,
+				 struct mailbox_header_lookup_ctx *_headers,
+				 struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_header_lookup_ctx *headers =
 		(struct index_header_lookup_ctx *)_headers;
+	struct istream *input;
 	string_t *dest;
 
 	if (mail->data.save_bodystructure_header) {
 		/* we have to parse the header. */
 		if (index_mail_parse_headers(mail, _headers) < 0)
-			return NULL;
+			return -1;
 	}
 
 	dest = str_new(mail->data_pool, 256);
@@ -712,13 +717,14 @@ index_mail_get_header_stream(struct mail *_mail,
 		mail->data.filter_stream =
 			i_stream_create_from_data(str_data(dest),
 						  str_len(dest));
-		return mail->data.filter_stream;
+		*stream_r = mail->data.filter_stream;
+		return 0;
 	}
 	/* not in cache / error */
 	p_free(mail->data_pool, dest);
 
-	if (mail_get_stream(&mail->mail.mail, NULL, NULL) == NULL)
-		return NULL;
+	if (mail_get_stream(&mail->mail.mail, NULL, NULL, &input) < 0)
+		return -1;
 
 	if (mail->data.filter_stream != NULL)
 		i_stream_destroy(&mail->data.filter_stream);
@@ -730,7 +736,8 @@ index_mail_get_header_stream(struct mail *_mail,
 					      HEADER_FILTER_HIDE_BODY,
 					      headers->name, headers->count,
 					      header_cache_callback, mail);
-	return mail->data.filter_stream;
+	*stream_r = mail->data.filter_stream;
+	return 0;
 }
 
 struct mailbox_header_lookup_ctx *

@@ -163,8 +163,7 @@ static int fts_build_mail(struct fts_storage_build_context *ctx)
 
 	ctx->uid = ctx->mail->uid;
 
-	input = mail_get_stream(ctx->mail, NULL, NULL);
-	if (input == NULL)
+	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 		return -1;
 
 	prev_part = skip_part = NULL;

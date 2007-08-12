@@ -31,13 +31,16 @@ get_var_expand_table(struct mail *mail, const char *reason,
 		{ '\0', NULL }
 	};
 	struct var_expand_table *tab;
+	const char *subject;
 
 	tab = t_malloc(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = "\r\n";
 	tab[1].value = reason;
-	tab[2].value = str_sanitize(mail_get_first_header(mail, "Subject"), 80);
+	if (mail_get_first_header(mail, "Subject", &subject) <= 0)
+		subject = "";
+	tab[2].value = str_sanitize(subject, 80);
 	tab[3].value = recipient;
 
 	return tab;
@@ -57,7 +60,8 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     size_t size;
     int ret;
 
-    orig_msgid = mail_get_first_header(mail, "Message-ID");
+    if (mail_get_first_header(mail, "Message-ID", &orig_msgid) < 0)
+	    orig_msgid = NULL;
     return_addr = deliver_get_return_address(mail);
     if (return_addr == NULL) {
 	    i_info("msgid=%s: Return-Path missing, rejection reason: %s",
@@ -102,9 +106,8 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
 	    boundary);
     fprintf(f, "Reporting-UA: %s; Dovecot Mail Delivery Agent\r\n",
 	    deliver_set->hostname);
-    str = mail_get_first_header(mail, "Original-Recipient");
-    if (str != NULL)
-	fprintf(f, "Original-Recipient: rfc822; %s\r\n", str);
+    if (mail_get_first_header(mail, "Original-Recipient", &str) > 0)
+	    fprintf(f, "Original-Recipient: rfc822; %s\r\n", str);
     fprintf(f, "Final-Recipient: rfc822; %s\r\n", recipient);
 
     if (orig_msgid != NULL)
@@ -116,8 +119,7 @@ int mail_send_rejection(struct mail *mail, const char *recipient,
     /* original message's headers */
     fprintf(f, "--%s\r\nContent-Type: message/rfc822\r\n\r\n", boundary);
 
-    input = mail_get_stream(mail, &hdr_size, NULL);
-    if (input != NULL) {
+    if (mail_get_stream(mail, &hdr_size, NULL, &input) == 0) {
 	    /* Note: If you add more headers, they need to be sorted.
 	       We'll drop Content-Type because we're not including the message
 	       body, and having a multipart Content-Type may confuse some
@@ -155,16 +157,16 @@ int mail_send_forward(struct mail *mail, const char *forwardto)
     struct smtp_client *smtp_client;
     FILE *f;
     const unsigned char *data;
+    const char *return_path;
     size_t size;
     int ret;
 
-    input = mail_get_stream(mail, NULL, NULL);
-    if (input == NULL)
+    if (mail_get_stream(mail, NULL, NULL, &input) < 0)
 	    return -1;
 
-    smtp_client = smtp_client_open(forwardto,
-				   mail_get_first_header(mail, "Return-Path"),
-				   &f);
+    if (mail_get_first_header(mail, "Return-Path", &return_path) <= 0)
+	    return_path = "";
+    smtp_client = smtp_client_open(forwardto, return_path, &f);
 
     input = i_stream_create_header_filter(input, HEADER_FILTER_EXCLUDE |
                                           HEADER_FILTER_NO_CR, hide_headers,

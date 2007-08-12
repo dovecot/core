@@ -152,8 +152,10 @@ int deliver_save(struct mail_namespace *namespaces,
 	else
 		ret = mailbox_transaction_commit(&t, 0);
 
-	msgid = mail_get_first_header(mail, "Message-ID");
-	msgid = msgid == NULL ? "" : str_sanitize(msgid, 80);
+	if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
+		msgid = "";
+	else
+		msgid = str_sanitize(msgid, 80);
 	mailbox_name = str_sanitize(mailbox_get_name(box), 80);
 
 	if (ret == 0) {
@@ -175,11 +177,11 @@ const char *deliver_get_return_address(struct mail *mail)
 	struct message_address *addr;
 	const char *str;
 
-	str = mail_get_first_header(mail, "Return-Path");
-	addr = str == NULL ? NULL :
-		message_address_parse(pool_datastack_create(),
-				      (const unsigned char *)str,
-				      strlen(str), 1, FALSE);
+	if (mail_get_first_header(mail, "Return-Path", &str) <= 0)
+		return NULL;
+	addr = message_address_parse(pool_datastack_create(),
+				     (const unsigned char *)str,
+				     strlen(str), 1, FALSE);
 	return addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
 		*addr->mailbox == '\0' || *addr->domain == '\0' ?
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
@@ -799,9 +801,9 @@ int main(int argc, char *argv[])
 			return EX_TEMPFAIL;
 		}
 
-		msgid = mail_get_first_header(mail, "Message-ID");
-		i_info("msgid=%s: Rejected: %s",
-		       msgid == NULL ? "" : str_sanitize(msgid, 80),
+		if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
+			msgid = "";
+		i_info("msgid=%s: Rejected: %s", str_sanitize(msgid, 80),
 		       str_sanitize(error_string, 512));
 
 		/* we'll have to reply with permanent failure */

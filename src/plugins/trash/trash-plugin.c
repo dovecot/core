@@ -91,7 +91,8 @@ static int trash_clean_mailbox_get_next(struct trash_mailbox *trash,
 		trash->mail_set = TRUE;
 	}
 
-	*received_time_r = mail_get_received_date(trash->mail);
+	if (mail_get_received_date(trash->mail, received_time_r) < 0)
+		return -1;
 	return 1;
 }
 
@@ -145,8 +146,8 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 		}
 
 		if (oldest_idx < count) {
-			size = mail_get_physical_size(trashes[oldest_idx].mail);
-			if (size == (uoff_t)-1) {
+			if (mail_get_physical_size(trashes[oldest_idx].mail,
+						   &size) < 0) {
 				/* maybe expunged already? */
 				trashes[oldest_idx].mail_set = FALSE;
 				continue;

@@ -696,9 +696,13 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 int quota_try_alloc(struct quota_transaction_context *ctx,
 		    struct mail *mail, bool *too_large_r)
 {
+	uoff_t size;
 	int ret;
 
-	ret = quota_test_alloc(ctx, mail_get_physical_size(mail), too_large_r);
+	if (mail_get_physical_size(mail, &size) < 0)
+		return -1;
+
+	ret = quota_test_alloc(ctx, size, too_large_r);
 	if (ret <= 0)
 		return ret;
 
@@ -754,8 +758,7 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 {
 	uoff_t size;
 
-	size = mail_get_physical_size(mail);
-	if (size != (uoff_t)-1)
+	if (mail_get_physical_size(mail, &size) == 0)
 		ctx->bytes_used += size;
 
 	ctx->count_used++;
@@ -765,8 +768,7 @@ void quota_free(struct quota_transaction_context *ctx, struct mail *mail)
 {
 	uoff_t size;
 
-	size = mail_get_physical_size(mail);
-	if (size == (uoff_t)-1)
+	if (mail_get_physical_size(mail, &size) < 0)
 		quota_recalculate(ctx);
 	else
 		quota_free_bytes(ctx, size);

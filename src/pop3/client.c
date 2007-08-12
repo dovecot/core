@@ -57,6 +57,7 @@ static int init_mailbox(struct client *client)
         struct mailbox_status status;
 	struct mail *mail;
 	buffer_t *message_sizes_buf;
+	uoff_t size;
 	int i;
 	bool failed;
 
@@ -82,9 +83,7 @@ static int init_mailbox(struct client *client)
 		failed = FALSE;
 		mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
 		while (mailbox_search_next(ctx, mail) > 0) {
-			uoff_t size = mail_get_virtual_size(mail);
-
-			if (size == (uoff_t)-1) {
+			if (mail_get_virtual_size(mail, &size) < 0) {
 				failed = TRUE;
 				break;
 			}

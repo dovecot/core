@@ -91,8 +91,7 @@ mailbox_delete_old_mails(struct expire_context *ctx, const char *user,
 
 	now = time(NULL);
 	while ((ret = mailbox_search_next(search_ctx, mail)) > 0) {
-		save_time = mail_get_save_date(mail);
-		if (save_time == (time_t)-1) {
+		if (mail_get_save_date(mail, &save_time) < 0) {
 			/* maybe just got expunged. anyway try again later. */
 			ret = -1;
 			break;

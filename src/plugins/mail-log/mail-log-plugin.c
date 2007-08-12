@@ -174,15 +174,13 @@ mail_log_action_add_group(struct mail_log_transaction_context *lt,
 
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_PSIZE) != 0 &&
 	    (event & (MAIL_LOG_EVENT_EXPUNGE | MAIL_LOG_EVENT_COPY)) != 0) {
-		size = mail_get_physical_size(mail);
-		if (size != (uoff_t)-1)
+		if (mail_get_physical_size(mail, &size) == 0)
 			group->psize_total += size;
 	}
 
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_VSIZE) != 0 &&
 	    (event & (MAIL_LOG_EVENT_EXPUNGE | MAIL_LOG_EVENT_COPY)) != 0) {
-		size = mail_get_virtual_size(mail);
-		if (size != (uoff_t)-1)
+		if (mail_get_virtual_size(mail, &size) == 0)
 			group->vsize_total += size;
 	}
 }
@@ -297,21 +295,20 @@ static void mail_log_action(struct mail *mail, enum mail_log_event event,
 		str_printfa(str, "dest=%s, ", data);
 
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_MSGID) != 0) {
-		msgid = mail_get_first_header(mail, "Message-ID");
-		str_printfa(str, "msgid=%s, ", msgid == NULL ? "(null)" :
+		if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
+			msgid = "(null";
+		str_printfa(str, "msgid=%s, ",
 			    str_sanitize(msgid, MSGID_LOG_LEN));
 	}
 
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_PSIZE) != 0 &&
 	    (event & (MAIL_LOG_EVENT_EXPUNGE | MAIL_LOG_EVENT_COPY)) != 0) {
-		size = mail_get_physical_size(mail);
-		if (size != (uoff_t)-1)
+		if (mail_get_physical_size(mail, &size) == 0)
 			str_printfa(str, "size=%"PRIuUOFF_T", ", size);
 	}
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_VSIZE) != 0 &&
 	    (event & (MAIL_LOG_EVENT_EXPUNGE | MAIL_LOG_EVENT_COPY)) != 0) {
-		size = mail_get_virtual_size(mail);
-		if (size != (uoff_t)-1)
+		if (mail_get_virtual_size(mail, &size) == 0)
 			str_printfa(str, "vsize=%"PRIuUOFF_T", ", size);
 	}
 	str_truncate(str, str_len(str)-2);

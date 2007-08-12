@@ -47,99 +47,107 @@ const char *const *mail_get_keywords(struct mail *mail)
 	return p->v.get_keywords(mail);
 }
 
-const struct message_part *mail_get_parts(struct mail *mail)
+int mail_get_parts(struct mail *mail, const struct message_part **parts_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_parts(mail);
+	return p->v.get_parts(mail, parts_r);
 }
 
-time_t mail_get_received_date(struct mail *mail)
+int mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int tz;
 
-	return p->v.get_received_date(mail);
+	if (timezone_r == NULL)
+		timezone_r = &tz;
+
+	return p->v.get_date(mail, date_r, timezone_r);
 }
 
-time_t mail_get_save_date(struct mail *mail)
+int mail_get_received_date(struct mail *mail, time_t *date_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_save_date(mail);
+	return p->v.get_received_date(mail, date_r);
 }
 
-time_t mail_get_date(struct mail *mail, int *timezone)
+int mail_get_save_date(struct mail *mail, time_t *date_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_date(mail, timezone);
+	return p->v.get_save_date(mail, date_r);
 }
 
-uoff_t mail_get_virtual_size(struct mail *mail)
+int mail_get_virtual_size(struct mail *mail, uoff_t *size_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_virtual_size(mail);
+	return p->v.get_virtual_size(mail, size_r);
 }
 
-uoff_t mail_get_physical_size(struct mail *mail)
+int mail_get_physical_size(struct mail *mail, uoff_t *size_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_physical_size(mail);
+	return p->v.get_physical_size(mail, size_r);
 }
 
-const char *mail_get_first_header(struct mail *mail, const char *field)
+int mail_get_first_header(struct mail *mail, const char *field,
+			  const char **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_first_header(mail, field, FALSE);
+	return p->v.get_first_header(mail, field, FALSE, value_r);
 }
 
-const char *mail_get_first_header_utf8(struct mail *mail, const char *field)
+int mail_get_first_header_utf8(struct mail *mail, const char *field,
+			       const char **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_first_header(mail, field, TRUE);
+	return p->v.get_first_header(mail, field, TRUE, value_r);
 }
 
-const char *const *mail_get_headers(struct mail *mail, const char *field)
+int mail_get_headers(struct mail *mail, const char *field,
+		     const char *const **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_headers(mail, field, FALSE);
+	return p->v.get_headers(mail, field, FALSE, value_r);
 }
 
-const char *const *mail_get_headers_utf8(struct mail *mail, const char *field)
+int mail_get_headers_utf8(struct mail *mail, const char *field,
+			  const char *const **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_headers(mail, field, TRUE);
+	return p->v.get_headers(mail, field, TRUE, value_r);
 }
 
-struct istream *
-mail_get_header_stream(struct mail *mail,
-		       struct mailbox_header_lookup_ctx *headers)
+int mail_get_header_stream(struct mail *mail,
+			   struct mailbox_header_lookup_ctx *headers,
+			   struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_header_stream(mail, headers);
+	return p->v.get_header_stream(mail, headers, stream_r);
 }
 
-struct istream *mail_get_stream(struct mail *mail,
-				struct message_size *hdr_size,
-				struct message_size *body_size)
+int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
+		    struct message_size *body_size, struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_stream(mail, hdr_size, body_size);
+	return p->v.get_stream(mail, hdr_size, body_size, stream_r);
 }
 
-const char *mail_get_special(struct mail *mail, enum mail_fetch_field field)
+int mail_get_special(struct mail *mail, enum mail_fetch_field field,
+		     const char **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	return p->v.get_special(mail, field);
+	return p->v.get_special(mail, field, value_r);
 }
 
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,

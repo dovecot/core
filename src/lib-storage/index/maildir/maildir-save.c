@@ -484,8 +484,10 @@ int maildir_save_finish(struct mail_save_context *_ctx)
 
 	/* remember the size in case we want to add it to filename */
 	ctx->file_last->size = ctx->output->offset;
-	ctx->file_last->vsize = ctx->cur_dest_mail == NULL ? (uoff_t)-1 :
-		mail_get_virtual_size(ctx->cur_dest_mail);
+	if (ctx->cur_dest_mail == NULL ||
+	    mail_get_virtual_size(ctx->cur_dest_mail,
+				  &ctx->file_last->vsize) < 0)
+		ctx->file_last->vsize = (uoff_t)-1;
 
 	output_errno = ctx->output->stream_errno;
 	o_stream_destroy(&ctx->output);

@@ -446,19 +446,24 @@ static void mail_thread_input(struct thread_context *ctx, struct mail *mail)
 
 	t_push();
 
-	sent_date = mail_get_date(mail, NULL);
-	if (sent_date == (time_t)-1)
+	if (mail_get_date(mail, &sent_date, NULL) < 0)
 		sent_date = 0;
 
-	message_id = mail_get_first_header(mail, "message-id");
+	if (mail_get_first_header(mail, "message-id", &message_id) < 0)
+		message_id = NULL;
 	node = update_message(ctx, get_msgid(&message_id), sent_date,
 			      ctx->id_is_uid ? mail->uid : mail->seq);
 
 	/* link references */
-	references = mail_get_first_header(mail, "references");
+	if (mail_get_first_header(mail, "references", &references) < 0)
+		references = NULL;
+
 	if (!link_references(ctx, node, references)) {
-		in_reply_to = mail_get_first_header(mail, "in-reply-to");
-		refid = in_reply_to == NULL ? NULL : get_msgid(&in_reply_to);
+		if (mail_get_first_header(mail, "in-reply-to",
+					  &in_reply_to) <= 0)
+			refid = NULL;
+		else
+			refid = get_msgid(&in_reply_to);
 
 		if (refid != NULL)
 			link_node(ctx, refid, node, TRUE);
@@ -694,8 +699,9 @@ static void gather_base_subjects(struct thread_context *ctx)
 		if (seq != 0) {
 			mail_set_seq(ctx->mail, seq);
 			t_push();
-                        subject = mail_get_first_header(ctx->mail, "subject");
-			add_base_subject(ctx, subject, node);
+			if (mail_get_first_header(ctx->mail, "subject",
+						  &subject) > 0)
+				add_base_subject(ctx, subject, node);
 			t_pop();
 		}
 	}

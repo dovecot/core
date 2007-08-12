@@ -187,8 +187,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	case SEARCH_BEFORE:
 	case SEARCH_ON:
 	case SEARCH_SINCE:
-		date = mail_get_received_date(ctx->mail);
-		if (date == (time_t)-1)
+		if (mail_get_received_date(ctx->mail, &date) < 0)
 			return -1;
 
 		switch (arg->type) {
@@ -210,8 +209,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	case SEARCH_SENTSINCE:
 		/* NOTE: RFC-3501 specifies that timezone is ignored
 		   in searches. date is returned as UTC, so change it. */
-		date = mail_get_date(ctx->mail, &timezone_offset);
-		if (date == (time_t)-1)
+		if (mail_get_date(ctx->mail, &date, &timezone_offset) < 0)
 			return -1;
 		date += timezone_offset * 60;
 
@@ -231,8 +229,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 	/* sizes */
 	case SEARCH_SMALLER:
 	case SEARCH_LARGER:
-		virtual_size = mail_get_virtual_size(ctx->mail);
-		if (virtual_size == (uoff_t)-1)
+		if (mail_get_virtual_size(ctx->mail, &virtual_size) < 0)
 			return -1;
 
 		search_size = str_to_uoff_t(arg->value.str);
@@ -513,8 +510,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 
 		if (headers == NULL) {
 			headers_ctx = NULL;
-			input = mail_get_stream(ctx->mail, NULL, NULL);
-			if (input == NULL)
+			if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 				return FALSE;
 		} else {
 			/* FIXME: do this once in init */
@@ -522,8 +518,8 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 			headers_ctx =
 				mailbox_header_lookup_init(&ctx->ibox->box,
 							   headers);
-			input = mail_get_header_stream(ctx->mail, headers_ctx);
-			if (input == NULL) {
+			if (mail_get_header_stream(ctx->mail, headers_ctx,
+						   &input) < 0) {
 				mailbox_header_lookup_deinit(&headers_ctx);
 				return FALSE;
 			}
@@ -545,8 +541,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 	} else {
 		struct message_size hdr_size;
 
-		input = mail_get_stream(ctx->mail, &hdr_size, NULL);
-		if (input == NULL)
+		if (mail_get_stream(ctx->mail, &hdr_size, NULL, &input) < 0)
 			return FALSE;
 
 		i_stream_seek(input, hdr_size.physical_size);
@@ -558,7 +553,7 @@ static bool search_arg_match_text(struct mail_search_arg *args,
 		memset(&body_ctx, 0, sizeof(body_ctx));
 		body_ctx.index_ctx = ctx;
 		body_ctx.input = input;
-		body_ctx.part = mail_get_parts(ctx->mail);
+		(void)mail_get_parts(ctx->mail, &body_ctx.part);
 
 		mail_search_args_foreach(args, search_body, &body_ctx);
 	}

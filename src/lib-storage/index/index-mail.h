@@ -143,30 +143,31 @@ void index_mail_parse_header(struct message_part *part,
 			     struct index_mail *mail);
 int index_mail_parse_headers(struct index_mail *mail,
 			     struct mailbox_header_lookup_ctx *headers);
-void index_mail_headers_get_envelope(struct index_mail *mail);
+int index_mail_headers_get_envelope(struct index_mail *mail);
 
-const char *index_mail_get_first_header(struct mail *_mail, const char *field,
-					bool decode_to_utf8);
-const char *const *
-index_mail_get_headers(struct mail *_mail, const char *field,
-		       bool decode_to_utf8);
-struct istream *
-index_mail_get_header_stream(struct mail *_mail,
-			     struct mailbox_header_lookup_ctx *headers);
+int index_mail_get_first_header(struct mail *_mail, const char *field,
+				bool decode_to_utf8, const char **value_r);
+int index_mail_get_headers(struct mail *_mail, const char *field,
+			   bool decode_to_utf8, const char *const **value_r);
+int index_mail_get_header_stream(struct mail *_mail,
+				 struct mailbox_header_lookup_ctx *headers,
+				 struct istream **stream_r);
 
 enum mail_flags index_mail_get_flags(struct mail *_mail);
 const char *const *index_mail_get_keywords(struct mail *_mail);
-const struct message_part *index_mail_get_parts(struct mail *_mail);
-time_t index_mail_get_received_date(struct mail *_mail);
-time_t index_mail_get_save_date(struct mail *_mail);
-time_t index_mail_get_date(struct mail *_mail, int *timezone);
-uoff_t index_mail_get_virtual_size(struct mail *mail);
-uoff_t index_mail_get_physical_size(struct mail *mail);
-struct istream *index_mail_init_stream(struct index_mail *mail,
-				       struct message_size *hdr_size,
-				       struct message_size *body_size);
-const char *index_mail_get_special(struct mail *_mail,
-				   enum mail_fetch_field field);
+int index_mail_get_parts(struct mail *_mail,
+			 const struct message_part **parts_r);
+int index_mail_get_received_date(struct mail *_mail, time_t *date_r);
+int index_mail_get_save_date(struct mail *_mail, time_t *date_r);
+int index_mail_get_date(struct mail *_mail, time_t *date_r, int *timezone_r);
+int index_mail_get_virtual_size(struct mail *mail, uoff_t *size_r);
+int index_mail_get_physical_size(struct mail *mail, uoff_t *size_r);
+int index_mail_init_stream(struct index_mail *mail,
+			   struct message_size *hdr_size,
+			   struct message_size *body_size,
+			   struct istream **stream_r);
+int index_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+			   const char **value_r);
 
 void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 			     enum mail_flags flags);
@@ -174,9 +175,10 @@ void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 				struct mail_keywords *keywords);
 void index_mail_expunge(struct mail *mail);
 
-uoff_t index_mail_get_cached_uoff_t(struct index_mail *mail,
-				    enum index_cache_field field);
-uoff_t index_mail_get_cached_virtual_size(struct index_mail *mail);
+bool index_mail_get_cached_uoff_t(struct index_mail *mail,
+				  enum index_cache_field field, uoff_t *size_r);
+bool index_mail_get_cached_virtual_size(struct index_mail *mail,
+					uoff_t *size_r);
 
 void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
 			  const void *data, size_t data_size);

@@ -158,8 +158,7 @@ static const char *get_first_mailbox(struct mail *mail, const char *header)
 	struct message_address *addr;
 	const char *str;
 
-	str = mail_get_first_header_utf8(mail, header);
-	if (str == NULL)
+	if (mail_get_first_header_utf8(mail, header, &str) <= 0)
 		return "";
 
 	addr = message_address_parse(pool_datastack_create(),
@@ -177,10 +176,10 @@ sort_header_get(enum mail_sort_type sort_type, struct mail *mail, uint32_t seq)
 	mail_set_seq(mail, seq);
 	switch (sort_type & MAIL_SORT_MASK) {
 	case MAIL_SORT_SUBJECT:
-		str = mail_get_first_header(mail, "Subject");
-		return str == NULL ? "" :
-			imap_get_base_subject_cased(pool_datastack_create(),
-						    str, NULL);
+		if (mail_get_first_header(mail, "Subject", &str) <= 0)
+			return "";
+		return imap_get_base_subject_cased(pool_datastack_create(),
+						   str, NULL);
 	case MAIL_SORT_CC:
 		str = get_first_mailbox(mail, "Cc");
 		break;
@@ -230,13 +229,13 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			time1 = ctx->cache_time;
 		else {
 			mail_set_seq(ctx->mail, n1->seq);
-			time1 = mail_get_received_date(ctx->mail);
-			if (time1 == (time_t)-1) time1 = 0;
+			if (mail_get_received_date(ctx->mail, &time1) < 0)
+				time1 = 0;
 		}
 
 		mail_set_seq(ctx->mail, n2->seq);
-		time2 = mail_get_received_date(ctx->mail);
-		if (time2 == (time_t)-1) time2 = 0;
+		if (mail_get_received_date(ctx->mail, &time2) < 0)
+			time2 = 0;
 
 		ret = time1 < time2 ? -1 :
 			(time1 > time2 ? 1 : 0);
@@ -246,13 +245,13 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			time1 = ctx->cache_time;
 		else {
 			mail_set_seq(ctx->mail, n1->seq);
-			time1 = mail_get_date(ctx->mail, NULL);
-			if (time1 == (time_t)-1) time1 = 0;
+			if (mail_get_date(ctx->mail, &time1, NULL) < 0)
+				time1 = 0;
 		}
 
 		mail_set_seq(ctx->mail, n2->seq);
-		time2 = mail_get_date(ctx->mail, NULL);
-		if (time2 == (time_t)-1) time2 = 0;
+		if (mail_get_date(ctx->mail, &time2, NULL) < 0)
+			time2 = 0;
 
 		ret = time1 < time2 ? -1 :
 			(time1 > time2 ? 1 : 0);
@@ -262,13 +261,13 @@ static int sort_node_cmp_type(struct sort_cmp_context *ctx,
 			size1 = ctx->cache_size;
 		else {
 			mail_set_seq(ctx->mail, n1->seq);
-			size1 = mail_get_virtual_size(ctx->mail);
-			if (size1 == (uoff_t)-1) size1 = 0;
+			if (mail_get_virtual_size(ctx->mail, &size1) < 0)
+				size1 = 0;
 		}
 
 		mail_set_seq(ctx->mail, n2->seq);
-		size2 = mail_get_virtual_size(ctx->mail);
-		if (size2 == (uoff_t)-1) size2 = 0;
+		if (mail_get_virtual_size(ctx->mail, &size2) < 0)
+			size2 = 0;
 
 		ret = size1 < size2 ? -1 :
 			(size1 > size2 ? 1 : 0);
@@ -469,24 +468,25 @@ static uint32_t get_sort_id_arrival(struct mail *mail)
 {
 	time_t time;
 
-	time = mail_get_received_date(mail);
-	return time == (time_t)-1 ? 0 : time;
+	if (mail_get_received_date(mail, &time) < 0)
+		return 0;
+	return time;
 }
 
 static uint32_t get_sort_id_date(struct mail *mail)
 {
 	time_t time;
 
-	time = mail_get_date(mail, NULL);
-	return time == (time_t)-1 ? 0 : time;
+	if (mail_get_date(mail, &time, NULL) < 0)
+		return 0;
+	return time;
 }
 
 static uint32_t get_sort_id_size(struct mail *mail)
 {
 	uoff_t size;
 
-	size = mail_get_virtual_size(mail);
-	if (size == (uoff_t)-1)
+	if (mail_get_virtual_size(mail, &size) < 0)
 		return 0;
 
 	/* FIXME: elsewhere we support 64bit message sizes, but here
@@ -494,7 +494,7 @@ static uint32_t get_sort_id_size(struct mail *mail)
 	   to support 64bit here currently, so until such messages
 	   actually start showing up somewhere, 32bit is enough */
 	i_assert(size <= (uint32_t)-1);
-	return size == size;
+	return size;
 }
 
 static void index_sort_preset_sort_ids(struct mail_search_sort_program *program,

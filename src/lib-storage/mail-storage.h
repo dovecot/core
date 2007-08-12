@@ -143,6 +143,7 @@ enum mailbox_sync_type {
 	MAILBOX_SYNC_TYPE_KEYWORDS	= 0x04
 };
 
+struct message_part;
 struct mail_namespace;
 struct mail_storage;
 struct mail_search_arg;
@@ -390,13 +391,6 @@ int mailbox_copy(struct mailbox_transaction_context *t, struct mail *mail,
    do forced CLOSE. */
 bool mailbox_is_inconsistent(struct mailbox *box);
 
-/* Returns message's flags */
-enum mail_flags mail_get_flags(struct mail *mail);
-/* Returns message's keywords */
-const char *const *mail_get_keywords(struct mail *mail);
-/* Returns message's MIME parts */
-const struct message_part *mail_get_parts(struct mail *mail);
-
 struct mail *mail_alloc(struct mailbox_transaction_context *t,
 			enum mail_fetch_field wanted_fields,
 			struct mailbox_header_lookup_ctx *wanted_headers);
@@ -406,44 +400,54 @@ void mail_set_seq(struct mail *mail, uint32_t seq);
    mail_*() functions shouldn't be called if FALSE is returned. */
 bool mail_set_uid(struct mail *mail, uint32_t uid);
 
-/* Get the Date-header of the mail. Timezone is in minutes.
-   Returns (time_t)-1 if error occurred, 0 if field wasn't found or
-   couldn't be parsed. */
-time_t mail_get_date(struct mail *mail, int *timezone);
-/* Get the time when the mail was received (IMAP INTERNALDATE).
-   Returns (time_t)-1 if error occurred. */
-time_t mail_get_received_date(struct mail *mail);
+/* Returns message's flags */
+enum mail_flags mail_get_flags(struct mail *mail);
+/* Returns message's keywords */
+const char *const *mail_get_keywords(struct mail *mail);
+
+/* Returns message's MIME parts */
+int mail_get_parts(struct mail *mail, const struct message_part **parts_r);
+
+/* Get the Date-header of the mail. Timezone is in minutes. date=0 if it
+   wasn't found or it was invalid. */
+int mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r);
+/* Get the time when the mail was received (IMAP INTERNALDATE). */
+int mail_get_received_date(struct mail *mail, time_t *date_r);
 /* Get the time when the mail was saved into this mailbox. This time may not
-   always be entirely reliable. Returns (time_t)-1 if error occurred. */
-time_t mail_get_save_date(struct mail *mail);
+   always be entirely reliable. */
+int mail_get_save_date(struct mail *mail, time_t *date_r);
 
 /* Get the space used by the mail as seen by the reader. Linefeeds are always
-   counted as being CR+LF. Returns (uoff_t)-1 if error occurred */
-uoff_t mail_get_virtual_size(struct mail *mail);
-/* Get the space used by the mail in disk.
-   Returns (uoff_t)-1 if error occurred */
-uoff_t mail_get_physical_size(struct mail *mail);
+   counted as being CR+LF. */
+int mail_get_virtual_size(struct mail *mail, uoff_t *size_r);
+/* Get the space used by the mail in disk. */
+int mail_get_physical_size(struct mail *mail, uoff_t *size_r);
 
-/* Get value for single header field */
-const char *mail_get_first_header(struct mail *mail, const char *field);
+/* Get value for single header field, or NULL if header wasn't found.
+   Returns 1 if header was found, 0 if not, -1 if error. */
+int mail_get_first_header(struct mail *mail, const char *field,
+			  const char **value_r);
 /* Like mail_get_first_header(), but decode MIME encoded words to UTF-8 */
-const char *mail_get_first_header_utf8(struct mail *mail, const char *field);
+int mail_get_first_header_utf8(struct mail *mail, const char *field,
+			       const char **value_r);
 /* Return a NULL-terminated list of values for each found field. */
-const char *const *mail_get_headers(struct mail *mail, const char *field);
+int mail_get_headers(struct mail *mail, const char *field,
+		     const char *const **value_r);
 /* Like mail_get_headers(), but decode MIME encoded words to UTF-8 */
-const char *const *mail_get_headers_utf8(struct mail *mail, const char *field);
+int mail_get_headers_utf8(struct mail *mail, const char *field,
+			  const char *const **value_r);
 /* Returns stream containing specified headers. */
-struct istream *
-mail_get_header_stream(struct mail *mail,
-		       struct mailbox_header_lookup_ctx *headers);
+int mail_get_header_stream(struct mail *mail,
+			   struct mailbox_header_lookup_ctx *headers,
+			   struct istream **stream_r);
 /* Returns input stream pointing to beginning of message header.
    hdr_size and body_size are updated unless they're NULL. */
-struct istream *mail_get_stream(struct mail *mail,
-				struct message_size *hdr_size,
-				struct message_size *body_size);
+int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
+		    struct message_size *body_size, struct istream **stream_r);
 
 /* Get any of the "special" fields. */
-const char *mail_get_special(struct mail *mail, enum mail_fetch_field field);
+int mail_get_special(struct mail *mail, enum mail_fetch_field field,
+		     const char **value_r);
 
 /* Update message flags. */
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,

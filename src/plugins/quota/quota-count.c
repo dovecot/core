@@ -29,8 +29,7 @@ static int quota_count_mailbox(struct mail_storage *storage, const char *name,
 	ctx = mailbox_search_init(trans, NULL, &search_arg, NULL);
 	mail = mail_alloc(trans, MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	while (mailbox_search_next(ctx, mail) > 0) {
-		size = mail_get_physical_size(mail);
-		if (size != (uoff_t)-1)
+		if (mail_get_physical_size(mail, &size) == 0)
 			*bytes_r += size;
 		*count_r += 1;
 	}

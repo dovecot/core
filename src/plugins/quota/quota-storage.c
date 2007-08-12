@@ -53,8 +53,7 @@ static void quota_mail_expunge(struct mail *_mail)
 	   the mail at the same time. In here we'll just save the message's
 	   physical size and do the quota freeing later when the message was
 	   known to be expunged. */
-	size = mail_get_physical_size(_mail);
-	if (size != (uoff_t)-1) {
+	if (mail_get_physical_size(_mail, &size) == 0) {
 		if (!array_is_created(&qbox->expunge_uids)) {
 			i_array_init(&qbox->expunge_uids, 64);
 			i_array_init(&qbox->expunge_sizes, 64);
@@ -318,12 +317,8 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 			mail_alloc(qbox->expunge_trans,
 				   MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	}
-	if (!mail_set_uid(qbox->expunge_qt->tmp_mail, uid))
-		size = (uoff_t)-1;
-	else
-		size = mail_get_physical_size(qbox->expunge_qt->tmp_mail);
-
-	if (size != (uoff_t)-1)
+	if (mail_set_uid(qbox->expunge_qt->tmp_mail, uid) &&
+	    mail_get_physical_size(qbox->expunge_qt->tmp_mail, &size) == 0)
 		quota_free_bytes(qbox->expunge_qt, size);
 	else {
 		/* there's no way to get the size. recalculate the quota. */

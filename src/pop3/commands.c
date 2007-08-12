@@ -379,12 +379,8 @@ static void fetch(struct client *client, unsigned int msgnum, uoff_t body_lines)
 	ctx->mail = mail_alloc(client->trans, MAIL_FETCH_STREAM_HEADER |
 			       MAIL_FETCH_STREAM_BODY, NULL);
 
-	if (mailbox_search_next(ctx->search_ctx, ctx->mail) <= 0)
-		ctx->stream = NULL;
-	else
-		ctx->stream = mail_get_stream(ctx->mail, NULL, NULL);
-
-	if (ctx->stream == NULL) {
+	if (mailbox_search_next(ctx->search_ctx, ctx->mail) <= 0 ||
+	    mail_get_stream(ctx->mail, NULL, NULL, &ctx->stream) < 0) {
 		client_send_line(client, "-ERR Message not found.");
 		fetch_deinit(ctx);
 		return;
@@ -542,18 +538,18 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		if ((uidl_keymask & UIDL_UID) != 0)
 			tab[1].value = dec2str(ctx->mail->uid);
 		if ((uidl_keymask & UIDL_MD5) != 0) {
-			tab[2].value = mail_get_special(ctx->mail,
-							MAIL_FETCH_HEADER_MD5);
-			if (tab[2].value == NULL) {
+			if (mail_get_special(ctx->mail, MAIL_FETCH_HEADER_MD5,
+					     &tab[2].value) < 0 ||
+			    *tab[2].value == '\0') {
 				/* broken */
 				i_fatal("UIDL: Header MD5 not found");
 			}
 		}
 		if ((uidl_keymask & UIDL_FILE_NAME) != 0) {
-			tab[3].value =
-				mail_get_special(ctx->mail,
-						 MAIL_FETCH_UIDL_FILE_NAME);
-			if (tab[3].value == NULL) {
+			if (mail_get_special(ctx->mail,
+					     MAIL_FETCH_UIDL_FILE_NAME,
+					     &tab[3].value) < 0 ||
+			    *tab[3].value == '\0') {
 				/* broken */
 				i_fatal("UIDL: File name not found");
 			}
@@ -563,12 +559,11 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 		str_printfa(str, ctx->message == 0 ? "%u " : "+OK %u ",
 			    ctx->mail->seq);
 
-		uidl = !reuse_xuidl ? NULL :
-			mail_get_first_header(ctx->mail, "X-UIDL");
-		if (uidl == NULL)
-			var_expand(str, uidl_format, tab);
-		else
+		if (reuse_xuidl &&
+		    mail_get_first_header(ctx->mail, "X-UIDL", &uidl) > 0)
 			str_append(str, uidl);
+		else
+			var_expand(str, uidl_format, tab);
 		ret = client_send_line(client, "%s", str_c(str));
 		t_pop();
 

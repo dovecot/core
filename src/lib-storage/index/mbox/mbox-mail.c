@@ -91,19 +91,19 @@ static int mbox_mail_seek(struct index_mail *mail)
 	return 0;
 }
 
-static time_t mbox_mail_get_received_date(struct mail *_mail)
+static int mbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
 	uint32_t t;
 
-	(void)index_mail_get_received_date(_mail);
-	if (data->received_date != (time_t)-1)
-		return data->received_date;
+	(void)index_mail_get_received_date(_mail, date_r);
+	if (*date_r != (time_t)-1)
+		return 0;
 
 	if (mbox_mail_seek(mail) < 0)
-		return (time_t)-1;
+		return -1;
 	data->received_date =
 		istream_raw_mbox_get_received_time(mbox->mbox_stream);
 	if (data->received_date == (time_t)-1) {
@@ -114,17 +114,18 @@ static time_t mbox_mail_get_received_date(struct mail *_mail)
 
 	t = data->received_date;
 	index_mail_cache_add(mail, MAIL_CACHE_RECEIVED_DATE, &t, sizeof(t));
-	return data->received_date;
+	*date_r = data->received_date;
+	return 0;
 }
 
-static time_t mbox_mail_get_save_date(struct mail *_mail)
+static int mbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 
-	(void)index_mail_get_save_date(_mail);
-	if (data->save_date != (time_t)-1)
-		return data->save_date;
+	(void)index_mail_get_save_date(_mail, date_r);
+	if (*date_r != (time_t)-1)
+		return 0;
 
 	/* no way to know this. save the current time into cache and use
 	   that from now on. this works only as long as the index files
@@ -132,27 +133,30 @@ static time_t mbox_mail_get_save_date(struct mail *_mail)
 	data->save_date = ioloop_time;
 	index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE,
 			     &data->save_date, sizeof(data->save_date));
-	return data->save_date;
+	*date_r = data->save_date;
+	return 0;
 }
 
-static const char *
-mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
+static int
+mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
+		      const char **value_r)
 {
 #define EMPTY_MD5_SUM "00000000000000000000000000000000"
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->ibox;
-	const char *value;
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:
 		if (mbox_mail_seek(mail) < 0)
-			return NULL;
+			return -1;
 
-		return istream_raw_mbox_get_sender(mbox->mbox_stream);
+		*value_r = istream_raw_mbox_get_sender(mbox->mbox_stream);
+		return 0;
 	case MAIL_FETCH_HEADER_MD5:
-		value = index_mail_get_special(_mail, field);
-		if (value != NULL && strcmp(value, EMPTY_MD5_SUM) != 0)
-			return value;
+		if (index_mail_get_special(_mail, field, value_r) < 0)
+			return -1;
+		if (**value_r != '\0' && strcmp(*value_r, EMPTY_MD5_SUM) != 0)
+			return 0;
 
 		/* i guess in theory the EMPTY_MD5_SUM is valid and can happen,
 		   but it's almost guaranteed that it means the MD5 sum is
@@ -160,16 +164,16 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field)
 		mbox->mbox_save_md5 = TRUE;
                 mbox_prepare_resync(mail);
 		if (mbox_sync(mbox, MBOX_SYNC_FORCE_SYNC) < 0)
-			return NULL;
+			return -1;
 		break;
 	default:
 		break;
 	}
 
-	return index_mail_get_special(_mail, field);
+	return index_mail_get_special(_mail, field, value_r);
 }
 
-static uoff_t mbox_mail_get_physical_size(struct mail *_mail)
+static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
@@ -178,24 +182,28 @@ static uoff_t mbox_mail_get_physical_size(struct mail *_mail)
 	uoff_t hdr_offset, body_offset, body_size;
 
 	if (mbox_mail_seek(mail) < 0)
-		return (uoff_t)-1;
+		return -1;
 
 	/* our header size varies, so don't do any caching */
 	stream = mbox->mbox_stream;
 	hdr_offset = istream_raw_mbox_get_header_offset(stream);
 	body_offset = istream_raw_mbox_get_body_offset(stream);
-	if (body_offset == (uoff_t)-1)
-		return (uoff_t)-1;
+	if (body_offset == (uoff_t)-1) {
+		mail_storage_set_critical(_mail->box->storage,
+					  "Couldn't get mbox size");
+		return -1;
+	}
 	body_size = istream_raw_mbox_get_body_size(stream, (uoff_t)-1);
 
 	data->physical_size = (body_offset - hdr_offset) + body_size;
-	return data->physical_size;
-
+	*size_r = data->physical_size;
+	return 0;
 }
 
-static struct istream *mbox_mail_get_stream(struct mail *_mail,
-					    struct message_size *hdr_size,
-					    struct message_size *body_size)
+static int mbox_mail_get_stream(struct mail *_mail,
+				struct message_size *hdr_size,
+				struct message_size *body_size,
+				struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
@@ -205,7 +213,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 
 	if (data->stream == NULL) {
 		if (mbox_mail_seek(mail) < 0)
-			return NULL;
+			return -1;
 
 		raw_stream = mbox->mbox_stream;
 		offset = istream_raw_mbox_get_header_offset(raw_stream);
@@ -219,7 +227,7 @@ static struct istream *mbox_mail_get_stream(struct mail *_mail,
 		i_stream_unref(&raw_stream);
 	}
 
-	return index_mail_init_stream(mail, hdr_size, body_size);
+	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 
 struct mail_vfuncs mbox_mail_vfuncs = {

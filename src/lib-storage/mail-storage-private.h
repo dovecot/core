@@ -201,27 +201,28 @@ struct mail_vfuncs {
 
 	enum mail_flags (*get_flags)(struct mail *mail);
 	const char *const *(*get_keywords)(struct mail *mail);
-	const struct message_part *(*get_parts)(struct mail *mail);
 
-	time_t (*get_date)(struct mail *mail, int *timezone);
-	time_t (*get_received_date)(struct mail *mail);
-	time_t (*get_save_date)(struct mail *mail);
-	uoff_t (*get_virtual_size)(struct mail *mail);
-	uoff_t (*get_physical_size)(struct mail *mail);
+	int (*get_parts)(struct mail *mail,
+			 const struct message_part **parts_r);
+	int (*get_date)(struct mail *mail, time_t *date_r, int *timezone_r);
+	int (*get_received_date)(struct mail *mail, time_t *date_r);
+	int (*get_save_date)(struct mail *mail, time_t *date_r);
+	int (*get_virtual_size)(struct mail *mail, uoff_t *size_r);
+	int (*get_physical_size)(struct mail *mail, uoff_t *size_r);
 
-	const char *(*get_first_header)(struct mail *mail, const char *field,
-					bool decode_to_utf8);
-	const char *const *(*get_headers)(struct mail *mail, const char *field,
-					  bool decode_to_utf8);
-	struct istream *
-		(*get_header_stream)(struct mail *mail,
-				     struct mailbox_header_lookup_ctx *headers);
-	struct istream *(*get_stream)(struct mail *mail,
-				      struct message_size *hdr_size,
-				      struct message_size *body_size);
+	int (*get_first_header)(struct mail *mail, const char *field,
+				bool decode_to_utf8, const char **value_r);
+	int (*get_headers)(struct mail *mail, const char *field,
+			   bool decode_to_utf8, const char *const **value_r);
+	int (*get_header_stream)(struct mail *mail,
+				 struct mailbox_header_lookup_ctx *headers,
+				 struct istream **stream_r);
+	int (*get_stream)(struct mail *mail, struct message_size *hdr_size,
+			  struct message_size *body_size,
+			  struct istream **stream_r);
 
-	const char *(*get_special)(struct mail *mail,
-				   enum mail_fetch_field field);
+	int (*get_special)(struct mail *mail, enum mail_fetch_field field,
+			   const char **value_r);
 
 	void (*update_flags)(struct mail *mail, enum modify_type modify_type,
 			     enum mail_flags flags);

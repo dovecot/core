@@ -403,8 +403,7 @@ static int fetch_body(struct imap_fetch_context *ctx, struct mail *mail,
 {
 	const char *body;
 
-	body = mail_get_special(mail, MAIL_FETCH_IMAP_BODY);
-	if (body == NULL)
+	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODY, &body) < 0)
 		return -1;
 
 	if (ctx->first)
@@ -438,8 +437,8 @@ static int fetch_bodystructure(struct imap_fetch_context *ctx,
 {
 	const char *bodystructure;
 
-	bodystructure = mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE);
-	if (bodystructure == NULL)
+	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE,
+			     &bodystructure) < 0)
 		return -1;
 
 	if (ctx->first)
@@ -473,8 +472,7 @@ static int fetch_envelope(struct imap_fetch_context *ctx, struct mail *mail,
 {
 	const char *envelope;
 
-	envelope = mail_get_special(mail, MAIL_FETCH_IMAP_ENVELOPE);
-	if (envelope == NULL)
+	if (mail_get_special(mail, MAIL_FETCH_IMAP_ENVELOPE, &envelope) < 0)
 		return -1;
 
 	if (ctx->first)
@@ -538,14 +536,13 @@ fetch_flags_init(struct imap_fetch_context *ctx, const char *name,
 static int fetch_internaldate(struct imap_fetch_context *ctx, struct mail *mail,
 			      void *context __attr_unused__)
 {
-	time_t time;
+	time_t date;
 
-	time = mail_get_received_date(mail);
-	if (time == (time_t)-1)
+	if (mail_get_received_date(mail, &date) < 0)
 		return -1;
 
 	str_printfa(ctx->cur_str, "INTERNALDATE \"%s\" ",
-		    imap_to_datetime(time));
+		    imap_to_datetime(date));
 	return 1;
 }
 

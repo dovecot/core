@@ -12,15 +12,20 @@ int mail_storage_copy(struct mailbox_transaction_context *t, struct mail *mail,
 	struct mail_save_context *ctx;
 	struct istream *input;
 	const char *from_envelope;
+	time_t received_date;
 
-	input = mail_get_stream(mail, NULL, NULL);
-	if (input == NULL)
+	if (mail_get_stream(mail, NULL, NULL, &input) < 0)
+		return -1;
+	if (mail_get_received_date(mail, &received_date) < 0)
+		return -1;
+	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE,
+			     &from_envelope) < 0)
 		return -1;
 
-	from_envelope = mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE);
+	if (*from_envelope == '\0')
+		from_envelope = NULL;
 
-	if (mailbox_save_init(t, flags, keywords,
-			      mail_get_received_date(mail),
+	if (mailbox_save_init(t, flags, keywords, received_date,
 			      0, from_envelope, input, dest_mail, &ctx) < 0)
 		return -1;
 
