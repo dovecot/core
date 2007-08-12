@@ -54,19 +54,6 @@ static void _view_close(struct mail_index_view *view)
 	i_free(view);
 }
 
-#ifdef DEBUG
-static void mail_index_view_check_nextuid(struct mail_index_view *view)
-{
-	struct mail_index_record *rec;
-
-	if (view->map->hdr.messages_count == 0)
-		return;
-
-	rec = MAIL_INDEX_MAP_IDX(view->map, view->map->hdr.messages_count-1);
-	i_assert(rec->uid < view->map->hdr.next_uid);
-}
-#endif
-
 bool mail_index_view_is_inconsistent(struct mail_index_view *view)
 {
 	if (view->index->indexid != view->indexid)
