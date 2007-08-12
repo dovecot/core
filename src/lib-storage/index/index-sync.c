@@ -179,18 +179,17 @@ static bool sync_rec_check_skips(struct index_mailbox_sync_context *ctx,
 	return TRUE;
 }
 
-int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
-			    struct mailbox_sync_rec *sync_rec_r)
+bool index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
+			     struct mailbox_sync_rec *sync_rec_r)
 {
 	struct index_mailbox_sync_context *ctx =
 		(struct index_mailbox_sync_context *)_ctx;
 	struct mail_index_view_sync_rec sync;
-	int ret;
 
 	if (ctx->failed)
-		return -1;
+		return FALSE;
 
-	while ((ret = mail_index_view_sync_next(ctx->sync_ctx, &sync)) > 0) {
+	while (mail_index_view_sync_next(ctx->sync_ctx, &sync)) {
 		switch (sync.type) {
 		case MAIL_INDEX_SYNC_TYPE_APPEND:
 			/* not interested */
@@ -219,10 +218,6 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 				MAILBOX_SYNC_TYPE_KEYWORDS;
 			return 1;
 		}
-	}
-	if (ret < 0) {
-		mail_storage_set_index_error(ctx->ibox);
-		return -1;
 	}
 
 	if (ctx->expunge_pos > 0) {
@@ -316,8 +311,10 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	uint32_t seq1, seq2;
 	int ret = ctx->failed ? -1 : 0;
 
-	if (ctx->sync_ctx != NULL)
-		mail_index_view_sync_end(&ctx->sync_ctx);
+	if (ctx->sync_ctx != NULL) {
+		if (mail_index_view_sync_commit(&ctx->sync_ctx) < 0)
+			ret = -1;
+	}
 	index_mailbox_expunge_unseen_recent(ctx);
 
 	if (ibox->keep_recent) {

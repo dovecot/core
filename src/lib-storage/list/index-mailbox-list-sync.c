@@ -296,13 +296,13 @@ index_list_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	return ibox->module_ctx.super.sync_init(box, flags);
 }
 
-static int index_list_sync_next(struct mailbox_sync_context *ctx,
-				struct mailbox_sync_rec *sync_rec_r)
+static bool index_list_sync_next(struct mailbox_sync_context *ctx,
+				 struct mailbox_sync_rec *sync_rec_r)
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(ctx->box);
 
 	if (!ctx->box->opened)
-		return 0;
+		return FALSE;
 
 	return ibox->module_ctx.super.sync_next(ctx, sync_rec_r);
 }

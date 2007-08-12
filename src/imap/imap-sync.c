@@ -113,13 +113,9 @@ int imap_sync_more(struct imap_sync_context *ctx)
 	for (;;) {
 		if (ctx->seq == 0) {
 			/* get next one */
-			ret = mailbox_sync_next(ctx->sync_ctx,
-						&ctx->sync_rec);
-			if (ret <= 0) {
-				if (ret == 0) {
-					/* all finished ok */
-					ret = 1;
-				}
+			if (!mailbox_sync_next(ctx->sync_ctx, &ctx->sync_rec)) {
+				/* finished */
+				ret = 1;
 				break;
 			}
 		}
@@ -199,7 +195,7 @@ int imap_sync_nonselected(struct mailbox *box, enum mailbox_sync_flags flags)
         struct mailbox_sync_rec sync_rec;
 
 	ctx = mailbox_sync_init(box, flags);
-	while (mailbox_sync_next(ctx, &sync_rec) > 0)
+	while (mailbox_sync_next(ctx, &sync_rec))
 		;
 	return mailbox_sync_deinit(&ctx, 0, NULL);
 }

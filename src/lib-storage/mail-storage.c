@@ -498,8 +498,8 @@ mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	return box->v.sync_init(box, flags);
 }
 
-int mailbox_sync_next(struct mailbox_sync_context *ctx,
-		      struct mailbox_sync_rec *sync_rec_r)
+bool mailbox_sync_next(struct mailbox_sync_context *ctx,
+		       struct mailbox_sync_rec *sync_rec_r)
 {
 	return ctx->box->v.sync_next(ctx, sync_rec_r);
 }

@@ -19,6 +19,7 @@ struct mail_index_view_sync_ctx {
 	const void *data;
 
 	size_t data_offset;
+	unsigned int failed:1;
 	unsigned int sync_map_update:1;
 	unsigned int skipped_expunges:1;
 	unsigned int last_read:1;
@@ -556,22 +557,25 @@ mail_index_view_sync_get_rec(struct mail_index_view_sync_ctx *ctx,
 	return TRUE;
 }
 
-int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
-			      struct mail_index_view_sync_rec *sync_rec)
+bool mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
+			       struct mail_index_view_sync_rec *sync_rec)
 {
 	int ret;
 
 	do {
 		if (ctx->hdr == NULL || ctx->data_offset == ctx->hdr->size) {
 			ret = mail_index_view_sync_get_next_transaction(ctx);
-			if (ret <= 0)
-				return ret;
+			if (ret <= 0) {
+				if (ret < 0)
+					ctx->failed = TRUE;
+				return FALSE;
+			}
 
 			ctx->data_offset = 0;
 		}
 	} while (!mail_index_view_sync_get_rec(ctx, sync_rec));
 
-	return 1;
+	return TRUE;
 }
 
 void mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
@@ -602,10 +606,11 @@ mail_index_view_sync_clean_log_syncs(struct mail_index_view *view)
 		array_delete(&view->syncs_hidden, 0, i);
 }
 
-void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
+int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **_ctx)
 {
         struct mail_index_view_sync_ctx *ctx = *_ctx;
         struct mail_index_view *view = ctx->view;
+	int ret = ctx->failed ? -1 : 0;
 
 	i_assert(view->syncing);
 
@@ -614,6 +619,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 	if (!ctx->last_read) {
 		/* we didn't sync everything */
 		view->inconsistent = TRUE;
+		ret = -1;
 	}
 
 	if (view->sync_new_map != NULL) {
@@ -652,6 +658,7 @@ void mail_index_view_sync_end(struct mail_index_view_sync_ctx **_ctx)
 
 	view->syncing = FALSE;
 	i_free(ctx);
+	return ret;
 }
 
 void mail_index_view_add_hidden_transaction(struct mail_index_view *view,

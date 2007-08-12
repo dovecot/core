@@ -284,13 +284,12 @@ int mail_index_fsck(struct mail_index *index);
 int mail_index_view_sync_begin(struct mail_index_view *view,
                                enum mail_index_view_sync_flags flags,
 			       struct mail_index_view_sync_ctx **ctx_r);
-/* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
-int mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
-			      struct mail_index_view_sync_rec *sync_rec);
+bool mail_index_view_sync_next(struct mail_index_view_sync_ctx *ctx,
+			       struct mail_index_view_sync_rec *sync_rec);
 void
 mail_index_view_sync_get_expunges(struct mail_index_view_sync_ctx *ctx,
 				  const ARRAY_TYPE(seq_range) **expunges_r);
-void mail_index_view_sync_end(struct mail_index_view_sync_ctx **ctx);
+int mail_index_view_sync_commit(struct mail_index_view_sync_ctx **ctx);
 
 /* Returns the index header. */
 const struct mail_index_header *

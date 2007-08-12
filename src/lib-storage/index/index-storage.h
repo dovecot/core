@@ -129,8 +129,8 @@ void index_mailbox_check_remove_all(struct index_mailbox *ibox);
 struct mailbox_sync_context *
 index_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags,
 			bool failed);
-int index_mailbox_sync_next(struct mailbox_sync_context *ctx,
-			    struct mailbox_sync_rec *sync_rec_r);
+bool index_mailbox_sync_next(struct mailbox_sync_context *ctx,
+			     struct mailbox_sync_rec *sync_rec_r);
 int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 			      enum mailbox_status_items status_items,
 			      struct mailbox_status *status_r);

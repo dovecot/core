@@ -285,8 +285,8 @@ void mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
 /* Synchronize the mailbox. */
 struct mailbox_sync_context *
 mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
-int mailbox_sync_next(struct mailbox_sync_context *ctx,
-		      struct mailbox_sync_rec *sync_rec_r);
+bool mailbox_sync_next(struct mailbox_sync_context *ctx,
+		       struct mailbox_sync_rec *sync_rec_r);
 int mailbox_sync_deinit(struct mailbox_sync_context **ctx,
 			enum mailbox_status_items status_items,
 			struct mailbox_status *status_r);
