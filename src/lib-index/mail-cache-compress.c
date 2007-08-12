@@ -129,10 +129,9 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		first_new_seq = 1;
 		message_count = mail_index_view_get_messages_count(view);
 	} else {
-		if (mail_index_lookup_uid_range(view, idx_hdr->day_first_uid[7],
-						(uint32_t)-1, &first_new_seq,
-						&message_count) < 0)
-			return -1;
+		mail_index_lookup_uid_range(view, idx_hdr->day_first_uid[7],
+					    (uint32_t)-1, &first_new_seq,
+					    &message_count);
 		if (first_new_seq == 0)
 			first_new_seq = message_count+1;
 	}

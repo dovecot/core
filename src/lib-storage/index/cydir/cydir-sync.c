@@ -6,7 +6,7 @@
 #include "cydir-storage.h"
 #include "cydir-sync.h"
 
-static int cydir_sync_set_uidvalidity(struct cydir_sync_context *ctx)
+static void cydir_sync_set_uidvalidity(struct cydir_sync_context *ctx)
 {
 	uint32_t uid_validity = ioloop_time;
 
@@ -14,7 +14,6 @@ static int cydir_sync_set_uidvalidity(struct cydir_sync_context *ctx)
 		offsetof(struct mail_index_header, uid_validity),
 		&uid_validity, sizeof(uid_validity), TRUE);
 	ctx->uid_validity = uid_validity;
-	return 0;
 }
 
 static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
@@ -30,7 +29,7 @@ static string_t *cydir_get_path_prefix(struct cydir_mailbox *mbox)
 	return path;
 }
 
-static int
+static void
 cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 {
 	struct mailbox *box = &ctx->mbox->ibox.box;
@@ -42,10 +41,7 @@ cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 	}
 
 	for (; seq1 <= seq2; seq1++) {
-		if (mail_index_lookup_uid(ctx->sync_view, seq1, &uid) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox);
-			return -1;
-		}
+		mail_index_lookup_uid(ctx->sync_view, seq1, &uid);
 
 		str_truncate(ctx->path, ctx->path_dir_prefix_len);
 		str_printfa(ctx->path, "%u.", uid);
@@ -61,7 +57,6 @@ cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 			/* continue anyway */
 		}
 	}
-	return 0;
 }
 
 static int cydir_sync_index(struct cydir_sync_context *ctx)
@@ -75,17 +70,12 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity != 0)
 		ctx->uid_validity = hdr->uid_validity;
-	else {
-		if (cydir_sync_set_uidvalidity(ctx) < 0)
-			return -1;
-	}
+	else
+		cydir_sync_set_uidvalidity(ctx);
 
 	/* mark the newly seen messages as recent */
-	if (mail_index_lookup_uid_range(ctx->sync_view, hdr->first_recent_uid,
-					hdr->next_uid, &seq1, &seq2) < 0) {
-		mail_storage_set_index_error(&ctx->mbox->ibox);
-		return -1;
-	}
+	mail_index_lookup_uid_range(ctx->sync_view, hdr->first_recent_uid,
+				    hdr->next_uid, &seq1, &seq2);
 	if (seq1 != 0) {
 		index_mailbox_set_recent_seq(&ctx->mbox->ibox, ctx->sync_view,
 					     seq1, seq2);
@@ -94,12 +84,9 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 	while (ret > 0 &&
 	       (ret = mail_index_sync_next(ctx->index_sync_ctx,
 					   &sync_rec)) > 0) {
-		if (mail_index_lookup_uid_range(ctx->sync_view,
-						sync_rec.uid1, sync_rec.uid2,
-						&seq1, &seq2) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox);
-			return -1;
-		}
+		mail_index_lookup_uid_range(ctx->sync_view,
+					    sync_rec.uid1, sync_rec.uid2,
+					    &seq1, &seq2);
 		if (seq1 == 0) {
 			/* already expunged, nothing to do. */
 			continue;
@@ -110,8 +97,7 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 			/* don't care */
 			break;
 		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-			if (cydir_sync_expunge(ctx, seq1, seq2) < 0)
-				ret = -1;
+			cydir_sync_expunge(ctx, seq1, seq2);
 			break;
 		case MAIL_INDEX_SYNC_TYPE_FLAGS:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:

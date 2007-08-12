@@ -296,9 +296,7 @@ list_index_get_info_flags(struct index_mailbox_list_iterate_context *ctx,
 	const struct mail_index_record *rec;
 	uint32_t seq;
 
-	if (mail_index_lookup_uid_range(ctx->mail_view, uid, uid,
-					&seq, &seq) < 0)
-		return -1;
+	mail_index_lookup_uid_range(ctx->mail_view, uid, uid, &seq, &seq);
 	if (seq == 0) {
 		i_error("Mailbox list index desynced: "
 			"Record uid=%u expunged from mail index", uid);

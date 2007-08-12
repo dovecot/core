@@ -35,15 +35,8 @@ imap_uidset_parse(pool_t pool, struct mailbox *box, const char *uidset,
 		}
 
 		last = seqset->seq2 == (uint32_t)-1;
-		if (mailbox_get_uids(box, seqset->seq1, seqset->seq2,
-				     &seqset->seq1, &seqset->seq2) < 0) {
-			struct mail_storage *storage = mailbox_get_storage(box);
-			enum mail_error error;
-
-			*error_r = mail_storage_get_last_error(storage, &error);
-			return -1;
-		}
-
+		mailbox_get_uids(box, seqset->seq1, seqset->seq2,
+				 &seqset->seq1, &seqset->seq2);
 		if (seqset->seq1 == 0 && last) {
 			/* we need special case for too_high_uid:* case */
 			seqset->seq1 = seqset->seq2 = (uint32_t)-1;

@@ -230,9 +230,8 @@ sync_expunge(const struct mail_transaction_expunge *e, unsigned int count,
 	unsigned int i;
 
 	for (i = 0; i < count; i++, e++) {
-		if (mail_index_lookup_uid_range(ctx->view, e->uid1, e->uid2,
-						&seq1, &seq2) < 0)
-			return -1;
+		mail_index_lookup_uid_range(ctx->view, e->uid1, e->uid2,
+					    &seq1, &seq2);
 		if (seq1 == 0) {
 			/* everything expunged already */
 			continue;
@@ -343,10 +342,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	uint8_t flag_mask, old_flags;
 	uint32_t idx, seq1, seq2;
 
-	if (mail_index_lookup_uid_range(view, u->uid1, u->uid2,
-					&seq1, &seq2) < 0)
-		return -1;
-
+	mail_index_lookup_uid_range(view, u->uid1, u->uid2, &seq1, &seq2);
 	if (seq1 == 0)
 		return 1;
 
@@ -685,9 +681,6 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	bool had_dirty, reset;
 
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
-
-	if (mail_index_map_lock(map) < 0)
-		return -1;
 
 	if (!force) {
 		/* see if we'd prefer to reopen the index file instead of

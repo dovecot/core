@@ -246,10 +246,8 @@ maildir_index_update_ext_header(struct maildir_mailbox *mbox,
 	const void *data;
 	size_t data_size;
 
-	if (mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
-				      &data, &data_size) < 0)
-		data_size = 0;
-
+	mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
+				  &data, &data_size);
 	if (data_size != sizeof(mbox->maildir_hdr) ||
 	    maildir_index_header_has_changed(data, &mbox->maildir_hdr)) {
 		mail_index_update_header_ext(trans, mbox->maildir_ext_id, 0,

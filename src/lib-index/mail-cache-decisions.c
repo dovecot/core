@@ -87,8 +87,7 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 	}
 
 	/* see if we want to change decision from TEMP to YES */
-	if (mail_index_lookup_uid(view->view, seq, &uid) < 0)
-		return;
+	mail_index_lookup_uid(view->view, seq, &uid);
 	hdr = mail_index_get_header(view->view);
 
 	if (ioloop_time - cache->fields[field].last_used > 3600*24) {
@@ -136,6 +135,6 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 	cache->fields[field].decision_dirty = TRUE;
 	cache->field_header_write_pending = TRUE;
 
-	if (mail_index_lookup_uid(view->view, seq, &uid) == 0)
-		cache->fields[field].uid_highwater = uid;
+	mail_index_lookup_uid(view->view, seq, &uid);
+	cache->fields[field].uid_highwater = uid;
 }

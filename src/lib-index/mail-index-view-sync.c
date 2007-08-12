@@ -185,12 +185,8 @@ view_sync_get_expunges(struct mail_index_view *view,
 	src = dest = array_get_modifiable(expunges_r, &count);
 	src_end = src + count;
 	for (; src != src_end; src++) {
-		ret = mail_index_lookup_uid_range(view, src->seq1,
-						  src->seq2,
-						  &dest->seq1,
-						  &dest->seq2);
-		i_assert(ret == 0);
-
+		mail_index_lookup_uid_range(view, src->seq1, src->seq2,
+					    &dest->seq1, &dest->seq2);
 		if (dest->seq1 == 0)
 			count--;
 		else {
@@ -206,21 +202,20 @@ view_sync_get_expunges(struct mail_index_view *view,
 	return 0;
 }
 
-static int have_existing_expunges(struct mail_index_view *view,
-				  const struct seq_range *range, size_t size)
+static bool have_existing_expunges(struct mail_index_view *view,
+				   const struct seq_range *range, size_t size)
 {
 	const struct seq_range *range_end;
 	uint32_t seq1, seq2;
 
 	range_end = CONST_PTR_OFFSET(range, size);
 	for (; range < range_end; range++) {
-		if (mail_index_lookup_uid_range(view, range->seq1, range->seq2,
-						&seq1, &seq2) < 0)
-			return -1;
+		mail_index_lookup_uid_range(view, range->seq1, range->seq2,
+					    &seq1, &seq2);
 		if (seq1 != 0)
-			return 1;
+			return TRUE;
 	}
-	return 0;
+	return FALSE;
 }
 
 static bool view_sync_have_expunges(struct mail_index_view *view)
@@ -229,7 +224,8 @@ static bool view_sync_have_expunges(struct mail_index_view *view)
 	const void *data;
 	uint32_t seq;
 	uoff_t offset;
-	int ret = 0;
+	bool have_expunges = FALSE;
+	int ret;
 
 	mail_transaction_log_view_get_prev_pos(view->log_view,
 					       &seq, &offset);
@@ -244,16 +240,17 @@ static bool view_sync_have_expunges(struct mail_index_view *view)
 		}
 
 		/* we have an expunge. see if it still exists. */
-		ret = have_existing_expunges(view, data, hdr->size);
-		if (ret != 0)
+		if (have_existing_expunges(view, data, hdr->size)) {
+			have_expunges = TRUE;
 			break;
+		}
 	}
 
 	mail_transaction_log_view_seek(view->log_view, seq, offset);
 
 	/* handle failures as having expunges (which is safer).
 	   we'll probably fail later. */
-	return ret != 0;
+	return ret < 0 || have_expunges;
 }
 
 int mail_index_view_sync_begin(struct mail_index_view *view,
@@ -268,9 +265,6 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
-
-	if (mail_index_map_lock(view->index->map) < 0)
-		return -1;
 
 	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;
 	if (sync_expunges) {

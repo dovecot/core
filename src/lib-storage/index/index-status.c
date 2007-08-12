@@ -3,11 +3,15 @@
 #include "lib.h"
 #include "index-storage.h"
 
-int index_storage_get_status_locked(struct index_mailbox *ibox,
-				    enum mailbox_status_items items,
-				    struct mailbox_status *status_r)
+void index_storage_get_status(struct mailbox *box,
+			      enum mailbox_status_items items,
+			      struct mailbox_status *status_r)
 {
+	struct index_mailbox *ibox = (struct index_mailbox *)box;
 	const struct mail_index_header *hdr;
+
+	if (!box->opened)
+		index_storage_mailbox_open(ibox);
 
 	memset(status_r, 0, sizeof(struct mailbox_status));
 
@@ -23,29 +27,10 @@ int index_storage_get_status_locked(struct index_mailbox *ibox,
 	status_r->uidnext = hdr->next_uid;
 
 	if (items & STATUS_FIRST_UNSEEN_SEQ) {
-		if (mail_index_lookup_first(ibox->view, 0, MAIL_SEEN,
-					    &status_r->first_unseen_seq) < 0) {
-			mail_storage_set_index_error(ibox);
-			return -1;
-		}
+		mail_index_lookup_first(ibox->view, 0, MAIL_SEEN,
+					&status_r->first_unseen_seq);
 	}
 
 	if (items & STATUS_KEYWORDS)
 		status_r->keywords = mail_index_get_keywords(ibox->index);
-	return 0;
-}
-
-int index_storage_get_status(struct mailbox *box,
-			     enum mailbox_status_items items,
-			     struct mailbox_status *status)
-{
-	struct index_mailbox *ibox = (struct index_mailbox *)box;
-	int ret;
-
-	if (!box->opened)
-		index_storage_mailbox_open(ibox);
-
-	ret = index_storage_get_status_locked(ibox, items, status);
-	mail_index_view_unlock(ibox->view);
-	return ret;
 }

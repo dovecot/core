@@ -840,10 +840,8 @@ mbox_sync_seek_to_seq(struct mbox_sync_context *sync_ctx, uint32_t seq)
 
 	if (seq <= 1)
 		uid = 0;
-	else if (mail_index_lookup_uid(sync_ctx->sync_view, seq-1, &uid) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		return -1;
-	}
+	else
+		mail_index_lookup_uid(sync_ctx->sync_view, seq-1, &uid);
 
 	sync_ctx->prev_msg_uid = uid;
 
@@ -870,12 +868,8 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 
 	i_assert(!sync_ctx->index_reset);
 
-	if (mail_index_lookup_uid_range(sync_view, uid, (uint32_t)-1,
-					&seq1, &seq2) < 0) {
-		mail_storage_set_index_error(&sync_ctx->mbox->ibox);
-		return -1;
-	}
-
+	mail_index_lookup_uid_range(sync_view, uid, (uint32_t)-1,
+				    &seq1, &seq2);
 	if (seq1 == 0) {
 		/* doesn't exist anymore, seek to end of file */
 		st = i_stream_stat(sync_ctx->file_input, TRUE);

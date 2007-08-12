@@ -279,8 +279,8 @@ bool mailbox_is_readonly(struct mailbox *box);
 bool mailbox_allow_new_keywords(struct mailbox *box);
 
 /* Gets the mailbox status information. */
-int mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
-		       struct mailbox_status *status);
+void mailbox_get_status(struct mailbox *box, enum mailbox_status_items items,
+			struct mailbox_status *status_r);
 
 /* Synchronize the mailbox. */
 struct mailbox_sync_context *
@@ -329,8 +329,8 @@ void mailbox_keywords_free(struct mailbox_transaction_context *t,
 			   struct mail_keywords **keywords);
 
 /* Convert uid range to sequence range. */
-int mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
-		     uint32_t *seq1_r, uint32_t *seq2_r);
+void mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
+		      uint32_t *seq1_r, uint32_t *seq2_r);
 
 /* Initialize header lookup for given headers. */
 struct mailbox_header_lookup_ctx *

@@ -110,10 +110,10 @@ index_list_mailbox_open_unchanged_view(struct mailbox *box,
 
 	/* found from list index. lookup the mail index record for it */
 	view = mail_index_view_open(ilist->mail_index);
-	ret = mail_index_lookup_uid_range(view, uid, uid, &seq, &seq);
-	if (ret < 0 || seq == 0) {
+	mail_index_lookup_uid_range(view, uid, uid, &seq, &seq);
+	if (seq == 0) {
 		mail_index_view_close(&view);
-		return ret;
+		return 0;
 	}
 
 	t_push();
@@ -163,7 +163,7 @@ index_list_get_cached_status(struct mailbox *box, struct mailbox_status *status)
 	return 1;
 }
 
-static int
+static void
 index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 		      struct mailbox_status *status)
 {
@@ -171,11 +171,11 @@ index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 
 	if ((items & ~CACHED_STATUS_ITEMS) == 0) {
 		if (index_list_get_cached_status(box, status) > 0)
-			return 0;
+			return;
 		/* nonsynced / error, fallback to doing it the slow way */
 	}
 
-	return ibox->module_ctx.super.get_status(box, items, status);
+	ibox->module_ctx.super.get_status(box, items, status);
 }
 
 static int index_list_lookup_or_create(struct index_mailbox_list *ilist,
@@ -317,8 +317,9 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 		/* nothing synced. just return the status. */
 		i_free(ctx);
 
-		return status_items == 0 ? 0 :
+		if (status_items != 0)
 			index_list_get_status(box, status_items, status_r);
+		return 0;
 	}
 
 	list = mail_storage_get_list(box->storage);
@@ -346,8 +347,8 @@ static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 	}
 
 	view = mail_index_view_open(ilist->mail_index);
-	if (mail_index_lookup_uid_range(view, uid, uid, &seq, &seq) == 0 &&
-	    seq > 0)
+	mail_index_lookup_uid_range(view, uid, uid, &seq, &seq);
+	if (seq != 0)
 		(void)index_list_update(ilist, box, view, seq, status);
 	mail_index_view_close(&view);
 	return 0;

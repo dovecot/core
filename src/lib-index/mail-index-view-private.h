@@ -18,19 +18,20 @@ struct mail_index_view_vfuncs {
 	int (*lookup_full)(struct mail_index_view *view, uint32_t seq,
 			   struct mail_index_map **map_r,
 			   const struct mail_index_record **rec_r);
-	int (*lookup_uid)(struct mail_index_view *view, uint32_t seq,
-			  uint32_t *uid_r);
-	int (*lookup_uid_range)(struct mail_index_view *view,
-				uint32_t first_uid, uint32_t last_uid,
-				uint32_t *first_seq_r, uint32_t *last_seq_r);
-	int (*lookup_first)(struct mail_index_view *view, enum mail_flags flags,
-			    uint8_t flags_mask, uint32_t *seq_r);
+	void (*lookup_uid)(struct mail_index_view *view, uint32_t seq,
+			   uint32_t *uid_r);
+	void (*lookup_uid_range)(struct mail_index_view *view,
+				 uint32_t first_uid, uint32_t last_uid,
+				 uint32_t *first_seq_r, uint32_t *last_seq_r);
+	void (*lookup_first)(struct mail_index_view *view,
+			     enum mail_flags flags, uint8_t flags_mask,
+			     uint32_t *seq_r);
 	int (*lookup_ext_full)(struct mail_index_view *view, uint32_t seq,
 			       uint32_t ext_id, struct mail_index_map **map_r,
 			       const void **data_r);
-	int (*get_header_ext)(struct mail_index_view *view,
-			      struct mail_index_map *map, uint32_t ext_id,
-			      const void **data_r, size_t *data_size_r);
+	void (*get_header_ext)(struct mail_index_view *view,
+			       struct mail_index_map *map, uint32_t ext_id,
+			       const void **data_r, size_t *data_size_r);
 	bool (*ext_get_reset_id)(struct mail_index_view *view,
 				 struct mail_index_map *map,
 				 uint32_t ext_id, uint32_t *reset_id_r);

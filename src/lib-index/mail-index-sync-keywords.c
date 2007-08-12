@@ -208,9 +208,7 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 
 	i_assert(keyword_idx != (unsigned int)-1);
 
-	if (mail_index_lookup_uid_range(view, uid1, uid2, &seq1, &seq2) < 0)
-		return -1;
-
+	mail_index_lookup_uid_range(view, uid1, uid2, &seq1, &seq2);
 	if (seq1 == 0)
 		return 1;
 
@@ -326,9 +324,8 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 	ext = array_idx(&map->extensions, ext_id);
 	end = CONST_PTR_OFFSET(r, hdr->size);
 	for (; r != end; r++) {
-		if (mail_index_lookup_uid_range(ctx->view, r->uid1, r->uid2,
-						&seq1, &seq2) < 0)
-			return -1;
+		mail_index_lookup_uid_range(ctx->view, r->uid1, r->uid2,
+					    &seq1, &seq2);
 		if (seq1 == 0)
 			continue;
 

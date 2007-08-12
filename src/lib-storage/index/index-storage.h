@@ -137,15 +137,11 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 
 int index_storage_sync(struct mailbox *box, enum mailbox_sync_flags flags);
 
-int index_storage_get_status(struct mailbox *box,
-			     enum mailbox_status_items items,
-			     struct mailbox_status *status);
-int index_storage_get_status_locked(struct index_mailbox *ibox,
-				    enum mailbox_status_items items,
-				    struct mailbox_status *status_r);
-
-int index_storage_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
-			   uint32_t *seq1_r, uint32_t *seq2_r);
+void index_storage_get_status(struct mailbox *box,
+			      enum mailbox_status_items items,
+			      struct mailbox_status *status_r);
+void index_storage_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,
+			    uint32_t *seq1_r, uint32_t *seq2_r);
 
 struct mailbox_header_lookup_ctx *
 index_header_lookup_init(struct mailbox *box, const char *const headers[]);

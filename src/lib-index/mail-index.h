@@ -192,8 +192,6 @@ void mail_index_view_close(struct mail_index_view **view);
 
 /* Returns the index for given view. */
 struct mail_index *mail_index_view_get_index(struct mail_index_view *view);
-/* Call whenever you've done with requesting messages from view for a while. */
-void mail_index_view_unlock(struct mail_index_view *view);
 /* Returns number of mails in view. */
 uint32_t mail_index_view_get_messages_count(struct mail_index_view *view);
 /* Returns TRUE if we lost track of changes for some reason. */
@@ -309,18 +307,19 @@ int mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 			       ARRAY_TYPE(keyword_indexes) *keyword_idx);
 /* Returns the UID for given message. May be slightly faster than
    mail_index_lookup()->uid. */
-int mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
-			  uint32_t *uid_r);
+void mail_index_lookup_uid(struct mail_index_view *view, uint32_t seq,
+			   uint32_t *uid_r);
 /* Convert UID range to sequence range. If no UIDs are found, sequences are
    set to 0. Note that any of the returned sequences may have been expunged
    already. */
-int mail_index_lookup_uid_range(struct mail_index_view *view,
-				uint32_t first_uid, uint32_t last_uid,
-				uint32_t *first_seq_r, uint32_t *last_seq_r);
+void mail_index_lookup_uid_range(struct mail_index_view *view,
+				 uint32_t first_uid, uint32_t last_uid,
+				 uint32_t *first_seq_r, uint32_t *last_seq_r);
 /* Find first mail with (mail->flags & flags_mask) == flags. Useful mostly for
    taking advantage of lowwater-fields in headers. */
-int mail_index_lookup_first(struct mail_index_view *view, enum mail_flags flags,
-			    uint8_t flags_mask, uint32_t *seq_r);
+void mail_index_lookup_first(struct mail_index_view *view,
+			     enum mail_flags flags, uint8_t flags_mask,
+			     uint32_t *seq_r);
 
 /* Append a new record to index. */
 void mail_index_append(struct mail_index_transaction *t, uint32_t uid,
@@ -419,11 +418,11 @@ bool mail_index_ext_get_reset_id(struct mail_index_view *view,
 				 uint32_t ext_id, uint32_t *reset_id_r);
 
 /* Returns extension header. */
-int mail_index_get_header_ext(struct mail_index_view *view, uint32_t ext_id,
-			      const void **data_r, size_t *data_size_r);
-int mail_index_map_get_header_ext(struct mail_index_view *view,
-				  struct mail_index_map *map, uint32_t ext_id,
-				  const void **data_r, size_t *data_size_r);
+void mail_index_get_header_ext(struct mail_index_view *view, uint32_t ext_id,
+			       const void **data_r, size_t *data_size_r);
+void mail_index_map_get_header_ext(struct mail_index_view *view,
+				   struct mail_index_map *map, uint32_t ext_id,
+				   const void **data_r, size_t *data_size_r);
 /* Returns the wanted extension record for given message. If it doesn't exist,
    *data_r is set to NULL. Return values are same as for mail_index_lookup(). */
 int mail_index_lookup_ext(struct mail_index_view *view, uint32_t seq,

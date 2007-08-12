@@ -134,13 +134,10 @@ int index_sync_changes_read(struct index_sync_changes_context *ctx,
 				break;
 
 			/* mark the changes as dirty */
-			if (mail_index_lookup_uid_range(ctx->sync_view,
-							sync_rec->uid1,
-							sync_rec->uid2,
-							&seq1, &seq2) < 0) {
-				mail_storage_set_index_error(ctx->ibox);
-				return -1;
-			}
+			mail_index_lookup_uid_range(ctx->sync_view,
+						    sync_rec->uid1,
+						    sync_rec->uid2,
+						    &seq1, &seq2);
 			memset(sync_rec, 0, sizeof(*sync_rec));
 
 			if (seq1 == 0)

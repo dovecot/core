@@ -466,8 +466,6 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 void mail_storage_set_index_error(struct index_mailbox *ibox)
 {
 	mail_storage_set_internal_error(ibox->box.storage);
-
-	mail_index_view_unlock(ibox->view);
 	mail_index_reset_error(ibox->index);
 }
 

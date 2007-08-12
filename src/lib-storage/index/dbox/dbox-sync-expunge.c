@@ -14,20 +14,13 @@
 
 #include <stddef.h>
 
-static int
+static void
 dbox_sync_rec_get_uids(struct dbox_sync_context *ctx,
 		       const struct dbox_sync_rec *sync_rec,
 		       uint32_t *uid1_r, uint32_t *uid2_r)
 {
-	if (mail_index_lookup_uid(ctx->sync_view, sync_rec->seq1, uid1_r) < 0) {
-		mail_storage_set_index_error(&ctx->mbox->ibox);
-		return -1;
-	}
-	if (mail_index_lookup_uid(ctx->sync_view, sync_rec->seq2, uid2_r) < 0) {
-		mail_storage_set_index_error(&ctx->mbox->ibox);
-		return -1;
-	}
-	return 0;
+	mail_index_lookup_uid(ctx->sync_view, sync_rec->seq1, uid1_r);
+	mail_index_lookup_uid(ctx->sync_view, sync_rec->seq2, uid2_r);
 }
 
 static int
@@ -49,9 +42,7 @@ dbox_next_expunge(struct dbox_sync_context *ctx,
 		if (sync_rec->type != MAIL_INDEX_SYNC_TYPE_EXPUNGE)
 			continue;
 
-		if (dbox_sync_rec_get_uids(ctx, sync_rec, uid1_r, uid2_r) < 0)
-			return -1;
-
+		dbox_sync_rec_get_uids(ctx, sync_rec, uid1_r, uid2_r);
 		if (box->v.sync_notify != NULL) {
 			/* all of the UIDs uid1..uid2 should exist */
 			for (uid = *uid1_r; uid <= *uid2_r; uid++) {
@@ -120,11 +111,8 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 	sync_recs = array_get(&sync_entry->sync_recs, &sync_count);
 	if (sync_idx == sync_count)
 		uid1 = uid2 = 0;
-	else {
-		if (dbox_sync_rec_get_uids(ctx, &sync_recs[sync_idx],
-					   &uid1, &uid2) < 0)
-			return -1;
-	}
+	else
+		dbox_sync_rec_get_uids(ctx, &sync_recs[sync_idx], &uid1, &uid2);
 
 	file_seq = dbox_uidlist_get_new_file_seq(mbox->uidlist);
 
@@ -165,13 +153,8 @@ static int dbox_sync_expunge_copy(struct dbox_sync_context *ctx,
 		uint32_t uid = mbox->file->seeked_uid;
 		uint64_t hdr_offset = output->offset;
 
-		if (mail_index_lookup_uid_range(ctx->sync_view, uid, uid,
-						&seq, &seq) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox);
-			ret = -1;
-			break;
-		}
-
+		mail_index_lookup_uid_range(ctx->sync_view, uid, uid,
+					    &seq, &seq);
 		if (seq == 0) {
 			mail_storage_set_critical(storage,
 				"Expunged UID %u reappeared in file %s",
@@ -299,9 +282,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 		return 0;
 	}
 
-	if (dbox_sync_rec_get_uids(ctx, &sync_recs[sync_idx],
-				   &exp_uid1, &exp_uid2) < 0)
-		return -1;
+	dbox_sync_rec_get_uids(ctx, &sync_recs[sync_idx], &exp_uid1, &exp_uid2);
 
 	/* find the first non-expunged mail */
 	first_expunged_uid = exp_uid1;
@@ -430,7 +411,7 @@ static int dbox_sync_expunge_file(struct dbox_sync_context *ctx,
 	return 0;
 }
 
-static int
+static void
 uidlist_entry_remove_uids(struct dbox_sync_context *ctx,
 			  const struct dbox_sync_file_entry *sync_entry)
 {
@@ -442,7 +423,7 @@ uidlist_entry_remove_uids(struct dbox_sync_context *ctx,
 	entry = dbox_uidlist_entry_lookup(ctx->mbox->uidlist,
 					  sync_entry->file_seq);
 	if (entry == NULL)
-		return 0;
+		return;
 
 	recs = array_get(&sync_entry->sync_recs, &count);
 	for (i = 0; i < count; i++) {
@@ -450,11 +431,7 @@ uidlist_entry_remove_uids(struct dbox_sync_context *ctx,
 			continue;
 
 		for (seq = recs[i].seq1; seq <= recs[i].seq2; seq++) {
-			if (mail_index_lookup_uid(ctx->sync_view,
-						  seq, &uid) < 0) {
-				mail_storage_set_index_error(&ctx->mbox->ibox);
-				return -1;
-			}
+			mail_index_lookup_uid(ctx->sync_view, seq, &uid);
 			seq_range_array_remove(&entry->uid_list, uid);
 		}
 	}
@@ -464,7 +441,6 @@ uidlist_entry_remove_uids(struct dbox_sync_context *ctx,
 					 entry->file_seq);
 	}
 	dbox_uidlist_sync_set_modified(ctx->uidlist_sync_ctx);
-	return 0;
 }
 
 int dbox_sync_expunge(struct dbox_sync_context *ctx,
@@ -522,5 +498,6 @@ int dbox_sync_expunge(struct dbox_sync_context *ctx,
 	}
 
 	/* remove UIDs from the uidlist entry */
-	return uidlist_entry_remove_uids(ctx, sync_entry);
+	uidlist_entry_remove_uids(ctx, sync_entry);
+	return 0;
 }

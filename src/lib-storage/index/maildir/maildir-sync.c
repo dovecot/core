@@ -525,12 +525,8 @@ static int maildir_header_refresh(struct maildir_mailbox *mbox)
 		return -1;
 	}
 
-	if (mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
-				      &data, &data_size) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		return -1;
-	}
-
+	mail_index_get_header_ext(mbox->ibox.view, mbox->maildir_ext_id,
+				  &data, &data_size);
 	if (data_size == 0) {
 		/* doesn't exist */
 		return 0;

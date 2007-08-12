@@ -562,11 +562,7 @@ int mbox_sync_parse_match_mail(struct mbox_mailbox *mbox,
 	   just not yet been rewritten. In that case use MD5 sum, if it
 	   exists. */
 
-	if (mail_index_lookup_uid(view, seq, &uid) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		return -1;
-	}
-
+	mail_index_lookup_uid(view, seq, &uid);
 	memset(&ctx, 0, sizeof(ctx));
         mbox_md5_ctx = mbox_md5_init();
 

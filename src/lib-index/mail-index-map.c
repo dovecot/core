@@ -673,8 +673,6 @@ static int mail_index_map_latest_file(struct mail_index *index,
 	new_map = mail_index_map_alloc(index);
 	if (use_mmap) {
 		new_map->rec_map->lock_id = lock_id;
-		new_map->rec_map->lock_count++;
-		new_map->locked = TRUE;
 		ret = mail_index_mmap(new_map, file_size);
 	} else {
 		ret = mail_index_read_map(new_map, file_size);
@@ -751,6 +749,9 @@ int mail_index_map(struct mail_index *index,
 static void mail_index_record_map_free(struct mail_index_map *map,
 				       struct mail_index_record_map *rec_map)
 {
+	if (rec_map->lock_id != 0)
+		mail_index_unlock(map->index, &rec_map->lock_id);
+
 	if (rec_map->buffer != NULL) {
 		i_assert(rec_map->mmap_base == NULL);
 		buffer_free(rec_map->buffer);
@@ -791,7 +792,6 @@ void mail_index_unmap(struct mail_index_map **_map)
 		return;
 
 	i_assert(map->refcount == 0);
-	mail_index_map_unlock(map);
 	mail_index_record_map_unlink(map);
 
 	if (map->extension_pool != NULL)
@@ -800,35 +800,6 @@ void mail_index_unmap(struct mail_index_map **_map)
 		array_free(&map->keyword_idx_map);
 	buffer_free(map->hdr_copy_buf);
 	i_free(map);
-}
-
-int mail_index_map_lock(struct mail_index_map *map)
-{
-	if (map->locked)
-		return 0;
-
-	if (map->rec_map->lock_id != 0 || MAIL_INDEX_MAP_IS_IN_MEMORY(map)) {
-		map->rec_map->lock_count++;
-		map->locked = TRUE;
-		return 0;
-	}
-
-	if (mail_index_lock_shared(map->index, &map->rec_map->lock_id) < 0)
-		return -1;
-
-	mail_index_map_copy_hdr(map, map->rec_map->mmap_base);
-	map->rec_map->lock_count++;
-	map->locked = TRUE;
-	return 0;
-}
-
-void mail_index_map_unlock(struct mail_index_map *map)
-{
-	if (!map->locked)
-		return;
-
-	if (--map->rec_map->lock_count == 0)
-		mail_index_unlock(map->index, &map->rec_map->lock_id);
 }
 
 static void mail_index_map_copy_records(struct mail_index_record_map *dest,
@@ -946,7 +917,6 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map)
 	mail_index_map_copy_records(new_map, map->rec_map,
 				    map->hdr.record_size);
 
-	mail_index_map_unlock(map);
 	mail_index_record_map_unlink(map);
 	map->rec_map = new_map;
 }
@@ -967,11 +937,11 @@ void mail_index_map_move_to_memory(struct mail_index_map *map)
 				    map->hdr.record_size);
 	mail_index_map_copy_header(map, map);
 
-	mail_index_map_unlock(map);
 	if (new_map != map->rec_map) {
 		mail_index_record_map_unlink(map);
 		map->rec_map = new_map;
-	} else if (new_map->mmap_base != NULL) {
+	} else {
+		mail_index_unlock(map->index, &new_map->lock_id);
 		if (munmap(new_map->mmap_base, new_map->mmap_size) < 0)
 			mail_index_set_syscall_error(map->index, "munmap()");
 		new_map->mmap_base = NULL;

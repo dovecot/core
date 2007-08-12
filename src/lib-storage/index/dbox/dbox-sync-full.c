@@ -55,13 +55,9 @@ static int dbox_sync_full_mail(struct dbox_sync_context *ctx, uint32_t *seq_r)
 		mail_index_append(ctx->trans, mbox->file->seeked_uid, &seq);
 		*seq_r = 0;
 	} else {
-		if (mail_index_lookup_uid_range(ctx->sync_view,
-						mbox->file->seeked_uid,
-						mbox->file->seeked_uid,
-						&seq, &seq) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox);
-			return -1;
-		}
+		mail_index_lookup_uid_range(ctx->sync_view,
+					    mbox->file->seeked_uid,
+					    mbox->file->seeked_uid, &seq, &seq);
 		if (seq == 0) {
 			/* not found. it should have been there. */
 			mail_storage_set_critical(&mbox->storage->storage,

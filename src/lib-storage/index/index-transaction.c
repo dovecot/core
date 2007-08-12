@@ -23,7 +23,6 @@ static void index_transaction_free(struct index_transaction_context *t)
 {
 	mail_cache_view_close(t->cache_view);
 	mail_index_view_close(&t->trans_view);
-	mail_index_view_unlock(t->ibox->view);
 	array_free(&t->mailbox_ctx.module_contexts);
 	i_free(t);
 }

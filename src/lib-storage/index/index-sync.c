@@ -36,11 +36,9 @@ void index_mailbox_set_recent_seq(struct index_mailbox *ibox,
 				  uint32_t seq1, uint32_t seq2)
 {
 	uint32_t uid;
-	int ret;
 
 	for (; seq1 <= seq2; seq1++) {
-		ret = mail_index_lookup_uid(view, seq1, &uid);
-		i_assert(ret == 0);
+		mail_index_lookup_uid(view, seq1, &uid);
 		index_mailbox_set_recent_uid(ibox, uid);
 	}
 }
@@ -84,15 +82,12 @@ static void index_mailbox_expunge_recent(struct index_mailbox *ibox,
 					 uint32_t seq1, uint32_t seq2)
 {
 	uint32_t uid;
-	int ret;
 
 	if (!array_is_created(&ibox->recent_flags))
 		return;
 
 	for (; seq1 <= seq2; seq1++) {
-		ret = mail_index_lookup_uid(ibox->view, seq1, &uid);
-		i_assert(ret == 0);
-
+		mail_index_lookup_uid(ibox->view, seq1, &uid);
 		if (seq_range_array_remove(&ibox->recent_flags, uid))
 			ibox->recent_flags_count--;
 	}
@@ -208,14 +203,10 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
 		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
 			/* FIXME: hide the flag updates for expunged messages */
-			if (mail_index_lookup_uid_range(ctx->ibox->view,
-						sync.uid1, sync.uid2,
-						&sync_rec_r->seq1,
-						&sync_rec_r->seq2) < 0) {
-				ctx->failed = TRUE;
-				return -1;
-			}
-
+			mail_index_lookup_uid_range(ctx->ibox->view,
+						    sync.uid1, sync.uid2,
+						    &sync_rec_r->seq1,
+						    &sync_rec_r->seq2);
 			if (sync_rec_r->seq1 == 0)
 				break;
 
@@ -258,7 +249,7 @@ int index_mailbox_sync_next(struct mailbox_sync_context *_ctx,
 	return 0;
 }
 
-static int
+static void
 index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 {
 	struct index_mailbox *ibox = ctx->ibox;
@@ -266,7 +257,7 @@ index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 	uint32_t seq, start_uid, uid;
 
 	if (!array_is_created(&ibox->recent_flags))
-		return 0;
+		return;
 
 	/* expunges array contained expunges for the messages that were already
 	   visible in this view, but append+expunge would be invisible.
@@ -275,20 +266,12 @@ index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 	hdr = mail_index_get_header(ibox->view);
 	if (ctx->messages_count == 0)
 		uid = 0;
-	else {
-		if (mail_index_lookup_uid(ibox->view, ctx->messages_count,
-					  &uid) < 0) {
-			mail_storage_set_index_error(ibox);
-			return -1;
-		}
-	}
+	else
+		mail_index_lookup_uid(ibox->view, ctx->messages_count, &uid);
 
 	for (seq = ctx->messages_count + 1; seq <= hdr->messages_count; seq++) {
 		start_uid = uid;
-		if (mail_index_lookup_uid(ibox->view, seq, &uid) < 0) {
-			mail_storage_set_index_error(ibox);
-			return -1;
-		}
+		mail_index_lookup_uid(ibox->view, seq, &uid);
 		if (start_uid + 1 > uid - 1)
 			continue;
 
@@ -320,7 +303,6 @@ index_mailbox_expunge_unseen_recent(struct index_mailbox_sync_context *ctx)
 		}
 	}
 #endif
-	return 0;
 }
 
 int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
@@ -336,20 +318,16 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	if (ctx->sync_ctx != NULL)
 		mail_index_view_sync_end(&ctx->sync_ctx);
-	if (index_mailbox_expunge_unseen_recent(ctx) < 0)
-		ret = -1;
+	index_mailbox_expunge_unseen_recent(ctx);
 
 	if (ibox->keep_recent) {
 		/* mailbox syncing didn't necessarily update our recent state */
 		hdr = mail_index_get_header(ibox->view);
 		if (hdr->first_recent_uid > ibox->recent_flags_prev_uid) {
-			if (mail_index_lookup_uid_range(ibox->view,
-							hdr->first_recent_uid,
-							hdr->next_uid,
-							&seq1, &seq2) < 0) {
-				mail_storage_set_index_error(ctx->ibox);
-				return -1;
-			}
+			mail_index_lookup_uid_range(ibox->view,
+						    hdr->first_recent_uid,
+						    hdr->next_uid,
+						    &seq1, &seq2);
 			if (seq1 != 0) {
 				index_mailbox_set_recent_seq(ibox, ibox->view,
 							     seq1, seq2);
@@ -357,13 +335,9 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 		}
 	}
 
-	if (ret == 0) {
-		ret = status_items == 0 ? 0 :
-			index_storage_get_status_locked(ctx->ibox, status_items,
-							status_r);
-	}
+	if (ret == 0 && status_items != 0)
+		mailbox_get_status(_ctx->box, status_items, status_r);
 
-	mail_index_view_unlock(ibox->view);
 	i_free(ctx);
 	return ret;
 }

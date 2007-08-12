@@ -108,8 +108,6 @@ struct mail_index_record_map {
 
 	void *mmap_base;
 	size_t mmap_size, mmap_used_size;
-
-	unsigned int lock_count;
 	unsigned int lock_id;
 
 	buffer_t *buffer;
@@ -141,7 +139,6 @@ struct mail_index_map {
 
 	struct mail_index_record_map *rec_map;
 
-	unsigned int locked:1;
 	unsigned int keywords_read:1;
 	unsigned int write_base_header:1;
 	unsigned int write_ext_header:1;
@@ -272,11 +269,6 @@ int mail_index_map(struct mail_index *index,
 		   enum mail_index_sync_handler_type type);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
 void mail_index_unmap(struct mail_index_map **map);
-
-/* Lock the map if the data is mmaped and map is unlocked. */
-int mail_index_map_lock(struct mail_index_map *map);
-/* Unlock the map if it's locked. */
-void mail_index_map_unlock(struct mail_index_map *map);
 
 /* Clone a map. The returned map is always in memory. */
 struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map);

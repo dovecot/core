@@ -76,8 +76,8 @@ struct mailbox_vfuncs {
 
 	int (*close)(struct mailbox *box);
 
-	int (*get_status)(struct mailbox *box, enum mailbox_status_items items,
-			  struct mailbox_status *status);
+	void (*get_status)(struct mailbox *box, enum mailbox_status_items items,
+			   struct mailbox_status *status_r);
 
 	/* Lookup sync extension record and figure out if it mailbox has
 	   changed since. Returns 1 = yes, 0 = no, -1 = error. */
@@ -122,8 +122,8 @@ struct mailbox_vfuncs {
 	void (*keywords_free)(struct mailbox_transaction_context *t,
 			      struct mail_keywords *keywords);
 
-	int (*get_uids)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
-			uint32_t *seq1_r, uint32_t *seq2_r);
+	void (*get_uids)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
+			 uint32_t *seq1_r, uint32_t *seq2_r);
 
 	struct mail *
 		(*mail_alloc)(struct mailbox_transaction_context *t,

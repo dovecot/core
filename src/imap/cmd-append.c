@@ -441,7 +441,7 @@ get_mailbox(struct client_command_context *cmd, const char *name)
 	return box;
 }
 
-static int get_keywords(struct cmd_append_context *ctx)
+static void get_keywords(struct cmd_append_context *ctx)
 {
 	struct client *client = ctx->client;
 	struct mailbox_status status;
@@ -450,10 +450,7 @@ static int get_keywords(struct cmd_append_context *ctx)
 	   client_parse_mail_flags()'s keyword verification works.
 	   however if we're not appending to selected mailbox, we'll
 	   need to restore the keywords list. */
-	if (mailbox_get_status(ctx->box, STATUS_KEYWORDS,
-			       &status) < 0)
-		return -1;
-
+	mailbox_get_status(ctx->box, STATUS_KEYWORDS, &status);
 	if (ctx->box != client->mailbox) {
 		ctx->old_keywords = client->keywords;
 
@@ -462,7 +459,6 @@ static int get_keywords(struct cmd_append_context *ctx)
 			pool_alloconly_create("append keywords pool", 256);
 	}
 	client_save_keywords(&client->keywords, status.keywords);
-	return 0;
 }
 
 bool cmd_append(struct client_command_context *cmd)
@@ -487,15 +483,10 @@ bool cmd_append(struct client_command_context *cmd)
 	else {
 		ctx->storage = mailbox_get_storage(ctx->box);
 
-		if (get_keywords(ctx) < 0) {
-			client_send_storage_error(cmd, ctx->storage);
-			mailbox_close(&ctx->box);
-			ctx->failed = TRUE;
-		} else {
-			ctx->t = mailbox_transaction_begin(ctx->box,
+		get_keywords(ctx);
+		ctx->t = mailbox_transaction_begin(ctx->box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
-		}
 	}
 
 	io_remove(&client->io);

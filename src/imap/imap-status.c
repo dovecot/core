@@ -68,7 +68,7 @@ bool imap_status_get(struct client *client, struct mail_storage *storage,
 	}
 
 	if (!failed)
-		failed = mailbox_get_status(box, items, status_r) < 0;
+		mailbox_get_status(box, items, status_r);
 
 	if (box != client->mailbox)
 		mailbox_close(&box);

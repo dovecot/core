@@ -85,13 +85,9 @@ static int dbox_sync_add(struct dbox_sync_context *ctx,
 		return 0;
 	}
 
-	if (mail_index_lookup_uid_range(ctx->sync_view,
-					sync_rec->uid1, sync_rec->uid2,
-					&seq1, &seq2) < 0) {
-		mail_storage_set_index_error(&ctx->mbox->ibox);
-		return -1;
-	}
-
+	mail_index_lookup_uid_range(ctx->sync_view,
+				    sync_rec->uid1, sync_rec->uid2,
+				    &seq1, &seq2);
 	if (seq1 == 0) {
 		/* already expunged everything. nothing to do. */
 		return 0;
@@ -145,11 +141,7 @@ dbox_sync_write_mask(struct dbox_sync_context *ctx,
 				      &file_seq, &offset) < 0)
 		return -1;
 
-	if (mail_index_lookup_uid(ctx->sync_view, sync_rec->seq2, &uid2) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		return -1;
-	}
-
+	mail_index_lookup_uid(ctx->sync_view, sync_rec->seq2, &uid2);
 	if ((ret = dbox_file_seek(mbox, file_seq, offset, FALSE)) <= 0)
 		return ret;
 

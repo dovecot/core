@@ -50,11 +50,9 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->messages_count = client->messages_count;
 
 	/* if keyword list changed, send the new list before flag changes */
-	if (mailbox_get_status(ctx->box, STATUS_KEYWORDS, &status) == 0) {
-		if (client_save_keywords(&client->keywords, status.keywords))
-			client_send_mailbox_flags(client, box, status.keywords);
-	}
-
+	mailbox_get_status(ctx->box, STATUS_KEYWORDS, &status);
+	if (client_save_keywords(&client->keywords, status.keywords))
+		client_send_mailbox_flags(client, box, status.keywords);
 	return ctx;
 }
 

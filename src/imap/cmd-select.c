@@ -42,15 +42,9 @@ bool _cmd_select_full(struct client_command_context *cmd, bool readonly)
 		return TRUE;
 	}
 
-	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_RECENT |
-			       STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
-			       STATUS_UIDNEXT | STATUS_KEYWORDS,
-			       &status) < 0) {
-		client_send_storage_error(cmd, storage);
-		mailbox_close(&box);
-		return TRUE;
-	}
-
+	mailbox_get_status(box, STATUS_MESSAGES | STATUS_RECENT |
+			   STATUS_FIRST_UNSEEN_SEQ | STATUS_UIDVALIDITY |
+			   STATUS_UIDNEXT | STATUS_KEYWORDS, &status);
 	client_save_keywords(&client->keywords, status.keywords);
 	client->messages_count = status.messages;
 	client->recent_count = status.recent;

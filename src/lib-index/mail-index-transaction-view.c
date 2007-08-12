@@ -86,46 +86,42 @@ static int _tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 
 }
 
-static int _tview_lookup_uid(struct mail_index_view *view, uint32_t seq,
-			     uint32_t *uid_r)
+static void _tview_lookup_uid(struct mail_index_view *view, uint32_t seq,
+			      uint32_t *uid_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
 
-	if (seq >= tview->t->first_new_seq) {
+	if (seq >= tview->t->first_new_seq)
 		*uid_r = mail_index_transaction_lookup(tview->t, seq)->uid;
-		return 0;
-	} else {
-		return tview->super->lookup_uid(view, seq, uid_r);
-	}
+	else
+		tview->super->lookup_uid(view, seq, uid_r);
 }
 
-static int _tview_lookup_uid_range(struct mail_index_view *view,
-				   uint32_t first_uid, uint32_t last_uid,
-				   uint32_t *first_seq_r, uint32_t *last_seq_r)
+static void _tview_lookup_uid_range(struct mail_index_view *view,
+				    uint32_t first_uid, uint32_t last_uid,
+				    uint32_t *first_seq_r, uint32_t *last_seq_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
 	const struct mail_index_record *rec;
 	uint32_t seq;
 
-	if (tview->super->lookup_uid_range(view, first_uid, last_uid,
-					   first_seq_r, last_seq_r) < 0)
-		return -1;
-
+	tview->super->lookup_uid_range(view, first_uid, last_uid,
+				       first_seq_r, last_seq_r);
 	if (tview->t->last_new_seq == 0) {
 		/* no new messages, the results are final. */
-		return 0;
+		return;
 	}
 
 	rec = mail_index_transaction_lookup(tview->t, tview->t->first_new_seq);
 	if (rec->uid == 0) {
 		/* new messages don't have UIDs */
-		return 0;
+		return;
 	}
 	if (last_uid < rec->uid) {
 		/* all wanted messages were existing */
-		return 0;
+		return;
 	}
 
 	/* at least some of the wanted messages are newly created */
@@ -141,12 +137,11 @@ static int _tview_lookup_uid_range(struct mail_index_view *view,
 		}
 	}
 	i_assert(seq >= tview->t->first_new_seq);
-	return 0;
 }
 
-static int _tview_lookup_first(struct mail_index_view *view,
-			       enum mail_flags flags, uint8_t flags_mask,
-			       uint32_t *seq_r)
+static void _tview_lookup_first(struct mail_index_view *view,
+				enum mail_flags flags, uint8_t flags_mask,
+				uint32_t *seq_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -154,11 +149,9 @@ static int _tview_lookup_first(struct mail_index_view *view,
 	unsigned int append_count;
 	uint32_t seq, message_count;
 
-	if (tview->super->lookup_first(view, flags, flags_mask, seq_r) < 0)
-		return -1;
-
+	tview->super->lookup_first(view, flags, flags_mask, seq_r);
 	if (*seq_r != 0)
-		return 0;
+		return;
 
 	rec = array_get(&tview->t->appends, &append_count);
 	seq = tview->t->first_new_seq;
@@ -171,8 +164,6 @@ static int _tview_lookup_first(struct mail_index_view *view,
 			break;
 		}
 	}
-
-	return 0;
 }
 
 static struct mail_index_map *
@@ -223,16 +214,15 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 	return 1;
 }
 
-static int _tview_get_header_ext(struct mail_index_view *view,
-				 struct mail_index_map *map, uint32_t ext_id,
-				 const void **data_r, size_t *data_size_r)
+static void _tview_get_header_ext(struct mail_index_view *view,
+				  struct mail_index_map *map, uint32_t ext_id,
+				  const void **data_r, size_t *data_size_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
 
 	/* FIXME: check updates */
-	return tview->super->get_header_ext(view, map, ext_id,
-					    data_r, data_size_r);
+	tview->super->get_header_ext(view, map, ext_id, data_r, data_size_r);
 }
 
 static bool _tview_ext_get_reset_id(struct mail_index_view *view,

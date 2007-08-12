@@ -517,9 +517,7 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	i_assert(ctx->cur_ext_id != (uint32_t)-1);
 	i_assert(!ctx->cur_ext_ignore);
 
-	if (mail_index_lookup_uid_range(view, u->uid, u->uid, &seq, &seq) < 0)
-		return -1;
-
+	mail_index_lookup_uid_range(view, u->uid, u->uid, &seq, &seq);
 	if (seq == 0)
 		return 1;
 
