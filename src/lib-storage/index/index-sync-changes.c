@@ -86,13 +86,12 @@ index_sync_changes_have_expunges(struct index_sync_changes_context *ctx,
 	return FALSE;
 }
 
-int index_sync_changes_read(struct index_sync_changes_context *ctx,
-			    uint32_t uid, bool *sync_expunge_r)
+void index_sync_changes_read(struct index_sync_changes_context *ctx,
+			     uint32_t uid, bool *sync_expunge_r)
 {
 	struct mail_index_sync_rec *sync_rec = &ctx->sync_rec;
 	uint32_t seq1, seq2;
 	unsigned int orig_count;
-	int ret;
 
 	*sync_expunge_r = FALSE;
 
@@ -108,13 +107,7 @@ int index_sync_changes_read(struct index_sync_changes_context *ctx,
 				*sync_expunge_r = TRUE;
 		}
 
-		ret = mail_index_sync_next(ctx->index_sync_ctx, sync_rec);
-		if (ret < 0) {
-			mail_storage_set_index_error(ctx->ibox);
-			return -1;
-		}
-
-		if (ret == 0) {
+		if (!mail_index_sync_next(ctx->index_sync_ctx, sync_rec)) {
 			memset(sync_rec, 0, sizeof(*sync_rec));
 			break;
 		}
@@ -154,8 +147,6 @@ int index_sync_changes_read(struct index_sync_changes_context *ctx,
 		*sync_expunge_r =
 			index_sync_changes_have_expunges(ctx, orig_count);
 	}
-
-	return 0;
 }
 
 bool index_sync_changes_have(struct index_sync_changes_context *ctx)

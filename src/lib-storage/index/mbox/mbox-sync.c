@@ -163,23 +163,19 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 	return 1;
 }
 
-static int mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
-				      uint32_t uid, bool *sync_expunge_r)
+static void mbox_sync_read_index_syncs(struct mbox_sync_context *sync_ctx,
+				       uint32_t uid, bool *sync_expunge_r)
 {
 	if (uid == 0 || sync_ctx->index_reset) {
 		/* nothing for this or the future ones */
 		uid = (uint32_t)-1;
 	}
 
-	if (index_sync_changes_read(sync_ctx->sync_changes, uid,
-				    sync_expunge_r) < 0)
-		return -1;
-
+	index_sync_changes_read(sync_ctx->sync_changes, uid, sync_expunge_r);
 	if (sync_ctx->mbox->mbox_readonly) {
 		/* we can't expunge anything from read-only mboxes */
 		*sync_expunge_r = FALSE;
 	}
-	return 0;
 }
 
 static bool
@@ -1017,10 +1013,9 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		/* get all sync records related to this message. with pseudo
 		   message just get the first sync record so we can jump to
 		   it with partial seeking. */
-		if (mbox_sync_read_index_syncs(sync_ctx,
-					       mail_ctx->mail.pseudo ? 1 : uid,
-					       &expunged) < 0)
-			return -1;
+		mbox_sync_read_index_syncs(sync_ctx,
+					   mail_ctx->mail.pseudo ? 1 : uid,
+					   &expunged);
 
 		if (mail_ctx->mail.pseudo) {
 			/* if it was set, it was for the next message */
@@ -1690,8 +1685,7 @@ __again:
 		bool expunged;
 		uint32_t uid;
 
-		if (mbox_sync_read_index_syncs(&sync_ctx, 1, &expunged) < 0)
-			return -1;
+		mbox_sync_read_index_syncs(&sync_ctx, 1, &expunged);
 		uid = expunged ? 1 :
 			index_sync_changes_get_next_uid(sync_ctx.sync_changes);
 		if (uid == 0) {

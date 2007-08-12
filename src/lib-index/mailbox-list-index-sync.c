@@ -371,7 +371,7 @@ static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 
 	/* we should have only external transactions in here, for which we
 	   don't need to do anything but write them to the index */
-	while (mail_index_sync_next(ctx->mail_sync_ctx, &sync_rec) > 0)
+	while (mail_index_sync_next(ctx->mail_sync_ctx, &sync_rec))
 		;
 	return 0;
 }

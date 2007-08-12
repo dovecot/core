@@ -258,8 +258,8 @@ int mail_index_sync_begin(struct mail_index *index,
 			  uint32_t log_file_seq, uoff_t log_file_offset,
 			  enum mail_index_sync_flags flags);
 /* Returns -1 if error, 0 if sync is finished, 1 if record was filled. */
-int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
-			 struct mail_index_sync_rec *sync_rec);
+bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
+			  struct mail_index_sync_rec *sync_rec);
 /* Returns TRUE if there's more to sync. */
 bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx);
 /* Reset syncing to initial state after mail_index_sync_begin(), so you can

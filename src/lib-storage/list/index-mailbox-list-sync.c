@@ -75,7 +75,7 @@ static int index_list_update_mail_index(struct index_mailbox_list *ilist,
 
 	/* we should have only external transactions in here, for which we
 	   don't need to do anything but write them to the index */
-	while (mail_index_sync_next(mail_sync_ctx, &sync_rec) > 0)
+	while (mail_index_sync_next(mail_sync_ctx, &sync_rec))
 		;
 
 	return mail_index_sync_commit(&mail_sync_ctx);

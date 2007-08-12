@@ -59,13 +59,12 @@ cydir_sync_expunge(struct cydir_sync_context *ctx, uint32_t seq1, uint32_t seq2)
 	}
 }
 
-static int cydir_sync_index(struct cydir_sync_context *ctx)
+static void cydir_sync_index(struct cydir_sync_context *ctx)
 {
 	struct mailbox *box = &ctx->mbox->ibox.box;
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq1, seq2;
-	int ret = 1;
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity != 0)
@@ -81,9 +80,7 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 					     seq1, seq2);
 	}
 
-	while (ret > 0 &&
-	       (ret = mail_index_sync_next(ctx->index_sync_ctx,
-					   &sync_rec)) > 0) {
+	while (mail_index_sync_next(ctx->index_sync_ctx, &sync_rec)) {
 		mail_index_lookup_uid_range(ctx->sync_view,
 					    sync_rec.uid1, sync_rec.uid2,
 					    &seq1, &seq2);
@@ -110,7 +107,6 @@ static int cydir_sync_index(struct cydir_sync_context *ctx)
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
-	return ret;
 }
 
 int cydir_sync_begin(struct cydir_mailbox *mbox,
@@ -137,12 +133,7 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 		return ret;
 	}
 
-	if (cydir_sync_index(ctx) < 0) {
-		mail_index_sync_rollback(&ctx->index_sync_ctx);
-		i_free(ctx);
-		return -1;
-	}
-
+	cydir_sync_index(ctx);
 	*ctx_r = ctx;
 	return 0;
 }

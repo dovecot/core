@@ -362,12 +362,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			continue;
 		}
 
-		if (index_sync_changes_read(ctx->sync_changes, rec->uid,
-					    &expunged) < 0) {
-			ret = -1;
-			break;
-		}
-
+		index_sync_changes_read(ctx->sync_changes, rec->uid, &expunged);
 		if (expunged) {
 			if (maildir_file_do(mbox, ctx->uid,
 					    maildir_expunge, ctx) >= 0) {

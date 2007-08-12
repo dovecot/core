@@ -445,8 +445,8 @@ static void mail_index_sync_get_keyword_reset(struct mail_index_sync_rec *rec,
 	rec->uid2 = range->uid2;
 }
 
-int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
-			 struct mail_index_sync_rec *sync_rec)
+bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
+			  struct mail_index_sync_rec *sync_rec)
 {
 	struct mail_index_transaction *sync_trans = ctx->sync_trans;
 	struct mail_index_sync_list *sync_list;
@@ -485,9 +485,9 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 				sync_rec->type = MAIL_INDEX_SYNC_TYPE_APPEND;
 				sync_rec->uid1 = ctx->append_uid_first;
 				sync_rec->uid2 = ctx->append_uid_last;
-				return 1;
+				return TRUE;
 			}
-			return 0;
+			return FALSE;
 		}
                 ctx->next_uid = next_found_uid;
 		i = next_i;
@@ -507,7 +507,7 @@ int mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 						   &sync_list[i]);
 	}
 	sync_list[i].idx++;
-	return 1;
+	return TRUE;
 }
 
 bool mail_index_sync_have_more(struct mail_index_sync_ctx *ctx)

@@ -420,12 +420,8 @@ static int dbox_sync_index(struct dbox_sync_context *ctx)
 	ctx->syncs = hash_create(default_pool, ctx->pool, 0, NULL, NULL);
 	i_array_init(&ctx->added_file_seqs, 64);
 	for (;;) {
-		ret = mail_index_sync_next(ctx->index_sync_ctx, &sync_rec);
-		if (ret <= 0) {
-			if (ret < 0)
-				mail_storage_set_index_error(&ctx->mbox->ibox);
+		if (!mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))
 			break;
-		}
 		if (dbox_sync_add(ctx, &sync_rec) < 0) {
 			ret = -1;
 			break;
