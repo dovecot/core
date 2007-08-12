@@ -84,9 +84,9 @@ static int fts_mailbox_close(struct mailbox *box)
 	return ret;
 }
 
-static int uid_range_to_seq(struct mailbox *box,
-			    ARRAY_TYPE(seq_range) *uid_range,
-			    ARRAY_TYPE(seq_range) *seq_range)
+static void uid_range_to_seq(struct mailbox *box,
+			     ARRAY_TYPE(seq_range) *uid_range,
+			     ARRAY_TYPE(seq_range) *seq_range)
 {
 	const struct seq_range *range;
 	struct seq_range new_range;
@@ -95,16 +95,11 @@ static int uid_range_to_seq(struct mailbox *box,
 	range = array_get(uid_range, &count);
 	i_array_init(seq_range, count);
 	for (i = 0; i < count; i++) {
-		if (mailbox_get_uids(box, range[i].seq1, range[i].seq2,
-				     &new_range.seq1, &new_range.seq2) < 0) {
-			array_free(seq_range);
-			return -1;
-		}
-
+		mailbox_get_uids(box, range[i].seq1, range[i].seq2,
+				 &new_range.seq1, &new_range.seq2);
 		if (new_range.seq1 != 0)
 			array_append(seq_range, &new_range, 1);
 	}
-	return 0;
 }
 
 static int fts_build_mail_flush(struct fts_storage_build_context *ctx)
@@ -246,9 +241,8 @@ static int fts_build_init(struct fts_search_context *fctx)
 	}
 
 	memset(&seqset, 0, sizeof(seqset));
-	if (mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
-			     &seqset.seq1, &seqset.seq2) < 0)
-		return -1;
+	mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
+			 &seqset.seq1, &seqset.seq2);
 	if (seqset.seq1 == 0) {
 		/* no new messages */
 		return 0;
@@ -260,11 +254,8 @@ static int fts_build_init(struct fts_search_context *fctx)
 		i_assert(last_uid < last_uid_locked);
 
 		last_uid = last_uid_locked;
-		if (mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
-				     &seqset.seq1, &seqset.seq2) < 0) {
-			(void)fts_backend_build_deinit(build);
-			return -1;
-		}
+		mailbox_get_uids(t->box, last_uid+1, (uint32_t)-1,
+				 &seqset.seq1, &seqset.seq2);
 		if (seqset.seq1 == 0) {
 			/* no new messages */
 			(void)fts_backend_build_deinit(build);
@@ -467,7 +458,7 @@ static void fts_search_init(struct mailbox *box,
 
 	fts_search_filter_args(fctx, fctx->args, &uid_result);
 
-	(void)uid_range_to_seq(box, &uid_result, &fctx->result);
+	uid_range_to_seq(box, &uid_result, &fctx->result);
 	array_free(&uid_result);
 }
 
