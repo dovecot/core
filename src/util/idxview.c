@@ -418,6 +418,8 @@ static int dump_record(int fd, void *buf, unsigned int seq)
 	str = t_str_new(256);
 	ext = array_get(&extensions, &ext_count);
 	for (i = 0; i < ext_count; i++) {
+		if (ext[i].record_size == 0)
+			continue;
 		str_truncate(str, 0);
 		str_printfa(str, " - ext %s(%u): ", ext[i].name, i);
 
