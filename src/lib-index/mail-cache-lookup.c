@@ -199,9 +199,11 @@ int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 
 	if (file_field >= cache->file_fields_count) {
 		/* new field, have to re-read fields header to figure
-		   out its size */
-		if (mail_cache_header_fields_read(cache) < 0)
-			return -1;
+		   out its size. don't do this if we're compressing. */
+		if (!cache->locked) {
+			if (mail_cache_header_fields_read(cache) < 0)
+				return -1;
+		}
 		if (file_field >= cache->file_fields_count) {
 			mail_cache_set_corrupted(cache,
 				"field index too large (%u >= %u)",
