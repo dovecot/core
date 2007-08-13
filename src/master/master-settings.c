@@ -794,6 +794,15 @@ static bool settings_verify(struct settings *set)
 		return FALSE;
 	}
 
+	if (set->mail_nfs_index && !set->mmap_disable) {
+		i_error("mail_nfs_index=yes requires mmap_disable=yes");
+		return FALSE;
+	}
+	if (set->mail_nfs_index && set->fsync_disable) {
+		i_error("mail_nfs_index=yes requires fsync_disable=no");
+		return FALSE;
+	}
+
 #ifdef HAVE_MODULES
 	if (*set->mail_plugins != '\0' &&
 	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
