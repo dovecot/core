@@ -296,7 +296,7 @@ static void mail_log_action(struct mail *mail, enum mail_log_event event,
 
 	if ((mail_log_set.fields & MAIL_LOG_FIELD_MSGID) != 0) {
 		if (mail_get_first_header(mail, "Message-ID", &msgid) <= 0)
-			msgid = "(null";
+			msgid = "(null)";
 		str_printfa(str, "msgid=%s, ",
 			    str_sanitize(msgid, MSGID_LOG_LEN));
 	}
