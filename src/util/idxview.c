@@ -292,7 +292,7 @@ static void dump_cache(uint32_t offset)
 		return;
 	}
 
-	if (rec.size > 1000000) {
+	if (rec.size == 0 || rec.size > 1000000) {
 		printf(" - cache at %u BROKEN: rec.size = %u\n",
 		       offset, rec.size);
 		return;
