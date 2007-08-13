@@ -240,7 +240,7 @@ struct settings default_settings = {
 	MEMBER(fsync_disable) FALSE,
 	MEMBER(mail_nfs_storage) FALSE,
 	MEMBER(mail_nfs_index) FALSE,
-	MEMBER(mailbox_list_index_disable) FALSE,
+	MEMBER(mailbox_list_index_disable) TRUE,
 	MEMBER(lock_method) "fcntl",
 	MEMBER(maildir_stat_dirs) FALSE,
 	MEMBER(maildir_copy_with_hardlinks) TRUE,
