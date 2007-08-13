@@ -859,22 +859,34 @@ int index_mail_get_special(struct mail *_mail,
 }
 
 struct mail *
-index_mail_alloc(struct mailbox_transaction_context *_t,
+index_mail_alloc(struct mailbox_transaction_context *t,
 		 enum mail_fetch_field wanted_fields,
-		 struct mailbox_header_lookup_ctx *_wanted_headers)
+		 struct mailbox_header_lookup_ctx *wanted_headers)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)_t;
-	struct index_header_lookup_ctx *wanted_headers =
-		(struct index_header_lookup_ctx *)_wanted_headers;
 	struct index_mail *mail;
-	const struct mail_index_header *hdr;
 	pool_t pool;
 
 	pool = pool_alloconly_create("mail", 1024);
 	mail = p_new(pool, struct index_mail, 1);
 	mail->mail.pool = pool;
-	array_create(&mail->mail.module_contexts, pool, sizeof(void *), 5);
+
+	index_mail_init(mail, t, wanted_fields, wanted_headers);
+	return &mail->mail.mail;
+}
+
+void index_mail_init(struct index_mail *mail,
+		     struct mailbox_transaction_context *_t,
+		     enum mail_fetch_field wanted_fields,
+		     struct mailbox_header_lookup_ctx *_wanted_headers)
+{
+	struct index_transaction_context *t =
+		(struct index_transaction_context *)_t;
+	struct index_header_lookup_ctx *wanted_headers =
+		(struct index_header_lookup_ctx *)_wanted_headers;
+	const struct mail_index_header *hdr;
+
+	array_create(&mail->mail.module_contexts, mail->mail.pool,
+		     sizeof(void *), 5);
 
 	mail->mail.v = *t->ibox->mail_vfuncs;
 	mail->mail.mail.box = &t->ibox->box;
@@ -888,8 +900,6 @@ index_mail_alloc(struct mailbox_transaction_context *_t,
 	mail->trans = t;
 	mail->wanted_fields = wanted_fields;
 	mail->wanted_headers = wanted_headers;
-
-	return &mail->mail.mail;
 }
 
 void index_mail_close(struct mail *_mail)

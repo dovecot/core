@@ -131,6 +131,11 @@ struct mail *
 index_mail_alloc(struct mailbox_transaction_context *t,
 		 enum mail_fetch_field wanted_fields,
 		 struct mailbox_header_lookup_ctx *wanted_headers);
+void index_mail_init(struct index_mail *mail,
+		     struct mailbox_transaction_context *_t,
+		     enum mail_fetch_field wanted_fields,
+		     struct mailbox_header_lookup_ctx *_wanted_headers);
+
 void index_mail_set_seq(struct mail *mail, uint32_t seq);
 bool index_mail_set_uid(struct mail *mail, uint32_t uid);
 void index_mail_close(struct mail *mail);
