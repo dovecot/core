@@ -114,6 +114,7 @@ mail_cache_compress_get_fields(struct mail_cache_copy_context *ctx,
 			       unsigned int used_fields_count)
 {
 	struct mail_cache *cache = ctx->cache;
+	struct mail_cache_field *field;
 	unsigned int i, j, idx;
 
 	/* Make mail_cache_header_fields_get() return the fields in
@@ -134,6 +135,12 @@ mail_cache_compress_get_fields(struct mail_cache_copy_context *ctx,
 			cache->file_field_map[idx] = i;
 			j++;
 		}
+
+		/* change permanent decisions to temporary decisions.
+		   if they're still permanent they'll get updated later. */
+		field = &cache->fields[i].field;
+		if (field->decision == MAIL_CACHE_DECISION_YES)
+			field->decision = MAIL_CACHE_DECISION_TEMP;
 	}
 	i_assert(j == used_fields_count);
 
