@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 static struct mail_index_header hdr;
 static ARRAY_DEFINE(extensions, struct mail_index_ext);
@@ -127,6 +128,60 @@ static void dump_hdr(int fd)
 	}
 }
 
+static const char *cache_decision2str(enum mail_cache_decision_type type)
+{
+	const char *str;
+
+	switch (type & ~MAIL_CACHE_DECISION_FORCED) {
+	case MAIL_CACHE_DECISION_NO:
+		str = "no";
+		break;
+	case MAIL_CACHE_DECISION_TEMP:
+		str = "temp";
+		break;
+	case MAIL_CACHE_DECISION_YES:
+		str = "yes";
+		break;
+	default:
+		return t_strdup_printf("0x%x", type);
+	}
+
+	if ((type & MAIL_CACHE_DECISION_FORCED) != 0)
+		str = t_strconcat(str, " (forced)", NULL);
+	return str;
+}
+
+#define CACHE_TYPE_IS_FIXED_SIZE(type) \
+	((type) == MAIL_CACHE_FIELD_FIXED_SIZE || \
+	 (type) == MAIL_CACHE_FIELD_BITMASK)
+static const char *cache_type2str(enum mail_cache_field_type type)
+{
+	switch (type) {
+	case MAIL_CACHE_FIELD_FIXED_SIZE:
+		return "fixed";
+	case MAIL_CACHE_FIELD_VARIABLE_SIZE:
+		return "variable";
+	case MAIL_CACHE_FIELD_STRING:
+		return "string";
+	case MAIL_CACHE_FIELD_BITMASK:
+		return "bitmask";
+	case MAIL_CACHE_FIELD_HEADER:
+		return "header";
+	default:
+		return t_strdup_printf("0x%x", type);
+	}
+}
+
+static const char *unixdate2str(time_t time)
+{
+	static char buf[64];
+	struct tm *tm;
+
+	tm = localtime(&time);
+	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", tm);
+	return buf;
+}
+
 static void dump_cache_hdr(int fd)
 {
         struct mail_cache_header_fields fields;
@@ -208,8 +263,13 @@ static void dump_cache_hdr(int fd)
 		field.decision = decision[i];
 		array_append(&cache_fields, &field, 1);
 
-		printf("%u: name=%s size=%u type=%u decision=%u last_used=%u\n",
-		       i, names, size[i], type[i], decision[i], last_used[i]);
+		printf("#%u %s: type=%s ", i, names, cache_type2str(type[i]));
+		if (size[i] != (uint32_t)-1 ||
+		    CACHE_TYPE_IS_FIXED_SIZE(type[i]))
+			printf("size=%u ", size[i]);
+		printf("decision=%s last_used=%s\n",
+		       cache_decision2str(decision[i]),
+		       unixdate2str(last_used[i]));
 		names += strlen(names) + 1;
 	}
 }
