@@ -387,6 +387,7 @@ static int maildir_mail_get_stream(struct mail *_mail,
 }
 
 struct mail_vfuncs maildir_mail_vfuncs = {
+	index_mail_close,
 	index_mail_free,
 	index_mail_set_seq,
 	index_mail_set_uid,

@@ -133,6 +133,7 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 		 struct mailbox_header_lookup_ctx *wanted_headers);
 void index_mail_set_seq(struct mail *mail, uint32_t seq);
 bool index_mail_set_uid(struct mail *mail, uint32_t uid);
+void index_mail_close(struct mail *mail);
 void index_mail_free(struct mail *mail);
 
 bool index_mail_want_parse_headers(struct index_mail *mail);

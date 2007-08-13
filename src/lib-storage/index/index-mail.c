@@ -892,8 +892,10 @@ index_mail_alloc(struct mailbox_transaction_context *_t,
 	return &mail->mail.mail;
 }
 
-static void index_mail_close(struct index_mail *mail)
+void index_mail_close(struct mail *_mail)
 {
+	struct index_mail *mail = (struct index_mail *)_mail;
+
 	if (mail->data.parser_ctx != NULL)
 		(void)message_parser_deinit(&mail->data.parser_ctx);
 	if (mail->data.stream != NULL)
@@ -906,7 +908,7 @@ static void index_mail_reset(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 
-	index_mail_close(mail);
+	mail->mail.v.close(&mail->mail.mail);
 
 	memset(data, 0, sizeof(*data));
 	p_clear(mail->data_pool);
@@ -1082,7 +1084,7 @@ void index_mail_free(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 
-	index_mail_close(mail);
+	mail->mail.v.close(_mail);
 
 	if (mail->header_data != NULL)
 		buffer_free(mail->header_data);

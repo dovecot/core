@@ -123,6 +123,7 @@ cydir_mail_get_stream(struct mail *_mail, struct message_size *hdr_size,
 }
 
 struct mail_vfuncs cydir_mail_vfuncs = {
+	index_mail_close,
 	index_mail_free,
 	index_mail_set_seq,
 	index_mail_set_uid,

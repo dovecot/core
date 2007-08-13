@@ -195,6 +195,7 @@ struct mailbox {
 };
 
 struct mail_vfuncs {
+	void (*close)(struct mail *mail);
 	void (*free)(struct mail *mail);
 	void (*set_seq)(struct mail *mail, uint32_t seq);
 	bool (*set_uid)(struct mail *mail, uint32_t uid);
