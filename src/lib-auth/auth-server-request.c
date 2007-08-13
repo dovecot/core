@@ -326,6 +326,8 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 	struct auth_server_connection *conn;
 	struct auth_request *request;
 
+	*error_r = "Temporary authentication failure.";
+
 	if (id == NULL) {
 		conn = auth_server_connection_find_mech(client,
 							request_info->mech,
@@ -365,10 +367,12 @@ auth_client_request_new(struct auth_client *client, struct auth_connect_id *id,
 	request->callback = callback;
 	request->context = context;
 
-	hash_insert(conn->requests, POINTER_CAST(request->id), request);
-
-	if (auth_server_send_new_request(conn, request, error_r) < 0)
+	if (auth_server_send_new_request(conn, request, error_r) == 0)
+		hash_insert(conn->requests, POINTER_CAST(request->id), request);
+	else {
+		auth_client_request_free(request);
 		request = NULL;
+	}
 	return request;
 }
 
