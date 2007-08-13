@@ -136,6 +136,7 @@ headers = \
 	password-scheme.h \
 	userdb.h \
 	userdb-blocking.h \
+	userdb-static.h \
 	userdb-vpopmail.h
 
 if GSSAPI_PLUGIN
