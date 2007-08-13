@@ -7,6 +7,9 @@
 
 #define MAIL_CACHE_VERSION 1
 
+/* Drop fields that haven't been accessed for n seconds */
+#define MAIL_CACHE_FIELD_DROP_SECS (3600*24*30)
+
 /* Never compress the file if it's smaller than this */
 #define MAIL_CACHE_COMPRESS_MIN_SIZE (1024*50)
 
@@ -112,6 +115,8 @@ struct mail_cache_field_private {
 	uint32_t uid_highwater;
 	uint32_t last_used;
 
+	/* Unused fields aren't written to cache file */
+	unsigned int used:1;
 	unsigned int decision_dirty:1;
 };
 

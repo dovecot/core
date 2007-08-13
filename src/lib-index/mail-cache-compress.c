@@ -18,6 +18,8 @@ struct mail_cache_copy_context {
 
 	buffer_t *buffer, *field_seen;
 	ARRAY_DEFINE(bitmask_pos, unsigned int);
+	uint32_t *field_file_map;
+
 	uint8_t field_seen_value;
 	bool new_msg;
 };
@@ -44,15 +46,19 @@ static void
 mail_cache_compress_field(struct mail_cache_copy_context *ctx,
 			  const struct mail_cache_iterate_field *field)
 {
-	uint32_t field_idx = field->field_idx;
         struct mail_cache_field *cache_field;
 	enum mail_cache_decision_type dec;
+	uint32_t file_field_idx, size32;
 	uint8_t *field_seen;
-	uint32_t size32;
 
-	cache_field = &ctx->cache->fields[field_idx].field;
+	file_field_idx = ctx->field_file_map[field->field_idx];
+	if (file_field_idx == (uint32_t)-1)
+		return;
 
-	field_seen = buffer_get_space_unsafe(ctx->field_seen, field_idx, 1);
+	cache_field = &ctx->cache->fields[field->field_idx].field;
+
+	field_seen = buffer_get_space_unsafe(ctx->field_seen,
+					     field->field_idx, 1);
 	if (*field_seen == ctx->field_seen_value) {
 		/* duplicate */
 		if (cache_field->type == MAIL_CACHE_FIELD_BITMASK)
@@ -70,7 +76,7 @@ mail_cache_compress_field(struct mail_cache_copy_context *ctx,
 			return;
 	}
 
-	buffer_append(ctx->buffer, &field_idx, sizeof(field_idx));
+	buffer_append(ctx->buffer, &file_field_idx, sizeof(file_field_idx));
 
 	if (cache_field->field_size == (unsigned int)-1) {
 		size32 = (uint32_t)field->size;
@@ -103,6 +109,38 @@ get_next_file_seq(struct mail_cache *cache, struct mail_index_view *view)
 	return file_seq != 0 ? file_seq : 1;
 }
 
+static void
+mail_cache_compress_get_fields(struct mail_cache_copy_context *ctx,
+			       unsigned int used_fields_count)
+{
+	struct mail_cache *cache = ctx->cache;
+	unsigned int i, j, idx;
+
+	/* Make mail_cache_header_fields_get() return the fields in
+	   the same order as we saved them. */
+	memcpy(cache->field_file_map, ctx->field_file_map,
+	       sizeof(uint32_t) * cache->fields_count);
+
+	/* reverse mapping */
+	cache->file_fields_count = used_fields_count;
+	i_free(cache->file_field_map);
+	cache->file_field_map = used_fields_count == 0 ? NULL :
+		i_new(unsigned int, used_fields_count);
+	for (i = j = 0; i < cache->fields_count; i++) {
+		idx = cache->field_file_map[i];
+		if (idx != (uint32_t)-1) {
+			i_assert(idx < used_fields_count &&
+				 cache->file_field_map[idx] == 0);
+			cache->file_field_map[idx] = i;
+			j++;
+		}
+	}
+	i_assert(j == used_fields_count);
+
+	buffer_set_used_size(ctx->buffer, 0);
+	mail_cache_header_fields_get(cache, ctx->buffer);
+}
+
 static int
 mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		int fd, uint32_t *file_seq_r,
@@ -117,8 +155,9 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	struct mail_cache_header hdr;
 	struct mail_cache_record cache_rec;
 	struct ostream *output;
-	buffer_t *buffer;
-	uint32_t i, message_count, seq, first_new_seq, ext_offset;
+	uint32_t message_count, seq, first_new_seq, ext_offset;
+	unsigned int i, used_fields_count, orig_fields_count;
+	time_t max_drop_time;
 
 	view = mail_index_transaction_get_view(trans);
 
@@ -151,7 +190,20 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	ctx.buffer = buffer_create_dynamic(default_pool, 4096);
 	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
 	ctx.field_seen_value = 0;
+	ctx.field_file_map = t_new(uint32_t, cache->fields_count);
 	t_array_init(&ctx.bitmask_pos, 32);
+
+	/* @UNSAFE: drop unused fields and create a field mapping for
+	   used fields */
+	max_drop_time = idx_hdr->day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
+	orig_fields_count = cache->fields_count;
+	for (i = used_fields_count = 0; i < orig_fields_count; i++) {
+		if (cache->fields[i].last_used < max_drop_time)
+			cache->fields[i].used = FALSE;
+
+		ctx.field_file_map[i] = !cache->fields[i].used ? (uint32_t)-1 :
+			used_fields_count++;
+	}
 
 	t_array_init(ext_offsets, message_count);
 	for (seq = 1; seq <= message_count; seq++) {
@@ -190,25 +242,11 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		array_append(ext_offsets, &ext_offset, 1);
 	}
 	i_assert(array_count(ext_offsets) == message_count);
+	i_assert(orig_fields_count == cache->fields_count);
 
-	if (cache->fields_count != 0) {
-		hdr.field_header_offset =
-			mail_index_uint32_to_offset(output->offset);
-
-		/* we wrote everything using our internal field ids. so we want
-		   mail_cache_header_fields_get() to use them and ignore any
-		   existing id mappings in the old cache file. */
-		cache->file_fields_count = 0;
-		for (i = 0; i < cache->fields_count; i++)
-                        cache->field_file_map[i] = (uint32_t)-1;
-
-		t_push();
-		buffer = buffer_create_dynamic(pool_datastack_create(), 256);
-		mail_cache_header_fields_get(cache, buffer);
-		o_stream_send(output, buffer_get_data(buffer, NULL),
-			      buffer_get_used_size(buffer));
-		t_pop();
-	}
+	hdr.field_header_offset = mail_index_uint32_to_offset(output->offset);
+	mail_cache_compress_get_fields(&ctx, used_fields_count);
+	o_stream_send(output, ctx.buffer->data, ctx.buffer->used);
 
 	hdr.used_file_size = output->offset;
 	buffer_free(ctx.buffer);

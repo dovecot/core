@@ -211,6 +211,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	const char *p, *names, *end;
 	void *orig_key, *orig_value;
 	unsigned int new_fields_count;
+	time_t max_drop_time;
 	uint32_t offset, i;
 
 	if (mail_cache_header_fields_get_offset(cache, &offset) < 0)
@@ -275,6 +276,9 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	for (i = 0; i < cache->fields_count; i++)
 		cache->field_file_map[i] = (uint32_t)-1;
 
+	max_drop_time = cache->index->map->hdr.day_stamp -
+		MAIL_CACHE_FIELD_DROP_SECS;
+
 	memset(&field, 0, sizeof(field));
 	for (i = 0; i < field_hdr->fields_count; i++) {
 		for (p = names; p != end && *p != '\0'; p++) ;
@@ -317,12 +321,19 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 				"Duplicated field in header: %s", names);
 			return -1;
 		}
+		cache->fields[field.idx].used = TRUE;
+
 		cache->field_file_map[field.idx] = i;
 		cache->file_field_map[i] = field.idx;
 
 		/* update last_used if it's newer than ours */
 		if (last_used[i] > cache->fields[field.idx].last_used)
 			cache->fields[field.idx].last_used = last_used[i];
+
+		if (cache->fields[field.idx].last_used < max_drop_time) {
+			/* time to drop this field */
+			cache->need_compress_file_seq = cache->hdr->file_seq;
+		}
 
                 names = p + 1;
 	}
@@ -341,7 +352,8 @@ static void copy_to_buf(struct mail_cache *cache, buffer_t *dest,
 		buffer_append(dest, data, size);
 	}
 	for (i = 0; i < cache->fields_count; i++) {
-		if (cache->field_file_map[i] != (uint32_t)-1)
+		if (cache->field_file_map[i] != (uint32_t)-1 ||
+		    !cache->fields[i].used)
 			continue;
 		data = CONST_PTR_OFFSET(&cache->fields[i], offset);
 		buffer_append(dest, data, size);
@@ -362,7 +374,8 @@ static void copy_to_buf_byte(struct mail_cache *cache, buffer_t *dest,
 		buffer_append(dest, &byte, 1);
 	}
 	for (i = 0; i < cache->fields_count; i++) {
-		if (cache->field_file_map[i] != (uint32_t)-1)
+		if (cache->field_file_map[i] != (uint32_t)-1 ||
+		    !cache->fields[i].used)
 			continue;
 		data = CONST_PTR_OFFSET(&cache->fields[i], offset);
 		byte = (uint8_t)*data;
@@ -435,7 +448,12 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 	uint32_t i;
 
 	memset(&hdr, 0, sizeof(hdr));
-	hdr.fields_count = cache->fields_count;
+	hdr.fields_count = cache->file_fields_count;
+	for (i = 0; i < cache->fields_count; i++) {
+		if (cache->field_file_map[i] == (uint32_t)-1 &&
+		    cache->fields[i].used)
+			hdr.fields_count++;
+	}
 	buffer_append(dest, &hdr, sizeof(hdr));
 
 	/* we have to keep the field order for the existing fields. */
@@ -451,14 +469,17 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 	i_assert(buffer_get_used_size(dest) == sizeof(hdr) +
 		 (sizeof(uint32_t)*2 + 2) * hdr.fields_count);
 
+	/* add fields' names */
 	for (i = 0; i < cache->file_fields_count; i++) {
 		field = cache->file_field_map[i];
 		name = cache->fields[field].field.name;
 		buffer_append(dest, name, strlen(name)+1);
 	}
 	for (i = 0; i < cache->fields_count; i++) {
-		if (cache->field_file_map[i] != (uint32_t)-1)
+		if (cache->field_file_map[i] != (uint32_t)-1 ||
+		    !cache->fields[i].used)
 			continue;
+
 		name = cache->fields[i].field.name;
 		buffer_append(dest, name, strlen(name)+1);
 	}

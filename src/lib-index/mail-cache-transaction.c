@@ -1,6 +1,7 @@
 /* Copyright (C) 2003-2004 Timo Sirainen */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "array.h"
 #include "buffer.h"
 #include "file-cache.h"
@@ -671,6 +672,9 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	size_t size;
 	uint32_t offset, hdr_offset;
 	int ret = 0;
+
+	ctx->cache->fields[field_idx].last_used = ioloop_time;
+	ctx->cache->fields[field_idx].used = TRUE;
 
 	if ((ret = mail_cache_transaction_lock(ctx)) <= 0) {
 		/* create the cache file if it doesn't exist yet */
