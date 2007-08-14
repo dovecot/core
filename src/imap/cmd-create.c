@@ -28,8 +28,8 @@ bool cmd_create(struct client_command_context *cmd)
 		   informing us that it wants to create children under this
 		   mailbox. */
                 directory = TRUE;
-		mailbox = t_strndup(mailbox, len-1);
-		full_mailbox = t_strndup(full_mailbox, strlen(full_mailbox)-1);
+		mailbox = t_strndup(mailbox, strlen(mailbox)-1);
+		full_mailbox = t_strndup(full_mailbox, len-1);
 	}
 
 	if (!client_verify_mailbox_name(cmd, full_mailbox, FALSE, TRUE))
