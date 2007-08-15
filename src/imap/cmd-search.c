@@ -157,7 +157,7 @@ bool cmd_search(struct client_command_context *cmd)
 		charset = IMAP_ARG_STR(args);
 		args++;
 	} else {
-		charset = NULL;
+		charset = "UTF-8";
 	}
 
 	sargs = imap_search_args_build(cmd->pool, cmd->client->mailbox,
