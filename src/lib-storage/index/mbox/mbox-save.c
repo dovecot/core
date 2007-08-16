@@ -450,7 +450,7 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 		/* parse and cache the mail headers as we read it */
 		if (dest_mail == NULL) {
 			if (ctx->mail == NULL)
-				ctx->mail = index_mail_alloc(_t, 0, NULL);
+				ctx->mail = mail_alloc(_t, 0, NULL);
 			dest_mail = ctx->mail;
 		}
 		mail_set_seq(dest_mail, ctx->seq);
@@ -643,7 +643,7 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 	if (ctx->output != NULL)
 		o_stream_destroy(&ctx->output);
 	if (ctx->mail != NULL)
-		index_mail_free(ctx->mail);
+		mail_free(&ctx->mail);
 	str_free(&ctx->headers);
 	i_free(ctx);
 }

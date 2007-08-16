@@ -190,7 +190,7 @@ uint32_t maildir_save_add(struct maildir_transaction_context *t,
 			struct mailbox_transaction_context *_t =
 				&t->ictx.mailbox_ctx;
 
-			ctx->mail = index_mail_alloc(_t, 0, NULL);
+			ctx->mail = mail_alloc(_t, 0, NULL);
 		}
 		dest_mail = ctx->mail;
 	}
@@ -708,7 +708,7 @@ void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 		maildir_uidlist_get_uid_validity(ctx->mbox->uidlist);
 
 	if (ctx->mail != NULL)
-		index_mail_free(ctx->mail);
+		mail_free(&ctx->mail);
 	pool_unref(ctx->pool);
 }
 
@@ -756,6 +756,6 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 	t_pop();
 
 	if (ctx->mail != NULL)
-		index_mail_free(ctx->mail);
+		mail_free(&ctx->mail);
 	pool_unref(ctx->pool);
 }

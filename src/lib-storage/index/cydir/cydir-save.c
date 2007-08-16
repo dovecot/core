@@ -111,7 +111,7 @@ int cydir_save_init(struct mailbox_transaction_context *_t,
 
 	if (dest_mail == NULL) {
 		if (ctx->mail == NULL)
-			ctx->mail = index_mail_alloc(_t, 0, NULL);
+			ctx->mail = mail_alloc(_t, 0, NULL);
 		dest_mail = ctx->mail;
 	}
 	mail_set_seq(dest_mail, ctx->seq);
@@ -299,7 +299,7 @@ void cydir_transaction_save_rollback(struct cydir_save_context *ctx)
 		(void)cydir_sync_finish(&ctx->sync_ctx, FALSE);
 
 	if (ctx->mail != NULL)
-		index_mail_free(ctx->mail);
+		mail_free(&ctx->mail);
 	i_free(ctx->tmp_basename);
 	i_free(ctx);
 }
