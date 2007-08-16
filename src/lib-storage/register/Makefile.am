@@ -3,7 +3,7 @@ noinst_LIBRARIES = libstorage-register.a
 BUILT_SOURCES = mail-storage-register.c
 mail_storages = @mail_storages@
 
-mailbox_list_drivers = maildir fs
+mailbox_list_drivers = maildir imapdir fs
 
 mail-storage-register.c: Makefile
 	rm -f $@

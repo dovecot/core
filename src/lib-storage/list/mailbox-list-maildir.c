@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 
 extern struct mailbox_list maildir_mailbox_list;
+extern struct mailbox_list imapdir_mailbox_list;
 
 static struct mailbox_list *maildir_list_alloc(void)
 {
@@ -18,7 +19,6 @@ static struct mailbox_list *maildir_list_alloc(void)
 	pool_t pool;
 
 	pool = pool_alloconly_create("maildir++ list", 1024);
-
 	list = p_new(pool, struct maildir_mailbox_list, 1);
 	list->list = maildir_mailbox_list;
 	list->list.pool = pool;
@@ -28,12 +28,37 @@ static struct mailbox_list *maildir_list_alloc(void)
 	return &list->list;
 }
 
+static struct mailbox_list *imapdir_list_alloc(void)
+{
+	struct maildir_mailbox_list *list;
+	pool_t pool;
+
+	pool = pool_alloconly_create("imapdir list", 1024);
+	list = p_new(pool, struct maildir_mailbox_list, 1);
+	list->list = imapdir_mailbox_list;
+	list->list.pool = pool;
+
+	list->temp_prefix = p_strconcat(pool, ".temp.", my_hostname, ".",
+					my_pid, ".", NULL);
+	return &list->list;
+}
+
 static void maildir_list_deinit(struct mailbox_list *_list)
 {
 	struct maildir_mailbox_list *list =
 		(struct maildir_mailbox_list *)_list;
 
 	pool_unref(list->list.pool);
+}
+
+static const char *
+maildir_list_get_dirname_path(struct mailbox_list *list, const char *dir,
+			      const char *name)
+{
+	if (strcmp(list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0)
+		return t_strdup_printf("%s/%s", dir, name);
+	
+	return t_strdup_printf("%s/%c%s", dir, list->hierarchy_sep, name);
 }
 
 static const char *
@@ -49,8 +74,8 @@ maildir_list_get_absolute_path(struct mailbox_list *list, const char *name)
 	p = strrchr(name, '/');
 	if (p == NULL)
 		return name;
-	return t_strdup_printf("%s/%c%s", t_strdup_until(name, p),
-			       list->hierarchy_sep, p+1);
+	return maildir_list_get_dirname_path(list, t_strdup_until(name, p),
+					     p+1);
 }
 
 static bool
@@ -170,17 +195,16 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 		break;
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 		if (_list->set.control_dir != NULL) {
-			return t_strdup_printf("%s/%c%s",
-					       _list->set.control_dir,
-					       _list->hierarchy_sep, name);
+			return maildir_list_get_dirname_path(_list,
+					       _list->set.control_dir, name);
 		}
 		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (_list->set.index_dir != NULL) {
 			if (*_list->set.index_dir == '\0')
 				return "";
-			return t_strdup_printf("%s/%c%s", _list->set.index_dir,
-					       _list->hierarchy_sep, name);
+			return maildir_list_get_dirname_path(_list,
+						_list->set.index_dir, name);
 		}
 		break;
 	}
@@ -190,8 +214,7 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 			_list->set.inbox_path : _list->set.root_dir;
 	}
 
-	return t_strdup_printf("%s/%c%s", _list->set.root_dir,
-			       _list->hierarchy_sep, name);
+	return maildir_list_get_dirname_path(_list, _list->set.root_dir, name);
 }
 
 static int
@@ -403,12 +426,37 @@ static int maildir_list_rename_mailbox(struct mailbox_list *list,
 }
 
 struct mailbox_list maildir_mailbox_list = {
-	MEMBER(name) "maildir++",
+	MEMBER(name) MAILBOX_LIST_NAME_MAILDIRPLUSPLUS,
 	MEMBER(hierarchy_sep) '.',
 	MEMBER(mailbox_name_max_length) PATH_MAX,
 
 	{
 		maildir_list_alloc,
+		maildir_list_deinit,
+		maildir_is_valid_pattern,
+		maildir_is_valid_existing_name,
+		maildir_is_valid_create_name,
+		maildir_list_get_path,
+		maildir_list_get_mailbox_name_status,
+		maildir_list_get_temp_prefix,
+		NULL,
+		maildir_list_iter_init,
+		maildir_list_iter_next,
+		maildir_list_iter_deinit,
+		NULL,
+		maildir_list_set_subscribed,
+		maildir_list_delete_mailbox,
+		maildir_list_rename_mailbox
+	}
+};
+
+struct mailbox_list imapdir_mailbox_list = {
+	MEMBER(name) MAILBOX_LIST_NAME_IMAPDIR,
+	MEMBER(hierarchy_sep) '.',
+	MEMBER(mailbox_name_max_length) PATH_MAX,
+
+	{
+		imapdir_list_alloc,
 		maildir_list_deinit,
 		maildir_is_valid_pattern,
 		maildir_is_valid_existing_name,

@@ -81,13 +81,13 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 {
 	DIR *dirp;
 	struct dirent *d;
-	const char *mailbox_c;
+	const char *mailbox_name, *mailbox_c;
 	string_t *mailbox;
 	enum mailbox_info_flags flags;
 	enum imap_match_result match;
 	struct mailbox_node *node;
 	bool created;
-	char hierarchy_sep;
+	char prefix_char;
 	int ret;
 
 	dirp = opendir(ctx->dir);
@@ -100,15 +100,22 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		return 0;
 	}
 
-	hierarchy_sep = ctx->ctx.list->hierarchy_sep;
+	prefix_char =
+		strcmp(ctx->ctx.list->name, MAILBOX_LIST_NAME_IMAPDIR) != 0 ?
+		ctx->ctx.list->hierarchy_sep : '\0';
 
 	t_push();
 	mailbox = t_str_new(PATH_MAX);
 	while ((d = readdir(dirp)) != NULL) {
 		const char *fname = d->d_name;
 
-		if (fname[0] != hierarchy_sep)
-			continue;
+		if (fname[0] == prefix_char)
+			mailbox_name = fname + 1;
+		else {
+			if (prefix_char != '\0' || fname[0] == '.')
+				continue;
+			mailbox_name = fname;
+		}
 
 		/* skip . and .. */
 		if (fname[0] == '.' &&
@@ -118,9 +125,9 @@ maildir_fill_readdir(struct maildir_list_iterate_context *ctx,
 		/* make sure the pattern matches */
 		str_truncate(mailbox, 0);
 		if ((ctx->ctx.list->ns->flags & NAMESPACE_FLAG_INBOX) == 0 ||
-		    strcasecmp(fname + 1, "INBOX") != 0)
+		    strcasecmp(mailbox_name, "INBOX") != 0)
 			str_append(mailbox, ctx->ctx.list->ns->prefix);
-		str_append(mailbox, fname + 1);
+		str_append(mailbox, mailbox_name);
                 mailbox_c = str_c(mailbox);
 
 		match = imap_match(glob, mailbox_c);

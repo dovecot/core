@@ -3,6 +3,9 @@
 
 #include "mailbox-list-private.h"
 
+#define MAILBOX_LIST_NAME_MAILDIRPLUSPLUS "maildir++"
+#define MAILBOX_LIST_NAME_IMAPDIR "imapdir"
+
 /* Don't allow creating too long mailbox names. They could start causing
    problems when they reach the limit. */
 #define MAILDIR_MAX_CREATE_MAILBOX_NAME_LENGTH (PATH_MAX/2)
