@@ -183,13 +183,15 @@ static void main_init(bool log_error)
 		if (dup2(null_fd, 2) < 0)
 			i_fatal("dup2(2) failed: %m");
 	}
-	i_info("Dovecot v"VERSION" starting up");
 
 	if (log_error) {
+		printf("Writing to error logs and killing myself..\n");
+		i_info("This is Dovecot's info log");
 		i_warning("This is Dovecot's warning log");
 		i_error("This is Dovecot's error log");
 		i_fatal("This is Dovecot's fatal log");
 	}
+	i_info("Dovecot v"VERSION" starting up");
 
 	lib_signals_init();
         lib_signals_set_handler(SIGINT, TRUE, sig_die, NULL);
@@ -436,7 +438,7 @@ int main(int argc, char *argv[])
 	t_push();
 	master_settings_init();
 	if (!master_settings_read(configfile, exec_protocol != NULL,
-				  dump_config))
+				  dump_config || log_error))
 		i_fatal("Invalid configuration in %s", configfile);
 	t_pop();
 
@@ -477,7 +479,8 @@ int main(int argc, char *argv[])
 		mail_process_exec(exec_protocol, exec_section);
 	}
 
-	open_fds();
+	if (!log_error)
+		open_fds();
 
 	if (!foreground)
 		daemonize(settings_root->defaults);
