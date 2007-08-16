@@ -398,7 +398,6 @@ static void login_process_input(struct login_process *p)
 		if (!p->initialized) {
 			/* initialization notify */
 			login_process_set_initialized(p);
-			login_process_set_initialized(p);
 		} else {
 			/* change "listening for new connections" status */
 			login_process_set_state(p, state);
