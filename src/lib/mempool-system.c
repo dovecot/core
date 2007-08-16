@@ -97,6 +97,11 @@ static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
 	if (new_size == 0 || new_size > SSIZE_T_MAX)
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
+#if !defined(USE_GC) && defined(HAVE_MALLOC_USABLE_SIZE)
+	i_assert(old_size == (size_t)-1 || mem == NULL ||
+		 old_size <= malloc_usable_size(mem));
+#endif
+
 #ifndef USE_GC
 	mem = realloc(mem, new_size);
 #else
@@ -107,10 +112,6 @@ static void *pool_system_realloc(pool_t pool __attr_unused__, void *mem,
 			       "pool_system_realloc(): Out of memory");
 	}
 
-#if !defined(USE_GC) && defined(HAVE_MALLOC_USABLE_SIZE)
-	i_assert(old_size == (size_t)-1 || mem == NULL ||
-		 old_size <= malloc_usable_size(mem));
-#endif
 	if (old_size < new_size) {
                 /* clear new data */
 		memset((char *) mem + old_size, 0, new_size - old_size);
