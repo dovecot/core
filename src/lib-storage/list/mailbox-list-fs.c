@@ -193,7 +193,8 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 	   in root directory. */
 	if (strcmp(name, "INBOX") == 0 && set->inbox_path != NULL &&
 	    ((_list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0 ||
-	     type == MAILBOX_LIST_PATH_TYPE_MAILBOX))
+	     type == MAILBOX_LIST_PATH_TYPE_MAILBOX ||
+	     type == MAILBOX_LIST_PATH_TYPE_DIR))
 		return set->inbox_path;
 
 	if (*set->maildir_name == '\0')
