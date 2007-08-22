@@ -32,7 +32,7 @@ $(srcdir)/quota-fs.c: rquota_xdr.c
 
 rquota_xdr.c: Makefile
 	$(RPCGEN) -c /usr/include/rpcsvc/rquota.x | \
-	  $(SED) -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
+	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
 	    -e 's/int32_t \*buf/int32_t *buf __attr_unused__/' > rquota_xdr.c
 endif
 
