@@ -42,3 +42,36 @@ void restrict_process_size(unsigned int size __attr_unused__,
 	}
 #endif
 }
+
+void restrict_fd_limit(unsigned int count)
+{
+#ifdef HAVE_SETRLIMIT
+	struct rlimit rlim;
+
+	rlim.rlim_cur = rlim.rlim_max = count;
+	if (setrlimit(RLIMIT_NOFILE, &rlim) < 0)
+		i_fatal("setrlimit(RLIMIT_NOFILE, %u): %m", count);
+#endif
+}
+
+bool restrict_raise_fd_limit(unsigned int count)
+{
+#ifdef HAVE_SETRLIMIT
+	struct rlimit rlim, new_rlim;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
+		return FALSE;
+
+	if (rlim.rlim_cur < count)
+		new_rlim.rlim_cur = new_rlim.rlim_max = count;
+	if (setrlimit(RLIMIT_NOFILE, &new_rlim) == 0)
+		return TRUE;
+
+	/* raise as high as we can */
+	if (rlim.rlim_cur < rlim.rlim_max) {
+		rlim.rlim_cur = rlim.rlim_max;
+		(void)setrlimit(RLIMIT_NOFILE, &new_rlim);
+	}
+#endif
+	return FALSE;
+}
