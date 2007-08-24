@@ -61,16 +61,17 @@ bool restrict_raise_fd_limit(unsigned int count)
 
 	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
 		return FALSE;
+	if (rlim.rlim_cur >= count)
+		return TRUE;
 
-	if (rlim.rlim_cur < count)
-		new_rlim.rlim_cur = new_rlim.rlim_max = count;
+	new_rlim.rlim_cur = new_rlim.rlim_max = count;
 	if (setrlimit(RLIMIT_NOFILE, &new_rlim) == 0)
 		return TRUE;
 
 	/* raise as high as we can */
 	if (rlim.rlim_cur < rlim.rlim_max) {
 		rlim.rlim_cur = rlim.rlim_max;
-		(void)setrlimit(RLIMIT_NOFILE, &new_rlim);
+		(void)setrlimit(RLIMIT_NOFILE, &rlim);
 	}
 #endif
 	return FALSE;
