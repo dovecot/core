@@ -91,6 +91,15 @@ static const char *client_stats(struct client *client)
 	return str_c(str);
 }
 
+static const char *client_get_disconnect_reason(struct client *client)
+{
+	errno = client->input->stream_errno != 0 ?
+		client->input->stream_errno :
+		client->output->stream_errno;
+	return errno == 0 ? "Disconnected" :
+		t_strdup_printf("Disconnected: %m");
+}
+
 void client_destroy(struct client *client, const char *reason)
 {
 	i_assert(!client->destroyed);
@@ -99,7 +108,7 @@ void client_destroy(struct client *client, const char *reason)
 	if (!client->disconnected) {
 		client->disconnected = TRUE;
 		if (reason == NULL)
-			reason = "Disconnected";
+			reason = client_get_disconnect_reason(client);
 		i_info("%s %s", reason, client_stats(client));
 	}
 
