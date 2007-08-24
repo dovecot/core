@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (C) 2002 Timo Sirainen */
 
 #include "common.h"
 #include "array.h"
@@ -27,6 +27,8 @@
 #  include <sys/resource.h>
 #endif
 
+/* 1024 should be more than enough */
+#define MAIL_PROCESS_FD_LIMIT 1024
 /* Timeout chdir() completely after this many seconds */
 #define CHDIR_TIMEOUT 30
 /* Give a warning about chdir() taking a while if it took longer than this
@@ -824,6 +826,7 @@ create_mail_process(enum process_type process_type, struct settings *set,
 
 	if (set->mail_drop_priv_before_exec)
 		restrict_access_by_env(TRUE);
+	restrict_fd_limit(MAIL_PROCESS_FD_LIMIT);
 
 	client_process_exec(set->mail_executable, title);
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m",

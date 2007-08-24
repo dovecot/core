@@ -8,6 +8,7 @@
 #include "env-util.h"
 #include "fd-close-on-exec.h"
 #include "write-full.h"
+#include "restrict-process-size.h"
 
 #include "askpass.h"
 #include "auth-process.h"
@@ -26,6 +27,10 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <sys/stat.h>
+
+/* Try to raise our fd limit this high at startup. If the limit is already
+   higher, it's not dropped. */
+#define DOVECOT_MASTER_FD_MIN_LIMIT 65536
 
 static const char *configfile = SYSCONFDIR "/" PACKAGE ".conf";
 
@@ -172,6 +177,7 @@ static void create_pid_file(const char *path)
 
 static void main_init(bool log_error)
 {
+	(void)restrict_raise_fd_limit(DOVECOT_MASTER_FD_MIN_LIMIT);
 	drop_capabilities();
 
 	/* deny file access from everyone else except owner */
