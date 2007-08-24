@@ -96,8 +96,8 @@ static const char *client_get_disconnect_reason(struct client *client)
 	errno = client->input->stream_errno != 0 ?
 		client->input->stream_errno :
 		client->output->stream_errno;
-	return errno == 0 ? "Disconnected" :
-		t_strdup_printf("Disconnected: %m");
+	return errno == 0 ? "Connection closed" :
+		t_strdup_printf("Connection closed: %m");
 }
 
 void client_destroy(struct client *client, const char *reason)
