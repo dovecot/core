@@ -86,14 +86,14 @@ static bool init_mailbox(struct client *client, const char **error_r)
 		mail = mail_alloc(t, MAIL_FETCH_VIRTUAL_SIZE, NULL);
 		while (mailbox_search_next(ctx, mail) > 0) {
 			if (mail_get_virtual_size(mail, &size) < 0) {
+				expunged = mail->expunged;
+				failed = TRUE;
 				if (failed_uid == mail->uid) {
 					i_error("Getting size of message "
 						"UID=%u failed", mail->uid);
 					break;
 				}
 				failed_uid = mail->uid;
-				expunged = mail->expunged;
-				failed = TRUE;
 				break;
 			}
 
