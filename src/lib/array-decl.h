@@ -14,6 +14,7 @@ struct array {
 	size_t element_size;
 };
 
+ARRAY_DEFINE_TYPE(string, char *);
 ARRAY_DEFINE_TYPE(const_string, const char *);
 ARRAY_DEFINE_TYPE(uint32_t, uint32_t);
 
