@@ -529,23 +529,32 @@ static void expand_envs(const char *destination)
 		env_put(str_c(str));
 	}
 
-	/* get the table again in case plugin provided the home directory
-	   (yea, kludgy) */
-	table = get_var_expand_table(destination, getenv("HOME"));
+	mail_env = getenv("MAIL_LOCATION");
+	if (mail_env != NULL) {
+		/* get the table again in case plugin envs provided the home
+		   directory (yea, kludgy) */
+		table = get_var_expand_table(destination, getenv("HOME"));
+		mail_env = expand_mail_env(mail_env, table);
+	}
+	env_put(t_strconcat("MAIL=", mail_env, NULL));
+}
 
-	/* MAIL comes from userdb, MAIL_LOCATION from dovecot.conf.
-	   We don't want to expand settings coming from userdb.
-	   FIXME: should remove these and support namespaces.. */
-	mail_env = getenv("MAIL");
-	if (mail_env == NULL)  {
-		mail_env = getenv("MAIL_LOCATION");
-		if (mail_env == NULL)  {
-			/* Keep this for backwards compatibility */
-			mail_env = getenv("DEFAULT_MAIL_ENV");
+static void putenv_extra_fields(ARRAY_TYPE(string) *extra_fields)
+{
+	char **fields;
+	const char *key, *p;
+	unsigned int i, count;
+
+	fields = array_get_modifiable(extra_fields, &count);
+	for (i = 0; i < count; i++) {
+		p = strchr(fields[i], '=');
+		if (p == NULL)
+			env_put(t_strconcat(fields[i], "=1", NULL));
+		else {
+			key = t_str_ucase(t_strdup_until(fields[i], p));
+			env_put(t_strconcat(key, p, NULL));
 		}
-		if (mail_env != NULL)
-			mail_env = expand_mail_env(mail_env, table);
-		env_put(t_strconcat("MAIL=", mail_env, NULL));
+		i_free(fields[i]);
 	}
 }
 
@@ -556,6 +565,7 @@ int main(int argc, char *argv[])
 	const char *mailbox = "INBOX";
 	const char *auth_socket;
 	const char *home, *destination, *user, *value, *error;
+	ARRAY_TYPE(string) extra_fields;
 	struct mail_namespace *ns, *mbox_ns;
 	struct mail_storage *storage;
 	struct mailbox *box;
@@ -674,30 +684,37 @@ int main(int argc, char *argv[])
 					  TRUE, version);
 	}
 
+	t_array_init(&extra_fields, 64);
 	if (destination != NULL) {
 		auth_socket = getenv("AUTH_SOCKET_PATH");
 		if (auth_socket == NULL)
 			auth_socket = DEFAULT_AUTH_SOCKET_PATH;
 
-		ret = auth_client_put_user_env(ioloop, auth_socket,
-					       destination, process_euid);
+		ret = auth_client_lookup_and_restrict(ioloop, auth_socket,
+						      destination, process_euid,
+						      &extra_fields);
 		if (ret != 0)
 			return ret;
-
-		/* If possible chdir to home directory, so that core file
-		   could be written in case we crash. */
-		home = getenv("HOME");
-		if (home != NULL) {
-			if (chdir(home) < 0) {
-				if (errno != ENOENT)
-					i_error("chdir(%s) failed: %m", home);
-				else if (getenv("DEBUG") != NULL)
-					i_info("Home dir not found: %s", home);
-			}
-		}
 	} else {
 		destination = user;
 	}
+
+	expand_envs(destination);
+	putenv_extra_fields(&extra_fields);
+
+	/* If possible chdir to home directory, so that core file
+	   could be written in case we crash. */
+	home = getenv("HOME");
+	if (home != NULL) {
+		if (chdir(home) < 0) {
+			if (errno != ENOENT)
+				i_error("chdir(%s) failed: %m", home);
+			else if (getenv("DEBUG") != NULL)
+				i_info("Home dir not found: %s", home);
+		}
+	}
+
+	env_put(t_strconcat("USER=", destination, NULL));
 
 	value = getenv("UMASK");
 	if (value == NULL || sscanf(value, "%i", &i) != 1 || i < 0)
@@ -721,8 +738,6 @@ int main(int argc, char *argv[])
 		deliver_set->rejection_reason =
 			DEFAULT_MAIL_REJECTION_HUMAN_REASON;
 	}
-
-	expand_envs(destination);
 
 	dict_driver_register(&dict_driver_client);
         duplicate_init();
