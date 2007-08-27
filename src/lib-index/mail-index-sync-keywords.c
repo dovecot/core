@@ -57,6 +57,8 @@ keywords_get_header_buf(struct mail_index_map *map,
 	if (kw_hdr->keywords_count == 0)
 		return NULL;
 
+	i_assert((size_t)(name - (const char *)kw_hdr) < ext->hdr_size);
+
 	new_kw_hdr = *kw_hdr;
 	new_kw_hdr.keywords_count += new_count;
 	*keywords_count_r = new_kw_hdr.keywords_count;
