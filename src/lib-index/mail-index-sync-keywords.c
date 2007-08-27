@@ -273,16 +273,14 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	ext_id = mail_index_map_lookup_ext(ctx->view->map, "keywords");
-	if (ext_id == (uint32_t)-1) {
+	ext = ext_id == (uint32_t)-1 ? NULL :
+		array_idx(&ctx->view->map->extensions, ext_id);
+	if (ext == NULL || ext->record_size == 0) {
 		/* nothing to do */
-		i_assert(rec->modify_type == MODIFY_REMOVE);
-		return 1;
-	}
-
-	ext = array_idx(&ctx->view->map->extensions, ext_id);
-	if (ext->record_size == 0) {
-		/* nothing to do */
-		i_assert(rec->modify_type == MODIFY_REMOVE);
+		if (rec->modify_type != MODIFY_REMOVE) {
+			mail_index_sync_set_corrupted(ctx,
+				"Keyword ext record missing for added keyword");
+		}
 		return 1;
 	}
 
