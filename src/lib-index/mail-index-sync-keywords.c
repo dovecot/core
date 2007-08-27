@@ -264,6 +264,11 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	end = CONST_PTR_OFFSET(rec, hdr->size);
 
 	keyword_name = t_strndup(rec + 1, rec->name_size);
+	if (*keyword_name == '\0') {
+		mail_index_sync_set_corrupted(ctx,
+					      "Trying to use empty keyword");
+		return -1;
+	}
 	if (keyword_lookup(ctx, keyword_name, &keyword_idx) < 0)
 		return -1;
 	if (keyword_idx == (unsigned int)-1) {
