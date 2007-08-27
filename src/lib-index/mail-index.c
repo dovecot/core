@@ -426,7 +426,10 @@ static bool mail_index_open_files(struct mail_index *index,
 		ret = index->map != NULL ? 0 : mail_index_try_open(index);
 		if (ret == 0) {
 			/* doesn't exist / corrupted */
-			index->map = mail_index_map_alloc(index);
+			mail_transaction_log_close(index->log);
+			ret = mail_transaction_log_create(index->log);
+			if (ret == 0)
+				index->map = mail_index_map_alloc(index);
 		}
 	}
 	if (ret < 0) {
