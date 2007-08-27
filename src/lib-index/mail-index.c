@@ -322,10 +322,6 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 
 const ARRAY_TYPE(keywords) *mail_index_get_keywords(struct mail_index *index)
 {
-	/* Make sure all the keywords are in index->keywords. It's quick to do
-	   if nothing has changed. */
-	(void)mail_index_map_parse_keywords(index->map);
-
 	return &index->keywords;
 }
 

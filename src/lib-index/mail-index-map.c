@@ -681,10 +681,17 @@ static int mail_index_map_latest_file(struct mail_index *index,
 	if (ret > 0) {
 		/* make sure the header is ok before using this mapping */
 		ret = mail_index_check_header(new_map);
-		if (ret >= 0)
+		if (ret >= 0) {
 			ret = mail_index_parse_extensions(new_map);
-		if (ret++ == 0)
+			if (ret > 0) {
+				if (mail_index_map_parse_keywords(new_map) < 0)
+					ret = -1;
+			}
+		}
+		if (ret == 0)
 			index->fsck = TRUE;
+		else if (ret < 0)
+			ret = 0;
 	}
 	if (ret <= 0) {
 		mail_index_unmap(&new_map);
