@@ -315,10 +315,16 @@ list_namespace_mailboxes(struct cmd_list_context *ctx)
 		flags = info->flags;
 
 		if (strcasecmp(name, "INBOX") == 0) {
-			i_assert((ctx->ns->flags & NAMESPACE_FLAG_INBOX) != 0);
 			if (ctx->inbox_found) {
 				/* we already listed this at the beginning
 				   of handling INBOX/ namespace */
+				continue;
+			}
+			if ((ctx->ns->flags & NAMESPACE_FLAG_INBOX) == 0) {
+				/* INBOX is in non-empty prefix namespace,
+				   and we're now listing prefixless namespace
+				   that contains INBOX. There's no way we can
+				   show this mailbox. */
 				continue;
 			}
 			ctx->inbox_found = TRUE;
