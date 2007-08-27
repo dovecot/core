@@ -309,6 +309,11 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 		const char *keyword = name + kw_rec[i].name_offset;
 		unsigned int idx;
 
+		if (*keyword == '\0') {
+			mail_index_set_error(index, "Corrupted index file %s: "
+				"Found empty keyword", index->filepath);
+			return -1;
+		}
 		(void)mail_index_keyword_lookup(index, keyword, TRUE, &idx);
 		array_append(&map->keyword_idx_map, &idx, 1);
 	}
