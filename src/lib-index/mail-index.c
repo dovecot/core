@@ -311,7 +311,8 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 
 		if (*keyword == '\0') {
 			mail_index_set_error(index, "Corrupted index file %s: "
-				"Found empty keyword", index->filepath);
+				"Empty keyword name in header",
+				index->filepath);
 			return -1;
 		}
 		(void)mail_index_keyword_lookup(index, keyword, TRUE, &idx);
