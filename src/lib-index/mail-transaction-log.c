@@ -285,6 +285,7 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 			return -1;
 		i_assert(file->refcount > 0);
 		file->refcount--;
+		log->index->need_recreate = TRUE;
 		return 0;
 	} else {
 		if (log->head->st_ino == st.st_ino &&

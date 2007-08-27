@@ -214,6 +214,7 @@ struct mail_index {
 	unsigned int readonly:1;
 	unsigned int fsck:1;
 	unsigned int mapping:1;
+	unsigned int need_recreate:1;
 };
 
 extern struct mail_index_module_register mail_index_module_register;

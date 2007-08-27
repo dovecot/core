@@ -613,8 +613,10 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	want_rotate = mail_transaction_log_want_rotate(index->log);
 	diff = index->map->hdr.log_file_tail_offset -
 		index->last_read_log_file_tail_offset;
-	if (ret == 0 && (diff > 1024 || want_rotate))
+	if (ret == 0 && (diff > 1024 || want_rotate || index->need_recreate)) {
+		index->need_recreate = FALSE;
 		mail_index_write(index, want_rotate);
+	}
 	mail_index_sync_end(_ctx);
 	return ret;
 }
