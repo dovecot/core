@@ -212,7 +212,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			used_fields_count++;
 	}
 
-	t_array_init(ext_offsets, message_count);
+	i_array_init(ext_offsets, message_count);
 	for (seq = 1; seq <= message_count; seq++) {
 		if (mail_index_transaction_is_expunged(trans, seq)) {
 			(void)array_append_space(ext_offsets);
@@ -268,6 +268,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		errno = output->stream_errno;
 		mail_cache_set_syscall_error(cache, "o_stream_flush()");
 		o_stream_destroy(&output);
+		array_free(ext_offsets);
 		return -1;
 	}
 
@@ -281,6 +282,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	if (!cache->index->fsync_disable) {
 		if (fdatasync(fd) < 0) {
 			mail_cache_set_syscall_error(cache, "fdatasync()");
+			array_free(ext_offsets);
 			return -1;
 		}
 	}
@@ -376,10 +378,8 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		return -1;
 	}
 
-	t_push();
 	if (mail_cache_copy(cache, trans, fd, &file_seq, &ext_offsets) < 0) {
 		(void)file_dotlock_delete(&dotlock);
-		t_pop();
 		return -1;
 	}
 
@@ -388,7 +388,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 		mail_cache_set_syscall_error(cache,
 					     "file_dotlock_replace()");
 		(void)close(fd);
-		t_pop();
+		array_free(&ext_offsets);
 		return -1;
 	}
 
@@ -402,7 +402,7 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 					      &offsets[i], &old_offset);
 		}
 	}
-	t_pop();
+	array_free(&ext_offsets);
 
 	if (*unlock) {
 		(void)mail_cache_unlock(cache);
