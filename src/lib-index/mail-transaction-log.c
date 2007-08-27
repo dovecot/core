@@ -277,7 +277,15 @@ static int mail_transaction_log_refresh(struct mail_transaction_log *log)
 							  "stat()");
 			return -1;
 		}
-		return -1;
+		/* the file should always exist at this point. if it doesn't,
+		   someone deleted it manually while the index was open. try to
+		   handle this nicely by creating a new log file. */
+		file = log->head;
+		if (mail_transaction_log_create(log) < 0)
+			return -1;
+		i_assert(file->refcount > 0);
+		file->refcount--;
+		return 0;
 	} else {
 		if (log->head->st_ino == st.st_ino &&
 		    CMP_DEV_T(log->head->st_dev, st.st_dev)) {
