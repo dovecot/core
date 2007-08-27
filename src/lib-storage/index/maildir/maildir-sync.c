@@ -564,7 +564,8 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox,
 	bool refreshed = FALSE, check_new = FALSE, check_cur = FALSE;
 
 	if (mbox->maildir_hdr.new_mtime == 0) {
-		maildir_header_refresh(mbox);
+		if (maildir_header_refresh(mbox) < 0)
+			return -1;
 		if (mbox->maildir_hdr.new_mtime == 0) {
 			/* first sync */
 			*new_changed_r = *cur_changed_r = TRUE;
@@ -578,7 +579,8 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox,
 	if (DIR_DELAYED_REFRESH(hdr, new) ||
 	    DIR_DELAYED_REFRESH(hdr, cur)) {
 		/* refresh index and try again */
-		maildir_header_refresh(mbox);
+		if (maildir_header_refresh(mbox) < 0)
+			return -1;
 		refreshed = TRUE;
 
 		if (DIR_DELAYED_REFRESH(hdr, new))
@@ -610,7 +612,8 @@ static int maildir_sync_quick_check(struct maildir_mailbox *mbox,
 			break;
 
 		/* refresh index and try again */
-		maildir_header_refresh(mbox);
+		if (maildir_header_refresh(mbox) < 0)
+			return -1;
 		refreshed = TRUE;
 	}
 
