@@ -144,7 +144,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 		*p++ = '\0';
 
 		idx = atoi(line);
-		if (idx < 0 || idx >= MAILDIR_MAX_KEYWORDS) {
+		if (idx < 0 || idx >= MAILDIR_MAX_KEYWORDS || *p == '\0') {
 			/* shouldn't happen */
 			continue;
 		}
