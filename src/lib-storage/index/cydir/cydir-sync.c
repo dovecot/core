@@ -114,7 +114,6 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 {
 	struct cydir_sync_context *ctx;
 	enum mail_index_sync_flags sync_flags;
-	int ret;
 
 	ctx = i_new(struct cydir_sync_context, 1);
 	ctx->mbox = mbox;
@@ -123,14 +122,12 @@ int cydir_sync_begin(struct cydir_mailbox *mbox,
 	if (!mbox->ibox.keep_recent)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
-	ret = mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
-				    &ctx->sync_view, &ctx->trans,
-				    (uint32_t)-1, (uoff_t)-1, sync_flags);
-	if (ret <= 0) {
-		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox);
+	if (mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
+				  &ctx->sync_view, &ctx->trans,
+				  sync_flags) < 0) {
+		mail_storage_set_index_error(&mbox->ibox);
 		i_free(ctx);
-		return ret;
+		return -1;
 	}
 
 	cydir_sync_index(ctx);

@@ -162,7 +162,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 
 	if (mail_index_sync_begin(mbox->ibox.index, &sync_ctx, &view, &trans,
-				  (uint32_t)-1, (uoff_t)-1, sync_flags) <= 0) {
+				  sync_flags) < 0) {
 		mail_storage_set_index_error(&mbox->ibox);
 		return -1;
 	}

@@ -455,7 +455,6 @@ static int dbox_sync_init(struct dbox_mailbox *mbox,
 	const struct mail_index_header *hdr;
 	enum mail_index_sync_flags sync_flags;
 	time_t mtime;
-	int ret;
 
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->mbox = mbox;
@@ -468,14 +467,12 @@ static int dbox_sync_init(struct dbox_mailbox *mbox,
 	sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
 	if (!mbox->ibox.keep_recent)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
-	ret = mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
-				    &ctx->sync_view, &ctx->trans,
-				    (uint32_t)-1, (uoff_t)-1, sync_flags);
-	if (ret <= 0) {
-		if (ret < 0)
-			mail_storage_set_index_error(&mbox->ibox);
+	if (mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
+				  &ctx->sync_view, &ctx->trans,
+				  sync_flags) < 0) {
+		mail_storage_set_index_error(&mbox->ibox);
 		dbox_uidlist_sync_rollback(ctx->uidlist_sync_ctx);
-		return ret;
+		return -1;
 	}
 
 	hdr = mail_index_get_header(ctx->sync_view);

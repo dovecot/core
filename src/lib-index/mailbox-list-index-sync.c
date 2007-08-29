@@ -360,7 +360,7 @@ static int sync_mail_sync_init(struct mailbox_list_index_sync_ctx *ctx)
 	struct mail_index_sync_rec sync_rec;
 
 	if (mail_index_sync_begin(ctx->index->mail_index, &ctx->mail_sync_ctx,
-				  &ctx->mail_view, &ctx->trans, (uint32_t)-1, 0,
+				  &ctx->mail_view, &ctx->trans,
 				  MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES) < 0)
 		return -1;
 

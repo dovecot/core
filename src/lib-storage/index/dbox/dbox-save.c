@@ -371,8 +371,7 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 	/* lock index lock before dropping uidlist lock in _append_commit() */
 	if (mail_index_sync_begin(ctx->mbox->ibox.index, &ctx->index_sync_ctx,
-				  &view, &ctx->trans, (uint32_t)-1, (uoff_t)-1,
-				  0) < 0) {
+				  &view, &ctx->trans, 0) < 0) {
 		ctx->failed = TRUE;
 		dbox_transaction_save_rollback(ctx);
 		return -1;

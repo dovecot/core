@@ -296,11 +296,25 @@ mail_index_sync_set_log_view(struct mail_index_view *view,
 }
 
 int mail_index_sync_begin(struct mail_index *index,
-                          struct mail_index_sync_ctx **ctx_r,
+			  struct mail_index_sync_ctx **ctx_r,
 			  struct mail_index_view **view_r,
 			  struct mail_index_transaction **trans_r,
-			  uint32_t log_file_seq, uoff_t log_file_offset,
 			  enum mail_index_sync_flags flags)
+{
+	int ret;
+
+	ret = mail_index_sync_begin_to(index, ctx_r, view_r, trans_r,
+				       (uint32_t)-1, (uoff_t)-1, flags);
+	i_assert(ret != 0);
+	return ret <= 0 ? -1 : 0;
+}
+
+int mail_index_sync_begin_to(struct mail_index *index,
+			     struct mail_index_sync_ctx **ctx_r,
+			     struct mail_index_view **view_r,
+			     struct mail_index_transaction **trans_r,
+			     uint32_t log_file_seq, uoff_t log_file_offset,
+			     enum mail_index_sync_flags flags)
 {
 	const struct mail_index_header *hdr;
 	struct mail_index_sync_ctx *ctx;
@@ -376,9 +390,9 @@ int mail_index_sync_begin(struct mail_index *index,
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
-		return mail_index_sync_begin(index, ctx_r, view_r, trans_r,
-					     log_file_seq, log_file_offset,
-					     flags);
+		return mail_index_sync_begin_to(index, ctx_r, view_r, trans_r,
+						log_file_seq, log_file_offset,
+						flags);
 	}
 
 	/* we need to have all the transactions sorted to optimize

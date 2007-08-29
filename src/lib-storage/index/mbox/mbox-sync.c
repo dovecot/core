@@ -1539,8 +1539,6 @@ static int mbox_sync_int(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 	struct mail_index_transaction *trans;
 	struct mbox_sync_context sync_ctx;
 	enum mail_index_sync_flags sync_flags;
-	uint32_t seq;
-	uoff_t offset;
 	unsigned int lock_id = 0;
 	int ret, changed;
 	bool delay_writes;
@@ -1605,22 +1603,23 @@ __again:
 		}
 	}
 
-	if ((flags & MBOX_SYNC_LAST_COMMIT) != 0) {
-		seq = mbox->ibox.commit_log_file_seq;
-		offset = mbox->ibox.commit_log_file_offset;
-	} else {
-		seq = (uint32_t)-1;
-		offset = (uoff_t)-1;
-	}
-
 	sync_flags = 0;
 	if (!mbox->ibox.keep_recent)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
 	if ((flags & MBOX_SYNC_REWRITE) != 0)
 		sync_flags |= MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
-	ret = mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
-				    &sync_view, &trans, seq, offset,
-				    sync_flags);
+
+	if ((flags & MBOX_SYNC_LAST_COMMIT) != 0) {
+		ret = mail_index_sync_begin_to(mbox->ibox.index,
+				&index_sync_ctx, &sync_view, &trans,
+				mbox->ibox.commit_log_file_seq,
+				mbox->ibox.commit_log_file_offset, sync_flags);
+	} else {
+		ret = mail_index_sync_begin(mbox->ibox.index, &index_sync_ctx,
+					    &sync_view, &trans,
+					    sync_flags) < 0 ? -1 : 1;
+	}
+
 	if (ret <= 0) {
 		if (ret < 0)
 			mail_storage_set_index_error(&mbox->ibox);
