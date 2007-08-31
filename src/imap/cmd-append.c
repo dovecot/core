@@ -394,6 +394,7 @@ static bool cmd_append_continue_message(struct client_command_context *cmd)
 			   whole message. */
 			ctx->failed = TRUE;
 			mailbox_save_cancel(&ctx->save_ctx);
+			client_disconnect(client, "EOF while appending");
 		} else if (mailbox_save_finish(&ctx->save_ctx) < 0) {
 			ctx->failed = TRUE;
 			client_send_storage_error(cmd, ctx->storage);
