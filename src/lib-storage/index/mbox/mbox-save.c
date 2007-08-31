@@ -47,7 +47,7 @@ struct mbox_save_context {
 
 	struct istream *input;
 	struct ostream *output, *body_output;
-	uoff_t extra_hdr_offset, eoh_offset, eoh_input_offset;
+	uoff_t extra_hdr_offset, eoh_offset;
 	char last_char;
 
 	struct mbox_md5_context *mbox_md5_ctx;
@@ -344,10 +344,6 @@ static void save_header_callback(struct message_header_line *hdr,
 		if (!*matched && ctx->mbox_md5_ctx != NULL)
 			mbox_md5_continue(ctx->mbox_md5_ctx, hdr);
 	}
-
-	if ((hdr == NULL && ctx->eoh_input_offset == (uoff_t)-1) ||
-	    (hdr != NULL && hdr->eoh))
-		ctx->eoh_input_offset = ctx->input->v_offset;
 }
 
 static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
@@ -462,7 +458,6 @@ int mbox_save_init(struct mailbox_transaction_context *_t,
 	i_assert(mbox->mbox_lock_type == F_WRLCK);
 
 	ctx->mail_offset = ctx->output->offset;
-	ctx->eoh_input_offset = (uoff_t)-1;
 	ctx->eoh_offset = (uoff_t)-1;
 	ctx->last_char = '\n';
 	ctx->received_date = received_date;
@@ -497,7 +492,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
 	const unsigned char *data;
-	size_t size;
+	size_t i, size;
 	ssize_t ret;
 
 	if (ctx->failed)
@@ -539,15 +534,22 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 			return 0;
 
 		data = i_stream_get_data(ctx->input, &size);
-		if (ctx->eoh_input_offset != (uoff_t)-1 &&
-		    ctx->input->v_offset + size >= ctx->eoh_input_offset) {
-			/* found end of headers. write the rest of them. */
-			size = ctx->eoh_input_offset - ctx->input->v_offset;
-			if (o_stream_send(ctx->output, data, size) < 0)
+		for (i = 0; i < size; i++) {
+			if (data[i] == '\n' &&
+			    ((i == 0 && ctx->last_char == '\n') ||
+			     (i > 0 && data[i-1] == '\n'))) {
+				/* end of headers. we don't need to worry about
+				   CRs because they're dropped */
+				break;
+			}
+		}
+		if (i != size) {
+			/* found end of headers. write the rest of them
+			   (not including the finishing empty line) */
+			if (o_stream_send(ctx->output, data, i) < 0)
 				return write_error(ctx);
-			if (size > 0)
-				ctx->last_char = data[size-1];
-			i_stream_skip(ctx->input, size + 1);
+			ctx->last_char = '\n';
+			i_stream_skip(ctx->input, i + 1);
 			break;
 		}
 
