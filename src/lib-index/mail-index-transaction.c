@@ -330,13 +330,115 @@ mail_index_update_day_headers(struct mail_index_transaction *t)
 		hdr.day_first_uid, sizeof(hdr.day_first_uid), FALSE);
 }
 
+static void
+mail_index_transaction_sort_appends_ext(struct mail_index_transaction *t,
+					const uint32_t *old_to_newseq_map)
+{
+	ARRAY_TYPE(seq_array) *ext_rec_arrays;
+	ARRAY_TYPE(seq_array) *old_array;
+	ARRAY_TYPE(seq_array) new_array;
+	unsigned int ext_count;
+	const uint32_t *ext_rec;
+	uint32_t seq;
+	unsigned int i, j, count;
+
+	if (!array_is_created(&t->ext_rec_updates))
+		return;
+
+	ext_rec_arrays = array_get_modifiable(&t->ext_rec_updates, &count);
+	for (j = 0; j < count; j++) {
+		old_array = &ext_rec_arrays[j];
+		if (!array_is_created(old_array))
+			continue;
+
+		ext_count = array_count(old_array);
+		array_create(&new_array, default_pool,
+			     old_array->arr.element_size, ext_count);
+		for (i = 0; i < ext_count; i++) {
+			ext_rec = array_idx(old_array, i);
+
+			seq = *ext_rec < t->first_new_seq ? *ext_rec :
+				old_to_newseq_map[*ext_rec - t->first_new_seq];
+			mail_index_seq_array_add(&new_array, seq, ext_rec+1,
+						 old_array->arr.element_size -
+						 sizeof(*ext_rec), NULL);
+		}
+		array_free(old_array);
+		ext_rec_arrays[j] = new_array;
+	}
+}
+
+static void
+sort_appends_seq_range(struct mail_index_transaction *t,
+		       ARRAY_TYPE(seq_range) *array,
+		       const uint32_t *old_to_newseq_map)
+{
+	struct seq_range *range, temp_range;
+	ARRAY_TYPE(seq_range) old_seqs;
+	uint32_t idx, idx1, idx2;
+	unsigned int i, count;
+
+	range = array_get_modifiable(array, &count);
+	for (i = 0; i < count; i++) {
+		if (range[i].seq2 >= t->first_new_seq)
+			break;
+	}
+	if (i == count) {
+		/* nothing to do */
+		return;
+	}
+
+	i_array_init(&old_seqs, count - i);
+	if (range[i].seq1 < t->first_new_seq) {
+		temp_range.seq1 = t->first_new_seq;
+		temp_range.seq2 = range[i].seq2;
+		array_append(&old_seqs, &temp_range, 1);
+		range[i].seq2 = t->first_new_seq - 1;
+		i++;
+	}
+	array_append(&old_seqs, &range[i], count - i);
+	array_delete(array, i, count - i);
+
+	range = array_get_modifiable(&old_seqs, &count);
+	for (i = 0; i < count; i++) {
+		idx1 = range[i].seq1 - t->first_new_seq;
+		idx2 = range[i].seq2 - t->first_new_seq;
+		for (idx = idx1; idx <= idx2; idx++)
+			seq_range_array_add(array, 0, old_to_newseq_map[idx]);
+	}
+	array_free(&old_seqs);
+}
+
+static void
+mail_index_transaction_sort_appends_keywords(struct mail_index_transaction *t,
+					     const uint32_t *old_to_newseq_map)
+{
+	struct mail_index_transaction_keyword_update *updates;
+	unsigned int i, count;
+
+	/* fix the order in keywords */
+	if (!array_is_created(&t->keyword_updates))
+		return;
+
+	updates = array_get_modifiable(&t->keyword_updates, &count);
+	for (i = 0; i < count; i++) {
+		if (array_is_created(&updates->add_seq)) {
+			sort_appends_seq_range(t, &updates[i].add_seq,
+					      old_to_newseq_map);
+		}
+		if (array_is_created(&updates->remove_seq)) {
+			sort_appends_seq_range(t, &updates[i].remove_seq,
+					      old_to_newseq_map);
+		}
+	}
+}
+
 void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 {
 	struct mail_index_record *recs, *sorted_recs;
 	struct uid_map *new_uid_map;
-	ARRAY_TYPE(seq_array) *ext_rec_arrays;
-	uint32_t *old_to_new_map;
-	unsigned int i, j, count, ext_rec_array_count;
+	uint32_t *old_to_newseq_map;
+	unsigned int i, count;
 
 	if (!t->appends_nonsorted)
 		return;
@@ -352,10 +454,6 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 	/* now sort the UID map */
 	qsort(new_uid_map, count, sizeof(*new_uid_map), uid_map_cmp);
 
-	old_to_new_map = i_new(uint32_t, count);
-	for (i = 0; i < count; i++)
-		old_to_new_map[new_uid_map[i].idx] = i;
-
 	/* sort mail records */
 	sorted_recs = i_new(struct mail_index_record, count);
 	for (i = 0; i < count; i++)
@@ -364,45 +462,14 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 		     sizeof(*sorted_recs) * count);
 	i_free(sorted_recs);
 
-	/* fix the order in extensions */
-	if (!array_is_created(&t->ext_rec_updates)) {
-		ext_rec_arrays = NULL;
-		ext_rec_array_count = 0;
-	} else {
-		ext_rec_arrays = array_get_modifiable(&t->ext_rec_updates,
-						      &ext_rec_array_count);
-	}
-	for (j = 0; j < ext_rec_array_count; j++) {
-		ARRAY_TYPE(seq_array) *old_array = &ext_rec_arrays[j];
-		ARRAY_TYPE(seq_array) new_array;
-		unsigned int ext_count;
-		const uint32_t *ext_rec;
-		uint32_t seq;
-
-		if (!array_is_created(old_array))
-			continue;
-
-		ext_count = array_count(old_array);
-		array_create(&new_array, default_pool,
-			     old_array->arr.element_size, ext_count);
-		for (i = 0; i < ext_count; i++) {
-			ext_rec = array_idx(old_array, i);
-
-			seq = *ext_rec < t->first_new_seq ? *ext_rec :
-				(t->first_new_seq +
-				 old_to_new_map[*ext_rec - t->first_new_seq]);
-			mail_index_seq_array_add(&new_array, seq, ext_rec+1,
-						 old_array->arr.element_size -
-						 sizeof(*ext_rec), NULL);
-		}
-		array_free(old_array);
-		ext_rec_arrays[j] = new_array;
-	}
-
-	/* FIXME: fix the order in keywords */
-
+	old_to_newseq_map = i_new(uint32_t, count);
+	for (i = 0; i < count; i++)
+		old_to_newseq_map[new_uid_map[i].idx] = i + t->first_new_seq;
 	i_free(new_uid_map);
-	i_free(old_to_new_map);
+
+	mail_index_transaction_sort_appends_ext(t, old_to_newseq_map);
+	mail_index_transaction_sort_appends_keywords(t, old_to_newseq_map);
+	i_free(old_to_newseq_map);
 
 	t->appends_nonsorted = FALSE;
 }
