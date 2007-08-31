@@ -409,9 +409,7 @@ unsigned int maildir_keywords_char_idx(struct maildir_keywords_sync_ctx *ctx,
                 maildir_keywords_create(ctx->mk, name, chridx);
 	}
 
-	if (!mail_index_keyword_lookup(ctx->index, name, TRUE, &idx))
-		i_unreached();
-
+	mail_index_keyword_lookup_or_create(ctx->index, name, &idx);
         ctx->chridx_to_idx[chridx] = idx;
 	return idx;
 }

@@ -52,8 +52,8 @@ int dbox_file_read_keywords(struct dbox_mailbox *mbox, struct dbox_file *file)
 		last_offset = file->input->v_offset;
 
 		/* set up map record for the keyword */
-		(void)mail_index_keyword_lookup(mbox->ibox.index, line, TRUE,
-						&kw.index_idx);
+		mail_index_keyword_lookup_or_create(mbox->ibox.index, line,
+						    &kw.index_idx);
 		kw.file_idx = idx;
 
 		/* look up the position where to insert it */

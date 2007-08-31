@@ -348,11 +348,12 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
    only when UIDVALIDITY changes. */
 void mail_index_reset(struct mail_index_transaction *t);
 
-/* Lookup a keyword, returns TRUE if found, FALSE if not. If autocreate is
-   TRUE, the keyword is automatically created and TRUE is always returned. */
+/* Lookup a keyword, returns TRUE if found, FALSE if not. */
 bool mail_index_keyword_lookup(struct mail_index *index,
-			       const char *keyword, bool autocreate,
-			       unsigned int *idx_r);
+			       const char *keyword, unsigned int *idx_r);
+void mail_index_keyword_lookup_or_create(struct mail_index *index,
+					 const char *keyword,
+					 unsigned int *idx_r);
 /* Return a pointer to array of NULL-terminated list of keywords. Note that
    the array contents (and thus pointers inside it) may change after calling
    mail_index_keywords_create() or mail_index_sync_begin(). */

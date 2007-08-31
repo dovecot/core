@@ -1087,8 +1087,8 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 	/* look up the keywords from index. they're never removed from there
 	   so we can permanently store indexes to them. */
 	for (i = 0; i < count; i++) {
-		(void)mail_index_keyword_lookup(index, keywords[i],
-						TRUE, &k->idx[i]);
+		mail_index_keyword_lookup_or_create(index, keywords[i],
+						    &k->idx[i]);
 	}
 	return k;
 }

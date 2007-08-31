@@ -21,7 +21,7 @@ keyword_lookup(struct mail_index_sync_map_ctx *ctx,
 	}
 	if (array_is_created(&map->keyword_idx_map) &&
 	    mail_index_keyword_lookup(ctx->view->index, keyword_name,
-				      FALSE, &keyword_idx)) {
+				      &keyword_idx)) {
 		/* FIXME: slow. maybe create index -> file mapping as well */
 		idx_map = array_get(&map->keyword_idx_map, &count);
 		for (i = 0; i < count; i++) {

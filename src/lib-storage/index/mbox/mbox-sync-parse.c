@@ -149,9 +149,8 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 		keyword = t_strndup(hdr->full_value + keyword_start,
 				    pos - keyword_start);
 		if (keyword_is_valid(keyword)) {
-			(void)mail_index_keyword_lookup(
-				ctx->sync_ctx->mbox->ibox.index,
-				keyword, TRUE, &idx);
+			mail_index_keyword_lookup_or_create(
+				ctx->sync_ctx->mbox->ibox.index, keyword, &idx);
 		}
 		t_pop();
 
@@ -292,7 +291,7 @@ static bool parse_x_keywords(struct mbox_sync_mail_context *ctx,
 		str_append_n(keyword, hdr->full_value + keyword_start,
 			     pos - keyword_start);
 		if (!mail_index_keyword_lookup(ctx->sync_ctx->mbox->ibox.index,
-					       str_c(keyword), FALSE, &idx)) {
+					       str_c(keyword), &idx)) {
 			/* keyword wasn't found. that means the sent mail
 			   originally contained X-Keywords header. Delete it. */
 			t_pop();

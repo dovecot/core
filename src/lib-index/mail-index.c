@@ -182,10 +182,8 @@ void mail_index_unregister_sync_lost_handler(struct mail_index *index,
 }
 
 bool mail_index_keyword_lookup(struct mail_index *index,
-			       const char *keyword, bool autocreate,
-			       unsigned int *idx_r)
+			       const char *keyword, unsigned int *idx_r)
 {
-	char *keyword_dup;
 	void *value;
 
 	/* keywords_hash keeps a name => index mapping of keywords.
@@ -196,17 +194,24 @@ bool mail_index_keyword_lookup(struct mail_index *index,
 		return TRUE;
 	}
 
-	if (!autocreate) {
-		*idx_r = (unsigned int)-1;
-		return FALSE;
-	}
+	*idx_r = (unsigned int)-1;
+	return FALSE;
+}
+
+void mail_index_keyword_lookup_or_create(struct mail_index *index,
+					 const char *keyword,
+					 unsigned int *idx_r)
+{
+	char *keyword_dup;
+
+	if (mail_index_keyword_lookup(index, keyword, idx_r))
+		return;
 
 	keyword = keyword_dup = p_strdup(index->keywords_pool, keyword);
 	*idx_r = array_count(&index->keywords);
 
 	hash_insert(index->keywords_hash, keyword_dup, POINTER_CAST(*idx_r));
 	array_append(&index->keywords, &keyword, 1);
-	return TRUE;
 }
 
 int mail_index_map_parse_keywords(struct mail_index_map *map)
@@ -294,7 +299,7 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 		unsigned int idx;
 
 		old_idx = array_idx(&map->keyword_idx_map, i);
-		if (!mail_index_keyword_lookup(index, keyword, FALSE, &idx) ||
+		if (!mail_index_keyword_lookup(index, keyword, &idx) ||
 		    idx != *old_idx) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 					     "Keywords changed unexpectedly",
@@ -315,7 +320,7 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 				index->filepath);
 			return -1;
 		}
-		(void)mail_index_keyword_lookup(index, keyword, TRUE, &idx);
+		mail_index_keyword_lookup_or_create(index, keyword, &idx);
 		array_append(&map->keyword_idx_map, &idx, 1);
 	}
 	return 0;
