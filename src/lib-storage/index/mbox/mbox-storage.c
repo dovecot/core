@@ -749,7 +749,7 @@ static int mbox_storage_mailbox_close(struct mailbox *box)
 	if (mbox->mbox_file_stream != NULL)
 		i_stream_destroy(&mbox->mbox_file_stream);
 
-	return index_storage_mailbox_close(box);
+	return index_storage_mailbox_close(box) < 0 ? -1 : ret;
 }
 
 static void mbox_notify_changes(struct mailbox *box)
