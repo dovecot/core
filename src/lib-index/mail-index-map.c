@@ -326,6 +326,10 @@ static void mail_index_map_copy_hdr(struct mail_index_map *map,
 	} else {
 		map->hdr = *hdr;
 	}
+
+	/* FIXME: backwards compatibility, remove later. In case this index is
+	   accessed with Dovecot v1.0, avoid recent message counter errors. */
+	map->hdr.unused_old_recent_messages_count = 0;
 }
 
 static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
