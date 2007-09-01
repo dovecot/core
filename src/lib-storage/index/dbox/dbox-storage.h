@@ -3,74 +3,54 @@
 
 #include "index-storage.h"
 #include "mailbox-list-private.h"
-#include "dbox-format.h"
 
 #define DBOX_STORAGE_NAME "dbox"
+#define DBOX_SUBSCRIPTION_FILE_NAME ".dbox-subscriptions"
+#define DBOX_INDEX_PREFIX "dovecot.index"
 
-struct dbox_uidlist;
+#define DBOX_MAILDIR_NAME "dbox-Mails"
+#define DBOX_INDEX_NAME "dbox.index"
+#define DBOX_MAIL_FILE_MULTI_PREFIX "m."
+#define DBOX_MAIL_FILE_UID_PREFIX "u."
+#define DBOX_MAIL_FILE_MULTI_FORMAT DBOX_MAIL_FILE_MULTI_PREFIX"%u"
+#define DBOX_MAIL_FILE_UID_FORMAT DBOX_MAIL_FILE_UID_PREFIX"%u"
+
+/* Default rotation settings */
+#define DBOX_DEFAULT_ROTATE_SIZE (2*1024*1024)
+#define DBOX_DEFAULT_ROTATE_MIN_SIZE (1024*16)
+#define DBOX_DEFAULT_ROTATE_DAYS 0
+#define DBOX_DEFAULT_MAX_OPEN_FILES 64
+
+struct dbox_index_header {
+	uint32_t last_dirty_flush_stamp;
+};
 
 struct dbox_storage {
 	struct mail_storage storage;
 	union mailbox_list_module_context list_module_ctx;
-
-	struct dotlock_settings uidlist_dotlock_set;
-	struct dotlock_settings file_dotlock_set;
-	struct dotlock_settings new_file_dotlock_set;
 };
 
-struct keyword_map {
-	unsigned int index_idx;
-	unsigned int file_idx;
-};
-
-struct dbox_file {
-	uint32_t file_seq;
-	char *path;
-
-	int fd;
-	struct istream *input;
-	struct ostream *output; /* while appending mails */
-
-	uint16_t base_header_size;
-	uint32_t header_size;
-	time_t create_time;
-	uint64_t append_offset;
-	uint16_t mail_header_size;
-	uint16_t mail_header_align;
-	uint16_t keyword_count;
-	uint64_t keyword_list_offset;
-	uint32_t keyword_list_size_alloc;
-	uint32_t keyword_list_size_used;
-	struct dbox_file_header hdr;
-
-	uoff_t seeked_offset;
-	uoff_t seeked_mail_size;
-	uint32_t seeked_uid;
-	struct dbox_mail_header seeked_mail_header;
-	unsigned char *seeked_keywords;
-
-	/* Keywords list, sorted by index_idx. */
-	ARRAY_DEFINE(idx_file_keywords, struct keyword_map);
-	/* idx -> index_idx array */
-	ARRAY_DEFINE(file_idx_keywords, unsigned int);
+struct dbox_mail_index_record {
+	uint32_t file_id;
+	uint32_t offset;
 };
 
 struct dbox_mailbox {
 	struct index_mailbox ibox;
 	struct dbox_storage *storage;
-	struct dbox_uidlist *uidlist;
 
-	const char *path;
-	struct timeout *keep_lock_to;
-
-        struct dbox_file *file;
-	uint32_t dbox_file_ext_idx;
-	uint32_t dbox_offset_ext_idx;
+	struct dbox_index *dbox_index;
+	uint32_t dbox_ext_id, dbox_hdr_ext_id;
+	/* timestamp when the mailbox was last modified interactively */
+	time_t last_interactive_change;
 
 	uoff_t rotate_size, rotate_min_size;
 	unsigned int rotate_days;
 
-	unsigned int syncing:1;
+	ARRAY_DEFINE(open_files, struct dbox_file *);
+	unsigned int max_open_files;
+
+	const char *path;
 };
 
 struct dbox_transaction_context {
@@ -86,6 +66,11 @@ extern struct mail_vfuncs dbox_mail_vfuncs;
 void dbox_transaction_class_init(void);
 void dbox_transaction_class_deinit(void);
 
+struct mail *
+dbox_mail_alloc(struct mailbox_transaction_context *t,
+		enum mail_fetch_field wanted_fields,
+		struct mailbox_header_lookup_ctx *wanted_headers);
+
 int dbox_save_init(struct mailbox_transaction_context *_t,
 		   enum mail_flags flags, struct mail_keywords *keywords,
 		   time_t received_date, int timezone_offset,
@@ -98,9 +83,5 @@ void dbox_save_cancel(struct mail_save_context *ctx);
 int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx);
 void dbox_transaction_save_commit_post(struct dbox_save_context *ctx);
 void dbox_transaction_save_rollback(struct dbox_save_context *ctx);
-
-int dbox_mail_lookup_offset(struct index_transaction_context *trans,
-			    uint32_t seq, uint32_t *file_seq_r,
-			    uoff_t *offset_r);
 
 #endif

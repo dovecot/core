@@ -10,23 +10,20 @@ AM_CPPFLAGS = \
 
 libstorage_dbox_a_SOURCES = \
 	dbox-file.c \
-	dbox-keywords.c \
+	dbox-index.c \
 	dbox-mail.c \
 	dbox-save.c \
 	dbox-sync.c \
-	dbox-sync-expunge.c \
-	dbox-sync-full.c \
+	dbox-sync-file.c \
+	dbox-sync-rebuild.c \
 	dbox-storage.c \
-	dbox-transaction.c \
-	dbox-uidlist.c
+	dbox-transaction.c
 
 headers = \
 	dbox-file.h \
-	dbox-format.h \
-	dbox-keywords.h \
+	dbox-index.h \
 	dbox-storage.h \
-	dbox-sync.h \
-	dbox-uidlist.h
+	dbox-sync.h
 
 if INSTALL_HEADERS
   pkginc_libdir=$(pkgincludedir)/src/lib-storage/index/dbox

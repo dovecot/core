@@ -1,9 +1,9 @@
-/* Copyright (C) 2005 Timo Sirainen */
+/* Copyright (C) 2007 Timo Sirainen */
 
 #include "lib.h"
 #include "array.h"
-#include "dbox-sync.h"
 #include "dbox-storage.h"
+#include "dbox-sync.h"
 
 static void (*next_hook_mail_index_transaction_created)
 	(struct mail_index_transaction *t) = NULL;
@@ -13,7 +13,7 @@ static int dbox_transaction_commit(struct mail_index_transaction *t,
 				   uoff_t *log_file_offset_r)
 {
 	struct dbox_transaction_context *dt = MAIL_STORAGE_CONTEXT(t);
-	struct dbox_mailbox *dbox = (struct dbox_mailbox *)dt->ictx.ibox;
+	struct dbox_mailbox *mbox = (struct dbox_mailbox *)dt->ictx.ibox;
 	struct dbox_save_context *save_ctx;
 	bool syncing = t->sync_transaction;
 	int ret = 0;
@@ -45,7 +45,7 @@ static int dbox_transaction_commit(struct mail_index_transaction *t,
 	}
 
 	if (ret == 0 && !syncing) {
-		if (dbox_sync(dbox, FALSE) < 0)
+		if (dbox_sync(mbox, FALSE) < 0)
 			ret = -1;
 	}
 
@@ -67,7 +67,8 @@ static void dbox_transaction_created(struct mail_index_transaction *t)
 	struct mailbox *box = MAIL_STORAGE_CONTEXT(t->view);
 
 	/* index can be for mailbox list index, in which case box=NULL */
-	if (box != NULL && strcmp(box->storage->name, DBOX_STORAGE_NAME) == 0) {
+	if (box != NULL &&
+	    strcmp(box->storage->name, DBOX_STORAGE_NAME) == 0) {
 		struct dbox_mailbox *dbox = (struct dbox_mailbox *)box;
 		struct dbox_transaction_context *mt;
 

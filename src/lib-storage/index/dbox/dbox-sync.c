@@ -1,89 +1,77 @@
-/* Copyright (C) 2005 Timo Sirainen */
+/* Copyright (C) 2007 Timo Sirainen */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "array.h"
+#include "ioloop.h"
+#include "str.h"
 #include "hash.h"
-#include "seq-range-array.h"
-#include "write-full.h"
-#include "dbox-file.h"
-#include "dbox-keywords.h"
-#include "dbox-sync.h"
-#include "dbox-uidlist.h"
 #include "dbox-storage.h"
+#include "dbox-index.h"
+#include "dbox-file.h"
+#include "dbox-sync.h"
 
-#include <stddef.h>
+#define DBOX_FLUSH_SECS_INTERACTIVE (4*60*60)
+#define DBOX_FLUSH_SECS_CLOSE (4*60*60)
+#define DBOX_FLUSH_SECS_IMMEDIATE (24*60*60)
 
-int dbox_sync_get_file_offset(struct dbox_sync_context *ctx, uint32_t seq,
-			      uint32_t *file_seq_r, uoff_t *offset_r)
+#define DBOX_REBUILD_COUNT 3
+
+static int dbox_sync_add_seq(struct dbox_sync_context *ctx,
+			     enum mail_index_sync_type type, uint32_t seq)
 {
-	int ret;
-
-	ret = dbox_file_lookup_offset(ctx->mbox, ctx->sync_view, seq,
-				      file_seq_r, offset_r);
-	if (ret <= 0) {
-		if (ret == 0) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
-				"Unexpectedly lost seq %u in "
-				"dbox %s", seq, ctx->mbox->path);
-		}
-		return -1;
-	}
-	if (*file_seq_r == 0) {
-		mail_storage_set_critical(&ctx->mbox->storage->storage,
-			"Cached message offset lost for seq %u in "
-			"dbox %s", seq, ctx->mbox->path);
-		return -1;
-	}
-	return 0;
-}
-
-static int dbox_sync_add_seq(struct dbox_sync_context *ctx, uint32_t seq,
-                             const struct dbox_sync_rec *sync_rec)
-{
-	struct dbox_sync_rec new_sync_rec;
 	struct dbox_sync_file_entry *entry;
-	const uint32_t *file_seqs;
-	unsigned int i, count;
-	uint32_t file_seq;
+	uint32_t file_id;
 	uoff_t offset;
+	bool uid_file;
 
-	if (dbox_sync_get_file_offset(ctx, seq, &file_seq, &offset) < 0)
+	if (!dbox_file_lookup(ctx->mbox, ctx->sync_view, seq,
+			      &file_id, &offset))
 		return -1;
 
-	file_seqs = array_get(&ctx->added_file_seqs, &count);
-	for (i = 0; i < count; i++) {
-		if (file_seqs[i] == file_seq) {
-			/* already added */
+	entry = hash_lookup(ctx->syncs, POINTER_CAST(file_id));
+	if (entry == NULL) {
+		if (type != MAIL_INDEX_SYNC_TYPE_EXPUNGE &&
+		    !ctx->flush_dirty_flags) {
+			mail_index_update_flags(ctx->trans, seq, MODIFY_ADD,
+				(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
 			return 0;
 		}
-	}
-	array_append(&ctx->added_file_seqs, &file_seq, 1);
 
-	entry = hash_lookup(ctx->syncs, POINTER_CAST(file_seq));
-	if (entry == NULL) {
 		entry = p_new(ctx->pool, struct dbox_sync_file_entry, 1);
-		entry->file_seq = file_seq;
-		p_array_init(&entry->sync_recs, ctx->pool, 3);
-		hash_insert(ctx->syncs, POINTER_CAST(file_seq), entry);
+		entry->file_id = file_id;
+		hash_insert(ctx->syncs, POINTER_CAST(file_id), entry);
 	}
+	uid_file = (file_id & DBOX_FILE_ID_FLAG_UID) != 0;
 
-	new_sync_rec = *sync_rec;
-	new_sync_rec.seq1 = seq;
-	array_append(&entry->sync_recs, &new_sync_rec, 1);
+	if (type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
+		if (!array_is_created(&entry->expunges)) {
+			p_array_init(&entry->expunges, ctx->pool,
+				     uid_file ? 1 : 3);
+			seq_range_array_add(&ctx->expunge_files, 0, file_id);
+		}
+		seq_range_array_add(&entry->expunges, 0, seq);
+	} else {
+		if (!array_is_created(&entry->changes)) {
+			p_array_init(&entry->changes, ctx->pool,
+				     uid_file ? 1 : 8);
+		}
+		seq_range_array_add(&entry->changes, 0, seq);
+	}
 	return 0;
 }
 
 static int dbox_sync_add(struct dbox_sync_context *ctx,
 			 const struct mail_index_sync_rec *sync_rec)
 {
-        struct dbox_sync_rec dbox_sync_rec;
 	uint32_t seq, seq1, seq2;
 
 	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_APPEND) {
 		/* don't care about appends */
 		return 0;
 	}
+
+	/* we assume that anything else than appends are interactive changes */
+	ctx->mbox->last_interactive_change = ioloop_time;
 
 	mail_index_lookup_uid_range(ctx->sync_view,
 				    sync_rec->uid1, sync_rec->uid2,
@@ -93,495 +81,285 @@ static int dbox_sync_add(struct dbox_sync_context *ctx,
 		return 0;
 	}
 
-	/* convert to dbox_sync_rec, which takes a bit less space and has
-	   sequences instead of UIDs. */
-	memset(&dbox_sync_rec, 0, sizeof(dbox_sync_rec));
-	dbox_sync_rec.type = sync_rec->type;
-	dbox_sync_rec.seq1 = seq1;
-	dbox_sync_rec.seq2 = seq2;
-	switch (sync_rec->type) {
-	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-		dbox_sync_rec.value.flags.add = sync_rec->add_flags;
-		dbox_sync_rec.value.flags.remove = sync_rec->remove_flags;
-		break;
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-		dbox_sync_rec.value.keyword_idx = sync_rec->keyword_idx;
-		break;
-	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-	case MAIL_INDEX_SYNC_TYPE_APPEND:
-		break;
-	}
-
-	/* now, add the same sync_rec to each file_seq's entry */
-	array_clear(&ctx->added_file_seqs);
 	for (seq = seq1; seq <= seq2; seq++) {
-		if (dbox_sync_add_seq(ctx, seq, &dbox_sync_rec) < 0)
+		if (dbox_sync_add_seq(ctx, sync_rec->type, seq) < 0)
 			return -1;
 	}
 	return 0;
 }
 
 static int
-dbox_sync_write_mask(struct dbox_sync_context *ctx,
-		     const struct dbox_sync_rec *sync_rec,
-                     unsigned int first_flag_offset, unsigned int flag_count,
-		     const unsigned char *array, const unsigned char *mask)
+dbox_sync_lock_expunge_file(struct dbox_sync_context *ctx, unsigned int file_id)
 {
-	struct dbox_mailbox *mbox = ctx->mbox;
-	struct mailbox *box = &mbox->ibox.box;
-	enum mailbox_sync_type sync_type;
-	uint32_t file_seq, uid2, seq;
-	uoff_t offset;
-	unsigned int i, start;
+	struct dbox_index_record *rec;
+	enum dbox_index_file_lock_status lock_status;
 	int ret;
 
-	if (dbox_sync_get_file_offset(ctx, sync_rec->seq1,
-				      &file_seq, &offset) < 0)
+	ret = dbox_index_try_lock_file(ctx->mbox->dbox_index, file_id,
+				       &lock_status);
+	if (ret < 0)
 		return -1;
 
-	mail_index_lookup_uid(ctx->sync_view, sync_rec->seq2, &uid2);
-	if ((ret = dbox_file_seek(mbox, file_seq, offset, FALSE)) <= 0)
-		return ret;
-
-	switch (sync_rec->type) {
-	case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-		sync_type = MAILBOX_SYNC_TYPE_EXPUNGE;
-		for (seq = sync_rec->seq1; seq != sync_rec->seq2; seq++)
-			mail_index_expunge(ctx->trans, seq);
+	rec = dbox_index_record_lookup(ctx->mbox->dbox_index, file_id);
+	switch (lock_status) {
+	case DBOX_INDEX_FILE_LOCKED:
+		seq_range_array_add(&ctx->locked_files, 0, file_id);
+		rec->status = DBOX_INDEX_FILE_STATUS_NONAPPENDABLE;
 		break;
-	case MAIL_INDEX_SYNC_TYPE_FLAGS:
-		sync_type = MAILBOX_SYNC_TYPE_FLAGS;
+	case DBOX_INDEX_FILE_LOCK_NOT_NEEDED:
+	case DBOX_INDEX_FILE_LOCK_UNLINKED:
+		i_assert(rec == NULL ||
+			 rec->status != DBOX_INDEX_FILE_STATUS_APPENDABLE);
 		break;
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-	case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-		sync_type = MAILBOX_SYNC_TYPE_KEYWORDS;
+	case DBOX_INDEX_FILE_LOCK_TRY_AGAIN:
+		rec->expunges = TRUE;
 		break;
-	default:
-		sync_type = 0;
-		i_unreached();
-	}
-	while (mbox->file->seeked_uid <= uid2) {
-		if (box->v.sync_notify != NULL) {
-			box->v.sync_notify(box, mbox->file->seeked_uid,
-					   sync_type);
-		}
-		for (i = 0; i < flag_count; ) {
-			if (!mask[i]) {
-				i++;
-				continue;
-			}
-
-			start = i;
-			while (i < flag_count) {
-				if (!mask[i])
-					break;
-				i++;
-			}
-			ret = pwrite_full(mbox->file->fd,
-					  array + start, i - start,
-					  offset + first_flag_offset + start);
-			if (ret < 0) {
-				mail_storage_set_critical(
-					&mbox->storage->storage,
-					"pwrite(%s) failed: %m",
-					mbox->file->path);
-				return -1;
-			}
-		}
-
-		ret = dbox_file_seek_next_nonexpunged(mbox);
-		if (ret <= 0) {
-			if (ret == 0)
-				break;
-			return -1;
-		}
-		offset = mbox->file->seeked_offset;
 	}
 	return 0;
 }
 
-int dbox_sync_update_flags(struct dbox_sync_context *ctx,
-			   const struct dbox_sync_rec *sync_rec)
+static int dbox_sync_lock_expunge_files(struct dbox_sync_context *ctx)
 {
-	static enum mail_flags dbox_flag_list[] = {
-		MAIL_ANSWERED,
-		MAIL_FLAGGED,
-		MAIL_DELETED,
-		MAIL_SEEN,
-		MAIL_DRAFT
-	};
-#define DBOX_FLAG_COUNT (sizeof(dbox_flag_list)/sizeof(dbox_flag_list[0]))
-	unsigned char dbox_flag_array[DBOX_FLAG_COUNT];
-	unsigned char dbox_flag_mask[DBOX_FLAG_COUNT];
-	unsigned int i, first_flag_offset;
-
-	/* first build flag array and mask */
-	if (sync_rec->type == MAIL_INDEX_SYNC_TYPE_EXPUNGE) {
-		dbox_flag_array[0] = '1';
-		dbox_flag_mask[0] = 1;
-
-		first_flag_offset = offsetof(struct dbox_mail_header, expunged);
-		return dbox_sync_write_mask(ctx, sync_rec,
-					    first_flag_offset, 1,
-					    dbox_flag_array, dbox_flag_mask);
-	} else {
-		i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
-		for (i = 0; i < DBOX_FLAG_COUNT; i++) {
-			dbox_flag_array[i] =
-				(sync_rec->value.flags.add &
-				 dbox_flag_list[i]) != 0 ? '1' : '0';
-			dbox_flag_mask[i] =
-				((sync_rec->value.flags.remove |
-				  sync_rec->value.flags.add) &
-				 dbox_flag_list[i]) != 0;
-		}
-
-		first_flag_offset = offsetof(struct dbox_mail_header, answered);
-		return dbox_sync_write_mask(ctx, sync_rec,
-					    first_flag_offset,
-					    DBOX_FLAG_COUNT,
-					    dbox_flag_array, dbox_flag_mask);
-	}
-}
-
-static int
-dbox_sync_update_keyword(struct dbox_sync_context *ctx,
-			 const struct dbox_sync_file_entry *entry,
-			 const struct dbox_sync_rec *sync_rec, bool set)
-{
-	unsigned char keyword_array, keyword_mask = 1;
-	unsigned int file_idx, first_flag_offset;
-
-	if (dbox_file_seek(ctx->mbox, entry->file_seq, 0, FALSE) <= 0)
-		return -1;
-
-	keyword_array = set ? '1' : '0';
-
-	if (!dbox_file_lookup_keyword(ctx->mbox, ctx->mbox->file,
-				      sync_rec->value.keyword_idx, &file_idx)) {
-		/* not found. if removing, just ignore.
-
-		   if adding, it currently happens only if the maximum keyword
-		   count was reached. once we support moving mails to new file
-		   to grow keywords count, this should never happen.
-		   for now, just ignore this. */
-		return 0;
-	}
-
-	first_flag_offset = sizeof(struct dbox_mail_header) + file_idx;
-	return dbox_sync_write_mask(ctx, sync_rec, first_flag_offset, 1,
-				    &keyword_array, &keyword_mask);
-}
-
-static int
-dbox_sync_reset_keyword(struct dbox_sync_context *ctx,
-			const struct dbox_sync_file_entry *entry,
-			const struct dbox_sync_rec *sync_rec)
-{
-	unsigned char *keyword_array, *keyword_mask;
-	unsigned int first_flag_offset;
-	int ret;
-
-	if (dbox_file_seek(ctx->mbox, entry->file_seq, 0, FALSE) <= 0)
-		return -1;
-
-	if (ctx->mbox->file->keyword_count == 0)
-		return 0;
-
-	t_push();
-	keyword_array = t_malloc(ctx->mbox->file->keyword_count);
-	keyword_mask = t_malloc(ctx->mbox->file->keyword_count);
-	memset(keyword_array, '0', ctx->mbox->file->keyword_count);
-	memset(keyword_mask, 1, ctx->mbox->file->keyword_count);
-
-	first_flag_offset = sizeof(struct dbox_mail_header);
-	ret = dbox_sync_write_mask(ctx, sync_rec, first_flag_offset,
-				   ctx->mbox->file->keyword_count,
-				   keyword_array, keyword_mask);
-	t_pop();
-	return ret;
-}
-
-static int
-dbox_sync_file_add_keywords(struct dbox_sync_context *ctx,
-			    const struct dbox_sync_file_entry *entry,
-			    unsigned int i)
-{
-	ARRAY_TYPE(seq_range) keywords;
-	const struct dbox_sync_rec *sync_recs;
 	const struct seq_range *range;
-	unsigned int count, file_idx, keyword_idx;
-	int ret = 0;
+	unsigned int i, count, id;
 
-	if (dbox_file_seek(ctx->mbox, entry->file_seq, 0, FALSE) <= 0)
-		return -1;
-
-	/* Get a list of all new keywords. Using seq_range is the easiest
-	   way to do this and should be pretty fast too. */
-	t_push();
-	t_array_init(&keywords, 16);
-	sync_recs = array_get(&entry->sync_recs, &count);
-	for (; i < count; i++) {
-		if (sync_recs[i].type != MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD)
-			continue;
-
-		/* check if it's already in the file */
-                keyword_idx = sync_recs[i].value.keyword_idx;
-		if (dbox_file_lookup_keyword(ctx->mbox, ctx->mbox->file,
-					     keyword_idx, &file_idx))
-			continue;
-
-		/* add it. if it already exists, it's handled internally. */
-		seq_range_array_add(&keywords, 0, keyword_idx);
-	}
-
-	/* now, write them to file */
-	range = array_get(&keywords, &count);
-	if (count > 0) {
-		ret = dbox_file_append_keywords(ctx->mbox, ctx->mbox->file,
-						range, count);
-	}
-
-	t_pop();
-	return ret;
-}
-
-static int dbox_sync_file(struct dbox_sync_context *ctx,
-                          const struct dbox_sync_file_entry *entry)
-{
-	const struct dbox_sync_rec *sync_recs;
-	unsigned int i, count;
-	bool first_keyword = TRUE;
-	int ret;
-
-	sync_recs = array_get(&entry->sync_recs, &count);
+	range = array_get(&ctx->expunge_files, &count);
 	for (i = 0; i < count; i++) {
-		switch (sync_recs[i].type) {
-		case MAIL_INDEX_SYNC_TYPE_EXPUNGE:
-			t_push();
-			ret = dbox_sync_expunge(ctx, entry, i);
-			t_pop();
-			if (ret > 0) {
-				/* handled expunging by copying the file.
-				   while at it, also wrote all the other sync
-				   changes to the file. */
-				return 0;
-			}
-			if (ret < 0)
+		for (id = range[i].seq1; id <= range[i].seq2; id++) {
+			if (dbox_sync_lock_expunge_file(ctx, id) < 0)
 				return -1;
-			/* handled expunging by writing expunge flags */
-			break;
-		case MAIL_INDEX_SYNC_TYPE_FLAGS:
-			if (dbox_sync_update_flags(ctx, &sync_recs[i]) < 0)
-				return -1;
-			break;
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_ADD:
-			if (first_keyword) {
-				/* add all new keywords in one go */
-				first_keyword = FALSE;
-				if (dbox_sync_file_add_keywords(ctx, entry,
-								i) < 0)
-					return -1;
-			}
-			if (dbox_sync_update_keyword(ctx, entry, &sync_recs[i],
-						     TRUE) < 0)
-				return -1;
-			break;
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_REMOVE:
-			if (dbox_sync_update_keyword(ctx, entry, &sync_recs[i],
-						     FALSE) < 0)
-				return -1;
-			break;
-		case MAIL_INDEX_SYNC_TYPE_KEYWORD_RESET:
-			if (dbox_sync_reset_keyword(ctx, entry,
-						    &sync_recs[i]) < 0)
-				return -1;
-			break;
-		case MAIL_INDEX_SYNC_TYPE_APPEND:
-			i_unreached();
 		}
 	}
 	return 0;
+}
+
+static void dbox_sync_unlock_files(struct dbox_sync_context *ctx)
+{
+	const struct seq_range *range;
+	unsigned int i, count, id;
+
+	range = array_get(&ctx->locked_files, &count);
+	for (i = 0; i < count; i++) {
+		for (id = range[i].seq1; id <= range[i].seq2; id++)
+			dbox_index_unlock_file(ctx->mbox->dbox_index, id);
+	}
+}
+
+static void dbox_sync_update_header(struct dbox_sync_context *ctx)
+{
+	struct dbox_index_header hdr;
+
+	if (!ctx->flush_dirty_flags)
+		return;
+
+	hdr.last_dirty_flush_stamp = ioloop_time;
+	mail_index_update_header_ext(ctx->trans, ctx->mbox->dbox_hdr_ext_id, 0,
+				     &hdr.last_dirty_flush_stamp,
+				     sizeof(hdr.last_dirty_flush_stamp));
 }
 
 static int dbox_sync_index(struct dbox_sync_context *ctx)
 {
 	struct mailbox *box = &ctx->mbox->ibox.box;
+	const struct mail_index_header *hdr;
 	struct mail_index_sync_rec sync_rec;
         struct hash_iterate_context *iter;
 	void *key, *value;
-	int ret;
+	uint32_t seq1, seq2;
+	int ret = 1;
 
-	/* read all changes and sort them to file_seq order */
-	ctx->pool = pool_alloconly_create("dbox sync pool", 10240);
+	hdr = mail_index_get_header(ctx->sync_view);
+	if (hdr->uid_validity == 0) {
+		/* newly created index file */
+		return 0;
+	}
+
+	/* mark the newly seen messages as recent */
+	mail_index_lookup_uid_range(ctx->sync_view, hdr->first_recent_uid,
+				    hdr->next_uid, &seq1, &seq2);
+	if (seq1 != 0) {
+		index_mailbox_set_recent_seq(&ctx->mbox->ibox, ctx->sync_view,
+					     seq1, seq2);
+	}
+
+	/* read all changes and sort them to file_id order */
+	ctx->pool = pool_alloconly_create("dbox sync pool", 1024*32);
 	ctx->syncs = hash_create(default_pool, ctx->pool, 0, NULL, NULL);
-	i_array_init(&ctx->added_file_seqs, 64);
+	i_array_init(&ctx->expunge_files, 32);
+	i_array_init(&ctx->locked_files, 32);
+
 	for (;;) {
 		if (!mail_index_sync_next(ctx->index_sync_ctx, &sync_rec))
 			break;
 		if (dbox_sync_add(ctx, &sync_rec) < 0) {
-			ret = -1;
+			ret = 0;
 			break;
 		}
 	}
-	array_free(&ctx->added_file_seqs);
-
-	iter = hash_iterate_init(ctx->syncs);
-	while (hash_iterate(iter, &key, &value)) {
-                const struct dbox_sync_file_entry *entry = value;
-
-		if (dbox_sync_file(ctx, entry) < 0) {
+	if (ret > 0) {
+		if (dbox_sync_lock_expunge_files(ctx) < 0)
 			ret = -1;
-			break;
-		}
 	}
-	hash_iterate_deinit(iter);
+	array_free(&ctx->expunge_files);
+
+	if (ret > 0) {
+		/* now sync each file separately */
+		iter = hash_iterate_init(ctx->syncs);
+		while (hash_iterate(iter, &key, &value)) {
+			const struct dbox_sync_file_entry *entry = value;
+
+			if ((ret = dbox_sync_file(ctx, entry)) <= 0)
+				break;
+		}
+		hash_iterate_deinit(iter);
+	}
+
+	if (ret > 0)
+		dbox_sync_update_header(ctx);
 
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, 0, 0);
 
+	dbox_sync_unlock_files(ctx);
 	hash_destroy(ctx->syncs);
 	pool_unref(ctx->pool);
-
 	return ret;
 }
 
-static int dbox_sync_init(struct dbox_mailbox *mbox,
-			  struct dbox_sync_context *ctx, bool *force)
+static bool dbox_sync_want_flush_dirty(struct dbox_mailbox *mbox,
+				       bool close_flush_dirty_flags)
 {
-	const struct mail_index_header *hdr;
-	enum mail_index_sync_flags sync_flags;
-	time_t mtime;
+	const struct dbox_index_header *hdr;
+	const void *data;
+	size_t data_size;
 
-	memset(ctx, 0, sizeof(*ctx));
-	ctx->mbox = mbox;
+	if (mbox->last_interactive_change <
+	    ioloop_time - DBOX_FLUSH_SECS_INTERACTIVE)
+		return TRUE;
 
-	/* uidlist locking is done before index locking. */
-	if (dbox_uidlist_sync_init(mbox->uidlist, &ctx->uidlist_sync_ctx,
-				   &mtime) < 0)
-		return -1;
-
-	sync_flags = MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
-	if (!mbox->ibox.keep_recent)
-		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
-	if (mail_index_sync_begin(mbox->ibox.index, &ctx->index_sync_ctx,
-				  &ctx->sync_view, &ctx->trans,
-				  sync_flags) < 0) {
-		mail_storage_set_index_error(&mbox->ibox);
-		dbox_uidlist_sync_rollback(ctx->uidlist_sync_ctx);
-		return -1;
+	mail_index_get_header_ext(mbox->ibox.view, mbox->dbox_hdr_ext_id,
+				  &data, &data_size);
+	if (data_size == 0 || data_size != sizeof(*hdr)) {
+		if (data_size != 0) {
+			i_warning("dbox %s: Invalid dbox header size",
+				  mbox->path);
+		}
+		return TRUE;
 	}
+	hdr = data;
 
-	hdr = mail_index_get_header(ctx->sync_view);
-	if ((uint32_t)mtime != hdr->sync_stamp) {
-		/* indexes aren't synced. we'll do a full sync. */
-		*force = TRUE;
+	if (!close_flush_dirty_flags) {
+		if (hdr->last_dirty_flush_stamp <
+		    ioloop_time - DBOX_FLUSH_SECS_IMMEDIATE)
+			return TRUE;
+	} else {
+		if (hdr->last_dirty_flush_stamp <
+		    ioloop_time - DBOX_FLUSH_SECS_CLOSE)
+			return TRUE;
 	}
-	return 1;
+	return FALSE;
 }
 
-static int dbox_sync_finish(struct dbox_sync_context *ctx, bool force)
+int dbox_sync_begin(struct dbox_mailbox *mbox,
+		    struct dbox_sync_context **ctx_r,
+		    bool close_flush_dirty_flags)
 {
-	const struct mail_index_header *hdr;
-	uint32_t uid_validity, next_uid;
-	time_t mtime;
+	struct mail_storage *storage = mbox->ibox.box.storage;
+	struct dbox_sync_context *ctx;
+	enum mail_index_sync_flags sync_flags = 0;
+	unsigned int i;
 	int ret;
 
-	if (force)
-		ret = dbox_sync_full(ctx);
-	else
-		ret = dbox_sync_index(ctx);
+	if (dbox_sync_want_flush_dirty(mbox, close_flush_dirty_flags))
+		sync_flags |= MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY;
+	else {
+		if (close_flush_dirty_flags) {
+			/* no need to sync */
+			*ctx_r = NULL;
+			return 0;
+		}
+	}
 
-	if (ret < 0) {
+	ctx = i_new(struct dbox_sync_context, 1);
+	ctx->mbox = mbox;
+	ctx->flush_dirty_flags =
+		(sync_flags & MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY) != 0;
+
+	if (!mbox->ibox.keep_recent)
+		sync_flags |= MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+	/* don't write unnecessary dirty flag updates */
+	sync_flags |= MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES;
+
+	for (i = 0;; i++) {
+		if (mail_index_sync_begin(mbox->ibox.index,
+					  &ctx->index_sync_ctx,
+					  &ctx->sync_view, &ctx->trans,
+					  sync_flags) < 0) {
+			mail_storage_set_index_error(&mbox->ibox);
+			i_free(ctx);
+			return -1;
+		}
+
+		if ((ret = dbox_sync_index(ctx)) > 0)
+			break;
+
+		/* failure. keep the index locked while we're doing a
+		   rebuild. */
+		if (ret == 0) {
+			if (i >= DBOX_REBUILD_COUNT) {
+				mail_storage_set_critical(storage,
+					"dbox %s: Index keeps breaking",
+					ctx->mbox->path);
+				ret = -1;
+			} else {
+				/* do a full resync and try again. */
+				ret = dbox_sync_index_rebuild(mbox);
+			}
+		}
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
-		dbox_uidlist_sync_rollback(ctx->uidlist_sync_ctx);
-		return -1;
-	}
-
-	uid_validity = dbox_uidlist_sync_get_uid_validity(ctx->uidlist_sync_ctx);
-	next_uid = dbox_uidlist_sync_get_next_uid(ctx->uidlist_sync_ctx);
-
-	hdr = mail_index_get_header(ctx->sync_view);
-	if (hdr->uid_validity != uid_validity) {
-		mail_index_update_header(ctx->trans,
-			offsetof(struct mail_index_header, uid_validity),
-			&uid_validity, sizeof(uid_validity), TRUE);
-	}
-	if (hdr->next_uid != next_uid) {
-		i_assert(next_uid > hdr->next_uid ||
-			 hdr->uid_validity != uid_validity);
-		mail_index_update_header(ctx->trans,
-			offsetof(struct mail_index_header, next_uid),
-			&next_uid, sizeof(next_uid), FALSE);
-	}
-
-	if (dbox_uidlist_sync_commit(ctx->uidlist_sync_ctx, &mtime) < 0) {
-		mail_index_sync_rollback(&ctx->index_sync_ctx);
-		return -1;
-	}
-
-	if ((uint32_t)mtime != hdr->sync_stamp) {
-		uint32_t sync_stamp = mtime;
-
-		mail_index_update_header(ctx->trans,
-			offsetof(struct mail_index_header, sync_stamp),
-			&sync_stamp, sizeof(sync_stamp), TRUE);
-	}
-
-	if (force) {
-		mail_index_sync_rollback(&ctx->index_sync_ctx);
-	} else {
-		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
-			mail_storage_set_index_error(&ctx->mbox->ibox);
+		if (ret < 0) {
+			i_free(ctx);
 			return -1;
 		}
 	}
+
+	*ctx_r = ctx;
 	return 0;
 }
 
-static int dbox_sync_int(struct dbox_mailbox *mbox, bool force)
+int dbox_sync_finish(struct dbox_sync_context **_ctx, bool success)
 {
-	struct dbox_sync_context ctx;
-	int ret;
+	struct dbox_sync_context *ctx = *_ctx;
+	int ret = success ? 0 : -1;
 
-	if ((ret = dbox_sync_init(mbox, &ctx, &force)) <= 0)
-		return ret;
+	*_ctx = NULL;
 
-	if ((ret = dbox_sync_finish(&ctx, force)) < 0)
-		return ret;
-
-	if (force) {
-		/* now that indexes are ok, sync changes from the index */
-		force = FALSE;
-		if ((ret = dbox_sync_init(mbox, &ctx, &force)) <= 0)
-			return ret;
-
-		if (force) {
-			mail_storage_set_critical(&mbox->storage->storage,
-				"dbox_sync_full(%s) didn't work",
-				mbox->path);
-
-			mail_index_sync_rollback(&ctx.index_sync_ctx);
-			dbox_uidlist_sync_rollback(ctx.uidlist_sync_ctx);
-			return -1;
+	if (success) {
+		if (mail_index_sync_commit(&ctx->index_sync_ctx) < 0) {
+			mail_storage_set_index_error(&ctx->mbox->ibox);
+			ret = -1;
 		}
-		return dbox_sync_finish(&ctx, FALSE);
 	} else {
-		return 0;
+		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
+	if (ctx->path != NULL)
+		str_free(&ctx->path);
+	i_free(ctx);
+	return 0;
 }
 
-int dbox_sync(struct dbox_mailbox *mbox, bool force)
+int dbox_sync(struct dbox_mailbox *mbox, bool close_flush_dirty_flags)
 {
-	int ret;
+	struct dbox_sync_context *sync_ctx;
 
-	mbox->syncing = TRUE;
-	ret = dbox_sync_int(mbox, force);
-	mbox->syncing = FALSE;
-	return ret;
+	if (dbox_sync_begin(mbox, &sync_ctx, close_flush_dirty_flags) < 0)
+		return -1;
+
+	if (sync_ctx == NULL) {
+		i_assert(close_flush_dirty_flags);
+		return 0;
+	}
+	return dbox_sync_finish(&sync_ctx, TRUE);
 }
 
 struct mailbox_sync_context *
@@ -599,19 +377,4 @@ dbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		ret = dbox_sync(mbox, FALSE);
 
 	return index_mailbox_sync_init(box, flags, ret < 0);
-}
-
-int dbox_sync_is_changed(struct dbox_mailbox *mbox)
-{
-	const struct mail_index_header *hdr;
-	time_t mtime;
-
-	hdr = mail_index_get_header(mbox->ibox.view);
-	if (hdr->sync_stamp == 0)
-		return 1;
-
-	if (dbox_uidlist_get_mtime(mbox->uidlist, &mtime) < 0)
-		return -1;
-
-	return (uint32_t)mtime == hdr->sync_stamp;
 }

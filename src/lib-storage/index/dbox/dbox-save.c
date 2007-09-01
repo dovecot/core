@@ -1,98 +1,63 @@
-/* Copyright (C) 2005 Timo Sirainen */
+/* Copyright (C) 2007 Timo Sirainen */
 
 #include "lib.h"
 #include "array.h"
-#include "ioloop.h"
-#include "istream.h"
 #include "hex-dec.h"
-#include "write-full.h"
+#include "str.h"
+#include "istream.h"
 #include "ostream.h"
-#include "seq-range-array.h"
+#include "ostream-crlf.h"
+#include "write-full.h"
 #include "index-mail.h"
-#include "dbox-uidlist.h"
-#include "dbox-keywords.h"
-#include "dbox-sync.h"
 #include "dbox-storage.h"
+#include "dbox-index.h"
+#include "dbox-file.h"
+#include "dbox-sync.h"
 
-#include <stddef.h>
+#include <stdlib.h>
+
+struct dbox_save_mail {
+	struct dbox_file *file;
+	uint32_t seq;
+	uint32_t append_offset;
+	uoff_t message_size;
+};
 
 struct dbox_save_context {
 	struct mail_save_context ctx;
 
 	struct dbox_mailbox *mbox;
 	struct mail_index_transaction *trans;
-	struct dbox_uidlist_append_ctx *append_ctx;
 
-	struct mail_index_sync_ctx *index_sync_ctx;
+	struct dbox_index_append_context *append_ctx;
+	struct dbox_sync_context *sync_ctx;
 
 	/* updated for each appended mail: */
 	uint32_t seq;
 	struct istream *input;
-	struct ostream *output;
-	struct dbox_file *file;
-	struct mail *mail;
-	uint64_t hdr_offset;
-	uint64_t mail_offset;
+	struct mail *mail, *cur_dest_mail;
+	time_t cur_received_date;
+	enum mail_flags cur_flags;
+	string_t *cur_keywords;
+
+	struct dbox_file *cur_file;
+	struct ostream *cur_output;
+
+	ARRAY_DEFINE(mails, struct dbox_save_mail);
 
 	unsigned int failed:1;
 	unsigned int finished:1;
 };
 
-static int
-dbox_save_add_keywords(struct dbox_save_context *ctx,
-		       const struct mail_keywords *keywords,
-		       buffer_t *file_keywords)
+static void dbox_save_keywords(struct dbox_save_context *ctx,
+			       struct mail_keywords *keywords)
 {
-	ARRAY_TYPE(seq_range) new_keywords;
-	const struct seq_range *range;
-	unsigned int i, count, file_idx;
-	int ret = 0;
-
-	/* Get a list of all new keywords. Using seq_range is the easiest
-	   way to do this and should be pretty fast too. */
-	t_push();
-	t_array_init(&new_keywords, 16);
-	for (i = 0; i < keywords->count; i++) {
-		/* check if it's already in the file */
-		if (dbox_file_lookup_keyword(ctx->mbox, ctx->file,
-					     keywords->idx[i], &file_idx)) {
-			buffer_write(file_keywords, file_idx, "1", 1);
-			continue;
-		}
-
-		/* add it. if it already exists, it's handled internally. */
-		seq_range_array_add(&new_keywords, 0, keywords->idx[i]);
-	}
-
-	/* now, write them to file */
-	range = array_get(&new_keywords, &count);
-	if (count > 0) {
-		if (dbox_file_append_keywords(ctx->mbox, ctx->file,
-					      range, count) < 0) {
-			ret = -1;
-			count = 0;
-		}
-
-		/* write the new keywords to file_keywords */
-		for (i = 0; i < count; i++) {
-			unsigned int kw;
-
-			for (kw = range[i].seq1; kw <= range[i].seq2; kw++) {
-				if (!dbox_file_lookup_keyword(ctx->mbox,
-							      ctx->file, kw,
-							      &file_idx)) {
-					/* it should have been found */
-					i_unreached();
-					continue;
-				}
-
-				buffer_write(file_keywords, file_idx, "1", 1);
-			}
-		}
-	}
-
-	t_pop();
-	return ret;
+	if (ctx->cur_keywords == NULL)
+		ctx->cur_keywords = str_new(default_pool, 128);
+	else
+		str_truncate(ctx->cur_keywords, 0);
+	dbox_mail_metadata_keywords_append(ctx->mbox, ctx->cur_keywords,
+					   keywords);
 }
 
 int dbox_save_init(struct mailbox_transaction_context *_t,
@@ -106,117 +71,33 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		(struct dbox_transaction_context *)_t;
 	struct dbox_mailbox *mbox = (struct dbox_mailbox *)t->ictx.ibox;
 	struct dbox_save_context *ctx = t->save_ctx;
-	struct dbox_mail_header hdr;
-	const struct stat *st;
-	buffer_t *file_keywords = NULL;
+	struct ostream *output;
+	struct dbox_message_header dbox_msg_hdr;
+	struct dbox_save_mail *save_mail;
 	enum mail_flags save_flags;
-	unsigned int i, pos, left;
-	char buf[128];
-	int ret;
+	const struct stat *st;
+	uoff_t mail_size;
 
 	i_assert((t->ictx.flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
-
-	if (received_date == (time_t)-1)
-		received_date = ioloop_time;
 
 	if (ctx == NULL) {
 		ctx = t->save_ctx = i_new(struct dbox_save_context, 1);
 		ctx->ctx.transaction = &t->ictx.mailbox_ctx;
 		ctx->mbox = mbox;
 		ctx->trans = t->ictx.trans;
-		ctx->append_ctx = dbox_uidlist_append_init(mbox->uidlist);
-
-		if ((ret = dbox_sync_is_changed(mbox)) < 0) {
-			ctx->failed = TRUE;
-			return -1;
-		}
-		if (ret > 0) {
-			if (dbox_sync(mbox, FALSE) < 0) {
-				ctx->failed = TRUE;
-				return -1;
-			}
-		}
+		ctx->append_ctx = dbox_index_append_begin(mbox->dbox_index);
+		i_array_init(&ctx->mails, 32);
 	}
-	ctx->input = input;
 
 	/* get the size of the mail to be saved, if possible */
 	st = i_stream_stat(input, TRUE);
-	if (st != NULL && st->st_size == -1)
-		st = NULL;
+	mail_size = st == NULL || st->st_size == -1 ? 0 : st->st_size;
 
-	if (dbox_uidlist_append_locked(ctx->append_ctx, &ctx->file,
-				       st != NULL ? st->st_size : 0) < 0) {
+	if (dbox_index_append_next(ctx->append_ctx, mail_size,
+				   &ctx->cur_file, &ctx->cur_output) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}
-	ctx->hdr_offset = ctx->file->output->offset;
-
-	t_push();
-	if (keywords != NULL && keywords->count > 0) {
-		uint32_t uid;
-		time_t mtime;
-
-		/* uidlist must be locked while we're reading or modifying
-		   file's header */
-		if (dbox_uidlist_append_get_first_uid(ctx->append_ctx,
-						      &uid, &mtime) < 0) {
-			ctx->failed = TRUE;
-			t_pop();
-			return -1;
-		}
-
-		/* write keywords to the file */
-		file_keywords = buffer_create_dynamic(pool_datastack_create(),
-						      DBOX_KEYWORD_COUNT);
-		if (dbox_save_add_keywords(ctx, keywords, file_keywords) < 0) {
-			ctx->failed = TRUE;
-			t_pop();
-			return -1;
-		}
-		o_stream_seek(ctx->file->output, ctx->hdr_offset);
-	}
-
-	/* append mail header. UID and mail size are written later. */
-	memset(&hdr, '0', sizeof(hdr));
-	memcpy(hdr.magic, DBOX_MAIL_HEADER_MAGIC, sizeof(hdr.magic));
-	DEC2HEX(hdr.received_time_hex, received_date);
-	DEC2HEX(hdr.save_time_hex, ioloop_time);
-	hdr.answered = (flags & MAIL_ANSWERED) != 0 ? '1' : '0';
-	hdr.flagged = (flags & MAIL_FLAGGED) != 0 ? '1' : '0';
-	hdr.deleted = (flags & MAIL_DELETED) != 0 ? '1' : '0';
-	hdr.seen = (flags & MAIL_SEEN) != 0 ? '1' : '0';
-	hdr.draft = (flags & MAIL_DRAFT) != 0 ? '1' : '0';
-	hdr.expunged = '0';
-	o_stream_send(ctx->file->output, &hdr, sizeof(hdr));
-
-	/* write keywords */
-	if (file_keywords != NULL) {
-		unsigned char *keyword_string;
-		size_t size;
-
-		keyword_string =
-			buffer_get_modifiable_data(file_keywords, &size);
-
-		/* string should be filled with NULs and '1' now.
-		   Change NULs to '0'. */
-		for (i = 0; i < size; i++) {
-			if (keyword_string[i] == '\0')
-				keyword_string[i] = '0';
-		}
-		o_stream_send(ctx->file->output, keyword_string, size);
-	}
-
-	/* fill rest of the header with '0' characters */
-	pos = ctx->file->output->offset - ctx->hdr_offset;
-	i_assert(pos <= ctx->file->mail_header_size);
-	left = ctx->file->mail_header_size - pos;
-	memset(buf, '0', I_MIN(sizeof(buf), left));
-	while (left > sizeof(buf)) {
-		o_stream_send(ctx->file->output, buf, sizeof(buf));
-		left -= sizeof(buf);
-	}
-	o_stream_send(ctx->file->output, buf, left);
-	ctx->mail_offset = ctx->file->output->offset;
 
 	/* add to index */
 	save_flags = flags & ~MAIL_RECENT;
@@ -227,22 +108,36 @@ int dbox_save_init(struct mailbox_transaction_context *_t,
 		mail_index_update_keywords(ctx->trans, ctx->seq,
 					   MODIFY_REPLACE, keywords);
 	}
-	mail_index_update_ext(ctx->trans, ctx->seq, mbox->dbox_file_ext_idx,
-			      &ctx->file->file_seq, NULL);
-	mail_index_update_ext(ctx->trans, ctx->seq,
-			      mbox->dbox_offset_ext_idx, &ctx->hdr_offset,
-			      NULL);
 
 	if (dest_mail == NULL) {
 		if (ctx->mail == NULL)
-			ctx->mail = index_mail_alloc(_t, 0, NULL);
+			ctx->mail = mail_alloc(_t, 0, NULL);
 		dest_mail = ctx->mail;
 	}
 	mail_set_seq(dest_mail, ctx->seq);
 
-	if (t->first_saved_mail_seq == 0)
-		t->first_saved_mail_seq = ctx->seq;
-	t_pop();
+	ctx->cur_dest_mail = dest_mail;
+	ctx->input = index_mail_cache_parse_init(dest_mail, input);
+
+	save_mail = array_append_space(&ctx->mails);
+	save_mail->file = ctx->cur_file;
+	save_mail->seq = ctx->seq;
+	i_assert(ctx->cur_output->offset <= (uint32_t)-1);
+	save_mail->append_offset = ctx->cur_output->offset;
+
+	/* write a dummy header. it'll get rewritten when we're finished */
+	memset(&dbox_msg_hdr, 0, sizeof(dbox_msg_hdr));
+	o_stream_cork(ctx->cur_output);
+	o_stream_send(ctx->cur_output, &dbox_msg_hdr, sizeof(dbox_msg_hdr));
+
+	output = o_stream_create_lf(ctx->cur_output);
+	o_stream_unref(&ctx->cur_output);
+	ctx->cur_output = output;
+
+	ctx->cur_received_date = received_date != (time_t)-1 ?
+		received_date : ioloop_time;
+	ctx->cur_flags = flags;
+	dbox_save_keywords(ctx, keywords);
 
 	*ctx_r = &ctx->ctx;
 	return ctx->failed ? -1 : 0;
@@ -256,59 +151,109 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 	if (ctx->failed)
 		return -1;
 
-	if (o_stream_send_istream(ctx->file->output, ctx->input) < 0) {
-		if (!mail_storage_set_error_from_errno(storage)) {
-			mail_storage_set_critical(storage,
-				"o_stream_send_istream(%s) failed: %m",
-				ctx->file->path);
+	do {
+		if (o_stream_send_istream(ctx->cur_output, ctx->input) < 0) {
+			if (!mail_storage_set_error_from_errno(storage)) {
+				mail_storage_set_critical(storage,
+					"o_stream_send_istream(%s) failed: %m",
+					ctx->cur_file->path);
+			}
+			ctx->failed = TRUE;
+			return -1;
 		}
-		ctx->failed = TRUE;
-		return -1;
-	}
+		index_mail_cache_parse_continue(ctx->cur_dest_mail);
+
+		/* both tee input readers may consume data from our primary
+		   input stream. we'll have to make sure we don't return with
+		   one of the streams still having data in them. */
+	} while (i_stream_read(ctx->input) > 0);
 	return 0;
+}
+
+static void dbox_save_write_metadata(struct dbox_save_context *ctx)
+{
+	struct dbox_metadata_header metadata_hdr;
+	char space[DBOX_EXTRA_SPACE];
+	string_t *str;
+	uoff_t vsize;
+
+	memset(&metadata_hdr, 0, sizeof(metadata_hdr));
+	memcpy(metadata_hdr.magic_post, DBOX_MAGIC_POST,
+	       sizeof(metadata_hdr.magic_post));
+	o_stream_send(ctx->cur_output, &metadata_hdr, sizeof(metadata_hdr));
+
+	str = t_str_new(256);
+	/* write first fields that don't change */
+	str_printfa(str, "%c%lx\n", DBOX_METADATA_RECEIVED_TIME,
+		    (unsigned long)ctx->cur_received_date);
+	str_printfa(str, "%c%lx\n", DBOX_METADATA_SAVE_TIME,
+		    (unsigned long)ioloop_time);
+	if (mail_get_virtual_size(ctx->cur_dest_mail, &vsize) < 0)
+		i_unreached();
+	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,
+		    (unsigned long long)vsize);
+
+	/* flags */
+	str_append_c(str, DBOX_METADATA_FLAGS);
+	dbox_mail_metadata_flags_append(str, ctx->cur_flags);
+	str_append_c(str, '\n');
+
+	/* keywords */
+	if (ctx->cur_keywords != NULL && str_len(ctx->cur_keywords) > 0) {
+		str_append_c(str, DBOX_METADATA_KEYWORDS);
+		str_append_str(str, ctx->cur_keywords);
+		str_append_c(str, '\n');
+	}
+
+	o_stream_send(ctx->cur_output, str_data(str), str_len(str));
+	memset(space, ' ', sizeof(space));
+	o_stream_send(ctx->cur_output, space, sizeof(space));
+	o_stream_send(ctx->cur_output, "\n", 1);
 }
 
 int dbox_save_finish(struct mail_save_context *_ctx)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
-	struct dbox_mail_header hdr;
+	struct mail_storage *storage = &ctx->mbox->storage->storage;
+	struct dbox_save_mail *save_mail;
+	uoff_t offset = 0;
+	unsigned int count;
 
 	ctx->finished = TRUE;
-
-	if (ctx->file != NULL) {
-		/* Make sure the file ends here (we could have been overwriting
-		   some existing aborted mail). In case we failed, truncate the
-		   file to the size before writing. */
-		if (ftruncate(ctx->file->fd, ctx->failed ? ctx->hdr_offset :
-			      ctx->file->output->offset) < 0) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
-						  "ftruncate(%s) failed: %m",
-						  ctx->file->path);
-			ctx->failed = TRUE;
-		}
-	}
-
-	if (!ctx->failed) {
-		/* write mail size to header */
-		DEC2HEX(hdr.mail_size_hex,
-			ctx->file->output->offset - ctx->mail_offset);
-
-		if (pwrite_full(ctx->file->fd, hdr.mail_size_hex,
-				sizeof(hdr.mail_size_hex), ctx->hdr_offset +
-				offsetof(struct dbox_mail_header,
-					 mail_size_hex)) < 0) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
-						  "pwrite_full(%s) failed: %m",
-						  ctx->file->path);
-			ctx->failed = TRUE;
-		}
-	}
-
-	if (ctx->failed)
+	if (ctx->cur_output == NULL)
 		return -1;
 
-	dbox_uidlist_append_finish_mail(ctx->append_ctx, ctx->file);
-	return 0;
+	index_mail_cache_parse_deinit(ctx->cur_dest_mail,
+				      ctx->cur_received_date);
+
+	if (!ctx->failed) {
+		offset = ctx->cur_output->offset;
+		dbox_save_write_metadata(ctx);
+		if (o_stream_flush(ctx->cur_output) < 0) {
+			mail_storage_set_critical(storage,
+				"o_stream_flush(%s) failed: %m",
+				ctx->cur_file->path);
+			ctx->failed = TRUE;
+		}
+	}
+
+	o_stream_destroy(&ctx->cur_output);
+	i_stream_unref(&ctx->input);
+
+	count = array_count(&ctx->mails);
+	save_mail = array_idx_modifiable(&ctx->mails, count - 1);
+	if (ctx->failed) {
+		dbox_file_cancel_append(save_mail->file,
+					save_mail->append_offset);
+		dbox_file_unref(&save_mail->file);
+		array_delete(&ctx->mails, count - 1, 1);
+		return -1;
+	} else {
+		dbox_file_finish_append(save_mail->file);
+		save_mail->message_size = offset - save_mail->append_offset -
+			save_mail->file->msg_header_size;
+		return 0;
+	}
 }
 
 void dbox_save_cancel(struct mail_save_context *_ctx)
@@ -319,102 +264,190 @@ void dbox_save_cancel(struct mail_save_context *_ctx)
 	(void)dbox_save_finish(_ctx);
 }
 
-int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
+static int
+dbox_save_mail_write_header(struct dbox_save_mail *mail, uint32_t uid)
 {
-	struct dbox_transaction_context *t =
-		(struct dbox_transaction_context *)ctx->ctx.transaction;
-	struct dbox_mail_header hdr;
-	struct dbox_file *file;
-	struct mail_index_view *view;
-	const struct mail_index_header *idx_hdr;
-	uint32_t seq, uid, next_uid, file_seq;
-	time_t old_mtime, new_mtime;
-	uoff_t offset;
-	int ret;
+	struct dbox_message_header dbox_msg_hdr;
+	struct ostream *output = mail->file->output;
+	uoff_t orig_offset;
+	int ret = 0;
 
-	i_assert(ctx->finished);
+	i_assert(mail->file->msg_header_size == sizeof(dbox_msg_hdr));
 
-	/* uidlist locking is done before index locking. */
-	if (dbox_uidlist_append_get_first_uid(ctx->append_ctx,
-					      &uid, &old_mtime) < 0) {
-		ctx->failed = TRUE;
-		dbox_transaction_save_rollback(ctx);
+	mail->file->last_append_uid = uid;
+
+	memset(&dbox_msg_hdr, ' ', sizeof(dbox_msg_hdr));
+	memcpy(dbox_msg_hdr.magic_pre, DBOX_MAGIC_PRE,
+	       sizeof(dbox_msg_hdr.magic_pre));
+	dbox_msg_hdr.type = DBOX_MESSAGE_TYPE_NORMAL;
+	dec2hex(dbox_msg_hdr.uid_hex, uid, sizeof(dbox_msg_hdr.uid_hex));
+	dec2hex(dbox_msg_hdr.message_size_hex, mail->message_size,
+		sizeof(dbox_msg_hdr.message_size_hex));
+	dbox_msg_hdr.save_lf = '\n';
+
+	orig_offset = output->offset;
+	o_stream_seek(output, mail->append_offset);
+	if (o_stream_send(output, &dbox_msg_hdr, sizeof(dbox_msg_hdr)) < 0 ||
+	    o_stream_flush(output) < 0) {
+		dbox_file_set_syscall_error(mail->file, "write");
+		ret = -1;
+	}
+	o_stream_seek(output, orig_offset);
+	return ret;
+}
+
+static int
+dbox_save_file_write_append_offset(struct dbox_file *file, uoff_t append_offset)
+{
+	char buf[8+1];
+
+	i_assert(append_offset <= (uint32_t)-1);
+
+	i_snprintf(buf, sizeof(buf), "%08x", (unsigned int)append_offset);
+	if (pwrite_full(file->fd, buf, sizeof(buf)-1,
+			file->append_offset_header_pos) < 0) {
+		dbox_file_set_syscall_error(file, "pwrite");
 		return -1;
 	}
-	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
+	return 0;
+}
 
-	*t->ictx.first_saved_uid = uid;
-	*t->ictx.last_saved_uid = next_uid - 1;
+static int dbox_save_file_commit_header(struct dbox_save_mail *mail)
+{
+	uoff_t append_offset;
 
-	/* update UIDs */
-	for (seq = t->first_saved_mail_seq; seq <= ctx->seq; seq++, uid++) {
-		ret = dbox_mail_lookup_offset(&t->ictx, seq,
-					      &file_seq, &offset);
-		i_assert(ret > 0); /* it's in memory, shouldn't fail! */
+	append_offset = dbox_file_get_next_append_offset(mail->file);
+	return dbox_save_file_write_append_offset(mail->file, append_offset);
+}
 
-		DEC2HEX(hdr.uid_hex, uid);
+static void dbox_save_file_uncommit_header(struct dbox_save_mail *mail)
+{
+	if (mail->file->file_id == 0) {
+		/* temporary file, we'll just unlink it later */
+		return;
+	}
+	(void)dbox_save_file_write_append_offset(mail->file,
+						 mail->append_offset);
+}
 
-		file = dbox_uidlist_append_lookup_file(ctx->append_ctx,
-						       file_seq);
-		if (pwrite_full(file->fd, hdr.uid_hex,
-				sizeof(hdr.uid_hex), offset +
-				offsetof(struct dbox_mail_header,
-					 uid_hex)) < 0) {
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
-						  "pwrite_full(%s) failed: %m",
-						  file->path);
-			ctx->failed = TRUE;
-                        dbox_transaction_save_rollback(ctx);
+static int dbox_save_mail_file_cmp(const void *p1, const void *p2)
+{
+	const struct dbox_save_mail *m1 = p1, *m2 = p2;
+	int ret;
+
+	ret = strcmp(m1->file->path, m2->file->path);
+	if (ret == 0) {
+		/* the oldest sequence is first. this is needed for uncommit
+		   to work right. */
+		ret = (int)m1->seq - (int)m2->seq;
+	}
+	return ret;
+}
+
+static int dbox_save_commit(struct dbox_save_context *ctx, uint32_t first_uid)
+{
+	struct dbox_mail_index_record rec;
+	struct dbox_save_mail *mails;
+	unsigned int i, count;
+
+	/* first write updated mail headers and collect all files we wrote to */
+	mails = array_get_modifiable(&ctx->mails, &count);
+	for (i = 0; i < count; i++) {
+		if (dbox_save_mail_write_header(&mails[i], first_uid++) < 0)
+			return -1;
+	}
+
+	/* update append offsets in file headers */
+	qsort(mails, count, sizeof(*mails), dbox_save_mail_file_cmp);
+	for (i = 0; i < count; i++) {
+		if (i > 0 && mails[i].file == mails[i-1].file) {
+			/* already written */
+			continue;
+		}
+
+		if (dbox_save_file_commit_header(&mails[i]) < 0) {
+			/* have to uncommit all changes so far */
+			for (; i > 0; i--) {
+				if (i > 1 &&
+				    mails[i-2].file == mails[i-1].file)
+					continue;
+				dbox_save_file_uncommit_header(&mails[i-1]);
+			}
 			return -1;
 		}
 	}
 
-	/* lock index lock before dropping uidlist lock in _append_commit() */
-	if (mail_index_sync_begin(ctx->mbox->ibox.index, &ctx->index_sync_ctx,
-				  &view, &ctx->trans, 0) < 0) {
+	/* set file_id / offsets to records */
+	if (dbox_index_append_assign_file_ids(ctx->append_ctx) < 0)
+		return -1;
+
+	memset(&rec, 0, sizeof(rec));
+	for (i = 0; i < count; i++) {
+		rec.file_id = mails[i].file->file_id;
+		rec.offset = mails[i].append_offset;
+
+		if ((rec.file_id & DBOX_FILE_ID_FLAG_UID) == 0) {
+			mail_index_update_ext(ctx->trans, mails[i].seq,
+					      ctx->mbox->dbox_ext_id,
+					      &rec, NULL);
+		}
+	}
+	return 0;
+}
+
+int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
+{
+	struct dbox_transaction_context *t =
+		(struct dbox_transaction_context *)ctx->ctx.transaction;
+	const struct mail_index_header *hdr;
+	uint32_t uid, next_uid;
+
+	i_assert(ctx->finished);
+
+	if (dbox_sync_begin(ctx->mbox, &ctx->sync_ctx, FALSE) < 0) {
 		ctx->failed = TRUE;
 		dbox_transaction_save_rollback(ctx);
 		return -1;
 	}
 
-	if (dbox_uidlist_append_commit(ctx->append_ctx, &new_mtime) < 0) {
-		mail_index_sync_rollback(&ctx->index_sync_ctx);
-		i_free(ctx);
+	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
+	uid = hdr->next_uid;
+	mail_index_append_assign_uids(ctx->trans, uid, &next_uid);
+
+	if (dbox_save_commit(ctx, uid) < 0) {
+		ctx->failed = TRUE;
+		dbox_transaction_save_rollback(ctx);
 		return -1;
 	}
 
-	idx_hdr = mail_index_get_header(view);
-	if ((uint32_t)old_mtime == idx_hdr->sync_stamp &&
-	    old_mtime != new_mtime) {
-		/* index was fully synced. keep it that way. */
-		uint32_t sync_stamp = new_mtime;
+	*t->ictx.saved_uid_validity = hdr->uid_validity;
+	*t->ictx.first_saved_uid = uid;
+	*t->ictx.last_saved_uid = next_uid - 1;
 
-		mail_index_update_header(ctx->trans,
-			offsetof(struct mail_index_header, sync_stamp),
-			&sync_stamp, sizeof(sync_stamp), TRUE);
-	}
-
+	dbox_index_append_commit(&ctx->append_ctx);
 	return 0;
 }
 
 void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 {
-	mail_index_sync_rollback(&ctx->index_sync_ctx);
-	if (ctx->mail != NULL)
-		index_mail_free(ctx->mail);
-	i_free(ctx);
+	(void)dbox_sync_finish(&ctx->sync_ctx, TRUE);
+	dbox_transaction_save_rollback(ctx);
 }
 
 void dbox_transaction_save_rollback(struct dbox_save_context *ctx)
 {
 	if (!ctx->finished)
 		dbox_save_cancel(&ctx->ctx);
+	if (ctx->append_ctx != NULL)
+		dbox_index_append_rollback(&ctx->append_ctx);
 
-	if (ctx->index_sync_ctx != NULL)
-		mail_index_sync_rollback(&ctx->index_sync_ctx);
+	if (ctx->sync_ctx != NULL)
+		(void)dbox_sync_finish(&ctx->sync_ctx, FALSE);
 
-        dbox_uidlist_append_rollback(ctx->append_ctx);
 	if (ctx->mail != NULL)
-		index_mail_free(ctx->mail);
+		mail_free(&ctx->mail);
+	if (ctx->cur_keywords != NULL)
+		str_free(&ctx->cur_keywords);
+	array_free(&ctx->mails);
 	i_free(ctx);
 }
