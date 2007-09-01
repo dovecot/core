@@ -419,6 +419,7 @@ static bool mail_index_open_files(struct mail_index *index,
 		if (index->indexid == 0) {
 			/* create a new indexid for us */
 			index->indexid = ioloop_time;
+			index->map->hdr.indexid = index->indexid;
 		}
 
 		ret = mail_transaction_log_create(index->log);
