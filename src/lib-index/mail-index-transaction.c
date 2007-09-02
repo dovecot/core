@@ -1136,7 +1136,7 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 {
 	struct mail_index *index = t->view->index;
 	struct mail_keywords *k;
-	unsigned int i, count;
+	unsigned int src, dest, i, count;
 
 	count = strarray_length(keywords);
 	if (count == 0) {
@@ -1149,14 +1149,21 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 	k = i_malloc(sizeof(struct mail_keywords) +
 		     (sizeof(k->idx) * (count-1)));
 	k->index = index;
-	k->count = count;
 
 	/* look up the keywords from index. they're never removed from there
 	   so we can permanently store indexes to them. */
-	for (i = 0; i < count; i++) {
-		mail_index_keyword_lookup_or_create(index, keywords[i],
-						    &k->idx[i]);
+	for (src = dest = 0; src < count; src++) {
+		mail_index_keyword_lookup_or_create(index, keywords[src],
+						    &k->idx[dest]);
+		/* ignore if this is a duplicate */
+		for (i = 0; i < src; i++) {
+			if (k->idx[i] == k->idx[dest])
+				break;
+		}
+		if (i == src)
+			dest++;
 	}
+	k->count = dest;
 	return k;
 }
 
@@ -1166,9 +1173,10 @@ mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
 						*keyword_indexes)
 {
 	struct mail_keywords *k;
-	unsigned int count;
+	const unsigned int *indexes;
+	unsigned int src, dest, i, count;
 
-	count = array_count(keyword_indexes);
+	indexes = array_get(keyword_indexes, &count);
 	if (count == 0) {
 		k = i_new(struct mail_keywords, 1);
 		k->index = t->view->index;
@@ -1179,10 +1187,17 @@ mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
 	k = i_malloc(sizeof(struct mail_keywords) +
 		     (sizeof(k->idx) * (count-1)));
 	k->index = t->view->index;
-	k->count = count;
 
-	memcpy(k->idx, array_idx(keyword_indexes, 0),
-	       count * sizeof(k->idx[0]));
+	/* copy but skip duplicates */
+	for (src = dest = 0; src < count; src++) {
+		for (i = 0; i < src; i++) {
+			if (k->idx[i] == indexes[src])
+				break;
+		}
+		if (i == src)
+			k->idx[dest++] = indexes[src];
+	}
+	k->count = dest;
 	return k;
 }
 
