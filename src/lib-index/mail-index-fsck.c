@@ -118,8 +118,11 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 		hdr.first_recent_uid = 1;
 
         CHECK(log_file_seq, !=);
-        CHECK(log_file_head_offset, !=);
-        CHECK(log_file_tail_offset, !=);
+	if (hdr.log_file_seq == map->hdr.log_file_seq) {
+		/* don't bother complaining about these if file changed too */
+		CHECK(log_file_head_offset, !=);
+		CHECK(log_file_tail_offset, !=);
+	}
 
 	CHECK(uid_validity, !=);
         CHECK(messages_count, !=);
