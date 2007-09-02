@@ -142,7 +142,7 @@ int deliver_save(struct mail_namespace *namespaces,
 	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 
 	kw = strarray_length(keywords) == 0 ? NULL :
-		mailbox_keywords_create(t, keywords);
+		mailbox_keywords_create_valid(t, keywords);
 	if (mailbox_copy(t, mail, flags, kw, NULL) < 0)
 		ret = -1;
 	mailbox_keywords_free(t, &kw);

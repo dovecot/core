@@ -21,8 +21,6 @@
    by default. */
 #define DEFAULT_IMAP_MAX_LINE_LENGTH 65536
 
-#define DEFAULT_MAX_KEYWORD_LENGTH 50
-
 enum client_workarounds {
 	WORKAROUND_DELAY_NEWMAIL		= 0x01,
 	WORKAROUND_NETSCAPE_EOH			= 0x04,
@@ -30,7 +28,6 @@ enum client_workarounds {
 };
 
 extern struct ioloop *ioloop;
-extern unsigned int max_keyword_length;
 extern unsigned int imap_max_line_length;
 extern enum client_workarounds client_workarounds;
 extern const char *logout_format;

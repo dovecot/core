@@ -4,6 +4,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "ioloop.h"
+#include "imap-parser.h"
 #include "mkdir-parents.h"
 #include "mail-index-private.h"
 #include "index-storage.h"
@@ -469,14 +470,86 @@ void mail_storage_set_index_error(struct index_mailbox *ibox)
 	mail_index_reset_error(ibox->index);
 }
 
-struct mail_keywords *
-index_keywords_create(struct mailbox_transaction_context *_t,
-		      const char *const keywords[])
+int index_mailbox_keyword_is_valid(struct index_mailbox *ibox,
+				   const char *keyword, const char **error_r)
+{
+	unsigned int i, idx;
+
+	/* if it already exists, skip validity checks */
+	if (mail_index_keyword_lookup(ibox->index, keyword, &idx))
+		return TRUE;
+
+	if (*keyword == '\0') {
+		*error_r = "Empty keywords not allowed";
+		return FALSE;
+	}
+
+	/* these are IMAP-specific restrictions, but for now IMAP is all we
+	   care about */
+	for (i = 0; keyword[i] != '\0'; i++) {
+		if (IS_ATOM_SPECIAL((unsigned char)keyword[i])) {
+			*error_r = "Invalid characters in keyword";
+			return FALSE;
+		}
+		if ((unsigned char)keyword[i] >= 0x80) {
+			*error_r = "8bit characters in keyword";
+			return FALSE;
+		}
+	}
+	if (i > ibox->box.storage->keyword_max_len) {
+		*error_r = "Keyword length too long";
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static struct mail_keywords *
+index_keywords_create_skip(struct index_transaction_context *t,
+			   const char *const keywords[])
+{
+	ARRAY_DEFINE(valid_keywords, const char *);
+	struct mail_keywords *kw;
+	const char *error;
+
+	t_push();
+	t_array_init(&valid_keywords, 32);
+	for (; *keywords != NULL; keywords++) {
+		if (index_mailbox_keyword_is_valid(t->ibox, *keywords, &error))
+			array_append(&valid_keywords, keywords, 1);
+	}
+	(void)array_append_space(&valid_keywords); /* NULL-terminate */
+	kw = mail_index_keywords_create(t->trans, keywords);
+	t_pop();
+	return kw;
+}
+
+int index_keywords_create(struct mailbox_transaction_context *_t,
+			  const char *const keywords[],
+			  struct mail_keywords **keywords_r, bool skip_invalid)
 {
 	struct index_transaction_context *t =
 		(struct index_transaction_context *)_t;
+	const char *error;
+	unsigned int i;
 
-	return mail_index_keywords_create(t->trans, keywords);
+	for (i = 0; keywords[i] != NULL; i++) {
+		if (!index_mailbox_keyword_is_valid(t->ibox, keywords[i],
+						    &error)) {
+			if (skip_invalid) {
+				/* found invalid keywords, do this the slow
+				   way */
+				*keywords_r =
+					index_keywords_create_skip(t, keywords);
+				return 0;
+			}
+			mail_storage_set_error(t->ibox->box.storage,
+					       MAIL_ERROR_PARAMS, error);
+			return -1;
+		}
+	}
+
+	*keywords_r = mail_index_keywords_create(t->trans, keywords);
+	return 0;
 }
 
 void index_keywords_free(struct mailbox_transaction_context *t __attr_unused__,

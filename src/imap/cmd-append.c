@@ -290,8 +290,13 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 		if (!client_parse_mail_flags(cmd, flags_list,
 					     &flags, &keywords_list))
 			return cmd_append_cancel(ctx, nonsync);
-		keywords = keywords_list == NULL ? NULL :
-			mailbox_keywords_create(ctx->t, keywords_list);
+		if (keywords_list == NULL)
+			keywords = NULL;
+		else if (mailbox_keywords_create(ctx->t, keywords_list,
+						 &keywords) < 0) {
+			client_send_storage_error(cmd, ctx->storage);
+			return cmd_append_cancel(ctx, nonsync);
+		}
 	} else {
 		flags = 0;
 		keywords = NULL;

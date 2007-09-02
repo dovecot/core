@@ -39,7 +39,6 @@ struct client_workaround_list client_workaround_list[] = {
 };
 
 struct ioloop *ioloop;
-unsigned int max_keyword_length;
 unsigned int imap_max_line_length;
 enum client_workarounds client_workarounds = 0;
 const char *logout_format;
@@ -224,11 +223,6 @@ static void main_init(void)
 	imap_max_line_length = str != NULL ?
 		(unsigned int)strtoul(str, NULL, 10) :
 		DEFAULT_IMAP_MAX_LINE_LENGTH;
-
-	str = getenv("MAIL_MAX_KEYWORD_LENGTH");
-	max_keyword_length = str != NULL ?
-		(unsigned int)strtoul(str, NULL, 10) :
-		DEFAULT_MAX_KEYWORD_LENGTH;
 
 	logout_format = getenv("IMAP_LOGOUT_FORMAT");
 	if (logout_format == NULL)

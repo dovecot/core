@@ -189,45 +189,17 @@ void client_send_untagged_storage_error(struct client *client,
 	client_send_line(client, t_strconcat("* NO ", error_string, NULL));
 }
 
-static bool is_valid_keyword(struct client_command_context *cmd,
-			     const char *keyword)
-{
-	const char *const *names;
-	unsigned int i, count;
-
-	/* if it already exists, skip validity checks */
-	if (array_is_created(&cmd->client->keywords.keywords)) {
-		names = array_get(&cmd->client->keywords.keywords, &count);
-		for (i = 0; i < count; i++) {
-			if (strcasecmp(names[i], keyword) == 0)
-				return TRUE;
-		}
-	}
-
-	if (strlen(keyword) > max_keyword_length) {
-		client_send_tagline(cmd,
-			t_strdup_printf("BAD Invalid keyword name '%s': "
-					"Maximum length is %u characters",
-					keyword, max_keyword_length));
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 bool client_parse_mail_flags(struct client_command_context *cmd,
 			     const struct imap_arg *args,
 			     enum mail_flags *flags_r,
 			     const char *const **keywords_r)
 {
-	const char *const *keywords;
 	const char *atom;
-	buffer_t *buffer;
-	size_t size, i;
+	ARRAY_DEFINE(keywords, const char *);
 
 	*flags_r = 0;
 	*keywords_r = NULL;
-	buffer = buffer_create_dynamic(cmd->pool, 256);
+	p_array_init(&keywords, cmd->pool, 16);
 
 	while (args->type != IMAP_ARG_EOL) {
 		if (args->type != IMAP_ARG_ATOM) {
@@ -257,28 +229,19 @@ bool client_parse_mail_flags(struct client_command_context *cmd,
 				return FALSE;
 			}
 		} else {
-			/* keyword - first make sure it's not a duplicate */
-			keywords = buffer_get_data(buffer, &size);
-			size /= sizeof(const char *);
-			for (i = 0; i < size; i++) {
-				if (strcasecmp(keywords[i], atom) == 0)
-					break;
-			}
-
-			if (i == size) {
-				if (!is_valid_keyword(cmd, atom))
-					return FALSE;
-				buffer_append(buffer, &atom, sizeof(atom));
-			}
+			/* keyword validity checks are done by lib-storage */
+			array_append(&keywords, &atom, 1);
 		}
 
 		args++;
 	}
 
-	atom = NULL;
-	buffer_append(buffer, &atom, sizeof(atom));
-	*keywords_r = buffer->used == sizeof(atom) ? NULL :
-		buffer_get_data(buffer, NULL);
+	if (array_count(&keywords) == 0)
+		*keywords_r = NULL;
+	else {
+		(void)array_append_space(&keywords); /* NULL-terminate */
+		*keywords_r = array_idx(&keywords, 0);
+	}
 	return TRUE;
 }
 

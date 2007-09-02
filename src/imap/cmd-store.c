@@ -88,8 +88,14 @@ bool cmd_store(struct client_command_context *cmd)
 
 	t = mailbox_transaction_begin(box, !silent ? 0 :
 				      MAILBOX_TRANSACTION_FLAG_HIDE);
-	keywords = keywords_list != NULL || modify_type == MODIFY_REPLACE ?
-		mailbox_keywords_create(t, keywords_list) : NULL;
+	if (keywords_list == NULL && modify_type != MODIFY_REPLACE)
+		keywords = NULL;
+	else if (mailbox_keywords_create(t, keywords_list, &keywords) < 0) {
+		/* invalid keywords */
+		mailbox_transaction_rollback(&t);
+		client_send_storage_error(cmd, mailbox_get_storage(box));
+		return TRUE;
+	}
 	search_ctx = mailbox_search_init(t, NULL, search_arg, NULL);
 
 	mail = mail_alloc(t, MAIL_FETCH_FLAGS, NULL);

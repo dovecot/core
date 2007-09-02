@@ -109,24 +109,11 @@ static bool parse_x_status(struct mbox_sync_mail_context *ctx,
 	return TRUE;
 }
 
-static bool keyword_is_valid(const char *keyword)
-{
-	/* try to only prevent the most malicious looking keywords. */
-	for (; *keyword != '\0'; keyword++) {
-		if (*keyword == '(' || *keyword == ')' ||
-		    *keyword == '{' || *keyword == '}' ||
-		    *keyword == '\\' || *keyword == '"' ||
-		    (unsigned char)*keyword <= 32)
-			return FALSE;
-	}
-	return TRUE;
-}
-
 static void
 parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
                          struct message_header_line *hdr, size_t pos)
 {
-	const char *keyword;
+	const char *keyword, *error;
 	size_t keyword_start;
 	unsigned int idx, count;
 
@@ -148,7 +135,8 @@ parse_imap_keywords_list(struct mbox_sync_mail_context *ctx,
 		t_push();
 		keyword = t_strndup(hdr->full_value + keyword_start,
 				    pos - keyword_start);
-		if (keyword_is_valid(keyword)) {
+		if (index_mailbox_keyword_is_valid(&ctx->sync_ctx->mbox->ibox,
+						   keyword, &error)) {
 			mail_index_keyword_lookup_or_create(
 				ctx->sync_ctx->mbox->ibox.index, keyword, &idx);
 		}

@@ -19,6 +19,8 @@
 	"Internal error occurred. Refer to server log for more information."
 #define CRITICAL_MSG_STAMP CRITICAL_MSG " [%Y-%m-%d %H:%M:%S]"
 
+#define DEFAULT_MAX_KEYWORD_LENGTH 50
+
 struct mail_storage_module_register mail_storage_module_register = { 0 };
 struct mail_module_register mail_module_register = { 0 };
 
@@ -169,7 +171,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 {
 	struct mail_storage *storage_class, *storage;
 	struct mail_storage *const *classes;
-	const char *home;
+	const char *home, *value;
 	unsigned int i, count;
 
 	if (data == NULL)
@@ -240,6 +242,10 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		return -1;
 	}
 
+	value = getenv("MAIL_MAX_KEYWORD_LENGTH");
+	storage->keyword_max_len = value != NULL ?
+		atoi(value) : DEFAULT_MAX_KEYWORD_LENGTH;
+	
 	if (hook_mail_storage_created != NULL)
 		hook_mail_storage_created(storage);
 
@@ -531,11 +537,29 @@ void mailbox_notify_changes_stop(struct mailbox *box)
 	mailbox_notify_changes(box, 0, NULL, NULL);
 }
 
-struct mail_keywords *
-mailbox_keywords_create(struct mailbox_transaction_context *t,
-			const char *const keywords[])
+int mailbox_keywords_create(struct mailbox_transaction_context *t,
+			    const char *const keywords[],
+			    struct mail_keywords **keywords_r)
 {
-	return t->box->v.keywords_create(t, keywords);
+	const char *empty_keyword_list = NULL;
+
+	if (keywords == NULL)
+		keywords = &empty_keyword_list;
+	return t->box->v.keywords_create(t, keywords, keywords_r, FALSE);
+}
+
+struct mail_keywords *
+mailbox_keywords_create_valid(struct mailbox_transaction_context *t,
+			      const char *const keywords[])
+{
+	const char *empty_keyword_list = NULL;
+	struct mail_keywords *kw;
+
+	if (keywords == NULL)
+		keywords = &empty_keyword_list;
+	if (t->box->v.keywords_create(t, keywords, &kw, TRUE) < 0)
+		i_unreached();
+	return kw;
 }
 
 void mailbox_keywords_free(struct mailbox_transaction_context *t,

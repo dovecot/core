@@ -62,7 +62,7 @@ static int fetch_and_copy(struct client *client,
 
 		keywords_list = mail_get_keywords(mail);
 		keywords = strarray_length(keywords_list) == 0 ? NULL :
-			mailbox_keywords_create(t, keywords_list);
+			mailbox_keywords_create_valid(t, keywords_list);
 		if (mailbox_copy(t, mail, mail_get_flags(mail),
 				 keywords, NULL) < 0)
 			ret = mail->expunged ? 0 : -1;

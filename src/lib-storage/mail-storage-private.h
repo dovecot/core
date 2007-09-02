@@ -61,7 +61,8 @@ struct mail_storage {
 
 	const char *user; /* name of user accessing the storage */
 	enum mail_storage_flags flags;
-        enum file_lock_method lock_method;
+	enum file_lock_method lock_method;
+	unsigned int keyword_max_len;
 
 	struct mail_storage_callbacks *callbacks;
 	void *callback_context;
@@ -116,9 +117,10 @@ struct mailbox_vfuncs {
 				  uint32_t *last_saved_uid_r);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);
 
-	struct mail_keywords *
-		(*keywords_create)(struct mailbox_transaction_context *t,
-				   const char *const keywords[]);
+	int (*keywords_create)(struct mailbox_transaction_context *t,
+			       const char *const keywords[],
+			       struct mail_keywords **keywords_r,
+			       bool skip_invalid);
 	void (*keywords_free)(struct mailbox_transaction_context *t,
 			      struct mail_keywords *keywords);
 
