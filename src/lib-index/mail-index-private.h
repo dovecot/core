@@ -139,7 +139,6 @@ struct mail_index_map {
 
 	struct mail_index_record_map *rec_map;
 
-	unsigned int keywords_read:1;
 	unsigned int write_base_header:1;
 	unsigned int write_ext_header:1;
 	unsigned int write_atomic:1; /* write to a new file and rename() */

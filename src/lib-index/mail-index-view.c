@@ -460,20 +460,16 @@ void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 		/* no keywords at all in index */
 		return;
 	}
+        keyword_data = data;
 
 	(void)mail_index_ext_get_size(view, ext_id, map, NULL,
 				      &record_size, NULL);
 
 	/* keyword_idx_map[] contains file => index keyword mapping */
-	if (!array_is_created(&map->keyword_idx_map)) {
-		keyword_idx_map = NULL;
-		keyword_count = 0;
-	} else {
-		keyword_idx_map = array_get(&map->keyword_idx_map,
-					    &keyword_count);
-	}
+	if (!array_is_created(&map->keyword_idx_map))
+		return;
 
-        keyword_data = data;
+	keyword_idx_map = array_get(&map->keyword_idx_map, &keyword_count);
 	for (i = 0, idx = 0; i < record_size; i++) {
 		/* first do the quick check to see if there's keywords at all */
 		if (keyword_data[i] == 0)
@@ -485,24 +481,9 @@ void mail_index_lookup_keywords(struct mail_index_view *view, uint32_t seq,
 				continue;
 
 			if (idx >= keyword_count) {
-				/* keyword header was updated, parse it again
-				   it so we know what this keyword is called */
-				if (mail_index_map_parse_keywords(map) < 0)
-					return;
-
-				if (!array_is_created(&map->keyword_idx_map))
-					return;
-
-				/* pointer may have changed. update it. */
-				keyword_idx_map =
-					array_get(&map->keyword_idx_map,
-						  &keyword_count);
-
-				if (idx >= keyword_count) {
-					/* extra bits set in keyword bytes.
-					   shouldn't happen, but just ignore. */
-					break;
-				}
+				/* extra bits set in keyword bytes.
+				   shouldn't happen, but just ignore. */
+				break;
 			}
 
 			index_idx = keyword_idx_map[idx];

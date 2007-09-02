@@ -7,7 +7,7 @@
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log.h"
 
-static int
+static bool
 keyword_lookup(struct mail_index_sync_map_ctx *ctx,
 	       const char *keyword_name, unsigned int *idx_r)
 {
@@ -15,10 +15,6 @@ keyword_lookup(struct mail_index_sync_map_ctx *ctx,
 	const unsigned int *idx_map;
 	unsigned int i, count, keyword_idx;
 
-	if (!map->keywords_read) {
-		if (mail_index_map_parse_keywords(map) < 0)
-			return -1;
-	}
 	if (array_is_created(&map->keyword_idx_map) &&
 	    mail_index_keyword_lookup(ctx->view->index, keyword_name,
 				      &keyword_idx)) {
@@ -27,13 +23,11 @@ keyword_lookup(struct mail_index_sync_map_ctx *ctx,
 		for (i = 0; i < count; i++) {
 			if (idx_map[i] == keyword_idx) {
 				*idx_r = i;
-				return 1;
+				return TRUE;
 			}
 		}
 	}
-
-	*idx_r = (unsigned int)-1;
-	return 0;
+	return FALSE;
 }
 
 static buffer_t *
@@ -77,12 +71,14 @@ keywords_get_header_buf(struct mail_index_map *map,
 	return buf;
 }
 
-static int keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
-				 uint32_t ext_map_idx, uint32_t reset_id,
-				 uint32_t hdr_size, uint32_t keywords_count)
+static void keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
+				  uint32_t ext_map_idx, uint32_t reset_id,
+				  uint32_t hdr_size, uint32_t keywords_count)
 {
 	buffer_t *ext_intro_buf;
 	struct mail_transaction_ext_intro *u;
+
+	i_assert(keywords_count > 0);
 
 	ext_intro_buf =
 		buffer_create_static_hard(pool_datastack_create(),
@@ -105,10 +101,11 @@ static int keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 		buffer_append(ext_intro_buf, "keywords", u->name_size);
 	}
 
-	return mail_index_sync_ext_intro(ctx, u);
+	if (mail_index_sync_ext_intro(ctx, u) < 0)
+		i_panic("Keyword extension growing failed");
 }
 
-static int
+static void
 keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 		    const char *keyword_name, unsigned int *keyword_idx_r)
 {
@@ -120,7 +117,6 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	buffer_t *buf = NULL;
 	size_t keyword_len, rec_offset, name_offset, name_offset_root;
 	unsigned int keywords_count;
-	int ret;
 
 	/* if we crash in the middle of writing the header, the
 	   keywords are more or less corrupted. avoid that by
@@ -169,12 +165,9 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	    (uint32_t)ext->record_size * CHAR_BIT < keywords_count) {
 		/* if we need to grow the buffer, add some padding */
 		buffer_append_zero(buf, 128);
-
-		ret = keywords_ext_register(ctx, ext_map_idx,
-					    ext == NULL ? 0 : ext->reset_id,
-					    buf->used, keywords_count);
-		if (ret <= 0)
-			return ret;
+		keywords_ext_register(ctx, ext_map_idx,
+				      ext == NULL ? 0 : ext->reset_id,
+				      buf->used, keywords_count);
 
 		/* map may have changed */
 		map = ctx->view->map;
@@ -186,13 +179,14 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 		i_assert(ext->hdr_size == buf->used);
 	}
 
-	buffer_copy(map->hdr_copy_buf, ext->hdr_offset,
-		    buf, 0, buf->used);
+	buffer_copy(map->hdr_copy_buf, ext->hdr_offset, buf, 0, buf->used);
 	map->hdr_base = map->hdr_copy_buf->data;
 
+	if (mail_index_map_parse_keywords(map) < 0)
+		i_panic("Keyword update corrupted keywords header");
+
 	*keyword_idx_r = keywords_count - 1;
-        map->keywords_read = FALSE;
-	return 1;
+	i_assert(*keyword_idx_r / CHAR_BIT < ext->record_size);
 }
 
 static int
@@ -249,6 +243,7 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 			     const struct mail_transaction_header *hdr,
 			     const struct mail_transaction_keyword_update *rec)
 {
+	struct mail_index_view *view = ctx->view;
 	const char *keyword_name;
 	const struct mail_index_ext *ext;
 	const uint32_t *uid, *end;
@@ -270,31 +265,30 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 					      "Trying to use empty keyword");
 		return -1;
 	}
-	if (keyword_lookup(ctx, keyword_name, &keyword_idx) < 0)
-		return -1;
-	if (keyword_idx == (unsigned int)-1) {
-		ret = keywords_header_add(ctx, keyword_name, &keyword_idx);
-		if (ret <= 0)
-			return ret;
-	}
+	if (!keyword_lookup(ctx, keyword_name, &keyword_idx))
+		keywords_header_add(ctx, keyword_name, &keyword_idx);
 
-	if (!mail_index_map_lookup_ext(ctx->view->map, "keywords",
-				       &ext_map_idx))
-		ext = NULL;
-	else
-		ext = array_idx(&ctx->view->map->extensions, ext_map_idx);
-	if (ext == NULL || ext->record_size == 0) {
-		/* nothing to do */
-		if (rec->modify_type != MODIFY_REMOVE) {
-			mail_index_sync_set_corrupted(ctx,
-				"Keyword ext record missing for added keyword");
+	/* if the keyword wasn't found, the "keywords" extension was created.
+	   if it was found, the record size should already be correct, but
+	   in case it isn't just fix it ourself. */
+	if (!mail_index_map_lookup_ext(view->map, "keywords", &ext_map_idx))
+		i_unreached();
+
+	ext = array_idx(&view->map->extensions, ext_map_idx);
+	if (keyword_idx / CHAR_BIT >= ext->record_size) {
+		if (rec->modify_type == MODIFY_REMOVE) {
+			/* nothing to do */
+			return 1;
 		}
-		return 1;
-	}
 
-	if (!ctx->view->map->keywords_read) {
-		if (mail_index_map_parse_keywords(ctx->view->map) < 0)
-			return -1;
+		/* grow the record size */
+		keywords_ext_register(ctx, ext_map_idx, ext->reset_id,
+				      ext->hdr_size,
+				      array_count(&view->map->keyword_idx_map));
+		if (!mail_index_map_lookup_ext(view->map, "keywords",
+					       &ext_map_idx))
+			i_unreached();
+		ext = array_idx(&view->map->extensions, ext_map_idx);
 	}
 
 	while (uid+2 <= end) {

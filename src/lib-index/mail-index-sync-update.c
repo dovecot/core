@@ -610,9 +610,6 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 	sync_map_ctx->cur_ext_map_idx = (uint32_t)-1;
 	sync_map_ctx->type = type;
 
-	/* make sure we re-read it in case it has changed */
-	sync_map_ctx->view->map->keywords_read = FALSE;
-
 	mail_index_sync_init_handlers(sync_map_ctx);
 }
 

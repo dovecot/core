@@ -912,6 +912,14 @@ struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map)
 		}
 	}
 
+	/* copy keyword map */
+	if (array_is_created(&map->keyword_idx_map)) {
+		i_array_init(&mem_map->keyword_idx_map,
+			     array_count(&map->keyword_idx_map) + 4);
+		array_append_array(&mem_map->keyword_idx_map,
+				   &map->keyword_idx_map);
+	}
+
 	return mem_map;
 }
 
