@@ -617,6 +617,8 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 
 void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx)
 {
+	if (sync_map_ctx->unknown_extensions != NULL)
+		buffer_free(sync_map_ctx->unknown_extensions);
 	if (sync_map_ctx->expunge_handlers_used)
 		mail_index_sync_deinit_expunge_handlers(sync_map_ctx);
 	mail_index_sync_deinit_handlers(sync_map_ctx);

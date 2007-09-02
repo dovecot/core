@@ -31,6 +31,7 @@ struct mail_index_sync_map_ctx {
 
 	ARRAY_DEFINE(expunge_handlers, struct mail_index_expunge_handler);
 	ARRAY_DEFINE(extra_contexts, void *);
+	buffer_t *unknown_extensions;
 
         enum mail_index_sync_handler_type type;
 

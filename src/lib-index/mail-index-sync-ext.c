@@ -331,6 +331,25 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 	}
 }
 
+static bool
+mail_index_sync_ext_unknown_complain(struct mail_index_sync_map_ctx *ctx,
+				     uint32_t ext_id)
+{
+	unsigned char *p;
+
+	if (ctx->unknown_extensions == NULL) {
+		ctx->unknown_extensions =
+			buffer_create_dynamic(default_pool, ext_id + 8);
+	}
+	p = buffer_get_space_unsafe(ctx->unknown_extensions, ext_id, 1);
+	if (*p != 0) {
+		/* we've already complained once */
+		return FALSE;
+	}
+	*p = 1;
+	return TRUE;
+}
+
 int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u)
 {
@@ -344,6 +363,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	if (u->ext_id != (uint32_t)-1 &&
 	    (!array_is_created(&map->extensions) ||
 	     u->ext_id >= array_count(&map->extensions))) {
+		if (!mail_index_sync_ext_unknown_complain(ctx, u->ext_id))
+			return -1;
 		mail_index_sync_set_corrupted(ctx,
 			"Extension introduction for unknown id %u", u->ext_id);
 		return -1;
