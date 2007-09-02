@@ -26,7 +26,7 @@ static void client_send_sendalive_if_needed(struct client *client)
 	}
 }
 
-static int fetch_and_copy(struct client *client,
+static int fetch_and_copy(struct client *client, struct mailbox *destbox,
 			  struct mailbox_transaction_context *t,
 			  struct mail_search_arg *search_args,
 			  const char **src_uidset_r,
@@ -62,11 +62,11 @@ static int fetch_and_copy(struct client *client,
 
 		keywords_list = mail_get_keywords(mail);
 		keywords = strarray_length(keywords_list) == 0 ? NULL :
-			mailbox_keywords_create_valid(t, keywords_list);
+			mailbox_keywords_create_valid(destbox, keywords_list);
 		if (mailbox_copy(t, mail, mail_get_flags(mail),
 				 keywords, NULL) < 0)
 			ret = mail->expunged ? 0 : -1;
-		mailbox_keywords_free(t, &keywords);
+		mailbox_keywords_free(destbox, &keywords);
 
 		msgset_generator_next(&srcset_ctx, mail->uid);
 	}
@@ -132,7 +132,8 @@ bool cmd_copy(struct client_command_context *cmd)
 	t = mailbox_transaction_begin(destbox,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
-	ret = fetch_and_copy(client, t, search_arg, &src_uidset, &copy_count);
+	ret = fetch_and_copy(client, destbox, t, search_arg,
+			     &src_uidset, &copy_count);
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);

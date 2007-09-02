@@ -48,7 +48,7 @@ static void dbox_sync_index_metadata(struct dbox_sync_rebuild_context *ctx,
 	value = dbox_file_metadata_get(file, DBOX_METADATA_KEYWORDS);
 	if (value != NULL) {
 		t_push();
-		keywords = mail_index_keywords_create(ctx->trans,
+		keywords = mail_index_keywords_create(ctx->mbox->ibox.index,
 						t_strsplit_spaces(value, " "));
 		mail_index_update_keywords(ctx->trans, seq, MODIFY_REPLACE,
 					   keywords);

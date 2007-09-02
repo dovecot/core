@@ -292,7 +292,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 			return cmd_append_cancel(ctx, nonsync);
 		if (keywords_list == NULL)
 			keywords = NULL;
-		else if (mailbox_keywords_create(ctx->t, keywords_list,
+		else if (mailbox_keywords_create(ctx->box, keywords_list,
 						 &keywords) < 0) {
 			client_send_storage_error(cmd, ctx->storage);
 			return cmd_append_cancel(ctx, nonsync);
@@ -327,7 +327,7 @@ static bool cmd_append_continue_parsing(struct client_command_context *cmd)
 				ctx->input, FALSE, &ctx->save_ctx);
 
 	if (keywords != NULL)
-		mailbox_keywords_free(ctx->t, &keywords);
+		mailbox_keywords_free(ctx->box, &keywords);
 
 	if (ret < 0) {
 		/* save initialization failed */

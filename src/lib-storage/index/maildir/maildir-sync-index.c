@@ -338,7 +338,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 				struct mail_keywords *kw;
 
 				kw = mail_index_keywords_create_from_indexes(
-					trans, &ctx->keywords);
+					mbox->ibox.index, &ctx->keywords);
 				mail_index_update_keywords(trans, seq,
 							   MODIFY_REPLACE, kw);
 				mail_index_keywords_free(&kw);
@@ -417,7 +417,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			struct mail_keywords *kw;
 
 			kw = mail_index_keywords_create_from_indexes(
-				trans, &ctx->keywords);
+				mbox->ibox.index, &ctx->keywords);
 			mail_index_update_keywords(trans, seq,
 						   MODIFY_REPLACE, kw);
 			mail_index_keywords_free(&kw);

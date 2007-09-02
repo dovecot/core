@@ -504,7 +504,7 @@ int index_mailbox_keyword_is_valid(struct index_mailbox *ibox,
 }
 
 static struct mail_keywords *
-index_keywords_create_skip(struct index_transaction_context *t,
+index_keywords_create_skip(struct index_mailbox *ibox,
 			   const char *const keywords[])
 {
 	ARRAY_DEFINE(valid_keywords, const char *);
@@ -514,46 +514,42 @@ index_keywords_create_skip(struct index_transaction_context *t,
 	t_push();
 	t_array_init(&valid_keywords, 32);
 	for (; *keywords != NULL; keywords++) {
-		if (index_mailbox_keyword_is_valid(t->ibox, *keywords, &error))
+		if (index_mailbox_keyword_is_valid(ibox, *keywords, &error))
 			array_append(&valid_keywords, keywords, 1);
 	}
 	(void)array_append_space(&valid_keywords); /* NULL-terminate */
-	kw = mail_index_keywords_create(t->trans, keywords);
+	kw = mail_index_keywords_create(ibox->index, keywords);
 	t_pop();
 	return kw;
 }
 
-int index_keywords_create(struct mailbox_transaction_context *_t,
-			  const char *const keywords[],
+int index_keywords_create(struct mailbox *_box, const char *const keywords[],
 			  struct mail_keywords **keywords_r, bool skip_invalid)
 {
-	struct index_transaction_context *t =
-		(struct index_transaction_context *)_t;
+	struct index_mailbox *ibox = (struct index_mailbox *)_box;
 	const char *error;
 	unsigned int i;
 
 	for (i = 0; keywords[i] != NULL; i++) {
-		if (!index_mailbox_keyword_is_valid(t->ibox, keywords[i],
-						    &error)) {
-			if (skip_invalid) {
-				/* found invalid keywords, do this the slow
-				   way */
-				*keywords_r =
-					index_keywords_create_skip(t, keywords);
-				return 0;
-			}
-			mail_storage_set_error(t->ibox->box.storage,
-					       MAIL_ERROR_PARAMS, error);
-			return -1;
+		if (index_mailbox_keyword_is_valid(ibox, keywords[i], &error))
+			continue;
+
+		if (skip_invalid) {
+			/* found invalid keywords, do this the slow
+			   way */
+			*keywords_r =
+				index_keywords_create_skip(ibox, keywords);
+			return 0;
 		}
+		mail_storage_set_error(_box->storage, MAIL_ERROR_PARAMS, error);
+		return -1;
 	}
 
-	*keywords_r = mail_index_keywords_create(t->trans, keywords);
+	*keywords_r = mail_index_keywords_create(ibox->index, keywords);
 	return 0;
 }
 
-void index_keywords_free(struct mailbox_transaction_context *t __attr_unused__,
-			 struct mail_keywords *keywords)
+void index_keywords_free(struct mail_keywords *keywords)
 {
 	mail_index_keywords_free(&keywords);
 }

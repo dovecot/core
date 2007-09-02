@@ -1131,10 +1131,9 @@ void mail_index_update_ext(struct mail_index_transaction *t, uint32_t seq,
 }
 
 struct mail_keywords *
-mail_index_keywords_create(struct mail_index_transaction *t,
+mail_index_keywords_create(struct mail_index *index,
 			   const char *const keywords[])
 {
-	struct mail_index *index = t->view->index;
 	struct mail_keywords *k;
 	unsigned int src, dest, i, count;
 
@@ -1168,7 +1167,7 @@ mail_index_keywords_create(struct mail_index_transaction *t,
 }
 
 struct mail_keywords *
-mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
+mail_index_keywords_create_from_indexes(struct mail_index *index,
 					const ARRAY_TYPE(keyword_indexes)
 						*keyword_indexes)
 {
@@ -1179,14 +1178,14 @@ mail_index_keywords_create_from_indexes(struct mail_index_transaction *t,
 	indexes = array_get(keyword_indexes, &count);
 	if (count == 0) {
 		k = i_new(struct mail_keywords, 1);
-		k->index = t->view->index;
+		k->index = index;
 		return k;
 	}
 
 	/* @UNSAFE */
 	k = i_malloc(sizeof(struct mail_keywords) +
 		     (sizeof(k->idx) * (count-1)));
-	k->index = t->view->index;
+	k->index = index;
 
 	/* copy but skip duplicates */
 	for (src = dest = 0; src < count; src++) {

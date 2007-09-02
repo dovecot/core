@@ -72,12 +72,11 @@ static int mailbox_copy_mails(struct mailbox *srcbox, struct mailbox *destbox,
 
 		keywords_list = mail_get_keywords(mail);
 		keywords = strarray_length(keywords_list) == 0 ? NULL :
-			mailbox_keywords_create_valid(dest_trans,
-						      keywords_list);
+			mailbox_keywords_create_valid(destbox, keywords_list);
 
 		ret = mailbox_copy(dest_trans, mail, mail_get_flags(mail),
 				   keywords, NULL);
-		mailbox_keywords_free(dest_trans, &keywords);
+		mailbox_keywords_free(destbox, &keywords);
 		if (ret < 0)
 			break;
 	}

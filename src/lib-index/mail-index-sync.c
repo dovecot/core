@@ -79,7 +79,7 @@ static void mail_index_sync_add_keyword_update(struct mail_index_sync_ctx *ctx)
 	t_push();
 	keyword_names[0] = t_strndup(u + 1, u->name_size);
 	keyword_names[1] = NULL;
-	keywords = mail_index_keywords_create(ctx->sync_trans, keyword_names);
+	keywords = mail_index_keywords_create(ctx->index, keyword_names);
 
 	size = (ctx->hdr->size - uidset_offset) / sizeof(uint32_t);
 	for (i = 0; i < size; i += 2) {
@@ -101,7 +101,7 @@ static void mail_index_sync_add_keyword_reset(struct mail_index_sync_ctx *ctx)
 	struct mail_keywords *keywords;
 	uint32_t uid;
 
-	keywords = mail_index_keywords_create(ctx->sync_trans, NULL);
+	keywords = mail_index_keywords_create(ctx->index, NULL);
 	for (i = 0; i < size; i++) {
 		for (uid = u[i].uid1; uid <= u[i].uid2; uid++) {
 			mail_index_update_keywords(ctx->sync_trans, uid,

@@ -90,7 +90,7 @@ bool cmd_store(struct client_command_context *cmd)
 				      MAILBOX_TRANSACTION_FLAG_HIDE);
 	if (keywords_list == NULL && modify_type != MODIFY_REPLACE)
 		keywords = NULL;
-	else if (mailbox_keywords_create(t, keywords_list, &keywords) < 0) {
+	else if (mailbox_keywords_create(box, keywords_list, &keywords) < 0) {
 		/* invalid keywords */
 		mailbox_transaction_rollback(&t);
 		client_send_storage_error(cmd, mailbox_get_storage(box));
@@ -108,7 +108,7 @@ bool cmd_store(struct client_command_context *cmd)
 	mail_free(&mail);
 
 	if (keywords != NULL)
-		mailbox_keywords_free(t, &keywords);
+		mailbox_keywords_free(box, &keywords);
 
 	if (mailbox_search_deinit(&search_ctx) < 0) {
 		failed = TRUE;

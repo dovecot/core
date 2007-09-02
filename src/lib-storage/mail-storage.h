@@ -324,14 +324,13 @@ unsigned int mailbox_transaction_get_count(struct mailbox *box);
 
 /* Build mail_keywords from NULL-terminated keywords list.
    Returns 0 if successful, -1 if there are invalid keywords (error is set). */
-int mailbox_keywords_create(struct mailbox_transaction_context *t,
-			    const char *const keywords[],
+int mailbox_keywords_create(struct mailbox *box, const char *const keywords[],
 			    struct mail_keywords **keywords_r);
 /* Like mailbox_keywords_create(), except ignore invalid keywords. */
 struct mail_keywords *
-mailbox_keywords_create_valid(struct mailbox_transaction_context *t,
+mailbox_keywords_create_valid(struct mailbox *box,
 			      const char *const keywords[]);
-void mailbox_keywords_free(struct mailbox_transaction_context *t,
+void mailbox_keywords_free(struct mailbox *box,
 			   struct mail_keywords **keywords);
 
 /* Convert uid range to sequence range. */

@@ -537,19 +537,18 @@ void mailbox_notify_changes_stop(struct mailbox *box)
 	mailbox_notify_changes(box, 0, NULL, NULL);
 }
 
-int mailbox_keywords_create(struct mailbox_transaction_context *t,
-			    const char *const keywords[],
+int mailbox_keywords_create(struct mailbox *box, const char *const keywords[],
 			    struct mail_keywords **keywords_r)
 {
 	const char *empty_keyword_list = NULL;
 
 	if (keywords == NULL)
 		keywords = &empty_keyword_list;
-	return t->box->v.keywords_create(t, keywords, keywords_r, FALSE);
+	return box->v.keywords_create(box, keywords, keywords_r, FALSE);
 }
 
 struct mail_keywords *
-mailbox_keywords_create_valid(struct mailbox_transaction_context *t,
+mailbox_keywords_create_valid(struct mailbox *box,
 			      const char *const keywords[])
 {
 	const char *empty_keyword_list = NULL;
@@ -557,18 +556,18 @@ mailbox_keywords_create_valid(struct mailbox_transaction_context *t,
 
 	if (keywords == NULL)
 		keywords = &empty_keyword_list;
-	if (t->box->v.keywords_create(t, keywords, &kw, TRUE) < 0)
+	if (box->v.keywords_create(box, keywords, &kw, TRUE) < 0)
 		i_unreached();
 	return kw;
 }
 
-void mailbox_keywords_free(struct mailbox_transaction_context *t,
+void mailbox_keywords_free(struct mailbox *box,
 			   struct mail_keywords **_keywords)
 {
 	struct mail_keywords *keywords = *_keywords;
 
 	*_keywords = NULL;
-	t->box->v.keywords_free(t, keywords);
+	box->v.keywords_free(keywords);
 }
 
 void mailbox_get_uids(struct mailbox *box, uint32_t uid1, uint32_t uid2,

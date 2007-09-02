@@ -117,12 +117,11 @@ struct mailbox_vfuncs {
 				  uint32_t *last_saved_uid_r);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);
 
-	int (*keywords_create)(struct mailbox_transaction_context *t,
+	int (*keywords_create)(struct mailbox *box,
 			       const char *const keywords[],
 			       struct mail_keywords **keywords_r,
 			       bool skip_invalid);
-	void (*keywords_free)(struct mailbox_transaction_context *t,
-			      struct mail_keywords *keywords);
+	void (*keywords_free)(struct mail_keywords *keywords);
 
 	void (*get_uids)(struct mailbox *box, uint32_t uid1, uint32_t uid2,
 			 uint32_t *seq1_r, uint32_t *seq2_r);
