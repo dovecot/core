@@ -140,7 +140,7 @@ static int mail_index_ext_align_cmp(const void *p1, const void *p2)
 	return (int)(*e2)->record_align - (int)(*e1)->record_align;
 }
 
-static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id,
+static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 			     uint16_t old_ext_size)
 {
 	struct mail_index_ext *ext, **sorted;
@@ -156,6 +156,7 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id,
 
 	t_push();
 	ext = array_get_modifiable(&map->extensions, &count);
+	i_assert(ext_map_idx < count);
 
 	/* @UNSAFE */
 	old_offsets = t_new(uint16_t, count);
@@ -170,10 +171,10 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id,
 	qsort(sorted, count, sizeof(struct mail_index_ext *),
 	      mail_index_ext_align_cmp);
 
-	if (copy_sizes[ext_id] > old_ext_size) {
+	if (copy_sizes[ext_map_idx] > old_ext_size) {
 		/* we are growing the extension record. remember this
 		   so we don't write extra data while copying the record */
-		copy_sizes[ext_id] = old_ext_size;
+		copy_sizes[ext_map_idx] = old_ext_size;
 	}
 
 	/* we simply try to use the extensions with largest alignment
@@ -260,8 +261,8 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_id,
 }
 
 static void
-sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
-		struct mail_index_sync_map_ctx *ctx)
+sync_ext_resize(const struct mail_transaction_ext_intro *u,
+		uint32_t ext_map_idx, struct mail_index_sync_map_ctx *ctx)
 {
 	struct mail_index_map *map = ctx->view->map;
 	struct mail_index_ext *ext;
@@ -269,7 +270,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 	uint32_t old_size, new_size, old_record_size;
 	bool modified = FALSE;
 
-	ext = array_idx_modifiable(&map->extensions, ext_id);
+	ext = array_idx_modifiable(&map->extensions, ext_map_idx);
 
 	old_size = MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size);
 	new_size = MAIL_INDEX_HEADER_SIZE_ALIGN(u->hdr_size);
@@ -312,11 +313,11 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 
 	if (new_size != old_size) {
 		/* move all hdr_offset of all extensions after this one */
-		unsigned i, count = array_count(&map->extensions);
+		unsigned int i, count = array_count(&map->extensions);
 		ssize_t diff = (ssize_t)new_size - (ssize_t)old_size;
 
 		ext = array_idx_modifiable(&map->extensions, 0);
-		for (i = ext_id + 1; i < count; i++) {
+		for (i = ext_map_idx + 1; i < count; i++) {
 			ext[i].ext_offset += diff;
 			ext[i].hdr_offset += diff;
 		}
@@ -324,7 +325,7 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 
 	if (old_record_size != u->record_size) {
 		map = mail_index_sync_get_atomic_map(ctx);
-		sync_ext_reorder(map, ext_id, old_record_size);
+		sync_ext_reorder(map, ext_map_idx, old_record_size);
 	} else if (modified) {
 		/* header size changed. recreate index file. */
 		map = mail_index_sync_get_atomic_map(ctx);
@@ -333,15 +334,15 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u, uint32_t ext_id,
 
 static bool
 mail_index_sync_ext_unknown_complain(struct mail_index_sync_map_ctx *ctx,
-				     uint32_t ext_id)
+				     uint32_t ext_map_idx)
 {
 	unsigned char *p;
 
 	if (ctx->unknown_extensions == NULL) {
 		ctx->unknown_extensions =
-			buffer_create_dynamic(default_pool, ext_id + 8);
+			buffer_create_dynamic(default_pool, ext_map_idx + 8);
 	}
-	p = buffer_get_space_unsafe(ctx->unknown_extensions, ext_id, 1);
+	p = buffer_get_space_unsafe(ctx->unknown_extensions, ext_map_idx, 1);
 	if (*p != 0) {
 		/* we've already complained once */
 		return FALSE;
@@ -358,11 +359,11 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	const struct mail_index_ext *ext;
 	const char *name;
 	buffer_t *hdr_buf;
-	uint32_t ext_id;
+	uint32_t ext_map_idx;
 
 	/* default to ignoring the following extension updates in case this
 	   intro is corrupted */
-	ctx->cur_ext_id = 0;
+	ctx->cur_ext_map_idx = 0;
 	ctx->cur_ext_ignore = TRUE;
 
 	if (u->ext_id != (uint32_t)-1 &&
@@ -384,19 +385,20 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	t_push();
 	if (u->ext_id != (uint32_t)-1) {
 		name = NULL;
-		ext_id = u->ext_id;
+		ext_map_idx = u->ext_id;
 	} else {
 		name = t_strndup(u + 1, u->name_size);
-		ext_id = mail_index_map_lookup_ext(map, name);
+		if (!mail_index_map_lookup_ext(map, name, &ext_map_idx))
+			ext_map_idx = (uint32_t)-1;
 	}
 
-	if (ext_id != (uint32_t)-1) {
+	if (ext_map_idx != (uint32_t)-1) {
 		/* exists already */
-		ext = array_idx(&map->extensions, ext_id);
+		ext = array_idx(&map->extensions, ext_map_idx);
 
 		if (u->reset_id == ext->reset_id) {
 			/* check if we need to resize anything */
-			sync_ext_resize(u, ext_id, ctx);
+			sync_ext_resize(u, ext_map_idx, ctx);
 			ctx->cur_ext_ignore = FALSE;
 		} else {
 			/* extension was reset and this transaction hadn't
@@ -405,7 +407,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		}
 		t_pop();
 
-		ctx->cur_ext_id = ext_id;
+		ctx->cur_ext_map_idx = ext_map_idx;
 		return 1;
 	}
 
@@ -426,11 +428,12 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 
 	/* register record offset initially using zero,
 	   sync_ext_reorder() will fix it. */
-	ext_id = mail_index_map_register_ext(map, name, hdr_buf->used,
-					     u->hdr_size, 0, u->record_size,
-					     u->record_align, u->reset_id);
+	ext_map_idx = mail_index_map_register_ext(map, name, hdr_buf->used,
+						  u->hdr_size, 0,
+						  u->record_size,
+						  u->record_align, u->reset_id);
 
-	ext = array_idx(&map->extensions, ext_id);
+	ext = array_idx(&map->extensions, ext_map_idx);
 
 	/* <ext_hdr> <name> [padding] [header data] */
 	memset(&ext_hdr, 0, sizeof(ext_hdr));
@@ -456,10 +459,10 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	t_pop();
 
         mail_index_sync_init_handlers(ctx);
-	sync_ext_reorder(map, ext_id, 0);
+	sync_ext_reorder(map, ext_map_idx, 0);
 
 	ctx->cur_ext_ignore = FALSE;
-	ctx->cur_ext_id = ext_id;
+	ctx->cur_ext_map_idx = ext_map_idx;
 	return 1;
 }
 
@@ -473,7 +476,7 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_record *rec;
 	uint32_t i;
 
-	if (ctx->cur_ext_id == (uint32_t)-1) {
+	if (ctx->cur_ext_map_idx == (uint32_t)-1) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension reset without intro prefix");
 		return -1;
@@ -485,7 +488,7 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	   accidentally used by other processes. */
 	map = mail_index_sync_get_atomic_map(ctx);
 
-	ext = array_idx_modifiable(&map->extensions, ctx->cur_ext_id);
+	ext = array_idx_modifiable(&map->extensions, ctx->cur_ext_map_idx);
 	ext->reset_id = u->new_reset_id;
 
 	memset(buffer_get_space_unsafe(map->hdr_copy_buf, ext->hdr_offset,
@@ -513,7 +516,7 @@ mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_map *map = ctx->view->map;
         const struct mail_index_ext *ext;
 
-	if (ctx->cur_ext_id == (uint32_t)-1) {
+	if (ctx->cur_ext_map_idx == (uint32_t)-1) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension header update without intro prefix");
 		return -1;
@@ -521,7 +524,7 @@ mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
 	if (ctx->cur_ext_ignore)
 		return 1;
 
-	ext = array_idx(&map->extensions, ctx->cur_ext_id);
+	ext = array_idx(&map->extensions, ctx->cur_ext_map_idx);
 	buffer_write(map->hdr_copy_buf, ext->hdr_offset + u->offset,
 		     u + 1, u->size);
 	map->hdr_base = map->hdr_copy_buf->data;
@@ -542,14 +545,14 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	uint32_t seq;
 	int ret;
 
-	i_assert(ctx->cur_ext_id != (uint32_t)-1);
+	i_assert(ctx->cur_ext_map_idx != (uint32_t)-1);
 	i_assert(!ctx->cur_ext_ignore);
 
 	mail_index_lookup_uid_range(view, u->uid, u->uid, &seq, &seq);
 	if (seq == 0)
 		return 1;
 
-	ext = array_idx(&view->map->extensions, ctx->cur_ext_id);
+	ext = array_idx(&view->map->extensions, ctx->cur_ext_map_idx);
 
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 	old_data = PTR_OFFSET(rec, ext->record_offset);

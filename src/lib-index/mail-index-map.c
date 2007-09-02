@@ -42,20 +42,23 @@ static void mail_index_map_init_extbufs(struct mail_index_map *map,
 	p_array_init(&map->ext_id_map, map->extension_pool, initial_count);
 }
 
-uint32_t mail_index_map_lookup_ext(struct mail_index_map *map, const char *name)
+bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
+			       uint32_t *idx_r)
 {
 	const struct mail_index_ext *extensions;
 	unsigned int i, size;
 
-	if (!array_is_created(&map->extensions))
-		return (uint32_t)-1;
-
-	extensions = array_get(&map->extensions, &size);
-	for (i = 0; i < size; i++) {
-		if (strcmp(extensions[i].name, name) == 0)
-			return i;
+	if (array_is_created(&map->extensions)) {
+		extensions = array_get(&map->extensions, &size);
+		for (i = 0; i < size; i++) {
+			if (strcmp(extensions[i].name, name) == 0) {
+				if (idx_r != NULL)
+					*idx_r = i;
+				return TRUE;
+			}
+		}
 	}
-	return (uint32_t)-1;
+	return FALSE;
 }
 
 static size_t get_ext_size(size_t name_len)
@@ -79,7 +82,7 @@ mail_index_map_register_ext(struct mail_index_map *map, const char *name,
 	} else {
 		idx = array_count(&map->extensions);
 	}
-	i_assert(mail_index_map_lookup_ext(map, name) == (uint32_t)-1);
+	i_assert(!mail_index_map_lookup_ext(map, name, NULL));
 
 	ext = array_append_space(&map->extensions);
 	ext->name = p_strdup(map->extension_pool, name);
@@ -154,7 +157,7 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 		name = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
 				 ext_hdr->name_size);
 
-		if (mail_index_map_lookup_ext(map, name) != (uint32_t)-1) {
+		if (mail_index_map_lookup_ext(map, name, NULL)) {
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"Duplicate header extension %s",
 				index->filepath, name);

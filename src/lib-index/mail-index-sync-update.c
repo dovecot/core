@@ -548,7 +548,7 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 		const struct mail_index_ext *ext;
 		unsigned int i, record_size;
 
-		if (ctx->cur_ext_id == (uint32_t)-1) {
+		if (ctx->cur_ext_map_idx == (uint32_t)-1) {
 			mail_index_sync_set_corrupted(ctx,
 				"Extension record updated "
 				"without intro prefix");
@@ -561,7 +561,8 @@ int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			break;
 		}
 
-		ext = array_idx(&ctx->view->map->extensions, ctx->cur_ext_id);
+		ext = array_idx(&ctx->view->map->extensions,
+				ctx->cur_ext_map_idx);
 		/* the record is padded to 32bits in the transaction log */
 		record_size = (sizeof(*rec) + ext->record_size + 3) & ~3;
 
@@ -606,7 +607,7 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 {
 	memset(sync_map_ctx, 0, sizeof(*sync_map_ctx));
 	sync_map_ctx->view = view;
-	sync_map_ctx->cur_ext_id = (uint32_t)-1;
+	sync_map_ctx->cur_ext_map_idx = (uint32_t)-1;
 	sync_map_ctx->type = type;
 
 	/* make sure we re-read it in case it has changed */

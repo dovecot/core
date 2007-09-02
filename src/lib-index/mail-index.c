@@ -222,18 +222,16 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	const struct mail_index_keyword_header_rec *kw_rec;
 	const char *name;
 	unsigned int i, name_area_end_offset, old_count;
-	uint32_t ext_id;
+	uint32_t idx;
 
 	map->keywords_read = TRUE;
 
-	ext_id = mail_index_map_lookup_ext(map, "keywords");
-	if (ext_id == (uint32_t)-1) {
+	if (!mail_index_map_lookup_ext(map, "keywords", &idx)) {
 		if (array_is_created(&map->keyword_idx_map))
 			array_clear(&map->keyword_idx_map);
 		return 0;
 	}
-
-	ext = array_idx(&map->extensions, ext_id);
+	ext = array_idx(&map->extensions, idx);
 
 	/* Extension header contains:
 	   - struct mail_index_keyword_header

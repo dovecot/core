@@ -78,7 +78,7 @@ keywords_get_header_buf(struct mail_index_map *map,
 }
 
 static int keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
-				 uint32_t ext_id, uint32_t reset_id,
+				 uint32_t ext_map_idx, uint32_t reset_id,
 				 uint32_t hdr_size, uint32_t keywords_count)
 {
 	buffer_t *ext_intro_buf;
@@ -89,7 +89,7 @@ static int keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 					  sizeof(*u) + sizeof("keywords")-1);
 
 	u = buffer_append_space_unsafe(ext_intro_buf, sizeof(*u));
-	u->ext_id = ext_id;
+	u->ext_id = ext_map_idx;
 	u->reset_id = reset_id;
 	u->hdr_size = hdr_size;
 	u->record_size = (keywords_count + CHAR_BIT - 1) / CHAR_BIT;
@@ -100,7 +100,7 @@ static int keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 	}
 	u->record_align = 1;
 
-	if (ext_id == (uint32_t)-1) {
+	if (ext_map_idx == (uint32_t)-1) {
 		u->name_size = strlen("keywords");
 		buffer_append(ext_intro_buf, "keywords", u->name_size);
 	}
@@ -116,7 +116,7 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
         const struct mail_index_ext *ext = NULL;
 	struct mail_index_keyword_header *kw_hdr;
 	struct mail_index_keyword_header_rec kw_rec;
-	uint32_t ext_id;
+	uint32_t ext_map_idx;
 	buffer_t *buf = NULL;
 	size_t keyword_len, rec_offset, name_offset, name_offset_root;
 	unsigned int keywords_count;
@@ -127,10 +127,11 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	   making sure the header is updated atomically. */
 	map = mail_index_sync_get_atomic_map(ctx);
 
-	ext_id = mail_index_map_lookup_ext(map, "keywords");
-	if (ext_id != (uint32_t)-1) {
+	if (!mail_index_map_lookup_ext(map, "keywords", &ext_map_idx))
+		ext_map_idx = (uint32_t)-1;
+	else {
 		/* update existing header */
-		ext = array_idx(&map->extensions, ext_id);
+		ext = array_idx(&map->extensions, ext_map_idx);
 		buf = keywords_get_header_buf(map, ext, 1, &keywords_count,
 					      &rec_offset, &name_offset_root,
 					      &name_offset);
@@ -169,7 +170,7 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 		/* if we need to grow the buffer, add some padding */
 		buffer_append_zero(buf, 128);
 
-		ret = keywords_ext_register(ctx, ext_id,
+		ret = keywords_ext_register(ctx, ext_map_idx,
 					    ext == NULL ? 0 : ext->reset_id,
 					    buf->used, keywords_count);
 		if (ret <= 0)
@@ -178,11 +179,9 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 		/* map may have changed */
 		map = ctx->view->map;
 
-		if (ext == NULL) {
-			ext_id = mail_index_map_lookup_ext(map, "keywords");
-			i_assert(ext_id != (uint32_t)-1);
-		}
-		ext = array_idx(&map->extensions, ext_id);
+		if (!mail_index_map_lookup_ext(map, "keywords", &ext_map_idx))
+			i_unreached();
+		ext = array_idx(&map->extensions, ext_map_idx);
 
 		i_assert(ext->hdr_size == buf->used);
 	}
@@ -253,7 +252,7 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 	const char *keyword_name;
 	const struct mail_index_ext *ext;
 	const uint32_t *uid, *end;
-	uint32_t seqset_offset, ext_id;
+	uint32_t seqset_offset, ext_map_idx;
 	unsigned int keyword_idx;
 	int ret;
 
@@ -279,9 +278,11 @@ int mail_index_sync_keywords(struct mail_index_sync_map_ctx *ctx,
 			return ret;
 	}
 
-	ext_id = mail_index_map_lookup_ext(ctx->view->map, "keywords");
-	ext = ext_id == (uint32_t)-1 ? NULL :
-		array_idx(&ctx->view->map->extensions, ext_id);
+	if (!mail_index_map_lookup_ext(ctx->view->map, "keywords",
+				       &ext_map_idx))
+		ext = NULL;
+	else
+		ext = array_idx(&ctx->view->map->extensions, ext_map_idx);
 	if (ext == NULL || ext->record_size == 0) {
 		/* nothing to do */
 		if (rec->modify_type != MODIFY_REMOVE) {
@@ -318,15 +319,14 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_record *rec;
 	const struct mail_index_ext *ext;
 	const struct mail_transaction_keyword_reset *end;
-	uint32_t ext_id, seq1, seq2;
+	uint32_t ext_map_idx, seq1, seq2;
 
-	ext_id = mail_index_map_lookup_ext(map, "keywords");
-	if (ext_id == (uint32_t)-1) {
+	if (!mail_index_map_lookup_ext(map, "keywords", &ext_map_idx)) {
 		/* nothing to do */
 		return 1;
 	}
 
-	ext = array_idx(&map->extensions, ext_id);
+	ext = array_idx(&map->extensions, ext_map_idx);
 	end = CONST_PTR_OFFSET(r, hdr->size);
 	for (; r != end; r++) {
 		mail_index_lookup_uid_range(ctx->view, r->uid1, r->uid2,

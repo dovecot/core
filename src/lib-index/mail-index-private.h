@@ -277,8 +277,8 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map);
 /* Move a mmaped map to memory. */
 void mail_index_map_move_to_memory(struct mail_index_map *map);
 
-uint32_t mail_index_map_lookup_ext(struct mail_index_map *map,
-				   const char *name);
+bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
+			       uint32_t *idx_r);
 uint32_t
 mail_index_map_register_ext(struct mail_index_map *map, const char *name,
 			    uint32_t ext_offset, uint32_t hdr_size,
