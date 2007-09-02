@@ -204,6 +204,8 @@ void mail_index_keyword_lookup_or_create(struct mail_index *index,
 {
 	char *keyword_dup;
 
+	i_assert(*keyword != '\0');
+
 	if (mail_index_keyword_lookup(index, keyword, idx_r))
 		return;
 
