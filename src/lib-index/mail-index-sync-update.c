@@ -821,6 +821,14 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
 
+	if (mail_index_map_check_header(map) <= 0) {
+		mail_index_set_error(index,
+			"Synchronization corrupted index header: %s",
+			index->filepath);
+		(void)mail_index_fsck(index);
+		map = index->map;
+	}
+
 	*_map = map;
 	return ret < 0 ? -1 : 1;
 }

@@ -263,7 +263,7 @@ static bool mail_index_check_header_compat(struct mail_index *index,
 	return TRUE;
 }
 
-static int mail_index_check_header(struct mail_index_map *map)
+int mail_index_map_check_header(struct mail_index_map *map)
 {
 	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr = &map->hdr;
@@ -684,7 +684,7 @@ static int mail_index_map_latest_file(struct mail_index *index,
 	}
 	if (ret > 0) {
 		/* make sure the header is ok before using this mapping */
-		ret = mail_index_check_header(new_map);
+		ret = mail_index_map_check_header(new_map);
 		if (ret >= 0) {
 			ret = mail_index_parse_extensions(new_map);
 			if (ret > 0) {
