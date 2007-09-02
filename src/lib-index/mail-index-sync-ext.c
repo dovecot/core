@@ -360,6 +360,11 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	buffer_t *hdr_buf;
 	uint32_t ext_id;
 
+	/* default to ignoring the following extension updates in case this
+	   intro is corrupted */
+	ctx->cur_ext_id = 0;
+	ctx->cur_ext_ignore = TRUE;
+
 	if (u->ext_id != (uint32_t)-1 &&
 	    (!array_is_created(&map->extensions) ||
 	     u->ext_id >= array_count(&map->extensions))) {
