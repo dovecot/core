@@ -742,6 +742,8 @@ uint32_t maildir_uidlist_get_next_uid(struct maildir_uidlist *uidlist)
 void maildir_uidlist_set_uid_validity(struct maildir_uidlist *uidlist,
 				      uint32_t uid_validity)
 {
+	i_assert(uid_validity != 0);
+
 	uidlist->uid_validity = uid_validity;
 }
 
@@ -811,6 +813,8 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		i_assert(first_idx == 0);
 		uidlist->version = 3;
 
+		i_assert(uidlist->uid_validity != 0);
+		i_assert(uidlist->next_uid > 0);
 		str_printfa(str, "%u V%u N%u", uidlist->version,
 			    uidlist->uid_validity, uidlist->next_uid);
 		if (str_len(uidlist->hdr_extensions) > 0) {
