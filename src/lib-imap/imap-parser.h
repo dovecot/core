@@ -3,12 +3,19 @@
 
 #include "array.h"
 
-/* FIXME: we don't have ']' here due to FETCH BODY[] handling failing
-   with it.. also '%' and '*' are banned due to LIST, and '\' due to it being
-   in flags. oh well.. */
-#define IS_ATOM_SPECIAL(c) \
+/* We use this macro to read atoms from input. It should probably contain
+   everything some day, but for now we can't handle some input otherwise:
+
+   ']' is required for parsing section (FETCH BODY[])
+   '%', '*' and ']' are valid list-chars for LIST patterns
+   '\' is used in flags */
+#define IS_ATOM_SPECIAL_INPUT(c) \
 	((c) == '(' || (c) == ')' || (c) == '{' || \
 	 (c) == '"' || (c) <= 32 || (c) == 0x7f)
+
+#define IS_ATOM_SPECIAL(c) \
+	(IS_ATOM_SPECIAL_INPUT(c) || \
+	 (c) == ']' || (c) == '%' || (c) == '*' || (c) == '\\')
 
 enum imap_parser_flags {
 	/* Set this flag if you wish to read only size of literal argument

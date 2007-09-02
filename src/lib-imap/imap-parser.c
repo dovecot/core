@@ -223,7 +223,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 
 static int is_valid_atom_char(struct imap_parser *parser, char chr)
 {
-	if (IS_ATOM_SPECIAL((unsigned char)chr)) {
+	if (IS_ATOM_SPECIAL_INPUT((unsigned char)chr)) {
 		parser->error = "Invalid characters in atom";
 		return FALSE;
 	} else if ((chr & 0x80) != 0) {
