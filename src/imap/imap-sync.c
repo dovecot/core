@@ -123,8 +123,10 @@ int imap_sync_more(struct imap_sync_context *ctx)
 		if (ctx->sync_rec.seq2 > ctx->messages_count) {
 			/* don't send change notifications of messages we
 			   haven't even announced to client yet */
-			if (ctx->sync_rec.seq1 > ctx->messages_count)
+			if (ctx->sync_rec.seq1 > ctx->messages_count) {
+				ctx->seq = 0;
 				continue;
+			}
 			ctx->sync_rec.seq2 = ctx->messages_count;
 		}
 
