@@ -51,7 +51,7 @@ static void auth_connection_destroy(struct auth_connection *conn)
 
 static void auth_parse_input(struct auth_connection *conn, const char *args)
 {
-	const char *const *tmp;
+	const char *const *tmp, *extra_groups;
 	uid_t uid = 0;
 	gid_t gid = 0;
 	const char *chroot = getenv("MAIL_CHROOT");
@@ -111,6 +111,12 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 
 	if (chroot != NULL)
 		env_put(t_strconcat("RESTRICT_CHROOT=", chroot, NULL));
+
+	extra_groups = getenv("MAIL_EXTRA_GROUPS");
+	if (extra_groups != NULL) {
+		env_put(t_strconcat("RESTRICT_SETEXTRAGROUPS=",
+				    extra_groups, NULL));
+	}
 
 	restrict_access_by_env(TRUE);
 	return_value = EX_OK;
