@@ -261,7 +261,7 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 			module = module_load(path, stripped_name,
 					     require_init_funcs, version);
 			if (module == NULL && module_names_arr != NULL)
-				exit(FATAL_DEFAULT);
+				i_fatal("Couldn't load required plugins");
 		}
 		t_pop();
 
