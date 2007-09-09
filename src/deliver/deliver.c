@@ -579,6 +579,7 @@ int main(int argc, char *argv[])
 	uid_t process_euid;
 	pool_t namespace_pool;
 	bool stderr_rejection = FALSE;
+	bool keep_environment = FALSE;
 	int i, ret;
 
 	i_set_failure_exit_callback(failure_exit_callback);
@@ -594,8 +595,6 @@ int main(int argc, char *argv[])
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
-
-	deliver_env_clean();
 
 	destination = NULL;
 	for (i = 1; i < argc; i++) {
@@ -617,6 +616,8 @@ int main(int argc, char *argv[])
 					"Missing config file path argument");
 			}
 			config_path = argv[i];
+		} else if (strcmp(argv[i], "-k") == 0) {
+			keep_environment = TRUE;
 		} else if (strcmp(argv[i], "-m") == 0) {
 			/* destination mailbox */
 			i++;
@@ -645,6 +646,9 @@ int main(int argc, char *argv[])
 				       "Unknown argument: %s", argv[i]);
 		}
 	}
+
+	if (!keep_environment)
+		deliver_env_clean();
 
 	process_euid = geteuid();
 	if (destination != NULL)
