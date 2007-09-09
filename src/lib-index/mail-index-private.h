@@ -14,8 +14,6 @@ struct mail_index_sync_map_ctx;
 
 /* How large index files to mmap() instead of reading to memory. */
 #define MAIL_INDEX_MMAP_MIN_SIZE (1024*64)
-/* How many seconds to wait a lock for index file. */
-#define MAIL_INDEX_LOCK_SECS 120
 /* How many times to retry opening index files if read/fstat returns ESTALE.
    This happens with NFS when the file has been deleted (ie. index file was
    rewritten by another computer than us). */

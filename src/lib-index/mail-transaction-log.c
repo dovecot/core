@@ -14,10 +14,6 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
-/* this lock should never exist for a long time.. */
-#define LOG_DOTLOCK_TIMEOUT 60
-#define LOG_DOTLOCK_STALE_TIMEOUT 60
-
 #define MAIL_TRANSACTION_LOG_SUFFIX ".log"
 #define LOG_NEW_DOTLOCK_SUFFIX ".newlock"
 
@@ -43,8 +39,9 @@ mail_transaction_log_alloc(struct mail_index *index)
 	log->index = index;
 
 	log->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
-	log->dotlock_settings.timeout = LOG_DOTLOCK_TIMEOUT;
-	log->dotlock_settings.stale_timeout = LOG_DOTLOCK_STALE_TIMEOUT;
+	log->dotlock_settings.timeout = MAIL_TRANSCATION_LOG_LOCK_TIMEOUT;
+	log->dotlock_settings.stale_timeout =
+		MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT;
 
 	log->new_dotlock_settings = log->dotlock_settings;
 	log->new_dotlock_settings.lock_suffix = LOG_NEW_DOTLOCK_SUFFIX;

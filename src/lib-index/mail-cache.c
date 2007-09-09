@@ -427,7 +427,7 @@ static int mail_cache_lock_file(struct mail_cache *cache)
 		i_assert(cache->file_lock == NULL);
 		ret = mail_index_lock_fd(cache->index, cache->filepath,
 					 cache->fd, F_WRLCK,
-					 MAIL_INDEX_LOCK_SECS,
+					 MAIL_CACHE_LOCK_TIMEOUT,
 					 &cache->file_lock);
 	} else {
 		i_assert(cache->dotlock == NULL);

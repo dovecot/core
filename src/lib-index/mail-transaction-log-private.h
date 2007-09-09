@@ -4,6 +4,11 @@
 #include "file-dotlock.h"
 #include "mail-transaction-log.h"
 
+/* Synchronization can take a while sometimes, especially when copying lots of
+   mails. */
+#define MAIL_TRANSCATION_LOG_LOCK_TIMEOUT (3*60)
+#define MAIL_TRANSCATION_LOG_LOCK_CHANGE_TIMEOUT (3*60)
+
 /* Rotate when log is older than ROTATE_TIME and larger than MIN_SIZE */
 #define MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE (1024*32)
 /* If log is larger than MAX_SIZE, rotate regardless of the time */

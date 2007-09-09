@@ -21,6 +21,8 @@
 #include "nfs-workarounds.h"
 #include "mail-index-private.h"
 
+#define MAIL_INDEX_SHARED_LOCK_TIMEOUT 120
+
 int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 		       int lock_type, unsigned int timeout_secs,
 		       struct file_lock **lock_r)
@@ -138,7 +140,8 @@ int mail_index_lock_shared(struct mail_index *index, unsigned int *lock_id_r)
 {
 	int ret;
 
-	ret = mail_index_lock(index, F_RDLCK, MAIL_INDEX_LOCK_SECS, lock_id_r);
+	ret = mail_index_lock(index, F_RDLCK, MAIL_INDEX_SHARED_LOCK_TIMEOUT,
+			      lock_id_r);
 	if (ret > 0) {
 		mail_index_flush_read_cache(index);
 		return 0;

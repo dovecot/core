@@ -267,7 +267,7 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 
 	i_assert(file->file_lock == NULL);
 	ret = mail_index_lock_fd(file->log->index, file->filepath, file->fd,
-				 F_WRLCK, MAIL_INDEX_LOCK_SECS,
+				 F_WRLCK, MAIL_TRANSCATION_LOG_LOCK_TIMEOUT,
 				 &file->file_lock);
 	if (ret > 0) {
 		file->locked = TRUE;
