@@ -39,6 +39,7 @@ extern struct mailbox maildir_mailbox;
 
 static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
 				  &mailbox_list_module_register);
+static const char *maildir_subdirs[] = { "cur", "new", "tmp" };
 
 static int verify_inbox(struct mail_storage *storage);
 static int
@@ -550,6 +551,7 @@ static int maildir_create_shared(struct mail_storage *storage,
 {
 	const char *path;
 	mode_t old_mask;
+	unsigned int i;
 	int fd;
 
 	/* add the execute bit if either read or write bit is set */
@@ -562,8 +564,12 @@ static int maildir_create_shared(struct mail_storage *storage,
 		umask(old_mask);
 		return -1;
 	}
-	if (chown(dir, (uid_t)-1, gid) < 0) {
-		mail_storage_set_critical(storage, "chown(%s) failed: %m", dir);
+	for (i = 0; i < N_ELEMENTS(maildir_subdirs); i++) {
+		path = t_strconcat(dir, "/", maildir_subdirs[i], NULL);
+		if (chown(path, (uid_t)-1, gid) < 0) {
+			mail_storage_set_critical(storage,
+						  "chown(%s) failed: %m", path);
+		}
 	}
 
 	path = t_strconcat(dir, "/dovecot-shared", NULL);
