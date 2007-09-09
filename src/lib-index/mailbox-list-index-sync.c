@@ -503,15 +503,6 @@ mailbox_list_index_sync_alloc_space(struct mailbox_list_index_sync_ctx *ctx,
 	if (ctx->index->mmap_base == NULL) {
 		/* write the data into temporary buffer first */
 		buffer_reset(ctx->output_buf);
-
-		if (ctx->output->offset != pos) {
-			i_assert(pos > ctx->output->offset &&
-				 pos - ctx->output->offset <= 3);
-
-			buffer_append_zero(ctx->output_buf,
-					   pos - ctx->output->offset);
-		}
-
 		*base_r = buffer_append_space_unsafe(ctx->output_buf, size);
 	} else {
 		if (pos + size > ctx->index->mmap_size) {
