@@ -516,12 +516,14 @@ void deliver_env_clean(void)
 static void expand_envs(const char *destination)
 {
         const struct var_expand_table *table;
-	const char *mail_env, *const *envs;
+	const char *mail_env, *const *envs, *home;
 	unsigned int i, count;
 	string_t *str;
 
+	home = getenv("HOME");
+
 	str = t_str_new(256);
-	table = get_var_expand_table(destination, getenv("HOME"));
+	table = get_var_expand_table(destination, home);
 	envs = array_get(&plugin_envs, &count);
 	for (i = 0; i < count; i++) {
 		str_truncate(str, 0);
@@ -533,7 +535,9 @@ static void expand_envs(const char *destination)
 	if (mail_env != NULL) {
 		/* get the table again in case plugin envs provided the home
 		   directory (yea, kludgy) */
-		table = get_var_expand_table(destination, getenv("HOME"));
+		if (home == NULL)
+			home = getenv("HOME");
+		table = get_var_expand_table(destination, home);
 		mail_env = expand_mail_env(mail_env, table);
 	}
 	env_put(t_strconcat("MAIL=", mail_env, NULL));

@@ -90,6 +90,10 @@ static void auth_parse_input(struct auth_connection *conn, const char *args)
 			chroot = *tmp + 7;
 		} else {
 			char *field = i_strdup(*tmp);
+
+			if (strncmp(field, "home=", 5) == 0)
+				env_put(t_strconcat("HOME=", field + 5, NULL));
+
 			array_append(conn->extra_fields, &field, 1);
 		}
 	}
