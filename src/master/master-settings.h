@@ -41,6 +41,7 @@ struct settings {
 	const char *ssl_key_password;
 	unsigned int ssl_parameters_regenerate;
 	const char *ssl_cipher_list;
+	const char *ssl_cert_username_field;
 	bool ssl_verify_client_cert;
 	bool disable_plaintext_auth;
 	bool verbose_ssl;

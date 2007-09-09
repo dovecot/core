@@ -183,6 +183,7 @@ struct settings default_settings = {
 	MEMBER(ssl_key_password) "",
 	MEMBER(ssl_parameters_regenerate) 168,
 	MEMBER(ssl_cipher_list) "",
+	MEMBER(ssl_cert_username_field) "commonName",
 	MEMBER(ssl_verify_client_cert) FALSE,
 	MEMBER(disable_plaintext_auth) TRUE,
 	MEMBER(verbose_ssl) FALSE,

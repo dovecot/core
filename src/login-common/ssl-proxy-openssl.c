@@ -66,6 +66,7 @@ static int extdata_index;
 static SSL_CTX *ssl_ctx;
 static struct hash_table *ssl_proxies;
 static struct ssl_parameters ssl_params;
+static int ssl_username_nid;
 
 static void plain_read(struct ssl_proxy *proxy);
 static void ssl_read(struct ssl_proxy *proxy);
@@ -522,7 +523,7 @@ const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)
 		return NULL; /* we should have had it.. */
 
 	if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
-				      NID_commonName, buf, sizeof(buf)) < 0)
+				      ssl_username_nid, buf, sizeof(buf)) < 0)
 		name = "";
 	else
 		name = t_strndup(buf, sizeof(buf));
@@ -681,7 +682,7 @@ static void ssl_clean_free(void *ptr)
 void ssl_proxy_init(void)
 {
 	static char dovecot[] = "dovecot";
-	const char *cafile, *certfile, *keyfile, *cipher_list;
+	const char *cafile, *certfile, *keyfile, *cipher_list, *username_field;
 	char *password;
 	unsigned char buf;
 
@@ -758,6 +759,17 @@ void ssl_proxy_init(void)
 				   ssl_verify_client_cert);
 		SSL_CTX_set_client_CA_list(ssl_ctx,
 					   SSL_load_client_CA_file(cafile));
+	}
+
+	username_field = getenv("SSL_CERT_USERNAME_FIELD");
+	if (username_field == NULL)
+		ssl_username_nid = NID_commonName;
+	else {
+		ssl_username_nid = OBJ_txt2nid(username_field);
+		if (ssl_username_nid == NID_undef) {
+			i_fatal("Invalid ssl_cert_username_field: %s",
+				username_field);
+		}
 	}
 
 	/* PRNG initialization might want to use /dev/urandom, make sure it

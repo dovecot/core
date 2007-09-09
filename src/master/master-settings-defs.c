@@ -27,6 +27,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(ssl_key_password),
 	DEF_INT(ssl_parameters_regenerate),
 	DEF_STR(ssl_cipher_list),
+	DEF_STR(ssl_cert_username_field),
 	DEF_BOOL(ssl_verify_client_cert),
 	DEF_BOOL(disable_plaintext_auth),
 	DEF_BOOL(verbose_ssl),
