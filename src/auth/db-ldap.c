@@ -150,7 +150,7 @@ static int ldap_get_errno(struct ldap_connection *conn)
 	if (ret != LDAP_SUCCESS) {
 		i_error("LDAP: Can't get error number: %s",
 			ldap_err2string(ret));
-		return -1;
+		return LDAP_UNAVAILABLE;
 	}
 
 	return err;
@@ -193,17 +193,66 @@ static void db_ldap_handle_next_delayed_request(struct ldap_connection *conn)
 	conn->retrying = FALSE;
 }
 
+static void ldap_conn_reconnect(struct ldap_connection *conn)
+{
+	ldap_conn_close(conn, FALSE);
+
+	if (db_ldap_connect(conn) < 0) {
+		/* failed to reconnect. fail all requests. */
+		ldap_conn_close(conn, TRUE);
+	}
+}
+
+static void ldap_handle_error(struct ldap_connection *conn)
+{
+	int err = ldap_get_errno(conn);
+
+	switch (err) {
+	case LDAP_SUCCESS:
+		i_unreached();
+	case LDAP_SIZELIMIT_EXCEEDED:
+	case LDAP_TIMELIMIT_EXCEEDED:
+	case LDAP_NO_SUCH_ATTRIBUTE:
+	case LDAP_UNDEFINED_TYPE:
+	case LDAP_INAPPROPRIATE_MATCHING:
+	case LDAP_CONSTRAINT_VIOLATION:
+	case LDAP_TYPE_OR_VALUE_EXISTS:
+	case LDAP_INVALID_SYNTAX:
+	case LDAP_NO_SUCH_OBJECT:
+	case LDAP_ALIAS_PROBLEM:
+	case LDAP_INVALID_DN_SYNTAX:
+	case LDAP_IS_LEAF:
+	case LDAP_ALIAS_DEREF_PROBLEM:
+	case LDAP_FILTER_ERROR:
+		/* invalid input */
+		break;
+	case LDAP_SERVER_DOWN:
+	case LDAP_TIMEOUT:
+	case LDAP_UNAVAILABLE:
+	case LDAP_BUSY:
+#ifdef LDAP_CONNECT_ERROR
+	case LDAP_CONNECT_ERROR:
+#endif
+	case LDAP_LOCAL_ERROR:
+	case LDAP_INVALID_CREDENTIALS:
+	default:
+		/* connection problems */
+		ldap_conn_reconnect(conn);
+		break;
+	}
+}
+
 void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 		    int scope)
 {
-	int msgid;
+	int try, msgid = -1;
 
 	if (db_ldap_connect(conn) < 0) {
 		request->callback(conn, request, NULL);
 		return;
 	}
 
-	if (conn->connected && !conn->binding) {
+	for (try = 0; conn->connected && !conn->binding && try < 2; try++) {
 		if (conn->last_auth_bind) {
 			/* switch back to the default dn before doing the
 			   search request. */
@@ -211,8 +260,7 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 				request->callback(conn, request, NULL);
 				return;
 			}
-			db_ldap_add_delayed_request(conn, request);
-			return;
+			break;
 		}
 
 		msgid = ldap_search(conn->ld, request->base, scope,
@@ -220,13 +268,14 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 		if (msgid == -1) {
 			i_error("LDAP: ldap_search() failed (filter %s): %s",
 				request->filter, ldap_get_error(conn));
-			request->callback(conn, request, NULL);
-			return;
+			ldap_handle_error(conn);
 		}
-		hash_insert(conn->requests, POINTER_CAST(msgid), request);
-	} else {
-		db_ldap_add_delayed_request(conn, request);
 	}
+
+	if (msgid != -1)
+		hash_insert(conn->requests, POINTER_CAST(msgid), request);
+	else
+		db_ldap_add_delayed_request(conn, request);
 }
 
 static void ldap_conn_retry_requests(struct ldap_connection *conn)
@@ -307,16 +356,6 @@ static void ldap_conn_retry_requests(struct ldap_connection *conn)
 	conn->retrying = FALSE;
 }
 
-static void ldap_conn_reconnect(struct ldap_connection *conn)
-{
-	ldap_conn_close(conn, FALSE);
-
-	if (db_ldap_connect(conn) < 0) {
-		/* failed to reconnect. fail all requests. */
-		ldap_conn_close(conn, TRUE);
-	}
-}
-
 static void ldap_input(struct ldap_connection *conn)
 {
         struct ldap_request *request;
@@ -354,9 +393,8 @@ static void ldap_input(struct ldap_connection *conn)
 	}
 
 	if (ret < 0) {
-		i_error("LDAP: ldap_result() failed: %s",
-			ldap_get_error(conn));
-		ldap_conn_reconnect(conn);
+		i_error("LDAP: ldap_result() failed: %s", ldap_get_error(conn));
+		ldap_handle_error(conn);
 	} else {
 		if (!conn->binding)
 			db_ldap_handle_next_delayed_request(conn);
