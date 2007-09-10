@@ -394,7 +394,7 @@ static void ldap_input(struct ldap_connection *conn)
 
 	if (ret < 0) {
 		i_error("LDAP: ldap_result() failed: %s", ldap_get_error(conn));
-		ldap_handle_error(conn);
+		ldap_conn_reconnect(conn);
 	} else {
 		if (!conn->binding)
 			db_ldap_handle_next_delayed_request(conn);
