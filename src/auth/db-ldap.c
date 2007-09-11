@@ -265,11 +265,12 @@ void db_ldap_search(struct ldap_connection *conn, struct ldap_request *request,
 
 		msgid = ldap_search(conn->ld, request->base, scope,
 				    request->filter, request->attributes, 0);
-		if (msgid == -1) {
-			i_error("LDAP: ldap_search() failed (filter %s): %s",
-				request->filter, ldap_get_error(conn));
-			ldap_handle_error(conn);
-		}
+		if (msgid != -1)
+			break;
+
+		i_error("LDAP: ldap_search() failed (filter %s): %s",
+			request->filter, ldap_get_error(conn));
+		ldap_handle_error(conn);
 	}
 
 	if (msgid != -1)
