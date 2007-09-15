@@ -278,9 +278,8 @@ void mail_index_sync_rollback(struct mail_index_sync_ctx **ctx);
 
 /* Mark index file corrupted. Invalidates all views. */
 void mail_index_mark_corrupted(struct mail_index *index);
-/* Check and fix any found problems. If index is broken beyond repair, it's
-   marked corrupted and 0 is returned. Otherwise returns -1 if there was some
-   I/O error or 1 if everything went ok. */
+/* Check and fix any found problems. Returns -1 if we couldn't lock for sync,
+   0 if everything went ok. */
 int mail_index_fsck(struct mail_index *index);
 
 /* Synchronize changes in view. You have to go through all records, or view

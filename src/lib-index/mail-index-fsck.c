@@ -24,17 +24,16 @@ static void mail_index_fsck_error(struct mail_index *index,
 				      map->hdr.field, hdr.field); \
 	}
 
-static int
-mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
-		    bool *lock, const char **error_r)
+static int mail_index_fsck_map(struct mail_index *index,
+			       struct mail_index_map *map, bool *lock)
 {
 	struct mail_index_header hdr;
-	const struct mail_index_record *rec;
+	struct mail_index_record *rec, *next_rec;
 	uint32_t file_seq;
 	uoff_t file_offset;
 	uint32_t i, last_uid;
-
-	*error_r = NULL;
+	bool logged_unordered_uids = FALSE, logged_zero_uids = FALSE;
+	bool records_dropped = FALSE;
 
 	if (*lock) {
 		if (mail_transaction_log_sync_lock(index->log, &file_seq,
@@ -79,10 +78,31 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 	hdr.first_deleted_uid_lowwater = 0;
 
 	rec = map->rec_map->records; last_uid = 0;
-	for (i = 0; i < map->rec_map->records_count; i++) {
+	for (i = 0; i < map->rec_map->records_count; ) {
+		next_rec = PTR_OFFSET(rec, hdr.record_size);
 		if (rec->uid <= last_uid) {
-			*error_r = "Record UIDs are not ordered";
-			return 0;
+			/* log an error once, and skip this record */
+			if (rec->uid == 0) {
+				if (!logged_zero_uids) {
+					mail_index_fsck_error(index,
+						"Record UIDs have zeroes");
+					logged_zero_uids = TRUE;
+				}
+			} else {
+				if (!logged_unordered_uids) {
+					mail_index_fsck_error(index,
+						"Record UIDs unordered");
+					logged_unordered_uids = TRUE;
+				}
+			}
+			/* not the fastest way when we're skipping lots of
+			   records, but this should happen rarely so don't
+			   bother optimizing. */
+			memmove(rec, next_rec, hdr.record_size *
+				(map->rec_map->records_count - i - 1));
+			map->rec_map->records_count--;
+			records_dropped = TRUE;
+			continue;
 		}
 
 		hdr.messages_count++;
@@ -99,7 +119,13 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 			hdr.first_deleted_uid_lowwater = rec->uid;
 
 		last_uid = rec->uid;
-		rec = CONST_PTR_OFFSET(rec, hdr.record_size);
+		rec = next_rec;
+		i++;
+	}
+
+	if (records_dropped) {
+		/* all existing views are broken now */
+		index->inconsistency_id++;
 	}
 
 	if (hdr.next_uid <= last_uid) {
@@ -134,12 +160,11 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map,
 	CHECK(first_recent_uid, !=);
 
 	map->hdr = hdr;
-	return 1;
+	return 0;
 }
 
 int mail_index_fsck(struct mail_index *index)
 {
-	const char *error = NULL;
 	struct mail_index_map *map;
 	bool lock = !index->log_locked;
 	int ret;
@@ -150,22 +175,24 @@ int mail_index_fsck(struct mail_index *index)
 	mail_index_unmap(&index->map);
 	index->map = map;
 
-	ret = mail_index_fsck_map(index, map, &lock, &error);
-	if (ret > 0) {
+	ret = mail_index_fsck_map(index, map, &lock);
+	if (ret == 0) {
 		map->write_base_header = TRUE;
 		map->write_atomic = TRUE;
 
 		mail_index_write(index, FALSE);
 	}
 
-	if (error != NULL) {
-		mail_index_set_error(index, "Corrupted index file %s: %s",
-				     index->filepath, error);
-	}
-	if (ret == 0)
-		mail_index_mark_corrupted(index);
-
 	if (lock)
 		mail_transaction_log_sync_unlock(index->log);
 	return ret;
+}
+
+void mail_index_fsck_locked(struct mail_index *index)
+{
+	int ret;
+
+	i_assert(index->log_locked);
+	ret = mail_index_fsck(index);
+	i_assert(ret == 0);
 }

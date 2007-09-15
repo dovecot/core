@@ -335,10 +335,11 @@ int mail_index_sync_begin_to(struct mail_index *index,
 	   transaction log except for expunges. They're synced in
 	   mail_index_sync_commit(). */
 	if ((ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD)) <= 0) {
-		if (ret == 0 || mail_index_fsck(index) <= 0) {
+		if (ret == 0) {
 			mail_transaction_log_sync_unlock(index->log);
 			return -1;
 		}
+
 		/* let's try again */
 		if (mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD) <= 0) {
 			mail_transaction_log_sync_unlock(index->log);
@@ -360,10 +361,7 @@ int mail_index_sync_begin_to(struct mail_index *index,
 		mail_index_set_error(index,
 			"broken sync positions in index file %s",
 			index->filepath);
-		if (mail_index_fsck(index) <= 0) {
-			mail_transaction_log_sync_unlock(index->log);
-			return -1;
-		}
+		mail_index_fsck_locked(index);
 	}
 
 	ctx = i_new(struct mail_index_sync_ctx, 1);
@@ -385,11 +383,8 @@ int mail_index_sync_begin_to(struct mail_index *index,
 					 hdr->log_file_tail_offset) < 0) {
 		/* if a log file is missing, there's nothing we can do except
 		   to skip over it. fix the problem with fsck and try again. */
+		mail_index_fsck_locked(index);
 		mail_index_sync_rollback(&ctx);
-		if (mail_index_fsck(index) <= 0) {
-			mail_transaction_log_sync_unlock(index->log);
-			return -1;
-		}
 		return mail_index_sync_begin_to(index, ctx_r, view_r, trans_r,
 						log_file_seq, log_file_offset,
 						flags);

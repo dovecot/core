@@ -48,7 +48,9 @@ struct mail_index_view {
 	struct mail_index *index;
         struct mail_transaction_log_view *log_view;
 
-	unsigned int indexid;
+	uint32_t indexid;
+	unsigned int inconsistency_id;
+
 	struct mail_index_map *map;
 	/* After syncing view, map is replaced with sync_new_map. */
 	struct mail_index_map *sync_new_map;

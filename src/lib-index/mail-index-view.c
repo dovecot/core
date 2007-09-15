@@ -56,7 +56,8 @@ static void _view_close(struct mail_index_view *view)
 
 bool mail_index_view_is_inconsistent(struct mail_index_view *view)
 {
-	if (view->index->indexid != view->indexid)
+	if (view->index->indexid != view->indexid ||
+	    view->index->inconsistency_id != view->inconsistency_id)
 		view->inconsistent = TRUE;
 	return view->inconsistent;
 }
@@ -132,6 +133,7 @@ static const struct mail_index_record *
 _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 		  struct mail_index_map **map_r, bool *expunged_r)
 {
+	static struct mail_index_record broken_rec;
 	struct mail_index_map *map;
 	const struct mail_index_record *rec, *head_rec;
 
@@ -140,13 +142,18 @@ _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	/* look up the record */
 	rec = MAIL_INDEX_MAP_IDX(view->map, seq-1);
 	if (rec->uid == 0) {
-		mail_index_set_error(view->index, "Corrupted Index file %s: "
-			"Record [%u].uid=0", view->index->filepath, seq);
-		mail_index_mark_corrupted(view->index);
+		if (!view->inconsistent) {
+			mail_index_set_error(view->index,
+				"Corrupted Index file %s: Record [%u].uid=0",
+				view->index->filepath, seq);
+			(void)mail_index_fsck(view->index);
+			view->inconsistent = TRUE;
+		}
 
+		/* we'll need to return something so the caller doesn't crash */
 		*map_r = view->map;
 		*expunged_r = TRUE;
-		return rec;
+		return &broken_rec;
 	}
 	if (view->map == view->index->map) {
 		/* view's mapping is latest. we can use it directly. */
@@ -610,6 +617,7 @@ mail_index_view_open_with_map(struct mail_index *index,
 	view->log_view = mail_transaction_log_view_open(index->log);
 
 	view->indexid = index->indexid;
+	view->inconsistency_id = index->inconsistency_id;
 	view->map = map;
 	view->map->refcount++;
 

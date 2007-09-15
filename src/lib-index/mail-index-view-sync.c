@@ -267,6 +267,12 @@ int mail_index_view_sync_begin(struct mail_index_view *view,
 	i_assert(!view->syncing);
 	i_assert(view->transactions == 0);
 
+	if (mail_index_view_is_inconsistent(view)) {
+		mail_index_set_error(view->index, "%s view is inconsistent",
+				     view->index->filepath);
+		return -1;
+	}
+
 	sync_expunges = (flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) == 0;
 	if (sync_expunges) {
 		/* get list of all expunges first */

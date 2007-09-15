@@ -169,6 +169,8 @@ struct mail_index {
 
 	struct mail_index_map *map;
 	uint32_t indexid;
+	unsigned int inconsistency_id;
+
 	/* last_read_log_file_* contains the seq/offsets we last read from
 	   the main index file's headers. these are used to figure out when
 	   the main index file should be updated, and if we can update it
@@ -260,8 +262,7 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index);
 
    If we mmap()ed the index file, the map is returned locked.
 
-   Returns 1 = ok, 0 = corrupted, -1 = error. If non-fatal problems were found,
-   1 is returned but index->fsck=TRUE is set. */
+   Returns 1 = ok, 0 = corrupted, -1 = error. */
 int mail_index_map(struct mail_index *index,
 		   enum mail_index_sync_handler_type type);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
@@ -290,6 +291,8 @@ int mail_index_map_parse_keywords(struct mail_index_map *map);
 
 void mail_index_view_transaction_ref(struct mail_index_view *view);
 void mail_index_view_transaction_unref(struct mail_index_view *view);
+
+void mail_index_fsck_locked(struct mail_index *index);
 
 int mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 	__attr_format__(2, 3);

@@ -685,7 +685,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 		mail_index_unlock(index, &lock_id);
 	}
 
-	for (try = 0; ret > 0 && try < 2; try++) {
+	for (try = 0; ret > 0; try++) {
 		/* make sure the header is ok before using this mapping */
 		ret = mail_index_map_check_header(new_map);
 		if (ret > 0) {
@@ -694,13 +694,13 @@ static int mail_index_map_latest_file(struct mail_index *index)
 			else if (mail_index_map_parse_keywords(new_map) < 0)
 				ret = 0;
 		}
-		if (ret != 0)
+		if (ret != 0 || try == 2)
 			break;
 
 		/* fsck and try again */
 		old_map = index->map;
 		index->map = new_map;
-		ret = mail_index_fsck(index);
+		ret = mail_index_fsck(index) < 0 ? -1 : 1;
 
 		/* fsck cloned the map, so we'll have to update it */
 		mail_index_unmap(&new_map);
