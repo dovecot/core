@@ -9,13 +9,13 @@ void str_sanitize_append(string_t *dest, const char *src, size_t max_len)
 	const char *p;
 
 	for (p = src; *p != '\0'; p++) {
-		if ((unsigned char)*p < 32)
+		if (((unsigned char)*p & 0x7f) < 32)
 			break;
 	}
 
 	str_append_n(dest, src, (size_t)(p - src));
 	for (; *p != '\0' && max_len > 0; p++, max_len--) {
-		if ((unsigned char)*p < 32)
+		if (((unsigned char)*p & 0x7f) < 32)
 			str_append_c(dest, '?');
 		else
 			str_append_c(dest, *p);
