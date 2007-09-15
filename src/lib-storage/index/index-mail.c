@@ -978,6 +978,11 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	data->seq = seq;
 	data->flags = rec->flags & MAIL_FLAGS_NONRECENT;
 
+	if (mail_index_view_is_inconsistent(mail->trans->trans_view)) {
+		mail_set_expunged(&mail->mail.mail);
+		return;
+	}
+
 	if ((mail->wanted_fields & (MAIL_FETCH_NUL_STATE |
 				    MAIL_FETCH_IMAP_BODY |
 				    MAIL_FETCH_IMAP_BODYSTRUCTURE)) != 0) {
