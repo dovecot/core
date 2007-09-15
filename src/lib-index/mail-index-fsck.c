@@ -24,8 +24,8 @@ static void mail_index_fsck_error(struct mail_index *index,
 				      map->hdr.field, hdr.field); \
 	}
 
-static int mail_index_fsck_map(struct mail_index *index,
-			       struct mail_index_map *map, bool *lock)
+static void
+mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map)
 {
 	struct mail_index_header hdr;
 	struct mail_index_record *rec, *next_rec;
@@ -35,23 +35,15 @@ static int mail_index_fsck_map(struct mail_index *index,
 	bool logged_unordered_uids = FALSE, logged_zero_uids = FALSE;
 	bool records_dropped = FALSE;
 
-	if (*lock) {
-		if (mail_transaction_log_sync_lock(index->log, &file_seq,
-						   &file_offset) < 0) {
-			*lock = FALSE;
-			return -1;
-		}
-	} else {
-		mail_transaction_log_get_head(index->log, &file_seq,
-					      &file_offset);
-	}
+	mail_transaction_log_get_head(index->log, &file_seq, &file_offset);
 
 	/* Remember the log head position. If we go back in the index's head
 	   offset, ignore errors in the log up to this offset. */
 	index->fsck_log_head_file_seq = file_seq;
 	index->fsck_log_head_file_offset = file_offset;
 
-	/* locking already does the most important sanity checks for header */
+	/* mail_index_map_check_header() has already checked that the index
+	   isn't completely broken. */
 	hdr = map->hdr;
 
 	if (hdr.uid_validity == 0 && hdr.next_uid != 1)
@@ -158,32 +150,36 @@ static int mail_index_fsck_map(struct mail_index *index,
 	CHECK(first_recent_uid, !=);
 
 	map->hdr = hdr;
-	return 0;
 }
 
 int mail_index_fsck(struct mail_index *index)
 {
+	bool orig_locked = index->log_locked;
 	struct mail_index_map *map;
-	bool lock = !index->log_locked;
-	int ret;
+	uint32_t file_seq;
+	uoff_t file_offset;
 
 	i_warning("fscking index file %s", index->filepath);
+
+	if (!orig_locked) {
+		if (mail_transaction_log_sync_lock(index->log, &file_seq,
+						   &file_offset) < 0)
+			return -1;
+	}
 
 	map = mail_index_map_clone(index->map);
 	mail_index_unmap(&index->map);
 	index->map = map;
 
-	ret = mail_index_fsck_map(index, map, &lock);
-	if (ret == 0) {
-		map->write_base_header = TRUE;
-		map->write_atomic = TRUE;
+	mail_index_fsck_map(index, map);
 
-		mail_index_write(index, FALSE);
-	}
+	map->write_base_header = TRUE;
+	map->write_atomic = TRUE;
+	mail_index_write(index, FALSE);
 
-	if (lock)
+	if (!orig_locked)
 		mail_transaction_log_sync_unlock(index->log);
-	return ret;
+	return 0;
 }
 
 void mail_index_fsck_locked(struct mail_index *index)
