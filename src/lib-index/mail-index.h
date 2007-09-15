@@ -31,9 +31,7 @@ enum mail_index_header_compat_flags {
 enum mail_index_header_flag {
 	/* Index file is corrupted, reopen or recreate it. */
 	MAIL_INDEX_HDR_FLAG_CORRUPTED		= 0x0001,
-	MAIL_INDEX_HDR_FLAG_HAVE_DIRTY		= 0x0002,
-	/* fsck the index next time when opening */
-	MAIL_INDEX_HDR_FLAG_FSCK		= 0x0004
+	MAIL_INDEX_HDR_FLAG_HAVE_DIRTY		= 0x0002
 };
 
 enum mail_index_mail_flags {

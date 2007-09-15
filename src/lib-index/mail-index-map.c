@@ -391,9 +391,6 @@ int mail_index_map_check_header(struct mail_index_map *map)
 		return -1;
 	}
 
-	if ((hdr->flags & MAIL_INDEX_HDR_FLAG_FSCK) != 0)
-		return 0;
-
 	if (hdr->uid_validity == 0 && hdr->next_uid != 1)
 		return 0;
 	if (hdr->next_uid == 0)

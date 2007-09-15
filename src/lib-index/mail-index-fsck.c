@@ -57,8 +57,6 @@ static int mail_index_fsck_map(struct mail_index *index,
 	if (hdr.uid_validity == 0 && hdr.next_uid != 1)
 		hdr.uid_validity = ioloop_time;
 
-	hdr.flags &= ~MAIL_INDEX_HDR_FLAG_FSCK;
-
 	if (hdr.log_file_seq < file_seq) {
 		hdr.log_file_head_offset = hdr.log_file_tail_offset =
 			sizeof(struct mail_transaction_log_header);
