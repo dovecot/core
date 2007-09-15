@@ -19,6 +19,7 @@ void mail_index_view_clone(struct mail_index_view *dest,
 	}
 
 	dest->indexid = src->indexid;
+	dest->inconsistency_id = src->inconsistency_id;
 	dest->map = src->map;
 	if (dest->map != NULL)
 		dest->map->refcount++;
