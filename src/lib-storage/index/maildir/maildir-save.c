@@ -670,6 +670,9 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 			ret = -1;
 	}
 
+	*t->ictx.saved_uid_validity =
+		maildir_uidlist_get_uid_validity(ctx->mbox->uidlist);
+
 	if (sync_commit) {
 		/* It doesn't matter if index syncing fails */
 		(void)maildir_sync_index_finish(&ctx->sync_ctx,
@@ -698,14 +701,10 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 
 void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 {
-	struct maildir_transaction_context *t =
-		(struct maildir_transaction_context *)ctx->ctx.transaction;
+	ctx->ctx.transaction = NULL; /* transaction is already freed */
 
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->mbox->uidlist);
-
-	*t->ictx.saved_uid_validity =
-		maildir_uidlist_get_uid_validity(ctx->mbox->uidlist);
 
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
