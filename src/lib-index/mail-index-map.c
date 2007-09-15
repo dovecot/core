@@ -106,14 +106,92 @@ mail_index_map_register_ext(struct mail_index_map *map, const char *name,
 	return idx;
 }
 
-static int mail_index_parse_extensions(struct mail_index_map *map)
+int mail_index_map_ext_get_next(struct mail_index_map *map,
+				unsigned int *offset_p,
+				const struct mail_index_ext_header **ext_hdr_r,
+				const char **name_r)
+{
+	const struct mail_index_ext_header *ext_hdr;
+	unsigned int offset, name_offset;
+
+	offset = *offset_p;
+	*name_r = "";
+
+	/* Extension header contains:
+	   - struct mail_index_ext_header
+	   - name (not 0-terminated)
+	   - 64bit alignment padding
+	   - extension header contents
+	   - 64bit alignment padding
+	*/
+	name_offset = offset + sizeof(*ext_hdr);
+	ext_hdr = CONST_PTR_OFFSET(map->hdr_base, offset);
+	if (offset + sizeof(*ext_hdr) >= map->hdr.header_size)
+		return -1;
+
+	offset += get_ext_size(ext_hdr->name_size);
+	if (offset > map->hdr.header_size)
+		return -1;
+
+	*name_r = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
+			    ext_hdr->name_size);
+	if (strcmp(*name_r, str_sanitize(*name_r, -1)) != 0) {
+		/* we allow only plain ASCII names, so this extension
+		   is most likely broken */
+		*name_r = "";
+	}
+
+	/* finally make sure that the hdr_size is small enough.
+	   do this last so that we could return a usable name. */
+	offset += MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
+	if (offset > map->hdr.header_size)
+		return -1;
+
+	*offset_p = offset;
+	*ext_hdr_r = ext_hdr;
+	return 0;
+}
+
+int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
+				 const struct mail_index_ext_header *ext_hdr,
+				 const char *name, const char **error_r)
+{
+	if ((ext_hdr->record_size == 0 && ext_hdr->hdr_size == 0) ||
+	    (ext_hdr->record_align == 0 && ext_hdr->record_size != 0)) {
+		*error_r = "Invalid field values";
+		return -1;
+	}
+	if (*name == '\0') {
+		*error_r = "Broken name";
+		return -1;
+	}
+
+	if (ext_hdr->record_offset + ext_hdr->record_size > hdr->record_size) {
+		*error_r = t_strdup_printf("Record field points "
+					   "outside record size (%u+%u > %u)",
+					   ext_hdr->record_offset,
+					   ext_hdr->record_size,
+					   hdr->record_size);
+		return -1;
+	}
+
+	if (ext_hdr->record_size > 0 &&
+	    ((ext_hdr->record_offset % ext_hdr->record_align) != 0 ||
+	     (hdr->record_size % ext_hdr->record_align) != 0)) {
+		*error_r = t_strdup_printf("Record field alignmentation %u "
+					   "not used", ext_hdr->record_align);
+		return -1;
+	}
+	return 0;
+}
+
+static int mail_index_map_parse_extensions(struct mail_index_map *map)
 {
 	struct mail_index *index = map->index;
 	const struct mail_index_ext_header *ext_hdr;
-	unsigned int i, old_count;
-	const char *name;
-	uint32_t ext_id, ext_offset, offset, name_offset;
-	size_t size_left;
+	unsigned int i, old_count, offset;
+	const char *name, *error;
+	uint32_t ext_id, ext_offset;
 
 	/* extension headers always start from 64bit offsets, so if base header
 	   doesn't happen to be 64bit aligned we'll skip some bytes */
@@ -132,44 +210,22 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 
 	for (i = 0; offset < map->hdr.header_size; i++) {
 		ext_offset = offset;
-		ext_hdr = CONST_PTR_OFFSET(map->hdr_base, offset);
 
-		/* Extension header contains:
-		   - struct mail_index_ext_header
-		   - name (not 0-terminated)
-		   - 64bit alignment padding
-		   - extension header contents
-		   - 64bit alignment padding
-		*/
-		size_left = map->hdr.header_size - offset;
-		if (size_left < sizeof(*ext_hdr) ||
-		    size_left < get_ext_size(ext_hdr->name_size) +
-		    ext_hdr->hdr_size) {
+		t_push();
+		if (mail_index_map_ext_get_next(map, &offset,
+						&ext_hdr, &name) < 0) {
 			mail_index_set_error(index, "Corrupted index file %s: "
-				"Header extension goes outside header",
-				index->filepath);
+				"Header extension #%d (%s) goes outside header",
+				index->filepath, i, name);
+			t_pop();
 			return -1;
 		}
 
-		name_offset = offset + sizeof(*ext_hdr);
-		offset += get_ext_size(ext_hdr->name_size);
-
-		t_push();
-		name = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
-				 ext_hdr->name_size);
-		if (strcmp(name, str_sanitize(name, -1)) != 0) {
-			/* we allow only plain ASCII names, so this extension
-			   is most likely broken */
-			name = "";
-		}
-
-		if ((ext_hdr->record_size == 0 && ext_hdr->hdr_size == 0) ||
-		    (ext_hdr->record_align == 0 && ext_hdr->record_size != 0) ||
-		    *name == '\0') {
+		if (mail_index_map_ext_hdr_check(&map->hdr, ext_hdr,
+						 name, &error) < 0) {
 			mail_index_set_error(index, "Corrupted index file %s: "
-					     "Broken header extension %s",
-					     index->filepath, *name == '\0' ?
-					     t_strdup_printf("#%d", i) : name);
+					     "Broken extension #%d (%s): %s",
+					     index->filepath, i, name, error);
 			t_pop();
 			return -1;
 		}
@@ -181,27 +237,6 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 			return -1;
 		}
 
-		if (map->hdr.record_size <
-		    ext_hdr->record_offset + ext_hdr->record_size) {
-			mail_index_set_error(index, "Corrupted index file %s: "
-				"Record field %s points outside record size "
-				"(%u < %u+%u)", index->filepath, name,
-				map->hdr.record_size,
-				ext_hdr->record_offset, ext_hdr->record_size);
-			t_pop();
-			return -1;
-		}
-
-		if (ext_hdr->record_size > 0 &&
-		    ((ext_hdr->record_offset % ext_hdr->record_align) != 0 ||
-		     (map->hdr.record_size % ext_hdr->record_align) != 0)) {
-			mail_index_set_error(index, "Corrupted index file %s: "
-				"Record field %s alignmentation %u not used",
-				index->filepath, name, ext_hdr->record_align);
-			t_pop();
-			return -1;
-		}
-
 		mail_index_map_register_ext(map, name, ext_offset,
 					    ext_hdr->hdr_size,
 					    ext_hdr->record_offset,
@@ -209,8 +244,6 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 					    ext_hdr->record_align,
 					    ext_hdr->reset_id);
 		t_pop();
-
-		offset += MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
 	}
 	return 0;
 }
@@ -800,7 +833,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 		/* make sure the header is ok before using this mapping */
 		ret = mail_index_map_check_header(new_map);
 		if (ret > 0) {
-			if (mail_index_parse_extensions(new_map) < 0)
+			if (mail_index_map_parse_extensions(new_map) < 0)
 				ret = 0;
 			else if (mail_index_map_parse_keywords(new_map) < 0)
 				ret = 0;

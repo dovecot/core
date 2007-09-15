@@ -289,6 +289,14 @@ mail_index_view_get_ext(struct mail_index_view *view, uint32_t ext_id);
 int mail_index_map_check_header(struct mail_index_map *map);
 int mail_index_map_parse_keywords(struct mail_index_map *map);
 
+int mail_index_map_ext_get_next(struct mail_index_map *map,
+				unsigned int *offset,
+				const struct mail_index_ext_header **ext_hdr_r,
+				const char **name_r);
+int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
+				 const struct mail_index_ext_header *ext_hdr,
+				 const char *name, const char **error_r);
+
 void mail_index_view_transaction_ref(struct mail_index_view *view);
 void mail_index_view_transaction_unref(struct mail_index_view *view);
 

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "array.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log.h"
 
@@ -54,6 +55,66 @@ mail_index_fsck_header(struct mail_index *index, struct mail_index_map *map,
 		CHECK(log_file_head_offset, !=);
 		CHECK(log_file_tail_offset, !=);
 	}
+}
+
+static bool
+array_has_name(const ARRAY_TYPE(const_string) *names, const char *name)
+{
+	const char *const *str;
+	unsigned int i, count;
+
+	str = array_get(names, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(str[i], name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static void
+mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
+			   struct mail_index_header *hdr)
+{
+	const struct mail_index_ext_header *ext_hdr;
+	ARRAY_TYPE(const_string) names;
+	const char *name, *error;
+	unsigned int offset, ext_offset, i;
+
+	t_push();
+	t_array_init(&names, 64);
+	offset = MAIL_INDEX_HEADER_SIZE_ALIGN(hdr->base_header_size);
+	for (i = 0; offset < hdr->header_size; i++) {
+		ext_offset = offset;
+		if (mail_index_map_ext_get_next(map, &offset,
+						&ext_hdr, &name) < 0) {
+			/* the extension continued outside header, drop it */
+			mail_index_fsck_error(index,
+					      "Dropped extension #%d (%s) "
+					      "with invalid header size",
+					      i, name);
+			hdr->header_size = ext_offset;
+			break;
+		}
+		if (mail_index_map_ext_hdr_check(hdr, ext_hdr, name,
+						 &error) < 0) {
+			mail_index_fsck_error(index,
+				"Dropped broken extension #%d (%s)", i, name);
+		} else if (array_has_name(&names, name)) {
+			mail_index_fsck_error(index,
+				"Dropped duplicate extension %s", name);
+		} else {
+			array_append(&names, &name, 1);
+			continue;
+		}
+
+		/* drop the field */
+		hdr->header_size -= offset - ext_offset;
+		buffer_copy(map->hdr_copy_buf, ext_offset,
+			    map->hdr_copy_buf, offset, (size_t)-1);
+		buffer_set_used_size(map->hdr_copy_buf, hdr->header_size);
+		offset = ext_offset;
+	}
+	t_pop();
 }
 
 static void
@@ -162,6 +223,7 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map)
 	hdr = map->hdr;
 
 	mail_index_fsck_header(index, map, &hdr);
+	mail_index_fsck_extensions(index, map, &hdr);
 	mail_index_fsck_records(index, map, &hdr);
 
 	map->hdr = hdr;
