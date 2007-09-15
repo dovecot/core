@@ -688,7 +688,8 @@ mail_index_try_read_map(struct mail_index_map *map,
 	return 1;
 }
 
-static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
+static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size,
+			       unsigned int *lock_id)
 {
 	struct mail_index *index = map->index;
 	mail_index_sync_lost_handler_t *const *handlers;
@@ -716,9 +717,8 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 			break;
 
 		/* ESTALE - reopen index file */
-                if (close(index->fd) < 0)
-			mail_index_set_syscall_error(index, "close()");
-		index->fd = -1;
+		mail_index_close_file(index);
+		*lock_id = 0;
 
                 ret = mail_index_try_open_only(index);
 		if (ret <= 0) {
@@ -729,6 +729,9 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 			}
 			return -1;
 		}
+		if (mail_index_lock_shared(index, lock_id) < 0)
+			return -1;
+
 		if (fstat(index->fd, &st) == 0)
 			file_size = st.st_size;
 		else {
@@ -826,7 +829,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 		new_map->rec_map->lock_id = lock_id;
 		ret = mail_index_mmap(new_map, file_size);
 	} else {
-		ret = mail_index_read_map(new_map, file_size);
+		ret = mail_index_read_map(new_map, file_size, &lock_id);
 		mail_index_unlock(index, &lock_id);
 	}
 

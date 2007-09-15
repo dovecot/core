@@ -402,7 +402,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 	return 1;
 }
 
-static void mail_index_close_file(struct mail_index *index)
+void mail_index_close_file(struct mail_index *index)
 {
 	if (index->file_lock != NULL)
 		file_lock_free(&index->file_lock);
