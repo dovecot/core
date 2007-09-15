@@ -1394,9 +1394,9 @@ settings_warn_needed_fds(struct server_settings *server __attr_unused__)
 	/* count only log pipes needed for login and mail processes. we need
 	   more, but they're the ones that can use up most of the fds */
 	for (; server != NULL; server = server->next) {
-		if (settings_is_active(server->imap))
+		if (server->imap != NULL)
 			fd_count += server->imap->login_max_processes_count;
-		if (settings_is_active(server->pop3))
+		if (server->pop3 != NULL)
 			fd_count += server->pop3->login_max_processes_count;
 		fd_count += server->defaults->max_mail_processes;
 	}
