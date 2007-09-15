@@ -430,6 +430,8 @@ int dbox_transaction_save_commit_pre(struct dbox_save_context *ctx)
 
 void dbox_transaction_save_commit_post(struct dbox_save_context *ctx)
 {
+	ctx->ctx.transaction = NULL; /* transaction is already freed */
+
 	(void)dbox_sync_finish(&ctx->sync_ctx, TRUE);
 	dbox_transaction_save_rollback(ctx);
 }

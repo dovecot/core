@@ -286,6 +286,8 @@ int cydir_transaction_save_commit_pre(struct cydir_save_context *ctx)
 
 void cydir_transaction_save_commit_post(struct cydir_save_context *ctx)
 {
+	ctx->ctx.transaction = NULL; /* transaction is already freed */
+
 	(void)cydir_sync_finish(&ctx->sync_ctx, TRUE);
 	cydir_transaction_save_rollback(ctx);
 }
