@@ -391,11 +391,23 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		if (!mail_index_map_lookup_ext(map, name, &ext_map_idx))
 			ext_map_idx = (uint32_t)-1;
 	}
+	ext = ext_map_idx == (uint32_t)-1 ? NULL :
+		array_idx(&map->extensions, ext_map_idx);
+	if (ext != NULL)
+		name = ext->name;
+
+	if (!ctx->internal_update && strcmp(name, "keywords") == 0) {
+		/* Keyword extension is handled internally by the keyword
+		   code. Any attempt to modify them directly could cause
+		   assert-crashes later, so prevent them immediately. */
+		mail_index_sync_set_corrupted(ctx,
+			"Extension introduction for keywords");
+		t_pop();
+		return -1;
+	}
 
 	if (ext_map_idx != (uint32_t)-1) {
 		/* exists already */
-		ext = array_idx(&map->extensions, ext_map_idx);
-
 		if (u->reset_id == ext->reset_id) {
 			/* check if we need to resize anything */
 			sync_ext_resize(u, ext_map_idx, ctx);
@@ -462,7 +474,8 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	sync_ext_reorder(map, ext_map_idx, 0);
 
 	ctx->cur_ext_ignore = FALSE;
-	ctx->cur_ext_map_idx = ext_map_idx;
+	ctx->cur_ext_map_idx = ctx->internal_update ?
+		(uint32_t)-1 : ext_map_idx;
 	return 1;
 }
 

@@ -101,15 +101,17 @@ static void keywords_ext_register(struct mail_index_sync_map_ctx *ctx,
 		buffer_append(ext_intro_buf, "keywords", u->name_size);
 	}
 
+	ctx->internal_update = TRUE;
 	if (mail_index_sync_ext_intro(ctx, u) < 0)
 		i_panic("Keyword extension growing failed");
+	ctx->internal_update = FALSE;
 }
 
 static void
 keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 		    const char *keyword_name, unsigned int *keyword_idx_r)
 {
-	struct mail_index_map *map = ctx->view->map;
+	struct mail_index_map *map;
         const struct mail_index_ext *ext = NULL;
 	struct mail_index_keyword_header *kw_hdr;
 	struct mail_index_keyword_header_rec kw_rec;

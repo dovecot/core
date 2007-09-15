@@ -39,6 +39,7 @@ struct mail_index_sync_map_ctx {
 	unsigned int expunge_handlers_set:1;
 	unsigned int expunge_handlers_used:1;
 	unsigned int cur_ext_ignore:1;
+	unsigned int internal_update:1; /* used by keywords for ext_intro */
 	unsigned int errors:1;
 };
 
