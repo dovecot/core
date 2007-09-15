@@ -318,8 +318,9 @@ static int sync_append(const struct mail_index_record *rec,
 		map->rec_map->last_appended_uid = rec->uid;
 		new_flags = rec->flags;
 
-		mail_index_sync_write_seq_update(ctx, map->hdr.messages_count,
-						 map->hdr.messages_count);
+		mail_index_sync_write_seq_update(ctx,
+						 map->rec_map->records_count,
+						 map->rec_map->records_count);
 	}
 
 	map->hdr.messages_count++;
