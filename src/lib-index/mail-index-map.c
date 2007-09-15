@@ -119,7 +119,7 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 	offset = MAIL_INDEX_HEADER_SIZE_ALIGN(map->hdr.base_header_size);
 	if (offset >= map->hdr.header_size && map->extension_pool == NULL) {
 		/* nothing to do, skip allocatations and all */
-		return 1;
+		return 0;
 	}
 
 	old_count = array_count(&index->extensions);
@@ -206,7 +206,7 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 
 		offset += MAIL_INDEX_HEADER_SIZE_ALIGN(ext_hdr->hdr_size);
 	}
-	return 1;
+	return 0;
 }
 
 static bool mail_index_check_header_compat(struct mail_index *index,
@@ -634,15 +634,14 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 	return mail_index_map_clone(&tmp_map);
 }
 
-static int mail_index_map_latest_file(struct mail_index *index,
-				      struct mail_index_map **map)
+static int mail_index_map_latest_file(struct mail_index *index)
 {
-	struct mail_index_map *new_map;
+	struct mail_index_map *old_map, *new_map;
 	struct stat st;
 	unsigned int lock_id;
 	uoff_t file_size;
 	bool use_mmap;
-	int ret;
+	int ret, try;
 
 	ret = mail_index_reopen_if_changed(index);
 	if (ret <= 0) {
@@ -685,20 +684,28 @@ static int mail_index_map_latest_file(struct mail_index *index,
 		ret = mail_index_read_map(new_map, file_size);
 		mail_index_unlock(index, &lock_id);
 	}
-	if (ret > 0) {
+
+	for (try = 0; ret > 0 && try < 2; try++) {
 		/* make sure the header is ok before using this mapping */
 		ret = mail_index_map_check_header(new_map);
-		if (ret >= 0) {
-			ret = mail_index_parse_extensions(new_map);
-			if (ret > 0) {
-				if (mail_index_map_parse_keywords(new_map) < 0)
-					ret = -1;
-			}
+		if (ret > 0) {
+			if (mail_index_parse_extensions(new_map) < 0)
+				ret = 0;
+			else if (mail_index_map_parse_keywords(new_map) < 0)
+				ret = 0;
 		}
-		if (ret == 0)
-			index->fsck = TRUE;
-		else if (ret < 0)
-			ret = 0;
+		if (ret != 0)
+			break;
+
+		/* fsck and try again */
+		old_map = index->map;
+		index->map = new_map;
+		ret = mail_index_fsck(index);
+
+		/* fsck cloned the map, so we'll have to update it */
+		mail_index_unmap(&new_map);
+		new_map = index->map;
+		index->map = old_map;
 	}
 	if (ret <= 0) {
 		mail_index_unmap(&new_map);
@@ -713,8 +720,8 @@ static int mail_index_map_latest_file(struct mail_index *index,
 		new_map->hdr.log_file_tail_offset;
 	index->last_read_stat = st;
 
-	mail_index_unmap(map);
-	*map = new_map;
+	mail_index_unmap(&index->map);
+	index->map = new_map;
 	return 1;
 }
 
@@ -745,7 +752,7 @@ int mail_index_map(struct mail_index *index,
 		   any reason, we'll fallback to updating the existing mapping
 		   from transaction logs (which we'll also do even if the
 		   reopening succeeds) */
-		(void)mail_index_map_latest_file(index, &index->map);
+		(void)mail_index_map_latest_file(index);
 
 		/* if we're creating the index file, we don't have any
 		   logs yet */

@@ -399,8 +399,8 @@ int mail_index_create_tmp_file(struct mail_index *index, const char **path_r)
 	return fd;
 }
 
-static bool mail_index_open_files(struct mail_index *index,
-				  enum mail_index_open_flags flags)
+static int mail_index_open_files(struct mail_index *index,
+				 enum mail_index_open_flags flags)
 {
 	int ret;
 	bool created = FALSE;
@@ -408,7 +408,7 @@ static bool mail_index_open_files(struct mail_index *index,
 	ret = mail_transaction_log_open(index->log);
 	if (ret == 0) {
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
-			return FALSE;
+			return 0;
 
 		/* if dovecot.index exists, read it first so that we can get
 		   the correct indexid and log sequence */
@@ -441,21 +441,21 @@ static bool mail_index_open_files(struct mail_index *index,
 	if (ret < 0) {
 		/* open/create failed, fallback to in-memory indexes */
 		if ((flags & MAIL_INDEX_OPEN_FLAG_CREATE) == 0)
-			return FALSE;
+			return -1;
 
 		if (mail_index_move_to_memory(index) < 0)
-			return FALSE;
+			return -1;
 	}
 
 	index->cache = created ? mail_cache_create(index) :
 		mail_cache_open_or_create(index);
-	return TRUE;
+	return 1;
 }
 
 int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		    enum file_lock_method lock_method)
 {
-	int i = 0, ret = 1;
+	int ret;
 
 	if (index->opened) {
 		if (index->map != NULL &&
@@ -473,61 +473,37 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags,
 		i_strdup("(in-memory index)") :
 		i_strconcat(index->dir, "/", index->prefix, NULL);
 
-	for (;;) {
-		index->shared_lock_count = 0;
-		index->excl_lock_count = 0;
-		index->lock_type = F_UNLCK;
-		index->lock_id_counter = 2;
+	index->shared_lock_count = 0;
+	index->excl_lock_count = 0;
+	index->lock_type = F_UNLCK;
+	index->lock_id_counter = 2;
 
-		index->readonly = FALSE;
-		index->nodiskspace = FALSE;
-		index->index_lock_timeout = FALSE;
-		index->log_locked = FALSE;
-		index->mmap_disable =
-			(flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) != 0;
-		index->use_excl_dotlocks =
-			(flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
-		index->fsync_disable =
-			(flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0;
-		index->nfs_flush =
-			(flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
-		index->lock_method = lock_method;
+	index->readonly = FALSE;
+	index->nodiskspace = FALSE;
+	index->index_lock_timeout = FALSE;
+	index->log_locked = FALSE;
+	index->mmap_disable = (flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) != 0;
+	index->use_excl_dotlocks =
+		(flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
+	index->fsync_disable =
+		(flags & MAIL_INDEX_OPEN_FLAG_FSYNC_DISABLE) != 0;
+	index->nfs_flush = (flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
+	index->lock_method = lock_method;
 
-		if (index->nfs_flush && index->fsync_disable)
-			i_fatal("nfs flush requires fsync_disable=no");
-		if (index->nfs_flush && !index->mmap_disable)
-			i_fatal("nfs flush requires mmap_disable=yes");
+	if (index->nfs_flush && index->fsync_disable)
+		i_fatal("nfs flush requires fsync_disable=no");
+	if (index->nfs_flush && !index->mmap_disable)
+		i_fatal("nfs flush requires mmap_disable=yes");
 
-		i_assert(!index->opened);
-		if (!mail_index_open_files(index, flags)) {
-			/* doesn't exist and create flag not used */
-			ret = 0;
-			break;
-		}
-		i_assert(index->map != NULL);
-
-		index->opened = TRUE;
-		if (index->fsck) {
-			index->fsck = FALSE;
-			ret = mail_index_fsck(index);
-			if (ret == 0) {
-				/* completely broken, reopen */
-				if (i++ < 3) {
-					mail_index_close(index);
-					continue;
-				}
-				/* too many tries */
-				ret = -1;
-			}
-		}
-		break;
+	if ((ret = mail_index_open_files(index, flags)) <= 0) {
+		/* doesn't exist and create flag not used */
+		mail_index_close(index);
+		return ret;
 	}
 
-	if (ret <= 0)
-		mail_index_close(index);
-
-	i_assert(ret <= 0 || index->map != NULL);
-	return ret;
+	i_assert(index->map != NULL);
+	index->opened = TRUE;
+	return 1;
 }
 
 static void mail_index_close_file(struct mail_index *index)
