@@ -71,6 +71,184 @@ array_has_name(const ARRAY_TYPE(const_string) *names, const char *name)
 	return FALSE;
 }
 
+static unsigned int
+mail_index_fsck_find_keyword_count(struct mail_index_map *map,
+				   const struct mail_index_ext_header *ext_hdr)
+{
+	const struct mail_index_record *rec;
+	const uint8_t *kw;
+	unsigned int r, i, j, cur, max = 0, kw_pos, kw_size;
+
+	kw_pos = ext_hdr->record_offset;
+	kw_size = ext_hdr->record_size;
+
+	rec = map->rec_map->records;
+	for (r = 0; r < map->rec_map->records_count; r++) {
+		kw = CONST_PTR_OFFSET(rec, kw_pos);
+		for (i = cur = 0; i < kw_size; i++) {
+			if (kw[i] != 0) {
+				for (j = 0; j < 8; j++) {
+					if ((kw[i] & (1 << j)) != 0)
+						cur = i * 8 + j + 1;
+				}
+			}
+		}
+		if (cur > max) {
+			max = cur;
+			if (max == kw_size*8)
+				return max;
+		}
+		rec = CONST_PTR_OFFSET(rec, map->hdr.record_size);
+	}
+	return max;
+}
+
+static bool
+keyword_name_is_valid(const char *buffer, unsigned int pos, unsigned int size)
+{
+	for (; pos < size; pos++) {
+		if (buffer[pos] == '\0')
+			return TRUE;
+		if (((unsigned char)buffer[pos] & 0x7f) < 32) {
+			/* control characters aren't valid */
+			return FALSE;
+		}
+	}
+	return FALSE;
+}
+
+static void
+mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
+			 struct mail_index_header *hdr,
+			 const struct mail_index_ext_header *ext_hdr,
+			 unsigned int ext_offset, unsigned int *offset_p)
+{
+	const struct mail_index_keyword_header *kw_hdr;
+	struct mail_index_keyword_header *new_kw_hdr;
+	const struct mail_index_keyword_header_rec *kw_rec;
+	struct mail_index_keyword_header_rec new_kw_rec;
+	const char *name, *name_buffer, **name_array;
+	unsigned int i, j, name_pos, name_size, rec_pos, hdr_offset, diff;
+	unsigned int changed_count, keywords_count, name_base_pos;
+	ARRAY_TYPE(const_string) names;
+	buffer_t *dest;
+	bool changed = FALSE;
+
+	hdr_offset = ext_offset +
+		mail_index_map_ext_hdr_offset(sizeof("keywords")-1);
+	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, hdr_offset);
+	keywords_count = kw_hdr->keywords_count;
+
+	kw_rec = (const void *)(kw_hdr + 1);
+	name_buffer = (const char *)(kw_rec + keywords_count);
+
+	name_pos = (size_t)(name_buffer - (const char *)kw_hdr);
+	if (name_pos > ext_hdr->hdr_size) {
+		/* the header is completely broken */
+		keywords_count =
+			mail_index_fsck_find_keyword_count(map, ext_hdr);
+		mail_index_fsck_error(index, "Assuming keywords_count = %u",
+				      keywords_count);
+		kw_rec = NULL;
+		name_size = 0;
+		changed = TRUE;
+	} else {
+		name_size = ext_hdr->hdr_size - name_pos;
+	}
+
+	t_push();
+	/* create keyword name array. invalid keywords are added as
+	   empty strings */
+	t_array_init(&names, keywords_count);
+	for (i = 0; i < keywords_count; i++) {
+		if (name_size == 0 ||
+		    !keyword_name_is_valid(name_buffer, kw_rec[i].name_offset,
+					   name_size))
+			name = "";
+		else
+			name = name_buffer + kw_rec[i].name_offset;
+
+		if (*name != '\0' && array_has_name(&names, name)) {
+			/* duplicate */
+			name = "";
+		}
+		array_append(&names, &name, 1);
+	}
+
+	/* give new names to invalid keywords */
+	changed_count = 0;
+	name_array = array_idx_modifiable(&names, 0);
+	for (i = j = 0; i < keywords_count; i++) {
+		while (name_array[i][0] == '\0') {
+			name = t_strdup_printf("unknown-%d", j++);
+			if (!array_has_name(&names, name)) {
+				name_array[i] = name;
+				changed = TRUE;
+				changed_count++;
+			}
+		}
+	}
+
+	if (!changed) {
+		/* nothing was broken */
+		t_pop();
+		return;
+	}
+
+	mail_index_fsck_error(index, "Renamed %u keywords to unknown-*",
+			      changed_count);
+
+	dest = buffer_create_dynamic(default_pool,
+				     I_MAX(ext_hdr->hdr_size, 128));
+	new_kw_hdr = buffer_append_space_unsafe(dest, sizeof(*new_kw_hdr));
+	new_kw_hdr->keywords_count = keywords_count;
+
+	/* add keyword records so we can start appending names directly */
+	rec_pos = dest->used;
+	memset(&new_kw_rec, 0, sizeof(new_kw_rec));
+	buffer_append_space_unsafe(dest, keywords_count * sizeof(*kw_rec));
+
+	/* write the actual records and names */
+	name_base_pos = dest->used;
+	for (i = 0; i < keywords_count; i++) {
+		new_kw_rec.name_offset = dest->used - name_base_pos;
+		buffer_write(dest, rec_pos, &new_kw_rec, sizeof(new_kw_rec));
+		rec_pos += sizeof(*kw_rec);
+
+		buffer_append(dest, name_array[i], strlen(name_array[i]) + 1);
+	}
+
+	/* keep the header size at least the same size as before */
+	if (dest->used < ext_hdr->hdr_size)
+		buffer_append_zero(dest, ext_hdr->hdr_size - dest->used);
+
+	if (dest->used > ext_hdr->hdr_size) {
+		/* need to resize the header */
+		struct mail_index_ext_header new_ext_hdr;
+
+		diff = dest->used - ext_hdr->hdr_size;
+		buffer_copy(map->hdr_copy_buf, hdr_offset + diff,
+			    map->hdr_copy_buf, hdr_offset, (size_t)-1);
+		map->hdr_base = map->hdr_copy_buf->data;
+		hdr->header_size += diff;
+		*offset_p += diff;
+
+		new_ext_hdr = *ext_hdr;
+		new_ext_hdr.hdr_size += diff;
+		buffer_write(map->hdr_copy_buf, ext_offset,
+			     &new_ext_hdr, sizeof(new_ext_hdr));
+	}
+
+	i_assert(hdr_offset + dest->used <= map->hdr_copy_buf->used);
+	buffer_write(map->hdr_copy_buf, hdr_offset, dest->data, dest->used);
+
+	/* keywords changed unexpectedly, so all views are broken now */
+	index->inconsistency_id++;
+
+	buffer_free(dest);
+	t_pop();
+}
+
 static void
 mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 			   struct mail_index_header *hdr)
@@ -103,6 +281,14 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 			mail_index_fsck_error(index,
 				"Dropped duplicate extension %s", name);
 		} else {
+			/* name may change if header buffer is changed */
+			name = t_strdup(name);
+
+			if (strcmp(name, "keywords") == 0) {
+				mail_index_fsck_keywords(index, map, hdr,
+							 ext_hdr, ext_offset,
+							 &offset);
+			}
 			array_append(&names, &name, 1);
 			continue;
 		}
@@ -112,6 +298,7 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 		buffer_copy(map->hdr_copy_buf, ext_offset,
 			    map->hdr_copy_buf, offset, (size_t)-1);
 		buffer_set_used_size(map->hdr_copy_buf, hdr->header_size);
+		map->hdr_base = map->hdr_copy_buf->data;
 		offset = ext_offset;
 	}
 	t_pop();

@@ -296,6 +296,7 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 				 const struct mail_index_ext_header *ext_hdr,
 				 const char *name, const char **error_r);
+unsigned int mail_index_map_ext_hdr_offset(unsigned int name_len);
 
 void mail_index_view_transaction_ref(struct mail_index_view *view);
 void mail_index_view_transaction_unref(struct mail_index_view *view);

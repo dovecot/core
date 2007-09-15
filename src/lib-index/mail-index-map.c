@@ -62,7 +62,7 @@ bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
 	return FALSE;
 }
 
-static size_t get_ext_size(size_t name_len)
+unsigned int mail_index_map_ext_hdr_offset(unsigned int name_len)
 {
 	size_t size = sizeof(struct mail_index_ext_header) + name_len;
 	return MAIL_INDEX_HEADER_SIZE_ALIGN(size);
@@ -88,7 +88,8 @@ mail_index_map_register_ext(struct mail_index_map *map, const char *name,
 	ext = array_append_space(&map->extensions);
 	ext->name = p_strdup(map->extension_pool, name);
 	ext->ext_offset = ext_offset;
-	ext->hdr_offset = ext_offset + get_ext_size(strlen(name));
+	ext->hdr_offset = ext_offset +
+		mail_index_map_ext_hdr_offset(strlen(name));
 	ext->hdr_size = hdr_size;
 	ext->record_offset = record_offset;
 	ext->record_size = record_size;
@@ -129,7 +130,7 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 	if (offset + sizeof(*ext_hdr) >= map->hdr.header_size)
 		return -1;
 
-	offset += get_ext_size(ext_hdr->name_size);
+	offset += mail_index_map_ext_hdr_offset(ext_hdr->name_size);
 	if (offset > map->hdr.header_size)
 		return -1;
 
