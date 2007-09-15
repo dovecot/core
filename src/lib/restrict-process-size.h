@@ -6,8 +6,5 @@
 void restrict_process_size(unsigned int size, unsigned int max_processes);
 /* Set fd limit to count. */
 void restrict_fd_limit(unsigned int count);
-/* If fd limit is less than count, try to raise it. Probably fails (silently)
-   if we're not running as root. Returns TRUE if succeeded. */
-bool restrict_raise_fd_limit(unsigned int count);
 
 #endif
