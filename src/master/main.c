@@ -177,7 +177,6 @@ static void create_pid_file(const char *path)
 
 static void main_init(bool log_error)
 {
-	(void)restrict_raise_fd_limit(DOVECOT_MASTER_FD_MIN_LIMIT);
 	drop_capabilities();
 
 	/* deny file access from everyone else except owner */
