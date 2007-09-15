@@ -1,3 +1,16 @@
+ - message-header-decode.c: handle decoding errors by fallbacking to simply
+   returning the data as ASCII (the whole thing, beginning from =?)
+ - dbox: clean up temp.* files once in a while
+ - write first extension intros in dovecot.index.log always with names
+ - Panic: file mail-index-view-sync.c: line 297 (mail_index_view_sync_begin): assertion failed: (view->index->map->hdr.messages_count >= ctx->finish_min_msg_count)
+   - after index reset
+ - cache compressions aren't handled exactly right. especially when creating
+   the initial cache file other processes seem to give cache corruption errors.
+ - don't delay IDLE changes too long?
+ - expunged messages' flags may get updated in views where they're not yet
+   expunged (e.g. "expunge uid 2", "+flags \seen uid 1:3")
+ - POP3 UIDL caching
+ - Cydir/dbox doesn't respect LIST RETURN (CHILDREN)
  - SORT: Invalid input is supposed to be sorted last.
  - indexes: are cache prev_offsets updated right?
  - mmap_disable: updated cache header doesn't invalidate other processes' cache?
@@ -81,9 +94,6 @@
     - force bits should be used only for nonregistered fields
     - change envelope parsing not to use get_headers() so imap.envelope can
       actually be cached without all the headers..
-    - permanent -> temp change is never made (do it always when compressing?)
-    - compression should drop fields with last_used <
-      (latest_mail_index_date - month)
     - if there's no other pressure for compression, we should do it when
       enough temp fields are ready to be dropped
     - we could try compressing same field values into a single
@@ -228,7 +238,6 @@
     - stop using atol(), atoi(), strtoul() etc. in places where we actually
       care about what they return, and rather create our own function which
       checks if the input overflows the integer, and if so call i_fatal()
-    - solaris sendfile is broken?
     - rfc2231 continuation support (useless?)
     - rfc2557 support for BODYSTRUCTURE, as specified by RFC3501
     - LMTP server
