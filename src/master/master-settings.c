@@ -211,7 +211,7 @@ struct settings default_settings = {
 	/* mail */
 	MEMBER(valid_chroot_dirs) "",
 	MEMBER(mail_chroot) "",
-	MEMBER(max_mail_processes) 1024,
+	MEMBER(max_mail_processes) 512,
 	MEMBER(mail_max_userip_connections) 10,
 	MEMBER(verbose_proctitle) FALSE,
 
