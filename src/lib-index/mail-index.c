@@ -579,6 +579,7 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 		if (errno != ESTALE)
 			return mail_index_set_syscall_error(index, "fstat()");
 		/* deleted/recreated, reopen */
+		mail_index_close_file(index);
 		return mail_index_try_open_only(index);
 	}
 
