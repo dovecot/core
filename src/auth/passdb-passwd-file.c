@@ -11,9 +11,6 @@
 #include "password-scheme.h"
 #include "db-passwd-file.h"
 
-#define PASSWD_FILE_CACHE_KEY "%u"
-#define PASSWD_FILE_DEFAULT_SCHEME "CRYPT"
-
 struct passwd_file_passdb_module {
 	struct passdb_module module;
 
@@ -116,34 +113,50 @@ static struct passdb_module *
 passwd_file_preinit(struct auth_passdb *auth_passdb, const char *args)
 {
 	struct passwd_file_passdb_module *module;
-	const char *p, *scheme = PASSWD_FILE_DEFAULT_SCHEME;
+	const char *scheme = PASSWD_FILE_DEFAULT_SCHEME;
+	const char *format = PASSWD_FILE_DEFAULT_USERNAME_FORMAT;
+	const char *key, *value;
 
-	if (strncmp(args, "scheme=", 7) == 0) {
-		scheme = args + 7;
-		p = strchr(scheme, ' ');
-		if (p == NULL)
-			args = "";
-		else {
-			scheme = p_strdup_until(auth_passdb->auth->pool,
-						scheme, p);
-			args = p + 1;
+	while (*args != '\0') {
+		if (*args == '/')
+			break;
+
+		t_push();
+		key = args;
+		value = strchr(key, '=');
+		if (value == NULL) {
+			value = "";
+			args = strchr(key, ' ');
+		} else {
+			key = t_strdup_until(key, value);
+			args = strchr(++value, ' ');
+			if (args != NULL)
+				value = t_strdup_until(value, args);
 		}
+		if (args == NULL)
+			args = "";
+		else
+			args++;
+
+		if (strcmp(key, "scheme") == 0)
+			scheme = p_strdup(auth_passdb->auth->pool, value);
+		else if (strcmp(key, "username_format") == 0)
+			format = p_strdup(auth_passdb->auth->pool, value);
+		t_pop();
 	}
 
 	module = p_new(auth_passdb->auth->pool,
 		       struct passwd_file_passdb_module, 1);
 	module->auth = auth_passdb->auth;
-	module->pwf =
-		db_passwd_file_init(args, FALSE, module->auth->verbose_debug);
+	module->pwf = db_passwd_file_init(args, format, FALSE,
+					  module->auth->verbose_debug);
 
 	if (!module->pwf->vars)
-		module->module.cache_key = PASSWD_FILE_CACHE_KEY;
+		module->module.cache_key = format;
 	else {
 		module->module.cache_key =
 			auth_cache_parse_key(auth_passdb->auth->pool,
-					     t_strconcat(PASSWD_FILE_CACHE_KEY,
-							 module->pwf->path,
-							 NULL));
+				t_strconcat(format, module->pwf->path, NULL));
 	}
 
 	module->module.default_pass_scheme = scheme;

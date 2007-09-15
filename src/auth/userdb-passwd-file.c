@@ -79,12 +79,27 @@ static struct userdb_module *
 passwd_file_preinit(struct auth_userdb *auth_userdb, const char *args)
 {
 	struct passwd_file_userdb_module *module;
+	const char *format = PASSWD_FILE_DEFAULT_USERNAME_FORMAT;
+	const char *p;
+
+	if (strncmp(args, "username_format=", 16) == 0) {
+		args += 16;
+		p = strchr(args, ' ');
+		if (p == NULL) {
+			format = args;
+			args = "";
+		} else {
+			format = p_strdup_until(auth_userdb->auth->pool,
+						args, p);
+			args = p + 1;
+		}
+	}
 
 	module = p_new(auth_userdb->auth->pool,
 		       struct passwd_file_userdb_module, 1);
 	module->auth = auth_userdb->auth;
-	module->pwf =
-		db_passwd_file_init(args, TRUE, module->auth->verbose_debug);
+	module->pwf = db_passwd_file_init(args, format, TRUE,
+					  module->auth->verbose_debug);
 
 	if (!module->pwf->vars)
 		module->module.cache_key = PASSWD_FILE_CACHE_KEY;

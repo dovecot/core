@@ -271,7 +271,8 @@ static struct db_passwd_file *db_passwd_file_find(const char *path)
 }
 
 struct db_passwd_file *
-db_passwd_file_init(const char *path, bool userdb, bool debug)
+db_passwd_file_init(const char *path, const char *username_format,
+		    bool userdb, bool debug)
 {
 	struct db_passwd_file *db;
 	const char *p;
@@ -288,17 +289,11 @@ db_passwd_file_init(const char *path, bool userdb, bool debug)
 	db->refcount = 1;
 	db->userdb = userdb;
 	db->debug = debug;
+	db->username_format = username_format;
 
 	for (p = path; *p != '\0'; p++) {
 		if (*p == '%' && p[1] != '\0') {
-			p++;
-			if (*p == 'd') {
-				/* drop domains out only if %d is given
-				   without modifiers */
-				db->domain_var = TRUE;
-			}
-
-			if (var_get_key(p) == '%')
+			if (var_get_key(++p) == '%')
 				percents = TRUE;
 			else
 				db->vars = TRUE;
@@ -394,7 +389,9 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 {
 	struct passwd_file *pw;
 	struct passwd_user *pu;
-	const char *username, *path;
+	const struct var_expand_table *table;
+	string_t *username;
+	const char *path;
 
 	if (!db->vars)
 		pw = db->default_file;
@@ -427,13 +424,16 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request)
 		return NULL;
 	}
 
-	username = !db->domain_var ? request->user :
-		t_strcut(request->user, '@');
+	username = t_str_new(256);
+	table = auth_request_get_var_expand_table(request,
+						  auth_request_str_escape);
+	var_expand(username, db->username_format, table);
 
 	auth_request_log_debug(request, "passwd-file",
-			       "lookup: user=%s file=%s", username, pw->path);
+			       "lookup: user=%s file=%s",
+			       str_c(username), pw->path);
 
-	pu = hash_lookup(pw->users, username);
+	pu = hash_lookup(pw->users, str_c(username));
 	if (pu == NULL)
                 auth_request_log_info(request, "passwd-file", "unknown user");
 	t_pop();
