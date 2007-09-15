@@ -978,6 +978,9 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 	data->seq = seq;
 	data->flags = rec->flags & MAIL_FLAGS_NONRECENT;
 
+	mail->mail.mail.seq = seq;
+	mail->mail.mail.uid = rec->uid;
+
 	if (mail_index_view_is_inconsistent(mail->trans->trans_view)) {
 		mail_set_expunged(&mail->mail.mail);
 		return;
@@ -989,15 +992,11 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq)
 		(void)index_mail_get_fixed_field(mail, MAIL_CACHE_FLAGS,
 						 &data->cache_flags,
 						 sizeof(data->cache_flags));
+		mail->mail.mail.has_nuls =
+			(data->cache_flags & MAIL_CACHE_FLAG_HAS_NULS) != 0;
+		mail->mail.mail.has_no_nuls =
+			(data->cache_flags & MAIL_CACHE_FLAG_HAS_NO_NULS) != 0;
 	}
-
-	/* set public fields */
-	mail->mail.mail.seq = seq;
-	mail->mail.mail.uid = rec->uid;
-	mail->mail.mail.has_nuls =
-		(data->cache_flags & MAIL_CACHE_FLAG_HAS_NULS) != 0;
-	mail->mail.mail.has_no_nuls =
-		(data->cache_flags & MAIL_CACHE_FLAG_HAS_NO_NULS) != 0;
 
 	/* see if wanted_fields can tell us if we need to read/parse
 	   header/body */
