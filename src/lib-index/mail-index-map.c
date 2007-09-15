@@ -290,6 +290,8 @@ int mail_index_map_check_header(struct mail_index_map *map)
 		return 0;
 	if (hdr->next_uid == 0)
 		return 0;
+	if (hdr->messages_count > map->rec_map->records_count)
+		return 0;
 
 	if (hdr->seen_messages_count > hdr->messages_count ||
 	    hdr->deleted_messages_count > hdr->messages_count)
@@ -335,7 +337,6 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	struct mail_index *index = map->index;
 	struct mail_index_record_map *rec_map = map->rec_map;
 	const struct mail_index_header *hdr;
-	unsigned int records_count;
 
 	i_assert(rec_map->mmap_base == NULL);
 
@@ -381,21 +382,24 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	rec_map->mmap_used_size = hdr->header_size +
 		hdr->messages_count * hdr->record_size;
 
-	if (rec_map->mmap_used_size > rec_map->mmap_size) {
-		records_count = (rec_map->mmap_size - hdr->header_size) /
+	if (rec_map->mmap_used_size <= rec_map->mmap_size)
+		rec_map->records_count = hdr->messages_count;
+	else {
+		rec_map->records_count =
+			(rec_map->mmap_size - hdr->header_size) /
 			hdr->record_size;
+		rec_map->mmap_used_size = hdr->header_size +
+			rec_map->records_count * hdr->record_size;
 		mail_index_set_error(index, "Corrupted index file %s: "
 				     "messages_count too large (%u > %u)",
 				     index->filepath, hdr->messages_count,
-				     records_count);
-		return 0;
+				     rec_map->records_count);
 	}
 
 	mail_index_map_copy_hdr(map, hdr);
 
 	map->hdr_base = rec_map->mmap_base;
 	rec_map->records = PTR_OFFSET(rec_map->mmap_base, map->hdr.header_size);
-	rec_map->records_count = map->hdr.messages_count;
 	return 1;
 }
 
@@ -434,7 +438,7 @@ mail_index_try_read_map(struct mail_index_map *map,
 	void *data = NULL;
 	ssize_t ret;
 	size_t pos, records_size, initial_buf_pos = 0;
-	unsigned int records_count, extra;
+	unsigned int records_count = 0, extra;
 
 	i_assert(map->rec_map->mmap_base == NULL);
 
@@ -476,17 +480,18 @@ mail_index_try_read_map(struct mail_index_map *map,
 	if (ret > 0) {
 		/* header read, read the records now. */
 		records_size = (size_t)hdr->messages_count * hdr->record_size;
+		records_count = hdr->messages_count;
 
 		if (file_size - hdr->header_size < records_size ||
 		    (hdr->record_size != 0 &&
 		     records_size / hdr->record_size != hdr->messages_count)) {
 			records_count = (file_size - hdr->header_size) /
 				hdr->record_size;
+			records_size = (size_t)records_count * hdr->record_size;
 			mail_index_set_error(index, "Corrupted index file %s: "
 				"messages_count too large (%u > %u)",
 				index->filepath, hdr->messages_count,
 				records_count);
-			return 0;
 		}
 
 		if (map->rec_map->buffer == NULL) {
@@ -531,7 +536,7 @@ mail_index_try_read_map(struct mail_index_map *map,
 
 	map->rec_map->records =
 		buffer_get_modifiable_data(map->rec_map->buffer, NULL);
-	map->rec_map->records_count = hdr->messages_count;
+	map->rec_map->records_count = records_count;
 
 	mail_index_map_copy_hdr(map, hdr);
 	map->hdr_base = map->hdr_copy_buf->data;
