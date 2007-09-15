@@ -541,10 +541,10 @@ static void mail_index_close_file(struct mail_index *index)
 		index->fd = -1;
 	}
 
-	if (index->lock_type == F_RDLCK)
-		index->lock_type = F_UNLCK;
 	index->lock_id_counter += 2;
+	index->lock_type = F_UNLCK;
 	index->shared_lock_count = 0;
+	index->excl_lock_count = 0;
 }
 
 void mail_index_close(struct mail_index *index)
