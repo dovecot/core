@@ -5,6 +5,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "hash.h"
+#include "str-sanitize.h"
 #include "mmap-util.h"
 #include "nfs-workarounds.h"
 #include "read-full.h"
@@ -89,6 +90,9 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
         const struct mail_index_registered_ext *extensions;
 	struct mail_index_registered_ext rext;
 	unsigned int i, ext_count;
+
+	if (strcmp(name, str_sanitize(name, -1)) != 0)
+		i_panic("mail_index_ext_register(%s): Invalid name", name);
 
 	extensions = array_get(&index->extensions, &ext_count);
 

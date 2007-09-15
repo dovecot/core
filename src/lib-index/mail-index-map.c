@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str-sanitize.h"
 #include "nfs-workarounds.h"
 #include "mmap-util.h"
 #include "read-full.h"
@@ -156,13 +157,10 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 		t_push();
 		name = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
 				 ext_hdr->name_size);
-
-		if (mail_index_map_lookup_ext(map, name, NULL)) {
-			mail_index_set_error(index, "Corrupted index file %s: "
-				"Duplicate header extension %s",
-				index->filepath, name);
-			t_pop();
-			return -1;
+		if (strcmp(name, str_sanitize(name, -1)) != 0) {
+			/* we allow only plain ASCII names, so this extension
+			   is most likely broken */
+			name = "";
 		}
 
 		if ((ext_hdr->record_size == 0 && ext_hdr->hdr_size == 0) ||
@@ -175,6 +173,14 @@ static int mail_index_parse_extensions(struct mail_index_map *map)
 			t_pop();
 			return -1;
 		}
+		if (mail_index_map_lookup_ext(map, name, NULL)) {
+			mail_index_set_error(index, "Corrupted index file %s: "
+				"Duplicate header extension %s",
+				index->filepath, name);
+			t_pop();
+			return -1;
+		}
+
 		if (map->hdr.record_size <
 		    ext_hdr->record_offset + ext_hdr->record_size) {
 			mail_index_set_error(index, "Corrupted index file %s: "
