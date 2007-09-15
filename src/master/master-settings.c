@@ -1381,6 +1381,36 @@ static bool parse_section(const char *type, const char *name,
 	return FALSE;
 }
 
+static void
+settings_warn_needed_fds(struct server_settings *server __attr_unused__)
+{
+#ifdef HAVE_SETRLIMIT
+	struct rlimit rlim;
+	unsigned int fd_count = 0;
+
+	if (getrlimit(RLIMIT_NOFILE, &rlim) < 0)
+		return;
+
+	/* count only log pipes needed for login and mail processes. we need
+	   more, but they're the ones that can use up most of the fds */
+	for (; server != NULL; server = server->next) {
+		if (settings_is_active(server->imap))
+			fd_count += server->imap->login_max_processes_count;
+		if (settings_is_active(server->pop3))
+			fd_count += server->pop3->login_max_processes_count;
+		fd_count += server->defaults->max_mail_processes;
+	}
+
+	if (rlim.rlim_cur < fd_count) {
+		i_warning("fd limit %d is lower than what Dovecot can use under "
+			  "full load (more than %u). Either grow the limit or "
+			  "change login_max_processes_count and "
+			  "mail_max_processes settings",
+			  (int)rlim.rlim_cur, fd_count);
+	}
+#endif
+}
+
 bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 {
 	struct settings_parse_ctx ctx;
@@ -1488,6 +1518,9 @@ bool master_settings_read(const char *path, bool nochecks, bool nofixes)
 		i_error("Invalid protocols given in configuration file");
 		return FALSE;
 	}
+
+	if (!nochecks)
+		settings_warn_needed_fds(ctx.root);
 
 	/* settings ok, swap them */
 	temp = settings_pool;
