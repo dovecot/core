@@ -1405,7 +1405,7 @@ settings_warn_needed_fds(struct server_settings *server __attr_unused__)
 		i_warning("fd limit %d is lower than what Dovecot can use under "
 			  "full load (more than %u). Either grow the limit or "
 			  "change login_max_processes_count and "
-			  "mail_max_processes settings",
+			  "max_mail_processes settings",
 			  (int)rlim.rlim_cur, fd_count);
 	}
 #endif
