@@ -805,10 +805,12 @@ static int mail_index_map_latest_file(struct mail_index *index)
 		/* fsck and try again */
 		old_map = index->map;
 		index->map = new_map;
-		ret = mail_index_fsck(index) < 0 ? -1 : 1;
+		if (mail_index_fsck(index) < 0) {
+			ret = -1;
+			break;
+		}
 
-		/* fsck cloned the map, so we'll have to update it */
-		mail_index_unmap(&new_map);
+		/* fsck replaced the map */
 		new_map = index->map;
 		index->map = old_map;
 	}
