@@ -15,6 +15,7 @@
 
 #define DUPLICATE_PATH "~/.dovecot.lda-dupes"
 #define COMPRESS_PERCENTAGE 10
+#define DUPLICATE_BUFSIZE 4096
 
 struct duplicate {
 	const void *id;
@@ -84,6 +85,7 @@ static int duplicate_read(struct duplicate_file *file)
 	size_t size;
 	time_t stamp;
 	unsigned int offset, id_size, user_size, change_count;
+	bool broken = FALSE;
 
 	fd = open(file->path, O_RDONLY);
 	if (fd == -1) {
@@ -94,7 +96,7 @@ static int duplicate_read(struct duplicate_file *file)
 	}
 
 	/* <timestamp> <id_size> <user_size> <id> <user> */
-	input = i_stream_create_fd(fd, 4096, FALSE);
+	input = i_stream_create_fd(fd, DUPLICATE_BUFSIZE, FALSE);
 
 	change_count = 0;
 	while (i_stream_read_data(input, &data, &size, sizeof(stamp) +
@@ -109,9 +111,18 @@ static int duplicate_read(struct duplicate_file *file)
 
 		i_stream_skip(input, offset);
 
+		if (id_size == 0 || user_size == 0 ||
+		    id_size > DUPLICATE_BUFSIZE ||
+		    user_size > DUPLICATE_BUFSIZE) {
+			i_error("broken duplicate file %s", file->path);
+			broken = TRUE;
+			break;
+		}
+
 		if (i_stream_read_data(input, &data, &size,
 				       id_size + user_size - 1) <= 0) {
 			i_error("unexpected end of file in %s", file->path);
+			broken = TRUE;
 			break;
 		}
 
@@ -142,6 +153,10 @@ static int duplicate_read(struct duplicate_file *file)
 	i_stream_unref(&input);
 	if (close(fd) < 0)
 		i_error("close(%s) failed: %m", file->path);
+	if (broken) {
+		if (unlink(file->path) < 0 && errno != ENOENT)
+			i_error("unlink(%s) failed: %m", file->path);
+	}
 	return 0;
 }
 
