@@ -312,51 +312,6 @@ int i_strocpy(char *dest, const char *src, size_t dstsize)
 	return *src == '\0' ? 0 : -1;
 }
 
-int str_path(char *dest, size_t dstsize, const char *dir, const char *file)
-{
-	size_t dirlen, filelen;
-
-	dirlen = strlen(dir);
-	filelen = strlen(file);
-
-	if (dirlen+1+filelen >= dstsize) {
-		if (dstsize > 0)
-			*dest = '\0';
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-
-	memcpy(dest, dir, dirlen);
-	dest[dirlen] = '/';
-	memcpy(dest + dirlen + 1, file, filelen);
-	dest[dirlen + 1 + filelen] = '\0';
-	return 0;
-}
-
-int str_ppath(char *dest, size_t dstsize, const char *dir,
-	      const char *file_prefix, const char *file)
-{
-	size_t dirlen, prefixlen, filelen;
-
-	dirlen = strlen(dir);
-	prefixlen = strlen(file_prefix);
-	filelen = strlen(file);
-
-	if (dirlen+1+prefixlen+filelen >= dstsize) {
-		if (dstsize > 0)
-			*dest = '\0';
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-
-	memcpy(dest, dir, dirlen);
-	dest[dirlen] = '/';
-	memcpy(dest + dirlen + 1, file_prefix, prefixlen);
-	memcpy(dest + dirlen + prefixlen + 1, file, filelen);
-	dest[dirlen + 1 + prefixlen + filelen] = '\0';
-	return 0;
-}
-
 char *str_ucase(char *str)
 {
 	char *p;

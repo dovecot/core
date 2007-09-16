@@ -46,13 +46,6 @@ bool is_numeric(const char *str, char end_char);
 /* Like strlcpy(), but return -1 if buffer was overflown, 0 if not. */
 int i_strocpy(char *dest, const char *src, size_t dstsize);
 
-/* Print given directory and file to dest buffer, separated with '/'.
-   If destination buffer is too small, it's set to empty string and errno is
-   set to ENAMETOOLONG. Retuns -1 if buffer is too small, or 0 if not. */
-int str_path(char *dest, size_t dstsize, const char *dir, const char *file);
-int str_ppath(char *dest, size_t dstsize, const char *dir,
-	      const char *file_prefix, const char *file);
-
 char *str_ucase(char *str);
 char *str_lcase(char *str);
 const char *t_str_lcase(const char *str);
