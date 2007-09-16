@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 /*
  * Merge sort code in sort_nodes() is copyright 2001 Simon Tatham.

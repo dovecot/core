@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2007 Johannes Berg, Timo Sirainen */
+/* Copyright (c) 2005-2007 Dovecot authors, see the included COPYING file */
 
 #define _GNU_SOURCE
 #include "lib.h"

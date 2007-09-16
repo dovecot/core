@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2004 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 /*
    fdpass.c - File descriptor passing between processes via UNIX sockets

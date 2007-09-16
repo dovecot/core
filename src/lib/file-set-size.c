@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2003 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 #define _XOPEN_SOURCE 600 /* Required by glibc */
 #include "lib.h"

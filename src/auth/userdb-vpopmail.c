@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 /* Thanks to Courier-IMAP for showing how the vpopmail API should be used */
 

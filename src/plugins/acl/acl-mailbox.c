@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 Timo Sirainen */
+/* Copyright (c) 2006-2007 Dovecot authors, see the included COPYING file */
 
 /* FIXME: If we don't have permission to change flags/keywords, the changes
    should still be stored temporarily for this session. However most clients

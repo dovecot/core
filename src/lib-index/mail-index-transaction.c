@@ -1,4 +1,4 @@
-/* Copyright (C) 2003-2004 Timo Sirainen */
+/* Copyright (c) 2003-2007 Dovecot authors, see the included COPYING file */
 
 /* Inside transaction we keep messages stored in sequences in uid fields.
    Before they're written to transaction log the sequences are changed to

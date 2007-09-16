@@ -1,4 +1,4 @@
-/* Copyright (C) 2006-2007 Timo Sirainen */
+/* Copyright (c) 2006-2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "hostpid.h"

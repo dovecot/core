@@ -1,8 +1,7 @@
-/* Copyright (C) 2002 Timo Sirainen
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
-   imap_match_init() logic originates from Cyrus, but the code is fully
-   rewritten.
-*/
+/* imap_match_init() logic originates from Cyrus, but the code is fully
+   rewritten. */
 
 #include "lib.h"
 #include "imap-match.h"

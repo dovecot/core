@@ -1,4 +1,4 @@
-/* Copyright (C) 2004-2005 Timo Sirainen */
+/* Copyright (c) 2004-2007 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
 

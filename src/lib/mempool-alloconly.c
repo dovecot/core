@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2003 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 /* @UNSAFE: whole file */
 #include "lib.h"

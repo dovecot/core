@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 /* Implementated against draft-ietf-imapext-sort-10 and
    draft-ietf-imapext-thread-12 */

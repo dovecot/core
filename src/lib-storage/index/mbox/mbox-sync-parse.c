@@ -1,4 +1,4 @@
-/* Copyright (C) 2004 Timo Sirainen */
+/* Copyright (c) 2004-2007 Dovecot authors, see the included COPYING file */
 
 /* MD5 header summing logic was pretty much copy&pasted from popa3d by
    Solar Designer */

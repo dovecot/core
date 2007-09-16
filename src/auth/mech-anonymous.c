@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2004 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
 #include "mech.h"

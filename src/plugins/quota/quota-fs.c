@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2006 Timo Sirainen */
+/* Copyright (c) 2005-2007 Dovecot authors, see the included COPYING file */
 
 /* Only for reporting filesystem quota */
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2004 Timo Sirainen */
+/* Copyright (c) 2004-2007 Dovecot authors, see the included COPYING file */
 
 /*
    Modifying mbox can be slow, so we try to do it all at once minimizing the

@@ -1,4 +1,4 @@
-/* Copyright (C) 2004 Timo Sirainen */
+/* Copyright (c) 2004-2007 Dovecot authors, see the included COPYING file */
 
 /*
    Here's a description of how we handle Maildir synchronization and

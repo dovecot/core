@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2003 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 #include "config.h"
 #undef HAVE_CONFIG_H

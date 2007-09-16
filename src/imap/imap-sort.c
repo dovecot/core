@@ -1,4 +1,4 @@
-/* Copyright (C) 2002 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 /* Implementation of draft-ietf-imapext-sort-10 sorting algorithm.
    Pretty messy code actually, adding any sort types requires care.

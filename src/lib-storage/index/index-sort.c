@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 Timo Sirainen */
+/* Copyright (c) 2006-2007 Dovecot authors, see the included COPYING file */
 
 /* The idea in here is that for each used primary sort condition there's
    a 32bit integer in the index file which specifies the sort order. So when

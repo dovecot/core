@@ -1,4 +1,4 @@
-/* Copyright (c) 2004 Timo Sirainen */
+/* Copyright (c) 2004-2007 Dovecot authors, see the included COPYING file */
 
 /* The code is quite ugly because we want the send functions to return correcly
    the number of input bytes consumed, not number of bytes actually sent. */

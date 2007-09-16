@@ -1,4 +1,4 @@
-/* Copyright (C) 2003-2004 Timo Sirainen */
+/* Copyright (c) 2003-2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "str.h"

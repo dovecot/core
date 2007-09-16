@@ -1,4 +1,4 @@
-/* Copyright (C) 2002,2003 Timo Sirainen / Joshua Goodall */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 /* CRAM-MD5 SASL authentication, see RFC-2195
    Joshua Goodall <joshua@roughtrade.net> */

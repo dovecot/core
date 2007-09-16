@@ -1,4 +1,4 @@
-/* Copyright (c) 2004-2006 Timo Sirainen */
+/* Copyright (c) 2004-2007 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"

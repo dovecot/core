@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2003 Timo Sirainen */
+/* Copyright (c) 2002-2007 Dovecot authors, see the included COPYING file */
 
 /* kludge a bit to remove _FILE_OFFSET_BITS definition from config.h.
    It's required to be able to include sys/sendfile.h with Linux. */
