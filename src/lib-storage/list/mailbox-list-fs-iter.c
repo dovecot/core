@@ -521,7 +521,7 @@ static struct dirent *fs_list_dir_next(struct fs_list_iterate_context *ctx)
 		else
 			dir->dirent.d_type = DT_UNKNOWN;
 #endif
-		if (strocpy(dir->dirent.d_name, fname,
+		if (i_strocpy(dir->dirent.d_name, fname,
 			    sizeof(dir->dirent.d_name)) < 0) {
 			/* name too large.. shouldn't happen. */
 			continue;

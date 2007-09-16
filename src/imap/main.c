@@ -98,7 +98,7 @@ static void open_logfile(void)
 	}
 
 	if (getenv("LOG_PREFIX") != NULL)
-		strocpy(log_prefix, getenv("LOG_PREFIX"), sizeof(log_prefix));
+		i_strocpy(log_prefix, getenv("LOG_PREFIX"), sizeof(log_prefix));
 	else {
 		user = getenv("USER");
 		if (user == NULL) {

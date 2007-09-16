@@ -27,7 +27,7 @@ const char *password_generate_otp(const char *pw, const char *data,
 		unsigned char random_data[OTP_MAX_SEED_LEN / 2];
 
 		random_fill(random_data, sizeof(random_data));
-		strocpy(state.seed, binary_to_hex(random_data,
+		i_strocpy(state.seed, binary_to_hex(random_data,
 			OTP_MAX_SEED_LEN / 2), sizeof(state.seed));
 
 		state.seq = 1024;

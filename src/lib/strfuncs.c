@@ -298,7 +298,7 @@ bool is_numeric(const char *str, char end_char)
 	return TRUE;
 }
 
-int strocpy(char *dest, const char *src, size_t dstsize)
+int i_strocpy(char *dest, const char *src, size_t dstsize)
 {
 	if (dstsize == 0)
 		return -1;

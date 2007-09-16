@@ -44,7 +44,7 @@ const char *t_strcut(const char *str, char cutchar);
 bool is_numeric(const char *str, char end_char);
 
 /* Like strlcpy(), but return -1 if buffer was overflown, 0 if not. */
-int strocpy(char *dest, const char *src, size_t dstsize);
+int i_strocpy(char *dest, const char *src, size_t dstsize);
 
 /* Print given directory and file to dest buffer, separated with '/'.
    If destination buffer is too small, it's set to empty string and errno is

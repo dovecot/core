@@ -50,7 +50,7 @@ static void linux_proctitle_init(char *argv[], char *envp[])
 
 static void linux_proctitle_set(const char *title)
 {
-	strocpy(process_title, title, process_title_len);
+	i_strocpy(process_title, title, process_title_len);
 }
 
 #endif

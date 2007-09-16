@@ -128,7 +128,7 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 			name = my_hostname;
 		}
 
-		strocpy(my_hostdomain, name, sizeof(my_hostdomain));
+		i_strocpy(my_hostdomain, name, sizeof(my_hostdomain));
 	}
 
 	t_push();

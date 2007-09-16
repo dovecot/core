@@ -194,7 +194,7 @@ int net_connect_unix(const char *path)
 
 	memset(&sa, 0, sizeof(sa));
 	sa.un.sun_family = AF_UNIX;
-	if (strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
+	if (i_strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
 		errno = EINVAL;
 		return -1;
@@ -334,7 +334,7 @@ int net_listen_unix(const char *path, int backlog)
 
 	memset(&sa, 0, sizeof(sa));
 	sa.un.sun_family = AF_UNIX;
-	if (strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
+	if (i_strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
 		errno = EINVAL;
 		return -1;

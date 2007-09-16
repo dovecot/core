@@ -449,7 +449,7 @@ lazy_expunge_mailbox_list_delete(struct mailbox_list *list, const char *name)
 	/* destination mailbox name needs to contain a timestamp */
 	tm = localtime(&ioloop_time);
 	if (strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", tm) == 0)
-		strocpy(timestamp, dec2str(ioloop_time), sizeof(timestamp));
+		i_strocpy(timestamp, dec2str(ioloop_time), sizeof(timestamp));
 	destname = t_strconcat(name, "-", timestamp, NULL);
 
 	/* first move the actual mailbox */

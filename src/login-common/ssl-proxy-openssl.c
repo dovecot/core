@@ -654,7 +654,7 @@ pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 		return 0;
 	}
 
-	if (strocpy(buf, userdata, size) < 0)
+	if (i_strocpy(buf, userdata, size) < 0)
 		return 0;
 	return strlen(buf);
 }
