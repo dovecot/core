@@ -290,7 +290,8 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 }
 
 static void
-_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
+i_stream_default_set_max_buffer_size(struct iostream_private *stream,
+				     size_t max_size)
 {
 	struct istream_private *_stream = (struct istream_private *)stream;
 
@@ -298,7 +299,7 @@ _set_max_buffer_size(struct iostream_private *stream, size_t max_size)
 }
 
 static const struct stat *
-_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
+i_stream_default_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	return &stream->statbuf;
 }
@@ -312,9 +313,11 @@ i_stream_create(struct istream_private *_stream,
 	_stream->istream.real_stream = _stream;
 
 	if (_stream->stat == NULL)
-		_stream->stat = _stat;
-	if (_stream->iostream.set_max_buffer_size == NULL)
-		_stream->iostream.set_max_buffer_size = _set_max_buffer_size;
+		_stream->stat = i_stream_default_stat;
+	if (_stream->iostream.set_max_buffer_size == NULL) {
+		_stream->iostream.set_max_buffer_size =
+			i_stream_default_set_max_buffer_size;
+	}
 
 	memset(&_stream->statbuf, 0, sizeof(_stream->statbuf));
 	_stream->statbuf.st_size = -1;

@@ -10,7 +10,7 @@ struct limit_istream {
 	uoff_t v_start_offset, v_size;
 };
 
-static void _destroy(struct iostream_private *stream)
+static void i_stream_limit_destroy(struct iostream_private *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
@@ -21,14 +21,15 @@ static void _destroy(struct iostream_private *stream)
 }
 
 static void
-_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
+i_stream_limit_set_max_buffer_size(struct iostream_private *stream,
+				   size_t max_size)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
 	i_stream_set_max_buffer_size(lstream->input, max_size);
 }
 
-static ssize_t _read(struct istream_private *stream)
+static ssize_t i_stream_limit_read(struct istream_private *stream)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	uoff_t left;
@@ -78,8 +79,8 @@ static ssize_t _read(struct istream_private *stream)
 	return ret;
 }
 
-static void _seek(struct istream_private *stream, uoff_t v_offset,
-		  bool mark ATTR_UNUSED)
+static void i_stream_limit_seek(struct istream_private *stream, uoff_t v_offset,
+				bool mark ATTR_UNUSED)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 
@@ -90,7 +91,8 @@ static void _seek(struct istream_private *stream, uoff_t v_offset,
 	stream->skip = stream->pos = 0;
 }
 
-static const struct stat *_stat(struct istream_private *stream, bool exact)
+static const struct stat *
+i_stream_limit_stat(struct istream_private *stream, bool exact)
 {
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	const struct stat *st;
@@ -122,12 +124,13 @@ struct istream *i_stream_create_limit(struct istream *input,
 		input->v_offset - v_start_offset > v_size ? v_size :
 		input->v_offset - v_start_offset;
 
-	lstream->istream.iostream.destroy = _destroy;
-	lstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
+	lstream->istream.iostream.destroy = i_stream_limit_destroy;
+	lstream->istream.iostream.set_max_buffer_size =
+		i_stream_limit_set_max_buffer_size;
 
-	lstream->istream.read = _read;
-	lstream->istream.seek = _seek;
-	lstream->istream.stat = _stat;
+	lstream->istream.read = i_stream_limit_read;
+	lstream->istream.seek = i_stream_limit_seek;
+	lstream->istream.stat = i_stream_limit_stat;
 
 	lstream->istream.istream.blocking = input->blocking;
 	lstream->istream.istream.seekable = input->seekable;

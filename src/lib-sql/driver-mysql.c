@@ -242,7 +242,7 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 		i_fatal("mysql: No hosts given in connect string");
 }
 
-static struct sql_db *_driver_mysql_init(const char *connect_string)
+static struct sql_db *driver_mysql_init_v(const char *connect_string)
 {
 	struct mysql_db *db;
 	pool_t pool;
@@ -258,7 +258,7 @@ static struct sql_db *_driver_mysql_init(const char *connect_string)
 	return &db->api;
 }
 
-static void _driver_mysql_deinit(struct sql_db *_db)
+static void driver_mysql_deinit_v(struct sql_db *_db)
 {
 	struct mysql_db *db = (struct mysql_db *)_db;
 	struct mysql_connection *conn;
@@ -657,8 +657,8 @@ driver_mysql_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_mysql_db = {
 	"mysql",
 
-	_driver_mysql_init,
-	_driver_mysql_deinit,
+	driver_mysql_init_v,
+	driver_mysql_deinit_v,
 	driver_mysql_get_flags,
         driver_mysql_connect_all,
         driver_mysql_escape_string,

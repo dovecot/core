@@ -22,7 +22,7 @@ struct mmap_istream {
 
 static size_t mmap_pagemask = 0;
 
-static void _close(struct iostream_private *stream)
+static void i_stream_mmap_close(struct iostream_private *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -47,7 +47,7 @@ static void i_stream_munmap(struct mmap_istream *mstream)
 	}
 }
 
-static void _destroy(struct iostream_private *stream)
+static void i_stream_mmap_destroy(struct iostream_private *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -60,7 +60,7 @@ static size_t mstream_get_mmap_block_size(struct istream_private *stream)
 		(mmap_get_page_size() - 1);
 }
 
-static ssize_t _read(struct istream_private *stream)
+static ssize_t i_stream_mmap_read(struct istream_private *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 	size_t aligned_skip;
@@ -130,8 +130,8 @@ static ssize_t _read(struct istream_private *stream)
 	return stream->pos - stream->skip;
 }
 
-static void _seek(struct istream_private *stream, uoff_t v_offset,
-		  bool mark ATTR_UNUSED)
+static void i_stream_mmap_seek(struct istream_private *stream, uoff_t v_offset,
+			       bool mark ATTR_UNUSED)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -149,7 +149,7 @@ static void _seek(struct istream_private *stream, uoff_t v_offset,
 	stream->istream.v_offset = v_offset;
 }
 
-static void _sync(struct istream_private *stream)
+static void i_stream_mmap_sync(struct istream_private *stream)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -175,7 +175,7 @@ static int fstat_cached(struct mmap_istream *mstream)
 }
 
 static const struct stat *
-_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
+i_stream_mmap_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct mmap_istream *mstream = (struct mmap_istream *) stream;
 
@@ -211,14 +211,14 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 	mstream->autoclose_fd = autoclose_fd;
 	mstream->v_size = v_size;
 
-	mstream->istream.iostream.close = _close;
-	mstream->istream.iostream.destroy = _destroy;
+	mstream->istream.iostream.close = i_stream_mmap_close;
+	mstream->istream.iostream.destroy = i_stream_mmap_destroy;
 
 	mstream->istream.max_buffer_size = block_size;
-	mstream->istream.read = _read;
-	mstream->istream.seek = _seek;
-	mstream->istream.sync = _sync;
-	mstream->istream.stat = _stat;
+	mstream->istream.read = i_stream_mmap_read;
+	mstream->istream.seek = i_stream_mmap_seek;
+	mstream->istream.sync = i_stream_mmap_sync;
+	mstream->istream.stat = i_stream_mmap_stat;
 
 	istream = i_stream_create(&mstream->istream, fd, start_offset);
 	istream->mmaped = TRUE;

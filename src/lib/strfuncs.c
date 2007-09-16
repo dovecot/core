@@ -443,7 +443,7 @@ int strcasecmp_p(const void *p1, const void *p2)
 }
 
 static char **
-_strsplit(pool_t pool, const char *data, const char *separators, int spaces)
+split_str(pool_t pool, const char *data, const char *separators, int spaces)
 {
         char **array;
 	char *str;
@@ -502,25 +502,25 @@ _strsplit(pool_t pool, const char *data, const char *separators, int spaces)
 
 const char **t_strsplit(const char *data, const char *separators)
 {
-	return (const char **)_strsplit(unsafe_data_stack_pool, data,
+	return (const char **)split_str(unsafe_data_stack_pool, data,
 					separators, FALSE);
 }
 
 const char **t_strsplit_spaces(const char *data, const char *separators)
 {
-	return (const char **)_strsplit(unsafe_data_stack_pool, data,
+	return (const char **)split_str(unsafe_data_stack_pool, data,
 					separators, TRUE);
 }
 
 char **p_strsplit(pool_t pool, const char *data, const char *separators)
 {
-	return _strsplit(pool, data, separators, FALSE);
+	return split_str(pool, data, separators, FALSE);
 }
 
 char **p_strsplit_spaces(pool_t pool, const char *data,
 			 const char *separators)
 {
-	return _strsplit(pool, data, separators, TRUE);
+	return split_str(pool, data, separators, TRUE);
 }
 
 void p_strsplit_free(pool_t pool, char **arr)

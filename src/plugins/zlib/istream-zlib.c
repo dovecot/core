@@ -21,7 +21,7 @@ struct zlib_istream {
 	unsigned int marked:1;
 };
 
-static void _close(struct iostream_private *stream)
+static void i_stream_zlib_close(struct iostream_private *stream)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *)stream;
 
@@ -31,14 +31,14 @@ static void _close(struct iostream_private *stream)
 	}
 }
 
-static void _destroy(struct iostream_private *stream ATTR_UNUSED)
+static void i_stream_zlib_destroy(struct iostream_private *stream ATTR_UNUSED)
 {
 	struct istream_private *_stream = (struct istream_private *)stream;
 
 	i_free(_stream->w_buffer);
 }
 
-static ssize_t _read(struct istream_private *stream)
+static ssize_t i_stream_zlib_read(struct istream_private *stream)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *)stream;
 	size_t size;
@@ -107,7 +107,8 @@ static ssize_t _read(struct istream_private *stream)
 	return ret;
 }
 
-static void _seek(struct istream_private *stream, uoff_t v_offset, bool mark)
+static void
+i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
 	uoff_t start_offset = stream->istream.v_offset - stream->skip;
@@ -137,7 +138,7 @@ static void _seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 			}
 
 			i_stream_skip(&stream->istream, avail);
-		} while (_read(stream) >= 0);
+		} while (i_stream_zlib_read(stream) >= 0);
 
 		if (stream->istream.v_offset != v_offset) {
 			/* some failure, we've broken it */
@@ -159,7 +160,8 @@ static void _seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 	}
 }
 
-static const struct stat *_stat(struct istream_private *stream, bool exact)
+static const struct stat *
+i_stream_zlib_stat(struct istream_private *stream, bool exact)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
 	size_t size;
@@ -177,7 +179,7 @@ static const struct stat *_stat(struct istream_private *stream, bool exact)
 		do {
 			(void)i_stream_get_data(&stream->istream, &size);
 			i_stream_skip(&stream->istream, size);
-		} while (_read(stream) > 0);
+		} while (i_stream_zlib_read(stream) > 0);
 
 		zstream->cached_size = stream->istream.v_offset;
 		i_stream_seek(&stream->istream, old_offset);
@@ -186,7 +188,7 @@ static const struct stat *_stat(struct istream_private *stream, bool exact)
 	return &stream->statbuf;
 }
 
-static void _sync(struct istream_private *stream)
+static void i_stream_zlib_sync(struct istream_private *stream)
 {
 	struct zlib_istream *zstream = (struct zlib_istream *) stream;
 
@@ -203,14 +205,14 @@ struct istream *i_stream_create_zlib(int fd)
 	zstream->file = gzdopen(fd, "r");
 	zstream->cached_size = (uoff_t)-1;
 
-	zstream->istream.iostream.close = _close;
-	zstream->istream.iostream.destroy = _destroy;
+	zstream->istream.iostream.close = i_stream_zlib_close;
+	zstream->istream.iostream.destroy = i_stream_zlib_destroy;
 
 	zstream->istream.max_buffer_size = DEFAULT_MAX_BUFFER_SIZE;
-	zstream->istream.read = _read;
-	zstream->istream.seek = _seek;
-	zstream->istream.stat = _stat;
-	zstream->istream.sync = _sync;
+	zstream->istream.read = i_stream_zlib_read;
+	zstream->istream.seek = i_stream_zlib_seek;
+	zstream->istream.stat = i_stream_zlib_stat;
+	zstream->istream.sync = i_stream_zlib_sync;
 
 	/* if it's a file, set the flags properly */
 	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {

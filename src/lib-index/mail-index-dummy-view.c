@@ -5,7 +5,7 @@
 #include "mail-index-private.h"
 #include "mail-index-view-private.h"
 
-static void _dummy_view_close(struct mail_index_view *view ATTR_UNUSED)
+static void dummy_view_close(struct mail_index_view *view ATTR_UNUSED)
 {
 	i_assert(view->refcount == 0);
 
@@ -14,14 +14,14 @@ static void _dummy_view_close(struct mail_index_view *view ATTR_UNUSED)
 }
 
 static uint32_t
-_dummy_view_get_message_count(struct mail_index_view *view ATTR_UNUSED)
+dummy_view_get_message_count(struct mail_index_view *view ATTR_UNUSED)
 {
 	return (uint32_t)-3;
 }
 
 static struct mail_index_view_vfuncs dummy_view_vfuncs = {
-	_dummy_view_close,
-	_dummy_view_get_message_count,
+	dummy_view_close,
+	dummy_view_get_message_count,
 	NULL,
 	NULL,
 	NULL,

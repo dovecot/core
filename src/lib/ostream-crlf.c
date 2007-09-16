@@ -20,7 +20,7 @@ struct crlf_ostream {
 
 static const struct const_iovec cr_iov = { "\r", 1 };
 
-static void _destroy(struct iostream_private *stream)
+static void o_stream_crlf_destroy(struct iostream_private *stream)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
@@ -28,14 +28,15 @@ static void _destroy(struct iostream_private *stream)
 }
 
 static void
-_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
+o_stream_crlf_set_max_buffer_size(struct iostream_private *stream,
+				  size_t max_size)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
 	o_stream_set_max_buffer_size(cstream->output, max_size);
 }
 
-static void _cork(struct ostream_private *stream, bool set)
+static void o_stream_crlf_cork(struct ostream_private *stream, bool set)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
@@ -45,28 +46,29 @@ static void _cork(struct ostream_private *stream, bool set)
 		o_stream_uncork(cstream->output);
 }
 
-static int _flush(struct ostream_private *stream)
+static int o_stream_crlf_flush(struct ostream_private *stream)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
 	return o_stream_flush(cstream->output);
 }
 
-static void _flush_pending(struct ostream_private *stream, bool set)
+static void
+o_stream_crlf_flush_pending(struct ostream_private *stream, bool set)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
 	o_stream_set_flush_pending(cstream->output, set);
 }
 
-static size_t _get_used_size(struct ostream_private *stream)
+static size_t o_stream_crlf_get_used_size(struct ostream_private *stream)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 
 	return o_stream_get_buffer_used_size(cstream->output);
 }
 
-static int _seek(struct ostream_private *stream, uoff_t offset)
+static int o_stream_crlf_seek(struct ostream_private *stream, uoff_t offset)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 	int ret;
@@ -106,8 +108,9 @@ sendv_crlf(struct crlf_ostream *cstream, const struct const_iovec *iov,
 }
 
 static ssize_t
-_sendv_crlf(struct ostream_private *stream, const struct const_iovec *iov,
-	    unsigned int iov_count)
+o_stream_crlf_sendv_crlf(struct ostream_private *stream,
+			 const struct const_iovec *iov,
+			 unsigned int iov_count)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 	buffer_t *iov_buf, *diff_buf;
@@ -215,8 +218,9 @@ sendv_lf(struct crlf_ostream *cstream, const struct const_iovec *iov,
 }
 
 static ssize_t
-_sendv_lf(struct ostream_private *stream, const struct const_iovec *iov,
-	  unsigned int iov_count)
+o_stream_crlf_sendv_lf(struct ostream_private *stream,
+		       const struct const_iovec *iov,
+		       unsigned int iov_count)
 {
 	struct crlf_ostream *cstream = (struct crlf_ostream *)stream;
 	buffer_t *iov_buf, *diff_buf;
@@ -316,7 +320,8 @@ _sendv_lf(struct ostream_private *stream, const struct const_iovec *iov,
 }
 
 static off_t
-_send_istream(struct ostream_private *outstream, struct istream *instream)
+o_stream_crlf_send_istream(struct ostream_private *outstream,
+			   struct istream *instream)
 {
 	struct const_iovec iov;
         const unsigned char *data;
@@ -352,15 +357,16 @@ static struct crlf_ostream *o_stream_create_common(struct ostream *output)
 	cstream->output = output;
 	o_stream_ref(output);
 
-	cstream->ostream.iostream.destroy = _destroy;
-	cstream->ostream.iostream.set_max_buffer_size = _set_max_buffer_size;
+	cstream->ostream.iostream.destroy = o_stream_crlf_destroy;
+	cstream->ostream.iostream.set_max_buffer_size =
+		o_stream_crlf_set_max_buffer_size;
 
-	cstream->ostream.cork = _cork;
-	cstream->ostream.flush = _flush;
-	cstream->ostream.flush_pending = _flush_pending;
-	cstream->ostream.get_used_size = _get_used_size;
-	cstream->ostream.seek = _seek;
-	cstream->ostream.send_istream = _send_istream;
+	cstream->ostream.cork = o_stream_crlf_cork;
+	cstream->ostream.flush = o_stream_crlf_flush;
+	cstream->ostream.flush_pending = o_stream_crlf_flush_pending;
+	cstream->ostream.get_used_size = o_stream_crlf_get_used_size;
+	cstream->ostream.seek = o_stream_crlf_seek;
+	cstream->ostream.send_istream = o_stream_crlf_send_istream;
 	return cstream;
 }
 
@@ -369,7 +375,7 @@ struct ostream *o_stream_create_crlf(struct ostream *output)
 	struct crlf_ostream *cstream;
 
 	cstream = o_stream_create_common(output);
-	cstream->ostream.sendv = _sendv_crlf;
+	cstream->ostream.sendv = o_stream_crlf_sendv_crlf;
 	return o_stream_create(&cstream->ostream);
 }
 
@@ -378,6 +384,6 @@ struct ostream *o_stream_create_lf(struct ostream *output)
 	struct crlf_ostream *cstream;
 
 	cstream = o_stream_create_common(output);
-	cstream->ostream.sendv = _sendv_lf;
+	cstream->ostream.sendv = o_stream_crlf_sendv_lf;
 	return o_stream_create(&cstream->ostream);
 }

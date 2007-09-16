@@ -17,7 +17,7 @@ struct mail_index_view_transaction {
 	struct mail_index_header hdr;
 };
 
-static void _tview_close(struct mail_index_view *view)
+static void tview_close(struct mail_index_view *view)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -30,7 +30,7 @@ static void _tview_close(struct mail_index_view *view)
 	mail_index_transaction_unref(&t);
 }
 
-static uint32_t _tview_get_message_count(struct mail_index_view *view)
+static uint32_t tview_get_message_count(struct mail_index_view *view)
 {
 	struct mail_index_view_transaction *tview =
                 (struct mail_index_view_transaction *)view;
@@ -41,7 +41,7 @@ static uint32_t _tview_get_message_count(struct mail_index_view *view)
 }
 
 static const struct mail_index_header *
-_tview_get_header(struct mail_index_view *view)
+tview_get_header(struct mail_index_view *view)
 {
 	struct mail_index_view_transaction *tview =
                 (struct mail_index_view_transaction *)view;
@@ -61,8 +61,8 @@ _tview_get_header(struct mail_index_view *view)
 }
 
 static const struct mail_index_record *
-_tview_lookup_full(struct mail_index_view *view, uint32_t seq,
-		   struct mail_index_map **map_r, bool *expunged_r)
+tview_lookup_full(struct mail_index_view *view, uint32_t seq,
+		  struct mail_index_map **map_r, bool *expunged_r)
 {
 	struct mail_index_view_transaction *tview =
                 (struct mail_index_view_transaction *)view;
@@ -85,8 +85,8 @@ _tview_lookup_full(struct mail_index_view *view, uint32_t seq,
 	return rec;
 }
 
-static void _tview_lookup_uid(struct mail_index_view *view, uint32_t seq,
-			      uint32_t *uid_r)
+static void
+tview_lookup_uid(struct mail_index_view *view, uint32_t seq, uint32_t *uid_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -97,9 +97,9 @@ static void _tview_lookup_uid(struct mail_index_view *view, uint32_t seq,
 		tview->super->lookup_uid(view, seq, uid_r);
 }
 
-static void _tview_lookup_uid_range(struct mail_index_view *view,
-				    uint32_t first_uid, uint32_t last_uid,
-				    uint32_t *first_seq_r, uint32_t *last_seq_r)
+static void tview_lookup_uid_range(struct mail_index_view *view,
+				   uint32_t first_uid, uint32_t last_uid,
+				   uint32_t *first_seq_r, uint32_t *last_seq_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -138,9 +138,9 @@ static void _tview_lookup_uid_range(struct mail_index_view *view,
 	i_assert(seq >= tview->t->first_new_seq);
 }
 
-static void _tview_lookup_first(struct mail_index_view *view,
-				enum mail_flags flags, uint8_t flags_mask,
-				uint32_t *seq_r)
+static void tview_lookup_first(struct mail_index_view *view,
+			       enum mail_flags flags, uint8_t flags_mask,
+			       uint32_t *seq_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -176,9 +176,9 @@ tview_get_lookup_map(struct mail_index_view_transaction *tview)
 }
 
 static void
-_tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
-		       uint32_t ext_id, struct mail_index_map **map_r,
-		       const void **data_r, bool *expunged_r)
+tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+		      uint32_t ext_id, struct mail_index_map **map_r,
+		      const void **data_r, bool *expunged_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -214,9 +214,9 @@ _tview_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 	}
 }
 
-static void _tview_get_header_ext(struct mail_index_view *view,
-				  struct mail_index_map *map, uint32_t ext_id,
-				  const void **data_r, size_t *data_size_r)
+static void tview_get_header_ext(struct mail_index_view *view,
+				 struct mail_index_map *map, uint32_t ext_id,
+				 const void **data_r, size_t *data_size_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -225,9 +225,9 @@ static void _tview_get_header_ext(struct mail_index_view *view,
 	tview->super->get_header_ext(view, map, ext_id, data_r, data_size_r);
 }
 
-static bool _tview_ext_get_reset_id(struct mail_index_view *view,
-				    struct mail_index_map *map,
-				    uint32_t ext_id, uint32_t *reset_id_r)
+static bool tview_ext_get_reset_id(struct mail_index_view *view,
+				   struct mail_index_map *map,
+				   uint32_t ext_id, uint32_t *reset_id_r)
 {
 	struct mail_index_view_transaction *tview =
 		(struct mail_index_view_transaction *)view;
@@ -245,16 +245,16 @@ static bool _tview_ext_get_reset_id(struct mail_index_view *view,
 }
 
 static struct mail_index_view_vfuncs trans_view_vfuncs = {
-	_tview_close,
-        _tview_get_message_count,
-	_tview_get_header,
-	_tview_lookup_full,
-	_tview_lookup_uid,
-	_tview_lookup_uid_range,
-	_tview_lookup_first,
-	_tview_lookup_ext_full,
-	_tview_get_header_ext,
-	_tview_ext_get_reset_id
+	tview_close,
+        tview_get_message_count,
+	tview_get_header,
+	tview_lookup_full,
+	tview_lookup_uid,
+	tview_lookup_uid_range,
+	tview_lookup_first,
+	tview_lookup_ext_full,
+	tview_get_header_ext,
+	tview_ext_get_reset_id
 };
 
 struct mail_index_view *

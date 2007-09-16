@@ -38,7 +38,7 @@ void mail_index_view_ref(struct mail_index_view *view)
 	view->refcount++;
 }
 
-static void _view_close(struct mail_index_view *view)
+static void view_close(struct mail_index_view *view)
 {
 	i_assert(view->refcount == 0);
 
@@ -119,20 +119,20 @@ void mail_index_view_unref_maps(struct mail_index_view *view)
 	array_clear(&view->map_refs);
 }
 
-static uint32_t _view_get_messages_count(struct mail_index_view *view)
+static uint32_t view_get_messages_count(struct mail_index_view *view)
 {
 	return view->map->hdr.messages_count;
 }
 
 static const struct mail_index_header *
-_view_get_header(struct mail_index_view *view)
+view_get_header(struct mail_index_view *view)
 {
 	return &view->map->hdr;
 }
 
 static const struct mail_index_record *
-_view_lookup_full(struct mail_index_view *view, uint32_t seq,
-		  struct mail_index_map **map_r, bool *expunged_r)
+view_lookup_full(struct mail_index_view *view, uint32_t seq,
+		 struct mail_index_map **map_r, bool *expunged_r)
 {
 	static struct mail_index_record broken_rec;
 	struct mail_index_map *map;
@@ -204,8 +204,8 @@ _view_lookup_full(struct mail_index_view *view, uint32_t seq,
 	}
 }
 
-static void _view_lookup_uid(struct mail_index_view *view, uint32_t seq,
-			     uint32_t *uid_r)
+static void view_lookup_uid(struct mail_index_view *view, uint32_t seq,
+			    uint32_t *uid_r)
 {
 	i_assert(seq > 0 && seq <= mail_index_view_get_messages_count(view));
 
@@ -261,9 +261,9 @@ static uint32_t mail_index_bsearch_uid(struct mail_index_view *view,
 	return idx+1;
 }
 
-static void _view_lookup_uid_range(struct mail_index_view *view,
-				   uint32_t first_uid, uint32_t last_uid,
-				   uint32_t *first_seq_r, uint32_t *last_seq_r)
+static void view_lookup_uid_range(struct mail_index_view *view,
+				  uint32_t first_uid, uint32_t last_uid,
+				  uint32_t *first_seq_r, uint32_t *last_seq_r)
 {
 	i_assert(first_uid > 0);
 	i_assert(first_uid <= last_uid);
@@ -302,9 +302,9 @@ static void _view_lookup_uid_range(struct mail_index_view *view,
 	i_assert(*last_seq_r >= *first_seq_r);
 }
 
-static void _view_lookup_first(struct mail_index_view *view,
-			       enum mail_flags flags, uint8_t flags_mask,
-			       uint32_t *seq_r)
+static void view_lookup_first(struct mail_index_view *view,
+			      enum mail_flags flags, uint8_t flags_mask,
+			      uint32_t *seq_r)
 {
 #define LOW_UPDATE(x) \
 	STMT_START { if ((x) > low_uid) low_uid = x; } STMT_END
@@ -339,9 +339,9 @@ static void _view_lookup_first(struct mail_index_view *view,
 }
 
 static void
-_view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
-		      uint32_t ext_id, struct mail_index_map **map_r,
-		      const void **data_r, bool *expunged_r)
+view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
+		     uint32_t ext_id, struct mail_index_map **map_r,
+		     const void **data_r, bool *expunged_r)
 {
 	const struct mail_index_ext *ext;
 	const struct mail_index_record *rec;
@@ -359,9 +359,9 @@ _view_lookup_ext_full(struct mail_index_view *view, uint32_t seq,
 	*data_r = offset == 0 ? NULL : CONST_PTR_OFFSET(rec, offset);
 }
 
-static void _view_get_header_ext(struct mail_index_view *view,
-				 struct mail_index_map *map, uint32_t ext_id,
-				 const void **data_r, size_t *data_size_r)
+static void view_get_header_ext(struct mail_index_view *view,
+				struct mail_index_map *map, uint32_t ext_id,
+				const void **data_r, size_t *data_size_r)
 {
 	const struct mail_index_ext *ext;
 	uint32_t idx;
@@ -383,9 +383,9 @@ static void _view_get_header_ext(struct mail_index_view *view,
 	*data_size_r = ext->hdr_size;
 }
 
-static bool _view_ext_get_reset_id(struct mail_index_view *view ATTR_UNUSED,
-				   struct mail_index_map *map,
-				   uint32_t ext_id, uint32_t *reset_id_r)
+static bool view_ext_get_reset_id(struct mail_index_view *view ATTR_UNUSED,
+				  struct mail_index_map *map,
+				  uint32_t ext_id, uint32_t *reset_id_r)
 {
 	const struct mail_index_ext *ext;
 	uint32_t idx;
@@ -593,16 +593,16 @@ void mail_index_ext_get_size(struct mail_index_view *view ATTR_UNUSED,
 }
 
 static struct mail_index_view_vfuncs view_vfuncs = {
-	_view_close,
-	_view_get_messages_count,
-	_view_get_header,
-	_view_lookup_full,
-	_view_lookup_uid,
-	_view_lookup_uid_range,
-	_view_lookup_first,
-	_view_lookup_ext_full,
-	_view_get_header_ext,
-	_view_ext_get_reset_id
+	view_close,
+	view_get_messages_count,
+	view_get_header,
+	view_lookup_full,
+	view_lookup_uid,
+	view_lookup_uid_range,
+	view_lookup_first,
+	view_lookup_ext_full,
+	view_get_header_ext,
+	view_ext_get_reset_id
 };
 
 struct mail_index_view *

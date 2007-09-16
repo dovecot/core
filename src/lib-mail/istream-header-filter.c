@@ -37,7 +37,7 @@ struct header_filter_istream {
 
 header_filter_callback *null_header_filter_callback = NULL;
 
-static void _destroy(struct iostream_private *stream)
+static void i_stream_header_filter_destroy(struct iostream_private *stream)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -49,7 +49,8 @@ static void _destroy(struct iostream_private *stream)
 }
 
 static void
-_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
+i_stream_header_filter_set_max_buffer_size(struct iostream_private *stream,
+					   size_t max_size)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -201,7 +202,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	return ret;
 }
 
-static ssize_t _read(struct istream_private *stream)
+static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -252,7 +253,7 @@ static void parse_header(struct header_filter_istream *mstream)
 	size_t pos;
 
 	while (!mstream->header_read) {
-		if (_read(&mstream->istream) == -1)
+		if (i_stream_header_filter_read(&mstream->istream) == -1)
 			break;
 
 		(void)i_stream_get_data(&mstream->istream.istream, &pos);
@@ -260,8 +261,8 @@ static void parse_header(struct header_filter_istream *mstream)
 	}
 }
 
-static void _seek(struct istream_private *stream, uoff_t v_offset,
-		  bool mark ATTR_UNUSED)
+static void i_stream_header_filter_seek(struct istream_private *stream,
+					uoff_t v_offset, bool mark ATTR_UNUSED)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -292,13 +293,13 @@ static void _seek(struct istream_private *stream, uoff_t v_offset,
 }
 
 static void ATTR_NORETURN
-_sync(struct istream_private *stream ATTR_UNUSED)
+i_stream_header_filter_sync(struct istream_private *stream ATTR_UNUSED)
 {
 	i_panic("istream-header-filter sync() not implemented");
 }
 
 static const struct stat *
-_stat(struct istream_private *stream, bool exact)
+i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 {
 	struct header_filter_istream *mstream =
 		(struct header_filter_istream *)stream;
@@ -350,13 +351,14 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->hide_body = (flags & HEADER_FILTER_HIDE_BODY) != 0;
 	mstream->start_offset = input->v_offset;
 
-	mstream->istream.iostream.destroy = _destroy;
-	mstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
+	mstream->istream.iostream.destroy = i_stream_header_filter_destroy;
+	mstream->istream.iostream.set_max_buffer_size =
+		i_stream_header_filter_set_max_buffer_size;
 
-	mstream->istream.read = _read;
-	mstream->istream.seek = _seek;
-	mstream->istream.sync = _sync;
-	mstream->istream.stat = _stat;
+	mstream->istream.read = i_stream_header_filter_read;
+	mstream->istream.seek = i_stream_header_filter_seek;
+	mstream->istream.sync = i_stream_header_filter_sync;
+	mstream->istream.stat = i_stream_header_filter_stat;
 
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;

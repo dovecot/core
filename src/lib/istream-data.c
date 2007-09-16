@@ -3,14 +3,14 @@
 #include "lib.h"
 #include "istream-internal.h"
 
-static ssize_t _read(struct istream_private *stream ATTR_UNUSED)
+static ssize_t i_stream_data_read(struct istream_private *stream)
 {
 	stream->istream.eof = TRUE;
 	return -1;
 }
 
-static void _seek(struct istream_private *stream, uoff_t v_offset,
-		  bool mark ATTR_UNUSED)
+static void i_stream_data_seek(struct istream_private *stream, uoff_t v_offset,
+			       bool mark ATTR_UNUSED)
 {
 	stream->skip = v_offset;
 	stream->istream.v_offset = v_offset;
@@ -24,8 +24,8 @@ struct istream *i_stream_create_from_data(const void *data, size_t size)
 	stream->buffer = data;
 	stream->pos = size;
 
-	stream->read = _read;
-	stream->seek = _seek;
+	stream->read = i_stream_data_read;
+	stream->seek = i_stream_data_seek;
 
 	stream->istream.blocking = TRUE;
 	stream->istream.seekable = TRUE;

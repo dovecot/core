@@ -66,7 +66,7 @@ static void stream_closed(struct file_ostream *fstream)
 	fstream->ostream.ostream.closed = TRUE;
 }
 
-static void _close(struct iostream_private *stream)
+static void o_stream_file_close(struct iostream_private *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
@@ -76,7 +76,7 @@ static void _close(struct iostream_private *stream)
 	stream_closed(fstream);
 }
 
-static void _destroy(struct iostream_private *stream)
+static void o_stream_file_destroy(struct iostream_private *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
@@ -84,7 +84,8 @@ static void _destroy(struct iostream_private *stream)
 }
 
 static void
-_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
+o_stream_file_set_max_buffer_size(struct iostream_private *stream,
+				  size_t max_size)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
@@ -263,7 +264,7 @@ static int buffer_flush(struct file_ostream *fstream)
 	return IS_STREAM_EMPTY(fstream) ? 1 : 0;
 }
 
-static void _cork(struct ostream_private *stream, bool set)
+static void o_stream_file_cork(struct ostream_private *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 	int ret;
@@ -292,14 +293,15 @@ static void _cork(struct ostream_private *stream, bool set)
 	}
 }
 
-static int _flush(struct ostream_private *stream)
+static int o_stream_file_flush(struct ostream_private *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 
 	return buffer_flush(fstream);
 }
 
-static void _flush_pending(struct ostream_private *stream, bool set)
+static void
+o_stream_file_flush_pending(struct ostream_private *stream, bool set)
 {
 	struct file_ostream *fstream = (struct file_ostream *) stream;
 
@@ -324,14 +326,14 @@ static size_t get_unused_space(struct file_ostream *fstream)
 	}
 }
 
-static size_t _get_used_size(struct ostream_private *stream)
+static size_t o_stream_file_get_used_size(struct ostream_private *stream)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
 	return fstream->buffer_size - get_unused_space(fstream);
 }
 
-static int _seek(struct ostream_private *stream, uoff_t offset)
+static int o_stream_file_seek(struct ostream_private *stream, uoff_t offset)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 
@@ -398,7 +400,7 @@ static void stream_send_io(struct file_ostream *fstream)
 	if (fstream->ostream.callback != NULL)
 		ret = fstream->ostream.callback(fstream->ostream.context);
 	else
-		ret = _flush(&fstream->ostream);
+		ret = o_stream_file_flush(&fstream->ostream);
 
 	if (ret == 0)
 		fstream->flush_pending = TRUE;
@@ -460,9 +462,9 @@ static size_t o_stream_add(struct file_ostream *fstream,
 	return sent;
 }
 
-static ssize_t _sendv(struct ostream_private *stream,
-		      const struct const_iovec *iov,
-		      unsigned int iov_count)
+static ssize_t o_stream_file_sendv(struct ostream_private *stream,
+				   const struct const_iovec *iov,
+				   unsigned int iov_count)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
 	size_t size, total_size, added, optimal_size;
@@ -476,7 +478,7 @@ static ssize_t _sendv(struct ostream_private *stream,
 	total_size = size;
 
 	if (size > get_unused_space(fstream) && !IS_STREAM_EMPTY(fstream)) {
-		if (_flush(stream) < 0)
+		if (o_stream_file_flush(stream) < 0)
 			return -1;
 	}
 
@@ -714,8 +716,8 @@ static off_t io_stream_copy_backwards(struct ostream_private *outstream,
 	return (off_t) (in_size - in_start_offset);
 }
 
-static off_t _send_istream(struct ostream_private *outstream,
-			   struct istream *instream)
+static off_t o_stream_file_send_istream(struct ostream_private *outstream,
+					struct istream *instream)
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
 	const struct stat *st;
@@ -782,17 +784,18 @@ o_stream_create_fd_common(int fd, bool autoclose_fd)
 	fstream->autoclose_fd = autoclose_fd;
 	fstream->optimal_block_size = DEFAULT_OPTIMAL_BLOCK_SIZE;
 
-	fstream->ostream.iostream.close = _close;
-	fstream->ostream.iostream.destroy = _destroy;
-	fstream->ostream.iostream.set_max_buffer_size = _set_max_buffer_size;
+	fstream->ostream.iostream.close = o_stream_file_close;
+	fstream->ostream.iostream.destroy = o_stream_file_destroy;
+	fstream->ostream.iostream.set_max_buffer_size =
+		o_stream_file_set_max_buffer_size;
 
-	fstream->ostream.cork = _cork;
-	fstream->ostream.flush = _flush;
-	fstream->ostream.flush_pending = _flush_pending;
-	fstream->ostream.get_used_size = _get_used_size;
-	fstream->ostream.seek = _seek;
-	fstream->ostream.sendv = _sendv;
-	fstream->ostream.send_istream = _send_istream;
+	fstream->ostream.cork = o_stream_file_cork;
+	fstream->ostream.flush = o_stream_file_flush;
+	fstream->ostream.flush_pending = o_stream_file_flush_pending;
+	fstream->ostream.get_used_size = o_stream_file_get_used_size;
+	fstream->ostream.seek = o_stream_file_seek;
+	fstream->ostream.sendv = o_stream_file_sendv;
+	fstream->ostream.send_istream = o_stream_file_send_istream;
 
 	return fstream;
 }

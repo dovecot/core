@@ -20,7 +20,7 @@ struct file_istream {
 	unsigned int autoclose_fd:1;
 };
 
-static void _close(struct iostream_private *stream)
+static void i_stream_file_close(struct iostream_private *stream)
 {
 	struct file_istream *fstream = (struct file_istream *)stream;
 	struct istream_private *_stream = (struct istream_private *)stream;
@@ -32,14 +32,14 @@ static void _close(struct iostream_private *stream)
 	_stream->fd = -1;
 }
 
-static void _destroy(struct iostream_private *stream)
+static void i_stream_file_destroy(struct iostream_private *stream)
 {
 	struct istream_private *_stream = (struct istream_private *)stream;
 
 	i_free(_stream->w_buffer);
 }
 
-static ssize_t _read(struct istream_private *stream)
+static ssize_t i_stream_file_read(struct istream_private *stream)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 	size_t size;
@@ -116,8 +116,8 @@ static ssize_t _read(struct istream_private *stream)
 	return ret;
 }
 
-static void _seek(struct istream_private *stream, uoff_t v_offset,
-		  bool mark ATTR_UNUSED)
+static void i_stream_file_seek(struct istream_private *stream, uoff_t v_offset,
+			       bool mark ATTR_UNUSED)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
@@ -134,7 +134,7 @@ static void _seek(struct istream_private *stream, uoff_t v_offset,
 	stream->skip = stream->pos = 0;
 }
 
-static void _sync(struct istream_private *stream)
+static void i_stream_file_sync(struct istream_private *stream)
 {
 	if (!stream->istream.seekable) {
 		/* can't do anything or data would be lost */
@@ -145,7 +145,7 @@ static void _sync(struct istream_private *stream)
 }
 
 static const struct stat *
-_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
+i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct file_istream *fstream = (struct file_istream *) stream;
 
@@ -168,14 +168,14 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 	fstream = i_new(struct file_istream, 1);
 	fstream->autoclose_fd = autoclose_fd;
 
-	fstream->istream.iostream.close = _close;
-	fstream->istream.iostream.destroy = _destroy;
+	fstream->istream.iostream.close = i_stream_file_close;
+	fstream->istream.iostream.destroy = i_stream_file_destroy;
 
 	fstream->istream.max_buffer_size = max_buffer_size;
-	fstream->istream.read = _read;
-	fstream->istream.seek = _seek;
-	fstream->istream.sync = _sync;
-	fstream->istream.stat = _stat;
+	fstream->istream.read = i_stream_file_read;
+	fstream->istream.seek = i_stream_file_seek;
+	fstream->istream.sync = i_stream_file_sync;
+	fstream->istream.stat = i_stream_file_stat;
 
 	/* if it's a file, set the flags properly */
 	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {

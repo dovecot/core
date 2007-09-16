@@ -57,7 +57,7 @@ static int driver_sqlite_connect(struct sql_db *_db)
 	}
 }
 
-static struct sql_db *_driver_sqlite_init(const char *connect_string)
+static struct sql_db *driver_sqlite_init_v(const char *connect_string)
 {
 	struct sqlite_db *db;
 	pool_t pool;
@@ -74,7 +74,7 @@ static struct sql_db *_driver_sqlite_init(const char *connect_string)
 	return &db->api;
 }
 
-static void _driver_sqlite_deinit(struct sql_db *_db)
+static void driver_sqlite_deinit_v(struct sql_db *_db)
 {
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 
@@ -374,8 +374,8 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_sqlite_db = {
 	"sqlite",
 
-	_driver_sqlite_init,
-	_driver_sqlite_deinit,
+	driver_sqlite_init_v,
+	driver_sqlite_deinit_v,
 	driver_sqlite_get_flags,
 	driver_sqlite_connect,
 	driver_sqlite_escape_string,

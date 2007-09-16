@@ -58,14 +58,14 @@ static void tee_streams_skip(struct tee_istream *tee)
 	}
 }
 
-static void _close(struct iostream_private *stream)
+static void i_stream_tee_close(struct iostream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 
 	tee_streams_skip(tstream->tee);
 }
 
-static void _destroy(struct iostream_private *stream)
+static void i_stream_tee_destroy(struct iostream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 	struct tee_istream *tee = tstream->tee;
@@ -94,14 +94,15 @@ static void _destroy(struct iostream_private *stream)
 }
 
 static void
-_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
+i_stream_tee_set_max_buffer_size(struct iostream_private *stream,
+				 size_t max_size)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 
 	return i_stream_set_max_buffer_size(tstream->tee->input, max_size);
 }
 
-static ssize_t _read(struct istream_private *stream)
+static ssize_t i_stream_tee_read(struct istream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 	struct istream *input = tstream->tee->input;
@@ -143,20 +144,21 @@ static ssize_t _read(struct istream_private *stream)
 }
 
 static void ATTR_NORETURN
-_seek(struct istream_private *stream ATTR_UNUSED,
-      uoff_t v_offset ATTR_UNUSED, bool mark ATTR_UNUSED)
+i_stream_tee_seek(struct istream_private *stream ATTR_UNUSED,
+		  uoff_t v_offset ATTR_UNUSED, bool mark ATTR_UNUSED)
 {
 	i_panic("tee-istream: seeking unsupported currently");
 }
 
-static const struct stat *_stat(struct istream_private *stream, bool exact)
+static const struct stat *
+i_stream_tee_stat(struct istream_private *stream, bool exact)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 
 	return i_stream_stat(tstream->tee->input, exact);
 }
 
-static void _sync(struct istream_private *stream)
+static void i_stream_tee_sync(struct istream_private *stream)
 {
 	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
 	size_t size;
@@ -188,14 +190,15 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 	tstream = i_new(struct tee_child_istream, 1);
 	tstream->tee = tee;
 
-	tstream->istream.iostream.close = _close;
-	tstream->istream.iostream.destroy = _destroy;
-	tstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
+	tstream->istream.iostream.close = i_stream_tee_close;
+	tstream->istream.iostream.destroy = i_stream_tee_destroy;
+	tstream->istream.iostream.set_max_buffer_size =
+		i_stream_tee_set_max_buffer_size;
 
-	tstream->istream.read = _read;
-	tstream->istream.seek = _seek;
-	tstream->istream.stat = _stat;
-	tstream->istream.sync = _sync;
+	tstream->istream.read = i_stream_tee_read;
+	tstream->istream.seek = i_stream_tee_seek;
+	tstream->istream.stat = i_stream_tee_stat;
+	tstream->istream.sync = i_stream_tee_sync;
 
 	tstream->next = tee->children;
 	tee->children = tstream;

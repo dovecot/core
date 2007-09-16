@@ -22,7 +22,7 @@ struct raw_mbox_istream {
 	unsigned int eof:1;
 };
 
-static void _destroy(struct iostream_private *stream)
+static void i_stream_raw_mbox_destroy(struct iostream_private *stream)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -34,7 +34,8 @@ static void _destroy(struct iostream_private *stream)
 }
 
 static void
-_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
+i_stream_raw_mbox_set_max_buffer_size(struct iostream_private *stream,
+				      size_t max_size)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -118,7 +119,7 @@ static void handle_end_of_mail(struct raw_mbox_istream *rstream, size_t pos)
 	}
 }
 
-static ssize_t _read(struct istream_private *stream)
+static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 {
 	static const char *mbox_from = "\nFrom ";
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
@@ -150,7 +151,7 @@ static ssize_t _read(struct istream_private *stream)
 			/* fake our read count. needed because if in the end
 			   we have only one character in buffer and we skip it
 			   (as potential CR), we want to get back to this
-			   _read() to read more data. */
+			   i_stream_raw_mbox_read() to read more data. */
 			ret = pos;
 			break;
 		}
@@ -191,7 +192,7 @@ static ssize_t _read(struct istream_private *stream)
 			stream->istream.eof = TRUE;
 			rstream->crlf_ending = crlf_ending;
 			handle_end_of_mail(rstream, pos);
-			return ret < 0 ? _read(stream) : ret;
+			return ret < 0 ? i_stream_raw_mbox_read(stream) : ret;
 		}
 	}
 
@@ -202,7 +203,7 @@ static ssize_t _read(struct istream_private *stream)
 			   need more data to verify it. */
 			rstream->input_peak_offset =
 				stream->istream.v_offset + pos;
-			return _read(stream);
+			return i_stream_raw_mbox_read(stream);
 		}
 		if (mbox_read_from_line(rstream) < 0) {
 			stream->pos = 0;
@@ -215,7 +216,7 @@ static ssize_t _read(struct istream_private *stream)
 		   so start again from headers */
 		buf = i_stream_get_data(rstream->input, &pos);
 		if (pos == 0)
-			return _read(stream);
+			return i_stream_raw_mbox_read(stream);
 	}
 
 	/* See if we have From-line here - note that it works right only
@@ -292,7 +293,7 @@ static ssize_t _read(struct istream_private *stream)
 	stream->buffer = buf;
 	if (new_pos == stream->pos) {
 		if (stream->istream.eof || ret > 0)
-			return _read(stream);
+			return i_stream_raw_mbox_read(stream);
 		i_assert(new_pos > 0);
 		ret = -2;
 	} else {
@@ -303,8 +304,8 @@ static ssize_t _read(struct istream_private *stream)
 	return ret;
 }
 
-static void _seek(struct istream_private *stream, uoff_t v_offset,
-		  bool mark ATTR_UNUSED)
+static void i_stream_raw_mbox_seek(struct istream_private *stream,
+				   uoff_t v_offset, bool mark ATTR_UNUSED)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -316,7 +317,7 @@ static void _seek(struct istream_private *stream, uoff_t v_offset,
 	rstream->eof = FALSE;
 }
 
-static void _sync(struct istream_private *stream)
+static void i_stream_raw_mbox_sync(struct istream_private *stream)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 
@@ -326,7 +327,8 @@ static void _sync(struct istream_private *stream)
 	rstream->istream.pos = 0;
 }
 
-static const struct stat *_stat(struct istream_private *stream, bool exact)
+static const struct stat *
+i_stream_raw_mbox_stat(struct istream_private *stream, bool exact)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
 	const struct stat *st;
@@ -356,13 +358,14 @@ struct istream *i_stream_create_raw_mbox(struct istream *input,
 	rstream->received_time = (time_t)-1;
 	rstream->next_received_time = (time_t)-1;
 
-	rstream->istream.iostream.destroy = _destroy;
-	rstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
+	rstream->istream.iostream.destroy = i_stream_raw_mbox_destroy;
+	rstream->istream.iostream.set_max_buffer_size =
+		i_stream_raw_mbox_set_max_buffer_size;
 
-	rstream->istream.read = _read;
-	rstream->istream.seek = _seek;
-	rstream->istream.sync = _sync;
-	rstream->istream.stat = _stat;
+	rstream->istream.read = i_stream_raw_mbox_read;
+	rstream->istream.seek = i_stream_raw_mbox_seek;
+	rstream->istream.sync = i_stream_raw_mbox_sync;
+	rstream->istream.stat = i_stream_raw_mbox_stat;
 
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
@@ -425,7 +428,7 @@ uoff_t istream_raw_mbox_get_header_offset(struct istream *stream)
 		(struct raw_mbox_istream *)stream->real_stream;
 
 	if (rstream->hdr_offset == rstream->from_offset)
-		(void)_read(&rstream->istream);
+		(void)i_stream_raw_mbox_read(&rstream->istream);
 
 	if (rstream->corrupted) {
 		i_error("Unexpectedly lost From-line at "
@@ -452,7 +455,7 @@ uoff_t istream_raw_mbox_get_body_offset(struct istream *stream)
 		i_stream_get_data(stream, &pos);
 		i_stream_skip(stream, pos);
 
-		if (_read(&rstream->istream) < 0) {
+		if (i_stream_raw_mbox_read(&rstream->istream) < 0) {
 			if (rstream->corrupted) {
 				i_error("Unexpectedly lost From-line at "
 					"%"PRIuUOFF_T, rstream->from_offset);
@@ -506,7 +509,7 @@ time_t istream_raw_mbox_get_received_time(struct istream *stream)
 		(struct raw_mbox_istream *)stream->real_stream;
 
 	if (rstream->received_time == (time_t)-1)
-		(void)_read(&rstream->istream);
+		(void)i_stream_raw_mbox_read(&rstream->istream);
 	return rstream->received_time;
 }
 
@@ -516,7 +519,7 @@ const char *istream_raw_mbox_get_sender(struct istream *stream)
 		(struct raw_mbox_istream *)stream->real_stream;
 
 	if (rstream->sender == NULL)
-		(void)_read(&rstream->istream);
+		(void)i_stream_raw_mbox_read(&rstream->istream);
 	return rstream->sender == NULL ? "" : rstream->sender;
 }
 
@@ -595,7 +598,7 @@ int istream_raw_mbox_seek(struct istream *stream, uoff_t offset)
 	i_stream_seek_mark(rstream->input, offset);
 
 	if (check)
-		(void)_read(&rstream->istream);
+		(void)i_stream_raw_mbox_read(&rstream->istream);
 	return rstream->corrupted ? -1 : 0;
 }
 

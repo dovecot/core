@@ -508,9 +508,9 @@ uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t)
 	return next_uid;
 }
 
-static int _mail_index_transaction_commit(struct mail_index_transaction *t,
-					  uint32_t *log_file_seq_r,
-					  uoff_t *log_file_offset_r)
+static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
+					   uint32_t *log_file_seq_r,
+					   uoff_t *log_file_offset_r)
 {
 	int ret;
 
@@ -538,7 +538,7 @@ static int _mail_index_transaction_commit(struct mail_index_transaction *t,
 	return ret;
 }
 
-static void _mail_index_transaction_rollback(struct mail_index_transaction *t)
+static void mail_index_transaction_rollback_v(struct mail_index_transaction *t)
 {
 	if (t->cache_trans_ctx != NULL) {
 		mail_cache_transaction_rollback(t->cache_trans_ctx);
@@ -1284,8 +1284,8 @@ void mail_index_reset(struct mail_index_transaction *t)
 }
 
 struct mail_index_transaction_vfuncs trans_vfuncs = {
-	_mail_index_transaction_commit,
-	_mail_index_transaction_rollback
+	mail_index_transaction_commit_v,
+	mail_index_transaction_rollback_v
 };
 
 struct mail_index_transaction *

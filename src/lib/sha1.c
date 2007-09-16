@@ -39,8 +39,8 @@
 #include "safe-memset.h"
 
 /* constant table */
-static uint32_t _K[] = { 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6 };
-#define	K(t)	_K[(t) / 20]
+static uint32_t SHA1_K[] = { 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6 };
+#define	K(t)	SHA1_K[(t) / 20]
 
 #define	F0(b, c, d)	(((b) & (c)) | ((~(b)) & (d)))
 #define	F1(b, c, d)	(((b) ^ (c)) ^ (d))

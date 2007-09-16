@@ -29,7 +29,7 @@ struct seekable_istream {
 	int fd;
 };
 
-static void _close(struct iostream_private *stream ATTR_UNUSED)
+static void i_stream_seekable_close(struct iostream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	unsigned int i;
@@ -41,7 +41,7 @@ static void _close(struct iostream_private *stream ATTR_UNUSED)
 		i_stream_close(sstream->input[i]);
 }
 
-static void _destroy(struct iostream_private *stream)
+static void i_stream_seekable_destroy(struct iostream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	unsigned int i;
@@ -57,7 +57,8 @@ static void _destroy(struct iostream_private *stream)
 }
 
 static void
-_set_max_buffer_size(struct iostream_private *stream, size_t max_size)
+i_stream_seekable_set_max_buffer_size(struct iostream_private *stream,
+				      size_t max_size)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	unsigned int i;
@@ -192,7 +193,7 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret)
 	return TRUE;
 }
 
-static ssize_t _read(struct istream_private *stream)
+static ssize_t i_stream_seekable_read(struct istream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	const unsigned char *data;
@@ -251,15 +252,16 @@ static ssize_t _read(struct istream_private *stream)
 	return ret;
 }
 
-static void _seek(struct istream_private *stream, uoff_t v_offset,
-		  bool mark ATTR_UNUSED)
+static void i_stream_seekable_seek(struct istream_private *stream,
+				   uoff_t v_offset, bool mark ATTR_UNUSED)
 {
 	stream->istream.stream_errno = 0;
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
 }
 
-static const struct stat *_stat(struct istream_private *stream, bool exact)
+static const struct stat *
+i_stream_seekable_stat(struct istream_private *stream, bool exact)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 	uoff_t old_offset;
@@ -271,7 +273,7 @@ static const struct stat *_stat(struct istream_private *stream, bool exact)
 		old_offset = stream->istream.v_offset;
 		do {
 			i_stream_skip(&stream->istream, stream->skip);
-		} while ((ret = _read(stream)) > 0);
+		} while ((ret = i_stream_seekable_read(stream)) > 0);
 
 		if (ret == 0) {
 			i_panic("i_stream_stat() used for non-blocking "
@@ -319,13 +321,14 @@ i_stream_create_seekable(struct istream *input[],
 	buffer_append(sstream->buffer, data, size);
 	i_stream_skip(sstream->cur_input, size);
 
-	sstream->istream.iostream.close = _close;
-	sstream->istream.iostream.destroy = _destroy;
-	sstream->istream.iostream.set_max_buffer_size = _set_max_buffer_size;
+	sstream->istream.iostream.close = i_stream_seekable_close;
+	sstream->istream.iostream.destroy = i_stream_seekable_destroy;
+	sstream->istream.iostream.set_max_buffer_size =
+		i_stream_seekable_set_max_buffer_size;
 
-	sstream->istream.read = _read;
-	sstream->istream.seek = _seek;
-	sstream->istream.stat = _stat;
+	sstream->istream.read = i_stream_seekable_read;
+	sstream->istream.seek = i_stream_seekable_seek;
+	sstream->istream.stat = i_stream_seekable_stat;
 
 	return i_stream_create(&sstream->istream, -1, 0);
 }

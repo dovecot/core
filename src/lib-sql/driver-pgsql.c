@@ -181,7 +181,7 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	}
 }
 
-static struct sql_db *_driver_pgsql_init(const char *connect_string)
+static struct sql_db *driver_pgsql_init_v(const char *connect_string)
 {
 	struct pgsql_db *db;
 
@@ -194,7 +194,7 @@ static struct sql_db *_driver_pgsql_init(const char *connect_string)
 	return &db->api;
 }
 
-static void _driver_pgsql_deinit(struct sql_db *_db)
+static void driver_pgsql_deinit_v(struct sql_db *_db)
 {
 	struct pgsql_db *db = (struct pgsql_db *)_db;
 
@@ -864,8 +864,8 @@ driver_pgsql_update(struct sql_transaction_context *_ctx, const char *query)
 struct sql_db driver_pgsql_db = {
 	"pgsql",
 
-	_driver_pgsql_init,
-	_driver_pgsql_deinit,
+	driver_pgsql_init_v,
+	driver_pgsql_deinit_v,
         driver_pgsql_get_flags,
 	driver_pgsql_connect,
 	driver_pgsql_escape_string,
