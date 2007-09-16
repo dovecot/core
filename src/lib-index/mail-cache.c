@@ -158,8 +158,7 @@ static bool mail_cache_verify_header(struct mail_cache *cache)
 	}
 
 	if (cache->hdr->indexid != cache->index->indexid) {
-		/* index id changed */
-		mail_cache_set_corrupted(cache, "indexid changed");
+		/* index id changed - handle silently */
 		return FALSE;
 	}
 	if (cache->hdr->file_seq == 0) {
