@@ -142,8 +142,8 @@ void client_destroy(struct client *client, const char *reason)
 			i_error("close(client out) failed: %m");
 	}
 
-	pool_unref(client->keywords.pool);
-	pool_unref(client->command_pool);
+	pool_unref(&client->keywords.pool);
+	pool_unref(&client->command_pool);
 	i_free(client);
 
 	/* quit the program */

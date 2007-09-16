@@ -706,7 +706,7 @@ void maildir_transaction_save_commit_post(struct maildir_save_context *ctx)
 
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
-	pool_unref(ctx->pool);
+	pool_unref(&ctx->pool);
 }
 
 void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
@@ -754,5 +754,5 @@ void maildir_transaction_save_rollback(struct maildir_save_context *ctx)
 
 	if (ctx->mail != NULL)
 		mail_free(&ctx->mail);
-	pool_unref(ctx->pool);
+	pool_unref(&ctx->pool);
 }

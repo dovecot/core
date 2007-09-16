@@ -136,7 +136,7 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 	if (ctx->box != ctx->cmd->client->mailbox && ctx->box != NULL) {
 		mailbox_close(&ctx->box);
 
-		pool_unref(ctx->client->keywords.pool);
+		pool_unref(&ctx->client->keywords.pool);
 		ctx->client->keywords = ctx->old_keywords;
 	}
 }

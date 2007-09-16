@@ -1525,8 +1525,8 @@ static void mbox_sync_context_free(struct mbox_sync_context *sync_ctx)
 	index_sync_changes_deinit(&sync_ctx->sync_changes);
 	if (sync_ctx->index_sync_ctx != NULL)
 		mail_index_sync_rollback(&sync_ctx->index_sync_ctx);
-	pool_unref(sync_ctx->mail_keyword_pool);
-	pool_unref(sync_ctx->saved_keywords_pool);
+	pool_unref(&sync_ctx->mail_keyword_pool);
+	pool_unref(&sync_ctx->saved_keywords_pool);
 	str_free(&sync_ctx->header);
 	str_free(&sync_ctx->from_line);
 	array_free(&sync_ctx->mails);

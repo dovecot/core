@@ -298,5 +298,5 @@ void auth_deinit(struct auth **_auth)
 	auth_request_handler_deinit();
 	passdb_cache_deinit();
 
-	pool_unref(auth->pool);
+	pool_unref(&auth->pool);
 }

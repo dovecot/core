@@ -112,7 +112,7 @@ void auth_request_unref(struct auth_request **_request)
 	if (request->mech != NULL)
 		request->mech->auth_free(request);
 	else
-		pool_unref(request->pool);
+		pool_unref(&request->pool);
 }
 
 void auth_request_export(struct auth_request *request, string_t *str)

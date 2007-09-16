@@ -65,7 +65,7 @@ bool cmd_thread(struct client_command_context *cmd)
 		/* error in search arguments */
 		client_send_tagline(cmd, t_strconcat("NO ", error, NULL));
 	} else if (imap_thread(cmd, charset, sargs, threading) == 0) {
-		pool_unref(pool);
+		pool_unref(&pool);
 		return cmd_sync(cmd, MAILBOX_SYNC_FLAG_FAST |
 				(cmd->uid ? 0 : MAILBOX_SYNC_FLAG_NO_EXPUNGES),
 				0, "OK Thread completed.");
@@ -74,6 +74,6 @@ bool cmd_thread(struct client_command_context *cmd)
 					  mailbox_get_storage(client->mailbox));
 	}
 
-	pool_unref(pool);
+	pool_unref(&pool);
 	return TRUE;
 }

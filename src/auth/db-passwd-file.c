@@ -218,10 +218,8 @@ static void passwd_file_close(struct passwd_file *pw)
 
 	if (pw->users != NULL)
 		hash_destroy(&pw->users);
-	if (pw->pool != NULL) {
-		pool_unref(pw->pool);
-		pw->pool = NULL;
-	}
+	if (pw->pool != NULL)
+		pool_unref(&pw->pool);
 }
 
 static void passwd_file_free(struct passwd_file *pw)

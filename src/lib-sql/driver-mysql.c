@@ -268,7 +268,7 @@ static void driver_mysql_deinit_v(struct sql_db *_db)
 	for (i = 0; i < count; i++)
 		(void)driver_mysql_connection_free(&conn[i]);
 
-	pool_unref(db->pool);
+	pool_unref(&db->pool);
 }
 
 static enum sql_db_flags
@@ -629,7 +629,7 @@ driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
 
-	pool_unref(ctx->query_pool);
+	pool_unref(&ctx->query_pool);
 	i_free(ctx);
 }
 

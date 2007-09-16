@@ -260,7 +260,7 @@ static void main_deinit(void)
         mail_storage_deinit();
 	dict_driver_unregister(&dict_driver_client);
 	random_deinit();
-	pool_unref(namespace_pool);
+	pool_unref(&namespace_pool);
 
 	str_free(&capability_string);
 

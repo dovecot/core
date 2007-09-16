@@ -1011,7 +1011,7 @@ void db_ldap_unref(struct ldap_connection **_conn)
 		hash_destroy(&conn->pass_attr_map);
 	if (conn->user_attr_map != NULL)
 		hash_destroy(&conn->user_attr_map);
-	pool_unref(conn->pool);
+	pool_unref(&conn->pool);
 }
 
 #ifndef BUILTIN_LDAP

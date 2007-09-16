@@ -423,7 +423,7 @@ index_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	if (ctx->iter_ctx != NULL)
 		mailbox_list_index_iterate_deinit(&ctx->iter_ctx);
 	if (ctx->info_pool != NULL)
-		pool_unref(ctx->info_pool);
+		pool_unref(&ctx->info_pool);
 
 	if (ctx->mail_view != NULL)
 		mail_index_view_close(&ctx->mail_view);

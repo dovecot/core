@@ -106,7 +106,7 @@ void db_sql_unref(struct sql_connection **_conn)
 		return;
 
 	sql_deinit(&conn->db);
-	pool_unref(conn->pool);
+	pool_unref(&conn->pool);
 }
 
 #endif

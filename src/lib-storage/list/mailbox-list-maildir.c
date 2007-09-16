@@ -48,7 +48,7 @@ static void maildir_list_deinit(struct mailbox_list *_list)
 	struct maildir_mailbox_list *list =
 		(struct maildir_mailbox_list *)_list;
 
-	pool_unref(list->list.pool);
+	pool_unref(&list->list.pool);
 }
 
 static const char *
@@ -369,7 +369,7 @@ static int rename_children(struct mailbox_list *list,
 		t_pop();
 	}
 	array_free(&names_arr);
-	pool_unref(pool);
+	pool_unref(&pool);
 
 	return ret;
 }

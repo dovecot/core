@@ -293,7 +293,7 @@ void squat_uidlist_deinit(struct squat_uidlist *uidlist)
 {
 	squat_uidlist_close(uidlist);
 
-	pool_unref(uidlist->node_pool);
+	pool_unref(&uidlist->node_pool);
 	array_free(&uidlist->lists);
 	buffer_free(&uidlist->tmp_buf);
 	buffer_free(&uidlist->list_buf);
@@ -925,7 +925,7 @@ void squat_uidlist_compress_rollback(struct squat_uidlist_compress_ctx **_ctx)
 	*_ctx = NULL;
 
 	if (ctx->node_pool != NULL)
-		pool_unref(ctx->node_pool);
+		pool_unref(&ctx->node_pool);
 	if (array_is_created(&ctx->seen_uids))
 		array_free(&ctx->seen_uids);
 	if (ctx->output != NULL) {

@@ -432,7 +432,7 @@ mech_gssapi_auth_free(struct auth_request *request)
 		major_status = gss_release_name(&minor_status,
 						&gssapi_request->authz_name);
 	}
-	pool_unref(request->pool);
+	pool_unref(&request->pool);
 }
 
 const struct mech_module mech_gssapi = {

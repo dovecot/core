@@ -919,7 +919,7 @@ int mailbox_list_index_sync_commit(struct mailbox_list_index_sync_ctx **_ctx)
 	}
 
 	mailbox_list_index_view_deinit(&ctx->view);
-	pool_unref(ctx->pool);
+	pool_unref(&ctx->pool);
 	return ret;
 }
 

@@ -66,7 +66,7 @@ imap_parser_create(struct istream *input, struct ostream *output,
 
 void imap_parser_destroy(struct imap_parser **parser)
 {
-	pool_unref((*parser)->pool);
+	pool_unref(&(*parser)->pool);
 	i_free(*parser);
 	*parser = NULL;
 }

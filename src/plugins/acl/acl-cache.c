@@ -65,7 +65,7 @@ void acl_cache_deinit(struct acl_cache **_cache)
 	array_free(&cache->right_idx_name_map);
 	hash_destroy(&cache->right_name_idx_map);
 	hash_destroy(&cache->objects);
-	pool_unref(cache->right_names_pool);
+	pool_unref(&cache->right_names_pool);
 	i_free(cache);
 }
 

@@ -97,8 +97,8 @@ static void mail_thread_deinit(struct thread_context *ctx)
 	if (ctx->subject_hash != NULL)
 		hash_destroy(&ctx->subject_hash);
 
-	pool_unref(ctx->temp_pool);
-	pool_unref(ctx->pool);
+	pool_unref(&ctx->temp_pool);
+	pool_unref(&ctx->pool);
 }
 
 int imap_thread(struct client_command_context *cmd, const char *charset,

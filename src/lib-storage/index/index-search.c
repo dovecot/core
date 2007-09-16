@@ -869,7 +869,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 				       search_arg_deinit, NULL);
 
 	if (ctx->search_pool != NULL)
-		pool_unref(ctx->search_pool);
+		pool_unref(&ctx->search_pool);
 
 	if (ctx->mail_ctx.sort_program != NULL)
 		index_sort_program_deinit(&ctx->mail_ctx.sort_program);

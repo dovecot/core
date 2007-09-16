@@ -99,7 +99,7 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 
 static void acl_backend_vfile_deinit(struct acl_backend *backend)
 {
-	pool_unref(backend->pool);
+	pool_unref(&backend->pool);
 }
 
 static struct acl_object *
@@ -140,7 +140,7 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 	if (array_is_created(&aclobj->rights))
 		array_free(&aclobj->rights);
 	if (aclobj->rights_pool != NULL)
-		pool_unref(aclobj->rights_pool);
+		pool_unref(&aclobj->rights_pool);
 
 	i_free(aclobj->local_path);
 	i_free(aclobj->global_path);

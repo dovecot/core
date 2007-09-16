@@ -704,7 +704,7 @@ struct message_part *message_parser_deinit(struct message_parser_ctx **_ctx)
 
 	*_ctx = NULL;
 	i_stream_unref(&ctx->input);
-	pool_unref(ctx->parser_pool);
+	pool_unref(&ctx->parser_pool);
 	return parts;
 }
 

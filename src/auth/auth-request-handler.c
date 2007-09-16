@@ -75,7 +75,7 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 	handler->callback(NULL, handler->context);
 
 	hash_destroy(&handler->requests);
-	pool_unref(handler->pool);
+	pool_unref(&handler->pool);
 }
 
 void auth_request_handler_set(struct auth_request_handler *handler,

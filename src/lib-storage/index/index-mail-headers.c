@@ -799,5 +799,5 @@ void index_header_lookup_deinit(struct mailbox_header_lookup_ctx *_ctx)
 	struct index_header_lookup_ctx *ctx =
 		(struct index_header_lookup_ctx *)_ctx;
 
-	pool_unref(ctx->pool);
+	pool_unref(&ctx->pool);
 }

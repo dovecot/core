@@ -64,5 +64,5 @@ void mech_otp_skey_auth_free(struct auth_request *auth_request)
 {
 	otp_unlock(auth_request);
 
-	pool_unref(auth_request->pool);
+	pool_unref(&auth_request->pool);
 }

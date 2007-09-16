@@ -280,7 +280,7 @@ int maildir_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	if (ctx->tree_iter != NULL)
 		mailbox_tree_iterate_deinit(&ctx->tree_iter);
 	mailbox_tree_deinit(&ctx->tree_ctx);
-	pool_unref(ctx->pool);
+	pool_unref(&ctx->pool);
 	return ret;
 }
 

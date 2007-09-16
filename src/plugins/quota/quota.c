@@ -168,7 +168,7 @@ void quota_root_deinit(struct quota_root **_root)
 	array_free(&root->quota_module_contexts);
 
 	root->backend.v.deinit(root);
-	pool_unref(pool);
+	pool_unref(&pool);
 }
 
 static struct quota_rule *

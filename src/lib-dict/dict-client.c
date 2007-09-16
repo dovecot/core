@@ -323,7 +323,7 @@ static void client_dict_deinit(struct dict *_dict)
 	struct client_dict *dict = (struct client_dict *)_dict;
 
         client_dict_disconnect(dict);
-	pool_unref(dict->pool);
+	pool_unref(&dict->pool);
 }
 
 static int client_dict_lookup(struct dict *_dict, pool_t pool,
@@ -427,7 +427,7 @@ static void client_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 	struct client_dict_iterate_context *ctx =
 		(struct client_dict_iterate_context *)_ctx;
 
-	pool_unref(ctx->pool);
+	pool_unref(&ctx->pool);
 	i_free(ctx);
 	dict->in_iteration = TRUE;
 }

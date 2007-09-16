@@ -1109,8 +1109,8 @@ void index_mail_free(struct mail *_mail)
 	if (array_is_created(&mail->header_match_lines))
 		array_free(&mail->header_match_lines);
 
-	pool_unref(mail->data_pool);
-	pool_unref(mail->mail.pool);
+	pool_unref(&mail->data_pool);
+	pool_unref(&mail->mail.pool);
 }
 
 void index_mail_cache_parse_continue(struct mail *_mail)

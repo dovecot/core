@@ -80,7 +80,7 @@ static void dbox_file_free(struct dbox_file *file)
 	i_assert(file->refcount == 0);
 
 	if (file->metadata_pool != NULL)
-		pool_unref(file->metadata_pool);
+		pool_unref(&file->metadata_pool);
 	if (file->input != NULL)
 		i_stream_unref(&file->input);
 	if (file->output != NULL)

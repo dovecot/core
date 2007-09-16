@@ -42,7 +42,7 @@ void mailbox_tree_deinit(struct mailbox_tree_context **_tree)
 	struct mailbox_tree_context *tree = *_tree;
 
 	*_tree = NULL;
-	pool_unref(tree->pool);
+	pool_unref(&tree->pool);
 }
 
 static struct mailbox_node *

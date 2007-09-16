@@ -59,7 +59,7 @@ void mech_generic_auth_initial(struct auth_request *request,
 
 void mech_generic_auth_free(struct auth_request *request)
 {
-	pool_unref(request->pool);
+	pool_unref(&request->pool);
 }
 
 extern const struct mech_module mech_plain;

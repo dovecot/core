@@ -963,7 +963,7 @@ void mail_index_unmap(struct mail_index_map **_map)
 	mail_index_record_map_unlink(map);
 
 	if (map->extension_pool != NULL)
-		pool_unref(map->extension_pool);
+		pool_unref(&map->extension_pool);
 	if (array_is_created(&map->keyword_idx_map))
 		array_free(&map->keyword_idx_map);
 	buffer_free(&map->hdr_copy_buf);

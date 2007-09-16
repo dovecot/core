@@ -306,7 +306,7 @@ static void auth_server_connection_unref(struct auth_server_connection *conn)
 
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
-	pool_unref(conn->pool);
+	pool_unref(&conn->pool);
 }
 
 struct auth_server_connection *

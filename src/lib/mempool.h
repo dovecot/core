@@ -79,7 +79,7 @@ size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 /* Pools should be used through these macros: */
 #define pool_get_name(pool) (pool)->v->get_name(pool)
 #define pool_ref(pool) (pool)->v->ref(pool)
-#define pool_unref(pool) (pool)->v->unref(&(pool))
+#define pool_unref(pool) ((*pool))->v->unref(pool)
 
 #define p_new(pool, type, count) \
 	((type *) p_malloc(pool, sizeof(type) * (count)))

@@ -409,7 +409,7 @@ mail_log_transaction_commit(struct mailbox_transaction_context *t,
 	if (lt != NULL) {
 		if (lt->changes > 0 && mail_log_set.group_events)
 			mail_log_group_changes(t->box, lt);
-		pool_unref(lt->pool);
+		pool_unref(&lt->pool);
 	}
 
 	return lbox->super.transaction_commit(t, flags, uid_validity_r,
@@ -428,7 +428,7 @@ mail_log_transaction_rollback(struct mailbox_transaction_context *t)
 			i_info("Transaction rolled back: "
 			       "Ignore last %u changes", lt->changes);
 		}
-		pool_unref(lt->pool);
+		pool_unref(&lt->pool);
 	}
 
 	lbox->super.transaction_rollback(t);

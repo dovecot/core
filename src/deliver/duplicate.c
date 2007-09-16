@@ -184,7 +184,7 @@ static void duplicate_free(struct duplicate_file *file)
 		file_dotlock_delete(&file->dotlock);
 
 	hash_destroy(&file->hash);
-	pool_unref(file->pool);
+	pool_unref(&file->pool);
 }
 
 int duplicate_check(const void *id, size_t id_size, const char *user)

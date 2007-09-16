@@ -280,7 +280,7 @@ struct module *module_dir_load(const char *dir, const char *module_names,
 		}
 	}
 	t_pop();
-	pool_unref(pool);
+	pool_unref(&pool);
 
 	if (closedir(dirp) < 0)
 		i_error("closedir(%s) failed: %m", dir);

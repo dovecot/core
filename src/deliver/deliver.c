@@ -405,7 +405,7 @@ static const char *address_sanitize(const char *address)
 		ret = t_strdup(addr->mailbox);
 	else
 		ret = t_strdup_printf("%s@%s", addr->mailbox, addr->domain);
-	pool_unref(pool);
+	pool_unref(&pool);
 	return ret;
 }
 

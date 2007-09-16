@@ -1739,6 +1739,6 @@ void master_settings_init(void)
 
 void master_settings_deinit(void)
 {
-	pool_unref(settings_pool);
-	pool_unref(settings2_pool);
+	pool_unref(&settings_pool);
+	pool_unref(&settings2_pool);
 }

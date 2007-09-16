@@ -79,7 +79,7 @@ static struct dict *db_dict_init(struct dict *driver, const char *uri,
 	ret = db_env_create(&dict->db_env, 0);
 	if (ret != 0) {
 		i_error("db_env:%s\n", db_strerror(ret));
-		pool_unref(pool);
+		pool_unref(&pool);
 		return NULL;
 	}
 
@@ -93,13 +93,13 @@ static struct dict *db_dict_init(struct dict *driver, const char *uri,
 	ret = dict->db_env->open(dict->db_env, hdir, DB_CREATE | 
 				 DB_INIT_MPOOL | DB_INIT_TXN, 0);
 	if (ret != 0) {
-		pool_unref(pool);
+		pool_unref(&pool);
 		return NULL;
 	}
 
 	ret = dict->db_env->txn_begin(dict->db_env, NULL, &tid, 0);
 	if (ret != 0) {
-		pool_unref(pool);
+		pool_unref(&pool);
 		return NULL;
 	}
 
@@ -168,7 +168,7 @@ static void db_dict_deinit(struct dict *_dict)
 		dict->pdb->close(dict->pdb, 0);
 	if (dict->sdb != NULL)
 		dict->sdb->close(dict->sdb, 0);
-	pool_unref(dict->pool);
+	pool_unref(&dict->pool);
 }
 
 static int db_dict_iterate_set(struct db_dict_iterate_context *ctx, int ret,
@@ -326,7 +326,7 @@ static void db_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 		(struct db_dict_iterate_context *)_ctx;
 
 	ctx->cursor->c_close(ctx->cursor);
-	pool_unref(ctx->pool);
+	pool_unref(&ctx->pool);
 	i_free(ctx->path);
 	i_free(ctx);
 }

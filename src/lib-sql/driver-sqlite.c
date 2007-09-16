@@ -79,7 +79,7 @@ static void driver_sqlite_deinit_v(struct sql_db *_db)
 	struct sqlite_db *db = (struct sqlite_db *)_db;
 
 	sqlite3_close(db->sqlite);
-	pool_unref(db->pool);
+	pool_unref(&db->pool);
 }
 
 static enum sql_db_flags

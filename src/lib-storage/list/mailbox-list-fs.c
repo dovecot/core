@@ -35,7 +35,7 @@ static void fs_list_deinit(struct mailbox_list *_list)
 {
 	struct fs_mailbox_list *list = (struct fs_mailbox_list *)_list;
 
-	pool_unref(list->list.pool);
+	pool_unref(&list->list.pool);
 }
 
 static bool fs_list_is_valid_common(const char *name, size_t *len_r)

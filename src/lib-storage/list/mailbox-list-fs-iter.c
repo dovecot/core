@@ -259,7 +259,7 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 	if (ctx->subs_tree != NULL)
 		mailbox_tree_deinit(&ctx->subs_tree);
 	if (ctx->info_pool != NULL)
-		pool_unref(ctx->info_pool);
+		pool_unref(&ctx->info_pool);
 	if (ctx->glob != NULL)
 		imap_match_deinit(&ctx->glob);
 	i_free(ctx);

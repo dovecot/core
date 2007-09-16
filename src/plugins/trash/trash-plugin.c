@@ -319,5 +319,5 @@ void trash_plugin_deinit(void)
 	quota_set->test_alloc = trash_next_quota_test_alloc;
 
 	if (config_pool != NULL)
-		pool_unref(config_pool);
+		pool_unref(&config_pool);
 }

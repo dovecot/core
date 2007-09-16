@@ -225,7 +225,7 @@ int mail_storage_create(struct mail_namespace *ns, const char *driver,
 		}
 
 		/* try the next one */
-		pool_unref(storage->pool);
+		pool_unref(&storage->pool);
 	}
 	if (i == count) {
 		if (count <= 1) {
@@ -266,7 +266,7 @@ void mail_storage_destroy(struct mail_storage **_storage)
 
 	mailbox_list_deinit(storage->list);
 	i_free(storage->error_string);
-	pool_unref(storage->pool);
+	pool_unref(&storage->pool);
 
 	index_storage_destroy_unrefed();
 }

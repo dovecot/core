@@ -43,7 +43,7 @@ struct expire_env *expire_env_init(const char *str)
 
 void expire_env_deinit(struct expire_env *env)
 {
-	pool_unref(env->pool);
+	pool_unref(&env->pool);
 }
 
 const struct expire_box *expire_box_find(struct expire_env *env,

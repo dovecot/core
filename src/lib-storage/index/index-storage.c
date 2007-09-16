@@ -437,7 +437,7 @@ int index_storage_mailbox_close(struct mailbox *box)
 		array_free(&ibox->recent_flags);
 	i_free(ibox->cache_fields);
 
-	pool_unref(box->pool);
+	pool_unref(&box->pool);
 	return 0;
 }
 

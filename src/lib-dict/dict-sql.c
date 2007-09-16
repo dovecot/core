@@ -116,7 +116,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	dict->username = p_strdup(pool, username);
 
 	if (sql_dict_read_config(dict, uri) < 0) {
-		pool_unref(pool);
+		pool_unref(&pool);
 		return NULL;
 	}
 
@@ -131,7 +131,7 @@ static void sql_dict_deinit(struct dict *_dict)
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 
 	sql_deinit(&dict->db);
-	pool_unref(dict->pool);
+	pool_unref(&dict->pool);
 }
 
 static int sql_path_fix(const char **path, bool *private_r)

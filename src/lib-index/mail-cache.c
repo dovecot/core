@@ -393,7 +393,7 @@ void mail_cache_free(struct mail_cache **_cache)
 	mail_cache_file_close(cache);
 
 	hash_destroy(&cache->field_name_hash);
-	pool_unref(cache->field_pool);
+	pool_unref(&cache->field_pool);
 	i_free(cache->field_file_map);
 	i_free(cache->file_field_map);
 	i_free(cache->fields);
