@@ -230,10 +230,13 @@ static void maildir_uidlist_close(struct maildir_uidlist *uidlist)
 	uidlist->last_read_offset = 0;
 }
 
-void maildir_uidlist_deinit(struct maildir_uidlist *uidlist)
+void maildir_uidlist_deinit(struct maildir_uidlist **_uidlist)
 {
+	struct maildir_uidlist *uidlist = *_uidlist;
+
 	i_assert(!UIDLIST_IS_LOCKED(uidlist));
 
+	*_uidlist = NULL;
 	maildir_uidlist_close(uidlist);
 
 	hash_destroy(uidlist->files);
@@ -841,7 +844,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 		str_printfa(str, " :%s\n", rec->filename);
 		o_stream_send(output, str_data(str), str_len(str));
 	}
-	maildir_uidlist_iter_deinit(iter);
+	maildir_uidlist_iter_deinit(&iter);
 	o_stream_flush(output);
 
 	ret = output->stream_errno == 0 ? 0 : -1;
@@ -1383,7 +1386,8 @@ bool maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
 	return TRUE;
 }
 
-void maildir_uidlist_iter_deinit(struct maildir_uidlist_iter_ctx *ctx)
+void maildir_uidlist_iter_deinit(struct maildir_uidlist_iter_ctx **_ctx)
 {
-	i_free(ctx);
+	i_free(*_ctx);
+	*_ctx = NULL;
 }

@@ -211,9 +211,7 @@ int maildir_sync_index_finish(struct maildir_index_sync_context **_ctx,
 		mbox->syncing_commit = FALSE;
 	}
 
-	maildir_keywords_sync_deinit(ctx->keywords_sync_ctx);
-        ctx->keywords_sync_ctx = NULL;
-
+	maildir_keywords_sync_deinit(&ctx->keywords_sync_ctx);
 	index_sync_changes_deinit(&ctx->sync_changes);
 	i_free(ctx);
 	return ret;
@@ -423,7 +421,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			mail_index_keywords_free(&kw);
 		}
 	}
-	maildir_uidlist_iter_deinit(iter);
+	maildir_uidlist_iter_deinit(&iter);
 	mbox->syncing_commit = FALSE;
 
 	if (ctx->uidlist_sync_ctx != NULL) {

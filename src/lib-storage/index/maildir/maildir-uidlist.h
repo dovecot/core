@@ -40,7 +40,7 @@ void maildir_uidlist_unlock(struct maildir_uidlist *uidlist);
 bool maildir_uidlist_is_locked(struct maildir_uidlist *uidlist);
 
 struct maildir_uidlist *maildir_uidlist_init(struct maildir_mailbox *mbox);
-void maildir_uidlist_deinit(struct maildir_uidlist *uidlist);
+void maildir_uidlist_deinit(struct maildir_uidlist **uidlist);
 
 /* Returns -1 if error, 0 if file is broken or lost, 1 if ok. */
 int maildir_uidlist_refresh(struct maildir_uidlist *uidlist);
@@ -104,6 +104,6 @@ bool maildir_uidlist_iter_next(struct maildir_uidlist_iter_ctx *ctx,
 			       uint32_t *uid_r,
 			       enum maildir_uidlist_rec_flag *flags_r,
 			       const char **filename_r);
-void maildir_uidlist_iter_deinit(struct maildir_uidlist_iter_ctx *ctx);
+void maildir_uidlist_iter_deinit(struct maildir_uidlist_iter_ctx **ctx);
 
 #endif

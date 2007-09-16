@@ -689,9 +689,7 @@ int maildir_transaction_save_commit_pre(struct maildir_save_context *ctx)
 		   Dovecot instances haven't yet seen the files. */
 		maildir_transaction_unlink_copied_files(ctx, mf);
 
-		maildir_keywords_sync_deinit(ctx->keywords_sync_ctx);
-		ctx->keywords_sync_ctx = NULL;
-
+		maildir_keywords_sync_deinit(&ctx->keywords_sync_ctx);
 		/* returning failure finishes the save_context */
 		maildir_transaction_save_rollback(ctx);
 	}

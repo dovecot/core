@@ -83,8 +83,11 @@ maildir_keywords_init_readonly(struct mailbox *box)
 	return mk;
 }
 
-void maildir_keywords_deinit(struct maildir_keywords *mk)
+void maildir_keywords_deinit(struct maildir_keywords **_mk)
 {
+	struct maildir_keywords *mk = *_mk;
+
+	*_mk = NULL;
 	hash_destroy(mk->hash);
 	array_free(&mk->list);
 	pool_unref(mk->pool);
@@ -387,8 +390,12 @@ maildir_keywords_sync_init(struct maildir_keywords *mk,
 	return ctx;
 }
 
-void maildir_keywords_sync_deinit(struct maildir_keywords_sync_ctx *ctx)
+void maildir_keywords_sync_deinit(struct maildir_keywords_sync_ctx **_ctx)
 {
+	struct maildir_keywords_sync_ctx *ctx = *_ctx;
+
+	*_ctx = NULL;
+
 	t_push();
 	(void)maildir_keywords_commit(ctx->mk);
 	t_pop();
