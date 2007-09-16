@@ -1,9 +1,6 @@
 #ifndef STRFUNC_H
 #define STRFUNC_H
 
-#define is_empty_str(str) \
-        ((str) == NULL || (str)[0] == '\0')
-
 #define MAX_INT_STRLEN ((sizeof(uintmax_t) * CHAR_BIT + 2) / 3 + 1)
 
 /* Returns -1 if dest wasn't large enough, 0 if not. */
