@@ -756,7 +756,7 @@ static bool body_section_build(struct imap_fetch_context *ctx,
 	}
 	str_append_c(str, ')');
 
-	qsort(arr, args_count, sizeof(*arr), strcasecmp_p);
+	qsort(arr, args_count, sizeof(*arr), i_strcasecmp_p);
 	body->fields = arr;
 	body->fields_count = args_count;
 	body->section = str_c(str);

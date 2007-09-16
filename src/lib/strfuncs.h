@@ -59,11 +59,11 @@ const char *t_str_lcase(const char *str);
 const char *t_str_ucase(const char *str);
 
 int null_strcmp(const char *s1, const char *s2);
-int memcasecmp(const void *p1, const void *p2, size_t size);
 int bsearch_strcmp(const void *p1, const void *p2);
-int strcmp_p(const void *p1, const void *p2);
 int bsearch_strcasecmp(const void *p1, const void *p2);
-int strcasecmp_p(const void *p1, const void *p2);
+int i_memcasecmp(const void *p1, const void *p2, size_t size);
+int i_strcmp_p(const void *p1, const void *p2);
+int i_strcasecmp_p(const void *p1, const void *p2);
 
 /* separators is an array of separator characters, not a separator string. */
 char **p_strsplit(pool_t pool, const char *data, const char *separators)

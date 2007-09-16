@@ -395,7 +395,7 @@ int null_strcmp(const char *s1, const char *s2)
 	return strcmp(s1, s2);
 }
 
-int memcasecmp(const void *p1, const void *p2, size_t size)
+int i_memcasecmp(const void *p1, const void *p2, size_t size)
 {
 	const unsigned char *s1 = p1;
 	const unsigned char *s2 = p2;
@@ -420,7 +420,7 @@ int bsearch_strcmp(const void *p1, const void *p2)
 	return strcmp(key, *member);
 }
 
-int strcmp_p(const void *p1, const void *p2)
+int i_strcmp_p(const void *p1, const void *p2)
 {
 	const char *const *s1 = p1, *const *s2 = p2;
 
@@ -435,7 +435,7 @@ int bsearch_strcasecmp(const void *p1, const void *p2)
 	return strcasecmp(key, *member);
 }
 
-int strcasecmp_p(const void *p1, const void *p2)
+int i_strcasecmp_p(const void *p1, const void *p2)
 {
 	const char *const *s1 = p1, *const *s2 = p2;
 

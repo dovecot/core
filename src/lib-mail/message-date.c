@@ -147,7 +147,7 @@ static bool message_date_parser_tokens(struct message_date_parser_context *ctx,
 		return FALSE;
 
 	for (i = 0; i < 12; i++) {
-		if (memcasecmp(month_names[i], value, 3) == 0) {
+		if (i_memcasecmp(month_names[i], value, 3) == 0) {
 			tm.tm_mon = i;
 			break;
 		}

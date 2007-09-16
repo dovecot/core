@@ -88,18 +88,18 @@ parse_content_transfer_encoding(struct message_decoder_context *ctx,
 
 	switch (str_len(value)) {
 	case 4:
-		if (memcasecmp(str_data(value), "7bit", 4) == 0 ||
-		    memcasecmp(str_data(value), "8bit", 4) == 0)
+		if (i_memcasecmp(str_data(value), "7bit", 4) == 0 ||
+		    i_memcasecmp(str_data(value), "8bit", 4) == 0)
 			ctx->content_type = CONTENT_TYPE_BINARY;
 		break;
 	case 6:
-		if (memcasecmp(str_data(value), "base64", 6) == 0)
+		if (i_memcasecmp(str_data(value), "base64", 6) == 0)
 			ctx->content_type = CONTENT_TYPE_BASE64;
-		else if (memcasecmp(str_data(value), "binary", 6) == 0)
+		else if (i_memcasecmp(str_data(value), "binary", 6) == 0)
 			ctx->content_type = CONTENT_TYPE_BINARY;
 		break;
 	case 16:
-		if (memcasecmp(str_data(value), "quoted-printable", 16) == 0)
+		if (i_memcasecmp(str_data(value), "quoted-printable", 16) == 0)
 			ctx->content_type = CONTENT_TYPE_QP;
 		break;
 	}

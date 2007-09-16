@@ -64,7 +64,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 		for (i = 0; i < group_count; i++)
 			backend->groups[i] = groups[i];
 		qsort(backend->groups, group_count, sizeof(const char *),
-		      strcmp_p);
+		      i_strcmp_p);
 	}
 
 	if (acl_backend_vfile.init(backend, data) < 0)

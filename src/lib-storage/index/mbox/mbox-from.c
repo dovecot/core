@@ -22,7 +22,7 @@ static int mbox_parse_month(const unsigned char *msg, struct tm *tm)
 	int i;
 
 	for (i = 0; i < 12; i++) {
-		if (memcasecmp(months[i], msg, 3) == 0) {
+		if (i_memcasecmp(months[i], msg, 3) == 0) {
 			tm->tm_mon = i;
 			break;
 		}
